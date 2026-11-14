@@ -65,8 +65,7 @@ export default function Page() {
         )}
         {PRUEBA_GRATIS_PRENDIDA && <>
         <li>
-          <strong>{NOMBRE_PLAN_CON_PRUEBA}: {PRUEBA_DIAS} días gratis.</strong> MaKo Esencial no tiene prueba: se paga al empezar.
-          Con {NOMBRE_PLAN_CON_PRUEBA}, al empezar pones tu tarjeta, como en cualquier suscripción, y no se te
+          <strong>{PRUEBA_DIAS} días gratis.</strong> Al empezar pones tu tarjeta, como en cualquier suscripción, y no se te
           cobra nada durante {PRUEBA_DIAS} días. Si te das de baja antes del día {PRUEBA_DIAS + 1}, desde{' '}
           <strong>Configuración del negocio → Tu plan</strong>, no se te cobra nada. Si no, el día {PRUEBA_DIAS + 1} se cobra
           solo el primer período, y te avisamos por email dos días antes.

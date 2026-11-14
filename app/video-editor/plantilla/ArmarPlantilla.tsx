@@ -33,11 +33,12 @@ import { Button } from "@/app/video-editor/_opencut/components/ui/button";
 import { AVISO_FALLO_PLANTILLA, usarPlantilla } from "@/app/video-editor/_opencut/plantillas/instanciar";
 import { conEspacio } from "@/app/video-editor/espacio";
 import { plantillaPorId, type Plantilla } from "@/lib/editor-video/plantillas";
+import { cambiarHilo, conId, guardarHiloAhora } from "@/app/video-editor/_opencut/chat/hilo";
 
 /** Los armados en vuelo, por espacio local y plantilla (ver la cabecera). */
 const enVuelo = new Map<string, Promise<string>>();
 
-async function armar(plantilla: Plantilla): Promise<string> {
+async function armar(plantilla: Plantilla, mensaje?: string): Promise<string> {
 	// Una vuelta del bucle antes de crear: si se llegó desde el editor, su desmontaje
 	// mira «al salir» una microtarea después (editor-page.tsx) y, con el proyecto
 	// nuevo ya activo, guardaría y haría la miniatura de ÉSTE a mitad de armarlo.
@@ -49,6 +50,12 @@ async function armar(plantilla: Plantilla): Promise<string> {
 		if (!r.ok) throw new Error(r.motivo);
 		editor.command.clear();
 		await editor.project.saveCurrentProject();
+		// La plantilla de un video DESARMADO (ticket 97) trae su receta: MaKo la dice en el chat del proyecto, guardada antes de
+		// la carga entera (que vacía la memoria del chat). Si no se puede guardar, el proyecto igual queda armado.
+		if (mensaje) {
+			cambiarHilo(id, (h) => ({ ...h, mensajes: [...h.mensajes, conId({ de: "mako", texto: mensaje })] }));
+			await Promise.race([guardarHiloAhora(id).catch(() => {}), new Promise((listo) => setTimeout(listo, 8_000))]);
+		}
 		return id;
 	} catch (e) {
 		// Un proyecto vacío con el nombre de la plantilla se lee en el inicio como
@@ -58,13 +65,17 @@ async function armar(plantilla: Plantilla): Promise<string> {
 	}
 }
 
-export function ArmarPlantilla({ id }: { id: string | null }) {
-	const plantilla = plantillaPorId(id);
+/**
+ * `id`: una plantilla del catálogo. `plantilla` + `mensaje`: la de un video desarmado (lib/video-desarmar.ts → `plantillaDeDesarme`,
+ * armada en el server con lo que guardó ESE negocio; `null` = no está desarmado) y la receta que MaKo dice en el chat.
+ */
+export function ArmarPlantilla({ id = null, plantilla: dada, mensaje }: { id?: string | null; plantilla?: Plantilla | null; mensaje?: string }) {
+	const plantilla = dada !== undefined ? dada : plantillaPorId(id);
 	if (!plantilla) return <Fallo />;
-	return <Armando plantilla={plantilla} />;
+	return <Armando plantilla={plantilla} mensaje={mensaje} />;
 }
 
-function Armando({ plantilla }: { plantilla: Plantilla }) {
+function Armando({ plantilla, mensaje }: { plantilla: Plantilla; mensaje?: string }) {
 	const [fallo, setFallo] = useState(false);
 	const [intento, setIntento] = useState(0);
 	const arrancado = useRef(-1);
@@ -75,14 +86,14 @@ function Armando({ plantilla }: { plantilla: Plantilla }) {
 		const clave = `${conEspacio("")}|${plantilla.id}`;
 		let promesa = enVuelo.get(clave);
 		if (!promesa) {
-			promesa = armar(plantilla);
+			promesa = armar(plantilla, mensaje);
 			enVuelo.set(clave, promesa);
 			// Al terminar (bien o mal) sale del mapa: usarla otra vez, más tarde, es OTRO proyecto.
 			promesa.finally(() => enVuelo.delete(clave)).catch(() => {});
 		}
 		// Una carga entera, no router.replace: navegar solo al cargar rompía el Router de Next (ticket #91, ../ruta.ts).
 		promesa.then((proyecto) => abrirProyectoCreado(proyecto)).catch(() => setFallo(true));
-	}, [plantilla, intento]);
+	}, [plantilla, mensaje, intento]);
 
 	if (fallo) {
 		return (

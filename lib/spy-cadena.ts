@@ -20,10 +20,10 @@
 // =============================================================================
 
 import { videosDeGoogle } from './spy-buscar-reglas';
-import { esPendiente, esSinCupo } from './spy-google-corrida';
+import { CLAVE_RECHAZADA, esClaveRechazada, esPendiente, esSinCupo } from './spy-google-corrida';
 import {
   CANDIDATOS_POR_RED, candidatosDeLaRespuesta, claveDeCanal, consultaDeRedes, consultaPorUsuario, distanciaHash, enlacesDeHtml, enlacesDelTexto,
-  esAgregador, loQueEnlaza, nombraA, nombresParecidos, porqueDe, redDeUrl, usuariosParaProbar, veredictoDe,
+  esAgregador, loQueEnlaza, nombraA, nombresParecidos, porqueDe, redDeUrl, REDES_CLAVE_RECHAZADA, usuariosParaProbar, veredictoDe,
   type CandidatoRed, type Firma, type RedOtra, type RedesQueYaTiene,
 } from './spy-otras-redes-reglas';
 
@@ -48,11 +48,11 @@ export type DepsCadena = {
   abrirPagina: (url: string) => Promise<string | null>;
   /** Canales de YouTube por lo que guarda el alta (`@handle`, `UC…`): la clave es el ref pedido. Gratis. */
   leerCanales: (refs: string[]) => Promise<Map<string, LeidoRed>>;
-  /** Perfiles de Instagram, en UNA corrida de Apify. La clave es el usuario. */
-  leerPerfiles: (usuarios: string[]) => Promise<Map<string, LeidoRed>>;
+  /** Perfiles de Instagram, en UNA corrida de Apify. La clave es el usuario. `CLAVE_RECHAZADA`: Apify rechazó la clave (401/403). */
+  leerPerfiles: (usuarios: string[]) => Promise<Map<string, LeidoRed> | typeof CLAVE_RECHAZADA>;
   /**
    * Una búsqueda en Google por Apify. null como función = el negocio no tiene la clave de Spy. Devuelve el cuerpo,
-   * `GOOGLE_PENDIENTE` (la corrida sigue: se retoma sin pagar), `GOOGLE_SIN_CUPO` o null (no se pudo). Recibe `gastar`:
+   * `GOOGLE_PENDIENTE` (la corrida sigue: se retoma sin pagar), `GOOGLE_SIN_CUPO`, `CLAVE_RECHAZADA` o null (no se pudo). Recibe `gastar`:
    * una búsqueda cuenta en el cupo del día sólo al EMPEZAR una corrida, no al retomarla (lib/spy-google-corrida.ts).
    */
   googlear: ((consulta: string, gastar: () => boolean) => Promise<unknown | null>) | null;
@@ -65,8 +65,9 @@ export type DepsCadena = {
 
 export type ResultadoCadena =
   /** `pendiente`: Google todavía no terminó; la pantalla vuelve a pedir sola, sin texto, y la corrida se retoma sin pagar. */
-  | { ok: true; seguros: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web: string | null; pendiente?: boolean }
-  | { ok: false; error: string };
+  /** `clave: 'rechazada'`: Apify rechazó la clave de Spy (14/11/2026). La ficha lo dice en UNA línea con el botón, aunque algo se encontró. */
+  | { ok: true; seguros: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web: string | null; pendiente?: boolean; clave?: 'rechazada' }
+  | { ok: false; error: string; clave?: 'rechazada' };
 
 const NOMBRE: Record<RedOtra, string> = { instagram: 'Instagram', youtube: 'canal de YouTube', tiktok: 'TikTok' };
 const hostDe = (u: string | null | undefined): string | null => {
@@ -98,14 +99,19 @@ export async function cadenaDeRedes(c: CompetidorCadena, deps: DepsCadena): Prom
   const dudosos: CandidatoVerificado[] = [];
   const vistos = new Set<string>();
   const clave = (k: CandidatoRed) => `${k.red}|${k.ref.toLowerCase()}`;
+  // Apify rechazó la clave de Spy en algún paso (Google o los perfiles): se dice al final, nunca como «no encontré nada».
+  let rechazada = false;
+  const conClave = () => (rechazada ? { clave: 'rechazada' as const } : {});
 
   const leer = async (cs: CandidatoRed[]): Promise<Map<string, LeidoRed>> => {
     const yt = cs.filter((k) => k.red === 'youtube').map((k) => k.ref);
     const ig = cs.filter((k) => k.red === 'instagram').map((k) => k.ref);
-    const [mY, mI] = await Promise.all([
+    const [mY, crudoI] = await Promise.all([
       yt.length ? deps.leerCanales(yt).catch(() => new Map<string, LeidoRed>()) : Promise.resolve(new Map<string, LeidoRed>()),
       ig.length ? deps.leerPerfiles(ig).catch(() => new Map<string, LeidoRed>()) : Promise.resolve(new Map<string, LeidoRed>()),
     ]);
+    if (esClaveRechazada(crudoI)) rechazada = true;
+    const mI = esClaveRechazada(crudoI) ? new Map<string, LeidoRed>() : crudoI;
     const out = new Map<string, LeidoRed>();
     for (const k of cs) {
       const l = k.red === 'youtube' ? mY.get(k.ref) : k.red === 'instagram' ? mI.get(k.ref)
@@ -173,16 +179,20 @@ export async function cadenaDeRedes(c: CompetidorCadena, deps: DepsCadena): Prom
       let algunaCorrio = false;
       for (const consulta of consultas) {
         const cuerpo = await deps.googlear(consulta, deps.gastarBusqueda).catch(() => null);
+        if (esClaveRechazada(cuerpo)) {
+          rechazada = true;
+          break;
+        }
         if (esSinCupo(cuerpo)) {
           if (!algunaCorrio && !algo()) return { ok: false, error: 'Ya no quedan búsquedas de redes por hoy.' };
           break;
         }
         // ⚠️ SIGUE CORRIENDO NO ES «NO PUDE» (4/11/2026): Google por Apify a veces tarda más de lo que se espera en un pedido, y
         // cortarlo tiraba un resultado ya pagado. Se devuelve lo que haya con `pendiente` y la pantalla vuelve a pedir sola.
-        if (esPendiente(cuerpo)) return { ok: true, seguros: [...seguros.values()], candidatos: dudosos.filter((k) => !seguros.has(k.red)), web, pendiente: true };
+        if (esPendiente(cuerpo)) return { ok: true, seguros: [...seguros.values()], candidatos: dudosos.filter((k) => !seguros.has(k.red)), web, pendiente: true, ...conClave() };
         if (cuerpo == null) {
           // Sin texto en pantalla (Martín, 4/11: «Elimina textos innecesarios como "No pude buscar sus otras redes ahora"»).
-          if (!algunaCorrio && !algo()) return { ok: false, error: '' };
+          if (!algunaCorrio && !algo()) return rechazada ? { ok: false, error: REDES_CLAVE_RECHAZADA, clave: 'rechazada' } : { ok: false, error: '' };
           break;
         }
         algunaCorrio = true;
@@ -198,5 +208,7 @@ export async function cadenaDeRedes(c: CompetidorCadena, deps: DepsCadena): Prom
       }
     }
   }
-  return { ok: true, seguros: [...seguros.values()], candidatos: dudosos.filter((k) => !seguros.has(k.red)), web };
+  // La clave rechazada sin nada encontrado no es «no encontré nada»: es la línea con el botón (app/competitor-spy/OtrasRedes.tsx).
+  if (rechazada && !algo()) return { ok: false, error: REDES_CLAVE_RECHAZADA, clave: 'rechazada' };
+  return { ok: true, seguros: [...seguros.values()], candidatos: dudosos.filter((k) => !seguros.has(k.red)), web, ...conClave() };
 }

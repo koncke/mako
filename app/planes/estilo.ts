@@ -166,13 +166,15 @@ body:has(.s-barra) .planes-compara-cab { top: 77px; }
    por una sombra. Teléfono: la marca, el resumen plegado («Ver detalle»), el formulario y el pie. */
 body:has(.ck-root) { background: #FFFFFF; }
 .planes-root.ck-root { padding: 0; }
-.ck { display: grid; min-height: 100vh; grid-template-columns: 1fr 1fr; grid-template-areas: "res form" "pie form"; grid-template-rows: 1fr auto; }
-.ck-resumen { grid-area: res; background: #FFFFFF; display: flex; justify-content: flex-end; padding: 56px 64px 24px 24px; }
+/* SIN scroll en la computadora (Martín, 14/11/2026: «que no exista el scroll»): la página mide la pantalla; si una columna no
+   entra (una pantalla muy baja), se desplaza ESA columna y no la página. */
+.ck { display: grid; height: 100vh; height: 100dvh; overflow: hidden; grid-template-columns: 1fr 1fr; grid-template-areas: "res form" "pie form"; grid-template-rows: 1fr auto; }
+.ck-resumen { grid-area: res; background: #FFFFFF; display: flex; justify-content: flex-end; padding: 40px 64px 16px 24px; overflow-y: auto; }
 .ck-pie { grid-area: pie; background: #FFFFFF; display: flex; justify-content: flex-end; padding: 0 64px 32px 24px; }
-.ck-form { grid-area: form; background: #FFFFFF; padding: 56px 24px 48px 64px; box-shadow: -1px 0 0 rgba(17,17,17,.08), -18px 0 36px -26px rgba(17,17,17,.22); }
+.ck-form { grid-area: form; background: #FFFFFF; padding: 40px 24px 28px 64px; overflow-y: auto; box-shadow: -1px 0 0 rgba(17,17,17,.08), -18px 0 36px -26px rgba(17,17,17,.22); }
 .ck-col { width: 100%; max-width: 400px; }
 .ck-form .ck-col { max-width: 420px; }
-.ck-marca { display: flex; align-items: center; gap: 10px; margin: 0 0 32px; font-weight: 800; font-size: 16px; letter-spacing: -.01em; }
+.ck-marca { display: flex; align-items: center; gap: 10px; margin: 0 0 22px; font-weight: 800; font-size: 16px; letter-spacing: -.01em; }
 .ck-volver { display: inline-grid; place-items: center; width: 30px; height: 30px; margin-left: -6px; border-radius: 8px; color: #4f4f4c;
   text-decoration: none; font-size: 18px; line-height: 1; transition: background .15s ease; }
 .ck-volver:hover { background: rgba(17,17,17,.06); color: #121212; }
@@ -180,32 +182,33 @@ body:has(.ck-root) { background: #FFFFFF; }
 .ck-precio { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; font-size: 38px; font-weight: 800; letter-spacing: -.025em; line-height: 1.1; }
 .ck-precio small { font-size: 15px; font-weight: 500; letter-spacing: 0; color: #4f4f4c; line-height: 1.25; }
 .ck-otros { margin: 0 0 4px; color: #4f4f4c; font-size: 14px; }
-.ck-detalle { margin-top: 28px; }
+.ck-detalle { margin-top: 20px; }
 .ck-item { display: grid; grid-template-columns: 44px 1fr auto; gap: 14px; align-items: start; }
 .ck-item-icono { width: 44px; height: 44px; border-radius: 12px; overflow: hidden; }
 .ck-item b { display: block; font-size: 15px; font-weight: 700; }
 .ck-item small { display: block; color: #636360; font-size: 13px; margin-top: 2px; }
 .ck-item-precio { font-weight: 700; font-size: 15px; white-space: nowrap; }
-.ck-incluye { list-style: none; margin: 14px 0 0 58px; padding: 0; display: grid; gap: 7px; }
+.ck-incluye { list-style: none; margin: 12px 0 0 58px; padding: 0; display: grid; gap: 6px; }
 .ck-incluye li { position: relative; padding-left: 22px; font-size: 13.5px; line-height: 1.45; color: #2b2b29; }
 .ck-incluye li::before { content: "✓"; position: absolute; left: 0; top: 0; width: 16px; height: 16px; border-radius: 999px; background: #EEF4FF;
   color: #8F6709; font-size: 10px; font-weight: 800; display: grid; place-items: center; margin-top: 2px; }
-.ck-totales { margin: 22px 0 0 58px; padding: 0; }
-.ck-totales div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid rgba(17,17,17,.09); font-size: 14.5px; }
+.ck-totales { margin: 16px 0 0 58px; padding: 0; }
+.ck-totales div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid rgba(17,17,17,.09); font-size: 14.5px; }
 .ck-totales dt { margin: 0; color: #2b2b29; }
 .ck-totales dd { margin: 0; font-weight: 600; white-space: nowrap; }
 .ck-totales div.ck-total { font-weight: 800; font-size: 15.5px; }
 .ck-totales div.ck-total dt, .ck-totales div.ck-total dd { font-weight: 800; color: #121212; }
 .ck-totales div.ck-descuento dd { color: #22735c; }
 .ck-nota-res { margin: 10px 0 0 58px; color: #636360; font-size: 13px; line-height: 1.45; }
-.ck-pie .ck-col { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: #636360; font-size: 12.5px; }
+/* En una sola línea (Martín, 14/11/2026: «privacidad y reembolsos en el checkout no deberían saltarse de línea»). */
+.ck-pie .ck-col { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px 12px; color: #636360; font-size: 12.5px; white-space: nowrap; }
 .ck-pie a { color: #636360; text-decoration: none; }
 .ck-pie a:hover { color: #121212; text-decoration: underline; }
 .ck-pie .ck-procesa { padding-right: 14px; border-right: 1px solid rgba(17,17,17,.15); }
 .ck-pie b { color: #4f4f4c; font-weight: 700; }
 .ck-plegable { display: none; }
 .ck-titulo { margin: 0 0 4px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
-.ck-formulario .ck-titulo:not(:first-child) { margin-top: 28px; }
+.ck-formulario .ck-titulo:not(:first-child) { margin-top: 20px; }
 .ck-formulario label:first-of-type { margin-top: 10px; }
 .ck-sub { margin: 0 0 6px; color: #636360; font-size: 13.5px; }
 .ck-medios { margin-top: 10px; border: 1px solid rgba(17,17,17,.17); border-radius: 12px; overflow: hidden; background: #fff; }
@@ -217,13 +220,25 @@ body:has(.ck-root) { background: #FFFFFF; }
 .ck-medio-icono { width: 28px; height: 20px; border-radius: 4px; display: grid; place-items: center; background: #F1F3F7; color: #4f4f4c; font-size: 13px; }
 .ck-medio-texto b { display: block; font-size: 15px; font-weight: 600; color: #121212; }
 .ck-medio-texto small { display: block; font-size: 12.5px; color: #636360; margin-top: 1px; }
-.ck-marcas { display: flex; gap: 4px; }
-.ck-marcas span { font-size: 9.5px; font-weight: 800; letter-spacing: .02em; padding: 3px 5px; border-radius: 4px; background: #F1F3F7; color: #4f4f4c; }
+.ck-marcas { display: flex; gap: 4px; align-items: center; }
+.ck-marcas svg { display: block; width: 34px; height: auto; }
+/* Mercado Pago, bien distinto (14/11/2026): su celeste y su logo en la fila, y el botón en su azul cuando se elige. */
+.ck-formulario label.ck-medio.ck-medio-mp { background: #009EE3; }
+.ck-formulario label.ck-medio.ck-medio-mp:hover { background: #0090CF; }
+.ck-formulario label.ck-medio.ck-medio-mp .ck-medio-icono { width: 36px; height: 36px; border-radius: 999px; background: #FFFFFF; }
+.ck-medio-mp .ck-medio-texto b { color: #FFFFFF; font-size: 16px; }
+.ck-medio-mp .ck-medio-texto small { color: rgba(255,255,255,.88); }
+.ck-medio-mp input { accent-color: #FFFFFF; }
+.ck-medio-mp:has(input:checked) { background: #0084C2 !important; box-shadow: inset 0 0 0 2px #FFFFFF, inset 4px 0 0 #FFE600 !important; }
+.planes-btn.ck-btn-mp { display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
+.planes-btn.ck-btn-mp:hover { filter: brightness(.95); }
+.ck-btn-mp-logo { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; background: #fff; }
 .ck-medio:has(input:checked) { background: #EEF4FF !important; box-shadow: inset 3px 0 0 #F2B01E; }
 .ck-legal { margin: 16px 0 0; color: #636360; font-size: 12.5px; line-height: 1.5; text-align: center; }
 /* Teléfono (como Stripe debajo de ~900px): una columna; el resumen arriba y plegado. */
 @media (max-width: 899px) {
-  .ck { grid-template-columns: 1fr; grid-template-areas: "res" "form" "pie"; grid-template-rows: auto; min-height: 0; }
+  .ck { grid-template-columns: 1fr; grid-template-areas: "res" "form" "pie"; grid-template-rows: auto; min-height: 0; height: auto; overflow: visible; }
+  .ck-resumen, .ck-form { overflow: visible; }
   .ck-resumen { justify-content: center; padding: 20px 16px 18px; }
   .ck-form { padding: 22px 16px 28px; box-shadow: 0 -1px 0 rgba(17,17,17,.08); border-radius: 18px 18px 0 0; margin-top: -10px; }
   .ck-pie { justify-content: center; background: #FFFFFF; padding: 4px 16px 32px; }

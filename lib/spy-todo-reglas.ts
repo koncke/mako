@@ -248,6 +248,35 @@ export function ajustarAlCredito(
 }
 
 /**
+ * ¿Apify RECHAZÓ la clave? 401: la clave no entra (revocada, mal pegada); 403: la cuenta no tiene permiso. 14/11/2026, la llamada
+ * con Julio: el guion de un reel decía «No pude traer el video de Instagram» y era la clave de Spy dando 401 desde el 13/11. Una
+ * clave rechazada no es un fallo de esa pieza ni un «no encontré»: se dice con el botón para arreglarla. Tampoco pasa a la
+ * siguiente clave (lib/spy-claves.ts): otra cuenta no arregla una clave rota.
+ */
+export const rechazoLaClave = (status: number): boolean => status === 401 || status === 403;
+
+/** El video de UNA pieza pedido a Apify (lib/spy-todo.ts), con su motivo si no vino. */
+export type ResultadoVideo =
+  | { ok: true; url: string }
+  | { ok: false; motivo: 'sin-clave' | 'limite' | 'no-esta' | 'fallo' }
+  /** `huella`: la de la clave rechazada (nunca la clave), para volver a intentar apenas el negocio la cambia. */
+  | { ok: false; motivo: 'clave-rechazada'; huella: string };
+
+/**
+ * Lo que contestó Apify por el video de UNA pieza, leído. El de un reel (`videoDelItem`) y el de un anuncio (`videoDelAnuncio`)
+ * pasan por acá, así que los dos dicen igual que la clave fue rechazada.
+ */
+export function videoDeLaRespuesta(
+  r: { status: number; cuerpo: unknown; clave: { huella: string } } | null,
+  extraer: (items: unknown) => string | null,
+): ResultadoVideo {
+  if (r && rechazoLaClave(r.status)) return { ok: false, motivo: 'clave-rechazada', huella: r.clave.huella };
+  if (!r || r.status < 200 || r.status >= 300) return { ok: false, motivo: 'fallo' };
+  const url = extraer(r.cuerpo);
+  return url ? { ok: true, url } : { ok: false, motivo: 'no-esta' };
+}
+
+/**
  * ¿El «no pude» de Apify es por crédito? (HTTP 402, o el tipo de error que lo dice.) Es lo ÚNICO que hace pasar a la siguiente
  * clave de Spy (lib/spy-claves.ts): una clave rota o un Apify caído no se arreglan con otra cuenta.
  *

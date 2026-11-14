@@ -215,6 +215,21 @@ export async function cargarHilo(proyectoId: string, nombre?: string | null): Pr
 	if (s.sucio || (leerHilo(proyectoId).mensajes.length && !r.hilo)) programarGuardado(proyectoId);
 }
 
+/**
+ * Lo escrito en el hilo de un proyecto, guardado YA: antes de una carga entera de la página (`abrirProyectoCreado`), que vacía la
+ * memoria. Lo usa el armado de la plantilla de un video desarmado (../../plantilla/ArmarPlantilla.tsx), que deja la receta en el
+ * chat. Sin la tabla, o sin red, el hilo queda como estaba (no tira).
+ */
+export async function guardarHiloAhora(proyectoId: string): Promise<void> {
+	await cargarHilo(proyectoId);
+	const s = syncDe(proyectoId);
+	if (s.timer) {
+		clearTimeout(s.timer);
+		s.timer = null;
+	}
+	await guardar(proyectoId);
+}
+
 function programarGuardado(proyectoId: string) {
 	const s = syncDe(proyectoId);
 	s.sucio = true;

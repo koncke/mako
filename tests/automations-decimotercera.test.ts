@@ -332,7 +332,9 @@ test('punto 8: el email y los DM tienen el ✦ (el botón de la casa) y su panel
   assert.match(social, /<MakoRedacta canal=\{canal\} datos="motor" permiteAudio=\{false\} historial=\{mako\.chat \?\? null\}/);
   // Decimocuarta (punto 8): el ✦ del DM va en la CABECERA del panel, al lado del desplegable de la cuenta, como en
   // WhatsApp (el mismo botón y el mismo estado por tarjeta).
-  assert.match(social, /\{conMako && <BotonMakoWhatsApp clave=\{claveDeTarjeta\(ws, paso\)\} deshabilitado=\{deshabilitado\} \/>\}/);
+  // (14/11/2026, a propósito: la clave lleva la automatización, `secuenciaId` del lienzo, para que lo de la barra de una
+  // no vuelva en otra hecha con la misma plantilla: tests/adjuntos-que-salen.test.ts.)
+  assert.match(social, /\{conMako && <BotonMakoWhatsApp clave=\{claveDeTarjeta\(ws, paso, secuenciaId\)\} deshabilitado=\{deshabilitado\} \/>\}/);
   assert.match(social, /const panelMako = usePanelMako\(claveMako\) && !!mako;/);
   // «Usar» y «Agregar» con la MISMA función que la barra del WhatsApp.
   assert.match(social, /const sig = propuestaALista\(partesDe\(pasoVivo\.current\), sugerencia\.mensajes, modo\);/);

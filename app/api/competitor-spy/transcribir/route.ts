@@ -20,7 +20,7 @@ import { claveDeIAPropia, conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { cheapDisponible, provsDe } from '@/lib/ai-cheap';
 import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { asegurarGuion } from '@/lib/spy-transcripcion-servidor';
-import { tieneClaveDeSpy } from '@/lib/spy-todo';
+import { huellasDeSpy } from '@/lib/spy-todo';
 import { getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -40,12 +40,14 @@ export async function POST(req: NextRequest) {
   if (!Number.isInteger(piezaId) || piezaId <= 0) return Response.json({ ok: false, error: 'Falta la pieza.' }, { status: 400 });
 
   const hayIA = (await claveDeIAPropia(ws).catch(() => true)) || (await cheapDisponible().catch(() => false));
-  const hayClave = await tieneClaveDeSpy(ws);
+  // Las huellas (nunca las claves): con la de un rechazo ya cambiada, el guion se vuelve a pedir sin esperar la hora.
+  const huellas = await huellasDeSpy(ws);
+  const hayClave = huellas == null || huellas.length > 0;
   let r: Awaited<ReturnType<typeof asegurarGuion>>;
   try {
     // «No pude leer» no es «no tiene»: un fallo acá es un 500 (la pantalla no dibuja el bloque), nunca un «Conecta tu Gemini».
     const hayGemini = () => runWithWorkspace(ws, () => conSuIADelNegocio(ws, async () => (await provsDe('gemini')).length > 0));
-    r = await asegurarGuion(ws, piezaId, { hayIA, hayClave, hayGemini });
+    r = await asegurarGuion(ws, piezaId, { hayIA, hayClave, hayGemini, huellas });
   } catch (e) {
     return Response.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }

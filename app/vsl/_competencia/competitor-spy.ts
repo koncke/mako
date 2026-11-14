@@ -106,7 +106,7 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
       items: [
         { icono: I.guardar, titulo: 'Desde Chrome, con un clic', texto: 'En la Biblioteca de Anuncios de Meta, con la extensión de MaKo, tocas <strong>«Guardar en Spy»</strong> y se guardan sus anuncios.' },
         { icono: I.pegar, titulo: 'O lo pegas', texto: 'Pegas el anuncio en la ficha de su competidor y queda guardado ahí.' },
-        { icono: I.reloj, titulo: 'Desde cuándo está a la vista', texto: 'Cada pieza dice desde cuándo la ve MaKo: lo que dura mucho al aire es lo que le funciona.' },
+        { icono: I.reloj, titulo: 'Desde cuándo está a la vista', texto: 'Cada anuncio dice cuántos días lleva activo, a dónde manda y cuáles lanzó el mismo día: el que sigue activo de su tanda es el ganador.' },
       ],
     },
     {

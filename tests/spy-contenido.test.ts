@@ -9,7 +9,7 @@
 // PROBADO ROMPIÉNDOLO (4/11/2026), una rotura por vez y restaurada, base en verde (qué tests caen):
 //   · `proporcionDe` con todo cuadrado                         → 1
 //   · `medidaEnElGrafico` que no respeta el lado más largo     → 1
-//   · vuelve una tercera pestaña                               → 2
+//   · vuelve una tercera pestaña                               → 2   (14/11: la de «Anuncios» volvió, pedida; ver el test)
 //   · vuelve el botón «Revisar ahora»                          → 2
 //   · el selector afuera de la tarjeta del gráfico             → 3
 //   · el gráfico que vuelve a la criatura mientras carga       → 3
@@ -41,14 +41,18 @@ test('1. cada miniatura con su proporción: reel y short verticales, publicació
   assert.deepEqual(medidaEnElGrafico({ canal: 'instagram', tipo: 'publicacion', duracion: null }, 42), { ancho: 42, alto: 42 });
 });
 
-test('2. dos pestañas, «Contenido» y «Funnel», y sin «Revisar ahora»', () => {
+test('2. «Contenido», «Anuncios» y «Funnel», y sin «Revisar ahora»', () => {
+  // Eran dos desde el 4/11 («partían lo mismo en seis lugares»). El 14/11 Martín pidió los anuncios como Spyder de Foreplay
+  // (tests/spy-anuncios-ficha.test.ts): «Anuncios» volvió, pero NO con otra grilla. La grilla de anuncios sigue en «Contenido».
   const app = leer('app/competitor-spy/SpyApp.tsx');
-  assert.match(app, /^type Pestana = 'contenido' \| 'funnel';$/m);
+  assert.match(app, /^type Pestana = 'contenido' \| 'anuncios' \| 'funnel';$/m);
   const codigo = sinComentarios(app);
   assert.doesNotMatch(codigo, /Revisar ahora/, 'se revisa una vez, sola, y lo nuevo entra en segundo plano');
   assert.match(codigo, /rotulo: 'Contenido'/);
+  assert.match(codigo, /rotulo: 'Anuncios'/);
   assert.match(codigo, /rotulo: 'Funnel'/);
-  assert.doesNotMatch(codigo, /activa === '(grafico|publica|miniaturas|oferta|sitio|anuncios)'/);
+  assert.doesNotMatch(codigo, /activa === '(grafico|publica|miniaturas|oferta|sitio)'/);
+  assert.match(codigo, /\{activa === 'anuncios' && <AnunciosSpy /, 'la pestaña de anuncios es el análisis, no otra GrillaPiezas');
 });
 
 test('3. el selector y los filtros adentro de la tarjeta del gráfico; su esqueleto mientras carga; las tarjetas con su proporción', () => {

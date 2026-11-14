@@ -26,10 +26,12 @@ import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { contadorCorto, nivelDeMultiplo, rotuloOutlier } from '@/lib/carruseles/explorar';
 import { plantillaGuiada } from '@/lib/video-plantillas';
 import { recetaDe, type Receta } from '@/lib/video-recetas';
+import { fuenteDeOutlier } from '@/lib/video-desarmar';
 import { FAMILIAS_EDICION, embedDeReel, type FamiliaEdicion, type OutlierVideo, type PortadaOutliers } from '@/lib/video-outliers';
 import s from '@/app/image-editor/carruseles/explorar.module.css';
 import o from './outliers.module.css';
 import { VerReel } from './VerReel';
+import { Desarmar } from './Desarmar';
 import { RUTA_CREAR_VIDEO, rutaReplicar, rutaReplicarReceta } from './vista';
 
 const RED: Record<OutlierVideo['red'], string> = { instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube', 'meta-ads': 'Anuncio de Meta' };
@@ -107,6 +109,7 @@ function ComoSeHace({ r }: { r: Receta }) {
 
 /** La plantilla guiada de MaKo (la fuente curada): se replica con MaKo, paso a paso. También la usa la sección del editor. */
 export function TarjetaPlantilla({ x, telefono }: { x: OutlierVideo; telefono: boolean }) {
+  const fuente = fuenteDeOutlier(x);
   const replicar = x.plantilla && !telefono ? <Link href={rutaReplicar(x.plantilla)} className={o.replicar}>Replicar</Link> : null;
   return (
     <li className={s.tarjeta}>
@@ -129,6 +132,8 @@ export function TarjetaPlantilla({ x, telefono }: { x: OutlierVideo; telefono: b
               <h3>Su estructura</h3>
               <div className={o.estructuraCaja}><Estructura plantilla={x.plantilla} /></div>
             </div>
+            {/* Ticket 97: el mismo reel, desarmado plano a plano por el Gemini del negocio (./Desarmar.tsx). */}
+            {fuente ? <Desarmar fuente={fuente} duracionS={x.duracionS} editor={!telefono} /> : null}
           </>
         )}
       >
@@ -153,6 +158,7 @@ export function TarjetaReel({ x, ahora, telefono = false }: { x: OutlierVideo; a
   const cuando = haceCuanto(x.publicada, ahora);
   const familia = x.edicion ? FAMILIAS_EDICION[x.edicion.familia] : null;
   const receta = recetaDe(x.receta);
+  const fuente = fuenteDeOutlier(x);
   const datos = (
     <div className={s.datos}>
       {/* Sin el dato, nada: «▶ —» en un reel que Spy no midió se leía como roto (producción, 11/11/2026). */}
@@ -186,6 +192,8 @@ export function TarjetaReel({ x, ahora, telefono = false }: { x: OutlierVideo; a
               {veces != null && nivel ? <p><span className={s.mult} data-nivel={nivel}>{rotuloOutlier(veces)}</span> {explicarMultiplo(x.multiplo)}</p> : null}
               {datos}
             </div>
+            {/* Ticket 97: «Desarmar» — el Gemini del negocio lo mira entero, plano a plano, y sale la plantilla para el editor. */}
+            {fuente ? <Desarmar fuente={fuente} duracionS={x.duracionS} editor={!telefono} /> : null}
             {x.edicion ? (
               <div className={o.verBloque}>
                 <h3>Qué enseña de edición</h3>

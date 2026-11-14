@@ -37,6 +37,13 @@ export const GOOGLE_SIN_CUPO = { sinCupo: true } as const;
 export type RespuestaGoogle = unknown;
 export const esPendiente = (x: unknown): boolean => !!x && typeof x === 'object' && (x as { pendiente?: unknown }).pendiente === true;
 export const esSinCupo = (x: unknown): boolean => !!x && typeof x === 'object' && (x as { sinCupo?: unknown }).sinCupo === true;
+/**
+ * Apify RECHAZÓ la clave (401/403, `rechazoLaClave`): ni «no se pudo» ni «no encontré nada» (14/11/2026). La ficha lo dice en una línea
+ * con el botón para revisarla (app/competitor-spy/OtrasRedes.tsx). Lo devuelven también los perfiles de Instagram (lib/spy-cadena.ts).
+ */
+export const CLAVE_RECHAZADA = { claveRechazada: true } as const;
+export const esClaveRechazada = (x: unknown): x is typeof CLAVE_RECHAZADA =>
+  !!x && typeof x === 'object' && (x as { claveRechazada?: unknown }).claveRechazada === true;
 
 /** FNV-1a de la consulta normalizada: la clave del setting no lleva el texto (nombres de personas). */
 export function huellaConsulta(consulta: string): string {
