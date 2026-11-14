@@ -5748,3 +5748,42 @@ el voseo); grabar la pantalla real de Copywriting con la réplica del anuncio (p
 arma el Copywriter con esbuild está en el scratchpad, `banco-copy/`); la charla de su «Chief» en el renglón 3 (sería un chat de MaKo
 dibujado; las preguntas reales de la réplica del short tienen dos respuestas escritas por un agente y una oferta de prueba con
 errata); las comillas de sus tarjetas de reseñas (el caso no es una cita).
+
+## Offer como Atlas AI: su VSL flota al bajar, la referencia cambió en tres días y el banco del teléfono era escritorio achicado (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/offer.tsx` (diseño y `<script data-visor>`), `app/vsl/_competencia/offer.ts`,
+`public/vsl-assets/offer/` (banco `C:/dev/bancos-portada/banco-offer/`: `entrada.tsx`, `grabar.mjs`, `fotos.mjs`), valores en
+`docs/diseno/landings-competencia/offer.md`, test «Offer: …» en `tests/vsl-landings-competencia.test.ts`. El relevo con capturas:
+carpeta de notas, `referencias-landings/offer/relevo.md`.
+
+- **⚠️ El diagnóstico obvio era el equivocado: «la referencia no se mueve» (el relevo del 11/11 decía «Animaciones: ninguna»).** Su
+  VSL arranca solo y sin sonido y, cuando sale por ARRIBA de la pantalla, sigue en una ventanita `fixed` de 280 × 158 a 3 px de la
+  esquina, que entra con `fadeInUp` en 1 s y trae su × 160 px más arriba (el `pip-scroll` de GoHighLevel: `.videoTag .is-sticky`).
+  En una captura de sección no aparece; aparece en `getAnimations()` del paso del scroll en que el video sale y en el
+  `MutationObserver` (la clase `is-sticky`). **Regla:** el relevo de una página con video incluye bajar con el video corriendo y
+  mirar qué pasa con él; una página de constructor (GoHighLevel, ClickFunnels) suele traer el video flotante de serie.
+- **La referencia cambió en tres días** (11/11 → 14/11): se llama «Atlas: The Offer Architect», la tarjeta de precio trae una imagen
+  del producto, la «imagen del paquete» de la banda oscura pasó a ser una CAPTURA DE SU APP con notas a mano, la barra mide 92 px y
+  el titular de la banda va en 500. El documento de medidas del 11/11 ya no alcanzaba: se mide de nuevo cada vez.
+- **El HTML de `curl` muestra texto que no se ve**: la sección «Wait! Before You Go…» (su libro en Amazon) está en el HTML y mide 0
+  en los dos anchos; y a 390 la cejilla dice OTRA cosa («Are You Ready To Get Daily, High Ticket Clients…», un renglón de plantilla
+  sólo del teléfono). Lo que va se decide con el navegador, no con el texto del HTML.
+- **Fotos «de teléfono» que eran el escritorio achicado**: `newPage({ isMobile: true })` sobre una página SIN `<meta name="viewport">`
+  (la del banco) arma la página a 980 px de ancho y la achica. Para fotos del diseño del teléfono, la ventana chica SIN `isMobile`;
+  y en el teléfono la pantalla de Create muestra una columna por vez: hay que tocar el interruptor «MaKo | Offer» para ver el chat.
+- **El banco de Offer**: `OfferApp` real con esbuild (copia de `banco-spy-escenas/build.mjs`), `/api/offer` contestado por el `fetch`
+  de la entrada (turno, armar, abrir y el PDF con `paginasDeOferta` en el navegador: es puro) y el releer del armado de 4 s pasado a
+  1,6 s con un `setInterval` envuelto. Lo que escribe el código sale del código (`primerMensajeFunnel`, `opcionesConCierre`,
+  `TEXTO_LISTA_PARA_ARMAR`, `mensajePdf`, `calcularDiagnostico`); lo de la IA, a mano con las reglas del turno, sobre «Cierre
+  Consultivo», el negocio ficticio de las plantillas. Nada de un cliente.
+- **Las marcas del grabador no tienen un desfase fijo**: en dos tomas iguales, seguidas, iban 1,86 s y 0,79 s adelantadas al video
+  (y «marca fin − duración» decía 1,1). El corte se ancla en algo que se VE: el salto de la cámara a 0 ms del principio
+  (`camara(r, 0)`, un cambio de cuadro de 12–14 sobre 255) y el último movimiento de la cámara al final (`grabar.mjs` del banco).
+- `codificar-bucle.sh` acepta `TAM=960:540` para un cuadro 16:9 (sin la variable, 960 × 600 como siempre).
+- El tilde verde de su lista va como `background-image` con un SVG en `data:` (el sol y la luna no toca los fondos con imagen) y la
+  × de la ventanita es una casilla con su rótulo (sin `onClick`, un `<button>` lo marca `ningun-boton-muerto`).
+
+SIN HACER: su barra de controles con el mouse y el «Enable sound» (la grabación no tiene sonido); el precio, las estrellas, el sello,
+la garantía, el pago seguro, el cupón y el «INSTANT ACCESS | INCLUDED» (MaKo no los tiene); con el sol y la luna en claro, el hero
+negro y las bandas #4B4B4B pasan a claro (regla del 12/11, igual que en /vsl/ads: si Martín prefiere la copia fiel, `data-tema-fijo`
+en esas secciones de `disenos/offer.tsx`).

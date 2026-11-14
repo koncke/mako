@@ -213,3 +213,25 @@ test('Competitor Spy: cada pestaña tiene su pantalla grabada, y la lluvia del �
   assert.ok(scripts.some((x) => x.includes('-lluvia') && x.includes('IntersectionObserver')), 'el «antes» sin su lluvia');
   assert.ok((html.match(/class="d-competitor-spy-cae /g) ?? []).length >= 16, 'la lluvia con menos de 16 piezas (las de la computadora)');
 });
+
+// Martín, 14/11/2026, noche: «que la copia salga muy fiel… los videos que tienen, las animaciones». Como Atlas AI, el hero de Offer
+// lleva un video que arranca solo y que, al bajar, sigue en una ventanita flotante; donde la referencia pone imágenes de su producto
+// van pantallas REALES de Offer (banco C:/dev/bancos-portada/banco-offer), nunca el recuadro de «falta».
+// PROBADO ROMPIÉNDOLO (14/11/2026): renombrar pieza-nota.jpg en FOTOS_PIEZAS → falla «falta public/…»; sacar una foto de la lista →
+// falla «una foto por pieza»; sacar `-flota` del script → falla «sin su ventanita».
+test('Offer: el hero lleva la grabación real y flota al bajar, y cada pieza su pantalla', async () => {
+  const { VIDEO_OFFER, FOTO_TARJETA, PANTALLA_OFFER, FOTOS_PIEZAS } = await import('../app/vsl/_competencia/disenos/offer');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'offer');
+  assert.ok(l, 'falta la landing de Offer');
+  const html = dibujar(l);
+  for (const f of [VIDEO_OFFER.video, VIDEO_OFFER.poster, FOTO_TARJETA, PANTALLA_OFFER, ...FOTOS_PIEZAS.map((x) => x.src)]) {
+    assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+    assert.ok(html.includes(`"${f}"`), `${f} no se dibuja`);
+  }
+  const piezas = l.bloques.find((b) => b.tipo === 'tarjetas' && b.fondo);
+  assert.ok(piezas && piezas.tipo === 'tarjetas', 'Offer sin su grilla de piezas');
+  assert.equal(FOTOS_PIEZAS.length, piezas.items.length, 'una foto por pieza, en el orden de las piezas');
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
+  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
+  assert.ok(scripts.some((x) => x.includes("'d-offer'") && x.includes('-flota') && x.includes('IntersectionObserver')), 'el video sin su ventanita flotante');
+});
