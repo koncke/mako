@@ -646,10 +646,39 @@ probar-copy-relevo/relevamiento.md y la maqueta del flujo nuevo, que Martín rev
   portada son de la competencia (Competitors Spy), y Spy no transcribe anuncios (`tieneGuion`: sólo reels y YouTube). Para usarlas,
   los anuncios propios tienen que entrar como fuente de la portada (estaba previsto en D18): es un cambio del paso 1 de la maqueta.
 
+## El flujo nuevo: primero pregunta, después escribe todo (13/11/2026, la maqueta aprobada; chat «probar-copy»)
+
+Las tres partes de la maqueta: la portada abre en «De tu tema»; al replicar, MaKo pregunta con botones (la oferta, lo que le
+falta, cómo usar un tema ajeno) y guarda lo contestado EN la oferta; después escribe la pieza entera, sin «Aceptar», con el
+original al lado (una columna en la computadora, la pestaña «Original» en el teléfono).
+
+- **El tema sale de PALABRAS, no de una IA** (lib/copywriter/tema.ts): la portada tiene cientos de outliers y se arma en cada
+  apertura. Cada palabra distinta de un tema suma un punto; gana el que llega a 2 sin empate. Lo que no llega queda SIN tema (no se
+  adivina): «Maratón» sola no alcanza. Las palabras que sirven para todo (dinero, éxito, rutina, «look», «mind», «unas») hacían
+  ganar a cualquiera y no están. El idioma, por las palabras chicas (de, la · the, and); «a» y «no» son de los dos y no cuentan.
+- **Un negocio sin contexto igual tiene tema:** el de MaKo tiene las ofertas vacías, pero sus NOMBRES («WhatsApp Ads Funnel»)
+  ya dicen ventas. El tema del negocio sale del onboarding, las ofertas y los productos (`temaDelNegocioActual`).
+- **«De tu tema» incluye lo de Spy sin tema claro** (la cuenta la eligió el negocio: es su nicho) y NO lo de la biblioteca sin tema.
+  Los temas vecinos cuentan (a uno de ventas le sirven la IA y el diseño, no el gimnasio): `VECINOS`.
+- **⚠️ Cambiar la FORMA de lo que guarda `cachedRead` pide otra clave.** La caché de datos de Next sobrevive al deploy: con la
+  misma clave, la portada sin `tema` se habría servido hasta 5 minutos después de desplegar. Quedó `copywriter-portada-tema`.
+- **Las preguntas no se guardan en la charla hasta que empieza a escribir.** La réplica se prepara sólo con la charla VACÍA: si la
+  transcripción o las preguntas se guardaban en el acto y la persona cerraba a la mitad, al volver la charla ya no estaba vacía y
+  la página quedaba en blanco para siempre. Ahora, cortada a la mitad, vuelve a preguntar.
+- **Un video sin transcribir lo dice con todas las letras** (el Cerebro: la clave de Apify de Spy da 401): «No pude traer el video
+  de Instagram, así que no sé lo que se dice: lo escribo con el texto de su publicación…». El motivo de Spy ya es una frase con
+  «No pude…»: meterlo en «No pude transcribir el video (no pude…)» lo decía dos veces.
+
 ## Qué quedó sin hacer
 
-- (13/11/2026) Si MaKo PREGUNTA cuando el tema del original no tiene que ver con el negocio lo decide Martín; hoy no pregunta
-  (lib/copywriter/outliers.ts, `reglasDeLaReplica`).
+- (13/11/2026) ~~Si MaKo PREGUNTA cuando el tema del original no tiene que ver con el negocio lo decide Martín~~: pregunta desde el
+  flujo nuevo (lib/copywriter/iniciativa.ts, `pasoDeReplica`).
+- (13/11/2026) ~~«Para mi negocio en general» caía a la oferta principal~~: el pedido lo dice con `SIN_OFERTA` y `ofertaDelPedido`
+  (lib/copywriter/oferta-elegida.ts) mira primero el pedido y después lo ÚLTIMO de la charla.
+- (13/11/2026) Los anuncios PROPIOS (`ad_transcripts`) como fuente de la portada siguen afuera (lib/copywriter/outliers-servidor.ts,
+  `FUENTES_OUTLIERS_COPY`).
+- (13/11/2026) El flujo nuevo está probado con tests; en producción falta el recorrido con capturas (reel, YouTube, anuncio en
+  video y carrusel, a 1440 y 375), después del deploy.
 - (13/11/2026) La portada sigue mandando 1,18 MB (300 por formato, en la grilla del chat de los outliers). Y la página nueva todavía
   se pide al server después de crearla (0,6 s): el `crear` ya devuelve la página y se podría mostrar sin esa vuelta
   (app/copywriter/Copywriter.tsx).
@@ -666,8 +695,8 @@ probar-copy-relevo/relevamiento.md y la maqueta del flujo nuevo, que Martín rev
 - (13/11/2026) La Clase escribió «un funnel que vende sin anuncios pagos» para una oferta llamada «WhatsApp Ads Funnel»: lo que
   la oferta del negocio dice no alcanza para que no se contradiga.
 - (12/11/2026) ~~La mezcla de «vos» y «tú» no tiene capa 2~~: la tiene desde el 13/11 (9e5a80238), con la lista corta de arriba.
-- (12/11/2026) Los reels con «su pie» (46 de cada 48 en la portada del negocio de MaKo), todos los carruseles y todos los
-  YouTube se replican sin lo que se DICE en la pieza: la estructura real no está. Transcribir al replicar sigue pendiente.
+- (12/11/2026) ~~Los reels con «su pie», todos los carruseles y todos los YouTube se replican sin lo que se DICE~~: desde el 13/11
+  el reel, el YouTube y el anuncio en video se transcriben al replicar; los carruseles se replican con su texto.
 - (12/11/2026) Un pedido puntual («usa el testimonio en la Solución») a veces toca otra sección que no se pidió.
 - (12/11/2026) La respuesta de «Editar» no guarda lo que escribió el modelo antes del saneo: cuando algo se descarta, no hay cómo
   ver qué mandó (lib/copywriter/ia.ts).

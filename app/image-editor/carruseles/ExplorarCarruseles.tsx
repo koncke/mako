@@ -120,7 +120,7 @@ const CLAVES_FILTRO = [
   'q', 'de', 'origen', 'min', 'omax', 'imin', 'imax', 'lmin', 'lmax', 'ocultar', 'periodo', 'largo',
   'formato', 'imagenes', 'conf', 'orden', 'vista', 'cta', 'tam', 'nicho', 'idioma',
   // Thumbnails (las mismas, con prefijo)
-  'tq', 'tde', 'tmin', 'tomax', 'tperiodo', 'torden', 'tvista', 'tnicho', 'tidioma',
+  'tq', 'tde', 'tmin', 'tomax', 'tperiodo', 'torden', 'tvista', 'tnicho', 'tidioma', 'tformato',
   // Compartidas: el selector de pestaña y el link viejo
   'que', 'ver',
 ] as const;

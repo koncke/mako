@@ -262,7 +262,6 @@ function secciones(bloques: Bloque[]) {
               {CASO.historia.map((h, j) => <p key={j} className="d-offer-texto" dangerouslySetInnerHTML={html(h)} />)}
               <p className="d-offer-texto" dangerouslySetInnerHTML={html(CASO.resultado)} />
               <p className="d-offer-texto"><strong>{CASO.quien}</strong> · {CASO.rol}.</p>
-              <p className="d-offer-texto">{CASO.sub}</p>
             </div>
           </section>,
         );

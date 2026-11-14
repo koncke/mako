@@ -30,7 +30,7 @@ export const USD_POR_BUSQUEDA_REDES = 0.0045 + 0.00005;
 export const TECHO_USD_POR_CORRIDA_REDES = 0.5;
 /**
  * Búsquedas de redes por negocio y por día. Se dispara UNA al dar de alta y otra si la persona toca
- * «Buscar sus otras redes»: 20 alcanza para el tope de 25 competidores en dos días.
+ * «Buscar sus otras redes»: 20 por día, aunque la lista se llene (`TOPES.competidores`) en unos días.
  */
 export const TOPE_BUSQUEDAS_REDES_POR_DIA = 20;
 /** Cuántos candidatos por red se ofrecen: más de tres es pedirle a la persona que investigue. */

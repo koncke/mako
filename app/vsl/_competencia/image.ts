@@ -234,7 +234,7 @@ export const LANDING_IMAGE: LandingCompetencia = {
       tipo: 'preguntas',
       titulo: 'Lo que realmente hace Image',
       items: [
-        { p: '¿Qué es Image?', r: 'El editor de diseño de MaKo, copiado de Canva: diseños de varias páginas con texto, formas, imágenes, marcos, QR y capas, con el chat de MaKo al lado. Abre con los carruseles que funcionan de las cuentas que sigues.' },
+        { p: '¿Qué es Image?', r: 'El editor de diseño de MaKo, tan simple como Canva: diseños de varias páginas con texto, formas, imágenes, marcos, QR y capas, con el chat de MaKo al lado. Abre con los carruseles que funcionan de las cuentas que sigues.' },
         { p: '¿De dónde salen los carruseles que funcionan?', r: 'De las cuentas que sigues en Competitors Spy, y de una biblioteca de ejemplos de Instagram que es la misma para todos. Cada uno trae su outlier: cuántas veces la mediana de su cuenta.' },
         { p: '¿Copia las palabras de los carruseles?', r: 'No. Con «Editar» copia el diseño, y el texto lo escribe tu IA para tu negocio. Sin tu IA, cada lámina trae una guía de qué va.' },
         { p: '¿Para qué plataformas puedo diseñar? ¿MaKo lo publica?', r: 'Diseñas carruseles, publicaciones e historias de Instagram, anuncios, miniaturas de YouTube y presentaciones. MaKo no publica ni programa: descargas el diseño y lo subes tú.' },

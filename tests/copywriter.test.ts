@@ -520,7 +520,8 @@ test('sin la app de escritorio, las ofertas apagadas de la plantilla dicen por q
 
 test('las sugerencias genéricas no parpadean antes de la pregunta de una plantilla (13/11/2026, en producción)', () => {
   const panel = leer('app/copywriter/PanelMaKo.tsx');
-  assert.ok(panel.includes(') : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && hiloLeido && !pasosIni.length && ('));
+  // Ni en una réplica: ahí MaKo pregunta antes de escribir (13/11/2026, el flujo nuevo).
+  assert.ok(panel.includes(') : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && hiloLeido && !pasosIni.length && !replica && ('));
 });
 
 test('en el teléfono, la propuesta de MaKo se acepta desde la Página (13/11/2026, en producción a 375: «Aceptar» quedaba en la pestaña MaKo)', () => {

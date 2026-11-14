@@ -20,6 +20,8 @@ import { crearCarruselDesdeReferencia, referenciaDelNegocio } from '@/lib/carrus
 import { replicarCarrusel, replicarEjemplo } from '@/lib/carruseles/replica-servidor';
 import { FILTROS_THUMBNAIL, filtrarThumbnails, filtrosThumbnailDeQuery, imagenDeVideo, queryDeThumbnails, urlDeVideo, videoDeYoutube, type Thumbnail } from '@/lib/thumbnails/explorar';
 import { guardarThumbnail, leerThumbnails, thumbnailPorId } from '@/lib/thumbnails/servidor';
+import { leerVerticales, verticalPorId } from '@/lib/thumbnails/verticales-servidor';
+import { coincideVertical, esIdDeVertical, type Vertical } from '@/lib/thumbnails/verticales';
 import { traerThumbnail } from '@/lib/thumbnails/traer-servidor';
 import { traerCarrusel } from '@/lib/carruseles/traer-servidor';
 import { linkDeInstagram } from '@/lib/carruseles/link';
@@ -432,6 +434,22 @@ export const RUNNERS: Runners = {
   // ── Thumbnails (6/11/2026): las MISMAS funciones que la pantalla (lib/thumbnails/). Lo que se lee, de la biblioteca global. ──
   buscar_thumbnails: {
     leer: async (input, ctx) => {
+      // Las VERTICALES (13/11/2026): las portadas de los reels que Spy ya trajo, con la misma búsqueda (palabras o @cuenta).
+      if (str(input, 'formato') === 'vertical') {
+        const v = await leerVerticales();
+        if (!v.ok) return JSON.stringify({ error: `${v.error} Vuelve a intentar.` });
+        const q = str(input, 'buscar') ?? '';
+        const link = linkExplorador(queryDeThumbnails({ ...FILTROS_THUMBNAIL, q, formato: 'vertical' }), ctx.ws);
+        if (!v.verticales.length) return JSON.stringify({ verticales: [], link, siguiente: 'Todavía no hay portadas de reels: sigue a tus competidores en Competitors Spy y trae sus reels.' });
+        const vistas = v.verticales.filter((x) => coincideVertical(x, q));
+        const tope = typeof input.tope === 'number' ? Math.max(1, Math.min(30, Math.round(input.tope))) : 10;
+        return JSON.stringify({
+          total: vistas.length,
+          verticales: vistas.slice(0, tope).map(verticalParaApi),
+          link,
+          nota: 'Son portadas de reels públicos de las cuentas que el negocio sigue (siempre con su link). Para SU versión editable en 1080 × 1920, editar_ejemplo_thumbnail con el verticalId.',
+        });
+      }
       const r = await leerThumbnails();
       if (!r.ok) return JSON.stringify({ error: 'No pude leer las miniaturas de ejemplo. Vuelve a intentar.' });
       if (!r.thumbnails.length) return JSON.stringify({ thumbnails: [], siguiente: 'La biblioteca de miniaturas todavía no tiene videos: se carga desde la plataforma.' });
@@ -476,6 +494,20 @@ export const RUNNERS: Runners = {
   // vivo, en 1280 × 720. Con la IA del negocio; sin ella, sale con una guía y lo dice.
   editar_ejemplo_thumbnail: {
     preparar: async (input): Promise<Preparado> => {
+      // La VERTICAL (13/11/2026): la portada de un reel de buscar_thumbnails con formato vertical, en 1080 × 1920.
+      const verticalId = str(input, 'verticalId');
+      if (verticalId) {
+        if (!esIdDeVertical(verticalId)) return { error: 'Ese verticalId no es uno de buscar_thumbnails (formato vertical).', faltan: ['verticalId'] };
+        let v: Vertical | null;
+        try { v = await verticalPorId(verticalId); } catch { return { error: 'No pude leer esa portada. Vuelve a intentar.', falla: true }; }
+        if (!v) return { error: 'Esa portada ya no está entre los reels de las cuentas que sigues. Búscala con buscar_thumbnails (formato vertical).' };
+        const pedidoV = str(input, 'pedido');
+        const deQuien = v.creador.usuario ? `@${v.creador.usuario}` : v.creador.nombre;
+        return {
+          payload: { verticalId, ...(pedidoV ? { pedido: pedidoV.slice(0, 400) } : {}) },
+          resumen: `Armar tu versión editable (1080 × 1920) de la portada del reel de ${deQuien}${v.titulo ? ` («${v.titulo.slice(0, 80)}»)` : ''}: su diseño, con el texto escrito para tu negocio por tu IA${pedidoV ? ` («${pedidoV.slice(0, 120)}»)` : ''}. Sus palabras no se copian, y si tiene una persona, su lugar queda marcado para generarte con IA en el mismo estilo.`,
+        };
+      }
       const id = typeof input.thumbnailId === 'number' ? input.thumbnailId : NaN;
       if (!Number.isSafeInteger(id) || id <= 0) return { error: 'Falta el id de la miniatura (de buscar_thumbnails).', faltan: ['thumbnailId'] };
       let t: Thumbnail | null;
@@ -488,10 +520,12 @@ export const RUNNERS: Runners = {
       };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
-      const r = await replicarEjemplo(ctx.ws, QUIEN, { que: 'thumbnail', id: Number(payload.thumbnailId) }, { pedido: typeof payload.pedido === 'string' ? payload.pedido : null });
+      const vertical = typeof payload.verticalId === 'string' && esIdDeVertical(payload.verticalId) ? payload.verticalId : null;
+      const ejemplo = vertical ? { que: 'vertical' as const, id: vertical } : { que: 'thumbnail' as const, id: Number(payload.thumbnailId) };
+      const r = await replicarEjemplo(ctx.ws, QUIEN, ejemplo, { pedido: typeof payload.pedido === 'string' ? payload.pedido : null });
       if (!r.ok) return { ok: false, resumen: r.error };
       const url = link(r.id, ctx.ws);
-      const bloque = bloqueDiseno(r.id, { titulo: r.titulo, ancho: 1280, alto: 720, estado: 'Nuevo', nota: r.aviso ?? 'Tu versión, lista para editar.' });
+      const bloque = bloqueDiseno(r.id, { titulo: r.titulo, ancho: vertical ? 1080 : 1280, alto: vertical ? 1920 : 720, estado: 'Nuevo', nota: r.aviso ?? 'Tu versión, lista para editar.' });
       return {
         ok: true,
         resumen: `${r.sinIA ? 'Creada con una guía' : 'Creada con tu texto'}. Ábrela aquí: ${url}${r.aviso ? ` · ${r.aviso}` : ''}`,
@@ -538,6 +572,13 @@ export const RUNNERS: Runners = {
 };
 
 /** Una miniatura como la devuelve la API: su canal, sus vistas y el link a SU video (es una referencia, no algo de MaKo). */
+/** Una vertical para la API: lo que el modelo necesita para elegir (y el verticalId para editar_ejemplo_thumbnail). */
+const verticalParaApi = (v: Vertical) => ({
+  verticalId: v.id, red: v.red, formato: v.formato, cuenta: v.creador.usuario ? `@${v.creador.usuario}` : v.creador.nombre,
+  titulo: v.titulo, url: v.url, portada: v.miniatura, multiplo: v.veces, vistas: v.vistas, publicada: v.publicada,
+  ...(v.multiplo ? { porQue: explicarMultiplo(v.multiplo) } : {}),
+});
+
 const thumbnailParaApi = (t: Thumbnail) => ({
   id: t.id,
   canal: t.canal.handle || t.canal.nombre,

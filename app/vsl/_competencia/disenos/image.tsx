@@ -286,7 +286,7 @@ export default function DisenoImage({ landing }: PropsDiseno) {
         <div className="d-image-pie-in">
           <div className="d-image-pie-marca">
             <LogoMaKo tamano={36} />
-            <p>El mejor SaaS para ventas High Ticket, de punta a punta.</p>
+            <p>El mejor software para vender High Ticket.</p>
           </div>
           <div className="d-image-pie-cols">
             {columnas.map((col, i) => (
@@ -368,7 +368,7 @@ const CSS = `
 .d-image-parte-marca .mk-v-image-editor { width: 240px; margin: 0 auto; }
 .d-image-parte-marca .mk-v-image-pags { display: none; }
 .d-image-parte-marca .mk-v-image-marca { white-space: nowrap; }
-.d-image-parte-marca .mk-v-image-laminas { grid-template-columns: 1fr; padding-top: 0; }
+.d-image-parte-marca .mk-v-image-laminas { grid-template-columns: minmax(0, 1fr); padding-top: 0; }
 .d-image-parte-lienzo .mk-v-image-chat { display: none; }
 
 /* Franja de prueba social: blanca, borde de 1 px arriba y abajo, padding 16.8 / 72 */
@@ -425,7 +425,7 @@ const CSS = `
 .d-image-fila-primera { padding-top: 96px; }
 .d-image-fila-primera .d-image-cab { margin-bottom: 64px; }
 .d-image-fila-ultima { padding-bottom: 96px; }
-.d-image-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 57.6px; align-items: center; }
+.d-image-fila { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 57.6px; align-items: center; }
 .d-image-fila-inv .d-image-fila-txt { order: 2; }
 .d-image-h3 { font-family: var(--d-img-tit); font-size: 27.2px; line-height: 32.64px; font-weight: 600; letter-spacing: -0.408px; color: var(--d-img-tinta); }
 .d-image-fila-p { margin-top: 11px; font-size: 16px; line-height: 26.4px; color: var(--d-img-texto); }
@@ -495,7 +495,7 @@ const CSS = `
 }
 
 @media (max-width: 1200px) {
-  .d-image-hero-in { grid-template-columns: 1fr 1fr; }
+  .d-image-hero-in { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .d-image-plantillas { grid-template-columns: repeat(4, 1fr); }
 }
 /* Teléfono: los tamaños medidos a 390 px */
@@ -503,10 +503,11 @@ const CSS = `
   .d-image-barra { padding: 8px 12px; }
   .d-image-barra-link { display: none; }
   .d-image-hero { padding: 48px 20px 48px; }
-  .d-image-hero-in { grid-template-columns: 1fr; gap: 40px; }
+  .d-image-hero-in { grid-template-columns: minmax(0, 1fr); gap: 40px; }
   .d-image-hero-txt { align-items: center; text-align: center; }
   .d-image-hero-txt .d-image-btn { align-self: center; }
-  .d-image-hero-cej { height: auto; line-height: 18px; padding: 6px 12px; }
+  .d-image-hero-cej { height: auto; line-height: 18px; padding: 6px 12px; max-width: 100%; white-space: normal; text-align: left; }
+  .d-image-hero-txt { min-width: 0; }
   .d-image-h1 { font-size: 33.6px; line-height: 34.27px; letter-spacing: -1.075px; }
   .d-image-hero-p { font-size: 16px; line-height: 25.6px; }
   .d-image-franja { padding: 16px 20px; }
@@ -516,23 +517,23 @@ const CSS = `
   .d-image-sec { padding: 64px 20px; }
   .d-image-h2c { font-size: 25.6px; line-height: 28.16px; letter-spacing: -0.6656px; }
   .d-image-h2 { font-size: 28px; line-height: 30.8px; letter-spacing: -0.56px; }
-  .d-image-plantillas { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .d-image-plantillas { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
   .d-image-plant { padding: 12px 12px 14px; }
   .d-image-plant b { font-size: 18px; line-height: 20px; }
   .d-image-plant-x { font-size: 11.5px; line-height: 15px; }
-  .d-image-pasos { grid-template-columns: 1fr; gap: 32px; }
+  .d-image-pasos { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .d-image-fila-sec { padding-top: 0; padding-bottom: 56px; }
   .d-image-fila-primera { padding-top: 64px; }
   .d-image-fila-ultima { padding-bottom: 64px; }
-  .d-image-fila { grid-template-columns: 1fr; gap: 28px; }
+  .d-image-fila { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .d-image-fila .d-image-fila-txt { order: 2; }
   .d-image-fila .d-image-marco-caja { min-height: 0; padding: 18px; }
   .d-image-h3 { font-size: 20.8px; line-height: 24.96px; letter-spacing: -0.312px; }
   .d-image-parte-chat .mk-v-image-chat { transform: none; }
-  .d-image-oscuras, .d-image-testis { grid-template-columns: 1fr; }
+  .d-image-oscuras, .d-image-testis { grid-template-columns: minmax(0, 1fr); }
   .d-image-pie { padding: 40px 20px 0; }
-  .d-image-pie-in { grid-template-columns: 1fr; gap: 36px; }
-  .d-image-pie-cols { grid-template-columns: 1fr; gap: 0; }
+  .d-image-pie-in { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  .d-image-pie-cols { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .d-image-pie-sigue { padding-top: 0; }
   .d-image-pie-sigue ul { margin-top: 5.6px; }
   .d-image-pie-base { flex-direction: column; }

@@ -231,6 +231,21 @@
 .nt-ejemplo-nota { margin: 0 0 10px; font-size: 13px; color: var(--nt-suave); }
 /* «Ver el original» de una página que replica un outlier (D18): el texto tal cual, como se leyó. */
 .nt-original { white-space: pre-wrap; word-break: break-word; font-size: 15px; line-height: 1.6; color: var(--ink); }
+/* El original AL LADO de la página (13/11/2026, el flujo nuevo de Copywriting): una columna a la derecha que corre sola. Con la
+   ventana angosta no entra al lado de la página: queda «Ver el original» de la franja (EditorGuion). En el teléfono es la pestaña
+   «Original» (app/m/copywriter/GuionM.tsx), a lo ancho. */
+.nt-con-original { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.nt-con-original > .nt-scroll { flex: 1; min-width: 0; }
+.nt-original-lado { flex: 0 0 340px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; padding: 18px 18px 40px; border-left: 1px solid var(--nt-linea); background: var(--surface); box-sizing: border-box; }
+.nt-original-lado[data-telefono] { flex: 1 1 auto; border-left: 0; padding: 14px 16px 40vh; }
+.nt-original-lado .nt-original { font-size: 14px; line-height: 1.55; }
+.nt-original-cabeza { display: flex; flex-direction: column; gap: 4px; }
+.nt-original-cabeza strong { font-size: 15px; }
+.nt-original-meta { font-size: 12.5px; color: var(--nt-suave); }
+.nt-original-sello { align-self: flex-start; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--warn-bg); color: var(--warn); }
+.nt-original-sello[data-transcrito] { background: var(--good-bg); color: var(--good); }
+.nt-original-gancho { margin: 0; font-weight: 650; font-size: 14.5px; line-height: 1.4; }
+@media (max-width: 1180px) { .nt-con-original > .nt-original-lado { display: none; } }
 .nt.nt-ejemplo { height: auto; border: 1px solid var(--nt-linea); border-radius: 10px; padding: 6px 0 10px; overflow: visible; }
 /* ⚠️ El documento del ejemplo es hijo de una FILA flexible (`.nt`): sin `min-width: 0` toma el ancho de su tabla y el texto se
    corta a la derecha. 11/11/2026, en producción a 375: «Ejemplo ficticio: Cierre Consultivo, me…» cortado y una barra de

@@ -6,7 +6,7 @@
 //
 // El contrato con el navegador está en ./tipos.ts.
 
-import { sniffImagen } from '@/lib/editor-landing/server-reglas';
+import { formatoVisto, sniffImagen, veredictoDeSubida } from '@/lib/editor-landing/server-reglas';
 
 /** El bucket PÚBLICO de las imágenes, audios y miniaturas (mig 0278). Rutas `<ws>/…`. */
 export const BUCKET_IMAGE = 'image-editor';
@@ -43,6 +43,8 @@ export const uuidValido = (raw: unknown): raw is string => typeof raw === 'strin
 
 /** Lo que se puede subir, antes de firmar: el tipo declarado y el tamaño. El tipo REAL se mira al registrar. */
 export function validarSubida(tipo: unknown, tamano: unknown): { ok: true; tipo: string; ext: string } | { ok: false; error: string } {
+  // La foto del iPhone llega declarada como HEIC: decir qué es y qué hacer, no sólo la lista (13/11/2026).
+  if (tipo === 'image/heic' || tipo === 'image/heif') return { ok: false, error: 'Es una foto HEIC (la del iPhone): expórtala como JPG y vuelve a subirla.' };
   if (typeof tipo !== 'string' || !(esTipoImagen(tipo) || esTipoAudio(tipo))) return { ok: false, error: 'Sube PNG, JPG, WEBP, GIF o un audio (MP3, OGG, WAV, M4A).' };
   if (typeof tamano !== 'number' || !Number.isFinite(tamano) || tamano <= 0) return { ok: false, error: 'Falta el tamaño del archivo.' };
   if (tamano > topeDeTipo(tipo)) return { ok: false, error: esTipoAudio(tipo) ? 'El audio pasa de 25 MB.' : 'La imagen pasa de 15 MB.' };
@@ -87,8 +89,37 @@ export function sniffArchivo(buf: Uint8Array): string | null {
   if (buf.length >= 4 && ascii(buf, 0, 4) === 'OggS') return 'audio/ogg';
   if (buf.length >= 12 && ascii(buf, 0, 4) === 'RIFF' && ascii(buf, 8, 12) === 'WAVE') return 'audio/wav';
   if (buf.length >= 4 && buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) return 'audio/webm';
-  if (buf.length >= 12 && ascii(buf, 4, 8) === 'ftyp') return 'audio/mp4';
+  // Una foto HEIC o AVIF también lleva la caja `ftyp`: no es un M4A (13/11/2026; la marca la mira `formatoVisto` del Web).
+  if (buf.length >= 12 && ascii(buf, 4, 8) === 'ftyp' && !/^(HEIC|AVIF)$/.test(formatoVisto(buf) ?? '')) return 'audio/mp4';
   return null;
+}
+
+const NOMBRE_DE_AUDIO: Readonly<Record<string, string>> = {
+  'audio/mpeg': 'MP3', 'audio/ogg': 'OGG', 'audio/wav': 'WAV', 'audio/webm': 'WebM', 'audio/mp4': 'M4A',
+};
+const nombreDe = (tipo: string): string => NOMBRE_DE_AUDIO[tipo] ?? (EXT_DE_TIPO[tipo] ?? tipo).toUpperCase();
+
+/**
+ * Qué hacer con una subida según lo que DICE (la extensión) y lo que ES (sus bytes). 13/11/2026: una foto JPG con nombre .png
+ * salía «El archivo no es lo que dice» (el mismo caso de los tickets #95 y #96 del Web Generator). Entre dos imágenes decide
+ * `veredictoDeSubida` del Web (vale lo que el archivo ES); acá sólo se suma lo que el Web no tiene: el AUDIO. Entre dos audios
+ * también vale lo que es (un M4A con nombre .mp3 es un audio bueno); un audio con nombre de imagen, o al revés, se rechaza
+ * diciendo qué es y dónde subirlo. Puro.
+ */
+export function veredictoDeImage(dice: string, es: string | null, visto: string | null = null): { ok: true; tipo: string } | { ok: false; error: string } {
+  if (es && esTipoAudio(dice) && esTipoAudio(es)) return { ok: true, tipo: es };
+  if (es && esTipoImagen(dice) && esTipoAudio(es)) return { ok: false, error: `Tiene nombre de imagen ${nombreDe(dice)} pero es un audio ${nombreDe(es)}: súbelo como audio.` };
+  if (es && esTipoAudio(dice) && esTipoImagen(es)) return { ok: false, error: `Tiene nombre de audio ${nombreDe(dice)} pero es una imagen ${nombreDe(es)}: súbela como imagen.` };
+  if (esTipoAudio(dice) && !es) {
+    return { ok: false, error: `Tiene nombre de audio ${nombreDe(dice)} pero ${visto ? `es un archivo ${visto}` : 'no es un audio que MaKo pueda usar'}: súbelo como MP3, OGG, WAV o M4A.` };
+  }
+  return veredictoDeSubida(dice, es, visto);
+}
+
+/** La ruta final con la extensión de lo que el archivo ES (`9/<uuid>.png` → `9/<uuid>.jpg`). Como `finalConTipo` del Web, con la tabla de Image (que tiene los audios). */
+export function finalConSuTipo(final: string, tipo: string): string {
+  const ext = EXT_DE_TIPO[tipo];
+  return ext ? final.replace(/\.[a-z0-9]+$/i, `.${ext}`) : final;
 }
 
 export function sanearTitulo(raw: unknown): string {

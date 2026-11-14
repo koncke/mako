@@ -196,7 +196,7 @@ function Cierre() {
   return (
     <section className={c('cierre')}>
       <div className={c('cierre-in')}>
-        <h2 className={`${c('h2')} ${c('cierre-h2')}`}>¿Lo quieres andando <em>en tu negocio?</em></h2>
+        <h2 className={`${c('h2')} ${c('cierre-h2')}`}>¿Lo quieres funcionando <em>en tu negocio?</em></h2>
         <p className={c('cierre-p')}>{TEXTO_CIERRE}</p>
         <BotonBlanco />
       </div>

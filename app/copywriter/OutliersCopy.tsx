@@ -93,10 +93,20 @@ function IconoRed({ formato }: { formato: FormatoCopy }) {
  * también el gancho y unos renglones de la transcripción. YouTube no lleva transcripción (sólo su título).
  */
 function altoDelPie(o: OutlierCopy, telefono: boolean): number {
-  const base = telefono ? 118 : 92;
+  const base = (telefono ? 118 : 92) + (selloDe(o) ? 24 : 0);
   if (!imagenDelOriginal(o)) return base;
-  if (o.formato === 'youtube') return base + (telefono ? 40 : 46);
+  if (o.formato === 'youtube' && o.deDonde !== 'guion') return base + (telefono ? 40 : 46);
   return base + (telefono ? 96 : 112);
+}
+
+/**
+ * Lo que se sabe de lo que se DICE (13/11/2026, el flujo nuevo: «la transcripción a la vista en cada tarjeta»): transcrito, o que
+ * se transcribe al replicarlo (un reel o un YouTube con sólo su pie o su descripción). Un carrusel o un anuncio de texto, nada.
+ */
+function selloDe(o: Pick<OutlierCopy, 'deDonde' | 'formato'>): { texto: string; transcrito: boolean } | null {
+  if (o.deDonde === 'guion') return { texto: '✓ Transcrito', transcrito: true };
+  if (o.formato === 'reel' || o.formato === 'youtube') return { texto: 'Se transcribe al replicar', transcrito: false };
+  return null;
 }
 
 /**
@@ -120,7 +130,9 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
   // El gancho y lo que le sigue, sin repetirse (un gancho cortado con «…» no es el principio del texto: lib/copywriter/outliers.ts).
   const texto = textoDeTarjeta(o);
   const gancho = texto.gancho;
-  const sigue = o.formato === 'youtube' ? '' : texto.sigue;
+  // Un YouTube muestra sólo su título; transcrito, también lo que se dice.
+  const sigue = o.formato === 'youtube' && o.deDonde !== 'guion' ? '' : texto.sigue;
+  const sello = selloDe(o);
   const original = rota ? null : imagenDelOriginal(o);
   const video = o.formato === 'reel' || o.formato === 'youtube';
   return (
@@ -148,6 +160,8 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
           {/* Con el guion transcripto, se nota (12/11/2026, prueba en producción: 46 de los primeros 48 reels traían sólo su pie, y
               replicar el pie no copia lo que se DICE en la pieza). */}
           {o.deDonde === 'guion' ? <span className={oc.conGuion}>Guion</span> : null}
+          {/* En inglés: va después de lo del idioma del negocio, y se dice (13/11/2026, el flujo nuevo). MaKo lo escribe en el suyo. */}
+          {o.idioma === 'en' ? <span className={oc.conGuion} title="En inglés: MaKo lo escribe en tu idioma">EN</span> : null}
         </span>
         <span className={s.sobreImagen}>
           <button type="button" className={s.editar} onClick={onReplicar} disabled={replicando}>{replicando ? 'Armando…' : 'Replicar'}</button>
@@ -161,6 +175,7 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
             {sigue ? <p className={oc.siguePie}>{sigue}</p> : null}
           </div>
         ) : null}
+        {sello ? <span className={oc.sello} data-transcrito={sello.transcrito ? 'si' : undefined}>{sello.texto}</span> : null}
         <div className={s.creador}>
           {veces != null && nivel ? (
             <span className={s.mult} data-nivel={nivel} title={explicarMultiplo(o.multiplo)}>{rotuloOutlier(veces)}</span>
@@ -206,6 +221,8 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   const router = useRouter();
   const [ahora] = useState(() => Date.now());
   const [formato, setFormato] = useState<FormatoCopy | null>(null);
+  // «De tu tema» (13/11/2026, el flujo nuevo; lib/copywriter/portada-tema.ts): la portada abre ahí si hay bastante del tema del negocio.
+  const [tema, setTema] = useState(!!portada.tema?.abre);
   const [q, setQ] = useState('');
   const [orden, setOrden] = useState<OrdenCopy>('outlier');
   const [abierto, setAbierto] = useState<OutlierCopy | null>(null);
@@ -217,10 +234,12 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   // La cuenta de cada formato y el total son los de TODA la portada, aunque la página traiga sólo la primera tanda.
   const cuantos = useMemo(() => {
     const n = new Map<FormatoCopy, number>();
+    // Con «De tu tema», los de su tema.
+    if (tema && portada.tema) { for (const f of FORMATOS_COPY) n.set(f, portada.tema.porFormato[f] ?? 0); return n; }
     if (portada.porFormato) for (const f of FORMATOS_COPY) n.set(f, portada.porFormato[f] ?? 0);
     else for (const o of portada.outliers) n.set(o.formato, (n.get(o.formato) ?? 0) + 1);
     return n;
-  }, [portada.outliers, portada.porFormato]);
+  }, [portada.outliers, portada.porFormato, portada.tema, tema]);
   const totalPortada = portada.total ?? portada.outliers.length;
 
   // La portada por tandas (13/11/2026, el Cerebro: mandaba los 924 outliers de una, 1,19 MB). Con `portada.total`, la página trajo
@@ -229,12 +248,16 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   // banco), la portada entera está acá y se filtra acá, como antes.
   const remota = portada.total != null;
   const [conocidos, setConocidos] = useState<OutlierCopy[]>(portada.outliers);
-  const aMano = useMemo(() => filtrarOutliersCopy(remota ? conocidos : portada.outliers, { formato, q }, orden),
-    [remota, conocidos, portada.outliers, formato, q, orden]);
+  const aMano = useMemo(() => filtrarOutliersCopy(remota ? conocidos : portada.outliers, { formato, q, tema }, orden),
+    [remota, conocidos, portada.outliers, formato, q, orden, tema]);
   const qPedida = useDiferido(q, 300);
-  const consulta = useMemo(() => ({ filtros: { formato, q: qPedida }, orden }), [formato, qPedida, orden]);
+  const consulta = useMemo(() => ({ filtros: { formato, q: qPedida, tema }, orden }), [formato, qPedida, orden, tema]);
   const clave = claveDeConsulta(consulta.filtros, consulta.orden);
-  const [lista, setLista] = useState(() => ({ clave: claveDeConsulta({ formato: null, q: '' }, 'outlier'), items: portada.outliers, total: totalPortada }));
+  // La primera tanda que vino con la página: la de «De tu tema» si abre ahí (lib/copywriter/outliers.ts, `primeraTandaCopy`).
+  const [lista, setLista] = useState(() => ({
+    clave: claveDeConsulta({ formato: null, q: '', tema: !!portada.tema?.abre }, 'outlier'), items: portada.outliers,
+    total: portada.tema?.abre ? portada.tema.total : totalPortada,
+  }));
   const [pidiendo, setPidiendo] = useState(false);
   // Una tanda que no llegó no se vuelve a pedir sola al bajar (sería un pedido por cada movimiento): queda «Ver más».
   const [fallo, setFallo] = useState(false);
@@ -257,7 +280,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
     void traer(0);
   }, [clave]); // eslint-disable-line react-hooks/exhaustive-deps
   // Lo que ya llegó del server para lo que se está mirando (con lo escrito al día, no sólo lo pedido).
-  const alDia = remota && lista.clave === claveDeConsulta({ formato, q }, orden);
+  const alDia = remota && lista.clave === claveDeConsulta({ formato, q, tema }, orden);
 
   // De a TANDA tarjetas (11/11/2026, Martín: «anda increíblemente lento». Medido: se dibujaban las 2.291 de una, 46.030 elementos,
   // y cada cambio de filtro tardaba de 1 a 7 s). Al bajar se suman solas; «Ver más» por si el navegador no avisa (una pestaña de
@@ -271,7 +294,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
     if (!remota) setMostrar((n) => n + TANDA);
     else if (alDia && !pidiendo) void traer(lista.items.length);
   };
-  useEffect(() => { setMostrar(TANDA); }, [formato, q, orden]);
+  useEffect(() => { setMostrar(TANDA); }, [formato, q, orden, tema]);
   const fin = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = fin.current;
@@ -305,7 +328,14 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
 
   const segmento = (
     <div className={s.segmento} role="radiogroup" aria-label="Qué ver">
-      <button type="button" role="radio" aria-checked={formato === null} onClick={() => setFormato(null)}>Todos</button>
+      {/* «De tu tema» primero (lo del tema del negocio) y «Todo»; los formatos filtran dentro de lo que se esté mirando. */}
+      {portada.tema ? (
+        <button type="button" role="radio" aria-checked={tema && formato === null} onClick={() => { setTema(true); setFormato(null); }}
+          title={`Lo que habla de ${portada.tema.negocio.nombre}, como tu negocio`}>
+          De tu tema<span className={s.n}>{portada.tema.total}</span>
+        </button>
+      ) : null}
+      <button type="button" role="radio" aria-checked={!tema && formato === null} onClick={() => { setTema(false); setFormato(null); }}>{portada.tema ? 'Todo' : 'Todos'}</button>
       {FORMATOS_COPY.filter((f) => cuantos.get(f)).map((f) => (
         <button key={f} type="button" role="radio" aria-checked={formato === f} onClick={() => setFormato(f)}>
           {INFO_FORMATO[f].plural}<span className={s.n}>{cuantos.get(f)}</span>
@@ -384,7 +414,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
             {vistos.length === 0 && remota && !alDia ? (
               <div className={s.vacio}><p>Buscando…</p></div>
             ) : vistos.length === 0 ? (
-              <div className={s.vacio}><p>Nada con esa búsqueda.</p><button type="button" className={s.texto} onClick={() => { setQ(''); setFormato(null); }}>Quitar filtros</button></div>
+              <div className={s.vacio}><p>Nada con esa búsqueda.</p><button type="button" className={s.texto} onClick={() => { setQ(''); setFormato(null); setTema(false); }}>Quitar filtros</button></div>
             ) : (
               <>
                 {/* Cada una con la forma de su red: en columnas, sin los huecos que dejaba un reel al lado de los de YouTube. */}

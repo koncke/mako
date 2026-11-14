@@ -90,7 +90,7 @@ export const LANDING_AGENDA: LandingCompetencia = {
       tipo: 'hero',
       etiqueta: 'Tu agenda de ventas, conectada a tu CRM',
       titulo: 'Ordena tus leads <em>usando tu misma agenda</em>',
-      bajada: `MaKo es la agenda conectada a tu CRM: quien reserva en tu <strong>${AGENDAS}</strong> entra con lo que contestó, en la etapa del funnel que elegiste, y con Automations recuperas a los que no terminaron de agendar y les das seguimiento por el canal correcto.`,
+      bajada: `MaKo conecta tu <strong>${AGENDAS}</strong> a tu CRM: quien reserva entra con lo que contestó, en la etapa del funnel que elegiste, y con Automations recuperas a los que no terminaron de agendar y les das seguimiento por el canal correcto.`,
       puntos: ['Tu misma agenda: no cambias de herramienta', 'Con Automations, la reunión se le recuerda al lead'],
       visual: { tipo: 'propio', slug: 'agenda' },
     },
@@ -134,7 +134,7 @@ export const LANDING_AGENDA: LandingCompetencia = {
       items: [
         { icono: I.persona, titulo: 'Cada uno ve las suyas', texto: 'Un closer o un setter entra a Calendar y arranca en sus llamadas.' },
         { icono: I.equipo, titulo: 'Tú ves todas', texto: 'Filtras por persona, o miras las que todavía no tienen a nadie asignado.' },
-        { icono: I.agenda, titulo: 'Con el resto de tu agenda', texto: 'Tus llamadas, tu Google Calendar, los deadlines del Plan y los cobros que vencen, en el mismo calendario.' },
+        { icono: I.agenda, titulo: 'Con el resto de tu agenda', texto: 'Tus llamadas, tu Google Calendar, las fechas límite del Plan y los cobros que vencen, en el mismo calendario.' },
       ],
     },
     { tipo: 'caso' },

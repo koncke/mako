@@ -152,7 +152,7 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       // Como su banda oscura «Copy only you can run»: la pregunta del titular y un párrafo que sigue de corrido.
       tipo: 'contraste',
       etiqueta: 'Copy que solo tú puedes firmar',
-      titulo: '¿Un competidor podría pegar tu titular en su página sin que nadie lo note? Si la respuesta es sí, no tienes copy. <em>Tienes papel tapiz.</em>',
+      titulo: '¿Un competidor podría pegar tu titular en su página sin que nadie lo note? Si la respuesta es sí, no tienes copy. <em>Tienes relleno.</em>',
       sin: {
         titulo: 'El copy de la IA suena bien y podría ser de cualquiera,',
         texto: 'porque nada de lo que escribe sabe algo de ti. Un prompt mejor no lo arregla, y tampoco un modelo más grande.',
