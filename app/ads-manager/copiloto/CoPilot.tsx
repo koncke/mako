@@ -22,6 +22,7 @@ import { CSS_OFFER } from '@/app/offer/estilos';
 import { Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { LogoRed } from '@/app/competitor-spy/LogoRed';
+import { BrandDefs } from '@/app/_components/ServicioVisual';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { BotonIntegracion, CON_SU_CLASE } from '@/app/_components/ConectarIntegracion';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
@@ -267,6 +268,8 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial, enTelefono = false
       <style>{CSS_OFFER}</style>
       <style>{CSS_EXTRA}</style>
       <style>{CSS_RETARGETING}</style>
+      {/* El logo de Meta de «Anuncios» es un <symbol> de BrandDefs: sin montarlo, la tarjeta llevaba un cuadrado azul vacío (14/11). */}
+      <BrandDefs />
       <main className="frn-board">
         <div className="frn-head frn-head--fija frn-head2">
           <span className="frn-marca frn-marca--sola" aria-label="Marketing CoPilot"><CriaturaMako size={34} /></span>

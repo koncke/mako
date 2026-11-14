@@ -7,11 +7,13 @@
 // qué campañas y cuánto inviertes; cuánto tiempo tienes para crear) y después «Lo que tienes»: conectar las redes que eligió. Lo que
 // decide el código está en lib/copiloto/entrada.ts (puro, con test); se guarda con POST /api/copiloto/entrada. Aparece mientras el
 // perfil no diga por dónde vende (`faltaLaEntrada`), y quien respondió la charla vieja la ve con lo que ya sabía marcado.
+// Sin subtítulos chicos (14/11, el Cerebro mirando producción): cada pantalla es la pregunta y sus tarjetas.
 // =============================================================================
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogoRed } from '@/app/competitor-spy/LogoRed';
+import { BrandDefs } from '@/app/_components/ServicioVisual';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import { CSS_COPILOTO } from './copiloto-css';
@@ -31,7 +33,6 @@ const CSS = `
 .cop-ent__barra span { flex: 1; height: 3px; border-radius: 2px; background: var(--hair); transition: background .35s ease; }
 .cop-ent__barra span[data-si="true"] { background: var(--ink); }
 .cop-ent h2 { margin: 0; font-size: clamp(24px, 2.4vw, 32px); font-weight: 640; letter-spacing: -.02em; line-height: 1.2; text-align: center; color: var(--ink); }
-.cop-ent__sub { margin: 10px 0 0; font-size: 16px; line-height: 1.5; color: var(--muted); text-align: center; }
 .cop-ent__ops { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .cop-ent__ops[data-tres="true"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cop-ent__op { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px; min-height: 84px;
@@ -106,7 +107,7 @@ export function Entrada({ inicial, conexiones }: { inicial: RespuestasEntrada; c
   if (fuentes) {
     cuerpo = (
       <>
-        <div><h2>Conecta lo que tienes</h2><p className="cop-ent__sub">Con tus cuentas conectadas leo lo que pasa y te digo qué tocar.</p></div>
+        <h2>Conecta lo que tienes</h2>
         <div className="cop-ent__fuentes">
           {r.canales.map((c) => (
             <div key={c} className="cop-ent__fuente">
@@ -122,12 +123,12 @@ export function Entrada({ inicial, conexiones }: { inicial: RespuestasEntrada; c
     );
   } else {
     const lista = pantallaLista(p, r);
-    let titulo = '', sub = '', ops: React.ReactNode = null;
+    let titulo = '', ops: React.ReactNode = null;
     if (p === 'canales') {
-      titulo = '¿Por dónde vendes?'; sub = 'Lo que ya haces o lo que quieres empezar. Puedes elegir más de uno.';
+      titulo = '¿Por dónde vendes?';
       ops = <div className="cop-ent__ops" data-tres="true">{CANALES_ENTRADA.map(([k, t]) => <Opcion key={k} sel={r.canales.includes(k)} t={t} logo={k} onClick={() => setR({ ...r, canales: alternar(r.canales, k) })} />)}</div>;
     } else if (p === 'campanas') {
-      titulo = '¿Qué campañas haces o quieres hacer?'; sub = 'Puedes elegir más de una.';
+      titulo = '¿Qué campañas haces o quieres hacer?';
       ops = <div className="cop-ent__ops">{CAMPANAS_ENTRADA.map((c) => <Opcion key={c.id} sel={r.campanas.includes(c.id)} t={c.t} d={c.d} onClick={() => setR({ ...r, campanas: alternar(r.campanas, c.id) })} />)}</div>;
     } else if (p === 'presupuesto') {
       titulo = '¿Cuánto quieres invertir en anuncios por mes?';
@@ -139,7 +140,7 @@ export function Entrada({ inicial, conexiones }: { inicial: RespuestasEntrada; c
     cuerpo = (
       <>
         <div className="cop-ent__barra" aria-hidden="true">{[...pantallas, 'fuentes'].map((_, k) => <span key={k} data-si={k <= i} />)}</div>
-        <div><h2>{titulo}</h2>{sub && <p className="cop-ent__sub">{sub}</p>}</div>
+        <h2>{titulo}</h2>
         {ops}
         {error && <p className="cop-ent__error" role="alert">{error}<ReportarASoporte error={error} accion="Guardar la entrada del Marketing CoPilot" /></p>}
         <div className="cop-ent__pie">
@@ -153,6 +154,7 @@ export function Entrada({ inicial, conexiones }: { inicial: RespuestasEntrada; c
     <div className="frn frn--mono cop">
       <style>{CSS_COPILOTO}</style>
       <style>{CSS}</style>
+      <BrandDefs />
       <main className="cop-ent">
         <div className="cop-ent__col">
           <CriaturaMako size={48} />
