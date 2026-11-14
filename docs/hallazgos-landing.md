@@ -70,9 +70,8 @@ flujo?». Lo que había y lo que queda:
   publicar. Su id sale igual en «Asignar fuentes» (derivado, ver hallazgos-editor-landing), pero el opt-in de esa página no lo
   manda: hasta republicar, rutea por URL.
 
-**Sin hacer**: la condición «Envió el formulario / se registró en la página X» del catálogo de condiciones, y sumar
-`optin_respuestas` a `COLS_RESPUESTAS` (lib/nutricion.ts) para que «Respuesta del formulario contiene» vea las de la landing
-(relevo, punto 5, partes 3 y 4).
+La condición «Envió el formulario X» y «Respuesta del formulario contiene» con las respuestas de la landing quedaron hechas el
+mismo día: ver hallazgos-chatbot, «Envió el formulario X».
 
 ## Landings por función copiadas de la competencia: lo que hay que saber antes de hacer la próxima (11/11/2026)
 

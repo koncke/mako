@@ -940,7 +940,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'formulario', tipo: 'string', obligatorio: true, max: 160, descripcion: 'la clave o el nombre (de listar_landings → webGenerator, área landing).' },
       { nombre: 'plantilla', tipo: 'string', obligatorio: true, enum: IDS_PLANTILLAS, descripcion: 'el id de la plantilla de automatización (de listar_plantillas_automatizaciones).' },
     ],
-    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla y el CRON «Envió el formulario»',
+    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla, y que la dispara «Envió el formulario»',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
 ];

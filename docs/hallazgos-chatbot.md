@@ -40,6 +40,15 @@ formulario, landing })`), también cuando el contacto ya existía.
   actualizaron con el renglón nuevo.
 - Por la API: `arrancar_con_formulario` (plantilla + formulario, nace pausada). `cambiar_crons_secuencia` **no** acepta
   todavía `pieza`: si hace falta, va su campo con descripción corta (el presupuesto de herramientas del turno).
+- **La condición «Envió el formulario X»** (Origen y tracking; uno o varios, o «Cualquiera de «Landing»»): lee `lead_formularios`
+  (fuente `formularios`). Sin la tabla (la 0415 sin aplicar) dice «no sé», nunca «no envió»; leída, quien no envió nada tiene el
+  conjunto vacío y «no envió» SÍ es un dato. Sus opciones salen del catálogo remoto del editor (`formularios`, aparte y con su
+  catch, como las reuniones).
+- **«Respuesta del formulario contiene» no veía nada de la landing**: el lector juntaba `lead_respuestas`, las `respuesta_*` y
+  `meta_field_data`, pero no `leads.optin_respuestas` (donde caen el formulario y el quiz del Web Generator). Ahora sí, sólo las
+  respuestas (sin la pregunta), como las otras fuentes.
+- «CRON» es la palabra de la tarjeta del lienzo (junto a DELAY, CONDITION…); en lo que se escribe nuevo para el cliente va
+  «Lo que la dispara».
 
 ## Una línea caída no pierde los mensajes: los guarda sin vencimiento, y al reconectar salen viejos (14/11/2026, Mauricio, ws1, claude5)
 
