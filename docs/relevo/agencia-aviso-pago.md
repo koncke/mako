@@ -11,9 +11,6 @@ origin/main el 14/11 ~18:40.
   (`agencia-aviso-pago-1411/`). Banco: `scripts/banco-agency/` (leer-prod.mts lee sin escribir; el JSON queda fuera del repo).
 
 ## Falta
-1. **Pedido del Cerebro (14/11, sin empezar):** `textoDelAvisoDeEntradas` (lib/agencia-mes-reglas.ts, ~línea 668) sale en singular con
-   DOS o más clientes en pausa. Con varios: «sus entradas», «si las pagan hoy», «Páguenlas», «si alguno ya no sigue, denlo de baja»
-   (las palabras exactas del Cerebro). Con una sola, queda como está. Test en tests/agencia-mes.test.ts (ya importa la función,
-   ~línea 402), probado rompiéndolo. El Cerebro mandó a mano el aviso de Giselle y Marcela (US$ 65,80) por esto.
+1. ~~El plural de `textoDelAvisoDeEntradas`~~: HECHO (14/11), con su test en tests/agencia-mes.test.ts (45/0; sin el arreglo, 44/1).
 2. El tsc acotado dio 99 dos veces (RAM): los tipos los chequea la punta en GitHub. Mirar su Action.
 3. Pablo Chavez (18) también está en pausa por la mensualidad (medido 14/11): avisarlo si no se sabe.
