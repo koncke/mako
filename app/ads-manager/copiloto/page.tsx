@@ -31,6 +31,9 @@ import { leerPilotoRedes, numeroDelReel } from '@/lib/copiloto/piloto';
 import { propuestasDelPiloto, ritmoConElPiloto } from '@/lib/copiloto/piloto-redes';
 import { lunesDe } from '@/lib/copiloto/nevera-reglas';
 import { getPlantilla } from '@/lib/plantillas';
+import { retencionDeLanding } from '@/lib/landing-retencion-server';
+import { resumenVsl } from '@/lib/copiloto/vsl';
+import { periodoDeFechas } from '@/lib/landing-retencion';
 import { verRetargeting } from '@/lib/retargeting';
 import { paginasAnalizadas } from '@/lib/copiloto/web';
 import { leerNevera, ritmoDelPerfil } from '@/lib/copiloto/nevera';
@@ -109,6 +112,15 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
     largosPublicados: nevera?.filas.find((x) => x.formato === 'video')?.publicadas30 ?? 0,
     instagram: !!igViva, youtube: !!ytViva,
   }) : [];
+  // Su VSL (14/11): sólo si su campaña lleva uno. La curva del Pixel de la primera landing, de 30 días, con tope de tiempo.
+  const conVsl = perfil.funnel === 'vsl-llamada' || !!perfil.campanas?.includes('vsl-llamada');
+  const landingVsl = urls[0] ?? null;
+  // El período de 30 días como lo arma la API (ISO, `hasta` exclusivo): `periodoDeFechas` con días nunca da error.
+  const periodo = periodoDeFechas({ dias: 30 }, Date.now()) as { desde: string; hasta: string };
+  const retVsl = conVsl && landingVsl
+    ? await conTope(runWithWorkspace(ws, () => retencionDeLanding({ url: landingVsl, desde: periodo.desde, hasta: periodo.hasta })), 6000)
+    : null;
+  const vsl = conVsl ? { landing: landingVsl, resumen: retVsl?.medido ? resumenVsl(retVsl.videos) : null } : undefined;
   const propias = {
     ...(igPropio ? { instagram: puntosInstagram(igPropio, { landings: urls, porSemana: ritmo ? ((ritmo.reel ?? 0) + (ritmo.post ?? 0)) || null : null, hoy: new Date() }) } : {}),
     ...(ytPropio ? { youtube: puntosYoutube(ytPropio, { landings: urls }) } : {}),
@@ -133,6 +145,7 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
     nevera,
     propias,
     propuestas,
+    ...(vsl ? { vsl } : {}),
     pilotoRedes: pilotoRedes ? { instagram: pilotoRedes.instagram, youtube: pilotoRedes.youtube, avisoNevera: plantillaNevera?.enabled ?? true } : null,
     redes: {
       instagram: ig.map((c) => ({ usuario: c.usuario, vencida: !!c.vencida })),

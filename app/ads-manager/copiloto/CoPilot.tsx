@@ -37,6 +37,7 @@ import type { PaginaAnalizada } from '@/lib/copiloto/web';
 import type { Nevera } from '@/lib/copiloto/nevera';
 import type { PuntoRed } from '@/lib/copiloto/redes-propias-reglas';
 import type { PilotoInstagram, PilotoYoutube } from '@/lib/copiloto/piloto-redes';
+import type { ResumenVsl } from '@/lib/copiloto/vsl';
 import { diaCorto, lunesDe, nombreFormato, type FormatoNevera } from '@/lib/copiloto/nevera-reglas';
 import { CSS_RETARGETING, Retargeting } from './Retargeting';
 import { CSS_COPILOTO } from './copiloto-css';
@@ -71,6 +72,8 @@ export type DatosCoPilot = {
   propuestas?: TareaCoPilot[];
   /** El piloto de Instagram y YouTube (lib/copiloto/piloto-redes.ts) y si el aviso de la nevera está prendido. null = no se pudo leer. */
   pilotoRedes?: { instagram: PilotoInstagram; youtube: PilotoYoutube; avisoNevera: boolean } | null;
+  /** Su VSL (lib/copiloto/vsl.ts), si su campaña lleva uno: la curva del Pixel, o null sin eventos (la tarjeta pide conectar). */
+  vsl?: { landing: string | null; resumen: ResumenVsl | null };
 };
 
 const PASOS: ReadonlyArray<readonly [Paso, string]> = [['analisis', 'Análisis y acción'], ['piloto', 'Piloto automático']];
@@ -133,6 +136,13 @@ const CSS_EXTRA = `
 .frn .mq-tetoca { margin-top: 0; }
 /* «Lo que hice»: el renglón a lo ancho del tablero medía 1100 px (más de 140 letras): se corta a un largo que se lee. */
 .frn .frn-ev p { max-width: 60ch; }
+/* Tu VSL (14/11): cinco columnas, cuánto sigue mirando en cada cuarto del video. */
+.frn .cop-vsl { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; align-items: end; margin: 16px 0 12px; }
+.frn .cop-vsl__col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.frn .cop-vsl__col b { font-size: 18px; font-weight: 700; color: var(--ink); }
+.frn .cop-vsl__barra { position: relative; width: 100%; max-width: 72px; height: 140px; border-radius: 12px; background: var(--panel); overflow: hidden; }
+.frn .cop-vsl__barra i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 12px; background: var(--ink); }
+.frn .cop-vsl__corte { font-size: 15px; color: var(--muted); }
 /* Lo que leyó de su cuenta propia (14/11): un renglón por punto, con su marca. */
 .frn .cop-puntos { list-style: none; margin: 14px 0 18px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .frn .cop-puntos li { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; line-height: 1.45; color: var(--ink); max-width: 70ch; }
@@ -315,6 +325,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
                 </>
               )}
               {tarjeta === 'anuncios' && <AnalisisAnuncios datos={datos} />}
+              {tarjeta === 'anuncios' && datos.vsl && <TuVsl vsl={datos.vsl} />}
               {tarjeta === 'web' && (datos.paginas.length ? <AnalisisWeb paginas={datos.paginas} /> : <TarjetaWeb paso="analisis" web={datos.web} />)}
               {(tarjeta === 'instagram' || tarjeta === 'youtube') && <TarjetaRed red={tarjeta} paso="analisis" cuentas={datos.redes[tarjeta]} puntos={datos.propias?.[tarjeta]} />}
               {tarjeta === 'instagram' && <NumeroDelReelCard reel={datos.reel} />}
@@ -483,6 +494,41 @@ function AnalisisAnuncios({ datos }: { datos: DatosCoPilot }) {
           ))}
         </ul>
       ) : <p className="frn-rem__h">Este mes ningún anuncio trajo {KPI[a.kpi]} todavía.</p>}
+    </section>
+  );
+}
+
+// ── Tu VSL (14/11, lo prometido a Julio) ─────────────────────────────────────
+// La curva del Pixel de MaKo en la landing del VSL (lib/copiloto/vsl.ts): cuánto sigue mirando en cada cuarto y UNA frase con dónde se
+// va la gente. Sin eventos, «¿Dónde está tu VSL?»: pegar el Pixel y conectar Wistia, que es lo que hace falta para medirlo.
+function TuVsl({ vsl }: { vsl: NonNullable<DatosCoPilot['vsl']> }) {
+  const r = vsl.resumen;
+  if (!r) {
+    const host = vsl.landing ? vsl.landing.replace(/^https?:\/\//, '').replace(/\/$/, '') : 'tu landing';
+    return (
+      <section className="frn-card cop-vacio">
+        <h2 className="frn-card__t">¿Dónde está tu VSL?</h2>
+        <p>Pega el Pixel de MaKo en {host} y te digo cuánto ven tu video y dónde se van.</p>
+        <div className="cop-acciones">
+          <Link className="frn-btn frn-btn--primary" href="/integraciones?abrir=landing">Pegar el Pixel</Link>
+          <Link className="frn-btn frn-btn--ghost" href="/integraciones?abrir=wistia">Conectar Wistia</Link>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="frn-card">
+      <div className="frn-card__head"><h2 className="frn-card__t">Tu VSL{r.titulo ? `: ${r.titulo}` : ''}</h2></div>
+      <div className="cop-vsl" role="img" aria-label={r.cuartos.map((c) => `${c.corte} % del video: ${c.porcentaje} % mirando`).join(', ')}>
+        {r.cuartos.map((c) => (
+          <div key={c.corte} className="cop-vsl__col">
+            <b className="frn-num">{c.porcentaje} %</b>
+            <span className="cop-vsl__barra"><i style={{ height: `${Math.max(2, Math.min(100, c.porcentaje))}%` }} /></span>
+            <span className="cop-vsl__corte">{c.corte === 0 ? 'Inicio' : c.corte === 100 ? 'Final' : `${c.corte} %`}</span>
+          </div>
+        ))}
+      </div>
+      <p className="cop-reel__x">{r.frase}</p>
     </section>
   );
 }
