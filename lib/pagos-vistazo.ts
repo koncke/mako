@@ -25,7 +25,7 @@
 import { ddmm, esCuotaDeBaja, esCuotaDevuelta, esRenovacionFallida, noEsDeuda, type Cobrado, type CuotaParaCobrado, type Tono } from './cobrado-lead';
 import { avisoPagoPorLinkAnulado, esDevolucionFallida, esTextoDeContracargo } from './cobros-reglas';
 import { NOMBRE_PASARELA, esPasarela, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
-import { CAMPOS_DEAL, MAX_OBLIGACIONES, MAX_TEXTO_DEAL, MAX_TEXTO_OBLIGACION, esMetodoPago, nombreCuota, ROTULO_METODO, type ParteObligacion, type SeccionDeal } from './pagos-campo';
+import { BOTON_VOLVER_A_PENDIENTE, CAMPOS_DEAL, MAX_OBLIGACIONES, MAX_TEXTO_DEAL, MAX_TEXTO_OBLIGACION, esMetodoPago, nombreCuota, ROTULO_METODO, type ParteObligacion, type SeccionDeal } from './pagos-campo';
 import { formatoMonto } from './pasarela-moneda';
 
 const redondo = (n: number) => Math.round(n * 100) / 100;
@@ -203,14 +203,26 @@ export type RenglonCuota = {
    * cobrada a mano. `ninguna`: la cobró la pasarela (se revierte con «Devolver», en el cobro) o está devuelta.
    */
   accion: 'marcar' | 'deshacer' | 'ninguna';
+  /**
+   * Lo que dice ese botón. ⚠️ El de la cobrada a mano es «Volver a pendiente», no «Deshacer» (14/11/2026, Mauricio: «no hay
+   * forma de deshacer o editar», con el botón a la vista): «Deshacer» se leía como deshacer lo último, no como «no pagó».
+   */
+  boton: string | null;
   /** Se puede cambiar el monto o la fecha (`editarCuotaAction`): sólo una impaga que no pasó por la pasarela. */
   editable: boolean;
 };
 
 const DE_PASARELA = (q: Pick<CuotaParaCobrado, 'proveedor'>): Pasarela | null => (esPasarela(q.proveedor) ? q.proveedor : null);
 
+const BOTON_DE: Readonly<Record<RenglonCuota['accion'], string | null>> = { marcar: 'Marcar pagada', deshacer: BOTON_VOLVER_A_PENDIENTE, ninguna: null };
+
 /** Cómo se lee una cuota y qué botón lleva. */
 export function renglonDeCuota(q: CuotaDelLead & { concepto?: string | null; metodo?: string | null }, hoy: string): RenglonCuota {
+  const r = renglonSinBoton(q, hoy);
+  return { ...r, boton: BOTON_DE[r.accion] };
+}
+
+function renglonSinBoton(q: CuotaDelLead & { concepto?: string | null; metodo?: string | null }, hoy: string): Omit<RenglonCuota, 'boton'> {
   const nombre = q.concepto?.trim() || nombreCuota(q.numero);
   const montoTexto = montoDeCuota(q);
   const pasarela = DE_PASARELA(q);

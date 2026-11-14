@@ -98,7 +98,7 @@ export function useCobrar(ctx: CtxFicha) {
         }));
         return;
       }
-      show(`${nombreCuota(q.numero)} desmarcada`, () => start(async () => {
+      show(`${nombreCuota(q.numero)} volvió a pendiente`, () => start(async () => {
         // Con lo que tenía: la moneda, lo cobrado en ella, el concepto y el método (lo que no viene, el server lo limpia).
         await marcarPagoManualAction(q.id, lead.id, {
           monto: Number(q.monto_usd), fecha: q.fecha_pago ?? ctx.hoy, hora: q.pago_hora ?? null,
