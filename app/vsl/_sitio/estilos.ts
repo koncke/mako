@@ -61,6 +61,12 @@ export const CSS_BASE = `
 .s-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .s-sitio a:focus-visible,.s-sitio summary:focus-visible,.s-sitio [tabindex]:focus-visible{outline:2px solid ${AZUL};outline-offset:2px}
 
+/* El ícono de MaKo como logo de app (la tabla y las tarjetas de Comparaciones, la cuenta de lo que pagas hoy): NEGRO sobre claro y
+   BLANCO sobre oscuro (Martín, 14/11/2026: «en modo claro sale blanco y en modo oscuro sale negro»). Lleva data-tema-fijo: el sol y
+   la luna llevaba su cuadro negro al modo como un fondo más, y en el claro lo pasaba a blanco. El modo lo dice data-sitio-modo. */
+.s-mk-ico{background:#1A1712}
+html[data-sitio-modo="oscuro"] .s-mk-ico{background:#fff}
+
 /* Su botón: la cara de color, radio 6. SIN las dos capas que se separaban al pasar el mouse (Martín, 12/11/2026: «hace una
    animación rarísima… no quiero que ese hover exista. De última un pequeño hover, pero muy sutil»): al pasar, se aclara apenas. */
 .s-btn{position:relative;display:inline-flex}
@@ -251,6 +257,85 @@ export const CSS_PIE = `
 `;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// «MaKo reemplaza apps que ya estás pagando»: la tira de logos y la cuenta (./LoQuePagas.tsx), en la portada y en Comparaciones
+// ─────────────────────────────────────────────────────────────────────────────
+export const CSS_REEMPLAZA = `
+/* La tira de logos: el rótulo 14/20 700 en mayúsculas espaciado 1.12, a 24 la fila que se desliza (85 s), con los bordes fundidos. */
+.s-tira{padding-bottom:32px}
+.s-tira-r{text-align:center;font-size:14px;line-height:20px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;margin-bottom:24px;padding:0 16px}
+.s-tira-v{overflow:hidden;-webkit-mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent)}
+.s-tira-p{display:flex;width:max-content;animation:s-desliza 85s linear infinite}
+.s-tira-l{display:flex;align-items:center;gap:48px;padding-right:48px}
+.s-tira-i{display:flex;align-items:center;gap:10px;height:48px;font-size:24px;line-height:28px;font-weight:800;letter-spacing:-.02em;color:#fff;white-space:nowrap;opacity:.92}
+/* La de las apps que MaKo reemplaza (12/11/2026): cada logo original flotando, sin recuadro (Martín: «prefiero que los logos estén
+   flotando nada más»),
+   más lenta porque son muchas, y el link a la comparación debajo. */
+.s-tira-reemplaza{padding-top:8px;padding-bottom:48px}
+.s-tira-reemplaza .s-tira-p{animation-duration:170s}
+.s-tira-app img{width:34px;height:34px;flex:none;border-radius:9px;object-fit:contain}
+.s-tira-ver{margin-top:20px;text-align:center;padding:0 16px}
+.s-tira-ver a{display:inline-flex;align-items:center;gap:8px;font-size:16px;line-height:24px;font-weight:700;color:${DORADO_CLARO}}
+.s-tira-ver a:hover{text-decoration:underline}
+.s-sitio .s-tira:not(.s-tira-reemplaza){padding-top:64px}
+@keyframes s-desliza{to{transform:translateX(-50%)}}
+
+/* LO QUE PAGAS HOY (14/11/2026, Martín: «está todo muy junto y no se llega a entender muy bien de quién es el precio»): una sola
+   columna, como un ticket. Cada fila, el logo, el nombre y el precio en el mismo renglón, unidos por puntos guía; las filas agrupadas
+   por para qué sirven; al final el total, MaKo Pro y lo que ahorras. Las líneas y los puntos se pintan con currentColor (una sombra o
+   un pseudo-elemento): el sol y la luna cambia el color del texto y no toca ni las sombras ni los pseudo-elementos, así siguen al
+   texto en los dos modos (un borde oscuro, en el claro, el script lo aclaraba y desaparecía). */
+.s-ah-afuera{padding:0 24px;margin:44px 0 8px}
+.s-ah{max-width:680px;margin:0 auto;padding:30px 34px 34px;background:#fff;color:#12151B;border-radius:20px;text-align:left;box-shadow:0 0 0 1px color-mix(in srgb,currentColor 12%,transparent),0 28px 70px -40px rgba(0,0,0,.55)}
+.s-ah-t{font-size:22px;line-height:28px;font-weight:800;letter-spacing:-.01em}
+.s-ah-g{margin-top:22px}
+.s-ah-gt{padding-bottom:4px;font-size:15px;line-height:22px;font-weight:700;opacity:.62}
+.s-ah-g ul{list-style:none;margin:0;padding:0}
+.s-ah-f{display:flex;align-items:center;gap:14px;min-height:50px;margin:0;font-size:17px;line-height:24px}
+.s-ah-g li + li{box-shadow:inset 0 1px 0 color-mix(in srgb,currentColor 9%,transparent)}
+.s-ah-f img{width:32px;height:32px;flex:none;object-fit:contain;border-radius:8px}
+.s-ah-n{flex:none;max-width:60%;font-weight:600}
+.s-ah-guia{flex:1 1 auto;min-width:18px;align-self:stretch;position:relative;opacity:.4}
+.s-ah-guia::after{content:'';position:absolute;left:0;right:0;top:calc(50% + 4px);height:4px;background-image:radial-gradient(circle,currentColor 1.15px,transparent 1.6px);background-size:8px 4px;background-repeat:repeat-x;background-position:right center}
+.s-ah-p{flex:none;min-width:4.6em;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+/* El total: la raya gruesa de un ticket arriba y el número tachado. */
+.s-ah-tot{margin-top:18px;padding-top:6px;box-shadow:inset 0 2px 0 currentColor;font-size:19px}
+.s-ah-tot .s-ah-n{font-weight:800}
+.s-ah-tot .s-ah-p{font-size:24px;font-weight:800;text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#E11D48}
+/* MaKo Pro: su ícono y su precio en azul, en una franja del tinte del azul. */
+.s-ah-mk{margin-top:10px;padding:8px 14px;border-radius:14px;background:#EEF3FE;font-size:19px}
+.s-ah-mk .s-ah-n{font-weight:800}
+.s-ah-mk .s-ah-p{font-size:26px;font-weight:800;color:${AZUL}}
+.s-ah-ico{width:32px;height:32px;flex:none;border-radius:9px;display:inline-flex;align-items:center;justify-content:center}
+.s-ah-gana{margin-top:14px;padding:16px 20px;border-radius:14px;background:linear-gradient(140deg,${AZUL},#1E3FA8);color:#fff;font-size:18px;line-height:27px;font-weight:500}
+.s-ah-gana strong{font-weight:800;color:#FDE68A}
+/* En Comparaciones (la página clara): una franja blanca, con la letra de la tira en tinta. */
+.s-reemplaza-claro{background:#fff;padding:72px 0 80px}
+.s-reemplaza-claro .s-tira-r,.s-reemplaza-claro .s-tira-i{color:${TINTA}}
+.s-reemplaza-claro .s-ah{box-shadow:0 0 0 1px color-mix(in srgb,currentColor 14%,transparent),0 24px 60px -36px rgba(6,4,25,.35)}
+@media (prefers-reduced-motion:reduce){
+  .s-tira-p{animation:none;width:auto}
+  .s-tira-l{flex-wrap:wrap;justify-content:center;gap:16px 40px;padding:0 24px}
+  .s-tira-l[aria-hidden]{display:none}
+}
+@media (max-width:767px){
+  .s-tira-r{font-size:12px;line-height:16px}
+  .s-tira-i{font-size:20px;line-height:24px;height:40px}
+  .s-ah-afuera{padding:0 16px;margin-top:32px}
+  .s-ah{padding:22px 18px 20px;border-radius:16px}
+  .s-ah-t{font-size:19px;line-height:25px}
+  .s-ah-g{margin-top:18px}
+  .s-ah-f{gap:10px;min-height:46px;font-size:16px}
+  .s-ah-f img,.s-ah-ico{width:28px;height:28px;border-radius:7px}
+  .s-ah-tot{font-size:17px}
+  .s-ah-tot .s-ah-p{font-size:20px}
+  .s-ah-mk{padding:8px 10px;font-size:17px}
+  .s-ah-mk .s-ah-p{font-size:22px}
+  .s-ah-gana{padding:14px 16px;font-size:16px;line-height:24px}
+  .s-reemplaza-claro{padding:48px 0 56px}
+}
+`;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // La portada (/vsl/sitio)
 // ─────────────────────────────────────────────────────────────────────────────
 export const CSS_PORTADA = `
@@ -291,24 +376,7 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-panel{position:relative;background:#fff;border-radius:12px;overflow:hidden;color:#12151B}
 .s-panel svg{display:block;max-width:100%;height:auto}
 
-/* La tira de logos: el rótulo 14/20 700 en mayúsculas espaciado 1.12, a 24 la fila que se desliza (85 s), con los bordes fundidos. */
-.s-tira{padding-bottom:32px}
-.s-tira-r{text-align:center;font-size:14px;line-height:20px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#fff;margin-bottom:24px;padding:0 16px}
-.s-tira-v{overflow:hidden;-webkit-mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent)}
-.s-tira-p{display:flex;width:max-content;animation:s-desliza 85s linear infinite}
-.s-tira-l{display:flex;align-items:center;gap:48px;padding-right:48px}
-.s-tira-i{display:flex;align-items:center;gap:10px;height:48px;font-size:24px;line-height:28px;font-weight:800;letter-spacing:-.02em;color:#fff;white-space:nowrap;opacity:.92}
-/* La de las apps que MaKo reemplaza (12/11/2026): cada logo original flotando, sin recuadro (Martín: «prefiero que los logos estén
-   flotando nada más»),
-   más lenta porque son muchas, y el link a la comparación debajo. */
-.s-tira-reemplaza{padding-top:8px;padding-bottom:48px}
-.s-tira-reemplaza .s-tira-p{animation-duration:170s}
-.s-tira-app img{width:34px;height:34px;flex:none;border-radius:9px;object-fit:contain}
-.s-tira-ver{margin-top:20px;text-align:center;padding:0 16px}
-.s-tira-ver a{display:inline-flex;align-items:center;gap:8px;font-size:16px;line-height:24px;font-weight:700;color:${DORADO_CLARO}}
-.s-tira-ver a:hover{text-decoration:underline}
-.s-sitio .s-tira:not(.s-tira-reemplaza){padding-top:64px}
-@keyframes s-desliza{to{transform:translateX(-50%)}}
+${CSS_REEMPLAZA}
 
 /* Las secciones: 96 arriba y abajo. La cabecera: el rótulo 14/20 de color, el título 48/48 a 8 px; a la derecha el texto 20/28 y,
    a 24, el botón, alineados abajo. */
@@ -391,23 +459,6 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-caso-cierre p{margin:0;max-width:640px;font-size:22px;line-height:1.45}
 @media (max-width:900px){.s-caso-arriba{grid-template-columns:1fr;gap:32px}.s-caso-vid{max-width:420px;width:100%;margin:0 auto}.s-caso-h{font-size:32px}.s-caso-comp{grid-template-columns:1fr}.s-caso-fotos{grid-template-columns:1fr 1fr}.s-caso-fotos li:last-child{display:none}.s-caso-tira{margin-bottom:48px}.s-caso-tira-l li{font-size:16px}}
 @media (prefers-reduced-motion:reduce){.s-caso-tira-p{animation:none}}
-/* El ahorro: lo que paga hoy un negocio típico (izquierda) contra MaKo Pro (derecha). */
-.s-ahorro{max-width:1040px;margin:40px auto 8px;padding:0 24px;display:grid;grid-template-columns:1.45fr 1fr;gap:20px;text-align:left}
-.s-ahorro-hoy,.s-ahorro-mako{border-radius:18px;padding:24px 26px;background:#fff;border:1px solid rgba(18,21,27,.1)}
-.s-ahorro-mako{background:linear-gradient(140deg,#2F6FED,#1E3FA8);color:#fff;border-color:transparent;display:flex;flex-direction:column;justify-content:center}
-.s-ahorro-t{margin:0 0 14px;font-size:15px;font-weight:700;opacity:.75}
-/* La lista en DOS columnas (14/11/2026, noche, Martín: «la lista quedó muy larga»). */
-.s-ahorro-hoy ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 22px}
-.s-ahorro-hoy li{display:flex;align-items:center;gap:12px;font-size:16px}
-.s-ahorro-hoy img{width:28px;height:28px;border-radius:7px;background:#fff;box-shadow:0 0 0 1px rgba(18,21,27,.08)}
-.s-ahorro-n{flex:1;font-weight:600}.s-ahorro-n small{display:block;font-size:13px;font-weight:500;opacity:.6}
-.s-ahorro-p{font-weight:700;font-variant-numeric:tabular-nums}
-.s-ahorro-tot{margin:16px 0 0;padding-top:14px;border-top:1px dashed rgba(18,21,27,.2);display:flex;justify-content:space-between;font-size:17px}
-.s-ahorro-tot strong{font-size:22px;text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#E11D48}
-.s-ahorro-pro{margin:0;font-size:18px}.s-ahorro-pro strong{font-size:40px;line-height:1.1}
-.s-ahorro-gana{margin:14px 0 0;font-size:18px;line-height:1.4}.s-ahorro-gana strong{color:#FDE68A}
-.s-ahorro-nota{margin:16px 0 0;font-size:12px;line-height:1.5;opacity:.6}
-@media (max-width:760px){.s-ahorro{grid-template-columns:1fr;padding:0 16px}.s-ahorro-hoy ul{gap:10px 14px}.s-ahorro-hoy li{font-size:15px}}
 /* Cada función: su prueba gratis y, abajo, «Ver cómo funciona». */
 .s-zz-acc{margin-top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .s-zz-acc .s-zz-a{margin-top:10px}
@@ -550,9 +601,6 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-cierre-caja .s-btn{margin-top:24px}
 
 @media (prefers-reduced-motion:reduce){
-  .s-tira-p{animation:none;width:auto}
-  .s-tira-l{flex-wrap:wrap;justify-content:center;gap:16px 40px;padding:0 24px}
-  .s-tira-l[aria-hidden]{display:none}
   .s-card-a svg,.s-q summary svg{transition:none}
 }
 @media (max-width:1279px){
@@ -592,8 +640,6 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
   .s-hero-vis{margin-top:32px;zoom:.6}
   .s-btn-t{font-size:16px;line-height:24px}
   .s-btn-alto .s-btn-t{padding:10px 24px}
-  .s-tira-r{font-size:12px;line-height:16px}
-  .s-tira-i{font-size:20px;line-height:24px;height:40px}
   .s-sec{padding:40px 0}
   .s-h2{font-size:36px;line-height:40px}
   .s-lede{font-size:18px;line-height:28px}
@@ -643,7 +689,7 @@ export const CSS_COMPARACIONES = `
 .s-ch{background-color:${AZUL_TINTE};background-image:radial-gradient(rgba(6,4,25,.13) 1px,transparent 1.4px);background-size:12px 12px;padding:144px 24px;text-align:center}
 .s-ch-logo{width:160px;height:160px;margin:0 auto;border-radius:28px;border:2px dashed rgba(47,111,237,.35);display:flex;align-items:center;justify-content:center}
 .s-ch-logo-in{width:134px;height:134px;border-radius:22px;background:#fff;border:3px solid ${AZUL};display:flex;align-items:center;justify-content:center}
-.s-ch-logo-c{width:108px;height:108px;border-radius:14px;background:#1A1712;display:flex;align-items:center;justify-content:center}
+.s-ch-logo-c{width:108px;height:108px;border-radius:14px;display:flex;align-items:center;justify-content:center}
 .s-ch-h1{${TITULAR};margin-top:24px;font-size:64px;line-height:66px;color:${TINTA}}
 .s-ch-p{margin:16px auto 0;max-width:768px;font-size:24px;line-height:32px;font-weight:500;color:${TINTA}}
 .s-ch .s-btn{margin-top:24px}
@@ -681,6 +727,12 @@ export const CSS_COMPARACIONES = `
    script: --mx-col y data-c). Sin JavaScript, las primeras cuatro. */
 .s-mx-caja{overflow:clip;background:#fff;border:2px solid ${TINTA};border-radius:10px}
 .s-mx:not([data-listo]):not([data-una]) [data-c]:nth-child(n+7){display:none}
+/* Martín, 14/11/2026: «al pasar de página con la flechita tiene que verse una animación de desplazamiento… si no, no se entiende».
+   Las columnas de las apps están todas puestas y se DESLIZAN: cada celda se corre --mx-x (lo pone el script: la página por el ancho
+   de una columna) en 300 ms; las de afuera las recorta la caja (clip: sin barra ni scroll de costado) y pasan por debajo de las dos
+   columnas fijas, que están encima (z-index) y son opacas. data-quieto: al medir (al abrir o al cambiar el ancho) no se anima. */
+.s-mx:not([data-una]) [data-c]{transform:translateX(var(--mx-x,0px));transition:transform .3s cubic-bezier(.22,.61,.36,1)}
+.s-mx[data-quieto] [data-c]{transition:none}
 .s-mx-caja:focus-visible{outline:3px solid ${AZUL};outline-offset:3px}
 .s-mx-t{border-collapse:separate;border-spacing:0;table-layout:fixed;width:max-content;min-width:100%}
 .s-mx-t th,.s-mx-t td{box-sizing:border-box}
@@ -693,8 +745,8 @@ export const CSS_COMPARACIONES = `
 .s-mx-t thead th.s-mx-app,.s-mx-t tbody td:not(.s-mx-mk){width:var(--mx-col,170px);min-width:var(--mx-col,170px);max-width:var(--mx-col,170px)}
 .s-mx-cab{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:15px;line-height:20px}
 .s-mx-cab b{font-weight:600}
-.s-mx-logo{width:36px;height:36px;border-radius:9px;object-fit:contain;background:#fff;box-shadow:0 0 0 1px rgba(6,4,25,.1)}
-.s-mx-estrella{width:36px;height:36px;border-radius:9px;background:#1A1712;display:inline-flex;align-items:center;justify-content:center}
+.s-mx-logo{width:36px;height:36px;border-radius:9px;object-fit:contain}
+.s-mx-estrella{width:36px;height:36px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center}
 .s-mx-btn{display:inline-flex;align-items:center;justify-content:center;margin-top:10px;padding:6px 12px;border-radius:6px;background:${AZUL};color:#fff;font-size:13px;line-height:18px;font-weight:600;white-space:nowrap}
 .s-mx-btn2{background:#fff;color:${TINTA};box-shadow:inset 0 0 0 1.5px #CECFD4}
 .s-mx-btn2:hover{box-shadow:inset 0 0 0 1.5px ${TINTA}}
@@ -712,7 +764,6 @@ export const CSS_COMPARACIONES = `
 .s-mx[data-una] .s-mx-caja{max-height:none;overflow:visible}
 .s-mx[data-una] .s-mx-t{width:100%}
 .s-mx[data-una] .s-mx-t .s-mx-mk,.s-mx[data-una] .s-mx-t .s-mx-app{width:auto}
-.s-mx-nota{margin-top:16px;font-size:16px;line-height:24px;color:#4B4A63}
 .s-mx-otras{margin-top:24px;font-size:18px;line-height:28px;font-weight:500}
 .s-mx-otras a{display:inline-flex;align-items:center;gap:8px;color:${AZUL}}
 
@@ -766,7 +817,7 @@ export const CSS_COMPARACIONES = `
    que se separan al pasar el mouse. */
 .s-cv{background:${AZUL_TINTE};padding:160px 0}
 .s-cv-h2{${TITULAR};font-size:48px;line-height:48px;color:${TINTA}}
-.s-cv-grilla{margin-top:40px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.s-cv-grilla{margin-top:40px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;grid-auto-flow:row dense}
 /* 14/11/2026, noche (Martín: «mejoraría muchísimo el diseño de las tarjetas, y no quiero que tenga ese hover de esa animación rara»):
    blancas, con borde fino y sombra suave; al pasar el mouse suben 3 px y se marca el borde. */
 .s-vs{position:relative;display:block;border-radius:18px;transition:transform .18s ease,box-shadow .18s ease}
@@ -775,10 +826,41 @@ export const CSS_COMPARACIONES = `
 .s-vs:hover .s-vs-cara{border-color:${AZUL};box-shadow:0 2px 4px rgba(6,4,25,.06),0 18px 40px -20px rgba(47,111,237,.45)}
 .s-vs-t{display:block;font-size:22px;line-height:28px;font-weight:700;color:${TINTA}}
 .s-vs-a{display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:20px;font-size:16px;line-height:24px;font-weight:600;color:${AZUL}}
+/* LA TARJETA ABRE SU PANEL EN EL LUGAR (Martín, 14/11/2026: llevaban a la landing principal en el visor). Sin JavaScript: la tarjeta es
+   un label con su casilla adentro, y el panel es el hermano que sigue, en la grilla. El panel ocupa la fila entera (grid-column 1 / -1)
+   y grid-auto-flow dense sube las tarjetas que siguen a completar la fila de la que se abrió: el panel cae justo debajo de esa fila.
+   La casilla va ADENTRO del label: afuera, al tomar el foco, el navegador saltaba al principio de la grilla (la posición de un
+   absoluto en una grilla es su esquina). :target abre el panel también desde un link (el «Comparar» de la tabla) sin JavaScript.
+   Abierta, la tarjeta se marca con una sombra (no con el borde: el sol y la luna fija los bordes al cargar). */
+.s-vs{cursor:pointer;scroll-margin-top:96px}
+.s-vs-ck:focus-visible ~ .s-vs-cara{outline:3px solid ${AZUL};outline-offset:3px}
+.s-vs-ck:checked ~ .s-vs-cara{box-shadow:0 0 0 2px ${AZUL},0 18px 40px -20px rgba(47,111,237,.45)}
+.s-vs-ck:checked ~ .s-vs-cara .s-vs-a-ver,.s-vs-a-cerrar{display:none}
+.s-vs-ck:checked ~ .s-vs-cara .s-vs-a-cerrar{display:inline}
+.s-vs-a svg{transition:transform .18s ease}
+.s-vs-ck:checked ~ .s-vs-cara .s-vs-a svg{transform:rotate(90deg)}
+.s-vs-panel{display:none;grid-column:1/-1;scroll-margin-top:96px;background:#fff;color:${TINTA};border-radius:18px;padding:32px;box-shadow:0 0 0 2px ${AZUL},0 24px 60px -36px rgba(6,4,25,.4)}
+.s-vs:has(> .s-vs-ck:checked) + .s-vs-panel,.s-vs-panel:target{display:block;animation:s-vs-abre .24s ease-out}
+@keyframes s-vs-abre{from{opacity:0;transform:translateY(-6px)}}
+.s-vs-pcab{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.s-vs-pcab .s-vs-logos{margin:0}
+.s-vs-pt{flex:1;font-size:28px;line-height:34px;font-weight:800;color:${TINTA}}
+.s-vs-cerrar{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:9999px;cursor:pointer;font-size:15px;line-height:20px;font-weight:600;color:${TINTA};box-shadow:inset 0 0 0 1.5px currentColor}
+.s-vs-cerrar:hover{color:${AZUL}}
+.s-vs-pdice{margin-top:16px;max-width:860px;font-size:19px;line-height:28px;font-weight:500;font-style:italic;color:#4B4A63}
+.s-vs-panel .s-el-dos{margin-top:24px;gap:20px}
+.s-vs-panel .s-el-col{padding:22px 24px}
+.s-vs-panel .s-el-h{font-size:22px;line-height:26px}
+.s-vs-panel .s-el-col ul{margin-top:16px;gap:10px}
+.s-vs-panel .s-el-col li{font-size:16px;line-height:24px}
+.s-vs-panel .s-mx{margin-top:28px}
+.s-vs-pie{margin-top:20px;display:flex;justify-content:flex-end}
 
 @media (prefers-reduced-motion:reduce){
   .s-vs,.s-vs-cara{transition:none}
   .s-vs:hover{transform:none}
+  .s-mx:not([data-una]) [data-c]{transition:none}
+  .s-vs-panel{animation:none}
 }
 @media (max-width:1023px){
   .s-cv-grilla{grid-template-columns:repeat(2,minmax(0,1fr));gap:32px}
@@ -804,5 +886,11 @@ export const CSS_COMPARACIONES = `
   .s-cv{padding:64px 0}
   .s-cv-h2{font-size:36px;line-height:40px}
   .s-cv-grilla{grid-template-columns:minmax(0,1fr);gap:32px}
+  .s-vs-panel{padding:20px 16px;border-radius:16px}
+  .s-vs-pcab .s-vs-logos{display:none}
+  .s-vs-pt{font-size:22px;line-height:28px}
+  .s-vs-pdice{font-size:17px;line-height:25px}
+  .s-vs-panel .s-el-col{padding:18px}
+  .s-vs-panel .s-el-h{font-size:19px;line-height:24px}
 }
 `;

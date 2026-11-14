@@ -6076,3 +6076,44 @@ sale vacío en la grabación («MaKo todavía no escribió sus conclusiones»: e
 (la PC estuvo más de una hora con menos de 3 GB libres): el oscuro escrito a mano de las tarjetas pastel (son links y el sol y la luna
 deja un link con fondo como está), los íconos de la franja a 375 y la pausa del video de la caja escondido a 390; y la foto de «Control»
 repite la meta (la meta + «Salud del negocio» apiladas está en `publicar.py` → `control()` del banco; falta la foto `node fotos.mjs fotos salud`).
+
+## Comparaciones y lo que pagas hoy: el ícono «al revés» era el sol y la luna, columnas que se deslizan sin caja con scroll, tarjetas que abren un panel sin JavaScript y logos sin su cuadrado blanco (14/11/2026, noche)
+
+Martín, mirando el visor: la cuenta de «lo que pagas hoy» no dejaba ver de quién era cada precio, la quería también al principio de
+Comparaciones, las flechas de la tabla «no se entienden» sin una animación, la nota de las fuentes sobraba, las tarjetas «MaKo vs»
+llevaban a la landing principal, el ícono de MaKo salía al revés según el modo y los logos traían su cuadrado blanco. Código:
+`app/vsl/_sitio/LoQuePagas.tsx` (la sección, una para las dos páginas), `Comparaciones.tsx`, `estilos.ts` (`CSS_REEMPLAZA`, `.s-mk-ico`).
+
+- **⚠️ El ícono de MaKo «al revés» no era un color mal puesto: era el sol y la luna.** Síntoma: en el claro, cuadro BLANCO con la
+  estrella; en el oscuro, negro sobre negro. Causa: el cuadro `#1A1712` de `.s-mx-estrella` / `.s-ch-logo-c` era un fondo más para
+  `planDelModo` (`TemaSitio.tsx`), que en el claro lleva todo fondo neutro oscuro a casi blanco y en el oscuro deja los oscuros: justo
+  al revés de lo que pide un ícono. **Regla:** un ícono que cambia con el modo lleva `data-tema-fijo` y su color sale del CSS por
+  `html[data-sitio-modo="oscuro"]` (`.s-mk-ico` en `CSS_BASE`: negro de base, blanco en el oscuro). Nunca se deja que el script lo
+  «lleve al modo».
+- **⚠️ Una línea fina con el sol y la luna NO va como borde.** En el claro el script aclara todo borde oscuro (queda gris casi blanco
+  sobre blanco) y en el oscuro deja los bordes oscuros (invisibles sobre la tarjeta que pasó a oscura). El script no toca sombras ni
+  pseudo-elementos, y un `currentColor` ahí sigue al `color` del texto, que sí cambia. Así van los puntos guía, las rayas entre filas y
+  el contorno de la cuenta (`box-shadow: … color-mix(in srgb, currentColor 12%, transparent)`, `::after` con `radial-gradient(currentColor …)`).
+- **Deslizar columnas de una tabla que no es una caja con scroll.** La caja es `overflow: clip` a propósito (con `hidden`/`auto` la
+  cabecera `sticky` se pega a la caja y no a la página), así que no hay `scrollLeft` que animar: cada celda `[data-c]` se corre con
+  `transform: translateX(var(--mx-x))` y una transición de 300 ms; las dos columnas fijas pasan por encima (z-index, fondo opaco).
+  `data-quieto` apaga la transición al medir (al abrir y al cambiar el ancho) para que no se anime sola; con «menos movimiento», sin
+  transición. Las celdas de afuera van `inert` + `aria-hidden` (antes `display: none` las sacaba del tabulador).
+- **Una tarjeta que abre un panel a lo ancho de la grilla, sin JavaScript y en el visor:** la tarjeta es un `<label>` con su casilla
+  ADENTRO y el panel es el hermano que sigue; `.s-vs:has(> .s-vs-ck:checked) + .s-vs-panel` lo muestra, `grid-column: 1 / -1` lo pone a
+  lo ancho y `grid-auto-flow: dense` sube las tarjetas que siguen a completar la fila: el panel cae justo debajo de la fila de la que
+  se abrió. Abierta, la tarjeta se marca con una sombra (el script fija los bordes al cargar). El «Comparar» de la cabecera de la tabla
+  es `#vs-<app>`: con JavaScript marca la casilla y baja; sin él abre igual con `:target`.
+- **⚠️ Un `aria-label` que empieza con «MaKo» es, para el sol y la luna, EL LOGO de MaKo.** `llevarAlModo` busca
+  `[aria-label^="MaKo"]` y le pinta al primer `<span>` el cuadro del logo (`#1A1712` en el claro). El panel «MaKo vs X» llevaba
+  `aria-label="MaKo vs …"` y salía una franja negra sobre sus dos logos. **Regla:** en el sitio, nada que no sea el logo lleva un
+  `aria-label` que empiece con «MaKo»; se nombra con `aria-labelledby`.
+- **Sacar el fondo blanco de un logo** (relleno desde los bordes por lo transparente o a menos de 60 del fondo medido, y «color a
+  alfa» en lo rellenado más 1 px alrededor). Trampas: (1) el «color a alfa» se hace contra el BLANCO, no contra el fondo medido: Skool
+  tiene fondo #F8F4F8 y el borde de sus letras es más blanco que eso; contra #F8F4F8 esos píxeles quedaban opacos y salía un contorno
+  punteado blanco sobre oscuro. Lo que es el fondo mismo (a menos de 16) va transparente del todo, o queda un cuadrado rosado al 4 %.
+  (2) Si el blanco del logo TOCA el fondo (Copy.ai, Motion: una raya blanca que sale del dibujo), el relleno se lo come. (3) Un logo
+  negro (ManyChat, la tijera de CapCut) sin su cuadrado desaparece sobre oscuro. Esos cuatro quedaron como estaban.
+
+**SIN HACER.** ManyChat, CapCut, Copy.ai y Motion siguen con su cuadrado blanco (`public/vsl-assets/logos/apps/`): para el oscuro
+harían falta sus versiones oficiales en blanco, y bajarlas pide el permiso de Martín.

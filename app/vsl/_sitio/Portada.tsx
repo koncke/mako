@@ -35,7 +35,7 @@ import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { CSS_TARJETAS, TarjetasPlanes } from '@/app/planes/Tarjetas';
 import { ASESORES, inspiradoEn } from '@/lib/asesores/catalogo';
 import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
-import { PLANES_MAKO_DEFAULT, type PlanMako } from '@/lib/planes-mako';
+import type { PlanMako } from '@/lib/planes-mako';
 import { Barra } from './Barra';
 import { AvatarVideos, TablerosCarrusel } from './Interactivos';
 import { Pie } from './Pie';
@@ -44,7 +44,7 @@ import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
 import {
   VIDEOS_AVATAR, LOGO_INTEGRACION, PREGUNTAS_SITIO, TABLEROS, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
 } from './datos';
-import { STACK_TIPICO, appsDeLaTira } from './reemplaza';
+import { SeccionReemplaza } from './LoQuePagas';
 
 /** Un plan como lo devuelve planesParaLanding() (lib/compra-plan.ts). */
 export type PlanSitio = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean };
@@ -83,65 +83,11 @@ function HeroSitio() {
 }
 
 /**
- * Debajo del hero, las apps que MaKo reemplaza, con su logo original (./reemplaza.ts) y el link a la comparación. Martín
- * (12/11/2026): «ese carrusel de aplicaciones lo pondría tal vez en otra sección más abajo, ahí pondría el mismo carrusel de MaKo
- * reemplaza las apps que ya estás pagando, que ahí justamente salga la comparativa». La de integraciones bajó a su sección.
+ * Las apps que MaKo reemplaza (la tira de logos) y lo que pagas hoy contra MaKo Pro: ./LoQuePagas.tsx, la MISMA sección que va al
+ * principio de Comparaciones (Martín, 14/11/2026). Martín (12/11/2026): «ese carrusel de aplicaciones lo pondría tal vez en otra
+ * sección más abajo, ahí pondría el mismo carrusel de MaKo reemplaza las apps que ya estás pagando, que ahí justamente salga la
+ * comparativa». La de integraciones bajó a su sección.
  */
-function TiraReemplaza() {
-  const apps = appsDeLaTira();
-  const lista = (oculta: boolean) => (
-    <ul className="s-tira-l" aria-hidden={oculta || undefined}>
-      {apps.map((a) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <li key={a.logo} className="s-tira-i s-tira-app"><img src={a.logo} alt="" width={30} height={30} />{a.nombre}</li>
-      ))}
-    </ul>
-  );
-  return (
-    <section className="s-tira s-tira-reemplaza" aria-label="Las apps que MaKo reemplaza">
-      <p className="s-tira-r">MaKo reemplaza apps que ya estás pagando</p>
-      <div className="s-tira-v">
-        <div className="s-tira-p">{lista(false)}{lista(true)}</div>
-      </div>
-      <Ahorro />
-      <p className="s-tira-ver"><a href={RUTA_COMPARACIONES}>Ver la comparación, trabajo por trabajo <Flecha size={18} /></a></p>
-    </section>
-  );
-}
-
-const usd = (n: number) => `US$${n.toLocaleString('es-AR', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
-
-/** Lo que paga hoy un negocio típico contra MaKo Pro (./reemplaza.ts → STACK_TIPICO), con la cuenta hecha acá. */
-function Ahorro() {
-  const pro = PLANES_MAKO_DEFAULT.find((p) => p.id === 'pro');
-  if (!pro) return null;
-  const hoy = STACK_TIPICO.reduce((s, x) => s + x.precioUsd, 0);
-  const mes = Math.round((hoy - pro.precioUsd) * 100) / 100;
-  if (mes <= 0) return null;
-  return (
-    <div className="s-ahorro">
-      <div className="s-ahorro-hoy">
-        <p className="s-ahorro-t">Lo que paga hoy un negocio que vende High Ticket</p>
-        <ul>
-          {STACK_TIPICO.map((x) => (
-            <li key={x.app.nombre} title={`${x.app.nombre} ${x.plan}: ${x.trabajo}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={x.app.logo} alt="" width={28} height={28} />
-              <span className="s-ahorro-n">{x.app.nombre}</span>
-              <span className="s-ahorro-p">{usd(x.precioUsd)}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="s-ahorro-tot"><span>Por mes</span><strong>{usd(Math.round(hoy * 100) / 100)}</strong></p>
-      </div>
-      <div className="s-ahorro-mako" data-tema-fijo="">
-        <p className="s-ahorro-t">Con MaKo Pro, todo eso en una sola app</p>
-        <p className="s-ahorro-pro"><strong>{usd(pro.precioUsd)}</strong> por mes</p>
-        <p className="s-ahorro-gana">Ahorras <strong>{usd(mes)}</strong> por mes: <strong>{usd(Math.round(mes * 12))}</strong> por año.</p>
-      </div>
-    </div>
-  );
-}
 
 function TiraSitio() {
   const apps = integracionesDeLaTira();
@@ -423,7 +369,7 @@ export function PortadaSitio({ planes }: { planes: readonly PlanSitio[] }) {
             de proveedor». */}
         <CasoSitio />
         <PlanesSitio planes={planes} />
-        <TiraReemplaza />
+        <SeccionReemplaza ver={RUTA_COMPARACIONES} />
         <IntegracionesSitio />
         <PreguntasSitio />
         <CierreSitio />
