@@ -8,6 +8,42 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## «No es tu embudo, es el de Mauricio»: no era una inspección ni la IA, era la oferta elegida a ciegas (14/11/2026)
+
+**Síntoma (demo con Julio, 13/11, min 41:31-42:21, Fathom 203125958):** Martín tocó «Editar» en Image y leyó en vivo: «no sé por qué
+no dice MaKo… te dice que no es tu embudo, es el de Mauricio… igualmente debería haberlo armado». Pasó a otra cosa sin ver el resultado.
+
+**El diagnóstico obvio era el equivocado.** El relevo de la llamada supuso que estaba inspeccionando la cuenta de Mauricio (ws1) y
+que su IA había fallado (su Gemini figuraba bloqueado). Medido en producción, no:
+- las 10 respuestas de IA de esa réplica (`anthropic_usage`, 21:14:58 → 21:15:48 UTC) son del **ws 9, el de Martín**, y ningún
+  pedido de esos minutos lleva `?ws=` ni hubo un `/api/admin/impersonate`. No inspeccionaba a nadie;
+- la IA contestó: 45 s en escribir y la réplica terminó bien (200 a los **95 s**, request-logs de Vercel). Él se fue a Automations
+  a los ~35 s, así que no vio el resultado. No hubo ninguna línea «sin la IA del negocio»;
+- su negocio tiene tres ofertas activas, **ninguna principal**: «WhatsApp Ads Funnel» (orden 0, un embudo que armó para Mauricio),
+  «MaKo Acelerador» y una newsletter de prueba. `respuestasPorDefecto` (12/11, «Replicar sin preguntas») tomaba «la principal, o
+  la primera», y el saludo dijo «… para «WhatsApp Ads Funnel»». El fixture del test de ese día marcaba «MaKo Acelerador» como
+  principal; en producción no lo estaba.
+
+**La regla:** lo de por defecto no adivina. Con dos o más ofertas y ninguna principal, el guiado pregunta SÓLO la oferta
+(`hayQuePreguntarOferta`, `soloOferta` en `lib/carruseles/guiado.ts`), el saludo dice por qué, y al contestar arranca con lo
+demás por defecto (como pidió Martín el 13/11: una o dos preguntas y después la pieza entera). Con una principal o una sola, arranca.
+
+**Y al inspeccionar de verdad**, la IA que escribe ya era la del negocio que se mira (`conSuIADelNegocio(p.ws)`), pero el aviso
+decía «Tu Gemini rechazó la clave». Ahora `avisoSinIA(error, negocio)` lo nombra («El Gemini de Mauricio Bustos rechazó la clave:
+revísala en sus Integraciones») cuando la vista de otro (`lib/vista-de-otro.ts`) es del MISMO negocio del pedido. Test:
+`tests/carruseles-oferta-sin-principal.test.ts`.
+
+**Cómo se reconstruye una corrida así** (la ruta no anota el negocio): el pedido y lo que logueó, en `request-logs` de Vercel (ver
+hallazgos-infra, «el filtro `requestPath` da 0»); de qué negocio era y con qué IA, en `anthropic_usage` por ventana de tiempo
+(`workspace_id`, `motivo`); qué dijo cada uno, en el transcript de Fathom (`scripts/probe-transcript-leila.ts <id>`).
+
+**Sin hacer:**
+- **La espera:** 95 s para 9 láminas (45 s escribiendo con haiku, más leer lo que faltaba y copiar fotos; una de stock dio 504).
+  En una demo nadie espera eso. Vive en `lib/carruseles/replica-servidor.ts`.
+- **El dato:** que «MaKo Acelerador» sea la principal del ws 9 lo decide Martín en `/offer`; no se tocó.
+- Las fases del armado (`EditarCarrusel.tsx`, «Escribo tu versión con tu IA») siguen diciendo «tu» al inspeccionar.
+
+
 ## Las miniaturas VERTICALES: la portada de un Reel o un Short, en 9:16 (13/11/2026)
 
 Martín, por el Cerebro: «miniaturas verticales en Image, para shorts y reels, además de las horizontales de YouTube. Con

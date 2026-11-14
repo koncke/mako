@@ -232,9 +232,11 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
     'Un grupo de WhatsApp con respuestas de Martín',
   ],
   despues: { nombre: 'Continuidad', precioUsd: 297 },
-  // 25/10/2026, el Cerebro (Martín: «no hagas preguntas»), sobre la frase que propuso: un resultado con plazo, dicho en lo
-  // que el cliente ve en su cuenta. No dice «vas a vender X»: eso sería una garantía de resultado, y todavía no hay datos.
-  promesa: 'En 90 días, tus anuncios andando, tu IA contestándole a cada interesado, tu agenda lista y tus primeras llamadas de venta agendadas desde MaKo.',
+  // Martín, 14/11/2026: «la promesa tiene que estar atada a un resultado monetario o a un resultado del funnel. No puede ser "en 90
+  // días tus anuncios andando" si justamente tenemos muchos funnels. Y tampoco quiero que la promesa sea de la instalación de
+  // cosas… un resultado bien contundente. Y se tiene que notar la personalización». Reemplaza a la del 25/10 («tus anuncios
+  // andando, tu IA contestándole…, tu agenda lista»). Sigue siendo una PROMESA y no una garantía: lo que se devuelve es `garantia`.
+  promesa: 'En 90 días, el sistema de ventas que armamos a la medida de tu oferta te trae llamadas de venta calificadas todas las semanas y las ventas que pagan el Acelerador.',
   garantia: 'Si al terminar la primera semana tu sistema de ventas no está armado, te devolvemos la cuota y no pagas las que siguen.',
 };
 

@@ -1014,3 +1014,13 @@ Se leyó el código; nada se midió contra la base. Lo que engaña sin dar error
 - **La regla:** antes de sumar un gráfico a una hoja, hay que escribir de qué fuente sale cada número del título y de la frase. Dos
   fuentes en una misma tarjeta se notan en el código, no en la pantalla.
 
+
+## Cuatro hojas sin entrada: «no se inventa» dejó el carrusel de la portada con tableros quietos (14/11/2026)
+
+**Síntoma.** Martín, mirando el carrusel de la portada: «hay algunos que todavía no tienen animación». Se midió en la grabación de
+cada hoja (`select='gt(scene,0.002)'` de ffmpeg): Cold Calling, Comercial, General y Operación cambiaban en 2 a 4 cuadros; las demás,
+en 15 a 30. **Causa.** El INFORME de esas cuatro referencias no traía la entrada de la página (la del armazón sí), y la regla fue «no
+se inventa»: las tarjetas quedaban quietas (lo decía el encabezado de cada hoja). Para Martín, una hoja sin entrada es una hoja rota.
+**Lo que quedó.** `app/dashboard/disenos/entrada-tarjetas.ts`: la entrada de sus hermanas (Cobranza/Coffer): las tarjetas suben
+escalonadas, una vez, con `prefers-reduced-motion` respetado y nada en la miniatura (`quieta`). **La regla.** Una hoja nueva sin
+entrada en su referencia usa `entradaDeTarjetas`; el hook va ARRIBA de todo en el componente, antes de cualquier return temprano.

@@ -18,6 +18,7 @@
 // =============================================================================
 
 import { createContext, useContext, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { entradaDeTarjetas } from './entrada-tarjetas';
 import Link from '@/app/_ui/Link';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { escalaVentas, plata, type NumeroCm, type SerieVentas, type VistaComercial } from '@/lib/comercial-diseno';
@@ -172,6 +173,10 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
   /** La miniatura de «Nueva hoja». */
   quieta?: boolean;
 }) {
+  // La entrada (Martín, 14/11/2026: «algunos todavía no tienen animación»): las tarjetas suben escalonadas, como en Cobranza
+  // y Marketing (./entrada-tarjetas.ts). Antes de cualquier otra cosa, para que no la salte un return temprano.
+  const raizEntrada = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => { if (!quieta) entradaDeTarjetas(raizEntrada.current, '.cm-hero, .cm-card'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [vistaVentas, setVistaVentas] = useState<'semanas' | 'meses'>('semanas');
   const { frase, vendido, inversion, desenlace, numeros, motivos, ventas, embudo, hoy, origenes, closers } = vista;
   const p = hoja.diseno?.piezas ?? {};
@@ -185,7 +190,7 @@ export function HojaComercial({ hoja, vista, titulo, fecha, periodo, onGrilla, o
 
   return (
     <Compartido.Provider value={compartido}>
-    <div className="cm" data-quieta={quieta ? '' : undefined}>
+    <div ref={raizEntrada} className="cm" data-quieta={quieta ? '' : undefined}>
       <style href="dash-hoja-comercial" precedence="medium">{CSS_COMERCIAL}</style>
       {/* La letra de Selvar (Urbanist), sólo para esta hoja. */}
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400..800&display=swap" precedence="default" />

@@ -13,6 +13,18 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## `postgres` devuelve `vistas` como texto, y la mediana las PEGA: «35.736.643.029 vistas» (14/11/2026)
+
+- **Síntoma:** el número del reel de prueba (`numeroDeSeguidos`, `lib/spy-seguidos-reglas.ts`) calculado en un script con las piezas
+  reales de `spy_piezas` daba 35 mil millones de vistas.
+- **Causa:** `postgres` (el cliente de los scripts que leen la base directo) devuelve las columnas `bigint` como TEXTO. `valorDe`
+  (`lib/multiplo-rendimiento.ts`) acepta `"70919" >= 0` y `mediana` hace `(s[m - 1] + s[m]) / 2`: con dos textos los pega
+  («70919» + «580385») y después divide. No da error.
+- **La app no lo sufre:** lee por Supabase, que devuelve números. **Regla:** un script que le pasa filas de `sql` a las funciones
+  puras convierte antes `vistas`, `megusta`, `comentarios` (y los ids) con `Number(…)`.
+- Con los números bien, seguir sólo a Federico Cristofari da **11.209** vistas (la mediana de sus últimos 20 reels); sumar a Víctor
+  Heras lo sube a 81.257. Es el número de la animación del CoPilot en la portada.
+
 ## Después de `irA(null)` no sale NINGÚN pedido: lo que tiene que llegar al server, va antes (11/11/2026)
 
 **Vive en:** `app/competitor-spy/SpyApp.tsx` (`quitar`, `irA`). Lo fija `tests/mirada-prod-11-11.test.ts` (caso 9).
