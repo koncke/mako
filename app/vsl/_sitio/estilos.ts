@@ -41,7 +41,7 @@ const DORADO_CLARO = '#FDF0CC';
 const TINTA = '#060419';
 const GRIS_CLARO = '#6F6F8A';
 const GRIS_CLARO2 = '#4E4E6C';
-const TITULAR = `font-family:'s-archivo','s-figtree',Arial,sans-serif;font-weight:900;font-stretch:88%;text-transform:uppercase`;
+const TITULAR = `font-family:'s-archivo','s-figtree',Arial,sans-serif;font-weight:900;font-stretch:88%;text-transform:uppercase;text-wrap:balance`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La base: fuentes, el contenedor y el botón
@@ -288,7 +288,7 @@ export const CSS_REEMPLAZA = `
    COSTADO del ticket (dos columnas en la PC, fijo al bajar; debajo en el teléfono); la tira de logos, debajo. */
 .s-ah-h{${TITULAR};max-width:1040px;margin:0 auto;padding:0 24px;text-align:center;font-size:44px;line-height:46px;color:#fff;text-wrap:balance}
 .s-ah-afuera{padding:0 24px;margin:36px 0 0}
-.s-ah-dos{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:start}
+.s-ah-dos{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:stretch}
 .s-ah{padding:20px 30px 26px;background:#fff;color:#12151B;border-radius:20px;text-align:left;box-shadow:0 0 0 1px color-mix(in srgb,currentColor 12%,transparent),0 28px 70px -40px rgba(0,0,0,.55)}
 .s-ah ul{list-style:none;margin:0;padding:0}
 .s-ah-f{display:flex;align-items:center;gap:14px;min-height:50px;margin:0;font-size:17px;line-height:24px}
@@ -304,7 +304,7 @@ export const CSS_REEMPLAZA = `
 .s-ah-tot .s-ah-p{font-size:24px;font-weight:800;text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#E11D48}
 /* El ahorro: un bloque aparte, azul (fijo en los dos modos), al costado del ticket. */
 .s-ah-ico{width:32px;height:32px;flex:none;border-radius:9px;display:inline-flex;align-items:center;justify-content:center}
-.s-ah-gana{position:sticky;top:96px;padding:32px 30px;border-radius:20px;background:linear-gradient(150deg,${AZUL},#1E3FA8);color:#fff;text-align:left;box-shadow:0 28px 70px -36px rgba(47,111,237,.65)}
+.s-ah-gana{display:flex;flex-direction:column;justify-content:center;padding:32px 30px;border-radius:20px;background:linear-gradient(150deg,${AZUL},#1E3FA8);color:#fff;text-align:left;box-shadow:0 28px 70px -36px rgba(47,111,237,.65)}
 .s-ah-gana-t{font-size:32px;line-height:37px;font-weight:800;letter-spacing:-.015em}
 .s-ah-gana-mk{margin-top:18px;display:flex;align-items:center;gap:12px;font-size:17px;line-height:24px}
 .s-ah-gana-n{margin-top:22px;padding-top:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.28);font-size:18px;line-height:30px}

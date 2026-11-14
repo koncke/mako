@@ -66,9 +66,9 @@ function LoQuePagas() {
           <p className="s-ah-gana-t">Con MaKo te ahorras más de {usd(redondo)} por mes</p>
           <p className="s-ah-gana-mk">
             <span className="s-mk-ico s-ah-ico" aria-hidden="true"><EstrellaMaKo size={19} /></span>
-            <span>Todo eso en una sola app: <strong>MaKo Pro, {usd(pro.precioUsd)}</strong> por mes.</span>
+            <span style={{ whiteSpace: 'nowrap' }}>Todo en <strong>MaKo Pro: {usd(pro.precioUsd)}</strong> por mes</span>
           </p>
-          <p className="s-ah-gana-n"><strong>{usd(mes)}</strong> por mes<br /><strong>{usd(Math.round(mes * 12))}</strong> por año</p>
+          <p className="s-ah-gana-n"><strong>{usd(mes)}</strong> por mes</p>
         </div>
       </div>
     </div>
