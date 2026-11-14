@@ -60,11 +60,13 @@ test('al volver: MaKo la sigue armando sólo con el pedido sin respuesta y dentr
 
 test('la pantalla: «Cancelar» deja la marca, al volver lo dice y no larga otro pedido encima', () => {
   const chat = sinComentarios('app/automations/ChatMako.tsx');
-  assert.match(chat, /const cancelarTurno = useCallback\(\(\) => \{\n\s*if \(crea\) cancelarEnElServidor\(p\.secuenciaId\);\n\s*cancelar\(\);/);
-  assert.match(chat, /onCancelar=\{cancelarTurno\}/);
-  assert.match(chat, /e\.stopImmediatePropagation\(\); cancelarTurno\(\); return; \}/, 'Escape también');
+  // `cancelar` (el botón y el Escape, que los tests de siempre buscan por ese nombre) corta el pedido Y deja la marca.
+  assert.match(chat, /const \{ estado, trabajando, enviar, cancelar: cortarElPedido \} = useStreamIA\(/);
+  assert.match(chat, /const cancelar = useCallback\(\(\) => \{\n\s*if \(crea\) cancelarEnElServidor\(p\.secuenciaId\);\n\s*cortarElPedido\(\);/);
+  assert.match(chat, /onCancelar=\{cancelar\}/);
+  assert.match(chat, /e\.stopImmediatePropagation\(\); cancelar\(\); return; \}/, 'Escape también');
   assert.match(chat, /const enServidor = crea && !trabajando && trabajoEnElServidor\(mensajes, ahoraServidor\);/);
-  assert.match(chat, /if \(trabajando \|\| enServidor \|\| p\.deshabilitado \|\| sinApp\)/);
+  assert.match(chat, /if \(enServidor\) return origen === 'barra' \? \{ error: null \} : true;\n\s*if \(trabajando \|\| p\.deshabilitado \|\| sinApp\) return/);
   assert.match(chat, /if \(enServidorRef\.current && !trabajoEnElServidor\(guardados, Date\.now\(\)\)\) \{ window\.location\.reload\(\); return; \}/, 'cuando MaKo contestó, recarga');
   assert.match(chat, /: enServidor \? <EnElServidor \/>/);
   const ruta = sinComentarios('app/api/chat-agent/secuencias/ia/route.ts');

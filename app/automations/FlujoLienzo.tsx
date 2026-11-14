@@ -963,8 +963,12 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
           return <BurbujaHilo key={k} compacta saliente autor={negocio} {...pie} lineas={RENGLONES_CON_DOS} contenido={{ texto: aplicarVariables(pt.cuerpo, n ? { negocio: n } : {}) }} />;
         })}
         {resto > 0 && (
-          <div data-mas-partes="" title={escondidos || undefined} style={{ alignSelf: 'flex-end', maxWidth: '100%', height: ALTO_MAS_PARTES, boxSizing: 'border-box', padding: '0 9px', display: 'inline-flex', alignItems: 'center', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 11, color: 'var(--faint)' }}>
-            <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{textoMasPartes(resto)}{escondidos ? ` · ${escondidos}` : ''}</span>
+          // Una FILA que la empuja a la derecha: así encoge al ancho de la tarjeta (sin un ancho máximo propio, AGENTS.md) y el
+          // nombre largo de un archivo termina en «…».
+          <div style={{ display: 'flex', justifyContent: 'flex-end', minWidth: 0 }}>
+            <div data-mas-partes="" title={escondidos || undefined} style={{ minWidth: 0, overflow: 'hidden', height: ALTO_MAS_PARTES, boxSizing: 'border-box', padding: '0 9px', display: 'inline-flex', alignItems: 'center', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 11, color: 'var(--faint)' }}>
+              <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{textoMasPartes(resto)}{escondidos ? ` · ${escondidos}` : ''}</span>
+            </div>
           </div>
         )}
       </div>

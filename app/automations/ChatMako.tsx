@@ -276,15 +276,16 @@ export function ChatMako(p: ChatMakoProps) {
   const [devolver, setDevolver] = useState<{ texto: string; vez: number } | null>(null);
   /** Lo que se hace con un turno que terminó y que largó OTRA instancia (se fue y volvió): se arma más abajo. */
   const adoptarRef = useRef<(f: FinIA) => void>(() => {});
-  const { estado, trabajando, enviar, cancelar } = useStreamIA(`chat:${p.secuenciaId}`, (f) => adoptarRef.current(f));
+  const { estado, trabajando, enviar, cancelar: cortarElPedido } = useStreamIA(`chat:${p.secuenciaId}`, (f) => adoptarRef.current(f));
   /**
    * «CANCELAR» CORTA EL TRABAJO DEL SERVIDOR (14/11/2026, la llamada con Julio). Crear sobre esta fila ya no se corta con la
-   * pestaña que se cierra; Cancelar, además de cortar el pedido, deja la marca que el trabajo mira (`cancelarEnElServidor`).
+   * pestaña que se cierra; Cancelar (el botón y el Escape), además de cortar el pedido, deja la marca que el trabajo mira
+   * (`cancelarEnElServidor`).
    */
-  const cancelarTurno = useCallback(() => {
+  const cancelar = useCallback(() => {
     if (crea) cancelarEnElServidor(p.secuenciaId);
-    cancelar();
-  }, [crea, cancelar, p.secuenciaId]);
+    cortarElPedido();
+  }, [crea, cortarElPedido, p.secuenciaId]);
   /** Lo de esta pantalla (los pedidos sueltos). El ref es la verdad sincrónica: dos clics en el mismo tick no repiten. */
   const [extras, setExtras] = useState<ExtraChat[]>([]);
   const extrasRef = useRef<ExtraChat[]>([]);
@@ -396,7 +397,7 @@ export function ChatMako(p: ChatMakoProps) {
       const oculto = !raiz || raiz.getClientRects().length === 0;
       const otroAbierto = !adentro && [...document.querySelectorAll('[role="dialog"], [role="menu"], [role="listbox"]')].some((n) => !raiz?.contains(n));
       if (e.key === 'Escape' && (oculto || otroAbierto)) return;
-      if (e.key === 'Escape' && fase !== 'revision') { e.preventDefault(); e.stopImmediatePropagation(); cancelarTurno(); return; }
+      if (e.key === 'Escape' && fase !== 'revision') { e.preventDefault(); e.stopImmediatePropagation(); cancelar(); return; }
       if (adentro) return;
       if (esCampo(e.target)) return;
       // Sin `preventDefault`: los atajos del NAVEGADOR siguen andando; lo que se corta es que lleguen a los de la app.
@@ -404,7 +405,7 @@ export function ChatMako(p: ChatMakoProps) {
     };
     document.addEventListener('keydown', alTeclado, true);
     return () => document.removeEventListener('keydown', alTeclado, true);
-  }, [trabajando, fase, cancelarTurno]);
+  }, [trabajando, fase, cancelar]);
 
   /** Lo que volvió de la ruta, al lienzo de quien monta (`onListo`). `false` = no lo aplicó (el lienzo cambió). */
   const aplicarListo = (l: ListoStreamIA, base: readonly PasoGrafo[] | undefined): boolean | void => {
@@ -446,7 +447,8 @@ export function ChatMako(p: ChatMakoProps) {
    */
   const turno = async (dicho: string, respuesta: RespuestaMako | null, origen: 'barra' | 'afuera' | 'boton', pedido?: string, adj: AdjuntoLeido[] = [], voz?: VozNota): Promise<true | { error: string | null }> => {
     // Con MaKo armándola en el servidor (`enServidor`), otro pedido encima chocaría con el que sigue: espera a que termine.
-    if (trabajando || enServidor || p.deshabilitado || sinApp) return origen === 'barra' ? { error: null } : true;
+    if (enServidor) return origen === 'barra' ? { error: null } : true;
+    if (trabajando || p.deshabilitado || sinApp) return origen === 'barra' ? { error: null } : true;
     const yo: MensajeChatMako = {
       id: nuevoId('yo'), de: 'yo', texto: dicho, at: new Date().toISOString(), via: 'app', ...(respuesta ? { respuesta } : {}),
       ...(adj.length ? { adjuntos: adj.map((a) => a.nombre) } : {}),
@@ -782,7 +784,7 @@ export function ChatMako(p: ChatMakoProps) {
 
   const errorMako = error ? <p data-error-mako="" style={S.error} role="alert"><TextoConLink texto={error.texto} link={error.link} /><ReportarASoporte /></p> : null;
   const encima = estado.t === 'trabajando'
-    ? <FasesIA estado={estado} segundos={segundos} onCancelar={cancelarTurno} />
+    ? <FasesIA estado={estado} segundos={segundos} onCancelar={cancelar} />
     : enServidor ? <EnElServidor />
     : crea ? errorMako
       : <>{errorMako}<SelectorIntencion valor={intencion} onCambio={elegirIntencion} deshabilitado={!!p.deshabilitado} /></>;
