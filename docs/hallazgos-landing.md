@@ -6117,3 +6117,40 @@ llevaban a la landing principal, el ícono de MaKo salía al revés según el mo
 
 **SIN HACER.** ManyChat, CapCut, Copy.ai y Motion siguen con su cuadrado blanco (`public/vsl-assets/logos/apps/`): para el oscuro
 harían falta sus versiones oficiales en blanco, y bajarlas pide el permiso de Martín.
+
+## El Reel de Hormozi y el video del curso (14/11/2026, noche)
+
+Martín: el Reel donde Tomás comenta «GUÍA» (Automations) tiene que ser de Alex Hormozi, y en «tu curso» va «el video que Mauricio ya
+había dejado linkeado en su workspace». Bancos: `C:/dev/bancos-portada/banco-flujo/` (`vistas-chat.tsx`) y `banco-clase/`
+(`entrada.tsx`, `grabar-comunidad.mjs`, `unir-curso-comunidad.sh`).
+
+- **El único cuadro de un short de Hormozi en disco ya estaba en otro banco.** Spy guarda las miniaturas como URLs del bucket
+  (`banco-spy-gurus/hormozi.json`), no en disco, y Hormozi no tiene reels en Spy (sólo YouTube y anuncios). La única en disco es la
+  de Copywriting: `banco-carruseles-replica/salida/reel-miniatura.jpg` (el short «When someone asks for a discount:», spy_piezas 6).
+  **Trampa:** la miniatura de un short es de 1280 × 720, con el cuadro vertical EN EL MEDIO y los costados borroneados. Se recorta la
+  franja (x 438–841, 404 × 720); no se estira ni se usa entera.
+- **Con persona, el Reel pide alto:** a 150 px sólo se veía la gorra; a 206 px, con `object-position: 50% 19%`, entra la cara. El
+  cartel va arriba, debajo de «Reels», porque abajo tapaba la boca.
+- **El link de la guía es real:** `acquisition.com/roadmap`, adonde llevan sus anuncios (`dominio_destino` de sus piezas en Spy).
+  Instagram se ve desde SU teléfono, como WhatsApp desde el del negocio. Por eso en su Reel no va «Seguir», la foto del «Agrega un
+  comentario» es la suya, y el DM sigue con Tomás en la cabecera y el mensaje a la derecha.
+- **El empalme de Automations dio 0,62 y no estaba corrido:** dentro de una misma pausa, el mismo crudo da 0,80 entre dos cuadros y
+  ningún píxel difiere más de 30. Es ruido del codificador de Playwright. El 0,07 de la toma D fue suerte del codificador, no un tope.
+- **El video de Mauricio es de YouTube y se ve sin bajarlo.** Es el ÚNICO video de su Classroom (ws 1, `curso_clases` 2, «Las reglas y
+  la práctica de integridad»): «Podcast crear cultura por medio del liderazgo» (`youtube.com/watch?v=qrUxN-5IN50&t=1450s`, 30:15).
+  El banco lo pone con el link tal cual, por el reproductor real (`VideoYouTube`, la IFrame API); la tarjeta de la clase toma su tapa.
+- **Trampas de grabar YouTube en un banco:**
+  - En la página no hay `<video>`: `g.caja(p.locator('video'))` espera 30 s quietos. El botón del reproductor de 2026 es
+    `.ytmCuedOverlayPlayButton`, no `.ytp-large-play-button` (que hizo vencer las dos esperas), y vive dentro del iframe (`frameLocator`).
+  - El cursor dibujado de `grabador.mjs` también se inyecta en el iframe y tira «requires 'TrustedHTML'». Es ruido, no un error.
+  - Sus botones salen en el idioma del navegador: con `setExtraHTTPHeaders({ 'Accept-Language': 'es-419' })` dice «Mirar en YouTube».
+  - Carga en negro (~0,7 s al abrir la clase, aunque se caliente antes del «inicio» con un reproductor escondido) y busca en negro
+    (~0,5 s). Esos cuadros se cortan en la unión, donde nada más se mueve (`unir-curso-comunidad.sh … 7.84-8.56,10.44-10.96`).
+  - Para el minuto se usa `seekTo` por su API de mensajes (`postMessage({ event: 'command', func: 'seekTo', args: [1450, true] })`): desde
+    «en cola», arranca solo. Un clic de verdad arranca en 0:00 (una intro violeta, sin él) y después salta.
+- **La comunidad no se regrabó:** `grabar-comunidad.mjs <curso> -` la saltea, y la unión usa su crudo de antes (desde 4,4 s).
+
+SIN HACER: el portal arranca el video de Mauricio en 0:00 aunque su link diga 24:10 (vive en el curso:
+`docs/hallazgos-customer-success.md`). La animación muestra el 24:10 que eligió él, no lo que hoy ve un alumno. Los subtítulos
+automáticos («[Aplausos]») siguen: `unloadModule('captions')` no los apaga en este reproductor. El avatar de @hormozi es el de sus
+réplicas del sitio (`public/asesores/hormozi.png`), no su foto de Instagram.
