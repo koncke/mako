@@ -23,6 +23,7 @@ import { Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { LogoRed } from '@/app/competitor-spy/LogoRed';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
+import { BotonIntegracion, CON_SU_CLASE } from '@/app/_components/ConectarIntegracion';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import type { EstadoComunicacion } from '@/lib/copiloto/comunicacion-store';
@@ -35,6 +36,9 @@ import type { NumeroDelReel } from '@/lib/copiloto/piloto';
 import type { VistaRT } from '@/lib/retargeting-motor';
 import type { PaginaAnalizada } from '@/lib/copiloto/web';
 import type { Nevera } from '@/lib/copiloto/nevera';
+import type { PuntoRed } from '@/lib/copiloto/redes-propias-reglas';
+import type { PilotoInstagram, PilotoYoutube } from '@/lib/copiloto/piloto-redes';
+import type { ResumenVsl } from '@/lib/copiloto/vsl';
 import { diaCorto, lunesDe, nombreFormato, type FormatoNevera } from '@/lib/copiloto/nevera-reglas';
 import { CSS_RETARGETING, Retargeting } from './Retargeting';
 import { CSS_COPILOTO } from './copiloto-css';
@@ -63,6 +67,14 @@ export type DatosCoPilot = {
   /** La nevera de contenido (lib/copiloto/nevera.ts): lo listo, lo publicado y hasta cuándo alcanza; null si no se pudo leer. */
   nevera: Nevera | null;
   redes: Record<'instagram' | 'youtube', Array<{ usuario: string; vencida: boolean }>>;
+  /** Lo que leyó de su cuenta PROPIA (lib/copiloto/redes-propias.ts): un renglón «bien / a tocar» por punto. Ausente = no se pudo leer. */
+  propias?: Partial<Record<'instagram' | 'youtube', PuntoRed[]>>;
+  /** Lo que propone el piloto de las redes esta semana (lib/copiloto/piloto-redes.ts), ya como tareas. */
+  propuestas?: TareaCoPilot[];
+  /** El piloto de Instagram y YouTube (lib/copiloto/piloto-redes.ts) y si el aviso de la nevera está prendido. null = no se pudo leer. */
+  pilotoRedes?: { instagram: PilotoInstagram; youtube: PilotoYoutube; avisoNevera: boolean } | null;
+  /** Su VSL (lib/copiloto/vsl.ts), si su campaña lleva uno: la curva del Pixel, o null sin eventos (la tarjeta pide conectar). */
+  vsl?: { landing: string | null; resumen: ResumenVsl | null };
 };
 
 const PASOS: ReadonlyArray<readonly [Paso, string]> = [['analisis', 'Análisis y acción'], ['piloto', 'Piloto automático']];
@@ -125,6 +137,18 @@ const CSS_EXTRA = `
 .frn .mq-tetoca { margin-top: 0; }
 /* «Lo que hice»: el renglón a lo ancho del tablero medía 1100 px (más de 140 letras): se corta a un largo que se lee. */
 .frn .frn-ev p { max-width: 60ch; }
+/* Tu VSL (14/11): cinco columnas, cuánto sigue mirando en cada cuarto del video. */
+.frn .cop-vsl { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; align-items: end; margin: 16px 0 12px; }
+.frn .cop-vsl__col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.frn .cop-vsl__col b { font-size: 18px; font-weight: 700; color: var(--ink); }
+.frn .cop-vsl__barra { position: relative; width: 100%; max-width: 72px; height: 140px; border-radius: 12px; background: var(--panel); overflow: hidden; }
+.frn .cop-vsl__barra i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 12px; background: var(--ink); }
+.frn .cop-vsl__corte { font-size: 15px; color: var(--muted); }
+/* Lo que leyó de su cuenta propia (14/11): un renglón por punto, con su marca. */
+.frn .cop-puntos { list-style: none; margin: 14px 0 18px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.frn .cop-puntos li { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; line-height: 1.45; color: var(--ink); max-width: 70ch; }
+.frn .cop-puntos__m { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--g-100); color: var(--g-700); }
+.frn .cop-puntos li[data-bien="false"] .cop-puntos__m { background: var(--rose-bg); color: var(--rose); }
 /* «Espera tu OK» entre 700 y 1000 px (una notebook con la barra de la app): el antes → después (250 px) y Aprobar/No (350 px) dejaban
    al porqué una columna de 190 px, en diez renglones. Ahí el porqué va arriba a lo ancho y lo demás debajo (banco de la portada, 14/11). */
 @container frn (min-width: 701px) and (max-width: 1000px) {
@@ -210,6 +234,11 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
 
   const numeroDe = (t: Tarjeta): { n: string; de?: string; s: string } => {
     if (paso === 'piloto') {
+      // Instagram y YouTube (14/11): lo que hace el piloto de verdad ahí (publicar, avisar, proponer), contado.
+      if ((t === 'instagram' || t === 'youtube') && datos.pilotoRedes) {
+        const k = cosasDelPiloto(t, datos.pilotoRedes).length;
+        return { n: String(k), s: k === 1 ? 'cosa en marcha' : 'cosas en marcha' };
+      }
       if (t !== 'anuncios') return { n: '—', s: 'Sin piloto todavía' };
       // Sin configurar no hay nada esperando (medido en la maqueta 20: decía «1 espera tu OK» arriba de «configúralo»).
       if (!datos.anuncios.piloto?.encendido) return { n: '—', s: 'Sin configurar' };
@@ -297,8 +326,9 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
                 </>
               )}
               {tarjeta === 'anuncios' && <AnalisisAnuncios datos={datos} />}
+              {tarjeta === 'anuncios' && datos.vsl && <TuVsl vsl={datos.vsl} />}
               {tarjeta === 'web' && (datos.paginas.length ? <AnalisisWeb paginas={datos.paginas} /> : <TarjetaWeb paso="analisis" web={datos.web} />)}
-              {(tarjeta === 'instagram' || tarjeta === 'youtube') && <TarjetaRed red={tarjeta} paso="analisis" cuentas={datos.redes[tarjeta]} />}
+              {(tarjeta === 'instagram' || tarjeta === 'youtube') && <TarjetaRed red={tarjeta} paso="analisis" cuentas={datos.redes[tarjeta]} puntos={datos.propias?.[tarjeta]} />}
               {tarjeta === 'instagram' && <NumeroDelReelCard reel={datos.reel} />}
               {(tarjeta === 'instagram' || tarjeta === 'youtube') && <NeveraCard nevera={datos.nevera} formatos={tarjeta === 'youtube' ? ['video'] : ['reel', 'story', 'post']} />}
               <LoQueTeToca tareas={tareas[tarjeta]} enPlan={enPlan} onHecha={marcarTarea}
@@ -311,7 +341,8 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
               decisiones={decisiones} onDecisiones={setDecisiones} avisar={avisar} />
           )}
           {paso === 'piloto' && tarjeta === 'anuncios' && <Retargeting vista={datos.retargeting} avisar={avisar} />}
-          {paso === 'piloto' && tarjeta !== 'anuncios' && <SinPiloto que={tarjeta === 'oferta' ? 'tu oferta' : tarjeta === 'web' ? 'tu web' : `tu ${NOMBRE_RED[tarjeta]}`} />}
+          {paso === 'piloto' && (tarjeta === 'instagram' || tarjeta === 'youtube') && datos.pilotoRedes && <PilotoRed red={tarjeta} piloto={datos.pilotoRedes} />}
+          {paso === 'piloto' && tarjeta !== 'anuncios' && !((tarjeta === 'instagram' || tarjeta === 'youtube') && datos.pilotoRedes) && <SinPiloto que={tarjeta === 'oferta' ? 'tu oferta' : tarjeta === 'web' ? 'tu web' : `tu ${NOMBRE_RED[tarjeta]}`} />}
         </div>
       </main>
       {todo && <ModalTodoOC estado={oc.estado} parte={parte} onParte={setParte} onCerrar={() => setTodo(false)} onMarcar={oc.marcar} onAbrir={(p, k) => setCosa({ p, k })} onChat={alChat} />}
@@ -342,6 +373,8 @@ function resumenParaTareas(datos: DatosCoPilot, oc: EstadoComunicacion): Resumen
     webArreglos: datos.paginas.flatMap((p) => p.hallazgos.filter((h) => h.severidad === 'alta').map((h) => ({ url: p.url, titulo: h.titulo }))),
     redes: { instagram: { conectada: conectada('instagram') }, youtube: { conectada: conectada('youtube') } },
     seguidos: datos.reel ? datos.reel.seguidos : null,
+    propias: datos.propias,
+    propuestas: datos.propuestas,
     nevera: datos.nevera ? { lunes: lunesDe(datos.nevera.hoy), avisos: datos.nevera.avisos } : undefined,
   };
 }
@@ -466,6 +499,42 @@ function AnalisisAnuncios({ datos }: { datos: DatosCoPilot }) {
   );
 }
 
+// ── Tu VSL (14/11, lo prometido a Julio) ─────────────────────────────────────
+// La curva del Pixel de MaKo en la landing del VSL (lib/copiloto/vsl.ts): cuánto sigue mirando en cada cuarto y UNA frase con dónde se
+// va la gente. Sin eventos, «¿Dónde está tu VSL?»: pegar el Pixel y conectar Wistia, que es lo que hace falta para medirlo.
+function TuVsl({ vsl }: { vsl: NonNullable<DatosCoPilot['vsl']> }) {
+  const r = vsl.resumen;
+  if (!r) {
+    const host = vsl.landing ? vsl.landing.replace(/^https?:\/\//, '').replace(/\/$/, '') : 'tu landing';
+    return (
+      <section className="frn-card cop-vacio">
+        <h2 className="frn-card__t">¿Dónde está tu VSL?</h2>
+        <p>Pega el Pixel de MaKo en {host} y te digo cuánto ven tu video y dónde se van.</p>
+        <div className="cop-acciones">
+          {/* El modal de cada integración, sin salir del CoPilot (tests/integracion-sin-salir.test.ts). */}
+          <BotonIntegracion servicio="landing" className="frn-btn frn-btn--primary" style={CON_SU_CLASE}>Pegar el Pixel</BotonIntegracion>
+          <BotonIntegracion servicio="wistia" className="frn-btn frn-btn--ghost" style={CON_SU_CLASE}>Conectar Wistia</BotonIntegracion>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="frn-card">
+      <div className="frn-card__head"><h2 className="frn-card__t">Tu VSL{r.titulo ? `: ${r.titulo}` : ''}</h2></div>
+      <div className="cop-vsl" role="img" aria-label={r.cuartos.map((c) => `${c.corte} % del video: ${c.porcentaje} % mirando`).join(', ')}>
+        {r.cuartos.map((c) => (
+          <div key={c.corte} className="cop-vsl__col">
+            <b className="frn-num">{c.porcentaje} %</b>
+            <span className="cop-vsl__barra"><i style={{ height: `${Math.max(2, Math.min(100, c.porcentaje))}%` }} /></span>
+            <span className="cop-vsl__corte">{c.corte === 0 ? 'Inicio' : c.corte === 100 ? 'Final' : `${c.corte} %`}</span>
+          </div>
+        ))}
+      </div>
+      <p className="cop-reel__x">{r.frase}</p>
+    </section>
+  );
+}
+
 // ── La Web, como análisis (Martín, 13/11: «Oferta y Web se quedan en CoPilot como análisis») ───────────
 // Lo último que analizó el Landing Analyst de cada página: la nota, el veredicto y lo más grave, con su arreglo. Se trabaja en
 // Web Generator, con la página y sus comentarios (`?analizar=`).
@@ -530,7 +599,7 @@ function TarjetaWeb({ paso, web }: { paso: Paso; web: string[] }) {
 }
 
 const NOMBRE_RED = { instagram: 'Instagram', youtube: 'YouTube' } as const;
-function TarjetaRed({ red, paso, cuentas }: { red: 'instagram' | 'youtube'; paso: Paso; cuentas: Array<{ usuario: string; vencida: boolean }> }) {
+function TarjetaRed({ red, paso, cuentas, puntos }: { red: 'instagram' | 'youtube'; paso: Paso; cuentas: Array<{ usuario: string; vencida: boolean }>; puntos?: PuntoRed[] }) {
   if (paso === 'piloto') return <SinPiloto que={`tu ${NOMBRE_RED[red]}`} />;
   const c = cuentas[0];
   if (!c || c.vencida) {
@@ -545,14 +614,55 @@ function TarjetaRed({ red, paso, cuentas }: { red: 'instagram' | 'youtube'; paso
   return (
     <section className="frn-card cop-vacio">
       <h2 className="frn-card__t">@{c.usuario.replace(/^@/, '')}</h2>
-      <p>{paso === 'analisis'
+      {/* Lo que leyó de su cuenta (14/11, lib/copiloto/redes-propias-reglas.ts): una frase por punto, lo que está a tocar también en «Lo que te toca». */}
+      {paso === 'analisis' && puntos && puntos.length > 0 ? (
+        <ul className="cop-puntos">
+          {puntos.map((p) => <li key={p.clave} data-bien={p.bien}><span className="cop-puntos__m" aria-label={p.bien ? 'Bien' : 'A tocar'}>{p.bien ? '✓' : '!'}</span>{p.texto}</li>)}
+        </ul>
+      ) : <p>{paso === 'analisis'
         ? `Tu ${NOMBRE_RED[red]} está conectado. Para leer tus publicaciones una por una, ábrelo en Competitor Spy con tu propia cuenta.`
-        : red === 'instagram' ? 'Lo que publicas se arma en Carruseles y en Copywriting, y se programa en el Calendario.' : 'Tus videos se arman en Copywriting y se programan en el Calendario.'}</p>
+        : red === 'instagram' ? 'Lo que publicas se arma en Carruseles y en Copywriting, y se programa en el Calendario.' : 'Tus videos se arman en Copywriting y se programan en el Calendario.'}</p>}
       <div className="cop-acciones">
         {paso === 'analisis'
           ? <Link className="frn-btn frn-btn--primary" href="/competitor-spy">Leer mi {NOMBRE_RED[red]}</Link>
           : <><Link className="frn-btn frn-btn--primary" href="/calendario">Abrir el Calendario</Link><Link className="frn-btn frn-btn--ghost" href="/copywriter">Abrir Copywriting</Link></>}
       </div>
+    </section>
+  );
+}
+
+// ── El piloto de Instagram y YouTube (14/11) ─────────────────────────────────
+// Lo que MaKo hace de verdad en cada red, en frases cortas: publicar lo programado, avisar si se acaba el contenido y proponer (como
+// tarea del Plan) lo que todavía no puede hacer solo. Se configura en ./configurar (pestañas Instagram y YouTube).
+type PilotoRedesVista = NonNullable<DatosCoPilot['pilotoRedes']>;
+function cosasDelPiloto(red: 'instagram' | 'youtube', p: PilotoRedesVista): string[] {
+  const out = ['Publico lo que programas en el Calendario.'];
+  if (p.avisoNevera) out.push('Te aviso por WhatsApp y email si se acaba el contenido.');
+  if (red === 'instagram') {
+    if (p.instagram.proponerHook) out.push(`Cada semana te propongo ${p.instagram.variaciones} variaciones del hook de tu reel más visto.`);
+    if (p.instagram.proponerCarrusel) out.push('Te propongo pasar a carrusel el reel que supera tu número.');
+    if (p.instagram.reelDePrueba === 'solo') out.push('Tus reels salen primero como reel de prueba, y los paso al feed si les va bien.');
+    if (p.instagram.reelDePrueba === 'pregunta') out.push('Tus reels salen primero como reel de prueba: tú decides cuándo pasan al feed.');
+  } else if (p.youtube.proponerShorts && p.youtube.shortsPorVideo > 0) {
+    out.push(`Te propongo sacar ${p.youtube.shortsPorVideo} shorts de cada video largo.`);
+  }
+  return out;
+}
+function PilotoRed({ red, piloto }: { red: 'instagram' | 'youtube'; piloto: PilotoRedesVista }) {
+  const ig = piloto.instagram, yt = piloto.youtube;
+  const ritmo = red === 'instagram'
+    ? `Tu ritmo: ${ig.reelsSemana} reels, ${ig.carruselesSemana} ${ig.carruselesSemana === 1 ? 'carrusel' : 'carruseles'} y ${ig.historiasSemana} historias por semana.`
+    : `Tu ritmo: ${yt.largosMes} ${yt.largosMes === 1 ? 'video largo' : 'videos largos'} por mes.`;
+  return (
+    <section className="frn-card">
+      <div className="frn-card__head">
+        <h2 className="frn-card__t">Qué hago en tu {NOMBRE_RED[red]}</h2>
+        <Link className="frn-btn frn-btn--ghost frn-btn--chico" href={`/ads-manager/copiloto/configurar?red=${red}`}>Configurar</Link>
+      </div>
+      <ul className="cop-puntos">
+        {cosasDelPiloto(red, piloto).map((t) => <li key={t} data-bien="true"><span className="cop-puntos__m" aria-hidden="true">✓</span>{t}</li>)}
+        <li data-bien="true"><span className="cop-puntos__m" aria-hidden="true">✓</span>{ritmo}</li>
+      </ul>
     </section>
   );
 }

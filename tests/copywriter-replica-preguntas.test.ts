@@ -14,7 +14,7 @@ import { idiomaDe, temaDeTexto, temaRelacionado } from '../lib/copywriter/tema';
 import { conTemaYIdioma, esDeTuTema, MINIMO_PARA_ABRIR_EN_TEMA, textoDelNegocio } from '../lib/copywriter/portada-tema';
 import { claveDeConsulta, consultaDeTanda, filtrarOutliersCopy, primeraTandaCopy, type OutlierCopy, type PortadaCopy } from '../lib/copywriter/outliers';
 import {
-  AL_NEGOCIO, EN_OFFER, LLEVAR_TEMA, SEGUIR_SIN, SOLO_ESTRUCTURA, faltaPorPreguntar, pasoDeReplica, pedidoDeReplica, responderReplica,
+  AL_NEGOCIO, EN_OFFER, FALTA, LLEVAR_TEMA, SEGUIR_SIN, SOLO_ESTRUCTURA, faltaPorPreguntar, pasoDeReplica, pedidoDeReplica, responderReplica,
   type PreparacionCorta, type RespuestasIniciativa,
 } from '../lib/copywriter/iniciativa';
 import { datoDeOferta, esCampoQueFalta } from '../lib/copywriter/oferta-elegida';
@@ -112,6 +112,10 @@ test('MaKo pregunta ANTES de escribir: la oferta, lo que le falta (de a uno) y c
   const pedido = pedidoDeReplica(r, p.ofertas, 'fitness y deporte').texto;
   assert.match(pedido, /^Replícalo entero con mi oferta «WhatsApp Ads Funnel»: su estructura, su tipo de gancho y su ritmo\./);
   assert.match(pedido, /De la oferta: para quién: Coaches y consultores; precio: US\$ 497\./, 'por si guardarlo en la oferta falló');
+  // Lo contestado con su punto final no deja «.;» ni «..» (14/11/2026, la réplica de Hormozi).
+  const conPunto = pedidoDeReplica({ ...r, [`${FALTA}para quién`]: 'Mentores que venden high ticket.' }, p.ofertas, null).texto;
+  assert.match(conPunto, /De la oferta: para quién: Mentores que venden high ticket; precio: US\$ 497\. /);
+  assert.doesNotMatch(conPunto, /\.;|\.\./);
   assert.match(pedido, /El original habla de fitness y deporte: toma sólo su tipo de gancho y su estructura/);
   assert.match(pedidoDeReplica({ ...r, tema: LLEVAR_TEMA }, p.ofertas, null).texto, /El original habla de otra cosa: lleva su idea a mi negocio/);
 });

@@ -11,6 +11,8 @@
 //   · Nunca: la jerga del rubro (leads, funnel, CTA, Reels), una marca o un nombre propio (una palabra con mayúscula pegada a otra
 //     con mayúscula: «Meta Business Suite»), lo citado entre «…», un @, un # o un link, ni lo que el negocio llama así (`permitido`:
 //     el nombre de su oferta, «Free Money Club»).
+//   · Y un dígito COLADO entre letras se saca («capac0idad» → «capacidad», 14/11/2026: Gemini en la réplica del short de Hormozi).
+//     En español no hay palabras así; «B2B», «MP3» o «web3» no son minúscula-dígito-minúscula y quedan.
 // =============================================================================
 
 import { idiomaDe } from './tema';
@@ -34,6 +36,8 @@ const PALABRAS: Readonly<Record<string, string>> = {
   revenue: 'ingresos', profit: 'ganancia', challenge: 'reto', skills: 'habilidades', tool: 'herramienta', tools: 'herramientas',
   price: 'precio', value: 'valor', offer: 'oferta', strategy: 'estrategia', content: 'contenido', audience: 'audiencia',
   mistakes: 'errores', secret: 'secreto', hook: 'gancho', hooks: 'ganchos', launch: 'lanzamiento',
+  // 14/11/2026, la réplica de Hormozi: «La herramienta sin lectura es solo un dashboard bonito».
+  dashboard: 'tablero', dashboards: 'tableros',
 };
 
 const PALABRA = /([\p{L}\p{N}][\p{L}\p{N}'’-]*)/u;
@@ -57,7 +61,9 @@ function enUnPedazo(pedazo: string, permitidas: ReadonlySet<string>, alPrincipio
     const w = t[i];
     const antes = t[i - 1] ?? '';
     const despues = t[i + 1] ?? '';
-    if (/[@#/.]$/.test(antes) || /^[.@/]\p{L}/u.test(despues)) return true;
+    // ⚠️ El separador viene SOLO («.») y la palabra de después en el siguiente pedazo: «free.com» es «free», «.», «com» (14/11/2026:
+    // sin mirar el siguiente, «entra a free.com» quedaba «gratis.com»).
+    if (/[@#/.]$/.test(antes) || /^[.@/]\p{L}/u.test(despues) || (/^[.@/]$/.test(despues) && /^\p{L}/u.test(t[i + 2] ?? ''))) return true;
     if (permitidas.has(w.toLowerCase())) return true;
     if (esMayuscula(w) || !empiezaConMayuscula(w)) return false;
     const vecina = (j: number) => { const v = palabra(j); return !!v && empiezaConMayuscula(v) && !esMayuscula(v) && /^\s+$/.test(t[Math.min(i, j) + 1] ?? ''); };
@@ -65,6 +71,9 @@ function enUnPedazo(pedazo: string, permitidas: ReadonlySet<string>, alPrincipio
   };
   for (let i = 1; i < t.length; i += 2) {
     if (!t[i] || intocable(i)) continue;
+    // Un dígito colado entre minúsculas («capac0idad»): fuera.
+    const colado = t[i].match(/^(\p{Ll}{2,})\d(\p{Ll}{2,})$/u);
+    if (colado) { t[i] = `${colado[1]}${colado[2]}`; continue; }
     // Primero las frases (dos o tres palabras separadas por un espacio).
     let hecho = false;
     for (const n of [3, 2]) {

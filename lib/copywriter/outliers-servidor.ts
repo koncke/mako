@@ -24,6 +24,7 @@ import { conTemaYIdioma, textoDelNegocio } from './portada-tema';
 import { temaDeTexto, type Tema } from './tema';
 import { rotuloMultiplo } from '../multiplo-rendimiento';
 import { crear, type Falla } from './server';
+import { originalPegadoPorId } from './pegado-servidor';
 import { docVacio } from './doc';
 import { propsNuevas, type GuionAbierto, type PaginaCopy } from './tipos';
 import {
@@ -156,6 +157,8 @@ export async function outlierCopyPorId(id: string): Promise<OutlierCopy | null> 
   if (!esIdOutlierCopy(id)) return null;
   const [fuente, crudo] = id.split(':');
   const n = Number(crudo);
+  // Lo que trajo la persona (un link, un texto, un archivo: ./pegado-servidor.ts): vive en las settings de su negocio.
+  if (fuente === 'pegado') return originalPegadoPorId(n);
   if (fuente === 'biblioteca') {
     const c = await carruselDeLaBiblioteca(n);
     return c ? outliersCopyDeBiblioteca([c])[0] ?? null : null;

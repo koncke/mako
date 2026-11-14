@@ -170,11 +170,19 @@ export const CSS_COPILOTO = `
 .frn .frn-rem--ancho .frn-btn { width: 100%; }
 }
 .frn.frn--mono { --font: 'Urbanist', system-ui, sans-serif; --page: #efefed; --panel: #f5f5f3; --card: #fcfcfb; --hair: #11111117; --ink: #121212; --muted: #4f4f4c; --faint: #636360; --g-950: #121212; --g-800: #2b2b2b; --g-700: #3a3a38; --g-600: #4f4f4c; --g-400: #8e8e89; --g-100: #ececea; --hero-a: #2b2b2b; --hero-b: #121212; --hero-c: #1f1f1f; --hero-ink: #f6f6f4; --hero-hover: #8e8e89; --btn-a: #2b2b2b; --btn-ha: #3a3a38; --btn-b: #121212; --btn2-a: #2b2b2b; --btn2-ha: #3a3a38; --btn2-b: #121212; --deep: #121212; --swirl: #ffffff14; }
+/* El oscuro de la paleta de la casa (14/11): \`.frn.frn--mono\` (dos clases) le ganaba a \`.frn:where([data-tema="oscuro"] *)\` (una), y
+   en modo oscuro el CoPilot salía CLARO. Mismas dos clases, después: gana. La tarjeta elegida y el botón se invierten (claros con letra
+   oscura), como el resto de la app en oscuro. */
+.frn.frn--mono:where([data-tema="oscuro"] *) { --page: #0f0f0e; --panel: #171716; --card: #1d1d1c; --hair: #ffffff1c; --ink: #ededeb; --muted: #b3b3ae; --faint: #92928d; --g-950: #ededeb; --g-800: #d6d6d2; --g-700: #c2c2bd; --g-600: #b3b3ae; --g-400: #6f6f6b; --g-100: #262625; --hatch: #5d5d59; --hero-a: #f2f2f0; --hero-b: #dcdcd8; --hero-c: #e6e6e3; --hero-ink: #121212; --hero-hover: #6f6f6b; --btn-a: #f2f2f0; --btn-ha: #ffffff; --btn-b: #d6d6d2; --btn2-a: #f2f2f0; --btn2-ha: #ffffff; --btn2-b: #d6d6d2; --btn-ink: #121212; --deep: #ededeb; --swirl: #ffffff14; --amber: #e5ac45; --amber-bg: #3a2d12; --rose: #f08a8a; --rose-bg: #3d1f1f; --shadow: 0 1px 2px #0008, 0 8px 24px -12px #000c; }
 .frn--mono .frn-stat--hero { box-shadow: rgba(0, 0, 0, 0.667) 0px 14px 30px -16px; }
 .frn--mono .frn-stat--hero::after { background: none; }
 .frn--mono .frn-stat--hero .frn-stat__s { color: rgb(200, 200, 195); }
 .frn--mono .frn-pill--ok { color: rgb(34, 115, 92); background: rgb(213, 238, 228); }
 .frn--mono .frn-stat--hero .frn-arrow { background: rgb(236, 236, 234); color: rgb(18, 18, 18); }
+/* En oscuro la tarjeta elegida es clara: su renglón chico, su flecha y la pastilla de «ok», con los colores del oscuro. */
+.frn--mono:where([data-tema="oscuro"] *) .frn-stat--hero .frn-stat__s { color: #4f4f4c; }
+.frn--mono:where([data-tema="oscuro"] *) .frn-stat--hero .frn-arrow { background: #121212; color: #f2f2f0; }
+.frn--mono:where([data-tema="oscuro"] *) .frn-pill--ok { color: #8fe0b5; background: #1f3a2c; }
 .frn .frn-embebido { padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0px; }
 .frn .frn-embebido .mq-offer { height: 640px; border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--hair); overflow: hidden; }
 .frn--mono .frn-stat { height: 128px; padding: 16px 18px; }
@@ -390,6 +398,14 @@ export const CSS_COPILOTO = `
 .frn .frn-head2 { gap: 10px; }
 .frn .frn-tresp { order: 3; width: 100%; overflow-x: auto; }
 .frn .frn-tresp__b { flex: 0 0 auto; }
+}
+/* En el teléfono los dos pasos entran enteros (14/11: a 375 se cortaba «Piloto automát…» y el segundo paso quedaba escondido detrás
+   de un desplazamiento que nadie ve): mitad y mitad, sin el número del paso, que ahí sobra. */
+@media (max-width: 520px) {
+.frn .frn-tresp { overflow-x: visible; box-sizing: border-box; }
+.frn .frn-tresp__b { flex: 1 1 0; min-width: 0; justify-content: center; gap: 6px; padding: 0 10px; font-size: 13.5px; }
+.frn .frn-tresp__n { display: none; }
+.frn .frn-tresp__t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 .frn .frn-marca--sola { display: inline-grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; }
 .frn .oc-fila { justify-content: flex-start; }

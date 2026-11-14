@@ -12,9 +12,12 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { leerSeguidos, promedioDeSeguidos } from '@/lib/spy-seguidos';
 import type { NumeroDeRed } from '@/lib/spy-seguidos-reglas';
+import type { RitmoNevera } from './nevera-reglas';
+import { pilotoDeFabrica, sanearPilotoRedes } from './piloto-redes';
 
 export const CLAVE_PILOTO_COPILOTO = 'marketing-copilot.piloto';
-export type PilotoCoPilot = { reel: number | null };
+/** `redes`: lo del piloto de Instagram y YouTube (./piloto-redes.ts), crudo; se sanea al leerlo contra lo de fábrica. */
+export type PilotoCoPilot = { reel: number | null; redes?: Record<string, unknown> };
 
 /** Lo que se acepta como número de un reel de prueba: vistas, entero, entre 50 y 10 millones. */
 export const numeroDeReelOk = (n: unknown): number | null => {
@@ -22,8 +25,31 @@ export const numeroDeReelOk = (n: unknown): number | null => {
   return Number.isFinite(v) && v >= 50 && v <= 10_000_000 ? v : null;
 };
 
+// ⚠️ `redes` VIAJA: guardar el número del reel reescribe el setting entero desde esto, y sin ella se borraba el piloto de las redes.
 function sanear(crudo: string | null): PilotoCoPilot {
-  try { const o = crudo ? JSON.parse(crudo) as Record<string, unknown> : {}; return { reel: numeroDeReelOk(o.reel) }; } catch { return { reel: null }; }
+  try {
+    const o = crudo ? JSON.parse(crudo) as Record<string, unknown> : {};
+    const redes = o.redes && typeof o.redes === 'object' && !Array.isArray(o.redes) ? o.redes as Record<string, unknown> : undefined;
+    return { reel: numeroDeReelOk(o.reel), ...(redes ? { redes } : {}) };
+  } catch { return { reel: null }; }
+}
+
+/** El piloto de Instagram y YouTube, saneado contra lo de fábrica (que sale del ritmo de la nevera). */
+export async function leerPilotoRedes(ws: number, ritmo: RitmoNevera | null): Promise<ReturnType<typeof sanearPilotoRedes>> {
+  return sanearPilotoRedes((await leerPilotoCoPilot(ws)).redes, pilotoDeFabrica(ritmo));
+}
+
+/** Guarda lo de UNA red (o las dos), saneado. Lee estricto antes: un cambio sobre una lectura caída borraría lo demás. */
+export async function guardarPilotoRedes(ws: number, cambio: { instagram?: unknown; youtube?: unknown }, ritmo: RitmoNevera | null): Promise<ReturnType<typeof sanearPilotoRedes>> {
+  return runWithWorkspace(ws, async () => {
+    const actual = sanear(await getSettingEstricto(CLAVE_PILOTO_COPILOTO));
+    const crudo = { ...(actual.redes ?? {}), ...(cambio.instagram ? { instagram: cambio.instagram } : {}), ...(cambio.youtube ? { youtube: cambio.youtube } : {}) };
+    const saneado = sanearPilotoRedes(crudo, pilotoDeFabrica(ritmo));
+    // Se guarda lo saneado de las redes que vinieron (o que ya estaban): nunca lo de fábrica de una red que no se tocó.
+    const redes = { ...(crudo.instagram ? { instagram: saneado.instagram } : {}), ...(crudo.youtube ? { youtube: saneado.youtube } : {}) };
+    await setSetting(CLAVE_PILOTO_COPILOTO, JSON.stringify({ ...actual, redes }));
+    return sanearPilotoRedes(redes, pilotoDeFabrica(ritmo));
+  });
 }
 
 export async function leerPilotoCoPilot(ws: number): Promise<PilotoCoPilot> {
