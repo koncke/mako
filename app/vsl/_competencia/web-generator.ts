@@ -42,6 +42,11 @@
 //     app/api/track/optin/route.ts, que recibe el formulario de una página publicada).
 //   · Su video de producto debajo del hero no va (no hay un video del Web Generator). De sus nueve preguntas sale la de
 //     agencias: no está medido qué hace el Web Generator para el cliente de una.
+// 14/11/2026, noche (Martín: «que la copia salga muy fiel a todas las animaciones… los videos, los hover, todo»): el DISEÑO se rehízo
+// contra la versión de hoy, con sus movimientos (el constructor del hero que se escribe solo, la galería que se arma con el scroll,
+// los contadores, el deslizador antes/después, la lista con su barra, la cadena del formulario). Lo que se ve en cada marco es REAL:
+// las landings que arma Web Generator con cada diseño y objetivo, fotografiadas de su render público, y la grabación de «Replicar».
+// Detalle: la cabecera de ./disenos/web-generator.tsx.
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['landing-writer']) y del editor (lib/editor-landing/,
 // app/web-generator/): crear con IA en dos pasos, editar por secciones y bloques, replicar, publicar en hola-mako.site o
 // en tu dominio (lib/editor-landing/dominios.ts), el SEO de Publicar (lib/editor-landing/seo-pagina.ts) y «Duplicar»

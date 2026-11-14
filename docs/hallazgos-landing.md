@@ -5787,3 +5787,38 @@ SIN HACER: su barra de controles con el mouse y el «Enable sound» (la grabaci�
 la garantía, el pago seguro, el cupón y el «INSTANT ACCESS | INCLUDED» (MaKo no los tiene); con el sol y la luna en claro, el hero
 negro y las bandas #4B4B4B pasan a claro (regla del 12/11, igual que en /vsl/ads: si Martín prefiere la copia fiel, `data-tema-fijo`
 en esas secciones de `disenos/offer.tsx`).
+
+## Web Generator como HighLevel: su CSS y sus scripts vienen DENTRO del HTML, la lista que el CSS pisa y qué va en cada marco (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/web-generator.tsx` (diseño y `<script data-visor>`), `app/vsl/_competencia/web-generator.ts`,
+`public/vsl-assets/web-generator/` (banco `C:/dev/bancos-portada/banco-web-generator-landing`: generar.mts → capturar.mjs → recortar.py).
+El relevo de AI Studio con capturas, videos y su código por sección: carpeta de notas, `referencias-landings/web-generator/`.
+
+- **Los tiempos salen de su HTML, no de mirarla.** HighLevel arma la página con bloques de «código propio»: el HTML de `curl` (1 MB) trae
+  el `<style>` y el `<script>` de CADA sección (el pedido que se escribe a 34 ms por letra, la ventana que termina a los 5650 ms, la galería
+  con su objeto `MOTION`, el borde rasgado con semilla 7, las pestañas cada 5,4 s, el formulario cada 9 s). **Regla:** antes de grabar,
+  buscar `<script>`/`<style>` dentro de cada sección del HTML servido; el navegador confirma qué se ve.
+- **⚠️ Lo obvio era lo equivocado: la lista de la izquierda no existe.** El CSS de «What can AI Studio build?» arma una lista vertical de
+  350 px (con subtítulo y número por opción) y AL FINAL del mismo bloque la pisa con una FILA de pestañas centradas. Leído de arriba abajo
+  se copió la lista; la captura decía fila. **Regla:** un CSS leído se confirma con la captura antes de copiarlo.
+- **Dos secciones están en el DOM y no se ven** («Built with AI Studio», «Meet your 24/7 AI Team»: `desktop-only mobile-only
+  tablet-hide`). El relevo del 11/11 decía que «ya no estaban»: están, escondidas en los tres anchos. Se mide el `display` de cada una.
+- **De su animate.css sólo quedan vivas dos entradas** (el título y la línea de la galería): las secciones del constructor llevan
+  `animation: none !important`. La galería atada al scroll se copió con su script entero; es progresiva (sin JavaScript la sección tiene
+  su alto normal: el alto de 3,2 × escenario lo pone la clase `is-vivo`) y el script borra los clones `[data-clone]` antes de armar,
+  porque `pulir.mjs` guarda el DOM con ellos.
+- **Qué va en cada marco, sin inventar:** las landings que se ven son las que arma Web Generator al elegir diseño + objetivo
+  (`landingDesde`), dibujadas con el render público y el documento de «Exportar → HTML» (`htmlDePagina` + `documentoExportable`) y
+  fotografiadas: sin base, sin IA, sin sesión. Llevan los corchetes de la plantilla («[resultado concreto]»): es lo que sale de verdad
+  sin la IA. El hero escribe un link y pasa la grabación REAL de Replicar (con «Con MaKo Pro»), no una frase con una landing armada a mano.
+- **Una plantilla con agenda EXPORTADA no dibuja la agenda**: el bloque de Calendly/Cal.com entra vacío a propósito y en modo `exportar`
+  no sale nada (en el editor dice «Pega el enlace de tu agenda», `app/web-generator/editor/nodos/InsertadoVista.tsx`). La foto de «Agenda»
+  es esa sección y el formulario que sigue. Y quiz, venta directa, curso y gracias no tienen bloque `formulario`: «¿Para quién?» dibuja
+  sólo las plantillas que lo tienen, con SUS campos y su botón (`PLANTILLAS[].contenido()`).
+- **Una cabecera que miente (vive en el CRM, no en la landing):** `app/api/track/optin/route.ts` arranca diciendo «NO CREA EL LEAD:
+  DEJA UNA PROPUESTA», y más abajo el mismo archivo tiene el alta directa (pegar el Pixel ya declara la entrada, 04/10) y la propuesta
+  sólo como caída. Antes de afirmar en una landing qué pasa con el formulario, se lee el código, no la cabecera: «entra a tu CRM como
+  lead» es cierto.
+
+SIN HACER: su video de producto debajo del hero (va «Aquí falta la animación»: no hay un video del Web Generator); su mascota; una landing
+que haya escrito la IA de MaKo desde una frase (para que el hero muestre la frase → la página, como el suyo); la agenda con un Calendly real.
