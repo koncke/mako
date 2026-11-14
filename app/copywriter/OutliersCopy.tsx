@@ -18,7 +18,7 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { contadorCorto, nivelDeMultiplo, rotuloOutlier } from '@/lib/carruseles/explorar';
 import {
-  ASPECTO_FORMATO, FORMATOS_COPY, INFO_FORMATO, PROPORCION_FORMATO, ROTULO_TEXTO, claveDeConsulta, filtrarOutliersCopy, imagenDelOriginal, sumarTanda, textoDeTarjeta,
+  ASPECTO_FORMATO, FORMATOS_COPY, INFO_FORMATO, PROPORCION_FORMATO, ROTULO_TEXTO, claveDeConsulta, filtrarOutliersCopy, idDeYouTube, imagenDelOriginal, sumarTanda, textoDeTarjeta,
   rotuloDeFormato, rotuloDiasAlAire, type FormatoCopy, type OrdenCopy, type OutlierCopy, type PortadaCopy,
 } from '@/lib/copywriter/outliers';
 import { pedirOutliers, pedirReplicar } from './cliente';
@@ -78,8 +78,8 @@ const Lupa = () => (
 );
 
 /** El ícono de la red en la marca del marco: se distingue de un vistazo de dónde es el copy. */
-function IconoRed({ formato }: { formato: FormatoCopy }) {
-  if (formato === 'youtube') {
+function IconoRed({ formato, youtube = false }: { formato: FormatoCopy; youtube?: boolean }) {
+  if (formato === 'youtube' || youtube) {
     return <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><rect x="2" y="5" width="20" height="14" rx="4" fill="#ff0033" /><path d="M10 9v6l5-3z" fill="#fff" /></svg>;
   }
   if (formato === 'anuncio') {
@@ -153,9 +153,10 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
         )}
         <span className={`${s.marcas} ${oc.marcas}`}>
           <span className={oc.red} title={`${rotuloDeFormato(o)} · ${ROTULO_TEXTO[o.deDonde]}`}>
-            <IconoRed formato={o.formato} />
+            {/* Un short de YouTube entra como reel (lib/copywriter/outliers.ts, `formatoDePiezaSpy`): con el ícono de YouTube. */}
+            <IconoRed formato={o.formato} youtube={o.formato === 'reel' && !!idDeYouTube(o.url)} />
             {/* En el teléfono, sólo el ícono: el nombre tapaba la cara y el nombre de las portadas tipo tuit (13/11/2026, el Cerebro). */}
-            <span className={oc.redNombre}>{o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas}` : INFO_FORMATO[o.formato].label}</span>
+            <span className={oc.redNombre}>{o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas}` : o.formato === 'reel' && idDeYouTube(o.url) ? 'Short' : INFO_FORMATO[o.formato].label}</span>
           </span>
           {/* Con el guion transcripto, se nota (12/11/2026, prueba en producción: 46 de los primeros 48 reels traían sólo su pie, y
               replicar el pie no copia lo que se DICE en la pieza). */}

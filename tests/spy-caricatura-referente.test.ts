@@ -43,6 +43,19 @@ import {
   MINIMO_PARA_EMPAREJAR, caricaturaDeCompetidor, comoAQuienMira, nombreDeReferente, nombreDeTarjeta, referenteDeCompetidor,
 } from '../lib/spy-caricatura';
 import { ASESORES } from '../lib/asesores/catalogo';
+import { TOPES } from '../lib/spy-reglas';
+
+test('todos los gurús entran en un negocio con SU cara, por su nombre completo, y caben', () => {
+  // Martín, 14/11/2026: «todos los gurús que tenemos… los ponga ahí en Competitor Spy… Con su respectiva caricatura». El alta
+  // los guarda con `completo` (y sin canal si no hay uno verificado): ese nombre solo tiene que traer SU cara y no la de otro.
+  // «Juan Osorio» (Juan ADS) y «Adrià Sola Pastor» sólo emparejan por la forma `completo` del mapa.
+  for (const a of ASESORES) assert.equal(referenteDeCompetidor({ nombre: a.completo }), a.id, a.completo);
+  // Y entran todos sin echar a nadie: el tope es también el `.limit` de la lista (`listarCompetidores`), y un competidor que
+  // nunca se leyó (`mirado_en` vacío) va al final, así que con el tope corto los gurús recién dados de alta no se veían.
+  // 25 es lo que un negocio podía tener antes del 14/11.
+  // Probado rompiéndolo (14/11/2026): el tope de vuelta en 25 → 12 / 1; el mapa sin la forma `completo` → 9 / 4.
+  assert.ok(TOPES.competidores >= ASESORES.length + 25, `${ASESORES.length} gurús + 25 no entran en ${TOPES.competidores}`);
+});
 
 test('el @ de Instagram encuentra la caricatura, sin tabla de arrobas', () => {
   // 'alexhormozi' y 'Alex Hormozi' colapsan al mismo texto comparable.

@@ -100,7 +100,7 @@ test('la pantalla: pregunta sin IA, lo escrito contesta la pregunta abierta y el
   for (const pagina of ['app/copywriter/page.tsx', 'app/copywriter/[id]/page.tsx', 'app/m/copywriter/[id]/page.tsx']) {
     assert.match(leer(pagina), /ofertasDelCopywriter\(\)/, `${pagina}: sin las ofertas`);
   }
-  assert.match(leer('app/m/copywriter/GuionM.tsx'), /citarRef=\{citar\} onPendiente=\{setDecidir\} ofertas=\{ofertas\} \/>/);
+  assert.match(leer('app/m/copywriter/GuionM.tsx'), /citarRef=\{citar\} onPendiente=\{setDecidir\} onPregunta=\{setPregunta\} ofertas=\{ofertas\} \/>/);
   // En el teléfono se ve una vista por vez: recién creada, abre en la de MaKo (si no, las preguntas quedan escondidas).
   assert.match(leer('app/m/copywriter/ListaGuionesM.tsx'), /router\.push\(`\/m\/copywriter\/\$\{r\.pagina\.id\}\$\{pl\.ejemplo \? '\?mako=1' : ''\}`\)/);
   assert.match(leer('app/m/copywriter/[id]/page.tsx'), /enMako=\{\(await searchParams\)\.mako !== undefined\}/);

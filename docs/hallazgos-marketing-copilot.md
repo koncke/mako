@@ -510,6 +510,23 @@ La punta cayó en rojo (corrida 1265) con cinco a la vez, ninguna en lo que corr
 - **Una tarea que vuelve cada semana necesita la semana en su clave**: sincronizar nunca reabre lo que la persona cerró, así que «Graba 3 reels» cerrado el lunes no volvería nunca. La clave lleva el lunes de la semana (`instagram:nevera-reel-20261109`): la semana siguiente, si sigue faltando, es otra tarea.
 - **Sin ritmo respondido no se avisa**: inventar cuánto publica alguien que no lo dijo es el error del «$0 al mes» de la batería (el dato no dicho no es un dato).
 
+## El banco de la portada mostró dos fallas que ni los tests ni la maqueta veían (14/11/2026)
+
+- **`.frn .cop-lista span { display: block }` le gana a una clase sola** (`.frn .cop-tarea__der` y `.frn .cop-plan`: 0,2,1 contra
+  0,2,0): en «Lo que te toca» el chip «En tu Plan» quedaba ENCIMA de «Hacerlo», aplastado. La maqueta no tenía ese `span` genérico, y
+  los tests no miran cajas. **Regla:** en `CSS_EXTRA` (CoPilot.tsx), lo que vive dentro de `.cop-lista` se escribe con `.cop-lista` adelante.
+- **Una decisión sobre un conjunto o una campaña no tiene miniatura** (sólo un anuncio tiene `anuncioBase`): el cuadro vacío de 60 px
+  dejaba un hueco a la izquierda de «Espera tu OK». Sin miniatura no va nada; el CSS ya tenía la grilla de tres columnas para ese caso.
+- **«Lo que hice» a lo ancho del tablero medía 1100 px por renglón** (más de 140 letras): va cortado a 60ch.
+- **«Espera tu OK» entre 700 y 1000 px** (una notebook de 1280 con la barra de la app) dejaba al porqué una columna de 190 px, en
+  diez renglones: el antes → después (250 px) y Aprobar/No (350 px) no se achican. Ahí el porqué va arriba a lo ancho y lo demás debajo
+  (`@container frn (min-width: 701px) and (max-width: 1000px)` en `CSS_EXTRA`); arriba de 1000 y abajo de 700 queda como estaba.
+- **El espacio de MaKo (ws 9) no tiene nada que el piloto haya hecho de verdad**: sus decisiones son las pruebas del 25/10
+  («[PRUEBA MaKo] … no activar», la campaña con 0 activas) y sus páginas analizadas son de terceros. Una animación del piloto con datos
+  del ws 9 no existe: la de la portada usa un negocio de ejemplo con nombres ficticios y el texto del motor.
+- **Cómo se vio:** el componente real montado con esbuild en un banco (`C:/dev/bancos-portada/banco-copilot-nuevo/`, fuera del repo:
+  `build.mjs`, `ver.mjs` saca las dos pantallas). Sirve para MIRAR la pantalla nueva sin desplegar ni levantar Next.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

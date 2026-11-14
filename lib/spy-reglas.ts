@@ -563,8 +563,13 @@ export const TOPES = {
   titulo: 300,
   /** El copy de un anuncio o la descripción de un video. */
   texto: 4_000,
-  /** Cuántos competidores por negocio: cinco competidores bien mirados, no un directorio. */
-  competidores: 25,
+  /**
+   * Cuántos competidores por negocio. Eran 25 («cinco bien mirados, no un directorio») hasta el 14/11/2026, cuando Martín pidió
+   * en el espacio de MaKo a TODOS los gurús con su caricatura: «todos los gurús que tenemos… los ponga ahí en Competitor Spy».
+   * Con los 32 del catálogo (lib/asesores/catalogo.ts) y las cuentas de antes son ~50. ⚠️ Es también el `.limit` de la lista
+   * (lib/spy.ts, `listarCompetidores`): con más filas que esto, los que nunca se leyeron (`mirado_en` vacío) quedan AFUERA sin aviso.
+   */
+  competidores: 60,
   /**
    * Cuántas piezas se traen DE AFUERA de un canal por vuelta (hoy, el canal de YouTube). Cada pieza cuesta una llamada
    * o un crédito, así que subirlo tiene precio: para un competidor que publica mucho está la lectura completa

@@ -4,6 +4,18 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## Un permiso de Claude con fecha vence y, al día siguiente, da rojo en cualquier rama (14/11/2026)
+
+**El síntoma:** la corrida 1306 de `punta/spy-gurus` dio rojo en `tests/closing-su-claude.test.ts`, y esa rama sólo tocaba Spy.
+**El diagnóstico obvio era el equivocado:** no fue la rama de Spy. El permiso de `closing` en `CLAUDE_PERMITIDO`
+(`lib/veto-claude.ts`) tiene `hasta: '2026-11-13'` y vence por diseño («vencer es la decisión por default»). El hijo del test
+(`tests/_closing-su-claude-hijo.ts`) fijaba el reloj sólo en el tramo «después del 13/11»; el resto corría con la fecha real,
+así que desde el 14/11 los casos que necesitan el permiso vigente caían en «venció», en cualquier punta que arrastrara el test.
+**La regla:** un test que dependa de un permiso, un tope o un plazo con fecha fija el reloj (`fijarReloj` en el hijo, o `hoy`
+en `evaluarPermiso`). Nunca la fecha real: un test así es una bomba con fecha.
+**En producción:** desde el 14/11, el Closing Analyst ya no corre con la clave de la plataforma y cada negocio usa su Claude,
+como estaba decidido. Renovar el permiso (unos US$13 cada 30 días) es una decisión de Martín.
+
 ## Una nota de voz de 4 s tardaba de 11 a ~105 s: Gemini escuchaba primero (12/11/2026, medido en producción)
 
 **Síntoma:** en el chat de Image, grabar una nota y mandarla dejaba «Enviando…» hasta 105 s; la misma nota, medida tres veces

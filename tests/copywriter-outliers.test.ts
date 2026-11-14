@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import {
   FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, primeraLinea, restoDelTexto, textoDeTarjeta,
   outliersCopyDeSpy, palabrasDe, reglasDeLaReplica, textoParaMaKo, tipoDeOutlier, tituloDeReplica, avisoDeLargo, capitulosDe, siguenLosCapitulos,
-  largoPedido, largoFuera, pedidoDeCorreccion, conElLargoReal,
+  largoPedido, largoFuera, pedidoDeCorreccion, conElLargoReal, imagenDelOriginal,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
 } from '../lib/copywriter/outliers';
 import { sanearProps } from '../lib/copywriter/tipos';
@@ -47,6 +47,14 @@ test('de Spy: el formato de cada pieza, y sin texto (o una landing) no hay outli
   assert.equal(formatoDePiezaSpy({ canal: 'instagram', tipo: 'publicacion', medio: 'video' }), 'reel');
   assert.equal(formatoDePiezaSpy({ canal: 'instagram', tipo: 'publicacion' }), 'carrusel');
   assert.equal(formatoDePiezaSpy({ canal: 'youtube', tipo: 'video' }), 'youtube');
+  // Un short de YouTube (hasta 3 minutos) es un reel (14/11/2026: los 47 reels de Hormozi en Spy son shorts).
+  assert.equal(formatoDePiezaSpy({ canal: 'youtube', tipo: 'video', duracion: 'PT45S' }), 'reel');
+  assert.equal(formatoDePiezaSpy({ canal: 'youtube', tipo: 'video', duracion: 'PT12M3S' }), 'youtube');
+  const short = outliersCopyDeSpy([pieza({ canal: 'youtube', tipo: 'video', duracion: 'PT40S', texto: 'Cómo cerrar más ventas sin bajar el precio, en 40 segundos y con un ejemplo real.', url: 'https://www.youtube.com/shorts/abcdefghijk' })], [CUENTA], new Map(), AHORA)[0];
+  assert.equal(short?.formato, 'reel');
+  assert.equal(short?.deDonde, 'descripcion', 'lo de un short es su descripción, no un pie');
+  assert.equal(imagenDelOriginal({ miniatura: null, url: 'https://www.youtube.com/shorts/abcdefghijk', formato: 'reel' }), 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg');
+  assert.match(reglasDeLaReplica({ formato: 'reel', deDonde: 'descripcion', texto: 'Cómo cerrar más ventas.', laminas: null })[0], /la DESCRIPCIÓN del short, no lo que se dice en el reel.*de 30 a 60 segundos dichos/);
   assert.equal(formatoDePiezaSpy({ canal: 'anuncios', tipo: 'anuncio' }), 'anuncio');
   assert.equal(formatoDePiezaSpy({ canal: 'landing', tipo: 'landing' }), null);
   const xs = outliersCopyDeSpy([

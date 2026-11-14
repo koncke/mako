@@ -494,8 +494,9 @@ test('una sola voz: lo que escribe Copywriting y su chat van en «tú» solos, t
   const ia = leer('lib/copywriter/ia.ts');
   assert.equal((ia.match(/const declarado = acento\?\.seguro \? acento : null;/g) ?? []).length, 2);
   assert.ok(ia.includes('if (!vosea) s.ops = operacionesAlTuteo(s.ops);'));
-  assert.ok(ia.includes("let respuesta = alTuteo([ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\\n\\n'), { citas: !vosea })"));
-  assert.ok(ia.includes("const respuesta = alTuteo([ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\\n\\n'), { citas: !vosea });"));
+  // Y después, sin palabras sueltas en inglés (13/11/2026: tests/copywriter-al-espanol.test.ts).
+  assert.ok(ia.includes("let respuesta = alEspanol(alTuteo([ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\\n\\n'), { citas: !vosea }), permitido)"));
+  assert.ok(ia.includes("const respuesta = alEspanol(alTuteo([ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\\n\\n'), { citas: !vosea }), pregunta);"));
 });
 
 test('un pedido corto sale sin lo que nadie pidió: notas de producción, variantes (13/11/2026, en producción en el teléfono)', () => {
