@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// LeadSheet — ficha del lead en modal, organizada en tabs
+// LeadSheet — ficha del lead en el panel de la derecha (antes un modal), organizada en tabs
 // =============================================================================
 // ⚠️ YA NO ES UN PREVIEW DE SOLO LECTURA, y por eso no tiene botón de editar: cada
 // dato se corrige donde se lee (ver `app/crm/campo-inline.ts`). El «Editar lead →»
@@ -24,7 +24,7 @@ import { suscripcionDeFila } from '@/lib/venta-tipo';
 import { CabeceraLead } from './lead-view/CabeceraLead';
 import { FunnelYEtapa, useProductosDeLaFicha } from './lead-view/ProductoDelLead';
 import { crmEnVista } from './lead-view/ficha/pagos/trato';
-import { ANCHO_FICHA_LEAD, ALTO_CHAT_EN_EL_POPUP, ALTO_FICHA_LEAD, MARGEN_FICHA_LEAD } from './lead-view/ficha-medidas';
+import { ALTO_CHAT_EN_EL_POPUP } from './lead-view/ficha-medidas';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 // ⚠️ LAS TABS Y SUS BLOQUES SON UNA SOLA PIEZA PARA LAS DOS PUERTAS (14/10/2026): esta y la ruta /crm/[id]
 // (LeadDetailBody) montan la MISMA `FichaPorBloques`, con los MISMOS datos (`getLeadFullAction`). Acá queda
@@ -33,7 +33,6 @@ import { FichaPorBloques } from './lead-view/ficha/FichaPorBloques';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { loQueSePide } from '@/lib/datos-aviso';
 
-import { profundidadModales } from '@/app/_components/pila-modales';
 import { FichaCambioProvider } from './lead-view/ficha-cambio';
 import { EtiquetasDelLead, versionDeEtiquetas } from './lead-view/EtiquetasDelLead';
 import { BotonGrabar } from '@/app/_components/grabar/GrabarLlamada';
@@ -77,41 +76,10 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
     onProductosCambiados: releer,
   });
 
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-
-  // a11y de diálogo: ESC, foco al panel, focus-trap básico, scroll-lock.
-  useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const prevActive = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      // Escape cierra la ficha SOLO si no hay nada encima. Esto escucha en fase de
-      // CAPTURA sobre window, o sea que corre ANTES que cualquier diálogo anidado —
-      // el `stopPropagation` de acá abajo no lo evita, porque para cuando corre ya
-      // ganó—. Resultado hasta el 27/09: Escape adentro de un wizard o de una
-      // confirmación cerraba la ficha entera con lo que estuvieras escribiendo.
-      if (e.key === 'Escape' && !e.isComposing) {
-        if (profundidadModales() > 0) return; // lo cierra el de arriba
-        e.stopPropagation(); onCloseRef.current(); return;
-      }
-      if (e.key === 'Tab' && panelRef.current) {
-        const f = panelRef.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])');
-        if (!f.length) return;
-        const first = f[0], lastEl = f[f.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); lastEl.focus(); }
-        else if (!e.shiftKey && document.activeElement === lastEl) { e.preventDefault(); first.focus(); }
-      }
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => {
-      window.removeEventListener('keydown', onKey, true);
-      document.body.style.overflow = prevOverflow;
-      prevActive?.focus?.();
-    };
-  }, []);
+  // ⚠️ EL ESCAPE, EL FOCO Y «TOCAR AFUERA» SON DEL PANEL (lead-view/PanelFicha.tsx) desde el 14/11/2026, cuando la ficha
+  // dejó de ser un modal: ya no hay foco atrapado ni scroll bloqueado, porque el tablero de al lado se sigue usando. El
+  // Escape sigue escuchando en CAPTURA y se abstiene mientras haya algo en la pila (`profundidadModales`): hasta el 27/09
+  // Escape adentro de un wizard o de una confirmación cerraba la ficha entera con lo que estuvieras escribiendo.
 
   const stageKey = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
   const sm: Stage | undefined = stageMeta(stages, stageKey);
@@ -199,12 +167,10 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
 
   return (
     <FichaCambioProvider value={releer}>
-    <div data-ficha-overlay onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: `${MARGEN_FICHA_LEAD}px clamp(10px,3vw,20px)` }}>
-      {/* ⚠️ MÁS ANCHO (punto 14 del 12/10/2026: «bastante más ancho, para aprovechar más el
-          espacio»): eran 760. El número vive en lead-view/ficha-medidas.ts, que también lee el
-          esqueleto de carga. Sin `aria-labelledby`: el nombre ahora es un campo editable, y un
-          diálogo no se nombra con un campo. */}
-      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={lead.nombre || 'Lead'} onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: ANCHO_FICHA_LEAD, height: ALTO_FICHA_LEAD, maxHeight: ALTO_FICHA_LEAD, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden', outline: 'none' }}>
+      {/* ⚠️ YA NO ES UN POP-UP CENTRADO DE 1100 (14/11/2026): llena el PANEL de la derecha (lead-view/PanelFicha.tsx, 560
+          de ancho y el alto entero), que es quien se anuncia como diálogo, toma el foco y se cierra con Escape o tocando
+          afuera. Acá sólo se reparte el alto: la cabecera fija, el cuerpo que scrollea y el pie. */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
 
         {/* ⚠️ LA CABECERA ES LA MISMA PIEZA QUE LA DE LA RUTA (lead-view/CabeceraLead.tsx): la
             portada con la cara del lead cruzándola (punto 11), el nombre que se edita con un clic,
@@ -220,6 +186,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
         <CabeceraLead
           lead={lead}
           fotoEmail={fotoEmail}
+          panel
           onCerrar={onClose}
           junto={<EtiquetasDelLead compacto leadId={lead.id} version={versionDeEtiquetas(lead.updated_at, fichaProd.productos)} />}
           /* «Grabar» la llamada (04/11/2026, pedido de Martín): al lado del funnel, en la MISMA pieza que la ruta. */
@@ -243,7 +210,7 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
             panel con el alto topeado), que es lo que un sticky necesita para pegarse.
             ⚠️ LAS TABS SON `FichaPorBloques`, la MISMA pieza que la ruta /crm/[id]: Resumen, Tracking,
             Reuniones y Pagos por bloques (la ficha del funnel del lead), MaKo Analyst y el Historial. */}
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 clamp(16px,4vw,28px) clamp(14px,4vw,20px)' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: '0 clamp(16px,4vw,24px) clamp(14px,4vw,20px)' }}>
           <FichaPorBloques
             data={vigente}
             initialTab={initialTab}
@@ -268,13 +235,16 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
             ⚠️ Y ACÁ ESTABA «Editar lead →», que se fue el 05/10/2026 (pedido DOS veces): los 15
             campos que ese formulario editaba se editan en la ficha, cada uno donde se lee. Lo único
             con pantalla propia es el DEAL, y su entrada está en la tab Pagos. */}
-        {delErr && <div style={{ padding: '8px clamp(16px,4vw,28px)', color: 'var(--bad)', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>{delErr}</div>}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14, padding: '12px clamp(16px,4vw,28px)', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+        {delErr && <div style={{ padding: '8px clamp(16px,4vw,24px)', color: 'var(--bad)', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>{delErr}</div>}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14, padding: '12px clamp(16px,4vw,24px)', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
           <BotonBorrar texto="Borrar lead" title={`Borrar a ${lead.nombre || 'este lead'}`} onClick={() => setConfirmDelete(true)} disabled={pending} />
         </div>
       </div>
 
-      {/* ⚠️ EL CLICK NO PUEDE LLEGAR AL BACKDROP DE LA FICHA. Este wizard se monta
+      {/* ⚠️ (Desde el 14/11/2026 no hay backdrop: la ficha es un panel y lo que cierra es «tocar afuera»,
+          que mira el árbol de React —lead-view/PanelFicha.tsx—, así que este wizard ya cuenta como adentro.
+          El freno queda por si la ficha vuelve a montarse dentro de algo que cierra con un clic.)
+          ⚠️ EL CLICK NO PUEDE LLEGAR AL BACKDROP DE LA FICHA. Este wizard se monta
           DENTRO del overlay de la ficha, que tiene `onClick={onClose}`: en React los
           eventos suben por el árbol de componentes, así que un click en el fondo del
           wizard (el `padding: 20` alrededor de su panel) cerraba su diálogo Y la ficha
@@ -333,7 +303,6 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
           zIndex={120}
         />
       )}
-    </div>
     </FichaCambioProvider>
   );
 }
