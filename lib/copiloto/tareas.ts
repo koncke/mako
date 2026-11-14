@@ -86,17 +86,10 @@ export function tareasDelCoPilot(r: ResumenParaTareas): { tareas: TareaCoPilot[]
   if (r.seguidos == null || r.seguidos === 0) tareas.push({ clave: 'instagram:competidores', tarjeta: 'instagram', titulo: 'Selecciona a tus competidores en Competitor Spy', href: '/competitor-spy?ver=seguidos' });
   else resueltas.push('instagram:competidores');
 
-  // La nevera: una tarea por formato que se queda corto, y por SEMANA (la clave lleva el lunes): una cerrada no vuelve a nacer, pero la
-  // semana siguiente, si sigue faltando, es otra tarea.
   if (r.nevera) {
-    const semana = r.nevera.lunes.replace(/-/g, '');
-    for (const f of ['reel', 'story', 'post', 'video'] as const) {
-      const aviso = r.nevera.avisos.find((a) => a.formato === f);
-      const tarjeta: TarjetaCoPilot = f === 'video' ? 'youtube' : 'instagram';
-      const clave = `${tarjeta}:nevera-${f}-${semana}`;
-      if (aviso) tareas.push({ clave, tarjeta, titulo: aviso.titulo, href: '/calendario' });
-      else resueltas.push(clave);
-    }
+    const n = tareasDeLaNevera(r.nevera);
+    tareas.push(...n.tareas);
+    resueltas.push(...n.resueltas);
   }
 
   return { tareas, resueltas };
@@ -140,4 +133,23 @@ export function planDeSincronizacion(
   const crear = hoy.filter((t) => !enPlan.has(t.clave));
   const cerrar = resueltas.filter((k) => enPlan.get(k)?.hecha === false);
   return { crear, cerrar };
+}
+
+/**
+ * La nevera: una tarea por formato que se queda corto, y por SEMANA (la clave lleva el lunes): una cerrada no vuelve a nacer, pero la
+ * semana siguiente, si sigue faltando, es otra tarea. La usan la pantalla (`tareasDelCoPilot`) y el cron que avisa sin que nadie
+ * abra el CoPilot (lib/copiloto/nevera-aviso.ts): las dos llegan a la MISMA clave, y el Plan no la duplica.
+ */
+export function tareasDeLaNevera(n: NonNullable<ResumenParaTareas['nevera']>): { tareas: TareaCoPilot[]; resueltas: string[] } {
+  const tareas: TareaCoPilot[] = [];
+  const resueltas: string[] = [];
+  const semana = n.lunes.replace(/-/g, '');
+  for (const f of ['reel', 'story', 'post', 'video'] as const) {
+    const aviso = n.avisos.find((a) => a.formato === f);
+    const tarjeta: TarjetaCoPilot = f === 'video' ? 'youtube' : 'instagram';
+    const clave = `${tarjeta}:nevera-${f}-${semana}`;
+    if (aviso) tareas.push({ clave, tarjeta, titulo: aviso.titulo, href: '/calendario' });
+    else resueltas.push(clave);
+  }
+  return { tareas, resueltas };
 }

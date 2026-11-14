@@ -105,7 +105,7 @@ function depsDe(ws: number, p: Pieza): DepsGuion & DepsGuionYoutube {
 export async function asegurarGuion(
   ws: number,
   piezaId: number,
-  opts: { hayIA: boolean; hayClave: boolean; hayGemini: () => Promise<boolean> },
+  opts: { hayIA: boolean; hayClave: boolean; hayGemini: () => Promise<boolean>; huellas?: readonly string[] | null },
 ): Promise<{ vista: VistaGuion; trabajo: (() => Promise<void>) | null } | null> {
   const p = await piezaDe(piezaId);
   if (!p) return null;
@@ -134,7 +134,7 @@ export async function asegurarGuion(
     const g = leerGuion((await deps.leer()).crudo);
     return { vista: vistaDeGuion(g, { aplica: true, sinIA: !opts.hayIA, sinClave: !opts.hayClave }), trabajo: null };
   }
-  const r = await reclamarGuion(deps);
+  const r = await reclamarGuion(deps, Date.now(), undefined, opts.huellas);
   if (!r.corre) return { vista: vistaDeGuion(r.actual, { aplica: true }), trabajo: null };
   const trabajo = async () => {
     try {

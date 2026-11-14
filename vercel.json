@@ -49,6 +49,10 @@
       "schedule": "30 14 * * *"
     },
     {
+      "path": "/api/cron/copiloto-nevera",
+      "schedule": "15 13 * * *"
+    },
+    {
       "path": "/api/cron/media-buyer-vigia",
       "schedule": "45 */2 * * *"
     },

@@ -119,6 +119,12 @@ export type AvisoCatalogo = {
    *   cada 'siempre' nuevo es una decisión que le sacamos al dueño de su negocio.
    */
   porDefecto?: 'on' | 'off' | 'siempre';
+  /**
+   * Por dónde sale mientras el negocio no eligió (lib/plantillas.ts, `canalesDe`). Sin esto, `CANALES_DEFAULT`: sólo WhatsApp.
+   * Lo usa el que se prometió por los dos (Martín a Julio, 13/11: la nevera vacía «te va mandando mensajes por WhatsApp y por
+   * email»). Lo que el negocio elija en la pantalla gana siempre.
+   */
+  canales?: { wa?: boolean; email?: boolean };
 };
 
 // Emojis por categoría (para agrupar visualmente en la demo).
@@ -217,6 +223,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'email-rebotes': 'sistema',
   'tareas-autocompletadas': 'plan', 'ads-grabaste': 'plan',
   'plan-proyecto-vence': 'plan',
+  // La nevera de contenido del Marketing CoPilot (cron copiloto-nevera): lo que hay que hacer es GRABAR, y la tarea va al Plan.
+  'copiloto-nevera': 'plan',
   'avisos-resumen': 'reporte',
 
   'lead-formulario-meta': 'lead', 'wa-mensaje-entrante': 'lead',
@@ -413,6 +421,21 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   // catálogo: es de acá que salen la lista de «Los mensajes, como llegan», su
   // texto editable y su interruptor. Al quedar UNA sola pantalla, un aviso que
   // sale pero no figura acá es un aviso que nadie puede leer, editar ni apagar.
+  {
+    id: 'copiloto-nevera', titulo: 'Se te acaba el contenido', categoria: 'aviso',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Una vez por día (cron copiloto-nevera): si lo listo en el Calendario no llega a la semana que viene, según el ritmo que respondiste en el Marketing CoPilot. Una vez por formato y por semana.',
+    ejemplo: `🎬 *Necesito más contenido*
+
+Tus reels te alcanzan hasta el martes 18. Graba 3 esta semana.
+Tus videos largos: no tienes ninguno listo. Graba 1.
+
+Ya quedó en tu Plan. — MaKo`,
+    textoDelCodigo: true,
+    porDefecto: 'on',
+    // Martín a Julio (13/11): «te va mandando mensajes por WhatsApp y por email».
+    canales: { wa: true, email: true },
+  },
   {
     id: 'plan-proyecto-vence', titulo: 'Proyectos atrasados o por vencer', categoria: 'aviso',
     prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
