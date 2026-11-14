@@ -116,20 +116,29 @@ el MRR un 85% (hallazgos-crm.md).
   aclaraba nada.
 - **La regla.**
   - El botón dice lo que hace: «Volver a pendiente». El texto lo pone `renglonDeCuota` (`boton`) y no la pantalla.
-  - Un día de pago después de hoy, en la zona del negocio, no se acepta, ni al corregir una cobrada ni al cobrar a mano
-    (`diaDePagoFuturo`, lib/pagos-campo.ts). El error dice cómo se hace lo que se quería.
+  - El día del pago de una cobrada no se corrige a después de hoy, en la zona del negocio (`diaDePagoFuturo`,
+    lib/pagos-campo.ts, en `editarCuotaCobrada`). El error pregunta «¿La cobraste de verdad?» y dice cómo volverla a
+    pendiente.
   - El historial de una cobrada dice «cobrada el …» (`lineaDeCobradaEditada`). El de volver a pendiente dice cuál cuota
-    y de cuándo era el pago (`textoDeVueltaAPendiente`), igual desde la ficha que desde la API de MaKo.
+    (`textoDeVueltaAPendiente` con `numeroDeCuota`), igual desde la ficha que desde la API de MaKo.
   - Lo fija tests/pagos-volver-a-pendiente.test.ts, probado rompiéndolo.
 - **Medir con el historial, no con la cuota.** La cuota sola no decía qué pasó.
   - La pista estaba en `lead_audit`: dos «Pago registrado (2026-11-06)» seguidos el 06/11 y dos ediciones de fecha el
     14/11, un minuto antes del mensaje.
   - El mismo 06/11 marcó cobradas siete cuotas en 21 segundos, dos de ellas de diciembre (Sergio Esquer y Fernando
     Muñoz). Ésas no se tocaron: parecen pagos adelantados.
+- **La primera versión rompió cuatro tests de pagos (corrida 1373 de la punta), y el arreglo no fue aflojarlos.**
+  - Ponerle el chequeo de la fecha a `cobrarCuota` tumbó tests/pagos-cobro-idempotente: su hijo clava el reloj en el
+    21/10 y cobra el 05/11. Para ese test, un cobro «en el futuro» es un dato normal.
+  - Sumarle `cuota` a lo que devuelve `marcarPago` tumbó pagos-link-ya-pagado y pagos-nacio-cobrada: comparan el
+    resultado ENTERO con `deepEqual`. También tumbó datos-comercial, que fija que la guarda de acceso va pegada a la
+    escritura y con esa línea exacta.
+  - La regla: el dato para el historial se lee aparte (`numeroDeCuota`, después de desmarcar) y `marcarPago` devuelve lo
+    de siempre. Por eso el historial dice cuál cuota, pero no de cuándo era el pago: ese día ya se borró al desmarcar.
 - **Sin hacer.**
-  - `marcarPago(…, true, fecha)` (la pasarela y otros caminos) no mira si la fecha es futura. Sólo lo miran `cobrarCuota`
-    y la corrección de una cobrada.
-  - El modal «Marcar pagada» no limita la fecha en el calendario: el error llega recién del server.
+  - Cobrar a mano con fecha futura sigue pasando: no lo miran ni `cobrarCuota` (el modal «Marcar pagada», la API) ni
+    `marcarPago`. Ponerlo pide decidir qué hacer con el test del reloj clavado.
+  - El modal «Marcar pagada» no limita la fecha en el calendario.
 
 ### Un bloque que «se calla sin deal» deja un dato pedido sin dónde cargarse
 

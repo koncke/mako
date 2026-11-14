@@ -7,10 +7,13 @@
 // esa fecha es el DÍA DEL PAGO: quedó «cobrada el 30/11», un pago en el futuro, y el historial anotó «vence 06/11 → vence
 // 30/11». Lo que se fija acá:
 //   1. el botón de la cobrada a mano dice «Volver a pendiente»; la de la pasarela no lleva ninguno;
-//   2. el día del pago no puede ser después de hoy, y el error dice cómo se hace lo que se quería;
-//   3. el historial de una cobrada corregida dice «cobrada el …», y el de la vuelta a pendiente, cuál y de cuándo era el pago;
-//   4. el cableado: la corrección y el cobro a mano miran la fecha, y las dos maneras de desmarcar (la ficha y la API de MaKo)
+//   2. el día del pago de una cobrada no se corrige a después de hoy, y el error dice cómo se hace lo que se quería;
+//   3. el historial de una cobrada corregida dice «cobrada el …», y el de la vuelta a pendiente, cuál cuota;
+//   4. el cableado: la corrección de una cobrada mira la fecha, y las dos maneras de desmarcar (la ficha y la API de MaKo)
 //      escriben el mismo historial, con quién lo hizo (el autor ya lo ponían `autorActual` y `autorDe`).
+// ⚠️ EL COBRO A MANO (`cobrarCuota`) NO MIRA LA FECHA, a propósito (corrida 1373 de la punta): tests/pagos-cobro-idempotente
+// cobra el 05/11 con el reloj clavado en el 21/10, y `marcarPago` devuelve lo mismo de siempre porque cuatro tests lo comparan
+// entero. El número de la cuota para el historial se lee aparte (`numeroDeCuota`).
 //
 // PROBADO ROMPIÉNDOLO (14/11/2026), una rotura por vez, cada una restaurada antes de la siguiente:
 //   · el botón de la cobrada vuelve a decir «Deshacer»                                  → cae el 1;
@@ -19,7 +22,8 @@
 //   · la línea de la cobrada con «vence» en vez de «cobrada el»                           → cae el 3;
 //   · el historial de desmarcar sin el número de cuota                                    → cae el 3;
 //   · `editarCuotaAction` vuelve a `lineasDeCuotas` para la cobrada                       → cae el 4;
-//   · `cobrarCuota` sin el chequeo de la fecha                                            → cae el 4.
+//   · `editarCuotaCobrada` sin el chequeo de la fecha                                     → cae el 4;
+//   · la action de la ficha vuelve a «Cuota desmarcada»                                   → cae el 4.
 // Correr: node --import tsx --test tests/pagos-volver-a-pendiente.test.ts
 // =============================================================================
 import { test } from 'node:test';
@@ -66,22 +70,20 @@ test('3. el historial: la cobrada corregida dice «cobrada el», y la vuelta a p
   assert.equal(textoDeVueltaAPendiente(undefined, undefined), 'La cuota volvió a pendiente');
 });
 
-test('4. el cableado: la corrección y el cobro miran la fecha; la ficha y la API escriben el mismo historial', () => {
+test('4. el cableado: la corrección de una cobrada mira la fecha; la ficha y la API escriben el mismo historial', () => {
   const pagos = codigo('lib/pagos.ts');
   const cobrada = pagos.slice(pagos.indexOf('async function editarCuotaCobrada'), pagos.indexOf('export async function cortarRecordatoriosDeCuota'));
   assert.match(cobrada, /if \(cambio\.fecha !== antes\.fecha_esperada\) \{\s*const futuro = diaDePagoFuturo\(cambio\.fecha, await hoyEnWorkspace\(\)\);\s*if \(futuro\) throw new Error\(futuro\);/);
-  const cobro = pagos.slice(pagos.indexOf('export async function cobrarCuota'), pagos.indexOf('await asegurarLeadDelNegocio(leadId);', pagos.indexOf('export async function cobrarCuota')));
-  assert.match(cobro, /const futuro = diaDePagoFuturo\(datos\.fecha, await hoyEnWorkspace\(\)\);\s*if \(futuro\) throw new Error\(futuro\);/);
-  assert.match(pagos, /return \{ quitada, porLink: null, yaEstaba: false, cuota: \{ numero: Number\(pago\.numero\), fechaPagoAntes:/);
+  assert.match(pagos, /export async function numeroDeCuota\(pagoId: number\): Promise<number \| null> \{\s*const \{ data, error \} = await \(await getTenantDb\(\)\)\.from\('pagos'\)\.select\('numero'\)\.eq\('id', pagoId\)/);
 
   const accion = codigo('app/crm/[id]/pagos-campo-actions.ts');
   assert.match(accion, /cambio\?\.espera === 'cobrada'\s*\? \[lineaDeCobradaEditada\(r\.numero, \{ monto_usd: antes\.monto, fecha_pago: antes\.fecha \}, \{ monto_usd: despues\.monto, fecha_pago: despues\.fecha \}\)\]/);
 
-  for (const [ruta, autor] of [['app/crm/actions.ts', /await autorActual\(\)/], ['lib/api-mako/areas/crm.run.ts', /autorDe\(ctx\)/]] as const) {
+  for (const [ruta, id, autor] of [['app/crm/actions.ts', 'pagoId', /await autorActual\(\)/], ['lib/api-mako/areas/crm.run.ts', 'Number(payload.pagoId)', /autorDe\(ctx\)/]] as const) {
     const src = codigo(ruta);
-    assert.match(src, /textoDeVueltaAPendiente\(cuota\?\.numero, cuota\?\.fechaPagoAntes\)/, `${ruta}: el historial de desmarcar`);
-    const linea = src.slice(src.indexOf('textoDeVueltaAPendiente(cuota?.numero'), src.indexOf('textoDeVueltaAPendiente(cuota?.numero') + 120);
-    assert.match(linea, autor, `${ruta}: con quién lo hizo`);
+    const llamada = `textoDeVueltaAPendiente(await numeroDeCuota(${id}))`;
+    assert.ok(src.includes(llamada), `${ruta}: el historial de desmarcar dice cuál cuota`);
+    assert.match(src.slice(src.indexOf(llamada), src.indexOf(llamada) + llamada.length + 40), autor, `${ruta}: con quién lo hizo`);
   }
   assert.match(codigo('app/crm/lead-view/ficha/pagos/cobrar.tsx'), /show\(`\$\{nombreCuota\(q\.numero\)\} volvió a pendiente`/);
 });
