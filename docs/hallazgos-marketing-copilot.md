@@ -527,6 +527,29 @@ La punta cayó en rojo (corrida 1265) con cinco a la vez, ninguna en lo que corr
 - **Cómo se vio:** el componente real montado con esbuild en un banco (`C:/dev/bancos-portada/banco-copilot-nuevo/`, fuera del repo:
   `build.mjs`, `ver.mjs` saca las dos pantallas). Sirve para MIRAR la pantalla nueva sin desplegar ni levantar Next.
 
+## La segunda animación de la portada (anuncios, Instagram y YouTube, 14/11/2026)
+
+Martín cambió la fila a «gestiona tus anuncios, tu Instagram y tu YouTube con IA» y pidió «las decisiones más importantes que toma
+MaKo» en cada canal.
+
+- **Instagram y YouTube NO tienen piloto**: en «Piloto automático» sus tarjetas dicen «Sin piloto todavía». Lo que el CoPilot hace
+  ahí, en «Análisis y acción»: en Instagram **propone** con cuántas vistas se publica un reel de prueba (la mediana de las cuentas que
+  sigues en Spy) y avisa cuando la nevera no llega a la semana; en YouTube, sólo la nevera de videos largos y su aviso («Graba 1 video
+  largo», que va al Plan). La animación muestra eso y nada más; el título promete más de lo que hay hoy. **SIN HACER:** el piloto de
+  Instagram y YouTube (ya en el relevo).
+- **Pasar de un paso al otro con la cámara lejos muestra «Sin piloto todavía»** debajo de un título que promete Instagram y YouTube.
+  Por eso son dos grabaciones (anuncios en el piloto; redes en el análisis) unidas con un fundido.
+- **A 780 px, aprobar mueve TODO ~300 px**: se va el «1» de «Piloto automático», el encabezado pasa de dos filas a una y «Lo que
+  hice» sube a donde estaba «Espera tu OK». Con la cámara quieta, un cuadro quedaba con «Lo que hice» sin título y medio vacío; con
+  la cámara corrigiendo después, se veían las tarjetas del piloto. Lo que anduvo: un `MutationObserver` (corre después de que React
+  cambia el DOM y ANTES de pintar) mueve la cámara a la toma nueva en el mismo cuadro, y el corte se funde 0,3 s.
+- **La sombra de la tarjeta elegida baja hasta «Métricas»**: un borde de toma entre las tarjetas y «Métricas» muestra una mancha gris.
+  El borde va entre «Métricas» y la sección de abajo.
+- **Con la máquina cargada, Chrome deja baldosas en blanco hasta un segundo** al acercar la cámara (el body escalado ×1,7): en una
+  toma, «0 videos largos listos» salió como un bloque rosa vacío. No se ve en las marcas del script: hay que mirar los cuadros y
+  regrabar.
+- **El banco:** `C:/dev/bancos-portada/banco-copilot-redes/` (fuera del repo): `grabar.mjs a|b` y `terminar.mjs`.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

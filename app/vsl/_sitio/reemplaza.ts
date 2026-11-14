@@ -96,6 +96,11 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; pla
   { app: app('Gamma', 'gamma'), trabajo: 'Páginas y presentaciones', plan: 'Plus', precioUsd: 10, fuente: 'https://gamma.app/pricing' },
   { app: app('Skool', 'skool'), trabajo: 'Cursos y comunidad', plan: 'Pro', precioUsd: 99, fuente: 'https://www.skool.com/pricing' },
   { app: app('Mailchimp', 'mailchimp'), trabajo: 'Email', plan: 'Standard', precioUsd: 20, fuente: 'https://mailchimp.com/pricing/' },
+  // Martín, 14/11/2026: «agrega Metricool y Make o Zapier… el que salga más caro». Pagando mes a mes, buscado el 14/11/2026 (en sitios
+  // que siguen precios; las páginas oficiales no se leyeron directo): Zapier Professional US$29,99 (Make Core, unos US$12: queda
+  // afuera del ahorro); Metricool Starter US$25.
+  { app: app('Zapier', 'zap'), trabajo: 'Automatizaciones', plan: 'Professional', precioUsd: 29.99, fuente: 'https://zapier.com/pricing' },
+  { app: app('Metricool', 'metricool'), trabajo: 'Redes y métricas', plan: 'Starter', precioUsd: 25, fuente: 'https://metricool.com/pricing/' },
 ];
 
 /**
@@ -103,8 +108,10 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; pla
  * apps extremadamente conocidas… ManyChat, Canva, Notion, Skool, CapCut, Higgsfield, Kajabi, Hotmart, Circle… no las que son poco
  * conocidas», como Framer, Foreplay, Minea o BigSpy). La comparación trabajo por trabajo sigue con todas (`appsQueReemplaza`).
  */
-const CONOCIDAS = ['ManyChat', 'Zapier', 'Make', 'Canva', 'CapCut', 'Metricool', 'Notion', 'Skool', 'GoHighLevel', 'Kajabi', 'Hotmart', 'Circle', 'Systeme.io', 'ClickFunnels',
-  'HubSpot', 'Mailchimp', 'ActiveCampaign', 'HeyGen', 'Higgsfield', 'Gamma', 'OpusClip', 'Descript', 'Pipedrive'] as const;
+// El orden, mezclado (Martín, 14/11/2026: «desordena esas apps para que no estén todas juntas por categoría»): nunca dos del mismo
+// trabajo seguidas. Están TODAS las del ahorro (STACK_TIPICO), y se fueron Descript y Pipedrive (pedido de Martín, 14/11/2026).
+const CONOCIDAS = ['ManyChat', 'Canva', 'GoHighLevel', 'Metricool', 'CapCut', 'Skool', 'Zapier', 'Gamma', 'Mailchimp', 'HeyGen', 'Notion',
+  'Kajabi', 'OpusClip', 'HubSpot', 'Make', 'Higgsfield', 'Hotmart', 'ClickFunnels', 'ActiveCampaign', 'Circle', 'Systeme.io'] as const;
 export function appsDeLaTira(): AppQueReemplaza[] {
   const todas = appsQueReemplaza();
   return CONOCIDAS.flatMap((n) => todas.filter((a) => a.nombre === n));

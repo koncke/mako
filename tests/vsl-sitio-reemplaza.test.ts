@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { STACK_QUE_REEMPLAZA, appsQueReemplaza } from '../app/vsl/_sitio/reemplaza';
+import { STACK_QUE_REEMPLAZA, appsQueReemplaza, appsDeLaTira } from '../app/vsl/_sitio/reemplaza';
 import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
 import { STACK_TIPICO } from '../app/vsl/_sitio/reemplaza';
 import { LOGO_INTEGRACION, TARJETAS_PORTADA, filasDeComparacion, nAppsQueReemplaza } from '../app/vsl/_sitio/datos';
@@ -61,8 +61,12 @@ test('la cantidad de apps que MaKo reemplaza no se dice en ningún lado del siti
 test('el ahorro de la portada es el de un stack típico con su precio, y sale a favor de MaKo Pro', () => {
   const pro = PLANES_MAKO_DEFAULT.find((p) => p.id === 'pro');
   assert.ok(pro, 'sin plan Pro');
-  // 12 como tope: la llamada con Leila (13/11/2026) sumó HeyGen y OpusClip a las 9; sigue siendo un stack, no las 54.
-  assert.ok(STACK_TIPICO.length >= 3 && STACK_TIPICO.length <= 12, 'un stack realista, no las 54');
+  // 13 como tope: la llamada con Leila (13/11/2026) sumó HeyGen y OpusClip a las 9, y Martín (14/11/2026) Zapier y Metricool; sigue
+  // siendo un stack, no las 54.
+  assert.ok(STACK_TIPICO.length >= 3 && STACK_TIPICO.length <= 13, 'un stack realista, no las 54');
+  // Martín, 14/11/2026: «todas las que están en la lista de los precios… deberían estar también ahí en el carrusel».
+  const tira = new Set(appsDeLaTira().map((a) => a.nombre));
+  for (const x of STACK_TIPICO) assert.ok(tira.has(x.app.nombre), `${x.app.nombre}: está en el ahorro y no en la tira`);
   for (const x of STACK_TIPICO) {
     assert.ok(x.precioUsd > 0 && /^https:\/\//.test(x.fuente), `${x.app.nombre}: sin precio o sin fuente`);
     assert.ok(existsSync(join(RAIZ, 'public', x.app.logo)), `${x.app.nombre}: falta su logo`);

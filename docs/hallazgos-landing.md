@@ -5356,3 +5356,24 @@ borroso. **Causa.** make.com declara íconos de 180, 192 y 512 px, pero todos so
 **Lo que se hizo.** La forma de Simple Icons (`simple-icons@13.21.0/icons/make.svg`) rellena con un degradé de los colores
 muestreados del favicon (#EF02FA → #9F25E1 → #8508D8), dibujada a 128 px con Playwright (`omitBackground`). **Zapier**, además,
 no puede tener la key en minúscula entre comillas (tests/puente-leads-retirado.test.ts): su archivo es `zap.png`.
+
+## El carrusel de tableros «aparece sin animación por medio segundo»: el póster era el ÚLTIMO cuadro (14/11/2026)
+
+**Síntoma.** Al pasar de tablero, se veía el tablero armado medio segundo y después arrancaba la entrada desde vacío. **Causa.** El
+póster de cada video era su último cuadro (el tablero completo): mientras se desliza se muestra el póster, y al arrancar el video vuelve
+a su cuadro 0. **La regla.** En un video que se reproduce al entrar a la vista, el póster es su PRIMER cuadro: así el video empalma
+con lo que ya se ve (`ffmpeg -i x.webm -frames:v 1 x.jpg`). El último cuadro sirve de póster sólo para un video que no se va a
+reproducir.
+
+## Un banco con `overflow: hidden` se corre de costado solo: `scrollIntoView` lo desplaza (14/11/2026)
+
+**Síntoma.** En el banco de Automations, el panel «Probar» (escondido con `translateX` fuera del cuadro) se veía desde el primer
+cuadro y el lienzo quedaba cortado a la mitad. **Causa.** El simulador hace `scrollIntoView` al montarse; un contenedor con
+`overflow: hidden` NO se puede desplazar con el mouse, pero SÍ por código, y se corrió 552 px para mostrar el panel escondido.
+**La regla.** Un contenedor que esconde algo afuera usa `overflow: clip` (no se puede desplazar de ninguna forma).
+
+## Los encuadres de la cámara sobre el editor de video dejaban afuera la línea de tiempo (14/11/2026)
+
+Martín: «cuando se hace zoom siempre aparezca la barra de abajo… la línea de tiempo. Incluso cuando se hace zoom al video, así se nota
+de que sigue editando». El video es vertical y está arriba; la línea de tiempo, abajo de todo: un encuadre del video solo la deja
+afuera. Todo encuadre del editor incluye las pistas (`conLinea` en el banco de video): se acerca menos, pero se ve que edita.
