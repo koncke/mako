@@ -32,8 +32,8 @@ PUBLICADAS y, en cada una, formularios, encuestas, quiz, agenda y pago, por nomb
 - **La ficha parte «Lo que contestó» por formulario** («En tu landing · Formulario Regalo») y Tracking dice «Envió el formulario
   X», con la tabla `lead_formularios` (mig **0415, ESCRITA Y SIN APLICAR**: pide la frase de Martín). Sin la tabla, todo anda
   igual que antes: `enviosDelLead` da [] y el envío queda en el historial (`lead_audit`).
-- ⚠️ **Al aplicar la 0415, sumar `lead_formularios` a `TABLAS_DE_INQUILINO`** (lib/tablas-de-inquilino.ts). No va antes: esa lista
-  se mide contra producción y el reset del cliente de prueba borraría una tabla que no existe.
+- `lead_formularios` va en `TABLAS_DE_INQUILINO` desde ya, aunque la 0415 no esté aplicada: el reset del negocio saltea una tabla
+  que no existe (PGRST205, lib/reset-workspace.ts). **El reparo obvio («borraría una tabla que no existe») era el equivocado.**
 - «Nuevo CRM» ofrece **Newsletter**: arma el CRM de la tab Newsletters (`asegurarCrmNewsletter`, con el nombre pedido); si ya hay
   uno, abre ése. No está en `TIPOS_CRM`: sus etapas propias sólo se alcanzan moviendo, y `tipos-crm.test.ts` ubica un lead en
   cada etapa de cada tipo.

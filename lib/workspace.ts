@@ -161,8 +161,8 @@ const TENANT_TABLES = new Set<string>([
   // por cliente y el tablero de un producto dibujaría los agregados de TODOS los workspaces.
   'lead_funnel',
   // Cada formulario que llenó un lead (mig 0415, 14/11/2026, lib/lead-formularios.ts): lo que contestó y en qué landing. Sin
-  // esta línea la ficha leería los envíos de CUALQUIER negocio con ese lead_id. ⚠️ Todavía no va en TABLAS_DE_INQUILINO
-  // (lib/tablas-de-inquilino.ts): esa lista se mide contra producción, y hasta que se aplique la 0415 la tabla no existe.
+  // esta línea la ficha leería los envíos de CUALQUIER negocio con ese lead_id. Va también en TABLAS_DE_INQUILINO: mientras la
+  // 0415 no se aplique, el reset del negocio la saltea (contesta PGRST205, lib/reset-workspace.ts).
   'lead_formularios',
   // La PAPELERA del CRM (mig 0340): la foto de cada lead eliminado, 30 días. Sin esta línea la pantalla de la papelera
   // listaría los eliminados de TODOS los negocios (la foto trae sus pagos y sus mensajes).
