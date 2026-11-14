@@ -30,6 +30,7 @@ import { nombreVideoMd, paqueteVideoMd, tokensDe } from '../lib/video-desarmar-v
 import { RECETAS, edicionDelTexto, recetaDelHilo, textoDeEdicionEnEditor } from '../lib/video-recetas';
 import { PLANTILLAS_SUBTITULO } from '../app/video-editor/_opencut/subtitles/estilos';
 import { EFECTOS_TEXTO, FUENTES_PLANTILLAS } from '../app/video-editor/_opencut/text/estilos-predefinidos';
+import { abreElEditor, desarmePedido, rutaAbrirDesarme, vistaDeVideo } from '../app/video-editor/vista';
 
 const leer = (ruta: string) => readFileSync(new URL(`../${ruta}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const GALERIA = PLANTILLAS_SUBTITULO as unknown as readonly EstiloDeGaleria[];
@@ -234,15 +235,29 @@ test('9. el cableado', () => {
   const outliers = leer('app/video-editor/OutliersVideo.tsx');
   assert.equal(outliers.match(/<Desarmar fuente=\{fuente\} duracionS=\{x\.duracionS\} editor=\{!telefono\} \/>/g)?.length, 2, 'en la tarjeta del reel y en la plantilla de MaKo');
   assert.match(leer('app/competitor-spy/DetallePieza.tsx'), /fuenteVideo \? <Desarmar fuente=\{fuenteVideo\}/);
-  const ruta = leer('app/api/video-editor/desarmar/route.ts');
+  const ruta = leer('app/api/desarmar/route.ts');
   assert.match(ruta, /conSuIADelNegocio\(ws, \(\) => desarmarVideo\(/, 'con la IA del negocio (D6b)');
   assert.match(ruta, /esAdminDeTab\('market-an'\)/);
+  assert.match(ruta, /await veEditorVideo\(\)/, 'el candado del editor, igual que sus rutas');
   const servidor = leer('lib/video-desarmar-servidor.ts');
   assert.match(servidor, /cambiarSettingSi\(fila, crudo, mirando\)/, 'el trabajo se reclama: no se paga dos veces');
   assert.match(leer('lib/video-desarmar-gemini.ts'), /provsDe\('gemini'\)/, 'con las cuentas de Gemini del negocio');
   const armar = leer('app/video-editor/plantilla/ArmarPlantilla.tsx');
   assert.ok(armar.indexOf('guardarHiloAhora(id)') > 0 && armar.indexOf('guardarHiloAhora(id)') < armar.indexOf('return id;\n\t} catch'), 'el chat se guarda antes de la carga entera');
-  assert.match(leer('app/video-editor/[proyecto]/page.tsx'), /desarmeGuardado\(`\$\{clave\.red\}\.\$\{clave\.id\}`\)/, 'la plantilla se arma en el server con lo del negocio');
+  // La plantilla se arma en el server, con lo del negocio, por la ENTRADA de la tab (`?desarme=`, como `?receta=`): la página de un
+  // proyecto lee SÓLO `desde`, `plantilla` y `propuesta` (tests/video-editor-integracion.test.ts, 2b).
+  assert.match(leer('app/video-editor/page.tsx'), /const desarmado = desarme \? await desarmadoParaElEditor\(desarme\) : undefined;/);
+  assert.doesNotMatch(leer('app/video-editor/[proyecto]/page.tsx'), /desarme/, 'la página del proyecto no lee el desarme');
+  assert.equal(desarmePedido({ desarme: 'instagram.DdTdIIPDzHU' }), 'instagram.DdTdIIPDzHU');
+  assert.equal(desarmePedido({ desarme: ['youtube.lQpJatw_uM8', 'x'] }), 'youtube.lQpJatw_uM8');
+  assert.equal(desarmePedido({ desarme: 'otra.cosa' }), null);
+  assert.equal(desarmePedido({}), null);
+  assert.equal(abreElEditor({ desarme: 'instagram.DdTdIIPDzHU' }), false, 'con un desarme no se abre el último proyecto');
+  assert.equal(vistaDeVideo({ ver: 'crear', desarme: 'instagram.DdTdIIPDzHU' }), 'crear');
+  const abrir = new URL(rutaAbrirDesarme('instagram.DdTdIIPDzHU'), 'https://x');
+  assert.equal(abrir.pathname, '/video-editor');
+  assert.equal(desarmePedido(Object.fromEntries(abrir.searchParams)), 'instagram.DdTdIIPDzHU', 'ida y vuelta');
+  assert.match(leer('app/video-editor/Desarmar.tsx'), /<Link href=\{rutaAbrirDesarme\(clave\)\}/);
 });
 
 test('10. otros formatos: un carrusel o una imagen de anuncio, desarmado', async () => {
@@ -317,4 +332,19 @@ test('11. «Hacer uno así» de un video: la edición viaja con la pieza al Copy
   assert.match(copiar, /desarmeGuardado\(desarme\)/, 'lo guardado, sin IA');
   assert.match(copiar, /props: \{ desarme \}/);
   assert.match(leer('app/copywriter/editor/EditorGuion.tsx'), /<Desarmar fuente=\{desarmeDeLaPagina\} duracionS=\{null\} editor \/>/);
+});
+
+test('12. la copia de la galería de subtítulos (el server no importa del motor) es la del motor', async () => {
+  const { GALERIA_SUBTITULOS } = await import('../lib/video-desarmar-estilos');
+  const delMotor = PLANTILLAS_SUBTITULO.map((p) => ({
+    id: p.id, nombre: p.nombre, fuente: p.fuente, negrita: p.negrita, color: p.color,
+    ...(p.mayusculas ? { mayusculas: true } : {}),
+    ...(p.fondo ? { fondo: { color: p.fondo.color } } : {}),
+    ...(p.trazo ? { trazo: { color: p.trazo.color } } : {}),
+    ...(p.sombra ? { sombra: true } : {}),
+    ...(p.resaltado ? { resaltado: { modo: p.resaltado.modo, color: p.resaltado.color } } : {}),
+    ...(p.clavesTamano ? { clavesTamano: p.clavesTamano } : {}),
+  }));
+  assert.deepEqual(GALERIA_SUBTITULOS, delMotor, 'cambió la galería del editor: copia sus rasgos a lib/video-desarmar-estilos.ts');
+  assert.doesNotMatch(leer('lib/video-desarmar-servidor.ts'), /_opencut/, 'el server no importa del motor del editor');
 });

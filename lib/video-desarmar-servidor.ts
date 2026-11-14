@@ -3,7 +3,7 @@ import 'server-only';
 // =============================================================================
 // video-desarmar-servidor — desarmar un video: traerlo, que lo mire el Gemini del negocio y guardarlo (ticket 97; 14/11/2026)
 // =============================================================================
-// El lado del servidor de lib/video-desarmar.ts. Lo llama /api/video-editor/desarmar, con el negocio ya resuelto y adentro de
+// El lado del servidor de lib/video-desarmar.ts. Lo llama /api/desarmar, con el negocio ya resuelto y adentro de
 // `conSuIADelNegocio` (D6b).
 //
 // DE DÓNDE SALE EL VIDEO:
@@ -26,13 +26,16 @@ import { getSupabaseServer } from './supabase';
 import { bajarWebSegura, pedirClavado } from './archivero-bajada';
 import { validarDestino } from './landing-fetch';
 import { videoDeUnAnuncio, videoDeUnaPublicacion } from './spy-todo';
+import type { ResultadoVideo } from './spy-todo-reglas';
+import { CLAVE_SPY_RECHAZADA } from './spy-transcripcion';
 import { mirarVideoConGemini, type VideoParaGemini } from './video-desarmar-gemini';
 import {
-  ESQUEMA_DESARME, VERSION_DESARME, claveDeDesarme, comoMirar, estiloMasParecido, instruccionDesarme, leerDesarme, settingDeDesarme,
-  type DesarmeGuardado, type EstiloDeGaleria, type FuenteDesarme,
+  ESQUEMA_DESARME, VERSION_DESARME, claveDeDesarme, comoMirar, estiloMasParecido, instruccionDesarme, leerDesarme, plantillaDeDesarme,
+  settingDeDesarme, textoDeDesarme, type DesarmeGuardado, type FuenteDesarme,
 } from './video-desarmar';
+import type { Plantilla } from './editor-video/plantillas';
 import { paqueteVideoMd } from './video-desarmar-videomd';
-import { PLANTILLAS_SUBTITULO } from '@/app/video-editor/_opencut/subtitles/estilos';
+import { GALERIA_SUBTITULOS } from './video-desarmar-estilos';
 
 export const BUCKET_DESARMAR = 'archivero';
 export const CARPETA_DESARMAR = 'desarmar';
@@ -92,10 +95,23 @@ export async function paqueteGuardado(clave: string): Promise<Record<string, str
   return g ? paqueteVideoMd(g) : null;
 }
 
+/**
+ * Lo que baja al editor para «Abrir en el editor» (`/video-editor?desarme=`): la plantilla «toca para reemplazar» y la receta para
+ * el chat, armadas con lo que guardó ESTE negocio. null = ese video no está desarmado (la pantalla de «no pude armar la plantilla»).
+ */
+export async function desarmadoParaElEditor(clave: string): Promise<{ plantilla: Plantilla; mensaje: string } | null> {
+  const g = await desarmeGuardado(clave).catch(() => null);
+  if (!g) return null;
+  const estilo = estiloDeGaleria(g)?.id ?? null;
+  const { plantilla, recorte, textosFuera } = plantillaDeDesarme(g, estilo);
+  return { plantilla, mensaje: textoDeDesarme(g, estilo, { recorte, textosFuera }) };
+}
+
 /** El estilo de subtítulos de la galería del editor más parecido al detectado (id y nombre), o null si no lleva. */
 export function estiloDeGaleria(g: DesarmeGuardado): { id: string; nombre: string } | null {
-  const id = estiloMasParecido(g.desarme.subtitulos, PLANTILLAS_SUBTITULO as unknown as readonly EstiloDeGaleria[]);
-  const e = PLANTILLAS_SUBTITULO.find((x) => x.id === id);
+  // La copia de la galería (./video-desarmar-estilos.ts): el server no importa del motor del editor.
+  const id = estiloMasParecido(g.desarme.subtitulos, GALERIA_SUBTITULOS);
+  const e = GALERIA_SUBTITULOS.find((x) => x.id === id);
   return e ? { id: e.id, nombre: e.nombre } : null;
 }
 
@@ -136,8 +152,10 @@ async function bajar(url: string): Promise<{ bytes: Uint8Array; mime: string } |
   }
 }
 
-const MOTIVO_APIFY: Record<'sin-clave' | 'limite' | 'no-esta' | 'fallo', string> = {
+const MOTIVO_APIFY: Record<Extract<ResultadoVideo, { ok: false }>['motivo'], string> = {
   'sin-clave': 'Para traer el video hace falta tu clave de Apify (la de Competitors Spy).',
+  // Apify contestó 401/403 (lib/spy-todo-reglas.ts → `rechazoLaClave`): el mismo texto que el guion de Spy.
+  'clave-rechazada': CLAVE_SPY_RECHAZADA,
   limite: 'Llegaste al tope de videos que se traen por día. Mañana sigue.',
   'no-esta': 'La red no devolvió el video de esta publicación.',
   fallo: 'No pude traer el video: la clave de Apify de Competitors Spy no respondió.',

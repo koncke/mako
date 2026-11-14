@@ -1,7 +1,7 @@
 // =============================================================================
 // Probar el desarme de un video SIN la pantalla (ticket 97, 14/11/2026)
 // =============================================================================
-// Corre el MISMO código que la ruta (/api/video-editor/desarmar): el Gemini del negocio `ws` mira el video y salen el desarme,
+// Corre el MISMO código que la ruta (/api/desarmar): el Gemini del negocio `ws` mira el video y salen el desarme,
 // la receta, la plantilla «toca para reemplazar», el texto del chat y el paquete VIDEO.md. Deja todo en <salida>/ y NO escribe
 // en la base (no guarda el desarme: eso lo hace la ruta). Lo que sí queda es el uso de IA del negocio (`recordUsage`): es lo
 // que se gastó de verdad.

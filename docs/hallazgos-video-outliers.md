@@ -105,8 +105,9 @@ cualquier outlier. Se leyó el repo y se relevaron 12 herramientas abiertas y 12
 - `lib/video-desarmar-videomd.ts`: el paquete VIDEO.md.
 - `lib/video-desarmar-gemini.ts`: YouTube por enlace o el mp4 por la File API, con los cuadros por segundo.
 - `lib/video-desarmar-servidor.ts`: lo guardado, el reclamo y de dónde sale el video.
-- `/api/video-editor/desarmar` y la caja `app/video-editor/Desarmar.tsx`.
-- La plantilla: `?desarme=` en `[proyecto]/page.tsx` → `ArmarPlantilla`.
+- `/api/desarmar` y la caja `app/video-editor/Desarmar.tsx`.
+- La plantilla: `/video-editor?ver=crear&desarme=<red>.<id>` (la entrada de la tab, como `?receta=`) → `ArmarPlantilla`.
+- La galería de subtítulos, copiada para el server: `lib/video-desarmar-estilos.ts`.
 - Carruseles: `lib/imagen-desarmar*.ts` y `app/competitor-spy/DesarmarImagen.tsx`.
 - Para probar sin la pantalla: `scripts/desarmar-probar.mts` y `scripts/desarmar-imagen-probar.mts`. No escriben en la base.
 
@@ -150,6 +151,21 @@ Los 5 textos rojos del reel de los pistachos salieron exactos: «FLOJOS», «JOS
   `guardarHiloAhora` lo guarda antes de recargar.
 
 ### Trampas del entorno al desarmar
+
+- **Tres reglas de la casa que la primera punta rompió (corrida 1331, 14/11/2026).** Todas tienen su test.
+  - **La página de un proyecto del editor lee SÓLO `desde`, `plantilla` y `propuesta`**
+    (tests/video-editor-integracion.test.ts, 2b). `?desarme=` va por la entrada de la tab, como `?receta=` (`desarmePedido`,
+    app/video-editor/vista.ts).
+  - **Toda ruta bajo `/api/video-editor/` lleva el candado del editor y nada más** (1d). Una ruta que usan dos tabs (Spy y el
+    editor) va afuera: `/api/desarmar`.
+  - **Un módulo del server no importa del motor del editor** (`_opencut`, el 4 del mismo test). La galería de subtítulos va
+    COPIADA en `lib/video-desarmar-estilos.ts`, y un test la fija contra el motor.
+  - Además: todo `role="alert"` lleva «Reportar a Soporte» (un aviso que no es falla va como `status`), todo link a
+    `/integraciones` va con el modal de la casa (`BotonIntegracion`), toda ruta que escribe se decide para la cuenta de revisión
+    de las tiendas (éstas quedaron CORTADAS: gastan la IA y la clave de Apify del negocio), y todo hito lleva su `sesion`.
+- **Mientras la punta esperaba, main cambió `videoDeUnaPublicacion`**: ahora también devuelve `'clave-rechazada'`. Una tabla de
+  textos escrita con la lista de motivos a mano no compiló. Se tipa con la unión de main (`ResultadoVideo`), así un motivo
+  nuevo pide su texto.
 
 - **La cuota gratis de Gemini es POR MODELO.** El 429 decía «limit: 20, model: gemini-3.8-flash» por día. La primera versión
   saltaba de cuenta ante un 429 y nunca probaba `gemini-flash-lite-latest`, que tiene su propia cuota. Ahora un 429 prueba el

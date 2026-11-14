@@ -5,7 +5,7 @@
 // =============================================================================
 // Martín (ticket 97): «extraer al 100 % con ingeniería inversa cómo está construido ese video, cómo está la edición, para
 // después replicarlo». Va en la caja de un reel de Video Editor › Outliers (./OutliersVideo.tsx → TarjetaReel) y en la de un
-// video de Competitors Spy (app/competitor-spy/DetallePieza.tsx). El trabajo lo hace /api/video-editor/desarmar con el Gemini
+// video de Competitors Spy (app/competitor-spy/DetallePieza.tsx). El trabajo lo hace /api/desarmar con el Gemini
 // del negocio; lo desarmado queda guardado y no se vuelve a pagar.
 //
 // Lo que se ve: los números MEDIDOS (planos, un corte cada cuánto, el más corto), de qué está hecho (grabado, IA, código), la
@@ -20,11 +20,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import {
   NOMBRE_ORIGEN, claveDeDesarme, duracionCorta, mezclaDeOrigen, ritmoDe, seDiceEn,
   type DesarmeGuardado, type FuenteDesarme, type OrigenPlano,
 } from '@/lib/video-desarmar';
 import d from './desarmar.module.css';
+import { rutaAbrirDesarme } from './vista';
 
 type Vista =
   | { estado: 'nada' }
@@ -33,7 +35,7 @@ type Vista =
   | { estado: 'fallo'; motivo: string };
 type Respuesta = { ok?: boolean; editor?: boolean; vista?: Vista; estilo?: { id: string; nombre: string } | null; error?: string; motivo?: string; subir?: boolean };
 
-const RUTA = '/api/video-editor/desarmar';
+const RUTA = '/api/desarmar';
 const ESPERA_MS = 6_000;
 const PLANOS_A_LA_VISTA = 8;
 const coma = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
@@ -53,8 +55,6 @@ export function avisarDesarme(clave: string, fin: boolean) {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EVENTO_DESARME, { detail: { clave, fin } }));
 }
 
-/** La ruta del editor que arma la plantilla del video desarmado. */
-export const rutaAbrirDesarme = (clave: string): string => `/video-editor/nuevo?desarme=${encodeURIComponent(clave)}`;
 
 export function Desarmar({ fuente, duracionS, editor }: {
   fuente: FuenteDesarme;
@@ -167,7 +167,8 @@ export function Desarmar({ fuente, duracionS, editor }: {
           <>
             <p>{error.texto}</p>
             <div className={d.acciones}>
-              {error.sinGemini ? <Link href="/integraciones?abrir=gemini" className={d.secundario}>Pegar la clave de Gemini</Link> : null}
+              {/* Se conecta AHÍ, con el modal de la casa (tests/integracion-sin-salir): sin salir de la caja, y al pegarla, desarma. */}
+              {error.sinGemini ? <BotonIntegracion servicio="gemini" className={d.secundario} onConectado={() => void desarmar()}>Pegar la clave de Gemini</BotonIntegracion> : null}
               {error.subir ? (
                 <label className={d.boton}>
                   Subir el video

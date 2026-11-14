@@ -26,8 +26,6 @@ import { Pagina } from '@/app/_ui';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { requireEditorVideo } from '../acceso';
 import { resolverDesde } from '../desde/resolver';
-import { leerClaveDesarme, plantillaDeDesarme, textoDeDesarme } from '@/lib/video-desarmar';
-import { desarmeGuardado, estiloDeGaleria } from '@/lib/video-desarmar-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,37 +34,24 @@ export const revalidate = 0;
 
 export default async function VideoEditorProyectoPage({ params, searchParams }: {
   params: Promise<{ proyecto: string }>;
-  searchParams: Promise<{ desde?: string | string[]; plantilla?: string | string[]; propuesta?: string | string[]; desarme?: string | string[] }>;
+  searchParams: Promise<{ desde?: string | string[]; plantilla?: string | string[]; propuesta?: string | string[] }>;
 }) {
   await requireEditorVideo();
   // El workspace de la pestaña, validado por el proxy: separa el almacenamiento
   // local del motor por cliente (ver espacio.ts).
   const [ws, senales] = await Promise.all([getWorkspaceActual(), senalesDelNegocio().catch(() => null)]);
   const { proyecto } = await params;
-  const { desde, plantilla, propuesta, desarme } = await searchParams;
+  const { desde, plantilla, propuesta } = await searchParams;
   // La propuesta que trae el link de la API o del Ops Center («Aceptar en el editor»): el editor abre su chat en ÉSA.
   // Sólo un uuid (mig 0302): lo demás se ignora en vez de viajar al cliente.
   const idPropuesta = typeof propuesta === 'string' && UUID.test(propuesta) ? propuesta : null;
   const origen = typeof desde === 'string' && desde ? await resolverDesde(desde) : undefined;
   const idPlantilla = typeof plantilla === 'string' && plantilla ? (plantillaPorId(plantilla)?.id ?? null) : undefined;
-  // `?desarme=<red>.<id>` (ticket 97, app/video-editor/Desarmar.tsx → «Abrir en el editor»): la plantilla «toca para reemplazar»
-  // del video desarmado y la receta para el chat. Se arman ACÁ con lo que guardó ESTE negocio: al cliente no baja la clave de
-  // nadie más, y un video que no está desarmado baja `null` (la pantalla de «no pude armar la plantilla»).
-  const desarmado = typeof desarme === 'string' && desarme ? await armarDesarmado(desarme) : undefined;
   // El marco de toda tab de Create (app/_crear/reglas.ts): la barra lateral se queda (pedido de Martín del 12/10) y el
   // editor llena lo que queda al lado de la tarjeta del chat.
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-      <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} plantilla={idPlantilla} propuesta={idPropuesta} desarmado={desarmado} senales={senales} />
+      <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} plantilla={idPlantilla} propuesta={idPropuesta} senales={senales} />
     </Pagina>
   );
-}
-
-async function armarDesarmado(crudo: string) {
-  const clave = leerClaveDesarme(crudo);
-  const g = clave ? await desarmeGuardado(`${clave.red}.${clave.id}`).catch(() => null) : null;
-  if (!g) return null;
-  const estilo = estiloDeGaleria(g)?.id ?? null;
-  const { plantilla, recorte, textosFuera } = plantillaDeDesarme(g, estilo);
-  return { plantilla, mensaje: textoDeDesarme(g, estilo, { recorte, textosFuera }) };
 }

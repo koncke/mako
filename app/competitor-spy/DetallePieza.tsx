@@ -215,7 +215,7 @@ const MARCO_MODAL: MarcoDetalle = ({ titulo, encabezado, pie, onCerrar, children
  * a que termine (hasta 3 minutos). Nunca tira: si no se pudo, «Hacer uno así» copia sin la edición.
  */
 async function desarmarAntes(fuente: FuenteDesarme, duracionS: number | null): Promise<void> {
-  const pedir = (cuerpo: Record<string, unknown>) => fetch('/api/video-editor/desarmar', {
+  const pedir = (cuerpo: Record<string, unknown>) => fetch('/api/desarmar', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo),
   }).then((r) => r.json() as Promise<{ ok?: boolean; motivo?: string; vista?: { estado?: string } }>).catch(() => null);
   const clave = claveDeDesarme(fuente.red, fuente.id);

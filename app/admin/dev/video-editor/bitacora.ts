@@ -795,7 +795,7 @@ export const BITACORA: Hito[] = [
     revisar: '/video-editor',
   },
   {
-    fecha: '14 nov', hora: '01:05', chat: 'Ticket 97: desarmar videos de la competencia', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    fecha: '14 nov', hora: '01:05', chat: 'Ticket 97: desarmar videos de la competencia', sesion: 'local_0168298b-4989-4026-b103-56c2d2765a99', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
     titulo: '«Desarmar»: un video de la competencia, plano a plano, listo para replicarlo en el editor (ticket #97)',
     puntos: [
       'En la caja de cada reel de Video › Outliers (también el de los pistachos) y en la de cada video de Competitors Spy hay un botón «Desarmar».',
@@ -810,10 +810,10 @@ export const BITACORA: Hito[] = [
     ],
     archivos: [
       'lib/video-desarmar.ts · video-desarmar-videomd.ts · video-desarmar-gemini.ts · video-desarmar-servidor.ts — el desarme, el VIDEO.md, Gemini y lo guardado',
-      'app/api/video-editor/desarmar/route.ts · app/video-editor/Desarmar.tsx · OutliersVideo.tsx — la caja de Outliers',
+      'app/api/desarmar/route.ts · app/video-editor/Desarmar.tsx · OutliersVideo.tsx — la caja de Outliers',
       'app/competitor-spy/DetallePieza.tsx · DesarmarImagen.tsx · app/api/competitor-spy/desarmar-imagen/route.ts · lib/imagen-desarmar*.ts — la caja de Spy',
       'app/api/competitor-spy/copiar/route.ts · lib/spy-detalle.ts · lib/copywriter/tipos.ts · app/copywriter/editor/EditorGuion.tsx — «Hacer uno así» con la edición',
-      'app/video-editor/[proyecto]/page.tsx · plantilla/ArmarPlantilla.tsx · _opencut/chat/hilo.ts · lib/video-recetas.ts — la plantilla y la receta en el chat',
+      'app/video-editor/page.tsx · vista.ts · plantilla/ArmarPlantilla.tsx · _opencut/chat/hilo.ts · lib/video-recetas.ts — la plantilla (`/video-editor?desarme=`) y la receta en el chat',
       'scripts/desarmar-probar.mts · desarmar-imagen-probar.mts — probarlo sin la pantalla',
       'tests/video-desarmar.test.ts — 11 casos',
       'docs/diseno-desarmar-video.md — la fase 2: el worker que mide, con lo que cuesta',

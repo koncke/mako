@@ -1,5 +1,8 @@
 // =============================================================================
-// /api/video-editor/desarmar — desarmar el video de un outlier, plano a plano (ticket 97, 14/11/2026)
+// /api/desarmar — desarmar el video de un outlier, plano a plano (ticket 97, 14/11/2026)
+// =============================================================================
+// ⚠️ NO VA BAJO /api/video-editor/: esas rutas llevan el candado del editor y nada más (tests/video-editor-integracion.test.ts,
+// 1d), y ésta la usan dos tabs: Competitors Spy y el Video Editor. Su puerta es una u otra (abajo, `puerta`).
 // =============================================================================
 // Lo llaman la caja de un reel en Video Editor › Outliers (app/video-editor/OutliersVideo.tsx) y la de un video en Competitors
 // Spy (app/competitor-spy/DetallePieza.tsx), con el botón «Desarmar» (app/video-editor/Desarmar.tsx):
@@ -40,10 +43,9 @@ async function puerta(): Promise<{ ws: number; editor: boolean } | Response> {
   const [s, rol, ws] = await Promise.all([getUsuarioActual(), getRolWsEfectivo(), getWorkspaceActual()]);
   if (!s || rol == null || ws == null) return json({ ok: false, error: 'Tu sesión venció. Vuelve a entrar.' }, 401);
   if (rol !== 'admin') return json({ ok: false, error: 'Solo el administrador.' }, 403);
-  const [spy, editor] = await Promise.all([
-    esAdminDeTab('market-an').catch(() => false),
-    veEditorVideo().then(async (si) => si && tabEnCapa('video-editor', await getCapaActual())).catch(() => false),
-  ]);
+  const spy = await esAdminDeTab('market-an').catch(() => false);
+  // El candado del editor, el mismo de sus pages y sus rutas (app/video-editor/acceso.ts).
+  const editor = (await veEditorVideo()) && tabEnCapa('video-editor', await getCapaActual());
   if (spy || editor) return { ws, editor };
   return json({ ok: false, error: 'No encontrado.' }, 404);
 }

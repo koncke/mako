@@ -81,8 +81,8 @@ type Props = {
   /** El «Replicar» de una receta (`?receta=`, validado en ./vista.ts): arma su proyecto y MaKo la dice en el chat. */
   receta?: string | null;
   /**
-   * «Abrir en el editor» de un video DESARMADO (`?desarme=`, ticket 97): la plantilla «toca para reemplazar» y la receta para el
-   * chat, armadas en el server con lo que guardó este negocio (./[proyecto]/page.tsx). `null` = ese video no está desarmado.
+   * «Abrir en el editor» de un video DESARMADO (`/video-editor?desarme=`, ticket 97): la plantilla «toca para reemplazar» y la
+   * receta para el chat, armadas en el server con lo que guardó este negocio (./page.tsx). `null` = ese video no está desarmado.
    */
   desarmado?: { plantilla: Plantilla; mensaje: string } | null;
 };
@@ -261,11 +261,13 @@ function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, sen
       .catch(() => { entrado.current = false; toast.error('No pude abrir el editor. Vuelve a intentar.'); });
   }, [alEntrar, editor, replicar, proyectos]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pieza = !editor ? null
+  // «Abrir en el editor» de un video desarmado (`?desarme=`, la entrada de la tab): se arma su plantilla en un proyecto nuevo y se
+  // abre ése (./plantilla/ArmarPlantilla.tsx), antes que cualquier otra pieza.
+  const pieza = desarmado !== undefined ? <ArmarPlantilla plantilla={desarmado?.plantilla ?? null} mensaje={desarmado?.mensaje} />
+    : !editor ? null
     : desde ? <ImportarDesde desde={desde} />
       : plantilla !== undefined ? <ArmarPlantilla id={plantilla} />
-        : desarmado !== undefined ? <ArmarPlantilla plantilla={desarmado?.plantilla ?? null} mensaje={desarmado?.mensaje} />
-          : <EditorPage projectId={proyectoId} propuesta={propuesta} />;
+        : <EditorPage projectId={proyectoId} propuesta={propuesta} />;
 
   return (
     <>
