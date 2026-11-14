@@ -23,6 +23,7 @@ import { multiplosDe, type Multiplo, type PiezaParaMultiplo } from '../multiplo-
 import { conVariedad } from '../carruseles/variedad';
 import type { Carrusel } from '../carruseles/explorar';
 import type { TipoGuion } from './tipos';
+import { esShort } from '../spy-youtube';
 import type { IdTema, Idioma, Tema } from './tema';
 
 export const FORMATOS_COPY = ['anuncio', 'reel', 'carrusel', 'youtube'] as const;
@@ -64,7 +65,8 @@ export function idDeYouTube(url: string | null | undefined): string | null {
  */
 export function imagenDelOriginal(o: Pick<OutlierCopy, 'miniatura' | 'url' | 'formato'>): string | null {
   if (o.miniatura) return o.miniatura;
-  const yt = o.formato === 'youtube' ? idDeYouTube(o.url) : null;
+  // Un short de YouTube es un «reel» (`formatoDePiezaSpy`): su miniatura también es la de YouTube.
+  const yt = o.formato === 'youtube' || o.formato === 'reel' ? idDeYouTube(o.url) : null;
   return yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : null;
 }
 
@@ -187,10 +189,14 @@ export type PiezaSpyCopy = PiezaParaMultiplo & {
 };
 export type CuentaSpyCopy = { id: number; nombre: string; instagram: string | null; avatar?: string | null };
 
-/** El formato de copy de una pieza de Spy (null = no es copy: una landing, una web). */
-export function formatoDePiezaSpy(p: Pick<PiezaSpyCopy, 'canal' | 'tipo' | 'medio'>): FormatoCopy | null {
+/**
+ * El formato de copy de una pieza de Spy (null = no es copy: una landing, una web). Un SHORT de YouTube (hasta 3 minutos, el `esShort`
+ * de Spy) es un reel: vertical, de 30 a 60 segundos dichos, y se replica como reel (14/11/2026, Martín: «copiar un reel de Alex
+ * Hormozi»; sus 47 reels en Spy son shorts de YouTube, y como «YouTube» MaKo escribía un video de 8 a 12 minutos).
+ */
+export function formatoDePiezaSpy(p: Pick<PiezaSpyCopy, 'canal' | 'tipo' | 'medio' | 'duracion'>): FormatoCopy | null {
   if (p.canal === 'anuncios') return 'anuncio';
-  if (p.canal === 'youtube') return 'youtube';
+  if (p.canal === 'youtube') return esShort({ duracion: p.duracion ?? null }) ? 'reel' : 'youtube';
   if (p.canal !== 'instagram') return null;
   if (p.tipo === 'reel' || p.medio === 'video') return 'reel';
   return p.tipo === 'publicacion' ? 'carrusel' : null;
@@ -231,7 +237,7 @@ export function outliersCopyDeSpy(
       const texto = formato === 'anuncio' && guion && copy ? `${guion}\n\nEL TEXTO DEL ANUNCIO: ${copy}` : guion || copy;
       const titulo = (p.titulo ?? '').trim();
       if (!texto && !titulo) continue;
-      const deDonde: DeDondeTexto = guion ? 'guion' : formato === 'anuncio' ? 'copy' : formato === 'youtube' ? 'descripcion' : 'pie';
+      const deDonde: DeDondeTexto = guion ? 'guion' : formato === 'anuncio' ? 'copy' : p.canal === 'youtube' ? 'descripcion' : 'pie';
       out.push({
         id: `spy:${p.id}`,
         fuente: 'spy',
@@ -581,7 +587,7 @@ export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | '
   const entre = `entre ${Math.max(5, Math.round(n * 0.75))} y ${Math.max(10, Math.round(n * 1.25))} palabras`;
   const largo = o.formato === 'carrusel'
     ? `EL FORMATO: un carrusel${o.laminas ? ` de ${o.laminas} láminas` : ''}. Escríbelo lámina por lámina, en una tabla (Lámina | Texto en la imagen | Visual)${o.laminas ? ` con ${o.laminas} filas` : ''}: la primera es el gancho, la última el llamado, y cada una con pocas palabras (se leen en la imagen). Debajo, una sección «Pie» con el texto de la publicación, de ${entre} como su pie.`
-    : o.deDonde === 'pie' ? 'EL LARGO: lo de arriba es el PIE de la publicación, no lo que se dice en el reel. Copia su gancho y su idea, y escribe el reel con la forma de un reel (gancho, desarrollo, cierre), de 30 a 60 segundos dichos.'
+    : o.deDonde === 'pie' || (o.deDonde === 'descripcion' && o.formato === 'reel') ? `EL LARGO: lo de arriba es ${o.deDonde === 'pie' ? 'el PIE de la publicación' : 'la DESCRIPCIÓN del short'}, no lo que se dice en el reel. Copia su gancho y su idea, y escribe el reel con la forma de un reel (gancho, desarrollo, cierre), de 30 a 60 segundos dichos.`
       : o.deDonde === 'descripcion' ? (capitulosDe(o.texto).length
         // Los capítulos, uno por uno (13/11/2026, en producción: con «si trae capítulos, una sección por capítulo» el video de 8
         // capítulos salió con las 9 secciones de la biblioteca, «Bloque uno, Bloque dos…»).

@@ -685,6 +685,15 @@ original al lado (una columna en la computadora, la pestaña «Original» en el 
   dibujarse): cambiar la página en el mismo instante que se pide la pausa deja la foto con el cambio adentro y no se guarda nada.
   Primero la pausa, un respiro, después el cambio. Y todo junto: en el teléfono, cada pausa salta a la Página.
 
+## Un «reel» de Hormozi era un short de YouTube, y Copywriting lo trataba como un video largo (14/11/2026)
+
+- Martín pidió replicar «un reel de Alex Hormozi»: sus 47 «reels» en Spy son SHORTS de YouTube. `formatoDePiezaSpy` mandaba todo
+  YouTube a «youtube»: tarjeta 16:9, página «YouTube» y, sin transcripción, la regla de la DESCRIPCIÓN pedía «un video de 8 a 12
+  minutos dichos» para un short de 40 segundos. Spy ya distinguía los shorts (`esShort`, hasta 3 minutos, lib/spy-youtube.ts) y
+  su «Copiar estructura» los manda a «reel»; Copywriting no lo usaba.
+- Ahora un short es un reel (vertical, página «Reel», de 30 a 60 segundos), con el ícono de YouTube y el rótulo «Short». Se
+  transcribe igual que un YouTube (el Gemini del negocio, por la URL: no depende de la clave de Apify que da 401).
+
 ## Qué quedó sin hacer
 
 - (13/11/2026) ~~Si MaKo PREGUNTA cuando el tema del original no tiene que ver con el negocio lo decide Martín~~: pregunta desde el
