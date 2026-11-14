@@ -193,11 +193,19 @@ export function resultados(a: Pick<Agregado, 'leadsMeta' | 'leadsCrm' | 'agendas
   return Math.max(a.leadsMeta, a.leadsCrm);
 }
 
-export const NOMBRE_RESULTADO: Record<KpiMediaBuyer, { uno: string; varios: string; costo: string }> = {
-  lead: { uno: 'lead', varios: 'leads', costo: 'Costo por lead' },
-  agenda: { uno: 'agenda', varios: 'agendas', costo: 'Costo por agenda' },
-  venta: { uno: 'venta', varios: 'ventas', costo: 'Costo por venta' },
+/**
+ * Cómo se nombra el resultado en los textos. `un`, `ningun`, `ninguno`, `unSolo` y `cadaUno` llevan su GÉNERO (14/11/2026): con
+ * «ningún ${uno}» escrito fijo salía «no trajo ningún agenda» y «9 agendas a US$ 31 cada uno». Lead es masculino; agenda y venta,
+ * femeninos. Lo fija tests/media-buyer-textos-genero.test.ts.
+ */
+export const NOMBRE_RESULTADO: Record<KpiMediaBuyer, { uno: string; varios: string; costo: string; un: string; ningun: string; ninguno: string; unSolo: string; cadaUno: string }> = {
+  lead: { uno: 'lead', varios: 'leads', costo: 'Costo por lead', un: 'un', ningun: 'ningún', ninguno: 'ninguno', unSolo: 'un solo', cadaUno: 'cada uno' },
+  agenda: { uno: 'agenda', varios: 'agendas', costo: 'Costo por agenda', un: 'una', ningun: 'ninguna', ninguno: 'ninguna', unSolo: 'una sola', cadaUno: 'cada una' },
+  venta: { uno: 'venta', varios: 'ventas', costo: 'Costo por venta', un: 'una', ningun: 'ninguna', ninguno: 'ninguna', unSolo: 'una sola', cadaUno: 'cada una' },
 };
+
+/** «de» + lo que se toca: «del conjunto», «de la campaña» (con `de ${que}` salía «Subir el presupuesto de el conjunto»). */
+export const deLo = (que: string): string => (que.startsWith('el ') ? `del ${que.slice(3)}` : `de ${que}`);
 
 const costo = (a: Agregado, kpi: KpiMediaBuyer): number | null => {
   const r = resultados(a, kpi);
@@ -350,7 +358,7 @@ function relevos(ctx: Contexto, o: {
     if (previo && (previo.k < mejor.k || (previo.k === mejor.k && previo.r >= mejor.r))) continue;
     const camp = campanaDe(ctx, original);
     const dias = Math.floor(edad / UN_DIA_MS);
-    const leGana = ko == null ? `el original gastó ${ctx.fmt(so.gasto)} sin ningún ${nom.uno}` : `le gana por ${pct(1 - mejor.k / ko)}`;
+    const leGana = ko == null ? `el original gastó ${ctx.fmt(so.gasto)} sin ${nom.ningun} ${nom.uno}` : `le gana por ${pct(1 - mejor.k / ko)}`;
     porOriginal.set(originalId, {
       k: mejor.k, r: mejor.r,
       p: {
@@ -359,7 +367,7 @@ function relevos(ctx: Contexto, o: {
         titulo: `Pausar el original «${original.nombre}»: su variación «${mejor.ad.nombre}» le gana`,
         titular: `«${mejor.ad.nombre}» trae ${nom.varios} a ${ctx.fmt(mejor.k)}${ko == null ? ', y el original ninguno' : `; el original, a ${ctx.fmt(ko)}`}`,
         porque: [
-          `En los últimos 7 días la variación trajo ${mejor.r} ${mejor.r === 1 ? nom.uno : nom.varios} a ${ctx.fmt(mejor.k)} cada uno: ${leGana}.`,
+          `En los últimos 7 días la variación trajo ${mejor.r} ${mejor.r === 1 ? nom.uno : nom.varios} a ${ctx.fmt(mejor.k)} ${nom.cadaUno}: ${leGana}.`,
           'Pausar el original deja el presupuesto del conjunto para la variación, que ya demostró que convierte mejor.',
           'Se deshace con un botón, y MaKo no lo vuelve a prender solo.',
         ],
@@ -444,10 +452,10 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
         clave: clave('stop_loss', ad), tipo: 'pausar', tactica: 'stop_loss', nivel: 'ad',
         entidadId: ad.id, entidadNombre: ad.nombre, campanaNombre: camp?.nombre ?? null,
         titulo: `Pausar el anuncio «${ad.nombre}»: gastó sin traer ${nom.varios}`,
-        titular: `Gastó ${entrada.fmt(s.gasto)} en 7 días sin un solo ${nom.uno}`,
+        titular: `Gastó ${entrada.fmt(s.gasto)} en 7 días sin ${nom.unSolo} ${nom.uno}`,
         porque: [
-          `Este anuncio lleva ${s.diasCorriendo} días gastando y no trajo ningún ${nom.uno}.`,
-          `Ya gastó ${pct(s.gasto / obj)} de lo que te cuesta un ${nom.uno} en promedio.`,
+          `Este anuncio lleva ${s.diasCorriendo} días gastando y no trajo ${nom.ningun} ${nom.uno}.`,
+          `Ya gastó ${pct(s.gasto / obj)} de lo que te cuesta ${nom.un} ${nom.uno} en promedio.`,
           'Pausarlo libera ese gasto para los anuncios que sí convierten. Si después aparecen resultados tardíos, MaKo lo vuelve a prender.',
         ],
         numeros: [
@@ -538,7 +546,7 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
             ? `Gastó ${entrada.fmt(c7.gasto)} en 7 días sin ${nom.varios}`
             : `Cada ${nom.uno} te costó ${entrada.fmt(k7)}, ${pct(k7 / obj - 1)} más que tu objetivo`,
           porque: [
-            k7 == null ? `En 7 días gastó ${pct(c7.gasto / obj)} de tu objetivo y no trajo ningún ${nom.uno}.`
+            k7 == null ? `En 7 días gastó ${pct(c7.gasto / obj)} de tu objetivo y no trajo ${nom.ningun} ${nom.uno}.`
               : `En 7 días cada ${nom.uno} costó ${(k7 / obj).toFixed(1)} veces tu objetivo.`,
             'Bajarle el presupuesto ya no alcanza: lo que gasta aquí rinde más en otro lado.',
             'Pausarlo se deshace con un botón si cambias de idea.',
@@ -560,7 +568,7 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
           poner({
             clave: clave('sunsetting', n), tipo: 'bajar_presupuesto', tactica: 'sunsetting', nivel: n.nivel,
             entidadId: n.id, entidadNombre: n.nombre, campanaNombre: n.nivel === 'campaign' ? null : camp?.nombre ?? null,
-            titulo: `Bajar el presupuesto de ${que} «${n.nombre}»`,
+            titulo: `Bajar el presupuesto ${deLo(que)} «${n.nombre}»`,
             titular: k7 == null ? `${entrada.fmt(c7.gasto)} en 7 días sin ${nom.varios}` : `Cada ${nom.uno} te está costando ${entrada.fmt(k7)}`,
             porque: [
               k7 == null ? `En 7 días no trajo ${nom.varios} y ya gastó ${pct(c7.gasto / obj)} de tu objetivo.`
@@ -587,10 +595,10 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
         poner({
           clave: clave('surf', n), tipo: 'subir_presupuesto', tactica: 'surf', nivel: n.nivel,
           entidadId: n.id, entidadNombre: n.nombre, campanaNombre: n.nivel === 'campaign' ? null : camp?.nombre ?? null,
-          titulo: `Subir el presupuesto de ${que} «${n.nombre}»`,
+          titulo: `Subir el presupuesto ${deLo(que)} «${n.nombre}»`,
           titular: `Trae ${nom.varios} a ${entrada.fmt(k3)}, ${pct(1 - k3 / obj)} por debajo de tu objetivo`,
           porque: [
-            `En los últimos 3 días trajo ${r3} ${r3 === 1 ? nom.uno : nom.varios} a ${entrada.fmt(k3)} cada uno.`,
+            `En los últimos 3 días trajo ${r3} ${r3 === 1 ? nom.uno : nom.varios} a ${entrada.fmt(k3)} ${nom.cadaUno}.`,
             `Gasta todo su presupuesto (${pct(ritmo)}): hoy lo que lo frena es el presupuesto, no el anuncio.`,
             `Se sube ${saltoPct}%: un salto más grande reinicia el aprendizaje de Meta.`,
           ],
@@ -686,7 +694,7 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
         titulo: s.esVideo ? `Nuevos hooks para el ganador «${ad.nombre}»` : `Variaciones de texto del ganador «${ad.nombre}»`,
         titular: `Tu mejor anuncio: ${r} ${nom.varios} a ${entrada.fmt(k)}`,
         porque: [
-          `Es el que más ${nom.varios} trajo en 7 días, y cada uno costó menos que tu objetivo.`,
+          `Es el que más ${nom.varios} trajo en 7 días, y ${nom.cadaUno} costó menos que tu objetivo.`,
           fatiga ? `Su frecuencia ya es ${s.frecuencia!.toFixed(1)}: la misma gente lo vio varias veces y se va a cansar.`
             : 'Un ganador se cansa: probar variaciones antes de que caiga mantiene el costo bajo.',
           s.esVideo ? 'MaKo escribe hooks nuevos para el mismo video; los que elijas salen como anuncios nuevos en el mismo conjunto.'

@@ -580,6 +580,13 @@ MaKo» en cada canal.
 - Los cinco los corre GitHub y NO el filtro local (que no alcanza a correrlos con poca RAM): antes de subir una pantalla nueva,
   correr estos cinco a mano.
 
+## El super admin mirando un negocio volvía al suyo (14/11/2026, visto en producción con el ws 3)
+
+- **Síntoma:** completando la entrada del ws 3 como super admin, «Ver mi análisis» mostraba la entrada del ws 9 (el negocio propio).
+- **Causa:** la entrada, Configurar y los links del CoPilot usaban `next/link` y el `useRouter` de `next/navigation`, que pierden el
+  `?ws=` con que el super admin mira un negocio. Un cliente no lo nota (no tiene `?ws=`): sólo lo ve quien prueba como super admin.
+- **Regla:** en una pantalla de la app, `Link` y `useRouter` salen de `@/app/_ui/Link` (conservan el `?ws=` con `conWs`).
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
