@@ -185,7 +185,8 @@ function LogoTarjeta({ t }: { t: Tarjeta }) {
   return <LogoRed red={t === 'web' ? 'sitio' : t} box={22} />;
 }
 
-export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCoPilot; pasoInicial: Paso; tarjetaInicial: Tarjeta }) {
+/** `enTelefono`: dentro de /m (app/m/ads/page.tsx) no va la estrella de la computadora: tapaba el «CRM» de la barra de abajo (10/11). */
+export function CoPilot({ datos, pasoInicial, tarjetaInicial, enTelefono = false }: { datos: DatosCoPilot; pasoInicial: Paso; tarjetaInicial: Tarjeta; enTelefono?: boolean }) {
   // Dos pasos desde la vuelta 20 (Martín, 13/11: «el análisis arriba y las tareas con el calendario debajo»): un link viejo con
   // `?paso=accion` abre el primero.
   const [paso, setPaso] = useState<Paso>(pasoInicial === 'accion' ? 'analisis' : pasoInicial);
@@ -347,7 +348,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
       </main>
       {todo && <ModalTodoOC estado={oc.estado} parte={parte} onParte={setParte} onCerrar={() => setTodo(false)} onMarcar={oc.marcar} onAbrir={(p, k) => setCosa({ p, k })} onChat={alChat} />}
       {cosa && <ModalCosa estado={oc.estado} p={cosa.p} k={cosa.k} onCerrar={() => setCosa(null)} onMarcar={oc.marcar} onChat={alChat} />}
-      <MakoEnLaTab tab="Marketing CoPilot" pedido={pedido} pantalla={pantalla} encimaDeModales />
+      {!enTelefono && <MakoEnLaTab tab="Marketing CoPilot" pedido={pedido} pantalla={pantalla} encimaDeModales />}
       <Toast state={toast} onClose={clear} />
     </div>
   );

@@ -357,7 +357,11 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Classroom)
   comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Classroom › Community; `?post=N` abre ESE post)
-  ads: ['estrategia'], // app/ads-manager/page.tsx y app/m/ads/page.tsx (`?estrategia=1`: «Cambiar mi estrategia» reabre la charla del Marketing CoPilot)
+  // `?estrategia=1`: «Cambiar mi estrategia» reabre la charla vieja. Lo del CoPilot nuevo (14/11, app/ads-manager/copiloto): el paso, la
+  // tarjeta, `?entrada=1` y la `sesion` de Offer; `configurar` (la pone `rutaMovil` para /ads-manager/copiloto/configurar) con
+  // su `red`; y `mb=1`: el Media Buyer de siempre en el teléfono. ⚠️ NO `vista`: es la del Media Buyer de escritorio
+  // (`?vista=campanas`), que el teléfono no lee (tests/movil-rutas.test.ts).
+  ads: ['estrategia', 'paso', 'tarjeta', 'entrada', 'configurar', 'red', 'mb', 'sesion'], // app/ads-manager/page.tsx, app/ads-manager/copiloto y app/m/ads/page.tsx
   'competitor-spy': ['competidor', 'ver'], // app/competitor-spy/page.tsx y app/m/competitor-spy/page.tsx (la ficha de un competidor es una URL: se comparte y se vuelve)
 };
 
@@ -849,6 +853,8 @@ export function rutaMovil(href: string | null | undefined): string | null {
   }
   // Marketing CoPilot: `?estrategia=1` viaja (los dos lados reabren la charla); lo demás de la computadora (`vista`, `decision`) no
   // lo lee el teléfono, y no viaja.
+  // Configurar el piloto (14/11) no tiene página en el teléfono: la sección lo abre con `configurar=1`.
+  if (dentro(p, '/ads-manager/copiloto/configurar')) return aSeccion('ads', q, { configurar: '1' });
   if (dentro(p, '/ads-manager')) return aSeccion('ads', q);
   // Competitor Spy, con su ruta vieja (`/market-analyst`, la que nav.ts todavía matchea). La ficha de un
   // competidor NO es una subruta: es `?competidor=`, como en la computadora.
