@@ -29,13 +29,14 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, cortaParaSuDuracion, dichoQueNoQuedo, objetivoDeDuracion, palabrasEnIngles, guionParaIA, marcasDeTuteo, operacionesAlTuteo, propsParaIA, salidaVacia, sinExtrasNoPedidos, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
+import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, cortaParaSuDuracion, dichoQueNoQuedo, objetivoDeDuracion, palabrasEnIngles, guionParaIA, marcasDeTuteo, operacionesAlEspanol, operacionesAlTuteo, propsParaIA, salidaVacia, sinExtrasNoPedidos, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
 import { alTuteo } from '../al-tuteo';
 import type { ClaudeMsg } from '../anthropic';
 import { listarOfertas } from '../ofertas';
 import { listProductos, type Producto } from '../productos';
 import type { Oferta } from '../oferta-modelo';
 import { bloqueDeOferta, ofertaDelPedido } from './oferta-elegida';
+import { alEspanol } from './al-espanol';
 import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
@@ -178,7 +179,8 @@ export async function discutir(p: { pregunta: unknown; guion: GuionDelPedido; ch
     const limpio = String(salida ?? '').replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
     const ne = await conPedidoDeNoExisteDeLaSesion(limpio, { chat: 'copywriter (Discutir)', ruta: '/copywriter', pedido: pregunta });
     // A la persona, siempre en «tú» (13/11/2026: «llevas… tenés» en la misma respuesta); lo citado, salvo que el negocio vosee.
-    const respuesta = alTuteo([ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\n\n'), { citas: !vosea });
+    // Y sin palabras sueltas en inglés (./al-espanol.ts): lo citado entre «…» queda, suele ser el original.
+    const respuesta = alEspanol(alTuteo([ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\n\n'), { citas: !vosea }), pregunta);
     if (!respuesta) return sinResultado('MaKo no contestó. Vuelve a intentar.');
     return { ok: true, respuesta, noLeidas: refs.noLeidas };
   } catch (err) {
@@ -261,8 +263,8 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(declarado?.prompt ?? null, vosea), formato: FORMATO_EDITAR })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
     // LA OFERTA ENTERA, nunca sólo su nombre (13/11/2026, el relevo: con el nombre solo, MaKo inventaba; ./oferta-elegida.ts). La que
-    // nombra el pedido o la charla, o la principal; con sus datos y lo que le falta.
-    const elegida = ofertaDelPedido(`${instruccion}\n${charla}`, ofertas);
+    // nombra el pedido o la charla, o la principal; con sus datos y lo que le falta. «Para mi negocio en general», ninguna.
+    const elegida = ofertaDelPedido(instruccion, ofertas, charla);
     const producto = elegida ? productos.find((x) => x.nombre.trim().toLowerCase() === elegida.nombre.trim().toLowerCase()) ?? null : null;
     const oferta = bloqueDeOferta(elegida, producto);
     const conOferta = `${bloqueNegocio(negocio)}${oferta ? `\n\n${oferta}` : ''}`;
@@ -306,10 +308,14 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const catalogo = { angulos: new Set(lite.angulos.map((a) => a.id)), estructuras: new Set(lite.estructuras.map((e) => e.id)) };
     const seccionesDeLaPagina: string[] = (g.doc.content ?? []).flatMap((b): string[] => { const sec = b.attrs?.seccion; return b.type === 'heading' && typeof sec === 'string' ? [sec] : []; });
     // Lo que escribió, ya saneado, en la voz del negocio y sin lo que nadie pidió, aplicado y medido.
+    // Lo que el negocio LLAMA así (sus ofertas, sus productos, lo pedido): sus palabras no se pasan al español («Free Money Club»).
+    const permitido = [...ofertas.map((o) => o.nombre), ...productos.map((x) => x.nombre), instruccion].join('\n');
     const medir = (x: Record<string, unknown>) => {
       const s = sanearOperaciones(x.operaciones, g.doc, catalogo);
       // La voz (13/11/2026): «tú» salvo un acento DECLARADO que vosea; lo que el modelo voseó igual se pasa solo (ia-reglas).
       if (!vosea) s.ops = operacionesAlTuteo(s.ops);
+      // Las palabras sueltas en inglés, al español, también solas (13/11/2026, el Cerebro: «en more budget» en un guion real).
+      s.ops = operacionesAlEspanol(s.ops, permitido);
       s.ops = sinExtrasNoPedidos(s.ops, seccionesDeLaPagina, instruccion);
       const r = aplicarTodo(g.doc, s.ops);
       const nuevos = new Set(r.nuevos);
@@ -407,7 +413,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     }
     // La respuesta a la persona va SIEMPRE en «tú» (la regla del chat, ia-reglas → bloqueIdiomaCopy); lo citado en ella es del guion,
     // así que se pasa también, salvo en un negocio que vosea (ahí lo citado es su voz). Y con el largo REAL de la réplica.
-    let respuesta = alTuteo([ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n'), { citas: !vosea }) || (s.ops.length ? 'Listo: revisa lo que escribí.' : salidaVacia(raw) ? SALIDA_VACIA : 'No cambié nada.');
+    let respuesta = alEspanol(alTuteo([ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n'), { citas: !vosea }), permitido) || (s.ops.length ? 'Listo: revisa lo que escribí.' : salidaVacia(raw) ? SALIDA_VACIA : 'No cambié nada.');
     if (largo != null && entera) respuesta = conElLargoReal(respuesta, m.escritas, largo);
     return { ok: true, respuesta, operaciones: s.ops, descartadas: [...s.descartadas, ...r.descartadas], avisos, noLeidas: refs.noLeidas };
   } catch (err) {

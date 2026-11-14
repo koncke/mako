@@ -10,7 +10,7 @@ import type { Metadata } from 'next';
 
 // 29/10/2026 (Martín): la portada apunta a la venta High Ticket (antes, al embudo con VSL): la misma frase que la landing
 // principal de Web Generator (scripts/landing-principal-high-ticket.mts).
-const TITULO = 'MaKo — El mejor SaaS para ventas High Ticket, de punta a punta';
+const TITULO = 'MaKo — El mejor software para vender High Ticket';
 const DESCRIPCION =
   'Una sola plataforma para todo tu negocio: del primer clic en tu anuncio al cliente que paga. Menos herramientas, menos adivinanza, más cierres. Agenda tu llamada.';
 
@@ -32,7 +32,7 @@ export const metadataPortada: Metadata = {
     url: '/',
     title: TITULO,
     description: DESCRIPCION,
-    images: [{ url: '/og-landing.jpg', width: 1200, height: 630, alt: 'MaKo — El mejor SaaS para ventas High Ticket, de punta a punta' }],
+    images: [{ url: '/og-landing.jpg', width: 1200, height: 630, alt: 'MaKo — El mejor software para vender High Ticket' }],
   },
   twitter: { card: 'summary_large_image', title: TITULO, description: DESCRIPCION, images: ['/og-landing.jpg'] },
 };

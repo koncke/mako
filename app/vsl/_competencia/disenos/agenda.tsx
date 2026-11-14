@@ -13,7 +13,7 @@
 // resaltadas), el celeste de sus títulos sobre oscuro queda, el botón de la llamada donde iClosed pone «Start for free»,
 // el caso de Mauricio en «Proof, in their own words» y «The lift, measured in cold dollars» (su video de fondo en la
 // tarjeta oscura), y el resto de las funciones en las columnas del pie. La banda final lleva el texto de la banda de la
-// llamada de todas las landings de /vsl («¿Lo quieres andando en tu negocio?»).
+// llamada de todas las landings de /vsl («¿Lo quieres funcionando en tu negocio?»).
 // Lo que se sacó (no tiene contenido real de MaKo): la barra negra del anuncio, sus tres citas con foto y su fila de logos
 // de clientes, «You already follow them» (sus creadores), «Coaches, agencies, creators», «Drops into the stack you already
 // have», «Build on iClosed», «Book a 5-min demo», las estrellas, el G2, el «7-day free trial», el lema «Same traffic. More
@@ -249,7 +249,7 @@ function Caso() {
 function Cierre() {
   return (
     <section className={c('cierre')}>
-      <h2 className={`${c('h2')} ${c('cierre-h2')}`}>¿Lo quieres andando <em>en tu negocio?</em></h2>
+      <h2 className={`${c('h2')} ${c('cierre-h2')}`}>¿Lo quieres funcionando <em>en tu negocio?</em></h2>
       <p className={c('cierre-p')}>{TEXTO_CIERRE}</p>
       <a href={RUTA_CTA} className={`${c('btn-bl')} ${c('btn-bl-glow')}`}>{TEXTO_CTA} <span aria-hidden="true">→</span></a>
     </section>
@@ -431,9 +431,10 @@ const CSS = `
 /* Producto */
 .a-prod{padding:100px 40px 120px;background:#fff}
 .a-prod-grid{max-width:1360px;margin:48px auto 0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:24px}
-.a-pcard{grid-column:span 2;display:flex;flex-direction:column;min-height:445px;border-radius:6px;border:1px solid var(--borde);background:linear-gradient(163deg,#ECF2FC 0%,#FAFBFE 100%);padding:25px}
+.a-pcard{grid-column:span 2;display:flex;flex-direction:column;min-height:0;border-radius:6px;border:1px solid var(--borde);background:linear-gradient(163deg,#ECF2FC 0%,#FAFBFE 100%);padding:25px}
 .a-pcard-ancha{grid-column:span 3}
-.a-pcard-demo{flex:1;min-height:250px;display:flex;align-items:center;justify-content:center;margin-bottom:24px}
+/* Sin la caja alta con un solo ícono en el medio (se veía sin terminar: el Cerebro, 14/11/2026): el ícono arriba, chico. */
+.a-pcard-demo{flex:none;min-height:0;display:flex;align-items:center;justify-content:flex-start;margin-bottom:18px}
 .a-pcard-h3{font-family:var(--fp);font-size:18px;line-height:21.6px;font-weight:500;letter-spacing:-.4px;color:var(--t2);margin-bottom:8px}
 .a-pcard-p{font-size:16px;line-height:28px;font-weight:500;letter-spacing:-.04px;color:var(--gris)}
 .a-pcard-p strong{color:var(--t2);font-weight:600}
@@ -547,7 +548,7 @@ const CSS = `
   .a-pasos{margin-top:56px}
   .a-paso{min-height:0}
   .a-prod{padding:64px 20px 80px}
-  .a-pcard-demo{min-height:160px}
+  .a-pcard-demo{min-height:0}
   .a-eq{padding-top:64px}
   .a-eq-cielo{margin-top:40px;padding:28px 12px 0;border-radius:0}
   .a-pr{padding:64px 20px}

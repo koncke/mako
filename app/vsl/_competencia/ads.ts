@@ -75,20 +75,20 @@ export const LANDING_ADS: LandingCompetencia = {
   icono: I.copiloto,
   referencia: { nombre: 'Master Ads — marketing digital simple', url: 'https://masterads.ai/', leida: '2026-11-11' },
   metaTitle: 'Marketing CoPilot de MaKo: marketing digital simple',
-  metaDesc: 'Pídele lo que quieras y MaKo te va a ayudar a crear y optimizar campañas que traccionen, medidas contra lo que vendiste: tu funnel, tu estrategia y cada día lo que conviene subir, pausar o probar.',
+  metaDesc: 'Pídele lo que quieras y MaKo te va a ayudar a crear y optimizar campañas que vendan, medidas contra lo que vendiste: tu funnel, tu estrategia y cada día lo que conviene subir, pausar o probar.',
   bloques: [
     {
       tipo: 'hero',
       // Como en Master Ads: la etiqueta dice qué es, el titular es lo que la persona le pide (entre comillas inglesas, como
       // los titulares de la referencia), y la bajada lo que pasa.
       etiqueta: 'Marketing digital simple.',
-      titulo: '“MaKo, que las campañas de mi negocio mejoren”.',
-      bajada: 'Pídele lo que quieras y MaKo te va a ayudar a crear y optimizar campañas que traccionen, <strong>medidas contra lo que vendiste</strong>.',
+      titulo: 'Tus anuncios de Meta, revisados todos los días.',
+      bajada: 'Pídele lo que quieras y MaKo te va a ayudar a crear y optimizar campañas que vendan, <strong>medidas contra lo que vendiste</strong>.',
       visual: { tipo: 'propio', slug: 'ads' },
     },
     {
       tipo: 'tarjetas',
-      titulo: '¿Con qué arrancamos?',
+      titulo: '¿Por dónde empezamos?',
       columnas: 2,
       cta: true,
       items: [
@@ -104,10 +104,10 @@ export const LANDING_ADS: LandingCompetencia = {
       fondo: true,
       titulo: 'Inteligencia artificial, atención humana.',
       // Antes: «Agenda tu llamada: te mostramos…». Martín (12/11/2026): ningún lado ofrece agendar una llamada; se empieza con la prueba.
-      bajada: 'Empiezas por tu cuenta, con la IA de MaKo, y detrás hay personas que la mantienen andando.',
+      bajada: 'Empiezas por tu cuenta, con la IA de MaKo, y detrás hay personas que la mantienen funcionando.',
       items: [
         { icono: I.copiloto, titulo: 'Entras hoy.', texto: TEXTO_CIERRE },
-        { icono: I.chat, titulo: 'Personas detrás de MaKo.', texto: 'Si algo no anda, lo reportas desde la app y el equipo de MaKo lo arregla y <strong>te avisa en tu grupo de WhatsApp</strong>.' },
+        { icono: I.chat, titulo: 'Personas detrás de MaKo.', texto: 'Si algo falla, lo reportas desde la app y el equipo de MaKo lo arregla y <strong>te avisa en tu grupo de WhatsApp</strong>.' },
       ],
     },
     {

@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import {
   FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, primeraLinea, restoDelTexto, textoDeTarjeta,
   outliersCopyDeSpy, palabrasDe, reglasDeLaReplica, textoParaMaKo, tipoDeOutlier, tituloDeReplica, avisoDeLargo, capitulosDe, siguenLosCapitulos,
-  largoPedido, largoFuera, pedidoDeCorreccion, conElLargoReal,
+  largoPedido, largoFuera, pedidoDeCorreccion, conElLargoReal, imagenDelOriginal,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
 } from '../lib/copywriter/outliers';
 import { sanearProps } from '../lib/copywriter/tipos';
@@ -47,6 +47,14 @@ test('de Spy: el formato de cada pieza, y sin texto (o una landing) no hay outli
   assert.equal(formatoDePiezaSpy({ canal: 'instagram', tipo: 'publicacion', medio: 'video' }), 'reel');
   assert.equal(formatoDePiezaSpy({ canal: 'instagram', tipo: 'publicacion' }), 'carrusel');
   assert.equal(formatoDePiezaSpy({ canal: 'youtube', tipo: 'video' }), 'youtube');
+  // Un short de YouTube (hasta 3 minutos) es un reel (14/11/2026: los 47 reels de Hormozi en Spy son shorts).
+  assert.equal(formatoDePiezaSpy({ canal: 'youtube', tipo: 'video', duracion: 'PT45S' }), 'reel');
+  assert.equal(formatoDePiezaSpy({ canal: 'youtube', tipo: 'video', duracion: 'PT12M3S' }), 'youtube');
+  const short = outliersCopyDeSpy([pieza({ canal: 'youtube', tipo: 'video', duracion: 'PT40S', texto: 'Cómo cerrar más ventas sin bajar el precio, en 40 segundos y con un ejemplo real.', url: 'https://www.youtube.com/shorts/abcdefghijk' })], [CUENTA], new Map(), AHORA)[0];
+  assert.equal(short?.formato, 'reel');
+  assert.equal(short?.deDonde, 'descripcion', 'lo de un short es su descripción, no un pie');
+  assert.equal(imagenDelOriginal({ miniatura: null, url: 'https://www.youtube.com/shorts/abcdefghijk', formato: 'reel' }), 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg');
+  assert.match(reglasDeLaReplica({ formato: 'reel', deDonde: 'descripcion', texto: 'Cómo cerrar más ventas.', laminas: null })[0], /la DESCRIPCIÓN del short, no lo que se dice en el reel.*de 30 a 60 segundos dichos/);
   assert.equal(formatoDePiezaSpy({ canal: 'anuncios', tipo: 'anuncio' }), 'anuncio');
   assert.equal(formatoDePiezaSpy({ canal: 'landing', tipo: 'landing' }), null);
   const xs = outliersCopyDeSpy([
@@ -221,7 +229,7 @@ test('lo que le llega a MaKo: el original con la regla de copiar la estructura y
   assert.match(leer('lib/copywriter/referencias.ts'), /if \(r\.tipo === 'outlier'\) \{\n\s+\/\/[^\n]*\n\s+const t = await originalParaMaKo\(r\.id\);/);
 });
 
-test('Replicar: MaKo escribe el guion ENTERO solo, con la oferta principal, y deja cambiarla (11/11, Martín: «sólo replica el título»)', () => {
+test('Replicar: MaKo escribe el guion ENTERO solo y sin «Aceptar», y deja cambiar la oferta (11/11, Martín: «sólo replica el título»)', () => {
   const ofertas = [{ id: 3, nombre: 'Mentoría 90 días' }, { id: 5, nombre: 'Taller' }];
   // Sin preguntar: la principal (la primera), o el negocio.
   assert.equal(ofertaDeReplica(ofertas), 'oferta:3');
@@ -236,16 +244,18 @@ test('Replicar: MaKo escribe el guion ENTERO solo, con la oferta principal, y de
   assert.equal(pedidoDeReplica({ oferta: NO_ADAPTAR }, ofertas).adaptar, false);
   assert.deepEqual(otrasOfertasDeReplica('oferta:3', ofertas).map((o) => o.texto), ['Taller']);
   const panel = leer('app/copywriter/PanelMaKo.tsx');
-  // Se escribe sola al abrir la réplica vacía (charla leída y vacía, editor listo, página sin texto), con la oferta principal.
-  assert.match(panel, /if \(!replica \|\| !id \|\| !editor \|\| !hiloLeido \|\| corriendo \|\| replicaHecha \|\| appEscritorio\.bloqueada \|\| preparando\.current === id\) return;/);
+  // Al abrir la réplica vacía (charla leída y vacía, editor listo, página sin texto) se PREPARA: transcribe y trae lo que hace falta
+  // para preguntar (13/11/2026, el flujo nuevo); las preguntas no esperan la app de escritorio, escribir sí.
+  assert.match(panel, /if \(!replica \|\| !id \|\| !editor \|\| !hiloLeido \|\| corriendo \|\| replicaHecha \|\| prep \|\| preparando\.current === id\) return;/);
   assert.match(panel, /if \(mensajes\.length \|\| textoDelDoc\(editor\.leer\(\) as JsonNodo\)\.trim\(\)\) return;/);
-  // Un video de YouTube se transcribe ANTES (13/11/2026) y después se escribe, con lo que pasó dicho por MaKo.
   assert.match(panel, /const t = await transcribirSiHaceFalta\(outlier, setLineaTranscripcion\)\.catch\(\(\) => null\);/);
-  assert.match(panel, /escribirReplica\(ofertaDeReplica\(ofertas\), true, t \? 1 : 0\);/);
-  // Sobre la página vacía queda escrita SIN «Aceptar»; al rehacerla para otra oferta, es una propuesta.
+  assert.match(panel, /const p = await pedirPreparacion\(outlier\)\.catch\(\(\) => null\);/);
+  // Con todo contestado, escribe; sobre la página vacía y al rehacerla para otra oferta, SIN «Aceptar».
+  assert.match(panel, /if \(!replica \|\| !prep \|\| replicaHecha \|\| corriendo \|\| guardandoDato \|\| !editor \|\| !id \|\| appEscritorio\.bloqueada\) return;\n\s+if \(pasoDeReplica\(prep, respRep\)\) return;\n\s+escribirReplica\(respRep\);/);
+  assert.match(panel, /aceptarAlTerminar\.current = true;/);
   assert.match(panel, /if \(aceptarAlTerminar\.current && ultimo\.estado === 'pendiente'\) aceptar\(ultimo\);/);
-  assert.match(panel, /onClick=\{\(\) => escribirReplica\(o\.valor, false\)\}/);
-  assert.match(panel, /void pedirEdicion\(pedidoDeReplica\(\{ oferta \}, ofertas\)\.texto, \[\], \[\], false, false\);/, 'una réplica es «Editar», no «adaptar»');
+  assert.match(panel, /onClick=\{\(\) => rehacerPara\(o\.valor\)\}/);
+  assert.match(panel, /void pedirEdicion\(pedidoDeReplica\(r, ofertasReplica, prep\?\.tema\.original\?\.nombre \?\? null\)\.texto, \[\], \[\], false, false\);/, 'una réplica es «Editar», no «adaptar»');
 });
 
 test('la réplica respeta el LARGO, escribe el carrusel por láminas, no inventa pruebas y lleva título propio (12/11, en producción)', () => {
@@ -290,7 +300,7 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   // De a tandas, no las 2.291 de una (medido: 46.030 elementos y de 1 a 7 s por cambio de filtro).
   // Lo que llegó por tandas del server (13/11/2026) se dibuja entero; lo filtrado a mano, de a TANDA (tests/copywriter-outliers-tandas.test.ts).
   assert.match(portadaTsx, /const enGrilla = useMemo\(\(\) => \(alDia \? vistos : vistos\.slice\(0, mostrar\)\), \[alDia, vistos, mostrar\]\);/);
-  assert.match(portadaTsx, /useEffect\(\(\) => \{ setMostrar\(TANDA\); \}, \[formato, q, orden\]\);/);
+  assert.match(portadaTsx, /useEffect\(\(\) => \{ setMostrar\(TANDA\); \}, \[formato, q, orden, tema\]\);/);
   // Y el original abierto pide el texto ENTERO (la tarjeta trae 280 letras).
   assert.match(leer('app/copywriter/OutlierAbierto.tsx'), /void pedirOriginal\(o\.id\)\.then\(\(r\) => \{ if \(vivo && r\.ok\) setCompleto\(r\.outlier\.texto\); \}\);/);
   assert.match(cw, /alNuevo=\{portada \? undefined : \(\) => router\.push\(base\)\}/);

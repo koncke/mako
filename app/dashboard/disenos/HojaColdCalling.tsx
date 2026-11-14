@@ -20,6 +20,7 @@
 // =============================================================================
 
 import { createContext, useContext, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { entradaDeTarjetas } from './entrada-tarjetas';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import Link from '@/app/_ui/Link';
@@ -170,6 +171,10 @@ export function HojaColdCalling({ hoja, vista, titulo, hoy, periodo, onGrilla, o
   /** La miniatura de «Nueva hoja»: sin nada que se toque. */
   quieta?: boolean;
 }) {
+  // La entrada (Martín, 14/11/2026: «algunos todavía no tienen animación»): las tarjetas suben escalonadas, como en Cobranza
+  // y Marketing (./entrada-tarjetas.ts). Antes de cualquier otra cosa, para que no la salte un return temprano.
+  const raizEntrada = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => { if (!quieta) entradaDeTarjetas(raizEntrada.current, '.cv-card'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const v = vista;
   const p = hoja.diseno?.piezas ?? {};
   const pieza = (id: string | undefined) => hoja.componentes.find((c): c is Grafico => c.id === id && c.clase === 'grafico');
@@ -193,7 +198,7 @@ export function HojaColdCalling({ hoja, vista, titulo, hoy, periodo, onGrilla, o
 
   return (
     <Compartido.Provider value={compartido}>
-    <div className="cv" data-quieta={quieta ? '' : undefined}>
+    <div ref={raizEntrada} className="cv" data-quieta={quieta ? '' : undefined}>
       <style href="dash-hoja-cold-calling" precedence="medium">{CSS_COLD_CALLING}</style>
       <div className="cv-cuerpo">
       <Parte id="cabecera">

@@ -312,3 +312,12 @@ sueltos, y la cabecera del teléfono con el título tapado por una pastilla.
 Midiendo la portada de outliers, `document.images` daba 0 de 42 cargadas a los 8 s: con el panel escondido la página no se pinta,
 y una imagen diferida espera a estar cerca de la pantalla, que nunca llega. No es una falla de la página. Para medir el peso, se
 piden las imágenes con `fetch` (o se pasan a `eager`) y se suman; para mirarlas, se repite `resize_window` antes de la captura.
+
+## El guard del voseo pasó en verde en la PC y dio rojo en la punta (13/11/2026, chat «probar-copy», corrida 1256)
+
+- **Síntoma:** `tests/puente-panel-copy.test.ts` daba 9/9 en la PC con un «acá» en un archivo nuevo (lib/copywriter/oferta-elegida.ts),
+  y la punta lo marcó.
+- **Causa:** el guard lista los archivos con `git ls-files` (el ÍNDICE, no el disco). Un archivo nuevo sin `git add` no se revisa. La
+  cabecera del test lo dice; corrido «antes de commitear» no sirve.
+- **Regla:** con un archivo NUEVO, el guard del voseo (y todo guard que barre el repo con `git ls-files`) se corre DESPUÉS del
+  `git add`.

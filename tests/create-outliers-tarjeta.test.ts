@@ -76,7 +76,8 @@ test('Copywriting: el marco con la forma de su red, el texto adentro y el origin
   assert.doesNotMatch(css, /\.tarjeta \.marco \{[^}]*background: var\(--surface\)/);
   // En el teléfono, la marca de la red es sólo su ícono: con el nombre tapaba la cara y el nombre de las portadas tipo tuit
   // (13/11/2026, el Cerebro con la captura de producción a 375). El nombre sigue ahí para el lector de pantalla.
-  assert.match(t, /<IconoRed formato=\{o\.formato\} \/>[\s\S]{0,200}?<span className=\{oc\.redNombre\}>/);
+  // Un short de YouTube entra como reel, con el ícono de YouTube (14/11/2026).
+  assert.match(t, /<IconoRed formato=\{o\.formato\} youtube=\{o\.formato === 'reel' && !!idDeYouTube\(o\.url\)\} \/>[\s\S]{0,200}?<span className=\{oc\.redNombre\}>/);
   const telefono = css.slice(css.lastIndexOf('@media (max-width: 640px)'));
   assert.match(telefono, /\.red \{ width: 26px; height: 26px; padding: 0;/);
   assert.match(telefono, /\.redNombre \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset\(50%\);/);

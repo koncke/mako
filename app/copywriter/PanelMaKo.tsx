@@ -47,12 +47,18 @@ import { escondida } from '@/lib/copywriter/arbol';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { aplicarTodo, cuadrosDeConstruccion, sanearOperaciones, type Descartada } from '@/lib/copywriter/operaciones';
 import { plantillaPorId } from '@/lib/copywriter/plantillas';
-import { nombreDeOferta, ofertaDeReplica, otrasOfertasDeReplica, pasoPendiente, pasosDeIniciativa, pedidoDeIniciativa, pedidoDeReplica, textoDeRespuesta, type OfertaCorta, type RespuestasIniciativa } from '@/lib/copywriter/iniciativa';
+import {
+  AL_NEGOCIO, EN_OFFER, FALTA, SEGUIR_SIN, faltaPorPreguntar, nombreDeOferta, ofertaElegida, otrasOfertasDeReplica, pasoDeReplica, pasoPendiente, pasosDeIniciativa,
+  pedidoDeIniciativa, pedidoDeReplica, responderReplica, textoDeRespuesta, type OfertaCorta, type PreparacionCorta, type RespuestasIniciativa,
+} from '@/lib/copywriter/iniciativa';
+import { esCampoQueFalta } from '@/lib/copywriter/oferta-elegida';
+import { conDatos, datoDelPaso, datosQueFaltan, dichoDeDatos, pasoDeDato } from '@/lib/copywriter/datos-que-faltan';
 import { textoDelDoc } from '@/lib/copywriter/doc';
 import { REF_OFERTA, buscarReferencias, consultaArroba, elegirReferencia, type Referencia } from '@/lib/copywriter/referencias-reglas';
-import { aceptar as aceptarEnDoc, construir, descartar as descartarEnDoc, type DocVivo } from './editor/propuesta';
+import { aceptar as aceptarEnDoc, construir, descartar as descartarEnDoc, ponerDoc, type DocVivo } from './editor/propuesta';
 import type { ApiPagina } from './editor/EditorGuion';
-import { pedirCitables } from './cliente';
+import { pedirCitables, pedirCompletarOferta, pedirPreparacion } from './cliente';
+import { avisarOriginalNuevo } from './OriginalAlLado';
 import { esRecienCreada, tomarPedido } from './pedido-guardado';
 import { transcribirSiHaceFalta } from './transcribir-original';
 import { ChipsReferencias, ListaReferencias } from './Referencias';
@@ -107,7 +113,7 @@ const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|av
 /** Cuántos bloques escribió MaKo, en palabras. */
 const cuantos = (n: number) => (n === 1 ? '1 bloque' : `${n} bloques`);
 
-export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, onPendiente, volver, ofertas = SIN_OFERTAS }: {
+export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, onPendiente, onPregunta, volver, ofertas = SIN_OFERTAS }: {
   ws: number | null;
   guion: GuionAbierto | null;
   paginas: readonly PaginaCopy[];
@@ -132,6 +138,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
    * cambiaba el gancho, la vista saltaba a la Página con el cambio marcado y «Aceptar» quedaba escondido en la pestaña MaKo).
    */
   onPendiente?: (decidir: { aceptar: () => void; descartar: () => void } | null) => void;
+  /** MaKo espera una respuesta (una pregunta de la réplica o un dato que falta): el teléfono lo avisa desde la Página. */
+  onPregunta?: (hay: boolean) => void;
   /** La «←» del shell de Create (app/_crear/PantallaCrear.tsx): da vuelta la tarjeta a la lista de páginas. */
   volver?: ReactNode;
   /**
@@ -153,9 +161,11 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   const [respIni, setRespIni] = useState<RespuestasIniciativa>({});
   // Una página que replica un outlier (D18, `props.outlier`). El original le llega a la IA por el server en cada pedido
   // (lib/copywriter/ia.ts), así que el pedido es un «Editar» común, no «adaptar» una plantilla.
-  // ⚠️ SIN PREGUNTA (11/11/2026, Martín: «le doy a replicar y lo único que me replica es el título… no se tomó el trabajo de hacer
-  // un guion»): al abrir la réplica vacía, MaKo la escribe SOLA con la oferta principal y la deja en la página (sin «Aceptar»);
-  // la oferta se cambia después, con los botones de abajo de su mensaje (`otrasOfertasDeReplica`).
+  // ⚠️ PRIMERO PREGUNTA, DESPUÉS ESCRIBE TODO (13/11/2026, la maqueta que aprobó el Cerebro; Martín: «no me hace las preguntas…
+  // tampoco me pregunta sobre qué oferta, incluso escribe casi que cualquier cosa»). Al abrir la réplica vacía: transcribe el
+  // original si es un video, pregunta con botones para qué oferta, lo que le falta a esa oferta (y lo guarda en ella) y, si el tema
+  // no tiene que ver, cómo usarlo (lib/copywriter/iniciativa.ts, `pasoDeReplica`). Con eso, la escribe ENTERA y la deja en la página
+  // sin «Aceptar» (lo de 11/11: «lo único que me replica es el título»). La oferta se puede cambiar después (`otrasOfertasDeReplica`).
   const replica = !plantilla && !!guion?.doc.props.outlier;
   const pasosIni = useMemo(() => (plantilla ? pasosDeIniciativa(plantilla, ofertas) : []), [plantilla, ofertas]);
   const pedidoIni = (r: RespuestasIniciativa) => pedidoDeIniciativa(pasosIni, r, ofertas);
@@ -163,6 +173,19 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   const [hiloLeido, setHiloLeido] = useState(false);
   /** La réplica que MaKo escribió sola: con qué oferta y en qué mensaje (debajo van las otras ofertas). */
   const [replicaHecha, setReplicaHecha] = useState<{ oferta: string; mensaje: number | null; desde: number } | null>(null);
+  /** Lo que MaKo sabe para preguntar antes de escribir la réplica (las ofertas con lo que les falta, el tema), y lo contestado. */
+  const [prep, setPrep] = useState<PreparacionCorta | null>(null);
+  const [respRep, setRespRep] = useState<RespuestasIniciativa>({});
+  const [guardandoDato, setGuardandoDato] = useState(false);
+  /** Las preguntas y respuestas de la réplica: se guardan en la charla recién cuando empieza a escribir (si se corta antes, al volver pregunta de nuevo). */
+  const sinGuardar = useRef<{ de: 'yo' | 'mako'; texto: string }[]>([]);
+  /**
+   * Los [DATO: …] que quedaron en la réplica escrita (13/11/2026, el Cerebro: no dejarlos en la pieza): MaKo los pregunta en el mismo
+   * paso y los pone en la página todos juntos; lo que nadie sabe queda marcado (lib/copywriter/datos-que-faltan.ts).
+   */
+  const [datosRep, setDatosRep] = useState<{ lista: string[]; resp: Record<string, string> } | null>(null);
+  const [datosRestantes, setDatosRestantes] = useState<number | null>(null);
+  const fallosAlGuardar = useRef<string[]>([]);
   const aceptarAlTerminar = useRef(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [corriendo, setCorriendo] = useState(false);
@@ -194,6 +217,13 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     setRespIni({});
     setHiloLeido(false);
     setReplicaHecha(null);
+    setPrep(null);
+    setRespRep({});
+    setGuardandoDato(false);
+    setDatosRep(null);
+    setDatosRestantes(null);
+    sinGuardar.current = [];
+    fallosAlGuardar.current = [];
     aceptarAlTerminar.current = false;
     corte.current?.abort();
     setCorriendo(false);
@@ -383,7 +413,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
 
   const puede = !!id && !!editor && !corriendo && !conPropuestaAbierta && !appEscritorio.bloqueada;
   /** Las otras ofertas para rehacer la réplica. */
-  const otrasReplica = replicaHecha ? otrasOfertasDeReplica(replicaHecha.oferta, ofertas) : [];
+  const ofertasReplica = prep?.ofertas ?? ofertas;
+  const otrasReplica = replicaHecha ? otrasOfertasDeReplica(replicaHecha.oferta, ofertasReplica) : [];
 
   // La réplica, a otra función de MaKo (13/11/2026): el avatar recibe lo que se DICE (lib/guion-pasado.ts, sin la URL) y abre tu
   // último avatar; el carrusel se arma en Image con las láminas del guion y se abre.
@@ -432,6 +463,13 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   /** Lo escrito: a la pregunta de MaKo si hay una; si no, a «Discutir» o «Editar» (o a «adaptar», si MaKo preguntó un dato). */
   const pedir = (t: string, archivos: File[] = [], citadas: Referencia[] = []) => {
     if (pasoIni) { responderIni(t.trim()); return Promise.resolve(true); }
+    if (pasoActual) {
+      // Un dato (de la oferta o de la pieza) se contesta escribiendo; las demás preguntas, con sus botones (o escribiendo uno).
+      const op = pasoActual.opciones.find((o) => o.texto.toLowerCase() === t.trim().toLowerCase());
+      if (pasoActual.libre || op) { void (pasoRep ? responderRep : responderDato)(op ? op.valor : t.trim()); return Promise.resolve(true); }
+      avisar('Toca una de las opciones de MaKo.');
+      return Promise.resolve(false);
+    }
     return adaptando ? pedirEdicion(t, archivos, citadas, true)
       : intencion === 'discutir' ? pedirDiscusion(t, archivos, citadas) : pedirEdicion(t, archivos, citadas);
   };
@@ -447,39 +485,145 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     void pedirEdicion(`Escribe esta página: ${p}`);
   }, [editor, id, corriendo, appEscritorio.bloqueada]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Escribe la réplica entera con esa oferta. Sobre la página vacía queda escrita sola; sobre lo ya escrito, es una propuesta. */
-  const escribirReplica = (oferta: string, vacia: boolean, antes = 0) => {
+  /**
+   * Escribe la réplica ENTERA con lo contestado (la oferta, sus datos, cómo usar el tema) y la deja en la página sin «Aceptar»: sobre
+   * la página vacía y también al rehacerla para otra oferta (13/11/2026, la maqueta: «sin Aceptar»; Ctrl+Z la deshace).
+   */
+  const escribirReplica = (r: RespuestasIniciativa) => {
+    const idG = vivo.current.id;
+    if (!idG) return;
     elegirIntencion('editar');
-    aceptarAlTerminar.current = vacia;
-    // `antes`: los mensajes que se sumaron en este mismo paso (lo de la transcripción) y todavía no están en `vivo`.
-    setReplicaHecha({ oferta, mensaje: null, desde: vivo.current.mensajes.length + antes });
-    void pedirEdicion(pedidoDeReplica({ oferta }, ofertas).texto, [], [], false, false);
+    aceptarAlTerminar.current = true;
+    setReplicaHecha({ oferta: r.oferta ?? AL_NEGOCIO, mensaje: null, desde: vivo.current.mensajes.length });
+    // Las preguntas y respuestas quedan en la charla (las lee MaKo y se ven al volver), recién ahora que empieza a escribir.
+    if (sinGuardar.current.length) void guardarEnHiloDeTab(claveDeGuion(idG), tituloCharla(), filasDeAgente(sinGuardar.current));
+    sinGuardar.current = [];
+    void pedirEdicion(pedidoDeReplica(r, ofertasReplica, prep?.tema.original?.nombre ?? null).texto, [], [], false, false);
   };
 
-  // La réplica se escribe SOLA al abrirla vacía (11/11/2026, Martín): con la charla ya leída y vacía (si tiene charla, ya se
-  // escribió antes), el editor listo y la página sin texto. Sin la app de escritorio no corre, como ningún chat de MaKo.
-  // Un video de YouTube sin transcribir se transcribe ANTES (13/11/2026, Martín: «primero tiene que transcribir y mostrar la
-  // transcripción»; ./transcribir-original.ts). Lo que pasó lo dice MaKo en el chat, y después escribe.
+  // Al abrir la réplica vacía (la charla ya leída y vacía, el editor listo, la página sin texto): transcribe el original si es un
+  // video (13/11/2026, Martín: «primero tiene que transcribir y mostrar la transcripción»; ./transcribir-original.ts) y trae lo que
+  // MaKo necesita para preguntar (las ofertas con lo que les falta y el tema: lib/copywriter/replica-servidor.ts). Las preguntas no
+  // llaman a la IA: salen aunque no esté la app de escritorio; escribir, no.
   const preparando = useRef<string | null>(null);
   const [lineaTranscripcion, setLineaTranscripcion] = useState<string | null>(null);
   useEffect(() => {
-    if (!replica || !id || !editor || !hiloLeido || corriendo || replicaHecha || appEscritorio.bloqueada || preparando.current === id) return;
+    if (!replica || !id || !editor || !hiloLeido || corriendo || replicaHecha || prep || preparando.current === id) return;
     if (mensajes.length || textoDelDoc(editor.leer() as JsonNodo).trim()) return;
     const outlier = guion?.doc.props.outlier ?? '';
     preparando.current = id;
     void (async () => {
       const t = await transcribirSiHaceFalta(outlier, setLineaTranscripcion).catch(() => null);
+      if (vivo.current.id !== id) { preparando.current = null; return; }
+      if (t) {
+        setMensajes((xs) => [...xs, { id: nuevoId(), de: 'mako', texto: t.texto }]);
+        sinGuardar.current.push({ de: 'mako', texto: t.texto });
+        if (t.ok) avisarOriginalNuevo(outlier);
+      }
+      setLineaTranscripcion('Mirando tus ofertas…');
+      const p = await pedirPreparacion(outlier).catch(() => null);
       setLineaTranscripcion(null);
       preparando.current = null;
       if (vivo.current.id !== id) return;
-      if (t) {
-        const mako: Mensaje = { id: nuevoId(), de: 'mako', texto: t.texto };
-        setMensajes((xs) => [...xs, mako]);
-        void guardarEnHiloDeTab(claveDeGuion(id), tituloCharla(), filasDeAgente([{ de: 'mako', texto: t.texto }]));
-      }
-      escribirReplica(ofertaDeReplica(ofertas), true, t ? 1 : 0);
+      // Sin la preparación (la base no contestó), igual pregunta la oferta, sin saber qué le falta.
+      setPrep(p?.ok ? p : { tema: { original: null, negocio: null, relacionado: true }, ofertas: ofertas.map((o) => ({ ...o, falta: [] })) });
     })();
-  }, [replica, id, editor, hiloLeido, corriendo, replicaHecha, appEscritorio.bloqueada, mensajes.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [replica, id, editor, hiloLeido, corriendo, replicaHecha, prep, mensajes.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // La pregunta de la réplica que sigue; sin ninguna, escribe (cuando se puede: editor listo, sin otro pedido, con la app).
+  const pasoRep = replica && prep && !replicaHecha ? pasoDeReplica(prep, respRep) : null;
+  useEffect(() => {
+    if (!replica || !prep || replicaHecha || corriendo || guardandoDato || !editor || !id || appEscritorio.bloqueada) return;
+    if (pasoDeReplica(prep, respRep)) return;
+    escribirReplica(respRep);
+  }, [replica, prep, respRep, replicaHecha, corriendo, guardandoDato, editor, id, appEscritorio.bloqueada]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Contestar una pregunta de la réplica (un botón, o lo escrito en un dato de la oferta). La pregunta y la respuesta quedan en la
+   * charla, en orden. Un dato de la oferta se GUARDA en la oferta (lo ven Offer y el resto de MaKo); si no se puede guardar, igual
+   * va en el pedido. «Completarla en Offer» lleva a esa oferta en Offer.
+   */
+  const responderRep = async (valor: string) => {
+    const paso = pasoRep;
+    if (!paso || !prep || !id || guardandoDato) return;
+    if (valor === EN_OFFER) {
+      const o = ofertaElegida(prep, respRep);
+      router.push(o ? `/offer?oferta=${o.id}` : '/offer');
+      return;
+    }
+    const qa: Mensaje[] = [{ id: nuevoId(), de: 'mako', texto: paso.pregunta }, { id: nuevoId(), de: 'yo', texto: textoDeRespuesta(paso, valor) }];
+    setMensajes((xs) => [...xs, ...qa]);
+    sinGuardar.current.push(...qa.map((m) => ({ de: m.de, texto: m.texto })));
+    const nuevas = responderReplica(paso, valor, respRep);
+    const campo = paso.id.slice(FALTA.length);
+    const o = ofertaElegida(prep, respRep);
+    if (paso.id.startsWith(FALTA) && valor !== SEGUIR_SIN && o && esCampoQueFalta(campo)) {
+      setGuardandoDato(true);
+      const r = await pedirCompletarOferta(o.id, campo, valor);
+      setGuardandoDato(false);
+      if (vivo.current.id !== id) return;
+      if (!r.ok) fallosAlGuardar.current.push(r.error);
+      if (!faltaPorPreguntar(prep, nuevas).length) {
+        const dicho = fallosAlGuardar.current.length
+          ? `No pude guardarlo en tu oferta (${fallosAlGuardar.current[0].replace(/\.$/, '')}): lo uso igual en esta pieza.`
+          : `Listo: lo guardé en tu oferta «${o.nombre}» (lo ven también Offer y el resto de MaKo).`;
+        setMensajes((xs) => [...xs, { id: nuevoId(), de: 'mako', texto: dicho }]);
+        sinGuardar.current.push({ de: 'mako', texto: dicho });
+      }
+    }
+    setRespRep(nuevas);
+  };
+
+  /** «¿Lo rehago para otra?»: la misma réplica con otra oferta (pregunta lo que le falte a ésa) y escrita sin «Aceptar». */
+  const rehacerPara = (valor: string) => {
+    setRespRep((r) => ({ ...(r.tema ? { tema: r.tema } : {}), oferta: valor }));
+    setReplicaHecha(null);
+    setDatosRep(null);
+    setDatosRestantes(null);
+  };
+
+  // Escrita la réplica (quedó en la página), los [DATO: …] que tenga: MaKo los pregunta enseguida.
+  useEffect(() => {
+    if (!replicaHecha?.mensaje || datosRep || !editor) return;
+    const m = mensajes.find((x) => x.id === replicaHecha.mensaje);
+    if (!m || m.de !== 'mako' || m.estado !== 'aceptada') return;
+    setDatosRep({ lista: datosQueFaltan(textoDelDoc(editor.leer() as JsonNodo)), resp: {} });
+  }, [replicaHecha, mensajes, datosRep, editor]);
+  const pasoDato = !pasoRep && datosRep ? pasoDeDato(datosRep.lista, datosRep.resp) : null;
+  /** La pregunta de MaKo que espera respuesta, de la réplica o de un dato. */
+  const pasoActual = pasoRep ?? pasoDato;
+  useEffect(() => { onPregunta?.(!!pasoActual); }, [!!pasoActual, onPregunta]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Contestar un dato que falta. La pregunta y la respuesta quedan en la charla (la pieza ya está escrita: se guardan en el acto). Con
+   * el último, todo lo contestado va a la página de una vez, EN LUGAR de cada [DATO] y en un paso de deshacer (con la pausa, que es lo
+   * que guarda lo que pone MaKo: ./editor/EditorGuion.tsx); lo de «No lo sé» queda marcado y MaKo lo dice.
+   */
+  const responderDato = async (valor: string) => {
+    const paso = pasoDato;
+    const ed = vivo.current.editor;
+    if (!paso || !datosRep || !id || !ed) return;
+    const qa: { de: 'yo' | 'mako'; texto: string }[] = [{ de: 'mako', texto: paso.pregunta }, { de: 'yo', texto: textoDeRespuesta(paso, valor) }];
+    setMensajes((xs) => [...xs, ...qa.map((m): Mensaje => ({ id: nuevoId(), ...m }))]);
+    void guardarEnHiloDeTab(claveDeGuion(id), tituloCharla(), filasDeAgente(qa));
+    const resp = { ...datosRep.resp, [datoDelPaso(paso)]: valor };
+    setDatosRep({ ...datosRep, resp });
+    if (pasoDeDato(datosRep.lista, resp)) return;
+    const r = conDatos(ed.leer() as JsonNodo, resp);
+    if (r.puestos) {
+      onPausa(true);
+      // La pausa saca su foto al dibujarse; recién después se cambia la página (si no, la foto ya tiene el cambio y no se guarda).
+      await new Promise((ok) => setTimeout(ok, 150));
+      if (vivo.current.editor === ed) ponerDoc(ed, r.doc, { historial: true });
+      onPausa(false);
+    }
+    if (vivo.current.id !== id) return;
+    const quedan = datosQueFaltan(textoDelDoc(ed.leer() as JsonNodo));
+    setDatosRestantes(quedan.length);
+    const dicho = dichoDeDatos(r.puestos, quedan);
+    setMensajes((xs) => [...xs, { id: nuevoId(), de: 'mako', texto: dicho }]);
+    void guardarEnHiloDeTab(claveDeGuion(id), tituloCharla(), filasDeAgente([{ de: 'mako', texto: dicho }]));
+  };
 
   // Lo que escribió sobre la página vacía queda en la página sin pedir «Aceptar» (no había nada que pisar), y su mensaje lleva
   // abajo las otras ofertas.
@@ -618,16 +762,20 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
               y dejá cambiarla»). */}
           {m.id === replicaHecha?.mensaje && (m.estado === 'aceptada' || m.estado === 'pendiente') && otrasReplica.length > 0 && (
             <>
-              <div className="nt-mako-estado">{`Lo escribí para ${nombreDeOferta(replicaHecha.oferta, ofertas) ? `tu oferta «${nombreDeOferta(replicaHecha.oferta, ofertas)}»` : 'tu negocio'}. ¿Lo rehago para otra?`}</div>
+              <div className="nt-mako-estado">{`Lo escribí para ${nombreDeOferta(replicaHecha.oferta, ofertasReplica) ? `tu oferta «${nombreDeOferta(replicaHecha.oferta, ofertasReplica)}»` : 'tu negocio'}. ¿Lo rehago para otra?`}</div>
               <div className="nt-mako-pildoras">
                 {otrasReplica.map((o) => (
-                  <button key={o.valor} type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => escribirReplica(o.valor, false)}>{o.texto}</button>
+                  <button key={o.valor} type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => rehacerPara(o.valor)}>{o.texto}</button>
                 ))}
               </div>
             </>
           )}
           {/* Llevarla a otra función (13/11/2026, Martín en la llamada con Leila: es enlazar, no rehacer; quien prefiere grabarse
               se queda con el guion): el avatar recibe lo que se DICE, Image arma las LÁMINAS (lib/copywriter/hacia-otras.ts). */}
+          {/* Lo que quedó sin completar después de preguntarlo (la maqueta: «Falta: 1 dato»): cifras y casos sólo del negocio. */}
+          {m.id === replicaHecha?.mensaje && m.estado === 'aceptada' && datosRestantes != null && datosRestantes > 0 && (
+            <div className="nt-mako-estado">{datosRestantes === 1 ? 'Falta 1 dato: está marcado [DATO: …] en la página.' : `Faltan ${datosRestantes} datos: están marcados [DATO: …] en la página.`}</div>
+          )}
           {m.id === replicaHecha?.mensaje && m.estado === 'aceptada' && (
             <div className="nt-mako-pildoras">
               <button type="button" className="nt-mako-pildora" onClick={hacerConAvatar}>Hacerlo con tu avatar IA</button>
@@ -655,7 +803,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
           <div className="nt-mako-pie">
             <SelectorIntencion valor={intencion} onCambio={(v) => { setAdaptando(false); elegirIntencion(v); }} deshabilitado={corriendo || conPropuestaAbierta} />
             <CajaAgente campo={campo} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj.caja} hayAlgoMas={adj.hay || refs.length > 0}
-              ocupado={corriendo || conPropuestaAbierta || nota.pendientes || adj.preparando} apagado={!id || !editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda
+              ocupado={corriendo || conPropuestaAbierta || nota.pendientes || adj.preparando || guardandoDato} apagado={!id || !editor} placeholder={pasoActual?.libre ? 'Escribe tu respuesta' : 'Escribe a MaKo'} tituloMandar="Enviar" enterManda
               bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
               arriba={(
                 <>
@@ -691,7 +839,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
               <div className="nt-mako-estado">Para que MaKo lo escriba, instala su app: el botón está abajo.</div>
             )}
           </>
-        ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && hiloLeido && !pasosIni.length && (
+        ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && hiloLeido && !pasosIni.length && !replica && (
           // Sin el texto que explicaba cómo usar el chat (12/11/2026, Martín: «arriba en MaKo dice un texto que es innecesario… eso es
           // totalmente innecesario»): sólo lo que se le puede pedir, en botones. Sin página abierta no hay nada que decir.
           // Con el hilo LEÍDO y fuera de una plantilla (13/11/2026, en producción: al abrir una plantilla salían «Mejorar la
@@ -704,6 +852,23 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
         )}
         <HiloAgente items={nota.conNotas(items)} corriendo={corriendo} enMensaje={enMensaje} onCitar={citar}
           onReintentar={nota.reintentar(() => {})} onDescartar={nota.descartar} />
+        {pasoActual && (
+          // La réplica: MaKo pregunta antes de escribir, de a una y con botones (lib/copywriter/iniciativa.ts, `pasoDeReplica`), y
+          // después los datos que quedaron (lib/copywriter/datos-que-faltan.ts).
+          <>
+            <div className="nt-mako-bienvenida">{pasoActual.pregunta}{pasoActual.libre ? ' Escríbelo abajo.' : ''}</div>
+            <div className="nt-mako-pildoras">
+              {pasoActual.opciones.map((o, i) => (
+                <button key={o.valor} type="button" className="nt-mako-pildora" {...(i === 0 && !pasoActual.libre ? { 'data-principal': '' } : {})}
+                  disabled={guardandoDato || corriendo} onClick={() => void (pasoRep ? responderRep : responderDato)(o.valor)}>{o.texto}</button>
+              ))}
+            </div>
+          </>
+        )}
+        {guardandoDato && <div className="nt-mako-estado" aria-live="polite">Guardando en tu oferta…</div>}
+        {replica && prep && !pasoRep && !replicaHecha && appEscritorio.bloqueada && (
+          <div className="nt-mako-estado">Para que MaKo lo escriba, instala su app: el botón está abajo.</div>
+        )}
         {lineaTranscripcion && <div className="nt-mako-estado" aria-live="polite">{lineaTranscripcion}</div>}
         {corriendo && !conPropuestaAbierta && (
           <button type="button" className="nt-mako-pildora" onClick={() => { corte.current?.abort(); avisar('Detenido'); }}>Detener</button>

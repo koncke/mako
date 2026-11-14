@@ -291,7 +291,7 @@ function Cierre() {
   return (
     <section className={`${P}-closer`}>
       <div className={`${P}-wrap ${P}-closer-in`}>
-        <h2>¿Lo quieres andando <span className={`${P}-q`}>en tu negocio?</span></h2>
+        <h2>¿Lo quieres funcionando <span className={`${P}-q`}>en tu negocio?</span></h2>
         <p>{TEXTO_CIERRE}</p>
         <a href={RUTA_CTA} className={`${P}-cta ${P}-cta-big`}>{TEXTO_CTA}<Flecha size={16} /></a>
       </div>
@@ -307,7 +307,7 @@ function PieDePagina() {
         <div className={`${P}-foot-top`}>
           <div>
             <LogoMaKo className={`${P}-brand`} tamano={36} />
-            <p className={`${P}-foot-tag`}>El mejor SaaS para ventas High Ticket, de punta a punta.</p>
+            <p className={`${P}-foot-tag`}>El mejor software para vender High Ticket.</p>
           </div>
           <div className={`${P}-foot-col`}>
             <p className={`${P}-foot-h`}>Mapa del sitio</p>
@@ -562,7 +562,7 @@ const CSS = `
 .d-script-closer::before { content: ''; position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px); background-size: 76px 76px; -webkit-mask-image: radial-gradient(60% 70% at 50% 50%, #000 20%, transparent 75%); mask-image: radial-gradient(60% 70% at 50% 50%, #000 20%, transparent 75%); }
 .d-script-closer-in { position: relative; max-width: 860px; }
 .d-script-closer h2 { font-size: 60px; font-weight: 700; line-height: 61.2px; letter-spacing: -0.05em; color: #fff; }
-.d-script-q { display: block; color: #9DBDF6; }
+.d-script-q { display: block; color: #2F6FED; } /* era #9DBDF6: celeste sobre gris claro, contraste 2 a 1 (14/11) */
 .d-script-closer p { margin: 16px auto 0; max-width: 620px; font-size: 19px; line-height: 29.45px; color: #B7C3CE; }
 .d-script-cta-big { margin-top: 30px; height: 56px; padding: 18px 30px; border-radius: 12px; font-size: 17px; font-weight: 700; box-shadow: 0 0 0 6px rgba(47,111,237,.18), 0 18px 40px rgba(47,111,237,.35); }
 

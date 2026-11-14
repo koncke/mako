@@ -309,7 +309,7 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string, d
   // Y de paso se fue una consulta: `existentes` ya es la lista entera, así que contar era pedir
   // lo mismo dos veces.
   if (existentes.length >= TOPES.competidores) {
-    return { ok: false, error: `Ya tienes ${TOPES.competidores} competidores. Quita uno antes de agregar otro: la tab sirve para mirar pocos a fondo.` };
+    return { ok: false, error: `Ya tienes ${TOPES.competidores} competidores. Quita uno antes de agregar otro.` };
   }
 
   const fila: Record<string, unknown> = { nombre, updated_at: new Date().toISOString() };
@@ -378,7 +378,7 @@ export type ResumenPiezas = { vivas: number; idas: number; desde: string | null 
 
 /**
  * Cuántas piezas se ven y cuántas ya no, por competidor, y desde cuándo hay historia. Sin agregados
- * en SQL: son a lo sumo 25 competidores (`TOPES.competidores`).
+ * en SQL: son a lo sumo `TOPES.competidores` competidores.
  *
  * ⚠️ ANTE UN ERROR DEVUELVE VACÍO, y la tabla entonces no dibuja esa columna. No hay cero que afirmar.
  *

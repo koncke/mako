@@ -38,6 +38,7 @@ import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFun
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
 import { FaltaAnimacion } from '../FaltaAnimacion';
+import { GrabacionDe } from '../Visuales';
 
 type B<T extends Bloque['tipo']> = Extract<Bloque, { tipo: T }>;
 
@@ -110,11 +111,11 @@ function Hero({ b }: { b: B<'hero'> }) {
 //    suyo: los visuales de FEATURE_VISUALS de Ads Writer y de seguimiento, y para Image y Web Generator el recuadro de lo que
 //    falta grabar (12/11/2026: los dos dibujos a mano se sacaron). ─────────────────────────────────────────────────────
 function MockCarruseles() {
-  return <FaltaAnimacion que="La pantalla de outliers de Image, tal cual es." />;
+  return <GrabacionDe n="carruseles" />;
 }
 
 function MockLanding() {
-  return <FaltaAnimacion que="Una landing real hecha con Web Generator." />;
+  return <GrabacionDe n="replicar" />;
 }
 
 const DIBUJO_DEPARTAMENTO = [
@@ -288,7 +289,7 @@ function Semanas({ b }: { b: B<'pasos'> }) {
           {b.bajada ? <p className="d-mako-cab-p d-mako-cab-p-claro" dangerouslySetInnerHTML={html(b.bajada)} /> : null}
         </div>
         <div className="d-mako-sem-falta">
-          <FaltaAnimacion que="Un tablero real del Dashboard." />
+          <GrabacionDe n="tableros" />
         </div>
         <ol className="d-mako-sem-tabs">
           {b.pasos.map((p, i) => (
@@ -425,7 +426,7 @@ function Pie({ slug }: { slug: string }) {
       <div className="d-mako-pie-g">
         <div className="d-mako-pie-marca">
           <LogoMaKo className="d-mako-pie-logo" tamano={26} />
-          <p>El mejor SaaS para ventas High Ticket, de punta a punta.</p>
+          <p>El mejor software para vender High Ticket.</p>
         </div>
         {cols.map((col, i) => (
           <nav key={i} className="d-mako-pie-col" aria-label={i === 0 ? 'Funciones de MaKo' : undefined}>

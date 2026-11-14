@@ -263,6 +263,10 @@ const PARTE_DE_FILA = ['anuncios', 'ficha', 'todo', 'anuncios'] as const;
 /** El color del halo y del objeto de cada fila (en la referencia, el color de cada producto). */
 const TONO_DE_FILA = ['azul', 'dorado', 'plata', 'azul'] as const;
 
+/** Las filas cuya pantalla ES la grabación de Spy (la grilla de Competidores: el Cerebro, 14/11). Las demás muestran su recuadro de
+ *  «falta» hasta que se grabe la suya (la extensión, el análisis, Replicar). */
+const FILA_CON_SU_GRABACION = new Set(['Sigue a tus competidores']);
+
 function Fila({ b, n, visual }: { b: De<'tarjetas'>; n: number; visual?: VisualHero }) {
   const nombre = `${P}-t${n}`;
   const tono = TONO_DE_FILA[n % TONO_DE_FILA.length];
@@ -296,7 +300,7 @@ function Fila({ b, n, visual }: { b: De<'tarjetas'>; n: number; visual?: VisualH
         <div className={`${P}-figura-halo`} aria-hidden="true" />
         {visual ? (
           <div className={`${P}-ventana ${P}-ventana-${parte}`} aria-hidden="true">
-            <div className={`${P}-pantalla ${P}-pantalla-${parte}`}><VisualDeLanding visual={visual} /></div>
+            <div className={`${P}-pantalla ${P}-pantalla-${parte}`}><VisualDeLanding visual={visual} falta={FILA_CON_SU_GRABACION.has(b.titulo) ? undefined : `La pantalla de «${b.titulo.replace(/<[^>]+>/g, '')}» en Competitor Spy, tal cual es.`} /></div>
           </div>
         ) : null}
         <div className={`${P}-leyendas`}>

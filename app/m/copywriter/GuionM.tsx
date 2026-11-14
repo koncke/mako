@@ -22,8 +22,9 @@ import { EditorGuion, type ApiPagina } from '@/app/copywriter/editor/EditorGuion
 import { PanelMaKo, type GuionVivo } from '@/app/copywriter/PanelMaKo';
 import type { OfertaCorta } from '@/lib/copywriter/iniciativa';
 import { pedirPapelera, pedirRenombrar } from '@/app/copywriter/cliente';
+import { OriginalAlLado } from '@/app/copywriter/OriginalAlLado';
 
-type Vista = 'guion' | 'mako';
+type Vista = 'guion' | 'mako' | 'original';
 /** El «‹ Guiones» de la barra (el mismo de app/m/copywriter/[id]/page.tsx). */
 const PADRE_GUION = { href: '/m/copywriter', label: 'Guiones' };
 // (El id sigue siendo «guion»: lo usan el segmentado y las notas guardadas por vista.)
@@ -51,6 +52,9 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
   // y TAMBIÉN al pie de la Página (13/11/2026, en producción: con el cambio a la vista, nadie volvía a MaKo a aceptarlo).
   const alPausar = useCallback((p: boolean) => { setPausa(p); if (p) setVista('guion'); }, []);
   const [decidir, setDecidir] = useState<{ aceptar: () => void; descartar: () => void } | null>(null);
+  // MaKo espera una respuesta (13/11/2026, el flujo nuevo): escrita la réplica la vista queda en la Página, y los datos que faltan
+  // los pregunta en la pestaña MaKo. La Página lo dice al pie, como el «Aceptar».
+  const [pregunta, setPregunta] = useState(false);
 
   const renombrar = (c: { titulo?: string; emoji?: string | null }) => {
     void pedirRenombrar(pagina.id, c).then((r) => { if (!r.ok) toast(`No se pudo guardar: ${r.error}`); });
@@ -62,7 +66,11 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
           diciendo «Sin título» con el título ya escrito, hasta volver a abrir la página. */}
       <CabeceraM titulo={pagina.titulo} padre={PADRE_GUION} trabajo />
       <div className="m-copywriter-seg">
-        <SegmentadoM etiqueta="Vista" valor={vista} onCambio={setVista} opciones={[{ id: 'guion', label: 'Página' }, { id: 'mako', label: 'MaKo', n: pausa ? 1 : null }]} />
+        {/* La réplica de un outlier suma «Original» (13/11/2026, el flujo nuevo): lo transcrito, para leerlo junto a lo escrito. */}
+        <SegmentadoM<Vista> etiqueta="Vista" valor={vista} onCambio={setVista} opciones={[
+          { id: 'guion', label: 'Página' }, { id: 'mako', label: 'MaKo', n: pausa || pregunta ? 1 : null },
+          ...(guion.doc.props.outlier ? [{ id: 'original' as const, label: 'Original' }] : []),
+        ]} />
       </div>
       <div className="nt" data-movil="">
         <div hidden={vista !== 'guion'} className="m-copywriter-vista">
@@ -72,6 +80,11 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
             onAbrir={() => {}} onPapelera={() => void pedirPapelera(pagina.id).then((r) => { if (r.ok) router.push('/m/copywriter'); else toast(r.error); })}
             onEditor={setEditor} onMako={(s) => { setVista('mako'); window.setTimeout(() => { if (citar.current) citar.current(s); else caja.current?.focus(); }, 50); }}
             avisar={avisar} onVivo={(v) => { vivo.current = v; }} onApi={(a) => { api.current = a; }} />
+          {pregunta && !decidir && !pausa && vista === 'guion' && (
+            <PieFijoM consecuencia="MaKo te pregunta lo que falta, para no inventarlo.">
+              <Button variant="primary" size="lg" onClick={() => setVista('mako')}>Contestar</Button>
+            </PieFijoM>
+          )}
           {decidir && vista === 'guion' && (
             <PieFijoM consecuencia="MaKo propone un cambio: está marcado en la página.">
               <div className="m-copywriter-decidir">
@@ -82,8 +95,13 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
           )}
         </div>
         <div hidden={vista !== 'mako'} className="m-copywriter-vista">
-          <PanelMaKo ws={ws} guion={guion} paginas={[pagina]} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={caja} onPausa={alPausar} avisar={avisar} citarRef={citar} onPendiente={setDecidir} ofertas={ofertas} />
+          <PanelMaKo ws={ws} guion={guion} paginas={[pagina]} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={caja} onPausa={alPausar} avisar={avisar} citarRef={citar} onPendiente={setDecidir} onPregunta={setPregunta} ofertas={ofertas} />
         </div>
+        {guion.doc.props.outlier ? (
+          <div hidden={vista !== 'original'} className="m-copywriter-vista">
+            <OriginalAlLado outlier={guion.doc.props.outlier} telefono />
+          </div>
+        ) : null}
       </div>
     </div>
   );

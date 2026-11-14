@@ -42,7 +42,7 @@ function Flecha() {
 
 /** Su botón oscuro (#011D38, 16px 40px, radio 10) con el brillo que cruza al pasar el mouse. */
 function BotonOscuro({ claro = false }: { claro?: boolean }) {
-  return <a href={RUTA_CTA} className={`d-crm-btn ${claro ? 'd-crm-btn-claro' : 'd-crm-btn-oscuro'}`}>{TEXTO_CTA}</a>;
+  return <a href={RUTA_CTA} data-tema-fijo="" className={`d-crm-btn ${claro ? 'd-crm-btn-claro' : 'd-crm-btn-oscuro'}`}>{TEXTO_CTA}</a>;
 }
 
 function Hero({ b }: { b: Extract<Bloque, { tipo: 'hero' }> }) {
@@ -52,7 +52,7 @@ function Hero({ b }: { b: Extract<Bloque, { tipo: 'hero' }> }) {
         <p className="d-crm-pill"><span className="d-crm-pill-ic"><EstrellaMaKo size={16} /></span>{b.etiqueta}</p>
         <h1 className="d-crm-h1" dangerouslySetInnerHTML={html(b.titulo)} />
         <p className="d-crm-hero-p" dangerouslySetInnerHTML={html(b.bajada)} />
-        <a href={RUTA_CTA} className="d-crm-btn-hero">{TEXTO_CTA}<span className="d-crm-btn-hero-ic"><Flecha /></span></a>
+        <a href={RUTA_CTA} data-tema-fijo="" className="d-crm-btn-hero">{TEXTO_CTA}<span className="d-crm-btn-hero-ic"><Flecha /></span></a>
       </div>
       <div className="d-crm-hero-media"><VisualDeLanding visual={b.visual} /></div>
     </div>
@@ -65,7 +65,7 @@ function Cifras({ b }: { b: Extract<Bloque, { tipo: 'cifras' }> }) {
       <div className="d-crm-contadores" aria-label="En números">
         {b.items.map((c) => (
           <div key={c.label} className="d-crm-contador">
-            <span className="d-crm-contador-v d-crm-grad">{c.valor}</span>
+            <span className="d-crm-contador-v d-crm-grad" data-tema-fijo="">{c.valor}</span>
             <span className="d-crm-contador-l">{c.label}</span>
           </div>
         ))}
@@ -94,7 +94,7 @@ function Ciclo({ b }: { b: Tarjetas }) {
         {b.items.map((t, i) => <input key={t.titulo} type="radio" name="d-crm-ciclo" id={`d-crm-t${i}`} className={`d-crm-radio d-crm-radio-${i}`} defaultChecked={i === 0} aria-label={t.meta ?? t.titulo} />)}
         <div className="d-crm-pills" role="presentation">
           {b.items.map((t, i) => (
-            <label key={t.titulo} htmlFor={`d-crm-t${i}`} className={`d-crm-pill-tab d-crm-pill-tab-${i}`} style={{ ['--d-crm-c' as string]: COLORES_PESTANA[i % COLORES_PESTANA.length] }}>
+            <label key={t.titulo} htmlFor={`d-crm-t${i}`} data-tema-fijo="" className={`d-crm-pill-tab d-crm-pill-tab-${i}`} style={{ ['--d-crm-c' as string]: COLORES_PESTANA[i % COLORES_PESTANA.length] }}>
               <span>{t.meta ?? t.titulo}</span>
             </label>
           ))}
@@ -317,8 +317,10 @@ const CSS = `
 .d-crm-h1 { margin: 0 0 20px; font-size: 48px; line-height: 57.6px; font-weight: 700; color: #fff; }
 .d-crm-hero-p { margin: 0; font-size: 16px; line-height: 20.8px; color: #fff; }
 .d-crm-hero-p strong { font-weight: 600; }
-.d-crm-btn-hero { margin: 20px 0; display: inline-flex; align-items: center; gap: 18px; padding: 10px 10px 10px 20px; border-radius: 10px; background-color: #8DB0F4; background-image: linear-gradient(91deg, #2F6FED 1.1%, #FFFFFF 105.74%); color: #021221 !important; font-size: 15px; font-weight: 600; text-decoration: none; transition: .3s cubic-bezier(0.4, 0, 0.2, 1); }
-.d-crm-btn-hero-ic { width: 24px; height: 24px; border-radius: 5px; background: #021221; color: #fff; display: inline-flex; align-items: center; justify-content: center; }
+/* Los botones van fijos en los dos modos (data-tema-fijo): azul de MaKo con letra blanca y en UNA línea. En oscuro, el degradado
+   azul → blanco con letra oscura quedaba azul sobre azul (el Cerebro, 14/11/2026). */
+.d-crm-btn-hero { margin: 20px 0; display: inline-flex; align-items: center; gap: 18px; padding: 10px 10px 10px 20px; border-radius: 10px; background: #2F6FED; color: #fff !important; white-space: nowrap; font-size: 15px; font-weight: 600; text-decoration: none; transition: .3s cubic-bezier(0.4, 0, 0.2, 1); }
+.d-crm-btn-hero-ic { width: 24px; height: 24px; border-radius: 5px; background: rgba(255,255,255,.2); color: #fff; display: inline-flex; align-items: center; justify-content: center; }
 .d-crm-hero-media { flex: 1 1 50%; align-self: stretch; display: flex; align-items: center; min-width: 0; }
 .d-crm-hero-media .mk-vsl-slot { position: relative; aspect-ratio: 16 / 9; width: 100%; }
 .d-crm-hero-media .mk-vsl { position: absolute; inset: 0; border-radius: 15px 0 0 15px; overflow: hidden; background: #0B0D12; box-shadow: 0 30px 70px -32px rgba(0,0,0,.6); }
@@ -329,6 +331,10 @@ const CSS = `
 .d-crm-contadores { position: relative; max-width: 1170px; margin: -160px auto 0; padding: 0 10px; display: flex; gap: 25px; }
 .d-crm-contador { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; min-height: 124px; border-radius: 15px; background: rgba(255,255,255,.31); box-shadow: rgba(0,0,0,.25) 0 0 5.08px 0; text-align: center; }
 .d-crm-contador-v { font-size: 30px; line-height: 36px; font-weight: 700; }
+/* Las cifras, fijas: oscuras en el claro y blancas en el oscuro (con el degradado de la referencia, en oscuro casi no se leían). */
+html[data-sitio-modo="oscuro"] .d-crm-contador-v { background-image: linear-gradient(90deg, #FFFFFF 0%, #AFC6F7 110%); color: #fff; }
+/* En oscuro la tarjeta blanca al 31 % cae sobre el brillo azul del hero: letra blanca sobre celeste. Vidrio oscuro (14/11). */
+html[data-sitio-modo="oscuro"] .d-crm-contador { background: rgba(6,12,30,.62); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
 .d-crm-contador-l { margin-top: 8px; font-size: 14px; line-height: 1.2; color: #03101C; text-transform: uppercase; }
 
 /* Secciones */
@@ -363,8 +369,8 @@ ${[0, 1, 2, 3, 4, 5].map((i) => `#d-crm-t${i}:checked ~ .d-crm-pills .d-crm-pill
 .d-crm-panel-vis { align-self: center; border-radius: 14px; overflow: hidden; background: #fff; }
 
 /* Los botones de bloque: 52 de alto, 16px 40px, radio 10, 15px 500. El oscuro brilla al pasar el mouse. */
-.d-crm-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; height: 52px; padding: 16px 40px; border-radius: 10px; font-size: 15px; font-weight: 600; text-decoration: none; transition: all .3s; }
-.d-crm-btn-oscuro { background: #011D38; border: 1px solid #011D38; color: #fff !important; }
+.d-crm-btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; height: 52px; padding: 16px 32px; white-space: nowrap; border-radius: 10px; font-size: 15px; font-weight: 600; text-decoration: none; transition: all .3s; }
+.d-crm-btn-oscuro { background: #2F6FED; border: 1px solid #2F6FED; color: #fff !important; }
 .d-crm-btn-oscuro::after { content: ''; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; background: linear-gradient(120deg, rgba(255,255,255,0), rgba(255,255,255,.65), rgba(255,255,255,0)); transform: skewX(-20deg); transition: left .6s; }
 .d-crm-btn-oscuro:hover { box-shadow: rgba(107,178,255,.47) 0 0 10px 2px; }
 .d-crm-btn-oscuro:hover::after { left: 130%; }
@@ -452,6 +458,7 @@ ${[0, 1, 2, 3, 4, 5].map((i) => `#d-crm-t${i}:checked ~ .d-crm-pills .d-crm-pill
   .d-crm-contadores { margin-top: -300px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; padding: 0 10px; }
   .d-crm-contador { padding: 6px; min-height: 68px; border-radius: 4px; }
   .d-crm-contador-l { font-size: 11px; margin-top: 2px; }
+  .d-crm-contador:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .d-crm-sec-cifras { padding: 80px 20px 60px; }
   .d-crm-sec-cifras .d-crm-h2-30 { font-size: 28px; line-height: 36.4px; }
   .d-crm-h2-40 { font-size: 30px; line-height: 39px; }

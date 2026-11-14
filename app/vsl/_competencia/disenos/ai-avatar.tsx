@@ -146,8 +146,13 @@ function DibujarBloque({ b, hero, icono, n }: { b: Bloque; hero: Hero | undefine
           <div className="d-ai-avatar-filas">
             {b.items.map((t, i) => (
               <div key={t.titulo} className={`d-ai-avatar-fila${i % 2 ? ' d-ai-avatar-fila-inv' : ''}`}>
+                {/* El anuncio REAL hecho con AI Avatar (el de Martín y el de Mauricio, los de la portada), uno por fila: la caja con un solo
+                    ícono se veía sin terminar (el Cerebro, 14/11/2026: «en AI Avatar hay videos reales de avatar: úsalos»). */}
                 <div className={`d-ai-avatar-panel d-ai-avatar-panel-${i % 3}`}>
-                  <span className="d-ai-avatar-panel-ic"><Icon paths={t.icono ?? icono} size={64} /></span>
+                  <span className="d-ai-avatar-panel-tel">
+                    <video src={`/vsl-assets/sitio/avatar/${ANUNCIOS_AVATAR[i % ANUNCIOS_AVATAR.length].id}.webm`} poster={`/vsl-assets/sitio/avatar/${ANUNCIOS_AVATAR[i % ANUNCIOS_AVATAR.length].id}.jpg`}
+                      muted autoPlay loop playsInline preload="none" aria-label={`Un anuncio hecho con AI Avatar: ${ANUNCIOS_AVATAR[i % ANUNCIOS_AVATAR.length].nombre}`} />
+                  </span>
                 </div>
                 <div className="d-ai-avatar-fila-txt">
                   <div>
@@ -251,7 +256,7 @@ export default function DisenoAiAvatar({ landing }: PropsDiseno) {
 
         <section className="d-ai-avatar-final">
           <div className="d-ai-avatar-final-c">
-            <h2 className="d-ai-avatar-final-h">¿Lo quieres andando en tu negocio?</h2>
+            <h2 className="d-ai-avatar-final-h">¿Lo quieres funcionando en tu negocio?</h2>
             <p className="d-ai-avatar-final-p">{TEXTO_CIERRE}</p>
             <Boton />
             {hero?.puntos?.length ? (
@@ -283,6 +288,18 @@ export default function DisenoAiAvatar({ landing }: PropsDiseno) {
     </div>
   );
 }
+
+/** Un anuncio REAL de avatar distinto en cada tarjeta (el Cerebro, 14/11/2026: «si hay más anuncios reales de avatar, usa uno distinto
+ *  en cada tarjeta»). Los de Martín: los dos clips de su personaje con su voz (C:/dev/reel-mentores/clips-final/). Los de Mauricio:
+ *  los primeros 12 s de sus anuncios con IA (OneDrive/Escritorio/Mauricio: el quinto, el primero, el sexto y el cuarto), sin sonido. */
+const ANUNCIOS_AVATAR: readonly { id: string; nombre: string }[] = [
+  { id: 'martin', nombre: 'Martín' },
+  { id: 'mauricio', nombre: 'Mauricio' },
+  { id: 'martin-2', nombre: 'Martín' },
+  { id: 'mauricio-2', nombre: 'Mauricio' },
+  { id: 'mauricio-4', nombre: 'Mauricio' },
+  { id: 'mauricio-3', nombre: 'Mauricio' },
+];
 
 const CSS = `
 @font-face { font-family: 'DAvGabarito'; src: url('/vsl-assets/fuentes/gabarito/gabarito-latin-var.woff2') format('woff2'); font-weight: 400 900; font-style: normal; font-display: swap; }
@@ -397,6 +414,8 @@ const CSS = `
 .d-ai-avatar-panel-0 { background: #DCE8FD; }
 .d-ai-avatar-panel-1 { background: #FBEFD3; }
 .d-ai-avatar-panel-2 { background: #EDF0F5; }
+.d-ai-avatar-panel-tel { display: block; height: 340px; aspect-ratio: 9 / 16; border-radius: 26px; overflow: hidden; background: #12151B; box-shadow: 0 0 0 6px #12151B, 0 30px 60px -24px rgba(16,19,25,.45); }
+.d-ai-avatar-panel-tel video { display: block; width: 100%; height: 100%; object-fit: cover; }
 .d-ai-avatar-panel-ic { width: 140px; height: 140px; border-radius: 32px; background: #fff; color: var(--d-av-azul); display: flex; align-items: center; justify-content: center; box-shadow: 0 24px 50px -24px rgba(16,19,25,.28); transition: transform .35s ease; }
 .d-ai-avatar-fila:hover .d-ai-avatar-panel-ic { transform: translateY(-6px) rotate(-3deg); }
 .d-ai-avatar-fila-txt { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 30px; }

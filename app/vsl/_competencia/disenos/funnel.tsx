@@ -230,7 +230,7 @@ function PieD({ slug }: { slug: string }) {
         <div className="d-funnel-pie-in">
           <div className="d-funnel-pie-marca">
             <LogoMaKo tamano={26} />
-            <p>El mejor SaaS para ventas High Ticket, de punta a punta.</p>
+            <p>El mejor software para vender High Ticket.</p>
           </div>
           <div className="d-funnel-pie-cols">
             <p className="d-funnel-pie-h">Funciones de MaKo</p>
@@ -304,7 +304,7 @@ const CSS = `
 .d-funnel-hero-in{display:grid;grid-template-columns:516px minmax(0,608px);justify-content:space-between;align-items:center;column-gap:56px}
 .d-funnel-pill{display:inline-block;font-size:12.5px;line-height:16.25px;font-weight:500;letter-spacing:.125px;color:${AZUL};background:${TINTE};border-radius:999px;padding:7px 13px}
 .d-funnel-h1{margin-top:17px;font-size:46px;line-height:48.3px;font-weight:400;letter-spacing:-.46px;color:${TINTA}}
-.d-funnel-h1 em,.d-funnel-h2-grande em{display:inline-block;color:#fff;background:${AZUL};padding:.03em .24em .09em;margin:.1em 0 0;border-radius:.2em;line-height:1.08;white-space:nowrap}
+.d-funnel-h1 em,.d-funnel-h2-grande em{display:inline-block;color:#fff;background:${AZUL};padding:.03em .24em .09em;margin:.1em 0 0;border-radius:.2em;line-height:1.08;max-width:100%}
 .d-funnel-sub{margin-top:20px;font-size:18px;line-height:27.9px;color:${GRIS}}
 .d-funnel-sub strong{font-weight:400;color:${TINTA}}
 .d-funnel-btns{margin-top:27px;display:flex;flex-wrap:wrap;gap:12px}

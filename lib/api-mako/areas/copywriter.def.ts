@@ -164,10 +164,11 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'outliers_copywriter', area: 'contenido', tipo: 'lectura',
     titulo: 'Outliers de copy para replicar',
-    descripcion: 'Los anuncios, reels, carruseles y videos de YouTube que mejor funcionaron de las cuentas que el negocio sigue en Competitors Spy (y de la biblioteca de carruseles de MaKo), con su texto: el guion si ya se transcribió, si no el pie, la descripción o el copy del anuncio. Cada uno con su gancho, cuántas veces superó a su cuenta (el «×») o sus días al aire, y su link. El outlierId va a replicar_outlier_copywriter. No lee nada nuevo ni gasta: es lo que Spy ya trajo.',
+    descripcion: 'Los anuncios, reels, carruseles y videos de YouTube que mejor funcionaron de las cuentas que el negocio sigue en Competitors Spy (y de la biblioteca de carruseles de MaKo), con su texto: el guion si ya se transcribió, si no el pie, la descripción o el copy del anuncio. Cada uno con su gancho, cuántas veces superó a su cuenta (el «×») o sus días al aire, su link, de qué tema habla, en qué idioma está y si es del tema del negocio (temaDelNegocio dice cuál es). El outlierId va a replicar_outlier_copywriter. No lee nada nuevo ni gasta: es lo que Spy ya trajo.',
     parametros: [
       { nombre: 'formato', tipo: 'string', enum: ['anuncio', 'reel', 'carrusel', 'youtube'], descripcion: 'Sólo los de ese formato.' },
       { nombre: 'buscar', tipo: 'string', max: 120, descripcion: 'Texto o @creador a buscar en el gancho y el texto.' },
+      { nombre: 'deTuTema', tipo: 'boolean', descripcion: 'true = sólo los del tema del negocio (o de uno vecino), como «De tu tema» de la portada. Lo del idioma del negocio va primero y lo que está en inglés, después.' },
       { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'Cuántos devolver (default 12, del que más superó a su cuenta al que menos).' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G,
@@ -175,7 +176,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'replicar_outlier_copywriter', area: 'contenido', tipo: 'accion',
     titulo: 'Replicar un outlier en el Copywriter',
-    descripcion: 'Crea en el Copywriter una página para replicar un outlier de copy (de outliers_copywriter): del tipo del original (anuncio, reel, post o YouTube), vacía y atada al original. Al abrirla, MaKo pregunta para qué oferta y la escribe con la estructura, el tipo de gancho y el ritmo del original, nunca con sus frases. Devuelve el documentoId y su link. Queda pendiente hasta que la persona confirme.',
+    descripcion: 'Crea en el Copywriter una página para replicar un outlier de copy (de outliers_copywriter): del tipo del original (anuncio, reel, post o YouTube), vacía y atada al original. Al abrirla, MaKo transcribe el original si es un video, pregunta para qué oferta (y lo que le falte a esa oferta, que guarda en ella) y, si el tema no tiene que ver, cómo usarlo; después la escribe entera con la estructura, el tipo de gancho y el ritmo del original, nunca con sus frases. Devuelve el documentoId y su link. Queda pendiente hasta que la persona confirme.',
     parametros: [{ nombre: 'outlierId', tipo: 'string', obligatorio: true, max: 40, descripcion: 'El id del outlier («spy:123» o «biblioteca:-45»), de outliers_copywriter.', ejemplo: 'spy:1234' }],
     confirmacion: 'chat', reversible: true,
     escribe: 'agrega un documento al Copywriter (app_settings mako.copywriter.indice y mako.copywriter.doc.<id>)',

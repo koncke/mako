@@ -220,7 +220,11 @@ test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón
   const { promesa } = PROGRAMA_ACELERADOR;
   assert.ok(promesa, 'el personalizado lleva promesa (Martín, 24/10)');
   assert.match(promesa!, /^En \d+ días,/, 'con plazo');
-  assert.doesNotMatch(promesa!, /devolv|reembols|garant|vas a (vender|facturar|ganar)|US\$|\d+ ventas/i, 'una promesa no es una garantía de resultado');
+  assert.doesNotMatch(promesa!, /devolv|reembols|garant/i, 'una promesa no es una garantía: lo que se devuelve va en `garantia`');
+  // Martín, 14/11/2026: atada a un resultado de plata o del funnel, no a la instalación, y que se note que es a la medida.
+  assert.match(promesa!, /ventas|llamadas|factur/i, 'la promesa es un resultado (ventas, llamadas), no la instalación');
+  assert.doesNotMatch(promesa!, /andando|instal|conectad|lista/i, 'la promesa no es dejar cosas instaladas');
+  assert.match(promesa!, /tu (oferta|negocio)/i, 'se nota que es a la medida');
   const t = await vitrina();
   assert.ok(t.indexOf(`Nuestra promesa: ${promesa}`) > 0 && t.indexOf('Nuestra promesa') < t.indexOf('Quiero el Acelerador'));
   const antes = PROGRAMA_ACELERADOR.promesa;

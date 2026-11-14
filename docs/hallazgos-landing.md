@@ -5247,3 +5247,133 @@ y que además filtra mal no es «una capacidad por si acaso»: es una trampa con
   (`lib/landing-token.ts`): reordenar la página cambia de qué video es cada curva, y ahora que el
   grupo se arma por esa clave, el síntoma es una curva que cambia de dueño sin que nadie toque el
   tracking.
+
+## Las animaciones de la portada no se leían: la app entera a 1280 en un recuadro de 700 (14/11/2026, claude5)
+
+**Síntoma.** Martín, mirando el visor: el editor de video «está todo muy chiquitito abajo y al costado, no se llega a entender»; el
+CoPilot «no me gusta, hazlo más visual»; en la ficha del CRM «demasiada información». Las grabaciones eran la app real a 1280 × 800
+pasada a 960 × 600, y en la portada el recuadro mide unos 700 px: la letra de 12 px de la app llegaba a la vista a unos 6 px.
+
+**Causa.** No era el componente ni los datos: era el ENCUADRE. Una pantalla entera de la app no entra legible en una fila de landing.
+
+**La regla que queda** (los bancos de `C:/dev/bancos-portada/`):
+- **Una CÁMARA**: el `body` se acerca a la caja de lo que está pasando (`grabador.mjs` → `g.camara(caja, ms)` y `g.caja(locator)`, en px
+  de la página sin la cámara). Va en el `body` y no en un contenedor para que se muevan también los portales (modales, menús); el
+  cursor dibujado vive en `documentElement` y queda afuera. Con un `#camara` propio (banco del editor de video, de Chats), las cajas se
+  miden relativas a él y los `position: fixed` de adentro quedan relativos a él (un `transform` crea su bloque contenedor).
+- **Medir y tocar con la cámara QUIETA**: un clic calculado mientras la cámara todavía se mueve cae en otro lado (en Chats, el clic a
+  Tomás abrió a Camila). Esperar lo que dura la transición antes de `tocar`.
+- **Con scroll, sin cámara**: la cámara fija el alto del `body` (800 px, `overflow: hidden`); bajar por una lista larga (las 25
+  caricaturas de Spy) con eso puesto dibuja la barra pegada repetida y el clic no abre. Se baja sin cámara y se acerca después.
+- **Lo que sobra, fuera de la toma** (no de la app): la ficha del CRM se graba con `banco-ficha/simplificar.mjs`, que esconde por su
+  título las secciones que la fila no cuenta (automatizaciones, calificación, notas, contacto…) y los botones de más.
+- **Una animación hecha de tiempo es periódica**: CUALQUIER tramo de un `CICLO` exacto de largo da un bucle sin costura; no hace
+  falta fundir el final con el principio (Carruseles y Copywriting, `banco-carruseles-replica/grabar-replica-html.mjs`).
+- **Con la cámara en el `body`, un `position: fixed` (el Toast) queda pegado al pie del body** y asoma cortado cuando la cámara viaja:
+  se esconde en la toma y la confirmación se muestra con lo que cambia en la pantalla (la decisión que pasa a «Lo que hice»). Lo
+  encontró el chat del CoPilot grabando `banco-copilot-nuevo/`.
+- **Cuando un clic hace subir el contenido**, la caja de destino se calcula ANTES del clic (dónde VA a quedar) y la cámara se mueve
+  después del salto; si se mueve durante el salto, salen cuadros con pedazos de renglones (también del chat del CoPilot).
+- **Una tarjeta de todo el ancho no entra entera en un acercamiento**: la cámara la muestra en dos pedazos (el texto sin su botón, el
+  botón sin su texto) y se lee como pantalla rota. La pantalla se monta en un contenedor más angosto (880–960 px) para que cada toma
+  tenga la tarjeta entera.
+
+**Trampas de los bancos de esta vuelta:**
+- **Spy pide sus otras redes por una RUTA, no por una acción** (`/api/competitor-spy/redes`): con el `{ ok: true }` genérico del
+  servidor del banco tira «sumadas is not iterable» y la ficha no termina. Y su recorrido guiado («Tus competidores · Omitir
+  recorrido») tapa la animación: se da por visto devolviendo una fecha en `localStorage.getItem` para las claves `spy-…`.
+- **El portal del alumno: el video de la clase sólo en la vista previa, la comunidad sólo en la del alumno** (`ofreceComunidad` pide
+  `vistaPrevia: false`). Y una `videoUrl` relativa no dibuja el reproductor: va absoluta (`location.origin + …`). Por eso Comunidad
+  son dos tomas fundidas (`banco-clase/grabar-comunidad.mjs <curso> <comunidad>`).
+- **La réplica real de un carrusel se dibuja con el MOTOR del editor**, no con `MiniaturaDiseno` (que deja las fotos como marcos
+  grises): `renderPageToCanvas` + `FontManager(serviciosCatalogo().fonts.list)`, y se captura el `<canvas>` con una captura de
+  pantalla del elemento (sin `toDataURL`, que con las fotos del bucket puede dar un canvas «tainted») — `banco-replica/`.
+- **El visor estático no corre React**: el carrusel de tableros se ve como imágenes si no se le pega el script del visor
+  (`mirar/visor-interactivos.py` del scratchpad de la sesión). En el sitio de verdad lo mueve React.
+
+**Lo que quedó SIN hacer.** El guion real de Copywriting que se muestra trae defectos que NO son de la landing (son de
+`lib/copywriter`): una palabra en inglés en la Historia («more budget»), un «necesitás» en el CTA y un `[DATO: …]` sin llenar; la
+animación muestra sólo el Gancho y el segundo párrafo de la Historia, que están limpios. Avisado al Cerebro para el chat de Copywriting.
+
+## El sol y la luna oscurecían títulos y dejaban texto blanco sobre claro (14/11/2026, la revisión de todas las landings)
+
+**Síntoma.** En el modo oscuro, el título con degradado de varias landings copiadas de una referencia clara quedaba negro sobre
+negro (CRM: «Tu solución todo en uno…», las cifras 1.400+ / 9 de 10; Spy: «El flujo completo para anuncios ganadores»; Ops Center;
+«Web Generator» en su H1). Y en /vsl/ads, las tarjetas de «MaKo, lo de siempre» quedaban con texto blanco sobre la banda que había
+pasado a celeste.
+
+**Causa** (las dos en `app/vsl/_competencia/TemaSitio.tsx`, el script que lleva cada color al modo):
+- Un degradado con `background-clip: text` ES la letra, y se llevaba al modo como FONDO (`mapear(bi, false)`): sus colores oscuros se
+  quedaban oscuros en el modo oscuro. Ahora se lee `o.clip` y va como tinta (`mapear(bi, true)`).
+- Una tarjeta con fondo blanco al 6 % se tomaba como «fondo que no cambia» (`quieto`) y su texto no se tocaba; la banda de atrás sí
+  cambiaba. Ahora un fondo con alfa < 0,5 no decide nada (lo mismo que ya hacía `luzDe` al medir la luz de atrás).
+
+**La regla que queda.** Para decidir si algo es fondo o letra, mirar CÓMO se pinta (un degradado recortado al texto es letra) y no
+dónde está la propiedad; y un fondo casi transparente no es un fondo. ⚠️ Adentro del script (un template string de TSX) una expresión
+regular va con `\d`: con `\d` el template se come la barra y la regex pasa a buscar la letra «d» (me pasó al escribir `tenue`).
+
+**Trampas al REVISAR landings** (las dejó la revisión de las 28 páginas, `C:/dev/bancos-portada/revision-1411/`):
+- La captura de página entera de Playwright agarra las animaciones de aparición a mitad: texto «apagado» que está bien. Se confirma
+  bajando hasta el final y volviendo antes de capturar (`capturar-1411.mjs`), o llevando el elemento a la vista (`revelado.mjs`).
+- «Sin scroll horizontal» no prueba nada: los contenedores recortan con `overflow-x` y el texto queda cortado igual. Se mide el borde
+  derecho de cada texto con un `Range` (`anchos.mjs`). La cura del texto cortado a 375 fue `minmax(0, 1fr)` en las grillas de una
+  columna (un `1fr` crece hasta el ancho mínimo de su contenido: la cejilla de Image sin salto de línea ensanchaba todo el hero).
+
+**Lo que quedó SIN hacer.** Las filas de capacidades de las landings (`Visual` de `app/vsl/_detalle/Visual.tsx`) siguen con el recuadro
+de «falta la animación» (no saben de qué landing son); los heros y los recuadros sueltos que ya tenían grabación la usan
+(`GRABACION` y `GrabacionDe` en `Visuales.tsx`). El checkout (`app/planes/[plan]/Checkout.tsx`) dice «Como toda suscripción, el cobro
+empieza a los 7 días» y el ícono de la tarjeta es un rectángulo vacío: es del chat de la pasarela.
+
+## Los tableros «eran imágenes» en el visor: el `data-src` no se reescribe (14/11/2026)
+
+**Síntoma.** Martín y quien revisó la portada vieron el carrusel de tableros como imágenes quietas, aunque cada tablero tiene su
+entrada grabada. **Causa.** El carrusel carga el video cuando el tablero queda a la vista, desde `data-src` («/vsl-assets/…», la ruta del
+sitio). El visor reescribe `src` y `poster` a `../assets/…`, pero no `data-src`: el video no cargaba y quedaba el póster. En el sitio de
+verdad andaba. **La regla.** Un video que se carga tarde en el visor sale de una ruta que el visor ya reescribió (el `poster`, cambiando
+la extensión: `mirar/visor-interactivos.py`); y antes de decir «en producción anda», mirar el visor, que es lo que mira Martín.
+
+## Un pie por landing, de 19 referencias distintas (14/11/2026)
+
+Cada diseño copiado trae UN `<footer>`, el de su referencia: ocho pies distintos, siete con el lema viejo y Ads sin lema. El arreglo no
+fue tocar los 19: `PieGlobal` (`app/vsl/_sitio/Barra.tsx`) pone el pie del sitio debajo de cada diseño y oculta `footer:not(.s-pie)`,
+como `BarraGlobal` ya hacía con la barra. Si un diseño nuevo usa `<footer>` para otra cosa (una cita, una tarjeta), se le cambia la
+etiqueta: esa regla lo escondería.
+
+## El «hueco» del carrusel de integraciones no era un ícono que no cargaba (14/11/2026)
+
+**Síntoma.** A 375, en la segunda fila de «Tus apps, conectadas», un hueco del ancho de un ícono después de YouTube. Lo obvio era
+un logo roto; no lo era. **Causa.** Una regla de cuando las dos filas eran fijas (`.s-int-f:nth-child(2){transform:translateX(34px)}`,
+la segunda fila corrida) quedó viva al pasar a carrusel: ahora los `ul` son las dos copias de UNA pista y `nth-child(2)` es la copia,
+que se corría 34 px y dejaba el hueco en la unión. **La regla.** Al cambiar la estructura de un bloque, buscar en `estilos.ts` los
+selectores posicionales (`nth-child`, `+`, `>`) del bloque viejo. Para medir: `mirar/hueco.mjs` del scratchpad (para la animación y
+mide la distancia entre fichas).
+
+## Un logo que sale borroso: el sitio publica un favicon chico estirado (14/11/2026)
+
+**Síntoma.** El ícono de Make (bajado como los demás: el apple-touch-icon de su sitio y, si no, el de Google a 256 px) se veía
+borroso. **Causa.** make.com declara íconos de 180, 192 y 512 px, pero todos son el MISMO archivo de 32 px agrandado
+(`…_favicon-32x32.png`); el de Google es ese mismo favicon estirado. Medir los píxeles declarados no alcanza: hay que MIRAR el ícono.
+**Lo que se hizo.** La forma de Simple Icons (`simple-icons@13.21.0/icons/make.svg`) rellena con un degradé de los colores
+muestreados del favicon (#EF02FA → #9F25E1 → #8508D8), dibujada a 128 px con Playwright (`omitBackground`). **Zapier**, además,
+no puede tener la key en minúscula entre comillas (tests/puente-leads-retirado.test.ts): su archivo es `zap.png`.
+
+## El carrusel de tableros «aparece sin animación por medio segundo»: el póster era el ÚLTIMO cuadro (14/11/2026)
+
+**Síntoma.** Al pasar de tablero, se veía el tablero armado medio segundo y después arrancaba la entrada desde vacío. **Causa.** El
+póster de cada video era su último cuadro (el tablero completo): mientras se desliza se muestra el póster, y al arrancar el video vuelve
+a su cuadro 0. **La regla.** En un video que se reproduce al entrar a la vista, el póster es su PRIMER cuadro: así el video empalma
+con lo que ya se ve (`ffmpeg -i x.webm -frames:v 1 x.jpg`). El último cuadro sirve de póster sólo para un video que no se va a
+reproducir.
+
+## Un banco con `overflow: hidden` se corre de costado solo: `scrollIntoView` lo desplaza (14/11/2026)
+
+**Síntoma.** En el banco de Automations, el panel «Probar» (escondido con `translateX` fuera del cuadro) se veía desde el primer
+cuadro y el lienzo quedaba cortado a la mitad. **Causa.** El simulador hace `scrollIntoView` al montarse; un contenedor con
+`overflow: hidden` NO se puede desplazar con el mouse, pero SÍ por código, y se corrió 552 px para mostrar el panel escondido.
+**La regla.** Un contenedor que esconde algo afuera usa `overflow: clip` (no se puede desplazar de ninguna forma).
+
+## Los encuadres de la cámara sobre el editor de video dejaban afuera la línea de tiempo (14/11/2026)
+
+Martín: «cuando se hace zoom siempre aparezca la barra de abajo… la línea de tiempo. Incluso cuando se hace zoom al video, así se nota
+de que sigue editando». El video es vertical y está arriba; la línea de tiempo, abajo de todo: un encuadre del video solo la deja
+afuera. Todo encuadre del editor incluye las pistas (`conLinea` en el banco de video): se acerca menos, pero se ve que edita.

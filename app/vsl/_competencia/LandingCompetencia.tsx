@@ -20,7 +20,7 @@ import { VisualDeLanding } from './Visuales';
 import { DISENOS } from './disenos';
 import { RUTA_CTA, TEXTO_CTA } from './marca';
 import { BARRA_PROPIA, LANDINGS_OSCURAS } from './TemaSitio';
-import { BarraGlobal } from '../_sitio/Barra';
+import { BarraGlobal, PieGlobal } from '../_sitio/Barra';
 
 export function metadataDeLanding(l: Landing): Metadata {
   return {
@@ -192,7 +192,8 @@ export default function LandingCompetencia({ landing }: { landing: Landing }) {
   // las landings que todavía no lo tienen.
   const Diseno = DISENOS[landing.slug];
   // Arriba, la barra del sitio (la misma en todas las páginas, con el sol y la luna); la copiada de la referencia se oculta.
-  if (Diseno) return <><BarraGlobal claro={!LANDINGS_OSCURAS.has(landing.slug)} barraPropia={BARRA_PROPIA[landing.slug]} /><Diseno landing={landing} /></>;
+  // Y abajo, el pie del sitio (el copiado se oculta).
+  if (Diseno) return <><BarraGlobal claro={!LANDINGS_OSCURAS.has(landing.slug)} barraPropia={BARRA_PROPIA[landing.slug]} /><Diseno landing={landing} /><PieGlobal claro={!LANDINGS_OSCURAS.has(landing.slug)} /></>;
   return (
     <div className="mk-det">
       <style dangerouslySetInnerHTML={{ __html: CSS_DETALLE + CSS }} />
