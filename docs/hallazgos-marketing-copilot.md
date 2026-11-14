@@ -550,6 +550,22 @@ MaKo» en cada canal.
   regrabar.
 - **El banco:** `C:/dev/bancos-portada/banco-copilot-redes/` (fuera del repo): `grabar.mjs a|b` y `terminar.mjs`.
 
+## Lo prometido a Julio (14/11/2026): cuatro trampas que costaron una vuelta cada una
+
+- **En modo oscuro el CoPilot salía CLARO, y no era el oscuro lo que fallaba.** `.frn:where([data-tema="oscuro"] *)` (una clase) define
+  bien las variables, pero `.frn.frn--mono` (dos clases, la paleta de la casa) las vuelve a definir en claro y gana. **Regla:** una
+  paleta con dos clases necesita su oscuro con las MISMAS dos clases (`copiloto-css.ts`), y lo que la paleta pinta fijo
+  (`rgb(200, 200, 195)` en la tarjeta elegida) también. Se vio recién al mirar el banco en oscuro: los tests no miran colores.
+- **`(cond && x) ?? y` no cae a `y` cuando `cond` es falso**: `false` no es `null`. En `perfilConLaEntrada` dejaba sin funnel a quien
+  vende sólo por Instagram. **Regla:** ternario (`cond ? x : undefined`) delante de un `??`.
+- **Una grilla `1fr` en el teléfono se estira por lo ancho de adentro** (la pantalla de configurar medía 377 px en una de 375). Con
+  `minmax(0, 1fr)` no. Y `LogoRed` trae su `display` EN LÍNEA: para esconderlo desde CSS hace falta `!important`.
+- **Un aviso nuevo nace sólo por WhatsApp** (`CANALES_DEFAULT`, lib/plantillas.ts). El que se prometió por WhatsApp y email lleva
+  `canales` en su entrada del catálogo; lo que el negocio elija en la pantalla gana igual. Y para salir necesita `porDefecto: 'on'` y
+  estar en `AVISOS_WA_EN_VIVO` (tests/notificaciones-solo-lo-que-sale.test.ts).
+- **El banco de cada pantalla** (fuera del repo, `C:/dev/bancos-portada/`): `banco-copilot-entrada`, `banco-copilot-config` y
+  `banco-copilot-redes` (`?propias=1`, `?tema=oscuro`), con su `ver*.mjs` a 1440 y 375.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
