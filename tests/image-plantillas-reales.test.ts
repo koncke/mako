@@ -3,7 +3,8 @@
 // =============================================================================
 // Martín, 29/10/2026: «Poné la estructura, la misma, y en algún lado un botón de "ver ejemplo"». El plan es
 // docs/plantillas-reales/image.md. Lo que fija, ejecutando el módulo:
-//   1. las 9 que no son carrusel (las 3 de carrusel viven en lib/carruseles/tipos.ts), con ids únicos que no chocan con los
+//   1. las 9 que no son carrusel (las 3 de carrusel viven en lib/carruseles/tipos.ts) y las 2 miniaturas VERTICALES del 13/11/2026
+//      (la portada de un Reel o un Short, pedidas por Martín por el Cerebro: 11 en total), con ids únicos que no chocan con los
 //      slugs de las de Doory, su tamaño y su número de páginas iguales a los del documento, y su insignia con el tamaño;
 //   2. la estructura y el ejemplo tienen las MISMAS capas (nombre, tipo, posición y tamaño), página por página: lo único que
 //      cambia es lo que dicen. Si no, «Ver ejemplo» muestra una pieza que no es la que se crea;
@@ -29,8 +30,10 @@ const objetos = (doc: { pages: { objects: unknown[] }[] }, i: number) => doc.pag
 /** Lo que define la capa (no lo que dice): nombre, tipo, dónde va y cuánto mide. */
 const forma = (o: Obj) => [o.name, o.type, o.left, o.top, o.width, o.type === 'textbox' ? o.fontSize : o.height, o.isPlaceholder ?? false];
 
-test('1: las 9 que no son carrusel, con ids únicos, su tamaño y su insignia', () => {
-  assert.equal(PLANTILLAS_IMAGEN.length, 9, 'las 12 del plan menos los 3 carruseles (lista, mito y caso)');
+test('1: las 9 que no son carrusel y las 2 verticales, con ids únicos, su tamaño y su insignia', () => {
+  assert.equal(PLANTILLAS_IMAGEN.length, 11, 'las 12 del plan menos los 3 carruseles (lista, mito y caso), más las 2 verticales (13/11/2026)');
+  assert.deepEqual(PLANTILLAS_IMAGEN.filter((p) => p.grupo === 'Miniaturas verticales').map((p) => [p.id, p.ancho, p.alto]),
+    [['vertical-gancho-cara', 1080, 1920], ['vertical-numero', 1080, 1920]], 'las verticales: 9:16, la portada de un Reel o un Short');
   const ids = PLANTILLAS_IMAGEN.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length, 'dos plantillas con el mismo id');
   // Ya no hay con qué chocar: las 10 de Doory, que `crear_diseno_imagen` buscaba por el MISMO campo `plantilla`, se

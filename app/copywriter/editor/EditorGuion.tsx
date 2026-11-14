@@ -47,6 +47,7 @@ import { useRouter } from '@/app/_ui/Link';
 import { llevarAlCalendario } from '@/app/calendario/publicar-desde-crear';
 import { rutaUsarEnAnuncio } from '@/lib/anuncio-desde-pieza';
 import type { DocVivo } from './propuesta';
+import { OriginalAlLado } from '../OriginalAlLado';
 
 // BlockNote es sólo del navegador (usa el DOM al crearse): en Next se carga sin SSR, como pide su documentación. El
 // renglón de espera ocupa el alto de un párrafo para que la página no salte al llegar.
@@ -381,6 +382,9 @@ export function EditorGuion(p: PropsEditorGuion) {
         </div>
       )}
 
+      {/* La réplica de un outlier lleva el original AL LADO (13/11/2026, el flujo nuevo): en la computadora, una columna a la derecha;
+          en el teléfono, la pestaña «Original» de GuionM. */}
+      <div className="nt-con-original">
       <div className="nt-scroll">
         {enError && (
           <div className="nt-aviso" role="alert">
@@ -534,6 +538,8 @@ export function EditorGuion(p: PropsEditorGuion) {
               conMako={!compartido} onCambio={alCambiar} onDoc={alDoc} onMako={(s) => vivo.current.onMako(s)} enfocarRef={enfocarCuerpo} movil={movil} />
           </div>
         </div>
+      </div>
+      {!compartido && !movil && !plantilla && props.outlier ? <OriginalAlLado outlier={props.outlier} /> : null}
       </div>
     </div>
   );

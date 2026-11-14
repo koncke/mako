@@ -28,6 +28,7 @@ import { multiplosDe, rotuloMultiplo, type Multiplo } from '../multiplo-rendimie
 import { plano } from '../carruseles/texto';
 import { conVariedad } from '../carruseles/variedad';
 import { traidaPor } from '../traida-por';
+import type { FormatoThumbnail } from './verticales';
 
 // Las listas (rubros, idiomas, períodos, órdenes) viven en ../carruseles/opciones.ts, sin dependencias: las importa la API de MaKo
 // (lib/api-mako/areas/imagen.def.ts). Acá se re-exportan.
@@ -199,10 +200,13 @@ export type FiltrosThumbnail = {
   /** Los canales elegidos (filas de la biblioteca). */
   canales: number[];
   vista: 'todos' | 'guardados';
+  /** Horizontales (las de YouTube, 16:9) o verticales (las portadas de Shorts y Reels, 9:16: ./verticales.ts). 13/11/2026. */
+  formato: FormatoThumbnail;
 };
 
 export const FILTROS_THUMBNAIL: FiltrosThumbnail = {
   q: '', nicho: '', idioma: '', periodo: 'todo', outlierMin: 0, outlierMax: 0, orden: ORDEN_INICIAL_THUMBNAIL, canales: [], vista: 'todos',
+  formato: 'horizontal',
 };
 
 /** Los topes del deslizador del múltiplo (los mismos de los carruseles). */
@@ -273,7 +277,7 @@ export function filtrarThumbnails(todos: readonly Thumbnail[], f: FiltrosThumbna
  */
 const CLAVE = {
   q: 'tq', nicho: 'tnicho', idioma: 'tidioma', periodo: 'tperiodo',
-  min: 'tmin', omax: 'tomax', orden: 'torden', de: 'tde', vista: 'tvista',
+  min: 'tmin', omax: 'tomax', orden: 'torden', de: 'tde', vista: 'tvista', formato: 'tformato',
 } as const;
 
 /** Los filtros que dice una URL (lo que no se entiende vuelve al valor inicial). */
@@ -295,6 +299,7 @@ export function filtrosThumbnailDeQuery(q: URLSearchParams | Record<string, stri
     orden: unoDe(get(CLAVE.orden), ORDENES_THUMBNAIL) ?? ORDEN_INICIAL_THUMBNAIL,
     canales,
     vista: get(CLAVE.vista) === 'guardados' ? 'guardados' : 'todos',
+    formato: get(CLAVE.formato) === 'vertical' ? 'vertical' : 'horizontal',
   };
 }
 
@@ -310,10 +315,12 @@ export function queryDeThumbnails(f: FiltrosThumbnail): string {
   if (f.orden !== ORDEN_INICIAL_THUMBNAIL) q.set(CLAVE.orden, f.orden);
   if (f.canales.length) q.set(CLAVE.de, f.canales.join(','));
   if (f.vista !== 'todos') q.set(CLAVE.vista, f.vista);
+  if (f.formato !== 'horizontal') q.set(CLAVE.formato, f.formato);
   return q.toString();
 }
 
-export const sinFiltrosThumbnail = (f: FiltrosThumbnail): boolean => queryDeThumbnails(f) === 'que=thumbnails';
+/** ¿Sin filtros? El formato no es un filtro (es qué se mira): «Quitar filtros» no vuelve de las verticales a las horizontales. */
+export const sinFiltrosThumbnail = (f: FiltrosThumbnail): boolean => queryDeThumbnails({ ...f, formato: 'horizontal' }) === 'que=thumbnails';
 
 /** Los canales que tienen algo, con cuántas miniaturas: el filtro «Cuentas». */
 export function canalesDe(todos: readonly Thumbnail[]): Array<{ id: number; nombre: string; handle: string | null; foto: string | null; n: number }> {

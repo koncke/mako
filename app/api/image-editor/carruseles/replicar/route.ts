@@ -6,6 +6,8 @@
 // Web Generator (app/api/landing-generator/replicar/route.ts): la misma forma de stream y el mismo `maxDuration`.
 //
 // `que: 'thumbnail'` (6/11/2026): una miniatura de YouTube de la biblioteca de Thumbnails, en una lámina de 1280 × 720.
+// `que: 'vertical'` (13/11/2026): la portada de un reel que Spy ya trajo (lib/thumbnails/verticales.ts), en 1080 × 1920. Su id es
+// el del outlier de video (`spy:123`), un texto: se valida con `esIdDeVertical` y se vuelve a leer del Spy del negocio.
 //
 // `guiado` (9/11/2026): lo que contestó el dueño en la pestaña guiada (la oferta, la foto que va en lugar de la persona y qué
 // cambia; lib/carruseles/guiado.ts → `PedidoGuiado`). Desde el 12/11/2026 llega sin preguntar (la oferta principal), y sin ofertas
@@ -21,9 +23,10 @@ import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
 import { puerta } from '@/lib/image-editor/server';
 import { rateLimit } from '@/lib/rate-limit';
-import { replicarEjemplo } from '@/lib/carruseles/replica-servidor';
+import { replicarEjemplo, type EjemploAReplicar } from '@/lib/carruseles/replica-servidor';
 import { lineaDeEvento } from '@/lib/carruseles/replica';
 import { leerPedidoGuiado } from '@/lib/carruseles/guiado';
+import { esIdDeVertical } from '@/lib/thumbnails/verticales';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -43,8 +46,11 @@ export async function POST(req: NextRequest) {
   if (!rateLimit(`image-editor:replicar:${p.ws}`, 12, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);
   const body = (await req.json().catch(() => null)) as { id?: unknown; pedido?: unknown; que?: unknown; guiado?: unknown } | null;
   const id = Number(body?.id);
+  const vertical = body?.que === 'vertical';
+  if (vertical && !esIdDeVertical(body?.id)) return fallo('Falta la miniatura.', 400);
   const que = body?.que === 'thumbnail' ? 'thumbnail' : 'carrusel';
-  if (!Number.isSafeInteger(id) || id === 0 || (que === 'thumbnail' && id < 0)) return fallo(que === 'thumbnail' ? 'Falta la miniatura.' : 'Falta el carrusel.', 400);
+  if (!vertical && (!Number.isSafeInteger(id) || id === 0 || (que === 'thumbnail' && id < 0))) return fallo(que === 'thumbnail' ? 'Falta la miniatura.' : 'Falta el carrusel.', 400);
+  const ejemplo: EjemploAReplicar = vertical ? { que: 'vertical', id: String(body?.id) } : { que, id };
   const pedido = typeof body?.pedido === 'string' ? body.pedido.slice(0, 400) : null;
   // Lo que contestó el dueño en el guiado (lib/carruseles/guiado.ts): se lee sin creerle; la oferta se vuelve a buscar en SU base.
   // Sin oferta también se escribe (12/11/2026, «Replicar» sin preguntas): un negocio sin ofertas cargadas recibe su versión con lo
@@ -56,7 +62,7 @@ export async function POST(req: NextRequest) {
     async start(ctrl) {
       const mandar = (linea: string) => { try { ctrl.enqueue(enc.encode(linea)); } catch { /* se cerró */ } };
       try {
-        const r = await runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, { que, id }, { pedido, guiado, alEvento: (e) => mandar(lineaDeEvento(e)) }));
+        const r = await runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, ejemplo, { pedido, guiado, alEvento: (e) => mandar(lineaDeEvento(e)) }));
         if (!r.ok) mandar(lineaDeEvento({ fase: 'fin', ok: false, error: r.error, conectar: r.conectar ?? null }));
       } catch (e) {
         console.error('[carruseles] replicar:', e instanceof Error ? e.message : e);

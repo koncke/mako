@@ -16116,7 +16116,7 @@ curl -L \
 
 ### `GET /api/v1/contenido/outliers` — Outliers de copy para replicar
 
-Los anuncios, reels, carruseles y videos de YouTube que mejor funcionaron de las cuentas que el negocio sigue en Competitors Spy (y de la biblioteca de carruseles de MaKo), con su texto: el guion si ya se transcribió, si no el pie, la descripción o el copy del anuncio. Cada uno con su gancho, cuántas veces superó a su cuenta (el «×») o sus días al aire, y su link. El outlierId va a replicar_outlier_copywriter. No lee nada nuevo ni gasta: es lo que Spy ya trajo.
+Los anuncios, reels, carruseles y videos de YouTube que mejor funcionaron de las cuentas que el negocio sigue en Competitors Spy (y de la biblioteca de carruseles de MaKo), con su texto: el guion si ya se transcribió, si no el pie, la descripción o el copy del anuncio. Cada uno con su gancho, cuántas veces superó a su cuenta (el «×») o sus días al aire, su link, de qué tema habla, en qué idioma está y si es del tema del negocio (temaDelNegocio dice cuál es). El outlierId va a replicar_outlier_copywriter. No lee nada nuevo ni gasta: es lo que Spy ya trajo.
 
 - **Ruta por operación:** `GET /api/v1/contenido/outliers_copywriter`
 - **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
@@ -16130,6 +16130,7 @@ Los anuncios, reels, carruseles y videos de YouTube que mejor funcionaron de las
 | --- | --- | --- | --- |
 | `formato` | string (anuncio \\| reel \\| carrusel \\| youtube) | no | Sólo los de ese formato. |
 | `buscar` | string | no | Texto o @creador a buscar en el gancho y el texto. |
+| `deTuTema` | boolean | no | true = sólo los del tema del negocio (o de uno vecino), como «De tu tema» de la portada. Lo del idioma del negocio va primero y lo que está en inglés, después. |
 | `limite` | number | no | Cuántos devolver (default 12, del que más superó a su cuenta al que menos). |
 
 ```bash
@@ -16142,7 +16143,7 @@ curl -L \
 
 ### `POST /api/v1/contenido/outliers/{outlierId}/replica` — Replicar un outlier en el Copywriter
 
-Crea en el Copywriter una página para replicar un outlier de copy (de outliers_copywriter): del tipo del original (anuncio, reel, post o YouTube), vacía y atada al original. Al abrirla, MaKo pregunta para qué oferta y la escribe con la estructura, el tipo de gancho y el ritmo del original, nunca con sus frases. Devuelve el documentoId y su link. Queda pendiente hasta que la persona confirme.
+Crea en el Copywriter una página para replicar un outlier de copy (de outliers_copywriter): del tipo del original (anuncio, reel, post o YouTube), vacía y atada al original. Al abrirla, MaKo transcribe el original si es un video, pregunta para qué oferta (y lo que le falte a esa oferta, que guarda en ella) y, si el tema no tiene que ver, cómo usarlo; después la escribe entera con la estructura, el tipo de gancho y el ritmo del original, nunca con sus frases. Devuelve el documentoId y su link. Queda pendiente hasta que la persona confirme.
 
 - **Ruta por operación:** `POST /api/v1/contenido/replicar_outlier_copywriter`
 - **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)

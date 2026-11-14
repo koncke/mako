@@ -11,6 +11,8 @@ import { postJson, type FallaPedido } from '@/app/web-generator/cliente';
 import type { EditadoPor, GuionAbierto, JsonNodo, PaginaCopy, PropsGuion, TipoGuion } from '@/lib/copywriter/tipos';
 import type { FiltrosCopy, OrdenCopy, OutlierCopy, TandaCopy } from '@/lib/copywriter/outliers';
 import { marcarRecienCreada } from './pedido-guardado';
+import type { OfertaParaReplica, PreparacionReplica } from '@/lib/copywriter/replica-servidor';
+import type { CampoQueFalta } from '@/lib/copywriter/oferta-elegida';
 
 export const RUTA_COPY = '/api/copywriter';
 /** /api/copywriter no llama a ninguna IA: lo que tarda es la base. */
@@ -96,6 +98,16 @@ export function pedirOutliers(c: { filtros: FiltrosCopy; orden: OrdenCopy; desde
 /** El original entero de un outlier («Ver el original» de la página replicada). */
 export function pedirOriginal(outlier: string) {
   return postJson<{ ok: true; outlier: OutlierCopy }>(RUTA_COPY, { accion: 'outlier', outlier }, PLAZO_COPY_MS) as Promise<{ ok: true; outlier: OutlierCopy } | FallaCopy>;
+}
+
+/** Antes de escribir una réplica: las ofertas con lo que les falta y de qué habla el original (MaKo pregunta con eso). */
+export function pedirPreparacion(outlier: string) {
+  return postJson<PreparacionReplica>(RUTA_COPY, { accion: 'preparar-replica', outlier }, PLAZO_COPY_MS) as Promise<PreparacionReplica | FallaCopy>;
+}
+
+/** Lo que la persona contestó de su oferta, guardado EN la oferta (lo ven Offer y el resto de MaKo). */
+export function pedirCompletarOferta(oferta: number, campo: CampoQueFalta, valor: string) {
+  return postJson<{ ok: true; oferta: OfertaParaReplica }>(RUTA_COPY, { accion: 'completar-oferta', oferta, campo, valor }, PLAZO_COPY_MS) as Promise<{ ok: true; oferta: OfertaParaReplica } | FallaCopy>;
 }
 
 /** Las rutas de la tab (escritorio): un guion se abre en /copywriter/<id>. */

@@ -17,10 +17,21 @@ import { pedirOriginal } from './cliente';
 export const ESPERA_TRANSCRIPCION_MS = 4 * 60_000;
 export const CADA_MS = 6_000;
 
-export const TRANSCRITO = 'Transcribí el video para replicarlo: lo ves en «Ver el original».';
-/** Sin transcripción: con qué se escribe (un YouTube, con su título y su descripción; un reel, con su publicación; un anuncio, con su texto). */
-export const sinTranscripcion = (motivo: string, formato: 'youtube' | 'reel' | 'anuncio' = 'youtube') =>
-  `No pude transcribir el video (${motivo}): lo escribo con ${formato === 'reel' ? 'el texto de su publicación' : formato === 'anuncio' ? 'el texto del anuncio' : 'su título y su descripción'}, y tomo sólo el gancho y la estructura.`;
+/** Lo transcrito se ve AL LADO de la página (./OriginalAlLado.tsx; en el teléfono, la pestaña «Original»). */
+export const TRANSCRITO = 'Transcribí el video: lo ves en «Original», al lado de tu página.';
+/**
+ * Sin transcripción: por qué, que MaKo NO sabe lo que se dice, y con qué escribe (un YouTube, con su título y su descripción; un
+ * reel, con su publicación; un anuncio, con su texto). 13/11/2026, el Cerebro: con la clave de Apify de Spy dando 401, un reel que
+ * no se puede transcribir lo tiene que decir en la pantalla, no inventar lo que se dice. Un motivo que ya es una frase («No pude
+ * traer el video de Instagram.») va tal cual, sin «No pude transcribir el video (no pude…)».
+ */
+export function sinTranscripcion(motivo: string, formato: 'youtube' | 'reel' | 'anuncio' = 'youtube'): string {
+  const con = formato === 'reel' ? 'el texto de su publicación' : formato === 'anuncio' ? 'el texto del anuncio' : 'su título y su descripción';
+  const m = motivo.trim().replace(/\.$/, '');
+  // Dentro del paréntesis, en minúscula («(no autorizado)», no «(No autorizado)»).
+  const primera = /^no pude /i.test(m) ? `${m.charAt(0).toUpperCase()}${m.slice(1)}` : `No pude transcribir el video (${m.charAt(0).toLowerCase()}${m.slice(1)})`;
+  return `${primera}, así que no sé lo que se dice: lo escribo con ${con} y tomo sólo su gancho y su estructura.`;
+}
 export const LINEA_TRANSCRIBIENDO = 'Transcribiendo el video para replicarlo: puede tardar un par de minutos.';
 
 /** Por qué no hay transcripción, en una frase corta. */
@@ -66,7 +77,7 @@ export async function transcribirSiHaceFalta(outlier: string, onLinea: (t: strin
   const hasta = d.ahora() + ESPERA_TRANSCRIPCION_MS;
   while (d.ahora() < hasta) {
     const r = await d.transcribir(piezaId);
-    if (!r.ok) return { ok: false, texto: sinTranscripcion(r.error.replace(/\.$/, '').toLowerCase(), formato) };
+    if (!r.ok) return { ok: false, texto: sinTranscripcion(r.error, formato) };
     const g = r.guion;
     if (formato === 'anuncio' && g.estado === 'no-aplica') return null;
     if (g.estado === 'listo' && g.texto) return { ok: true, texto: TRANSCRITO };
