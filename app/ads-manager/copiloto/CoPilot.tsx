@@ -35,6 +35,7 @@ import type { NumeroDelReel } from '@/lib/copiloto/piloto';
 import type { VistaRT } from '@/lib/retargeting-motor';
 import type { PaginaAnalizada } from '@/lib/copiloto/web';
 import type { Nevera } from '@/lib/copiloto/nevera';
+import type { PuntoRed } from '@/lib/copiloto/redes-propias-reglas';
 import { diaCorto, lunesDe, nombreFormato, type FormatoNevera } from '@/lib/copiloto/nevera-reglas';
 import { CSS_RETARGETING, Retargeting } from './Retargeting';
 import { CSS_COPILOTO } from './copiloto-css';
@@ -63,6 +64,8 @@ export type DatosCoPilot = {
   /** La nevera de contenido (lib/copiloto/nevera.ts): lo listo, lo publicado y hasta cuándo alcanza; null si no se pudo leer. */
   nevera: Nevera | null;
   redes: Record<'instagram' | 'youtube', Array<{ usuario: string; vencida: boolean }>>;
+  /** Lo que leyó de su cuenta PROPIA (lib/copiloto/redes-propias.ts): un renglón «bien / a tocar» por punto. Ausente = no se pudo leer. */
+  propias?: Partial<Record<'instagram' | 'youtube', PuntoRed[]>>;
 };
 
 const PASOS: ReadonlyArray<readonly [Paso, string]> = [['analisis', 'Análisis y acción'], ['piloto', 'Piloto automático']];
@@ -125,6 +128,11 @@ const CSS_EXTRA = `
 .frn .mq-tetoca { margin-top: 0; }
 /* «Lo que hice»: el renglón a lo ancho del tablero medía 1100 px (más de 140 letras): se corta a un largo que se lee. */
 .frn .frn-ev p { max-width: 60ch; }
+/* Lo que leyó de su cuenta propia (14/11): un renglón por punto, con su marca. */
+.frn .cop-puntos { list-style: none; margin: 14px 0 18px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.frn .cop-puntos li { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; line-height: 1.45; color: var(--ink); max-width: 70ch; }
+.frn .cop-puntos__m { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--g-100); color: var(--g-700); }
+.frn .cop-puntos li[data-bien="false"] .cop-puntos__m { background: var(--rose-bg); color: var(--rose); }
 /* «Espera tu OK» entre 700 y 1000 px (una notebook con la barra de la app): el antes → después (250 px) y Aprobar/No (350 px) dejaban
    al porqué una columna de 190 px, en diez renglones. Ahí el porqué va arriba a lo ancho y lo demás debajo (banco de la portada, 14/11). */
 @container frn (min-width: 701px) and (max-width: 1000px) {
@@ -298,7 +306,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
               )}
               {tarjeta === 'anuncios' && <AnalisisAnuncios datos={datos} />}
               {tarjeta === 'web' && (datos.paginas.length ? <AnalisisWeb paginas={datos.paginas} /> : <TarjetaWeb paso="analisis" web={datos.web} />)}
-              {(tarjeta === 'instagram' || tarjeta === 'youtube') && <TarjetaRed red={tarjeta} paso="analisis" cuentas={datos.redes[tarjeta]} />}
+              {(tarjeta === 'instagram' || tarjeta === 'youtube') && <TarjetaRed red={tarjeta} paso="analisis" cuentas={datos.redes[tarjeta]} puntos={datos.propias?.[tarjeta]} />}
               {tarjeta === 'instagram' && <NumeroDelReelCard reel={datos.reel} />}
               {(tarjeta === 'instagram' || tarjeta === 'youtube') && <NeveraCard nevera={datos.nevera} formatos={tarjeta === 'youtube' ? ['video'] : ['reel', 'story', 'post']} />}
               <LoQueTeToca tareas={tareas[tarjeta]} enPlan={enPlan} onHecha={marcarTarea}
@@ -342,6 +350,7 @@ function resumenParaTareas(datos: DatosCoPilot, oc: EstadoComunicacion): Resumen
     webArreglos: datos.paginas.flatMap((p) => p.hallazgos.filter((h) => h.severidad === 'alta').map((h) => ({ url: p.url, titulo: h.titulo }))),
     redes: { instagram: { conectada: conectada('instagram') }, youtube: { conectada: conectada('youtube') } },
     seguidos: datos.reel ? datos.reel.seguidos : null,
+    propias: datos.propias,
     nevera: datos.nevera ? { lunes: lunesDe(datos.nevera.hoy), avisos: datos.nevera.avisos } : undefined,
   };
 }
@@ -530,7 +539,7 @@ function TarjetaWeb({ paso, web }: { paso: Paso; web: string[] }) {
 }
 
 const NOMBRE_RED = { instagram: 'Instagram', youtube: 'YouTube' } as const;
-function TarjetaRed({ red, paso, cuentas }: { red: 'instagram' | 'youtube'; paso: Paso; cuentas: Array<{ usuario: string; vencida: boolean }> }) {
+function TarjetaRed({ red, paso, cuentas, puntos }: { red: 'instagram' | 'youtube'; paso: Paso; cuentas: Array<{ usuario: string; vencida: boolean }>; puntos?: PuntoRed[] }) {
   if (paso === 'piloto') return <SinPiloto que={`tu ${NOMBRE_RED[red]}`} />;
   const c = cuentas[0];
   if (!c || c.vencida) {
@@ -545,9 +554,14 @@ function TarjetaRed({ red, paso, cuentas }: { red: 'instagram' | 'youtube'; paso
   return (
     <section className="frn-card cop-vacio">
       <h2 className="frn-card__t">@{c.usuario.replace(/^@/, '')}</h2>
-      <p>{paso === 'analisis'
+      {/* Lo que leyó de su cuenta (14/11, lib/copiloto/redes-propias-reglas.ts): una frase por punto, lo que está a tocar también en «Lo que te toca». */}
+      {paso === 'analisis' && puntos && puntos.length > 0 ? (
+        <ul className="cop-puntos">
+          {puntos.map((p) => <li key={p.clave} data-bien={p.bien}><span className="cop-puntos__m" aria-label={p.bien ? 'Bien' : 'A tocar'}>{p.bien ? '✓' : '!'}</span>{p.texto}</li>)}
+        </ul>
+      ) : <p>{paso === 'analisis'
         ? `Tu ${NOMBRE_RED[red]} está conectado. Para leer tus publicaciones una por una, ábrelo en Competitor Spy con tu propia cuenta.`
-        : red === 'instagram' ? 'Lo que publicas se arma en Carruseles y en Copywriting, y se programa en el Calendario.' : 'Tus videos se arman en Copywriting y se programan en el Calendario.'}</p>
+        : red === 'instagram' ? 'Lo que publicas se arma en Carruseles y en Copywriting, y se programa en el Calendario.' : 'Tus videos se arman en Copywriting y se programan en el Calendario.'}</p>}
       <div className="cop-acciones">
         {paso === 'analisis'
           ? <Link className="frn-btn frn-btn--primary" href="/competitor-spy">Leer mi {NOMBRE_RED[red]}</Link>
