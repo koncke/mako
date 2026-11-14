@@ -625,7 +625,7 @@ export function lineaDeCobradaEditada(
 }
 
 /** Lo que dice el historial al volver una cuota a pendiente: cuál y de cuándo era el pago que se deshizo. */
-export function textoDeVueltaAPendiente(numero: number | null | undefined, fechaPago: string | null | undefined): string {
+export function textoDeVueltaAPendiente(numero: number | null | undefined, fechaPago?: string | null): string {
   const cual = numero == null ? 'La cuota' : nombreCuota(numero);
   return `${cual} volvió a pendiente${fechaPago ? ` (estaba cobrada el ${fechaDMA(String(fechaPago).slice(0, 10))})` : ''}`;
 }
