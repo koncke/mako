@@ -293,6 +293,38 @@ con todas las landings… con link a la referencia… revísalas todas, critíca
 | MaKo Partners | `/mako-partners` | [LLM Pulse](https://llmpulse.ai/affiliate), [Tolt](https://tolt.com/platform/affiliate-portal) y [systeme.io](https://systeme.io/) |
 | Portada de hoy | `/` (documento de Web Generator) | [100ads](https://100ads.ai/) |
 
+## Duodécima vuelta (14/11/2026, noche): Martín otra vez, y la revisión de todas las landings
+
+Martín: Spy «antes del gráfico… la animación que ya vimos de acomodar las tarjetas todavía tiene que seguir estando»; «dile al chat de
+Competitor Spy que elimine todos los competidores que tengan logos… que les ponga el rostro… todos los gurús… con su caricatura»;
+Copywriting «copiar un reel de Alex Hormozi y no un carrusel»; «no me gusta directamente la animación de Marketing CoPilot»; «la
+separación entre una sección y otra… más grande y los cuadros… todos del mismo tamaño»; Automations «que se puedan enviar por Instagram,
+por WhatsApp, por email»; Comunidad «un montón de botones y de texto… la sidebar… no sale».
+
+| Pedido | Estado |
+|---|---|
+| Spy: el orden de tarjetas antes del gráfico | Hecho (`spy.webm`): las caricaturas → Hormozi → la lectura con `PeliculaDeOrden` (la bola y las carpetas por formato, «64 piezas ordenadas») → el gráfico de vistas por fecha, de cerca. Banco: `revisarAction` y la primera `piezasAction` vacía disparan la lectura animada como en la app |
+| Spy sin logos, todos con su caricatura, y los gurús y las cuentas que se scrapean | Pasado al chat «Spy: funnel del competidor» (local_25016f6c) con las palabras de Martín. Cuando avise, se vuelve a grabar Spy |
+| Copywriting: un reel de Hormozi | Pasado al chat «Probar Copywriting» (local_d39f67c7): que replique un short de @AlexHormozi con el flujo nuevo cuando su arreglo esté desplegado y pase el id del guion. Hoy sigue el anuncio |
+| Marketing CoPilot de nuevo | Pasado al chat de la maqueta del CoPilot (local_68b7fbdb): la pantalla NUEVA (las cinco tarjetas y el piloto), con cámara; deja el video en `C:/dev/bancos-portada/copilot-nuevo/` |
+| Más aire y recuadros iguales | Hecho: 176 px entre filas (112 en el teléfono) y cada recuadro 16:10; tableros con las flechas por fuera (abajo en el teléfono) y AI Avatar dentro del mismo recuadro (`estilos.ts`) |
+| Automations por WhatsApp, Instagram y email | Hecho (`automations.webm`): tres plantillas reales, una por canal, cada una de cerca, con el canal marcado abajo |
+| Comunidad con la barra del curso y menos botones | Hecho (`comunidad.webm`): la barra «Programa Escala High Ticket» siempre a la vista, sin buscador ni anterior/siguiente; la comunidad sin la barra de categorías ni «Escribe algo» |
+
+**La revisión de las 28 páginas** (capturas, recortes y textos en `C:/dev/bancos-portada/revision-1411/`). Hecho: el texto con degradado
+invisible y las tarjetas de «MaKo, lo de siempre» (dos arreglos de `TemaSitio.tsx`, ver hallazgos-landing); el texto cortado a 375 en
+Video, Image y Ads (`minmax(0, 1fr)`); el lema del pie «El mejor software para vender High Ticket» en las 7 landings que decían «El mejor
+SaaS…», en `/` (título, tarjeta y la portada sin JS) y en el test que la cuidaba; «¿Lo quieres funcionando…?»; los títulos que no
+cumplían lo que promete el sitio (Ads «Tus anuncios de Meta, revisados todos los días.», CRM «Todo lo que hizo cada lead, en su
+ficha», Email «Tus emails, escritos y enviados desde tu CRM.», Funnel «Tus ventas reales le enseñan a Meta a quién mostrar tus
+anuncios.», Plan «Tus tareas más importantes, elegidas por tu IA»); los regionalismos de Ads («traccionen», «arrancamos», «no anda»),
+«deadlines», «papel tapiz», «copiado de Canva», «Estamos en el negocio…», «Integraciones potentes», «¿Qué estás esperando?»; la
+contradicción de Offer («Sin cambiar la oferta» en la página que vende trabajar la oferta). Los recuadros de «falta» con grabación
+disponible (heros de Ads, Copywriting, Image, Video, CRM, Automations, Chats, Cobranza, Dashboard y los sueltos de Ads y Ops Center).
+SIN hacer: las filas de capacidades (`Visual` de `_detalle`) siguen con su recuadro; el checkout (chat de la pasarela); Comparaciones a
+375 corta nombres de la tabla; AI Avatar sin margen izquierdo desde la franja de cifras; el cierre vacío de Web Generator y sus tres
+tarjetas de Mauricio; Spy repite la misma grabación en seis secciones; «44 fuentes» (Dashboard) contra «31 integraciones» (sitio).
+
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
 `PRUEBA_GRATIS_PRENDIDA = true` (`lib/planes-mako.ts`): `/planes` dice «7 días gratis» y cobra el día 8 con la tarjeta,

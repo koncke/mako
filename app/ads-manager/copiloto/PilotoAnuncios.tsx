@@ -99,7 +99,8 @@ export function PilotoAnuncios({ conectada, existeTabla, piloto, decisiones, onD
           <ul className="frn-decs2">
             {esperan.map((d) => (
               <li key={d.id} className="frn-dec2">
-                {d.anuncioBase?.miniatura ? <img className="frn-dec2__img" src={d.anuncioBase.miniatura} alt="" loading="lazy" /> : <span className="frn-dec2__img" aria-hidden />}
+                {/* Sin miniatura (un conjunto o una campaña no tienen), nada: un cuadro vacío dejaba un hueco de 60 px a la izquierda. */}
+                {d.anuncioBase?.miniatura && <img className="frn-dec2__img" src={d.anuncioBase.miniatura} alt="" loading="lazy" />}
                 <div className="frn-dec2__txt">
                   <b>{d.titulo}</b>
                   <p>{d.porque.join(' ')}</p>

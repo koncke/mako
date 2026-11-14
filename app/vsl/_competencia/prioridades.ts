@@ -80,13 +80,13 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
   nombre: 'Plan',
   icono: I.plan,
   referencia: { nombre: 'Motion — portada', url: 'https://www.usemotion.com/', leida: '2026-11-11' },
-  metaTitle: 'Plan de MaKo: consigue una ventaja injusta usando la IA para priorizar',
+  metaTitle: 'Plan de MaKo: tus tareas más importantes, elegidas por tu IA',
   metaDesc: `MaKo saca las tareas de tus reuniones grabadas, le pone a cada una un puntaje de 1 a 100 con su razón y te muestra las ${MAX_PRIORIDAD} que van primero, en un tablero por estado.`,
   bloques: [
     {
       tipo: 'hero',
       etiqueta: 'Tu plan de trabajo, priorizado con IA',
-      titulo: 'Consigue una ventaja injusta usando la IA <em>para priorizar</em>',
+      titulo: 'Tus tareas más importantes, <em>elegidas por tu IA</em>',
       bajada: `El plan de trabajo para la era de la IA: tareas, proyectos, reuniones, notas e informes con IA. MaKo saca las tareas de tus reuniones grabadas, le pone a cada una un puntaje de 1 a 100 con su razón y te deja <strong>las ${MAX_PRIORIDAD} que van primero</strong>.`,
       // El primer renglón es la tarjeta del hero (copia la de Motion «What AI tools would you like to use?»): lo de antes de los dos
       // puntos es su título y cada vista, una casilla.

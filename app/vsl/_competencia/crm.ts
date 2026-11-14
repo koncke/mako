@@ -65,13 +65,13 @@ export const LANDING_CRM: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Potencia tu negocio con IA',
-      titulo: 'El sistema operativo de tu negocio, con IA',
+      titulo: 'Todo lo que hizo cada lead, en su ficha',
       bajada: 'Todas las herramientas que necesitas para captar, nutrir y cerrar leads nuevos y convertirlos en reuniones, ventas y cuotas cobradas, <strong>con tu CRM en el centro</strong>.',
       visual: { tipo: 'detalle', slug: 'crm' },
     },
     {
       tipo: 'cifras',
-      titulo: 'Estamos en el negocio de ayudarte a hacer crecer tu negocio',
+      titulo: 'Tus leads, tus llamadas y tus cobros, en un solo lugar',
       items: [
         { valor: '1.400+', label: 'movimientos de MaKo en el CRM de Mauricio' },
         { valor: '9 de 10', label: 'de los movimientos de ese CRM, en nueve días' },
@@ -93,7 +93,7 @@ export const LANDING_CRM: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Existimos para quitarle la fricción al crecimiento y darles a los dueños de negocio los sistemas que necesitan para operar, escalar y ganar',
+      titulo: 'Para que vendas más sin sumar herramientas: lo que hace cada lead, lo que falta cobrar y quién tiene que llamar hoy',
       items: [
         { icono: I.todo, titulo: 'Todo en uno', texto: 'Una plataforma de verdad todo en uno, hecha para quienes operan el negocio: las conversaciones del lead, sus reuniones y sus automatizaciones, junto a tu CRM.' },
         { icono: I.ia, titulo: 'La IA como base', texto: 'IA integrada a fondo en todo el ciclo del negocio: en cada ficha, <strong>MaKo Analyst</strong> cruza la ficha, las llamadas y el comportamiento del lead, y te da el diagnóstico.' },

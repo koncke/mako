@@ -5286,3 +5286,32 @@ pasada a 960 × 600, y en la portada el recuadro mide unos 700 px: la letra de 1
 **Lo que quedó SIN hacer.** El guion real de Copywriting que se muestra trae defectos que NO son de la landing (son de
 `lib/copywriter`): una palabra en inglés en la Historia («more budget»), un «necesitás» en el CTA y un `[DATO: …]` sin llenar; la
 animación muestra sólo el Gancho y el segundo párrafo de la Historia, que están limpios. Avisado al Cerebro para el chat de Copywriting.
+
+## El sol y la luna oscurecían títulos y dejaban texto blanco sobre claro (14/11/2026, la revisión de todas las landings)
+
+**Síntoma.** En el modo oscuro, el título con degradado de varias landings copiadas de una referencia clara quedaba negro sobre
+negro (CRM: «Tu solución todo en uno…», las cifras 1.400+ / 9 de 10; Spy: «El flujo completo para anuncios ganadores»; Ops Center;
+«Web Generator» en su H1). Y en /vsl/ads, las tarjetas de «MaKo, lo de siempre» quedaban con texto blanco sobre la banda que había
+pasado a celeste.
+
+**Causa** (las dos en `app/vsl/_competencia/TemaSitio.tsx`, el script que lleva cada color al modo):
+- Un degradado con `background-clip: text` ES la letra, y se llevaba al modo como FONDO (`mapear(bi, false)`): sus colores oscuros se
+  quedaban oscuros en el modo oscuro. Ahora se lee `o.clip` y va como tinta (`mapear(bi, true)`).
+- Una tarjeta con fondo blanco al 6 % se tomaba como «fondo que no cambia» (`quieto`) y su texto no se tocaba; la banda de atrás sí
+  cambiaba. Ahora un fondo con alfa < 0,5 no decide nada (lo mismo que ya hacía `luzDe` al medir la luz de atrás).
+
+**La regla que queda.** Para decidir si algo es fondo o letra, mirar CÓMO se pinta (un degradado recortado al texto es letra) y no
+dónde está la propiedad; y un fondo casi transparente no es un fondo. ⚠️ Adentro del script (un template string de TSX) una expresión
+regular va con `\d`: con `\d` el template se come la barra y la regex pasa a buscar la letra «d» (me pasó al escribir `tenue`).
+
+**Trampas al REVISAR landings** (las dejó la revisión de las 28 páginas, `C:/dev/bancos-portada/revision-1411/`):
+- La captura de página entera de Playwright agarra las animaciones de aparición a mitad: texto «apagado» que está bien. Se confirma
+  bajando hasta el final y volviendo antes de capturar (`capturar-1411.mjs`), o llevando el elemento a la vista (`revelado.mjs`).
+- «Sin scroll horizontal» no prueba nada: los contenedores recortan con `overflow-x` y el texto queda cortado igual. Se mide el borde
+  derecho de cada texto con un `Range` (`anchos.mjs`). La cura del texto cortado a 375 fue `minmax(0, 1fr)` en las grillas de una
+  columna (un `1fr` crece hasta el ancho mínimo de su contenido: la cejilla de Image sin salto de línea ensanchaba todo el hero).
+
+**Lo que quedó SIN hacer.** Las filas de capacidades de las landings (`Visual` de `app/vsl/_detalle/Visual.tsx`) siguen con el recuadro
+de «falta la animación» (no saben de qué landing son); los heros y los recuadros sueltos que ya tenían grabación la usan
+(`GRABACION` y `GrabacionDe` en `Visuales.tsx`). El checkout (`app/planes/[plan]/Checkout.tsx`) dice «Como toda suscripción, el cobro
+empieza a los 7 días» y el ícono de la tarjeta es un rectángulo vacío: es del chat de la pasarela.

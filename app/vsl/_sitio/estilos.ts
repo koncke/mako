@@ -344,7 +344,9 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-card-vis{position:absolute;left:85px;top:204px;width:640px}
 .s-card-chica .s-card-vis{left:40px;top:248px;width:520px}
 /* «Todo lo que necesitas», en filas (12/11/2026): texto de un lado, la grabación del otro, intercalando. */
-.s-zz{margin-top:80px;display:flex;flex-direction:column;gap:112px}
+/* Martín (14/11/2026): «la separación entre una sección y otra tiene que ser más grande y los cuadros donde aparecen las animaciones,
+   todos del mismo tamaño»: 176 de aire entre filas, y cada recuadro es 16:10 (el de las grabaciones, 960 × 600). */
+.s-zz{margin-top:96px;display:flex;flex-direction:column;gap:176px}
 .s-zz-fila{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:72px;align-items:center}
 .s-zz-inv{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}
 .s-zz-inv .s-zz-tx{order:2}
@@ -414,13 +416,18 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-zz-a:hover svg{transform:translateX(3px)}
 .s-zz-vis{position:relative;border-radius:16px;overflow:hidden;border:1px solid ${LINEA};background:#fff;box-shadow:0 30px 80px -30px rgba(0,0,0,.6)}
 .s-zz-vis > .s-panel{border-radius:0;max-height:460px;overflow:hidden}
-.s-zz-video video{display:block;width:100%;height:auto}
+.s-zz-vis{aspect-ratio:16/10}
+.s-zz-video video{display:block;width:100%;height:100%;object-fit:cover}
 /* Los tableros: de a uno, 2,6 s cada uno, entrando de arriba hacia abajo (como su animación de entrada en la app). */
 .s-zz-tableros{background:#fff}
 /* Los tableros: el recuadro es SÓLO el tablero (la pista, que se desliza); las flechas a los costados y el nombre y los puntos debajo,
    por fuera (Martín, 13/11/2026). La fila no lleva el marco de las demás visuales. */
-.s-zz-vis.s-zz-tableros{background:transparent;border:0;box-shadow:none;border-radius:0;overflow:visible}
-.s-tab{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:12px}
+.s-zz-vis.s-zz-tableros{background:transparent;border:0;box-shadow:none;border-radius:0;overflow:visible;aspect-ratio:auto}
+/* La pista del tamaño de los demás recuadros; las flechas por fuera, en el aire de al lado (en el teléfono, abajo, con los puntos). */
+.s-tab{display:grid;grid-template-columns:minmax(0,1fr);align-items:center;gap:12px}
+.s-tab>.s-tab-fl:first-child{grid-row:1;grid-column:1;justify-self:start;margin-left:-56px}
+.s-tab>.s-tab-pista{grid-row:1;grid-column:1}
+.s-tab>.s-tab-fl:nth-child(3){grid-row:1;grid-column:1;justify-self:end;margin-right:-56px}
 .s-tab-pista{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:16px;border:1px solid rgba(18,21,27,.12);background:#F4F3EF;box-shadow:0 30px 80px -30px rgba(0,0,0,.6);cursor:grab;outline:none;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
 .s-tab-pista::-webkit-scrollbar{display:none}
 .s-tab-pista[data-arrastra]{cursor:grabbing;scroll-snap-type:none;user-select:none}
@@ -432,12 +439,12 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-tab-puntos{grid-column:1/-1;display:flex;justify-content:center;flex-wrap:wrap;gap:6px}
 .s-tab-puntos button{width:7px;height:7px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.3);cursor:pointer}
 .s-tab-puntos button[aria-current]{width:20px;border-radius:99px;background:#2F6FED}
-@media (max-width:560px){.s-tab{grid-template-columns:30px minmax(0,1fr) 30px;gap:6px}.s-tab-fl{width:30px;height:30px}}
+@media (max-width:560px){.s-tab>.s-tab-fl:first-child{grid-row:4;margin-left:0}.s-tab>.s-tab-fl:nth-child(3){grid-row:4;margin-right:0}.s-tab-puntos{grid-row:4;grid-column:1;align-self:center;padding:0 44px}.s-tab-fl{width:34px;height:34px}}
 /* AI Avatar: dos anuncios de verdad, cada uno con la foto de la que salió (la foto chica, montada sobre la esquina del teléfono). */
 .s-zz-avatar{background:linear-gradient(135deg,#EEF4FF,#F8F5FF)}
-.s-av{display:flex;align-items:flex-start;justify-content:center;gap:40px;padding:34px 24px 26px}
-.s-av-par{margin:0;position:relative;display:flex;flex-direction:column;align-items:center;gap:12px}
-.s-av-tel{position:relative;display:block;width:190px;aspect-ratio:9/16;border-radius:24px;overflow:hidden;background:#12151B;box-shadow:0 0 0 6px #12151B,0 24px 50px rgba(18,21,27,.3)}
+.s-av{height:100%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:40px;padding:22px 24px 16px}
+.s-av-par{margin:0;position:relative;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.s-av-tel{position:relative;display:block;height:calc(100% - 34px);width:auto;aspect-ratio:9/16;border-radius:24px;overflow:hidden;background:#12151B;box-shadow:0 0 0 6px #12151B,0 24px 50px rgba(18,21,27,.3)}
 .s-av-tel video{display:block;width:100%;height:100%;object-fit:cover}
 .s-av-foto{position:absolute;left:-34px;top:26px;z-index:2;width:78px;aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:3px solid #fff;box-shadow:0 10px 24px rgba(18,21,27,.28);transform:rotate(-6deg)}
 .s-av-foto img{display:block;width:100%;height:100%;object-fit:cover}
@@ -446,7 +453,7 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-av-son{position:absolute;right:10px;bottom:10px;width:36px;height:36px;border-radius:50%;border:0;display:grid;place-items:center;color:#fff;background:rgba(18,21,27,.62);cursor:pointer}
 .s-av-son:hover{background:rgba(18,21,27,.8)}
 .s-av-son .s-av-on{display:none}.s-av-son[aria-pressed="true"] .s-av-on{display:inline}.s-av-son[aria-pressed="true"] .s-av-off{display:none}
-@media (max-width:560px){.s-av{gap:26px;padding:26px 14px 20px 30px}.s-av-tel{width:132px;border-radius:18px}.s-av-foto{width:56px;left:-24px;top:18px}.s-av-son{width:30px;height:30px;right:7px;bottom:7px}}
+@media (max-width:560px){.s-av{gap:26px;padding:12px 14px 10px 30px}.s-av-tel{border-radius:16px}.s-av-foto{width:56px;left:-24px;top:18px}.s-av-son{width:30px;height:30px;right:7px;bottom:7px}}
 /* El recuadro de «Aquí falta la animación» va sin el marco blanco: el suyo es el borde punteado. */
 .s-zz-falta{border:0;background:transparent;box-shadow:none;overflow:visible}
 /* Los referentes: una pared que sube sola, sin texto, y vuelve a empezar sin corte (la lista va dos veces). */
@@ -560,7 +567,7 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
   .s-hero-vsl{margin-top:32px}
   .s-hero-vis{width:576px;max-width:none;margin:40px auto 0}
   .s-fila{flex-direction:column}
-  .s-zz{gap:72px;margin-top:48px}
+  .s-zz{gap:112px;margin-top:56px}
   .s-zz-fila,.s-zz-inv{grid-template-columns:minmax(0,1fr);gap:28px}
   .s-zz-inv .s-zz-tx{order:0}
   .s-zz-t{font-size:28px;line-height:34px}
