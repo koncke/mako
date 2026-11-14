@@ -20,6 +20,7 @@
 // =============================================================================
 
 import { createContext, useContext, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { entradaDeTarjetas } from './entrada-tarjetas';
 import Link from '@/app/_ui/Link';
 import { plata, plataCorta } from '@/lib/cobranza-diseno';
 import { resumenDeMeses, type MesOp, type NumeroOp, type VistaOperacion } from '@/lib/operacion-diseno';
@@ -192,6 +193,10 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
   /** Lo que va al pie (el aviso de «Tarea completada»). */
   pie?: ReactNode;
 }) {
+  // La entrada (Martín, 14/11/2026: «algunos todavía no tienen animación»): las tarjetas suben escalonadas, como en Cobranza
+  // y Marketing (./entrada-tarjetas.ts). Antes de cualquier otra cosa, para que no la salte un return temprano.
+  const raizEntrada = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => { if (!quieta) entradaDeTarjetas(raizEntrada.current, '.mo-card'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [campo, setCampo] = useState<Campo>('cobrado');
   const { frase, numeros, meses, espera, funnel, llamadas, deben, tildar, salud, meta } = vista;
   const resumen = meses ? resumenDeMeses(meses, campo) : null;
@@ -202,7 +207,7 @@ export function HojaOperacion({ vista, titulo, fecha, hechas, onCompletar, onGri
 
   return (
     <Compartido.Provider value={compartido}>
-    <div className="mo" data-quieta={quieta ? '' : undefined}>
+    <div ref={raizEntrada} className="mo" data-quieta={quieta ? '' : undefined}>
       <style href="dash-hoja-operacion" precedence="medium">{CSS_OPERACION}</style>
       {/* La letra de Moorly (Urbanist), sólo para esta hoja. */}
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400..800&display=swap" precedence="default" />
