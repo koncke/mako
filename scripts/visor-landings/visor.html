@@ -57,6 +57,8 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-
 const PAGINAS = /*PAGINAS*/[];
 const DE_LA_APP = /*DE_LA_APP*/[];
 const ALIAS = /*ALIAS*/{};
+// Las páginas cuya foto a 390 es idéntica a la de 1440 no se publican dos veces (el artefacto tiene un tope de 512 archivos).
+const TEL_IGUAL = new Set(/*TEL_IGUAL*/[]);
 const TODAS = PAGINAS.concat(DE_LA_APP);
 const PORTADA = 'sitio';
 // Las letras de MaKo para «Diseño MaKo», publicadas junto al visor (relativas a paginas/<slug>.html).
@@ -114,7 +116,7 @@ function abrir(slug, { ancla = '', guardar = true, conservarScroll = false } = {
   estado.slug = p.slug;
   if (location.hash.slice(1) !== p.slug) { try { history.replaceState(null, '', '#' + p.slug); } catch (e) {} }
   iframe.onload = () => prepararPagina(y, ancla);
-  iframe.src = `paginas/${p.slug}${estado.pantalla === 'tel' ? '-tel' : ''}.html`;
+  iframe.src = `paginas/${p.slug}${estado.pantalla === 'tel' && !TEL_IGUAL.has(p.slug) ? '-tel' : ''}.html`;
   encuadrar(); marcar();
 }
 

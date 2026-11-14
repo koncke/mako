@@ -20,7 +20,7 @@
 // C:/dev/playwright-medidor/node_modules/playwright-core) con el Chromium de ~/AppData/Local/ms-playwright.
 // =============================================================================
 
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -133,7 +133,16 @@ function escribirIndice() {
   writeFileSync(join(salida, 'index.html'), plantilla
     .replace('/*PAGINAS*/[]', JSON.stringify(PAGINAS.map((p) => ({ ...p, nueva: nuevas.includes(p.slug) }))))
     .replace('/*DE_LA_APP*/[]', JSON.stringify(DE_LA_APP))
-    .replace('/*ALIAS*/{}', JSON.stringify({ ...ALIAS, ...aliasExtra() })));
+    .replace('/*ALIAS*/{}', JSON.stringify({ ...ALIAS, ...aliasExtra() }))
+    .replace('/*TEL_IGUAL*/[]', JSON.stringify(telIguales())));
+}
+
+/** Los slugs cuya página a 390 (`<slug>-tel.html`) es byte a byte la de 1440: el visor abre la de 1440 y no se publica la copia. */
+function telIguales() {
+  const dir = join(salida, 'paginas');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((f) => f.endsWith('-tel.html')).map((f) => f.slice(0, -'-tel.html'.length))
+    .filter((s) => existsSync(join(dir, s + '.html')) && readFileSync(join(dir, s + '.html')).equals(readFileSync(join(dir, s + '-tel.html'))));
 }
 
 /**

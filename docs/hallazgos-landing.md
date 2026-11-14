@@ -5995,3 +5995,42 @@ notas, `referencias-landings/cobranza/relevo.md`.
 SIN HACER: la franja de logos de clientes con «Leer historia» y «Respaldado por» (MaKo no tiene ese contenido); los otros cinco casos del
 carrusel y sus puntos (hay uno); la «captura del comprobante» leída por la IA (necesita la IA del negocio: el banco no la dispara); el
 `tsc` acotado no se corrió (el diseño arrastra el registro entero, ver «/vsl/ads contra Master Ads»).
+
+## Email como beehiiv: su portada es una prueba A/B por cookie, la × invisible se comía el «+» y las preguntas que «animaban» abren de golpe (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/email.tsx` (diseño, `HERO_EMAIL`, `PANTALLA_DE_TARJETA`; todo CSS, sin script),
+`app/vsl/_competencia/email.ts` (las seis tarjetas con su cara de atrás: `meta` y `puntos`), `public/vsl-assets/email/` (banco
+`C:/dev/bancos-portada/banco-email-landing`: `build.mjs`, `fotos.mjs [oscuro]`, `recortar.py` + `imagenes.json`), valores en
+`docs/diseno/landings-competencia/email.md`, test «Email: …» en `tests/vsl-landings-competencia.test.ts`. El relevo con capturas: carpeta
+de notas, `referencias-landings/email/relevo.md`.
+
+- **⚠️ El diagnóstico obvio era el equivocado: «la referencia cambió».** El primer recorrido con Chromium dio otra página entera («Stand
+  out in the inbox», «No code. No limits.») y un `curl` del mismo minuto, la de siempre («Everything you need…»). No cambió: beehiiv sirve
+  DOS portadas por la cookie `eid44_homepage_variant` (`control` y `variant_1`, la que copia /vsl/email). Se mide con la cookie puesta
+  (`ctx.addCookies` antes del `goto`, más `…_amp_eval_cache=1`). **Regla:** si el navegador y `curl` ven páginas distintas, buscar en el
+  HTML la palabra `Variant`/`experiment` y en las `Set-Cookie` la que la elige antes de concluir que la referencia cambió.
+- **Su CSS anima las preguntas y no se ven animar.** Cada respuesta tiene `transition-[max-height] duration-300`, y medido cada 40 ms el
+  alto salta en el primer cuadro (sólo gira la flecha, ,3 s). La primera versión de la copia agregaba un script para animar el alto: se
+  sacó. Pueden quedar varias abiertas. Lo que se mueve en esta landing es todo CSS: el fundido del hero (sus `@keyframes` tal cual),
+  las tarjetas que se dan vuelta y los hovers.
+- **⚠️ Una × invisible encima del «+» se comía el toque.** La cara de atrás (con `pointer-events: none` mientras está apagada) tenía su ×
+  con `pointer-events: auto` propio, en el mismo lugar que el «+»: tocar el «+» tocaba la × invisible, que «cerraba» una tarjeta cerrada.
+  Un `auto` escrito en el hijo le gana al `none` de la capa. **Regla:** en una capa apagada con `pointer-events: none`, los hijos heredan;
+  el `auto` va sólo en lo que está a la vista. Lo encontró la prueba de tocar cada «+» (`modos-nuestra.mjs`), no la captura.
+- **`:has()` suma la especificidad de lo que tiene adentro.** `.fila:has(> .tile > .radio:checked) > .tile { flex-grow: 1 }` (5 clases)
+  le ganaba a `.fila > .tile:has(> .radio:checked) { flex-grow: 2 }` (4): dada vuelta, las dos tarjetas quedaban del mismo ancho. La
+  regla de la tocada repite el `:has` de la fila.
+- **El visor reescribe `src` y no `srcset`** (como el `data-src` de los tableros): un `<picture>` con `<source>` del teléfono quedaba
+  roto en el visor. Van dos `<img>` y el CSS muestra una por ancho.
+- **El campo de fecha de un banco sale en inglés aunque el contexto diga `es-MX`**: el `datetime-local` de Chromium headless sigue el
+  idioma del NAVEGADOR (`--lang=es-MX` al lanzar), no el `locale` de la página («mm/dd/yyyy» en una pantalla en español).
+- **Un módulo del servidor en un banco**: `lib/email-marketing.ts` arrastra Supabase y Resend; el build del banco compila SÓLO sus listas
+  (`ETAPAS`, `TRIGGERS`, `SEGMENTOS`) recortándolas del archivo real, así los nombres de la pantalla salen del código. El test busca en
+  ese archivo cada disparador y cada segmento que nombra la landing.
+
+SIN HACER / para decidir: las dos cintas de clientes de «Trusted by names you know» (fotos y cifras de sus clientes, que se frenan con el
+mouse), sus planes, las flechas y el «Read the story» de sus 25 citas, «The numbers tell the story», su cinta de logos y su botón flotante
+(MaKo tiene un solo caso y ningún precio a mano; si Martín quiere las cintas con el caso de Mauricio —14k, 20k, +40k—, es sumar el caso
+en un lugar nuevo y lo decide él). Con el sol y la luna en claro, las tarjetas, la cita y la caja del cierre quedan oscuras
+(`data-tema-fijo`). En las tarjetas angostas «Escribe con MaKo» y «Cuida tu envío» queda aire abajo de la pantalla (para que entre el
+botón «Generar con MaKo» y la confirmación sin cortarse).
