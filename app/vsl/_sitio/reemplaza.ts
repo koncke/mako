@@ -15,6 +15,8 @@
 // dibujan sobre un recuadro blanco: así se ven sobre fondo claro y oscuro (el de Facebook negro sobre negro no se veía).
 // =============================================================================
 
+// Make (14/11/2026): su sitio sólo publica un favicon chico estirado (se veía borroso); el suyo es la forma de Simple Icons
+// (make.svg) con los colores muestreados de ese favicon, dibujada a 128 px (el script, en docs/hallazgos-landing.md).
 export type AppQueReemplaza = { nombre: string; logo: string };
 export type TrabajoQueReemplaza = {
   /** El trabajo, como lo dice el dueño del negocio. */
@@ -54,11 +56,13 @@ export const STACK_QUE_REEMPLAZA: readonly TrabajoQueReemplaza[] = [
   { trabajo: 'Chats', funcion: 'Chats', landing: 'whatsapp', familia: 'Vender',
     apps: [app('respond.io', 'respondio'), app('Kommo', 'kommo'), app('Leadsales', 'leadsales'), app('Wati', 'wati')] },
   { trabajo: 'Setter con IA', funcion: 'Automations', landing: 'seguimiento', familia: 'Vender',
-    apps: [app('ManyChat', 'manychat'), app('SetSmart', 'setsmart')] },
+    // Zapier y Make, sumados por Martín el 14/11/2026 («Sí, súmalos»). El archivo de Zapier es `zap.png` y no el nombre en minúscula:
+    // tests/puente-leads-retirado.test.ts prohíbe esa key entre comillas (el puente de leads que se retiró el 23/10).
+    apps: [app('ManyChat', 'manychat'), app('SetSmart', 'setsmart'), app('Zapier', 'zap'), app('Make', 'make')] },
   { trabajo: 'Cursos y comunidad', funcion: 'Classroom', landing: null, familia: 'Vender',
     apps: [app('Skool', 'skool'), app('Kajabi', 'kajabi'), app('Hotmart', 'hotmart'), app('Circle', 'circle')] },
   { trabajo: 'Dashboards', funcion: 'Dashboard', landing: 'dashboard', familia: 'Medir y ordenar',
-    apps: [app('Looker Studio', 'lookerstudio'), app('Reportei', 'reportei'), app('AgencyAnalytics', 'agencyanalytics'), app('DashThis', 'dashthis')] },
+    apps: [app('Looker Studio', 'lookerstudio'), app('Reportei', 'reportei'), app('AgencyAnalytics', 'agencyanalytics'), app('DashThis', 'dashthis'), app('Metricool', 'metricool')] },
   { trabajo: 'Atribución de ventas', funcion: 'Funnels', landing: 'funnel', familia: 'Medir y ordenar',
     apps: [app('Hyros', 'hyros')] },
   { trabajo: 'Tareas y prioridades', funcion: 'Plan', landing: 'prioridades', familia: 'Medir y ordenar',
@@ -99,7 +103,7 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; pla
  * apps extremadamente conocidas… ManyChat, Canva, Notion, Skool, CapCut, Higgsfield, Kajabi, Hotmart, Circle… no las que son poco
  * conocidas», como Framer, Foreplay, Minea o BigSpy). La comparación trabajo por trabajo sigue con todas (`appsQueReemplaza`).
  */
-const CONOCIDAS = ['ManyChat', 'Canva', 'CapCut', 'Notion', 'Skool', 'GoHighLevel', 'Kajabi', 'Hotmart', 'Circle', 'Systeme.io', 'ClickFunnels',
+const CONOCIDAS = ['ManyChat', 'Zapier', 'Make', 'Canva', 'CapCut', 'Metricool', 'Notion', 'Skool', 'GoHighLevel', 'Kajabi', 'Hotmart', 'Circle', 'Systeme.io', 'ClickFunnels',
   'HubSpot', 'Mailchimp', 'ActiveCampaign', 'HeyGen', 'Higgsfield', 'Gamma', 'OpusClip', 'Descript', 'Pipedrive'] as const;
 export function appsDeLaTira(): AppQueReemplaza[] {
   const todas = appsQueReemplaza();

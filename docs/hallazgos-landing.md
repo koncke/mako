@@ -5347,3 +5347,12 @@ la segunda fila corrida) quedó viva al pasar a carrusel: ahora los `ul` son las
 que se corría 34 px y dejaba el hueco en la unión. **La regla.** Al cambiar la estructura de un bloque, buscar en `estilos.ts` los
 selectores posicionales (`nth-child`, `+`, `>`) del bloque viejo. Para medir: `mirar/hueco.mjs` del scratchpad (para la animación y
 mide la distancia entre fichas).
+
+## Un logo que sale borroso: el sitio publica un favicon chico estirado (14/11/2026)
+
+**Síntoma.** El ícono de Make (bajado como los demás: el apple-touch-icon de su sitio y, si no, el de Google a 256 px) se veía
+borroso. **Causa.** make.com declara íconos de 180, 192 y 512 px, pero todos son el MISMO archivo de 32 px agrandado
+(`…_favicon-32x32.png`); el de Google es ese mismo favicon estirado. Medir los píxeles declarados no alcanza: hay que MIRAR el ícono.
+**Lo que se hizo.** La forma de Simple Icons (`simple-icons@13.21.0/icons/make.svg`) rellena con un degradé de los colores
+muestreados del favicon (#EF02FA → #9F25E1 → #8508D8), dibujada a 128 px con Playwright (`omitBackground`). **Zapier**, además,
+no puede tener la key en minúscula entre comillas (tests/puente-leads-retirado.test.ts): su archivo es `zap.png`.
