@@ -1,5 +1,41 @@
 # Relevo del Cerebro
 
+## 14/11/2026, ~13:00 UTC — LEER PRIMERO (cuenta claude5 al 90% semanal; vuelve el 17/11 18:00 UTC)
+
+**Producción = 4a46d1e1c (14/11 06:19 UTC, READY).** Trae la landing nueva y el rescate de mensajes atrasados de WhatsApp (#92
+comprobado). Lo de después (formularios, Spy botón del teléfono, Mauricio, landings) está en main o en sus puntas: sale con el
+deploy automático de las 11:05 UTC o con `node --env-file=C:/dev/mako-api/.env.local scripts/desplegar-ya.mjs` desde
+C:/dev/wt-push-q con la frase de Martín. SIEMPRE mirar el resultado con `scripts/ver-deploy-vercel.mjs`: el del 14/11 05:53
+dio ERROR con GitHub en verde (un CSS module «is not pure», docs/hallazgos-infra.md).
+
+**WhatsApp:** la causa de la voz sorda era el acuse del paquete «status» (NO Baileys rc14). Parche aplicado en Railway el 14/11
+06:22 UTC (misma imagen 2.3.7 + start command); aguantó la primera hora sin QR. Railway tiene una FACTURA IMPAGA del 8/11
+(US$41,99): la paga Martín. Chat: «MaKo en WhatsApp: no callarse» (local_11c0bf11).
+
+**Pendiente de Martín (cada uno en SU chat, con su frase):**
+1. Mauricio (local_d73b692a): «sí» para volver a pendiente la cuota 122 de Raúl Landeros y mandarle la respuesta (texto
+   aprobado). El producto («Volver a pendiente» a la vista, aviso de fecha futura, #98) está en punta/mauricio-resuelto.
+2. Formularios de la llamada con Julio (local_10fb3135, «Probar Web Generator»): todo en main (36fc5e3f8, 281fd8a16); falta la
+   frase para aplicar la migración 0415 y la prueba de punta a punta en el ws 9, después del deploy.
+3. Marketing CoPilot (local_68b7fbdb), prometido a Julio «para el lunes 17/11». Pidió que Martín muestre el panel del navegador
+   (Ctrl+Shift+B) para las capturas del ws 3.
+4. Planes: la propuesta de topes (Esencial sin video, sin replicar landings, 1 competidor; Pro equipo sin tope; WhatsApp 3 en
+   Pro; 2.000 contactos en Esencial; recargas de tokens; Acelerador 3 meses) espera su OK. Martín ya decidió directo con
+   landings: prueba gratis en los DOS planes y los «Incluye» del checkout.
+5. Ficha del lead del CRM como panel a la derecha: tarjeta propuesta task_bdc17eeb («CRM: la ficha del lead como panel a la
+   derecha»). Arrancarla con su proposal_id en el primer mensaje de Martín.
+6. Apify: la clave de Spy da 401 (transcripción de reels y lectura de Instagram); la pega Martín en Integraciones.
+7. Spy: los @ de 17 gurús y la cara de Sarah Tran.
+
+**La llamada con Julio (13/11):** verificada contra main en docs/relevo/llamada-julio-13-11.md (52 puntos). Hecho y en main:
+formularios, Spy 401, Image «no es tu embudo», CRM sin Pixel, hand-off al setter, crear por prompt en el servidor, adjunto
+misterioso, Copywriting desde un link. En curso: CoPilot. Promesas sin respaldo que Martín corrige en su discurso: TikTok en
+Chats, «todos los números», soporte en 1 h, bot de WhatsApp para clientes, app en tiendas, migración desde GoHighLevel.
+
+**Chats vivos:** landings (local_ec06a1f5, animaciones de la portada; punta/landings-vsl), video-desarmar (ticket 97,
+local_0168298b), spy (local_25016f6c), wa-no-callarse, mauricio, probar-web, copilot. Archivados el 14/11 por RAM: Image,
+Copywriting, «MaKo dentro de la app». **Vigía:** `node ~/.claude/guardia/vigia-ci.mjs esperar` en segundo plano al abrir.
+
 ## 12/11/2026, ~03:50 UTC — LEER PRIMERO (cuenta claude4 al 100% semanal; vuelve el 17/11 20:00 UTC)
 
 **Producción = a23bad24f (12/11 03:25 UTC, READY, mirado en pantalla).** Trae todo lo de main de esa hora: la pasarela nueva
