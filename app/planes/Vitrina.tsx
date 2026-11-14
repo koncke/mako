@@ -115,11 +115,14 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
           <h1>El mejor software para vender <em>High Ticket.</em></h1>
           <p className="planes-sub"><strong>Marketing, ventas y entrega del servicio en una sola app.</strong> Con una IA que conoce tu negocio, desde que alguien te descubre hasta que es tu cliente y le entregas lo que compró.</p>
         </header>
+        {/* La calculadora va ARRIBA de las columnas (Martín, 14/11/2026: «yo le di feedback a la tab de precios sobre MaKo
+            Tokens, que debería estar arriba de las columnas»). Estaba al final, después de las columnas Y de la tabla
+            comparativa: quien elegía plan no veía los tokens hasta haber decidido. */}
+        <CalculadoraTokens />
+
         <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} />
 
         <CompararPlanes planes={planes} sufijo={sufijo} />
-
-        <CalculadoraTokens />
 
         {/* LAS MISMAS PREGUNTAS DE LA PORTADA (Martín, 14/11/2026: «si vas a poner en otros lugares preguntas frecuentes, tienen que ser
             siempre las mismas que están en la landing principal»): PREGUNTAS_SITIO, app/vsl/_sitio/datos.ts. */}
