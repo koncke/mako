@@ -250,6 +250,16 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 ---
 
 
+## Main en verde y el despliegue roto: un selector sin clase en un `.module.css` (14/11/2026, Cerebro)
+
+**El síntoma:** el despliegue de las 05:53 UTC (`dpl_GQRTqUeJTxuqzeBoRxYiUkhgfc3t`, c01d5dbf5) dio ERROR con GitHub en verde:
+`Selector "[data-origen="codigo"]" is not pure. Pure selectors must contain at least one local class or id` en
+`app/video-editor/desarmar.module.css` (tres selectores, tres errores). **La causa:** en un CSS module, Next exige que cada
+selector tenga una clase o un id PROPIO; uno sólo de atributo o de etiqueta recién se cae en `next build`, y el CI corre `tsc` y
+los tests, no el build. **La regla:** se cuelga de su clase (`.mezcla [data-origen='x']`). `tests/css-modulos-puros.test.ts`
+hace la cuenta sobre todos los `.module.css` (probado rompiéndolo: caza los mismos tres). Antes de dar por bueno un despliegue,
+`scripts/ver-deploy-vercel.mjs` dice si quedó READY y, si no, por qué.
+
 ## Un `todo` que falla cuenta como ROJO en tests-afectados (14/11/2026, run 1356, SIN HACER)
 
 - **Síntoma:** la punta del Marketing CoPilot salió roja con `tests/chats-mako-envio.test.ts` en la lista, y ese archivo, solo,
