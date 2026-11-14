@@ -27,7 +27,10 @@ import { funnelElegido, tareasDeLaSemana } from '@/lib/media-buyer/copiloto';
 import { leerComunicacion } from '@/lib/copiloto/comunicacion-store';
 import { landingsDelWorkspace } from '@/lib/landing-config-leer';
 import { conexionesViaZernio } from '@/lib/zernio-conectar';
-import { numeroDelReel } from '@/lib/copiloto/piloto';
+import { leerPilotoRedes, numeroDelReel } from '@/lib/copiloto/piloto';
+import { propuestasDelPiloto, ritmoConElPiloto } from '@/lib/copiloto/piloto-redes';
+import { lunesDe } from '@/lib/copiloto/nevera-reglas';
+import { getPlantilla } from '@/lib/plantillas';
 import { verRetargeting } from '@/lib/retargeting';
 import { paginasAnalizadas } from '@/lib/copiloto/web';
 import { leerNevera, ritmoDelPerfil } from '@/lib/copiloto/nevera';
@@ -80,17 +83,32 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
   }
   const vista = config ? await callar(vistaMediaBuyer(ws, config.kpi, config.objetivo), null) : null;
   // La nevera de contenido: lo listo y lo publicado del Calendario, con el ritmo que respondió en el CoPilot (sólo se lee).
-  const nevera = await callar(leerNevera(ws, perfil), null);
+  // El ritmo de la nevera: el del perfil y, encima, lo que configuró en el piloto de Instagram y YouTube (lib/copiloto/piloto-redes.ts).
+  const ritmoBase = ritmoDelPerfil(perfil);
+  const [pilotoRedes, plantillaNevera] = await Promise.all([
+    callar(leerPilotoRedes(ws, ritmoBase), null),
+    callar(runWithWorkspace(ws, () => getPlantilla('copiloto-nevera')), null),
+  ]);
+  const ritmo = pilotoRedes ? ritmoConElPiloto(ritmoBase, pilotoRedes) : ritmoBase;
+  const nevera = await callar(leerNevera(ws, perfil, ritmo), null);
   // La cuenta PROPIA (14/11, lib/copiloto/redes-propias.ts): Instagram por Zernio y Meta, YouTube por la Data API. Con tope de
   // tiempo: una red lenta no frena la pantalla (lo que no llegó, no se muestra).
   const conTope = <T,>(p: Promise<T>, ms: number): Promise<T | null> => Promise.race([p.catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), ms))]);
   const igViva = ig.find((c) => !c.vencida), ytViva = yt.find((c) => !c.vencida);
-  const ritmo = ritmoDelPerfil(perfil);
   const urls = landings.map((l) => l.url);
   const [igPropio, ytPropio] = await Promise.all([
     igViva ? conTope(leerInstagramPropio(ws, igViva.usuario), 8000) : null,
     ytViva ? conTope(leerYoutubePropio(ytViva.usuario), 6000) : null,
   ]);
+  // Lo que propone el piloto esta semana (una tarea por cosa): el reel más visto, el número del reel de prueba y los largos publicados.
+  const reelTop = (igPropio?.publicaciones ?? []).filter((p) => p.tipo === 'reel' && p.vistas != null).sort((a, b) => (b.vistas ?? 0) - (a.vistas ?? 0))[0];
+  const propuestas = pilotoRedes ? propuestasDelPiloto(pilotoRedes, {
+    lunes: lunesDe(nevera?.hoy ?? new Date().toISOString().slice(0, 10)),
+    reelTop: reelTop ? { vistas: reelTop.vistas ?? 0, url: reelTop.url } : null,
+    numeroReel: reel?.numero ?? null,
+    largosPublicados: nevera?.filas.find((x) => x.formato === 'video')?.publicadas30 ?? 0,
+    instagram: !!igViva, youtube: !!ytViva,
+  }) : [];
   const propias = {
     ...(igPropio ? { instagram: puntosInstagram(igPropio, { landings: urls, porSemana: ritmo ? ((ritmo.reel ?? 0) + (ritmo.post ?? 0)) || null : null, hoy: new Date() }) } : {}),
     ...(ytPropio ? { youtube: puntosYoutube(ytPropio, { landings: urls }) } : {}),
@@ -114,6 +132,8 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
     paginas,
     nevera,
     propias,
+    propuestas,
+    pilotoRedes: pilotoRedes ? { instagram: pilotoRedes.instagram, youtube: pilotoRedes.youtube, avisoNevera: plantillaNevera?.enabled ?? true } : null,
     redes: {
       instagram: ig.map((c) => ({ usuario: c.usuario, vencida: !!c.vencida })),
       youtube: yt.map((c) => ({ usuario: c.usuario, vencida: !!c.vencida })),

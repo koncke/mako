@@ -32,7 +32,8 @@ export function ritmoDelPerfil(p: PerfilCopiloto): RitmoNevera | null {
   return { reel: reparto.reels, post: reparto.carruseles, story: reparto.stories };
 }
 
-export async function leerNevera(ws: number, perfil: PerfilCopiloto): Promise<Nevera> {
+/** `ritmo`: el que ya se resolvió (con el piloto de las redes, ./piloto-redes.ts); sin él, el del perfil. */
+export async function leerNevera(ws: number, perfil: PerfilCopiloto, ritmo?: RitmoNevera | null): Promise<Nevera> {
   const tz = await zonaDelNegocio(ws);
   const hoy = diaEn(new Date().toISOString(), tz);
   const piezas = await runWithWorkspace(ws, async () => {
@@ -43,7 +44,7 @@ export async function leerNevera(ws: number, perfil: PerfilCopiloto): Promise<Ne
       return { formato: f.formato, red: p?.red ?? null, dia: diaEn(f.inicio, tz), conArchivo: !!p?.archivo, publicada: p?.publicacion === 'publicada', hecha: f.estado === 'hecho' };
     });
   });
-  const filas = armarNevera(piezas, hoy, ritmoDelPerfil(perfil));
+  const filas = armarNevera(piezas, hoy, ritmo === undefined ? ritmoDelPerfil(perfil) : ritmo);
   const horas = perfil.horas ?? null;
   return { filas, avisos: avisosDeLaNevera(filas, horas), horas, hoy };
 }

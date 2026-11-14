@@ -36,6 +36,7 @@ import type { VistaRT } from '@/lib/retargeting-motor';
 import type { PaginaAnalizada } from '@/lib/copiloto/web';
 import type { Nevera } from '@/lib/copiloto/nevera';
 import type { PuntoRed } from '@/lib/copiloto/redes-propias-reglas';
+import type { PilotoInstagram, PilotoYoutube } from '@/lib/copiloto/piloto-redes';
 import { diaCorto, lunesDe, nombreFormato, type FormatoNevera } from '@/lib/copiloto/nevera-reglas';
 import { CSS_RETARGETING, Retargeting } from './Retargeting';
 import { CSS_COPILOTO } from './copiloto-css';
@@ -66,6 +67,10 @@ export type DatosCoPilot = {
   redes: Record<'instagram' | 'youtube', Array<{ usuario: string; vencida: boolean }>>;
   /** Lo que leyó de su cuenta PROPIA (lib/copiloto/redes-propias.ts): un renglón «bien / a tocar» por punto. Ausente = no se pudo leer. */
   propias?: Partial<Record<'instagram' | 'youtube', PuntoRed[]>>;
+  /** Lo que propone el piloto de las redes esta semana (lib/copiloto/piloto-redes.ts), ya como tareas. */
+  propuestas?: TareaCoPilot[];
+  /** El piloto de Instagram y YouTube (lib/copiloto/piloto-redes.ts) y si el aviso de la nevera está prendido. null = no se pudo leer. */
+  pilotoRedes?: { instagram: PilotoInstagram; youtube: PilotoYoutube; avisoNevera: boolean } | null;
 };
 
 const PASOS: ReadonlyArray<readonly [Paso, string]> = [['analisis', 'Análisis y acción'], ['piloto', 'Piloto automático']];
@@ -218,6 +223,11 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
 
   const numeroDe = (t: Tarjeta): { n: string; de?: string; s: string } => {
     if (paso === 'piloto') {
+      // Instagram y YouTube (14/11): lo que hace el piloto de verdad ahí (publicar, avisar, proponer), contado.
+      if ((t === 'instagram' || t === 'youtube') && datos.pilotoRedes) {
+        const k = cosasDelPiloto(t, datos.pilotoRedes).length;
+        return { n: String(k), s: k === 1 ? 'cosa en marcha' : 'cosas en marcha' };
+      }
       if (t !== 'anuncios') return { n: '—', s: 'Sin piloto todavía' };
       // Sin configurar no hay nada esperando (medido en la maqueta 20: decía «1 espera tu OK» arriba de «configúralo»).
       if (!datos.anuncios.piloto?.encendido) return { n: '—', s: 'Sin configurar' };
@@ -319,7 +329,8 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
               decisiones={decisiones} onDecisiones={setDecisiones} avisar={avisar} />
           )}
           {paso === 'piloto' && tarjeta === 'anuncios' && <Retargeting vista={datos.retargeting} avisar={avisar} />}
-          {paso === 'piloto' && tarjeta !== 'anuncios' && <SinPiloto que={tarjeta === 'oferta' ? 'tu oferta' : tarjeta === 'web' ? 'tu web' : `tu ${NOMBRE_RED[tarjeta]}`} />}
+          {paso === 'piloto' && (tarjeta === 'instagram' || tarjeta === 'youtube') && datos.pilotoRedes && <PilotoRed red={tarjeta} piloto={datos.pilotoRedes} />}
+          {paso === 'piloto' && tarjeta !== 'anuncios' && !((tarjeta === 'instagram' || tarjeta === 'youtube') && datos.pilotoRedes) && <SinPiloto que={tarjeta === 'oferta' ? 'tu oferta' : tarjeta === 'web' ? 'tu web' : `tu ${NOMBRE_RED[tarjeta]}`} />}
         </div>
       </main>
       {todo && <ModalTodoOC estado={oc.estado} parte={parte} onParte={setParte} onCerrar={() => setTodo(false)} onMarcar={oc.marcar} onAbrir={(p, k) => setCosa({ p, k })} onChat={alChat} />}
@@ -351,6 +362,7 @@ function resumenParaTareas(datos: DatosCoPilot, oc: EstadoComunicacion): Resumen
     redes: { instagram: { conectada: conectada('instagram') }, youtube: { conectada: conectada('youtube') } },
     seguidos: datos.reel ? datos.reel.seguidos : null,
     propias: datos.propias,
+    propuestas: datos.propuestas,
     nevera: datos.nevera ? { lunes: lunesDe(datos.nevera.hoy), avisos: datos.nevera.avisos } : undefined,
   };
 }
@@ -567,6 +579,40 @@ function TarjetaRed({ red, paso, cuentas, puntos }: { red: 'instagram' | 'youtub
           ? <Link className="frn-btn frn-btn--primary" href="/competitor-spy">Leer mi {NOMBRE_RED[red]}</Link>
           : <><Link className="frn-btn frn-btn--primary" href="/calendario">Abrir el Calendario</Link><Link className="frn-btn frn-btn--ghost" href="/copywriter">Abrir Copywriting</Link></>}
       </div>
+    </section>
+  );
+}
+
+// ── El piloto de Instagram y YouTube (14/11) ─────────────────────────────────
+// Lo que MaKo hace de verdad en cada red, en frases cortas: publicar lo programado, avisar si se acaba el contenido y proponer (como
+// tarea del Plan) lo que todavía no puede hacer solo. Se configura en ./configurar (pestañas Instagram y YouTube).
+type PilotoRedesVista = NonNullable<DatosCoPilot['pilotoRedes']>;
+function cosasDelPiloto(red: 'instagram' | 'youtube', p: PilotoRedesVista): string[] {
+  const out = ['Publico lo que programas en el Calendario.'];
+  if (p.avisoNevera) out.push('Te aviso por WhatsApp y email si se acaba el contenido.');
+  if (red === 'instagram') {
+    if (p.instagram.proponerHook) out.push(`Cada semana te propongo ${p.instagram.variaciones} variaciones del hook de tu reel más visto.`);
+    if (p.instagram.proponerCarrusel) out.push('Te propongo pasar a carrusel el reel que supera tu número.');
+  } else if (p.youtube.proponerShorts && p.youtube.shortsPorVideo > 0) {
+    out.push(`Te propongo sacar ${p.youtube.shortsPorVideo} shorts de cada video largo.`);
+  }
+  return out;
+}
+function PilotoRed({ red, piloto }: { red: 'instagram' | 'youtube'; piloto: PilotoRedesVista }) {
+  const ig = piloto.instagram, yt = piloto.youtube;
+  const ritmo = red === 'instagram'
+    ? `Tu ritmo: ${ig.reelsSemana} reels, ${ig.carruselesSemana} ${ig.carruselesSemana === 1 ? 'carrusel' : 'carruseles'} y ${ig.historiasSemana} historias por semana.`
+    : `Tu ritmo: ${yt.largosMes} ${yt.largosMes === 1 ? 'video largo' : 'videos largos'} por mes.`;
+  return (
+    <section className="frn-card">
+      <div className="frn-card__head">
+        <h2 className="frn-card__t">Qué hago en tu {NOMBRE_RED[red]}</h2>
+        <Link className="frn-btn frn-btn--ghost frn-btn--chico" href={`/ads-manager/copiloto/configurar?red=${red}`}>Configurar</Link>
+      </div>
+      <ul className="cop-puntos">
+        {cosasDelPiloto(red, piloto).map((t) => <li key={t} data-bien="true"><span className="cop-puntos__m" aria-hidden="true">✓</span>{t}</li>)}
+        <li data-bien="true"><span className="cop-puntos__m" aria-hidden="true">✓</span>{ritmo}</li>
+      </ul>
     </section>
   );
 }

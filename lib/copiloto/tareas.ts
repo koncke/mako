@@ -39,6 +39,8 @@ export type ResumenParaTareas = {
   nevera?: { lunes: string; avisos: Array<{ formato: 'reel' | 'story' | 'post' | 'video'; titulo: string }> };
   /** Lo que leyó de su cuenta PROPIA (./redes-propias-reglas.ts): cada punto a tocar es una tarea; uno bien, resuelto. */
   propias?: Partial<Record<'instagram' | 'youtube', ReadonlyArray<{ clave: string; bien: boolean; tarea?: string; href?: string }>>>;
+  /** Lo que propone el piloto de las redes esta semana (./piloto-redes.ts → propuestasDelPiloto), ya como tareas. */
+  propuestas?: readonly TareaCoPilot[];
 };
 
 const NOMBRE_PARTE: Record<ParteOC, string> = { angulos: 'tus ángulos', voz: 'tu voz', oferta: 'tu oferta' };
@@ -94,6 +96,7 @@ export function tareasDelCoPilot(r: ResumenParaTareas): { tareas: TareaCoPilot[]
       else if (p.bien) resueltas.push(p.clave);
     }
   }
+  if (r.propuestas) tareas.push(...r.propuestas);
   if (r.nevera) {
     const n = tareasDeLaNevera(r.nevera);
     tareas.push(...n.tareas);

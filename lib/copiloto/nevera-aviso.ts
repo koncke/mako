@@ -17,6 +17,8 @@ import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
 import { leerNevera, ritmoDelPerfil } from './nevera';
 import { huellaAvisoNevera, lunesDe, textoAvisoNevera } from './nevera-reglas';
 import { tareasDeLaNevera } from './tareas';
+import { leerPilotoRedes } from './piloto';
+import { ritmoConElPiloto } from './piloto-redes';
 import { sincronizarConElPlan } from './tareas-plan';
 
 /** Una semana: con la misma huella (lunes + formatos) no se repite; el lunes siguiente es otra huella. */
@@ -26,8 +28,12 @@ export type ResultadoAvisoNevera = { ws: number; avisos: number; tareas: number;
 
 export async function avisarNevera(ws: number): Promise<ResultadoAvisoNevera> {
   const perfil = await leerPerfilCopiloto(ws);
-  if (!ritmoDelPerfil(perfil)) return { ws, avisos: 0, tareas: 0, enviado: false, email: false, motivo: 'sin ritmo ni tiempo en el CoPilot' };
-  const nevera = await leerNevera(ws, perfil);
+  // El ritmo: el del perfil (la charla o la entrada) y, encima, lo que configuró en el piloto de Instagram y YouTube.
+  const base = ritmoDelPerfil(perfil);
+  const piloto = await leerPilotoRedes(ws, base).catch(() => null);
+  const ritmo = piloto ? ritmoConElPiloto(base, piloto) : base;
+  if (!ritmo) return { ws, avisos: 0, tareas: 0, enviado: false, email: false, motivo: 'sin ritmo ni tiempo en el CoPilot' };
+  const nevera = await leerNevera(ws, perfil, ritmo);
   const lunes = lunesDe(nevera.hoy);
   const { tareas, resueltas } = tareasDeLaNevera({ lunes, avisos: nevera.avisos });
   // El Plan, aunque nadie abra la pantalla: crea lo que falta esta semana y cierra lo que ya se cubrió.
