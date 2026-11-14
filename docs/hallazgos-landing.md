@@ -5715,3 +5715,36 @@ SIN HACER: el marco «Chat de MaKo» (necesita grabar `PanelMakoIA` con una resp
 no se pudo correr (código 134 sin heap: 4 GB libres no alcanzan); el póster de la portada (`sitio/carruseles.jpg`); el cronograma de PostNitro no va
 (Image no publica: el Calendario publica una imagen o un video sueltos, no un carrusel); su editor en vivo «Pruébalo, no es un video»
 es la grabación de «Editar».
+
+## Copywriting como The Copy Machine: la referencia no se mueve, el sol y la luna congela la pestaña elegida (14/11/2026, noche)
+
+Martín: «que la copia salga muy fiel a todas las animaciones… los videos, los hover, todo». The Copy Machine se miró con Chromium a
+1440 y 390 (capturas, video de la sesión, `getAnimations()`, espías de `MutationObserver`/`IntersectionObserver`, estilos antes y
+después de cada hover; notas: `referencias-landings/copywriting/`; valores: `docs/diseno/landings-competencia/copywriting.md`).
+Código: `app/vsl/_competencia/disenos/copywriting.tsx` y `app/vsl/_competencia/copywriting.ts` (`REPLICAS`).
+
+- **No tiene videos ni apariciones al bajar.** Lo único que corre solo es el botón de la banda de ejemplos (y su precio). Lo fiel
+  es lo que se toca: la banda que se abre (la franja se va, filas 0fr → 1fr en ,55 s), el riel de reseñas SIN FIN (una copia del
+  juego a cada lado, salto en silencio al quedarse quieto) y el acordeón de una pregunta a la vez (`<details name>` lo hace sin JS).
+- **⚠️ Su CSS tiene un `:hover` que no se ve.** `.case-tabs button:hover` existe, pero la regla de la página abierta pone el fondo
+  con más especificidad: la pestaña NO cambia al pasar el mouse, y la elegida no lleva sombra. Leído del CSS se habría copiado mal;
+  se mide el estilo calculado después del hover (`relevar.mjs` del scratchpad lo hace con 60 y 700 ms).
+- **⚠️ El sol y la luna lee los colores UNA vez al cargar: lo que cambia con `:checked` queda congelado.** La pestaña elegida
+  al cargar (tinta) recibe en línea el fondo claro del modo claro y queda clara para siempre; la que se elige después sí se ve
+  de tinta. Lo mismo la tarjeta de tinta del caso. **Regla:** un estado que se elige (pestañas, radios) va con `data-tema-fijo` y
+  su modo oscuro escrito a mano con `html[data-sitio-modo="oscuro"] …` (el script pone ese atributo).
+- **Un contenedor variante con `padding:` abreviado le gana al `padding-block` del hijo que comparte el elemento.**
+  `.d-copywriting-cont.d-copywriting-excont { padding: 0 24px }` (dos clases) borró el `padding-block: 24px` de la franja (una
+  clase) y la banda medía 63 px en vez de 108. Las variantes de contenedor tocan sólo `padding-inline`.
+- **Su contenedor no es uno:** la banda, las reseñas y «Start with…» usan 1132 px con 24 de margen; el resto, 1116 con 32.
+- **Desde esta tarea no se puede leer la base** (el permiso lo negó al buscar la conexión). Los textos reales de las réplicas
+  salieron de las notas (`probar-copy-1311/replicas-lado-a-lado.html`, `copy-reel-hormozi/`): por eso el anuncio va como texto y no
+  como grabación de la pantalla.
+- **El candado `.grabando` estuvo tomado 30 minutos por otras dos tareas**: lo que no necesita navegador (leer su CSS con `curl`,
+  escribir el código) se adelanta mientras tanto, y se toma con `noclobber`.
+
+SIN HACER: la tercera pestaña (no hay otra réplica de Hormozi limpia: las demás de probar-copy-1311 son de otros creadores o mezclan
+el voseo); grabar la pantalla real de Copywriting con la réplica del anuncio (página g49hpdqrw69 del ws 9; el banco del 12/11 que
+arma el Copywriter con esbuild está en el scratchpad, `banco-copy/`); la charla de su «Chief» en el renglón 3 (sería un chat de MaKo
+dibujado; las preguntas reales de la réplica del short tienen dos respuestas escritas por un agente y una oferta de prueba con
+errata); las comillas de sus tarjetas de reseñas (el caso no es una cita).
