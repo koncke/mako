@@ -419,8 +419,10 @@ de tiempo); curso y comunidad sin textos de más; Comparaciones con la tabla ent
 tarjetas limpias; el ahorro en dos columnas y sin HeyGen; el checkout sin el subtítulo de Mercado Pago, sin el renglón repetido ni subtotal.
 
 **En curso, con agentes** (uno por landing, como mucho tres a la vez por la RAM; el candado de navegador es C:/dev/bancos-portada/.grabando):
-Cobranza contra Rebill (desde las 10:05); Email contra beehiiv (desde las 10:20); Dashboard contra Reportei (desde las 10:55).
-ENTREGADOS: Agenda (0c0ead0f7; sin «AI Agent»; para decidir: una 4.ª pestaña con el AI Step «Que llegue a la reunión», y si la marquesina
+Email contra beehiiv (desde las 10:20); Dashboard contra Reportei (desde las 10:55); Ads Analyst contra Gethookd (desde las 11:25).
+**SIN SUBIR** (el filtro de la punta corre sobre el disco y el test de Email a medio hacer lo deja rojo; MAKO_SIN_FILTRO no está permitido):
+Agenda y Cobranza suben con Email. ENTREGADOS: Cobranza (930ecd00e; para decidir: Historias queda clara en los dos modos, fiel a Rebill;
+«Ver cómo cobras» en lugar de su «Hablar con un experto»). Agenda (0c0ead0f7; sin «AI Agent»; para decidir: una 4.ª pestaña con el AI Step «Que llegue a la reunión», y si la marquesina
 de logos se queda sólo con lo de la agenda). CRM (0b38e0323; falta el video de «Cerrar»; **para decidir con Martín:** el popup de salida, sin formulario, a /planes, ¿se
 queda?; el mini-VSL de Panda de la ventana del hero, ¿sigue vigente?; el hero queda oscuro también en modo claro). Web Generator (f6a10202a + 2c1f0167d: sin corchetes de plantilla, el Panel real en el hero). Chats (90845e9c5). Offer (75cd787d0; el video flota al bajar; mismo «para decidir» de claro/oscuro que /vsl/ads). Copywriting (bb6a9be89; faltan la tercera pestaña de ejemplos y la charla del «Chief»). Marketing CoPilot (bc770ddf3; **para decidir con Martín:** en modo claro las bandas oscuras pasan a
 celeste por la regla del 12/11, y en Master Ads son verde profundo: si quiere la copia fiel, `data-tema-fijo` en esas secciones). Image
@@ -432,8 +434,7 @@ Automations (a9d476b7d, la toma final; el banco: `C:/dev/bancos-portada/banco-fl
 `codificar-bucle.sh`) y Competitor Spy (a319a85f4: las 12 pestañas con su grabación real, la lluvia y la órbita; sin hacer: los íconos animados
 del menú y el pie de Foreplay, el segundo botón de cada fila). **Para decidir (Spy):** `lib/funciones-mako.ts` dice que Spy todavía no lee
 solo todos los días y `plan-spy.md` dice que los Seguidos se leen a diario desde el 13/11; la landing dice «al sumarlo y cada vez que abres
-su ficha» hasta que se aclare. **Lo que sigue, en este orden:** Ads Analyst
-(Gethookd), Funnels (Hyros), Ops Center (Holo), Plan (Motion). Con varios agentes escribiendo `docs/hallazgos-landing.md` y `docs/hallazgos.md`, cada commit lleva SÓLO la entrada de su landing: se
+su ficha» hasta que se aclare. **Lo que sigue, en este orden:** Funnels (Hyros), Ops Center (Holo), Plan (Motion). Con varios agentes escribiendo `docs/hallazgos-landing.md` y `docs/hallazgos.md`, cada commit lleva SÓLO la entrada de su landing: se
 arma el archivo de HEAD más esa sección y se stagea sin tocar la copia de trabajo (`git hash-object -w --stdin` + `git update-index
 --cacheinfo`; el script: scratchpad `stage-parcial.py`). El brief de cada agente: scratchpad `brief-landing-v2.txt` (el común, con todas las trampas de la noche; cada pedido sólo da NOMBRE,
 SLUG, ARCHIVO, REF, URL y lo propio de la landing). El de antes: `brief-landing.txt` (si se perdió: el de
