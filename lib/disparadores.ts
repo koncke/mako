@@ -59,6 +59,13 @@ export const TRIGGER_EMAIL_RECIBIDO = 'email_recibido';
  */
 export const TRIGGER_PAGO = 'pago';
 /**
+ * «Envió el formulario» (14/11/2026, la llamada con Julio Mazariegos: «creo tres landings… ¿cómo distingo qué formulario
+ * dispara el flujo?», docs/relevo/llamada-julio-13-11.md, punto 5). CUÁL lo dice `pieza`: un formulario, encuesta o quiz del
+ * Web Generator (`form:<id>`) o «cualquier formulario de la landing X» (`landing:<docId>`), con el nombre que se ve. Lo emite
+ * el opt-in (app/api/track/optin) en el acto, también cuando el contacto ya existía.
+ */
+export const TRIGGER_FORMULARIO = 'formulario_enviado';
+/**
  * Un Recurrente cuyo «A quién» es SÓLO el grupo de MaKo: no hay cohorte de leads. Con cohorte y
  * grupo a la vez, el `trigger_tipo` es el de la cohorte y `grupo: true`.
  */
@@ -81,7 +88,7 @@ export const TRIGGER_AVISO_MAKO = 'aviso_mako';
  */
 export const TRIGGERS_SOLO_EVENTO: ReadonlySet<string> = new Set([
   TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO,
-  TRIGGER_PAGO,
+  TRIGGER_PAGO, TRIGGER_FORMULARIO,
 ]);
 
 /**
@@ -112,7 +119,7 @@ export const TRIGGERS_NUEVOS: readonly string[] = [...TRIGGERS_SOLO_EVENTO, TRIG
  * y el evento de MaKo quedaba sin evento.
  */
 export const SOLO_DESDE_EL_CRON: ReadonlySet<string> = new Set([
-  TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_PAGO, TRIGGER_SOLO_GRUPO, ...TRIGGERS_DEL_EMISOR,
+  TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_PAGO, TRIGGER_FORMULARIO, TRIGGER_SOLO_GRUPO, ...TRIGGERS_DEL_EMISOR,
 ]);
 export const MOTIVO_SOLO_DESDE_EL_CRON = 'Ese disparador se elige en el CRON de la automatización.';
 
@@ -130,7 +137,7 @@ export const TOPE_IGNORAR = 50;
  * `pagos` (11/10/2026): los eventos de la pasarela (Stripe / Mercado Pago). Martín eligió que sea un BOTÓN
  * PROPIO y no un evento adentro de «Producto», con la grilla en 4+3 — nunca 3+3+1, que se ve roto.
  */
-export type ClaseDisparador = 'producto' | 'recurrente' | 'etiqueta' | 'instagram' | 'messenger' | 'email' | 'pagos' | 'mako';
+export type ClaseDisparador = 'producto' | 'recurrente' | 'etiqueta' | 'instagram' | 'messenger' | 'email' | 'pagos' | 'formulario' | 'mako';
 
 /** Los botones gigantes de la primera pantalla del CRON (CRON puntos 1, 2, 6, 7 y 8, y Pagos), en ese orden. */
 export const CLASES_DISPARADOR: ReadonlyArray<{ clase: ClaseDisparador; label: string }> = [
@@ -141,6 +148,8 @@ export const CLASES_DISPARADOR: ReadonlyArray<{ clase: ClaseDisparador; label: s
   { clase: 'messenger', label: 'Messenger' },
   { clase: 'email', label: 'Email' },
   { clase: 'pagos', label: 'Pagos' },
+  // 14/11/2026: con «Formulario» son ocho, 4+4 (nunca 3+3+1, ver arriba).
+  { clase: 'formulario', label: 'Formulario' },
 ];
 
 /** Un evento de un canal. `apagado` = el motivo por el que todavía no se ofrece (como en ManyChat). */
@@ -466,7 +475,24 @@ export type Disparador = {
   cron_proxima_at?: string | null;
   /** Recurrente: además de (o en vez de) la cohorte, el grupo de WhatsApp de MaKo del negocio. */
   grupo?: boolean;
+  /**
+   * Sólo «Envió el formulario» (`TRIGGER_FORMULARIO`): la pieza del Web Generator (lib/editor-landing/piezas.ts) por su clave
+   * (`form:<id>` o `landing:<docId>`) y el nombre con que se ve en la tarjeta (el de cuando se eligió).
+   */
+  pieza?: PiezaDelCron;
 };
+
+/** El formulario de un CRON «Envió el formulario»: su clave y su nombre. */
+export type PiezaDelCron = { clave: string; nombre: string };
+const FORMA_PIEZA_CRON = /^(form:[A-Za-z0-9_-]{1,40}|landing:\d{1,12})$/;
+/** La pieza leída de cualquier lado: clave válida y nombre corto, o null. */
+export function sanearPiezaCron(v: unknown): PiezaDelCron | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  if (typeof o.clave !== 'string' || !FORMA_PIEZA_CRON.test(o.clave)) return null;
+  const nombre = typeof o.nombre === 'string' ? o.nombre.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 160) : '';
+  return { clave: o.clave, nombre: nombre || (o.clave.startsWith('landing:') ? 'una landing' : 'un formulario') };
+}
 
 /** La fila de `nutricion_secuencias` que hace falta para armar la lista. */
 export type FilaDisparadores = {
@@ -535,6 +561,10 @@ function higiene(d: Disparador): Disparador {
     out.etapa = d.etapa;
   }
   if (t === TRIGGER_ETIQUETA) out.etiqueta_id = d.etiqueta_id ?? null;
+  if (t === TRIGGER_FORMULARIO) {
+    const pz = sanearPiezaCron(d.pieza);
+    if (pz) out.pieza = pz;
+  }
   if (CON_IGNORAR.has(t)) out.ignorar = [...new Set((d.ignorar ?? []).filter((n) => idPositivo(n) != null))].slice(0, TOPE_IGNORAR);
   if (CON_SUBTIPO.has(t)) out.subtipo = d.subtipo ?? null;
   // Las palabras clave, sólo en un CRON de comentario (ticket #17): en otro evento serían un filtro que nadie ve.
@@ -580,6 +610,7 @@ export function sanearDisparador(raw: unknown): Disparador | null {
     cron: o.cron == null ? null : sanearCron(o.cron),
     cron_proxima_at: fechaIso(o.cron_proxima_at),
     grupo: o.grupo === true,
+    ...(sanearPiezaCron(o.pieza) ? { pieza: sanearPiezaCron(o.pieza)! } : {}),
   });
 }
 
@@ -697,6 +728,8 @@ export function firmaDisparador(d: Disparador): string {
     ...(h.palabras?.length ? [[...h.palabras].map((x) => x.toLowerCase()).sort(), h.coincidencia ?? 'contiene'] : []),
     // La publicación (ticket #25): la de la guía no es el mismo CRON que cualquier publicación. Sólo el id: el texto es cómo se la nombra.
     ...(h.publicacion ? [`publicacion:${h.publicacion.id}`] : []),
+    // El formulario (14/11/2026): el de Regalo no es el mismo CRON que el de Agenda. Sólo la clave: el nombre es cómo se lo ve.
+    ...(h.pieza ? [`pieza:${h.pieza.clave}`] : []),
   ]);
 }
 
@@ -743,6 +776,7 @@ function claseDelTipo(t: string): ClaseDisparador | null {
   if (t === TRIGGER_MESSENGER) return 'messenger';
   if (t === TRIGGER_EMAIL_RECIBIDO) return 'email';
   if (t === TRIGGER_PAGO) return 'pagos';
+  if (t === TRIGGER_FORMULARIO) return 'formulario';
   if (t === TRIGGER_AVISO_MAKO) return 'mako';
   if (t === TRIGGER_SOLO_GRUPO) return 'recurrente';
   return null;
@@ -811,6 +845,7 @@ export function conDisparo(d: Disparador, a: DisparoActual): Disparador {
 export function borradorDeClase(clase: ClaseDisparador, id: string, cronPorDefecto: CronAviso): Disparador {
   if (clase === 'recurrente') return { id, trigger_tipo: 'manual', cron: cronPorDefecto, cron_proxima_at: null };
   if (esClaseDeEventos(clase)) return { id, trigger_tipo: TRIGGER_DE_CANAL[clase], subtipo: null };
+  if (clase === 'formulario') return { id, trigger_tipo: TRIGGER_FORMULARIO };
   if (clase === 'etiqueta') return { id, trigger_tipo: 'manual' };
   return { id, trigger_tipo: 'manual' };
 }
@@ -836,6 +871,7 @@ export function problemaDeDisparador(d: Disparador, o: { unico: boolean }): stri
     if (!etapasDe({ etapa: d.etapa ?? null, etapas: d.etapas ?? null }).length) return 'Elige la etapa';
   }
   if (t === TRIGGER_ETIQUETA && !d.etiqueta_id) return 'Elige la etiqueta';
+  if (t === TRIGGER_FORMULARIO && !d.pieza) return 'Elige el formulario';
   if (CON_SUBTIPO.has(t)) {
     const ev = eventosDe(claseDeDisparador({ trigger_tipo: t, cron: null })).find((e) => e.subtipo === d.subtipo);
     if (!ev) return 'Elige el evento';
@@ -893,7 +929,7 @@ export const MOTIVO_EVENTO_RETIRADO = 'Ese evento se retiró: va en «Un Lead Ag
 // ── Cuándo dispara un evento ────────────────────────────────────────────────────────────────────
 
 /** Los eventos de los disparadores nuevos (los de siempre los decide lib/nutricion-etapa.ts). */
-export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido' | 'pago';
+export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido' | 'pago' | 'formulario';
 
 /**
  * Lo que el evento dice de sí para decidir: la etiqueta, el subtipo del canal y, de un comentario, lo que escribió la persona
@@ -903,6 +939,12 @@ export type CtxDisparo = {
   etiquetaId?: number | string | null; subtipo?: string | null; texto?: string | null;
   /** De qué publicación es el comentario (`comment.platformPostId`): la publicación del CRON, ticket #25. */
   publicacion?: string | null;
+  /**
+   * «Envió el formulario» (14/11/2026): la clave del formulario que se llenó (`form:<id>`) y la de su landing
+   * (`landing:<docId>`). Un CRON arranca si su pieza es cualquiera de las dos.
+   */
+  formulario?: string | null;
+  landing?: string | null;
 };
 
 /**
@@ -947,6 +989,12 @@ export function disparaPorEvento(
   if (evento === 'pago') {
     const sub = typeof ctx?.subtipo === 'string' ? ctx.subtipo : '';
     return t === TRIGGER_PAGO && !!sub && d.subtipo === sub;
+  }
+  // «Envió el formulario»: el MISMO formulario, o cualquiera de su landing. Sin pieza en el CRON o sin claves en el evento, nada
+  // (un opt-in de una página de afuera no trae formulario y no puede caer en «entonces todos»).
+  if (evento === 'formulario') {
+    const clave = d.pieza?.clave;
+    return t === TRIGGER_FORMULARIO && !!clave && (clave === ctx?.formulario || clave === ctx?.landing);
   }
   return false;
 }
@@ -1147,6 +1195,12 @@ export function textoQuien(d: Disparador, n: NombresDeDisparo): string {
   return partes.join(' y ');
 }
 
+/** «Envió el formulario «Regalo»», «Envió cualquier formulario de «Lanzamiento»», o lo que falta. */
+export function textoDeFormulario(p: PiezaDelCron | null | undefined): string {
+  if (!p) return 'Elige el formulario';
+  return p.clave.startsWith('landing:') ? `Envió cualquier formulario de «${p.nombre}»` : `Envió el formulario «${p.nombre}»`;
+}
+
 /** LO QUE DICE CADA FILA DE LA TARJETA CRON (una por disparador, la dibuja el lienzo). */
 export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
   if (d.cron) {
@@ -1162,6 +1216,7 @@ export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
   if (t === 'manual') return TEXTO_SIN_ELEGIR;
   if (t === TRIGGER_ETIQUETA_AGREGADA) return TEXTO_ETIQUETA_AGREGADA;
   if (t === TRIGGER_ETIQUETA_QUITADA) return TEXTO_ETIQUETA_QUITADA;
+  if (t === TRIGGER_FORMULARIO) return textoDeFormulario(d.pieza);
   if (CON_SUBTIPO.has(t)) {
     const ev = eventosDe(claseDeDisparador({ trigger_tipo: t, cron: null })).find((e) => e.subtipo === d.subtipo);
     // Con las palabras clave del comentario (ticket #17): «El usuario comenta tu publicación o Reel con «fiesta» o «guía»».

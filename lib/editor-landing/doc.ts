@@ -176,8 +176,29 @@ export type ColorTema = (typeof COLORES_TEMA)[number];
 export const TIPOS_GRAFICO = ['barras', 'columnas', 'columnasApiladas', 'lineas', 'area', 'circular', 'dona'] as const;
 export type TipoGrafico = (typeof TIPOS_GRAFICO)[number];
 
-export const TIPOS_CAMPO = ['nombre', 'email', 'telefono', 'empresa', 'texto', 'textoLargo', 'opciones'] as const;
+/**
+ * Los tipos de campo de un formulario. Los siete primeros son los de siempre; los del 14/11/2026 salen de la llamada con Julio
+ * Mazariegos («necesito formularios, encuestas y quiz», docs/relevo/llamada-julio-13-11.md, punto 1a): número, fecha, selección
+ * múltiple (casillas), desplegable, escala del 1 al 10, casilla de consentimiento y oculto (un valor fijo que la persona no ve y
+ * que llega al lead, por ejemplo «campaña: regalo»).
+ */
+export const TIPOS_CAMPO = [
+  'nombre', 'email', 'telefono', 'empresa', 'texto', 'textoLargo', 'opciones',
+  'multiple', 'desplegable', 'numero', 'fecha', 'escala', 'consentimiento', 'oculto',
+] as const;
 export type TipoCampo = (typeof TIPOS_CAMPO)[number];
+/**
+ * Los SIETE de siempre, los que ofrece la API de MaKo (`configurar_formulario_landing`). ⚠️ No son todos A PROPÓSITO (14/11/2026):
+ * con los catorce, el esquema de esa herramienta crecía ~100 caracteres y dejaba de entrar en el presupuesto del turno (el techo
+ * de Groq, que no se sube: tests/ops-center-clasificador-app.test.ts, «cambia el formulario de la landing»). Los nuevos se usan
+ * desde el editor.
+ */
+export const TIPOS_CAMPO_API = ['nombre', 'email', 'telefono', 'empresa', 'texto', 'textoLargo', 'opciones'] as const satisfies readonly TipoCampo[];
+/** Los tipos que llevan una lista de opciones (dos o más). */
+export const CAMPOS_CON_OPCIONES: ReadonlySet<TipoCampo> = new Set<TipoCampo>(['opciones', 'multiple', 'desplegable']);
+/** Qué es el bloque: un formulario de contacto, o una encuesta (las mismas piezas, pensadas como preguntas). */
+export const CLASES_FORMULARIO = ['formulario', 'encuesta'] as const;
+export type ClaseFormulario = (typeof CLASES_FORMULARIO)[number];
 
 export const ALTOS_HTML_LIBRE = [120, 200, 300, 400, 500, 600, 800] as const;
 
@@ -315,8 +336,17 @@ export type AttrsImagen = { src: string; alt: string; ancho: number; alinea: Ali
 export type AttrsVideo = { src: string; ancho: number; autoplay: boolean; bucle: boolean; poster: string | null };
 /** Lo mismo que el nodo `insertado` de EditorRico: lo arma lib/embeds.ts. */
 export type AttrsInsertado = { src: string; proveedor: string; alto: number | null };
-export type CampoFormulario = { id: string; tipo: TipoCampo; etiqueta: string; requerido: boolean; opciones: string[] };
-export type AttrsFormulario = { campos: CampoFormulario[]; boton: string; exito: string; redirigir: string | null };
+/** `valor`: sólo el campo oculto (lo que llega al lead); en los demás, ''. */
+export type CampoFormulario = { id: string; tipo: TipoCampo; etiqueta: string; requerido: boolean; opciones: string[]; valor?: string };
+/**
+ * `id` = el id ESTABLE del formulario (14/11/2026): la página publicada lo lleva en `data-mako-form`, el Pixel lo manda con el
+ * opt-in y el CRM rutea por él (lib/editor-landing/fuentes.ts). `nombre` = el que le puso el negocio ('' = el de siempre,
+ * «<landing> · <página>»). Los dos van PRIMERO: el `{}` de `attrsFormulario` declara los atributos del nodo en TipTap.
+ */
+export type AttrsFormulario = {
+  id: string | null; nombre: string; clase: ClaseFormulario;
+  campos: CampoFormulario[]; boton: string; exito: string; redirigir: string | null;
+};
 export type SerieGrafico = { nombre: string; valores: number[] };
 export type AttrsGrafico = {
   tipo: TipoGrafico; titulo: string; categorias: string[]; series: SerieGrafico[];

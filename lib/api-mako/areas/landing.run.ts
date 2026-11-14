@@ -22,6 +22,8 @@ import type { Runners, Ctx, Preparado, Ejecutado, SalidaLectura } from '../tipos
 import { conLanding, sinLanding, landingDe, MAX_LANDINGS } from '@/lib/landing-config';
 // Los productos que una página puede recibir: LOS MISMOS que ofrece el paso 2 del Pixel (lib/landing-funnel.ts).
 import { productosAsignables } from '@/lib/landing-funnel';
+import { asignacionesDelNegocio, asignarPieza, landingsConPiezas } from '@/lib/piezas-web';
+import { piezaPorTexto } from '@/lib/editor-landing/piezas';
 import { NOMBRE_CONVERSION, esConversion, type Conversion } from '@/lib/landing-conversion';
 import { normalizarUrl as normalizarPagina } from '@/lib/landing-paginas';
 import { isIP } from 'node:net';
@@ -196,9 +198,18 @@ export const RUNNERS: Runners = {
       const { landings, formato } = await leerLandings();
       // Los que se pueden asignar (guardar_landing → productos). null = no se pudo leer: se calla, no se afirma «ninguno».
       const disponibles = await productosAsignables().catch(() => []);
+      // Las landings PUBLICADAS del Web Generator con lo que traen al CRM (14/11/2026, lib/editor-landing/piezas.ts). null = no
+      // se pudo leer: se calla, no se afirma «ninguna».
+      const [web, asignadas] = await Promise.all([landingsConPiezas().catch(() => null), asignacionesDelNegocio().catch(() => ({}))]);
       return json({
         landings: landings.map((l) => ({ url: l.url, productos: l.funnelIds ?? [], gracias: l.gracias === true, conversion: l.conversion ?? null })),
         ...(disponibles.length ? { productosDisponibles: disponibles.map((p) => ({ embudoId: p.id, nombre: p.nombre, principal: p.esDefault })) } : {}),
+        ...(web ? {
+          webGenerator: web.map((l) => ({
+            id: l.docId, titulo: l.titulo, url: l.url,
+            formularios: l.piezas.map((p) => ({ clave: p.clave, tipo: p.tipo, nombre: p.nombre, pagina: p.pagina, embudos: (asignadas as Record<string, number[]>)[p.clave] ?? [] })),
+          })),
+        } : {}),
         total: landings.length, tope: MAX_LANDINGS,
         ...(formato === 'viejo' && landings.length ? { nota: 'Lista leída del formato anterior: se migra sola la primera vez que se guarde una landing.' } : {}),
         ...(landings.length ? {} : { nota: 'El negocio no declaró ninguna landing todavía.' }),
@@ -1225,6 +1236,34 @@ export const RUNNERS: Runners = {
     },
   },
 
+  asignar_formulario_a_funnel: {
+    preparar: async (input): Promise<Preparado> => {
+      const texto = str(input, 'formulario');
+      const embudoId = num(input, 'embudoId');
+      if (!texto) return { error: 'Falta el formulario (de listar_landings → webGenerator).', faltan: ['formulario'] };
+      if (!embudoId) return { error: 'Falta el embudoId (de listar_landings → productosDisponibles).', faltan: ['embudoId'] };
+      const quitar = bool(input, 'quitar') === true;
+      const [landings, disponibles, asignadas] = await Promise.all([landingsConPiezas(), productosAsignables().catch(() => []), asignacionesDelNegocio()]);
+      const p = piezaPorTexto(landings, texto);
+      if (!p.ok) return { error: p.opciones.length ? `${p.motivo} Puede ser: ${p.opciones.join(' · ')}.` : p.motivo };
+      const f = disponibles.find((x) => x.id === embudoId);
+      if (!f) return { error: `Ese funnel no existe en este negocio. Los que hay: ${disponibles.map((x) => `${x.nombre} (${x.id})`).join(', ') || 'ninguno'}.` };
+      const ya = (asignadas[p.clave] ?? []).includes(embudoId);
+      if (ya !== quitar) return { error: quitar ? `«${p.nombre}» no entra a ${f.nombre}: no hay nada que quitar.` : `«${p.nombre}» ya entra a ${f.nombre}.`, yaEstaba: true };
+      return {
+        payload: { clave: p.clave, embudoId, quitar },
+        resumen: quitar ? `Los leads de «${p.nombre}» dejan de entrar a ${f.nombre}.` : `Los leads de «${p.nombre}» entran a ${f.nombre}, en su etapa de entrada.`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      try {
+        const despues = await asignarPieza(String(payload.clave), Number(payload.embudoId), payload.quitar !== true);
+        return { ok: true, resumen: payload.quitar === true ? 'Listo: ya no entra a ese funnel.' : 'Listo: los leads de ese formulario entran a ese funnel.', datos: { clave: payload.clave, embudos: despues[String(payload.clave)] ?? [] } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo asignar (${mensaje(e)}).` };
+      }
+    },
+  },
   despublicar_landing: {
     preparar: async (input, ctx): Promise<Preparado> => {
       const id = num(input, 'id');

@@ -12,12 +12,12 @@
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO } from './nutricion-familias';
 import {
-  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_PAGO,
+  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_PAGO, TRIGGER_FORMULARIO,
 } from './disparadores';
 
 export type EventoNutricion =
   | 'lead_nuevo' | 'agenda_nueva' | 'etapa' | 'entrega' | 'etiqueta' | 'pago'
-  | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido';
+  | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido' | 'formulario';
 
 // Qué triggers responden a cada evento. Los cohortes siguen siendo la fuente de
 // verdad de A QUIÉN le toca: acá solo decidimos QUÉ secuencias mirar ya mismo.
@@ -45,6 +45,9 @@ export const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
   // Los pagos (Stripe / Mercado Pago, 11/10/2026): los emite el webhook de la pasarela por `enrolarPorPago`
   // (lib/pago-entrante.ts), DESPUÉS de asentar el pago en el CRM. `disparaPorEvento` pregunta por CUÁL evento.
   pago: [TRIGGER_PAGO],
+  // «Envió el formulario» (14/11/2026): lo emite el opt-in de una landing (app/api/track/optin). `disparaPorEvento` pregunta por
+  // CUÁL formulario (o cualquiera de su landing).
+  formulario: [TRIGGER_FORMULARIO],
 };
 
 /**

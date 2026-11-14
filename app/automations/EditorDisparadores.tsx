@@ -55,9 +55,10 @@ import {
   disparadoresDe, sanearDisparadores, firmaLista, nuevoIdDisparador, problemaDeDisparador, textoDeDisparador, deSiempreDisparador,
   valoresQuien, quienTrasTocar, valorEtiqueta, conValorEtiqueta, alternarIgnorar, textoQuien, VALOR_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA, TEXTO_GRUPO,
-  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, conPalabras, conPublicacion, queSeComparaConPalabras,
+  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_FORMULARIO, conPalabras, conPublicacion, queSeComparaConPalabras,
   type ClaseDisparador, type ClaseDeEventos, type Disparador, type EstadoCanales,
 } from '@/lib/disparadores';
+import { FormularioDelCron } from './FormularioDelCron';
 // Las palabras clave del CRON de comentario (ticket #17 de Leandro, 28/10/2026: «Tal cual como lo hace manychat»).
 import { COINCIDENCIAS, palabrasDeTexto, problemaDePalabras, type Coincidencia } from '@/lib/palabras-clave';
 // Y la publicación o el Reel (ticket #25 de Leandro, 29/10/2026).
@@ -760,6 +761,17 @@ function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, 
               onChange={(v) => onCambiar(alternarIgnorar(d, Number(v)))} ariaLabel="Etiquetas que no disparan" />
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (clase === 'formulario') {
+    return (
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <Volver onClick={onVolver} disabled={busy} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <FormularioDelCron d={d} disabled={busy} onElegir={(pieza) => onCambiar({ id: d.id, trigger_tipo: TRIGGER_FORMULARIO, pieza })} />
+        </div>
       </div>
     );
   }
