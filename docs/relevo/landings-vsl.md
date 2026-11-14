@@ -229,6 +229,70 @@ process») y ningún banco del scratchpad compilaba. Ahí están todos (`banco-v
 `banco-copilot-hoy`, `banco-ficha`, `banco-crm`, `banco-clase`), con `build.mjs`, `entrada.tsx` y `grabar.mjs`, y sobreviven a la
 sesión. Grabar pide 3 GB de RAM libres (la guardia corta antes).
 
+## Undécima vuelta (14/11/2026): Martín mirando el visor — menos secciones, animaciones que se lean
+
+Martín, textual en lo esencial: «dentro de la animación de Competitor Spy… aparecen las caricaturas de todos los gurús y que se
+selecciona Hormozi… la animación de ordenar las tarjetas con sus reels… replicar el carrusel, que replica realmente el carrusel…
+copywriting también falta… edición de video… está todo muy chiquitito abajo y al costado… Marketing CoPilot… hazlo más visual,
+investiga cómo lo hacen otros… en el CRM… menos información, menos texto, menos botones… elimina la parte de traer los contactos de
+grupo de WhatsApp… [Chats] los logos de las diferentes aplicaciones… y que se vea que se puede mandar mensajes por ahí… los tableros
+todavía son imágenes… velocidad de llamada, de última… elimina toda la sección de lo que entrega lo que vendiste, que quede la parte
+de tu comunidad… elimina a cada cliente esa etapa… cobrar cada cuota… tu funnel armado en MaKo debería estar en industria… una landing
+cada uno… elimina se conecta con tu Claude y tu GPT… lo que dicen los que trabajaron con Martín… tu IA a precio de proveedor… la tabla
+con todas las landings… con link a la referencia… revísalas todas, critícate».
+
+| Pedido | Dónde quedó |
+|---|---|
+| Spy: las caricaturas, Hormozi, sus piezas ordenándose | `spy.webm`: SpyApp REAL con los 25 competidores del espacio de MaKo (lectura) y sus caricaturas → toca @AlexHormozi → su caricatura crece al centro y sus 64 piezas reales salen y se ordenan por vistas (`C:/dev/bancos-portada/banco-spy-gurus`) |
+| Carruseles: que replique de verdad | `carruseles.webm`: la tarjeta se duplica, las 6 láminas del original suben y abajo entra «Tu versión», la RÉPLICA REAL que armó Image el 13/11 (image_disenos 01988b77) dibujada con el motor del editor (`renderPageToCanvas`), y la cámara se acerca a los pares (`banco-replica` + `banco-carruseles-replica`) |
+| Copywriting | `copywriting.webm`: el anuncio REAL de @AlexHormozi (spy_piezas 3318) → «Replicar» → «¿Para qué oferta lo escribo?» con las ofertas reales → el guion que MaKo escribió de verdad con ese anuncio (mako.copywriter.doc.gndml1jt53x), su Gancho y su Historia (`banco-copy-horm`) |
+| Video: chiquito abajo y al costado | `video.webm`: el mismo banco con una CÁMARA que se acerca a lo que pasa (la línea de tiempo cortando, el video subtitulando, el registro de los agentes) y el corte final de cerca (`banco-video`) |
+| Marketing CoPilot más visual | `copilot.webm`: como los otros (Triple Whale, Hyros, Madgicx, AdAmigo: una decisión a la vez, el antes → después grande y un botón), la cámara entra a «4 cambios para hoy» y a cada propuesta: subir 50 → 60, pausar, bajar 40 → 28, con su «Aplicar» |
+| CRM: menos información | `crm-ficha.webm`: el tablero → «Ver info» → la ficha con SÓLO lo que contestó y su origen, y Tracking (3 visitas, VSL al 78 %); lo demás de la ficha no se muestra en la grabación (`banco-ficha/simplificar.mjs`) |
+| Chats: los logos y mandar por cada uno | `chats.webm`: WhatsApp, Instagram, Messenger y Email aparecen grandes y vuelan a su conversación; se escribe y se manda por Instagram, y por WhatsApp el borrador de MaKo |
+| Tableros: imágenes; velocidad al final | Velocidad de llamada pasó al final (`TABLEROS`). En el sitio de verdad corren su entrada (React); en el visor, el script de `mirar/visor-interactivos.py` |
+| Fuera: grupos de WhatsApp, «Cada cliente, en su etapa», «Cobra cada cuota», «Entrega lo que vendiste», «Se conecta con tu Claude y tu GPT», «Lo que dicen los que trabajaron con Martín», «Tu IA a precio de proveedor» | `TARJETAS_PORTADA` (`datos.ts`), `Portada.tsx`; `SeccionesIA.tsx` y `MasCasos.tsx` borrados. Lo de los testimonios: irá una cita de quien ya usa MaKo |
+| Comunidad, no «tu escuela», y que se vea | «Tu comunidad, dentro de MaKo.» al final de la lista; `comunidad.webm`: el curso (la clase, play, «Marcar como hecha») y la comunidad tipo Skool del portal (el feed, un like, un comentario) (`banco-clase/grabar-comunidad.mjs`) |
+| Funnels en Industrias, una landing cada uno | Columna «Funnels» en el menú Industrias (computadora y teléfono). Cada funnel es una landing: hero con su recorrido que se prende paso a paso, las partes de MaKo que lo arman, cada paso con la grabación de la app, «¿Es para ti?» y el cierre (`Funnels.tsx`, `funnels-datos.ts`) |
+
+**Ninguna fila de la portada queda con el recuadro de «falta animación».**
+
+### La tabla de landings, sub-landings y su referencia (14/11/2026)
+
+| Landing | Ruta | Referencia |
+|---|---|---|
+| Portada nueva | `/vsl/sitio` | [beehiiv](https://www.beehiiv.com/) |
+| Comparaciones | `/vsl/comparaciones` | [beehiiv · comparisons](https://www.beehiiv.com/comparisons) |
+| Precios | `/planes` | [beehiiv · pricing](https://www.beehiiv.com/pricing) |
+| Checkout | `/planes/pro`, `/planes/esencial` | [Stripe Checkout](https://stripe.com/payments/checkout) |
+| Competitor Spy | `/vsl/competitor-spy` | [Foreplay](https://www.foreplay.co/) |
+| Marketing CoPilot | `/vsl/ads` | [Master Ads](https://masterads.ai/) |
+| Video | `/vsl/video` | [Cherry Studio](https://cherrysweet.app/) |
+| AI Avatar | `/vsl/ai-avatar` | [HeyGen · UGC video ads](https://www.heygen.com/es-mx/business/marketing/ugc-video-ads) |
+| Image (carruseles) | `/vsl/image` | [PostNitro](https://postnitro.ai/es) |
+| Copywriting | `/vsl/copywriting` | [The Copy Machine](https://theoperatorstack.io/copy-machine) |
+| Web Generator | `/vsl/web-generator` | [HighLevel AI Studio](https://www.gohighlevel.com/ai-studio) |
+| Offer | `/vsl/offer` | [Atlas AI · Done For You](https://go.doneforyou.com/offer-formula) |
+| Chats | `/vsl/whatsapp` | [Leadsales](https://leadsales.io/) |
+| CRM | `/vsl/crm` | [GoHighLevel](https://www.gohighlevel.com/) |
+| Automations | `/vsl/seguimiento` | [SetSmart](https://setsmart.io/es) |
+| Agenda | `/vsl/agenda` | [iClosed](https://www.iclosed.io/) |
+| Cobranza | `/vsl/cobranza` | [Rebill](https://www.rebill.com/es) |
+| Email | `/vsl/email` | [beehiiv](https://www.beehiiv.com/) |
+| Dashboard | `/vsl/dashboard` | [Reportei](https://reportei.com/es/) |
+| Ads Analyst | `/vsl/script` | [Gethookd](https://www.gethookd.ai/) |
+| Funnels (lo que Meta aprende de tu CRM) | `/vsl/funnel` | [Hyros](https://hyros.com/) |
+| Ops Center | `/vsl/mako` | [Holo](https://tryholo.ai/) |
+| Plan | `/vsl/prioridades` | [Motion](https://www.usemotion.com/) |
+| Funnel · VSL con llamada | `/vsl/funnels/vsl` | Sin referencia propia: el molde de la portada ([beehiiv](https://www.beehiiv.com/)) |
+| Funnel · Anuncios a WhatsApp | `/vsl/funnels/whatsapp` | Ídem |
+| Funnel · Instagram con lead magnet | `/vsl/funnels/instagram` | Ídem |
+| Funnel · YouTube orgánico | `/vsl/funnels/youtube` | Ídem |
+| Industrias · Agencias | `/agency` | [GoHighLevel](https://www.gohighlevel.com/) y [Vendasta](https://www.vendasta.com/) |
+| Industrias · Coaches, Infoproductores, Inmobiliarias | `/vsl/coaches`, `/vsl/infoproductores`, `/vsl/inmobiliarias` | **Sin referencia** (documentos de Web Generator del 23/10; rehacerlas y publicarlas es con el OK de Martín) |
+| MaKo Partners | `/mako-partners` | [LLM Pulse](https://llmpulse.ai/affiliate), [Tolt](https://tolt.com/platform/affiliate-portal) y [systeme.io](https://systeme.io/) |
+| Portada de hoy | `/` (documento de Web Generator) | [100ads](https://100ads.ai/) |
+
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
 `PRUEBA_GRATIS_PRENDIDA = true` (`lib/planes-mako.ts`): `/planes` dice «7 días gratis» y cobra el día 8 con la tarjeta,
