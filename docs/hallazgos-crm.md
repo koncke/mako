@@ -25,6 +25,25 @@ en [corridas-multiagente.md](corridas-multiagente.md).
 «Nuevo producto» de Classroom y Clients (`crearServicioAction`, app/customer-success/actions.ts) y «Duplicar» (`duplicarPrograma`,
 lib/curso-duplicar.ts) crean un embudo con `crearProductoConFunnel` SIN preguntar el tope `crm.funnels`: un Esencial puede crear CRMs sin
 límite desde Classroom. No se arregló (es del área CRM). Es el mismo hueco que el relevo del 14/11 vio en `lib/producto-con-funnel.ts`.
+## «Asignar fuentes»: los formularios de Web Generator entran a un funnel desde el CRM (14/11/2026, claude5)
+
+Martín le dijo a Julio que en «Asignar campañas» aparecían los formularios activos, y no aparecía nada: sólo Meta. Ahora el ⋯ de la
+columna de entrada dice «Asignar fuentes» y el modal tiene dos secciones: «Formularios y páginas de Web Generator» (las landings
+PUBLICADAS y, en cada una, formularios, encuestas, quiz, agenda y pago, por nombre) y «Campañas de Meta».
+
+- **Interruptor y no casilla**: en este modal la casilla SELECCIONA (Martín, 06/10: «el checkbox no debería asignar»). Asignar
+  una pieza es un interruptor por fila; lo asignado vive en el ajuste `landing.piezas` (sin migración y sin el tope de 12 URLs
+  de `landing.config`). El funnel del negocio se nombra null en la pantalla y se guarda con su id real (`principal`).
+- **La ficha parte «Lo que contestó» por formulario** («En tu landing · Formulario Regalo») y Tracking dice «Envió el formulario
+  X», con la tabla `lead_formularios` (mig **0415, ESCRITA Y SIN APLICAR**: pide la frase de Martín). Sin la tabla, todo anda
+  igual que antes: `enviosDelLead` da [] y el envío queda en el historial (`lead_audit`).
+- `lead_formularios` va en `TABLAS_DE_INQUILINO` desde ya, aunque la 0415 no esté aplicada: el reset del negocio saltea una tabla
+  que no existe (PGRST205, lib/reset-workspace.ts). **El reparo obvio («borraría una tabla que no existe») era el equivocado.**
+- «Nuevo CRM» ofrece **Newsletter**: arma el CRM de la tab Newsletters (`asegurarCrmNewsletter`, con el nombre pedido); si ya hay
+  uno, abre ése. No está en `TIPOS_CRM`: sus etapas propias sólo se alcanzan moviendo, y `tipos-crm.test.ts` ubica un lead en
+  cada etapa de cada tipo.
+- /email ofrece cualquier CRM y cualquier etapa (`crm:<id>[:<etapa>]`, lib/segmento-crm.ts): casa y agregados. El del negocio
+  guarda su casa como NULL, así que se lee por los dos lados.
 
 ## El retargeting de los funnels sin VSL: lo que había antes de escribirlo (13/11/2026, claude5)
 

@@ -4638,3 +4638,25 @@ lleva esa extensión, y `registrar` comparaba con los bytes y rechazaba cualquie
   una foto HEIC (la del iPhone) con nombre de JPG: expórtala como JPG y vuelve a subirla».
 
 **Sin hacer:** el editor de imágenes tiene el mismo chequeo y el mismo mensaje (lib/image-editor/server.ts, `registrar`).
+
+## Formularios, encuestas y quiz con lógica: tres trampas del modelo (14/11/2026, claude5, llamada con Julio)
+
+- **`htmlDeArbol` tira en silencio la etiqueta que no está en su lista** (`ETIQUETAS`, grafico-svg.ts) y deja los hijos: el primer
+  desplegable salió como el texto «Elige una opciónMXAR», sin `<select>`. Ningún error, ningún log. **Regla: un control nuevo en
+  una spec va con su etiqueta en `ETIQUETAS` y con un test que mire el HTML, no el árbol.**
+- **El id del formulario es DERIVADO cuando falta, como el del HTML personalizado** (`idFormDerivado`, validar.ts: la sección y
+  el orden adentro). Lo pone el editor al insertar (al azar); lo de antes lo recibe al guardar o al publicar, y las dos veces da el
+  mismo (el CRM rutea por él). Un copiar y pegar repite el id: el segundo cambia, el primero no. La IA, al reescribir un
+  formulario, **conserva** el id, el nombre y la clase del original (`nodoFormulario`): si cambiara, los leads de ese formulario
+  dejan de caer en su CRM sin aviso.
+- **Un campo nuevo con su valor por defecto rompe el saneo de lo viejo**: `attrsQuiz` empezó a devolver `multiple: false` y
+  `saltarA: null`, y `attrsConMotivo` comparó contra lo guardado y anotó «preguntas inválido» en CADA guardado (y la IA dejó de
+  devolver el quiz igual). Lo de siempre se OMITE (`...(multiple ? { multiple: true } : {})`). Pero TipTap declara los atributos
+  del nodo con `attrs({})`: lo omitido no se declara y se tira al cargar. Por eso el quiz declara `id` y `nombre` aparte
+  (extensiones/nodos.ts, `Quiz`). **Regla: un atributo opcional nuevo se omite en el normalizador y se declara en el nodo.**
+- **La encuesta es el bloque Formulario con `clase: 'encuesta'`** (catálogo «Encuesta»): escala del 1 al 10, opción única y
+  múltiple y texto, sin puntaje, y pide el contacto. No hay encuesta anónima: el Pixel descarta todo envío sin email ni teléfono.
+- **El quiz con saltos**: `saltarA` por opción, sólo hacia adelante (atrás daría vueltas), y lo que suma es el CAMINO
+  (`caminoDe`): lo elegido en una pregunta que un salto dejó afuera no cuenta. El script de la página (`hist`) y el server
+  (`puntajeDe`) siguen la misma regla. Una múltiple suma todas las marcadas y no salta.
+

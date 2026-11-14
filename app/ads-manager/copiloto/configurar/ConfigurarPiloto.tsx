@@ -11,10 +11,9 @@
 //   · «Qué hago solo»: cada táctica en «Lo hago solo» (automática) o «Te pregunto» (propone). Sin el plan que trae el piloto, todo
 //     queda en «Te pregunto» (lib/media-buyer/plan.ts → modoEfectivo).
 // «Guardar y prender el piloto» manda UN cambio a /api/media-buyer (`op: 'config'`), el mismo que usan sus Ajustes.
-// Instagram, YouTube, la web y la oferta todavía no tienen piloto: se suman acá cuando lo tengan (docs/relevo/marketing-copilot-rediseno.md).
-// El piloto de INSTAGRAM y el de YOUTUBE son de MaKo Pro (14/11/2026, 'piloto-redes'): a un Esencial, la hoja de Instagram es el
-// candado (`CandadoSoloPro`) y no hay «Guardar». `pilotoRedes` lo decide el server (./page.tsx); si el plan cambió después de
-// cargar, el 403 de /api/copiloto/piloto lo prende igual (`marcarSoloPro`).
+// Instagram y YouTube (14/11, lib/copiloto/piloto-redes.ts): cuánto publica (el ritmo de la nevera), lo que hago solo (publicar lo
+// programado, avisar si se acaba el contenido) y lo que te propongo como tarea. Se guarda con POST /api/copiloto/piloto (op 'redes'
+// y 'aviso-nevera'). La web y la oferta todavía no tienen piloto.
 // =============================================================================
 
 import { useState } from 'react';
@@ -27,6 +26,29 @@ import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components
 import type { KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import type { ConfigTacticas } from '@/lib/media-buyer/tacticas';
 import type { NumeroDelReel } from '@/lib/copiloto/piloto';
+import { TOPES_PILOTO, type PilotoInstagram, type PilotoYoutube } from '@/lib/copiloto/piloto-redes';
+
+type Canal = 'anuncios' | 'instagram' | 'youtube';
+export type RedesPiloto = { instagram: PilotoInstagram; youtube: PilotoYoutube; avisoNevera: boolean };
+
+/** Un número con − y +, entre sus topes. */
+function Paso({ valor, tope, set, etiqueta }: { valor: number; tope: readonly [number, number]; set: (n: number) => void; etiqueta: string }) {
+  return (
+    <div className="mq-paso" role="group" aria-label={etiqueta}>
+      <button type="button" aria-label="Menos" disabled={valor <= tope[0]} onClick={() => set(Math.max(tope[0], valor - 1))}>−</button>
+      <output className="frn-num">{valor}</output>
+      <button type="button" aria-label="Más" disabled={valor >= tope[1]} onClick={() => set(Math.min(tope[1], valor + 1))}>+</button>
+    </div>
+  );
+}
+/** Un interruptor con sus dos palabras («Lo hago solo» / «No», «Te pregunto» / «No»). */
+function Interr({ on, set, si, no = 'No', fijo }: { on: boolean; set?: (v: boolean) => void; si: string; no?: string; fijo?: boolean }) {
+  return (
+    <button type="button" className="mq-interr" role="switch" aria-checked={on} disabled={fijo} onClick={() => set?.(!on)}>
+      <i /><span>{on ? si : no}</span>
+    </button>
+  );
+}
 import { CSS_COPILOTO } from '../copiloto-css';
 
 type TacticaSola = 'stop_loss' | 'surf' | 'sunsetting' | 'ganador';
@@ -79,9 +101,15 @@ const CSS = `
 .frn .mq-seguidos b { color: var(--ink); }
 .frn .mq-cfg__nota { margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--panel); font-size: 15px; line-height: 1.5; color: var(--muted); }
 .frn .mq-cfg__pie { display: flex; justify-content: flex-end; margin-top: var(--gap); }
+.frn .mq-cfg__par { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.frn .mq-paso button:disabled { color: var(--hair); cursor: default; }
 @container frn (max-width: 900px) {
-  .frn .mq-cfg__cuerpo { grid-template-columns: 1fr; }
+  .frn .mq-cfg__cuerpo { grid-template-columns: minmax(0, 1fr); } /* con 1fr, lo ancho de adentro la estiraba más que la pantalla */
   .frn .mq-cfg__nav { flex-direction: row; overflow-x: auto; }
+  /* Con YouTube son tres (14/11): a 375 la tercera quedaba cortada. Repartidas, y sólo el nombre. */
+  .frn .mq-cfg__nav { overflow-x: visible; }
+  .frn .mq-cfg__nav > button { flex: 1 1 0; min-width: 0; justify-content: center; padding: 10px 6px; }
+  .frn .mq-cfg__nav > button > :first-child { display: none !important; } /* el logo trae su display en línea */
   .frn .mq-cfg__hoja { padding: 18px 16px; }
   .frn .mq-cfg__cab h1 { font-size: 18px; text-align: left; }
   .frn .mq-cfg__cab { grid-template-columns: auto minmax(0, 1fr); }
@@ -92,18 +120,23 @@ const CSS = `
 
 const plata = (n: number) => `US$ ${n.toLocaleString('es')}`;
 
-export function ConfigurarPiloto({ inicial, pilotoPermitido, pilotoRedes, reel, canalInicial, publicosMeta }: {
-  inicial: InicialPiloto; pilotoPermitido: boolean; reel: NumeroDelReel | null; canalInicial: 'anuncios' | 'instagram';
-  /** ¿El plan trae el piloto de Instagram y el de YouTube? (lib/copiloto/piloto.ts → `pilotoRedesPermitido`; Esencial no). */
-  pilotoRedes: boolean;
+export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial, publicosMeta, redes, redesPermitidas }: {
+  inicial: InicialPiloto; pilotoPermitido: boolean; reel: NumeroDelReel | null; canalInicial: Canal;
+  /** El piloto de Instagram y YouTube, o null si no se pudo leer (las pestañas quedan sólo con lo de antes). */
+  redes: RedesPiloto | null;
+  /** ¿El plan trae el piloto de Instagram y el de YouTube? (lib/copiloto/piloto.ts → `pilotoRedesPermitido`; Esencial no, 14/11/2026). */
+  redesPermitidas: boolean;
   /** Los dos públicos de Meta del retargeting (lib/retargeting.ts), o null si no se pudo leer (no se muestra el interruptor). */
   publicosMeta: boolean | null;
 }) {
-  // El candado de Instagram: lo que dijo el server al cargar, o un 403 de ahora (`marcarSoloPro`).
-  const redesSoloPro = useSoloPro('piloto-redes') || !pilotoRedes;
   const [publicos, setPublicos] = useState(publicosMeta ?? false);
   const router = useRouter();
-  const [canal, setCanal] = useState<'anuncios' | 'instagram'>(canalInicial);
+  const [canal, setCanal] = useState<Canal>(canalInicial === 'youtube' && !redes ? 'instagram' : canalInicial);
+  // El candado de Instagram y YouTube: lo que dijo el server al cargar, o un 403 de ahora (`marcarSoloPro`).
+  const redesSoloPro = useSoloPro('piloto-redes') || !redesPermitidas;
+  const [ig, setIg] = useState<PilotoInstagram | null>(redes?.instagram ?? null);
+  const [yt, setYt] = useState<PilotoYoutube | null>(redes?.youtube ?? null);
+  const [aviso, setAviso] = useState(redes?.avisoNevera ?? true);
   const [numero, setNumero] = useState(reel?.numero ?? 1000);
   const { toast, show, clear } = useToast();
   const [mes, setMes] = useState(inicial.metaGastoMes ?? 1000);
@@ -143,15 +176,26 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, pilotoRedes, reel, 
     } finally { setGuardando(false); }
   };
 
-  const guardarReel = async () => {
+  const pedir = async (body: Record<string, unknown>) => (await (await fetch('/api/copiloto/piloto', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json()) as { ok: boolean; error?: string };
+  const guardarRed = async (red: 'instagram' | 'youtube') => {
     setGuardando(true);
     try {
-      const r = await (await fetch('/api/copiloto/piloto', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'reel', numero }) })).json() as { ok: boolean; error?: string };
-      // El piloto de Instagram es de Pro: la hoja pasa a mostrar el candado, sin un toast de error.
-      if (!r.ok && esRespuestaSoloPro(r)) { marcarSoloPro('piloto-redes'); return; }
-      if (!r.ok) { show(r.error || 'No se pudo guardar.', undefined, 'bad'); return; }
-      show('Listo: guardé con cuántas vistas se publica.', undefined, 'good');
-      router.push('/ads-manager/copiloto?tarjeta=instagram');
+      if (red === 'instagram') {
+        const r = await pedir({ op: 'reel', numero });
+        if (!r.ok && esRespuestaSoloPro(r)) { marcarSoloPro('piloto-redes'); return; }
+        if (!r.ok) { show(r.error || 'No se pudo guardar.', undefined, 'bad'); return; }
+      }
+      if (redes) {
+        const r = await pedir({ op: 'redes', [red]: red === 'instagram' ? ig : yt });
+        if (!r.ok && esRespuestaSoloPro(r)) { marcarSoloPro('piloto-redes'); return; }
+        if (!r.ok) { show(r.error || 'No se pudo guardar.', undefined, 'bad'); return; }
+        if (aviso !== redes.avisoNevera) {
+          const a = await pedir({ op: 'aviso-nevera', prendido: aviso });
+          if (!a.ok) { show(a.error || 'Guardé el piloto, pero no pude cambiar el aviso.', undefined, 'bad'); return; }
+        }
+      }
+      show(`Listo: guardé el piloto de ${red === 'instagram' ? 'Instagram' : 'YouTube'}.`, undefined, 'good');
+      router.push(`/ads-manager/copiloto?paso=piloto&tarjeta=${red}`);
     } catch (e) {
       show(e instanceof Error ? e.message : 'No pude conectarme.', undefined, 'bad');
     } finally { setGuardando(false); }
@@ -172,11 +216,12 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, pilotoRedes, reel, 
           <nav className="mq-cfg__nav" aria-label="Qué configuras">
             <button type="button" aria-current={canal === 'anuncios' ? 'page' : undefined} onClick={() => setCanal('anuncios')}><LogoRed red="anuncios" box={26} /><span>Anuncios</span></button>
             <button type="button" aria-current={canal === 'instagram' ? 'page' : undefined} onClick={() => setCanal('instagram')}><LogoRed red="instagram" box={26} /><span>Instagram</span></button>
+            {redes && <button type="button" aria-current={canal === 'youtube' ? 'page' : undefined} onClick={() => setCanal('youtube')}><LogoRed red="youtube" box={26} /><span>YouTube</span></button>}
           </nav>
-          {canal === 'instagram' && redesSoloPro ? (
+          {canal !== 'anuncios' && redesSoloPro ? (
             // MaKo Esencial: el piloto de Instagram y el de YouTube son de Pro (14/11/2026). Nada que configurar: el candado.
             <section className="frn-card mq-cfg__hoja">
-              <h2 className="frn-card__t">Instagram</h2>
+              <h2 className="frn-card__t">{canal === 'instagram' ? 'Instagram' : 'YouTube'}</h2>
               <CandadoSoloPro funcion="piloto-redes" style={{ marginTop: 14 }} />
             </section>
           ) : canal === 'instagram' ? (
@@ -193,6 +238,33 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, pilotoRedes, reel, 
                 <ul className="mq-seguidos">{reel.competidores.map((c) => <li key={c.nombre}><span>{c.nombre}</span><b>{c.mediana != null ? c.mediana.toLocaleString('es') : '—'}</b></li>)}</ul>
               )}
               {reel?.propuesto != null && numero !== reel.propuesto && <button type="button" className="frn-btn frn-btn--ghost" onClick={() => setNumero(reel.propuesto!)}>Volver a lo que propongo</button>}
+              {ig && (
+                <>
+                  <div className="mq-aj"><div><b>¿Cuántos reels publicas por semana?</b></div><Paso etiqueta="Reels por semana" valor={ig.reelsSemana} tope={TOPES_PILOTO.reelsSemana} set={(n) => setIg({ ...ig, reelsSemana: n })} /></div>
+                  <div className="mq-aj"><div><b>¿Cuántos carruseles?</b></div><Paso etiqueta="Carruseles por semana" valor={ig.carruselesSemana} tope={TOPES_PILOTO.carruselesSemana} set={(n) => setIg({ ...ig, carruselesSemana: n })} /></div>
+                  <div className="mq-aj"><div><b>¿Cuántas historias?</b></div><Paso etiqueta="Historias por semana" valor={ig.historiasSemana} tope={TOPES_PILOTO.historiasSemana} set={(n) => setIg({ ...ig, historiasSemana: n })} /></div>
+                  <h3>Qué hago solo</h3>
+                  <div className="mq-aj"><div><b>Publicar lo que programas en el Calendario</b></div><Interr on fijo si="Lo hago solo" /></div>
+                  <div className="mq-aj"><div><b>Avisarte por WhatsApp y email si se acaba el contenido</b></div><Interr on={aviso} set={setAviso} si="Lo hago solo" /></div>
+                  <div className="mq-aj"><div><b>Publicar tus reels primero como reel de prueba, sólo a quien no te sigue</b></div><Interr on={ig.reelDePrueba !== 'no'} set={(v) => setIg({ ...ig, reelDePrueba: v ? 'solo' : 'no' })} si="Sí" /></div>
+                  {ig.reelDePrueba !== 'no' && <div className="mq-aj"><div><b>Pasarlo al feed si le va bien</b></div><Interr on={ig.reelDePrueba === 'solo'} set={(v) => setIg({ ...ig, reelDePrueba: v ? 'solo' : 'pregunta' })} si="Lo hago solo" no="Lo pasas tú" /></div>}
+                  <h3>Qué te pregunto</h3>
+                  <div className="mq-aj"><div><b>Variaciones del hook de tu reel más visto, cada semana</b></div><div className="mq-cfg__par">{ig.proponerHook && <Paso etiqueta="Cuántas variaciones" valor={ig.variaciones} tope={TOPES_PILOTO.variaciones} set={(n) => setIg({ ...ig, variaciones: n })} />}<Interr on={ig.proponerHook} set={(v) => setIg({ ...ig, proponerHook: v })} si="Te pregunto" /></div></div>
+                  <div className="mq-aj"><div><b>Pasar a carrusel el reel que supera tu número</b></div><Interr on={ig.proponerCarrusel} set={(v) => setIg({ ...ig, proponerCarrusel: v })} si="Te pregunto" /></div>
+                </>
+              )}
+            </section>
+          ) : canal === 'youtube' && yt ? (
+            <section className="frn-card mq-cfg__hoja">
+              <h2 className="frn-card__t">YouTube</h2>
+              <h3>Cuánto</h3>
+              <div className="mq-aj"><div><b>¿Cuántos videos largos subes por mes?</b></div><Paso etiqueta="Videos largos por mes" valor={yt.largosMes} tope={TOPES_PILOTO.largosMes} set={(n) => setYt({ ...yt, largosMes: n })} /></div>
+              <div className="mq-aj"><div><b>¿Cuántos shorts sacas de cada video largo?</b></div><Paso etiqueta="Shorts por video" valor={yt.shortsPorVideo} tope={TOPES_PILOTO.shortsPorVideo} set={(n) => setYt({ ...yt, shortsPorVideo: n })} /></div>
+              <h3>Qué hago solo</h3>
+              <div className="mq-aj"><div><b>Publicar lo que programas en el Calendario</b></div><Interr on fijo si="Lo hago solo" /></div>
+              <div className="mq-aj"><div><b>Avisarte por WhatsApp y email si se acaba el contenido</b></div><Interr on={aviso} set={setAviso} si="Lo hago solo" /></div>
+              <h3>Qué te pregunto</h3>
+              <div className="mq-aj"><div><b>Sacar shorts de tu último video largo, cada semana</b></div><Interr on={yt.proponerShorts} set={(v) => setYt({ ...yt, proponerShorts: v })} si="Te pregunto" /></div>
             </section>
           ) : (
           <section className="frn-card mq-cfg__hoja">
@@ -235,8 +307,8 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, pilotoRedes, reel, 
           )}
         </div>
         <div className="mq-cfg__pie">
-          {canal === 'instagram'
-            ? !redesSoloPro && <button type="button" className="frn-btn frn-btn--primary" disabled={guardando} onClick={guardarReel}>{guardando ? 'Guardando…' : 'Guardar'}</button>
+          {canal !== 'anuncios'
+            ? !redesSoloPro && <button type="button" className="frn-btn frn-btn--primary" disabled={guardando} onClick={() => void guardarRed(canal)}>{guardando ? 'Guardando…' : 'Guardar'}</button>
             : <button type="button" className="frn-btn frn-btn--primary" disabled={guardando} onClick={guardar}>{guardando ? 'Guardando…' : inicial.encendido ? 'Guardar' : 'Guardar y prender el piloto'}</button>}
         </div>
       </main>

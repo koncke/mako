@@ -14,21 +14,26 @@ import { leerPublicaciones } from '@/lib/calendario-publicar';
 import { zonaDelNegocio } from '@/lib/timezone';
 import { funnelElegido, planOrganico, type PerfilCopiloto } from '@/lib/media-buyer/copiloto';
 import { armarNevera, avisosDeLaNevera, type FilaNevera, type PiezaNevera, type RitmoNevera } from './nevera-reglas';
+import { ritmoDeLaEntrada } from './entrada';
 
 export type Nevera = { filas: FilaNevera[]; avisos: Array<{ formato: FilaNevera['formato']; titulo: string }>; horas: number | null; hoy: string };
 
 const diaEn = (iso: string, tz: string): string => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
 const sumar = (dia: string, n: number) => { const d = new Date(`${dia}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
-/** El ritmo por formato, de lo que respondió en el CoPilot. Sin `ritmo` respondido, no hay ritmo (no se inventa). */
+/** El ritmo por formato, de lo que respondió en el CoPilot. Sin `ritmo` ni `tiempo` respondido, no hay ritmo (no se inventa). */
 export function ritmoDelPerfil(p: PerfilCopiloto): RitmoNevera | null {
+  // La entrada nueva (14/11, ./entrada.ts): el tiempo que tiene, en las redes que eligió. Gana sobre el `ritmo` de la charla vieja.
+  const deLaEntrada = ritmoDeLaEntrada(p);
+  if (deLaEntrada) return deLaEntrada;
   if (p.ritmo == null) return null;
   if (funnelElegido(p)?.id === 'youtube') return { video: p.ritmo };
   const { reparto } = planOrganico(p);
   return { reel: reparto.reels, post: reparto.carruseles, story: reparto.stories };
 }
 
-export async function leerNevera(ws: number, perfil: PerfilCopiloto): Promise<Nevera> {
+/** `ritmo`: el que ya se resolvió (con el piloto de las redes, ./piloto-redes.ts); sin él, el del perfil. */
+export async function leerNevera(ws: number, perfil: PerfilCopiloto, ritmo?: RitmoNevera | null): Promise<Nevera> {
   const tz = await zonaDelNegocio(ws);
   const hoy = diaEn(new Date().toISOString(), tz);
   const piezas = await runWithWorkspace(ws, async () => {
@@ -39,7 +44,7 @@ export async function leerNevera(ws: number, perfil: PerfilCopiloto): Promise<Ne
       return { formato: f.formato, red: p?.red ?? null, dia: diaEn(f.inicio, tz), conArchivo: !!p?.archivo, publicada: p?.publicacion === 'publicada', hecha: f.estado === 'hecho' };
     });
   });
-  const filas = armarNevera(piezas, hoy, ritmoDelPerfil(perfil));
+  const filas = armarNevera(piezas, hoy, ritmo === undefined ? ritmoDelPerfil(perfil) : ritmo);
   const horas = perfil.horas ?? null;
   return { filas, avisos: avisosDeLaNevera(filas, horas), horas, hoy };
 }

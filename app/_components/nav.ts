@@ -421,7 +421,9 @@ export const FAMILIAS: NavFamilia[] = [
         // 6/11/2026, Martín: «quiero que la tab se llame "Marketing CoPilot", porque la idea no es que sólo haga anuncios… y debería tener
         // otro icono». LA KEY Y LA RUTA NO CAMBIAN: `ads-manager` es contrato con la base (capas, permisos, onboarding, API, móvil) y
         // `/ads-manager` lo abren links guardados; lo que cambia es el rótulo y el ícono. Ver docs/relevo/nube-marketing-copilot.md.
-        { key: 'ads-manager', label: 'Marketing CoPilot', href: '/ads-manager', icon: 'copiloto', match: starts('/ads-manager') },
+        // 14/11/2026: el menú abre la pantalla NUEVA (/ads-manager/copiloto, los dos pasos). Sin esto sólo se llegaba por URL o desde una
+        // tarea del Plan (docs/relevo/llamada-julio-13-11.md). `/ads-manager` (el Media Buyer) sigue abriendo, y `match` lo marca igual.
+        { key: 'ads-manager', label: 'Marketing CoPilot', href: '/ads-manager/copiloto', icon: 'copiloto', match: starts('/ads-manager') },
         // Competitor Spy: vino de Analyze el 17/10/2026 y estuvo en PRONTO hasta el 31/10/2026, cuando dejó de ser
         // ComingSoon (la Etapa 1 de docs/diseno-competitors-spy.md: lista, ficha por bloques y onboarding). Marketing es
         // la casa que el comentario de PRONTO ya le había asignado. Sigue `adminOnly` desde el 12/10/2026 (Martín:

@@ -534,7 +534,9 @@ export const CuentaRegresiva = ventaDe(NODO.cuentaRegresiva, 'div.gm-cuenta', at
 export const PruebaSocial = ventaDe(NODO.pruebaSocial, 'div.gm-prueba', attrsPruebaSocial);
 export const Escasez = ventaDe(NODO.escasez, 'div.gm-escasez', attrsEscasez);
 /** El quiz con diagnóstico (6/11/2026, quiz.ts): un átomo con el mismo molde; sus preguntas viajan en el JSON, no en el HTML. */
-export const Quiz = ventaDe(NODO.quiz, 'div.gm-quiz', attrsQuiz);
+// El id y el nombre del quiz (14/11/2026, el CRM rutea por ellos): `attrsQuiz` los omite cuando no están, así que se declaran
+// acá; sin la declaración, TipTap los tira al cargar.
+export const Quiz = ventaDe(NODO.quiz, 'div.gm-quiz', (raw) => ({ id: null, nombre: '', ...attrsQuiz(raw) }));
 
 export const HtmlLibre = Node.create<OpcionesNodo>({
   name: NODO.htmlLibre,

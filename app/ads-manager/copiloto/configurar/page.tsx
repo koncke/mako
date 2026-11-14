@@ -14,7 +14,11 @@ import { Pagina } from '@/app/_ui/Pagina';
 import { EmptyState, PermissionState } from '@/app/_ui/Estados';
 import { leerConfig, cupoDe } from '@/lib/media-buyer/store';
 import { resolverTacticas } from '@/lib/media-buyer/tacticas';
-import { numeroDelReel, pilotoRedesPermitido } from '@/lib/copiloto/piloto';
+import { leerPilotoRedes, numeroDelReel, pilotoRedesPermitido } from '@/lib/copiloto/piloto';
+import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
+import { ritmoDelPerfil } from '@/lib/copiloto/nevera';
+import { getPlantilla } from '@/lib/plantillas';
+import { runWithWorkspace } from '@/lib/workspace';
 import { verRetargeting } from '@/lib/retargeting';
 import { ConfigurarPiloto, type InicialPiloto } from './ConfigurarPiloto';
 
@@ -28,12 +32,18 @@ export default async function ConfigurarPilotoPage({ searchParams }: { searchPar
   }
   const ws = await wsDeAdsManager();
   if (ws instanceof Response) return <Pagina><PermissionState motivo="rol" /></Pagina>;
-  // `pilotoRedes`: el piloto de Instagram y el de YouTube son de MaKo Pro (14/11/2026); a un Esencial, la hoja de Instagram es el
-  // candado. Ante la duda, abierto (el servidor decide igual: lib/copiloto/piloto.ts → `guardarNumeroReel`).
-  const [config, cupo, reel, rt, pilotoRedes] = await Promise.all([
-    leerConfig(ws), cupoDe(ws), numeroDelReel(ws).catch(() => null), verRetargeting(ws).catch(() => null), pilotoRedesPermitido(ws).catch(() => true),
+  // `redesPermitidas`: el piloto de Instagram y el de YouTube son de MaKo Pro (14/11/2026); a un Esencial, su hoja es el candado.
+  // Ante la duda, abierto (el servidor decide igual: lib/copiloto/piloto.ts → `guardarPilotoRedes` y `guardarNumeroReel`).
+  const [config, cupo, reel, rt, redesPermitidas] = await Promise.all([leerConfig(ws), cupoDe(ws), numeroDelReel(ws).catch(() => null), verRetargeting(ws).catch(() => null), pilotoRedesPermitido(ws).catch(() => true)]);
+  const pedida = (await searchParams).red;
+  const red = pedida === 'instagram' || pedida === 'youtube' ? pedida : 'anuncios';
+  // El piloto de Instagram y YouTube (lib/copiloto/piloto-redes.ts): lo de fábrica sale del ritmo del perfil.
+  const perfil = await leerPerfilCopiloto(ws).catch(() => ({}));
+  const [pilotoRedes, plantilla] = await Promise.all([
+    leerPilotoRedes(ws, ritmoDelPerfil(perfil)).catch(() => null),
+    runWithWorkspace(ws, () => getPlantilla('copiloto-nevera')).catch(() => null),
   ]);
-  const red = (await searchParams).red === 'instagram' ? 'instagram' : 'anuncios';
+  const redes = pilotoRedes ? { instagram: pilotoRedes.instagram, youtube: pilotoRedes.youtube, avisoNevera: plantilla?.enabled ?? true } : null;
   // Lo que vale hoy de cada táctica (el motor no viaja al navegador: se resuelve acá).
   const t = resolverTacticas(config.tacticas, { piloto: config.modo === 'piloto', pilotoPermitido: cupo.piloto });
   const inicial: InicialPiloto = {
@@ -43,7 +53,7 @@ export default async function ConfigurarPilotoPage({ searchParams }: { searchPar
   };
   return (
     <Pagina ancho="completo" style={{ padding: 0 }}>
-      <ConfigurarPiloto inicial={inicial} pilotoPermitido={cupo.piloto} pilotoRedes={pilotoRedes} reel={reel} canalInicial={red} publicosMeta={rt ? rt.publicosMeta.prendido : null} />
+      <ConfigurarPiloto inicial={inicial} pilotoPermitido={cupo.piloto} reel={reel} canalInicial={red} publicosMeta={rt ? rt.publicosMeta.prendido : null} redes={redes} redesPermitidas={redesPermitidas} />
     </Pagina>
   );
 }

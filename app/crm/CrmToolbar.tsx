@@ -31,6 +31,7 @@ import { Modal } from '@/app/_ui/Modal';
 
 import { CANALES } from '@/lib/fase-diagnostico';
 import { ENTRADAS, ENTRADAS_OFRECIDAS, TIPOS_CRM, TIPO_CRM_OTRO, type EntradaId, type TipoCrmId } from '@/lib/pipeline';
+import { TIPO_CRM_NEWSLETTER } from '@/lib/newsletter-reglas';
 import { embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction, contarPapeleraAction } from './actions';
 import { EVENTO_PAPELERA, PapeleraLeadsModal } from './PapeleraLeads';
 import { crearCrmAction } from './nuevo-crm-actions';
@@ -914,7 +915,7 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   // bug que esta pregunta vino a cerrar, con un paso más de por medio—, y desde el 14/10 el tipo
   // decide además cómo llega la gente, que es lo que MaKo dice en la primera frase. Se elige, o no
   // hay CRM.
-  const [tipo, setTipo] = useState<TipoCrmId | typeof TIPO_CRM_OTRO | ''>('');
+  const [tipo, setTipo] = useState<TipoCrmId | typeof TIPO_CRM_OTRO | typeof TIPO_CRM_NEWSLETTER | ''>('');
   const [canal, setCanal] = useState<string>('');
   // ⚠️ CÓMO ENTRA LA GENTE SE PREGUNTA ACÁ (con «Otro»), al crear el CRM. Era una subtab del
   // pop-up y se mudó: «eso debería estar como un paso al momento de crear un nuevo producto».
@@ -1016,6 +1017,9 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
             <Opcion key={t.id} label={t.label} desc={t.linea} icono={ICONO_TIPO_CRM[t.id]} on={tipo === t.id}
               onClick={() => { setErr(null); setTipo(t.id); }} />
           ))}
+          {/* «Newsletter» (14/11/2026): el CRM de la tab Newsletters, con sus etapas (lib/newsletter-reglas.ts). */}
+          <Opcion label="Newsletter" desc="Les escribes cada semana por email" icono="email" on={tipo === TIPO_CRM_NEWSLETTER}
+            onClick={() => { setErr(null); setTipo(TIPO_CRM_NEWSLETTER); }} />
           <Opcion label="Otro, lo armo yo" desc="Eliges cómo vendes y cómo llegan" icono={ICONO_TIPO_CRM[TIPO_CRM_OTRO]} on={aMano}
             onClick={() => { setErr(null); setTipo(TIPO_CRM_OTRO); }} />
         </div>

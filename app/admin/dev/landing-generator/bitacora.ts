@@ -1906,4 +1906,25 @@ export const BITACORA: Hito[] = [
     revisar: '/web-generator',
     tickets: [95, 96],
   },
+  {
+    fecha: '14 nov', hora: '01:40', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los formularios de Web Generator entran a su propio CRM y disparan su automatización (la llamada con Julio)',
+    puntos: [
+      'Cada formulario, encuesta y quiz tiene su nombre (se cambia en su panel) y, al publicar, aparece en el CRM: ⋯ de la columna de entrada → «Asignar fuentes». Con el interruptor prendido, quien lo llena cae en la etapa de entrada de ese funnel.',
+      'En Automations hay un CRON nuevo, «Formulario»: «Envió el formulario X» o cualquier formulario de una landing. Arranca en el acto, también si la persona ya estaba en el CRM (se suma al funnel nuevo con sus respuestas).',
+      'Tipos de campo nuevos: número, fecha, selección múltiple, desplegable, escala del 1 al 10, consentimiento y oculto. Bloque nuevo «Encuesta». El quiz ahora salta según la respuesta y acepta preguntas de varias opciones.',
+      'Antes se perdían las respuestas que pasaban de 8 en un formulario: ahora llegan las 10.',
+      '**Cómo se prueba:** publica una landing con un formulario, asígnalo en «Asignar fuentes» de un CRM y llénalo: el lead cae en ese CRM y su ficha dice «Envió el formulario …».',
+    ],
+    archivos: [
+      'lib/editor-landing/piezas.ts y lib/piezas-web.ts — las piezas de cada landing y a qué CRM van',
+      'app/api/track/optin/route.ts — rutea por formulario antes que por la URL, y suma al contacto que ya existía',
+      'lib/landing-token.ts — el Pixel v29: 10 respuestas y qué formulario se llenó',
+      'app/crm/FuentesWebGenerator.tsx, app/automations/FormularioDelCron.tsx — «Asignar fuentes» y el CRON «Formulario»',
+      'supabase/migrations/0415_lead_formularios.sql — los envíos de cada lead (escrita, sin aplicar)',
+      'tests/web-generator-formularios-julio.test.ts — los 10 puntos; probado rompiéndolo (el tope de 8 del Pixel)',
+    ],
+    revisar: '/crm',
+  },
 ];

@@ -2638,6 +2638,9 @@ export type CtxEvento = {
   texto?: string | null;
   /** En qué publicación comentó (`comment.platformPostId`): la publicación del CRON (ticket #25, `disparaPorEvento`). */
   publicacion?: string | null;
+  /** «Envió el formulario» (14/11/2026): la clave del formulario (`form:<id>`) y la de su landing (`landing:<docId>`). */
+  formulario?: string | null;
+  landing?: string | null;
   /**
    * El evento de etapa es de un lead AGREGADO a ese CRM (`lead_funnel`, lib/lead-funnel.ts), no de su casa: entra con la
    * MISMA regla que el barrido de la hora (`agregadosQueEntran`). Ver `enrolarPorEvento`.

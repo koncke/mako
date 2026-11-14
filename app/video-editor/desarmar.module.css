@@ -40,9 +40,10 @@
   min-width: fit-content; display: flex; align-items: center; padding: 0 10px; border-radius: 8px; font-size: 12.5px; font-weight: 650;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-[data-origen='grabado'] { background: var(--good-bg); color: var(--good); }
-[data-origen='ia'] { background: var(--primary-bg); color: var(--primary-strong, var(--primary)); }
-[data-origen='codigo'] { background: var(--warn-bg); color: var(--warn); }
+/* Next no compila un selector sin clase local en un .module.css («is not pure», el deploy del 14/11 06:00 UTC): cada color va colgado de su clase. */
+.mezcla [data-origen='grabado'], .origen[data-origen='grabado'] { background: var(--good-bg); color: var(--good); }
+.mezcla [data-origen='ia'], .origen[data-origen='ia'] { background: var(--primary-bg); color: var(--primary-strong, var(--primary)); }
+.mezcla [data-origen='codigo'], .origen[data-origen='codigo'] { background: var(--warn-bg); color: var(--warn); }
 
 .bloque { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .bloque h4 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dim); }

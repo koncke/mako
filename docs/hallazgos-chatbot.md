@@ -37,6 +37,19 @@ traen escenarios «Sola» del catálogo (lib/ai-step-escenarios.ts): con el cand
 pasa por `guardarSinSetterSiFrena` y baja «Sola» a «Para aprobar». **Sin hacer:** duplicar o pegar un flujo con setter falla con el texto
 del candado (no baja a «Para aprobar»); el «⋯ › Activar» de la lista lo muestra sin el botón (SimuladorWhatsApp.tsx); por WhatsApp el
 candado se cobra después del «sí» (lib/mako-doer-acciones.ts).
+## «Envió el formulario X»: un disparador por formulario, no por etapa (14/11/2026, claude5, llamada con Julio)
+
+Martín tuvo que crear un funnel «Formulario prueba Julio» con una etapa «Rellenó el formulario» para disparar una secuencia. Ahora
+hay una clase de CRON «Formulario» (`TRIGGER_FORMULARIO = 'formulario_enviado'`): un formulario, encuesta o quiz del Web Generator
+por su clave, o «cualquier formulario de la landing X». Lo emite el opt-in en el acto (`enrolarPorEvento(…, 'formulario', {
+formulario, landing })`), también cuando el contacto ya existía.
+
+- La pieza va en un campo propio, `pieza: { clave, nombre }`, y no en `subtipo`: `subtipo` se sanea con `/^[a-z_]{1,30}$/` y una
+  clave `form:fAb3` no entraba (se caía callada). El nombre es el de cuando se eligió: la tarjeta no lee la landing.
+- Con ocho clases la grilla es 4+4 (nunca 3+3+1). Dos tests fijaban la lista exacta (`disparadores`, `disparadores-motor`) y se
+  actualizaron con el renglón nuevo.
+- Por la API: `arrancar_con_formulario` (plantilla + formulario, nace pausada). `cambiar_crons_secuencia` **no** acepta
+  todavía `pieza`: si hace falta, va su campo con descripción corta (el presupuesto de herramientas del turno).
 
 ## Una línea caída no pierde los mensajes: los guarda sin vencimiento, y al reconectar salen viejos (14/11/2026, Mauricio, ws1, claude5)
 

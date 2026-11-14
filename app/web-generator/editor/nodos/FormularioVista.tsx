@@ -37,10 +37,10 @@ import { useEditorLanding } from '../contexto';
 import {
   EstilosG2, FilaMenu, Flotante, Icono, MenuFilas, SelectorDestino, describirDestino, eliminarBloqueConDeshacer, noRobaFoco, seccionesDe,
 } from '../BarraFormato';
-import { ETIQUETA_CAMPO, specFormulario } from '@/lib/editor-landing/especificacion';
+import { ETIQUETA_CAMPO, nombreDeFormulario, specFormulario } from '@/lib/editor-landing/especificacion';
 import { htmlDeArbol } from '@/lib/editor-landing/grafico-svg';
 import { formularioConACompletar } from '../extensiones/completar';
-import { TIPOS_CAMPO, TOPES, nuevoId, type CampoFormulario, type TipoCampo } from '@/lib/editor-landing/doc';
+import { CAMPOS_CON_OPCIONES, TIPOS_CAMPO, TOPES, nuevoId, type CampoFormulario, type TipoCampo } from '@/lib/editor-landing/doc';
 
 const TIPO: Record<TipoCampo, { nombre: string; icono: string }> = {
   nombre: { nombre: 'Nombre', icono: 'usuario' },
@@ -49,7 +49,14 @@ const TIPO: Record<TipoCampo, { nombre: string; icono: string }> = {
   empresa: { nombre: 'Empresa', icono: 'negocio' },
   texto: { nombre: 'Respuesta corta', icono: 'chat-texto' },
   textoLargo: { nombre: 'Respuesta larga', icono: 'notas' },
-  opciones: { nombre: 'Opciones', icono: 'check' },
+  opciones: { nombre: 'Opciones (una)', icono: 'check' },
+  multiple: { nombre: 'Selección múltiple', icono: 'lista-check' },
+  desplegable: { nombre: 'Desplegable', icono: 'desplegable' },
+  numero: { nombre: 'Número', icono: 'calculadora' },
+  fecha: { nombre: 'Fecha', icono: 'calendario' },
+  escala: { nombre: 'Escala del 1 al 10', icono: 'velocimetro' },
+  consentimiento: { nombre: 'Consentimiento', icono: 'firma' },
+  oculto: { nombre: 'Oculto (valor fijo)', icono: 'ojo-tachado' },
 };
 /** Los tipos que van una sola vez por formulario (el Pixel lee un valor de cada uno: especificacion.ts). */
 const UNICOS: ReadonlySet<TipoCampo> = new Set<TipoCampo>(['nombre', 'email', 'telefono']);
@@ -75,6 +82,7 @@ function camposDe(raw: unknown): CampoFormulario[] {
       etiqueta: typeof o.etiqueta === 'string' ? o.etiqueta : '',
       requerido: !!o.requerido,
       opciones: Array.isArray(o.opciones) ? o.opciones.map(String) : [],
+      ...(o.tipo === 'oculto' ? { valor: typeof o.valor === 'string' ? o.valor : '' } : {}),
     };
   });
 }
@@ -90,6 +98,8 @@ export function FormularioVista(props: ReactNodeViewProps) {
   const secciones = useMemo(() => (panel ? seccionesDe(editor) : []), [panel, editor]);
   const paginas = useMemo(() => ctx.paginas.map((p) => ({ id: p.id, titulo: p.titulo || 'Página' })), [ctx.paginas]);
   const redirigir = typeof node.attrs.redirigir === 'string' && node.attrs.redirigir ? node.attrs.redirigir : null;
+  /** La encuesta (14/11/2026) es este mismo bloque con `clase: 'encuesta'`: cambia cómo se nombra, no lo que hace. */
+  const que = node.attrs.clase === 'encuesta' ? 'encuesta' : 'formulario';
 
   // Un campo sin id (no debería pasar: lo pone quien inserta) recibe uno al escribir, no al dibujar:
   // generarlo en cada render cambiaría la `key` y el campo perdería el foco con cada letra.
@@ -98,8 +108,8 @@ export function FormularioVista(props: ReactNodeViewProps) {
   const cambiarTipo = (i: number, tipo: TipoCampo) => {
     const c = campos[i];
     const etiqueta = !c.etiqueta || c.etiqueta === ETIQUETA_CAMPO[c.tipo] ? ETIQUETA_CAMPO[tipo] : c.etiqueta;
-    const opciones = tipo === 'opciones' ? (c.opciones.length >= 2 ? c.opciones : ['Opción 1', 'Opción 2']) : [];
-    cambiarCampo(i, { tipo, etiqueta, opciones });
+    const opciones = CAMPOS_CON_OPCIONES.has(tipo) ? (c.opciones.length >= 2 ? c.opciones : ['Opción 1', 'Opción 2']) : [];
+    cambiarCampo(i, { tipo, etiqueta, opciones, requerido: tipo === 'oculto' ? false : c.requerido, valor: tipo === 'oculto' ? (c.valor ?? '') : undefined });
   };
   const mover = (i: number, d: -1 | 1) => {
     const j = i + d;
@@ -127,9 +137,9 @@ export function FormularioVista(props: ReactNodeViewProps) {
       <style href="gmx-form" precedence="medium">{CSS_FORM}</style>
       {activo && (
         <div className="gmx gmx-nv-barra" contentEditable={false} onMouseDown={noRobaFoco}>
-          <button type="button" className="gmx-btn" title="Editar formulario" aria-expanded={!!panel} onMouseDown={(e) => e.preventDefault()}
+          <button type="button" className="gmx-btn" title={`Editar ${que}`} aria-expanded={!!panel} onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => (panel ? cerrarTodo() : abrirEditor(e.currentTarget))}>
-            <Icono nombre="formulario" /><span>Editar formulario</span>
+            <Icono nombre={que === 'encuesta' ? 'portapapeles' : 'formulario'} /><span>Editar {que}</span>
           </button>
           <span className="gmx-nv-etq">{campos.length === 1 ? '1 campo' : campos.length + ' campos'}</span>
           <span className="gmx-nv-sep" />
@@ -141,9 +151,14 @@ export function FormularioVista(props: ReactNodeViewProps) {
       <div className="gmx-nv-marco" inert dangerouslySetInnerHTML={{ __html: html }} />
 
       {panel && anclaEditor && (
-        <Flotante ancla={anclaEditor} onCerrar={cerrarTodo} etiqueta="Formulario" ancho={400}>
+        <Flotante ancla={anclaEditor} onCerrar={cerrarTodo} etiqueta={que === 'encuesta' ? 'Encuesta' : 'Formulario'} ancho={400}>
           <div className="gmx-form">
             <span className="gmx-nota">Los datos entran a tu CRM cuando la landing esté publicada.</span>
+            {/* El nombre con el que el CRM lo muestra y lo asigna («Asignar fuentes», el disparador «Envió el formulario»). */}
+            <span className="gmx-rotulo">{que === 'encuesta' ? 'Nombre de la encuesta' : 'Nombre del formulario'}</span>
+            <input className="gmx-campo" value={typeof node.attrs.nombre === 'string' ? node.attrs.nombre : ''} maxLength={120}
+              placeholder={nombreDeFormulario('', ctx.titulo ?? '', ctx.paginas.find((p) => p.id === ctx.paginaActual)?.titulo ?? '')}
+              aria-label="Nombre del formulario" onChange={(e) => updateAttributes({ nombre: e.target.value })} />
             <span className="gmx-rotulo">Campos</span>
             {campos.map((c, i) => (
               <div key={c.id || 'k' + i} className="gmx-form-campo">
@@ -153,8 +168,10 @@ export function FormularioVista(props: ReactNodeViewProps) {
                     <Icono nombre={TIPO[c.tipo].icono} tam={14} /><span>{TIPO[c.tipo].nombre}</span><Icono nombre="chevron-abajo" tam={12} />
                   </button>
                   <span style={{ flex: 1 }} />
-                  <button type="button" className="gmx-chip" aria-pressed={c.requerido} title="Obligatorio" onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => cambiarCampo(i, { requerido: !c.requerido })}>Obligatorio</button>
+                  {c.tipo !== 'oculto' && (
+                    <button type="button" className="gmx-chip" aria-pressed={c.requerido} title="Obligatorio" onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => cambiarCampo(i, { requerido: !c.requerido })}>Obligatorio</button>
+                  )}
                   <button type="button" className="gmx-btn" title="Subir" aria-label="Subir" disabled={i === 0} onMouseDown={(e) => e.preventDefault()} onClick={() => mover(i, -1)}>
                     <Icono nombre="chevron-arriba" tam={14} />
                   </button>
@@ -168,7 +185,11 @@ export function FormularioVista(props: ReactNodeViewProps) {
                 </div>
                 <input className="gmx-campo" value={c.etiqueta} maxLength={120} placeholder={ETIQUETA_CAMPO[c.tipo]} aria-label="Etiqueta"
                   onChange={(e) => cambiarCampo(i, { etiqueta: e.target.value })} />
-                {c.tipo === 'opciones' && (
+                {c.tipo === 'oculto' && (
+                  <input className="gmx-campo" value={c.valor ?? ''} maxLength={120} placeholder="Valor que llega al lead (no se ve)" aria-label="Valor"
+                    onChange={(e) => cambiarCampo(i, { valor: e.target.value })} />
+                )}
+                {CAMPOS_CON_OPCIONES.has(c.tipo) && (
                   <div className="gmx-form-opciones">
                     {c.opciones.map((op, k) => (
                       <div key={k} className="gmx-form-fila">

@@ -168,7 +168,8 @@ test('íconos, tonos, tipos de campo, diseños y bloques fuera de la gramática 
     bloques: [
       { t: 'optimizado', variante: 'iconos-texto', items: [{ titulo: 'A', texto: 'a', icono: 'icono-que-no-existe' }] },
       { t: 'recuadro', tono: 'fucsia' as never, texto: 'Hola' },
-      { t: 'formulario', campos: [{ tipo: 'fecha' as never, etiqueta: 'Cuándo' }, { tipo: 'email', etiqueta: 'Correo' }], boton: 'Ok', exito: 'Listo' },
+      // «archivo» (subir un archivo) sigue fuera de la gramática; «fecha» entró el 14/11/2026 (los tipos de la llamada con Julio).
+      { t: 'formulario', campos: [{ tipo: 'archivo' as never, etiqueta: 'Tu CV' }, { tipo: 'email', etiqueta: 'Correo' }], boton: 'Ok', exito: 'Listo' },
       { t: 'carrusel' } as unknown as BloqueIA,
     ],
   }, { descartes: d });
@@ -176,7 +177,7 @@ test('íconos, tonos, tipos de campo, diseños y bloques fuera de la gramática 
   assert.equal(deTipo(n, NODO.optimizadoItem)[0].attrs?.icono, null);
   assert.equal(deTipo(n, NODO.recuadro)[0].attrs?.tono, 'info');
   assert.deepEqual((deTipo(n, NODO.formulario)[0].attrs?.campos as { tipo: string }[]).map((c) => c.tipo), ['email']);
-  for (const pista of ['diagonal', 'icono-que-no-existe', 'fucsia', 'fecha', 'carrusel']) {
+  for (const pista of ['diagonal', 'icono-que-no-existe', 'fucsia', 'archivo', 'carrusel']) {
     assert.ok(d.some((m) => m.includes(pista)), `falta el motivo de «${pista}»: ${d.join(' | ')}`);
   }
 });

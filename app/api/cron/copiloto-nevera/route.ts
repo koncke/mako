@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 const TECHO_MS = (maxDuration - 30) * 1000;
 
-/** Los negocios activos con un perfil del CoPilot que dice cuánto publica (sin ritmo, la nevera nunca avisa: no se lee). */
+/** Los negocios activos con un perfil del CoPilot que dice cuánto publica (sin ritmo ni tiempo, la nevera nunca avisa: no se lee). */
 async function negociosConRitmo(): Promise<number[]> {
   const [{ data, error }, activos] = await Promise.all([
     getSupabaseServer().from('app_settings').select('workspace_id, value').eq('key', CLAVE_COPILOTO),
@@ -28,7 +28,8 @@ async function negociosConRitmo(): Promise<number[]> {
   const vivos = new Set(activos.filter((w) => w.estado === 'activo').map((w) => w.id));
   return (data ?? [])
     .filter((f) => {
-      try { return JSON.parse(String(f.value)).ritmo != null; } catch { return false; }
+      // El ritmo de la charla vieja o el tiempo de la entrada nueva (lib/copiloto/entrada.ts): sin ninguno, la nevera no avisa.
+      try { const p = JSON.parse(String(f.value)); return p.ritmo != null || p.tiempo != null; } catch { return false; }
     })
     .map((f) => Number(f.workspace_id))
     .filter((ws) => vivos.has(ws));

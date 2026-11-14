@@ -16,7 +16,7 @@ import { useEditorLanding } from '../contexto';
 import { EstilosG2, Flotante, Icono, eliminarBloqueConDeshacer, noRobaFoco } from '../BarraFormato';
 import { htmlDeArbol } from '@/lib/editor-landing/grafico-svg';
 import {
-  TEXTOS_QUIZ, TOPES_QUIZ, attrsQuiz, avisoDelBoton, faltaDelQuiz, puntajeMaximo, specQuiz,
+  SALTO_FIN, TEXTOS_QUIZ, TOPES_QUIZ, attrsQuiz, avisoDelBoton, faltaDelQuiz, puntajeMaximo, specQuiz,
   type OpcionQuiz, type PreguntaQuiz, type ResultadoQuiz,
 } from '@/lib/editor-landing/quiz';
 
@@ -26,6 +26,7 @@ const CSS_QUIZ: string = [
   '.gmx-quiz-fila .gmx-campo{flex:1 1 auto;min-width:0}',
   '.gmx-quiz-caja{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px solid var(--gmx-borde);border-radius:8px;background:var(--gmx-fondo-2)}',
   '.gmx-quiz-pts{flex:0 0 4.2em !important}',
+  '.gmx-quiz-salto{flex:0 0 7.4em !important;padding-left:4px;padding-right:2px}',
   '.gmx-quiz-sec{margin-top:6px}',
 ].join('\n');
 
@@ -41,7 +42,13 @@ function crudo(attrs: Record<string, unknown>): { preguntas: PreguntaQuiz[]; res
     preguntas: ps.map((p) => {
       const q = (p && typeof p === 'object' ? p : {}) as Record<string, unknown>;
       const ops = Array.isArray(q.opciones) ? q.opciones : [];
-      return { texto: str(q.texto), opciones: ops.map((x) => { const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>; return { texto: str(o.texto), puntos: num(o.puntos) }; }) };
+      return {
+        texto: str(q.texto), multiple: q.multiple === true,
+        opciones: ops.map((x) => {
+          const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
+          return { texto: str(o.texto), puntos: num(o.puntos), saltarA: typeof o.saltarA === 'number' ? o.saltarA : null };
+        }),
+      };
     }),
     resultados: rs.map((r) => {
       const x = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>;
@@ -103,6 +110,10 @@ function PanelQuiz({ attrs, poner }: { attrs: Record<string, unknown>; poner: Po
 
   return (
     <div className="gmx-quiz">
+      {/* El nombre con que el CRM lo muestra y lo asigna («Asignar fuentes», «Envió el formulario», 14/11/2026). */}
+      <span className="gmx-rotulo">Nombre del quiz</span>
+      <input className="gmx-campo" value={str(attrs.nombre)} maxLength={TOPES_QUIZ.titulo} placeholder={str(attrs.titulo) ? `Quiz ${str(attrs.titulo)}` : 'Quiz de la landing'} aria-label="Nombre del quiz"
+        onChange={(e) => poner({ nombre: e.target.value })} />
       <span className="gmx-rotulo">Título</span>
       <input className="gmx-campo" value={str(attrs.titulo)} maxLength={TOPES_QUIZ.titulo} placeholder="¿Tu agenda está lista para crecer?" aria-label="Título del quiz"
         onChange={(e) => poner({ titulo: e.target.value })} />
@@ -124,12 +135,26 @@ function PanelQuiz({ attrs, poner }: { attrs: Record<string, unknown>; poner: Po
               <IconoBorrar size={15} />
             </button>
           </div>
+          {/* SELECCIÓN MÚLTIPLE (14/11/2026): casillas, suma los puntos de todas las que marque y no salta. */}
+          <label className="gmx-quiz-fila gmx-nota" style={{ cursor: 'pointer' }}>
+            <input type="checkbox" checked={p.multiple} onChange={(e) => cambiarPregunta(i, { multiple: e.target.checked, opciones: p.opciones.map((o) => ({ ...o, saltarA: null })) })} />
+            Puede elegir varias
+          </label>
           {p.opciones.map((o, j) => (
             <div key={j} className="gmx-quiz-fila">
               <input className="gmx-campo" value={o.texto} maxLength={TOPES_QUIZ.opcion} placeholder={`Opción ${j + 1}`} aria-label={`Pregunta ${i + 1}, opción ${j + 1}`}
                 onChange={(e) => cambiarOpcion(i, j, { texto: e.target.value })} />
               <input className="gmx-campo gmx-quiz-pts" type="number" min={0} max={TOPES_QUIZ.puntos} value={String(o.puntos)} title="Puntos" aria-label={`Puntos de la opción ${j + 1}`}
                 onChange={(e) => cambiarOpcion(i, j, { puntos: puntos(e.target.value) })} />
+              {/* EL SALTO (14/11/2026, «quiz con lógica»): después de esta opción, la siguiente, otra más adelante o el final. */}
+              {!p.multiple && (
+                <select className="gmx-campo gmx-quiz-salto" value={o.saltarA == null ? '' : String(o.saltarA)} title="Después de esta opción" aria-label={`Después de la opción ${j + 1}`}
+                  onChange={(e) => cambiarOpcion(i, j, { saltarA: e.target.value === '' ? null : Number(e.target.value) })}>
+                  <option value="">Sigue</option>
+                  {preguntas.map((_, k) => (k > i + 1 ? <option key={k} value={String(k)}>{`Va a la ${k + 1}`}</option> : null))}
+                  <option value={String(SALTO_FIN)}>Al resultado</option>
+                </select>
+              )}
               <button type="button" className="gmx-btn" title="Quitar la opción" aria-label={`Quitar la opción ${j + 1}`} onMouseDown={sinFoco}
                 onClick={() => cambiarPregunta(i, { opciones: p.opciones.filter((_, k) => k !== j) })}>
                 <IconoBorrar size={15} />
@@ -137,13 +162,13 @@ function PanelQuiz({ attrs, poner }: { attrs: Record<string, unknown>; poner: Po
             </div>
           ))}
           <button type="button" className="gmx-chip" style={{ alignSelf: 'flex-start' }} disabled={p.opciones.length >= TOPES_QUIZ.opciones} onMouseDown={sinFoco}
-            onClick={() => cambiarPregunta(i, { opciones: [...p.opciones, { texto: '', puntos: 0 }] })}>
+            onClick={() => cambiarPregunta(i, { opciones: [...p.opciones, { texto: '', puntos: 0, saltarA: null }] })}>
             <Icono nombre="mas" tam={14} /><span>Opción</span>
           </button>
         </div>
       ))}
       <button type="button" className="gmx-chip" style={{ alignSelf: 'flex-start' }} disabled={preguntas.length >= TOPES_QUIZ.preguntas} onMouseDown={sinFoco}
-        onClick={() => ponerPreguntas([...preguntas, { texto: '', opciones: [0, 1, 2].map((pts) => ({ texto: '', puntos: pts })) }])}>
+        onClick={() => ponerPreguntas([...preguntas, { texto: '', multiple: false, opciones: [0, 1, 2].map((pts) => ({ texto: '', puntos: pts, saltarA: null })) }])}>
         <Icono nombre="mas" tam={14} /><span>Pregunta</span>
       </button>
 

@@ -127,10 +127,12 @@ POST /api/competitor-spy/redes → cortada
 POST /api/competitor-spy/todo → cortada
 POST /api/competitor-spy/transcribir → cortada
 POST /api/copiloto/comunicacion → cortada
+POST /api/copiloto/entrada → cortada
 POST /api/copiloto/piloto → cortada
 POST /api/copiloto/tareas → cortada
 POST /api/copywriter → cortada
 POST /api/copywriter/ia → cortada
+POST /api/copywriter/pegado → cortada
 POST /api/crm-auto → cortada
 POST /api/crm/analyst → cortada
 POST /api/crm/comprobante-pago → cortada
@@ -374,6 +376,7 @@ acción app/crm/notas-actions.ts → cortada (ninguna página acepta un POST de 
 acción app/crm/nuevo-crm-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/oferta-lead-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/orden-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/crm/piezas-web-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/producto-cierre-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/reuniones-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/revisar/[id]/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)

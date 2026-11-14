@@ -41,6 +41,9 @@ function descripcion(e: TrackingEvent): { texto: string; detalle: string | null;
       const c = textoDeClic(e.detalle);
       return { texto: c.que, detalle: c.adonde, color: 'var(--warn)' };
     }
+    case 'formulario':
+      // «Envió el formulario «Regalo»» (14/11/2026, `lead_formularios`): QUÉ formulario de la landing, con la página.
+      return { texto: e.vsl_titulo ? `Envió el formulario «${e.vsl_titulo}»` : 'Envió un formulario', detalle: e.detalle ?? e.landing_url, color: 'var(--good)' };
     case 'scroll':
       // La otra mitad de la visita: cuánto LEYÓ, no sólo qué apretó. El % es de la
       // PÁGINA, así que la frase lo dice — con «Llegó al 50%» a secas se lee como

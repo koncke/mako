@@ -62,6 +62,7 @@ import {
   enriquecerLead,
   valorDelHistorial,
 } from '@/lib/leads';
+import { enviosDelLead } from '@/lib/lead-formularios';
 import { camposPisados } from '@/lib/historial-pisado';
 import {
   fotoDe, fotoDeCuotas, firmarDeshacer, leerDeshacer, planDeshacer,
@@ -270,6 +271,8 @@ export type LeadFullData = {
   respuestasForm: Array<{ pregunta: string; respuesta: string }>;
   /** Lo que contestó en el formulario de la landing (mig 0274), ya saneado. */
   respuestasLanding: Array<{ pregunta: string; respuesta: string }>;
+  /** Cada formulario de la landing que llenó, con su nombre (mig 0415; [] sin la tabla). */
+  enviosLanding?: Array<{ nombre: string; respuestas: Array<{ pregunta: string; respuesta: string }> }>;
   /** Qué muestra el Resumen en ESTE negocio (lib/resumen-ficha.ts, 14/10/2026). */
   resumen: ResumenElegido;
   /** La cohorte de la ficha (`cohorteDeLead`, lib/leads.ts), resuelta acá: el panel es 'use client'. */
@@ -413,9 +416,20 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
+  const enviosP = enviosDelLead(id);
   const [ficha, rolWs, partners] = await Promise.all([fichaP, rolP, ofrecePartners()]);
+  const envios = await enviosP;
+  // CADA FORMULARIO QUE LLENÓ (14/11/2026, mig 0415): en «Lo que contestó» por formulario y en Tracking con su nombre. Sin la
+  // tabla (la 0415 sin aplicar) `enviosDelLead` da [] y la ficha queda como siempre.
+  const enviosLanding = envios.filter((e) => e.formularioNombre).map((e) => ({ nombre: e.formularioNombre as string, respuestas: e.respuestas }));
+  const trackingConEnvios: TrackingEvent[] = envios.length
+    ? [...tracking, ...envios.map((e): TrackingEvent => ({
+      ts: e.fecha, tipo: 'formulario', porcentaje: null, landing_url: e.pagina, referrer: null, video_id: null,
+      vsl_titulo: e.formularioNombre, detalle: e.respuestas.slice(0, 3).map((r) => `${r.pregunta}: ${r.respuesta}`).join(' · ') || null,
+    }))].sort((a, b) => b.ts.localeCompare(a.ts))
+    : tracking;
   const rol = rolDeFicha(rolWs);
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, sinTracking: await sinTrackingP, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking: trackingConEnvios, pixelPuesto, sinTracking: await sinTrackingP, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), enviosLanding, resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
     ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP, suscripcion: await suscripcionP };
 }
 

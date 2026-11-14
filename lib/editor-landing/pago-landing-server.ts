@@ -33,6 +33,7 @@ import { createLead, logLeadEvent } from '../leads';
 import { emailComparable, esLeadDuplicado } from '../leads-duplicados';
 import { idDelFunnelDefault } from '../funnels';
 import { funnelPrincipalDeLanding } from '../landing-funnel';
+import { crmDePago } from '../piezas-web';
 import { casaParaEscribir } from '../lead-funnel-reglas';
 import { crearCobro, linkDelCobro, listarCobros, modoDeLaPasarela, pasarelasConectadas, refParaCobrar } from '../cobros';
 import { crearPropuesta } from '../propuestas';
@@ -177,7 +178,7 @@ async function leadDeEmail(email: string): Promise<{ id: number; ambiguo: boolea
  * aterrizaje, como el del opt-in. Una ficha que ya estaba NO se toca: su origen es el primero que tuvo.
  */
 export async function leadDeQuienPaga(
-  l: Pick<LandingDePago, 'ws' | 'slug'>,
+  l: Pick<LandingDePago, 'ws' | 'slug' | 'docId'>,
   p: { nombre: string; email: string; autor: string; atribucion?: AtribucionPago | null },
 ): Promise<{ leadId: number; nuevo: boolean }> {
   const atrib = p.atribucion ?? ATRIBUCION_PAGO_VACIA;
@@ -190,7 +191,9 @@ export async function leadDeQuienPaga(
     const defaultId = await idDelFunnelDefault().catch(() => null);
     // La dirección PÚBLICA de hoy (hola-mako.site en producción): una página declarada con la de antes
     // de la mudanza (`hola-mako.com/l/<slug>`) la reconoce `landingDe` (urlLandingVigente, las dos puntas).
-    const principal = await funnelPrincipalDeLanding(l.ws, urlPublicaLanding(l.slug));
+    // La página del botón asignada en «Asignar fuentes» (14/11/2026, lib/piezas-web.ts) gana; si no, la URL, como siempre.
+    const porPieza = await crmDePago(l.docId);
+    const principal = porPieza !== undefined ? porPieza : await funnelPrincipalDeLanding(l.ws, urlPublicaLanding(l.slug));
     try {
       const lead = await createLead({
         nombre: p.nombre, email: p.email, origen_lead: 'landing', funnel_id: casaParaEscribir(principal, defaultId),
@@ -303,7 +306,8 @@ async function proponerQuienQuisoPagar(
   atrib: AtribucionPago,
 ): Promise<void> {
   const pagina = urlPublicaLanding(l.slug);
-  const principal = await funnelPrincipalDeLanding(l.ws, pagina);
+  const porPieza = await crmDePago(l.docId, p.productoId);
+  const principal = porPieza !== undefined ? porPieza : await funnelPrincipalDeLanding(l.ws, pagina);
   await crearPropuesta({
     ws: l.ws,
     tipo: 'lead',

@@ -213,20 +213,26 @@ test('B1 · el candado donde se guarda la config del piloto de Instagram, como `
   assert.match(ruta, /if \(e instanceof PlanSinPilotoRedes\) return J\(\{ ok: false, error: e\.message, tope: true, pasarAPro: await rutaConWs\(RUTA_CAMBIAR_PLAN\) \}, 403\);/);
 });
 
-test('B2 · la pantalla: «Configurar piloto» › Instagram es el candado, y el paso «Piloto automático» lo dice en Instagram y YouTube', () => {
+// 14/11/2026, al unir con main: el piloto de Instagram y YouTube de copilot-maqueta llegó con su CONFIGURACIÓN en `pilotoRedes`, y el
+// «¿el plan lo trae?» de acá pasó a llamarse `redesPermitidas`. El candado cubre las dos pestañas (Instagram y YouTube) y también
+// `guardarPilotoRedes`, que guarda la configuración que trajo main.
+test('B2 · la pantalla: «Configurar piloto» › Instagram y YouTube son el candado, y el paso «Piloto automático» lo dice en las dos', () => {
   const pagina = codigo('app/ads-manager/copiloto/configurar/page.tsx');
   assert.match(pagina, /pilotoRedesPermitido\(ws\)\.catch\(\(\) => true\)/, 'ante la duda, abierto');
-  assert.match(pagina, /pilotoRedes=\{pilotoRedes\}/);
+  assert.match(pagina, /redesPermitidas=\{redesPermitidas\}/);
   const cfg = codigo('app/ads-manager/copiloto/configurar/ConfigurarPiloto.tsx');
-  assert.match(cfg, /const redesSoloPro = useSoloPro\('piloto-redes'\) \|\| !pilotoRedes;/);
-  assert.match(cfg, /\{canal === 'instagram' && redesSoloPro \? \([\s\S]*?<CandadoSoloPro funcion="piloto-redes"/);
-  assert.match(cfg, /\? !redesSoloPro && <button type="button" className="frn-btn frn-btn--primary" disabled=\{guardando\} onClick=\{guardarReel\}>/, 'sin «Guardar» con el candado');
+  assert.match(cfg, /const redesSoloPro = useSoloPro\('piloto-redes'\) \|\| !redesPermitidas;/);
+  assert.match(cfg, /\{canal !== 'anuncios' && redesSoloPro \? \([\s\S]*?<CandadoSoloPro funcion="piloto-redes"/);
+  assert.match(cfg, /\? !redesSoloPro && <button type="button" className="frn-btn frn-btn--primary" disabled=\{guardando\} onClick=\{\(\) => void guardarRed\(canal\)\}>/, 'sin «Guardar» con el candado');
   assert.match(cfg, /if \(!r\.ok && esRespuestaSoloPro\(r\)\) \{ marcarSoloPro\('piloto-redes'\); return; \}/);
   const copiloto = codigo('app/ads-manager/copiloto/CoPilot.tsx');
-  assert.match(copiloto, /\{paso === 'piloto' && \(tarjeta === 'instagram' \|\| tarjeta === 'youtube'\) && !datos\.pilotoRedes && <PilotoRedesSoloPro red=\{tarjeta\} \/>\}/);
+  assert.match(copiloto, /\{paso === 'piloto' && \(tarjeta === 'instagram' \|\| tarjeta === 'youtube'\) && !datos\.redesPermitidas && <PilotoRedesSoloPro red=\{tarjeta\} \/>\}/);
   assert.match(copiloto, /<CandadoSoloPro funcion="piloto-redes" \/>/);
-  assert.match(copiloto, /if \(\(t === 'instagram' \|\| t === 'youtube'\) && !datos\.pilotoRedes\) return \{ n: '—', s: 'De MaKo Pro' \};/);
+  assert.match(copiloto, /if \(\(t === 'instagram' \|\| t === 'youtube'\) && !datos\.redesPermitidas\) return \{ n: '—', s: 'De MaKo Pro' \};/);
   assert.match(codigo('app/ads-manager/copiloto/page.tsx'), /callar\(pilotoRedesPermitido\(ws\), true\)/);
+  // Lo que guarda la configuración de las redes (main) también frena primero.
+  const redes = cuerpo(codigo('lib/copiloto/piloto.ts'), 'export async function guardarPilotoRedes(');
+  assert.match(redes, /^export async function guardarPilotoRedes\([^)]*\)[^{]*\{\n\s+if \(!\(await pilotoRedesPermitido\(ws\)\)\) throw new PlanSinPilotoRedes\(\);/, 'guardarPilotoRedes sin el candado');
 });
 
 // ── C. EL DOMINIO PROPIO EN 0 ────────────────────────────────────────────────────

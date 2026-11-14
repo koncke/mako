@@ -58,3 +58,14 @@ test('en el guion entero: los textos de cada operación, las listas y las tablas
   assert.ok(ia.includes('s.ops = operacionesAlEspanol(s.ops, permitido);'), 'el guion, antes de medirlo');
   assert.ok(ia.includes('let respuesta = alEspanol(alTuteo('), 'y la respuesta de Editar');
 });
+
+test('la réplica del short de Hormozi (14/11/2026): «dashboard» al español, y un dígito colado entre letras se saca', () => {
+  assert.equal(alEspanol('La herramienta sin lectura es solo un dashboard bonito.'), 'La herramienta sin lectura es solo un tablero bonito.');
+  assert.equal(alEspanol('Creí que era un problema mío, de capac0idad. No era.'), 'Creí que era un problema mío, de capacidad. No era.');
+  // Lo que sí lleva un número queda: siglas, versiones, un @ y un link.
+  assert.equal(alEspanol('Vendes B2B, en MP3 o en web3, con 4K y 2x más.'), 'Vendes B2B, en MP3 o en web3, con 4K y 2x más.');
+  assert.equal(alEspanol('Escríbele a @ana2coach o entra a mi2web.com hoy.'), 'Escríbele a @ana2coach o entra a mi2web.com hoy.');
+  // Lo de antes de un «.com» es un dominio, no una palabra (lo encontró este test: «free.com» quedaba «gratis.com»).
+  assert.equal(alEspanol('Entra a free.com o a budget.net hoy.'), 'Entra a free.com o a budget.net hoy.');
+  assert.equal(alEspanol('Sube tu budget. Y listo.'), 'Sube tu presupuesto. Y listo.', 'el punto final no es un dominio');
+});
