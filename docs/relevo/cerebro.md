@@ -1,5 +1,24 @@
 # Relevo del Cerebro
 
+## 14/11/2026, ~18:45 UTC — LEER PRIMERO (claude5 al 100%; Martín pasa a otra cuenta y escribe «Continua»)
+
+**Producción:** despliegue lanzado a las ~18:40 UTC con main = 0d86abb59 (dpl_8M2x6upnNnRJFRAaAeXxQAgbiH8Z), con la landing
+nueva entera (18 landings, el ticket de lo que pagas, el reel de Hormozi, el curso de Mauricio, Second Brain). Lo primero al
+abrir: `node --env-file=C:/dev/mako-api/.env.local scripts/ver-deploy-vercel.mjs` desde C:/dev/wt-push-q. Si dio READY,
+mirar /vsl/sitio a 1440 y 375; si dio ERROR, leer por qué y arreglarlo (ver docs/hallazgos-infra.md).
+
+**Falta entrar a main y desplegar (las puntas pasan GitHub solas):** punta/crm-ficha-panel (la ficha del lead como panel a la
+derecha, chat local_b4f39e38), punta/agencia-aviso-pago (el aviso al inspeccionar un cliente sin pagar + el texto plural de
+las entradas, chat local_a70ce8c1) y punta/copy-abre-al-instante (Copywriting que abra al instante con el loader, chat
+local_bcada0bc). Con eso en main, OTRO despliegue (Martín pidió «pushea y deploya… todo»).
+
+**Hecho hoy a la tarde:** aviso al grupo de Código (18:14 UTC, WhatsApp ok) de por qué no pueden inspeccionar a Giselle (ws 17)
+y Marcela (ws 23): entradas sin pagar, US$ 65,80 el 14/11 con el PDF del sistema (memoria cobro-agencia-codigo).
+Landings: siguen a medias Ops Center, Plan, Automations y la calculadora de tokens (relevo docs/relevo/landings-vsl.md). Martín
+no decidió todavía si la portada nueva pasa a ser la `/` ni si se publican las páginas de Industrias.
+
+Lo de abajo (13:00 UTC) sigue valiendo.
+
 ## 14/11/2026, ~13:00 UTC — LEER PRIMERO (cuenta claude5 al 90% semanal; vuelve el 17/11 18:00 UTC)
 
 **Producción = 4a46d1e1c (14/11 06:19 UTC, READY).** Trae la landing nueva y el rescate de mensajes atrasados de WhatsApp (#92
