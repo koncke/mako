@@ -77,8 +77,8 @@ const CSS = `
 .d-offer-tarjeta-p { margin-top: 10px; text-align: center; font-family: var(--d-offer-raleway); font-size: 15px; line-height: 16px; color: #000; }
 
 /* Los botones: el amarillo de la referencia es aquí el azul de MaKo (Roboto 24 px 700, -1 px, 58 px de alto, sin radio). */
-.d-offer-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 58px; padding: 5px 25px; background: ${MAKO.azul};
-  font-family: var(--d-offer-roboto); font-size: 24px; line-height: 28px; font-weight: 700; letter-spacing: -1px; text-transform: uppercase; color: #fff; text-align: center; }
+.d-offer-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 58px; padding: 5px 18px; background: ${MAKO.azul};
+  font-family: var(--d-offer-roboto); font-size: clamp(16px, 4.4vw, 21px); line-height: 28px; font-weight: 700; letter-spacing: -.5px; text-transform: uppercase; color: #fff; text-align: center; white-space: nowrap; }
 .d-offer-btn svg { flex: none; }
 .d-offer-tarjeta .d-offer-btn { width: 312px; max-width: 100%; margin-top: 10px; }
 
@@ -91,7 +91,9 @@ const CSS = `
 .d-offer-carta .d-offer-texto { margin-top: 20px; }
 .d-offer-carta .d-offer-texto + .d-offer-texto { margin-top: 28.6px; }
 .d-offer-lista { list-style: none; margin: 10px 0 0; padding: 0 0 0 33px; }
-.d-offer-lista li { padding-left: 11px; font-family: var(--d-offer-raleway); font-size: 22px; line-height: 44px; font-weight: 400; color: #000; }
+/* El renglón de 44 px de la referencia, como aire entre ítems y no como interlineado: partido en dos renglones (el teléfono) quedaba una
+   línea por renglón (el Cerebro, 14/11/2026). */
+.d-offer-lista li { padding: 6px 0 6px 11px; font-family: var(--d-offer-raleway); font-size: 22px; line-height: 1.45; font-weight: 400; color: #000; }
 
 /* La banda gris oscura con la grilla de 3 × 2. */
 .d-offer-oscura { background: #4B4B4B; padding: 70px 0 60px; }
@@ -101,11 +103,13 @@ const CSS = `
   line-height: 28.6px; font-weight: 500; color: #fff; }
 .d-offer-grilla { width: 849px; max-width: calc(100% - 20px); margin: 45px auto 0; display: grid; grid-template-columns: repeat(3, 263px); gap: 30px; }
 .d-offer-pieza { display: flex; flex-direction: column; align-items: center; padding: 10px 5px 21px; background: #161716; border: 1px solid ${MAKO.dorado}; border-radius: 4px; }
-.d-offer-pieza-img { width: 200px; height: 250px; margin-top: 11px; display: flex; align-items: center; justify-content: center; color: #fff;
+/* El cuadro azul de 200 × 250 con un solo ícono se veía sin terminar (el Cerebro, 14/11/2026): un ícono de 88 px. */
+.d-offer-pieza-img { width: 88px; height: 88px; border-radius: 18px; margin-top: 14px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #fff;
   background: linear-gradient(160deg, ${MAKO.azul} 0%, ${MAKO.azulOscuro} 100%); }
 .d-offer-pieza-h { margin-top: 10px; padding: 0 5px; text-align: center; font-family: var(--d-offer-raleway); font-size: 22px; line-height: 28.6px; font-weight: 700; color: #fff; }
 .d-offer-pieza-p { margin-top: 10px; padding: 0 5px; text-align: center; font-family: var(--d-offer-raleway); font-size: 16px; line-height: 20.8px; font-weight: 500; color: #fff; }
 .d-offer-pieza-p strong { font-weight: 700; }
+.d-offer-pieza-img svg { width: 48px; height: 48px; }
 .d-offer-ancho { display: flex; width: 1130px; max-width: calc(100% - 20px); margin: 55px auto 0; }
 .d-offer-ancho .d-offer-btn { flex: 1; }
 

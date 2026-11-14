@@ -296,7 +296,7 @@ function Fila({ b, n, visual }: { b: De<'tarjetas'>; n: number; visual?: VisualH
         <div className={`${P}-figura-halo`} aria-hidden="true" />
         {visual ? (
           <div className={`${P}-ventana ${P}-ventana-${parte}`} aria-hidden="true">
-            <div className={`${P}-pantalla ${P}-pantalla-${parte}`}><VisualDeLanding visual={visual} /></div>
+            <div className={`${P}-pantalla ${P}-pantalla-${parte}`}><VisualDeLanding visual={visual} falta={`La pantalla de «${b.titulo.replace(/<[^>]+>/g, '')}» en Competitor Spy, tal cual es.`} /></div>
           </div>
         ) : null}
         <div className={`${P}-leyendas`}>

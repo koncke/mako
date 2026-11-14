@@ -179,7 +179,7 @@ function DibujarBloque({ b, hero, icono, n, nombre }: { b: Bloque; hero: Hero | 
             </div>
             {hero ? (
               <Marco nombre={n === 1 ? 'Formatos' : (b.etiqueta ?? nombre)} clase={`d-image-parte-${parte}`}>
-                <VisualDeLanding visual={hero.visual} />
+                <VisualDeLanding visual={hero.visual} falta={/carrusel/i.test(b.etiqueta ?? '') ? undefined : `La pantalla de «${n === 1 ? 'Formatos' : (b.etiqueta ?? nombre)}» en Image, tal cual es.`} />
               </Marco>
             ) : null}
           </div>

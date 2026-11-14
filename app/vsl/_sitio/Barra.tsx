@@ -22,7 +22,8 @@ import { LogoMaKo, TEXTO_CTA, RUTA_CTA } from '../_competencia/marca';
 import { TemaSitio } from '../_competencia/TemaSitio';
 import { HISTORIA, INDUSTRIAS, RUTA_COMPARACIONES, RUTA_ENTRAR, RUTA_PRECIOS, menuProducto, type MenuProducto } from './datos';
 import { Chevron, Icono } from './Piezas';
-import { CSS_BARRA, CSS_BASE } from './estilos';
+import { CSS_BARRA, CSS_BASE, CSS_PIE } from './estilos';
+import { Pie } from './Pie';
 import { FUNNELS_SITIO, rutaFunnel } from './funnels-datos';
 
 /** Los funnels, dentro de Industrias (Martín, 14/11/2026: «dentro del desplegable de industria, una sección funnels… y que sea una
@@ -195,6 +196,20 @@ export function BarraGlobal({ claro = false, barraPropia }: { claro?: boolean; b
     <div className={`s-sitio s-solo-barra${claro ? ' s-claro' : ''}`}>
       <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_SOLO_BARRA + ocultar }} />
       <Barra claro={claro} />
+    </div>
+  );
+}
+
+/**
+ * EL PIE DEL SITIO EN CADA LANDING (14/11/2026, la revisión de las 28 páginas: «cada landing parece de una marca distinta… unos 8 pies
+ * distintos… usar un solo pie, el del sitio»; y el Cerebro: Ads no decía «El mejor software para vender High Ticket»). Como la barra:
+ * uno para todo el sitio. El pie copiado de la referencia (cada diseño tiene UN <footer>, el suyo) se oculta.
+ */
+export function PieGlobal({ claro = false }: { claro?: boolean }) {
+  return (
+    <div className={`s-sitio s-solo-pie${claro ? ' s-claro' : ''}`}>
+      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_PIE + '.s-sitio.s-solo-pie{min-height:0}footer:not(.s-pie){display:none!important}' }} />
+      <Pie />
     </div>
   );
 }

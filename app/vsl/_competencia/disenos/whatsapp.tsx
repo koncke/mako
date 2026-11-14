@@ -236,7 +236,7 @@ function Comparacion({ grupo }: { grupo: Contraste[] }) {
 /** Qué pantalla va en la composición de cada pieza (Leadsales pone un recorte de su producto en cada una). */
 const PANTALLA_DE_PIEZA: (number | 'hero')[] = [0, 4, 'hero', 2];
 
-function Piezas({ b, hero, filas }: { b: Tarjetas; hero?: Hero; filas?: Filas }) {
+function Piezas({ b, filas }: { b: Tarjetas; hero?: Hero; filas?: Filas }) {
   const slug = filas?.slug ?? 'whatsapp';
   const fv = FEATURE_VISUALS[slug];
   const pantalla = (i: number): { spec?: VisualSpec; etiqueta: string } => {
@@ -258,7 +258,7 @@ function Piezas({ b, hero, filas }: { b: Tarjetas; hero?: Hero; filas?: Filas })
             return (
               <article key={it.titulo} className={c('pieza')}>
                 <figure className={`${c('comp')} ${c(`comp${i % 4}`)}`}>
-                  <div className={c('ventana')}>{i % 4 === 2 && hero ? <VisualDeLanding visual={hero.visual} /> : <Visual spec={p.spec} />}</div>
+                  <div className={c('ventana')}><Visual spec={p.spec} /></div>
                   {p.etiqueta ? <span className={c('pastilla')}><span className={c('pastilla-ic')}><Ico paths={it.icono} /></span>{p.etiqueta}</span> : null}
                 </figure>
                 <div className={c('copy')}>

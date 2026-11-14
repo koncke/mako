@@ -5269,6 +5269,14 @@ pasada a 960 × 600, y en la portada el recuadro mide unos 700 px: la letra de 1
   título las secciones que la fila no cuenta (automatizaciones, calificación, notas, contacto…) y los botones de más.
 - **Una animación hecha de tiempo es periódica**: CUALQUIER tramo de un `CICLO` exacto de largo da un bucle sin costura; no hace
   falta fundir el final con el principio (Carruseles y Copywriting, `banco-carruseles-replica/grabar-replica-html.mjs`).
+- **Con la cámara en el `body`, un `position: fixed` (el Toast) queda pegado al pie del body** y asoma cortado cuando la cámara viaja:
+  se esconde en la toma y la confirmación se muestra con lo que cambia en la pantalla (la decisión que pasa a «Lo que hice»). Lo
+  encontró el chat del CoPilot grabando `banco-copilot-nuevo/`.
+- **Cuando un clic hace subir el contenido**, la caja de destino se calcula ANTES del clic (dónde VA a quedar) y la cámara se mueve
+  después del salto; si se mueve durante el salto, salen cuadros con pedazos de renglones (también del chat del CoPilot).
+- **Una tarjeta de todo el ancho no entra entera en un acercamiento**: la cámara la muestra en dos pedazos (el texto sin su botón, el
+  botón sin su texto) y se lee como pantalla rota. La pantalla se monta en un contenedor más angosto (880–960 px) para que cada toma
+  tenga la tarjeta entera.
 
 **Trampas de los bancos de esta vuelta:**
 - **Spy pide sus otras redes por una RUTA, no por una acción** (`/api/competitor-spy/redes`): con el `{ ok: true }` genérico del
@@ -5315,3 +5323,18 @@ regular va con `\d`: con `\d` el template se come la barra y la regex pasa a bus
 de «falta la animación» (no saben de qué landing son); los heros y los recuadros sueltos que ya tenían grabación la usan
 (`GRABACION` y `GrabacionDe` en `Visuales.tsx`). El checkout (`app/planes/[plan]/Checkout.tsx`) dice «Como toda suscripción, el cobro
 empieza a los 7 días» y el ícono de la tarjeta es un rectángulo vacío: es del chat de la pasarela.
+
+## Los tableros «eran imágenes» en el visor: el `data-src` no se reescribe (14/11/2026)
+
+**Síntoma.** Martín y quien revisó la portada vieron el carrusel de tableros como imágenes quietas, aunque cada tablero tiene su
+entrada grabada. **Causa.** El carrusel carga el video cuando el tablero queda a la vista, desde `data-src` («/vsl-assets/…», la ruta del
+sitio). El visor reescribe `src` y `poster` a `../assets/…`, pero no `data-src`: el video no cargaba y quedaba el póster. En el sitio de
+verdad andaba. **La regla.** Un video que se carga tarde en el visor sale de una ruta que el visor ya reescribió (el `poster`, cambiando
+la extensión: `mirar/visor-interactivos.py`); y antes de decir «en producción anda», mirar el visor, que es lo que mira Martín.
+
+## Un pie por landing, de 19 referencias distintas (14/11/2026)
+
+Cada diseño copiado trae UN `<footer>`, el de su referencia: ocho pies distintos, siete con el lema viejo y Ads sin lema. El arreglo no
+fue tocar los 19: `PieGlobal` (`app/vsl/_sitio/Barra.tsx`) pone el pie del sitio debajo de cada diseño y oculta `footer:not(.s-pie)`,
+como `BarraGlobal` ya hacía con la barra. Si un diseño nuevo usa `<footer>` para otra cosa (una cita, una tarjeta), se le cambia la
+etiqueta: esa regla lo escondería.

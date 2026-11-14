@@ -44,7 +44,7 @@ import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
 import {
   VIDEOS_AVATAR, LOGO_INTEGRACION, PREGUNTAS_SITIO, TABLEROS, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
 } from './datos';
-import { STACK_TIPICO, appsQueReemplaza } from './reemplaza';
+import { STACK_TIPICO, appsDeLaTira } from './reemplaza';
 
 /** Un plan como lo devuelve planesParaLanding() (lib/compra-plan.ts). */
 export type PlanSitio = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean };
@@ -88,7 +88,7 @@ function HeroSitio() {
  * reemplaza las apps que ya estás pagando, que ahí justamente salga la comparativa». La de integraciones bajó a su sección.
  */
 function TiraReemplaza() {
-  const apps = appsQueReemplaza();
+  const apps = appsDeLaTira();
   const lista = (oculta: boolean) => (
     <ul className="s-tira-l" aria-hidden={oculta || undefined}>
       {apps.map((a) => (
@@ -351,16 +351,22 @@ function IntegracionesSitio() {
         </div>
       </div>
       <div className="s-cont">
+        {/* En carrusel (el audio de feedback que pasó Martín, 14/11/2026: «que sea un carrusel»): dos filas que se deslizan en sentidos
+            opuestos; cada lista va dos veces para que el bucle no tenga corte. */}
         <div className="s-int-filas">
           {filas.map((f, i) => (
-            <ul key={i} className="s-int-f">
-              {f.map((d) => (
-                <li key={d.key} className="s-int-t" title={d.nombre}>
-                  <SvcIcon k={d.key} size={28} box={46} radius={11} />
-                  <span className="s-sr">{d.nombre}</span>
-                </li>
+            <div key={i} className={`s-int-pista${i % 2 ? ' s-int-pista-inv' : ''}`}>
+              {[false, true].map((copia) => (
+                <ul key={String(copia)} className="s-int-f" aria-hidden={copia || undefined}>
+                  {f.map((d) => (
+                    <li key={d.key} className="s-int-t" title={copia ? undefined : d.nombre}>
+                      <SvcIcon k={d.key} size={28} box={46} radius={11} />
+                      {copia ? null : <span className="s-sr">{d.nombre}</span>}
+                    </li>
+                  ))}
+                </ul>
               ))}
-            </ul>
+            </div>
           ))}
         </div>
       </div>

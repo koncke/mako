@@ -46,7 +46,11 @@
 //     de pago locales ofrecen en cada país?» (→ «¿Qué métodos de pago puedo ofrecer en cada país?»).
 // =============================================================================
 
-import { CAPACIDADES_PASARELA, NOMBRE_PASARELA, PASARELAS } from '@/lib/cobros-tipos';
+import { CAPACIDADES_PASARELA, NOMBRE_PASARELA, PASARELAS as TODAS_LAS_PASARELAS } from '@/lib/cobros-tipos';
+
+// Creem nos rechazó (definitivo, 5/11/2026): la landing ofrece sólo las pasarelas con las que se cobra hoy, Stripe y Mercado Pago (el
+// Cerebro, 14/11, revisando las capturas: «sácalo de todas las landings»).
+const PASARELAS = TODAS_LAS_PASARELAS.filter((p) => p !== 'creem');
 import { DIAS_PRONTO } from '@/lib/datos-comercial';
 import { DEFS } from '@/lib/integraciones-catalogo';
 import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
@@ -58,7 +62,7 @@ const I = {
   campana: ['M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6', 'M9 17v1a3 3 0 0 0 6 0v-1'],
 };
 
-/** «Stripe, Mercado Pago y Creem»: los nombres de las pasarelas, del código. */
+/** «Stripe y Mercado Pago»: los nombres de las pasarelas, del código. */
 const LISTA_PASARELAS = (() => {
   const n = PASARELAS.map((p) => NOMBRE_PASARELA[p]);
   return n.length > 1 ? `${n.slice(0, -1).join(', ')} y ${n[n.length - 1]}` : n.join('');

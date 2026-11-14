@@ -17,7 +17,7 @@
 // Puro y sin `server-only`: lo leen las páginas y la foto de comparación.
 // =============================================================================
 
-import { STACK_QUE_REEMPLAZA, appsQueReemplaza, type AppQueReemplaza } from './reemplaza';
+import { STACK_QUE_REEMPLAZA, STACK_TIPICO, appsQueReemplaza, type AppQueReemplaza } from './reemplaza';
 import { LANDINGS_COMPETENCIA } from '../_competencia/registro';
 import { CASO } from '../_competencia/marca';
 import type { LandingCompetencia } from '../_competencia/tipos';
@@ -217,16 +217,19 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo
   { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Chatea con los referentes del mercado.', texto: 'Alex Hormozi, Iman Gadzhi, Vilma Núñez y muchos referentes más del marketing y las ventas: eliges con quién hablar en el chat de MaKo y te contesta con su método, llevado a tu negocio.', visual: { video: '/vsl-assets/sitio/referentes.webm', poster: '/vsl-assets/sitio/referentes.jpg' } },
   { slug: 'ai-avatar', titulo: 'Anuncios de video estilo UGC con tu cara.', texto: 'Tu avatar de IA dice tu guion en videos que se ven grabados con el celular: más anuncios para Instagram, TikTok y Meta, sin coordinar creadores ni esperar entregas.', visual: 'avatar' },
   { slug: 'video', titulo: 'Edita tus videos sin saber editar.', texto: 'Subes el clip tal cual sale del celular y un equipo de agentes de MaKo lo edita a la vista: corta las pausas, lo subtitula, propone B-roll y deja el volumen listo.', visual: { video: '/vsl-assets/sitio/video.webm', poster: '/vsl-assets/sitio/video.jpg' } },
-  { slug: 'ads', titulo: 'Tus anuncios, mirados todos los días.', texto: 'Marketing CoPilot mira cada día tus anuncios de Meta contra lo que vendiste y te propone qué subir, qué pausar y qué probar. Lo que cambia algo, lo confirmas con un toque.', visual: { video: '/vsl-assets/sitio/copilot.webm', poster: '/vsl-assets/sitio/copilot.jpg' } },
+  // 14/11/2026 (el audio de feedback que pasó Martín): «anuncios realmente requiere su sección aparte… no lo juntaría ni con YouTube ni con
+  // Instagram». Esta fila habla SÓLO de los anuncios de Meta.
+  { slug: 'ads', titulo: 'Gestiona tus anuncios de Meta con IA.', texto: 'Marketing CoPilot mira cada día tus anuncios contra lo que vendiste y te propone qué subir, qué pausar y qué probar. Lo apruebas con un toque, o lo deja en piloto automático.', visual: { video: '/vsl-assets/sitio/copilot.webm', poster: '/vsl-assets/sitio/copilot.jpg' } },
   // La llamada con Leila (13/11/2026): «hoy es básica; que entre al detalle de un lead y se vea todo: de dónde vino, qué hizo en la
   // página y qué % del VSL vio». El tablero, la ficha REAL (LeadSheet) de un lead de ejemplo, su Origen y la pestaña Tracking.
-  { slug: 'crm', titulo: 'Todo lo que hizo cada lead, en su ficha.', texto: 'De dónde vino, qué contestó, cuántas veces visitó tu página y cuánto vio de tu VSL: lo ves de un vistazo en su ficha.', visual: { video: '/vsl-assets/sitio/crm-ficha.webm', poster: '/vsl-assets/sitio/crm-ficha.jpg' } },
-  { slug: 'seguimiento', titulo: 'Automatizaciones por WhatsApp, Instagram y email.', texto: 'Cada lead recibe su mensaje por el canal donde te escribió, en el momento justo. Y el setter con IA contesta, califica con tus criterios y lo lleva a agendar. Tú solo cierras.', visual: { video: '/vsl-assets/sitio/automations.webm', poster: '/vsl-assets/sitio/automations.jpg' } },
+  // «Todo lo que hizo cada lead» no decía qué resuelve (el mismo audio): «gestiona tus leads de forma automática».
+  { slug: 'crm', titulo: 'Gestiona tus leads de forma automática.', texto: 'Cada lead entra solo a tu CRM con su ficha: de dónde vino, qué contestó, cuántas veces visitó tu página y cuánto vio de tu VSL.', visual: { video: '/vsl-assets/sitio/crm-ficha.webm', poster: '/vsl-assets/sitio/crm-ficha.jpg' } },
+  { slug: 'seguimiento', titulo: 'Automatiza tu WhatsApp, Instagram y email.', texto: 'Cada lead recibe su mensaje por el canal donde te escribió, en el momento justo. Y el setter con IA contesta, califica con tus criterios y lo lleva a agendar. Tú solo cierras.', visual: { video: '/vsl-assets/sitio/automations.webm', poster: '/vsl-assets/sitio/automations.jpg' } },
   { slug: 'whatsapp', titulo: 'WhatsApp, Instagram, Messenger y email, desde MaKo.', texto: 'Contestas y mandas mensajes por los cuatro desde la misma app, con la ficha del CRM de cada contacto al lado y MaKo proponiéndote qué contestar.', visual: { video: '/vsl-assets/sitio/chats.webm', poster: '/vsl-assets/sitio/chats.jpg' } },
   { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tus anuncios de Meta, tu landing, tus leads del CRM, tus pagos y tus llamadas en una sola pantalla, con tableros listos para ventas, anuncios y llamadas.', visual: 'tableros' },
   // Martín (14/11/2026): «elimina toda la sección de lo que entrega lo que vendiste, que quede directamente la parte de tu comunidad
   // dentro de MaKo, no tu escuela, y que se vea». Sin apartados: la entrega quedó en esta fila sola, al final.
-  { rotulo: 'Comunidad', titulo: 'Tu comunidad, dentro de MaKo.', texto: 'Tus alumnos entran a tu curso y a tu comunidad en la misma app con la que vendes: sus clases por módulos, lo que avanza cada uno y un lugar para preguntar y compartir.', visual: { video: '/vsl-assets/sitio/comunidad.webm', poster: '/vsl-assets/sitio/comunidad.jpg' } },
+  { rotulo: 'Curso y comunidad', titulo: 'Tu curso y tu comunidad, alojados en MaKo.', texto: 'Tus alumnos entran a tu curso y a tu comunidad en la misma app con la que vendes: sus clases por módulos, lo que avanza cada uno y un lugar para preguntar y compartir.', visual: { video: '/vsl-assets/sitio/comunidad.webm', poster: '/vsl-assets/sitio/comunidad.jpg' } },
 ];
 
 /**
@@ -320,8 +323,11 @@ export function numerosDelSitio(): { valor: string; texto: string }[] {
  * prueba del código): el setter LLEVA a agendar, no reserva (app/vsl/_competencia/seguimiento.ts); el análisis de llamadas y los
  * grupos de WhatsApp son de Pro (lib/topes-plan.ts); la IA es la del cliente.
  */
+const precioDe = (nombre: string): string => { const x = STACK_TIPICO.find((y) => y.app.nombre === nombre); return x ? String(x.precioUsd) : '?'; };
 export const PREGUNTAS_SITIO: readonly { p: string; r: string }[] = [
-  { p: 'Ya pago GoHighLevel, ManyChat y un editor de video. ¿Para qué cambiar?', r: `Porque MaKo hace ese trabajo en una sola app, con una IA que conoce tu negocio de punta a punta. En «Comparaciones» ves, trabajo por trabajo, las apps que reemplaza.` },
+  // La objeción de GoHighLevel, «muy bien presentada» (el audio de feedback que pasó Martín, 14/11/2026: «es uno de los competidores
+  // principales»). Los precios, de STACK_TIPICO (./reemplaza.ts, con su fuente).
+  { p: 'Ya pago GoHighLevel, ManyChat y un editor de video. ¿Para qué cambiar?', r: `Porque con lo que hoy pagas sólo por GoHighLevel (US$${precioDe('GoHighLevel')} por mes, su plan Starter) tienes MaKo Pro, y además dejas de pagar ManyChat (US$${precioDe('ManyChat')}) y tu editor de video (CapCut, US$${precioDe('CapCut')}). GoHighLevel es tu CRM y tus embudos; MaKo es eso y además te muestra lo que le funciona a tu competencia, replica sus landings, sus carruseles y sus guiones con tu oferta, edita tus videos y hace tus anuncios con tu avatar, con una IA que conoce tu negocio. En «Comparaciones» ves, trabajo por trabajo, qué app reemplaza.` },
   { p: 'No tengo tiempo de aprender otra herramienta.', r: 'Le cuentas a MaKo qué vendes y a quién, y arma tu oferta, tus páginas y tus mensajes: tú revisas y apruebas. Si prefieres que lo armemos nosotros, el Acelerador lo deja listo en la primera semana.' },
   { p: '¿Y si la IA le contesta mal a un cliente y lo pierdo?', r: 'Cada conversación queda en tu bandeja y la tomas cuando quieras. El setter contesta con tu oferta, califica con tus propios criterios y lleva al interesado a agendar: no cierra ventas por ti.' },
   { p: 'Mi venta se cierra en una llamada. ¿En qué me ayuda?', r: 'La llamada la haces tú. MaKo te llena la agenda con interesados calificados y, con MaKo Pro, te dice qué mejorar en cada llamada de venta.' },

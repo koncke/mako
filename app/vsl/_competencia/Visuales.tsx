@@ -118,7 +118,13 @@ function Avatar({ escenas }: Extract<VisualHero, { tipo: 'avatar' }>) {
   );
 }
 
-export function VisualDeLanding({ visual }: { visual: VisualHero }) {
+/**
+ * `falta`: el visual se usa en una sección que NO es la función de la grabación (el Cerebro, 14/11/2026: «mostrar otra pantalla como si
+ * fuera esa función también es inventar»: en Image, «Kit de marca» o «Lienzo» mostraban la grilla de carruseles; en Spy, «Desde Chrome»
+ * mostraba la grilla de competidores). Ahí va el recuadro con lo que falta, con su texto.
+ */
+export function VisualDeLanding({ visual, falta }: { visual: VisualHero; falta?: string }) {
+  if (falta && visual.tipo !== 'avatar') return <FaltaAnimacion que={falta} />;
   switch (visual.tipo) {
     // Las fotos reales del personaje (public/formatos/presets/): no se inventa nada.
     case 'avatar': return <Avatar {...visual} />;

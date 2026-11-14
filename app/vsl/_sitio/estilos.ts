@@ -236,16 +236,17 @@ export const CSS_PIE = `
   .s-pie-in{grid-template-columns:minmax(0,1fr)}
   .s-pie-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 16px}
 }
-/* A 390: los links en dos columnas, después los legales y el ©, y al final el texto. */
+/* A 390: arriba la marca con su lema (como en la computadora: el Cerebro, 14/11/2026), los links en dos columnas, y al final los
+   legales y el ©. */
 @media (max-width:767px){
   .s-pie{padding:40px 0}
   .s-pie .s-cont{display:flex;flex-direction:column;padding:0 16px}
   .s-pie-in{display:contents}
-  .s-pie-cols{order:1;grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:24px;border-bottom:1px solid ${LINEA}}
+  .s-pie-cols{order:2;grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:24px;border-bottom:1px solid ${LINEA}}
   .s-claro .s-pie-cols{border-bottom-color:rgba(6,4,25,.12)}
   .s-pie-col a{white-space:normal}
-  .s-pie-base{order:2;padding-top:24px}
-  .s-pie-marca{order:3;margin-top:32px}
+  .s-pie-base{order:3;padding-top:24px}
+  .s-pie-marca{order:1;margin-bottom:32px}
 }
 `;
 
@@ -521,9 +522,14 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-int-cab .s-h2{margin-top:0}
 .s-int-cab .s-lede{margin-top:16px}
 .s-int-filas{margin-top:64px;display:flex;flex-direction:column;gap:14px;overflow:hidden;position:relative;-webkit-mask-image:linear-gradient(to right,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(to right,transparent,#000 8%,#000 92%,transparent)}
-.s-int-f{display:flex;justify-content:center;gap:14px}
-.s-int-f:nth-child(2){transform:translateX(36px)}
+.s-int-pista{display:flex;width:max-content;animation:s-int-corre 48s linear infinite}
+.s-int-pista-inv{animation-direction:reverse}
+@keyframes s-int-corre{to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.s-int-pista{animation:none}}
+.s-int-f{list-style:none;margin:0;padding:0 7px;display:flex;gap:14px}
 .s-int-t{flex:none;position:relative;width:68px;height:68px;border-radius:14px;background:${CARD};border:1px solid ${LINEA};display:flex;align-items:center;justify-content:center}
+/* En el teléfono, el mismo carrusel con los íconos más chicos. */
+@media (max-width:767px){.s-int-filas{margin-top:32px}.s-int-t{width:52px;height:52px;border-radius:12px}}
 
 /* «Have a question?»: el título en 352 y las preguntas en 768 desde x = 544, con su filete de 2 px #4E4E6C. */
 .s-faq-in{display:grid;grid-template-columns:352px 768px;justify-content:space-between;align-items:start}

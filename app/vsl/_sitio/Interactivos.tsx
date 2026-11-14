@@ -64,7 +64,8 @@ export function TablerosCarrusel({ tableros }: { tableros: readonly Tablero[] })
   // Pasa solo.
   useEffect(() => {
     if (!visto) return;
-    const t = setInterval(() => { if (Date.now() > frena.current) ir(i + 1, false); }, 6000);
+    // 4,8 s: los 3,8 de la entrada del tablero y un segundo quieto (el audio de feedback del 14/11: «que aparezca la animación de los dashboards»).
+    const t = setInterval(() => { if (Date.now() > frena.current) ir(i + 1, false); }, 4800);
     return () => clearInterval(t);
   }, [i, visto, ir]);
 

@@ -325,6 +325,57 @@ SIN hacer: las filas de capacidades (`Visual` de `_detalle`) siguen con su recua
 375 corta nombres de la tabla; AI Avatar sin margen izquierdo desde la franja de cifras; el cierre vacío de Web Generator y sus tres
 tarjetas de Mauricio; Spy repite la misma grabación en seis secciones; «44 fuentes» (Dashboard) contra «31 integraciones» (sitio).
 
+## Decimotercera vuelta (14/11/2026, noche): el audio de feedback y la segunda lista del Cerebro
+
+El audio que pasó Martín (WhatsApp, 13/11 22:09, transcripto con Whisper; una revisión de la portada fila por fila). Martín: «Aplica
+este feedback, no quites la parte de Mauricio» (el audio proponía sacarla: QUEDA).
+
+| Del audio | Dónde quedó |
+|---|---|
+| Anuncios, sección aparte (no mezclar con YouTube ni Instagram) | La fila de Marketing CoPilot habla sólo de anuncios: «Gestiona tus anuncios de Meta con IA.» |
+| CRM: el título no dice qué resuelve | «Gestiona tus leads de forma automática.» (portada y H1 de /vsl/crm) |
+| «Automatiza tu WhatsApp, Instagram y email», y que se vea cómo responde solo | El título, y `automations.webm` = el lienzo de las tres plantillas + «Probar» de Instagram (el simulador real: el lead escribe y la automatización contesta con el texto de su plantilla) |
+| Tableros: que se vea la animación de entrada | En el visor no cargaban: el carrusel pide el video por `data-src`, que el visor no reescribe (va por el `poster`). Y pasa cada 4,8 s (la entrada dura 3,8) |
+| «Tu curso y tu comunidad, alojados en MaKo» | El título de la fila |
+| MaKo reemplaza apps: sólo las muy conocidas | `appsDeLaTira` (`reemplaza.ts`): ManyChat, Canva, CapCut, Notion, Skool, GoHighLevel, Kajabi, Hotmart, Circle, Systeme.io, ClickFunnels, HubSpot, Mailchimp, ActiveCampaign, HeyGen, Higgsfield, Gamma, OpusClip, Descript, Pipedrive. La comparación sigue con todas. **Falta** Zapier, Make y Metricool (no hay logo en el repo y hay que confirmar que MaKo los reemplaza) y ElevenLabs (MaKo se CONECTA con ella: no va) |
+| Tus apps, conectadas: en carrusel | Dos filas que se deslizan en sentidos opuestos (también en el teléfono) |
+| La objeción de GoHighLevel, bien presentada | La primera pregunta: con lo que se paga por GoHighLevel Starter (US$97) se tiene MaKo Pro, y se deja de pagar ManyChat y CapCut; qué hace MaKo además. Los precios salen de `STACK_TIPICO` |
+
+**La segunda lista del Cerebro**, hecha: Creem fuera de Cobranza (la landing filtra `creem`; nos rechazó el 5/11); Copywriting sin
+«Aceptar, Descartar o Reintentar» (pregunta primero y escribe la pieza entera); el checkout («El primer cobro es el día 8…» en Pro, «Se
+cobra al empezar…» en Esencial, y la tarjeta dibujada en vez del «▭»); cada grabación sólo en su función (`VisualDeLanding` con
+`falta`: Image y Spy muestran el recuadro con el nombre de su sección; Chats ya no repite su video en las filas); CRM con los botones en
+azul y en una línea, las cifras legibles y la pestaña «Captar» con letra oscura (`data-tema-fijo`); Offer con el botón en una línea, la
+lista con su interlineado y sus seis piezas sin el cuadro azul gigante; el pie del sitio en las 19 landings (`PieGlobal`, el copiado se
+oculta); la portada a 375 con la marca arriba del pie; Dashboard a 375 sin el recuadro corrido; la banda de tinta de Copywriting fija en
+oscuro; «Competitor Spy»; AI Avatar con los anuncios reales en sus seis filas; Agenda sin las cajas altas con un ícono; Web Generator
+y el funnel de VSL con su video empezando en la landing ya armada (`replicar.webm` rotado). Capturas recortadas, en la carpeta de notas
+`landings-1411b/`.
+
+### Lo que falta grabar para los recuadros de «falta» (71, contando repetidos), por las páginas que enlaza la portada
+
+Se graban después del despliegue, con el banco de cada uno (C:/dev/bancos-portada/) o en ws 9 / ws 3.
+
+| Página | Qué grabar |
+|---|---|
+| Competitor Spy (4) | Guardar un anuncio desde Chrome con la extensión; seguir competidores (la vista «Seguidos»); «qué le funciona y por qué» (el análisis de una pieza); de la idea a tu anuncio (Replicar desde Spy) |
+| Web Generator (3) | Los diseños de landing (la galería real); el editor de Web Generator; una landing publicada |
+| Image (5) | Las plantillas; Formatos; el chat de MaKo en Image; el kit de marca; el lienzo |
+| Copywriting (3) | Un ejemplo real de cada plantilla: anuncio a cámara (PAS), reel que trae mensajes, email de cierre |
+| Video (2) | La línea de tiempo antes y después de editar (el banco del editor ya la tiene: dos cuadros) |
+| CRM (1) | La pantalla de cada pestaña del ciclo (Captar, Nutrir, Cerrar, Cobrar, Reactivar) |
+| Automations (3) | «No agendaste aún»; «Dónde se traba»; una sesión de la API de MaKo con Claude |
+| Chats (7) | Las pantallas de sus filas (hilo del lead, etiquetas, asignar…) |
+| Dashboard (2) | El informe; «Salud del funnel» |
+| Offer (1) | El chat de Offer armando la oferta |
+| Agenda (2) | La agenda con las reuniones de cada cliente |
+| Cobranza (3) | «Este mes», «Plan de cuotas», «A quién cobrarle» |
+| Email (2) | Una secuencia armándose; los disparadores del funnel |
+| Funnels (2) | Los eventos que se mandan a Meta |
+| Ops Center (9) | El chat de MaKo, Ads Writer, el Second Brain, roles, Integraciones, la lista de conversaciones, «Aprende solo» |
+| Plan (16) | El tablero con las tareas puntuadas, el score, el objetivo principal, el borrador de una reunión, subir archivos, la hoja Productividad |
+| Ads Analyst (6) | El chat respondiendo, la retención del VSL por bloque, «corregiste el ángulo», la caja para pedirle a MaKo |
+
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
 `PRUEBA_GRATIS_PRENDIDA = true` (`lib/planes-mako.ts`): `/planes` dice «7 días gratis» y cobra el día 8 con la tarjeta,

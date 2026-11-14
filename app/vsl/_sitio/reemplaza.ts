@@ -94,7 +94,19 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; pla
   { app: app('Mailchimp', 'mailchimp'), trabajo: 'Email', plan: 'Standard', precioUsd: 20, fuente: 'https://mailchimp.com/pricing/' },
 ];
 
-/** Todas, una vez cada una, en el orden de la lista: la tira de la portada. */
+/**
+ * La TIRA de la portada: sólo las MÁS CONOCIDAS, las que la mayoría ya paga (el audio de feedback que pasó Martín, 14/11/2026: «yo pondría
+ * apps extremadamente conocidas… ManyChat, Canva, Notion, Skool, CapCut, Higgsfield, Kajabi, Hotmart, Circle… no las que son poco
+ * conocidas», como Framer, Foreplay, Minea o BigSpy). La comparación trabajo por trabajo sigue con todas (`appsQueReemplaza`).
+ */
+const CONOCIDAS = ['ManyChat', 'Canva', 'CapCut', 'Notion', 'Skool', 'GoHighLevel', 'Kajabi', 'Hotmart', 'Circle', 'Systeme.io', 'ClickFunnels',
+  'HubSpot', 'Mailchimp', 'ActiveCampaign', 'HeyGen', 'Higgsfield', 'Gamma', 'OpusClip', 'Descript', 'Pipedrive'] as const;
+export function appsDeLaTira(): AppQueReemplaza[] {
+  const todas = appsQueReemplaza();
+  return CONOCIDAS.flatMap((n) => todas.filter((a) => a.nombre === n));
+}
+
+/** Todas, una vez cada una, en el orden de la lista: la comparación. */
 export function appsQueReemplaza(): AppQueReemplaza[] {
   const vistas = new Set<string>();
   return STACK_QUE_REEMPLAZA.flatMap((t) => t.apps).filter((a) => (vistas.has(a.logo) ? false : (vistas.add(a.logo), true)));
