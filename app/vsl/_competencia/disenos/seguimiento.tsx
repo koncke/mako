@@ -148,7 +148,7 @@ function Hero({ b, logos }: { b: Extract<Bloque, { tipo: 'hero' }>; logos?: Extr
               <Esquinas tono="azul" />
               <div className={c('hero-form')}>
                 <a href={RUTA_CTA} className={c('hero-btn')}>
-                  <Rueda texto={TEXTO_CTA} />
+                  <span>{TEXTO_CTA}</span>
                   <FlechaCorre />
                 </a>
               </div>
@@ -328,7 +328,10 @@ function Bento({ b, icono }: { b: Extract<Bloque, { tipo: 'tarjetas' }>; icono: 
           {b.items.map((t, i) => (
             <div key={t.titulo} className={`${c('bcard')}${ancho[i % 6] === 2 ? ` ${c('bcard-2')}` : ''}`}>
               <div className={c('bsup')}>
-                <div className={c('bwid')}><span className={c('bwid-ic')}><Icono d={t.icono ?? icono} size={20} grosor={1.8} /></span></div>
+                {FOTO_DE_TARJETA[i]
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img className={c('bfoto')} src={FOTO_DE_TARJETA[i].src} alt={FOTO_DE_TARJETA[i].alt} width={FOTO_DE_TARJETA[i].w} height={FOTO_DE_TARJETA[i].h} loading="lazy" decoding="async" />
+                  : <span className={c('bwid-ic')}><Icono d={t.icono ?? icono} size={20} grosor={1.8} /></span>}
               </div>
               <div className={c('btxt')}>
                 <h3 className={c('h3')} dangerouslySetInnerHTML={html(t.titulo)} />
@@ -342,6 +345,17 @@ function Bento({ b, icono }: { b: Extract<Bloque, { tipo: 'tarjetas' }>; icono: 
     </section>
   );
 }
+
+/** Las tarjetas REALES del lienzo de Automations, fotografiadas al doble en el banco C:/dev/bancos-portada/banco-flujo/
+ *  (fotos-landing.mjs), una por tarjeta de «Todo lo que hace tu setter con IA», en su orden. */
+export const FOTO_DE_TARJETA: readonly { src: string; alt: string; w: number; h: number }[] = [
+  { src: '/vsl-assets/seguimiento/tarjeta-comentario-dm.jpg', alt: 'El disparador «El usuario comenta tu publicación o Reel con GUÍA» y el DM de Instagram que sale', w: 624, h: 225 },
+  { src: '/vsl-assets/seguimiento/tarjeta-califica.jpg', alt: 'La tarjeta AI Step con su objetivo «Que agende una llamada»', w: 220, h: 105 },
+  { src: '/vsl-assets/seguimiento/tarjeta-recuerda.jpg', alt: 'La tarjeta de WhatsApp: «Hola {{nombre}}, vi que agendaste la reunión. ¿Confirmas tu asistencia?»', w: 220, h: 155 },
+  { src: '/vsl-assets/seguimiento/tarjeta-seguimientos.jpg', alt: 'La condición «Llegó hace menos de 3 días y No agendó», el WhatsApp y la espera de 1 día', w: 604, h: 225 },
+  { src: '/vsl-assets/seguimiento/tarjeta-tono.jpg', alt: 'La tarjeta de email «Gracias por tus datos» y la espera de 2 días', w: 317, h: 186 },
+  { src: '/vsl-assets/seguimiento/tarjeta-te-lo-pasa.jpg', alt: 'La tarjeta «MaKo en WhatsApp»: te avisa que el lead te escribió por Instagram', w: 258, h: 141 },
+];
 
 /** La línea de tres puntos con su video arriba (como «Automatiza el agendamiento de citas…»). */
 function Linea({ b }: { b: Extract<Bloque, { tipo: 'filas' }> }) {
@@ -521,6 +535,10 @@ export default function DisenoSeguimiento({ landing }: PropsDiseno) {
         })}
       </main>
       <Pie slug={landing.slug} metaDesc={landing.metaDesc} />
+      {/* En el teléfono, cuando el botón del hero se va por arriba, el botón queda fijo abajo (su stickyCtaBar). */}
+      <div className={c('fija')}>
+        <a href={RUTA_CTA} className={c('fija-btn')}>{TEXTO_CTA}<FlechaCorre /></a>
+      </div>
       <script data-visor="" dangerouslySetInnerHTML={{ __html: SCRIPT }} />
     </div>
   );
@@ -572,6 +590,13 @@ function iniciar(){
     if(!quieto){var t=null;var arma=function(){clearInterval(t);t=setInterval(function(){sw.checked=!sw.checked;},5000);};sw.addEventListener('change',arma);arma();}
   }
   [].slice.call(R.querySelectorAll('video')).forEach(function(v){v.muted=true;if(quieto){v.removeAttribute('autoplay');v.pause();}});
+  var fija=R.querySelector('.'+P+'-fija'),caja=R.querySelector('.'+P+'-hero-caja');
+  document.body.classList.remove(P+'-fija-on');if(fija)fija.classList.remove(P+'-fija-vis');
+  if(fija&&caja&&'IntersectionObserver' in window){
+    document.body.classList.add(P+'-fija-on');
+    var cab=document.querySelector('header'),hh=Math.round((cab&&cab.getBoundingClientRect().height)||60);
+    new IntersectionObserver(function(es){var e=es[0],arriba=(e.rootBounds&&e.rootBounds.top)||hh;fija.classList.toggle(P+'-fija-vis',!e.isIntersecting&&e.boundingClientRect.bottom<=arriba);},{threshold:0,rootMargin:'-'+hh+'px 0px 0px 0px'}).observe(caja);
+  }
 }
 function arrancar(){trasHidratar(iniciar);}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',arrancar);else arrancar();
@@ -738,7 +763,7 @@ const CSS = `
 .s-globo{display:inline-block;max-width:78%;border-radius:16px;padding:8px 12px;font-size:14px;line-height:20px;text-align:left;overflow-wrap:break-word}
 .s-globo-lead{background:var(--n1);color:var(--n9)}
 .s-globo-neg{background:var(--n9);color:#fff}
-.s-chat-hora{font-size:11px;line-height:16.5px;color:var(--z4);padding-left:4px;text-align:left}
+.s-chat-hora{font-size:11px;line-height:16.5px;color:var(--z4);padding-left:4px}
 .s-pausa{display:flex;align-items:center;gap:12px;padding:4px 0}
 .s-pausa-l{height:1px;flex:1;background:var(--z2)}
 .s-pausa-t{display:inline-flex;align-items:center;gap:4px;font-size:11px;line-height:16.5px;font-weight:500;color:var(--z5);white-space:nowrap}
@@ -754,8 +779,11 @@ const CSS = `
 .s-chat-tiempo{display:inline-flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--z5)}
 .s-chat-tiempo strong{font-weight:600;color:#18181b}
 .s-chat-pas{display:inline-flex;align-items:center;gap:6px;border:1px solid;padding:2px 8px;font-family:var(--fm);font-size:10px;line-height:15px;text-transform:uppercase;letter-spacing:.1em;border-radius:4px}
+.s-chat-pas::before{content:'';width:6px;height:6px;flex:none;background:currentColor}
 .s-chat-pas-sin{border-color:#fecaca;background:#fef2f2;color:#b91c1c}
+.s-chat-pas-sin::before{background:#ef4444}
 .s-chat-pas-con{border-color:#a7f3d0;background:#ecfdf5;color:#047857}
+.s-chat-pas-con::before{background:#10b981}
 .s-canales{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:40px}
 .s-canal{color:var(--z4);display:flex}
 .s-canales-t{margin-left:4px;font-size:12px;line-height:16px;color:var(--z5)}
@@ -799,11 +827,12 @@ const CSS = `
 .s-bcard-2{grid-column:span 2}
 /* La parte de arriba era un recuadro de 180 de alto con UN ícono (el Cerebro, 14/11: «cajas vacías con un solo ícono»): el ícono va
    arriba del texto y la tarjeta mide lo que su texto. */
-.s-bsup{padding:24px 24px 0;display:flex}
-.s-bwid{transition:transform .3s var(--ease)}
-.s-bcard:hover .s-bwid{transform:translateY(-3px)}
+/* Arriba de cada tarjeta, su superficie de demo (min-height 180, padding 24, la trama y el borde de abajo) con la tarjeta REAL del
+   lienzo fotografiada (FOTO_DE_TARJETA). Sin hover: la suya no cambia al pasar el mouse. */
+.s-bsup{flex:1;min-height:180px;padding:24px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--n1);background-color:var(--n0);background-image:repeating-linear-gradient(45deg,transparent,transparent 50px,#00000006 50px,#00000006 51px),repeating-linear-gradient(-45deg,transparent,transparent 50px,#00000006 50px,#00000006 51px)}
+.s-bfoto{display:block;width:auto;height:auto;max-width:100%;max-height:200px;border-radius:6px;box-shadow:0 1px 2px rgba(16,24,40,.06)}
 .s-bwid-ic{width:40px;height:40px;border-radius:4px;display:flex;align-items:center;justify-content:center;background:var(--n9);color:#fff}
-.s-btxt{padding:16px 24px 24px}
+.s-btxt{padding:24px}
 
 /* Línea */
 .s-lin{background:#fff;padding:96px 0}
@@ -901,6 +930,14 @@ const CSS = `
   .s-pie-marca{grid-column:1 / -1}
 }
 @media (max-width:1023.98px){.s-res-cols{column-count:2}}
+.s-fija{display:none}
+@media (max-width:639.98px){
+  body.s-fija-on{padding-bottom:72px}
+  .s-fija{display:block;position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:1px solid var(--z2);padding:12px 16px max(12px,env(safe-area-inset-bottom));opacity:0;transform:translateY(8px);visibility:hidden;transition:opacity .2s cubic-bezier(.4,0,1,1),transform .2s cubic-bezier(.4,0,1,1),visibility 0s linear .2s}
+  .s-fija.s-fija-vis{opacity:1;transform:none;visibility:visible;transition:opacity .2s cubic-bezier(0,0,.2,1),transform .2s cubic-bezier(0,0,.2,1)}
+  .s-fija-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px 24px;border-radius:8px;background:var(--n9);color:#fff;font-size:14px;line-height:20px;font-weight:500;transition:background-color .2s}
+  .s-fija-btn:hover{background:#262626}
+}
 @media (max-width:639.98px){
   .s-barra{padding:0}
   .s-barra-in{padding:12px 16px}

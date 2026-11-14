@@ -179,8 +179,8 @@ export const CHATS_SEGUIMIENTO: { lead: { nombre: string; usuario: string }; sin
   lead: { nombre: 'Tomás Ríos', usuario: '@tomas.rios' },
   sin: {
     lineas: [
-      { tipo: 'nota', texto: 'Comentó tu Reel · 22:47' },
       { tipo: 'lead', texto: 'GUÍA' },
+      { tipo: 'nota', texto: 'Comentó tu Reel · 22:47' },
       { tipo: 'pausa', texto: '10h después' },
       { tipo: 'negocio', texto: '¡Hola! Perdón por la demora. Aquí tienes la guía.' },
       { tipo: 'pausa', texto: '2 días después' },
@@ -191,8 +191,8 @@ export const CHATS_SEGUIMIENTO: { lead: { nombre: string; usuario: string }; sin
   },
   con: {
     lineas: [
-      { tipo: 'nota', texto: 'Comentó tu Reel · 22:47' },
       { tipo: 'lead', texto: 'GUÍA' },
+      { tipo: 'nota', texto: 'Comentó tu Reel · 22:47' },
       { tipo: 'negocio', texto: '¡Hola Tomás! 👋 Vi que comentaste GUÍA. Aquí tienes la guía 👇 acquisition.com/roadmap' },
       { tipo: 'lead', texto: '¡Gracias! 🙌' },
       { tipo: 'aviso', titulo: 'MaKo te avisa por WhatsApp', texto: 'Tomás Ríos te escribió por Instagram' },

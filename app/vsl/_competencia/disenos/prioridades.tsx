@@ -66,7 +66,6 @@ type Medio = { tipo: 'video'; src: string; poster: string; que: string } | { tip
 const DIR = '/vsl-assets/prioridades';
 const V = (n: string, que: string): Medio => ({ tipo: 'video', src: `${DIR}/${n}.webm`, poster: `${DIR}/${n}.jpg`, que });
 const FOTO = (n: string, que: string): Medio => ({ tipo: 'foto', src: `${DIR}/${n}.jpg`, que });
-const FALTA = (que: string): Medio => ({ tipo: 'falta', que });
 
 /** La tarjeta del hero: sin casilla marcada corre «Re-priorizar todo»; cada casilla, su vista. */
 export const HERO_INICIAL: Medio = V('repriorizar', 'Re-priorizar todo: MaKo puntúa cada tarea del tablero y deja su razón');
@@ -79,10 +78,14 @@ export const PANTALLA_DE_VISTA: Record<string, Medio> = {
 /** Cada acordeón (por su id) con la pantalla de cada renglón, en orden. Uno que no tiene la suya usa la primera. */
 export const PANTALLAS_DE_FUNCION: Record<string, Medio[]> = {
   prioriza: [HERO_INICIAL, PANTALLA_DE_VISTA.Prioridades, V('a-mano', 'La prioridad a mano: el número que pones, MaKo no lo vuelve a tocar')],
-  proyectos: [PANTALLA_DE_VISTA.Tareas, FOTO('por-proyecto', 'El tablero filtrado por un proyecto'), PANTALLA_DE_VISTA.Recurrentes],
-  reuniones: [FALTA('El borrador de una reunión en el Plan, tal cual es.')],
-  notas: [FALTA('Subir archivos al Plan y ver las tareas que salen.')],
-  avance: [FALTA('La hoja Productividad del Dashboard, tal cual es.')],
+  proyectos: [PANTALLA_DE_VISTA.Tareas, FOTO('filtro', 'El menú Filtrar del tablero: por proyecto, por responsable, por origen'), PANTALLA_DE_VISTA.Recurrentes],
+  // El borrador de una reunión que MaKo leyó sola (TareasRecibidasModal, abierto con ?reunion= como el link de WhatsApp).
+  reuniones: [V('reunion', 'El borrador de una reunión: los compromisos de cada uno, con su proyecto y el minuto donde se dijo')],
+  // «Importar archivos» del menú del tablero. Lo que sale de un archivo (las tareas para revisar) necesita la IA del negocio:
+  // el banco no la dispara, así que se muestra la ventana para subirlo.
+  notas: [V('importar', 'Importar archivos al Plan: notas, un PDF, una planilla, una foto o un audio')],
+  // La hoja Productividad REAL (HojaProductividad) con sus datos de ejemplo (lib/productividad-diseno-muestra.ts, inventados).
+  avance: [V('productividad', 'La hoja Productividad del Dashboard: el avance, lo estancado y lo que vence')],
 };
 
 function Pantalla({ m, primera = false }: { m: Medio; primera?: boolean }) {
@@ -359,7 +362,7 @@ export default function DisenoPrioridades({ landing }: PropsDiseno) {
 // se marcó, como su `l(t.dataset.featureVideoUrl)`); desmarcarla no cambia nada (en Motion tampoco). Con «menos movimiento»,
 // nada arranca solo (queda el póster). Limpia su estado antes de empezar: pulir.mjs guarda el DOM con lo que puso.
 const SCRIPT = `(function(){
-var raiz=document.querySelector('.d-prioridades');if(!raiz||raiz.dataset.prVivo)return;raiz.dataset.prVivo='1';
+var raiz=document.querySelector('.d-prioridades');if(!raiz||window.__prVivo)return;window.__prVivo=1;
 var quieto=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 var vids=[].slice.call(raiz.querySelectorAll('video[data-pr-video]'));
 if('IntersectionObserver' in window){

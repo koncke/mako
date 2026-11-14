@@ -105,3 +105,24 @@ es transparente y la cambia un script al pasar por lo blanco).
 La píldora de calificación, la tira de redes con su contador, los sellos de seguridad, «Holo runs your…» con sus tres
 columnas, el carrusel de anuncios con 87 % / 11x / 23 h / 51 %, los testimonios, los premios G2, los inversores, la tarjeta
 de soporte 24/7, los muñecos de Holo y las flechas del carrusel (piden JavaScript): ver la cabecera de `disenos/mako.tsx`.
+
+## Segunda mirada (14/11/2026, noche): lo que se mueve, medido y leído de su JavaScript
+
+Holo se miró de nuevo (1440 y 390, parada de 4 s por sección) y se leyeron sus componentes de Next (`_next/static/chunks/*.js`).
+El relevo entero, con capturas: notas de la sesión, `referencias-landings/mako/relevo.md`. Lo que cambió en la copia:
+
+| Qué | Holo (14/11) | En MaKo |
+|---|---|---|
+| Hover de los botones | `filter: brightness(1.1)` en ,2 s; NO crecen | igual (antes crecían 4 % con sombra) |
+| Barra al bajar | links a opacidad 0 y escala ,96; botón lleno; vidrio claro `rgba(255,255,255,.72)` + `blur(18px) saturate(1.6)` sobre lo blanco | igual (script) |
+| Entrada | `Reveal`: 24 px y opacidad, ,6 s `cubic-bezier(.16,1,.3,1)`, `rootMargin -80px`, una vez; hero `seo-fade-in` 0,08/0,16/0,24 s | igual |
+| Hero | video de su fábrica con máscara `radial-gradient(60% 60% at 50% 50%, black 48%, transparent 86%)` y 4 chips con raya punteada de 32 px | la grabación del Second Brain (`sitio/cerebro.webm`) con la misma máscara y los chips Spy / CRM / Chats / Anuncios |
+| Inclinadas | ícono, título y su ilustración; sin texto; sin hover | ícono, título y la grabación del departamento (copilot, carruseles, replicar, automations) |
+| How it works | cinco pasos en (405,0) (815,152) (690,453) (170,453) (10,152) de 1140 × 720, flechas, entran al verse (14 px, ,95, ,4 s) | igual, con la estrella de MaKo flotando (`holo-float`: 4,2 s, -18 px, ±2,5°) en el centro |
+| «Holo runs your…» | titular de 41 px, 34 caracteres; letras de ,22 a 1 con destello de color entre el 55 % y el 5 % de la pantalla; 3 columnas con raya | igual («MaKo lee tu CRM, tus chats, tus anuncios y a tu competencia…») |
+| «Marketing on autopilot for founders» | 160 svh, se escribe con el scroll, interruptor, fondo a blanco en ,78–,92, palabra que rota cada 2 s | «Tu Second Brain aprende solo para coaches / agencias / consultores / inmobiliarias / infoproductores», con el interruptor de «Aprende solo» |
+| Any niche | tarjetas pegadas a 92 px (72 en el teléfono), la de abajo a `scale(.9)` | igual; adentro el Second Brain, el recuadro de lo que falta (roles) y los logos de Integraciones |
+| Semanas | cuatro etapas de 5 s, titular que cambia (,35 s), raya gris que crece y de color sobre la activa | igual, con casillas (andan sin JavaScript) y la grabación de los tableros |
+| Inside… | ocho cajas con video y flechas que corren una caja | ocho grabaciones reales con su nombre; flechas como links |
+| Cinta | dos filas de 330 px, 52 s y 60 s al revés, se arrastran, fundido de 112 px | igual, con doce cosas que MaKo hace |
+| Cierre | cursores que pasean (18/20/22/19 s) y la caja que escribe (38 ms) y borra (22 ms) | igual, con los cuatro departamentos y «Cuéntale tu negocio a MaKo» + la fecha |
