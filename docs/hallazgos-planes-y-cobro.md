@@ -18,6 +18,10 @@ en todo `role="alert"` (el candado no es un error: va `role="status"`, aparte); 
 script (va `disabled` con su `aria-label` hasta que el script lo prende); `puente-leads-retirado` prohíbe la key `zapier` entre comillas
 (el slug de Comparaciones quedó `zap`). **La regla:** antes de meter código en un bloque ajeno, correr los tests que nombran el archivo;
 si uno mide el bloque, lo nuevo va en una función con nombre y el bloque la llama en una línea (`frenarSetterNuevo`, `avisoSetter`).
+**Y la segunda vuelta (corrida 1395):** al arreglar esos cinco se renombró `err` a `errPie` también en el `title` del pie, y
+`flujo-ia-arreglos` fija ESE texto literal (`avisosIA.texto === err`). Ninguno de los cinco lo miraba, y 62 tests nombran
+SecuenciaPerfil.tsx (correrlos todos en la PC no se puede: los afectados corren en GitHub). **La regla:** antes de cambiar una línea de un
+archivo que los tests leen como texto, buscar en tests/ ese pedazo literal (`grep -rn "avisosIA.texto === err" tests/`).
 
 ## Esencial más limitado (14/11/2026): la tabla de /planes y los candados tienen que decir LO MISMO
 
