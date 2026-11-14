@@ -32,13 +32,15 @@ import { verRetargeting } from '@/lib/retargeting';
 import { paginasAnalizadas } from '@/lib/copiloto/web';
 import { leerNevera } from '@/lib/copiloto/nevera';
 import { CoPilot, type DatosCoPilot } from './CoPilot';
+import { Entrada } from './Entrada';
+import { faltaLaEntrada, respuestasDesdeElPerfil } from '@/lib/copiloto/entrada';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const callar = <T,>(p: Promise<T>, def: T): Promise<T> => p.catch((e) => { console.warn('[copiloto]', e instanceof Error ? e.message : String(e)); return def; });
 
-export default async function CoPilotPage({ searchParams }: { searchParams: Promise<{ paso?: string; tarjeta?: string; sesion?: string }> }) {
+export default async function CoPilotPage({ searchParams }: { searchParams: Promise<{ paso?: string; tarjeta?: string; sesion?: string; entrada?: string }> }) {
   await requireRolWs([], { nav: 'ads-manager' });
   if (await adsSinNegocio()) {
     return <Pagina><EmptyState titulo="Elige un negocio" detalle="El Marketing CoPilot trabaja sobre un negocio. Entra a uno desde el panel y vuelve aquí." accion={{ label: 'Ir al panel', href: '/admin' }} /></Pagina>;
@@ -65,6 +67,15 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
     // La web, como análisis: lo último que analizó el Landing Analyst (sólo se lee, no se vuelve a pagar la IA).
     callar(paginasAnalizadas(ws), []),
   ]);
+  // La entrada (14/11, la maqueta que vio Julio): mientras el perfil no diga por dónde vende, o con ?entrada=1 para cambiarlo.
+  if (faltaLaEntrada(perfil) || sp.entrada === '1') {
+    const viva = (cs: Array<{ vencida?: boolean | null }>) => cs.some((c) => !c.vencida);
+    return (
+      <Pagina ancho="completo" style={{ padding: 0 }}>
+        <Entrada inicial={respuestasDesdeElPerfil(perfil)} conexiones={{ anuncios: !!meta && meta.via !== 'ninguna', instagram: viva(ig), youtube: viva(yt) }} />
+      </Pagina>
+    );
+  }
   const vista = config ? await callar(vistaMediaBuyer(ws, config.kpi, config.objetivo), null) : null;
   // La nevera de contenido: lo listo y lo publicado del Calendario, con el ritmo que respondió en el CoPilot (sólo se lee).
   const nevera = await callar(leerNevera(ws, perfil), null);
