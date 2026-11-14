@@ -47,8 +47,12 @@ export function resumenDelPlan(p: {
   if (!una) return { etiqueta: `Suscribirte a ${p.nombre}`, nombre: p.nombre, precio: p.precio, incluye: p.incluye };
   const mes = formatoMonto(una.monto, una.moneda);
   const primero = p.conPromo ? p.conPrimerMes(una.monto) : una.monto;
-  const otros = resto.map((x) => `o ${formatoMonto(p.conPromo ? p.conPrimerMes(x.monto) : x.monto, x.moneda)}${p.conPromo ? ' el primer mes' : ' por mes'} con ${x.pasarela === 'mercadopago' ? 'Mercado Pago' : 'tarjeta'}`);
-  const totales: NonNullable<Resumen['totales']> = [{ concepto: 'Subtotal', monto: mes }];
+  // Sin «o US$97 por mes con Mercado Pago» debajo del precio (14/11/2026, noche, Martín: «Repetiste lo mismo, no tiene sentido»): el
+  // precio de arriba ya lo dice. Las otras pasarelas no llevan renglón propio.
+  void resto;
+  const otros: string[] = [];
+  // Sin «Subtotal» (14/11/2026, noche, Martín: «No me hace sentido que esté»).
+  const totales: NonNullable<Resumen['totales']> = [];
   if (p.conPromo && primero < una.monto) totales.push({ concepto: 'Descuento del primer mes', monto: `−${formatoMonto(Math.round((una.monto - primero) * 100) / 100, una.moneda)}`, tipo: 'descuento' });
   totales.push({ concepto: 'Total de hoy', monto: formatoMonto(p.conPrueba ? 0 : primero, una.moneda), tipo: 'total' });
   // CUÁNDO EMPIEZA EL COBRO, CON SU FECHA (12/11/2026, Martín: «eso tiene que estar con que se indique que, como toda

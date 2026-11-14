@@ -91,7 +91,8 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; pla
   // Foreplay prefiero el más famoso, que es Higgsfield» y «puedes agregar Gamma, Skool y Mailchimp también». El plan más barato de
   // cada una que sirve para ese trabajo, pagando mes a mes (Skool: Pro, el que no se queda con el 10 % de cada venta).
   { app: app('Higgsfield', 'higgsfield'), trabajo: 'Videos con IA', plan: 'Starter', precioUsd: 19, fuente: 'https://higgsfield.ai/pricing' },
-  { app: app('HeyGen', 'heygen'), trabajo: 'Avatares con IA', plan: 'Creator', precioUsd: 29, fuente: 'https://www.heygen.com/pricing' },
+  // HeyGen salió el 14/11/2026, noche (Martín: «quitaría HeyGen»): la lista quedaba larga, y el avatar con IA no se vende todavía
+  // (lib/planes-comparacion.ts, `AI_AVATAR_SE_VENDE`).
   { app: app('Notion', 'notion'), trabajo: 'Tareas y prioridades', plan: 'Plus', precioUsd: 12, fuente: 'https://www.notion.com/pricing' },
   { app: app('Gamma', 'gamma'), trabajo: 'Páginas y presentaciones', plan: 'Plus', precioUsd: 10, fuente: 'https://gamma.app/pricing' },
   { app: app('Skool', 'skool'), trabajo: 'Cursos y comunidad', plan: 'Pro', precioUsd: 99, fuente: 'https://www.skool.com/pricing' },
@@ -110,7 +111,7 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; pla
  */
 // El orden, mezclado (Martín, 14/11/2026: «desordena esas apps para que no estén todas juntas por categoría»): nunca dos del mismo
 // trabajo seguidas. Están TODAS las del ahorro (STACK_TIPICO), y se fueron Descript y Pipedrive (pedido de Martín, 14/11/2026).
-const CONOCIDAS = ['ManyChat', 'Canva', 'GoHighLevel', 'Metricool', 'CapCut', 'Skool', 'Zapier', 'Gamma', 'Mailchimp', 'HeyGen', 'Notion',
+const CONOCIDAS = ['ManyChat', 'Canva', 'GoHighLevel', 'Metricool', 'CapCut', 'Skool', 'Zapier', 'Gamma', 'Mailchimp', 'Notion',
   'Kajabi', 'OpusClip', 'HubSpot', 'Make', 'Higgsfield', 'Hotmart', 'ClickFunnels', 'ActiveCampaign', 'Circle', 'Systeme.io'] as const;
 export function appsDeLaTira(): AppQueReemplaza[] {
   const todas = appsQueReemplaza();

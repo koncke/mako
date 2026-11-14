@@ -65,7 +65,8 @@ test('la página: la tabla que se desliza con sus flechas, las tarjetas «MaKo v
   assert.match(src, /<TarjetasVs \/>/, 'sin las tarjetas «MaKo vs X»');
   assert.match(src, /<TablaCompetencia competidores=\{\[c\]\} \/>/, 'la página de cada app sin su tabla');
   const css = readFileSync(join(RAIZ, 'app/vsl/_sitio/estilos.ts'), 'utf8');
-  assert.match(css, /\.s-mx-caja\{max-height:[^}]*overflow:auto/, 'la tabla no se desliza');
-  assert.match(css, /\.s-mx-t thead th\{position:sticky;top:0/, 'la cabecera no queda fija');
+  assert.match(css, /\.s-mx-caja\{overflow:clip;/, 'la tabla, entera y sin caja con scroll (14/11, noche: sin barras ni scroll de costado)');
+  assert.match(src, /x\.style\.display=j>=i&&j<i\+k\?'':'none'/, 'las flechas muestran la página siguiente de apps, enteras');
+  assert.match(css, /\.s-mx-t thead th\{position:sticky;top:var\(--s-barra-alto,76px\)/, 'la cabecera no queda fija');
   assert.ok(existsSync(join(RAIZ, 'app/vsl/comparaciones/[slug]/page.tsx')), 'sin la página «MaKo vs X»');
 });

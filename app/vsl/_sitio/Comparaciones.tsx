@@ -24,9 +24,15 @@ import { COMPETIDORES, ELIGE_MAKO_SI, GRUPOS_MATRIZ, RELEVADO_EL, celdaDeMaKo, r
 
 const fechaCorta = (iso: string) => { const [a, m, d] = iso.split('-'); return a && m && d ? `${Number(d)}/${Number(m)}/${a}` : iso; };
 
-/** El ancho de una columna de app (lo usan las flechas: pasan de a tres). */
-const ANCHO_COL = 152;
-const SCRIPT_FLECHAS = `(function(){document.querySelectorAll('[data-mx]').forEach(function(c){var b=c.querySelector('.s-mx-caja');if(!b)return;var p=c.querySelector('[data-mx-ir="-1"]'),n=c.querySelector('[data-mx-ir="1"]');function ver(){if(p)p.disabled=b.scrollLeft<4;if(n)n.disabled=b.scrollLeft+b.clientWidth>=b.scrollWidth-4;}c.querySelectorAll('[data-mx-ir]').forEach(function(x){x.addEventListener('click',function(){b.scrollBy({left:Number(x.getAttribute('data-mx-ir'))*${ANCHO_COL * 3},behavior:'smooth'});});});b.addEventListener('scroll',ver,{passive:true});ver();});})();`;
+/**
+ * Las flechas (14/11/2026, noche, Martín: «nunca se tiene que quedar algo cortado por la mitad… tampoco tiene que existir el scroll de
+ * izquierda a derecha… con las flechitas… tampoco quiero que se vea la barra de scroll… esa sección la haría como más larga»): la tabla
+ * va ENTERA a lo alto de la página (sin caja con scroll), con la cabecera fija al bajar, y las flechas no desplazan: muestran la página
+ * siguiente de apps. El script mide cuántas entran enteras al lado de las dos columnas fijas, les da ese ancho (`--mx-col`) y esconde
+ * las demás (`data-c`). Sin JavaScript se ven las primeras cuatro.
+ */
+const MIN_COL = 150;
+const SCRIPT_FLECHAS = `(function(){document.querySelectorAll('[data-mx]').forEach(function(c){var b=c.querySelector('.s-mx-caja');if(!b||c.hasAttribute('data-una'))return;var f0=b.querySelector('thead th.s-mx-c0'),fm=b.querySelector('thead th.s-mx-mk');var celdas=b.querySelectorAll('[data-c]'),n=b.querySelectorAll('thead th[data-c]').length,p=c.querySelector('[data-mx-ir="-1"]'),s=c.querySelector('[data-mx-ir="1"]'),i=0,k=1;function ver(){celdas.forEach(function(x){var j=Number(x.getAttribute('data-c'));x.style.display=j>=i&&j<i+k?'':'none';});if(p)p.disabled=i<=0;if(s)s.disabled=i>=n-k;}function medir(){c.setAttribute('data-listo','');var libre=b.clientWidth-f0.offsetWidth-fm.offsetWidth;k=Math.max(1,Math.min(n,Math.floor(libre/${MIN_COL})));c.style.setProperty('--mx-col',Math.floor(libre/k)+'px');i=Math.min(i,Math.max(0,n-k));ver();}c.querySelectorAll('[data-mx-ir]').forEach(function(x){x.addEventListener('click',function(){var d=Number(x.getAttribute('data-mx-ir'));i=Math.max(0,Math.min(n-k,i+d*k));ver();});});addEventListener('resize',medir);medir();});})();`;
 
 function ValorCelda({ c, fila, app }: { c: Celda | undefined; fila: string; app: string }) {
   const v = c?.v ?? '?';
@@ -47,7 +53,7 @@ export function TablaCompetencia({ competidores }: { competidores: readonly Comp
   const cols = 2 + competidores.length;
   return (
     <div className="s-mx" data-mx="" data-una={varias ? undefined : ''}>
-      <div className="s-mx-caja" tabIndex={0} aria-label="Tabla de comparación: se desliza hacia los costados">
+      <div className="s-mx-caja">
         <table className="s-mx-t">
           <thead>
             <tr>
@@ -64,8 +70,8 @@ export function TablaCompetencia({ competidores }: { competidores: readonly Comp
                 <span className="s-mx-cab"><span className="s-mx-estrella"><EstrellaMaKo size={24} /></span><b>MaKo</b></span>
                 <a className="s-mx-btn" href={RUTA_CTA}>{TEXTO_CTA}</a>
               </th>
-              {competidores.map((c) => (
-                <th key={c.slug} scope="col" className="s-mx-app">
+              {competidores.map((c, i) => (
+                <th key={c.slug} scope="col" className="s-mx-app" data-c={i}>
                   <span className="s-mx-cab"><LogoApp c={c} /><b>{c.nombre}</b></span>
                   {varias ? <a className="s-mx-btn s-mx-btn2" href={rutaVs(c)}>Comparar</a> : null}
                 </th>
@@ -80,7 +86,7 @@ export function TablaCompetencia({ competidores }: { competidores: readonly Comp
                   <tr key={f.clave} className="s-mx-f">
                     <th scope="row" className="s-mx-c0">{f.nombre}</th>
                     <td className="s-mx-mk"><ValorCelda c={celdaDeMaKo(f.clave)} fila={f.nombre} app="MaKo" /></td>
-                    {competidores.map((c) => <td key={c.slug}><ValorCelda c={c.celdas[f.clave]} fila={f.nombre} app={c.nombre} /></td>)}
+                    {competidores.map((c, i) => <td key={c.slug} data-c={i}><ValorCelda c={c.celdas[f.clave]} fila={f.nombre} app={c.nombre} /></td>)}
                   </tr>
                 ))}
               </Fragment>
@@ -112,8 +118,6 @@ export function TarjetasVs({ excepto }: { excepto?: string }) {
                 <span className="s-vs-com">{c.comentario}</span>
                 <span className="s-vs-a">Comparar <Flecha size={20} /></span>
               </span>
-              <span className="s-vs-c2" aria-hidden="true" />
-              <span className="s-vs-c1" aria-hidden="true" />
             </a>
           ))}
         </div>
@@ -142,7 +146,7 @@ export function ComparacionesSitio() {
         <section className="s-cc" id="comparar">
           <div className="s-cont">
             <h2 className="s-cc-h2">Compara precios y funciones.</h2>
-            <p className="s-cc-p">Desliza para ver todas las apps.</p>
+            <p className="s-cc-p">Con las flechas pasas de una app a otra.</p>
             <TablaCompetencia competidores={COMPETIDORES} />
             {/* Lo que se dice de otra app es público: de dónde sale y qué quiere decir «sin dato» (./competencia-datos.ts, con sus fuentes). */}
             <p className="s-mx-nota">Lo de cada app sale de su web oficial (relevado el {fechaCorta(RELEVADO_EL)}). «Sin dato»: no lo pudimos confirmar.</p>
