@@ -5498,3 +5498,31 @@ tarde. Después `el.currentTime = 9.2` al pausar mostró OTRA toma (la del princ
 saben buscar. **Lo que quedó** (`C:/dev/bancos-portada/banco-video/entrada.tsx`): las dos pausas son fotos extraídas con ffmpeg
 del cuadro elegido. `salida/quieto.jpg` sale de 3,9 s de la toma y `salida/quieto-fin.jpg` de 9,2 s del corte; la de fin se pone
 encima del video al terminar. Para elegir el cuadro, se arma una hoja con la cara recortada cada 0,25 s y se busca la boca cerrada.
+
+## El bucle de Automations no calzaba y no era una posición: el body sin `transform` pinta el texto distinto (14/11/2026, noche)
+
+Lo vio el banco `C:/dev/bancos-portada/banco-flujo/` al regrabar Automations con WhatsApp e Instagram dibujados como en el
+teléfono (`vistas-chat.tsx`; `ChatHilo` y `SimuladorSocial` se ven como MaKo, no como las apps).
+
+- **El empalme.** El principio y el final del bucle no calzaban: diferencia media 1,85 entre los dos cuadros quietos, contra
+  0,15–0,5 de ruido dentro de una misma pausa. Lo obvio era que algo se había corrido, y la cuadrícula no tenía diferencia. La
+  causa probable: antes de la primera vez que se usa la cámara de `grabador.mjs`, el `body` no tiene `transform`; después queda
+  con `translate(0,0) scale(1)` y Chrome pinta el texto distinto. **Regla:** `g.camara(null, 0)` al principio de toda toma con
+  cámara. SIN CONFIRMAR hasta la toma D (`grabar-combo3.mjs`); si no alcanza, queda el encuadre guardado (abajo).
+- **La capa del lienzo que mueve las tarjetas mide 0 × 0** (lo de adentro es absoluto). Subiendo desde un texto para hallar la
+  tarjeta hay que frenar en el primer ancestro sin tamaño: si no, el «centro» da (0, 237) y la cámara se va a otra tarjeta.
+- **Achicar el lienzo con CSS deja ver dónde termina la cuadrícula** (el borde raro del póster anterior). La salida: la misma
+  cuadrícula en el contenedor de atrás, escala 1 y corrimientos múltiplos de 22 px (la celda).
+- **Un encuadre medido mientras las tarjetas aparecen varía de una vez a otra** (las que suben corren la caja). Si el bucle
+  empieza y termina en ese encuadre, se guarda y se reusa (`__encuadrar(…, recordar)`).
+- **La tarjeta de mensaje del lienzo pone la hora real (`new Date()`).** Grabando de madrugada decía «04:55» contra «18:04» del
+  chat; el banco fija el reloj. En la app está bien así: la trampa es sólo de las grabaciones.
+- **Cortar un chat en el crudo.** Un globito nuevo cambia muy poco el cuadro (~0,3 de diferencia media) y el codificador de
+  Playwright mete saltos sueltos de hasta 0,8: un arranque cuenta sólo si viene después de una pausa de 0,4 s o más y en los 0,6 s
+  siguientes los cambios suman más de 15. El color solo confunde el beige de WhatsApp con la tarjeta rosa de Instagram: se mira el
+  centro del panel 1,2 s después y se toman el primer y el último arranque de WhatsApp (`medir-combo3.py`).
+- Lo de Instagram (una sola respuesta privada por comentario, en 7 días) ya estaba en `docs/hallazgos-chatbot.md`; el DM va con el
+  link directo, como lo pidió Martín, aunque ManyChat suele mandar primero un botón.
+
+SIN HACER: con el zoom, la tarjeta del disparador de Instagram queda cortada a la izquierda; la foto del Reel es un fondo con el
+cartel encima, sin persona (a propósito).
