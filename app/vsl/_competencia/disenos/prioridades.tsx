@@ -227,7 +227,7 @@ function Pie({ slug }: { slug: string }) {
   return (
     <footer className="d-prioridades-pie">
       <div className="d-prioridades-w d-prioridades-pie-g">
-        <div className="d-prioridades-pie-marca"><LogoMaKo tamano={36} /><p>El mejor SaaS para ventas High Ticket, de punta a punta.</p></div>
+        <div className="d-prioridades-pie-marca"><LogoMaKo tamano={36} /><p>El mejor software para vender High Ticket.</p></div>
         {cols.map((col, i) => (
           <nav key={i} aria-label={i === 0 ? 'Funciones de MaKo' : undefined}>
             <h6 aria-hidden={i > 0 || undefined}>{i === 0 ? 'Funciones' : ' '}</h6>
@@ -293,7 +293,7 @@ export default function DisenoPrioridades({ landing }: PropsDiseno) {
         {salida}
         <section className="d-prioridades-cierre">
           <div className="d-prioridades-w">
-            <h2 className="d-prioridades-cierre-h">¿Lo quieres andando en tu negocio?</h2>
+            <h2 className="d-prioridades-cierre-h">¿Lo quieres funcionando en tu negocio?</h2>
             <div className="d-prioridades-cta-c"><Boton /></div>
             <p className="d-prioridades-nota d-prioridades-nota-c">{TEXTO_CIERRE}</p>
           </div>

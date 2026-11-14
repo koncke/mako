@@ -230,7 +230,7 @@ function PieD({ slug }: { slug: string }) {
         <div className="d-funnel-pie-in">
           <div className="d-funnel-pie-marca">
             <LogoMaKo tamano={26} />
-            <p>El mejor SaaS para ventas High Ticket, de punta a punta.</p>
+            <p>El mejor software para vender High Ticket.</p>
           </div>
           <div className="d-funnel-pie-cols">
             <p className="d-funnel-pie-h">Funciones de MaKo</p>

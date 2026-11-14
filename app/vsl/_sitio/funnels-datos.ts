@@ -52,7 +52,7 @@ export const FUNNELS_SITIO: readonly FunnelSitio[] = [
     bajada: 'El anuncio lleva a una página con un video que explica tu servicio; quien se convence agenda y compra en la llamada.',
     corta: 'Anuncio, video, agenda y llamada de venta.',
     queEs: 'El anuncio lleva a una página con un video que explica el servicio. Quien se convence contesta unas preguntas, agenda y compra en la llamada.',
-    cuando: 'Precio alto (desde unos US$3.000), alguien que sepa cerrar por llamada y presupuesto para juntar llamadas.',
+    cuando: 'Precio alto (desde unos US$3.000), alguien que sepa cerrar por llamada y presupuesto para conseguir llamadas.',
     recorrido: ['Anuncio', 'Video', 'Agenda', 'Llamada'],
     pasos: [
       { paso: 'El anuncio', texto: 'Escribes el guion con la estructura de uno que ya funcionó, lo grabas con tu avatar y MaKo mira cada día qué subir, qué pausar y qué probar.', enMako: [F.copy, F.avatar, F.copiloto] },

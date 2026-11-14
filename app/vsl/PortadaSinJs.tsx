@@ -48,7 +48,7 @@ export function PortadaSinJs() {
     >
       <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>MaKo</div>
       <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.15, fontWeight: 700, letterSpacing: -0.8, maxWidth: 720 }}>
-        El mejor SaaS para ventas High Ticket, de punta a punta
+        El mejor software para vender High Ticket
       </h1>
       <p style={{ margin: 0, fontSize: 17, color: '#4B5563' }}>Del primer clic en tu anuncio al cliente que paga.</p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', justifyContent: 'center', fontSize: 13.5, color: '#6B7280', marginTop: 12 }}>
