@@ -129,18 +129,19 @@ test('la API: las del Copywriter al FINAL de `contenido`, con sus palabras, y la
   // «Copywriter = Notion» (29/10/2026: listar_plantillas y editar_documento_copywriter).
   const contenido = REGISTRO.filter((d) => d.area === 'contenido').map((d) => d.id);
   const copy = contenido.filter((id) => id.endsWith('_copywriter'));
-  // 15 desde el 11/11/2026: los outliers de copy (outliers_copywriter y replicar_outlier_copywriter, D18).
-  assert.equal(copy.length, 15);
-  assert.deepEqual(contenido.slice(-15), copy, 'van al final del área');
+  // 15 desde el 11/11/2026: los outliers de copy (outliers_copywriter y replicar_outlier_copywriter, D18). 16 desde el 14/11/2026:
+  // replicar lo que trae la persona (replicar_link_o_texto_copywriter, lib/copywriter/pegado.ts).
+  assert.equal(copy.length, 16);
+  assert.deepEqual(contenido.slice(-16), copy, 'van al final del área');
   for (const d of REGISTRO.filter((x) => x.id.endsWith('_copywriter'))) {
     assert.ok(!/guion de anuncio/i.test(`${d.titulo} ${d.descripcion}`), `${d.id} usa las palabras del Ads Writer`);
     assert.equal(d.gating?.tab, 'copywriter');
   }
   const run = leer('lib/api-mako/areas/copywriter.run.ts');
   const runners = [...run.matchAll(/^ {2}([a-z_]+_copywriter): \{/gm)].map((m) => m[1]);
-  assert.equal(runners.length, 15);
-  // Cada runner pregunta la puerta: 5 lecturas (leer) y 10 acciones (preparar).
-  assert.equal((run.match(/if \(await cerrada\(ctx\)\) return/g) ?? []).length, 15);
+  assert.equal(runners.length, 16);
+  // Cada runner pregunta la puerta: 5 lecturas (leer) y 11 acciones (preparar).
+  assert.equal((run.match(/if \(await cerrada\(ctx\)\) return/g) ?? []).length, 16);
   // MaKo por la API escribe con las MISMAS herramientas del chat y, al confirmar, sobre lo de AHORA (por id).
   assert.match(run, /const ia = await editarConIA\(\{ instruccion, guion:/);
   assert.match(run, /const s = sanearOperaciones\(payload\.operaciones, r\.doc\.contenido, catalogo\);/);

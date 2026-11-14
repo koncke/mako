@@ -99,7 +99,8 @@ export function pedidoDeReplica(r: RespuestasIniciativa, ofertas: readonly Ofert
   const partes = [`Replícalo entero ${con}: su estructura, su tipo de gancho y su ritmo.`];
   // Lo que la persona contestó de su oferta (13/11/2026): ya quedó guardado en la oferta, pero va también acá por si guardarlo falló.
   const datos = LO_MINIMO_REPLICA.map((c) => [c, (r[`${FALTA}${c}`] ?? '').trim()] as const).filter(([, v]) => v && v !== SEGUIR_SIN && v !== EN_OFFER);
-  if (datos.length) partes.push(`De la oferta: ${datos.map(([c, v]) => `${c}: ${v}`).join('; ')}.`);
+  // Sin el punto final de lo contestado: «high ticket.; qué promete: … herramienta..» (14/11/2026, la réplica de Hormozi).
+  if (datos.length) partes.push(`De la oferta: ${datos.map(([c, v]) => `${c}: ${v.replace(/[\s.;]+$/, '')}`).join('; ')}.`);
   // Cómo usar un original que no tiene que ver con el negocio (la pregunta de `pasoDeReplica`).
   const de = temaOriginal ? `El original habla de ${temaOriginal}` : 'El original habla de otra cosa';
   if (r.tema === SOLO_ESTRUCTURA) partes.push(`${de}: toma sólo su tipo de gancho y su estructura; el tema y todo lo que se dice son de mi oferta.`);

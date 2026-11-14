@@ -90,6 +90,37 @@ export async function pedirReplicar(outlier: string) {
   return r;
 }
 
+/** Leer un archivo o bajar una página tarda más que la base (el lector de archivos de los chats corta a los 90 s). */
+export const PLAZO_PEGADO_MS = 120_000;
+
+/**
+ * «Replicar» lo que TRAE la persona (lib/copywriter/pegado.ts): un link, un texto o archivos. La página nueva, vacía, como la de un
+ * outlier. Con archivos va en multipart (`datos` + `adjuntos`, como los chats: app/_chat/useAdjuntosDelChat.ts, `cuerpoConArchivos`,
+ * que no se importa de acá porque ese módulo es 'use client'). Nunca tira.
+ */
+export async function pedirReplicarPegado(tipo: TipoGuion, texto: string, archivos: readonly File[] = []): Promise<({ ok: true; paginas: PaginaCopy[]; noLeidos?: string[] } & GuionAbierto) | FallaCopy> {
+  const datos = { accion: 'replicar', tipo, texto };
+  let r: ({ ok: true; paginas: PaginaCopy[]; noLeidos?: string[] } & GuionAbierto) | FallaCopy;
+  if (!archivos.length) {
+    r = await (postJson<{ ok: true; paginas: PaginaCopy[] } & GuionAbierto>(RUTA_PEGADO, datos, PLAZO_PEGADO_MS) as Promise<({ ok: true; paginas: PaginaCopy[] } & GuionAbierto) | FallaCopy>);
+  } else {
+    const fd = new FormData();
+    fd.append('datos', JSON.stringify(datos));
+    for (const f of archivos) fd.append('adjuntos', f, f.name);
+    try {
+      const res = await fetch(RUTA_PEGADO, { method: 'POST', body: fd, signal: AbortSignal.timeout(PLAZO_PEGADO_MS) });
+      const d = (await res.json().catch(() => null)) as { ok?: unknown; error?: unknown } | null;
+      r = d && d.ok === true ? (d as unknown as typeof r) : { ok: false, error: d && typeof d.error === 'string' ? d.error : res.status === 413 ? 'Los archivos pesan demasiado.' : `Error ${res.status}` };
+    } catch {
+      r = { ok: false, error: 'Tardó demasiado o no hay conexión. Vuelve a intentar.' };
+    }
+  }
+  if (r.ok) marcarRecienCreada(r.pagina.id);
+  return r;
+}
+
+export const RUTA_PEGADO = '/api/copywriter/pegado';
+
 /** Una tanda de la portada de outliers (la primera viaja con la página; ésta es la de «Ver más» o la de otro filtro). */
 export function pedirOutliers(c: { filtros: FiltrosCopy; orden: OrdenCopy; desde: number }) {
   return postJson<{ ok: true } & TandaCopy>(RUTA_COPY, { accion: 'outliers', ...c.filtros, orden: c.orden, desde: c.desde }, PLAZO_COPY_MS) as Promise<({ ok: true } & TandaCopy) | FallaCopy>;
