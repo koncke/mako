@@ -67,8 +67,9 @@ export function canalConfigurado(): boolean {
 }
 
 export type EstadoCanal = 'desconectado' | 'conectando' | 'conectado' | 'sin_confirmar' | 'error';
-/** `esVozActiva: null` = no se pudo leer cuál es la voz. No es «no»: no autoriza a escribirla. */
-export type CanalInfo = { estado: EstadoCanal; numero: string | null; perfil: string | null; esVozActiva: boolean | null };
+/** `esVozActiva: null` = no se pudo leer cuál es la voz. No es «no»: no autoriza a escribirla.
+ *  `sorda`: figura conectada y no recibe, y la marca da para soltarla (`motivoParaVolverAVincular`): el panel ofrece el QR. */
+export type CanalInfo = { estado: EstadoCanal; numero: string | null; perfil: string | null; esVozActiva: boolean | null; sorda: string | null };
 export type QrCanal = { base64: string | null; code: string | null; pairingCode: string | null };
 /** `sinCrear`: Evolution contestó que NO creó la línea (no un timeout, donde pudo haberla creado). */
 type Conexion = { ok: true; qr: QrCanal; estado: EstadoCanal } | { ok: false; error: string; sinCrear?: boolean };
@@ -129,13 +130,19 @@ export async function estadoCanalMaKo(): Promise<CanalInfo> {
     inst = await instanciaCanal();
   } catch {
     // No saber cuál es la línea no es un estado de la línea.
-    return { estado: 'sin_confirmar', numero: null, perfil: null, esVozActiva: null };
+    return { estado: 'sin_confirmar', numero: null, perfil: null, esVozActiva: null, sorda: null };
   }
   // La voz se lee ESTRICTA: con la tolerante, un 5xx de la base daba «la voz es mako_ws1»,
   // esVozActiva:false, y el panel disparaba solo el «usar» sobre la línea de un cliente
   // (segunda revisión adversarial del 11/09/2026).
   const [linea, voz] = await Promise.all([estadoDeLinea(inst), instanciaVoz({ estricto: true }).catch(() => null)]);
-  return { ...linea, esVozActiva: voz === null ? null : voz === inst };
+  // Conectada y SORDA (14/11/2026): «Conectar por QR» sólo se dibujaba con la línea caída, y una sorda figura conectada. El aviso
+  // mandaba a un botón que no estaba, y había que cerrar el dispositivo desde el teléfono de MaKo. Misma condición con la que
+  // `conectarCanalMaKo` la suelta (más abajo): un botón sin ella diría «ya está conectada» al tocarlo.
+  const sorda = linea.estado === 'conectado'
+    ? motivoParaVolverAVincular(await marcaDeLineaEnferma(inst), await vinculadaDesdeDeLinea(inst).catch(() => null))
+    : null;
+  return { ...linea, esVozActiva: voz === null ? null : voz === inst, sorda };
 }
 
 /**

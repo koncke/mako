@@ -174,10 +174,10 @@ export function motivoParaVolverAVincular(
 
 /** Los pasos para re-vincular la voz. Con la marca, el panel la desvincula solo y da el QR (lib/mako-canal.ts, `conectarCanalMaKo`). */
 export const PASOS_QR = [
-  '1. En hola-mako.com/agencia → «Conectar por QR»: como está marcada sorda, la desvincula sola y muestra el QR.',
-  '2. Escanearlo con el teléfono de MaKo (…2605).',
+  '1. En hola-mako.com/agencia → «MaKo» → «Volver a vincular por QR»: como está marcada sorda, la desvincula sola y muestra el QR.',
+  '2. Escanearlo con el teléfono de MaKo (…2605): WhatsApp → Dispositivos vinculados → Vincular un dispositivo.',
   '3. Lo que llegue por la resincronización no lo atiende MaKo sola: hay que leer los grupos y contestar lo que quedó.',
-  'Si el panel igual dice que ya está conectada: en ese teléfono, WhatsApp → Dispositivos vinculados → Cerrar sesión, y otra vez «Conectar por QR».',
+  'Si el botón no aparece: en ese teléfono, WhatsApp → Dispositivos vinculados → Cerrar sesión del dispositivo de MaKo, y «Conectar por QR».',
 ].join('\n');
 
 /** Los pasos cuando la voz es la línea de Martín (el …3479, «Tu número»: su decisión del 13/11/2026). Mismo panel, otro botón y otro teléfono. */
