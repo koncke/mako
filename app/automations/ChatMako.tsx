@@ -77,6 +77,8 @@ import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
 import { ordenarAvisos, rondaAbierta, respuestaMako, textoDeCreada, lineaDeListo, CIERRE_EDICION, ELIGE_TU, OTRA_COSA, type EleccionMako, type RondaMako } from '@/lib/flujo-ia-cliente';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { useStreamIA, RUTA_IA, TOPE_CLIENTE_MS, TEXTO_FASE, ORDEN_FASES, type EstadoIA, type ListoStreamIA } from './stream-ia';
+import { cancelarEnElServidor } from './stream-ia';
+import { trabajoEnElServidor } from '@/lib/flujo-ia-trabajo-reglas';
 import type { FinIA } from './stream-ia';
 import { avisarTrabajoTerminado, marcarTrabajoVisto } from '@/lib/mako-trabajos';
 import { servicioDeLink } from '@/lib/integracion-en-tab';
@@ -275,6 +277,14 @@ export function ChatMako(p: ChatMakoProps) {
   /** Lo que se hace con un turno que terminó y que largó OTRA instancia (se fue y volvió): se arma más abajo. */
   const adoptarRef = useRef<(f: FinIA) => void>(() => {});
   const { estado, trabajando, enviar, cancelar } = useStreamIA(`chat:${p.secuenciaId}`, (f) => adoptarRef.current(f));
+  /**
+   * «CANCELAR» CORTA EL TRABAJO DEL SERVIDOR (14/11/2026, la llamada con Julio). Crear sobre esta fila ya no se corta con la
+   * pestaña que se cierra; Cancelar, además de cortar el pedido, deja la marca que el trabajo mira (`cancelarEnElServidor`).
+   */
+  const cancelarTurno = useCallback(() => {
+    if (crea) cancelarEnElServidor(p.secuenciaId);
+    cancelar();
+  }, [crea, cancelar, p.secuenciaId]);
   /** Lo de esta pantalla (los pedidos sueltos). El ref es la verdad sincrónica: dos clics en el mismo tick no repiten. */
   const [extras, setExtras] = useState<ExtraChat[]>([]);
   const extrasRef = useRef<ExtraChat[]>([]);
@@ -322,12 +332,17 @@ export function ChatMako(p: ChatMakoProps) {
   // con un pedido (`pedidoInicial`) no tiene chat todavía: no se pide (la ruta escribe el turno mientras tanto).
   const secId = p.secuenciaId;
   const conPedido = !!p.pedidoInicial?.trim();
+  /** Mientras MaKo la sigue armando en el servidor (ver `enServidor`, abajo): el GET que trae su respuesta la recarga. */
+  const enServidorRef = useRef(false);
   const traerChat = useCallback(async (sigue: () => boolean = () => vivo.current) => {
     try {
       const r = await fetch(`${RUTA_IA}?secuenciaId=${secId}`, { cache: 'no-store' });
       const j = await r.json().catch(() => null) as { ok?: boolean; mensajes?: unknown } | null;
       if (!sigue() || !r.ok || !j?.ok) return;
       const guardados = sanearChat({ v: 1, mensajes: j.mensajes }).mensajes;
+      // TERMINÓ EN EL SERVIDOR: el lienzo de esta pantalla nació vacío, así que se recarga entera (las tarjetas, el CRON y el
+      // nombre los trae la página, como al abrirla; una pregunta o un «no pude» los muestra el chat al volver a leerse).
+      if (enServidorRef.current && !trabajoEnElServidor(guardados, Date.now())) { window.location.reload(); return; }
       if (!guardados.length) return;
       setMensajes((locales) => juntarHilo(guardados, locales));
       if (!turnos.current) setRonda(rondaAbierta(guardados));
@@ -343,6 +358,21 @@ export function ChatMako(p: ChatMakoProps) {
     // Una vez por automatización (el pedido inicial sólo decide la primera).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secId]);
+
+  /**
+   * MaKo LA SIGUE ARMANDO EN EL SERVIDOR (14/11/2026, la llamada con Julio): se recargó o se cerró la pestaña mientras creaba.
+   * El chat guardado termina en el pedido de la persona, reciente y sin respuesta (`trabajoEnElServidor`), y esta pantalla no
+   * tiene un turno en vuelo. Se dice eso arriba de la barra, no se larga otro pedido encima, y se mira cada pocos segundos:
+   * cuando hay tarjetas, se recarga; si MaKo preguntó o no pudo, su mensaje entra al hilo como siempre.
+   */
+  const [ahoraServidor, setAhoraServidor] = useState(() => Date.now());
+  const enServidor = crea && !trabajando && trabajoEnElServidor(mensajes, ahoraServidor);
+  useEffect(() => { enServidorRef.current = enServidor; }, [enServidor]);
+  useEffect(() => {
+    if (!enServidor) return;
+    const t = setInterval(() => { setAhoraServidor(Date.now()); void traerChat(); }, 4_000);
+    return () => clearInterval(t);
+  }, [enServidor, traerChat]);
 
   // LO QUE ENTRÓ POR EL ✦ DE UNA TARJETA (punto 7) mientras el chat está montado: al hilo, sin repetir.
   useEscucharChatMako(secId, useCallback((ms: MensajeChatMako[]) => setMensajes((locales) => juntarHilo(locales, ms)), []));
@@ -366,7 +396,7 @@ export function ChatMako(p: ChatMakoProps) {
       const oculto = !raiz || raiz.getClientRects().length === 0;
       const otroAbierto = !adentro && [...document.querySelectorAll('[role="dialog"], [role="menu"], [role="listbox"]')].some((n) => !raiz?.contains(n));
       if (e.key === 'Escape' && (oculto || otroAbierto)) return;
-      if (e.key === 'Escape' && fase !== 'revision') { e.preventDefault(); e.stopImmediatePropagation(); cancelar(); return; }
+      if (e.key === 'Escape' && fase !== 'revision') { e.preventDefault(); e.stopImmediatePropagation(); cancelarTurno(); return; }
       if (adentro) return;
       if (esCampo(e.target)) return;
       // Sin `preventDefault`: los atajos del NAVEGADOR siguen andando; lo que se corta es que lleguen a los de la app.
@@ -374,7 +404,7 @@ export function ChatMako(p: ChatMakoProps) {
     };
     document.addEventListener('keydown', alTeclado, true);
     return () => document.removeEventListener('keydown', alTeclado, true);
-  }, [trabajando, fase, cancelar]);
+  }, [trabajando, fase, cancelarTurno]);
 
   /** Lo que volvió de la ruta, al lienzo de quien monta (`onListo`). `false` = no lo aplicó (el lienzo cambió). */
   const aplicarListo = (l: ListoStreamIA, base: readonly PasoGrafo[] | undefined): boolean | void => {
@@ -415,7 +445,8 @@ export function ChatMako(p: ChatMakoProps) {
    *   · `origen: 'boton'` — una opción de una pregunta (la pregunta sigue viva: se vuelve a tocar).
    */
   const turno = async (dicho: string, respuesta: RespuestaMako | null, origen: 'barra' | 'afuera' | 'boton', pedido?: string, adj: AdjuntoLeido[] = [], voz?: VozNota): Promise<true | { error: string | null }> => {
-    if (trabajando || p.deshabilitado || sinApp) return origen === 'barra' ? { error: null } : true;
+    // Con MaKo armándola en el servidor (`enServidor`), otro pedido encima chocaría con el que sigue: espera a que termine.
+    if (trabajando || enServidor || p.deshabilitado || sinApp) return origen === 'barra' ? { error: null } : true;
     const yo: MensajeChatMako = {
       id: nuevoId('yo'), de: 'yo', texto: dicho, at: new Date().toISOString(), via: 'app', ...(respuesta ? { respuesta } : {}),
       ...(adj.length ? { adjuntos: adj.map((a) => a.nombre) } : {}),
@@ -751,7 +782,8 @@ export function ChatMako(p: ChatMakoProps) {
 
   const errorMako = error ? <p data-error-mako="" style={S.error} role="alert"><TextoConLink texto={error.texto} link={error.link} /><ReportarASoporte /></p> : null;
   const encima = estado.t === 'trabajando'
-    ? <FasesIA estado={estado} segundos={segundos} onCancelar={cancelar} />
+    ? <FasesIA estado={estado} segundos={segundos} onCancelar={cancelarTurno} />
+    : enServidor ? <EnElServidor />
     : crea ? errorMako
       : <>{errorMako}<SelectorIntencion valor={intencion} onCambio={elegirIntencion} deshabilitado={!!p.deshabilitado} /></>;
 
@@ -990,6 +1022,17 @@ function FasesIA({ estado, segundos, onCancelar }: {
       {/* ⚠️ SIN «Cancelar» EN «Verificando» (revisión, 09/10/2026): el server mira la señal una sola vez, antes de
           esa fase, y después crea las etiquetas y guarda igual. */}
       {estado.fase !== 'revision' && <button type="button" onClick={onCancelar} style={S.cancelar}>Cancelar</button>}
+    </div>
+  );
+}
+
+/** Volvió mientras MaKo la armaba en el servidor (14/11/2026): lo dice, sin Cancelar (ya no es un pedido de esta pestaña). */
+export const TEXTO_EN_EL_SERVIDOR = 'MaKo la sigue armando: te aviso cuando esté lista.';
+function EnElServidor() {
+  return (
+    <div style={S.fases} role="status" aria-live="polite" data-crear-ia-servidor="">
+      <span aria-hidden style={S.puntos}><span style={{ ...S.punto, background: 'var(--mako)' }} /></span>
+      <span style={S.rotulo}>{TEXTO_EN_EL_SERVIDOR}</span>
     </div>
   );
 }
