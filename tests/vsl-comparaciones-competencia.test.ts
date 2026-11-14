@@ -81,8 +81,10 @@ test('Martín, 14/11: lo que pagas hoy al principio, la tarjeta abre su panel ah
   const src = readFileSync(join(RAIZ, 'app/vsl/_sitio/Comparaciones.tsx'), 'utf8');
   const css = readFileSync(join(RAIZ, 'app/vsl/_sitio/estilos.ts'), 'utf8');
   const indice = src.slice(src.indexOf('export function ComparacionesSitio'));
-  const seccion = indice.indexOf('<SeccionReemplaza claro />');
+  // Martín, 14/11 (más tarde): sin el hero de arriba; la página EMPIEZA con el ticket (su titular es el h1).
+  const seccion = indice.indexOf('<SeccionReemplaza claro principal />');
   assert.ok(seccion > 0 && seccion < indice.indexOf('id="comparar"'), 'lo que pagas hoy no va al principio, antes de la tabla');
+  assert.doesNotMatch(indice.slice(0, indice.indexOf('<Pie />')), /className="s-ch"/, 'volvió el hero «MaKo contra las apps que ya pagas»');
   // La tarjeta: un label con su casilla adentro y su panel como hermano (anda sin JavaScript y en el visor). Nunca un link a otra página.
   const tarjetas = src.slice(src.indexOf('export function TarjetasVs'), src.indexOf('const CSS = '));
   assert.match(tarjetas, /<label className="s-vs">\s*<input type="checkbox" id=\{idCasilla\(c\)\}/, 'la tarjeta no tiene su casilla adentro');
@@ -92,6 +94,6 @@ test('Martín, 14/11: lo que pagas hoy al principio, la tarjeta abre su panel ah
   assert.match(css, /\.s-cv-grilla\{[^}]*grid-auto-flow:row dense/, 'el panel no cae debajo de la fila de su tarjeta');
   assert.doesNotMatch(src, /<p className="s-mx-nota">/, 'volvió la nota de las fuentes («Lo de cada app sale de su web oficial…»)');
   // El ícono de MaKo: fijo para el sol y la luna, negro de base y blanco en el modo oscuro.
-  assert.ok((src.match(/s-mk-ico" data-tema-fijo=""/g) ?? []).length >= 4, 'un ícono de MaKo sin `.s-mk-ico` y `data-tema-fijo`');
+  assert.ok((src.match(/s-mk-ico" data-tema-fijo=""/g) ?? []).length >= 3, 'un ícono de MaKo sin `.s-mk-ico` y `data-tema-fijo`');
   assert.match(css, /\.s-mk-ico\{background:#1A1712\}\r?\nhtml\[data-sitio-modo="oscuro"\] \.s-mk-ico\{background:#fff\}/, 'el ícono no cambia con el modo');
 });

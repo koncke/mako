@@ -202,17 +202,9 @@ export function ComparacionesSitio() {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <Barra claro />
       <main>
-        <section className="s-ch">
-          <div className="s-ch-logo" aria-hidden="true">
-            <div className="s-ch-logo-in"><div className="s-ch-logo-c s-mk-ico" data-tema-fijo=""><EstrellaMaKo size={56} /></div></div>
-          </div>
-          <h1 className="s-ch-h1">MaKo contra las apps que ya pagas.</h1>
-          <p className="s-ch-p">Qué tiene cada una y qué no, función por función.</p>
-          <Boton flecha />
-        </section>
-
-        {/* Lo mismo que en la portada, al principio (Martín, 14/11/2026). */}
-        <SeccionReemplaza claro />
+        {/* Martín, 14/11/2026: sin el hero «MaKo contra las apps que ya pagas»; la página empieza con lo mismo de la portada (el
+            ticket con el ahorro al costado y la tira debajo), y su titular es el h1. */}
+        <SeccionReemplaza claro principal />
 
         <section className="s-cc" id="comparar">
           <div className="s-cont">

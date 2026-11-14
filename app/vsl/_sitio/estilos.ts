@@ -270,7 +270,7 @@ export const CSS_REEMPLAZA = `
 /* La de las apps que MaKo reemplaza (12/11/2026): cada logo original flotando, sin recuadro (Martín: «prefiero que los logos estén
    flotando nada más»),
    más lenta porque son muchas, y el link a la comparación debajo. */
-.s-tira-reemplaza{padding-top:8px;padding-bottom:48px}
+.s-tira-reemplaza{padding-top:56px;padding-bottom:48px}
 .s-tira-reemplaza .s-tira-p{animation-duration:170s}
 .s-tira-app img{width:34px;height:34px;flex:none;border-radius:9px;object-fit:contain}
 .s-tira-ver{margin-top:20px;text-align:center;padding:0 16px}
@@ -283,15 +283,16 @@ export const CSS_REEMPLAZA = `
    columna, como un ticket. Cada fila, el logo, el nombre y el precio en el mismo renglón, unidos por puntos guía; las filas agrupadas
    por para qué sirven; al final el total, MaKo Pro y lo que ahorras. Las líneas y los puntos se pintan con currentColor (una sombra o
    un pseudo-elemento): el sol y la luna cambia el color del texto y no toca ni las sombras ni los pseudo-elementos, así siguen al
-   texto en los dos modos (un borde oscuro, en el claro, el script lo aclaraba y desaparecía). */
-.s-ah-afuera{padding:0 24px;margin:44px 0 8px}
-.s-ah{max-width:680px;margin:0 auto;padding:30px 34px 34px;background:#fff;color:#12151B;border-radius:20px;text-align:left;box-shadow:0 0 0 1px color-mix(in srgb,currentColor 12%,transparent),0 28px 70px -40px rgba(0,0,0,.55)}
-.s-ah-t{font-size:22px;line-height:28px;font-weight:800;letter-spacing:-.01em}
-.s-ah-g{margin-top:22px}
-.s-ah-gt{padding-bottom:4px;font-size:15px;line-height:22px;font-weight:700;opacity:.62}
-.s-ah-g ul{list-style:none;margin:0;padding:0}
+   texto en los dos modos (un borde oscuro, en el claro, el script lo aclaraba y desaparecía).
+   Más tarde ese día (Martín, al verlo): todo junto, sin los títulos de los grupos; el titular arriba; el ahorro, un bloque azul AL
+   COSTADO del ticket (dos columnas en la PC, fijo al bajar; debajo en el teléfono); la tira de logos, debajo. */
+.s-ah-h{${TITULAR};max-width:1040px;margin:0 auto;padding:0 24px;text-align:center;font-size:44px;line-height:46px;color:#fff;text-wrap:balance}
+.s-ah-afuera{padding:0 24px;margin:36px 0 0}
+.s-ah-dos{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:start}
+.s-ah{padding:20px 30px 26px;background:#fff;color:#12151B;border-radius:20px;text-align:left;box-shadow:0 0 0 1px color-mix(in srgb,currentColor 12%,transparent),0 28px 70px -40px rgba(0,0,0,.55)}
+.s-ah ul{list-style:none;margin:0;padding:0}
 .s-ah-f{display:flex;align-items:center;gap:14px;min-height:50px;margin:0;font-size:17px;line-height:24px}
-.s-ah-g li + li{box-shadow:inset 0 1px 0 color-mix(in srgb,currentColor 9%,transparent)}
+.s-ah li + li{box-shadow:inset 0 1px 0 color-mix(in srgb,currentColor 9%,transparent)}
 .s-ah-f img{width:32px;height:32px;flex:none;object-fit:contain;border-radius:8px}
 .s-ah-n{flex:none;max-width:60%;font-weight:600}
 .s-ah-guia{flex:1 1 auto;min-width:18px;align-self:stretch;position:relative;opacity:.4}
@@ -301,37 +302,43 @@ export const CSS_REEMPLAZA = `
 .s-ah-tot{margin-top:18px;padding-top:6px;box-shadow:inset 0 2px 0 currentColor;font-size:19px}
 .s-ah-tot .s-ah-n{font-weight:800}
 .s-ah-tot .s-ah-p{font-size:24px;font-weight:800;text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#E11D48}
-/* MaKo Pro: su ícono y su precio en azul, en una franja del tinte del azul. */
-.s-ah-mk{margin-top:10px;padding:8px 14px;border-radius:14px;background:#EEF3FE;font-size:19px}
-.s-ah-mk .s-ah-n{font-weight:800}
-.s-ah-mk .s-ah-p{font-size:26px;font-weight:800;color:${AZUL}}
+/* El ahorro: un bloque aparte, azul (fijo en los dos modos), al costado del ticket. */
 .s-ah-ico{width:32px;height:32px;flex:none;border-radius:9px;display:inline-flex;align-items:center;justify-content:center}
-.s-ah-gana{margin-top:14px;padding:16px 20px;border-radius:14px;background:linear-gradient(140deg,${AZUL},#1E3FA8);color:#fff;font-size:18px;line-height:27px;font-weight:500}
-.s-ah-gana strong{font-weight:800;color:#FDE68A}
-/* En Comparaciones (la página clara): una franja blanca, con la letra de la tira en tinta. */
-.s-reemplaza-claro{background:#fff;padding:72px 0 80px}
-.s-reemplaza-claro .s-tira-r,.s-reemplaza-claro .s-tira-i{color:${TINTA}}
+.s-ah-gana{position:sticky;top:96px;padding:32px 30px;border-radius:20px;background:linear-gradient(150deg,${AZUL},#1E3FA8);color:#fff;text-align:left;box-shadow:0 28px 70px -36px rgba(47,111,237,.65)}
+.s-ah-gana-t{font-size:32px;line-height:37px;font-weight:800;letter-spacing:-.015em}
+.s-ah-gana-mk{margin-top:18px;display:flex;align-items:center;gap:12px;font-size:17px;line-height:24px}
+.s-ah-gana-n{margin-top:22px;padding-top:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.28);font-size:18px;line-height:30px}
+.s-ah-gana-n strong{font-size:26px;font-weight:800;color:#FDE68A}
+.s-tira-reemplaza > .s-tira-r{margin-top:56px}
+/* En Comparaciones (la página clara, donde la sección abre la página): blanca, con la letra en tinta. */
+.s-reemplaza-claro{background:#fff;padding:64px 0 72px}
+.s-reemplaza-claro .s-ah-h,.s-reemplaza-claro .s-tira-r,.s-reemplaza-claro .s-tira-i{color:${TINTA}}
 .s-reemplaza-claro .s-ah{box-shadow:0 0 0 1px color-mix(in srgb,currentColor 14%,transparent),0 24px 60px -36px rgba(6,4,25,.35)}
 @media (prefers-reduced-motion:reduce){
   .s-tira-p{animation:none;width:auto}
   .s-tira-l{flex-wrap:wrap;justify-content:center;gap:16px 40px;padding:0 24px}
   .s-tira-l[aria-hidden]{display:none}
 }
+@media (max-width:860px){
+  .s-ah-dos{grid-template-columns:minmax(0,1fr);max-width:600px}
+  .s-ah-gana{position:static}
+}
 @media (max-width:767px){
   .s-tira-r{font-size:12px;line-height:16px}
   .s-tira-i{font-size:20px;line-height:24px;height:40px}
-  .s-ah-afuera{padding:0 16px;margin-top:32px}
-  .s-ah{padding:22px 18px 20px;border-radius:16px}
-  .s-ah-t{font-size:19px;line-height:25px}
-  .s-ah-g{margin-top:18px}
+  .s-ah-h{font-size:32px;line-height:35px;padding:0 16px}
+  .s-ah-afuera{padding:0 16px;margin-top:24px}
+  .s-ah-dos{gap:16px}
+  .s-ah{padding:12px 18px 20px;border-radius:16px}
   .s-ah-f{gap:10px;min-height:46px;font-size:16px}
   .s-ah-f img,.s-ah-ico{width:28px;height:28px;border-radius:7px}
   .s-ah-tot{font-size:17px}
   .s-ah-tot .s-ah-p{font-size:20px}
-  .s-ah-mk{padding:8px 10px;font-size:17px}
-  .s-ah-mk .s-ah-p{font-size:22px}
-  .s-ah-gana{padding:14px 16px;font-size:16px;line-height:24px}
-  .s-reemplaza-claro{padding:48px 0 56px}
+  .s-ah-gana{padding:22px 20px;border-radius:16px}
+  .s-ah-gana-t{font-size:25px;line-height:30px}
+  .s-ah-gana-n strong{font-size:22px}
+  .s-tira-reemplaza > .s-tira-r{margin-top:40px}
+  .s-reemplaza-claro{padding:40px 0 48px}
 }
 `;
 

@@ -82,5 +82,8 @@ test('lo que pagas hoy: cada app en su grupo, una fila por app y la misma secci�
   const lqp = readFileSync(join(RAIZ, 'app/vsl/_sitio/LoQuePagas.tsx'), 'utf8');
   assert.match(lqp, /<li [^>]*className="s-ah-f"[\s\S]{0,400}<img [\s\S]{0,200}"s-ah-n"[\s\S]{0,120}"s-ah-guia"[\s\S]{0,120}"s-ah-p"/, 'la fila no tiene logo, nombre y precio juntos');
   assert.match(readFileSync(join(RAIZ, 'app/vsl/_sitio/Portada.tsx'), 'utf8'), /<SeccionReemplaza ver=\{RUTA_COMPARACIONES\} \/>/, 'la portada sin la sección');
-  assert.match(readFileSync(join(RAIZ, 'app/vsl/_sitio/Comparaciones.tsx'), 'utf8'), /<SeccionReemplaza claro \/>/, 'Comparaciones sin la sección');
+  assert.match(readFileSync(join(RAIZ, 'app/vsl/_sitio/Comparaciones.tsx'), 'utf8'), /<SeccionReemplaza claro principal \/>/, 'Comparaciones sin la sección');
+  // Martín, 14/11 (más tarde): el ticket todo junto (sin títulos de grupo) y el ahorro en su bloque, al costado.
+  assert.doesNotMatch(lqp, /className="s-ah-gt"/, 'volvieron los títulos de los grupos');
+  assert.match(lqp, /<div className="s-ah-dos">[\s\S]*<div className="s-ah">[\s\S]*<div className="s-ah-gana"/, 'el ahorro no va al costado del ticket');
 });

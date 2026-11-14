@@ -7,7 +7,8 @@
 // La cuenta. Antes era una lista en dos columnas (logo, nombre, precio, logo, nombre, precio…) y Martín: «está todo muy junto y no se
 // llega a entender muy bien de quién es el precio, si el de 97 es de HighLevel o es el de ManyChat». Ahora es una sola columna, como
 // un ticket: una fila por app con su logo, su nombre y su precio en el MISMO renglón, unidos por puntos guía; las filas agrupadas por
-// para qué sirven (GRUPOS_DEL_AHORRO) y, al final, el total contra el precio de MaKo Pro. Los precios y sus fuentes, en ./reemplaza.ts
+// para qué sirven (GRUPOS_DEL_AHORRO) y, al final, el total. Más tarde ese día, al verlo: «todo junto» (sin los títulos de los
+// grupos), el titular «Lo que probablemente ya pagas en tu negocio», el ahorro con MaKo Pro AL COSTADO del ticket y la tira debajo. Los precios y sus fuentes, en ./reemplaza.ts
 // (STACK_TIPICO); la cuenta se hace acá.
 //
 // Los colores, con el sol y la luna (app/vsl/_competencia/TemaSitio.tsx): la tarjeta es blanca y el script la lleva al modo. Por eso
@@ -26,61 +27,62 @@ import { GRUPOS_DEL_AHORRO, STACK_TIPICO, appsDeLaTira } from './reemplaza';
 const usd = (n: number) => `US$${n.toLocaleString('es-AR', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
 const centavos = (n: number) => Math.round(n * 100) / 100;
 
-/** Lo que paga hoy un negocio típico, app por app, contra MaKo Pro. */
+/**
+ * Lo que paga hoy un negocio típico, app por app (el ticket), y al costado lo que ahorra con MaKo Pro (un bloque aparte, azul).
+ * Martín, 14/11/2026, al verlo en el visor: «todo junto», sin los títulos de los grupos (el orden sigue siendo el de
+ * GRUPOS_DEL_AHORRO: las de un mismo trabajo, juntas), y el ahorro AL COSTADO del ticket, que se note (debajo en el teléfono).
+ */
 function LoQuePagas() {
   const pro = PLANES_MAKO_DEFAULT.find((p) => p.id === 'pro');
   if (!pro) return null;
-  const hoy = centavos(STACK_TIPICO.reduce((s, x) => s + x.precioUsd, 0));
+  const filas = GRUPOS_DEL_AHORRO.flatMap((g) => STACK_TIPICO.filter((x) => x.grupo === g));
+  const hoy = centavos(filas.reduce((s, x) => s + x.precioUsd, 0));
   const mes = centavos(hoy - pro.precioUsd);
   if (mes <= 0) return null;
+  // «Más de US$300»: el ahorro redondeado hacia abajo a la centena, para que la frase nunca prometa de más.
+  const redondo = Math.floor(mes / 100) * 100;
   return (
     <div className="s-ah-afuera">
-      <div className="s-ah">
-        <p className="s-ah-t">Lo que paga por mes un negocio que vende High Ticket</p>
-        {GRUPOS_DEL_AHORRO.map((g) => {
-          const filas = STACK_TIPICO.filter((x) => x.grupo === g);
-          if (!filas.length) return null;
-          return (
-            <div key={g} className="s-ah-g">
-              <p className="s-ah-gt">{g}</p>
-              <ul aria-label={g}>
-                {filas.map((x) => (
-                  <li key={x.app.nombre} className="s-ah-f" title={`${x.app.nombre} ${x.plan} (${x.trabajo}): ${usd(x.precioUsd)} por mes`}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={x.app.logo} alt="" width={32} height={32} loading="lazy" />
-                    <span className="s-ah-n">{x.app.nombre}</span>
-                    <span className="s-ah-guia" aria-hidden="true" />
-                    <span className="s-ah-p">{usd(x.precioUsd)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-        <p className="s-ah-f s-ah-tot">
-          <span className="s-ah-n">Total por mes</span>
-          <span className="s-ah-guia" aria-hidden="true" />
-          <span className="s-ah-p">{usd(hoy)}</span>
-        </p>
-        <p className="s-ah-f s-ah-mk">
-          <span className="s-mk-ico s-ah-ico" data-tema-fijo="" aria-hidden="true"><EstrellaMaKo size={19} /></span>
-          <span className="s-ah-n">MaKo Pro</span>
-          <span className="s-ah-guia" aria-hidden="true" />
-          <span className="s-ah-p">{usd(pro.precioUsd)}</span>
-        </p>
-        <p className="s-ah-gana" data-tema-fijo="">
-          Todo eso en una sola app. Ahorras <strong>{usd(mes)}</strong> por mes: <strong>{usd(Math.round(mes * 12))}</strong> por año.
-        </p>
+      <div className="s-ah-dos">
+        <div className="s-ah">
+          <ul aria-label="Lo que pagas por mes, app por app">
+            {filas.map((x) => (
+              <li key={x.app.nombre} className="s-ah-f" title={`${x.app.nombre} ${x.plan} (${x.trabajo}): ${usd(x.precioUsd)} por mes`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={x.app.logo} alt="" width={32} height={32} loading="lazy" />
+                <span className="s-ah-n">{x.app.nombre}</span>
+                <span className="s-ah-guia" aria-hidden="true" />
+                <span className="s-ah-p">{usd(x.precioUsd)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="s-ah-f s-ah-tot">
+            <span className="s-ah-n">Total por mes</span>
+            <span className="s-ah-guia" aria-hidden="true" />
+            <span className="s-ah-p">{usd(hoy)}</span>
+          </p>
+        </div>
+        <div className="s-ah-gana" data-tema-fijo="">
+          <p className="s-ah-gana-t">Con MaKo te ahorras más de {usd(redondo)} por mes</p>
+          <p className="s-ah-gana-mk">
+            <span className="s-mk-ico s-ah-ico" aria-hidden="true"><EstrellaMaKo size={19} /></span>
+            <span>Todo eso en una sola app: <strong>MaKo Pro, {usd(pro.precioUsd)}</strong> por mes.</span>
+          </p>
+          <p className="s-ah-gana-n"><strong>{usd(mes)}</strong> por mes<br /><strong>{usd(Math.round(mes * 12))}</strong> por año</p>
+        </div>
       </div>
     </div>
   );
 }
 
 /**
- * La sección entera: el rótulo, la tira de logos que se desliza (sólo las apps más conocidas, ./reemplaza.ts → appsDeLaTira), la
- * cuenta y, si se pasa `ver`, el link a la comparación (en Comparaciones no va: la comparación está justo abajo).
+ * La sección entera, en este orden (Martín, 14/11/2026): el titular, el ticket con el ahorro al costado, la tira de logos que se
+ * desliza (sólo las apps más conocidas, ./reemplaza.ts → appsDeLaTira) y, si se pasa `ver`, el link a la comparación (en
+ * Comparaciones no va: la comparación está justo abajo).
  */
-export function SeccionReemplaza({ claro = false, ver }: { claro?: boolean; ver?: string }) {
+export function SeccionReemplaza({ claro = false, principal = false, ver }: { claro?: boolean; principal?: boolean; ver?: string }) {
+  // `principal`: la sección abre la página (Comparaciones) y su titular es el h1.
+  const titular = 'Lo que probablemente ya pagas en tu negocio';
   const apps = appsDeLaTira();
   const lista = (oculta: boolean) => (
     <ul className="s-tira-l" aria-hidden={oculta || undefined}>
@@ -91,12 +93,13 @@ export function SeccionReemplaza({ claro = false, ver }: { claro?: boolean; ver?
     </ul>
   );
   return (
-    <section className={`s-tira s-tira-reemplaza${claro ? ' s-reemplaza-claro' : ''}`} aria-label="Las apps que MaKo reemplaza">
-      <p className="s-tira-r">MaKo reemplaza apps que ya estás pagando</p>
+    <section className={`s-tira s-tira-reemplaza${claro ? ' s-reemplaza-claro' : ''}`} aria-labelledby="lo-que-pagas">
+      {principal ? <h1 className="s-ah-h" id="lo-que-pagas">{titular}</h1> : <h2 className="s-ah-h" id="lo-que-pagas">{titular}</h2>}
+      <LoQuePagas />
+      <p className="s-tira-r">MaKo reemplaza las apps que ya estás pagando</p>
       <div className="s-tira-v">
         <div className="s-tira-p">{lista(false)}{lista(true)}</div>
       </div>
-      <LoQuePagas />
       {ver ? <p className="s-tira-ver"><a href={ver}>Ver la comparación, trabajo por trabajo <Flecha size={18} /></a></p> : null}
     </section>
   );
