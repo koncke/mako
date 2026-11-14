@@ -33,14 +33,21 @@
 //     the status quo» (expertos, app y API de su biblioteca): Competitor Spy no tiene nada de eso.
 //   · Los objetos 3D de cada fila (su carpeta, su lupa, su lápiz) son suyos: en su lugar va, con el mismo tratamiento (una losa
 //     de vidrio con un ícono que flota encima), el ícono de MaKo de la primera pestaña de la fila.
-//   · En la tarjeta «antes», sus íconos de Slack, Drive y compañía: van chats, capturas y links sin marcas de nadie, con lo que
-//     dice el texto («capturas sueltas en el chat, links que ya no abren»). En la órbita del «después», sus cuatro etapas: van las
-//     cuatro piezas que guarda la ficha («su web, sus reels, sus videos y sus anuncios», del mismo texto).
+//   · En la tarjeta «antes», sus píldoras de Slack y sus íconos de Drive y compañía caen con física (su LogoRain de Matter.js): aquí
+//     caen las cuatro cosas del texto (el chat de grupo, el link que no abre, la captura suelta, «¿desde cuándo lo corre?») y logos
+//     de apps que MaKo reemplaza (ver LLUVIA y SCRIPT_LLUVIA). En la órbita del «después», sus cuatro etapas (las secciones de su
+//     página): van las de la nuestra, «Investigación», «Inspiración», «Producción» y «Análisis» (ver Orbita).
 //   · El pie de 5 productos lleva 5 funciones de MaKo que trabajan con lo que guarda Spy (Image, Web Generator, Offer,
 //     Copywriting, Ads Analyst), y sus columnas, el resto de las funciones.
 // Lo que quedó distinto: los textos de cada pestaña (en Foreplay cambian la imagen de la figura) van como leyenda abajo de la
 // figura, donde la fila «Swipe File» pone su «Supported ad libraries»; la banda de la extensión, que Foreplay esconde en el
 // teléfono, aquí se ve (lleva los tres pasos), y a la cabeza de «antes / después» le falta su párrafo (el bloque no tiene bajada).
+//
+// 14/11/2026, noche (Martín: «quiero que la copia salga muy fiel a todas las animaciones»): mirado en Foreplay con el navegador, cuadro
+// a cuadro y con sus estilos calculados (notas: foreplay-relevo/visto-1411/). El hero pegado que se achica y la captura que le pasa
+// por encima; la lluvia con su configuración; la órbita que da cuartos de vuelta; una grabación de la app real por pestaña, grande y
+// cortada por el borde de la figura; el objeto 3D que flota y al que lo recorre la luz. Sus hovers (los links de .52 a .84 en ,5 s,
+// el botón blanco a #DDDEE5 o al 84 %, el oscuro al 6 % de blanco, las pestañas de .44 a blanco en ,4 s) ya eran estos.
 // =============================================================================
 
 import type { ReactNode } from 'react';
@@ -49,7 +56,6 @@ import type { Bloque, VisualHero } from '../tipos';
 import { RUTA_CTA, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import { LANDINGS_COMPETENCIA } from '../registro';
 import { VisualDeLanding } from '../Visuales';
-import { FaltaAnimacion } from '../FaltaAnimacion';
 
 const P = 'd-competitor-spy';
 const SLUG = 'competitor-spy';
@@ -150,6 +156,8 @@ function Hero({ b }: { b: De<'hero'> }) {
       <div className={`${P}-dots`} aria-hidden="true" />
       <div className={`${P}-wrap`}>
         <div className={`${P}-hero-in`}>
+          {/* Lo que queda pegado arriba y se va con el scroll (su «home-hero-sticky»); la captura pasa por encima. */}
+          <div className={`${P}-hero-pega`}>
           <div className={`${P}-hero-top`}>
             <div className={`${P}-hero-content`}>
               <h1 className={`${P}-h1`} dangerouslySetInnerHTML={html(b.titulo)} />
@@ -170,6 +178,7 @@ function Hero({ b }: { b: De<'hero'> }) {
               </ul>
             ) : null}
           </div>
+          </div>
           <Captura visual={b.visual} />
         </div>
       </div>
@@ -181,24 +190,90 @@ function Hero({ b }: { b: De<'hero'> }) {
 const ICO_CHAT = ['M3 20l1.3 -3.9c-2.3 -3.4 -1.4 -7.8 2.1 -10.3c3.5 -2.4 8.2 -2.2 11.4 .5c3.1 2.7 3.6 7 1.1 10.2c-2.5 3.2 -7.2 4.2 -11 2.3l-4.9 1.2'];
 const ICO_IMG = ['M15 8h.01', 'M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z', 'M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5', 'M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3'];
 const ICO_LINK_ROTO = ['M9 15l3 -3m2 -2l1 -1', 'M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464', 'M3 3l18 18', 'M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463'];
-const ICO_VIDEO = ['M15 10l4.553 -2.276a1 1 0 0 1 1.447 .894v6.764a1 1 0 0 1 -1.447 .894l-4.553 -2.276v-4z', 'M3 6m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z'];
 const ICO_CARPETA = ['M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2'];
 
-/** El montón de capturas, chats y links de la tarjeta «antes» (en la referencia, sus íconos de Slack, Drive y compañía). */
-const MONTON: { t?: string; ic?: string[]; num?: string; x: number; y: number; r: number; solo?: boolean }[] = [
-  { t: '#anuncios-competencia', ic: ['M5 9h14', 'M5 15h14', 'M11 4l-4 16', 'M17 4l-4 16'], num: '12', x: 4, y: 128, r: -9 },
-  { t: '#ideas-de-anuncios', ic: ['M5 9h14', 'M5 15h14', 'M11 4l-4 16', 'M17 4l-4 16'], num: '4', x: 2, y: 168, r: -9 },
-  { t: '¿Ese link todavía abre?', ic: ICO_CHAT, x: 3, y: 62, r: -4 },
-  { t: 'El link ya no abre', ic: ICO_LINK_ROTO, x: 40, y: 30, r: -8 },
-  { t: 'Captura (3).png', ic: ICO_IMG, x: 46, y: 100, r: -13 },
-  { t: 'Grabación de pantalla', ic: ICO_VIDEO, x: 55, y: 160, r: 12 },
-  { t: '¿Desde cuándo lo corre?', ic: ICO_CHAT, x: 54, y: 222, r: -7 },
-  { ic: ICO_CARPETA, x: 33, y: 196, r: 10, solo: true },
-  { ic: ICO_IMG, x: 74, y: 58, r: 14, solo: true },
-  { ic: ICO_CHAT, x: 26, y: 10, r: -12, solo: true },
+/**
+ * LA LLUVIA DE LA TARJETA «ANTES» (14/11/2026, Martín: «el antes de Foreplay son iconos cayendo»). La de Foreplay es su LogoRain con
+ * Matter.js (leída del navegador el 14/11, foreplay-relevo/visto-1411/scripts-pc.txt): al entrar la tarjeta en pantalla caen uno por uno,
+ * cada 300 ms desde 60 px por encima, con gravedad 0,7 (≈700 px/s²), rebote 0,1, roce 0,3, un giro al azar de ±30° y ±0,6 rad/s, y se
+ * apilan; 16 en la computadora, 12 hasta 768 px y 8 hasta 480 px, a 1,2× si la caja mide 400 px o más. Sus píldoras de Slack y sus
+ * íconos de Drive y compañía son, en MaKo, las cuatro cosas del texto (el chat de grupo, el link que ya no abre, la captura suelta y el
+ * «¿desde cuándo?») y los logos de apps que MaKo reemplaza (app/vsl/_sitio/reemplaza.ts), en su recuadro blanco como allá.
+ * El orden importa: los primeros 8 son los del teléfono (mitad píldoras, mitad logos).
+ * Sin JavaScript (o antes de que entre en pantalla) se ven ya apilados donde dice `x`/`y`/`r`, como su imagen fija de respaldo.
+ */
+type Cae = { x: number; y: number; r: number } & (
+  | { tipo: 'pildora'; t: string; ic: readonly string[]; num?: string }
+  | { tipo: 'logo'; archivo: string; nombre: string }
+  | { tipo: 'carpeta'; t: string });
+const ICO_HASH = ['M5 9h14', 'M5 15h14', 'M11 4l-4 16', 'M17 4l-4 16'];
+const LLUVIA: readonly Cae[] = [
+  { tipo: 'pildora', t: '#anuncios-competencia', ic: ICO_HASH, num: '12', x: 2, y: 88, r: -8 },
+  { tipo: 'pildora', t: 'El link ya no abre', ic: ICO_LINK_ROTO, x: 44, y: 93, r: 6 },
+  { tipo: 'logo', archivo: 'notion', nombre: 'Notion', x: 8, y: 70, r: -12 },
+  { tipo: 'pildora', t: 'Captura (3).png', ic: ICO_IMG, x: 52, y: 80, r: -14 },
+  { tipo: 'logo', archivo: 'canva', nombre: 'Canva', x: 30, y: 72, r: 10 },
+  { tipo: 'pildora', t: '¿Desde cuándo lo corre?', ic: ICO_CHAT, x: 4, y: 61, r: 5 },
+  { tipo: 'logo', archivo: 'capcut', nombre: 'CapCut', x: 84, y: 82, r: 14 },
+  { tipo: 'logo', archivo: 'minea', nombre: 'Minea', x: 66, y: 66, r: -8 },
+  { tipo: 'logo', archivo: 'bigspy', nombre: 'BigSpy', x: 46, y: 64, r: 18 },
+  { tipo: 'logo', archivo: 'hubspot', nombre: 'HubSpot', x: 20, y: 50, r: -20 },
+  { tipo: 'logo', archivo: 'lookerstudio', nombre: 'Looker Studio', x: 78, y: 62, r: 7 },
+  { tipo: 'logo', archivo: 'metricool', nombre: 'Metricool', x: 58, y: 52, r: -6 },
+  { tipo: 'logo', archivo: 'gohighlevel', nombre: 'GoHighLevel', x: 36, y: 52, r: 12 },
+  { tipo: 'logo', archivo: 'manychat', nombre: 'ManyChat', x: 88, y: 50, r: -16 },
+  { tipo: 'logo', archivo: 'zap', nombre: 'Zapier', x: 6, y: 44, r: 9 },
+  { tipo: 'carpeta', t: 'Anuncios (final)', x: 68, y: 38, r: -10 },
 ];
 
-const ORBITA = ['Su web', 'Sus reels', 'Sus videos', 'Sus anuncios'];
+function Lluvia() {
+  return (
+    // `data-tema-fijo`: blancas en los dos modos del sol y la luna, como sus logos (app/vsl/_sitio/reemplaza.ts: «se dibujan sobre un
+    // recuadro blanco»); si no, en el oscuro las píldoras se oscurecían y los recuadros de los logos quedaban blancos, mezclados.
+    <div className={`${P}-lluvia`} aria-hidden="true" data-tema-fijo="">
+      {LLUVIA.map((c, i) => (
+        <span key={i} className={`${P}-cae ${P}-cae-${c.tipo}`} style={{ left: `${c.x}%`, top: `${c.y}%`, transform: `rotate(${c.r}deg)` }}>
+          {c.tipo === 'pildora' ? (<><Icono d={c.ic} size={16} grosor={1.7} /><span>{c.t}</span>{c.num ? <b>{c.num}</b> : null}</>) : null}
+          {/* eslint-disable-next-line @next/next/no-img-element -- un logo de 128 px de public/, sin optimizar */}
+          {c.tipo === 'logo' ? <img src={`/vsl-assets/logos/apps/${c.archivo}.png`} alt="" width={128} height={128} loading="lazy" decoding="async" /> : null}
+          {c.tipo === 'carpeta' ? (<><Icono d={ICO_CARPETA} size={30} grosor={1.6} /><span>{c.t}</span></>) : null}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * LA ÓRBITA DE LA TARJETA «DESPUÉS» (14/11/2026, Martín: «la animación del After no es muy similar a la que hiciste»). La de Foreplay es un
+ * video en bucle (home-loader-main), mirado cuadro a cuadro el 14/11: un anillo de 280 px con sus cuatro etapas que da un cuarto de vuelta
+ * en sentido horario cada 2 s (quieta 1,25 s, se mueve 0,75 s con aceleración suave) y las etiquetas siempre derechas; al centro, una
+ * esfera oscura de baldosas con su logo encendido, que destella en cada paso. Sus cuatro etapas son las secciones de su página
+ * (Research, Inspiration, Production, Analysis); aquí, las de la nuestra, en el mismo orden horario desde arriba.
+ */
+const ORBITA = ['Inspiración', 'Producción', 'Análisis', 'Investigación'];
+/** Las baldosas de la esfera (7 × 7): las que titilan, y cuándo. */
+const BALDOSAS_QUE_TITILAN: Readonly<Record<number, number>> = { 3: 0.4, 9: 1.6, 12: 2.9, 16: 0.9, 22: 3.6, 26: 2.2, 31: 1.2, 34: 3.1, 39: 0.2, 44: 2.6, 46: 1.9 };
+
+function Orbita() {
+  return (
+    <div className={`${P}-orbita-caja`} aria-hidden="true">
+      <div className={`${P}-orbita`}>
+        <span className={`${P}-orbita-anillo`} />
+        <span className={`${P}-orbita-centro`}>
+          <span className={`${P}-orbita-baldosas`}>
+            {Array.from({ length: 49 }, (_, i) => (
+              <i key={i} style={BALDOSAS_QUE_TITILAN[i] != null ? { animationDelay: `${BALDOSAS_QUE_TITILAN[i]}s` } : undefined} className={BALDOSAS_QUE_TITILAN[i] != null ? `${P}-baldosa-titila` : undefined} />
+            ))}
+          </span>
+          <span className={`${P}-orbita-logo`}><EstrellaMaKo size={58} color="#FFF6DD" /></span>
+        </span>
+        <span className={`${P}-orbita-giro`}>
+          {ORBITA.map((t, i) => <span key={t} className={`${P}-orbita-et ${P}-orbita-et-${i}`}><span>{t}</span></span>)}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function Contraste({ b }: { b: De<'contraste'> }) {
   return (
@@ -216,29 +291,15 @@ function Contraste({ b }: { b: De<'contraste'> }) {
                   <h3 dangerouslySetInnerHTML={html(b.sin.titulo)} />
                   <p dangerouslySetInnerHTML={html(b.sin.texto)} />
                 </div>
-                <div className={`${P}-monton`} aria-hidden="true">
-                  {MONTON.map((m, i) => (
-                    <span key={i} className={`${P}-chip${m.solo ? ` ${P}-chip-solo` : ''}`} style={{ left: `${m.x}%`, top: m.y, transform: `rotate(${m.r}deg)`, animationDelay: `${(i * 0.12).toFixed(2)}s` }}>
-                      <Icono d={m.ic} size={m.solo ? 22 : 14} grosor={1.7} />
-                      {m.t ? <span>{m.t}</span> : null}
-                      {m.num ? <b>{m.num}</b> : null}
-                    </span>
-                  ))}
-                </div>
+                <Lluvia />
               </div>
-              <div className={`${P}-wcard ${P}-wcard-oscura`}>
+              {/* Negra en los dos modos, como la de Foreplay (en el claro, negra sobre el bloque blanco). */}
+              <div className={`${P}-wcard ${P}-wcard-oscura`} data-tema-fijo="">
                 <div className={`${P}-wcard-t`}>
                   <h3 dangerouslySetInnerHTML={html(b.con.titulo)} />
                   <p dangerouslySetInnerHTML={html(b.con.texto)} />
                 </div>
-                <div className={`${P}-orbita-caja`} aria-hidden="true">
-                  <div className={`${P}-orbita`}>
-                    <span className={`${P}-orbita-anillo`} />
-                    <span className={`${P}-orbita-punto`} />
-                    <span className={`${P}-orbita-centro`}><EstrellaMaKo size={54} /></span>
-                    {ORBITA.map((t, i) => <span key={t} className={`${P}-orbita-et ${P}-orbita-et-${i}`}>{t}</span>)}
-                  </div>
-                </div>
+                <Orbita />
               </div>
             </div>
           </div>
@@ -259,30 +320,47 @@ function Cabeza({ b }: { b: De<'tarjetas'> }) {
   );
 }
 
-/** Lo que la ventana de cada fila muestra del visual (en la referencia, la imagen de cada producto). */
-const PARTE_DE_FILA = ['anuncios', 'ficha', 'todo', 'anuncios'] as const;
 /** El color del halo y del objeto de cada fila (en la referencia, el color de cada producto). */
 const TONO_DE_FILA = ['azul', 'dorado', 'plata', 'azul'] as const;
 
 /**
  * UNA PANTALLA POR PESTAÑA (14/11/2026, Martín: «lo que tiene esa landing es… muchos videos que hacen que tenga sentido la landing. También
  * cuando se pasa el hover, botones que uno puede ir intercambiando para ir viendo»). Como Foreplay: cada pestaña cambia lo que se ve a
- * la derecha. La grabación sólo donde ES esa pantalla (la regla del Cerebro, 14/11): la grilla de Competidores en «Sumas a tus
- * competidores» y la réplica de un carrusel en Image en «Tu versión, en Image». Las demás, su recuadro de «falta» con lo que va ahí
- * (la lista de qué grabar, en docs/relevo/landings-vsl.md).
+ * la derecha. La grabación sólo donde ES esa pantalla (la regla del Cerebro, 14/11), y TODAS la tienen (Martín, 14/11, noche: «no
+ * funcionan los botones de cada cosa, por ejemplo, desde Chrome con un clic o le pegas»): tests/vsl-landings-competencia.test.ts mira que
+ * cada pestaña tenga la suya y que el archivo exista. Cada una es la app REAL compilada en un banco (C:/dev/bancos-portada/banco-spy-gurus,
+ * con los datos de @AlexHormozi leídos en sólo lectura del espacio de MaKo) y la cámara encima de lo que pasa.
  */
-const GRABACION_DE_PESTANA: Readonly<Record<string, { video: string; poster: string }>> = {
-  'Sumas a tus competidores': { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' },
-  'Tu versión, en Image': { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' },
+const sitio = (n: string) => ({ video: `/vsl-assets/sitio/${n}.webm`, poster: `/vsl-assets/sitio/${n}.jpg` });
+export const GRABACION_DE_PESTANA: Readonly<Record<string, { video: string; poster: string }>> = {
+  // La extensión de MaKo (extension/popup.html y popup.js, los reales) en la Biblioteca de Anuncios de Meta: «Guardar en Spy».
+  'Desde Chrome, con un clic': sitio('spy-extension'),
+  // «Guardar un anuncio» en la ficha de Hormozi: se pega el enlace de uno de sus anuncios de la Biblioteca y queda en su ficha.
+  'O lo pegas': sitio('spy-pegar'),
   // La pestaña «Anuncios» de la ficha (fase 1 del plan de Foreplay, 79b3439f7): los 64 anuncios reales de @AlexHormozi, con sus días
   // activos, a dónde mandan, los tests creativos con su «Ganador» y la línea de tiempo (banco-spy-gurus/grabar-anuncios.mjs).
-  'Desde cuándo está a la vista': { video: '/vsl-assets/sitio/spy-anuncios.webm', poster: '/vsl-assets/sitio/spy-anuncios.jpg' },
+  'Desde cuándo está a la vista': sitio('spy-anuncios'),
+  'Sumas a tus competidores': sitio('spy'),
+  // Sus videos con sus vistas, cuánto rindió cada uno frente a su cuenta y su gráfico por fecha.
+  'MaKo lee lo que publican': sitio('spy-lee'),
+  // «Sugeridos» de un negocio nuevo: los referentes que MaKo ya mira, con su caricatura; se suma a Hormozi.
+  'Te sugiere a quién mirar': sitio('spy-sugeridos'),
+  // La pestaña «Funnel» de su ficha: qué funnel usa y lo que lo delata.
+  'Qué funnel usa': sitio('spy-funnel'),
+  // Su oferta de acquisition.com leída por el analista de Offer el 14/11 (spy.oferta.5): las nueve notas y su total.
+  'Su oferta, con nota': sitio('spy-oferta'),
+  // El detalle de uno de sus videos: sus números, cuánto rindió frente a su cuenta y su estructura (gancho, ángulo y formato).
+  'Su gancho y su ángulo': sitio('spy-gancho'),
+  'Tu versión, en Image': sitio('carruseles'),
+  // Su sitio replicado en el Web Generator: acquisition.com, la de la portada.
+  'Copia su sitio': sitio('replicar'),
+  // Un short real de Hormozi replicado por MaKo en Copywriting (el de la portada).
+  'Su guion, con tu oferta': sitio('copywriting'),
 };
 
-function Fila({ b, n, visual }: { b: De<'tarjetas'>; n: number; visual?: VisualHero }) {
+function Fila({ b, n }: { b: De<'tarjetas'>; n: number }) {
   const nombre = `${P}-t${n}`;
   const tono = TONO_DE_FILA[n % TONO_DE_FILA.length];
-  const parte = PARTE_DE_FILA[n % PARTE_DE_FILA.length];
   return (
     <div className={`${P}-fila ${P}-tono-${tono}`}>
       {b.items.map((it, k) => (
@@ -308,28 +386,24 @@ function Fila({ b, n, visual }: { b: De<'tarjetas'>; n: number; visual?: VisualH
           <span className={`${P}-obj-pieza`}><span className={`${P}-obj-cara`}><Icono d={b.items[0]?.icono} size={70} grosor={1.5} /></span></span>
         </div>
       </div>
+      {/* La figura: como la de Foreplay, la pantalla de la app grande y de cerca, cortada por el borde derecho de la figura, una por
+          pestaña y sin transición (su `display: none/flex`). Abajo, lo que dice esa pestaña, como su franja «Supported ad libraries». */}
       <div className={`${P}-figura`}>
         <div className={`${P}-figura-halo`} aria-hidden="true" />
-        {visual ? (
-          <div className={`${P}-ventana ${P}-ventana-${parte}`} aria-hidden="true">
-            {b.items.map((it, k) => {
-              const g = GRABACION_DE_PESTANA[it.titulo.replace(/<[^>]+>/g, '')];
-              return (
-                <div key={it.titulo} className={`${P}-pantalla ${P}-pantalla-tab ${P}-pantalla-tab-${k}`}>
-                  {g
-                    ? <video className={`${P}-pantalla-video`} src={g.video} poster={g.poster} muted autoPlay loop playsInline preload="metadata" />
-                    : <FaltaAnimacion que={`«${it.titulo.replace(/<[^>]+>/g, '')}» en Competitor Spy, tal cual se ve.`} />}
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
+        <div className={`${P}-ventana`} aria-hidden="true">
+          {b.items.map((it, k) => {
+            const g = GRABACION_DE_PESTANA[it.titulo.replace(/<[^>]+>/g, '')];
+            return g ? (
+              <div key={it.titulo} className={`${P}-pantalla-tab ${P}-pantalla-tab-${k}`}>
+                {/* Sólo la primera arranca sola; las demás las pone a andar el script al elegir su pestaña (y sin JavaScript, su póster). */}
+                <video className={`${P}-pantalla-video`} src={g.video} poster={g.poster} muted loop playsInline autoPlay={k === 0} preload={k === 0 ? 'metadata' : 'none'} />
+              </div>
+            ) : null;
+          })}
+        </div>
         <div className={`${P}-leyendas`}>
           {b.items.map((it, k) => (
-            <p key={it.titulo} className={`${P}-leyenda ${P}-leyenda-${k}`}>
-              <span className={`${P}-overline ${P}-leyenda-t`} dangerouslySetInnerHTML={html(it.titulo)} />
-              <span className={`${P}-leyenda-x`} dangerouslySetInnerHTML={html(it.texto)} />
-            </p>
+            <p key={it.titulo} className={`${P}-leyenda ${P}-leyenda-${k}`} dangerouslySetInnerHTML={html(it.texto)} />
           ))}
         </div>
       </div>
@@ -464,7 +538,7 @@ export default function DisenoCompetitorSpy({ landing }: PropsDiseno) {
       case 'contraste': cabeza.push(<Contraste key={i} b={b} />); break;
       case 'tarjetas':
         if (!b.items.length) { secciones.push({ cabeza: <Cabeza key={i} b={b} />, cuerpo: [] }); break; }
-        (actual ? actual.cuerpo : cabeza).push(<Fila key={i} b={b} n={filas} visual={visual} />);
+        (actual ? actual.cuerpo : cabeza).push(<Fila key={i} b={b} n={filas} />);
         filas += 1;
         break;
       case 'pasos': (actual ? actual.cuerpo : cabeza).push(<Banda key={i} b={b} />); break;
@@ -477,6 +551,7 @@ export default function DisenoCompetitorSpy({ landing }: PropsDiseno) {
       {/* Al pasar el mouse por una pestaña, se ve su pantalla (Martín, 14/11/2026: «cuando se pasa el hover, botones que uno puede ir
           intercambiando para ir viendo»). Sin JavaScript igual cambian al tocarlas (los radios). */}
       <script data-visor="" dangerouslySetInnerHTML={{ __html: SCRIPT_PESTANAS }} />
+      <script data-visor="" dangerouslySetInnerHTML={{ __html: SCRIPT_LLUVIA }} />
       <Barra />
       <main>
         {cabeza}
@@ -501,29 +576,164 @@ export default function DisenoCompetitorSpy({ landing }: PropsDiseno) {
 // productos (el azul de Swipe File, el rojo de Spyder, el verde de Briefs, el violeta de la barra lateral de su app) van
 // como el azul y el dorado de MaKo; lo demás (el negro #020308, los blancos en transparencia, los grises de los filetes)
 // es de la referencia.
-const SCRIPT_PESTANAS = `document.addEventListener('mouseover',function(e){var l=e.target.closest&&e.target.closest('.${P}-tab');if(!l)return;var i=document.getElementById(l.htmlFor);if(i&&!i.checked)i.checked=true;});`;
+// LAS PESTAÑAS: cambian con el clic y con las flechas (los radios, sin JavaScript), y al pasar el mouse (Martín, 14/11). Este script,
+// además, pone a andar desde el principio el video de la pestaña elegida y frena los otros, y sólo mientras la fila se ve: doce
+// videos andando a la vez son doce descargas (por eso las demás llevan preload="none" y ninguna arranca sola, salvo la primera).
+// Es un <script data-visor>: el visor de Martín borra los demás scripts.
+const SCRIPT_PESTANAS = `(function(){
+var P='${P}';
+function filaDe(n){return n&&n.closest?n.closest('.'+P+'-fila'):null;}
+function mostrar(fila){
+  if(!fila)return;
+  var radios=fila.querySelectorAll('.'+P+'-radio'),k=-1,i;
+  for(i=0;i<radios.length;i++)if(radios[i].checked)k=i;
+  var tabs=fila.querySelectorAll('.'+P+'-pantalla-tab'),ve=fila.__ve!==false;
+  for(i=0;i<tabs.length;i++){
+    var v=tabs[i].querySelector('video');if(!v)continue;
+    if(tabs[i].classList.contains(P+'-pantalla-tab-'+k)&&ve){
+      if(v.preload==='none')v.preload='auto';
+      if(fila.__k!==k){try{v.currentTime=0;}catch(e){}}
+      var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});
+    }else if(!v.paused)v.pause();
+  }
+  fila.__k=k;
+}
+document.addEventListener('mouseover',function(e){var l=e.target.closest&&e.target.closest('.'+P+'-tab');if(!l)return;var r=document.getElementById(l.htmlFor);if(r&&!r.checked){r.checked=true;mostrar(filaDe(r));}});
+document.addEventListener('change',function(e){var t=e.target;if(t&&t.classList&&t.classList.contains(P+'-radio'))mostrar(filaDe(t));});
+function vigilar(){
+  var filas=document.querySelectorAll('.'+P+'-fila');
+  if(!('IntersectionObserver' in window)){filas.forEach(mostrar);return;}
+  var io=new IntersectionObserver(function(es){es.forEach(function(en){en.target.__ve=en.isIntersecting;mostrar(en.target);});},{threshold:0.15});
+  filas.forEach(function(f){f.__ve=false;io.observe(f);});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',vigilar);else vigilar();
+})();`;
+
+// LA LLUVIA DE LA TARJETA «ANTES», con física de verdad y sin librerías: cajas que giran, chocan, se frenan con el roce y se apilan.
+// Es el Box2D-lite de Erin Catto (la colisión de dos cajas por recorte de caras y los impulsos secuenciales con el roce acotado), en
+// píxeles y segundos, con la configuración del LogoRain de Foreplay (ver LLUVIA). Una pieza quieta 0,4 s se «duerme» y pasa a ser piso
+// (así la pila no tiembla y el cuadro deja de calcularse cuando todas duermen). Con «menos movimiento» se calcula entera de una vez y se
+// dibuja ya apilada. Corre al entrar la tarjeta en pantalla, una vez.
+const SCRIPT_LLUVIA = `(function(){
+var P='${P}',G=700,PASO=1/120,VUELTAS=10,TOPE=0.5,SESGO=0.2,ROCE=0.3,CADA=0.3;
+function caja(x,y,w,h,fija){var m=fija?0:w*h*0.001;return{x:x,y:y,r:0,vx:0,vy:0,w:0,hw:w/2,hh:h/2,im:m?1/m:0,iI:m?12/(m*(w*w+h*h)):0,fija:!!fija,quieto:0,duerme:false,vida:0};}
+function borde(B,nx,ny){var c=Math.cos(B.r),s=Math.sin(B.r),lx=-(c*nx+s*ny),ly=-(-s*nx+c*ny),h=B.hw,k=B.hh,p;
+  if(Math.abs(lx)>Math.abs(ly))p=lx>=0?[h,-k,h,k]:[-h,k,-h,-k];else p=ly>=0?[h,k,-h,k]:[-h,-k,h,-k];
+  return[B.x+c*p[0]-s*p[1],B.y+s*p[0]+c*p[1],B.x+c*p[2]-s*p[3],B.y+s*p[2]+c*p[3]];}
+function recorte(v,nx,ny,o){var d0=nx*v[0]+ny*v[1]-o,d1=nx*v[2]+ny*v[3]-o,r=[];
+  if(d0<=0)r.push(v[0],v[1]);if(d1<=0)r.push(v[2],v[3]);
+  if(d0*d1<0){var t=d0/(d0-d1);r.push(v[0]+t*(v[2]-v[0]),v[1]+t*(v[3]-v[1]));}
+  return r.length>=4?r:null;}
+function choque(A,B,out){
+  var cA=Math.cos(A.r),sA=Math.sin(A.r),cB=Math.cos(B.r),sB=Math.sin(B.r),px=B.x-A.x,py=B.y-A.y;
+  var dAx=cA*px+sA*py,dAy=-sA*px+cA*py,dBx=cB*px+sB*py,dBy=-sB*px+cB*py;
+  var a11=Math.abs(cA*cB+sA*sB),a12=Math.abs(-cA*sB+sA*cB),a21=Math.abs(-sA*cB+cA*sB),a22=Math.abs(sA*sB+cA*cB);
+  var fAx=Math.abs(dAx)-A.hw-(a11*B.hw+a12*B.hh),fAy=Math.abs(dAy)-A.hh-(a21*B.hw+a22*B.hh);
+  if(fAx>0||fAy>0)return 0;
+  var fBx=Math.abs(dBx)-(a11*A.hw+a21*A.hh)-B.hw,fBy=Math.abs(dBy)-(a12*A.hw+a22*A.hh)-B.hh;
+  if(fBx>0||fBy>0)return 0;
+  var eje=0,sep=fAx,nx=dAx>0?cA:-cA,ny=dAx>0?sA:-sA;
+  if(fAy>0.95*sep+0.01*A.hh){eje=1;sep=fAy;nx=dAy>0?-sA:sA;ny=dAy>0?cA:-cA;}
+  if(fBx>0.95*sep+0.01*B.hw){eje=2;sep=fBx;nx=dBx>0?cB:-cB;ny=dBx>0?sB:-sB;}
+  if(fBy>0.95*sep+0.01*B.hh){eje=3;sep=fBy;nx=dBy>0?-sB:sB;ny=dBy>0?cB:-cB;}
+  var fx,fy,fr,sx,sy,lado,neg,pos,inc;
+  if(eje<2){fx=nx;fy=ny;inc=borde(B,fx,fy);
+    if(eje===0){fr=A.x*fx+A.y*fy+A.hw;sx=-sA;sy=cA;lado=A.x*sx+A.y*sy;neg=-lado+A.hh;pos=lado+A.hh;}
+    else{fr=A.x*fx+A.y*fy+A.hh;sx=cA;sy=sA;lado=A.x*sx+A.y*sy;neg=-lado+A.hw;pos=lado+A.hw;}}
+  else{fx=-nx;fy=-ny;inc=borde(A,fx,fy);
+    if(eje===2){fr=B.x*fx+B.y*fy+B.hw;sx=-sB;sy=cB;lado=B.x*sx+B.y*sy;neg=-lado+B.hh;pos=lado+B.hh;}
+    else{fr=B.x*fx+B.y*fy+B.hh;sx=cB;sy=sB;lado=B.x*sx+B.y*sy;neg=-lado+B.hw;pos=lado+B.hw;}}
+  var c1=recorte(inc,-sx,-sy,neg);if(!c1)return 0;
+  var c2=recorte(c1,sx,sy,pos);if(!c2)return 0;
+  var n=0;
+  for(var i=0;i<2;i++){var vx=c2[i*2],vy=c2[i*2+1],s=fx*vx+fy*vy-fr;if(s<=0){out.push({x:vx-s*fx,y:vy-s*fy,s:s,nx:nx,ny:ny});n++;}}
+  return n;}
+function preparar(A,B,c,dt){
+  var imA=A.duerme?0:A.im,iIA=A.duerme?0:A.iI,imB=B.duerme?0:B.im,iIB=B.duerme?0:B.iI;
+  var r1x=c.x-A.x,r1y=c.y-A.y,r2x=c.x-B.x,r2y=c.y-B.y,nx=c.nx,ny=c.ny,tx=ny,ty=-nx;
+  var rn1=r1x*nx+r1y*ny,rn2=r2x*nx+r2y*ny,rt1=r1x*tx+r1y*ty,rt2=r2x*tx+r2y*ty;
+  var kn=imA+imB+iIA*(r1x*r1x+r1y*r1y-rn1*rn1)+iIB*(r2x*r2x+r2y*r2y-rn2*rn2);
+  var kt=imA+imB+iIA*(r1x*r1x+r1y*r1y-rt1*rt1)+iIB*(r2x*r2x+r2y*r2y-rt2*rt2);
+  return{A:A,B:B,imA:imA,iIA:iIA,imB:imB,iIB:iIB,r1x:r1x,r1y:r1y,r2x:r2x,r2y:r2y,nx:nx,ny:ny,tx:tx,ty:ty,mn:kn>0?1/kn:0,mt:kt>0?1/kt:0,sesgo:-SESGO/dt*Math.min(0,c.s+TOPE),Pn:0,Pt:0};}
+function empujar(c,px,py){var A=c.A,B=c.B;
+  A.vx-=c.imA*px;A.vy-=c.imA*py;A.w-=c.iIA*(c.r1x*py-c.r1y*px);
+  B.vx+=c.imB*px;B.vy+=c.imB*py;B.w+=c.iIB*(c.r2x*py-c.r2y*px);}
+function impulso(c){var A=c.A,B=c.B;
+  var dx=B.vx-B.w*c.r2y-A.vx+A.w*c.r1y,dy=B.vy+B.w*c.r2x-A.vy-A.w*c.r1x;
+  var d=c.mn*(-(dx*c.nx+dy*c.ny)+c.sesgo),p0=c.Pn;c.Pn=Math.max(p0+d,0);d=c.Pn-p0;empujar(c,d*c.nx,d*c.ny);
+  dx=B.vx-B.w*c.r2y-A.vx+A.w*c.r1y;dy=B.vy+B.w*c.r2x-A.vy-A.w*c.r1x;
+  d=c.mt*(-(dx*c.tx+dy*c.ty));var tope=ROCE*c.Pn;p0=c.Pt;c.Pt=Math.max(-tope,Math.min(tope,p0+d));d=c.Pt-p0;empujar(c,d*c.tx,d*c.ty);}
+function paso(m,dt){
+  var cs=[],todos=m.cuerpos.concat(m.paredes),i,j,k,b;
+  for(i=0;i<m.cuerpos.length;i++){b=m.cuerpos[i];if(!b.duerme)b.vy+=G*dt;}
+  for(i=0;i<m.cuerpos.length;i++){var A=m.cuerpos[i];
+    for(j=i+1;j<todos.length;j++){var B=todos[j];
+      if(A.duerme&&(B.fija||B.duerme))continue;
+      if(!B.fija){var ex=A.x-B.x,ey=A.y-B.y,rr=A.hw+A.hh+B.hw+B.hh;if(ex*ex+ey*ey>rr*rr)continue;}
+      var pts=[];if(!choque(A,B,pts))continue;
+      // Un golpe fuerte despierta a la que dormía.
+      for(k=0;k<pts.length;k++){var q=pts[k],dvn=(B.vx-A.vx)*q.nx+(B.vy-A.vy)*q.ny;if(dvn<-90){if(A.duerme){A.duerme=false;A.quieto=0;}if(B.duerme){B.duerme=false;B.quieto=0;}}cs.push(preparar(A,B,q,dt));}
+    }}
+  for(var v=0;v<VUELTAS;v++)for(k=0;k<cs.length;k++)impulso(cs[k]);
+  for(i=0;i<m.cuerpos.length;i++){b=m.cuerpos[i];if(b.duerme)continue;
+    b.x+=b.vx*dt;b.y+=b.vy*dt;b.r+=b.w*dt;b.vida+=dt;
+    if(b.vida>0.8&&b.vx*b.vx+b.vy*b.vy<64&&Math.abs(b.w)<0.12){b.quieto+=dt;if(b.quieto>0.4){b.duerme=true;b.vx=b.vy=b.w=0;}}else b.quieto=0;}
+}
+function paredes(W,H){var t=100;return[caja(-t/2,H/2,t,H*5,1),caja(W+t/2,H/2,t,H*5,1),caja(W/2,H+t/2,W*2,t,1)];}
+function dibujar(b){b.el.style.transform='translate('+(b.x-b.hw).toFixed(1)+'px,'+(b.y-b.hh).toFixed(1)+'px) rotate('+b.r.toFixed(4)+'rad)';}
+function lluvia(cj){
+  if(cj.__lluvia)return;cj.__lluvia=1;
+  var els=[].slice.call(cj.querySelectorAll('.'+P+'-cae')),vw=window.innerWidth,n=vw<=480?8:vw<=768?12:16;
+  var W=cj.clientWidth,H=cj.clientHeight;if(!W||!H)return;
+  cj.style.setProperty('--k',W<400?'1':'1.2');
+  els.forEach(function(e,i){if(i>=n)e.style.display='none';});
+  els=els.slice(0,n);
+  cj.setAttribute('data-cayendo','');
+  var m={cuerpos:[],paredes:paredes(W,H)};
+  var cola=els.map(function(e){var w=e.offsetWidth,h=e.offsetHeight,b=caja(Math.random()*Math.max(1,W-w)+w/2,-60,w,h,0);
+    b.r=(Math.random()*60-30)*Math.PI/180;b.w=Math.random()*1.2-0.6;b.el=e;return b;});
+  var quieto=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(quieto){var t=0,q=0;for(var s=0;s<2400;s++){t+=PASO;while(q<cola.length&&t>=CADA*(q+1)){m.cuerpos.push(cola[q]);q++;}paso(m,PASO);}
+    cola.forEach(function(b){dibujar(b);b.el.setAttribute('data-vivo','');});return;}
+  var andando=false;
+  function correr(){if(andando)return;andando=true;var t0=null,ult=0,acum=0,q=m.cuerpos.length;
+    function cuadro(ts){if(t0===null){t0=ts;ult=ts;}var dt=Math.min(0.05,(ts-ult)/1000),t=(ts-t0)/1000;ult=ts;
+      while(q<cola.length&&t>=CADA*(q+1)){var b=cola[q];m.cuerpos.push(b);dibujar(b);b.el.setAttribute('data-vivo','');q++;}
+      acum+=dt;while(acum>=PASO){paso(m,PASO);acum-=PASO;}
+      var dormidas=0;m.cuerpos.forEach(function(b){if(b.duerme){dormidas++;if(b.pintada)return;b.pintada=true;}else b.pintada=false;dibujar(b);});
+      if((q>=cola.length&&dormidas===m.cuerpos.length)||t>25){andando=false;return;}
+      requestAnimationFrame(cuadro);}
+    requestAnimationFrame(cuadro);}
+  if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){if(es.some(function(e){return e.isIntersecting;})){io.disconnect();correr();}});io.observe(cj);}
+  else correr();
+  // Si la tarjeta cambia de tamaño (girar el teléfono), las paredes van con ella y las piezas se despiertan.
+  window.addEventListener('resize',function(){var w=cj.clientWidth,h=cj.clientHeight;if(!w||!h||(w===W&&h===H))return;W=w;H=h;m.paredes=paredes(W,H);
+    m.cuerpos.forEach(function(b){b.duerme=false;b.quieto=0;b.vida=0;if(b.x>W-b.hw)b.x=W-b.hw;});if(m.cuerpos.length)correr();});
+}
+function todas(){document.querySelectorAll('.'+P+'-lluvia').forEach(lluvia);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',todas);else todas();
+})();`;
 const PESTANAS = [0, 1, 2, 3];
 const CSS_PESTANAS = PESTANAS.map((k) => `
 .${P}-radio:nth-of-type(${k + 1}):checked ~ .${P}-fcard .${P}-tab-${k} { color: #fff; }
-.${P}-radio:nth-of-type(${k + 1}):checked ~ .${P}-figura .${P}-leyenda-${k} { display: flex; }
+.${P}-radio:nth-of-type(${k + 1}):checked ~ .${P}-figura .${P}-leyenda-${k} { display: block; }
 .${P}-radio:nth-of-type(${k + 1}):checked ~ .${P}-figura .${P}-pantalla-tab-${k} { display: block; }
 .${P}-radio:nth-of-type(${k + 1}):focus-visible ~ .${P}-fcard .${P}-tab-${k} { outline: 2px solid rgba(255,255,255,.6); outline-offset: 2px; }`).join('');
 
 const CSS = `
-/* Pantallas por pestaña: una a la vez (la del radio marcado). */
-/* El recuadro de «falta» con su fondo claro y su letra oscura también acá (la hoja oscura de la landing le pisaba los dos). */
-.${P} .mk-falta { background-color: #F5F8FD; color: #12151B; min-height: 0; height: 100%; aspect-ratio: 16 / 10; }
-.${P} .mk-falta-t { color: #12151B; }
+/* Pantallas por pestaña: una a la vez (la del radio marcado), sin transición, como su «display: none/flex». */
 .${P}-pantalla-tab { display: none; }
 .${P}-pantalla-video { display: block; width: 100%; height: auto; }
-/* EL HERO ACOMPAÑA AL SCROLL (14/11/2026, Martín: «al principio, al hacer scroll, tiene una animación que acompaña al scroll»). Como el
-   «Home / Hero Parallax» de Foreplay (notas: foreplay-relevo/landing.md): en el primer alto de pantalla se achica de 1 a ,75, sube y se
-   desvanece; lo de abajo pasa por encima. Sólo computadora y tablet, sin JavaScript (animation-timeline), y nada si se pidió menos
-   movimiento. */
+/* EL HERO ACOMPAÑA AL SCROLL (14/11/2026, Martín: «al principio, al hacer scroll, tiene una animación que acompaña al scroll»). Medido en
+   Foreplay con el navegador el 14/11 (foreplay-relevo/visto-1411/pc-datos.json → hero): su «home-hero-sticky» (el titular, la bajada,
+   el botón y los logos) queda PEGADO a 132 px del borde y, en el primer alto de pantalla, va LINEAL de escala 1 a ,75, sube un 33 % de
+   su alto y pasa de opacidad 1 a 0 (a 450 px de scroll: ,875 y ,5); la captura de su app NO se achica: sigue de largo y le pasa por
+   encima. Sólo computadora y tablet, sin JavaScript (animation-timeline), y nada si se pidió menos movimiento. */
 @supports (animation-timeline: scroll()) {
   @media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
-    .${P}-hero-in { transform-origin: 50% 0; animation: ${P}-hero-sale linear both; animation-timeline: scroll(root); animation-range: 0 100vh; }
-    @keyframes ${P}-hero-sale { to { transform: translateY(-14%) scale(.75); opacity: 0; } }
+    .${P}-hero-pega { position: sticky; top: calc(var(--barra-agencia, 0px) + 132px); animation: ${P}-hero-sale linear both; animation-timeline: scroll(root); animation-range: 0 100vh; }
+    @keyframes ${P}-hero-sale { to { transform: translateY(-33%) scale(.75); opacity: 0; } }
+    .${P}-captura { position: relative; z-index: 1; }
     .${P}-sec-blanca { position: relative; z-index: 2; }
   }
 }
@@ -593,6 +803,7 @@ const CSS = `
 .${P}-hero-sub { max-width: 690px; font-size: 18px; line-height: 28px; letter-spacing: -0.26px; color: rgba(255,255,255,.84); text-wrap: balance; }
 .${P}-hero-sub strong { font-weight: 500; }
 .${P}-hero-cta { display: flex; gap: 12px; }
+.${P}-hero-pega { display: flex; flex-direction: column; gap: 64px; }
 .${P}-hero-bottom { margin-top: -64px; display: flex; flex-direction: column; gap: 40px; }
 .${P}-hero-over { text-align: center; color: rgba(255,255,255,.68); }
 .${P}-puntos { display: flex; justify-content: center; flex-wrap: wrap; gap: 16px 48px; }
@@ -639,28 +850,44 @@ const CSS = `
 .${P}-wcard-oscura p { color: rgba(255,255,255,.68); }
 .${P}-wcard-oscura p strong { color: rgba(255,255,255,.92); }
 
-/* El montón de la tarjeta «antes»: chips blancos con su anillo, girados, que caen al entrar. */
-.${P}-monton { position: absolute; left: 0; right: 0; bottom: 0; height: 290px; }
-.${P}-chip { position: absolute; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 9px; background: #fff; box-shadow: 0 0 0 1px #E9EAEF, 0 4px 12px rgba(9,10,14,.06); font-size: 12.5px; font-weight: 500; line-height: 16px; letter-spacing: -0.1px; color: #343642; white-space: nowrap; animation: dcsCae .9s var(--ease) both; }
-.${P}-chip svg { flex: none; color: #4C505F; }
-.${P}-chip b { margin-left: 2px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: #E5484D; color: #fff; font-size: 10.5px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
-.${P}-chip-solo { width: 46px; height: 46px; padding: 0; justify-content: center; border-radius: 12px; }
-.${P}-chip-solo svg { color: var(--az); }
+/* LA LLUVIA de la tarjeta «antes»: la caja es la tarjeta entera (en Foreplay los que caen pasan por encima del texto). Cada pieza es
+   blanca con su anillo, como sus «hba-asset»: las píldoras de 28,5 px de alto (57 / 2) y los recuadros de 44,5 (89 / 2), a 1,2× desde
+   400 px de caja (el script pone --k). Medidas en em sobre 11 px. Sin JavaScript quedan donde las dejó el servidor, ya apiladas. */
+.${P}-lluvia { --k: 1.2; position: absolute; inset: 0; z-index: 2; pointer-events: none; font-size: calc(11px * var(--k)); }
+.${P}-cae { position: absolute; display: inline-flex; align-items: center; justify-content: center; background: #fff; color: #5D6170; white-space: nowrap;
+  box-shadow: 0 0 0 1px #E6E7EC, 0 2px 6px rgba(9,10,14,.06); transform-origin: 50% 50%; will-change: transform; }
+.${P}-lluvia[data-cayendo] .${P}-cae { left: 0 !important; top: 0 !important; visibility: hidden; }
+.${P}-lluvia[data-cayendo] .${P}-cae[data-vivo] { visibility: visible; }
+.${P}-cae-pildora { height: 2.6em; padding: 0 .95em 0 .8em; gap: .45em; border-radius: .8em; font-size: 1em; font-weight: 500; letter-spacing: -0.1px; }
+.${P}-cae-pildora svg { flex: none; width: 1.3em; height: 1.3em; color: #8A8E9B; }
+.${P}-cae-pildora b { min-width: 1.6em; height: 1.6em; padding: 0 .45em; border-radius: 99px; background: #E5484D; color: #fff; font-size: .82em; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+.${P}-cae-logo { width: 4.05em; height: 4.05em; border-radius: 1.05em; }
+.${P}-cae-logo img { width: 2.45em; height: 2.45em; border-radius: .55em; display: block; }
+.${P}-cae-carpeta { width: 7.3em; height: 7em; flex-direction: column; gap: .45em; border-radius: 1.1em; font-size: 1em; font-weight: 500; color: #4C505F; }
+.${P}-cae-carpeta svg { width: 2.9em; height: 2.9em; color: var(--az); fill: rgba(47,111,237,.14); }
+.${P}-cae-carpeta span { font-size: .9em; }
 
-/* La órbita de la tarjeta «después»: 400 × 400, el anillo, el centro que brilla y las cuatro etiquetas. */
+/* La órbita de la tarjeta «después», medida en su video cuadro a cuadro (14/11): anillo de 280 px al 22 % de blanco, etiquetas de 13 px
+   en su caja #1C1D22 que dan un cuarto de vuelta horario cada 2 s (quietas 1,25 s, se mueven ,75 s) siempre derechas, y la esfera de
+   140 px con sus baldosas y su logo encendido, que destella en cada paso. */
 .${P}-orbita-caja { flex: 1; display: flex; align-items: center; justify-content: center; }
-.${P}-orbita { position: relative; width: 400px; height: 400px; max-width: 100%; aspect-ratio: 1; }
-.${P}-orbita-anillo { position: absolute; inset: 60px; border-radius: 50%; border: 1px solid rgba(255,255,255,.28); }
-.${P}-orbita-punto { position: absolute; inset: 60px; border-radius: 50%; animation: dcsGira 14s linear infinite; }
-.${P}-orbita-punto::after { content: ''; position: absolute; top: -3px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 2px rgba(242,176,30,.7); }
-.${P}-orbita-centro { position: absolute; left: 50%; top: 50%; width: 140px; height: 140px; margin: -70px 0 0 -70px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(circle at 50% 50%, rgba(242,176,30,.28), rgba(2,3,8,.0) 62%), #0B0C11; box-shadow: 0 0 0 1px rgba(255,255,255,.16), inset 0 0 40px rgba(255,255,255,.06); }
-.${P}-orbita-centro svg { filter: drop-shadow(0 0 14px rgba(242,176,30,.75)); }
-.${P}-orbita-et { position: absolute; padding: 6px 16px; border-radius: 6px; background: #1C1D22; box-shadow: 0 0 0 1px rgba(255,255,255,.08); font-size: 13px; font-weight: 500; line-height: 18px; color: #fff; white-space: nowrap; transform: translate(-50%, -50%); }
+.${P}-orbita { position: relative; width: 400px; height: 400px; max-width: 100%; flex: none; }
+.${P}-orbita-anillo { position: absolute; inset: 60px; border-radius: 50%; border: 1px solid rgba(255,255,255,.22); }
+.${P}-orbita-centro { position: absolute; left: 50%; top: 50%; width: 140px; height: 140px; margin: -70px 0 0 -70px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 42%, #22242B 0%, #101116 58%, #07080B 100%); box-shadow: 0 0 0 1px rgba(255,255,255,.2), inset 0 0 26px rgba(0,0,0,.8), inset 0 10px 22px rgba(255,255,255,.07); }
+.${P}-orbita-baldosas { position: absolute; left: 50%; top: 50%; width: 140px; height: 140px; margin: -70px 0 0 -70px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding: 2px;
+  -webkit-mask-image: radial-gradient(circle, #000 52%, transparent 72%); mask-image: radial-gradient(circle, #000 52%, transparent 72%); }
+.${P}-orbita-baldosas i { border-radius: 4px; background: rgba(255,255,255,.045); box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
+.${P}-orbita-baldosas i.${P}-baldosa-titila { animation: dcsTitila 4s ease-in-out infinite; }
+.${P}-orbita-logo { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; animation: dcsDestello 2s ease-in-out infinite; }
+.${P}-orbita-logo svg { filter: drop-shadow(0 0 6px rgba(255,255,255,.55)) drop-shadow(0 0 18px rgba(242,176,30,.35)); }
+.${P}-orbita-giro { position: absolute; inset: 0; animation: dcsOrbita 8s infinite; }
+.${P}-orbita-et { position: absolute; transform: translate(-50%, -50%); }
+.${P}-orbita-et span { display: block; padding: 6px 16px; border-radius: 6px; background: #1C1D22; box-shadow: 0 0 0 1px rgba(255,255,255,.08); font-size: 13px; font-weight: 500; line-height: 18px; color: #fff; white-space: nowrap; animation: dcsOrbitaContra 8s infinite; }
 .${P}-orbita-et-0 { left: 50%; top: 60px; }
-.${P}-orbita-et-1 { left: 88%; top: 57%; }
-.${P}-orbita-et-2 { left: 42%; top: 340px; }
-.${P}-orbita-et-3 { left: 12%; top: 41%; }
+.${P}-orbita-et-1 { left: 340px; top: 50%; }
+.${P}-orbita-et-2 { left: 50%; top: 340px; }
+.${P}-orbita-et-3 { left: 60px; top: 50%; }
 
 /* ── Las secciones de producto: 128 px arriba, 40 abajo, 80 entre piezas ── */
 .${P}-prod-in { padding: 128px 0 40px; display: flex; flex-direction: column; gap: 80px; }
@@ -686,9 +913,13 @@ ${CSS_PESTANAS}
 .${P}-obj-losa { position: absolute; left: 25px; top: 105px; width: 270px; height: 270px; border-radius: 34px; transform: rotateX(58deg) rotateZ(-45deg);
   background: linear-gradient(135deg, #2B2D35 0%, #121319 55%, #07080C 100%); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), inset 8px 8px 24px rgba(255,255,255,.06), 0 30px 50px rgba(0,0,0,.6); }
 .${P}-obj-sombra { position: absolute; left: 70px; top: 150px; width: 180px; height: 180px; border-radius: 50%; filter: blur(30px); opacity: .55; transform: rotateX(58deg); }
-.${P}-obj-pieza { position: absolute; left: 75px; top: 30px; width: 170px; height: 170px; animation: dcsFlota 6s ease-in-out infinite; }
+/* Sus objetos en 3D son videos en bucle (cta-swipe-file.mov…), mirados cuadro a cuadro el 14/11: la pieza flota y la luz la recorre
+   (de blanca a su color, unos 3 s ida y vuelta); la sombra de color respira con ella. Aquí, con su degradado corriéndose. */
+.${P}-obj-pieza { position: absolute; left: 75px; top: 30px; width: 170px; height: 170px; animation: dcsFlota 3.2s ease-in-out infinite alternate; }
+.${P}-obj-sombra { animation: dcsRespira 3.2s ease-in-out infinite alternate; }
 .${P}-obj-cara { width: 100%; height: 100%; border-radius: 38px; display: flex; align-items: center; justify-content: center; color: #fff; transform: rotateX(28deg) rotateZ(-14deg);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.35), inset 0 -16px 30px rgba(0,0,0,.25), inset 0 14px 24px rgba(255,255,255,.35), 0 26px 40px rgba(0,0,0,.45); }
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.35), inset 0 -16px 30px rgba(0,0,0,.25), inset 0 14px 24px rgba(255,255,255,.35), 0 26px 40px rgba(0,0,0,.45);
+  background-size: 220% 220% !important; animation: dcsLuz 3.2s ease-in-out infinite alternate; }
 .${P}-obj-cara svg { filter: drop-shadow(0 4px 10px rgba(0,0,0,.25)); }
 .${P}-tono-azul .${P}-obj-cara { background: linear-gradient(150deg, #A9C6FF 0%, #5B8DF5 32%, var(--az) 62%, #173F99 100%); }
 .${P}-tono-azul .${P}-obj-sombra { background: var(--az); }
@@ -703,17 +934,11 @@ ${CSS_PESTANAS}
 .${P}-tono-azul .${P}-figura-halo { background: radial-gradient(70% 55% at 50% 0%, rgba(47,111,237,.55), transparent 72%), radial-gradient(60% 50% at 10% 100%, rgba(47,111,237,.38), transparent 70%), radial-gradient(40% 40% at 92% 60%, rgba(255,255,255,.10), transparent 70%); }
 .${P}-tono-dorado .${P}-figura-halo { background: radial-gradient(70% 55% at 50% 0%, rgba(242,176,30,.42), transparent 72%), radial-gradient(55% 50% at 100% 100%, rgba(242,176,30,.30), transparent 70%), radial-gradient(40% 40% at 0% 50%, rgba(255,255,255,.06), transparent 70%); }
 .${P}-tono-plata .${P}-figura-halo { background: radial-gradient(70% 55% at 50% 0%, rgba(255,255,255,.24), transparent 72%), radial-gradient(55% 50% at 0% 100%, rgba(47,111,237,.22), transparent 70%); }
-.${P}-figura-pill { position: relative; z-index: 1; margin-top: 18px; display: inline-flex; align-items: center; gap: 10px; padding: 9px 18px; border-radius: 12px; background: rgba(255,255,255,.08); box-shadow: 0 0 0 1px rgba(255,255,255,.08); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: 16px; font-weight: 500; line-height: 24px; color: #fff; }
-.${P}-ventana { position: relative; z-index: 1; flex: 0 1 auto; min-height: 0; width: calc(100% - 124px); margin-top: 84px; border-radius: 14px; border: 6px solid #15161B; background: #F7F8FA; box-shadow: 0 30px 60px rgba(0,0,0,.45); overflow: hidden; }
-.${P}-figura-pill + .${P}-ventana { margin-top: 26px; }
-.${P}-ventana .${P}-pantalla { padding: 18px; }
-.${P}-ventana-ficha { width: min(600px, calc(100% - 124px)); }
-.${P}-pantalla-ficha .mk-v-spy { zoom: 1.35; }
-.${P}-leyendas { position: relative; z-index: 1; flex: none; margin-top: auto; width: 100%; padding: 28px 40px 30px; }
-.${P}-leyenda { display: none; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
-.${P}-leyenda-t { color: rgba(255,255,255,.84); }
-.${P}-leyenda-x { max-width: 560px; font-size: 16px; font-weight: 500; line-height: 24px; letter-spacing: -0.18px; color: #fff; text-wrap: balance; }
-.${P}-leyenda-x strong { font-weight: 600; }
+.${P}-ventana { position: relative; z-index: 1; flex: none; align-self: stretch; margin: 40px 0 0 40px; border-radius: 14px 0 0 14px; overflow: hidden; background: #F7F8FA;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.14), 0 30px 60px rgba(0,0,0,.45); }
+.${P}-leyendas { position: relative; z-index: 1; flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; padding: 16px 40px 18px; }
+.${P}-leyenda { display: none; max-width: 600px; text-align: center; font-size: 16px; font-weight: 500; line-height: 24px; letter-spacing: -0.18px; color: rgba(255,255,255,.84); text-wrap: balance; }
+.${P}-leyenda strong { font-weight: 600; color: #fff; }
 
 /* ── La banda de la extensión: 32 px de radio, anillo #171920, 40 de relleno, el ícono cortado al 50 % ── */
 .${P}-banda { position: relative; display: flex; gap: 40px; padding: 40px; border-radius: 32px; box-shadow: 0 0 0 1px #171920; overflow: hidden; }
@@ -777,11 +1002,16 @@ ${CSS_PESTANAS}
 .${P}-pie-foot a:hover { color: rgba(255,255,255,.68); }
 
 /* ── Las animaciones de entrada, sólo CSS (nada arranca invisible) ── */
-@keyframes dcsCae { from { translate: 0 -14px; } to { translate: 0 0; } }
-@keyframes dcsGira { to { transform: rotate(360deg); } }
-@keyframes dcsFlota { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+@keyframes dcsOrbita { 0%, 15.6% { transform: rotate(0deg); } 25%, 40.6% { transform: rotate(90deg); } 50%, 65.6% { transform: rotate(180deg); } 75%, 90.6% { transform: rotate(270deg); } 100% { transform: rotate(360deg); } }
+@keyframes dcsOrbitaContra { 0%, 15.6% { transform: rotate(0deg); } 25%, 40.6% { transform: rotate(-90deg); } 50%, 65.6% { transform: rotate(-180deg); } 75%, 90.6% { transform: rotate(-270deg); } 100% { transform: rotate(-360deg); } }
+.${P}-orbita-giro, .${P}-orbita-et span { animation-timing-function: cubic-bezier(.65,0,.35,1); }
+@keyframes dcsDestello { 0%, 58% { opacity: .9; transform: scale(1); filter: none; } 72% { opacity: 1; transform: scale(1.06); filter: brightness(1.5) drop-shadow(0 0 16px rgba(255,255,255,.9)); } 100% { opacity: .9; transform: scale(1); filter: none; } }
+@keyframes dcsTitila { 0%, 70%, 100% { background: rgba(255,255,255,.045); } 82% { background: rgba(255,255,255,.34); } }
+@keyframes dcsFlota { from { translate: 0 0; } to { translate: 0 -10px; } }
+@keyframes dcsLuz { from { background-position: 0% 0%; } to { background-position: 100% 100%; } }
+@keyframes dcsRespira { from { opacity: .35; } to { opacity: .7; } }
 @media (prefers-reduced-motion: reduce) {
-  .${P}-chip, .${P}-orbita-punto, .${P}-obj-pieza { animation: none; }
+  .${P}-orbita-giro, .${P}-orbita-et span, .${P}-orbita-logo, .${P}-orbita-baldosas i, .${P}-obj-pieza, .${P}-obj-cara, .${P}-obj-sombra { animation: none !important; }
   .${P} * { transition: none !important; }
 }
 
@@ -796,7 +1026,8 @@ ${CSS_PESTANAS}
   .${P}-fcard { flex: none; }
   .${P}-fcard-head .${P}-h3 { max-width: 75%; }
   .${P}-obj { left: auto; right: -40px; top: -10px; bottom: auto; transform: scale(.6); transform-origin: top right; }
-  .${P}-figura { height: 560px; }
+  .${P}-figura { height: auto; }
+  .${P}-ventana { margin: 32px 0 0 32px; }
   .${P}-winning-grid { grid-template-columns: 1fr; max-width: 640px; }
   .${P}-banda { flex-direction: column; }
   .${P}-banda-cta { justify-content: flex-start; }
@@ -834,17 +1065,9 @@ ${CSS_PESTANAS}
   .${P}-winning-grid { gap: 20px; }
   .${P}-wcard { height: auto; min-height: 357px; }
   .${P}-wcard h3 { font-size: 16px; line-height: 24px; letter-spacing: -0.23px; }
-  .${P}-monton { position: relative; height: 230px; margin: 0 -24px -24px; zoom: .8; }
-  .${P}-chip { font-size: 11.5px; padding: 5px 8px; }
-  .${P}-chip-solo { width: 40px; height: 40px; }
   .${P}-wcard-oscura { min-height: 420px; }
-  .${P}-orbita { width: 280px; height: 280px; }
-  .${P}-orbita-anillo, .${P}-orbita-punto { inset: 42px; }
-  .${P}-orbita-centro { width: 100px; height: 100px; margin: -50px 0 0 -50px; }
-  .${P}-orbita-centro svg { width: 40px; height: 40px; }
-  .${P}-orbita-et { font-size: 11px; padding: 4px 12px; }
-  .${P}-orbita-et-0 { top: 42px; }
-  .${P}-orbita-et-2 { top: 238px; }
+  /* Su órbita a 390 mide 7/10 de la de 1440 (el anillo de 196 px): la misma, más chica. */
+  .${P}-orbita { zoom: .7; }
   .${P}-prod-in { padding: 128px 0 40px; gap: 64px; }
   .${P}-h2, .${P}-h2c { font-size: 36px; line-height: 48px; letter-spacing: -0.27px; }
   .${P}-h2c { line-height: 44px; letter-spacing: -0.26px; }
@@ -854,14 +1077,10 @@ ${CSS_PESTANAS}
   .${P}-fcard-btns .${P}-btn { width: 100%; }
   .${P}-tab { padding-right: 6px; }
   .${P}-obj { left: auto; right: -50px; top: -6px; bottom: auto; transform: scale(.5); transform-origin: top right; }
-  .${P}-figura { height: auto; max-height: 420px; border-radius: 16px; }
-  .${P}-figura-pill { margin-top: 12px; padding: 6px 12px; font-size: 13px; line-height: 18px; zoom: .9; }
-  .${P}-ventana { width: calc(100% - 32px); margin-top: 24px; border-width: 4px; border-radius: 10px; }
-  .${P}-figura-pill + .${P}-ventana { margin-top: 14px; }
-  .${P}-ventana .${P}-pantalla { width: 640px; zoom: .46; padding: 20px; }
-  .${P}-ventana-ficha .${P}-pantalla { width: 520px; zoom: .55; }
-  .${P}-leyendas { padding: 18px 20px 22px; }
-  .${P}-leyenda-x { font-size: 15px; line-height: 22px; }
+  .${P}-figura { border-radius: 16px; }
+  .${P}-ventana { margin: 16px 0 0 16px; border-radius: 10px 0 0 10px; }
+  .${P}-leyendas { padding: 14px 18px 18px; }
+  .${P}-leyenda { font-size: 15px; line-height: 22px; }
   .${P}-banda { padding: 32px 24px; border-radius: 16px; gap: 24px; }
   .${P}-banda-logo { left: auto; right: -40px; top: -30px; bottom: auto; width: 128px; height: 128px; }
   .${P}-banda-content { padding-left: 0; }

@@ -182,3 +182,34 @@ test('cada landing lleva la barra del sitio arriba y esconde la copiada de su re
     assert.ok(html.includes(`${sel}{display:none!important}`), `${l.slug}: su barra copiada no se esconde`);
   }
 });
+
+// Martín, 14/11/2026, noche: «no funcionan los botones de cada cosa, por ejemplo, desde Chrome con un clic o le pegas». Eran pestañas
+// sin pantalla (el recuadro de «falta»). Como Foreplay, cada pestaña de Competitor Spy cambia la pantalla de la derecha: una grabación
+// de la app real por pestaña, el archivo y su póster en public/, el script que cambia al pasar el mouse y la lluvia del «antes».
+// PROBADO ROMPIÉNDOLO (14/11/2026): sacar «O lo pegas» de GRABACION_DE_PESTANA → falla «sin su pantalla»; renombrar spy-pegar.webm en
+// el mapa → falla «falta public/…»; sacar el <script> de la lluvia → falla «sin su lluvia».
+test('Competitor Spy: cada pestaña tiene su pantalla grabada, y la lluvia del «antes» su script', async () => {
+  const { GRABACION_DE_PESTANA } = await import('../app/vsl/_competencia/disenos/competitor-spy');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'competitor-spy');
+  assert.ok(l, 'falta la landing de Competitor Spy');
+  const html = dibujar(l);
+  let pestanas = 0;
+  for (const b of l.bloques) {
+    if (b.tipo !== 'tarjetas') continue;
+    for (const it of b.items) {
+      pestanas++;
+      const titulo = it.titulo.replace(/<[^>]+>/g, '');
+      const g = GRABACION_DE_PESTANA[titulo];
+      assert.ok(g, `«${titulo}»: sin su pantalla`);
+      for (const f of [g.video, g.poster]) assert.ok(existsSync(join(RAIZ, 'public', f)), `«${titulo}»: falta public${f}`);
+      assert.ok(html.includes(`src="${g.video}"`), `«${titulo}»: su video no se dibuja`);
+    }
+  }
+  assert.ok(pestanas >= 12, `sólo ${pestanas} pestañas: el barrido no está mirando`);
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
+  // Los scripts del diseño van con data-visor (el visor de Martín borra los demás).
+  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
+  assert.ok(scripts.some((x) => x.includes('mouseover') && x.includes("'d-competitor-spy'") && x.includes('-tab')), 'las pestañas sin su script (hover y video)');
+  assert.ok(scripts.some((x) => x.includes('-lluvia') && x.includes('IntersectionObserver')), 'el «antes» sin su lluvia');
+  assert.ok((html.match(/class="d-competitor-spy-cae /g) ?? []).length >= 16, 'la lluvia con menos de 16 piezas (las de la computadora)');
+});

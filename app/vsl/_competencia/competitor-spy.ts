@@ -104,7 +104,8 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
       etiqueta: 'Anuncios',
       titulo: 'Guarda anuncios de donde los veas',
       items: [
-        { icono: I.guardar, titulo: 'Desde Chrome, con un clic', texto: 'En la Biblioteca de Anuncios de Meta, con la extensión de MaKo, tocas <strong>«Guardar en Spy»</strong> y se guardan sus anuncios.' },
+        // Lo que dice el desplegable de la extensión (extension/popup.js): «Guardar en la ficha de <competidor>».
+        { icono: I.guardar, titulo: 'Desde Chrome, con un clic', texto: 'En la Biblioteca de Anuncios de Meta tocas el ícono de MaKo y sus anuncios quedan <strong>en la ficha de tu competidor</strong>.' },
         { icono: I.pegar, titulo: 'O lo pegas', texto: 'Pegas el anuncio en la ficha de su competidor y queda guardado ahí.' },
         { icono: I.reloj, titulo: 'Desde cuándo está a la vista', texto: 'Cada anuncio dice cuántos días lleva activo, a dónde manda y cuáles lanzó el mismo día: el que sigue activo de su tanda es el ganador.' },
       ],
@@ -115,7 +116,8 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
       titulo: 'Sigue a tus competidores',
       items: [
         { icono: I.personas, titulo: 'Sumas a tus competidores', texto: 'Cada uno con sus canales: su web, su Instagram y su YouTube.' },
-        { icono: I.web, titulo: 'MaKo lee lo que publican', texto: 'Su sitio, sus reels y sus videos, con los números que pudo medir. Lo que no pudo leer lo dice: nunca es un cero.' },
+        // «Lo que todavía no» era una pestaña sin pantalla (14/11/2026): lo que dice va aquí, donde se ve que lee.
+        { icono: I.web, titulo: 'MaKo lee lo que publican', texto: 'Sus videos con sus vistas y cuánto rindió cada uno frente a su cuenta. Lee al sumarlo y cada vez que abres su ficha.' },
         { icono: I.idea, titulo: 'Te sugiere a quién mirar', texto: 'Competidores que MaKo ya mira, para sumarlos sin gastar nada.' },
       ],
     },
@@ -127,7 +129,7 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
       pasos: [
         { titulo: 'Instala la extensión de MaKo', texto: 'La misma extensión de Chrome que usa MaKo para tus otras funciones.' },
         { titulo: 'Abre sus anuncios', texto: 'En la Biblioteca de Anuncios de Meta, con los de tu competidor a la vista.' },
-        { titulo: 'Toca «Guardar en Spy»', texto: 'Sus anuncios quedan en Competitor Spy, listos para leerlos y usarlos.' },
+        { titulo: 'Toca el ícono de MaKo', texto: '«Guardar en la ficha» y sus anuncios quedan en Competitor Spy.' },
       ],
     },
     {
@@ -145,7 +147,9 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
       items: [
         { icono: I.embudo, titulo: 'Qué funnel usa', texto: 'Evento presencial, webinar, VSL, aplicación y llamada, reto… <strong>citando lo que lo delata</strong> en sus piezas.' },
         { icono: I.nota, titulo: 'Su oferta, con nota', texto: 'MaKo lee la oferta de su web con el analista de Offer: sus nueve notas y su puntaje.' },
-        { icono: I.texto, titulo: 'El guion de sus reels', texto: 'Al abrir su detalle, MaKo transcribe lo que dice cada reel.' },
+        // Antes «El guion de sus reels»: @AlexHormozi no tiene reels en Spy (sólo YouTube y anuncios) y la pestaña se muestra con él. Lo
+        // que sí se ve de cada pieza suya es su estructura (DetallePieza → «Su estructura»), leída por la IA del negocio.
+        { icono: I.texto, titulo: 'Su gancho y su ángulo', texto: 'Cada pieza, leída: su gancho, su ángulo y su formato, y cuánto rindió frente a su cuenta.' },
       ],
     },
     {
@@ -154,8 +158,13 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
       titulo: 'Pasa de la idea a tu anuncio, más rápido',
       items: [
         { icono: I.editar, titulo: 'Tu versión, en Image', texto: 'Sus carruseles y anuncios aparecen en Image para hacer <strong>tu versión editable</strong>, con tu negocio y tu marca.' },
-        { icono: I.pagina, titulo: 'Sus páginas, a la vista', texto: 'Cada página con su vista previa, también las que cuelgan de su página de enlaces.' },
-        { icono: I.reloj, titulo: 'Lo que todavía no', texto: 'Todavía no revisa solo todos los días: lee al agregar a un competidor y al abrir su ficha.' },
+        // Antes «Sus páginas, a la vista»: la de Hormozi (acquisition.com) no se deja mostrar en el marco aislado (su JavaScript se rompe:
+        // lib/pagina-real.ts) y Spy ofrece «Capturar». Lo que sí se ve de su web es la réplica: «Copiar su sitio» la lleva al Web Generator
+        // (replicar.webm es acquisition.com replicada, la de la portada). Sólo MaKo Pro (lib/editor-landing/replicar-candado.ts).
+        { icono: I.pagina, titulo: 'Copia su sitio', texto: '«Copiar su sitio» lo lleva al Web Generator para hacer el tuyo. Con MaKo Pro.' },
+        // Antes «Lo que todavía no» (una pestaña sin pantalla: su texto pasó a «MaKo lee lo que publican»). Un short real de Hormozi
+        // replicado por MaKo en Copywriting (la grabación de la portada, copywriting.webm).
+        { icono: I.nota, titulo: 'Su guion, con tu oferta', texto: 'Replicas su reel y MaKo escribe el tuyo en Copywriting, con tu oferta.' },
       ],
     },
   ],
