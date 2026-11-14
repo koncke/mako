@@ -24,6 +24,17 @@ de más, y manda a arreglar algo que estaba bien.**
   puras convierte antes `vistas`, `megusta`, `comentarios` (y los ids) con `Number(…)`.
 - Con los números bien, seguir sólo a Federico Cristofari da **11.209** vistas (la mediana de sus últimos 20 reels); sumar a Víctor
   Heras lo sube a 81.257. Es el número de la animación del CoPilot en la portada.
+## De un carrusel, Spy guarda sólo la PORTADA: lo que lo lee mira una lámina (14/11/2026, ticket 97)
+
+- **Síntoma:** al desarmar un carrusel de 6 láminas de @den.borgg (pieza 943, ws 9), la IA vio una sola imagen.
+- **Causa:** `spy_piezas` no tiene las láminas. `laminas_imagenes` es una columna de `carruseles_biblioteca_piezas` (mig 0404,
+  la biblioteca de ejemplos). Medido en producción: `spy_piezas` sólo tiene `laminas` (cuántas). `imagenesDe`
+  (lib/carruseles/explorar.ts) cae a la miniatura sin avisar. La réplica de Image («Editar» un carrusel de Spy) tiene el mismo
+  límite.
+- **Regla:** lo que mira un carrusel de Spy dice cuántas láminas vio de cuántas tiene. El desarme lo hace en
+  `lib/imagen-desarmar-servidor.ts`: «Sólo vi la portada de 6: Competitors Spy no guarda las demás».
+- **Sin hacer:** guardar las láminas al leer la publicación. Apify las trae en `childPosts`/`images` (`imagenesDeLaminas`,
+  lib/instagram-perfil.ts), pero las URLs del CDN vencen: habría que copiarlas al bucket, como la miniatura.
 
 ## Después de `irA(null)` no sale NINGÚN pedido: lo que tiene que llegar al server, va antes (11/11/2026)
 

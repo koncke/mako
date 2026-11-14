@@ -98,6 +98,63 @@ cualquier outlier. Se leyó el repo y se relevaron 12 herramientas abiertas y 12
   plantillas armadas en CapCut; ChatCut (patrocina a rea-video), invideo, Pippit y Topview rehacen generando con IA por créditos.
   Ninguno cruza el rendimiento real (el múltiplo de Spy) + español + plantilla editable en el propio editor + IA del negocio.
 
+## Desarmar, fase 1: lo que salió y lo que midió contra las recetas a mano (ticket 97, 14/11/2026)
+
+**Dónde vive:**
+- `lib/video-desarmar.ts`: el contrato, el pedido y el esquema para Gemini, la lectura, la receta y la plantilla. Es puro.
+- `lib/video-desarmar-videomd.ts`: el paquete VIDEO.md.
+- `lib/video-desarmar-gemini.ts`: YouTube por enlace o el mp4 por la File API, con los cuadros por segundo.
+- `lib/video-desarmar-servidor.ts`: lo guardado, el reclamo y de dónde sale el video.
+- `/api/video-editor/desarmar` y la caja `app/video-editor/Desarmar.tsx`.
+- La plantilla: `?desarme=` en `[proyecto]/page.tsx` → `ArmarPlantilla`.
+- Carruseles: `lib/imagen-desarmar*.ts` y `app/competitor-spy/DesarmarImagen.tsx`.
+- Para probar sin la pantalla: `scripts/desarmar-probar.mts` y `scripts/desarmar-imagen-probar.mts`. No escriben en la base.
+
+**Lo medido.** Con el Gemini del negocio de MaKo (ws 9), contra los cortes de `ffmpeg select='gt(scene,0.28)'`:
+
+| Video | Cortes reales | Gemini | Lo que erró |
+|---|---|---|---|
+| Pistachos (DdTdIIPDzHU, 30,8 s; el archivo, a 5 cuadros/s) | 15 | **15 de 15**, 16 planos | Un corte 0,6 s antes (8,0 por 8,6); los demás a ~0,1 s. Dice música «de fondo» con whoosh. A mano se midió que NO hay música bajo la voz, sólo golpes en los insertos y el cierre. |
+| Palabra gigante (DPUxQ8_DiVY, 55 s; el archivo, a 5 cuadros/s) | 3 | 3 de 3 exactos **y uno de más** (41,0) | El estilo, bien: «Palabra gigante», serif, palabra clave. Pero la clave al 120 % y amarilla; a mano: 3 veces y blanca. Oyó «Que paja» por «Que paga». |
+| Mindvalley, Black Friday (YouTube por enlace, 2:18, a 2 cuadros/s) | — | 24 planos: 14 grabados, 9 de código, 1 de IA | Sin medir a mano. Los tres textos de la oferta, exactos. |
+
+Los 5 textos rojos del reel de los pistachos salieron exactos: «FLOJOS», «JOSEP», «PISTACHOS», «tachocream.com» y
+«DISPONIBLE EN AMAZON».
+
+- ⚠️ **El diagnóstico obvio era el equivocado.** Se esperaba que Gemini perdiera los insertos de medio segundo, porque «mira 1
+  cuadro por segundo», y que hiciera falta medir los cortes con ffmpeg ANTES, en la fase 2. Con `videoMetadata.fps` a 5 encontró
+  los 15 cortes del reel de los pistachos, también los de 0,4 y 0,6 s. Lo que falla es el AUDIO (si hay música bajo la voz) y las
+  MEDIDAS (cuánto más grande es la palabra clave). Eso es lo que justifica el worker: separar las pistas y un OCR con tamaños.
+- **Regla: los números del ritmo los mide el código** (`ritmoDe`: planos, un corte cada cuánto, el más corto). La IA no los da:
+  «cortes dinámicos y rápidos» no es un dato. La respuesta se lee como dato de un tercero (`leerDesarme`). Los planos quedan
+  pegados de 0 al final, que es lo que pide la pista principal de la plantilla. Un tiempo corregido en más de 1 s se dice en
+  `dudas`.
+- **La plantilla «toca para reemplazar» ya existía**: la de «Utilizar plantilla» (`lib/editor-video/plantillas.ts` +
+  `_opencut/plantillas/instanciar.ts`). El desarme se vuelve una `Plantilla`: un hueco por plano y los textos del original
+  editables. El estilo de subtítulos es el más parecido de la galería (`estiloMasParecido`). No hizo falta tocar el motor.
+- **La receta vuelve del chat.** La de un video desarmado no está en `RECETAS`. `recetaDelHilo` la reconoce por la línea «En el
+  editor de MaKo, todo en un pedido: …», que escribe `textoDeEdicionEnEditor` (`edicionDelTexto` es su inversa). Así la Edición
+  automática la sigue sin tocar `enjambre/correr.ts`.
+- **Una carga entera vacía el chat en memoria.** `ArmarPlantilla` abre el proyecto con `abrirProyectoCreado`, que recarga la
+  página. La receta que MaKo dejaba en el chat se perdía, porque el hilo no se guarda hasta que el chat se carga.
+  `guardarHiloAhora` lo guarda antes de recargar.
+
+### Trampas del entorno al desarmar
+
+- **La cuota gratis de Gemini es POR MODELO.** El 429 decía «limit: 20, model: gemini-3.8-flash» por día. La primera versión
+  saltaba de cuenta ante un 429 y nunca probaba `gemini-flash-lite-latest`, que tiene su propia cuota. Ahora un 429 prueba el
+  otro modelo en la misma cuenta. El guion de YouTube de Spy (`guionDeYoutubeConGemini`) sigue saltando de cuenta: ver
+  `hallazgos-ia.md`.
+- **De las 4 claves de Gemini del negocio de MaKo, la 1 y la 4 dan 401** («API key not valid», 14/11/2026). La 3 agotó sus 20
+  del día de flash y la 2 estaba saturada (503). Las tres pruebas las contestó `gemini-flash-lite-latest`.
+- La File API da la duración del video (`videoMetadata.videoDuration`, «30.784s») recién cuando el archivo queda ACTIVE. Por eso
+  los cuadros por segundo se deciden DESPUÉS de subirlo (`mirar(duracionS)`), no antes.
+- **Spy guarda sólo la PORTADA de un carrusel.** `laminas_imagenes` existe en la biblioteca de ejemplos (mig 0404), no en
+  `spy_piezas`. El desarme de un carrusel de 6 láminas mira una y lo dice («Sólo vi la portada de 6»). La réplica de Image tiene
+  el mismo límite.
+- El banco de capturas (Chrome sin ventana, por CDP) se cortaba a mitad de la lista con ~1,8 GB libres. Por tandas de dos anduvo.
+- El chequeo de tipos acotado no corrió: la guardia de RAM lo frenó con 1,6 GB libres. Los tipos los chequea GitHub.
+
 ## Trampas del entorno
 
 - **Un `<Modal>` adentro de una tarjeta con animación de entrada queda ENCERRADO en la tarjeta.** `.tarjeta` tiene `animation:
@@ -117,6 +174,11 @@ cualquier outlier. Se leyó el repo y se relevaron 12 herramientas abiertas y 12
   propio editor de guion (`app/video-editor/guia/EditorGuion.tsx`, tipos de `mensaje-para.ts`); cada receta necesita la suya o
   una guía genérica. Hoy la receta se lee en la caja del reel.
 - La clasificación automática de lo que Spy lea de ahora en más.
-- **El desarme automático (ticket 97)**: fase 1 sin servidor (Gemini del negocio sobre el video entero → la receta como
-  `EdicionDeReceta` de `lib/video-recetas.ts`, abierta en el editor como plantilla «toca para reemplazar»); fase 2 en el worker
-  (cortes, voz en español, OCR, y el código de rea-video sin SenseVoice), que espera que Martín prenda el contenedor.
+- **El desarme, fase 1 (ticket 97, 14/11/2026)**: hecho, y probado con Gemini real y en el banco (arriba). Falta:
+  - **Verlo en producción.** El banco dibuja la caja, pero nadie vio en pantalla la plantilla armada en el editor: necesita el
+    motor y WebGPU.
+  - Los reels de Instagram necesitan la clave de Apify de Spy, que da 401. Hasta que Martín pegue otra, se SUBE el mp4.
+  - TikTok sólo se puede subir; no se trae solo.
+  - Lo que Gemini mide peor: la música bajo la voz y el tamaño de la palabra clave (arriba).
+- **El desarme, fase 2**: el worker en Railway, sólo CPU, que mide lo que Gemini mide mal. Está escrita, no programada:
+  `docs/diseno-desarmar-video.md`. Espera que Martín prenda el contenedor con su cuenta.
