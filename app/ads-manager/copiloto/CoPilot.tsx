@@ -23,6 +23,7 @@ import { Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { LogoRed } from '@/app/competitor-spy/LogoRed';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
+import { BotonIntegracion, CON_SU_CLASE } from '@/app/_components/ConectarIntegracion';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import type { EstadoComunicacion } from '@/lib/copiloto/comunicacion-store';
@@ -510,8 +511,9 @@ function TuVsl({ vsl }: { vsl: NonNullable<DatosCoPilot['vsl']> }) {
         <h2 className="frn-card__t">¿Dónde está tu VSL?</h2>
         <p>Pega el Pixel de MaKo en {host} y te digo cuánto ven tu video y dónde se van.</p>
         <div className="cop-acciones">
-          <Link className="frn-btn frn-btn--primary" href="/integraciones?abrir=landing">Pegar el Pixel</Link>
-          <Link className="frn-btn frn-btn--ghost" href="/integraciones?abrir=wistia">Conectar Wistia</Link>
+          {/* El modal de cada integración, sin salir del CoPilot (tests/integracion-sin-salir.test.ts). */}
+          <BotonIntegracion servicio="landing" className="frn-btn frn-btn--primary" style={CON_SU_CLASE}>Pegar el Pixel</BotonIntegracion>
+          <BotonIntegracion servicio="wistia" className="frn-btn frn-btn--ghost" style={CON_SU_CLASE}>Conectar Wistia</BotonIntegracion>
         </div>
       </section>
     );

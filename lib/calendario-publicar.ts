@@ -331,10 +331,10 @@ export async function programarPublicaciones(ids: readonly string[], ahora = Dat
   // El reel de prueba del piloto de Instagram (lib/copiloto/piloto-redes.ts): se lee una vez por tanda, sólo si hay un reel que
   // programar. Si la lectura falla, sale como reel normal (como hasta hoy): no se frena una publicación por una preferencia.
   let prueba: Promise<'SS_PERFORMANCE' | 'MANUAL' | null> | null = null;
-  const pruebaDelNegocio = () => (prueba ??= leerPilotoCoPilot(ws).then((p) => {
+  const pruebaDelNegocio = () => (prueba ??= (ws == null ? Promise.resolve(null) : leerPilotoCoPilot(ws).then((p) => {
     const m = (p.redes?.instagram as { reelDePrueba?: unknown } | undefined)?.reelDePrueba;
     return m === 'solo' || m === 'pregunta' ? GRADUACION_DE_PRUEBA[m] : null;
-  }).catch(() => null));
+  })).catch(() => null));
   if (ws == null) return { error: 'No hay un negocio elegido.' };
   const unicos = [...new Set(ids.map(String))];
   if (!unicos.length) return { error: 'No hay nada para programar.' };

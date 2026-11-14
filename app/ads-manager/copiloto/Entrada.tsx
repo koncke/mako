@@ -15,6 +15,7 @@ import { LogoRed } from '@/app/competitor-spy/LogoRed';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import { CSS_COPILOTO } from './copiloto-css';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import {
   CAMPANAS_ENTRADA, CANALES_ENTRADA, PRESUPUESTOS_ENTRADA, TIEMPOS_ENTRADA, pantallaLista, pantallasEntrada,
   type PantallaEntrada, type RespuestasEntrada,
@@ -140,7 +141,7 @@ export function Entrada({ inicial, conexiones }: { inicial: RespuestasEntrada; c
         <div className="cop-ent__barra" aria-hidden="true">{[...pantallas, 'fuentes'].map((_, k) => <span key={k} data-si={k <= i} />)}</div>
         <div><h2>{titulo}</h2>{sub && <p className="cop-ent__sub">{sub}</p>}</div>
         {ops}
-        {error && <p className="cop-ent__error" role="alert">{error}</p>}
+        {error && <p className="cop-ent__error" role="alert">{error}<ReportarASoporte error={error} accion="Guardar la entrada del Marketing CoPilot" /></p>}
         <div className="cop-ent__pie">
           {i > 0 && <button type="button" className="cop-ent__atras" onClick={() => setI(i - 1)}>← Atrás</button>}
           <button type="button" className="frn-btn frn-btn--primary cop-ent__seguir" disabled={!lista || guardando} onClick={() => void seguir()}>{guardando ? 'Guardando…' : 'Seguir'}</button>

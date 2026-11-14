@@ -14,7 +14,7 @@
 export type PuntoRed = { clave: string; bien: boolean; texto: string; tarea?: string; href?: string };
 
 /** Un pedido de acción: escribir, comentar, entrar al link, agendar, guardar o seguir. */
-const CTA = /\b(escr[ií]b[ei]|escr[ií]beme|comenta|comentá|coment[aá]me|dm|mensaje|link|enlace|bio|agenda|reserva|clic|click|guarda|gu[aá]rdalo|s[ií]gueme|suscr[ií]bete|inscr[ií]bete|reg[ií]strate|descarga|aplica|postula|whatsapp|wa\.me)\b|👇|👉|⬇️|🔗/i;
+const CTA = /\b(escr[ií]b[ei]|escr[ií]beme|coment[aá](?:me)?|dm|mensaje|link|enlace|bio|agenda|reserva|clic|click|guarda|gu[aá]rdalo|s[ií]gueme|suscr[ií]bete|inscr[ií]bete|reg[ií]strate|descarga|aplica|postula|whatsapp|wa\.me)\b|👇|👉|⬇️|🔗/i;
 export const tieneCta = (texto: string | null | undefined): boolean => !!texto && CTA.test(texto);
 
 const dominio = (u: string | null | undefined): string | null => {

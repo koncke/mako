@@ -250,6 +250,18 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 ---
 
 
+## Un `todo` que falla cuenta como ROJO en tests-afectados (14/11/2026, run 1356, SIN HACER)
+
+- **Síntoma:** la punta del Marketing CoPilot salió roja con `tests/chats-mako-envio.test.ts` en la lista, y ese archivo, solo,
+  da `ℹ fail 0`, `ℹ todo 1` y sale en 0.
+- **Causa:** `leerResultado` (`scripts/tests-afectados.mjs`) junta como rojo cada «test at <archivo>» de «✖ failing tests», y node
+  pone ahí también el `todo` que falla (con «⚠» en vez de «✖»). Ese `todo` está marcado a propósito: «depende de la rama mako-wa».
+  Cualquier punta que toque un archivo que lo arrastra (`app/_components/nav.ts` arrastra 692) lo ve rojo.
+- **El diagnóstico obvio era el equivocado:** «rompí el envío del chat». No: el test pasa; lo que lo pinta rojo es el runner.
+- **SIN HACER:** que `leerResultado` no cuente un caso que empieza con «⚠». El cambio al runner lo frenó el clasificador en un
+  chat de feature (es la herramienta que decide qué es rojo): lo decide el Cerebro o Martín. El caso para su test es la salida real:
+  «test at tests/chats-mako-envio.test.ts:2:4018» seguido de «⚠ el turno real de la app … # depende de la 1.2 (rama mako-wa)».
+
 ## `git checkout --theirs` se lleva el archivo ENTERO, no sólo el pedazo en conflicto (12/11/2026, chat «probar-copy»)
 
 - **Síntoma:** una punta chocó con main en dos pedazos de `tests/copywriter.test.ts` (los dos lados decían lo mismo con otras
