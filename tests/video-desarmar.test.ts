@@ -244,3 +244,37 @@ test('9. el cableado', () => {
   assert.ok(armar.indexOf('guardarHiloAhora(id)') > 0 && armar.indexOf('guardarHiloAhora(id)') < armar.indexOf('return id;\n\t} catch'), 'el chat se guarda antes de la carga entera');
   assert.match(leer('app/video-editor/[proyecto]/page.tsx'), /desarmeGuardado\(`\$\{clave\.red\}\.\$\{clave\.id\}`\)/, 'la plantilla se arma en el server con lo del negocio');
 });
+
+test('10. otros formatos: un carrusel o una imagen de anuncio, desarmado', async () => {
+  const { leerDesarmeImagen, pedidoDeDesarmeImagen, jsonDeTexto } = await import('../lib/imagen-desarmar');
+  const crudoImg = {
+    tipo: 'lista', resumen: 'Cinco errores.', gancho: '5 ERRORES', porQueFunciona: 'Promete una lista corta.',
+    laminas: [
+      { rol: 'portada', composicion: 'Título grande arriba', imagen: 'Persona sorprendida', textos: [{ texto: '  5 ERRORES 😱\nque te cuestan ventas ', rol: 'titulo', posicion: 'arriba', tamano: 'gigante', letra: 'condensada', gruesa: true, color: '#FF0' }, { texto: '', rol: 'cuerpo' }] },
+      { rol: 'desarrollo', composicion: '', imagen: '', textos: [{ texto: 'Error 1', rol: 'inventado', color: 'azul' }] },
+      { rol: 'de más', textos: [] },
+    ],
+    tipografia: { titulos: 'Anton. Muy condensada; mayúsculas', cuerpo: 'Inter' }, paleta: ['#000000', '#ff0', 'rojo', '#000000'], paraReplicar: ['x'], dudas: [],
+  };
+  const r = leerDesarmeImagen(crudoImg, { laminas: 2, clase: 'carrusel' });
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  assert.equal(r.desarme.laminas.length, 2, 'no más láminas de las que se le mostraron');
+  assert.equal(r.desarme.laminas[0].textos.length, 1, 'un texto vacío no cuenta');
+  assert.equal(r.desarme.laminas[0].textos[0].texto, '5 ERRORES 😱\nque te cuestan ventas', 'el texto EXACTO: sólo se recortan los bordes');
+  assert.equal(r.desarme.laminas[0].textos[0].color, '#ffff00');
+  assert.equal(r.desarme.laminas[1].textos[0].rol, 'cuerpo', 'un rol que no existe vuelve a «cuerpo»');
+  assert.equal(r.desarme.laminas[1].textos[0].color, null);
+  assert.deepEqual(r.desarme.paleta, ['#000000', '#ffff00'], 'la paleta sin repetidos ni lo que no es un color');
+  const pedido = pedidoDeDesarmeImagen(r.desarme);
+  assert.ok(pedido.length <= 400, 'entra en el pedido de la réplica de Image (400)');
+  assert.match(pedido, /^Mantén la estructura «lista» de 2 láminas \(portada, desarrollo\); títulos en Anton; paleta #000000 #ffff00\. El texto, con mi oferta; las imágenes, regeneradas\.$/);
+  assert.equal(leerDesarmeImagen({ laminas: [] }, { laminas: 3, clase: 'carrusel' }).ok, false);
+  assert.deepEqual(jsonDeTexto('```json\n{"a":1}\n```'), { a: 1 });
+  assert.deepEqual(jsonDeTexto('Aquí va: {"a":2} listo'), { a: 2 });
+  assert.equal(jsonDeTexto('nada'), null);
+  const spy = leer('app/competitor-spy/DetallePieza.tsx');
+  assert.match(spy, /!fuenteVideo && esImagenDeSpy\(p\) \? <DesarmarImagen piezaId=\{p\.id\} \/>/);
+  assert.match(leer('app/api/competitor-spy/desarmar-imagen/route.ts'), /conSuIADelNegocio\(ws, \(\) => desarmarImagenDeSpy\(piezaId\)\)/);
+  assert.match(leer('lib/imagen-desarmar-servidor.ts'), /Competitors Spy no guarda las demás/, 'lo que no se miró se dice');
+});

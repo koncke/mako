@@ -37,6 +37,7 @@ import { fechaCorta, linksLegibles, miniaturaDePieza } from '@/lib/spy-vista';
 import { tieneGuion, type VistaGuion } from '@/lib/spy-transcripcion';
 import type { PiezaVista } from './actions';
 import { Desarmar } from '@/app/video-editor/Desarmar';
+import { DesarmarImagen } from './DesarmarImagen';
 import { fuenteDePiezaSpy, segundosIso } from '@/lib/video-desarmar';
 
 const CSS = `
@@ -200,6 +201,10 @@ const MARCO_MODAL: MarcoDetalle = ({ titulo, encabezado, pie, onCerrar, children
   </Modal>
 );
 
+/** Una publicación de Instagram que no es video, o un anuncio de imagen: lo que la réplica de Image sabe leer. */
+const esImagenDeSpy = (p: Pick<PiezaVista, 'canal' | 'tipo' | 'medio'>): boolean =>
+  (p.canal === 'instagram' && p.tipo === 'publicacion' && p.medio !== 'video') || (p.canal === 'anuncios' && p.tipo === 'anuncio' && p.medio !== 'video');
+
 export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas, analizando, onCerrar, marco = MARCO_MODAL }: {
   p: PiezaVista;
   /** El nombre del competidor. */
@@ -357,6 +362,8 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
 
           {/* Ticket 97: un video (reel, YouTube, anuncio en video) se desarma plano a plano con el Gemini del negocio. */}
           {fuenteVideo ? <Desarmar fuente={fuenteVideo} duracionS={segundosIso(p.duracion)} editor={marco === MARCO_MODAL} /> : null}
+          {/* Un carrusel o una imagen de anuncio: estructura, textos exactos, tipografía y paleta, y «Replicar en Image». */}
+          {!fuenteVideo && esImagenDeSpy(p) ? <DesarmarImagen piezaId={p.id} /> : null}
 
           {textoPropio && (
             <section>

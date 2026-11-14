@@ -74,3 +74,8 @@
   .numeros b { font-size: 18px; }
   .numeros span { font-size: 12px; }
 }
+
+/* La paleta de un carrusel desarmado (app/competitor-spy/DesarmarImagen.tsx): una muestra por color, con su hex. */
+.paleta { display: flex; flex-wrap: wrap; gap: 6px; }
+.paleta span { width: 64px; height: 48px; border-radius: 10px; border: 1px solid var(--border); display: flex; align-items: flex-end; padding: 4px; }
+.paleta small { font-size: 11px; font-variant-numeric: tabular-nums; padding: 0 4px; border-radius: 4px; background: var(--surface); color: var(--ink); }

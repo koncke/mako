@@ -185,7 +185,10 @@ export async function mirarVideoConGemini(p: PedidoVideoGemini): Promise<Respues
           ultimo = detalle;
           console.warn(`[desarmar-gemini] cuenta ${nroCuenta(prov)} · ${model}: ${detalle.slice(0, 200)}`);
           if (esSaturacion(detalle)) { anotarSaturado('gemini', model); saturados += 1; continue; }
-          // Otro error (un video privado, una clave mala, la cuota) no cambia con otro modelo: otra cuenta.
+          // ⚠️ LA CUOTA ES POR MODELO (medido el 14/11/2026 en el negocio de MaKo: «limit: 20, model: gemini-3.8-flash» por día en
+          // el plan gratis). Un 429 del modelo principal deja probar el de respaldo en la MISMA cuenta, que tiene la suya.
+          if (res.status === 429) continue;
+          // Otro error (un video privado, una clave mala) no cambia con otro modelo: otra cuenta.
           break;
         }
         const u = data.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
