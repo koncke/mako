@@ -5608,6 +5608,46 @@ de cada fila («Learn More»: no hay a dónde llevarlo); «Su guion, con tu ofer
 «Hacer uno así» del detalle de Spy; lib/funciones-mako.ts dice «Todavía no: revisar solo todos los días» y foreplay-relevo/plan-spy.md
 dice que los Seguidos se leen todos los días desde el 13/11: hay que decidir cuál vale antes de prometerlo en la landing.
 
+## /vsl/ads contra Master Ads: lo que se ve quieto, lo que crece de costado y el candado que se borra solo (14/11/2026, noche)
+
+La copia fiel de Marketing CoPilot (`app/vsl/_competencia/disenos/ads.tsx`); el relevo con capturas y videos está en las notas de
+la sesión, `referencias-landings/ads/relevo.md`, y el resumen de medidas en `docs/diseno/landings-competencia/ads.md`.
+
+- **La referencia que parece animada era QUIETA.** Antes de copiar «las animaciones», medir qué se mueve: `document.getAnimations()`
+  en cada paso de un scroll con la rueda, un `MutationObserver` sobre `style`/`class` y un `IntersectionObserver` espiado desde
+  `addInitScript` (`referencias-landings/ads/scripts/relevar.mjs` en las notas de la sesión). Master Ads dio cero videos, cero apariciones al bajar y tres animaciones CSS.
+  Lo que no se ve en una captura y sí en el video: **`transform-origin: 0 center`** en los botones que respiran (el centrado crece
+  hacia la derecha), y el «anillo» alrededor de cada botón es la animación a mitad, no un borde: la copia tenía un anillo FIJO de
+  9 px y el origen al centro. Regla: un efecto se confirma con cuadros del video (el borde que no se mueve), no con una captura.
+- **Un hover que existe en el CSS y no se ve**: las opciones del hero tienen `hover:bg-accent`, pero `ma-option-light` anima el fondo
+  en todos sus cuadros y la animación le gana. Copiar «el hover» sin la animación lo haría aparecer donde el original no lo muestra.
+- **`curl` no ve la página**: masterads.ai devuelve el desafío de Cloudflare («Just a moment…»); Chromium headless lo pasa solo, sin
+  tocar nada. Se lee con el navegador; el HTML de `curl` es el del desafío.
+- **Un nombre de la app copiado a la landing se queda viejo**: el texto decía «Funcionan, En prueba y Para revisar» y las columnas de
+  Campañas son Funcionan / **Por decidir** / Para revisar (`COLUMNAS` en `lib/media-buyer/campanas-grupos.ts`, desde el 6/11). Regla:
+  un nombre de pantalla en una landing se lee del código que la dibuja, el día que se escribe.
+- **Otra pantalla como si fuera ésta**: la sección «Agente desde WhatsApp» mostraba `chats.webm` (la bandeja de Chats con leads), que
+  no es MaKo contestando tus preguntas. Va `copilot-whatsapp.webm` (`C:/dev/bancos-portada/banco-copilot-whatsapp/chat.html`): el
+  teléfono de la referencia con lo que contestan `ver_estado_meta` y `ver_media_buyer` (lib/api-mako/areas/ads.def.ts).
+- **Un botón sin JavaScript para el visor y sin `onClick` para el test**: la pausa de la tira de integraciones es una casilla con su
+  rótulo (`:checked ~ … { animation-play-state: paused }`): un `<button>` sin `onClick` lo marca `tests/ningun-boton-muerto.test.ts`,
+  y un script lo borra el visor. La casilla es la que se enfoca y se lee; el rótulo sólo dibuja pausa ↔ play.
+- **`recordVideo` con `deviceScaleFactor: 2` NO graba al doble**: pidiendo un video de 780 × 1440 para una ventana de 390 × 720, el
+  cuadro sale a 1× en la esquina de arriba a la izquierda y el resto gris (`banco-copilot-reporte/grabar-tel.mjs`). Se recorta con
+  `crop=390:720:0:0`. Para un video nítido al doble, la página se arma al doble (`html { zoom: 2 }` con la ventana al doble, como
+  `banco-copilot-whatsapp/chat.html`), cuidando que una app con cortes de ancho no cambie de diseño. Y en Campañas del CoPilot, el
+  botón flotante de MaKo (abajo a la izquierda) tapa una tarjeta: se esconde SÓLO en el banco.
+- **`tsc-acotado` sobre un diseño de landing no termina**: `disenos/ads.tsx` arrastra el registro entero de las 19 landings; con 2,5 GB
+  de heap sale 134 (sin memoria) y con 4 GB lo corta el vigía (código 1, 0 bytes). Queda «no se pudo chequear»; el test de las landings
+  (que dibuja cada página con React) es lo que sí corre.
+- **El candado `.grabando` se borró solo mientras era mío**: lo tomé a las 05:25 y a las 05:31 ya no estaba (otra tarea lo borró al
+  terminar sin mirar de quién era). Regla: borrarlo sólo si lleva tu nombre (`grep -q mi-nombre .grabando && rm .grabando`), y
+  tomarlo con `set -o noclobber` para que dos no lo tomen a la vez.
+
+**SIN HACER / para decidir.** Con el sol y la luna en modo claro, las bandas oscuras de la referencia («lo de siempre», «Pensado
+para…») y los marcos del video y del teléfono pasan a celeste (`TemaSitio`, regla de Martín del 12/11: todo de un solo modo). En
+Master Ads son verde profundo. Si Martín prefiere la copia fiel, es poner `data-tema-fijo` en esas secciones de `disenos/ads.tsx`.
+
 ## AI Avatar como HeyGen: el video arranca solo, los bordes al 10 % desaparecen y la cara de los presets (14/11/2026, noche)
 
 Martín: «que la copia salga muy fiel a todas las animaciones… los videos, los hover, todo». HeyGen se miró con Chromium a 1440 y a
