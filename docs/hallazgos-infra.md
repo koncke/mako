@@ -250,6 +250,15 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 ---
 
 
+## Una punta que ya se subió y después se rebasó: no se fuerza, se une, y después NUNCA `pull --rebase` (14/11/2026, claude5)
+
+La punta tenía un commit subido (rojo en GitHub, sin llegar a main) y el arreglo se rebasó sobre main: el push normal se rechaza
+y el forzado lo frena el clasificador de Claude Code (es destructivo para la rama remota). La salida sin perder nada:
+`git merge -s ours origin/punta/<rama>` —une la historia remota y deja el árbol propio, que ya tiene ese cambio rebasado— y push
+normal. ⚠️ Después de esa unión, **`git pull --rebase` intenta reaplicar el commit viejo** (rebase linealiza y la unión «ours» no
+cuenta como aplicada) y para en conflicto: `git rebase --abort` vuelve a donde estaba, y main se trae con `git merge origin/main`.
+**Regla: si la punta ya se subió, se trae main con merge, no con rebase.**
+
 ## `git checkout --theirs` se lleva el archivo ENTERO, no sólo el pedazo en conflicto (12/11/2026, chat «probar-copy»)
 
 - **Síntoma:** una punta chocó con main en dos pedazos de `tests/copywriter.test.ts` (los dos lados decían lo mismo con otras
