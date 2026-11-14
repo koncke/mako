@@ -419,11 +419,12 @@ de tiempo); curso y comunidad sin textos de más; Comparaciones con la tabla ent
 tarjetas limpias; el ahorro en dos columnas y sin HeyGen; el checkout sin el subtítulo de Mercado Pago, sin el renglón repetido ni subtotal.
 
 **En curso, con agentes** (uno por landing, como mucho tres a la vez por la RAM; el candado de navegador es C:/dev/bancos-portada/.grabando):
-**AL DÍA (14/11, 13:25, cuenta al 96 %):** subidos y en el visor v38 Dashboard (307096e30), Comparaciones y lo que pagas (4f0fc1cee),
-el Reel de Hormozi y el curso de Mauricio (6298e78fe) y Ads Analyst (c05f31e18). SIGUE A MEDIAS sólo Funnels (agente en curso; sus
-archivos: `funnel.ts`, `disenos/funnel.tsx`, `docs/diseno/landings-competencia/funnel.md`, `public/vsl-assets/funnel/`; el `charAt(0)` de
-`disenos/funnel.tsx:283` tiene que pasar a `iniciales()`). FALTAN EMPEZAR: Ops Center (Holo), Plan (Motion) y la LANDING de Automations
-(SetSmart). Lo que sigue abajo, «corte por cuota», quedó viejo salvo la regla de `wip/`.
+**AL DÍA (14/11, 15:15, cuenta al 97 %):** subidas y en el visor v40 las 18 landings terminadas, Funnels incluida (adbcadb42), el
+ticket de lo que pagas con el ahorro al costado y MaKo Pro debajo del total (54b76aae8) y Second Brain primera en la portada, con el
+clic en «La oferta» (banco `C:/dev/bancos-portada/banco-cerebro/`, `grabar.mjs`; datos reales de Hormozi). EN CURSO, con agentes desde
+las 15:10: Ops Center (Holo), Plan (Motion), la LANDING de Automations (SetSmart) y la calculadora de MaKo Tokens de /planes (arriba de
+las columnas, con los tokens de cada plan y el costo real por acción). El Cerebro despliega cuando todo esté en main con verde: avisarle.
+Lo que sigue abajo, «corte por cuota», quedó viejo salvo la regla de `wip/`.
 **CORTE POR CUOTA (14/11, 11:50, cuenta al 95 %). Lo que quedó A MEDIAS, sin commitear en la punta y guardado tal cual en la rama
 `wip/landings-vsl` (un commit aparte, encima de la punta; se retoma con `git checkout origin/wip/landings-vsl -- <archivos>`). NUNCA bajo
 `punta/…`: `.github/workflows/punta.yml` corre la integración a main con toda rama `punta/**` (la primera copia, `punta/landings-vsl-wip`,
