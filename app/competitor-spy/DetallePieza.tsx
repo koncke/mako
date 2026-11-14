@@ -79,6 +79,17 @@ const CSS = `
 .spyd-guion p:last-child{margin:0}
 .spyd-nota{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;padding:11px 14px;border-radius:12px;
   background:var(--surface-2);color:var(--dim);font-size:var(--fs-sm);line-height:1.5}
+/* ⚠️ Los botones y el error de la ficha llevan su estilo ACÁ (14/11/2026). En el teléfono la ficha va en una SheetM
+   (app/m/competitor-spy/SpyM.tsx) y ahí NO se carga la hoja de SpyApp, donde viven .spy-boton y .spy-error. Visto en producción:
+   «Revisar la clave» salía como texto suelto, sin forma de botón (y «Conectar» y «Conectar GPT», desde antes). Los valores son
+   los de SpyApp: en la computadora se ve igual. Test: tests/spy-ficha-estilos.test.ts. */
+.spyd-nota .spy-boton{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;
+  border:0;border-radius:12px;background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1px var(--border-strong);
+  font-size:var(--fs-md);font-weight:600;white-space:nowrap;cursor:pointer;text-decoration:none}
+.spyd-nota .spy-boton:hover:not(:disabled){background:var(--surface-2)}
+.spyd-nota .spy-boton:disabled{opacity:.45;cursor:not-allowed}
+.spyd .spy-aviso.spy-error{margin:0 0 14px;padding:11px 14px;border-radius:var(--r-md);background:var(--bad-bg);color:var(--bad);
+  font-size:var(--fs-sm);line-height:1.5}
 .spyd-vivo{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--dim)}
 .spyd-vivo i{width:7px;height:7px;border-radius:50%;background:var(--primary);animation:spydLatido 1.1s ease-in-out infinite}
 @keyframes spydLatido{50%{opacity:.25}}
