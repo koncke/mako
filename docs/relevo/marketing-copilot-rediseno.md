@@ -33,6 +33,26 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. **
   - Si el scratchpad no está, el HTML del repo tiene todo adentro: se edita el segundo `<style>` y el `<script>` del final.
 - **El negocio simulado:** Federico Cristofari, Competitor Spy del ws 9, `competidor=20`. Sus videos, reels, vistas y fechas son reales; sus anuncios son de ejemplo.
 
+## PARA SEGUIR (14/11, 15:46 UTC, cuenta claude5 al 95 %): lo pendiente, en orden
+
+Todo lo de abajo ya está en main (el último mío: 6682bf0a9). La rama `punta/marketing-copilot-agente` no tiene nada sin subir.
+
+1. **El candado de Esencial de Landings** (ba0de00b2, en `punta/landings-vsl`, todavía NO en main) toca `copiloto/cargar.ts`,
+   `CoPilot.tsx`, `configurar/ConfigurarPiloto.tsx`, `configurar/cargar.ts` y `lib/copiloto/piloto.ts` (`pilotoRedesPermitido`).
+   Antes de tocar esos archivos: `git merge origin/main` cuando el Cerebro lo integre, para no pisarlo.
+2. **Capturas para el Cerebro:** ws 9 ya están (la entrada, en `side-session-notes/…/copiloto-produccion-14-11/`). Faltan las del
+   análisis y el piloto en el **ws 3** (Cliente de Prueba): su entrada YA está completa (Anuncios, VSL con llamada, US$1.000, 3 a 5
+   horas; sin Instagram ni YouTube a propósito, así la nevera no avisa). No salieron porque el panel del navegador estaba oculto (la
+   página queda a mitad de la transición). A 375, después del despliegue de 5014187ec (el teléfono muestra el CoPilot nuevo).
+3. **Meta Ads (5b y 5c de la tabla):** dayparting y «Armar retargeting» sin empezar. Escriben en Meta: la frase de Martín antes de probar.
+4. **Sin hacer y anotado:** lo grabado y no programado como stock de la nevera; «Mejorar» de Oferta en el teléfono (no hay estrella);
+   las destacadas de Instagram (Apify, sin decidir quién paga); que tests-afectados no cuente un `todo` como rojo
+   (docs/hallazgos-infra.md, lo frenó el clasificador: lo decide el Cerebro o Martín).
+
+Commits del 14/11 en orden: e5c761f79 (nevera avisa) · 64d841901 (menú) · 78bd81aea (entrada + oscuro) · 372ef1ff0 (cuenta propia) ·
+ffc841127 (piloto redes) · 1b989a235 (VSL) · 4b263efeb (reel de prueba) · e6edf2cc0 (variaciones mismo ángulo) · cd7ce75c6 (rojo 1356) ·
+5014187ec (teléfono) · e9cb2d729 (sin subtítulos, logo Meta) · 9869f1c50 (?ws= del super admin) · 6682bf0a9 (textos del motor).
+
 ## Lo prometido a Julio para el lunes 17/11: lo hecho el 14/11 y lo que queda
 
 El Cerebro (14/11) pidió, en orden, lo que Martín le prometió a Julio el 13/11 (docs/relevo/llamada-julio-13-11.md, sección «Marketing
