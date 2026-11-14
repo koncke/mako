@@ -12062,3 +12062,29 @@ un bloque llegaba a 12 botones porque cada ancho era uno. Lo que se hizo es esco
   ella vio la cara vieja, producción no lo tenía todavía.
 
 **Vive en:** lib/tarjeta-kanban.ts, app/_ui/TarjetaKanban.tsx, app/_ui/MenuContextual.tsx, app/crm/menu-contextual-crm.ts, tests/recorrido-crm-tarjeta.test.ts
+
+## La tab Tracking vacía de un lead de Mauricio no era el Pixel del NEGOCIO: era el de SU página (14/11/2026, `punta/mako-en-la-app`)
+
+**Síntoma (la llamada con Julio, 13/11, min 25:20):** un lead de Mauricio con la tab Tracking vacía («Sin datos para mostrar»),
+y Martín adivinando «tal vez porque no instaló el Pixel».
+
+**Por qué la ficha no lo decía:** el único aviso de «falta el Pixel» miraba el negocio ENTERO (`pixelPuesto` =
+`landingRecibioEventos`, el semáforo de /integraciones). Mauricio mide en su funnel principal, así que daba `true`; un lead que entró
+por OTRA página, sin `visitor_id`, tenía el bloque de visitas callado (`sinComportamiento`) y la tab quedaba vacía sin una palabra.
+
+**Ahora (lib/pixel-por-pagina-reglas.ts y lib/pixel-por-pagina.ts):** sin un solo evento, el server revisa SU página en
+`landing_visits` y la ficha lo dice en lugar del vacío genérico, una sola vez, con «Conectar el Pixel».
+- La página es `pagina_registro`; sin ella, y si entró por una página (landing, Calendly, Cal.com o sin origen), las que el negocio
+  asignó a SU funnel en /integraciones (`landing.config`). La primera se dice «por la que entró»; las del funnel, «de su funnel»
+  (es una inferencia), y sólo si NINGUNA mide.
+- Si entró por algo que no es una página (formulario de Meta, WhatsApp, a mano…), lo dice en una línea: no hay nada que conectar.
+
+**Trampas:**
+- `pagina_registro` la escribe SÓLO el opt-in del Pixel (mig 0290): si un lead la tiene, esa página casi siempre mide. El caso real
+  de una página sin el Pixel es el de las páginas del funnel.
+- `www.` y sin `www.` son la misma página para esto (una redirige a la otra); para el mapa de calor no (lib/landing-mapa-server.ts).
+- La lectura trae candidatas con `ilike` (host sin `www.` y camino) y la igualdad la decide la URL normalizada. Con el tope de 500
+  filas lleno no se afirma nada: un «conéctalo» sobre algo conectado manda a desconectar lo que funciona.
+- La ventana es 30 días, o desde una semana antes de que entrara si es más viejo (el Pixel pudo estar y sacarse después).
+
+**Sin hacer:** la lista de páginas del negocio con su estado de Pixel en /integraciones (el 4 opcional del relevo de la llamada).

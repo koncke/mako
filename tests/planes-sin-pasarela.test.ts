@@ -32,8 +32,8 @@ test('SIN AGENDA (24/10, Martín: «No voy a usar Calendly»): ningún botón ni
 
 test('el botón del plan: «Empezar» sólo si se puede pagar; si no, «Quiero …» y se pide en la página del plan', () => {
   assert.deepEqual(botonDelPlan({ id: 'pro', nombre: 'MaKo Pro', cobrable: true, sufijo: '?ref=ana' }), { href: '/planes/pro?ref=ana', texto: 'Comienza tu prueba gratuita' });
-  // El plan sin prueba sigue diciendo «Empezar» (la prueba es sólo de Pro: `planConPrueba`).
-  assert.deepEqual(botonDelPlan({ id: 'esencial', nombre: 'MaKo Esencial', cobrable: true, sufijo: '' }), { href: '/planes/esencial', texto: 'Empezar con MaKo Esencial' });
+  // Desde el 14/11/2026 Esencial también trae la prueba (Martín: «habilita nuevamente la prueba gratuita en el del 47»).
+  assert.deepEqual(botonDelPlan({ id: 'esencial', nombre: 'MaKo Esencial', cobrable: true, sufijo: '' }), { href: '/planes/esencial', texto: 'Comienza tu prueba gratuita' });
   assert.deepEqual(botonDelPlan({ id: 'pro', nombre: 'MaKo Pro', cobrable: false, sufijo: '?ref=ana' }), { href: '/planes/pro?ref=ana', texto: 'Quiero MaKo Pro' },
     'el origen y el partner viajan en el sufijo a la página del plan');
 });

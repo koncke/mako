@@ -1507,6 +1507,14 @@ export const RUNNERS: Runners = {
         partes,
       });
       const r = await emitirAviso({ ws: ctx.ws, ...aviso });
+      // Y AL SETTER DE ESE LEAD (14/11/2026, la llamada con Julio): el aviso de una automatización sobre un lead —«Sólo te
+      // avisa» y el hand-off de «Otra cosa» del AI Step salen por acá— le llega también a la persona que lo sigue, con un
+      // push a su teléfono y un WhatsApp por la puerta de MaKo (lib/aviso-al-setter.ts). El del grupo no cambia. No tira.
+      if (lead && desdeUnFlujo(ctx)) {
+        const { avisarAlSetterDelLead } = await import('@/lib/aviso-al-setter');
+        const que = partes ? textoDePreparadas(partes) : mensaje;
+        await avisarAlSetterDelLead(ctx.ws, lead.id, respuesta ? `${que}\n\n«${respuesta.slice(0, 400)}»` : que);
+      }
       // Si salió por email lo dice el aviso armado (`asuntoEmail`), no una copia de su condición.
       return resultadoDelAviso(r, lead, aviso.asuntoEmail !== undefined);
     },

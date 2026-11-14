@@ -50,7 +50,7 @@ export type PlanEnTarjeta = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd
 export const TEXTO_PAGOS = 'Desde Argentina pagas en pesos, con Mercado Pago.';
 /** La línea de la prueba, para quien la necesite fuera de las tarjetas (las tarjetas ya no la repiten abajo). */
 export const TEXTO_PRUEBA = PRUEBA_GRATIS_PRENDIDA
-  ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: si te das de baja antes del día ${PRUEBA_DIAS + 1}, no se te cobra nada. Esencial se paga al empezar.`
+  ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: si te das de baja antes del día ${PRUEBA_DIAS + 1}, no se te cobra nada.`
   : 'Pagas al empezar y te das de baja cuando quieras.';
 
 export const CEJA_SOFTWARE = 'Lo haces tú, con MaKo';

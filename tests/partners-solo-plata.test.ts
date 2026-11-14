@@ -103,7 +103,7 @@ test('el CÓDIGO en el carrito: escrito gana; si no, el primer link (cookie) y d
   assert.match(ruta, /const refQueCuenta = await codigoQueCuenta\(\{ escrito: pedido\.codigoEscrito, cookie: codigoRefLimpio\(req\.cookies\.get\(COOKIE_REF\)\?\.value\), url: pedido\.ref \}, esCodigoDePartner\);/);
   assert.match(TEXTO_CODIGO_NO_EXISTE, /no existe/);
   const compra = fuente('app/planes/[plan]/CompraPlan.tsx');
-  assert.ok(compra.indexOf('<CodigoReferido') > 0 && compra.indexOf('<CodigoReferido') < compra.indexOf('<button className="planes-btn" type="submit"'), 'arriba del botón de pagar');
+  assert.ok(compra.indexOf('<CodigoReferido') > 0 && compra.indexOf('<CodigoReferido') < compra.indexOf('type="submit"'), 'arriba del botón de pagar');
   assert.match(compra, /codigo: codigoParaMandar\(codigo, p\.refCodigo\)/);
   const quiero = fuente('app/planes/[plan]/QuieroPlan.tsx');
   assert.match(quiero, /\{preguntas\.length === 0 && \(\s*<CodigoReferido/, 'el Acelerador (con preguntas) no lleva código');

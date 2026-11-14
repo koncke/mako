@@ -197,8 +197,9 @@ test('con id: tiene que seguir VACÍA (si no, no se pisa), se PAUSA antes de esc
 
 test('la ruta y la API llaman a la MISMA función (`crearFlujoConIA`), y la API va sin http, por chat y sólo para un admin', () => {
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
-  // (23/10/2026, AU4: con lo adjuntado, leído, al final del pedido.)
-  assert.match(ruta, /const r = await crearFlujoConIA\(\{ ws, pedido: conAdjuntos\(pedido\), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\);/);
+  // (23/10/2026, AU4: con lo adjuntado, leído, al final del pedido.) (14/11/2026, a propósito: con la fila lo corta la marca de
+  // «Cancelar», `corte`, y no la pestaña: tests/flujo-ia-trabajo.test.ts.)
+  assert.match(ruta, /const r = await crearFlujoConIA\(\{ ws, pedido: conAdjuntos\(pedido\), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: corte\?\.signal \?\? req\.signal, alFase: send, respuestas, historial, via: 'app' \}\);/);
   assert.doesNotMatch(ruta, /crearSecuenciaVacia|setSecuenciaPasos|setTriggerSecuencia/, 'la ruta volvió a crear por su cuenta');
   const lib = sinComentarios(leer('lib/flujo-ia-crear.ts'));
   assert.match(lib, /^import 'server-only';/m);

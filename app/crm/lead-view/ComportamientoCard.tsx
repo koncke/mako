@@ -55,7 +55,8 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { filaDeRetencionInforma, rotuloDe, videoNombrable, type VideoLanding } from '@/lib/landing-videos';
 import type { TrackingEvent, VideoEngagement } from '@/lib/leads';
-import { TrackingTimelineCard } from './TrackingTimelineCard';
+import { AvisoSinTracking, TrackingTimelineCard } from './TrackingTimelineCard';
+import type { SinTracking } from '@/lib/pixel-por-pagina-reglas';
 import { NombrarVideosModal } from './NombrarVideosModal';
 import { GrabacionCard } from './GrabacionCard';
 import type { ReplayEnLaFicha } from '@/lib/replay-ficha';
@@ -129,7 +130,7 @@ const TODAS_C: Required<PartesComportamiento> = { visitas: true, video: true, ac
 
 export function ComportamientoCard({
   visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], eventos = [], pixelPuesto = true,
-  replay = null, partes, rotulo = 'Comportamiento',
+  sinTracking = null, replay = null, partes, rotulo = 'Comportamiento',
 }: {
   visitas: number; dias: number; plays: number; maxPct: number | null; tieneVisitor?: boolean;
   /** Uno por video medido. Con 0 o 1 la tarjeta se pinta como siempre. */
@@ -141,6 +142,9 @@ export function ComportamientoCard({
   eventos?: TrackingEvent[];
   /** ¿El Pixel de MaKo está midiendo? Sólo lo usa el vacío del recorrido. */
   pixelPuesto?: boolean;
+  /** Por qué no hay nada, cuando se sabe (14/11/2026): la página por la que entró sin el Pixel, o que no entró por una
+   *  página. Va EN LUGAR de los vacíos genéricos, y una sola vez aunque se dibujen las visitas y el recorrido. */
+  sinTracking?: SinTracking | null;
   /** Las grabaciones PROPIAS de esta persona, o por qué no hay ninguna. Lo resuelve
    *  el server (`replayDeLead`, lib/replay-leer.ts): necesita el apagador del
    *  workspace y el índice scopeado, que el navegador no puede leer.
@@ -197,12 +201,19 @@ export function ComportamientoCard({
   const sinDatos = !visitas && !plays && maxPct == null;
 
 
-  const ver = partes
+  const pedidas = partes
     ? { visitas: !!partes.visitas, video: !!partes.video, actividad: !!partes.actividad, grabacion: !!partes.grabacion }
     : TODAS_C;
+  // Sin nada y sabiendo por qué (la página sin el Pixel, o que no entró por una página): eso, una vez, en lugar de los
+  // vacíos genéricos. Lo dice la sección de las visitas si se dibuja; si no, el lugar del recorrido, que vacío no se dibuja.
+  const recorridoVacio = !!sinTracking && !eventos.length;
+  const avisoArriba = !!sinTracking && sinDatos && pedidas.visitas;
+  const avisoAbajo = recorridoVacio && pedidas.actividad && !avisoArriba;
+  const ver = { ...pedidas, actividad: pedidas.actividad && !recorridoVacio };
   return (
     <>
-      {(ver.visitas || ver.video) && <section style={card}>
+      {avisoArriba && sinTracking && <AvisoSinTracking sin={sinTracking} rotulo={rotulo} />}
+      {!avisoArriba && (ver.visitas || ver.video) && <section style={card}>
         <div style={{ ...sectLabel, marginBottom: sinDatos ? 10 : 14 }}>{rotulo}</div>
         {/* Sin ningún dato: mensaje claro en vez de tres cuadros con rayas. */}
         {sinDatos && ver.visitas ? (
@@ -285,6 +296,7 @@ export function ComportamientoCard({
           lo nuestro, que es el orden que pidió Martín. Se monta acá adentro y no
           suelto en los dos montajes — si volviera, la misma ficha lo dibujaría dos
           veces (lo fija `tests/crm-tracking-ficha.test.ts`). */}
+      {avisoAbajo && sinTracking && <AvisoSinTracking sin={sinTracking} />}
       {ver.actividad && <TrackingTimelineCard eventos={eventos} pixelPuesto={pixelPuesto} />}
 
       {/* La grabación de su visita, después del recorrido. Con `null` no se
