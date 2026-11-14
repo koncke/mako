@@ -6,6 +6,47 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 [hallazgos-customer-success.md](hallazgos-customer-success.md); la seguridad del «Entrar como», en
 [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Vista de agencia».
 
+## ⚠️ «No puede entrar a inspeccionar» era un bloqueo CORRECTO sin aviso (14/11/2026)
+
+**Vive en:** `app/api/agencia/entrar/route.ts` (contesta `pausa: 'falta-pagar'` ANTES de la cookie), `lib/agency-reglas.ts`
+(`faltaPagarParaEntrar`, `avisoFaltaPagar`, `avisoEnPausa`), `app/agency/AgencyApp.tsx` (el aviso en la fila y en la ficha),
+`app/agency/Mensualidad.tsx` (`resaltar`), `app/m/agency/*`. Test: `tests/agency-aviso-falta-pagar.test.ts` (la ruta REAL sobre una base
+de mentira, probado rompiéndolo cinco veces).
+
+- **Síntoma:** Código Inmobiliario (13) le dijo a Martín que no podía entrar a inspeccionar a Giselle Belanti (17) ni a Marcela
+  Fernandez (23).
+- ⚠️ **El diagnóstico obvio era el equivocado.** Con el #85 fresco, todo decía «la pantalla esconde la puerta» o «falta un permiso».
+  Medido en producción (sólo lectura): las dos en pausa, con el corte `paga-para-entrar` de la mensualidad del 13 vigente y ningún
+  pago. **El bloqueo era correcto; lo que fallaba era cómo se enteraba la agencia.** `/api/agencia/entrar` sólo mira la cartera
+  (`puedeEntrarAhora`), así que DABA la cookie; recién `/inicio` → `requireSesion` la mandaba a `/cuenta-pausada`: otra pantalla,
+  «Este cliente está en pausa… Escribir a MaKo», y «Salir de la cuenta» para volver. Para la agencia, eso es «no me deja entrar».
+- **La regla:** una puerta que va a cerrar se cierra EN la puerta, con el motivo, y no dos pantallas después. La ruta contesta 409
+  `{ pausa: 'falta-pagar' }` sin cookie, y va DESPUÉS del permiso: a quien no es su cartera, el 404 de siempre (no se le cuenta que ese
+  cliente existe, menos que está en pausa).
+- **Antes de tocar, la fila ya lo dice:** «Falta pagar» en Estado, y la cuenta cae en «Por pagar». Sale de `FilaMensualidad.enPausa`, que
+  la pantalla ya traía: la misma fila decía «Activa» en Estado y «Paga para entrar» en Mensualidad a la vez.
+- **Sólo el corte de la mensualidad de ESTA agencia.** Otra pausa (la pasarela, una a mano, la mensualidad de otra agencia) entra como
+  antes y /cuenta-pausada dice por qué. Si el corte no se puede leer, entra como antes (fail-open, como `negocioPausado`).
+- **«Pagar su mes» no tiene link:** la mensualidad se paga por Binance, por fuera de MaKo. El botón baja hasta la entrada de ese
+  cliente en la Mensualidad y la marca. Sin la mensualidad en la pantalla, recarga con `?vista=mensualidad`.
+- **El teléfono no dice «Falta pagar» ni ofrece pagar** (T5 y #94; `tests/agency-telefono-94.test.ts` lo prohíbe): «En pausa» y «No
+  puedes entrar: X está en pausa. Se resuelve en la computadora.». El `error` de la ruta usa ese texto, porque el teléfono lo muestra.
+- **Medido el 14/11 (lectura): en pausa por la mensualidad hay TRES, no dos:** Giselle, Marcela y Pablo Chavez (18). Las tres entradas
+  «Vence hoy», US$ 32,90 cada una.
+- **Trampa del banco:** la tabla de la Mensualidad TAMBIÉN es `.ad-tabla`: `.ad-tabla .ad-fila` + «Giselle» agarra primero «Entrada de
+  Giselle», que no tiene botón. La lista de clientes es `[aria-label="Las cuentas de tus clientes"]`.
+- **Trampa de la lectura:** `cuentasDePartner` fuera de un pedido loguea «no pude leer qué leads tienen cuenta: `cookies` was called
+  outside a request scope» y sigue: «En tu CRM» sale vacío en el banco; el resto es real.
+- De paso: «Paga para entrar · US$ 32,90 hoy» (`nowrap`) pisaba «Desde» en la ficha y ensanchaba la fila a 375. Ahora corta línea.
+
+### Sin hacer
+
+- Las otras pausas (la pasarela, a mano) siguen dando la cookie y yendo a /cuenta-pausada. Su texto para la agencia ya existe
+  (`textoDelCorte(..., { paraAgencia: true })` en `lib/plan-acceso-reglas.ts`): llevarlo a la fila es lo mismo con otro texto.
+- No se vio con la sesión de Joan en el navegador de la app: el banco (`scripts/banco-agency/`) dibuja los componentes REALES con los
+  datos leídos de producción. Su guardia corta todo `fetch` que no sea GET; una lectura que fuera directo a Postgres no pasaría por
+  ahí (hoy ninguna de las que usa lo hace).
+
 ## ⚠️ «No me deja iniciar el onboarding ni inspeccionar»: la mensualidad y la pasarela se separaban de UN solo lado (ticket #85, 11/11/2026)
 
 **Vive en:** `lib/agencia-cobro-reglas.ts` (`cobraPorPasarela`, puro), `lib/partners.ts` (`cuentasDePartner` y `abrirCuentaDePartner`),
