@@ -4808,6 +4808,14 @@ ES2018 en el CUERPO (`(?<!…)`) va en `new RegExp('…')`, como `lib/al-tuteo.t
 `TS2345` (corrida 1231, un test de Copywriting). `tsx` tampoco lo ve. Se le da el tipo:
 `const xs: string[] = [...(texto.match(re) ?? [])]`.
 
+# A `upsertOferta` se le pasa la oferta ENTERA, nunca un parcial (13/11/2026)
+
+`fila()` (lib/ofertas.ts) dice «lo que no venga, no se toca», pero cada texto se arma con
+`input.promesa?.trim() || null`: lo que no viene sale `null`, no `undefined`, y se escribe. Editar
+una oferta mandando sólo «para quién» borraba su promesa, su precio en nota, lo que incluye, la
+garantía y la urgencia, sin error. Se lee la oferta, se pisa el campo y se manda todo
+(`completarOferta`, lib/copywriter/replica-servidor.ts). docs/hallazgos-offer.md.
+
 # «No puedo hacer X con este dato» no es «este dato es falso»
 
 Un control que descubre que no puede ACTUAR sobre algo tiene una sola salida honesta:
@@ -6711,6 +6719,11 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
   vacíos): el `fetch` resuelve el `..` y la firma sale para otra carpeta u otro bucket. Molde: `rutaDeEsteLead`
   (app/api/doc). Y antes de endurecer un formato, se cuenta en la base qué formatos hay: hay contratos viejos sin el ws.
 - **Un proxy de archivos no repite el Content-Type de quien los mandó**: lista de tipos, `attachment` y `nosniff`.
+- **Una subida se juzga con `veredictoDeSubida` (lib/editor-landing/server-reglas.ts), nunca con «el tipo declarado es igual al
+  real»**. El navegador declara el tipo por la extensión: entre dos imágenes vale lo que el archivo ES, y se guarda con esa
+  extensión. Lo que no sirve dice qué se vio y qué hacer. Una foto HEIC o AVIF lleva `ftyp` como un MP4 o un M4A, y
+  `formatoVisto` la reconoce. Image le suma el audio (`veredictoDeImage`); no se copia la función. Tickets #95 y #96 y
+  docs/hallazgos-editor-imagen.md, 13/11/2026.
 - **Todo handler de `app/api/cron` empieza con `checkCronAuth(req)`** (tiempo constante, fail-closed), y ninguna ruta
   lee `CRON_SECRET` por su cuenta.
 - ⚠️ **Y un cron de SESIÓN no es infraestructura: lo que tiene que correr SIEMPRE va acá, nunca

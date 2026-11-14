@@ -22,8 +22,9 @@ import { EditorGuion, type ApiPagina } from '@/app/copywriter/editor/EditorGuion
 import { PanelMaKo, type GuionVivo } from '@/app/copywriter/PanelMaKo';
 import type { OfertaCorta } from '@/lib/copywriter/iniciativa';
 import { pedirPapelera, pedirRenombrar } from '@/app/copywriter/cliente';
+import { OriginalAlLado } from '@/app/copywriter/OriginalAlLado';
 
-type Vista = 'guion' | 'mako';
+type Vista = 'guion' | 'mako' | 'original';
 /** El «‹ Guiones» de la barra (el mismo de app/m/copywriter/[id]/page.tsx). */
 const PADRE_GUION = { href: '/m/copywriter', label: 'Guiones' };
 // (El id sigue siendo «guion»: lo usan el segmentado y las notas guardadas por vista.)
@@ -62,7 +63,11 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
           diciendo «Sin título» con el título ya escrito, hasta volver a abrir la página. */}
       <CabeceraM titulo={pagina.titulo} padre={PADRE_GUION} trabajo />
       <div className="m-copywriter-seg">
-        <SegmentadoM etiqueta="Vista" valor={vista} onCambio={setVista} opciones={[{ id: 'guion', label: 'Página' }, { id: 'mako', label: 'MaKo', n: pausa ? 1 : null }]} />
+        {/* La réplica de un outlier suma «Original» (13/11/2026, el flujo nuevo): lo transcrito, para leerlo junto a lo escrito. */}
+        <SegmentadoM<Vista> etiqueta="Vista" valor={vista} onCambio={setVista} opciones={[
+          { id: 'guion', label: 'Página' }, { id: 'mako', label: 'MaKo', n: pausa ? 1 : null },
+          ...(guion.doc.props.outlier ? [{ id: 'original' as const, label: 'Original' }] : []),
+        ]} />
       </div>
       <div className="nt" data-movil="">
         <div hidden={vista !== 'guion'} className="m-copywriter-vista">
@@ -84,6 +89,11 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
         <div hidden={vista !== 'mako'} className="m-copywriter-vista">
           <PanelMaKo ws={ws} guion={guion} paginas={[pagina]} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={caja} onPausa={alPausar} avisar={avisar} citarRef={citar} onPendiente={setDecidir} ofertas={ofertas} />
         </div>
+        {guion.doc.props.outlier ? (
+          <div hidden={vista !== 'original'} className="m-copywriter-vista">
+            <OriginalAlLado outlier={guion.doc.props.outlier} telefono />
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -350,13 +350,15 @@ export const RUNNERS: Runners = {
       const formato = esFormatoCopy(input.formato) ? input.formato : null;
       const limite = typeof input.limite === 'number' && input.limite >= 1 ? Math.min(50, Math.floor(input.limite)) : 12;
       const portada = await leerOutliersCopy();
-      const vistos = filtrarOutliersCopy(portada.outliers, { formato, q: str(input, 'buscar') }).slice(0, limite);
+      const vistos = filtrarOutliersCopy(portada.outliers, { formato, q: str(input, 'buscar'), tema: input.deTuTema === true }).slice(0, limite);
       return json({
         outliers: vistos.map((o) => ({
           outlierId: o.id, formato: o.formato, creador: o.creador.usuario ? `@${o.creador.usuario}` : o.creador.nombre, gancho: o.gancho,
           texto: o.texto, queTexto: ROTULO_TEXTO[o.deDonde], outlier: o.multiplo?.veces ?? null, diasAlAire: o.diasAlAire ?? null, link: o.url,
+          tema: o.tema ?? null, idioma: o.idioma ?? null, deTuTema: o.deTuTema ?? null,
         })),
         total: vistos.length,
+        temaDelNegocio: portada.tema?.negocio.nombre ?? null,
         ...(portada.caidas.length ? { noSePudoLeer: portada.caidas.map((c) => `${c.nombre}: ${c.motivo}`) } : {}),
       });
     },
@@ -375,7 +377,7 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload): Promise<Ejecutado> => {
       const r = await replicarOutlier(str(payload, 'outlierId'));
       if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
-      return { ok: true, resumen: `Listo: ${nombreDe(r.pagina)}. Al abrirla, MaKo pregunta para qué oferta y la escribe.`, datos: { documentoId: r.pagina.id, link: linkDoc(r.pagina.id) } };
+      return { ok: true, resumen: `Listo: ${nombreDe(r.pagina)}. Al abrirla, MaKo transcribe el original si es un video, pregunta para qué oferta y la escribe.`, datos: { documentoId: r.pagina.id, link: linkDoc(r.pagina.id) } };
     },
   },
 };

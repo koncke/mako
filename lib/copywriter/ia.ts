@@ -261,8 +261,8 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(declarado?.prompt ?? null, vosea), formato: FORMATO_EDITAR })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
     // LA OFERTA ENTERA, nunca sólo su nombre (13/11/2026, el relevo: con el nombre solo, MaKo inventaba; ./oferta-elegida.ts). La que
-    // nombra el pedido o la charla, o la principal; con sus datos y lo que le falta.
-    const elegida = ofertaDelPedido(`${instruccion}\n${charla}`, ofertas);
+    // nombra el pedido o la charla, o la principal; con sus datos y lo que le falta. «Para mi negocio en general», ninguna.
+    const elegida = ofertaDelPedido(instruccion, ofertas, charla);
     const producto = elegida ? productos.find((x) => x.nombre.trim().toLowerCase() === elegida.nombre.trim().toLowerCase()) ?? null : null;
     const oferta = bloqueDeOferta(elegida, producto);
     const conOferta = `${bloqueNegocio(negocio)}${oferta ? `\n\n${oferta}` : ''}`;

@@ -38,14 +38,11 @@ import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
 import { PLANES_MAKO_DEFAULT, type PlanMako } from '@/lib/planes-mako';
 import { Barra } from './Barra';
 import { AvatarVideos, TablerosCarrusel } from './Interactivos';
-import { CSS_IA, ConectaTuIA, CostoDeLaIA } from './SeccionesIA';
-import { CSS_FUNNELS, FunnelsSitio } from './Funnels';
-import { CSS_MAS_CASOS, MasCasos } from './MasCasos';
 import { Pie } from './Pie';
-import { Boton, Flecha, Icono } from './Piezas';
+import { Boton, Flecha } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
 import {
-  VIDEOS_AVATAR, LOGO_INTEGRACION, PREGUNTAS_SITIO, TABLEROS, RUTA_COMPARACIONES, RUTA_PRECIOS, APARTADOS_PORTADA, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
+  VIDEOS_AVATAR, LOGO_INTEGRACION, PREGUNTAS_SITIO, TABLEROS, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
 } from './datos';
 import { STACK_TIPICO, appsQueReemplaza } from './reemplaza';
 
@@ -232,23 +229,11 @@ function ProductoSitio() {
     <section className="s-sec s-sec-funciones">
       <div className="s-cont">
         {/* Sin «Producto / Todo lo que necesitas para vender High Ticket» ni su botón (Martín, 13/11/2026: «elimínalo»): cada
-            función lleva su prueba gratis. Y en DOS APARTADOS (la llamada con Leila, 13/11/2026): adquisición y entrega. */}
-        {(['adquisicion', 'entrega'] as const).map((ap) => {
-          const filas = TARJETAS_PORTADA.filter((t) => (t.apartado ?? 'adquisicion') === ap);
-          const a = APARTADOS_PORTADA[ap];
-          return (
-            <div key={ap} className="s-apartado" id={ap === 'entrega' ? 'entrega' : 'adquisicion'}>
-              <div className="s-centro s-apartado-cab">
-                <p className="s-rotulo">{a.rotulo}</p>
-                <h2 className="s-h2">{a.titulo}</h2>
-                <p className="s-lede">{a.bajada}</p>
-              </div>
-              <div className="s-zz">
-                {filas.map((t, i) => <FilaFuncion key={`${t.slug ?? t.rotulo}-${i}`} {...t} inv={i % 2 === 1} />)}
-              </div>
-            </div>
-          );
-        })}
+            función lleva su prueba gratis. Los dos apartados de la llamada con Leila (adquisición y entrega) se fueron el 14/11:
+            Martín sacó la entrega y dejó sólo la comunidad, al final de la lista. */}
+        <div className="s-zz">
+          {TARJETAS_PORTADA.map((t, i) => <FilaFuncion key={`${t.slug ?? t.rotulo}-${i}`} {...t} inv={i % 2 === 1} />)}
+        </div>
       </div>
     </section>
   );
@@ -420,23 +405,19 @@ function CierreSitio() {
 export function PortadaSitio({ planes }: { planes: readonly PlanSitio[] }) {
   return (
     <div className="s-sitio">
-      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_PIE + CSS_PORTADA + CSS_IA + CSS_FUNNELS + CSS_MAS_CASOS }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_PIE + CSS_PORTADA }} />
       <BrandDefs />
       <Barra />
       <main>
         <HeroSitio />
         <TiraSitio />
         <ProductoSitio />
-        {/* Las mini landings por funnel (la llamada con Leila, 13/11/2026): VSL, WhatsApp, Instagram con lead magnet y YouTube. */}
-        <FunnelsSitio />
-        {/* La llamada con Leila (13/11/2026): «ya trabajo con Claude y me conoce» se contesta después del producto, y lo que
-            cuesta la IA va junto a lo que se ahorra (antes estaba escondido en una pregunta frecuente). */}
-        <ConectaTuIA />
+        {/* Martín (14/11/2026) sacó de acá los funnels (ahora en el menú Industrias, cada uno con su landing), «Se conecta con tu
+            Claude y tu GPT», «Lo que dicen los que trabajaron con Martín» (irá un testimonio de quien ya usa MaKo) y «Tu IA a precio
+            de proveedor». */}
         <CasoSitio />
-        <MasCasos />
         <PlanesSitio planes={planes} />
         <TiraReemplaza />
-        <CostoDeLaIA />
         <IntegracionesSitio />
         <PreguntasSitio />
         <CierreSitio />

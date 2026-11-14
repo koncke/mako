@@ -117,7 +117,7 @@ export const CSS_BARRA = `
 .s-mega-l{display:block;width:fit-content;margin-left:-8px;padding:6px 8px;border-radius:6px;font-size:16px;line-height:20px;font-weight:500;color:#fff;transition:color .15s cubic-bezier(.4,0,.2,1),background-color .15s cubic-bezier(.4,0,.2,1)}
 .s-mega-l:hover{background:rgba(255,255,255,.1);color:${AZUL_HOVER}}
 /* «Solutions»: su columna «For publishers» (362), el hueco de la de anunciantes, y «Featured stories» con su filete a la izquierda. */
-.s-mega-ind{display:grid;grid-template-columns:362px minmax(0,1fr) 380px;gap:48px}
+.s-mega-ind{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 340px;gap:40px}
 .s-mega-ind .s-mg{margin:0 -8px}
 .s-mega-hist{border-left:1px solid ${LINEA};padding-left:40px}
 .s-hist{display:flex;align-items:center;gap:16px;padding:12px;border-radius:8px;background:${SUBCARD};transition:background-color .15s}
@@ -405,8 +405,6 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-ahorro-nota{margin:16px 0 0;font-size:12px;line-height:1.5;opacity:.6}
 @media (max-width:760px){.s-ahorro{grid-template-columns:1fr;padding:0 16px}}
 /* Cada función: su prueba gratis y, abajo, «Ver cómo funciona». */
-.s-apartado + .s-apartado { margin-top: clamp(64px, 9vw, 120px); }
-.s-apartado-cab { margin-bottom: clamp(28px, 4vw, 48px); }
 .s-zz-acc{margin-top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .s-zz-acc .s-zz-a{margin-top:10px}
 /* «Ver cómo funciona»: un link, en azul (Martín, 13/11/2026: «no me gusta que esté en amarillo… en azul, como si fuera un link»). */
