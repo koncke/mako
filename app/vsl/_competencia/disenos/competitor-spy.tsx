@@ -274,6 +274,9 @@ const TONO_DE_FILA = ['azul', 'dorado', 'plata', 'azul'] as const;
 const GRABACION_DE_PESTANA: Readonly<Record<string, { video: string; poster: string }>> = {
   'Sumas a tus competidores': { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' },
   'Tu versión, en Image': { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' },
+  // La pestaña «Anuncios» de la ficha (fase 1 del plan de Foreplay, 79b3439f7): los 64 anuncios reales de @AlexHormozi, con sus días
+  // activos, a dónde mandan, los tests creativos con su «Ganador» y la línea de tiempo (banco-spy-gurus/grabar-anuncios.mjs).
+  'Desde cuándo está a la vista': { video: '/vsl-assets/sitio/spy-anuncios.webm', poster: '/vsl-assets/sitio/spy-anuncios.jpg' },
 };
 
 function Fila({ b, n, visual }: { b: De<'tarjetas'>; n: number; visual?: VisualHero }) {
