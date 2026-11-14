@@ -35,7 +35,7 @@ import {
   monedaDelNegocio, type CambioCampoDeal,
 } from '@/lib/pagos';
 import {
-  avisoDeConservadas, lineasDeCuotas, monedaDeCuota, nombreCuota, ajustarSobre, planComoEstaba, planVacio,
+  avisoDeConservadas, lineaDeCobradaEditada, lineasDeCuotas, monedaDeCuota, nombreCuota, ajustarSobre, planComoEstaba, planVacio,
   type CambioObligacion, type CambioVenta, type Obligaciones, type PlanUniforme,
 } from '@/lib/pagos-campo';
 import { cobradoDelLead, noEsDeuda, type Cobrado } from '@/lib/cobrado-lead';
@@ -150,10 +150,14 @@ export async function editarCuotaAction(leadId: number, pagoId: number, cambio: 
     const despues = { monto: r.despues.monto_usd, fecha: r.despues.fecha_esperada, ...(r.moneda ? { montoOriginal: r.despues.monto_original ?? null } : {}) };
     if (antes.monto !== despues.monto || antes.fecha !== despues.fecha || antes.montoOriginal !== despues.montoOriginal) {
       const enMoneda = (m: number | null | undefined) => (r.moneda ? { moneda: r.moneda, monto_original: m ?? null } : {});
-      await anotarEnHistorial(leadId, lineasDeCuotas({
-        actualizar: [{ id: pagoId, numero: r.numero, monto_usd: despues.monto, fecha_esperada: despues.fecha, ...enMoneda(despues.montoOriginal), antes: { monto_usd: antes.monto, fecha_esperada: antes.fecha, ...enMoneda(antes.montoOriginal) } }],
-        insertar: [], borrar: [], conservar: [],
-      }), await autor());
+      // La de una COBRADA dice «cobrada el …» (14/11/2026): con `lineasDeCuotas` decía «vence 06/11 → vence 30/11» de un día
+      // del pago, y el historial contaba otra cosa que lo que pasó (lib/pagos-campo.ts → `lineaDeCobradaEditada`).
+      await anotarEnHistorial(leadId, cambio?.espera === 'cobrada'
+        ? [lineaDeCobradaEditada(r.numero, { monto_usd: antes.monto, fecha_pago: antes.fecha }, { monto_usd: despues.monto, fecha_pago: despues.fecha })]
+        : lineasDeCuotas({
+          actualizar: [{ id: pagoId, numero: r.numero, monto_usd: despues.monto, fecha_esperada: despues.fecha, ...enMoneda(despues.montoOriginal), antes: { monto_usd: antes.monto, fecha_esperada: antes.fecha, ...enMoneda(antes.montoOriginal) } }],
+          insertar: [], borrar: [], conservar: [],
+        }), await autor());
       bust(TAG.pagos, TAG.leads);
       revalidar(leadId, true);
     }

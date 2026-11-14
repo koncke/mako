@@ -22,7 +22,7 @@ import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, restoEnLaMoneda
 import {
   aplicarObligacion, avisoPlanUniforme, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
   diferenciaDePlan, planCambiadoAfuera, reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
-  avisoDeConservadas, cuotaExistenteDe, lineasDeCuotas, planCambioDesde, planComoEstaba, planPorTramosDelServer,
+  avisoDeConservadas, cuotaExistenteDe, diaDePagoFuturo, lineasDeCuotas, planCambioDesde, planComoEstaba, planPorTramosDelServer,
   type AnticipoPlan, type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type CuotaVista, type FilaVenta,
   type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal, type TramoPlan,
 } from './pagos-campo';
@@ -782,6 +782,13 @@ async function editarCuotaCobrada(
   }
   if (cambio.fecha !== undefined) {
     if (cambio.fecha == null || !/^\d{4}-\d{2}-\d{2}$/.test(cambio.fecha)) throw new Error('El día del pago tiene que ser AAAA-MM-DD.');
+    // ⚠️ UN PAGO NO SE CORRIGE AL FUTURO (14/11/2026, Mauricio): «cobrada el 30/11» era su manera de devolver a pendiente
+    // una cuota que no había pagado. Se dice cómo se hace (pagos-campo.ts → `diaDePagoFuturo`). Sólo si la fecha cambia:
+    // una que ya quedó en el futuro igual deja corregir su monto.
+    if (cambio.fecha !== antes.fecha_esperada) {
+      const futuro = diaDePagoFuturo(cambio.fecha, await hoyEnWorkspace());
+      if (futuro) throw new Error(futuro);
+    }
     despues.fecha_esperada = cambio.fecha;
   }
   const cambiaMonto = Math.abs(despues.monto_usd - antes.monto_usd) >= 0.005;
@@ -941,7 +948,8 @@ export async function marcarPago(
   pagado: boolean,
   fechaPago: string | null = null,
   opts: { mirarLinks?: boolean } = {},
-): Promise<{ quitada: boolean; porLink: Pasarela | null; yaEstaba: boolean }> {
+  /** `cuota`: cuál era y el día del pago que tenía ANTES (al desmarcar, lo que dice el historial: `textoDeVueltaAPendiente`). */
+): Promise<{ quitada: boolean; porLink: Pasarela | null; yaEstaba: boolean; cuota?: { numero: number; fechaPagoAntes: string | null } }> {
   const supabase = (await getTenantDb());
   const { data: pago, error: getErr } = await supabase
     .from('pagos')
@@ -980,7 +988,7 @@ export async function marcarPago(
 
   // Sólo al marcar PAGADO: desmarcar un pago (un error de carga) no reabre la secuencia (`trasCobrar`).
   if (pagado) await trasCobrar(pagoId, pago.cobro_id ?? null);
-  return { quitada, porLink: null, yaEstaba: false };
+  return { quitada, porLink: null, yaEstaba: false, cuota: { numero: Number(pago.numero), fechaPagoAntes: pago.fecha_pago ? String(pago.fecha_pago).slice(0, 10) : null } };
 }
 
 /**
@@ -1005,6 +1013,9 @@ export async function cobrarCuota(
   pendienteEnSuMoneda: { moneda: string; monto: number } | null;
 }> {
   if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
+  // Un cobro con fecha futura no es un cobro (14/11/2026): es la cuota que todavía no pagó (pagos-campo.ts → `diaDePagoFuturo`).
+  const futuro = diaDePagoFuturo(datos.fecha, await hoyEnWorkspace());
+  if (futuro) throw new Error(futuro);
   // La cuota ya se lee con `lead_id`, pero la diferencia de abajo es un INSERT con ese leadId.
   await asegurarLeadDelNegocio(leadId);
   const db = await getTenantDb();
