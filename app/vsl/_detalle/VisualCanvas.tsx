@@ -885,3 +885,6 @@ export function VisualCanvas({ type }: { type: string }) {
   const C = CANVAS_REGISTRY[type];
   return C ? <C /> : null;
 }
+
+/** Los tipos que este archivo SÍ sabe dibujar. Lo usa `hayDibujo` de ./Visual.tsx para no adivinar por el prefijo «cx». */
+export const CANVAS_TYPES = Object.keys(CANVAS_REGISTRY);

@@ -7,8 +7,8 @@
 // Dispatcher <Visual spec={{type,...params}} />. Specs en ./feature-visuals.ts.
 
 import { FaltaAnimacion } from '../_competencia/FaltaAnimacion';
-import { VisualChart } from './VisualCharts';
-import { VisualCanvas } from './VisualCanvas';
+import { VisualChart, CHART_TYPES } from './VisualCharts';
+import { VisualCanvas, CANVAS_TYPES } from './VisualCanvas';
 
 export type VisualSpec = { type: string; [k: string]: unknown };
 
@@ -701,19 +701,45 @@ const REGISTRY: Record<string, (s: VisualSpec) => React.ReactElement> = {
 export const VISUAL_TYPES = Object.keys(REGISTRY);
 
 /**
- * NADA INVENTADO (Martín, 12/11/2026, noche): estos dibujos (tableros, chats y gráficos con datos de mentira) ya no se muestran en
- * el sitio. Cada lugar que los usaba muestra el recuadro de lo que falta (app/vsl/_competencia/FaltaAnimacion.tsx) hasta tener la
- * grabación de la app de verdad. El dibujo queda en `VisualDibujado`, por si se lo necesita para otra cosa que no sea vender.
+ * ¿HAY DIBUJO PARA ESTE SPEC? El criterio es la PERTENENCIA a uno de los tres registros de dibujos, nunca el prefijo del nombre
+ * ni un try/catch: `type.startsWith('rc')` daba por dibujado cualquier `rcLoQueSea` que VisualCharts no tiene, y `VisualChart`
+ * devuelve null — el lugar quedaba VACÍO, sin dibujo y sin recuadro. Con esto, lo que no está en un registro no tiene dibujo.
  */
+export function hayDibujo(spec: VisualSpec | undefined): spec is VisualSpec {
+  if (!spec || typeof spec.type !== 'string' || !spec.type) return false;
+  return Object.hasOwn(REGISTRY, spec.type) || CHART_TYPES.includes(spec.type) || CANVAS_TYPES.includes(spec.type);
+}
+
+/**
+ * NADA INVENTADO (Martín, 12/11/2026, noche): «identifica la cantidad de cosas que hiciste inventándote cosas. Eso yo no lo
+ * quiero… elimina absolutamente todo. De última, pon un placeholder con que aquí falta una animación. O si ya la tenemos,
+ * reemplázala».
+ *
+ * «SI YA LA TENEMOS» ES LA GRABACIÓN DE LA APP, NO EL DIBUJO (14/11/2026, al revisar si acá faltaba la mitad «reemplázala»).
+ * Los specs de ./feature-visuals.ts traen cifras inventadas — «Vendido $62k / Cobrado $38k», la retención del VSL de 100 % a
+ * 18 %, «comprobante.pdf · Monto $2,000 · 14 jul 09:41», la audiencia por edad —, que es justo lo que pidió borrar. Martín
+ * rechazó el dibujo tres veces por escrito (docs/hallazgos-landing.md, octava y novena vuelta: «que sea exactamente el CRM que
+ * tenemos hoy en día, no un inventado», «nunca un dibujo, aunque se vea bien», «tenés prohibido hacerlo»), y el commit
+ * df72e40b4 los apagó a propósito. Lo que reemplaza al recuadro es la grabación: `GRABACION` y `GrabacionDe` en
+ * app/vsl/_competencia/Visuales.tsx, los videos de Panda y las fotos reales.
+ *
+ * POR ESO EL INTERRUPTOR ESTÁ EN false Y LO PRENDE MARTÍN, no un chat (AGENTS.md: «si ninguna referencia calza, se frena y se le
+ * dice a Martín ANTES de construir»). En `true`, las landings de /vsl/<slug> muestran el dibujo donde lo hay y el recuadro sólo
+ * donde no — una línea, sin tocar nada más.
+ */
+const DIBUJOS_EN_LAS_LANDINGS: boolean = false;
+
 export function Visual({ spec, que }: { spec: VisualSpec | undefined; que?: string }) {
+  if (DIBUJOS_EN_LAS_LANDINGS && hayDibujo(spec)) return <VisualDibujado spec={spec} />;
   const titulo = typeof spec?.title === 'string' ? spec.title : null;
   return <FaltaAnimacion que={que ?? (titulo ? `«${titulo}», tal cual se ve en MaKo.` : 'Esta pantalla de MaKo, tal cual es.')} />;
 }
 
+/** El dibujo, o nada si no hay dibujo para ese tipo. Antes devolvía un embudo INVENTADO («Leads / Agenda / Cierre») para
+ *  cualquier tipo desconocido: un dato de mentira justo en el lugar donde no se sabe qué va. */
 export function VisualDibujado({ spec }: { spec: VisualSpec | undefined }) {
-  if (spec && spec.type.startsWith('rc')) return <VisualChart spec={spec} />;
-  if (spec && spec.type.startsWith('cx')) return <VisualCanvas type={spec.type} />;
-  const render = spec && REGISTRY[spec.type];
-  if (!render) return <Funnel type="funnel" />;
-  return render(spec);
+  if (!hayDibujo(spec)) return null;
+  if (CHART_TYPES.includes(spec.type)) return <VisualChart spec={spec} />;
+  if (CANVAS_TYPES.includes(spec.type)) return <VisualCanvas type={spec.type} />;
+  return REGISTRY[spec.type](spec);
 }

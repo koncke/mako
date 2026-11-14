@@ -6253,3 +6253,53 @@ aviso de Black Friday y los menús desplegables de su barra (la barra copiada se
   banco recibe `cerebro.json` con las posiciones. Sin las aristas laterales sale un diente de león (lib/bienvenida-cerebro.ts).
 - **Grafo.tsx es una grilla de tres columnas** (mapa, tirador, columna de 400 px): para el grafo a lo ancho, en el banco
   `grid-template-columns: 1fr 0 0` y el detalle del punto absoluto encima; cada nodo se toma por `g.cbg-nodo[data-nodo]`.
+
+## «Si ya la tenemos, reemplázala» era la GRABACIÓN, no el dibujo: `Visual()` no estaba a medias (14/11/2026, noche)
+
+**Síntoma.** `Visual()` (`app/vsl/_detalle/Visual.tsx`) devuelve SIEMPRE `<FaltaAnimacion>` y los dibujos quedaron apartados en
+`VisualDibujado`, que no llama nadie. Leído así parece que del pedido de Martín del 12/11 se hizo la mitad «elimina» y quedó sin
+hacer la mitad «reemplázala», con las landings mostrando el recuadro teniendo el dibujo al lado.
+
+**⚠️ El diagnóstico obvio era el equivocado: «si ya la tenemos» es la GRABACIÓN, no el dibujo.** Las grabaciones son
+`GRABACION` y `GrabacionDe` (`app/vsl/_competencia/Visuales.tsx`, `public/vsl-assets/sitio/`), los videos de Panda y las fotos
+reales. Los specs de `feature-visuals.ts` son justo lo que pidió borrar: «Vendido $62k · Cobrado $38k · Pendiente $24k», la
+retención del VSL de 100 % a 18 %, «comprobante.pdf · Monto $2,000 · 14 jul 09:41», una audiencia por edad, y en Ops Center una
+conversación de WhatsApp entera inventada («Vi que no agendaste 👀», «Te dejo horario flexible»). El commit `df72e40b4` los apagó
+a propósito («Visual ya no dibuja maquetas, y los 27 dibujos metidos en 11 diseños pasan al recuadro»), y Martín lo dijo tres
+veces: «que sea exactamente el CRM que tenemos hoy en día, no un inventado», «nunca un dibujo, aunque se vea bien», «tenés
+prohibido hacerlo». El recuadro no es una obra a medias: es la decisión.
+
+**Y el número desmiente la premisa.** Dibujando las páginas y contando los recuadros (no leyendo el código):
+
+| | páginas con recuadro | recuadros | cuántos tienen dibujo |
+|---|---|---|---|
+| Las 19 landings del visor (`_competencia`) | 6 de 19 | 32 | **7** |
+| Las 14 viejas por funcionalidad (`FeatureDetail`: /vsl/api, /vsl/closing…) | 14 de 14 | 77 | 77 |
+
+**12 de las 19 landings que mira Martín no tienen NINGÚN recuadro**: ya muestran la grabación real. Los 32 se amontonan en
+prioridades (16), mako (9), seguimiento (3), video (2), crm (1) e image (1), y prender los dibujos los bajaría a 25 — las dos
+páginas con más recuadros son las que menos arregla. Antes de «completar» un pedido a medias, contar cuántos lugares toca.
+
+**La trampa que sí era un defecto, y se arregló.** `VisualDibujado` no sabía decir «esto no lo sé dibujar»: para un tipo
+desconocido devolvía `<Funnel type="funnel" />` —un embudo INVENTADO («Leads / Agenda / Cierre») justo donde no se sabe qué va— y
+elegía los `rc*` / `cx*` por el PREFIJO del nombre, así que un `rcLoQueSea` que `VisualCharts` no tiene caía igual en
+`VisualChart`, que devuelve `null`: el lugar quedaba VACÍO, sin dibujo y sin recuadro. Ahora el criterio es la pertenencia a los
+tres registros (`hayDibujo`, con `CHART_TYPES` y `CANVAS_TYPES` exportados) y lo que no está da `null`.
+
+**La regla que queda.** Un dibujo no reemplaza a una grabación: en el sitio va la app de verdad o el recuadro que dice qué falta.
+El interruptor `DIBUJOS_EN_LAS_LANDINGS` (`Visual.tsx`) queda en `false` y lo prende Martín, no un chat.
+
+**Trampas del entorno al querer MIRAR una landing desde un worktree:**
+- `next dev` en `C:/dev/wt-push-q` muere en `○ Compiling /instrumentation` con exit 1 y **sin una línea de error** (pide ~5,1 GB
+  libres: docs/hallazgos-infra.md). Lo barato para ver una landing es dibujarla con `renderToStaticMarkup` —el mismo camino de
+  `tests/vsl-landings-competencia.test.ts`— y servir ese HTML junto a `public/`. ⚠️ Ahí los `rc*` (Recharts) y los `cx*` (canvas)
+  salen VACÍOS: son `'use client'` y no hay JavaScript, no es que el dibujo esté roto.
+- Un `.mjs` que importe esos `.tsx` con tsx falla con «Element type is invalid… got: object»; el mismo import desde un `.ts` anda.
+- **`tsc --noEmit` matado por el vigía sale exit 1 con CERO salida**, idéntico a un comando que no imprimió nada: no es verde ni
+  rojo, es «no se chequeó». Lo dice `~/.claude/guardia/guardia.log` («MATO pid … (pesado, 4121 MB privados) por zona-roja»). Va por
+  `npm run typecheck`, que serializa por máquina y tiene código de salida propio para esa causa.
+
+**Lo que quedó SIN hacer.** Las grabaciones de los 32 recuadros de las 19 landings —25 de los 32 son el tablero del Plan
+(`/vsl/prioridades`) y el Ops Center (`/vsl/mako`)—, los 77 de las 14 páginas viejas, y la decisión de prender o no
+`DIBUJOS_EN_LAS_LANDINGS`. Además, `FeatureDetail.tsx` llama a `<Visual>` sin `que`, así que esas 14 páginas repiten «Esta
+pantalla de MaKo, tal cual es.» en cada fila en vez de decir qué falta en cada una (`LandingCompetencia` sí lo pasa).
