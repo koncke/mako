@@ -2,7 +2,7 @@
 // /vsl/prioridades — el Plan (las prioridades, con el Perro Guardián), con la ESTRUCTURA de la portada de Motion (11/11/2026)
 // =============================================================================
 // REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, el DISEÑO):
-//   https://www.usemotion.com/  (leída el 11/11/2026 con Chromium)
+//   https://www.usemotion.com/  (leída el 11/11/2026 con Chromium, y otra vez el 14/11/2026 para lo que se mueve)
 // El diseño copiado vive en ./disenos/prioridades.tsx y los valores medidos de Motion, en docs/diseno/landings-competencia/prioridades.md.
 // Su orden, que se respeta acá: (navegación) → hero «Get an unfair advantage by using AI to double productivity» → (confianza y
 // cuatro citas) → «Stop using tech from the pre-AI era» → «AI Task Planner» → «AI Project Manager» → «AI Meeting Notetaker» →
@@ -79,7 +79,7 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
   slug: 'prioridades',
   nombre: 'Plan',
   icono: I.plan,
-  referencia: { nombre: 'Motion — portada', url: 'https://www.usemotion.com/', leida: '2026-11-11' },
+  referencia: { nombre: 'Motion — portada', url: 'https://www.usemotion.com/', leida: '2026-11-14' },
   metaTitle: 'Plan de MaKo: tus tareas más importantes, elegidas por tu IA',
   metaDesc: `MaKo saca las tareas de tus reuniones grabadas, le pone a cada una un puntaje de 1 a 100 con su razón y te muestra las ${MAX_PRIORIDAD} que van primero, en un tablero por estado.`,
   bloques: [
@@ -99,12 +99,13 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
       titulo: 'Deja de usar herramientas de antes de la IA',
       sin: {
         titulo: 'Tus herramientas de siempre',
-        // Un renglón por <br>: el diseño los dibuja como la lista de Motion («Normal Task Manager…»).
-        texto: 'Listas que no se terminan, fechas que se pasan, tareas olvidadas<br>Proyectos que hay que cuidar, con horas de trabajo manual cada día<br>Notas de la reunión a mano, y detalles importantes que se pierden<br><strong>Todo parece urgente</strong> y terminas eligiendo lo fácil',
+        // Un renglón por <br>, «Título: texto»: el diseño los dibuja como la lista de Motion («Normal Task Manager» en negrita y
+        // «Endless lists, missed deadlines…» debajo).
+        texto: 'Lista de tareas común: Listas que no se terminan, fechas que se pasan, tareas olvidadas<br>Gestor de proyectos común: Hay que cuidarlo, con horas de trabajo manual cada día<br>Notas de reunión: Las tomas a mano y se pierden detalles importantes<br>Prioridades a ojo: Todo parece urgente y terminas eligiendo lo fácil',
       },
       con: {
         titulo: 'La IA de MaKo',
-        texto: 'Crea y prioriza tus tareas: cada una con su puntaje y su razón<br>A la tarea sin proyecto le busca uno, y la que llega al 100 % pasa sola a hecha<br>Lee tus reuniones grabadas y saca los compromisos de cada uno<br>La vista Prioridades te deja sólo lo que va primero',
+        texto: `Planificador con IA: Saca tus tareas y las prioriza, cada una con su puntaje y su razón<br>Proyectos con IA: A la tarea sin proyecto le busca uno, y la que llega al 100 % pasa sola a ${HECHA}<br>Reuniones con IA: Lee tus reuniones grabadas y saca los compromisos de cada uno<br>Prioridades con IA: La vista Prioridades te deja sólo las ${MAX_PRIORIDAD} que van primero`,
       },
     },
     {

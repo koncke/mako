@@ -65,7 +65,7 @@ export const LANDING_SEGUIMIENTO: LandingCompetencia = {
   bloques: [
     {
       tipo: 'hero',
-      etiqueta: 'Hecho para coaches y expertos',
+      etiqueta: 'Hecho para',
       titulo: 'Tu setter con IA convierte tus DM de Instagram en <em>llamadas de venta calificadas</em>',
       bajada: 'Tu setter con IA responde tus DM de Instagram, <strong>califica a tus prospectos con tus propios criterios</strong> y los lleva a agendar su llamada de venta. Tú solo cierras en la llamada. También en WhatsApp, Messenger y email.',
       puntos: ['Arrancas de una plantilla o se la pides a MaKo en palabras', 'Nace pausada: la pruebas antes de prenderla'],
@@ -82,16 +82,18 @@ export const LANDING_SEGUIMIENTO: LandingCompetencia = {
       ],
     },
     {
+      // Como su «Gestionar tus DM tú solo / con SetSmart» (14/11/2026, noche): el título termina distinto según el interruptor
+      // (sin.titulo / con.titulo), la bajada es una sola (sin.texto) y con.texto va debajo de los chats, con los íconos de los canales.
       tipo: 'contraste',
       etiqueta: 'La solución',
-      titulo: 'Gestiona tus DM con MaKo',
+      titulo: 'Gestiona tus DM',
       sin: {
-        titulo: 'Respondes demasiado lento y tus leads se enfrían',
-        texto: 'Y te dejan en visto para siempre. Llega un mensaje a la noche o en medio de una llamada; cuando lo ves, el lead ya se distrajo. Y al que agendó y no vino, o al que vio tu video y no agendó, <strong>nadie le vuelve a escribir</strong>.',
+        titulo: 'tú solo',
+        texto: 'Respondes demasiado lento y tus leads se enfrían, y te dejan en visto para siempre.',
       },
       con: {
-        titulo: 'MaKo contesta, le recuerda y lo lleva al siguiente paso',
-        texto: 'La automatización contesta con la voz de tu negocio, le recuerda la reunión al que agendó y le escribe al que se quedó en el camino. Lo mueve de etapa en tu CRM y, cuando hace falta una persona, <strong>te lo pasa</strong>.',
+        titulo: 'con MaKo',
+        texto: 'Funciona en todos tus canales',
       },
       cta: true,
     },
@@ -155,4 +157,46 @@ export const LANDING_SEGUIMIENTO: LandingCompetencia = {
       ],
     },
   ],
+};
+
+/** «Hecho para …»: lo que se escribe y se borra en la cejilla del hero, como su «coaches fitness / coaches de pérdida de peso…». */
+export const NICHOS_SEGUIMIENTO = ['coaches', 'consultores', 'mentores', 'agencias', 'expertos'] as const;
+
+/**
+ * Los dos chats del interruptor «Sin MaKo / Con MaKo» (sus tarjetas de Julie Martin: «10h · Lead perdido» y «30s · Reservado»).
+ * El lead es Tomás Ríos, el contacto inventado de la grabación del hero (banco C:/dev/bancos-portada/banco-flujo/): comenta «GUÍA»
+ * en un Reel y el DM con la guía es el de esa toma (el link es el «Scaling Roadmap» de Alex Hormozi). Con MaKo sale la plantilla
+ * «Te Escribieron por Instagram» (lib/plantillas-automatizaciones.ts: el DM y el aviso «… te escribió por Instagram» por WhatsApp);
+ * no se dice en cuánto tiempo, porque no está medido. Sin MaKo, el negocio contesta a mano diez horas después.
+ */
+export type LineaChat =
+  | { tipo: 'nota'; texto: string }
+  | { tipo: 'lead' | 'negocio'; texto: string }
+  | { tipo: 'pausa'; texto: string }
+  | { tipo: 'visto'; texto: string }
+  | { tipo: 'aviso'; titulo: string; texto: string };
+export const CHATS_SEGUIMIENTO: { lead: { nombre: string; usuario: string }; sin: { lineas: LineaChat[]; pie: [string, string] }; con: { lineas: LineaChat[]; pie: [string, string] } } = {
+  lead: { nombre: 'Tomás Ríos', usuario: '@tomas.rios' },
+  sin: {
+    lineas: [
+      { tipo: 'nota', texto: 'Comentó tu Reel · 22:47' },
+      { tipo: 'lead', texto: 'GUÍA' },
+      { tipo: 'pausa', texto: '10h después' },
+      { tipo: 'negocio', texto: '¡Hola! Perdón por la demora. Aquí tienes la guía.' },
+      { tipo: 'pausa', texto: '2 días después' },
+      { tipo: 'negocio', texto: '¿Pudiste verla? Si quieres, lo hablamos.' },
+      { tipo: 'visto', texto: 'Sin respuesta' },
+    ],
+    pie: ['10h', 'Lead perdido'],
+  },
+  con: {
+    lineas: [
+      { tipo: 'nota', texto: 'Comentó tu Reel · 22:47' },
+      { tipo: 'lead', texto: 'GUÍA' },
+      { tipo: 'negocio', texto: '¡Hola Tomás! 👋 Vi que comentaste GUÍA. Aquí tienes la guía 👇 acquisition.com/roadmap' },
+      { tipo: 'lead', texto: '¡Gracias! 🙌' },
+      { tipo: 'aviso', titulo: 'MaKo te avisa por WhatsApp', texto: 'Tomás Ríos te escribió por Instagram' },
+    ],
+    pie: ['Automático', 'Respondido'],
+  },
 };

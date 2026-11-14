@@ -102,14 +102,28 @@ export const LANDING_MAKO: LandingCompetencia = {
       ],
     },
     {
+      // 14/11/2026: Holo pasó a CINCO pasos alrededor de su centro (1 arriba, 2 y 5 a los costados, 3 y 4 abajo, con flechas).
       tipo: 'pasos',
       fondo: true,
       titulo: '¿Cómo funciona?<br><em>Así de fácil: 1, 2, 3…</em>',
       bajada: 'Sin briefs que escribir, sin herramientas que aprender, sin nadie que contratar. Le hablas y confirmas desde el teléfono.',
       pasos: [
-        { titulo: 'Cuéntale tu negocio', texto: 'En una conversación: qué vendes, cómo cobras y cómo te llegan los clientes. MaKo lo lee y arma tu Second Brain.' },
-        { titulo: 'Recibe tu diagnóstico y tu plan', texto: 'Offer diagnostica tu oferta y escribe la nueva. El Funnel Coach elige cómo conseguir clientes y calcula el presupuesto de anuncios.' },
-        { titulo: 'Ponlo a trabajar', texto: 'MaKo está en cada tab. Lo que cambia algo te llega en una tarjeta que confirmas o descartas, desde la computadora o el teléfono.' },
+        { titulo: 'Cuéntale tu negocio', texto: 'Qué vendes, cómo cobras y cómo te llegan los clientes. MaKo arma tu Second Brain.' },
+        { titulo: 'Recibe tu diagnóstico', texto: 'Offer diagnostica tu oferta y escribe la nueva.' },
+        { titulo: 'Arma tu plan', texto: 'El Funnel Coach elige cómo conseguir clientes y calcula el presupuesto de anuncios.' },
+        { titulo: 'Confirma con un toque', texto: 'Lo que cambia algo te llega en una tarjeta, en la computadora o en el teléfono.' },
+        { titulo: 'Mide lo que aceptaste', texto: `A los ${DIAS_HECHA} días vuelve a mirar el dato y te dice si cambió.` },
+      ],
+    },
+    {
+      // «Holo runs your ads, email, social, and SEO end to end…» (14/11/2026): el titular con las cuatro palabras que se encienden
+      // letra por letra al bajar (van en <em>) y sus tres columnas. Lo que MaKo lee de verdad desde el chat del Ops Center.
+      tipo: 'tarjetas',
+      titulo: 'MaKo lee tu <em>CRM</em>, tus <em>chats</em>, tus <em>anuncios</em> y a tu <em>competencia</em> de punta a punta: te contesta con tus números, te propone lo que sigue y, con tu sí, lo hace, mientras tú llevas el negocio.',
+      items: [
+        { icono: I.aprende, titulo: 'Aprende con cada conversación.', texto: 'Lo que hablas, lo que aceptas y lo que descartas le enseña qué sirve en tu negocio.' },
+        { icono: I.conversaciones, titulo: 'Todo tu negocio, en un chat.', texto: 'Spy, CRM, Automations, tus anuncios y tu Second Brain, sin abrir ocho pestañas.' },
+        { icono: I.equipo, titulo: 'Hecho para dueños, no para marketers.', texto: 'Le preguntas con tus palabras y confirmas con un toque: llevar el marketing se parece más a revisar que a hacer.' },
       ],
     },
     {
@@ -137,26 +151,55 @@ export const LANDING_MAKO: LandingCompetencia = {
       ],
     },
     {
+      // «Strategy set, campaigns live» → «Every month beats the last» (14/11/2026): cuatro etapas que pasan solas cada 5 s; el
+      // titular y el texto son los de la etapa activa (el título del bloque es el de la primera). Las etapas son lo que MaKo
+      // aprende de verdad: lo que se habla, lo que se descarta (lib/recomendaciones-reglas.ts) y la medición a los DIAS_HECHA días.
       tipo: 'pasos',
       fondo: true,
-      titulo: 'Primeras señales, <em>primeros ajustes</em>',
-      bajada: 'Lo que hablas, lo que aceptas y lo que descartas le enseña qué sirve en tu negocio.',
+      titulo: 'Tu negocio, leído',
       pasos: [
-        { titulo: 'Cada conversación suma', texto: 'Lo que le cuentas en cada tab queda en tu Ops Center, y lo que sumas a tu Second Brain lo usa para contestarte.' },
-        { titulo: 'Aprende de lo que descartas', texto: 'Si a dos sugerencias del mismo tipo les dices «No aplica» y no aceptaste ninguna, deja de proponerlas.' },
-        { titulo: `A los ${DIAS_HECHA} días, mide`, texto: 'De una sugerencia que aceptaste, vuelve a mirar el dato. <strong>Si sigue igual, te lo dice.</strong>' },
+        { titulo: 'Tu negocio, leído', texto: 'Le cuentas tu negocio y MaKo arma tu Second Brain: tu oferta, tus clientes y tu funnel.' },
+        { titulo: 'Primeras señales, primeros ajustes', texto: 'Lo que hablas, lo que aceptas y lo que descartas le enseña qué sirve en tu negocio.' },
+        { titulo: 'Deja de proponer lo que no sirve', texto: 'Si a dos sugerencias del mismo tipo les dices «No aplica» y no aceptaste ninguna, deja de proponerlas.' },
+        { titulo: 'Mide lo que aceptaste', texto: 'De una sugerencia que aceptaste, vuelve a mirar el dato. Si sigue igual, te lo dice.' },
       ],
     },
     {
+      // «Inside your new marketing department.» (14/11/2026): su riel de ocho cajas con video. Cada caja es la grabación REAL de
+      // una herramienta que el Ops Center tiene a mano (public/vsl-assets/sitio/, las de la portada), con su nombre: ninguna
+      // pantalla se muestra como si fuera otra.
       tipo: 'tarjetas',
       titulo: 'Adentro de tu nuevo departamento de marketing.',
       items: [
-        { icono: I.conversaciones, titulo: 'Chat', texto: 'Pregúntale lo que sea de tu marketing, tus números o qué probar después: conoce tu negocio. Lo que hablas con MaKo en cada tab queda aquí, en una sola lista.' },
-        { icono: I.mapa, titulo: 'Second Brain', texto: 'El mapa de tu negocio: tu oferta, tus clientes, tu funnel y tu mensaje. Si un dato de tu oferta está mal, lo tocas y lo corriges.' },
-        { icono: I.aprende, titulo: '«Aprende solo»', texto: 'Si lo prendes, MaKo aprende de tus conversaciones de WhatsApp con leads: sus objeciones y sus pedidos. Ves de qué aprendió y cuándo.' },
-        { icono: I.conversaciones, titulo: 'Todos los canales', texto: 'WhatsApp, Instagram, Messenger y email en una sola bandeja, y tus anuncios de Meta. Donde están tus clientes, sin abrir ocho pestañas.' },
-        { icono: I.marca, titulo: 'Tu marca', texto: 'Subes tu manual de marca y MaKo saca tus colores, tus fuentes y tu logo. Los usan Image, Video y Web Generator.' },
-        { icono: I.coach, titulo: 'Funnel Coach', texto: 'Un chat que trabaja tu oferta contigo y después arma cómo conseguir clientes, con el presupuesto de anuncios calculado.' },
+        { titulo: 'Referentes', texto: 'Eliges con quién hablar en el chat de MaKo, como Alex Hormozi, y te contesta con su método, llevado a tu negocio.' },
+        { titulo: 'Second Brain', texto: 'El mapa de tu negocio: tu oferta, tus clientes, tu funnel y tu mensaje, conectados.' },
+        { titulo: 'Competitor Spy', texto: 'Lo que publica tu competencia, con su gancho y su ángulo, para que hagas tu versión.' },
+        { titulo: 'CRM', texto: 'Cada lead en su etapa, con su ficha y su historia.' },
+        { titulo: 'Chats', texto: 'WhatsApp, Instagram, Messenger y email en una sola bandeja: donde están tus clientes, sin abrir ocho pestañas.' },
+        { titulo: 'Cobranza', texto: 'Las cuotas de cada cliente, con lo que pagó y lo que falta.' },
+        { titulo: 'Video', texto: 'Tus cortes, tus subtítulos y tu edición, en el editor de MaKo.' },
+        { titulo: 'Copywriting', texto: 'Los guiones de tus reels, tus anuncios y tus emails, con lo que ya le funciona a otros.' },
+      ],
+    },
+    {
+      // Su cinta de habilidades (14/11/2026, «Fill your calendar · Lock your brand voice…»): dos filas que corren en sentidos
+      // contrarios (52 s y 60 s) y se arrastran. Cada tarjeta es algo que MaKo hace hoy (lib/funciones-mako.ts); el título del
+      // bloque va sólo para el lector de pantalla, como en Holo (la cinta no tiene título a la vista).
+      tipo: 'tarjetas',
+      titulo: 'Lo que MaKo hace por ti',
+      items: [
+        { icono: I.mapa, titulo: 'Espía a tu competencia', texto: 'Sus anuncios, sus videos y su funnel, con su gancho.' },
+        { icono: I.coach, titulo: 'Arma tu oferta', texto: 'Offer la diagnostica y escribe la nueva.' },
+        { icono: I.rayo, titulo: 'Calcula tu presupuesto', texto: 'El Funnel Coach elige cómo conseguir clientes y cuánto invertir.' },
+        { icono: I.pagina, titulo: 'Escribe tus guiones', texto: 'Reels, anuncios y emails, en Copywriting.' },
+        { icono: I.marca, titulo: 'Replica lo que funciona', texto: 'Un carrusel que rinde, en tu versión editable.' },
+        { icono: I.pagina, titulo: 'Arma tu landing', texto: 'Web Generator la arma o replica una que ya funciona.' },
+        { icono: I.rayo, titulo: 'Mide tus anuncios', texto: 'Cada anuncio con lo que vendió en tu CRM.' },
+        { icono: I.equipo, titulo: 'Ordena tu CRM', texto: 'Tus leads por etapa, con su historia.' },
+        { icono: I.chat, titulo: 'Conversa con tus leads', texto: 'Automatizaciones que contestan por WhatsApp.' },
+        { icono: I.agenda, titulo: 'Recuerda tus llamadas', texto: 'Un WhatsApp antes de cada reunión.' },
+        { icono: I.reloj, titulo: 'Sigue tus cuotas', texto: 'Te avisa cuando una cuota vence.' },
+        { icono: I.aprende, titulo: 'Arma tus tableros', texto: 'Tus números de marketing y ventas, en una hoja.' },
       ],
     },
     {

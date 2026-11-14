@@ -434,3 +434,30 @@ test('sin plan Agencia aparte (10/10): la agencia maneja a sus clientes desde Pr
 //   · la pregunta vuelve a «te devolvemos tu pago»                                          -> 24 / 1
 //   · vuelve `GARANTIA_DIAS`                                                                -> 24 / 1
 //   · /reembolsos sin «después del primer cobro, no se reembolsa»                            -> 24 / 1
+
+// ── La calculadora de MaKo Tokens (14/11/2026, Martín: arriba de las columnas, arranca en los tokens del plan) ─────────
+test('la calculadora va ARRIBA de las tarjetas, arranca en los MaKo Tokens del plan y cada tarjeta dice los suyos', async () => {
+  const { CUPO_MENSUAL } = await import('../lib/mako-tokens-reglas');
+  const { datosDelPlan, COSTO_POR_ACCION } = await import('../app/planes/CalculadoraTokens');
+  const t = await vitrina();
+  assert.ok(t.indexOf('Calcula cuántos MaKo Tokens necesitas') < t.indexOf('Recomendado MaKo Pro'), 'arriba de las tres columnas');
+  // Las claves de agosto: `pro` es Esencial (US$47) y `growth` es Pro (US$97).
+  const mil = (n: number) => n.toLocaleString('es-AR');
+  assert.ok(t.includes(`${mil(CUPO_MENSUAL.pro)} MaKo Tokens al mes`) && t.includes(`${mil(CUPO_MENSUAL.growth)} MaKo Tokens al mes`), 'cada tarjeta, sus tokens');
+  const pro = datosDelPlan({ id: 'pro', nombre: 'MaKo Pro', capa: 'agencia', precioUsd: 97, cobrable: true })!;
+  const esencial = datosDelPlan({ id: 'esencial', nombre: 'MaKo Esencial', capa: 'completo', precioUsd: 47, cobrable: true })!;
+  assert.equal(pro.pasos[0].mt, mil(CUPO_MENSUAL.growth), 'Pro arranca en sus tokens');
+  assert.equal(pro.pasos[0].usd, 'US$ 97', 'y en su precio, sin nada sumado');
+  assert.equal(esencial.pasos[0].mt, mil(CUPO_MENSUAL.pro));
+  // El video del plan respeta su tope de clips (6 en Esencial, 36 en Pro), no lo que pagarían sus tokens (23 y 48).
+  assert.equal(esencial.pasos[0].video, 'Hasta 1 minuto de video');
+  assert.equal(pro.pasos[0].video, 'Hasta 6 minutos de video');
+  // Sumar un minuto: 3.000 tokens y US$12 (el clip a US$2), una compra suelta, no el abono.
+  assert.equal(pro.pasos[1].mt, mil(CUPO_MENSUAL.growth + 3000));
+  assert.equal(pro.pasos[1].usd, 'US$ 109');
+  assert.equal(pro.pasos[1].periodo, 'este mes');
+  assert.equal(pro.pasos[1].video, 'Hasta 7 minutos de video');
+  // Sólo los medios gastan MaKo Tokens: lo demás va con la IA del negocio o es un tope del plan.
+  assert.deepEqual(COSTO_POR_ACCION.filter((x) => x.mt != null).map((x) => x.mt), [500, 12]);
+  assert.equal(datosDelPlan({ id: 'x', nombre: 'X', capa: 'pm', precioUsd: 1, cobrable: false }), null, 'una capa sin cupo no se dibuja');
+});

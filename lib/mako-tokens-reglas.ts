@@ -52,6 +52,19 @@ export const CUPO_MENSUAL: Record<Plan, number> = {
 };
 
 /**
+ * Qué clave de acá es cada plan que se VENDE (14/11/2026). ⚠️ Los nombres no coinciden y confunden: estas claves son de
+ * cuando los planes eran Free/Pro/Growth (8/8). Hoy MaKo Esencial (US$47, capa `completo`) es `pro` y MaKo Pro (US$97, capa
+ * `agencia`) es `growth` (lib/planes-mako.ts). Leer «pro» acá como «MaKo Pro» le da al plan de US$97 el cupo del de US$47.
+ */
+export const PLAN_DE_CAPA: Readonly<Record<string, Plan>> = { completo: 'pro', agencia: 'growth' };
+
+/** Los MaKo Tokens que trae al mes el plan de esa capa, o null si la capa no es un plan que se vende. */
+export const cupoDeCapa = (capa: string): number | null => {
+  const p = PLAN_DE_CAPA[capa];
+  return p ? CUPO_MENSUAL[p] : null;
+};
+
+/**
  * Qué modelo se usa por defecto. **Acá vive el margen.**
  *
  * Un reel de 60 s se arma con ~32 s de video generado (8 clips de 4 s, transiciones entre imágenes consecutivas:
