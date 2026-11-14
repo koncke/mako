@@ -417,6 +417,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // Lo que la pantalla de Automations hace y la API no tenía (10/11/2026, Martín: «todo tiene que estar documentado en la API»).
   ['GET', '/chatbot/plantillas', 'listar_plantillas_automatizaciones'],
   ['POST', '/chatbot/plantillas/{plantilla}/automatizaciones', 'crear_automatizacion_desde_plantilla'],
+  ['POST', '/chatbot/plantillas/{plantilla}/arranques-por-formulario', 'arrancar_con_formulario'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/copias', 'duplicar_automatizacion'],
   ['PATCH', '/chatbot/secuencias/{secuenciaId}', 'renombrar_automatizacion'],
   ['GET', '/chatbot/secuencias/{secuenciaId}/en-espera', 'espera_por_tarjeta'],
@@ -527,6 +528,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/landing/landings', 'borrar_landing'],
   ['GET', '/landing/landings', 'listar_landings'],
   ['POST', '/landing/landings', 'guardar_landing'],
+  // Los formularios del Web Generator como fuente del lead (14/11/2026): a qué funnel entra cada uno.
+  ['PUT', '/landing/formularios/{formulario}/funnel', 'asignar_formulario_a_funnel'],
   ['GET', '/landing/landings/cambios', 'ver_cambios_landing'],
   ['GET', '/landing/landings/comportamiento', 'ver_comportamiento_landing'],
   ['GET', '/landing/landings/clics', 'listar_clics_landing'],

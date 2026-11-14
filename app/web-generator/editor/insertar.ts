@@ -136,8 +136,31 @@ function formulario(): JsonNodo {
   return {
     type: NODO.formulario,
     attrs: {
+      // El id del formulario nace acá, al azar (el CRM rutea por él: lib/editor-landing/piezas.ts); el nombre vacío es «el de
+      // siempre», «<landing> · <página>».
+      id: nuevoId('f'), nombre: '', clase: 'formulario',
       campos: [campo('nombre', 'Nombre', true), campo('email', 'Correo electrónico', true), campo('telefono', 'Teléfono', false)],
       boton: 'Enviar', exito: '¡Listo! Recibimos tus datos.', redirigir: null,
+    },
+  };
+}
+
+/** La encuesta: el contacto y cuatro preguntas de ejemplo, una de cada tipo (única, varias, escala y texto). */
+function encuesta(): JsonNodo {
+  const campo = (tipo: CampoFormulario['tipo'], etiqueta: string, requerido: boolean, opciones: string[] = []): CampoFormulario => ({ id: nuevoId('c'), tipo, etiqueta, requerido, opciones });
+  return {
+    type: NODO.formulario,
+    attrs: {
+      id: nuevoId('f'), nombre: '', clase: 'encuesta',
+      campos: [
+        campo('nombre', 'Nombre', true),
+        campo('email', 'Correo electrónico', true),
+        campo('opciones', '[¿Cuál es tu mayor desafío hoy?]', true, ['[Conseguir clientes]', '[Cerrar ventas]', '[Tener tiempo]']),
+        campo('multiple', '[¿Qué te gustaría aprender?]', false, ['[Anuncios]', '[Contenido]', '[Ventas]']),
+        campo('escala', '[Del 1 al 10, ¿qué tan urgente es para ti?]', true),
+        campo('textoLargo', '[¿Algo más que quieras contarnos?]', false),
+      ],
+      boton: 'Enviar respuestas', exito: '¡Gracias! Recibimos tus respuestas.', redirigir: null,
     },
   };
 }
@@ -219,13 +242,14 @@ export function bloqueJson(id: IdBloque, extra: { url?: string | null } = {}): J
     case 'escasez': return { type: NODO.escasez, attrs: { total: null, quedan: null, unidad: '', titulo: '' } };
     // El quiz entra con su ESTRUCTURA (tres preguntas de tres opciones, tres resultados por rango) y sin textos: el panel los
     // pide, y sin una pregunta completa y un resultado con título no sale en la página (quiz.ts).
-    case 'quiz': return { type: NODO.quiz, attrs: QUIZ_NUEVO };
+    case 'quiz': return { type: NODO.quiz, attrs: { ...QUIZ_NUEVO, id: nuevoId('f') } };
 
     // ── Formularios y botones ──
     case 'boton': return { type: NODO.botones, attrs: { alinea: 'izquierda' }, content: [boton('Comenzar ahora', 'primario')] };
     case 'botones-2':
       return { type: NODO.botones, attrs: { alinea: 'izquierda' }, content: [boton('Comenzar ahora', 'primario'), boton('Saber más', 'secundario')] };
     case 'formulario': return formulario();
+    case 'encuesta': return encuesta();
     case 'etiqueta': return { type: 'paragraph', content: [{ type: 'text', text: 'Etiqueta', marks: [{ type: 'etiqueta', attrs: { color: null } }] }] };
 
     // ── Imágenes y videos (piden la URL antes) ──

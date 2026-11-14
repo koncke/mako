@@ -244,7 +244,9 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   col_izquierda: { texto: 'Mover a la izquierda', icono: 'mover' },
   col_derecha: { texto: 'Mover a la derecha', icono: 'mover' },
   // «Asignar campañas» desde el 16/10/2026, como el «⋯» (que lleva el logo de Meta; acá van sólo los íconos de la casa).
-  col_campanas: { texto: 'Asignar campañas', icono: 'anuncio' },
+  // «Asignar fuentes» desde el 14/11/2026: además de las campañas de Meta, los formularios y páginas de Web Generator (la
+  // llamada con Julio Mazariegos, app/crm/FuentesWebGenerator.tsx).
+  col_campanas: { texto: 'Asignar fuentes', icono: 'anuncio' },
   // «Asignar evento» pasa a llamarse «Vincular evento» (Martín, 22/10/2026), como «Vincular cobro».
   col_evento: { texto: 'Vincular evento', icono: 'evento' },
   col_cobro: { texto: 'Vincular cobro', icono: 'dinero' },

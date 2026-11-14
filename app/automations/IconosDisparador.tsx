@@ -84,6 +84,15 @@ export function IconoDisparador({ tipo, tam = 34 }: Props) {
       </svg>
     ));
   }
+  if (tipo === 'formulario') {
+    // Un formulario (14/11/2026, «Envió el formulario»): la hoja con sus renglones, en el azul de la casa.
+    return caja(tam, 'var(--primary-bg)', (
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4.5" y="3" width="15" height="18" rx="2.2" />
+        <path d="M8 8h8M8 12h8M8 16h4.5" />
+      </svg>
+    ));
+  }
   // El rayo del CRON (CRON punto 10: «que el emoji de CRON sea el rayo»).
   return caja(tam, 'var(--warn-bg)', (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="#F59E0B"><path d="M13.2 2.5 4.8 13.6h6l-1.4 7.9 8.4-11.1h-6Z" /></svg>

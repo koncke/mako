@@ -41,7 +41,7 @@ import type { DOMOutputSpec } from '@tiptap/pm/model';
 import {
   ALINEACIONES, ALINEACIONES_TARJETA, ALTOS_ESPACIADOR, ALTOS_HTML_LIBRE, ALTOS_TARJETA, AJUSTES_IMAGEN,
   ANCHOS_IMAGEN, ANCHOS_TARJETA, COLORES_TEMA, COLUMNAS_OPTIMIZADO, DEGRADADOS, DISENOS_TARJETA, FONDOS_TARJETA,
-  FORMAS_IMAGEN, MAX_COLUMNAS, NIVELES_TITULO, NODO, OPTIMIZADOS, SUPERPOSICIONES, TAMANOS_TEXTO, TIPOS_CAMPO,
+  CAMPOS_CON_OPCIONES, CLASES_FORMULARIO, FORMAS_IMAGEN, MAX_COLUMNAS, NIVELES_TITULO, NODO, OPTIMIZADOS, SUPERPOSICIONES, TAMANOS_TEXTO, TIPOS_CAMPO,
   TONOS_RECUADRO, TOPES, VARIANTES_BOTON, VARIANTES_OPTIMIZADO, VARIANTES_PARRAFO, enLista, esHex,
   type AttrsBoton, type AttrsBotones, type AttrsColumnas, type AttrsEspaciador, type AttrsFormulario,
   type AttrsHtmlEditable, type AttrsHtmlLibre, type AttrsImagen, type AttrsInsertado, type AttrsOptimizado, type AttrsOptimizadoItem,
@@ -123,7 +123,31 @@ export type CtxSpec = {
    * póster de video sin prioridad declarada.
    */
   seccion?: { indice: number; animacion: AnimacionResuelta | null };
+  /**
+   * De qué landing y qué página es lo que se dibuja (14/11/2026, fuentes.ts): con esto el formulario y el quiz de la PUBLICADA
+   * llevan `data-mako-form` (su id), `data-mako-form-nombre` y `data-mako-pagina` («<docId>:<paginaId>»), que el Pixel manda
+   * con el opt-in para que el CRM sepa QUÉ formulario se llenó. La pone render.ts sólo cuando se la piden (publicar.ts).
+   */
+  fuente?: { landing: string; pagina: string; docId: number | null; paginaId: string };
 };
+
+/** El nombre que se ve de un formulario o un quiz: el que le puso el negocio, o «<landing> · <página>». */
+export function nombreDeFormulario(nombre: string, landing: string, pagina: string): string {
+  const propio = nombre.trim();
+  if (propio) return propio;
+  return [landing.trim(), pagina.trim()].filter(Boolean).join(' · ') || 'Formulario';
+}
+
+/** Los atributos que identifican un formulario o un quiz en la publicada (vacío sin `ctx.fuente` o sin id). */
+export function attrsDeFuente(id: string | null, nombre: string, ctx?: CtxSpec): AttrsArbol {
+  const f = ctx?.fuente;
+  if (!f || !id) return {};
+  return {
+    'data-mako-form': id,
+    'data-mako-form-nombre': nombreDeFormulario(nombre, f.landing, f.pagina).slice(0, 120),
+    'data-mako-pagina': f.docId != null ? `${f.docId}:${f.paginaId}` : undefined,
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los textos A COMPLETAR: «[Tu especialidad]», «[resultado concreto]», «[00]%»
@@ -523,14 +547,17 @@ export const avisoDeVideo = (paginas: Parameters<typeof videosSinEnlace>[0]): st
 export const ETIQUETA_CAMPO: Record<TipoCampo, string> = {
   nombre: 'Nombre', email: 'Correo electrónico', telefono: 'Teléfono', empresa: 'Empresa',
   texto: 'Respuesta', textoLargo: 'Mensaje', opciones: 'Elige una opción',
+  multiple: 'Elige las que quieras', desplegable: 'Elige una opción', numero: 'Número', fecha: 'Fecha',
+  escala: 'Del 1 al 10, ¿cuánto?', consentimiento: 'Acepto que me contacten', oculto: 'Origen',
 };
 /** Los tipos que no se repiten en un formulario (el Pixel lee UN valor de cada uno). */
 const CAMPOS_UNICOS: ReadonlySet<TipoCampo> = new Set<TipoCampo>(['nombre', 'email', 'telefono']);
 
 /**
  * Atributos del formulario. Un campo de tipo desconocido se cae; uno de los tipos únicos que se
- * repite se cae; «opciones» con menos de 2 opciones pasa a «texto» (igual que la gramática de la
- * IA, ia-bloques.ts). Un id de campo inválido queda '' (validar.ts lo regenera).
+ * repite se cae; «opciones», «selección múltiple» y «desplegable» con menos de 2 opciones pasan a «texto» (igual que la
+ * gramática de la IA, ia-bloques.ts). Un id de campo inválido queda '' (validar.ts lo regenera). El id del FORMULARIO
+ * inválido queda null (validar.ts le pone uno: `idFormDerivado`). `valor` sólo en el campo oculto.
  */
 export function attrsFormulario(raw: unknown): AttrsFormulario {
   const r = obj(raw);
@@ -545,18 +572,23 @@ export function attrsFormulario(raw: unknown): AttrsFormulario {
     vistos.add(tipo);
     let opciones = (Array.isArray(o.opciones) ? o.opciones : [])
       .map((x) => textoLimpio(x, 120).trim()).filter(Boolean).slice(0, 12);
-    if (tipo === 'opciones' && opciones.length < 2) tipo = 'texto';
-    if (tipo !== 'opciones') opciones = [];
-    campos.push({
+    if (CAMPOS_CON_OPCIONES.has(tipo) && opciones.length < 2) tipo = 'texto';
+    if (!CAMPOS_CON_OPCIONES.has(tipo)) opciones = [];
+    const campo: CampoFormulario = {
       id: idValido(o.id) ?? '',
       tipo,
       etiqueta: textoLimpio(o.etiqueta, 120).trim() || ETIQUETA_CAMPO[tipo],
-      requerido: bool(o.requerido),
+      requerido: tipo === 'oculto' ? false : bool(o.requerido),
       opciones,
-    });
+    };
+    if (tipo === 'oculto') campo.valor = textoLimpio(o.valor, 120).trim();
+    campos.push(campo);
   }
   const redirigir = hrefSeguro(r.redirigir);
   return {
+    id: idValido(r.id),
+    nombre: textoLimpio(r.nombre, 120).trim(),
+    clase: enLista(CLASES_FORMULARIO, r.clase, 'formulario'),
     campos,
     boton: textoLimpio(r.boton, 60).trim() || 'Enviar',
     exito: textoLimpio(r.exito, 200).trim() || '¡Listo! Recibimos tus datos.',
@@ -1023,24 +1055,48 @@ function specCampo(c: CampoFormulario, i: number, marcar: Marcar = tal): NodoArb
   const name = NAME_CAMPO[c.tipo] ?? `respuesta-${dom.slice(3)}`;
   const req = c.requerido ? '' : undefined;
   const rotulo = el('label', { class: 'gm-campo-etiqueta', for: dom, 'data-requerido': si(c.requerido) }, ...marcar(c.etiqueta));
-  if (c.tipo === 'opciones') {
-    // Radios. El Pixel arma la respuesta con `labels[0].textContent` del input marcado: con el
-    // radio adentro de la etiqueta de su opción, la clave sería «Compra: Compra». Un `<label
-    // hidden for>` con la PREGUNTA va antes (orden del documento = primero en `labels`): el
-    // Pixel lee «¿Compras o rentas?: Compra», y como está oculto no se dibuja ni se anuncia.
-    // Esa etiqueta oculta NUNCA se marca: es lo que lee el Pixel.
-    return el('fieldset', { class: 'gm-campo', 'data-tipo': c.tipo },
+  if (c.tipo === 'oculto') {
+    // Un valor FIJO que la persona no ve («campaña: regalo»). El Pixel saltea los `hidden` salvo los que llevan
+    // `data-mako-campo`, y como no tienen `<label>`, el rótulo va en `data-rotulo` (lib/landing-token.ts, v29).
+    if (!c.valor) return el('div', { class: 'gm-campo', 'data-tipo': c.tipo, hidden: '' });
+    return el('input', { type: 'hidden', name, value: c.valor, 'data-mako-campo': '', 'data-rotulo': c.etiqueta });
+  }
+  if (c.tipo === 'opciones' || c.tipo === 'multiple' || c.tipo === 'escala') {
+    // Radios (o casillas, en la selección múltiple). El Pixel arma la respuesta con `labels[0].textContent` del input
+    // marcado: con el input adentro de la etiqueta de su opción, la clave sería «Compra: Compra». Un `<label hidden for>`
+    // con la PREGUNTA va antes (orden del documento = primero en `labels`): el Pixel lee «¿Compras o rentas?: Compra», y
+    // como está oculto no se dibuja ni se anuncia. Esa etiqueta oculta NUNCA se marca: es lo que lee el Pixel. En la
+    // múltiple, cada casilla marcada llega con la MISMA pregunta y el Pixel (v29) las junta: «Intereses: Ads, Email».
+    // La escala del 1 al 10 son diez radios en fila.
+    const multiple = c.tipo === 'multiple';
+    const ops = c.tipo === 'escala' ? ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] : c.opciones;
+    const opciones = ops.flatMap((op, k): Hijo[] => [
+      el('label', { for: `${dom}-${k}`, hidden: '' }, c.etiqueta),
+      el('label', { class: 'gm-opcion' },
+        // Una casilla con `required` exigiría marcarlas TODAS: la múltiple no lo lleva en el HTML (el script de la página
+        // revisa que haya al menos una: `data-requerido` del fieldset).
+        el('input', { type: multiple ? 'checkbox' : 'radio', id: `${dom}-${k}`, name, value: op, required: multiple ? undefined : req }),
+        el('span', {}, ...(c.tipo === 'escala' ? [op] : marcar(op)))),
+    ]);
+    return el('fieldset', { class: 'gm-campo', 'data-tipo': c.tipo, 'data-requerido': multiple ? si(c.requerido) : undefined },
       el('legend', { class: 'gm-campo-etiqueta', 'data-requerido': si(c.requerido) }, ...marcar(c.etiqueta)),
-      ...c.opciones.flatMap((op, k): Hijo[] => [
-        el('label', { for: `${dom}-${k}`, hidden: '' }, c.etiqueta),
-        el('label', { class: 'gm-opcion' },
-          el('input', { type: 'radio', id: `${dom}-${k}`, name, value: op, required: req }),
-          el('span', {}, ...marcar(op))),
-      ]));
+      ...(c.tipo === 'escala' ? [el('div', { class: 'gm-escala' }, ...opciones)] : opciones));
+  }
+  if (c.tipo === 'consentimiento') {
+    // Una casilla: la etiqueta oculta (la que lee el Pixel) es corta y fija, y la visible es el texto del negocio.
+    return el('div', { class: 'gm-campo', 'data-tipo': c.tipo },
+      el('label', { for: dom, hidden: '' }, 'Consentimiento'),
+      el('label', { class: 'gm-opcion', 'data-requerido': si(c.requerido) },
+        el('input', { type: 'checkbox', id: dom, name, value: 'Sí', required: req }),
+        el('span', {}, ...marcar(c.etiqueta))));
   }
   let control: NodoArbol;
   if (c.tipo === 'textoLargo') {
     control = el('textarea', { id: dom, name, rows: '4', maxlength: '2000', required: req });
+  } else if (c.tipo === 'desplegable') {
+    control = el('select', { id: dom, name, required: req },
+      el('option', { value: '' }, 'Elige una opción'),
+      ...c.opciones.map((op) => el('option', { value: op }, op)));
   } else {
     const porTipo: Record<string, AttrsArbol> = {
       nombre: { type: 'text', autocomplete: 'name' },
@@ -1048,8 +1104,11 @@ function specCampo(c: CampoFormulario, i: number, marcar: Marcar = tal): NodoArb
       telefono: { type: 'tel', autocomplete: 'tel', inputmode: 'tel' },
       empresa: { type: 'text', autocomplete: 'organization' },
       texto: { type: 'text' },
+      numero: { type: 'number', inputmode: 'decimal', step: 'any' },
+      fecha: { type: 'date' },
     };
-    control = el('input', { ...porTipo[c.tipo], id: dom, name, maxlength: '200', required: req });
+    const sinTope = c.tipo === 'numero' || c.tipo === 'fecha';
+    control = el('input', { ...porTipo[c.tipo], id: dom, name, maxlength: sinTope ? undefined : '200', required: req });
   }
   return el('div', { class: 'gm-campo', 'data-tipo': c.tipo }, rotulo, control);
 }
@@ -1072,6 +1131,8 @@ export function specFormulario(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const marcar: Marcar = ctx?.completar ? hijosACompletar : tal;
   return el('form', {
     class: 'gm-formulario', method: 'post', 'data-exito': a.exito, 'data-redirigir': redirigir,
+    'data-clase': a.clase === 'encuesta' ? 'encuesta' : undefined,
+    ...attrsDeFuente(a.id, a.nombre, ctx),
     inert: modo(ctx) === 'miniatura' ? '' : undefined,
   },
   ...a.campos.map((c, i) => specCampo(c, i, marcar)),

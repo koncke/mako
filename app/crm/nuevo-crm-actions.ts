@@ -17,6 +17,7 @@ import { TopeDelPlanError, frenarAltaPorTope } from '@/lib/topes-crm';
 import { TAG } from '@/lib/cache';
 import { siembraDeCrm } from '@/lib/pipeline';
 import { crearCrm } from '@/lib/nuevo-crm';
+import { TIPO_CRM_NEWSLETTER } from '@/lib/newsletter-reglas';
 
 /**
  * ⚠️ SIN SESIÓN NO SE CREA NADA: sin cookie `getWorkspaceActual()` cae al ws1, que es un cliente.
@@ -45,6 +46,19 @@ export async function crearCrmAction(
   try {
     if (!(await haySesion())) return { error: 'Sin sesión.' };
     if ((await getRolWsEfectivo()) !== 'admin') return { error: 'Solo el administrador puede crear un CRM.' };
+    // «Newsletter» (14/11/2026): el CRM de la tab Newsletters, con sus etapas (Suscripto, Lee, Dormido, Dado de baja, Compró). Si
+    // el negocio ya tiene uno, se abre ése: la tab trabaja con UN newsletter.
+    if (eleccion?.tipo === TIPO_CRM_NEWSLETTER) {
+      const wsN = await getWorkspaceActual();
+      const { crmDelNewsletter, asegurarCrmNewsletter } = await import('@/lib/newsletter');
+      const ya = await crmDelNewsletter().catch(() => null);
+      if (!ya && wsN != null) await frenarAltaPorTope(wsN, 'crm.funnels');
+      const crm = ya ?? await asegurarCrmNewsletter(typeof nombre === 'string' ? nombre : '');
+      bust();
+      revalidatePath('/crm');
+      revalidatePath('/email');
+      return { funnelId: crm.id };
+    }
     const siembra = siembraDeCrm(eleccion ?? {});
     if ('error' in siembra) return { error: siembra.error };
     // El tope del plan (23/10/2026): MaKo Esencial tiene UN CRM. Se dice y se ofrece «Pasar a Pro»; no se borra nada.

@@ -2876,7 +2876,7 @@ export async function getLeadRespuestas(lead: Lead): Promise<{ R1: RespuestaQA[]
 
 export type TrackingEvent = {
   ts: string;                                   // ISO
-  tipo: 'pageview' | 'play' | 'retencion' | 'exit' | 'click' | 'scroll';
+  tipo: 'pageview' | 'play' | 'retencion' | 'exit' | 'click' | 'scroll' | 'formulario';
   /**
    * Retención/abandono DEL VIDEO — y, en un `scroll`, hasta dónde bajó la persona
    * en la PÁGINA (snippet v19). Son dos unidades distintas en la misma columna

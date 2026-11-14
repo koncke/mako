@@ -928,4 +928,19 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [pSecuenciaId],
     salida: 'json', canales: ['http'], costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // «Envió el formulario» por la API (14/11/2026, la llamada con Julio Mazariegos): la misma plantilla de la galería, con el CRON
+  // del formulario puesto (`TRIGGER_FORMULARIO`, lib/disparadores.ts). Nace PAUSADA, como crear desde una plantilla. ⚠️ AL FINAL
+  // DEL ÁREA y sin «automatización» en el título y la descripción (las palabras del área van en los parámetros): a igual puntaje
+  // gana la declarada antes, y le sacaba el lugar a cambiar_crons_secuencia (tests/ops-center-bateria.test.ts).
+  {
+    id: 'arrancar_con_formulario', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Arrancar con un formulario del Web Generator',
+    descripcion: 'PROPONE crear, desde una plantilla de la galería, una que arranca cuando alguien envía un formulario del Web Generator (o cualquier formulario de esa landing). Nace PAUSADA.',
+    parametros: [
+      { nombre: 'formulario', tipo: 'string', obligatorio: true, max: 160, descripcion: 'la clave o el nombre (de listar_landings → webGenerator, área landing).' },
+      { nombre: 'plantilla', tipo: 'string', obligatorio: true, enum: IDS_PLANTILLAS, descripcion: 'el id de la plantilla de automatización (de listar_plantillas_automatizaciones).' },
+    ],
+    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla y el CRON «Envió el formulario»',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
 ];

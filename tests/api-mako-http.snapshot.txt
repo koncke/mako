@@ -41,9 +41,11 @@ archivar_secuencia
 armar_magnet
 armar_plan_por_tramos
 armar_tab_ficha
+arrancar_con_formulario
 asegurar_plantilla_reporte
 asignar_campana_funnels
 asignar_closer_setter
+asignar_formulario_a_funnel
 asignar_oferta_lead
 audios_requeridos
 automatizacion_media_buyer

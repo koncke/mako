@@ -20,6 +20,26 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Asignar fuentes»: los formularios de Web Generator entran a un funnel desde el CRM (14/11/2026, claude5)
+
+Martín le dijo a Julio que en «Asignar campañas» aparecían los formularios activos, y no aparecía nada: sólo Meta. Ahora el ⋯ de la
+columna de entrada dice «Asignar fuentes» y el modal tiene dos secciones: «Formularios y páginas de Web Generator» (las landings
+PUBLICADAS y, en cada una, formularios, encuestas, quiz, agenda y pago, por nombre) y «Campañas de Meta».
+
+- **Interruptor y no casilla**: en este modal la casilla SELECCIONA (Martín, 06/10: «el checkbox no debería asignar»). Asignar
+  una pieza es un interruptor por fila; lo asignado vive en el ajuste `landing.piezas` (sin migración y sin el tope de 12 URLs
+  de `landing.config`). El funnel del negocio se nombra null en la pantalla y se guarda con su id real (`principal`).
+- **La ficha parte «Lo que contestó» por formulario** («En tu landing · Formulario Regalo») y Tracking dice «Envió el formulario
+  X», con la tabla `lead_formularios` (mig **0415, ESCRITA Y SIN APLICAR**: pide la frase de Martín). Sin la tabla, todo anda
+  igual que antes: `enviosDelLead` da [] y el envío queda en el historial (`lead_audit`).
+- ⚠️ **Al aplicar la 0415, sumar `lead_formularios` a `TABLAS_DE_INQUILINO`** (lib/tablas-de-inquilino.ts). No va antes: esa lista
+  se mide contra producción y el reset del cliente de prueba borraría una tabla que no existe.
+- «Nuevo CRM» ofrece **Newsletter**: arma el CRM de la tab Newsletters (`asegurarCrmNewsletter`, con el nombre pedido); si ya hay
+  uno, abre ése. No está en `TIPOS_CRM`: sus etapas propias sólo se alcanzan moviendo, y `tipos-crm.test.ts` ubica un lead en
+  cada etapa de cada tipo.
+- /email ofrece cualquier CRM y cualquier etapa (`crm:<id>[:<etapa>]`, lib/segmento-crm.ts): casa y agregados. El del negocio
+  guarda su casa como NULL, así que se lee por los dos lados.
+
 ## El retargeting de los funnels sin VSL: lo que había antes de escribirlo (13/11/2026, claude5)
 
 **El pedido:** Martín, 13/11, después de la llamada con Leila. Cada lunes MaKo revisa las charlas de WhatsApp de los leads

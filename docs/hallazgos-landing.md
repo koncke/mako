@@ -42,6 +42,38 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## El formulario como fuente del lead: el Pixel perdía respuestas sin avisar y el ruteo sólo miraba la URL (14/11/2026, claude5)
+
+La llamada con Julio Mazariegos (docs/relevo/llamada-julio-13-11.md): «creo tres landings, ¿cómo distingo qué formulario dispara el
+flujo?». Lo que había y lo que queda:
+
+- **El Pixel leía 8 respuestas y el formulario del Web Generator admite 10** (`otrosCampos`, `n < 8`, contra `TOPES.camposFormulario`).
+  Con email y 9 preguntas, la última no llegaba y nada lo decía. Ahora el tope es 10 y lo fija
+  `tests/web-generator-formularios-julio.test.ts`, que corre la función EMITIDA sobre un formulario de mentira (sin jsdom): el
+  recorte va por marcas del código, como `landing-agenda-embebida`. **Regla: un tope que vive en dos lados (el editor y el
+  snippet) tiene un test que los compara; el snippet no puede importar la constante (es un string que se sirve).**
+- **Las casillas de una selección múltiple pisaban la respuesta**: cada una llega con la misma etiqueta oculta (la pregunta), así que
+  `out[rot] = val` dejaba la última. Se juntan («Ads, Email») y cuentan UNA vez para el tope.
+- **Un `type="hidden"` se saltaba siempre** (bien: un csrf no es una respuesta). El campo oculto del Web Generator lleva
+  `data-mako-campo` y su rótulo en `data-rotulo`, y sólo ése se lee.
+- **Qué formulario se llenó viaja desde la v29**: `formulario_id`, `formulario_nombre` (del `<form data-mako-form>`) y `pagina_id`
+  («<docId>:<paginaId>», de `data-mako-pagina`, también para la agenda embebida, que no tiene `<form>`). La ruta del opt-in rutea
+  **pieza asignada → campaña → URL**: lo más preciso gana. Sin asignar, todo sigue como antes. Las piezas y su ajuste:
+  `lib/editor-landing/piezas.ts` (puro) y `lib/piezas-web.ts`.
+- **El mismo contacto que llena un segundo formulario quedaba como PROPUESTA** y no entraba al segundo CRM ni a su secuencia hasta
+  que alguien la confirmara. Con email o teléfono IGUAL a UN solo lead (`porMotivo`, nunca `c.motivo === …`: lo prohíbe
+  `duplicados-instagram`), se suma a los CRM del formulario en su etapa de entrada, se juntan las respuestas y dispara «Envió el
+  formulario». Un parecido por nombre, o dos leads con ese dato, siguen como propuesta.
+- **El opt-in no inscribía en el acto**: el lead entraba a su secuencia con el barrido de la hora. Ahora `enrolarPorEvento(…,
+  'lead_nuevo')` al crear, y `'etapa'` con `agregado: true` en cada CRM sumado, como Meta.
+- ⚠️ **La foto publicada es HTML congelado**: una landing publicada antes del 14/11 no tiene `data-mako-form` hasta que se vuelve a
+  publicar. Su id sale igual en «Asignar fuentes» (derivado, ver hallazgos-editor-landing), pero el opt-in de esa página no lo
+  manda: hasta republicar, rutea por URL.
+
+**Sin hacer**: la condición «Envió el formulario / se registró en la página X» del catálogo de condiciones, y sumar
+`optin_respuestas` a `COLS_RESPUESTAS` (lib/nutricion.ts) para que «Respuesta del formulario contiene» vea las de la landing
+(relevo, punto 5, partes 3 y 4).
+
 ## Landings por función copiadas de la competencia: lo que hay que saber antes de hacer la próxima (11/11/2026)
 
 **Vive en:** `app/vsl/_competencia/` (tipos, `LandingCompetencia.tsx`, una `<slug>.ts` por landing y `registro.ts`),
