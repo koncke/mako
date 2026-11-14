@@ -518,6 +518,9 @@ La punta cayó en rojo (corrida 1265) con cinco a la vez, ninguna en lo que corr
 - **Una decisión sobre un conjunto o una campaña no tiene miniatura** (sólo un anuncio tiene `anuncioBase`): el cuadro vacío de 60 px
   dejaba un hueco a la izquierda de «Espera tu OK». Sin miniatura no va nada; el CSS ya tenía la grilla de tres columnas para ese caso.
 - **«Lo que hice» a lo ancho del tablero medía 1100 px por renglón** (más de 140 letras): va cortado a 60ch.
+- **«Espera tu OK» entre 700 y 1000 px** (una notebook de 1280 con la barra de la app) dejaba al porqué una columna de 190 px, en
+  diez renglones: el antes → después (250 px) y Aprobar/No (350 px) no se achican. Ahí el porqué va arriba a lo ancho y lo demás debajo
+  (`@container frn (min-width: 701px) and (max-width: 1000px)` en `CSS_EXTRA`); arriba de 1000 y abajo de 700 queda como estaba.
 - **El espacio de MaKo (ws 9) no tiene nada que el piloto haya hecho de verdad**: sus decisiones son las pruebas del 25/10
   («[PRUEBA MaKo] … no activar», la campaña con 0 activas) y sus páginas analizadas son de terceros. Una animación del piloto con datos
   del ws 9 no existe: la de la portada usa un negocio de ejemplo con nombres ficticios y el texto del motor.

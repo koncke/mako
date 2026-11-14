@@ -125,6 +125,15 @@ const CSS_EXTRA = `
 .frn .mq-tetoca { margin-top: 0; }
 /* «Lo que hice»: el renglón a lo ancho del tablero medía 1100 px (más de 140 letras): se corta a un largo que se lee. */
 .frn .frn-ev p { max-width: 60ch; }
+/* «Espera tu OK» entre 700 y 1000 px (una notebook con la barra de la app): el antes → después (250 px) y Aprobar/No (350 px) dejaban
+   al porqué una columna de 190 px, en diez renglones. Ahí el porqué va arriba a lo ancho y lo demás debajo (banco de la portada, 14/11). */
+@container frn (min-width: 701px) and (max-width: 1000px) {
+  .frn .frn-dec2 { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 12px; }
+  .frn .frn-dec2__img { grid-row: 1 / span 2; align-self: start; }
+  .frn .frn-dec2__txt { grid-column: 2 / -1; }
+  .frn .frn-dec2:not(:has(.frn-dec2__img)) { grid-template-columns: minmax(0, 1fr) auto; }
+  .frn .frn-dec2:not(:has(.frn-dec2__img)) .frn-dec2__txt { grid-column: 1 / -1; }
+}
 .frn .cop-tareas > li { grid-template-columns: 26px minmax(0, 1fr) auto; }
 .frn .cop-tareas > li[data-hecha="true"] b { text-decoration: line-through; color: var(--muted); }
 .frn .cop-check { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; display: grid; place-items: center; color: var(--card); font: 700 14px/1 var(--font); cursor: pointer; }
