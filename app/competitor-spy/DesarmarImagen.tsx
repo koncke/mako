@@ -112,6 +112,12 @@ export function DesarmarImagen({ piezaId }: { piezaId: number }) {
       {error ? <div className={d.error} role="alert"><p>{error}</p></div> : null}
       {x ? (
         <>
+          {/* Lo que se hace con esto, arriba (como en el video): la lista de láminas puede ser larga. */}
+          <div className={d.acciones}>
+            {replica
+              ? <p className={d.vivo} role="status" aria-live="polite"><i aria-hidden />{replica}</p>
+              : <button type="button" className={d.boton} onClick={() => void replicar()}>Replicar en Image</button>}
+          </div>
           {x.paleta.length ? (
             <div className={d.bloque}>
               <h4>Paleta</h4>
@@ -138,11 +144,6 @@ export function DesarmarImagen({ piezaId }: { piezaId: number }) {
             </ol>
           </div>
           {x.dudas.length ? <div className={d.bloque}><h4>Lo que no pude ver</h4><ul className={d.pasos}>{x.dudas.map((p) => <li key={p}>{p}</li>)}</ul></div> : null}
-          <div className={d.acciones}>
-            {replica
-              ? <p className={d.vivo} role="status" aria-live="polite"><i aria-hidden />{replica}</p>
-              : <button type="button" className={d.boton} onClick={() => void replicar()}>Replicar en Image</button>}
-          </div>
         </>
       ) : null}
     </section>

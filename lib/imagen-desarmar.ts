@@ -106,7 +106,7 @@ export function leerDesarmeImagen(crudo: unknown, o: { laminas: number; clase: D
       gancho: txt(crudo.gancho, 400),
       porQueFunciona: txt(crudo.porQueFunciona, 800),
       laminas,
-      tipografia: { titulos: txt(tipo.titulos, 120), cuerpo: txt(tipo.cuerpo, 120), descripcion: txt(tipo.descripcion, 400) },
+      tipografia: { titulos: txt(tipo.titulos, 240), cuerpo: txt(tipo.cuerpo, 240), descripcion: txt(tipo.descripcion, 400) },
       paleta,
       paraReplicar: lista(crudo.paraReplicar).map((x) => txt(x, 400)).filter(Boolean).slice(0, 12),
       dudas: lista(crudo.dudas).map((x) => txt(x, 300)).filter(Boolean).slice(0, 12),

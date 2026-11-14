@@ -36,6 +36,7 @@ const RUTA = '/api/video-editor/desarmar';
 const ESPERA_MS = 6_000;
 const PLANOS_A_LA_VISTA = 8;
 const coma = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
+const mayuscula = (x: string) => (x ? x[0].toLocaleUpperCase('es') + x.slice(1) : x);
 
 async function pedir(cuerpo: Record<string, unknown>): Promise<Respuesta> {
   const r = await fetch(RUTA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
@@ -125,7 +126,7 @@ export function Desarmar({ fuente, duracionS, editor }: {
     <section className={d.caja} aria-label="Desarmar el video">
       <div className={d.cabeza}>
         <h3>{g ? 'Desarmado, plano a plano' : 'Desarmar este video'}</h3>
-        {!g && !mirando && vista ? (
+        {!g && !mirando && vista && !error ? (
           <button type="button" className={d.boton} onClick={() => void desarmar()}>Desarmar</button>
         ) : null}
       </div>
@@ -178,13 +179,18 @@ function Resultado({ g, clave, estilo, editor }: { g: DesarmeGuardado; clave: st
           <span key={o} data-origen={COLOR_ORIGEN[o]} style={{ flexGrow: mezcla[o].segundos, flexBasis: 0 }}>{NOMBRE_ORIGEN[o]} · {mezcla[o].planos}</span>
         ))}
       </div>
+      {/* Lo que se hace con esto, arriba: la lista de planos puede ser larga (mirado a 1440 el 14/11/2026). */}
+      <div className={d.acciones}>
+        {editor ? <Link href={rutaAbrirDesarme(clave)} className={d.boton}>Abrir en el editor</Link> : null}
+        <a href={`${RUTA}?clave=${encodeURIComponent(clave)}&bajar=videomd`} className={d.secundario} download title={`Lo miró ${g.miro.modelo} a ${g.miro.fps} cuadros por segundo. Formato abierto VIDEO.md.`}>Bajar VIDEO.md</a>
+      </div>
 
       <div className={d.bloque}>
         <h4>Estructura</h4>
         <div className={d.estructura}>
           {x.estructura.map((b) => (
             <span key={`${b.nombre}-${b.desde}`} style={{ flexGrow: Math.max(0.5, b.hasta - b.desde), flexBasis: 0 }} title={b.que}>
-              <b>{b.nombre}</b><small>{coma(b.desde)}–{coma(b.hasta)} s</small>
+              <b>{mayuscula(b.nombre)}</b><small>{coma(b.desde)}–{coma(b.hasta)} s</small>
             </span>
           ))}
         </div>
@@ -261,10 +267,6 @@ function Resultado({ g, clave, estilo, editor }: { g: DesarmeGuardado; clave: st
         </div>
       ) : null}
 
-      <div className={d.acciones}>
-        {editor ? <Link href={rutaAbrirDesarme(clave)} className={d.boton}>Abrir en el editor</Link> : null}
-        <a href={`${RUTA}?clave=${encodeURIComponent(clave)}&bajar=videomd`} className={d.secundario} download title={`Lo miró ${g.miro.modelo} a ${g.miro.fps} cuadros por segundo. Formato abierto VIDEO.md.`}>Bajar VIDEO.md</a>
-      </div>
     </>
   );
 }

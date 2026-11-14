@@ -34,9 +34,10 @@
 .numeros span { font-size: 13px; color: var(--dim); }
 
 /* De qué está hecho: una barra por origen, del ancho de sus segundos. */
-.mezcla { display: flex; gap: 3px; min-height: 30px; }
+/* Cada parte, al menos del ancho de su rótulo (a 1440, «Hecho con IA · 1» de 2 s en 138 salía «Hec»): si no entran, saltan. */
+.mezcla { display: flex; flex-wrap: wrap; gap: 3px; min-height: 30px; }
 .mezcla span {
-  min-width: 0; display: flex; align-items: center; padding: 0 10px; border-radius: 8px; font-size: 12.5px; font-weight: 650;
+  min-width: fit-content; display: flex; align-items: center; padding: 0 10px; border-radius: 8px; font-size: 12.5px; font-weight: 650;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 [data-origen='grabado'] { background: var(--good-bg); color: var(--good); }
@@ -48,9 +49,11 @@
 .cita { font-weight: 600; }
 
 /* La estructura en bandas, del ancho de su tiempo. */
-.estructura { display: flex; gap: 3px; min-height: 46px; container-type: inline-size; }
+/* Cada banda, al menos del ancho de su nombre (a 1440, un gancho de 1,9 s en 55 salía «g. 0–1,» y «Desarro…»): si no entran,
+   saltan de renglón. */
+.estructura { display: flex; flex-wrap: wrap; gap: 3px; min-height: 46px; }
 .estructura span {
-  min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 4px 8px; border-radius: 8px;
+  min-width: fit-content; display: flex; flex-direction: column; justify-content: center; padding: 4px 8px; border-radius: 8px;
   background: var(--primary-bg); color: var(--primary-strong, var(--primary)); overflow: hidden;
 }
 .estructura b { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -63,7 +66,8 @@
 .tiempo { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--dim); }
 .origen, .marca { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 650; }
 .marca { background: var(--surface-2); color: var(--ink); }
-.dice { font-style: italic; }
+/* Lo que se dice en un plano largo puede ser medio guion: cuatro renglones y el resto en el VIDEO.md. */
+.dice { font-style: italic; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .textoPantalla { align-self: flex-start; max-width: 100%; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); font-weight: 650; overflow-wrap: anywhere; }
 .mas { align-self: flex-start; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .pasos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
