@@ -10,6 +10,15 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Un candado nuevo dentro de un bloque que un test MIDE: va en una función aparte (14/11/2026, corrida 1383)
+
+Cinco rojos al subir los candados de planes, ninguno de lógica: `lienzo-sexta-tanda` y `nutricion-canal` miden el largo de un bloque
+(«el recorte mide 4244: está mirando otra cosa») y el candado del setter lo agrandó; `reportar-a-soporte` exige `<ReportarASoporte />`
+en todo `role="alert"` (el candado no es un error: va `role="status"`, aparte); `ningun-boton-muerto` acusa un botón que maneja un
+script (va `disabled` con su `aria-label` hasta que el script lo prende); `puente-leads-retirado` prohíbe la key `zapier` entre comillas
+(el slug de Comparaciones quedó `zap`). **La regla:** antes de meter código en un bloque ajeno, correr los tests que nombran el archivo;
+si uno mide el bloque, lo nuevo va en una función con nombre y el bloque la llama en una línea (`frenarSetterNuevo`, `avisoSetter`).
+
 ## Esencial más limitado (14/11/2026): la tabla de /planes y los candados tienen que decir LO MISMO
 
 Martín pidió, mirando /planes: Esencial con 1 landing, 1 competidor en Spy, 1 curso, 2 automatizaciones, sin dominio propio, sin setter
