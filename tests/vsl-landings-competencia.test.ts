@@ -436,3 +436,26 @@ test('Ads Analyst: la demo trae sus cuatro preguntas con datos de Spy, cada tarj
   const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
   assert.ok(scripts.some((x) => x.includes("'d-script'") && x.includes('data-fila') && x.includes('data-bar') && x.includes('-rv-on') && x.includes('IntersectionObserver')), 'sin su script');
 });
+
+test('Funnels: el hero turna cuatro pantallas reales, la lámina lleva «Editar con MaKo» y el script va con data-visor', async () => {
+  const { ESCENAS_HERO, PEDIDOS_EDITAR } = await import('../app/vsl/_competencia/funnel');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'funnel');
+  assert.ok(l, 'falta la landing de Funnels');
+  const html = dibujar(l);
+  assert.equal(ESCENAS_HERO.length, 4, 'el hero turna cuatro escenas');
+  for (const v of [...ESCENAS_HERO.map((e) => e.video), 'editar']) {
+    for (const ext of ['webm', 'jpg']) {
+      const f = `/vsl-assets/funnel/${v}.${ext}`;
+      assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+      assert.ok(html.includes(f), `no se dibuja ${f}`);
+    }
+  }
+  assert.match(html, /<script data-visor="">\(function\(\)\{\s*var P='d-funnel'/, 'Funnels sin su script (data-visor)');
+  const t = textoVisible(propio(html));
+  assert.doesNotMatch(t, /App Store|\bMCP\b|\$5B|15 ?%/, 'Funnels promete lo de Hyros');
+  const panel = leer('app/dashboard/PanelEditarMako.tsx');
+  for (const p of PEDIDOS_EDITAR.slice(0, 2)) assert.ok(panel.includes(`'${p.pedido}'`), `«${p.pedido}» no es una sugerencia de la app`);
+  assert.match(leer('lib/graficos-catalogo.ts'), /r\('cac', 'CAC'/, 'el CAC ya no está en el catálogo');
+  const capi = leer('lib/meta-capi-payload.ts');
+  for (const ev of ['QualifiedLead', 'Purchase']) assert.ok(capi.includes(ev), `MaKo ya no le manda «${ev}» a Meta`);
+});

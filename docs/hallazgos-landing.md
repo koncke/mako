@@ -6206,3 +6206,50 @@ la pantalla de Spy, y el chat de hoy no lo contesta así (ver arriba); el `tsc` 
   banco recibe `cerebro.json` con las posiciones. Sin las aristas laterales sale un diente de león (lib/bienvenida-cerebro.ts).
 - **Grafo.tsx es una grilla de tres columnas** (mapa, tirador, columna de 400 px): para el grafo a lo ancho, en el banco
   `grid-template-columns: 1fr 0 0` y el detalle del punto absoluto encima; cada nodo se toma por `g.cbg-nodo[data-nodo]`.
+
+## Funnels como Hyros: la referencia se publicó de nuevo ESE día, su página entera es un componente con los tiempos adentro, y el «tracking» de la ficha de la portada está dibujado (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/funnel.tsx` (diseño, el cubo isométrico y el `<script data-visor>`), `app/vsl/_competencia/funnel.ts`
+(`PALABRAS_HERO`, `ESCENAS_HERO`, `CUBO_FUNNEL`, `PEDIDOS_EDITAR`, `CIERRE_FUNNEL`), `public/vsl-assets/funnel/`, valores en
+`docs/diseno/landings-competencia/funnel.md`, test «Funnels: …» en `tests/vsl-landings-competencia.test.ts`. Banco:
+`C:/dev/bancos-portada/banco-funnel-landing/` (copia del de /vsl/dashboard; `grabar.mjs pauta|anuncios|kpis|editar`). El relevo con capturas:
+notas de la sesión, `referencias-landings/funnel/relevo.md`.
+
+- **⚠️ El diagnóstico obvio era el equivocado: «hay que pulir la copia del 11/11».** El HTML de Hyros dice «Published Nov 14, 2026, 1:52 PM
+  UTC»: la portada cambió ENTERA el mismo día (hero «Same ad spend. 15% more sales.» con un panel de seis escenas, «Brands that add Hyros
+  see», un cubo isométrico, «All / All / None», una lámina de plano, su App Store y su MCP). Ninguna sección de la copia vieja seguía en pie.
+  **Regla:** antes de comparar, mirar la fecha de publicación que trae el HTML (Framer la escribe en un comentario arriba).
+- **Toda la página es UN componente de código de Framer** (`NewClConcepts.*.mjs`, 915 kB, con su CSS adentro en variables de una letra:
+  `X` = su violeta, `K` = la serif, `w` = la curva). Ahí están los números que el navegador sólo confirma: la línea de tiempo del hero
+  (`jo`, 23 pasos, 56 s), la palabra que rota (`te`, 2,4 s), lo que entra al bajar (`Cn`, `rootMargin -8 %`), el cubo (`Pn`/`Nn`: la
+  proyección `[cx + (x−y)·0,866, cy + (x+y)·0,5 − z]`, que se copió tal cual) y la tabla que se escribe (`In`, 20 ms por letra). La
+  píldora flotante no es de Framer: es `go.hyros.com/pop.js` (aparece pasado `max(320, 80 % del alto)`). **Regla (la de HighLevel y
+  Rebill, otra vez, con otra forma):** en Framer, buscar el módulo del componente en los `<script type="module">` del HTML y leerlo.
+- **Cero `<video>` y la serif es paga.** Todo lo que «parece video» es HTML animado; la serif es P22 Mackinac (de `go.hyros.com`), que no
+  se baja: va Georgia, que es lo que su propia pila muestra sin ella. Y sus botones NO tienen hover (medido): la copia del 11/11 tenía
+  hovers en las fichas, los pasos y las cajas que la suya no tiene.
+- **⚠️ El «tracking» de la ficha que muestra la portada está DIBUJADO en el banco** (`banco-crm/ficha-tracking.tsx`: «De dónde vino»,
+  «Cuánto vio del VSL», el mapa de calor y el video de la visita son cajas del banco, a pedido de Martín para la portada; sólo «Actividad
+  registrada» es `TrackingTimelineCard`). La escena 1 del hero de /vsl/funnel es un recorte de esa grabación (`sitio/crm-ficha.webm`):
+  dice cosas que MaKo mide (de qué anuncio y campaña vino, cuánto vio del VSL), pero la caja no es la de la ficha de la app. Vive en el
+  CRM, no en la landing.
+- **Un `<image href>` de SVG que el visor no reescribe** (lo de Cobranza): las fichas del cubo cambian de logo con el script, así que van
+  con la dirección entera del sitio (`https://hola-mako.com/vsl-assets/logos/integraciones/…`), que se ve en producción y en el visor.
+- **La entrada de una hoja se graba DE CERCA poniendo la cámara antes de que monte:** se mide la caja con la hoja armada, se vuelve a
+  abrir la página con `goto(…, { waitUntil: 'commit' })` + `waitForSelector('body')` y se pone la cámara ahí; el módulo de 10 MB tarda
+  más en montar que eso, así que los números que suben y las líneas que se dibujan salen acercados y sin salto. El banco del Dashboard
+  se COPIA (`banco-funnel-landing`), no se comparte: otra tarea grababa con el suyo al mismo tiempo.
+- **⚠️ El candado con `noclobber` no frena lo que va después de un `;`:** `(set -o noclobber; echo … > .grabando) && echo TOMADO; …;
+  node grabar.mjs` grabó IGUAL con el candado de otra tarea (el `;` sigue aunque falle la toma). Lo que graba va en
+  `banco-funnel-landing/con-candado.sh <comando>`: toma el candado (y 3 GB libres), corre, y lo suelta sólo si sigue siendo suyo.
+
+- **Con muchos chats abiertos, la RAM libre quedó entre 1 y 2,5 GB más de dos horas** (14/11, 11:50 → 14:15): ni el navegador (piso de 3 GB)
+  ni los tests (la guardia del hook pide 3) entraban. Lo que se pudo hacer sin navegador se adelantó (el diseño, el corte de la ficha
+  con ffmpeg, el render con `renderToStaticMarkup`), y lo que necesita navegador va en UNA sola toma (`banco-funnel-landing/todo.sh`:
+  grabar, cortar, dibujar, mirar y los tests) con un chequeo cada 15 s para no perder las ventanas cortas de RAM.
+
+SIN HACER: dos encuadres para volver a grabar (`banco-funnel-landing/grabar.mjs`): «anuncios» corta la columna «Costo por agenda» a la
+derecha (el cuadro de 640 debería ser de ~700) y «pauta» llega hasta «Vistas de la landing» (el pie de la escena dice sólo eso). Lo de Hyros que no va: su App Store (arrastrar complementos a un tablero: la galería «Añadir un gráfico» del Dashboard sería lo nuestro, sin grabar),
+su MCP («npx hyros-mcp connect»: MaKo tiene API, no MCP, y Martín sacó de la portada «Se conecta con tu Claude y tu GPT»), su garantía
+(el panel del cierre queda sin ella), su atribución por llamada, su IA que predice el LTV, sus cifras y la cita de Tony Robbins, el
+aviso de Black Friday y los menús desplegables de su barra (la barra copiada se oculta: va la del sitio).
