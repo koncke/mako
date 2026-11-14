@@ -352,6 +352,14 @@ oscuro; «Competitor Spy»; AI Avatar con los anuncios reales en sus seis filas;
 y el funnel de VSL con su video empezando en la landing ya armada (`replicar.webm` rotado). Capturas recortadas, en la carpeta de notas
 `landings-1411b/`.
 
+**Las páginas que el Cerebro no miró** (Plan, Ads Analyst, Automations, Web Generator, Chats, Funnel; hojas enteras a 1440 y 375 con
+`mirar/repaso.mjs` del scratchpad): Automations tenía el mismo defecto de las cajas con un ícono (las seis tarjetas de «Todo lo que hace
+tu setter con IA», 180 px vacíos arriba: ahora el ícono va sobre el texto) y el video del hero chico en un marco de 700 de alto (ahora
+1040 de ancho, el marco a su medida); Funnel cortaba «a quién mostrar tus anuncios» debajo del video (el resaltado tenía `nowrap`); el
+cierre de Ads Analyst tenía «en tu negocio?» celeste sobre gris (contraste 2 a 1: ahora el azul de la marca); Chats a 375 tapaba el
+texto del recuadro de «falta» con la pastilla, y el recuadro no entraba en su ventana (ahora la llena). Plan y Web Generator, sin
+nada nuevo: sólo sus recuadros de «falta», que están en la lista de abajo.
+
 ### Lo que falta grabar para los recuadros de «falta» (71, contando repetidos), por las páginas que enlaza la portada
 
 Se graban después del despliegue, con el banco de cada uno (C:/dev/bancos-portada/) o en ws 9 / ws 3.

@@ -604,6 +604,8 @@ const BASE = `
 .d-whatsapp-pastilla { position: absolute; left: 6.07%; bottom: 15.8%; display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px 10px 14px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .85); background-image: linear-gradient(rgba(255, 255, 255, .9), rgba(255, 255, 255, .68)); box-shadow: #FFFFFF 0 1px 0 0 inset, rgba(47, 111, 237, .08) 0 0 0 1px, rgba(32, 43, 55, .42) 0 14px 30px -14px; font-size: 15px; line-height: 18px; font-weight: 500; color: var(--ink); white-space: nowrap; }
 .d-whatsapp-comp2 .d-whatsapp-pastilla, .d-whatsapp-comp3 .d-whatsapp-pastilla { background-image: linear-gradient(rgba(236, 242, 255, .94), rgba(222, 233, 254, .82)); color: var(--marino); }
 .d-whatsapp-pastilla-ic { display: inline-flex; color: var(--azul); }
+/* El recuadro de «falta» llena la ventana (que tiene su alto y corta lo que sobra): a 375 el texto quedaba cortado (14/11). */
+.d-whatsapp-ventana .mk-falta { height: 100%; min-height: 0; aspect-ratio: auto; padding: 12px; border-radius: 12px; }
 .d-whatsapp-copy { min-width: 0; }
 .d-whatsapp-etiqueta { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .78); border: 1px solid rgba(47, 111, 237, .18); font-size: 13px; line-height: 17.55px; font-weight: 500; color: var(--marino); }
 .d-whatsapp-etiqueta svg { color: var(--azul); }
@@ -736,7 +738,10 @@ const BASE = `
   .d-whatsapp-h2, .d-whatsapp-h2-46 { font-size: 30px; line-height: 32.4px; letter-spacing: -1.05px; max-width: none; }
   .d-whatsapp-piezas-sec { padding: 72px 0; }
   .d-whatsapp-piezas { margin-top: 36px; grid-template-columns: minmax(0, 1fr); gap: 56px; }
-  .d-whatsapp-pastilla { font-size: 13px; line-height: 15.6px; padding: 8px 14px 8px 10px; }
+  /* A 375 la pastilla tapaba el texto de la ventana (el recuadro de «falta», 14/11): más chica y debajo de la ventana. */
+  .d-whatsapp-ventana .mk-falta-t { font-size: 14px; }
+  .d-whatsapp-ventana .mk-falta-r { font-size: 10px; }
+  .d-whatsapp-pastilla { font-size: 12px; line-height: 14px; padding: 6px 12px 6px 9px; gap: 6px; bottom: 5%; }
   .d-whatsapp-h3 { font-size: 22px; line-height: 25.3px; letter-spacing: -.66px; }
   .d-whatsapp-p { font-size: 15px; line-height: 23.25px; }
   .d-whatsapp-incl-sec { padding: 36px 0; }
