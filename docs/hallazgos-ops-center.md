@@ -656,3 +656,19 @@ propósito desde el 25/10: la prueba corre con los topes del plan elegido) · ca
 - **El CoPilot de un Esencial conserva el MATERIAL DE APOYO** (`fichaDeApoyo`, `lib/media-buyer/copiloto-contexto.ts`): una ficha
   destilada que NO nombra a nadie ni atribuye, como el conocimiento de anuncios. Se dejó porque no es «hablar con un referente»; si
   Martín lo quiere afuera, es esa función.
+
+## Sin la app de escritorio no se escribe en NINGÚN chat del Ops Center; el onboarding sí anda sin ella (15/11/2026, lectura del código para la bienvenida del reto)
+
+**Vive en:** `app/second-brain/useChatCliente.ts` (`enviar` devuelve `false` con `app === 'bloquea'`), `lib/chat-mako-reglas.ts`
+(`seEscondeDeOffer`).
+
+**Por qué importa:** todo traspaso del onboarding a un coach («terminaste; ahora tu oferta», «ahora tu funnel») choca con esto.
+Si la persona todavía no instaló su IA, el botón la deja en un chat donde no puede escribir; el onboarding (/onboarding) no
+tiene ese freno, así que el problema aparece recién al salir de él. **La regla:** el paso «tu IA» va ANTES de mandar a
+cualquier chat del Ops Center.
+
+**El chat «Oferta» ya existe, escondido:** la charla del onboarding sobre lo que vende es una conversación de Offer. Cuando se
+copia al chat «Onboarding», `seEscondeDeOffer` la esconde de la dueña mientras no tenga nada nuevo. Para que al terminar el
+onboarding haya un chat «Oferta» no hay que crear nada: dejar de esconderla, nombrarla y escribirle el primer mensaje. Es,
+además, la conversación que lee la tarjeta «Oferta y comunicación» del Marketing CoPilot; lo que guarda el Funnel Coach va a
+otra tabla que el CoPilot no ve.

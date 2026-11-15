@@ -3084,3 +3084,28 @@ vivía sólo en la tarjeta del «¡Listo!» y se perdía.
 **Vive en:** lib/funnel-recomendado.ts, lib/onboarding-arranque.ts, lib/onboarding-arranque-server.ts,
 app/api/onboarding/arranque/route.ts, app/api/onboarding/plan-arranque/route.ts. Lo fija tests/onboarding-funnel-recomendado.test.ts.
 
+## La bienvenida del reto: lo que el onboarding pregunta y ningún otro lee (15/11/2026, lectura del código)
+
+**Vive en:** `lib/onboarding-arranque.ts`, `lib/onboarding-arranque-server.ts`, `lib/fase-diagnostico.ts`; del otro lado,
+`lib/copiloto/entrada.ts`, `lib/media-buyer/copiloto.ts` y `lib/funnel-plan.ts`.
+
+- **`onboarding.funnel_tipos` guarda el CANAL, no el tipo de funnel** (`JSON.stringify([s.canal])` en
+  `lib/onboarding-arranque-server.ts` y en la ruta del wizard). Lo leen sólo las utilidades de clonado (`lib/clonar-config.ts`,
+  `lib/datos-mau.ts`). El comentario de al lado decía que lo leían «las plantillas de nutrición»: no lo lee ninguna (corregido
+  el comentario). El TIPO que eligió vive en `onboarding.arranque.crmTipo`. Un reto que se arme según el funnel del onboarding
+  tiene que leer `crmTipo`.
+- **El funnel se pregunta tres veces, con tres listas:** el onboarding recomienda 1 de 12 (`lib/pipeline.ts`), la entrada del
+  Marketing CoPilot 1 de 9 (`lib/media-buyer/copiloto.ts`) y el Funnel Coach 1 de 6 (`lib/funnel-plan.ts`). Cada uno guarda su
+  respuesta en su lugar y ninguno lee la del otro. La inversión se pregunta en al menos seis lugares y se guarda en cuatro
+  (diagnóstico de fase, perfil del CoPilot, plan del Funnel Coach, configuración del Media Buyer, que arranca en US$1.000 sin
+  leer nada). `lib/funnel-recomendado.ts` dice ser «la ÚNICA traducción», pero sólo devuelve el tipo de CRM. Para unirlos hace
+  falta una tabla que traduzca entre las listas, no una cuarta lista.
+- **«¿Qué te gustaría que MaKo resuelva primero?» no cambia nada:** se guarda y sólo la ven tablas de super admin.
+- **Promete «menos de 5 minutos» y son 15 a 20 respuestas.** No está medido.
+- **La acción `paso` de `/api/onboarding` cierra pasos sin mirar el dato:** valida que el paso exista en el catálogo y que se
+  pueda postergar, pero acepta `done: true` para cualquiera sin comprobar que lo que pide esté cargado, y con todos hechos el
+  onboarding queda terminado. La puede llamar el admin del negocio (`lib/onboarding-guard.ts`). Ninguna pantalla la usa hoy;
+  las otras dos puertas (clonar-dueno y la API de MaKo) sí exigen el dato.
+- **Quedó SIN hacer** (la propuesta está en el chat del 15/11 y en la memoria `reto-7-dias-prueba`): el onboarding adentro del
+  Ops Center, el paso «tu IA» en el chat «Onboarding», el chat «Oferta», pasarle al Funnel Coach el funnel elegido y las
+  preguntas del CoPilot adentro del onboarding.

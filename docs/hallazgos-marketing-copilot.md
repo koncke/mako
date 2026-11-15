@@ -639,3 +639,22 @@ Lo que falta para igualarlos: que el piloto de redes anote lo que hizo, como lo 
 
 **Regla que queda:** antes de agregar un origen de datos al Copilot, buscar si la cosa ya existe con su etiqueta
 (`TareaCoPilot.tarjeta`) y sólo no se está dibujando. Dos de los tres pasos de este encargo eran mostrar, no construir.
+
+## Lo que el CoPilot le pide a alguien nuevo no mira por dónde vende (15/11/2026, lectura del código para el reto)
+
+**Vive en:** `lib/copiloto/tareas.ts`, `app/ads-manager/copiloto/CoPilot.tsx`, `lib/media-buyer/copiloto.ts`.
+
+- **«Elige tu funnel» manda a `/ads-manager?estrategia=1`**, la charla vieja (`PrimeraEntrada`), que el menú ya no abre: desde
+  el 14/11 el menú abre /ads-manager/copiloto.
+- **Al abrir crea en el Plan entre 11 y 19 tareas iguales para todos**, también «Conecta tu Meta», «tu Instagram» y «tu
+  YouTube» a quien no vende por ahí. Se cierran solas sólo las que tienen su clave de resuelta: Audience Network, las de la
+  semana, la web, la miniatura y la nevera de semanas anteriores quedan abiertas aunque ya no apliquen.
+- **La tarjeta de cada red recibe TODAS las tareas de esa red**, no sólo las propuestas del piloto: los 3 lugares se llenan con
+  lo que venga primero («Conecta tu Instagram», «Selecciona a tus competidores»…). El «2 de Instagram y 1 de YouTube» del
+  comentario vale sólo para `propuestasDelPiloto`.
+- **Las tareas de la semana dan vacío para VSL, mensajes, formulario y compra directa**, y «qué medir» de los cuatro funnels de
+  anuncios y de compra directa es el genérico «costo por llamada calificada», sin llamada de por medio en una tienda.
+- **El retargeting del piloto lee las charlas de WhatsApp** (`lib/retargeting.ts`): marca a quien no respondió o no compró. No es
+  «quien miró la página y no compró», así que a una tienda sin charlas no le sirve.
+- **La regla para el reto:** antes de que el CoPilot entre (el día 2 de la propuesta), filtrar sus tarjetas y tareas por el canal
+  que eligió la persona. Si no, le llena el Plan de tareas que no le tocan.

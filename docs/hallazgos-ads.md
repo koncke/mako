@@ -28,6 +28,18 @@ registro completo de las corridas está en [corridas-multiagente.md](corridas-mu
 
 ---
 
+## Desde MaKo no se puede lanzar un anuncio que abra WhatsApp, y el de formulario pide uno ya creado en Meta (15/11/2026, lectura del código para el reto)
+
+**Vive en:** `lib/media-buyer/campana-reglas.ts` (`OBJETIVOS_CAMPANA` y la validación de `formularioId`).
+
+«Nueva campaña» tiene cuatro objetivos: formulario de Meta, registros en tu página, visitas a tu página y compras. **No hay
+objetivo de mensajes**: el funnel más común de los clientes, anuncios que abren un chat de WhatsApp, no se arma desde MaKo. El
+«Enviar WhatsApp» de `app/ads-manager/NuevaCampana.tsx` es uno de los textos del BOTÓN del anuncio, no un objetivo; no lo
+confundas. Y «Formulario de Meta» no crea el formulario: pide elegir uno que ya exista en la cuenta.
+
+Pesa en el reto de 7 días: el día de «salir al aire» de los funnels a WhatsApp y a formulario no se puede hacer entero en MaKo.
+Sacado del código; no se probó contra Meta.
+
 ## Lo prometido a Thiago: variar el botón, pausar el original y los videos de MaKo como anuncio (6/11/2026, nube)
 
 **Vive en:** `lib/media-buyer/motor.ts` (`relevos`, `previaDeDecision`), `lib/media-buyer/variacion-boton.ts`,

@@ -1592,3 +1592,25 @@ Y en el teléfono también: topeado en 340 dentro de 390.
 
 **Vive en:** lib/ofertas.ts (`fila`, `upsertOferta`). Sin arreglar: lo usan Offer, el onboarding y la API (`guardar_oferta`), que hoy
 mandan la oferta entera; cambiarlo es de Offer.
+
+## El onboarding común no deja NINGUNA oferta, y el Funnel Coach vuelve a preguntar qué vende (15/11/2026, lectura del código para la bienvenida del reto)
+
+**Vive en:** `lib/onboarding-arranque-server.ts` (el cierre, el bloque «1. La oferta armada» y «2. El producto»),
+`lib/onboarding-arranque.ts` (`briefDesdeArranque`, `oferta_nombre: sinMarca(prop?.nombre)`), `lib/ofertas.ts`
+(`seedOfertaDesdeBrief`) y `lib/funnel-plan.ts` (`saludoDelFunnelCoach`).
+
+**Qué pasa:** el onboarding pregunta qué vende, a quién y a qué precio, y al cerrar guarda un PRODUCTO («Oferta de X»), el PDF y
+el brief. Una OFERTA (una fila de `ofertas`) sólo nace si la conversación ya traía una propuesta armada (modo 'oferta' con
+conclusiones): ahí corre `guardarComoOferta`. En el camino común no hay propuesta, así que no hay oferta y `oferta_nombre` no
+se escribe en el brief.
+
+**Por qué no la salva la siembra del brief:** `seedOfertaDesdeBrief` marca su guard ANTES de mirar el nombre (a propósito: si
+no, reintentaría en cada carga). Un negocio que abrió una pantalla de ofertas sin `oferta_nombre` ya la quemó: escribir el
+nombre después no crea nada.
+
+**La consecuencia:** sin oferta guardada, el Funnel Coach saluda con «Empecemos por tu oferta: ¿qué vendes, a quién y a qué
+precio?», la pregunta que el onboarding acaba de hacer. Sacado del código; no se vio en pantalla.
+
+**La regla para quien haga que el onboarding deje la oferta:** crearla explícita al cerrar, con lo que contó, sin contar con la
+siembra del brief; y sin mover el orden del cierre (producto y oferta antes que el brief: si no, vuelve el «X · versión 1» del
+16/10, ver hallazgos-onboarding.md, «El orden del cierre es el arreglo»).

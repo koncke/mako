@@ -452,7 +452,9 @@ export async function sembrarCrmPrincipal(tipo: TipoCrmId, nombreNegocio: string
   const intacto = mismoPipeline(actual.pipeline, DEFAULT_PIPELINE) && actual.suppressed.length === 0;
   if (!intacto) return { sembrado: false, aviso: 'Tu CRM ya tenía etapas propias: lo dejé como estaba.' };
   await saveFunnelDefault(s.pipeline, apagadasAlCrear(s.pipeline, s.suppressed), { entradas: s.entradas });
-  // El canal del negocio, como lo dejaba el diagnóstico del wizard (lo leen las plantillas de nutrición).
+  // El CANAL del negocio, como lo dejaba el diagnóstico del wizard. No es el tipo de funnel (ése es `onboarding.arranque.crmTipo`),
+  // y hoy lo leen sólo las utilidades de clonado (lib/clonar-config.ts, lib/datos-mau.ts): este comentario decía «lo leen las
+  // plantillas de nutrición» y no lo lee ninguna (15/11/2026, docs/hallazgos-onboarding.md).
   await setSetting('onboarding.funnel_tipos', JSON.stringify([s.canal])).catch(() => {});
   const id = actual.id ?? (await idDelFunnelDefault().catch(() => null));
   if (id != null && nombreNegocio.trim()) await renombrarFunnel(id, nombreNegocio).catch(() => {});
