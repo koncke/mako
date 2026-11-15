@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { metadataPortada as metadata } from '../app/vsl/portada-metadata';
 import { LANDING_HTML } from '../app/vsl/landing-html';
-import { filasDeComparacion, noIncluyeDe, NOMBRE_TAB_PRO } from '../lib/planes-comparacion';
+import { filasDeComparacion, noIncluyeDe, NOMBRE_TAB_PRO, GENERACION_SE_VENDE, NOMBRE_GENERACION_IMAGEN, NOMBRE_GENERACION_VIDEO } from '../lib/planes-comparacion';
 import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -113,7 +113,11 @@ test('la página de anuncios no vende crear campañas', () => {
 // «Crear y retocar imágenes con IA» o el «Imágenes con IA» de Pro → cada uno, rojo.
 test('la tabla y lo que trae cada plan no prometen videos ni imágenes hechos con IA', () => {
   const A_MEDIAS = /videos?.*armad[oa]s? con IA|im[aá]genes con IA|crear y retocar/i; // «Tu oferta armada con IA» sí anda
-  for (const f of filasDeComparacion()) assert.doesNotMatch(f.que, A_MEDIAS, `la tabla promete «${f.que}»`);
+  // ⚠️ SALVO LAS DOS FILAS DE GENERACIÓN CUANDO SE VENDE (`GENERACION_SE_VENDE`), que Martín prendió el 15/11/2026 a la noche
+  // pidiendo que /planes diga cuántos clips e imágenes alcanzan. Es la ÚNICA excepción, y por nombre: cualquier otra fila que
+  // prometa a medias sigue poniendo esto rojo.
+  const generacion = new Set(GENERACION_SE_VENDE ? [NOMBRE_GENERACION_IMAGEN, NOMBRE_GENERACION_VIDEO] : []);
+  for (const f of filasDeComparacion()) if (!generacion.has(f.que)) assert.doesNotMatch(f.que, A_MEDIAS, `la tabla promete «${f.que}»`);
   for (const p of PLANES_MAKO_DEFAULT) for (const l of p.incluye) assert.doesNotMatch(l, A_MEDIAS, `${p.id} promete «${l}»`);
   // 14/11/2026: los editores son de los dos planes (Martín) y lo de Pro es editar con IA (subtítulos, cortes, B-roll y diseños).
   assert.ok(filasDeComparacion().some((f) => f.que === 'Editor de imágenes y carruseles, como Canva' && f.esencial === true), 'el editor de imágenes, en los dos');

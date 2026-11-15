@@ -27,7 +27,7 @@
 import { TOPES, TABS_SOLO_PRO, type FuncionSoloPro, type Tope } from './topes-plan';
 // Los topes de GENERACION no viven en `TOPES`: viven con el precio del clip y de la imagen
 // (./mako-tokens-paquetes.ts), porque lo que los fija es el margen, no un limite de la app.
-import { CLIPS_POR_MES, IMAGENES_POR_MES, minutosDelPlan } from './mako-tokens-paquetes';
+import { CLIPS_POR_MES, IMAGENES_POR_MES } from './mako-tokens-paquetes';
 import { PLAN_DE_CAPA, type Plan } from './mako-tokens-reglas';
 import { ASESORES } from './asesores/catalogo';
 
@@ -130,7 +130,15 @@ export const AI_AVATAR_SE_VENDE = false;
  *      con esas palabras (como la de AI Avatar), porque un tope nuestro de minutos sobre los créditos de ÉL no se cumple.
  * El día que pase, esto va a true y las dos filas aparecen con los topes del código, sin tocar nada más.
  */
-export const GENERACION_SE_VENDE = false;
+export const GENERACION_SE_VENDE = true;
+// ⚠️ PRENDIDO EL 15/11/2026 A LA NOCHE, POR PEDIDO EXPRESO DE MARTÍN, y con el costo a la vista. Se le dijo esa misma tarde
+// que la generación de imagen y de video todavía no estaba construida en la app («hoy la app no genera imágenes ni clips
+// con IA… prometerlo sería vender algo que no existe»), y su respuesta fue pedir que /planes muestre cuántos clips y cuántas
+// imágenes alcanzan en cada columna y que se muevan con la barra: «cuando voy desplazando a más MaKo Tokens, debería ahí
+// justamente cambiar la cantidad de clips o de imágenes que me alcanzan». Es su decisión de producto.
+// LO QUE QUEDA ABIERTO, para que nadie lo dé por hecho: que generar un clip y una imagen ande de punta a punta dentro de
+// MaKo (el medidor que descuenta ya está en main: lib/mako-tokens-medidor.ts). Hasta entonces, la vitrina promete algo que
+// el producto todavía no entrega.
 
 /** La fila de AI Avatar en la tabla, para cuando se venda (`AI_AVATAR_SE_VENDE`). */
 export const NOMBRE_AI_AVATAR = 'Videos con una persona hecha con IA que habla por ti';
@@ -201,11 +209,14 @@ export function filasDeComparacion(): FilaComparacion[] {
     // imágenes (limitadas) y NO genera video. ⚠️ Detrás de `GENERACION_SE_VENDE`, que hoy es false y explica por qué:
     // generar imágenes con IA no existe todavía y el video lo paga el cliente con sus créditos de Google Flow.
     ...(GENERACION_SE_VENDE ? [
-      filaDeGeneracion(contenido, NOMBRE_GENERACION_IMAGEN, (p) => `${IMAGENES_POR_MES[p].toLocaleString('es-AR')} al mes`),
+      // «HASTA», porque es una sola bolsa (Martín, 15/11: «te alcanza para todo esto, punto. Después que él decida cómo lo
+      // reparte»): las dos filas son los extremos de los MISMOS MaKo Tokens, no dos cupos que se suman. Y el video en
+      // CLIPS, no en minutos («queda mejor 18 clips que 3 minutos»).
+      filaDeGeneracion(contenido, NOMBRE_GENERACION_IMAGEN, (p) => `Hasta ${IMAGENES_POR_MES[p].toLocaleString('es-AR')} al mes`),
       filaDeGeneracion(contenido, NOMBRE_GENERACION_VIDEO, (p) => {
-        const min = minutosDelPlan(p);
-        // Cero no se dice «0 minutos»: se dice que no lo trae, y la celda dibuja el guión (`CeldaPlan`).
-        return CLIPS_POR_MES[p] === 0 ? false : `${min} ${min === 1 ? 'minuto' : 'minutos'} al mes`;
+        const clips = CLIPS_POR_MES[p];
+        // Cero no se dice «0 clips»: se dice que no lo trae, y la celda dibuja el guión (`CeldaPlan`).
+        return clips === 0 ? false : `Hasta ${clips} ${clips === 1 ? 'clip' : 'clips'} al mes`;
       }),
     ] : []),
     enTodos(contenido, 'Editor de imágenes y carruseles, como Canva'),

@@ -42,12 +42,10 @@
 
 import { ASESORIAS_DEL_PROGRAMA, MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, type PlanMako } from '@/lib/planes-mako';
 import { TOPES } from '@/lib/topes-plan';
-import { GENERACION_SE_VENDE } from '@/lib/planes-comparacion';
 import { PLAN_DE_CAPA, cupoDeCapa } from '@/lib/mako-tokens-reglas';
-import { ATRIBUTO_NOTA, ATRIBUTO_PRECIO } from './CalculadoraTokens';
+import { ATRIBUTO_ALCANZA, ATRIBUTO_MT, ATRIBUTO_NOTA, ATRIBUTO_PRECIO, fraseAlcanza, generaVideoLaCapa } from './CalculadoraTokens';
 // Los topes de generación (15/11/2026): cuánto video y cuántas imágenes trae el plan. Viven con el precio del clip
 // porque lo que los fija es el margen, no un límite de la app (lib/mako-tokens-paquetes.ts).
-import { CLIPS_POR_MES, IMAGENES_POR_MES } from '@/lib/mako-tokens-paquetes';
 import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
 import { PROMO_ENTRADA, precioPrimerMes, textoUsd } from '@/lib/promo-entrada-reglas';
 
@@ -64,6 +62,18 @@ export const TEXTO_PRUEBA = PRUEBA_GRATIS_PRENDIDA
  *  quien la cite fuera de acá. `CEJA_PROGRAMA` sí: es la ceja de la lista del Acelerador y el rótulo de su tarjeta. */
 export const CEJA_SOFTWARE = 'Lo haces tú, con MaKo';
 export const CEJA_PROGRAMA = 'Lo armamos contigo';
+
+/**
+ * EL TÍTULO DE LA LISTA DE CADA COLUMNA: «Incluye», en las tres (15/11/2026).
+ *
+ * Eran «Lo haces tú, con MaKo al lado» y «MaKo lo hace, tú apruebas» (y «Lo armamos contigo» en el Acelerador): decían
+ * CÓMO se trabaja en cada plan. Martín, mirando /planes: «no veo que hayas cambiado los textos que están, lo haces tú, MaKo
+ * al lado, MaKo lo hace tú apruebas. O sea, todo eso habíamos quedado que debería haber cambiado» — es el «lenguaje
+ * nuestro» que pidió sacar de las columnas («eso debería entenderse muy fácilmente. No con lenguaje nuestro»).
+ * ⚠️ NO ES «TODO LO DE ESENCIAL, MÁS»: eso lo rechazó el 14/11 («la idea es que cada uno se sienta único»). «Incluye» no
+ * nombra a la otra columna, y el «para quién» ya lo dice la frase de arriba de cada una.
+ */
+export const CEJA_LISTA = 'Incluye';
 
 const n = (v: number | null) => (v == null ? 'sin tope' : v.toLocaleString('es-AR'));
 /** «1 landing» / «3 landings»: el número con su palabra (los topes cambian; el plural, solo). */
@@ -134,31 +144,17 @@ export type ListaDeColumna = {
  */
 export function listaCorta(capa: string): ListaDeColumna {
   const c = TOPES.completo, a = TOPES.agencia;
-  const imgPro = IMAGENES_POR_MES[PLAN_DE_CAPA.completo], imgAg = IMAGENES_POR_MES[PLAN_DE_CAPA.agencia];
   if (capa === 'agencia') {
     return {
-      // Lo que hace únicas a las dos columnas sin decir «todo lo de X»: Esencial = lo haces tú, con MaKo al lado.
-      // Pro = MaKo lo hace, tú apruebas. No es una metáfora: es exactamente lo que el código cierra (`FUNCIONES_SOLO_PRO`
-      // son todas «MaKo lo hace solo»: la edición con IA, el setter, los pilotos, copiar la landing, el análisis de llamadas).
-      titulo: 'MaKo lo hace, tú apruebas',
+      titulo: CEJA_LISTA,
       tokens: tokensDeLaCapa(capa),
       items: [
-        // EL CHECK #1 ES LA DIFERENCIA QUE MÁS PESA (15/11/2026, Martín: «debería haber una diferenciación clara de lo que
-        // hace el plan de 97 y lo que hace el plan de 47»). Leídas en paralelo, los dos primeros renglones tienen que decir
-        // la diferencia sin que haya que bajar a la tabla.
-        // ⚠️ PERO LA GENERACIÓN NO SE PROMETE TODAVÍA (`GENERACION_SE_VENDE`, lib/planes-comparacion.ts): generar imágenes
-        //    con IA no existe en MaKo y el video lo paga el cliente con sus créditos de Google Flow. Mientras eso sea así, la
-        //    diferencia la dice lo que SÍ anda y SÍ está cerrado en Esencial: editar con IA (`FUNCIONES_SOLO_PRO`,
-        //    'ia-editores'), que es el renglón de abajo. El día que la generación se venda, este check vuelve con los topes.
-        // ⚠️ SE DICE CON «O», NO CON «Y» (15/11/2026). Martín, textual: «nosotros deberíamos vender dentro del pricing como
-        //    que con el plan de 97 te alcanza para 26 clips o 2000 imágenes… no deberíamos hacer el cálculo de tantas
-        //    imágenes más tantos videos, no. O sea, nosotros le decimos al usuario, te alcanza para todo esto, punto.
-        //    Después que él decida cómo lo reparte.» Decía «3 minutos de video Y 500 imágenes», que es UNA mezcla de las
-        //    infinitas que entran — y la peor forma de contarlo, porque hace parecer que son dos cajones separados cuando el
-        //    cupo es una bolsa sola. Los extremos salen del cupo (`CLIPS_POR_MES` / `IMAGENES_POR_MES`, hoy derivados).
-        ...(GENERACION_SE_VENDE
-          ? [{ fuerte: `${CLIPS_POR_MES[PLAN_DE_CAPA.agencia]} clips de video con IA al mes, o ${imgAg.toLocaleString('es-AR')} imágenes`, texto: ': tú decides cómo lo repartes' }]
-          : []),
+        // LA DIFERENCIA QUE MÁS PESA ENTRE LAS DOS COLUMNAS (Martín, 15/11: «debería haber una diferenciación clara de lo que
+        // hace el plan de 97 y lo que hace el plan de 47») es el video, y la dice el «te alcanza para» de arriba de los checks
+        // — con «o», porque es una sola bolsa («te alcanza para todo esto, punto. Después que él decida cómo lo reparte»).
+        // La generación (clips e imágenes) ya NO va como check: la dice el «te alcanza para» de arriba (`fraseAlcanza`,
+        // ./CalculadoraTokens.tsx), que además se mueve con la barra. Dos lugares diciendo el mismo número en la misma
+        // columna se desfasan el primer día que la barra se mueve.
         { fuerte: 'Copia la landing de cualquier competidor con tu oferta', texto: ', en tu dominio propio' },
         { fuerte: 'Edición con IA de tus videos:', texto: ' corta las pausas, subtitula y propone B-roll solo' },
         { fuerte: 'Un setter con IA', texto: ' que responde y agenda por WhatsApp e Instagram' },
@@ -176,22 +172,14 @@ export function listaCorta(capa: string): ListaDeColumna {
     };
   }
   return {
-    titulo: 'Lo haces tú, con MaKo al lado',
+    titulo: CEJA_LISTA,
     tokens: tokensDeLaCapa(capa),
     // Ni un renglón en negrita (ClickFunnels): la columna barata queda visualmente plana sin que le falte nada, así que no
     // se le puede acusar de esconder y aun así no engancha el ojo.
     // ⚠️ Y SÍ LLEVAN NÚMEROS, al revés de la regla del 14/11 («ningún número adentro de un bullet»): Martín la dio vuelta el
-    //    15/11 al pedir que los topes sean checks. Los números salen del código (`TOPES`, `IMAGENES_POR_MES`), nunca a mano.
+    //    15/11 al pedir que los topes sean checks. Los números salen del código (`TOPES`), nunca a mano.
     items: [
-      // El límite que define a este plan, primero y sin vueltas (Martín: «el de 47 debería estar bien limitado y
-      // restrictivo»; «tiene solamente generación de imagen y de manera limitada»).
-      // ⚠️ Igual que en la columna de Pro: sólo cuando la generación se venda (`GENERACION_SE_VENDE`). Hoy no se nombra,
-      //    porque decir «sin generación de video» en este plan implica que el otro sí la trae, y eso todavía no se vende.
-      // Y acá el «o» no hace falta porque este plan no genera video: su bolsa sólo compra imágenes, así que el extremo es
-      // el único número que hay. Lo que sí se dice, porque es LA diferencia con el de US$97, es que no genera video.
-      ...(GENERACION_SE_VENDE
-        ? [{ texto: `${imgPro.toLocaleString('es-AR')} imágenes con IA al mes. La generación de video es de MaKo Pro` }]
-        : []),
+      // Lo que genera (y que no genera video) lo dice el «te alcanza para» de arriba, igual que en Pro.
       { texto: `Hasta ${n(c['crm.leads'])} leads y clientes, cada uno con su etapa y su historia` },
       { texto: `${nn(c['web.landings_publicadas'], 'página de venta', 'páginas de venta')}, escrita por IA y publicada en un clic` },
       { texto: `${nn(c['chats.lineas_whatsapp'], 'WhatsApp conectado', 'WhatsApp conectados')}, con Instagram, Messenger y email en la misma bandeja` },
@@ -299,6 +287,9 @@ export const CSS_TARJETAS = `
    encabezado de la lista). Los MaKo Tokens del plan primero, con su número en negrita, y debajo los topes, en gris y chico: lo
    que el ojo compara antes de leer funciones. Los bullets quedan funciones puras. */
 .mkpl-tokens { margin: 0 0 14px; padding: 0 0 12px; border-bottom: 1px solid #EEF1F5; font-size: 14px; line-height: 1.4; color: #4A5260; }
+.mkpl-tokens p { margin: 0; }
+.mkpl-alcanza { margin-top: 6px !important; font-size: 13.5px; line-height: 1.5; color: #5B6472; }
+.mkpl-alcanza b { color: #12151B; font-weight: 700; }
 .mkpl-tokens b { color: #12151B; font-weight: 800; }
 /* «.mkpl-topes» se fue el 15/11/2026 con la fila de cifras que dibujaba (ver «ListaDeColumna»). La raya que separaba
    la cabeza de la lista la lleva ahora la línea de los MaKo Tokens, que es lo único que quedó arriba. */
@@ -366,6 +357,7 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
         const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable: p.cobrable, sufijo });
         const borde = `mkpl-btn${p.destacado ? '' : ' borde'}`;
         const lista = listaCorta(p.capa);
+        const cupo = cupoDeCapa(p.capa);
         // El rótulo de la tarjeta es el NOMBRE del plan y no `CEJA_SOFTWARE` (14/11/2026): desde que cada columna dice cómo se
         // trabaja en su propia ceja («Lo haces tú, con MaKo al lado» / «MaKo lo hace, tú apruebas»), una etiqueta común para
         // las dos le decía a quien usa un lector de pantalla lo contrario de lo que la columna de Pro dice.
@@ -417,7 +409,14 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
                   tenga la cantidad de MaKo Tokens al mes, pero todo lo que está abajo debería ir como checks»). Los topes
                   que estaban ací en dos renglones de cifras ahora son checks (ver `listaCorta`). Sin cupo decidido para esa
                   capa, no se dice nada: nunca un número inventado. */}
-              {lista.tokens && <p className="mkpl-tokens"><b>{lista.tokens.split(' ')[0]}</b> {lista.tokens.split(' ').slice(1).join(' ')}</p>}
+              {/* Los MaKo Tokens de la columna y para cuánto le alcanzan. Los dos los mueve la barra de arriba (./CalculadoraTokens.tsx),
+                  así que llevan su marca; lo que dibuja el servidor es el primer paso de la barra: el cupo de ESTE plan. */}
+              {lista.tokens && cupo != null && (
+                <div className="mkpl-tokens">
+                  <p><b {...{ [ATRIBUTO_MT]: p.id }}>{cupo.toLocaleString('es-AR')}</b> MaKo Tokens al mes</p>
+                  <p className="mkpl-alcanza" {...{ [ATRIBUTO_ALCANZA]: p.id }} dangerouslySetInnerHTML={{ __html: fraseAlcanza(cupo, generaVideoLaCapa(p.capa)) }} />
+                </div>
+              )}
               <p className="mkpl-lista-t">{lista.titulo}</p>
               <ul className="mkpl-lista">
                 {lista.items.map((x) => (
@@ -453,7 +452,7 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
           {pr.promesa && <p className="mkpl-promesa"><b>Nuestra promesa:</b> {pr.promesa}</p>}
           {/* Sin «Todo lo de MaKo Pro, más:» (14/11/2026): MaKo Pro es el primer check (`LISTA_PROGRAMA`) y esta columna
               también se lee sola. La ceja dice cómo se trabaja, como en las otras dos. */}
-          <p className="mkpl-lista-t">{CEJA_PROGRAMA}</p>
+          <p className="mkpl-lista-t">{CEJA_LISTA}</p>
           <ul className="mkpl-lista">{LISTA_PROGRAMA.map((x) => <li key={x}><span>{x}</span></li>)}</ul>
         </div>
       </section>
