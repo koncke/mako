@@ -6,6 +6,47 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 [hallazgos-customer-success.md](hallazgos-customer-success.md); la seguridad del «Entrar como», en
 [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Vista de agencia».
 
+## ⚠️ «No puede entrar a inspeccionar» era un bloqueo CORRECTO sin aviso (14/11/2026)
+
+**Vive en:** `app/api/agencia/entrar/route.ts` (contesta `pausa: 'falta-pagar'` ANTES de la cookie), `lib/agency-reglas.ts`
+(`faltaPagarParaEntrar`, `avisoFaltaPagar`, `avisoEnPausa`), `app/agency/AgencyApp.tsx` (el aviso en la fila y en la ficha),
+`app/agency/Mensualidad.tsx` (`resaltar`), `app/m/agency/*`. Test: `tests/agency-aviso-falta-pagar.test.ts` (la ruta REAL sobre una base
+de mentira, probado rompiéndolo cinco veces).
+
+- **Síntoma:** Código Inmobiliario (13) le dijo a Martín que no podía entrar a inspeccionar a Giselle Belanti (17) ni a Marcela
+  Fernandez (23).
+- ⚠️ **El diagnóstico obvio era el equivocado.** Con el #85 fresco, todo decía «la pantalla esconde la puerta» o «falta un permiso».
+  Medido en producción (sólo lectura): las dos en pausa, con el corte `paga-para-entrar` de la mensualidad del 13 vigente y ningún
+  pago. **El bloqueo era correcto; lo que fallaba era cómo se enteraba la agencia.** `/api/agencia/entrar` sólo mira la cartera
+  (`puedeEntrarAhora`), así que DABA la cookie; recién `/inicio` → `requireSesion` la mandaba a `/cuenta-pausada`: otra pantalla,
+  «Este cliente está en pausa… Escribir a MaKo», y «Salir de la cuenta» para volver. Para la agencia, eso es «no me deja entrar».
+- **La regla:** una puerta que va a cerrar se cierra EN la puerta, con el motivo, y no dos pantallas después. La ruta contesta 409
+  `{ pausa: 'falta-pagar' }` sin cookie, y va DESPUÉS del permiso: a quien no es su cartera, el 404 de siempre (no se le cuenta que ese
+  cliente existe, menos que está en pausa).
+- **Antes de tocar, la fila ya lo dice:** «Falta pagar» en Estado, y la cuenta cae en «Por pagar». Sale de `FilaMensualidad.enPausa`, que
+  la pantalla ya traía: la misma fila decía «Activa» en Estado y «Paga para entrar» en Mensualidad a la vez.
+- **Sólo el corte de la mensualidad de ESTA agencia.** Otra pausa (la pasarela, una a mano, la mensualidad de otra agencia) entra como
+  antes y /cuenta-pausada dice por qué. Si el corte no se puede leer, entra como antes (fail-open, como `negocioPausado`).
+- **«Pagar su mes» no tiene link:** la mensualidad se paga por Binance, por fuera de MaKo. El botón baja hasta la entrada de ese
+  cliente en la Mensualidad y la marca. Sin la mensualidad en la pantalla, recarga con `?vista=mensualidad`.
+- **El teléfono no dice «Falta pagar» ni ofrece pagar** (T5 y #94; `tests/agency-telefono-94.test.ts` lo prohíbe): «En pausa» y «No
+  puedes entrar: X está en pausa. Se resuelve en la computadora.». El `error` de la ruta usa ese texto, porque el teléfono lo muestra.
+- **Medido el 14/11 (lectura): en pausa por la mensualidad hay TRES, no dos:** Giselle, Marcela y Pablo Chavez (18). Las tres entradas
+  «Vence hoy», US$ 32,90 cada una.
+- **Trampa del banco:** la tabla de la Mensualidad TAMBIÉN es `.ad-tabla`: `.ad-tabla .ad-fila` + «Giselle» agarra primero «Entrada de
+  Giselle», que no tiene botón. La lista de clientes es `[aria-label="Las cuentas de tus clientes"]`.
+- **Trampa de la lectura:** `cuentasDePartner` fuera de un pedido loguea «no pude leer qué leads tienen cuenta: `cookies` was called
+  outside a request scope» y sigue: «En tu CRM» sale vacío en el banco; el resto es real.
+- De paso: «Paga para entrar · US$ 32,90 hoy» (`nowrap`) pisaba «Desde» en la ficha y ensanchaba la fila a 375. Ahora corta línea.
+
+### Sin hacer
+
+- Las otras pausas (la pasarela, a mano) siguen dando la cookie y yendo a /cuenta-pausada. Su texto para la agencia ya existe
+  (`textoDelCorte(..., { paraAgencia: true })` en `lib/plan-acceso-reglas.ts`): llevarlo a la fila es lo mismo con otro texto.
+- No se vio con la sesión de Joan en el navegador de la app: el banco (`scripts/banco-agency/`) dibuja los componentes REALES con los
+  datos leídos de producción. Su guardia corta todo `fetch` que no sea GET; una lectura que fuera directo a Postgres no pasaría por
+  ahí (hoy ninguna de las que usa lo hace).
+
 ## ⚠️ «No me deja iniciar el onboarding ni inspeccionar»: la mensualidad y la pasarela se separaban de UN solo lado (ticket #85, 11/11/2026)
 
 **Vive en:** `lib/agencia-cobro-reglas.ts` (`cobraPorPasarela`, puro), `lib/partners.ts` (`cuentasDePartner` y `abrirCuentaDePartner`),
@@ -757,3 +798,27 @@ impersonación sólo si entró con la cookie; si entró por `?ws=`, no toca nada
 regla de las tiendas (AGENTS.md → «El teléfono no vende», 3/11; `tests/tiendas-telefono-no-vende.test.ts`): Apple y Google
 prohíben ofrecer subir de plan sin su cobro, «ni con un link ni con un botón ni con palabras», y el Agency Dashboard no va en
 ningún teléfono. El 12/11 se pidió ese botón y se dejó afuera por esto: cambiarlo es una decisión de Martín, no un arreglo.
+
+## El CI del aviso de pausa: un `role="alert"` nuevo rompe DOS tests, y el D6b no se arreglaba prendiendo la bandera (14/11/2026)
+
+El aviso «No puedes entrar: falta pagar el mes de …» (`AvisoFaltaPagar` en `app/agency/AgencyApp.tsx`, y el
+`<p className="m-agency-aviso">` de `app/m/agency/AgencyM.tsx`) subió con el paso «Tests afectados por lo que cambió» en
+rojo. Lo que costó tiempo no fue arreglarlo: fue que ninguno de los dos rojos decía lo que había que hacer.
+
+**1. Un aviso de error nuevo rompe DOS tests, no uno.** El que se ve es `tests/reportar-a-soporte.test.ts`: todo elemento
+del JSX con `role="alert"` lleva `<ReportarASoporte />` como ÚLTIMO HIJO DIRECTO, y lo detecta por AST, así que no sirve
+envolverlo ni ponerlo al lado (en una lista va `<li><ReportarASoporte /></li>`). El que NO se ve es el guardián de la
+propia feature: `tests/agency-aviso-falta-pagar.test.ts` fija la LÍNEA EXACTA del JSX con un `assert.match`, y al sumar
+el hijo que el otro test exige, ese match deja de dar — un rojo que aparece DESPUÉS de arreglar el primero, y que el
+log de la corrida vieja no nombraba. **La regla:** antes de tocar un aviso, `grep -rln "<Componente>.tsx" tests/` y
+correr también a quien fija su línea. El guardián de la feature se actualiza para PEDIR el botón, no para ignorarlo.
+
+**2. `app/api/agencia/entrar/route.ts#POST` en D6b: prender «sólo su IA» era el arreglo equivocado.** El rojo de la
+prueba 4 de `tests/d6b-rutas.test.ts` dice «NO prenden sólo su IA», y el reflejo es envolverlo en `conSuIADelNegocio`.
+Pero ese POST no le pide nada a ninguna IA: llega a `lib/ai-cheap.ts` sólo DE PASO, por el `corteDe` que se sumó el
+14/11 para avisar antes de dar la cookie (`lib/plan-acceso.ts` → `plan-deuda` → `cobros` → `leads` → `nutricion` →
+`ai-cheap`). Y está en el conjunto del Ops Center por una pieza COMPARTIDA que el teléfono monta en todas sus pantallas
+(`app/m/_ui/SalirDeLaVista.tsx`), que lo llama sólo con DELETE; el POST lo tocan /agency y /partners, que son otras
+tabs, pero la pertenencia al conjunto se decide por ARCHIVO. **La regla:** un handler que alcanza la cascada por un
+import de biblioteca va a `SIN_IA` con su `usa` fijado (prueba 5 avisa si empieza a usar algo con IA), no adentro del
+contexto: envolverlo sería afirmar que le pide algo a una IA. Prenderla igual habría dado verde y mentido.

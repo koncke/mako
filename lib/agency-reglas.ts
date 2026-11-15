@@ -119,3 +119,33 @@ export function cartelDePago(p: { quienPaga: QuienPaga; onboardingTerminado: boo
   if (r && !r.activada) return { tipo: 'renovacion', link: r.link, desde: r.desde, cerrable: true };
   return null;
 }
+
+// ── «No puedes entrar: falta pagar su mes» (14/11/2026) ────────────────────────────────────────────────────────────
+// Código Inmobiliario tocaba «Inspeccionar» en Giselle y Marcela (en pausa por su mensualidad, el corte `paga-para-entrar`) y
+// entraba a /cuenta-pausada: otra pantalla, «Escribir a MaKo», y para volver, «Salir de la cuenta». Para ellos, «no puedo entrar».
+// Martín: «ahí mismo debería aparecer un cartelito… no puedes entrar a inspeccionar porque te falta abonar la cuota… que sea simple
+// el texto». Ahora la ruta de entrar contesta `pausa: 'falta-pagar'` SIN dar la cookie, y la fila dice el aviso donde se tocó.
+
+/** Lo justo de un corte guardado (lib/plan-acceso-reglas.ts, `CorteGuardado`) para decidir. */
+type CorteParaEntrar = { vigente: boolean; motivo: string; mensualidad?: { agenciaWs: number } | null };
+
+/**
+ * ¿Esta agencia no puede entrar a su cliente porque falta pagar su mes? Es el corte `paga-para-entrar` de SU mensualidad
+ * (lib/agencia-mes.ts): la cuenta pausada, el corte vigente y de esta agencia. ⚠️ Cualquier otra pausa (la pasarela, una a mano,
+ * la mensualidad de OTRA agencia) no es «falta pagar»: entra como siempre y /cuenta-pausada dice por qué.
+ */
+export function faltaPagarParaEntrar(p: { pausada: boolean; corte: CorteParaEntrar | null; agenciaWs: number }): boolean {
+  return p.pausada && !!p.corte?.vigente && p.corte.motivo === 'paga-para-entrar' && p.corte.mensualidad?.agenciaWs === p.agenciaWs;
+}
+
+/** Lo que dice la fila de un cliente así, ANTES de tocarla (su estado). */
+export const ESTADO_FALTA_PAGAR = 'Falta pagar';
+
+/** El aviso al tocar «Inspeccionar», en la computadora: una línea, con su botón «Pagar su mes». */
+export const avisoFaltaPagar = (nombre: string): string => `No puedes entrar: falta pagar el mes de ${nombre}`;
+
+/**
+ * El del teléfono, y el `error` de la ruta (que el teléfono también muestra). SIN PLATA: el teléfono no dice lo que se le debe a
+ * MaKo ni ofrece pagar (T5 y ticket #94, tests/agency-telefono-94.test.ts). Pagar, en la computadora.
+ */
+export const avisoEnPausa = (nombre: string): string => `No puedes entrar: ${nombre} está en pausa. Se resuelve en la computadora.`;

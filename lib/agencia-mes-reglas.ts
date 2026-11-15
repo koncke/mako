@@ -668,14 +668,20 @@ export function textoDelAvisoDelMes(p: { agencia: string; tabla: TablaDeCobro; m
 export function textoDelAvisoDeEntradas(p: { tabla: TablaDeCobro; medio: string; entradas: ReadonlyArray<{ nombre: string; entrada: Diferencial }>; enPausa?: boolean }): string {
   const una = p.entradas.length === 1 ? p.entradas[0] : null;
   const quien = una ? una.nombre : p.entradas.map((e) => e.nombre).join(', ');
+  // Con DOS o más, en plural (14/11/2026, el Cerebro: «Giselle Belanti, Marcela Fernandez quedaron en pausa: no entró su entrada. Si la
+  // pagas hoy… Págala… dalo de baja» salió así y el aviso se mandó a mano). Con una sola, como siempre.
   const cabeza = p.enPausa
-    ? `${quien} ${una ? 'quedó' : 'quedaron'} en pausa: no entró su entrada. Si la pagas hoy son ${usd(p.tabla.totalUsd)}; cada día que pasa baja, porque se cuenta desde el día que pagas.`
+    ? una
+      ? `${quien} quedó en pausa: no entró su entrada. Si la pagas hoy son ${usd(p.tabla.totalUsd)}; cada día que pasa baja, porque se cuenta desde el día que pagas.`
+      : `${quien} quedaron en pausa: no entraron sus entradas. Si las pagan hoy son ${usd(p.tabla.totalUsd)}; cada día que pasa baja, porque se cuenta desde el día que pagan.`
     : una
       ? `${quien} termina sus ${DIAS_SIN_COSTO} días sin costo el ${diaCorto(una.entrada.desde)}. Su entrada son ${una.entrada.dias} días hasta el ${diaCorto(una.entrada.hasta)}: ${usd(una.entrada.montoUsd)}.`
       : `Las entradas de ${quien}: ${usd(p.tabla.totalUsd)} en total. El detalle va en el PDF.`;
   return [
     cabeza,
-    `Págala por ${p.medio} hasta el ${diaLargo(p.tabla.limite)} y manda aquí el comprobante. Si no te pagó, dalo de baja antes y no se cobra.`,
+    una
+      ? `Págala por ${p.medio} hasta el ${diaLargo(p.tabla.limite)} y manda aquí el comprobante. Si no te pagó, dalo de baja antes y no se cobra.`
+      : `Páguenlas por ${p.medio} hasta el ${diaLargo(p.tabla.limite)} y manden aquí el comprobante. Si alguno ya no sigue, denlo de baja antes y no se cobra.`,
   ].join('\n');
 }
 

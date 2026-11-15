@@ -60,26 +60,10 @@ export const CLIPS_POR_MES: Record<Plan, number> = {
 /** El precio de cada plan, para calcular el piso sin cablearlo. */
 export const USD_DEL_PLAN: Record<Plan, number> = { free: 0, pro: 47, growth: 97 };
 
-/**
- * DE LA CAPA DEL PLAN DE /planes A SU NIVEL DE TOKENS. Hace falta porque los nombres NO coinciden, y esa es la trampa:
- * los niveles se bautizaron el 7/11/2026, antes de que los planes tuvieran los suyos, y **`growth` no existe en /planes**.
- *
- * ⚠️ LA CORRESPONDENCIA LA FIJA EL PRECIO, que está escrito en los dos archivos y no se deduce del nombre:
- *   · `pro` = US$47 (`USD_DEL_PLAN.pro`; `CUPO_MENSUAL.pro` dice «el plan de US$47») = **MaKo Esencial**, capa `completo`;
- *   · `growth` = US$97 (`USD_DEL_PLAN.growth`; «el plan de US$97») = **MaKo Pro**, capa `agencia`;
- *   · `free` = la prueba de 7 días, que no es un plan ni una columna (`CLIPS_POR_MES.free`, arriba).
- * O sea que el nivel llamado `pro` es el plan BARATO. Leer «pro» como «MaKo Pro» da 11.750 MT donde van 24.250.
- *
- * ⚠️ EL ACELERADOR NO TIENE CUPO: trae MaKo Pro los 3 meses, pero nadie decidió cuántos MaKo Tokens da, y esto no lo
- *    inventa — `cupoDeLaCapa` devuelve null para cualquier otra capa y su columna no dice tokens.
- */
-export const NIVEL_DE_LA_CAPA: Readonly<Record<string, Plan>> = { completo: 'pro', agencia: 'growth' };
-
-/** Los MaKo Tokens que trae por mes un plan de esa capa; null = no hay dato decidido (nunca un número inventado). */
-export const cupoDeLaCapa = (capa: string): number | null => {
-  const nivel = NIVEL_DE_LA_CAPA[capa];
-  return nivel ? CUPO_MENSUAL[nivel] : null;
-};
+// DE LA CAPA DEL PLAN A SU NIVEL DE TOKENS: vive en `cupoDeCapa` (./mako-tokens-reglas.ts), que es donde está
+// CUPO_MENSUAL. Acá hubo un segundo `cupoDeLaCapa` con su propio mapa, escrito el 14/11/2026 por otra punta en paralelo:
+// dos funciones idénticas leyendo la misma constante, que el día que una cambie se separan sin que nadie lo note. Una
+// sola, y la trampa `pro`=US$47 / `growth`=US$97 documentada ahí (15/11/2026).
 
 /** Los minutos que trae un plan, que es como se le dice al cliente. */
 export const minutosDelPlan = (plan: Plan): number => CLIPS_POR_MES[plan] / CLIPS_POR_MINUTO;

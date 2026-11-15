@@ -30,7 +30,10 @@
 // =============================================================================
 
 import { useState, useTransition, type ReactNode } from 'react';
+import Link from '@/app/_ui/Link';
 import { CabeceraDetalle } from '@/app/_components/CabeceraDetalle';
+import { Marca } from '@/app/_components/Marca';
+import { bajadaDelPanel, TAM_CARA_PANEL } from './cabecera-panel';
 import { geometriaCabecera } from '@/app/_components/cabecera-detalle-geo';
 import { EditableInline } from '@/app/_components/EditableInline';
 import { PortadaPicker } from '@/app/_components/PortadaPicker';
@@ -64,7 +67,7 @@ export const TAM_CARA_LEAD = 88;
  */
 export const SANGRIA_NOMBRE_LEAD = geometriaCabecera(0, TAM_CARA_LEAD).sangria;
 
-export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerrar, marco = false, alto = 92, tam = TAM_CARA_LEAD }: {
+export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerrar, marco = false, panel = false, alto = 92, tam = TAM_CARA_LEAD }: {
   lead: LeadConCara;
   /** La foto del email (Gravatar, `d=404`), armada en el server. */
   fotoEmail: string | null;
@@ -85,6 +88,13 @@ export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerra
   onCerrar?: () => void;
   /** La ruta: la cabecera va en su propia caja, porque ahí atrás está el fondo de la página. */
   marco?: boolean;
+  /**
+   * El PANEL del tablero (14/11/2026, lead-view/PanelFicha.tsx): sin la banda de la portada, la cara en un círculo de 48,
+   * el nombre y «empresa · canal», como en la grabación que le gustó a Martín. Lo demás es lo mismo (el nombre se edita,
+   * la cara se cambia tocándola, las etiquetas al lado, el funnel y los datos sin marcar debajo). La portada se sigue
+   * eligiendo en la ficha a pantalla completa (/crm/[id]), que el panel abre con su botón.
+   */
+  panel?: boolean;
   alto?: number;
   tam?: number;
 }) {
@@ -154,11 +164,55 @@ export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerra
     });
   };
 
-  return (
-    <div className="cl-cab" style={{
-      flex: 'none', position: 'relative',
-      ...(marco ? { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden' as const } : {}),
-    }}>
+  // El nombre que se edita con un clic, y las etiquetas en su renglón: el mismo en la cabecera grande y en la del panel.
+  const nombreEditable = (
+    <span className="cl-tit">
+    <EditableInline
+      key={`${lead.id}:${vuelta}`}
+      valor={lead.nombre ?? ''}
+      placeholder="Sin nombre"
+      titulo="Edita el nombre del lead"
+      className={panel ? 'cl-nom clp-nom' : 'cl-nom'}
+      maxLargo={160}
+      onGuardar={guardarNombre} />
+    {junto != null && <span className="cl-junto">{junto}</span>}
+    </span>
+  );
+
+  const cabecera = panel ? (
+    // ⚠️ LA CABECERA DEL PANEL (14/11/2026): la de la grabación de la portada que le gustó a Martín (la cara en un círculo,
+    // el nombre y «empresa · canal»), con todo lo que la grande hace. En el teléfono el panel es la pantalla entera y la
+    // cruz pasa a ser «Volver», a la izquierda, donde se busca para volver (el CSS de abajo elige cuál se ve).
+    <>
+      <div className="clp-fila">
+        {onCerrar && (
+          <button type="button" className="clp-volver" aria-label="Volver" title="Volver" onClick={onCerrar}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
+              strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m15 18-6-6 6-6" /></svg>
+          </button>
+        )}
+        <button type="button" className="clp-cara" title="Cambiar la foto" aria-label={`Cambiar la foto de ${nombre}`}
+          onClick={(e) => { const a = e.currentTarget; setAnclaPortada(null); setAnclaFoto((x) => (x ? null : a)); }}>
+          <Marca icono={icono} foto={foto} nombre={nombre} tam={TAM_CARA_PANEL} y={cara.avatarY} color={color} />
+        </button>
+        <span className="clp-txt">
+          {nombreEditable}
+          <span className="clp-bajada" title={`Lead #${lead.id} · creado ${fmtDDMMYYYY(lead.created_at)}`}>{bajadaDelPanel(lead)}</span>
+        </span>
+        <Link className="clp-icono" href={`/crm/${lead.id}`} title="Abrir en pantalla completa" aria-label="Abrir la ficha en pantalla completa">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+        </Link>
+        {onCerrar && (
+          <button type="button" className="clp-icono clp-x" aria-label="Cerrar" title="Cerrar (Esc)" onClick={onCerrar}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
+              strokeLinecap="round" aria-hidden><path d="M6 6 18 18M18 6 6 18" /></svg>
+          </button>
+        )}
+      </div>
+      {acciones && <div className="cl-acc clp-acc">{acciones}</div>}
+    </>
+  ) : (
       <CabeceraDetalle
         nombre={nombre}
         color={color}
@@ -170,24 +224,20 @@ export function CabeceraLead({ lead, fotoEmail, kicker, junto, acciones, onCerra
         alto={alto} tam={tam} anillo={3}
         onCerrar={onCerrar}
         kicker={kicker}
-        titulo={
-          <span className="cl-tit">
-          <EditableInline
-            key={`${lead.id}:${vuelta}`}
-            valor={lead.nombre ?? ''}
-            placeholder="Sin nombre"
-            titulo="Edita el nombre del lead"
-            className="cl-nom"
-            maxLargo={160}
-            onGuardar={guardarNombre} />
-          {junto != null && <span className="cl-junto">{junto}</span>}
-          </span>
-        }
+        titulo={nombreEditable}
         // «Elimina "Sin empresa ·" del subtítulo: que sólo quede el ID y la fecha de creación» (Martín, 16/10/2026). La
         // empresa, si la hay, sigue: es un dato; lo que sobraba era el hueco dicho en voz alta.
         bajada={<span>{lead.empresa?.trim() ? `${lead.empresa.trim()} · ` : ''}Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}</span>}
         acciones={acciones ? <div className="cl-acc">{acciones}</div> : undefined}
       />
+  );
+
+  return (
+    <div className={panel ? 'cl-cab cl-cab--panel' : 'cl-cab'} style={{
+      flex: 'none', position: 'relative',
+      ...(marco ? { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden' as const } : {}),
+    }}>
+      {cabecera}
 
       {/* Los dos selectores, HERMANOS de la cabecera: se portalean a `document.body` y se registran en
           la pila como `anidada`, así la ficha se sigue viendo detrás y Escape cierra sólo el panel. */}
@@ -256,4 +306,33 @@ const CSS = `
 @media (pointer: coarse){
   .cl-cab .cl-acc button{ min-height:var(--touch); }
 }
+
+/* LA CABECERA DEL PANEL (14/11/2026): la de la grabacion de la portada. La cara en un circulo de 48, el nombre de 21 y
+   «empresa · canal» de 14, en una fila; debajo, el funnel y los datos sin marcar, de izquierda a derecha. */
+.clp-fila{ display:flex; align-items:center; gap:14px; padding:20px 16px 12px 24px; min-width:0; }
+.clp-cara{ flex:none; padding:0; border:0; background:none; border-radius:999px; cursor:pointer; line-height:0; }
+.clp-cara:hover{ filter:brightness(.95); }
+.clp-cara:focus-visible{ outline:2px solid var(--primary); outline-offset:2px; }
+.clp-txt{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.cl-cab--panel .clp-nom{ font-size:21px; font-weight:700; letter-spacing:-.015em; }
+.clp-bajada{ font-size:14px; font-weight:500; line-height:1.3; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.clp-icono{ flex:none; align-self:flex-start; width:32px; height:32px; display:grid; place-items:center; padding:0; border:0;
+  border-radius:9px; background:none; color:var(--dim); cursor:pointer; text-decoration:none; line-height:0; }
+.clp-icono:hover{ background:var(--surface-2); color:var(--ink); }
+.clp-icono:focus-visible, .clp-volver:focus-visible{ outline:2px solid var(--primary); outline-offset:1px; }
+.clp-volver{ display:none; flex:none; width:40px; height:40px; margin-left:-12px; padding:0; border:0; border-radius:10px;
+  background:none; color:var(--ink); cursor:pointer; place-items:center; line-height:0; }
+.cl-cab--panel .cl-acc.clp-acc{ flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:space-between;
+  gap:8px 12px; margin-left:0; padding:0 24px 14px; }
+/* En el telefono el panel es la pantalla entera: se vuelve con la flecha de la izquierda, y la cruz sobra. */
+@media (max-width: 760px){
+  .clp-fila{ gap:10px; padding:12px 12px 10px 16px; }
+  .clp-volver{ display:grid; min-width:var(--touch, 44px); min-height:var(--touch, 44px); }
+  .clp-x{ display:none; }
+  .cl-cab--panel .cl-acc.clp-acc{ padding:0 16px 12px; justify-content:flex-start; }
+  .cl-cab--panel .clp-nom{ font-size:19px; }
+}
 `;
+
+/** La hoja de la cabecera, para quien dibuja la misma fila sin montar la pieza (el esqueleto del panel, app/crm/LeadEditModal.tsx). */
+export const CSS_CABECERA_LEAD = CSS;

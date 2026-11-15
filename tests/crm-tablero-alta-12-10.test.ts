@@ -228,9 +228,11 @@ test('al crear se abre la ficha del lead nuevo, también desde el placeholder de
   assert.match(b, /if \(fichaTrasAlta == null \|\| altaPendiente \|\| hayDialogoDeSoltar \|\| altaAbierta\) return;\s*setSelectedId\(fichaTrasAlta\);/);
   // Y es la MISMA ficha que abre una tarjeta.
   assert.match(b, /<LeadEditModal leadId=\{selected\.id\}/);
-  // El esqueleto de esa ficha mide lo mismo que la ficha (punto 14, frente C).
+  // El esqueleto de esa ficha mide lo mismo que la ficha (punto 14, frente C). ⚠️ Desde el 14/11/2026 los dos van
+  // adentro de la MISMA carcasa, el panel de la derecha (lead-view/PanelFicha.tsx): miden lo mismo porque no se miden.
   const m = codigo('app/crm/LeadEditModal.tsx');
-  assert.match(m, /maxWidth: ANCHO_FICHA_LEAD/);
+  assert.equal(m.split('<PanelFicha ').length - 1, 1, 'una sola carcasa para el esqueleto, el error y la ficha');
+  assert.doesNotMatch(m, /maxWidth:/, 'el esqueleto volvió a tener un ancho propio');
   assert.doesNotMatch(m, /maxWidth: 760/);
   //   ROTO A PROPÓSITO (2026-10-12): con el placeholder sin `setFichaTrasAlta` (como antes: la ficha
   //   no se abría), pass 12 / fail 1; con el esqueleto de vuelta en 760, 12 / 1.

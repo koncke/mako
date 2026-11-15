@@ -38,6 +38,7 @@ import { guardarPedido } from './pedido-guardado';
 import { EditorGuion, type ApiPagina } from './editor/EditorGuion';
 import { PanelMaKo, type GuionVivo } from './PanelMaKo';
 import { OutliersCopy } from './OutliersCopy';
+import { CapaAbriendo, useAlInstante } from './AlInstante';
 import type { PortadaCopy } from '@/lib/copywriter/outliers';
 // «Compartir para editar» (D9): el MISMO modal de Compartir de la casa (Conocimientos, el Dashboard), con el recurso del
 // guion. La puerta y el permiso de editar los pone el server (/api/compartir).
@@ -78,11 +79,20 @@ const FORMATO: Readonly<Record<TipoGuion, string>> = {
   ad: '1 / 1', reel: '9 / 16', story: '9 / 16', youtube: '16 / 9', vsl: '16 / 9', email: '3 / 4', post: '4 / 5', pagina: '3 / 4',
 };
 
+/**
+ * Mientras el server crea o arma la página, se adelanta el código del editor (BlockNote, que se carga aparte): medido el 14/11/2026,
+ * después de cambiar de ruta la página tardaba otros 0,9 s en mostrar el texto, y era bajar ese código.
+ */
+const precargarEditor = () => { void import('./editor/CuerpoNotion').catch(() => undefined); };
+
 /** Lo que se escribe solo en la caja de «¿Qué vas a crear hoy?». */
 const EJEMPLOS = ['Un guion de reel sobre el error que todos cometen…', 'Un email de bienvenida para los que se registran…', 'El copy de un anuncio para…', 'Una VSL para vender mi programa…'];
 
 export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, base = '/copywriter', tipoInicial = null, nuevaInicial = false, ofertas, portada }: PropsCopywriter) {
   const router = useRouter();
+  // En el clic, la pantalla cambia (./AlInstante.tsx): abrir otra página, crear, replicar, o un link a otra pantalla de la tab.
+  const alInstante = useAlInstante({ links: true, alEmpezar: precargarEditor });
+  const { empezar, soltar } = alInstante;
   const [paginas, setPaginas] = useState<PaginaCopy[]>(iniciales);
   const [editor, setEditor] = useState<DocVivo | null>(null);
   // «Preguntar a MaKo» de la página: lo seleccionado entra como cita en la caja del chat (lo llena PanelMaKo).
@@ -111,7 +121,11 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
 
   const abierta = guion?.pagina.id ?? null;
   const rutaDe = useCallback((id: string) => (base === '/copywriter' ? rutaGuion(id) : `${base}/${id}`), [base]);
-  const abrir = useCallback((id: string) => { if (id !== abierta) router.push(rutaDe(id)); }, [abierta, rutaDe, router]);
+  const abrir = useCallback((id: string) => {
+    if (id === abierta) return;
+    empezar('la página');
+    router.push(rutaDe(id));
+  }, [abierta, empezar, rutaDe, router]);
 
   /** Un cambio del índice: en el acto, y si el server dice que no, vuelve a lo de antes y lo dice. */
   const cambiar = useCallback(async (local: (ps: PaginaCopy[]) => PaginaCopy[], server: () => Promise<{ ok: true; paginas: PaginaCopy[] } | { ok: false; error: string }>, fallo: string) => {
@@ -129,6 +143,8 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   const crear = useCallback(async (plantilla: Plantilla, padre: string | null, pedido = ''): Promise<string | null> => {
     if (creando.current) return null;
     creando.current = true;
+    // La capa ANTES de esperar al server (14/11/2026): crear son ~0,8 s y abrir la página otro tanto.
+    empezar('la página nueva');
     const { tipo } = plantilla;
     const titulo = pedido ? pedido.replace(/\s+/g, ' ').slice(0, 80) : '';
     // La página nace con la ESTRUCTURA (sus secciones y una guía corta en cada una), no con el ejemplo: el ejemplo de un
@@ -137,12 +153,12 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
     const props = propsNuevas(tipo, plantilla.estructura, { plantilla: plantilla.ejemplo ? plantilla.id : null, duracion: plantilla.duracion });
     const r = await pedirCrear({ tipo, padre, titulo, props, contenido: plantilla.esqueleto() });
     creando.current = false;
-    if (!r.ok) return `No se pudo crear la página: ${r.error}`;
+    if (!r.ok) { soltar(); return `No se pudo crear la página: ${r.error}`; }
     setPaginas(r.paginas);
     if (pedido) guardarPedido(ws, r.pagina.id, pedido);
     abrir(r.pagina.id);
     return null;
-  }, [abrir, ws]);
+  }, [abrir, empezar, soltar, ws]);
 
   const renombrar = useCallback((id: string, titulo: string) => {
     void cambiar((ps) => { const x = cambiarPagina(ps, id, { titulo }); return x.ok ? x.paginas : ps; }, () => pedirRenombrar(id, { titulo }), 'No se pudo renombrar');
@@ -160,9 +176,9 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
     const ok = await cambiar((ps) => { const x = aPapelera(ps, id, new Date().toISOString()); return x.ok ? x.paginas : ps; }, () => pedirPapelera(id), 'No se pudo mover a la Papelera');
     if (!ok) return;
     avisar('Movida a la Papelera', () => restaurar(id));
-    // Si era la abierta (o una de las suyas), se va a la última que quede.
-    if (abierta === id) router.push(base);
-  }, [abierta, avisar, base, cambiar, restaurar, router]);
+    // Si era la abierta (o una de las suyas), se va a la portada.
+    if (abierta === id) { empezar('Copywriting'); router.push(base); }
+  }, [abierta, avisar, base, cambiar, empezar, restaurar, router]);
 
   /** Lo que cambia mientras se escribe en la página abierta (el título, el tipo): la lista lo dibuja en el acto. */
   const enVivo = useCallback((c: Partial<Pick<PaginaCopy, 'titulo' | 'tipo' | 'emoji'>>) => {
@@ -215,34 +231,46 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
 
   /** Crear con una plantilla (de la casa o propia): la usan «Crear desde cero» y la fila de plantillas de la portada. */
   const usarPlantilla = async (pl: PlantillaCrear): Promise<string | null> => {
+    empezar('la página nueva');
     const propia = await propias.usar(pl);
-    if (propia !== false) return propia ?? null;
+    if (propia !== false) { if (propia) soltar(); return propia ?? null; }
     const x = todas.find((t) => t.id === pl.id);
-    return x ? crear(x, null) : 'Ese template ya no está.';
+    if (x) return crear(x, null);
+    soltar();
+    return 'Ese template ya no está.';
   };
+  // «Nueva página» sin portada (`?nueva`): la capa tapa la caja y las plantillas mientras se crea, así que el error, si lo hay,
+  // va en el aviso de la pantalla (con «Reportar a Soporte»), no debajo de una caja que ya no está.
+  const conAviso = (e: string | null) => { if (e && !portada) avisar(e, undefined, 'bad'); return e; };
   const conPropias = [...propias.plantillas, ...plantillas];
+  // La capa del clic tapa el CENTRO de Create (su caja es `.cr-centro`): con una página abierta va con ella; sin página, en lugar de
+  // «Nueva página» (o encima de la portada). `children` sólo existe con algo abierto: si no, el shell creería que hay una pieza.
+  const capa = <CapaAbriendo que={alInstante.abriendo} onSoltar={soltar} />;
+  const conCapa = !!alInstante.abriendo;
 
   return (
     <>
       <PantallaCrear tab="Copywriting" nuevo="Nueva página" proyectos={proyectos} actual={abierta} pieLista={pieLista}
         plantillas={conPropias} tituloPlantillas="Templates"
-        onPlantilla={usarPlantilla}
-        ejemplos={EJEMPLOS} onPedido={(texto) => crear(enBlanco, null, texto)} chat={chat} creandoInicial={nuevaInicial || !!tipoInicial || (!guion && !error)}
+        onPlantilla={(pl) => usarPlantilla(pl).then(conAviso)}
+        ejemplos={EJEMPLOS} onPedido={(texto) => crear(enBlanco, null, texto).then(conAviso)} chat={chat} creandoInicial={nuevaInicial || !!tipoInicial || (!guion && !error)}
         // La portada son los outliers, en el centro y con el chat a la izquierda, con las plantillas AL LADO (11/11/2026, Martín:
         // «además de los outliers, también deberían estar los templates»); «Nueva página», desde un guion o desde las plantillas,
         // vuelve a ella.
-        nueva={portada ? <OutliersCopy portada={portada} plantillas={conPropias} onPlantilla={usarPlantilla} /> : undefined}
-        alNuevo={portada ? undefined : () => router.push(base)}>
-        {guion ? (
+        nueva={portada ? <><OutliersCopy portada={portada} plantillas={conPropias} onPlantilla={usarPlantilla} alInstante={alInstante} />{capa}</> : conCapa ? capa : undefined}
+        alNuevo={portada ? undefined : () => { empezar('Copywriting'); router.push(base); }}>
+        {guion ? (<>
           <div className="nt" data-en-crear="">
             <EditorGuion key={guion.pagina.id} guion={guion} paginas={paginas} catalogos={catalogos}
               onPaginaEnVivo={enVivo} onTitulo={(t) => renombrar(guion.pagina.id, t)} onEmoji={(e) => ponerEmoji(guion.pagina.id, e)}
               onAbrir={abrir} onPapelera={() => void papelera(guion.pagina.id)} onEditor={setEditor} onMako={alMako} pausa={pausa}
               avisar={avisar} onVivo={ponerVivo} onApi={ponerApi} onCompartir={() => setCompartiendo(true)} />
           </div>
-        ) : error ? (
+          {capa}
+        </>) : error ? (<>
           <div className="nt" data-en-crear=""><div className="nt-doc"><div className="nt-inicio"><div className="nt-aviso" role="alert">{error}<ReportarASoporte /></div></div></div></div>
-        ) : null}
+          {capa}
+        </>) : null}
       </PantallaCrear>
       {guion && (
         <Compartir recurso={RECURSO_GUION} recursoId={guion.pagina.id}

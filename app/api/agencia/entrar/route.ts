@@ -25,6 +25,8 @@ import { AGENCIA_COOKIE, AGENCIA_HORAS, firmarAgencia } from '@/lib/auth-session
 import { puedeEntrarAhora } from '@/lib/agencia';
 import { esWsValido } from '@/lib/agencia-cartera';
 import { getWorkspace } from '@/lib/workspace';
+import { corteDe } from '@/lib/plan-acceso';
+import { avisoEnPausa, faltaPagarParaEntrar } from '@/lib/agency-reglas';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,6 +87,15 @@ export async function POST(req: NextRequest) {
 
   const wsRow = await getWorkspace(clienteWs);
   if (!wsRow) return sinPermiso();
+
+  // ⚠️ FALTA PAGAR SU MES (14/11/2026): el cliente está en pausa por la mensualidad de ESTA agencia. Antes se daba la cookie igual
+  // y la agencia caía en /cuenta-pausada, fuera de su dashboard («no puedo entrar»). Ahora se contesta ANTES de la cookie, con el
+  // motivo, y la fila dice el aviso donde se tocó (lib/agency-reglas.ts). Va DESPUÉS del permiso: a quien no es su cartera no se
+  // le cuenta que ese cliente existe, menos que está en pausa. Si el corte no se puede leer (null), entra como siempre.
+  const corte = wsRow.estado === 'pausado' ? await corteDe(clienteWs).catch(() => null) : null;
+  if (faltaPagarParaEntrar({ pausada: wsRow.estado === 'pausado', corte, agenciaWs })) {
+    return NextResponse.json({ ok: false, pausa: 'falta-pagar', nombre: wsRow.nombre, error: avisoEnPausa(wsRow.nombre) }, { status: 409 });
+  }
 
   const token = firmarAgencia(agenciaWs, clienteWs);
   if (!token) return NextResponse.json({ ok: false, error: 'auth no configurada' }, { status: 500 });

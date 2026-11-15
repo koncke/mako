@@ -40,7 +40,7 @@
 
 import { ASESORIAS_DEL_PROGRAMA, MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, precioEnPesos, type PlanMako } from '@/lib/planes-mako';
 import { TOPES } from '@/lib/topes-plan';
-import { cupoDeLaCapa } from '@/lib/mako-tokens-paquetes';
+import { cupoDeCapa } from '@/lib/mako-tokens-reglas';
 import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { PROMO_ENTRADA, precioPrimerMes, textoUsd } from '@/lib/promo-entrada-reglas';
@@ -109,7 +109,7 @@ export type ListaDeColumna = {
  *    del 12/11 (la tarjeta dibuja esto, y el checkout tiene su propia entrada, `INCLUYE_EN_EL_CHECKOUT`): escribir el cambio
  *    allá es escribirlo donde no se muestra. Está en el §1.4 del relevo.
  * ⚠️ LOS NÚMEROS SALEN DEL CÓDIGO, nunca escritos a mano: los topes de lib/topes-plan.ts y el cupo de MaKo Tokens de
- *    lib/mako-tokens-paquetes.ts (`cupoDeLaCapa`). Así la vitrina no puede prometer lo que el producto frena.
+ *    lib/mako-tokens-reglas.ts (`cupoDeCapa`). Así la vitrina no puede prometer lo que el producto frena.
  * ⚠️ Y DEPENDE DE LA CAPA, NO DEL id: un plan nuevo del setting `planes.mako` con capa `agencia` dice lo de Pro sin tocar
  *    código. Lo que NO se puede es diferenciar dos planes de la misma capa (§1.5 del relevo).
  * ⚠️ EL AVATAR DE IA NO VA EN NINGUNA COLUMNA aunque ya sea de Pro (`FUNCIONES_SOLO_PRO`, 'ai-avatar'): no se vende hasta que
@@ -169,15 +169,15 @@ export function listaCorta(capa: string): ListaDeColumna {
  * estar arriba de las columnas, etc.», y lo anotado: «con los tokens de cada plan y el costo real por acción»,
  * docs/relevo/landings-vsl.md:425-426). Hasta hoy NINGUNA columna decía cuántos trae.
  *
- * ⚠️ El cupo sale de `cupoDeLaCapa` (lib/mako-tokens-paquetes.ts), que es donde vive el mapeo de la capa al nivel de tokens y
+ * ⚠️ El cupo sale de `cupoDeCapa` (lib/mako-tokens-reglas.ts), que es donde vive CUPO_MENSUAL y el mapeo de la capa al nivel y
  *    por qué: los niveles se llaman 'free' | 'pro' | 'growth' y **no son los planes** — el llamado `pro` es el de US$47
  *    (Esencial) y `growth` el de US$97 (MaKo Pro). Leerlos por el nombre pone el cupo cruzado.
  * ⚠️ SIN DATO, NO DICE NADA: el Acelerador no tiene cupo decidido, así que su columna no habla de tokens (null). Nunca un
  *    número inventado en la vitrina.
  */
 export function tokensDeLaCapa(capa: string): string | null {
-  const mt = cupoDeLaCapa(capa);
-  return mt == null ? null : `${mt.toLocaleString('es-AR')} MaKo Tokens por mes`;
+  const mt = cupoDeCapa(capa);
+  return mt == null ? null : `${mt.toLocaleString('es-AR')} MaKo Tokens al mes`;
 }
 
 /**

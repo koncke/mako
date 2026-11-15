@@ -6634,6 +6634,11 @@ del layout lee las cookies en cada request. Medido: build verde, 70 páginas, to
   blanca vive en el test. **Cada tab grande lleva su `loading.tsx` con `CargandoMako`** (23/10/2026,
   `app/_ui/CargandoMako.tsx`, importado directo y nunca desde el índice de `_ui`): ningún clic queda sin respuesta
   visible. Lo fija `tests/cargando-mako.test.ts`.
+  ⛔ **Un `loading.tsx` no tapa lo que se espera ANTES de navegar** (14/11/2026, Copywriting): un clic que primero crea
+  algo en el server (un `fetch`, una server action) y recién después hace `router.push` deja la pantalla quieta todo lo
+  que tarda el server. La capa va en el MISMO clic, antes del primer `await` (`useAlInstante` + `CapaAbriendo`,
+  app/copywriter/AlInstante.tsx: CargandoMako encima del centro, se va sola al llegar otra ruta o query; si falla, se
+  suelta y queda el aviso con «Reportar a Soporte»). Lo fija `tests/copywriter-abre-al-instante.test.ts`.
   ⛔ **Pero una página que REDIRIGE no lo lleva así** (ticket #7, 23/10/2026): con loader, su `redirect()` va adentro
   del stream (200 + meta refresh, no 307) y el router de Next se cayó con React #310. Si redirige SIEMPRE, sin loader; si
   redirige a algunos, la redirección va en el `layout.tsx` del segmento (`pedidoActual()`, lib/pedido-actual.ts). Lo fija
@@ -12172,6 +12177,7 @@ Apple y Google prohíben vender algo digital sin su cobro, o mandar a pagar afue
 - **En `app/m/**` no se ofrece comprar, pagar ni subir de plan**, ni con un link ni con un botón ni con palabras (`tests/tiendas-telefono-no-vende.test.ts`). Una pantalla de escritorio que el teléfono también abre pregunta `esTelefono`. Los cobros de un negocio a SUS clientes son otra cosa, y se quedan.
 - **Lo que existe para vender MaKo a otros (MaKo Partners) no va en NINGÚN teléfono** (4/11/2026): More no lo dibuja y su página de `app/m` vuelve a More. Una tab nueva así se suma a `TABS_QUE_VENDEN` (lib/tienda.ts).
 - **El Agency Dashboard SÍ va en el teléfono, sin plata** (13/11/2026, ticket #94; Martín: «Soluciona esto»): la cartera, ver y entrar a cada cliente, dar de baja. Nada de lo que se le debe a MaKo («Falta pagar», «Esperando su pago», «Renovación pendiente», «Quién paga», «Pendientes»): una cuenta que espera un pago dice «Por habilitar». Sumar un cliente y cambiar su plan, en la computadora. More lo muestra sólo a una agencia (`esAgencia`, app/m/mas/page.tsx).
+- **Una puerta que va a cerrar se cierra EN la puerta, con el motivo** (14/11/2026, docs/hallazgos-agencias.md): «Inspeccionar» a un cliente en pausa por la mensualidad daba la cookie igual y la agencia caía en /cuenta-pausada, fuera de su dashboard («no puedo entrar»). `/api/agencia/entrar` contesta `pausa: 'falta-pagar'` sin cookie (después del permiso: a quien no es su cartera, 404), la fila dice «Falta pagar» antes de tocar y el aviso sale donde se tocó. En el teléfono, «En pausa», sin plata (tests/agency-aviso-falta-pagar.test.ts).
 - **La app de iPhone se reconoce por la marca del user agent** (`esAppIos`, `esAppIosDelPedido`, lib/tienda.ts). Android no tiene modo: la TWA es Chrome. Es una regla de producto, nunca de seguridad.
 - **Una función nueva que le manda algo a una IA** llama a `exigirPermisoIa()` antes de salir (lib/ia-permiso.ts), o sale por una que ya lo hace. `tests/ia-permiso.test.ts` enumera las puertas.
 - **Lo que necesita el aparato** va por `lib/nativo.ts`, con `window.Capacitor.Plugins`: la web no importa los plugins. Un `<a download>` ya funciona ahí solo.

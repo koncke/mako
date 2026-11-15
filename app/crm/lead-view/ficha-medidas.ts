@@ -15,6 +15,24 @@
 export const ANCHO_FICHA_LEAD = 1100;
 
 /**
+ * ⚠️ EL TABLERO YA NO ABRE UN POP-UP: abre un PANEL a la derecha (14/11/2026). Martín, mirando la grabación del CRM de la
+ * portada: «Me gustó mucho cómo quedó el detail de los leads en el CRM… que ya no se vaya al modal sino que esté así como
+ * un desplegable a la derecha». Mide lo que mide en esa grabación (public/vsl-assets/sitio/crm-ficha.webm), ocupa el alto
+ * entero, y el tablero sigue a la vista y se usa a la izquierda (lead-view/PanelFicha.tsx). En el teléfono es la pantalla
+ * entera. `ANCHO_FICHA_LEAD` queda para la ruta /crm/[id], que sigue siendo una pantalla ancha.
+ */
+export const ANCHO_PANEL_FICHA = 560;
+
+/** Cómo entra el panel: lo mismo que la grabación que le gustó (520 ms, sale rápido y frena suave). */
+export const ENTRADA_PANEL_FICHA = { ms: 520, curva: 'cubic-bezier(0.22, 1, 0.36, 1)' } as const;
+
+/**
+ * Desde qué ancho de ventana para abajo el panel es la pantalla entera, con su «Volver» (el teléfono). Es el corte en que
+ * la cabecera de la ficha ya bajaba su columna derecha de renglón (lead-view/CabeceraLead.tsx).
+ */
+export const PANEL_FICHA_PANTALLA_ENTERA = 760;
+
+/**
  * El margen del pop-up contra el borde de la ventana, arriba y abajo. Pedido de Martín (12/10/2026,
  * tercer feedback del CRM, punto 8): «todo lo que está abajo de las tabs, siento que esta muy
  * compacto… le falta "largo", tengo que hacer mucho scroll». Eran hasta 48 px por lado

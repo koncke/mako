@@ -406,6 +406,22 @@ test('los textos del grupo: piden el comprobante, dicen el monto, de tú y sin v
     textoDeComprobante({ tipo: 'repetido', numero: 3 }), textoDeComprobante({ tipo: 'revisar' }),
   ];
   for (const x of todos) assert.deepEqual(marcasDeVoseo(x), [], x);
+  // Con DOS o más en pausa, en plural (14/11/2026: el de Giselle y Marcela salió «no entró su entrada… Págala… dalo de baja»).
+  const dos = [{ nombre: 'Giselle Belanti', entrada: diferencialDe('2026-11-14', 47) }, { nombre: 'Marcela Fernandez', entrada: diferencialDe('2026-11-14', 47) }];
+  const td = tablaDeEntradas({ agencia: 'Código Inmobiliario', medio: 'Binance', entradas: dos });
+  for (const varios of [textoDelAvisoDeEntradas({ tabla: td, medio: 'Binance', entradas: dos, enPausa: true }), textoDelAvisoDeEntradas({ tabla: td, medio: 'Binance', entradas: dos })]) {
+    assert.match(varios, /Páguenlas por Binance/);
+    assert.match(varios, /Si alguno ya no sigue, denlo de baja/);
+    assert.doesNotMatch(varios, /Págala|dalo de baja|Si no te pagó/, varios);
+    assert.deepEqual(marcasDeVoseo(varios), [], varios);
+  }
+  const enPausaDos = textoDelAvisoDeEntradas({ tabla: td, medio: 'Binance', entradas: dos, enPausa: true });
+  assert.match(enPausaDos, /^Giselle Belanti, Marcela Fernandez quedaron en pausa: no entraron sus entradas\. Si las pagan hoy son /);
+  assert.doesNotMatch(enPausaDos, /su entrada|Si la pagas/);
+  // Con una sola, como siempre.
+  const una = textoDelAvisoDeEntradas({ tabla: te, medio: 'Binance', entradas, enPausa: true });
+  assert.match(una, /^Giselle quedó en pausa: no entró su entrada\. Si la pagas hoy son /);
+  assert.match(una, /Págala por Binance .* Si no te pagó, dalo de baja/);
   assert.match(textoDeComprobante({ tipo: 'repetido', numero: 3 }), /N\.º 0003/);
   assert.equal(usd(40.733), 'US$ 40,73');
 });

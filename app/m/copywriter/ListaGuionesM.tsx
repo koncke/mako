@@ -18,9 +18,12 @@ import { INFO_TIPO, propsNuevas, type PaginaCopy, type TipoGuion } from '@/lib/c
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { plantillasDe, plantillasVisibles, type Plantilla } from '@/lib/copywriter/plantillas';
 import { pedirCrear } from '@/app/copywriter/cliente';
+import { CapaAbriendo, useAlInstante } from '@/app/copywriter/AlInstante';
 
 export function ListaGuionesM({ paginas, catalogos, tipoInicial = null, abrirHoja = false }: { paginas: PaginaCopy[]; catalogos: CatalogosCopy; tipoInicial?: TipoGuion | null; abrirHoja?: boolean }) {
   const router = useRouter();
+  // Tocar una página o crear una: la capa con el loader en el mismo toque (app/copywriter/AlInstante.tsx, 14/11/2026).
+  const capa = useAlInstante({ links: true });
   const toast = useToastM();
   // «Crear desde cero» de la portada (`?nueva`) también la abre (11/11/2026, D18).
   const [hoja, setHoja] = useState(!!tipoInicial || abrirHoja);
@@ -32,11 +35,12 @@ export function ListaGuionesM({ paginas, catalogos, tipoInicial = null, abrirHoj
   const plantillas = tipoInicial ? [...todas.filter((x) => x.tipo === tipoInicial), ...todas.filter((x) => x.tipo !== tipoInicial)] : todas;
   const crear = async (pl: Plantilla) => {
     if (creando) return;
+    capa.empezar('la página nueva');
     setCreando(true);
     const props = propsNuevas(pl.tipo, pl.estructura, { plantilla: pl.ejemplo ? pl.id : null, duracion: pl.duracion });
     const r = await pedirCrear({ tipo: pl.tipo, props, contenido: pl.esqueleto() });
     setCreando(false);
-    if (!r.ok) { toast(`No se pudo crear: ${r.error}`); return; }
+    if (!r.ok) { capa.soltar(); toast(`No se pudo crear: ${r.error}`); return; }
     // Con un ejemplo, MaKo pregunta para qué es y a qué oferta adaptarlo: la página abre en su vista (GuionM).
     router.push(`/m/copywriter/${r.pagina.id}${pl.ejemplo ? '?mako=1' : ''}`);
   };
@@ -65,6 +69,7 @@ export function ListaGuionesM({ paginas, catalogos, tipoInicial = null, abrirHoj
           ))}
         </ListaM>
       </SheetM>
+      <CapaAbriendo que={capa.abriendo} fija onSoltar={capa.soltar} />
     </>
   );
 }

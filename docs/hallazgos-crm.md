@@ -20,6 +20,27 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## La ficha del lead es un PANEL a la derecha, no un modal (14/11/2026, claude5)
+
+Martín, sobre la grabación del CRM de la portada: «que ya no se vaya al modal sino que esté así como un desplegable a la derecha». La carcasa es
+`app/crm/lead-view/PanelFicha.tsx` (560, alto entero, 520 ms con la curva de la grabación; en ≤ 760 px la pantalla entera con «Volver»). La monta
+`LeadEditModal`, así que las siete puertas (tablero, Chats, WhatsApp, Dashboard, desgloses, MaKo) cambiaron sin tocarlas.
+
+- **«Afuera» es el árbol de React, no el DOM.** Los diálogos de la ficha (mover de etapa, papelera, la cara, el AI Analyst) van por portal al
+  `body`: con `nodo.contains(target)` tocar «Mandar a la papelera» cerraba la ficha. La carcasa marca el toque en `onPointerDownCapture` (sube por
+  los portales) y la escucha del documento, en burbuja, lo lee después. Regla: un panel no modal que se cierra «tocando afuera» se marca así.
+- **Una sola carcasa para esqueleto, error y ficha.** Si el esqueleto tuviera su propio contenedor, cada tarjeta nueva con el panel abierto lo
+  haría entrar otra vez desde afuera. La ficha va con `key={data.lead.id}`: otro lead es otra pestaña, otro scroll y otros diálogos.
+- **Lo que se toca afuera sin cerrar** (`TOCAR_SIN_CERRAR`): `[data-lead-id]` (tarjetas y filas: cambian el lead), MaKo (lee el lead abierto,
+  `lead-abierto.ts`: cerrarla al escribirle le saca el contexto) y los avisos. Algo nuevo que conviva con la ficha lleva `data-ficha-sigue`.
+- **Sin transform en reposo.** La entrada no lleva `fill-mode`: con un `transform` puesto, el panel sería el bloque contenedor de lo
+  `position: fixed` de adentro y los menús de la ficha se dibujarían corridos.
+- **El Escape** sigue en captura y se abstiene con la pila (`profundidadModales`), y ahora también si estás escribiendo en un campo: en el
+  pop-up, Escape adentro del nombre cerraba la ficha entera.
+- **SIN HACER:** la portada del lead no se elige en el panel (no tiene banda); se elige a pantalla completa, con el botón ↗ de la cabecera.
+  El tablero no se corre a la izquierda: las columnas que quedan bajo el panel se ven al cerrarlo. Tipos: `tsc-acotado` dio 99 (sin RAM),
+  así que el commit salió «sin tipos».
+
 ## Hueco del tope de tableros: Classroom crea CRMs sin preguntar (14/11/2026, visto cerrando Classroom)
 
 «Nuevo producto» de Classroom y Clients (`crearServicioAction`, app/customer-success/actions.ts) y «Duplicar» (`duplicarPrograma`,

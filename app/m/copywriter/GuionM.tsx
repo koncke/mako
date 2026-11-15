@@ -23,6 +23,7 @@ import { PanelMaKo, type GuionVivo } from '@/app/copywriter/PanelMaKo';
 import type { OfertaCorta } from '@/lib/copywriter/iniciativa';
 import { pedirPapelera, pedirRenombrar } from '@/app/copywriter/cliente';
 import { OriginalAlLado } from '@/app/copywriter/OriginalAlLado';
+import { CapaAbriendo, useAlInstante } from '@/app/copywriter/AlInstante';
 
 type Vista = 'guion' | 'mako' | 'original';
 /** El «‹ Guiones» de la barra (el mismo de app/m/copywriter/[id]/page.tsx). */
@@ -35,6 +36,8 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
   enMako?: boolean;
 }) {
   const router = useRouter();
+  // «‹ Guiones» y lo que lleva a otra pantalla de la tab: la capa con el loader en el mismo toque (app/copywriter/AlInstante.tsx).
+  const capa = useAlInstante({ links: true });
   const toast = useToastM();
   const [vista, setVista] = useState<Vista>(enMako ? 'mako' : 'guion');
   const [pagina, setPagina] = useState<PaginaCopy>(guion.pagina);
@@ -77,7 +80,7 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
           <EditorGuion guion={{ ...guion, pagina }} paginas={[pagina]} catalogos={catalogos} movil pausa={pausa}
             onPaginaEnVivo={(c) => setPagina((p) => { const x = cambiarPagina([p], p.id, c); return x.ok ? x.paginas[0] : p; })}
             onTitulo={(titulo) => renombrar({ titulo })} onEmoji={(emoji) => { setPagina((p) => ({ ...p, emoji })); renombrar({ emoji }); }}
-            onAbrir={() => {}} onPapelera={() => void pedirPapelera(pagina.id).then((r) => { if (r.ok) router.push('/m/copywriter'); else toast(r.error); })}
+            onAbrir={() => {}} onPapelera={() => void pedirPapelera(pagina.id).then((r) => { if (r.ok) { capa.empezar('Copywriting'); router.push('/m/copywriter'); } else toast(r.error); })}
             onEditor={setEditor} onMako={(s) => { setVista('mako'); window.setTimeout(() => { if (citar.current) citar.current(s); else caja.current?.focus(); }, 50); }}
             avisar={avisar} onVivo={(v) => { vivo.current = v; }} onApi={(a) => { api.current = a; }} />
           {pregunta && !decidir && !pausa && vista === 'guion' && (
@@ -103,6 +106,7 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
           </div>
         ) : null}
       </div>
+      <CapaAbriendo que={capa.abriendo} fija onSoltar={capa.soltar} />
     </div>
   );
 }

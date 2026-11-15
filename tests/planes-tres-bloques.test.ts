@@ -278,26 +278,26 @@ test('ninguna columna dice «todo lo de X»: las dos se leen solas, y Pro no tie
 
 test('los números van FUERA de los checks: los MaKo Tokens y los topes en su línea, y ningún bullet con una cifra', async () => {
   const { listaCorta } = await import('../app/planes/Tarjetas');
-  const { cupoDeLaCapa } = await import('../lib/mako-tokens-paquetes');
+  const { cupoDeCapa } = await import('../lib/mako-tokens-reglas');
   for (const capa of ['completo', 'agencia'] as const) {
     const l = listaCorta(capa);
     // Kajabi y beehiiv: los topes en una línea sola, arriba; los bullets, funciones puras. Antes 5 de los 7 renglones de
     // Esencial eran cifras, y la columna barata se leía como una lista de lo que no te alcanza.
     assert.ok(l.topes.length > 0, `${capa} sin la línea de topes`);
     for (const it of l.items) assert.doesNotMatch(`${it.fuerte ?? ''}${it.texto}`, /\d/, `${capa}: un número adentro de un bullet: «${it.texto}»`);
-    // Los MaKo Tokens de ESE plan, del cupo del código (lib/mako-tokens-paquetes.ts): la columna no los decía nunca.
-    const mt = cupoDeLaCapa(capa);
+    // Los MaKo Tokens de ESE plan, del cupo del código (lib/mako-tokens-reglas.ts): la columna no los decía nunca.
+    const mt = cupoDeCapa(capa);
     assert.ok(mt != null && l.tokens?.startsWith(mt.toLocaleString('es-AR')), `${capa}: los tokens no salen del cupo (${l.tokens})`);
   }
-  // El de US$47 es el nivel `pro` del medidor y el de US$97 es `growth`: el nombre engaña, el precio no (NIVEL_DE_LA_CAPA).
+  // El de US$47 es el nivel `pro` del medidor y el de US$97 es `growth`: el nombre engaña, el precio no (PLAN_DE_CAPA).
   // Leerlos por el nombre pone 11.750 MT donde van 24.250, y al revés. Esto es la guarda de ese cruce.
-  const esMt = cupoDeLaCapa('completo'), proMt = cupoDeLaCapa('agencia');
+  const esMt = cupoDeCapa('completo'), proMt = cupoDeCapa('agencia');
   assert.ok(esMt != null && proMt != null && proMt > esMt, `el mapeo está cruzado: Esencial ${esMt}, Pro ${proMt}`);
   // Una capa sin cupo decidido (el Acelerador no tiene) no inventa un número: su columna no habla de tokens.
-  assert.equal(cupoDeLaCapa('pm'), null);
+  assert.equal(cupoDeCapa('pm'), null);
   const t = await vitrina();
-  assert.ok(t.includes(`${esMt.toLocaleString('es-AR')} MaKo Tokens por mes`), '/planes no dice los tokens de Esencial');
-  assert.ok(t.includes(`${proMt.toLocaleString('es-AR')} MaKo Tokens por mes`), '/planes no dice los tokens de Pro');
+  assert.ok(t.includes(`${esMt.toLocaleString('es-AR')} MaKo Tokens al mes`), '/planes no dice los tokens de Esencial');
+  assert.ok(t.includes(`${proMt.toLocaleString('es-AR')} MaKo Tokens al mes`), '/planes no dice los tokens de Pro');
 });
 
 test('la negrita es de Pro y de nadie más: la columna barata queda plana sin que le falte un renglón', async () => {
@@ -308,17 +308,31 @@ test('la negrita es de Pro y de nadie más: la columna barata queda plana sin qu
   for (const it of listaCorta('agencia').items) assert.ok(it.fuerte, `Pro sin negrita: «${it.texto}»`);
 });
 
-test('el costo real por acción sale de los costos MEDIDOS, nunca de un número escrito a mano', async () => {
-  const { costosPorAccion } = await import('../app/planes/CalculadoraTokens');
+test('el costo real por acción sale de los costos MEDIDOS, y lo que NO gasta tokens dice POR QUÉ', async () => {
+  // 15/11/2026, al unir las dos puntas: esta prueba medía `costosPorAccion()`, de la calculadora que escribí yo. La de main
+  // (`COSTO_POR_ACCION`) hace algo mejor y es la que quedó: además de los dos costos medidos, NOMBRA lo que no gasta MaKo
+  // Tokens y por qué, en vez de omitirlo. Omitir invita a suponer que sí gasta.
+  const { COSTO_POR_ACCION } = await import('../app/planes/CalculadoraTokens');
   const { MT_POR_CLIP, paqueteDeMinutos } = await import('../lib/mako-tokens-paquetes');
   const { mtDeImagenes } = await import('../lib/mako-tokens-reglas');
-  const cs = costosPorAccion();
-  assert.deepEqual(cs.map((c) => c.mt), [MT_POR_CLIP, paqueteDeMinutos(1).mt, mtDeImagenes(1), mtDeImagenes(1, 'premium')]);
+  // La lista ENTERA contra el conjunto exacto, no «alguno trae MT»: un renglon nuevo con un numero a mano se ve acá.
+  assert.deepEqual(COSTO_POR_ACCION.map((c) => [c.que, c.mt, c.porque ?? null]), [
+    ['Un clip de video de 10 segundos', MT_POR_CLIP, null],
+    ['Una imagen', mtDeImagenes(1), null],
+    ['Seguir a tu competencia', null, 'competidores'],
+    ['Guiones, copys y transcripciones', null, 'su-ia'],
+    ['Respuestas del setter y análisis de ofertas', null, 'su-ia'],
+  ]);
   // El video, por CLIP y no por segundo: es el camino que mueve el control de arriba (`paqueteDeMinutos`). Decir el segundo
   // acá (`USD_POR_SEGUNDO`, otro modelo y otra medición) pondría dos números que se contradicen en la misma pantalla.
   assert.equal(paqueteDeMinutos(1).mt, MT_POR_CLIP * 6, 'el minuto dejó de ser seis clips');
   const t = await vitrina();
-  for (const c of cs) assert.ok(t.includes(`${c.mt.toLocaleString('es-AR')} MT`), `/planes no dice el costo de «${c.que}»`);
+  for (const c of COSTO_POR_ACCION) {
+    assert.ok(t.includes(c.que), `/planes no nombra «${c.que}»`);
+    if (c.mt != null) assert.ok(t.includes(`${c.mt.toLocaleString('es-AR')} MaKo Tokens`), `/planes no dice el costo de «${c.que}»`);
+    // Lo que no gasta lo dice con esas palabras, nunca en blanco ni con un 0 (que se leería como «gratis hasta que se acabe»).
+    else assert.ok(t.includes('No gasta'), `/planes no dice que «${c.que}» no gasta tokens`);
+  }
 });
 
 test('AGENDAR LA LLAMADA, sólo en el Acelerador: ni las dos columnas de software ni el resto de la vitrina la ofrecen', async () => {
@@ -550,3 +564,30 @@ test('sin plan Agencia aparte (10/10): la agencia maneja a sus clientes desde Pr
 //   · la pregunta vuelve a «te devolvemos tu pago»                                          -> 24 / 1
 //   · vuelve `GARANTIA_DIAS`                                                                -> 24 / 1
 //   · /reembolsos sin «después del primer cobro, no se reembolsa»                            -> 24 / 1
+
+// ── La calculadora de MaKo Tokens (14/11/2026, Martín: arriba de las columnas, arranca en los tokens del plan) ─────────
+test('la calculadora va ARRIBA de las tarjetas, arranca en los MaKo Tokens del plan y cada tarjeta dice los suyos', async () => {
+  const { CUPO_MENSUAL } = await import('../lib/mako-tokens-reglas');
+  const { datosDelPlan, COSTO_POR_ACCION } = await import('../app/planes/CalculadoraTokens');
+  const t = await vitrina();
+  assert.ok(t.indexOf('Calcula cuántos MaKo Tokens necesitas') < t.indexOf('Recomendado MaKo Pro'), 'arriba de las tres columnas');
+  // Las claves de agosto: `pro` es Esencial (US$47) y `growth` es Pro (US$97).
+  const mil = (n: number) => n.toLocaleString('es-AR');
+  assert.ok(t.includes(`${mil(CUPO_MENSUAL.pro)} MaKo Tokens al mes`) && t.includes(`${mil(CUPO_MENSUAL.growth)} MaKo Tokens al mes`), 'cada tarjeta, sus tokens');
+  const pro = datosDelPlan({ id: 'pro', nombre: 'MaKo Pro', capa: 'agencia', precioUsd: 97, cobrable: true })!;
+  const esencial = datosDelPlan({ id: 'esencial', nombre: 'MaKo Esencial', capa: 'completo', precioUsd: 47, cobrable: true })!;
+  assert.equal(pro.pasos[0].mt, mil(CUPO_MENSUAL.growth), 'Pro arranca en sus tokens');
+  assert.equal(pro.pasos[0].usd, 'US$ 97', 'y en su precio, sin nada sumado');
+  assert.equal(esencial.pasos[0].mt, mil(CUPO_MENSUAL.pro));
+  // El video del plan respeta su tope de clips (6 en Esencial, 36 en Pro), no lo que pagarían sus tokens (23 y 48).
+  assert.equal(esencial.pasos[0].video, 'Hasta 1 minuto de video');
+  assert.equal(pro.pasos[0].video, 'Hasta 6 minutos de video');
+  // Sumar un minuto: 3.000 tokens y US$12 (el clip a US$2), una compra suelta, no el abono.
+  assert.equal(pro.pasos[1].mt, mil(CUPO_MENSUAL.growth + 3000));
+  assert.equal(pro.pasos[1].usd, 'US$ 109');
+  assert.equal(pro.pasos[1].periodo, 'este mes');
+  assert.equal(pro.pasos[1].video, 'Hasta 7 minutos de video');
+  // Sólo los medios gastan MaKo Tokens: lo demás va con la IA del negocio o es un tope del plan.
+  assert.deepEqual(COSTO_POR_ACCION.filter((x) => x.mt != null).map((x) => x.mt), [500, 12]);
+  assert.equal(datosDelPlan({ id: 'x', nombre: 'X', capa: 'pm', precioUsd: 1, cobrable: false }), null, 'una capa sin cupo no se dibuja');
+});

@@ -26,6 +26,7 @@ import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
 import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
 import { OutlierAbierto } from './OutlierAbierto';
 import { ReplicarPegado } from './ReplicarPegado';
+import { CapaAbriendo, useAlInstante, type AlInstante } from './AlInstante';
 import { RUTA_CREAR_COPY, RUTA_GUIONES_COPY } from './vista';
 import s from '@/app/image-editor/carruseles/explorar.module.css';
 import v from '@/app/video-editor/outliers.module.css';
@@ -212,8 +213,13 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
  * la página replicada, con `{id}` (en el teléfono, su vista del guion con MaKo abierto: un texto y no una función, porque la arma
  * el server); `rutaGuiones` y `rutaCrear`: «Mis guiones» y «Crear desde cero».
  */
-export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywriter/{id}', rutaGuiones = RUTA_GUIONES_COPY, rutaCrear = RUTA_CREAR_COPY, plantillas, onPlantilla }: {
+export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywriter/{id}', rutaGuiones = RUTA_GUIONES_COPY, rutaCrear = RUTA_CREAR_COPY, plantillas, onPlantilla, alInstante: deAfuera }: {
   portada: PortadaCopy; telefono?: boolean; rutaGuion?: string; rutaGuiones?: string; rutaCrear?: string;
+  /**
+   * La capa del clic (./AlInstante.tsx) de la pantalla que la contiene: Copywriter la dibuja en el centro de Create y vigila los
+   * links. Sin esto (el teléfono), la portada pone la suya, fija, y vigila los links ella.
+   */
+  alInstante?: AlInstante;
   /**
    * Las plantillas con estructura, AL LADO de los outliers (11/11/2026, Martín: «además de los outliers, también deberían estar los
    * templates»; la regla «Create: orden y outliers»). Una fila con la tarjeta común de Create (app/_crear/TarjetaPlantilla.tsx, sin
@@ -223,6 +229,8 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   onPlantilla?: (p: PlantillaCrear) => Promise<string | null>;
 }) {
   const router = useRouter();
+  const propia = useAlInstante({ links: !deAfuera && telefono });
+  const capa = deAfuera ?? propia;
   const [ahora] = useState(() => Date.now());
   const [formato, setFormato] = useState<FormatoCopy | null>(null);
   // «De tu tema» (13/11/2026, el flujo nuevo; lib/copywriter/portada-tema.ts): la portada abre ahí si hay bastante del tema del negocio.
@@ -316,7 +324,10 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
     return () => io.disconnect();
   }, [faltan, pidiendo, fallo, enGrilla.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** «Replicar»: la página nueva del tipo del original, y a ella; ahí MaKo pregunta para qué oferta. */
+  /**
+   * «Replicar»: la página nueva del tipo del original, y a ella; ahí MaKo pregunta para qué oferta. La capa va en el clic, ANTES
+   * de crearla (14/11/2026: crear y navegar eran ~2 s con la portada quieta); el original abierto se cierra para que se vea.
+   */
   const replicar = async (o: OutlierCopy) => {
     if (replicando) return;
     // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): el candado acá mismo en vez de un pedido que va a
@@ -325,10 +336,16 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
     // ⚠️ FRENARLO NO ES MOSTRARLO: desde el original abierto, el cartel quedaba detrás del modal (y desde una tarjeta de más
     //    abajo, fuera de la pantalla). Por eso el modal lleva su propio candado y el cartel se trae a la vista.
     if (soloPro) { setCandado(true); return; }
+    // ⚠️ EL LOADER VA DESPUÉS DEL CANDADO (15/11/2026, al unir las dos puntas): `capa.empezar` tapa la pantalla esperando
+    //    una página nueva, y a un Esencial no se le va a crear ninguna. Al revés, el candado quedaba debajo del loader.
+    capa.empezar('la página nueva');
     setReplicando(o.id);
     setAviso(null);
+    setAbierto(null);
     const r = await pedirReplicar(o.id);
     if (!r.ok) {
+      // El loader se suelta en TODAS las salidas de error, también en la del candado: si no, la pantalla queda tapada.
+      capa.soltar();
       setReplicando(null);
       // El plan cambió después de cargar la pestaña, o la lectura todavía no llegó: el 403 con `pasarAPro` prende el candado.
       if (esRespuestaSoloPro(r)) { marcarSoloPro('replicar-guion'); setCandado(true); return; }
@@ -402,9 +419,11 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
                   onActiva={(si) => setActiva((a) => (si ? pl.id : a === pl.id ? null : a))}
                   onUsar={() => {
                     if (usando) return;
+                    // La capa en el clic: crear la página y abrirla siguen detrás (sale sola cuando llega la página).
+                    capa.empezar('la página nueva');
                     setUsando(pl.id);
                     setAviso(null);
-                    void onPlantilla(pl).then((e) => { setUsando(null); if (e) setAviso(e); });
+                    void onPlantilla(pl).then((e) => { setUsando(null); if (e) { capa.soltar(); setAviso(e); } });
                   }} />
               ))}
             </div>
@@ -472,7 +491,8 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
         <OutlierAbierto o={abierto} telefono={telefono} replicando={replicando === abierto.id} soloPro={soloPro}
           onCerrar={() => setAbierto(null)} onReplicar={() => void replicar(abierto)} />
       ) : null}
-      {pegando ? <ReplicarPegado onCerrar={() => setPegando(false)} onListo={(id) => router.push(rutaGuion.replace('{id}', id))} /> : null}
+      {pegando ? <ReplicarPegado onCerrar={() => setPegando(false)} onListo={(id) => { capa.empezar('la página nueva'); setPegando(false); router.push(rutaGuion.replace('{id}', id)); }} /> : null}
+      {deAfuera ? null : <CapaAbriendo que={propia.abriendo} fija={telefono} onSoltar={propia.soltar} />}
     </div>
   );
 }

@@ -126,7 +126,9 @@ test('la pantalla: el botón en la portada, la ventana, la ruta con su puerta, l
   // 14/11/2026: «Pegar link o texto» replica igual, y replicar el guion de otro es de MaKo Pro (lib/copywriter/replica-candado.ts):
   // a un Esencial, el candado en vez de la ventana. La defensa es el server (403 con `pasarAPro`); esto es lo que se ve.
   assert.match(portada, /onClick=\{\(\) => \(soloPro \? setCandado\(true\) : setPegando\(true\)\)\}>Pegar link o texto<\/button>/);
-  assert.match(portada, /\{pegando \? <ReplicarPegado onCerrar=\{\(\) => setPegando\(false\)\} onListo=\{\(id\) => router\.push\(rutaGuion\.replace\('\{id\}', id\)\)\} \/> : null\}/);
+  // Y al terminar, el loader de MaKo tapa la espera de la página nueva (main, 14/11/2026): las dos mitades conviven en la
+  // misma línea, una en el clic y la otra en el `onListo`.
+  assert.match(portada, /\{pegando \? <ReplicarPegado onCerrar=\{\(\) => setPegando\(false\)\} onListo=\{\(id\) => \{ capa\.empezar\('la página nueva'\); setPegando\(false\); router\.push\(rutaGuion\.replace\('\{id\}', id\)\); \}\} \/> : null\}/);
   const ventana = leer('app/copywriter/ReplicarPegado.tsx');
   assert.match(ventana, /const r = await pedirReplicarPegado\(tipo, texto, archivos\);/);
   assert.match(ventana, /TIPOS_PEGADO\.map/);

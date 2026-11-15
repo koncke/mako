@@ -115,10 +115,12 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
           <h1>El mejor software para vender <em>High Ticket.</em></h1>
           <p className="planes-sub"><strong>Marketing, ventas y entrega del servicio en una sola app.</strong> Con una IA que conoce tu negocio, desde que alguien te descubre hasta que es tu cliente y le entregas lo que compró.</p>
         </header>
-        {/* La calculadora va ARRIBA de las columnas (Martín, 14/11/2026: «yo le di feedback a la tab de precios sobre MaKo
-            Tokens, que debería estar arriba de las columnas»). Estaba al final, después de las columnas Y de la tabla
-            comparativa: quien elegía plan no veía los tokens hasta haber decidido. */}
-        <CalculadoraTokens />
+        {/* La calculadora de MaKo Tokens, ARRIBA de las tres columnas (Martín, 14/11/2026: «yo le di feedback a la tab de
+            precios sobre MaKo Tokens, que debería estar arriba de las columnas», «como en todas las páginas de
+            precios»). Estaba al final, después de las columnas Y de la tabla comparativa: quien elegía plan no veía
+            los tokens hasta haber decidido. Arranca en los tokens del plan recomendado y lleva el sufijo para que el botón
+            de cada plan conserve la atribución del partner (./CalculadoraTokens.tsx). */}
+        <CalculadoraTokens planes={planes} sufijo={sufijo} />
 
         <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} />
 

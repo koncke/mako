@@ -30,7 +30,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { funnelTieneCampana } from '../lib/tracking-ficha';
-import { ANCHO_FICHA_LEAD } from '../app/crm/lead-view/ficha-medidas';
+import { ANCHO_FICHA_LEAD, ANCHO_PANEL_FICHA } from '../app/crm/lead-view/ficha-medidas';
 
 const leer = (p: string) => readFileSync(resolve(import.meta.dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src
@@ -217,10 +217,15 @@ test('el pop-up: la cruz va sobre la portada, el pie no tiene «Cerrar» y «Bor
 
 // ── 14 y 16 · Ancho y pestañas pegadas ─────────────────────────────────────────
 
-test('el pop-up es más ancho, y la ruta usa el mismo ancho', () => {
+// ⚠️ CAMBIADO A PROPÓSITO EL 14/11/2026: el tablero ya no abre el pop-up ancho, abre el PANEL de la derecha
+// (lead-view/PanelFicha.tsx: el pedido de Martín sobre la grabación del CRM de la portada; tests/crm-ficha-panel.test.ts).
+// Lo que esto sigue cuidando: la RUTA /crm/[id] es la ficha ancha, y nadie vuelve a los 760 de antes.
+test('la ruta es la ficha ancha, y el tablero la abre en el panel de la derecha', () => {
   assert.ok(ANCHO_FICHA_LEAD >= 1000, `«bastante más ancho» que 760: ${ANCHO_FICHA_LEAD}`);
-  assert.match(SHEET, /maxWidth: ANCHO_FICHA_LEAD/);
   assert.match(PAGE, /maxWidth: ANCHO_FICHA_LEAD/);
+  assert.equal(ANCHO_PANEL_FICHA, 560, 'el panel mide lo de la grabación');
+  assert.match(codigo('app/crm/lead-view/PanelFicha.tsx'), /width:min\(' \+ ANCHO_PANEL_FICHA \+ 'px, 100vw\)/);
+  assert.doesNotMatch(SHEET, /maxWidth: ANCHO_FICHA_LEAD/, 'la ficha del tablero volvió a ser el pop-up ancho');
   assert.doesNotMatch(SHEET, /maxWidth: 760/);
 });
 

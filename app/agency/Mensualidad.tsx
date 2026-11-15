@@ -40,21 +40,33 @@ function useCorrer(onAviso: Aviso) {
   return { ocupado, correr };
 }
 
-export function Mensualidad({ m, superAdmin, ver, onAviso }: {
+export function Mensualidad({ m, superAdmin, ver, resaltar = null, onAviso }: {
   m: DatosMensualidad;
   /** El super admin parado en la agencia: anota los pagos y la prende o apaga. */
   superAdmin: boolean;
   /** `?vista=mensualidad` (el link de los avisos): baja hasta acá al abrir. */
   ver: boolean;
+  /** «Pagar su mes» del aviso de «Inspeccionar» (14/11/2026): baja hasta la entrada de ese cliente y la marca. `n` = otro toque. */
+  resaltar?: { ws: number; n: number } | null;
   onAviso: Aviso;
 }) {
   const raiz = useRef<HTMLElement | null>(null);
   const [pagar, setPagar] = useState<MesDeMensualidad | null>(null);
   const [entrada, setEntrada] = useState<Extract<Pendiente, { tipo: 'entrada' }> | null>(null);
   const [apagar, setApagar] = useState(false);
+  const [marcada, setMarcada] = useState<number | null>(null);
   const { ocupado, correr } = useCorrer(onAviso);
 
   useEffect(() => { if (ver) raiz.current?.scrollIntoView({ block: 'start' }); }, [ver]);
+  useEffect(() => {
+    if (!resaltar) return;
+    // Su renglón de «Entradas por pagar»; si no tiene (la pausa es por el mes entero), el total de arriba.
+    const fila = raiz.current?.querySelector<HTMLElement>(`[data-entrada="${resaltar.ws}"]`) ?? null;
+    (fila ?? raiz.current)?.scrollIntoView({ block: fila ? 'center' : 'start', behavior: 'smooth' });
+    setMarcada(resaltar.ws);
+    const t = setTimeout(() => setMarcada(null), 2600);
+    return () => clearTimeout(t);
+  }, [resaltar]);
 
   if (!m.ok) {
     return (
@@ -120,7 +132,7 @@ export function Mensualidad({ m, superAdmin, ver, onAviso }: {
           <h3 className="ad-sub">Entradas por pagar</h3>
           <div className="ad-tabla am-tabla" role="table" aria-label="Las entradas por pagar">
             {entradas.map((p) => (
-              <div key={p.ws} className="ad-fila am-mes" role="row">
+              <div key={p.ws} className="ad-fila am-mes" role="row" data-entrada={p.ws} data-marcada={marcada === p.ws || undefined}>
                 <span role="cell" className="am-concepto"><b>Entrada de {p.nombre}</b><em>{p.entrada.dias} días, del {diaCorto(p.entrada.desde)} al {diaCorto(p.entrada.hasta)} · {usdDia(p.entrada.tarifaUsd)} por día</em></span>
                 <span role="cell"><span className="ad-est" data-tono={p.limite < m.hoy ? 'bad' : 'warn'}><i />{p.limite < m.hoy ? 'Vencida' : p.limite === m.hoy ? 'Vence hoy' : `Vence el ${diaCorto(p.limite)}`}</span></span>
                 <span role="cell" className="ad-num">{usd(p.debeUsd)}</span>
@@ -292,7 +304,9 @@ const CSS = `
 .am-cab-acc{ display:inline-flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
 .am-tabla .am-fila{ grid-template-columns:minmax(0, 1fr) 140px; padding:10px 16px; }
 .am-tabla .am-fila > :last-child{ text-align:right; }
-.am-tabla .am-mes{ grid-template-columns:minmax(140px, 1fr) minmax(200px, 1.4fr) 120px minmax(130px, auto); padding:8px 16px; }
+.am-tabla .am-mes{ grid-template-columns:minmax(140px, 1fr) minmax(200px, 1.4fr) 120px minmax(130px, auto); padding:8px 16px; transition:background-color .5s ease; }
+/* La entrada que se vino a pagar desde el aviso de «Inspeccionar»: se marca un momento y se apaga sola. */
+.am-tabla .am-mes[data-marcada]{ background:var(--bad-bg); transition:none; }
 .am-tabla .ad-num{ text-align:right; }
 .am-concepto{ min-width:0; display:flex; flex-direction:column; gap:2px; font-size:14px; color:var(--ink); }
 .am-concepto b{ font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
