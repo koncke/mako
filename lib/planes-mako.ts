@@ -285,7 +285,6 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
     `Una asesoría grupal en vivo por semana con Martín (${ASESORIAS_DEL_PROGRAMA} en los 3 meses), con su grabación`,
     'El WhatsApp personal de Martín para tus dudas',
     'La comunidad de empresarios del programa',
-    'Un encuentro presencial en Buenos Aires cada 3 meses',
     'Plantillas probadas de páginas, mensajes y guiones',
   ],
   despues: { nombre: 'Continuidad', precioUsd: 297 },

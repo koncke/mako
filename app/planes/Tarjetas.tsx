@@ -156,38 +156,44 @@ export const CEJA_NO_INCLUYE = 'No incluye';
  *    ande de punta a punta (`AI_AVATAR_SE_VENDE`, lib/planes-comparacion.ts). Cerrarlo en Esencial y venderlo son dos cosas.
  */
 export function listaCorta(capa: string): ListaDeColumna {
-  // ⚠️ EL COPY DE ESTAS DOS LISTAS LO APROBÓ MARTÍN EL 15/11/2026 A LA NOCHE («me gusta cómo está»), después de pedir:
-  //   «no me resulta claro las cosas que están abajo… para una persona que lo mira no entiende mucho la diferencia entre el de
-  //    47 y el de 97… te pido que pienses muy bien esos copies… en el de 47 hay un montón de cosas que no se pueden hacer
-  //    directamente, que en el de 97 sí».
+  // ⚠️ EL COPY DE ESTAS DOS LISTAS ES EL DE «COMPARA LOS PLANES» (15/11/2026, más tarde). Martín: «me gustaría reducir bastante
+  //    el texto… hay muchas cosas redundantes. Me gustaría que sea un poco como lo que está en Compara los planes, que es simple.
+  //    Una sola palabra o muy poquitas palabras que se entienda… como por ejemplo como Canva y CapCut. No, eso no es necesario
+  //    aclararlo». Antes cada renglón era una frase con su explicación («Copia la página de venta de cualquier competidor, con
+  //    tu oferta y en tu dominio»); ahora es el NOMBRE de la cosa, el mismo de la fila de la tabla de abajo, y el detalle queda
+  //    en la tabla, que existe para eso.
   // Las reglas que lo arman, para el que lo toque:
-  //   · PALABRAS DE CLIENTE: «página de venta» y no «landing», «un asistente que responde y agenda» y no «setter», nada de
-  //     «pipeline» ni «B-roll» (Martín: «no con lenguaje nuestro»).
-  //   · EL DE US$47 DICE LO QUE NO HACE, con una ✗ (`noIncluye`), en el MISMO ORDEN que los primeros checks de Pro: leídas en
-  //     paralelo, cada ✗ queda frente a su ✓.
+  //   · LAS PALABRAS DE LA TABLA (lib/planes-comparacion.ts): «Copiar landings de la competencia», «Setter con IA», «Análisis de
+  //     llamadas», «Copywriting con IA». Así un renglón de la columna se encuentra abajo con el mismo nombre. La jerga de
+  //     marketing está permitida desde el 14/11 (Martín); la de nuestra cocina, no (tests/planes-tres-bloques.test.ts).
+  //   · NADA QUE YA DIGA EL BLOQUE DE LOS MaKo TOKENS: el video con IA se fue de los checks (y de la ✗ de Esencial) porque
+  //     arriba ya dice «26 clips de video con IA» en Pro y «0 clips», tachado, en Esencial. Repetirlo era la redundancia.
+  //   · EL DE US$47 DICE LO QUE NO HACE, con una ✗ (`noIncluye`), con las MISMAS palabras y en el MISMO ORDEN que los primeros
+  //     checks de Pro: leídas en paralelo, cada ✗ queda frente a su ✓.
   //   · Ni Esencial dice «todo lo de X» ni Pro «todo lo de Esencial, más» (Martín, 14/11: «la idea es que cada uno se sienta
-  //     único»). Toda la negrita en Pro, ninguna en Esencial (ClickFunnels).
-  //   · LOS NÚMEROS SALEN DEL CÓDIGO (`TOPES`, `ASESORES`), nunca a mano. Los MaKo Tokens no están acá: son el primer ítem de
-  //     la lista y los dibuja la columna (con lo que alcanzan, que mueve la barra).
-  //   · Lo que NO se dice: «subtitula» como cosa de Pro — los subtítulos corren en el navegador y están en los dos planes
-  //     (lib/planes-comparacion.ts, 'ia-editores'); lo de Pro es la edición AUTOMÁTICA. Ni el avatar, que no se vende todavía.
+  //     único»). La negrita es de Pro y de nadie más (ClickFunnels): en Pro va en negrita el nombre de la cosa.
+  //   · LOS NÚMEROS SALEN DEL CÓDIGO (`TOPES`, `ASESORES`), nunca a mano, y el «sin tope» de Pro también: sólo se dice de lo que
+  //     el código no topa. Los MaKo Tokens no están acá: son el primer ítem de la lista y los dibuja la columna.
+  //   · Lo que NO se dice: el avatar, que no se vende todavía; y «subtítulos» como cosa de Pro (corren en el navegador y están en
+  //     los dos planes, lib/planes-comparacion.ts, 'ia-editores'). Lo de Pro es la edición de videos CON IA.
   const c = TOPES.completo, a = TOPES.agencia;
   if (capa === 'agencia') {
+    const sinTopeEnPro = ([['crm.leads', 'Contactos'], ['web.landings_publicadas', 'landings']] as const)
+      .filter(([k]) => a[k] == null).map(([, nombre]) => nombre);
     return {
       titulo: CEJA_LISTA,
       tokens: tokensDeLaCapa(capa),
       items: [
-        { fuerte: 'Videos con IA', texto: ', a partir de un texto o una foto' },
-        { fuerte: 'Copia la página de venta de cualquier competidor', texto: ', con tu oferta y en tu dominio' },
-        { fuerte: 'Edición automática de tus videos:', texto: ' corta pausas, agrega tomas y arma clips' },
-        { fuerte: 'Un asistente con IA', texto: ' que responde y agenda llamadas por WhatsApp e Instagram' },
-        { fuerte: 'Piloto automático', texto: ' de tus anuncios, tu Instagram y tu YouTube' },
-        { fuerte: 'Cada llamada de venta analizada', texto: ' con IA' },
-        { fuerte: `Chat con ${ASESORES.length} referentes del marketing`, texto: ', cada uno con su método' },
-        { fuerte: 'Comunidad para tus alumnos', texto: ', como en Skool' },
-        { fuerte: 'Sin tope', texto: ' de contactos, páginas, automatizaciones ni cursos' },
-        { fuerte: 'Todos tus competidores', texto: ' vigilados' },
-        { fuerte: `${nn(a['chats.lineas_whatsapp'], 'WhatsApp', 'WhatsApp')} y tu equipo:`, texto: ` hasta ${nn(a['equipo.usuarios'], 'persona', 'personas')}` },
+        { fuerte: 'Copiar landings', texto: ' de la competencia' },
+        { fuerte: 'Edición de videos', texto: ' con IA' },
+        { fuerte: 'Setter con IA', texto: '' },
+        { fuerte: 'Piloto automático', texto: ' de ads y redes' },
+        { fuerte: 'Análisis de llamadas', texto: '' },
+        { fuerte: `Chat con ${ASESORES.length} referentes`, texto: '' },
+        { fuerte: 'Comunidad', texto: ' para alumnos' },
+        ...(sinTopeEnPro.length ? [{ fuerte: sinTopeEnPro.join(' y '), texto: ' sin tope' }] : []),
+        { fuerte: nn(a['chats.lineas_whatsapp'], 'WhatsApp', 'WhatsApp'), texto: '' },
+        { fuerte: nn(a['equipo.usuarios'], 'usuario', 'usuarios'), texto: '' },
       ],
     };
   }
@@ -195,25 +201,23 @@ export function listaCorta(capa: string): ListaDeColumna {
     titulo: CEJA_LISTA,
     tokens: tokensDeLaCapa(capa),
     items: [
-      { texto: `Tu CRM con hasta ${n(c['crm.leads'])} contactos` },
-      { texto: `${nn(c['web.landings_publicadas'], 'página de venta', 'páginas de venta')}, publicada en un clic` },
-      { texto: `${nn(c['chats.lineas_whatsapp'], 'WhatsApp', 'WhatsApp')}, con Instagram, Messenger y email en la misma bandeja` },
-      { texto: 'Guiones, anuncios y emails escritos con IA' },
-      { texto: 'Editor de imágenes y de video, como Canva y CapCut' },
-      { texto: `${nn(c['spy.competidores'], 'competidor vigilado', 'competidores vigilados')}: su web, sus redes y sus anuncios` },
-      { texto: `${nn(c['automations.activas'], 'automatización', 'automatizaciones')} y ${nn(c['classroom.cursos'], 'curso', 'cursos')} para tus alumnos` },
-      { texto: `Para ${nn(c['equipo.usuarios'], 'persona', 'personas')}` },
+      { texto: `CRM con ${n(c['crm.leads'])} contactos` },
+      { texto: nn(c['web.landings_publicadas'], 'landing', 'landings') },
+      { texto: nn(c['chats.lineas_whatsapp'], 'WhatsApp', 'WhatsApp') },
+      { texto: 'Copywriting con IA' },
+      { texto: 'Editor de imágenes y video' },
+      { texto: nn(c['automations.activas'], 'automatización', 'automatizaciones') },
+      { texto: nn(c['equipo.usuarios'], 'usuario', 'usuarios') },
     ],
-    // EN EL MISMO ORDEN QUE LOS PRIMEROS CHECKS DE PRO (ver arriba): cada ✗ de acá tiene su ✓ enfrente.
+    // CON LAS MISMAS PALABRAS Y EN EL MISMO ORDEN QUE LOS PRIMEROS CHECKS DE PRO (ver arriba): cada ✗ de acá tiene su ✓ enfrente.
     noIncluye: [
-      { texto: 'Generar videos con IA' },
-      { texto: 'Copiar la página de venta de un competidor' },
-      { texto: 'Edición automática de tus videos' },
-      { texto: 'Un asistente con IA que responde y agenda por ti' },
-      { texto: 'Piloto automático de tus anuncios y tus redes' },
-      { texto: 'Análisis de tus llamadas de venta' },
-      { texto: 'Chat con los referentes del marketing' },
-      { texto: 'Comunidad para tus alumnos' },
+      { texto: 'Copiar landings de la competencia' },
+      { texto: 'Edición de videos con IA' },
+      { texto: 'Setter con IA' },
+      { texto: 'Piloto automático de ads y redes' },
+      { texto: 'Análisis de llamadas' },
+      { texto: 'Chat con referentes' },
+      { texto: 'Comunidad para alumnos' },
     ],
   };
 }
@@ -239,8 +243,8 @@ export function tokensDeLaCapa(capa: string): string | null {
  * acompañamiento personalizado»; «tu sistema de adquisición de clientes armado por nuestro equipo: tu funnel, tu landing, tu
  * CRM, tus automatizaciones y tu sistema de contenido. Y no hace falta que aclares lo de las 10 horas»; «una asesoría en vivo
  * por semana»; «en lugar de un grupo de WhatsApp… una comunidad de empresarios»; «el WhatsApp personal de Martín Koncke para
- * responder dudas»; las 3 sesiones 1 a 1 de 2 horas («no tengo problema en brindarlo»); y «un encuentro presencial en Buenos
- * Aires cada 3 meses».
+ * responder dudas»; y las 3 sesiones 1 a 1 de 2 horas («no tengo problema en brindarlo»). El encuentro presencial en Buenos
+ * Aires cada 3 meses entró y salió la misma noche: «quita lo del encuentro presencial… Por ahora no lo vamos a incluir».
  *
  * Es lo que hace que la columna se lea como ACOMPAÑAMIENTO y no como un plan más: antes empezaba por el software («MaKo Pro
  * completo») y eso decía «esto es MaKo, más algo». El software va al final.
@@ -255,7 +259,6 @@ export const LISTA_PROGRAMA: readonly ItemLista[] = [
   { fuerte: 'Una asesoría en vivo por semana', texto: '' },
   { fuerte: 'El WhatsApp personal de Martín', texto: ' para tus dudas' },
   { fuerte: 'Una comunidad de empresarios', texto: ' que venden high ticket' },
-  { fuerte: 'Un encuentro presencial en Buenos Aires', texto: ' cada 3 meses' },
   { fuerte: 'MaKo Pro completo', texto: ', los 3 meses' },
 ];
 

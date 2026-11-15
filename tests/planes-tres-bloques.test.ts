@@ -254,9 +254,15 @@ test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insi
   // software va al final: si la columna empieza por MaKo Pro, se lee como «MaKo, más algo» y no como acompañamiento.
   assert.equal(LISTA_PROGRAMA[0].fuerte, '3 meses de acompañamiento personalizado', 'el programa no abre con el acompañamiento');
   assert.ok(LISTA_PROGRAMA.some((x) => x.fuerte === 'MaKo Pro completo'), 'el programa no dice que trae Pro entero');
-  for (const que of ['WhatsApp personal de Martín', 'comunidad de empresarios', 'encuentro presencial en Buenos Aires', '1 a 1 con Martín']) {
+  for (const que of ['WhatsApp personal de Martín', 'comunidad de empresarios', '1 a 1 con Martín']) {
     assert.ok(LISTA_PROGRAMA.some((x) => `${x.fuerte ?? ''}${x.texto}`.toLowerCase().includes(que.toLowerCase())), `al Acelerador le falta «${que}»`);
   }
+  // 15/11/2026, más tarde (Martín): «quita lo del encuentro presencial en Buenos Aires cada 3 meses. Por ahora no lo vamos a
+  // incluir». Ni la tarjeta, ni el checkout y /reembolsos (`PROGRAMA_ACELERADOR.incluye`), ni la tabla lo prometen.
+  const presencial = /presencial|Buenos Aires/i;
+  assert.ok(!LISTA_PROGRAMA.some((x) => presencial.test(`${x.fuerte ?? ''}${x.texto}`)), 'volvió el encuentro presencial a la tarjeta');
+  assert.ok(!PROGRAMA_ACELERADOR.incluye.some((x) => presencial.test(x)), 'volvió el encuentro presencial al checkout y a /reembolsos');
+  assert.ok(!filasDeComparacion().some((f) => presencial.test(f.que)), 'volvió el encuentro presencial a la tabla');
   assert.ok(!LISTA_PROGRAMA.some((x) => /grupo de WhatsApp/i.test(`${x.fuerte ?? ''}${x.texto}`)), 'volvió el grupo de WhatsApp: ahora es la comunidad');
   // 15/11/2026: la ceja de las TRES listas es «Incluye» (`CEJA_LISTA`). Las de antes decían cómo se trabaja («Lo armamos
   // contigo», «Lo haces tú, con MaKo al lado»), que es el «lenguaje nuestro» que Martín pidió sacar de las columnas.
@@ -346,8 +352,11 @@ test('los números de los checks salen del CÓDIGO, y arriba queda sólo la lín
     const { alcanzaPara } = await import('../app/planes/CalculadoraTokens');
     assert.ok(alcanzaPara(esMtAntes, false).every((x) => x.clave !== 'clip'), 'al de US$47 no le promete ni un clip');
     assert.ok(alcanzaPara(proMtAntes, true).some((x) => x.clave === 'clip'), 'al de US$97 le dice sus clips');
-    // Que el de US$47 NO genera video lo dice su «No incluye», con una ✗ (copy aprobado el 15/11 a la noche): el primer renglón.
-    assert.match(listaCorta('completo').noIncluye?.[0]?.texto ?? '', /Generar videos con IA/, 'la columna del de US$47 no dice que no genera video');
+    // Que el de US$47 NO genera video lo dice el «0 clips de video con IA», tachado, del bloque de los MaKo Tokens (lo vigila el
+    // test de las ✗, abajo). Los checks y las ✗ NO lo repiten (Martín, 15/11, más tarde: «hay muchas cosas redundantes»).
+    for (const it of [...listaCorta('completo').items, ...(listaCorta('completo').noIncluye ?? []), ...listaCorta('agencia').items]) {
+      assert.doesNotMatch(`${it.fuerte ?? ''}${it.texto}`, /Generar videos|Videos con IA/, `un renglón repite el video del bloque de los MaKo Tokens: «${it.fuerte ?? ''}${it.texto}»`);
+    }
     for (const it of [primeroEs, primeroPro]) {
       assert.doesNotMatch(`${it.fuerte ?? ''}${it.texto}`, /imágenes con IA|clips de video|minutos de video/i,
         `un check repite la generación que ya dice la frase de arriba: «${it.texto}»`);
@@ -809,16 +818,23 @@ test('cada ✗ de Esencial queda frente a su ✓ de Pro, en el mismo orden, y la
   assert.doesNotMatch(textoPlanes, /Con garantía de entrega/, 'volvió «Con garantía de entrega» al Acelerador');
   assert.equal(pro.noIncluye, undefined, 'el de US$97 no tiene «No incluye»');
   // La misma cosa, con las palabras de cada lado. Si alguien reordena una de las dos listas, esto se pone rojo.
+  // 15/11/2026, más tarde: con las palabras de la tabla de abajo, cortas, y las MISMAS de los dos lados («Compara los planes»).
   const PARES: Array<[RegExp, RegExp]> = [
-    [/videos con IA/i, /Videos con IA/],
-    [/página de venta de un competidor/i, /página de venta de cualquier competidor/i],
-    [/Edición automática/i, /Edición automática/i],
-    [/asistente con IA/i, /asistente con IA/i],
-    [/Piloto automático/i, /Piloto automático/i],
-    [/llamadas de venta/i, /llamada de venta/i],
-    [/referentes del marketing/i, /referentes del marketing/i],
-    [/Comunidad para tus alumnos/i, /Comunidad para tus alumnos/i],
+    [/^Copiar landings de la competencia$/, /^Copiar landings de la competencia$/],
+    [/^Edición de videos con IA$/, /^Edición de videos con IA$/],
+    [/^Setter con IA$/, /^Setter con IA$/],
+    [/^Piloto automático de ads y redes$/, /^Piloto automático de ads y redes$/],
+    [/^Análisis de llamadas$/, /^Análisis de llamadas$/],
+    [/^Chat con referentes$/, /^Chat con \d+ referentes$/],
+    [/^Comunidad para alumnos$/, /^Comunidad para alumnos$/],
   ];
+  assert.equal(es.noIncluye!.length, PARES.length, 'una ✗ de Esencial sin su ✓ enfrente');
+  // CORTAS, como las filas de la tabla: Martín, «una sola palabra o muy poquitas palabras que se entienda».
+  for (const it of [...es.items, ...es.noIncluye!, ...pro.items]) {
+    const t = `${it.fuerte ?? ''}${it.texto}`;
+    assert.ok(t.split(' ').length <= 6, `un renglón largo: «${t}»`);
+    assert.doesNotMatch(t, /\bcomo\b|[:,]/, `un renglón con aclaración («como Canva y CapCut»): «${t}»`);
+  }
   PARES.forEach(([deEs, dePro], i) => {
     assert.match(es.noIncluye![i].texto, deEs, `la ✗ #${i + 1} de Esencial no es la que va ahí: «${es.noIncluye![i].texto}»`);
     const p = pro.items[i];

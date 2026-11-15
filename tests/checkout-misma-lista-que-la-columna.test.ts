@@ -105,7 +105,8 @@ test('el que paga sigue pasando: Pro se lleva en el checkout todo lo que la colu
   // con los referentes. Cerrarlo adentro y no decirlo en el checkout del que SÍ lo paga es la otra forma de romperlo.
   // 15/11/2026, a la noche: el copy aprobado por Martín dice «página de venta» y no «landing», y «Edición automática» y no
   // «Edición con IA» (palabras de cliente). Lo que se vigila es lo mismo: que lo de Pro esté en el checkout de Pro.
-  const DE_PRO = [/[Cc]opia la página de venta/, /Edición automática/, /referentes del marketing/];
+  // 15/11/2026, más tarde: con las palabras cortas de la tabla («Compara los planes»), que pidió Martín para las columnas.
+  const DE_PRO = [/Copiar landings de la competencia/, /Edición de videos con IA/, /Chat con \d+ referentes/];
   for (const periodo of ['mes', 'anual'] as const) {
     const htmlPro = await checkout(pro.capa, pro.nombre, pro.precioUsd, pro.precioAnualUsd!, periodo);
     for (const re of DE_PRO) assert.match(htmlPro, re, `el checkout ${periodo} de Pro no promete lo que Pro paga (${re})`);

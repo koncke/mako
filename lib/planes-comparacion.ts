@@ -263,7 +263,6 @@ export function filasDeComparacion(): FilaComparacion[] {
     soloPrograma(acompanamiento, 'Una asesoría en vivo con Martín, cada semana'),
     soloPrograma(acompanamiento, 'El WhatsApp personal de Martín para tus dudas'),
     soloPrograma(acompanamiento, 'Una comunidad de empresarios que venden high ticket'),
-    soloPrograma(acompanamiento, 'Un encuentro presencial en Buenos Aires cada 3 meses'),
     soloPrograma(acompanamiento, 'Plantillas probadas de páginas, mensajes y guiones'),
   ];
 }
@@ -322,7 +321,6 @@ export function nombreCorto(que: string): string {
     'Una asesoría en vivo con Martín, cada semana': 'Asesoría semanal con Martín',
     'El WhatsApp personal de Martín para tus dudas': 'WhatsApp de Martín',
     'Una comunidad de empresarios que venden high ticket': 'Comunidad de empresarios',
-    'Un encuentro presencial en Buenos Aires cada 3 meses': 'Encuentro presencial',
     'Plantillas probadas de páginas, mensajes y guiones': 'Plantillas probadas',
   };
   return k[que] ?? que;
