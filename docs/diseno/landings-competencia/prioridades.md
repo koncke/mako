@@ -85,3 +85,26 @@ Su logo y su nombre; sus capturas y videos de producto (en su lugar, los visuale
 propias del Plan); el premio de Amplitude; «Over 1 million top performers» y sus logos; las cuatro citas; las reseñas de
 usuarios; las fotos y textos de sus casos; «Motion replaces…»; «Enterprise Grade Security»; los logos de prensa; la nota de
 prueba gratis debajo de cada botón; las funciones que MaKo no tiene (calendario hora por hora, flujos desde un SOP, API).
+
+## Segunda mirada (14/11/2026, noche): lo que se MUEVE
+
+Medido con Chromium a 1440 × 900 y 390 × 844: `getAnimations()` en cada paso de la rueda con una parada de 2,5 s en cada sección,
+`MutationObserver`, `IntersectionObserver` espiado, los videos leídos dos veces y los hovers a 80 y 650 ms. Su JavaScript se baja
+con `curl` (Astro, módulos de 300 B a 2 kB: `Accordion`, `InlineVideo`, `Carousel`, `TrialCTA`, y uno en línea en el hero).
+Relevo con capturas: carpeta de notas, `referencias-landings/prioridades/`.
+
+| Qué | Motion | En MaKo |
+|---|---|---|
+| Fondo del hero | `bg-subtle-shift` 12 s ease-in-out infinito: el degradado al 200 % va de 0 % a 100 % y vuelve | igual |
+| Tarjeta del hero | grilla 1fr \| 2fr; siete casillas (checkbox) de 2 columnas, contorno 1 px gris al 20 % → azul con el mouse (150 ms), marcada 2 px y su cuadradito con el degradado; marcar una pone SU video (`video.src`); sin marcar corre uno general | cuatro casillas (las vistas del Plan), cada una con su pantalla; sin marcar, «Re-priorizar todo» |
+| Acordeones | RADIOS; la pantalla en la columna de al lado, `sticky; top: 112px`; al tocar, la pantalla se cambia DE GOLPE y el texto abre sin animar | igual, en CSS (`:has(:checked)`) |
+| Renglón | borde izq. 1 px al 10 % y 3 de relleno; hover: 4 px, fondo al 2 %, título a tinta (150 ms); abierto: 4 px `#469FE7`, `#F1FAFF`, flecha girada (150 ms) | igual, con `#2F6FED` / `#F1F7FF` |
+| Botón | hover SÓLO `brightness(1.05)`, 150 ms | igual (la copia del 11/11 subía 1 px y cambiaba la sombra: sacado) |
+| Tarjeta de caso | hover `scale: 1.02`, 150 ms | igual (la copia subía 2 px con sombra: sacado) |
+| «Why…», integraciones, columnas | sin hover | sin hover (la copia tenía: sacado) |
+| Pie | links `#495161` → azul, sin transición | igual |
+| Videos | `autoplay muted loop`, cargados al verse (`data-lazy` + IntersectionObserver) | igual, con un `<script data-visor>` |
+| Carrusel de reseñas | flechas que mueven 1 px (`data-move-by="±1"`): casi no se mueve | no va (reseñas suyas) |
+| Su botón | abre un cuestionario de prueba (`dialog`) | lleva a empezar con MaKo |
+
+Las pantallas (1220 × 864, el cuadro de las suyas) son el Plan real del banco `C:/dev/bancos-portada/banco-plan-landing`.

@@ -6599,6 +6599,11 @@ del layout lee las cookies en cada request. Medido: build verde, 70 páginas, to
   blanca vive en el test. **Cada tab grande lleva su `loading.tsx` con `CargandoMako`** (23/10/2026,
   `app/_ui/CargandoMako.tsx`, importado directo y nunca desde el índice de `_ui`): ningún clic queda sin respuesta
   visible. Lo fija `tests/cargando-mako.test.ts`.
+  ⛔ **Un `loading.tsx` no tapa lo que se espera ANTES de navegar** (14/11/2026, Copywriting): un clic que primero crea
+  algo en el server (un `fetch`, una server action) y recién después hace `router.push` deja la pantalla quieta todo lo
+  que tarda el server. La capa va en el MISMO clic, antes del primer `await` (`useAlInstante` + `CapaAbriendo`,
+  app/copywriter/AlInstante.tsx: CargandoMako encima del centro, se va sola al llegar otra ruta o query; si falla, se
+  suelta y queda el aviso con «Reportar a Soporte»). Lo fija `tests/copywriter-abre-al-instante.test.ts`.
   ⛔ **Pero una página que REDIRIGE no lo lleva así** (ticket #7, 23/10/2026): con loader, su `redirect()` va adentro
   del stream (200 + meta refresh, no 307) y el router de Next se cayó con React #310. Si redirige SIEMPRE, sin loader; si
   redirige a algunos, la redirección va en el `layout.tsx` del segmento (`pedidoActual()`, lib/pedido-actual.ts). Lo fija

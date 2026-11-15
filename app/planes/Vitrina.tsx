@@ -115,11 +115,13 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
           <h1>El mejor software para vender <em>High Ticket.</em></h1>
           <p className="planes-sub"><strong>Marketing, ventas y entrega del servicio en una sola app.</strong> Con una IA que conoce tu negocio, desde que alguien te descubre hasta que es tu cliente y le entregas lo que compró.</p>
         </header>
+        {/* La calculadora de MaKo Tokens, ARRIBA de las tres columnas (Martín, 14/11/2026: «como en todas las páginas de precios»),
+            arrancando en los tokens del plan recomendado (./CalculadoraTokens.tsx). */}
+        <CalculadoraTokens planes={planes} sufijo={sufijo} />
+
         <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} />
 
         <CompararPlanes planes={planes} sufijo={sufijo} />
-
-        <CalculadoraTokens />
 
         {/* LAS MISMAS PREGUNTAS DE LA PORTADA (Martín, 14/11/2026: «si vas a poner en otros lugares preguntas frecuentes, tienen que ser
             siempre las mismas que están en la landing principal»): PREGUNTAS_SITIO, app/vsl/_sitio/datos.ts. */}

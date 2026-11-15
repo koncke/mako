@@ -739,8 +739,51 @@ script (tsx) que llama a las MISMAS funciones del server, adentro de `runWithWor
   los chats, lib/adjuntos-del-chat.ts).
 - La API de MaKo lo tiene: `replicar_link_o_texto_copywriter`.
 
+## «Le clico y no hace nada»: lo que esperaba al server ANTES de cambiar de pantalla (14/11/2026)
+
+Martín: «sigue tardando en abrirme la página… de última ponerle el loader de MaKo, pero no que yo le clique y que no haga
+nada». Medido en producción (ws 9, sesión de Martín, navegador de la app, sólo leyendo), desde el clic hasta el primer cambio:
+
+| Camino | Antes | Por qué |
+| --- | --- | --- |
+| Portada → tocar una pieza | 0,2 s | abre el original en una ventana del navegador: no espera al server |
+| Abrir un guion de la lista | **1,06 s quieta**; el texto, a los 1,96 s | sin `loading.tsx`, Next no cambia de ruta hasta tener la página entera del server (0,45 s caliente, 1 s frío); después, 0,9 s bajando el código de BlockNote |
+| «Replicar» | **~1,2 s creando + 0,5–1 s navegando + 0,9 s el editor**; sólo cambiaba el rótulo del botón («Armando…») | `pedirReplicar` lee el original (0,45–0,58 s, medido con la acción de sólo lectura `outlier`) y crea la página; recién después `router.push` |
+| Una plantilla | ~0,8 s creando + lo mismo de navegar; la tarjeta decía «Creando» | `crear` (0,76 s, medido el 13/11) y después `router.push` |
+
+- **⚠️ El diagnóstico obvio («falta el `loading.tsx`») era el equivocado para lo peor.** Replicar y las plantillas esperaban al
+  server ANTES de navegar: un loader de ruta no se ve hasta que Next empieza a navegar. Y en /copywriter/<id> el `loading.tsx`
+  es además un riesgo: la puerta (`requireRolWs`) redirige desde adentro del Suspense (ticket #7). Lo que sirve es estado en
+  el MISMO clic: `useAlInstante` + `CapaAbriendo` (app/copywriter/AlInstante.tsx), con CargandoMako encima del centro, antes
+  del primer `await`. La capa se va sola cuando cambian la ruta o la query (se compara dónde se puso con dónde se está: sin
+  efecto que la apague); si el server dice que no, se suelta y queda el aviso con «Reportar a Soporte». A los 15 s dice que
+  está tardando, con «Volver».
+- **⚠️ El Link de Next no avisa que empezó a navegar**, y `e.defaultPrevented` es `true` tanto para su navegación como para
+  cualquier otro manejador. La lista de páginas (los Link del shell de Create, que esta tab no toca) se vigila con un clic en
+  la fase de CAPTURA del documento y `abreOtraPantallaDeCopy` (app/copywriter/al-instante.ts). Una sola pantalla por ruta lo
+  pide (Copywriter en escritorio; en el teléfono, la portada, la lista o el guion): dos, y la capa sale dos veces.
+- **⚠️ Una capa `absolute` adentro de un contenedor que scrollea se va con el scroll** (la portada scrollea en su `.raiz`):
+  va como HERMANA del que scrollea, y su caja es `.cr-centro` (`position: relative`). En el teléfono el que scrollea es el
+  documento: `fixed`, y se miró que ningún antepasado tenga `transform` (sólo lo tienen las tarjetas, `translateY(8px)`).
+- **⚠️ `children` de PantallaCrear sólo existe con algo abierto**: un fragmento vacío es «hay pieza» para `centroDe`. Sin página,
+  la capa va en `nueva`. Y como reemplaza a «¿Qué vas a crear hoy?», el error de crear ya no tiene caja donde mostrarse: va al
+  aviso de la pantalla (`conAviso`, Toast con «Reportar a Soporte»).
+- **Mientras el server trabaja se adelanta el código del editor** (`precargarEditor`, el `import()` de CuerpoNotion): eran 0,9 s
+  después de cambiar de ruta.
+- **Cómo se midió sin escribir:** la navegación, con `fetch(ruta, { headers: { RSC: '1' } })` (lo que pide Next, sin
+  navegar); la parte de lectura de Replicar, con la acción `outlier`; el clic, con un `MutationObserver` y la URL cada 10 ms.
+  ⚠️ Con el panel del navegador escondido, la captura puede ser un cuadro viejo: `resize_window` y `zoom` de toda la ventana
+  dan el actual (salió la criatura que en la primera captura «no estaba»).
+
 ## Qué quedó sin hacer
 
+- (14/11/2026) La espera del server sigue (ahora con la criatura a la vista): Replicar ~1,2 s y abrir la página 0,5–1 s. La
+  página nueva todavía se pide al server después de crearla, aunque `crear` ya la devuelve (app/copywriter/Copywriter.tsx).
+  Y la tanda de «Ver más» (`accion: 'outliers'`) dio 3,5 s en frío el 14/11 (lib/copywriter/outliers-servidor.ts).
+- (14/11/2026) El «después» medido en producción falta: la rama `punta/copy-abre-al-instante` no despliega sola. Las capturas
+  del loader (side-session-notes/…/copy-abre-1411) son la capa REAL renderizada con `renderToStaticMarkup` y montada sobre
+  producción, no el clic desplegado.
+- (14/11/2026) Atrás y adelante del navegador no pasan por un clic: siguen sin capa hasta que llega la página.
 - (14/11/2026) Lo traído: sin la clave de YouTube no se sabe la duración y se transcriben los primeros 10 minutos (un VSL de 30
   queda cortado y lo dice). Y a MaKo le llegan 6.000 letras del original (`TEXTO_PARA_MAKO`): de un VSL largo, el principio.
 - (14/11/2026) En la réplica de Hormozi MaKo no puso el ÁNGULO ni la ESTRUCTURA (la regla de `textoParaMaKo` lo pide y la

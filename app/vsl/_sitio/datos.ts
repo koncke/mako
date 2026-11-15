@@ -318,6 +318,8 @@ export function integracionesVivas(): Def[] {
     ...(Object.keys(SIN_USO_TODAVIA) as RedConTarjeta[]).map(tarjetaDeRed),
     ...Object.values(CATALOGO_GRABADORES).filter((g) => !g.conectable).map((g) => g.id as string),
     'landing',
+    // Creem rechazó a MaKo (5/11/2026): no se nombra en ninguna lista del sitio (el Cerebro, 14/11).
+    'creem',
   ]);
   return defsVisibles(DEFS, { cats: null, ocultas: new Set(), esSuper: false })
     .filter((d) => !noConectan.has(d.key))

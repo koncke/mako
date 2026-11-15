@@ -40,6 +40,7 @@
 
 import { ASESORIAS_DEL_PROGRAMA, MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, precioEnPesos, type PlanMako } from '@/lib/planes-mako';
 import { TOPES } from '@/lib/topes-plan';
+import { cupoDeCapa } from '@/lib/mako-tokens-reglas';
 import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { PROMO_ENTRADA, precioPrimerMes, textoUsd } from '@/lib/promo-entrada-reglas';
@@ -66,8 +67,13 @@ const n = (v: number | null) => (v == null ? 'sin tope' : v.toLocaleString('es-A
  */
 export function listaCorta(capa: string): { titulo: string; items: string[] } {
   const c = TOPES.completo, a = TOPES.agencia;
+  // Los MaKo Tokens del mes, primero (14/11/2026, Martín: «en la columna de cada plan va la cantidad de tokens que trae»): el cupo
+  // del código (`cupoDeCapa`, lib/mako-tokens-reglas.ts), el mismo con el que arranca la calculadora de arriba.
+  const mt = cupoDeCapa(capa);
+  const tokens = mt == null ? [] : [`${n(mt)} MaKo Tokens al mes`];
   if (capa === 'agencia') {
     return { titulo: 'Todo lo de Esencial, más:', items: [
+      ...tokens,
       'Leads, landings y automatizaciones sin tope',
       'Setter con IA',
       'Piloto automático de ads, Instagram y YouTube',
@@ -79,6 +85,7 @@ export function listaCorta(capa: string): { titulo: string; items: string[] } {
     ] };
   }
   return { titulo: 'Incluye:', items: [
+    ...tokens,
     'Tu asistente con IA',
     `Hasta ${n(c['crm.leads'])} leads en tu CRM`,
     `${n(c['chats.lineas_whatsapp'])} WhatsApp e Instagram`,

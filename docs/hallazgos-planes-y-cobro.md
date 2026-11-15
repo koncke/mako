@@ -3054,3 +3054,37 @@ tarjeta y Mercado Pago».
 
 Probado con el checkout real (`tests/checkout-argentina-tarjeta-y-mp.test.ts` y su hijo): las dos reales, una caída de una
 vez de cada lectura, la Stripe de prueba y todo caído.
+
+## La calculadora de MaKo Tokens: qué trae cada plan, qué gasta qué y lo que la cuenta no decía (14/11/2026)
+
+**Síntoma:** Martín no estaba seguro de que la calculadora de /planes estuviera bien. Arrancaba en «2 minutos» (6.000 MT,
+US$24) sin relación con ningún plan, y sólo hablaba de video e imágenes.
+
+- **Las claves de los planes no se llaman como los planes.** `CUPO_MENSUAL` y `CLIPS_POR_MES` usan las claves de agosto:
+  `pro` = MaKo Esencial (US$47) y `growth` = MaKo Pro (US$97). Leer `CUPO_MENSUAL.pro` como «MaKo Pro» le da al de US$97 el
+  cupo del de US$47. Desde la capa traducen `PLAN_DE_CAPA` / `cupoDeCapa` (lib/mako-tokens-reglas.ts).
+- **Lo que trae cada plan: 11.750 MT Esencial, 24.250 MT Pro** (`CUPO_MENSUAL`, el 25% del precio en costo de IA). A US$4 los
+  1.000 MT (el precio del paquete: el clip de 500 MT a US$2), el cupo vale justo el precio del plan: el escalón Esencial → Pro
+  sale a la misma tarifa que el paquete. Está en el piso, no arriba.
+- **Hay DOS topes y la cuenta ingenua usa uno.** Los tokens de Esencial pagarían 23 clips y los de Pro 48, pero `CLIPS_POR_MES`
+  topea el video del plan en 6 (1 min) y 36 (6 min). La calculadora dice el video con el tope (`min(tope, tokens ÷ 500)`) y las
+  imágenes con los tokens enteros; lo que se suma es video por encima del tope (los paquetes se nombran en minutos).
+- **Sólo dos cosas gastan MT** (la tabla: `COSTO_POR_ACCION`, app/planes/CalculadoraTokens.tsx): el clip de 10 s, 500, y la
+  imagen, 12. Lo demás que uno pondría en una calculadora NO gasta MT, y ponerle un número sería inventar un cobro: los
+  competidores son un tope del plan (1 en Esencial, sin tope en Pro) y cada lectura de Spy va con el Apify del negocio; guiones,
+  copys, transcripciones, respuestas del setter y análisis de ofertas corren con la IA del negocio (`conSuIADelNegocio`,
+  decisión del 22/10).
+- ⚠️ **Nada acredita ni descuenta MT todavía.** `mako_tokens_saldo` y `mako_tokens_movimientos` (0412) existen, pero sólo las
+  nombran las listas de tablas; `requisitosAvatar` recibe `saldoMt` y `cuestaMt` y nadie se los pasa; el motor por defecto de
+  AI Avatar es Flow (los créditos del cliente). La calculadora muestra la REGLA, no un medidor que ya ande.
+- **El costo del clip vive en dos modelos:** `USD_POR_CLIP` = 0,412 (Omni Flash) y el default de la API de MaKo es Hailuo 2.3
+  Fast a 0,0253/s (265 MT con su imagen). Los 500 cubren los dos; si el default pasa a seedance-2.0-fast-face (0,0836/s, 848 MT
+  el clip), cada clip de 500 pierde plata.
+- **FLUX.2 dev y GPT Image 2 no tienen una línea fuera de la regla:** los 12 MT de la imagen son de `USD_POR_IMAGEN`, no de un
+  generador que exista.
+- **El sol y la luna aclaran lo oscuro:** TemaSitio lee los fondos al cargar y en el modo claro pasó la parte negra de la barra a
+  gris claro, con el «+ 4 min» blanco encima, invisible. Lo que tiene su color en los dos modos lleva `data-tema-fijo`.
+
+**Sin hacer:** el medidor (acreditar el cupo cada mes y descontar cada clip e imagen); los cupos nuevos sin aprobar (1 clip en
+Esencial, 4 min en Pro, `docs/pendientes-martin.md:160`): al cambiar `CLIPS_POR_MES` la calculadora los toma sola; y decidir si
+los MT COMPRADOS se acumulan (el cupo no, 7/11; lo comprado no está decidido).
