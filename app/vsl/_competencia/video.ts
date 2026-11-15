@@ -46,15 +46,13 @@
 // =============================================================================
 
 import { PLANTILLAS_AVATAR } from '@/lib/ai-avatar/plantillas';
-import { FUNCIONES_SOLO_PRO, type FuncionSoloPro } from '@/lib/topes-plan';
-import { FUNCIONES_TODAVIA_NO_VENDIDAS } from '@/lib/planes-comparacion';
 import type { LandingCompetencia } from './tipos';
 
-// ── «Con MaKo Pro» NO SE TIPEA, SE DERIVA (15/11/2026) ────────────────────────────────────────────────────────────────
+// ── «Con MaKo Pro» NO SE TIPEA, SE DERIVA: la derivación vive en ./solo-pro.ts ─────────────────────────────
 // Esta landing vendía la Edición automática como incluida, y el 14/11/2026 pasó a ser de Pro. Martín, sobre /planes: «el
 // editor de imágenes y editor de videos sí deberían estar disponibles para la versión de 47, pero no deberían estar
 // disponibles el tema de editar con inteligencia artificial». El aviso sale de lo que el producto cierra de verdad
-// (`FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), como en lib/planes-comparacion.ts: a mano se desincroniza.
+// (ver ./solo-pro.ts, que dice la regla, por qué mira las DOS listas y por qué hay UN archivo y no una copia por landing).
 //
 // ⚠️ EL CANDADO ES ANGOSTO, Y POR ESO ACÁ CASI NADA LLEVA AVISO (lib/editores-ia-pro.ts, la lista exacta). 'ia-editores'
 //    cierra sólo lo que LLAMA A LA IA: la «Edición automática» (el enjambre, `correrEnjambre`), el chat «Editar con IA»,
@@ -66,20 +64,22 @@ import type { LandingCompetencia } from './tipos';
 // ⚠️ «Tu personaje con IA» (el avatar) está cerrado en Esencial pero TODAVÍA NO SE VENDE (`FUNCIONES_TODAVIA_NO_VENDIDAS`,
 //    por `AI_AVATAR_SE_VENDE`): sale sin aviso a propósito, porque decir «Con MaKo Pro» ahí sería empezar a venderlo.
 //    «EL AVISO APARECE SOLO» VALE SÓLO DONDE ESTÁ LA LLAMADA, y hoy está en UNA: el cuerpo de la tarjeta «Tu personaje con
-//    IA» de «Y todo lo que rodea al video», con `soloPro('ai-avatar')`. Esta página nombra el avatar en CUATRO lugares, y
-//    medido con el precargador de tests/_mutar-funciones-de-pro.ts (`PRO_VENDE=1`, o sea `AI_AVATAR_SE_VENDE` en true), con
-//    la llamada puesta quedan DOS sin aviso: el chip del hero («Tu personaje con IA», en `puntos`) y el metaDesc. El título
-//    de esa tarjeta sí queda cubierto, porque el aviso del cuerpo cae a una frase.
-//    Se dejó así a propósito —queda por decidir si la página EMPIEZA a vender el avatar o deja de prometerlo— y
-//    tests/vsl-landings-dicen-el-plan.test.ts se pone rojo señalando esos dos el día que la bandera cambie (15/11/2026).
-// ⚠️ El quinto lugar donde se lee «tu avatar» NO SE ARREGLA ACÁ: es la respuesta «¿Qué reemplaza?» de la portada, que
-//    ./registro.ts le pone a TODO bloque `preguntas`. Las preguntas escritas más abajo en este archivo son código muerto.
-const seVendeEnPro = (f: FuncionSoloPro): boolean =>
-  (FUNCIONES_SOLO_PRO as readonly string[]).includes(f) && !FUNCIONES_TODAVIA_NO_VENDIDAS.includes(f);
-/** Al final de una frase (el molde de ./competitor-spy.ts, «Copia su sitio»). */
-const soloPro = (f: FuncionSoloPro): string => (seVendeEnPro(f) ? ' Con MaKo Pro.' : '');
-/** Entre paréntesis, para una lista o el metaDesc (el molde de ./crm.ts, los contactos de un grupo de WhatsApp). */
-const soloProEntre = (f: FuncionSoloPro): string => (seVendeEnPro(f) ? ' (Con MaKo Pro)' : '');
+//    IA» de «Y todo lo que rodea al video», con `soloPro('ai-avatar')`. ESTA PÁGINA NOMBRA EL AVATAR EN CINCO LUGARES y el
+//    barrido del test ve CUATRO. Contados dibujando la página (15/11/2026): el chip «Tu personaje con IA» del hero, el
+//    título y el cuerpo de esa tarjeta, el paso 2 de «Tres pasos» y el metaDesc. (Sin índices de carácter a propósito: se
+//    corren con cada coma que se toque, y en un comentario quedan viejos sin que nadie se entere.)
+//    AL BARRIDO SE LE ESCAPA EL PASO 2 («O crea las tomas con tu personaje o con IA»): las palabras declaradas en el test
+//    son `avatar` y `personaje con IA`, y ahí se lee «con tu personaje O con IA», que no pega con ninguna de las dos.
+//    Medido con el precargador de tests/_mutar-funciones-de-pro.ts (`PRO_VENDE=1`, o sea `AI_AVATAR_SE_VENDE` en true) y
+//    la llamada puesta: de las CUATRO que el barrido ve, DOS quedan sin aviso (el chip del hero, a tres frases del aviso
+//    más cercano, y el metaDesc, que no tiene ninguno adelante) — y las que un lector ve sin aviso son TRES, porque el
+//    paso 2 también promete el avatar. El título y el cuerpo de la tarjeta sí quedan cubiertos: el aviso del cuerpo cae a
+//    una frase de los dos.
+//    SE DEJÓ ASÍ A PROPÓSITO: si la página EMPIEZA a vender el avatar o deja de prometerlo es decisión de Martín, no del
+//    arreglo, y está anotado en docs/hallazgos-landing.md.
+// ⚠️ Y HAY UN SEXTO «tu avatar» QUE NO SE ARREGLA ACÁ: es la respuesta «¿Qué reemplaza?» de la portada, que ./registro.ts
+//    le pone a TODO bloque `preguntas`. Las preguntas escritas más abajo en este archivo son código muerto.
+import { soloPro, soloProEntre } from './solo-pro';
 
 const I = {
   video: ['M15 10l4.553 -2.276a1 1 0 0 1 1.447 .894v6.764a1 1 0 0 1 -1.447 .894l-4.553 -2.276v-4z', 'M3 6m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z'],
@@ -129,9 +129,13 @@ export const LANDING_VIDEO: LandingCompetencia = {
       },
       con: {
         titulo: 'Con MaKo',
-        // El aviso corta la frase justo donde termina lo automático: lo que sigue (la línea de tiempo a mano) es de los dos
-        // planes, y colgarle el «Con MaKo Pro» al final lo haría parecer de Pro.
-        texto: `Sin pausas, con subtítulos que siguen tu voz, B-roll donde hace falta y el audio parejo, de una pasada.${soloPro('ia-editores')} Y si algo no te gusta, lo cambias a mano en la línea de tiempo.`,
+        // EL AVISO NO SE CUELGA DEL FINAL DE UNA LISTA MEZCLADA (15/11/2026): decía «Sin pausas, con subtítulos que siguen tu
+        // voz, B-roll donde hace falta y el audio parejo, de una pasada. Con MaKo Pro.» — tres cosas ABIERTAS (cortar las
+        // pausas, los subtítulos y el volumen corren en el navegador, sin candado) y UNA cerrada (el B-roll en `elegir`), con
+        // el aviso al final, así que el de US$47 leía que los subtítulos son de Pro. Es el mismo defecto de «Pone los
+        // subtítulos y el B-roll» de más abajo, y se arregla igual: lo cerrado —la pasada automática y el B-roll— se queda en
+        // su frase con el aviso pegado, y lo que un Esencial SÍ tiene sale DESPUÉS del aviso, donde ya no lo pinta.
+        texto: `De una pasada: la <strong>Edición automática</strong> te lo devuelve sin pausas, subtitulado, con el B-roll donde hace falta y el audio parejo.${soloPro('ia-editores')} Los subtítulos, el volumen y los cortes también los pones tú a mano en la línea de tiempo.`,
       },
     },
     {
@@ -172,7 +176,7 @@ export const LANDING_VIDEO: LandingCompetencia = {
         { icono: I.volumen, titulo: 'Voz y sonido', texto: 'Quita el ruido de fondo y deja el volumen parejo de punta a punta.' },
         { icono: I.guia, titulo: '«Mensaje para…»', texto: 'Una plantilla guiada: MaKo te pide en el chat la referencia, tu guion, tu foto, tu voz y el fondo, paso a paso.' },
         // La promesa del avatar, con su llamada derivada: hoy da '' (no se vende todavía) y el día que `AI_AVATAR_SE_VENDE`
-        // sea true el aviso aparece acá sin tocar nada. Es el ÚNICO de los cuatro lugares de esta página que la tiene (arriba).
+        // sea true el aviso aparece acá sin tocar nada. Es la ÚNICA de los CINCO lugares de esta página que la tiene (arriba).
         { icono: I.avatar, titulo: 'Tu personaje con IA', texto: `Tu avatar con tu cara, en una de ${PLANTILLAS_AVATAR.length} escenas, diciendo tu guion.${soloPro('ai-avatar')}` },
         { icono: I.video, titulo: 'Generar con IA', texto: 'Tus guiones pasan a tomas y montaje, generados con Google Flow, y de ahí al editor.' },
         { icono: I.formato, titulo: 'El formato de cada red', texto: 'Arrancas en Reel o TikTok, YouTube, cuadrado o post, o desde una plantilla de anuncio.' },

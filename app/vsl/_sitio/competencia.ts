@@ -37,7 +37,14 @@ export type Competidor = {
   celdas: Partial<Record<ClaveFila, Celda>>;
   /** «Elige {X} si»: su mejor caso, reconocido con honestidad. */
   eligeSi: readonly string[];
-  /** Una frase: la limitación concreta y lo que le cuesta a quien vende High Ticket. */
+  /**
+   * Una frase: la limitación concreta y lo que le cuesta a quien vende High Ticket.
+   * ⚠️ LE PEGA AL COMPETIDOR POR UNA FILA DE ESTA MISMA TABLA, y la columna de MaKo se DERIVA: el día que esa fila se cierre
+   * en Esencial, la página le pega al otro por algo que la tabla dice «En Pro» un bloque más abajo, en la misma página. Pasó
+   * el 15/11 con GoHighLevel y el setter con IA. Cada comentario declara en qué fila se apoya
+   * (`COMENTARIO_SE_APOYA_EN`, tests/vsl-comparaciones-competencia.test.ts) y la prueba se pone roja si esa fila deja de ser
+   * de Esencial. Arreglar la contradicción es decidir cómo se vende: la decide Martín.
+   */
   comentario: string;
 };
 
@@ -87,7 +94,7 @@ export const GRUPOS_MATRIZ: ReadonlyArray<{ titulo: string; filas: ReadonlyArray
 // Hasta hoy acá había una lista ESCRITA A MANO (`SOLO_PRO`) de cuatro filas y `celdaDeMaKo` devolvía «si» para TODO lo demás.
 // El 14/11 se cerraron en Esencial el setter con IA (`FUNCIONES_SOLO_PRO`, 'setter-ia') y el dominio propio
 // (`TOPES.completo['web.dominios']` = 0, lib/editor-landing/tope-landings.ts lo hace cumplir), nadie volvió a esta lista, y
-// esta tabla siguió poniéndoles ✓ al lado del precio de US$47: alguien elegía su plan leyendo una promesa que el producto no
+// esta tabla siguió poniéndoles ✓ al lado del precio de Esencial: alguien elegía su plan leyendo una promesa que el producto no
 // le iba a cumplir, y /planes decía lo contrario en la misma web. La lista a mano fallaba hacia el «sí», el lado que miente
 // a favor.
 // La regla es la que /planes ya aplica (lib/planes-comparacion.ts, `soloPro` y `filaDeTope`): cada fila DECLARA cuál es el
@@ -181,13 +188,13 @@ export const rutaVs = (c: Pick<Competidor, 'slug'>): string => `/vsl/comparacion
  *
  * ⚠️ ESTO ES COPY A MANO, AL LADO DE UNA COLUMNA QUE SÍ SE DERIVA (15/11/2026). No es una lista de plan: es el
  * POSICIONAMIENTO de MaKo contra el competidor. Pero se dibuja con el MISMO tilde que una celda «si» (`s-mx-si`,
- * Comparaciones.tsx:156 y :250), dentro del panel donde la fila de precio dice US$ 47, y DOS de los cinco nombran cosas que
- * Esencial no tiene: el tercero es el setter con IA ('setter-ia') y el cuarto es replicar ('replicar-landing' y
+ * Comparaciones.tsx:156 y :250), dentro del panel donde la fila de precio dice el de Esencial, y DOS de los cinco nombran
+ * cosas que Esencial no tiene: el tercero es el setter con IA ('setter-ia') y el cuarto es replicar ('replicar-landing' y
  * 'replicar-guion'), las tres en `FUNCIONES_SOLO_PRO`.
  * ⛔ No se toca por iniciativa de un agente: cambiar el copy o escribirle «(en Pro)» cambia cómo se vende MaKo, y eso lo
- *    decide Martín. Lo que sí está cerrado es que no se desincronice en silencio: cada ítem declara qué nombra de Pro en
- *    tests/vsl-comparaciones-competencia.test.ts (`ELIGE_NOMBRA`), y editar el copy o abrir una de esas funciones en
- *    Esencial pone esa prueba roja.
+ *    decide Martín. Lo que sí está cerrado es que no se desincronice en silencio: cada ítem declara qué nombra de Pro Y qué
+ *    filas de la tabla promete con el tilde pelado, en tests/vsl-comparaciones-competencia.test.ts (`ELIGE_NOMBRA`). Editar
+ *    el copy, abrir una de esas funciones en Esencial o CERRAR una de esas filas (un tope en 0) pone esa prueba roja.
  */
 export const ELIGE_MAKO_SI: readonly string[] = [
   'Vendes servicios, mentorías o programas de ticket alto.',

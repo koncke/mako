@@ -55,28 +55,17 @@ import { gruposDePlantillas, plantillasDe, plantillasVisibles } from '@/lib/copy
 import { ESTRUCTURAS_GUION_DEFAULT } from '@/lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '@/lib/guion-angulos';
 import { ASESORES } from '@/lib/asesores/catalogo';
-import { FUNCIONES_SOLO_PRO, type FuncionSoloPro } from '@/lib/topes-plan';
-import { FUNCIONES_TODAVIA_NO_VENDIDAS } from '@/lib/planes-comparacion';
 import type { LandingCompetencia } from './tipos';
 
-// ── «Con MaKo Pro» NO SE TIPEA, SE DERIVA (15/11/2026) ────────────────────────────────────────────────────────────────
-// Esta landing vendía como incluido lo que el 14/11/2026 se cerró en Esencial. Martín, sobre /planes: «el de 47 debería estar
-// bien limitado y restrictivo. En cambio el de 97 ya podés generar avatares de IA, podés editar videos, podés replicar
-// landing… La idea es que compren el de 97, no el de 47». Quien paga US$47 elige su plan leyendo ESTO, así que el aviso sale
-// de lo que el producto cierra de verdad (`FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), nunca de una lista escrita a mano: es la
-// misma regla que ya aplica lib/planes-comparacion.ts, y una lista a mano se desincroniza el día que se abre la función.
-// ⚠️ CERRAR EN ESENCIAL Y VENDER SON DOS COSAS: lo que está cerrado pero todavía no se vende (`FUNCIONES_TODAVIA_NO_VENDIDAS`,
-//    hoy el avatar por `AI_AVATAR_SE_VENDE`) sale SIN aviso: decir «Con MaKo Pro» ahí sería empezar a venderlo.
-// ⚠️ Y NO TODO EL TEXTO DE ESTA PÁGINA VIVE ACÁ: el hero de ./disenos/copywriting.tsx escribe DOS promesas propias (la frase
+// ── «Con MaKo Pro» NO SE TIPEA, SE DERIVA: la derivación vive en ./solo-pro.ts ────────────────────────────────────────
+// Esta landing vendía como incluido lo que el 14/11/2026 se cerró en Esencial, y el aviso sale de lo que el producto cierra
+// de verdad (ver ./solo-pro.ts, que dice la regla y por qué hay UN archivo y no una copia por landing).
+// ⚠️ NO TODO EL TEXTO DE ESTA PÁGINA VIVE ACÁ: el hero de ./disenos/copywriting.tsx escribe DOS promesas propias (la frase
 //    «No te llevas un prompt…» traducida de la referencia y el titular de la tarjeta de caricaturas), y por eso las dos se
-//    quedaron sin aviso en el primer arreglo. Son las únicas, así que `soloPro` y `soloProEntre` se EXPORTAN y el diseño las
-//    llama: el aviso sigue saliendo de una sola derivación, no de dos (15/11/2026).
-const seVendeEnPro = (f: FuncionSoloPro): boolean =>
-  (FUNCIONES_SOLO_PRO as readonly string[]).includes(f) && !FUNCIONES_TODAVIA_NO_VENDIDAS.includes(f);
-/** Al final de una frase (el molde de ./competitor-spy.ts, «Copia su sitio»). */
-export const soloPro = (f: FuncionSoloPro): string => (seVendeEnPro(f) ? ' Con MaKo Pro.' : '');
-/** Entre paréntesis, para una lista o un título (el molde de ./crm.ts, los contactos de un grupo de WhatsApp). */
-export const soloProEntre = (f: FuncionSoloPro): string => (seVendeEnPro(f) ? ' (Con MaKo Pro)' : '');
+//    quedaron sin aviso en el primer arreglo. Son las únicas, y el diseño llama a las mismas dos funciones: se RE-EXPORTAN
+//    acá para que el diseño siga importando de su landing, con una sola derivación detrás (15/11/2026).
+export { soloPro, soloProEntre } from './solo-pro';
+import { soloPro, soloProEntre } from './solo-pro';
 
 const I = {
   copy: ['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z', 'M9 9l1 0', 'M9 13l6 0', 'M9 17l6 0'],

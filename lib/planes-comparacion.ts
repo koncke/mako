@@ -29,7 +29,11 @@ import { ASESORES } from './asesores/catalogo';
 
 /** true = incluido, false = no incluido, texto = el tope. */
 export type Celda = boolean | string;
-export type FilaComparacion = { grupo: string; que: string; esencial: Celda; pro: Celda; acelerador: Celda };
+// `tope` (15/11/2026): QUÉ tope gobierna esta fila, cuando la gobierna uno. No se dibuja: lo que se dibuja son las celdas.
+// Está para que otra página que promete lo mismo pueda cruzarse contra ESTA fila por el tope y no por el número: dos topes
+// distintos pueden valer lo mismo (hoy SEIS valen 1), y entonces comparar los dígitos no distingue una fila cruzada con la
+// equivocada. Lo usa tests/vsl-comparaciones-competencia.test.ts para cruzar la tabla «MaKo vs» de /vsl/comparaciones.
+export type FilaComparacion = { grupo: string; que: string; esencial: Celda; pro: Celda; acelerador: Celda; tope?: Tope };
 
 const cantidad = (n: number | null, prefijo = ''): string => (n == null ? 'Sin tope' : `${prefijo}${n.toLocaleString('es-AR')}`);
 
@@ -39,6 +43,7 @@ const celdaDeTope = (n: number | null, prefijo: string): Celda => (n === 0 ? fal
 const filaDeTope = (grupo: string, que: string, t: Tope, prefijo = ''): FilaComparacion => ({
   grupo,
   que,
+  tope: t,
   esencial: celdaDeTope(TOPES.completo[t], prefijo),
   pro: celdaDeTope(TOPES.agencia[t], prefijo),
   acelerador: celdaDeTope(TOPES.agencia[t], prefijo),

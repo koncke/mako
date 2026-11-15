@@ -47,16 +47,14 @@ import { ALTO_CARRUSEL, ANCHO_CARRUSEL } from '@/lib/carruseles/documento';
 import { PLANTILLAS_IMAGEN } from '@/lib/image-editor/plantillas-reales';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { PLANTILLAS_NUEVO_DISENO } from '@/app/image-editor/plantillas-crear';
-import { FUNCIONES_SOLO_PRO, type FuncionSoloPro } from '@/lib/topes-plan';
-import { FUNCIONES_TODAVIA_NO_VENDIDAS } from '@/lib/planes-comparacion';
 import type { LandingCompetencia } from './tipos';
 import { PREGUNTAS_SITIO } from '../_sitio/preguntas';
 
-// ── «Con MaKo Pro» NO SE TIPEA, SE DERIVA (15/11/2026) ────────────────────────────────────────────────────────────────
+// ── «Con MaKo Pro» NO SE TIPEA, SE DERIVA: la derivación vive en ./solo-pro.ts ─────────────────────────────
 // Esta landing vendía el chat del editor y «Editar» como incluidos, y el 14/11/2026 pasaron a ser de Pro. Martín, sobre
 // /planes: «el editor de imágenes y editor de videos sí deberían estar disponibles para la versión de 47, pero no deberían
 // estar disponibles el tema de editar con inteligencia artificial». El aviso sale de lo que el producto cierra de verdad
-// (`FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), como en lib/planes-comparacion.ts: a mano se desincroniza.
+// (ver ./solo-pro.ts, que dice la regla, por qué mira las DOS listas y por qué hay UN archivo y no una copia por landing).
 //
 // ⚠️ EL CANDADO ES ANGOSTO (lib/editores-ia-pro.ts, la lista exacta). 'ia-editores' cierra sólo lo que LLAMA A LA IA: el chat
 //    «MaKo IA» del lienzo (/api/image-editor/ia), «Editar» un ejemplo y «Replicar en Image» (carruseles/replicar y
@@ -65,14 +63,10 @@ import { PREGUNTAS_SITIO } from '../_sitio/preguntas';
 //    su outlier (ExplorarCarruseles no tiene candado), `crear_carrusel_desde_referencia` (la estructura con guías, sin IA) y
 //    `cambiar_textos_diseno_imagen`. Por eso el kit, el lienzo, la portada de Image y la grilla de la API van sin aviso.
 // ⚠️ Y NO TODO EL TEXTO DE ESTA PÁGINA VIVE ACÁ: el pie de la galería de outliers de ./disenos/image.tsx escribe su propia
-//    promesa («Con «Editar», tu versión…»), y por eso se quedó sin aviso en el primer arreglo. Por eso `soloPro` se EXPORTA y
-//    el diseño la llama: el aviso sigue saliendo de UNA derivación (15/11/2026).
-const seVendeEnPro = (f: FuncionSoloPro): boolean =>
-  (FUNCIONES_SOLO_PRO as readonly string[]).includes(f) && !FUNCIONES_TODAVIA_NO_VENDIDAS.includes(f);
-/** Al final de una frase (el molde de ./competitor-spy.ts, «Copia su sitio»). */
-export const soloPro = (f: FuncionSoloPro): string => (seVendeEnPro(f) ? ' Con MaKo Pro.' : '');
-/** Entre paréntesis, para una lista o un título (el molde de ./crm.ts, los contactos de un grupo de WhatsApp). */
-const soloProEntre = (f: FuncionSoloPro): string => (seVendeEnPro(f) ? ' (Con MaKo Pro)' : '');
+//    promesa («Con «Editar», tu versión…»), y por eso se quedó sin aviso en el primer arreglo. Por eso `soloPro` se
+//    RE-EXPORTA acá y el diseño la importa de su landing: el aviso sigue saliendo de UNA derivación (15/11/2026).
+export { soloPro } from './solo-pro';
+import { soloPro, soloProEntre } from './solo-pro';
 
 const I = {
   imagen: ['M15 8h.01', 'M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z', 'M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5', 'M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3'],
@@ -208,11 +202,18 @@ export const LANDING_IMAGE: LandingCompetencia = {
       tipo: 'tarjetas',
       etiqueta: 'Chat de MaKo',
       titulo: 'MaKo lo diseña contigo',
-      // El aviso va UNA vez, en la bajada del bloque: sus cuatro tarjetas son todas el mismo chat, y repetirlo cuatro veces es
-      // ruido. El lienzo, que es el bloque siguiente, no lleva ninguno.
+      // DÓNDE VA EL AVISO EN ESTE BLOQUE, Y POR QUÉ VA DOS VECES (15/11/2026). El del BLOQUE va en la bajada y cubre el chat:
+      // sus cuatro tarjetas son todas el mismo chat «MaKo IA» (/api/image-editor/ia) y repetirlo cuatro veces es ruido. Pero la
+      // TARJETA 1 promete ADEMÁS «Editar» un ejemplo, que es OTRO punto del candado —el que este archivo separa arriba
+      // (carruseles/replicar y carruseles/leer)— y además es la promesa más fuerte: «su mismo diseño con el texto escrito para
+      // tu negocio». El aviso de la bajada no le llega: medido dibujando la página, queda a 254 caracteres y TRES frases, y
+      // nadie arrastra un aviso tres frases. Así que la tarjeta 1 lleva el suyo, pegado a su promesa, y las otras tres no:
+      // ninguna nombra «Editar» ni ningún otro punto del candado. La regla que gana es la del test (el aviso va donde está la
+      // promesa, a una frase como máximo y mirando hacia adelante), no «una sola vez por bloque».
+      // El lienzo, que es el bloque siguiente, no lleva ninguno.
       bajada: `Un agente de IA junto al lienzo, siempre abierto.${soloPro('ia-editores')} Describe la publicación o pega el texto que ya escribiste; luego, sigue hablando para cambiar cualquier lámina, cualquier color o cualquier diseño.`,
       items: [
-        { icono: I.ia, titulo: 'Empieza por cualquier cosa', texto: 'Un tema, tu texto, una foto o un PDF. O un ejemplo que te gustó: con «Editar», su mismo diseño con el texto escrito para tu negocio.' },
+        { icono: I.ia, titulo: 'Empieza por cualquier cosa', texto: `Un tema, tu texto, una foto o un PDF. O un ejemplo que te gustó: con «Editar», su mismo diseño con el texto escrito para tu negocio.${soloPro('ia-editores')}` },
         { icono: I.ojo, titulo: 'Primero, aprueba el cambio.', texto: 'Cada pedido vuelve como «Original | Modificado». El diseño no se toca hasta que eliges Aceptar, y «Restaurar» lo vuelve atrás.' },
         { icono: I.lapiz, titulo: 'Edita preguntando', texto: 'Cambia un texto, mueve o borra un elemento, suma o saca una lámina. En todo el diseño o sólo en lo que elegiste.' },
         { icono: I.paleta, titulo: 'Rediseña preguntando', texto: 'Colores, fondos, fuentes y tamaños. Y en «Discutir», MaKo te contesta sobre tu diseño sin tocar nada.' },

@@ -8740,6 +8740,27 @@ barata de comprobar y es la que más veces gana. La señal: un resultado redondo
 «probado rompiéndolo» parecía completa. Un guard sobre una condición se fija exacta (`/^if \(paga === 'cliente' && cobro\.ok\) \{/`)
 y se prueba con la condición sacada Y con la condición invertida.
 
+# Una aserción se clava al VALOR OBSERVABLE, y un número escrito a mano es una afirmación
+
+Medido el 15/11/2026 en la tabla «MaKo vs» de `/vsl/comparaciones` (la ronda entera, en
+`docs/hallazgos-landing.md`). Cuatro reglas para cualquier test nuevo:
+
+- **Contra la expresión que la función evalúa adentro, una aserción no puede fallar.**
+  `assert.equal(celdaDeMaKo('precio').v, 'US$ ' + plan.precioUsd)` es lo mismo a los dos
+  lados: con el precio en 999 en memoria quedó verde y la celda decía «US$ 999». Va el valor
+  que la página MUESTRA hoy (`'US$ 47'`), con el porqué en el mensaje.
+- **Una tabla pública se clava COMPLETA, no de a celdas sueltas.** Clavar tres celdas dejó 23
+  abiertas: con 8 topes en 0, la columna pasó de 19 ✓ a 11 y el test siguió verde. Un `Record`
+  exhaustivo de lo observable, más la comparación en runtime contra las filas que se dibujan.
+- **Antes de cruzar NÚMEROS, contar cuántos valores distintos hay.** Seis topes de Esencial
+  valen 1, así que comparar dígitos no distinguía una fila cruzada con la equivocada (quedaba
+  verde). Se cruza la CLAVE, declarada en los dos lados, y en los dos sentidos.
+- **Un número a mano en un comentario, en un mensaje de aserción o en una cosecha es una
+  afirmación más:** o sale del código (`COMPETIDORES.length`, el valor interpolado) o no se
+  escribe el dígito. Acá decía «las 20 celdas de los competidores» y eran 21. Y una escapatoria
+  con texto libre (un «no tiene fila porque…») no se cruza contra nada: el comentario tiene que
+  DECIRLO, o el que lee después la cuenta como verificada.
+
 # Si lo que cambió es QUÉ EXISTE, se navega DURO: `router.refresh()` llega tarde
 
 `router.refresh()` es para «los datos de esta pantalla cambiaron». Cuando lo que cambia es el

@@ -20,7 +20,7 @@
 // los subtítulos —que son de los dos planes— con el B-roll, que no. Los tres vivían en el archivo de DISEÑO, no en el de
 // datos, y una lista de lugares sólo mira los lugares que alguien ya miró. Y encima daba 5 de 5 verde con una décima función
 // cerrada en memoria: el barrido no barría.
-// Ahora se recorre el TEXTO DIBUJADO: `HUELLAS` dice, POR FUNCIÓN, con qué PALABRAS estas tres páginas la nombran, y el
+// Ahora se recorre el TEXTO DIBUJADO: `HUELLAS` dice, POR FUNCIÓN, con qué PALABRAS estas páginas la nombran, y el
 // barrido exige el aviso en CADA lugar donde esas palabras aparecen. Lo que hay a mano es una fila por función —no por
 // lugar—, `Record<FuncionSoloPro, …>`, así que:
 //   · el TYPECHECK no compila sin la fila de una función nueva (`node scripts/tsc-acotado.mjs --heap=4096` sobre este archivo);
@@ -28,8 +28,24 @@
 //   · y si las palabras de esa fila aparecen en la página, el barrido reclama el aviso en cada una.
 //
 // ⚠️ LO QUE SE BARRE ES LA PÁGINA, NO SU MARCO (todo medido, 15/11/2026):
-//   · la BARRA y el PIE del sitio nombran TODAS las funciones de MaKo («Automations · tu setter con IA», «AI Avatar»…), así
-//     que cualquier palabra de cualquier función pega ahí. Se corta de `<h1` hasta el `<footer class="…-pie">`: el cuerpo.
+//   · la BARRA y el PIE del sitio son el MENÚ de MaKo, y dos de sus renglones chocán con palabras declaradas. Se corta de
+//     `<h1` hasta el `<footer class="…-pie">`: el cuerpo.
+//     ⚠️ LA RAZÓN QUE DECÍA ACÁ ERA FALSA: decía «nombran TODAS las funciones de MaKo, cualquier palabra pega ahí», y
+//     contado de las 31 palabras declaradas en `HUELLAS` (3+3+13+2+1+1+2+4+2, parseando la tabla) la barra pega CERO y el pie
+//     pega UNA: `setter`, por su renglón «Automations · tu setter con IA». Esa sola alcanza para romper el test —la fila de
+//     'setter-ia' dice `laNombran: false`, así que una aparición en el pie la pone roja— y con el barrido comparando SIN
+//     distinguir mayúsculas se suma `avatar`, que pega 2 veces en la barra y 2 en el pie por el renglón «AI Avatar». El
+//     menú es una lista de links, no una promesa de plan, y pedirle un «Con MaKo Pro» no tiene sentido.
+//     ⚠️ Y EL «CERO» NO VALE PARA TODAS: medido por una lente el 15/11/2026, en /vsl/competitor-spy —la página que entró
+//        al barrido en esta misma pasada— la BARRA sí pega `setter`, dos veces. O sea que el «cero» era de las tres
+//        primeras, no una propiedad del marco: lo que sostiene el recorte es que el marco NO es una promesa, no un conteo.
+//     ⚠️ Y DE PASO, EL RECORTE SACA LOS `<script>` DEL SITIO. Es estructural y se lee en `cuerpoDe`: los scripts del
+//     sitio viven en el MARCO, antes del `<h1>`, y el corte arranca EN el `<h1>`, así que quedan afuera por posición.
+//     Por eso el `.replace(/<script…/)` de `cuerpoDe` es un cinturón redundante hoy — sirve para el día que un diseño
+//     meta uno DENTRO del cuerpo. ⚠️ NO LE PONGO NÚMEROS: tres longitudes que decían acá («10.813 / 5.473 / 10.144»)
+//        eran de OTRA cadena —el aplanado entero, no lo que `cuerpoDe` devuelve— y una lente las midió distintas. Un
+//        número que no se midió acá es peor que no decirlo: la próxima sesión decide con él. Si hace falta el dato,
+//        se mide dibujando y se escribe con la fecha.
 //   · las PREGUNTAS no son de estas páginas: ../app/vsl/_competencia/registro.ts les pone las de la portada a todo bloque
 //     `preguntas` (son código muerto acá: editar una respuesta en copywriting.ts no cambia la página). Se sacan con
 //     `PREGUNTAS_SITIO`, que es de donde salen.
@@ -49,20 +65,22 @@
 //    el dibujo), el aviso suelto (cada «Con MaKo Pro» dibujado tiene que estar reclamado) y la tabla de /planes
 //    (`noIncluyeDe('completo')`, que arma `filasDeComparacion` por su cuenta y tiene que decir lo mismo que la landing).
 //
-// PROBADO ROMPIÉNDOLO (15/11/2026; base 8 pass / 0 fail). Las tres primeras mueven la TABLA DE PLANES sin tocar ningún
-// archivo, con el precargador ./_mutar-funciones-de-pro.ts (un `--import` que muta el array exportado en memoria: NO hace
-// falta `mock.module` ni `--experimental-test-module-mocks`):
+// PROBADO ROMPIÉNDOLO (15/11/2026; base 8 pass / 0 fail, ya con /vsl/competitor-spy adentro). Las tres primeras mueven la
+// TABLA DE PLANES sin tocar ningún archivo, con el precargador ./_mutar-funciones-de-pro.ts (un `--import` que muta el array
+// exportado en memoria: NO hace falta `mock.module` ni `--experimental-test-module-mocks`):
 //   1. `PRO_SUMA=funcion-nueva`, una DÉCIMA función cerrada en Esencial                 → 7 / 1: «se cerró en Esencial y
 //      este test no sabe con qué palabras la nombran». ESTE es el que antes daba verde con los avisos intactos, y es la
 //      razón de que la cobertura ya no sea una lista de lugares;
 //   2. `PRO_SACA=chat-referentes`, la función se ABRE en Esencial                        → 7 / 1, y es la otra mitad: los 5
 //      avisos de los referentes DESAPARECEN SOLOS del dibujo (/vsl/copywriting pasa de 7 «Con MaKo Pro» a 2) y el único rojo
 //      es la fila de `HUELLAS` que quedó colgada, con qué hacer. Con la fila sacada también, 8 / 0;
-//   3. `PRO_VENDE=1`, o sea `AI_AVATAR_SE_VENDE` en true                                 → 6 / 2. El barrido señala los DOS
-//      lugares de /vsl/video que prometen el avatar sin aviso (el chip del hero y el metaDesc; el título de la tarjeta queda
-//      cubierto por el aviso derivado de su cuerpo). ⚠️ La segunda falla es DEL PRECARGADOR, no de la página: `noIncluyeDe`
-//      lee `AI_AVATAR_SE_VENDE` directo y el precargador sólo puede mover el array, así que la tabla y la landing se separan.
-// Las demás, tocando el archivo y volviéndolo atrás:
+//   3. `PRO_VENDE=1`, o sea `AI_AVATAR_SE_VENDE` en true                                 → 6 / 2. De las CUATRO apariciones
+//      del avatar que el barrido ve en /vsl/video, DOS quedan sin aviso (el chip del hero, a tres frases, y el metaDesc, que
+//      no tiene ninguno adelante); el título y el cuerpo de la tarjeta los cubre el aviso derivado del cuerpo, a una frase.
+//      El test corta en la primera, así que la corrida muestra una sola: las dos se cuentan dibujando la página.
+//      ⚠️ La segunda falla es DEL PRECARGADOR, no de la página: `noIncluyeDe` lee `AI_AVATAR_SE_VENDE` directo y el
+//      precargador sólo puede mover el array, así que la tabla y la landing se separan.
+// Las demás, tocando el archivo y volviéndolo atrás (todas vueltas a medir el 15/11/2026 con las cuatro páginas):
 //   4. el aviso borrado del metaTitle de copywriting.ts                                  → 7 / 1 («el título de Google dice
 //      «referentes» y no dice que «chat-referentes» es de MaKo Pro»);
 //   5. el aviso borrado de la bajada del hero de video.ts, la Edición automática         → 7 / 1;
@@ -76,6 +94,27 @@
 //  10. el aviso borrado del pie de la galería de ./disenos/image.tsx                     → 7 / 1 (lo mismo, en /vsl/image);
 //  11. el aviso borrado del metaDesc de video.ts                                         → 7 / 1 (el texto de Google no se
 //      dibuja: si no se mirara con `metadataDeLanding`, esto pasaba verde).
+// Y LAS DE LA RONDA DEL 15/11/2026 A LA TARDE, que son las que guardan los arreglos nuevos:
+//  12. el aviso borrado de la tarjeta 1 de «MaKo lo diseña contigo» (image.ts, «con «Editar»») → 7 / 1, con el mensaje
+//      «/vsl/image: dice «Con «Editar»» y no dice que «ia-editores» es de MaKo Pro». ⚠️ Y LA MISMA ROTURA CON EL BARRIDO
+//      VIEJO (la 'i' sacada del RegExp de `posiciones`, o sea distinguiendo mayúsculas) da 8 / 0 VERDE: esa es la medida de
+//      que la sensibilidad a mayúsculas no era un detalle, era el agujero por donde pasó esta promesa de Pro;
+//  13. el aviso del comparador de /vsl/video colgado otra vez del FINAL de la lista (lo abierto y lo cerrado juntos, con la
+//      frase abierta intacta)                                                               → 5 / 3: el barrido (el B-roll
+//      queda a dos frases), `ABIERTAS` (los subtítulos y el volumen quedan a una del aviso) y el aviso suelto;
+//  14. el aviso borrado de «Su guion, con tu oferta» (competitor-spy.ts)                   → 7 / 1 ('replicar-guion', por la
+//      palabra `Replicas su` que entró con esa página);
+//  15. el aviso borrado de «Tu versión, en Image» (competitor-spy.ts)                      → 7 / 1. ⚠️ El rojo que SALE
+//      nombra 'replicar-landing' y el renglón de títulos, no 'ia-editores': el test corta en el primero y hay otra
+//      aparición antes. Da rojo igual, pero si se lee el mensaje esperando 'ia-editores' se busca en el lugar equivocado;
+//  16. el aviso borrado del cuerpo de «Copia su sitio» (competitor-spy.ts)                  → 7 / 1 ('replicar-landing');
+//  17. una palabra VACÍA agregada a una fila de `HUELLAS`                                   → 7 / 1: `posiciones` devuelve
+//      CERO posiciones para una aguja vacía, así que sin esa guarda la fila declaraba cobertura y el barrido no buscaba nada.
+// ⚠️ LO QUE NO QUEDÓ GUARDADO, MEDIDO: ponerle también aviso al TÍTULO «Copia su sitio» y después sacárselo da 8 / 0, así
+//    que ese aviso no era una guarda de nada. El diseño de /vsl/competitor-spy dibuja los TRES títulos en fila y después los
+//    tres cuerpos, y el aviso del cuerpo de la tarjeta de al lado cae a UNA frase del título siguiente: con la ventana de 1
+//    frase, en una fila de promesas todas cerradas, cada aviso tapa al vecino. Por eso el título quedó sin aviso y el cuerpo
+//    de cada tarjeta lleva el suyo (los tres cuerpos sí están medidos: roturas 14, 15 y 16).
 // Correr: node --import tsx --test tests/vsl-landings-dicen-el-plan.test.ts
 // =============================================================================
 import { test } from 'node:test';
@@ -92,8 +131,15 @@ import { FUNCIONES_TODAVIA_NO_VENDIDAS, NOMBRE_FUNCION_PRO, noIncluyeDe } from '
 /** El aviso, tal cual lo dibujan las hermanas ya hechas (app/vsl/_competencia/crm.ts, competitor-spy.ts, disenos/crm.tsx). */
 const MARCA = 'Con MaKo Pro';
 
-/** Las tres páginas que se miran. Una landing nueva que venda algo cerrado se suma acá. */
-const PAGINAS = ['copywriting', 'video', 'image'] as const;
+/**
+ * LAS PÁGINAS QUE SE MIRAN. Una landing nueva que venda algo cerrado se suma acá —y /vsl/competitor-spy entró el 15/11/2026,
+ * porque tenía un «Con MaKo Pro.» TIPEADO A MANO (su :164) y dos promesas de Pro sin ningún aviso. ⚠️ No era el único a
+ * mano de /vsl: contados el 15/11/2026 quedan CINCO, todos en landings que esto NO barre (../app/vsl/_competencia/crm.ts:93
+ * y :95, disenos/crm.tsx:254 y disenos/web-generator.tsx:206 y :391).
+ * ⚠️ QUE UNA LANDING ENTRE NO ES UNA LÍNEA: el recorte tiene que servirle (medido: dibuja su `<h1>` y su `<footer …-pie>`,
+ *    y no tiene ningún recuadro `mk-falta`) y el barrido reclama TODO lo que la página prometa, que es el punto.
+ */
+const PAGINAS = ['copywriting', 'video', 'image', 'competitor-spy'] as const;
 
 /** LA FUENTE DE VERDAD, la misma que leen las landings: cerrada en Esencial Y ya vendida. */
 const seVendeEnPro = (f: FuncionSoloPro): boolean =>
@@ -147,18 +193,36 @@ function cuerpoDe(l: Landing): string {
 const FRASES = 1;
 const frasesEntre = (texto: string, desde: number, hasta: number): number =>
   (texto.slice(desde, hasta).match(/\.\s/g) ?? []).length;
+
+/**
+ * TODO SE BUSCA SIN DISTINGUIR MAYÚSCULAS, Y ESTO NO ES UN DETALLE (15/11/2026). Con `indexOf` a secas el barrido era
+ * SENSIBLE A LAS MAYÚSCULAS, y así se le escapó una promesa de Pro entera: `HUELLAS['ia-editores']` declara `Con «Editar»`
+ * y la tarjeta 1 de «MaKo lo diseña contigo» (app/vsl/_competencia/image.ts) escribe `con «Editar»`, con minúscula porque
+ * va a mitad de frase. Una letra, y el test daba verde con un cliente de US$47 leyendo que puede «Editar» un ejemplo.
+ * MEDIDO ANTES DE CONFIAR EN EL CAMBIO: comparando sin distinguir mayúsculas TODAS las palabras de `HUELLAS` sobre las tres
+ * páginas de entonces y sus dos textos de Google, las apariciones pasan de 31 a 32 — hay EXACTAMENTE UNA que se ve sólo
+ * así, y es esa. O sea: el arreglo no afloja nada en otro lado, descubre justo la que faltaba.
+ * ⚠️ Se hace con un RegExp y no con `toLowerCase()` porque los índices tienen que ser los del texto ORIGINAL: `frasesEntre`
+ *    y los recortes de los mensajes miden sobre él, y `toLowerCase()` puede cambiar el largo de una cadena.
+ * ⚠️ Y el aviso se busca igual, sin distinguir: un «con MaKo Pro» tipeado a mano en minúscula tiene que contar como aviso
+ *    puesto, para que la guarda del aviso suelto lo vea.
+ */
+const posiciones = (texto: string, aguja: string): number[] => {
+  if (aguja.length === 0) return [];
+  const re = new RegExp(aguja.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  const out: number[] = [];
+  for (let m = re.exec(texto); m !== null; m = re.exec(texto)) out.push(m.index);
+  return out;
+};
+
 const avisoDesde = (texto: string, i: number): boolean => {
-  const j = texto.indexOf(MARCA, i);
-  return j !== -1 && frasesEntre(texto, i, j) <= FRASES;
+  const j = posiciones(texto, MARCA).find((p) => p >= i);
+  return j !== undefined && frasesEntre(texto, i, j) <= FRASES;
 };
 function avisoJuntoA(texto: string, ancla: string): boolean {
-  let i = texto.indexOf(ancla);
-  assert.notEqual(i, -1, `la página ya no dice «${ancla}»: el ancla de este test quedó vieja`);
-  while (i !== -1) {
-    if (avisoDesde(texto, i)) return true;
-    i = texto.indexOf(ancla, i + 1);
-  }
-  return false;
+  const donde = posiciones(texto, ancla);
+  assert.notEqual(donde.length, 0, `la página ya no dice «${ancla}»: el ancla de este test quedó vieja`);
+  return donde.some((i) => avisoDesde(texto, i));
 }
 
 /**
@@ -170,6 +234,9 @@ function avisoJuntoA(texto: string, ancla: string): boolean {
  * ⚠️ Esto NO afloja la tarjeta de los subtítulos: ahí la promesa está en el `titulo` de un ITEM, no del bloque.
  * Un titular que el diseño no dibuja tal cual (el «Lo que trae Image hoy» de /vsl/image, que su diseño reescribe) no se
  * encuentra y entonces no afloja nada: su promesa se mide por frases, que es lo más estricto.
+ * ⚠️ Y POR ESO ESTE `indexOf` SÍ DISTINGUE MAYÚSCULAS, al revés del barrido: encontrar un titular AFLOJA la medida (pasa de
+ *    «el aviso a una frase» a «lo aclara la bajada del bloque»), así que buscarlo sin distinguir puede volver blanda una
+ *    promesa que hoy se mide estricta. No encontrarlo nunca afloja; encontrarlo de más, sí.
  */
 type ConTitulo = Extract<Bloque, { titulo: string }>;
 type Titular = { texto: string; desde: number; aclarado: boolean };
@@ -196,7 +263,7 @@ const titularesDe = (l: Landing, cuerpo: string): Titular[] => l.bloques
 type Huella = {
   /** Las palabras con las que se la nombra, tal como se LEEN en la página (no como están en el .ts). */
   palabras: readonly string[];
-  /** ¿Alguna de las tres páginas la nombra? Se comprueba en los dos sentidos: si dice que no y aparece, rojo. */
+  /** ¿Alguna de las páginas de `PAGINAS` la nombra? Se comprueba en los dos sentidos: si dice que no y aparece, rojo. */
   laNombran: boolean;
   /** Por qué: qué cierra el candado, o de qué landing es si acá no va. */
   porque: string;
@@ -208,7 +275,7 @@ const HUELLAS: Readonly<Record<FuncionSoloPro, Huella>> = {
   },
   'replicar-landing': {
     palabras: ['su sitio', 'su landing', 'su página de venta'],
-    laNombran: false, porque: 'copiar la landing de otro se vende en /vsl/web-generator y /vsl/competitor-spy',
+    laNombran: true, porque: 'la vende /vsl/competitor-spy, en el título y en el cuerpo de «Copia su sitio» (y /vsl/web-generator, que no se barre)',
   },
   'ia-editores': {
     palabras: ['Edición automática', 'B-roll', 'Clips mágicos', 'equipo de agentes', 'Le escribes el cambio',
@@ -233,7 +300,11 @@ const HUELLAS: Readonly<Record<FuncionSoloPro, Huella>> = {
     laNombran: true, porque: 'cerrado en Esencial y TODAVÍA sin vender (`AI_AVATAR_SE_VENDE`): hoy estas palabras NO pueden llevar aviso',
   },
   'replicar-guion': {
-    palabras: ['«Replicar»', 'Al replicar', 'replicadas'],
+    // `Replicas su` entró el 15/11/2026 con /vsl/competitor-spy: su tarjeta «Su guion, con tu oferta» dice «Replicas su reel»,
+    // que ninguna de las otras tres palabras agarraba, y por eso esa promesa no tenía guarda. Es angosta a propósito
+    // (replicar algo DE OTRO): «Replica lo que funciona» y «replicarlos con tu mensaje», de /vsl/video, son el outlier del
+    // editor, que NO tiene candado (`rutaReplicar`), y no pegan con ella.
+    palabras: ['«Replicar»', 'Al replicar', 'replicadas', 'Replicas su'],
     laNombran: true, porque: 'replicar el guion de otro (lib/copywriter/replica-candado.ts); escribir desde cero sigue abierto',
   },
   'chat-referentes': {
@@ -266,11 +337,9 @@ function aparicionesDe(f: FuncionSoloPro): Aparicion[] {
   if (!HUELLAS[f]) return out;
   for (const lugar of TODOS) {
     for (const palabra of HUELLAS[f].palabras) {
-      let i = lugar.texto.indexOf(palabra);
-      while (i !== -1) {
+      for (const i of posiciones(lugar.texto, palabra)) {
         const t = lugar.titulares.find((x) => i >= x.desde && i < x.desde + x.texto.length);
         out.push({ donde: lugar.donde, palabra, desde: i, avisada: t ? t.aclarado : avisoDesde(lugar.texto, i), enTitular: !!t });
-        i = lugar.texto.indexOf(palabra, i + 1);
       }
     }
   }
@@ -286,10 +355,15 @@ test('toda función cerrada en Esencial tiene declarado cómo la nombran estas p
     assert.ok(
       HUELLAS[f],
       `«${f}» se cerró en Esencial (lib/topes-plan.ts, FUNCIONES_SOLO_PRO) y este test no sabe con qué palabras la nombran ` +
-      `/vsl/copywriting, /vsl/video y /vsl/image. Agregá su fila en HUELLAS: las palabras, si alguna de las tres la nombra ` +
+      `las páginas de PAGINAS (hoy copywriting, video, image y competitor-spy). Agregá su fila en HUELLAS: las palabras, ` +
+      `si alguna de ellas la nombra ` +
       `(se comprueba) y por qué. Si estas páginas no la venden, va con laNombran: false y sus palabras no pueden aparecer.`,
     );
     assert.ok(HUELLAS[f].palabras.length > 0, `«${f}»: la fila de HUELLAS no tiene ni una palabra, así que no barre nada`);
+    // Y ninguna vacía, pero NO por lo que decía acá (15/11/2026): `posiciones` arranca con `if (aguja.length === 0)
+    // return []`, así que una palabra vacía no pega en NINGUNA posición. Es peor que pegar en todas: la fila declara que
+    // esta página nombra la función y el barrido no busca nada, o sea cobertura de mentira y ni un rojo.
+    for (const w of HUELLAS[f].palabras) assert.ok(w.length > 0, `«${f}»: HUELLAS tiene una palabra vacía, que pega en todas partes`);
     assert.ok(HUELLAS[f].porque.length > 0, `«${f}»: la fila de HUELLAS no dice por qué`);
     // Su nombre de venta, que es lo que la tabla de /planes pone en la fila: sin él no se puede cruzar con la vitrina.
     assert.ok(NOMBRE_FUNCION_PRO[f], `«${f}» no tiene nombre de venta en lib/planes-comparacion.ts (NOMBRE_FUNCION_PRO)`);
@@ -347,7 +421,10 @@ test('las palabras declaradas aparecen donde se dijo que aparecen, y no donde se
  * tiene que seguir existiendo, así que una promesa abierta que se reescribe no pasa en silencio.
  */
 const ABIERTAS: ReadonlyArray<{ slug: string; ancla: string; porque: string }> = [
-  { slug: 'video', ancla: 'lo cambias a mano en la línea de tiempo', porque: 'la línea de tiempo no llama a la IA' },
+  // La frase ABIERTA del comparador, la que el 15/11/2026 quedó DESPUÉS del aviso: antes el aviso colgaba del final de una
+  // lista que mezclaba estas tres con el B-roll, y así las pintaba de Pro. Si vuelve a colgar del final, esto se pone rojo.
+  { slug: 'video', ancla: 'Los subtítulos, el volumen y los cortes', porque: 'cortar, subtitular y nivelar el audio a mano corren en el navegador, sin candado' },
+  { slug: 'video', ancla: 'lo haces a mano en la línea de tiempo', porque: 'la línea de tiempo no llama a la IA' },
   { slug: 'video', ancla: 'Los subtítulos caen justo cuando dices cada palabra', porque: 'los subtítulos corren en el navegador' },
   { slug: 'video', ancla: 'Quita el ruido de fondo', porque: 'quitar el ruido corre en el navegador' },
   { slug: 'video', ancla: 'videos que funcionan, para', porque: '«Replicar» un outlier del editor arma el proyecto sin candado' },
@@ -375,20 +452,18 @@ test('lo que sigue abierto en Esencial no lleva el aviso', () => {
 // La guarda contra el aviso suelto: cada «Con MaKo Pro» DIBUJADO tiene que estar reclamado por una palabra de una función que
 // se vende. Si aparece uno de más —escrito a mano en otra sección, o pegado a algo abierto— no lo reclama nadie. Es la
 // dirección contraria al barrido, y no pasa por `seVendeEnPro` de este lado: cuenta lo que hay en el dibujo.
-test('no hay ningún «Con MaKo Pro» de más en las tres páginas', () => {
+test('no hay ningún «Con MaKo Pro» de más en estas páginas', () => {
   const reclamados = new Map<string, Set<number>>();
   for (const f of FUNCIONES_SOLO_PRO) {
     if (!seVendeEnPro(f)) continue;
     for (const a of aparicionesDe(f)) {
       const texto = TODOS.find((l) => l.donde === a.donde)!.texto;
-      let j = texto.indexOf(MARCA);
-      while (j !== -1) {
+      for (const j of posiciones(texto, MARCA)) {
         const cerca = a.enTitular ? false : j >= a.desde && frasesEntre(texto, a.desde, j) <= FRASES;
         if (cerca) {
           if (!reclamados.has(a.donde)) reclamados.set(a.donde, new Set());
           reclamados.get(a.donde)!.add(j);
         }
-        j = texto.indexOf(MARCA, j + 1);
       }
     }
   }
@@ -396,17 +471,14 @@ test('no hay ningún «Con MaKo Pro» de más en las tres páginas', () => {
     // Un aviso dentro de un titular lo pone el propio titular (el molde entre paréntesis): también cuenta como reclamado.
     const enTitular = new Set<number>();
     for (const t of lugar.titulares) {
-      let j = lugar.texto.indexOf(MARCA, t.desde);
-      while (j !== -1 && j < t.desde + t.texto.length) { enTitular.add(j); j = lugar.texto.indexOf(MARCA, j + 1); }
+      for (const j of posiciones(lugar.texto, MARCA)) if (j >= t.desde && j < t.desde + t.texto.length) enTitular.add(j);
     }
-    let j = lugar.texto.indexOf(MARCA);
-    while (j !== -1) {
+    for (const j of posiciones(lugar.texto, MARCA)) {
       assert.ok(
         reclamados.get(lugar.donde)?.has(j) || enTitular.has(j),
         `${lugar.donde}: hay un «${MARCA}» suelto en «…${lugar.texto.slice(Math.max(0, j - 130), j + 15)}…» — no hay ninguna ` +
         `promesa cerrada a menos de ${FRASES + 1} frase(s) antes, así que califica a algo que SÍ está en los dos planes`,
       );
-      j = lugar.texto.indexOf(MARCA, j + 1);
     }
   }
 });
@@ -432,10 +504,10 @@ test('el texto que se lee en Google promete lo mismo que la página', () => {
     const google = `${l.metaTitle} ### ${l.metaDesc}`;
     for (const f of FUNCIONES_SOLO_PRO) {
       if (!HUELLAS[f]) continue; // lo dice el primer test
-      const enElHero = HUELLAS[f].palabras.some((w) => pitch.includes(w));
+      const enElHero = HUELLAS[f].palabras.some((w) => posiciones(pitch, w).length > 0);
       if (!enElHero) continue;
       assert.ok(
-        HUELLAS[f].palabras.some((w) => google.includes(w)),
+        HUELLAS[f].palabras.some((w) => posiciones(google, w).length > 0),
         `/vsl/${slug}: el hero promete «${f}» y el texto de Google (metaTitle + metaDesc) no lo nombra, así que ese texto ` +
         `no lleva su «${MARCA}»: las palabras que busca son [${HUELLAS[f].palabras.join(' · ')}]`,
       );

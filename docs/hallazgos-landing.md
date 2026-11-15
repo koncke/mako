@@ -6481,7 +6481,8 @@ prueba se pone roja sola.
    fila de email marketing contra `TOPES.completo['web.dominios']` = 0. **Son dos dominios distintos** y ese tope no gobierna
    el del email: el de envío vive en la cuenta de Resend del propio negocio, gratis y sin tope. La medición, en «SON DOS
    DOMINIOS DISTINTOS», en la sección de abajo. `/planes` no promete nada que no tenga.
-4. Las otras 20 columnas de la tabla (las de los competidores) no se revisaron en esta pasada: lo de cada app se releva
+4. Las otras **21** columnas de la tabla (las de los competidores: `COMPETIDORES.length` = 21 el 15/11/2026, y la tabla
+   grande dibuja 21 `<th class="s-mx-app">`, contadas dibujándola) no se revisaron en esta pasada: lo de cada app se releva
    aparte (ver «Comparaciones contra la competencia: lo que se afirma de otra app es público», más arriba).
 
 ## La tabla «MaKo vs» no tenía dientes: el cruce que la vigilaba medía su propia cuenta (15/11/2026)
@@ -6521,13 +6522,25 @@ buscar quién LEE ese tope.** Si la pantalla que promete no está en esa lista, 
   `FUNCIONES_SOLO_PRO`, pero `/planes` las escribe a mano con `soloPro(...)`. Medido sacando `'setter-ia'` de
   `FUNCIONES_SOLO_PRO`: rojo, 4/5.
 
-**Lo que sí puede discrepar en una fila de tope: el NÚMERO.** `/planes` **imprime** el tope de su fila («1», «2.000»,
-«Hasta 2.000»), así que se compara el tope que la tabla DECLARA (`CANDADO_DE_LA_FILA`) contra los dígitos que `/planes`
-muestra en la fila cruzada. Eso atrapa lo único hecho a mano de ese lado: un tope mal declarado, o una fila cruzada con la
-fila equivocada. Medido poniéndole a la fila `crm` el tope `automations.activas` (2) en vez de `crm.funnels` (1): con el
-cruce viejo **pasaba** (las dos páginas seguían diciendo ✓); ahora es rojo y el mensaje dice los dos números.
+**Lo que sí puede discrepar en una fila de tope: CUÁL tope la gobierna — y comparar los DÍGITOS no alcanza.** `/planes`
+**imprime** el tope de su fila («1», «2.000», «Hasta 2.000»), así que la primera versión comparó el tope que la tabla
+DECLARA (`CANDADO_DE_LA_FILA`) contra los dígitos de la fila cruzada. Atrapa un tope mal declarado **cuando los dos valen
+distinto**: medido poniéndole a la fila `crm` el tope `automations.activas` (2) en vez de `crm.funnels` (1), con el cruce
+viejo pasaba y con los dígitos da rojo. **Pero el mensaje prometía también atrapar «la fila cruzada con la equivocada», y
+eso era falso:** de los 9 topes que esta tabla declara, **SEIS valen 1 en Esencial** (`crm.funnels`, `cobros.cuentas`,
+`chats.lineas_whatsapp`, `web.landings_publicadas`, `spy.competidores`, `classroom.cursos`; `equipo.usuarios` también vale
+1 pero ninguna fila de esta tabla lo declara), así que **cruzar dos de esas filas entre sí daba 7/7 verde** (medido
+cruzando `crm` con `cuotas`). Dos páginas que leen el mismo `TOPES` no pueden discrepar en el VALOR: lo único escrito a
+mano de cada lado es la CLAVE. La cura: `/planes` la DECLARA (`FilaComparacion.tope`, 15/11/2026, un campo que no se
+dibuja) y el cruce compara la clave en los **dos** sentidos (una fila sin tope cruzada con una fila de tope también es un
+cruce). Con eso, el mismo cruce de `crm` con `cuotas` es rojo y el mensaje dice los dos topes. La regla:
+**antes de comparar números, preguntarse cuántos valores distintos hay** — con seis topes en 1, el número no identifica
+nada.
 
-**UNA ASERCIÓN CONTRA LA EXPRESIÓN QUE LA FUNCIÓN EVALÚA ADENTRO NO PUEDE FALLAR.** Había tres, y se leían como las más
+**UNA ASERCIÓN CONTRA LA EXPRESIÓN QUE LA FUNCIÓN EVALÚA ADENTRO NO PUEDE FALLAR.** Había **cuatro** (tres de celdas y la
+del PRECIO, que sobrevivió a la primera pasada tres líneas arriba de las otras: `celdaDeMaKo('precio').v` contra
+`` `US$ ${PLANES_MAKO_DEFAULT.find(…).precioUsd}` ``, la misma expresión que `celdaDeMaKo` evalúa adentro — medido con el
+precio de Esencial en **999** en memoria: **7/7 verde** y la celda mostrando «US$ 999»). Se leían como las más
 cuidadas del archivo:
 
 ```ts
@@ -6537,10 +6550,24 @@ assert.equal(celdaDeMaKo('setter_ia').v, FUNCIONES_SOLO_PRO.includes('setter-ia'
 `celdaDeMaKo` evalúa exactamente ese ternario adentro. Medido con los dos lados impresos aparte, en tres estados: sin mutar,
 con `'setter-ia'` abierto en Esencial (la celda cambió de «En Pro» a «si») y con los topes en 0 (`ads_ia` cambió de «si» a
 «En Pro»). **Las tres pasaron en los tres estados**, porque los dos lados se movían juntos. La cura es clavar el VALOR que la
-página muestra hoy (`assert.equal(celdaDeMaKo('setter_ia').v, EN_PRO)`), con el porqué en el mensaje: eso sí falla, y falla
-el día que la página cambie de verdad. **Y como efecto, los 10 topes en 0 ahora dan rojo** — no por el cruce, sino por esa
-celda clavada (`ads_ia`). Vale anotarlo: una aserción clavada al valor observable atrapa más que un cruce elegante que
-recalcula.
+página muestra hoy, con el porqué en el mensaje: eso sí falla, y falla el día que la página cambie de verdad.
+
+**CLAVAR TRES CELDAS DEJA ABIERTAS LAS OTRAS 23, y el camino del TOPE EN 0 era justo el que importaba.** La primera pasada
+anotó que «los 10 topes en 0 ahora dan rojo, por la celda clavada (`ads_ia`)». Es verdad y es poco: `ads_ia` era la ÚNICA
+de las 10 filas de tope con su valor clavado, así que alcanza con **no** tocar ese tope. Medido el 15/11 poniendo en 0 los
+otros 8 (`web.landings_publicadas`, `spy.competidores`, `crm.funnels`, `cobros.cuentas`, `chats.lineas_whatsapp`,
+`automations.activas`, `classroom.cursos` y `web.dominios`, que ya estaba): **7/7 verde**, mientras la columna pasaba de
+**si=19 / «En Pro»=6** a **si=11 / «En Pro»=14** — 8 promesas de la página cambiadas sin un solo rojo. Y en ese estado el
+ítem 2 de `ELIGE_MAKO_SI` seguía prometiendo «Quieres tu CRM, tu WhatsApp y tus landings en una sola app» con el mismo
+tilde, en el panel donde el precio dice el de Esencial, mientras la tabla decía «En Pro» en `crm`, `whatsapp` y `landings`.
+
+La cura es declarar la **columna entera**, celda por celda (`COLUMNA_DE_MAKO_HOY`, un `Record` exhaustivo sobre `ClaveFila`
+más la comparación en runtime contra las filas que dibuja `GRUPOS_MATRIZ`): es la mitad que ningún cruce puede dar, porque
+el cruce recalcula y esto es lo que la página MUESTRA. Probado rompiéndolo, con el texto de las aserciones intacto: precio
+en 999 → rojo; los 9 topes en 0 → rojo (3 tests); una fila fuera de `GRUPOS_MATRIZ` → rojo. **La regla: una tabla pública
+se clava completa, no de a celdas sueltas** — las celdas que alguien eligió clavar son justo las que ya sabía mirar. Y el
+mismo criterio para `ELIGE_MAKO_SI`: cada ítem declara además qué FILAS promete con el tilde pelado, y esas filas tienen
+que seguir en Esencial.
 
 **UN `Record` EXHAUSTIVO NO PONE ROJO A `node --test`.** La guarda de esta área tiene dos mitades y hacen falta las dos. El
 `Readonly<Record<FuncionSoloPro, …>>` no deja **compilar** una función nueva sin declararla (medido quitando una clave a
@@ -6555,6 +6582,16 @@ fila de esta tabla la nombra — o que ninguna la nombra, **y por qué**. Despu�
 Medido empujando `'tracking-leads'` a `FUNCIONES_SOLO_PRO` (una función que la tabla nombra, la fila `tracking`): antes
 **5/5 verde** con la celda en ✓, ahora rojo. El mapa vive en `tests/vsl-comparaciones-competencia.test.ts`
 (`FILA_QUE_NOMBRA`, `FILA_QUE_NOMBRA_TAB`), al lado del cruce.
+
+**Y EL LÍMITE DE ESE MAPA, que no estaba dicho: la escapatoria `sinFila` no se cruza contra nada.** Lo único que se
+comprueba de la justificación es que esté escrita (`sinFila.length > 20`), porque no hay fuente mecánica de «qué nombra el
+texto de una fila». Medido el 15/11: la misma función `'tracking-leads'` cerrada en memoria **y declarada**
+`{ sinFila: 'el tracking no tiene fila propia: va dentro del CRM' }` —falso, la fila «Tracking de cada lead» existe— deja el
+archivo **8/8 verde** con la celda de `tracking` en ✓. Es aceptable (la alternativa sería adivinar de qué habla una frase) y
+queda **dicho en el comentario del mapa**: los dientes son que la función nueva no COMPILA sin entrada y que las claves se
+comparan en runtime, así que alguien TIENE que escribir la frase mirando `GRUPOS_MATRIZ`. La regla general: **una escapatoria
+con texto libre vale lo que vale quien la escribe; el comentario tiene que decirlo, o el que lee después la cuenta como
+verificada.**
 
 **CÓMO MUTAR EL ESTADO PARA MEDIR, sin tocar un archivo** (reemplaza la nota vieja de `mock.module`, corregida más arriba).
 `FUNCIONES_SOLO_PRO` y `TOPES` son literales `as const`: readonly para el tipo, objetos comunes en runtime. Un preload con
@@ -6583,16 +6620,38 @@ comunes en runtime.
 2. **Los dos ítems de `ELIGE_MAKO_SI` que nombran cosas de Pro** («Quieres que la IA conteste, haga el seguimiento y agende
    por ti» = `'setter-ia'`; «Quieres ver lo que le funciona a tu competencia y replicarlo» = `'replicar-landing'` +
    `'replicar-guion'`), dibujados con el **mismo** tilde que una celda «si» (`s-mx-si`, `Comparaciones.tsx:156` y `:250`) en
-   el panel donde el precio dice US$ 47. Es copy de **posicionamiento**, no una lista de plan: escribirle «(en Pro)» cambia
-   cómo se vende MaKo, y eso lo decide Martín. Lo que ya no puede pasar es que se desincronice en silencio: cada ítem declara
-   qué nombra (`ELIGE_NOMBRA` en el test) y editar el copy —o abrir una de esas funciones en Esencial— pone la prueba roja.
-3. **6 filas salen con ✓ pelado cuando la verdad es «sí, con tope»** (`landings` 1, `spy` 1, `crm` 1, `whatsapp` 1,
-   `automatizaciones` 2, `cursos` 1). Sigue pendiente de la sección de arriba, con el mismo criterio: el dibujo lo soporta
-   (`ValorCelda` muestra cualquier valor corto) y es decisión de Martín.
+   el panel donde el precio es el de Esencial. Es copy de **posicionamiento**, no una lista de plan: escribirle «(en Pro)»
+   cambia cómo se vende MaKo, y eso lo decide Martín. Lo que ya no puede pasar es que se desincronice en silencio: cada ítem
+   declara qué nombra Y qué filas promete (`ELIGE_NOMBRA` en el test), así que editar el copy, abrir una de esas funciones en
+   Esencial o cerrar una de esas filas con un tope en 0 pone la prueba roja.
+3. **9 filas salen con ✓ pelado cuando la verdad es «sí, con tope»**, no 6: la primera pasada contó a ojo y faltaban tres.
+   Medido el 15/11 recorriendo `CANDADO_DE_LA_FILA` contra `TOPES.completo`: hay **10** filas con `{ tope }`, **una** dibuja
+   «En Pro» (`dominio`, tope 0) y las otras **nueve** dibujan el tilde pelado con un tope finito — `landings` 1,
+   **`landings_ia` 1**, `spy` 1, `crm` 1, **`cuotas` 1**, `whatsapp` 1, `automatizaciones` 2, **`ads_ia` 2**, `cursos` 1.
+   Sigue pendiente de la sección de arriba, con el mismo criterio: el dibujo lo soporta (`ValorCelda` muestra cualquier valor
+   corto) y es decisión de Martín.
 4. **`'replicar-guion'` no tiene fila en esta tabla** y `/planes` sí la vende como de Pro, mientras la tabla sí nombra a su
    hermana «Copiar landings de otros». Declarado como `sinFila` en `FILA_QUE_NOMBRA` para que no sea un olvido silencioso.
-   Sumar la fila obliga a rellenar las **20 celdas de los competidores** con su fuente (la regla de `competencia-datos.ts`: lo
-   que no se confirma va «sin dato», nunca como un «no»), así que no es una línea.
+   Sumar la fila obliga a rellenar **una celda por competidor** con su fuente (la regla de `competencia-datos.ts`: lo que no
+   se confirma va «sin dato», nunca como un «no»), así que no es una línea. **Eran 21, no 20**: la justificación decía 20
+   escrita a mano y la tabla ya dibujaba 21 columnas, así que ahora el número sale de `COMPETIDORES.length` dentro de la
+   frase. Un número a mano en una justificación es una afirmación más, y envejece sola.
+5. **La página le pega a GoHighLevel por cobrar la IA aparte y su propia celda dice «En Pro»** (15/11/2026, y **lo creó este
+   cambio**: hasta que la columna se derivó, esa celda decía «si»). Medido dibujando `/vsl/comparaciones/gohighlevel`: el
+   comentario «GoHighLevel cobra la IA aparte: el setter encarece cada conversación con tus leads.» y, **47 líneas de texto
+   visible más abajo, en la misma página**, la fila «Setter con IA | En Pro | Sí, con cargo extra», debajo de una fila de
+   precio que dice el de Esencial contra el plan de entrada de GoHighLevel. **Arreglarlo es decidir cómo se vende** (abrir el
+   setter en Esencial, o dejar de pegarle por eso): es de Martín. Lo que sí quedó cerrado es que no nazca otra en silencio —
+   cada comentario declara en qué fila se apoya (`COMENTARIO_SE_APOYA_EN`, con el trozo literal de la frase para atarlo a la
+   prosa, que se **genera** desde la investigación) y la de hoy está declarada como contradicción, con la medición. Probado
+   rompiéndolo: `crm.funnels` en 0 → rojo (**14** comentarios se apoyan en el CRM: contados el 15/11/2026 con `grep -c "filas: \[[^]]*'crm'"`; la nota decía «ocho»); `'setter-ia'` abierto → rojo (la
+   contradicción declarada sobra); el comentario regenerado con otra frase → rojo; la página sin dibujar el comentario o sin
+   dibujar «En Pro» → rojo.
+6. **El rótulo «Dominio propio», pelado, dice «En Pro» y hay DOS dominios.** La fila de la tabla se llama sólo «Dominio
+   propio» y sale «En Pro» (`web.dominios` = 0), mientras dos filas más abajo «Email marketing» sale con ✓ y en `/planes`
+   esa misma fila se vende como «secuencias y envíos **con tu dominio**», que Esencial sí tiene (es el de Resend del propio
+   negocio: ver «SON DOS DOMINIOS DISTINTOS», arriba). Quien compara lee «MaKo no te deja usar tu dominio». Es copy de la
+   tabla: lo decide Martín.
 
 ## El texto de una landing NO vive sólo en su archivo de datos, y por eso el marcado de plan se escapó tres veces (15/11/2026)
 
@@ -6620,6 +6679,40 @@ La cura: `soloPro` / `soloProEntre` se **exportan** de `copywriting.ts` y de `im
 habiendo **una** derivación, no dos. (La casa natural sigue siendo un `app/vsl/_competencia/solo-pro.ts` compartido —ver
 «SIN hacer» de la sección de arriba—; ahora lo importarían también los dos diseños, así que hace más falta.)
 
+**UN TEST EXHAUSTIVO POR FUNCIÓN SIGUE SIENDO PARCIAL POR PÁGINA, Y AHÍ VIVEN TRES PROMESAS DE PRO SIN AVISO
+(15/11/2026, lo encontraron las dos lentes de la ronda 5 por separado y lo verifiqué yo).** La tabla `HUELLAS` es
+exhaustiva en FUNCIONES —el typecheck pide una fila por cada `FuncionSoloPro`— y eso da la sensación de cobertura. Pero
+`PAGINAS` (tests/vsl-landings-dicen-el-plan.test.ts:142) barre **4 de las 19 landings** del registro
+(`LANDINGS_COMPETENCIA`, app/vsl/_competencia/registro.ts:32). Medido por mí:
+
+| archivo | usos de `soloPro` | veces que nombra la función |
+|---|---|---|
+| `app/vsl/_competencia/seguimiento.ts` | **0** | 21 |
+| `app/vsl/_competencia/whatsapp.ts` | **0** | 3 |
+| `app/vsl/_competencia/script.ts` | **0** | 6 |
+
+Y `'setter-ia'` está en `FUNCIONES_SOLO_PRO` (lib/topes-plan.ts:89, «El setter con IA») desde el 14/11. O sea: hoy
+`/vsl/seguimiento` vende en su `<h1>` una función que un Esencial no tiene, con **cero** «Con MaKo Pro» en toda la
+página, y el test está verde.
+
+**Y LA JUSTIFICACIÓN QUE LO DEJABA PASAR ERA FALSA, que es el patrón a desconfiar:** la fila de `'setter-ia'` iba con
+`laNombran: false, porque: 'el setter se vende en /vsl/whatsapp y /vsl/seguimiento'` — nombra justo las dos páginas que
+nadie barre, y da por hecho que ellas lo avisan. No lo avisan. Un `porque:` que apunta a algo que el test no mide no es
+una razón, es un permiso. Cuando una escapatoria nombra un lugar, **hay que ir a mirar ese lugar**.
+
+**POR QUÉ NO SE ARREGLA ENSANCHANDO `PAGINAS` DE UN SAQUE** (medido por una lente, y es el trabajo que queda): con las 31
+palabras de hoy, las 15 landings que no se barren dejan hasta **31 apariciones** sin aviso, y eso es una **cota superior**,
+no 31 defectos — muchas son la palabra demasiado ancha: «agente de IA» (declarada para `ia-editores`) pega en
+/vsl/whatsapp donde es el agente del SETTER; «grupo de WhatsApp» (de `scraper-whatsapp`) pega en /vsl/ads, /vsl/cobranza,
+/vsl/agenda y /vsl/prioridades donde es el grupo, no el scraper; «closer o setter» en /vsl/agenda es el rol humano. Primero
+se angostan las palabras página por página, después entra la página al barrido. Ensanchar antes = un rojo de 31 renglones
+que nadie puede leer.
+
+**SIN HACER, con su archivo:** sumar `seguimiento`, `whatsapp` y `script` al barrido (y las otras 12), angostando las
+palabras. Y una **decisión de Martín antes del código**, en los casos donde la promesa está en el `<h1>` y en el título de
+Google (`seguimiento.ts:69` y `:63`, `whatsapp.ts:103`, `script.ts:145`, `funnel.ts:86`): o el titular lleva el aviso, o la
+bajada lo aclara (el molde de `titularesDe`), o el setter vuelve a Esencial. No se puede derivar: es cómo se vende.
+
 **LA COBERTURA DE UN TEST DE MARCADO NO PUEDE SER UNA LISTA DE LUGARES.** El test traía las 15 promesas marcadas escritas
 a mano y daba **5/5 verde con una décima función cerrada en memoria**: su única guarda de cobertura era
 `PROMESAS.length >= 14`, que no mide nada. Y una lista de lugares sólo mira donde alguien ya miró — por eso no encontró
@@ -6637,21 +6730,33 @@ encontró las tres promesas del diseño **solo**.
 **CUATRO COSAS QUE EL DIBUJO TIENE Y NO SON PROMESAS DE LA PÁGINA.** Un barrido por palabras sobre el HTML entero no
 sirve hasta recortar esto, y cada recorte se midió:
 
-- **El marco del sitio nombra TODAS las funciones de MaKo.** La barra y el pie listan «Automations · tu setter con IA»,
-  «AI Avatar», «Image», «Copywriting»…, así que **cualquier** palabra que nombre una función pega ahí y ninguna fila
-  puede declarar «acá no va». Se recorta del `<h1` al `<footer class="…-pie">`. ⚠️ **«El primer `<footer>`» es el límite
-  equivocado:** `/vsl/copywriting` tiene **tres `<footer>` sueltos dentro del cuerpo** (los ponen las piezas de Hormozi
-  replicadas), así que hay que buscar el que tiene clase `-pie`, que es el de la landing.
+- **El marco del sitio es el MENÚ de MaKo, y dos de sus renglones chocan con palabras declaradas.** Se recorta del `<h1`
+  al `<footer class="…-pie">`. ⚠️ **«El primer `<footer>`» es el límite equivocado:** `/vsl/copywriting` tiene **tres
+  `<footer>` sueltos dentro del cuerpo** (los ponen las piezas de Hormozi replicadas), así que hay que buscar el que tiene
+  clase `-pie`, que es el de la landing.
+  ⚠️ **LA RAZÓN QUE ESTABA ESCRITA ACÁ ERA FALSA, y la corrección está contada (15/11/2026).** Decía «la barra y el pie
+  nombran TODAS las funciones, cualquier palabra pega ahí». Medido sobre el dibujo de las páginas, de las **30** palabras
+  declaradas en `HUELLAS` (son **31**, no 30: 3+3+13+2+1+1+2+4+2) **la barra pega CERO y el pie pega UNA**: `setter`, por su renglón «Automations · tu setter con
+  IA». Con una alcanza —la fila de `'setter-ia'` dice `laNombran: false`, así que una aparición en el pie la pone roja— y
+  con el barrido comparando **sin distinguir mayúsculas** (ver abajo) se suma `avatar`, 2 veces en la barra y 2 en el pie
+  por el renglón «AI Avatar». El menú es una lista de links, no una promesa de plan. **Regla:** una razón escrita a ojo
+  («cualquier palabra pega») y una razón contada («`setter` pega una vez, y `avatar` dos más si no distinguís») llevan al
+  mismo recorte, pero sólo la segunda sirve para decidir el día que alguien quiera aflojarlo.
 - **Los recuadros de «Aquí falta la animación» PARECEN una promesa.** El de `/vsl/image` dice «El chat de MaKo al lado
   del lienzo: le pides un cambio y te muestra "Original | Modificado" para aceptarlo» y el barrido le reclamaba un «Con
   MaKo Pro» que no corresponde: dice **qué animación falta**, no qué trae el plan. Y no se puede tocar (Martín: «que por
   ahora quede exactamente como está»). Se saca el `<div class="mk-falta">`, que no tiene `<div>` adentro.
-- **Los `<script data-visor>`.** El aplanado sacaba `<style>` y no `<script>`: había **14 KB de JavaScript dentro del
-  texto barrido** (los índices del cuerpo arrancaban en ~14.500, no en 0). Barrer por palabras el riel sin fin o el visor
-  es ruido puro.
+- **Los `<script data-visor>`, y ACÁ HABÍA UN NÚMERO FALSO (corregido el 15/11/2026).** Lo que esta nota decía —«14 KB de
+  JavaScript **dentro del texto barrido**», con los índices del cuerpo arrancando en ~14.500— valía para el aplanado **sin
+  recorte**. Con el corte del `<h1>` ya no entra ni un byte: medido dentro del recorte que `cuerpoDe` barre de verdad,
+  **0 etiquetas `<script>` y 0 bytes** en las cuatro páginas, y el texto mide lo mismo con el `.replace()` y sin él
+  **y la nota se equivocó OTRA VEZ con los números, en la misma pasada que los vino a arreglar (15/11/2026).** Decía «copywriting 10.813, video 5.473, image 10.144 caracteres de las dos maneras»: esas tres longitudes son del APLANADO entero, no de lo que `cuerpoDe` devuelve, y encima dos eran del texto de ANTES del arreglo de esa misma pasada. Y «los dos `<script>` que sirve cada página» vale para tres: `/vsl/competitor-spy` sirve TRES.
+  Lo que SÍ se sostiene, y es lo único que hace falta, es **estructural y se lee en `cuerpoDe`**: los `<script>` del sitio viven en el **marco**, antes del `<h1>`, y el corte arranca EN el `<h1>`, así que quedan afuera POR POSICIÓN. El `.replace(/<script…/)` es un cinturón redundante hoy, para el día que un diseño meta uno DENTRO del cuerpo.
+  **Regla, y van dos veces que la rompe este mismo renglon:** un número medido sobre otra cadena, u otra versión del recorte, no vale; o se mide acá y se escribe con su fecha, o **no se escribe el número**. Una razón estructural no caduca; un conteo sí, y el que lo lee decide con él.
 - **Las preguntas frecuentes**, que son las de la portada (ya está arriba: código muerto por `registro.ts`). Se sacan con
-  `PREGUNTAS_SITIO`, que es de donde salen. Y de paso: `/vsl/video` tiene un **quinto** «tu avatar» que viene de ahí
-  («¿Qué reemplaza?… hace tus anuncios con tu avatar»), así que no se arregla en `video.ts`.
+  `PREGUNTAS_SITIO`, que es de donde salen. Y de paso: `/vsl/video` tiene **un «tu avatar» más** que viene de ahí
+  («¿Qué reemplaza?… hace tus anuncios con tu avatar»), así que no se arregla en `video.ts`. Con los cinco de la página
+  (ver abajo), es el **sexto**.
 
 **LA MISMA PALABRA DE PRODUCTO NO ES LA MISMA FUNCIÓN.** Es la hermana de la trampa de «Replicar» (arriba): **«chat de
 MaKo» no siempre es el chat del editor.** En `/vsl/copywriting`, «en el chat de MaKo eliges a qué referente seguir» es
@@ -6698,18 +6803,91 @@ función se **abre** en Esencial): los **5 avisos de los referentes desaparecen 
 de 7 «Con MaKo Pro» a 2) y el único rojo es la fila de `HUELLAS` que quedó colgada, con qué hacer; sacando también la
 fila, **8/0**. La landing y el test se mueven juntos.
 
-**Lo que quedó SIN hacer.**
-1. **`/vsl/video` promete el avatar en cuatro lugares y está CERRADO en Esencial**, así que hoy promete y no aclara. El
-   argumento de «decir Con MaKo Pro sería empezar a venderlo» **no se sostiene del todo: la venta ya está hecha en la
-   página** (el chip del hero, el título y el cuerpo de la tarjeta, y el metaDesc). Lo que falta es la decisión: o la
-   página empieza a venderlo, o deja de prometerlo. Con `PRO_VENDE=1` el test señala los dos que quedarían sin aviso.
+**Lo que quedó SIN hacer** (actualizado el 15/11/2026; lo de `competitor-spy.ts` ya está hecho, ver la sección de abajo).
+1. **`/vsl/video` promete el avatar y está CERRADO en Esencial**, así que hoy promete y no aclara. Es **decisión de
+   Martín**: o la página empieza a venderlo, o deja de prometerlo. Los números, abajo.
 2. **El `metaTitle` de `/vsl/image`** («los carruseles que funcionan, **en tu versión editable**») es el más flojo de los
    tres sin aviso: lo que Esencial sí tiene por el camino sin IA (`crear_carrusel_desde_referencia`) entrega **la
    estructura con guías**, no el mismo diseño con el texto escrito. Queda para Martín.
-3. **`competitor-spy.ts:167`** («Su guion, con tu oferta — Replicas su reel y MaKo escribe el tuyo en Copywriting») sigue
-   **sin aviso**, y sí pasa por el candado del copywriter (`'replicar-guion'`). Y su vecina de `:164` tiene el
-   **«Con MaKo Pro.» tipeado a mano**, que es justo lo que la regla prohíbe. No se arregló acá porque
-   `/vsl/competitor-spy` no está en el barrido: sumarla es una línea en `PAGINAS`, pero el barrido va a encontrar lo suyo
-   y hay que resolverlo en la misma pasada.
-4. **Las 16 landings restantes de `_competencia/`** no se barrieron con este criterio, y `disenos/crm.tsx:71` sigue con
-   su `SOLO_PRO` escrito a mano (ya anotado arriba).
+3. **Las 15 landings restantes de `_competencia/`** no se barrieron con este criterio, y en `/vsl` quedan **CINCO
+   «Con MaKo Pro» escritos a mano** (contados el 15/11/2026): `crm.ts:93` y `:95`, `disenos/crm.tsx:254` y
+   `disenos/web-generator.tsx:206` y `:391`. Las cinco viven en landings que el test todavía no barre.
+
+## Una letra mayúscula tapaba una promesa de Pro, y la razón escrita de un recorte no era la razón real (15/11/2026)
+
+**Vive en:** `tests/vsl-landings-dicen-el-plan.test.ts` (el barrido), `app/vsl/_competencia/solo-pro.ts` (**nuevo**: la
+única derivación del aviso), `app/vsl/_competencia/image.ts`, `video.ts` y `competitor-spy.ts`. Sigue la sección de
+arriba: con el aviso ya derivado y el barrido de palabras ya puesto, dos lentes independientes lo refutaron y las dos
+cayeron en lo mismo.
+
+**EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: no faltaba un aviso, faltaba que el test pudiera verlo.** La tarjeta 1 de
+«MaKo lo diseña contigo» (`image.ts`) promete «…O un ejemplo que te gustó: **con «Editar»**, su mismo diseño con el texto
+escrito para tu negocio» —que es Pro (`app/api/image-editor/carruseles/replicar`, `lib/editores-ia-pro.ts`)— y no llamaba
+a `soloPro()`. El barrido tenía declarada la palabra `Con «Editar»` y **no la encontraba por la C**: a mitad de frase la
+página escribe `con «Editar»`, y `String.indexOf` distingue mayúsculas. **Medido:** con el aviso sacado y el barrido
+viejo, **8 / 0 verde**; con el barrido comparando sin distinguir, **7 / 1** y el mensaje nombra el lugar exacto.
+
+> **Regla:** un barrido por palabras sobre texto para humanos compara **sin distinguir mayúsculas**. La misma palabra
+> aparece con mayúscula al empezar una frase y con minúscula en el medio, y el caso de la minúscula es justo el que
+> queda enterrado a mitad de párrafo, donde nadie lo mira.
+
+**Y SE MIDIÓ QUE EL ARREGLO NO AFLOJA NADA.** Comparando sin distinguir **todas** las palabras de `HUELLAS` sobre las
+tres páginas de entonces y sus dos textos de Google, las apariciones pasan de **31 a 32**: hay **exactamente una** que se
+ve sólo así, y es la de arriba. Un cambio de comparación se mide **contando las dos**, no confiando en que «no debería
+cambiar nada». ⚠️ Lo que **no** se pasó a insensible es `titularesDe`: encontrar un titular **afloja** la medida (pasa de
+«el aviso a una frase» a «lo aclara la bajada del bloque»), así que buscarlo sin distinguir puede volver blanda una
+promesa que hoy se mide estricta. **Regla:** hacer una búsqueda más laxa es seguro donde encontrar algo APRIETA, y
+peligroso donde encontrar algo AFLOJA.
+
+**DOS REGLAS DE DÓNDE VA EL AVISO SE CONTRADECÍAN, Y GANA LA DEL TEST.** `image.ts` decía «el aviso va UNA vez, en la
+bajada del bloque: sus cuatro tarjetas son todas el mismo chat». Era verdad para tres de las cuatro, pero la tarjeta 1
+promete **además** «Editar», que es **otro** punto del candado —el que el propio archivo separa en su cabecera— y el
+aviso de la bajada **no le llega: 254 caracteres y TRES frases** (medido dibujando la página; la ventana del test es de
+una). Gana «el aviso va donde está la promesa», y el comentario ahora dice **cuál** de las cuatro lleva el suyo y por
+qué las otras tres no. **Regla:** «una vez por bloque» sirve cuando el bloque promete **una** cosa cerrada; con dos
+puntos de candado en el mismo bloque, el aviso se cuenta por promesa.
+
+**EL AVISO COLGADO DEL FINAL DE UNA LISTA MEZCLADA, TERCERA VEZ.** El comparador de `/vsl/video` decía «Sin pausas, con
+subtítulos que siguen tu voz, B-roll donde hace falta y el audio parejo, de una pasada. **Con MaKo Pro.**»: tres cosas
+**abiertas** (cortar, subtitular y nivelar el audio corren en el navegador, sin candado) y una **cerrada** (el B-roll en
+`elegir`), con el aviso al final. **Mentir EN CONTRA es un defecto igual**, y encima es el que espanta al de US$47. La
+cura, la misma de «Pone los subtítulos y el B-roll»: lo cerrado —la pasada automática y el B-roll— se queda en su frase
+con el aviso pegado, y **lo abierto sale DESPUÉS del aviso**, que es el único lado donde la ventana «hacia adelante, una
+frase» no lo pinta. Guardado con un ancla nueva en `ABIERTAS` («Los subtítulos, el volumen y los cortes»): devolviendo
+el aviso al final, **5 / 3**. ⚠️ Y el orden importa en los dos sentidos: un ancla de `ABIERTAS` puesta **justo antes** de
+la frase con el aviso da rojo sola, porque la ventana incluye la frase siguiente.
+
+**«ESTA PÁGINA NOMBRA EL AVATAR EN CUATRO LUGARES» ERA EL NÚMERO DEL BARRIDO, NO EL DE LA PÁGINA.** Contado dibujando
+`/vsl/video`, la página lo nombra en **CINCO**: el chip del hero, el título y el cuerpo de la tarjeta «Tu personaje con
+IA», el **paso 2 de «Tres pasos»** («O crea las tomas con tu personaje o con IA») y el metaDesc —más un sexto que pone
+`registro.ts` desde las preguntas de la portada. El barrido ve **cuatro**: al paso 2 se le escapa porque las palabras
+declaradas son `avatar` y `personaje con IA`, y ahí se lee «con tu personaje **o** con IA». Con `PRO_VENDE=1` quedan
+**dos** sin aviso para el test (el chip del hero, a tres frases, y el metaDesc, sin ninguno adelante) y **tres** para un
+lector. **Regla:** un comentario que dice «esta página nombra X en N lugares» está afirmando dos cosas distintas —lo que
+la página dice y lo que el test ve— y tiene que decir las dos, con el número de cada una.
+
+**LOS ÍNDICES DE CARÁCTER EN UN COMENTARIO ENVEJECEN EN LA MISMA PASADA.** Los cuatro offsets del avatar (`@433`, `@1115`,
+`@2522`, `@2542`) se corrieron a `@433`, `@1140`, `@2554`, `@2574` **por el arreglo del comparador de la misma ronda**:
+una frase reescrita 1.000 caracteres antes mueve todo lo que sigue. Se sacaron del comentario y los lugares se nombran.
+**Regla:** en un comentario van los **nombres** de los lugares y las **cuentas**; los offsets, sólo en el mensaje de una
+aserción, que se recalcula al correr.
+
+**LA VENTANA DE UNA FRASE SE TAPA SOLA EN UNA FILA DE PROMESAS TODAS CERRADAS.** `/vsl/competitor-spy` entró al barrido, y
+su bloque «Pasa de la idea a tu anuncio» tiene tres tarjetas, las tres de Pro. Su diseño dibuja **los tres títulos en
+fila y después los tres cuerpos**, así que el aviso del cuerpo de una tarjeta cae a **una** frase del título de la
+siguiente: pusimos un aviso en el título «Copia su sitio» y **sacándoselo el test queda 8 / 0**, o sea que no era guarda
+de nada. Quedó un aviso por cuerpo (los tres medidos: 7 / 1 cada uno) y el título sin aviso. **Regla:** antes de sumar un
+aviso «por prolijidad», sacárselo y mirar si el test se mueve; si no se mueve, es adorno y conviene no ponerlo.
+
+**EL AVISO ESTABA COPIADO CUATRO VECES, Y LA QUINTA LANDING LO TENÍA TIPEADO A MANO.** Las seis líneas de `seVendeEnPro`
+/ `soloPro` / `soloProEntre` vivían copiadas en `copywriting.ts`, `image.ts` y `video.ts`, y `competitor-spy.ts:164` —que
+no tenía copia— escribía `Con MaKo Pro.` a mano: el día que `'replicar-landing'` se abra en Esencial, ese se queda
+escrito. Ahora hay **una** en `app/vsl/_competencia/solo-pro.ts`, y los dos diseños que escriben texto propio la siguen
+importando de su landing (re-export de una línea). **Regla:** una derivación copiada N veces se vuelve a tipear a mano en
+la N+1.
+
+**LO QUE EL TEST NO VE Y UN TIPO SE COME SOLO.** Borrar `titulo: 'Con MaKo'` del comparador al reescribir su `texto`
+**dejó los 8 tests en verde** (el componente dibuja `undefined` sin quejarse) y lo cachó el typecheck:
+`TS2741: Property 'titulo' is missing in type '{ texto: string; }'`. **Regla:** `node --test` y
+`node scripts/tsc-acotado.mjs` miden cosas distintas y las dos hacen falta en la misma pasada; un test que mide TEXTO no
+ve una propiedad que desapareció.

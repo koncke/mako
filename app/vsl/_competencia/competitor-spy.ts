@@ -47,6 +47,11 @@
 // =============================================================================
 
 import type { LandingCompetencia } from './tipos';
+// El aviso NO se tipea: sale de lo que el producto cierra de verdad (./solo-pro.ts). Esta página tenía el único
+// «Con MaKo Pro.» escrito a mano de las que BARRE tests/vsl-landings-dicen-el-plan.test.ts, y por eso entró al barrido.
+// ⚠️ Contados el 15/11/2026, en /vsl quedan CINCO escritos a mano, todos en landings que el test todavía no barre:
+//    ./crm.ts:93 y :95 (dos `puntos`), ./disenos/crm.tsx:254 (su `SOLO_PRO` a mano) y ./disenos/web-generator.tsx:206 y :391.
+import { soloPro } from './solo-pro';
 
 const I = {
   spy: ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0', 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0', 'M12 3v2', 'M12 19v2', 'M3 12h2', 'M19 12h2'],
@@ -157,14 +162,24 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
       etiqueta: 'Producción',
       titulo: 'Pasa de la idea a tu anuncio, más rápido',
       items: [
-        { icono: I.editar, titulo: 'Tu versión, en Image', texto: 'Sus carruseles y anuncios aparecen en Image para hacer <strong>tu versión editable</strong>, con tu negocio y tu marca.' },
+        // «Editar» UN EJEMPLO ES EL MISMO CANDADO QUE EN /vsl/image (15/11/2026): sus carruseles llegan a Image por
+        // app/api/image-editor/carruseles/replicar, que es 'ia-editores' (lib/editores-ia-pro.ts). Antes decía «para hacer
+        // tu versión editable» y no avisaba nada. Se nombra «Editar», que es el botón de verdad, y el aviso se deriva.
+        { icono: I.editar, titulo: 'Tu versión, en Image', texto: `Sus carruseles y anuncios aparecen en Image y, con «Editar», te quedas con <strong>su mismo diseño y tus textos</strong>, con tu negocio y tu marca.${soloPro('ia-editores')}` },
         // Antes «Sus páginas, a la vista»: la de Hormozi (acquisition.com) no se deja mostrar en el marco aislado (su JavaScript se rompe:
-        // lib/pagina-real.ts) y Spy ofrece «Capturar». Lo que sí se ve de su web es la réplica: «Copiar su sitio» la lleva al Web Generator
-        // (replicar.webm es acquisition.com replicada, la de la portada). Sólo MaKo Pro (lib/editor-landing/replicar-candado.ts).
-        { icono: I.pagina, titulo: 'Copia su sitio', texto: '«Copiar su sitio» lo lleva al Web Generator para hacer el tuyo. Con MaKo Pro.' },
+        // lib/pagina-real.ts) y Spy ofrece «Capturar». Lo que sí se ve de su web es la réplica: «Copiar su sitio» la lleva al Web
+        // Generator (replicar.webm es acquisition.com replicada, la de la portada); el candado, lib/editor-landing/replicar-candado.ts.
+        // EL «Con MaKo Pro.» ESTABA TIPEADO A MANO ACÍ (15/11/2026), que es justo lo que la regla prohíbe (./solo-pro.ts): el
+        // día que 'replicar-landing' se abra en Esencial, este se queda escrito y la página miente. Ahora se deriva.
+        // ⚠️ EL TÍTULO NO LLEVA AVISO PROPIO, Y ES A PROPÓSITO: las tres tarjetas de este bloque son de Pro y las tres lo dicen
+        //    en su cuerpo, debajo de su título. Probado: ponerle también uno al título (`soloProEntre`) no agrega ninguna guarda
+        //    —sacándoselo el test queda 8/0— porque este diseño dibuja los tres títulos en fila y después los tres cuerpos, y el
+        //    aviso del cuerpo de la tarjeta de al lado cae a UNA frase de este título. Marcarlo era un cuarto aviso de adorno.
+        { icono: I.pagina, titulo: 'Copia su sitio', texto: `«Copiar su sitio» lo lleva al Web Generator para hacer el tuyo.${soloPro('replicar-landing')}` },
         // Antes «Lo que todavía no» (una pestaña sin pantalla: su texto pasó a «MaKo lee lo que publican»). Un short real de Hormozi
-        // replicado por MaKo en Copywriting (la grabación de la portada, copywriting.webm).
-        { icono: I.nota, titulo: 'Su guion, con tu oferta', texto: 'Replicas su reel y MaKo escribe el tuyo en Copywriting, con tu oferta.' },
+        // replicado por MaKo en Copywriting (la grabación de la portada, copywriting.webm). Replicar el guion de otro pasa por
+        // su propio candado (lib/copywriter/replica-candado.ts, 'replicar-guion'): escribir desde cero sigue abierto.
+        { icono: I.nota, titulo: 'Su guion, con tu oferta', texto: `Replicas su reel y MaKo escribe el tuyo en Copywriting, con tu oferta.${soloPro('replicar-guion')}` },
       ],
     },
   ],
