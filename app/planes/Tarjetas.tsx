@@ -44,7 +44,8 @@ import type { ReactNode } from 'react';
 import { ASESORIAS_DEL_PROGRAMA, MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, type PlanMako } from '@/lib/planes-mako';
 import { TOPES } from '@/lib/topes-plan';
 import { PLAN_DE_CAPA, cupoDeCapa } from '@/lib/mako-tokens-reglas';
-import { alcanzaPara, generaVideoLaCapa } from './CalculadoraTokens';
+import { ATRIBUTO_ALCANZA, ATRIBUTO_MT, generaVideoLaCapa, htmlAlcanza } from './CalculadoraTokens';
+import { ASESORES } from '@/lib/asesores/catalogo';
 // Los topes de generación (15/11/2026): cuánto video y cuántas imágenes trae el plan. Viven con el precio del clip
 // porque lo que los fija es el margen, no un límite de la app (lib/mako-tokens-paquetes.ts).
 import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
@@ -107,7 +108,17 @@ export type ListaDeColumna = {
   /** Los MaKo Tokens que trae por mes, ya escrito. null = no hay dato decidido para esa capa y NO se inventa uno. */
   tokens: string | null;
   items: ItemLista[];
+  /**
+   * LO QUE ESE PLAN NO HACE, con una ✗ roja (15/11/2026, a la noche). Sólo el de US$47 lo lleva. Martín: «para una persona que
+   * lo mira no entiende mucho la diferencia entre el de 47 y el de 97… en el de 47 hay un montón de cosas que no se pueden
+   * hacer directamente, que en el de 97 sí». Va en el MISMO orden que los primeros checks de Pro, así que leídas una al lado
+   * de la otra, cada ✗ de la izquierda queda frente a su ✓ de la derecha.
+   */
+  noIncluye?: ItemLista[];
 };
+
+/** El título del bloque de lo que el plan no trae. */
+export const CEJA_NO_INCLUYE = 'No incluye';
 
 /**
  * LAS LISTAS DE CADA COLUMNA (14/11/2026; el relevo que aprobó Martín: docs/relevo/planes-que-incluye-cada-columna.md §4).
@@ -144,52 +155,64 @@ export type ListaDeColumna = {
  *    ande de punta a punta (`AI_AVATAR_SE_VENDE`, lib/planes-comparacion.ts). Cerrarlo en Esencial y venderlo son dos cosas.
  */
 export function listaCorta(capa: string): ListaDeColumna {
+  // ⚠️ EL COPY DE ESTAS DOS LISTAS LO APROBÓ MARTÍN EL 15/11/2026 A LA NOCHE («me gusta cómo está»), después de pedir:
+  //   «no me resulta claro las cosas que están abajo… para una persona que lo mira no entiende mucho la diferencia entre el de
+  //    47 y el de 97… te pido que pienses muy bien esos copies… en el de 47 hay un montón de cosas que no se pueden hacer
+  //    directamente, que en el de 97 sí».
+  // Las reglas que lo arman, para el que lo toque:
+  //   · PALABRAS DE CLIENTE: «página de venta» y no «landing», «un asistente que responde y agenda» y no «setter», nada de
+  //     «pipeline» ni «B-roll» (Martín: «no con lenguaje nuestro»).
+  //   · EL DE US$47 DICE LO QUE NO HACE, con una ✗ (`noIncluye`), en el MISMO ORDEN que los primeros checks de Pro: leídas en
+  //     paralelo, cada ✗ queda frente a su ✓.
+  //   · Ni Esencial dice «todo lo de X» ni Pro «todo lo de Esencial, más» (Martín, 14/11: «la idea es que cada uno se sienta
+  //     único»). Toda la negrita en Pro, ninguna en Esencial (ClickFunnels).
+  //   · LOS NÚMEROS SALEN DEL CÓDIGO (`TOPES`, `ASESORES`), nunca a mano. Los MaKo Tokens no están acá: son el primer ítem de
+  //     la lista y los dibuja la columna (con lo que alcanzan, que mueve la barra).
+  //   · Lo que NO se dice: «subtitula» como cosa de Pro — los subtítulos corren en el navegador y están en los dos planes
+  //     (lib/planes-comparacion.ts, 'ia-editores'); lo de Pro es la edición AUTOMÁTICA. Ni el avatar, que no se vende todavía.
   const c = TOPES.completo, a = TOPES.agencia;
   if (capa === 'agencia') {
     return {
       titulo: CEJA_LISTA,
       tokens: tokensDeLaCapa(capa),
       items: [
-        // LA DIFERENCIA QUE MÁS PESA ENTRE LAS DOS COLUMNAS (Martín, 15/11: «debería haber una diferenciación clara de lo que
-        // hace el plan de 97 y lo que hace el plan de 47») es el video, y la dice el «te alcanza para» de arriba de los checks
-        // — con «o», porque es una sola bolsa («te alcanza para todo esto, punto. Después que él decida cómo lo reparte»).
-        // La generación (clips e imágenes) ya NO va como check: la dice el «te alcanza para» de arriba (`fraseAlcanza`,
-        // ./CalculadoraTokens.tsx), que además se mueve con la barra. Dos lugares diciendo el mismo número en la misma
-        // columna se desfasan el primer día que la barra se mueve.
-        { fuerte: 'Copia la landing de cualquier competidor con tu oferta', texto: ', en tu dominio propio' },
-        { fuerte: 'Edición con IA de tus videos:', texto: ' corta las pausas, subtitula y propone B-roll solo' },
-        { fuerte: 'Un setter con IA', texto: ' que responde y agenda por WhatsApp e Instagram' },
+        { fuerte: 'Videos con IA', texto: ', a partir de un texto o una foto' },
+        { fuerte: 'Copia la página de venta de cualquier competidor', texto: ', con tu oferta y en tu dominio' },
+        { fuerte: 'Edición automática de tus videos:', texto: ' corta pausas, agrega tomas y arma clips' },
+        { fuerte: 'Un asistente con IA', texto: ' que responde y agenda llamadas por WhatsApp e Instagram' },
         { fuerte: 'Piloto automático', texto: ' de tus anuncios, tu Instagram y tu YouTube' },
-        // El tope que era una línea gris de cifras, dicho como lo que es: que no hay tope.
-        { fuerte: 'Sin tope', texto: ' de leads, páginas, pipelines, automatizaciones ni cursos' },
-        { fuerte: 'Toda tu competencia en el radar', texto: ', con sus guiones y sus carruseles replicados' },
-        { fuerte: 'Tus llamadas de venta analizadas con IA', texto: ', llamada por llamada' },
-        // 14/11/2026: el chat con los referentes pasó a ser de Pro (`FUNCIONES_SOLO_PRO`, 'chat-referentes'), así que acá SÍ
-        // va. Es el renglón que suma Pro: la recomendada no puede tener menos que Esencial.
-        { fuerte: 'Chatea con los referentes del marketing', texto: ', cada uno con su método' },
-        { fuerte: 'La comunidad de tus alumnos', texto: ', como en Skool' },
-        { fuerte: `Tu equipo adentro: ${nn(a['equipo.usuarios'], 'persona', 'personas')}`, texto: ', cada una con su acceso y sus permisos' },
+        { fuerte: 'Cada llamada de venta analizada', texto: ' con IA' },
+        { fuerte: `Chat con ${ASESORES.length} referentes del marketing`, texto: ', cada uno con su método' },
+        { fuerte: 'Comunidad para tus alumnos', texto: ', como en Skool' },
+        { fuerte: 'Sin tope', texto: ' de contactos, páginas, automatizaciones ni cursos' },
+        { fuerte: 'Todos tus competidores', texto: ' vigilados' },
+        { fuerte: `${nn(a['chats.lineas_whatsapp'], 'WhatsApp', 'WhatsApp')} y tu equipo:`, texto: ` hasta ${nn(a['equipo.usuarios'], 'persona', 'personas')}` },
       ],
     };
   }
   return {
     titulo: CEJA_LISTA,
     tokens: tokensDeLaCapa(capa),
-    // Ni un renglón en negrita (ClickFunnels): la columna barata queda visualmente plana sin que le falte nada, así que no
-    // se le puede acusar de esconder y aun así no engancha el ojo.
-    // ⚠️ Y SÍ LLEVAN NÚMEROS, al revés de la regla del 14/11 («ningún número adentro de un bullet»): Martín la dio vuelta el
-    //    15/11 al pedir que los topes sean checks. Los números salen del código (`TOPES`), nunca a mano.
     items: [
-      // Lo que genera (y que no genera video) lo dice el «te alcanza para» de arriba, igual que en Pro.
-      { texto: `Hasta ${n(c['crm.leads'])} leads y clientes, cada uno con su etapa y su historia` },
-      { texto: `${nn(c['web.landings_publicadas'], 'página de venta', 'páginas de venta')}, escrita por IA y publicada en un clic` },
-      { texto: `${nn(c['chats.lineas_whatsapp'], 'WhatsApp conectado', 'WhatsApp conectados')}, con Instagram, Messenger y email en la misma bandeja` },
-      { texto: 'Guiones de reels, anuncios, VSL y emails, escritos por IA' },
-      { texto: 'Editor de imágenes y editor de video, con tu marca y tus colores' },
+      { texto: `Tu CRM con hasta ${n(c['crm.leads'])} contactos` },
+      { texto: `${nn(c['web.landings_publicadas'], 'página de venta', 'páginas de venta')}, publicada en un clic` },
+      { texto: `${nn(c['chats.lineas_whatsapp'], 'WhatsApp', 'WhatsApp')}, con Instagram, Messenger y email en la misma bandeja` },
+      { texto: 'Guiones, anuncios y emails escritos con IA' },
+      { texto: 'Editor de imágenes y de video, como Canva y CapCut' },
       { texto: `${nn(c['spy.competidores'], 'competidor vigilado', 'competidores vigilados')}: su web, sus redes y sus anuncios` },
-      { texto: `${nn(c['crm.funnels'], 'pipeline de venta', 'pipelines de venta')}, ${nn(c['automations.activas'], 'automatización', 'automatizaciones')} y ${nn(c['classroom.cursos'], 'curso', 'cursos')} para tus alumnos` },
-      { texto: 'Mejoras para tus anuncios cada día, y tú decides si las aplicas' },
-      { texto: `Para una persona: ${nn(c['equipo.usuarios'], 'usuario', 'usuarios')}` },
+      { texto: `${nn(c['automations.activas'], 'automatización', 'automatizaciones')} y ${nn(c['classroom.cursos'], 'curso', 'cursos')} para tus alumnos` },
+      { texto: `Para ${nn(c['equipo.usuarios'], 'persona', 'personas')}` },
+    ],
+    // EN EL MISMO ORDEN QUE LOS PRIMEROS CHECKS DE PRO (ver arriba): cada ✗ de acá tiene su ✓ enfrente.
+    noIncluye: [
+      { texto: 'Generar videos con IA' },
+      { texto: 'Copiar la página de venta de un competidor' },
+      { texto: 'Edición automática de tus videos' },
+      { texto: 'Un asistente con IA que responde y agenda por ti' },
+      { texto: 'Piloto automático de tus anuncios y tus redes' },
+      { texto: 'Análisis de tus llamadas de venta' },
+      { texto: 'Chat con los referentes del marketing' },
+      { texto: 'Comunidad para tus alumnos' },
     ],
   };
 }
@@ -280,7 +303,6 @@ export const CSS_TARJETAS = `
   letter-spacing: .01em; line-height: 1.25; transition: filter .15s ease; }
 .mkpl-btn:hover { filter: brightness(1.06); }
 .mkpl-btn.borde { background: #fff; color: #2F6FED !important; box-shadow: inset 0 0 0 1.5px #2F6FED; }
-.mkpl-garantia { display: block; margin-top: 8px; text-align: center; font-size: 12.5px; color: #C4C8D0; text-decoration: underline; text-underline-offset: 2px; }
 .mkpl-lista-t { margin: 0 0 10px; font-size: 14px; font-weight: 700; }
 /* LOS NÚMEROS, FUERA DE LOS CHECKS (14/11/2026, el molde de Kajabi: «2.500 contacts included» en una línea sola, arriba del
    encabezado de la lista). Los MaKo Tokens del plan primero, con su número en negrita, y debajo los topes, en gris y chico: lo
@@ -289,10 +311,19 @@ export const CSS_TARJETAS = `
 /* «.mkpl-lista .mkpl-alcanza li» y no «.mkpl-alcanza li»: la regla de los checks (.mkpl-lista li, flex con 10 px de hueco y un
    tilde en ::before) viene DESPUÉS en esta hoja y con la misma especificidad, así que ganaba — el número y la palabra quedaban
    separados por 10 px y la «o» se leía como una viñeta. */
-.mkpl-lista .mkpl-alcanza li { display: block; }
-.mkpl-lista .mkpl-alcanza li::before { content: none; }
+.mkpl-lista .mkpl-alcanza li { display: block; position: relative; padding-left: 14px; }
+/* Una viñeta chica por renglón (no un tilde: el tilde es del ítem de arriba, «24.000 MaKo Tokens al mes:»). */
+.mkpl-lista .mkpl-alcanza li::before { content: ""; position: absolute; left: 3px; top: .62em; width: 5px; height: 5px; border-radius: 50%; background: #9AA1AD; }
 .mkpl-alcanza b { color: #12151B; font-weight: 700; }
-.mkpl-alcanza .mkpl-alcanza-no { margin-top: 4px; color: #7A8291; font-style: italic; }
+/* El «0 clips de video con IA» del plan que no genera video: tachado y en rojo, en la misma línea que los clips del otro plan
+   (Martín, 15/11: «0 clips de videos con IA o algo en rojo tipo tachado… para que sigan como el mismo alineamiento»). */
+.mkpl-lista .mkpl-alcanza .mkpl-alcanza-sin { color: #D92D20; text-decoration: line-through; }
+.mkpl-lista .mkpl-alcanza .mkpl-alcanza-sin b { color: #D92D20; }
+.mkpl-lista .mkpl-alcanza .mkpl-alcanza-sin::before { background: #D92D20; }
+/* «No incluye»: el mismo renglón que los checks, con una ✗ ROJA (Martín: «evidentemente las X las pondría en rojo»). */
+.mkpl-lista-t-no { margin-top: 18px; }
+.mkpl-lista-no li { color: #5B6472; }
+.mkpl-lista.mkpl-lista-no li::before { content: "✕"; background: #FDE8E7; color: #D92D20; font-size: 11px; font-weight: 800; }
 /* «.mkpl-topes» se fue el 15/11/2026 con la fila de cifras que dibujaba (ver «ListaDeColumna»). La raya que separaba
    la cabeza de la lista la lleva ahora la línea de los MaKo Tokens, que es lo único que quedó arriba. */
 .mkpl-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 14.5px; line-height: 1.4; }
@@ -313,7 +344,9 @@ export const CSS_TARJETAS = `
 .mkpl-programa .mkpl-lista li::before { color: #2A1E00; background: #F5C451; }
 /* Mensual o anual: dos radios (escondidos) y sus etiquetas como un selector; :has() muestra los precios del que está
    elegido. Sin :has(), se ven los dos: nunca queda una tarjeta sin precio. */
-.mkpl-periodo { display: flex; justify-content: center; margin: 0 0 22px; }
+/* Sin margen abajo: la barra de MaKo Tokens va pegada debajo (Martín, 15/11: «tampoco separaría tanto el mensual y anual de la
+   barra»); lo que queda entre los dos es el lugar de la burbuja del precio. */
+.mkpl-periodo { display: flex; justify-content: center; margin: 0; }
 .mkpl-periodo-caja { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: #E9EDF5; }
 .mkpl-periodo input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
 .mkpl-periodo label { cursor: pointer; padding: 9px 18px; border-radius: 999px; font-size: 14.5px; font-weight: 700; color: #4A5260; }
@@ -415,24 +448,17 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
             <div>
               <p className="mkpl-lista-t">{lista.titulo}</p>
               <ul className="mkpl-lista">
-                {/* LOS MaKo TOKENS SON EL PRIMER ÍTEM DE «INCLUYE», y lo que alcanzan va en renglones debajo (15/11/2026, a la
-                    noche). Martín: «con respecto a los tokens y lo que te alcanza para cada cosa, no me gusta que sea un texto
-                    largo. Eso diseñalo bien. Debería ser justamente un diseño similar a lo que está abajo, lo de incluye. E
-                    incluso debería estar ahí en unos ítems de incluye tal cosa». Era un párrafo de cinco renglones arriba de la
-                    lista. Los números salen del cupo del plan y de lo que cuesta cada cosa (`alcanzaPara`), nunca a mano; el
-                    de US$47 no lleva clips y lo dice al final. Sin cupo decidido (el Acelerador), no se dice nada. */}
+                {/* LOS MaKo TOKENS SON EL PRIMER ÍTEM DE «INCLUYE», con lo que alcanzan en renglones debajo (15/11/2026). Martín:
+                    «debería ser un diseño similar a lo de incluye, e incluso debería estar ahí en unos ítems de incluye»; y
+                    después, «cuando voy ajustando la barra, cambie también la cantidad de cosas que me alcanzan y tokens abajo en
+                    los planes». Por eso las dos cosas llevan su marca: la barra de arriba las mueve (los del plan MÁS los extra).
+                    Los renglones los arma `htmlAlcanza`, la misma función que usa la barra. Sin cupo (el Acelerador), nada. */}
                 {cupo != null && (
                   <li className="mkpl-li-tokens">
                     <span>
-                      {/* «al mes:» y directo los renglones (Martín, 15/11/2026: «elimina la parte de que te alcanzan para, directamente
-                          24.000 MaKo Tokens al mes, dos puntos, y ahí vienen los ítems»). */}
-                      <b>{cupo.toLocaleString('es-AR')} MaKo Tokens al mes:</b>
-                      <ul className="mkpl-alcanza">
-                        {alcanzaPara(cupo, generaVideoLaCapa(p.capa)).map((x, i) => (
-                          <li key={x.clave}>{i ? 'o ' : ''}<b>{x.n.toLocaleString('es-AR')}</b> {x.que}</li>
-                        ))}
-                        {!generaVideoLaCapa(p.capa) && <li className="mkpl-alcanza-no">Sin generación de video</li>}
-                      </ul>
+                      <b><span {...{ [ATRIBUTO_MT]: p.id }}>{cupo.toLocaleString('es-AR')}</span> MaKo Tokens al mes:</b>
+                      <ul className="mkpl-alcanza" {...{ [ATRIBUTO_ALCANZA]: p.id }}
+                        dangerouslySetInnerHTML={{ __html: htmlAlcanza(cupo, generaVideoLaCapa(p.capa)) }} />
                     </span>
                   </li>
                 )}
@@ -440,6 +466,14 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
                   <li key={x.fuerte ?? x.texto}><span>{x.fuerte ? <b>{x.fuerte}</b> : null}{x.texto}</span></li>
                 ))}
               </ul>
+              {lista.noIncluye && lista.noIncluye.length > 0 && (
+                <>
+                  <p className="mkpl-lista-t mkpl-lista-t-no">{CEJA_NO_INCLUYE}</p>
+                  <ul className="mkpl-lista mkpl-lista-no">
+                    {lista.noIncluye.map((x) => <li key={x.texto}><span>{x.texto}</span></li>)}
+                  </ul>
+                </>
+              )}
             </div>
           </section>
         );
@@ -457,7 +491,6 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
               Accelerator… Pero en ningún otro lado debería estar»). Es la agenda de Martín, fuera del sitio: se abre en otra
               pestaña (`AGENDA_ACELERADOR`). Esencial y Pro siguen con su botón de siempre, que compra sin hablar con nadie. */}
           <a className="mkpl-btn" href={AGENDA_ACELERADOR} target="_blank" rel="noopener noreferrer">{TEXTO_AGENDA_ACELERADOR}</a>
-          {pr.garantia && <a className="mkpl-garantia" href="/reembolsos#grupal">Con garantía de entrega</a>}
         </div>
         {/* SIN EL «PARA QUIÉN» (15/11/2026, a la noche). Martín: «tampoco me gusta el texto de para quién vende solo o para quién
             ya vende y tiene equipo. Ese texto elimínalo». Se fue de las tres columnas, y con él la fila del subgrid: ahora son

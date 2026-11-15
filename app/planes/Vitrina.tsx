@@ -119,7 +119,7 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
         {/* La barra de MaKo Tokens va DEBAJO del selector mensual / anual, sin título (Martín, 15/11/2026, a la noche: «eliminaría
             el texto de calcula cuántos MaKo Tokens necesitas, pondría la barra directamente abajo de mensual o anual»), así que
             la dibuja TarjetasPlanes en su lugar. Dice cuánto sale sumar; los precios de las columnas no se mueven. */}
-        <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} barra={<CalculadoraTokens />} />
+        <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} barra={<CalculadoraTokens planes={planes} />} />
 
         <CompararPlanes planes={planes} sufijo={sufijo} />
 

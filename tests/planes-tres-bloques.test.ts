@@ -307,6 +307,8 @@ test('los números de los checks salen del CÓDIGO, y arriba queda sólo la lín
     for (const t of Object.values(TOPES[capa === 'completo' ? 'completo' : 'agencia'])) if (t != null) permitidos.add(t.toLocaleString('es-AR'));
     permitidos.add(IMAGENES_POR_MES[PLAN_DE_CAPA[capa]].toLocaleString('es-AR'));
     permitidos.add(String(minutosDelPlan(PLAN_DE_CAPA[capa])));
+    // Los referentes del chat (15/11/2026, copy aprobado: «Chat con 32 referentes del marketing»): la cifra es `ASESORES.length`.
+    permitidos.add(String((await import('../lib/asesores/catalogo')).ASESORES.length));
     for (const cifra of todo.match(/\d[\d.]*/g) ?? []) {
       assert.ok(permitidos.has(cifra), `${capa}: la cifra ${cifra} de un check no sale de ningún tope del código — «${todo}»`);
     }
@@ -333,10 +335,10 @@ test('los números de los checks salen del CÓDIGO, y arriba queda sólo la lín
     // cambiar la cantidad de clips o de imágenes que me alcanzan»), y un check fijo diciendo el mismo número se desfasa el
     // primer día que la barra se mueve. Los checks NO repiten la generación; la frase de arriba sí la dice.
     const { alcanzaPara } = await import('../app/planes/CalculadoraTokens');
-    const html = await vitrinaHtml();
     assert.ok(alcanzaPara(esMtAntes, false).every((x) => x.clave !== 'clip'), 'al de US$47 no le promete ni un clip');
     assert.ok(alcanzaPara(proMtAntes, true).some((x) => x.clave === 'clip'), 'al de US$97 le dice sus clips');
-    assert.equal(html.split('Sin generación de video').length - 1, 1, 'la columna del de US$47 dice que no genera video, y sólo ella');
+    // Que el de US$47 NO genera video lo dice su «No incluye», con una ✗ (copy aprobado el 15/11 a la noche): el primer renglón.
+    assert.match(listaCorta('completo').noIncluye?.[0]?.texto ?? '', /Generar videos con IA/, 'la columna del de US$47 no dice que no genera video');
     for (const it of [primeroEs, primeroPro]) {
       assert.doesNotMatch(`${it.fuerte ?? ''}${it.texto}`, /imágenes con IA|clips de video|minutos de video/i,
         `un check repite la generación que ya dice la frase de arriba: «${it.texto}»`);
@@ -389,15 +391,20 @@ test('lo que alcanza cada columna sale de los costos que se COBRAN, no de un nú
   }
   // Y lo que Martín nombró está: competidores y transcripciones.
   const claves = LO_QUE_ALCANZA.map((c) => c.clave);
-  for (const k of ['competidor', 'llamada']) assert.ok(claves.includes(k), `falta «${k}» en lo que alcanza`);
+  for (const k of ['competidor', 'transcripcion']) assert.ok(claves.includes(k), `falta «${k}» en lo que alcanza`);
+  // Sin «guiones de reels» (Martín, 15/11: «lo que no queda claro es guiones con IA. Creo que quisiste poner transcripciones»).
+  assert.ok(!claves.includes('guion'), 'volvió «guiones de reels» a lo que alcanza');
   // LA PANTALLA: los números en MaKo Tokens que /planes PUEDE decir, y de dónde sale cada uno. Cualquier otro es inventado.
   const t = await vitrina();
   assert.doesNotMatch(t, /Lo que gasta cada cosa/, 'la tabla de costos se fue de la pantalla');
   assert.doesNotMatch(t, /No gasta: usa tu IA/, 'y con ella la frase de «cada negocio paga su IA», que Martín dio vuelta el 15/11');
   const { PAQUETES } = await import('../lib/mako-tokens-paquetes');
+  const { pasosDeLaBarra } = await import('../app/planes/CalculadoraTokens');
   const legitimos = new Set<string>([
     CUPO_MENSUAL.pro.toLocaleString('es-AR'), CUPO_MENSUAL.growth.toLocaleString('es-AR'),
     ...PAQUETES.map((p) => p.mt.toLocaleString('es-AR')),
+    // los extra de la barra, desde «+0 MaKo Tokens extras al mes» (15/11/2026: siempre a la vista, también en cero)
+    ...pasosDeLaBarra().map((p) => p.mt.toLocaleString('es-AR')),
   ]);
   for (const cifra of t.match(/[\d.]+(?= MaKo Tokens)/g) ?? []) {
     // Los montos de la barra son el cupo más lo que se suma: por arriba del cupo del plan chico, salen de ahí.
@@ -450,19 +457,21 @@ test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón
   } finally { (PROGRAMA_ACELERADOR as { promesa: string | null }).promesa = antes; }
 });
 
-test('la GARANTÍA del programa es sobre los entregables de la semana 1, abajo del botón, y /reembolsos dice la misma', async () => {
+test('la GARANTÍA del programa es sobre los entregables de la semana 1, vive en /reembolsos, y la tarjeta ya no la linkea', async () => {
   const { garantia } = PROGRAMA_ACELERADOR;
   assert.ok(garantia);
   assert.match(garantia!, /primera semana/);
   assert.match(garantia!, /sistema de ventas no está armado/);
   assert.doesNotMatch(garantia!, /vend|factur|llamadas|clientes/i, 'no es una garantía de resultado (§6c: recién con datos)');
   assert.ok(PROGRAMA_ACELERADOR.incluye.some((x) => x.includes(`hasta ${HORAS_SEMANA_1} horas`)), 'el entregable, escrito con su tope de horas');
-  // En la tarjeta, sólo el link («Con garantía de entrega», 12/11 noche: menos texto); la garantía entera, en /reembolsos §2.
-  const { TEXTO_AGENDA_ACELERADOR } = await import('../app/planes/Tarjetas');
+  // ⚠️ LA TARJETA YA NO LLEVA EL LINK «Con garantía de entrega» (15/11/2026, a la noche; Martín: «en MaKo Accelerator
+  // eliminaría esa parte de con garantía de entrega. Eso elimínalo»). Era un renglón suelto debajo del botón que, además, como la
+  // fila del botón es compartida entre las tres columnas (subgrid), le dejaba un hueco blanco a Esencial y a Pro. La promesa
+  // del Acelerador sigue diciendo «garantizado por contrato», y la garantía entera vive en /reembolsos §2, que es lo que se
+  // vigila acá abajo.
   const t = await vitrina();
-  const boton = t.indexOf(TEXTO_AGENDA_ACELERADOR);
-  assert.ok(boton > 0 && t.indexOf('Con garantía de entrega') > boton, 'la garantía, abajo del botón');
-  assert.match(fuente('app/planes/Tarjetas.tsx'), /<a className="mkpl-garantia" href="\/reembolsos#grupal">Con garantía de entrega<\/a>/);
+  assert.ok(!t.includes('Con garantía de entrega'), 'volvió el link de la garantía a la tarjeta del Acelerador');
+  assert.doesNotMatch(fuente('app/planes/Tarjetas.tsx'), /className="mkpl-garantia"/, 'quedó el link de la garantía en la tarjeta');
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { default: Reembolsos } = await import('../app/reembolsos/page');
@@ -685,7 +694,17 @@ test('la barra dice cuánto sale sumar MaKo Tokens, arranca en «tu plan», y NO
   for (const vieja of ['tk-incluido', 'tk-valor', 'tk-lleno']) assert.ok(!html.includes(vieja), `volvió el bloque de 46 px (${vieja})`);
   assert.doesNotMatch(t, /Si te faltan/, 'volvió el «si te faltan, sumas más cuando quieras»');
   // LOS PRECIOS DE LAS COLUMNAS NO LOS MUEVE NADIE: no llevan marca para que un script los cambie.
-  assert.doesNotMatch(html, /data-tk-(precio|nota|mt|alcanza)/, 'una columna volvió a tener precio o tokens que la barra mueve');
+  // EL PRECIO DE LAS COLUMNAS NO LO MUEVE NADIE («la idea no es que el precio de abajo se modifique»)…
+  assert.doesNotMatch(html, /data-tk-(precio|nota)/, 'una columna volvió a tener un precio que la barra mueve');
+  // …PERO SUS MaKo TOKENS Y LO QUE ALCANZAN, SÍ («cuando voy ajustando la barra, cambie también la cantidad de cosas que me
+  // alcanzan y tokens abajo en los planes»): las dos columnas con cupo llevan las dos marcas.
+  for (const id of ['esencial', 'pro']) {
+    assert.ok(html.includes(`data-tk-mt="${id}"`) && html.includes(`data-tk-alcanza="${id}"`), `${id}: la barra no puede mover sus tokens`);
+  }
+  // Y lo de abajo de la barra está SIEMPRE, también en cero, y dice «extras al mes» («no pondría este mes, sino extras al mes»).
+  assert.match(t, /\+0 MaKo Tokens extras al mes/, 'la línea de abajo de la barra no está en el arranque');
+  assert.doesNotMatch(t, /MaKo Tokens este mes/, 'volvió el «este mes»');
+  assert.match(html, /class="tk-burbuja"[^>]*>\+US\$ 0\/mes</, 'la burbuja del precio no está en el arranque');
 
   // LOS PASOS: en dólares redondos, desde CERO DE MÁS (lo que trae tu plan) — nunca por debajo.
   const pasos = pasosDeLaBarra();
@@ -702,6 +721,20 @@ test('la barra dice cuánto sale sumar MaKo Tokens, arranca en «tu plan», y NO
   const rango = /<input[^>]*class="tk-rango"[^>]*>/.exec(html)?.[0] ?? '';
   assert.ok(rango.includes('min="0"') && rango.includes('value="0"'), `el deslizable no arranca en «tu plan»: ${rango}`);
 
+  // CADA PASO MUEVE LAS COLUMNAS: sus MaKo Tokens son los del plan MÁS los extra, y sus renglones salen de esa suma.
+  {
+    const { htmlAlcanza } = await import('../app/planes/CalculadoraTokens');
+    const conPlanes = pasosDeLaBarra([{ id: 'esencial', capa: 'completo' }, { id: 'pro', capa: 'agencia' }]);
+    for (const paso of conPlanes) {
+      for (const [id, cupo, video] of [['esencial', CUPO_MENSUAL.pro, false], ['pro', CUPO_MENSUAL.growth, true]] as const) {
+        const col = paso.columnas.find((x) => x.id === id)!;
+        assert.equal(col.mt, mil(cupo + paso.mt), `${id}, +US$${paso.usd}: los tokens de la columna no son los del plan más los extra`);
+        assert.equal(col.alcanza, htmlAlcanza(cupo + paso.mt, video), `${id}, +US$${paso.usd}: los renglones no salen de esa suma`);
+      }
+    }
+    const ultimoPro = conPlanes[conPlanes.length - 1].columnas.find((x) => x.id === 'pro')!;
+    assert.notEqual(ultimoPro.alcanza, conPlanes[0].columnas.find((x) => x.id === 'pro')!.alcanza, 'mover la barra no cambió lo que alcanza');
+  }
   // LO QUE ALCANZA CADA COLUMNA: los renglones de su primer ítem de «Incluye», con los números del cupo y de lo que cuesta cada cosa.
   for (const [capa, cupo, conVideo] of [['completo', CUPO_MENSUAL.pro, false], ['agencia', CUPO_MENSUAL.growth, true]] as const) {
     // El texto sin marcas deja un espacio donde termina la negrita («al mes , que»): se busca con espacio opcional.
@@ -734,4 +767,63 @@ test('la barra dice cuánto sale sumar MaKo Tokens, arranca en «tu plan», y NO
   const fuenteCalc = fuente('app/planes/CalculadoraTokens.tsx');
   assert.doesNotMatch(fuenteCalc, /tk-cta|tk-card|tk-lista/, 'la tarjeta de la calculadora se fue entera');
   assert.doesNotMatch(fuenteCalc, /<a /, 'la barra no tiene botón propio: el botón vive en la columna');
+});
+
+// =============================================================================
+// LA DIFERENCIA ENTRE EL DE US$47 Y EL DE US$97, LEÍDA DE UN VISTAZO (15/11/2026, a la noche)
+// =============================================================================
+// Martín: «para una persona que lo mira no entiende mucho la diferencia entre el de 47 y el de 97… en el de 47 hay un montón de
+// cosas que no se pueden hacer directamente, que en el de 97 sí»; y aprobó el copy con un bloque «No incluye» con ✗ ROJAS en
+// el de 47, en el MISMO orden que los primeros checks del de 97. Este test fija ese orden: cada ✗ tiene su ✓ enfrente.
+test('cada ✗ de Esencial queda frente a su ✓ de Pro, en el mismo orden, y la tabla marca ✓ verde y ✗ roja', async () => {
+  const { listaCorta, CEJA_NO_INCLUYE } = await import('../app/planes/Tarjetas');
+  const es = listaCorta('completo'), pro = listaCorta('agencia');
+  assert.ok(es.noIncluye && es.noIncluye.length >= 6, 'el de US$47 no dice lo que no hace');
+  // LOS RENGLONES DE LOS MaKo TOKENS, ALINEADOS ENTRE LAS DOS COLUMNAS (Martín, 15/11, a la noche: «que sigan como un mismo
+  // lineamiento… en el de 47, 0 clips de videos con IA o algo en rojo tipo tachado»), con «o» desde el segundo («me gustaba que
+  // antes decía o») y sin la nota del reparto («elimina el texto de los repartes como quieras»).
+  const { htmlAlcanza } = await import('../app/planes/CalculadoraTokens');
+  const { CUPO_MENSUAL } = await import('../lib/mako-tokens-reglas');
+  const { GENERACION_SE_VENDE } = await import('../lib/planes-comparacion');
+  const filasEs = htmlAlcanza(CUPO_MENSUAL.pro, false).split('</li>').filter(Boolean);
+  const filasPro = htmlAlcanza(CUPO_MENSUAL.growth, true).split('</li>').filter(Boolean);
+  if (GENERACION_SE_VENDE) {
+    assert.equal(filasEs.length, filasPro.length, 'las dos columnas no tienen los mismos renglones de MaKo Tokens');
+    assert.match(filasEs[0], /class="mkpl-alcanza-sin"><b>0<\/b> clips de video con IA/, 'el de US$47 no abre con «0 clips», tachado');
+    assert.match(filasPro[0], /<li><b>\d+<\/b> clips de video con IA/, 'el de US$97 no abre con sus clips');
+  }
+  for (const f of [...filasEs.slice(1), ...filasPro.slice(1)]) assert.match(f, /^<li>o <b>/, `un renglón sin «o»: ${f}`);
+  assert.equal([...filasEs, ...filasPro].filter((f) => f.includes('<b>0</b>')).length, GENERACION_SE_VENDE ? 1 : 0, 'un cero que no es el de los clips del de US$47');
+  const textoPlanes = await vitrina();
+  assert.doesNotMatch(textoPlanes, /Los repartes como quieras/, 'volvió la nota del reparto');
+  // Y el Acelerador sin «Con garantía de entrega» (Martín: «eso elimínalo»).
+  assert.doesNotMatch(textoPlanes, /Con garantía de entrega/, 'volvió «Con garantía de entrega» al Acelerador');
+  assert.equal(pro.noIncluye, undefined, 'el de US$97 no tiene «No incluye»');
+  // La misma cosa, con las palabras de cada lado. Si alguien reordena una de las dos listas, esto se pone rojo.
+  const PARES: Array<[RegExp, RegExp]> = [
+    [/videos con IA/i, /Videos con IA/],
+    [/página de venta de un competidor/i, /página de venta de cualquier competidor/i],
+    [/Edición automática/i, /Edición automática/i],
+    [/asistente con IA/i, /asistente con IA/i],
+    [/Piloto automático/i, /Piloto automático/i],
+    [/llamadas de venta/i, /llamada de venta/i],
+    [/referentes del marketing/i, /referentes del marketing/i],
+    [/Comunidad para tus alumnos/i, /Comunidad para tus alumnos/i],
+  ];
+  PARES.forEach(([deEs, dePro], i) => {
+    assert.match(es.noIncluye![i].texto, deEs, `la ✗ #${i + 1} de Esencial no es la que va ahí: «${es.noIncluye![i].texto}»`);
+    const p = pro.items[i];
+    assert.match(`${p.fuerte ?? ''}${p.texto}`, dePro, `el ✓ #${i + 1} de Pro no está frente a su ✗: «${p.fuerte ?? ''}${p.texto}»`);
+  });
+  // Lo dibuja la columna: el título y una ✗ por renglón, en rojo («evidentemente las X las pondría en rojo»).
+  const html = await vitrinaHtml();
+  assert.ok(html.includes(`>${CEJA_NO_INCLUYE}</p>`), 'la columna no dibuja «No incluye»');
+  assert.equal(html.split('<ul class="mkpl-lista mkpl-lista-no">').length - 1, 1, 'el «No incluye» va en una sola columna');
+  const css = fuente('app/planes/Tarjetas.tsx');
+  assert.match(css, /\.mkpl-lista\.mkpl-lista-no li::before \{ content: "✕";[^}]*color: #D92D20/, 'la ✗ de la columna no es roja');
+  // Y en la comparación de abajo: ✓ verde, ✗ roja («abajo también en la comparación las tildes las pondría en verde»).
+  const estilo = fuente('app/planes/estilo.ts');
+  assert.match(estilo, /\.planes-si \{[^}]*background: #16A34A/, 'la ✓ de la tabla no es verde');
+  assert.match(estilo, /\.planes-no \{[^}]*color: #D92D20/, 'la ✗ de la tabla no es roja');
+  assert.doesNotMatch(estilo, /td\[data-destacado\] \.planes-si \{ background: #2F6FED/, 'volvió la ✓ azul de la columna recomendada');
 });

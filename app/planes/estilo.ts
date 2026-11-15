@@ -128,8 +128,9 @@ body:has(.s-barra) .planes-compara-cab { top: 77px; }
 .planes-tabla td[data-destacado] { background: rgba(47,111,237,.06); }
 .planes-tabla tr { transition: background-color .15s ease; }
 .planes-tabla tbody tr:hover { background: #F6F8FC; }
-.planes-si { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #12151B; color: #fff; }
-.planes-tabla td[data-destacado] .planes-si { background: #2F6FED; }
+/* La ✓ VERDE y la ✗ ROJA (15/11/2026, Martín: «abajo también en la comparación las tildes las pondría en verde»). Era negra, y
+   azul en la columna recomendada: la columna ya se marca con su borde, y el verde dice «lo trae» igual en las tres. */
+.planes-si { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #16A34A; color: #fff; }
 .planes-grupo-d[open] .planes-si { animation: planes-tilde .38s cubic-bezier(.34,1.56,.64,1) both; animation-delay: calc(var(--i, 0) * 45ms + 80ms); }
 @keyframes planes-tilde { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @supports (animation-timeline: view()) {

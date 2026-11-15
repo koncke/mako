@@ -1,47 +1,46 @@
 // =============================================================================
-// La barra de MaKo Tokens de /planes: cuánto sale sumar más, arriba de las columnas (15/11/2026)
+// La barra de MaKo Tokens de /planes: cuánto sale sumar más, y cuánto le alcanza a cada plan (15/11/2026)
 // =============================================================================
 // Martín (14/11/2026): «estaría bueno como lo tienen otros en pricing, hacer como la calculadora en donde tú puedes arrastrar
 // para calcular la cantidad de tokens».
 //
-// LA CUARTA VUELTA DEL MISMO DÍA, y lo que quedó de cada una. Martín, 15/11/2026, a la noche, textual:
+// LAS VUELTAS DEL 15/11, y lo que quedó de cada una (Martín, textual):
 //   · «la idea no es que el precio de abajo se modifique, sino que la idea es que la barra deslizable diga el precio en
 //     dólares. Y de última que en otro lado se muestren los tokens que estarías comprando.»
-//     → LAS COLUMNAS NO SE TOCAN. La barra dice cuánto sale sumar, en dólares, y debajo, los tokens que se suman.
-//   · «no me gusta el diseño de esa barra deslizable. Me gustaba el que teníamos antes, el que habías hecho antes, que era
-//     como una barrita más simple, porque eso no se nota que es una barra.»
-//     → LA DE LA PRIMERA CALCULADORA (commit 9e16fc4b2, 14/11): un <input type=range> como se ve en cualquier página — riel
-//       fino, botón redondo, el azul de la casa — en vez de un bloque de 46 px con la cifra adentro.
-//   · «tampoco me gusta que empiecen cero, o sea, siempre tiene que empezar como en un punto, que es el punto donde ya te trae
-//     los tokens de tu propio plan, y menos de eso que no se pueda bajar por abajo de eso.»
-//     → LA BARRA ARRANCA CON UN TRAMO YA LLENO, «tu plan», y el botón empieza donde termina. El deslizable sólo cubre lo que
-//       se suma: no hay forma de llevarlo por debajo de lo que el plan ya trae.
-//   · «Tal vez incluso eliminaría el texto de calcula cuántos MaKo Tokens necesitas, pondría la barra directamente abajo de
-//     mensual o anual.» → sin título: la barra vive en las columnas, debajo del selector (TarjetasPlanes, `barra`).
+//     → EL PRECIO DE LAS COLUMNAS NO SE TOCA. La barra dice cuánto sale sumar («+US$ 40/mes»), y debajo, los tokens.
+//   · «cuando voy ajustando la barra, cambie también la cantidad de cosas que me alcanzan y tokens abajo en los planes.»
+//     → LOS MaKo TOKENS Y LO QUE ALCANZAN de cada columna sí se mueven: los del plan más los extra (`pasosDeLaBarra`).
+//   · «siempre tiene que empezar como en un punto, que es el punto donde ya te trae los tokens de tu propio plan, y menos de
+//     eso que no se pueda bajar» → un tramo ya lleno, «Tu plan», y el botón arranca donde termina.
+//   · «el texto que está al final, que no desaparezca cuando no puse nada… que diga más 0 MaKo Tokens… y no pondría este mes,
+//     sino extras al mes» → «+0 MaKo Tokens extras al mes», siempre a la vista.
+//   · «no me gusta que ahora la barra sea tan finita»; «lo haría más grueso… actualmente no se llega a entender muy bien de que
+//     esa barra sirve para aumentar los MaKo Tokens» → riel de 18 px, botón de 36, el precio siempre en la burbuja.
+//   · «eliminaría el texto de calcula cuántos MaKo Tokens necesitas, pondría la barra directamente abajo de mensual o anual»;
+//     «tampoco separaría tanto el mensual y anual de la barra» → sin título, pegada al selector (TarjetasPlanes, `barra`).
 //
 // LOS NÚMEROS NO SE ESCRIBEN ACÁ:
 //   · lo que se suma: la TARIFA (`MT_POR_DOLAR`, US$1 = 250 MT, lib/mako-tokens-paquetes.ts), con el mismo 75% del plan.
-//   · lo que cuesta cada cosa (para «te alcanza para» de cada columna): el clip y la imagen de las reglas de venta, y el resto
-//     del MEDIDOR (`mtReservaDeFeature`, lib/mako-tokens-costos.ts), que es lo que se descuenta del saldo.
+//   · lo que trae cada plan: `CUPO_MENSUAL` por la capa (`PLAN_DE_CAPA`, lib/mako-tokens-reglas.ts).
+//   · lo que cuesta cada cosa: el clip y la imagen de las reglas de venta, y el resto del MEDIDOR (`mtReservaDeFeature`,
+//     lib/mako-tokens-costos.ts), que es lo que se descuenta del saldo.
 //
-// Un script chico (`data-visor`) mueve la burbuja y la línea de abajo: anda sin React y también en el visor de las landings.
+// Un script chico (`data-visor`) mueve la burbuja, la línea de abajo y lo de cada columna: anda sin React y también en el
+// visor de las landings. Lo que escribe en las columnas lo arma `htmlAlcanza`, la MISMA función que usa el servidor para la
+// primera pantalla: no pueden decir cosas distintas.
 // =============================================================================
 
 import type { CSSProperties } from 'react';
 import { MT_POR_DOLAR, MT_POR_CLIP, GENERA_VIDEO } from '@/lib/mako-tokens-paquetes';
-import { PLAN_DE_CAPA, mtDeImagenes, type Plan } from '@/lib/mako-tokens-reglas';
+import { CUPO_MENSUAL, PLAN_DE_CAPA, mtDeImagenes, type Plan } from '@/lib/mako-tokens-reglas';
 import { mtReservaDeFeature } from '@/lib/mako-tokens-costos';
 import { GENERACION_SE_VENDE } from '@/lib/planes-comparacion';
 
 const mil = (n: number) => n.toLocaleString('es-AR');
 
 /**
- * LO QUE SE CUENTA EN CADA COLUMNA, en el orden en que se lee (15/11/2026).
- *
- * Martín: «también sería bueno de que ya se calcule el resto de cosas, como por ejemplo el análisis de los competidores, las
- * transcripciones o el resto de cosas que también puedan aparecer. Eso en cada una de las columnas». Y después: «no me gusta
- * que sea un texto largo… debería ser un diseño similar a lo que está abajo, lo de incluye. E incluso debería estar ahí en
- * unos ítems de incluye» → cada columna los dibuja como renglones debajo de su check de MaKo Tokens (Tarjetas.tsx).
+ * LO QUE SE CUENTA EN CADA COLUMNA, debajo de sus MaKo Tokens, en el orden en que se lee (15/11/2026, copy aprobado por
+ * Martín esa noche: «me gusta cómo está»).
  *
  * ⚠️ CADA COSTO SALE DE DONDE SE COBRA, no de acá. El clip (`MT_POR_CLIP`) y la imagen (`mtDeImagenes`) son las reglas de
  * venta; el resto es el costo MEDIDO del medidor (`mtReservaDeFeature`). El `feature` es el del medidor: uno mal escrito cae
@@ -49,6 +48,7 @@ const mil = (n: number) => n.toLocaleString('es-AR');
  *
  * `generacion`: el clip y la imagen son GENERACIÓN, y sólo se cuentan si se vende (`GENERACION_SE_VENDE`). `video`: el clip
  * sólo se cuenta en un plan que genera video (`GENERA_VIDEO`): el de US$47 no lo trae.
+ * Las palabras son las de la persona: «páginas de venta», no «landings» (Martín: «no con lenguaje nuestro»).
  */
 export type CosaQueAlcanza = {
   readonly clave: string;
@@ -65,12 +65,14 @@ const DEL_MEDIDOR = (clave: string, feature: string, uno: string, varios: string
   ({ clave, feature, uno, varios, mt: mtReservaDeFeature(feature) });
 
 export const LO_QUE_ALCANZA: readonly CosaQueAlcanza[] = [
-  { clave: 'clip', uno: 'clip de video', varios: 'clips de video', mt: MT_POR_CLIP, generacion: true, video: true },
-  { clave: 'imagen', uno: 'imagen', varios: 'imágenes', mt: mtDeImagenes(1), generacion: true },
+  { clave: 'clip', uno: 'clip de video con IA', varios: 'clips de video con IA', mt: MT_POR_CLIP, generacion: true, video: true },
+  { clave: 'imagen', uno: 'imagen con IA', varios: 'imágenes con IA', mt: mtDeImagenes(1), generacion: true },
   DEL_MEDIDOR('competidor', 'spy', 'análisis de un competidor', 'análisis de competidores'),
-  DEL_MEDIDOR('llamada', 'Llamada grabada · transcribir', 'llamada transcripta', 'llamadas transcriptas'),
-  DEL_MEDIDOR('guion', 'reels-writer', 'guion de reel', 'guiones de reels'),
-  DEL_MEDIDOR('landing', 'landing-writer', 'landing escrita con IA', 'landings escritas con IA'),
+  // ⚠️ SIN «GUIONES DE REELS» (15/11/2026, a la noche). Martín: «lo que no queda claro es guiones con IA. Creo que quisiste
+  // poner transcripciones con IA». La transcripción se cuenta por una llamada de venta (~30 min de audio: el costo del
+  // medidor), así que un reel o un anuncio, que son más cortos, cuestan menos: la cifra es un piso, no una promesa de más.
+  DEL_MEDIDOR('transcripcion', 'Llamada grabada · transcribir', 'transcripción con IA', 'transcripciones con IA'),
+  DEL_MEDIDOR('pagina', 'landing-writer', 'página de venta escrita con IA', 'páginas de venta escritas con IA'),
 ];
 
 /**
@@ -84,10 +86,7 @@ export function redondoParaLeer(n: number): number {
   return Math.floor(n);
 }
 
-/**
- * Para cuánto alcanzan `mt` MaKo Tokens en un plan que genera video (o no). Sin ceros: lo que no alcanza ni para uno, no va.
- * Son ALTERNATIVAS de una sola bolsa (Martín: «te alcanza para todo esto, punto. Después que él decida cómo lo reparte»).
- */
+/** Para cuánto alcanzan `mt` MaKo Tokens en un plan que genera video (o no). Sin ceros: lo que no alcanza ni para uno, no va. */
 export function alcanzaPara(mt: number, conVideo: boolean): Array<{ clave: string; n: number; que: string }> {
   return LO_QUE_ALCANZA
     .filter((c) => (!c.generacion || GENERACION_SE_VENDE) && (!c.video || conVideo))
@@ -96,6 +95,28 @@ export function alcanzaPara(mt: number, conVideo: boolean): Array<{ clave: strin
       return { clave: c.clave, n, que: n === 1 ? c.uno : c.varios };
     })
     .filter((x) => x.n > 0);
+}
+
+/**
+ * LOS RENGLONES DE LA COLUMNA, en HTML. La usan el servidor (la primera pantalla) y la barra (cada paso). Los textos son
+ * nuestros, no del usuario: no hay nada que escapar.
+ *
+ * Martín, 15/11/2026, a la noche, mirándolos:
+ *   · «me gustaba que antes decía o, es decir, 2.200 imágenes o 3.000 o tanto» → cada renglón, desde el segundo, con «o»:
+ *     son los extremos de UNA bolsa, no cajones que se suman.
+ *   · «elimina el texto de los repartes como quieras. Eso no es necesario» → sin nota al final; la «o» ya lo dice.
+ *   · «intentaría que más o menos sigan como un mismo lineamiento… puedes en el de 47, 0 clips de videos con IA o algo en rojo
+ *     tipo tachado» → el plan que NO genera video abre con «0 clips de video con IA», tachado y en rojo: así las dos columnas
+ *     tienen los mismos renglones en el mismo orden, y la diferencia se ve en la misma línea. Es el ÚNICO cero que se dibuja.
+ */
+export function htmlAlcanza(mt: number, conVideo: boolean): string {
+  const items = alcanzaPara(mt, conVideo);
+  if (!items.length) return '';
+  const clip = LO_QUE_ALCANZA.find((c) => c.clave === 'clip');
+  // El renglón tachado va PRIMERO y ocupa el lugar de los clips: desde ahí, todos los demás llevan «o».
+  const tachado = GENERACION_SE_VENDE && !conVideo && clip ? `<li class="mkpl-alcanza-sin"><b>0</b> ${clip.varios}</li>` : '';
+  const filas = items.map((x, i) => `<li>${i || tachado ? 'o ' : ''}<b>${mil(x.n)}</b> ${x.que}</li>`);
+  return tachado + filas.join('');
 }
 
 /** ¿El plan de esa capa genera video? Sin capa con cupo, no. */
@@ -119,68 +140,104 @@ export function usdDeLaDiferencia(faltan: number): number {
  */
 export const PASOS_USD: readonly number[] = [0, 10, 20, 40, 60, 80, 100, 120, 160, 200];
 
-export type PasoTokens = { usd: number; mt: number };
+/** Un plan, como lo necesita la barra: con qué id lo encuentra el script en su columna y de qué capa es. */
+export type PlanBarra = { id: string; capa: string };
 
-export function pasosDeLaBarra(): PasoTokens[] {
-  return PASOS_USD.map((usd) => ({ usd, mt: usd * MT_POR_DOLAR }));
+/** Una columna en un paso: sus MaKo Tokens (los del plan más los extra) y sus renglones de «alcanza». */
+export type ColumnaEnPaso = { id: string; mt: string; alcanza: string };
+
+export type PasoTokens = { usd: number; mt: number; columnas: ColumnaEnPaso[] };
+
+/**
+ * Los pasos de la barra para estos planes. Cada paso suma los MISMOS MaKo Tokens extra a todas las columnas; cada columna
+ * los suma a los de su plan. El precio de la columna no está acá a propósito: no lo mueve nadie.
+ */
+export function pasosDeLaBarra(planes: readonly PlanBarra[] = []): PasoTokens[] {
+  const conCupo = planes
+    .map((p) => ({ id: p.id, plan: PLAN_DE_CAPA[p.capa] }))
+    .filter((x): x is { id: string; plan: Plan } => x.plan != null);
+  return PASOS_USD.map((usd) => {
+    const extra = usd * MT_POR_DOLAR;
+    return {
+      usd,
+      mt: extra,
+      columnas: conCupo.map(({ id, plan }) => {
+        const total = CUPO_MENSUAL[plan] + extra;
+        return { id, mt: mil(total), alcanza: htmlAlcanza(total, GENERA_VIDEO[plan]) };
+      }),
+    };
+  });
 }
+
+/** La marca de la cifra de MaKo Tokens de una columna, para que la barra la mueva. */
+export const ATRIBUTO_MT = 'data-tk-mt';
+/** La marca de la lista de «alcanza» de una columna. */
+export const ATRIBUTO_ALCANZA = 'data-tk-alcanza';
+
+/** El texto de la burbuja: el precio de lo que se suma, por mes. */
+export const textoBurbuja = (usd: number): string => `+US$ ${mil(usd)}/mes`;
 
 /** El tramo de la izquierda que ya viene lleno: lo que trae tu plan. Desde ahí arranca el botón. */
 const TRAMO_PLAN = 12;
 
 /**
- * La barra: el deslizable de la PRIMERA calculadora (un range con el azul de la casa, riel fino y botón redondo) con un tramo
- * fijo a la izquierda, «tu plan». El precio va en una burbuja sobre el botón; los tokens que se suman, debajo.
+ * La barra: un riel GRUESO con un botón redondo grande (Martín: «lo haría más grueso… no se llega a entender que esa barra
+ * sirve para aumentar los MaKo Tokens»), un tramo fijo a la izquierda que es «tu plan», el precio SIEMPRE en una burbuja
+ * sobre el botón, y debajo, siempre, los tokens extra. Pegada al selector mensual / anual.
  * `data-tema-fijo`: el sol y la luna del sitio decide color por color, y la burbuja y el riel son un juego.
  */
 export const CSS_TOKENS = `
-.tk{margin:6px 0 30px;padding-top:34px}
-.tk-pista{position:relative;height:32px}
-.tk-riel{position:absolute;left:0;right:0;top:50%;height:12px;margin-top:-6px;border-radius:6px;background:#E4E8EF}
-.tk-relleno{position:absolute;left:0;top:50%;height:12px;margin-top:-6px;border-radius:6px;background:#2F6FED;width:calc(${TRAMO_PLAN}% + (100% - ${TRAMO_PLAN}%) * var(--tk-pct,0) / 100)}
+.tk{margin:0 0 30px;padding-top:46px}
+.tk-pista{position:relative;height:36px}
+.tk-riel{position:absolute;left:0;right:0;top:50%;height:18px;margin-top:-9px;border-radius:9px;background:#E4E8EF}
+.tk-relleno{position:absolute;left:0;top:50%;height:18px;margin-top:-9px;border-radius:9px;background:#2F6FED;width:calc(${TRAMO_PLAN}% + (100% - ${TRAMO_PLAN}%) * var(--tk-pct,0) / 100)}
 .tk-zona{position:absolute;top:0;bottom:0;left:${TRAMO_PLAN}%;right:0}
-.tk-rango{-webkit-appearance:none;appearance:none;position:absolute;left:-14px;right:-14px;top:0;width:calc(100% + 28px);height:32px;margin:0;background:transparent;cursor:grab}
+.tk-rango{-webkit-appearance:none;appearance:none;position:absolute;left:-18px;right:-18px;top:0;width:calc(100% + 36px);height:36px;margin:0;background:transparent;cursor:grab}
 .tk-rango:active{cursor:grabbing}
-.tk-rango::-webkit-slider-runnable-track{height:32px;background:transparent}
-.tk-rango::-moz-range-track{height:32px;background:transparent}
-.tk-rango::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;margin-top:2px;border-radius:50%;background:#fff;border:3px solid #2F6FED;box-shadow:0 2px 6px rgba(18,21,27,.3)}
-.tk-rango::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid #2F6FED;box-shadow:0 2px 6px rgba(18,21,27,.3)}
+.tk-rango::-webkit-slider-runnable-track{height:36px;background:transparent}
+.tk-rango::-moz-range-track{height:36px;background:transparent}
+.tk-rango::-webkit-slider-thumb{-webkit-appearance:none;width:36px;height:36px;border-radius:50%;background:#fff;border:4px solid #2F6FED;box-shadow:0 2px 8px rgba(18,21,27,.3)}
+.tk-rango::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:#fff;border:4px solid #2F6FED;box-shadow:0 2px 8px rgba(18,21,27,.3)}
 .tk-rango:focus-visible{outline:none}
-.tk-rango:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px rgba(47,111,237,.3)}
-.tk-burbuja{position:absolute;bottom:calc(100% + 6px);left:calc(var(--tk-pct,0) * 1%);transform:translateX(-50%);padding:5px 10px;border-radius:8px;background:#12151B;color:#fff;font-size:14px;font-weight:700;white-space:nowrap;pointer-events:none}
-.tk-burbuja::after{content:"";position:absolute;left:50%;top:100%;margin-left:-5px;border:5px solid transparent;border-top-color:#12151B}
-.tk-suma{margin:10px 0 0;min-height:21px;text-align:right;font-size:14.5px;color:#4A5260}
-.tk-suma b{color:#12151B;font-weight:800}
-.tk-plan{position:absolute;left:0;top:100%;margin-top:6px;font-size:13px;color:#7A8291;white-space:nowrap}
-/* MÁS GRUESA (15/11/2026, a la noche): riel de 12 px y botón de 28. Martín, de la de 6 px: «tampoco me gusta que ahora la barra
-   deslizable sea tan finita, casi que ni se nota». Sigue siendo la barra simple de riel y botón; sólo se ve. */
+.tk-rango:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 5px rgba(47,111,237,.3)}
+.tk-burbuja{position:absolute;bottom:calc(100% + 8px);left:calc(var(--tk-pct,0) * 1%);transform:translateX(-50%);padding:6px 11px;border-radius:9px;background:#12151B;color:#fff;font-size:15px;font-weight:800;white-space:nowrap;pointer-events:none}
+.tk-burbuja::after{content:"";position:absolute;left:50%;top:100%;margin-left:-6px;border:6px solid transparent;border-top-color:#12151B}
+.tk-pie{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:10px}
+.tk-plan{font-size:13.5px;font-weight:600;color:#7A8291;white-space:nowrap}
+.tk-extra{font-size:15.5px;color:#4A5260;text-align:right}
+.tk-extra b{color:#12151B;font-weight:800}
+@media (max-width:600px){
+  .tk-extra{font-size:14px}
+}
 `;
 
 /**
  * La barra, para ir DEBAJO del selector mensual / anual (TarjetasPlanes la recibe por `barra`). Arranca en «tu plan»: el
- * botón en el primer paso, que es cero dólares de más.
+ * botón en el primer paso, cero dólares de más.
  */
-export function CalculadoraTokens() {
-  const pasos = pasosDeLaBarra();
+export function CalculadoraTokens({ planes = [] }: { planes?: readonly PlanBarra[] }) {
+  const pasos = pasosDeLaBarra(planes);
   const ultimo = pasos.length - 1;
-  const script = `(function(){var P=${JSON.stringify(pasos)};var c=document.querySelector('[data-tk]');if(!c)return;var r=c.querySelector('.tk-rango'),b=c.querySelector('.tk-burbuja'),s=c.querySelector('.tk-suma');function m(n){return n.toLocaleString('es-AR');}function pon(){var i=Number(r.value),p=P[i]||P[0];c.style.setProperty('--tk-pct',String(${ultimo} ? i*100/${ultimo} : 0));b.textContent='+US$ '+m(p.usd);b.hidden=!p.usd;s.innerHTML=p.usd?'<b>+'+m(p.mt)+'</b> MaKo Tokens este mes':'';r.setAttribute('aria-valuetext',p.usd?'Sumas '+m(p.mt)+' MaKo Tokens por US$ '+m(p.usd):'Lo que trae tu plan');}r.addEventListener('input',pon);pon();})();`;
+  const script = `(function(){var P=${JSON.stringify(pasos)};var c=document.querySelector('[data-tk]');if(!c)return;var r=c.querySelector('.tk-rango'),b=c.querySelector('.tk-burbuja'),x=c.querySelector('.tk-extra');function m(n){return n.toLocaleString('es-AR');}function q(a,id){return document.querySelectorAll('['+a+'="'+id+'"]');}function pon(){var i=Number(r.value),p=P[i]||P[0];c.style.setProperty('--tk-pct',String(${ultimo} ? i*100/${ultimo} : 0));b.textContent='+US$ '+m(p.usd)+'/mes';x.innerHTML='<b>+'+m(p.mt)+'</b> MaKo Tokens extras al mes';p.columnas.forEach(function(k){q('${ATRIBUTO_MT}',k.id).forEach(function(n){n.textContent=k.mt;});q('${ATRIBUTO_ALCANZA}',k.id).forEach(function(n){n.innerHTML=k.alcanza;});});r.setAttribute('aria-valuetext','Sumas '+m(p.mt)+' MaKo Tokens extras al mes por US$ '+m(p.usd));}r.addEventListener('input',pon);pon();})();`;
   return (
-    <section className="tk" aria-label="Sumar MaKo Tokens" data-tk="" data-tema-fijo="" style={{ '--tk-pct': '0' } as CSSProperties}>
+    <section className="tk" aria-label="Sumar MaKo Tokens extras al mes" data-tk="" data-tema-fijo="" style={{ '--tk-pct': '0' } as CSSProperties}>
       <div className="tk-pista">
         <span className="tk-riel" aria-hidden="true" />
         <span className="tk-relleno" aria-hidden="true" />
-        <span className="tk-plan" aria-hidden="true">Tu plan</span>
         <div className="tk-zona">
-          {/* La burbuja dice el PRECIO de lo que se suma, y en el arranque no se muestra: ahí no se suma nada, y Martín no quiere
-              ver un cero («no me gusta que empiecen cero»). Lo que dice el arranque lo dice «Tu plan», debajo del tramo lleno. */}
-          <span className="tk-burbuja" aria-hidden="true" hidden>+US$ 0</span>
+          {/* El precio de lo que se suma, siempre a la vista: también en cero, para que se entienda desde el arranque que la
+              barra es para sumar (Martín: «no se llega a entender muy bien de que esa barra sirve para aumentar los MaKo Tokens»). */}
+          <span className="tk-burbuja" aria-hidden="true">{textoBurbuja(0)}</span>
           <input
             className="tk-rango" type="range" min={0} max={ultimo} step={1} defaultValue={0}
-            aria-label="Cuántos MaKo Tokens sumas este mes" aria-valuetext="Lo que trae tu plan"
+            aria-label="MaKo Tokens extras al mes" aria-valuetext="Sumas 0 MaKo Tokens extras al mes por US$ 0"
           />
         </div>
       </div>
-      <p className="tk-suma" aria-live="polite" />
+      <div className="tk-pie">
+        <span className="tk-plan" aria-hidden="true">Tu plan</span>
+        <span className="tk-extra" aria-live="polite"><b>+0</b> MaKo Tokens extras al mes</span>
+      </div>
       <script data-visor="" dangerouslySetInnerHTML={{ __html: script }} />
     </section>
   );
