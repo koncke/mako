@@ -110,6 +110,8 @@ import { avisarOfertaLista } from '@/lib/oferta-lista-server';
 import { crearNotificacion } from '@/lib/notificaciones';
 import { FEATURE_OFFER, diagnosticoOffer, lecturaDeParte, pedirResumenDeOffer, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
 import { contextoDeReferente } from '@/lib/asesores/contexto';
+// El candado de los referentes (14/11/2026): aconsejar con la ficha de un gurú es de MaKo Pro, también desde Offer.
+import { candadoDeReferentesDe } from '@/lib/asesores/candado';
 import { leerReferente } from '@/lib/funnel-plan-db';
 import {
   ConflictoCAS, ErrorOffer, TITULO_DEFAULT, actualizarSesion, arbolOffer, audiosDe, borrarSesion, crearSesion, guardarComoOferta,
@@ -934,6 +936,14 @@ async function reintentarTurno(body: Record<string, unknown>, inicio: number): P
 async function referenteDelOfferCoach(mensajes: MensajeGuardado[]): Promise<string> {
   const id = await leerReferente();
   if (!id) return '';
+  // ⛔ SÓLO MaKo Pro EL REFERENTE, NO LA TAB OFFER (14/11/2026, lib/asesores/candado.ts, `FUNCIONES_SOLO_PRO` → 'chat-referentes').
+  // Cada conversación de Offer corría con la MISMA ficha que el chat del gurú (`contextoDeReferente`, 5.200 caracteres en cada
+  // mensaje) y con los tramos de su curso: el Esencial seguía hablando con el referente, sólo que por esta pantalla. Sin él, Offer
+  // queda entera —se vende en los tres planes— y MaKo aconseja con su criterio.
+  // ⚠️ SIN WS NO HAY CANDADO, igual que adentro del candado (lib/plan-esencial.ts: «ante la duda, se deja pasar»): sacarle el
+  //    referente a quien paga Pro por un bache de la base es peor que dejárselo un rato a un Esencial.
+  const ws = await getWorkspaceActual().catch(() => null);
+  if (ws != null && (await candadoDeReferentesDe(ws))) return '';
   // Import dinámico: el grafo y su catálogo no tienen por qué entrar en el camino del onboarding.
   const { cursoDelReferente, PRESUPUESTO_CURSO_OFFER } = await import('@/lib/cerebro-para-chat');
   const ultimo = [...mensajes].reverse().find((m) => m.de === 'yo')?.texto ?? '';

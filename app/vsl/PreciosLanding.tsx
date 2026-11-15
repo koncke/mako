@@ -73,7 +73,12 @@ export function PreciosLanding({ planes, sufijo }: { planes: readonly PlanEnLand
       <h2 className="mk-precios-titulo">Elige cómo quieres crecer con MaKo</h2>
       <p className="mk-precios-sub">Por tu cuenta, con MaKo, o con nosotros a tu lado. {bajadaDePlanes(planes.some((p) => p.cobrable))}</p>
       <TarjetasPlanes promoVigente={promoVigente} planes={planes} sufijo={sufijo} />
-      <CompararPlanes planes={planes} />
+      {/* EL SUFIJO TAMBIÉN A LA TABLA (14/11/2026). Iba sin él y caía en el default `sufijo = ''` de `CompararPlanes`
+          (app/planes/Vitrina.tsx): en la landing, los botones de «Compara los planes» perdían el origen de la campaña y el
+          `?ref=` del partner, mientras las tarjetas de arriba y el link del pie sí los pasaban. Dos botones para el mismo
+          plan, en la misma pantalla, uno con atribución y el otro sin ella — y la comisión del partner sale de ahí.
+          En /planes la tabla ya lo recibía (Vitrina.tsx, `<CompararPlanes planes={planes} sufijo={sufijo} />`). */}
+      <CompararPlanes planes={planes} sufijo={sufijo} />
       <p className="mk-precios-pie"><a href={`/planes${sufijo}`}>Ver los planes y las preguntas frecuentes</a></p>
     </div>
   );

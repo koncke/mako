@@ -10,7 +10,8 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
-import { PRUEBA_DIAS } from '@/lib/planes-mako';
+import { MESES_GRATIS_ANUAL, PRUEBA_DIAS } from '@/lib/planes-mako';
+import { listaCorta } from '../Tarjetas';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { CSS_PLANES } from '../estilo';
 
@@ -33,6 +34,49 @@ export type Resumen = {
   totales?: Array<{ concepto: string; monto: string; tipo?: 'descuento' | 'total' }>;
   nota?: string;
 };
+
+/**
+ * LO QUE EL CHECKOUT DICE QUE INCLUYE: LA MISMA LISTA QUE LA COLUMNA (14/11/2026). La fuente de verdad es `listaCorta`
+ * (app/planes/Tarjetas.tsx), lo que la columna de /planes DIBUJA; acá sólo se aplana, porque el resumen del checkout tiene una
+ * sola lista de ✓ y la columna reparte lo mismo en tres partes (los MaKo Tokens, los topes y los checks).
+ *
+ * ⚠️ POR QUÉ. Martín, 14/11/2026, textual: «no es la idea de que diga todo lo de Essential más tal, todo lo de MaKo Pro más… la
+ *    idea es que cada uno se sienta único». Hasta hoy el checkout tenía su propia lista y el ANUAL leía una tercera
+ *    (`PLANES_MAKO_DEFAULT[].incluye`, que todavía dice «Todo lo de Esencial, sin tope de leads, landings ni automatizaciones»):
+ *    el visitante leía la columna nueva, tocaba «Anual» y le aparecía otra verdad del mismo plan, con la fórmula que Martín
+ *    mandó sacar. Dos listas para un plan son dos promesas, y la que se cumple es una sola.
+ * ⚠️ DEPENDE DE LA CAPA, NO DEL id, igual que la columna (§1.5 de docs/relevo/planes-que-incluye-cada-columna.md): un plan nuevo
+ *    del setting `planes.mako` con capa `agencia` dice lo de Pro sin tocar código, y ningún id nuevo cae en una lista vieja.
+ * ⚠️ Y NO SE ESCRIBE NADA ACÁ: si hay que cambiar un renglón, se cambia en `listaCorta` y lo dicen las dos pantallas. Escribirlo
+ *    acá es volver a tener dos verdades.
+ */
+export function incluyeDeLaColumna(capa: string): readonly string[] {
+  const l = listaCorta(capa);
+  // El orden de la columna: los MaKo Tokens, los topes y después las funciones. Sin cupo decidido para esa capa, la columna no
+  // habla de tokens y el checkout tampoco (nunca un número inventado). La ceja («MaKo lo hace, tú apruebas») NO entra: es el
+  // título de la lista, y con un ✓ adelante se leería como una función más.
+  return [...(l.tokens ? [l.tokens] : []), ...l.topes, ...l.items.map((x) => `${x.fuerte ?? ''}${x.texto}`)];
+}
+
+/**
+ * EL RESUMEN DEL ANUAL (14/11/2026). El anual NUNCA pasa por la pasarela (el checkout cobra por mes): se pide y se da de alta a
+ * mano, así que no lleva totales ni fecha del primer cobro — sólo el precio por año y los dos meses gratis.
+ *
+ * ⚠️ VIVE ACÁ Y NO EN LA PÁGINA, por lo mismo que `resumenDelPlan`: lo que el checkout DICE se decide en un solo lugar y se
+ *    puede dibujar solo para mirarlo. Armado a mano adentro de page.tsx, se quedó con la lista vieja hasta hoy y ningún test
+ *    podía renderizarlo sin levantar media app (tests/checkout-misma-lista-que-la-columna.test.ts).
+ */
+export function resumenDelAnual(p: { nombre: string; capa: string; precioAnualUsd: number }): Resumen {
+  return {
+    etiqueta: `Pedir ${p.nombre}, anual`,
+    nombre: `${p.nombre}, anual`,
+    precio: `US$ ${p.precioAnualUsd.toLocaleString('es-AR')}`,
+    periodo: 'por año',
+    otros: [`${MESES_GRATIS_ANUAL} meses gratis frente al pago mensual`],
+    detalle: 'Un pago por año',
+    incluye: incluyeDeLaColumna(p.capa),
+  };
+}
 
 /**
  * El resumen del plan que se paga: el precio de la primera pasarela que se ofrece (la de su país) y, si hay otra, cuánto es con

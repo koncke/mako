@@ -25,6 +25,18 @@
 //
 // Lo que genera es el Video Generator (./generar.ts). Un avatar = un escenario
 // confirmado de su historial (../../avatar/avatares.ts).
+//
+// SÓLO MaKo Pro (14/11/2026, app/ai-avatar/acceso.ts). Martín, sobre /planes: «el de
+// 97 ya podés generar avatares de IA… el de 47 debería estar bien limitado y
+// restrictivo». A un Esencial, el CANDADO en lugar de los dos botones que llevan a
+// generar («Siguiente» y «Generar»), con el molde de las otras cuatro vistas de este
+// árbol (broll-view.tsx, PanelChat.tsx, clips-view.tsx y enjambre-view.tsx):
+// `useSoloPro` + <CandadoSoloPro>. Su biblioteca de avatares se sigue viendo: lo que
+// no puede es filmar otro.
+// ⚠️ ESTO NO DEFIENDE NADA, es para que no toque un botón que falla. La defensa es
+//    `crearAvatarAction` (../../avatar/actions.ts), que es lo que de verdad frena. Y
+//    `useSoloPro` es false mientras no se sabe: ante la duda se dibuja abierto, y si
+//    el server rechaza, `marcarSoloPro` prende el candado (./generar.ts).
 
 import { useEffect, useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -32,6 +44,8 @@ import { ArrowUp01Icon, UserAdd01Icon, UserSquareIcon } from "@hugeicons/core-fr
 import { toast } from "sonner";
 import { useWs } from "@/app/_ui/Link";
 import { conWs } from "@/lib/ws-tab";
+import { useSoloPro } from "@/app/_components/solo-pro";
+import { CandadoSoloPro } from "@/app/_components/CandadoSoloPro";
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
 import { Spinner } from "@/app/video-editor/_opencut/components/ui/spinner";
 import { Textarea } from "@/app/video-editor/_opencut/components/ui/textarea";
@@ -148,6 +162,8 @@ export function AvatarIAView() {
 	const { setPaso, setAvatar, setGuion } = useAvatarIA.getState();
 	const [carga, setCarga] = useState<Carga>({ fase: "cargando" });
 	const [abierto, setAbierto] = useState(true);
+	// El candado de MaKo Pro (arriba): la biblioteca se ve igual; lo que se reemplaza son los botones que generan.
+	const soloPro = useSoloPro("ai-avatar");
 
 	useEffect(() => {
 		let vivo = true;
@@ -208,16 +224,21 @@ export function AvatarIAView() {
 						)
 					)}
 
+					{/* El candado va DONDE ESTABA «Generar» (el molde de clips-view.tsx): el guion escrito queda a la vista. */}
+					{soloPro && <CandadoSoloPro funcion="ai-avatar" />}
+
 					<div className="flex justify-end gap-2">
 						<Button variant="secondary" disabled={ocupado} onClick={() => setPaso("elegir")}>
 							Anterior
 						</Button>
-						<Button
-							disabled={ocupado || !guion.trim()}
-							onClick={() => void generarAvatar(editor)}
-						>
-							Generar
-						</Button>
+						{!soloPro && (
+							<Button
+								disabled={ocupado || !guion.trim()}
+								onClick={() => void generarAvatar(editor)}
+							>
+								Generar
+							</Button>
+						)}
 					</div>
 				</div>
 			</ContenidoBiblioteca>
@@ -272,19 +293,26 @@ export function AvatarIAView() {
 					</>
 				)}
 
-				<div className="mt-auto flex justify-end pt-2">
-					<Button
-						onClick={() => {
-							if (!avatarId) {
-								toast.error("Selecciona un avatar de IA primero");
-								return;
-							}
-							setPaso("voz");
-						}}
-					>
-						Siguiente
-					</Button>
-				</div>
+				{/* Sus avatares se ven igual (arriba); el candado reemplaza «Siguiente», para no hacerle escribir un guion que no se va a filmar. */}
+				{soloPro ? (
+					<div className="mt-auto pt-2">
+						<CandadoSoloPro funcion="ai-avatar" />
+					</div>
+				) : (
+					<div className="mt-auto flex justify-end pt-2">
+						<Button
+							onClick={() => {
+								if (!avatarId) {
+									toast.error("Selecciona un avatar de IA primero");
+									return;
+								}
+								setPaso("voz");
+							}}
+						>
+							Siguiente
+						</Button>
+					</div>
+				)}
 			</div>
 		</ContenidoBiblioteca>
 	);

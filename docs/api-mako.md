@@ -6035,7 +6035,7 @@ curl -L \
 
 ### `POST /api/v1/ads/media-buyer/decisiones/{decisionId}/hooks-video` — Hooks del Media Buyer al video
 
-PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». AI Avatar los ofrece también («Hooks ganadores»), para filmarlos con el avatar del negocio. No publica nada en Meta.
+PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». No publica nada en Meta.
 
 - **Ruta por operación:** `POST /api/v1/ads/hooks_al_video_media_buyer`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
@@ -6659,7 +6659,7 @@ PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexi�
 | `anuncioId` | string | no | creativoTipo anuncio: el id del anuncio de la cuenta cuyo creativo se reusa (de listar_anuncios_meta). |
 | `archivoPath` | string | no | creativoTipo archivo: el path del staging (nueva/…) de preparar_subida_media_buyer. Se borra a las 6 horas si no se publica. |
 | `archivoMedia` | string (imagen \\| video) | no | creativoTipo archivo: imagen o video. |
-| `creativoRef` | string | no | creativoTipo generado: la ref de un video de MaKo (de `generados` en preparar_subida_media_buyer: AI Avatar, Video Generator). |
+| `creativoRef` | string | no | creativoTipo generado: la ref de un video que MaKo ya generó en este negocio (de `generados` en preparar_subida_media_buyer). |
 | `texto` | string | no | el texto principal del anuncio (obligatorio salvo al reusar un anuncio). |
 | `titulo` | string | no | el título del anuncio. |
 | `boton` | string (LEARN_MORE \\| SIGN_UP \\| APPLY_NOW \\| BOOK_NOW \\| CONTACT_US \\| GET_QUOTE \\| SUBSCRIBE \\| SHOP_NOW \\| WHATSAPP_MESSAGE) | no | el botón del anuncio. |
@@ -6678,7 +6678,7 @@ curl -L \
 
 ### `GET /api/v1/ads/media-buyer/subidas` — Preparar la subida de creativos nuevos
 
-El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. También los videos que MaKo ya generó (`generados`: AI Avatar y Video Generator), que se suben por su `ref`, sin PUT. Después: subir_creativos_media_buyer con los path (o las ref) que devuelve.
+El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. También los videos que MaKo ya generó en este negocio (`generados`), que se suben por su `ref`, sin PUT: de cada uno vienen su título, su fecha y si es un anuncio montado o una toma. Después: subir_creativos_media_buyer con los path (o las ref) que devuelve.
 
 - **Ruta por operación:** `GET /api/v1/ads/preparar_subida_media_buyer`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
@@ -14250,7 +14250,7 @@ curl -L \
 
 ### `GET /api/v1/negocio/plan/prueba` — Prueba gratis del negocio
 
-Si este negocio está en su prueba gratis de 7 días de MaKo: cuántos días le quedan, el día del primer cobro, qué plan y cuánto se cobra al terminar, y cuánto usó de cada tope de la prueba (videos armados, tomas, videos con avatar de IA, imágenes, páginas publicadas); exportar en masa se habilita con el primer cobro. Fuera de la prueba: `en_prueba: false`. Es lo que muestra el cartel «Versión de prueba». Para empezar el plan antes: empezar_mi_plan_ya; para cancelarla sin cobro: dar_de_baja_mi_plan.
+Si este negocio está en su prueba gratis de 7 días de MaKo: cuántos días le quedan, el día del primer cobro, qué plan y cuánto se cobra al terminar, y cuánto usó de cada tope de la prueba, en `usos` (videos armados, tomas, imágenes, páginas publicadas); exportar en masa se habilita con el primer cobro. ⚠️ Los topes de este negocio son LOS QUE VENGAN EN `usos` y sólo ésos: lo que su plan le cierra no llega ahí, así que no lo nombres ni se lo prometas. Fuera de la prueba: `en_prueba: false`. Es lo que muestra el cartel «Versión de prueba». Para empezar el plan antes: empezar_mi_plan_ya; para cancelarla sin cobro: dar_de_baja_mi_plan.
 
 - **Ruta por operación:** `GET /api/v1/negocio/ver_mi_prueba`
 - **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
@@ -16589,7 +16589,7 @@ curl -L \
 
 ### `GET /api/v1/video/avatares` — Avatares y looks de AI Avatar
 
-Los looks que el cliente creó en la tab AI Avatar (su foto en una escena de la galería): el tema, si ya está listo para animar, si falló y por qué, y cuándo se pidió; más los temas de la galería que se pueden usar. No genera nada ni devuelve las imágenes. Úsala antes de decir que el cliente ya tiene un avatar listo para hablar.
+Los looks que el cliente YA tiene en la tab AI Avatar (su foto en una escena): el tema, si quedó listo, si falló y por qué, y cuándo se pidió; y los temas de la galería sólo si el plan del negocio incluye la función. No genera ni anima ningún video, y no devuelve las imágenes. ⚠️ Si la respuesta trae `cerrado_por_su_plan`, lo que viene son los looks viejos y nada más: repite ese texto y no le ofrezcas hacer ni animar uno nuevo, ni nombres los temas de la galería. Úsala antes de hablar de un avatar listo para hablar. No dice cuántos le quedan de ningún tope: eso es ver_mi_prueba.
 
 - **Ruta por operación:** `GET /api/v1/video/ver_avatares`
 - **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
@@ -18362,7 +18362,7 @@ curl -L \
 
 ### `GET /api/v1/video/plantillas-avatar` — Plantillas de AI Avatar
 
-Las 10 plantillas de venta de AI Avatar: id, nombre, cuándo usarla, el preset (la escena), la estructura del guion y su duración. Con id, también su ejemplo completo de un negocio FICTICIO (el guion por secciones, lo que se ve, el texto en pantalla y tres ganchos) y los datos del negocio que pide. Usar una es elegirla en «Nuevo avatar».
+Las 10 plantillas de venta de AI Avatar: id, nombre, cuándo usarla, el preset (la escena), la estructura del guion y su duración. Con id, también su ejemplo completo de un negocio FICTICIO (el guion por secciones, lo que se ve, el texto en pantalla y tres ganchos) y los datos del negocio que pide. Usar una es elegirla en «Nuevo avatar». ⚠️ Es el catálogo de una función de plan, no datos de este negocio: si su plan no la incluye, la respuesta contesta sólo el texto para repetir. No las nombres antes de pedirlas.
 
 - **Ruta por operación:** `GET /api/v1/video/ver_plantillas_avatar`
 - **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)

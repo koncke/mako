@@ -18,8 +18,17 @@ import { FEATURE_VISUALS } from './feature-visuals';
 import PandaPlayer from './PandaPlayer';
 import CasoCarrusel from './CasoCarrusel';
 import { gridHtml } from './grid-landing';
+import { RUTA_CTA, TEXTO_CIERRE, TEXTO_CTA } from '../_competencia/cta';
 
-export const CALENDLY = '/vsl#beta';
+// ⚠️ ACÁ NO SE AGENDA NINGUNA LLAMADA (14/11/2026). Martín, textual: «lo de agendar llamadas sí debería estar todavía para el
+// tema de Accelerator. Ahí debería haber la agenda de llamada. **Pero en ningún otro lado debería estar**». La única agenda
+// del producto es la de la tarjeta del MaKo Acelerador (`AGENDA_ACELERADOR`, app/planes/Tarjetas.tsx); estas 14 pantallas de
+// /vsl/<slug> —y, por `Cabecera`, `CtaBand` y `Pie`, también las landings de ../_competencia— llevan a `RUTA_CTA`.
+//
+// Hasta hoy había acá un `export const CALENDLY = '/vsl#beta'` y CINCO botones «Agenda tu llamada» colgados de él. Dos
+// problemas, no uno: (1) la regla del 12/11 ya decía que el CTA es la prueba gratis, y esto se quedó sin barrer; (2) el
+// destino NO era ninguna agenda — /vsl es un `permanentRedirect('/')` (app/vsl/page.tsx), así que el ancla `#beta` se pierde
+// en el redirect y el botón caía en la portada. Quien tocaba «Agenda tu llamada» no agendaba nada.
 
 export function featureMetadata(slug: string): Metadata {
   const f = FEATURES[slug];
@@ -41,20 +50,20 @@ export function Check() {
   );
 }
 
-export function CalIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /></svg>
-  );
-}
+// El ícono de calendario (`CalIcon`) se fue con los botones de la llamada: el CTA de la prueba no lleva ícono, igual que en
+// las landings de ../_competencia (`BotonCta`, LandingCompetencia.tsx). El `gap` de .mk-btn-* no molesta con un solo hijo.
 
 // Banda de CTA reutilizable (misma para el hero y el cierre). La usan también las landings de
 // app/vsl/_competencia (las que copian la estructura de un competidor).
+// La frase de al lado del botón es `TEXTO_CIERRE` (../_competencia/cta.ts): sigue al interruptor de la prueba, así que con la
+// prueba apagada esta banda deja de prometer días gratis. Antes decía «Agenda una llamada y te mostramos MaKo con tus
+// propios números», que es lo que ya no se ofrece.
 export function CtaBand() {
   return (
     <div className="mk-cta">
       <div className="mk-cta-h">¿Lo quieres funcionando en tu negocio?</div>
-      <p className="mk-cta-p">Agenda una llamada y te mostramos MaKo con tus propios números.</p>
-      <a href={CALENDLY} className="mk-btn-lg"><CalIcon />Agenda tu llamada</a>
+      <p className="mk-cta-p">{TEXTO_CIERRE}</p>
+      <a href={RUTA_CTA} className="mk-btn-lg">{TEXTO_CTA}</a>
     </div>
   );
 }
@@ -138,7 +147,7 @@ export function Cabecera() {
           </a>
           <div className="mk-hdr-right">
             <span className="mk-cupos">Solo 5 cupos</span>
-            <a href={CALENDLY} className="mk-btn-sm">Agenda tu llamada</a>
+            <a href={RUTA_CTA} className="mk-btn-sm">{TEXTO_CTA}</a>
           </div>
         </div>
       </header>
@@ -160,7 +169,7 @@ export function Pie() {
           <p className="mk-foot-tag">El mejor software para vender High Ticket.</p>
           <div className="mk-foot-links">
             <a href="/">Funcionalidades</a>
-            <a href={CALENDLY}>Agenda tu llamada</a>
+            <a href={RUTA_CTA}>{TEXTO_CTA}</a>
           </div>
           <div className="mk-foot-copy">© MaKo — Todos los derechos reservados.</div>
         </div>
@@ -201,8 +210,10 @@ export default function FeatureDetail({ slug }: { slug: string }) {
             <div className="mk-hero-text">
               <h1 className="mk-h1">{f.headline}</h1>
               <p className="mk-lead mk-lead-punch" dangerouslySetInnerHTML={{ __html: f.lead }} />
-              <a href={CALENDLY} className="mk-btn-hero"><CalIcon />Agenda tu llamada</a>
-              <p className="mk-hero-nota">Diagnóstico gratuito de tu venta High Ticket</p>
+              <a href={RUTA_CTA} className="mk-btn-hero">{TEXTO_CTA}</a>
+              {/* La nota de abajo del botón decía «Diagnóstico gratuito de tu venta High Ticket»: era la bajada de la
+                  llamada. Ahora dice lo de la prueba (`TEXTO_CIERRE`), que es lo que el botón abre de verdad. */}
+              <p className="mk-hero-nota">{TEXTO_CIERRE}</p>
             </div>
             <div className="mk-hero-media">
               {/* El recuadro (.mk-vsl), las esquinas y el flotante con su botón
@@ -279,7 +290,7 @@ export default function FeatureDetail({ slug }: { slug: string }) {
 
                   {/* El CTA se repite al cierre de cada bloque: es el momento en
                       que el visitante acaba de entender el valor. */}
-                  <div><a href={CALENDLY} className="mk-btn-sec"><CalIcon />Agenda tu llamada</a></div>
+                  <div><a href={RUTA_CTA} className="mk-btn-sec">{TEXTO_CTA}</a></div>
 
                   {g.verMas && (
                     <div className="mk-vermas-wrap">

@@ -7,9 +7,17 @@
 // `co-elegir`, copiadas de Notion Faces): los mosaicos en el medio y el retrato grande a la derecha. Lo que se elige acá no es sólo la
 // cara: es con qué ficha aconseja ese chat (lib/asesores/contexto.ts). Por eso cada mosaico dice de qué es experto y el retrato dice
 // «Inspirado en»: la persona no participa.
+//
+// SÓLO MaKo Pro (14/11/2026, lib/asesores/candado.ts): como la galería de «Nuevo chat» (./GaleriaDeGurus.tsx), con el candado EN LUGAR
+// de la lista y «Pasar a Pro». Y acá es ADEMÁS lo honesto: el servidor corre el coach sin la ficha de nadie cuando el plan es Esencial
+// (app/api/mako/chat/route.ts → `contextoDelChat`), así que una lista de caras que no cambian nada sería un botón que miente.
+// ⛔ El coach NO se cierra: se abre igual en los dos planes y aconseja con los marcos de MaKo, atribuyendo. Lo que lleva candado es
+//    poner a UNO al frente. El hook va adentro porque a esta pieza la monta cada chat, nunca un test como función.
 
 import { useState } from 'react';
 import { Button, Modal } from '@/app/_ui';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
+import { useSoloPro } from '@/app/_components/solo-pro';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { ASESORES, asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { ASPECTO_MAKO, aspectoDeReferente } from '@/lib/centro-munecos';
@@ -23,6 +31,16 @@ export function ElegirReferente({ titulo, elegido, onElegir, onCerrar }: {
 }) {
   const [probando, setProbando] = useState<IdAsesor | null>(elegido);
   const a = asesorPorId(probando);
+  const soloPro = useSoloPro('chat-referentes');
+  // Con el candado no hay nada que elegir: el cartel y «Pasar a Pro», con el ancho del modal de siempre (sin el alto fijo, que es
+  // para que lo único que scrollee sea la lista de fichas: acá no hay lista).
+  if (soloPro) {
+    return (
+      <Modal titulo={titulo} onCerrar={onCerrar} ancho={520}>
+        <CandadoSoloPro funcion="chat-referentes" />
+      </Modal>
+    );
+  }
   return (
     // ⚠️ ANCHO Y ALTO FIJOS, Y NO ES DECORACIÓN. Con 640 de ancho las fichas quedaban de 120 px y la
     //    especialidad no entraba, y sin `alto` el cuerpo del modal se volvía un SEGUNDO scroll encima

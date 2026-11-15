@@ -235,6 +235,11 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   // Replicar el guion de otro es de MaKo Pro (14/11/2026): a un Esencial, el candado en lugar de la réplica.
   const soloPro = useSoloPro('replicar-guion');
   const [candado, setCandado] = useState(false);
+  // Y QUE SE VEA: el cartel va arriba de la grilla, así que tocando «Replicar» en una tarjeta de más abajo quedaba fuera de la
+  // pantalla y parecía que no pasaba nada. Se trae a la vista al prenderse (el molde de app/agency/Mensualidad.tsx). Dentro del
+  // original abierto no alcanza ni así —se dibuja detrás del modal—: ahí el candado va ADENTRO (./OutlierAbierto.tsx).
+  const refCandado = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (candado) refCandado.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [candado]);
   const [usando, setUsando] = useState<string | null>(null);
   const [activa, setActiva] = useState<string | null>(null);
 
@@ -317,6 +322,8 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
     // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): el candado acá mismo en vez de un pedido que va a
     // volver con un 403. La defensa es el server; esto es para que no toque y reciba un error. Cubre las tres entradas de
     // esta pantalla (la tarjeta, el original abierto y «Pegar link o texto»): las tres pasan por acá.
+    // ⚠️ FRENARLO NO ES MOSTRARLO: desde el original abierto, el cartel quedaba detrás del modal (y desde una tarjeta de más
+    //    abajo, fuera de la pantalla). Por eso el modal lleva su propio candado y el cartel se trae a la vista.
     if (soloPro) { setCandado(true); return; }
     setReplicando(o.id);
     setAviso(null);
@@ -413,7 +420,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
         {aviso && <p role="alert" className={s.aviso}>{aviso}<ReportarASoporte /></p>}
         {/* El candado de «Replicar» (14/11/2026): el texto y «Pasar a Pro», como en Competitors Spy. Los outliers se siguen
             viendo y leyendo: lo que es de Pro es replicarlos. */}
-        {candado && <CandadoSoloPro funcion="replicar-guion" style={{ margin: '0 0 14px' }} />}
+        {candado && <div ref={refCandado}><CandadoSoloPro funcion="replicar-guion" style={{ margin: '0 0 14px' }} /></div>}
 
         {totalPortada === 0 ? (
           <>
@@ -458,8 +465,11 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
           </>
         )}
       </div>
+      {/* El original abierto lleva el candado ADENTRO (14/11/2026): el cartel de más arriba se dibuja detrás del modal, así que
+          un Esencial tocaba «Replicar» en el original abierto y no pasaba nada. `soloPro` también se prende con el primer 403
+          (`marcarSoloPro`), así que el candado aparece aunque el plan se sepa recién al pedir. */}
       {abierto ? (
-        <OutlierAbierto o={abierto} telefono={telefono} replicando={replicando === abierto.id}
+        <OutlierAbierto o={abierto} telefono={telefono} replicando={replicando === abierto.id} soloPro={soloPro}
           onCerrar={() => setAbierto(null)} onReplicar={() => void replicar(abierto)} />
       ) : null}
       {pegando ? <ReplicarPegado onCerrar={() => setPegando(false)} onListo={(id) => router.push(rutaGuion.replace('{id}', id))} /> : null}

@@ -55,7 +55,28 @@ import { gruposDePlantillas, plantillasDe, plantillasVisibles } from '@/lib/copy
 import { ESTRUCTURAS_GUION_DEFAULT } from '@/lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '@/lib/guion-angulos';
 import { ASESORES } from '@/lib/asesores/catalogo';
+import { FUNCIONES_SOLO_PRO, type FuncionSoloPro } from '@/lib/topes-plan';
+import { FUNCIONES_TODAVIA_NO_VENDIDAS } from '@/lib/planes-comparacion';
 import type { LandingCompetencia } from './tipos';
+
+// ── «Con MaKo Pro» NO SE TIPEA, SE DERIVA (15/11/2026) ────────────────────────────────────────────────────────────────
+// Esta landing vendía como incluido lo que el 14/11/2026 se cerró en Esencial. Martín, sobre /planes: «el de 47 debería estar
+// bien limitado y restrictivo. En cambio el de 97 ya podés generar avatares de IA, podés editar videos, podés replicar
+// landing… La idea es que compren el de 97, no el de 47». Quien paga US$47 elige su plan leyendo ESTO, así que el aviso sale
+// de lo que el producto cierra de verdad (`FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), nunca de una lista escrita a mano: es la
+// misma regla que ya aplica lib/planes-comparacion.ts, y una lista a mano se desincroniza el día que se abre la función.
+// ⚠️ CERRAR EN ESENCIAL Y VENDER SON DOS COSAS: lo que está cerrado pero todavía no se vende (`FUNCIONES_TODAVIA_NO_VENDIDAS`,
+//    hoy el avatar por `AI_AVATAR_SE_VENDE`) sale SIN aviso: decir «Con MaKo Pro» ahí sería empezar a venderlo.
+// ⚠️ Y NO TODO EL TEXTO DE ESTA PÁGINA VIVE ACÁ: el hero de ./disenos/copywriting.tsx escribe DOS promesas propias (la frase
+//    «No te llevas un prompt…» traducida de la referencia y el titular de la tarjeta de caricaturas), y por eso las dos se
+//    quedaron sin aviso en el primer arreglo. Son las únicas, así que `soloPro` y `soloProEntre` se EXPORTAN y el diseño las
+//    llama: el aviso sigue saliendo de una sola derivación, no de dos (15/11/2026).
+const seVendeEnPro = (f: FuncionSoloPro): boolean =>
+  (FUNCIONES_SOLO_PRO as readonly string[]).includes(f) && !FUNCIONES_TODAVIA_NO_VENDIDAS.includes(f);
+/** Al final de una frase (el molde de ./competitor-spy.ts, «Copia su sitio»). */
+export const soloPro = (f: FuncionSoloPro): string => (seVendeEnPro(f) ? ' Con MaKo Pro.' : '');
+/** Entre paréntesis, para una lista o un título (el molde de ./crm.ts, los contactos de un grupo de WhatsApp). */
+export const soloProEntre = (f: FuncionSoloPro): string => (seVendeEnPro(f) ? ' (Con MaKo Pro)' : '');
 
 const I = {
   copy: ['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z', 'M9 9l1 0', 'M9 13l6 0', 'M9 17l6 0'],
@@ -152,14 +173,18 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
   nombre: 'Copywriting',
   icono: I.copy,
   referencia: { nombre: 'The Copy Machine — The Operator Stack', url: 'https://theoperatorstack.io/copy-machine', leida: '2026-11-12' },
-  metaTitle: `Copywriting de MaKo: ${N_REFERENTES} referentes del marketing, instalados en tu IA`,
-  metaDesc: `Anuncios, reels, stories, emails, VSL y videos de YouTube en páginas como las de Notion: MaKo lee tu negocio, te pregunta lo que falta y escribe en la página. Y en su chat, ${N_REFERENTES} referentes del marketing para elegir a cuál seguir.`,
+  // El titular y la bajada de la referencia prometían los referentes sin decir de qué plan son: es lo primero que se lee en
+  // Google y en la pestaña, así que el aviso va acá también (derivado, `soloProEntre`).
+  metaTitle: `Copywriting de MaKo: ${N_REFERENTES} referentes del marketing, instalados en tu IA${soloProEntre('chat-referentes')}`,
+  metaDesc: `Anuncios, reels, stories, emails, VSL y videos de YouTube en páginas como las de Notion: MaKo lee tu negocio, te pregunta lo que falta y escribe en la página. Y en su chat, ${N_REFERENTES} referentes del marketing para elegir a cuál seguir.${soloPro('chat-referentes')}`,
   bloques: [
     {
       tipo: 'hero',
       etiqueta: 'El copywriter de MaKo para tu IA',
       titulo: `${N_REFERENTES} referentes del marketing, <em>instalados en <strong>tu</strong> IA.</em>`,
-      bajada: 'Tu IA escribe como la de todos porque no sabe nada de ti. MaKo lee tu negocio, te pregunta lo que falta y escribe <strong>en tu página</strong>. Y en el chat de MaKo eliges a qué referente seguir: <strong>te contesta con su método</strong>.',
+      // El aviso va en la bajada y no dentro del <h1>: el titular es el de la referencia, con su <em> y su <strong> medidos
+      // (docs/diseno/landings-competencia/copywriting.md), y se lee junto con la frase que sigue, en el mismo bloque.
+      bajada: `Tu IA escribe como la de todos porque no sabe nada de ti. MaKo lee tu negocio, te pregunta lo que falta y escribe <strong>en tu página</strong>. Y en el chat de MaKo eliges a qué referente seguir: <strong>te contesta con su método</strong>.${soloPro('chat-referentes')}`,
       puntos: [
         '<strong>Copy que firmarías con tu nombre.</strong> Cada línea que podría firmar un competidor la cambia por un dato tuyo antes de entregarte la pieza.',
         '<strong>Funciona con tu propio Claude, ChatGPT o Gemini.</strong> El que conectas a tu negocio en Integraciones.',
@@ -171,7 +196,7 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       tipo: 'cifras',
       titulo: 'Lo que trae Copywriting, de un vistazo',
       items: [
-        { valor: String(N_REFERENTES), label: 'referentes del marketing, cada uno con su método' },
+        { valor: String(N_REFERENTES), label: `referentes del marketing, cada uno con su método${soloProEntre('chat-referentes')}` },
         { valor: String(N_PLANTILLAS), label: 'plantillas, cada una con su ejemplo completo' },
         { valor: String(N_ESTRUCTURAS), label: 'estructuras de guion: PAS, AIDA, reel, stories, VSL y YouTube' },
         { valor: String(N_ANGULOS), label: 'ángulos para el gancho: dolor, testimonio, comparación y más' },
@@ -184,7 +209,10 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       tipo: 'tarjetas',
       etiqueta: 'Mira el original al lado de lo que escribió MaKo.',
       titulo: 'Dos piezas reales de Alex Hormozi, replicadas',
-      bajada: 'Tomamos dos piezas que le funcionaron a Alex Hormozi, tocamos «Replicar» y MaKo escribió la suya con la misma estructura, para una oferta de MaKo.',
+      // «Replicar» el guion de otro es de Pro desde el 14/11/2026 (lib/copywriter/replica-candado.ts, que frena cada puerta que
+      // crea la réplica: el outlier, lo pegado y las preguntas de antes de escribir). Escribir desde cero sigue en los dos planes,
+      // así que el aviso va SÓLO en este bloque y en «Primero pregunta, después escribe», no en toda la landing.
+      bajada: `Tomamos dos piezas que le funcionaron a Alex Hormozi, tocamos «Replicar» y MaKo escribió la suya con la misma estructura, para una oferta de MaKo.${soloPro('replicar-guion')}`,
       items: REPLICAS.map((r) => ({ icono: r.icono, titulo: r.titulo, texto: r.cambio, meta: r.meta })),
     },
     { tipo: 'caso' },
@@ -222,10 +250,14 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       items: [
         { icono: I.copy, titulo: 'Escribe tus anuncios, tus reels, tus emails y tus VSL.', texto: 'Guiones a cámara, textos de anuncio, 10 ganchos, reels, stories, carruseles, emails, secuencias, VSL y videos de YouTube, cada uno con su estructura y sus secciones.' },
         { icono: I.cita, titulo: 'Tus clientes te dan los ganchos.', texto: 'Si tu negocio no lo dice, te pregunta a quién le hablas y con qué frase te cuenta su problema. El gancho sale de ahí, no de una frase hecha.' },
-        { icono: I.ojo, titulo: 'Primero pregunta, después escribe.', texto: 'Al replicar, MaKo te pregunta <strong>para qué oferta</strong> es y cómo adaptarlo, y escribe la pieza entera, con el original al lado. Si quieres otra versión, se la pides en el chat.' },
+        // El aviso va pegado a la frase que promete la réplica, no al final de la tarjeta: pedir otra versión en el chat es de
+        // los dos planes, y con el aviso al final parecía de Pro también.
+        { icono: I.ojo, titulo: 'Primero pregunta, después escribe.', texto: `Al replicar, MaKo te pregunta <strong>para qué oferta</strong> es y cómo adaptarlo, y escribe la pieza entera, con el original al lado.${soloPro('replicar-guion')} Si quieres otra versión, se la pides en el chat.` },
         { icono: I.estructura, titulo: 'Saca cada línea que podría firmar un competidor.', texto: 'A cada parte le hace tres preguntas: ¿se puede imaginar?, ¿se puede comprobar?, <strong>¿la podría firmar un competidor?</strong> Si la podría firmar, la cambia por un dato de tu negocio.' },
         { icono: I.negocio, titulo: 'Aprende tu negocio.', texto: 'Lee lo que MaKo ya sabe de ti y te pregunta, de a una, lo que falta: qué vendes y a cuánto, a quién le hablas, qué prueba tienes.' },
-        { icono: I.ia, titulo: `${N_REFERENTES} referentes del marketing, en tu chat.`, texto: `Cada uno con su método, de ${ASESORES[0].completo} a ${ASESORES[N_REFERENTES - 1].completo}: en el chat de MaKo eliges con cuál hablar y te contesta con su método. Es «Inspirado en»: ninguno participa en MaKo ni la respalda.` },
+        // El aviso va UNA vez por promesa: en el título de la tarjeta, que es lo que se lee. Repetirlo también en el texto
+        // dejaba dos «Con MaKo Pro» pegados en la misma tarjeta (lo encontró tests/vsl-landings-dicen-el-plan.test.ts).
+        { icono: I.ia, titulo: `${N_REFERENTES} referentes del marketing, en tu chat.${soloProEntre('chat-referentes')}`, texto: `Cada uno con su método, de ${ASESORES[0].completo} a ${ASESORES[N_REFERENTES - 1].completo}: en el chat de MaKo eliges con cuál hablar y te contesta con su método. Es «Inspirado en»: ninguno participa en MaKo ni la respalda.` },
         { icono: I.dato, titulo: 'No inventa tus números.', texto: 'Una cifra, un testimonio, una fecha o un cupo que tu negocio no tiene queda como <strong>[DATO: …]</strong>, y la página te dice cuántos quedan por completar.' },
       ],
     },

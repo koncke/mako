@@ -175,11 +175,19 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
   },
+  // ⚠️ NO SE CIERRA, Y ES A PROPÓSITO (14/11/2026, segunda vuelta de lo que se cerró en Esencial): 'ai-avatar' es de MaKo Pro
+  // (`FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), pero esto LEE lo que el cliente YA TIENE. Entre el 29/10 y el 14/11 la función
+  // estuvo abierta en los tres planes, así que hay Esenciales con looks y con planes a medio filmar: contestarles «eso es de
+  // Pro» les apagaría un dato que es suyo, que es el error espejo que avisa AGENTS.md («¿GENERA o LEE?»: el candado en la
+  // `puerta()` de app/ai-avatar/actions.ts apagó la galería de fotos del editor y el cliente leía «No pude leer tus fotos»).
+  // Lo que SÍ se fue para un Esencial es la OFERTA: los temas de la galería (el catálogo de lo que podría hacer) y la nota de
+  // «se anima y Generar video», que en su plan es mentira. Eso lo decide la RESPUESTA (video.run.ts), que no es un string
+  // único: la descripción sólo manda a leerla. Lo cerrado es `ver_plantillas_avatar`, que no tiene nada del cliente.
   {
     id: 'ver_avatares', area: 'video', tipo: 'lectura',
     datosDeClientes: false,
     titulo: 'Avatares y looks de AI Avatar',
-    descripcion: 'Los looks que el cliente creó en la tab AI Avatar (su foto en una escena de la galería): el tema, si ya está listo para animar, si falló y por qué, y cuándo se pidió; más los temas de la galería que se pueden usar. No genera nada ni devuelve las imágenes. Úsala antes de decir que el cliente ya tiene un avatar listo para hablar.',
+    descripcion: 'Los looks que el cliente YA tiene en la tab AI Avatar (su foto en una escena): el tema, si quedó listo, si falló y por qué, y cuándo se pidió; y los temas de la galería sólo si el plan del negocio incluye la función. No genera ni anima ningún video, y no devuelve las imágenes. ⚠️ Si la respuesta trae `cerrado_por_su_plan`, lo que viene son los looks viejos y nada más: repite ese texto y no le ofrezcas hacer ni animar uno nuevo, ni nombres los temas de la galería. Úsala antes de hablar de un avatar listo para hablar. No dice cuántos le quedan de ningún tope: eso es ver_mi_prueba.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
   },
@@ -271,10 +279,14 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: GATING_PRESETS,
   },
   // Las 10 plantillas de venta de AI Avatar (6/11/2026, docs/plantillas-reales/avatar.md): datos de MaKo, de negocios ficticios.
+  // ⛔ CERRADA EN ESENCIAL (14/11/2026): acá no hay NADA del cliente —es el catálogo de lo que se hace con la función— y «usar
+  //    una» es elegirla en «Nuevo avatar», la pantalla que a un Esencial le contesta el cartel de Pro. Cerrarla no le apaga
+  //    ningún dato propio, así que va con el molde entero (`esEsencialDe`, video.run.ts). La gemela que SÍ queda abierta es
+  //    `ver_avatares`, que lee sus looks viejos.
   {
     id: 'ver_plantillas_avatar', area: 'video', tipo: 'lectura',
     titulo: 'Plantillas de AI Avatar',
-    descripcion: 'Las 10 plantillas de venta de AI Avatar: id, nombre, cuándo usarla, el preset (la escena), la estructura del guion y su duración. Con id, también su ejemplo completo de un negocio FICTICIO (el guion por secciones, lo que se ve, el texto en pantalla y tres ganchos) y los datos del negocio que pide. Usar una es elegirla en «Nuevo avatar».',
+    descripcion: 'Las 10 plantillas de venta de AI Avatar: id, nombre, cuándo usarla, el preset (la escena), la estructura del guion y su duración. Con id, también su ejemplo completo de un negocio FICTICIO (el guion por secciones, lo que se ve, el texto en pantalla y tres ganchos) y los datos del negocio que pide. Usar una es elegirla en «Nuevo avatar». ⚠️ Es el catálogo de una función de plan, no datos de este negocio: si su plan no la incluye, la respuesta contesta sólo el texto para repetir. No las nombres antes de pedirlas.',
     parametros: [
       { nombre: 'id', rotulo: 'Plantilla', tipo: 'string', max: 40, descripcion: 'el id de una plantilla, para traer su ejemplo completo.' },
     ],

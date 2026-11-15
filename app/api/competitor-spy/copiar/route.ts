@@ -14,11 +14,17 @@
 // IA del negocio, cuando la persona se la pide.
 // ⚠️ LA PUERTA DEL COPYWRITER ES LA SUYA (`esAdminDeTab('copywriter')` + `veCopywriter()`: el corte de `soloAdminDeTab` de /api/copywriter, sin cerrar la ruta): una
 // ruta de Spy no abre una tab que a quien mira no le corresponde.
+// ⚠️ Y SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): este botón ES «replicar el guion de la competencia», lo
+// que la columna de Pro vende y la tabla marca con una cruz en Esencial (lib/planes-comparacion.ts). El candado va ARRIBA de
+// todo, para las DOS salidas: la página y el texto al portapapeles son el mismo brief de la réplica («Su estructura» + «Tu
+// versión: pídele a MaKo que la escriba»), y dejar el texto sería la misma réplica pegada en una página en blanco —justo lo que
+// `replicarPegado` ya frena (lib/copywriter/pegado-servidor.ts). Lo que la pieza publicó se sigue VIENDO entero en Spy.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { veCopywriter } from '@/app/copywriter/acceso';
 import { getUsuarioActual } from '@/lib/auth';
+import { candadoDeReplicarGuionEnPantalla } from '@/lib/copywriter/replica-candado';
 import { crear } from '@/lib/copywriter/server';
 import { docDeTexto } from '@/lib/copywriter/texto';
 import { esAdminDeTab } from '@/lib/puerta-admin-tab';
@@ -36,6 +42,10 @@ export async function POST(req: NextRequest) {
   const s = await getUsuarioActual();
   const ws = s && (await getRolWsEfectivo()) ? await getWorkspaceActual() : null;
   if (!s || ws == null) return no(401, 'No autorizado');
+  // SÓLO MaKo Pro (14/11/2026): antes de leer el cuerpo y antes de tocar la base. El 403 lleva `pasarAPro`, la marca que la
+  // pantalla reconoce para prender el candado en todas las entradas de «Replicar» a la vez (app/_components/solo-pro.ts).
+  const pro = await candadoDeReplicarGuionEnPantalla();
+  if (pro) return Response.json({ ok: false, ...pro }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
   const cuerpo = (await req.json().catch(() => ({}))) as { piezaId?: unknown };
   const id = Number(cuerpo.piezaId);
   if (!Number.isInteger(id) || id <= 0) return no(400, 'Falta la pieza.');

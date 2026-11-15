@@ -271,15 +271,87 @@ test('la puerta es la de toda tab (no una tab escondida), y adentro el candado d
   assert.doesNotMatch(fuenteDe('lib/topes-plan.ts').match(/export const TABS_SOLO_PRO = \[[^\]]*\]/)![0], /ai-avatar/, 'AI Avatar volvió a TABS_SOLO_PRO');
   assert.match(acceso, /await requireRolWs\(\[\], \{ nav: 'ai-avatar' \}\);/, 'las pantallas sin la puerta de toda tab');
   assert.match(acceso, /\(await getRolWsEfectivo\(\)\) !== 'admin'\) return false;/, 'las actions dejan pasar a quien no es admin');
-  // El candado, en UN lugar y usado en las dos puertas: la pantalla (el cartel) y cada action (donde se genera de verdad).
+  // El candado, en UN lugar (`candadoDeAiAvatar`) y usado por cada función que GENERA, más el cartel de cada pantalla.
   assert.match(acceso, /return \(await esEsencialDeLaSesion\(\)\) \? textoSoloPro\('ai-avatar'\) : null;/, 'sin el candado de Pro');
   assert.match(fuenteDe('app/ai-avatar/actions.ts'), /const pro = await candadoDeAiAvatar\(\);\n\s*if \(pro\) return \{ ok: false, error: pro \};/,
-    'la puerta de las actions sin el candado: un Esencial generaba desde una pestaña ya abierta');
+    'las actions sin el candado: un Esencial generaba desde una pestaña ya abierta');
   for (const rel of ['app/ai-avatar/page.tsx', 'app/m/ai-avatar/page.tsx']) {
     assert.match(fuenteDe(rel), /if \(pro\) return <\w+[^>]*><CartelSoloPro texto=\{pro\} \/><\/\w+>;/, `${rel} sin el cartel`);
   }
   // La capa de la plataforma tiene keys explícitas: sin la de AI Avatar, el super admin la perdía en su propio workspace.
   assert.match(fuenteDe('lib/capas.ts'), /navKeys: \[[^\]]*'ai-avatar'[^\]]*\]/, 'la capa de la plataforma sin AI Avatar');
+});
+
+// 14/11/2026, A LA NOCHE — las DOS fallas que encontró la verificación adversarial del candado de arriba, con lo que hacía cada
+// una en producción:
+//   · `crearAvatarAction` (app/video-editor/avatar/actions.ts) preguntaba sólo `veEditorVideo()`. El Video Editor está abierto
+//     en los DOS planes (`TABS_SOLO_PRO` sólo tiene 'closing-analyst'), así que un Esencial entraba por Biblioteca › «Avatar de
+//     IA», elegía un look de su historial, escribía el guion y filmaba, gastando créditos de Flow. Cerrar la tab /ai-avatar no
+//     cerraba la función: la puerta de al lado seguía abierta.
+//   · el candado estaba en la `puerta()` COMÚN de app/ai-avatar/actions.ts, o sea también en `inicioAvatarAction`, que SÓLO
+//     LEE y que no usa únicamente este estudio: la guía de video del editor (app/video-editor/guia/GuiaEnElChat.tsx →
+//     `leerDatos`) la llama para listar las FOTOS de la persona. A un cliente de Esencial el chat guiado le decía «No pude
+//     leer tus fotos» —mentira— y perdía la galería de su onboarding y sus personajes aprobados.
+// Probado rompiéndolo: sacar el candado de `crearAvatarAction` → falla «la OTRA puerta…»; devolverlo a `puerta()` → ídem, por
+// `inicioAvatarAction`; sacar `useSoloPro` de AvatarIAView → ídem, por la pestaña.
+test('la OTRA puerta del avatar es el Video Editor, y lo que sólo LEE pasa igual', () => {
+  const cuerpoDe = (src: string, decl: string) => {
+    const i = src.indexOf(decl);
+    assert.ok(i >= 0, `${decl} ya no está`);
+    return src.slice(i, src.indexOf('\n}\n', i));
+  };
+
+  // ① La generación del Video Editor usa EL MISMO candado de la tab, no uno nuevo (dos candados para la misma acción se
+  //    contradicen el día que uno cambie), y ANTES del freno de la prueba: un rechazo no le gasta un avatar de su prueba gratis.
+  const editor = fuenteDe('app/video-editor/avatar/actions.ts');
+  const crear = cuerpoDe(editor, 'export async function crearAvatarAction(');
+  const iPro = crear.indexOf('const pro = await candadoDeAiAvatar();');
+  assert.match(crear, /const pro = await candadoDeAiAvatar\(\);\n\s*if \(pro\) return \{ ok: false, error: pro \};/,
+    'el «Avatar de IA» del editor generaba en Esencial: el Video Editor está abierto en los dos planes');
+  assert.ok(iPro >= 0 && crear.indexOf("frenoDePrueba(ws, 'prueba.avatares')") > iPro,
+    'el candado después del freno de la prueba: rechazar le gastaría un avatar de su prueba gratis');
+
+  // ② Listar sus avatares LEE: con candado, un Esencial veía la biblioteca vacía con un error en vez de los suyos.
+  assert.doesNotMatch(cuerpoDe(editor, 'export async function avataresAction('), /candadoDeAiAvatar/,
+    'leer sus propios avatares no es generar');
+
+  // ③ En la tab, lo mismo: el candado en las dos que GENERAN, y en ninguna de las que leen.
+  const actions = fuenteDe('app/ai-avatar/actions.ts');
+  assert.doesNotMatch(cuerpoDe(actions, 'async function puerta('), /candadoDeAiAvatar/,
+    'el candado en la puerta común apagó la galería de fotos de la guía de video');
+  for (const fn of ['crearLookAction', 'crearVideoAction']) {
+    assert.match(cuerpoDe(actions, `export async function ${fn}(`), /const pro = await soloProParaGenerar\(\);\n\s*if \(!pro\.ok\) return pro;/,
+      `${fn} genera y no pregunta por el plan`);
+  }
+  for (const fn of ['inicioAvatarAction', 'estadoLookAction', 'borrarLookAction']) {
+    assert.doesNotMatch(cuerpoDe(actions, `export async function ${fn}(`), /soloProParaGenerar|candadoDeAiAvatar/,
+      `${fn} no genera: con candado se apaga una pantalla ajena`);
+  }
+  // Y la guía de video sigue leyendo las fotos por ahí: si deja de hacerlo, el porqué de arriba cambia.
+  assert.match(fuenteDe('app/video-editor/guia/GuiaEnElChat.tsx'), /inicioAvatarAction\(\)/, 'la guía ya no lee las fotos de acá');
+
+  // ④ La pestaña, con el molde de las otras cuatro vistas del árbol (broll-view, PanelChat, clips-view, enjambre-view): el
+  //    cartel donde estaban los botones que llevan a generar, y el rechazo del server prende el candado en todas las entradas.
+  const vista = fuenteDe('app/video-editor/_opencut/avatar/AvatarIAView.tsx');
+  assert.match(vista, /const soloPro = useSoloPro\("ai-avatar"\);/, 'la pestaña sin candado: un botón que falla');
+  assert.equal((vista.match(/<CandadoSoloPro funcion="ai-avatar" \/>/g) ?? []).length, 2,
+    'el cartel va en los DOS botones que llevan a generar: «Siguiente» y «Generar»');
+  assert.match(fuenteDe('app/video-editor/_opencut/avatar/generar.ts'),
+    /if \(mensaje === textoSoloPro\("ai-avatar"\)\) marcarSoloPro\("ai-avatar"\);/,
+    'el rechazo del server no prende el candado en la pestaña');
+
+  // ⑤ LA COLA DE LOS PLANES VIEJOS (agregado la misma noche, después de la verificación). Cerrar las tres puertas que CREAN
+  //    un plan de avatar no cierra las que ya existen: `generarTomaAction` filma toma por toma y preguntaba sólo `ctxAdmin()`.
+  //    Entre el 29/10 y el 14/11 la función estuvo abierta en los tres planes, así que hay Esenciales con planes de avatar a
+  //    medio filmar en su historial. El freno se acota a `tipo === 'avatar'`: un anuncio común es de los dos planes.
+  const filmar = cuerpoDe(fuenteDe('app/video-generator/video-action.ts'), 'export async function generarTomaAction(');
+  assert.ok(filmar.includes("if (tipoDePlan(item) === 'avatar') {"),
+    'filmar las tomas de un plan de avatar que YA EXISTE no pregunta por el plan');
+  assert.ok(filmar.includes('const candado = await candadoDeAiAvatar();'),
+    'el freno del avatar no usa el candado de la tab');
+  // Y el freno va DESPUÉS de devolver una toma ya filmada: eso es una lectura, no una generación (AGENTS.md, «¿GENERA o LEE?»).
+  assert.ok(filmar.indexOf('if (yaHay.url) return') < filmar.indexOf('tipoDePlan(item)'),
+    'el candado se puso antes del `yaHay.url`: cierra una LECTURA y una toma ya filmada deja de poder mirarse');
 });
 
 test('borrar un proyecto es en POSITIVO: se escribe la lista sin ESE id, y sólo si estaba', () => {

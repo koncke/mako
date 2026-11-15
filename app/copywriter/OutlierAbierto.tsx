@@ -6,10 +6,15 @@
 // replica de un copy), entero, con qué es (su guion, su pie, su descripción, su copy). Derecha: el tipo y la fecha, el gancho, el
 // múltiplo con «lo usual de este creador» (o los días al aire de un anuncio), los números, «Replicar» como acción principal y
 // «Ver original». En un celular, a pantalla completa y con «Replicar» en el pie.
+// ⚠️ EL CANDADO VA ADENTRO (14/11/2026): replicar el guion de otro es de MaKo Pro, y a un Esencial le va el candado EN EL LUGAR
+// de «Replicar», como en el resto de la app (app/video-editor/_opencut/clips/components/clips-view.tsx y broll-view.tsx ponen
+// `CandadoSoloPro` donde iría el botón). Dejarlo afuera no sirve: el cartel se dibujaba DETRÁS del modal y el Esencial tocaba
+// «Replicar» y no pasaba nada —ni candado, ni error, ni «Armando…»—. El original se sigue leyendo entero: lo de Pro es replicarlo.
 // =============================================================================
 
 import { useEffect, useState } from 'react';
 import { Modal } from '@/app/_ui/Modal';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
 import { contadorCorto, nivelDeMultiplo, rotuloOutlier } from '@/lib/carruseles/explorar';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { ROTULO_TEXTO, rotuloDeFormato, rotuloDiasAlAire, type OutlierCopy } from '@/lib/copywriter/outliers';
@@ -23,8 +28,11 @@ const fechaLarga = (iso: string | null): string => {
   return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(x)).replace('.', '');
 };
 
-export function OutlierAbierto({ o, telefono, replicando, onReplicar, onCerrar }: {
-  o: OutlierCopy; telefono: boolean; replicando: boolean; onReplicar: () => void; onCerrar: () => void;
+export function OutlierAbierto({ o, telefono, replicando, soloPro, onReplicar, onCerrar }: {
+  o: OutlierCopy; telefono: boolean; replicando: boolean;
+  /** Quien mira paga Esencial: en vez de «Replicar», el candado (lo decide `useSoloPro('replicar-guion')` en la portada). */
+  soloPro?: boolean;
+  onReplicar: () => void; onCerrar: () => void;
 }) {
   // En un celular «Replicar» va en el pie fijo de la caja (siempre a la vista); en la computadora, en el panel.
   const [celular, setCelular] = useState(telefono);
@@ -58,7 +66,9 @@ export function OutlierAbierto({ o, telefono, replicando, onReplicar, onCerrar }
 
   return (
     <Modal titulo={usuario} onCerrar={onCerrar} ancho={1040} alto="min(90vh, 780px)" completaEnCelular
-      pie={celular ? <button type="button" className={s.editarPie} onClick={onReplicar} disabled={replicando}>{boton}</button> : undefined}>
+      pie={celular ? (soloPro
+        ? <CandadoSoloPro funcion="replicar-guion" style={{ padding: '2px 0' }} />
+        : <button type="button" className={s.editarPie} onClick={onReplicar} disabled={replicando}>{boton}</button>) : undefined}>
       <div className={s.abierto}>
         <div className={s.visor}>
           {/* Con imagen, arriba la pieza (como las láminas de Image) y abajo su texto. 11/11/2026, en producción: con un pie de
@@ -108,7 +118,10 @@ export function OutlierAbierto({ o, telefono, replicando, onReplicar, onCerrar }
             </div>
           ) : null}
 
-          {celular ? null : (
+          {celular ? null : soloPro ? (
+            /* El candado donde iba «Replicar», no detrás del modal (14/11/2026): el texto y «Pasar a Pro». */
+            <CandadoSoloPro funcion="replicar-guion" />
+          ) : (
             <button type="button" className={s.editarGrande} onClick={onReplicar} disabled={replicando}>
               <strong>{boton}</strong>
               <span>Tu versión, con su estructura y tu oferta</span>

@@ -581,3 +581,78 @@ conseguir clientes?», y escribió: «Debajo del mensaje de funnel coach me apar
 
 **Vive en:** app/_chat/ReportarRespuesta.tsx · app/admin/operaciones/MensajeWA.tsx · lib/centro-mensajes.ts · lib/funnel-plan.ts ·
 lib/offer-marco.ts · app/api/mako/chat/route.ts. **Lo fijan:** tests/reportar-en-el-menu.test.ts y tests/coaches-ops-center.test.ts (13).
+
+---
+
+## El candado de los referentes: cinco puertas, y la que SOBRABA eran los contextos (14/11/2026)
+
+Hablar con los referentes pasó a ser de MaKo Pro (`FUNCIONES_SOLO_PRO` → `'chat-referentes'`, `lib/asesores/candado.ts`). La primera
+pasada cerró las pantallas obvias; una verificación adversarial encontró que faltaba casi todo. Lo que dejó, por si vuelve a pasar con
+otra función:
+
+**El candado se pregunta con la CLAVE de la conversación, y eso tapa cuatro puertas de cinco.** `referenteDeTab` sobre
+`…:referente-<id>` cubre abrir (`?deTab=`), crear (`action:'new'`), escribir (`'send'`, `'confirmar'`, `'cancelar'`) y el camino con
+archivos. **La quinta no tiene tab:** `?sessionId=N&antes=1` abre el HILO de una conversación de antes y `personaDelChat` le resuelve
+la clave con `claveDeAntes`, así que devolvía TODAS las respuestas del gurú sin pasar por ninguna de las otras cuatro. Buscar «dónde
+se nombra al gurú» no la encuentra: ahí no se nombra. Se encuentra listando las ramas del handler y preguntando por cada una «¿con qué
+clave corre?».
+
+**La fuga grande no era una puerta: eran los otros chats que aconsejan con la MISMA ficha.** El Funnel Coach, cada conversación de
+Offer y el Marketing CoPilot armaban su contexto con `contextoDeReferente(id)` —la misma ficha de 5.200 caracteres, en cada mensaje— y
+con los tramos del curso. El Esencial seguía hablando con el referente, sólo que por otra pantalla. **La regla que queda:** cuando una
+función se vende por una pantalla, lo que hay que buscar no es la pantalla, es **quién arma el contexto**; `grep` del nombre de la
+función del catálogo (`contextoDeReferente`, acá) encuentra en un paso lo que recorrer pantallas no encuentra nunca.
+
+**Y ahí el 403 está MAL.** Esas tres se venden en los tres planes (`lib/planes-comparacion.ts`, `enTodos`: «Tu oferta y tu funnel,
+revisados con IA»). El candado les apaga el REFERENTE y la pantalla queda entera; devolver 403 habría sido sacarle a un Esencial algo
+que paga. Un candado tiene dos modos, y hay que elegirlo por fila de la tabla: cerrar la puerta, o soltar la pieza que se vende.
+
+**EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: soltar al referente elegido le daba MÁS, no menos.** Sin referente, el coach cae en
+`contextoDelFunnelCoach(null)`, que es el caso «eligió MaKo» y lleva **TRES** fichas atribuidas: **17.272 caracteres contra 7.863 con
+uno al frente** (medido el 14/11). O sea que el «candado» le triplicaba el método de referentes al que no paga. Por eso
+`contextoDelFunnelCoach` tiene un TERCER estado, `sinReferentes`, que no es lo mismo que elegir MaKo: quien elige MaKo paga Pro igual y
+conserva los marcos. **Antes de dar por cerrado un candado que apaga un dato, hay que medir el contexto que queda**, no suponer que
+apagar algo resta.
+
+**No alcanza con no pasarle la ficha: hay que decirle que no nombre a nadie.** El modelo conoce a estos referentes de antes y, sin esa
+línea, atribuye marcos de memoria («esto es la fórmula de Hormozi»): sería una cita inventada —justo lo que las reglas de
+`lib/asesores/contexto.ts` evitan— Y la función de Pro, regalada. El bloque `COACH_SIN_REFERENTES` lo dice, y además le da la salida:
+«el chat con los referentes y su método está en MaKo Pro».
+
+**Un candado nuevo rompe los botones que pedían lo cerrado.** `?cerebroDe=` empezó a contestar 403 y el botón «Second Brain de X»
+seguía dibujado en el chat del coach y en cada conversación de Offer: el 403 caía en el `error` de `CerebroDelGuru` y salía como una
+falla de la app, **con «Reportar a Soporte»** — el cliente cree que se rompió y escribe al soporte. Se arregló por los dos lados, y
+conviene hacer los dos: que el botón no se ofrezca (el referente llega en `null` desde `useCoaches`, una sola línea para el coach de
+escritorio, el del teléfono y las conversaciones de Offer) y que, si igual se llega, se dibuje el candado y no el error
+(`esRespuestaSoloPro` → `marcarSoloPro`, que de paso prende las demás entradas sin esperar a `/api/auth/me`).
+
+**La trampa de apagar la bandera de al lado:** `puedeElegir` parece «puede elegir referente», pero la pantalla lo reusa para decidir si
+se ve **la FILA del Funnel Coach** (`verCoach`, `ChatSecondBrain.tsx`). Apagarlo le sacaba el coach entero a un Esencial. Lo que se
+apaga es el referente; el candado va en el elector (`ElegirReferente.tsx` y la lista de la hoja del teléfono).
+
+**Trampa del entorno, y el diagnóstico obvio otra vez equivocado:** `scripts/tsc-acotado.mjs` sobre estos archivos sale con 134 y
+dice «NO SE PUDO CHEQUEAR… si fue el vigía de RAM, esperá o cerrá chats». No era el vigía ni la RAM (había 6 GB libres): es el HEAP de
+su default, 2560 MB. Corriendo el mismo tsconfig a mano se lee el `FATAL ERROR: … JavaScript heap out of memory`, que el script no
+muestra. Cualquier archivo que alcance el grafo del Second Brain o de `/api/mako/chat` necesita `--heap=4600`; con eso, verde en los
+dos lotes. Esperar o cerrar chats no lo arregla nunca.
+
+**Cómo se comprobó que el que paga pasa, sin base:** la decisión entera vive en `esEsencialPorPasarela` (`lib/plan-esencial-reglas.ts`),
+que es puro. La matriz que hay que correr: Esencial por pasarela (candado) · Pro y Acelerador, capa `agencia` (pasan) · el ws de la
+plataforma y el ws1 (pasan) · alta a mano, sin suscripción (pasa) · prueba gratis de Pro (pasa) · prueba gratis de Esencial (candado, a
+propósito desde el 25/10: la prueba corre con los topes del plan elegido) · capa cambiada a mano (pasa) · sin ws (pasa).
+
+**Vive en:** `lib/asesores/candado.ts` (las dos preguntas y el porqué de cada modo) · `lib/asesores/contexto.ts`
+(`contextoDelFunnelCoach(elegido, sinReferentes)`) · `app/api/mako/chat/route.ts` (las cinco puertas y `contextoDelChat`) ·
+`app/api/offer/route.ts` (`referenteDelOfferCoach`) · `app/second-brain/useCoaches.ts` · `app/second-brain/ElegirReferente.tsx` ·
+`app/second-brain/SuSecondBrain.tsx` · `app/m/second-brain/HojaDelCoach.tsx`. **Lo fija:** `tests/coaches-ops-center.test.ts` (5 y 10).
+
+**Lo que quedó SIN HACER, con su archivo:**
+- **El Marketing CoPilot sigue OFRECIENDO elegir un referente en su primera entrada** (`app/ads-manager/PrimeraEntrada.tsx`, el paso
+  `referente`, y la opción «Seguir la estrategia de un referente» de `TXT_ENTRADA` en `lib/media-buyer/copiloto.ts`). El servidor ya no
+  le pasa la ficha, así que no hay fuga, pero un Esencial elige una cara que no cambia nada. Cerrarlo toca el orden de pasos del
+  CoPilot, que es del área del Media Buyer.
+- **`action: 'referente'` guarda la elección sin candado** (`app/api/mako/chat/route.ts`): no es una fuga (el contexto la descarta) y
+  al pasar a Pro la elección guardada vale. Si se quiere cerrar, va junto con lo de arriba.
+- **El CoPilot de un Esencial conserva el MATERIAL DE APOYO** (`fichaDeApoyo`, `lib/media-buyer/copiloto-contexto.ts`): una ficha
+  destilada que NO nombra a nadie ni atribuye, como el conocimiento de anuncios. Se dejó porque no es «hablar con un referente»; si
+  Martín lo quiere afuera, es esa función.

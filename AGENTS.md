@@ -2581,6 +2581,15 @@ suma una entrada a `FUNCIONES_SOLO_PRO` con su texto (`textoSoloPro`), su fila e
 en **cada función que hace la cosa**, no en la pantalla: una pantalla no es la única puerta (la API de MaKo no tiene
 pantalla, y una ruta se llama a mano). El molde entero, en `lib/editor-landing/replicar-candado.ts`.
 
+**Y el error espejo, que rompe en vez de dejar pasar: el candado NO va en una puerta común que también cubra las LECTURAS**
+(14/11/2026). Antes de poner uno, action por action: **¿GENERA o LEE?** Lo que sólo lee se deja abierto, porque cerrarlo no
+protege nada y en cambio apaga pantallas enteras: ese día el candado puesto en la `puerta()` de `app/ai-avatar/actions.ts`
+apagó la galería de fotos de la guía de video del editor —que llama `inicioAvatarAction`— y el cliente veía «No pude leer tus
+fotos», que era mentira. Y antes de cerrar una lectura, `grep` de quién más la llama: una action se comparte entre pantallas
+de áreas distintas. La misma regla del otro lado: antes de dar por cerrada una función, buscar la OTRA puerta por el helper
+que la hace, no por la pantalla (`grep -rn "conAvatar"`, `grep -rn "rutaDeSubida('ai-avatar'"`) — ese día el Avatar de IA
+seguía generándose entero desde Video Editor › Biblioteca, que nadie había mirado.
+
 # El remitente de un NEGOCIO nunca es MaKo, y lo que firma MaKo sale por la key de MaKo
 
 Decisión de Martín (11/10/2026): «Quítale a Mauricio que pueda mandar email con MaKo. Nadie debería poder.» El porqué

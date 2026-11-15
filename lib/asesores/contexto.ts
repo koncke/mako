@@ -37,8 +37,25 @@ const FASES_DEL_COACH = `EN ESTE CHAT (el Funnel Coach de MaKo, en la COMPUTADOR
 3. PLANEAR LA EJECUCIÓN: con ese presupuesto, cuántos creativos, cuántos ángulos contra qué avatares y razones de compra, y si va una landing o una prueba A/B de landings. Para anuncios, los números salen de la herramienta calcular_presupuesto_anuncios (la calculadora de presupuesto): no los estimes de memoria. Si el presupuesto no alcanza, dilo.
 4. GUARDAR Y EJECUTAR: cuando el plan esté decidido, guárdalo con guardar_plan_funnel. Un plan que sólo está escrito en este chat no existe: el botón «Ver el plan» muestra lo guardado, y tú lo lees con ver_plan_funnel. Después haz lo que puedas con tus herramientas y, si algo se hace en otra pantalla de MaKo (Ads Manager, Web Generator, Competitors Spy, Dashboard), nómbrala.`;
 
-/** El contexto entero del coach. Sin referente al frente (eligió «MaKo»), con las fichas de uno por tema que trabaja, atribuyendo. */
-export function contextoDelFunnelCoach(elegido: IdAsesor | null): string {
+/**
+ * LO QUE EL COACH LE DICE A UN ESENCIAL (14/11/2026, lib/asesores/candado.ts, 'chat-referentes'): el coach entero y SIN la ficha de
+ * nadie. La tabla vende en los tres planes «Tu oferta y tu funnel, revisados con IA» (lib/planes-comparacion.ts) y de Pro «Chat con
+ * los referentes del marketing, CON SU MÉTODO»: el método es justo lo que no va.
+ * ⚠️ Y HAY QUE DECIRLE QUE NO NOMBRE A NADIE, no sólo no pasarle la ficha: el modelo conoce a estos referentes de antes y, sin esta
+ *    línea, atribuye marcos de memoria («esto es la fórmula de Hormozi»), que es lo que las reglas de arriba evitan a toda costa —
+ *    sería una cita inventada Y la función de Pro, mal.
+ */
+const COACH_SIN_REFERENTES = `CON QUÉ ACONSEJAS EN ESTE CHAT: con el criterio de MaKo y los números de este negocio. No tienes la metodología de ningún referente cargada, así que NO nombras a ninguno, no dices «esto es el marco de X», no atribuyes nada a nadie y no citas cursos, libros ni videos: lo que digas es tu criterio. Si la persona pregunta por un referente o pide trabajar con su método, se lo dices en una línea sin fingir que lo tienes («el chat con los referentes y su método está en MaKo Pro») y sigues ayudándola con tu criterio. Nunca inventes una cita, una anécdota, un caso ni un número.
+LO QUE NO ACONSEJAS: escasez o cupos inventados, reseñas, testimonios o seguidores falsos, promesas de ingresos, presión para decidir hoy, ni saltarse las reglas de una plataforma.
+ATERRIZA: todo baja a los números y a la oferta de este negocio, y haces una sola pregunta por vez.`;
+
+/**
+ * El contexto entero del coach. Sin referente al frente (eligió «MaKo»), con las fichas de uno por tema que trabaja, atribuyendo.
+ * `sinReferentes`: el candado de los referentes (`COACH_SIN_REFERENTES`), que es OTRA cosa que elegir «MaKo» — elegir MaKo sigue
+ * trayendo los marcos, porque quien eligió MaKo paga Pro igual.
+ */
+export function contextoDelFunnelCoach(elegido: IdAsesor | null, sinReferentes = false): string {
+  if (sinReferentes) return `${FASES_DEL_COACH}\n\n${COACH_SIN_REFERENTES}`;
   if (elegido) return `${FASES_DEL_COACH}\n\n${contextoDeReferente(elegido)}`;
   const delTema = ASESORES.filter((a) => a.enElCoach);
   return `${FASES_DEL_COACH}\n\nTUS FUENTES: te apoyas en estos referentes y siempre dices de quién es cada marco. No eres ninguno de ellos, no participan ni respaldan este producto, y nunca les inventes una cita ni un número.\n\n${delTema.map((a) => `MARCOS DE ${a.completo.toUpperCase()} (${a.especialidad}, de «${a.curso}»):\n${FICHAS[a.id]}`).join('\n\n')}`;

@@ -18,6 +18,8 @@ import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
+import { esRespuestaSoloPro, marcarSoloPro } from '@/app/_components/solo-pro';
 import type { Asesor } from '@/lib/asesores/catalogo';
 import { filtroVacio, type EstadoFiltro } from '@/lib/cerebro-filtro';
 import type { Cerebro } from '@/lib/cerebro-modelo';
@@ -40,6 +42,11 @@ export function BotonSecondBrainDe({ referente: r, viendo, onCambiar }: { refere
 export function CerebroDelGuru({ referente: r, movil = false }: { referente: Asesor; movil?: boolean }) {
   const [cerebro, setCerebro] = useState<Cerebro<string> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // SÓLO MaKo Pro (14/11/2026, lib/asesores/candado.ts): el grafo del curso de un gurú es parte de hablar con él, y la ruta le
+  // contesta 403 con `pasarAPro` a un Esencial. Sin esto, ese 403 caía en `error` y se dibujaba como una falla de la app, con
+  // «Reportar a Soporte»: el cliente creía que se rompió y nos escribía. Acá va el candado, y `marcarSoloPro` prende de una vez
+  // todas las demás entradas de la función (la galería, las filas) aunque /api/auth/me todavía no haya contestado.
+  const [candado, setCandado] = useState(false);
   const [filtro, setFiltro] = useState<EstadoFiltro>(filtroVacio);
   useEffect(() => {
     let vivo = true;
@@ -50,13 +57,15 @@ export function CerebroDelGuru({ referente: r, movil = false }: { referente: Ase
       .then((j: { ok?: boolean; cerebro?: Cerebro<string>; error?: string } | null) => {
         if (!vivo) return;
         if (j?.ok && j.cerebro) setCerebro(j.cerebro);
+        else if (esRespuestaSoloPro(j)) { marcarSoloPro('chat-referentes'); setCandado(true); }
         else setError(j?.error ?? 'No se pudo leer su Second Brain. Prueba de nuevo en un momento.');
       });
     return () => { vivo = false; };
   }, [r.id]);
   return (
     <div data-tema="oscuro" style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--ink)', colorScheme: 'dark', borderRadius: 12, overflow: 'hidden' }}>
-      {error ? <p className="co-vacio" role="alert">{error}<ReportarASoporte /></p>
+      {candado ? <div style={{ padding: 20 }}><CandadoSoloPro funcion="chat-referentes" /></div>
+        : error ? <p className="co-vacio" role="alert">{error}<ReportarASoporte /></p>
         : cerebro ? <Grafo cerebro={cerebro} filtro={filtro} onFiltro={setFiltro} movil={movil} />
         : <CargandoMako que="su Second Brain" alto="100%" />}
     </div>

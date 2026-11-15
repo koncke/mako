@@ -15,6 +15,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
 import { AvisoDeIA } from '@/app/m/_chat/AvisoDeIA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
+import { useSoloPro } from '@/app/_components/solo-pro';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { HiloMako, esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
@@ -39,6 +41,9 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
   const { k, r, aspecto, quien, vacio, saludo, plan } = useChatDelCoach({ referente, oferta, caja });
+  // Hablar con un referente es de MaKo Pro (14/11/2026, 'chat-referentes'): acá sólo decide qué se ve al elegir quién aconseja. El
+  // referente ya llega en null con el candado (app/second-brain/useCoaches.ts), así que `r` es null y no hay «Second Brain de X».
+  const soloPro = useSoloPro('chat-referentes');
   const [vista, setVista] = useState<'plan' | 'cerebro' | 'elegir' | null>(null);
   // La hoja mide su cuerpo después del primer pintado: se baja en el cuadro siguiente (el mismo cuidado que HojaDelGuru.tsx).
   const seguirHoja = useCallback(() => hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null, []);
@@ -79,7 +84,11 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
         {panel === 'info' && k.infoWA && <InfoMensaje m={k.infoWA} />}
         {panel === 'conectar' && <TusCuentasIA sinCabecera conectar />}
         {panel === 'plan' && plan && <VistaDelPlan plan={plan} />}
-        {panel === 'elegir' && (
+        {/* SÓLO MaKo Pro poner a un referente al frente (14/11/2026, lib/asesores/candado.ts): el candado en lugar de la lista, como
+            en la computadora (app/second-brain/ElegirReferente.tsx). El coach sigue abierto en los dos planes; el servidor ya lo corre
+            sin la ficha de nadie (app/api/mako/chat/route.ts → `contextoDelChat`), y una lista que no cambia nada mentiría. */}
+        {panel === 'elegir' && soloPro && <div className="m-operaciones-elegir"><CandadoSoloPro funcion="chat-referentes" /></div>}
+        {panel === 'elegir' && !soloPro && (
           // Elegir quién aconseja, ADENTRO de la hoja (una sola hoja): la lista de la computadora (ElegirReferente.tsx), en filas.
           <div className="m-operaciones-elegir" role="radiogroup" aria-label="Quién aconseja">
             {[null, ...ASESORES.map((a) => a.id)].map((id) => {

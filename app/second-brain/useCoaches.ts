@@ -5,6 +5,7 @@
 // Aparte de ChatSecondBrain.tsx: esa pantalla no hace pedidos propios (tests/ops-center-cliente.test.ts).
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSoloPro } from '@/app/_components/solo-pro';
 import { REFERENTE_DE_FABRICA, asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
 import type { GuruConCharla } from '@/lib/chat-mako-reglas';
 import { sanearOfertaDelCoach, type OfertaDelCoach } from '@/lib/funnel-plan';
@@ -40,7 +41,17 @@ export function useCoaches() {
         else if (antes !== undefined) setReferente(antes);
       });
   }, []);
-  return { referente, oferta, puedeElegir, elegirReferente };
+  // SÓLO MaKo Pro EL REFERENTE DEL COACH (14/11/2026, `FUNCIONES_SOLO_PRO` → 'chat-referentes', lib/asesores/candado.ts): el
+  // servidor ya corre el coach y las conversaciones de Offer SIN su ficha, y esto es para que la pantalla diga lo mismo.
+  // ⚠️ Y ADEMÁS ARREGLA UN BOTÓN QUE DABA ERROR: con un referente al frente se dibujaban «Inspirado en X» y «Second Brain de X»
+  //    en el chat del coach (./ChatDelCoach.tsx, app/m/second-brain/HojaDelCoach.tsx) y en cada conversación de Offer
+  //    (./ChatSecondBrain.tsx, `delCoach`); tocarlo pedía `?cerebroDe=`, que a un Esencial le contesta 403, y el 403 salía
+  //    dibujado como un error del sistema con «Reportar a Soporte» (./SuSecondBrain.tsx): el cliente creía que la app se rompió.
+  // ⛔ `puedeElegir` NO SE TOCA: dice si esta persona administra el negocio, y la pantalla lo reusa para mostrar la FILA del coach
+  //    (`verCoach`, ./ChatSecondBrain.tsx). Apagarlo le sacaba el Funnel Coach entero a un Esencial, que lo tiene en su plan.
+  //    Lo que ve en su lugar es el candado al elegir quién aconseja (./ElegirReferente.tsx).
+  const soloPro = useSoloPro('chat-referentes');
+  return { referente: soloPro ? null : referente, oferta, puedeElegir, elegirReferente };
 }
 
 /**

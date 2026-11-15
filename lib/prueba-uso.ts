@@ -11,6 +11,13 @@
 // Flow del cliente, y no todo queda en una tabla). Cada pantalla que crea suma en `prueba.uso` (un setting del negocio),
 // SÓLO mientras está en prueba. Sin poder leer, deja pasar (AGENTS.md, «Hacer cumplir un tope del plan»).
 // Sin importar lib/cobros (alcanza una IA en su grafo): lo usan acciones que el navegador llama (tests/d6b-rutas.test.ts).
+//
+// UN TOPE NO ES UN PERMISO (14/11/2026). La prueba NO es una capa propia: vale EL PLAN ELEGIDO desde el primer día
+// (lib/plan-esencial.ts, `capaVendidaDe`) y los DOS planes arrancan con los 7 días (`PLANES_CON_PRUEBA`, lib/planes-mako.ts),
+// así que una prueba del de US$47 es «Esencial por la pasarela» y choca con los candados de `FUNCIONES_SOLO_PRO` igual que un
+// Esencial pagado. El tope de la prueba es el TECHO de quien ya tiene la función por su plan, nunca la llave: lo que decide
+// si la tiene es su plan. Lo que se cuenta en el RESUMEN (y por lo tanto se promete) se filtra por eso:
+// `FUNCION_PRO_DE_CADA_TOPE`, abajo.
 // =============================================================================
 
 import 'server-only';
@@ -21,7 +28,12 @@ import { CLAVE_PLAN_A_MANO, leerPlanAMano, llevaTopesDePrueba } from './plan-a-m
 import { nombreDePlan } from './clientes-plataforma-reglas';
 import { getSetting, setSetting } from './settings';
 import { diasQueQuedan, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO } from './prueba-plan-reglas';
-import { NOMBRE_COSA_PRUEBA, textoTopePrueba, topeEnPrueba, type TopePrueba } from './topes-plan';
+import { NOMBRE_COSA_PRUEBA, textoTopePrueba, topeEnPrueba, type FuncionSoloPro, type TopePrueba } from './topes-plan';
+// ¿A este negocio le está cerrada una función de `FUNCIONES_SOLO_PRO`? Lo decide el cruce del plan que se le VENDIÓ con la
+// capa que tiene HOY (`esEsencialPorPasarela`): las dos tienen que ser `completo`.
+// ¿Arrastra lib/cobros, que alcanza una IA en su grafo? NO: lib/plan-esencial.ts hace esa MISMA lectura a mano justamente para
+// no importarlo. Medido: la clausura de este archivo queda en 49 módulos y no toca lib/ai-cheap.ts (tests/d6b-rutas.test.ts).
+import { esEsencialDe } from './plan-esencial';
 import { formatoMonto } from './pasarela-moneda';
 
 export const CLAVE_USO_PRUEBA = 'prueba.uso';
@@ -159,6 +171,25 @@ export async function sumarUsoDePrueba(ws: number, cual: TopePrueba, cuantas = 1
 }
 
 export type UsoDePrueba = { tope: Exclude<TopePrueba, 'prueba.exportar'>; usado: number; de: number };
+
+/**
+ * LOS TOPES QUE CUENTAN UNA FUNCIÓN QUE EL PLAN PUEDE CERRAR (14/11/2026, la verificación de lo que se cerró en Esencial).
+ * ⚠️ UN TOPE DE LA PRUEBA NO ES UN PERMISO: es el TECHO de lo que se puede llevar quien YA tiene la función por su plan. La
+ * tabla de topes no sabe nada de `FUNCIONES_SOLO_PRO` a propósito — son dos ejes distintos (lib/topes-plan.ts) —, y por eso
+ * `topeEnPrueba('completo', 'prueba.avatares')` da 1 también para un Esencial: el 1 sale de la prueba porque el PLAN no tiene
+ * la clave (`topeEnPrueba` devuelve el de la prueba cuando el plan no la topa). Leída como «lo que la prueba incluye», esa
+ * fila se volvía una promesa: el resumen le contaba «0 de 1 video con avatar de IA» a un Esencial que en /ai-avatar se come
+ * el cartel de Pro (`candadoDeAiAvatar`, app/ai-avatar/acceso.ts). Y los dos planes arrancan con los 7 días
+ * (`PLANES_CON_PRUEBA`), con los topes de SU plan desde el primer día (lib/plan-esencial.ts, `capaVendidaDe`): la prueba no
+ * es una capa aparte, así que «está en prueba» no destraba nada.
+ * Acá se cruzan los dos ejes, en el ÚNICO lugar que arma esa lista (`resumenDePrueba`, abajo): la fila de un tope cuya
+ * función su plan le cierra no se cuenta. EL TOPE NO SE TOCA: sigue frenando a quien sí la tiene (`frenoDePrueba`).
+ * El tipo ata la clave: si 'ai-avatar' sale de `FUNCIONES_SOLO_PRO`, esto no compila y alguien lo decide.
+ */
+const FUNCION_PRO_DE_CADA_TOPE: Readonly<Partial<Record<UsoDePrueba['tope'], FuncionSoloPro>>> = {
+  'prueba.avatares': 'ai-avatar',
+};
+
 export type ResumenPrueba =
   | { enPrueba: false }
   | { enPrueba: true; dias: number | null; hasta: string | null; plan: string; despues: string | null; usos: UsoDePrueba[]; exportarHabilitado: false };
@@ -167,6 +198,9 @@ export type ResumenPrueba =
  * La prueba del negocio en un vistazo: cuántos días quedan, qué se cobra después y cuánto usó de cada tope. Lo dibujan el
  * cartel de la barra lateral, la franja de cada pantalla con tope, «Tu plan» del teléfono, y lo lee la API (`ver_mi_prueba`).
  * Las páginas publicadas se cuentan de la tabla (las publicadas hoy), como el freno. Nunca tira.
+ * `usos` ES UNA LISTA DE LO QUE LA PRUEBA LE DA, y por eso se filtra por plan: sin el filtro, los cuatro lugares que la
+ * dibujan le prometían el avatar de IA a un Esencial que lo tiene cerrado (`FUNCION_PRO_DE_CADA_TOPE`, arriba). Quien lee
+ * esto no agrega su propia lista de topes: la de acá ya viene filtrada, y una segunda se desfasa el día que cambie el plan.
  */
 export async function resumenDePrueba(ws: number, ahoraMs: number = Date.now()): Promise<ResumenPrueba> {
   const e = await estadoDePrueba(ws);
@@ -179,10 +213,19 @@ export async function resumenDePrueba(ws: number, ahoraMs: number = Date.now()):
       .eq('workspace_id', ws).is('papelera_at', null).not('publicado', 'is', null);
     publicadas = count ?? 0;
   } catch { /* sin contar: 0 */ }
+  // ¿Su plan le cierra lo que es sólo de Pro? Una lectura, y sólo cuando está en prueba (`FUNCION_PRO_DE_CADA_TOPE`, arriba).
+  // ⚠️ SE LE PASA EL ws Y NO `e.capa`: `e.capa` es la capa VENDIDA (el `alta_capa` del cobro) y `esEsencialDe` espera la que
+  //    el negocio tiene HOY. El que ayer subió a Pro sigue con `alta_capa` completo, y pasársela le cerraba el avatar a un Pro.
+  //    `esEsencialDe` lee la capa de hoy él mismo: una lectura más vale menos que esa confusión.
+  // ⚠️ ANTE LA DUDA, LA FILA SALE: `esEsencialDe` devuelve false si no pudo leer el plan, igual que el candado de /ai-avatar.
+  //    Las dos puertas tienen que fallar para el mismo lado: contarle un tope a quien resulta que lo tiene cerrado es un rato
+  //    de ruido; esconderle a un Pro el techo de lo que puede generar es sacarle algo que paga.
+  const cerradoPorSuPlan = await esEsencialDe(ws);
   const usos: UsoDePrueba[] = [];
   for (const tope of Object.keys(NOMBRE_COSA_PRUEBA) as Array<UsoDePrueba['tope']>) {
     const de = topeEnPrueba(e.capa ?? '', tope);
     if (de == null) continue;
+    if (cerradoPorSuPlan && FUNCION_PRO_DE_CADA_TOPE[tope]) continue;
     usos.push({ tope, usado: tope === 'web.landings_publicadas' ? publicadas : uso[tope] ?? 0, de });
   }
   return { enPrueba: true, dias: diasQueQuedan(e.hasta, ahoraMs), hasta: e.hasta, plan: e.plan ?? 'tu plan', despues: e.despues, usos, exportarHabilitado: false };

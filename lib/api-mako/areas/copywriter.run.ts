@@ -26,6 +26,7 @@ import { esFormatoCopy, esIdOutlierCopy, filtrarOutliersCopy, INFO_FORMATO, ROTU
 import { leerOutliersCopy, outlierCopyPorId, replicarOutlier } from '@/lib/copywriter/outliers-servidor';
 import { INFO_PEGADO, TIPOS_PEGADO, esTipoPegado, queEsLoPegado } from '@/lib/copywriter/pegado';
 import { replicarPegado } from '@/lib/copywriter/pegado-servidor';
+import { candadoDeReplicarGuion } from '@/lib/copywriter/replica-candado';
 
 const str = (o: Record<string, unknown>, k: string): string => (typeof o[k] === 'string' ? (o[k] as string).trim() : '');
 const json = (v: unknown) => JSON.stringify(v, null, 2);
@@ -304,6 +305,15 @@ export const RUNNERS: Runners = {
       const id = str(input, 'documentoId');
       const r = await abrir(id);
       if (!r.ok) return { error: r.status === 404 ? `No hay ningún documento con id «${id}» en este negocio. Pide listar_documentos_copywriter.` : `No pude leerlo: ${r.error}`, ...(r.status === 404 ? {} : { falla: true }) };
+      // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): una página con `props.outlier` ES una réplica, y escribir
+      // en ella mete el original entero en el prompt y devuelve el guion adaptado (lib/copywriter/ia.ts, `conElOriginal`). Es la
+      // misma puerta que /api/copywriter/ia en la pantalla: `editarConIA` tiene dos entradas y ésta es la otra. Acá, antes de
+      // llamar a la IA, para que MaKo no PROPONGA lo que después no va a poder. Escribir en cualquier otra página sigue en los
+      // dos planes: lo que es de Pro es replicar el guion de otro, no escribir.
+      if (r.doc.props.outlier) {
+        const pro = await candadoDeReplicarGuion(ctx.ws);
+        if (pro) return { error: pro };
+      }
       // La MISMA escritura que «Editar» en el chat de la página (lib/copywriter/ia.ts): las herramientas, ya validadas.
       const ia = await editarConIA({ instruccion, guion: { titulo: r.pagina.titulo, props: r.doc.props, contenido: r.doc.contenido } });
       if (!ia.ok) return { error: ia.error, ...(ia.status === 502 ? { falla: true } : {}) };
@@ -366,9 +376,17 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts). AL PROPONER, no al ejecutar: por WhatsApp, con el candado
+  // sólo en `ejecutar`, MaKo le PROPONÍA la réplica a un Esencial, dejaba la pendiente, pedía el «sí», quemaba la pendiente y
+  // recién ahí contestaba «No se pudo: Replicar el guion de otro es de MaKo Pro». El cliente leía una promesa que el producto no
+  // cumple y encima perdía la pendiente. Lo que el plan no permite, MaKo no lo ofrece (el molde: `replicar_landing`,
+  // lib/api-mako/areas/landing.run.ts). Al ejecutar lo frena igual `replicarOutlier`, que lo tiene de primera línea: entre
+  // proponer y confirmar el plan puede cambiar.
   replicar_outlier_copywriter: {
     preparar: async (input, ctx): Promise<Preparado> => {
       if (await cerrada(ctx)) return { error: CERRADA };
+      const pro = await candadoDeReplicarGuion(ctx.ws);
+      if (pro) return { error: pro };
       const id = str(input, 'outlierId');
       if (!esIdOutlierCopy(id)) return { error: 'Falta el outlierId (de outliers_copywriter).', faltan: ['outlierId'] };
       const o = await outlierCopyPorId(id);
@@ -385,9 +403,13 @@ export const RUNNERS: Runners = {
 
   // Lo que TRAE la persona (14/11/2026, lib/copywriter/pegado.ts): el link o el texto se lee recién al ejecutar (bajar una página
   // antes de que confirme sería gastar su tiempo en algo que puede no querer).
+  // La MISMA forma que `replicar_outlier_copywriter`, y por eso el MISMO candado al proponer: replicar el guion de otro es de
+  // Pro venga de un outlier de Spy o del link que pegó la persona. Al ejecutar lo frena `replicarPegado`.
   replicar_link_o_texto_copywriter: {
     preparar: async (input, ctx): Promise<Preparado> => {
       if (await cerrada(ctx)) return { error: CERRADA };
+      const pro = await candadoDeReplicarGuion(ctx.ws);
+      if (pro) return { error: pro };
       const tipo = str(input, 'tipo');
       const texto = str(input, 'texto');
       if (!esTipoPegado(tipo)) return { error: `Falta el tipo: ${TIPOS_PEGADO.join(', ')}.`, faltan: ['tipo'] };

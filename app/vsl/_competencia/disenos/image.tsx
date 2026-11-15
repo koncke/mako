@@ -42,6 +42,8 @@ import { Icon } from '../../_detalle/FeatureDetail';
 import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, TEXTO_CIERRE, html, otrasFunciones } from '../marca';
 import type { Bloque } from '../tipos';
 import { FaltaAnimacion } from '../FaltaAnimacion';
+// El aviso de plan de la promesa que escribe ESTE archivo (el pie de la galería de outliers): la misma derivación de ../image.ts.
+import { soloPro } from '../image';
 import { rotuloMultiplo } from '@/lib/multiplo-rendimiento';
 import { TIPOS_CARRUSEL } from '@/lib/carruseles/tipos';
 
@@ -268,7 +270,9 @@ function Plantillas({ b }: { b: Tarjetas }) {
         ))}
       </div>
       <div className={`${P}-plant-pie`}>
-        <p className={`${P}-plant-txt`}>Con «Editar», tu versión: su mismo diseño y tus textos.</p>
+        {/* «Editar» un ejemplo pasa por la IA del editor y es de Pro (lib/editores-ia-pro.ts): la bajada de este bloque ya lo
+            dice, pero este renglón está 600 caracteres más abajo, pegado al botón, y se lee solo. Lleva su propio aviso. */}
+        <p className={`${P}-plant-txt`}>Con «Editar», tu versión: su mismo diseño y tus textos.{soloPro('ia-editores')}</p>
         <Boton clase={`${P}-btn-linea`} der={svg(I.flecha, 16)} />
       </div>
     </section>

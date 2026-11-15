@@ -161,6 +161,19 @@ export function CompararPlanes({ planes, sufijo = '' }: { planes: readonly Pick<
       return { id: p.id, nombre: p.nombre, precio: `US$ ${p.precioUsd}`, periodo: 'por mes', destacado: !!p.destacado, href: boton.href,
         boton: planConPrueba(p.id) ? `${PRUEBA_DIAS} días gratis` : 'Empezar', celda: (f: FilaComparacion) => celdaDeCapa(f, p.capa) };
     }),
+    // EL ACELERADOR, POR SU PEDIDO Y NO POR LA AGENDA — A PROPÓSITO (14/11/2026). Esta pantalla dibuja el Acelerador DOS
+    // veces: su tarjeta (./Tarjetas.tsx, que desde hoy abre la agenda de Martín en Calendly, `AGENDA_ACELERADOR`) y esta
+    // columna, acá. Son dos caminos al mismo producto, y el que se queda es ÉSTE, /planes/acelerador:
+    //   · deja el pedido en el CRM con el origen de la campaña y el código de partner que trae el `sufijo`; Calendly no se
+    //     lleva nada de eso, y la agenda de Martín todavía no tiene su webhook (docs/hallazgos-integraciones.md);
+    //   · pone antes el diagnóstico de 2 minutos (`PREGUNTAS_DE_LA_PUERTA`, app/planes/[plan]/page.tsx): la llamada arranca
+    //     sabiendo dónde está el negocio, y la hora de Martín es lo escaso;
+    //   · termina igual en la llamada («Te escribimos por WhatsApp para coordinar tu llamada»), así que la regla del 14/11
+    //     («lo de agendar llamadas sí debería estar todavía para el tema de Accelerator») se cumple sin perder la atribución.
+    // ⚠️ NO CAMBIAR ESTE `href` A CALENDLY para «unificar». Además de tirar el origen y el partner, rompe dos tests que lo
+    // miran: tests/planes-tres-bloques.test.ts exige UNA sola aparición de `calendly.com` y UNA sola de «Agenda tu llamada»
+    // en todo el render de /planes. Lo que falta para que haya un solo camino es al revés: que la TARJETA vuelva a este
+    // pedido y la agenda viva DENTRO de /planes/acelerador, después del diagnóstico.
     { id: programa.id, nombre: programa.nombre, precio: `US$ ${programa.precioUsd.toLocaleString('es-AR')}`, periodo: `en ${programa.cuotas} cuotas`,
       destacado: false, href: `/planes/${programa.id}${sufijo}`, boton: 'Quiero el Acelerador', celda: (f: FilaComparacion) => f.acelerador as Celda | null },
   ];

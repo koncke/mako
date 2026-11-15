@@ -41,6 +41,9 @@ import { puestaPorId, contarPalabras, marcasDeVoseo, palabrasQueEntran } from '@
 import { estaVivo } from '@/lib/flow-puente-frescura';
 import { generarPlanAction } from './actions';
 import { guionesDisponibles } from './guiones-datos';
+import { tipoDePlan } from './historial-cupos';
+// El MISMO candado de la tab, no uno nuevo (app/ai-avatar/acceso.ts → `FUNCIONES_SOLO_PRO`, 'ai-avatar').
+import { candadoDeAiAvatar } from '@/app/ai-avatar/acceso';
 import { causaFlow, causaDeMotivo, textoFlow, detalleFiltroDeCara, type CausaFlow } from '@/lib/flow-fallo-texto';
 import { mediaDeFlow, esFiltroDeCara } from '@/lib/flow-media';
 import { getSetting, setSetting } from '@/lib/settings';
@@ -439,6 +442,26 @@ export async function generarTomaAction(
   const fallada = !!yaHay.error;
   if (!fallada && (yaHay.operacion || yaHay.trabajoId)) {
     return { ok: true, item };
+  }
+
+  // ⚠️ LA COLA DE AVATARES VIEJOS, QUE ERA LA PUERTA QUE QUEDABA (14/11/2026).
+  //
+  // Desde el 14/11 el Avatar de IA es de MaKo Pro (`FUNCIONES_SOLO_PRO`, 'ai-avatar'; Martín: «el de 97 ya podés generar
+  // avatares de IA… el de 47 debería estar bien limitado y restrictivo»), y ese día se cerraron las TRES puertas que CREAN
+  // un plan de avatar (`crearLookAction`, `crearVideoAction` y la de Video Editor › Biblioteca, `crearAvatarAction`). Pero
+  // FILMAR las tomas de un plan que YA EXISTE pasa por acá, y acá sólo se preguntaba `ctxAdmin()`.
+  //
+  // O sea que quedaba una cola abierta, y con material de verdad adentro: entre el 29/10 y el 14/11 la función estuvo
+  // abierta en los tres planes, así que hay negocios que hoy pagan Esencial con planes de avatar a medio filmar en su
+  // historial —y podían terminarlos toma por toma, gastando los créditos de Flow, sin pasar por ninguna puerta cerrada.
+  //
+  // El freno se acota a `tipo === 'avatar'` (`tipoDePlan`, ./historial-cupos) y NO toca los anuncios comunes, que son de los
+  // dos planes y son la mayoría de lo que pasa por esta función. Y va DESPUÉS del `yaHay.url` de arriba, a propósito:
+  // devolver una toma ya filmada no genera nada y no cuesta nada —es una LECTURA, y cerrar lecturas es lo que el 14/11 apagó
+  // la galería de fotos de la guía de video (AGENTS.md: «¿GENERA o LEE?»)—. Acá abajo sí se filma, y acá sí va el candado.
+  if (tipoDePlan(item) === 'avatar') {
+    const candado = await candadoDeAiAvatar();
+    if (candado) return { ok: false, error: candado };
   }
   // ⚠️ ACÁ SE BORRABA EL DIAGNÓSTICO, Y ES EL LUGAR EQUIVOCADO.
   //

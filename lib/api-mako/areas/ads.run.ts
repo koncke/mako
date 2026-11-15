@@ -53,6 +53,7 @@ import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos
 import { quienChatea } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { runWithWorkspace } from '@/lib/workspace';
+import { esEsencialDe } from '@/lib/plan-esencial';
 import { leerRefCreativo } from '@/lib/creativo-mako';
 import { resolverCreativoMako } from '@/lib/creativo-mako-fuentes';
 import { filaDeRendimiento } from '@/lib/ads-rendimiento';
@@ -1287,7 +1288,21 @@ export const RUNNERS: Runners = {
       // Lo mismo que el botón de la pantalla (route.ts → hooks_a_video): las elegidas pisan la marca guardada.
       const elegidas = Array.isArray(payload.variaciones) ? new Set(payload.variaciones as string[]) : null;
       const r = await llevarHooksAlVideoMB(ctx.ws, elegidas ? { ...d, variaciones: (d.variaciones ?? []).map((v) => ({ ...v, elegida: elegidas.has(v.id) })) } : d);
-      return r.ok ? { ok: true, resumen: `En el Video Generator: ${r.cargados} ${r.cargados === 1 ? 'guion nuevo' : 'guiones nuevos'}${r.salteados ? ` (${r.salteados} ya estaban)` : ''}. En AI Avatar están en «Hooks ganadores», para filmarlos con tu avatar.` } : { ok: false, resumen: r.error };
+      if (!r.ok) return { ok: false, resumen: r.error };
+      // ⛔ LA SEGUNDA FRASE DEL RESUMEN ES UNA OFERTA, Y SÓLO VA SI SU PLAN INCLUYE LA FUNCIÓN (15/11/2026, tercera vuelta).
+      //    La descripción de esta operación ya dejó de nombrar AI Avatar (ads.def.ts) porque es UN string para todos los
+      //    negocios — y la promesa no se fue: SE MUDÓ ACÁ. «En AI Avatar están en “Hooks ganadores”, para filmarlos con tu
+      //    avatar» viajaba sin condición, así que un MaKo Esencial recibía, al terminar la acción, la invitación a una tab que
+      //    su plan tiene cerrada ('ai-avatar' en `FUNCIONES_SOLO_PRO`, lib/topes-plan.ts: /ai-avatar le contesta el cartel de
+      //    Pro). Llevar los hooks al Video Generator NO es de Pro: la operación no se cierra, se condiciona la frase.
+      // ⚠️ Y ES ACÁ Y NO EN OTRA OPERACIÓN, medido el 15/11/2026: para «pasame los hooks ganadores para filmarlos con mi
+      //    avatar» ésta sale PRIMERA, y `ver_avatares` —la que trae `cerrado_por_su_plan` con el texto de Pro— queda en el
+      //    puesto 14 de 936 visibles, que ese turno es el ÚLTIMO esquema que entra en el presupuesto (14 de 936 viajan,
+      //    `PRESUPUESTO_REGISTRO_CHARS`). Y entra por un slot que apareció al acortar la descripción de esta misma operación:
+      //    antes de eso quedaba afuera. La honestidad del turno no puede depender de ese margen.
+      const cerradoPorSuPlan = await esEsencialDe(ctx.ws);
+      const donde = cerradoPorSuPlan ? '' : ' En AI Avatar están en «Hooks ganadores», para filmarlos con tu avatar.';
+      return { ok: true, resumen: `En el Video Generator: ${r.cargados} ${r.cargados === 1 ? 'guion nuevo' : 'guiones nuevos'}${r.salteados ? ` (${r.salteados} ya estaban)` : ''}.${donde}` };
     },
   },
   analizar_cuenta_media_buyer: {

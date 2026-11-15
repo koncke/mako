@@ -36,6 +36,8 @@ import { escenariosReusables } from '@/app/video-generator/escenario-reuso';
 import { getVozCliente } from '@/app/video-generator/voz-cliente';
 import { leerLooksEstricto } from '@/app/ai-avatar/looks';
 import { PLANTILLAS_AVATAR, plantillaPorId } from '@/lib/ai-avatar/plantillas';
+import { esEsencialDe } from '@/lib/plan-esencial';
+import { textoSoloPro } from '@/lib/topes-plan';
 import { getRazones } from '@/lib/razones';
 import { EXTENSION_VERSION } from '@/lib/extension-version';
 import { CATALOGO_ESCENARIOS, escenarioPorId, escenariosParaCamara } from '@/lib/escenarios-data';
@@ -75,6 +77,19 @@ const CAUSAS: readonly CausaFlow[] = [
 const causaValida = (c: string | undefined): CausaFlow | null => (c && (CAUSAS as readonly string[]).includes(c) ? (c as CausaFlow) : null);
 
 const ERROR_HISTORIAL = 'No pude leer el historial de anuncios de /video-generator (falló la consulta a la base). No significa que no haya anuncios: intenta de nuevo en un rato.';
+
+/**
+ * ⛔ EL AVATAR DE IA ES DE MaKo Pro (14/11/2026, 'ai-avatar' en `FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), y por la API el plan
+ * es el del NEGOCIO (`ctx.ws`: no hay sesión). Ante la duda pasa (`esEsencialDe`, lib/plan-esencial.ts), como el resto.
+ *
+ * ⚠️ Y SE PREGUNTA POR OPERACIÓN, no en una puerta común del área: la regla de AGENTS.md («¿GENERA o LEE?»). `ver_avatares`
+ * LEE los looks que el cliente ya tiene —entre el 29/10 y el 14/11 la función estuvo abierta en los tres planes, así que un
+ * Esencial puede tener looks y planes a medio filmar— y cerrarla le apagaría un dato propio; lo que se le va es la OFERTA (la
+ * galería). `ver_plantillas_avatar` es sólo el catálogo de la función, sin nada suyo: se cierra entera.
+ * La prueba gratis NO cambia esto: vale el plan elegido desde el primer día (lib/plan-esencial.ts, `capaVendidaDe`) y los dos
+ * planes arrancan con los 7 días, así que una prueba del de US$47 choca con este candado igual que un Esencial pagado.
+ */
+const avatarCerradoEn = async (ctx: Ctx): Promise<boolean> => esEsencialDe(ctx.ws);
 
 /** El historial, o null si la base no contestó (≠ lista vacía). */
 async function historialOnull(): Promise<PlanGuardado[] | null> {
@@ -687,8 +702,10 @@ export const RUNNERS: Runners = {
   },
 
   ver_avatares: {
-    leer: async () => {
+    leer: async (_input, ctx) => {
       const looks = await leerLooksEstricto();
+      // Lo que ya tiene SIEMPRE se le devuelve; lo que cambia con el plan es la oferta y la nota de qué se puede hacer.
+      const cerrado = await avatarCerradoEn(ctx);
       return json({
         looks: looks.map((l) => ({
           tema: plantillaPorId(l.plantillaId)?.nombre ?? l.plantillaId,
@@ -698,9 +715,16 @@ export const RUNNERS: Runners = {
           ajuste: l.detalle || null,
           pedido: l.creadoEn || null,
         })),
-        temas_de_la_galeria: PLANTILLAS_AVATAR.map((p) => ({ nombre: p.nombre, categoria: p.categoria, lugar: p.lugar, nuevo: !!p.nuevo })),
+        // LA GALERÍA ES LA OFERTA, no un dato del negocio: con la función cerrada por su plan no viaja (nombrarla es
+        // ofrecerle elegir un tema en «Nuevo avatar», que es la pantalla del cartel de Pro).
+        ...(cerrado ? {} : { temas_de_la_galeria: PLANTILLAS_AVATAR.map((p) => ({ nombre: p.nombre, categoria: p.categoria, lugar: p.lugar, nuevo: !!p.nuevo })) }),
+        ...(cerrado ? { cerrado_por_su_plan: textoSoloPro('ai-avatar') } : {}),
         notas: [
-          'Cada look es un PROYECTO de AI Avatar: «listo» se anima abriendo su proyecto y «Generar video»; «generando» lo está haciendo el navegador del cliente por el puente a Flow.',
+          ...(cerrado
+            // «Se anima y Generar video» es MENTIRA en su plan: la tab le contesta el cartel de Pro. Y sus looks pueden ser de
+            // antes del 14/11, cuando la función estaba abierta en los tres planes: son suyos y se los decimos igual.
+            ? ['Estos looks son los que este negocio YA tenía: su plan tiene la función cerrada, así que no se puede crear ni animar ninguno nuevo. Repite `cerrado_por_su_plan` tal cual si pregunta por eso.']
+            : ['Cada look es un PROYECTO de AI Avatar: «listo» se anima abriendo su proyecto y «Generar video»; «generando» lo está haciendo el navegador del cliente por el puente a Flow.']),
           'Los avatares que salen de anuncios del Video Generator no están aquí: los cuenta contar_escenarios_reusables.',
         ],
       });
@@ -920,7 +944,9 @@ export const RUNNERS: Runners = {
     },
   },
   ver_plantillas_avatar: {
-    leer: async (input) => {
+    leer: async (input, ctx) => {
+      // Cerrada entera: es el catálogo de la función y nada del cliente (el porqué, en `avatarCerradoEn` y en video.def.ts).
+      if (await avatarCerradoEn(ctx)) return error(textoSoloPro('ai-avatar'));
       const { PLANTILLAS_VENTA_AVATAR, plantillaVentaAvatar } = await import('@/lib/ai-avatar/plantillas-venta');
       const linea = (p: (typeof PLANTILLAS_VENTA_AVATAR)[number]) => ({
         id: p.id, nombre: p.nombre, cuando: p.cuando, rubro: p.rubro, preset: p.presetId, estructura: p.estructura, duracion_segundos: p.duracion,

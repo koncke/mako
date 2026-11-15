@@ -741,6 +741,12 @@ script (tsx) que llama a las MISMAS funciones del server, adentro de `runWithWor
 
 ## Qué quedó sin hacer
 
+- (14/11/2026) El candado de «Hacer uno así» de Competitors Spy está en la ruta, pero la pantalla no lo dibuja: un Esencial
+  gasta antes el Gemini del negocio desarmando el video (`app/competitor-spy/DetallePieza.tsx`, `hacerUnoAsi` llama a
+  `desarmarAntes` ANTES de `/api/competitor-spy/copiar`) y después recibe el 403 como texto de error, sin «Pasar a Pro». Falta
+  `useSoloPro('replicar-guion')` + `CandadoSoloPro` en ese botón, como en `app/competitor-spy/Seguidos.tsx`.
+- (14/11/2026) El chat de la página abierta (`/api/copywriter/ia` con `props.outlier`) contesta el 403 con `pasarAPro`, pero el
+  panel sólo muestra el texto del error: no dibuja `CandadoSoloPro` ni llama a `marcarSoloPro` (`app/copywriter/PanelMaKo.tsx`).
 - (14/11/2026) Lo traído: sin la clave de YouTube no se sabe la duración y se transcriben los primeros 10 minutos (un VSL de 30
   queda cortado y lo dice). Y a MaKo le llegan 6.000 letras del original (`TEXTO_PARA_MAKO`): de un VSL largo, el principio.
 - (14/11/2026) En la réplica de Hormozi MaKo no puso el ÁNGULO ni la ESTRUCTURA (la regla de `textoParaMaKo` lo pide y la
@@ -836,3 +842,49 @@ Hay **cinco** puertas que crean una réplica, y una sola pantalla: por eso el ca
 (`400 | 404 | 409 | 422 | 500`), así que el candado no podía devolver su código. Se sumó `403`, que es el mismo que usan el
 candado de las landings y el de la IA de los editores, y es el que la pantalla reconoce por `pasarAPro`
 (`app/_components/solo-pro.ts`, `esRespuestaSoloPro`) para prender el candado en TODAS las entradas de «Replicar» a la vez.
+
+## «Cinco puertas» eran ocho, y frenar no es mostrar: lo que encontró la verificación adversarial del candado (14/11/2026)
+
+La entrada de arriba cerró «Replicar» y se leía como completa: *el candado va en las funciones que CREAN la réplica, cinco
+puertas y una sola pantalla*. **El diagnóstico obvio era el equivocado por donde no se lo buscó:** la réplica no necesita que
+nazca una página. Tres de las puertas abiertas producían la réplica entera sin pasar por ninguna de las cinco.
+
+**1. El candado va donde el ORIGINAL ENTRA AL PROMPT, no sólo donde nace la página.** `/api/copywriter/ia` lee
+`props.outlier` del **cuerpo del pedido**: con eso, el server busca el original en el negocio de la pestaña y lo mete en CADA
+pedido de esa página (`lib/copywriter/ia.ts`, `conElOriginal`) — en «Editar» y también en «Discutir», donde «dame el gancho de
+éste con mi oferta» es la réplica igual. Y la página puede existir de antes: un negocio que **bajó de Pro a Esencial** tiene
+sus réplicas ahí, con el candado de creación intacto y esta puerta abierta. El gate correcto es `props.outlier`, porque es
+exactamente lo que convierte el pedido en una réplica: sin él no hay original que inyectar.
+
+**2. Una función con dos entradas: cerrar una no cierra la otra.** `editar` de `lib/copywriter/ia.ts` lo llaman la ruta de la
+pantalla **y** `editar_documento_copywriter` de la API de MaKo (WhatsApp). Son las dos únicas y las dos escriben la réplica.
+Queda atado con una guarda que lista los importadores de `editar`/`discutir` (`tests/copywriter-replicar-solo-pro.test.ts`,
+caso 1b): una entrada nueva da rojo acá. ⚠️ Escrita sin acotar el `./ia` **relativo**, esa guarda encuentra también el `editar`
+del editor de landings (`lib/editor-landing/diagnostico-aplicar.ts`), que es otra cosa: dos módulos del repo se llaman `ia` y
+exportan `editar`.
+
+**3. El botón que vende la función estaba en otra tab.** `/api/competitor-spy/copiar` («Hacer uno así») arma la página del
+Copywriter con la estructura del competidor y nunca preguntó por el plan. Tiene **dos salidas y las dos son la réplica**: la
+página, y —sin la tab del Copywriter— el mismo brief como texto al portapapeles («Su estructura» + «Tu versión: pídesela a
+MaKo»). Dejar el texto sería la réplica pegada en una página en blanco, que es justo lo que `replicarPegado` ya frena.
+
+**4. La promesa rota: un candado en `ejecutar` es una promesa que el producto no cumple.** Por WhatsApp, con el candado sólo
+al ejecutar, MaKo **proponía** la réplica a un Esencial, dejaba la pendiente, pedía el «sí», lo quemaba y recién ahí
+contestaba «No se pudo: Replicar el guion de otro es de MaKo Pro». El cliente leyó una promesa falsa y encima perdió la
+pendiente. **Lo que el plan no permite, MaKo no lo ofrece:** el candado va en `preparar` (con `ctx.ws`, que por WhatsApp no hay
+sesión) y se vuelve a mirar al ejecutar, porque el plan puede cambiar entre el «te lo propongo» y el «sí». El molde ya estaba
+en `replicar_landing` (`lib/api-mako/areas/landing.run.ts`).
+
+**5. FRENAR NO ES MOSTRAR.** El candado de la portada se dibuja arriba de la grilla: desde el original abierto quedaba
+**detrás del modal**, y desde una tarjeta de más abajo, fuera de la pantalla. El Esencial tocaba «Replicar» y no pasaba
+**nada**: ni candado, ni error, ni «Armando…». Un `if (soloPro) { setCandado(true); return; }` frena, pero si el cartel no
+tiene un lugar visible donde dibujarse el resultado es un botón muerto —y lo introdujo el commit que cerraba la puerta—. La
+regla del repo ya estaba escrita en el propio componente: `CandadoSoloPro` «va en el lugar de un botón o de una caja» (el
+molde de `clips-view.tsx` y `broll-view.tsx`). **Dentro de un modal, el candado va adentro del modal**; un cartel al que hay
+que llegar scrolleando se trae a la vista.
+
+**Cómo se comprueba que el que paga pasa, sin tocar la base:** `esEsencialPorPasarela` (`lib/plan-esencial-reglas.ts`) es
+pura, y es la única que decide. Candado **sólo** con la capa `completo` vendida y vigente; Pro y el Acelerador (`agencia`), el
+ws1, los acuerdos a mano (sin suscripción de la pasarela) y la plataforma dan `false`. Y `candadoDeReplicarGuion` devuelve
+`null` en el `catch`: **ante la duda, pasa**. ⚠️ La prueba gratis tiene los topes de SU plan desde el primer día, a propósito
+(`lib/plan-esencial.ts`, `capaVendidaDe`): una prueba del de 47 ve el candado, una del de 97 no.

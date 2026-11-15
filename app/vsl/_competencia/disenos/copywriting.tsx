@@ -45,7 +45,9 @@ import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
 import { RUTA_CTA, CASO, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { ASESORES, inspiradoEn } from '@/lib/asesores/catalogo';
-import { REPLICAS } from '../copywriting';
+// El aviso de plan de las DOS promesas que escribe este archivo (ver `Referentes` y `.d-copywriting-noprompt`): la misma
+// derivación que usa ../copywriting.ts, no un «Con MaKo Pro» escrito a mano.
+import { REPLICAS, soloPro, soloProEntre } from '../copywriting';
 
 const F = '/vsl-assets/fuentes';
 const AZUL = MAKO.azul;
@@ -472,12 +474,14 @@ type Tarjetas = Extract<Bloque, { tipo: 'tarjetas' }>;
 /**
  * Los referentes, en el cuadro de la tarjeta del hero (donde la referencia pone su pila de 14 libros). Contados del catálogo
  * (lib/asesores/catalogo.ts), con su caricatura y «Inspirado en»: ninguno participa en MaKo ni la respalda. Que su método
- * llega a tu IA es el chat con un referente (lib/asesores/contexto.ts → contextoDeReferente, en cada mensaje).
+ * llega a tu IA es el chat con un referente (lib/asesores/contexto.ts → contextoDeReferente, en cada mensaje) — y ESO es lo
+ * que se cerró en Esencial el 14/11/2026, así que este titular lleva el aviso derivado ('chat-referentes'). Entre paréntesis
+ * y no como frase aparte: es un titular, y el molde de la frase suelta es el de ../competitor-spy.ts.
  */
 function Referentes() {
   return (
     <div className="d-copywriting-refs">
-      <p className="d-copywriting-refs-h">Los {ASESORES.length} referentes del marketing que MaKo estudió. Ahora <em>tu IA</em> puede trabajar con su método.</p>
+      <p className="d-copywriting-refs-h">Los {ASESORES.length} referentes del marketing que MaKo estudió. Ahora <em>tu IA</em> puede trabajar con su método{soloProEntre('chat-referentes')}.</p>
       {/* Su «WHAT THEY TEACH, IN 424,000 WORDS. INSTALLED IN 5 MINUTES.» bajo la raya de color. */}
       <p className="d-copywriting-refs-sub">Lo que enseñan, destilado de sus cursos.</p>
       <ul className="d-copywriting-refs-pared">
@@ -640,8 +644,10 @@ function secciones(bloques: Bloque[]): ReactNode[] {
                 <ul className="d-copywriting-checks">{b.puntos.map((p, j) => <li key={j} dangerouslySetInnerHTML={html(p)} />)}</ul>
               )}
               {/* Su «You're not getting a prompt. You're getting the thinking behind the best ads and sales pages ever written,
-                  working inside your own AI.», traducido con lo que MaKo tiene: los referentes (la tarjeta de la derecha). */}
-              <p className="d-copywriting-noprompt"><strong>No te llevas un prompt.</strong> Te llevas el método de {ASESORES.length} referentes del marketing, trabajando dentro de tu propia IA.</p>
+                  working inside your own AI.», traducido con lo que MaKo tiene: los referentes (la tarjeta de la derecha).
+                  Es la promesa MÁS FUERTE de la página y vende el chat con los referentes, cerrado en Esencial: lleva el aviso
+                  derivado, como frase aparte (el molde de ../competitor-spy.ts). */}
+              <p className="d-copywriting-noprompt"><strong>No te llevas un prompt.</strong> Te llevas el método de {ASESORES.length} referentes del marketing, trabajando dentro de tu propia IA.{soloPro('chat-referentes')}</p>
             </div>
             <aside className="d-copywriting-tarjeta">
               <div className="d-copywriting-cuadro"><Referentes /></div>

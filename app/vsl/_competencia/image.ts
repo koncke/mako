@@ -47,8 +47,32 @@ import { ALTO_CARRUSEL, ANCHO_CARRUSEL } from '@/lib/carruseles/documento';
 import { PLANTILLAS_IMAGEN } from '@/lib/image-editor/plantillas-reales';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { PLANTILLAS_NUEVO_DISENO } from '@/app/image-editor/plantillas-crear';
+import { FUNCIONES_SOLO_PRO, type FuncionSoloPro } from '@/lib/topes-plan';
+import { FUNCIONES_TODAVIA_NO_VENDIDAS } from '@/lib/planes-comparacion';
 import type { LandingCompetencia } from './tipos';
 import { PREGUNTAS_SITIO } from '../_sitio/preguntas';
+
+// ── «Con MaKo Pro» NO SE TIPEA, SE DERIVA (15/11/2026) ────────────────────────────────────────────────────────────────
+// Esta landing vendía el chat del editor y «Editar» como incluidos, y el 14/11/2026 pasaron a ser de Pro. Martín, sobre
+// /planes: «el editor de imágenes y editor de videos sí deberían estar disponibles para la versión de 47, pero no deberían
+// estar disponibles el tema de editar con inteligencia artificial». El aviso sale de lo que el producto cierra de verdad
+// (`FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), como en lib/planes-comparacion.ts: a mano se desincroniza.
+//
+// ⚠️ EL CANDADO ES ANGOSTO (lib/editores-ia-pro.ts, la lista exacta). 'ia-editores' cierra sólo lo que LLAMA A LA IA: el chat
+//    «MaKo IA» del lienzo (/api/image-editor/ia), «Editar» un ejemplo y «Replicar en Image» (carruseles/replicar y
+//    carruseles/leer) y, en la API de MaKo, `editar_ejemplo_carrusel`. SIGUEN EN LOS DOS PLANES, y marcarlos sería mentir al
+//    revés: el lienzo entero como en Canva, el kit de marca, los tamaños, la descarga, mirar la biblioteca de carruseles con
+//    su outlier (ExplorarCarruseles no tiene candado), `crear_carrusel_desde_referencia` (la estructura con guías, sin IA) y
+//    `cambiar_textos_diseno_imagen`. Por eso el kit, el lienzo, la portada de Image y la grilla de la API van sin aviso.
+// ⚠️ Y NO TODO EL TEXTO DE ESTA PÁGINA VIVE ACÁ: el pie de la galería de outliers de ./disenos/image.tsx escribe su propia
+//    promesa («Con «Editar», tu versión…»), y por eso se quedó sin aviso en el primer arreglo. Por eso `soloPro` se EXPORTA y
+//    el diseño la llama: el aviso sigue saliendo de UNA derivación (15/11/2026).
+const seVendeEnPro = (f: FuncionSoloPro): boolean =>
+  (FUNCIONES_SOLO_PRO as readonly string[]).includes(f) && !FUNCIONES_TODAVIA_NO_VENDIDAS.includes(f);
+/** Al final de una frase (el molde de ./competitor-spy.ts, «Copia su sitio»). */
+export const soloPro = (f: FuncionSoloPro): string => (seVendeEnPro(f) ? ' Con MaKo Pro.' : '');
+/** Entre paréntesis, para una lista o un título (el molde de ./crm.ts, los contactos de un grupo de WhatsApp). */
+const soloProEntre = (f: FuncionSoloPro): string => (seVendeEnPro(f) ? ' (Con MaKo Pro)' : '');
 
 const I = {
   imagen: ['M15 8h.01', 'M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z', 'M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5', 'M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3'],
@@ -104,15 +128,21 @@ export const LANDING_IMAGE: LandingCompetencia = {
   nombre: 'Image',
   icono: I.imagen,
   referencia: { nombre: 'PostNitro — creador de carruseles con IA (es)', url: 'https://postnitro.ai/es', leida: '2026-11-14' },
+  // El metaTitle queda sin aviso a propósito: «en tu versión editable» TAMBIÉN se cumple en Esencial por el camino sin IA
+  // (`crear_carrusel_desde_referencia`, la estructura con guías), y marcarlo de más espanta al de US$47. Lo que sí está
+  // cerrado y se promete en el metaDesc es la réplica «con un clic» y el chat del lienzo: el aviso va ahí.
   metaTitle: 'Image de MaKo: los carruseles que funcionan, en tu versión editable',
-  metaDesc: `Los carruseles de las cuentas que sigues, con su outlier, y tu versión editable con un clic. Un editor como Canva con el chat de MaKo al lado, tu kit de marca y descarga en ${DESCARGAS_TXT}.`,
+  metaDesc: `Los carruseles de las cuentas que sigues, con su outlier, y tu versión editable con un clic. Un editor como Canva con el chat de MaKo al lado${soloProEntre('ia-editores')}, tu kit de marca y descarga en ${DESCARGAS_TXT}.`,
   bloques: [
     {
       // Su hero. El marco «Plantillas · 4:5», la franja del kit, «Diseña para» y la tarjeta negra los dibuja ./disenos/image.tsx.
       tipo: 'hero',
       etiqueta: 'El motor de diseño para publicaciones en redes sociales',
       titulo: 'El creador de carruseles con IA que replica lo que funciona.',
-      bajada: 'Carruseles, publicaciones, historias, anuncios y miniaturas: diseñados con IA o a mano en un editor de arrastrar y soltar de formato libre, en tu kit de marca, a partir de los carruseles que mejor les funcionan a las cuentas que sigues.',
+      // El aviso va en la bajada y no dentro del <h1>: el titular es el de PostNitro, con su escala medida
+      // (docs/diseno/landings-competencia/image.md), y la bajada se lee en el mismo bloque. Va pegado a «con IA», que es la
+      // parte cerrada: «a mano en el editor», el kit de marca y los formatos son de los dos planes.
+      bajada: `Carruseles, publicaciones, historias, anuncios y miniaturas: diseñados con IA${soloProEntre('ia-editores')} o a mano en un editor de arrastrar y soltar de formato libre, en tu kit de marca, a partir de los carruseles que mejor les funcionan a las cuentas que sigues.`,
       visual: { tipo: 'propio', slug: 'image' },
     },
     {
@@ -131,7 +161,9 @@ export const LANDING_IMAGE: LandingCompetencia = {
       tipo: 'tarjetas',
       etiqueta: 'Editar',
       titulo: 'Eliges uno que funciona y MaKo arma el tuyo.',
-      bajada: 'Con «Editar» tienes tu versión del carrusel: su mismo diseño y el texto escrito para tu negocio, lámina por lámina, lista para cambiar en el editor.',
+      // «Editar» un ejemplo pasa por la IA del editor (/api/image-editor/carruseles/replicar y /leer, lib/editores-ia-pro.ts):
+      // es de Pro. Mirar la biblioteca y abrir la estructura con guías (`crear_carrusel_desde_referencia`) no lo son.
+      bajada: `Con «Editar» tienes tu versión del carrusel: su mismo diseño y el texto escrito para tu negocio, lámina por lámina, lista para cambiar en el editor.${soloPro('ia-editores')}`,
       items: [],
     },
     {
@@ -157,7 +189,7 @@ export const LANDING_IMAGE: LandingCompetencia = {
       tipo: 'tarjetas',
       etiqueta: 'Diseño',
       titulo: 'Cada parte de la publicación es tuya para que la moldees a tu gusto.',
-      bajada: 'Pídelo por chat o abre el lienzo y configúralo tú mismo. Los carruseles de MaKo salen con tus fuentes, tus colores y tu logo.',
+      bajada: `Pídelo por chat${soloProEntre('ia-editores')} o abre el lienzo y configúralo tú mismo. Los carruseles de MaKo salen con tus fuentes, tus colores y tu logo.`,
       items: [],
     },
     {
@@ -176,7 +208,9 @@ export const LANDING_IMAGE: LandingCompetencia = {
       tipo: 'tarjetas',
       etiqueta: 'Chat de MaKo',
       titulo: 'MaKo lo diseña contigo',
-      bajada: 'Un agente de IA junto al lienzo, siempre abierto. Describe la publicación o pega el texto que ya escribiste; luego, sigue hablando para cambiar cualquier lámina, cualquier color o cualquier diseño.',
+      // El aviso va UNA vez, en la bajada del bloque: sus cuatro tarjetas son todas el mismo chat, y repetirlo cuatro veces es
+      // ruido. El lienzo, que es el bloque siguiente, no lleva ninguno.
+      bajada: `Un agente de IA junto al lienzo, siempre abierto.${soloPro('ia-editores')} Describe la publicación o pega el texto que ya escribiste; luego, sigue hablando para cambiar cualquier lámina, cualquier color o cualquier diseño.`,
       items: [
         { icono: I.ia, titulo: 'Empieza por cualquier cosa', texto: 'Un tema, tu texto, una foto o un PDF. O un ejemplo que te gustó: con «Editar», su mismo diseño con el texto escrito para tu negocio.' },
         { icono: I.ojo, titulo: 'Primero, aprueba el cambio.', texto: 'Cada pedido vuelve como «Original | Modificado». El diseño no se toca hasta que eliges Aceptar, y «Restaurar» lo vuelve atrás.' },
@@ -230,7 +264,11 @@ export const LANDING_IMAGE: LandingCompetencia = {
       bajada: 'Diseña a mano en el editor o deja que el chat, WhatsApp o tu propio código lo hagan por ti. Las mismas plantillas y los mismos diseños para todos ellos.',
       items: [
         { icono: I.formas, titulo: 'A mano', meta: 'Arrastrar y soltar', texto: 'En el lienzo, como en Canva: texto, formas, imágenes, marcos y capas.' },
-        { icono: I.ia, titulo: 'En el chat del editor', meta: 'Original | Modificado', texto: 'Al lado del lienzo, con el diseño abierto. Nada cambia hasta que eliges Aceptar.' },
+        // De las cuatro maneras de conducir el motor, la única cerrada en Esencial es el chat: a mano, por WhatsApp (pedir un
+        // diseño desde una plantilla y cambiarle los textos, `cambiar_textos_diseno_imagen`) y con la API siguen abiertas. Y
+        // el aviso va en el TÍTULO, no al final del cuerpo: el título es lo que se lee en la grilla, y al final del cuerpo
+        // quedaba a dos frases de él, colgando de «Nada cambia hasta que eliges Aceptar» —que es la aprobación, no el candado.
+        { icono: I.ia, titulo: `En el chat del editor${soloProEntre('ia-editores')}`, meta: 'Original | Modificado', texto: 'Al lado del lienzo, con el diseño abierto. Nada cambia hasta que eliges Aceptar.' },
         { icono: I.wa, titulo: 'Por WhatsApp', meta: 'Te devuelve el link', texto: 'Le pides a MaKo un diseño desde una plantilla o que le cambie los textos, y te devuelve el link para abrirlo.' },
         { icono: I.api, titulo: 'Con la API de MaKo', meta: 'crear_diseno_imagen', texto: 'Tu sistema ve tus diseños, crea uno desde una plantilla y le cambia los textos, con tu token.' },
       ],

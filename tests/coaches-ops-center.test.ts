@@ -87,6 +87,17 @@ test('5. el contexto de un referente nunca finge ser él y siempre atribuye', ()
   // Sin referente al frente (eligió «MaKo»): una ficha por tema que trabaja, la oferta incluida (4/11/2026).
   assert.ok(sinFrente.includes(FICHAS.hormozi) && sinFrente.includes(FICHAS['juan-ads']) && sinFrente.includes(FICHAS['julian-otalora']));
   assert.ok(sinFrente.length < 18_500, 'cada ficha son 5.000 caracteres en el system: sumar a todas lo infla');
+  // EL TERCER ESTADO (14/11/2026, lib/asesores/candado.ts): el coach de un Esencial. NO es lo mismo que elegir «MaKo» —elegir MaKo
+  // paga Pro y conserva los marcos—: con el candado no viaja la metodología de NADIE, y se le dice que no nombre ni atribuya a
+  // nadie, porque el modelo los conoce de antes y si no atribuye de memoria (una cita inventada Y la función de Pro, regalada).
+  const conCandado = contextoDelFunnelCoach('hormozi', true);
+  for (const id of ['hormozi', 'juan-ads', 'julian-otalora'] as const) assert.ok(!conCandado.includes(FICHAS[id]), `${id}: su ficha no viaja`);
+  assert.doesNotMatch(conCandado, /ATRIBUYE SIEMPRE|EL REFERENTE DE ESTE CHAT|MARCOS DE /, 'ni su bloque de atribución');
+  assert.match(conCandado, /NO nombras a ninguno/, 'y se le dice que no los nombre de memoria');
+  assert.match(conCandado, /el chat con los referentes y su método está en MaKo Pro/, 'si se lo piden, lo dice sin fingir que lo tiene');
+  assert.ok(conCandado.includes('calcular_presupuesto_anuncios') && conCandado.includes('guardar_plan_funnel') && /manda sobre la voz del teléfono/.test(conCandado),
+    'y el coach queda ENTERO: se vende en los tres planes («Tu oferta y tu funnel, revisados con IA»)');
+  assert.ok(conCandado.length < sinFrente.length, 'soltar al elegido sin esto daba MÁS método: tres fichas en vez de una');
   assert.ok(ASESORES.length >= 14, 'Martín: «Haz de muchos, no solo de hormozi»');
   for (const a of ['sofia-contreras', 'marcos-razzetti', 'victor-heras']) assert.ok(ASESORES.some((x) => x.id === a), `${a}: lo pidió por nombre`);
   assert.match(sinFrente, /manda sobre la voz del teléfono/, 'sin esto el turno responde en cinco líneas');
@@ -200,7 +211,9 @@ test('10. la ruta usa el contexto del coach sólo desde su chat, y sólo el admi
   assert.match(r, /desde\?\.tab !== ORIGEN_FUNNEL_COACH\) return \{ contexto: CONTEXTO_SECOND_BRAIN \}/);
   // Los dos caminos de la ruta, JSON y con archivos: un adjunto no le saca el contexto ni sus herramientas.
   assert.equal((r.match(/contexto: delChat\.contexto, referente: delChat\.referente, propias: delChat\.propias/g) ?? []).length, 2);
-  assert.match(r, /return \{ contexto: `\$\{contextoDelFunnelCoach\(referente\)\}\\n\\n\$\{ofertaParaElContexto\(oferta\)\}`, referente, propias: HERRAMIENTAS_DEL_COACH \};/);
+  // `sinReferentes` desde el 14/11/2026 (lib/asesores/candado.ts): con el candado, el coach corre sin la metodología de nadie.
+  assert.match(r, /return \{ contexto: `\$\{contextoDelFunnelCoach\(referente, sinReferentes\)\}\\n\\n\$\{ofertaParaElContexto\(oferta\)\}`, referente, propias: HERRAMIENTAS_DEL_COACH \};/);
+  assert.match(r, /const sinReferentes = \(await candadoDeReferentesDe\(quien\.ws\)\) != null;\s*\n\s*const referente = sinReferentes \? null : elegido;/, 'y el referente no viaja: el Second Brain colgaría su curso');
   assert.doesNotMatch(r, /contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos/);
   assert.match(r, /if \(persona\.rol !== 'admin'\) return json\(\{ ok: false, error: 'Lo cambia quien administra el negocio\.' \}, 403\);/);
 });

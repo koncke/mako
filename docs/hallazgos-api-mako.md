@@ -14,6 +14,241 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## La descripción de una operación es UN string para TODOS los negocios: ahí prometió una función que la mitad tiene cerrada (14/11/2026)
+
+**El síntoma:** el 14/11 el video con avatar de IA volvió a ser de MaKo Pro y ese mismo día se sacó del FAQ del sitio. La promesa
+siguió viva por la API: un dueño de MaKo Esencial en sus 7 días que le pregunta a MaKo por WhatsApp «¿qué incluye mi prueba?»
+recibía «videos con avatar de IA», y en `/ai-avatar` se encuentra el cartel de Pro.
+
+**El diagnóstico obvio era el equivocado — dos veces:**
+
+1. **No era el tope.** `prueba.avatares: 1` parece el permiso que sobra. No lo es: medido,
+   `topeDe('completo', 'prueba.avatares')` es **null** (la tabla del PLAN no topa el avatar) y `topeEnPrueba` cae al de la
+   prueba, así que da **1 para los dos planes**. Está bien así: un tope de la prueba es el **TECHO de lo que se lleva quien YA
+   tiene la función por su plan**, nunca la llave. `TOPES` y `FUNCIONES_SOLO_PRO` (lib/topes-plan.ts) son **dos ejes
+   independientes y ninguno conoce al otro** — a propósito. Bajar el tope a 0 para `completo` habría roto el techo de Pro sin
+   tocar la promesa. Y **la prueba no es una capa propia**: vale el plan elegido desde el primer día
+   (lib/plan-esencial.ts, `capaVendidaDe`) y los DOS planes arrancan con los 7 días, así que «está en prueba» no destraba nada.
+2. **No era «cerrar la operación».** El molde de `conCandadoDePro` (lib/api-mako/areas/closing.run.ts) estaba a mano y era el
+   reflejo equivocado: un Esencial en prueba **tiene derecho a ver su prueba** (sus días, su primer cobro, sus videos, sus
+   imágenes, su página). Lo que sobraba era **una fila**, no la operación.
+
+**La trampa del entorno, que es lo que más tiempo ahorra:** `descripcion` es **un solo string por operación, el mismo para todos
+los negocios**. `aToolDef` (lib/api-mako/registro.ts) recibe la def **y nada más** — no hay workspace, ni vista, ni capa —, y de
+ese mismo string salen los ToolDefs del modelo, el catálogo de `GET /api/v1`, la referencia generada y la skill del cliente.
+O sea: **cualquier función que se nombre en una descripción se le promete a todo el mundo**, incluido a quien la tiene cerrada.
+No se puede «aclarar que es de Pro» ahí sin mentirle a uno de los dos.
+
+- **La regla que queda:** lo que depende del negocio **no se nombra en la descripción: se sirve en la respuesta, y la descripción
+  manda a leerla** («los topes de este negocio son los que vengan en `usos` y sólo ésos»). Lo mismo vale al revés: una
+  descripción que enumera lo que la respuesta ya trae es una segunda copia que se desfasa el día que cambie el plan.
+- **El precio, medido:** la relevancia. `relevanteA` (registro.ts) ordena las tools del turno por las palabras del mensaje que
+  cada operación nombra, así que al sacar «avatar» del texto la operación deja de engancharse por esa palabra. Se paga a
+  sabiendas: la alternativa es prometerlo. ⚠️ **Corregido el 15/11/2026 (esto estaba al revés):** decía que
+  «¿cuántos avatares me quedan?» la engancha «por prueba», y medido **no la engancha** (puesto 38 de 936, fuera del
+  presupuesto del turno). Lo que sí engancha es la pregunta con la palabra «prueba» adentro. Quién contesta la pregunta por el
+  avatar, y por qué no se arregla volviendo a nombrarlo acá, en la entrada de abajo.
+- **El filtro va donde se ARMA la lista, una sola vez.** `resumenDePrueba` (lib/prueba-uso.ts) sirve a cuatro superficies —el
+  cartel de la barra, la franja de cada pantalla, «Tu plan» del teléfono y `ver_mi_prueba`—, así que el cruce de los dos ejes
+  vive ahí (`FUNCION_PRO_DE_CADA_TOPE`: qué tope cuenta qué función de `FUNCIONES_SOLO_PRO`). Tipado contra `FuncionSoloPro`:
+  el día que el avatar salga de Pro, no compila y alguien lo decide.
+
+**Dos trampas más, cada una con su rojo:**
+
+- **`estadoDePrueba().capa` es la capa VENDIDA (`alta_capa` del cobro), no la que el negocio tiene hoy.** Pasársela a
+  `esEsencialDe` parece gratis y es un bug: el que **subió a Pro durante su prueba** sigue con `alta_capa = 'completo'` y se
+  queda sin su propio tope. Se le pasa el `ws` y `esEsencialDe` lee la capa de hoy: una lectura más vale menos que esa
+  confusión. El caso está medido en `tests/_api-mako-prueba-avatar-hijo.ts` (el ws42).
+- **`tests/prueba-cartel.test.ts` fija la PRIMERA LÍNEA del runner con `\s*`** (`ver_mi_prueba: { leer: … const r = await
+  resumenDePrueba(ctx.ws);`): un comentario entre la clave y esa línea lo pone rojo. Los comentarios van **arriba** de la clave.
+
+**Y la de siempre con la referencia generada:** tocar una `descripcion` deja `tests/api-mako-registro.test.ts` en rojo hasta
+correr `node --import tsx scripts/generar-api-doc.mjs` (docs/api-mako.md). Ojo: el `--check` del pre-push **se abstiene** si
+lib/api-mako tiene cambios sin commitear, pero **el test no se abstiene**, así que el rojo aparece igual. Es un archivo de 1,3 MB
+y el diff de este cambio fue de **una línea**; el snapshot de HTTP no se movió.
+
+**Lo que NO se tocó, decidido:** `app/admin/dev/payment-gateway/bitacora.ts` dice «1 video con avatar» en la entrada del
+25/10 — es una **bitácora interna fechada**, el registro de lo que se hizo ese día, y no se reescribe.
+
+**Sin hacer:** `FUNCION_PRO_DE_CADA_TOPE` (lib/prueba-uso.ts) tiene una sola entrada y el candado es `esEsencialDe`, porque hoy
+todas las de `FUNCIONES_SOLO_PRO` se cierran juntas para un Esencial; el día que una tenga su propia puerta, ése es el lugar
+donde cruzarlas. Y la regla de la descripción («lo que depende del negocio va en la respuesta») merece una línea en AGENTS.md,
+donde la lee quien escribe una def nueva.
+
+## Un barrido que busca el nombre que el repo NO usa da CERO con tres puertas abiertas (15/11/2026)
+
+**El síntoma:** el arreglo de arriba dejó un test guardián llamado «NINGUNA OTRA operación del registro le promete el avatar de
+la prueba», **verde**, y un verificador adversarial midió **tres** operaciones prometiéndoselo a un Esencial por WhatsApp:
+`ver_avatares` y `ver_plantillas_avatar` (lib/api-mako/areas/video.def.ts) y `hooks_al_video_media_buyer` (ads.def.ts). Dos
+estaban además en la referencia PÚBLICA, así que la promesa salía también por el catálogo HTTP.
+
+**La causa real: el barrido buscaba el nombre que tenía en la cabeza el que lo escribió, no el que usa el repo.** Era
+`d.descripcion.includes('video con avatar de IA') || /avatar de IA/.test(d.descripcion)` — la etiqueta del tope. Y el repo
+escribe la función **«AI Avatar»**, que es el nombre de la tab (`SECCIONES_MAS`, lib/movil-rutas.ts). Medido sobre las 936
+operaciones visibles de un Esencial: ese regex devuelve **0**; con la forma que el repo usa, **3**.
+
+- **La regla que queda: los nombres del barrido se SACAN del repo, no se tipean.** La tab de `SECCIONES_MAS`, la etiqueta de
+  `NOMBRE_COSA_PRUEBA` y el texto de `textoSoloPro` están en el test y se asertan: si se renombra la tab, el test se cae en vez
+  de quedar ciego. Y el barrido corre sobre **el conjunto visible de verdad** (`visible(def, vista)` por los tres canales), no
+  sobre una lista a mano de operaciones a revisar.
+- **Y mide la decisión, no la ausencia.** Cada operación que nombra la función tiene su entrada escrita (`DECIDIDAS`, con el
+  porqué); una cuarta puerta no tiene y da rojo con su id, y una entrada que dejó de nombrarla **también** da rojo («sacala»),
+  porque una entrada muerta es un barrido que ya no cubre nada. Esa segunda aserción es la que atrapa el regex angosto.
+
+**La trampa del entorno, que es lo que más tiempo ahorra: en este repo «avatar» nombra DOS cosas.** El del video (AI Avatar) y
+el de **marketing** (el cliente ideal: `mako.avatares`, Ads Writer, `generar_avatares`, `editar_avatar_negocio`,
+`listar_avatares_guion`). Un `/avatar/i` sobre el registro da más de veinte operaciones, ninguna con relación al plan: el
+barrido se vuelve ruido y nadie lo mira. Por eso hay que nombrar la **función** —su tab, «avatar de IA», o el avatar haciendo
+lo que sólo hace el de video (hablar, animarse, filmarse, estar listo)— y es también por qué angostarlo salió mal la primera vez.
+
+**La otra mitad de la superficie: el `input_schema` TAMBIÉN viaja al modelo.** `aToolDef` devuelve `{ name, description,
+input_schema }`, y la descripción de cada parámetro va adentro del esquema. Buscando con el nombre bueno aparecieron **dos más
+que la `descripcion` no mostraba**: `proponer_crear_campana` (su param `creativoRef`) y `editar_ejemplo_carrusel` (su param
+`avatar`). Un barrido sobre `d.descripcion` cubre la mitad; el que vale es sobre `JSON.stringify(aToolDef(d))`.
+
+**El segundo diagnóstico obvio también era el equivocado: «cerrá las tres» apaga datos del cliente.** `ver_avatares` **LEE** los
+looks que el negocio ya tiene, y **entre el 29/10 y el 14/11 la función estuvo abierta en los tres planes**, así que hay
+Esenciales con looks y con planes a medio filmar: cerrarla les contesta «es de Pro» sobre algo que es suyo — el error espejo que
+avisa AGENTS.md («¿GENERA o LEE?»). Lo que se decide por operación:
+
+- **Una LECTURA de lo que ya tiene queda abierta, y lo que se le va es la OFERTA.** A un Esencial `ver_avatares` le devuelve sus
+  looks igual, sin `temas_de_la_galeria` (el catálogo de lo que podría hacer, que es una invitación a la pantalla del cartel de
+  Pro) y con `cerrado_por_su_plan` (el `textoSoloPro`) más la nota corregida: «se anima y Generar video» es **mentira** en su
+  plan. La descripción no condiciona nada —es un string para todos— y sólo manda a leer ese campo.
+- **El CATÁLOGO de la función se cierra entero.** `ver_plantillas_avatar` no tiene nada del cliente (10 plantillas de venta de
+  negocios ficticios) y «usar una» es elegirla en «Nuevo avatar»: va con el molde de `esEsencialDe` y contesta el texto de Pro.
+- **Una operación que NO es de Pro no se cierra: se le saca la frase de al lado.** `hooks_al_video_media_buyer` lleva hooks al
+  Video Generator, que es de los dos planes; lo que prometía era el «AI Avatar los ofrece también» del final.
+
+**Y la relevancia se mide por lo que VIAJA, no por el puesto.** Sacar «avatar» de `ver_mi_prueba` la bajó del puesto 26 al 161
+para «¿puedo hacer un video con mi avatar de IA?» y puso **primera** a `hooks_al_video_media_buyer`, una de las que prometían. El
+puesto solo no dice nada: `toolsDelRegistro` corta por presupuesto (`PRESUPUESTO_REGISTRO_CHARS`, 12 000 chars,
+lib/doer-herramientas.ts) y en ese turno **viajan 16 de 936**, así que 161 es «nunca». La cura **no** fue volver a nombrar el
+avatar en `ver_mi_prueba` (sería la promesa de vuelta) sino que gane **la operación honesta**, `ver_avatares`, que es la que trae
+el texto del candado. `ver_mi_prueba` sigue primera en «¿qué incluye mi prueba gratis?» y entra tercera en «¿cuántos videos con
+avatar de IA me quedan en la prueba?», que es la única donde su tope importa (un Pro en sus 7 días).
+
+⚠️ **Corregido el 15/11/2026, tercera vuelta: «`ver_avatares` sale primera y viaja en las cinco preguntas con la palabra avatar»
+era de más.** Lo medido, pregunta por pregunta (vista de Esencial por WhatsApp, 936 visibles):
+
+| la pregunta | gana | `ver_avatares` |
+| --- | --- | --- |
+| «¿puedo hacer un video con mi avatar de IA?» | `ver_avatares` | 1.º, viaja |
+| «¿tengo un avatar listo para hablar?» | `ver_avatares` | 1.º, viaja |
+| «¿cuántos avatares me quedan?» | `calcular_presupuesto_anuncios` | 3.º, viaja |
+| «¿puedo generar un avatar?» | `generar_avatares` (el de MARKETING) | 3.º, viaja |
+| «¿cuántos videos con avatar de IA me quedan en la prueba?» | `ver_avatares` | 1.º, viaja |
+| «¿puedo usar el AI Avatar?» | `ver_plantillas_avatar` | **21.º, NO viaja** |
+| «pasame los hooks ganadores para filmarlos con mi avatar» | `hooks_al_video_media_buyer` | 14.º, el último que entra |
+
+O sea: **viaja en las cinco, pero sale primera en tres**, y con otras frases no viaja. Las dos últimas son las que importan y
+son la razón de que el candado no pueda vivir sólo en `ver_avatares`: en «¿puedo usar el AI Avatar?» contesta
+`ver_plantillas_avatar`, que está **cerrada** y devuelve el `textoSoloPro` —honesto por casualidad, no por diseño—, y en la de
+los hooks contesta `hooks_al_video_media_buyer`, cuyo `resumen` **prometía el avatar** hasta la tercera vuelta. **La regla que
+queda: el candado va en CADA operación que puede ganar el turno, no en la que uno espera que gane.** Y el puesto 14 de
+`ver_avatares` en la de los hooks entra en el presupuesto por UN slot, que apareció al acortar la descripción de hooks: el
+margen se mueve con cualquier descripción que cambie en cualquier área.
+
+**Dos gotchas chicos, medidos:**
+
+- **`docs/api-mako.md` es la referencia HTTP: una operación sin el canal `http` no tiene página ahí.** Asertar que la doc
+  contiene su descripción da rojo para una de `['whatsapp','app']` (fue `editar_ejemplo_carrusel`) aunque la doc esté al día.
+- **El candado se mide CORRIÉNDOLO.** `tests/_api-mako-prueba-avatar-hijo.ts` importa los RUNNERS reales de video.run.ts con
+  `--conditions=react-server` sobre el PostgREST de mentira y los llama como `ejecutar.ts`: adentro de `runWithWorkspace(ctx.ws)`
+  y con el ctx del pedido. Una aserción sobre el fuente se cae con cambiar una letra y no prueba nada (eso es lo que tumbó el
+  guardián de la ronda uno).
+
+**Sin hacer:**
+
+- ~~El `resumen` del runner de `hooks_al_video_media_buyer`~~ — **cerrado el 15/11/2026** (entrada de abajo): era el agujero
+  vivo, no un pendiente menor.
+- **`editar_ejemplo_carrusel`: sólo el TEXTO, y antes acá decía mal dónde vivía.** Medido el 15/11/2026: la **operación ya está
+  cerrada** para un Esencial en su `preparar`, por `candadoIaDeEditoresDe(ctx.ws)` (lib/api-mako/areas/imagen.run.ts →
+  lib/editores-ia-pro.ts), porque editar con IA es **otra** función de Pro (`textoSoloPro('ia-editores')`): **no hay fuga de
+  ejecución, y no hay nada que mirar en imagen.run.ts.** Lo único abierto es que su `input_schema` le **nombra** la función (el
+  param `avatar` ofrece «look (su último look de AI Avatar)», lib/api-mako/areas/imagen.def.ts) y el esquema viaja al modelo,
+  así que la promesa llega aunque la acción se niegue. Es una línea en imagen.def.ts.
+- **El barrido no mira el `titulo`** («Avatares y looks de AI Avatar»): al modelo no se le manda, pero sale en el catálogo HTTP
+  y en la referencia.
+
+**Vive en:** lib/api-mako/areas/video.def.ts y video.run.ts (`avatarCerradoEn`) · lib/api-mako/areas/ads.def.ts ·
+lib/api-mako/areas/negocio.def.ts (`ver_mi_prueba`) · tests/api-mako-prueba-avatar.test.ts (`COMO_LA_NOMBRA_EL_REPO`,
+`DECIDIDAS`) · tests/_api-mako-prueba-avatar-hijo.ts
+
+## Sacar una promesa de la descripción NO la saca del producto: se MUDA a la respuesta (15/11/2026, tercera vuelta)
+
+**El síntoma:** las dos entradas de arriba cerraron la promesa del avatar en las `descripcion` y en los `input_schema`, con un
+test de 7 aserciones en verde. Una lente corrió los dos planes de verdad y midió que **ws40 (Esencial) y ws41 (Pro) recibían el
+MISMO texto** al terminar `hooks_al_video_media_buyer`: «En AI Avatar están en “Hooks ganadores”, para filmarlos con tu avatar».
+
+**La causa real: la superficie que le habla al negocio no es sólo la def.** Son cuatro, y las primeras tres estaban cubiertas:
+`descripcion` → `input_schema` → **el `resumen`/`error` que el runner devuelve al EJECUTAR** → el texto que el modelo escribe.
+La tercera no la ve ningún barrido sobre el registro, porque no está en el registro: está adentro de una función.
+
+- **La regla que queda:** un `resumen` de `ejecutar` es texto para el cliente **igual que una descripción**, con una diferencia
+  que lo hace peor: la descripción es un string para todos y por eso no puede mentir a medias, y el resumen **sí** puede
+  condicionarse — así que si nombra una función de plan y no pregunta por el plan, miente. El molde es una línea:
+  `const cerradoPorSuPlan = await esEsencialDe(ctx.ws)` y la frase de más sale o no sale.
+- **Y no alcanza con cerrar «la operación del tema».** Lo midió el cuadro de arriba: en el turno de los hooks la honesta
+  (`ver_avatares`) no gana y casi no viaja, así que **el candado tiene que estar en cada operación que pueda ganar el turno**.
+
+**La trampa del entorno, y es la que más tiempo ahorra: TRES FORMAS DE ASERCIÓN QUE PARECEN MEDIR Y NO MIDEN.** Las tres se
+refutaron **ejecutando**, rompiendo el comportamiento y dejando intacto el texto que el test clavaba:
+
+1. **Clavar un PREFIJO de una línea de código.** `assert.match(src, /const pro = capa === 'completo' &&/)` pasa igual con una
+   rama nueva metida en el medio: el defecto de origen vuelve entero con el archivo en 9 de 9 verde. (Medido sobre
+   app/configuraciones/plan/page.tsx, otra corrida del mismo día: el código vive allá, la forma de la aserción es de todos.)
+2. **Clavar el NOMBRE DEL ENVOLTORIO de una acción.** `onClick={… () => void pedirPro()}` no dice qué hace `pedirPro`:
+   cambiándole la llamada de `pedirProAction` a `pasarAProAction` —la fila que debe PEDIR pasa a COBRAR en la pasarela— quedaron
+   **trece archivos de test en verde**. Eso es plata. (Mismo lugar: app/configuraciones/plan/PlanPanel.tsx.)
+3. **Clavar UNA CLAVE de la respuesta.** Preguntar si viene `temas_de_la_galeria` y asertar que es null mide **cómo se llama la
+   clave**, no que el dato no viaje: renombrándola a `temas_sugeridos` el archivo quedó 7/0 verde mientras dos Esenciales
+   recibían el catálogo de 33 temas. Lo mismo con `notas[0]`: una nota NUEVA que listara los temas pasaba verde.
+
+**Cómo se arregla, y es la regla de la casa de acá en adelante:** asertar sobre **el RESULTADO de ejecutar** — las claves de la
+respuesta ENTERA (`Object.keys(json).sort()` contra el conjunto exacto), la lista de textos entera, el DOM dibujado y no el
+fuente del componente. Y **comprobarlo rompiendo el COMPORTAMIENTO con el texto que el test clava intacto**: si no se pone roja,
+está vacía. Dos corolarios medidos: **una aserción que no puede fallar es peor que ninguna** (había un `assert.notEqual(primera,
+'hooks…')` dos líneas después de asertar que `primera` era otra cosa) y **una forma de regex que el repo no ejercita se puede
+borrar con todo en verde** (de las cinco de `COMO_LA_NOMBRA_EL_REPO`, cuatro no cambiaban ningún resultado: hoy cada una tiene
+su frase en la tabla `FRASES`, con las del avatar de MARKETING como negativas).
+
+**Y una descripción que manda a leer un campo que la respuesta NO trae es peor que la promesa que reemplazó.** Pasó al arreglar
+`preparar_subida_media_buyer`: la frase vieja nombraba las tabs («AI Avatar y Video Generator»), la nueva decía que «de qué tab
+salió cada creativo lo dice la respuesta», y la respuesta **no lo dice** — el runner mapea `origen` a «anuncio montado» o
+«toma» y lo demás de `CreativoMako` es `ref`, `titulo`, `toma` y `fecha`. Encima las dos fuentes de `generados` son del Video
+Generator (`montadosDelWorkspace` y `tomasDelWorkspace`, lib/creativo-mako-fuentes.ts), así que **no hay tab que distinguir en
+ningún plan**. Hoy la descripción dice lo que la respuesta trae. ⚠️ **Sin test**: correr ese runner pide una cuenta publicitaria
+conectada, así que la prosa-contra-campos no está atada; el barrido sólo atrapa que vuelva a NOMBRAR la tab.
+
+**Dos trampas del arnés, medidas:**
+
+- **Un `mock.module` al que le falta un named export rompe el LINK de quien lo importa, aunque nadie lo llame.** El `stub()` de
+  tests/_api-mako-prueba-avatar-hijo.ts sacaba los nombres con `/^export (?:async )?(?:function|const|let)/`, y
+  lib/media-buyer/store.ts exporta **clases** (`MediaBuyerSinTabla`, `PlanSinPiloto`) que lib/media-buyer/corrida.ts importa sólo
+  para un `e instanceof X`. Hay que generarlas también, **y como clases**: una flecha no sirve de lado derecho de un `instanceof`.
+- **Ningún test del repo ejecutaba los runners de ads.run.ts** (los 19 que lo tocan leen el fuente), y se puede: importa limpio
+  con `--conditions=react-server` y dos stubs (`lib/media-buyer/store.ts` y `lib/media-buyer/hooks-video.ts`).
+
+**Un comentario con un número que nadie midió es peor que no tenerlo.** En negocio.def.ts decía que «¿cuántos avatares me
+quedan?» cae en `borrar_avatar_negocio` y `generar_avatares`; medido, gana `calcular_presupuesto_anuncios` (por «cuántos» y
+«quedan»). Si un comentario afirma un puesto, un conteo o un ganador, se corre y se pega el número.
+
+**Sin hacer (es de Martín, son decisiones de producto, no bugs):**
+
+- **El fail-open del candado HACE UNA OFERTA.** Si la lectura del plan tira, `esEsencialDe` cae a su `catch` «sin candado» y la
+  promesa vuelve entera. La regla de la casa («ante la duda no hay candado») se escribió para no SACARLE algo a quien paga; acá
+  el mismo fail-open le PROMETE algo a quien no lo tiene. Es el mismo criterio en las dos direcciones y da resultados opuestos.
+- **Al CLIENTE DE UNA AGENCIA el candado le dice «Pasa a Pro para usarlo», y ese cliente no puede:** su plan lo paga y lo cambia
+  su agencia. Ya existe `TEXTO_PEDIR_PRO_A_LA_AGENCIA` (lib/plan-esencial-reglas.ts) y `textoSoloPro` no distingue, así que son
+  **las nueve funciones de Pro**, no sólo el avatar.
+- **`ver_plantillas_avatar` cerrada devuelve HTTP 400** a una integración que antes recibía 200. Es un cambio de contrato del
+  catálogo HTTP, no sólo un texto distinto.
+
+**Vive en:** lib/api-mako/areas/ads.run.ts (`hooks_al_video_media_buyer` → `ejecutar`) · lib/api-mako/areas/ads.def.ts
+(`preparar_subida_media_buyer`) · lib/api-mako/areas/negocio.def.ts · tests/api-mako-prueba-avatar.test.ts (`FRASES`, las claves
+de la respuesta entera) · tests/_api-mako-prueba-avatar-hijo.ts (`stub` con clases, los runners de ads)
+
 ## Un `enum` que crece deja AFUERA a otra herramienta del turno: el diagnóstico obvio era el equivocado (14/11/2026, claude5)
 
 Al sumar siete tipos de campo al formulario (la llamada con Julio), «cambia el formulario de la landing: agrega el teléfono» dejó

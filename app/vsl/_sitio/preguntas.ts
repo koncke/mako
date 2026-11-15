@@ -10,9 +10,25 @@
 import { STACK_TIPICO } from './reemplaza';
 import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS } from '@/lib/planes-mako';
 import { TOPES, TOPES_PRUEBA } from '@/lib/topes-plan';
+import { AI_AVATAR_SE_VENDE } from '@/lib/planes-comparacion';
 import { paqueteDeMinutos } from '@/lib/mako-tokens-paquetes';
 
 const precioDe = (nombre: string): string => { const x = STACK_TIPICO.find((y) => y.app.nombre === nombre); return x ? x.precioUsd.toLocaleString('es-AR', { minimumFractionDigits: Number.isInteger(x.precioUsd) ? 0 : 2, maximumFractionDigits: 2 }) : '?'; };
+// EL VIDEO CON AVATAR DE IA, FUERA DE LA PROMESA DE LA PRUEBA (14/11/2026). Esta respuesta prometía «1 video con avatar de IA» a
+// toda prueba gratis, y hoy es mentira para la mitad: los DOS planes arrancan con los 7 días (`PLANES_CON_PRUEBA`,
+// lib/planes-mako.ts) y la prueba vale EL PLAN ELEGIDO desde el primer día («el negocio en prueba tiene los topes de su plan
+// desde el primer día», lib/plan-esencial.ts → `capaVendidaDe`), así que quien arranca la prueba del de 47 es «Esencial por la
+// pasarela» (`esEsencialPorPasarela`: `alta_capa` completo + capa completo) y en /ai-avatar le sale el cartel de Pro, no el
+// estudio (`candadoDeAiAvatar`, app/ai-avatar/acceso.ts). Martín, 14/11/2026: «el de 97 ya podés generar avatares de IA… el de
+// 47 debería estar bien limitado y restrictivo».
+// ⚠️ `prueba.avatares` NO ERA UNA PROMESA DE LA PRUEBA, y por eso el tope no se toca: es el TECHO de lo que se puede llevar
+//    quien YA tiene la función por su plan (hoy, la prueba de Pro), y lo sigue haciendo cumplir `frenoDePrueba`
+//    (app/ai-avatar/actions.ts). Lo que estaba mal era prometerlo a toda prueba.
+// Se saca de la promesa en vez de aclarar «en Pro» porque el sitio NO vende el avatar hasta que ande de punta a punta
+// (`AI_AVATAR_SE_VENDE`, lib/planes-comparacion.ts): la misma razón por la que no tiene fila en la tabla de /planes, ni renglón
+// en las tarjetas, ni fila en /vsl/crm. El día que se venda, la línea vuelve sola — y ⚠️ ESE DÍA tiene que decir que es la
+// prueba de MaKo Pro, porque en Esencial sigue con candado.
+const AVATAR_EN_LA_PRUEBA = AI_AVATAR_SE_VENDE ? `${TOPES_PRUEBA['prueba.avatares']} video con avatar de IA, ` : '';
 // Martín, 14/11/2026: «me gusta que sean algunas objeciones, pero piensa en cosas más generales… como "¿y si la IA contesta mal un
 // cliente y lo pierdo?" son objeciones demasiado específicas… también puedes poner preguntas realmente frecuentes». Lo que se
 // pregunta cualquiera antes de entrar: para quién es, si hace falta saber, qué reemplaza, cuánto sale, cómo se prueba, cómo se
@@ -29,7 +45,7 @@ export const PREGUNTAS_SITIO: readonly { p: string; r: string }[] = [
   { p: '¿Cuánto me va a salir en total?', r: `El precio de tu plan, nada más. Tu plan trae MaKo Tokens cada mes para generar video e imágenes con IA; si un mes necesitas más, los compras dentro de MaKo cuando quieras: un minuto de video sale US$${paqueteDeMinutos(1).usd}.` },
   // Los topes de la prueba, de la MISMA tabla que los hace cumplir (lib/topes-plan.ts, `TOPES_PRUEBA`; tests/prueba-topes.test.ts): /planes
   // los decía en su propia pregunta y, desde que usa éstas (14/11/2026), los dice acá, en todas las páginas.
-  { p: '¿Cómo es la prueba gratis?', r: `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: pones tu tarjeta y no se te cobra nada hasta el día ${PRUEBA_DIAS + 1}. Si te das de baja antes, no pagas nada. En la prueba, lo que se crea con IA tiene tope: hasta ${TOPES_PRUEBA['prueba.videos']} videos armados, ${TOPES_PRUEBA['prueba.avatares']} video con avatar de IA, ${TOPES_PRUEBA['prueba.imagenes']} imágenes y ${TOPES_PRUEBA['web.landings_publicadas']} página publicada; exportar en masa se habilita con el primer cobro. Y no hay permanencia: te das de baja cuando quieras.` },
+  { p: '¿Cómo es la prueba gratis?', r: `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: pones tu tarjeta y no se te cobra nada hasta el día ${PRUEBA_DIAS + 1}. Si te das de baja antes, no pagas nada. En la prueba, lo que se crea con IA tiene tope: hasta ${TOPES_PRUEBA['prueba.videos']} videos armados, ${AVATAR_EN_LA_PRUEBA}${TOPES_PRUEBA['prueba.imagenes']} imágenes y ${TOPES_PRUEBA['web.landings_publicadas']} página publicada; exportar en masa se habilita con el primer cobro. Y no hay permanencia: te das de baja cuando quieras.` },
   { p: '¿Puedo pagar en pesos?', r: 'Desde Argentina pagas en pesos, con Mercado Pago. Desde otro país, en dólares, con tu tarjeta.' },
   { p: 'Ya tengo mis contactos y mi equipo. ¿Empiezo de cero?', r: `No. Subes la lista de contactos que ya tienes (un CSV o hasta un PDF) y MaKo te muestra cada uno antes de sumarlo. Tu equipo entra con su propio acceso: en MaKo Pro, hasta ${TOPES.agencia['equipo.usuarios']} personas.` },
   { p: '¿Quién me ayuda si algo falla?', r: 'Personas de verdad. Lo reportas desde la app, el equipo de MaKo lo arregla y te avisa por WhatsApp.' },

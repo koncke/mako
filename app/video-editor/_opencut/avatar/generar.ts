@@ -20,10 +20,17 @@
 //
 // El estado vive en un store y no en la pestaña: cambiar de pestaña de la
 // biblioteca desmonta la vista, y la generación tiene que seguir.
+//
+// SÓLO MaKo Pro (14/11/2026): el que frena es `crearAvatarAction`, el primer paso.
+// Si contesta el candado, acá se prende el de TODA la función (`marcarSoloPro`), así
+// la pestaña cambia el botón por el cartel aunque la lectura del plan todavía no
+// haya llegado o el plan haya cambiado con la pestaña abierta.
 
 import { create } from "zustand";
 import { toast } from "sonner";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
+import { marcarSoloPro } from "@/app/_components/solo-pro";
+import { textoSoloPro } from "@/lib/topes-plan";
 import { crearAvatarAction } from "@/app/video-editor/avatar/actions";
 import { estadoTomaAction, generarTomaAction } from "@/app/video-generator/video-action";
 import { avisarPuente } from "@/app/video-generator/avisar-puente";
@@ -123,6 +130,10 @@ export async function generarAvatar(editor: EditorCore): Promise<void> {
 	if (cancelado) return;
 	if (!plan || !plan.ok) {
 		const mensaje = plan ? plan.error : "No se pudo aplicar el avatar";
+		// Si lo que frenó fue el candado de MaKo Pro, que se prenda en todas las entradas de la función a la vez
+		// (app/_components/solo-pro.ts). Una server action no tiene status 403 con `pasarAPro`, así que se reconoce por el
+		// texto, como el setter con IA (app/automations/SecuenciaPerfil.tsx). El cartel ya dice cómo tenerlo.
+		if (mensaje === textoSoloPro("ai-avatar")) marcarSoloPro("ai-avatar");
 		setEstado({ fase: "error", mensaje });
 		toast.error(mensaje);
 		return;

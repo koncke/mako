@@ -8,12 +8,17 @@
 // server, del negocio de la pestaña (lib/copywriter/referencias.ts).
 // «Editar» NO guarda nada: devuelve las herramientas validadas y la pantalla las construye como propuesta.
 // maxDuration 300: leer los archivos corta a los 90 s y «Editar» a los 110 (más la reparación del JSON).
+// ⚠️ LA SEGUNDA PUERTA ES EL PLAN (14/11/2026, lib/copywriter/replica-candado.ts): una página con `props.outlier` ES una réplica,
+// y acá el original entero entra al prompt y vuelve el guion adaptado (lib/copywriter/ia.ts, `conElOriginal`). Sin eso, un
+// Esencial se llevaba la réplica COMPLETA por esta ruta sin tocar ninguna de las puertas de «Replicar».
 // =============================================================================
 
 import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { veCopywriter } from '@/app/copywriter/acceso';
 import { cuerpoYArchivos, leerLosArchivos } from '@/lib/adjuntos-del-chat';
 import { discutir, editar, FEATURE_COPY } from '@/lib/copywriter/ia';
+import { candadoDeReplicarGuionEnPantalla } from '@/lib/copywriter/replica-candado';
+import { sanearProps } from '@/lib/copywriter/tipos';
 import { sanearReferencias } from '@/lib/copywriter/referencias-reglas';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +36,17 @@ export async function POST(req: Request) {
   const b = c.body;
   const guion = (b.guion && typeof b.guion === 'object' ? b.guion : {}) as Record<string, unknown>;
   const referencias = sanearReferencias(b.referencias);
+
+  // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): replicar el guion de otro es de Pro, y una página con
+  // `props.outlier` (`spy:`, `biblioteca:` o `pegado:`) es justo eso: el original se lee en el server y va en CADA pedido de esa
+  // página, en «Editar» y también en «Discutir» («dime el gancho de éste con mi oferta» es la réplica igual).
+  // Lo que NO frena, que está en los dos planes: escribir un guion desde cero, una plantilla y «Adaptar a mi negocio» (ésa es
+  // `props.plantilla`). Va ANTES de leer los archivos del mensaje, que es lo que cuesta, y el 403 lleva `pasarAPro`, la marca que
+  // la pantalla reconoce para prender el candado en todas las entradas a la vez (app/_components/solo-pro.ts).
+  if (sanearProps(guion.props).outlier) {
+    const pro = await candadoDeReplicarGuionEnPantalla();
+    if (pro) return Response.json({ ok: false, ...pro }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
+  }
 
   try {
     const leidos = c.adjuntos.length ? await leerLosArchivos(c.adjuntos, FEATURE_COPY) : { lecturas: [], noLeidos: [] };

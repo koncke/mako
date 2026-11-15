@@ -43,13 +43,32 @@ import { hooksParaAvatar, type HookParaAvatar } from '@/lib/media-buyer/hooks-gu
 const NO_PUEDE = 'Todavía no tienes acceso a AI Avatar.';
 const SIN_WS = 'Elige un workspace arriba para usar AI Avatar.';
 
+/** La puerta de TODAS las actions: la de la tab (sesión, capa y rol) más el workspace elegido. Sin candado de plan: ver abajo. */
 async function puerta(): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!(await veAiAvatar())) return { ok: false, error: NO_PUEDE };
-  // SÓLO MaKo Pro (14/11/2026, ./acceso.ts): acá se genera de verdad, así que el candado va en la puerta de TODAS las
-  // actions y no en la pantalla. El texto es el de siempre (`textoSoloPro('ai-avatar')`), que dice qué es y cómo tenerlo.
+  if ((await getWorkspaceActual()) == null) return { ok: false, error: SIN_WS };
+  return { ok: true };
+}
+
+/**
+ * SÓLO MaKo Pro, Y SÓLO EN LO QUE GENERA (./acceso.ts, `FUNCIONES_SOLO_PRO`, 'ai-avatar'). El texto es el de siempre
+ * (`textoSoloPro('ai-avatar')`), que dice qué es y cómo tenerlo.
+ *
+ * ⚠️ EL 14/11/2026 ESTO ESTUVO EN `puerta()` —la de TODAS las actions— Y ROMPIÓ UNA LECTURA QUE NO TIENE NADA QUE VER:
+ *    `inicioAvatarAction` no genera, y no la usa sólo este estudio: la GUÍA DE VIDEO del Video Editor
+ *    (app/video-editor/guia/GuiaEnElChat.tsx → `leerDatos`) la llama para listar las FOTOS de la persona (las del Video
+ *    Generator, `estadoContextoVideo`) y sus personajes ya aprobados. A un cliente de Esencial el chat guiado le decía «No
+ *    pude leer tus fotos» —mentira: se leen bien— y perdía la galería de su onboarding, que antes elegía con un toque.
+ *    O sea: el candado de una función le apagó una pantalla ajena. Por eso va en las que GENERAN y la lectura pasa:
+ *      · generan → `crearLookAction` (una imagen en Flow) y `crearVideoAction` (el plan y las tomas que se pagan);
+ *      · leen → `inicioAvatarAction` (looks, fotos, puente, acento, hooks) y `estadoLookAction` (cómo va uno que YA se pidió:
+ *        cerrarla dejaría girando para siempre un look pedido cuando todavía era Pro);
+ *      · ni una ni otra → `borrarLookAction`: saca de SU lista algo suyo, y quien bajó de plan tiene que poder ordenar.
+ * ⚠️ ANTE LA DUDA, PASA: `candadoDeAiAvatar` devuelve null si no se pudo leer el plan (lib/plan-esencial.ts).
+ */
+async function soloProParaGenerar(): Promise<{ ok: true } | { ok: false; error: string }> {
   const pro = await candadoDeAiAvatar();
   if (pro) return { ok: false, error: pro };
-  if ((await getWorkspaceActual()) == null) return { ok: false, error: SIN_WS };
   return { ok: true };
 }
 
@@ -163,6 +182,10 @@ export async function crearLookAction(input: { plantillaId: string; fotoId: stri
 > {
   const g = await puerta();
   if (!g.ok) return g;
+  // Crear un look es GENERAR una imagen en el Flow de la persona: el candado va acá (arriba, `soloProParaGenerar`), antes de
+  // la cara, del puente y del freno de la prueba, para que rechazar no le consuma una imagen de su prueba gratis.
+  const pro = await soloProParaGenerar();
+  if (!pro.ok) return pro;
   const plantilla = plantillaPorId(String(input.plantillaId ?? ''));
   if (!plantilla) return { ok: false, error: 'Elige un preset.' };
   const contexto = await estadoContextoVideo().catch(() => null);
@@ -285,6 +308,10 @@ export type CrearVideoOut = { ok: true; planId: string; tomas: number[] } | { ok
 export async function crearVideoAction(input: { avatarId: string; guion: string }): Promise<CrearVideoOut> {
   const g = await puerta();
   if (!g.ok) return g;
+  // El video con su avatar es LA función que se vende en Pro: el candado va acá (arriba, `soloProParaGenerar`), antes del
+  // freno de la prueba y de `generarPlanAction`.
+  const pro = await soloProParaGenerar();
+  if (!pro.ok) return pro;
   const guion = String(input.guion ?? '').trim();
   if (!guion) return { ok: false, error: 'Escribe lo que va a decir tu avatar.' };
 

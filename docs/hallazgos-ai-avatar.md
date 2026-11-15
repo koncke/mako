@@ -606,3 +606,66 @@ teléfono. Informe con capturas: `docs/pruebas/ai-avatar-11-11.md`.
   al matcher Y al test.
 - **Y una de Flow que cambia el mapa:** Flow tiene «Avatars» (experimental): con un video selfie corto captura la cara Y LA
   VOZ. Es la pieza que a AI Avatar le falta (la voz clonada no existe en la tab). Sin probar.
+
+## ⚠️ CERRAR LA TAB NO CIERRA LA FUNCIÓN, Y UN CANDADO EN LA PUERTA COMÚN APAGA PANTALLAS AJENAS (14/11/2026)
+
+El 14/11 el avatar volvió a ser de MaKo Pro (`FUNCIONES_SOLO_PRO`, 'ai-avatar'; Martín: «el de 97 ya podés generar avatares de
+IA… el de 47 debería estar bien limitado y restrictivo»). Se cerró la tab /ai-avatar —la pantalla con su cartel y la `puerta()`
+de sus server actions— y se dio por cerrada la función. Una verificación adversarial encontró las dos fallas de siempre, una de
+cada lado: una puerta abierta y un candado de más.
+
+**① La puerta que faltó: el VIDEO EDITOR.** `crearAvatarAction` (`app/video-editor/avatar/actions.ts`) filma el MISMO video con
+el MISMO motor, y preguntaba sólo `veEditorVideo()`. El Video Editor está abierto en los dos planes (`TABS_SOLO_PRO` sólo tiene
+'closing-analyst'), así que un Esencial entraba por Video Editor › Biblioteca › pestaña «Avatar de IA», elegía un look de su
+historial, escribía el guion, apretaba Generar y filmaba gastando créditos de Flow, sin pasar nunca por /ai-avatar.
+
+- **El diagnóstico obvio era el equivocado:** «la tab está cerrada» se lee como «la función está cerrada». No lo es. Lo que
+  cierra una función es el conjunto de FUNCIONES que la hacen, y el avatar tiene dos entradas en dos árboles distintos.
+- **Cómo encontrarlas sin adivinar:** se busca por lo que la función HACE, no por su nombre ni por su carpeta. Acá el sello es
+  `conAvatar` (`app/video-editor/avatar/avatares.ts`), el único lugar que convierte un plan del Video Generator en un avatar:
+  `grep -rn "conAvatar" app/` da exactamente las dos puertas de video, y `rutaDeSubida('ai-avatar'` la del look. Si una función
+  nueva genera un avatar, va a tener que llamar a una de esas dos: ahí está la lista, no en el nombre de la tab.
+- **La pestaña tampoco tenía el candado de pantalla,** al revés que las otras cuatro vistas del mismo árbol (`broll-view.tsx`,
+  `PanelChat.tsx`, `clips-view.tsx`, `enjambre-view.tsx`): el Esencial veía un botón «Generar» normal.
+
+**② El candado que sobró: `puerta()` cubría también las LECTURAS.** El candado se metió en la puerta común de
+`app/ai-avatar/actions.ts`, o sea en las cinco actions, incluida `inicioAvatarAction`, que sólo LEE. Y esa lectura **no la usa
+únicamente el estudio del avatar**: la guía de video del Video Editor (`app/video-editor/guia/GuiaEnElChat.tsx` → `leerDatos`)
+la llama para listar las FOTOS de la persona (las de su onboarding y del Video Generator, `estadoContextoVideo`) y sus
+personajes ya aprobados. A un cliente de Esencial el chat guiado le decía **«No pude leer tus fotos»** —que es mentira, se leen
+bien— y perdía la galería que antes elegía con un toque.
+
+- **La regla que queda:** el candado de un plan va en **cada función que GENERA**, nunca en una puerta común ni en una
+  pantalla. Antes de ponerlo se mira, action por action, si GENERA o si LEE; y antes de cerrar una lectura, quién más la llama
+  (`grep -rn "<nombreDeLaAction>" app/`). Una función puede ser la lectura compartida de otra pantalla, y entonces el candado
+  de una venta apaga algo que no tiene nada que ver.
+- **Lo que pasa, a propósito:** `inicioAvatarAction` y `avataresAction` (los looks, las fotos, el acento, el puente),
+  `estadoLookAction` (cómo va uno que YA se pidió: cerrarla dejaría girando para siempre un look pedido siendo Pro) y
+  `borrarLookAction` (saca de SU lista algo suyo). El Esencial entra, ve los suyos, y lo que no puede es generar otro.
+- **Y por qué el candado va ANTES del freno de la prueba** (`frenoDePrueba`): un rechazo no tiene que consumirle un avatar ni
+  una imagen de su prueba gratis.
+- **Un candado de más no tira error:** devuelve una frase creíble («No pude leer tus fotos») y la pantalla la cree. Por eso el
+  daño duró y nadie lo vio: no hay excepción, no hay log, hay una galería vacía.
+
+**Vive en:** el candado, en `app/ai-avatar/acceso.ts` (`candadoDeAiAvatar`, uno solo para las tres puertas);
+`soloProParaGenerar()` en `app/ai-avatar/actions.ts`; `crearAvatarAction` en `app/video-editor/avatar/actions.ts`; el cartel de
+la pestaña en `app/video-editor/_opencut/avatar/AvatarIAView.tsx` (`useSoloPro` + `CandadoSoloPro`) y el `marcarSoloPro` del
+rechazo en `generar.ts`. Lo fija `tests/ai-avatar.test.ts` → «la OTRA puerta del avatar es el Video Editor, y lo que sólo LEE
+pasa igual» (probado rompiéndolo: cada una de las tres roturas da 34 verdes y 1 rojo, el que la nombra).
+
+**La cola de los planes viejos, CERRADA la misma noche.** El agente lo dejó anotado como pendiente y el verificador lo marcó
+como agujero abierto: `generarTomaAction` (`app/video-generator/video-action.ts`) filma toma por toma y preguntaba sólo
+`ctxAdmin()`. No era teórico: entre el **29/10 y el 14/11 la función estuvo abierta en los tres planes**, así que hay negocios
+que hoy pagan Esencial con planes de avatar a medio filmar en su historial, y podían terminarlos gastando créditos de Flow sin
+pasar por ninguna de las tres puertas cerradas. **Un pendiente anotado se lee como «ya lo vieron»** — el mismo modo de falla
+que este documento ya tiene escrito arriba (29/10).
+
+Lo cerrado y lo medido: el freno se acota a `tipoDePlan(item) === 'avatar'` (`./historial-cupos`, que devuelve `'avatar'` sólo
+si `e.tipo === 'avatar'`) y llama al MISMO `candadoDeAiAvatar()`. Ejecutado sobre las cuatro formas que llegan: `{tipo:'avatar'}`
+entra al candado; `{tipo:'anuncio'}`, `{}` (los anuncios viejos, sin campo) y un `tipo` desconocido **NO entran y filman igual**,
+o sea que el motor del Video Generator —que es de los dos planes— queda intacto.
+
+Y una decisión de DÓNDE va el candado, que es la regla de este día: **va DESPUÉS del `if (yaHay.url) return { ok: true, item }`**.
+Devolver una toma ya filmada no genera nada y no cuesta nada: es una LECTURA. Ponerlo antes habría repetido el error de la
+`puerta()` común —cerrar una lectura y apagarle al cliente algo que sí es suyo—. Lo fija `tests/ai-avatar.test.ts` ⑥, con el
+orden de los dos índices como aserción; probado rompíendolo: sacar el freno da 34 verdes y 1 rojo, el que lo nombra.

@@ -209,10 +209,37 @@ export const DEFS: readonly OperacionDef[] = [
   // LA PRUEBA GRATIS (25/10/2026): lo que dicen el cartel «Versión de prueba» de la barra lateral y la franja de cada tope
   // (lib/prueba-uso.ts, `resumenDePrueba`), y «Empezar mi plan ya» de Tu plan (lib/empezar-plan.ts). Cancelarla es
   // dar_de_baja_mi_plan. Empezar una prueba NO está acá: es la compra pública de /planes, de un negocio que todavía no existe.
+  //
+  // ⚠️ POR QUÉ LA DESCRIPCIÓN NO LISTA EL VIDEO CON AVATAR DE IA (14/11/2026, la verificación de lo que se cerró en Esencial).
+  // Listaba los cinco topes, el avatar entre ellos, y eso es lo que la IA repetía: un dueño de MaKo Esencial en sus 7 días que
+  // pregunta «¿qué incluye mi prueba?» recibía por WhatsApp la misma promesa que ese mismo día se sacó del FAQ del sitio
+  // (app/vsl/_sitio/preguntas.ts), y en /ai-avatar se encuentra el cartel de Pro ('ai-avatar' en `FUNCIONES_SOLO_PRO`).
+  // LA DESCRIPCIÓN NO PUEDE DEPENDER DEL NEGOCIO, y por eso la lista se fue en vez de aclararse: es UN string por operación, el
+  // mismo para todos (`aToolDef`, lib/api-mako/registro.ts, recibe la def y nada más; de ahí salen también el catálogo HTTP, la
+  // referencia generada y la skill del cliente). Lo que depende del negocio es la RESPUESTA: `usos` ya viene filtrada por plan
+  // (lib/prueba-uso.ts, `FUNCION_PRO_DE_CADA_TOPE`), así que la descripción manda a leerla y le prohíbe nombrar lo que no esté.
+  // A un Pro en prueba no le cambia nada: su fila del avatar sigue viniendo en `usos` y la IA la cuenta desde ahí.
+  // EL PRECIO DE ESTO ES LA RELEVANCIA, Y LA PAGA OTRA OPERACIÓN, A PROPÓSITO (medido el 15/11/2026, segunda vuelta). Sacar
+  // «avatar» de acá la hundió para una pregunta con esa palabra: con el conjunto visible de un Esencial por WhatsApp (936 de
+  // 1108), «¿puedo hacer un video con mi avatar de IA?» la dejó en el puesto 161 de `ordenarPorRelevancia` y fuera de los ~16
+  // esquemas que entran en el presupuesto del turno (12 000 chars, `PRESUPUESTO_REGISTRO_CHARS`). ⛔ NO SE ARREGLA VOLVIENDO A
+  // NOMBRAR EL AVATAR ACÁ: la que tiene que contestar esa pregunta es `ver_avatares` (video.def.ts), que es la que LEE sus
+  // looks y la que trae `cerrado_por_su_plan` con el texto de Pro — para esa pregunta sale PRIMERA y viaja. Esta operación
+  // sigue primera en «¿qué incluye mi prueba gratis?» y entra tercera en «¿cuántos videos con avatar de IA me quedan en la
+  // prueba?», que engancha por «prueba» y es la única donde su tope importa (un Pro en sus 7 días).
+  // ⚠️ Un «avatar» a secas no es de nadie, y esto está MEDIDO el 15/11/2026 (antes acá decía otra cosa, sin medir): en este
+  // repo la palabra nombra TAMBIÉN al avatar de marketing (el cliente ideal: `mako.avatares`, Ads Writer), así que «¿cuántos
+  // avatares me quedan?» no la gana ninguna de las dos familias — gana `calcular_presupuesto_anuncios` (por «cuántos» y
+  // «quedan»), y después vienen `borrar_avatar_negocio`, `ver_avatares` y `proponer_borrar_avatar`. `ver_mi_prueba` queda en el
+  // puesto 38 de 936 y NO viaja: con esa frase el tope de la prueba no se lo cuenta nadie. Si eso hay que arreglarlo, se
+  // arregla donde se decide la relevancia, no volviendo a nombrar el avatar en esta descripción.
+  // NO se cerró la operación entera con el molde de `esEsencialDe` (lib/api-mako/areas/closing.run.ts, `conCandadoDePro`): un
+  // Esencial en prueba tiene derecho a ver su prueba —sus días, su primer cobro, sus videos, sus imágenes, su página—. Lo que
+  // sobraba era una fila, no la operación.
   {
     id: 'ver_mi_prueba', area: 'negocio', tipo: 'lectura',
     titulo: 'Prueba gratis del negocio',
-    descripcion: 'Si este negocio está en su prueba gratis de 7 días de MaKo: cuántos días le quedan, el día del primer cobro, qué plan y cuánto se cobra al terminar, y cuánto usó de cada tope de la prueba (videos armados, tomas, videos con avatar de IA, imágenes, páginas publicadas); exportar en masa se habilita con el primer cobro. Fuera de la prueba: `en_prueba: false`. Es lo que muestra el cartel «Versión de prueba». Para empezar el plan antes: empezar_mi_plan_ya; para cancelarla sin cobro: dar_de_baja_mi_plan.',
+    descripcion: 'Si este negocio está en su prueba gratis de 7 días de MaKo: cuántos días le quedan, el día del primer cobro, qué plan y cuánto se cobra al terminar, y cuánto usó de cada tope de la prueba, en `usos` (videos armados, tomas, imágenes, páginas publicadas); exportar en masa se habilita con el primer cobro. ⚠️ Los topes de este negocio son LOS QUE VENGAN EN `usos` y sólo ésos: lo que su plan le cierra no llega ahí, así que no lo nombres ni se lo prometas. Fuera de la prueba: `en_prueba: false`. Es lo que muestra el cartel «Versión de prueba». Para empezar el plan antes: empezar_mi_plan_ya; para cancelarla sin cobro: dar_de_baja_mi_plan.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },

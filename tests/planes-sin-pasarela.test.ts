@@ -13,6 +13,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { bajadaDePlanes, botonDelPlan, diagnosticoEnTexto, diagnosticoLimpio, leerPedidoCompra, PREGUNTAS_DE_LA_PUERTA, whatsappLimpio } from '../lib/compra-plan-reglas';
@@ -23,6 +24,28 @@ import { sufijoDesdeUrl } from '../app/vsl/PreciosLanding';
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '');
+
+/** Una fila de «Tu plan» tal como quedó dibujada (`FilaAjustes`: con `href` sale un `<a>`; con `onClick`, un `<button>`). */
+type FilaDibujada = { titulo: string; detalle: string; como: 'link' | 'boton' | 'quieta'; href: string | null };
+type PantallaDelPlan = {
+  enPrueba: { filas: FilaDibujada[]; enlaces: string[]; botones: number };
+  /** Qué acción de servidor corrió al tocar la fila de Pro. */
+  tocarPro: { existe: boolean; corrio: string[] };
+};
+let dibujo: PantallaDelPlan | null = null;
+/**
+ * «Tu plan» DIBUJADA, sin navegador y con sus bordes de mentira (tests/_plan-pedir-pro-hijo.ts). Una página no se puede
+ * importar desde un test (`@/lib/compra-plan` trae `import 'server-only'`): el hijo la dibuja en un node aparte.
+ */
+const dibujarTuPlan = (): PantallaDelPlan => {
+  if (!dibujo) {
+    const out = execFileSync(process.execPath, [
+      '--experimental-test-module-mocks', '--no-warnings', '--import', 'tsx', join(RAIZ, 'tests/_plan-pedir-pro-hijo.ts'),
+    ], { cwd: RAIZ, encoding: 'utf8', timeout: 180_000, maxBuffer: 8 * 1024 * 1024 });
+    dibujo = JSON.parse(out.trim().split('\n').pop()!) as PantallaDelPlan;
+  }
+  return dibujo;
+};
 
 test('SIN AGENDA en los PLANES (24/10, Martín: «No voy a usar Calendly»), con la única excepción del Acelerador', () => {
   // Esencial y Pro se compran sin hablar con nadie: su botón lleva al checkout o al pedido, nunca a una agenda.
@@ -125,13 +148,35 @@ test('/planes/<plan>: con pasarela el pago; sin pasarela el pedido; el Acelerado
   assert.match(pedir, /avisarDePlataforma\(\{\s*to: EMAIL_MAKO,/, 'el equipo se entera en el momento');
 });
 
-test('«Tu plan» ofrece Pro por pedido, y /mako-partners no nombra un plan que no existe', () => {
+test('«Tu plan» ofrece Pro por PEDIDO: la fila no lleva a ningún checkout, y /mako-partners no nombra un plan que no existe', () => {
   const pagina = fuente('app/configuraciones/plan/page.tsx');
   assert.match(pagina, /proPorLlamada\(\{ capa, subidaEnLinea: subir != null \}\)/);
-  assert.match(pagina, /href: `\/planes\/\$\{pro\.id\}`/);
   // Salvo al cliente de una agencia (29/10/2026): su plan lo cambia su agencia (tests/cliente-de-agencia-y-partners-2910.test.ts).
   assert.match(pagina, /porLlamada=\{deAgencia \? null : porLlamada\}/);
-  assert.match(fuente('app/configuraciones/plan/PlanPanel.tsx'), /porLlamada && <FilaAjustes[^>]*href=\{porLlamada\.href\}/);
+  // ⚠️ ACÁ HABÍA DOS ASERCIONES DE TEXTO QUE CLAVABAN EL DESTINO VIEJO: que la página armara `href: `/planes/${pro.id}`` y que
+  //    el panel lo dibujara con `href={porLlamada.href}`. La ronda 2 (14/11/2026) sacó los dos destinos —la fila ya no lleva a
+  //    ninguna parte: deja el pedido escrito desde «Tu plan»— y este archivo quedó ROJO, 9/1. Clavar los destinos NUEVOS por
+  //    texto habría sido la misma aserción vacía: probado el 15/11, un `doesNotMatch(/href|mailto:/)` sobre el armado de la
+  //    fila da `true` TAMBIÉN con la fila de Pro otra vez ausente en la prueba, que es el defecto que la ronda 2 vino a cerrar.
+  //    Así que lo que se mide es la PANTALLA DIBUJADA, con el mismo criterio de este archivo (sin pasarela, cada pantalla de
+  //    compra tiene una salida de verdad): qué filas quedaron, a dónde se puede ir, y qué corre al tocarlas.
+  const p = dibujarTuPlan();
+  // 1. LO QUE QUEDA EN PANTALLA en la prueba, entero y en orden (un negocio en sus 7 días gratis del de 47). Si la fila de Pro
+  //    desaparece, si cambia de lugar o si vuelve a ser un link, esta lista deja de coincidir.
+  assert.deepEqual(p.enPrueba.filas.map((f) => [f.titulo, f.como]), [
+    ['Pasar a MaKo Pro', 'boton'], ['Empezar mi plan ya', 'boton'], ['Recomienda MaKo', 'link'], ['Darme de baja', 'boton'],
+  ], 'la pantalla «Tu plan» en la prueba');
+  // 2. Y DICE QUE SE PIDE, no que se tiene en el acto: ése es el otro texto, el de la subida por la pasarela (`subir`).
+  const pro = p.enPrueba.filas.find((f) => f.titulo === 'Pasar a MaKo Pro')!;
+  assert.equal(pro.detalle, 'US$ 97 por mes. Pídelo y te lo cambiamos antes de que termine tu prueba.');
+  assert.equal(pro.href, null, 'la fila de Pro volvió a llevar a algún lado');
+  // 3. A DÓNDE SE PUEDE IR DESDE LA PANTALLA: a /partners y a ningún otro lado. Ni al checkout de /planes (el círculo del 409
+  //    y, con la base caída, la segunda suscripción del #494), ni a un mailto, ni a una agenda.
+  assert.deepEqual(p.enPrueba.enlaces, ['/partners'], 'apareció un destino nuevo en «Tu plan»');
+  // 4. Y AL TOCARLA CORRE LA ACCIÓN QUE PIDE, NUNCA LA QUE COBRA (el handler es el del componente de verdad). `pasarAProAction`
+  //    le cambia el precio a la suscripción de la pasarela: con la prueba abierta Stripe la rechaza (`trialing`), y Stripe y
+  //    Creem cobrarían la diferencia en días que son gratis.
+  assert.deepEqual(p.tocarPro, { existe: true, corrio: ['pedirProAction'] }, 'la fila que debe PEDIR terminó cobrando');
   for (const rel of ['app/mako-partners/page.tsx', 'app/mako-partners/LandingPartners.tsx']) assert.doesNotMatch(fuente(rel), /Growth/, rel);
 });
 
@@ -167,3 +212,9 @@ test('la LANDING de venta: las columnas de precios donde estaba la agenda, con e
 //   · la landing deja el `data-calendly` del Web Generator (se carga Calendly)                 -> 8 / 1
 //   · la landing de un funnel no dice de dónde vino                                            -> 8 / 1
 //   · «Tu plan» vuelve a la agenda                                                             -> 7 / 2
+//
+// Roturas de la fila «Pasar a Pro» (15/11/2026, ronda 3; base 10 / 0 con este archivo solo). Cada una rompe el
+// COMPORTAMIENTO dejando intacto el texto que el test miraba antes, que es lo que las aserciones viejas no veían:
+//   · la fila de Pro otra vez AUSENTE en la prueba (`pro = … ? (enPrueba ? null : …)`, con el prefijo intacto) -> 9 / 1
+//   · la fila vuelve a ser un link a /planes (`href="/planes/pro"` en vez del `onClick`)                       -> 9 / 1
+//   · la fila que debe PEDIR pasa a COBRAR (`pedirPro` llamando `pasarAProAction()`, con su `onClick` intacto) -> 9 / 1

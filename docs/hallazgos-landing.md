@@ -6303,3 +6303,413 @@ El interruptor `DIBUJOS_EN_LAS_LANDINGS` (`Visual.tsx`) queda en `false` y lo pr
 (`/vsl/prioridades`) y el Ops Center (`/vsl/mako`)—, los 77 de las 14 páginas viejas, y la decisión de prender o no
 `DIBUJOS_EN_LAS_LANDINGS`. Además, `FeatureDetail.tsx` llama a `<Visual>` sin `que`, así que esas 14 páginas repiten «Esta
 pantalla de MaKo, tal cual es.» en cada fila en vez de decir qué falta en cada una (`LandingCompetencia` sí lo pasa).
+
+## «Agenda tu llamada» en /vsl: no eran 14 pantallas sino 33, y el botón no llevaba a ninguna agenda (14/11/2026)
+
+**El síntoma.** Martín, textual: «lo de agendar llamadas sí debería estar todavía para el tema de Accelerator. Ahí debería
+haber la agenda de llamada. **Pero en ningún otro lado debería estar**». El 12/11 se escribió la regla en tres archivos
+(`app/vsl/_competencia/cta.ts`, `lib/planes-mako.ts`, `app/planes/Tarjetas.tsx`) y no se barrió el repo.
+
+**El diagnóstico obvio era el equivocado, dos veces.**
+
+1. **No era copy viejo: era un botón roto.** Los cinco botones de `app/vsl/_detalle/FeatureDetail.tsx` colgaban de
+   `export const CALENDLY = '/vsl#beta'`. Pero `/vsl` es un `permanentRedirect('/')` (`app/vsl/page.tsx`): el ancla se
+   pierde en el redirect y el clic caía en la portada. **Quien tocaba «Agenda tu llamada» no agendaba nada**, y eso no se
+   ve leyendo el componente — hay que leer la ruta.
+2. **No eran 14 pantallas: eran 33.** Las 14 son las de `FeatureDetail`. Pero `Cabecera`, `CtaBand` y `Pie` se exportan
+   desde ahí y las importa `app/vsl/_competencia/LandingCompetencia.tsx`, así que las **19 landings de competencia** —que en
+   sus propios archivos ya usaban `RUTA_CTA`/`TEXTO_CTA` y leídas de a una se veían limpias— dibujaban la cabecera, la
+   banda y el pie con la agenda. Un grep por archivo las daba por buenas. **Contar pantallas por archivo miente cuando las
+   piezas se comparten: hay que DIBUJARLAS.**
+
+**Y contar ocurrencias en la fuente también miente.** `app/vsl/landing-html.ts` (auto-generado) tiene 19
+`a[href="#beta"]`; después de `aplicarContenidoLanding` quedan 5, porque 14 se van con las secciones `.mk-deep` que el
+paso (1) borra. El número de la fuente sobreestimaba por 3x.
+
+**La regla que queda.** En `/vsl` el único llamado a la acción es `TEXTO_CTA` → `RUTA_CTA`
+(`app/vsl/_competencia/cta.ts`), y la frase de al lado es `TEXTO_CIERRE`, que sigue al interruptor de la prueba. Lo que
+NO se toca es el texto de CUERPO que habla de agendas como funcionalidad («Agenda (Calendly)» entre los disparadores del
+pipeline, «Miraba Meta por un lado, Calendly por otro» del caso de Mauricio, Calendly en la lista de integraciones): eso
+describe lo que el producto hace, no pide una llamada. Lo de arriba del diseño auto-generado se reescribe **en runtime**,
+en `aplicarContenidoLanding` (paso 5), nunca a mano en `landing-html.ts`.
+
+**Trampas del entorno, medidas acá:**
+- **Un acento grave dentro de un comentario de CSS rompe el archivo.** El `CSS_LANDING` de `landing-contenido.ts` es una
+  plantilla de JavaScript: un `` `mk-cta-prueba` `` en un `/* … */` cierra la plantilla y esbuild reporta
+  `landing-contenido.ts:313:28: ERROR: Expected ";" but found "a"` — una línea de CSS, lejos de la edición, que no tiene
+  nada malo. Dentro de esos bloques, sin acentos graves.
+- **`aplicarContenidoLanding` NO corre sobre la landing publicada.** `app/vsl/Landing.tsx` arranca con
+  `if (!root || diseno) return`: corre sólo cuando NO hay documento de Web Generator. Los documentos publicados traen el
+  CTA viejo **horneado** por `scripts/landing-mako-a-web-generator.ts`, que aplica esta misma función UNA vez. Arreglar la
+  fuente arregla la landing de respaldo y los documentos FUTUROS, no los que ya están publicados en la base.
+- **`#cal-embed` ya no es una agenda:** es el hueco donde `montarPrecios` (Landing.tsx) monta las columnas de precios. Por
+  eso las dos pastillas de «micro-confianza» que se insertaban justo antes decían «Sin costo» y «60 min con Martín»
+  **arriba de una tabla de precios**.
+- `tsc` no se pudo correr: `npm run typecheck` espera RAM («quedan 5.6 GB y tsc necesita 6.3») con los otros chats
+  trabajando. Lo barato para verificar /vsl es `renderToStaticMarkup` sobre `FeatureDetail` y `LandingCompetencia`, y
+  `jsdom` + `aplicarContenidoLanding` sobre `LANDING_HTML`.
+
+**Lo que quedó SIN hacer.** (1) Los documentos de Web Generator YA publicados (`/vsl/<slug>` de industrias y avatares)
+siguen con el CTA viejo horneado: hay que volver a correr `scripts/landing-mako-a-web-generator.ts` o editarlos en el
+editor. (2) `app/vsl/landing-html.ts` sigue con sus 19 «Agenda tu llamada» en la fuente, a propósito: es auto-generado y
+el barrido lo tapa en runtime. (3) El «Solo 5 cupos» de la cabecera (`FeatureDetail.tsx`) es escasez de la beta de la
+llamada y quedó tal cual.
+
+## Las landings de funcionalidad vendían lo que se cerró en Esencial, y el candado era MUCHO más angosto de lo que parecía (15/11/2026)
+
+**El síntoma.** El 14/11/2026 se cerraron seis funciones en Esencial (`FUNCIONES_SOLO_PRO`, `lib/topes-plan.ts`) porque
+Martín quiere que «compren el de 97, no el de 47», y se reescribió `/planes`. El sitio público quedó atrás:
+`/vsl/copywriting` vendía el chat con los referentes como **titular** (metaTitle, `<h1>` y la primera cifra del hero),
+`/vsl/video` vendía la Edición automática en la bajada del hero y `/vsl/image` el chat del lienzo y «Editar». Un
+`grep -n "Pro\b"` sobre los cuatro archivos de datos daba **cero**. Y estas páginas **no dibujan las tarjetas de planes**
+(`TarjetasPlanes` no está en `LandingCompetencia.tsx`), así que el titular era la *única* señal de plan: quien paga US$47
+elegía su plan leyendo una promesa que no se le iba a cumplir.
+
+**EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO, y es lo que más tiempo ahorra acá: el candado es ANGOSTO.** «La landing del
+editor vende IA, marcala toda» habría sido mentir al revés —y espantar al de 47— porque `'ia-editores'`
+(`lib/editores-ia-pro.ts`, que tiene la lista exacta) cierra **sólo lo que llama a la IA**: el enjambre de la «Edición
+automática», el chat «Editar con IA», «Clips mágicos» y el B-roll únicamente en `elegir`. **Siguen en los dos planes**
+cortar las pausas a mano (`app/video-editor/_opencut/audio/borrar-silencios.ts`: es una acción del editor, DSP en el
+navegador, y **no tiene ningún candado**), los subtítulos, quitar el ruido, buscar en Pexels, la línea de tiempo entera,
+el lienzo como en Canva, el kit de marca, mirar la biblioteca de carruseles con su outlier (`ExplorarCarruseles`),
+`crear_carrusel_desde_referencia` (la estructura con guías, sin IA) y `cambiar_textos_diseno_imagen`. **La misma tarjeta
+puede tener una promesa cerrada y una abierta**: «Pone los subtítulos y el B-roll» es exactamente eso.
+
+**Y LA MISMA PALABRA TIENE DISTINTO CANDADO SEGÚN DÓNDE ESTÉ.** «Replicar» parecía de Pro en todos lados, y no:
+`'replicar-guion'` lo hacen cumplir sólo las puertas del **copywriter** (`lib/copywriter/replica-candado.ts`:
+`replicarOutlier`, `replicarPegado`, `prepararReplica` y `/api/copywriter`). El «Replicar» de un outlier **del editor de
+video** (`OutliersVideo.tsx` → `rutaReplicar` → `?replicar=` arma el proyecto guiado en el cliente) **no pasa por ningún
+candado**, así que el «Replica lo que funciona» de `/vsl/video` es verdad en Esencial y no lleva aviso. Antes de marcar
+una promesa hay que encontrar **la puerta que la frena**, no la palabra.
+
+**CERRAR EN ESENCIAL Y VENDER SON DOS COSAS.** `'ai-avatar'` está en `FUNCIONES_SOLO_PRO` **y** en
+`FUNCIONES_TODAVIA_NO_VENDIDAS` (`lib/planes-comparacion.ts`, por `AI_AVATAR_SE_VENDE = false`): decir «Con MaKo Pro» en
+«Tu personaje con IA» sería **empezar a venderlo**, que es justo la decisión en pausa. Por eso el aviso se deriva de las
+**dos** listas, no sólo de la primera.
+
+**La regla que queda.** En una landing, «Con MaKo Pro» **no se tipea, se deriva** —`FUNCIONES_SOLO_PRO` menos
+`FUNCIONES_TODAVIA_NO_VENDIDAS`, la misma regla que ya aplica `lib/planes-comparacion.ts`— y va **en la misma frase que
+la promesa o en la que sigue**, nunca al final de una tarjeta que además promete algo abierto. El molde son las hermanas
+ya hechas: la frase aparte de `competitor-spy.ts` («Copia su sitio… Con MaKo Pro.») y el paréntesis de `crm.ts`
+(«Los contactos de un grupo de WhatsApp (Con MaKo Pro)»).
+
+**Trampas del entorno, medidas acá:**
+- **Las preguntas frecuentes de estos archivos son CÓDIGO MUERTO.** `registro.ts` envuelve cada landing con
+  `conLasPreguntasDeLaPortada`, que **reemplaza los `items` de todo bloque `preguntas`** por `PREGUNTAS_SITIO`. Editar una
+  respuesta en `copywriting.ts` o en `video.ts` no cambia **nada** en la página: un arreglo guiado por grep «arregla» texto
+  que nadie dibuja. Lo que se lee de verdad vive en `app/vsl/_sitio/preguntas.ts`.
+- **La cercanía en CARACTERES no distingue dos promesas de una misma tarjeta.** En «Pone los subtítulos y el B-roll» las
+  dos frases están a ~90 caracteres: con una ventana de 240 el aviso del B-roll «calificaba» también a los subtítulos. Se
+  mide en **frases** (cuántos `. ` hay en el medio; vale 0 o 1), que es lo que dice a qué sustantivo pertenece el aviso, y
+  además aguanta los dos moldes. Lo encontró el test solo, al primer tiro.
+- **Probar «no hay columnas de planes» con `/US\$/` da falso positivo.** Las preguntas de la portada citan el precio de
+  GoHighLevel y de CapCut, y la barra del sitio lleva el link «Precios», así que la página tiene «US$» sin tener ninguna
+  tarjeta. Lo que se mide son las clases `mkpl-` de `app/planes/Tarjetas.tsx`, que es lo que de verdad dibuja los planes.
+- **El `<h1>` no es el lugar del aviso.** Los titulares de estas tres páginas son los de la referencia, con su `<em>`, su
+  `<strong>` y su escala medidos en `docs/diseno/landings-competencia/<slug>.md`. El aviso va en la **bajada**, que se lee
+  en el mismo bloque, y el `metaTitle` (que no se dibuja: lo sirve `metadataDeLanding`) lo lleva aparte.
+- `mock.module` de `node:test` **no está disponible** sin `--experimental-test-module-mocks` (Node 24.17). ⚠️ CORREGIDO EL
+  15/11/2026: de acá se concluía que «no se puede abrir una función en una prueba para ver desaparecer el aviso», **y eso es
+  falso** — no hace falta ningún mock de módulo. Se muta el array exportado EN MEMORIA con un preload (`--import`), porque
+  `FUNCIONES_SOLO_PRO` y `TOPES` son literales `as const`: readonly para el tipo, objetos comunes en runtime. La receta, con
+  sus números, abajo en «La tabla "MaKo vs" no tenía dientes».
+- **`tsc-acotado` con cuatro archivos a la vez muere** (`--heap=4096`, código 134 y la salida perdida: no es un rojo de
+  tipos, es SIGABRT). De a UNO da verde. Y un 99 («no se pudo chequear») con 4-5 GB libres se va solo al reintentar: es el
+  lock de un tsc por máquina, no el código. Un 99 **no** es un verde.
+
+**Lo que quedó SIN hacer.** (1) `app/vsl/_competencia/ai-avatar.ts` sigue sin ninguna marca de plan, **a propósito**
+(`AI_AVATAR_SE_VENDE = false`): es una decisión de producto, no un olvido. (2) El helper derivado está repetido en los tres
+archivos de datos (`copywriting.ts`, `video.ts`, `image.ts`): su casa natural es un `app/vsl/_competencia/solo-pro.ts`
+compartido, que además lo usarían las demás landings. (3) `competitor-spy.ts` dice «Su guion, con tu oferta — Replicas su
+reel y MaKo escribe el tuyo en Copywriting» sin aviso, y **ése sí pasa por el copywriter** (`'replicar-guion'`): le falta
+la marca. (4) Las 16 landings restantes de `_competencia/` no se barrieron con este criterio.
+
+## La tabla «MaKo vs» le ponía ✓ al precio de US$47 en lo que es de Pro: una lista a mano de 4 filas sobre 26 (15/11/2026)
+
+**El síntoma, medido.** En `/vsl/comparaciones`, `celdaDeMaKo('setter_ia')` devolvía `{"v":"si"}` y `celdaDeMaKo('dominio')`
+también, con el precio de la columna en **US$ 47** — mientras `FUNCIONES_SOLO_PRO.includes('setter-ia')` es `true` y
+`TOPES.completo['web.dominios']` es `0`. Las dos se cerraron en Esencial el 14/11/2026 («el de 47 debería estar bien limitado y
+restrictivo… la idea es que compren el de 97, no el de 47»). `/planes` **sí** estaba al día, porque deriva
+(`lib/planes-comparacion.ts`, `soloPro` y `filaDeTope`): las dos páginas públicas de la misma web se contradecían, y la que
+mentía era la que se lee para comparar precios.
+
+**La causa real.** `SOLO_PRO` (`app/vsl/_sitio/competencia.ts`) era una lista **escrita a mano** que cubría cuatro filas, y
+`celdaDeMaKo` devolvía `'si'` para **todo lo demás**. O sea que el default era la promesa: la tabla **fallaba hacia el «sí»**,
+el lado que miente a favor. Lo irónico es que la regla ya estaba escrita en el encabezado del propio archivo («Las de MaKo
+salen del código: lo que es sólo de Pro dice "En Pro"») y en el comentario de la lista. Estaba escrita y no se cumplía:
+un comentario no deriva nada.
+
+**EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO, y es lo que más tiempo ahorra acá: no todo lo que tiene tope es «En Pro».**
+El primer barrido marcó `ads_ia` como fila mal vendida y estaba mal: ejecutado, `TOPES.completo['ads.recomendaciones_dia']`
+es **2**, así que Esencial **sí** trae el media buyer (en modo «propone», 25/10/2026) y el ✓ es verdad. Lo de Pro ahí es el
+**piloto automático**, que no tiene fila en esta tabla. La regla es: **un tope mayor que 0 es «lo trae»; sólo un tope en 0 es
+«no lo trae»** (la misma que `celdaDeTope` ya aplicaba en `lib/planes-comparacion.ts`). Recorridas las 26 filas con ese
+criterio, cambian **dos** (`dominio` y `setter_ia`) y quedan **24** igual — entre ellas seis que tienen tope y lo traen
+(`landings`, `spy`, `crm`, `whatsapp`, `automatizaciones`, `cursos`). Confundir «tiene tope» con «es de Pro» habría marcado
+seis filas de más y espantado al de 47, que es el error simétrico y igual de caro.
+
+**La regla que queda.** La columna de MaKo **no se tipea, se deriva**: cada fila **declara** cuál es el candado o el tope que
+la gobierna (`CANDADO_DE_LA_FILA`: `{ funcion }` de `FUNCIONES_SOLO_PRO`, `{ tab }` de `TABS_SOLO_PRO`, `{ tope }` de `TOPES`
+o `{ enLosDos: true }`) y la celda se **lee** de ahí. El mapa es un `Record` exhaustivo, no un `Partial`: una fila nueva en
+`ClaveFila` **no compila** hasta decir de dónde sale, que es justo el paso que se saltó el 14/11. Y lo que no declara nada
+**cae en «En Pro»**: una tabla de venta tiene que fallar hacia el lado que no promete lo que no hay.
+
+**Lo que el test enseñó, y es lo más reusable de esta tanda.** `tests/vsl-comparaciones-competencia.test.ts` pasaba **5/5**
+mientras la tabla mentía, porque su aserción miraba **3 filas de 26** (`copiar_landing`, `comunidad`, `crm`) y nadie vigilaba
+las otras 23. Y recomputar lo mismo que hace la función no habría servido de nada: es la misma cuenta dos veces. Lo que sí
+sirve es **cruzar las dos páginas públicas**: `noIncluyeDe('completo')` de `/planes` contra `celdaDeMaKo` de `/vsl`, fila por
+fila. Son dos módulos con dos vocabularios distintos, así que lo único escrito a mano en el test es **qué fila de /planes le
+corresponde a cada fila de la tabla** — y el día que se cierre la función siguiente, `/planes` la mete en `noIncluye` y la
+prueba se pone roja sola.
+- **La trampa de ese cruce: la aserción vacía.** Si cambia el texto de una fila de `/planes`, esa fila deja de estar en
+  `noIncluye` **por no existir**, y entonces *todas* las filas «esperan si» y el test pasa sin mirar nada. La cura es un paso
+  antes: afirmar que la fila **existe** en `filasDeComparacion()` antes de preguntar si está en `noIncluye`. Medido
+  rompiéndolo: con un texto cambiado el test avisa «/planes ya no tiene la fila X», en vez de pasar en verde.
+
+**Lo que quedó SIN hacer.**
+1. **Seis filas donde la verdad no es «sí» ni «En Pro», sino «sí, con tope»**, y hoy salen con ✓ pelado: `landings` (1),
+   `spy` (1), `crm`/pipelines (1), `whatsapp`/líneas (1), `automatizaciones` (2) y `cursos` (1). **El dibujo lo soporta**
+   (`ValorCelda`, en `app/vsl/_sitio/Comparaciones.tsx`, dibuja cualquier valor corto: es la misma rama por la que sale «En
+   Pro»), así que es un `{ tope }` que devuelva el número en vez de `'si'` — una línea. **Pero no es un bug, es una decisión
+   de Martín:** poner «1» donde el competidor dice ✓ ilimitado cambia cómo se compara MaKo, y `/planes` ya muestra esos
+   números para quien los busca.
+2. **La misma clase de bug, sin arreglar, en otro archivo:** `app/vsl/_competencia/disenos/crm.tsx:71` tiene
+   `const SOLO_PRO = new Set(['Setter con IA', 'Cursos y comunidad'])` — una lista a mano **indexada por el texto que se
+   dibuja**, que no deriva nada y se desincroniza igual. Encima junta en una fila algo abierto con tope (`cursos`, 1) y algo
+   de Pro (`comunidad`). No se tocó porque ese archivo es de otra punta de esta corrida.
+3. ⛔ **RETIRADO EL 15/11/2026: ERA FALSO.** Acá decía que `/planes` promete «un dominio que Esencial no tiene», cruzando la
+   fila de email marketing contra `TOPES.completo['web.dominios']` = 0. **Son dos dominios distintos** y ese tope no gobierna
+   el del email: el de envío vive en la cuenta de Resend del propio negocio, gratis y sin tope. La medición, en «SON DOS
+   DOMINIOS DISTINTOS», en la sección de abajo. `/planes` no promete nada que no tenga.
+4. Las otras 20 columnas de la tabla (las de los competidores) no se revisaron en esta pasada: lo de cada app se releva
+   aparte (ver «Comparaciones contra la competencia: lo que se afirma de otra app es público», más arriba).
+
+## La tabla «MaKo vs» no tenía dientes: el cruce que la vigilaba medía su propia cuenta (15/11/2026)
+
+El arreglo del día (la columna de MaKo derivada de `FUNCIONES_SOLO_PRO` y de `TOPES`, arriba) estaba bien y el test daba
+5/5. Dos lentes lo midieron y el 5/5 era casi todo humo. Lo que sigue es por qué, y la receta para no repetirlo.
+
+**SON DOS DOMINIOS DISTINTOS, y el diagnóstico obvio era el equivocado.** La entrada 3 de «lo que quedó sin hacer» de la
+sección de arriba decía que `/planes` promete «un dominio que Esencial no tiene», cruzando la fila «Email marketing:
+secuencias y envíos **con tu dominio**» (que es `enTodos`) contra `TOPES.completo['web.dominios']` = 0. **Falso.** La
+palabra «dominio» nombra dos cosas que no se tocan:
+
+- **El dominio de una LANDING** (`tunegocio.com` apuntando a una página del Web Generator). Ése es `web.dominios`, y es el
+  que está en 0 para Esencial. Se hace cumplir en UN solo lugar: `lib/editor-landing/tope-landings.ts`, `topeParaDominio`,
+  con `TEXTO_DOMINIO_SOLO_PRO`.
+- **El dominio de ENVÍO de email** (de dónde sale el «De:»). Vive en la cuenta de **Resend del propio negocio**
+  (`lib/email-dominio.ts`: «Resend free permite hasta 3 dominios, pero eso lo trae cada user de mako», 4/11/2026), con su
+  clave, su webhook y sus registros DNS. **Gratis y sin tope de plan**, en los dos planes.
+
+Medido, y es la forma de no volver a confundirlas: `grep -rn "web\.dominios" --include=*.ts --include=*.tsx` da **5** lugares
+de código (la tabla de topes, `tope-landings.ts`, el diálogo de publicar del Web Generator,
+`lib/api-mako/areas/landing-editor.run.ts` y la fila de `/planes`), y **ninguno** está en el camino del email.
+`conectar_dominio_email` sólo pide la clave de Resend del negocio. **La regla: antes de cruzar un tope contra una promesa,
+buscar quién LEE ese tope.** Si la pantalla que promete no está en esa lista, el tope no la gobierna.
+
+**UN CRUCE CON LA MISMA FUENTE EN LOS DOS LADOS NO MIDE NADA, y es la trampa que dejó pasar todo lo demás.** El cruce
+«`/planes` contra la tabla» cubría 24 de las 26 filas y se leía como una red fina. De esas 24:
+
+- **10 filas de tope** (`landings`, `landings_ia`, `spy`, `dominio`, `crm`, `cuotas`, `whatsapp`, `automatizaciones`,
+  `ads_ia`, `cursos`) aplicaban la MISMA regla al MISMO `TOPES` en los dos lados: `celdaDeMaKo` decía «En Pro» si el tope es
+  0, y `noIncluyeDe('completo')` metía la fila si el tope es 0. No podían discrepar nunca. **Medido con los 10 topes de
+  Esencial en 0: la columna cambió 9 celdas de ✓ a «En Pro» y el test siguió 5/5 verde** (9, no 10: `web.dominios` ya
+  estaba en 0).
+- **10 filas de `enLosDos`** (`tracking`, `agenda`, `instagram_dm`, `email`, `copy_ia`, `editor_imagen`, `editor_video`,
+  `calendario`, `asistente_ia`, `espanol`) no leían NADA del código: un «si» a mano contra un `enTodos` también a mano.
+- Sólo las **5 de función o de tab** cruzaban dos fuentes de verdad, y medio de casualidad: `celdaDeMaKo` deriva de
+  `FUNCIONES_SOLO_PRO`, pero `/planes` las escribe a mano con `soloPro(...)`. Medido sacando `'setter-ia'` de
+  `FUNCIONES_SOLO_PRO`: rojo, 4/5.
+
+**Lo que sí puede discrepar en una fila de tope: el NÚMERO.** `/planes` **imprime** el tope de su fila («1», «2.000»,
+«Hasta 2.000»), así que se compara el tope que la tabla DECLARA (`CANDADO_DE_LA_FILA`) contra los dígitos que `/planes`
+muestra en la fila cruzada. Eso atrapa lo único hecho a mano de ese lado: un tope mal declarado, o una fila cruzada con la
+fila equivocada. Medido poniéndole a la fila `crm` el tope `automations.activas` (2) en vez de `crm.funnels` (1): con el
+cruce viejo **pasaba** (las dos páginas seguían diciendo ✓); ahora es rojo y el mensaje dice los dos números.
+
+**UNA ASERCIÓN CONTRA LA EXPRESIÓN QUE LA FUNCIÓN EVALÚA ADENTRO NO PUEDE FALLAR.** Había tres, y se leían como las más
+cuidadas del archivo:
+
+```ts
+assert.equal(celdaDeMaKo('setter_ia').v, FUNCIONES_SOLO_PRO.includes('setter-ia') ? EN_PRO : 'si');
+```
+
+`celdaDeMaKo` evalúa exactamente ese ternario adentro. Medido con los dos lados impresos aparte, en tres estados: sin mutar,
+con `'setter-ia'` abierto en Esencial (la celda cambió de «En Pro» a «si») y con los topes en 0 (`ads_ia` cambió de «si» a
+«En Pro»). **Las tres pasaron en los tres estados**, porque los dos lados se movían juntos. La cura es clavar el VALOR que la
+página muestra hoy (`assert.equal(celdaDeMaKo('setter_ia').v, EN_PRO)`), con el porqué en el mensaje: eso sí falla, y falla
+el día que la página cambie de verdad. **Y como efecto, los 10 topes en 0 ahora dan rojo** — no por el cruce, sino por esa
+celda clavada (`ads_ia`). Vale anotarlo: una aserción clavada al valor observable atrapa más que un cruce elegante que
+recalcula.
+
+**UN `Record` EXHAUSTIVO NO PONE ROJO A `node --test`.** La guarda de esta área tiene dos mitades y hacen falta las dos. El
+`Readonly<Record<FuncionSoloPro, …>>` no deja **compilar** una función nueva sin declararla (medido quitando una clave a
+mano: `TS2741: Property '"chat-referentes"' is missing`), pero el typecheck no corre en el build y `node --test` no lo ve. La
+otra mitad es comparar las claves **en runtime** contra la lista:
+`assert.deepEqual(Object.keys(MAPA).sort(), [...FUNCIONES_SOLO_PRO].sort())`.
+
+**LA REGLA QUE QUEDA: para que el test se ponga rojo el día que se cierre la función siguiente, hay que ir AL REVÉS.**
+Derivar la celda de cada fila no alcanza, porque las filas que mienten son justo las que dicen «esto está en los dos planes»:
+nadie las vuelve a mirar. Lo que falla hacia el rojo es un índice **inverso**: por cada entrada de `FUNCIONES_SOLO_PRO`, qué
+fila de esta tabla la nombra — o que ninguna la nombra, **y por qué**. Después se afirma que esa fila declara ese candado.
+Medido empujando `'tracking-leads'` a `FUNCIONES_SOLO_PRO` (una función que la tabla nombra, la fila `tracking`): antes
+**5/5 verde** con la celda en ✓, ahora rojo. El mapa vive en `tests/vsl-comparaciones-competencia.test.ts`
+(`FILA_QUE_NOMBRA`, `FILA_QUE_NOMBRA_TAB`), al lado del cruce.
+
+**CÓMO MUTAR EL ESTADO PARA MEDIR, sin tocar un archivo** (reemplaza la nota vieja de `mock.module`, corregida más arriba).
+`FUNCIONES_SOLO_PRO` y `TOPES` son literales `as const`: readonly para el tipo, objetos comunes en runtime. Un preload con
+`--import` los muta antes de que corra el test, y el módulo cacheado es el mismo que importa el test:
+
+```ts
+// en el scratchpad, mut.ts
+import { FUNCIONES_SOLO_PRO } from 'C:/dev/wt-push-q/lib/topes-plan.ts';
+(FUNCIONES_SOLO_PRO as unknown as string[]).push('tracking-leads');
+console.log('[mut] claves:', FUNCIONES_SOLO_PRO.join(','));
+```
+
+y se corre `node --import tsx --import file:///…/mut.ts --test tests/<el test>.ts`. El orden importa (`tsx` primero, para que
+resuelva el `.ts` del preload) y la ruta del segundo `--import` va como URL `file:///`. No hace falta `mock.module` ni
+`--experimental-test-module-mocks`. Y conviene que el preload imprima lo que mutó: así el verde o el rojo quedan con la
+prueba de que la mutación entró. Lo mismo sirve para `CANDADO_DE_LA_FILA` y para `ELIGE_MAKO_SI`, que también son objetos
+comunes en runtime.
+
+**Lo que quedó SIN hacer.**
+1. **La página dice DOS PRECIOS y los ✓ son de uno solo.** `/vsl/comparaciones` ARRANCA con «Todo en **MaKo Pro:**
+   {usd(pro.precioUsd)}» = **97** (`app/vsl/_sitio/LoQuePagas.tsx:76`, el `<SeccionReemplaza claro principal />` que
+   `Comparaciones.tsx:207` pone antes de `id="comparar"`), y la fila de precio de la tabla dice **US$ 47**
+   (`celdaDeMaKo('precio')`, el de Esencial; `lib/planes-mako.ts:130` y `:156`). Los ✓ de la columna son los de Esencial:
+   quien leyó los 97 arriba lee la tabla como si fuera Pro. **Es decisión de Martín** qué plan muestra esta tabla; no se
+   tocó.
+2. **Los dos ítems de `ELIGE_MAKO_SI` que nombran cosas de Pro** («Quieres que la IA conteste, haga el seguimiento y agende
+   por ti» = `'setter-ia'`; «Quieres ver lo que le funciona a tu competencia y replicarlo» = `'replicar-landing'` +
+   `'replicar-guion'`), dibujados con el **mismo** tilde que una celda «si» (`s-mx-si`, `Comparaciones.tsx:156` y `:250`) en
+   el panel donde el precio dice US$ 47. Es copy de **posicionamiento**, no una lista de plan: escribirle «(en Pro)» cambia
+   cómo se vende MaKo, y eso lo decide Martín. Lo que ya no puede pasar es que se desincronice en silencio: cada ítem declara
+   qué nombra (`ELIGE_NOMBRA` en el test) y editar el copy —o abrir una de esas funciones en Esencial— pone la prueba roja.
+3. **6 filas salen con ✓ pelado cuando la verdad es «sí, con tope»** (`landings` 1, `spy` 1, `crm` 1, `whatsapp` 1,
+   `automatizaciones` 2, `cursos` 1). Sigue pendiente de la sección de arriba, con el mismo criterio: el dibujo lo soporta
+   (`ValorCelda` muestra cualquier valor corto) y es decisión de Martín.
+4. **`'replicar-guion'` no tiene fila en esta tabla** y `/planes` sí la vende como de Pro, mientras la tabla sí nombra a su
+   hermana «Copiar landings de otros». Declarado como `sinFila` en `FILA_QUE_NOMBRA` para que no sea un olvido silencioso.
+   Sumar la fila obliga a rellenar las **20 celdas de los competidores** con su fuente (la regla de `competencia-datos.ts`: lo
+   que no se confirma va «sin dato», nunca como un «no»), así que no es una línea.
+
+## El texto de una landing NO vive sólo en su archivo de datos, y por eso el marcado de plan se escapó tres veces (15/11/2026)
+
+**Vive en:** `app/vsl/_competencia/<slug>.ts` (los datos) y `app/vsl/_competencia/disenos/<slug>.tsx` (el diseño, que
+**también escribe texto propio**); el test es `tests/vsl-landings-dicen-el-plan.test.ts` y el precargador para medirlo,
+`tests/_mutar-funciones-de-pro.ts`. La fuente que se LEE: `lib/topes-plan.ts` (`FUNCIONES_SOLO_PRO`),
+`lib/planes-comparacion.ts` (`FUNCIONES_TODAVIA_NO_VENDIDAS`) y `lib/editores-ia-pro.ts` (qué cierra el candado de verdad).
+
+Esto continúa «Las landings de funcionalidad vendían lo que se cerró en Esencial» (arriba): el aviso derivado estaba bien
+y aun así **faltaba en tres lugares** —los tres en el archivo de DISEÑO— y en un cuarto (`/vsl/image`, «En el chat del
+editor») estaba puesto pero colgaba de la frase equivocada. Por qué, medido.
+
+**EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: el texto de la página no está todo en su archivo de datos.** Un `grep` sobre
+`_competencia/*.ts` —y un test con una lista de promesas sacada de ahí— no ve lo que escribe el **diseño**. Las tres
+promesas sin marcar vivían ahí:
+
+- `disenos/copywriting.tsx`, el hero: `.d-copywriting-noprompt` («No te llevas un prompt. Te llevas el método de 32
+  referentes del marketing, trabajando dentro de tu propia IA.») y el titular de la tarjeta de caricaturas en
+  `Referentes()` («Los 32 referentes del marketing que MaKo estudió. Ahora tu IA puede trabajar con su método»). Las dos
+  son la promesa **más fuerte** de la página y lo primero que se ve.
+- `disenos/image.tsx`, el pie de la galería de outliers: `${P}-plant-txt` («Con «Editar», tu versión: su mismo diseño y
+  tus textos.»), pegado al botón, a ~600 caracteres de la bajada que sí avisaba.
+
+La cura: `soloPro` / `soloProEntre` se **exportan** de `copywriting.ts` y de `image.ts`, y el diseño las llama. Sigue
+habiendo **una** derivación, no dos. (La casa natural sigue siendo un `app/vsl/_competencia/solo-pro.ts` compartido —ver
+«SIN hacer» de la sección de arriba—; ahora lo importarían también los dos diseños, así que hace más falta.)
+
+**LA COBERTURA DE UN TEST DE MARCADO NO PUEDE SER UNA LISTA DE LUGARES.** El test traía las 15 promesas marcadas escritas
+a mano y daba **5/5 verde con una décima función cerrada en memoria**: su única guarda de cobertura era
+`PROMESAS.length >= 14`, que no mide nada. Y una lista de lugares sólo mira donde alguien ya miró — por eso no encontró
+las tres de arriba. Lo que funciona es al revés, y es la regla reusable:
+
+> Una fila **por función** (`Readonly<Record<FuncionSoloPro, Huella>>`) que dice **con qué palabras** estas páginas la
+> nombran, y un barrido del **texto dibujado** que exige el aviso en **cada** aparición de esas palabras.
+
+Medido: `PRO_SUMA=funcion-nueva` pasa de **5/5 verde** (versión vieja) a **7 pass / 1 fail**, con el mensaje de qué hay
+que declarar. El typecheck pide la fila también —quitando una clave a mano:
+`TS2741: Property 'comunidad' is missing … but required in type Readonly<Record<…, Huella>>`— y hacen falta **las dos
+mitades**, porque `node --test` no ve la exhaustividad de un `Record` y el typecheck no corre en el build. Y el barrido
+encontró las tres promesas del diseño **solo**.
+
+**CUATRO COSAS QUE EL DIBUJO TIENE Y NO SON PROMESAS DE LA PÁGINA.** Un barrido por palabras sobre el HTML entero no
+sirve hasta recortar esto, y cada recorte se midió:
+
+- **El marco del sitio nombra TODAS las funciones de MaKo.** La barra y el pie listan «Automations · tu setter con IA»,
+  «AI Avatar», «Image», «Copywriting»…, así que **cualquier** palabra que nombre una función pega ahí y ninguna fila
+  puede declarar «acá no va». Se recorta del `<h1` al `<footer class="…-pie">`. ⚠️ **«El primer `<footer>`» es el límite
+  equivocado:** `/vsl/copywriting` tiene **tres `<footer>` sueltos dentro del cuerpo** (los ponen las piezas de Hormozi
+  replicadas), así que hay que buscar el que tiene clase `-pie`, que es el de la landing.
+- **Los recuadros de «Aquí falta la animación» PARECEN una promesa.** El de `/vsl/image` dice «El chat de MaKo al lado
+  del lienzo: le pides un cambio y te muestra "Original | Modificado" para aceptarlo» y el barrido le reclamaba un «Con
+  MaKo Pro» que no corresponde: dice **qué animación falta**, no qué trae el plan. Y no se puede tocar (Martín: «que por
+  ahora quede exactamente como está»). Se saca el `<div class="mk-falta">`, que no tiene `<div>` adentro.
+- **Los `<script data-visor>`.** El aplanado sacaba `<style>` y no `<script>`: había **14 KB de JavaScript dentro del
+  texto barrido** (los índices del cuerpo arrancaban en ~14.500, no en 0). Barrer por palabras el riel sin fin o el visor
+  es ruido puro.
+- **Las preguntas frecuentes**, que son las de la portada (ya está arriba: código muerto por `registro.ts`). Se sacan con
+  `PREGUNTAS_SITIO`, que es de donde salen. Y de paso: `/vsl/video` tiene un **quinto** «tu avatar» que viene de ahí
+  («¿Qué reemplaza?… hace tus anuncios con tu avatar»), así que no se arregla en `video.ts`.
+
+**LA MISMA PALABRA DE PRODUCTO NO ES LA MISMA FUNCIÓN.** Es la hermana de la trampa de «Replicar» (arriba): **«chat de
+MaKo» no siempre es el chat del editor.** En `/vsl/copywriting`, «en el chat de MaKo eliges a qué referente seguir» es
+`'chat-referentes'`, no `'ia-editores'`, y una huella `chat de MaKo` reclamaba el aviso equivocado. Las palabras de una
+huella tienen que nombrar **la función**, no un sustantivo del producto: `chat de MaKo al lado` (del lienzo) sí,
+`chat de MaKo` no.
+
+**LA DISTANCIA SE MIDE HACIA ADELANTE, Y UN TITULAR SE MIDE POR BLOQUE.** Dos medidas que fijan el diseño del test:
+
+- **Un aviso ANTERIOR es del párrafo de arriba.** La tarjeta «32 referentes del marketing, en tu chat. (Con MaKo Pro)»
+  lleva el aviso en el **título**, así que su cuerpo no tiene ninguno adelante y da la tentación de mirar hacia atrás.
+  **No se puede:** mirando hacia atrás, el «Con MaKo Pro.» con el que cierra la tarjeta 1 de `/vsl/video` queda a **una
+  frase** de los subtítulos de la tarjeta 2, que son de los **dos** planes, y el test acusaría a la página de algo que no
+  hizo. La ventana queda hacia adelante y lo del título lo resuelve la regla del bloque.
+- **El `<h1>` no lleva el aviso adentro y su bajada está a CUATRO frases.** Con la ventana de 1 frase un titular nunca
+  queda cubierto; subirla a 2 rompe la otra mitad (los subtítulos quedan a 2 frases del aviso del B-roll). La regla
+  medible es **por bloque**: una promesa que cae dentro del `titulo` de un bloque se mide contra la `bajada` de **ese**
+  bloque. Son dos hoy (el `<h1>` de `/vsl/copywriting` y «Dos piezas reales de Alex Hormozi, replicadas») y **no afloja**
+  la tarjeta de los subtítulos, porque ahí la promesa está en el `titulo` de un **item**, no del bloque.
+
+**MENTIR EN CONTRA ES UN DEFECTO, Y PARTIR EL CUERPO NO ALCANZA.** «Pone los subtítulos y el B-roll» terminaba en «Con
+MaKo Pro.»: los subtítulos **no** tienen candado (corren en el navegador) y el aviso los pintaba de Pro, que es lo que
+espanta al de US$47. Partir el cuerpo en dos frases hizo pasar el test y **el título seguía juntando lo abierto con lo
+cerrado**. La cura: el **título se queda con la promesa abierta** («Pone los subtítulos») y la cerrada baja a su propia
+frase, con el aviso pegado. La guarda es la huella: con `B-roll` en el título el aviso queda a dos frases → rojo (medido:
+7/1 devolviendo el título viejo).
+
+**UN COMENTARIO QUE PROMETE «EL AVISO APARECE SOLO» HAY QUE MEDIRLO CONTRA LA BANDERA.** `video.ts` decía «El día que
+`AI_AVATAR_SE_VENDE` sea true, el aviso aparece solo» y era **falso**: no existía ninguna llamada `soloPro('ai-avatar')`
+en los tres archivos, así que con la bandera en true el dibujo no cambiaba (y el test se ponía en 4/1). Ahora la llamada
+está en el cuerpo de la tarjeta «Tu personaje con IA» y, medido con `PRO_VENDE=1`, quedan **dos** lugares sin aviso: el
+chip del hero y el metaDesc. **Una promesa sobre el futuro, escrita en un comentario, se mide corriéndola**; y si no vale
+en todos lados, el comentario dice dónde vale y dónde no.
+
+**CÓMO MUTAR LA TABLA PARA MEDIR, versión del repo.** La receta del preload ya está arriba («La tabla "MaKo vs" no tenía
+dientes»); acá quedó **commiteada** en `tests/_mutar-funciones-de-pro.ts`, con tres mutaciones por variable de entorno:
+`PRO_SUMA` (cerrar una función nueva), `PRO_SACA` (abrir una en Esencial) y `PRO_VENDE` (vaciar
+`FUNCIONES_TODAVIA_NO_VENDIDAS`). ⚠️ **`PRO_VENDE` mueve el array pero NO la bandera:** `AI_AVATAR_SE_VENDE` es un
+`const` y `noIncluyeDe()` lo lee directo, así que la tabla de `/planes` y la landing se separan y aparece **una segunda
+falla que es del precargador, no de la página**. Vale saberlo antes de leer ese 6/2 como dos defectos.
+
+**La otra mitad, la que la nota vieja decía que no se podía correr, quedó medida.** `PRO_SACA=chat-referentes` (la
+función se **abre** en Esencial): los **5 avisos de los referentes desaparecen solos** del dibujo (`/vsl/copywriting` pasa
+de 7 «Con MaKo Pro» a 2) y el único rojo es la fila de `HUELLAS` que quedó colgada, con qué hacer; sacando también la
+fila, **8/0**. La landing y el test se mueven juntos.
+
+**Lo que quedó SIN hacer.**
+1. **`/vsl/video` promete el avatar en cuatro lugares y está CERRADO en Esencial**, así que hoy promete y no aclara. El
+   argumento de «decir Con MaKo Pro sería empezar a venderlo» **no se sostiene del todo: la venta ya está hecha en la
+   página** (el chip del hero, el título y el cuerpo de la tarjeta, y el metaDesc). Lo que falta es la decisión: o la
+   página empieza a venderlo, o deja de prometerlo. Con `PRO_VENDE=1` el test señala los dos que quedarían sin aviso.
+2. **El `metaTitle` de `/vsl/image`** («los carruseles que funcionan, **en tu versión editable**») es el más flojo de los
+   tres sin aviso: lo que Esencial sí tiene por el camino sin IA (`crear_carrusel_desde_referencia`) entrega **la
+   estructura con guías**, no el mismo diseño con el texto escrito. Queda para Martín.
+3. **`competitor-spy.ts:167`** («Su guion, con tu oferta — Replicas su reel y MaKo escribe el tuyo en Copywriting») sigue
+   **sin aviso**, y sí pasa por el candado del copywriter (`'replicar-guion'`). Y su vecina de `:164` tiene el
+   **«Con MaKo Pro.» tipeado a mano**, que es justo lo que la regla prohíbe. No se arregló acá porque
+   `/vsl/competitor-spy` no está en el barrido: sumarla es una línea en `PAGINAS`, pero el barrido va a encontrar lo suyo
+   y hay que resolverlo en la misma pasada.
+4. **Las 16 landings restantes de `_competencia/`** no se barrieron con este criterio, y `disenos/crm.tsx:71` sigue con
+   su `SOLO_PRO` escrito a mano (ya anotado arriba).

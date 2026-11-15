@@ -10,6 +10,109 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## «Pasar a Pro» en la prueba: tres rondas, y lo que cada una enseñó sobre las aserciones VACÍAS (15/11/2026)
+
+**Vive en:** `app/configuraciones/plan/page.tsx` (la decisión: `pro`, `subir`, `porLlamada`), `PlanPanel.tsx` (la fila, el aviso y
+`TOCAN_EL_COBRO`), `actions.ts` (`pedirProAction`). Lo mide `tests/_plan-pedir-pro-hijo.ts`, que dibuja la pantalla ENTERA sin
+navegador, más `tests/prueba-topes.test.ts` y `tests/planes-sin-pasarela.test.ts`.
+
+**El síntoma que arrancó todo:** el candado de una función de Pro (`FUNCIONES_SOLO_PRO`) lleva a «Tu plan», y en la PRUEBA del de 47
+ahí no había ninguna fila para pasar a Pro: la única era «Empezar mi plan ya», que cobra los US$47 y no destraba lo que la persona
+vino a buscar.
+
+### El diagnóstico obvio era el equivocado, tres veces
+
+1. **«La fila tiene que llevar al checkout del plan» — no.** `/planes/<pro>` dibuja el formulario «Quiero» SÓLO mientras ninguna
+   pasarela pueda cobrar; en cuanto una pueda, la misma página dibuja el CHECKOUT y el POST corta con un 409 que lo manda de vuelta
+   a «Tu plan»: un círculo. Y ese corte es lo único que lo frena: con `listarUsuarios()` ilegible (deja pasar a propósito) le abre
+   una SEGUNDA suscripción (#494). Quien pide desde «Tu plan» YA TIENE CUENTA — en prueba, siempre.
+2. **«Lo estás metiendo en la bandeja de altas, le van a abrir otra cuenta» — no.** `registrarPedido` (`lib/pedidos-ingreso.ts`)
+   pregunta por el usuario ANTES y contesta `false` para un email que ya tiene cuenta. Medido corriéndolo de verdad, con el control
+   al lado (un email sin cuenta SÍ inserta).
+3. **«Si `pedirPlanSinPasarela` devuelve ok, el pedido llegó» — no, y éste es el caro.** Para quien ya tiene cuenta esa función
+   deja DOS rastros y los dos son best-effort: el evento de la ficha con `catch(() => {})` y el correo al equipo, cuyo
+   `{ enviado: false }` nadie leía (y cuyo `.catch` no corre NUNCA, porque `avisarDePlataforma` no rechaza: devuelve el estado).
+   Con el evento tirando y el correo sin salir, la acción devolvía `ok: true` y la persona leía **«Listo: nos llegó tu pedido y te
+   escribimos»** sin que hubiera llegado nada a ninguna parte.
+
+### La trampa del entorno: tres formas de escribir una aserción que no mide NADA
+
+Refutadas EJECUTANDO, rompiendo el comportamiento y dejando intacto el texto que la aserción clavaba:
+
+- **Clavar el PREFIJO de la línea que decide.** `assert.match(p, /const pro = capa === 'completo' && !deAgencia \?/)` sigue en verde
+  con `… ? (enPrueba ? null : …)`: lo que decide vive DESPUÉS del prefijo. Tres aserciones así daban 9/9 con la fila de Pro otra vez
+  ausente en la prueba, que era el defecto que esa ronda vino a cerrar.
+- **Clavar el NOMBRE DEL ENVOLTORIO de un `onClick`.** `assert.match(panel, /\(\) => void pedirPro\(\)/)` no mira a quién llama
+  `pedirPro`: con `pasarAProAction()` adentro, la fila que debe PEDIR pasa a COBRARLE a la tarjeta y los trece archivos de test
+  quedan verdes. **Eso es plata.**
+- **Clavar UNA clave de una respuesta** en vez del conjunto: se renombra la clave y los datos viajan igual, test en verde.
+
+**La regla que queda:** una aserción sólo sirve si se pone ROJA cuando el programa hace otra cosa, no cuando cambia una letra del
+fuente. En la práctica: comparar el CONJUNTO ENTERO (`deepEqual` de las filas dibujadas, de las claves de la respuesta, del mapa de
+decisiones) y no un prefijo; y probar cada aserción nueva rompiendo el COMPORTAMIENTO con el texto clavado intacto. Si no se pone
+roja, está vacía. Para «Tu plan» hay once roturas medidas al pie de los dos tests.
+
+### Una página de Next SÍ se puede dibujar en un test (lo que desbloqueó medir esto)
+
+El comentario viejo decía que no («`@/lib/compra-plan` trae `import 'server-only'`»), y por eso todo se medía leyendo el fuente. Se
+puede, y es lo que hace `tests/_plan-pedir-pro-hijo.ts`:
+
+- `mock.module('server-only', { namedExports: {} })` desarma el candado; los bordes (base, sesión, planes, cartera de agencias) van
+  de mentira con `mock.module` por URL de archivo.
+- Una página `async` **no** entra en `renderToStaticMarkup`: se la LLAMA (`await PlanPage({ searchParams })`) y lo que devuelve —ya
+  con sus `await` resueltos— se dibuja. Hace falta envolver en `AppRouterContext.Provider` (el molde: `tests/_plan-tramos-hijo.ts`).
+- **NO con `--conditions=react-server`**: en esa condición `react` es el build de servidor y `useState` tira. El de la acción sola sí
+  lo usa; el que dibuja, no.
+- **Para ver a quién llama un `onClick`** se importa el molde de Settings ANTES de taparlo y el reemplazo DELEGA en el real: el
+  `<a>`/`<button>` del HTML sigue siendo el de la casa y queda a mano el handler, que en un dibujo estático no sale en el HTML.
+  Con `FilaAjustes`, `href` dibuja un `<a>` y `onClick` un `<button>`: así se mide «¿va a algún lado o pide acá?» sin regex.
+- **Lo que NO se puede medir así:** el estado después del clic. En un render de servidor el setter de `useState` es un no-op (no tira:
+  medido), así que la pantalla no se vuelve a dibujar. La decisión que depende del estado sale a una función pura y se corre aparte
+  (`sigueOfreciendoLaBaja`).
+
+### Un aviso COMPARTIDO entre acciones: `ok` no alcanza para decidir qué sigue en pantalla
+
+`puedeDarseDeBaja` colgaba de `!aviso?.ok`. Eso funcionaba por accidente: en la prueba el único que podía dejar un aviso `ok` era la
+baja misma (la retención llega null en prueba, `subir` es null, y «Empezar mi plan ya» sólo avisa cuando FALLA). Al sumar el pedido
+de Pro al mismo aviso, pedir Pro BIEN borraba de la pantalla «Empezar mi plan ya» y TODA la sección «Darme de baja» — medido
+dibujando—: quien pedía Pro y después quería irse no encontraba cómo. **La regla:** cada acción firma su aviso con su nombre y una
+lista cerrada dice cuáles TOCAN EL COBRO (`TOCAN_EL_COBRO`, PlanPanel.tsx). Una acción nueva tiene que decidir de qué lado cae, y el
+conjunto entero se compara en el test.
+
+### Un pedido sin compare-and-set no es idempotente, aunque la pantalla «apague» el botón
+
+`proPedido` es estado del navegador: un F5 o una segunda pestaña volvían a escribir otro evento en la ficha y otro correo al equipo.
+El camino que COBRA ya tenía la cura (`CLAVE_SUBIDA`, `lib/subir-plan.ts`: `getSetting` + `cambiarSettingSi` por negocio). **Y la
+trampa al copiarla:** `cambiarSettingSi` devuelve `false` sólo cuando OTRO tiene la marca, y TIRA cuando no pudo escribir. Con un
+`.catch(() => false)` ese error se lee como «ya lo pediste» y se vuelve a prometer un pedido que no existe — el mismo defecto que se
+estaba cerrando. Son TRES respuestas: ganó / otro la tiene / no se pudo marcar (y ahí se sigue sin marca: un duplicado es más barato
+que un pedido perdido).
+
+### Un comentario que manda a buscar un historial que no existe
+
+Dos comentarios de esta pantalla contaban mediciones de una ronda que **nunca se commiteó**: que la página «medía con
+`ofertaDelPlan` y eso se fue» (contra el historial del repo, esta página nunca lo llamó) y que la fila «tuvo un `mailto:`» (sus dos
+destinos reales fueron la agenda de Calendly, hasta el 24/10, y `/planes/<pro>`). En este repo el comentario ES la documentación: uno
+que describe algo que no está en el repo es peor que no tenerlo. Los dos quedaron reescritos diciendo lo que se sabe y por qué el
+camino no se toma, sin inventar un pasado.
+
+### Lo que quedó SIN hacer
+
+- **`pedirPlanSinPasarela` no tiene por dónde recibir el negocio** (`lib/compra-plan.ts`, otra área). El único campo del pedido que
+  llega al texto que el equipo lee es `origen.landing`, y lo escribe como « desde la landing «…»» — que para un pedido nacido en «Tu
+  plan» dice algo falso. Se usa igual (el rastro del CRM nombra la cuenta, que es lo que falta para poder actuar) y la acción manda
+  ADEMÁS su propio aviso con el negocio, el estado de la prueba y el link a `/admin/customers/<ws>`. Costo: **dos correos a
+  equipo@ por un pedido**. El arreglo de verdad es un campo propio en esa función.
+- **En el TELÉFONO no hay forma de pedir Pro.** `app/no-esta-en-tu-plan/page.tsx` manda a «Ver mi plan» y `/m/configuraciones/plan`
+  no tiene ninguna fila de Pro. La regla «el teléfono no vende» tiene su test (`tests/tiendas-telefono-no-vende.test.ts`): abrirlo es
+  una decisión de producto.
+- **Una prueba que YA PIDIÓ LA BAJA sigue viendo la fila de Pro.** `subir` pide `puedeDarseDeBaja` y `porLlamada` no. Se dejó así
+  —ofrecerle el plan bueno a quien se va es retención, y pedir no cobra— pero nadie lo decidió.
+- **Al acuerdo a mano con capa `completo` (el ws1) la fila le ofrece un plan MÁS BARATO que lo que paga.** El camino que cobra tiene
+  la cuenta (`decidirSubida`: «ya cuesta lo mismo o más»); el que pide, no.
+- **Qué hace el equipo cuando entra el pedido:** no hay forma de subirle el precio a una suscripción en `trialing` (Stripe la
+  rechaza). Hoy el pedido se contesta a mano y el cambio se hace cuando la prueba se cobra.
+
 ## Un candado nuevo dentro de un bloque que un test MIDE: va en una función aparte (14/11/2026, corrida 1383)
 
 Cinco rojos al subir los candados de planes, ninguno de lógica: `lienzo-sexta-tanda` y `nutricion-canal` miden el largo de un bloque
@@ -3121,3 +3224,258 @@ La excepción está escrita en los tres lugares que decían «ningún lado»: `a
 y `app/planes/Tarjetas.tsx` (`AGENDA_ACELERADOR`). Y hay dos guardas para que no se expanda sola:
 tests/planes-sin-pasarela.test.ts cuenta **una sola** aparición de `calendly.com` en las tarjetas y ninguna en la landing,
 y tests/planes-tres-bloques.test.ts cuenta una sola en el HTML de la vitrina.
+
+## Dos puertas al Acelerador en una sola pantalla, y un `sufijo = ''` por default que se comía el `?ref=` del partner (14/11/2026)
+
+**El síntoma.** `/planes` dibuja el Acelerador DOS veces: su tarjeta (`app/planes/Tarjetas.tsx`, que desde el 14/11 abre
+`AGENDA_ACELERADOR` en Calendly) y la columna de «Compara los planes» (`CompararPlanes`, `app/planes/Vitrina.tsx`, que
+lleva a `/planes/acelerador`, dibujada además dos veces: cabecera fija y pie de la tabla). Mismo producto, dos caminos,
+resultados distintos.
+
+**Cuál conviene, y por qué no se unificó hacia Calendly.** Se queda `/planes/acelerador`: deja el pedido en el CRM **con
+el origen y el código de partner** del `sufijo`, pone antes el diagnóstico de 2 minutos (`PREGUNTAS_DE_LA_PUERTA`,
+`app/planes/[plan]/page.tsx`) y termina igual en la llamada («Te escribimos por WhatsApp para coordinar tu llamada»), así
+que la excepción del 14/11 se cumple sin tirar la atribución. Calendly no lleva nada de eso y su agenda todavía no tiene
+webhook. **Y hay dos guardas que lo miran:** `tests/planes-tres-bloques.test.ts` exige **una sola** aparición de
+`calendly.com` y **una sola** de «Agenda tu llamada» en todo el render de la vitrina. Apuntar la tabla a Calendly rompe
+verde Y pierde el partner. La unificación de verdad es al revés —que la TARJETA vuelva al pedido y la agenda viva DENTRO
+de `/planes/acelerador`, después del diagnóstico—, y eso se toca en `Tarjetas.tsx` + sus tests.
+
+**El default que escondía la pérdida.** `CompararPlanes({ planes, sufijo = '' })`. En `/planes` la vitrina se lo pasa
+(`Vitrina.tsx`); en la landing, `app/vsl/PreciosLanding.tsx` llamaba `<CompararPlanes planes={planes} />` **sin él** y
+caía en el default. Resultado medido: con `?landing=inmobiliarias&ref=LEANDRO`, los **6** botones de la tabla (3 columnas ×
+2 dibujos) salían como `/planes/esencial`, `/planes/pro`, `/planes/acelerador` pelados, mientras las tarjetas de arriba y
+el link del pie —en la MISMA pantalla, para el MISMO plan— sí llevaban el `?ref=`. **Un parámetro opcional con default no
+falla en ningún lado: no hay error, no hay tipo roto, no hay test que lo note; simplemente la comisión no se atribuye.**
+Donde el valor es atribución de plata, el default es el escondite.
+
+**La regla que queda.** Todo botón que lleve a `/planes` o a `/planes/<id>` desde una landing o desde la vitrina va con el
+`sufijo` de la URL (`sufijoDesdeUrl`, `app/vsl/PreciosLanding.tsx`). Antes de dar por bueno un botón de compra, **dibujar
+la pantalla con un `?ref=` puesto y listar los `href`**: los que no lo lleven están regalando la comisión.
+
+**Lo que quedó SIN hacer.** La tarjeta del Acelerador (`app/planes/Tarjetas.tsx`) sigue mandando a Calendly sin origen ni
+partner, y el webhook de la agenda de Martín al CRM sigue pendiente (es de él: hay que crear la suscripción en su cuenta
+de Calendly).
+
+## «Pasar a Pro» durante la prueba: /planes es DOS páginas distintas, y cuál te toca decide si el camino existe (14/11/2026)
+
+**El síntoma.** Con AI Avatar, replicar el guion y el chat con los referentes cerrados en Esencial (`FUNCIONES_SOLO_PRO`,
+lib/topes-plan.ts, 14/11), el «Pasa a Pro para usarlo» de esos candados trae a «Tu plan» a un negocio que está en sus 7
+días gratis **del de 47**, y ahí la primera fila era «Empezar mi plan ya» —que cobra los US$47 y NO destraba nada de lo que
+vino a buscar— y la fila de Pro era un `mailto:` a equipo@: la salida de la app justo en el camino que más se quiere vender.
+
+**El dato que hay que tener antes de diagnosticar: la prueba NO es una capa propia.** Vale **el plan elegido** desde el
+primer día (`capaVendidaDe`, lib/plan-esencial.ts) y los DOS planes arrancan con prueba (`PLANES_CON_PRUEBA`,
+lib/planes-mako.ts), así que una prueba del de 47 es «Esencial por la pasarela» y choca con los candados igual que un
+Esencial pagado. **Y `prueba.avatares: 1` no es un permiso**: `topeEnPrueba('completo','prueba.avatares') === 1` sale de
+lib/topes-plan.ts:139, que devuelve el tope de la prueba cuando el plan no tiene la clave — la tabla de topes **no sabe
+nada** de `FUNCIONES_SOLO_PRO`. Es el techo de quien ya tiene la función por su plan. Quien «arregla» ese número toca algo
+que no estaba roto y deja el candado como estaba.
+
+### /planes/&lt;plan&gt; dibuja dos pantallas distintas, y una de las dos es un círculo
+
+Lo decide `ofertaDelPlan(...).pasarelas` (app/planes/[plan]/page.tsx). Medido, las dos ramas terminan al revés para quien
+**ya tiene cuenta** —y en prueba la tiene siempre—:
+
+* **SIN pasarela que cobre** → el formulario «Quiero» (`QuieroPlan`), que postea `quiero: true`. Esa rama la atiende
+  app/api/planes/comprar/route.ts **ANTES** de `iniciarCompraDePlan` (su `if (pedido.quiero)`): no crea NINGÚN cobro, deja
+  el evento «Pedido de plan» en el historial del lead, lo suma a «Quieren entrar» y le avisa al equipo por email en el
+  momento. Es **más** que un mailto, y además no depende de que la persona tenga cliente de correo.
+* **CON pasarela** → el checkout de verdad, y el POST corta con 409 `TEXTO_PRUEBA_USADA_CUENTA` («Ese email ya tiene una
+  cuenta de MaKo… **entra a «Tu plan» en tu cuenta**»), que lo devuelve a la pantalla de la que salió: el círculo. Y ese
+  corte es **lo único** que lo frena: `puedeEmpezarPrueba` (lib/compra-plan.ts) mira `listarUsuarios()` y **deja pasar a
+  propósito cuando no puede leer**, así que con la base caída —o si la persona escribe OTRO email— `crearCobro` con
+  `altaCapa` le abre una **segunda suscripción y una segunda cuenta** del mismo negocio: el #494 del 6/11.
+* **⚠️ El atajo que parece arreglar el círculo es el que cobra dos veces.** `/planes/<plan>?sinPrueba=1` apaga el corte
+  (`conPrueba` queda en false) y va **derecho** a `crearCobro`. No hay parámetro que sirva: ese camino no se usa.
+
+**Dos diagnósticos obvios, los dos equivocados.** (1) «No se puede mandar a /planes» — se puede, y es mejor que el mailto,
+pero sólo mientras esa página no dibuje un checkout. (2) «La fila de fuera de prueba ya usa /planes y funciona» — funciona
+porque **hoy no hay pasarela conectada**; esa fila tiene el MISMO defecto, y lo que la salva es un estado del entorno, no
+el código. Peor: **ese argumento mide la población equivocada**, porque quien está en una prueba es exactamente quien
+autorizó una tarjeta en una pasarela de la plataforma.
+
+**Lo que se implementó en la ronda 1, y por qué no alcanzó.** «Tu plan» (app/configuraciones/plan/page.tsx) **medía** con
+la misma llamada que hace la página de destino (`ofertaDelPlan(PLAN_PRO, { conPrueba, pais })`) y mandaba a
+`/planes/<pro>` **sólo** si ahí no se iba a dibujar un checkout; si no, un `mailto:` a equipo@ con asunto.
+
+**La dirección de la falla estaba AL REVÉS de lo que decían el código, su test y este documento** (medido por el
+verificador el 14/11, con la lectura de pasarelas tirando): `ofertaDelPlan` **se traga el error y RESUELVE con
+`pasarelas: []`**, así que `.then((o) => o.pasarelas.length === 0)` da **`true`** → `pedidoEnPlanes = true` → /planes. Los
+tres estados, medidos: sin pasarela → `[]` → `true`; la lectura **TIRA** → `[]` → `true`; Stripe real → `['stripe']` →
+`false`. O sea que el `.catch(() => false)` que supuestamente la hacía «fallar hacia el email» era **código muerto,
+inalcanzable**. No mordía hoy porque sin pasarela conectada `pasarelas: []` es la verdad; mordía el día que hubiera
+pasarela y la lectura fallara un rato —justo el fallo pasajero para el que están escritos los reintentos de
+`claveDeLaPasarela` y `leerCuentaMp`—: ahí mandaba al checkout vivo → 409 → el círculo, y si `listarUsuarios()` tampoco se
+podía leer, `puedeEmpezarPrueba` deja pasar a propósito y aparece la segunda suscripción del #494.
+
+**La regla que queda:** un `catch` que **resuelve con un valor vacío** borra la diferencia entre «no pude leer» y «no
+hay», y el que llama **no la puede recuperar con otro `catch`** — su promesa nunca rechaza. Para distinguir los tres
+estados, la función tiene que devolverlos (un tercer estado) o hay que leer la fuente directo (`pasarelasConectadas`). Y
+un `.catch()` puesto «por las dudas» sobre una promesa que nunca rechaza no es una red: es una línea que **miente** sobre
+el comportamiento, y encima queda fijada por un test que la lee del fuente.
+
+### Ronda 2 (14/11/2026): el pedido no se manda a ninguna parte, se ESCRIBE
+
+El destino se estaba eligiendo entre dos malos. La salida no era elegir mejor: era **no tener destino**.
+`pedirPlanSinPasarela` (lib/compra-plan.ts) es una función de servidor común —la que ya usa el formulario «Quiero» de
+/planes— que deja el evento «Pedido de plan» en el historial del lead y le avisa al equipo en el momento. Desde «Tu plan»
+la llama `pedirProAction` (app/configuraciones/plan/actions.ts) con el nombre y el email de la **sesión**, sin pasar por
+/planes: **esquiva el círculo y el mailto a la vez**. Y con el destino se fueron la medición, su tercer estado imposible y
+el `leerCuentaMp` **saliente** que la página pagaba en cada carga para una fila que el cliente de una agencia ni ve (por
+eso `deAgencia` se pregunta ahora **antes** de armarla).
+
+**El diagnóstico obvio de ESTA ronda también era el equivocado:** «si el pedido entra a la bandeja «Quieren entrar», al
+negocio que ya existe le van a abrir una segunda cuenta: el #494 otra vez». **No pasa, y está corrido:** `registrarPedido`
+(lib/pedidos-ingreso.ts) pregunta `buscarUsuarioPorEmail` **antes** y contesta `false` para un email que ya tiene usuario,
+así que el pedido de un negocio en prueba queda sólo en su ficha del CRM y en el aviso al equipo. El control va en el
+mismo test: con un email **sin** cuenta la fila sí se inserta — sin ese control, un fake roto «probaría» lo mismo.
+
+**Lo que mide el test nuevo** (tests/prueba-topes.test.ts, «PASAR A PRO» EN PRUEBA): importa `pedirProAction` **de
+verdad** en un hijo con `--conditions=react-server` (una ACCIÓN sí se puede importar; una página no) y mide qué escribe y
+a dónde va cuando la escritura **tira** → `ok: false` con el email del equipo, `iniciarCompraDePlan` en **0** llamadas, y
+nunca un «Listo» sin haber escrito. La aserción que reemplaza decía «sin lectura, se pide por email (nunca el círculo)» y
+clavaba por regex la rama inalcanzable: roja si le cambiabas una letra, **verde con el comportamiento al revés**.
+
+### El ORDEN de las filas es parte del destino
+
+`RUTA_CAMBIAR_PLAN` es `/configuraciones/plan` **sin** `?empezar=1` (lib/topes-plan.ts), y ese parámetro sólo lo pone
+`RUTA_EMPEZAR_PLAN`, que usan los topes **de la prueba**. O sea: el parámetro que ya existe alcanza para distinguir quién
+pidió empezar su plan de quién vino por un candado de Pro, y no hacía falta inventar ninguno. Con eso, en PlanPanel.tsx la
+fila de Pro va **arriba** de «Empezar mi plan ya» salvo que se haya llegado con `?empezar=1`.
+
+### Un test que mira el FUENTE da verde contra una promesa muerta (y contra una viva)
+
+`tests/prueba-topes.test.ts` pedía que app/vsl/_sitio/preguntas.ts contuviera `${TOPES_PRUEBA['prueba.avatares']}`
+**buscando en el archivo entero**. Esa clave sólo vive dentro de `AVATAR_EN_LA_PRUEBA`, muerta detrás de
+`AI_AVATAR_SE_VENDE === false`: la aserción no medía nada, y encima se habría puesto roja el día que alguien borrara la
+constante, sin que se rompiera nada público. **Medido:** con la rotura puesta (el FAQ prometiendo «1 video con avatar de
+IA» a toda prueba, también a la del de 47, que lo tiene con candado) la aserción vieja seguía **verde**; la nueva —que
+dibuja la respuesta importando `PREGUNTAS_SITIO` y la mide, con las dos ramas del interruptor— sale roja con el texto a la
+vista.
+
+**Y la misma trampa, en el mismo arreglo, con las páginas.** Una página **no se puede importar** desde un test
+(`@/lib/compra-plan` trae `import 'server-only'`, que tira fuera de un componente de servidor: por eso este repo lee las
+páginas como texto). La primera versión de la aserción nueva fijaba los pedazos por separado —la medición, el href de
+/planes, el del mailto— y **pasó en verde con la decisión desconectada** (`comoPedirlo = pro == null ? null : false`:
+siempre el mailto). La regla: cuando sólo se puede leer el fuente, la aserción tiene que atar **la cadena entera**
+(medición → la variable que elige → el href que usa la fila), nunca los eslabones sueltos.
+
+### Trampas del entorno (ronda 2, 14/11/2026)
+
+* **Un archivo `'use server'` NUEVO rompe un snapshot que nadie está mirando.**
+  tests/cuenta-revision-escrituras.test.ts enumera `git ls-files app` y toma **todo archivo que empieza con `'use
+  server'`** como una escritura más, con su línea en tests/cuenta-revision-escrituras.snapshot.txt. Una acción nueva en su
+  propio archivo = una línea nueva = rojo, y **el rojo no aparece hasta que el archivo se commitea** (`git ls-files` no ve
+  lo que no está en el índice: en el worktree da verde). Por eso `pedirProAction` vive en el actions.ts que ya estaba
+  listado. Un `'use server'` **dentro** de una función (la acción inline de una página) tampoco cuenta: el detector sólo
+  mira el principio del archivo.
+* **Las listas CERRADAS de llamadores.** `esClienteDeAgencia` tiene una lista cerrada en
+  tests/agency-dos-duenos.test.ts (`git grep -l` contra 8 archivos, y un llamador nuevo es rojo a propósito: hay que
+  decidir de qué lado cae su «no sé»). Agregarla a una acción no es gratis, es una decisión de producto.
+* **tsc-acotado se queda sin heap cuando mezclás una página de app/ con un test en la MISMA corrida.** Medido con 5,3 GB
+  libres: los 3 archivos de app/configuraciones/plan juntos → `exit 0`; tests/prueba-topes.test.ts solo → `exit 0`; los
+  cuatro juntos → `FATAL ERROR: Ineffective mark-compacts near heap limit` a los 3 GB, y **con `--heap` grande muere con
+  código 1 y CERO bytes de salida** (que el propio script marca como «NO SE PUDO CHEQUEAR», no como verde). Se chequea en
+  dos tandas.
+* **Un hijo con `mock.module` tiene que correr DESDE el repo.** Un script guardado afuera (un scratchpad) falla con
+  `ERR_MODULE_NOT_FOUND` en `resolveTsPathsSync`: tsx resuelve los alias `@/…` contra el tsconfig del proyecto y un
+  archivo de afuera no lo alcanza. El molde que funciona es el de este repo: `-e` con `--input-type=module` y
+  `cwd: RAIZ`, con el JSON en la ÚLTIMA línea (`out.trim().split('\n').pop()`), porque importar `node:test` fuera del
+  runner mete líneas de ruido en stdout.
+* **Escribir el archivo ENTERO lo deja en LF en un repo CRLF** (y editarlo por tramos, no). No se ve en el diff porque
+  `core.autocrlf=true` normaliza, pero sí en el `warning: LF will be replaced by CRLF`. Y de ahí sale la trampa ya
+  conocida: una rotura a propósito que busca un texto de varias líneas con `\n` **encuentra 0 veces** y el test queda
+  verde sin que se haya roto nada. Toda rotura imprime si se aplicó (cuántas coincidencias) y se restaura por hash.
+
+### Trampas del entorno (de la ronda 1, en el worktree compartido)
+
+* **Un rojo en un archivo que no toqué.** A mitad de una corrida, tests/prueba-topes.test.ts falló con «no encontré
+  `generarImagenAction` en app/video-generator/video-action.ts» y minutos después volvió a verde solo: otra sesión estaba
+  guardando ese archivo. En esta notebook, **un rojo en un archivo ajeno se vuelve a correr antes de creerlo**.
+* **Un round-trip de python da vuelta el CRLF en silencio.** El repo es CRLF; leer con `open()` traduce a LF y escribir
+  con `newline=''` deja el archivo **en LF entero**: el diff sigue chico (git normaliza) y lo único que avisa es el «LF
+  will be replaced by CRLF» de git. Se restaura con `newline=''` y `\r\n` explícito.
+* **Y lo peor del CRLF: una rotura a propósito que busca un texto de VARIAS líneas con `\n` encuentra 0 veces y no cambia
+  nada.** El test queda verde y la conclusión que se saca es «el test no lo agarra», que es falsa. Si una rotura no
+  produce rojo, lo primero que se verifica es que la rotura **se aplicó**.
+* **Un heredoc de bash con `${...}` anidado dentro de un `node -e` puede abortar el resto del script**, y en esta corrida
+  lo que no corrió fue justamente la línea que **restauraba** el archivo roto a propósito. Toda rotura se restaura y se
+  verifica **por hash**, nunca asumiendo que el script llegó al final.
+* Los 10 `# SKIP` de tests/primer-mes.test.ts son el 50% del primer mes, apagado mientras la prueba está prendida
+  (`PRUEBA_GRATIS_PRENDIDA`). No son una regresión.
+
+### Una aserción de FUENTE con `assert.match` clava un PREFIJO, y el `&& false` le pasa por encima (verificado 15/11/2026)
+
+**El síntoma.** tests/prueba-topes.test.ts da **9/9 verde con el arreglo de la ronda 2 deshecho**. Medido con
+`node --import tsx --test --test-concurrency=1`, una rotura por vez y restaurando por sha256:
+
+* `const pro = capa === 'completo' && !deAgencia ? (enPrueba ? null : …)` → en prueba **no hay fila de Pro** (el defecto de
+  origen, el que la ronda vino a cerrar) → **9/9 verde**.
+* `const porLlamada = pro && enPrueba && false ? … : pro && !enPrueba && proPorLlamada(…)` → lo mismo, por el otro
+  eslabón → **9/9 verde**.
+* en PlanPanel.tsx, `pedirPro` llamando `pasarAProAction()` (y sin el import de `pedirProAction`) → la fila **COBRA** en
+  la pasarela en vez de dejar un pedido → **9/9 verde**.
+* en PlanPanel.tsx, `setAviso({ ok: true, … }); setProPedido(true)` → con la escritura fallando, la pantalla contesta
+  «Listo» igual → **9/9 verde**.
+
+Tampoco los agarra ningún otro: planes-sin-pasarela 9/1 (el mismo rojo de antes, no uno nuevo), mi-plan 7/7,
+m-configuraciones 7/7, cliente-de-agencia-y-partners-2910 7/7, subir-plan 3/3, agency-dos-duenos 11/11,
+plan-a-mano-recorrido 9/9, puente-panel-copy 9/9. Control positivo, para saber que el hijo sí mide: `quiero: true` →
+`false` en `pedirProAction` → **8/1 rojo**.
+
+**La causa real, y no es «faltó una aserción».** `assert.match` **no está anclado**: `/const pro = capa === 'completo' &&
+!deAgencia \?/` clava un **prefijo**, y lo que decide vive DESPUÉS del prefijo — un ternario anidado o un `&& false`
+revierten el comportamiento sin tocar una letra del texto clavado. Y `onClick={… () => void pedirPro()}` clava el nombre
+del **envoltorio**, no a quién llama: cambiarle el cuerpo a `pedirPro` para que cobre deja la aserción intacta.
+
+**El diagnóstico obvio era el equivocado.** «La ronda 2 reemplazó la aserción vacía por un test que CORRE, así que el
+defecto está cerrado»: el hijo mide `pedirProAction` de verdad —eso quedó bien, y el control positivo lo prueba—, pero
+**la PANTALLA siguió clavada por texto**: si la fila existe, y a quién llama. El defecto no se fue, cambió de archivo.
+
+**La regla que queda.** Una aserción de fuente vale sólo si **el texto que clava es el que decide**: se ancla el final (la
+línea entera con su `;`) o se clava la cadena completa, nunca un prefijo. Y la rotura con la que se prueba una aserción de
+fuente **no es cambiarle una letra**: es conservar el texto clavado y cambiar el comportamiento (`&& false`, un ternario
+anidado, el envoltorio llamando a otra función). Si sigue verde, está vacía — y su mensaje, si promete comportamiento,
+miente.
+
+**Y sí se puede medir de verdad, con molde del repo.** Una página no se puede importar (`import 'server-only'`), pero:
+
+* la DECISIÓN de la página sale a una función pura —como `proPorLlamada` (lib/subir-plan-reglas.ts), que ya existe para
+  esto— y se corre con las combinaciones (`enPrueba`, `deAgencia`, `capa`, con pasarela y sin);
+* el PANEL se DIBUJA: tests/_plan-tramos-hijo.ts ya dibuja un componente cliente que importa acciones de servidor
+  (`renderToStaticMarkup` + `mock.module` de las acciones + `AppRouterContext`, en un hijo). Con eso, el orden de las
+  filas y que la fila sea botón y no link se miden **en el HTML** en vez de leerse del JSX.
+
+### Lo que quedó SIN hacer
+
+* **La subida en el acto durante la prueba** sigue sin existir: `subirAPro` (lib/subir-plan.ts) le cambia el precio a la
+  suscripción de la pasarela, y Stripe rechaza una que está `trialing` (`subirPlanStripe`, lib/pasarela-plan-api.ts), así
+  que mientras eso no sepa de pruebas, Pro en prueba es un **pedido** y nunca un clic. Es plata y es otra área.
+* **Dos aserciones de tests/planes-sin-pasarela.test.ts quedaron en ROJO a propósito** (ronda 2, y ese archivo estaba
+  fuera del alcance de la corrida): el test ««Tu plan» ofrece Pro por pedido…» fija por fuente los dos destinos que se
+  acaban de sacar — línea 131 `assert.match(pagina, /href: \`\/planes\/\$\{pro\.id\}\`/)` y línea 134 el `href={porLlamada.href}`
+  de PlanPanel. Medido: 9 pasan / 1 falla. Los reemplazos que COINCIDEN con el fuente nuevo (coincidir no es
+  medir: los dos dan `true` también contra el fuente con la fila de Pro otra vez ausente en prueba, verificado 15/11 —
+  arriba) son
+  `assert.match(pagina, /const porLlamada = pro && enPrueba/)` y
+  `assert.match(fuente('app/configuraciones/plan/PlanPanel.tsx'), /porLlamada && \(\s*<FilaAjustes[^>]*onClick=\{corriendo \|\| proPedido \?/)`.
+  **Es la misma clase de aserción que esta ronda vino a sacar:** una de fuente, en OTRO archivo, que clava un destino que
+  la medición demostró equivocado. Antes de tocarla: lo que ese test cuida de verdad (que Pro se pida y no se agende)
+  sigue verde.
+* **`pedirProAction` no pregunta `esClienteDeAgencia`** (la pantalla sí): sumarla abre la lista cerrada de llamadores
+  (arriba, en las trampas). Lo que queda abierto: el cliente de una agencia que POSTea la acción a mano deja un pedido en
+  su propia ficha. No mueve plata y el equipo lo lee antes de tocar nada.
+* **Una prueba que YA PIDIÓ LA BAJA sigue viendo «Pasar a MaKo Pro»**: `porLlamada` no está atado a `puedeDarseDeBaja`
+  como sí lo está `subir` (app/configuraciones/plan/PlanPanel.tsx). Se dejó como estaba —es retención y el pedido no
+  cobra nada—, pero **nadie lo decidió**: atarlo o no es producto, no un arreglo.
+* **`conPrueba: (await getSesionAdmin()) != null` dice «sólo el super admin» y `getSesionAdmin` devuelve CUALQUIER admin**
+  (lib/auth.ts:109-113). Es preexistente y ahora quedó en un solo lugar: app/planes/[plan]/page.tsx (de «Tu plan» se fue
+  con la medición). Con claves de prueba conectadas, un admin que no es el super admin vería la pasarela de prueba.
+* **La raíz está en /planes, no en «Tu plan»**: `app/planes/[plan]/page.tsx` no sabe que quien llega puede ser un cliente
+  con sesión, y por eso su única salida honesta para él es el formulario «Quiero». Mientras eso no cambie, cada pantalla
+  que quiera mandar un cliente a /planes tiene que medir lo mismo que mide «Tu plan».
+* `TEXTO_PRUEBA_USADA_CUENTA` (lib/prueba-plan-reglas.ts:149) manda a «Tu plan», que es de donde la persona viene: es la
+  boca del círculo. Si algún día /planes atiende a clientes con sesión, ese texto se cambia junto.
+* **El «Tu plan» del teléfono (app/m/configuraciones/plan/PlanM.tsx) no tiene fila de Pro, y eso es a propósito**: «el
+  teléfono no vende» (T5, docs/tiendas-play-appstore.md). Quien lo «arregle» por simetría rompe la regla de las tiendas.

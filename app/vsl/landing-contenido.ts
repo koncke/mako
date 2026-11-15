@@ -6,13 +6,16 @@
 // convirtieron el HTML de Claude Design (landing-html.ts) en la landing que se ve, para que la importación
 // (scripts/landing-mako-a-web-generator.ts) las aplique UNA vez, igual que el navegador:
 //   · `aplicarContenidoLanding(root)`: las secciones de detalle fuera, las cards que faltaban, los hooks, los
-//     enlaces a /vsl/<slug>, el CTA de la grilla, el realce de #beta y el «Entrar» del header.
+//     enlaces a /vsl/<slug>, el CTA de la grilla, el barrido de los botones de la llamada, el realce de #beta
+//     y el «Entrar» del header.
 //   · `CSS_LANDING`: la hoja de la landing (sobre `.vsl-root`).
 // Y las sigue usando Landing.tsx cuando no hay documento publicado (la landing de siempre, de respaldo).
 // Idempotente: correrla dos veces sobre el mismo DOM no duplica nada.
 // =============================================================================
 
+import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
 import { SHOWCASE_BY_SLUG, INJECT_ORDER, OCULTAS } from './showcase';
+import { RUTA_CTA, TEXTO_CIERRE, TEXTO_CTA } from './_competencia/cta';
 
 /** Las mutaciones de contenido de la landing, sobre el contenedor que tiene el HTML del diseño. */
 export function aplicarContenidoLanding(root: HTMLElement): void {
@@ -96,16 +99,42 @@ export function aplicarContenidoLanding(root: HTMLElement): void {
   });
 
   // (4) CTA debajo de la grilla: es el punto donde el visitante ya vio TODO lo
-  // que hace el producto — el mejor momento para pedirle la llamada.
+  // que hace el producto — el mejor momento para pedirle que empiece.
+  // 14/11/2026: era «Agenda una llamada y te mostramos MaKo con tus propios números» + «Agenda tu llamada» → #beta. Ahora es
+  // el CTA único del sitio (`TEXTO_CTA` → `RUTA_CTA`, ./_competencia/cta.ts). Martín, textual: la agenda «en ningún otro lado
+  // debería estar» más que en el Acelerador.
   if (featGrid && !featGrid.parentElement?.querySelector('.mk-grid-cta')) {
     const cta = doc.createElement('div');
     cta.className = 'mk-grid-cta';
     cta.innerHTML =
       '<div class="mk-grid-cta-h">¿Lo quieres funcionando en tu negocio?</div>' +
-      '<p class="mk-grid-cta-p">Agenda una llamada y te mostramos MaKo con tus propios números.</p>' +
-      '<a href="#beta" class="mk-grid-cta-b">' +
-      '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M16 3l0 4" /><path d="M8 3l0 4" /><path d="M4 11l16 0" /><path d="M8 15h2v2h-2z" /></svg>Agenda tu llamada</a>';
+      `<p class="mk-grid-cta-p">${TEXTO_CIERRE}</p>` +
+      `<a href="${RUTA_CTA}" class="mk-grid-cta-b">${TEXTO_CTA}</a>`;
     featGrid.insertAdjacentElement('afterend', cta);
+  }
+
+  // (5) BARRIDO DE LOS BOTONES DEL DISEÑO QUE TODAVÍA DICEN «AGENDA TU LLAMADA» (14/11/2026).
+  // landing-html.ts es AUTO-GENERADO desde el diseño de Claude Design, y trae cuatro botones de la llamada que sobreviven al
+  // paso (1): el del header, los dos del hero y el del cierre de la sección de arriba. Todos apuntan a `#beta`, que además
+  // dejó de llevar a ninguna agenda. Se reescriben acá, en runtime, como todo lo demás de este módulo, y no a mano en el
+  // auto-generado. `textContent` también se come el ícono de calendario de adentro. Idempotente: después de la primera
+  // pasada ninguno tiene `href="#beta"`, así que el selector no encuentra nada.
+  // La clase `mk-cta-prueba` queda de marca para el CSS del header, que antes se colgaba de `a[href="#beta"]`.
+  // ⚠️ EL SELECTOR PIDE TAMBIÉN EL TEXTO, y no es de más: scripts/landing-principal-high-ticket.mts le pone `href: '#beta'` a
+  // TARJETAS de funcionalidad (grupos, automatizaciones, plan, chats, avatar: ícono + título + bajada). Con sólo el href, el
+  // `textContent = TEXTO_CTA` de abajo las convertiría en cinco botones iguales y se perdería la tarjeta. Los 19 botones de la
+  // llamada de landing-html.ts dicen todos «Agenda tu llamada» (18 con el ícono de calendario adentro), así que el texto los
+  // separa sin ambigüedad. La idempotencia la sigue dando el href, que después de la primera pasada ya no es `#beta`.
+  const ES_EL_BOTON_DE_LA_LLAMADA = /agenda\s+tu\s+llamada/i;
+  for (const a of Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href="#beta"], a[href="/vsl#beta"]'))) {
+    if (!ES_EL_BOTON_DE_LA_LLAMADA.test(a.textContent ?? '')) continue;
+    a.classList.add('mk-cta-prueba');
+    a.setAttribute('href', RUTA_CTA);
+    a.textContent = TEXTO_CTA;
+    // La notita de abajo del botón del hero («Diagnóstico gratuito de tu venta High Ticket») era la bajada de la llamada:
+    // dice lo de la prueba, que es lo que el botón abre de verdad.
+    const nota = a.nextElementSibling;
+    if (nota?.tagName === 'P' && /diagn[óo]stico gratuito/i.test(nota.textContent ?? '')) nota.textContent = TEXTO_CIERRE;
   }
 
   // ── Realce de la sección CTA (#beta): escasez + oferta a la vista ────────
@@ -132,12 +161,17 @@ export function aplicarContenidoLanding(root: HTMLElement): void {
     const grid = beta.querySelector<HTMLElement>('div[style*="repeat(auto-fit"]');
     if (grid) grid.classList.add('mk-beta-cards');
 
-    // 4) Micro-confianza (reversión de riesgo) justo antes del Calendly.
+    // 4) Micro-confianza (reversión de riesgo) justo antes de los precios.
+    // ⚠️ #cal-embed YA NO ES UNA AGENDA: es el hueco donde Landing.tsx monta las columnas de precios (`montarPrecios`,
+    // 24/10/2026, Martín: «No voy a usar Calendly, te dije que pongas las columnas de pricing de las ofertas»). Así que
+    // estas dos pastillas decían «Sin costo» y «60 min con Martín» ARRIBA DE UNA TABLA DE PRECIOS: una llamada gratis que
+    // nadie ofrece más, pegada a lo que sí se cobra. Ahora dicen lo mismo que la bajada de /planes (`bajadaDePlanes`,
+    // lib/compra-plan-reglas.ts), y siguen al interruptor de la prueba: nada que el cobro no cumpla.
     const cal = beta.querySelector<HTMLElement>('#cal-embed');
     if (cal && cal.parentElement) {
       const trust = doc.createElement('div');
       trust.className = 'mk-beta-trust';
-      trust.innerHTML = ['Sin costo', '60 min con Martín']
+      trust.innerHTML = [PRUEBA_GRATIS_PRENDIDA ? `${PRUEBA_DIAS} días gratis` : 'Entras en el acto', 'Te das de baja cuando quieras']
         .map(
           (t) =>
             '<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l9 -10"/></svg>' +
@@ -289,7 +323,10 @@ body:has(.vsl-root) aside { display: none !important; }
   .vsl-root .mk-root h2{font-size:24px !important}
   .vsl-root .mk-root h3{font-size:20px !important}
   .vsl-root header > div{padding:0 16px !important}
-  .vsl-root header a[href="#beta"]{padding:8px 13px !important;font-size:13px !important}
+  /* El botón del header: era a[href="#beta"] hasta el 14/11/2026, cuando el barrido lo pasó a RUTA_CTA y le puso la clase
+     mk-cta-prueba. Los dos selectores quedan: un diseño publicado viejo puede seguir trayendo el #beta.
+     (Nada de acentos graves acá dentro: esto vive en una plantilla de JavaScript y la cortarían.) */
+  .vsl-root header a[href="#beta"], .vsl-root header .mk-cta-prueba{padding:8px 13px !important;font-size:13px !important}
   .vsl-root #top{padding:34px 18px 0 !important}
   .vsl-root #historia{margin-top:44px !important}
   .vsl-root #historia > div{padding:46px 18px !important}

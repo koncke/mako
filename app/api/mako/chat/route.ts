@@ -144,7 +144,14 @@ async function contextoDelChat(quien: PersonaChat, desde: Desde | null): Promise
   // EL MARKETING COPILOT (6/11/2026): el chat de su tab habla con su contexto —reglas, lo que respondió el negocio, lo que dicen las
   // reglas puras y lo que sabe de anuncios, Instagram y YouTube— y con sus operaciones a mano. lib/media-buyer/copiloto-contexto.ts.
   if (desde?.tab === ORIGEN_COPILOTO) {
-    const perfil = await leerPerfilCopiloto(quien.ws);
+    const leido = await leerPerfilCopiloto(quien.ws);
+    // «SEGUIR LA ESTRATEGIA DE UN REFERENTE» ES HABLAR CON ÉL (14/11/2026, lib/asesores/candado.ts): en el Marketing CoPilot esa
+    // opción hace que cada mensaje corra con su ficha entera (`contextoDeReferente`) y que la propuesta salga firmada «inspirado
+    // en» él — la misma fila que la tabla vende como de Pro (lib/planes-comparacion.ts, 'chat-referentes'). Sin el referente, el
+    // CoPilot queda ENTERO, que es de los dos planes: con un funnel elegido sigue viajando el MATERIAL DE APOYO, que no nombra a
+    // nadie, y `quienEnsenaQue` dice «NO HAY REFERENTE ELEGIDO» (lib/media-buyer/copiloto-contexto.ts). Y `referente` viaja vacío,
+    // así el Second Brain tampoco cuelga su curso.
+    const perfil = (await candadoDeReferentesDe(quien.ws)) ? { ...leido, referente: undefined } : leido;
     // Con los prompts editables vigentes (/configuraciones → Marketing CoPilot): lib/media-buyer/copiloto-contexto-vigente.ts.
     return { contexto: await contextoDelCopilotoVigente(perfil), referente: perfil.referente ?? null, propias: HERRAMIENTAS_DEL_COPILOTO };
   }
@@ -152,14 +159,24 @@ async function contextoDelChat(quien: PersonaChat, desde: Desde | null): Promise
   // UN SOLO COACH (4/11/2026): el Funnel Coach también trabaja la oferta, con el referente que tenía cualquiera de los dos coaches.
   // Y con la oferta con la que abrió el chat (ticket #57): el saludo no se guarda en el hilo, y sin esto a «no, es la otra» el
   // coach no sabe de qué oferta le hablan. La misma lectura que el saludo (`laOfertaDelCoach`).
-  const [referente, oferta] = await runWithWorkspace(quien.ws, () => Promise.all([leerReferente(), laOfertaDelCoach()]));
+  const [elegido, oferta] = await runWithWorkspace(quien.ws, () => Promise.all([leerReferente(), laOfertaDelCoach()]));
+  // ⛔ EL CANDADO ES DEL REFERENTE, NO DEL COACH (14/11/2026, lib/asesores/candado.ts). El Funnel Coach se vende en los tres planes
+  // («Tu oferta y tu funnel, revisados con IA», lib/planes-comparacion.ts) y sigue entero; lo que es de Pro es «con su método», y acá
+  // la ficha del gurú llegaba igual que en su chat —los mismos 5.200 caracteres de `contextoDeReferente` en CADA mensaje— con los
+  // tramos de su curso. O sea: el Esencial seguía «hablando con el referente», sólo que por otra pantalla.
+  // ⚠️ Y NO ALCANZA CON SOLTAR AL ELEGIDO: sin referente, el coach cae en «TUS FUENTES», que son TRES fichas atribuidas (17.272
+  //    caracteres, contra 7.863 con uno al frente, medido el 14/11/2026). Soltarlo le daba MÁS método de referentes, no menos. Por eso
+  //    con el candado va `sinReferentes`: el coach con sus fases, su calculadora y su plan, y sin la metodología de nadie.
+  // No devuelve 403 A PROPÓSITO: cerrarle el coach a un Esencial sería sacarle algo que paga (lib/asesores/candado.ts, la nota (b)).
+  const sinReferentes = (await candadoDeReferentesDe(quien.ws)) != null;
+  const referente = sinReferentes ? null : elegido;
   // ⚠️ `referente` ES OTRA COSA QUE `contexto`, y por eso viaja aparte (2/11/2026). El contexto
   // lleva la FICHA —cómo piensa, 5.200 caracteres, en CADA mensaje—; `referente` sólo dice QUIÉN
   // es, para que el Second Brain pueda colgar su curso entero como capa y traer la clase que la
   // pregunta pida (lib/cerebro-para-chat.ts). Martín: «que el segundo cerebro de estos gurús tenga
   // todo el contexto».
   // Sin pista desde el 4/11/2026: sus herramientas viajan fijas (`propias`), y la pista le quitaba el lugar a las demás (lib/asesores/contexto.ts).
-  return { contexto: `${contextoDelFunnelCoach(referente)}\n\n${ofertaParaElContexto(oferta)}`, referente, propias: HERRAMIENTAS_DEL_COACH };
+  return { contexto: `${contextoDelFunnelCoach(referente, sinReferentes)}\n\n${ofertaParaElContexto(oferta)}`, referente, propias: HERRAMIENTAS_DEL_COACH };
 }
 
 /**
@@ -302,6 +319,12 @@ export async function GET(req: NextRequest) {
     if (sp.has('sessionId')) {
       const id = enteroDe(sp.get('sessionId'));
       const quien = id == null ? null : await personaDelChat(persona, id, sp.get('antes'));
+      // LA QUINTA PUERTA (14/11/2026, la verificación adversarial): `?sessionId=N&antes=1` abre el HILO de una conversación de
+      // antes, y si esa conversación es la de un gurú (`personaDelChat` resuelve su clave con `claveDeAntes`), devuelve todas sus
+      // respuestas sin pasar nunca por `?deTab=`. Las otras cuatro puertas ya lo frenaban; ésta no. Mismo candado y por la misma
+      // CLAVE (lib/asesores/candado.ts): un chat del Second Brain que no es de un gurú no se toca, y sigue abierto en los dos planes.
+      const proDelHilo = quien ? await candadoDeReferente(quien.ws, quien.chartKey) : null;
+      if (proDelHilo) return json({ ok: false, error: proDelHilo, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) }, 403);
       const abierta = id == null || !quien ? null : await abrirSesion(quien, id);
       if (!abierta) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ok: true, ...abierta });

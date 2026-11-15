@@ -14,15 +14,14 @@ import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { origenLimpio, codigoRefLimpio, paisDelVisitante, TEXTO_SIN_PASARELA, PREGUNTAS_DE_LA_PUERTA } from '@/lib/compra-plan-reglas';
-import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba } from '@/lib/planes-mako';
+import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba } from '@/lib/planes-mako';
 import { entornoPromo, promoVigente } from '@/lib/promo-entrada';
 import { COOKIE_PROMO, PROMO_ENTRADA } from '@/lib/promo-entrada-reglas';
 import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { ladaDelPais } from '@/lib/paises';
 import { CompraPlan } from './CompraPlan';
-import { INCLUYE_EN_EL_CHECKOUT } from '@/lib/planes-mako';
-import { Ficha, resumenDelPlan } from './Checkout';
+import { Ficha, incluyeDeLaColumna, resumenDelAnual, resumenDelPlan } from './Checkout';
 import { QuieroPlan } from './QuieroPlan';
 
 export const dynamic = 'force-dynamic';
@@ -69,12 +68,13 @@ export default async function PlanPage({ params, searchParams }: {
   const { plan, pasarelas } = oferta;
   // EL ANUAL (25/10/2026) se pide siempre, aunque haya pasarela: el checkout cobra por mes, y nunca se cobra un mes en lugar
   // del año. Sin precio anual, la página del plan es la de siempre.
+  // LA MISMA LISTA QUE LA COLUMNA, TAMBIÉN ACÁ (14/11/2026): este pedazo leía `plan.incluye`, que sigue diciendo «Todo lo de
+  // Esencial, sin tope de leads, landings ni automatizaciones» — la fórmula que Martín mandó sacar («no es la idea de que diga
+  // todo lo de Essential más tal»), y una tercera versión de lo que incluye el MISMO plan: el visitante leía la columna, tocaba
+  // «Anual / 2 meses gratis» y le cambiaba la lista. Ahora las dos puertas dicen lo de `listaCorta` (ver `incluyeDeLaColumna`).
   if (uno('periodo') === 'anual' && plan.precioAnualUsd) {
     return (
-      <Ficha resumen={{
-        etiqueta: `Pedir ${plan.nombre}, anual`, nombre: `${plan.nombre}, anual`, precio: `US$ ${plan.precioAnualUsd.toLocaleString('es-AR')}`,
-        periodo: 'por año', otros: [`${MESES_GRATIS_ANUAL} meses gratis frente al pago mensual`], detalle: 'Un pago por año', incluye: plan.incluye,
-      }}>
+      <Ficha resumen={resumenDelAnual({ nombre: plan.nombre, capa: plan.capa, precioAnualUsd: plan.precioAnualUsd })}>
         <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para darte de alta.{planConPrueba(plan.id) ? ` Empiezas con ${PRUEBA_DIAS} días gratis.` : ''}</p>
         <QuieroPlan plan={plan.id} nombrePlan={`${plan.nombre} anual`} origen={origen} refCodigo={ref} periodo="anual" />
       </Ficha>
@@ -90,7 +90,7 @@ export default async function PlanPage({ params, searchParams }: {
   // La prueba, en los planes que la traen (`planConPrueba`: Esencial y Pro desde el 14/11/2026).
   const conPrueba = planConPrueba(plan.id) && uno('sinPrueba') !== '1';
   return (
-    <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumenDelPlan({ nombre: plan.nombre, incluye: INCLUYE_EN_EL_CHECKOUT[plan.id] ?? plan.incluye, precioUsd: plan.precioUsd, pasarelas, conPromo, conPrueba, conPrimerMes, precio })}>
+    <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumenDelPlan({ nombre: plan.nombre, incluye: incluyeDeLaColumna(plan.capa), precioUsd: plan.precioUsd, pasarelas, conPromo, conPrueba, conPrimerMes, precio })}>
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
           agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
       {pasarelas.length

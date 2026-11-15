@@ -248,6 +248,12 @@ export const RUNNERS: Runners = {
   },
 
   // La prueba gratis (25/10/2026): lo mismo que el cartel «Versión de prueba» y la franja de cada tope.
+  // ⚠️ `r.usos` YA VIENE FILTRADA POR EL PLAN DEL NEGOCIO (14/11/2026, lib/prueba-uso.ts → `FUNCION_PRO_DE_CADA_TOPE`): la fila
+  //    de un tope cuya función su plan le cierra no llega (hoy, el video con avatar de IA de un Esencial). Acá NO se agrega una
+  //    lista de topes propia ni se completa lo que falta: el candado vive en el resumen, que es la misma lectura del cartel, y
+  //    una segunda lista se desfasa el día que cambie el plan. Lo mismo vale para la descripción de la def, que por eso ya no
+  //    los enumera (negocio.def.ts, arriba de `ver_mi_prueba`).
+  //    Y la operación entera NO se cierra: un Esencial en prueba tiene derecho a ver su prueba. Lo que sobraba era una fila.
   ver_mi_prueba: {
     leer: async (_input, ctx) => {
       const r = await resumenDePrueba(ctx.ws);
