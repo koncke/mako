@@ -798,3 +798,27 @@ impersonación sólo si entró con la cookie; si entró por `?ws=`, no toca nada
 regla de las tiendas (AGENTS.md → «El teléfono no vende», 3/11; `tests/tiendas-telefono-no-vende.test.ts`): Apple y Google
 prohíben ofrecer subir de plan sin su cobro, «ni con un link ni con un botón ni con palabras», y el Agency Dashboard no va en
 ningún teléfono. El 12/11 se pidió ese botón y se dejó afuera por esto: cambiarlo es una decisión de Martín, no un arreglo.
+
+## El CI del aviso de pausa: un `role="alert"` nuevo rompe DOS tests, y el D6b no se arreglaba prendiendo la bandera (14/11/2026)
+
+El aviso «No puedes entrar: falta pagar el mes de …» (`AvisoFaltaPagar` en `app/agency/AgencyApp.tsx`, y el
+`<p className="m-agency-aviso">` de `app/m/agency/AgencyM.tsx`) subió con el paso «Tests afectados por lo que cambió» en
+rojo. Lo que costó tiempo no fue arreglarlo: fue que ninguno de los dos rojos decía lo que había que hacer.
+
+**1. Un aviso de error nuevo rompe DOS tests, no uno.** El que se ve es `tests/reportar-a-soporte.test.ts`: todo elemento
+del JSX con `role="alert"` lleva `<ReportarASoporte />` como ÚLTIMO HIJO DIRECTO, y lo detecta por AST, así que no sirve
+envolverlo ni ponerlo al lado (en una lista va `<li><ReportarASoporte /></li>`). El que NO se ve es el guardián de la
+propia feature: `tests/agency-aviso-falta-pagar.test.ts` fija la LÍNEA EXACTA del JSX con un `assert.match`, y al sumar
+el hijo que el otro test exige, ese match deja de dar — un rojo que aparece DESPUÉS de arreglar el primero, y que el
+log de la corrida vieja no nombraba. **La regla:** antes de tocar un aviso, `grep -rln "<Componente>.tsx" tests/` y
+correr también a quien fija su línea. El guardián de la feature se actualiza para PEDIR el botón, no para ignorarlo.
+
+**2. `app/api/agencia/entrar/route.ts#POST` en D6b: prender «sólo su IA» era el arreglo equivocado.** El rojo de la
+prueba 4 de `tests/d6b-rutas.test.ts` dice «NO prenden sólo su IA», y el reflejo es envolverlo en `conSuIADelNegocio`.
+Pero ese POST no le pide nada a ninguna IA: llega a `lib/ai-cheap.ts` sólo DE PASO, por el `corteDe` que se sumó el
+14/11 para avisar antes de dar la cookie (`lib/plan-acceso.ts` → `plan-deuda` → `cobros` → `leads` → `nutricion` →
+`ai-cheap`). Y está en el conjunto del Ops Center por una pieza COMPARTIDA que el teléfono monta en todas sus pantallas
+(`app/m/_ui/SalirDeLaVista.tsx`), que lo llama sólo con DELETE; el POST lo tocan /agency y /partners, que son otras
+tabs, pero la pertenencia al conjunto se decide por ARCHIVO. **La regla:** un handler que alcanza la cascada por un
+import de biblioteca va a `SIN_IA` con su `usa` fijado (prueba 5 avisa si empieza a usar algo con IA), no adentro del
+contexto: envolverlo sería afirmar que le pide algo a una IA. Prenderla igual habría dado verde y mentido.

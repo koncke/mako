@@ -93,7 +93,8 @@ test('4. el teléfono: «En pausa» y el aviso al tocar «Entrar a su cuenta», 
   assert.match(m, /const e = estadoDe\(x, pausada\(x\.ws\)\);/);
   assert.match(m, /if \(pausada\(clienteWs\)\) \{ setAviso\(clienteWs\); return; \}/);
   assert.match(m, /if \(j\?\.pausa === 'falta-pagar'\) \{ setAviso\(clienteWs\); return; \}/);
-  assert.match(m, /\{aviso === c\.ws && <p className="m-agency-aviso" role="alert">\{avisoEnPausa\(c\.nombre\)\}<\/p>\}/);
+  // Con «Reportar a Soporte» como último hijo: es un `role="alert"`, y tests/reportar-a-soporte.test.ts lo exige en todos.
+  assert.match(m, /\{aviso === c\.ws && <p className="m-agency-aviso" role="alert">\{avisoEnPausa\(c\.nombre\)\}<ReportarASoporte \/><\/p>\}/);
   for (const plata of [/Falta pagar/, /Pagar su mes/, /avisoFaltaPagar/, /ESTADO_FALTA_PAGAR/]) assert.doesNotMatch(m, plata, `el teléfono dice ${plata}`);
   const pagina = sinComentarios(leer('app/m/agency/page.tsx'));
   assert.match(pagina, /m\.clientes\.filter\(\(c\) => c\.enPausa\)\.map\(\(c\) => c\.ws\)/);

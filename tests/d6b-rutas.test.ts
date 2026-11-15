@@ -156,6 +156,15 @@ const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> =
   // el token del alumno y CREAR el ticket (lib/tickets-db.ts no llega a ninguna IA: /api/soporte/reportar, el mismo ticket con
   // sesión, ni aparece en el grafo); su triage es con reglas (lib/tickets-reglas.ts), sin IA.
   { unidad: 'app/api/compartido/curso/soporte/route.ts#POST', usa: ['SIN_ACCESO_PORTAL', 'TOPE_BYTES', 'claveDelAlumno', 'clientIp', 'crearTicket', 'emailDuenoWorkspace', 'identidadDe', 'leerJsonTopeado', 'leerTokenPortal', 'rateLimit', 'resolverAccesoPortal', 'runWithWorkspace', 'rutaDelPortal', 'sanearReporteSoporte', 'semillaDeRef', 'ticketDelAlumno'], porque: 'el alumno reporta un error: valida su token del portal y crea el ticket para el dueño del curso; no le pide nada a una IA' },
+  // Entrar a un cliente de la cartera (14/11/2026). Es del Ops Center por el MISMO motivo que el de arriba y no porque sus
+  // pantallas entren a un cliente: la nombra una pieza compartida que el Ops Center del teléfono monta (app/m/_ui/SalirDeLaVista.tsx),
+  // y ésa sólo la llama con DELETE (salir). El POST lo tocan el Agency Dashboard y /partners, que son otras tabs; la decisión
+  // es por ARCHIVO, así que el POST cae igual en el conjunto.
+  // Llega a la cascada sólo DE PASO, y desde el 14/11/2026: `corteDe` (el aviso «falta pagar su mes» antes de la cookie) vive en
+  // lib/plan-acceso.ts → lib/plan-deuda.ts → lib/cobros.ts → lib/leads.ts → lib/nutricion.ts → lib/ai-cheap.ts. Lo que hace es
+  // LEER app_settings (el corte guardado) y firmar la cookie: ninguna IA. Por eso SIN_IA y no `conSuIADelNegocio`: prender el
+  // contexto acá sería decir que este handler le pide algo a una IA, y no le pide nada.
+  { unidad: 'app/api/agencia/entrar/route.ts#POST', usa: ['AGENCIA_COOKIE', 'AGENCIA_HORAS', 'avisoEnPausa', 'corteDe', 'esWsValido', 'faltaPagarParaEntrar', 'firmarAgencia', 'getUsuarioActual', 'getWorkspace', 'puedeEntrarAhora'], porque: 'una agencia entra a un cliente de su cartera: valida el permiso, lee si está en pausa por su mensualidad y firma la cookie; no le pide nada a una IA' },
 ];
 
 /** Sus carpetas. Lo de app/ fuera de éstas (y de las compartidas, `app/_…`) es de OTRA tab. app/onboarding/ es suya por las

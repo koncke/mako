@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { DarDeBaja } from '@/app/agency/DarDeBaja';
 import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import {
   CabeceraM, FilaDatoM, FilaM, ListaM, PieM, PildoraM, SeccionM, SegmentadoM, SheetM, VacioM, useToastM, type TonoPildora,
 } from '@/app/m/_ui';
@@ -140,7 +141,7 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial, enPaus
       <SheetM snap="alto" abierto={abierta && c != null} onCerrar={() => setAbierta(false)} titulo={c?.nombre ?? 'Cuenta'}
         pie={c ? (
           <PieM>
-            {aviso === c.ws && <p className="m-agency-aviso" role="alert">{avisoEnPausa(c.nombre)}</p>}
+            {aviso === c.ws && <p className="m-agency-aviso" role="alert">{avisoEnPausa(c.nombre)}<ReportarASoporte /></p>}
             {c.estado === 'aprobado' || superAdmin ? (
               <Button variant="primary" size="lg" full onClick={() => void entrar(c.ws)}>Entrar a su cuenta</Button>
             ) : null}

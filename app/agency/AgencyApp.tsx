@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { createPortal } from 'react-dom';
 import { Pagina, PageHeader, EmptyState, ErrorState, Modal, Toast, useToast } from '@/app/_ui';
 import Link, { useRouter } from '@/app/_ui/Link';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { Marca } from '@/app/_components/Marca';
 import { colorDe } from '@/app/_components/TarjetaEntidad';
 import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
@@ -428,6 +429,7 @@ function AvisoFaltaPagar({ nombre, onPagar }: { nombre: string; onPagar: () => v
     <div className="ad-aviso" role="alert">
       <span>{avisoFaltaPagar(nombre)}</span>
       <button type="button" className="ad-acc ad-acc--fuerte" onClick={onPagar}>{ROTULO_ACCION_CUENTA.pagar}</button>
+      <ReportarASoporte />
     </div>
   );
 }
