@@ -30,7 +30,7 @@ import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import type { EstadoComunicacion } from '@/lib/copiloto/comunicacion-store';
 import type { ParteOC } from '@/lib/copiloto/comunicacion';
-import { tareasDelCoPilot, type ResumenParaTareas, type TareaCoPilot } from '@/lib/copiloto/tareas';
+import { ACCIONES_POR_RED, tareasDelCoPilot, type ResumenParaTareas, type TareaCoPilot } from '@/lib/copiloto/tareas';
 import type { Decision, KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import type { AnuncioDestacado } from '@/lib/media-buyer/productos';
 import type { Tarea } from '@/lib/media-buyer/copiloto';
@@ -354,6 +354,24 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial, enTelefono = false
           )}
           {paso === 'piloto' && tarjeta === 'anuncios' && <Retargeting vista={datos.retargeting} avisar={avisar} />}
           {paso === 'piloto' && (tarjeta === 'instagram' || tarjeta === 'youtube') && !datos.redesPermitidas && <PilotoRedesSoloPro red={tarjeta} />}
+          {/* LAS TRES ACCIONES DE LA RED DONDE ESTÁS PARADO (15/11/2026). Martín, textual: «en lugar de que salga un
+              accionable de cada red social, ya sea anuncios, Instagram o YouTube, yo lo que haría es que, si estoy parado en
+              anuncios, que salgan tres accionables o acciones que tomó MaKo para anuncios, y lo mismo luego cuando cambio a
+              Instagram que salgan tres y YouTube que salgan tres también».
+              Lo que había: esta parte dibujaba SÓLO «Qué hago en tu Instagram» (`PilotoRed`), que es una lista de frases
+              derivadas de la CONFIGURACIÓN, en presente — «Publico lo que programas», «Te aviso si se acaba el contenido».
+              Describen lo que el piloto haría; no son acciones ni se puede hacer nada con ellas. Las acciones concretas ya
+              existían y ya venían etiquetadas por red (`TareaCoPilot.tarjeta`, lib/copiloto/tareas.ts), pero sólo se dibujaban
+              en el paso del análisis: «Graba 3 variaciones del hook de tu reel más visto (12.400 vistas)», «Pasa a carrusel tu
+              reel que superó tu número», «Saca 3 shorts de tu último video largo» (`propuestasDelPiloto`).
+              ⚠️ Y NO SE RELLENA HASTA TRES: `ACCIONES_POR_RED` es un tope, no una cuota. Hoy `propuestasDelPiloto` puede dar
+                 como máximo dos de Instagram y una de YouTube, y sólo con datos leídos (un reel top, un video largo
+                 publicado). Si no hay ninguna, no se dibuja la tarjeta y queda «Qué hago en tu …» sola, que es la verdad. */}
+          {paso === 'piloto' && (tarjeta === 'instagram' || tarjeta === 'youtube') && datos.redesPermitidas && (
+            <LoQueTeToca tareas={tareas[tarjeta]} enPlan={enPlan} onHecha={marcarTarea} tope={ACCIONES_POR_RED}
+              titulo={`Qué hacer ahora en tu ${NOMBRE_RED[tarjeta]}`}
+              onHacer={(t) => { if (t.abre === 'oc') { setParte(t.parte ?? 'oferta'); setTodo(true); } else if (t.abre === 'leer') void oc.leer(t.parte ?? 'angulos'); }} />
+          )}
           {paso === 'piloto' && (tarjeta === 'instagram' || tarjeta === 'youtube') && datos.redesPermitidas && datos.pilotoRedes && <PilotoRed red={tarjeta} piloto={datos.pilotoRedes} />}
           {paso === 'piloto' && tarjeta !== 'anuncios' && !((tarjeta === 'instagram' || tarjeta === 'youtube') && (datos.pilotoRedes || !datos.redesPermitidas)) && <SinPiloto que={tarjeta === 'oferta' ? 'tu oferta' : tarjeta === 'web' ? 'tu web' : `tu ${NOMBRE_RED[tarjeta]}`} />}
         </div>
@@ -392,13 +410,19 @@ function resumenParaTareas(datos: DatosCoPilot, oc: EstadoComunicacion): Resumen
   };
 }
 
-function LoQueTeToca({ tareas, enPlan, onHecha, onHacer }: {
+function LoQueTeToca({ tareas, enPlan, onHecha, onHacer, titulo, tope }: {
   tareas: TareaCoPilot[]; enPlan: Record<string, boolean> | null; onHecha: (clave: string, v: boolean) => void; onHacer: (t: TareaCoPilot) => void;
+  /** El encabezado de la tarjeta. Sin él, el de siempre. */
+  titulo?: string;
+  /** Cuántas mostrar como máximo (15/11/2026: el paso del piloto pide `ACCIONES_POR_RED`). Sin él, todas. */
+  tope?: number;
 }) {
   if (!tareas.length) return null;
+  const todas = tareas;
+  tareas = tope != null ? tareas.slice(0, tope) : tareas;
   return (
     <section className="frn-card mq-tetoca">
-      <div className="frn-card__head"><h2 className="frn-card__t">Lo que te toca</h2>{enPlan && <Link className="frn-chip" href="/plan">Abrir mi Plan</Link>}</div>
+      <div className="frn-card__head"><h2 className="frn-card__t">{titulo ?? 'Lo que te toca'}{todas.length > tareas.length ? ` (${tareas.length} de ${todas.length})` : ''}</h2>{enPlan && <Link className="frn-chip" href="/plan">Abrir mi Plan</Link>}</div>
       <ul className="cop-lista cop-tareas">
         {tareas.map((t) => {
           const lista = !!enPlan?.[t.clave];

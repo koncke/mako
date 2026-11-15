@@ -40,6 +40,7 @@ import {
   type PlanPago,
 } from '../lib/economia-unitaria'
 import { USO_SUPUESTO as USO_DESDE_EL_CUPO, techoDeIa as techoDesdeElCupo } from '../lib/uso-del-cupo'
+import { CUPO_MENSUAL, usdDeMt } from '../lib/mako-tokens-reglas'
 import { fijoDeMartin, fijoSiPagaTodo } from '../lib/costos-fijos'
 import { TORTAS } from '../app/admin/estrategia/datos'
 import { armarCostos } from '../app/admin/_polar/datos/costos'
@@ -48,26 +49,54 @@ import { economiaDelMes } from '../lib/economia-unitaria'
 
 const centavos = (n: number) => Math.round(n * 100)
 const montos = (plan: PlanPago, cambios = {}) => loQueSeVaDeUnaSuscripcion(plan, cambios).partes.map((p) => p.usd)
+
+// ⚠️ LAS CIFRAS QUE DEPENDEN DEL CUPO SE DERIVAN; LAS QUE SON DECISIONES SE ESCRIBEN (15/11/2026)
+// =============================================================================
+// Estos tests estaban transcriptos de una corrida («61,53 · 14,83 · 24.250 MT») y se pusieron rojos ocho veces de una
+// cuando el cupo cambió de 24.250 a 24.000 — por una decisión de Martín, no por un error. **Un test que repite el número
+// que vigila no vigila nada: se rompe cuando el dueño decide, y calla cuando el cálculo se rompe de verdad**, porque los
+// dos lados dicen lo mismo por casualidad y no por construcción. Es la tercera vez en el día que aparece esta misma clase
+// de error en este repo (ver tests/mako-tokens-paquetes.test.ts, el divisor clavado).
+//
+// La línea que los separa: **«servir la cuenta» y el techo de IA salen del cupo, así que se derivan. La captación
+// (US$97 ÷ 9 meses), el impuesto y la pasarela son DECISIONES de Martín y se escriben a mano** — si una de ésas cambia
+// sola, es un error y el test tiene que gritar. Y la «ganancia» se deriva porque es, por definición, lo que queda.
+// =============================================================================
+const USD_DEL_PLAN_PAGO: Record<PlanPago, number> = { pro: 47, growth: 97 }
+const r2 = (n: number) => Math.round(n * 100) / 100
+/** El fijo repartido entre los clientes del escenario. No depende del cupo. */
+const FIJO_POR_CLIENTE = ESCENARIO_DEL_MODELO.fijoMensualUsd / ESCENARIO_DEL_MODELO.clientes
+/** «Servir la cuenta» = el video que se supone que gasta (una fracción del TECHO) + su parte del fijo. */
+const servirDe = (plan: PlanPago) => r2(techoDeIa(plan) * USO_SUPUESTO + FIJO_POR_CLIENTE)
+/** Lo que queda después de las cuatro partes que no son ganancia. */
+const gananciaDe = (plan: PlanPago, resto: readonly number[]) =>
+  r2(USD_DEL_PLAN_PAGO[plan] - resto.reduce((a, b) => a + b, 0))
+/** Como lo escribe Intl en es-AR, para armar los regex sin repetir la cifra. */
+const pesos = (n: number) => n.toFixed(2).replace('.', ',')
 /** El HTML sin etiquetas y con los espacios normalizados (Intl pone un espacio duro entre «US$» y el número). */
 const texto = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/[  ]/g, ' ').replace(/\s+/g, ' ')
 
 test('1. el 97 y el 47 con el escenario del modelo: las cinco partes, el primer mes y desde el segundo', () => {
-  // 97: ganancia 61,53 · captación 10,78 (97 ÷ 9 meses, decisión de Martín del 10/11) · servir 14,83 (video 6,06 + fijo
-  // 8,77) · impuesto 8,11 · cobro 1,75. Con 22,2 meses de vida eran 67,94 y 4,37 (el número del encargo).
-  assert.deepEqual(montos('growth'), [61.53, 10.78, 14.83, 8.11, 1.75])
-  assert.deepEqual(montos('pro'), [19.74, 10.78, 11.7, 3.93, 0.85])
+  // 97: captación 10,78 (97 ÷ 9 meses, decisión de Martín del 10/11) · impuesto 8,11 · cobro 1,75 — esas tres van
+  // escritas porque son decisiones. «Servir» sale del cupo y la ganancia es el resto, así que se derivan.
+  // Con 22,2 meses de vida la captación eran 4,37 (el número del encargo) y la ganancia 67,94.
+  const RESTO_97 = [10.78, servirDe('growth'), 8.11, 1.75]
+  const RESTO_47 = [10.78, servirDe('pro'), 3.93, 0.85]
+  assert.deepEqual(montos('growth'), [gananciaDe('growth', RESTO_97), ...RESTO_97])
+  assert.deepEqual(montos('pro'), [gananciaDe('pro', RESTO_47), ...RESTO_47])
   const g = loQueSeVaDeUnaSuscripcion('growth')
   assert.deepEqual(g.partes.map((p) => p.clave), ['ganancia', 'conseguir', 'servir', 'impuesto', 'cobro'])
-  // El primer mes paga el CAC entero; desde el segundo deja 72,31 (ganancia + captación).
-  assert.equal(g.desdeElSegundoMesUsd, 72.31)
-  assert.equal(g.primerMesUsd, -24.69)
+  // El primer mes paga el CAC entero; desde el segundo deja la ganancia más la captación.
+  assert.equal(g.desdeElSegundoMesUsd, r2(gananciaDe('growth', RESTO_97) + 10.78))
+  assert.equal(g.primerMesUsd, r2(g.desdeElSegundoMesUsd - ESCENARIO_DEL_MODELO.cacUsd))
   assert.equal(g.desdeElSegundoMesUsd, Math.round((g.partes[0].usd + g.partes[1].usd) * 100) / 100)
   const p = loQueSeVaDeUnaSuscripcion('pro')
-  assert.equal(p.desdeElSegundoMesUsd, 30.52)
-  assert.equal(p.primerMesUsd, -66.48)
-  // Los cupos: el techo de IA del plan y lo que se supone que se usa.
-  assert.deepEqual([g.cupoMt, g.techoIaUsd, g.videoUsd], [24250, 24.25, 24.25 * USO_SUPUESTO])
-  assert.deepEqual([p.cupoMt, p.techoIaUsd], [11750, 11.75])
+  assert.equal(p.desdeElSegundoMesUsd, r2(gananciaDe('pro', RESTO_47) + 10.78))
+  assert.equal(p.primerMesUsd, r2(p.desdeElSegundoMesUsd - ESCENARIO_DEL_MODELO.cacUsd))
+  // Los cupos: el techo de IA del plan y lo que se supone que se usa. Leídos del cupo, no transcriptos.
+  assert.deepEqual([g.cupoMt, g.techoIaUsd, g.videoUsd],
+    [CUPO_MENSUAL.growth, usdDeMt(CUPO_MENSUAL.growth), usdDeMt(CUPO_MENSUAL.growth) * USO_SUPUESTO])
+  assert.deepEqual([p.cupoMt, p.techoIaUsd], [CUPO_MENSUAL.pro, usdDeMt(CUPO_MENSUAL.pro)])
   // Lo que mudó de lib/uso-del-cupo.ts se sigue leyendo de ahí igual.
   assert.equal(USO_DESDE_EL_CUPO, USO_SUPUESTO)
   assert.equal(techoDesdeElCupo('growth'), techoDeIa('growth'))
@@ -161,7 +190,7 @@ test('5. el reparto de Polar: una parte negativa no se dibuja en la barra, la le
   assert.match(t, /Total X47/)
 })
 
-test('6. Costs dibuja las tres secciones con el 97 en 61,53, y los dólares como dólares', async () => {
+test('6. Costs dibuja las tres secciones, con la ganancia del 97 derivada del cupo y los dólares como dólares', async () => {
   const corte = (clave: string, costUsd: number) => ({ clave, llamadas: 1, tokens: 0, costUsd })
   const resumen: ResumenPeriodo = {
     periodo: '2026-11', desde: null, hasta: null, filas: 1, llamadas: 1, tokens: 0, costUsd: 0.5,
@@ -175,11 +204,17 @@ test('6. Costs dibuja las tres secciones con el 97 en 61,53, y los dólares como
   const { default: CostsPage } = await import('../app/admin/(polar)/analytics/costs/CostsPage')
   const t = texto(await dibujar(createElement(CostsPage, { vista, economia })))
   for (const titulo of ['Subscription breakdown', 'First month', 'AI quota']) assert.ok(t.includes(titulo), titulo)
-  assert.match(t, /Plan de US\$97 Ganancia US\$ 61,53 Captación US\$ 10,78 Servir la cuenta US\$ 14,83 Impuesto US\$ 8,11 Cobro US\$ 1,75 Total US\$ 97,00/)
-  assert.match(t, /US\$97 · primer mes .*?\u2212US\$ 24,69/)
-  assert.match(t, /el de 97 arranca perdiendo US\$ 24,69/)
-  assert.match(t, /Techo del CAC: US\$ 30,52 en el de 47 y US\$ 72,31 en el de 97/)
-  assert.match(t, /24\.250 MT/)
+  // Las cifras que dependen del cupo se arman con los mismos derivados de arriba: así la pantalla y la cuenta no pueden
+  // separarse, y el día que Martín vuelva a mover el cupo este test lo sigue en vez de ponerse rojo.
+  const g97 = gananciaDe('growth', [10.78, servirDe('growth'), 8.11, 1.75])
+  const desde97 = r2(g97 + 10.78)
+  const desde47 = r2(gananciaDe('pro', [10.78, servirDe('pro'), 3.93, 0.85]) + 10.78)
+  const pierde97 = r2(ESCENARIO_DEL_MODELO.cacUsd - desde97)
+  assert.match(t, new RegExp(`Plan de US\\$97 Ganancia US\\$ ${pesos(g97)} Captación US\\$ 10,78 Servir la cuenta US\\$ ${pesos(servirDe('growth'))} Impuesto US\\$ 8,11 Cobro US\\$ 1,75 Total US\\$ 97,00`))
+  assert.match(t, new RegExp(`US\\$97 · primer mes .*?\u2212US\\$ ${pesos(pierde97)}`))
+  assert.match(t, new RegExp(`el de 97 arranca perdiendo US\\$ ${pesos(pierde97)}`))
+  assert.match(t, new RegExp(`Techo del CAC: US\\$ ${pesos(desde47)} en el de 47 y US\\$ ${pesos(desde97)} en el de 97`))
+  assert.match(t, new RegExp(`${CUPO_MENSUAL.growth.toLocaleString('es-AR')} MT`))
   // El formateador de Polar recibe CENTAVOS: el fijo de US$438,25 no puede salir como US$4,38.
   assert.match(t, /US\$ 438,25 al mes sale de tu bolsillo/)
   assert.doesNotMatch(t, /US\$ 4,38 al mes/)
@@ -193,6 +228,8 @@ test('7. con el CAC en 0 y cobrando por transferencia, los selectores dan otra t
   // Lo elegido se ve en el selector aunque la página todavía no se haya hidratado.
   assert.match(t, /CAC US\$0 \(orgánico\)/)
   assert.match(t, /Transferencia o Binance — 0%/)
-  assert.match(t, /Plan de US\$97 Ganancia US\$ 74,06 Captación US\$ 0,00 Servir la cuenta US\$ 14,83 Impuesto US\$ 8,11 Cobro US\$ 0,00/)
+  // Sin CAC y sin pasarela: las dos partes que esos selectores apagan son 0, y la ganancia es el resto.
+  const servir = servirDe('growth')
+  assert.match(t, new RegExp(`Plan de US\\$97 Ganancia US\\$ ${pesos(gananciaDe('growth', [0, servir, 8.11, 0]))} Captación US\\$ 0,00 Servir la cuenta US\\$ ${pesos(servir)} Impuesto US\\$ 8,11 Cobro US\\$ 0,00`))
   assert.match(t, /los dos planes dejan plata desde el primer mes/)
 })

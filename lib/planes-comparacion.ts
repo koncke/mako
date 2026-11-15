@@ -25,6 +25,10 @@
 // =============================================================================
 
 import { TOPES, TABS_SOLO_PRO, type FuncionSoloPro, type Tope } from './topes-plan';
+// Los topes de GENERACION no viven en `TOPES`: viven con el precio del clip y de la imagen
+// (./mako-tokens-paquetes.ts), porque lo que los fija es el margen, no un limite de la app.
+import { CLIPS_POR_MES, IMAGENES_POR_MES, minutosDelPlan } from './mako-tokens-paquetes';
+import { PLAN_DE_CAPA, type Plan } from './mako-tokens-reglas';
 import { ASESORES } from './asesores/catalogo';
 
 /** true = incluido, false = no incluido, texto = el tope. */
@@ -52,6 +56,33 @@ const enTodos = (grupo: string, que: string): FilaComparacion => ({ grupo, que, 
 const soloPro = (grupo: string, que: string): FilaComparacion => ({ grupo, que, esencial: false, pro: true, acelerador: true });
 const soloPrograma = (grupo: string, que: string): FilaComparacion => ({ grupo, que, esencial: false, pro: false, acelerador: true });
 
+/**
+ * UNA FILA DE TOPE DE GENERACIÓN (15/11/2026). Igual que `filaDeTope`, pero el número sale de los topes de video e imagen
+ * (`CLIPS_POR_MES`, `IMAGENES_POR_MES`) en vez de `TOPES`: son los dos únicos límites que los fija el MARGEN y no el
+ * producto, y por eso viven con el precio del clip. El Acelerador trae MaKo Pro, así que lleva lo de Pro.
+ */
+const filaDeGeneracion = (grupo: string, que: string, celda: (p: Plan) => Celda): FilaComparacion => ({
+  grupo,
+  que,
+  esencial: celda(PLAN_DE_CAPA.completo),
+  pro: celda(PLAN_DE_CAPA.agencia),
+  acelerador: celda(PLAN_DE_CAPA.agencia),
+});
+
+/**
+ * GENERAR Y EDITAR NO SON LO MISMO, y la tabla no lo decía (15/11/2026). Martín, textual: «en la comparación de planes no
+ * pusiste cosas súper importantes como la generación de imagen y la generación de video. Eso no está por ninguna parte.
+ * Está el editor de imagen, el editor de video, pero no es lo mismo de generación. Y justamente eso es lo que no tiene el
+ * plan de 47, de la generación de video».
+ *
+ * Es la diferencia que más pesa entre los dos planes y era la única que no tenía fila: la tabla mostraba «Editor de video,
+ * como CapCut» con un tilde en las dos columnas, que es verdad — el editor está en los dos — y dejaba leer que el de US$47
+ * también genera video. No genera: `CLIPS_POR_MES.pro` es 0.
+ * Van JUNTO a las filas de los editores, en ese orden, para que la distinción se lea sola.
+ */
+export const NOMBRE_GENERACION_VIDEO = 'Generar videos con IA desde un texto o una foto';
+export const NOMBRE_GENERACION_IMAGEN = 'Generar imágenes con IA para tus anuncios y tus posts';
+
 /** Las tabs que son sólo de Pro, dichas como las nombra el marketing (nunca el nombre interno de la tab). */
 export const NOMBRE_TAB_PRO: Readonly<Record<(typeof TABS_SOLO_PRO)[number], string>> = {
   'closing-analyst': 'Análisis de tus llamadas de venta con IA',
@@ -70,6 +101,36 @@ export const TABS_TODAVIA_CERRADAS: readonly (typeof TABS_SOLO_PRO)[number][] = 
  * que se paga con los créditos de Google Flow de la persona (lo pide el test).
  */
 export const AI_AVATAR_SE_VENDE = false;
+
+/**
+ * ¿LA TABLA VENDE **GENERAR** VIDEO E IMÁGENES CON IA? NO (15/11/2026), y no es una omisión: es el mismo criterio que la
+ * línea de arriba — «no se vende lo que no anduvo de punta a punta» (el Cerebro, 29/10/2026).
+ *
+ * MARTÍN PIDIÓ ESTAS DOS FILAS, textual (15/11/2026): «en la comparación de planes no pusiste cosas súper importantes como
+ * la generación de imagen y la generación de video. Eso no está por ninguna parte. Está el editor de imagen, el editor de
+ * video, pero no es lo mismo de generación. Y justamente eso es lo que no tiene el plan de 47, de la generación de video».
+ * Tiene razón en que la distinción falta y en que es la que más pesa. Las filas están escritas y listas (abajo). Lo que
+ * falta es el producto, y esto es lo que se midió el 15/11 antes de publicarlas:
+ *
+ *   · **GENERAR IMÁGENES CON IA NO EXISTE EN MaKo.** `USD_POR_IMAGEN` y `mtDeImagenes` (lib/mako-tokens-reglas.ts) los
+ *     usan DOS archivos y nada más: su propia definición y app/planes/CalculadoraTokens.tsx, o sea la vitrina de precios.
+ *     Ningún generador los llama. Lo que existe es el EDITOR (tipo Canva) y su chat con IA
+ *     (app/api/image-editor/ia/route.ts), que devuelve OPERACIONES de edición sobre un diseño que ya existe — su propia
+ *     cabecera lo dice: «vuelve una PROPUESTA (operaciones…) que la persona revisa y acepta en el editor».
+ *   · **GENERAR VIDEO SÍ EXISTE, pero no lo paga MaKo.** El Video Generator filma por Google Flow con la extensión de
+ *     Chrome y **los créditos de Flow de la persona** (app/video-generator/estudio/filmar.ts, `PUENTE_VIEJO`/`SIN_PUENTE`).
+ *     Y el camino que SÍ nos costaría, ApiMart, **no lo llama ninguna ruta de app/api/**: los únicos que nombran
+ *     `apimart` son archivos de reglas, claves y catálogos. Es la regla de Martín del 13/11: «video por Flow, no ApiMart,
+ *     porque ApiMart cobra». El 29/10 el Cerebro ya lo había anotado así: el motor nunca se midió en vivo.
+ *   · Y `AI_AVATAR_SE_VENDE` sigue en false, que es el único video con IA que la tabla iba a nombrar.
+ *
+ * **Lo que hay que pasar para que esto sea true**, y es una decisión de Martín, no un arreglo de código:
+ *   1. que generar imágenes con IA exista como producto (hoy no hay ni un endpoint), y
+ *   2. que se decida quién paga el video: si sigue pagando el cliente con sus créditos de Flow, la fila tiene que decirlo
+ *      con esas palabras (como la de AI Avatar), porque un tope nuestro de minutos sobre los créditos de ÉL no se cumple.
+ * El día que pase, esto va a true y las dos filas aparecen con los topes del código, sin tocar nada más.
+ */
+export const GENERACION_SE_VENDE = false;
 
 /** La fila de AI Avatar en la tabla, para cuando se venda (`AI_AVATAR_SE_VENDE`). */
 export const NOMBRE_AI_AVATAR = 'Videos con una persona hecha con IA que habla por ti';
@@ -136,6 +197,17 @@ export function filasDeComparacion(): FilaComparacion[] {
     // 14/11/2026: escribir tu guion desde cero es de los dos planes; REPLICAR el de un competidor, de Pro. La misma palanca que
     // copiar su landing, y el criterio tiene que ser uno (lib/topes-plan.ts, 'replicar-guion').
     soloPro(contenido, NOMBRE_FUNCION_PRO['replicar-guion']),
+    // Generar primero, editar después: así se lee que son dos cosas (lo que pidió Martín el 15/11). El de US$47 genera
+    // imágenes (limitadas) y NO genera video. ⚠️ Detrás de `GENERACION_SE_VENDE`, que hoy es false y explica por qué:
+    // generar imágenes con IA no existe todavía y el video lo paga el cliente con sus créditos de Google Flow.
+    ...(GENERACION_SE_VENDE ? [
+      filaDeGeneracion(contenido, NOMBRE_GENERACION_IMAGEN, (p) => `${IMAGENES_POR_MES[p].toLocaleString('es-AR')} al mes`),
+      filaDeGeneracion(contenido, NOMBRE_GENERACION_VIDEO, (p) => {
+        const min = minutosDelPlan(p);
+        // Cero no se dice «0 minutos»: se dice que no lo trae, y la celda dibuja el guión (`CeldaPlan`).
+        return CLIPS_POR_MES[p] === 0 ? false : `${min} ${min === 1 ? 'minuto' : 'minutos'} al mes`;
+      }),
+    ] : []),
     enTodos(contenido, 'Editor de imágenes y carruseles, como Canva'),
     enTodos(contenido, 'Editor de video, como CapCut'),
     soloPro(contenido, NOMBRE_FUNCION_PRO['ia-editores']),
@@ -196,6 +268,8 @@ export function nombreCorto(que: string): string {
     [NOMBRE_AI_AVATAR]: 'Videos con tu avatar',
     'Copywriting con IA: guiones de reels, anuncios, VSL y emails': 'Copywriting con IA',
     [NOMBRE_FUNCION_PRO['replicar-guion']]: 'Replicar guiones de la competencia',
+    [NOMBRE_GENERACION_IMAGEN]: 'Generar imágenes con IA',
+    [NOMBRE_GENERACION_VIDEO]: 'Generar video con IA',
     'Editor de imágenes y carruseles, como Canva': 'Editor de imágenes',
     'Editor de video, como CapCut': 'Editor de video',
     [NOMBRE_FUNCION_PRO['ia-editores']]: 'Edición con IA',

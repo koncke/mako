@@ -64,10 +64,24 @@ test('SIN AGENDA en los PLANES (24/10, Martín: «No voy a usar Calendly»), con
   assert.doesNotMatch(tj.slice(tj.indexOf('{planes.map((p) => {'), tj.indexOf('mkpl-programa"')), /AGENDA_ACELERADOR/, 'un plan de software ofrece agendar');
 });
 
-test('el botón del plan: «Empezar» sólo si se puede pagar; si no, «Quiero …» y se pide en la página del plan', () => {
-  assert.deepEqual(botonDelPlan({ id: 'pro', nombre: 'MaKo Pro', cobrable: true, sufijo: '?ref=ana' }), { href: '/planes/pro?ref=ana', texto: 'Comienza tu prueba gratuita' });
-  // Desde el 14/11/2026 Esencial también trae la prueba (Martín: «habilita nuevamente la prueba gratuita en el del 47»).
-  assert.deepEqual(botonDelPlan({ id: 'esencial', nombre: 'MaKo Esencial', cobrable: true, sufijo: '' }), { href: '/planes/esencial', texto: 'Comienza tu prueba gratuita' });
+// EL BOTÓN SIEMPRE DICE LO MISMO (15/11/2026). Martín, textual: «el botón no debería decir comienza tu prueba gratuita.
+// Siempre es lo mismo. Pruébalo gratis ahora, todo en mayúscula». Había TRES textos para la misma acción conviviendo en
+// /planes: «Comienza tu prueba gratuita» en la tarjeta, «Empezar» en la comparación y `TEXTO_CTA` en las landings.
+// ⚠️ Y SE COMPARA CONTRA LA CONSTANTE, NO CONTRA EL TEXTO. Un test que repite la frase que vigila se pone rojo cada vez que
+//    alguien la cambia a mano, apuntando al test en vez de al problema — la misma trampa que ya se pagó hoy con el piso del
+//    clip suelto (docs/hallazgos-planes-y-cobro.md). Lo que importa es que sea UNA sola frase en toda la pantalla, y eso es
+//    lo que se cruza abajo contra `TEXTO_CTA`.
+test('el botón del plan: la MISMA frase que las landings; sin pasarela, «Quiero …» y se pide en la página del plan', async () => {
+  const { TEXTO_BOTON_PRUEBA } = await import('../lib/compra-plan-reglas');
+  const { TEXTO_CTA } = await import('../app/vsl/_competencia/cta');
+  assert.equal(TEXTO_BOTON_PRUEBA, TEXTO_CTA,
+    'el botón de /planes y el de las landings tienen que decir lo mismo: si no, la misma pantalla muestra dos CTA distintos');
+  assert.equal(TEXTO_BOTON_PRUEBA, TEXTO_BOTON_PRUEBA.toUpperCase(), 'todo en mayúscula, como lo pidió Martín');
+  assert.deepEqual(botonDelPlan({ id: 'pro', nombre: 'MaKo Pro', cobrable: true, sufijo: '?ref=ana' }), { href: '/planes/pro?ref=ana', texto: TEXTO_BOTON_PRUEBA });
+  // Y el MISMO texto en los dos planes: el de US$47 ya no dice una cosa distinta del de US$97.
+  assert.deepEqual(botonDelPlan({ id: 'esencial', nombre: 'MaKo Esencial', cobrable: true, sufijo: '' }), { href: '/planes/esencial', texto: TEXTO_BOTON_PRUEBA });
+  // ⚠️ LA ÚNICA EXCEPCIÓN, y no es de estilo: sin pasarela no se puede prometer una prueba gratis que el cobro no da. Lo
+  //    que hay es dejar los datos, y eso es otra acción.
   assert.deepEqual(botonDelPlan({ id: 'pro', nombre: 'MaKo Pro', cobrable: false, sufijo: '?ref=ana' }), { href: '/planes/pro?ref=ana', texto: 'Quiero MaKo Pro' },
     'el origen y el partner viajan en el sufijo a la página del plan');
 });

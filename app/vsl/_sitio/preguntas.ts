@@ -11,7 +11,7 @@ import { STACK_TIPICO } from './reemplaza';
 import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS } from '@/lib/planes-mako';
 import { TOPES, TOPES_PRUEBA } from '@/lib/topes-plan';
 import { AI_AVATAR_SE_VENDE } from '@/lib/planes-comparacion';
-import { paqueteDeMinutos } from '@/lib/mako-tokens-paquetes';
+import { PAQUETES } from '@/lib/mako-tokens-paquetes';
 
 const precioDe = (nombre: string): string => { const x = STACK_TIPICO.find((y) => y.app.nombre === nombre); return x ? x.precioUsd.toLocaleString('es-AR', { minimumFractionDigits: Number.isInteger(x.precioUsd) ? 0 : 2, maximumFractionDigits: 2 }) : '?'; };
 // EL VIDEO CON AVATAR DE IA, FUERA DE LA PROMESA DE LA PRUEBA (14/11/2026). Esta respuesta prometía «1 video con avatar de IA» a
@@ -42,7 +42,13 @@ export const PREGUNTAS_SITIO: readonly { p: string; r: string }[] = [
   { p: 'Ya pago GoHighLevel, ManyChat y un editor de video. ¿Para qué cambiar?', r: `Porque con lo que hoy pagas sólo por GoHighLevel (US$${precioDe('GoHighLevel')} por mes, su plan Starter) tienes MaKo Pro, y además dejas de pagar ManyChat (US$${precioDe('ManyChat')}) y tu editor de video (CapCut, US$${precioDe('CapCut')}). GoHighLevel ordena tus contactos y tus páginas de venta; MaKo hace eso y además te muestra lo que le funciona a tu competencia, replica sus páginas de venta, sus carruseles y sus guiones con tu oferta, edita tus videos y hace tus anuncios con tu avatar, con una IA que conoce tu negocio. En «Comparaciones» ves, trabajo por trabajo, qué app reemplaza.` },
   // 14/11/2026, Martín: «no aclares lo que consume tu propia IA… Ahora sí puedes aclarar de que sí se pueden comprar MaKo tokens
   // dentro». El precio del minuto suelto sale de lib/mako-tokens-paquetes.ts (el mismo que usa la calculadora de /planes).
-  { p: '¿Cuánto me va a salir en total?', r: `El precio de tu plan, nada más. Tu plan trae MaKo Tokens cada mes para generar video e imágenes con IA; si un mes necesitas más, los compras dentro de MaKo cuando quieras: un minuto de video sale US$${paqueteDeMinutos(1).usd}.` },
+  // 15/11/2026: el precio se dice por PAQUETE DE TOKENS y no por minuto de video, por dos razones.
+  //   · Decía «un minuto de video sale US$21.6». Ese número salía de multiplicar el clip por la tarifa y es exactamente lo
+  //     que Martín pidió que no pase: «no me gusta que sea un número que no sea redondo». El paquete es redondo en las dos
+  //     unidades (US$10 → 2.500 MaKo Tokens, `PAQUETES` en lib/mako-tokens-paquetes.ts).
+  //   · Y desde hoy el cupo paga TAMBIÉN los guiones, las transcripciones y el análisis de la competencia, así que decirle
+  //     «un minuto de video» a quien se quedó sin tokens escribiendo copys le describe mal lo que va a comprar.
+  { p: '¿Cuánto me va a salir en total?', r: `El precio de tu plan, nada más. Tu plan trae MaKo Tokens cada mes para lo que hagas con IA; si un mes necesitas más, los compras dentro de MaKo cuando quieras, desde US$${PAQUETES[0].usd} (${PAQUETES[0].mt.toLocaleString('es-AR')} MaKo Tokens).` },
   // Los topes de la prueba, de la MISMA tabla que los hace cumplir (lib/topes-plan.ts, `TOPES_PRUEBA`; tests/prueba-topes.test.ts): /planes
   // los decía en su propia pregunta y, desde que usa éstas (14/11/2026), los dice acá, en todas las páginas.
   { p: '¿Cómo es la prueba gratis?', r: `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: pones tu tarjeta y no se te cobra nada hasta el día ${PRUEBA_DIAS + 1}. Si te das de baja antes, no pagas nada. En la prueba, lo que se crea con IA tiene tope: hasta ${TOPES_PRUEBA['prueba.videos']} videos armados, ${AVATAR_EN_LA_PRUEBA}${TOPES_PRUEBA['prueba.imagenes']} imágenes y ${TOPES_PRUEBA['web.landings_publicadas']} página publicada; exportar en masa se habilita con el primer cobro. Y no hay permanencia: te das de baja cuando quieras.` },

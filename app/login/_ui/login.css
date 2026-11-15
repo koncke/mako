@@ -22,43 +22,91 @@
    pantalla es el envoltorio.
    ============================================================================= */
 
-/* El velo: tapa el layout entero (sidebar incluido). `flex` + `margin:auto` en
-   el marco y no `place-items:center`: con la tarjeta más alta que la ventana
-   —el alta del segundo paso con el QR— un grid centrado le come la cabeza y no
-   se puede scrollear hasta ella. */
+/* =============================================================================
+   DOS PANELES, COPIADO DE ATTIO (app.attio.com/welcome/sign-in, 15/11/2026)
+   =============================================================================
+   Martín, 15/11/2026: «tampoco me gusta el rediseño que hiciste del login. O sea,
+   está súper simple. Yo quiero que sea un muy buen rediseño. Cópialo de otra
+   aplicación o algo, pero quiero un rediseño completo del login».
+
+   Lo que había era UNA tarjeta de 400 px centrada sobre un velo: correcta y
+   anodina. Eso es lo «súper simple».
+
+   POR QUÉ ATTIO y no otra: es un CRM, o sea el MISMO problema que MaKo —y la
+   regla de la casa pide una app similar, no la primera que se nos ocurra. Y ya
+   tiene la jerarquía que el 14/11 se decidió acá: Google primario a todo el
+   ancho, «o», y el correo abajo. No hubo que doblar nada para que entrara.
+
+   Los valores salen de `getComputedStyle` sobre la página real a 1440×900, NO de
+   memoria (docs/diseno/login-attio.md los tiene con su fecha):
+     · el marco:   borde 0,8 px al 7 % de tinta, `overflow:hidden`, SIN relleno
+                   ni sombra — es un contorno, no una tarjeta. Su radio es 16 px
+                   y acá va `--r-lg` (22): el radio TIENE token, y un número
+                   clavado al lado de un token es la misma deuda que un hex;
+     · izquierda:  486 px de ancho, padding 40/32/32, columna interna de 422 px
+                   (486 − 64 = 422, su propia cuenta);
+     · la raya:    el borde IZQUIERDO del panel derecho, 0,8 px;
+     · derecha:    904 px, o sea el resto (486/904 ≈ 35/65);
+     · el hueco de la columna: 32 px entre bloques.
+   Medido después en esta pantalla a 1440: marco 1392 en x=24, panel 486,
+   columna 422, vitrina 904 en x=511. Los mismos que la fuente.
+
+   Lo que NO se copia son los colores: son los tokens de la casa (regla de
+   app/_ui/LEEME.md). Attio es un competidor, no una referencia de estilo que
+   mandó Martín; de un competidor se copia la estructura y los números, la tinta
+   es nuestra.
+
+   ⚠️ EL VELO SIGUE SIENDO EL VELO: `position:fixed` + `inset:0` + z-index 9999.
+   Es lo que tapa el layout entero y lo que registra
+   tests/confirm-encima-de-modales.test.ts como excepción legítima. El rediseño
+   cambia lo que hay ADENTRO, no eso.
+   ============================================================================= */
+
+/* El velo: tapa el layout entero (sidebar incluido) y ES la pantalla. Desde la segunda vuelta del 15/11/2026 no hay
+   marco adentro: Martín, mirándolo en un artefacto, «el login debería ser completo, o sea, no estar en un bloque en el
+   centro». Los dos paneles van de borde a borde, uno al lado del otro. */
 .lg-velo {
   position: fixed;
   inset: 0;
   z-index: 9999;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 28px 16px;
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
-  /* El fondo es el de la app, con un lavado cálido de marca arriba para que la
-     tarjeta se despegue. `--mako-bg` es la superficie «esto es de MaKo» y se da
-     vuelta sola en oscuro: no hace falta inventar un rgba del dorado. */
-  background:
-    radial-gradient(135% 100% at 50% -25%, var(--mako-bg) 0%, transparent 58%),
-    var(--bg);
+  background: var(--bg);
 }
 
-.lg-marco {
-  margin: auto;
-  width: 100%;
-  max-width: 400px;
+/* El panel del formulario: el logo arriba y la columna centrada en lo que queda. 440 px, que dejan 32 a cada lado de una
+   columna de 376. Eran los 486 de Attio (columna de 422) y se angostó el 15/11/2026 para que la animación crezca: Martín,
+   «mejor si puede ser más grande el bloque de la animación». Los 46 px que se le sacan al formulario son 46 más de video.
+   Scrollea ÉL, no la ventana: el alta del segundo paso —la que trae el QR— es más alta que una pantalla de portátil.
+
+   ⚠️ LOS 32 px DE COSTADO NO VAN EN EL PADDING DEL PANEL, VAN EN EL MARGEN «auto» DE LA COLUMNA (15/11/2026). El panel es
+   el contenedor de scroll: si los 32 fueran su padding, la barra de scroll se los comería a la columna en la única
+   pantalla que scrollea (medido a 1440×790: el alta con el QR quedaba en 412 contra los 422 de las otras dos, y con los
+   costados desparejos). Con el margen, lo que sobra se reparte solo y la columna mide 422 en las tres. */
+.lg-panel {
+  flex: 0 0 440px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
+  padding: 20px 0 32px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
 }
 
-/* La marca, ARRIBA de la tarjeta y centrada (Linear, Vercel, Stripe): adentro y
-   pegada a la izquierda competía con el título por el mismo renglón. */
+/* El logo, ARRIBA A LA IZQUIERDA (Martín, 15/11: «arriba de entrar a tu cuenta… arriba a la izquierda del todo»).
+   Tiene el MISMO ancho y el mismo centrado que la columna del formulario, así que su borde izquierdo es el de «Entra a tu
+   cuenta» a cualquier ancho de pantalla: en la computadora queda a 32 px del borde, la esquina de arriba a la izquierda.
+   El renglón mide 40 de alto para que su centro caiga a la altura del botón de sol y luna, que está en la otra punta. */
 .lg-marca {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 376px;
+  min-height: 40px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 10px;
 }
 .lg-marca__texto {
@@ -69,22 +117,154 @@
   color: var(--ink);
 }
 
-/* La tarjeta es una columna con `gap`: el encabezado y el cuerpo no se separan
-   con márgenes sueltos, así una pantalla SIN encabezado (el segundo paso, que
-   pone su propio título por sub-pantalla) no arrastra un hueco de más arriba. */
-.lg-tarjeta {
+/* La columna de 376 px, centrada en lo que sobra —a lo alto y a lo ancho—. En el teléfono y la tableta, donde no hay
+   animación, vuelve a los 422 de Attio (abajo, en el corte de 1024).
+   «margin: auto» y no «justify-content: center»: con el contenido más alto que el panel, centrar le come la cabeza y no
+   se llega a ella con el scroll (el margen «auto» se resuelve en 0 y el título queda alcanzable). */
+.lg-panel__centro {
+  margin: auto;
+  width: 100%;
+  max-width: 376px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  background: var(--surface);
+  gap: 32px;
+}
+
+/* ── El panel de las animaciones ──────────────────────────────────────────────
+   Las grabaciones de la portada pasan una detrás de otra (./VitrinaVideos.tsx), cada una flotando en su pantalla con
+   su título debajo. Debajo siguen las DOS CAPAS PINTADAS de la primera vuelta, copiadas de Attio:
+     1. un degradado diagonal del color de marca, del 4 % al 10 % de opacidad;
+     2. encima, UNA RAYA VERTICAL de 1 px cada 8,1 px al 7 % de tinta, con la capa entera al 30 % (~2 % efectivo), que
+        es lo que impide que el panel se lea como un bloque de color plano.
+   Son también lo ÚNICO que queda cuando el panel va mudo (el alumno, «vitrina=muda» en TarjetaLogin). */
+.lg-vitrina {
+  flex: 1 1 auto;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 32px 40px;
+  overflow: hidden;
+}
+.lg-vitrina::before,
+.lg-vitrina::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* «--mako» es el ÚNICO dorado del sistema y «color-mix» lo baja sin inventar un rgba nuevo: en oscuro el token se da
+   vuelta y el degradado con él. */
+.lg-vitrina::before {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--mako) 4%, transparent) 0%,
+    color-mix(in srgb, var(--mako) 10%, transparent) 100%
+  );
+}
+.lg-vitrina::after {
+  opacity: .3;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ink) 7%, transparent) 0 1px,
+    transparent 1px 8.1px
+  );
+}
+
+/* La pieza: la pantalla grabada y su título, ENCIMA de las dos capas («z-index»). Las grabaciones son 960×600, o sea
+   16:10. Ocupa TODO el ancho que deja el panel (Martín, 15/11: «mejor si puede ser más grande el bloque de la animación»):
+   a 1440×900 la pantalla mide 936×585, más que su tamaño real. El tope es el ALTO: lo que queda de la ventana después de
+   los 72 de arriba (el botón de sol y luna), el título y los 40 de abajo, por 1,6 — así en una pantalla ancha y baja el
+   video no se sale por abajo. */
+.lg-vitrina__pieza {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  width: min(100%, calc((100dvh - 190px) * 1.6));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+.lg-vitrina__pantalla {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 30px 28px;
-  box-shadow: var(--sombra-modal);
+  background: var(--surface);
+  box-shadow: 0 32px 64px -32px rgba(0, 0, 0, .35);
+}
+.lg-vitrina__pantalla video,
+.lg-vitrina__pantalla img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* El título del clip: lo que hace MaKo en esa grabación, con las palabras de la portada. Entra con un fundido corto
+   cuando cambia el clip, para que el cambio de texto no sea un salto; es el único movimiento que agrega esta hoja. */
+.lg-vitrina__titulo {
+  margin: 0;
+  max-width: 560px;
+  text-align: center;
+  font-size: var(--fs-sect);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  text-wrap: balance;
+  animation: lg-titulo-entra .45s ease both;
+}
+@keyframes lg-titulo-entra {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lg-vitrina__titulo { animation: none; }
+}
+
+/* El botón de sol y luna, ARRIBA A LA DERECHA de la pantalla (Martín, 15/11: «falta el botoncito de la luna y el sol…
+   no sé bien dónde lo pondría»), y COPIADO DEL DE LA PORTADA: «fíjate el botón del sol y la luna, que no está
+   centrado. Replícalo de lo que ya tenemos». El botón es <InterruptorModo variante="sitio">, con las medidas y el gris
+   de cuando el mouse pasa por encima de «.mk-tema-sitio»; acá sólo se lo ubica.
+   No lleva pastilla: la primera versión lo metía en una de 40 px con borde, y el botón (de otro tamaño) quedaba corrido.
+   Queda arriba de la animación (que empieza a los 72 px), sobre el fondo pintado. Su centro cae a la altura del centro
+   del logo: los dos a 40 px del borde de arriba (22 + 36/2; el renglón del logo, 20 + 40/2). */
+.lg-modo {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  z-index: 2;
+  color: var(--ink);
+}
+.lg-modo .mk-modo-sitio:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* EN EL TELÉFONO Y LA TABLETA SE CAE EL PANEL DE LAS ANIMACIONES y queda el formulario a todo el ancho. El corte en
+   1024 px es el de Supabase (su panel está «hidden» hasta «xl»): por debajo, el panel derecho no entra sin aplastar la
+   columna del formulario. El video tampoco se baja (ver VitrinaVideos.tsx).
+
+   ⚠️ LA CANALETA VA EN EL PADDING DEL PANEL, Y ES LO QUE SALVA EL ANILLO DE FOCO (15/11/2026). El panel es un contenedor
+   de scroll («overflow-y: auto», y con el otro eje en «visible» el navegador le computa «overflow-x: auto» también —
+   medido), y un contenedor de scroll RECORTA la sombra: «box-shadow» no es contenido scrolleable. «--focus-ring» es
+   «0 0 0 4px var(--primary)», 4 px POR FUERA de la caja, así que un control a todo el ancho pegado al borde del panel
+   perdía el anillo a los dos costados (medido a 375: 0,0 px de borde). Con la canaleta ADENTRO del panel, el anillo cae
+   en ella y se ve entero. */
+@media (max-width: 1024px) {
+  .lg-vitrina { display: none; }
+  .lg-panel {
+    flex: 1 1 auto;
+    padding: 20px 24px 24px;
+    border-right: 0;
+  }
+  .lg-marca,
+  .lg-panel__centro { max-width: 422px; }
 }
 @media (max-width: 430px) {
-  .lg-tarjeta { padding: 24px 20px; }
-  .lg-velo { padding: 20px 16px; }
+  /* Los 16 px de canaleta que pide la casa en el teléfono. El botón, a la altura del logo (16 + 40/2 = 18 + 36/2). */
+  .lg-panel { padding: 16px 16px 24px; gap: 16px; }
+  .lg-modo { top: 18px; right: 16px; }
 }
 
 .lg-titulo {

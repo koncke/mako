@@ -602,3 +602,40 @@ MaKo» en cada canal.
 - **La pantalla de un funnel CON anuncios** (Hoy · Campañas · Plan · Biblioteca, `MediaBuyer.tsx`) sigue con su diseño: la de dos columnas se hizo para la charla y para los funnels sin anuncios.
 - **(10/11) Un funnel elegido que no sirve propone otro con lo completado:** `evaluarFunnel(f, datosDeDecision(p))` arma su «mejor» con el `llamadas: 'yo'` que se completa para un funnel sin llamadas (una compra directa con ticket alto propone un VSL «con alguien que llama» sin saberlo). Hoy sólo pasa en el paso «ajuste»; el arreglo es armar `mejor` con `datosDichos` y, sin eso, no proponer.
 - **El curso de campañas lo usa sólo el CoPilot** (por `metodo_campanas_copiloto`). El Ads Writer y los demás leen Knowledge (`mako_knowledge`, área `ads`, vacía); si se quiere que lo usen, hay que resolver antes que Knowledge es por negocio. Y 90 de 97 videos del curso no tienen transcripción.
+
+
+## Las acciones del Copilot ya existían y ya estaban etiquetadas por red: lo que faltaba era mostrarlas (15/11/2026)
+
+Martín pidió tres accionables por red en vez de uno: «si estoy parado en anuncios, que salgan tres accionables o acciones
+que tomó MaKo para anuncios, y lo mismo luego cuando cambio a Instagram que salgan tres y YouTube que salgan tres también».
+Y aclaró que **el diseño actual se queda**: «mejor nos quedamos con el que tenemos actualmente».
+
+**EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO.** «Faltan acciones por red» suena a que hay que inventar un origen de datos
+nuevo, o a que hay que etiquetar las tareas por red. Ninguna de las dos: **`TareaCoPilot` ya trae `tarjeta`**
+(lib/copiloto/tareas.ts) y **la pantalla ya agrupa por esa etiqueta** (CoPilot.tsx:224,
+`hoy.filter((t) => t.tarjeta === k)`). Lo que pasaba es más simple y más invisible: esas acciones sólo se dibujaban en el
+paso del **análisis** («Lo que te toca»). En el paso del **piloto**, Instagram y YouTube dibujaban `cosasDelPiloto`, que
+es otra cosa entera.
+
+**Qué era `cosasDelPiloto`, y por qué no es una acción.** Devuelve frases derivadas de la CONFIGURACIÓN, en presente:
+«Publico lo que programas en el Calendario», «Te aviso por WhatsApp y email si se acaba el contenido», «Cada semana te
+propongo N variaciones del hook». Describen lo que el piloto **haría** si pasara algo. No tienen a dónde ir, no se pueden
+marcar y no corresponden a nada que haya ocurrido. Eso es lo que Martín llamaba «un accionable de cada red».
+
+**Las acciones de verdad, que ya existían:** `propuestasDelPiloto` (lib/copiloto/piloto-redes.ts) arma `TareaCoPilot[]` con
+datos leídos — «Graba 3 variaciones del hook de tu reel más visto (12.400 vistas)», «Pasa a carrusel tu reel de 12.400
+vistas: superó tu número», «Saca 3 shorts de tu último video largo» — cada una con su `href` y su clave estable, y cada
+una viviendo en el Plan. El arreglo fue dibujarlas también en el paso del piloto, cortadas en `ACCIONES_POR_RED`.
+
+**Lo que NO cierra, y es un dato del producto, no del código:** `propuestasDelPiloto` puede dar como máximo **DOS** de
+Instagram y **UNA** de YouTube, y sólo con datos leídos (un reel top, un video largo publicado). Así que «tres por red» es
+un TOPE que hoy casi nunca se llena. **No se rellenó**: `ACCIONES_POR_RED` es un tope y no una cuota, y hay un test que lo
+fija. Rellenar la terna con una frase genérica sería volver a `cosasDelPiloto` con otro nombre.
+
+**Y una asimetría que queda a la vista, a propósito:** anuncios dice «Lo que hice» porque tiene un registro de decisiones
+aplicadas (el tipo `Decision`); Instagram y YouTube dicen «Qué hacer ahora» porque **no hay registro de lo que el piloto
+publicó o avisó en esas redes**. Igualar los títulos sin ese registro sería decir «hice» sobre algo que no se guardó.
+Lo que falta para igualarlos: que el piloto de redes anote lo que hizo, como lo hace el de anuncios.
+
+**Regla que queda:** antes de agregar un origen de datos al Copilot, buscar si la cosa ya existe con su etiqueta
+(`TareaCoPilot.tarjeta`) y sólo no se está dibujando. Dos de los tres pasos de este encargo eran mostrar, no construir.

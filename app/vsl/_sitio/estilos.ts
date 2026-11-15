@@ -188,9 +188,61 @@ html:has(.s-mv[open]){overflow:hidden}
 .s-claro .s-mv-pie{border-top-color:rgba(6,4,25,.12)}
 .s-claro .s-mv-entrar{color:${TINTA}!important}
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   LA CUENTA: la foto de perfil y su desplegable, donde decía «Iniciar sesión» (15/11/2026)
+   ─────────────────────────────────────────────────────────────────────────────
+   Martín, 15/11/2026: «si yo ya tengo iniciada la sesión, en lugar de decirme iniciar sesión, debería ahí estar mi imagen de
+   perfil, mi foto de perfil. Y si le doy clic, que me salte el desplegable». La forma es la del menú de cuenta de Linear,
+   Notion y Vercel: la cara sola en la barra, y el desplegable con quién sos arriba y los renglones con ícono debajo. Los
+   números son los de ESTA barra —el velo blanco al 10 % y el filete del menú grande (.s-mega), el azul de marca— con dos
+   cambios: el radio 6 de sus botones sube a 12, porque es una tarjeta y no un botón, y la tarjeta lleva sombra, que en esta
+   barra no hay nada más que la tenga porque nada más flota sobre la página.
+   ⚠️ LOS DOS MODOS SE DECLARAN ACÁ, y por eso los colores salen de variables. El botón nace cuando contesta la red y el
+   desplegable en el clic, o sea DESPUÉS de que el sol y la luna leyó los colores de la página: llevan data-tema-fijo, el
+   script no los lleva al modo y el modo lo tiene que poner el CSS (ver app/vsl/_sitio/Cuenta.tsx). Entonces el claro va con
+   .s-claro (como nació la página) y con html[data-sitio-modo="claro"] (lo que eligió la persona), y el oscuro repite sus
+   valores bajo html[data-sitio-modo="oscuro"] para ganarle a .s-claro cuando la persona oscurece una página clara.
+   (Sin comillas invertidas en estos comentarios: esta hoja es un template literal y una comilla invertida lo cierra.) */
+.s-cuenta{--cu-fondo:${CARD};--cu-filete:${LINEA12};--cu-tinta:#fff;--cu-dim:${GRIS3};--cu-raya:${LINEA};--cu-velo:rgba(255,255,255,.1);--cu-aro:rgba(255,255,255,.22);--cu-aro-alto:rgba(255,255,255,.32);--cu-sombra:0 24px 56px -16px rgba(0,0,0,.6);position:relative;display:flex;align-items:center;min-width:0}
+.s-claro .s-cuenta,html[data-sitio-modo="claro"] .s-cuenta{--cu-fondo:#fff;--cu-filete:#D6D6E0;--cu-tinta:${TINTA};--cu-dim:${GRIS_CLARO};--cu-raya:rgba(6,4,25,.08);--cu-velo:rgba(6,4,25,.06);--cu-aro:rgba(6,4,25,.1);--cu-aro-alto:rgba(6,4,25,.16);--cu-sombra:0 24px 56px -16px rgba(6,4,25,.28)}
+html[data-sitio-modo="oscuro"] .s-cuenta{--cu-fondo:${CARD};--cu-filete:${LINEA12};--cu-tinta:#fff;--cu-dim:${GRIS3};--cu-raya:${LINEA};--cu-velo:rgba(255,255,255,.1);--cu-aro:rgba(255,255,255,.22);--cu-aro-alto:rgba(255,255,255,.32);--cu-sombra:0 24px 56px -16px rgba(0,0,0,.6)}
+/* El botón: la cara (y el nombre, en el pie del teléfono). Nada de fondo ni de borde propios: lo que se ve es la cara. */
+.s-cuenta-b{display:flex;align-items:center;gap:10px;min-width:0;max-width:220px;padding:2px;border:0;border-radius:999px;background:none;font:inherit;color:inherit;cursor:pointer}
+.s-cuenta-b:focus-visible{outline:2px solid ${AZUL};outline-offset:2px}
+/* La cara: la foto, o las iniciales sobre el azul de marca. El filete la separa de la barra con cualquier foto detrás, y el
+   aro de color aparece al pasar el mouse y mientras el menú está abierto, que es lo único que dice que esto se aprieta. */
+.s-cuenta-cara{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;border-radius:999px;background:linear-gradient(145deg,${AZUL} 0%,#1F57C8 100%);color:#fff;font-weight:700;line-height:1;box-shadow:0 0 0 1px var(--cu-aro),0 0 0 0 rgba(47,111,237,0);transition:box-shadow .15s cubic-bezier(.4,0,.2,1)}
+.s-cuenta-cara img{display:block;width:100%;height:100%;object-fit:cover}
+.s-cuenta-b:hover .s-cuenta-cara,.s-cuenta-b[aria-expanded="true"] .s-cuenta-cara{box-shadow:0 0 0 1px var(--cu-aro-alto),0 0 0 3px rgba(47,111,237,.45)}
+/* El nombre: sólo en el pie del teléfono, un renglón, con puntos suspensivos si no entra al lado del botón de empezar. */
+.s-cuenta-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;line-height:20px;font-weight:600}
+/* El desplegable: 264 de ancho, pegado al borde derecho del botón, 10 de aire. */
+.s-cuenta-m{position:absolute;top:calc(100% + 10px);right:0;z-index:80;width:264px;padding:6px;border-radius:12px;background:var(--cu-fondo);border:1px solid var(--cu-filete);box-shadow:var(--cu-sombra);animation:s-cuenta-abre .16s cubic-bezier(.4,0,.2,1)}
+/* En el pie del teléfono abre PARA ARRIBA: el pie está pegado al borde de abajo de la pantalla. */
+.s-cuenta[data-arriba] .s-cuenta-m{top:auto;bottom:calc(100% + 10px);animation-name:s-cuenta-abre-arriba}
+@keyframes s-cuenta-abre{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes s-cuenta-abre-arriba{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+/* Quién sos, arriba: la cara grande, el nombre y el correo. El correo en gris: es para reconocer la cuenta, no para leerlo. */
+.s-cuenta-quien{display:flex;align-items:center;gap:10px;padding:10px}
+.s-cuenta-t{flex:1 1 auto;min-width:0}
+.s-cuenta-t b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;line-height:19px;font-weight:700;color:var(--cu-tinta)}
+.s-cuenta-t span{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;line-height:17px;color:var(--cu-dim)}
+.s-cuenta-sep{height:1px;margin:5px 4px;background:var(--cu-raya)}
+/* Los renglones: el ícono en gris y el texto en tinta; al pasar o al llegar con el teclado, el velo y el ícono en tinta. */
+.s-cuenta-f{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:8px 10px;border:0;border-radius:8px;background:none;font:inherit;font-size:14px;line-height:20px;font-weight:500;color:var(--cu-tinta);text-align:left;cursor:pointer;transition:background-color .12s cubic-bezier(.4,0,.2,1)}
+.s-cuenta-f svg{flex:none;color:var(--cu-dim);transition:color .12s cubic-bezier(.4,0,.2,1)}
+.s-cuenta-f:hover,.s-cuenta-f:focus-visible{background:var(--cu-velo)}
+/* El velo solo no alcanza para decir dónde está el foco (es el mismo que el del mouse): el renglón enfocado lleva además el
+   filete azul, por dentro para que no lo tape el borde de la tarjeta. */
+.s-cuenta-f:focus-visible{outline:2px solid ${AZUL};outline-offset:-2px}
+.s-cuenta-f:hover svg,.s-cuenta-f:focus-visible svg{color:var(--cu-tinta)}
+.s-cuenta-f[disabled]{cursor:default;opacity:.6}
+
 @media (prefers-reduced-motion:reduce){
   .s-mega,.s-nav-it:hover>.s-mega,.s-nav-it:focus-within>.s-mega{transition:none;transform:none}
   .s-mv-fila svg{transition:none}
+  .s-cuenta-m{animation:none}
+  .s-cuenta-cara,.s-cuenta-f,.s-cuenta-f svg{transition:none}
 }
 @media (max-width:1279px){
   .s-cont,.s-barra-in{padding:0 32px}
@@ -205,6 +257,10 @@ html:has(.s-mv[open]){overflow:hidden}
   /* En el teléfono el sol y la luna van en el menú (la fila «Claro u oscuro»): en la barra, con el logo, el botón y el ☰, no
      entraban (13/11/2026, el Cerebro mirando la captura a 375). */
   .s-barra-der>.mk-tema-sitio{display:none}
+  /* La cuenta del pie del menú: el desplegable se ancla a la IZQUIERDA (el botón está a la izquierda del pie) y no se sale
+     de los 16 de margen; y los renglones suben a 44 de alto, que es el mínimo para un dedo (el --touch de la app). */
+  .s-cuenta-pie .s-cuenta-m{left:0;right:auto;width:min(288px,calc(100vw - 32px))}
+  .s-cuenta-f{min-height:44px}
 }
 `;
 

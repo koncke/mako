@@ -18,6 +18,22 @@ export type TarjetaCoPilot = 'oferta' | 'web' | 'anuncios' | 'instagram' | 'yout
 export const TARJETAS_COPILOTO: readonly TarjetaCoPilot[] = ['oferta', 'web', 'anuncios', 'instagram', 'youtube'];
 
 /**
+ * CUÁNTAS ACCIONES SE MUESTRAN POR RED en el paso del piloto (15/11/2026). Martín, textual: «en lugar de que salga un
+ * accionable de cada red social, ya sea anuncios, Instagram o YouTube, yo lo que haría es que, si estoy parado en anuncios,
+ * que salgan tres accionables o acciones que tomó MaKo para anuncios, y lo mismo luego cuando cambio a Instagram que salgan
+ * tres y YouTube que salgan tres también».
+ *
+ * Es UNA constante y no un 3 suelto en tres archivos: la leen la tarjeta de anuncios (app/ads-manager/copiloto/
+ * PilotoAnuncios.tsx, donde reemplazó a un `VER = 5`) y la de Instagram y YouTube (../CoPilot.tsx).
+ *
+ * ⚠️ ES UN TOPE, NO UNA CUOTA: si una red tiene menos de tres, se muestran las que hay. **No se rellena.** Las acciones de
+ *    Instagram y de YouTube salen de `propuestasDelPiloto` (./piloto-redes.ts), que hoy puede producir como máximo dos para
+ *    Instagram y una para YouTube — y sólo cuando hay datos (un reel top leído, un video largo publicado). Rellenar hasta
+ *    tres con una frase genérica sería inventar una acción que MaKo no tomó.
+ */
+export const ACCIONES_POR_RED = 3;
+
+/**
  * Lo que hace «Hacerlo»: ir a otra pantalla (`href`), abrir los desplegables de una parte (`oc`), que MaKo lea (`leer`) o
  * conectar una red AHÍ MISMO (`conectar` + `red`): para una integración jamás se sale de la tab (Martín, 14/10/2026,
  * tests/integracion-sin-salir.test.ts).

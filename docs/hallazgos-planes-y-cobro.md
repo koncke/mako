@@ -10,6 +10,66 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## El número que lee el cliente va primero, y el cupo se calcula desde ahí: la causalidad al revés (15/11/2026)
+
+**Vive en:** `lib/mako-tokens-reglas.ts` (`IMAGENES_DEL_CUPO` → `CUPO_MENSUAL` → `PISO_DE_MARGEN_BRUTO`),
+`lib/mako-tokens-paquetes.ts` (los extremos de la bolsa). Lo miden `tests/mako-tokens-paquetes.test.ts`,
+`tests/uso-del-cupo.test.ts` y `tests/costs-suscripcion.test.ts`.
+
+**El síntoma:** la columna del plan de US$47 prometía **958 imágenes**. Martín: «haz que se redondee a 1000 imágenes, porque eso
+queda marketinero». Y 958 no era un error de nadie: era `11.500 MT ÷ 12 MT la imagen`, la división exacta de un cupo elegido a mano.
+
+### El hallazgo: el cupo era la CAUSA y tenía que ser la CONSECUENCIA
+
+Mientras el número elegido fue el cupo, **toda cifra que ve el cliente salía de una división** y por lo tanto no podía ser redonda
+salvo por casualidad. Dado vuelta —se decide el número redondo y el cupo es lo que ese número CUESTA— el problema desaparece de
+raíz en vez de arreglarse cifra por cifra. Y la prueba de que ésta era la forma correcta desde el principio: puesto así,
+**dos de los tres cupos caen en el mismo valor que ya tenían** (125 × 12 = 1.500 en la prueba, 2.000 × 12 = 24.000 en el de US$97).
+Sólo se movió el del medio, que era justo el que no daba redondo.
+
+**La regla que queda:** cuando una cifra la lee un cliente antes de comprar, esa cifra es la entrada del cálculo, no la salida. Y el
+cupo tiene que ser múltiplo EXACTO del costo de la unidad, o la vitrina promete 1.000 y la bolsa compra 999 (hay un test que lo mide
+por los dos lados).
+
+### Lo que costó, medido antes de decidir: un punto de margen, y sólo en el plan chico
+
+1.000 imágenes son 12.000 MT = **US$12,00 de un precio de US$47 → 25,5% en vez del 25% de la meta, o sea 74,5% de margen bruto**
+contra 75%. En plata: **US$0,50 por cliente por mes, y sólo si lo gasta TODO** (el cupo es el techo, no el gasto esperado). El de
+US$97 no se tocó: sigue en 75,3%. Martín lo decidió con ese número a la vista.
+
+⚠️ **Y eso obligó a mover el límite al lugar correcto, que es el verdadero hallazgo.** El test del margen decía `<= 0.25` clavado, así
+que **se puso rojo con la decisión del dueño adentro** — y un test que se pone rojo porque el dueño decidió algo tiene mal escrito el
+límite, no el número. El 25% era una META; el límite real es el margen que el negocio no baja, y ahora vive en
+`PISO_DE_MARGEN_BRUTO` (74%) con el porqué al lado. Es el único lugar del circuito donde se eligió a propósito quedar por debajo del
+75%: todos los demás redondeos van para nuestro lado (`mtDeUsd` sube el gasto, el cupo baja cuando no cae redondo). Sin una
+constante que lo diga, el próximo «subamos esto porque queda lindo» suma por abajo y nadie lo ve.
+
+### Ocho tests rojos de una, y ninguno por un error del código
+
+Bajar el cupo de 24.250 a 24.000 puso en rojo ocho tests en cuatro archivos. Todos por lo mismo: **tenían transcripta la cifra que
+vigilaban** («24,25», «61,53», «14,83», «24.250 MT»), algunos hasta en el título del test. Un test así no vigila nada —se rompe
+cuando el dueño decide, y calla cuando el cálculo se rompe de verdad, porque los dos lados dicen lo mismo por casualidad y no por
+construcción—. Es la **tercera vez en el mismo día** que aparece esta clase en este repo (antes: un divisor clavado en
+`tests/mako-tokens-paquetes.test.ts`, y un ejemplo numérico de un límite móvil).
+
+**La línea que los separa, y es la regla:** lo que se CALCULA se deriva; lo que se DECIDE se escribe a mano. «Servir la cuenta» y el
+techo de IA salen del cupo → se derivan. La captación (US$97 ÷ 9 meses), el impuesto y la pasarela son decisiones de Martín → se
+escriben, y si cambian solas es un error y el test tiene que gritar. La «ganancia» se deriva porque es, por definición, lo que queda.
+
+**Lo que NO se hizo:** correr la tanda entera después de mover el cupo. Los ocho rojos estuvieron ~2 h en el árbol porque la pasada
+local fue sólo sobre los archivos tocados, y `CUPO_MENSUAL` lo leen catorce. Cuando lo que se mueve es una constante de negocio, los
+afectados no son los archivos que editaste: son los que la importan (`grep` de la constante, no `git status`).
+
+### Un cobro de 1 MT de más en el 12,5% de las cantidades, por coma flotante
+
+`mtDeImagenes` hacía `Math.ceil(cuantas * 0.012 * 1000)`. `0,012` no se representa exacto en binario, así que 1.700 imágenes daban
+`20400.000000000004` y el redondeo hacia arriba cobraba **20.401**. Medido: de las 2.000 primeras cantidades, **250 cobraban un token
+de más**. No es un problema de plata: le rompe lo redondo al cliente, que era justo el pedido. **La cura tiene dos mitades:**
+`mtDeUsd` redondea a la millonésima ANTES de subir, y quien cobra una CANTIDAD de cosas iguales saca el costo de UNA en MT y lo
+multiplica. Convertir dólares y después redondear arrastra el error tantas veces como unidades haya.
+
+---
+
 ## «Pasar a Pro» en la prueba: tres rondas, y lo que cada una enseñó sobre las aserciones VACÍAS (15/11/2026)
 
 **Vive en:** `app/configuraciones/plan/page.tsx` (la decisión: `pro`, `subir`, `porLlamada`), `PlanPanel.tsx` (la fila, el aviso y
@@ -3512,3 +3572,133 @@ US$24) sin relación con ningún plan, y sólo hablaba de video e imágenes.
 **Sin hacer:** el medidor (acreditar el cupo cada mes y descontar cada clip e imagen); los cupos nuevos sin aprobar (1 clip en
 Esencial, 4 min en Pro, `docs/pendientes-martin.md:160`): al cambiar `CLIPS_POR_MES` la calculadora los toma sola; y decidir si
 los MT COMPRADOS se acumulan (el cupo no, 7/11; lo comprado no está decidido).
+
+
+## El cupo no es la palanca para limitar un plan; el tope sí. Y tres trampas de la vitrina de precios (15/11/2026)
+
+Martín miró /planes y pidió, entre otras cosas, dos números: que el de US$97 vuelva a los **4 minutos** de video «que habíamos
+calculado para nuestra rentabilidad», que el de US$47 **no genere video** («tiene solamente generación de imagen y de manera
+limitada»), y que le baje los MaKo Tokens al de US$47 porque «creo que le pusiste exactamente la mitad… ahí ya podría generar
+una cantidad de videos y una cantidad de imágenes que no debería». Los 4 minutos ya estaban anotados como cupo SIN APROBAR en
+`docs/pendientes-martin.md:160`; los 36 clips (6 minutos) entraron el 14/11 sin que nadie recalculara nada.
+
+**EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO.** «Tiene demasiados tokens» invita a bajar `CUPO_MENSUAL`, y eso es lo que NO hay que
+hacer, por dos razones:
+1. El cupo no es un número elegido: es el techo de IA que deja el margen objetivo del plan (US$11,75 en el de US$47, US$24,25 en
+   el de US$97, `docs/costos-ia-y-planes.md`). Bajarlo no hace al plan más limitado donde duele: lo hace más rentable en el papel.
+2. Y el **mismo día** Martín dio vuelta su decisión del 22/10 («cada negocio paga su IA»): desde hoy «todo debería consumir MaKo
+   Tokens» — guiones, transcripciones, análisis de la competencia. O sea que el cupo pasó a pagar TODA la IA. Bajarlo para que
+   genere menos imágenes le saca, de paso, el texto, que es lo que más usa.
+
+La cura es la que el repo ya tenía para el video y le faltaba para la imagen: un **TOPE por plan, que manda sobre los tokens**.
+`CLIPS_POR_MES` ya existía con ese propósito (con el cupo solo, el de US$47 pediría 23 clips; el tope manda). Se le sumó
+`IMAGENES_POR_MES` (15 / 150 / 1.000) y el cupo quedó intacto. Los topes del de US$97 suman 24.000 MT de sus 24.250: caben justo
+adentro, así que el que frena es el tope y los tokens no prometen de más. Hay un test que lo fija.
+
+**Lo que se movió solo, y nadie lo había visto:** el piso del clip suelto. El único piso real es el MARGINAL — lo que cuesta
+cada clip de más al subir de plan — y su divisor es la diferencia de clips entre los dos planes. Al bajar el de US$97 a 24 clips
+y el de US$47 a 0, el piso pasó de `50/30` = US$1,67 a `50/24` = **US$2,083**, y el clip suelto de US$2 quedó **por debajo**: a
+alguien del plan barato le convenía recargar antes que subir, exactamente lo contrario de «la idea es que compren el de 97».
+Se subió a US$3 (el minuto, US$18). No a US$2,50, que también pasaba el piso: con 2,50 el total de la barra salía **«US$ 109,5»**,
+y un precio con coma en una página de precios se lee como un error de cálculo. Eso lo pescó el test, no el ojo.
+
+### Tres trampas, las tres medidas
+
+**1. Un test que repite el número que vigila no vigila nada.** El test del piso decía `Math.abs(m - 50 / 30) < 1e-9`. Cuando
+`CLIPS_POR_MES` cambió, el rojo apareció ahí, diciendo «el piso dio US$2,08» — como si el piso fuera el error. El piso estaba
+bien; el error era el PRECIO, y el test que debería haber avisado de eso («el precio decidido pasa el piso») quedaba tapado
+detrás del primero. Ahora el piso se deriva de `USD_DEL_PLAN` y `CLIPS_POR_MES`, así que mover los clips NO pone rojo al test
+del piso: pone rojo al del precio, que es el que pide una decisión. **Regla: el valor esperado se deriva de las mismas
+constantes; si se escribe a mano, el rojo aterriza en el lugar equivocado.**
+
+**2. Un backtick en un comentario de CSS cierra el template literal.** `CSS_TARJETAS` y `CSS_TOKENS` son plantillas, y un
+comentario `/* ... `data-tema-fijo` ... */` adentro **termina la cadena**. El síntoma no se parece a la causa: `tsc` tira
+`TS1005: ',' expected` en una línea de CSS treinta renglones más abajo, donde no hay nada roto. Por eso los comentarios viejos
+de esos bloques usan guillemetes « »: no era estilo. **Regla: adentro de un CSS-en-plantilla, los identificadores van entre
+« », nunca entre backticks.**
+
+**3. El sol y la luna decide el texto y el fondo POR SEPARADO, así que una pastilla puede quedar verde sobre negro.** Martín:
+«7 días gratis en el de 47, lo pusiste en negro cuando estoy en white mode». Medido en producción, modo claro, el MISMO CSS
+(`.mkpl-bajo.gratis`) dio dos resultados distintos:
+
+| tarjeta | texto | fondo | queda |
+|---|---|---|---|
+| MaKo Esencial | `rgb(31,122,77)` | `rgb(26,23,18)` | verde sobre **negro** |
+| MaKo Pro | `rgb(18,21,27)` | `rgb(227,245,235)` | **negro** sobre verde |
+
+O sea: en una invirtió el fondo y en la otra el texto. `TemaSitio` recorre el DOM y decide color por color mirando la luz de lo
+que cada elemento tiene detrás (`luzDe`), y las dos tarjetas no tienen el mismo fondo — la de Pro es la destacada, con su borde
+y su sombra azules. El diagnóstico obvio («elegí otro verde») no arregla nada: con cualquier par, el script puede dar vuelta
+una mitad. **Regla: todo par de colores apareados — una pastilla, una insignia, la parte llena de una barra — lleva
+`data-tema-fijo`. Y no se razona sobre un color: se mide en el navegador, que es lo único que sabe qué tenía detrás.**
+
+**Sin hacer:** el medidor que descuente de verdad (lo está construyendo otra sesión, con su tabla de costos en
+`lib/mako-tokens-costos.ts`); mientras no exista, `COSTO_POR_ACCION` sigue diciendo «No gasta: usa tu IA» en tres filas, que es
+la decisión vieja — queda exportada pero **ya no se dibuja**, y hay un test que impide que /planes muestre un costo en MaKo
+Tokens que no esté medido. Decidir si los MT COMPRADOS se acumulan sigue pendiente (el cupo no, 7/11).
+
+
+## «¿Cuánto nos sobra con 6 minutos de video en vez de 4?»: cinco frentes y los cinco dijeron que mi cuenta estaba mal (15/11/2026)
+
+Martín preguntó cuánto cambia la rentabilidad del plan de US$97 si da 6 minutos de generación de video en vez de 4. Contesté
+con el modelo del repo (`loQueSeVaDeUnaSuscripcion`, lib/economia-unitaria.ts) y di números. **Los cinco frentes que lo
+refutaron dijeron «mal» o «viejo», y tenían razón en lo material.** Lo que sigue es lo que quedó en pie.
+
+### La respuesta, que no era de centavos
+
+**Hoy 6 minutos cuestan lo mismo que 4: CERO.** El único camino que filma en producción (`generarTomaAction`,
+app/video-generator/video-action.ts) gasta los **créditos de Google Flow DEL CLIENTE** y no mira saldo, ni cupo, ni los 24
+clips. El camino que nos cobraría, ApiMart, **es código muerto: nadie importa lib/apimart.ts** (`generarVideo()` se define y
+no se llama nunca). Y **nada hace cumplir `CLIPS_POR_MES`**: sus únicos lectores son /planes, el VSL y los tests. O sea que
+mover 4 → 6 cambia **una promesa de la vitrina, no un costo**.
+
+### Los dos errores de mi cuenta, porque los dos son reproducibles
+
+**1. US$0,412 no es nuestro costo del clip.** Sale de Omni Flash **en Google Flow** (US$0,15 fijo + US$0,025/s = 0,40, más
+US$0,012 de la imagen de referencia): el camino que paga el cliente. El costo que aplicaría si lo pagáramos nosotros es el
+del default del código (`MODELO_VIDEO_POR_DEFECTO`, Hailuo 2.3 Fast a US$0,0253/s): **US$0,265 el clip**, así que la
+diferencia entre 4 y 6 minutos es US$3,18/mes y no US$4,94. Hay TRES costos de clip vivos en el repo (0,265 del default,
+0,396 de `USD_POR_SEGUNDO`, 0,412 de Flow) y ninguno está medido sobre la pieza que el cliente produce.
+
+**2. «Se pasa del cupo en 5.750 MT» mezcló unidades, y es la trampa que más vale anotar.** `MT_POR_CLIP` = 500 es un
+**PRECIO** (su propia nota lo dice: «redondo hacia arriba desde los 412 de costo: deja aire», ~47% de margen adentro).
+`mtDeImagenes(1)` = 12 y `CUPO_MENSUAL` están en **COSTO** («1.000 MT = US$1 de costo real»). Sumar el precio del clip
+contra un presupuesto de costo reserva US$0,50 para algo que cuesta US$0,265. A costo real, 36 clips + 1.000 imágenes son
+21.540 de 24.250: **entran, con 2.710 de sobra**, y el canje «sacarlos de las imágenes» no hacía falta.
+**Son DOS preguntas y hay que decir cuál se contesta:** «¿le alcanza el cupo al cliente?» se mide en PRECIO (es lo que el
+medidor descuenta); «¿cuánto nos cuesta?» se mide en COSTO del modelo. El error estaba en el repo además de en mi cuenta:
+el comentario de `IMAGENES_POR_MES` y su test lo hacían igual, y quedaron arreglados con las dos cuentas separadas.
+
+### Lo que sí decide, y no es el minuto de más
+
+- **La regla ⛔⛔ de Martín del 8/11** («TENÉS PROHIBIDO USAR OTRO MODELO QUE NO SEA OMNI» para una cara que habla) manda a
+  `kling-v3-omni`, US$0,0896/s = **US$0,908 el clip**. Entonces 4 minutos son US$21,79 = **el 90% del presupuesto de IA del
+  plan** (US$24,25) y 6 minutos son US$32,69, **más que el presupuesto entero**. Si el clip del plan es el avatar hablando
+  — que es lo que vende el producto — **6 minutos no cierran a US$97 y 4 cierran raspando**. El default del código es
+  justamente el modelo que la medición descartó porque «NO abrió la boca».
+- **Los 250 MT de aire que dejaban los topes a 4 minutos dejaron de ser aire EL MISMO DÍA.** Con la decisión del 15/11
+  («todo debería consumir MaKo Tokens») ese cupo paga también guiones, transcripciones y análisis de competencia: US$0,25
+  al mes para todo el texto, contra los US$2,82 que el propio repo le presupuesta y los US$68 medidos en un workspace
+  intensivo. **Con el medidor puesto, los topes no entran en el cupo ni con 4 minutos.**
+- **El fijo por cliente no es US$8,77: con los 3 clientes REALES es US$146,08**, porque los US$8,77 salen de dividir entre
+  los 50 de la meta. Hoy cada cliente de US$97 **pierde US$75,79/mes**. El video es el cuarto de cinco gastos y 118 veces
+  más chico que el fijo. El número que sirve para decidir no es el % de margen: es el **equilibrio en clientes — hoy 6, y
+  los 6 minutos lo mueven a 8**.
+- **«¿Cuánto nos sobra a NOSOTROS?» no tiene respuesta hasta decir quién es «nosotros»:** el fijo de US$438,25 es sólo de
+  Martín (deja afuera US$306 de Mauricio y US$400 de la mitad de Leandro), el impuesto lo paga Leandro, y la comisión de
+  pasarela hoy no la paga nadie porque los tres clientes pagaron por Binance.
+- **Y una palanca más grande que los 6 minutos:** pasar Mercado Pago de 35 días a instantáneo cuesta **US$5,64 por cliente
+  por mes**, más que los 6 minutos al 100% de uso.
+
+### La regla que queda
+
+**Antes de contestar «¿cuánto nos sobra?» hay que preguntar tres cosas, y ninguna es el precio:** (1) ¿el costo que estoy
+usando es de un camino que PAGAMOS, o de uno que paga el cliente?; (2) ¿la suma está toda en precio o toda en costo?; y
+(3) ¿el límite que estoy moviendo lo hace cumplir algún código, o es texto de la vitrina? Con las tres mal, el número sale
+igual y parece bueno.
+
+**Sin medir, y es estructural:** no hay NI UN dato de uso real. `tasaDeUsoMedida` no la llama nadie salvo su test con datos
+a mano; `USO_SUPUESTO` = 25% es el valor inicial de un deslizador; el ledger (`mako_tokens_movimientos`) no se escribe ni se
+lee; y el gasto de texto POR CLIENTE es imposible de derivar hoy porque `wsDeProveedor()` escribe todas las filas de
+Anthropic en el workspace 1 a propósito. El US$68/mes que circula es el techo de un workspace intensivo de la agencia
+misma, no el promedio de un cliente.

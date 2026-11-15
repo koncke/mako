@@ -33,6 +33,28 @@ para MIRAR, no para juzgar un build:** con webpack el hook de instrumentación t
 web-push → https-proxy-agent → agent-base`, que pide un builtin de node. No frena el arranque y no pasa con el
 bundler de verdad; es ruido del camino de atrás.
 
+⚠️ **DESMENTIDO EN PARTE EL 15/11/2026 (claude1, worktree `wt-push-q`, para mirar el login rediseñado): `--webpack` NO alcanza, y
+las dos cosas que esta nota llama «ruido» son las que matan el server.** Tres arranques, tres muertes con `exit code 1`:
+
+1. **El `Can't resolve 'http'` SÍ frena el arranque.** La nota dice «no frena el arranque y es ruido del camino de atrás»; hoy el
+   proceso salió con código 1 sin servir un solo request, dos veces, con ese error como única salida. La causa de fondo explica por
+   qué: webpack resuelve el junction a una ruta FUERA de la raíz del proyecto (`../../Users/marti/.../node_modules/agent-base/…`) y a
+   lo que queda afuera le aplica la resolución del cliente, donde `http` no existe. O sea que no es un problema de `web-push`: es de
+   **todo** lo que se alcanza a través del junction. Se saltea apartando `instrumentation.ts` (sólo hidrata credenciales, y en un
+   worktree sin `.env` no hace nada), y entonces aparece la segunda.
+2. **Compilar una ruta con webpack se come más de 5 GB, y el vigía lo mata por FUGA, no por zona roja.** Con 7,2 GB libres —tres veces
+   el margen que esta nota pide— el server murió igual: `$FUGA_DEV_MB` son **5.120 MB privados y se aplica con cualquier RAM libre**
+   (`vigia.ps1`). La ruta `/login` sola lo pasó. Turbopack compila la misma ruta en una fracción de eso; webpack no es «el bundler
+   viejo que además anda», es otro orden de magnitud de memoria.
+3. ⚠️ **Y lo que más cuesta diagnosticar: el vigía loguea la ruta del CLON aunque mate el server del worktree**, porque el
+   `node_modules` del worktree es un junction y el ejecutable de Next se resuelve al del clon. Los tres `MATO pid … (dev, … MB)` de
+   `guardia.log` dicen `dashboard-marketing-main\dashboard-marketing\node_modules\next\…` para servers de DOS worktrees distintos y
+   del clon: **por el log no se puede saber de quién era el que murió.** Se distingue por el PID, que hay que anotar al arrancar.
+
+**Lo que sí sirve, entonces:** para MIRAR una pantalla de un worktree hay que copiar `node_modules` de verdad (robocopy, ~3 min,
+1,24 GB medidos en 77.112 archivos) y dejar que corra Turbopack. La propuesta del 29/10 era la correcta y el atajo de `--webpack` del
+8/11 sólo funcionó para una pantalla más liviana. Y antes de copiar, mirar el disco: el 15/11 quedaban 19,4 GB libres en C:.
+
 **Segunda muerte: el vigía, y esta vez con el número.** Con webpack el server arrancó, y al compilar la primera ruta el
 proceso llegó a **2.478 MB privados**: la PC cayó a **621 MB libres** y el vigía lo mató («MATO pid … (dev, 2478 MB
 privados) por zona-roja», `~/.claude/guardia/guardia.log`). El umbral del vigía son **1.200 MB** libres (`$ROJA_MB`,

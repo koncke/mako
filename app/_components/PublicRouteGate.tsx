@@ -18,9 +18,17 @@ import { useTelefono, useVistaMovil } from './VistaMovil';
 /** ¿La ruta es una landing pública? (no debe mostrar chrome de la app). */
 export function isPublicLandingPath(pathname: string | null | undefined): boolean {
   const p = pathname ?? '';
-  // '/' es la landing de venta. Solo la renderiza quien NO tiene sesión: a los
-  // logueados app/page.tsx los redirige a su home según el rol, así que acá
-  // nunca hay que mostrarles chrome.
+  // '/' es la PORTADA, la cara pública del dominio.
+  // ⚠️ OJO CON EL PORQUÉ, QUE CAMBIÓ EL 14/11/2026 Y NO ES EL QUE DECÍA ACÁ. Este
+  // comentario afirmaba que «'/' solo la renderiza quien NO tiene sesión: a los
+  // logueados app/page.tsx los redirige a su home según el rol». Eso dejó de ser
+  // cierto cuando la portada nueva pasó a ser la ruta principal: hoy «la ve
+  // CUALQUIERA, con sesión o sin ella» (app/page.tsx). El predicado no cambia — '/'
+  // sigue siendo pública — pero la razón sí, y la vieja hacía creer que un logueado
+  // nunca llega acá. Por eso el 15/11 hubo que sacar de la portada los avisos de
+  // adentro de la app (app/layout.tsx, `FueraDeLoPublico`): el único filtro que
+  // tenían era «hay sesión», que alcanzaba mientras la redirección existiera.
+  // Cualquier cosa que se apoye en «acá no hay logueados» está apoyada en nada.
   // '/compartido' es material que se le pasa a alguien de afuera: sin sesión no
   // debe ver el sidebar (con los nombres de las tabs internas) ni disparar los
   // pollers de la app, que además le devolverían 401 en bucle.

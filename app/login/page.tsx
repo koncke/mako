@@ -1,9 +1,15 @@
 // =============================================================================
-// Login — cuatro caminos de entrada, una sola tarjeta
+// Login — cuatro caminos de entrada, un solo envoltorio
 // =============================================================================
-// El envoltorio (velo + marca + tarjeta) vive en ./_ui/TarjetaLogin.tsx y lo
-// comparten las tres pantallas de entrada: acá, /login/2fa y /login/restablecer.
-// Antes estaba copiado a mano en las tres, con sus propios hexes.
+// El envoltorio (velo + marca + los dos paneles) vive en ./_ui/TarjetaLogin.tsx
+// y lo comparten las tres pantallas de entrada: acá, /login/2fa y
+// /login/restablecer. Antes estaba copiado a mano en las tres, con sus hexes.
+//
+// Desde el 15/11/2026 ese envoltorio es la pantalla ENTERA en dos paneles —el
+// formulario a la izquierda, las animaciones de la portada en bucle a la derecha—
+// porque Martín rechazó la tarjeta centrada: «está súper simple… quiero un
+// rediseño completo del login». Esta página no sabe nada de eso: pone su
+// contenido y lo hereda. Lo único que decide es si el panel derecho va mudo.
 //
 // El botón de Google vive en LoginForm (client, lee ?next= y ?error= con
 // useSearchParams) y va envuelto en Suspense: el fallback es un hueco del alto
@@ -109,8 +115,19 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const deLaApp = uno(sp[PARAM_APP]) === '1';
   // La app de iPhone entra con correo, contraseña y 2FA: Google prohíbe su OAuth en un WebView (T6, lib/tienda.ts).
   const sinGoogle = await esAppIosDelPedido();
+  // ⚠️ ESTOS DOS CAMINOS NO LOS MIRA UN COMPRADOR DE MaKo (15/11/2026), y por eso el panel de las
+  // animaciones se calla en ellos (`vitrina='muda'`). Es el cliente de OTRO negocio entrando a su curso, y la regla de esa audiencia
+  // ya estaba escrita en ./EntrarAlumno.tsx: «LO LEE UN CLIENTE DE OTRO NEGOCIO: neutro con TÚ, corto,
+  // y sin jerga de MaKo». La primera vuelta del rediseño del 15/11 le puso al lado «El mejor software
+  // para vender High Ticket» en 904 px de 1440 (62,8 % de la pantalla, medido) a 34 px, contra los 20 px
+  // del título que le habla a ella: lo más grande de su pantalla era un aviso nuestro; con las animaciones
+  // sería un comercial nuestro en bucle. El panel NO se saca, se queda mudo. El logo tampoco: identidad
+  // no es aviso.
+  // Los tres motivos de MOTIVO_ALUMNO no entran acá a propósito: ésos caen en el login de MaKo, que sí
+  // es nuestra puerta.
+  const esDelAlumno = linkValido || alumno;
   return (
-    <TarjetaLogin>
+    <TarjetaLogin vitrina={esDelAlumno ? 'muda' : 'videos'}>
       {/* ⚠️ EL LINK DEL MAIL GANA SOBRE TODO LO DEMÁS: es una acción explícita que la persona
           acaba de pedir, y con la sesión de MaKo (o una cookie de alumno vieja) puesta no tendría
           dónde apretar. Entrar como alumno no toca la sesión de MaKo. */}
@@ -148,7 +165,18 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 <Alert>, que YA trae el role="alert" y «Reportar a Soporte» — el <div> de antes no
                 tenía rol, así que un lector de pantalla nunca anunciaba que el link no servía. */}
             {motivoAlumno && <Alert tono="bad">{motivoAlumno}</Alert>}
-            <Suspense fallback={<div style={{ height: 'calc(var(--touch) + 8px)', borderRadius: 'var(--r-md)', background: 'var(--surface-2)' }} />}>
+            {/* ⚠️ EL HUECO VA EN `--fondo-columna` Y NO EN `--surface-2` (15/11/2026): ES EL ÚNICO
+                BLOQUE DE LA PANTALLA QUE NO TIENE BORDE. Hasta el 14/11 el formulario vivía sobre
+                una tarjeta `--surface`, y `--surface-2` sobre `--surface` se ve (1,111:1, medido).
+                La primera vuelta del rediseño del 15/11 le sacaba el relleno al marco por debajo
+                de 1024 px, así que el hueco quedaba sobre `--bg`: #f0f0ef sobre #efefed, 1,01:1 —
+                INVISIBLE en el teléfono, y es el
+                hueco donde va el botón de Google, o sea lo que se ve mientras carga en TODOS los
+                caminos sin sesión. `--fondo-columna` es tinta translúcida (6 %), el token que la
+                casa inventó justo para «que las columnas no sean invisibles»: mide 1,127:1 sobre
+                `--bg` y 1,131:1 sobre `--surface` —lo mismo en los dos paneles— y se da vuelta en
+                oscuro. Un color que existe PARA un fondo deja de servir cuando el fondo se va. */}
+            <Suspense fallback={<div style={{ height: 'calc(var(--touch) + 8px)', borderRadius: 'var(--r-md)', background: 'var(--fondo-columna)' }} />}>
               <LoginForm sinGoogle={sinGoogle} />
             </Suspense>
             {/* «Soy alumno: entrar con mi email» (item 9): plegado, para no competir con el botón de

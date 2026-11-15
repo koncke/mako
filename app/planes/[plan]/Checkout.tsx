@@ -55,7 +55,9 @@ export function incluyeDeLaColumna(capa: string): readonly string[] {
   // El orden de la columna: los MaKo Tokens, los topes y después las funciones. Sin cupo decidido para esa capa, la columna no
   // habla de tokens y el checkout tampoco (nunca un número inventado). La ceja («MaKo lo hace, tú apruebas») NO entra: es el
   // título de la lista, y con un ✓ adelante se leería como una función más.
-  return [...(l.tokens ? [l.tokens] : []), ...l.topes, ...l.items.map((x) => `${x.fuerte ?? ''}${x.texto}`)];
+  // 15/11/2026: `l.topes` se fue — los topes ahora son checks, así que ya vienen en `l.items` (app/planes/Tarjetas.tsx,
+  // `ListaDeColumna`). El checkout sigue diciendo EXACTAMENTE lo mismo que la columna sin que haya que tocarlo de nuevo.
+  return [...(l.tokens ? [l.tokens] : []), ...l.items.map((x) => `${x.fuerte ?? ''}${x.texto}`)];
 }
 
 /**

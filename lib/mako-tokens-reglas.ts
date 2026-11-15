@@ -29,46 +29,26 @@
 /** 1.000 MaKo Tokens = US$1 de costo real de IA. */
 export const MT_POR_USD = 1000;
 
-/** De costo a tokens, SIEMPRE hacia arriba: cobrar de menos es regalar margen en cada llamada. */
-export const mtDeUsd = (usd: number): number => Math.ceil(usd * MT_POR_USD);
+/**
+ * De costo a tokens, SIEMPRE hacia arriba: cobrar de menos es regalar margen en cada llamada.
+ *
+ * ⚠️ EL `Math.round` DE ADENTRO NO ES DECORACIÓN: SIN ÉL, EL REDONDEO HACIA ARRIBA COBRA 1 MT DE MÁS (15/11/2026).
+ * `0,012` no se puede representar exacto en coma flotante, así que `1700 * 0.012 * 1000` da **20400.000000000004** y el
+ * `Math.ceil` lo sube a 20401. Medido: de las 2.000 primeras cantidades de imágenes, **250 cobraban 1 MT de más** — el
+ * 12,5% de los casos. Es poca plata, pero no es un problema de plata: le rompe lo REDONDO al cliente, que es justo lo que
+ * Martín pidió el 15/11 («que el cálculo de los MaKo Tokens sean redondos para el cliente… no me gusta que sea un número
+ * que no sea redondo»). Un gasto de 20.401 en una pantalla se lee como un error, y lo es.
+ * Se redondea a la millonésima ANTES de subir: así el ceil sigue haciendo su trabajo (cualquier costo real por encima de
+ * un token entero paga el siguiente) y el ruido de la representación no inventa un token.
+ *
+ * ⚠️ Y LA OTRA MITAD DE LA CURA ESTÁ EN LOS QUE LLAMAN: para una CANTIDAD de cosas iguales, se saca el costo de UNA en
+ * MT y se multiplica (`mtDeImagenes`). Multiplicar dólares y después convertir arrastra el error tantas veces como
+ * unidades haya.
+ */
+export const mtDeUsd = (usd: number): number => Math.ceil(Math.round(usd * MT_POR_USD * 1e6) / 1e6);
 
 /** De tokens a costo, para mostrarlo. */
 export const usdDeMt = (mt: number): number => mt / MT_POR_USD;
-
-/**
- * Los planes y su cupo mensual.
- *
- * ⚠️ EL CUPO NO ES UN NÚMERO ELEGIDO: es el techo de IA que deja el margen objetivo.
- * `docs/costos-ia-y-planes.md`: para sostener 75 % de margen bruto el presupuesto es **US$11,75 en Pro** y
- * **US$24,25 en Growth**. Un workspace intensivo medido gastaba **US$68/mes**, o sea −45 % en Pro: sin medidor,
- * un solo usuario pesado se come el plan.
- */
-export type Plan = 'free' | 'pro' | 'growth';
-
-export const CUPO_MENSUAL: Record<Plan, number> = {
-  free: 1_500,     // una prueba, y la suficiente para que se vea qué hace
-  pro: 11_750,     // US$11,75 — el plan de US$47
-  growth: 24_250,  // US$24,25 — el plan de US$97
-};
-
-/**
- * Qué clave de acá es cada plan que se VENDE (14/11/2026). ⚠️ Los nombres no coinciden y confunden: estas claves son de
- * cuando los planes eran Free/Pro/Growth (8/8). Hoy MaKo Esencial (US$47, capa `completo`) es `pro` y MaKo Pro (US$97, capa
- * `agencia`) es `growth` (lib/planes-mako.ts). Leer «pro» acá como «MaKo Pro» le da al plan de US$97 el cupo del de US$47.
- */
-export const PLAN_DE_CAPA: Readonly<Record<string, Plan>> = { completo: 'pro', agencia: 'growth' };
-
-/**
- * Los MaKo Tokens que trae al mes el plan de esa capa, o null si la capa no es un plan que se vende.
- *
- * ⚠️ EL ACELERADOR NO TIENE CUPO (15/11/2026): trae MaKo Pro los 3 meses, pero nadie decidió cuántos MaKo Tokens da, y
- *    esto NO lo inventa — devuelve null para cualquier capa que no sea `completo` o `agencia`, y su columna de /planes no
- *    habla de tokens. Un número puesto a mano acá es una promesa que el producto no cumple.
- */
-export const cupoDeCapa = (capa: string): number | null => {
-  const p = PLAN_DE_CAPA[capa];
-  return p ? CUPO_MENSUAL[p] : null;
-};
 
 /**
  * Qué modelo se usa por defecto. **Acá vive el margen.**
@@ -108,13 +88,139 @@ export const USD_POR_SEGUNDO: Record<Calidad, number> = { normal: 0.0384, premiu
 /** US$ por imagen, por calidad. FLUX.2 dev y GPT Image 2 medium. */
 export const USD_POR_IMAGEN: Record<Calidad, number> = { normal: 0.012, premium: 0.047 };
 
+/** Lo que cuesta, en MT, UNA imagen de esa calidad. 12 MT la normal, 47 la premium. */
+export const MT_POR_IMAGEN: Record<Calidad, number> = {
+  normal: mtDeUsd(USD_POR_IMAGEN.normal),
+  premium: mtDeUsd(USD_POR_IMAGEN.premium),
+};
+
+export type Plan = 'free' | 'pro' | 'growth';
+
+/**
+ * LAS IMÁGENES QUE SE PROMETEN EN LA VITRINA, y de acá sale el cupo. **Redondas porque las lee un cliente** (15/11/2026).
+ *
+ * Martín, 15/11: «en el de $47 haz que se redondee a 1000 imágenes, porque eso queda marketinero. Justamente la idea es
+ * esa. No sé cómo quedaría el margen ahí, pero yo creo que tranquilamente nos podríamos permitir eso». Se puede, y lo que
+ * cuesta está medido en `PISO_DE_MARGEN_BRUTO`: un punto de margen, y sólo en el plan chico.
+ *
+ * ⚠️ EL CUPO SE DIO VUELTA: ERA LA CAUSA Y AHORA ES LA CONSECUENCIA. Hasta hoy el número elegido era el cupo (11.500,
+ * 24.000) y las imágenes salían de dividirlo — por eso daban **958**, que es exactamente la clase de cifra que no puede
+ * estar en una vitrina. Dado vuelta, se decide el número redondo y el cupo es su costo.
+ * Y el detalle que muestra que esta era la forma correcta desde el principio: **puesto así, dos de los tres cupos caen en
+ * el MISMO valor que ya tenían** (125 × 12 = 1.500 en la prueba, 2.000 × 12 = 24.000 en el de US$97). Sólo se movió el del
+ * medio, que era justo el que no daba redondo.
+ *
+ * ⚠️ Y POR ESO EL MÚLTIPLO IMPORTA: el cupo tiene que ser múltiplo EXACTO de `MT_POR_IMAGEN.normal`, o el cliente ve 999
+ * imágenes y un resto que no le alcanza para nada. Un test lo comprueba en los dos sentidos.
+ *
+ * El de US$47 no genera video (`GENERA_VIDEO`, ./mako-tokens-paquetes.ts), así que su bolsa se cuenta en imágenes y nada
+ * más. El de US$97 reparte la MISMA bolsa entre 2.000 imágenes o 26 clips, como quiera.
+ */
+export const IMAGENES_DEL_CUPO: Record<Plan, number> = { free: 125, pro: 1_000, growth: 2_000 };
+
+/**
+ * Los MaKo Tokens que trae cada plan al mes: **lo que cuestan sus imágenes prometidas**.
+ * free 1.500 (US$1,50) · pro 12.000 (US$12,00) · growth 24.000 (US$24,00).
+ *
+ * ⚠️ NO ES EL COSTO ESPERADO, ES EL TECHO: es lo máximo que un cliente nos puede costar en IA, y por eso fija el margen
+ * bruto MÍNIMO del plan (ver `PISO_DE_MARGEN_BRUTO`). Un workspace intensivo medido gastaba **US$68/mes** sin medidor
+ * (`docs/costos-ia-y-planes.md`), o sea −45% en el plan chico: un solo usuario pesado se comía el plan.
+ */
+export const CUPO_MENSUAL: Record<Plan, number> = {
+  free: IMAGENES_DEL_CUPO.free * MT_POR_IMAGEN.normal,
+  pro: IMAGENES_DEL_CUPO.pro * MT_POR_IMAGEN.normal,
+  growth: IMAGENES_DEL_CUPO.growth * MT_POR_IMAGEN.normal,
+};
+
+/**
+ * EL MARGEN BRUTO QUE NINGÚN PLAN BAJA: **74%**. Es la guarda del negocio, y el número que hay que mirar antes de
+ * agrandarle el cupo a cualquier plan.
+ *
+ * Por qué 74 y no 75 (15/11/2026): las 1.000 imágenes redondas del de US$47 cuestan US$12,00 de un precio de US$47, o sea
+ * **25,5% del precio en vez del 25% de la meta → 74,5% de margen**. Martín lo decidió con el costo a la vista («no sé cómo
+ * quedaría el margen ahí, pero yo creo que tranquilamente nos podríamos permitir eso»): **un punto de margen por un número
+ * que el cliente puede repetir de memoria**. El de US$97 no se tocó y sigue en 75,3%.
+ *
+ * Lo que cuesta en plata, para que la decisión se pueda revisar con un dato y no con una sensación: el cupo del plan chico
+ * sube 500 MT, o sea **US$0,50 por cliente por mes** — y sólo si lo gasta TODO, que es el peor caso, no el esperado.
+ *
+ * ⚠️ ES EL ÚNICO LUGAR DEL CIRCUITO DONDE SE ELIGIÓ QUEDAR POR DEBAJO DEL 75%. Todos los demás redondeos van para nuestro
+ * lado (`mtDeUsd` sube el gasto; el cupo baja cuando no cae redondo). Si alguien agranda otro cupo «porque queda lindo»,
+ * el margen se va sumando por abajo y nadie lo ve: por eso el piso está escrito acá y hay un test que recorre TODAS las
+ * mezclas de video e imagen de los dos planes contra él.
+ */
+export const PISO_DE_MARGEN_BRUTO = 0.74;
+
+/**
+ * ⚠️ EL REDONDEO DEL CUPO VA AL REVÉS QUE EL DEL GASTO, Y NO ES UN DESCUIDO (15/11/2026).
+ *
+ * Martín pidió que los números de MaKo Tokens sean redondos para el cliente, «redondeando para arriba para que nosotros
+ * nos quede mayor margen». El cupo es lo que se le DA, no lo que se le cobra, así que ahí el lado que nos deja margen es
+ * el de ABAJO. Las dos reglas apuntan al mismo lado — el redondeo siempre queda de nuestro lado — y por eso van en
+ * direcciones opuestas. El que toque uno de los dos sin pensar en cuál es cuál, lo va a invertir.
+ *
+ * ⚠️ Y HAY UNA EXCEPCIÓN, UNA SOLA, DECIDIDA A OJO ABIERTO: las 1.000 imágenes del plan de US$47 redondean para ARRIBA
+ * (958 → 1.000), porque ese número lo lee un cliente antes de comprar. Cuesta un punto de margen y está medido en
+ * `PISO_DE_MARGEN_BRUTO`. No se extiende sola a los otros cupos: ahí la regla sigue siendo hacia abajo.
+ */
+
+
+/**
+ * ⚠️ DESDE EL 15/11/2026 ESTE CUPO PAGA **TODA** LA IA, no sólo el video y la imagen.
+ *
+ * Martín dio vuelta su decisión del 22/10 («cada negocio paga su IA»). Textual, 15/11: «vinculemos todas las cosas
+ * que utilicen inteligencia artificial y que todo utilice MaKo Tokens… Lo mismo con la generación de
+ * transcripciones, la generación de análisis de la competencia, que eso también gasta dinero. O sea, todo debería
+ * consumir MaKo Tokens». Conectar su propia clave (o su Google Flow) sigue existiendo, pero como OPCIÓN: el camino
+ * por defecto es gastar MaKo Tokens.
+ *
+ * Qué cambia en la práctica: hasta el 14/11 el cupo cubría dos cosas (el clip y la imagen) y todo el texto corría
+ * con la clave del negocio (`conSuIADelNegocio`, lib/ia-del-negocio.ts). Ahora cubre también los guiones, los copys,
+ * las transcripciones, las respuestas del setter y el análisis de la competencia.
+ *
+ * ⚠️ Y POR ESO EL CUPO NO SE BAJA PARA LIMITAR UN PLAN: bajárselo al de US$47 para que genere menos imágenes le saca, de
+ * paso, el texto — que es lo que más usa. Lo que diferencia a los planes es el CANDADO de video (`GENERA_VIDEO`,
+ * ./mako-tokens-paquetes.ts) y el tamaño de la bolsa, no un tope por tipo: los topes por tipo vivieron unas horas el
+ * 15/11 y se cayeron solos al arreglar el precio del clip (el porqué está en `IMAGENES_POR_MES`).
+ * El medidor que descuenta de verdad se construye aparte: hasta el 15/11/2026 **nadie escribía el ledger**
+ * (`mako_tokens_movimientos`, supabase/migrations/0412_mako_tokens.sql sólo lo crea).
+ */
+
+/**
+ * Qué clave de acá es cada plan que se VENDE (14/11/2026). ⚠️ Los nombres no coinciden y confunden: estas claves son de
+ * cuando los planes eran Free/Pro/Growth (8/8). Hoy MaKo Esencial (US$47, capa `completo`) es `pro` y MaKo Pro (US$97, capa
+ * `agencia`) es `growth` (lib/planes-mako.ts). Leer «pro» acá como «MaKo Pro» le da al plan de US$97 el cupo del de US$47.
+ */
+export const PLAN_DE_CAPA: Readonly<Record<string, Plan>> = { completo: 'pro', agencia: 'growth' };
+
+/**
+ * Los MaKo Tokens que trae al mes el plan de esa capa, o null si la capa no es un plan que se vende.
+ *
+ * ⚠️ EL ACELERADOR NO TIENE CUPO (15/11/2026): trae MaKo Pro los 3 meses, pero nadie decidió cuántos MaKo Tokens da, y
+ *    esto NO lo inventa — devuelve null para cualquier capa que no sea `completo` o `agencia`, y su columna de /planes no
+ *    habla de tokens. Un número puesto a mano acá es una promesa que el producto no cumple.
+ */
+export const cupoDeCapa = (capa: string): number | null => {
+  const p = PLAN_DE_CAPA[capa];
+  return p ? CUPO_MENSUAL[p] : null;
+};
+
+
 /** Lo que cuesta, en MT, generar un video de `segundos` con esa calidad. */
 export const mtDeVideo = (segundos: number, calidad: Calidad = 'normal'): number =>
   mtDeUsd(Math.max(0, segundos) * USD_POR_SEGUNDO[calidad]);
 
-/** Lo que cuesta, en MT, generar `cuantas` imágenes con esa calidad. */
+/**
+ * Lo que cuesta, en MT, generar `cuantas` imágenes con esa calidad.
+ *
+ * ⚠️ MULTIPLICA EL COSTO DE UNA, NO CONVIERTE EL COSTO DE TODAS (15/11/2026). Era
+ * `mtDeUsd(cuantas * USD_POR_IMAGEN[calidad])`, y eso arrastra el error de coma flotante de `0,012` tantas veces como
+ * imágenes haya: con 1.700 daba **20.401** en vez de 20.400 (el porqué está en `mtDeUsd`). De las 2.000 primeras
+ * cantidades, 250 salían con 1 MT de más. Sacando el costo de UNA (12, exacto) y multiplicando, el resultado es siempre
+ * un múltiplo de 12 — redondo, que es lo que el cliente tiene que poder sumar de cabeza.
+ */
 export const mtDeImagenes = (cuantas: number, calidad: Calidad = 'normal'): number =>
-  mtDeUsd(Math.max(0, cuantas) * USD_POR_IMAGEN[calidad]);
+  Math.max(0, Math.floor(cuantas)) * MT_POR_IMAGEN[calidad];
 
 /** Cuántos segundos de video entran en un cupo, con esa calidad. Para decirlo en la pantalla. */
 export const segundosQueEntran = (mt: number, calidad: Calidad = 'normal'): number =>

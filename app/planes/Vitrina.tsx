@@ -120,7 +120,9 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
             precios»). Estaba al final, después de las columnas Y de la tabla comparativa: quien elegía plan no veía
             los tokens hasta haber decidido. Arranca en los tokens del plan recomendado y lleva el sufijo para que el botón
             de cada plan conserve la atribución del partner (./CalculadoraTokens.tsx). */}
-        <CalculadoraTokens planes={planes} sufijo={sufijo} />
+        {/* 15/11/2026: sin `sufijo`. La barra ya no tiene botón propio — mueve el precio de las columnas de abajo,
+            que son las que llevan el botón con la atribución del partner. */}
+        <CalculadoraTokens planes={planes} />
 
         <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} />
 

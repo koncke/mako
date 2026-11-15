@@ -331,13 +331,27 @@ export function pasarelasParaOfrecer<T extends { pasarela: Pasarela; moneda: str
 
 export const TEXTO_SIN_PASARELA = 'Todavía no cobramos en línea. Déjanos tus datos y te escribimos por WhatsApp para darte de alta.';
 
-/** El botón de un plan: comprar si se puede cobrar; si no, pedirlo en su página (nunca «Empezar» sin cobro detrás). */
-/** El botón del plan con la prueba gratis (Martín: «Comienza tu prueba gratuita / Pruébalo gratis ahora»). */
-export const TEXTO_BOTON_PRUEBA = 'Comienza tu prueba gratuita';
+/**
+ * EL BOTÓN DE UN PLAN, Y SIEMPRE DICE LO MISMO (15/11/2026). Martín, textual: «el botón no debería decir comienza tu
+ * prueba gratuita. Siempre es lo mismo. Pruébalo gratis ahora, todo en mayúscula».
+ *
+ * Había TRES textos distintos para la misma acción — «Comienza tu prueba gratuita» en la tarjeta, «Empezar» en la
+ * cabecera de la comparación y `TEXTO_CTA` («PRUÉBALO GRATIS AHORA») en toda landing y en la barra del sitio — y las
+ * tres conviveían en la MISMA pantalla de /planes. Ahora es una sola frase, la de las landings, que es la que la
+ * persona ya vio antes de llegar acá.
+ *
+ * ⚠️ `TEXTO_CTA` NO SE IMPORTA de app/vsl/_competencia/cta.ts: ese archivo lo importan los .ts de cada landing y
+ * traerlo acá arma el ciclo que su propia cabecera explica (marca → registro → ads → marca). Se deriva del MISMO
+ * interruptor (`PRUEBA_GRATIS_PRENDIDA`) con las mismas dos frases, y un test cruza que digan lo mismo: si una cambia
+ * y la otra no, se pone rojo en vez de dejar dos CTA distintos en la misma pantalla.
+ */
+export const TEXTO_BOTON_PRUEBA = PRUEBA_GRATIS_PRENDIDA ? 'PRUÉBALO GRATIS AHORA' : 'EMPIEZA CON MAKO';
 
 export function botonDelPlan(p: { id: string; nombre: string; cobrable: boolean; sufijo: string }): { href: string; texto: string } {
-  // El plan de la prueba (llamada con Leila, 13/11/2026): el botón invita a la prueba, no a «empezar» (y va grande en la tarjeta).
-  const texto = !p.cobrable ? `Quiero ${p.nombre}` : planConPrueba(p.id) ? TEXTO_BOTON_PRUEBA : `Empezar con ${p.nombre}`;
+  // ⚠️ SIN PASARELA NO SE PUEDE PROMETER UNA PRUEBA: lo que hay es dejar los datos, que es otra acción y se dice como
+  // tal (ver «SIN PASARELA», arriba). Esa es la única excepción a «siempre es lo mismo», y no es de estilo: el botón no
+  // puede invitar a una prueba gratis que el cobro no da.
+  const texto = !p.cobrable ? `Quiero ${p.nombre}` : TEXTO_BOTON_PRUEBA;
   return { href: `/planes/${p.id}${p.sufijo}`, texto };
 }
 

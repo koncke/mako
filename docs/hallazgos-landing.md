@@ -29,6 +29,10 @@ Lo que más muerde acá:
   componente pinta → [El catálogo de features y sus landings](#el-catálogo-de-features-y-sus-landings).
 - Un cambio en la landing principal que no se replicó en las de feature: el dueño lo tuvo
   que pedir dos veces → [El copy: cómo se escribe](#el-copy-cómo-se-escribe).
+- La barra del sitio NO es de páginas estáticas —**ninguna de las 25 que la montan lo es**, porque
+  el layout raíz ya lee la cookie—, el sol y la luna **ignora** lo que nace después de cargar la
+  página, y la barra se dibuja en DOS lugares, así que un `fetch` en el efecto del componente pide
+  todo **dos veces** → [La cuenta en la barra del sitio](#la-cuenta-en-la-barra-del-sitio-por-qué-no-se-lee-la-sesión-en-el-server-15112026).
 - El VSL **no se ve en ningún replay de sesión, tampoco en Clarity** (lo dicen sus docs), y
   Clarity además **pierde el clic sobre el play**; el default de privacidad de rrweb NO tapa
   los formularios → [Replay de sesión y mapas de calor](#replay-de-sesión-y-mapas-de-calor-clarity-vs-uno-propio).
@@ -39,6 +43,113 @@ junio y agosto de 2026 salen de los journals de las corridas multi-agente (261 c
 Antes de actuar sobre una, verificá contra el código: varias pueden estar arregladas. El
 registro completo de las corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 Cada entrada dice de qué corrida y de qué fecha viene.
+
+---
+
+## La cuenta en la barra del sitio: por qué NO se lee la sesión en el server (15/11/2026)
+
+Pedido: con la sesión abierta, la barra tiene que mostrar la foto de perfil y un desplegable en
+vez de «Iniciar sesión» (`app/vsl/_sitio/Barra.tsx` → `./Cuenta.tsx`). Lo que no se deduce leyendo
+el código — empezando por el motivo, que se escribió mal la primera vez.
+
+**⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: «es un server component, leé `getUsuarioActual` y
+pasalo por prop».** No se lee la sesión acá, y está bien — pero **la razón que se escribió primero
+era falsa, y conviene más la verdadera.**
+
+**⛔ «SIN `dynamic` NI `revalidate`, O SEA ESTÁTICAS» ES UNA DEDUCCIÓN ROTA (medido el 15/11/2026).**
+La primera versión de esta entrada decía que la barra es de «veinte páginas públicas estáticas» y
+que tocar la cookie «las vuelve dinámicas a todas». Ninguna es estática, y el dato está una capa
+más arriba: `app/layout.tsx` es el layout **RAÍZ** de todas las rutas y hace
+`await getSesionAdmin()` / `await getUsuarioActual()` en el cuerpo del componente, que es
+`await cookies()` (lib/auth.ts). En este Next (**16.2.6**, sin `ppr` ni `cacheComponents` en
+`next.config.ts`) `cookies()` entra por el modo `prerender-legacy` y llama a
+`throwToInterruptStaticGeneration` —«Route … couldn't be rendered statically because it used
+`cookies`»—, que además pone `revalidate = 0`. Medido con el grafo inverso de imports: son **25**
+las páginas que montan esa barra (las 19 landings, `/vsl/comparaciones`,
+`/vsl/comparaciones/<slug>`, `/vsl/funnels/<funnel>`, la **portada `/`**, `/vsl/<slug>` y
+`/planes`), **las 25 se arman en cada visita**, y los `revalidate = 300` de la portada y de
+`/vsl/<slug>` tampoco corren. **Regla: en esta app el modo de render NO se deduce de la `page.tsx`
+—el layout raíz lee la cookie y arrastra a todas—; se lee el layout, o no se afirma.** Lo fija
+`tests/barra-cuenta-sesion.test.ts` («las páginas de esta barra NO son estáticas»), que se pone
+rojo el día que el layout deje de leer la sesión o que se prenda `cacheComponents`/`ppr`: recién
+entonces «leer la cookie las vuelve dinámicas» querrá decir algo.
+
+**LA RAZÓN DE VERDAD PARA NO LEERLA ACÁ: la barra se dibuja FUERA de un pedido.** La arman con
+`renderToStaticMarkup` cuatro tests (`vsl-landings-competencia`, `vsl-landings-dicen-el-plan`,
+`planes-tres-bloques`, `barra-cuenta-sesion`) y `scripts/visor-landings/`. Ahí no hay request
+store y `cookies()` **no devuelve null: revienta** (`throwForMissingRequestStore`). Un
+`getUsuarioActual()` en la `Barra` deja esos cuatro en rojo y apaga el visor; y de paso mantiene
+`lib/auth` —con todo lo que arrastra— fuera de la cadena de la barra. El camino es el navegador:
+`/api/auth/me` es de las POCAS rutas de sesión públicas (`'/api/auth'` está en `PUBLICOS`,
+lib/rutas-publicas.ts) y es `force-dynamic`. El HTML del server sigue diciendo «Iniciar sesión»,
+que además es lo correcto para el buscador, para quien no tiene JavaScript y para el visor
+estático de las landings. **Regla: en esta barra, lo que depende de QUIÉN mira se pregunta desde
+el navegador; lo que depende de la PÁGINA se arma en el server.**
+
+**Y SÍ CUESTA ALGO: un viaje que antes NO existía.** Hasta el 15/11 una visita a una landing no
+pedía `/api/auth/me` ni una vez —sus tres clientes (`Sidebar`, `ImpersonationBanner`,
+`SeccionesTab`) cuelgan de `<HideOnPublicLanding>`, que en lo público **devuelve null**
+(app/\_components/PublicRouteGate.tsx)—. Ahora cada visita a esas 25 páginas lo pide, y quien tiene
+sesión pide además `/api/perfil`. El server, en cambio, la tiene **gratis**: `getUsuarioActual`
+está memoizada por pedido (`cache()`, lib/auth.ts) y el layout raíz ya la pidió en ese mismo
+pedido. Si algún día hay que sacar ese viaje, el camino es pasar la sesión **por prop** desde el
+layout o la página —no leerla en la barra— y antes hay que arreglar esos cuatro
+`renderToStaticMarkup` y el visor. **Lo que queda SIN hacer vive en `app/vsl/_sitio/Cuenta.tsx`.**
+
+**La sesión no tiene la foto, y ponerla en `/api/auth/me` se paga en toda la app.** `Sesion`
+(lib/auth-session.ts) lleva email, nombre y rol; la foto de Google sólo viaja en el paso
+intermedio del login (`Preauth.foto`). La foto guardada está en `usuarios.foto_url` y la sirve
+`/api/perfil` como `perfil.avatarUrl` — la misma puerta que usa el Sidebar, cuyo GET está abierto
+a todos los roles a propósito. Sumarla a `/api/auth/me` cuesta **una lectura más de `usuarios` en
+una ruta que corre en CADA carga de pantalla** (su propia nota la mide en 4,5 s con la función
+caliente): se paga en la app entera para adornar el sitio. Van los dos pasos, y en ese orden: las
+iniciales con el nombre que `/api/auth/me` ya trae, y la foto después, sólo si hay sesión.
+
+**El sol y la luna lee los colores UNA VEZ al abrir la página: lo que nace después NO está en su
+plan.** `TemaSitio` arma `leidosBase` en el `DOMContentLoaded` y cada modo es una lista de cambios
+sobre ESOS nodos. Un menú que nace en el clic, o un botón que aparece cuando contesta un `fetch`,
+no está en la lista: el script no se lo lleva al modo, y queda del modo con el que nació. No es el
+mismo caso que «el script me pisa los colores» (la entrada de los títulos del Brain, más abajo):
+acá **no te pisa nada, te ignora**. La cura es la misma pieza: `data-tema-fijo` para que no entre
+ni aunque llegue a verlo, y los dos modos declarados en el CSS con `html[data-sitio-modo="claro"]`
+y `html[data-sitio-modo="oscuro"]` (como `.s-mk-ico` en `_sitio/estilos.ts`). Ojo con el orden:
+`.s-claro` es cómo NACIÓ la página y `data-sitio-modo` es lo que ELIGIÓ la persona, así que el
+bloque oscuro tiene que repetir sus valores para ganarle a `.s-claro` cuando alguien oscurece una
+página clara.
+
+**La barra se dibuja en DOS lugares, así que un `fetch` en el efecto del componente pide todo dos
+veces.** `Barra.tsx` monta `<MenuCuenta>` en `.s-barra-der` **y** en el pie del menú del teléfono,
+y las dos instancias montan SIEMPRE: a una la esconde el CSS (`.s-solo-pc`) y la otra vive dentro
+de un `<details>` cerrado — ni `display:none` ni un `<details>` cerrado desmontan nada. Medido
+montando `<Barra>` en un DOM de prueba con el `fetch` adentro del `useEffect`: **2 pedidos a
+`/api/auth/me` por carga sin sesión, y 4 con sesión** (2 de `/api/auth/me` + 2 de `/api/perfil`),
+en cada visita de cada página pública que monta esta barra, también la de quien no tiene sesión,
+que son casi todas. No se ve en pantalla y por eso se escapa: es el doble de invocaciones de una ruta que hace
+siete lecturas más la marca de «la última vez que entró». **Regla: lo que depende de quién mira se
+pregunta UNA vez por documento —la promesa vive en el módulo y las instancias se cuelgan de ella—,
+no una vez por instancia. Y antes de pedir, contar en cuántos lugares está montado el componente.**
+De paso los dos lugares dejan de poder contradecirse: con un pedido por instancia, si uno contesta
+y el otro se cae, la barra de arriba muestra la cara y el pie del teléfono sigue diciendo «Iniciar
+sesión». La promesa rechazada se guarda igual, a propósito: una sola caída para los dos, sin
+reintentos que nadie pidió.
+
+**Y el parpadeo de la barra NO es un salto de layout, pero conviene saber por qué.** Medido con el
+componente montado: sin sesión y con la red caída la respuesta **no cambia nada** («Iniciar
+sesión» antes y después, en los dos lugares), así que la visita sin sesión —casi toda— no ve ni un
+parpadeo. El cambio existe sólo para quien tiene sesión, y queda **contenido en su casilla**:
+`.s-barra-in` es `space-between`, o sea que `.s-barra-der` está pegada al borde derecho, y encoger
+su PRIMER hijo (del ancho del link «Iniciar sesión» a los 36 px del círculo) no mueve el botón
+para empezar ni el
+sol y la luna; los dos estados miden 36 px de alto, así que tampoco cambia el alto. Y el nodo
+`.s-cuenta` de afuera **no se reemplaza** (lo cambia es lo de adentro): verificado que el botón
+del sol y la luna, que el script mete como hermano y React no conoce, sigue ahí y en su lugar
+después del cambio. Esto último es la razón del envoltorio fijo — no es decoración.
+
+**Y una trampa del entorno que hace perder media hora: las hojas de `_sitio/estilos.ts` son
+template literals.** Una comilla invertida adentro de un comentario CSS **cierra el string**, y
+`tsc` no dice «comilla de más»: tira cuatro `TS1005: ',' expected` en líneas que no tienen nada
+que ver (las primeras reglas después del comentario). En estos comentarios se cita con « » o sin
+nada, nunca con comillas invertidas.
 
 ---
 
@@ -6253,6 +6364,48 @@ aviso de Black Friday y los menús desplegables de su barra (la barra copiada se
   banco recibe `cerebro.json` con las posiciones. Sin las aristas laterales sale un diente de león (lib/bienvenida-cerebro.ts).
 - **Grafo.tsx es una grilla de tres columnas** (mapa, tirador, columna de 400 px): para el grafo a lo ancho, en el banco
   `grid-template-columns: 1fr 0 0` y el detalle del punto absoluto encima; cada nodo se toma por `g.cbg-nodo[data-nodo]`.
+- **Un `var(--bg)` y el `data-tema` que lo define tienen que estar en el MISMO nodo** (15/11/2026). Martín: «el Second Brain
+  siempre debe estar negro, no importa qué… tampoco lo copiaste tal cual como lo tenemos, porque no se ven los títulos, al
+  menos no en el white mode». Eran dos quejas y **una sola falla**: `.s-brain` pintaba su caja con `background: var(--bg)` y el
+  `data-tema="oscuro"` estaba en un div **hijo**. Una custom property se resuelve en el elemento que la USA, así que la caja
+  salía con los tokens claros de `:root` (--bg #efefed) mientras el grafo de adentro dibujaba sus etiquetas (`.cbg-et`, con
+  `--cbg-texto: var(--ink)`) con el --ink oscuro, #ededeb: **1,02:1 — los títulos estaban ahí, invisibles**. La app lo hace
+  bien y en el mismo nodo (`app/second-brain/VistaCerebro.tsx` → `.sb-vista`, y `SuSecondBrain.tsx`); la portada lo copió
+  partido en dos.
+- ⚠️ **El diagnóstico obvio era el equivocado.** Parecía que el sol y la luna del sitio (`_competencia/TemaSitio.tsx`) le daba
+  vuelta los colores al grafo en el modo claro. **No los toca nunca:** su foto del DOM (`leer()`, sobre `body, body *`) se saca
+  al cargar la página y **queda cacheada en `leidosBase`** —cambiar de modo sólo re-aplica una lista ya armada—, y el grafo
+  entra con `next/dynamic` + IntersectionObserver mucho después, así que jamás estuvo en la foto. Lo que el script SÍ veía era
+  `.s-brain`, que viene del servidor: en el modo oscuro le llevaba ese #efefed a casi negro, **y por eso el modo oscuro se veía
+  bien, por accidente**. De ahí que la falla pareciera «sólo del white mode» cuando la causa no tenía nada de modal.
+- **Las dos marcas se necesitan y ninguna alcanza sola.** Con los tokens oscuros y sin `data-tema-fijo`, el script le lleva el
+  negro a casi blanco en el modo claro (su `aModo` manda un neutro oscuro a l≈0,98) y los títulos desaparecen de nuevo; con
+  `data-tema-fijo` y sin los tokens, la caja se queda con el #efefed claro en los DOS modos. La marca cubre a los descendientes
+  porque `fuera()` descarta con `closest()`, que mira el elemento **y sus ancestros**: marcar el contenedor alcanza para un
+  grafo que crea sus nodos solo. Con la caja negra los títulos pasan de 1,02:1 a **16,79:1**.
+- **Un test del recorte tiene que mirar la REGLA, no el renglón.** La lista de selectores del `display: none` de `.s-brain`
+  ocupa tres líneas y el `display` está sólo en la última: un `.cbg-et` agregado arriba pasaba verde. Lo cuida
+  `tests/portada-brain-negro.test.ts`, que además verifica que TemaSitio siga respetando `[data-tema-fijo]` con `closest()` —
+  el contrato vive en dos archivos y se puede romper sin tocar la portada.
+- **La OTRA mitad de «no se ven los títulos» no era el color: en el teléfono el mapa se dibuja AFUERA del recuadro**
+  (15/11/2026). Con el negro ya arreglado, a 375 px los títulos de la mitad de abajo seguían sin verse, y en los DOS
+  modos. MEDIDO en el navegador: la fila `.s-zz-vis` es `aspect-ratio:16/10` con `overflow:hidden`, y con
+  `.s-cont{padding:0 20px}` el contenido mide 335,2 px → la fila da **210,1 px** de alto; pero `.s-brain` traía un
+  `min-height:380px`, y un piso FIJO le gana al `height:100%`: la figura se plantaba en 380 px y **169,9 px (el 44,7 % del
+  mapa, con sus títulos) quedaban fuera del recorte**. La regla que queda: **un `min-height` fijo adentro de una caja con
+  `aspect-ratio` + `overflow:hidden` es un recorte MUDO** —nada se desborda a la vista, simplemente falta la mitad de
+  abajo— y va acotado con `min(…, 100%)`. A 1440 px no cambia nada (medido: 398,9 px dentro de una fila de 400,5 px) y a
+  375 px baja a 208,5 px, con el grafo reencuadrándose solo (`ajustar()` mide la caja y corre con un ResizeObserver,
+  `app/second-brain/Grafo.tsx:1240`).
+- ⚠️ **Y el arreglo NO estaba en el CSS de la fila**, que es donde parecía: la fila sale de `app/vsl/_sitio/estilos.ts`,
+  pero el `min-height` que se pasa vive en la figura, `app/vsl/_sitio/BrainVivo.tsx`. **La caja que se pasa es la que
+  tiene el piso, no la que recorta** — buscarlo en la que recorta manda a tocar el archivo equivocado. Si además se
+  quiere el mapa MÁS ALTO en el teléfono, eso sí es el `aspect-ratio` de `.s-zz-vis`, en estilos.ts.
+- **Achicarle la caja al grafo no achica sus títulos**, así que encogerla no cuesta legibilidad: `.cbg-et` es
+  `font-size: calc(12px * var(--u) / var(--k))` y `--u` vale `1/porPixel` (Grafo.tsx:1068), que cancela la escala del
+  viewBox — la etiqueta se dibuja siempre al mismo tamaño en píxeles de pantalla (13,5 px las de nivel 1, medido). Lo
+  único que cambia al achicar es que el descarte por colisión deja menos nombres; las carpetas madre (`.cbg-et-n1`) no se
+  descartan nunca, entran por nivel «siempre» (Grafo.tsx:463).
 
 ## «Si ya la tenemos, reemplázala» era la GRABACIÓN, no el dibujo: `Visual()` no estaba a medias (14/11/2026, noche)
 

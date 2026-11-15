@@ -15,9 +15,12 @@ import Link from '@/app/_ui/Link'; // la de la casa: conserva el ?ws= del super 
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import type { Decision, EstadoEntidad } from '@/lib/media-buyer/tipos';
+import { ACCIONES_POR_RED } from '@/lib/copiloto/tareas';
 import { Grafico } from './iconos';
 
-const VER = 5;
+// Cuántas acciones se listan: la constante compartida (lib/copiloto/tareas.ts, `ACCIONES_POR_RED`). Era un `VER = 5`
+// propio; el 15/11/2026 Martín pidió TRES por red, así que el número vive en un solo lugar para las tres tarjetas.
+const VER = ACCIONES_POR_RED;
 
 async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; confirmar?: string; ajuste?: string | null }> {
   try {
@@ -66,7 +69,11 @@ export function PilotoAnuncios({ conectada, existeTabla, piloto, decisiones, onD
       </section>
     );
   }
-  const esperan = decisiones.filter((d) => d.estado === 'abierta');
+  // Las que esperan su OK, cortadas en `ACCIONES_POR_RED` igual que las hechas (15/11/2026): con ocho abiertas, la
+  // tarjeta era una lista interminable y ninguna de las tres primeras se leía como «esto es lo que hay que decidir».
+  // El resto no se esconde: el contador del título dice cuántas quedan.
+  const esperanTodas = decisiones.filter((d) => d.estado === 'abierta');
+  const esperan = esperanTodas.slice(0, ACCIONES_POR_RED);
   const hice = decisiones.filter((d) => d.estado === 'aplicada' || d.estado === 'deshecha')
     .sort((a, b) => (b.aplicadaAt ?? b.creada).localeCompare(a.aplicadaAt ?? a.creada));
   const visibles = todas ? hice : hice.slice(0, VER);
@@ -95,7 +102,7 @@ export function PilotoAnuncios({ conectada, existeTabla, piloto, decisiones, onD
       )}
       {esperan.length > 0 && (
         <section className="frn-card">
-          <h2 className="frn-card__t">Espera tu OK</h2>
+          <h2 className="frn-card__t">Espera tu OK{esperanTodas.length > esperan.length ? ` (${esperan.length} de ${esperanTodas.length})` : ''}</h2>
           <ul className="frn-decs2">
             {esperan.map((d) => (
               <li key={d.id} className="frn-dec2">

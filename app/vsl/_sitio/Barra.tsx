@@ -5,7 +5,8 @@
 // dos botones. En MaKo: «Producto» (las 19 landings: cuatro grandes con ícono y bajada, y el resto en columnas por familia, como
 // sus columnas Publish / Grow / Earn / Analyze / Connect), «Industrias» (su «Solutions»: la columna «For publishers» son los
 // avatares de MaKo y «Featured stories» el caso de Mauricio; su columna de anunciantes y socios no va), «Comparaciones» y
-// «Precios» (/planes). A la derecha «Iniciar sesión», el botón para empezar y, al final, el sol y la luna (Martín,
+// «Precios» (/planes). A la derecha «Iniciar sesión» —o, con la sesión abierta, la foto de perfil y su desplegable, que es lo
+// único de esta barra que mira el navegador y no el servidor (./Cuenta.tsx)—, el botón para empezar y, al final, el sol y la luna (Martín,
 // 12/11/2026: «no tiene sentido arriba entrar, ver planes, agenda tu llamada… debería ser registrarse, loguearse», y después:
 // «el Dark Mode y White Mode deberían estar a la derecha del todo. En la top bar elimina también ver planes… ya tenemos precios»).
 //
@@ -15,12 +16,18 @@
 //   · En el teléfono su lista a pantalla completa entra a un submenú con «Back»; aquí cada menú se despliega en su renglón con
 //     <details>, sin JavaScript. Abajo quedan los mismos tres botones.
 //   · Sus íconos son rosas; los de MaKo, dorados. El logo es el de MaKo (LogoMaKo).
-// Los valores, en ./estilos.ts y docs/diseno/sitio-beehiiv.md. Server component.
+// Los valores, en ./estilos.ts y docs/diseno/sitio-beehiiv.md. Server component: lo único de cliente que cuelga de acá es la
+// cuenta (./Cuenta.tsx), y NO porque estas páginas sean estáticas —no lo son, el layout raíz ya lee la cookie y las 25 se
+// arman en cada visita (medido el 15/11/2026, la nota larga está en ./Cuenta.tsx)— sino porque esta barra se dibuja también
+// FUERA de un pedido: cuatro tests y scripts/visor-landings/ la arman con `renderToStaticMarkup`, y ahí `cookies()` revienta.
 // =============================================================================
 
 import { LogoMaKo, TEXTO_CTA, RUTA_CTA } from '../_competencia/marca';
 import { TemaSitio } from '../_competencia/TemaSitio';
 import { HISTORIA, INDUSTRIAS, RUTA_COMPARACIONES, RUTA_ENTRAR, RUTA_PRECIOS, menuProducto, type MenuProducto } from './datos';
+// La ruta se le pasa por prop a propósito: es un componente de cliente, e importar ./datos.ts desde el navegador se llevaría
+// al paquete el catálogo de integraciones, el de grabadores y las 19 landings para usar un string de siete letras.
+import { MenuCuenta } from './Cuenta';
 import { Chevron, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE } from './estilos';
 import { Pie } from './Pie';
@@ -139,7 +146,10 @@ function MenuMovil({ m }: { m: MenuProducto }) {
         <a className="s-mv-fila" href={RUTA_COMPARACIONES}>Comparaciones</a>
         <a className="s-mv-fila" href={RUTA_PRECIOS}>Precios</a>
         <div className="s-mv-pie">
-          <a className="s-nb s-mv-entrar" href={RUTA_ENTRAR}>Iniciar sesión</a>
+          {/* Con la sesión abierta, acá está su cara y no «Iniciar sesión» (./Cuenta.tsx). En el teléfono el desplegable abre
+              para arriba: el pie está pegado al borde de abajo. El <details> del menú no se entera — un clic adentro de su
+              contenido no lo cierra, sólo lo hace el <summary>. */}
+          <MenuCuenta entrar={RUTA_ENTRAR} enElPie />
           {/* El mismo botón, corto en el teléfono angosto (como el de la barra). */}
           <a className="s-nb s-nb-lleno" href={RUTA_CTA}><span className="s-nb-largo">{TEXTO_CTA}</span><span className="s-nb-corto" aria-hidden="true">{TEXTO_CTA.replace(/\s+AHORA$/i, '')}</span></a>
         </div>
@@ -172,7 +182,11 @@ export function Barra({ claro = false }: { claro?: boolean }) {
           </nav>
         </div>
         <div className="s-barra-der">
-          <a className="s-nav-a s-solo-pc" href={RUTA_ENTRAR}>Iniciar sesión</a>
+          {/* «Iniciar sesión», o la cara de quien ya entró con su desplegable (Martín, 15/11/2026: «si yo ya tengo iniciada la
+              sesión, en lugar de decirme iniciar sesión, debería ahí estar mi imagen de perfil»). Quién está adentro lo
+              pregunta el navegador, no esta página: esta barra la arman 25 páginas y también `renderToStaticMarkup`, fuera
+              de todo pedido, donde `cookies()` revienta (./Cuenta.tsx). */}
+          <MenuCuenta entrar={RUTA_ENTRAR} />
           {/* En el teléfono angosto el botón se acorta («PRUÉBALO GRATIS»): con el logo y el menú no entraba a 360 (el Cerebro, 13/11). */}
           <a className="s-nb s-nb-lleno" href={RUTA_CTA}><span className="s-nb-largo">{TEXTO_CTA}</span><span className="s-nb-corto" aria-hidden="true">{TEXTO_CTA.replace(/\s+AHORA$/i, '')}</span></a>
           <MenuMovil m={m} />

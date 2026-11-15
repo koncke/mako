@@ -76,10 +76,13 @@ test('el checkout muestra LA MISMA lista que la columna, renglón por renglón (
   const { incluyeDeLaColumna } = await import('../app/planes/[plan]/Checkout');
   for (const capa of ['completo', 'agencia'] as const) {
     const l = listaCorta(capa);
-    // El orden de la columna: los MaKo Tokens, los topes y después las funciones. Nada escrito a mano en el medio.
+    // El orden de la columna: los MaKo Tokens y después las funciones. Nada escrito a mano en el medio.
+    // ⚠️ 15/11/2026: ya no hay una fila de TOPES aparte. Martín pidió que los topes fueran checks («todo lo que está abajo
+    //    debería ir como checks. No debería ir ahí arriba»), así que vienen dentro de `l.items` y el checkout los toma solo.
+    //    Lo que este test fija no cambió: que haya UNA fuente, y que las dos pantallas digan renglón por renglón lo mismo.
     assert.deepEqual(
       [...incluyeDeLaColumna(capa)],
-      [...(l.tokens ? [l.tokens] : []), ...l.topes, ...l.items.map((x) => `${x.fuerte ?? ''}${x.texto}`)],
+      [...(l.tokens ? [l.tokens] : []), ...l.items.map((x) => `${x.fuerte ?? ''}${x.texto}`)],
       `${capa}: el checkout y la columna se separaron`,
     );
   }
@@ -107,12 +110,13 @@ test('el que paga sigue pasando: Pro se lleva en el checkout todo lo que la colu
     const htmlEs = await checkout(esencial.capa, esencial.nombre, esencial.precioUsd, esencial.precioAnualUsd!, periodo);
     for (const re of DE_PRO) assert.doesNotMatch(htmlEs, re, `el checkout ${periodo} de Esencial promete algo que no trae (${re})`);
   }
-  // Los topes que la columna dice son los que el checkout dice: el que paga el de 97 ve su «sin tope» y sus números, que es por
-  // lo que paga el doble. En la columna van en su propia línea arriba de los checks; acá, como los primeros renglones.
-  const topesPro = listaCorta('agencia').topes;
-  assert.match(topesPro.join(' · '), /sin tope/, 'la columna de Pro dejó de decir «sin tope»');
+  // Los topes que la columna dice son los que el checkout dice: el que paga el de 97 ve su «sin tope», que es por lo que paga
+  // el doble. ⚠️ 15/11/2026: los topes son CHECKS, no una fila aparte (Martín), así que se buscan en `items`.
+  const itemsPro = listaCorta('agencia').items.map((x) => `${x.fuerte ?? ''}${x.texto}`);
+  const sinTope = itemsPro.filter((t) => /sin tope/i.test(t));
+  assert.ok(sinTope.length > 0, 'la columna de Pro dejó de decir «sin tope»');
   const htmlPro = await checkout(pro.capa, pro.nombre, pro.precioUsd, pro.precioAnualUsd!, 'mes');
-  for (const t of topesPro) assert.ok(htmlPro.includes(t), `el checkout de Pro se comió sus topes: «${t}»`);
+  for (const t of sinTope) assert.ok(htmlPro.includes(sinMarcas(t).trim()), `el checkout de Pro se comió sus topes: «${t}»`);
   // La prueba de 7 días (`planConPrueba`: los dos planes desde el 14/11) no la tocó esta vuelta: sigue en el checkout mensual.
   for (const p of VENDIDOS) {
     if (!planConPrueba(p.id)) continue;

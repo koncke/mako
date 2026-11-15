@@ -276,18 +276,58 @@ test('ninguna columna dice «todo lo de X»: las dos se leen solas, y Pro no tie
   assert.doesNotMatch(await vitrina(), /[Tt]odo lo de (Esencial|MaKo Pro)/, '/planes');
 });
 
-test('los números van FUERA de los checks: los MaKo Tokens y los topes en su línea, y ningún bullet con una cifra', async () => {
+// ⚠️ ESTE TEST DECÍA LO CONTRARIO HASTA EL 15/11/2026, y el cambio es de Martín, no una concesión.
+// La regla del 14/11 era «ningún número adentro de un bullet» (el molde de Kajabi: los topes en una línea sola, arriba),
+// y tenía su razón — con 5 de 7 renglones en cifras, la columna barata se leía como una lista de lo que no te alcanza.
+// El 15/11 Martín miró el resultado y pidió lo inverso, textual: «en la columna de los planes, sí está bien que tenga la
+// cantidad de MaKo Tokens al mes, pero todo lo que está abajo debería ir como checks. No debería ir ahí arriba. Todo al
+// lado de otro, 2000 leads, un pipeline, una página. O de última no debería ir directamente». Esa línea de cifras pegadas,
+// en el cuerpo más chico de la tarjeta, no la lee nadie.
+// LO QUE ESTE TEST SIGUE FIJANDO, QUE ES LO QUE DE VERDAD IMPORTA: que los números de los checks SALGAN DEL CÓDIGO y no de
+// la mano de nadie. Es la guarda contra prometer 3 automatizaciones donde el producto frena en 2, y no depende de si el
+// número va arriba o adentro del bullet.
+test('los números de los checks salen del CÓDIGO, y arriba queda sólo la línea de MaKo Tokens', async () => {
   const { listaCorta } = await import('../app/planes/Tarjetas');
   const { cupoDeCapa } = await import('../lib/mako-tokens-reglas');
+  const { IMAGENES_POR_MES, minutosDelPlan } = await import('../lib/mako-tokens-paquetes');
+  const { PLAN_DE_CAPA } = await import('../lib/mako-tokens-reglas');
   for (const capa of ['completo', 'agencia'] as const) {
     const l = listaCorta(capa);
-    // Kajabi y beehiiv: los topes en una línea sola, arriba; los bullets, funciones puras. Antes 5 de los 7 renglones de
-    // Esencial eran cifras, y la columna barata se leía como una lista de lo que no te alcanza.
-    assert.ok(l.topes.length > 0, `${capa} sin la línea de topes`);
-    for (const it of l.items) assert.doesNotMatch(`${it.fuerte ?? ''}${it.texto}`, /\d/, `${capa}: un número adentro de un bullet: «${it.texto}»`);
-    // Los MaKo Tokens de ESE plan, del cupo del código (lib/mako-tokens-reglas.ts): la columna no los decía nunca.
+    // Los topes dejaron de ser un campo: si vuelve a aparecer una fila aparte de cifras, esto se pone rojo.
+    assert.equal((l as { topes?: unknown }).topes, undefined, `${capa}: volvió la fila de topes`);
+    const todo = l.items.map((it) => `${it.fuerte ?? ''}${it.texto}`).join(' | ');
+    // Cada cifra que aparece en un check tiene que ser un tope del código, el cupo, o un tope de generación.
+    const permitidos = new Set<string>();
+    for (const t of Object.values(TOPES[capa === 'completo' ? 'completo' : 'agencia'])) if (t != null) permitidos.add(t.toLocaleString('es-AR'));
+    permitidos.add(IMAGENES_POR_MES[PLAN_DE_CAPA[capa]].toLocaleString('es-AR'));
+    permitidos.add(String(minutosDelPlan(PLAN_DE_CAPA[capa])));
+    for (const cifra of todo.match(/\d[\d.]*/g) ?? []) {
+      assert.ok(permitidos.has(cifra), `${capa}: la cifra ${cifra} de un check no sale de ningún tope del código — «${todo}»`);
+    }
+    // Los MaKo Tokens de ESE plan, del cupo del código (lib/mako-tokens-reglas.ts), y siguen ARRIBA de los checks.
     const mt = cupoDeCapa(capa);
     assert.ok(mt != null && l.tokens?.startsWith(mt.toLocaleString('es-AR')), `${capa}: los tokens no salen del cupo (${l.tokens})`);
+  }
+  // LA DIFERENCIACIÓN, EN EL PRIMER CHECK DE CADA COLUMNA (15/11/2026, Martín: «debería haber una diferenciación clara de
+  // lo que hace el plan de 97 y lo que hace el plan de 47»). Leídos en paralelo, los dos primeros renglones tienen que
+  // decir la diferencia que más pesa — el video — sin que haya que bajar a la tabla.
+  // ⚠️ SÓLO CUANDO LA GENERACIÓN SE VENDA. `GENERACION_SE_VENDE` (lib/planes-comparacion.ts) hoy es false, y el porqué está
+  // medido allá: generar imágenes con IA no existe en MaKo (`USD_POR_IMAGEN` lo usan DOS archivos, su definición y la vitrina
+  // de precios: ningún generador) y el video lo paga el cliente con sus créditos de Google Flow — ninguna ruta de app/api/
+  // llama a ApiMart, que es el camino que nos costaría. Prometer un tope nuestro de minutos sobre los créditos de ÉL es
+  // prometer algo que no podemos cumplir. Mientras sea false, los primeros checks NO hablan de generación; el día que se
+  // venda, este test exige que la diferencia esté arriba, que es donde Martín la pidió.
+  const { GENERACION_SE_VENDE } = await import('../lib/planes-comparacion');
+  const primeroEs = listaCorta('completo').items[0];
+  const primeroPro = listaCorta('agencia').items[0];
+  if (GENERACION_SE_VENDE) {
+    assert.match(`${primeroEs.texto}`, /sin generación de video/i, 'el primer check del de US$47 dice que no genera video');
+    assert.match(`${primeroPro.fuerte ?? ''}`, /minutos de video/i, 'el primer check del de US$97 dice sus minutos de video');
+  } else {
+    for (const it of [...listaCorta('completo').items, ...listaCorta('agencia').items]) {
+      assert.doesNotMatch(`${it.fuerte ?? ''}${it.texto}`, /generación de (video|imágenes)|imágenes con IA|minutos de video/i,
+        `una columna promete generación con IA y todavía no se vende: «${it.texto}»`);
+    }
   }
   // El de US$47 es el nivel `pro` del medidor y el de US$97 es `growth`: el nombre engaña, el precio no (PLAN_DE_CAPA).
   // Leerlos por el nombre pone 11.750 MT donde van 24.250, y al revés. Esto es la guarda de ese cruce.
@@ -314,7 +354,7 @@ test('el costo real por acción sale de los costos MEDIDOS, y lo que NO gasta to
   // Tokens y por qué, en vez de omitirlo. Omitir invita a suponer que sí gasta.
   const { COSTO_POR_ACCION } = await import('../app/planes/CalculadoraTokens');
   const { MT_POR_CLIP, paqueteDeMinutos } = await import('../lib/mako-tokens-paquetes');
-  const { mtDeImagenes } = await import('../lib/mako-tokens-reglas');
+  const { mtDeImagenes, CUPO_MENSUAL } = await import('../lib/mako-tokens-reglas');
   // La lista ENTERA contra el conjunto exacto, no «alguno trae MT»: un renglon nuevo con un numero a mano se ve acá.
   assert.deepEqual(COSTO_POR_ACCION.map((c) => [c.que, c.mt, c.porque ?? null]), [
     ['Un clip de video de 10 segundos', MT_POR_CLIP, null],
@@ -326,12 +366,35 @@ test('el costo real por acción sale de los costos MEDIDOS, y lo que NO gasta to
   // El video, por CLIP y no por segundo: es el camino que mueve el control de arriba (`paqueteDeMinutos`). Decir el segundo
   // acá (`USD_POR_SEGUNDO`, otro modelo y otra medición) pondría dos números que se contradicen en la misma pantalla.
   assert.equal(paqueteDeMinutos(1).mt, MT_POR_CLIP * 6, 'el minuto dejó de ser seis clips');
+  // ⚠️ ESTA TABLA YA NO SE DIBUJA EN /planes (15/11/2026), y hasta hoy este test exigía lo contrario — que la pantalla
+  // nombrara cada fila y su costo. Era el «paso 3» de la calculadora vieja. Martín: «Está horrible la sección de calcula
+  // cuántos MaKo Tokens necesitas. Prefiero algo simple… que sea el deslizable y listo». Cinco filas con una explicación
+  // cada una es justo lo que llamó horrible.
+  // La constante queda (la cita la cosecha) y lo de arriba sigue fijándola contra los costos MEDIDOS. Lo que este test
+  // vigila de la PANTALLA es la otra mitad, que es la que importa: **que /planes no diga un costo en MaKo Tokens que no
+  // esté medido.** Desde que Martín dio vuelta la decisión del 22/10 («todo debería consumir MaKo Tokens») hay cinco
+  // acciones más que van a tener costo, y el riesgo concreto es que alguien le ponga un número a ojo mientras el medidor
+  // lo deriva en lib/mako-tokens-costos.ts. Un costo escrito a ojo en la vitrina es un cobro inventado.
   const t = await vitrina();
-  for (const c of COSTO_POR_ACCION) {
-    assert.ok(t.includes(c.que), `/planes no nombra «${c.que}»`);
-    if (c.mt != null) assert.ok(t.includes(`${c.mt.toLocaleString('es-AR')} MaKo Tokens`), `/planes no dice el costo de «${c.que}»`);
-    // Lo que no gasta lo dice con esas palabras, nunca en blanco ni con un 0 (que se leería como «gratis hasta que se acabe»).
-    else assert.ok(t.includes('No gasta'), `/planes no dice que «${c.que}» no gasta tokens`);
+  assert.doesNotMatch(t, /Lo que gasta cada cosa/, 'la tabla de costos se fue de la pantalla');
+  assert.doesNotMatch(t, /No gasta: usa tu IA/, 'y con ella la frase de «cada negocio paga su IA», que Martín dio vuelta el 15/11');
+  // Los números en MaKo Tokens que la pantalla PUEDE decir, y de dónde sale cada uno. Cualquier otro es inventado.
+  const { PAQUETES } = await import('../lib/mako-tokens-paquetes');
+  const legitimos = new Set<string>([
+    // un costo MEDIDO de la tabla
+    ...COSTO_POR_ACCION.filter((c) => c.mt != null).map((c) => c.mt!.toLocaleString('es-AR')),
+    // el cupo de cada plan
+    CUPO_MENSUAL.pro.toLocaleString('es-AR'), CUPO_MENSUAL.growth.toLocaleString('es-AR'),
+    // lo que cuesta un clip, que es la unidad que el medidor descuenta
+    MT_POR_CLIP.toLocaleString('es-AR'),
+    // y los PAQUETES que se venden: son montos de la TARIFA (US$1 = 250 MT), no costos de una acción (15/11/2026)
+    ...PAQUETES.map((p) => p.mt.toLocaleString('es-AR')),
+  ]);
+  for (const cifra of t.match(/[\d.]+(?= MaKo Tokens)/g) ?? []) {
+    // Los montos de la barra son el cupo más lo que se suma: por arriba del cupo del plan chico, salen de ahí.
+    const esDeLaBarra = Number(cifra.replace(/\./g, '')) >= CUPO_MENSUAL.pro;
+    assert.ok(legitimos.has(cifra) || esDeLaBarra,
+      `/planes dice «${cifra} MaKo Tokens» y ese número no es un costo medido, ni un cupo, ni un paquete de la tarifa`);
   }
 });
 
@@ -365,7 +428,12 @@ test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón
   assert.match(promesa!, /tu (oferta|negocio)/i, 'se nota que es a la medida');
   const { TEXTO_AGENDA_ACELERADOR } = await import('../app/planes/Tarjetas');
   const t = await vitrina();
-  assert.ok(t.indexOf(`Nuestra promesa: ${promesa}`) > 0 && t.indexOf('Nuestra promesa') < t.indexOf(TEXTO_AGENDA_ACELERADOR));
+  // ⚠️ DEBAJO DEL BOTÓN DESDE EL 15/11/2026, no arriba. El 25/10 se puso arriba a propósito (la promesa vende antes de
+  // que se apriete), y hoy Martín pidió el orden de las tres columnas al revés: «primero el precio y abajo todas las
+  // frases. O sea, primero el precio y el botón, por supuesto». La promesa es una de esas frases, así que baja con ellas.
+  // Lo que NO cambió y se sigue exigiendo: que esté en la pantalla y que diga exactamente `promesa`.
+  assert.ok(t.indexOf(`Nuestra promesa: ${promesa}`) > 0, 'la promesa, en la columna del Acelerador');
+  assert.ok(t.indexOf('Nuestra promesa') > t.indexOf(TEXTO_AGENDA_ACELERADOR), 'y debajo del botón (el orden del 15/11)');
   const antes = PROGRAMA_ACELERADOR.promesa;
   (PROGRAMA_ACELERADOR as { promesa: string | null }).promesa = null;
   try {
@@ -447,7 +515,11 @@ test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mism
   assert.match(fuente('app/planes/[plan]/page.tsx'), /const conPrueba = planConPrueba\(plan\.id\) && uno\('sinPrueba'\) !== '1';/, 'y el checkout la dice sólo ahí');
   const t = await vitrina();
   // 14/11/2026: la frase de «para quién es» se reescribió por el MOMENTO del negocio (§4.1 del relevo). Antes: «¿Ya vendes?».
-  assert.ok(t.includes(`MaKo Pro ${PLANES_MAKO_DEFAULT.find((x) => x.id === 'pro')!.resumen}`), 'la tarjeta de Pro');
+  // 15/11/2026: el nombre ya no viene pegado a su frase. El orden de la tarjeta es nombre → precio → botón → frase
+  // (Martín: «primero el precio y el botón»), así que se exige que la frase ESTÉ y que esté después del precio.
+  const resumenPro = PLANES_MAKO_DEFAULT.find((x) => x.id === 'pro')!.resumen;
+  assert.ok(t.includes(resumenPro), 'la frase de la tarjeta de Pro');
+  assert.ok(t.indexOf(resumenPro) > t.indexOf('US$ 97'), 'y después del precio, no antes');
   if (PRUEBA_GRATIS_PRENDIDA) assert.match(t, new RegExp(`${PRUEBA_DIAS} días gratis`), '/planes dice la prueba');
   else assert.doesNotMatch(t, /días gratis|prueba gratis/i, '/planes no promete una prueba que ya no existe');
   assert.ok(t.includes('Recomendado MaKo Pro'), 'Pro, el recomendado');
@@ -493,8 +565,15 @@ test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo 
   assert.doesNotMatch(sinMarcas(renderToStaticMarkup(React.createElement(PreciosLanding, { planes, sufijo: '' }))), /TEXTO_PAGOS_NO_VA/, 'la landing de venta');
   assert.doesNotMatch(await vitrina(), /\$ [\d.]+ ARS/, 'sin precio en pesos cargado, ningún número en pesos');
   assert.equal(precioEnPesos({ preciosLocales: {} }), null);
+  // ⚠️ LA TARJETA YA NO MUESTRA EL PRECIO EN PESOS, NI CUANDO EL PLAN LO TIENE CARGADO (15/11/2026). Martín, textual: «No
+  // pongas la conversión en pesos argentinos. Eso ya cada uno luego lo ve». Hasta hoy este test exigía lo contrario
+  // («con el precio del plan en pesos, se dice»), y la medición en producción del 15/11 mostraba «o $ 73.555 ARS por
+  // mes» y «o $ 151.805 ARS por mes» compitiendo con el precio en dólares, que es el que ancla.
+  // El precio en pesos NO se borró del producto: sigue donde se COBRA (el checkout lo muestra con la pasarela elegida) y
+  // `precioEnPesos` sigue siendo la única fuente — nunca una tasa de cambio. Lo que se fue es el renglón de la vitrina.
   const conPesos = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => (x.id === 'pro' ? { ...x, preciosLocales: { ARS: 97000 } } : x));
-  assert.ok(sinMarcas(await vitrinaHtml(conPesos)).includes('US$ 97 / mes o $ 97.000 ARS por mes'), 'con el precio del plan en pesos, se dice');
+  assert.doesNotMatch(sinMarcas(await vitrinaHtml(conPesos)), /ARS/, 'con el precio del plan en pesos cargado, la tarjeta tampoco lo muestra');
+  assert.equal(precioEnPesos({ preciosLocales: { ARS: 97000 } }), 97000, 'y el dato sigue existiendo para el checkout');
 });
 
 test('el MEDIA BUYER en Esencial: propone, 2 recomendaciones por día, del tope del plan', () => {
@@ -566,28 +645,103 @@ test('sin plan Agencia aparte (10/10): la agencia maneja a sus clientes desde Pr
 //   · /reembolsos sin «después del primer cobro, no se reembolsa»                            -> 24 / 1
 
 // ── La calculadora de MaKo Tokens (14/11/2026, Martín: arriba de las columnas, arranca en los tokens del plan) ─────────
-test('la calculadora va ARRIBA de las tarjetas, arranca en los MaKo Tokens del plan y cada tarjeta dice los suyos', async () => {
+// LA CALCULADORA, REDISEÑADA EL 15/11/2026. Martín, textual: «Está horrible la sección de calcula cuántos MaKo Tokens
+// necesitas. Prefiero algo simple como lo que teníamos antes, que sea el deslizable y listo»; «pusiste MaKo Pro al lado
+// cuando ya tenemos una columna de MaKo Pro abajo. No tiene sentido»; «la idea justamente es que cuando yo haga el
+// desplazable, se me modifica el precio de las columnas».
+// Lo que este test vigila ahora: que la barra MUEVA el precio de las columnas (que es para lo que existe), que no vuelva a
+// dibujar una tarjeta de plan propia, y que nunca prometa video donde no hay.
+test('la barra de MaKo Tokens mueve el precio de las columnas, y no dibuja una tarjeta de plan', async () => {
   const { CUPO_MENSUAL } = await import('../lib/mako-tokens-reglas');
-  const { datosDelPlan, COSTO_POR_ACCION } = await import('../app/planes/CalculadoraTokens');
+  const { CLIPS_POR_MES, MT_POR_DOLAR, USD_POR_CLIP_SUELTO, minutosDelPlan } = await import('../lib/mako-tokens-paquetes');
+  const { pasosDeLaBarra, textoAlcanza, usdDeLaDiferencia, COSTO_POR_ACCION } = await import('../app/planes/CalculadoraTokens');
+  const { GENERACION_SE_VENDE } = await import('../lib/planes-comparacion');
+  const mil = (n: number) => n.toLocaleString('es-AR');
   const t = await vitrina();
   assert.ok(t.indexOf('Calcula cuántos MaKo Tokens necesitas') < t.indexOf('Recomendado MaKo Pro'), 'arriba de las tres columnas');
   // Las claves de agosto: `pro` es Esencial (US$47) y `growth` es Pro (US$97).
-  const mil = (n: number) => n.toLocaleString('es-AR');
   assert.ok(t.includes(`${mil(CUPO_MENSUAL.pro)} MaKo Tokens al mes`) && t.includes(`${mil(CUPO_MENSUAL.growth)} MaKo Tokens al mes`), 'cada tarjeta, sus tokens');
-  const pro = datosDelPlan({ id: 'pro', nombre: 'MaKo Pro', capa: 'agencia', precioUsd: 97, cobrable: true })!;
-  const esencial = datosDelPlan({ id: 'esencial', nombre: 'MaKo Esencial', capa: 'completo', precioUsd: 47, cobrable: true })!;
-  assert.equal(pro.pasos[0].mt, mil(CUPO_MENSUAL.growth), 'Pro arranca en sus tokens');
-  assert.equal(pro.pasos[0].usd, 'US$ 97', 'y en su precio, sin nada sumado');
-  assert.equal(esencial.pasos[0].mt, mil(CUPO_MENSUAL.pro));
-  // El video del plan respeta su tope de clips (6 en Esencial, 36 en Pro), no lo que pagarían sus tokens (23 y 48).
-  assert.equal(esencial.pasos[0].video, 'Hasta 1 minuto de video');
-  assert.equal(pro.pasos[0].video, 'Hasta 6 minutos de video');
-  // Sumar un minuto: 3.000 tokens y US$12 (el clip a US$2), una compra suelta, no el abono.
-  assert.equal(pro.pasos[1].mt, mil(CUPO_MENSUAL.growth + 3000));
-  assert.equal(pro.pasos[1].usd, 'US$ 109');
-  assert.equal(pro.pasos[1].periodo, 'este mes');
-  assert.equal(pro.pasos[1].video, 'Hasta 7 minutos de video');
-  // Sólo los medios gastan MaKo Tokens: lo demás va con la IA del negocio o es un tope del plan.
-  assert.deepEqual(COSTO_POR_ACCION.filter((x) => x.mt != null).map((x) => x.mt), [500, 12]);
-  assert.equal(datosDelPlan({ id: 'x', nombre: 'X', capa: 'pm', precioUsd: 1, cobrable: false }), null, 'una capa sin cupo no se dibuja');
+
+  const planes = [
+    { id: 'esencial', nombre: 'MaKo Esencial', capa: 'completo', precioUsd: 47, cobrable: true },
+    { id: 'pro', nombre: 'MaKo Pro', capa: 'agencia', precioUsd: 97, cobrable: true, destacado: true },
+  ];
+  const pasos = pasosDeLaBarra(planes)!;
+  assert.ok(pasos.length > 2, 'la barra tiene pasos para mover');
+  // EL PRIMER PASO es el cupo del plan más chico: ahí el de US$47 vale 47 y el de US$97 vale 97, sin nada sumado.
+  assert.equal(pasos[0].mt, mil(CUPO_MENSUAL.pro));
+  assert.deepEqual(pasos[0].precios.map((x) => [x.id, x.usd, x.nota]), [
+    ['esencial', 'US$ 47', ''],
+    ['pro', 'US$ 97', ''],
+  ]);
+  // EN EL CUPO DEL DE US$97 el de US$47 ya NO alcanza, y su columna tiene que subir de precio: eso es lo que Martín pidió.
+  const enElCupoDePro = pasos.find((x) => x.mt === mil(CUPO_MENSUAL.growth))!;
+  assert.ok(enElCupoDePro, 'la barra pasa por el cupo del de US$97');
+  const esencialAhi = enElCupoDePro.precios.find((x) => x.id === 'esencial')!;
+  const proAhi = enElCupoDePro.precios.find((x) => x.id === 'pro')!;
+  assert.equal(proAhi.usd, 'US$ 97', 'el de US$97 todavía le alcanza con su plan');
+  assert.equal(proAhi.nota, '');
+  assert.notEqual(esencialAhi.usd, 'US$ 47', 'el de US$47 ya no alcanza: su precio tiene que moverse');
+  assert.match(esencialAhi.nota, /^US\$ 47 del plan \+ US\$ [\d.]+ de MaKo Tokens este mes$/, 'y se dice de qué está hecho el total');
+  // ⚠️ TODOS LOS TOTALES, EN DÓLARES ENTEROS (15/11/2026). Este test lo pescó: con el clip suelto a US$2,50 la barra
+  // escribía «US$ 109,5», que en una página de precios se lee como un error de cálculo. Por eso el clip es US$3
+  // (lib/mako-tokens-paquetes.ts, `USD_POR_CLIP_SUELTO`). Si alguien vuelve a poner un precio con decimales, esto avisa.
+  for (const paso of pasos) for (const x of paso.precios) {
+    assert.doesNotMatch(x.usd, /[,.]\d/, `un precio con decimales: «${x.usd}»`);
+    assert.doesNotMatch(x.nota, /[,.]\d/, `una nota con decimales: «${x.nota}»`);
+  }
+  // El último paso: los dos planes con algo sumado.
+  for (const x of pasos[pasos.length - 1].precios) assert.ok(x.nota, `${x.id}: en el tope de la barra tiene que haber extra`);
+  // ⚠️ SE COBRA POR TOKENS, NO POR CLIPS ENTEROS (15/11/2026). Acá decía «un token de más ya cuesta un clip entero», que
+  // era cierto cuando el extra se vendía en clips. Dejó de serlo por dos razones: desde hoy el cupo paga también imágenes
+  // y texto (al que le faltan tokens no necesariamente le faltan clips, y cobrarle un clip es cobrarle de más por algo que
+  // no va a generar), y con el clip derivado de la tarifa a US$3,60 los totales dejaban de ser redondos. Ahora el extra es
+  // la tarifa redondeada hacia arriba al DÓLAR: el redondeo sigue quedando de nuestro lado y el total se lee.
+  assert.equal(usdDeLaDiferencia(0), 0);
+  assert.equal(usdDeLaDiferencia(1), 1, 'un token de más cuesta el dólar mínimo, no un clip entero');
+  assert.equal(usdDeLaDiferencia(MT_POR_DOLAR), 1, 'un dólar compra exactamente la tarifa');
+  assert.equal(usdDeLaDiferencia(MT_POR_DOLAR + 1), 2, 'y pasarse por un token cuesta el dólar siguiente');
+
+  // ⚠️ NUNCA «0 SEGUNDOS DE VIDEO» (15/11/2026): con el de US$47 en cero clips, la calculadora vieja escribía literalmente
+  // «Hasta 0 segundos de video». Lo cazó este test, y por eso la frase es una EQUIVALENCIA de la moneda y no una promesa.
+  assert.doesNotMatch(textoAlcanza(10), /video/, 'con tan pocos tokens no se habla de video');
+  assert.match(textoAlcanza(CUPO_MENSUAL.growth), /imágenes, o \d+ minutos? de video/, 'primero las imágenes, después el video');
+  // La guarda del cero va sobre los pasos REALES de la barra, no sobre un número cualquiera: `textoAlcanza(10)` dice «0
+  // imágenes» y es verdad — con 10 MaKo Tokens no se genera nada. Lo que no puede pasar es que la PANTALLA muestre un
+  // cero, y la pantalla sólo muestra estos pasos, que arrancan en el cupo del plan más chico.
+  for (const paso of pasos) assert.doesNotMatch(paso.alcanza, /\b0 (segundos|minutos?|imágenes?)\b/, `un paso dice cero: «${paso.alcanza}»`);
+
+  // EL DE US$47 NO GENERA VIDEO, y los minutos del de US$97 los fija tests/mako-tokens-paquetes.test.ts, que es donde vive
+  // la constante y donde está la cuenta (un minuto de Omni cuesta US$5,38 contra un presupuesto de US$24,25). ⚠️ Acá NO se
+  // repite el número: el 15/11 se movió tres veces en el mismo día y un segundo test con el dígito escrito a mano se pone
+  // rojo en el lugar equivocado — es la trampa que este archivo ya pagó dos veces hoy. Lo que se exige acá es que la BARRA
+  // diga lo mismo que la constante, que es lo propio de esta pantalla.
+  assert.equal(CLIPS_POR_MES.pro, 0, 'el plan de US$47 no genera video');
+  // ⚠️ Y MIENTRAS LA GENERACIÓN NO SE VENDA, LA BARRA NO HABLA DE MINUTOS NI DE IMÁGENES. No es sólo por no prometer lo
+  // que no anda: la equivalencia se calcula desde los TOKENS (24.250 ÷ 896 ÷ 6 = 4,5 min) y la columna dice el TOPE del
+  // plan (3 min, porque el cupo paga también imágenes y texto). Las dos son ciertas y juntas se leen como un error de
+  // cálculo. Esto fija que no convivan.
+  if (!GENERACION_SE_VENDE) {
+    assert.doesNotMatch(t, /Equivalen a/, 'la barra promete generación y todavía no se vende');
+    assert.doesNotMatch(t, /minutos? de video/, '/planes dice minutos de video y la generación no se vende');
+  } else {
+    assert.match(textoAlcanza(CUPO_MENSUAL.growth), new RegExp(`\\b${minutosDelPlan('growth')} minutos? de video\\b`),
+      `la barra tiene que decir los ${minutosDelPlan('growth')} minutos del plan`);
+  }
+
+  // NO VUELVE A DIBUJAR UNA TARJETA DE PLAN: «ya tenemos una columna de MaKo Pro abajo. No tiene sentido». La barra no
+  // tiene nombre de plan, ni precio propio con botón, ni su lista de checks.
+  const fuenteCalc = fuente('app/planes/CalculadoraTokens.tsx');
+  assert.doesNotMatch(fuenteCalc, /tk-cta|tk-card|tk-lista/, 'la tarjeta de la calculadora se fue entera');
+  assert.doesNotMatch(fuenteCalc, /<a /, 'la barra no tiene botón propio: el botón vive en la columna');
+  assert.equal((await import('../app/planes/CalculadoraTokens') as Record<string, unknown>).datosDelPlan, undefined,
+    'la API de la tarjeta vieja no quedó colgada');
+
+  // Sólo los medios tienen hoy un costo MEDIDO; el resto lo deriva el medidor en lib/mako-tokens-costos.ts (15/11/2026).
+  // ⚠️ El del clip NO se escribe acá: sale de `MT_POR_CLIP`, que el 15/11 pasó de 500 a 900 al medirlo contra Omni. Repetir
+  // el dígito en el test lo pone rojo en el lugar equivocado cada vez que se mide de nuevo el modelo.
+  const { MT_POR_CLIP: mtClip } = await import('../lib/mako-tokens-paquetes');
+  const { mtDeImagenes: mtImg } = await import('../lib/mako-tokens-reglas');
+  assert.deepEqual(COSTO_POR_ACCION.filter((x) => x.mt != null).map((x) => x.mt), [mtClip, mtImg(1)]);
+  assert.equal(pasosDeLaBarra([{ id: 'x', nombre: 'X', capa: 'pm', precioUsd: 1, cobrable: false }]), null, 'una capa sin cupo no dibuja barra');
 });

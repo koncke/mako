@@ -55,7 +55,19 @@ export function modoPreferido(): boolean {
  * la luna, y sin texto»): el MISMO botón en la acción de la cabecera del teléfono (`m-cabecera__accion`, 44×44, con el color
  * del texto de la cabecera). La barra de escritorio sigue con el de siempre.
  */
-export function InterruptorModo({ compacto = false, variante = 'barra' }: { compacto?: boolean; variante?: 'barra' | 'cabecera' }) {
+/**
+ * `variante`:
+ *   · 'barra' — el de la barra lateral de la app (32 px, esquinas de la casa).
+ *   · 'cabecera' — el de la cabecera del teléfono (`.m-cabecera__accion`, app/m/m.css).
+ *   · 'sitio' — EL DE LA PORTADA, copiado de `.mk-tema-sitio` (app/vsl/_competencia/TemaSitio.tsx): 36 px, redondo, sin fondo
+ *     ni borde, íconos de 18 centrados. Lo usa el login (15/11/2026). Martín, mirando la primera versión con la variante
+ *     'cabecera' dentro de una pastilla con borde: «fíjate el botón del sol y la luna, que no está centrado. Replícalo de lo
+ *     que ya tenemos». La 'cabecera' vive de `.m-cabecera__accion`, que está en app/m/m.css y en el login no se carga: el
+ *     botón quedaba sin su tamaño, metido en una pastilla de otro tamaño.
+ *     ⚠️ La de la portada cambia el tema del SITIO (`data-sitio-modo`, el recoloreo de TemaSitio); ésta, el de la APP
+ *     (`data-tema`): se copia el aspecto, no el mecanismo.
+ */
+export function InterruptorModo({ compacto = false, variante = 'barra' }: { compacto?: boolean; variante?: 'barra' | 'cabecera' | 'sitio' }) {
   // Arranca en claro y se corrige en el efecto: el server no sabe qué eligió
   // este navegador, y pintar otra cosa sería un mismatch de hidratación.
   const [oscuro, setOscuro] = useState(false);
@@ -75,6 +87,18 @@ export function InterruptorModo({ compacto = false, variante = 'barra' }: { comp
 
   const alternar = useCallback((e: MouseEvent<HTMLButtonElement>) => conBarrido(e.currentTarget, () => aplicarModo(!oscuro)), [oscuro]);
   const rotulo = oscuro ? 'Pasar a modo claro' : 'Pasar a modo oscuro';
+
+  if (variante === 'sitio') {
+    return (
+      <button type="button" onClick={alternar} title={rotulo} aria-label={rotulo} aria-pressed={oscuro} className="mk-modo-sitio"
+        style={{ position: 'relative', overflow: 'hidden', flex: 'none', width: 36, height: 36, padding: 0, border: 0, borderRadius: 999,
+          background: 'transparent', color: 'inherit', cursor: 'pointer', transition: 'background-color 120ms ease' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(127,127,127,.16)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+        {iconos(oscuro, 18)}
+      </button>
+    );
+  }
 
   if (variante === 'cabecera') {
     return (

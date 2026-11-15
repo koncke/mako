@@ -280,16 +280,31 @@ export default async function RootLayout({
                   pisarse. Ver app/_components/EsquinaAvisos.tsx. */}
               <EsquinaAvisos>
                 <AvisoPixelViejo />
-                {/* La extensión de MaKo instalada y vieja, en cualquier pantalla (27/10/2026: Leila en la 0.70 con la 0.74). */}
-                {sesion && <AvisoExtensionVieja />}
-                {/* La renovación del plan de MaKo que no entró: cuánto, cuándo se pausa, y a pagar (23/10/2026). */}
-                {sesion && <AvisoMoraPlan />}
+                {/* ⚠️ LOS AVISOS DE ADENTRO DE MaKo, FUERA DE LA CARA PÚBLICA DEL DOMINIO (15/11/2026). Martín, textual: «la
+                    parte de activa tus avisos no debería estar en la landing bajo ningún motivo. Eso solamente cuando ya
+                    estás dentro de MaKo».
+                    LA CAUSA NO ERA ESTE BLOQUE: era que su premisa venció. La única condición de estos avisos es «hay
+                    sesión», y eso alcanzaba mientras la portada vivía en /vsl/sitio y la raíz redirigía a los logueados a
+                    su home por rol — el comentario de `isPublicLandingPath` (app/_components/PublicRouteGate.tsx) todavía
+                    lo dice así. El 14/11 la portada pasó a ser la ruta principal y «la ve CUALQUIERA, con sesión o sin
+                    ella» (app/page.tsx), así que desde ese día un Martín logueado ve el cartel de adentro de la app en la
+                    primera pantalla que ve un desconocido.
+                    `FueraDeLoPublico` y no `HideOnPublicLanding`: el segundo apaga TODO en un teléfono (es el cromo de
+                    escritorio), y estos avisos sí van en el teléfono — el push se pide por dispositivo. */}
+                <FueraDeLoPublico>
+                  {/* La extensión de MaKo instalada y vieja, en cualquier pantalla (27/10/2026: Leila en la 0.70 con la 0.74). */}
+                  {sesion && <AvisoExtensionVieja />}
+                  {/* La renovación del plan de MaKo que no entró: cuánto, cuándo se pausa, y a pagar (23/10/2026). */}
+                  {sesion && <AvisoMoraPlan />}
+                  {/* LOS AVISOS SIN WHATSAPP (13/11/2026, el número de MaKo baneado): al entrar, en la computadora y en el teléfono, se pide el push en ESTE
+                      dispositivo hasta que esté. Sólo con sesión propia y nunca mirando la cuenta de otro: el permiso es de cada persona. */}
+                  {sesion && !sesion.legacy && !vista && <PedirAvisos />}
+                </FueraDeLoPublico>
                 {/* La llamada que se está grabando (04/11/2026): el reloj y «Cortar» desde cualquier pantalla, aunque se haya cerrado
-                    la ficha. Sin grabación no dibuja nada (app/_components/grabar/GrabarLlamada.tsx). */}
+                    la ficha. Sin grabación no dibuja nada (app/_components/grabar/GrabarLlamada.tsx).
+                    ⚠️ ESTE SÍ QUEDA EN LO PÚBLICO, a propósito: no es un aviso, es el control de algo que está pasando ahora
+                    y el único «Cortar» que hay. Esconderlo en la portada deja una llamada grabándose sin forma de cortarla. */}
                 {sesion && <GrabacionEnCurso />}
-                {/* LOS AVISOS SIN WHATSAPP (13/11/2026, el número de MaKo baneado): al entrar, en la computadora y en el teléfono, se pide el push en ESTE
-                    dispositivo hasta que esté. Sólo con sesión propia y nunca mirando la cuenta de otro: el permiso es de cada persona. */}
-                {sesion && !sesion.legacy && !vista && <PedirAvisos />}
                 <MakoConfirmGate />
               </EsquinaAvisos>
               {/* Las secciones de las tabs unificadas (Video, Image, Copywriting): una barra, acá, para

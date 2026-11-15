@@ -1810,3 +1810,39 @@ un worker de cola no es su trabajo: es su espera.** Acá dio al revés de lo que
 sale US$0,56 y el trabajo centavos— pero porque el bucle consume 56 MB. Con un runtime más pesado o
 un sondeo que mantenga algo en memoria, la misma arquitectura puede costar veinte veces más sin que
 cambie una línea del pipeline. **Se mide el reposo primero, y después el trabajo.**
+
+
+## El costo del clip vive en TRES números y ninguno es el que pagamos; y nada hace cumplir el tope de clips (15/11/2026)
+
+Salió contestando cuánto cuesta subir el plan de US$97 de 4 a 6 minutos de video (el detalle económico, en
+docs/hallazgos-planes-y-cobro.md). Lo del pipeline es esto:
+
+- **`USD_POR_CLIP` = 0,412 (lib/mako-tokens-paquetes.ts) NO es nuestro costo.** Es Omni Flash **en Google Flow**: US$0,15
+  fijo + US$0,025/s = US$0,40, más US$0,012 de la imagen de referencia (docs/costos-fijos-mako.md). Flow se paga con los
+  **créditos de la cuenta de Google del cliente** (`MOTOR_POR_DEFECTO = 'flow'`, lib/ai-avatar/requisitos.ts). Usarlo para
+  estimar lo que nos sale a nosotros es estimar con el precio del camino que no pagamos.
+- **Hay TRES costos de clip vivos:** 0,265 el del default del código (Hailuo 2.3 Fast, US$0,0253/s, más la imagen), 0,396
+  el de `USD_POR_SEGUNDO.normal` (seedance-2.0-mini) y 0,412 el de Flow. **Ninguno está medido sobre la pieza que el
+  cliente produce de verdad.**
+- **Y el que Martín autoriza cuesta 3,4× el default.** Su regla ⛔⛔ del 8/11 prohíbe todo modelo que no sea OMNI para una
+  cara que habla; el único Omni del catálogo es `kling-v3-omni` a US$0,0896/s = **US$0,908 el clip de 10 s**. El default
+  (Hailuo) es justamente el que la medición del 7/11 descartó: «Fotográfico, pero NO abrió la boca».
+- **El costo escala lineal con la CANTIDAD de clips, no con la duración.** `usdDeVideo` (lib/apimart-reglas.ts) es
+  segundos × US$/s, sin cargo por llamada: corrido a 4/6/8/10 s da el mismo US$/s, y 24 → 36 clips da ×1,5000 exacto. La
+  parte fija de US$0,15 es de Flow, y muerde al partir una pieza en clips MÁS CORTOS (4 s sale US$0,0625/s contra
+  US$0,040 a 10 s), no al pedir más clips de la misma duración. El único proveedor que cobra por generación es Muapi, que
+  no se usa.
+- **ApiMart es código muerto:** el único import de `apimart-reglas` es `lib/apimart.ts`, y su `generarVideo()` se define y
+  no se llama desde ninguna pantalla. `motor: 'mako'` aparece sólo en tests/ai-avatar.test.ts, y
+  app/ai-avatar/Estudio.tsx llama `requisitosAvatar()` sin pasar motor, así que cae en `'flow'`.
+- **`CLIPS_POR_MES` no lo hace cumplir nada.** Sus lectores son /planes, el VSL y los tests: es un texto de la vitrina.
+  `generarTomaAction` (app/video-generator/video-action.ts) filma sin mirar saldo, cupo ni el tope de clips.
+
+### Dos mediciones del 7/11 que no coinciden, y nadie lo había visto
+
+docs/hallazgos-video-pipeline.md dice que Hailuo salió US$0,149 y seedance-2.0-mini US$0,234 «a 10 s»; el código y
+docs/hallazgos-ai-avatar.md implican 0,253 y 0,384. Los otros cuatro modelos de esa tabla calzan exactos a 10 s (wan2.5
+0,664 · kling-v3-omni 0,896 · kling-v4 1,400 · seedance-2.5 5,368). Los dos que no calzan dan 5,89 s y 6,09 s si se
+dividen por el US$/s del código: lo más probable es que fueran clips de **6 s rotulados como 10**. La duración no quedó
+anotada, así que no se puede cerrar sin volver a medir. **Regla: una medición de costo sin la duración anotada no se puede
+comparar con otra.**
