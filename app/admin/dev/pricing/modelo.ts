@@ -436,6 +436,19 @@ export type OpTarifa = {
   n: number;
 };
 
+// ⚠️⚠️ ESTA TABLA NO ES LA QUE COBRA, Y SU COLUMNA `mt` ESTÁ EN OTRA UNIDAD (15/11/2026).
+//
+// Lo que el medidor cobra de verdad vive en **lib/mako-tokens-costos.ts**, y ahí 1 MT = US$0,001 de **costo REAL**
+// (`MT_POR_USD`, lib/mako-tokens-reglas.ts, 07/11/2026): el markup ya no vive adentro del token, vive en el CUPO de cada
+// plan, que es el 25 % de su precio. Acá el `mt` es PRECIO DE LISTA, o sea costo × `MARKUP_MT` (2,4), que es como se
+// pensó el 09/08.
+//
+// Copiar la columna `mt` de acá al medidor cobra el markup DOS VECES: un cupo de 11.750 MT dimensionado para US$11,75 de
+// costo se agota con US$4,90 gastados, o sea al 40 % del mes, y el cliente ve «te quedaste sin saldo» con tres cuartos
+// de su plan sin usar. **Lo que se copia de acá es `costoUsd`**, que es la medición. Ver docs/hallazgos-mako-tokens.md.
+//
+// Esta tabla se queda como el ANÁLISIS que produjo esos números (con su `n`, su `origen` y su porqué), y es la pantalla
+// de /admin/dev/pricing. No la lee ningún camino de producción.
 export const MARKUP_MT = 2.4;
 /** 1 MT = US$0,001 de precio de lista. Ver el encabezado de esta sección. */
 export const USD_POR_MT = 0.001;

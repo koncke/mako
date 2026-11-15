@@ -4551,6 +4551,63 @@ sigue de respaldo para los negocios que ya lo tenían. Código nuevo que lea o e
   hasta entonces Zernio corre sólo en el negocio de la plataforma. Lo medido: docs/hallazgos-integraciones.md → «Meta entero por
   la Zernio del negocio».
 
+# Toda llamada a un modelo descuenta MaKo Tokens, y el costo se escribe en DÓLARES, nunca en MT
+
+Martín, 15/11/2026: *«vinculemos todas las cosas que utilicen inteligencia artificial y que todo utilice MaKo Tokens…
+la generación de transcripciones, la generación de análisis de la competencia, que eso también gasta dinero. O sea, todo
+debería consumir MaKo Tokens»*. **Da vuelta la decisión del 22/10/2026 («cada negocio paga su IA»)**: ahora el default es
+MaKo Tokens y conectar su clave —o su Google Flow— es una OPCIÓN. Lo que NO cambió: con su clave conectada, su gasto deja
+de descontar. Lo que costó, en [docs/hallazgos-mako-tokens.md](docs/hallazgos-mako-tokens.md). Lo que gobierna código nuevo:
+
+- **No hay que acordarse de nada para que una feature nueva descuente.** El medidor está en las diez funciones públicas de
+  `lib/ai-cheap.ts`, `lib/anthropic.ts` y `lib/video-desarmar-gemini.ts` que llaman a un modelo. Una feature nueva lo
+  hereda; una que no esté en la tabla de costos cae a `COSTO_POR_DEFECTO`, que **cobra a propósito** (lo que no cobra no
+  se mide, y lo que no se mide se paga igual).
+- ⚠️ **En `lib/mako-tokens-costos.ts` se escribe el `costoUsd` MEDIDO, nunca un número de MT.** El MT lo deriva `mtDeUsd`.
+  La tabla `TARIFA` de `app/admin/dev/pricing/modelo.ts` tiene una columna `mt` que **trae 2,4× de markup adentro** (es de
+  agosto, cuando el markup vivía en el token; hoy vive en el cupo). Copiarla agota el cupo del cliente **al 40 % del mes**,
+  sin un solo error. Lo fija `tests/mako-tokens-costos.test.ts`.
+- **El costo de TEXTO se liquida, no se estima.** Se reserva el estimado antes de la llamada y se ajusta con el costo real
+  que calcula `recordUsage`. Por eso una llamada que falla no se cobra, y por eso un `estimado` flojo no le cuesta plata a
+  nadie. ⚠️ El aviso al medidor (`reportarCostoReal`) va **antes del primer `await`** de `recordUsage` y con import
+  ESTÁTICO: siete call-sites la llaman sin `await`, y movido después del insert se cobraría siempre el estimado.
+- **Los MEDIOS se cobran por INTENTO y exacto** (`cobrarMediosMt`): ahí el costo se sabe antes y el proveedor cobra el
+  intento fallido. No se liquida nada.
+- **Lo AUTOMÁTICO descuenta igual, pero si no alcanza se saltea en silencio** (`SalteadoSinSaldo`): nadie ve «te quedaste
+  sin saldo» por un cron que no disparó. Cobrarle 0 a lo automático dejaría sin medidor justo al que más gasta.
+- ⚠️ **Y antes de colgar una regla nueva de una condición que ya existe, leé qué la apaga.** El medidor va en su propia
+  línea, con su propia condición (`!medidorAbierto()`), y NO adentro de `conD6bDelPedido`: `pasaPorLaPuerta()` devuelve
+  false cuando alguien ya decidió D6b, y las ~30 rutas que llaman `conSuIADelNegocio` lo deciden. Puesto ahí, el medidor
+  no le cobraría a ninguna de esas 30 rutas — y en verde. Dos reglas que se aplican en el mismo lugar no comparten
+  condición: comparten lugar.
+
+# Un wrapper que se engancha por RE-ENTRADA abre su contexto SIEMPRE, también cuando decide no hacer nada
+
+El patrón de este repo para envolver una función pública sin re-indentar su cuerpo es que la función **se llame a sí
+misma** (`lib/solo-su-ia.ts`, `lib/mako-tokens-medidor.ts`):
+
+```ts
+if (!yaDecidido()) return conElWrapper(feature, () => estaMismaFuncion(opts));
+```
+
+El `AsyncLocalStorage` es lo que corta la segunda pasada. Si el wrapper devuelve `fn()` **sin abrirlo** —la rama de «este
+pedido no me toca»— la re-entrada vuelve a ver «nadie decidió» y se llama otra vez, para siempre.
+
+**Pasó dos veces.** La puerta de D6b (revisión de IA6, 22/10/2026: *«un bucle de microtareas que CONGELABA el proceso
+entero»*) y el medidor de MaKo Tokens (15/11/2026), al copiar la FORMA del enganche sin copiar su invariante.
+
+- **La rama que no hace nada es la que nadie prueba**, porque «no hace nada» suena a que no puede fallar.
+- **El modo de falla no es un error: es no terminar.** Un `assert` no lo ve.
+- ⚠️ **Y UN `Promise.race` CON `setTimeout` TAMPOCO LO VE**, aunque parezca lo obvio y esté escrito así en
+  `tests/_d6b-puerta-hijo.ts`. Medido el 15/11/2026 reintroduciendo el bucle a propósito: con un tope de 20 s, el caso
+  **no volvió nunca**. El bucle es de **microtareas** —cada vuelta resuelve promesas ya cumplidas y nunca cede a la cola
+  de macrotareas—, así que el `setTimeout` del tope no llega a dispararse. Es lo mismo que ya decía la revisión de IA6:
+  *«ni un `setTimeout` corría»*.
+- **Lo único que lo caza es un tope DE PROCESO**: el caso corre en un hijo (`execFileSync` con `timeout`), y lo que
+  reporta el rojo es ese timeout, no un assert. Por eso estas pruebas van en un `tests/_*-hijo.ts` con su padre, que es
+  el patrón que este repo ya usa. El caso tiene que incluir «sin workspace», que es la rama donde el wrapper se
+  desentiende. Molde: caso 9 de `tests/mako-tokens-medidor.test.ts` con `tests/_mako-tokens-medidor-hijo.ts`.
+
 # Un cobro pasa por `lib/cobros.ts`, y la clave de una pasarela se lee con `credDelCliente`
 
 La pasarela de pagos (Stripe y Mercado Pago, 11/10/2026) tiene UN escritor de lo que importa: `lib/cobros.ts`

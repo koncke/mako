@@ -16,6 +16,7 @@ import {
 import { CLAVES_CREDITO_DE_LOS_GRUPOS } from './credito-api';
 import type { ProvName } from './ai-cheap';
 import { PROVS_SU_IA, conD6bDelPedido, pasaPorLaPuerta, planPuedePagarConSuClave, soloSuIA } from './solo-su-ia';
+import { conMedidorDeMt, medidorAbierto } from './mako-tokens-medidor';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
 //
@@ -491,6 +492,9 @@ export async function chatClaude(
   await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatClaude(system, messages, opts));
+  // MaKo Tokens: reserva el costo de esta llamada y liquida con el real al terminar (15/11/2026, lib/mako-tokens-medidor.ts).
+  // Va DESPUES de la linea de D6b a proposito: el medidor necesita saber si la IA la paga el negocio con SU clave.
+  if (!medidorAbierto()) return conMedidorDeMt(opts.feature, () => chatClaude(system, messages, opts));
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), delegamos a la
   // capa barata ANTES de exigir la key de Anthropic (un cliente puede tener SOLO
@@ -749,6 +753,9 @@ export async function chatClaudeTools(
   await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatClaudeTools(system, messages, tools, runTool, opts));
+  // MaKo Tokens: reserva el costo de esta llamada y liquida con el real al terminar (15/11/2026, lib/mako-tokens-medidor.ts).
+  // Va DESPUES de la linea de D6b a proposito: el medidor necesita saber si la IA la paga el negocio con SU clave.
+  if (!medidorAbierto()) return conMedidorDeMt(opts.feature, () => chatClaudeTools(system, messages, tools, runTool, opts));
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), corremos el
   // LOOP de tools por chatCheapTools (function-calling OpenAI-compat) ANTES de

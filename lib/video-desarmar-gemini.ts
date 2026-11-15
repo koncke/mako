@@ -21,6 +21,7 @@ import 'server-only';
 import { nroCuenta, provsDe } from './ai-cheap';
 import { exigirPermisoIa } from './ia-permiso';
 import { conD6bDelPedido, pasaPorLaPuerta } from './solo-su-ia';
+import { conMedidorDeMt, medidorAbierto } from './mako-tokens-medidor';
 import { recordUsage } from './anthropic-usage';
 import { leerErrorProveedor } from './ia-rotacion-modelo';
 import { anotarSaturado, esSaturacion, primeroLosSanos } from './ia-saturacion';
@@ -131,6 +132,9 @@ export function jsonDeRespuesta(texto: string): unknown {
 export async function mirarVideoConGemini(p: PedidoVideoGemini): Promise<RespuestaVideoGemini> {
   await exigirPermisoIa();
   if (pasaPorLaPuerta(p.feature)) return conD6bDelPedido(p.feature, () => mirarVideoConGemini(p));
+  // MaKo Tokens: reserva el costo de esta llamada y liquida con el real al terminar (15/11/2026, lib/mako-tokens-medidor.ts).
+  // Va DESPUES de la linea de D6b a proposito: el medidor necesita saber si la IA la paga el negocio con SU clave.
+  if (!medidorAbierto()) return conMedidorDeMt(p.feature, () => mirarVideoConGemini(p));
   if (p.video.tipo === 'youtube' && !ENLACE_YT.test(p.video.url)) return { ok: false, motivo: 'fallo', error: 'No es el enlace de un video de YouTube.' };
   const provs = await provsDe('gemini');
   if (!provs.length) return { ok: false, motivo: 'sin-gemini', error: 'Sin Gemini conectado.' };

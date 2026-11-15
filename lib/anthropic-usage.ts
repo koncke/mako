@@ -17,6 +17,11 @@ import { saldoOpenRouter } from './openrouter-saldo';
 import { esDelCreditoDeLaPlataforma } from './veto-claude';
 import { tokensDeSalida } from './ai-cheap-techo';
 import { MOTIVO_CARTEL_MAX } from './fallo-ia-texto';
+// El medidor de MaKo Tokens reserva un ESTIMADO antes de la llamada y liquida con el costo real al terminar (15/11/2026).
+// Acá está el único lugar del repo que sabe cuánto costó de verdad, así que acá se le avisa.
+// ⚠️ IMPORT ESTÁTICO A PROPÓSITO: el aviso tiene que ser SINCRÓNICO (ver abajo, donde se llama). Un `await import` lo
+// volvería asíncrono y los 7 call-sites que llaman a `recordUsage` sin `await` cerrarían la cuenta antes del aviso.
+import { reportarCostoReal } from './mako-tokens-medidor';
 
 // A QUÉ workspace pertenece el saldo/gasto de un proveedor. La regla real no es
 // "qué proveedor es" sino **de quién es la key que lo pagó**:
@@ -207,6 +212,11 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
   // siendo lo de siempre (lo cacheado va APARTE de input_tokens).
   const cacheadoCompat = Number((u.prompt_tokens_details as Record<string, unknown> | undefined)?.cached_tokens ?? 0) || 0;
   const costUsd = costFor(model, { input, output, cacheCreation, cacheRead }, provider);
+  // ⚠️ ANTES DEL PRIMER `await` DE ESTA FUNCIÓN, Y ES LA PARTE QUE IMPORTA: siete call-sites de la IA barata llaman a
+  // `recordUsage` sin esperarla (en serverless la instancia se congela con el INSERT en vuelo). La parte SINCRÓNICA de una
+  // función async corre igual al invocarla, así que puesto acá el aviso llega; puesto después del `insertUsage`, la
+  // liquidación cerraría en cero y el cliente pagaría siempre el estimado en vez del costo real.
+  reportarCostoReal(costUsd);
   // El cartel de «no pude» del grupo lleva en el motivo el TEXTO que le llegó a la persona (lib/fallo-ia-texto.ts,
   // `motivoDelCartel`, 25/10/2026): cortado a 200 se perdía justo eso. El resto sigue corto, que es lo que dibuja el Saldo de IA.
   const largo = feature === 'cartel-ia' ? MOTIVO_CARTEL_MAX : 200;
@@ -224,6 +234,10 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
 export async function recordSttUsage(feature: string, model: string, segundos: number, motivo?: string, provider = 'openai', cuenta?: number): Promise<void> {
   const seg = Math.max(0, Number(segundos) || 0);
   const costUsd = PROVEEDORES_GRATIS.includes(provider) ? 0 : (STT_PRICE_SEG[model] ?? STT_PRICE_SEG['whisper-1']) * seg;
+  // Martín, 15/11/2026: «Lo mismo con la generación de transcripciones». El STT cobra por SEGUNDOS de audio, no por
+  // tokens, y acá ya está el costo real de esos segundos: el medidor lo liquida igual que el texto. Sincrónico, por lo
+  // mismo que arriba.
+  reportarCostoReal(costUsd);
   await insertUsage({
     feature: feature || 'stt', motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null, model, provider,
     cuenta: cuenta && cuenta > 1 ? cuenta : 1,
