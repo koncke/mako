@@ -65,6 +65,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
+import { useSoloPro } from '@/app/_components/solo-pro';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { claveParaUrl, esperaDe, partesDelNombre, seguirChat } from '@/lib/centro-chats';
 import { pasaFiltroChats, type ChatFiltrable } from '@/lib/ops-center-filtro';
@@ -217,6 +218,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // qué panel se ve. ⚠️ NO VA EN `ElegidoChat`: ese es el motor de ESTA pantalla, y el gurú tiene el suyo. `?guru=` lo trae de vuelta.
   const guruInicial = asesorPorId(useSearchParams().get('guru'))?.id ?? null;
   const [guru, setGuru] = useState<IdAsesor | null>(guruInicial);
+  // Hablar con un gurú es de MaKo Pro (14/11/2026, `FUNCIONES_SOLO_PRO`, 'chat-referentes').
+  const gurusSoloPro = useSoloPro('chat-referentes');
   // ⚠️ UNA VEZ ABIERTO QUEDA MONTADO, ESCONDIDO, como el Funnel Coach (más abajo): tiene su propio motor, y desmontado a mitad de un turno
   // la respuesta llegaba a nadie. Irse a otro chat mientras contesta no la pierde.
   const [gurusMontados, setGurusMontados] = useState<readonly IdAsesor[]>(guruInicial ? [guruInicial] : []);
@@ -451,7 +454,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   };
   /** Cuándo fue lo último con un gurú. */
   const edadDeGuru = (id: IdAsesor | undefined) => { const at = gurusConCharla.find((g) => g.id === id)?.at; return edadCorta(at ? Date.parse(at) : null, k.ahora); };
-  const filasDeGurus = gurusDeLaBarra({ conCharla: gurusConCharla, abierto: guru, busca });
+  // SÓLO MaKo Pro (14/11/2026, lib/asesores/candado.ts): a un Esencial, la galería va con el candado (más abajo) y sus
+  // conversaciones con gurús NO se listan. Nada se borra: con Pro vuelven tal cual, como la comunidad del Classroom. La
+  // defensa es /api/mako/chat, que contesta 403 con `pasarAPro`; esto es para que no toque y reciba un error.
+  const filasDeGurus = gurusSoloPro ? [] : gurusDeLaBarra({ conCharla: gurusConCharla, abierto: guru, busca });
 
   /** El coach, fijo debajo del Ops Center, con sus conversaciones de oferta, y debajo los gurús con los que ya habló. */
   const verFunnel = conCoach && !verMapa && !ticketera && !nuevoCentro && !enOtroChat;
@@ -604,7 +610,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         </section>
       ) : enOtroChat ? null : centro && nuevoCentro ? (
         // Un chat NUEVO de Claude Code: vacío, con su caja; con el primer mensaje, MaKo decide dónde va (ChatNuevo.tsx).
-        <ChatNuevoCentro centro={centro} onAbrir={(clave) => elegir({ centro: clave })} onVolver={() => { setNuevoCentro(false); setConChat(false); }} gurus={<GaleriaDeGurus onElegir={abrirGuru} />} />
+        <ChatNuevoCentro centro={centro} onAbrir={(clave) => elegir({ centro: clave })} onVolver={() => { setNuevoCentro(false); setConChat(false); }} gurus={<GaleriaDeGurus onElegir={abrirGuru} soloPro={gurusSoloPro} />} />
       ) : centro && chatCentro ? (
         // Un chat de Claude Code: la conversación del Centro, con su caja firmada (el único camino, mandar.ts).
         <ChatDelCentro centro={centro} chat={chatCentro} onVolver={() => setConChat(false)} />
@@ -636,7 +642,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           </>}
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} apertura={apertura} />
-          {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} />}
+          {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} soloPro={gurusSoloPro} />}
         </PanelDeChat>
       )}
       {/* Un chat con un gurú (ChatDelReferente.tsx): su conversación, su cara y su Second Brain. */}

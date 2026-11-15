@@ -801,3 +801,38 @@ script (tsx) que llama a las MISMAS funciones del server, adentro de `runWithWor
   - con el índice casi lleno no entra nada y la marca queda «hecha» con 0 (B4);
   - un `reels.historial` con JSON roto se toma como «no hay» (B5).
 - «Compartir para editar» desde el teléfono del dueño (la vista del guion del teléfono no tiene el menú ⋯): D9.
+
+## La cabecera de `app/copywriter/acceso.ts` dice «sólo el super admin» y la tab está abierta a todos desde el 29/10 (14/11/2026)
+
+**El síntoma.** Al cerrar «Replicar» en MaKo Esencial, la primera lectura de `app/copywriter/acceso.ts` decía que la tab
+«la ve sólo el super admin hasta que Martín la valide». Con eso, cerrar la réplica en Esencial sería trabajo de más: nadie
+que pague Esencial entra. Es falso.
+
+**La causa.** La puerta de verdad vive en `lib/copywriter/puerta.ts`, y el 29/10/2026 se abrió a TODOS
+(`veCopywriter()` = «toda persona con sesión»; quien entra lo decide la pregunta de toda tab). `acceso.ts` sólo
+RE-EXPORTA esa función, y su comentario de cabecera quedó del 28/10, un día antes de la apertura. El `grep` de
+«sólo el super admin» lleva al archivo equivocado.
+
+**La regla.** Para saber quién entra a una tab se lee la función, no la cabecera del archivo que la re-exporta:
+`lib/copywriter/puerta.ts` (pantallas y rutas con sesión) y `lib/copywriter/puerta-api.ts` (la API de MaKo, sin sesión).
+Si alguna vez se vuelve a cerrar, se cambian **las dos**.
+
+## Replicar el guion de otro es de MaKo Pro: el candado va en la función que CREA la réplica, no en la pantalla (14/11/2026)
+
+Martín, sobre /planes: «el de 47 debería estar bien limitado y restrictivo… el de 97 ya podés… replicar landing». Replicar
+el guion de un competidor es **la misma palanca** que copiar su landing (`'replicar-landing'`), así que es el mismo molde
+(`lib/editor-landing/replicar-candado.ts` → `lib/copywriter/replica-candado.ts`, `FUNCIONES_SOLO_PRO`, `'replicar-guion'`).
+**Escribir un guion desde cero sigue en los dos planes**: lo que es de Pro es replicar el de otro.
+
+Hay **cinco** puertas que crean una réplica, y una sola pantalla: por eso el candado está en las funciones y no en la UI.
+- `replicarOutlier()` (`lib/copywriter/outliers-servidor.ts`) → el botón de Copywriting, el «¿Creamos uno parecido?» de
+  Competitors Spy (`app/competitor-spy/Seguidos.tsx`, que importa `pedirReplicar` del Copywriter) y la operación
+  `replicar_outlier_copywriter` de la API de MaKo;
+- `replicarPegado()` (`lib/copywriter/pegado-servidor.ts`) → «Pegar link o texto» y `replicar_link_o_texto_copywriter`;
+- `prepararReplica()` (`lib/copywriter/replica-servidor.ts`) → las preguntas de antes de escribir, que leen las ofertas del
+  negocio. Sin cerrar ésta, un Esencial recorría el flujo entero y chocaba al final.
+
+**El detalle que faltaba y lo delató el typecheck:** `Falla['status']` del Copywriter no tenía `403`
+(`400 | 404 | 409 | 422 | 500`), así que el candado no podía devolver su código. Se sumó `403`, que es el mismo que usan el
+candado de las landings y el de la IA de los editores, y es el que la pantalla reconoce por `pasarAPro`
+(`app/_components/solo-pro.ts`, `esRespuestaSoloPro`) para prender el candado en TODAS las entradas de «Replicar» a la vez.

@@ -10,9 +10,10 @@
 // La query: `?plantilla=<preset>` abre «Nueva» con ese preset elegido; `?avatar=<proyecto o mediaId>` abre ese proyecto.
 
 import './estudio.css';
-import { requireAiAvatar } from './acceso';
+import { candadoDeAiAvatar, requireAiAvatar } from './acceso';
 import { Pagina } from '@/app/_ui';
 import { ErrorState } from '@/app/_ui/Estados';
+import { CartelSoloPro } from '@/app/_components/CartelSoloPro';
 import { EstudioAvatar } from './Estudio';
 // De reglas.ts y NO de PantallaCrear: un valor de un módulo 'use client' llega al server como referencia y rompe el style.
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
@@ -23,6 +24,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function AiAvatarPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireAiAvatar();
+  // SÓLO MaKo Pro (14/11/2026, ./acceso.ts): al Esencial, el cartel EN LUGAR del estudio, antes de leer nada. Nada se borra:
+  // con Pro vuelve tal cual estaba. La defensa de verdad es la puerta de las actions (./actions.ts); esto es lo que se ve.
+  const pro = await candadoDeAiAvatar();
+  if (pro) return <Pagina ancho="completo" densidad="compacta"><CartelSoloPro texto={pro} /></Pagina>;
   const sp = await searchParams;
   const uno = (v: string | string[] | undefined) => (typeof v === 'string' ? v.slice(0, 120) : undefined);
   const inicio = await inicioAvatarAction();

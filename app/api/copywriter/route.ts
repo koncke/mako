@@ -20,6 +20,7 @@ import { nombreDeVisita } from '@/lib/copywriter/editado';
 import { leerOutliersCopy, outlierCopyPorId, replicarOutlier } from '@/lib/copywriter/outliers-servidor';
 import { consultaDeTanda, tandaDeOutliersCopy } from '@/lib/copywriter/outliers';
 import { completarOferta, prepararReplica } from '@/lib/copywriter/replica-servidor';
+import { candadoDeReplicarGuionEnPantalla } from '@/lib/copywriter/replica-candado';
 import { esCampoQueFalta } from '@/lib/copywriter/oferta-elegida';
 
 export const dynamic = 'force-dynamic';
@@ -87,8 +88,14 @@ export async function POST(req: Request) {
       // Sólo id y nombre; lo que El Archivero sacó de cada uno se lee al mandar (lib/copywriter/referencias.ts).
       // Los outliers de copy (D18): «Replicar» crea la página que replica uno; `outlier` es el original entero («Ver el original»).
       // Los dos leen en el negocio de la pestaña: una pieza de Spy de otro negocio no se encuentra.
-      case 'replicar':
+      // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): el 403 con `pasarAPro`, que es lo que la pantalla
+      // reconoce para prender el candado en TODAS las entradas de «Replicar» a la vez (app/_components/solo-pro.ts).
+      // `replicarOutlier` y `prepararReplica` lo frenan igual por su cuenta: esto es para que la pantalla lo pueda dibujar.
+      case 'replicar': {
+        const pro = await candadoDeReplicarGuionEnPantalla();
+        if (pro) return Response.json({ ok: false, ...pro }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
         return responder(await replicarOutlier(texto(b.outlier)));
+      }
       // La portada por tandas (13/11/2026): la página trae la primera; las demás (al bajar, con «Ver más» o con otro filtro) salen
       // de acá, filtradas y ordenadas con la misma función que usa la pantalla (lib/copywriter/outliers.ts, `tandaDeOutliersCopy`).
       case 'outliers': {
@@ -102,8 +109,11 @@ export async function POST(req: Request) {
       }
       // Antes de escribir una réplica, MaKo pregunta (13/11/2026, la maqueta aprobada): las ofertas con lo que les falta y de qué
       // habla el original; lo que la persona contesta de su oferta se guarda en la oferta (lib/copywriter/replica-servidor.ts).
-      case 'preparar-replica':
+      case 'preparar-replica': {
+        const pro = await candadoDeReplicarGuionEnPantalla();
+        if (pro) return Response.json({ ok: false, ...pro }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
         return responder(await prepararReplica(texto(b.outlier)));
+      }
       case 'completar-oferta': {
         if (!Number.isInteger(b.oferta) || !esCampoQueFalta(b.campo)) return falla(400, 'Pedido inválido');
         return responder(await completarOferta(b.oferta as number, b.campo, texto(b.valor)));

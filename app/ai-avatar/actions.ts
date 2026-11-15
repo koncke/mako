@@ -21,7 +21,7 @@
 // en «lo que quedó sin hacer» (docs/hallazgos-ai-avatar.md); la galería (lib/ai-avatar/voces-galeria.ts) queda como dato.
 
 import { randomUUID } from 'node:crypto';
-import { veAiAvatar } from './acceso';
+import { candadoDeAiAvatar, veAiAvatar } from './acceso';
 import { leerLooks, guardarLook, quitarLook, type Look } from './looks';
 import { getWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { estadoPuente, encolar, esRechazoDeModeracion } from '@/lib/flow-cola';
@@ -45,6 +45,10 @@ const SIN_WS = 'Elige un workspace arriba para usar AI Avatar.';
 
 async function puerta(): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!(await veAiAvatar())) return { ok: false, error: NO_PUEDE };
+  // SÓLO MaKo Pro (14/11/2026, ./acceso.ts): acá se genera de verdad, así que el candado va en la puerta de TODAS las
+  // actions y no en la pantalla. El texto es el de siempre (`textoSoloPro('ai-avatar')`), que dice qué es y cómo tenerlo.
+  const pro = await candadoDeAiAvatar();
+  if (pro) return { ok: false, error: pro };
   if ((await getWorkspaceActual()) == null) return { ok: false, error: SIN_WS };
   return { ok: true };
 }

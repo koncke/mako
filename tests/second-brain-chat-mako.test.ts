@@ -62,7 +62,9 @@ test('2. una conversación por persona y negocio, que el Ops Center lista como �
   assert.match(f, /return runWithWorkspace\(persona\.ws,/, 'en el negocio de la sesión');
   assert.match(f, /return crear \? aSesion\(await createSession\(clave, null, ''\)\) : null;/);
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
-  assert.match(ruta, /if \(sp\.has\('deTab'\)\) return json\(\{ ok: true, sesion: await sesionDeTab\(persona, sp\.get\('deTab'\) \?\? '', false\) \}\);/, 'leerla no la crea');
+  // 14/11/2026: antes de abrirla va el candado de los referentes (lib/asesores/candado.ts): hablar con un gurú es de MaKo Pro, y
+  // lo dice la CLAVE de la conversación. Lo que no cambió es que LEERLA NO LA CREA (`false`).
+  assert.match(ruta, /if \(sp\.has\('deTab'\)\) \{\n\s+const pro = await candadoDeReferente\(persona\.ws, sp\.get\('deTab'\)\);\n\s+if \(pro\) return json\([^\n]*403\);\n\s+return json\(\{ ok: true, sesion: await sesionDeTab\(persona, sp\.get\('deTab'\) \?\? '', false\) \}\);/, 'leerla no la crea');
   assert.match(ruta, /typeof body\.tab === 'string' \? await sesionDeTab\(persona, body\.tab, true\) : null;/, 'el primer mensaje la crea');
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.equal((motor.match(/postJson<\{ sesion: SesionChat \}>\(\{ action: 'new', \.\.\.\(tabPropia \? \{ tab: tabPropia \} : \{\}\) \}\)/g) ?? []).length, 2, 'con un mensaje y con una nota de voz');

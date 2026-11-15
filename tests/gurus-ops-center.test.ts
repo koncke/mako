@@ -85,9 +85,9 @@ test('1. en «Nuevo chat» del super admin van debajo de la portada, y se van co
 
 test('1. las cuatro puertas: el cliente y el super admin, en la computadora y en el teléfono, y sin modal', () => {
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(sb, /<ChatNuevoCentro [^\n]*gurus=\{<GaleriaDeGurus onElegir=\{abrirGuru\} \/>\}/, 'el super admin');
-  assert.match(sb, /\{enChatNuevo && !k\.items\.length && !k\.trabajo && <GaleriaDeGurus onElegir=\{abrirGuru\} \/>\}/, 'el cliente');
-  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /\{enChatNuevo && !k\.items\.length && !k\.trabajo && <GaleriaDeGurus onElegir=\{abrirGuru\} \/>\}/, 'el cliente en el teléfono');
+  assert.match(sb, /<ChatNuevoCentro [^\n]*gurus=\{<GaleriaDeGurus onElegir=\{abrirGuru\} soloPro=\{gurusSoloPro\} \/>\}/, 'el super admin');
+  assert.match(sb, /\{enChatNuevo && !k\.items\.length && !k\.trabajo && <GaleriaDeGurus onElegir=\{abrirGuru\} soloPro=\{gurusSoloPro\} \/>\}/, 'el cliente');
+  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /\{enChatNuevo && !k\.items\.length && !k\.trabajo && <GaleriaDeGurus onElegir=\{abrirGuru\} soloPro=\{gurusSoloPro\} \/>\}/, 'el cliente en el teléfono');
   assert.match(sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx')), /<CuerpoChatNuevo n=\{chatNuevo\} alPie=\{<GaleriaDeGurus onElegir=\{onGuru\} \/>\} \/>/, 'el super admin en el teléfono');
   assert.doesNotMatch(sb, /eligiendoGuru|Hablar con un gurú/, '«Nuevo chat jamás debe abrir un modal»');
   assert.doesNotMatch(leer('app/second-brain/GaleriaDeGurus.tsx'), /Modal/);

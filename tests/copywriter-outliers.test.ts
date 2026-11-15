@@ -315,7 +315,9 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   assert.match(leer('app/copywriter/OutlierAbierto.tsx'), /void pedirOriginal\(o\.id\)\.then\(\(r\) => \{ if \(vivo && r\.ok\) setCompleto\(r\.outlier\.texto\); \}\);/);
   assert.match(cw, /alNuevo=\{portada \? undefined : \(\) => router\.push\(base\)\}/);
   const ruta = leer('app/api/copywriter/route.ts');
-  assert.match(ruta, /case 'replicar':\n\s+return responder\(await replicarOutlier\(texto\(b\.outlier\)\)\);/);
+  // 14/11/2026: replicar el guion de otro es de MaKo Pro (lib/copywriter/replica-candado.ts), así que antes de replicar va el
+  // candado, con el 403 y `pasarAPro` que la pantalla reconoce. `replicarOutlier` lo frena igual por su cuenta.
+  assert.match(ruta, /case 'replicar': \{\n\s+const pro = await candadoDeReplicarGuionEnPantalla\(\);\n\s+if \(pro\) return Response\.json\(\{ ok: false, \.\.\.pro \}, \{ status: 403[^\n]*\n\s+return responder\(await replicarOutlier\(texto\(b\.outlier\)\)\);/);
   const m = leer('app/m/copywriter/page.tsx');
   assert.match(m, /<OutliersCopy portada=\{primeraTandaCopy\(await leerOutliersCopy\(\)\)\} telefono rutaGuion="\/m\/copywriter\/\{id\}\?mako=1"/);
 });

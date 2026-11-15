@@ -24,6 +24,7 @@ import { conTemaYIdioma, textoDelNegocio } from './portada-tema';
 import { temaDeTexto, type Tema } from './tema';
 import { rotuloMultiplo } from '../multiplo-rendimiento';
 import { crear, type Falla } from './server';
+import { candadoDeReplicarGuion } from './replica-candado';
 import { originalPegadoPorId } from './pegado-servidor';
 import { docVacio } from './doc';
 import { propsNuevas, type GuionAbierto, type PaginaCopy } from './tipos';
@@ -189,6 +190,10 @@ export async function originalParaMaKo(id: string): Promise<string | null> {
  * con botones: lib/copywriter/iniciativa.ts), a la vista y como propuesta. 404 si el outlier no es de este negocio.
  */
 export async function replicarOutlier(id: string): Promise<({ ok: true; paginas: PaginaCopy[] } & GuionAbierto) | Falla> {
+  // SÓLO MaKo Pro (14/11/2026, ./replica-candado.ts): acá y no en la pantalla, así quedan con el candado el botón de
+  // Copywriting, el de Competitors Spy y `replicar_outlier_copywriter` de la API de MaKo. Lo primero, antes de leer nada.
+  const pro = await candadoDeReplicarGuion();
+  if (pro) return { ok: false, error: pro, status: 403 };
   let o: OutlierCopy | null;
   try { o = await outlierCopyPorId(id); } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el original.', status: 500 };

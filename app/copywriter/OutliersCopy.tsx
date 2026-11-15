@@ -22,6 +22,8 @@ import {
   rotuloDeFormato, rotuloDiasAlAire, type FormatoCopy, type OrdenCopy, type OutlierCopy, type PortadaCopy,
 } from '@/lib/copywriter/outliers';
 import { pedirOutliers, pedirReplicar } from './cliente';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
+import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
 import { OutlierAbierto } from './OutlierAbierto';
 import { ReplicarPegado } from './ReplicarPegado';
 import { RUTA_CREAR_COPY, RUTA_GUIONES_COPY } from './vista';
@@ -230,6 +232,9 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   const [abierto, setAbierto] = useState<OutlierCopy | null>(null);
   const [replicando, setReplicando] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // Replicar el guion de otro es de MaKo Pro (14/11/2026): a un Esencial, el candado en lugar de la réplica.
+  const soloPro = useSoloPro('replicar-guion');
+  const [candado, setCandado] = useState(false);
   const [usando, setUsando] = useState<string | null>(null);
   const [activa, setActiva] = useState<string | null>(null);
 
@@ -309,10 +314,20 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   /** «Replicar»: la página nueva del tipo del original, y a ella; ahí MaKo pregunta para qué oferta. */
   const replicar = async (o: OutlierCopy) => {
     if (replicando) return;
+    // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): el candado acá mismo en vez de un pedido que va a
+    // volver con un 403. La defensa es el server; esto es para que no toque y reciba un error. Cubre las tres entradas de
+    // esta pantalla (la tarjeta, el original abierto y «Pegar link o texto»): las tres pasan por acá.
+    if (soloPro) { setCandado(true); return; }
     setReplicando(o.id);
     setAviso(null);
     const r = await pedirReplicar(o.id);
-    if (!r.ok) { setReplicando(null); setAviso(`No se pudo replicar: ${r.error}`); return; }
+    if (!r.ok) {
+      setReplicando(null);
+      // El plan cambió después de cargar la pestaña, o la lectura todavía no llegó: el 403 con `pasarAPro` prende el candado.
+      if (esRespuestaSoloPro(r)) { marcarSoloPro('replicar-guion'); setCandado(true); return; }
+      setAviso(`No se pudo replicar: ${r.error}`);
+      return;
+    }
     router.push(rutaGuion.replace('{id}', r.pagina.id));
   };
   /** «Pegar link o texto» (14/11/2026, el Cerebro: replicar también lo que trae la persona; ./ReplicarPegado.tsx). */
@@ -323,7 +338,8 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   const botones = (
     <div className={telefono ? `${s.botones} ${oc.botonesTelefono}` : s.botones}>
       <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
-      <button type="button" className={s.pastilla} onClick={() => setPegando(true)}>Pegar link o texto</button>
+      {/* «Pegar link o texto» replica igual (lib/copywriter/pegado-servidor.ts): mismo candado que la tarjeta. */}
+      <button type="button" className={s.pastilla} onClick={() => (soloPro ? setCandado(true) : setPegando(true))}>Pegar link o texto</button>
       {pantalla
         ? <button type="button" className={s.pastilla} onClick={pantalla.verProyectos}>Mis guiones</button>
         : <Link href={rutaGuiones} className={s.pastilla}>Mis guiones</Link>}
@@ -395,6 +411,9 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
           </div>
         ))}
         {aviso && <p role="alert" className={s.aviso}>{aviso}<ReportarASoporte /></p>}
+        {/* El candado de «Replicar» (14/11/2026): el texto y «Pasar a Pro», como en Competitors Spy. Los outliers se siguen
+            viendo y leyendo: lo que es de Pro es replicarlos. */}
+        {candado && <CandadoSoloPro funcion="replicar-guion" style={{ margin: '0 0 14px' }} />}
 
         {totalPortada === 0 ? (
           <>

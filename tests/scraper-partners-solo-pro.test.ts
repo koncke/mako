@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FUNCIONES_SOLO_PRO, RUTA_CAMBIAR_PLAN, textoSoloPro } from '../lib/topes-plan';
-import { filasDeComparacion, NOMBRE_FUNCION_PRO } from '../lib/planes-comparacion';
+import { FUNCIONES_TODAVIA_NO_VENDIDAS, filasDeComparacion, NOMBRE_FUNCION_PRO } from '../lib/planes-comparacion';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -38,10 +38,23 @@ function cuerpo(rel: string, nombre: string): string {
 
 test('la regla: el scraper es de Pro (Partners ya no), y el candado dice qué es y cómo tenerlo', () => {
   // 14/11/2026: se sumaron copiar landings, la IA de los editores y la comunidad (Martín: «seas más limitado en el de 47»).
-  assert.deepEqual([...FUNCIONES_SOLO_PRO], ['scraper-whatsapp', 'replicar-landing', 'ia-editores', 'comunidad', 'setter-ia', 'piloto-redes']);
+  // 14/11/2026, noche: las tres últimas, del relevo que aprobó Martín (docs/relevo/planes-que-incluye-cada-columna.md §4.3):
+  // el avatar de IA, replicar el guion de un competidor y el chat con los referentes. Replicar un CARRUSEL no suma una entrada:
+  // ya estaba cerrado por 'ia-editores' (pasa por la IA del editor de imagen), y dos candados para la misma acción se
+  // contradicen el día que uno cambie.
+  assert.deepEqual([...FUNCIONES_SOLO_PRO], [
+    'scraper-whatsapp', 'replicar-landing', 'ia-editores', 'comunidad', 'setter-ia', 'piloto-redes',
+    'ai-avatar', 'replicar-guion', 'chat-referentes',
+  ]);
   assert.equal(textoSoloPro('scraper-whatsapp'), 'Traer los contactos de un grupo de WhatsApp es de MaKo Pro. Pasa a Pro para usarlo.');
+  // Lo que está cerrado en Esencial Y se vende tiene su fila en «Compara los planes». Lo que está cerrado pero todavía NO se
+  // vende (hoy el avatar: `AI_AVATAR_SE_VENDE`) no tiene fila a propósito: cerrarlo y venderlo son dos decisiones.
   for (const f of FUNCIONES_SOLO_PRO) {
     const fila = filasDeComparacion().find((x) => x.que === NOMBRE_FUNCION_PRO[f]);
+    if (FUNCIONES_TODAVIA_NO_VENDIDAS.includes(f)) {
+      assert.equal(fila, undefined, `${f} no se vende todavía y la tabla la promete`);
+      continue;
+    }
     assert.deepEqual([fila?.esencial, fila?.pro], [false, true], `/planes lo dice: ${f}`);
   }
 });

@@ -26,6 +26,7 @@ import {
 import { tramoDeYoutube } from '../spy-transcripcion-servidor';
 import { reservarDelDia } from '../spy-todo';
 import { crear, type Falla } from './server';
+import { candadoDeReplicarGuion } from './replica-candado';
 import { docVacio } from './doc';
 import { propsNuevas, type GuionAbierto, type PaginaCopy } from './tipos';
 import { idDeYouTube, primeraLinea, type OutlierCopy } from './outliers';
@@ -128,6 +129,10 @@ const numeroNuevo = (): number => Date.now() % 1_000_000_000_000;
  * «Replicar» lo traído: guarda el original y crea la página vacía que lo replica (la escribe MaKo, que pregunta antes la oferta).
  */
 export async function replicarPegado(p: { tipo: unknown; texto: unknown; lecturas?: readonly { nombre: string; texto: string }[] }): Promise<({ ok: true; paginas: PaginaCopy[] } & GuionAbierto) | Falla> {
+  // SÓLO MaKo Pro (14/11/2026, ./replica-candado.ts): replicar lo que TRAE la persona es la misma función que replicar un
+  // outlier, así que lleva el mismo candado, acá y no en la pantalla (la ruta y `replicar_link_o_texto_copywriter`).
+  const pro = await candadoDeReplicarGuion();
+  if (pro) return falla(403, pro);
   if (!esTipoPegado(p.tipo)) return falla(400, 'Elige qué es.');
   const o = await originalDeLoTraido(p.tipo, typeof p.texto === 'string' ? p.texto : '', p.lecturas ?? []);
   if ('ok' in o) return o;

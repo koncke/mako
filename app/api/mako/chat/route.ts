@@ -53,6 +53,9 @@ import { HERRAMIENTAS_DEL_COPILOTO } from '@/lib/media-buyer/copiloto-contexto';
 import { contextoDelCopilotoVigente } from '@/lib/media-buyer/copiloto-contexto-vigente';
 import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
 import { asesorPorId, referentePedido } from '@/lib/asesores/catalogo';
+// El candado de los referentes (14/11/2026): hablar con un gurú es de MaKo Pro (`FUNCIONES_SOLO_PRO`, 'chat-referentes').
+import { candadoDeReferente, candadoDeReferentesDe } from '@/lib/asesores/candado';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 // Ya viene con el turno (lib/mako-turno-app.ts lo importa): estático, así la guarda de las rutas sin IA lo ve (tests/d6b-rutas.test.ts).
 import { cursoDe } from '@/lib/cerebro-para-chat';
 import { guardarReferente, leerPlanFunnel, leerReferente } from '@/lib/funnel-plan-db';
@@ -62,7 +65,7 @@ import { listarOfertas } from '@/lib/ofertas';
 import { tipoDeDispositivo } from '@/lib/movil-dispositivo';
 import { sanearDesde, type Desde } from '@/lib/chat-desde';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
-import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
+import { runWithWorkspace, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, chatsDeOffer, claveDeAntes, conTemas, gurusConCharla, hiloDeAutomatizacion, hiloDeEditor, claveDeTab, hiloDeAntes, hiloDeOffer, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
@@ -179,11 +182,20 @@ export async function GET(req: NextRequest) {
   try {
     if (sp.get('sesiones')) return json({ ok: true, sesiones: await listarSesiones(persona) });
     // La conversación de una tab con chat propio (el Second Brain, 23/10/2026), si ya existe: se lee, no se crea.
-    if (sp.has('deTab')) return json({ ok: true, sesion: await sesionDeTab(persona, sp.get('deTab') ?? '', false) });
+    if (sp.has('deTab')) {
+      // SÓLO MaKo Pro el chat con un GURÚ (14/11/2026, lib/asesores/candado.ts): a un Esencial no se le abre su conversación.
+      // El Second Brain y el chat de MaKo, enteros en los dos planes: lo que lleva candado es el referente.
+      const pro = await candadoDeReferente(persona.ws, sp.get('deTab'));
+      if (pro) return json({ ok: false, error: pro, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) }, 403);
+      return json({ ok: true, sesion: await sesionDeTab(persona, sp.get('deTab') ?? '', false) });
+    }
     // El coach del Ops Center (uno desde el 4/11/2026, lib/asesores/): quién tiene al frente, si hay oferta y el plan guardado.
     // El Second Brain de UN gurú, para dibujarlo (#18, 3/11/2026): su curso como grafo, acomodado aquí. SIN el texto de las clases:
     // el de Alborna son 742 mil caracteres y el grafo dibuja títulos. El texto lo lee el chat (lib/cerebro-para-chat.ts → `cursoDe`).
     if (sp.has('cerebroDe')) {
+      // El Second Brain de un GURÚ es parte de hablar con él: mismo candado (14/11/2026, lib/asesores/candado.ts).
+      const proGuru = await candadoDeReferentesDe(persona.ws);
+      if (proGuru) return json({ ok: false, error: proGuru, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) }, 403);
       const id = asesorPorId(sp.get('cerebroDe'))?.id;
       const c = id ? await cursoDe(id) : null;
       if (!c) return json({ ok: false, error: 'Este gurú todavía no tiene su curso cargado.' }, 404);
@@ -330,6 +342,10 @@ export async function POST(req: NextRequest) {
       if (!escrito.trim() && !v.adjuntos.length && !bytesDeVoz) return json({ ok: false, error: 'Escribe algo.' }, 400);
       const quien = await personaDelChat(persona, sessionId, form.get('antes'));
       if (!quien) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
+      // SÓLO MaKo Pro el chat con un gurú (14/11/2026, lib/asesores/candado.ts): lo dice la CLAVE de la conversación, así que
+      // una de antes queda cerrada igual. Antes de escuchar la nota de voz y de correr el turno, que es lo que cuesta.
+      const proGuru = await candadoDeReferente(quien.ws, quien.chartKey);
+      if (proGuru) return json({ ok: false, error: proGuru, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) }, 403);
       // La nota se escucha ANTES del turno: lo que se entendió es el mensaje, y si nadie la pudo escuchar no se guarda nada.
       let mensaje = escrito;
       if (bytesDeVoz) {
@@ -358,6 +374,9 @@ export async function POST(req: NextRequest) {
     if (body.action === 'new') {
       // La de una tab con chat propio (el Second Brain): la suya, o una nueva con el primer mensaje. Una tab que no la tiene, 400.
       if (body.tab != null) {
+        // SÓLO MaKo Pro el chat con un gurú (14/11/2026, lib/asesores/candado.ts): no se le crea la conversación.
+        const pro = await candadoDeReferente(persona.ws, typeof body.tab === 'string' ? body.tab : null);
+        if (pro) return json({ ok: false, error: pro, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) }, 403);
         const sesion = typeof body.tab === 'string' ? await sesionDeTab(persona, body.tab, true) : null;
         return sesion ? json({ ok: true, sesion }) : json({ ok: false, error: 'Esa pantalla no tiene su chat.' }, 400);
       }
@@ -383,6 +402,10 @@ export async function POST(req: NextRequest) {
     if (sessionId == null) return json({ ok: false, error: 'Falta el chat.' }, 400);
     const quien = await personaDelChat(persona, sessionId, body.antes);
     if (!quien) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
+    // SÓLO MaKo Pro el chat con un gurú (14/11/2026, lib/asesores/candado.ts): acá, antes de las tres acciones que siguen
+    // (`send`, `confirmar` y `cancelar`), porque las tres corren sobre ESA conversación.
+    const proDelGuru = await candadoDeReferente(quien.ws, quien.chartKey);
+    if (proDelGuru) return json({ ok: false, error: proDelGuru, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) }, 403);
 
     if (body.action === 'send') {
       const mensaje = typeof body.mensaje === 'string' ? body.mensaje : '';

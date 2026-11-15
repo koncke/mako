@@ -27,6 +27,7 @@ import { FilaM, ListaM, SheetM } from '@/app/m/_ui';
 import { NuevoChatFlotante } from '@/app/m/_chat/NuevoChatFlotante';
 import Link from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
+import { useSoloPro } from '@/app/_components/solo-pro';
 import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
 import { AvisoDeIA } from '@/app/m/_chat/AvisoDeIA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
@@ -107,6 +108,9 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   const grupos = useGrupos();
   const [grupo, setGrupo] = useState<number | null>(grupoInicial);
   const [conCoach, setConCoach] = useState(false);
+  // Hablar con un gurú es de MaKo Pro (14/11/2026, lib/asesores/candado.ts): la galería va con el candado y las filas de
+  // gurús no se listan. Nada se borra: con Pro vuelven. La defensa es /api/mako/chat (403 con `pasarAPro`).
+  const gurusSoloPro = useSoloPro('chat-referentes');
   const abrirGuru = (id: IdAsesor) => { setAbierta(false); setGrupo(null); setConCoach(false); setGuru(id); };
   const abrirGrupo = (ws: number) => { setAbierta(false); setGuru(null); setConCoach(false); setGrupo(ws); };
   const abrirCoach = () => { setAbierta(false); setGuru(null); setGrupo(null); setConCoach(true); };
@@ -116,7 +120,10 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   const panel = k.conectando ? 'conectar' : k.infoWA ? 'info' : null;
   const volverDelPanel = () => { if (k.conectando) { k.setConectando(false); k.mirarSuIA(); } k.setInfoWA(null); };
 
-  const [cerebro, ...todasLasFilas] = k.lista;
+  const [cerebro, ...todasFilas] = k.lista;
+  // Las conversaciones con un gurú, fuera de la lista mientras el plan sea Esencial (14/11/2026, ver `gurusSoloPro`): tocar una
+  // abriría un chat que el server contesta con 403.
+  const todasLasFilas = gurusSoloPro ? todasFilas.filter((f) => !f.guru) : todasFilas;
   // El coach es del admin del negocio (sus herramientas lo son): su fila, como en la computadora. Con ella, las conversaciones de oferta
   // cuelgan de él; sin ella (no la ve), siguen en la lista, para que nada se pierda.
   const verCoach = hrefMapa != null || puedeElegir;
@@ -217,7 +224,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
               </div>
             </div>
             <HiloDelCliente k={k} />
-            {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} />}
+            {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} soloPro={gurusSoloPro} />}
           </div>
         )}
       </PantallaChatM>

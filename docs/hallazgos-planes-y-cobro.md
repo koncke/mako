@@ -3054,3 +3054,70 @@ tarjeta y Mercado Pago».
 
 Probado con el checkout real (`tests/checkout-argentina-tarjeta-y-mp.test.ts` y su hijo): las dos reales, una caída de una
 vez de cada lectura, la Stripe de prueba y todo caído.
+
+## La tabla de /planes dice lo que se VENDE, no lo que el código DEJA: leerla para saber qué cierra un plan da la respuesta equivocada (14/11/2026)
+
+**El síntoma.** El relevo de las columnas (docs/relevo/planes-que-incluye-cada-columna.md §4.3) listaba cuatro funciones
+«abiertas en los tres planes» que había que cerrar en Esencial, y una de ellas —**replicar un carrusel**— ya estaba cerrada
+desde esa misma mañana. Se iba a escribir un segundo candado para la misma acción.
+
+**La causa.** El relevo lo dedujo de `lib/planes-comparacion.ts`, de las filas `enTodos(contenido, 'Editor de imágenes y
+carruseles, como Canva')` y `'Editor de video, como CapCut'`. Esas filas son verdad: los EDITORES son de los dos planes. La
+réplica de un carrusel no es el editor — pasa por la IA del editor, y la IA de los editores es de Pro desde el 14/11
+(`FUNCIONES_SOLO_PRO`, `'ia-editores'`, con su candado en `app/api/image-editor/carruseles/replicar/route.ts`, en
+`carruseles/leer` y en `editar_ejemplo_carrusel` de la API de MaKo).
+
+**La regla.** Para saber si un plan puede hacer algo se lee **la puerta**, nunca la vitrina:
+- `FUNCIONES_SOLO_PRO` y `TABS_SOLO_PRO` (`lib/topes-plan.ts`) y, sobre todo, **quién llama a `esEsencialDe` /
+  `esEsencialDeLaSesion`** (`grep -rn "esEsencialDe" lib/ app/`): ahí está la lista real de lo cerrado.
+- La tabla es de MARKETING y está agrupada por lo que la persona entiende, así que una fila puede cubrir varias funciones
+  con distinto candado. Una fila `enTodos` no prueba que no haya un candado adentro.
+- Y al revés: una función cerrada puede NO tener fila a propósito (`AI_AVATAR_SE_VENDE`, `FUNCIONES_TODAVIA_NO_VENDIDAS`).
+  **Cerrar algo en Esencial y venderlo en Pro son dos decisiones distintas**, y la segunda espera que ande de punta a punta.
+
+## Los cupos de MaKo Tokens tienen los nombres cruzados: el nivel `pro` es el plan de US$47 (14/11/2026)
+
+**El síntoma.** Al poner los MaKo Tokens en cada columna, `CUPO_MENSUAL.pro` parece ser el de MaKo Pro. No lo es: son
+11.750 MT, el cupo del plan de **US$47 (MaKo Esencial)**. El de MaKo Pro es `growth`, 24.250 MT. Leer el nombre pone el
+cupo cruzado y el plan caro queda con la mitad.
+
+**La causa.** `type Plan = 'free' | 'pro' | 'growth'` (`lib/mako-tokens-reglas.ts`) se bautizó el 7/11/2026, antes de que
+/planes tuviera sus nombres, copiando los de un SaaS cualquiera. **`growth` no existe en /planes** y `free` no es un plan:
+es la prueba de 7 días (`CLIPS_POR_MES.free`).
+
+**Lo que lo desambigua es el PRECIO, y está escrito en los dos archivos**: `USD_DEL_PLAN = { free: 0, pro: 47, growth: 97 }`
+y los comentarios de `CUPO_MENSUAL` («US$11,75 — el plan de US$47»). La regla queda en código, no en la cabeza:
+`NIVEL_DE_LA_CAPA` y `cupoDeLaCapa(capa)` (`lib/mako-tokens-paquetes.ts`) mapean la CAPA del plan (`completo` → `pro`,
+`agencia` → `growth`) y devuelven **null** para cualquier otra, así una columna sin cupo decidido —el Acelerador— no dice
+nada en vez de inventar un número. Lo cuida tests/planes-tres-bloques.test.ts («el mapeo está cruzado»).
+
+## `PLANES_MAKO_DEFAULT[].incluye` no se dibuja en ninguna pantalla: el cambio de copy va en `listaCorta` (14/11/2026)
+
+Los 17 renglones de `incluye` (Esencial 7 + Pro 10) son **código muerto para los dos planes que se venden**. La tarjeta
+dibuja `listaCorta(p.capa)` (`app/planes/Tarjetas.tsx`) desde el rediseño del 12/11, y el checkout tiene su propia entrada
+(`INCLUYE_EN_EL_CHECKOUT`), que gana por el `??`. El único caso en que `incluye` vuelve a renderizar es un plan escrito a
+mano en el setting `planes.mako` con un id que no sea `esencial` ni `pro` (`planValido`).
+
+**La trampa es que un test sobre `incluye` da VERDE con la pantalla sin cambiar**: tests/planes-tres-bloques.test.ts fija
+que sus números salgan de los topes, y eso sigue pasando aunque nadie los lea. Lo que prueba la pantalla es el render de la
+vitrina o `listaCorta` directo. Por eso el 14/11 las columnas nuevas se escribieron en `listaCorta` y `incluye` quedó donde
+estaba, documentado: borrarlo deja el `??` del checkout como fallback real del setting, y es una decisión aparte.
+
+## Agendar la llamada del Acelerador: el botón gana la agenda y pierde el lead (14/11/2026)
+
+Martín: «lo de agendar llamadas sí debería estar todavía para el tema de Accelerator. Ahí debería haber la agenda de
+llamada. **Pero en ningún otro lado debería estar**». El botón de la tarjeta del Acelerador pasó de `/planes/acelerador`
+—su pedido, con `QuieroPlan`— a `AGENDA_ACELERADOR` (`calendly.com/koncke/asesoria`), en otra pestaña.
+
+**⚠️ Lo que se pierde, y no es un detalle:** ese pedido era lo que dejaba el lead en el CRM **con el origen y el código de
+partner** (el `sufijo` de la URL: `?ref=`, `?landing=`, utm). Un Calendly no los lleva, y la agenda de Martín **todavía no
+tiene webhook al CRM** (docs/hallazgos-integraciones.md, y el pendiente «La agenda de MaKo NO entra al CRM del ws9», que
+es de él: hay que crear la suscripción en su cuenta de Calendly). Mientras eso no esté, **una venta del Acelerador que
+entra por la agenda no queda atribuida a ningún partner** — y el Acelerador es el único high ticket, el que paga comisión.
+Si vuelve a hacer falta la atribución antes del webhook, el camino es dejar el pedido y poner la agenda DESPUÉS del pedido,
+no al revés.
+
+La excepción está escrita en los tres lugares que decían «ningún lado»: `app/vsl/_competencia/cta.ts`, `lib/planes-mako.ts`
+y `app/planes/Tarjetas.tsx` (`AGENDA_ACELERADOR`). Y hay dos guardas para que no se expanda sola:
+tests/planes-sin-pasarela.test.ts cuenta **una sola** aparición de `calendly.com` en las tarjetas y ninguna en la landing,
+y tests/planes-tres-bloques.test.ts cuenta una sola en el HTML de la vitrina.

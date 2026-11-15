@@ -11,6 +11,12 @@ import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/l
  * EL ÚNICO LLAMADO A LA ACCIÓN de las landings de /vsl y del sitio estilo beehiiv: empezar con MaKo en /planes, donde se elige
  * el plan y se entra. Martín (12/11/2026): «ya no, ningún lado debería estar agendar llamadas, solamente iniciar la prueba
  * gratuita, que es el CTA principal ahora, la prueba gratuita de 7 días». Antes era agendar una llamada (`CALENDLY`).
+ *
+ * ⚠️ UNA EXCEPCIÓN, Y UNA SOLA (14/11/2026). Martín, textual: «lo de agendar llamadas sí debería estar todavía para el tema de
+ * Accelerator. Ahí debería haber la agenda de llamada. **Pero en ningún otro lado debería estar**». La agenda vive en la
+ * tarjeta del MaKo Acelerador (`AGENDA_ACELERADOR`, app/planes/Tarjetas.tsx), que es el bloque que se vende POR llamada y
+ * nunca por la pasarela. Las landings, el sitio, la portada y las dos columnas de software siguen con `TEXTO_CTA`: si aparece
+ * un «Agenda tu llamada» en cualquier otra pantalla, es un error y se saca.
  * El botón y la frase del cierre SIGUEN AL INTERRUPTOR de la prueba (`PRUEBA_GRATIS_PRENDIDA`, lib/planes-mako.ts): con la
  * prueba apagada, /planes cobra al empezar, y la landing no puede prometer días gratis que el cobro no da.
  */

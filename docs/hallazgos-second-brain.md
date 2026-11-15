@@ -3128,3 +3128,30 @@ restantes— y el que agrega una tabla de secretos tiene un único lugar donde a
 archivo. Si me hubiera quedado ahí, el test habría dado verde por el motivo equivocado —«no lee credenciales»
 porque no lee casi nada— y habría dejado de servir el día que alguien agregue el lector. Por eso el test
 empieza comprobando su propio denominador: que recorrió más de 50 archivos y encontró más de 20 tablas.
+
+## Hablar con un referente es de MaKo Pro, y lo que lo hace referente es la CLAVE de la conversación (14/11/2026)
+
+Martín, sobre /planes: «el de 47 debería estar bien limitado y restrictivo… La idea es que compren el de 97». El chat con
+los referentes es la fila 2 de la portada y hasta hoy **no tenía ningún tope**: estaba igual en los tres planes. Ahora es
+`FUNCIONES_SOLO_PRO`, `'chat-referentes'` (`lib/asesores/candado.ts`).
+
+**⛔ Cierra al REFERENTE, no el Second Brain.** El chat de MaKo, el grafo del negocio, el Ops Center, el Plan con el Perro
+Guardián y los tableros siguen enteros en los dos planes, **a propósito**: son el motor que hace que alguien se quede, y es
+justamente lo que la prueba gratis deja usar completo (`lib/topes-plan.ts`: «El resto del motor… anda entero: es lo que los
+hace quedarse»). Limitar eso baja la retención del de US$47 sin mover a nadie a Pro.
+
+**Dónde va el candado, y por qué ahí.** Lo que hace «de un gurú» a una conversación es su CLAVE
+(`…:referente-<id>`, `referenteDeTab`, `lib/chat-mako-reglas.ts`), no la pantalla desde la que se abrió. Por eso el candado
+se pregunta con la clave: una conversación retomada desde la lista de chats sigue siendo con él y queda cerrada igual. Las
+cuatro puertas de `/api/mako/chat`, todas en esa ruta (el escritorio y el teléfono usan la misma: `useChatDelReferente` →
+`useChatCliente` → `RUTA`):
+- `GET ?deTab=referente-<id>` — abrir su conversación;
+- `POST { action: 'new', tab }` — crearla;
+- `POST { action: 'send' | 'confirmar' | 'cancelar' }` — el candado va **una vez**, justo después de resolver `quien`, así
+  cubre las tres sin repetirse (y en el camino multipart, antes de escuchar la nota de voz, que es lo que cuesta);
+- `GET ?cerebroDe=<id>` — su Second Brain, que es parte de hablar con él.
+
+En la UI no se esconde nada que ya exista: la galería de «Nuevo chat» muestra el candado en lugar de la grilla
+(`GaleriaDeGurus`, con `soloPro` como PROP) y **las filas de conversaciones con gurús se dejan de listar** mientras el plan
+sea Esencial (`ChatSecondBrain.tsx`, `ChatClienteM.tsx`). Nada se borra: con Pro vuelven tal cual, como la comunidad del
+Classroom.

@@ -725,6 +725,14 @@ acotado toma el MISMO lock que el push y antes-de-subir (`os.tmpdir()/mako-typec
 lo esquives ni lances dos tuyos en paralelo. Si tu rama todavía no tiene esa versión del script, envolvelo:
 `node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …` (y lo mismo para `tests-afectados.mjs`).
 
+**DE UN TYPECHECK SE MIRA EL CÓDIGO DE SALIDA, NUNCA LA SALIDA FILTRADA (14/11/2026).** `npx tsc --noEmit` completo en
+esta PC no termina: muere con `FATAL ERROR: Ineffective mark-compacts near heap limit` y sale con **134**, todo por
+**stderr**. Entonces `tsc … | grep -v <lo-preexistente>` devuelve **cero líneas** y `tsc … > out 2>&1` puede dejar el
+archivo en **0 bytes**: las dos cosas se leen como «sin errores de tipos», y no se miró nada. Hasta el notificador de una
+tarea de fondo dijo «exit code 0», porque lo que terminó bien fue el shell de alrededor. `0` = verde, `1` = hay errores,
+**cualquier otra cosa (o una salida vacía con código distinto de 0) = NO SE CHEQUEÓ**, que es el `99` del acotado y no es
+un verde: se dice así.
+
 **No se arma el tsconfig a mano**: el script ya trae las trampas que daban rojos que no
 eran del código:
 
@@ -2554,6 +2562,24 @@ Tres reglas del 17/10/2026, cada una con su guard que barre en positivo (las lis
 - **Una URL que escribe un cliente (o su agente) se baja con `fetchSeguro`** (lib/fetch-seguro.ts):
   `validarDestino` en CADA salto, IP clavada, techo de tamaño. `fetch` sigue los redirects sin mirarlos, y
   validar sólo el primero es el agujero. `tests/landing-analisis-ssrf.test.ts`.
+
+# Qué cierra un plan se lee en la PUERTA, nunca en la tabla de /planes
+
+La tabla «Compara los planes» (`lib/planes-comparacion.ts`) dice lo que se **VENDE**, agrupado y en palabras de marketing;
+lo que el código **DEJA** son los candados. Las dos cosas se desincronizan en los dos sentidos, y leer la tabla para
+decidir da la respuesta equivocada (14/11/2026, `docs/hallazgos-planes-y-cobro.md`):
+
+- **Una fila `enTodos` no prueba que no haya un candado adentro.** Una fila puede cubrir varias funciones: «Editor de
+  imágenes y carruseles, como Canva» es de los dos planes, y REPLICAR un carrusel es de Pro, porque pasa por la IA del
+  editor (`'ia-editores'`). Por eso casi se escribió un segundo candado para algo ya cerrado.
+- **Una función cerrada puede no tener fila, a propósito.** Cerrar algo en Esencial y venderlo en Pro son dos decisiones:
+  la segunda espera que ande de punta a punta (`AI_AVATAR_SE_VENDE`, `FUNCIONES_TODAVIA_NO_VENDIDAS`).
+
+**La lista real de lo cerrado son `FUNCIONES_SOLO_PRO` y `TABS_SOLO_PRO` (`lib/topes-plan.ts`) y, sobre todo, quién llama a
+`esEsencialDe` / `esEsencialDeLaSesion`**: `grep -rn "esEsencialDe" lib/ app/`. Y para cerrar algo nuevo en Esencial se
+suma una entrada a `FUNCIONES_SOLO_PRO` con su texto (`textoSoloPro`), su fila en la comparación —si se vende— y su candado
+en **cada función que hace la cosa**, no en la pantalla: una pantalla no es la única puerta (la API de MaKo no tiene
+pantalla, y una ruta se llama a mano). El molde entero, en `lib/editor-landing/replicar-candado.ts`.
 
 # El remitente de un NEGOCIO nunca es MaKo, y lo que firma MaKo sale por la key de MaKo
 

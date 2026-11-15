@@ -15,6 +15,7 @@ import type { Oferta, OfertaInput } from '../oferta-modelo';
 import { outlierCopyPorId, temaDelNegocioActual } from './outliers-servidor';
 import { datoDeOferta, faltaDeLaOferta, type CampoQueFalta } from './oferta-elegida';
 import { temaDeTexto, temaRelacionado, type Tema } from './tema';
+import { candadoDeReplicarGuion } from './replica-candado';
 import type { Falla } from './server';
 
 /** Una oferta como la necesita la pregunta: su nombre y lo que le falta. */
@@ -31,6 +32,10 @@ export type PreparacionReplica = {
 const productoDe = (o: Pick<Oferta, 'nombre'>, ps: readonly Producto[]) => ps.find((p) => p.nombre.trim().toLowerCase() === o.nombre.trim().toLowerCase()) ?? null;
 
 export async function prepararReplica(outlier: string): Promise<PreparacionReplica | Falla> {
+  // SÓLO MaKo Pro (14/11/2026, ./replica-candado.ts): las preguntas de antes de escribir son parte de replicar, y leen las
+  // ofertas del negocio. Sin esto, un Esencial no escribía la réplica pero igual recorría el flujo hasta el final.
+  const pro = await candadoDeReplicarGuion();
+  if (pro) return { ok: false, error: pro, status: 403 };
   let o: Awaited<ReturnType<typeof outlierCopyPorId>>;
   try { o = await outlierCopyPorId(outlier); } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No pude leer el original.', status: 500 };

@@ -31,7 +31,10 @@ import { sanearContenido, docVacio } from './doc';
 import { sanearEditado } from './editado';
 import { agregar, aPapelera, cambiarPagina, idPaginaNuevo, mover as moverEnArbol, restaurar as restaurarEnArbol, sanearIndice, type ResultadoArbol } from './arbol';
 
-export type Falla = { ok: false; error: string; status: 400 | 404 | 409 | 422 | 500 };
+// 403 desde el 14/11/2026: el candado de MaKo Pro de replicar el guion de otro (./replica-candado.ts). Es el mismo código que
+// usa el candado de copiar una landing (lib/editor-landing/replicar-candado.ts) y el de la IA de los editores, y la ruta lo
+// reconoce para que la pantalla dibuje «Pasar a Pro» (app/_components/solo-pro.ts, `esRespuestaSoloPro`).
+export type Falla = { ok: false; error: string; status: 400 | 403 | 404 | 409 | 422 | 500 };
 const falla = (status: Falla['status'], error: string): Falla => ({ ok: false, error, status });
 
 /** El índice tal como está en la base: el texto crudo (para el compare-and-set) y las páginas saneadas. */

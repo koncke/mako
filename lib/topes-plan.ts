@@ -49,6 +49,9 @@ export const TOPES: Readonly<Record<'completo' | 'agencia', Readonly<Record<Tope
 // 25/10/2026: 'ads-manager' salió de acá: el Media Buyer es de los dos planes y lo que separa a Pro es el piloto automático y el
 // cupo (ads.recomendaciones_dia), no la tab.
 // 29/10/2026: 'ai-avatar' salió de acá. Martín: «haz que AI-Avatar esté disponible para todos» (los tres planes).
+// 14/11/2026, noche: AI Avatar vuelve a ser de Pro, pero NO como tab (Martín: «el de 97 ya podés generar avatares de IA»). Va en
+// `FUNCIONES_SOLO_PRO` como las otras cinco: la tab se abre igual y adentro va el cartel, así el candado es UNO solo y la puerta
+// de la tab (`requireRolWs`) no cambia. Una capa «esencial» que la esconda de la barra sigue siendo del área de capas.
 // 14/11/2026: 'image-editor' y 'video-editor' salieron de acá. Martín: «el editor de imágenes y editor de videos sí deberían estar
 // disponibles para la versión de 47, pero no deberían estar disponibles el tema de editar con inteligencia artificial»: los
 // editores son de los dos planes y lo de Pro es su IA (`FUNCIONES_SOLO_PRO`, 'ia-editores').
@@ -67,7 +70,25 @@ export const TABS_SOLO_PRO = ['closing-analyst'] as const;
 // del Classroom. Cada una la hace cumplir su área con `esEsencialDe` / `esEsencialDeLaSesion` y dice `textoSoloPro`.
 // 14/11/2026, noche (Martín): el setter con IA y los pilotos automáticos de Instagram y de YouTube, tampoco en Esencial (el de los
 // anuncios ya era de Pro: lib/media-buyer/store.ts, `PlanSinPiloto`).
-export const FUNCIONES_SOLO_PRO = ['scraper-whatsapp', 'replicar-landing', 'ia-editores', 'comunidad', 'setter-ia', 'piloto-redes'] as const;
+// ── 14/11/2026, LAS TRES ÚLTIMAS (Martín, sobre /planes: «el de 47 debería estar bien limitado y restrictivo. En cambio el de 97 ya
+// podés generar avatares de IA, podés editar videos, podés replicar landing… La idea es que compren el de 97, no el de 47»; el relevo
+// que aprobó, docs/relevo/planes-que-incluye-cada-columna.md §4.3):
+//   · 'ai-avatar': los videos con su avatar de IA, abiertos en los tres planes desde el 29/10. Es la fila 7 de la portada y la
+//     primera que nombró. ⚠️ CERRARLA EN ESENCIAL Y VENDERLA SON DOS COSAS: la tabla todavía no la vende
+//     (`AI_AVATAR_SE_VENDE`, lib/planes-comparacion.ts), así que no tiene fila hasta que ande de punta a punta.
+//   · 'replicar-guion': replicar y adaptar el guion de un video de la competencia (la fila 4 de la portada). Es LA MISMA palanca
+//     que 'replicar-landing', que ya era de Pro: copiar lo que al otro le funciona es de Pro en los tres lugares donde MaKo lo
+//     hace. El tercero, replicar un CARRUSEL, ya estaba cerrado por 'ia-editores' (la réplica pasa por la IA del editor de
+//     imagen: app/api/image-editor/carruseles/replicar y `editar_ejemplo_carrusel`), así que NO lleva una entrada propia: dos
+//     candados para la misma acción se contradicen el día que uno cambie.
+//   · 'chat-referentes': el chat con los referentes del marketing (la fila 2 de la portada), hasta hoy sin ningún tope.
+// ⛔ LO QUE NO SE CIERRA, y está decidido: el Second Brain, el Ops Center, el Plan con el Perro Guardián y los tableros. Son el
+//    motor que hace que alguien se quede, y la prueba gratis los deja usar enteros a propósito (más abajo, `TOPES_PRUEBA`).
+//    Limitarlos baja la retención del de 47 sin mover a nadie a Pro.
+export const FUNCIONES_SOLO_PRO = [
+  'scraper-whatsapp', 'replicar-landing', 'ia-editores', 'comunidad', 'setter-ia', 'piloto-redes',
+  'ai-avatar', 'replicar-guion', 'chat-referentes',
+] as const;
 export type FuncionSoloPro = (typeof FUNCIONES_SOLO_PRO)[number];
 
 const QUE_ES_SOLO_PRO: Readonly<Record<FuncionSoloPro, string>> = {
@@ -77,6 +98,9 @@ const QUE_ES_SOLO_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'comunidad': 'La comunidad de tus alumnos',
   'setter-ia': 'El setter con IA',
   'piloto-redes': 'El piloto automático de Instagram y YouTube',
+  'ai-avatar': 'Los videos con tu avatar de IA',
+  'replicar-guion': 'Replicar el guion de otro',
+  'chat-referentes': 'Hablar con los referentes del marketing',
 };
 /** El texto del candado: qué es, que es de Pro y cómo tenerlo (con el botón a `RUTA_CAMBIAR_PLAN`). */
 export const textoSoloPro = (f: FuncionSoloPro): string => `${QUE_ES_SOLO_PRO[f]} es de MaKo Pro. Pasa a Pro para usarlo.`;

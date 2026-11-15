@@ -75,11 +75,25 @@ export const NOMBRE_FUNCION_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'replicar-landing': 'Copiar la landing de un competidor, con tu oferta',
   // Lo que el candado cierra de verdad (lib/editores-ia-pro.ts): el chat con IA de cada editor, la edición automática, el B-roll y los
   // clips. Los subtítulos y quitar el fondo corren en el navegador y siguen en los dos planes: no se dicen acá.
+  // Y la RÉPLICA de un carrusel o de una miniatura, que pasa por la IA del editor de imagen: por eso no tiene fila aparte.
   'ia-editores': 'Editar con IA: edición automática, B-roll y clips mágicos',
   'comunidad': 'Comunidad para tus alumnos, como en Skool',
   'setter-ia': 'Setter con IA que responde y agenda por WhatsApp e IG',
   'piloto-redes': 'Piloto automático de Instagram: publica y prueba hooks',
+  // 14/11/2026: las tres últimas que se cerraron en Esencial (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`).
+  // ⚠️ El avatar NO se vende todavía (`AI_AVATAR_SE_VENDE`): su nombre es el de abajo y su fila sólo aparece el día que se venda.
+  'ai-avatar': NOMBRE_AI_AVATAR,
+  'replicar-guion': 'Replicar el guion de un video de la competencia',
+  'chat-referentes': `Chat con ${ASESORES.length} referentes del marketing, con su método`,
 };
+
+/**
+ * Lo que es SÓLO de Pro pero TODAVÍA no se vende: está cerrado en Esencial y aun así no tiene fila en la tabla. Es el mismo
+ * criterio que `TABS_TODAVIA_CERRADAS` al revés — ahí la tab no estaba abierta; acá la función anda, se cerró en Esencial y
+ * lo que falta es que ande de punta a punta para prometerla (el Cerebro, 29/10/2026: «no se vende lo que no anduvo de punta a
+ * punta»). Hoy: el avatar, hasta que `AI_AVATAR_SE_VENDE` sea true.
+ */
+export const FUNCIONES_TODAVIA_NO_VENDIDAS: readonly FuncionSoloPro[] = AI_AVATAR_SE_VENDE ? [] : ['ai-avatar'];
 
 /** El piloto de YouTube: la misma función de Pro que el de Instagram ('piloto-redes'), en su propia fila. */
 export const NOMBRE_PILOTO_YOUTUBE = 'Piloto automático de YouTube: Shorts y miniaturas';
@@ -108,11 +122,15 @@ export function filasDeComparacion(): FilaComparacion[] {
     soloPro(captacion, NOMBRE_FUNCION_PRO['replicar-landing']),
     filaDeTope(captacion, 'Competidores que MaKo scrapea: web, redes y anuncios', 'spy.competidores'),
     soloPro(captacion, NOMBRE_FUNCION_PRO['scraper-whatsapp']),
-    // AI Avatar está abierta en los tres planes desde el 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»), pero
-    // la tabla no la vende hasta que ande de punta a punta (`AI_AVATAR_SE_VENDE`). Y el Video Generator, tampoco (29/10/2026).
-    ...(AI_AVATAR_SE_VENDE ? [enTodos(contenido, NOMBRE_AI_AVATAR)] : []),
+    // AI Avatar se cerró en Esencial el 14/11/2026 (Martín: «el de 97 ya podés generar avatares de IA»; estaba abierta en los tres
+    // desde el 29/10). La tabla sigue sin venderla hasta que ande de punta a punta (`AI_AVATAR_SE_VENDE`), y el día que se venda
+    // nace EN PRO, no en los tres: por eso `soloPro` y no `enTodos`. El Video Generator, igual (29/10/2026).
+    ...(AI_AVATAR_SE_VENDE ? [soloPro(contenido, NOMBRE_AI_AVATAR)] : []),
     // Los guiones de anuncios y las stories son plantillas de Copywriting (la tab Stories se deprecó el 29/10/2026).
     enTodos(contenido, 'Copywriting con IA: guiones de reels, anuncios, VSL y emails'),
+    // 14/11/2026: escribir tu guion desde cero es de los dos planes; REPLICAR el de un competidor, de Pro. La misma palanca que
+    // copiar su landing, y el criterio tiene que ser uno (lib/topes-plan.ts, 'replicar-guion').
+    soloPro(contenido, NOMBRE_FUNCION_PRO['replicar-guion']),
     enTodos(contenido, 'Editor de imágenes y carruseles, como Canva'),
     enTodos(contenido, 'Editor de video, como CapCut'),
     soloPro(contenido, NOMBRE_FUNCION_PRO['ia-editores']),
@@ -139,8 +157,9 @@ export function filasDeComparacion(): FilaComparacion[] {
     filaDeTope(miembros, 'Cursos con módulos y clases para tus alumnos', 'classroom.cursos'),
     soloPro(miembros, NOMBRE_FUNCION_PRO['comunidad']),
     enTodos(ia, 'MaKo, un asistente con IA que conoce tu negocio'),
-    // Los referentes del chat de MaKo (lib/asesores/catalogo.ts), contados.
-    enTodos(ia, `Chat con ${ASESORES.length} referentes del marketing, con su método`),
+    // Los referentes del chat de MaKo (lib/asesores/catalogo.ts), contados. SÓLO PRO desde el 14/11/2026 (hasta entonces estaban
+    // en los tres planes sin ningún tope): es la fila 2 de la portada y una de las que Martín nombró para el de 97.
+    soloPro(ia, NOMBRE_FUNCION_PRO['chat-referentes']),
     enTodos(ia, 'Tu oferta y tu funnel, revisados con IA'),
     enTodos(ia, 'Reportes de tus ventas, tus anuncios y tu contenido'),
     enTodos(ia, 'Tus tareas, puntuadas y ordenadas por prioridad'),
@@ -171,6 +190,7 @@ export function nombreCorto(que: string): string {
     [NOMBRE_FUNCION_PRO['scraper-whatsapp']]: 'Scrapear grupos de WhatsApp',
     [NOMBRE_AI_AVATAR]: 'Videos con tu avatar',
     'Copywriting con IA: guiones de reels, anuncios, VSL y emails': 'Copywriting con IA',
+    [NOMBRE_FUNCION_PRO['replicar-guion']]: 'Replicar guiones de la competencia',
     'Editor de imágenes y carruseles, como Canva': 'Editor de imágenes',
     'Editor de video, como CapCut': 'Editor de video',
     [NOMBRE_FUNCION_PRO['ia-editores']]: 'Edición con IA',
@@ -194,7 +214,7 @@ export function nombreCorto(que: string): string {
     'Cursos con módulos y clases para tus alumnos': 'Cursos',
     [NOMBRE_FUNCION_PRO['comunidad']]: 'Comunidad',
     'MaKo, un asistente con IA que conoce tu negocio': 'Asistente con IA',
-    [`Chat con ${ASESORES.length} referentes del marketing, con su método`]: `Chat con ${ASESORES.length} referentes`,
+    [NOMBRE_FUNCION_PRO['chat-referentes']]: `Chat con ${ASESORES.length} referentes`,
     'Tu oferta y tu funnel, revisados con IA': 'Oferta y funnel con IA',
     'Reportes de tus ventas, tus anuncios y tu contenido': 'Reportes',
     'Tus tareas, puntuadas y ordenadas por prioridad': 'Tareas por prioridad',

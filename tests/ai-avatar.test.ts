@@ -260,15 +260,24 @@ test('el paso a paso se ve ARRIBA de las dos barras (avatar y video), en la comp
   assert.match(fuenteDe('app/ai-avatar/actions.ts'), /export type EstadoPuenteAvatar = PuenteVisto & \{ puede: boolean; motivo: string \};/);
 });
 
-test('la puerta es la de toda tab, en los TRES planes: admin y la tab en su capa; la plataforma la conserva', () => {
+test('la puerta es la de toda tab (no una tab escondida), y adentro el candado de MaKo Pro; la plataforma la conserva', () => {
   const acceso = fuenteDe('app/ai-avatar/acceso.ts');
   assert.doesNotMatch(acceso, /getSesionAdmin/, 'sigue cerrada al super admin');
-  // Martín, 29/10/2026: «haz que AI-Avatar esté disponible para todos». Ni en la lista de Pro ni con su candado.
-  assert.doesNotMatch(acceso, /esEsencialDeLaSesion|esNavSoloPro/, 'AI Avatar volvió a tener el candado de Pro');
-  assert.doesNotMatch(fuenteDe('lib/plan-esencial-reglas.ts'), /'ai-avatar'/, 'AI Avatar volvió a NAV_SOLO_PRO');
+  // 14/11/2026 (Martín, sobre /planes: «el de 97 ya podés generar avatares de IA… el de 47 debería estar bien limitado y
+  // restrictivo»): el avatar es de Pro otra vez, pero con el candado de `FUNCIONES_SOLO_PRO` y NO escondiendo la tab.
+  // ⚠️ LA DIFERENCIA NO ES COSMÉTICA: en `NAV_SOLO_PRO` / `TABS_SOLO_PRO` la puerta REDIRIGE, y un Esencial que ya generó
+  //    looks no podría ni entrar a ver los suyos. Con el cartel entra, los ve, y lo que no puede es generar.
+  assert.doesNotMatch(fuenteDe('lib/plan-esencial-reglas.ts'), /'ai-avatar'/, 'AI Avatar volvió a NAV_SOLO_PRO: la tab redirige');
   assert.doesNotMatch(fuenteDe('lib/topes-plan.ts').match(/export const TABS_SOLO_PRO = \[[^\]]*\]/)![0], /ai-avatar/, 'AI Avatar volvió a TABS_SOLO_PRO');
   assert.match(acceso, /await requireRolWs\(\[\], \{ nav: 'ai-avatar' \}\);/, 'las pantallas sin la puerta de toda tab');
   assert.match(acceso, /\(await getRolWsEfectivo\(\)\) !== 'admin'\) return false;/, 'las actions dejan pasar a quien no es admin');
+  // El candado, en UN lugar y usado en las dos puertas: la pantalla (el cartel) y cada action (donde se genera de verdad).
+  assert.match(acceso, /return \(await esEsencialDeLaSesion\(\)\) \? textoSoloPro\('ai-avatar'\) : null;/, 'sin el candado de Pro');
+  assert.match(fuenteDe('app/ai-avatar/actions.ts'), /const pro = await candadoDeAiAvatar\(\);\n\s*if \(pro\) return \{ ok: false, error: pro \};/,
+    'la puerta de las actions sin el candado: un Esencial generaba desde una pestaña ya abierta');
+  for (const rel of ['app/ai-avatar/page.tsx', 'app/m/ai-avatar/page.tsx']) {
+    assert.match(fuenteDe(rel), /if \(pro\) return <\w+[^>]*><CartelSoloPro texto=\{pro\} \/><\/\w+>;/, `${rel} sin el cartel`);
+  }
   // La capa de la plataforma tiene keys explícitas: sin la de AI Avatar, el super admin la perdía en su propio workspace.
   assert.match(fuenteDe('lib/capas.ts'), /navKeys: \[[^\]]*'ai-avatar'[^\]]*\]/, 'la capa de la plataforma sin AI Avatar');
 });

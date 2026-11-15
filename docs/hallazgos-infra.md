@@ -12538,3 +12538,50 @@ que la regla es de detección, no de prevención: **antes de commitear en un wor
 «bien» y quedó colgando. El reporte del agente lo avisó —«el commit no está en ninguna rama; si alguien
 hace checkout acá antes de subirlo, queda colgando»— y por eso se rescató. **Un agente que commitea
 reporta el SHA y en qué rama quedó**, no sólo que commiteó.
+
+## `npx tsc --noEmit` se queda sin heap en esta PC, y el crash se LEE COMO UN VERDE (14/11/2026)
+
+**El síntoma.** Tres corridas seguidas de `npx tsc --noEmit -p tsconfig.json | grep -v "app/video-editor/_opencut/"`
+devolvieron **cero líneas**. Conclusión obvia: no hay errores de tipos. Era exactamente al revés: tsc nunca terminó de
+chequear nada.
+
+**La causa.** El proyecto completo no entra en el heap por defecto de node (4,2 GB en v24) ni en 5,6 GB con
+`--max-old-space-size`: muere con `FATAL ERROR: Ineffective mark-compacts near heap limit` y **sale con 134**. Todo eso va
+a **stderr**, así que:
+- un `| grep -v <algo>` se come el mensaje entero (el patrón filtrado no aparece, y lo que queda son líneas de GC que el
+  grep también descarta): la salida vacía parece «sin errores»;
+- `> archivo 2>&1` puede quedar en **0 bytes** cuando el proceso se mata antes de volcar el buffer;
+- el notificador de la tarea de fondo informó **«exit code 0»** porque lo que terminó bien fue el shell que lo envolvía.
+
+**La regla, y es la que ahorra el tren rojo:**
+1. **De un typecheck se mira el CÓDIGO DE SALIDA, nunca la salida filtrada.** `0` = verde; `1` = hay errores; **`134` o una
+   salida vacía con código distinto de 0 = NO SE MIRÓ NADA**, y eso no es un verde (es el `99` que ya define
+   `scripts/tsc-acotado.mjs`).
+2. En esta PC el completo **no se corre**: se corre `node scripts/tsc-acotado.mjs --heap=4096 <archivos>` (o `--rama`), que
+   es lo que pide la casa antes de cada VERDE. Termina en minutos con ~5 GB libres y dice cuántos archivos miró.
+3. El acotado **no sube a los consumidores**: si se cambió un TIPO compartido, hay que sumar a quienes lo importan. El
+   14/11, agregar entradas a `FUNCIONES_SOLO_PRO` obligaba a sumar `lib/planes-comparacion.ts` (tiene un
+   `Record<FuncionSoloPro, string>` exhaustivo) — sin él, el acotado daba verde y el completo de Actions, rojo.
+
+## Un componente que los tests recorren como FUNCIÓN no puede tener hooks adentro (14/11/2026)
+
+**El síntoma.** Poner el candado de MaKo Pro adentro de `GaleriaDeGurus` con `useSoloPro(...)` se veía como el lugar
+correcto: un solo sitio para las cuatro puertas que la dibujan. Habría roto tests/gurus-ops-center.test.ts, que la **llama
+como función** —`GaleriaDeGurus({ onElegir })`— para recorrer el árbol que devuelve y disparar el `onClick` de cada botón.
+
+**La causa.** Fuera de un render de React el dispatcher de hooks es null: `useState`/`useEffect`/`useSyncExternalStore`
+tiran ahí mismo. `renderToStaticMarkup` sí los soporta, pero pierde la posibilidad de tocar un handler.
+
+**La regla.** Una pieza que los tests recorren como función se queda **pura**, y lo que depende del navegador (el plan de
+quien mira, el tamaño de pantalla) entra **como prop con valor por defecto**: `GaleriaDeGurus({ onElegir, soloPro = false })`.
+El hook lo llama cada puerta, que ya es una pantalla con estado. Bonus: los dos tests que la renderizaban siguieron verdes
+sin tocarlos, porque el default cubre el caso de antes.
+
+## Una ruta con su lista de dependencias fijada: sumarle un import rompe un test que no habla de eso (14/11/2026)
+
+`tests/d6b-rutas.test.ts` guarda, por unidad, **la lista exacta de nombres que importa del repo** (`usa: [...]`), para
+cuidar que una ruta marcada «sin IA» no empiece a llamar a una IA. Sumar el candado de los referentes a
+`app/api/mako/chat/route.ts` agregó cuatro nombres y el test cayó con «¿ahora le pide algo a una IA?», que no era el
+problema. **La cura no es relajar el test: es actualizar `usa` Y el `porque`**, diciendo qué lee lo nuevo y por qué no es
+una IA (acá: `candadoDeReferente` lee el plan del negocio — cobros y workspaces — antes de abrir la conversación). Si se
+toca una ruta de esa tabla, el test se corre siempre: es el único lugar que lo nota.

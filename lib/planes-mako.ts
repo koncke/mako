@@ -78,7 +78,11 @@ export const PRUEBA_DIAS = 7;
 
 /**
  * ⚠️ PRENDIDA DE NUEVO EL 12/11/2026 (Martín: «Sí, préndela»): el botón de todo el sitio público es «Comienza tu prueba gratuita»
- * (app/vsl/_competencia/cta.ts) y ninguna página ofrece agendar una llamada. Lo de abajo es por qué se había apagado.
+ * (app/vsl/_competencia/cta.ts). Lo de abajo es por qué se había apagado.
+ * ⚠️ Y CON UNA SOLA EXCEPCIÓN DESDE EL 14/11/2026: la tarjeta del MaKo Acelerador ofrece agendar una llamada con Martín
+ * (`AGENDA_ACELERADOR`, app/planes/Tarjetas.tsx). Textual: «lo de agendar llamadas sí debería estar todavía para el tema de
+ * Accelerator. Ahí debería haber la agenda de llamada. Pero en ningún otro lado debería estar». El programa se vende por
+ * llamada (nunca pasa por la pasarela); Esencial y Pro se compran sin hablar con nadie, y ninguna otra pantalla la ofrece.
  * ⚠️ EL INTERRUPTOR DE LA PRUEBA GRATIS (30/10/2026, docs/estrategia-lanzamiento-low-to-high.md §4): APAGADA. No se borró: vuelve con
  * esto en true, el día que se venda MaKo como SaaS suelto. Es de la PLATAFORMA, no de cada negocio (el Cerebro): es cómo vende MaKo.
  * Los motivos de Martín, que deciden los bordes: 50% + prueba gratis se lee como sospechoso; la prueba es para vender un SaaS por
@@ -126,7 +130,10 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     precioUsd: 47,
     precioAnualUsd: 470,
     preciosLocales: {},
-    resumen: 'Para empezar a vender por internet, por tu cuenta.',
+    // PARA QUIÉN ES, por el MOMENTO del negocio (14/11/2026; el relevo que aprobó Martín, §4.1: «para el de 47 si estás solo o
+    // si sos una empresa chiquitita, para el de 97 si ya tenés equipo»). Es donde la ponen Kajabi, beehiiv y ActiveCampaign:
+    // entre el nombre y el precio. Antes: «Para empezar a vender por internet, por tu cuenta.»
+    resumen: 'Para quien vende solo: tu página, tus leads y tu WhatsApp, por fin en un solo lugar.',
     incluye: [
       // 14/11/2026 (Martín): con el lenguaje técnico del marketing y Esencial más limitado (lib/planes-comparacion.ts).
       'MaKo, tu asistente con IA, trabajando en tu negocio',
@@ -149,7 +156,9 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     precioUsd: 97,
     precioAnualUsd: 970,
     preciosLocales: {},
-    resumen: '¿Ya vendes? Para escalar con anuncios, contenido y equipo.',
+    // 14/11/2026 (§4.1 del relevo): el eje que hace únicas a las dos columnas sin decir «todo lo de X» — Esencial, lo haces tú;
+    // Pro, MaKo lo hace y tú apruebas. Antes: «¿Ya vendes? Para escalar con anuncios, contenido y equipo.»
+    resumen: 'Para quien ya vende y tiene equipo: MaKo produce, pauta y responde, y tú apruebas.',
     incluye: [
       // 29/10/2026: decía «sin topes», y Pro SÍ tiene (las líneas de WhatsApp y las personas, dos renglones más abajo, de
       // lib/topes-plan.ts). Gana el código: sin tope es lo que la tabla dice «Sin tope».
@@ -255,7 +264,10 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
   nombre: 'MaKo Acelerador',
   precioUsd: 1500,
   cuotas: 3,
-  resumen: 'Armamos contigo cómo consigues clientes y te acompañamos a vender. No es sólo la herramienta.',
+  // 14/11/2026 (§4.1 del relevo): para quién es, por el momento del negocio, como los otros dos. La tarjeta muestra la
+  // `promesa` si la hay, no esto; el `resumen` lo leen el bot de WhatsApp y el checkout. Antes: «Armamos contigo cómo
+  // consigues clientes y te acompañamos a vender. No es sólo la herramienta.»
+  resumen: 'Para quien quiere su sistema de ventas instalado en 90 días, no armarlo solo.',
   // Todo lo de docs/ofertas-mako.md §3, dicho entero: antes la tarjeta mostraba cinco renglones y se veía como «Pro más
   // caro» (Martín, 24/10: «el acompañamiento debe tener mas beneficios y verse diferencial, porque sino no tiene sentido»).
   // Cada entregable con su tope (§6c: «entregables escritos con tope de horas»): lo que se promete se puede contar.

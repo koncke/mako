@@ -24,10 +24,21 @@ const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '');
 
-test('SIN AGENDA (24/10, Martín: «No voy a usar Calendly»): ningún botón ni página lleva a Calendly', () => {
-  for (const rel of ['lib/compra-plan-reglas.ts', 'app/planes/Vitrina.tsx', 'app/planes/[plan]/page.tsx', 'app/configuraciones/plan/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/PreciosLanding.tsx', 'app/planes/Tarjetas.tsx']) {
+test('SIN AGENDA en los PLANES (24/10, Martín: «No voy a usar Calendly»), con la única excepción del Acelerador', () => {
+  // Esencial y Pro se compran sin hablar con nadie: su botón lleva al checkout o al pedido, nunca a una agenda.
+  for (const rel of ['lib/compra-plan-reglas.ts', 'app/planes/Vitrina.tsx', 'app/planes/[plan]/page.tsx', 'app/configuraciones/plan/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/PreciosLanding.tsx']) {
     assert.doesNotMatch(fuente(rel), /calendly\.com|AGENDA_MAKO|agendaConOrigen|initInlineWidget/, rel);
   }
+  // ⚠️ LA EXCEPCIÓN, Y UNA SOLA (14/11/2026). Martín: «lo de agendar llamadas sí debería estar todavía para el tema de
+  // Accelerator. Ahí debería haber la agenda de llamada. Pero en ningún otro lado debería estar». El Acelerador es el bloque
+  // que se vende POR llamada y nunca por la pasarela; las dos columnas de software, no.
+  const tj = fuente('app/planes/Tarjetas.tsx');
+  assert.equal((tj.match(/calendly\.com/g) ?? []).length, 1, 'la agenda aparece más de una vez en las tarjetas');
+  assert.doesNotMatch(tj, /AGENDA_MAKO|agendaConOrigen|initInlineWidget/, 'volvió el widget de Calendly de antes');
+  assert.match(tj, /export const AGENDA_ACELERADOR = 'https:\/\/calendly\.com\/koncke\/asesoria';/, 'la agenda es la de Martín');
+  // Y la usa SÓLO la tarjeta del programa: el botón de un plan sigue saliendo de `botonDelPlan`.
+  assert.match(tj, /<a className="mkpl-btn" href=\{AGENDA_ACELERADOR\} target="_blank" rel="noopener noreferrer">/);
+  assert.doesNotMatch(tj.slice(tj.indexOf('{planes.map((p) => {'), tj.indexOf('mkpl-programa"')), /AGENDA_ACELERADOR/, 'un plan de software ofrece agendar');
 });
 
 test('el botón del plan: «Empezar» sólo si se puede pagar; si no, «Quiero …» y se pide en la página del plan', () => {
@@ -136,7 +147,11 @@ test('la LANDING de venta: las columnas de precios donde estaba la agenda, con e
   assert.ok(landing.indexOf('setDestinoPrecios(montarPrecios(root));') < landing.indexOf("sc.id = 'gm-diseno-js';"));
   const precios = fuente('app/vsl/PreciosLanding.tsx');
   assert.match(precios, /<TarjetasPlanes promoVigente=\{promoVigente\} planes=\{planes\} sufijo=\{sufijo\} \/>/, 'los mismos bloques (y el mismo botón) que /planes');
-  assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador</);
+  // 14/11/2026: el botón del Acelerador pasó de su pedido (/planes/acelerador, que viajaba con el origen y el partner del
+  // sufijo) a la agenda de Martín. ⚠️ CONSECUENCIA MEDIDA, no un detalle: por ese camino el origen y el código de partner ya
+  // NO llegan al CRM, y la agenda de Martín todavía no tiene su webhook (docs/hallazgos-integraciones.md).
+  assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{AGENDA_ACELERADOR\} target="_blank"/);
+  assert.doesNotMatch(fuente('app/planes/Tarjetas.tsx'), /Quiero el Acelerador/, 'volvió el botón del pedido');
   // El anual (25/10/2026) se muestra y SIEMPRE se pide: su botón es otro, nunca el del checkout mensual.
   assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{botonAnualDelPlan\(\{ id: p\.id, sufijo \}\)\.href\}/);
   for (const rel of ['app/page.tsx', 'app/vsl/[slug]/page.tsx']) assert.match(fuente(rel), /planesParaLanding\(\)/, rel);

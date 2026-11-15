@@ -18,6 +18,7 @@ import { veCopywriter } from '@/app/copywriter/acceso';
 import { cuerpoYArchivos, leerLosArchivos } from '@/lib/adjuntos-del-chat';
 import { FEATURE_COPY } from '@/lib/copywriter/ia';
 import { asegurarGuionPegado, replicarPegado } from '@/lib/copywriter/pegado-servidor';
+import { candadoDeReplicarGuionEnPantalla } from '@/lib/copywriter/replica-candado';
 import { numeroDePegado } from '@/lib/copywriter/pegado';
 import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { provsDe } from '@/lib/ai-cheap';
@@ -42,6 +43,10 @@ export async function POST(req: Request) {
   const b = c.body;
   try {
     if (b.accion === 'replicar') {
+      // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): ANTES de leer los archivos o de bajar la página, que es
+      // lo que cuesta. El 403 lleva `pasarAPro`, que es lo que la pantalla reconoce para dibujar el candado.
+      const pro = await candadoDeReplicarGuionEnPantalla();
+      if (pro) return Response.json({ ok: false, ...pro }, { status: 403, headers: sinCache });
       const leidos = c.adjuntos.length ? await leerLosArchivos(c.adjuntos, FEATURE_COPY) : { lecturas: [], noLeidos: [] };
       if (c.adjuntos.length && !leidos.lecturas.length && !(typeof b.texto === 'string' && b.texto.trim())) {
         return falla(422, `No pude leer ${leidos.noLeidos.join(', ') || 'el archivo'}.`);

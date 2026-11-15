@@ -16,6 +16,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { pedirReplicar } from '@/app/copywriter/cliente';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
+import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
 import { proporcionDe } from '@/lib/spy-detalle';
@@ -76,6 +78,9 @@ export function Seguidos({ competidores, telefono = false, onAbrir, rutaGuion = 
   const [error, setError] = useState<string | null>(null);
   const [cambiando, setCambiando] = useState<number | null>(null);
   const [replicando, setReplicando] = useState<number | null>(null);
+  // Replicar el guion de un original es de MaKo Pro (14/11/2026): a un Esencial, el candado (app/_components/solo-pro.ts).
+  const soloPro = useSoloPro('replicar-guion');
+  const [verCandado, setVerCandado] = useState(false);
 
   const leer = useCallback(async () => {
     const r = await seguidosAction();
@@ -113,10 +118,18 @@ export function Seguidos({ competidores, telefono = false, onAbrir, rutaGuion = 
 
   const replicar = async (a: AlertaVista) => {
     if (replicando != null) return;
+    // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): «¿Creamos uno parecido?» replica el guion del original,
+    // la misma función que «Replicar» en Copywriting. A un Esencial, el candado en vez de un pedido que vuelve con un 403.
+    if (soloPro) { setVerCandado(true); return; }
     setReplicando(a.pieza.id);
     setError(null);
     const r = await pedirReplicar(idParaReplicar(a.pieza.id));
-    if (!r.ok) { setReplicando(null); setError(`No se pudo crear: ${r.error}`); return; }
+    if (!r.ok) {
+      setReplicando(null);
+      if (esRespuestaSoloPro(r)) { marcarSoloPro('replicar-guion'); setVerCandado(true); return; }
+      setError(`No se pudo crear: ${r.error}`);
+      return;
+    }
     router.push(rutaGuion(r.pagina.id));
   };
 
@@ -160,6 +173,9 @@ export function Seguidos({ competidores, telefono = false, onAbrir, rutaGuion = 
         {ids != null && <p>{ids.length} de {competidores.length}</p>}
       </header>
       {error && <p className={s.error} role="alert">{error}<ReportarASoporte error={error} accion="Seguidos de Competitors Spy" /></p>}
+      {/* El candado de replicar el guion (14/11/2026): el mismo que «Copiar su sitio» de ./SusPaginas.tsx. Lo que publican las
+          cuentas que sigue se sigue viendo entero: lo que es de Pro es replicarlo. */}
+      {verCandado && <CandadoSoloPro funcion="replicar-guion" style={{ padding: '0 0 12px' }} />}
 
       {/* ── 1. A quién sigues: tocar es seguir o dejar de seguir ── */}
       <div className={s.elegir} aria-busy={ids == null || undefined}>
