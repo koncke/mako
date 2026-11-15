@@ -375,6 +375,32 @@ el arnés **sí puede ver** la red. Sin ese control, una lista vacía prueba lo 
 
 ---
 
+## ⚠️ El orden de despliegue: la 0416 va ANTES del código, y qué se rompe si no
+
+La `0412` ya lo dejó escrito, y vale igual para la `0416`: *«esta migración va PRIMERO y el código después. Sin las
+tablas… falla CERRADO, así que lo peor que pasa es que no se genere — nunca que se genere gratis»*. Eso era barato
+cuando nada usaba el medidor. Ahora algo lo usa, así que conviene saber **exactamente** qué se rompe si el código llega
+a producción antes que la migración, porque no es «nada» y tampoco es «todo»:
+
+- **La RPC no existe → PostgREST devuelve error → `gastarMt` falla cerrado → la llamada no corre.** Sólo para los
+  pedidos donde `soloSuIA()` es false, o sea los negocios que no conectaron su clave.
+- **Casi ninguno de esos puede generar texto hoy de todas formas** (la red de la plataforma no se presta: ver más
+  arriba), así que no cambia nada para ellos.
+- ⚠️ **Lo que SÍ se rompe: el onboarding de un cliente que acaba de pagar.** Tiene `capa: completo` o `agencia`, así
+  que tiene cupo, así que **no** entra por la excepción del crédito del onboarding (que es para quien todavía no paga)
+  — y su primer ingreso corre sobre el crédito de Claude de la plataforma. Sin la migración, ese alta queda sin leer
+  sus documentos ni armar su oferta.
+
+**Y no hay tabla de migraciones en este repo**: `scripts/apply-migration.mjs` ejecuta el archivo y no deja registro
+(por eso existe `scripts/verificar-migraciones-aplicadas.mjs`, que lo comprueba contra el catálogo de Postgres). O sea
+que «ya se aplicó» no se puede dar por hecho: se comprueba.
+
+**Al aplicar, correr `scripts/probar-concurrencia-saldo.mjs`**: es lo único que ejercita la carrera de verdad (30
+conexiones, 200 pedidos a la vez), y es el motivo de que el chequeo y el descuento sean la misma sentencia. Hoy ese
+script prueba el `update` de la `0412`; conviene sumarle las funciones nuevas.
+
+---
+
 ## Qué quedó sin hacer
 
 - ⚠️ **Lo más importante: volver a prestarle la IA de MaKo al negocio que no conectó la suya.** Sin eso, «todo gasta MaKo
