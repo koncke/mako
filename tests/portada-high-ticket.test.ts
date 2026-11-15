@@ -57,7 +57,7 @@ test('lo que un plan NO trae sale de la misma tabla de la comparación', () => {
   assert.equal(noIncluyeDe('agencia').length, filas.filter((f) => f.pro === false).length);
   assert.ok(noIncluyeDe('completo').includes(NOMBRE_TAB_PRO['closing-analyst']), 'Esencial no trae el análisis de las llamadas');
   assert.ok(!noIncluyeDe('agencia').includes(NOMBRE_TAB_PRO['closing-analyst']), 'Pro sí lo trae');
-  assert.ok(noIncluyeDe('agencia').includes('La asesoría grupal en vivo con Martín, cada semana'), 'la asesoría es del Acelerador');
+  assert.ok(noIncluyeDe('agencia').includes('Una asesoría en vivo con Martín, cada semana'), 'la asesoría es del Acelerador');
   assert.deepEqual(noIncluyeDe('pm'), [], 'una capa sin columna no inventa nada');
 });
 

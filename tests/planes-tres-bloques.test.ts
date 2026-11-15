@@ -102,7 +102,8 @@ test('lo que es sólo de Pro sale de TABS_SOLO_PRO: no en Esencial, sí en Pro y
     assert.ok(f, `falta ${t}`);
     assert.deepEqual([f!.esencial, f!.pro, f!.acelerador], [false, true, true], t);
   }
-  const asesoria = filas.find((x) => /asesoría grupal/.test(x.que));
+  // 15/11/2026: la fila dice «Una asesoría en vivo con Martín, cada semana» (copy de Martín); que es grupal lo dice el checkout.
+  const asesoria = filas.find((x) => /asesoría en vivo/.test(x.que));
   assert.deepEqual([asesoria?.esencial, asesoria?.pro, asesoria?.acelerador], [false, false, true], 'la asesoría es sólo del programa');
   // Y lo que es de Pro sin ser una tab (27/10/2026): el scraper de WhatsApp y MaKo Partners, que el candado hace cumplir.
   // 14/11/2026: lo que está cerrado en Esencial pero TODAVÍA no se vende (hoy el avatar) no tiene fila, igual que una tab que
@@ -249,7 +250,14 @@ test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insi
   // 14/11/2026 (Martín: «no es la idea de que diga todo lo de Essential más tal, todo lo de MaKo Pro más… la idea es que cada
   // uno se sienta único»): MaKo Pro ya no está en el título de la lista, es el PRIMER check. La columna se lee sola.
   assert.doesNotMatch(t, /Todo lo de MaKo Pro, más:/, 'volvió la fórmula «todo lo de X» al Acelerador');
-  assert.equal(LISTA_PROGRAMA[0], 'MaKo Pro completo, los 3 meses', 'el programa no dice que trae Pro entero');
+  // 15/11/2026, a la noche (Martín): «el primer ítem debería ser justamente 3 meses de acompañamiento personalizado». El
+  // software va al final: si la columna empieza por MaKo Pro, se lee como «MaKo, más algo» y no como acompañamiento.
+  assert.equal(LISTA_PROGRAMA[0].fuerte, '3 meses de acompañamiento personalizado', 'el programa no abre con el acompañamiento');
+  assert.ok(LISTA_PROGRAMA.some((x) => x.fuerte === 'MaKo Pro completo'), 'el programa no dice que trae Pro entero');
+  for (const que of ['WhatsApp personal de Martín', 'comunidad de empresarios', 'encuentro presencial en Buenos Aires', '1 a 1 con Martín']) {
+    assert.ok(LISTA_PROGRAMA.some((x) => `${x.fuerte ?? ''}${x.texto}`.toLowerCase().includes(que.toLowerCase())), `al Acelerador le falta «${que}»`);
+  }
+  assert.ok(!LISTA_PROGRAMA.some((x) => /grupo de WhatsApp/i.test(`${x.fuerte ?? ''}${x.texto}`)), 'volvió el grupo de WhatsApp: ahora es la comunidad');
   // 15/11/2026: la ceja de las TRES listas es «Incluye» (`CEJA_LISTA`). Las de antes decían cómo se trabaja («Lo armamos
   // contigo», «Lo haces tú, con MaKo al lado»), que es el «lenguaje nuestro» que Martín pidió sacar de las columnas.
   const cejas = (await vitrinaHtml()).split(`<p class="mkpl-lista-t">${CEJA_LISTA}</p>`).length - 1;
@@ -257,8 +265,9 @@ test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insi
   for (const vieja of ['Lo haces tú, con MaKo al lado', 'MaKo lo hace, tú apruebas']) {
     assert.ok(!t.includes(vieja), `volvió la ceja «${vieja}», que Martín pidió cambiar`);
   }
-  for (const r of LISTA_PROGRAMA) assert.ok(t.includes(r), r);
-  assert.ok(LISTA_PROGRAMA.every((r) => r.split(' ').length <= 7), 'renglones cortos, como los de beehiiv');
+  for (const r of LISTA_PROGRAMA) assert.ok(t.includes(r.fuerte ?? r.texto), r.fuerte ?? r.texto);
+  // Cortas, como las de beehiiv, son las CABEZAS en negrita: es lo que se lee de un vistazo; el detalle va después.
+  assert.ok(LISTA_PROGRAMA.every((r) => (r.fuerte ?? r.texto).split(' ').length <= 7), 'cabezas cortas, como las de beehiiv');
 });
 
 // ── CADA COLUMNA ÚNICA Y AUTOSUFICIENTE (14/11/2026) ───────────────────────────────────────────────────────────────

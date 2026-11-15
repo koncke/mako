@@ -273,12 +273,20 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
   // Cada entregable con su tope (§6c: «entregables escritos con tope de horas»): lo que se promete se puede contar.
   // 12/11/2026 (Martín: «tienen muchos ítems»): cada renglón corto, y MaKo Pro va en el título de la lista («Todo lo de MaKo
   // Pro los 3 meses, más:», app/planes/Tarjetas.tsx). Lo de cada entregable sigue entero en /reembolsos §2.
+  // ⚠️ LAS MISMAS COSAS QUE LA TARJETA (`LISTA_PROGRAMA`, app/planes/Tarjetas.tsx), con lo que es CONTRATO (15/11/2026): las
+  // horas de la primera semana (la garantía se mide contra eso, ver `garantia`) y que la asesoría semanal es grupal. La tarjeta
+  // lo dice corto; esto lo leen el checkout del Acelerador y /reembolsos §2.
   incluye: [
-    `Tu página, tu tablero de clientes, tus mensajes y tus seguimientos, armados la primera semana (hasta ${HORAS_SEMANA_1} horas de nuestro equipo)`,
+    '3 meses de acompañamiento personalizado con Martín y su equipo',
+    // «Tablero de clientes» y no «CRM»: /reembolsos lo dice con palabras de cliente (tests/planes-tres-bloques.test.ts lo vigila).
+    `Tu sistema de adquisición de clientes armado por nuestro equipo la primera semana: tu funnel, tu página de venta, tu tablero de clientes, tus automatizaciones y tu sistema de contenido (hasta ${HORAS_SEMANA_1} horas de nuestro equipo)`,
     'Tu IA conectada y lista desde el primer día',
-    `${ASESORIAS_DEL_PROGRAMA} asesorías grupales en vivo con Martín, una por semana, con su grabación`,
+    '3 sesiones 1 a 1 con Martín por videollamada, de 2 horas cada una: estrategia, seguimiento y checkpoint',
+    `Una asesoría grupal en vivo por semana con Martín (${ASESORIAS_DEL_PROGRAMA} en los 3 meses), con su grabación`,
+    'El WhatsApp personal de Martín para tus dudas',
+    'La comunidad de empresarios del programa',
+    'Un encuentro presencial en Buenos Aires cada 3 meses',
     'Plantillas probadas de páginas, mensajes y guiones',
-    'Un grupo de WhatsApp con respuestas de Martín',
   ],
   despues: { nombre: 'Continuidad', precioUsd: 297 },
   // Martín, 14/11/2026 (la segunda vez, sus palabras): «en 90 días, Martín Koncke, el creador de MaKo, te instalará el sistema de

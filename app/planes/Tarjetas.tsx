@@ -234,16 +234,28 @@ export function tokensDeLaCapa(capa: string): string | null {
 }
 
 /**
- * La lista del Acelerador. 14/11/2026: MaKo Pro deja de estar en el título («Todo lo de MaKo Pro, más:») y pasa a ser el PRIMER
- * check, para que esta columna también se lea sola — Martín pidió sacar la fórmula «todo lo de X» de las columnas, y el
- * Acelerador es una columna más. El detalle de cada entregable sigue en /reembolsos §2.
+ * LA LISTA DEL ACELERADOR, con el copy de Martín (15/11/2026, a la noche): «el primer ítem debería ser justamente 3 meses de
+ * acompañamiento personalizado»; «tu sistema de adquisición de clientes armado por nuestro equipo: tu funnel, tu landing, tu
+ * CRM, tus automatizaciones y tu sistema de contenido. Y no hace falta que aclares lo de las 10 horas»; «una asesoría en vivo
+ * por semana»; «en lugar de un grupo de WhatsApp… una comunidad de empresarios»; «el WhatsApp personal de Martín Koncke para
+ * responder dudas»; las 3 sesiones 1 a 1 de 2 horas («no tengo problema en brindarlo»); y «un encuentro presencial en Buenos
+ * Aires cada 3 meses».
+ *
+ * Es lo que hace que la columna se lea como ACOMPAÑAMIENTO y no como un plan más: antes empezaba por el software («MaKo Pro
+ * completo») y eso decía «esto es MaKo, más algo». El software va al final.
+ * ⚠️ El detalle que es CONTRATO (las horas de la primera semana, que la asesoría semanal es grupal) vive en
+ * `PROGRAMA_ACELERADOR.incluye` (lib/planes-mako.ts), que es lo que leen el checkout y /reembolsos. Las dos listas dicen las
+ * mismas cosas; la de acá, corta.
  */
-export const LISTA_PROGRAMA: readonly string[] = [
-  'MaKo Pro completo, los 3 meses',
-  'Todo armado la primera semana',
-  `${ASESORIAS_DEL_PROGRAMA} asesorías en vivo con Martín`,
-  'Plantillas probadas',
-  'Un grupo de WhatsApp con Martín',
+export const LISTA_PROGRAMA: readonly ItemLista[] = [
+  { fuerte: '3 meses de acompañamiento personalizado', texto: '' },
+  { fuerte: 'Tu sistema de adquisición de clientes', texto: ', armado por nuestro equipo: tu funnel, tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido' },
+  { fuerte: '3 sesiones 1 a 1 con Martín', texto: ' por videollamada, de 2 horas: estrategia, seguimiento y checkpoint' },
+  { fuerte: 'Una asesoría en vivo por semana', texto: '' },
+  { fuerte: 'El WhatsApp personal de Martín', texto: ' para tus dudas' },
+  { fuerte: 'Una comunidad de empresarios', texto: ' que venden high ticket' },
+  { fuerte: 'Un encuentro presencial en Buenos Aires', texto: ' cada 3 meses' },
+  { fuerte: 'MaKo Pro completo', texto: ', los 3 meses' },
 ];
 
 /**
@@ -342,6 +354,10 @@ export const CSS_TARJETAS = `
 .mkpl-programa .mkpl-promesa b { color: #F5C451; }
 .mkpl-programa .mkpl-btn { background: #F5C451; color: #2A1E00 !important; box-shadow: 0 8px 22px rgba(245,196,81,.28); }
 .mkpl-programa .mkpl-lista li::before { color: #2A1E00; background: #F5C451; }
+/* La negrita de la lista va en BLANCO en el bloque oscuro (15/11/2026): la regla general (.mkpl-lista li b) la pinta #12151B para
+   las columnas blancas, y desde que el Acelerador lleva cabezas en negrita («3 meses de acompañamiento personalizado»…) quedaban
+   negras sobre negro — invisibles. Lo cazó la captura, no un test. */
+.mkpl-programa .mkpl-lista li b { color: #FFFFFF; }
 /* Mensual o anual: dos radios (escondidos) y sus etiquetas como un selector; :has() muestra los precios del que está
    elegido. Sin :has(), se ven los dos: nunca queda una tarjeta sin precio. */
 /* Sin margen abajo: la barra de MaKo Tokens va pegada debajo (Martín, 15/11: «tampoco separaría tanto el mensual y anual de la
@@ -500,7 +516,7 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
           {/* Sin «Todo lo de MaKo Pro, más:» (14/11/2026): MaKo Pro es el primer check (`LISTA_PROGRAMA`) y esta columna
               también se lee sola. La ceja dice cómo se trabaja, como en las otras dos. */}
           <p className="mkpl-lista-t">{CEJA_LISTA}</p>
-          <ul className="mkpl-lista">{LISTA_PROGRAMA.map((x) => <li key={x}><span>{x}</span></li>)}</ul>
+          <ul className="mkpl-lista">{LISTA_PROGRAMA.map((x) => <li key={x.fuerte ?? x.texto}><span>{x.fuerte ? <b>{x.fuerte}</b> : null}{x.texto}</span></li>)}</ul>
         </div>
       </section>
       </div>

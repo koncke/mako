@@ -256,10 +256,15 @@ export function filasDeComparacion(): FilaComparacion[] {
     soloPrograma(acompanamiento, 'A la medida de tu oferta, armado por Martín Koncke'),
     soloPrograma(acompanamiento, 'Recuperas como mínimo la inversión, garantizado por contrato'),
     // Sin «anuncios» (30/10/2026): lo que se arma la primera semana es lo de `PROGRAMA_ACELERADOR.incluye` y /reembolsos §2.
-    soloPrograma(acompanamiento, 'Tu página, mensajes y seguimientos armados la primera semana'),
-    soloPrograma(acompanamiento, 'La asesoría grupal en vivo con Martín, cada semana'),
+    // 15/11/2026, a la noche: lo que pidió Martín para el Acelerador (ver `LISTA_PROGRAMA`, app/planes/Tarjetas.tsx).
+    // «La primera semana» SÍ va acá (no las horas): la garantía se mide contra eso, y /reembolsos lo dice igual.
+    soloPrograma(acompanamiento, 'Tu sistema armado por nuestro equipo la primera semana'),
+    soloPrograma(acompanamiento, '3 sesiones 1 a 1 con Martín por videollamada, de 2 horas'),
+    soloPrograma(acompanamiento, 'Una asesoría en vivo con Martín, cada semana'),
+    soloPrograma(acompanamiento, 'El WhatsApp personal de Martín para tus dudas'),
+    soloPrograma(acompanamiento, 'Una comunidad de empresarios que venden high ticket'),
+    soloPrograma(acompanamiento, 'Un encuentro presencial en Buenos Aires cada 3 meses'),
     soloPrograma(acompanamiento, 'Plantillas probadas de páginas, mensajes y guiones'),
-    soloPrograma(acompanamiento, 'Un grupo de WhatsApp con respuestas de Martín'),
   ];
 }
 
@@ -312,10 +317,13 @@ export function nombreCorto(que: string): string {
     'Tu sistema de adquisición de clientes, instalado en 90 días': 'Sistema instalado en 90 días',
     'A la medida de tu oferta, armado por Martín Koncke': 'A la medida de tu oferta',
     'Recuperas como mínimo la inversión, garantizado por contrato': 'Garantía por contrato',
-    'Tu página, mensajes y seguimientos armados la primera semana': 'Todo armado la semana 1',
-    'La asesoría grupal en vivo con Martín, cada semana': 'Asesoría semanal con Martín',
+    'Tu sistema armado por nuestro equipo la primera semana': 'Todo armado la semana 1',
+    '3 sesiones 1 a 1 con Martín por videollamada, de 2 horas': 'Sesiones 1 a 1 con Martín',
+    'Una asesoría en vivo con Martín, cada semana': 'Asesoría semanal con Martín',
+    'El WhatsApp personal de Martín para tus dudas': 'WhatsApp de Martín',
+    'Una comunidad de empresarios que venden high ticket': 'Comunidad de empresarios',
+    'Un encuentro presencial en Buenos Aires cada 3 meses': 'Encuentro presencial',
     'Plantillas probadas de páginas, mensajes y guiones': 'Plantillas probadas',
-    'Un grupo de WhatsApp con respuestas de Martín': 'Grupo con Martín',
   };
   return k[que] ?? que;
 }
