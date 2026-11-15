@@ -34,6 +34,7 @@ import { clavesAProbar, clavesDe, sinCopiasDeLaPlataforma } from '@/lib/ia-keys'
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import type { QuienContesto } from '@/lib/quien-contesto';
 import { PROVS_SU_IA, conD6bDelPedido, d6bDecidida, pasaPorLaPuerta, proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
+import { conMedidorDeMt, medidorAbierto } from '@/lib/mako-tokens-medidor';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { conSuIASinClave, CON_SU_IA_SIN_VISION } from '@/lib/fallo-ia-texto';
 import { corregirMarca } from '@/lib/mako-gramatica';
@@ -542,6 +543,9 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
   await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheap(opts));
+  // MaKo Tokens: reserva el costo de esta llamada y liquida con el real al terminar (15/11/2026, lib/mako-tokens-medidor.ts).
+  // Va DESPUES de la linea de D6b a proposito: el medidor necesita saber si la IA la paga el negocio con SU clave.
+  if (!medidorAbierto()) return conMedidorDeMt(opts.feature, () => chatCheap(opts));
   // `clave` elige CUÁL cuenta del proveedor (GEMINI_API_KEY vs _2 vs _3). La pone la
   // cascada al rotar; un caller suelto no la pasa y usa la de siempre.
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
@@ -736,6 +740,9 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapCascade(opts));
+  // MaKo Tokens: reserva el costo de esta llamada y liquida con el real al terminar (15/11/2026, lib/mako-tokens-medidor.ts).
+  // Va DESPUES de la linea de D6b a proposito: el medidor necesita saber si la IA la paga el negocio con SU clave.
+  if (!medidorAbierto()) return conMedidorDeMt(opts.feature, () => chatCheapCascade(opts));
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
   const avisar = (): void => { try { opts.alIntentar?.(); } catch { /* el aviso no frena nada */ } };
   // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
@@ -1173,6 +1180,9 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
   await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => leerDocumentoIA(opts));
+  // MaKo Tokens: reserva el costo de esta llamada y liquida con el real al terminar (15/11/2026, lib/mako-tokens-medidor.ts).
+  // Va DESPUES de la linea de D6b a proposito: el medidor necesita saber si la IA la paga el negocio con SU clave.
+  if (!medidorAbierto()) return conMedidorDeMt(opts.feature, () => leerDocumentoIA(opts));
   const errores: string[] = [];
   const sinKey: ProvName[] = [];
 
@@ -1440,6 +1450,9 @@ export async function chatCheapTools(
   await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapTools(system, messages, tools, runTool, opts));
+  // MaKo Tokens: reserva el costo de esta llamada y liquida con el real al terminar (15/11/2026, lib/mako-tokens-medidor.ts).
+  // Va DESPUES de la linea de D6b a proposito: el medidor necesita saber si la IA la paga el negocio con SU clave.
+  if (!medidorAbierto()) return conMedidorDeMt(opts.feature, () => chatCheapTools(system, messages, tools, runTool, opts));
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   // El modelo pedido y atrás sus respaldos (MODELOS_RESPALDO): un 429 o un 503 a mitad del
@@ -1736,6 +1749,9 @@ export async function chatCheapToolsCascade(
   await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapToolsCascade(system, messages, tools, runTool, opts));
+  // MaKo Tokens: reserva el costo de esta llamada y liquida con el real al terminar (15/11/2026, lib/mako-tokens-medidor.ts).
+  // Va DESPUES de la linea de D6b a proposito: el medidor necesita saber si la IA la paga el negocio con SU clave.
+  if (!medidorAbierto()) return conMedidorDeMt(opts.feature, () => chatCheapToolsCascade(system, messages, tools, runTool, opts));
   const pedidos = soloSuIA() ? (PROVS_SU_IA as ProvName[]) : deTexto(opts.provs ?? CASCADA_TOOLS);
   const orden = await ordenarPorCuota(pedidos.map(String)).catch(() => pedidos.map(String));
   for (const prov of orden as ProvName[]) {
@@ -1977,6 +1993,9 @@ export async function guionDeYoutubeConGemini(
   await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => guionDeYoutubeConGemini(url, tramo, opts));
+  // MaKo Tokens: reserva el costo de esta llamada y liquida con el real al terminar (15/11/2026, lib/mako-tokens-medidor.ts).
+  // Va DESPUES de la linea de D6b a proposito: el medidor necesita saber si la IA la paga el negocio con SU clave.
+  if (!medidorAbierto()) return conMedidorDeMt(opts.feature, () => guionDeYoutubeConGemini(url, tramo, opts));
   if (!ENLACE_YOUTUBE_GEMINI.test(url)) return { ok: false, motivo: 'fallo', error: 'No es el enlace de un video de YouTube.' };
   const provs = await provsDe('gemini');
   if (!provs.length) return { ok: false, motivo: 'sin-gemini', error: 'Sin Gemini conectado.' };
@@ -2193,6 +2212,9 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts?.feature)) return conD6bDelPedido(opts?.feature, () => transcribirAudio(base64, mime, opts));
+  // MaKo Tokens: reserva el costo de esta llamada y liquida con el real al terminar (15/11/2026, lib/mako-tokens-medidor.ts).
+  // Va DESPUES de la linea de D6b a proposito: el medidor necesita saber si la IA la paga el negocio con SU clave.
+  if (!medidorAbierto()) return conMedidorDeMt(opts?.feature, () => transcribirAudio(base64, mime, opts));
   const o = opts ?? {};
   const buf = Buffer.from(base64, 'base64');
   if (!buf.length) return '';
