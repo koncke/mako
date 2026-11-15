@@ -236,9 +236,10 @@ export function CompararPlanes({ planes, sufijo = '' }: { planes: readonly Pick<
 }
 
 function CeldaPlan({ v }: { v: Celda | null }) {
-  if (v === true) return <span className="planes-si" role="img" aria-label="Incluido"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>;
+  // El signo lo dibuja el CSS (app/planes/signos.ts, en un ::before): el mismo de las columnas de arriba (Martín, 15/11/2026).
+  if (v === true) return <span className="planes-si" role="img" aria-label="Incluido" />;
   // ✗ y no «—» (15/11/2026, Martín: «en comparación de planes, en las cosas que no se pueden hacer, que esté marcado con una X»).
   // El guión se leía como «sin dato»; la cruz dice que el plan NO lo trae, que es la diferencia que la tabla existe para mostrar.
-  if (v === false) return <span className="planes-no" role="img" aria-label="No incluido"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg></span>;
+  if (v === false) return <span className="planes-no" role="img" aria-label="No incluido" />;
   return <>{v ?? ''}</>;
 }

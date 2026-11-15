@@ -828,11 +828,44 @@ test('cada ✗ de Esencial queda frente a su ✓ de Pro, en el mismo orden, y la
   const html = await vitrinaHtml();
   assert.ok(html.includes(`>${CEJA_NO_INCLUYE}</p>`), 'la columna no dibuja «No incluye»');
   assert.equal(html.split('<ul class="mkpl-lista mkpl-lista-no">').length - 1, 1, 'el «No incluye» va en una sola columna');
-  const css = fuente('app/planes/Tarjetas.tsx');
-  assert.match(css, /\.mkpl-lista\.mkpl-lista-no li::before \{ content: "✕";[^}]*color: #D92D20/, 'la ✗ de la columna no es roja');
-  // Y en la comparación de abajo: ✓ verde, ✗ roja («abajo también en la comparación las tildes las pondría en verde»).
-  const estilo = fuente('app/planes/estilo.ts');
-  assert.match(estilo, /\.planes-si \{[^}]*background: #16A34A/, 'la ✓ de la tabla no es verde');
-  assert.match(estilo, /\.planes-no \{[^}]*color: #D92D20/, 'la ✗ de la tabla no es roja');
-  assert.doesNotMatch(estilo, /td\[data-destacado\] \.planes-si \{ background: #2F6FED/, 'volvió la ✓ azul de la columna recomendada');
+  // LA ✓ Y LA ✗ SON LAS MISMAS ARRIBA (las columnas) Y ABAJO (la tabla): las dos salen de app/planes/signos.ts. 15/11/2026, a la
+  // noche (Martín): «que lo que está abajo en compara los planes sean lo mismo que los que están arriba… el check verde lo
+  // pusiste como muy verde y me gustaba el que estaba arriba».
+  const { CSS_TARJETAS } = await import('../app/planes/Tarjetas');
+  const { CSS_PLANES } = await import('../app/planes/estilo');
+  const { SIGNO_NO, SIGNO_SI } = await import('../app/planes/signos');
+  const regla = (css: string, sel: string): string => {
+    const m = css.match(new RegExp(`^${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{ (.*) \\}$`, 'm'));
+    assert.ok(m, `falta la regla «${sel}»`);
+    return m[1];
+  };
+  assert.equal(regla(CSS_TARJETAS, '.mkpl-lista.mkpl-lista-no li::before'), SIGNO_NO, 'la ✗ de la columna no es la de signos.ts');
+  assert.equal(regla(CSS_TARJETAS, '.mkpl-lista li::before'), SIGNO_SI, 'la ✓ de la columna no es la de signos.ts');
+  assert.equal(regla(CSS_PLANES, '.planes-no::before'), SIGNO_NO, 'la ✗ de la tabla no es la de las columnas');
+  assert.equal(regla(CSS_PLANES, '.planes-si::before'), SIGNO_SI, 'la ✓ de la tabla no es la de las columnas');
+  // Los colores: ✓ verde oscuro sobre verde pálido (el de arriba), ✗ roja sobre rojo pálido («las X las pondría en rojo»).
+  assert.ok(SIGNO_SI.includes(encodeURIComponent('#1F7A4D')) && SIGNO_SI.endsWith(', #E3F5EB;'), 'la ✓ no es la verde de las columnas');
+  assert.ok(SIGNO_NO.includes(encodeURIComponent('#D92D20')) && SIGNO_NO.endsWith(', #FDE8E7;'), 'la ✗ no es roja');
+  assert.doesNotMatch(CSS_PLANES + CSS_TARJETAS, /#16A34A/i, 'volvió la ✓ verde llena con la tilde blanca («muy verde»)');
+  assert.doesNotMatch(CSS_PLANES, /td\[data-destacado\] \.planes-si/, 'volvió la ✓ azul de la columna recomendada');
+  // «Las X, siento que hay algunas que están no centradas»: el signo es un DIBUJO centrado en su lienzo, no una letra «✓»/«✕»
+  // (que no está en Urbanist: cada sistema la saca de otra fuente y la apoya a otra altura).
+  assert.doesNotMatch(SIGNO_SI + SIGNO_NO, /content: "[^"]/, 'el signo volvió a ser una letra');
+  // Y la tabla ya no trae su propio SVG: sería un segundo diseño.
+  assert.doesNotMatch(fuente('app/planes/Vitrina.tsx'), /className="planes-(si|no)"[^>]*>\s*<svg/, 'la tabla volvió a dibujar su propia tilde');
+});
+
+// 15/11/2026, a la noche (Martín): «en MaKo Accelerator hay como una lucecita amarilla arriba a la derecha. Me gustaría que la
+// misma lucecita azul esté en el MaKo Pro de 97». La misma: el mismo óvalo en la misma esquina; cambia sólo el color.
+test('MaKo Pro lleva la luz de la esquina del Acelerador, en azul', async () => {
+  const { CSS_TARJETAS } = await import('../app/planes/Tarjetas');
+  const luz = (sel: string): string => {
+    const m = CSS_TARJETAS.match(new RegExp(`${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{[^}]*?radial-gradient\\(([^)]*\\([^)]*\\)[^)]*)\\)`));
+    assert.ok(m, `«${sel}» no tiene la luz de la esquina`);
+    return m[1];
+  };
+  const dorada = luz('.mkpl-programa');
+  const azul = luz('.mkpl-card.destacado');
+  assert.match(azul, /rgba\(47,111,237,/, 'la luz de Pro no es el azul de la casa');
+  assert.equal(azul.replace(/rgba\([^)]*\)/, 'C'), dorada.replace(/rgba\([^)]*\)/, 'C'), 'no es la MISMA luz que la del Acelerador: cambió el óvalo o la esquina');
 });

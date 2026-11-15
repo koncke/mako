@@ -45,6 +45,7 @@ import { ASESORIAS_DEL_PROGRAMA, MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PRO
 import { TOPES } from '@/lib/topes-plan';
 import { PLAN_DE_CAPA, cupoDeCapa } from '@/lib/mako-tokens-reglas';
 import { ATRIBUTO_ALCANZA, ATRIBUTO_MT, generaVideoLaCapa, htmlAlcanza } from './CalculadoraTokens';
+import { SIGNO_NO, SIGNO_SI, SIGNO_SI_DORADO } from './signos';
 import { ASESORES } from '@/lib/asesores/catalogo';
 // Los topes de generación (15/11/2026): cuánto video y cuántas imágenes trae el plan. Viven con el precio del clip
 // porque lo que los fija es el margen, no un límite de la app (lib/mako-tokens-paquetes.ts).
@@ -284,7 +285,12 @@ export const CSS_TARJETAS = `
 .mkpl-grilla { display: grid; gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(4, auto); padding-top: 14px; align-items: stretch; text-align: left; }
 .mkpl-card { position: relative; display: grid; grid-row: span 4; grid-template-rows: subgrid; row-gap: 0; background: #FFFFFF; color: #12151B;
   border: 1px solid #E6EAF2; border-radius: 20px; padding: 26px 24px 24px; box-shadow: 0 1px 2px rgba(18,21,27,.04), 0 10px 28px rgba(18,21,27,.06); }
-.mkpl-card.destacado { border-color: #2F6FED; box-shadow: 0 0 0 1px #2F6FED, 0 16px 40px rgba(47,111,237,.18); }
+/* LA LUZ DE LA ESQUINA, EN AZUL (15/11/2026, Martín: «en MaKo Accelerator hay como una lucecita amarilla arriba a la derecha. Me
+   gustaría que la misma lucecita azul esté en el MaKo Pro de 97»). La MISMA que la del Acelerador (.mkpl-programa): el mismo
+   óvalo en la misma esquina, con el azul de la casa en lugar del dorado. El sol y la luna la dejan como está: es un tono medio
+   (TemaSitio sólo da vuelta los muy claros y los muy oscuros), así que en el modo oscuro queda la luz azul sobre la tarjeta negra. */
+.mkpl-card.destacado { border-color: #2F6FED; box-shadow: 0 0 0 1px #2F6FED, 0 16px 40px rgba(47,111,237,.18);
+  background: radial-gradient(700px 320px at 100% 0%, rgba(47,111,237,.14), transparent 60%), #FFFFFF; }
 .mkpl-insignia { position: absolute; top: -13px; left: 24px; background: #2F6FED; color: #fff; font-size: 12px; font-weight: 700;
   letter-spacing: .03em; padding: 5px 12px; border-radius: 999px; }
 .mkpl-card h3 { margin: 0 0 10px; font-size: 22px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; color: inherit; }
@@ -335,15 +341,16 @@ export const CSS_TARJETAS = `
 /* «No incluye»: el mismo renglón que los checks, con una ✗ ROJA (Martín: «evidentemente las X las pondría en rojo»). */
 .mkpl-lista-t-no { margin-top: 18px; }
 .mkpl-lista-no li { color: #5B6472; }
-.mkpl-lista.mkpl-lista-no li::before { content: "✕"; background: #FDE8E7; color: #D92D20; font-size: 11px; font-weight: 800; }
+/* La ✓ y la ✗ son las de app/planes/signos.ts: las MISMAS que las de la tabla de abajo, y dibujadas (no letras) para que queden en
+   el medio del círculo en cualquier sistema. */
+.mkpl-lista.mkpl-lista-no li::before { ${SIGNO_NO} }
 /* «.mkpl-topes» se fue el 15/11/2026 con la fila de cifras que dibujaba (ver «ListaDeColumna»). La raya que separaba
    la cabeza de la lista la lleva ahora la línea de los MaKo Tokens, que es lo único que quedó arriba. */
 .mkpl-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 14.5px; line-height: 1.4; }
 .mkpl-lista li { display: flex; gap: 10px; align-items: flex-start; }
 /* La negrita SELECTIVA (ClickFunnels): el arranque del renglón en negrita, lo que le sigue en peso normal. Sólo la lleva Pro. */
 .mkpl-lista li b { font-weight: 700; color: #12151B; }
-.mkpl-lista li::before { content: "✓"; flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center;
-  justify-content: center; font-size: 12px; font-weight: 800; color: #1F7A4D; background: #E3F5EB; margin-top: 0; }
+.mkpl-lista li::before { ${SIGNO_SI} }
 /* El Acelerador, OSCURO para que se destaque (grafito #101319, el de la app, con el brillo dorado de su botón). No lo toca el sol
    y la luna (data-tema-fijo): es negro en los dos modos. */
 .mkpl-programa { background: radial-gradient(700px 320px at 100% 0%, rgba(245,196,81,.14), transparent 60%), linear-gradient(160deg, #1C1F27 0%, #101319 100%);
@@ -353,7 +360,7 @@ export const CSS_TARJETAS = `
 .mkpl-programa .mkpl-promesa, .mkpl-programa .mkpl-bajo, .mkpl-programa .mkpl-precio small { color: #C4C8D0; }
 .mkpl-programa .mkpl-promesa b { color: #F5C451; }
 .mkpl-programa .mkpl-btn { background: #F5C451; color: #2A1E00 !important; box-shadow: 0 8px 22px rgba(245,196,81,.28); }
-.mkpl-programa .mkpl-lista li::before { color: #2A1E00; background: #F5C451; }
+.mkpl-programa .mkpl-lista li::before { ${SIGNO_SI_DORADO} }
 /* La negrita de la lista va en BLANCO en el bloque oscuro (15/11/2026): la regla general (.mkpl-lista li b) la pinta #12151B para
    las columnas blancas, y desde que el Acelerador lleva cabezas en negrita («3 meses de acompañamiento personalizado»…) quedaban
    negras sobre negro — invisibles. Lo cazó la captura, no un test. */

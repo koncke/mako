@@ -14,6 +14,8 @@
 //
 // ⚠️ Las tarjetas de /planes (CSS_TARJETAS, app/planes/Tarjetas.tsx) las comparte la landing de /vsl: acá se pintan SÓLO dentro
 // de `.planes-root`, para no tocar la landing.
+import { SIGNO_NO, SIGNO_SI } from './signos';
+
 export const CSS_PLANES = `
 body:has(.planes-root) aside { display: none !important; }
 body:has(.planes-root) { background: #FFFFFF; }
@@ -107,7 +109,6 @@ body:has(.planes-root) { background: #FFFFFF; }
 .planes-tabla th, .planes-tabla td { padding: 12px 4px; text-align: left; border-top: 1px solid #EEF1F5; vertical-align: top; }
 .planes-tabla th[scope=row] { font-weight: 500; color: #12151B; padding-right: 16px; }
 .planes-tabla td { color: #12151B; }
-.planes-si { color: #12151B; font-weight: 700; }
 /* ── La comparación con movimiento (13/11/2026, la llamada con Leila: «muy plana») ── */
 .planes-compara-cab { z-index: 5; padding-top: 14px; background: rgba(255,255,255,.88); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 /* Pegada arriba al bajar, debajo de la barra del sitio (76 px y su borde) donde la hay (/planes); en la landing, arriba de todo. */
@@ -128,9 +129,13 @@ body:has(.s-barra) .planes-compara-cab { top: 77px; }
 .planes-tabla td[data-destacado] { background: rgba(47,111,237,.06); }
 .planes-tabla tr { transition: background-color .15s ease; }
 .planes-tabla tbody tr:hover { background: #F6F8FC; }
-/* La ✓ VERDE y la ✗ ROJA (15/11/2026, Martín: «abajo también en la comparación las tildes las pondría en verde»). Era negra, y
-   azul en la columna recomendada: la columna ya se marca con su borde, y el verde dice «lo trae» igual en las tres. */
-.planes-si { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #16A34A; color: #fff; }
+/* LA ✓ Y LA ✗ DE LA TABLA SON LAS DE LAS COLUMNAS (app/planes/signos.ts). 15/11/2026, a la tarde: «abajo también en la comparación
+   las tildes las pondría en verde» (era negra, y azul en la columna recomendada) y salió un verde LLENO con la tilde blanca. A la
+   noche: «que lo que está abajo en compara los planes sean lo mismo que los que están arriba… el check verde lo pusiste como muy
+   verde y me gustaba el que estaba arriba». El verde dice «lo trae» igual en las tres columnas; la recomendada ya se marca sola. */
+.planes-si, .planes-no { display: inline-flex; vertical-align: top; }
+.planes-si::before { ${SIGNO_SI} }
+.planes-no::before { ${SIGNO_NO} }
 .planes-grupo-d[open] .planes-si { animation: planes-tilde .38s cubic-bezier(.34,1.56,.64,1) both; animation-delay: calc(var(--i, 0) * 45ms + 80ms); }
 @keyframes planes-tilde { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @supports (animation-timeline: view()) {
@@ -141,8 +146,6 @@ body:has(.s-barra) .planes-compara-cab { top: 77px; }
   .planes-grupo-d[open] .planes-si, .planes-tabla tbody tr { animation: none; }
   .planes-grupo-d::details-content { transition: none; }
 }
-/* La ✗ de «no lo trae»: mismo círculo que la ✓, en rojo suave, para que se lea de un vistazo al lado de la ✓ (15/11/2026). */
-.planes-no { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #FDE8E7; color: #D92D20; }
 .planes-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .planes-corto { display: none; }
 /* En el teléfono: los nombres cortos arriba, y cada fila con su nombre a todo el ancho y los tres valores abajo. */

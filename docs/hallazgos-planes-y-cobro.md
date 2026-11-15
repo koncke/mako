@@ -10,6 +10,46 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## La ✓ y la ✗ son DIBUJOS, no letras: centrar la caja de una letra no centra su trazo (15/11/2026)
+
+**Vive en:** `app/planes/signos.ts` (las declaraciones del círculo con su signo). Las usan `CSS_TARJETAS`
+(app/planes/Tarjetas.tsx, las columnas) y `CSS_PLANES` (app/planes/estilo.ts, la tabla «Compara los planes»). Lo vigila
+`tests/planes-tres-bloques.test.ts`: la regla de cada lado tiene que ser IGUAL a la de signos.ts, y el signo no puede volver a
+ser `content: "✓"`.
+
+**El síntoma:** Martín: «las X, siento que hay algunas que están no centradas». Eran las de la columna («No incluye»); las de la
+tabla estaban bien. Por eso «algunas».
+
+**La causa:** la columna dibujaba la LETRA «✕» en un círculo `inline-flex` con `align-items` y `justify-content` en `center`.
+Flex centra la caja de la letra, no su tinta. «✓» y «✕» no están en Urbanist, así que el navegador las saca de otra fuente
+(Segoe UI Symbol en Windows; otra en el Mac y otra en Android) y esa fuente apoya el trazo donde quiere. Medido a 4x en
+Chromium sobre Windows: la ✕ quedaba **5,6 px a la izquierda y 2,9 px arriba** del centro de un círculo de 20 px, casi tocando
+el borde; la ✓, hasta 1,4 px arriba. La tabla dibujaba su signo con un SVG y quedaba centrada.
+
+**El diagnóstico obvio era el equivocado:** «le falta `align-items: center`». Ya lo tenía. Y corregirlo con `line-height`,
+`padding` o un `translate` tampoco sirve: el corrimiento depende de la fuente de reemplazo de cada sistema, así que lo que
+centra en Windows descentra en el Mac.
+
+**La regla que queda:**
+- Un signo dentro de un círculo es un DIBUJO (un SVG con el trazo centrado en su lienzo, de fondo del `::before`), no un
+  carácter. Con el dibujo: 0,00 px de corrimiento en las 133 marcas medidas (columnas, tabla y teléfono).
+- El color del trazo va adentro del SVG. Un `background: <color>` posterior (el dorado del Acelerador) borra la imagen; por eso
+  cada combinación se arma entera con `signo()`.
+- Un mismo signo se escribe UNA vez y lo usan todos los lugares que lo muestran. Había dos diseños (columna: 20 px verde pálido;
+  tabla: 22 px verde lleno con la tilde blanca) y Martín pidió «que lo que está abajo… sea lo mismo que lo que está arriba».
+
+**Cómo se mide** (el script quedó en el scratchpad de la sesión, no en el repo): recortar cada círculo a 4x con Playwright,
+buscar los píxeles del color del trazo y comparar el centro de esa tinta con el centro del círculo (los píxeles del color del
+fondo del círculo más los del trazo), no con el centro del recorte: el recorte se redondea a píxeles y corre medio píxel.
+
+**Trampa del medidor:** `page.addStyleTag` mete el `<style>` en el `<head>`, y los componentes de /planes traen el suyo en el
+`<body>`. A igual especificidad gana el del body, así que el estilo inyectado no hacía nada: la primera medición «de antes» dio
+igual que la de ahora. Para pisar una regla de la página hay que agregar el `<style>` al final del body.
+
+**Lo que quedó SIN hacer:** en el render sin JavaScript, /planes mide 2 px más que la pantalla a 390 y a 375 (scrollWidth 392 y
+377). Lo empujan los links del megamenú de la barra del sitio (`.s-mega-l`, app/vsl/_sitio/). No se confirmó en producción, donde
+corre el JavaScript de la barra.
+
 ## El número que lee el cliente va primero, y el cupo se calcula desde ahí: la causalidad al revés (15/11/2026)
 
 **Vive en:** `lib/mako-tokens-reglas.ts` (`IMAGENES_DEL_CUPO` → `CUPO_MENSUAL` → `PISO_DE_MARGEN_BRUTO`),
