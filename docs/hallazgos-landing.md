@@ -46,6 +46,29 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## El sol y la luna de la portada tomaba las columnas de /planes por el LOGO: el arreglo de la mañana era el síntoma (15/11/2026)
+
+**Vive en:** `app/vsl/_competencia/TemaSitio.tsx` (el selector del logo, en `fuera` y en `llevarAlModo`) y `app/planes/Tarjetas.tsx`
+(cada columna lleva `aria-label={p.nombre}`).
+
+**El síntoma, dos veces el mismo día.** A la mañana, la pastilla «7 días gratis» del plan de US$47 salía con texto verde sobre un
+fondo **casi negro** en modo claro, y la del de US$97 al revés. Se midió y se curó con `data-tema-fijo` en la pastilla: el script
+de claro/oscuro decide cada color por la luminancia de lo que hay atrás, y las dos columnas son distintas. A la tarde, con el precio
+subido arriba de la columna, apareció un **recuadro casi negro tapando «US$ 47»** — con `background: rgb(26,23,18) !important`
+inline, el MISMO color de la pastilla.
+
+**El diagnóstico obvio era el equivocado.** No era la luminancia: el script reconoce el logo por `[aria-label^="MaKo"]` (toda
+etiqueta que EMPIECE con «MaKo») y le pinta `#1A1712` a su primer `<span>`, que en el logo es el cuadradito de la chispa. Las
+columnas de /planes se llaman «MaKo Esencial» y «MaKo Pro»: el script las tomaba por el logo. El primer `<span>` de la columna de
+Esencial era la pastilla a la mañana y el precio a la tarde; en la de Pro, otra cosa. Y de yapa, ese mismo selector está en
+`fuera`: **las dos columnas enteras quedaban fuera del cambio a oscuro** (en modo oscuro seguían blancas).
+
+**La regla que queda:** un script que reconoce piezas de la página por su etiqueta las reconoce por la etiqueta EXACTA. Ahora el logo
+es `[aria-label="MaKo"]` o `[aria-label^="MaKo —"]`, que son las dos que existen. Y cuando un `data-tema-fijo` «arregla» un color, hay
+que preguntarse por qué el script lo estaba tocando: la cura del síntoma escondió la causa medio día.
+
+---
+
 ## La cuenta en la barra del sitio: por qué NO se lee la sesión en el server (15/11/2026)
 
 Pedido: con la sesión abierta, la barra tiene que mostrar la foto de perfil y un desplegable en

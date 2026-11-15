@@ -100,7 +100,13 @@ function leer(){
   // Y el recuadro de color de un logo (el negro de TikTok, el blanco de Cal.com): cambiado, el logo quedaba del mismo color.
   // Sólo si no tiene texto: el renglón de la tira («logo + nombre») sí cambia, o el nombre queda blanco sobre blanco.
   var esRecuadro=function(n){return n.children.length===1&&!n.textContent.trim()&&n.firstElementChild.matches('svg:has(use), img');};
-  var fuera=function(n){return esRecuadro(n)||n.closest('[aria-label^="MaKo"], img, video, picture, canvas, iframe, symbol, defs, svg:has(use), .mk-tema-sitio, script, style, [data-tema-fijo]');};
+  // ⚠️ EL LOGO SE RECONOCE POR SU ETIQUETA EXACTA (15/11/2026): «MaKo», o «MaKo — volver a la landing». Era «toda etiqueta que
+  // EMPIECE con MaKo», y las columnas de /planes se llaman «MaKo Esencial» y «MaKo Pro» (Tarjetas.tsx, aria-label del plan):
+  // el script las tomaba por el logo, les pintaba #1A1712 a su PRIMER <span> y las dejaba fuera del cambio de modo enteras.
+  // Así salió negra la pastilla «7 días gratis» la mañana del 15/11 (era su primer span), y a la tarde, con el precio arriba
+  // de la columna, el recuadro casi negro pasó a tapar «US$ 47». Lo que se arregló a la mañana con data-tema-fijo era el
+  // síntoma de esto.
+  var fuera=function(n){return esRecuadro(n)||n.closest('[aria-label="MaKo"], [aria-label^="MaKo \u2014"], img, video, picture, canvas, iframe, symbol, defs, svg:has(use), .mk-tema-sitio, script, style, [data-tema-fijo]');};
   return todos.filter(function(n){return !fuera(n);}).map(function(n){var cs=getComputedStyle(n),o={n:n,bg:cs.backgroundColor,bi:cs.backgroundImage};BOR.concat(TXT).forEach(function(p){o[p]=cs.getPropertyValue(p);});
     if(o.bi&&o.bi.indexOf('gradient')>=0){var r2=n.getBoundingClientRect();o.chico=r2.width<480&&r2.height<140;
       // Un degradado recortado al TEXTO (background-clip: text) es la letra, no un fondo: se lleva al modo como tinta. Como fondo, el
@@ -131,7 +137,7 @@ function planDelModo(){
 function llevarAlModo(){
   planDelModo().forEach(function(x){poner(x[0],x[1],x[2]);});
   var os=actual==='oscuro';
-  [].forEach.call(document.querySelectorAll('[aria-label^="MaKo"]'),function(a){poner(a,'color',os?'#ffffff':'#12151B');var cu=a.querySelector('span');if(cu)poner(cu,'background',os?'rgba(255,255,255,.12)':'#1A1712');[].forEach.call(a.querySelectorAll('span'),function(t){if(t!==cu)poner(t,'color',os?'#ffffff':'#12151B');});});
+  [].forEach.call(document.querySelectorAll('[aria-label="MaKo"], [aria-label^="MaKo \u2014"]'),function(a){poner(a,'color',os?'#ffffff':'#12151B');var cu=a.querySelector('span');if(cu)poner(cu,'background',os?'rgba(255,255,255,.12)':'#1A1712');[].forEach.call(a.querySelectorAll('span'),function(t){if(t!==cu)poner(t,'color',os?'#ffffff':'#12151B');});});
   poner(document.documentElement,'color-scheme',os?'dark':'light');
   if(!document.documentElement.style.backgroundColor)poner(document.documentElement,'background-color',os?'#0e1219':'#ffffff');}
 function botones(){[].forEach.call(document.querySelectorAll('[data-tema-sitio-boton]'),function(b){b.setAttribute('data-modo',actual);if(!b.classList.contains('mk-tema-sitio-flota'))b.style.color=luzDe(b.parentElement)<.5?'#ffffff':'#12151B';b.setAttribute('aria-pressed',String(actual==='oscuro'));var t=actual==='oscuro'?'Pasar a modo claro':'Pasar a modo oscuro';b.setAttribute('aria-label',t);b.title=t;});}

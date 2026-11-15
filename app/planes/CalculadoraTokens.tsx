@@ -234,7 +234,12 @@ export function CalculadoraTokens({ planes }: { planes: readonly PlanCalculadora
   return (
     <section className="tk" aria-labelledby="tk-titulo" data-tk="">
       <h2 id="tk-titulo">Calcula cuántos MaKo Tokens necesitas</h2>
-      <p className="tk-p">Con MaKo Tokens generas video e imágenes con IA. Mueve la barra y abajo vas viendo lo que sale cada plan.</p>
+      {/* ⚠️ NO DICE «GENERAS VIDEO E IMÁGENES» MIENTRAS GENERACION_SE_VENDE ESTÉ APAGADO (15/11/2026): la app todavía no
+          genera, y la tabla y las columnas ya lo callan por eso. Lo que los MaKo Tokens pagan HOY es la IA de MaKo entera
+          (lib/mako-tokens-reglas.ts, «paga TODA la IA»). */}
+      <p className="tk-p">{GENERACION_SE_VENDE
+        ? 'Con MaKo Tokens generas video e imágenes con IA. Mueve la barra y abajo vas viendo lo que sale cada plan.'
+        : 'Los MaKo Tokens son lo que usa la IA de MaKo: guiones, copys, análisis y respuestas. Mueve la barra y abajo vas viendo lo que sale cada plan.'}</p>
 
       <p className="tk-cifra"><b data-tk-v="mt">{p0.mt}</b><span>MaKo Tokens al mes</span></p>
       {/* data-tema-fijo: el sol y la luna del sitio (TemaSitio) decide color por color mirando la luz de atrás, y la parte

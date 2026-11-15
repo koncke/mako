@@ -313,8 +313,9 @@ export const CSS_TARJETAS = `
 .mkpl-programa { background: radial-gradient(700px 320px at 100% 0%, rgba(245,196,81,.14), transparent 60%), linear-gradient(160deg, #1C1F27 0%, #101319 100%);
   color: #F4F5F7; border-color: #2A2F3A; box-shadow: 0 22px 54px rgba(16,19,25,.34); }
 .mkpl-programa .mkpl-insignia { background: #F5C451; color: #2A1E00; }
-.mkpl-programa .mkpl-resumen, .mkpl-programa .mkpl-bajo, .mkpl-programa .mkpl-precio small { color: #C4C8D0; }
-.mkpl-programa .mkpl-resumen b { color: #F5C451; }
+.mkpl-promesa { margin: 0 0 18px; font-size: 15px; line-height: 1.5; }
+.mkpl-programa .mkpl-resumen, .mkpl-programa .mkpl-promesa, .mkpl-programa .mkpl-bajo, .mkpl-programa .mkpl-precio small { color: #C4C8D0; }
+.mkpl-programa .mkpl-promesa b { color: #F5C451; }
 .mkpl-programa .mkpl-btn { background: #F5C451; color: #2A1E00 !important; box-shadow: 0 8px 22px rgba(245,196,81,.28); }
 .mkpl-programa .mkpl-lista li::before { color: #2A1E00; background: #F5C451; }
 .mkpl-programa .mkpl-tokens { color: #C4C8D0; border-bottom-color: #2A2F3A; }
@@ -442,8 +443,14 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
           <a className="mkpl-btn" href={AGENDA_ACELERADOR} target="_blank" rel="noopener noreferrer">{TEXTO_AGENDA_ACELERADOR}</a>
           {pr.garantia && <a className="mkpl-garantia" href="/reembolsos#grupal">Con garantía de entrega</a>}
         </div>
-        {pr.promesa ? <p className="mkpl-resumen"><b>Nuestra promesa:</b> {pr.promesa}</p> : <p className="mkpl-resumen">{pr.resumen}</p>}
+        {/* ⚠️ LA PROMESA NO VA EN ESTA FILA (15/11/2026). Las tres columnas COMPARTEN las filas (subgrid), así que la del
+            «para quién» mide lo que mida la más alta: con el párrafo de la promesa ahí (seis renglones), Esencial y Pro
+            quedaban con un hueco blanco de ~90 px entre su frase y sus MaKo Tokens — el mismo hueco que Martín pidió sacar
+            esa mañana entre el precio y la frase, corrido una fila. Acá va el «para quién» corto, que además se lee
+            alineado con el de las otras dos, y la promesa abre el bloque de abajo. */}
+        <p className="mkpl-resumen">{pr.resumen}</p>
         <div>
+          {pr.promesa && <p className="mkpl-promesa"><b>Nuestra promesa:</b> {pr.promesa}</p>}
           {/* Sin «Todo lo de MaKo Pro, más:» (14/11/2026): MaKo Pro es el primer check (`LISTA_PROGRAMA`) y esta columna
               también se lee sola. La ceja dice cómo se trabaja, como en las otras dos. */}
           <p className="mkpl-lista-t">{CEJA_PROGRAMA}</p>

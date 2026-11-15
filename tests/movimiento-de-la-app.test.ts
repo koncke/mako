@@ -65,7 +65,11 @@ test('sin apagar el fundido del navegador el barrido no se ve', () => {
 test('el interruptor de toda la app usa el barrido', () => {
   const i = leer('app/_components/InterruptorModo.tsx');
   assert.match(i, /conBarrido\(e\.currentTarget, \(\) => aplicarModo\(!oscuro\)\)/);
-  assert.equal(i.split('onClick={alternar}').length - 1, 2, 'los dos botones: la barra y la cabecera del teléfono');
+  // TODOS los botones lo usan, cuantos sean: la barra, la cabecera del teléfono y el de la portada que usa el login
+  // (15/11/2026). Decía «exactamente 2», y agregar una variante bien hecha lo ponía rojo.
+  const botones = i.split('<button').length - 1;
+  assert.ok(botones >= 3, `esperaba al menos los tres botones (barra, cabecera, sitio) y hay ${botones}`);
+  assert.equal(i.split('onClick={alternar}').length - 1, botones, 'un botón de sol y luna sin el barrido');
 });
 
 test('la aparición está en el layout raíz, una sola vez, y no envuelve ni vuelve a montar la pantalla', () => {
