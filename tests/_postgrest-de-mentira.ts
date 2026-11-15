@@ -232,7 +232,7 @@ export function crearPostgrest(o: {
     // scripts/probar-0416-pglite.mjs, y el enganche en tests/mako-tokens-medidor.test.ts, que mockea estas RPC a su manera.
     // Un test que necesite «sin saldo» lo declara con `faltan.add('rpc/mako_tokens_gastar')`.
     if (tabla === 'rpc/mako_tokens_gastar' && !faltan.has(tabla)) {
-      const b = typeof init.body === 'string' ? (JSON.parse(init.body) as Fila) : {};
+      const b: Fila = typeof init.body === 'string' ? (JSON.parse(init.body) as Fila) : {};
       const cuesta = Number(b.p_cuesta ?? 0) || 0;
       return json(200, [{ ok: true, saldo: 1_000_000, comprado: 0, tomado_cupo: cuesta, tomado_comprado: 0 }]);
     }
