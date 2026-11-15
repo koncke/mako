@@ -34,10 +34,14 @@
 //   1. `conSuIADelNegocio` envuelve el HANDLER ENTERO, no la llamada al modelo. En app/api/onboarding/avatares/route.ts el
 //      mismo callback atiende `siguiente`, `describir-archivo`, `afinar` y `guardar`: cobrarle al wrapper le cobra a
 //      `guardar`, que no llama a ninguna IA, y le cobra UNA VEZ a `afinar`, que llama varias.
-//   2. Esas rutas son ~30, pero los caminos que gastan IA son muchos más: 18 crons, 6 webhooks, WhatsApp, Automations, los
-//      Analyst, la API de MaKo. Enganchar en las 30 deja afuera justo a los que gastan sin que nadie apriete nada — que
-//      según docs/costos-ia-y-planes.md son los más caros que hay (el webhook de Fathom proyecta US$52/mes para UN cliente,
-//      «más que el plan Pro entero»).
+//   2. Esos archivos son 39 (medido el 15/11/2026: `grep -rln conSuIADelNegocio app/ lib/`), pero los caminos que gastan
+//      IA son muchos más: 18 crons, 6 webhooks, WhatsApp, Automations, los Analyst, la API de MaKo. Enganchar en los 39
+//      deja afuera justo a los que gastan sin que nadie apriete nada — que según docs/costos-ia-y-planes.md son los más
+//      caros que hay (el webhook de Fathom proyecta US$52/mes para UN cliente, «más que el plan Pro entero»).
+//
+// Y al revés: enganchado en la capa de IA, **los 39 quedan cubiertos igual, sin tocar ninguno**. Medido: 11 llaman
+// derecho a una de las diez entradas, 25 llegan por un helper de `lib/` y 3 a dos saltos (`landing-analyst-auto` →
+// `landing-analyst` → `chatClaude`; `spy-oferta-servidor` → `offer-ia`; `pendientes/acciones` → la API de MaKo).
 //
 // **El embudo de verdad ya existe y es otro: LA PUERTA de la capa de IA.** Cada función pública de `lib/ai-cheap.ts`,
 // `lib/anthropic.ts` y `lib/video-desarmar-gemini.ts` que llama a un modelo arranca con las dos mismas líneas:

@@ -148,7 +148,15 @@ export async function liquidarMt(
     deltaComprado = Math.min(d, Math.max(0, tomado.comprado));
     deltaCupo = d - deltaComprado;
   } else {
-    // Un cobro de más sale primero del cupo, igual que una reserva: lo que se vence se gasta antes.
+    // Un cobro de más sale del cupo, igual que una reserva: lo que se vence se gasta antes.
+    //
+    // ⚠️ Y SI AL CUPO NO LE ALCANZA, LA DIFERENCIA NO SE LE SACA DE LO COMPRADO: el `greatest(0, …)` del SQL la recorta
+    // y queda perdonada. Es a propósito, y conviene saber el tamaño de lo que se regala antes de «arreglarlo»: pasa sólo
+    // cuando el costo real superó la ESTIMACIÓN de esa llamada (`mtReservaDeFeature`), está acotado a UNA llamada —la
+    // siguiente ya encuentra el cupo en cero y no arranca— y el ledger queda con el delta que de verdad se aplicó, así
+    // que la diferencia se puede ver sumando. Cascadear el sobrante a `comprado` pide una cuarta función de SQL que
+    // reste de dos baldes sin cobrar dos veces; si alguna feature empieza a pasarse seguido, eso es lo que hay que
+    // escribir — y la señal para mirarlo es un `estimado` de la tabla de costos que quedó corto, no esta línea.
     deltaCupo = d;
   }
   try {

@@ -115,8 +115,13 @@ inventario del gasto de IA. Envolver esa función parece ponerlo «en un solo lu
 
 **Dónde está el embudo de verdad:** cada función pública de `lib/ai-cheap.ts`, `lib/anthropic.ts` y
 `lib/video-desarmar-gemini.ts` que llama a un modelo arranca con las mismas dos líneas (`exigirPermisoIa()` y
-`pasaPorLaPuerta(feature) → conD6bDelPedido(...)`). Son **diez** sitios, y por ahí pasa todo: las ~30 rutas, los
-crons, los webhooks y lo que se escriba mañana.
+`pasaPorLaPuerta(feature) → conD6bDelPedido(...)`). Son **diez** sitios, y por ahí pasa todo: los 39 archivos con
+`conSuIADelNegocio`, los crons, los webhooks y lo que se escriba mañana.
+
+**Y los 39 quedan cubiertos sin tocar ninguno.** Medido el 15/11/2026: 11 llaman derecho a una de las diez entradas,
+25 llegan por un helper de `lib/`, y 3 a dos saltos (`landing-analyst-auto` → `landing-analyst` → `chatClaude`;
+`spy-oferta-servidor` → `offer-ia`; `app/mako/pendientes/acciones.ts` → la API de MaKo). **Cero rutas modificadas**:
+el enganche son 10 líneas en 3 archivos.
 
 **Y la trampa que esto esconde, que es la que importa:** `pasaPorLaPuerta()` devuelve **false** cuando alguien ya
 decidió D6b — y las ~30 rutas lo deciden, porque `conSuIADelNegocio` llama a `conSoloSuIA`. O sea que meter el
