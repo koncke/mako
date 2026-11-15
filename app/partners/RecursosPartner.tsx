@@ -85,7 +85,7 @@ export async function armarPdfDeVenta(d: PdfDeVenta): Promise<import('jspdf').js
   // Los planes, en dos columnas.
   y += 6;
   const COL = (UTIL - 8) / Math.max(1, d.planes.length === 1 ? 1 : 2);
-  const medir = (pl: PdfDeVenta['planes'][number]) => 26 + alto(lineas(pl.resumen, COL - 10, 9.5).length, 9.5)
+  const medir = (pl: PdfDeVenta['planes'][number]) => 26 + (pl.resumen ? alto(lineas(pl.resumen, COL - 10, 9.5).length, 9.5) : 0)
     + pl.incluye.reduce((s, i) => s + alto(lineas(i, COL - 14, 9.5).length, 9.5) + 1.4, 0);
   const altoPlanes = Math.max(...d.planes.map(medir), 0);
   if (y + altoPlanes > 262) { pdf.addPage(); y = 18; }
@@ -97,7 +97,7 @@ export async function armarPdfDeVenta(d: PdfDeVenta): Promise<import('jspdf').js
     let yc = y + 5;
     yc += parrafo(pl.nombre, x + 5, yc, COL - 10, 13, TINTA, true) + 1;
     yc += parrafo(pl.precio, x + 5, yc, COL - 10, 12, AZUL, true) + 1.5;
-    yc += parrafo(pl.resumen, x + 5, yc, COL - 10, 9.5, GRIS) + 3;
+    if (pl.resumen) yc += parrafo(pl.resumen, x + 5, yc, COL - 10, 9.5, GRIS) + 3;
     for (const inc of pl.incluye) yc += vineta(inc, x + 5, yc, COL - 10, 9.5) + 1.4;
   });
   y += altoPlanes + 6;

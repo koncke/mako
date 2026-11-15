@@ -40,10 +40,11 @@
 // de los botones ni la línea de pagos, filas comunes con subgrid y los colores de antes (el azul de Pro, el Acelerador grafito).
 // =============================================================================
 
+import type { ReactNode } from 'react';
 import { ASESORIAS_DEL_PROGRAMA, MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, type PlanMako } from '@/lib/planes-mako';
 import { TOPES } from '@/lib/topes-plan';
 import { PLAN_DE_CAPA, cupoDeCapa } from '@/lib/mako-tokens-reglas';
-import { ATRIBUTO_ALCANZA, ATRIBUTO_MT, ATRIBUTO_NOTA, ATRIBUTO_PRECIO, fraseAlcanza, generaVideoLaCapa } from './CalculadoraTokens';
+import { alcanzaPara, generaVideoLaCapa } from './CalculadoraTokens';
 // Los topes de generación (15/11/2026): cuánto video y cuántas imágenes trae el plan. Viven con el precio del clip
 // porque lo que los fija es el margen, no un límite de la app (lib/mako-tokens-paquetes.ts).
 import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
@@ -245,14 +246,13 @@ export const CSS_TARJETAS = `
 /* LOS BOTONES ALINEADOS (12/11/2026, Martín: «todos tienen que estar alineados… no puede estar uno más arriba, otro más abajo»):
    cada tarjeta tiene las MISMAS filas (nombre, frase, precio, botón, lista) y con subgrid el alto de cada fila lo pone la más
    alta de las tres. Los colores, los de antes (Martín: «me gustaban los colores… el Acelerador estaba negro»). */
-.mkpl-grilla { display: grid; gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(5, auto); padding-top: 14px; align-items: stretch; text-align: left; }
-.mkpl-card { position: relative; display: grid; grid-row: span 5; grid-template-rows: subgrid; row-gap: 0; background: #FFFFFF; color: #12151B;
+.mkpl-grilla { display: grid; gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(4, auto); padding-top: 14px; align-items: stretch; text-align: left; }
+.mkpl-card { position: relative; display: grid; grid-row: span 4; grid-template-rows: subgrid; row-gap: 0; background: #FFFFFF; color: #12151B;
   border: 1px solid #E6EAF2; border-radius: 20px; padding: 26px 24px 24px; box-shadow: 0 1px 2px rgba(18,21,27,.04), 0 10px 28px rgba(18,21,27,.06); }
 .mkpl-card.destacado { border-color: #2F6FED; box-shadow: 0 0 0 1px #2F6FED, 0 16px 40px rgba(47,111,237,.18); }
 .mkpl-insignia { position: absolute; top: -13px; left: 24px; background: #2F6FED; color: #fff; font-size: 12px; font-weight: 700;
   letter-spacing: .03em; padding: 5px 12px; border-radius: 999px; }
 .mkpl-card h3 { margin: 0 0 10px; font-size: 22px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; color: inherit; }
-.mkpl-resumen { margin: 0 0 18px; align-self: start; color: #4A5260; font-size: 15px; line-height: 1.5; }
 /* «flex-start» y no «flex-end» (15/11/2026): con el precio pegado al nombre, el sobrante del subgrid cae abajo. */
 .mkpl-r-precio { display: flex; flex-direction: column; justify-content: flex-start; gap: 6px; }
 .mkpl-precio { font-size: 40px; line-height: 1; font-weight: 800; letter-spacing: -.03em; }
@@ -260,7 +260,6 @@ export const CSS_TARJETAS = `
 .mkpl-bajo { font-size: 13px; font-weight: 600; color: #5B6472; }
 /* La aclaración del total cuando la barra de MaKo Tokens pide más de lo que trae el plan. Nace oculta (hidden) y la
    muestra el script: sin él no hay nada que aclarar. */
-.mkpl-tk-nota { margin-top: 2px; font-size: 12.5px; line-height: 1.35; color: #5B6472; }
 /* ⚠️ LA PASTILLA VERDE LLEVA «data-tema-fijo» EN EL JSX, Y ÉSTA ES LA RAZÓN (15/11/2026). Martín: «7 días gratis en el de
    47, lo pusiste en negro cuando estoy en white mode». Su texto y su fondo son un PAR — verde oscuro sobre verde pálido —
    y el sol y la luna del sitio (app/vsl/_competencia/TemaSitio.tsx) decide color por color, recorriendo el DOM y mirando la
@@ -286,11 +285,14 @@ export const CSS_TARJETAS = `
 /* LOS NÚMEROS, FUERA DE LOS CHECKS (14/11/2026, el molde de Kajabi: «2.500 contacts included» en una línea sola, arriba del
    encabezado de la lista). Los MaKo Tokens del plan primero, con su número en negrita, y debajo los topes, en gris y chico: lo
    que el ojo compara antes de leer funciones. Los bullets quedan funciones puras. */
-.mkpl-tokens { margin: 0 0 14px; padding: 0 0 12px; border-bottom: 1px solid #EEF1F5; font-size: 14px; line-height: 1.4; color: #4A5260; }
-.mkpl-tokens p { margin: 0; }
-.mkpl-alcanza { margin-top: 6px !important; font-size: 13.5px; line-height: 1.5; color: #5B6472; }
+.mkpl-alcanza { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; font-size: 13.5px; line-height: 1.45; color: #5B6472; }
+/* «.mkpl-lista .mkpl-alcanza li» y no «.mkpl-alcanza li»: la regla de los checks (.mkpl-lista li, flex con 10 px de hueco y un
+   tilde en ::before) viene DESPUÉS en esta hoja y con la misma especificidad, así que ganaba — el número y la palabra quedaban
+   separados por 10 px y la «o» se leía como una viñeta. */
+.mkpl-lista .mkpl-alcanza li { display: block; }
+.mkpl-lista .mkpl-alcanza li::before { content: none; }
 .mkpl-alcanza b { color: #12151B; font-weight: 700; }
-.mkpl-tokens b { color: #12151B; font-weight: 800; }
+.mkpl-alcanza .mkpl-alcanza-no { margin-top: 4px; color: #7A8291; font-style: italic; }
 /* «.mkpl-topes» se fue el 15/11/2026 con la fila de cifras que dibujaba (ver «ListaDeColumna»). La raya que separaba
    la cabeza de la lista la lleva ahora la línea de los MaKo Tokens, que es lo único que quedó arriba. */
 .mkpl-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 14.5px; line-height: 1.4; }
@@ -305,11 +307,10 @@ export const CSS_TARJETAS = `
   color: #F4F5F7; border-color: #2A2F3A; box-shadow: 0 22px 54px rgba(16,19,25,.34); }
 .mkpl-programa .mkpl-insignia { background: #F5C451; color: #2A1E00; }
 .mkpl-promesa { margin: 0 0 18px; font-size: 15px; line-height: 1.5; }
-.mkpl-programa .mkpl-resumen, .mkpl-programa .mkpl-promesa, .mkpl-programa .mkpl-bajo, .mkpl-programa .mkpl-precio small { color: #C4C8D0; }
+.mkpl-programa .mkpl-promesa, .mkpl-programa .mkpl-bajo, .mkpl-programa .mkpl-precio small { color: #C4C8D0; }
 .mkpl-programa .mkpl-promesa b { color: #F5C451; }
 .mkpl-programa .mkpl-btn { background: #F5C451; color: #2A1E00 !important; box-shadow: 0 8px 22px rgba(245,196,81,.28); }
 .mkpl-programa .mkpl-lista li::before { color: #2A1E00; background: #F5C451; }
-.mkpl-programa .mkpl-tokens { color: #C4C8D0; border-bottom-color: #2A2F3A; }
 /* Mensual o anual: dos radios (escondidos) y sus etiquetas como un selector; :has() muestra los precios del que está
    elegido. Sin :has(), se ven los dos: nunca queda una tarjeta sin precio. */
 .mkpl-periodo { display: flex; justify-content: center; margin: 0 0 22px; }
@@ -331,8 +332,14 @@ export const CSS_TARJETAS = `
 
 const precio = (v: number) => v.toLocaleString('es-AR');
 
-export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
+export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: {
   planes: readonly PlanEnTarjeta[]; sufijo: string;
+  /**
+   * La barra de MaKo Tokens (./CalculadoraTokens.tsx), que va DEBAJO del selector mensual / anual y arriba de las columnas.
+   * Martín, 15/11/2026: «eliminaría el texto de calcula cuántos MaKo Tokens necesitas, pondría la barra directamente abajo de
+   * mensual o anual». Entra por acá para que la portada, que dibuja las mismas columnas, no la arrastre.
+   */
+  barra?: ReactNode;
   /** El reloj del 50% sigue vivo en este navegador: cada plan del cartel dice lo que sale su primer mes. Después, el precio de siempre. */
   promoVigente?: boolean;
 }) {
@@ -351,6 +358,7 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
           </div>
         </div>
       )}
+      {barra}
       <div className="mkpl-grilla">
       {planes.map((p) => {
         // El mismo botón en /planes y en la landing: «Empezar» sólo con un cobro detrás; sin pasarela, «Quiero …» y se pide.
@@ -380,8 +388,9 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
                     precio del plan; el script de la calculadora (app/planes/CalculadoraTokens.tsx) lo reescribe cuando la
                     barra pide más MaKo Tokens que los que trae ese plan, y pone debajo de qué está hecho el total.
                     Sin la barra en la página (la portada dibuja estas columnas sin ella) nadie lo toca y queda el del plan. */}
-                <div className="mkpl-precio"><span {...{ [ATRIBUTO_PRECIO]: p.id }}>US$ {precio(p.precioUsd)}</span> <small>/ mes</small></div>
-                <div className="mkpl-tk-nota" {...{ [ATRIBUTO_NOTA]: p.id }} hidden />
+                {/* El precio NO lo mueve la barra (Martín, 15/11/2026, a la noche: «la idea no es que el precio de abajo se
+                    modifique, sino que la barra deslizable diga el precio en dólares»). */}
+                <div className="mkpl-precio">US$ {precio(p.precioUsd)} <small>/ mes</small></div>
                 {/* SIN LA CONVERSIÓN A PESOS (15/11/2026, Martín: «No pongas la conversión en pesos argentinos. Eso ya cada
                     uno luego lo ve»). El precio en pesos sigue existiendo donde se COBRA — el checkout lo muestra con la
                     pasarela elegida — y acá competía con el precio en dólares, que es el que ancla. */}
@@ -403,22 +412,30 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
               <a className={`${borde} mkpl-mes`} href={boton.href}>{boton.texto}</a>
               {conAnual && p.precioAnualUsd && <a className={`${borde} mkpl-anual`} href={botonAnualDelPlan({ id: p.id, sufijo }).href}>{botonAnualDelPlan({ id: p.id, sufijo }).texto}</a>}
             </div>
-            <p className="mkpl-resumen">{p.resumen}</p>
             <div>
-              {/* ARRIBA DE LOS CHECKS VA UNA SOLA COSA: los MaKo Tokens del plan (15/11/2026, Martín: «sí está bien que
-                  tenga la cantidad de MaKo Tokens al mes, pero todo lo que está abajo debería ir como checks»). Los topes
-                  que estaban ací en dos renglones de cifras ahora son checks (ver `listaCorta`). Sin cupo decidido para esa
-                  capa, no se dice nada: nunca un número inventado. */}
-              {/* Los MaKo Tokens de la columna y para cuánto le alcanzan. Los dos los mueve la barra de arriba (./CalculadoraTokens.tsx),
-                  así que llevan su marca; lo que dibuja el servidor es el primer paso de la barra: el cupo de ESTE plan. */}
-              {lista.tokens && cupo != null && (
-                <div className="mkpl-tokens">
-                  <p><b {...{ [ATRIBUTO_MT]: p.id }}>{cupo.toLocaleString('es-AR')}</b> MaKo Tokens al mes</p>
-                  <p className="mkpl-alcanza" {...{ [ATRIBUTO_ALCANZA]: p.id }} dangerouslySetInnerHTML={{ __html: fraseAlcanza(cupo, generaVideoLaCapa(p.capa)) }} />
-                </div>
-              )}
               <p className="mkpl-lista-t">{lista.titulo}</p>
               <ul className="mkpl-lista">
+                {/* LOS MaKo TOKENS SON EL PRIMER ÍTEM DE «INCLUYE», y lo que alcanzan va en renglones debajo (15/11/2026, a la
+                    noche). Martín: «con respecto a los tokens y lo que te alcanza para cada cosa, no me gusta que sea un texto
+                    largo. Eso diseñalo bien. Debería ser justamente un diseño similar a lo que está abajo, lo de incluye. E
+                    incluso debería estar ahí en unos ítems de incluye tal cosa». Era un párrafo de cinco renglones arriba de la
+                    lista. Los números salen del cupo del plan y de lo que cuesta cada cosa (`alcanzaPara`), nunca a mano; el
+                    de US$47 no lleva clips y lo dice al final. Sin cupo decidido (el Acelerador), no se dice nada. */}
+                {cupo != null && (
+                  <li className="mkpl-li-tokens">
+                    <span>
+                      {/* «al mes:» y directo los renglones (Martín, 15/11/2026: «elimina la parte de que te alcanzan para, directamente
+                          24.000 MaKo Tokens al mes, dos puntos, y ahí vienen los ítems»). */}
+                      <b>{cupo.toLocaleString('es-AR')} MaKo Tokens al mes:</b>
+                      <ul className="mkpl-alcanza">
+                        {alcanzaPara(cupo, generaVideoLaCapa(p.capa)).map((x, i) => (
+                          <li key={x.clave}>{i ? 'o ' : ''}<b>{x.n.toLocaleString('es-AR')}</b> {x.que}</li>
+                        ))}
+                        {!generaVideoLaCapa(p.capa) && <li className="mkpl-alcanza-no">Sin generación de video</li>}
+                      </ul>
+                    </span>
+                  </li>
+                )}
                 {lista.items.map((x) => (
                   <li key={x.fuerte ?? x.texto}><span>{x.fuerte ? <b>{x.fuerte}</b> : null}{x.texto}</span></li>
                 ))}
@@ -442,12 +459,9 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
           <a className="mkpl-btn" href={AGENDA_ACELERADOR} target="_blank" rel="noopener noreferrer">{TEXTO_AGENDA_ACELERADOR}</a>
           {pr.garantia && <a className="mkpl-garantia" href="/reembolsos#grupal">Con garantía de entrega</a>}
         </div>
-        {/* ⚠️ LA PROMESA NO VA EN ESTA FILA (15/11/2026). Las tres columnas COMPARTEN las filas (subgrid), así que la del
-            «para quién» mide lo que mida la más alta: con el párrafo de la promesa ahí (seis renglones), Esencial y Pro
-            quedaban con un hueco blanco de ~90 px entre su frase y sus MaKo Tokens — el mismo hueco que Martín pidió sacar
-            esa mañana entre el precio y la frase, corrido una fila. Acá va el «para quién» corto, que además se lee
-            alineado con el de las otras dos, y la promesa abre el bloque de abajo. */}
-        <p className="mkpl-resumen">{pr.resumen}</p>
+        {/* SIN EL «PARA QUIÉN» (15/11/2026, a la noche). Martín: «tampoco me gusta el texto de para quién vende solo o para quién
+            ya vende y tiene equipo. Ese texto elimínalo». Se fue de las tres columnas, y con él la fila del subgrid: ahora son
+            cuatro (nombre, precio, botón, lista). La promesa del Acelerador abre su lista: ahí no comparte alto con nadie. */}
         <div>
           {pr.promesa && <p className="mkpl-promesa"><b>Nuestra promesa:</b> {pr.promesa}</p>}
           {/* Sin «Todo lo de MaKo Pro, más:» (14/11/2026): MaKo Pro es el primer check (`LISTA_PROGRAMA`) y esta columna

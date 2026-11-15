@@ -131,7 +131,8 @@ test('/planes arma el botón con la regla y decide por plan con la misma cuenta 
   // Los bloques de /planes y de la landing son UNA pieza (24/10, noche): el botón se arma ahí.
   const tarjetas = fuente('app/planes/Tarjetas.tsx');
   assert.match(tarjetas, /const boton = botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable: p\.cobrable, sufijo \}\);/);
-  assert.match(fuente('app/planes/Vitrina.tsx'), /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} promoVigente=\{promoVigente\} \/>/);
+  // 15/11/2026: además le pasa la barra de MaKo Tokens, que va debajo del selector mensual / anual (`barra`).
+  assert.match(fuente('app/planes/Vitrina.tsx'), /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} promoVigente=\{promoVigente\} barra=\{<CalculadoraTokens \/>\} \/>/);
   // Con el país de quien mira (27/10/2026): Mercado Pago sólo en el suyo (tests/planes-stripe-afuera.test.ts).
   assert.match(pagina, /ofertasDeLosPlanes\(paisDelVisitante\(/);
   const lib = fuente('lib/compra-plan.ts');

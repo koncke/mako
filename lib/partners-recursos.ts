@@ -59,7 +59,13 @@ export function mensajesParaCopiar(p: { link: string; codigo: string; planes?: r
 /** Un renglón de lo que trae un plan, como lo dice la tabla de /planes: «Páginas web para vender, publicadas: 3». */
 const renglon = (f: FilaComparacion, c: Celda): string => (typeof c === 'string' ? `${f.que}: ${c === 'Sin tope' ? 'sin límite' : c.charAt(0).toLowerCase() + c.slice(1)}` : f.que);
 
-export type PlanDelPdf = { nombre: string; precio: string; resumen: string; incluye: string[] };
+/**
+ * Un plan en el PDF. ⚠️ SIN `resumen` DESDE EL 15/11/2026, A LA NOCHE: la frase de «para quién es» («Para quien vende solo…»)
+ * Martín la sacó de las columnas de /planes («ese texto elimínalo»), y el PDF es la misma vitrina en una hoja. Sacarla de acá
+ * también es lo que hace entrar los dos renglones de generación (imágenes y clips, `GENERACION_SE_VENDE`) sin pasar a una
+ * segunda hoja — el test exige UNA, porque se manda por WhatsApp.
+ */
+export type PlanDelPdf = { nombre: string; precio: string; resumen?: string; incluye: string[] };
 export type PdfDeVenta = {
   titulo: string; bajada: string; queHace: string[]; planes: PlanDelPdf[]; prueba: string;
   /** Quién lo recomienda (el negocio del partner), si se sabe. */
@@ -80,7 +86,7 @@ export function pdfDeVenta(p: { link: string; codigo: string; deParte?: string |
   const out: PlanDelPdf[] = [];
   if (esencial) {
     out.push({
-      nombre: esencial.nombre, precio: `${usd(esencial.precioUsd)} por mes`, resumen: esencial.resumen,
+      nombre: esencial.nombre, precio: `${usd(esencial.precioUsd)} por mes`,
       // Lo que entra en el plan (12/11/2026): desde que la tabla dice TODO lo que trae MaKo, función por función, la lista entera
       // no entra en una hoja; lo que es de todos los planes ya lo dice «Qué hace MaKo». Desde el 14/11/2026 cada tope va en su área
       // de la tabla (ya no hay un grupo «lo que entra»): acá van las filas con un número, que son los topes.
@@ -89,7 +95,7 @@ export function pdfDeVenta(p: { link: string; codigo: string; deParte?: string |
   }
   if (pro) {
     out.push({
-      nombre: pro.nombre, precio: `${usd(pro.precioUsd)} por mes`, resumen: pro.resumen,
+      nombre: pro.nombre, precio: `${usd(pro.precioUsd)} por mes`,
       incluye: [
         ...(esencial ? [`Todo lo de ${esencial.nombre}, con más lugar`] : []),
         ...filas.filter((f) => f.pro !== false && (!esencial || f.esencial === false)).map((f) => renglon(f, f.pro)),

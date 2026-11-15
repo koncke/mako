@@ -115,16 +115,11 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
           <h1>El mejor software para vender <em>High Ticket.</em></h1>
           <p className="planes-sub"><strong>Marketing, ventas y entrega del servicio en una sola app.</strong> Con una IA que conoce tu negocio, desde que alguien te descubre hasta que es tu cliente y le entregas lo que compró.</p>
         </header>
-        {/* La calculadora de MaKo Tokens, ARRIBA de las tres columnas (Martín, 14/11/2026: «yo le di feedback a la tab de
-            precios sobre MaKo Tokens, que debería estar arriba de las columnas», «como en todas las páginas de
-            precios»). Estaba al final, después de las columnas Y de la tabla comparativa: quien elegía plan no veía
-            los tokens hasta haber decidido. Arranca en los tokens del plan recomendado y lleva el sufijo para que el botón
-            de cada plan conserve la atribución del partner (./CalculadoraTokens.tsx). */}
-        {/* 15/11/2026: sin `sufijo`. La barra ya no tiene botón propio — mueve el precio de las columnas de abajo,
-            que son las que llevan el botón con la atribución del partner. */}
-        <CalculadoraTokens planes={planes} />
 
-        <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} />
+        {/* La barra de MaKo Tokens va DEBAJO del selector mensual / anual, sin título (Martín, 15/11/2026, a la noche: «eliminaría
+            el texto de calcula cuántos MaKo Tokens necesitas, pondría la barra directamente abajo de mensual o anual»), así que
+            la dibuja TarjetasPlanes en su lugar. Dice cuánto sale sumar; los precios de las columnas no se mueven. */}
+        <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} barra={<CalculadoraTokens />} />
 
         <CompararPlanes planes={planes} sufijo={sufijo} />
 
@@ -242,6 +237,8 @@ export function CompararPlanes({ planes, sufijo = '' }: { planes: readonly Pick<
 
 function CeldaPlan({ v }: { v: Celda | null }) {
   if (v === true) return <span className="planes-si" role="img" aria-label="Incluido"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>;
-  if (v === false) return <span className="planes-no" aria-label="No incluido">—</span>;
+  // ✗ y no «—» (15/11/2026, Martín: «en comparación de planes, en las cosas que no se pueden hacer, que esté marcado con una X»).
+  // El guión se leía como «sin dato»; la cruz dice que el plan NO lo trae, que es la diferencia que la tabla existe para mostrar.
+  if (v === false) return <span className="planes-no" role="img" aria-label="No incluido"><svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg></span>;
   return <>{v ?? ''}</>;
 }

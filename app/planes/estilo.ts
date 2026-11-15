@@ -140,7 +140,8 @@ body:has(.s-barra) .planes-compara-cab { top: 77px; }
   .planes-grupo-d[open] .planes-si, .planes-tabla tbody tr { animation: none; }
   .planes-grupo-d::details-content { transition: none; }
 }
-.planes-no { color: #9AA1AD; }
+/* La ✗ de «no lo trae»: mismo círculo que la ✓, en rojo suave, para que se lea de un vistazo al lado de la ✓ (15/11/2026). */
+.planes-no { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #FDE8E7; color: #D92D20; }
 .planes-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .planes-corto { display: none; }
 /* En el teléfono: los nombres cortos arriba, y cada fila con su nombre a todo el ancho y los tres valores abajo. */

@@ -65,7 +65,9 @@ test('el PDF: qué hace MaKo, los dos planes con lo que trae cada uno (como /pla
   assert.ok(!d.planes[1].incluye.some((x) => /asesoría grupal/.test(x)), 'lo del Acelerador no va en Pro');
   if (PRUEBA_GRATIS_PRENDIDA) assert.match(d.prueba, /d[ií]as gratis/i, 'el PDF dice la prueba');
   else assert.doesNotMatch(d.prueba, /d[ií]as gratis/i, 'el PDF no promete una prueba que ya no existe');
-  for (const t of [d.titulo, d.bajada, ...d.queHace, ...d.planes.flatMap((p) => [p.resumen, ...p.incluye]), d.prueba]) {
+  // 15/11/2026: los planes del PDF ya no traen `resumen` (la frase «para quién es» se fue de /planes y del PDF), así que se
+  // filtran los vacíos en vez de pasarle un undefined al regex.
+  for (const t of [d.titulo, d.bajada, ...d.queHace, ...d.planes.flatMap((p) => [p.resumen, ...p.incluye]), d.prueba].filter((x): x is string => !!x)) {
     assert.doesNotMatch(t, PROMESA, t);
   }
   for (const t of [d.titulo, d.bajada, ...d.queHace, ...d.planes.flatMap((p) => p.incluye)]) assert.doesNotMatch(t, JERGA, t);
