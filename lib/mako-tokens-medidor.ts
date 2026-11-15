@@ -229,6 +229,20 @@ async function wsQuePaga(): Promise<number | null> {
   }
 }
 
+/**
+ * ¿Esta feature es una de las tres que MaKo le paga a un negocio en su onboarding? (`CREDITO_HABILITADO_PARA`,
+ * lib/veto-claude.ts). Import dinámico porque `veto-claude` arrastra la capa de IA y este módulo lo importa `ai-cheap`.
+ * Sin poder leerlo, NO es del crédito: la exención no se concede a ciegas.
+ */
+async function esDelCreditoDelOnboarding(feature: string): Promise<boolean> {
+  try {
+    const { CREDITO_HABILITADO_PARA } = await import('./veto-claude');
+    return CREDITO_HABILITADO_PARA.some((h) => h.feature === feature);
+  } catch {
+    return false;
+  }
+}
+
 /** El cupo de cada negocio, con memoria corta: el medidor lo pide en CADA llamada y es una lectura a la base. */
 const MEMORIA_MS = 60_000;
 const g = globalThis as unknown as { __cupoPorNegocio?: Map<number, { hasta: number; cupo: number | null }> };
@@ -275,7 +289,25 @@ export async function conMedidorDeMt<T>(feature: string | null | undefined, fn: 
   // también lo deja pasar, pero evitarle el viaje a la base es gratis y el camino es caliente.
   if (reserva <= 0) return correrYLiquidar(ws, f, 0, { cupo: 0, comprado: 0 }, fn);
 
-  const r = await gastarMt(ws, reserva, { feature: f, costoUsd: costoDeFeature(feature).costoUsd, cupo: await cupoConMemoria(ws) });
+  const cupo = await cupoConMemoria(ws);
+
+  // ⚠️ EL REGALO DEL ONBOARDING NO SE COBRA DOS VECES, Y SIN ESTO EL ALTA DE UN CLIENTE NUEVO SE ROMPE.
+  //
+  // Un negocio que todavía no paga un plan no tiene cupo (`cupoDeCapa` devuelve null para cualquier capa que no sea
+  // `completo` o `agencia`). Pero MaKo SÍ le paga la IA de tres cosas, y es una decisión de Martín: el crédito de Claude
+  // del onboarding, habilitado en positivo para `El Archivero`, `onboarding-extract` y `offer`, y sólo mientras el
+  // onboarding está en curso (`CREDITO_HABILITADO_PARA`, lib/veto-claude.ts — «Por ahora solo en onboarding»).
+  //
+  // Sin esta rama, el primer ingreso de cada cliente nuevo se queda sin leer sus documentos ni armar su oferta, con un
+  // «te quedaste sin MaKo Tokens» antes de haber usado nada. Es el peor rojo posible del producto, y es el único lugar
+  // donde conviene fallar ABIERTO: ese gasto **ya tiene su propio techo**, y más angosto que un cupo —tres features, sólo
+  // durante el onboarding, con una clave que no sirve para nada más y con fecha de vencimiento.
+  //
+  // El corte es `cupo == null`, no la feature sola: un negocio que YA paga un plan tiene cupo y sus tres features se
+  // cobran como todo el resto. Así la excepción se cierra sola el día que el negocio se vuelve cliente.
+  if (cupo == null && (await esDelCreditoDelOnboarding(f))) return almacen.run(SIN_COBRO(f), fn);
+
+  const r = await gastarMt(ws, reserva, { feature: f, costoUsd: costoDeFeature(feature).costoUsd, cupo });
   if (!r.ok) {
     if (esAutomatica(feature)) throw new SalteadoSinSaldo(f, r.cuesta);
     throw new SinSaldoDeMakoTokens(r.cuesta, r.saldo?.total ?? 0, r.saldo == null ? 0 : r.falta);

@@ -323,6 +323,36 @@ Lo que quedó separa **cobrar** de **avisar**: lo automático **descuenta igual*
 
 ---
 
+## Enganchar el medidor puso en rojo dos tests de D6b que no lo mencionan, y eso avisó de algo peor
+
+**El síntoma:** `tests/d6b-puerta.test.ts`, casos 3 y 4, en rojo. Ninguno habla de MaKo Tokens: prueban que un negocio
+sin su IA escucha sus notas de voz con su Groq, y que sin workspace la puerta vuelve.
+
+**La causa real:** esos tests corren **las entradas de verdad** de la capa de IA contra un PostgREST de mentira. Desde
+que el medidor vive ahí adentro, toda llamada a un modelo pide saldo antes de salir — y una RPC que nadie mockeó
+contesta `[]`, con lo cual el medidor **falla cerrado, como está diseñado**, y frena todo. El arreglo va en
+`tests/_postgrest-de-mentira.ts`: la caja contesta «alcanzó» por defecto, para que cada test siga probando lo suyo (la
+caja tiene su propia prueba contra un Postgres real).
+
+**Y lo que ese rojo destapó, que era lo importante: el medidor rompía el alta de todo cliente nuevo.** Un negocio que
+todavía no paga un plan **no tiene cupo** (`cupoDeCapa` devuelve null para cualquier capa que no sea `completo` o
+`agencia`). Pero MaKo sí le paga la IA de tres cosas en su primer ingreso, por decisión de Martín: el crédito de Claude
+del onboarding, habilitado para `El Archivero`, `onboarding-extract` y `offer` («Por ahora solo en onboarding»). Con el
+medidor cobrando parejo, el primer ingreso de cada cliente nuevo se quedaba sin leer sus documentos ni armar su oferta,
+con un «te quedaste sin MaKo Tokens» **antes de haber usado nada**.
+
+**Lo que quedó:** esas tres features no se cobran **cuando el negocio no tiene cupo todavía**. Es el único lugar del
+medidor que falla ABIERTO, y se justifica porque ese gasto **ya tiene su propio techo, y más angosto que un cupo**:
+tres features, sólo durante el onboarding, con una clave que no sirve para nada más y con fecha de vencimiento. El
+corte es `cupo == null` y no la feature sola, así la excepción **se cierra sola** el día que el negocio pasa a pagar un
+plan.
+
+**La regla que queda:** un medidor nuevo en un camino compartido se prueba contra los tests que YA existen de ese
+camino, no sólo contra los propios. Los ajenos son los que conocen los casos que uno no pensó — acá, que hay un negocio
+al que MaKo le paga la IA a propósito y que todavía no es cliente.
+
+---
+
 ## Dos trampas del arnés de pruebas, que costaron un rojo cada una
 
 Para probar que el medidor le cobra a alguien hace falta un negocio al que la IA se la pague MaKo. Dos elecciones

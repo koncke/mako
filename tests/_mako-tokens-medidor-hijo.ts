@@ -160,6 +160,16 @@ async function main() {
   // suman a la cuenta de afuera y no abren la suya.
   out.anidada = await correr(14, 50_000, claude('closing'));
 
+  // ── 7b. EL REGALO DEL ONBOARDING no se cobra dos veces ───────────────────
+  // ⚠️ Un negocio que todavía no paga un plan no tiene cupo, y MaKo igual le paga tres cosas de su primer ingreso (el
+  // crédito de Claude: `CREDITO_HABILITADO_PARA`). Sin esta excepción, el alta de cada cliente nuevo se rompía con un
+  // «te quedaste sin MaKo Tokens» antes de haber usado nada. El ws20 no tiene capa que venda cupo.
+  pg.db.workspaces.push({ id: 20, capa: 'cliente', nombre: 'ws20 recién registrado' });
+  out.onboardingSinCupo = await correr(20, 0, texto('El Archivero'));
+  out.onboardingOtraFeature = await correr(20, 0, texto('closing'));
+  // Y el que YA paga un plan sí paga esas tres: la excepción se cierra sola (el ws14 tiene capa `agencia`).
+  out.archiveroConPlan = await correr(14, 50_000, texto('El Archivero'));
+
   // ── 8. SIN WORKSPACE no se cuelga ────────────────────────────────────────
   // ⚠️ EL BUG QUE ESTE REPO YA PAGÓ UNA VEZ, y volvió el 15/11/2026: el enganche es una RE-ENTRADA (la función se llama a
   // sí misma), así que si el medidor devuelve `fn()` sin abrir su AsyncLocalStorage, la re-entrada vuelve a ver «no hay

@@ -222,6 +222,22 @@ export function crearPostgrest(o: {
     if (tabla === 'rpc/cobrar_cuota_con_resto' && 'pagos' in db) {
       return cobrarCuotaConResto(typeof init.body === 'string' ? (JSON.parse(init.body) as Fila) : {});
     }
+    // ⚠️ LA CAJA DE MaKo TOKENS: CON SALDO, SIEMPRE (15/11/2026, mig 0416). Desde que el medidor vive adentro de la capa
+    // de IA (lib/mako-tokens-medidor.ts), toda llamada a un modelo pide saldo ANTES de salir, y una RPC que nadie mockea
+    // contesta `[]` → el medidor falla CERRADO (a propósito) → **ningún test que ejercite la capa de IA de verdad vuelve a
+    // pasar**. Pasó con tests/d6b-puerta.test.ts, casos 3 y 4, el día que se enganchó.
+    //
+    // Acá se contesta «alcanzó» para que cada test siga probando LO SUYO. Lo que la caja hace de verdad —que el cupo no se
+    // acumule, que no se cobre dos veces, que el saldo no quede negativo— se prueba contra un Postgres real en
+    // scripts/probar-0416-pglite.mjs, y el enganche en tests/mako-tokens-medidor.test.ts, que mockea estas RPC a su manera.
+    // Un test que necesite «sin saldo» lo declara con `faltan.add('rpc/mako_tokens_gastar')`.
+    if (tabla === 'rpc/mako_tokens_gastar' && !faltan.has(tabla)) {
+      const b = typeof init.body === 'string' ? (JSON.parse(init.body) as Fila) : {};
+      const cuesta = Number(b.p_cuesta ?? 0) || 0;
+      return json(200, [{ ok: true, saldo: 1_000_000, comprado: 0, tomado_cupo: cuesta, tomado_comprado: 0 }]);
+    }
+    if (tabla === 'rpc/mako_tokens_ajustar' && !faltan.has(tabla)) return json(200, [{ saldo: 1_000_000, comprado: 0, aplicado: 0 }]);
+    if (tabla === 'rpc/mako_tokens_acreditar_cupo' && !faltan.has(tabla)) return json(200, [{ acreditado: 0, saldo: 1_000_000, comprado: 0 }]);
     // Una tabla que el test declaró como NO APLICADA (una migración que falta): contesta lo que contesta PostgREST de
     // verdad, no una lista vacía. Es la diferencia entre probar «no hay bajas» y probar «no sé si hay bajas», y un código
     // que falla abierto pasa el primero y falla el segundo.

@@ -144,6 +144,19 @@ test('8. UNA reserva por operación, aunque adentro se llame a OTRA función pú
   assert.equal(ajustes(c).length, 1, `y liquidó ${ajustes(c).length} veces en vez de UNA`);
 });
 
+test('8b. el REGALO DEL ONBOARDING no se cobra dos veces, y la excepción se cierra sola al pagar un plan', () => {
+  // ⚠️ El rojo que esto evita es el peor del producto: el primer ingreso de un cliente nuevo, que todavía no paga un
+  // plan y por lo tanto no tiene cupo, se quedaba sin leer sus documentos ni armar su oferta con un «te quedaste sin
+  // MaKo Tokens» antes de haber usado nada. MaKo le paga esas tres cosas a propósito (`CREDITO_HABILITADO_PARA`), con un
+  // techo más angosto que un cupo: tres features, sólo durante el onboarding, con clave propia y fecha de vencimiento.
+  assert.deepEqual(gastos(R.onboardingSinCupo), [], 'le cobró al negocio nuevo el crédito del onboarding');
+  assert.equal(R.onboardingSinCupo.tiro, undefined, `el alta de un cliente nuevo se frenó: ${R.onboardingSinCupo.tiro}`);
+  // Pero sólo esas tres: cualquier otra cosa, sin cupo, se frena igual.
+  assert.match(String(R.onboardingOtraFeature.tiro), /SinSaldoDeMakoTokens/, 'un negocio sin plan corrió algo que no es del crédito del onboarding');
+  // Y el que YA paga un plan sí las paga: el corte es «no tiene cupo», no la feature.
+  assert.equal(gastos(R.archiveroConPlan).length, 1, 'un negocio con plan tiene que pagar también El Archivero');
+});
+
 test('9. SIN WORKSPACE el medidor no se cuelga (el enganche es una RE-ENTRADA)', () => {
   // ⚠️ El bug que este repo ya pagó con la puerta de D6b y que volvió el 15/11/2026: un wrapper que decide «acá no hago
   // nada» y devuelve `fn()` sin abrir su AsyncLocalStorage se llama a sí mismo para siempre, porque el enganche es
