@@ -106,10 +106,14 @@ export function aplicarContenidoLanding(root: HTMLElement): void {
   if (featGrid && !featGrid.parentElement?.querySelector('.mk-grid-cta')) {
     const cta = doc.createElement('div');
     cta.className = 'mk-grid-cta';
-    cta.innerHTML =
-      '<div class="mk-grid-cta-h">¿Lo quieres funcionando en tu negocio?</div>' +
-      `<p class="mk-grid-cta-p">${TEXTO_CIERRE}</p>` +
-      `<a href="${RUTA_CTA}" class="mk-grid-cta-b">${TEXTO_CTA}</a>`;
+    // ⚠️ UN SOLO TEMPLATE, SIN NINGÚN `+`. El minificador de SWC SE COME el texto del medio al unir templates de
+    //    constantes con `+`: medido en producción el 13/10/2026 con el script del tema de /m, que llegó al navegador
+    //    partido y tiró un SyntaxError en cada página (tests/minificador-templates.test.ts tiene la forma exacta).
+    //    Acá habría salido el CTA de la landing con pedazos faltantes, y el fuente se lee perfecto.
+    //    ⚠️ Y NO ALCANZA CON PASAR LA GUARDA: mi primer arreglo dejó un `+` con el primer template SIN `${…}`, que el
+    //       detector no cuenta (es un NoSubstitutionTemplateLiteral, no un TemplateExpression) pero el minificador une
+    //       igual. La regla es la del test: un template, o `[…].join('')`.
+    cta.innerHTML = `<div class="mk-grid-cta-h">¿Lo quieres funcionando en tu negocio?</div><p class="mk-grid-cta-p">${TEXTO_CIERRE}</p><a href="${RUTA_CTA}" class="mk-grid-cta-b">${TEXTO_CTA}</a>`;
     featGrid.insertAdjacentElement('afterend', cta);
   }
 

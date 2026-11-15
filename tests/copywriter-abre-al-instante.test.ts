@@ -81,10 +81,10 @@ g.IntersectionObserver = (dom.window as unknown as Record<string, unknown>).Inte
 (dom.window as unknown as Record<string, unknown>).matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
 
 /** El server: cada pedido queda anotado y contesta cuando el test lo dice (o nunca). */
-const pedidos: { cuerpo: Record<string, unknown>; contestar: (r: unknown) => void }[] = [];
-g.fetch = (_url: string, init?: { body?: string }) => new Promise((resolve) => {
+const pedidos: { url: string; cuerpo: Record<string, unknown>; contestar: (r: unknown) => void }[] = [];
+g.fetch = (url: string, init?: { body?: string }) => new Promise((resolve) => {
   const cuerpo = (() => { try { return JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>; } catch { return {}; } })();
-  pedidos.push({ cuerpo, contestar: (r) => resolve({ ok: true, status: 200, json: async () => r, text: async () => JSON.stringify(r) }) });
+  pedidos.push({ url: String(url), cuerpo, contestar: (r) => resolve({ ok: true, status: 200, json: async () => r, text: async () => JSON.stringify(r) }) });
 });
 
 const REEL = {
@@ -110,10 +110,20 @@ async function portada(onPlantilla: () => Promise<string | null>) {
     root.render(React.createElement(AppRouterContext.Provider, { value: router as never },
       React.createElement(OutliersCopy as never, { portada: { outliers: [REEL], caidas: [] }, plantillas: [PLANTILLA], onPlantilla })));
   });
+  // ⚠️ SE CUENTAN LOS PEDIDOS DEL COPYWRITER, NO TODOS LOS `fetch` (15/11/2026). Desde que «Replicar» lleva el candado de
+  //    MaKo Pro, montar la portada lee el plan una vez por pestaña (`useSoloPro` → `usePlanEsencial` → /api/auth/me,
+  //    app/_components/solo-pro.ts). Un `pedidos.length === 1` contaba esa lectura y daba 2, y `pedidos[0]` era la lectura y
+  //    no el pedido: medido con una sonda que imprimió las URLs. Peor: esa lectura se cachea por pestaña, así que sólo la
+  //    veía el PRIMER test del archivo y los otros pasaban por orden. Filtrando por URL, el test dice qué mide y no depende
+  //    del orden.
+  const delCopy = () => pedidos.filter((p) => p.url.startsWith('/api/copywriter'));
+  const leyoElPlan = () => pedidos.some((p) => p.url.startsWith('/api/auth/me'));
   const boton = (texto: string) => [...doc.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === texto || b.getAttribute('aria-label') === texto) as HTMLButtonElement | undefined;
   return {
     navegado,
     boton,
+    delCopy,
+    leyoElPlan,
     /** El loader de la casa: `role="status"` con «Cargando …» (app/_ui/CargandoMako.tsx). */
     cargando: () => doc.querySelector('[data-abriendo] [role="status"][aria-busy="true"]')?.getAttribute('aria-label') ?? null,
     alerta: () => doc.querySelector('[role="alert"]')?.textContent ?? null,
@@ -130,12 +140,15 @@ test('2a · «Replicar»: el loader está en el clic, con el server todavía cre
     assert.ok(replicar, 'la tarjeta tiene «Replicar»');
     assert.equal(v.cargando(), null, 'antes del clic no hay capa');
     await v.tocar(replicar!);
-    assert.equal(pedidos.length, 1, 'el pedido salió');
-    assert.equal(pedidos[0].cuerpo.accion, 'replicar');
+    assert.equal(v.delCopy().length, 1, 'salió UN pedido al copywriter, no dos');
+    assert.equal(v.delCopy()[0].cuerpo.accion, 'replicar');
+    // Y la lectura del plan SALIÓ: es de lo que vive el candado de Pro en el clic. Si deja de salir, el candado se apaga
+    // en silencio y un Esencial toca y recibe un 403 (la defensa es el server, pero él ve un error en vez del cartel).
+    assert.ok(v.leyoElPlan(), 'el candado de Pro necesita la lectura del plan (/api/auth/me)');
     assert.equal(v.navegado.length, 0, 'todavía no navegó: el server no contestó');
     assert.equal(v.cargando(), 'Cargando la página nueva', 'el loader tiene que estar YA, no cuando el server conteste');
     // El server contesta: navega, y la capa queda hasta que llegue la otra pantalla.
-    await v.act(async () => { pedidos[0].contestar({ ok: true, paginas: [], pagina: { id: 'gnueva123' }, doc: {} }); });
+    await v.act(async () => { v.delCopy()[0].contestar({ ok: true, paginas: [], pagina: { id: 'gnueva123' }, doc: {} }); });
     assert.deepEqual(v.navegado, ['/copywriter/gnueva123']);
     assert.equal(v.cargando(), 'Cargando la página nueva', 'la capa sigue mientras Next trae la página');
   } finally { await v.cerrar(); }
@@ -163,7 +176,7 @@ test('2c · «Replicar» que falla: la capa se va y queda el aviso con «Reporta
   try {
     await v.tocar(v.boton('Replicar')!);
     assert.equal(v.cargando(), 'Cargando la página nueva');
-    await v.act(async () => { pedidos[0].contestar({ ok: false, error: 'Ese original ya no está.' }); });
+    await v.act(async () => { v.delCopy()[0].contestar({ ok: false, error: 'Ese original ya no está.' }); });
     assert.equal(v.cargando(), null);
     assert.equal(v.navegado.length, 0);
     const alerta = v.alerta() ?? '';

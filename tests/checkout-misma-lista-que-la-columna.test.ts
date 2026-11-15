@@ -49,7 +49,7 @@ async function checkout(capa: string, nombre: string, precioUsd: number, precioA
       nombre, incluye: incluyeDeLaColumna(capa), precioUsd, pasarelas: [{ pasarela: 'stripe' as const, moneda: 'USD', monto: precioUsd }],
       conPromo: false, conPrueba: true, conPrimerMes: (m: number) => m, precio: `US$ ${precioUsd} por mes`,
     });
-  return sinMarcas(renderToStaticMarkup(React.createElement(Ficha, { resumen, pasarelas: ['stripe'] }, 'formulario')));
+  return sinMarcas(renderToStaticMarkup(React.createElement(Ficha, { resumen, pasarelas: ['stripe'], children: 'formulario' })));
 }
 
 /** Los dos planes que se venden, con su capa: el checkout habla por CAPA, igual que la columna. */
