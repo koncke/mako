@@ -31,6 +31,7 @@
 // Habla Martín, en primera persona: no hay equipo (memoria «sin-equipo-todavia»).
 // =============================================================================
 
+import { iniciales } from '@/lib/unicode-seguro';
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode, type RefObject } from 'react';
 import { ArrowLeft, ArrowRight, Check, Play } from 'lucide-react';
 import {
@@ -598,7 +599,7 @@ function CampoCanal({ id, c, valor, invalido, describe, onCambio }: {
             <li key={k.valor}>
               <button type="button" className="apl-canal-op" onClick={() => elegir(k)}>
                 <span className="apl-canal-foto" aria-hidden="true">
-                  {(k.nombre ?? k.usuario).replace(/^@/, '').slice(0, 1).toUpperCase()}
+                  {iniciales((k.nombre ?? k.usuario).replace(/^@/, ''), 1).toUpperCase()}
                   {k.foto && (
                     // eslint-disable-next-line @next/next/no-img-element -- la foto que trae la búsqueda (Instagram o YouTube), de otro sitio
                     <img src={k.foto} alt="" width={40} height={40} loading="lazy" referrerPolicy="no-referrer" onError={(ev) => { ev.currentTarget.style.display = 'none'; }} />
