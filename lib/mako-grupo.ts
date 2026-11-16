@@ -18,7 +18,7 @@ import sharp from 'sharp';
 import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS, getWorkspace, wsSuperAdmin } from './workspace';
 import { leerResultadoParticipante, jidCanonico } from './participantes-grupo';
-import { detalleEvolution, enviarPartesPorEv, type EnvioPartes, type EvFn, type PartePreparada } from './mako-tarjeta';
+import { detalleEvolution, enviarPartesPorEv, type EnvioPartes, type EvFn, type MediaGrupo, type PartePreparada } from './mako-tarjeta';
 import { linksConWs, partesConLinksDeWs } from './links-con-ws';
 import { APP_BASE_URL } from './app-url';
 import { reclamarEspaciado, salioReciente } from './espaciado';
@@ -895,6 +895,11 @@ export async function asegurarGrupoSuperAdmin(
   return { ok: true, jid, creado: false };
 }
 
+/** El archivo que acompaña un aviso al grupo de SuperAdmin (el comprobante que se manda a revisar): el binario en base64. */
+export type ArchivoDelAviso = { base64: string; mime: string; nombre: string };
+/** Hasta dónde el texto va de pie del archivo; más largo, va en un mensaje aparte. */
+const PIE_MAX = 1000;
+
 /**
  * Manda un texto al grupo del SuperAdmin. Primero al hilo del grupo de la plataforma (`copiarAlGrupo`), salvo `sinCopia`: lo pasa `emitirAviso`, que ya copió.
  * Si WhatsApp no lo entrega y quedó en el hilo, salió (`enApp`).
@@ -906,18 +911,32 @@ export async function asegurarGrupoSuperAdmin(
  * ni un aviso de un cron (comprobantes, atrasos, respuestas al equipo, alertas). Se guarda como turno de MaKo, en el negocio de la
  * plataforma —el que lee el turno de ese grupo— y con la clave de la conversación. `sinMemoria`: quien llama lo guarda (`emitirAviso`).
  */
-export async function enviarAlGrupoSuperAdmin(texto: string, o: { sinCopia?: true; sinMemoria?: true } = {}): Promise<EnvioGrupo> {
+export async function enviarAlGrupoSuperAdmin(texto: string, o: { sinCopia?: true; sinMemoria?: true; archivo?: ArchivoDelAviso } = {}): Promise<EnvioGrupo> {
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
+  // CON SU ARCHIVO (16/11/2026, Martín: «siempre que me digas este mensaje por aquí, adjunta también el comprobante»): la foto o el PDF con el
+  // texto de pie, en el hilo de la app y en WhatsApp (un texto largo va aparte: el pie de WhatsApp corta en ~1000). Si el archivo no sale por
+  // WhatsApp, sale el texto solo: el aviso no se pierde por el adjunto.
+  const conPie = texto.length <= PIE_MAX;
+  const media: MediaGrupo | null = o.archivo ? { tipo: o.archivo.mime === 'application/pdf' ? 'document' : 'image', mimetype: o.archivo.mime, fileName: o.archivo.nombre } : null;
+  const partes: PartePreparada[] | null = o.archivo && media
+    ? [{ tipo: 'media', base64: o.archivo.base64, media, ...(conPie ? { caption: texto } : {}) }, ...(conPie ? [] : [{ tipo: 'texto' as const, texto }])]
+    : null;
   const app = o.sinCopia ? null : await grupoApp();
   const wsApp = app ? await wsSuperAdmin().catch(() => null) : null;
-  const copia = app && wsApp != null ? await app.copiarAlGrupo(wsApp, { texto, de: 'mako' }) : null;
+  const copia = app && wsApp != null ? await app.copiarAlGrupo(wsApp, { texto, de: 'mako', ...(partes ? { partes } : {}) }) : null;
   const jid = await getGrupoSuperAdminJid();
   let r: EnvioGrupo;
   if (!jid) r = copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no hay grupo de SuperAdmin todavía' };
   else {
-    const e = await enviarTextoVozMaKo(jid, texto);
-    if (e.ok) { if (copia && app && wsApp != null) await app.atarIdDeWhatsApp(wsApp, copia.id, e.id); r = { ok: true, id: e.id }; }
-    else r = copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no se pudo enviar', fallaElEnvio: true };
+    const conArchivo = partes ? await enviarPartesAJid(jid, partes).catch(() => null) : null;
+    if (conArchivo?.ok && conArchivo.ids.length) {
+      if (copia && app && wsApp != null) await Promise.all(copia.ids.map((f, i) => (conArchivo.ids[i] ? app.atarIdDeWhatsApp(wsApp, f, conArchivo.ids[i]) : Promise.resolve()))).catch(() => {});
+      r = { ok: true, id: conArchivo.ids[conArchivo.ids.length - 1] };
+    } else {
+      const e = await enviarTextoVozMaKo(jid, texto);
+      if (e.ok) { if (copia && app && wsApp != null) await app.atarIdDeWhatsApp(wsApp, copia.id, e.id); r = { ok: true, id: e.id }; }
+      else r = copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no se pudo enviar', fallaElEnvio: true };
+    }
   }
   if (r.ok && !o.sinMemoria) await anotarEnLaMemoriaDelSuperAdmin(jid, texto, r.id);
   return r;

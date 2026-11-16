@@ -88,7 +88,8 @@ test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus opera
   // de Automations (tests/comprobantes.test.ts y tests/recibos-negocio.test.ts).
   // ⚠️ Y el 5/11/2026 ver_ingresos_de_mako, ver_personas_de_mako, ver_errores_de_mako y ver_actividad_de_mako: Admin por chat,
   // sólo de la plataforma.
-  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar', 'guardar_documento_fiscal', 'armar_plan_por_tramos', 'ver_recibos', 'cargar_pago_a_mano', 'reenviar_recibo', 'ver_ingresos_de_mako', 'ver_personas_de_mako', 'ver_errores_de_mako', 'ver_actividad_de_mako', 'leer_comprobante', 'emitir_recibo', 'ver_mensualidades_agencias', 'marcar_mensualidad_pagada', 'corregir_reloj_mensualidad', 'prender_mensualidad_agencia', 'marcar_entrada_pagada'].sort());
+  // ⚠️ Y el 16/11/2026 aplicar_comprobante_agencia: el comprobante ENTERO que aprueba Martín (tests/comprobante-aprobado.test.ts).
+  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar', 'guardar_documento_fiscal', 'armar_plan_por_tramos', 'ver_recibos', 'cargar_pago_a_mano', 'reenviar_recibo', 'ver_ingresos_de_mako', 'ver_personas_de_mako', 'ver_errores_de_mako', 'ver_actividad_de_mako', 'leer_comprobante', 'emitir_recibo', 'ver_mensualidades_agencias', 'marcar_mensualidad_pagada', 'corregir_reloj_mensualidad', 'prender_mensualidad_agencia', 'marcar_entrada_pagada', 'aplicar_comprobante_agencia'].sort());
   for (const id of [...IDS, ...IDS_PAGOS_CAMPO, 'guardar_documento_fiscal', 'armar_plan_por_tramos']) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
 });
 

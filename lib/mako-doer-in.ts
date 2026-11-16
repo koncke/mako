@@ -2395,6 +2395,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const faltasDelTurno: string[] = [];
     const ctxApi: CtxApi = {
       ws: wsData, canal: 'whatsapp', canalKey: claveDelTurno, alcance: 'ejecutar', rol: miembroDelEquipo ? 'miembro' : 'admin', ...(miembroDelEquipo ? { rolWs: miembroDelEquipo.rol } : {}), turnStart: Date.now(), mensajeUsuario: texto, enElGrupo,
+      // EL DUEÑO EN SU GRUPO ES EL SUPER ADMIN (16/11/2026, Martín: «solo el superadmin de MaKo anota los pagos de una agencia, que literalmente soy
+      // yo»): por WhatsApp no hay sesión. Lo decide QUIEN escribe (`escribeElDueno`, arriba), nunca el grupo; un invitado o el equipo, nunca.
+      ...(escribeElDueno && !hayInvitado ? { duenoDeLaPlataforma: true as const } : {}),
       // Quién escribe, para el ticket: el doer no sabe su email (lib/doer-ticket.ts).
       actor: actorDeWhatsApp(participante, data.pushName),
       // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.

@@ -401,7 +401,7 @@ test('los textos del grupo: piden el comprobante, dicen el monto, de tú y sin v
   const todos = [
     aviso, textoDelAvisoDeEntradas({ tabla: te, medio: 'Binance', entradas }), textoDelAvisoDeEntradas({ tabla: te, medio: 'Binance', entradas, enPausa: true }),
     textoDePausaDelMes({ mes: '2026-12', faltaUsd: 226 }), ...t.notas, ...te.notas,
-    textoDeComprobante({ tipo: 'cubre', montoUsd: 426, conceptos: ['la mensualidad de diciembre'], reabiertas: 3 }),
+    textoDeComprobante({ tipo: 'cubre', montoUsd: 426, conceptos: ['la mensualidad de diciembre'], activas: { clientes: ['Giselle', 'Pablo', 'Marcela'], agencia: true } }),
     textoDeComprobante({ tipo: 'parcial', montoUsd: 200, conceptos: ['la mensualidad de diciembre'], cubiertos: [], faltaUsd: 226 }),
     textoDeComprobante({ tipo: 'repetido', numero: 3 }), textoDeComprobante({ tipo: 'revisar' }),
   ];

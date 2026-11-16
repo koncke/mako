@@ -520,7 +520,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'marcar_mensualidad_pagada', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Marcar pagada la mensualidad de una agencia',
-    descripcion: 'Sólo el super admin: anota que una agencia pagó su mensualidad de un mes, con el día en que entró (por ejemplo, un comprobante que MaKo mandó a revisar). Con la orden de Binance (18 dígitos) sale el recibo al grupo de la agencia; sin ella queda anotado sin recibo. Si la agencia o sus clientes estaban en pausa por ese mes, vuelven a entrar. Con quitar: true, saca la marca y anula su recibo. Sólo meses desde que se prendió y hasta el actual.',
+    descripcion: 'Sólo el super admin: anota que una agencia pagó su mensualidad de un mes, con el día en que entró. Si MaKo mandó ese comprobante a revisar, su propuesta ya está pendiente (aplicar_comprobante_agencia): se confirma ésa, no se propone otra. Con la orden de Binance (18 dígitos) sale el recibo al grupo de la agencia; sin ella queda anotado sin recibo. Si la agencia o sus clientes estaban en pausa por ese mes, vuelven a entrar. Con quitar: true, saca la marca y anula su recibo. Sólo meses desde que se prendió y hasta el actual.',
     escribe: 'el pago del mes de esa agencia (app_settings de la plataforma, agencia.mensualidad.<agencia>.pago.<mes> y .orden.<orden>), su recibo y la pausa de sus cuentas',
     parametros: [
       { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta de la agencia (de ver_mensualidades_agencias).' },
@@ -563,7 +563,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'marcar_entrada_pagada', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Marcar pagada la entrada de un cliente',
-    descripcion: 'Sólo el super admin: anota que una agencia pagó la entrada de un cliente (sus días hasta el próximo 5), con el día en que entró (por ejemplo, un comprobante que MaKo mandó a revisar). Si estaba en pausa, sus días se cuentan desde ese día y vuelve a entrar. Con la orden de Binance (18 dígitos) sale el recibo al grupo de la agencia.',
+    descripcion: 'Sólo el super admin: anota que una agencia pagó la entrada de un cliente (sus días hasta el próximo 5), con el día en que entró. Si MaKo mandó ese comprobante a revisar, su propuesta ya está pendiente (aplicar_comprobante_agencia): se confirma ésa, no se propone otra. Si estaba en pausa, sus días se cuentan desde ese día y vuelve a entrar. Con la orden de Binance (18 dígitos) sale el recibo al grupo de la agencia.',
     escribe: 'la entrada del cliente (app_settings de la plataforma, agencia.mensualidad.<agencia>.entrada.<cliente>), su recibo y su pausa',
     parametros: [
       { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta de la agencia.' },
@@ -572,6 +572,26 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'orden', rotulo: 'Orden de Binance', tipo: 'string', max: 40, descripcion: 'los 18 dígitos del «Order ID». Con esto sale el recibo.' },
       { nombre: 'montoPagado', rotulo: 'Monto pagado', tipo: 'number', minimo: 0.01, maximo: 100000, descripcion: 'lo que dice el comprobante, en dólares. Sin esto, lo que se debía.' },
       { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 5, descripcion: 'USD, USDT o USDC (sin esto, USDT).' },
+    ],
+    canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  // ── EL COMPROBANTE QUE APRUEBA MARTÍN (16/11/2026, lib/agencia-mes-comprobante.ts) ── Un comprobante de 59,54 USDT para tres entradas de
+  // US$29,77: el modelo propuso las tres, y una orden se aplica UNA vez (la segunda `marcar_entrada_pagada` con la misma orden no entra).
+  // Ésta aplica el comprobante ENTERO, sin pasarse de lo pagado. La deja el código al mandar un comprobante a revisar: el «aprobado» de
+  // Martín a ese aviso la confirma.
+  {
+    id: 'aplicar_comprobante_agencia', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Aplicar el comprobante de una agencia',
+    descripcion: 'Sólo el super admin: aplica UN comprobante de Binance de una agencia (su orden cuenta una sola vez) a lo que debe —entradas de clientes y su mes— sin pasarse nunca de lo pagado. Cuando MaKo manda un comprobante a revisar, esta propuesta ya queda hecha: si Martín lo aprueba, confirma ESA pendiente con confirmar_accion, no propongas otra. Úsala cuando el comprobante paga varias cosas y Martín dice cuáles («son las entradas de Giselle y Marcela»), con clientes. Si el monto alcanza para menos de las que se nombran, no elijas: pregunta. Sale el recibo al grupo de la agencia y las cuentas que pagaron vuelven a entrar.',
+    escribe: 'la orden y lo que cubre en el libro de la mensualidad de la agencia (app_settings de la plataforma, agencia.mensualidad.<agencia>.orden/entrada/pago), su recibo y la pausa de sus cuentas',
+    parametros: [
+      { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta de la agencia.' },
+      { nombre: 'orden', rotulo: 'Orden de Binance', tipo: 'string', obligatorio: true, max: 40, descripcion: 'los 18 dígitos del «Order ID» del comprobante.' },
+      { nombre: 'montoPagado', rotulo: 'Monto pagado', tipo: 'number', obligatorio: true, minimo: 0.01, maximo: 100000, descripcion: 'lo que dice el comprobante, en dólares.' },
+      { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 5, descripcion: 'USD, USDT o USDC (sin esto, USDT).' },
+      { nombre: 'pagadoEl', rotulo: 'Día del pago', tipo: 'string', max: 10, descripcion: 'AAAA-MM-DD en que entró el pago. Sin esto, hoy.' },
+      { nombre: 'clientes', rotulo: 'Clientes', tipo: 'string[]', max: 20, descripcion: 'a qué clientes va: su número de cuenta o su nombre, tal como lo dijo Martín. Sin esto, lo decide lo que se debe y lo que dijo la agencia en su grupo.' },
+      { nombre: 'mes', rotulo: 'Mes', tipo: 'string', max: 7, descripcion: 'AAAA-MM, si también paga la mensualidad de ese mes.' },
     ],
     canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },

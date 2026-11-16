@@ -822,3 +822,45 @@ Pero ese POST no le pide nada a ninguna IA: llega a `lib/ai-cheap.ts` sólo DE P
 tabs, pero la pertenencia al conjunto se decide por ARCHIVO. **La regla:** un handler que alcanza la cascada por un
 import de biblioteca va a `SIN_IA` con su `usa` fijado (prueba 5 avisa si empieza a usar algo con IA), no adentro del
 contexto: envolverlo sería afirmar que le pide algo a una IA. Prenderla igual habría dado verde y mentido.
+
+## «Aprobado, ábreles las cuentas»: el «no puedo desde acá» era la SESIÓN, y el «sí» de más era que nadie había propuesto nada (16/11/2026)
+
+El caso: el comprobante de Código Inmobiliario (59,54 USDT, tres entradas de US$29,77 de Giselle, Pablo y Marcela) fue a revisión. Martín
+contestó «Aprobado, abreles las cuentas»; MaKo propuso marcar las TRES y pidió un «sí»; con el «Si», «sólo el super admin anota los pagos».
+
+**1. «No puedo hacerlo desde acá» no era un permiso que faltaba.** `esSuperAdmin()` (lib/api-mako/areas/cobros.run.ts) mira la SESIÓN web
+(cookies): por WhatsApp no hay sesión NUNCA, así que toda herramienta «sólo del super admin» decía que no a Martín en su propio grupo. El doer
+ya sabía quién era (`escribeElDueno`: su línea, la letra de la app o su teléfono de admin de MaKo), pero sólo lo usaba el DEBUG y no llegaba al
+`ctx`. **La regla:** quién confirma por WhatsApp sale de `ctx.duenoDeLaPlataforma` (lo pone el doer), nunca del grupo solo;
+`superAdminQueConfirma(ctx)` en las cinco de la mensualidad. ⚠️ `tests/api-mako-vender-plan.test.ts` fija el TEXTO de `esSuperAdmin()`: se
+suma una función nueva, no se le cambia la firma.
+
+**2. El «sí» de más no era el modelo: el aviso era una PREGUNTA sin propuesta.** Con «¿lo marco como pagado?» el modelo tenía que proponer en
+ese turno, y la regla de la casa («el sí es un mensaje aparte») obligaba al segundo «sí». **La regla:** cuando el código ya sabe qué se marcaría,
+lo PROPONE él al mandar el aviso (`proponerComprobanteAMartin`, lib/agencia-mes-comprobante.ts: la pendiente `aplicar_comprobante_agencia`, 24 h)
+y el «aprobado» de Martín es la confirmación. ⚠️ La pendiente nace bajo `conSalidaDelGrupo` del grupo de SuperAdmin: creada dentro del turno de
+una agencia que escribió por el grupo de la APP, quedaba `__soloApp` y su «aprobado» de WhatsApp se rechazaba (`lineaSeConfirmaEnLaApp`).
+Y no lleva `aTerceros`/`plata`: con esa marca «Aprobado, ábreles…» no es un «sí» puro y volvía a pedirlo.
+
+**3. Tres «marcar» con la misma orden nunca podían andar.** La orden de Binance se toma UNA vez (`KEY_ORDEN`, compare-and-set en
+`aplicarPagoDeAgencia`): la segunda `marcar_entrada_pagada` con esa orden fallaba DESPUÉS del «sí», y la primera se quedaba con el pago entero.
+Un comprobante que paga varias cosas se aplica junto (`aplicar_comprobante_agencia`), y `ordenQueNoVa` frena antes del «sí» la orden anotada o
+el pago más grande que lo que se marca. El reparto es `repartoDelComprobante` (lib/agencia-mes-reglas.ts): nunca más que lo pagado.
+
+**4. Los nombres de quién pagó llegan DESPUÉS de la foto.** El comprobante se atiende ANTES del turno y sin el texto que sigue («Giselle Belanti
+y Marcela Fernández» vino como otro mensaje). Por eso a quiénes va se decide AL CONFIRMAR (`aQueVaElComprobante`): lo que dice quien aprueba y
+después lo que dijo en `grupo_mensajes` quien mandó la foto (10 min antes a 1 h después). Un nombre cuenta si una palabra suya es SÓLO de ese
+cliente (`clientesNombrados`); si nadie lo dijo, la pendiente sigue viva y se pregunta («¿a cuáles lo aplico?»).
+
+**5. El recibo salía solo.** Al grupo de la agencia le llegaba «Recibo de pago N.º 0005. El detalle está en el PDF.» y nada de quién podía
+entrar. Ahora el recibo de un pago de agencia sale sólo por `cerrarElPagoDeAgencia` (lib/agencia-mes.ts): recibo, reabrir y, después, quiénes
+quedaron activos (`textoDeCuentasActivas`, el único que lo arma; también en el «Recibí tu pago» del comprobante leído). Y el aviso de revisión
+a Martín lleva el comprobante (`enviarAlGrupoSuperAdmin` con `archivo`; si el archivo no sale, sale el texto solo).
+
+Lo que quedó SIN hacer:
+- `vender_plan_mako`, `cargar_pago_a_mano`/`emitir_recibo` y `reenviar_recibo` siguen exigiendo la SESIÓN para confirmar
+  (lib/api-mako/areas/cobros.run.ts, `esSuperAdmin()`): por WhatsApp siempre dicen «sólo el super admin». Fuera del alcance de este arreglo.
+- «aprobado» no está en `CONFIRMACION` (lib/mako-intencion.ts): el «Aprobado» largo lo clasifica la IA y lo confirma el modelo viendo la
+  pendiente en el system; no hay una regla que lo lleve a `confirmar`.
+- En un pago PARCIAL los nombres no ordenan a quién se completa primero (`asignarPago` completa en orden).
+- Sin probar contra WhatsApp de verdad: los tests son de las reglas y del cableado (tests/comprobante-aprobado.test.ts).

@@ -710,29 +710,125 @@ export function textoDeMesImpago(p: { agencia: string; mes: Mes; debeUsd: number
  * y SIN «?». Sin la pregunta, su «Si perfecto, dalo de alta» no seguía la oferta (`makoPreguntoAlgo`, lib/mako-intencion.ts) y MaKo
  * contestó «¿a quién le doy de alta al CRM?». La agencia y cada cliente van con su número de cuenta: el turno lo usa para marcarlo.
  */
-export function avisoDeComprobanteParaRevisar(p: { agencia: string; agenciaWs: number; porque: string; lectura: string; debe: string }): string {
-  return `Comprobante de ${p.agencia} (cuenta ${p.agenciaWs}) para revisar (${p.porque}): ${p.lectura} Lo que debía: ${p.debe}. Si está bien, ¿lo marco como pagado?`;
+export function avisoDeComprobanteParaRevisar(p: { agencia: string; agenciaWs: number; porque: string; lectura: string; debe: string; propuesta?: string | null }): string {
+  const base = `Comprobante de ${p.agencia} (cuenta ${p.agenciaWs}) para revisar (${p.porque}): ${p.lectura} Lo que debía: ${p.debe}.`;
+  // CON LA PROPUESTA YA HECHA (16/11/2026, Martín: «no debería pedirme confirmación si ya yo le digo aprobado»): el código dejó la pendiente con
+  // lo que se marca (`proponerComprobanteAMartin`, lib/agencia-mes-comprobante.ts), y su «aprobado» a ESTE aviso la confirma, sin otro «sí».
+  if (p.propuesta) return `${base} ${p.propuesta} Si está bien, ¿lo marco como pagado? Con tu «aprobado» queda hecho.`;
+  return `${base} Si está bien, ¿lo marco como pagado?`;
+}
+
+// ── El comprobante que aprueba Martín: a quiénes va (16/11/2026) ─────────────────────────────────────────────────────
+// EL CASO (16/11/2026, Código Inmobiliario): 59,54 USDT para tres entradas de US$29,77 (Giselle, Pablo y Marcela). Juan Francisco escribió,
+// justo después de la foto, «Giselle Belanti y Marcela Fernández». Martín aprobó y MaKo propuso marcar las TRES: US$89,31 con un pago de
+// 59,54. El reparto lo decide el código, nunca se pasa de lo pagado, y cuando el comprobante calza con más de una cosa decide lo que
+// DIJERON (quien pagó, o quien aprueba); si nadie lo dijo, se pregunta.
+
+const norm = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const VACIAS: ReadonlySet<string> = new Set(['del', 'las', 'los', 'por', 'para', 'con', 'sin', 'que', 'una', 'uno', 'sus', 'mas']);
+const palabrasDe = (s: string): string[] => norm(s).split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !VACIAS.has(w) && !/^\d+$/.test(w));
+
+/**
+ * QUIÉNES NOMBRAN `textos`, entre los clientes de la agencia (sus números de cuenta, en el orden de `clientes`). Un cliente está nombrado si
+ * una palabra de su nombre (3 letras o más, sin tildes) aparece entera, y esa palabra es SÓLO suya entre los clientes: «Inmobiliaria» en dos
+ * nombres no nombra a ninguno. Ante la duda, no nombra.
+ */
+export function clientesNombrados(textos: readonly string[], clientes: ReadonlyArray<{ ws: number; nombre: string }>): number[] {
+  const dichas = new Set(textos.flatMap((t) => palabrasDe(t ?? '')));
+  if (!dichas.size) return [];
+  const deCuantos = new Map<string, number>();
+  for (const c of clientes) for (const w of new Set(palabrasDe(c.nombre))) deCuantos.set(w, (deCuantos.get(w) ?? 0) + 1);
+  return clientes.filter((c) => palabrasDe(c.nombre).some((w) => deCuantos.get(w) === 1 && dichas.has(w))).map((c) => c.ws);
+}
+
+/** Lo que se aplica de un comprobante aprobado; o la pregunta, si nadie dijo a quiénes; o por qué ya no va. */
+export type Reparto =
+  | {
+      tipo: 'aplicar'; aplicado: Array<{ clave: string; montoUsd: number }>; claves: string[];
+      /** Menos de lo que se debe: lo que quedó completo y lo que falta (null = cubre exacto). */
+      parcial: { cubiertas: string[]; faltaUsd: number } | null;
+      /** Lo decidió lo que alguien DIJO (el comprobante calzaba con más de una cosa). */
+      porNombre: boolean;
+    }
+  | { tipo: 'preguntar'; opciones: string[][] }
+  | { tipo: 'no'; porque: string };
+
+/**
+ * A QUÉ VA UN COMPROBANTE QUE SE APRUEBA, sin pasarse nunca de lo pagado (`asignarPago`). `claves`: lo que se eligió al proponerlo (sólo eso,
+ * y todavía pendiente). Si calza con MÁS DE UNA cosa, decide la primera lista de `nombrados` que deja UNA sola opción (lo que dijo quien
+ * aprueba, después lo que dijo quien pagó; de cada una cuentan sólo los que están en juego); si ninguna, se pregunta: nunca se elige
+ * una, ni se suman todas.
+ */
+export function repartoDelComprobante(montoUsd: number, pendientes: readonly Pendiente[], o: { claves?: readonly string[] | null; nombrados?: ReadonlyArray<readonly number[]> } = {}): Reparto {
+  let base: readonly Pendiente[] = pendientes;
+  if (o.claves?.length) {
+    const elegidos = o.claves.map((c) => pendientes.find((p) => clavePendiente(p) === c));
+    if (elegidos.some((p) => !p)) return { tipo: 'no', porque: 'ya no se debe lo mismo que cuando se propuso' };
+    base = elegidos as Pendiente[];
+  }
+  const aplicar = (aplicado: Array<{ clave: string; montoUsd: number }>, parcial: { cubiertas: string[]; faltaUsd: number } | null, porNombre = false): Reparto =>
+    ({ tipo: 'aplicar', aplicado, claves: aplicado.map((x) => x.clave), parcial, porNombre });
+  const a = asignarPago(montoUsd, base);
+  if (a.tipo === 'cubre') return aplicar(a.aplicado, null);
+  if (a.tipo === 'parcial') return aplicar(a.aplicado, { cubiertas: a.cubiertas, faltaUsd: a.faltaUsd });
+  if (a.tipo === 'nada-pendiente') return { tipo: 'no', porque: 'no se debía nada' };
+  if (a.tipo === 'de-mas') return { tipo: 'no', porque: `es más de lo que se debía (${usd(a.debeUsd)})` };
+  const enJuego = new Set(a.opciones.flat().filter((c) => c.startsWith('entrada:')));
+  for (const lista of o.nombrados ?? []) {
+    const quienes = new Set(lista.map((ws) => `entrada:${ws}`).filter((c) => enJuego.has(c)));
+    if (!quienes.size) continue;
+    const calzan = a.opciones.filter((op) => { const e = op.filter((c) => c.startsWith('entrada:')); return e.length === quienes.size && e.every((c) => quienes.has(c)); });
+    if (calzan.length === 1) return aplicar(calzan[0].map((c) => ({ clave: c, montoUsd: base.find((p) => clavePendiente(p) === c)!.debeUsd })), null, true);
+  }
+  return { tipo: 'preguntar', opciones: a.opciones };
+}
+
+/** «Giselle, Pablo y Marcela». */
+export const enLista = (xs: readonly string[]): string => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
+
+// ── Lo que quedó activo con un pago (16/11/2026) ─────────────────────────────────────────────────────────────────
+/** Quiénes quedaron adentro con un pago: los clientes cuya entrada se completó o cuya cuenta se reabrió, y la agencia si pagó su mes. */
+export type CuentasActivas = { clientes: string[]; agencia: boolean };
+export function cuentasActivasDelPago(p: { agenciaWs: number; completas: readonly string[]; reabiertas: readonly number[]; clientes: ReadonlyArray<{ ws: number; nombre: string }> }): CuentasActivas {
+  const ws = [...new Set([...p.completas.filter((c) => c.startsWith('entrada:')).map((c) => Number(c.slice(8))), ...p.reabiertas.filter((w) => w !== p.agenciaWs)])];
+  return {
+    clientes: ws.map((w) => p.clientes.find((c) => c.ws === w)?.nombre?.trim() ?? '').filter(Boolean),
+    agencia: p.completas.some((c) => c.startsWith('mes:')) || p.reabiertas.includes(p.agenciaWs),
+  };
+}
+
+/**
+ * LO QUE LE DICE MaKo A LA AGENCIA CUANDO UN PAGO DEJA CUENTAS ACTIVAS (16/11/2026, Martín: «cada vez que emites una factura, a la par también
+ * tienes que avisarles que ya se dieron de alta los clientes tal y que pueden ingresar tranquilamente»). EL ÚNICO lugar que lo arma: lo usan
+ * el «Recibí tu pago» del comprobante leído (`textoDeComprobante`) y lo que sale después del recibo de un pago aprobado o marcado a mano
+ * (`cerrarElPagoDeAgencia`, lib/agencia-mes.ts). Sin nadie que nombrar, nada.
+ */
+export function textoDeCuentasActivas(a: CuentasActivas): string {
+  const partes: string[] = [];
+  if (a.clientes.length === 1) partes.push(`Ya quedó activa la cuenta de ${a.clientes[0]}: puede entrar tranquilamente.`);
+  else if (a.clientes.length > 1) partes.push(`Ya quedaron activas las cuentas de ${enLista(a.clientes)}: pueden entrar tranquilamente.`);
+  if (a.agencia) partes.push(a.clientes.length ? 'La cuenta de la agencia también sigue activa.' : 'La cuenta de la agencia sigue activa.');
+  return partes.join(' ');
 }
 
 /** Lo que contesta MaKo a un comprobante del grupo, según lo que hizo. Lo arma el código, nunca un modelo. */
 export function textoDeComprobante(r:
-  | { tipo: 'cubre'; montoUsd: number; conceptos: string[]; reabiertas: number }
-  | { tipo: 'parcial'; montoUsd: number; conceptos: string[]; cubiertos: string[]; faltaUsd: number }
+  | { tipo: 'cubre'; montoUsd: number; conceptos: string[]; activas?: CuentasActivas }
+  | { tipo: 'parcial'; montoUsd: number; conceptos: string[]; cubiertos: string[]; faltaUsd: number; activas?: CuentasActivas }
   | { tipo: 'repetido'; numero: number | null }
   | { tipo: 'revisar' },
 ): string {
   if (r.tipo === 'repetido') return `Esa orden de Binance ya la tenía registrada${r.numero ? ` (recibo N.º ${String(r.numero).padStart(4, '0')})` : ''}: no la cuento dos veces.`;
   if (r.tipo === 'revisar') return 'Recibí tu comprobante. Lo revisa el equipo de MaKo y te confirmo por aquí.';
+  const activas = r.activas ? textoDeCuentasActivas(r.activas) : '';
   if (r.tipo === 'cubre') {
-    return [
-      `Recibí tu pago de ${usd(r.montoUsd)}. Quedó pagado: ${r.conceptos.join(', ')}. Te mando el recibo.`,
-      ...(r.reabiertas ? [r.reabiertas === 1 ? 'La cuenta que estaba en pausa ya está activa.' : 'Las cuentas que estaban en pausa ya están activas.'] : []),
-    ].join('\n');
+    return [`Recibí tu pago de ${usd(r.montoUsd)}. Quedó pagado: ${r.conceptos.join(', ')}. Te mando el recibo.`, ...(activas ? [activas] : [])].join('\n');
   }
   return [
     `Recibí ${usd(r.montoUsd)} a cuenta de ${r.conceptos.join(', ')}.`,
     ...(r.cubiertos.length ? [`Quedó pagado: ${r.cubiertos.join(', ')}.`] : []),
     `Falta ${usd(r.faltaUsd)}.`,
+    ...(activas ? [activas] : []),
   ].join('\n');
 }
 

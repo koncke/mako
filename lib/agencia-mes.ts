@@ -31,7 +31,7 @@ import { hoyEnTz } from './date-utils';
 import { planesMako } from './compra-plan';
 import { esAgencia } from './agencia';
 import { crearNotificacion } from './notificaciones';
-import { anotarLoDelEquipo, enviarAlGrupoMaKo, enviarAlGrupoSuperAdmin, enviarPartesAlGrupoMaKo } from './mako-grupo';
+import { anotarLoDelEquipo, enviarAlGrupoMaKo, enviarAlGrupoSuperAdmin, enviarPartesAlGrupoMaKo, type ArchivoDelAviso } from './mako-grupo';
 import { atarIdDeWhatsApp, copiarAlGrupo } from './grupo-app';
 import type { PartePreparada } from './mako-tarjeta';
 import { KEY_PLAN_CAMBIADO, leerCambioDePlan, planDeCapa, type PlanCuenta } from './agencia-cobro-reglas';
@@ -45,7 +45,7 @@ import {
   leerConfigMensualidad, leerEntrada, leerPagoDelMes, mesDe, mesQueSeAvisa, mesesEntre, nombreDelMes, periodoDelCiclo, planQueSeCobra,
   preciosDelCatalogo, situacion, arrancaElReloj, sumarDias, tablaDeEntradas, tablaDelMes, textoDeComprobante, textoDePausaDelMes,
   textoDeMesImpago, textoDelAvisoDeEntradas, textoDelAvisoDelMes, usd, clavePendiente, diferencialDe, DIAS_SIN_COSTO, DIA_LIMITE_DE_PAGO, MEDIO_POR_DEFECTO,
-  NOMBRE_PLAN, leerOrden, mesSiguiente,
+  NOMBRE_PLAN, leerOrden, mesSiguiente, cuentasActivasDelPago, textoDeCuentasActivas, type CuentasActivas,
   type ClienteDeAgencia, type ConfigMensualidad, type CuentaDelMes, type Dia, type Diferencial, type EntradaGuardada, type Mes,
   type OrdenAnotada, type PagoDelMes, type Pendiente, type Precios, type Situacion,
 } from './agencia-mes-reglas';
@@ -479,6 +479,24 @@ export async function emitirReciboDeLoCompleto(agenciaWs: number, completas: rea
 }
 
 /**
+ * DESPUÉS DE ANOTAR UN PAGO, EN UN SOLO LUGAR (16/11/2026, Martín: «cada vez que emites una factura, a la par también tienes que avisarles que
+ * ya se dieron de alta los clientes tal y que pueden ingresar tranquilamente»; ese día sólo salió «Recibo de pago N.º 0005. El detalle está en
+ * el PDF.» y el Cerebro lo avisó a mano). El recibo de lo que quedó completo (`conRecibo`: hay orden), las cuentas en pausa que ya pagaron
+ * vuelven a entrar, y al grupo de la agencia, DESPUÉS del recibo, quiénes quedaron activos (`textoDeCuentasActivas`). Lo llaman el comprobante
+ * leído, el que aprueba Martín y los «Marcar pagado». `conTexto: false`: quien llama lo suma a su propio mensaje. Nunca tira.
+ */
+export async function cerrarElPagoDeAgencia(m: MensualidadOk, completas: readonly string[], autor: string, o: { conRecibo?: boolean; conTexto?: boolean; ahora?: Date } = {}): Promise<{ recibo: { ok: boolean; numero?: number; error?: string } | null; activas: CuentasActivas; texto: string }> {
+  const ag = m.agenciaWs;
+  const recibo = o.conRecibo !== false && completas.length ? await emitirReciboDeLoCompleto(ag, completas, autor).catch((e) => ({ ok: false, error: msg(e) })) : null;
+  const pausas = await revisarPausasDeAgencia(ag, { ahora: o.ahora }).catch(() => null);
+  const reabiertas = pausas?.ok ? pausas.cambios.filter((c) => c.paso === 'reabrir' && c.ok).map((c) => c.ws) : [];
+  const activas = cuentasActivasDelPago({ agenciaWs: ag, completas, reabiertas, clientes: m.clientes });
+  const texto = textoDeCuentasActivas(activas);
+  if (texto && o.conTexto !== false) await textoAlGrupoDeLaAgencia(ag, texto).catch(() => false);
+  return { recibo, activas, texto };
+}
+
+/**
  * Marca un mes «Pagado» A MANO (el super admin, por ejemplo después de revisar un comprobante dudoso). Con la orden de Binance
  * sale el recibo; sin ella, queda anotado sin recibo. Guarda el total de ese momento.
  */
@@ -497,9 +515,8 @@ export async function marcarMesPagado(p: { agenciaWs: number; mes: string; pagad
   if (p.pago) {
     const r = await aplicarPagoDeAgencia(m, { ...p.pago, fecha: `${p.pagadoEl}T12:00:00Z` }, [{ clave: `mes:${p.mes}`, montoUsd: mes.debeUsd }], p.autor);
     if (!r.ok) return { ok: false, error: r.error };
-    const rec = r.completas.length ? await emitirReciboDeLoCompleto(p.agenciaWs, r.completas, p.autor) : { ok: true };
-    await revisarPausasDeAgencia(p.agenciaWs, { ahora }).catch(() => null);
-    return { ok: true, resumen: `Listo: ${nombreDelMes(p.mes)} quedó pagado el ${diaCorto(p.pagadoEl)}.${rec.ok ? '' : ` El recibo no salió: ${rec.error}`}`, totalUsd: mes.cuenta.totalUsd, ...('numero' in rec && rec.numero ? { recibo: rec.numero } : {}) };
+    const { recibo: rec } = await cerrarElPagoDeAgencia(m, r.completas, p.autor, { ahora });
+    return { ok: true, resumen: `Listo: ${nombreDelMes(p.mes)} quedó pagado el ${diaCorto(p.pagadoEl)}.${!rec || rec.ok ? '' : ` El recibo no salió: ${rec.error}`}`, totalUsd: mes.cuenta.totalUsd, ...(rec?.numero ? { recibo: rec.numero } : {}) };
   }
   try {
     await cambiarRegistro(KEY_PAGO(p.agenciaWs, p.mes), (antes) => {
@@ -510,7 +527,7 @@ export async function marcarMesPagado(p: { agenciaWs: number; mes: string; pagad
   } catch (e) {
     return { ok: false, error: `No pude marcarlo pagado: ${msg(e)}` };
   }
-  await revisarPausasDeAgencia(p.agenciaWs, { ahora }).catch(() => null);
+  await cerrarElPagoDeAgencia(m, [`mes:${p.mes}`], p.autor, { conRecibo: false, ahora });
   return { ok: true, resumen: `Listo: ${nombreDelMes(p.mes)} quedó pagado el ${diaCorto(p.pagadoEl)} (sin recibo: no tiene orden).`, totalUsd: mes.cuenta.totalUsd };
 }
 
@@ -555,8 +572,7 @@ export async function marcarEntradaPagada(p: { agenciaWs: number; clienteWs: num
   const orden = p.pago?.orden ? String(p.pago.orden).toUpperCase() : `AMANO${p.clienteWs}${p.pagadoEl.replace(/-/g, '')}`;
   const r = await aplicarPagoDeAgencia(m, { orden, monto: p.pago?.monto ?? pend.debeUsd, moneda: p.pago?.moneda ?? 'USD', montoUsd: p.pago?.montoUsd ?? pend.debeUsd, fecha: `${p.pagadoEl}T12:00:00Z` }, [{ clave: clavePendiente(pend), montoUsd: pend.debeUsd }], p.autor);
   if (!r.ok) return { ok: false, error: r.error };
-  const rec = p.pago && r.completas.length ? await emitirReciboDeLoCompleto(p.agenciaWs, r.completas, p.autor) : null;
-  await revisarPausasDeAgencia(p.agenciaWs, { ahora }).catch(() => null);
+  const { recibo: rec } = await cerrarElPagoDeAgencia(m, r.completas, p.autor, { conRecibo: !!p.pago, ahora });
   return { ok: true, resumen: `Listo: la entrada de ${fila.nombre} quedó pagada (${usd(pend.debeUsd)}).${rec && !rec.ok ? ` El recibo no salió: ${rec.error}` : !p.pago ? ' Sin recibo: no tiene orden.' : ''}`, ...(rec?.numero ? { recibo: rec.numero } : {}) };
 }
 
@@ -674,8 +690,9 @@ export async function textoAlGrupoDeLaAgencia(agenciaWs: number, texto: string):
  * Devuelve si LLEGÓ por algún lado (6/11/2026): el aviso del mes impago se marca «ya avisado» una sola vez por mes, y
  * marcarlo cuando no salió por ninguno de los dos canales es perder el único aviso de que una agencia no pagó.
  */
-export async function avisarAMartin(texto: string): Promise<boolean> {
-  const grupo = await enviarAlGrupoSuperAdmin(texto).then(() => true).catch((e) => { console.error(`[agencia-mes] no pude avisar a Martín: ${msg(e)}`); return false; });
+export async function avisarAMartin(texto: string, archivo?: ArchivoDelAviso | null): Promise<boolean> {
+  // CON EL COMPROBANTE ADJUNTO (16/11/2026, Martín: «siempre que me digas este mensaje por aquí, adjunta también el comprobante»).
+  const grupo = await enviarAlGrupoSuperAdmin(texto, archivo ? { archivo } : {}).then(() => true).catch((e) => { console.error(`[agencia-mes] no pude avisar a Martín: ${msg(e)}`); return false; });
   const campanita = await crearNotificacion({
     ws: await wsSuperAdmin(), tipo: 'agencia-mensualidad', severidad: 'warn', titulo: 'Mensualidad de una agencia: revisar', descripcion: texto.slice(0, 280),
     link: '/admin/cobros', entityType: 'agencia-mensualidad', payload: {}, origen: 'sistema:agencia-mensualidad',

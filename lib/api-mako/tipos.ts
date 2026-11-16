@@ -387,6 +387,10 @@ export type Ctx = {
    *  de varios) y si el mensaje le habla a MaKo («sí, MaKo», «@MaKo», la respuesta citada a MaKo). Lo que se propone guarda quién
    *  lo pidió, y una pendiente de plata sólo la confirma ésa persona o un «sí» a MaKo (`elSiEsDeQuienPidio`). */
   enElGrupo?: { quien: string | null; aMaKo: boolean };
+  /** Sólo en el grupo de la PLATAFORMA (WhatsApp o su hilo en la app): quien escribe es el DUEÑO de la plataforma —su línea (`fromMe` que no
+   *  es eco), la letra de la app o su teléfono de admin de MaKo, y no un lote de varios—, el `escribeElDueno` del doer (lib/mako-doer-in.ts).
+   *  Por WhatsApp no hay sesión: con esto la mensualidad de las agencias lo reconoce como el super admin (16/11/2026, cobros.run.ts). */
+  duenoDeLaPlataforma?: true;
   /** Sólo en la app: la persona de la sesión que chatea (`usuarios.id` como `sub`). «Mi hoja» es la suya: el Dashboard
    *  y General leen el informe de quien chatea, como la pantalla, salvo que se nombre a otra persona (20/10/2026, Ops
    *  Center = lo principal, pieza 1.5). Se lee con `quienChatea(ctx)`, que lo ignora en otro canal. */

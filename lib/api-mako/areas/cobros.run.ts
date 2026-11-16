@@ -52,7 +52,7 @@ import { agenciasHabilitadas } from '@/lib/agencia';
 import { buscarNegocio } from '@/lib/diagnostico-negocio';
 import { apagarMensualidad, corregirRelojDeCliente, FALTA_LA_0402, marcarEntradaPagada, marcarMesPagado, mensualidadDeAgencia, mensualidadParaMako, prenderMensualidad, quitarMesPagado } from '@/lib/agencia-mes';
 import { referenciaNormal } from '@/lib/recibos-reglas';
-import { esDia as esDiaMes, esMes, sumarDias as sumarDiasMes, usd as usdMes } from '@/lib/agencia-mes-reglas';
+import { clientesNombrados, esDia as esDiaMes, esMes, sumarDias as sumarDiasMes, usd as usdMes } from '@/lib/agencia-mes-reglas';
 
 const NO_SUPER_ADMIN = 'Sólo el super admin vende planes de MaKo.';
 const NO_SUPER_ADMIN_MES = 'Sólo el super admin anota la mensualidad de una agencia.';
@@ -71,6 +71,16 @@ function pagoConOrden(input: Record<string, unknown>, debeUsd: number): { pago: 
   const monto = typeof input.montoPagado === 'number' && input.montoPagado > 0 ? Math.round(input.montoPagado * 100) / 100 : debeUsd;
   return { pago: { orden, monto, moneda, montoUsd: monto } };
 }
+/**
+ * UNA ORDEN CUENTA UNA VEZ, y no se parte entre «marcar» de a uno (16/11/2026: 59,54 USDT para tres entradas de US$29,77; la segunda
+ * `marcar_entrada_pagada` con la misma orden no entraba, y la primera se quedaba con todo el pago). Se dice ANTES del «sí».
+ */
+function ordenQueNoVa(pago: { orden: string; montoUsd: number } | null, debeUsd: number, ordenes: ReadonlyMap<string, unknown>): { error: string; yaEstaba?: true } | null {
+  if (!pago) return null;
+  if (ordenes.has(pago.orden)) return { error: `La orden ${pago.orden} ya está anotada: un comprobante cuenta una sola vez.`, yaEstaba: true };
+  if (pago.montoUsd > debeUsd * 1.01 + 0.01) return { error: `Ese pago (${usdMes(pago.montoUsd)}) es más que esto (${usdMes(debeUsd)}): un comprobante que paga varias cosas se aplica entero y una vez, con aplicar_comprobante_agencia y a qué clientes va.` };
+  return null;
+}
 const pagoDelPayload = (v: unknown): { orden: string; monto: number; moneda: string; montoUsd: number } | null => {
   const o = v as { orden?: unknown; monto?: unknown; moneda?: unknown; montoUsd?: unknown } | null;
   return o && typeof o.orden === 'string' && typeof o.monto === 'number' && typeof o.moneda === 'string' && typeof o.montoUsd === 'number' ? { orden: o.orden, monto: o.monto, moneda: o.moneda, montoUsd: o.montoUsd } : null;
@@ -78,6 +88,16 @@ const pagoDelPayload = (v: unknown): { orden: string; monto: number; moneda: str
 /** ¿Quien confirma es el super admin GLOBAL? Fuera de un request (un flujo, un cron) no hay cookies: eso es un «no». */
 async function esSuperAdmin(): Promise<boolean> {
   try { return (await getSesionAdmin()) != null; } catch { return false; }
+}
+/**
+ * EL SUPER ADMIN TAMBIÉN POR EL CANAL, para la mensualidad de las agencias (16/11/2026, Martín, desde el grupo de SuperAdmin: «me dice que no
+ * puede hacerlo de acá, que solo el superadmin de MaKo anota los pagos de una agencia, que literalmente soy yo»). Por WhatsApp no hay sesión:
+ * `esSuperAdmin()` decía «no» siempre. En el grupo de la plataforma lo es QUIEN ESCRIBE si es el dueño (`ctx.duenoDeLaPlataforma`, lo decide
+ * el doer: su línea, la letra de la app o su teléfono de admin de MaKo; nunca el grupo solo, ni un lote de varios). En la app, la sesión.
+ */
+async function superAdminQueConfirma(ctx: Pick<Ctx, 'canal' | 'ws' | 'duenoDeLaPlataforma'>): Promise<boolean> {
+  if (ctx.canal === 'whatsapp' && ctx.duenoDeLaPlataforma === true) return ctx.ws === (await wsSuperAdmin().catch(() => null));
+  return esSuperAdmin();
 }
 import { capaDef } from '@/lib/capas';
 import { hoyEnWorkspace } from '@/lib/timezone';
@@ -1214,14 +1234,16 @@ export const RUNNERS: Runners = {
       if (x.pagado) return { error: `${mes} ya estaba pagado.`, yaEstaba: true };
       const pago = pagoConOrden(input, x.debeUsd);
       if ('error' in pago) return pago;
+      const noVa = ordenQueNoVa(pago.pago, x.debeUsd, m.libro.ordenes);
+      if (noVa) return noVa;
       return {
         payload: { agenciaWs, mes, pagadoEl, totalUsd: x.cuenta.totalUsd, ...(pago.pago ? { pago: pago.pago } : {}) },
         resumen: `Marcar pagada la mensualidad de ${m.agencia} de ${mes}: ${usdMes(x.debeUsd)}, entró el ${pagadoEl}.${pago.pago ? ` Con la orden ${pago.pago.orden}: sale el recibo al grupo de la agencia.` : ' Sin orden: queda anotado, sin recibo.'} Si la agencia o un cliente estaban en pausa por esto, vuelven a entrar.`,
       };
     },
-    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN_MES),
+    faltaParaConfirmar: async (_p, ctx) => ((await superAdminQueConfirma(ctx)) ? null : NO_SUPER_ADMIN_MES),
     ejecutar: (payload, ctx) => seguro('marcar la mensualidad', async () => {
-      if (!(await esSuperAdmin())) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
+      if (!(await superAdminQueConfirma(ctx))) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
       const agenciaWs = Number(payload.agenciaWs);
       const mes = String(payload.mes ?? '');
       if (payload.quitar === true) {
@@ -1258,9 +1280,9 @@ export const RUNNERS: Runners = {
           : `Devolver el reloj de ${c.nombre} (${m.agencia}) a la invitación: corre desde el ${c.invitado}.`,
       };
     },
-    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN_MES),
-    ejecutar: (payload) => seguro('corregir la fecha', async () => {
-      if (!(await esSuperAdmin())) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
+    faltaParaConfirmar: async (_p, ctx) => ((await superAdminQueConfirma(ctx)) ? null : NO_SUPER_ADMIN_MES),
+    ejecutar: (payload, ctx) => seguro('corregir la fecha', async () => {
+      if (!(await superAdminQueConfirma(ctx))) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
       const r = await corregirRelojDeCliente({ agenciaWs: Number(payload.agenciaWs), clienteWs: Number(payload.clienteWs), dia: typeof payload.dia === 'string' ? payload.dia : null });
       return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
     }),
@@ -1288,9 +1310,9 @@ export const RUNNERS: Runners = {
         resumen: `Prender la mensualidad de ${m.agencia}: el PDF del mes al grupo de WhatsApp con la agencia desde ${desde} (del 1 al 5), la entrada de cada cliente cuyos 14 días terminan desde el ${entradasDesde}, por ${medio}; y «Paga para entrar» sola: el cliente que no paga su entrada y, el día 6 sin el total, la agencia y sus clientes.`,
       };
     },
-    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN_MES),
+    faltaParaConfirmar: async (_p, ctx) => ((await superAdminQueConfirma(ctx)) ? null : NO_SUPER_ADMIN_MES),
     ejecutar: (payload, ctx) => seguro('cambiar la mensualidad', async () => {
-      if (!(await esSuperAdmin())) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
+      if (!(await superAdminQueConfirma(ctx))) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
       const agenciaWs = Number(payload.agenciaWs);
       const r = payload.apagar === true
         ? await apagarMensualidad({ agenciaWs })
@@ -1316,15 +1338,77 @@ export const RUNNERS: Runners = {
       if (!esDiaMes(pagadoEl)) return { error: 'El día del pago va como AAAA-MM-DD.', faltan: ['pagadoEl'] };
       const pago = pagoConOrden(input, p.debeUsd);
       if ('error' in pago) return pago;
+      const noVa = ordenQueNoVa(pago.pago, p.debeUsd, m.libro.ordenes);
+      if (noVa) return noVa;
       return {
         payload: { agenciaWs, clienteWs, pagadoEl, ...(pago.pago ? { pago: pago.pago } : {}) },
         resumen: `Marcar pagada la entrada de ${c.nombre} (${m.agencia}): ${usdMes(p.debeUsd)}, ${p.entrada.dias} días del ${p.entrada.desde} al ${p.entrada.hasta}.${pago.pago ? ` Con la orden ${pago.pago.orden}: sale el recibo al grupo de la agencia.` : ' Sin orden: queda anotada, sin recibo.'} Si estaba en pausa, vuelve a entrar.`,
       };
     },
-    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : NO_SUPER_ADMIN_MES),
+    faltaParaConfirmar: async (_p, ctx) => ((await superAdminQueConfirma(ctx)) ? null : NO_SUPER_ADMIN_MES),
     ejecutar: (payload, ctx) => seguro('marcar la entrada', async () => {
-      if (!(await esSuperAdmin())) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
+      if (!(await superAdminQueConfirma(ctx))) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
       const r = await marcarEntradaPagada({ agenciaWs: Number(payload.agenciaWs), clienteWs: Number(payload.clienteWs), pagadoEl: String(payload.pagadoEl ?? ''), autor: autorDe(ctx), pago: pagoDelPayload(payload.pago) });
+      return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
+    }),
+  },
+
+  // ── EL COMPROBANTE QUE APRUEBA MARTÍN (16/11/2026, lib/agencia-mes-comprobante.ts) ── La pendiente la deja casi siempre el CÓDIGO al mandarlo
+  // a revisar (`proponerComprobanteAMartin`), y el «aprobado» de Martín a ese aviso la confirma. Ésta es la del turno, cuando Martín dice a
+  // quiénes va. A qué va lo decide `aQueVaElComprobante` al confirmar, con lo que se debe AHORA: nunca más que lo pagado, y si calza con más
+  // de una cosa, lo que se dijo; si no, la pregunta (la pendiente sigue viva para el «son Giselle y Marcela»).
+  aplicar_comprobante_agencia: {
+    preparar: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Las mensualidades de las agencias son sólo de la plataforma.' };
+      const agenciaWs = n(input.agenciaWs);
+      if (agenciaWs == null) return { error: 'Falta la agencia.', faltan: ['agenciaWs'] };
+      const orden = referenciaNormal('binance', s(input.orden) ?? '');
+      if (!orden) return { error: 'La orden de Binance son los 18 dígitos del «Order ID».', faltan: ['orden'] };
+      const monto = n(input.montoPagado);
+      if (monto == null || monto <= 0) return { error: 'Falta lo que dice el comprobante, en dólares.', faltan: ['montoPagado'] };
+      const moneda = (s(input.moneda) ?? 'USDT').toUpperCase();
+      if (!/^(USD|USDT|USDC)$/.test(moneda)) return { error: 'El pago va en dólares (USD, USDT o USDC).', faltan: ['moneda'] };
+      const m = await mensualidadDeAgencia(agenciaWs);
+      if (!m.ok) return { error: `No pude armar su mensualidad: ${m.error}`, falla: true };
+      if (!m.config) return { error: 'Esa agencia no tiene la mensualidad prendida.' };
+      const pagadoEl = s(input.pagadoEl) ?? m.hoy;
+      if (!esDiaMes(pagadoEl)) return { error: 'El día del pago va como AAAA-MM-DD.', faltan: ['pagadoEl'] };
+      // A qué va, si Martín lo dijo: cada cliente por su número o su nombre (uno solo, y que deba su entrada), y el mes.
+      const claves: string[] = [];
+      for (const x of Array.isArray(input.clientes) ? input.clientes.map((v) => String(v).trim()).filter(Boolean) : []) {
+        const ws = /^\d+$/.test(x) ? [Number(x)] : clientesNombrados([x], m.clientes);
+        const c = ws.length === 1 ? m.clientes.find((f) => f.ws === ws[0]) : undefined;
+        if (!c) return { error: `«${x}» no es un cliente de ${m.agencia}, o calza con más de uno. Pide ver_mensualidades_agencias con su agenciaWs.`, faltan: ['clientes'] };
+        if (!m.pendientes.some((p) => p.tipo === 'entrada' && p.ws === c.ws)) return { error: `${c.nombre} no debe su entrada.`, yaEstaba: true };
+        claves.push(`entrada:${c.ws}`);
+      }
+      const mes = s(input.mes);
+      if (mes) {
+        if (!esMes(mes) || !m.pendientes.some((p) => p.tipo === 'mes' && p.mes === mes)) return { error: `La mensualidad de ${mes} no se debe.`, faltan: ['mes'] };
+        claves.push(`mes:${mes}`);
+      }
+      const { aQueVaElComprobante, resumenDelComprobante } = await import('@/lib/agencia-mes-comprobante');
+      const payload = { agenciaWs, orden, monto: Math.round(monto * 100) / 100, moneda, fecha: `${pagadoEl}T12:00:00`, comprobante: null, lecturaId: null, waMensajeId: '', recibidoAt: new Date().toISOString(), claves: claves.length ? claves : null };
+      const a = await aQueVaElComprobante(payload, ctx.mensajeUsuario ?? '');
+      if (a.tipo === 'falla') return { error: a.texto, falla: true };
+      if (a.tipo !== 'aplicar') return { error: a.texto, ...(a.tipo === 'preguntar' ? { faltan: ['clientes'] } : {}) };
+      // Lo que se vio es lo que se aplica: el reparto queda fijo en la propuesta.
+      return { payload: { ...payload, claves: a.reparto.claves }, resumen: resumenDelComprobante(a.m, a.pago, a.reparto) };
+    },
+    // Corre antes de reclamar la pendiente: la pregunta («¿a cuáles?») no la quema; lo que ya no va (la orden ya anotada), la cierra.
+    faltaParaConfirmar: async (payload, ctx) => {
+      if (!(await superAdminQueConfirma(ctx))) return NO_SUPER_ADMIN_MES;
+      const { aQueVaElComprobante } = await import('@/lib/agencia-mes-comprobante');
+      const a = await aQueVaElComprobante(payload, ctx.mensajeUsuario ?? '');
+      if (a.tipo === 'aplicar') return null;
+      return a.tipo === 'no' ? { yaNoVale: a.texto } : a.texto;
+    },
+    ejecutar: (payload, ctx) => seguro('aplicar el comprobante', async () => {
+      if (!(await superAdminQueConfirma(ctx))) return { ok: false, resumen: NO_SUPER_ADMIN_MES };
+      const { aQueVaElComprobante, aplicarComprobanteAprobado } = await import('@/lib/agencia-mes-comprobante');
+      const a = await aQueVaElComprobante(payload, ctx.mensajeUsuario ?? '');
+      if (a.tipo !== 'aplicar') return { ok: false, resumen: a.texto };
+      const r = await aplicarComprobanteAprobado(a, autorDe(ctx));
       return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
     }),
   },

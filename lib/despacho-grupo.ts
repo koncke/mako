@@ -31,6 +31,8 @@ export const ACCIONES_SIMPLES: ReadonlySet<string> = new Set([
   // comprobante de Código Inmobiliario que MaKo le mandó para revisar). Sólo la plataforma (`soloPlataforma`) y con el «sí» del chat
   // (`confirmacion: 'chat'`). Sin estas, la acción se delegaba al equipo: justo lo que MaKo le acababa de preguntar a Martín.
   'marcar_entrada_pagada', 'marcar_mensualidad_pagada',
+  // Y el comprobante entero de una agencia, cuando Martín dice a quiénes va (16/11/2026; lib/agencia-mes-comprobante.ts).
+  'aplicar_comprobante_agencia',
   // La agenda: agendar, mover o cambiar UNA reunión, marcar si vino.
   'proponer_agendar_reunion', 'proponer_agendar_agenda', 'proponer_mover_reunion', 'proponer_cambiar_reunion', 'marcar_asistencia_reunion',
   'crear_evento_calendario', 'crear_evento_google',
