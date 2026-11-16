@@ -27,6 +27,9 @@ import { DEFS, defsVisibles, ordenCategoria, type Def } from '@/lib/integracione
 import { SIN_USO_TODAVIA, tarjetaDeRed, type RedConTarjeta } from '@/lib/zernio-redes';
 import { CATALOGO_GRABADORES } from '@/lib/grabadores/catalogo';
 import { EMAIL_MAKO } from '@/lib/app-url';
+import { EXTENSION_URL_TIENDA } from '@/lib/extension-tienda';
+import { PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
+import { COMPETIDORES, rutaVs } from './competencia';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las funciones (las landings de /vsl/<slug>)
@@ -161,7 +164,8 @@ export const HISTORIA = {
   texto: CASO.titulo.replace(/<[^>]+>/g, ''),
   foto: '/vsl-assets/caso-equipo.jpg',
   fotoAlt: 'Mauricio con su equipo',
-  href: '/vsl/sitio#caso',
+  // /vsl/sitio es un redirect permanente a la raíz (app/vsl/sitio): el caso vive en la portada.
+  href: '/#caso',
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,34 +175,108 @@ export const HISTORIA = {
 export const RUTA_PRECIOS = '/planes';
 export const RUTA_COMPARACIONES = '/vsl/comparaciones';
 export const RUTA_ENTRAR = '/login';
+/** La landing del MaKo Accelerator: la misma que `RUTA_ACCELERATOR` de app/planes/Tarjetas.tsx (el test las compara). */
+export const RUTA_ACCELERATOR_SITIO = '/accelerator';
+/** Las secciones de la portada a las que lleva «Recursos» (sus `id`, en ./Portada.tsx). */
+export const RUTA_PREGUNTAS = '/#preguntas';
+export const RUTA_INTEGRACIONES = '/#integraciones';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Recursos»: lo que otros SaaS ponen en su menú «Resources» y MaKo YA tiene (15/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Martín, 15/11/2026: «en lugar de poner comparaciones en la top bar, pondría recursos o algo así, fíjate como lo tienen otras
+// aplicaciones, y ahí pondría varias cosas, como por ejemplo la parte de MaKo Partners, la parte de agencia, las comparaciones.
+// Pondría ahí también la documentación de API… las cosas que normalmente suelen entrar en esa parte».
+// La investigación de ese día (10 sitios: HubSpot, GoHighLevel, ClickFunnels, Kajabi, Systeme.io, ActiveCampaign, Attio, beehiiv,
+// Notion y Linear): 6 de 10 llevan «Resources» en la barra, antes de «Pricing»; 4 de los 7 menús son SÓLO TEXTO con rótulos (el
+// molde de beehiiv: Learn · Compare · Connect). Lo que más se repite: ayuda y soporte (9/10), partners (9/10), la API (8/10), blog
+// (8/10), comparaciones (7/10) y novedades (7/10).
+// ⚠️ SÓLO LO QUE EXISTE: blog, centro de ayuda, novedades, tutoriales, comunidad y estado del servicio son costumbre y MaKo no
+//    los tiene; no van hasta que existan. Cada link es una ruta de verdad (tests/sitio-recursos-y-pie.test.ts lo mira).
 
 /**
- * Las columnas del pie (las de beehiiv: Company, Product, Solutions, Resources, Connect): Empezar, las familias, Industrias y
- * Legal. Martín (12/11/2026): «no tiene sentido que pongas dos secciones que se llamen MaKo» (la primera es «Empezar»; «MaKo»
- * queda como la familia del menú) y «términos, privacidad, uso aceptable, soporte y el email deberían estar en una sección
- * como la de Industrias».
+ * Un renglón de «Recursos». `pie`: cómo se llama en la columna «Recursos» del pie (el mismo nombre si no se dice), o `false` si
+ * en el pie ya está en otra columna (Soporte en Legal, el Accelerator en Empezar) o si el pie lleva sólo el índice (las «MaKo vs.»).
+ * `conCuenta`: la página pide iniciar sesión, y sin cuenta el visitante termina en /login (le falta una versión pública, como
+ * /mako-partners lo es de /partners). `externo`: sale de MaKo, y abre en otra pestaña.
  */
-export function columnasDelPie(): { titulo: string; links: { nombre: string; href: string }[] }[] {
+export type ItemRecurso = { nombre: string; href: string; pie?: string | false; conCuenta?: true; externo?: true };
+// (`pie: false` también para lo que el pie ya tiene en Industrias: «MaKo para agencias» es «Agencias».)
+export type GrupoRecursos = { rotulo: string; items: readonly ItemRecurso[] };
+
+/** Cuántas «MaKo vs. X» van en el menú: las primeras de la comparación (COMPETIDORES, ./competencia.ts), no a mano. */
+const VS_EN_EL_MENU = 3;
+
+export const RECURSOS: readonly GrupoRecursos[] = [
+  { rotulo: 'Programas', items: [
+    // La landing pública del programa de referidos (la de /partners pide sesión).
+    { nombre: 'MaKo Partners', href: '/mako-partners' },
+    // La de sumarse como agencia (Agency Dashboard, app/agency): PIDE SESIÓN. Es la misma de «Industrias → Agencias», y en el pie
+    // ya está ahí.
+    { nombre: 'MaKo para agencias', href: '/agency', conCuenta: true, pie: false },
+    { nombre: PROGRAMA_ACELERADOR.nombre, href: RUTA_ACCELERATOR_SITIO, pie: false },
+  ] },
+  { rotulo: 'Comparar', items: [
+    ...COMPETIDORES.slice(0, VS_EN_EL_MENU).map((c): ItemRecurso => ({ nombre: `MaKo vs. ${c.nombre}`, href: rutaVs(c), pie: false })),
+    { nombre: 'Todas las comparaciones', href: RUTA_COMPARACIONES, pie: 'Comparaciones' },
+  ] },
+  { rotulo: 'Conecta', items: [
+    // La sección «Tus apps, conectadas» de la portada, no /vsl/integraciones: ésa es la landing vieja (con «Solo 5 cupos»).
+    { nombre: 'Integraciones', href: RUTA_INTEGRACIONES },
+    // La documentación vive en la tab de la API (app/api-mako): PIDE SESIÓN y un negocio elegido. No hay una pública todavía.
+    { nombre: 'Documentación de la API', href: '/api-mako', conCuenta: true },
+    { nombre: 'Extensión de Chrome', href: EXTENSION_URL_TIENDA, externo: true },
+    // El link único para instalar MaKo en el teléfono (app/app, pública): a cada dispositivo lo manda a lo suyo.
+    { nombre: 'App para tu teléfono', href: '/app' },
+  ] },
+  { rotulo: 'Ayuda', items: [
+    { nombre: 'Preguntas frecuentes', href: RUTA_PREGUNTAS },
+    { nombre: 'Soporte', href: '/soporte', pie: false },
+  ] },
+];
+
+/** La columna «Recursos» del pie: los renglones del menú, en el mismo orden, menos los que el pie ya tiene en otra columna. */
+export function recursosDelPie(): LinkDelPie[] {
+  return RECURSOS.flatMap((g) => g.items.filter((i) => i.pie !== false).map((i) => ({ nombre: i.pie || i.nombre, href: i.href, ...(i.externo ? { externo: true as const } : {}) })));
+}
+
+export type LinkDelPie = { nombre: string; href: string; externo?: true };
+/** Una columna del pie. `sub`: un segundo rótulo en la misma columna (los Funnels debajo de Industrias, como en la barra). */
+export type ColumnaDelPie = { titulo: string; links: LinkDelPie[]; sub?: { titulo: string; links: LinkDelPie[] } };
+
+/**
+ * Las columnas del pie (las de beehiiv: Company, Product, Solutions, Resources, Connect): Empezar, las familias, Industrias (con
+ * los Funnels debajo, como en el menú de la barra), Recursos y Legal. Martín (12/11/2026): «no tiene sentido que pongas dos
+ * secciones que se llamen MaKo» (la primera es «Empezar») y «términos, privacidad, uso aceptable, soporte y el email deberían
+ * estar en una sección como la de Industrias».
+ * 15/11/2026: «Recursos» como la barra; Comparaciones y MaKo Partners se mudaron ahí, y a «Empezar» entró el Accelerator. Los
+ * Funnels pasaron a ir debajo de Industrias: con nueve columnas en un renglón el pie no entraba (a 1440 sumaban 1.318 px en
+ * 1.184 de ancho; ya con ocho se pasaba a 1280 y a 1024 cortaba el correo).
+ */
+export function columnasDelPie(): ColumnaDelPie[] {
   const m = menuProducto();
   const grandes = GRANDES.flatMap((g) => { const l = landingDe(g.slug); return l ? [{ familia: g.familia, item: itemDe(l) }] : []; });
   const ops = grandes.find((g) => g.familia == null)?.item;
   return [
-    // MaKo Partners (la landing pública del programa de referidos, /mako-partners): Martín, 12/11: «en algún lado tiene que estar».
-    { titulo: 'Empezar', links: [...(ops ? [{ nombre: ops.nombre, href: ops.href }] : []), { nombre: 'Precios', href: RUTA_PRECIOS }, { nombre: 'Comparaciones', href: RUTA_COMPARACIONES }, { nombre: 'MaKo Partners', href: '/mako-partners' }, { nombre: 'Iniciar sesión', href: RUTA_ENTRAR }] },
+    { titulo: 'Empezar', links: [...(ops ? [{ nombre: ops.nombre, href: ops.href }] : []), { nombre: 'Precios', href: RUTA_PRECIOS }, { nombre: PROGRAMA_ACELERADOR.nombre, href: RUTA_ACCELERATOR_SITIO }, { nombre: 'Iniciar sesión', href: RUTA_ENTRAR }] },
     ...m.columnas.map((c) => ({
       titulo: c.rotulo,
       links: [...grandes.filter((g) => g.familia === c.rotulo).map((g) => g.item), ...c.items].map((i) => ({ nombre: i.nombre, href: i.href })),
     })),
-    { titulo: 'Industrias', links: INDUSTRIAS.map((i) => ({ nombre: i.nombre, href: i.href })) },
-    { titulo: 'Funnels', links: FUNNELS_SITIO.map((f) => ({ nombre: f.nombre, href: rutaFunnel(f.id) })) },
+    { titulo: 'Industrias', links: INDUSTRIAS.map((i) => ({ nombre: i.nombre, href: i.href })), sub: { titulo: 'Funnels', links: FUNNELS_SITIO.map((f) => ({ nombre: f.nombre, href: rutaFunnel(f.id) })) } },
+    { titulo: 'Recursos', links: recursosDelPie() },
     { titulo: 'Legal', links: [...LEGALES, { nombre: EMAIL_MAKO, href: `mailto:${EMAIL_MAKO}` }] },
   ];
 }
 
-/** Los links legales de la línea de abajo del pie (los de la portada sin JavaScript, app/vsl/PortadaSinJs.tsx). */
+/**
+ * Los links legales del pie. Reembolsos entró el 15/11/2026: Stripe y Mercado Pago la piden visible ANTES del primer cobro
+ * (lib/rutas-publicas.ts), y el pie viejo de la landing (app/vsl/Landing.tsx, `PieLegal`) la tenía; el del sitio la había perdido.
+ */
 export const LEGALES: readonly { nombre: string; href: string }[] = [
   { nombre: 'Términos', href: '/terminos' },
   { nombre: 'Privacidad', href: '/privacidad' },
+  { nombre: 'Reembolsos', href: '/reembolsos' },
   { nombre: 'Uso aceptable', href: '/aup' },
   { nombre: 'Soporte', href: '/soporte' },
 ];

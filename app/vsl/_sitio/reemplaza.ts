@@ -93,10 +93,9 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; gru
   { app: app('ManyChat', 'manychat'), trabajo: 'Respuestas automáticas', grupo: 'Vender', plan: 'Pro', precioUsd: 39, fuente: 'https://help.manychat.com/hc/en-us/articles/25800228332572' },
   { app: app('Canva', 'canva'), trabajo: 'Diseño', grupo: 'Crear contenido', plan: 'Pro', precioUsd: 18, fuente: 'https://www.canva.com/pricing/' },
   { app: app('CapCut', 'capcut'), trabajo: 'Edición de video', grupo: 'Crear contenido', plan: 'Pro', precioUsd: 19.99, fuente: 'https://www.capcut.com/pricing' },
-  // Llamada con Leila (13/11/2026): OpusClip junto a CapCut y HeyGen junto a Higgsfield, cada una en el plan que se paga para usarla
-  // de verdad (el Cerebro, 13/11: «HeyGen Creator y Opus Clip Pro»), buscado el 13/11/2026: OpusClip Pro US$29 por mes pagando mes a
-  // mes; HeyGen Creator US$29 por mes. Contra MaKo Pro (US$97).
-  { app: app('OpusClip', 'opusclip'), trabajo: 'Clips para redes', grupo: 'Crear contenido', plan: 'Pro', precioUsd: 29, fuente: 'https://www.opus.pro/pricing' },
+  // OpusClip (Pro, US$29: entró con la llamada con Leila del 13/11/2026) salió del ticket el 15/11/2026. Martín: «en la parte de
+  // comparaciones de lo que ya estás pagando, yo quitaría Opus Clip… en el ticket de lo que probablemente ya pagas». Sólo del ticket:
+  // sigue en la tira de logos (CONOCIDAS) y en la tabla de la comparación. La suma y el ahorro de la portada se recalculan solos.
   // Martín, 13/11/2026: «no incluiste muchas otras apps que un emprendedor sí pagaría… no quiero que exageres», y después: «antes de
   // Foreplay prefiero el más famoso, que es Higgsfield» y «puedes agregar Gamma, Skool y Mailchimp también». El plan más barato de
   // cada una que sirve para ese trabajo, pagando mes a mes (Skool: Pro, el que no se queda con el 10 % de cada venta).
@@ -127,6 +126,15 @@ export function appsDeLaTira(): AppQueReemplaza[] {
   const todas = appsQueReemplaza();
   return CONOCIDAS.flatMap((n) => todas.filter((a) => a.nombre === n));
 }
+
+/**
+ * Los logos cuya marca es azul CASI NEGRO, que sobre el fondo oscuro del sitio no se leen: en el modo oscuro van sobre su cuadro blanco
+ * (el CSS sale de acá: app/vsl/_sitio/estilos.ts, CSS_BASE). El nombre es el archivo en public/vsl-assets/logos/apps/. Medido el
+ * 15/11/2026 en la tira de la portada: el cursor de ClickFunnels es #080436 y la «s» de Skool #282F97, sobre #060419.
+ * Y ManyChat (16/11/2026): su ícono es un cuadro BLANCO con la «M» negra tocando los bordes; en el claro no se nota, pero en el oscuro
+ * se veía el cuadro con la M cortada por las esquinas redondeadas. Con el cuadro y los 3 px de aire de los otros dos, la M queda adentro.
+ */
+export const LOGOS_SOBRE_BLANCO: readonly string[] = ['clickfunnels', 'skool', 'manychat'];
 
 /** Todas, una vez cada una, en el orden de la lista: la comparación. */
 export function appsQueReemplaza(): AppQueReemplaza[] {

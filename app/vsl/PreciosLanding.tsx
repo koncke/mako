@@ -18,21 +18,9 @@ import { CSS_VITRINA, CompararPlanes } from '@/app/planes/Vitrina';
 /** Un plan como lo dibuja la landing, con si se cobra en línea (la misma cuenta que /planes: `ofertasDeLosPlanes`). */
 export type PlanEnLanding = PlanEnTarjeta;
 
-/** Lo que se pasa de la URL de la landing a la página del plan. Sólo estas claves (las mismas que /planes). */
-export const CLAVES_A_PLANES = ['landing', 'avatar', 'funcionalidad', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid', 'ref'] as const;
-
-/** El sufijo para los botones: las claves de la URL actual que pasan, recortadas. Puro (lo prueba el test). */
-export function sufijoDesdeUrl(search: string, landing: string | null): string {
-  const de = new URLSearchParams(search);
-  const qs = new URLSearchParams();
-  for (const k of CLAVES_A_PLANES) {
-    const v = de.get(k)?.trim();
-    if (v) qs.set(k, v.slice(0, 250));
-  }
-  if (landing && !qs.has('landing')) qs.set('landing', landing);
-  const s = qs.toString();
-  return s ? `?${s}` : '';
-}
+// Lo que se pasa de la URL de la landing a la página del plan (sólo estas claves, las mismas que /planes): las claves y el sufijo viven en ./sufijo-a-planes.ts desde el 15/11/2026 (puro, sin React: lo usa también la portada, que es del
+// servidor) y se reexportan acá para quien ya los importaba de este archivo.
+export { CLAVES_A_PLANES, sufijoDesdeUrl } from './sufijo-a-planes';
 
 // Los bloques son LOS MISMOS de /planes (app/planes/Tarjetas.tsx, 24/10/2026, noche: «Tienes que VENDER»): una sola pieza,
 // así la landing y la página de precios no dicen dos cosas distintas del mismo plan.
@@ -71,7 +59,9 @@ export function PreciosLanding({ planes, sufijo }: { planes: readonly PlanEnLand
           clases son `planes-*`, así que su hoja no toca el diseño de la landing. */}
       <style dangerouslySetInnerHTML={{ __html: CSS + CSS_TARJETAS + CSS_PLANES + CSS_VITRINA }} />
       <h2 className="mk-precios-titulo">Elige cómo quieres crecer con MaKo</h2>
-      <p className="mk-precios-sub">Por tu cuenta, con MaKo, o con nosotros a tu lado. {bajadaDePlanes(planes.some((p) => p.cobrable))}</p>
+      {/* «Con Martín a tu lado», no «con nosotros» (16/11/2026): Martín todavía no tiene equipo, y el acompañamiento de la tercera
+          columna (el MaKo Accelerator) es con él. */}
+      <p className="mk-precios-sub">Por tu cuenta, con MaKo, o con Martín a tu lado. {bajadaDePlanes(planes.some((p) => p.cobrable))}</p>
       <TarjetasPlanes promoVigente={promoVigente} planes={planes} sufijo={sufijo} />
       {/* EL SUFIJO TAMBIÉN A LA TABLA (14/11/2026). Iba sin él y caía en el default `sufijo = ''` de `CompararPlanes`
           (app/planes/Vitrina.tsx): en la landing, los botones de «Compara los planes» perdían el origen de la campaña y el

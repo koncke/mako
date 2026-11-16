@@ -223,6 +223,8 @@ html[data-sitio-modo="oscuro"] #d-copywriting-t2:checked ~ .d-copywriting-pestan
 .d-copywriting-caso-h { margin: 12px 0 10px; max-width: 640px; font-family: var(--serif); font-weight: 400; font-size: 40px; line-height: 43.2px; letter-spacing: -0.7px; }
 .d-copywriting-caso-p { max-width: 58ch; font-size: 15px; line-height: 24px; color: var(--cuerpo); }
 .d-copywriting-flechas { display: flex; gap: 8px; flex-shrink: 0; padding-bottom: 6px; }
+/* Las flechas, los signos de las preguntas y la «×» van DIBUJADOS y centrados en su lienzo (15/11/2026, Martín: «céntralo bien
+   todo»): eran letras («←», «+», «−», «×»), que se centran por su caja y no por su trazo, y quedaban hasta 2 px corridas. */
 .d-copywriting-flechita { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--tinta); display: grid; place-items: center; color: var(--tinta); font-size: 20px; line-height: 1;
   cursor: pointer; user-select: none; transition: background .15s, color .15s, opacity .15s; }
 .d-copywriting-flechita:hover { background: var(--tinta); color: var(--crema); }
@@ -240,6 +242,8 @@ html[data-sitio-modo="oscuro"] #d-copywriting-t2:checked ~ .d-copywriting-pestan
 .d-copywriting-ficha blockquote strong { font-weight: 700; }
 .d-copywriting-ficha figcaption { display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid var(--linea-2); }
 .d-copywriting-ficha--tinta figcaption { border-top-color: #3A332B; }
+/* La inicial, centrada por su TINTA: text-box recorta su caja a la altura de las mayúsculas y la línea de base. */
+.d-copywriting-mono > span { display: block; text-box: trim-both cap alphabetic; }
 .d-copywriting-mono { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #E3EBFC; color: ${PETROLEO};
   font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: .72px; }
 .d-copywriting-ficha--tinta .d-copywriting-mono { background: ${AZUL}; color: #FBF6EA; }
@@ -323,8 +327,8 @@ html[data-sitio-modo="oscuro"] #d-copywriting-t2:checked ~ .d-copywriting-pestan
 .d-copywriting-card--no .d-copywriting-card-l { color: #A03D16; }
 .d-copywriting-card--no p:not(.d-copywriting-card-l) { position: relative; padding-left: 28px; }
 .d-copywriting-card--no p strong { color: #8F2418; }
-.d-copywriting-card--no p:not(.d-copywriting-card-l)::before { content: '×'; position: absolute; left: 0; top: 3px; width: 16px; height: 16px; border: 1.5px solid #C0491F; border-radius: 50%; color: #C0491F;
-  font-size: 13px; line-height: 13px; font-weight: 700; text-align: center; }
+.d-copywriting-card--no p:not(.d-copywriting-card-l)::before { content: ''; position: absolute; left: 0; top: 3px; width: 16px; height: 16px; box-sizing: border-box; border: 1.5px solid #C0491F; border-radius: 50%;
+  background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20d%3D%27M4.5%204.5l7%207M11.5%204.5l-7%207%27%20fill%3D%27none%27%20stroke%3D%27%23C0491F%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E") center / 8px 8px no-repeat; }
 
 /* Las preguntas: su tarjeta «Questions». */
 .d-copywriting-faq { background: var(--papel); border: 1px solid var(--linea); border-radius: 16px; padding: 24px 22px; }
@@ -333,9 +337,9 @@ html[data-sitio-modo="oscuro"] #d-copywriting-t2:checked ~ .d-copywriting-pestan
 .d-copywriting-faq summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0;
   font-size: 13.5px; line-height: 18px; font-weight: 600; color: var(--tinta); }
 .d-copywriting-faq summary::-webkit-details-marker { display: none; }
-.d-copywriting-faq summary::after { content: '+'; flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--linea); display: grid; place-items: center;
-  font-size: 13px; line-height: 1; font-weight: 600; color: var(--gris); transition: background .14s, color .14s; }
-.d-copywriting-faq details[open] summary::after { content: '−'; background: ${AZUL}; border-color: ${AZUL}; color: #FBF6EA; }
+.d-copywriting-faq summary::after { content: ''; flex: none; width: 22px; height: 22px; box-sizing: border-box; border-radius: 50%; border: 1px solid var(--linea);
+  background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20d%3D%27M8%203.5v9M3.5%208h9%27%20fill%3D%27none%27%20stroke%3D%27%235C534A%27%20stroke-width%3D%271.8%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E") center / 10px 10px no-repeat; transition: background-color .14s; }
+.d-copywriting-faq details[open] summary::after { background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20d%3D%27M3.5%208h9%27%20fill%3D%27none%27%20stroke%3D%27%23FBF6EA%27%20stroke-width%3D%271.8%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E") center / 10px 10px no-repeat, ${AZUL}; border-color: ${AZUL}; }
 .d-copywriting-faq-r { padding-bottom: 13px; font-size: 13px; line-height: 20.15px; color: var(--cuerpo); }
 
 /* El cierre. */
@@ -695,18 +699,18 @@ function secciones(bloques: Bloque[]): ReactNode[] {
                   <p className="d-copywriting-caso-p">{CASO.sub}</p>
                 </div>
                 <div className="d-copywriting-flechas" aria-hidden="true">
-                  <span className="d-copywriting-flechita" data-va="-1">←</span>
-                  <span className="d-copywriting-flechita" data-va="1">→</span>
+                  <span className="d-copywriting-flechita" data-va="-1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7" /></svg></span>
+                  <span className="d-copywriting-flechita" data-va="1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" /></svg></span>
                 </div>
               </div>
               <div className="d-copywriting-fichas" tabIndex={0} role="region" aria-label={`El caso de ${CASO.quien}: deslízalo o usa las flechas del teclado`}>
                 <figure className="d-copywriting-ficha d-copywriting-ficha--tinta" data-tema-fijo="">
                   <blockquote>{CASO.historia.map((h, j) => <p key={j} dangerouslySetInnerHTML={html(h)} />)}</blockquote>
-                  <figcaption><span className="d-copywriting-mono" aria-hidden="true">M</span><span><span className="d-copywriting-quien">{CASO.quien}</span><span className="d-copywriting-rol">{CASO.rol}</span></span></figcaption>
+                  <figcaption><span className="d-copywriting-mono" aria-hidden="true"><span>M</span></span><span><span className="d-copywriting-quien">{CASO.quien}</span><span className="d-copywriting-rol">{CASO.rol}</span></span></figcaption>
                 </figure>
                 <figure className="d-copywriting-ficha">
                   <blockquote><p dangerouslySetInnerHTML={html(CASO.resultado)} /></blockquote>
-                  <figcaption><span className="d-copywriting-mono" aria-hidden="true">M</span><span><span className="d-copywriting-quien">{CASO.quien}</span><span className="d-copywriting-rol">{CASO.meses.map((m) => `${m.mes} ${m.monto}`).join(' · ')}</span></span></figcaption>
+                  <figcaption><span className="d-copywriting-mono" aria-hidden="true"><span>M</span></span><span><span className="d-copywriting-quien">{CASO.quien}</span><span className="d-copywriting-rol">{CASO.meses.map((m) => `${m.mes} ${m.monto}`).join(' · ')}</span></span></figcaption>
                 </figure>
                 <figure className="d-copywriting-ficha d-copywriting-ficha--video" data-tema-fijo="">
                   <video muted autoPlay loop playsInline preload="metadata" aria-label={`${CASO.quien}, en un escenario`}><source src={CASO.video} type="video/mp4" /></video>

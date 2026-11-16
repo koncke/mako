@@ -200,7 +200,7 @@ function Galeria({ filas }: { filas?: Filas }) {
                   <div className={c('tablero')}>{figura}</div>
                   <aside className={c('tarjeta')}>
                     <div className={c('t-estado')}>
-                      <span className={c('t-ok')} aria-hidden="true">✓</span>
+                      <span className={c('t-ok')} aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 12l5 5l10 -10" /></svg></span>
                       <div><p className={c('t-titulo')}>{TARJETA.titulo}</p><p className={c('t-sub')}>{TARJETA.sub}</p></div>
                     </div>
                     <dl className={c('t-cifras')}>

@@ -104,7 +104,8 @@ export const LANDING_ADS: LandingCompetencia = {
       // Antes: «Agenda tu llamada: te mostramos…». Martín (12/11/2026): ningún lado ofrece agendar una llamada; se empieza con la prueba.
       // Como la referencia, sólo el párrafo y el botón (14/11/2026): lo que era una lista de dos («Entras hoy.», «Personas detrás
       // de MaKo.») va en el párrafo, y los días de la prueba (TEXTO_CIERRE) en la frase del cierre, donde Master Ads pone su precio.
-      bajada: 'Empiezas hoy por tu cuenta, con la IA de MaKo. Si algo falla, lo reportas desde la app y el equipo de MaKo lo arregla y te avisa en tu grupo de WhatsApp.',
+      // «Lo arreglamos», no «el equipo de MaKo lo arregla» (16/11/2026): Martín todavía no tiene equipo, y nada promete uno.
+      bajada: 'Empiezas hoy por tu cuenta, con la IA de MaKo. Si algo falla, lo reportas desde la app, lo arreglamos y te avisamos en tu grupo de WhatsApp.',
       items: [],
     },
     {

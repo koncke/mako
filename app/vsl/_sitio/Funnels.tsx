@@ -37,7 +37,7 @@ function Recorrido({ f }: { f: FunnelSitio }) {
     <ol className="s-fh-mapa" aria-label={`El recorrido: ${f.recorrido.join(', ')}`} style={{ ['--n' as string]: n }}>
       {f.recorrido.map((r, i) => (
         <li key={r} className="s-fh-nodo" style={{ ['--i' as string]: i }}>
-          <span className="s-fh-num">{i + 1}</span>
+          <span className="s-fh-num"><span>{i + 1}</span></span>
           <span className="s-fh-nom">{r}</span>
         </li>
       ))}
@@ -86,7 +86,7 @@ export function PaginaFunnel({ f }: { f: FunnelSitio }) {
               return (
                 <div key={p.paso} className={`s-zz-fila${i % 2 ? ' s-zz-inv' : ''}`}>
                   <div className="s-zz-tx">
-                    <p className="s-zz-r s-fpaso-r"><span className="s-fpaso-n">{i + 1}</span>{p.paso}</p>
+                    <p className="s-zz-r s-fpaso-r"><span className="s-fpaso-n"><span>{i + 1}</span></span>{p.paso}</p>
                     <h3 className="s-zz-t s-fpaso-t">{p.texto}</h3>
                     <p className="s-fpaso-en">Lo hace: {p.enMako.map((m, k) => <span key={m.href}>{k ? ' · ' : ''}<a href={m.href}>{m.nombre}</a></span>)}</p>
                   </div>
@@ -151,6 +151,11 @@ export const CSS_FUNNELS = `
 .s-fh-mapa{list-style:none;margin:0;padding:28px;border-radius:24px;background:#0D0B28;border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:18px;position:relative;box-shadow:0 30px 80px -30px rgba(0,0,0,.7)}
 .s-fh-nodo{position:relative;display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:16px;background:#151236;border:1px solid rgba(255,255,255,.08);animation:s-fh-prende calc(var(--n)*1.1s) infinite;animation-delay:calc(var(--i)*1.1s)}
 .s-fh-nodo+.s-fh-nodo::before{content:"";position:absolute;left:37px;top:-19px;width:2px;height:18px;background:linear-gradient(#2F6FED,rgba(47,111,237,.2))}
+/* Los números en su círculo, centrados por su TINTA (15/11/2026, Martín: «céntralo bien todo»): text-box recorta la caja del número a
+   la altura de las mayúsculas y la línea de base, que es lo que ocupa un dígito, y el centrado de la grilla cae en su medio. Sin
+   recorte se centraba la caja de la letra (con su espacio de acentos arriba y de descendentes abajo) y el número quedaba ~1 px arriba.
+   El recorte va en el número (un <span> adentro), que es la caja de texto que la grilla centra. */
+.s-fh-num>span,.s-fpaso-n>span{display:block;text-box:trim-both cap alphabetic}
 .s-fh-num{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:17px;background:#1C1940;color:#C9C6E0;animation:s-fh-num calc(var(--n)*1.1s) infinite;animation-delay:calc(var(--i)*1.1s)}
 .s-fh-nom{font-size:20px;font-weight:700;color:#fff}
 @keyframes s-fh-prende{0%,100%{border-color:rgba(255,255,255,.08);box-shadow:none;transform:none}6%,22%{border-color:rgba(47,111,237,.9);box-shadow:0 0 0 4px rgba(47,111,237,.18),0 12px 30px -10px rgba(47,111,237,.6);transform:translateX(6px)}34%{border-color:rgba(255,255,255,.08);box-shadow:none;transform:none}}

@@ -35,7 +35,13 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 const dibujar = (l: Landing) => renderToStaticMarkup(createElement(LandingCompetencia, { landing: l }));
 /** Sólo lo propio de la landing: lo de abajo (la grilla del resto de las funciones) sale de la landing principal. Una
  *  landing con diseño copiado (./disenos) no la tiene: ahí el resto de las funciones va en su pie, y se lee la página entera. */
-const propio = (html: string) => (html.includes('<nav class="mk-more"') ? html.slice(0, html.indexOf('<nav class="mk-more"')) : html);
+// Lo propio de la landing: sin la grilla del resto (las de la cara común) y sin el PIE DEL SITIO, que es el mismo en todas las páginas
+// y lleva el link legal a /reembolsos (la política que piden Stripe y Mercado Pago, 15/11/2026): un link a la política no es una
+// garantía de devolución que la landing prometa.
+const propio = (html: string) => {
+  const sinPie = html.includes('<div class="s-sitio s-solo-pie') ? html.slice(0, html.indexOf('<div class="s-sitio s-solo-pie')) : html;
+  return sinPie.includes('<nav class="mk-more"') ? sinPie.slice(0, sinPie.indexOf('<nav class="mk-more"')) : sinPie;
+};
 /** El texto que se lee: sin etiquetas, sin el <style> y con las entidades más comunes resueltas. */
 const textoVisible = (html: string) => html
   .replace(/<style[\s\S]*?<\/style>/g, ' ')
@@ -171,7 +177,9 @@ test('cada landing lleva la barra del sitio arriba y esconde la copiada de su re
     if (!DISENOS[l.slug]) continue;
     const html = dibujar(l);
     assert.ok(html.includes('s-solo-barra'), `${l.slug}: sin la barra del sitio`);
-    for (const [r, que] of [['/vsl/comparaciones', 'Comparaciones'], ['/planes', 'Precios'], ['/login', 'Iniciar sesión']] as const) {
+    // «Comparaciones» está adentro de «Recursos» desde el 15/11/2026 (Martín: «en lugar de poner comparaciones en la top bar, pondría
+    // recursos»): tests/sitio-recursos-y-pie.test.ts.
+    for (const [r, que] of [['/vsl/comparaciones', 'Todas las comparaciones'], ['/planes', 'Precios'], ['/login', 'Iniciar sesión']] as const) {
       assert.ok(html.includes(`href="${r}">${que}</a>`), `${l.slug}: la barra sin «${que}»`);
     }
     const sel = BARRA_PROPIA[l.slug];

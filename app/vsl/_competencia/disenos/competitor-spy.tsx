@@ -90,7 +90,7 @@ function Cta({ cara = 'blanco', clase = '' }: { cara?: 'blanco' | 'oscuro' | 'ba
   );
 }
 
-const ICONO_CHECK = ['M5 12l5 5l10 -10'];
+const ICONO_CHECK = ['M4.5 12l5 5l10 -10'];
 
 // ── La barra ─────────────────────────────────────────────────────────────────
 function Barra() {
@@ -426,7 +426,7 @@ function Banda({ b }: { b: De<'pasos'> }) {
         <ol className={`${P}-banda-pasos`}>
           {b.pasos.map((p, i) => (
             <li key={p.titulo}>
-              <span className={`${P}-banda-n`}>{i + 1}</span>
+              <span className={`${P}-banda-n`}><span>{i + 1}</span></span>
               <span className={`${P}-banda-pt`}>
                 <strong dangerouslySetInnerHTML={html(p.titulo)} />
                 <span dangerouslySetInnerHTML={html(p.texto)} />
@@ -950,6 +950,8 @@ ${CSS_PESTANAS}
 .${P}-banda-p { font-size: 16px; line-height: 24px; color: rgba(255,255,255,.68); }
 .${P}-banda-pasos { display: flex; gap: 36px; }
 .${P}-banda-pasos li { flex: 1; display: flex; align-items: flex-start; gap: 8px; }
+/* El número, centrado por su TINTA (15/11/2026): text-box recorta su caja a la altura de las mayúsculas y la línea de base. */
+.${P}-banda-n > span { display: block; text-box: trim-both cap alphabetic; }
 .${P}-banda-n { flex: none; width: 24px; height: 24px; margin-top: 3px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.84); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; }
 .${P}-banda-pt { display: flex; flex-direction: column; gap: 2px; }
 .${P}-banda-pt strong { font-size: 16px; font-weight: 500; line-height: 30px; letter-spacing: -0.18px; color: rgba(255,255,255,.84); }

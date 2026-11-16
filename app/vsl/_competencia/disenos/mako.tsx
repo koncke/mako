@@ -432,8 +432,8 @@ function Adentro({ b }: { b: B<'tarjetas'> }) {
       <div className="d-mako-dentro-cab">
         <h2 className="d-mako-h2 d-mako-h2-claro d-mako-dentro-h d-mako-rv" dangerouslySetInnerHTML={html(b.titulo)} />
         <div className="d-mako-dentro-flechas">
-          <a href="#d-mako-riel" className="d-mako-dentro-fl d-mako-dentro-ant" data-dir="-1" aria-label="Ver la caja anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7l7 7" /></svg></a>
-          <a href="#d-mako-riel" className="d-mako-dentro-fl" data-dir="1" aria-label="Ver la caja siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 5l7 7l-7 7" /></svg></a>
+          <a href="#d-mako-riel" className="d-mako-dentro-fl d-mako-dentro-ant" data-dir="-1" aria-label="Ver la caja anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15.5 5l-7 7l7 7" /></svg></a>
+          <a href="#d-mako-riel" className="d-mako-dentro-fl" data-dir="1" aria-label="Ver la caja siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8.5 5l7 7l-7 7" /></svg></a>
         </div>
       </div>
       <div className="d-mako-dentro-fila" id="d-mako-riel">

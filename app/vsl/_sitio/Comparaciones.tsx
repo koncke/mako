@@ -82,8 +82,10 @@ export function TablaCompetencia({ competidores }: { competidores: readonly Comp
                 <span className="s-sr">Función</span>
                 {varias ? (
                   <span className="s-mx-flechas">
-                    <button type="button" data-mx-ir="-1" aria-label="Ver las apps anteriores" disabled>‹</button>
-                    <button type="button" data-mx-ir="1" aria-label="Ver las apps siguientes" disabled>›</button>
+                    {/* Las flechas, DIBUJADAS y centradas en su lienzo (la tinta de x 9 a 15 y de y 6 a 18, el medio en 12): eran «‹» y
+                        «›», letras que se centran por su caja y no por su trazo (Martín, 15/11/2026: «céntralo bien todo»). */}
+                    <button type="button" data-mx-ir="-1" aria-label="Ver las apps anteriores" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg></button>
+                    <button type="button" data-mx-ir="1" aria-label="Ver las apps siguientes" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6" /></svg></button>
                   </span>
                 ) : null}
               </th>
@@ -216,7 +218,7 @@ export function ComparacionesSitio() {
 
         <TarjetasVs />
       </main>
-      <Pie />
+      <Pie claro />
     </div>
   );
 }
@@ -263,7 +265,7 @@ export function ComparacionVs({ c }: { c: Competidor }) {
 
         <TarjetasVs excepto={c.slug} />
       </main>
-      <Pie />
+      <Pie claro />
     </div>
   );
 }

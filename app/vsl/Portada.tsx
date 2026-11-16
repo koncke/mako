@@ -6,7 +6,7 @@
 // renderizar en un test (tests/razon-social-sitio.test.ts) sin la base.
 // =============================================================================
 
-import { Suspense } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import Landing, { type DisenoLanding } from './Landing';
 import type { PlanEnLanding } from './PreciosLanding';
 import { PortadaSinJs } from './PortadaSinJs';
@@ -33,8 +33,10 @@ const NEGOCIO = {
 };
 
 /** `diseno` null = la landing de siempre (landing-html.ts). `conSuspense` false: sin el fallback (las de cada funnel). */
-export function Portada({ diseno, conSuspense = true, planes = [], landing = null }: {
+export function Portada({ diseno, conSuspense = true, planes = [], landing = null, pie }: {
   diseno: DisenoLanding | null; conSuspense?: boolean;
+  /** El pie del sitio, al final de la caja de la landing en lugar de los links legales sueltos (app/vsl/[slug]/page.tsx). */
+  pie?: ReactNode;
   /** Las columnas de precios (24/10/2026): los planes con si se cobran en línea. */
   planes?: readonly PlanEnLanding[];
   /** El slug de la landing de un funnel, para el pedido. */
@@ -44,7 +46,7 @@ export function Portada({ diseno, conSuspense = true, planes = [], landing = nul
     return (
       <>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(NEGOCIO) }} />
-        <Landing diseno={diseno} planes={planes} landing={landing} />
+        <Landing diseno={diseno} planes={planes} landing={landing} pie={pie} />
       </>
     );
   }
@@ -64,7 +66,7 @@ export function Portada({ diseno, conSuspense = true, planes = [], landing = nul
           verificación de Meta todavía abierta es un riesgo que no compra nada. Sacarlo
           es una línea, y obliga a ajustar tests/razon-social-sitio.test.ts. */}
       <Suspense fallback={<PortadaSinJs />}>
-        <Landing diseno={diseno} planes={planes} landing={landing} />
+        <Landing diseno={diseno} planes={planes} landing={landing} pie={pie} />
       </Suspense>
     </>
   );

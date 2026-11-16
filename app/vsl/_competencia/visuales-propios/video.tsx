@@ -32,7 +32,7 @@ export default function VisualVideo() {
           <ul className="mk-v-video-pasos">
             {PASOS.map((p, i) => (
               <li key={p} style={{ animationDelay: `${(0.6 + i * 0.9).toFixed(1)}s` }}>
-                <span className="mk-v-video-tilde"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10" /></svg></span>
+                <span className="mk-v-video-tilde"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 12l5 5l10 -10" /></svg></span>
                 {p}
               </li>
             ))}

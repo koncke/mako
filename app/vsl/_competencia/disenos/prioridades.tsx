@@ -51,7 +51,7 @@ function Ico({ paths, size = 16, grosor = 2, className }: { paths?: string[]; si
 }
 
 const CHEVRON = ['M6 9l6 6l6 -6'];
-const CHECK = ['M5 12l5 5l10 -10'];
+const CHECK = ['M4.5 12l5 5l10 -10'];
 const CRUZ = ['M18 6l-12 12', 'M6 6l12 12'];
 /** Los íconos de las cuatro vistas del Plan, para las casillas de la tarjeta del hero. */
 const VISTAS: Record<string, string[]> = {
@@ -246,7 +246,7 @@ function PorQue({ b }: { b: B<'tarjetas'> }) {
         </div>
         <ul className="d-prioridades-porque-l">
           {b.items.map((it) => (
-            <li key={it.titulo}><span className="d-prioridades-porque-ico"><Ico paths={CHECK} size={11} grosor={3.4} /></span><p><b dangerouslySetInnerHTML={html(it.titulo + '.')} /> <span dangerouslySetInnerHTML={html(it.texto)} /></p></li>
+            <li key={it.titulo}><span className="d-prioridades-porque-ico"><Ico paths={CHECK} size={12} grosor={3.1} /></span><p><b dangerouslySetInnerHTML={html(it.titulo + '.')} /> <span dangerouslySetInnerHTML={html(it.texto)} /></p></li>
           ))}
         </ul>
       </div>

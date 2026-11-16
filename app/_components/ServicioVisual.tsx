@@ -158,7 +158,12 @@ export const ICON: Record<string, IconDef> = {
   // con la EMPRESA, y va su logotipo. `agente` es con lo que el cliente habla —Claude,
   // el producto—, y va la ráfaga. Estaban cambiados: la integración se llamaba «Claude
   // Code» y mostraba el logo de la empresa.
-  agente: { sym: 'ic-claude', bg: '#181818' },
+  // ⚠️ LA RÁFAGA VA SOBRE CLARO, COMO EL ÍCONO DE SU APP (15/11/2026, Martín, en «Tus apps,
+  // conectadas» de la portada: «el logo de Claude está tipo en negro, no es el correspondiente»).
+  // Iba sobre un cuadro #181818 que no es de la marca: la app de Claude es la ráfaga naranja
+  // (#D97757) sobre el marfil de Anthropic (#F0EEE6). Con el filete de los cuadros claros (Cal.com,
+  // Google), que en una tarjeta blanca no se pierde.
+  agente: { sym: 'ic-claude', bg: '#F0EEE6', bd: '1px solid var(--border-strong)' },
 };
 /**
  * El ícono de un servicio, o un letter-mark honesto.

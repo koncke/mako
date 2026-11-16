@@ -95,7 +95,10 @@ test('las páginas de cada funcionalidad tampoco dicen «VSL Funnel»', () => {
   for (const rel of ['app/vsl/_detalle/features.ts', 'app/vsl/_detalle/FeatureDetail.tsx', 'app/vsl/showcase.ts']) {
     assert.doesNotMatch(leer(rel), /VSL Funnel/i, rel);
   }
-  assert.match(leer('app/vsl/_detalle/FeatureDetail.tsx'), /<p className="mk-foot-tag">El mejor software para vender High Ticket\.<\/p>/);
+  // Su pie es el del sitio desde el 15/11/2026 (Martín: «la bottom bar… debería estar en todas las landing, todas las rutas»), y el
+  // del sitio dice la frase.
+  assert.match(leer('app/vsl/_detalle/FeatureDetail.tsx'), /export function Pie\(\) \{\s*return <PieGlobal claro \/>;/);
+  assert.match(leer('app/vsl/_sitio/Pie.tsx'), /<p className="s-pie-lema">El mejor software para vender High Ticket\.<\/p>/);
 });
 
 // ── /vsl/ads vende lo que hay (29/10/2026, el Cerebro): el Media Buyer que propone y aplica, no crear campañas desde MaKo (la

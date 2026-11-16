@@ -6,7 +6,9 @@
 // Accelerator en /planes (app/planes/Tarjetas.tsx y lib/planes-mako.ts), cuyo «Más información» trae acá
 // (`RUTA_ACCELERATOR`: la ruta en inglés, como los planes, Martín 15/11: «como también la ruta»). La barra lateral de la app
 // se esconde por CSS (`body:has(.acl-root) aside`), como en /planes; la barra del sitio NO va: esta página tiene la suya,
-// con su único botón.
+// con su único botón. EL PIE DEL SITIO SÍ (15/11/2026, Martín: «la bottom bar… debería estar en todas las landing, todas las
+// rutas»): `PieGlobal` oculta el suyo (`.acl-pie`, con «© Martín Koncke» y tres legales), como el de cada landing; los legales,
+// Reembolsos incluida, están en la columna Legal del pie del sitio. Es oscuro, como la página.
 //
 // ⚠️ PÚBLICA (lib/rutas-publicas.ts): sólo GET, no lee cookies, sin <Suspense>; se lee entera sin JavaScript.
 // =============================================================================
@@ -14,6 +16,7 @@
 import type { Metadata } from 'next';
 import { PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
 import { LandingAcelerador } from './LandingAcelerador';
+import { PieGlobal } from '../vsl/_sitio/Barra';
 
 const DESCRIPCION = 'Construye un sistema de adquisición de clientes predecible, con el acompañamiento más personalizado del mercado. Programa por aplicación.';
 
@@ -35,5 +38,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default function AceleradorPage() {
-  return <LandingAcelerador />;
+  return (
+    <>
+      <LandingAcelerador />
+      <PieGlobal />
+    </>
+  );
 }

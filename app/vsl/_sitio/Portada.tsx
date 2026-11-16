@@ -33,7 +33,9 @@ import type { Bloque } from '../_competencia/tipos';
 import PandaPlayer from '../_detalle/PandaPlayer';
 import { VSL_PORTADA } from './vsl-portada';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
-import { CSS_TARJETAS, TarjetasPlanes } from '@/app/planes/Tarjetas';
+import { ColumnasPlanes, CSS_COLUMNAS_PLANES } from './ColumnasPlanes';
+import { APP_BASE_URL, EMAIL_MAKO } from '@/lib/app-url';
+import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { ASESORES, inspiradoEn } from '@/lib/asesores/catalogo';
 import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
 import type { PlanMako } from '@/lib/planes-mako';
@@ -56,6 +58,13 @@ const heroDe = (slug: string): Hero | undefined => landingDeSlug(slug)?.bloques.
 
 /** El VSL que grabó Martín, el mismo de la portada de hoy (el documento publicado de hola-mako.com, 12/11/2026). */
 export { VSL_PORTADA };
+
+/**
+ * Quién está detrás del sitio, en datos estructurados (schema.org Organization), AL PRINCIPIO del HTML. Meta rechazó DOS veces la
+ * verificación del negocio con «la razón social de la empresa debe aparecer en el sitio web» (08/10/2026), y esto vivía en la portada
+ * vieja (app/vsl/Portada.tsx): con la nueva en la raíz (14/11/2026) se había perdido. No reemplaza al texto visible del pie: lo acompaña.
+ */
+const NEGOCIO = { '@context': 'https://schema.org', '@type': 'Organization', name: 'MaKo', legalName: RAZON_SOCIAL_MAKO, url: APP_BASE_URL, email: EMAIL_MAKO };
 
 function HeroSitio() {
   return (
@@ -254,11 +263,11 @@ function CasoSitio() {
         <div className="s-caso-comp">
           <div className="s-caso-col">
             <p className="s-caso-col-t">Antes de MaKo</p>
-            <ul>{CASO_ANTES.map((t) => <li key={t}><span className="s-caso-x" aria-hidden="true">✕</span>{t}</li>)}</ul>
+            <ul>{CASO_ANTES.map((t) => <li key={t}><span className="s-caso-x" aria-hidden="true" />{t}</li>)}</ul>
           </div>
           <div className="s-caso-col s-caso-col-mako">
             <p className="s-caso-col-t">Con MaKo</p>
-            <ul>{CASO_CON_MAKO.map((t) => <li key={t}><span className="s-caso-ok" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10" /></svg></span>{t}</li>)}</ul>
+            <ul>{CASO_CON_MAKO.map((t) => <li key={t}><span className="s-caso-ok" aria-hidden="true" />{t}</li>)}</ul>
           </div>
         </div>
       </div>
@@ -267,21 +276,21 @@ function CasoSitio() {
 }
 
 /**
- * Los precios: LOS MISMOS tres bloques de /planes (app/planes/Tarjetas.tsx → TarjetasPlanes: Essential, Pro y el Accelerator), sobre
- * una franja clara. Martín (12/11/2026): «en la parte de pricing está todo en negro cuando no debería ser así. Y falta el MaKo
- * Accelerator». Lo que se cambie en los bloques de /planes se ve aquí sin tocar nada.
+ * Los precios: LAS MISMAS columnas de /planes (./ColumnasPlanes.tsx: TarjetasPlanes con la barra de MaKo Tokens, mensual o anual,
+ * los mismos botones y las mismas listas), sobre una franja clara. Martín (12/11/2026): «en la parte de pricing está todo en negro
+ * cuando no debería ser así. Y falta el MaKo Accelerator»; y el 15/11: «se tiene que repetir exactamente lo mismo que en precios».
  */
-function PlanesSitio({ planes }: { planes: readonly PlanSitio[] }) {
+function PlanesSitio({ planes, sufijo, promoVigente }: { planes: readonly PlanSitio[]; sufijo: string; promoVigente: boolean }) {
   return (
     <section className="s-sec s-precios" id="precios">
-      <style dangerouslySetInnerHTML={{ __html: CSS_TARJETAS }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_COLUMNAS_PLANES }} />
       <div className="s-cont">
         <div className="s-centro">
           <p className="s-rotulo">Precios</p>
           <h2 className="s-h2">Elige cómo quieres crecer.</h2>
           <p className="s-lede">{bajadaDePlanes(planes.some((p) => p.cobrable))}</p>
         </div>
-        {planes.length ? <div className="s-precios-bloques"><TarjetasPlanes planes={planes} sufijo="" /></div> : null}
+        {planes.length ? <div className="s-precios-bloques"><ColumnasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} /></div> : null}
         <div className="s-centro"><a className="s-btn-sec" href={RUTA_PRECIOS}>Comparar los planes <Flecha /></a></div>
       </div>
     </section>
@@ -292,7 +301,8 @@ function IntegracionesSitio() {
   const todas = integracionesVivas();
   const filas = [todas.filter((_, i) => i % 2 === 0), todas.filter((_, i) => i % 2 === 1)];
   return (
-    <section className="s-sec">
+    // `id`: «Recursos → Integraciones» lleva acá (RUTA_INTEGRACIONES, ./datos.ts).
+    <section className="s-sec" id="integraciones">
       <div className="s-cont">
         <div className="s-int-cab">
           <div>
@@ -328,7 +338,8 @@ function IntegracionesSitio() {
 
 function PreguntasSitio() {
   return (
-    <section className="s-sec">
+    // `id`: «Recursos → Preguntas frecuentes» lleva acá (RUTA_PREGUNTAS, ./datos.ts), como las landings «mako» y «web-generator».
+    <section className="s-sec" id="preguntas">
       <div className="s-cont s-faq-in">
         <h2 className="s-h2">¿Tienes una pregunta?</h2>
         <div className="s-faq-l">
@@ -360,9 +371,15 @@ function CierreSitio() {
   );
 }
 
-export function PortadaSitio({ planes }: { planes: readonly PlanSitio[] }) {
+/**
+ * La portada. `sufijo` y `promoVigente` son los de /planes (app/page.tsx los lee como app/planes/page.tsx): las columnas de precios
+ * pasan el origen de la campaña y el código de partner al plan elegido, y dicen el «Tu primer mes» del 50 % mientras corre el reloj.
+ */
+export function PortadaSitio({ planes, sufijo = '', promoVigente = false }: { planes: readonly PlanSitio[]; sufijo?: string; promoVigente?: boolean }) {
   return (
     <div className="s-sitio">
+      {/* JSON.stringify de strings propios, sin «<»: no hay HTML que escapar. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(NEGOCIO) }} />
       <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_PIE + CSS_PORTADA }} />
       <BrandDefs />
       <Barra />
@@ -374,7 +391,7 @@ export function PortadaSitio({ planes }: { planes: readonly PlanSitio[] }) {
             Claude y tu GPT», «Lo que dicen los que trabajaron con Martín» (irá un testimonio de quien ya usa MaKo) y «Tu IA a precio
             de proveedor». */}
         <CasoSitio />
-        <PlanesSitio planes={planes} />
+        <PlanesSitio planes={planes} sufijo={sufijo} promoVigente={promoVigente} />
         <SeccionReemplaza ver={RUTA_COMPARACIONES} />
         <IntegracionesSitio />
         <PreguntasSitio />

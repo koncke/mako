@@ -41,7 +41,7 @@ function Icono({ d, size = 16, grosor = 2 }: { d: string[]; size?: number; groso
   );
 }
 const FLECHA = ['M5 12h14', 'M12 5l7 7-7 7'];
-const CHEQUE = ['M5 12l5 5l10 -10'];
+const CHEQUE = ['M4.5 12l5 5l10 -10'];
 const ABAJO = ['M6 9l6 6l6 -6'];
 
 /** Los cuatro corchetes de las esquinas: la firma de SetSmart alrededor de botones, títulos y la demo. */

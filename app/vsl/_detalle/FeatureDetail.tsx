@@ -19,6 +19,7 @@ import PandaPlayer from './PandaPlayer';
 import CasoCarrusel from './CasoCarrusel';
 import { gridHtml } from './grid-landing';
 import { RUTA_CTA, TEXTO_CIERRE, TEXTO_CTA } from '../_competencia/cta';
+import { PieGlobal } from '../_sitio/Barra';
 
 // ⚠️ ACÁ NO SE AGENDA NINGUNA LLAMADA (14/11/2026). Martín, textual: «lo de agendar llamadas sí debería estar todavía para el
 // tema de Accelerator. Ahí debería haber la agenda de llamada. **Pero en ningún otro lado debería estar**». La única agenda
@@ -120,7 +121,7 @@ export function CasoMauricio() {
           ))}
           <div className="mk-hist-check">
             <span className="mk-hist-check-ic" aria-hidden="true">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10" /></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 12l5 5l10 -10" /></svg>
             </span>
             <span>Lo que Mauricio necesitaba era alguien que se metiera de verdad en su negocio y tomara, con datos, las decisiones correctas para su caso.</span>
           </div>
@@ -155,27 +156,14 @@ export function Cabecera() {
   );
 }
 
-/** El pie de las páginas de /vsl/<slug>. */
+/**
+ * El pie de las páginas de /vsl/<slug>: EL DEL SITIO (15/11/2026, Martín: «la bottom bar… debería estar en todas las landing, todas
+ * las rutas»). Era uno propio (el logo, «El mejor software para vender High Ticket.», dos links y «© MaKo — Todos los derechos
+ * reservados.», sin la razón social ni los legales). Va ADENTRO de `.mk-det`, que es una caja fija con su propio scroll: afuera no se
+ * alcanzaría. Claro, como estas páginas, que no tienen el sol y la luna.
+ */
 export function Pie() {
-  return (
-    <>
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer className="mk-foot">
-        <div className="mk-foot-in">
-          <a href="/" className="mk-logo">
-            <span className="mk-logo-mark"><svg width="20" height="20" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg></span>
-            <span className="mk-logo-txt">MaKo</span>
-          </a>
-          <p className="mk-foot-tag">El mejor software para vender High Ticket.</p>
-          <div className="mk-foot-links">
-            <a href="/">Funcionalidades</a>
-            <a href={RUTA_CTA}>{TEXTO_CTA}</a>
-          </div>
-          <div className="mk-foot-copy">© MaKo — Todos los derechos reservados.</div>
-        </div>
-      </footer>
-    </>
-  );
+  return <PieGlobal claro />;
 }
 
 export default function FeatureDetail({ slug }: { slug: string }) {

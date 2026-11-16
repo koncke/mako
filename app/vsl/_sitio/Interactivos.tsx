@@ -178,7 +178,10 @@ export function AvatarVideos({ videos }: { videos: readonly VideoAvatar[] }) {
             <video ref={(el) => { refs.current[k] = el; }} src={`/vsl-assets/sitio/avatar/${v.id}.webm`} poster={`/vsl-assets/sitio/avatar/${v.id}.jpg`}
               muted loop playsInline preload="none" aria-label={`El anuncio con IA de ${v.nombre}`} />
             <button type="button" className="s-av-son" onClick={() => sonar(k, v.id)} aria-pressed={sonando === v.id} aria-label={`Escuchar el anuncio de ${v.nombre}`}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z" /><path className="s-av-on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" /><path className="s-av-off" d="m23 9-6 6M17 9l6 6" /></svg>
+              {/* El lienzo corrido un cuarto de unidad (15/11/2026, «céntralo bien todo»): la tinta del parlante con la ✕ va de 1 a 24 y
+                  la del parlante con las ondas de 1 a 22,9, así que en un lienzo de 0 a 24 los dos quedaban a la derecha del centro. Con
+                  0,25 de corrimiento quedan a menos de ¼ px de él, prendido y apagado. */}
+              <svg width="18" height="18" viewBox="0.25 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z" /><path className="s-av-on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" /><path className="s-av-off" d="m23 9-6 6M17 9l6 6" /></svg>
             </button>
           </span>
           <figcaption>{v.nombre}</figcaption>

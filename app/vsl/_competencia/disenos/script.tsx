@@ -994,7 +994,7 @@ const CSS = `
   .d-script-type { font-size: 13px; }
   .d-script-chip { padding: 7px; }
   .d-script-prompt > .d-script-chip span { display: none; }
-  .d-script-submit { width: 39px; height: 39px; }
+  .d-script-submit { width: 40px; height: 40px; }
   .d-script-h2 { font-size: 34px; line-height: 1.02; }
   .d-script-closer { padding: 120px 14px 196px; }
 }

@@ -9,7 +9,7 @@
 // interactividad del diseño: carruseles con autoplay, animación de red en canvas,
 // las columnas de precios (donde estaba la agenda de Calendly, 24/10/2026), reveal on-scroll y autoplay de videos.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
@@ -127,8 +127,14 @@ const CSS_ANFITRION = `
 .vsl-root .mk-precios-seccion { max-width: 1100px; margin: 0 auto; padding: 72px 20px; box-sizing: border-box; }
 `;
 
-export default function Landing({ diseno, planes = [], landing = null }: {
+export default function Landing({ diseno, planes = [], landing = null, pie }: {
   diseno?: DisenoLanding | null;
+  /**
+   * El pie del sitio (`PieGlobal`, armado en el server: app/vsl/[slug]/page.tsx). Va ADENTRO de `.vsl-root`, al final, porque la caja es
+   * fija y tiene su propio scroll: afuera no se alcanzaría. Con él no van los links legales sueltos (`PieLegal`): el pie del sitio los
+   * trae todos, con Reembolsos y la razón social en un nodo.
+   */
+  pie?: ReactNode;
   /** Los planes, con si se cobran en línea (app/page.tsx, `ofertasDeLosPlanes`). Vacío = sin columnas de planes. */
   planes?: readonly PlanEnLanding[];
   /** El slug de la landing de un funnel (/vsl/<slug>), para que el pedido sepa de dónde vino. */
@@ -380,7 +386,7 @@ export default function Landing({ diseno, planes = [], landing = null }: {
       {injectedHtml}
       <style dangerouslySetInnerHTML={{ __html: CSS_ANFITRION }} />
       {destinoPrecios && createPortal(<PreciosLanding planes={planes} sufijo={sufijo} />, destinoPrecios)}
-      <PieLegal />
+      {pie ?? <PieLegal />}
     </div>
   );
 }

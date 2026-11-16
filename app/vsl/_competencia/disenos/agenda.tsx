@@ -180,7 +180,7 @@ function Hero({ b }: { b: Extract<Bloque, { tipo: 'hero' }> }) {
   );
 }
 
-const TILDE = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#03543F" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5l10 -10" /></svg>;
+const TILDE = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#03543F" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4.5 12l5 5l10 -10" /></svg>;
 const TENUE = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth={1.8} aria-hidden="true"><circle cx="12" cy="12" r="8" /></svg>;
 
 /** «Keep the same funnels…»: el titular, la fila de pestañas de borde a borde con su barra que se llena, y la tarjeta blanca sobre

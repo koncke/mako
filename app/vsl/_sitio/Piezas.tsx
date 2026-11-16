@@ -54,11 +54,14 @@ export function Chevron() {
   );
 }
 
-/** El tilde de la tabla de comparaciones. */
+/**
+ * El tilde de la tabla de comparaciones. Centrado en su lienzo de 24 (15/11/2026, Martín: «céntralo bien todo»): el trazo iba de
+ * x 5 a 20 y su medio quedaba en 12,5, medio punto a la derecha; ahora va de 4,5 a 19,5 (y de 7 a 17 a lo alto).
+ */
 export function Tilde() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12l5 5l10 -10" />
+      <path d="M4.5 12l5 5l10 -10" />
     </svg>
   );
 }

@@ -16,7 +16,7 @@ import { notFound } from 'next/navigation';
 import { Portada } from '../Portada';
 import { disenoDeLanding, landingMako } from '@/lib/editor-landing/landing-mako';
 import { planesParaLanding } from '@/lib/compra-plan';
-import { BarraGlobal } from '../_sitio/Barra';
+import { BarraGlobal, PieGlobal } from '../_sitio/Barra';
 
 /**
  * LA BARRA DEL SITIO TAMBIÉN AQUÍ (12/11/2026, Martín: «cuando me voy a industrias como inmobiliarias, infoproductos, coaches,
@@ -56,7 +56,10 @@ export default async function LandingDeMako({ params }: Props) {
     <>
       <BarraGlobal claro barraPropia=".vsl-root header" />
       <style dangerouslySetInnerHTML={{ __html: CSS_BAJO_LA_BARRA }} />
-      <Portada diseno={diseno} conSuspense={false} planes={planes} landing={slug} />
+      {/* EL PIE DEL SITIO, ADENTRO DE LA CAJA (15/11/2026, Martín: «la bottom bar… debería estar en todas las landing, todas las
+          rutas»). `.vsl-root` es una caja FIJA a pantalla completa con su propio scroll: un pie puesto después de ella no se alcanza
+          nunca. Va al final de su contenido (app/vsl/Landing.tsx, `pie`), y oculta el pie del documento como en las landings. */}
+      <Portada diseno={diseno} conSuspense={false} planes={planes} landing={slug} pie={<PieGlobal claro />} />
     </>
   );
 }

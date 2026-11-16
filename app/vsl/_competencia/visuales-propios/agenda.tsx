@@ -24,7 +24,7 @@ export default function VisualAgenda() {
           <span className="mk-v-agenda-resp-r">$10k a $50k</span>
         </div>
         <span className="mk-v-agenda-ok">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10" /></svg>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 12l5 5l10 -10" /></svg>
           Reservada
         </span>
       </div>

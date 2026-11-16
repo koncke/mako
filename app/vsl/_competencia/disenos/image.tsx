@@ -102,7 +102,7 @@ const I = {
   rayo: ['M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11'],
   lapiz: ['M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4', 'M13.5 6.5l4 4'],
   flecha: ['M5 12l14 0', 'M13 18l6 -6', 'M13 6l6 6'],
-  tilde: ['M5 12l5 5l10 -10'],
+  tilde: ['M4.5 12l5 5l10 -10'],
   chevron: ['M6 9l6 6l6 -6'],
   copiar: ['M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z', 'M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1'],
   codigo: ['M7 8l-4 4l4 4', 'M17 8l4 4l-4 4', 'M14 4l-4 16'],
@@ -358,7 +358,7 @@ function Fila({ b, i }: { b: Tarjetas; i: number }) {
         <ul className={`${P}-lista`}>
           {b.items.map((t) => (
             <li key={t.titulo}>
-              <span className={`${P}-tic`} aria-hidden="true">{svg(I.tilde, 11, 2.5)}</span>
+              <span className={`${P}-tic`} aria-hidden="true">{svg(I.tilde, 12, 2.3)}</span>
               <span><b dangerouslySetInnerHTML={html(t.titulo)} /><span dangerouslySetInnerHTML={html(t.texto)} /></span>
             </li>
           ))}
@@ -429,11 +429,11 @@ function Testimonios() {
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <video muted loop playsInline controls preload="metadata"><source src={CASO.video} type="video/mp4" /></video>
           </div>
-          <figcaption className={`${P}-testi-quien`}><span className={`${P}-mono`} aria-hidden="true">{CASO.quien.slice(0, 2).toUpperCase()}</span><span><span className={`${P}-testi-n`}>{CASO.quien}</span><span className={`${P}-testi-r`}>{CASO.rol}</span></span></figcaption>
+          <figcaption className={`${P}-testi-quien`}><span className={`${P}-mono`} aria-hidden="true"><span>{CASO.quien.slice(0, 2).toUpperCase()}</span></span><span><span className={`${P}-testi-n`}>{CASO.quien}</span><span className={`${P}-testi-r`}>{CASO.rol}</span></span></figcaption>
         </figure>
         <figure className={`${P}-testi`}>
           <blockquote className={`${P}-testi-m`}>{CASO.historia.map((h) => <p key={h} dangerouslySetInnerHTML={html(h)} />)}</blockquote>
-          <figcaption className={`${P}-testi-quien`}><span className={`${P}-mono`} aria-hidden="true">{CASO.quien.slice(0, 2).toUpperCase()}</span><span><span className={`${P}-testi-n`}>{CASO.quien}</span><span className={`${P}-testi-r`}>{CASO.rol}</span></span></figcaption>
+          <figcaption className={`${P}-testi-quien`}><span className={`${P}-mono`} aria-hidden="true"><span>{CASO.quien.slice(0, 2).toUpperCase()}</span></span><span><span className={`${P}-testi-n`}>{CASO.quien}</span><span className={`${P}-testi-r`}>{CASO.rol}</span></span></figcaption>
         </figure>
         <figure className={`${P}-testi`}>
           <blockquote className={`${P}-testi-m`}><p dangerouslySetInnerHTML={html(CASO.resultado)} /></blockquote>
@@ -722,7 +722,8 @@ const CSS = `
 .${P}-fila-p { margin-bottom: 28px; font-size: 16px; line-height: 1.65; color: var(--ink-2); }
 .${P}-lista { display: grid; gap: 18.4px; }
 .${P}-lista li { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 12.8px; }
-.${P}-tic { width: 18.4px; height: 18.4px; margin-top: 3.2px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--accent); color: var(--accent); }
+/* Lado par en un círculo par (15/11/2026, «céntralo bien todo»): eran 18,4 px con un tilde de 11, y el tilde caía en medio píxel. */
+.${P}-tic { width: 18px; height: 18px; margin-top: 3.4px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--accent); color: var(--accent); }
 .${P}-lista b { display: block; font-size: 16px; line-height: 1.4; font-weight: 600; color: var(--ink); }
 .${P}-lista b + span { display: block; font-size: 15.2px; line-height: 1.55; color: var(--ink-2); }
 .${P}-medio { display: flex; justify-content: center; min-width: 0; }
@@ -772,6 +773,8 @@ html[data-sitio-modo="oscuro"] .${P}-negra:not(:hover), html[data-sitio-modo="os
 .${P}-testi-vid video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .${P}-testi-m { display: grid; gap: 10px; font-size: 15.2px; line-height: 1.6; color: var(--ink-2); }
 .${P}-testi-quien { display: flex; align-items: center; gap: 11.2px; padding-top: 2.4px; }
+/* Las iniciales, centradas por su TINTA (15/11/2026): text-box recorta su caja a la altura de las mayúsculas y la línea de base. */
+.${P}-mono > span { display: block; text-box: trim-both cap alphabetic; }
 .${P}-mono { flex: none; width: 37.6px; height: 37.6px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--rule); background: var(--accent-soft); color: var(--accent-ink); font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: .02em; }
 .${P}-testi-n { display: block; font-size: 15.2px; line-height: 1.3; font-weight: 600; color: var(--ink); }
 .${P}-testi-r { display: block; font-size: 13px; line-height: 1.4; color: var(--muted); }

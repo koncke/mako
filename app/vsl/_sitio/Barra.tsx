@@ -4,8 +4,9 @@
 // Su estructura: el logo, los links (dos abren un menú a todo el ancho: «Product» y «Solutions»), y a la derecha «Log in» más
 // dos botones. En MaKo: «Producto» (las 19 landings: cuatro grandes con ícono y bajada, y el resto en columnas por familia, como
 // sus columnas Publish / Grow / Earn / Analyze / Connect), «Industrias» (su «Solutions»: la columna «For publishers» son los
-// avatares de MaKo y «Featured stories» el caso de Mauricio; su columna de anunciantes y socios no va), «Comparaciones» y
-// «Precios» (/planes). A la derecha «Iniciar sesión» —o, con la sesión abierta, la foto de perfil y su desplegable, que es lo
+// avatares de MaKo y «Featured stories» el caso de Mauricio; su columna de anunciantes y socios no va), «Recursos» y
+// «Precios» (/planes). «Recursos» (15/11/2026) ocupa el lugar de «Comparaciones», que pasó adentro: el menú de texto con rótulos
+// de beehiiv (Learn · Compare · Connect), con lo que MaKo tiene (./datos.ts, RECURSOS). A la derecha «Iniciar sesión» —o, con la sesión abierta, la foto de perfil y su desplegable, que es lo
 // único de esta barra que mira el navegador y no el servidor (./Cuenta.tsx)—, el botón para empezar y, al final, el sol y la luna (Martín,
 // 12/11/2026: «no tiene sentido arriba entrar, ver planes, agenda tu llamada… debería ser registrarse, loguearse», y después:
 // «el Dark Mode y White Mode deberían estar a la derecha del todo. En la top bar elimina también ver planes… ya tenemos precios»).
@@ -24,10 +25,11 @@
 
 import { LogoMaKo, TEXTO_CTA, RUTA_CTA } from '../_competencia/marca';
 import { TemaSitio } from '../_competencia/TemaSitio';
-import { HISTORIA, INDUSTRIAS, RUTA_COMPARACIONES, RUTA_ENTRAR, RUTA_PRECIOS, menuProducto, type MenuProducto } from './datos';
+import { HISTORIA, INDUSTRIAS, RECURSOS, RUTA_ENTRAR, RUTA_PRECIOS, menuProducto, type ItemRecurso, type MenuProducto } from './datos';
 // La ruta se le pasa por prop a propósito: es un componente de cliente, e importar ./datos.ts desde el navegador se llevaría
 // al paquete el catálogo de integraciones, el de grabadores y las 19 landings para usar un string de siete letras.
 import { MenuCuenta } from './Cuenta';
+import { CerrarMenuMovil } from './CerrarMenuMovil';
 import { Chevron, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE } from './estilos';
 import { Pie } from './Pie';
@@ -108,7 +110,35 @@ function MenuIndustriasPc() {
   );
 }
 
-/** El menú del teléfono: la hamburguesa abre la lista a pantalla completa; «Producto» e «Industrias» se despliegan en su renglón. */
+/** Un renglón de «Recursos»: el link de texto de las columnas de «Producto». Lo que sale de MaKo abre en otra pestaña. */
+function LinkRecurso({ i }: { i: ItemRecurso }) {
+  return <a className="s-mega-l" href={i.href} {...(i.externo ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{i.nombre}</a>;
+}
+
+/**
+ * «Recursos» (Martín, 15/11/2026: «en lugar de poner comparaciones en la top bar, pondría recursos… fíjate como lo tienen otras
+ * aplicaciones»). Como el menú «Resources» de beehiiv y como las columnas de «Producto» (Martín, 12/11: «que todas estén como
+ * están abajo»): un rótulo por grupo y los links, sin íconos ni bajadas. La misma grilla que «Producto», así las columnas caen
+ * en el mismo lugar.
+ */
+function MenuRecursosPc() {
+  return (
+    <div className="s-mega">
+      <div className="s-mega-in">
+        <div className="s-mega-cols">
+          {RECURSOS.map((g) => (
+            <div key={g.rotulo}>
+              <p className="s-mega-r">{g.rotulo}</p>
+              <ul>{g.items.map((i) => <li key={i.href}><LinkRecurso i={i} /></li>)}</ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** El menú del teléfono: la hamburguesa abre la lista a pantalla completa; «Producto», «Industrias» y «Recursos» se despliegan en su renglón. */
 function MenuMovil({ m }: { m: MenuProducto }) {
   return (
     <details className="s-mv">
@@ -117,6 +147,9 @@ function MenuMovil({ m }: { m: MenuProducto }) {
         <svg className="s-mv-x" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true"><path d="M3 3l14 14M17 3L3 17" /></svg>
       </summary>
       <div className="s-mv-panel">
+        {/* Tocar una sección de esta misma página (/#preguntas, /#integraciones, /#caso estando en la portada) cierra el menú: si
+            no, el navegador bajaba detrás y el menú seguía tapando todo (./CerrarMenuMovil.tsx). */}
+        <CerrarMenuMovil />
         <details className="s-mv-sub">
           <summary className="s-mv-fila">Producto <Chevron /></summary>
           <div className="s-mv-cuerpo">
@@ -143,7 +176,17 @@ function MenuMovil({ m }: { m: MenuProducto }) {
             </div>
           </div>
         </details>
-        <a className="s-mv-fila" href={RUTA_COMPARACIONES}>Comparaciones</a>
+        <details className="s-mv-sub">
+          <summary className="s-mv-fila">Recursos <Chevron /></summary>
+          <div className="s-mv-cuerpo">
+            {RECURSOS.map((g) => (
+              <div key={g.rotulo} className="s-mv-grupo">
+                <p className="s-mega-r">{g.rotulo}</p>
+                <ul>{g.items.map((i) => <li key={i.href}><LinkRecurso i={i} /></li>)}</ul>
+              </div>
+            ))}
+          </div>
+        </details>
         <a className="s-mv-fila" href={RUTA_PRECIOS}>Precios</a>
         <div className="s-mv-pie">
           {/* Con la sesión abierta, acá está su cara y no «Iniciar sesión» (./Cuenta.tsx). En el teléfono el desplegable abre
@@ -176,7 +219,10 @@ export function Barra({ claro = false }: { claro?: boolean }) {
                 <span className="s-nav-a" tabIndex={0} aria-haspopup="true">Industrias</span>
                 <MenuIndustriasPc />
               </li>
-              <li className="s-nav-it"><a className="s-nav-a" href={RUTA_COMPARACIONES}>Comparaciones</a></li>
+              <li className="s-nav-it">
+                <span className="s-nav-a" tabIndex={0} aria-haspopup="true">Recursos</span>
+                <MenuRecursosPc />
+              </li>
               <li className="s-nav-it"><a className="s-nav-a" href={RUTA_PRECIOS}>Precios</a></li>
             </ul>
           </nav>
@@ -218,15 +264,29 @@ export function BarraGlobal({ claro = false, barraPropia }: { claro?: boolean; b
  * EL PIE DEL SITIO EN CADA LANDING (14/11/2026, la revisión de las 28 páginas: «cada landing parece de una marca distinta… unos 8 pies
  * distintos… usar un solo pie, el del sitio»; y el Cerebro: Ads no decía «El mejor software para vender High Ticket»). Como la barra:
  * uno para todo el sitio. El pie copiado de la referencia (cada diseño tiene UN <footer>, el suyo) se oculta.
+ * 15/11/2026 (Martín: «la bottom bar… debería estar en todas las landing, todas las rutas. Incluso en la de precios también, en
+ * todas»): es EL lugar que dibuja el pie fuera de la portada, de Comparaciones y de los funnels (que lo traen adentro de su
+ * `.s-sitio`). Lo usan /planes, /accelerator (y su formulario), /mako-partners, las landings, las 14 viejas y las de Web Generator.
+ * Las legales NO (se abren adentro de la app de iPhone, donde no se puede enlazar a comprar): tests/sitio-recursos-y-pie.test.ts
+ * recorre las páginas públicas y pide el pie en cada una (o el porqué de la que no lo lleva, en su `SIN_PIE`).
+ * `claro`: el pie claro, para la página que nace clara (el logo va oscuro: sin el sol y la luna, nadie lo da vuelta).
  */
 export function PieGlobal({ claro = false }: { claro?: boolean }) {
   return (
     <div className={`s-sitio s-solo-pie${claro ? ' s-claro' : ''}`}>
-      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_PIE + '.s-sitio.s-solo-pie{min-height:0}footer:not(.s-pie){display:none!important}' }} />
-      <Pie />
+      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_PIE + CSS_SOLO_PIE }} />
+      <Pie claro={claro} />
     </div>
   );
 }
+
+/**
+ * Solo, el pie no es una página: sin el alto de pantalla de .s-sitio. Y el pie que traía la página (el de su referencia) se oculta.
+ * ⚠️ SÓLO EL PIE DE LA PÁGINA, NO EL DE UNA TARJETA (16/11/2026): un <footer> adentro de un <article> es el pie de ESA pieza, no el
+ * de la página. Era `footer:not(.s-pie)` a secas y en la landing de Copywriting escondía el renglón de abajo de las tarjetas de la
+ * comparación («@AlexHormozi · 105.615 vistas», «El original», «Su versión»). Los pies de las referencias no van en un <article>.
+ */
+export const CSS_SOLO_PIE = '.s-sitio.s-solo-pie{min-height:0}footer:not(.s-pie):not(article footer){display:none!important}';
 
 /** Sola, la barra no es una página: sin el alto de pantalla de .s-sitio, y la que queda fija arriba es la caja entera. */
 const CSS_SOLO_BARRA = '.s-sitio.s-solo-barra{min-height:0;position:sticky;top:0;z-index:2147480000;overflow:visible}';

@@ -10,11 +10,23 @@
 
 import type { Metadata } from 'next';
 import { LandingPartners } from './LandingPartners';
+import { PieGlobal } from '../vsl/_sitio/Barra';
 
 export const metadata: Metadata = { title: 'MaKo Partners: llévate el 100% del primer mes de cada negocio que traigas', robots: { index: true, follow: true } };
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+/**
+ * Con el pie del sitio abajo (15/11/2026, Martín: «la bottom bar… debería estar en todas las landing, todas las rutas»). Claro, como la
+ * página. Su renglón chico «Planes de MaKo · Términos» (`.mp-pie`, el pie que tenía antes) se oculta: no es un <footer> y `PieGlobal`
+ * no lo ve, y quedaban dos pies uno encima del otro (16/11/2026). Precios y Términos ya están en el del sitio.
+ */
 export default function MakoPartnersPage() {
-  return <LandingPartners />;
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: '.mp-publica .mp-pie{display:none}' }} />
+      <LandingPartners />
+      <PieGlobal claro />
+    </>
+  );
 }

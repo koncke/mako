@@ -319,7 +319,7 @@ function QueEs({ b }: { b: Tarjetas }) {
                   <div className="d-wg-rv-q">¿De qué quieres crearla?</div>
                   <div className="d-wg-rv-opt"><b>{obj?.nombre}</b><span>{obj?.descripcion}</span></div>
                   <div className="d-wg-rv-row">
-                    <span className="d-wg-rv-ic"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.4}><path d="M6 2.2v7.6M2.2 6h7.6" strokeLinecap="round" /></svg></span>
+                    <span className="d-wg-rv-ic"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.4}><path d="M6 2.2v7.6M2.2 6h7.6" strokeLinecap="round" /></svg></span>
                     <span className="d-wg-rv-tools">
                       <span className="d-wg-rv-dis">Diseño: {nombreDiseno(QUEES.diseno)}</span>
                       <span className="d-wg-rv-send"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.6}><path d="M6 10V2.4M2.6 5.6 6 2.2l3.4 3.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
@@ -810,9 +810,11 @@ html[data-sitio-modo="claro"] .d-wg-sub strong { color: #101828; }
 .d-wg-rv-opt b { font-size: clamp(11px, 1.1vw, 14px); font-weight: 600; color: #101828; }
 .d-wg-rv-opt span { font-size: clamp(10px, .95vw, 12px); color: #475467; }
 .d-wg-rv-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.d-wg-rv-ic { width: 1.9vw; min-width: 22px; aspect-ratio: 1; border-radius: 50%; border: 1px solid #DCDCDC; background: #fff; display: grid; place-items: center; color: #6B6B6B; flex: none; }
+/* Los dos círculos de la caja, de lado PAR (15/11/2026, «céntralo bien todo»): con 1,9vw y 2vw medían 27,36 y 28,8 px a 1440, y el
+   signo de adentro caía en medio píxel. round() los deja en el par de abajo. */
+.d-wg-rv-ic { width: max(22px, round(down, 1.9vw, 2px)); min-width: 22px; aspect-ratio: 1; border-radius: 50%; border: 1px solid #DCDCDC; background: #fff; display: grid; place-items: center; color: #6B6B6B; flex: none; }
 .d-wg-rv-tools { display: flex; align-items: center; gap: 14px; color: #9A9A9A; font-size: clamp(10px, .9vw, 12px); }
-.d-wg-rv-send { width: 2vw; min-width: 24px; aspect-ratio: 1; border-radius: 50%; background: #2F6FED; display: grid; place-items: center; color: #fff; flex: none; }
+.d-wg-rv-send { width: max(24px, round(down, 2vw, 2px)); min-width: 24px; aspect-ratio: 1; border-radius: 50%; background: #2F6FED; display: grid; place-items: center; color: #fff; flex: none; }
 .d-wg-rv-after { z-index: 1; background: #F7F4EF; overflow: hidden; }
 .d-wg-rv-img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; user-select: none; -webkit-user-drag: none; }
 .d-wg-rv-sparkles { position: absolute; inset: 0; z-index: 3; pointer-events: none; width: 100%; height: 100%; }

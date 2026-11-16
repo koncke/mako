@@ -54,6 +54,7 @@ export const PREGUNTAS_SITIO: readonly { p: string; r: string }[] = [
   { p: '¿Cómo es la prueba gratis?', r: `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: pones tu tarjeta y no se te cobra nada hasta el día ${PRUEBA_DIAS + 1}. Si te das de baja antes, no pagas nada. En la prueba, lo que se crea con IA tiene tope: hasta ${TOPES_PRUEBA['prueba.videos']} videos armados, ${AVATAR_EN_LA_PRUEBA}${TOPES_PRUEBA['prueba.imagenes']} imágenes y ${TOPES_PRUEBA['web.landings_publicadas']} página publicada; exportar en masa se habilita con el primer cobro. Y no hay permanencia: te das de baja cuando quieras.` },
   { p: '¿Puedo pagar en pesos?', r: 'Desde Argentina pagas en pesos, con Mercado Pago. Desde otro país, en dólares, con tu tarjeta.' },
   { p: 'Ya tengo mis contactos y mi equipo. ¿Empiezo de cero?', r: `No. Subes la lista de contactos que ya tienes (un CSV o hasta un PDF) y MaKo te muestra cada uno antes de sumarlo. Tu equipo entra con su propio acceso: en MaKo Pro, hasta ${TOPES.agencia['equipo.usuarios']} personas.` },
-  { p: '¿Quién me ayuda si algo falla?', r: 'Personas de verdad. Lo reportas desde la app, el equipo de MaKo lo arregla y te avisa por WhatsApp.' },
+  // «Lo arreglamos», no «el equipo de MaKo lo arregla» (16/11/2026): Martín todavía no tiene equipo, y nada promete uno.
+  { p: '¿Quién me ayuda si algo falla?', r: 'Personas de verdad. Lo reportas desde la app, lo arreglamos y te avisamos por WhatsApp.' },
   { p: '¿Qué pasa con los datos de mis clientes?', r: 'Son tuyos. MaKo no entrena modelos con tus datos: lo que la IA necesita pasa por tu propia cuenta de Claude, ChatGPT o Gemini.' },
 ];

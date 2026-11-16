@@ -20,6 +20,9 @@
 // <details>. Las animaciones son de CSS y se apagan con prefers-reduced-motion.
 // =============================================================================
 
+import { fondoDeSigno } from '@/app/planes/signos';
+import { LOGOS_SOBRE_BLANCO } from './reemplaza';
+
 const FONDO = '#060419';
 const CARD = '#0D0B28';
 const SUBCARD = '#1C1940';
@@ -41,6 +44,8 @@ const DORADO_CLARO = '#FDF0CC';
 const TINTA = '#060419';
 const GRIS_CLARO = '#6F6F8A';
 const GRIS_CLARO2 = '#4E4E6C';
+/** Los logos que van sobre blanco en el modo oscuro, como selector de CSS (el archivo de cada uno en public/vsl-assets/logos/apps/). */
+const SEL_LOGOS_SOBRE_BLANCO = LOGOS_SOBRE_BLANCO.map((a) => `[src$="/${a}.png"]`).join(',');
 export const TITULAR = `font-family:'s-archivo','s-figtree',Arial,sans-serif;font-weight:900;font-stretch:88%;text-transform:uppercase;text-wrap:balance`;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -66,6 +71,13 @@ export const CSS_BASE = `
    la luna llevaba su cuadro negro al modo como un fondo más, y en el claro lo pasaba a blanco. El modo lo dice data-sitio-modo. */
 .s-mk-ico{background:#1A1712}
 html[data-sitio-modo="oscuro"] .s-mk-ico{background:#fff}
+
+/* LOS LOGOS DE MARCA CASI NEGRA, SOBRE SU CUADRO BLANCO EN EL MODO OSCURO (15/11/2026, Martín: «fíjate todos los logos»). El cursor de
+   ClickFunnels es #080436 y la «s» de Skool #282F97: sobre el fondo #060419 no se leían (la tira de la portada, la cuenta de lo que
+   pagas, la tabla y las tarjetas de Comparaciones). Van sobre blanco, como el ícono de su app; en el claro, sin cuadro. Cuáles son,
+   en ./reemplaza.ts (LOGOS_SOBRE_BLANCO). El sol y la luna no toca las imágenes: el modo lo pone este CSS. */
+.s-sitio:not(.s-claro) img:is(${SEL_LOGOS_SOBRE_BLANCO}),html[data-sitio-modo="oscuro"] .s-sitio img:is(${SEL_LOGOS_SOBRE_BLANCO}){background:#fff;padding:3px}
+html[data-sitio-modo="claro"] .s-sitio img:is(${SEL_LOGOS_SOBRE_BLANCO}){background:none;padding:0}
 
 /* Su botón: la cara de color, radio 6. SIN las dos capas que se separaban al pasar el mouse (Martín, 12/11/2026: «hace una
    animación rarísima… no quiero que ese hover exista. De última un pequeño hover, pero muy sutil»): al pasar, se aclara apenas. */
@@ -148,6 +160,9 @@ export const CSS_BARRA = `
 .s-mv-cuerpo .s-mg{margin:0 -8px}
 .s-mv-grupo{padding:24px 0 8px;border-top:1px solid ${LINEA};margin-top:16px}
 .s-mv-grupo .s-mega-r{margin-bottom:8px}
+/* El primer grupo de un menú sin la raya de arriba: Producto (sin sus cuatro grandes desde el 12/11) y Recursos empiezan por un grupo, y
+   quedaba una franja vacía con su raya antes del primer rótulo. */
+.s-mv-cuerpo>.s-mv-grupo:first-child{margin-top:0;padding-top:4px;border-top:0}
 .s-mv-grupo .s-mega-l{margin-left:0;padding:9px 0;line-height:24px}
 .s-mv-pie{position:fixed;left:0;right:0;bottom:0;z-index:71;display:flex;align-items:center;gap:8px;padding:16px;background:${FONDO};border-top:1px solid ${LINEA12}}
 .s-mv-pie .s-nb{justify-content:center}
@@ -172,6 +187,12 @@ html:has(.s-mv[open]){overflow:hidden}
 .s-claro .s-nb:hover{background:rgba(6,4,25,.06)}
 .s-claro .s-nb-lleno{background:${AZUL};border-color:${AZUL};color:#fff}
 .s-claro .s-nb-lleno:hover{background:#1F57C8;border-color:#1F57C8}
+/* Y el mismo azul cuando la persona aclara una página que nació oscura (la portada): el sol y la luna deja los botones como están
+   (un botón conserva su color en los dos modos), y el blanco de la barra oscura quedaba blanco sobre la barra ya clara. El velo del
+   link con su menú abierto, el de la barra clara. */
+html[data-sitio-modo="claro"] .s-barra .s-nb-lleno{background:${AZUL};border-color:${AZUL};color:#fff}
+html[data-sitio-modo="claro"] .s-barra .s-nb-lleno:hover{background:#1F57C8;border-color:#1F57C8}
+html[data-sitio-modo="claro"] .s-nav-a:hover,html[data-sitio-modo="claro"] .s-nav-it:hover>.s-nav-a,html[data-sitio-modo="claro"] .s-nav-it:focus-within>.s-nav-a{background:rgba(6,4,25,.06)}
 .s-claro .s-mega{background:#fff;border-bottom-color:#D6D6E0}
 .s-claro .s-mg:hover,.s-claro .s-mega-l:hover{background:rgba(6,4,25,.06)}
 .s-claro .s-mg-ico{background:#EEF3FE}
@@ -268,46 +289,47 @@ html[data-sitio-modo="oscuro"] .s-cuenta{--cu-fondo:${CARD};--cu-filete:${LINEA1
 // El pie
 // ─────────────────────────────────────────────────────────────────────────────
 export const CSS_PIE = `
-/* Su pie: filete arriba, 64 de aire; a la izquierda el texto (16/24 700), a la derecha las columnas (títulos 14/20 700, links
-   14/20 500 #9393A9 cada 32 px, 40 entre columnas); filete con 48 de aire; los links legales, la estrella y el ©. */
+/* Su pie: filete arriba, 64 de aire; arriba la marca (el logo, el lema y su bajada) y debajo las columnas (títulos 14/20 700, links
+   14/20 500 #9393A9 cada 32 px); abajo, el © con la razón social y la estrella.
+   LA RAZÓN SOCIAL, PEGADA A LO DE ARRIBA (15/11/2026, Martín: «quedó como muy alejado, hay mucha separación»). Eran 109 px entre el
+   último link y el ©: 48 + 32 alrededor de un filete blanco al 6 % que no se veía, y 16 de margen del © que lo separaban de una fila
+   de links legales que se fue el 12/11 (los legales pasaron a su columna). Ahora 28 + 20, el © centrado con la estrella, y el filete
+   lo dibuja la base con SU color de texto (una sombra con currentColor: el sol y la luna da vuelta el color y la sombra lo sigue; un
+   borde, en el claro, lo aclaraba hasta perderlo, como en la cuenta de lo que pagas). */
 .s-pie{background:${FONDO};border-top:1px solid ${LINEA};padding:64px 0}
-.s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;padding-bottom:48px;border-bottom:1px solid ${LINEA}}
+.s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;padding-bottom:28px}
 .s-pie-logo{margin-bottom:14px}
-.s-pie-lema{font-size:16px;line-height:24px;font-weight:700;color:#fff;max-width:300px}
+/* Sin el tope de 300 px: cortaba «High / Ticket.» y dejaba «Ticket.» solo en su renglón. */
+.s-pie-lema{font-size:16px;line-height:24px;font-weight:700;color:#fff;max-width:420px;text-wrap:balance}
 .s-pie-sub{margin-top:12px;font-size:14px;line-height:20px;font-weight:500;color:${GRIS3};max-width:300px}
-.s-pie-cols{display:flex;gap:32px;justify-content:space-between}
+/* LAS COLUMNAS EN UN RENGLÓN DESDE 1440, y en una grilla de cuatro más angosto. Ocho columnas sin cortar un nombre suman 1.150 px
+   y a 1440 hay 1.184; a 1280 (1.024 de ancho) y a 1024 (960) no entraban: con siete ya se pasaban y a 1024 cortaban el correo. */
+.s-pie-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px 24px}
+@media (min-width:1440px){.s-pie-cols{display:flex;gap:24px;justify-content:space-between}}
 .s-pie-h{font-size:14px;line-height:20px;font-weight:700;color:#fff;margin-bottom:16px;white-space:nowrap}
+/* El segundo rótulo de una columna (los Funnels, debajo de Industrias, como en el menú de la barra). */
+.s-pie-h2{margin-top:20px}
 .s-pie-col li{font-size:14px;line-height:20px;font-weight:500;padding-bottom:12px}
 .s-pie-col a{color:${GRIS3};white-space:nowrap;transition:color .15s}
 .s-pie-col a:hover{color:#fff}
-.s-pie-base{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding-top:32px}
-.s-pie-leg{display:flex;flex-wrap:wrap;gap:8px 16px}
-.s-pie-leg a{font-size:14px;line-height:20px;font-weight:500;color:${GRIS3};transition:color .15s}
-.s-pie-leg a:hover{color:#fff}
-.s-pie-c{margin-top:16px;font-size:14px;line-height:20px;font-weight:500;color:${GRIS2}}
+.s-pie-base{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-top:20px;box-shadow:inset 0 1px 0 color-mix(in srgb,currentColor 14%,transparent)}
+.s-pie-c{font-size:14px;line-height:20px;font-weight:500;color:${GRIS2}}
 .s-claro .s-pie{background:#FCFCFD;border-top-color:rgba(6,4,25,.12)}
-.s-claro .s-pie-in{border-bottom-color:rgba(6,4,25,.12)}
 .s-claro .s-pie-lema,.s-claro .s-pie-h{color:${TINTA}}
-.s-claro .s-pie-sub,.s-claro .s-pie-col a,.s-claro .s-pie-leg a{color:${GRIS_CLARO}}
-.s-claro .s-pie-col a:hover,.s-claro .s-pie-leg a:hover{color:${TINTA}}
+.s-claro .s-pie-sub,.s-claro .s-pie-col a{color:${GRIS_CLARO}}
+.s-claro .s-pie-col a:hover{color:${TINTA}}
 .s-claro .s-pie-c{color:${GRIS_CLARO2}}
-@media (max-width:1279px){
-  .s-pie-cols{gap:28px}
-}
 @media (max-width:1023px){
-  .s-pie-in{grid-template-columns:minmax(0,1fr)}
-  .s-pie-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 16px}
+  .s-pie-cols{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 16px}
 }
-/* A 390: arriba la marca con su lema (como en la computadora: el Cerebro, 14/11/2026), los links en dos columnas, y al final los
-   legales y el ©. */
+/* A 390: arriba la marca con su lema (como en la computadora: el Cerebro, 14/11/2026), los links en dos columnas, y al final el ©. */
 @media (max-width:767px){
   .s-pie{padding:40px 0}
   .s-pie .s-cont{display:flex;flex-direction:column;padding:0 16px}
   .s-pie-in{display:contents}
-  .s-pie-cols{order:2;grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:24px;border-bottom:1px solid ${LINEA}}
-  .s-claro .s-pie-cols{border-bottom-color:rgba(6,4,25,.12)}
+  .s-pie-cols{order:2;grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:16px}
   .s-pie-col a{white-space:normal}
-  .s-pie-base{order:3;padding-top:24px}
+  .s-pie-base{order:3;padding-top:16px}
   .s-pie-marca{order:1;margin-bottom:32px}
 }
 `;
@@ -517,8 +539,11 @@ ${CSS_REEMPLAZA}
 .s-caso-col-t{margin:0 0 18px;font-size:20px;font-weight:700}
 .s-caso-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
 .s-caso-col li{display:flex;gap:12px;font-size:17px;line-height:1.5}
-.s-caso-x{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#F87171;background:rgba(248,113,113,.14)}
-.s-caso-ok{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;background:#2F6FED}
+/* La ✕ y la ✓ son DIBUJOS centrados en su lienzo (app/planes/signos.ts), no la letra «✕» (Figtree no la tiene y la fuente de reemplazo
+   la apoyaba medio píxel arriba) ni un SVG de 13 px en un círculo de 24 (quedaba a 5,5 px del borde y el navegador lo corría ¾ px). Lado
+   par en un círculo par: el dibujo cae en píxeles enteros (Martín, 15/11/2026: «céntralo bien todo»). */
+.s-caso-x{flex:none;width:24px;height:24px;border-radius:50%;background:${fondoDeSigno('no', '#F87171', 'rgba(248,113,113,.14)')};background-size:12px 12px,auto}
+.s-caso-ok{flex:none;width:24px;height:24px;border-radius:50%;background:${fondoDeSigno('si', '#FFFFFF', '#2F6FED')};background-size:14px 14px,auto}
 .s-caso-fotos{list-style:none;margin:40px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .s-caso-fotos img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:16px}
 .s-caso-cierre{margin-top:48px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
@@ -604,7 +629,19 @@ ${CSS_REEMPLAZA}
 .s-precios .s-rotulo{color:#2F6FED}
 .s-precios .s-h2,.s-precios .s-lede{color:#12151B}
 .s-precios .s-lede{color:#4A5260}
-.s-precios-bloques{margin:48px auto 0;max-width:1120px}
+/* LAS COLUMNAS DE /planes, TAL CUAL (Martín, 15/11/2026: «en la landing principal se tiene que repetir exactamente lo mismo que en
+   precios… tiene que ser exactamente lo mismo»): las arma ./ColumnasPlanes.tsx con las props de /planes, y acá van con la LETRA, el
+   ANCHO y el MARGEN de /planes (app/planes/estilo.ts: .planes-root, 16/1.55 en Urbanist, que el sitio declara «Geist»; y
+   .planes-wrap.planes-ancho, 1.060 px, con 16 a los costados). Eran Figtree 16/24, 1.120 px y 20 a los costados en el teléfono. */
+.s-precios .s-cont{padding-left:16px;padding-right:16px}
+.s-precios-bloques{margin:48px auto 0;max-width:1060px;color:#121212;font:400 16px/1.55 'Geist',ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+/* LO QUE LA BARRA DE MaKo TOKENS REESCRIBE, LEGIBLE EN EL MODO OSCURO (16/11/2026). La portada nace oscura y desde el 15/11 lleva la
+   barra: su script (app/planes/CalculadoraTokens.tsx) reescribe con innerHTML el «+N MaKo Tokens extras al mes» y lo que alcanza en
+   cada columna, y los <b> nuevos nacen SIN el color que el sol y la luna les puso a los de la primera pantalla: quedaban #12151B sobre
+   la columna oscura (medido con la barra a la mitad: rgb(18,21,27), el número sin leerse). Acá, el color al que el sol y la luna lleva
+   ese #12151B en el oscuro (el de «32.000 MaKo Tokens al mes», que sí persiste). El renglón tachado sigue rojo. En /planes pasa lo
+   mismo en el oscuro: el arreglo de fondo es de CalculadoraTokens (CSS_TOKENS y CSS_TARJETAS), y entonces esta regla sobra. */
+html[data-sitio-modo="oscuro"] .s-precios .tk-extra b,html[data-sitio-modo="oscuro"] .s-precios .mkpl-alcanza li:not(.mkpl-alcanza-sin) b{color:rgb(228,231,237)}
 .s-precios .s-btn-sec{background:#fff;color:#12151B;border-color:#D5DBE6}
 .s-planes{margin-top:64px;display:grid;grid-template-columns:repeat(var(--n,2),minmax(0,384px));justify-content:center;gap:16px}
 .s-plan{display:flex;flex-direction:column;gap:16px;background:#fff;color:${TINTA};border-radius:12px;padding:24px 20px 20px}
@@ -707,6 +744,10 @@ ${CSS_REEMPLAZA}
   .s-btn-t{font-size:16px;line-height:24px}
   .s-btn-alto .s-btn-t{padding:10px 24px}
   .s-sec{padding:40px 0}
+  /* Las secciones a las que llevan «Recursos» e «Industrias → Casos» (/#integraciones, /#preguntas, /#caso, y #precios), DEBAJO de la
+     barra fija (16/11/2026): acá la sección tiene 40 px de aire y la barra mide 57, y el título quedaba cortado bajo ella (medido a
+     390: «TUS APPS,» arrancaba en y = 40). En la computadora el aire (96) ya es más que la barra (77). */
+  .s-sec[id]{scroll-margin-top:57px}
   .s-h2{font-size:36px;line-height:40px}
   .s-lede{font-size:18px;line-height:28px}
   .s-cab,.s-int-cab{grid-template-columns:minmax(0,1fr);gap:24px}
@@ -817,7 +858,7 @@ export const CSS_COMPARACIONES = `
 .s-mx-btn2{background:#fff;color:${TINTA};box-shadow:inset 0 0 0 1.5px #CECFD4}
 .s-mx-btn2:hover{box-shadow:inset 0 0 0 1.5px ${TINTA}}
 .s-mx-flechas{display:flex;gap:10px;justify-content:center;padding-top:28px}
-.s-mx-flechas button{width:40px;height:40px;border-radius:9999px;border:1.5px solid ${TINTA};background:#fff;color:${TINTA};font-size:24px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 0 3px}
+.s-mx-flechas button{width:40px;height:40px;border-radius:9999px;border:1.5px solid ${TINTA};background:#fff;color:${TINTA};font-size:24px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
 .s-mx-flechas button:disabled{opacity:.3;cursor:default}
 .s-mx-g th{padding:0;background:rgba(213,226,251,.55);text-align:left;border-bottom:1px solid #CECFD4}
 .s-mx-g th span{position:sticky;left:0;display:inline-block;padding:10px 16px;font-size:18px;line-height:24px;font-weight:600;color:${TINTA}}

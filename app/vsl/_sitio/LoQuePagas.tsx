@@ -16,6 +16,10 @@
 // texto y no toca ni los pseudo-elementos ni las sombras, así que siguen al texto en los dos modos. Un BORDE no: en el claro, el
 // script aclara todo borde oscuro y la línea desaparecía sobre el blanco. El ícono de MaKo va con `data-tema-fijo` y su color sale
 // de `.s-mk-ico` (negro sobre claro, blanco sobre oscuro: CSS_BASE). La franja azul del ahorro, también fija.
+// ⚠️ EL `data-tema-fijo` VA EN CADA ÍCONO (15/11/2026, Martín: «fíjate que el logo de MaKo, si estoy en White Mode, quede justamente
+// negro como corresponde»). El de la fila «MaKo Pro» del ticket no lo tenía, aunque este comentario ya lo decía: el sol y la luna
+// tomaba su #1A1712 por un fondo oscuro más y en el modo claro lo pasaba a casi blanco (rgb(249,248,246) sobre la tarjeta blanca).
+// El del bloque azul se salvaba porque su caja (.s-ah-gana) es fija entera. tests/sitio-recursos-y-pie.test.ts lo pide en los dos.
 // Server component, sin JavaScript.
 // =============================================================================
 
@@ -39,8 +43,6 @@ function LoQuePagas() {
   const hoy = centavos(filas.reduce((s, x) => s + x.precioUsd, 0));
   const mes = centavos(hoy - pro.precioUsd);
   if (mes <= 0) return null;
-  // «Más de US$300»: el ahorro redondeado hacia abajo a la centena, para que la frase nunca prometa de más.
-  const redondo = Math.floor(mes / 100) * 100;
   return (
     <div className="s-ah-afuera">
       <div className="s-ah-dos">
@@ -63,19 +65,22 @@ function LoQuePagas() {
           </p>
           {/* Martín (14/11): debajo del total tachado, lo que pagas con MaKo. */}
           <p className="s-ah-f s-ah-mk">
-            <span className="s-mk-ico s-ah-ico" aria-hidden="true"><EstrellaMaKo size={19} /></span>
+            <span className="s-mk-ico s-ah-ico" data-tema-fijo="" aria-hidden="true"><EstrellaMaKo size={19} /></span>
             <span className="s-ah-n">MaKo Pro</span>
             <span className="s-ah-guia" aria-hidden="true" />
             <span className="s-ah-p">{usd(pro.precioUsd)}</span>
           </p>
         </div>
+        {/* LO QUE TE AHORRAS, DICHO (15/11/2026, Martín: «donde dice lo que te ahorras… dice 320 por mes, pero falta justamente la
+            palabra te ahorras o algo que se note»). El número exacto lleva su «Te ahorras», y el titular ya no repite la cifra
+            redondeada («más de US$300»): sin OpusClip el ahorro bajó a US$291,98 y el redondeo a la centena decía «más de US$200». */}
         <div className="s-ah-gana" data-tema-fijo="">
-          <p className="s-ah-gana-t">Con MaKo te ahorras más de {usd(redondo)} por mes</p>
+          <p className="s-ah-gana-t">Con MaKo, todo eso en una sola app</p>
           <p className="s-ah-gana-mk">
-            <span className="s-mk-ico s-ah-ico" aria-hidden="true"><EstrellaMaKo size={19} /></span>
-            <span style={{ whiteSpace: 'nowrap' }}>Todo en <strong>MaKo Pro: {usd(pro.precioUsd)}</strong> por mes</span>
+            <span className="s-mk-ico s-ah-ico" data-tema-fijo="" aria-hidden="true"><EstrellaMaKo size={19} /></span>
+            <span style={{ whiteSpace: 'nowrap' }}><strong>MaKo Pro: {usd(pro.precioUsd)}</strong> por mes</span>
           </p>
-          <p className="s-ah-gana-n"><strong>{usd(mes)}</strong> por mes</p>
+          <p className="s-ah-gana-n">Te ahorras <strong>{usd(mes)}</strong> por mes</p>
         </div>
       </div>
     </div>

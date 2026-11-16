@@ -448,7 +448,7 @@ test('Martín, 14/11: lo que pagas hoy al principio, la tarjeta abre su panel ah
   // Martín, 14/11 (más tarde): sin el hero de arriba; la página EMPIEZA con el ticket (su titular es el h1).
   const seccion = indice.indexOf('<SeccionReemplaza claro principal />');
   assert.ok(seccion > 0 && seccion < indice.indexOf('id="comparar"'), 'lo que pagas hoy no va al principio, antes de la tabla');
-  assert.doesNotMatch(indice.slice(0, indice.indexOf('<Pie />')), /className="s-ch"/, 'volvió el hero «MaKo contra las apps que ya pagas»');
+  assert.doesNotMatch(indice.slice(0, indice.indexOf('<Pie claro />')), /className="s-ch"/, 'volvió el hero «MaKo contra las apps que ya pagas»');
   // La tarjeta: un label con su casilla adentro y su panel como hermano (anda sin JavaScript y en el visor). Nunca un link a otra página.
   const tarjetas = src.slice(src.indexOf('export function TarjetasVs'), src.indexOf('const CSS = '));
   assert.match(tarjetas, /<label className="s-vs">\s*<input type="checkbox" id=\{idCasilla\(c\)\}/, 'la tarjeta no tiene su casilla adentro');
