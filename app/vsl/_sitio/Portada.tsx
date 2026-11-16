@@ -228,6 +228,13 @@ const CASO_CON_MAKO = [
   'La misma oferta y el mismo funnel, otro resultado.',
 ];
 
+/** Las fotos de Mauricio en Cancún (las mismas del caso del Accelerator, app/accelerator/contenido.ts → MAURICIO.fotos). */
+const FOTOS_MAURICIO = [
+  { src: '/vsl-assets/caso-stage.png', alt: 'Mauricio en el escenario, en Cancún' },
+  { src: '/vsl-assets/caso-equipo.jpg', alt: 'Mauricio con su equipo, en Cancún' },
+  { src: '/vsl-assets/caso-martin.jpg', alt: 'Mauricio con Martín' },
+] as const;
+
 function CasoSitio() {
   const tira = (oculta: boolean) => (
     <ul className="s-caso-tira-l" aria-hidden={oculta || undefined}>
@@ -241,10 +248,19 @@ function CasoSitio() {
       </div>
       <div className="s-cont">
         <div className="s-caso-arriba">
-          <div className="s-caso-vid">
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-            <video muted autoPlay loop playsInline preload="metadata" src="/vsl-assets/mauricio.mp4" />
-            <span className="s-caso-badge"><span className="s-caso-dot" />Mauricio, en vivo</span>
+          {/* EL VIDEO Y SUS FOTOS, EN UN CARRUSEL QUE PASA SOLO (Martín, 16/11/2026: «el video de Mauricio… intercalándolo como si fuera
+              un carrusel que pasa solo con las fotos que tenemos con Mauricio»): el video y las tres fotos de Cancún (las mismas del
+              Accelerator), cuatro segundos cada uno, con un fundido. CSS, sin JavaScript. */}
+          <div className="s-caso-vid s-caso-carrusel">
+            <div className="s-caso-slide">
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <video muted autoPlay loop playsInline preload="metadata" src="/vsl-assets/mauricio.mp4" />
+              <span className="s-caso-badge"><span className="s-caso-dot" />Mauricio, en vivo</span>
+            </div>
+            {FOTOS_MAURICIO.map((f) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <div key={f.src} className="s-caso-slide"><img src={f.src} alt={f.alt} loading="lazy" /></div>
+            ))}
           </div>
           <div className="s-caso-tx">
             <p className="s-caso-r">Caso de éxito</p>
@@ -260,13 +276,13 @@ function CasoSitio() {
         <div className="s-caso-vs">
           <div className="s-caso-lado s-caso-lado-antes">
             <p className="s-caso-lado-t">Antes de MaKo</p>
-            <p className="s-caso-lado-n">Menos de US$10k<small>por mes</small></p>
+            <p className="s-caso-lado-n">Menos de US$9k<small>por mes</small></p>
             <ul>{CASO_ANTES.map((t) => <li key={t}><span className="s-caso-x" aria-hidden="true" />{t}</li>)}</ul>
           </div>
           <span className="s-caso-flecha" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
           <div className="s-caso-lado s-caso-lado-mako">
             <p className="s-caso-lado-t">Con MaKo</p>
-            <p className="s-caso-lado-n">Más de US$70k<small>en tres meses</small></p>
+            <p className="s-caso-lado-n">Más de US$100k<small>vendidos</small></p>
             <ul>{CASO_CON_MAKO.map((t) => <li key={t}><span className="s-caso-ok" aria-hidden="true" />{t}</li>)}</ul>
           </div>
         </div>

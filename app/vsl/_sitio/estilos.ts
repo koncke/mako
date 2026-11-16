@@ -578,6 +578,12 @@ ${CSS_REEMPLAZA}
 .s-caso-arriba{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:56px;align-items:center}
 .s-caso-vid{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:4/5;background:#0B0A1F;box-shadow:0 30px 70px -30px rgba(0,0,0,.6)}
 .s-caso-vid video{display:block;width:100%;height:100%;object-fit:cover}
+/* El carrusel del video y las fotos: cada uno 4 s, con un fundido; el primero (el video) arranca a la vista. */
+.s-caso-slide{position:absolute;inset:0;opacity:0;animation:s-caso-pasa 16s infinite}
+.s-caso-slide:nth-child(1){animation-delay:-.6s}.s-caso-slide:nth-child(2){animation-delay:3.4s}.s-caso-slide:nth-child(3){animation-delay:7.4s}.s-caso-slide:nth-child(4){animation-delay:11.4s}
+.s-caso-slide img{display:block;width:100%;height:100%;object-fit:cover}
+@keyframes s-caso-pasa{0%{opacity:0}4%,25%{opacity:1}29%,100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.s-caso-slide{animation:none}.s-caso-slide:nth-child(1){opacity:1}}
 .s-caso-badge{position:absolute;left:16px;top:16px;display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#fff;background:rgba(10,13,20,.6);padding:7px 12px;border-radius:999px}
 .s-caso-dot{width:8px;height:8px;border-radius:50%;background:#EF4444;box-shadow:0 0 0 4px rgba(239,68,68,.25)}
 .s-caso-r{margin:0 0 14px;font-size:16px;font-weight:700;color:${DORADO}}
@@ -589,7 +595,10 @@ ${CSS_REEMPLAZA}
 /* El antes y el después: una tarjeta, dos mitades, la flecha al medio (16/11/2026). */
 .s-caso-vs{position:relative;margin-top:64px;display:grid;grid-template-columns:1fr 1fr;border-radius:24px;overflow:hidden;border:1px solid rgba(255,255,255,.08);background:${CARD}}
 .s-caso-lado{padding:34px 44px 36px}
-.s-caso-lado-mako{background:linear-gradient(135deg,#2F6FED 0%,#1F57C8 100%);color:#fff}
+/* La mitad de MaKo como la columna de MaKo Pro de /planes (Martín: «un degradado sutil en azul… que se diferencie, pero no que sea todo
+   azul»): el degradado de .planes-compara-plan[data-destacado] (app/planes/estilo.ts) y el número en azul. */
+.s-caso-lado-mako{background:linear-gradient(180deg,#EEF4FF,#FFFFFF);color:#12151B;box-shadow:inset 0 0 0 1.5px rgba(47,111,237,.35)}
+.s-caso-lado-mako .s-caso-lado-n{color:#2F6FED}
 .s-caso-lado-t{margin:0;font-size:13px;line-height:18px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.72}
 .s-caso-lado-n{margin:10px 0 22px;font-size:34px;line-height:1.1;font-weight:800;letter-spacing:-.02em}
 .s-caso-lado-n small{display:block;margin-top:6px;font-size:15px;line-height:20px;font-weight:600;letter-spacing:0;opacity:.75}
@@ -597,7 +606,6 @@ ${CSS_REEMPLAZA}
 .s-caso-lado li{display:flex;gap:12px;font-size:16px;line-height:1.5}
 .s-caso-flecha{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;width:52px;height:52px;border-radius:50%;background:#fff;color:#2F6FED;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 28px rgba(0,0,0,.28)}
 .s-caso-flecha svg{display:block}
-.s-caso-lado-mako .s-caso-ok{background:${fondoDeSigno('si', '#2F6FED', '#FFFFFF')};background-size:14px 14px,auto}
 /* La ✕ y la ✓ son DIBUJOS centrados en su lienzo (app/planes/signos.ts), no la letra «✕» (Figtree no la tiene y la fuente de reemplazo
    la apoyaba medio píxel arriba) ni un SVG de 13 px en un círculo de 24 (quedaba a 5,5 px del borde y el navegador lo corría ¾ px). Lado
    par en un círculo par: el dibujo cae en píxeles enteros (Martín, 15/11/2026: «céntralo bien todo»). */
