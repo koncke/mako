@@ -10,6 +10,18 @@ reuniones / DM funnel) · a0c6f23d6 checkout · cbb4d0431 cosecha · 354b78401 e
 
 **~08:45 AST: corre «landings-que-faltan» (wf_0902e6bb-000)**, de a dos: Closing (rehacer /vsl/closing) y los tres funnels + la API pública (la misma /api-mako abierta); después Classroom + Second Brain y Equipo + Calendario; y una revisión. Nada commiteado todavía: si se corta, retomar con Workflow({scriptPath, resumeFromRunId}) (lo terminado vuelve del caché) y commitear por ruta.
 
+**ACTUALIZACIÓN ~14:30 AST (18:30 UTC), claude1 al 97 % — LEER PRIMERO:** subido hasta ae45700d5 (la portada con todos los bloques
+del MISMO tamaño —el Brain y el VSL como las filas—, el globito del WhatsApp a la vista con su X, el pie sin el lema con el logo abajo a
+la derecha y el contacto debajo de Legal; el Accelerator con el precio al costado del botón y la tira de los 12 entregables). Los dos
+artefactos están al día (Sitio de MaKo y Accelerator). **LO QUE SIGUE, pedido por Martín («te falta la parte de analiza tus llamadas
+de ventas con IA. Haz eso también»):** la fila de Closing de la portada, la landing /vsl/closing y la fila de coaching de /vsl/equipo
+llevan el recuadro FaltaAnimacion porque el análisis era inventado. El plan: un análisis REAL del Closing Analyst sobre una llamada
+de venta PÚBLICA de Alex Hormozi (sus ejemplos son la regla del sitio; nada de prospectos de ws 9), con su transcripción de YouTube;
+correr el analizador del código (sin escribir en producción), montar la ficha de llamada con ese análisis en el banco
+C:/dev/bancos-portada/banco-closing-landing/ (fotos y video de 17 s, corte en app/_components/clips-portada.ts) y sacar los
+recuadros (tests/vsl-landings-competencia y login-vitrina-animaciones lo fijan). Si Martín prefiere grabar él una llamada de prueba
+con la Grabadora, va esa. Sigue esperando su respuesta: «MaKo Esencial» → «MaKo Essential» (configuración de producción).
+
 **ACTUALIZACIÓN ~13:45 AST (17:45 UTC), claude1 al 96 %:** SUBIDO a punta/portada-brain-login: 89da04d63 (el sitio arranca en claro), 047fbe090 (el rojo de la suite de la noche: tickets de mentira con números reales), d095c5721 (la portada: Brain al costado y vivo, el pie más bajo con todo, el globito del WhatsApp, el sol y la luna arriba en el teléfono), 08063b676 y b45997fed (el feedback del Accelerator: tiras, sin «tres fases», precio alineado, formulario sin legales, «Tu siguiente paso», pie igual con todo y la estrella blanca), y las landings nuevas con su cosecha (este commit). Artefactos: «Sitio de MaKo» https://claude.ai/artifact/KGnfQnWAuiZ62qg9uioKZb (la portada, armada desde una copia limpia de main en C:/dev/vista-main más los cambios; el Brain vivo con un paquete de esbuild) y el del Accelerator https://claude.ai/artifact/8tY2zQNguuzAYR2mbSMmdS. Martín: NO multiagente para feedback (memoria orquestacion-al-tamano, sexta vez). Esperan a Martín: «MaKo Esencial» (sale de la configuración de producción) → «MaKo Essential»; la llamada de prueba para Closing; desplegar ya o esperar.
 
 **ACTUALIZACIÓN ~13:30 AST (17:30 UTC), claude1 al 93 %:**
