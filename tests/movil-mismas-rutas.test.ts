@@ -267,7 +267,8 @@ test('nadie navega a /m: el desvío sólo tapa, el shell lee la ruta interna, el
   assert.ok(shell.includes('const pathname = useRutaInterna();') && !shell.includes('usePathname('), 'el shell lee la URL y no la ruta interna');
   // Y en un teléfono el cromo de escritorio no se dibuja NUNCA, tampoco en una pantalla sin versión del
   // teléfono (/inicio pintado antes de su redirect: la Sidebar angosta y el resto en blanco, 14/10/2026).
-  assert.ok(leer('app/_components/PublicRouteGate.tsx').includes('if (movil || telefono || esVistaSinChrome(pathname)) return null;'), 'el Sidebar se dibuja sobre la página del teléfono');
+  // (16/11/2026: `conSesion` suma /api-mako sin sesión, la referencia pública de la API: tests/api-mako-publica.test.ts.)
+  assert.ok(leer('app/_components/PublicRouteGate.tsx').includes('if (movil || telefono || esVistaSinChrome(pathname, conSesion)) return null;'), 'el Sidebar se dibuja sobre la página del teléfono');
   assert.ok(leer('app/_components/NotificationsProvider.tsx').includes('const enMovil = (p: string) => telefonoRef.current || esRutaMovil(p);'), 'los pollers de escritorio corren en el teléfono');
   // Los atajos de la app instalada y el link por default de un push no muestran /m.
   assert.ok(!/url: '\/m\//.test(leer('app/manifest.ts')), 'un atajo del manifest apunta a /m');

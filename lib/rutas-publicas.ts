@@ -402,3 +402,36 @@ export function decidirRutaAlumno(pathname: string, metodo: string, conAccion: b
  */
 export const esPublicaSoloLeer = (pathname: string) =>
   esPublicaSoloLectura(pathname) || (esPublica(pathname) && !pathname.startsWith('/api/'));
+
+// ── Las pantallas de adentro que SIN sesión se LEEN (16/11/2026) ─────────────────
+// La referencia de la API: `/api-mako`, la misma página. Con sesión es la tab de siempre (Tokens, Registro y «Probar con tus
+// datos», del workspace); sin sesión, la documentación de lo que cualquier negocio puede pedir, sin tokens ni «Probar», con la
+// barra y el pie del sitio (app/api-mako/page.tsx). Como docs.github.com/en/rest, que se lee sin cuenta.
+//
+// ⚠️ NO VA EN PUBLICOS, y no es un detalle: estar ahí la vuelve de sólo lectura PARA TODOS (`esPublicaSoloLeer`), y en esta
+// página crear, editar o borrar un token, «Probar» y las descargas son ACCIONES DEL SERVIDOR, o sea un POST a /api-mako: con
+// sesión, el 405 de la rama pública del proxy las cortaba. Y `esPublica` también la sacaría de la puerta de la app de escritorio
+// (app/_components/PuertaDeLaApp.tsx), que con la sesión del perfil mostraría los tokens sin el login de la persona. Por eso es
+// una rama aparte del proxy, DESPUÉS de mirar la sesión: con sesión sigue todo como antes; sin ella, sólo GET y HEAD y nunca una
+// acción del servidor (el porqué, en `esPublicaSoloLeer`: una página que acepta POST sin sesión ejecuta cualquier acción de la
+// app). Match EXACTO: `/api-mako/otra` no hereda nada.
+
+/** Las pantallas que sin sesión se leen (y con sesión son las de siempre). */
+export const LEIBLES_SIN_SESION = ['/api-mako'] as const;
+
+/** ¿Es una pantalla que, sin sesión, se abre para leer? Exacta. */
+export const seLeeSinSesion = (pathname: string) => (LEIBLES_SIN_SESION as readonly string[]).includes(pathname);
+
+/**
+ * Qué hace el proxy con un pedido SIN sesión a una de esas pantallas: `'pasa'` sólo para leerla (GET o HEAD, sin el header de
+ * una acción del servidor); `null` = sigue el gate de siempre (a /login, o el 401).
+ */
+export function decidirSinSesion(pathname: string, metodo: string, conAccion: boolean): 'pasa' | null {
+  if (!seLeeSinSesion(pathname) || conAccion) return null;
+  const m = metodo.toUpperCase();
+  return m === 'GET' || m === 'HEAD' ? 'pasa' : null;
+}
+
+/** ¿La abre alguien sin cuenta? Las públicas y las que se leen sin sesión. Para lo que se le muestra a un visitante (el menú
+ *  del sitio marca `conCuenta` lo que lo lleva a /login: tests/sitio-recursos-y-pie.test.ts). */
+export const abreSinCuenta = (pathname: string) => esPublica(pathname) || seLeeSinSesion(pathname);

@@ -19,6 +19,11 @@ import { LANDING_FUNNEL } from './funnel';
 import { LANDING_EMAIL } from './email';
 import { LANDING_COBRANZA } from './cobranza';
 import { LANDING_AGENDA } from './agenda';
+import { LANDING_CLOSING } from './closing';
+import { LANDING_CLASSROOM } from './classroom';
+import { LANDING_SECOND_BRAIN } from './second-brain';
+import { LANDING_EQUIPO } from './equipo';
+import { LANDING_CALENDARIO } from './calendario';
 import type { LandingCompetencia } from './tipos';
 import { PREGUNTAS_SITIO } from '../_sitio/preguntas';
 
@@ -31,4 +36,9 @@ const conLasPreguntasDeLaPortada = (l: LandingCompetencia): LandingCompetencia =
 
 export const LANDINGS_COMPETENCIA: readonly LandingCompetencia[] = ([LANDING_AI_AVATAR, LANDING_SEGUIMIENTO, LANDING_WHATSAPP, LANDING_CRM, LANDING_DASHBOARD, LANDING_VIDEO, LANDING_COMPETITOR_SPY, LANDING_ADS,
   LANDING_IMAGE, LANDING_COPYWRITING, LANDING_WEB_GENERATOR, LANDING_OFFER, LANDING_MAKO, LANDING_PRIORIDADES, LANDING_SCRIPT, LANDING_FUNNEL, LANDING_EMAIL, LANDING_COBRANZA, LANDING_AGENDA,
+  LANDING_CLOSING,
+  // Classroom (como Circle) y Second Brain (como Obsidian), 16/11/2026.
+  LANDING_CLASSROOM, LANDING_SECOND_BRAIN,
+  // Equipo (como Pipedrive) y Calendario de contenido (como Metricool), 16/11/2026.
+  LANDING_EQUIPO, LANDING_CALENDARIO,
 ] as const).map(conLasPreguntasDeLaPortada);

@@ -17,13 +17,15 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
-import { isPublicLandingPath } from './PublicRouteGate';
+import { isPublicLandingPath, useConSesion } from './PublicRouteGate';
 import { useRutaInterna, useVistaMovil } from './VistaMovil';
 import { tituloDe, TITULO_NO_ENCONTRADO } from '@/lib/titulo-tab';
 import { hayNoEncontrado, suscribirNoEncontrado } from '@/lib/no-encontrado';
 
 export function TituloTab() {
   const pathname = usePathname() || '';
+  // Sin sesión, /api-mako trae su título («Documentación de la API de MaKo»), como las páginas públicas (16/11/2026).
+  const conSesion = useConSesion();
   // En el teléfono, /general ES Today y /mako/pendientes ES Inbox (LAS MISMAS RUTAS, 13/10/2026):
   // la pestaña lleva el nombre de lo que se ve, que es la ruta interna de /m.
   const movil = useVistaMovil();
@@ -39,7 +41,7 @@ export function TituloTab() {
   useEffect(() => {
     // La landing y lo compartido traen su propio título, pensado para afuera. Un 404 NO: ahí no hay pantalla
     // que traiga nada, así que el aviso gana también en esas rutas.
-    const trajoElSuyo = pathname === '/' || isPublicLandingPath(pathname) || pathname.startsWith('/compartido');
+    const trajoElSuyo = pathname === '/' || isPublicLandingPath(pathname, conSesion) || pathname.startsWith('/compartido');
     if (trajoElSuyo && !noEncontrado) return;
     const titulo = noEncontrado ? TITULO_NO_ENCONTRADO : tituloDe(ruta);
     const reafirmar = () => { if (document.title !== titulo) document.title = titulo; };

@@ -1,5 +1,6 @@
 // =============================================================================
-// La landing de cada funnel (/vsl/funnels/<id>): VSL con llamada, anuncios a WhatsApp, Instagram con lead magnet y YouTube
+// La landing de cada funnel (/vsl/funnels/<id>): VSL con llamada, anuncios a WhatsApp, Instagram con lead magnet y YouTube, y desde
+// el 16/11/2026 los tres que faltaban de los siete del catálogo: anuncios con formulario, venta directa y newsletter
 // =============================================================================
 // La llamada con Leila (13/11/2026) pidió «mini landings por funnel». Martín (14/11/2026): sacarlas de la portada y llevarlas al menú
 // Industrias, «y que sea evidentemente una landing cada uno». Por eso cada una es una landing con el molde de la portada: el hero con
@@ -25,7 +26,8 @@ const GRABACION: Readonly<Record<string, string>> = {
   '/vsl/cobranza': 'cobranza',
 };
 
-function videoDelPaso(enMako: FunnelSitio['pasos'][number]['enMako']): string | null {
+/** La grabación de un paso: la de la primera pieza que tiene una (tests/sitio-funnels.test.ts exige una en cada paso). */
+export function videoDelPaso(enMako: FunnelSitio['pasos'][number]['enMako']): string | null {
   for (const m of enMako) if (GRABACION[m.href]) return GRABACION[m.href];
   return null;
 }
@@ -184,4 +186,15 @@ export const CSS_FUNNELS = `
 @media (max-width:900px){.s-fh-in{grid-template-columns:1fr}.s-fh-mapa{padding:20px}}
 @media (max-width:700px){.s-fun-g,.s-fq-dos{grid-template-columns:1fr}.s-fh-p{font-size:18px;line-height:27px}.s-fh-nom{font-size:18px}.s-fpaso-t{font-size:23px;line-height:30px}}
 @media (prefers-reduced-motion:reduce){.s-fh-nodo,.s-fh-num{animation:none}}
+/* En el modo claro (16/11/2026, Martín: «si estoy en white mode, todo debería ser white mode»): el sol y la luna no toca un link con
+   fondo (lo trata como un botón, app/vsl/_competencia/TemaSitio.tsx), y las tarjetas de «Otros funnels» y las fichas de «Lo arman»
+   quedaban oscuras sobre la página clara (medido: #0D0B28 y #151236). Van con el gris claro de las cajas que el script sí lleva
+   (#F4F4F8) y la tinta del modo; el link, con el azul de los botones (el celeste no se lee sobre claro). */
+html[data-sitio-modo="claro"] .s-fun-c{background:#F4F4F8;border-color:rgba(6,4,25,.12);color:#12151B}
+html[data-sitio-modo="claro"] .s-fun-c:hover{border-color:rgba(47,111,237,.55)}
+html[data-sitio-modo="claro"] .s-fun-c h3{color:#12151B}
+html[data-sitio-modo="claro"] .s-fun-c p{color:#4B4F5C}
+html[data-sitio-modo="claro"] .s-fun-a{color:#2F6FED}
+html[data-sitio-modo="claro"] .s-fp-l a{background:#F4F4F8;border-color:rgba(6,4,25,.12);color:#12151B}
+html[data-sitio-modo="claro"] .s-fp-l a:hover{background:#EEF3FF;border-color:#2F6FED}
 `;

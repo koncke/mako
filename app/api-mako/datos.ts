@@ -48,6 +48,14 @@ export async function vistaDeLaTab(ws: number): Promise<Vista> {
   return vistaDe({ ws, canal: 'http', canalKey: canalKeyDe('http', ws), alcance: 'ejecutar', rol: 'admin' });
 }
 
+/**
+ * Con qué mira el catálogo la referencia PÚBLICA (16/11/2026: /api-mako sin sesión, lib/rutas-publicas.ts → `LEIBLES_SIN_SESION`):
+ * un negocio cualquiera, como su admin, por HTTP y con todas las tabs, sin workspace ni base. `ws: 0` no es el principal y
+ * `plataforma: false` no es la plataforma, así que `gatingOk` deja afuera lo que sólo pide el workspace de Martín o MaKo misma:
+ * lo que se muestra es lo que cualquier cliente puede pedir (según su plan), no lo de adentro.
+ */
+export const VISTA_PUBLICA: Vista = { canal: 'http', alcance: 'ejecutar', ws: 0, rol: 'admin', tabs: null, plataforma: false };
+
 const documentables = (vista: Vista): OperacionDef[] =>
   REGISTRO.filter((d) => d.canales.includes('http') && !!rutaRestDe(d.id) && gatingOk(d, vista));
 
@@ -227,12 +235,14 @@ function endpointDoc(d: OperacionDef, base: string, areaTitulo: string): Endpoin
   };
 }
 
-/** La página de un recurso (todos sus endpoints, en el orden del índice), o null. */
-export function paginaDocs(indice: AreaDocs[], area: string, recurso: string, base: string): PaginaDocs | null {
+/** La página de un recurso (todos sus endpoints, en el orden del índice), o null. `probar: false` (la referencia pública, sin
+ *  sesión): ningún endpoint lleva «Probar con tus datos», que corre con los datos de un workspace. */
+export function paginaDocs(indice: AreaDocs[], area: string, recurso: string, base: string, { probar = true }: { probar?: boolean } = {}): PaginaDocs | null {
   const a = indice.find((x) => x.area === area);
   const r = a?.recursos.find((x) => x.slug === recurso);
   if (!a || !r) return null;
-  const endpoints = r.endpoints.map((e) => porId(e.id)).filter((d): d is OperacionDef => !!d).map((d) => endpointDoc(d, base, a.titulo)).filter((e): e is EndpointDoc => !!e);
+  const endpoints = r.endpoints.map((e) => porId(e.id)).filter((d): d is OperacionDef => !!d).map((d) => endpointDoc(d, base, a.titulo)).filter((e): e is EndpointDoc => !!e)
+    .map((e) => (probar ? e : { ...e, probable: false }));
   return { area: a.area, areaTitulo: a.titulo, recurso: r.slug, titulo: r.titulo, endpoints };
 }
 

@@ -272,6 +272,21 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 ---
 
 
+## /api-mako sin sesión: ni `PUBLICOS` ni `esPublica` (16/11/2026)
+
+- **⚠️ El diagnóstico obvio era el equivocado: sumar /api-mako a `PUBLICOS` la deja de SÓLO LECTURA para todos.** Crear un token
+  es un POST a la página, y con sesión daba 405. Además `esPublica` la saca de la puerta de la app de escritorio, que mostraría
+  los tokens del perfil sin pedir el login. **Regla:** una página que se lee sin sesión, y con sesión es la de siempre, va en una
+  lista aparte (`LEIBLES_SIN_SESION`, `lib/rutas-publicas.ts`) que el proxy mira DESPUÉS de la sesión: sin sesión deja pasar
+  sólo GET y HEAD sin acción de servidor (`proxy.ts`), y la acción pide sesión igual.
+- **La ruta sola no sabe si esconder el cromo de la app**: la misma URL es pública o interna según la sesión, así que el layout
+  raíz baja la sesión por un contexto (`ConSesionProvider`, `app/layout.tsx`) y la leen `PublicRouteGate`,
+  `NotificationsProvider`, `TituloTab` y `AvisoPixelViejo`. Cambiar esas firmas rompió 5 tests de otras áreas que fijan líneas
+  exactas (docs/hallazgos-pruebas.md, 16/11).
+- **Sin probar en un Next de verdad:** la sesión real con la barra lateral escondida y el teléfono sin sesión; sólo hay tests de
+  lógica y del fuente (`tests/api-mako-publica.test.ts`).
+- **Vive en:** `lib/rutas-publicas.ts` · `proxy.ts` · `app/layout.tsx` · `app/_components/PublicRouteGate.tsx`.
+
 ## El chat se cerró solo a las 01:33: el proceso de Claude Code se quedó sin memoria (16/11/2026)
 
 - **Síntoma**: el chat del Cerebro desapareció en medio de dos workflows y dos agentes; al volver, todo figuraba «stopped».

@@ -38,6 +38,25 @@ test('cada grabación tiene su corte medido: si no, se ve la vuelta a su arranqu
   assert.deepEqual(sinMedir, [], `sin corte medido en HASTA_DONDE (app/_components/clips-portada.ts): ${sinMedir.join(', ')}`);
 });
 
+// 16/11/2026: la grabación de Closing (llamadas.webm) mostraba un análisis INVENTADO —un 7.1 con notas, citas y coaching que MaKo nunca
+// escribió— y su fila de la portada pasó al recuadro de «falta». Sin video, la fila no entra al login; y su corte tiene que irse con
+// ella: un corte sin su clip es un clip que alguien cree que todavía se muestra.
+// PROBADO ROMPIÉNDOLO (16/11/2026; base 5 / 0): el corte de llamadas.webm de vuelta en HASTA_DONDE → 4 / 1, «cortes de clips que ya no
+// están en la portada».
+test('cada corte medido es de una grabación que sigue en la portada, y lo que tiene el recuadro de «falta» no pasa por el login', async () => {
+  const { CLIPS_VITRINA } = await import('../app/_components/clips-portada');
+  const fuente = leer('app/_components/clips-portada.ts');
+  const conVideo = TARJETAS_PORTADA.flatMap((t) => (typeof t.visual === 'object' && 'video' in t.visual ? [t.visual.video] : []));
+  const cortes = [...fuente.matchAll(/'(\/vsl-assets\/[^']+\.webm)':\s*\d/g)].map((m) => m[1]);
+  assert.ok(cortes.length >= 5, `sólo ${cortes.length} cortes: el patrón ya no lee HASTA_DONDE`);
+  const colgados = cortes.filter((v) => !conVideo.includes(v));
+  assert.deepEqual(colgados, [], `cortes de clips que ya no están en la portada (HASTA_DONDE): ${colgados.join(', ')}`);
+  // El login pasa exactamente las grabaciones de la portada, en su orden; una fila con «falta» no tiene qué pasar.
+  assert.deepEqual(CLIPS_VITRINA.map((c) => c.video), conVideo);
+  const conFalta = TARJETAS_PORTADA.filter((t) => typeof t.visual === 'object' && 'falta' in t.visual);
+  for (const t of conFalta) assert.ok(!CLIPS_VITRINA.some((c) => c.titulo === t.titulo), `«${t.titulo}» tiene el recuadro de «falta» y pasa por el login`);
+});
+
 test('en el teléfono no se baja ningún video: el corte del componente y el de la hoja son el MISMO', () => {
   // El panel se esconde con CSS por debajo de 1025 px, pero un <video> con src se descarga igual aunque no se vea.
   // El componente pone el src sólo desde 1025: si alguien mueve uno de los dos números, el 4G paga 12 MB por entrar.

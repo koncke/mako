@@ -10,14 +10,33 @@
 // componentes en rutas públicas para que ni se rendericen ni polleen.
 
 import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
-import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
+import { createContext, useContext, type ReactNode } from 'react';
+import { RUTA_ALUMNO, seLeeSinSesion } from '@/lib/rutas-publicas';
 import { esRutaMovil } from '@/lib/movil-rutas';
 import { useTelefono, useVistaMovil } from './VistaMovil';
 
-/** ¿La ruta es una landing pública? (no debe mostrar chrome de la app). */
-export function isPublicLandingPath(pathname: string | null | undefined): boolean {
+// ── ¿Hay sesión? (16/11/2026, la referencia pública de la API) ──────────────────────────
+// `/api-mako` es la MISMA página con sesión (la tab de la API, con su cromo) y sin ella (la documentación abierta, con la barra
+// y el pie del sitio: lib/rutas-publicas.ts → `LEIBLES_SIN_SESION`). La ruta sola no alcanza para saber si es la cara pública:
+// el layout raíz, que ya leyó la sesión en el server, la baja por este contexto (como el teléfono, ./VistaMovil.tsx). El layout
+// raíz no se vuelve a dibujar al navegar, y no hace falta: entrar y salir son navegaciones duras. Sin provider vale true, y
+// todo se comporta como antes.
+const ConSesionCtx = createContext(true);
+
+export function ConSesionProvider({ conSesion, children }: { conSesion: boolean; children: ReactNode }) {
+  return <ConSesionCtx.Provider value={conSesion}>{children}</ConSesionCtx.Provider>;
+}
+
+/** ¿El server dijo que hay sesión? (sin provider, true). */
+export function useConSesion(): boolean {
+  return useContext(ConSesionCtx);
+}
+
+/** ¿La ruta es una landing pública? (no debe mostrar chrome de la app). `conSesion: false` suma las pantallas que sin sesión se
+ *  leen abiertas (`/api-mako`): sin el Sidebar, sin los avisos y sin los pollers, que darían 401 en bucle. */
+export function isPublicLandingPath(pathname: string | null | undefined, conSesion = true): boolean {
   const p = pathname ?? '';
+  if (!conSesion && seLeeSinSesion(p)) return true;
   // '/' es la PORTADA, la cara pública del dominio.
   // ⚠️ OJO CON EL PORQUÉ, QUE CAMBIÓ EL 14/11/2026 Y NO ES EL QUE DECÍA ACÁ. Este
   // comentario afirmaba que «'/' solo la renderiza quien NO tiene sesión: a los
@@ -58,9 +77,9 @@ export function isPublicLandingPath(pathname: string | null | undefined): boolea
  * pantalla que existe para leerse de un vistazo arrancaba tapada. Ese modal ya no
  * bloquea (25/09), pero su tarjeta tampoco pinta acá: esta vista es para leer.
  */
-export function esVistaSinChrome(pathname: string | null | undefined): boolean {
+export function esVistaSinChrome(pathname: string | null | undefined, conSesion = true): boolean {
   const p = pathname ?? '';
-  return isPublicLandingPath(p)
+  return isPublicLandingPath(p, conSesion)
     || /^\/crm\/\d+\/resumen\/?$/.test(p)
     // La ventana de prueba que se abre ENCIMA de la landing mientras se prueba el
     // tracking. Mide 440 px: el riel del sidebar es fijo y se come un cuarto del
@@ -100,11 +119,12 @@ export function HideOnPublicLanding({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const movil = useVistaMovil();
   const telefono = useTelefono();
+  const conSesion = useConSesion();
   // ⚠️ EN UN TELÉFONO, EL CROMO DE ESCRITORIO NO SE DIBUJA NUNCA (14/10/2026), tampoco en una pantalla
   // sin versión del teléfono (/inicio, /onboarding…): Martín vio la Sidebar angosta y el resto en
   // blanco durante segundos al abrir la app (era /inicio, pintado antes de su redirect). Lo que se usa
   // en la computadora ya lo tapa <DesvioMovil>; quien pidió «Versión completa» no es `telefono`.
-  if (movil || telefono || esVistaSinChrome(pathname)) return null;
+  if (movil || telefono || esVistaSinChrome(pathname, conSesion)) return null;
   return <>{children}</>;
 }
 
@@ -115,6 +135,7 @@ export function HideOnPublicLanding({ children }: { children: ReactNode }) {
  */
 export function FueraDeLoPublico({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (isPublicLandingPath(pathname)) return null;
+  const conSesion = useConSesion();
+  if (isPublicLandingPath(pathname, conSesion)) return null;
   return <>{children}</>;
 }

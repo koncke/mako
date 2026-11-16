@@ -23,7 +23,7 @@
 //   · «Hyros Custom» (pides una función en palabras) es, en MaKo, «Editar con MaKo» (app/dashboard/PanelEditarMako.tsx): le pides un
 //     gráfico en palabras y entra a tu hoja. Las capas del cubo son lo que mide MaKo; sus fichas, lo que MaKo conecta de verdad.
 //   · «All / All / None» habla de su app a medida: acá, «Todo / Todo / Nada» con lo que MaKo junta y lo que te ahorra.
-//   · «Pick your business model» son, en MaKo, los cuatro funnels de la portada (app/vsl/_sitio/funnels-datos.ts), cada uno con su
+//   · «Pick your business model» son, en MaKo, los siete funnels del sitio (app/vsl/_sitio/funnels-datos.ts), cada uno con su
 //     mini landing en /vsl/funnels/<id>.
 //   · «What Could You Build With Hyros Custom?» lleva la grabación REAL de «Editar con MaKo» y, en la tabla, los gráficos pedidos.
 //   · Su App Store (arrastrar complementos a tu tablero), su MCP («npx hyros-mcp connect»), su garantía, su atribución por llamada,
@@ -31,6 +31,7 @@
 // =============================================================================
 
 import { FUNNELS_SITIO } from '../_sitio/funnels-datos';
+import { soloProEntre } from './solo-pro';
 import type { LandingCompetencia } from './tipos';
 
 const I = {
@@ -80,12 +81,16 @@ export const PEDIDOS_EDITAR = [
   { grafico: 'CAC', pedido: 'Agrega cuánto me costó cada cliente' },
 ] as const;
 
-/** El recorrido de cada funnel de la portada en una línea (sale de sus pasos en app/vsl/_sitio/funnels-datos.ts). */
+/** El recorrido de cada funnel de la portada en una línea (sale de sus pasos en app/vsl/_sitio/funnels-datos.ts). El setter con IA es
+ *  de MaKo Pro, y lo dice como su funnel (16/11/2026). */
 const RECORRIDO: Readonly<Record<string, string>> = {
   vsl: 'Anuncio, página con tu video, llamada y pago',
-  whatsapp: 'Anuncio, chat con tu setter con IA y pago',
+  whatsapp: `Anuncio, chat con tu setter con IA${soloProEntre('setter-ia')} y pago`,
   instagram: 'Contenido, palabra clave, regalo y venta',
   youtube: 'Video, tu página o tu agenda, y la venta',
+  formulario: 'Anuncio, formulario, contacto al instante y venta',
+  'venta-directa': 'Anuncio, página de tu producto, pago y otra compra',
+  newsletter: 'Se anota, bienvenida, un correo cada semana y venta',
 };
 
 /** El panel del cierre (el de su garantía, sin la garantía). */

@@ -58,7 +58,8 @@ import { CSS_PLANES } from '../app/planes/estilo';
 import { VitrinaPlanes } from '../app/planes/Vitrina';
 import { ICON } from '../app/_components/ServicioVisual';
 import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
-import { esPublica } from '../lib/rutas-publicas';
+// `abreSinCuenta`: las públicas Y las que sin sesión se leen (/api-mako, la referencia de la API desde el 16/11/2026).
+import { abreSinCuenta } from '../lib/rutas-publicas';
 import { EXTENSION_URL_TIENDA } from '../lib/extension-tienda';
 import { RAZON_SOCIAL_MAKO } from '../lib/titular-mako';
 
@@ -148,7 +149,7 @@ test('2. cada renglón de Recursos lleva a algo que EXISTE, y lo que pide inicia
     }
     const ruta = i.href.split(/[?#]/)[0] || '/';
     // Pública o marcada: un visitante sin cuenta que toca un renglón «conCuenta» termina en /login, y eso tiene que estar dicho.
-    const publica = ruta === '/' || esPublica(ruta);
+    const publica = ruta === '/' || abreSinCuenta(ruta);
     assert.equal(publica, !i.conCuenta, i.conCuenta ? `${i.nombre}: dice que pide sesión y ${ruta} ya es pública (sacar \`conCuenta\`)` : `${i.nombre}: ${ruta} pide iniciar sesión y no está marcada \`conCuenta\``);
   }
 });
@@ -183,7 +184,8 @@ test('3. el pie: «Recursos» como la barra, Reembolsos en Legal, y la razón so
 
 test('4. el pie en TODAS las páginas públicas que ve el visitante, una sola vez, y el porqué de las que no lo llevan', () => {
   // Lo que dibuja el pie del sitio por dentro (cada uno, comprobado abajo dibujándolo).
-  const DIBUJAN_EL_PIE = /<PieGlobal\b|<Pie\b|<PortadaSitio\b|<ComparacionesSitio\b|<ComparacionVs\b|<LandingCompetencia\b|<FeatureDetail\b|pie=\{<PieGlobal/;
+  // `<ReferenciaPublica`: /api-mako sin sesión (16/11/2026); su pie, una vez, lo dibuja tests/api-mako-publica.test.ts (el 5).
+  const DIBUJAN_EL_PIE = /<PieGlobal\b|<Pie\b|<PortadaSitio\b|<ComparacionesSitio\b|<ComparacionVs\b|<LandingCompetencia\b|<FeatureDetail\b|pie=\{<PieGlobal|<ReferenciaPublica\b/;
   // Las públicas SIN el pie del sitio, a propósito.
   const SIN_PIE: Record<string, string> = {
     '/planes/[plan]': 'el checkout: Martín, 14/11, sin la barra y «que no haya scroll» (app/planes/[plan]/Checkout.tsx)',
@@ -204,7 +206,7 @@ test('4. el pie en TODAS las páginas públicas que ve el visitante, una sola ve
   const vistas: string[] = [];
   for (const f of paginas) {
     const ruta = (`/${f.replace(/^app\//, '').split('/').slice(0, -1).filter((p) => !/^\(.*\)$/.test(p)).join('/')}`).replace(/\/$/, '') || '/';
-    if (ruta !== '/' && !esPublica(ruta.replace(/\[[^\]]+\]/g, 'x'))) continue;
+    if (ruta !== '/' && !abreSinCuenta(ruta.replace(/\[[^\]]+\]/g, 'x'))) continue;
     vistas.push(ruta);
     if (SIN_PIE[ruta]) continue;
     assert.match(leer(f), DIBUJAN_EL_PIE, `${ruta} (${f}) es pública y no dibuja el pie del sitio: súmalo (PieGlobal) o anota en SIN_PIE por qué no`);

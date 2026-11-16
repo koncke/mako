@@ -1032,7 +1032,9 @@ test('la ventana de prueba se dibuja SOLA, sin el sidebar', () => {
   // lead que se abre en el celular.
   assert.ok(/export function esVistaSinChrome/.test(gate), 'el predicado tiene que seguir siendo uno solo');
   const i = gate.indexOf('export function esVistaSinChrome');
-  assert.ok(/isPublicLandingPath\(p\)/.test(gate.slice(i, i + 700)), 'sin-chrome no puede dejar de cubrir las públicas');
+  // Con la sesión al lado desde el 16/11/2026 (`conSesion`, la referencia pública de /api-mako; la exige tests/api-mako-publica.test.ts):
+  // lo que se cuida sigue igual, que sin-chrome arranque preguntando por las públicas con la MISMA ruta.
+  assert.ok(/isPublicLandingPath\(p(?:, conSesion)?\)/.test(gate.slice(i, i + 700)), 'sin-chrome no puede dejar de cubrir las públicas');
 });
 
 test('cada video se puede VER desde la pantalla que te pide nombrarlo', () => {

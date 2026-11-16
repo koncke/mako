@@ -29,16 +29,24 @@ const TABS: { id: TabApi; label: string; icono: NombreIcono }[] = [
   { id: 'registro', label: 'Registro', icono: 'pulse' },
 ];
 
-export function ApiMako({ tab, tokens, children }: { tab: TabApi; tokens: number; children: ReactNode }) {
+/**
+ * `publica` (16/11/2026): la misma pantalla SIN sesión (app/api-mako/page.tsx → `ReferenciaPublica`). Sólo la Documentación: los
+ * Tokens y el Registro son de un negocio. Con `data-tema-fijo`, el sol y la luna del sitio no le reescriben los colores: el modo
+ * oscuro es el de Primer (github.css, `html[data-sitio-modo="oscuro"]`).
+ */
+export function ApiMako({ tab, tokens, children, publica = false }: { tab: TabApi; tokens: number; children: ReactNode; publica?: boolean }) {
+  const tabs = publica ? TABS.filter((t) => t.id === 'docs') : TABS;
+  // Sin `minHeight: 100%` en la pública: ahí la caja de la página también lleva la barra y el pie del sitio, y el 100 % era de ESA
+  // caja, así que la documentación crecía lo que miden los dos (712 px en blanco antes del pie, medido a 1440 el 16/11/2026).
   return (
-    <div className="gh" style={{ minHeight: '100%' }}>
+    <div className="gh" style={publica ? undefined : { minHeight: '100%' }} {...(publica ? { 'data-tema-fijo': '' } : {})}>
       <div className="gh-encabezado" style={{ padding: '24px 24px 0' }}>
         <div className="gh-titulo-app">
           <Icono n="code" size={20} />
           <span>MaKo</span><span style={{ color: 'var(--gh-fg-muted)' }}>/</span><strong>API</strong>
         </div>
         <nav className="gh-underline-nav" aria-label="API">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <Link key={t.id} href={`/api-mako?tab=${t.id}`} className="gh-underline-item" aria-current={tab === t.id ? 'page' : undefined}>
               <Icono n={t.icono} />{t.label}
               {t.id === 'tokens' && tokens > 0 && <span className="gh-counter">{tokens}</span>}

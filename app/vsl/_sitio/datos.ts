@@ -4,8 +4,8 @@
 // Referencia copiada: la portada de beehiiv (https://www.beehiiv.com/), su barra con los menús «Product» y «Solutions» y
 // https://www.beehiiv.com/comparisons, leídas el 12/11/2026. El diseño (valores medidos) vive en ./estilos.ts y en
 // docs/diseno/sitio-beehiiv.md; aquí va SÓLO el contenido, y casi todo sale de algo que ya existe:
-//   · las funciones del menú «Producto» son las 19 landings de app/vsl/_competencia/registro.ts (su nombre, su ícono y su
-//     ruta). Una landing nueva que no esté en ningún grupo entra sola en la columna de su lado (`menuProducto`);
+//   · las funciones del menú «Producto» son las landings de app/vsl/_competencia/registro.ts (24 el 16/11/2026: su nombre, su
+//     ícono y su ruta). Una landing nueva que no esté en ningún grupo entra sola en la columna de su lado (`menuProducto`);
 //   · «Industrias» son los avatares de lib/origen-cuenta.ts (AVATARES), cada uno a su landing PUBLICADA (LANDING_DEL_AVATAR,
 //     abajo; desde el 12/11/2026, porque /vsl/mako-<avatar> nunca se subió y daba 404);
 //   · la tabla de comparaciones sale de ./reemplaza.ts (los trabajos y TODAS las apps que MaKo reemplaza en cada uno, con su
@@ -21,6 +21,11 @@ import { STACK_QUE_REEMPLAZA, appsQueReemplaza, type AppQueReemplaza } from './r
 import { LANDINGS_COMPETENCIA } from '../_competencia/registro';
 import { CASO } from '../_competencia/marca';
 import type { LandingCompetencia } from '../_competencia/tipos';
+// Lo que es de MaKo Pro se DERIVA del plan, no se tipea (app/vsl/_competencia/solo-pro.ts): las filas de la portada que lo venden.
+import { soloPro, soloProEntre } from '../_competencia/solo-pro';
+import { AVISO_PRO_CLOSING, FALTA_ANALISIS } from '../_competencia/closing';
+import { AVISO_COMUNIDAD } from '../_competencia/classroom';
+import { AVISO_EQUIPO } from '../_competencia/equipo';
 import { AVATARES, type AvatarOrigen } from '@/lib/origen-cuenta';
 import { FUNNELS_SITIO, rutaFunnel } from './funnels-datos';
 import { DEFS, defsVisibles, ordenCategoria, type Def } from '@/lib/integraciones-catalogo';
@@ -60,13 +65,24 @@ const GRANDES: readonly { slug: string; bajada: string; familia: string | null }
  * Las columnas de «Producto» (las de beehiiv: Publish, Grow, Earn, Analyze, Connect): las familias de la barra de la app, con
  * las landings que caen en cada una. Ads Analyst (las hojas de tus anuncios) y Funnels (lo que Meta aprende de tu CRM) van en
  * Marketing porque hablan de tus anuncios; Cobranza (el plan de cuotas del CRM) y Agenda (Calendar) en Sales.
+ * Dos van en una columna que NO es su lugar en la app, y lo dicen en su renglón: Equipo y el Calendario de contenido.
  */
 // Sin una columna «MaKo» con sólo Ops Center (Martín, 12/11/2026, noche: «no tiene sentido que haya una opción de MaKo y que
 // tenga Ops Center, tanto en la bottom bar como en producto»): Ops Center va primero en Today, que es donde vive en la app.
 const COLUMNAS: readonly { rotulo: string; slugs: readonly string[] }[] = [
-  { rotulo: 'Today', slugs: ['mako', 'dashboard', 'whatsapp', 'prioridades', 'email'] },
-  { rotulo: 'Sales', slugs: ['crm', 'seguimiento', 'agenda', 'cobranza'] },
-  { rotulo: 'Marketing', slugs: ['ads', 'offer', 'competitor-spy', 'script', 'funnel'] },
+  // Second Brain (16/11/2026, su landing como Obsidian): después de Ops Center, donde ya iba sin landing (era SIN_LANDING, a /#brain).
+  { rotulo: 'Today', slugs: ['mako', 'second-brain', 'dashboard', 'whatsapp', 'prioridades', 'email'] },
+  // Closing (16/11/2026): después de Agenda, que es donde se agenda la llamada que después se analiza.
+  // Classroom (16/11/2026, su landing como Circle): al final, como en la barra de la app (Sales › Classroom), lo que va después de cobrar.
+  // Equipo (16/11/2026, su landing como Pipedrive): en la app NO es de una familia de la barra, es una sección de la «Configuración
+  // del negocio» (SECCIONES_NEGOCIO_M de lib/movil-rutas.ts). Va en Sales porque es el equipo de VENTAS (setters y closers), después
+  // de Closing, que es donde se ve la tasa de cierre de cada closer.
+  { rotulo: 'Sales', slugs: ['crm', 'seguimiento', 'agenda', 'closing', 'equipo', 'cobranza', 'classroom'] },
+  // Calendario de contenido (16/11/2026, su landing como Metricool): en la app, Calendar es de Sales (SECCIONES_MAS de
+  // lib/movil-rutas.ts), y por eso la Agenda va arriba, en Sales. Esta landing va en Marketing porque vende la otra mitad de Calendar,
+  // publicar tu contenido (como Ads Analyst y Funnels, que van acá por los anuncios): después del Marketing CoPilot, cuyo «Esta
+  // semana» termina en «Programar la semana», que abre el Calendario.
+  { rotulo: 'Marketing', slugs: ['ads', 'calendario', 'offer', 'competitor-spy', 'script', 'funnel'] },
   { rotulo: 'Create', slugs: ['video', 'ai-avatar', 'image', 'copywriting', 'web-generator'] },
 ];
 
@@ -77,17 +93,13 @@ export type MenuProducto = {
 
 /**
  * Lo que va en el menú sin landing propia: lleva a SU tarjeta de la portada (el `ancla` de TARJETAS_PORTADA). Martín, 14/11/2026:
- * «en el menú Producto también va uno que sea Second Brain»; va en Today, después de Ops Center, que es donde vive en la app.
- * Ícono «brain» de Tabler (MIT), como los de las landings.
+ * «en el menú Producto también va uno que sea Second Brain»; iba acá (a /#brain) hasta que tuvo su landing, /vsl/second-brain
+ * (16/11/2026, en COLUMNAS). Hoy no queda ninguna; el mecanismo queda para la próxima función sin landing.
  */
-const SIN_LANDING: readonly { columna: string; despuesDe: string; item: ItemFuncion }[] = [
-  { columna: 'Today', despuesDe: 'mako', item: { slug: 'brain', nombre: 'Second Brain', href: '/#brain', icono: [
-    'M15.5 13a3.5 3.5 0 0 0 -3.5 3.5v1a3.5 3.5 0 0 0 7 0v-1.8', 'M8.5 13a3.5 3.5 0 0 1 3.5 3.5v1a3.5 3.5 0 0 1 -7 0v-1.8',
-    'M17.5 16a3.5 3.5 0 0 0 0 -7h-.5', 'M19 9.3v-2.8a3.5 3.5 0 0 0 -7 0', 'M6.5 16a3.5 3.5 0 0 1 0 -7h.5', 'M5 9.3v-2.8a3.5 3.5 0 0 1 7 0v10',
-  ] } },
-];
+const SIN_LANDING: readonly { columna: string; despuesDe: string; item: ItemFuncion }[] = [];
 
-/** El menú «Producto»: las 19 landings, cada una una sola vez, y lo de SIN_LANDING. Una landing nueva sin lugar va a la última columna. */
+/** El menú «Producto»: todas las landings del registro (24 el 16/11/2026), cada una una sola vez, y lo de SIN_LANDING. Una landing
+ *  nueva sin lugar va a la última columna. */
 export function menuProducto(): MenuProducto {
   const grandes = GRANDES.flatMap((g) => { const l = landingDe(g.slug); return l ? [{ ...itemDe(l), bajada: g.bajada }] : []; });
   const columnas = COLUMNAS.map((c) => ({ rotulo: c.rotulo, items: c.slugs.flatMap((s) => { const l = landingDe(s); return l ? [itemDe(l)] : []; }) }));
@@ -222,8 +234,9 @@ export const RECURSOS: readonly GrupoRecursos[] = [
   { rotulo: 'Conecta', items: [
     // La sección «Tus apps, conectadas» de la portada, no /vsl/integraciones: ésa es la landing vieja (con «Solo 5 cupos»).
     { nombre: 'Integraciones', href: RUTA_INTEGRACIONES },
-    // La documentación vive en la tab de la API (app/api-mako): PIDE SESIÓN y un negocio elegido. No hay una pública todavía.
-    { nombre: 'Documentación de la API', href: '/api-mako', conCuenta: true },
+    // La documentación es la tab de la API (app/api-mako): desde el 16/11/2026, SIN sesión es la referencia pública (con la barra y
+    // el pie del sitio, sin tokens ni «Probar»): lib/rutas-publicas.ts → `LEIBLES_SIN_SESION`.
+    { nombre: 'Documentación de la API', href: '/api-mako' },
     { nombre: 'Extensión de Chrome', href: EXTENSION_URL_TIENDA, externo: true },
     // El link único para instalar MaKo en el teléfono (app/app, pública): a cada dispositivo lo manda a lo suyo.
     { nombre: 'App para tu teléfono', href: '/app' },
@@ -305,8 +318,14 @@ export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | 'brain' |
  * NADA INVENTADO (Martín, 12/11/2026, noche: «identifica la cantidad de cosas que hiciste inventándote cosas. Eso yo no lo quiero…
  * pon un placeholder con que aquí falta una animación»). Cada fila muestra la app de verdad (`video`: el componente real grabado;
  * `gurus`: las caricaturas; `hero` sólo donde el visual de su landing son fotos reales, AI Avatar) o `falta`: el recuadro que dice
- * qué animación va ahí, con las palabras de Martín. `slug` lleva a su landing; sin landing (Classroom, Brain) va sin link.
+ * qué animación va ahí, con las palabras de Martín. `slug` lleva a su landing; sin landing va sin link (Classroom y Brain tienen la
+ * suya desde el 16/11/2026: /vsl/classroom y /vsl/second-brain).
  * `ancla`: el id de la fila, para lo que el menú «Producto» manda a la portada en vez de a una landing (SIN_LANDING).
+ *
+ * LO QUE ES DE MaKo Pro LO DICE LA FILA (16/11/2026; la regla de docs/relevo/brief-landings.md, «se dice Con MaKo Pro»): cada fila es
+ * una promesa suelta, y quien la lee no tiene al lado la columna del plan. El aviso SALE DEL PLAN, no se tipea: `soloPro` /
+ * `soloProEntre` (FUNCIONES_SOLO_PRO, sin lo que todavía no se vende: el avatar), AVISO_PRO_CLOSING (TABS_SOLO_PRO), AVISO_COMUNIDAD y
+ * AVISO_EQUIPO (el tope de personas de lib/topes-plan.ts). Lo mide tests/vsl-landings-dicen-el-plan.test.ts, leyendo cada fila.
  *
  * EL ORDEN cuenta una venta High Ticket de punta a punta (Martín, 14/11/2026: «acomódalo como te parezca el orden»):
  *   1. Brain: MaKo conoce tu negocio (oferta, cliente, mensaje, funnel). Va primero porque todo lo de abajo lo usa.
@@ -324,29 +343,54 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; ancla?
   // Sin landing propia: va sin `slug` (FilaFuncion no dibuja una tarjeta cuyo slug no tiene landing) y el menú «Producto» lleva a `ancla`.
   // 14/11/2026: era una GRABACIÓN de ese grafo (cerebro.webm). Martín: «no quiero que el second brain sea un video o una animación…
   // que ahí se renderice un second brain real… que se pueda agarrar un grafo, que se pueda hacer zoom». Ahora es el componente.
-  { rotulo: 'Second Brain', ancla: 'brain', titulo: 'Second Brain: todo tu negocio, en un solo mapa.', texto: 'Tu oferta, tu cliente ideal, tus avatares, tu mensaje y tu funnel, conectados en un grafo. MaKo lo arma con los documentos que le subes y con lo que va aprendiendo, y sus chats lo leen para contestarte sobre tu negocio. Este de acá es de verdad: arrástralo, acércalo y toca un punto.', visual: 'brain' },
-  { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Chatea con los referentes del mercado.', texto: 'Alex Hormozi, Iman Gadzhi, Vilma Núñez y muchos referentes más del marketing y las ventas: eliges con quién hablar en el chat de MaKo y te contesta con su método, llevado a tu negocio.', visual: { video: '/vsl-assets/sitio/referentes.webm', poster: '/vsl-assets/sitio/referentes.jpg' } },
+  // 16/11/2026: con su landing (/vsl/second-brain, como Obsidian), que reusa este mismo BrainVivo en su ventana.
+  { slug: 'second-brain', rotulo: 'Second Brain', ancla: 'brain', titulo: 'Second Brain: todo tu negocio, en un solo mapa.', texto: 'Tu oferta, tu cliente ideal, tus avatares, tu mensaje y tu funnel, conectados en un grafo. MaKo lo arma con los documentos que le subes y con lo que va aprendiendo, y sus chats lo leen para contestarte sobre tu negocio. Este de acá es de verdad: arrástralo, acércalo y toca un punto.', visual: 'brain' },
+  { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Chatea con los referentes del mercado.', texto: `Alex Hormozi, Iman Gadzhi, Vilma Núñez y muchos referentes más del marketing y las ventas: eliges con quién hablar en el chat de MaKo y te contesta con su método, llevado a tu negocio.${soloPro('chat-referentes')}`, visual: { video: '/vsl-assets/sitio/referentes.webm', poster: '/vsl-assets/sitio/referentes.jpg' } },
   { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Pegas el link de un competidor y MaKo trae sus publicaciones, sus reels, sus videos de YouTube y sus anuncios, los ordena por formato y te muestra cuáles le dieron más vistas.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
-  { slug: 'copywriting', titulo: 'Replica y adapta un guion de la competencia con IA.', texto: 'Eliges un reel o un video que le funcionó a tu competencia, tocas «Replicar» y MaKo escribe tu guion con su misma estructura, adaptado a tu oferta.', visual: { video: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' } },
-  { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: 'Eliges uno de los carruseles que mejor les funcionan a las cuentas que sigues y MaKo arma el tuyo con el mismo diseño, con tus textos y tu marca, listo para editar.', visual: { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' } },
-  { slug: 'video', titulo: 'Edita tus videos con inteligencia artificial.', texto: 'Subes el clip tal cual sale del celular y un equipo de agentes de MaKo lo edita a la vista: corta las pausas, lo subtitula, propone B-roll y deja el volumen listo.', visual: { video: '/vsl-assets/sitio/video.webm', poster: '/vsl-assets/sitio/video.jpg' } },
+  { slug: 'copywriting', titulo: 'Replica y adapta un guion de la competencia con IA.', texto: `Eliges un reel o un video que le funcionó a tu competencia, tocas «Replicar» y MaKo escribe tu guion con su misma estructura, adaptado a tu oferta.${soloPro('replicar-guion')}`, visual: { video: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' } },
+  // Replicar un carrusel pasa por la IA del editor de imagen (lib/editores-ia-pro.ts, carruseles/replicar): es 'ia-editores'.
+  { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: `Eliges uno de los carruseles que mejor les funcionan a las cuentas que sigues y MaKo arma el tuyo con el mismo diseño, con tus textos y tu marca, listo para editar.${soloPro('ia-editores')}`, visual: { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' } },
+  // El equipo de agentes es la «Edición automática»: la IA del editor de video ('ia-editores').
+  { slug: 'video', titulo: 'Edita tus videos con inteligencia artificial.', texto: `Subes el clip tal cual sale del celular y un equipo de agentes de MaKo lo edita a la vista: corta las pausas, lo subtitula, propone B-roll y deja el volumen listo.${soloPro('ia-editores')}`, visual: { video: '/vsl-assets/sitio/video.webm', poster: '/vsl-assets/sitio/video.jpg' } },
   { slug: 'ai-avatar', titulo: 'Anuncios de video estilo UGC con tu cara.', texto: 'Tu avatar de IA dice tu guion en videos que se ven grabados con el celular: más anuncios para Instagram, TikTok y Meta, sin coordinar creadores ni esperar entregas.', visual: 'avatar' },
+  // Calendario de contenido (16/11/2026, su landing como Metricool): después de crear el contenido, publicarlo. El video es el Calendario
+  // REAL (app/calendario/CalendarioApp.tsx) con la semana de ejemplo de C:/dev/bancos-portada/banco-calendario-landing (grabar.mjs):
+  // «Programar publicaciones» → «Programar en serie» → las seis de la semana, programadas. Publicar pide conectar cada red una vez, con la
+  // clave del propio negocio (lib/zernio-conectar.ts, sin respaldo de la plataforma): el texto lo dice sin nombrar al proveedor.
+  { slug: 'calendario', titulo: 'Programa tu semana de contenido de una vez.', texto: 'Conectas tus redes una vez, armas la semana en el Calendario, tocas «Programar publicaciones» y cada reel, story o post sale solo a su hora en tu Instagram, TikTok, YouTube y tus otras redes.', visual: { video: '/vsl-assets/sitio/calendario.webm', poster: '/vsl-assets/sitio/calendario.jpg' } },
   // 14/11/2026 (el audio de feedback que pasó Martín): «anuncios realmente requiere su sección aparte… no lo juntaría ni con YouTube ni con
   // Instagram». Esta fila habla SÓLO de los anuncios de Meta.
-  { slug: 'ads', titulo: 'Gestiona tus anuncios, tu Instagram y tu YouTube con IA.', texto: 'Sube el presupuesto de lo que vende, publica tus videos en Trial Reels y cambia tus miniaturas por las que funcionan mejor. Lo apruebas con un toque o lo dejas en piloto automático.', visual: { video: '/vsl-assets/sitio/copilot.webm', poster: '/vsl-assets/sitio/copilot.jpg' } },
-  { slug: 'web-generator', titulo: 'Replica una landing de tu competencia.', texto: 'Pegas el link de una landing que ya vende y MaKo la replica sección por sección, con tus textos y tu oferta, conectada a tu CRM y a tu agenda.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
+  // Lo aprueba en los dos planes (Essential propone: ads.recomendaciones_dia); el piloto automático es de Pro ('piloto-redes').
+  { slug: 'ads', titulo: 'Gestiona tus anuncios, tu Instagram y tu YouTube con IA.', texto: `Sube el presupuesto de lo que vende, publica tus videos en Trial Reels y cambia tus miniaturas por las que funcionan mejor. Lo apruebas con un toque o lo dejas en piloto automático${soloProEntre('piloto-redes')}.`, visual: { video: '/vsl-assets/sitio/copilot.webm', poster: '/vsl-assets/sitio/copilot.jpg' } },
+  { slug: 'web-generator', titulo: 'Replica una landing de tu competencia.', texto: `Pegas el link de una landing que ya vende y MaKo la replica sección por sección, con tus textos y tu oferta, conectada a tu CRM y a tu agenda.${soloPro('replicar-landing')}`, visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
   // La llamada con Leila (13/11/2026): «hoy es básica; que entre al detalle de un lead y se vea todo: de dónde vino, qué hizo en la
   // página y qué % del VSL vio». El tablero, la ficha REAL (LeadSheet) de un lead de ejemplo, su Origen y la pestaña Tracking.
   // «Todo lo que hizo cada lead» no decía qué resuelve (el mismo audio): «gestiona tus leads de forma automática».
   { slug: 'crm', titulo: 'El CRM trackea tus leads de forma automática.', texto: 'Arrastras un lead a su etapa y queda anotado. Y MaKo anota solo todo lo que hace: de qué anuncio vino, cuánto vio de tu VSL, su mapa de calor, el video de su visita y cada clic.', visual: { video: '/vsl-assets/sitio/crm-ficha.webm', poster: '/vsl-assets/sitio/crm-ficha.jpg' } },
   // Martín (14/11/2026, noche): el video muestra los dos casos que pidió — por WhatsApp, «vi que agendaste la reunión, ¿confirmas?»;
   // por Instagram, el DM a quien comenta la palabra en un Reel. El texto dice esos dos.
-  { slug: 'seguimiento', titulo: 'Automatiza tu WhatsApp, Instagram y email.', texto: 'Confirma por WhatsApp la reunión de quien agendó y manda tu guía por DM a quien comenta la palabra clave en tu Reel. Si te contestan, el setter con IA sigue la charla. Tú solo cierras.', visual: { video: '/vsl-assets/sitio/automations.webm', poster: '/vsl-assets/sitio/automations.jpg' } },
+  // Las automatizaciones son de los dos planes; el setter con IA, de Pro ('setter-ia'): el aviso va en la frase del setter.
+  { slug: 'seguimiento', titulo: 'Automatiza tu WhatsApp, Instagram y email.', texto: `Confirma por WhatsApp la reunión de quien agendó y manda tu guía por DM a quien comenta la palabra clave en tu Reel. Si te contestan, el setter con IA sigue la charla y tú solo cierras.${soloPro('setter-ia')}`, visual: { video: '/vsl-assets/sitio/automations.webm', poster: '/vsl-assets/sitio/automations.jpg' } },
   { slug: 'whatsapp', titulo: 'WhatsApp, Instagram, Messenger y email, desde MaKo.', texto: 'Contestas y mandas mensajes por los cuatro desde la misma app, con la ficha del CRM de cada contacto al lado y MaKo proponiéndote qué contestar.', visual: { video: '/vsl-assets/sitio/chats.webm', poster: '/vsl-assets/sitio/chats.jpg' } },
+  // Closing (16/11/2026, Martín: «tenemos un análisis de llamada que literalmente te analiza todas las llamadas, te traduce todas, te las
+  // transcribe… con el método SPIN, las objeciones… sirve muchísimo para los dueños de negocios»). Después de contestar el chat, la
+  // llamada. «Traduce» es que el análisis sale en español: las citas quedan en su idioma.
+  // ⚠️ SIN GRABACIÓN, CON EL RECUADRO: lo que se ve de Closing lo ESCRIBE el análisis (el puntaje con sus notas y citas, las objeciones,
+  // el coaching), y la grabación que iba era de una llamada INVENTADA (la de «Paola Núñez con Ana», un 7.1 que MaKo nunca escribió). Va
+  // `falta` hasta que haya un análisis real (FALTA_ANALISIS, app/vsl/_competencia/closing.ts); por eso tampoco pasa por el login
+  // (app/_components/clips-portada.ts toma sólo las filas con `video`). El análisis es de MaKo Pro: el aviso sale del plan.
+  { slug: 'closing', titulo: 'Analiza todas tus llamadas de venta con IA.', texto: `Cada llamada, transcrita y puntuada con el método SPIN: MaKo marca cada objeción con su frase y su minuto, y te deja el coaching y el seguimiento por WhatsApp, en español aunque la llamada sea en otro idioma.${AVISO_PRO_CLOSING}`, visual: { falta: FALTA_ANALISIS.portada } },
   { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tus anuncios de Meta, tu landing, tus leads del CRM, tus pagos y tus llamadas en una sola pantalla, con tableros listos para ventas, anuncios y llamadas.', visual: 'tableros' },
+  // Equipo (16/11/2026, su landing como Pipedrive): después de los números, quién los hace. El video es la sección Equipo REAL
+  // (app/equipo/EquipoView.tsx) de C:/dev/bancos-portada/banco-equipo-landing (grabar.mjs): se invita a una closer y entra a la lista.
+  // MaKo Essential es de una sola persona ('equipo.usuarios', lib/topes-plan.ts) y la tasa de cierre de cada closer es de Closing (Pro):
+  // las dos van en la frase que lleva el aviso (AVISO_EQUIPO, del tope).
+  { slug: 'equipo', titulo: 'Tu equipo de ventas, cada uno con su rol.', texto: `Invitas a tus setters y closers con su correo, eliges su rol y MaKo les manda el acceso: cada uno entra solo a lo de su trabajo, y tú ves la tasa de cierre de cada closer.${AVISO_EQUIPO}`, visual: { video: '/vsl-assets/sitio/equipo.webm', poster: '/vsl-assets/sitio/equipo.jpg' } },
   // Martín (14/11/2026): «elimina toda la sección de lo que entrega lo que vendiste, que quede directamente la parte de tu comunidad
   // dentro de MaKo, no tu escuela, y que se vea». Sin apartados: la entrega quedó en esta fila sola, al final.
-  { rotulo: 'Curso y comunidad', titulo: 'Tu curso y tu comunidad, alojados en MaKo.', texto: 'Tus alumnos entran a tu curso y a tu comunidad en la misma app con la que vendes: sus clases por módulos, lo que avanza cada uno y un lugar para preguntar y compartir.', visual: { video: '/vsl-assets/sitio/comunidad.webm', poster: '/vsl-assets/sitio/comunidad.jpg' } },
+  // 16/11/2026: con su landing (/vsl/classroom, como Circle). El curso es de los dos planes; la comunidad, de Pro ('comunidad'): el aviso
+  // es el de su landing (AVISO_COMUNIDAD).
+  { slug: 'classroom', rotulo: 'Curso y comunidad', titulo: 'Tu curso y tu comunidad, alojados en MaKo.', texto: `Tus alumnos entran a tu curso y a tu comunidad en la misma app con la que vendes: sus clases por módulos, lo que avanza cada uno y un lugar para preguntar y compartir.${AVISO_COMUNIDAD}`, visual: { video: '/vsl-assets/sitio/comunidad.webm', poster: '/vsl-assets/sitio/comunidad.jpg' } },
 ];
 
 /**
@@ -465,8 +509,8 @@ const enFrase = (xs: readonly string[]) => (xs.length < 2 ? (xs[0] ?? '') : `${x
 
 /**
  * Las filas de la tabla: un trabajo por fila, con todas las apps que MaKo reemplaza en él (./reemplaza.ts; hasta el 12/11/2026
- * era una sola app por función, de los `reemplaza` de lib/funciones-mako.ts, y eran 8). Classroom no tiene landing: su tarjeta
- * lleva a su fila de la tabla.
+ * era una sola app por función, de los `reemplaza` de lib/funciones-mako.ts, y eran 8). Un trabajo sin landing lleva a su fila de la
+ * tabla (Classroom era el único: desde el 16/11/2026 tiene /vsl/classroom).
  */
 export function filasDeComparacion(): FilaComparacion[] {
   return STACK_QUE_REEMPLAZA.map((t) => {

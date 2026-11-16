@@ -22,7 +22,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, gateConfigurado, verificarToken, sinLoginPermitido } from './lib/auth-session';
 import { WS_HEADER, WS_PARAM, parseWs } from './lib/ws-tab';
 import { HEADER_QUERY, HEADER_RUTA } from './lib/api-tab';
-import { esPublica, esPublicaSoloLeer, decidirRutaAlumno } from './lib/rutas-publicas';
+import { esPublica, esPublicaSoloLeer, decidirRutaAlumno, decidirSinSesion } from './lib/rutas-publicas';
 import { HEADER_DOMINIO, RUTA_DOMINIO, consultaDelDominio, decidirHost, hostDeCabecera, paginaNoExisteDominio, tipoDeHost } from './lib/editor-landing/dominios-reglas';
 import { decidirLEnApp, decidirLandings, redireccionEnElHost } from './lib/editor-landing/origen-landings';
 import { MOVIL_ACTIVO, pedidoMovil } from './lib/movil-desvio';
@@ -460,6 +460,10 @@ export function proxy(req: NextRequest) {
     if (sesion.mfa === 'revision' && !revisionPuedeEscribir(pathname, req.method, req.headers.has('next-action'))) return NextResponse.json({ ok: false, error: 'La cuenta de demostración no puede cambiar esto.' }, { status: 403 });
     return seguirOMovil(req, pathname, sesion.rol === 'admin');
   }
+
+  // Sin sesión, la referencia de la API (/api-mako, 16/11/2026) se LEE: sólo GET/HEAD y sin acción del servidor. Va acá, después
+  // de la sesión, y no en PUBLICOS: con sesión es la tab de siempre y sus acciones son POST a la página (`decidirSinSesion`).
+  if (decidirSinSesion(pathname, req.method, req.headers.has('next-action')) === 'pasa') return seguir(req);
 
   return denegar(req, pathname);
 }

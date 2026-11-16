@@ -8,13 +8,30 @@ la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde ch
 
 - **Los tests que arman su lista con `git ls-files` no ven un archivo NUEVO sin commitear** (tests/cuenta-revision-escrituras): verde
   en la PC, rojo en GitHub después del commit (pasó con POST /api/accelerator/aplicar, corrida 1456). Para verlo como GitHub sin
-  tocar el índice: copiar el índice (`git rev-parse --git-path index`), `GIT_INDEX_FILE=<copia> git add -N <nuevos>` y correr
-  los tests con esa variable.
+  tocar el índice: copiar el índice (`git rev-parse --git-path index`), `GIT_INDEX_FILE=<copia> git add -N <nuevos>` (o
+  `--pathspec-from-file=<lista>` si son muchos: el 16/11 fueron 41) y correr CADA test con esa misma variable.
 - **El filtro del pre-push corre sobre el DISCO**: con agentes editando en el mismo worktree da rojos que no son del commit.
   `MAKO_SIN_FILTRO=1` sólo cuando el commit está verificado aparte (sigue el resto del pre-push y GitHub prueba todo).
 - **Los tests de «una prueba por persona» sólo buscan texto**: ninguna consulta `.or(email.ilike…)` ni `origen->>whatsapp` corre
   contra una base.
 - **Un arnés que bloquea fonts.gstatic.com mide con la letra de respaldo**: dejar pasar sólo ese dominio.
+
+- **Cambiar una firma rompe tests de otras áreas que fijan líneas exactas del fuente.** Con el `conSesion` de la API pública
+  cayeron `movil-carga-sin-error`, `landing-optin` y `sondeo-a-la-vista` (en GitHub habrían tumbado la corrida), además de
+  `no-encontrado` (las dependencias de TituloTab) y `movil-mismas-rutas` (el `if` del cromo). El agente buscó los tests que
+  IMPORTAN el archivo y encontró 2 de 5. **Regla:** antes de cambiar la firma de un helper o las dependencias de un efecto,
+  `grep` del TEXTO LITERAL en `tests/`.
+- **Medir una página sin `next dev`:** `server-only` se deja pasar con la condición `react-server` por `module.registerHooks`
+  (como hace `tests/api-mako-publica.test.ts`); si no, la API no se arma. El detector de texto cortado da falsos positivos en el
+  menú del teléfono fuera de la pantalla y en las tiras que se deslizan.
+- **`tsc-acotado` y la RAM:** las landings piden ~3,9 GB. Con `--heap=4096` alcanzó con 4-5 GB libres y UN chequeo a la vez; con
+  otros agentes corriendo, el vigía lo mata al bajar de 0,9 GB libres, y con `--heap=2560` muere sin heap (código 134).
+
+- **⚠️ Un test con tickets de mentira choca con los números REALES** (la suite de la noche, corrida 43913998213): el cron de
+  tickets CIERRA los números que nombra un hito del código (`cerrarLosDesplegados`, `lib/tickets-cierre.ts`, los `tickets: [n]` de
+  las bitácoras). `tests/tickets-avance-email.test.ts` armaba los suyos con #101-#130; el día que entró el hito real de los
+  tickets #103 y #105, su cron «cerró» el #103 de mentira y mandó un correo de más. Parecía una falla del cron y era el test. Los
+  tickets de un test van en un rango que ningún ticket real va a tener (990101 en adelante).
 
 ## Dos mediciones que dan verde sin mirar (16/11/2026, /accelerator)
 

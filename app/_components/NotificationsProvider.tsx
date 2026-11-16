@@ -16,7 +16,7 @@ import {
 } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
-import { isPublicLandingPath } from './PublicRouteGate';
+import { isPublicLandingPath, useConSesion } from './PublicRouteGate';
 import { esRutaMovil } from '@/lib/movil-rutas';
 import { useTelefono } from './VistaMovil';
 import { inAppActivo, type NotifInApp } from '@/lib/notif-catalogo';
@@ -133,6 +133,8 @@ type ConvNoOf = { chatJid: string; nombre: string; ultimaFecha: string | null; u
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() || '';
+  // Sin sesión, /api-mako es la referencia pública (16/11/2026): ahí no hay nada que sondear (./PublicRouteGate.tsx).
+  const conSesion = useConSesion();
   const [toast, setToast] = useState<{ gid: string; nombre: string; prueba?: boolean } | null>(null);
   const [noOficialUnread, setNoOficialUnread] = useState(0);
   const [inApp, setInApp] = useState<NotifInApp | null>(null);
@@ -210,7 +212,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // `inApp` seguía en null y todo sonaba, hubiera apagado lo que hubiera apagado.
   // El ref evita repetir el GET en cada navegación.
   useEffect(() => {
-    if (pathname.startsWith('/login') || isPublicLandingPath(pathname) || enMovil(pathname)) return;
+    if (pathname.startsWith('/login') || isPublicLandingPath(pathname, conSesion) || enMovil(pathname)) return;
     let alive = true;
     const cargar = (forzar: boolean) => {
       if (!forzar && prefsPedidasRef.current) return;
@@ -224,7 +226,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     cargar(false);
     window.addEventListener(EVENTO_PREFS_IN_APP, recargar);
     return () => { alive = false; window.removeEventListener(EVENTO_PREFS_IN_APP, recargar); };
-  }, [pathname]);
+  }, [pathname, conSesion]);
 
   /** Abre el aviso de arriba (un mensaje de WhatsApp, o el de prueba) y lo cierra a los 5 s si nadie lo está mirando. UN lugar
    *  para los dos (tests/avisos-se-cierran.test.ts cuenta los temporizadores). Sólo usa setters y refs: es estable. */
@@ -266,7 +268,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // pestaña olvidada (12/11/2026). Al volver a la pestaña pide en el acto.
   useEffect(() => {
     const tick = async () => {
-      if (pathRef.current.startsWith('/login') || isPublicLandingPath(pathRef.current)) return;
+      if (pathRef.current.startsWith('/login') || isPublicLandingPath(pathRef.current, conSesion)) return;
       // En /m no: el contador alimenta el badge del Sidebar y el pop-up que lleva a
       // /chats de escritorio — ninguno de los dos existe en el teléfono.
       if (enMovil(pathRef.current)) return;
@@ -317,12 +319,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       } catch { /* ignore */ }
     };
     return sondearALaVista(tick, { cadaMs: RESUMEN_WA_CADA_MS });
-  }, []);
+  }, [conSesion]);
 
   return (
     <Ctx.Provider value={{ unreadTotal, noOficialUnread, marcarLeidoNoOficial, setOpenChatNoOficial, inApp }}>
       {children}
-      {!isPublicLandingPath(pathname) && !enMovil(pathname) && toast && (
+      {!isPublicLandingPath(pathname, conSesion) && !enMovil(pathname) && toast && (
         <AvisoArriba onAbrir={() => (toast.prueba ? setToast(null) : goToChatNoOficial(toast.gid))} onCerrar={() => setToast(null)}
           estilo={{
             position: 'fixed', top: 18, right: 18, zIndex: 2000, maxWidth: 340,

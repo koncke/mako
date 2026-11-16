@@ -25,7 +25,7 @@ export type TrabajoQueReemplaza = {
   trabajo: string;
   /** La función de MaKo que lo hace. */
   funcion: string;
-  /** Su landing en /vsl, o null si no tiene (Classroom). */
+  /** Su landing en /vsl, o null si no tiene (Classroom la tiene desde el 16/11/2026: /vsl/classroom). */
   landing: string | null;
   /** La familia de la tabla de la comparación. */
   familia: 'Crear' | 'Marketing' | 'Vender' | 'Medir y ordenar';
@@ -61,7 +61,7 @@ export const STACK_QUE_REEMPLAZA: readonly TrabajoQueReemplaza[] = [
     // Zapier y Make, sumados por Martín el 14/11/2026 («Sí, súmalos»). El archivo de Zapier es `zap.png` y no el nombre en minúscula:
     // tests/puente-leads-retirado.test.ts prohíbe esa key entre comillas (el puente de leads que se retiró el 23/10).
     apps: [app('ManyChat', 'manychat'), app('SetSmart', 'setsmart'), app('Zapier', 'zap'), app('Make', 'make')] },
-  { trabajo: 'Cursos y comunidad', funcion: 'Classroom', landing: null, familia: 'Vender',
+  { trabajo: 'Cursos y comunidad', funcion: 'Classroom', landing: 'classroom', familia: 'Vender',
     apps: [app('Skool', 'skool'), app('Kajabi', 'kajabi'), app('Hotmart', 'hotmart'), app('Circle', 'circle')] },
   { trabajo: 'Dashboards', funcion: 'Dashboard', landing: 'dashboard', familia: 'Medir y ordenar',
     apps: [app('Looker Studio', 'lookerstudio'), app('Reportei', 'reportei'), app('AgencyAnalytics', 'agencyanalytics'), app('DashThis', 'dashthis'), app('Metricool', 'metricool')] },

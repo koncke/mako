@@ -124,7 +124,7 @@ export function TiraSitio() {
   );
 }
 
-/** Una fila: el texto de un lado y lo que se ve del otro (`inv`: al revés). Sin landing (Classroom), sin link. */
+/** Una fila: el texto de un lado y lo que se ve del otro (`inv`: al revés). Sin landing, sin link. */
 function FilaFuncion({ slug, rotulo, ancla, titulo, texto, visual, inv }: (typeof TARJETAS_PORTADA)[number] & { inv: boolean }) {
   const l = slug ? landingDeSlug(slug) : undefined;
   if (slug && !l) return null;
@@ -311,6 +311,8 @@ function IntegracionesSitio() {
           <div>
             <h2 className="s-h2">Tus apps, conectadas.</h2>
             <p className="s-lede">{todas.length} integraciones: tus anuncios, tus chats, tu agenda, tus reuniones y tus cobros.</p>
+            {/* La referencia de la API, abierta sin cuenta desde el 16/11/2026 (/api-mako sin sesión, app/api-mako/ReferenciaPublica.tsx). */}
+            <a className="s-zz-a" href="/api-mako">Conecta lo que falte con la API de MaKo <Flecha /></a>
           </div>
           <Boton />
         </div>

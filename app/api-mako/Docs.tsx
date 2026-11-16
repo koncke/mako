@@ -61,7 +61,7 @@ export function Docs({ datos, pagina, area, recurso, art }: {
       </div>
     );
   } else {
-    contenido = <Portada indice={indice} />;
+    contenido = <Portada indice={indice} publica={!!datos.publica} />;
   }
 
   return (
@@ -160,13 +160,14 @@ function SelectorVersion({ version }: { version: string }) {
   );
 }
 
-function Portada({ indice }: { indice: AreaDocs[] }) {
+/** `publica` (sin sesión, 16/11/2026): sin las descargas, que son acciones del servidor de un workspace. */
+function Portada({ indice, publica }: { indice: AreaDocs[]; publica: boolean }) {
   const total = useMemo(() => indice.reduce((n, a) => n + a.recursos.reduce((m, r) => m + r.endpoints.length, 0), 0), [indice]);
   return (
     <div className="gh-articulo" style={{ maxWidth: 1080 }}>
       <h1>Documentación de la API REST de MaKo</h1>
       <p className="gh-lead">Crea integraciones, lee los datos de tu negocio y automatiza tu trabajo con la API REST de MaKo.</p>
-      <BotonesDescarga />
+      {!publica && <BotonesDescarga />}
 
       <h2 id="empieza">Empieza aquí</h2>
       <div className="gh-tarjetas">

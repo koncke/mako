@@ -13,7 +13,7 @@ import { AvisoMoraPlan } from './_components/AvisoMoraPlan';
 import { GrabacionEnCurso } from './_components/grabar/GrabacionEnCurso';
 import { CartelPagoCliente } from './_components/CartelPagoCliente';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
-import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
+import { ConSesionProvider, FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
 import { CentinelaArranque } from './_components/CentinelaArranque';
 import { PuenteNativo } from './_components/PuenteNativo';
 import { CopiaSinConexion } from './_components/CopiaSinConexion';
@@ -239,6 +239,9 @@ export default async function RootLayout({
         <WsProvider>
         {/* Con LAS MISMAS RUTAS (13/10/2026) el teléfono ve /m en la URL /crm: lo que se apagaba
             con `esRutaMovil(pathname)` pregunta además si esto es un teléfono (app/_components/VistaMovil.tsx). */}
+        {/* ¿Hay sesión? (16/11/2026): /api-mako sin sesión es la referencia PÚBLICA de la API, y su cromo (el Sidebar, los
+            avisos, los pollers) se apaga como en lo público. La ruta sola no lo sabe: lo baja este contexto (PublicRouteGate). */}
+        <ConSesionProvider conSesion={!!sesion}>
         <TelefonoProvider telefono={telefono}>
         {/* Nombre de la sección en la pestaña del navegador. */}
         <Suspense fallback={null}>
@@ -338,6 +341,7 @@ export default async function RootLayout({
           </div>
         </NotificationsProvider>
         </TelefonoProvider>
+        </ConSesionProvider>
         </WsProvider>
       </body>
     </html>

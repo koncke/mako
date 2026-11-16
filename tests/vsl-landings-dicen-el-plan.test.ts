@@ -115,6 +115,43 @@
 //    tres cuerpos, y el aviso del cuerpo de la tarjeta de al lado cae a UNA frase del título siguiente: con la ventana de 1
 //    frase, en una fila de promesas todas cerradas, cada aviso tapa al vecino. Por eso el título quedó sin aviso y el cuerpo
 //    de cada tarjeta lleva el suyo (los tres cuerpos sí están medidos: roturas 14, 15 y 16).
+//
+// ── 16/11/2026: LAS FILAS DE LA PORTADA, LOS SIETE FUNNELS, /vsl/equipo Y LA TAB DE PRO ─────────────────────────────────────
+// La revisión de las landings nuevas encontró tres filas de la portada (Equipo, Closing y «Curso y comunidad») y dos funnels
+// (formulario y venta directa) vendiendo lo de Pro sin decirlo. Barrerlas mostró que no eran las únicas: de las 17 filas, 10
+// venden algo de Pro (y una más, AI Avatar, algo cerrado que todavía no se vende, que por eso NO lleva aviso), y los funnels
+// viejos también (el setter con IA, replicar la landing de otro, el equipo de agentes, «MaKo te dice qué mejorar»). Ahora se
+// barren con las MISMAS huellas:
+//   · cada FILA de la portada es su lugar (su rótulo y su título son titulares, aclarados por su texto, que es lo que se lee
+//     debajo), y cada PIEZA de un funnel (el hero, cada paso, «¿Es para ti?», el cierre y su renglón del menú) también: una
+//     promesa por lugar, para que el aviso de un paso no tape al de al lado. Se leen de los DATOS (TARJETAS_PORTADA y
+//     FUNNELS_SITIO) y un test comprueba que se dibujan TAL CUAL (FilaFuncion y PaginaFunnel no reescriben el texto). Las
+//     listas de links de un funnel («Lo arman», «Lo hace: …») no se barren: son el menú, no una promesa.
+//   · la TAB de Pro (`TABS_SOLO_PRO`, el análisis de las llamadas) tiene su huella, como las funciones: la barren las filas de
+//     Closing y de Equipo, los funnels y /vsl/equipo. Su aviso es AVISO_PRO_CLOSING (app/vsl/_competencia/closing.ts).
+//   · ⚠️ DOS PALABRAS SE ANGOSTARON, y es lo que pidió la revisión: «setter» suelto es el ROL en /vsl/equipo («tus setters y
+//     closers»), no el setter con IA, así que la huella es «setter con IA»; y «tus alumnos» nombra al CURSO, que es de los dos
+//     planes (1 en Essential, `classroom.cursos`), así que la de la comunidad es sólo «comunidad».
+//   · /vsl/classroom NO entra, medido: dice «comunidad» 13 veces (sus pestañas, sus candados, «Con un nivel de la comunidad»), y la
+//     página entera ES el curso y la comunidad. Lo dice en el hero y en el grupo Comunidad (AVISO_COMUNIDAD), y eso lo fija
+//     tests/vsl-landings-competencia.test.ts. Pedirle un aviso por mención sería marcar de más.
+//   · EL EQUIPO NO ES UNA FUNCIÓN, ES UN TOPE: MaKo Essential es de una persona ('equipo.usuarios'), así que invitar a alguien es de
+//     Pro. No se barre por palabras (en /vsl/equipo la página entera es el equipo, y lo dice una vez debajo del botón, RENGLON_PLAN):
+//     lo mide su propio test, sobre la fila de Equipo de la portada, con el número del tope; y un aviso ADENTRO de su renglón
+//     (RENGLON_PLAN, AVISO_EQUIPO) cuenta como reclamado.
+// PROBADO ROMPIÉNDOLO (16/11/2026; base 10 / 0, cada rotura restaurada y comprobada con sha256):
+//   R1. sin el aviso del setter en la fila de Automations de la portada                → 9 / 1 (el barrido);
+//   R2. sin el aviso del setter en el paso «El contacto» del funnel de formulario       → 9 / 1 (el barrido);
+//   R3. sin AVISO_PRO_CLOSING en la fila de Closing de la portada                        → 9 / 1 («llamadas de venta con IA», el título);
+//   R4. sin AVISO_COMUNIDAD en «Curso y comunidad»                                       → 9 / 1 («comunidad», el título);
+//   R5. sin AVISO_EQUIPO en la fila de Equipo                                            → 8 / 2 (la tasa de cierre y el tope);
+//   R6. «Con MaKo Pro.» tipeado en la fila de Competitor Spy, que es de los dos planes  → 8 / 2 (`ABIERTAS` y el aviso suelto);
+//   R7. sin el aviso de Closing en el paso «La venta» del funnel de YouTube              → 9 / 1 («qué mejorar»);
+//   R8. «setter» suelto de vuelta en HUELLAS                                             → 8 / 2: /vsl/equipo pide aviso para el ROL, y
+//       choca con su `ABIERTAS` («Cada closer y cada setter entra a Calendar»): es la medida de que angostarla no era un detalle;
+//   R9. `PRO_SUMA=funcion-nueva` (el precargador)                                        → 9 / 1 (la guarda de cobertura);
+//   R10. `PRO_SACA=setter-ia`: los avisos de la portada y de los funnels se van SOLOS (salen de `soloPro`) y el único rojo es la
+//        fila de HUELLAS que quedó colgada                                               → 9 / 1.
 // Correr: node --import tsx --test tests/vsl-landings-dicen-el-plan.test.ts
 // =============================================================================
 import { test } from 'node:test';
@@ -124,9 +161,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import LandingCompetencia, { metadataDeLanding } from '../app/vsl/_competencia/LandingCompetencia';
 import { LANDINGS_COMPETENCIA } from '../app/vsl/_competencia/registro';
 import { PREGUNTAS_SITIO } from '../app/vsl/_sitio/preguntas';
+import { TARJETAS_PORTADA, landingDeSlug, nombreCorto } from '../app/vsl/_sitio/datos';
+import { FUNNELS_SITIO, rutaFunnel } from '../app/vsl/_sitio/funnels-datos';
+import { PaginaFunnel } from '../app/vsl/_sitio/Funnels';
+import { PortadaSitio } from '../app/vsl/_sitio/Portada';
+import { AVISO_EQUIPO, RENGLON_PLAN } from '../app/vsl/_competencia/equipo';
 import type { Bloque, LandingCompetencia as Landing } from '../app/vsl/_competencia/tipos';
-import { FUNCIONES_SOLO_PRO, type FuncionSoloPro } from '../lib/topes-plan';
-import { FUNCIONES_TODAVIA_NO_VENDIDAS, NOMBRE_FUNCION_PRO, noIncluyeDe } from '../lib/planes-comparacion';
+import { FUNCIONES_SOLO_PRO, TABS_SOLO_PRO, TOPES, type FuncionSoloPro } from '../lib/topes-plan';
+import { FUNCIONES_TODAVIA_NO_VENDIDAS, NOMBRE_FUNCION_PRO, NOMBRE_TAB_PRO, TABS_TODAVIA_CERRADAS, noIncluyeDe } from '../lib/planes-comparacion';
+import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
 
 /** El aviso, tal cual lo dibujan las hermanas ya hechas (app/vsl/_competencia/crm.ts, competitor-spy.ts, disenos/crm.tsx). */
 const MARCA = 'Con MaKo Pro';
@@ -138,12 +181,24 @@ const MARCA = 'Con MaKo Pro';
  * y :95, disenos/crm.tsx:254 y disenos/web-generator.tsx:206 y :391).
  * ⚠️ QUE UNA LANDING ENTRE NO ES UNA LÍNEA: el recorte tiene que servirle (medido: dibuja su `<h1>` y su `<footer …-pie>`,
  *    y no tiene ningún recuadro `mk-falta`) y el barrido reclama TODO lo que la página prometa, que es el punto.
+ * /vsl/equipo entró el 16/11/2026 (nombra el setter como ROL y la tasa de cierre de Closing, que es de Pro); /vsl/classroom no
+ * (ver la cabecera: «comunidad» 13 veces en la página que ES la comunidad).
  */
-const PAGINAS = ['copywriting', 'video', 'image', 'competitor-spy'] as const;
+const PAGINAS = ['copywriting', 'video', 'image', 'competitor-spy', 'equipo'] as const;
 
-/** LA FUENTE DE VERDAD, la misma que leen las landings: cerrada en Essential Y ya vendida. */
-const seVendeEnPro = (f: FuncionSoloPro): boolean =>
-  (FUNCIONES_SOLO_PRO as readonly string[]).includes(f) && !FUNCIONES_TODAVIA_NO_VENDIDAS.includes(f);
+/** Lo que Essential no trae y una página puede prometer: las funciones cerradas y las tabs de Pro, cada una con su huella. */
+type TabSoloPro = (typeof TABS_SOLO_PRO)[number];
+type Cerrada = FuncionSoloPro | TabSoloPro;
+// Perezosa a propósito: el precargador ./_mutar-funciones-de-pro.ts mueve FUNCIONES_SOLO_PRO en memoria antes de que esto corra.
+const cerradas = (): readonly Cerrada[] => [...FUNCIONES_SOLO_PRO, ...TABS_SOLO_PRO];
+const esTab = (c: Cerrada): c is TabSoloPro => (TABS_SOLO_PRO as readonly string[]).includes(c);
+
+/** LA FUENTE DE VERDAD, la misma que leen las landings: cerrada en Essential Y ya vendida (una tab: de Pro y ya abierta). */
+const seVendeEnPro = (c: Cerrada): boolean => (esTab(c)
+  ? !TABS_TODAVIA_CERRADAS.includes(c)
+  : (FUNCIONES_SOLO_PRO as readonly string[]).includes(c) && !FUNCIONES_TODAVIA_NO_VENDIDAS.includes(c));
+/** Su nombre de venta, el de la fila de /planes. */
+const nombreDeVenta = (c: Cerrada): string | undefined => (esTab(c) ? NOMBRE_TAB_PRO[c] : NOMBRE_FUNCION_PRO[c]);
 
 const de = (slug: string): Landing => {
   const l = LANDINGS_COMPETENCIA.find((x) => x.slug === slug);
@@ -239,7 +294,8 @@ function avisoJuntoA(texto: string, ancla: string): boolean {
  *    promesa que hoy se mide estricta. No encontrarlo nunca afloja; encontrarlo de más, sí.
  */
 type ConTitulo = Extract<Bloque, { titulo: string }>;
-type Titular = { texto: string; desde: number; aclarado: boolean };
+/** `reclama`: dónde está el texto que lo aclara (el de una fila o un paso, ver `pieza`): un aviso ahí es de la promesa del titular. */
+type Titular = { texto: string; desde: number; aclarado: boolean; reclama?: readonly [number, number] };
 const titularesDe = (l: Landing, cuerpo: string): Titular[] => l.bloques
   .filter((b): b is ConTitulo => 'titulo' in b && typeof b.titulo === 'string' && b.titulo.length > 0)
   .map((b) => ({
@@ -250,10 +306,10 @@ const titularesDe = (l: Landing, cuerpo: string): Titular[] => l.bloques
   .filter((t) => t.desde !== -1);
 
 /**
- * CON QUÉ PALABRAS NOMBRAN ESTAS TRES PÁGINAS CADA FUNCIÓN CERRADA. Una fila por función, no por lugar: el barrido recorre el
- * texto dibujado buscando estas palabras y exige el aviso en cada lugar donde aparecen. Esto es el único juicio humano del
- * test, y es `Record<FuncionSoloPro, …>`: una función nueva en `FUNCIONES_SOLO_PRO` no compila sin su fila, y sin ella
- * `node --test` tampoco pasa.
+ * CON QUÉ PALABRAS NOMBRAN ESTOS LUGARES CADA FUNCIÓN CERRADA (y la tab de Pro). Una fila por función, no por lugar: el barrido
+ * recorre el texto dibujado buscando estas palabras y exige el aviso en cada lugar donde aparecen. Esto es el único juicio humano
+ * del test, y es `Record<Cerrada, …>`: una función nueva en `FUNCIONES_SOLO_PRO` (o una tab en `TABS_SOLO_PRO`) no compila sin su
+ * fila, y sin ella `node --test` tampoco pasa.
  * ⚠️ Las palabras son LAS DE LA FUNCIÓN, no las del lugar: «referentes» (y no «eliges a qué referente seguir») es lo que
  *    encontró las dos promesas del hero que vivían en el archivo de diseño.
  * ⚠️ Y son las del CANDADO, que es angosto (lib/editores-ia-pro.ts dice la lista exacta). «subtítulos», «quitar el ruido»,
@@ -263,53 +319,69 @@ const titularesDe = (l: Landing, cuerpo: string): Titular[] => l.bloques
 type Huella = {
   /** Las palabras con las que se la nombra, tal como se LEEN en la página (no como están en el .ts). */
   palabras: readonly string[];
-  /** ¿Alguna de las páginas de `PAGINAS` la nombra? Se comprueba en los dos sentidos: si dice que no y aparece, rojo. */
+  /** ¿Alguno de los lugares que se miran (las páginas, las filas de la portada y los funnels) la nombra? Se comprueba en los dos
+   *  sentidos: si dice que no y aparece, rojo. */
   laNombran: boolean;
   /** Por qué: qué cierra el candado, o de qué landing es si acá no va. */
   porque: string;
 };
-const HUELLAS: Readonly<Record<FuncionSoloPro, Huella>> = {
+const HUELLAS: Readonly<Record<Cerrada, Huella>> = {
   'scraper-whatsapp': {
     palabras: ['grupo de WhatsApp', 'grupos de WhatsApp', 'contactos de un grupo'],
     laNombran: false, porque: 'el scraper se vende en /vsl/crm y /vsl/whatsapp, que lo dicen con su aviso',
   },
   'replicar-landing': {
-    palabras: ['su sitio', 'su landing', 'su página de venta'],
-    laNombran: true, porque: 'la vende /vsl/competitor-spy, en el título y en el cuerpo de «Copia su sitio» (y /vsl/web-generator, que no se barre)',
+    // Las cuatro últimas, 16/11/2026: así la nombran la fila de Web Generator de la portada («Replica una landing de tu competencia»,
+    // «MaKo la replica sección por sección») y los funnels de VSL y de venta directa («Replicas una landing / una página de venta»).
+    palabras: ['su sitio', 'su landing', 'su página de venta', 'Replica una landing', 'la replica sección por sección', 'Replicas una landing', 'Replicas una página de venta'],
+    laNombran: true, porque: 'la venden /vsl/competitor-spy («Copia su sitio»), la fila de Web Generator de la portada y los funnels de VSL y de venta directa (y /vsl/web-generator, que no se barre)',
   },
   'ia-editores': {
+    // Las dos últimas, 16/11/2026: replicar el carrusel de otro pasa por la IA del editor de imagen (lib/editores-ia-pro.ts,
+    // carruseles/replicar): la fila «Carruseles» de la portada y el funnel de Instagram. Armar uno con su estructura y cambiarle los
+    // textos (`crear_carrusel_desde_referencia`, `cambiar_textos_diseno_imagen`) sigue abierto, y no dice «Replica».
     palabras: ['Edición automática', 'B-roll', 'Clips mágicos', 'equipo de agentes', 'Le escribes el cambio',
       'chat del editor', 'chat de MaKo al lado', 'con MaKo al lado', 'carruseles con IA', 'diseñados con IA',
-      'agente de IA', 'Pídelo por chat', 'Con «Editar»'],
-    laNombran: true, porque: 'lo que LLAMA A LA IA de un editor: el enjambre, los clips, el B-roll en `elegir` y los dos chats',
+      'agente de IA', 'Pídelo por chat', 'Con «Editar»', 'Replica los carruseles', 'replicas sus carruseles'],
+    laNombran: true, porque: 'lo que LLAMA A LA IA de un editor: el enjambre, los clips, el B-roll en `elegir`, los dos chats y replicar un carrusel',
   },
   'comunidad': {
-    palabras: ['comunidad', 'tus alumnos'],
-    laNombran: false, porque: 'el Classroom se vende en /vsl/mako y en la tabla de /planes',
+    // ⚠️ «tus alumnos» salió el 16/11/2026: nombra al CURSO, que es de los dos planes (1 en Essential, `classroom.cursos`), y la fila
+    // «Curso y comunidad» de la portada lo dice del curso.
+    palabras: ['comunidad'],
+    laNombran: true, porque: 'la fila «Curso y comunidad» de la portada (el Classroom se vende en /vsl/classroom, que no se barre, y en la tabla de /planes)',
   },
   'setter-ia': {
-    palabras: ['setter'],
-    laNombran: false, porque: 'el setter se vende en /vsl/whatsapp y /vsl/seguimiento',
+    // ⚠️ «setter» suelto salió el 16/11/2026: en /vsl/equipo es el ROL («tus setters y closers»), no el setter con IA.
+    palabras: ['setter con IA'],
+    laNombran: true, porque: 'la fila de Automations de la portada y los funnels de WhatsApp, formulario e Instagram (y /vsl/whatsapp y /vsl/seguimiento, que no se barren)',
   },
   'piloto-redes': {
     palabras: ['piloto automático'],
-    laNombran: false, porque: 'los pilotos de Instagram y YouTube se venden en /vsl/ads y /vsl/mako',
+    laNombran: true, porque: 'la fila del Marketing CoPilot de la portada (los pilotos de Instagram y YouTube se venden en /vsl/ads y /vsl/mako, que no se barren)',
   },
   'ai-avatar': {
     palabras: ['avatar', 'personaje con IA'],
-    laNombran: true, porque: 'cerrado en Essential y TODAVÍA sin vender (`AI_AVATAR_SE_VENDE`): hoy estas palabras NO pueden llevar aviso',
+    laNombran: true, porque: 'cerrado en Essential y TODAVÍA sin vender (`AI_AVATAR_SE_VENDE`): hoy estas palabras NO pueden llevar aviso (la fila de AI Avatar de la portada y los funnels de VSL, WhatsApp y venta directa lo nombran sin él)',
   },
   'replicar-guion': {
     // `Replicas su` entró el 15/11/2026 con /vsl/competitor-spy: su tarjeta «Su guion, con tu oferta» dice «Replicas su reel»,
     // que ninguna de las otras tres palabras agarraba, y por eso esa promesa no tenía guarda. Es angosta a propósito
     // (replicar algo DE OTRO): «Replica lo que funciona» y «replicarlos con tu mensaje», de /vsl/video, son el outlier del
-    // editor, que NO tiene candado (`rutaReplicar`), y no pegan con ella.
-    palabras: ['«Replicar»', 'Al replicar', 'replicadas', 'Replicas su'],
+    // editor, que NO tiene candado (`rutaReplicar`), y no pegan con ella. `Replica y adapta un guion`: el título de su fila de la
+    // portada (16/11/2026).
+    palabras: ['«Replicar»', 'Al replicar', 'replicadas', 'Replicas su', 'Replica y adapta un guion'],
     laNombran: true, porque: 'replicar el guion de otro (lib/copywriter/replica-candado.ts); escribir desde cero sigue abierto',
   },
   'chat-referentes': {
     palabras: ['referentes', 'referente seguir'],
     laNombran: true, porque: 'el chat con un referente del marketing (lib/asesores/candado.ts)',
+  },
+  // La TAB de Pro (16/11/2026): el análisis de las llamadas, el candado de lib/closing-solo-pro.ts («Qué mejorar en cada llamada de
+  // venta»). Angostas a propósito: «llamada» o «Closing» solos pegan en la Agenda y en los roles de /vsl/equipo, que son de los dos.
+  'closing-analyst': {
+    palabras: ['qué mejorar', 'llamadas de venta con IA', 'método SPIN', 'tasa de cierre de cada closer'],
+    laNombran: true, porque: 'las filas de Closing y de Equipo de la portada, los funnels («MaKo te dice qué mejorar») y /vsl/equipo (y /vsl/closing, que lo dice en su hero y no se barre)',
   },
 };
 
@@ -326,20 +398,67 @@ function lugaresDe(slug: string): Lugar[] {
     { donde: `/vsl/${slug}, la descripción de Google`, texto: String(meta.description), titulares: [] },
   ];
 }
-const TODOS: Lugar[] = PAGINAS.flatMap((slug) => lugaresDe(slug));
+
+/**
+ * UNA PIEZA SUELTA (16/11/2026): una fila de la portada o un paso de un funnel. Sus titulares (el rótulo y el título de la fila, el
+ * nombre del paso) se leen con su texto, que va debajo: el aviso del texto los ACLARA y además los RECLAMA (`reclama`), porque el de
+ * «Replica los carruseles que funcionan.» es del título aunque el texto no repita la palabra.
+ */
+function pieza(donde: string, titulos: readonly string[], cuerpo: string): Lugar {
+  const tits = titulos.map(plano).filter((x) => x.length > 0);
+  const c = plano(cuerpo);
+  const texto = [...tits, c].join(' ');
+  const reclama = [texto.length - c.length, texto.length] as const;
+  const aclarado = posiciones(c, MARCA).length > 0;
+  let desde = 0;
+  const titulares = tits.map((t) => { const x: Titular = { texto: t, desde, aclarado, reclama }; desde += t.length + 1; return x; });
+  return { donde, texto, titulares };
+}
+
+/** Las filas de la portada que se dibujan (FilaFuncion no dibuja la de una landing que no existe), con el rótulo que se ve. */
+const filasDibujadas = () => TARJETAS_PORTADA.filter((t) => !t.slug || landingDeSlug(t.slug)).map((t) => {
+  const l = t.slug ? landingDeSlug(t.slug) : undefined;
+  return { ...t, rotuloVisto: t.rotulo ?? (l ? nombreCorto(l) : '') };
+});
+const lugaresDeLaPortada = (): Lugar[] => filasDibujadas().map((t) => pieza(`la portada, la fila «${t.titulo}»`, [t.rotuloVisto, t.titulo], t.texto));
+/** Las filas que venden invitar a tu equipo: las que llevan a /vsl/equipo (su test, el del tope, está al final). */
+const filasDelEquipo = () => filasDibujadas().filter((t) => t.slug === 'equipo');
+
+/** Las piezas de cada funnel: el hero (su título y su bajada, que es también su descripción de Google), cada paso, «¿Es para ti?»,
+ *  el cierre y su renglón corto, que se lee en el menú Industrias y en «Otros funnels» de las OTRAS páginas (`enOtra`). */
+function piezasDelFunnel(f: (typeof FUNNELS_SITIO)[number]): { lugar: Lugar; partes: string[]; enOtra?: true }[] {
+  const r = rutaFunnel(f.id);
+  return [
+    { lugar: pieza(`${r}, el hero`, [f.titulo], f.bajada), partes: [f.titulo, f.bajada] },
+    ...f.pasos.map((p) => ({ lugar: pieza(`${r}, el paso «${p.paso}»`, [p.paso], p.texto), partes: [p.paso, p.texto] })),
+    { lugar: pieza(`${r}, «¿Es para ti?»`, [], `${f.queEs} ${f.cuando}`), partes: [f.queEs, f.cuando] },
+    { lugar: pieza(`${r}, el cierre`, [], f.cierre), partes: [f.cierre] },
+    { lugar: pieza(`${r}, su renglón del menú`, [], f.corta), partes: [f.corta], enOtra: true },
+  ];
+}
+const lugaresDeLosFunnels = (): Lugar[] => FUNNELS_SITIO.flatMap((f) => piezasDelFunnel(f).map((x) => x.lugar));
+
+// Perezoso (AGENTS.md: lo que puede tirar no va en una constante del módulo): se arma la primera vez que un test lo pide.
+let todosMemo: Lugar[] | null = null;
+const todos = (): Lugar[] => (todosMemo ??= [...PAGINAS.flatMap((slug) => lugaresDe(slug)), ...lugaresDeLaPortada(), ...lugaresDeLosFunnels()]);
+const lugarLlamado = (donde: string): Lugar => {
+  const x = todos().find((l) => l.donde === donde);
+  assert.ok(x, `no hay un lugar «${donde}»: el nombre de la fila o del paso cambió`);
+  return x;
+};
 
 /** Cada aparición de una palabra de `f`, con si el aviso la califica. */
-type Aparicion = { donde: string; palabra: string; desde: number; avisada: boolean; enTitular: boolean };
-function aparicionesDe(f: FuncionSoloPro): Aparicion[] {
+type Aparicion = { donde: string; palabra: string; desde: number; avisada: boolean; enTitular: boolean; reclama?: readonly [number, number] };
+function aparicionesDe(f: Cerrada): Aparicion[] {
   const out: Aparicion[] = [];
   // Sin fila no hay barrido, y el que lo dice es el primer test: los demás no vuelven a gritar lo mismo (una función nueva
   // tiene que dar UN rojo con su diagnóstico, no siete rojos encima).
   if (!HUELLAS[f]) return out;
-  for (const lugar of TODOS) {
+  for (const l of todos()) {
     for (const palabra of HUELLAS[f].palabras) {
-      for (const i of posiciones(lugar.texto, palabra)) {
-        const t = lugar.titulares.find((x) => i >= x.desde && i < x.desde + x.texto.length);
-        out.push({ donde: lugar.donde, palabra, desde: i, avisada: t ? t.aclarado : avisoDesde(lugar.texto, i), enTitular: !!t });
+      for (const i of posiciones(l.texto, palabra)) {
+        const t = l.titulares.find((x) => i >= x.desde && i < x.desde + x.texto.length);
+        out.push({ donde: l.donde, palabra, desde: i, avisada: t ? t.aclarado : avisoDesde(l.texto, i), enTitular: !!t, reclama: t?.reclama });
       }
     }
   }
@@ -350,14 +469,14 @@ function aparicionesDe(f: FuncionSoloPro): Aparicion[] {
 // Esto es lo que se pone rojo EL DÍA QUE SE CIERRE LA FUNCIÓN SIGUIENTE, sin que nadie toque este archivo: se recorre
 // `FUNCIONES_SOLO_PRO` (la tabla, no una lista de acá) y cada clave tiene que traer su fila. El typecheck lo pide también
 // (`Record<FuncionSoloPro, Huella>`), y hace falta: node --test no ve la exhaustividad de un Record.
-test('toda función cerrada en Essential tiene declarado cómo la nombran estas páginas', () => {
-  for (const f of FUNCIONES_SOLO_PRO) {
+test('toda función cerrada en Essential (y toda tab de Pro) tiene declarado cómo la nombran estas páginas', () => {
+  for (const f of cerradas()) {
     assert.ok(
       HUELLAS[f],
-      `«${f}» se cerró en Essential (lib/topes-plan.ts, FUNCIONES_SOLO_PRO) y este test no sabe con qué palabras la nombran ` +
-      `las páginas de PAGINAS (hoy copywriting, video, image y competitor-spy). Agregá su fila en HUELLAS: las palabras, ` +
-      `si alguna de ellas la nombra ` +
-      `(se comprueba) y por qué. Si estas páginas no la venden, va con laNombran: false y sus palabras no pueden aparecer.`,
+      `«${f}» se cerró en Essential (lib/topes-plan.ts, FUNCIONES_SOLO_PRO o TABS_SOLO_PRO) y este test no sabe con qué palabras la ` +
+      `nombran los lugares que barre (las páginas de PAGINAS, las filas de la portada y los siete funnels). Agregá su fila en ` +
+      `HUELLAS: las palabras, si alguno de ellos la nombra ` +
+      `(se comprueba) y por qué. Si no la venden, va con laNombran: false y sus palabras no pueden aparecer.`,
     );
     assert.ok(HUELLAS[f].palabras.length > 0, `«${f}»: la fila de HUELLAS no tiene ni una palabra, así que no barre nada`);
     // Y ninguna vacía, pero NO por lo que decía acá (15/11/2026): `posiciones` arranca con `if (aguja.length === 0)
@@ -366,12 +485,12 @@ test('toda función cerrada en Essential tiene declarado cómo la nombran estas 
     for (const w of HUELLAS[f].palabras) assert.ok(w.length > 0, `«${f}»: HUELLAS tiene una palabra vacía, que pega en todas partes`);
     assert.ok(HUELLAS[f].porque.length > 0, `«${f}»: la fila de HUELLAS no dice por qué`);
     // Su nombre de venta, que es lo que la tabla de /planes pone en la fila: sin él no se puede cruzar con la vitrina.
-    assert.ok(NOMBRE_FUNCION_PRO[f], `«${f}» no tiene nombre de venta en lib/planes-comparacion.ts (NOMBRE_FUNCION_PRO)`);
+    assert.ok(nombreDeVenta(f), `«${f}» no tiene nombre de venta en lib/planes-comparacion.ts (NOMBRE_FUNCION_PRO o NOMBRE_TAB_PRO)`);
   }
   // Y al revés: una fila que sobra es una función que se ABRIÓ y quedó la fila colgada, prometiendo un barrido que ya no va.
-  for (const f of Object.keys(HUELLAS) as FuncionSoloPro[]) {
+  for (const f of Object.keys(HUELLAS) as Cerrada[]) {
     assert.ok(
-      (FUNCIONES_SOLO_PRO as readonly string[]).includes(f),
+      (cerradas() as readonly string[]).includes(f),
       `HUELLAS tiene la fila de «${f}», que ya NO está cerrada en Essential: sacala (y revisá que la landing dejó de avisar)`,
     );
   }
@@ -379,7 +498,7 @@ test('toda función cerrada en Essential tiene declarado cómo la nombran estas 
 
 // ── EL BARRIDO ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 test('cada lugar donde estas páginas nombran una función cerrada dice de qué plan es', () => {
-  for (const f of FUNCIONES_SOLO_PRO) {
+  for (const f of cerradas()) {
     const esperado = seVendeEnPro(f);
     for (const a of aparicionesDe(f)) {
       assert.equal(
@@ -388,8 +507,8 @@ test('cada lugar donde estas páginas nombran una función cerrada dice de qué 
         esperado
           ? `${a.donde}: dice «${a.palabra}» y no dice que «${f}» es de MaKo Pro` +
             (a.enTitular
-              ? ` (está en un titular, así que lo tiene que aclarar la bajada de ese bloque)`
-              : ` — «…${a.desde}: ${TODOS.find((l) => l.donde === a.donde)!.texto.slice(a.desde, a.desde + 90)}…»`)
+              ? ` (está en un titular, así que lo tiene que aclarar la bajada de ese bloque, o el texto de su fila o su paso)`
+              : ` — «…${a.desde}: ${lugarLlamado(a.donde).texto.slice(a.desde, a.desde + 90)}…»`)
           : `${a.donde}: le cuelga «${MARCA}» a «${a.palabra}», y «${f}» todavía NO se vende (lib/planes-comparacion.ts, ` +
             `FUNCIONES_TODAVIA_NO_VENDIDAS): decirlo sería empezar a venderla`,
       );
@@ -400,7 +519,7 @@ test('cada lugar donde estas páginas nombran una función cerrada dice de qué 
 // Y que las palabras aparezcan (o no) donde se declaró: así una promesa que se BORRA o se reescribe no apaga el barrido en
 // silencio. Es independiente de la tabla de planes: mide el dibujo contra lo declarado.
 test('las palabras declaradas aparecen donde se dijo que aparecen, y no donde se dijo que no', () => {
-  for (const f of FUNCIONES_SOLO_PRO) {
+  for (const f of cerradas()) {
     if (!HUELLAS[f]) continue; // lo dice el primer test
     const n = aparicionesDe(f).length;
     assert.equal(
@@ -420,31 +539,36 @@ test('las palabras declaradas aparecen donde se dijo que aparecen, y no donde se
  * una promesa que un Essential SÍ puede cumplir: si alguien le cuelga un «Con MaKo Pro», esto se pone rojo. El ancla también
  * tiene que seguir existiendo, así que una promesa abierta que se reescribe no pasa en silencio.
  */
-const ABIERTAS: ReadonlyArray<{ slug: string; ancla: string; porque: string }> = [
+const ABIERTAS: ReadonlyArray<{ donde: string; ancla: string; porque: string }> = [
   // La frase ABIERTA del comparador, la que el 15/11/2026 quedó DESPUÉS del aviso: antes el aviso colgaba del final de una
   // lista que mezclaba estas tres con el B-roll, y así las pintaba de Pro. Si vuelve a colgar del final, esto se pone rojo.
-  { slug: 'video', ancla: 'Los subtítulos, el volumen y los cortes', porque: 'cortar, subtitular y nivelar el audio a mano corren en el navegador, sin candado' },
-  { slug: 'video', ancla: 'lo haces a mano en la línea de tiempo', porque: 'la línea de tiempo no llama a la IA' },
-  { slug: 'video', ancla: 'Los subtítulos caen justo cuando dices cada palabra', porque: 'los subtítulos corren en el navegador' },
-  { slug: 'video', ancla: 'Quita el ruido de fondo', porque: 'quitar el ruido corre en el navegador' },
-  { slug: 'video', ancla: 'videos que funcionan, para', porque: '«Replicar» un outlier del editor arma el proyecto sin candado' },
-  { slug: 'image', ancla: 'Convierte tu mejor diseño en una plantilla', porque: 'el lienzo y las plantillas son de los dos planes' },
-  { slug: 'image', ancla: 'Subes tu manual de marca una sola vez', porque: 'el kit de marca es de los dos planes' },
-  { slug: 'image', ancla: 'Cada texto pasa a ser el nuevo', porque: '`cambiar_textos_diseno_imagen` no pasa por la IA' },
-  { slug: 'image', ancla: 'Ordenas por «Mayor outlier»', porque: 'mirar la biblioteca de carruseles no tiene candado' },
+  { donde: '/vsl/video', ancla: 'Los subtítulos, el volumen y los cortes', porque: 'cortar, subtitular y nivelar el audio a mano corren en el navegador, sin candado' },
+  { donde: '/vsl/video', ancla: 'lo haces a mano en la línea de tiempo', porque: 'la línea de tiempo no llama a la IA' },
+  { donde: '/vsl/video', ancla: 'Los subtítulos caen justo cuando dices cada palabra', porque: 'los subtítulos corren en el navegador' },
+  { donde: '/vsl/video', ancla: 'Quita el ruido de fondo', porque: 'quitar el ruido corre en el navegador' },
+  { donde: '/vsl/video', ancla: 'videos que funcionan, para', porque: '«Replicar» un outlier del editor arma el proyecto sin candado' },
+  { donde: '/vsl/image', ancla: 'Convierte tu mejor diseño en una plantilla', porque: 'el lienzo y las plantillas son de los dos planes' },
+  { donde: '/vsl/image', ancla: 'Subes tu manual de marca una sola vez', porque: 'el kit de marca es de los dos planes' },
+  { donde: '/vsl/image', ancla: 'Cada texto pasa a ser el nuevo', porque: '`cambiar_textos_diseno_imagen` no pasa por la IA' },
+  { donde: '/vsl/image', ancla: 'Ordenas por «Mayor outlier»', porque: 'mirar la biblioteca de carruseles no tiene candado' },
+  // 16/11/2026, la portada, los funnels y /vsl/equipo: lo de los dos planes que vive al lado de una promesa de Pro.
+  { donde: 'la portada, la fila «Mira todo lo que publica tu competencia.»', ancla: 'Pegas el link de un competidor', porque: 'Competitor Spy es de los dos planes (Essential sigue a uno: `spy.competidores`)' },
+  { donde: 'la portada, la fila «Programa tu semana de contenido de una vez.»', ancla: 'Conectas tus redes una vez', porque: 'el Calendario y publicar en tus redes son de los dos planes (la fila «Calendario de contenido y publicación en tus redes» de /planes)' },
+  { donde: '/vsl/funnels/instagram, el paso «La palabra clave»', ancla: 'con la automatización de Instagram', porque: 'las automatizaciones son de los dos planes (Essential, con su tope: `automations.activas`); lo de Pro es el setter con IA' },
+  { donde: '/vsl/funnels/whatsapp, el paso «Te escriben»', ancla: 'Cada chat entra a una sola bandeja', porque: 'Chats es de los dos planes' },
+  { donde: '/vsl/equipo', ancla: 'Cada closer y cada setter entra a Calendar', porque: 'el setter y el closer son ROLES de Equipo, no el setter con IA, y Calendar es de los dos planes' },
 ];
 
 test('lo que sigue abierto en Essential no lleva el aviso', () => {
-  const cuerpos = new Map(PAGINAS.map((s) => [s as string, cuerpoDe(de(s))]));
-  const barrido = FUNCIONES_SOLO_PRO.flatMap((f) => aparicionesDe(f).map((a) => ({ f, ...a })));
+  const barrido = cerradas().flatMap((f) => aparicionesDe(f).map((a) => ({ f, ...a })));
   for (const a of ABIERTAS) {
-    const texto = cuerpos.get(a.slug)!;
-    assert.equal(avisoJuntoA(texto, a.ancla), false, `/vsl/${a.slug}: «${a.ancla}» lleva «${MARCA}» y no debería: ${a.porque}`);
+    const texto = lugarLlamado(a.donde).texto;
+    assert.equal(avisoJuntoA(texto, a.ancla), false, `${a.donde}: «${a.ancla}» lleva «${MARCA}» y no debería: ${a.porque}`);
     // Y que las dos listas no se contradigan: si una palabra de una función cerrada cae DENTRO de esta promesa abierta, el
     // barrido le va a pedir el aviso que acá se prohíbe. Pasa el día que alguien declare una palabra demasiado ancha.
     const desde = texto.indexOf(a.ancla);
-    const choca = barrido.find((x) => x.donde === `/vsl/${a.slug}` && x.desde >= desde && x.desde < desde + a.ancla.length);
-    assert.equal(choca, undefined, `/vsl/${a.slug}: «${a.ancla}» es de los dos planes y la palabra «${choca?.palabra}» de ` +
+    const choca = barrido.find((x) => x.donde === a.donde && x.desde >= desde && x.desde < desde + a.ancla.length);
+    assert.equal(choca, undefined, `${a.donde}: «${a.ancla}» es de los dos planes y la palabra «${choca?.palabra}» de ` +
       `«${choca?.f}» cae adentro: las dos listas se contradicen (angostá la palabra en HUELLAS)`);
   }
 });
@@ -454,12 +578,16 @@ test('lo que sigue abierto en Essential no lleva el aviso', () => {
 // dirección contraria al barrido, y no pasa por `seVendeEnPro` de este lado: cuenta lo que hay en el dibujo.
 test('no hay ningún «Con MaKo Pro» de más en estas páginas', () => {
   const reclamados = new Map<string, Set<number>>();
-  for (const f of FUNCIONES_SOLO_PRO) {
+  for (const f of cerradas()) {
     if (!seVendeEnPro(f)) continue;
     for (const a of aparicionesDe(f)) {
-      const texto = TODOS.find((l) => l.donde === a.donde)!.texto;
+      const texto = lugarLlamado(a.donde).texto;
       for (const j of posiciones(texto, MARCA)) {
-        const cerca = a.enTitular ? false : j >= a.desde && frasesEntre(texto, a.desde, j) <= FRASES;
+        // Una promesa en un titular reclama el aviso del texto que la aclara (`reclama`: el de su fila o su paso); en el titular de
+        // un bloque de una landing no reclama nada, como siempre (lo aclara la bajada, que tiene su propia promesa).
+        const cerca = a.enTitular
+          ? !!a.reclama && j >= a.reclama[0] && j < a.reclama[1]
+          : j >= a.desde && frasesEntre(texto, a.desde, j) <= FRASES;
         if (cerca) {
           if (!reclamados.has(a.donde)) reclamados.set(a.donde, new Set());
           reclamados.get(a.donde)!.add(j);
@@ -467,7 +595,20 @@ test('no hay ningún «Con MaKo Pro» de más en estas páginas', () => {
       }
     }
   }
-  for (const lugar of TODOS) {
+  // Y lo que reclama el TOPE del equipo (que no se barre por palabras: su test, abajo): un aviso que está ADENTRO de su propio renglón
+  // (RENGLON_PLAN, debajo del botón de /vsl/equipo, y AVISO_EQUIPO, el de la fila de la portada). Es su promesa, dicha entera.
+  for (const l of todos()) {
+    for (const renglon of [RENGLON_PLAN, AVISO_EQUIPO.trim()].map(plano).filter((x) => x.length > 0)) {
+      for (const i of posiciones(l.texto, renglon)) {
+        for (const j of posiciones(l.texto, MARCA)) {
+          if (j < i || j >= i + renglon.length) continue;
+          if (!reclamados.has(l.donde)) reclamados.set(l.donde, new Set());
+          reclamados.get(l.donde)!.add(j);
+        }
+      }
+    }
+  }
+  for (const lugar of todos()) {
     // Un aviso dentro de un titular lo pone el propio titular (el molde entre paréntesis): también cuenta como reclamado.
     const enTitular = new Set<number>();
     for (const t of lugar.titulares) {
@@ -502,7 +643,7 @@ test('el texto que se lee en Google promete lo mismo que la página', () => {
     assert.ok(h && h.tipo === 'hero', `/vsl/${slug}: la landing no abre con un hero`);
     const pitch = plano([h.titulo, h.bajada, ...(h.puntos ?? [])].join(' '));
     const google = `${l.metaTitle} ### ${l.metaDesc}`;
-    for (const f of FUNCIONES_SOLO_PRO) {
+    for (const f of cerradas()) {
       if (!HUELLAS[f]) continue; // lo dice el primer test
       const enElHero = HUELLAS[f].palabras.some((w) => posiciones(pitch, w).length > 0);
       if (!enElHero) continue;
@@ -520,15 +661,65 @@ test('el texto que se lee en Google promete lo mismo que la página', () => {
 // lo mismo que la landing. Si la vitrina deja de nombrar una función que la landing marca —o al revés—, uno de los dos miente.
 test('la landing y la tabla de /planes dicen lo mismo de cada función', () => {
   const noIncluyeEsencial = noIncluyeDe('completo');
-  for (const f of FUNCIONES_SOLO_PRO) {
-    if (!NOMBRE_FUNCION_PRO[f]) continue; // lo dice el primer test
+  for (const f of cerradas()) {
+    const nombre = nombreDeVenta(f);
+    if (!nombre) continue; // lo dice el primer test
     assert.equal(
-      noIncluyeEsencial.includes(NOMBRE_FUNCION_PRO[f]),
+      noIncluyeEsencial.includes(nombre),
       seVendeEnPro(f),
       seVendeEnPro(f)
-        ? `la landing marca «${f}» como de Pro y la tabla de /planes no la nombra en lo que Essential no incluye («${NOMBRE_FUNCION_PRO[f]}»)`
-        : `la tabla de /planes vende «${NOMBRE_FUNCION_PRO[f]}» y la landing no la marca: o ya se vende y falta el aviso, o la fila sobra`,
+        ? `la landing marca «${f}» como de Pro y la tabla de /planes no la nombra en lo que Essential no incluye («${nombre}»)`
+        : `la tabla de /planes vende «${nombre}» y la landing no la marca: o ya se vende y falta el aviso, o la fila sobra`,
     );
+  }
+});
+
+// ── 16/11/2026: LO QUE SE BARRE DE LA PORTADA Y DE LOS FUNNELS ES LO QUE SE DIBUJA ───────────────────────────────────────────
+// Las filas y los pasos se leen de los datos (TARJETAS_PORTADA, FUNNELS_SITIO): eso vale mientras FilaFuncion y PaginaFunnel los
+// dibujen TAL CUAL. Si un diseño reescribe un texto, el barrido mediría algo que nadie lee: esto se pone rojo antes.
+const PLANES = PLANES_MAKO_DEFAULT.filter((p) => p.activo).map((p) => ({
+  id: p.id, nombre: p.nombre, capa: p.capa, precioUsd: p.precioUsd, resumen: p.resumen, incluye: p.incluye, destacado: !!p.destacado,
+  precioAnualUsd: p.precioAnualUsd ?? null, preciosLocales: p.preciosLocales, cobrable: true,
+}));
+test('las filas de la portada y las piezas de los funnels se dibujan tal cual se barren', () => {
+  const portada = renderToStaticMarkup(createElement(PortadaSitio, { planes: PLANES }));
+  const filas = portada.indexOf('class="s-sec s-sec-funciones"');
+  assert.ok(filas > 0, 'no encontré la sección de las filas en la portada');
+  const dibujado = plano(portada.slice(filas));
+  for (const t of filasDibujadas()) {
+    for (const parte of [t.rotuloVisto, t.titulo, t.texto]) assert.ok(dibujado.includes(plano(parte)), `la portada no dibuja tal cual «${parte.slice(0, 80)}»`);
+  }
+  const paginas = new Map(FUNNELS_SITIO.map((f) => [f.id, plano(renderToStaticMarkup(createElement(PaginaFunnel, { f })))]));
+  for (const f of FUNNELS_SITIO) {
+    const otra = FUNNELS_SITIO.find((x) => x.id !== f.id)!;
+    for (const { partes, enOtra } of piezasDelFunnel(f)) {
+      const h = paginas.get(enOtra ? otra.id : f.id)!;
+      for (const parte of partes) assert.ok(h.includes(plano(parte)), `${rutaFunnel(enOtra ? otra.id : f.id)} no dibuja tal cual «${parte.slice(0, 80)}»`);
+    }
+  }
+  // Y el barrido las ve: si se cayeran, «setter con IA» o «comunidad» dejarían de aparecer y el tercer test se pondría rojo igual;
+  // esto lo dice con su número.
+  assert.equal(lugaresDeLaPortada().length, filasDibujadas().length);
+  assert.ok(lugaresDeLosFunnels().length >= FUNNELS_SITIO.length * 5, 'los funnels se barren con menos piezas de las que tienen');
+});
+
+// ── 16/11/2026: EL EQUIPO, QUE ES UN TOPE Y NO UNA FUNCIÓN ───────────────────────────────────────────────────────────────────
+// MaKo Essential es de UNA persona (lib/topes-plan.ts, 'equipo.usuarios'): invitar a alguien es de Pro. No es una FuncionSoloPro y no
+// se barre por palabras (ver la cabecera): la fila de la portada que lleva a /vsl/equipo lo dice, con el número del tope de Pro. La
+// landing lo dice debajo de su botón (RENGLON_PLAN), y eso lo fija tests/vsl-landings-competencia.test.ts.
+test('mientras MaKo Essential sea de una persona, la fila de Equipo de la portada dice que invitar a tu equipo es de Pro', () => {
+  const filas = filasDelEquipo();
+  assert.ok(filas.length > 0, 'la portada ya no tiene la fila de Equipo: el test quedó viejo');
+  const essential = TOPES.completo['equipo.usuarios'] ?? 1;
+  const pro = TOPES.agencia['equipo.usuarios'];
+  for (const t of filas) {
+    const avisos = posiciones(t.texto, MARCA).length;
+    if (essential > 1) {
+      assert.equal(avisos, 0, `«${t.titulo}»: Essential ya trae ${essential} personas y la fila sigue diciendo que el equipo es de Pro`);
+      continue;
+    }
+    assert.ok(avisos > 0, `«${t.titulo}»: vende invitar a tu equipo y MaKo Essential es de una sola persona: no dice «${MARCA}»`);
+    if (pro != null) assert.ok(t.texto.includes(`hasta ${pro} personas`), `«${t.titulo}»: no dice cuántas personas entran con MaKo Pro (el tope: ${pro})`);
   }
 });
 

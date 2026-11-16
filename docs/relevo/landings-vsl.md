@@ -392,6 +392,31 @@ Se graban después del despliegue, con el banco de cada uno (C:/dev/bancos-porta
 | Plan (16) | El tablero con las tareas puntuadas, el score, el objetivo principal, el borrador de una reunión, subir archivos, la hoja Productividad |
 | Ads Analyst (6) | El chat respondiendo, la retención del VSL por bloque, «corregiste el ángulo», la caja para pedirle a MaKo |
 
+### Los recuadros nuevos del 16/11/2026: lo que escribe el análisis de una llamada (5)
+
+Las landings nuevas de ese día mostraban una llamada INVENTADA (la de «Paola Núñez con la closer Ana»): un 7.1 sobre 10 con
+sus notas y sus citas, sus objeciones y su coaching, que MaKo nunca escribió. La regla de Martín (12/11 y 13/11/2026): una
+pantalla se monta con su componente real y datos de ejemplo de nombres ficticios, pero lo que ESCRIBE la IA tiene que ser algo
+que MaKo hizo de verdad. Medido en producción ese día, sólo lectura: el espacio de prueba (ws 3) no tiene ningún análisis, y los
+del espacio de MaKo (ws 9) son llamadas de venta con prospectos reales, que no se usan (lo decide Martín). Así que va el recuadro.
+
+| Página | Dónde | Qué va ahí (el texto del recuadro: `FALTA_ANALISIS`, app/vsl/_competencia/closing.ts) |
+|---|---|---|
+| Closing (3) | `/vsl/closing`, las filas 1 a 3 de «De cada llamada a tu próximo cierre» | El puntaje de 0 a 10 con sus siete notas, cada una con su frase y su minuto · las fortalezas, lo que hay que mejorar y el coaching · las objeciones (respondidas o no) y el próximo paso |
+| Equipo (1) | `/vsl/equipo`, la fila «Lo que hace bien y lo que corrige cada closer» | El coaching de un closer después de una llamada |
+| Portada (1) | La fila de Closing («Analiza todas tus llamadas de venta con IA») | Una llamada analizada: el puntaje con el método SPIN, sus objeciones y el coaching |
+
+**Qué hace falta para reemplazarlos:** un análisis REAL del Closing Analyst sobre una llamada de prueba grabada con la Grabadora
+en el espacio de prueba (ws 3), con nombres ficticios. Con esa llamada: las tres fotos se vuelven a sacar con
+`C:/dev/bancos-portada/banco-closing-landing/fotos.mjs` apuntando a ESE análisis, y la grabación de la fila de la portada con su
+`grabar.mjs` (y su corte medido en `HASTA_DONDE` de app/_components/clips-portada.ts, que la sube al login). En el código, cada
+recuadro vuelve a su foto en `Figura` de app/vsl/_competencia/disenos/closing.tsx, `FIGURAS_FILAS` de disenos/equipo.tsx y el
+`visual` de la fila en app/vsl/_sitio/datos.ts; tests/vsl-landings-competencia.test.ts exige hoy el recuadro (y que las fotos
+inventadas no vuelvan a public/), así que se cambia junto.
+**Lo que queda, y por qué:** la hoja Closing del Dashboard (la tasa del período y la de cada closer) son números y nombres de
+ejemplo de la hoja, sin una palabra escrita por la IA; y los logos de los grabadores. Las fotos y la grabación inventadas están en
+`C:/dev/bancos-portada/banco-closing-landing/descartadas/`, fuera del repo, para que no se suban.
+
 ## Decimocuarta vuelta (14/11/2026, madrugada): el pedido largo de Martín
 
 Hecho: el ahorro suma Zapier (US$29,99, más caro que Make) y Metricool (US$25); la tira mezclada por categoría, con todas las del

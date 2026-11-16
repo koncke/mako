@@ -24,6 +24,11 @@ import DisenoFunnel from './funnel';
 import DisenoEmail from './email';
 import DisenoCobranza from './cobranza';
 import DisenoAgenda from './agenda';
+import DisenoClosing from './closing';
+import DisenoClassroom from './classroom';
+import DisenoSecondBrain from './second-brain';
+import DisenoEquipo from './equipo';
+import DisenoCalendario from './calendario';
 
 export type PropsDiseno = { landing: LandingCompetencia };
 
@@ -47,4 +52,9 @@ export const DISENOS: Record<string, ComponentType<PropsDiseno>> = {
   'email': DisenoEmail,
   'cobranza': DisenoCobranza,
   'agenda': DisenoAgenda,
+  'closing': DisenoClosing,
+  'classroom': DisenoClassroom,
+  'second-brain': DisenoSecondBrain,
+  'equipo': DisenoEquipo,
+  'calendario': DisenoCalendario,
 };

@@ -165,7 +165,9 @@ test('el layout monta el centinela con sesión, y el reportador también en el t
   assert.doesNotMatch(layout, /<HideOnPublicLanding><ReportadorDeErrores/, 'HideOnPublicLanding lo apaga en todo teléfono');
   const gate = sinComentarios(leer('app/_components/PublicRouteGate.tsx'));
   const fuera = gate.slice(gate.indexOf('export function FueraDeLoPublico'));
-  assert.match(fuera, /if \(isPublicLandingPath\(pathname\)\) return null;/);
+  // Desde el 16/11/2026 también le pasa la sesión (`conSesion`: sin ella, /api-mako es la referencia pública); que la pase lo exige
+  // tests/api-mako-publica.test.ts (test 3). Lo que se cuida ACÁ no cambia: la única pregunta es «¿es pública?», sin el teléfono.
+  assert.match(fuera, /if \(isPublicLandingPath\(pathname(?:, conSesion)?\)\) return null;/);
   assert.doesNotMatch(fuera, /useTelefono|useVistaMovil|esVistaSinChrome/);
   // Un choque, un ticket: el reportador se calla cuando la pantalla es la de Next (lo avisa el centinela).
   const rep = sinComentarios(leer('app/_components/ReportarErrores.tsx'));

@@ -671,6 +671,87 @@ mismo día: ver hallazgos-chatbot, «Envió el formulario X».
   - **El bucle**: el final se funde 0,5 s con el principio (`xfade` del final con los primeros 0,5 s, y el video arranca en el 0,5):
     no hay salto al volver a empezar aunque el final no se parezca al principio.
 
+- **Duodécima vuelta (16/11/2026, claude1): Closing, Classroom, Second Brain, Equipo, Calendario, tres funnels y la API pública.**
+  - **⚠️ El diagnóstico obvio era el equivocado: «nombres ficticios» vale para la PANTALLA, no para lo que escribe la IA.** Closing
+    se montó con la ficha de llamada real y una llamada del banco: un 7,1/10 con notas, citas, objeciones y coaching que MaKo
+    nunca escribió (las fotos de la landing, la fila de la portada, el clip del login y dos fotos reusadas en Equipo). La regla del
+    13/11 (componente real con datos de ejemplo) no cubre el análisis; eso lo gobierna la del 12/11 (sólo lo hecho de verdad).
+    Medido el 16/11 en sólo lectura: el espacio de prueba (ws 3) no tiene ningún análisis de Closing, y los del espacio de MaKo
+    (ws 9) son llamadas con prospectos reales, que no se publican sin Martín. Va `FaltaAnimacion` hasta que haya una llamada de
+    prueba grabada con la Grabadora y analizada por el Closing Analyst.
+  - **Los archivos compartidos se pisan sin aviso entre agentes en paralelo.** El menú, la portada y los cortes del login los tocan
+    todos (`registro.ts`, `disenos/index.tsx`, `TemaSitio.tsx`, `app/vsl/_sitio/datos.ts`, `app/_components/clips-portada.ts`,
+    `tests/vsl-landings-competencia.test.ts`): un agente reescribió `datos.ts` desde una copia vieja y se perdieron las dos
+    ediciones del otro, sin error. **Regla:** antes de terminar, `grep` de las líneas propias en cada archivo compartido.
+  - **Cada video nuevo de la portada también va al login**: sin su corte en `app/_components/clips-portada.ts`,
+    `tests/login-vitrina-animaciones.test.ts` da rojo. El corte se elige mirando una tira de cuadros (`ffmpeg … tile`): el desfase
+    entre las marcas del grabador y el video llegó a ~3,7 s (0,7 s en otro banco). En la tira, un cuadro toca al de la fila de
+    abajo y parece contenido repetido sin serlo.
+  - **Lo que importa el `<slug>.ts` de una landing llega al login, que es de cliente** (registro → datos → clips-portada): el JSON
+    del cerebro de ejemplo (105 KB) se importa sólo en el diseño, del lado del servidor.
+  - **El plan de Closing sale de `TABS_SOLO_PRO`, no de `FUNCIONES_SOLO_PRO`**, y `soloPro()` no lo ve. Además
+    `tests/vsl-landings-dicen-el-plan.test.ts` miraba 4 páginas: la portada y los funnels vendían Equipo, Closing, el setter con IA
+    y el avatar sin decir «MaKo Pro». Sus huellas confunden «setter» como ROL con «el setter con IA», y «tus alumnos» (el curso,
+    de los dos planes) con la comunidad (de Pro).
+  - **R1/R2 se busca en el texto, no en el HTML**: el script en línea del sol y la luna tiene una variable `r2` y una búsqueda sin
+    mayúsculas la encontraba. Se busca respetando mayúsculas y sin los `<script>`.
+  - **`fullPage` deja en blanco las imágenes con `decoding="async"` fuera de la ventana**, aunque estén cargadas: se agranda la
+    ventana al alto de la página y se saca la ventana.
+  - **Grabar algo más alto que el cuadro:** con zoom y scroll salían filas repetidas, porque la `camara` de `grabador.mjs` no se
+    mueve más que el alto de la ventana. Anduvo un `transform` propio sobre `#raiz`, con las posiciones medidas por `offsetTop`.
+  - **El modo oscuro deja como están los colores de marca de tono medio** (`aModo`, `TemaSitio.tsx`): un titular de color sobre
+    una franja pastel que se oscurece queda ilegible (el verde de Pipedrive, contraste 2,2). Va una regla
+    `html[data-sitio-modo="oscuro"]`, y en cada diseño con titulares de color se mide el contraste con un script. Al revés, una
+    copia clara con franjas oscuras (Circle) las pierde en el modo claro: sólo queda oscuro lo marcado `data-tema-fijo`.
+  - **El sol y la luna no tocan un link con fondo**: en el modo claro, las tarjetas de «Otros funnels» y las fichas de «Lo arman»
+    quedaban oscuras en los 7 funnels (también en los 4 viejos). Va CSS propio en `app/vsl/_sitio/Funnels.tsx`.
+  - **Letras:** Geist y Geist Mono ya están en el disco (`node_modules/next/dist/next-devtools/server/font/`, OFL, 400–600). En
+    la app, «Geist» es Urbanist: una landing que quiere la Geist de verdad necesita su propio nombre de familia. Al grabar la app
+    hay que dejar pasar las letras de Google; si no, sale la de respaldo (el `pageerror Event` era la letra que fallaba).
+  - **Leer las referencias:** Circle tiene un A/B (VWO, experimento 119): después de la primera visita redirige a `/b` y una cookie
+    puesta a mano no lo corta (cambia sólo el hero). Ahí `get_page_text` devuelve un `<article>`; el texto entero sale con
+    `document.body.innerText`. Skool no tiene página de producto (por eso Classroom copia a Circle). Hyperbound abre desde la PC,
+    no desde la nube.
+  - **Trampas de los bancos:** Chromium sin cabeza dibuja el campo de subir archivo en inglés aunque se le pida otro idioma, y
+    `channel: 'chromium'` no arranca en esta PC. En Equipo las opciones del rol no tienen `role="option"` (se elige con
+    `[role="listbox"]` y el texto); en el Calendario, «Editar evento» no responde al clic y se lanza desde la página, y «Publicar
+    en la red» está en la parte del modal que scrollea. En el portal del alumno, `tarea` es texto plano (con HTML se ve el `<p>`)
+    y para pasar a otra clase hay que volver a tocar el módulo en `.ugc-side`. Un script `tsx` corrido desde la carpeta Temp se
+    colgó sin salida: desde `C:/dev/bancos-portada/` y con `process.exit(0)` al final, anda.
+  - **⚠️ El diagnóstico obvio era el equivocado: la portada arrancaba oscura y NO era el modo del sistema.** Sin un modo elegido,
+    cada página arrancaba en el modo en que NACIÓ (`aplicar(… ? p : base)`, `app/vsl/_competencia/TemaSitio.tsx`), y la portada
+    nace oscura (`app/vsl/_sitio/Barra.tsx` le pasa `base="oscuro"`): medido en Chromium, arrancaba oscura con el sistema en claro
+    y en oscuro. Martín: «siempre en modo claro y que el usuario active el modo oscuro si quiere». Ahora el arranque es el claro
+    salvo el oscuro elegido (sólo el clic lo guarda), y una página nacida oscura espera a estar en claro (sin el segundo en negro).
+  - **El pie no se achica escondiendo columnas.** El del Accelerator era «más lindo» porque escondía la 2 a la 6 con `nth-child`;
+    Martín: «la bottom bar debe ser el mismo diseño en las dos… deberían estar todo». Lo que lo hacía alto era la columna de
+    Industrias con los Funnels debajo: en la computadora los Funnels van en SU columna (`app/vsl/_sitio/Pie.tsx`) y los links
+    cada 24 px. Medido: de 551 a 381 px a 1440, con todos los links; el Accelerator sólo cambia el fondo y la estrella (blanca).
+  - **Un componente de cliente no se mueve en el artefacto**: el HTML dibujado sin servidor no lo hidrata, y el Second Brain de la
+    portada (`BrainVivo`, que en producción se arrastra y se acerca) se veía «estático». Para el artefacto se empaqueta con
+    esbuild y se monta en su lugar con `createRoot`; `next/dynamic`, `next/link` y `next/navigation` van con un sustituto chico
+    (sin Next no existen). Y al meter el paquete en la página, NUNCA con `String.replace` y un texto de reemplazo: interpreta
+    `$&` y `$'`, que el JS minificado tiene, y metía pedazos de la página adentro del script («Unexpected token '<'»).
+  - **Los comentarios del CSS viajan en la página**, y los tests que barren el texto los leen: un comentario que cita a Martín con
+    «acá» dio rojo en el de voseo del formulario, y citar textos viejos («Y en las tres fases», «Iniciar prueba gratuita») da rojo
+    en los que buscan que ya no estén. Y React 19 sube un `<link rel="preload">` al principio del documento por cada `<img>` que no
+    es lazy: para buscar el HTML de un componente adentro de la página, hay que sacar esos links primero.
+  - **Lo que quedó SIN hacer:**
+    - El análisis real de Closing (ver arriba): `app/vsl/_competencia/disenos/closing.tsx`, su fila en `app/vsl/_sitio/datos.ts`
+      y el clip de `app/_components/clips-portada.ts`.
+    - El precio (la política del 16/11, `precio-siempre-visible`) no está en las landings de la competencia ni en los funnels: va
+      una sola vez en `LandingCompetencia` y en `app/vsl/_sitio/Funnels.tsx`, con la columna de /planes.
+    - Tomas lejanas: `calendario.webm` termina en la semana entera, con «Programadas: 6» chico; Closing a 390 no se lee.
+    - El paso 3 del funnel Newsletter muestra la grabación de WhatsApp e Instagram (`app/vsl/_sitio/funnels-datos.ts`), no un
+      correo: existe `banco-email-landing` y el logo `public/vsl-assets/logos/gmail.png` (ya es «Email» en `seguimiento.ts`).
+      Cuando la pestaña Newsletters salga del PRONTO, el paso apunta ahí.
+    - Classroom repite la portada del curso en 5 paneles (`disenos/classroom.tsx`), le faltan fotos de Calendario y Miembros, y su
+      cinta va sin logos (de los alojadores de video sólo el de YouTube está en `public/`).
+    - La app sigue con R1/R2: `app/calendario/ListaLlamadas.tsx` (:226 y :293) y la ficha de llamada («1.ª/2.ª llamada»).
+    - Letras que no están: Plus Jakarta Sans (Metricool; va Figtree) y Haffer (Pipedrive, no es libre; va Inter 700).
+    - El visor de Martín (`scripts/visor-landings/armar.mjs`, `PAGINAS`) no tiene Closing, Classroom, Second Brain, Equipo ni
+      Calendario: fotografía producción, así que van después del deploy.
+    - Para Martín: en el modo claro, las franjas azul noche de Circle se vuelven lavanda (si las quiere oscuras, `data-tema-fijo`).
 
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 

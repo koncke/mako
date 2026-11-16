@@ -10,6 +10,26 @@ reuniones / DM funnel) · a0c6f23d6 checkout · cbb4d0431 cosecha · 354b78401 e
 
 **~08:45 AST: corre «landings-que-faltan» (wf_0902e6bb-000)**, de a dos: Closing (rehacer /vsl/closing) y los tres funnels + la API pública (la misma /api-mako abierta); después Classroom + Second Brain y Equipo + Calendario; y una revisión. Nada commiteado todavía: si se corta, retomar con Workflow({scriptPath, resumeFromRunId}) (lo terminado vuelve del caché) y commitear por ruta.
 
+**ACTUALIZACIÓN ~13:45 AST (17:45 UTC), claude1 al 96 %:** SUBIDO a punta/portada-brain-login: 89da04d63 (el sitio arranca en claro), 047fbe090 (el rojo de la suite de la noche: tickets de mentira con números reales), d095c5721 (la portada: Brain al costado y vivo, el pie más bajo con todo, el globito del WhatsApp, el sol y la luna arriba en el teléfono), 08063b676 y b45997fed (el feedback del Accelerator: tiras, sin «tres fases», precio alineado, formulario sin legales, «Tu siguiente paso», pie igual con todo y la estrella blanca), y las landings nuevas con su cosecha (este commit). Artefactos: «Sitio de MaKo» https://claude.ai/artifact/KGnfQnWAuiZ62qg9uioKZb (la portada, armada desde una copia limpia de main en C:/dev/vista-main más los cambios; el Brain vivo con un paquete de esbuild) y el del Accelerator https://claude.ai/artifact/8tY2zQNguuzAYR2mbSMmdS. Martín: NO multiagente para feedback (memoria orquestacion-al-tamano, sexta vez). Esperan a Martín: «MaKo Esencial» (sale de la configuración de producción) → «MaKo Essential»; la llamada de prueba para Closing; desplegar ya o esperar.
+
+**ACTUALIZACIÓN ~13:30 AST (17:30 UTC), claude1 al 93 %:**
+- **Accelerator: TODO en main** (17a685afb; el «Aprobado» por WhatsApp es e1fd12658). En producción sigue el deploy del 16/11 11:05
+  UTC (f070a8bf8, la versión que abre Calendly al aplicar): la final sale con el deploy automático del 17/11 11:05 UTC, o antes con
+  `scripts/desplegar-ya.mjs` si Martín lo dice. La maqueta final: https://claude.ai/artifact/8tY2zQNguuzAYR2mbSMmdS (v4).
+- **«landings-que-faltan» (wf_0902e6bb-000) TERMINÓ** (Closing, Classroom, Second Brain, Equipo, Calendario, 3 funnels y /api-mako
+  pública, SIN commitear en este worktree). Su revisión halló 3 tests rojos y el análisis de Closing inventado: corre
+  «landings-seguro-y-verde» (wf_e8c76ae5-92d) con los tests, `FaltaAnimacion` en lo de Closing, los textos y el «MaKo Pro» de la
+  portada y los funnels. Al terminar: commit POR RUTA (la lista la da su verificador; NO los temporales de scripts/visor-landings),
+  la cosecha con `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/1513b896-575e-41c6-9939-5fc19e4bad6a/scratchpad/cosecha-landings.py`
+  (ya escrita; idempotente) y push.
+- **Después:** el precio en todas las landings y los funnels (`LandingCompetencia` y `app/vsl/_sitio/Funnels.tsx`, política
+  precio-siempre-visible), las tomas de cerca (`calendario.webm`, Closing a 390), el paso 3 del Newsletter con Email, la invitación
+  de Classroom y un artifact con las landings para Martín.
+- **Esperan a Martín:** el video de la pantalla final del Accelerator (`VIDEO_DE_GRACIAS`, app/accelerator/aplicar/reglas.ts),
+  recargar Apify (el Instagram del formulario cae a «pega el link»), una llamada de prueba con la Grabadora para el análisis real de
+  Closing (los análisis del ws 9 son de prospectos reales: no se publican sin él), la 0416, y desplegar ya o esperar.
+- **Cola:** los avisos de crédito de proveedores (Apify, ApiMart) y los eventos del Pixel en /accelerator.
+
 **ACTUALIZACIÓN ~08:30 AST (12:30 UTC), claude1 al 87 %:** TODO lo de la noche está COMMITEADO y subido (último d16766c4b): las
 tandas del checkout y del Accelerator y los 12 arreglos de su revisión. Lo que sigue de la cola: 3 (las landings) y 4 (los avisos
 de proveedores). Abierto y anotado en docs/hallazgos-planes-y-cobro.md: el WhatsApp del checkout no se verifica; el texto de

@@ -164,7 +164,10 @@ test('el NotificationsProvider pide el resumen por sondearALaVista, y no con un 
   const i = src.indexOf("'/api/whatsapp/evolution/mensajes?resumen=1'");
   assert.ok(i > 0, 'no encontré el pedido del resumen');
   const ini = src.lastIndexOf('useEffect(', i);
-  const fin = src.indexOf('}, []);', i);
+  // El cierre del efecto con su lista de dependencias, sea cual sea: desde el 16/11/2026 es `[conSesion]` (sin sesión, /api-mako es
+  // la referencia pública y no se sondea nada). Se busca el PRIMER cierre después del pedido, como antes `}, []);`.
+  const cierre = /\}, \[[^\]]*\]\);/.exec(src.slice(i));
+  const fin = cierre ? i + cierre.index : -1;
   assert.ok(ini > 0 && fin > i, 'no encontré el efecto del resumen');
   const efecto = src.slice(ini, fin);
   assert.match(efecto, /return sondearALaVista\(tick, \{ cadaMs: RESUMEN_WA_CADA_MS \}\);/, 'el resumen no pasa por sondearALaVista');

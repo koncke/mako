@@ -449,7 +449,7 @@ export const FEATURES: Record<string, Feature> = {
           "¿Falta un dato? Lo busca en tu agenda, en la llamada, en el contrato. Y <strong>todo queda anotado, con nombre y hora</strong>.",
         ],
         cierre: "En el negocio de Mauricio, MaKo hizo más de <strong>1.400 movimientos en nueve días</strong> —nueve de cada diez de ese CRM—. <strong>Nadie arrastró una tarjeta.</strong>",
-        verMas: { texto: "Descubrí cómo MaKo analiza tus llamadas de venta", href: "/vsl/closing", label: "Closing Analyst" },
+        verMas: { texto: "Descubre cómo MaKo analiza tus llamadas de venta", href: "/vsl/closing", label: "Closing Analyst" },
       },
       {
         title: "MaKo te cuenta todo por WhatsApp.",
@@ -935,7 +935,7 @@ export const FEATURES: Record<string, Feature> = {
           "¿Tu funnel empezó a perder gente en un punto exacto? ¿La misma objeción aparece una y otra vez en tus llamadas? ¿Tu negocio entero cuelga de un solo anuncio? <strong>MaKo te avisa.</strong>",
         ],
         cierre: "Lo obvio ya lo cazás solo: que no te pagaron, que no cerraste. Lo que te vacía el mes es <strong>lo que nunca te avisó nadie</strong>.",
-        verMas: { texto: "Descubrí cómo MaKo escucha tus llamadas y te dice qué objeción te está costando los cierres", href: "/vsl/closing", label: "Closing Analyst" },
+        verMas: { texto: "Descubre cómo MaKo escucha tus llamadas y te dice qué objeción te está costando los cierres", href: "/vsl/closing", label: "Closing Analyst" },
       },
       {
         title: "En 2 segundos sabes si hoy tienes que hacer algo.",

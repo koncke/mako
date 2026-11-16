@@ -332,7 +332,9 @@ function Libro({ b }: { b: Tarjetas }) {
 }
 
 /** El logo del canal de cada funnel (en su cuadro blanco, donde Hyros pone a Sven). */
-const LOGO_FUNNEL: Readonly<Record<string, string>> = { vsl: '/vsl-assets/logos/vsl.png', whatsapp: '/vsl-assets/logos/whatsapp.png', instagram: '/vsl-assets/logos/integraciones/instagram.png', youtube: '/vsl-assets/logos/youtube.png' };
+// Los tres del 16/11/2026: el formulario es el de Meta (su logo), la venta directa es el pago (pago.svg); el newsletter no tiene logo
+// propio (sale de Email, con el dominio del negocio) y va con el de una página, el de siempre.
+const LOGO_FUNNEL: Readonly<Record<string, string>> = { vsl: '/vsl-assets/logos/vsl.png', whatsapp: '/vsl-assets/logos/whatsapp.png', instagram: '/vsl-assets/logos/integraciones/instagram.png', youtube: '/vsl-assets/logos/youtube.png', formulario: '/vsl-assets/logos/meta.png', 'venta-directa': '/vsl-assets/logos/pago.svg' };
 
 /** «See how Hyros Works. Pick your business model.»: la banda azul, el título a la izquierda y las filas a la derecha. */
 function Modelos({ b }: { b: Tarjetas }) {

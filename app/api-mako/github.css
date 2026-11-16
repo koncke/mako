@@ -55,8 +55,10 @@
   background: var(--gh-bg);
   -webkit-font-smoothing: auto;
 }
-/* El modo oscuro de MaKo (`data-tema="oscuro"`) → el «Dark default» de Primer. */
-[data-tema="oscuro"] .gh {
+/* El modo oscuro de MaKo (`data-tema="oscuro"`) → el «Dark default» de Primer. Y el de la referencia pública (sin sesión, 16/11/2026):
+   el modo oscuro del sitio (`data-sitio-modo`, el sol y la luna de la barra), sobre la pantalla marcada `data-tema-fijo` (ApiMako.tsx). */
+[data-tema="oscuro"] .gh,
+html[data-sitio-modo="oscuro"] .gh[data-tema-fijo] {
   --gh-fg: #f0f6fc;
   --gh-fg-muted: #9198a1;
   --gh-fg-accent: #4493f8;

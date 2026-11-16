@@ -26,6 +26,8 @@ export type DatosArticulos = {
   indice: AreaDocs[];
   /** una lectura sin parámetros obligatorios, para el inicio rápido */
   ejemplo: { metodo: string; ruta: string; titulo: string } | null;
+  /** la referencia PÚBLICA, sin sesión (16/11/2026): sin las descargas, que son acciones del servidor de un workspace */
+  publica?: boolean;
 };
 
 const C = ({ children }: { children: ReactNode }) => <code className="gh-inline">{children}</code>;
@@ -310,8 +312,8 @@ function OpenApi({ d }: { d: DatosArticulos }) {
       <h2 id="acerca">Acerca de la descripción OpenAPI</h2>
       <p>Es un documento <a href="https://spec.openapis.org/oas/v3.1.0" target="_blank" rel="noreferrer">OpenAPI 3.1</a> con todos los endpoints de tu workspace: rutas, parámetros, respuestas y el permiso que pide cada uno (<C>x-mako-permiso</C>). Sirve para importar la API en n8n, Postman o Insomnia, o para generar un cliente.</p>
       <h2 id="obtener">Obtenerla</h2>
-      <p>Descárgala de aquí, o pídela con tu token:</p>
-      <BotonesDescarga />
+      <p>{d.publica ? 'Pídela con tu token:' : 'Descárgala de aquí, o pídela con tu token:'}</p>
+      {!d.publica && <BotonesDescarga />}
       <Bloque clave="oa-1" texto={curl(d, '/openapi.json')} />
       <p>También está la misma referencia en markdown, pensada para un agente: <C>GET /api/v1/docs</C>.</p>
     </>

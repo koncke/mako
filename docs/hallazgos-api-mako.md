@@ -14,6 +14,14 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## La referencia pública de /api-mako (16/11/2026)
+
+- **Un `page.tsx` de Next no puede exportar otra cosa que lo de una página**: la vista sin sesión vive en
+  `app/api-mako/ReferenciaPublica.tsx`, y así se dibuja en los tests y en un banco.
+- **`minHeight: 100%` se medía contra la caja que también lleva la barra y el pie del sitio** y dejaba 712 px en blanco antes del
+  pie (medido con Playwright).
+- Cómo se abre sin sesión y por qué no va en `PUBLICOS`: docs/hallazgos-infra.md («/api-mako sin sesión», 16/11).
+
 ## La descripción de una operación es UN string para TODOS los negocios: ahí prometió una función que la mitad tiene cerrada (14/11/2026)
 
 **El síntoma:** el 14/11 el video con avatar de IA volvió a ser de MaKo Pro y ese mismo día se sacó del FAQ del sitio. La promesa

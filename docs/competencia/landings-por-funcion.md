@@ -22,7 +22,7 @@ después white-labels de GoHighLevel, setters con IA y fábricas de creativos; l
 | Automations / setter con IA | SetSmart (`setsmart.io/es`) | Sí | **`/vsl/seguimiento`** (rehecha) |
 | Dashboard y reportes | Reportei (`reportei.com/es`) | Sí | **`/vsl/dashboard`** (rehecha) |
 | Agenda | iClosed (`iclosed.io`) | Sí | **`/vsl/agenda`** (nueva) |
-| Closing Analyst | **Sin ganadora**: Voicit graba reuniones de RR. HH., no analiza llamadas de venta | Sí | falta (`/vsl/closing` sigue como estaba) |
+| Closing Analyst | Hyperbound, su página de AI Call Scoring (`hyperbound.ai/uses/ai-call-scoring`), elegida el 16/11/2026 ([abajo](#las-referencias-elegidas-el-16112026)) | Sí (desde la PC; el 11/11 no abría desde la nube) | **`/vsl/closing`** (nueva) |
 | Cobranza | Rebill (`rebill.com`) | Sí | **`/vsl/cobranza`** (rehecha) |
 | Marketing CoPilot / Media Buyer | Master Ads (`masterads.ai`) | Sí | **`/vsl/ads`** (rehecha) |
 | Ads Analyst | Gethookd (`gethookd.ai`) | Sí | **`/vsl/script`** (rehecha) |
@@ -36,7 +36,10 @@ después white-labels de GoHighLevel, setters con IA y fábricas de creativos; l
 | Offer | Atlas AI de DFY (`go.doneforyou.com/offer-formula`) | Sí | **`/vsl/offer`** (nueva) |
 | Funnels / embudo | Hyros (`hyros.com`) | Sí | **`/vsl/funnel`** (rehecha) |
 | Email marketing | beehiiv (`beehiiv.com`) | Sí | **`/vsl/email`** (rehecha) |
-| Classroom (curso y comunidad) | Skool (`skool.com`) | **No**: su portada carga vacía sin sesión | falta |
+| Classroom (curso y comunidad) | Circle (`circle.so`), elegida el 16/11/2026: Skool no tiene página de producto | Sí | **`/vsl/classroom`** (nueva) |
+| Second Brain (el mapa de tu negocio) | Obsidian (`obsidian.md`), 16/11/2026: la exportación de MaKo ES un vault de Obsidian | Sí | **`/vsl/second-brain`** (nueva) |
+| Equipo (roles y permisos) | Pipedrive, su página «Equipos» en español (`pipedrive.com/es/features/teams`), 16/11/2026 | Sí | **`/vsl/equipo`** (nueva) |
+| Calendario de contenido | Metricool, su planificador (`metricool.com/es/planificador/`), 16/11/2026 | Sí | **`/vsl/calendario`** (nueva) |
 
 Newsletter, VSL Generator, Sales Email, Closing Script y Sales Roleplay **no se investigaron**: en el código están como
 «Coming soon» (`PRONTO`, sólo para el super admin), así que hoy no son funciones que se vendan.
@@ -197,9 +200,10 @@ pipeline» · (15) pie.
 | Practify IA | — | Roleplay y análisis de llamadas en español de España (búsqueda) | — | — | — | No |
 | Gong | — | Contraste (EE.UU., enterprise) | — | — | — | No |
 
-**Sin ganadora todavía.** Voicit se leyó y resultó ser un generador de actas, no de análisis de llamadas de venta. No
+**Sin ganadora el 11/11/2026.** Voicit se leyó y resultó ser un generador de actas, no de análisis de llamadas de venta. No
 apareció en español una herramienta que lea tus llamadas y te diga por qué un lead no cerró: el espacio está vacío. Para
 elegir hay que abrir Fathom, Gong o Hyperbound (hosts sin habilitar).
+**Ganadora desde el 16/11/2026: Hyperbound** (su página de AI Call Scoring): ver [Las referencias elegidas el 16/11/2026](#las-referencias-elegidas-el-16112026).
 
 ## Cobranza
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
@@ -428,7 +432,29 @@ attention into growth» (crear, crecer, monetizar, automatizar, integrar, medir)
 | **Skool** | [skool.com](https://www.skool.com/) | Comunidad, cursos y eventos; «set it up in less than 30-minutes» (de su página «about») | — | — | Desde US$9/mes (búsqueda) | **No**: la portada carga vacía sin sesión |
 | Hotmart, Circle, Kajabi, Coachful | — | Cursos y membresías (búsqueda) | — | — | — | No |
 
-**Ganadora: Skool**: pocas palabras y es la referencia mental de este público. Su portada no se pudo leer.
+**Ganadora el 11/11/2026: Skool**: pocas palabras y es la referencia mental de este público. Su portada no se pudo leer.
+**Desde el 16/11/2026, la landing copia a Circle**: Skool no tiene una página de producto que copiar (ver [abajo](#las-referencias-elegidas-el-16112026)).
+La comunidad de MaKo sigue copiando la de Skool tal cual (app/_comunidad/Comunidad.tsx): lo que cambió es la landing.
+
+## Las referencias elegidas el 16/11/2026
+
+Cinco landings nuevas, cada una copiando ENTERA la página de una referencia (el orden de secciones, el storytelling y el diseño),
+leída ese día con un Chromium real a 1440 y a 390 px. Lo que se cambió de cada referencia y por qué está en la cabecera de su
+archivo (`app/vsl/_competencia/<slug>.ts`) y los valores medidos, en su diseño (`app/vsl/_competencia/disenos/<slug>.tsx`).
+
+| Función | Referencia | Por qué ésa |
+|---|---|---|
+| Closing Analyst → `/vsl/closing` | [Hyperbound · AI Call Scoring](https://www.hyperbound.ai/uses/ai-call-scoring) | Es la landing de ESTA función: puntuar cada llamada real con una metodología (SPIN entre ellas), el coaching después de cada llamada, el cruce con los cierres y la conexión con el grabador que ya usas. Desde la PC abre (el 11/11 no abría desde la nube). Las otras no sirven de molde: Gong vende una plataforma entera; Fathom es un tomador de notas y MaKo se CONECTA con él (no lo reemplaza); Voicit es un generador de actas; CloserMood, la que pasó Martín el 28/10, es un simulador para practicar, no el análisis de las llamadas de verdad. |
+| Classroom → `/vsl/classroom` | [Circle](https://circle.so/) (ese día sirve circle.so/b, con el titular que gira) | Skool no tiene una página de producto: su portada es el directorio de comunidades («Discover communities or create your own»), /about son dos párrafos y /pricing, dos tarjetas. De las que MaKo reemplaza (Skool, Kajabi, Hotmart y Circle, `app/vsl/_sitio/reemplaza.ts`), Circle tiene la landing más completa y vende lo mismo: el curso, la comunidad y el acceso en un solo lugar (Kajabi no tiene página de comunidades: da 404). |
+| Second Brain → `/vsl/second-brain` | [Obsidian](https://obsidian.md/) | El Second Brain se hizo «como Obsidian, carpetas y archivos» (`lib/vault-modelo.ts`) y su exportación ES un vault de Obsidian (carpetas, Markdown con su frontmatter y los enlaces que rearman el grafo). Es la app de notas en grafo que este público conoce, y su portada vende eso: tus ideas conectadas, el grafo, y que lo que guardas es tuyo. Holo (la de `/vsl/mako`) vende el chat que delega, no el mapa. |
+| Equipo → `/vsl/equipo` | [Pipedrive · Equipos](https://www.pipedrive.com/es/features/teams), en español | Es la página de ESTA función en el CRM que más usan los equipos de venta chicos, y cuenta lo que hace Equipo en MaKo: cada persona con su acceso, lo que rinde cada uno y las metas del equipo. Se descartaron su «Sales team management» en inglés (habla del embudo, no del equipo) y la de Pipeline CRM (larga, para la construcción y la industria). |
+| Calendario de contenido → `/vsl/calendario` | [Metricool · Planificador](https://metricool.com/es/planificador/) | El planificador de redes más usado en español (España y LATAM), y ésta es la landing de esta función: planificar la semana, programar cada formato en cada red y que salga a su hora. Later y Buffer están en inglés y son para equipos de redes de marcas; el calendario de Canva es una pieza de su editor, no la página de la función. |
+
+**Lo que cualquiera de las cinco NO trae de su referencia:** sus logos de clientes, sus reseñas y sus cifras (MaKo no las
+tiene), su demo (MaKo no tiene una: el botón es la prueba gratis) y su barra y su pie (van los del sitio). Y lo que ESCRIBE la
+IA no se inventa (la regla de Martín del 12/11 y el 13/11/2026): las tres piezas del análisis de una llamada en `/vsl/closing`,
+el coaching de `/vsl/equipo` y la fila de Closing de la portada van con el recuadro de «falta» hasta que haya un análisis real
+(docs/relevo/landings-vsl.md).
 
 ## Competidores que te faltaban
 

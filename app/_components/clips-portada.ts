@@ -38,7 +38,14 @@ const HASTA_DONDE: Readonly<Record<string, number>> = {
   '/vsl-assets/sitio/crm-ficha.webm': 15.9,
   '/vsl-assets/sitio/automations.webm': 13.0,
   '/vsl-assets/sitio/chats.webm': 13.6,
+  // (Closing no tiene grabación desde el 16/11/2026: la que hubo, llamadas.webm, mostraba un análisis INVENTADO y su fila de la portada
+  // lleva el recuadro de «falta». Sin video no entra al login, y su corte se fue con ella: un corte sin su clip lo frena el test.)
   '/vsl-assets/sitio/comunidad.webm': 21.9,
+  // 16/11/2026, medidos con la tira (fps=1 y fps=2): el Calendario queda con «Programadas: 6» hasta el 9,3 (después funde con su
+  // arranque); Equipo, con Sofía ya en la lista y el aviso verde, hasta el 11,8. Sus grabaciones: C:/dev/bancos-portada/banco-
+  // calendario-landing/grabar.mjs y banco-equipo-landing/grabar.mjs.
+  '/vsl-assets/sitio/calendario.webm': 9.3,
+  '/vsl-assets/sitio/equipo.webm': 11.8,
 };
 
 /**

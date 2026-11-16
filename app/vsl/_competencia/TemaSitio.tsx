@@ -192,7 +192,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
  * medirlo engaña: un hero oscuro pintado con un degradado o con un ::before tiene el fondo «transparente», y la página se
  * leía como clara (Email, Competitor Spy). Una landing nueva oscura se suma acá.
  */
-export const LANDINGS_OSCURAS: ReadonlySet<string> = new Set(['cobranza', 'competitor-spy', 'crm', 'email', 'mako', 'offer', 'web-generator']);
+export const LANDINGS_OSCURAS: ReadonlySet<string> = new Set(['closing', 'cobranza', 'competitor-spy', 'crm', 'email', 'mako', 'offer', 'second-brain', 'web-generator']);
 
 /**
  * La barra copiada de cada diseño, que reemplaza la barra del sitio (app/vsl/_sitio/Barra.tsx → BarraGlobal). Medida en cada
@@ -200,11 +200,13 @@ export const LANDINGS_OSCURAS: ReadonlySet<string> = new Set(['cobranza', 'compe
  * barra queda debajo de la del sitio (el test lo cuida).
  */
 export const BARRA_PROPIA: Readonly<Record<string, string>> = {
-  ads: '.d-ads-nav', agenda: '.d-agenda-barra', 'ai-avatar': '.d-ai-avatar-barra', cobranza: '.d-cobranza-barra',
+  ads: '.d-ads-nav', agenda: '.d-agenda-barra', 'ai-avatar': '.d-ai-avatar-barra', closing: '.d-closing-nav', cobranza: '.d-cobranza-barra',
   'competitor-spy': '.d-competitor-spy-nav', copywriting: '.d-copywriting-barra', crm: '.d-crm-barra', dashboard: '.d-dashboard-barra',
   email: '.d-email-barra', funnel: '.d-funnel-barra', image: '.d-image-barra', mako: '.d-mako-nav', offer: '.d-offer-nav',
   prioridades: '.d-prioridades-nav', script: '.d-script-nav', seguimiento: '.d-seguimiento-barra', video: '.d-video-barra',
   'web-generator': '.d-wg-nav-fondo', whatsapp: '.d-whatsapp-hdr',
+  classroom: '.d-classroom-nav', 'second-brain': '.d-second-brain-nav',
+  equipo: '.d-equipo-nav', calendario: '.d-calendario-nav',
 };
 
 /** El estilo y el script: UNA vez por página, al final. `base`: cómo nació la página (sin ella, se mide). */

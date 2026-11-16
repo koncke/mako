@@ -20,7 +20,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link, { useWs } from '@/app/_ui/Link';
-import { esVistaSinChrome } from './PublicRouteGate';
+import { esVistaSinChrome, useConSesion } from './PublicRouteGate';
 import { useVistaMovil } from './VistaMovil';
 import { RUTA_PIXEL, ROTULO_PIXEL_VIEJO } from '@/lib/pixel-aviso';
 
@@ -31,7 +31,9 @@ export function AvisoPixelViejo() {
   const ws = useWs();
   // `useVistaMovil`: en el teléfono, /crm es la página de /m (LAS MISMAS RUTAS, app/_components/VistaMovil.tsx).
   const movil = useVistaMovil();
-  const sinChrome = movil || esVistaSinChrome(pathname) || (pathname ?? '').startsWith('/login');
+  // Sin sesión, /api-mako es la referencia pública (16/11/2026): no se pregunta por el Pixel de nadie.
+  const conSesion = useConSesion();
+  const sinChrome = movil || esVistaSinChrome(pathname, conSesion) || (pathname ?? '').startsWith('/login');
   const [estado, setEstado] = useState<{ viejo: boolean; instalada: number | null } | null>(null);
 
   useEffect(() => {
