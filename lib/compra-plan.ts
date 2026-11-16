@@ -210,25 +210,36 @@ export async function guardarPrecioLocal(planId: string, moneda: string, monto: 
 }
 
 /**
+ * DE DÓNDE VIENE EL LEAD (16/11/2026): quién firma lo que se anota en su historial y cómo se cuenta un WhatsApp distinto. El checkout
+ * («al comprar») y la aplicación a MaKo Accelerator (lib/aplicacion-accelerator-servidor.ts, «al aplicar…») crean el lead con lo
+ * mismo, y quien aplica todavía no compró nada.
+ */
+export type DondeDelLead = { autor: string; al: string };
+export const DEL_CHECKOUT: DondeDelLead = { autor: 'Checkout de MaKo', al: 'al comprar' };
+
+/**
  * El WhatsApp de quien compra en una ficha que YA existe. Se completa sólo si está vacía: la ruta es pública, y cualquiera puede escribir el
  * email de otro. Si la ficha tiene otro número, no se pisa y queda en su historial. Nunca frena la compra.
  */
-async function whatsappEnFicha(leadId: number, whatsapp: string | null | undefined): Promise<void> {
+async function whatsappEnFicha(leadId: number, whatsapp: string | null | undefined, donde: DondeDelLead = DEL_CHECKOUT): Promise<void> {
   if (!whatsapp) return;
   const tel = `+${whatsapp}`;
   try {
-    if ((await enriquecerLead(leadId, { telefono: tel }, 'Checkout de MaKo')).length) return;
+    if ((await enriquecerLead(leadId, { telefono: tel }, donde.autor)).length) return;
     const actual = await getLead(leadId);
     // Todos los dígitos: corregir sólo el país deja iguales los últimos 10, y eso también es otro número.
     if (String(actual?.telefono_normalizado ?? actual?.telefono ?? '').replace(/\D/g, '') === whatsapp) return;
-    await logLeadEvent(leadId, 'WhatsApp', `Dejó este WhatsApp al comprar: ${tel}. No se cambió el de la ficha.`, 'Checkout de MaKo');
+    await logLeadEvent(leadId, 'WhatsApp', `Dejó este WhatsApp ${donde.al}: ${tel}. No se cambió el de la ficha.`, donde.autor);
   } catch (e) {
     console.warn(`[compra-plan] no pude anotar el WhatsApp en el lead ${leadId}:`, msg(e));
   }
 }
 
-/** El lead de ese email en el CRM de la plataforma (exacto), o uno nuevo. Corre adentro de runWithWorkspace. */
-async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuevo: boolean }> {
+/**
+ * El lead de ese email en el CRM de la plataforma (exacto), o uno nuevo. Corre adentro de runWithWorkspace. Lo usan el checkout y la
+ * aplicación a MaKo Accelerator (`donde`): sólo lee el nombre, el email, el WhatsApp y la campaña.
+ */
+export async function leadDelComprador(p: Pick<PedidoCompra, 'nombre' | 'email' | 'whatsapp' | 'origen'>, donde: DondeDelLead = DEL_CHECKOUT): Promise<{ leadId: number; nuevo: boolean }> {
   const db = await getTenantDb();
   const buscar = async () => {
     const patron = p.email.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -238,7 +249,7 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
   };
   const ya = await buscar();
   if (ya) {
-    await whatsappEnFicha(ya.id, p.whatsapp);
+    await whatsappEnFicha(ya.id, p.whatsapp, donde);
     return { leadId: ya.id, nuevo: false };
   }
   const o = p.origen ?? {};
@@ -253,7 +264,7 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
     if (!esLeadDuplicado(e)) throw e;
     const otro = await buscar();
     if (otro) {
-      await whatsappEnFicha(otro.id, p.whatsapp);
+      await whatsappEnFicha(otro.id, p.whatsapp, donde);
       return { leadId: otro.id, nuevo: false };
     }
     // ⚠️ UN DUPLICADO NUNCA FRENA UNA COMPRA (30/10/2026): `createLead` también frena por NOMBRE, y acá eso era «No pudimos registrar tu
@@ -262,13 +273,13 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
     // ficha lo marca en «Posibles duplicados».
     const mismo = leadDeLaCompra(e.coincidencias, p.email);
     if (mismo != null) {
-      await enriquecerLead(mismo, { email: p.email, telefono: datos.telefono }, 'Checkout de MaKo').catch((x) => console.warn(`[compra-plan] no pude completar el lead ${mismo}: ${msg(x)}`));
-      await whatsappEnFicha(mismo, p.whatsapp);
+      await enriquecerLead(mismo, { email: p.email, telefono: datos.telefono }, donde.autor).catch((x) => console.warn(`[compra-plan] no pude completar el lead ${mismo}: ${msg(x)}`));
+      await whatsappEnFicha(mismo, p.whatsapp, donde);
       return { leadId: mismo, nuevo: false };
     }
     const lead = await createLead({ ...datos, permitirDuplicado: true });
     const mismoNumero = porMotivo(e.coincidencias, 'telefono').map((c) => c.lead.id);
-    if (mismoNumero.length) await logLeadEvent(Number(lead.id), 'WhatsApp', `Ese WhatsApp también está en la ficha ${mismoNumero.join(', ')}.`, 'Checkout de MaKo').catch(() => {});
+    if (mismoNumero.length) await logLeadEvent(Number(lead.id), 'WhatsApp', `Ese WhatsApp también está en la ficha ${mismoNumero.join(', ')}.`, donde.autor).catch(() => {});
     return { leadId: Number(lead.id), nuevo: true };
   }
 }

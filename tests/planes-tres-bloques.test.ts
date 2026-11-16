@@ -151,7 +151,10 @@ test('/planes: tres bloques, el programa se pide, la comparación, y el link a M
   // CRM con el origen y el código de partner; ahora lleva a la agenda de Martín, fuera del sitio y en otra pestaña.
   // 15/11/2026, ~21:00 (Martín): «en lugar de que diga agenda tu llamada, el botón de MaKo Accelerator… que diga… más
   // información, justamente para que ellos puedan irse para allá», a la landing del programa. La llamada se pide desde ahí.
-  assert.match(t, /<a className="mkpl-btn" href=\{RUTA_ACCELERATOR\}>\{TEXTO_BOTON_ACCELERATOR\}<\/a>/, 'el botón del Accelerator no lleva a su landing');
+  // 16/11/2026: la columna es su propio componente (`TarjetaAccelerator`, la misma en la landing del programa con «APLICA
+  // AHORA»), y el botón lo elige quien la dibuja: acá, la landing.
+  assert.match(t, /<TarjetaAccelerator boton=\{\{ href: RUTA_ACCELERATOR, texto: TEXTO_BOTON_ACCELERATOR \}\} \/>/, 'el botón del Accelerator no lleva a su landing');
+  assert.match(t, /<a className="mkpl-btn" href=\{boton\.href\}>\{boton\.texto\}<\/a>/, 'la columna del Accelerator no dibuja el botón que le pasan');
   assert.match(t, /\{p\.destacado && <span className="mkpl-insignia">Recomendado<\/span>\}/);
   assert.match(p, /^\s*const filas = filasDeComparacion\(\);/m);
   // La tabla como Attio (14/11/2026): ver app/planes/Vitrina.tsx, `CompararPlanes`.
@@ -716,6 +719,10 @@ test('sin plan Agencia aparte (10/10): la agencia maneja a sus clientes desde Pr
 //   · la pregunta vuelve a «te devolvemos tu pago»                                          -> 24 / 1
 //   · vuelve `GARANTIA_DIAS`                                                                -> 24 / 1
 //   · /reembolsos sin «después del primer cobro, no se reembolsa»                            -> 24 / 1
+//
+// Roturas de la columna del Accelerator como componente (`TarjetaAccelerator`, 16/11/2026; base 27 / 0), restauradas:
+//   · `TarjetasPlanes` le pasa la agenda a la columna en vez de la landing                  -> 25 / 2
+//   · la columna ignora el botón que le pasan (siempre a /accelerator)                      -> 26 / 1
 
 // ── La calculadora de MaKo Tokens (14/11/2026, Martín: arriba de las columnas, arranca en los tokens del plan) ─────────
 // LA CALCULADORA, REDISEÑADA EL 15/11/2026. Martín, textual: «Está horrible la sección de calcula cuántos MaKo Tokens

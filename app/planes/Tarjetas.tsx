@@ -42,6 +42,7 @@
 
 import type { ReactNode } from 'react';
 import { ASESORIAS_DEL_PROGRAMA, LISTA_DEL_ACELERADOR, MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, type PlanMako } from '@/lib/planes-mako';
+import { AGENDA_DE_LA_LLAMADA } from '@/lib/aplicacion-accelerator';
 import { TOPES } from '@/lib/topes-plan';
 import { PLAN_DE_CAPA, cupoDeCapa } from '@/lib/mako-tokens-reglas';
 import { ATRIBUTO_ALCANZA, ATRIBUTO_MT, generaVideoLaCapa, htmlAlcanza } from './CalculadoraTokens';
@@ -265,15 +266,19 @@ export const LISTA_PROGRAMA: readonly ItemLista[] = LISTA_DEL_ACELERADOR.filter(
  *    como el «hablar con ventas» del tercer bloque de cualquier SaaS, y en esa llamada se ofrece el programa
  *    (docs/vsl/README.md). Si aparece un «Agenda tu llamada» en otra pantalla, es un error: se saca.
  * Es la agenda de MARTÍN, no la de un cliente (en el repo hay otros Calendly que son de Mauricio: no son éste).
+ * ⚠️ 16/11/2026: NINGÚN BOTÓN LA ABRE. Martín, sobre la landing del programa: «yo no pondría el botón de agendar llamada, sino
+ *    justamente el botón de aplicar ahora». Todo «Aplica ahora» lleva al formulario (`RUTA_APLICAR`, lib/aplicacion-accelerator.ts)
+ *    y la agenda se abre DESPUÉS, ya contestada, a quien califica (`linkDeLaAgenda`). Por eso el link vive allá
+ *    (`AGENDA_DE_LA_LLAMADA`) y éste es el mismo: una sola fuente.
  */
-export const AGENDA_ACELERADOR = 'https://calendly.com/koncke/asesoria';
+export const AGENDA_ACELERADOR = AGENDA_DE_LA_LLAMADA;
 export const TEXTO_AGENDA_ACELERADOR = 'Agenda tu llamada';
 /**
  * EL BOTÓN DE LA COLUMNA DEL ACCELERATOR (15/11/2026, ~21:00). Martín: «en lugar de que diga agenda tu llamada, el botón de MaKo
  * Accelerator… que diga… más información, justamente para que ellos puedan irse para allá», a la landing del programa
- * (/accelerator, con su VSL). La llamada se agenda DESDE la landing, con la agenda de Martín (`AGENDA_ACELERADOR`: su Calendly
- * pide 7 respuestas obligatorias antes de confirmar, así que «aplicas en el formulario» es verdad), así que /planes ya no ofrece
- * agendar en ningún lado. El pedido con el diagnóstico de 2 minutos (/planes/accelerator) sigue en el botón de la tabla.
+ * (/accelerator, con su VSL), así que /planes ya no ofrece agendar en ningún lado. Desde el 16/11/2026 la landing tampoco: sus
+ * «Aplica ahora» llevan al formulario de aplicación (/accelerator/aplicar) y la agenda se abre después, a quien califica
+ * (lib/aplicacion-accelerator.ts). El pedido con el diagnóstico de 2 minutos (/planes/accelerator) sigue en el botón de la tabla.
  */
 export const RUTA_ACCELERATOR = '/accelerator';
 // En MAYÚSCULA como los otros dos botones («PRUÉBALO GRATIS AHORA»): Martín, 15/11, «tienes que poner más información todo en mayúscula».
@@ -405,7 +410,6 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
   /** El reloj del 50% sigue vivo en este navegador: cada plan del cartel dice lo que sale su primer mes. Después, el precio de siempre. */
   promoVigente?: boolean;
 }) {
-  const pr = PROGRAMA_ACELERADOR;
   // El selector, sólo si TODOS los planes tienen anual: uno sin anual quedaría sin precio al elegirlo.
   const conAnual = planes.length > 0 && planes.every((p) => !!p.precioAnualUsd);
   return (
@@ -507,34 +511,57 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
           </section>
         );
       })}
-      <section className="mkpl-card mkpl-programa" data-tema-fijo="" aria-label={CEJA_PROGRAMA}>
-        <span className="mkpl-insignia">Con acompañamiento</span>
-        <h3>{pr.nombre}</h3>
-        {/* El mismo orden que las otras dos columnas (15/11/2026): precio, botón, y la promesa debajo. */}
-        <div className="mkpl-r-precio">
-          <div className="mkpl-precio">US$ {precio(pr.precioUsd)}</div>
-          <span className="mkpl-bajo">en {pr.cuotas} cuotas de US$ {precio(Math.round(pr.precioUsd / pr.cuotas))}</span>
-        </div>
-        <div className="mkpl-r-boton">
-          {/* AGENDAR LA LLAMADA, SÓLO ACÁ (14/11/2026, Martín: «lo de agendar llamadas sí debería estar todavía para el tema de
-              Accelerator… Pero en ningún otro lado debería estar»). Es la agenda de Martín, fuera del sitio: se abre en otra
-              pestaña (`AGENDA_ACELERADOR`). Essential y Pro siguen con su botón de siempre, que compra sin hablar con nadie. */}
-          <a className="mkpl-btn" href={RUTA_ACCELERATOR}>{TEXTO_BOTON_ACCELERATOR}</a>
-        </div>
-        {/* SIN EL «PARA QUIÉN» (15/11/2026, a la noche). Martín: «tampoco me gusta el texto de para quién vende solo o para quién
-            ya vende y tiene equipo. Ese texto elimínalo». Se fue de las tres columnas, y con él la fila del subgrid: ahora son
-            cuatro (nombre, precio, botón, lista). La promesa del Accelerator abre su lista: ahí no comparte alto con nadie. */}
-        <div>
-          {/* SIN «NUESTRA PROMESA» EN LA TARJETA (15/11/2026, ~23:35, Martín: «eliminaría también la parte de nuestra promesa porque
-              justamente el sistema de adquisición de clientes ya está en el check número 2»). La promesa sigue en
-              `PROGRAMA_ACELERADOR.promesa` y la dice la landing del programa (/accelerator). */}
-          {/* Sin «Todo lo de MaKo Pro, más:» (14/11/2026): MaKo Pro es el primer check (`LISTA_PROGRAMA`) y esta columna
-              también se lee sola. La ceja dice cómo se trabaja, como en las otras dos. */}
-          <p className="mkpl-lista-t">{CEJA_LISTA}</p>
-          <ul className="mkpl-lista">{LISTA_PROGRAMA.map((x) => <li key={x.fuerte ?? x.texto}><span>{x.fuerte ? <b>{x.fuerte}</b> : null}{x.texto}</span></li>)}</ul>
-        </div>
-      </section>
+      {/* El botón de la columna en /planes: «MÁS INFORMACIÓN», a la landing del programa. Essential y Pro siguen con su botón
+          de siempre, que compra sin hablar con nadie. */}
+      <TarjetaAccelerator boton={{ href: RUTA_ACCELERATOR, texto: TEXTO_BOTON_ACCELERATOR }} />
       </div>
     </div>
+  );
+}
+
+/**
+ * LA COLUMNA DEL ACCELERATOR, SOLA (16/11/2026). Martín, sobre la landing del programa: «en esta Landing Accelerator también
+ * necesita tener el precio… es mi política de que ya tenga todo el precio… la columna que hicimos». Así que la columna es UNA y
+ * se dibuja en dos lugares: acá, en /planes (`TarjetasPlanes`, con «MÁS INFORMACIÓN» a la landing), y en la landing
+ * (app/accelerator/LandingAcelerador.tsx, con «APLICA AHORA» al formulario). El precio, la insignia y la lista salen de lo mismo
+ * (`PROGRAMA_ACELERADOR`, `LISTA_PROGRAMA`): si Martín cambia la oferta, cambia en las dos a la vez.
+ * Lo único que cambia es el botón. Afuera de /planes necesita `CSS_TARJETAS` y la letra de /planes: ver `CSS_PRECIO_ACELERADOR`
+ * (app/accelerator/estilo.ts). Afuera de la grilla de tres (`.mkpl-grilla`), el subgrid no tiene filas que compartir y la tarjeta
+ * mide lo suyo.
+ */
+export function TarjetaAccelerator({ boton }: {
+  /** El botón de la tarjeta: en /planes, «MÁS INFORMACIÓN» a /accelerator; en /accelerator, «APLICA AHORA» al formulario. */
+  boton: { href: string; texto: string };
+}) {
+  const pr = PROGRAMA_ACELERADOR;
+  return (
+    <section className="mkpl-card mkpl-programa" data-tema-fijo="" aria-label={CEJA_PROGRAMA}>
+      <span className="mkpl-insignia">Con acompañamiento</span>
+      <h3>{pr.nombre}</h3>
+      {/* El mismo orden que las otras dos columnas (15/11/2026): precio, botón, y la promesa debajo. */}
+      <div className="mkpl-r-precio">
+        <div className="mkpl-precio">US$ {precio(pr.precioUsd)}</div>
+        <span className="mkpl-bajo">en {pr.cuotas} cuotas de US$ {precio(Math.round(pr.precioUsd / pr.cuotas))}</span>
+      </div>
+      <div className="mkpl-r-boton">
+        {/* EL BOTÓN LO ELIGE QUIEN DIBUJA LA TARJETA (16/11/2026). Ninguno agenda: desde el 15/11 el de /planes lleva a la
+            landing, y desde el 16/11 el de la landing lleva al formulario de aplicación; la agenda de Martín se abre después,
+            a quien califica (`AGENDA_ACELERADOR`). Del mismo tamaño que los otros dos: `.mkpl-btn`, sin clases de más. */}
+        <a className="mkpl-btn" href={boton.href}>{boton.texto}</a>
+      </div>
+      {/* SIN EL «PARA QUIÉN» (15/11/2026, a la noche). Martín: «tampoco me gusta el texto de para quién vende solo o para quién
+          ya vende y tiene equipo. Ese texto elimínalo». Se fue de las tres columnas, y con él la fila del subgrid: ahora son
+          cuatro (nombre, precio, botón, lista). La promesa del Accelerator abre su lista: ahí no comparte alto con nadie. */}
+      <div>
+        {/* SIN «NUESTRA PROMESA» EN LA TARJETA (15/11/2026, ~23:35, Martín: «eliminaría también la parte de nuestra promesa porque
+            justamente el sistema de adquisición de clientes ya está en el check número 2»). La promesa sigue en
+            `PROGRAMA_ACELERADOR.promesa`; desde el 16/11 tampoco la dibuja la landing, donde esta tarjeta va justo debajo de
+            lo que incluye (app/accelerator/LandingAcelerador.tsx dice por qué). */}
+        {/* Sin «Todo lo de MaKo Pro, más:» (14/11/2026): MaKo Pro es el primer check (`LISTA_PROGRAMA`) y esta columna
+            también se lee sola. La ceja dice cómo se trabaja, como en las otras dos. */}
+        <p className="mkpl-lista-t">{CEJA_LISTA}</p>
+        <ul className="mkpl-lista">{LISTA_PROGRAMA.map((x) => <li key={x.fuerte ?? x.texto}><span>{x.fuerte ? <b>{x.fuerte}</b> : null}{x.texto}</span></li>)}</ul>
+      </div>
+    </section>
   );
 }

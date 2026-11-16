@@ -124,7 +124,14 @@ export const PUBLICOS = [
   // La página del MaKo Accelerator (15/11/2026, la landing de Martín que vivía en Lovable): la abre quien todavía no tiene
   // cuenta, desde el «Más información» de la tercera columna de /planes (`RUTA_ACCELERATOR`, app/planes/Tarjetas.tsx) o un
   // anuncio. Es una página: sólo GET (`esPublicaSoloLeer`); no lee la sesión ni la base. tests/acelerador-landing.test.ts.
+  // Por prefijo cubre también su formulario de aplicación, `/accelerator/aplicar` (16/11/2026, `RUTA_APLICAR`): otra página
+  // que sólo se lee; lo que manda va por `/api/accelerator/aplicar`, acá abajo.
   '/accelerator',
+  // La aplicación a MaKo Accelerator (16/11/2026, lib/aplicacion-accelerator.ts): el POST del formulario de /accelerator/aplicar
+  // (EXACTA, también en PUBLICOS_ESCRITURA). La manda alguien que todavía no tiene cuenta. No lee la cookie de sesión (el
+  // workspace es siempre el de la plataforma), mira el Origin a mano y en positivo (sólo un host de MaKo), con topes por IP y por
+  // email, un tope al tamaño del cuerpo y un campo trampa: cada envío deja un lead en el CRM de MaKo y un correo a Martín.
+  '/api/accelerator/aplicar',
   // El robots.txt (app/robots.ts). Sin esto el gate lo mandaba a /login: un crawler que
   // pedía reglas recibía una página de login.
   '/robots.txt',
@@ -306,6 +313,9 @@ export const PUBLICOS_ESCRITURA = [
   '/api/planes/comprar',
   // El reloj del 50% (ver su entrada en PUBLICOS).
   '/api/promo-entrada',
+  // La aplicación a MaKo Accelerator (16/11/2026): sin credencial porque quien aplica no tiene cuenta; la ruta mira el Origin
+  // ella misma y no lee la cookie de sesión (ver su entrada en PUBLICOS).
+  '/api/accelerator/aplicar',
 ] as const;
 
 const matchea = (lista: readonly string[], pathname: string) =>

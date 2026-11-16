@@ -38,8 +38,8 @@ export function isPublicLandingPath(pathname: string | null | undefined): boolea
   // `/pagar/<token>` es el comprador volviendo de Stripe o Mercado Pago (la página de retorno de un
   // cobro, app/pagar): no tiene sesión, y los pollers de la app le darían 401 en bucle.
   // `/accelerator` (15/11/2026) es la landing del programa de Martín: con sesión, sin esto, la pestaña decía «MaKo - Accelerator» y
-  // aparecía la tarjeta de avisos de adentro de la app.
-  return p === '/' || p === '/accelerator' || p === '/vsl' || p.startsWith('/vsl/') || p === '/compartido' || p.startsWith('/compartido/') || p === RUTA_ALUMNO || p.startsWith('/pagar/');
+  // aparecía la tarjeta de avisos de adentro de la app. `/accelerator/aplicar` (16/11/2026), su formulario de aplicación, igual.
+  return p === '/' || p === '/accelerator' || p.startsWith('/accelerator/') || p === '/vsl' || p.startsWith('/vsl/') || p === '/compartido' || p.startsWith('/compartido/') || p === RUTA_ALUMNO || p.startsWith('/pagar/');
 }
 
 /**

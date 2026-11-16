@@ -18,7 +18,8 @@ import { fileURLToPath } from 'node:url';
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PAQUETE = 'com.holamako.app';
 /** Lo mismo que RUTAS_DE_VENTA, más la raíz y lo que un negocio le manda a SU gente: se abre en el navegador, no en la app. */
-export const SIN_APP = ['/', '/planes', '/planes/*', '/accelerator', '/pagar/*', '/r/*', '/mako-partners', '/mako-partners/*', '/reembolsos', '/vsl', '/vsl/*', '/vsl-assets/*', '/l/*', '/compartido/*', '/mi-curso', '/api/*'];
+// '/accelerator/*' (16/11/2026): su formulario de aplicación, /accelerator/aplicar, también vende.
+export const SIN_APP = ['/', '/planes', '/planes/*', '/accelerator', '/accelerator/*', '/pagar/*', '/r/*', '/mako-partners', '/mako-partners/*', '/reembolsos', '/vsl', '/vsl/*', '/vsl-assets/*', '/l/*', '/compartido/*', '/mi-curso', '/api/*'];
 
 export function assetlinksCon(huellas) {
   return [{ relation: ['delegate_permission/common.handle_all_urls'], target: { namespace: 'android_app', package_name: PAQUETE, sha256_cert_fingerprints: huellas } }];

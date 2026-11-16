@@ -8,52 +8,59 @@
 // y con lo que el programa es hoy.
 //
 // EL ORDEN (el de Lovable): la barra con «Aplica ahora»; el héroe con el VSL; cómo se aplica (los cuatro pasos); el caso de
-// Mauricio; «No es un caso aislado» (las cifras y los cuatro casos); el programa (las tres fases y los 11 entregables), y
-// después de «Y en las tres fases, siempre», lo nuevo: lo que incluye, con su detalle, y la promesa; «¿Esto es realmente para
-// ti?»; y otra vez cómo se aplica, ahora con el botón de la llamada. Los testimonios de Lovable no están: ver ./contenido.ts.
+// Mauricio; «No es un caso aislado» (las cifras y los cuatro casos); el programa (las tres fases y los 12 entregables), y
+// después de «Y en las tres fases, siempre», lo nuevo: lo que incluye, con su detalle; el precio (la columna de /planes, desde
+// el 16/11); «¿Esto es realmente para ti?»; y otra vez cómo se aplica, con el botón grande. Abajo, el pie del sitio
+// (`PieGlobal`, ./page.tsx). Los testimonios de Lovable no están: ver ./contenido.ts.
 //
-// LOS BOTONES: todo «Aplica ahora» baja a la sección de aplicar (#aplicar, la del final), y ahí «Agenda tu llamada» abre la
-// agenda de Martín en otra pestaña (`AGENDA_ACELERADOR`). Martín, 14/11: «lo de agendar llamadas sí debería estar todavía para
-// el tema de Accelerator. Ahí debería haber la agenda de llamada. Pero en ningún otro lado debería estar»; desde el 15/11 la
-// columna de /planes trae acá con «Más información» y ya no agenda (tests/planes-tres-bloques.test.ts). El paso 1 («Aplicas
-// en el formulario») es el de esa agenda, que pide siete respuestas obligatorias antes de confirmar (./contenido.ts, `APLICAR`).
-// ⚠️ El comentario de `RUTA_ACCELERATOR` (app/planes/Tarjetas.tsx) dice que la llamada se pide «por el pedido de
-//    /planes/accelerator» (el diagnóstico de 2 minutos): esta página no lo usa. Si se prefiere el pedido, es cambiar el `href`
-//    del botón final y una línea del test.
+// LOS BOTONES (16/11/2026): TODO «Aplica ahora» lleva al formulario de aplicación (`RUTA_APLICAR`, /accelerator/aplicar): el de
+// la barra, el del héroe, el de la barra de abajo del teléfono, el de la tarjeta del precio y el grande del final. Martín: «yo
+// no pondría el botón de agendar llamada, sino justamente el botón de aplicar ahora. Y ahí pondría justamente un formulario»
+// (el molde, el de Mastery Haus: lib/aplicacion-accelerator.ts). Hasta el 15/11 los «Aplica ahora» bajaban a la sección del
+// final y ahí «Agenda tu llamada» abría el Calendly de Martín; ahora la agenda se abre DESPUÉS de aplicar, ya contestada, a
+// quien califica (`linkDeLaAgenda`), y en esta página no hay ningún link a Calendly.
+//
+// LA BARRA DE ARRIBA (16/11/2026): `BarraAccelerator` (./Barra.tsx, la misma del formulario). Martín: «la top bar… me gusta… la
+// que está ahora, pero no hay un botón… para volver a la landing principal… o ver los otros planes»: la estrella de MaKo con el
+// nombre del programa vuelve a «/», «Ver planes» lleva a /planes y el botón de la derecha es «Aplica ahora».
 //
 // LA BARRA DE ABAJO DEL TELÉFONO (como la de Lovable, que aparecía al bajar y no estaba en la primera pantalla): es `sticky`
 // dentro de un tramo que va del caso de Mauricio al «¿Es para ti?», y la sección de aplicar, que va JUSTO después del tramo,
 // le pasa por encima (./estilo.ts). Sin JavaScript. Si el tramo arranca antes (en los pasos de arriba), la barra aparece en la
-// primera pantalla, encima del «Aplica ahora» del héroe.
+// primera pantalla, encima del «Aplica ahora» del héroe. Desde el 16/11 la sección del precio también le pasa por encima
+// (`CSS_PRECIO_ACELERADOR`): la tarjeta tiene su botón, y con la barra de arriba eran tres «Aplica ahora» en la misma pantalla.
 //
 // ⚠️ PÚBLICA (lib/rutas-publicas.ts): sólo GET, no lee cookies, sin <Suspense> (AGENTS.md: se lee entera sin JavaScript), y
 //    sin JavaScript propio: es un componente del servidor; el VSL es un iframe de Panda y los dos videos van con `autoPlay`.
 // =============================================================================
 
 import type { ReactNode } from 'react';
-import { Axis3d, Castle, ChartColumn, Handshake, Magnet, Map as Mapa, Network, Puzzle, ScanEye, Share2, UserPlus, type LucideIcon } from 'lucide-react';
+import { Axis3d, CalendarCheck, Castle, ChartColumn, Handshake, Magnet, Map as Mapa, Network, Puzzle, ScanEye, Share2, UserPlus, type LucideIcon } from 'lucide-react';
 import { LISTA_DEL_ACELERADOR, PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
-import { AGENDA_ACELERADOR, TEXTO_AGENDA_ACELERADOR } from '../planes/Tarjetas';
-import { ANCLA_APLICAR, APLICAR, FILTRO, HERO, LEGALES, MAURICIO, PIE, PROGRAMA, RESULTADOS, TEXTO_APLICAR, VSL_ACELERADOR, type IconoEntregable, type Rico } from './contenido';
-import { CSS_ACELERADOR, FUENTES_ACELERADOR } from './estilo';
+import { RUTA_APLICAR } from '@/lib/aplicacion-accelerator';
+import { CSS_TARJETAS, TarjetaAccelerator } from '../planes/Tarjetas';
+import { BarraAccelerator, CSS_BARRA_ACCELERATOR } from './Barra';
+import { ANCLA_APLICAR, APLICAR, FILTRO, HERO, MAURICIO, PRECIO, PROGRAMA, RESULTADOS, TEXTO_APLICAR, VSL_ACELERADOR, type IconoEntregable, type Rico } from './contenido';
+import { CSS_ACELERADOR, CSS_PRECIO_ACELERADOR, FUENTES_ACELERADOR } from './estilo';
 
 const ICONOS: Record<IconoEntregable, LucideIcon> = {
-  mapa: Mapa, castillo: Castle, ojo: ScanEye, ejes: Axis3d, red: Network, iman: Magnet, manos: Handshake,
+  mapa: Mapa, castillo: Castle, ojo: ScanEye, ejes: Axis3d, red: Network, iman: Magnet, calendario: CalendarCheck, manos: Handshake,
   rompecabezas: Puzzle, barras: ChartColumn, persona: UserPlus, compartir: Share2,
 };
+
+/**
+ * EL CSS DE LA PÁGINA, EN ESTE ORDEN: el de la landing; el de la barra, que la completa (./Barra.tsx: va DESPUÉS); el de las
+ * tarjetas de /planes, para la del precio (va después de los dos: sus reglas empatan en peso con el reseteo `.acl-root *` y
+ * con `.acl-root h3`, y en un empate gana la que viene después); y lo de la tarjeta en esta página (la letra de /planes).
+ */
+export const CSS_DE_LA_LANDING = CSS_ACELERADOR + CSS_BARRA_ACCELERATOR + CSS_TARJETAS + CSS_PRECIO_ACELERADOR;
 
 /** `**así**` → <b>así</b>. Lo demás, tal cual. */
 export function negritas(texto: Rico): ReactNode[] {
   return texto.split(/\*\*(.+?)\*\*/g).map((parte, i) => (i % 2 === 1 ? <b key={i}>{parte}</b> : parte));
 }
 
-/** El nombre del programa: la primera palabra en blanco y el resto en naranja, como «MARKETING KONCEPT» en la de Lovable. */
-function Marca() {
-  const [primera, ...resto] = PROGRAMA_ACELERADOR.nombre.split(' ');
-  return <div className="acl-marca">{primera} <span>{resto.join(' ')}</span></div>;
-}
-
-const Aplica = ({ clase = 'acl-btn' }: { clase?: string }) => <a href={`#${ANCLA_APLICAR}`} className={clase}>{TEXTO_APLICAR}</a>;
+const Aplica = ({ clase = 'acl-btn' }: { clase?: string }) => <a href={RUTA_APLICAR} className={clase}>{TEXTO_APLICAR}</a>;
 
 function Pasos() {
   return (
@@ -68,20 +75,17 @@ function Pasos() {
   );
 }
 
-/** El número del primer entregable de cada fase: corren del 1 al 11 a lo largo de las tres. */
+/** El número del primer entregable de cada fase: corren del 1 al 12 a lo largo de las tres. */
 const PRIMERO_DE_CADA_FASE = PROGRAMA.fases.map((_, i) => PROGRAMA.fases.slice(0, i).reduce((suma, f) => suma + f.entregables.length, 1));
 
 export function LandingAcelerador() {
   const pr = PROGRAMA_ACELERADOR;
   return (
     <div className="acl-root">
-      <style dangerouslySetInnerHTML={{ __html: CSS_ACELERADOR }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_DE_LA_LANDING }} />
       <link rel="stylesheet" href={FUENTES_ACELERADOR} precedence="default" />
 
-      <header className="acl-hdr">
-        <Marca />
-        <Aplica clase="acl-btn acl-btn-sm" />
-      </header>
+      <BarraAccelerator boton={{ href: RUTA_APLICAR, texto: TEXTO_APLICAR }} />
 
       <main>
         <section className="acl-hero">
@@ -230,15 +234,23 @@ export function LandingAcelerador() {
                 ))}
               </div>
 
-              {/* LO QUE INCLUYE Y LA PROMESA (15/11/2026): las dos, del programa (lib/planes-mako.ts), en un bloque aparte de
-                  las dos tarjetas de arriba. Sin garantía: Martín la sacó «de todos lados» (./contenido.ts).
+              {/* LO QUE INCLUYE (15/11/2026), del programa (lib/planes-mako.ts), en un bloque aparte de las dos tarjetas de arriba.
+                  Sin garantía: Martín la sacó «de todos lados» (./contenido.ts).
                   La lista es `LISTA_DEL_ACELERADOR`: los MISMOS nombres y en el mismo orden que la columna de /planes y su
                   tabla (quien toca «Más información» reconoce lo que acaba de leer), cada uno con el detalle que esa tabla
                   muestra en su «i» (Martín, 15/11 ~23:00). Es «más información» de verdad: la columna dice el nombre, acá
                   se cuenta qué es. Martín, 15/11, sobre lo que no entra en la columna: «dejarlo como medio para generar
                   intriga… que vayan justamente a la nueva landing». Se importa la de lib/planes-mako.ts y no `LISTA_PROGRAMA`
-                  (app/planes/Tarjetas.tsx), que es la misma lista con un tipo que no tiene el detalle. */}
-              <div className={`acl-oferta${pr.promesa ? '' : ' acl-oferta-sola'}`}>
+                  (app/planes/Tarjetas.tsx), que es la misma lista con un tipo que no tiene el detalle.
+                  ⚠️ SIN «NUESTRA PROMESA» (16/11/2026). Iba a la derecha de la lista (`PROGRAMA_ACELERADOR.promesa`: «En 90 días,
+                  Martín Koncke, el creador de MaKo, te instala el sistema de adquisición de clientes a la medida de tu oferta.»)
+                  y se fue al llegar el precio, por la misma razón por la que Martín la sacó de la columna de /planes el 15/11
+                  («eliminaría también la parte de nuestra promesa porque justamente el sistema de adquisición de clientes ya
+                  está en el check número 2»): esa columna es ahora la sección de abajo, así que el sistema se leía TRES veces
+                  seguidas (la promesa, «Tu sistema, armado por Martín» en esta lista y el check 2 de la tarjeta). El plazo no se
+                  pierde: el primer renglón de esta lista y de la tarjeta son los 3 meses. Y «Nuestra» era la única voz plural
+                  de una página donde habla Martín. */}
+              <div className="acl-oferta">
                 <div className="acl-oferta-lista">
                   <div className="acl-lbl">{PROGRAMA.incluyeCeja}</div>
                   <h3>{pr.nombre}</h3>
@@ -253,12 +265,21 @@ export function LandingAcelerador() {
                     ))}
                   </ul>
                 </div>
-                {pr.promesa && (
-                  <div className="acl-oferta-promesa">
-                    <div className="acl-lbl acl-lbl-verde">{PROGRAMA.promesaCeja}</div>
-                    <p className="acl-promesa">{pr.promesa}</p>
-                  </div>
-                )}
+              </div>
+            </div>
+          </section>
+
+          {/* EL PRECIO (16/11/2026). Martín: «en esta Landing Accelerator también necesita tener el precio… es mi política de que
+              ya tenga todo el precio… la columna que hicimos». Es ESA columna (`TarjetaAccelerator`, la misma que dibuja /planes),
+              con su botón en mayúsculas como allá («MÁS INFORMACIÓN») y al formulario. Va en la grilla de /planes, de una
+              columna, y con la letra de /planes (`CSS_PRECIO_ACELERADOR`, ./estilo.ts): se ve igual que allá. */}
+          <section className="acl-sec acl-precio-s" aria-label={PRECIO.ceja}>
+            <div className="acl-wrap">
+              <p className="acl-siempre-lbl">{PRECIO.ceja}</p>
+              <div className="acl-precio">
+                <div className="mkpl-grilla">
+                  <TarjetaAccelerator boton={{ href: RUTA_APLICAR, texto: TEXTO_APLICAR.toLocaleUpperCase('es') }} />
+                </div>
               </div>
             </div>
           </section>
@@ -290,29 +311,18 @@ export function LandingAcelerador() {
           <div className="acl-pegado"><Aplica /></div>
         </div>
 
+        {/* CÓMO SE APLICA, OTRA VEZ, con el botón grande: al formulario, como todos (16/11/2026; hasta el 15/11 era «Agenda tu
+            llamada», al Calendly de Martín). El paso 1 («Aplicas en el formulario») es ese formulario. */}
         <section className="acl-sec acl-final" id={ANCLA_APLICAR}>
           <div className="acl-wrap">
             <h2>{APLICAR.titulo}</h2>
             <p className="acl-scar">{APLICAR.bajada}</p>
             <Pasos />
-            <a className="acl-btn acl-btn-grande" href={AGENDA_ACELERADOR} target="_blank" rel="noopener noreferrer">{TEXTO_AGENDA_ACELERADOR}</a>
+            <a className="acl-btn acl-btn-grande" href={RUTA_APLICAR}>{TEXTO_APLICAR}</a>
           </div>
         </section>
       </main>
-
-      <footer className="acl-pie">
-        <div className="acl-wrap">
-          <div className="acl-pie-fila">
-            <Marca />
-            <div>
-              <small>{PIE} · <span className="acl-nw">© {new Date().getFullYear()} Martín Koncke</span></small>
-              <nav className="acl-legales" aria-label="Legales">
-                {LEGALES.map((l) => <a key={l.href} href={l.href}>{l.texto}</a>)}
-              </nav>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* SIN PIE PROPIO (16/11/2026): el de la página es el del sitio (`PieGlobal`, ./page.tsx), que escondía éste. */}
     </div>
   );
 }

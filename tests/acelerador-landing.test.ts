@@ -1,46 +1,60 @@
 // =============================================================================
-// /accelerator: la landing de Martín traída de Lovable, con el programa de HOY (15/11/2026)
+// /accelerator: la landing de Martín traída de Lovable, con el programa de HOY (15/11/2026; al día el 16/11/2026)
 // =============================================================================
 // Martín, 15/11/2026: «revisa esa nueva landing, los copies que tiene, porque hay cosas que cambiar. Por ejemplo, el
 // testimonio de Mauricio, que hoy en día ya vamos más de $100.000 facturados… hay varias partes donde menciona el
 // acompañamiento 1 a 1 conmigo, y eso ya no es así… Entonces revisa bien todos los copies de ahí».
+// Y el 16/11/2026, con el formulario de Mastery Haus: «no pondría el botón de agendar llamada, sino justamente el botón de
+// aplicar ahora»; el precio («es mi política de que ya tenga todo el precio… la columna que hicimos»); la barra de arriba con la
+// vuelta a MaKo y a los planes; los entregables 4, 4 y 4 en 2 y 2; el filtro «más de 5.000… con clientes y oferta validada»; y
+// Axel, «una agencia y una academia».
 //
 // Lo que se fija acá, sobre la página DIBUJADA (renderToStaticMarkup), no sobre el fuente:
-//   · lo que incluye y la promesa son los del programa (`LISTA_DEL_ACELERADOR`, con el detalle de cada renglón, y
-//     `PROGRAMA_ACELERADOR.promesa`, lib/planes-mako.ts), importados: la misma lista que la columna de /planes; si la oferta
-//     cambia allá, cambia acá; y lo que está escrito a mano al lado (la tarjeta del acompañamiento) dice lo mismo que esa
-//     lista y que el contrato (`PROGRAMA_ACELERADOR.incluye`), o se pone rojo;
+//   · lo que incluye es el del programa (`LISTA_DEL_ACELERADOR`, con el detalle de cada renglón, lib/planes-mako.ts),
+//     importado: la misma lista que la columna de /planes; si la oferta cambia allá, cambia acá; y lo que está escrito a mano al
+//     lado (la tarjeta del acompañamiento) dice lo mismo que esa lista y que el contrato (`PROGRAMA_ACELERADOR.incluye`), o se
+//     pone rojo. «Nuestra promesa» ya no va (16/11): la tarjeta del precio dice lo mismo en su check 2;
+//   · el precio es la columna del Accelerator de /planes, la MISMA (`TarjetaAccelerator`), con «APLICA AHORA» al formulario,
+//     y se dibuja con el CSS y la letra de /planes;
+//   · TODO «Aplica ahora» (la barra, el héroe, la tarjeta, la barra de abajo del teléfono y el botón final) lleva al formulario
+//     (`RUTA_APLICAR`), y en la página no hay ninguna agenda;
+//   · la barra de arriba es la de MaKo (vuelve a «/» y lleva a /planes) y el pie es el del sitio, una vez;
+//   · los 12 entregables: 4, 4 y 4, en dos columnas, con Appointment Setting en la fase 02 y la fase 03 contada con MaKo;
+//   · el filtro dice el corte de la aplicación (más de US$ 5.000, con clientes y oferta validada) y Axel es agencia y academia;
 //   · ninguna garantía: Martín la sacó «de todos lados» el 15/11 a la noche (el sello «Garantía por contrato» que tuvo esta
 //     página la siguió afirmando después de que la fuente la sacó: ver la cosecha en docs/hallazgos-landing.md);
 //   · los textos que Martín corrigió no vuelven: los $50.000 de Mauricio, la sesión 1:1 por semana, el «1 a 1» del
 //     acompañamiento, «No es una mentoría grupal», los testimonios de relleno («Nombre Apellido»), «Marketing Koncept», el
-//     encuentro en Buenos Aires y un equipo que Martín no tiene; «Conmigo, no con un equipo» SÍ queda;
+//     encuentro en Buenos Aires, los clientes «recurrentes» y un equipo que Martín no tiene; «Conmigo, no con un equipo» SÍ
+//     queda;
 //   · el texto está en «tú» (el de Lovable estaba en «vos»);
-//   · todo «Aplica ahora» baja a #aplicar, y ahí el único botón de verdad abre la agenda de Martín en otra pestaña;
 //   · la barra de abajo del teléfono aparece con el caso de Mauricio y la tapa la sección de aplicar;
 //   · la página vive donde lleva el «Más información» de /planes (`RUTA_ACCELERATOR`), es pública, y sólo se lee.
 //
 // Correr: node --import tsx --test tests/acelerador-landing.test.ts
 //
-// Probado rompiéndolo (15/11/2026): al pie del archivo.
+// Probado rompiéndolo (15/11/2026 y 16/11/2026): al pie del archivo.
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { PROGRAMA_ACELERADOR } from '../lib/planes-mako';
+import { RUTA_APLICAR, califica, campo } from '../lib/aplicacion-accelerator';
 import { esPublica, esPublicaSoloLeer } from '../lib/rutas-publicas';
 
 const RAIZ = join(import.meta.dirname, '..');
+// Los componentes compilados con el JSX clásico buscan `React` global.
+(globalThis as unknown as { React: unknown }).React = React;
+const { createElement } = React;
 
 /** El HTML de la página, como lo dibuja el servidor. */
 async function pagina(): Promise<string> {
-  const React = await import('react');
-  (globalThis as unknown as { React: unknown }).React = React;
-  const { renderToStaticMarkup } = await import('react-dom/server');
   const { default: Pagina } = await import('../app/accelerator/page');
-  return renderToStaticMarkup(React.createElement(Pagina));
+  return renderToStaticMarkup(createElement(Pagina));
 }
 
 /** Lo que se LEE: sin estilos, los bloques separados por un espacio, las marcas de adentro de una frase sin espacio. */
@@ -52,7 +66,15 @@ const texto = (html: string) => html
 
 const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 
-test('lo que incluye y la promesa son los del programa (lib/planes-mako.ts), importados', async () => {
+/** El CSS que viaja en la página (los <style> de la landing, en orden). */
+const estilos = (html: string) => [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
+
+/** Los links de la página que dicen «Aplica ahora» (en cualquier caja), con su href. */
+const botonesAplica = (html: string) => [...html.matchAll(/<a\b([^>]*)>([^<]*)<\/a>/g)]
+  .filter((m) => /^\s*aplica ahora\s*$/i.test(m[2]))
+  .map((m) => ({ attrs: m[1], href: m[1].match(/\shref="([^"]*)"/)?.[1] ?? null, texto: m[2] }));
+
+test('lo que incluye es el del programa (lib/planes-mako.ts), importado, y «Nuestra promesa» ya no se dibuja', async () => {
   const { LISTA_PROGRAMA } = await import('../app/planes/Tarjetas');
   const { LISTA_DEL_ACELERADOR } = await import('../lib/planes-mako');
   const t = texto(await pagina());
@@ -71,11 +93,16 @@ test('lo que incluye y la promesa son los del programa (lib/planes-mako.ts), imp
   // Las horas de la primera semana no se aclaran (Martín, 15/11: «no hace falta que aclares lo de las 10 horas»): son contrato,
   // y las dicen el pedido y /reembolsos.
   assert.doesNotMatch(t, /horas de trabajo/i, 'la landing aclara las horas de la primera semana');
-  assert.ok(promesa, 'el Accelerator no tiene promesa en lib/planes-mako.ts');
-  assert.ok(t.includes(promesa!), 'la promesa no es la del programa');
   // Va después de «Y en las tres fases, siempre» (donde la tarea pidió sumarla) y antes del filtro.
-  assert.ok(t.indexOf('Y en las tres fases, siempre:') < t.indexOf(promesa!), 'la promesa no está en el bloque del programa');
-  assert.ok(t.indexOf(promesa!) < t.indexOf('¿Esto es realmente para ti?'), 'la promesa quedó después del filtro');
+  const incluye = t.indexOf(`Lo que incluye ${PROGRAMA_ACELERADOR.nombre}`);
+  assert.ok(incluye > t.indexOf('Y en las tres fases, siempre:'), 'lo que incluye no está en el bloque del programa');
+  assert.ok(incluye < t.indexOf('¿Esto es realmente para ti?'), 'lo que incluye quedó después del filtro');
+  // SIN «NUESTRA PROMESA» (16/11/2026): la misma razón por la que Martín la sacó de la columna de /planes el 15/11 («el sistema
+  // de adquisición de clientes ya está en el check número 2»), y esa columna está ahora en esta página, debajo.
+  assert.ok(promesa, 'el Accelerator no tiene promesa en lib/planes-mako.ts: revisar este test');
+  assert.ok(!t.includes(promesa!), 'volvió la promesa: la tarjeta del precio de abajo dice lo mismo en su check 2');
+  assert.doesNotMatch(t, /Nuestra promesa/i, 'volvió la ceja «Nuestra promesa»');
+  assert.ok(LISTA_PROGRAMA.some((x) => /sistema de adquisici[oó]n de clientes/i.test(`${x.fuerte}${x.texto}`)), 'la tarjeta ya no dice el sistema: la promesa tendría que volver');
 });
 
 test('la tarjeta «Acompañamiento continuo», escrita a mano, dice lo mismo que el programa', async () => {
@@ -132,6 +159,7 @@ test('lo que Martín corrigió no vuelve', async () => {
     [/Marketing Koncept/i, `la marca vieja: el programa se llama ${PROGRAMA_ACELERADOR.nombre}`],
     [/Buenos Aires/i, 'el encuentro presencial salió del programa el 15/11'],
     [/sin tope/i, 'Martín, 15/11: «ilimitado», nunca «sin tope»'],
+    [/recurrentes/i, 'Martín, 16/11: «no pondría con clientes recurrentes. Pondría con oferta validada»'],
   ];
   for (const [re, porque] of VIEJOS) {
     assert.doesNotMatch(t, re, porque);
@@ -142,8 +170,8 @@ test('lo que Martín corrigió no vuelve', async () => {
   // «Conmigo, no con un equipo» QUEDA. Martín, 15/11 ~21:00: «yo todavía no tengo equipo, así que está bien que lo digas
   // conmigo y no con un equipo».
   assert.ok(t.includes('Conmigo, no con un equipo.'), 'se fue «Conmigo, no con un equipo.»');
-  // La marca: arriba, en lo que incluye y en el pie.
-  assert.ok((t.match(new RegExp(escapar(PROGRAMA_ACELERADOR.nombre), 'g')) ?? []).length >= 3, `${PROGRAMA_ACELERADOR.nombre}, arriba, en la oferta y en el pie`);
+  // La marca: en la barra, en lo que incluye y en la tarjeta del precio.
+  assert.ok((t.match(new RegExp(escapar(PROGRAMA_ACELERADOR.nombre), 'g')) ?? []).length >= 3, `${PROGRAMA_ACELERADOR.nombre}, en la barra, en lo que incluye y en el precio`);
 });
 
 test('el texto está en «tú», no en «vos»', async () => {
@@ -160,25 +188,200 @@ test('el texto está en «tú», no en «vos»', async () => {
   }
 });
 
-test('todo «Aplica ahora» baja a #aplicar, y ahí el único botón de verdad abre la agenda de Martín en otra pestaña', async () => {
-  // La agenda ES el formulario del paso 1 («Aplicas en el formulario»): pide siete respuestas obligatorias antes de confirmar
-  // (app/accelerator/contenido.ts, `APLICAR`; leído en la consulta pública de Calendly el 15/11/2026).
-  const { AGENDA_ACELERADOR, TEXTO_AGENDA_ACELERADOR } = await import('../app/planes/Tarjetas');
+test('todo «Aplica ahora» lleva al formulario (RUTA_APLICAR), y en la página no hay ninguna agenda', async () => {
+  // Martín, 16/11/2026: «yo no pondría el botón de agendar llamada, sino justamente el botón de aplicar ahora. Y ahí pondría
+  // justamente un formulario». Hasta el 15/11 los «Aplica ahora» bajaban a #aplicar y ahí «Agenda tu llamada» abría su Calendly;
+  // ahora la agenda se abre DESPUÉS de aplicar, a quien califica (lib/aplicacion-accelerator.ts, `linkDeLaAgenda`).
+  const { TEXTO_AGENDA_ACELERADOR } = await import('../app/planes/Tarjetas');
   const html = await pagina();
-  const aplica = [...html.matchAll(/<a\b([^>]*)>Aplica ahora<\/a>/g)];
-  assert.ok(aplica.length >= 3, `los «Aplica ahora» (arriba, en el héroe y abajo en el teléfono): ${aplica.length}`);
-  for (const [, attrs] of aplica) assert.match(attrs, /href="#aplicar"/, `un «Aplica ahora» no baja a #aplicar: ${attrs}`);
-  assert.equal((html.match(/id="aplicar"/g) ?? []).length, 1, 'la sección de aplicar tiene que existir, una sola vez');
-  const seccion = html.slice(html.indexOf('id="aplicar"'), html.indexOf('</section>', html.indexOf('id="aplicar"')));
-  assert.match(seccion, new RegExp(`<a [^>]*href="${escapar(AGENDA_ACELERADOR)}" target="_blank" rel="noopener noreferrer">${escapar(TEXTO_AGENDA_ACELERADOR)}</a>`),
-    'el botón final no abre la agenda de Martín en otra pestaña');
-  assert.equal((html.match(/calendly\.com/g) ?? []).length, 1, 'la agenda aparece en otro lugar de la página');
+  const aplica = botonesAplica(html);
+  // La barra, el héroe, la tarjeta del precio (en mayúsculas), la barra de abajo del teléfono y el botón grande del final.
+  assert.equal(aplica.length, 5, `los «Aplica ahora» (barra, héroe, tarjeta, barra del teléfono y final): ${aplica.length}`);
+  for (const a of aplica) assert.equal(a.href, RUTA_APLICAR, `un «${a.texto}» no lleva al formulario: ${a.attrs}`);
+  for (const [donde, re] of [
+    ['la barra de arriba', /<header class="acl-hdr">[\s\S]*?<\/header>/],
+    ['el héroe', /<div class="acl-hero-cta">[\s\S]*?<\/div>/],
+    ['la tarjeta del precio', /<section class="mkpl-card mkpl-programa"[\s\S]*?<\/section>/],
+    ['la barra de abajo del teléfono', /<div class="acl-pegado">[\s\S]*?<\/div>/],
+    ['la sección del final', /<section class="acl-sec acl-final" id="aplicar">[\s\S]*?<\/section>/],
+  ] as const) {
+    const pedazo = html.match(re)?.[0] ?? '';
+    assert.ok(botonesAplica(pedazo).some((a) => a.href === RUTA_APLICAR), `${donde} no tiene su «Aplica ahora» al formulario`);
+  }
+  // El de la sección del final, el grande.
+  assert.match(html, new RegExp(`<a class="acl-btn acl-btn-grande" href="${escapar(RUTA_APLICAR)}">Aplica ahora</a>`), 'el botón final no es el grande al formulario');
+  // Ningún link baja a la sección ni sale a una agenda; en toda la página (también su CSS) no hay un Calendly.
+  assert.doesNotMatch(html, /href="#/, 'un botón volvió a bajar a una sección');
+  assert.doesNotMatch(html, /calendly/i, 'la agenda volvió a la página: se abre después de aplicar');
+  assert.ok(!html.includes(TEXTO_AGENDA_ACELERADOR), `volvió «${TEXTO_AGENDA_ACELERADOR}»`);
+  // El formulario: una página pública que sólo se lee (lo que manda va a /api/accelerator/aplicar, que valida todo).
+  assert.equal(RUTA_APLICAR, '/accelerator/aplicar');
+  assert.ok(existsSync(join(RAIZ, 'app', RUTA_APLICAR, 'page.tsx')), `los botones llevan a ${RUTA_APLICAR} y ahí no hay una página`);
+  assert.equal(esPublica(RUTA_APLICAR), true, 'quien no tiene cuenta tiene que poder aplicar');
+  assert.equal(esPublicaSoloLeer(RUTA_APLICAR), true, 'la página del formulario no acepta POST: lo recibe la API');
   // Sin botones muertos ni JavaScript propio: todo es un link.
   assert.doesNotMatch(html, /<button\b/, 'un <button> en una página sin JavaScript no hace nada');
   assert.doesNotMatch(html, /<script\b/, 'la página no lleva JavaScript propio');
-  for (const f of ['app/accelerator/page.tsx', 'app/accelerator/LandingAcelerador.tsx', 'app/accelerator/contenido.ts', 'app/accelerator/estilo.ts']) {
+  for (const f of ['app/accelerator/page.tsx', 'app/accelerator/LandingAcelerador.tsx', 'app/accelerator/contenido.ts', 'app/accelerator/estilo.ts', 'app/accelerator/Barra.tsx']) {
     assert.doesNotMatch(readFileSync(join(RAIZ, f), 'utf8'), /^\s*['"]use client['"]/m, `${f} es del servidor`);
   }
+});
+
+test('el precio: la columna del Accelerator de /planes, la MISMA, con «APLICA AHORA» al formulario', async () => {
+  // Martín, 16/11/2026: «en esta Landing Accelerator también necesita tener el precio… es mi política de que ya tenga todo el
+  // precio… la columna que hicimos». Lo único que cambia entre /planes y acá es el botón.
+  const { TarjetaAccelerator, TarjetasPlanes, RUTA_ACCELERATOR, TEXTO_BOTON_ACCELERATOR } = await import('../app/planes/Tarjetas');
+  const { PRECIO, TEXTO_APLICAR } = await import('../app/accelerator/contenido');
+  const html = await pagina();
+  const t = texto(html);
+  const enLaLanding = html.match(/<section class="mkpl-card mkpl-programa"[\s\S]*?<\/section>/g) ?? [];
+  assert.equal(enLaLanding.length, 1, 'la tarjeta del precio tiene que estar, una vez');
+  const boton = enLaLanding[0].match(/<a class="mkpl-btn" href="([^"]*)">([^<]*)<\/a>/);
+  assert.ok(boton, 'la tarjeta sin su botón');
+  assert.equal(boton[1], RUTA_APLICAR, 'el botón de la tarjeta no lleva al formulario');
+  // En mayúsculas, como «MÁS INFORMACIÓN» en /planes (Martín, 15/11: «tienes que poner más información todo en mayúscula»).
+  assert.equal(boton[2], TEXTO_APLICAR.toLocaleUpperCase('es'), 'la tarjeta no dice «Aplica ahora»');
+  assert.equal(TEXTO_BOTON_ACCELERATOR, TEXTO_BOTON_ACCELERATOR.toLocaleUpperCase('es'));
+  // ES el componente de /planes: el mismo HTML, y /planes lo dibuja con su botón (la columna, una sola).
+  const de = (b: { href: string; texto: string }) => renderToStaticMarkup(createElement(TarjetaAccelerator, { boton: b }));
+  assert.equal(enLaLanding[0], de({ href: boton[1], texto: boton[2] }), 'la tarjeta de la landing no es `TarjetaAccelerator`');
+  const enPlanes = de({ href: RUTA_ACCELERATOR, texto: TEXTO_BOTON_ACCELERATOR });
+  assert.ok(renderToStaticMarkup(createElement(TarjetasPlanes, { planes: [], sufijo: '' })).includes(enPlanes), '/planes ya no dibuja `TarjetaAccelerator`');
+  const sinBoton = (h: string) => h.replace(/<a class="mkpl-btn" href="[^"]*">[^<]*<\/a>/, '<a/>');
+  assert.equal(sinBoton(enLaLanding[0]), sinBoton(enPlanes), 'la tarjeta de la landing y la de /planes difieren en algo más que el botón');
+  // El precio de verdad (lib/planes-mako.ts), con sus cuotas.
+  const pr = PROGRAMA_ACELERADOR;
+  const tarjeta = texto(enLaLanding[0]);
+  assert.ok(tarjeta.includes(`US$ ${pr.precioUsd.toLocaleString('es-AR')}`), `la tarjeta no dice el precio: ${tarjeta}`);
+  assert.ok(tarjeta.includes(`en ${pr.cuotas} cuotas de US$ ${Math.round(pr.precioUsd / pr.cuotas).toLocaleString('es-AR')}`), 'la tarjeta no dice las cuotas');
+  // En su sección, después de lo que incluye y antes del filtro, en la grilla de /planes.
+  assert.match(html, /<div class="acl-precio"><div class="mkpl-grilla"><section class="mkpl-card mkpl-programa"/, 'la tarjeta no va en la grilla de /planes');
+  const precio = t.indexOf(`${PRECIO.ceja} Con acompañamiento ${pr.nombre}`);
+  assert.ok(precio > t.indexOf(`Lo que incluye ${pr.nombre}`), 'el precio no va después de lo que incluye');
+  assert.ok(precio < t.indexOf('¿Esto es realmente para ti?'), 'el precio quedó después del filtro');
+});
+
+test('el precio se dibuja como en /planes: su CSS después del de la landing, la letra de /planes, y nada que se pise', async () => {
+  const { CSS_TARJETAS } = await import('../app/planes/Tarjetas');
+  const { CSS_PLANES } = await import('../app/planes/estilo');
+  const { CSS_ACELERADOR, CSS_PRECIO_ACELERADOR, LETRA_DE_PLANES } = await import('../app/accelerator/estilo');
+  const { CSS_BARRA_ACCELERATOR } = await import('../app/accelerator/Barra');
+  const css = estilos(await pagina());
+  // EL ORDEN: el reseteo de la landing (`.acl-root *`) y sus títulos (`.acl-root h3`) EMPATAN en peso con las reglas de la
+  // tarjeta, y en un empate gana la que viene después.
+  const donde = [CSS_ACELERADOR, CSS_BARRA_ACCELERATOR, CSS_TARJETAS, CSS_PRECIO_ACELERADOR].map((c) => css.indexOf(c));
+  assert.ok(donde.every((i) => i >= 0), `falta un CSS en la página: ${donde.join(', ')}`);
+  assert.deepEqual([...donde].sort((a, b) => a - b), donde, 'el CSS va en este orden: la landing, la barra, las tarjetas y el del precio');
+  // LA LETRA DE /planes: la de `.planes-root`, la que la tarjeta hereda allá.
+  const dePlanes = CSS_PLANES.match(/\.planes-root \{[^}]*?\bfont: ([^;]+);/)?.[1];
+  assert.ok(dePlanes, 'no encontré la letra de .planes-root en app/planes/estilo.ts');
+  assert.equal(LETRA_DE_PLANES, dePlanes, 'la tarjeta de la landing no tiene la letra de /planes');
+  assert.match(CSS_PRECIO_ACELERADOR, new RegExp(`\\.acl-precio \\{[^}]*font: ${escapar(LETRA_DE_PLANES)};`), 'la caja del precio no le pone la letra de /planes');
+  // El título de la tarjeta: `.acl-root h3` le pone la letra de los títulos de la landing (Sora) y la tarjeta no dice ninguna.
+  assert.match(CSS_ACELERADOR, /\.acl-root h1, \.acl-root h2, \.acl-root h3, \.acl-root h4 \{ font-family: var\(--acl-sans\)/);
+  assert.match(CSS_PRECIO_ACELERADOR, /\.acl-root \.acl-precio h3 \{ font-family: inherit; \}/, 'el título de la tarjeta queda en la letra de la landing');
+  // Una columna, de unos 420 px y centrada.
+  assert.match(CSS_PRECIO_ACELERADOR, /\.acl-precio \.mkpl-grilla \{ grid-template-columns: minmax\(0, 1fr\); \}/);
+  const ancho = Number(CSS_PRECIO_ACELERADOR.match(/\.acl-precio \{[^}]*max-width: (\d+)px; margin: \d+px auto 0;/)?.[1]);
+  assert.ok(ancho >= 380 && ancho <= 460, `la tarjeta mide ${ancho} px`);
+  // Y al revés: la tarjeta no toca la landing. Cada regla de `CSS_TARJETAS` nombra una clase (o un id) `mkpl-`.
+  const selectores = CSS_TARJETAS.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@media[^{]*\{/g, '').split('}')
+    .map((r) => r.split('{')[0].trim()).filter(Boolean).flatMap((s) => s.split(',').map((x) => x.trim()));
+  assert.ok(selectores.length > 20, `leí ${selectores.length} selectores de CSS_TARJETAS`);
+  for (const s of selectores) assert.match(s, /[.#]mkpl-/, `«${s}» (CSS_TARJETAS) puede pisar la landing`);
+});
+
+test('arriba, la barra de MaKo (vuelve a «/» y lleva a /planes); abajo, el pie del sitio, una vez', async () => {
+  // Martín, 16/11/2026: «la top bar… me gusta… la que está ahora, pero no hay un botón… para volver a la landing principal o el
+  // coso de MaKo para volver a la landing principal o ver los otros planes».
+  const { BarraAccelerator, CSS_BARRA_ACCELERATOR, RUTA_VER_PLANES } = await import('../app/accelerator/Barra');
+  const { TEXTO_APLICAR } = await import('../app/accelerator/contenido');
+  const html = await pagina();
+  const barra = renderToStaticMarkup(createElement(BarraAccelerator, { boton: { href: RUTA_APLICAR, texto: TEXTO_APLICAR } }));
+  assert.equal(html.split(barra).length - 1, 1, 'la barra de arriba no es `BarraAccelerator` con «Aplica ahora», una vez');
+  assert.equal((html.match(/<header\b/g) ?? []).length, 1, 'otra barra arriba');
+  assert.match(barra, /<a class="acl-hdr-marca" href="\/"/, 'la marca no vuelve a la portada');
+  assert.equal(RUTA_VER_PLANES, '/planes');
+  assert.match(barra, new RegExp(`href="${escapar(RUTA_VER_PLANES)}">Ver planes</a>`), 'la barra no lleva a los planes');
+  // La barra arranca la página (antes del héroe) y su CSS va después del de la landing (lo completa).
+  assert.ok(html.indexOf(barra) < html.indexOf('class="acl-hero"'), 'la barra no está arriba');
+  const css = estilos(html);
+  const { CSS_ACELERADOR } = await import('../app/accelerator/estilo');
+  assert.ok(css.indexOf(CSS_ACELERADOR) < css.indexOf(CSS_BARRA_ACCELERATOR), 'el CSS de la barra va antes que el de la landing');
+  // EL PIE: el del sitio (`PieGlobal`, ./page.tsx), una vez; el propio de la landing (`.acl-pie`) se fue con su CSS.
+  assert.equal(html.split('<footer class="s-pie">').length - 1, 1, 'el pie del sitio no está una vez');
+  assert.equal((html.match(/<footer\b/g) ?? []).length, 1, 'quedó otro pie además del del sitio');
+  assert.doesNotMatch(html, /acl-pie|acl-legales/, 'quedó el pie propio de la landing (o su CSS)');
+});
+
+test('los entregables: 4, 4 y 4 en dos columnas, del 1 al 12, con Appointment Setting y la fase 03 contada con MaKo', async () => {
+  // Martín, 16/11/2026: «no me gusta de que las tarjetas queden 3 y 1, pondría 2 y 2. Y pondría también tal vez una más en
+  // sistema de adquisición de clientes predecibles… que quede 4, 4 y 4»; y de Hiring Process y Delegation Framework, «que se
+  // tenga mucho más en cuenta el software de MaKo… en esas partes».
+  const { PROGRAMA } = await import('../app/accelerator/contenido');
+  const { CSS_ACELERADOR } = await import('../app/accelerator/estilo');
+  const { filasDeComparacion, nombreCorto } = await import('../lib/planes-comparacion');
+  const { LISTA_DEL_ACELERADOR } = await import('../lib/planes-mako');
+  assert.deepEqual(PROGRAMA.fases.map((f) => f.entregables.length), [4, 4, 4], 'cada fase tiene que tener cuatro');
+  const html = await pagina();
+  const t = texto(html);
+  for (let i = 1; i <= 12; i++) assert.ok(t.includes(`Entregable #${i}:`), `falta el entregable #${i}`);
+  assert.ok(!t.includes('Entregable #13:'));
+  // Cada grilla dibujada, hasta donde empieza lo que sigue (la nota de la fase 02, la fase siguiente o «Y en las tres fases»).
+  const grillas = html.split('<div class="acl-entregables">').slice(1)
+    .map((g) => g.split(/<div class="acl-creativos">|<div class="acl-fase">|<p class="acl-siempre-lbl">/)[0]);
+  assert.deepEqual(grillas.map((g) => (g.match(/class="acl-deliv"/g) ?? []).length), [4, 4, 4], 'las grillas dibujadas no son de 4');
+  // DOS COLUMNAS en la computadora (2 y 2), una en el teléfono.
+  assert.match(CSS_ACELERADOR, /\.acl-entregables \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/, 'los entregables no van en dos columnas');
+  const telefono = CSS_ACELERADOR.slice(CSS_ACELERADOR.indexOf('@media (max-width: 880px)'));
+  assert.match(telefono, /\.acl-entregables, [^{]*\{ grid-template-columns: 1fr;/, 'en el teléfono los entregables no van en una columna');
+  // La fase 02, en el orden de la venta: marketing → leads → agenda → cierre. Appointment Setting con su calendario.
+  const f2 = PROGRAMA.fases[1].entregables;
+  assert.deepEqual(f2.map((e) => e.nombre), ['Marketing Ecosystem', 'Lead Generation', 'Appointment Setting', 'Closing Method']);
+  const antesDelSetting = html.slice(0, html.indexOf('<h4>Appointment Setting</h4>'));
+  const icono = antesDelSetting.slice(antesDelSetting.lastIndexOf('<svg')).match(/^<svg[^>]*>/)?.[0] ?? '';
+  assert.match(icono, /lucide-calendar-check/, 'Appointment Setting sin el ícono del calendario');
+  // CON MaKo, y sólo con lo que MaKo tiene: cada función que nombran es una que /planes vende con ese nombre.
+  const que = (nombre: string) => PROGRAMA.fases.flatMap((f) => f.entregables).find((e) => e.nombre === nombre)!.texto;
+  const vende = new Set([...filasDeComparacion().map((f) => nombreCorto(f.que).toLowerCase()), ...LISTA_DEL_ACELERADOR.map((x) => x.corto.toLowerCase())]);
+  for (const [nombre, funcion] of [
+    ['Appointment Setting', 'setter con IA'], ['Operations & Metrics', 'tablero de resultados'],
+    ['Hiring Process', 'análisis de llamadas'], ['Delegation Framework', null],
+  ] as const) {
+    assert.match(que(nombre), /\bMaKo\b/, `${nombre} no cuenta lo que hace MaKo`);
+    if (funcion) {
+      assert.ok(que(nombre).toLowerCase().includes(funcion.toLowerCase()), `${nombre} ya no nombra «${funcion}»`);
+      assert.ok(vende.has(funcion.toLowerCase()), `${nombre} nombra «${funcion}» y /planes no lo vende con ese nombre: revisar el texto`);
+    }
+  }
+  // Del largo de los otros (los de siempre van de 89 a 134 caracteres): una tarjeta no puede ser un párrafo.
+  for (const e of PROGRAMA.fases.flatMap((f) => f.entregables)) assert.ok(e.texto.length >= 80 && e.texto.length <= 150, `${e.nombre}: ${e.texto.length} caracteres`);
+});
+
+test('el filtro dice el corte de la aplicación (más de US$ 5.000, con clientes y oferta validada), y Axel es agencia y academia', async () => {
+  // Martín, 16/11/2026: «pon facturas más de 5.000 está bien. Y no pondría con clientes recurrentes. Pondría con oferta
+  // validada. Con clientes y oferta validada pondría».
+  const { FILTRO, HERO } = await import('../app/accelerator/contenido');
+  const t = texto(await pagina());
+  const corte = FILTRO.si[0].d;
+  assert.match(corte, /\bmás de \$5\.000 USD al mes\b/, `el filtro no dice «más de $5.000»: ${corte}`);
+  assert.match(corte, /\bcon clientes y oferta validada\b/, `el filtro no dice «con clientes y oferta validada»: ${corte}`);
+  assert.doesNotMatch(corte, /\bentre\b/i, 'volvió el «entre $5K-$10K»: quien factura más también es para el programa');
+  // El mismo corte que la calificación del héroe y que la aplicación (`califica`, lib/aplicacion-accelerator.ts): la primera
+  // opción de facturación es «Menos de US$ 5.000» y es la única que no califica.
+  const monto = (s: string) => s.match(/\$\s?([\d.]+)/)?.[1];
+  assert.equal(monto(HERO.calificacion[1]), monto(corte), 'el héroe y el filtro dicen cortes distintos');
+  const facturacion = campo('facturacion').opciones!;
+  assert.equal(monto(facturacion[0]), monto(corte), `la aplicación corta en «${facturacion[0]}» y la landing en ${monto(corte)}`);
+  const resto = { clientes: 1, situacion: 0, inversion: 0 };
+  assert.equal(califica({ ...resto, facturacion: 0 }), false, `«${facturacion[0]}» califica y la landing dice «más de»`);
+  assert.equal(califica({ ...resto, facturacion: 1 }), true, `«${facturacion[1]}» no califica y la landing dice que es para ti`);
+  assert.ok(t.includes(corte), 'el filtro no se dibuja');
+  assert.ok(FILTRO.no.some((x) => /^No tienes clientes\b/.test(x.d)), 'el «no es para ti» de la oferta sin validar ya no dice los clientes');
+  // Axel: «Axel es ambos, es una agencia y es una academia».
+  assert.ok(t.includes('Axel — Agencia y academia de IA'), 'el caso de Axel no dice agencia y academia');
+  assert.ok(t.includes('en la agencia y academia de IA de Axel'), 'la metodología no dice agencia y academia');
+  assert.doesNotMatch(t, /agencia de IA de Axel|Axel — Agencia de IA/, 'quedó Axel como sólo agencia');
 });
 
 test('la barra de abajo del teléfono aparece con el caso de Mauricio y la sección de aplicar le pasa por encima', async () => {
@@ -198,9 +401,16 @@ test('la barra de abajo del teléfono aparece con el caso de Mauricio y la secci
   const alto = regla('.acl-pegado').match(/height: (\d+)px/)?.[1];
   assert.ok(alto, 'la barra no tiene alto fijo');
   assert.match(regla('.acl-tramo + .acl-final'), new RegExp(`margin-top: -${alto}px`), 'la sección de aplicar no se monta sobre el alto exacto de la barra');
+  // Y mientras se ve el precio (16/11/2026), la sección del precio también le pasa por encima: la tarjeta tiene su botón, y con
+  // la barra de arriba eran tres «Aplica ahora» en la misma pantalla del teléfono. Opaca, o la barra se ve a través.
+  const { CSS_PRECIO_ACELERADOR } = await import('../app/accelerator/estilo');
+  const precio = CSS_PRECIO_ACELERADOR.match(/@media \(max-width: 880px\) \{\s*\.acl-precio-s \{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(Number(precio.match(/z-index: (\d+)/)?.[1]) > z('.acl-pegado'), 'en el teléfono la barra de abajo tapa la tarjeta del precio');
+  assert.match(precio, /position: relative;/);
+  assert.match(precio, /background: var\(--acl-bg\);/, 'la sección del precio no es opaca: la barra se ve a través');
 });
 
-test('el VSL es el de Lovable, y cada foto y video existe en public/', async () => {
+test('el VSL es el de Lovable (Martín, 16/11: «pone el VSL que ya estaba ahí»), y cada foto y video existe en public/', async () => {
   const html = await pagina();
   assert.match(html, /<iframe [^>]*src="https:\/\/player-vz-dd4ad08b-375\.tv\.pandavideo\.com\.br\/embed\/\?v=d0b3e8db-29b7-4e73-a350-b9ce7bd9f81f"/, 'el VSL de Panda');
   const medios = [...html.matchAll(/<(?:img|video)\b[^>]*\ssrc="([^"]+)"/g)].map((m) => m[1]);
@@ -209,10 +419,6 @@ test('el VSL es el de Lovable, y cada foto y video existe en public/', async () 
     assert.ok(src.startsWith('/vsl-assets/'), `${src} no es de public/vsl-assets`);
     assert.ok(existsSync(join(RAIZ, 'public', src)), `${src} no existe en public/`);
   }
-  // Los 11 entregables, numerados del 1 al 11.
-  const t = texto(html);
-  for (let i = 1; i <= 11; i++) assert.ok(t.includes(`Entregable #${i}:`), `falta el entregable #${i}`);
-  assert.ok(!t.includes('Entregable #12:'));
 });
 
 test('la página vive donde lleva el «Más información» de /planes, es pública y sólo se lee', async () => {
@@ -234,17 +440,40 @@ test('la página vive donde lleva el «Más información» de /planes, es públi
 //   · lo que incluye pierde el detalle (queda igual que la columna)        -> 8 / 1
 //   · lo que incluye vuelve a aclarar las 10 horas                         -> 8 / 1
 //   · se va «MaKo Pro completo»                                            -> 8 / 1
-//   · la promesa no se dibuja                                              -> 8 / 1
 //   · vuelve el sello «Garantía por contrato»                              -> 8 / 1
 //   · se va «Conmigo, no con un equipo.»                                   -> 8 / 1
 //   · vuelve «conmigo y con mi equipo»                                     -> 8 / 1
 //   · vuelve «todo lo que haga falta»                                      -> 8 / 1
 //   · vuelve el Blueprint «Sesión 1:1 donde armamos juntos…»               -> 8 / 1
-//   · el botón final lleva a #aplicar en vez de a la agenda                -> 8 / 1
-//   · un «Aplica ahora» lleva a /planes                                    -> 8 / 1
 //   · el tramo de la barra arranca antes del caso de Mauricio              -> 8 / 1
 //   · la barra vuelve a tener margin-top: -86px                            -> 8 / 1
 //   · la sección de aplicar queda debajo de la barra (z-index 89)          -> 8 / 1
 //   · la barra pasa a 96 px y el margen de la sección sigue en -86         -> 8 / 1
 //   · '/accelerator' fuera de PUBLICOS (lib/rutas-publicas.ts)             -> 8 / 1
 //   · vuelve un «Nombre Apellido»                                          -> 8 / 1
+//
+// Roturas (16/11/2026; base 14 / 0), cada una restaurada (pasan / fallan):
+//   · el «Aplica ahora» del héroe vuelve a bajar a #aplicar                -> 13 / 1
+//   · el de la barra de abajo del teléfono vuelve a bajar a #aplicar       -> 13 / 1
+//   · el botón final vuelve a «Agenda tu llamada» (Calendly)               -> 13 / 1
+//   · la tarjeta dice «Aplica ahora» en minúscula                          -> 13 / 1
+//   · la tarjeta del precio, copiada a mano (sin su lista)                 -> 13 / 1
+//   · /planes vuelve a abrir la agenda desde la columna                    -> 13 / 1
+//   · la columna ignora el botón que le pasan (siempre a /accelerator)     -> 12 / 2
+//   · CSS_TARJETAS va antes que el de la landing                           -> 13 / 1
+//   · el título de la tarjeta queda en Sora (sin el font-family: inherit)  -> 13 / 1
+//   · la letra de la tarjeta deja de ser la de /planes (17 px)             -> 13 / 1
+//   · una regla de CSS_TARJETAS sin mkpl- (pisaría los h3 de la landing)   -> 13 / 1
+//   · vuelve la barra de arriba vieja (sin «/» ni «Ver planes»)            -> 13 / 1
+//   · vuelve el pie propio (.acl-pie)                                      -> 13 / 1
+//   · la fase 02 vuelve a 3 (sin Appointment Setting)                      -> 13 / 1
+//   · los entregables vuelven a 3 columnas                                 -> 13 / 1
+//   · Hiring Process vuelve al texto de Lovable (sin MaKo)                 -> 13 / 1
+//   · Appointment Setting deja de nombrar el setter con IA                 -> 13 / 1
+//   · el filtro vuelve a «entre $5K-$10K… clientes recurrentes»            -> 12 / 2 (el filtro, y lo viejo)
+//   · el filtro corta en $3.000 (la aplicación, en 5.000)                  -> 13 / 1
+//   · vuelve «recurrentes» al «no es para ti»                              -> 13 / 1
+//   · Axel vuelve a «Agencia de IA»                                        -> 13 / 1
+//   · vuelve la promesa al lado de lo que incluye                          -> 13 / 1
+//   · en el teléfono la barra de abajo vuelve a tapar el precio            -> 13 / 1
+//   · la sección del precio, transparente (la barra se ve a través)        -> 13 / 1

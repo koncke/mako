@@ -14,7 +14,7 @@
 //     animación atada al scroll donde el navegador la tiene (y oscura desde el principio donde no); el carrusel de las
 //     fotos de Mauricio pasa solo con CSS, cada 4 segundos como el suyo; y la barra de abajo del teléfono es
 //     `position: sticky` dentro de un tramo que va del caso de Mauricio al «¿Es para ti?», y la sección de aplicar, que va
-//     justo después, le pasa por encima: así aparece al bajar y se va sola al llegar al botón de la llamada.
+//     justo después, le pasa por encima: así aparece al bajar y se va sola al llegar al botón grande del final.
 //   · `overflow-x: clip` y no `hidden` en la raíz: `hidden` la vuelve un contenedor de scroll y el `sticky` de la barra
 //     de abajo se pega a ella en vez de a la ventana (o sea, nunca).
 //   · Un `sticky` se limita por su caja de MARGEN: con un `margin-top` negativo sube esos píxeles por encima del principio de
@@ -23,9 +23,11 @@
 //     sección de aplicar (`.acl-tramo + .acl-final`), con un `z-index` mayor y fondo opaco.
 //   · Los títulos de las fases (01/02/03) eran un <span> en Lovable y acá son <h3>: heredaban el interlineado apretado de los
 //     títulos (1.06). Llevan el del texto (1.62), como allá.
-//   · El bloque nuevo de la oferta (`.acl-oferta`: lo que incluye y la promesa) usa las mismas piezas que las tarjetas de
-//     «Y en las tres fases, siempre» (el degradé, el borde, el verde de los ✓), separado de ellas para que no se lea como
-//     una tercera tarjeta de esa lista.
+//   · El bloque nuevo de la oferta (`.acl-oferta`: lo que incluye) usa las mismas piezas que las tarjetas de «Y en las tres
+//     fases, siempre» (el degradé, el borde, el verde de los ✓), separado de ellas para que no se lea como una tercera tarjeta
+//     de esa lista. Hasta el 16/11 tenía la promesa a la derecha; sin ella, la lista va en dos columnas.
+//   · 16/11/2026: los entregables en DOS columnas (Martín: «no me gusta de que las tarjetas queden 3 y 1, pondría 2 y 2»), y
+//     el precio, que es la tarjeta de /planes con su propio CSS (`CSS_PRECIO_ACELERADOR`, abajo).
 // =============================================================================
 
 import { fondoDeSigno } from '@/app/planes/signos';
@@ -186,7 +188,8 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .acl-fase-head { display: flex; gap: 22px; align-items: baseline; flex-wrap: wrap; }
 .acl-fase-num { font-family: var(--acl-sans); font-weight: 800; font-size: 2rem; color: var(--acl-accent); line-height: 1; }
 .acl-root .acl-fase-titulo { font-family: var(--acl-sans); font-weight: 700; font-size: clamp(1.5rem, 3vw, 2.1rem); line-height: 1.62; letter-spacing: normal; }
-.acl-entregables { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; margin: 36px auto 0 0; max-width: 1180px; align-items: stretch; }
+/* Dos columnas: cada fase son cuatro entregables, 2 y 2 (16/11/2026; eran tres columnas y la fase de tres dejaba 3 y 1). */
+.acl-entregables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px; margin: 36px auto 0 0; max-width: 1180px; align-items: stretch; }
 .acl-deliv { background: var(--acl-card); border: 1.5px solid var(--acl-borde); border-radius: 22px; padding: 32px 32px 36px; display: flex; flex-direction: column; gap: 22px; height: 100%;
   box-shadow: 0 1px 0 rgba(255,255,255,.02) inset; transition: transform .25s, border-color .25s; min-width: 0; }
 .acl-deliv:hover { transform: translateY(-3px); border-color: #3a3a40; }
@@ -205,25 +208,22 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .acl-ac::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, var(--acl-accent), transparent); }
 .acl-ac:nth-child(2)::before { background: linear-gradient(180deg, var(--acl-verde), transparent); }
 .acl-lbl { font-family: var(--acl-sans); font-weight: 700; font-size: 11.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--acl-accent); }
-.acl-ac:nth-child(2) .acl-lbl, .acl-lbl-verde { color: var(--acl-verde); }
+.acl-ac:nth-child(2) .acl-lbl { color: var(--acl-verde); }
 .acl-root .acl-ac h3 { font-family: var(--acl-sans); font-weight: 800; font-size: 1.55rem; letter-spacing: -.02em; line-height: 1.15; color: #fff; }
 .acl-ac p { font-family: var(--acl-serif); font-style: italic; font-size: 1.02rem; color: var(--acl-gris); line-height: 1.55; }
 
-/* ── Lo que incluye + la promesa (nuevo, 15/11/2026) ── */
-.acl-oferta { margin-top: 56px; display: grid; grid-template-columns: 1.15fr 1fr; border: 1.5px solid var(--acl-borde); border-radius: 22px; overflow: hidden;
+/* ── Lo que incluye (nuevo, 15/11/2026; sin la promesa al lado desde el 16/11: ver ./LandingAcelerador.tsx) ── */
+.acl-oferta { margin-top: 56px; border: 1.5px solid var(--acl-borde); border-radius: 22px; overflow: hidden;
   background: linear-gradient(180deg, #1a1a1d 0%, #131316 100%); box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 22px 50px -28px rgba(0,0,0,.6); }
-.acl-oferta-sola { grid-template-columns: 1fr; }
 .acl-oferta-lista { padding: 38px 34px 36px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .acl-root .acl-oferta h3 { font-family: var(--acl-sans); font-weight: 800; font-size: 1.55rem; letter-spacing: -.02em; line-height: 1.15; color: #fff; }
-.acl-checks { display: flex; flex-direction: column; gap: 13px; margin-top: 8px; }
+/* En dos columnas a todo el ancho (eran una, al lado de la promesa): una sola, a 1180 px, dejaba renglones de 20 palabras. */
+.acl-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 40px; margin-top: 8px; }
 .acl-checks li { display: flex; gap: 13px; align-items: flex-start; color: var(--acl-ink); font-size: 1rem; line-height: 1.5; }
 .acl-checks li b { font-weight: 600; color: var(--acl-ink); }
 .acl-checks li small { display: block; margin-top: 2px; color: var(--acl-ink-soft); font-size: .94rem; line-height: 1.45; }
 /* Siempre en px PARES: con 21 el dibujo de 12 queda a 4,5 px del borde y el navegador lo corre medio píxel. */
 .acl-checks .acl-mk { flex-basis: 20px; width: 20px; height: 20px; margin-top: 2px; }
-.acl-oferta-promesa { padding: 38px 34px 36px; display: flex; flex-direction: column; justify-content: center; gap: 18px; min-width: 0;
-  background: rgba(47,166,106,.07); border-left: 1.5px solid rgba(47,166,106,.30); }
-.acl-promesa { font-family: var(--acl-serif); font-style: italic; font-weight: 500; font-size: clamp(1.4rem, 2.4vw, 1.9rem); line-height: 1.38; color: var(--acl-ink); }
 
 /* ── ¿Es para ti? ── */
 .acl-filtro { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 52px; }
@@ -237,14 +237,7 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .acl-fcol li small { color: var(--acl-ink-soft); font-size: .92rem; line-height: 1.45; }
 .acl-fcol .acl-mk { flex-basis: 20px; width: 20px; height: 20px; }
 
-/* ── El pie ── */
-.acl-pie { padding: 46px 0; border-top: 1px solid var(--acl-line); }
-.acl-pie-fila { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 18px; width: 100%; }
-.acl-pie small { color: var(--acl-muted); font-size: 12.5px; max-width: 54ch; line-height: 1.5; display: block; }
-.acl-nw { white-space: nowrap; }
-.acl-legales { margin-top: 6px; display: flex; gap: 14px; flex-wrap: wrap; }
-.acl-root .acl-legales a { color: var(--acl-muted); font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(124,118,108,.5); }
-.acl-root .acl-legales a:hover { color: var(--acl-ink-soft); }
+/* El pie propio se fue el 16/11/2026: la página lleva el del sitio (PieGlobal), que lo escondía. */
 
 /* ── La barra de abajo, en el teléfono: pegada al borde mientras dura el tramo (del caso de Mauricio al «¿Es para ti?») ── */
 .acl-pegado { display: none; }
@@ -256,10 +249,9 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
   .acl-tras-heroe { padding-top: 28px; }
   .acl-mau-s { padding-top: 80px; }
   .acl-hdr .acl-btn { padding: 10px 18px; font-size: 13px; }
-  .acl-entregables, .acl-filtro, .acl-siempre, .acl-oferta { grid-template-columns: 1fr; gap: 26px; }
-  .acl-oferta { gap: 0; }
-  .acl-oferta-promesa { border-left: 0; border-top: 1.5px solid rgba(47,166,106,.30); }
-  .acl-oferta-lista, .acl-oferta-promesa { padding: 32px 24px 30px; }
+  .acl-entregables, .acl-filtro, .acl-siempre { grid-template-columns: 1fr; gap: 26px; }
+  .acl-checks { grid-template-columns: 1fr; gap: 13px; }
+  .acl-oferta-lista { padding: 32px 24px 30px; }
   .acl-tiles, .acl-proceso { grid-template-columns: 1fr 1fr; }
   .acl-mau-split, .acl-mau-top { grid-template-columns: 1fr; }
   .acl-cv, .acl-cv.acl-flip { grid-template-columns: 1fr; gap: 22px; }
@@ -275,8 +267,8 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 @media (max-width: 560px) {
   .acl-tiles, .acl-proceso { grid-template-columns: 1fr; }
 }
-/* Los teléfonos de 320 px: el nombre del programa es más ancho que la marca de Lovable, y el botón de arriba y «Agenda tu
-   llamada» se salían del borde. (Este CSS viaja en la página: sus comentarios no nombran la marca vieja.) */
+/* Los teléfonos de 320 px: el nombre del programa es más ancho que la marca de Lovable, y el botón de arriba y el botón grande
+   del final se salían del borde. (Este CSS viaja en la página: sus comentarios no nombran la marca vieja.) */
 @media (max-width: 359px) {
   .acl-hdr { padding-inline: 16px; gap: 10px; }
   .acl-hdr .acl-btn { padding: 10px 12px; }
@@ -291,5 +283,38 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
   .acl-puntos span:nth-child(1) { background: #fff; transform: scale(1.25); }
   .acl-btn, .acl-tile, .acl-deliv { transition: none; }
   .acl-btn:hover, .acl-tile:hover, .acl-deliv:hover { transform: none; }
+}
+`;
+
+/**
+ * LA LETRA DE /planes, la que hereda su tarjeta: la de `.planes-root` (app/planes/estilo.ts). «Geist» es Urbanist, declarada en
+ * app/globals.css, que carga toda página. tests/acelerador-landing.test.ts la compara con la de /planes: si allá cambia, acá se
+ * pone rojo.
+ */
+export const LETRA_DE_PLANES = `400 16px/1.55 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+
+/**
+ * EL PRECIO EN LA LANDING (16/11/2026): la columna del Accelerator de /planes (`TarjetaAccelerator`, app/planes/Tarjetas.tsx), que
+ * Martín pidió con sus palabras: «la columna que hicimos». Para que se vea IGUAL que allá:
+ *   · su CSS es `CSS_TARJETAS`, entero y DESPUÉS de `CSS_ACELERADOR` (./LandingAcelerador.tsx, `CSS_DE_LA_LANDING`): el reseteo
+ *     de márgenes de esta página (`.acl-root *`) y sus títulos (`.acl-root h3`) empatan en peso con las reglas de la tarjeta, y en
+ *     un empate gana la que viene después;
+ *   · su letra es la de /planes (`LETRA_DE_PLANES`), no la de esta página (Sora, Hanken Grotesk), y su título no toma Sora:
+ *     `.acl-root h3` le pone la letra de los títulos de la landing y la tarjeta no dice ninguna (en /planes, hereda);
+ *   · va en la grilla de /planes (`.mkpl-grilla`, que le deja lugar arriba a su insignia y alinea a la izquierda), de UNA
+ *     columna y de unos 420 px, centrada.
+ * Al revés, la tarjeta no toca nada de esta página: todas las reglas de `CSS_TARJETAS` llevan `.mkpl-`.
+ */
+export const CSS_PRECIO_ACELERADOR = `
+.acl-precio-s { padding-top: 0; }
+.acl-precio-s .acl-siempre-lbl { margin-top: 0; }
+.acl-precio { max-width: 420px; margin: 22px auto 0; font: ${LETRA_DE_PLANES}; color: #121212; }
+.acl-precio .mkpl-grilla { grid-template-columns: minmax(0, 1fr); }
+.acl-root .acl-precio h3 { font-family: inherit; }
+/* En el teléfono, mientras se ve el precio, la barra de abajo (z-index 90, sticky) queda DEBAJO de esta sección: la tarjeta ya
+   tiene su botón, y con la barra de arriba eran tres «Aplica ahora» en la misma pantalla. El mismo truco que la sección del
+   final (fondo opaco y un z-index mayor); al terminar el precio, la barra vuelve. */
+@media (max-width: 880px) {
+  .acl-precio-s { position: relative; z-index: 91; background: var(--acl-bg); }
 }
 `;

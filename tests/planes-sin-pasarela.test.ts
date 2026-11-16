@@ -56,13 +56,19 @@ test('SIN AGENDA en los PLANES (24/10, Martín: «No voy a usar Calendly»), con
   // Accelerator. Ahí debería haber la agenda de llamada. Pero en ningún otro lado debería estar». El Accelerator es el bloque
   // que se vende POR llamada y nunca por la pasarela; las dos columnas de software, no.
   const tj = fuente('app/planes/Tarjetas.tsx');
-  assert.equal((tj.match(/calendly\.com/g) ?? []).length, 1, 'la agenda aparece más de una vez en las tarjetas');
+  // 16/11/2026: el link de la agenda vive UNA vez, en lib/aplicacion-accelerator.ts (`AGENDA_DE_LA_LLAMADA`: la abre la
+  // aplicación del Accelerator, ya contestada, a quien califica), y las tarjetas lo toman de ahí.
+  const ap = fuente('lib/aplicacion-accelerator.ts');
+  assert.equal((tj.match(/calendly\.com/g) ?? []).length, 0, 'las tarjetas escriben la agenda a mano: sale de lib/aplicacion-accelerator.ts');
+  assert.equal((ap.match(/calendly\.com/g) ?? []).length, 1, 'la agenda aparece más de una vez en la aplicación');
   assert.doesNotMatch(tj, /AGENDA_MAKO|agendaConOrigen|initInlineWidget/, 'volvió el widget de Calendly de antes');
-  assert.match(tj, /export const AGENDA_ACELERADOR = 'https:\/\/calendly\.com\/koncke\/asesoria';/, 'la agenda es la de Martín');
+  assert.match(ap, /export const AGENDA_DE_LA_LLAMADA = 'https:\/\/calendly\.com\/koncke\/asesoria';/, 'la agenda es la de Martín');
+  assert.match(tj, /export const AGENDA_ACELERADOR = AGENDA_DE_LA_LLAMADA;/, 'la agenda de las tarjetas no es la de la aplicación');
   // Y la usa SÓLO la tarjeta del programa: el botón de un plan sigue saliendo de `botonDelPlan`.
   // 15/11/2026, ~21:00: el botón de la columna dice «Más información» y lleva a la landing del programa (/accelerator); la
   // llamada se pide desde ahí. La agenda sigue siendo la de Martín (la constante), pero ningún botón de /planes la abre.
-  assert.match(tj, /<a className="mkpl-btn" href=\{RUTA_ACCELERATOR\}>\{TEXTO_BOTON_ACCELERATOR\}<\/a>/);
+  // 16/11/2026: la columna es `TarjetaAccelerator` y el botón se lo pasa `TarjetasPlanes`.
+  assert.match(tj, /<TarjetaAccelerator boton=\{\{ href: RUTA_ACCELERATOR, texto: TEXTO_BOTON_ACCELERATOR \}\} \/>/);
   assert.doesNotMatch(tj, /href=\{AGENDA_ACELERADOR\}/, 'un botón de /planes volvió a abrir la agenda');
   assert.doesNotMatch(tj.slice(tj.indexOf('{planes.map((p) => {'), tj.indexOf('mkpl-programa"')), /AGENDA_ACELERADOR/, 'un plan de software ofrece agendar');
 });
@@ -213,7 +219,8 @@ test('la LANDING de venta: las columnas de precios donde estaba la agenda, con e
   // 14/11/2026: el botón del Accelerator pasó de su pedido (/planes/acelerador, que viajaba con el origen y el partner del
   // sufijo) a la agenda de Martín. ⚠️ CONSECUENCIA MEDIDA, no un detalle: por ese camino el origen y el código de partner ya
   // NO llegan al CRM, y la agenda de Martín todavía no tiene su webhook (docs/hallazgos-integraciones.md).
-  assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{RUTA_ACCELERATOR\}/);
+  // (16/11/2026: el botón se lo pasa `TarjetasPlanes` a la columna, `TarjetaAccelerator`.)
+  assert.match(fuente('app/planes/Tarjetas.tsx'), /<TarjetaAccelerator boton=\{\{ href: RUTA_ACCELERATOR,/);
   assert.doesNotMatch(fuente('app/planes/Tarjetas.tsx'), /Quiero el Accelerator/, 'volvió el botón del pedido');
   // El anual (25/10/2026) se muestra y SIEMPRE se pide: su botón es otro, nunca el del checkout mensual.
   assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{botonAnualDelPlan\(\{ id: p\.id, sufijo \}\)\.href\}/);
@@ -236,3 +243,10 @@ test('la LANDING de venta: las columnas de precios donde estaba la agenda, con e
 //   · la fila de Pro otra vez AUSENTE en la prueba (`pro = … ? (enPrueba ? null : …)`, con el prefijo intacto) -> 9 / 1
 //   · la fila vuelve a ser un link a /planes (`href="/planes/pro"` en vez del `onClick`)                       -> 9 / 1
 //   · la fila que debe PEDIR pasa a COBRAR (`pedirPro` llamando `pasarAProAction()`, con su `onClick` intacto) -> 9 / 1
+//
+// Roturas de la columna del Accelerator como componente (16/11/2026; base 10 / 0), cada una restaurada (pasan / fallan):
+//   · las tarjetas vuelven a escribir la agenda a mano (y no `AGENDA_DE_LA_LLAMADA`)                         -> 9 / 1
+//   · `TarjetasPlanes` le pasa la agenda a la columna en vez de la landing                                     -> 8 / 2
+// ⚠️ `TarjetaAccelerator` va DESPUÉS de `TarjetasPlanes` en el archivo a propósito: el `slice` de «un plan de software ofrece
+//    agendar» corta de `{planes.map` a `mkpl-programa"`, y si la columna se definiera antes, el fin quedaría antes del principio,
+//    el `slice` daría '' y la aserción pasaría sin mirar nada.

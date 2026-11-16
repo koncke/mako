@@ -44,7 +44,10 @@ test('3. el checkout reusa o crea: un duplicado por nombre nunca frena la compra
   const s = leer('lib/compra-plan.ts');
   const f = s.slice(s.indexOf('async function leadDelComprador'), s.indexOf('«LO QUIERO» SIN PASARELA'));
   assert.match(f, /const mismo = leadDeLaCompra\(e\.coincidencias, p\.email\);/);
-  assert.match(f, /enriquecerLead\(mismo, \{ email: p\.email, telefono: datos\.telefono \}, 'Checkout de MaKo'\)/, 'el reusado no se queda sin el email con el que compró');
+  // Firmado por quien lo trae (16/11/2026, `DondeDelLead`): el checkout, por defecto, o la aplicación a MaKo Accelerator.
+  assert.match(f, /enriquecerLead\(mismo, \{ email: p\.email, telefono: datos\.telefono \}, donde\.autor\)/, 'el reusado no se queda sin el email con el que compró');
+  assert.match(s, /export const DEL_CHECKOUT: DondeDelLead = \{ autor: 'Checkout de MaKo', al: 'al comprar' \};/, 'el checkout dejó de firmar «Checkout de MaKo»');
+  assert.match(f, /donde: DondeDelLead = DEL_CHECKOUT\)/, 'el checkout tiene que seguir firmando sin pasar nada');
   assert.match(f, /createLead\(\{ \.\.\.datos, permitirDuplicado: true \}\)/);
   assert.doesNotMatch(f, /throw e;\n {2}\}\n\}/, 'volvió a tirar el duplicado');
 });
