@@ -11,6 +11,8 @@
   del carrusel. AI Avatar ya no arranca solo con sonido.
 - Artefacto «Sitio de MaKo»: https://claude.ai/artifact/KGnfQnWAuiZ62qg9uioKZb (versión 15).
 
+**23:05 UTC — PARA LA OTRA CUENTA:** los artefactos y sus herramientas quedaron en C:/dev/artefactos-sitio (LEEME.md: los dos links, cómo se dibujan y se publican). «MaKo Essential» ya está en inglés también en producción (planes.mako, ws 9). Martín: «olvídate lo del VSL en Safari, si ya se solucionó» y «no te preocupes por las landings… yo voy a ir landing por landing». Despliegue pedido: corre `scripts/desplegar-ya.mjs` apenas la punta llega a main.
+
 **22:40 UTC:** hecho y subido el Closing con la hoja de MaKo (tasa, llamadas analizadas con nombres inventados y scores reales, score por semana, cierres 0 → 9 con US$58.200 y zoom final) y el caso de Mauricio del Accelerator en una fila (554 px del título a «No existe ningún método estándar»; eran 1314). Martín: «MaKo Essential tiene que estar en inglés siempre» y «no vamos a desplegar todavía». Queda el organigrama de Equipo.
 
 **SIN HACER (en orden):** 1) el VSL en Safari: no se reprodujo; preguntarle a Martín aparato, página y qué ve
