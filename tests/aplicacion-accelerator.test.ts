@@ -604,13 +604,13 @@ test('15. lo que marca el servidor vuelve a su paso; sin red, lo dice y no se pi
   const s = await montar();
   await s.siguiente();
   await s.esperar(10);
-  assert.match(s.q('[role="alert"]')?.textContent ?? '', /No se pudo conectar\. Revisa tu internet/);
+  assert.match(s.q('.apl-aviso-error[role="status"][aria-live="assertive"]')?.textContent ?? '', /No se pudo conectar\. Revisa tu internet/);
   assert.match(s.texto(), /Paso 6 de 6/);
   assert.ok(guardado(CLAVE_BORRADOR), 'sin red, el borrador sigue');
   respuesta = { status: 503, body: { error: 'No se pudo enviar tu aplicación. Prueba otra vez en un minuto: lo que escribiste sigue guardado.' } };
   await s.siguiente();
   await s.esperar(10);
-  assert.match(s.q('[role="alert"]')?.textContent ?? '', /Prueba otra vez en un minuto/);
+  assert.match(s.q('.apl-aviso-error[role="status"][aria-live="assertive"]')?.textContent ?? '', /Prueba otra vez en un minuto/);
   await s.desmontar();
   respuesta = { status: 200, body: { ok: true, califica: true } };
 });

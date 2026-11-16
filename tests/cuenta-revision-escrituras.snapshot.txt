@@ -29,6 +29,7 @@ PATCH /api/v1/1/1/a/b → pública (no usa la sesión)
 PATCH /api/video-editor/propuestas → cortada
 PATCH /api/whatsapp/secuencias → cortada
 PATCH /api/whatsapp/templates/drafts → cortada
+POST /api/accelerator/aplicar → pública (no usa la sesión)
 POST /api/actividad → cortada
 POST /api/admin/agencia → sólo admin (el rol la corta antes, también a un closer)
 POST /api/admin/agencia/altas → sólo admin (el rol la corta antes, también a un closer)

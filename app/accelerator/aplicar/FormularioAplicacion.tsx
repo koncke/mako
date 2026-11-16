@@ -295,7 +295,10 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
           <input id="apl-web" name="web" type="text" tabIndex={-1} autoComplete="off" value={web} onChange={(e) => setWeb(e.target.value)} />
         </div>
 
-        {errorEnvio && <p className="apl-aviso-error" role="alert">{errorEnvio}</p>}
+        {/* `role="status"` + `aria-live="assertive"` y no `role="alert"` (16/11/2026): el «Reportar a Soporte» que exige un alert
+            (tests/reportar-a-soporte.test.ts) manda el ticket con la sesión de MaKo, y quien aplica todavía no tiene cuenta: le
+            contestaría «Vuelve a entrar a MaKo». Como los formularios públicos de /planes (QuieroPlan.tsx). Se anuncia igual. */}
+        {errorEnvio && <p className="apl-aviso-error" role="status" aria-live="assertive">{errorEnvio}</p>}
         <div className="apl-nav">
           {paso > 0 && (
             <button type="button" className="apl-atras" onClick={() => irA(paso - 1)} disabled={enviando}>
