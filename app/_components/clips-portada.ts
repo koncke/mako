@@ -29,7 +29,9 @@ import type { ClipVitrina } from '@/app/login/_ui/VitrinaVideos';
  */
 const HASTA_DONDE: Readonly<Record<string, number>> = {
   '/vsl-assets/sitio/referentes.webm': 6.9,
-  '/vsl-assets/sitio/spy.webm': 20.1,
+  // Spy: los primeros 6,5 s (el scroll y el clic en Alex Hormozi) van al triple de velocidad (ffmpeg, 16/11/2026, Martín: «eso sea más
+  // rápido… se confunde con lo de arriba, que es chatea con los referentes»): el corte de 20,1 pasa a 20,1 − 6,5 + 6,5/3 = 15,8.
+  '/vsl-assets/sitio/spy.webm': 15.8,
   '/vsl-assets/sitio/copywriting.webm': 10.4,
   '/vsl-assets/sitio/carruseles.webm': 10.0,
   '/vsl-assets/sitio/video.webm': 18.0,
