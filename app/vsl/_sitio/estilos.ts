@@ -575,12 +575,14 @@ ${CSS_REEMPLAZA}
 .s-caso-tira-l li{display:flex;align-items:center;white-space:nowrap;font-size:20px;font-weight:700;letter-spacing:-.01em;padding:0 22px}
 .s-caso-tira-l li::after{content:'✦';margin-left:44px;font-size:14px;opacity:.7}
 @keyframes s-caso-corre{to{transform:translateX(-50%)}}
-/* El título arriba y, al lado del carrusel, la tarjeta del antes y el después con sus dos mitades una arriba de la otra. */
-.s-caso-cab{max-width:880px;margin:0 0 44px}
-.s-caso-arriba{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:40px;align-items:center}
-.s-caso-der .s-caso-vs{margin-top:0;grid-template-columns:1fr}
-.s-caso-der .s-caso-lado{padding:26px 36px 28px}
-.s-caso-der .s-caso-flecha{transform:translate(-50%,-50%) rotate(90deg)}
+/* Todo al costado del carrusel: el título, el texto y la tarjeta del antes y el después con sus dos mitades una al lado de la otra. */
+.s-caso-arriba{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:48px;align-items:center}
+.s-caso-der .s-caso-h{font-size:38px}
+.s-caso-der .s-caso-vs{margin-top:28px;grid-template-columns:1fr 1fr}
+.s-caso-der .s-caso-lado{padding:24px 26px 26px}
+.s-caso-der .s-caso-lado-n{font-size:28px;margin:8px 0 16px}
+.s-caso-der .s-caso-lado li{font-size:15px;line-height:1.45}
+@media (max-width:900px){.s-caso-der .s-caso-h{font-size:32px}.s-caso-der .s-caso-vs{grid-template-columns:1fr}.s-caso-der .s-caso-flecha{transform:translate(-50%,-50%) rotate(90deg)}}
 .s-caso-vid{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:4/5;background:#0B0A1F;box-shadow:0 30px 70px -30px rgba(0,0,0,.6)}
 .s-caso-vid video{display:block;width:100%;height:100%;object-fit:cover}
 /* El carrusel del video y las fotos: cada uno 4 s, con un fundido; el primero (el video) arranca a la vista. */

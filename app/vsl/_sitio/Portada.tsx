@@ -247,15 +247,6 @@ function CasoSitio() {
         <div className="s-caso-tira-p">{tira(false)}{tira(true)}</div>
       </div>
       <div className="s-cont">
-        {/* EL TÍTULO ARRIBA y, al lado del carrusel, el antes y el después (Martín, 16/11/2026: «si ponemos el caso de éxito un poco
-            más arriba, las dos tarjetas de antes de MaKo y con MaKo podría caber a la derecha también de las imágenes»). De la historia
-            queda el primer párrafo: el segundo («un mes bien, dos flojos… Meta, Calendly y un Excel») ya lo dice el «antes». */}
-        <div className="s-caso-tx s-caso-cab">
-          <p className="s-caso-r">Caso de éxito</p>
-          <h2 className="s-caso-h" dangerouslySetInnerHTML={{ __html: CASO.titulo }} />
-          <p className="s-caso-sub">{CASO.sub}</p>
-          <p className="s-caso-p" dangerouslySetInnerHTML={{ __html: CASO.historia[0] }} />
-        </div>
         <div className="s-caso-arriba">
           {/* EL VIDEO Y SUS FOTOS, EN UN CARRUSEL QUE PASA SOLO (Martín, 16/11/2026: «el video de Mauricio… intercalándolo como si fuera
               un carrusel que pasa solo con las fotos que tenemos con Mauricio»): el video y las tres fotos de Cancún (las mismas del
@@ -272,6 +263,14 @@ function CasoSitio() {
             ))}
           </div>
           <div className="s-caso-der">
+            {/* TODO AL COSTADO DEL CARRUSEL (Martín, 16/11/2026: «no me gusta de que el titular esté justamente arriba… la idea era
+                que esté todo al costado»): el título, el texto y, debajo, las dos tarjetas del antes y el después. */}
+            <div className="s-caso-tx">
+              <p className="s-caso-r">Caso de éxito</p>
+              <h2 className="s-caso-h" dangerouslySetInnerHTML={{ __html: CASO.titulo }} />
+              <p className="s-caso-sub">{CASO.sub}</p>
+              <p className="s-caso-p" dangerouslySetInnerHTML={{ __html: CASO.historia[0] }} />
+            </div>
             {/* EL ANTES Y EL DESPUÉS, UNA SOLA TARJETA (Martín, 16/11/2026: «piensa mejor el antes y después… no me gusta mucho el diseño de
                 esa sección»): dos mitades con su número grande arriba, la de MaKo en el azul de la marca, y una flecha entre las dos. */}
             <div className="s-caso-vs">
