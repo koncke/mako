@@ -584,18 +584,20 @@ ${CSS_REEMPLAZA}
 .s-caso-h{margin:0;font-size:44px;line-height:1.12;font-weight:700;letter-spacing:-.02em}
 .s-caso-h em{font-style:normal;color:${DORADO}}
 .s-caso-sub{margin:18px 0 0;font-size:19px;line-height:1.5;opacity:.82}
-.s-caso-barras{list-style:none;margin:36px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;height:210px;align-items:end}
-.s-caso-barras li{height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;gap:10px}
-.s-caso-barra{position:relative;display:block;min-height:34px;border-radius:12px 12px 6px 6px;background:linear-gradient(180deg,#5B8EF5,#2F6FED)}
-.s-caso-barras li[data-antes] .s-caso-barra{background:#3A3F55}
-.s-caso-barra b{position:absolute;left:0;right:0;top:-26px;text-align:center;font-size:15px;font-weight:700}
-.s-caso-mes{text-align:center;font-size:14px;font-weight:600;opacity:.7}
-.s-caso-comp{margin-top:72px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.s-caso-col{border-radius:20px;padding:28px 30px;background:${CARD};border:1px solid rgba(255,255,255,.08)}
-.s-caso-col-mako{border-color:rgba(47,111,237,.6);box-shadow:0 0 0 1px rgba(47,111,237,.35) inset}
-.s-caso-col-t{margin:0 0 18px;font-size:20px;font-weight:700}
-.s-caso-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
-.s-caso-col li{display:flex;gap:12px;font-size:17px;line-height:1.5}
+.s-caso-p{margin:14px 0 0;font-size:17px;line-height:1.6;opacity:.86}
+.s-caso-p strong{font-weight:700;opacity:1}
+/* El antes y el después: una tarjeta, dos mitades, la flecha al medio (16/11/2026). */
+.s-caso-vs{position:relative;margin-top:64px;display:grid;grid-template-columns:1fr 1fr;border-radius:24px;overflow:hidden;border:1px solid rgba(255,255,255,.08);background:${CARD}}
+.s-caso-lado{padding:34px 44px 36px}
+.s-caso-lado-mako{background:linear-gradient(135deg,#2F6FED 0%,#1F57C8 100%);color:#fff}
+.s-caso-lado-t{margin:0;font-size:13px;line-height:18px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.72}
+.s-caso-lado-n{margin:10px 0 22px;font-size:34px;line-height:1.1;font-weight:800;letter-spacing:-.02em}
+.s-caso-lado-n small{display:block;margin-top:6px;font-size:15px;line-height:20px;font-weight:600;letter-spacing:0;opacity:.75}
+.s-caso-lado ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.s-caso-lado li{display:flex;gap:12px;font-size:16px;line-height:1.5}
+.s-caso-flecha{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;width:52px;height:52px;border-radius:50%;background:#fff;color:#2F6FED;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 28px rgba(0,0,0,.28)}
+.s-caso-flecha svg{display:block}
+.s-caso-lado-mako .s-caso-ok{background:${fondoDeSigno('si', '#2F6FED', '#FFFFFF')};background-size:14px 14px,auto}
 /* La ✕ y la ✓ son DIBUJOS centrados en su lienzo (app/planes/signos.ts), no la letra «✕» (Figtree no la tiene y la fuente de reemplazo
    la apoyaba medio píxel arriba) ni un SVG de 13 px en un círculo de 24 (quedaba a 5,5 px del borde y el navegador lo corría ¾ px). Lado
    par en un círculo par: el dibujo cae en píxeles enteros (Martín, 15/11/2026: «céntralo bien todo»). */
@@ -605,7 +607,7 @@ ${CSS_REEMPLAZA}
 .s-caso-fotos img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:16px}
 .s-caso-cierre{margin-top:48px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
 .s-caso-cierre p{margin:0;max-width:640px;font-size:22px;line-height:1.45}
-@media (max-width:900px){.s-caso-arriba{grid-template-columns:1fr;gap:32px}.s-caso-vid{max-width:420px;width:100%;margin:0 auto}.s-caso-h{font-size:32px}.s-caso-comp{grid-template-columns:1fr}.s-caso-fotos{grid-template-columns:1fr 1fr}.s-caso-fotos li:last-child{display:none}.s-caso-tira{margin-bottom:48px}.s-caso-tira-l li{font-size:16px}}
+@media (max-width:900px){.s-caso-arriba{grid-template-columns:1fr;gap:32px}.s-caso-vid{max-width:420px;width:100%;margin:0 auto}.s-caso-h{font-size:32px}.s-caso-vs{grid-template-columns:1fr}.s-caso-lado{padding:28px 24px}.s-caso-lado-n{font-size:28px}.s-caso-flecha{transform:translate(-50%,-50%) rotate(90deg)}.s-caso-fotos{grid-template-columns:1fr 1fr}.s-caso-fotos li:last-child{display:none}.s-caso-tira{margin-bottom:48px}.s-caso-tira-l li{font-size:16px}}
 @media (prefers-reduced-motion:reduce){.s-caso-tira-p{animation:none}}
 /* Cada función: su prueba gratis y, abajo, «Ver cómo funciona». */
 .s-zz-acc{margin-top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:4px}

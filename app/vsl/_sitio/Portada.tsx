@@ -26,7 +26,7 @@
 // Server component. Lo único que no es del servidor son los logos (SvcIcon, de ServicioVisual), que no tienen interacción.
 // =============================================================================
 
-import { TEXTO_CTA } from '../_competencia/marca';
+import { CASO, TEXTO_CTA } from '../_competencia/marca';
 import { VisualDeLanding } from '../_competencia/Visuales';
 import { FaltaAnimacion } from '../_competencia/FaltaAnimacion';
 import type { Bloque } from '../_competencia/tipos';
@@ -213,21 +213,16 @@ function ProductoSitio() {
  */
 // Martín, 13/11/2026: «en realidad son 100 mil dólares, porque a la fecha llevamos más de 100 mil dólares».
 const CASO_TIRA = ['Caso real', 'Mauricio', 'Más de US$100k vendidos', 'US$14k en abril', 'US$20k en mayo', 'Más de US$40k en junio', 'La misma oferta y el mismo funnel'];
-const CASO_MESES = [
-  { mes: 'Antes', valor: 10, rotulo: '<US$10k', antes: true },
-  { mes: 'Abril', valor: 14, rotulo: 'US$14k' },
-  { mes: 'Mayo', valor: 20, rotulo: 'US$20k' },
-  { mes: 'Junio', valor: 40, rotulo: '+US$40k' },
-];
+// Cortas y sin repetir la historia de arriba (Martín, 16/11/2026: menos texto; la historia ya cuenta el Excel y los meses flojos).
 const CASO_ANTES = [
-  'Vendía por impulsos: un mes bien, dos flojos, y no sabía por qué.',
-  'Miraba Meta por un lado, Calendly por otro, y el resto lo cargaba en un Excel que rehacía cada vez.',
-  'Con más de 20 años de trayectoria y videos con millones de vistas, desde afuera todo parecía estar bien.',
+  'Un mes bien, dos flojos.',
+  'Meta, Calendly y un Excel, cada uno por su lado.',
+  'No sabía qué campaña le traía clientes.',
 ];
 const CASO_CON_MAKO = [
-  'Sus anuncios de Meta, su agenda y sus ventas, juntos en un solo lugar.',
-  'Vio qué campaña le traía clientes que pagaban, y no sólo mensajes.',
-  'Decidió con sus números: la misma oferta y el mismo funnel, otro resultado.',
+  'Anuncios, agenda y ventas en un solo lugar.',
+  'Vio qué campaña le traía clientes que pagaban.',
+  'La misma oferta y el mismo funnel, otro resultado.',
 ];
 
 function CasoSitio() {
@@ -236,7 +231,6 @@ function CasoSitio() {
       {CASO_TIRA.map((t) => <li key={t}>{t}</li>)}
     </ul>
   );
-  const max = Math.max(...CASO_MESES.map((m) => m.valor));
   return (
     <section className="s-exito" id="caso" aria-label="Caso de éxito: Mauricio">
       <div className="s-caso-tira" data-tema-fijo="" aria-hidden="true">
@@ -251,25 +245,25 @@ function CasoSitio() {
           </div>
           <div className="s-caso-tx">
             <p className="s-caso-r">Caso de éxito</p>
-            <h2 className="s-caso-h">Con MaKo, Mauricio pasó de meses por debajo de US$10k a más de <em>US$100k vendidos.</em></h2>
-            <p className="s-caso-sub">Sin cambiar la oferta ni el funnel. Lo que cambió fue cómo decidía: con sus números, todos en un solo lugar.</p>
-            <ol className="s-caso-barras" aria-label="Lo que vendió Mauricio">
-              {CASO_MESES.map((m) => (
-                <li key={m.mes} data-antes={m.antes ? '' : undefined}>
-                  <span className="s-caso-barra" style={{ height: `${Math.round((m.valor / max) * 100)}%` }}><b>{m.rotulo}</b></span>
-                  <span className="s-caso-mes">{m.mes}</span>
-                </li>
-              ))}
-            </ol>
+            {/* El copy de siempre, el del caso de las landings (CASO, ../_competencia/marca.tsx), sin las barras de los meses (Martín,
+                16/11/2026: «eliminaría las gráficas de antes, abril, mayo, junio, y pondría exactamente el mismo copy que estaba antes»). */}
+            <h2 className="s-caso-h" dangerouslySetInnerHTML={{ __html: CASO.titulo }} />
+            <p className="s-caso-sub">{CASO.sub}</p>
+            {CASO.historia.map((h) => <p key={h} className="s-caso-p" dangerouslySetInnerHTML={{ __html: h }} />)}
           </div>
         </div>
-        <div className="s-caso-comp">
-          <div className="s-caso-col">
-            <p className="s-caso-col-t">Antes de MaKo</p>
+        {/* EL ANTES Y EL DESPUÉS, UNA SOLA TARJETA (Martín, 16/11/2026: «piensa mejor el antes y después… no me gusta mucho el diseño de
+            esa sección»): dos mitades con su número grande arriba, la de MaKo en el azul de la marca, y una flecha entre las dos. */}
+        <div className="s-caso-vs">
+          <div className="s-caso-lado s-caso-lado-antes">
+            <p className="s-caso-lado-t">Antes de MaKo</p>
+            <p className="s-caso-lado-n">Menos de US$10k<small>por mes</small></p>
             <ul>{CASO_ANTES.map((t) => <li key={t}><span className="s-caso-x" aria-hidden="true" />{t}</li>)}</ul>
           </div>
-          <div className="s-caso-col s-caso-col-mako">
-            <p className="s-caso-col-t">Con MaKo</p>
+          <span className="s-caso-flecha" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+          <div className="s-caso-lado s-caso-lado-mako">
+            <p className="s-caso-lado-t">Con MaKo</p>
+            <p className="s-caso-lado-n">Más de US$70k<small>en tres meses</small></p>
             <ul>{CASO_CON_MAKO.map((t) => <li key={t}><span className="s-caso-ok" aria-hidden="true" />{t}</li>)}</ul>
           </div>
         </div>
