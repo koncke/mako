@@ -1,5 +1,60 @@
 # Relevo del Cerebro
 
+## 16/11/2026, ~05:15 AST (09:15 UTC) — LEER PRIMERO (claude1 al 82 % semanal; se reinicia el 18/11 10:00 UTC)
+
+**Subido a punta/portada-brain-login (NO en producción todavía):** 39e976911 el sitio (Recursos, pie en todas las páginas, lo que
+ya pagas, logos, columnas = /planes) · b67174033 MaKo Accelerator (el formulario «Aplica ahora» en /accelerator/aplicar con su ruta
+POST /api/accelerator/aplicar, y la landing con el precio) · d95fbd2b8 funnels (Lead Magnet, Venta Directa, sin LinkedIn / Dos
+reuniones / DM funnel) · a0c6f23d6 checkout · cbb4d0431 cosecha · 354b78401 el rojo de la corrida 1456. Mirar la corrida que siguió
+(el vigía: `node "$HOME/.claude/guardia/vigia-ci.mjs" esperar`).
+
+**Corría al escribir esto** (si se cortó, retomar así): el workflow «arreglos-accelerator-sitio-checkout» (wf_facd2a8f-d08: los 17
+hallazgos de la revisión del formulario, el sitio y el checkout que pidió Martín —logo de Mercado Pago, «Lo que ya pagas» con el
+carrusel arriba, pie más bajo con WhatsApp, botón flotante de WhatsApp, Second Brain más épico, pesos/dólares según el medio de
+pago, las ✓ de signos.ts, el dólar blue diario— y una revisión); se retoma con Workflow({scriptPath, resumeFromRunId}). Y la cuarta
+vuelta de la MAQUETA del onboarding (un agente suelto; la maqueta vive en el scratchpad de la sesión 1513b896 y se publica en
+https://claude.ai/artifact/WAwWauFRGGNpTSNfdKUtuZ). NADA de eso está commiteado: al terminar, revisar, commitear por ruta y subir.
+
+**Artefactos para Martín:** sitio https://claude.ai/artifact/KGnfQnWAuiZ62qg9uioKZb · Accelerator con el formulario andando
+(autocompletar de vista previa) https://claude.ai/artifact/8tY2zQNguuzAYR2mbSMmdS · onboarding (maqueta)
+https://claude.ai/artifact/WAwWauFRGGNpTSNfdKUtuZ.
+
+**Esperan una decisión de Martín (preguntadas en el chat):**
+1. La prueba gratis repetida: (a, recomendada) una por persona cruzando email, WhatsApp confirmado y tarjeta / cuenta de Mercado
+   Pago; si ya tuvo, compra sin prueba (nunca se bloquea); la misma tarjeta puede dar una segunda prueba si email y WhatsApp son
+   otros; (b) una por tarjeta, sin excepción; (c) sólo email y WhatsApp.
+2. Los funnels del Funnel Coach: la propuesta de 10 (funnels-propuesta-16-11.md, en la carpeta de la sesión de Martín): Follow Me
+   Ads es nuevo, «Reels de Instagram a DM» reemplaza a «Instagram orgánico», y si «Facturando» del CRM cambia de nombre.
+
+**La cola, en este orden** (las decisiones de Martín están en la memoria: accelerator-aplicacion-16-11, onboarding-16-11-decisiones,
+funnels-crm-sin-linkedin-lead-magnet, precio-siempre-visible):
+1. **Checkout de verdad:** el logo REAL de Mercado Pago (recortado de una captura de Martín, con fondo transparente:
+   scratchpad/logo-mp/mercadopago-256.png y -96.png de la sesión 1513b896 → a public/), el pie en UNA línea con los logos de
+   Mercado Pago y Stripe en vez de sus nombres, el MISMO botón negro con Mercado Pago o con tarjeta, y la página de gracias
+   (/pagar/[token]/listo) rediseñada: «revisa tu correo y valida tu cuenta», con poco texto.
+2. **Accelerator, tercera tanda:** «La inversión» con lo que incluye adentro (el precio arriba, el dorado, las ✓ verdes; sin la
+   sección suelta del precio); sin «3 cuotas de US$ 500» en ningún lado («Sí, de contado» / «Sí, en cuotas»); Instagram y YouTube
+   en vez de «tu red social» (opcionales; ni TikTok ni LinkedIn), reusando la búsqueda de Competitor Spy; «¿ya tienes cuenta?» y su
+   email; la pantalla final SIEMPRE «reviso tu aplicación y te respondo en máximo 24 h» (nada de agenda automática) y después el
+   video de Martín con «Iniciar prueba gratuita de 7 días» / «Ya tengo cuenta»; el formulario sin el pie del sitio y la marca de
+   vuelta a /accelerator; el pie de /accelerator del color de la página; los 12 entregables con los textos de
+   docs/accelerator-entregables-con-mako.md (el #7 queda como está hasta que el setter reserve la llamada).
+3. **Las landings que faltan** (Martín: «replicando de la competencia como siempre», el método de docs/hallazgos-landing.md,
+   «Landings por función copiadas de la competencia»): Closing (rehacer /vsl/closing: hoy habla sólo de Fathom, de las dos
+   reuniones y tiene voseo), Classroom, Second Brain, Equipo, Calendario de contenido y tres funnels (anuncio con formulario,
+   venta directa, newsletter). La API pública NO es otra página: es la MISMA /api-mako abierta a quien no tiene sesión (la
+   referencia, sin claves ni pruebas; con sesión, lo de hoy).
+4. **Avisos al super admin cuando un proveedor se queda sin crédito** (Apify, ApiMart…), como el de WhatsApp desconectado. Apify
+   estaba sin crédito el 16/11 (dice Martín): Competitor Spy no busca hasta que lo recargue.
+5. **Lo que le falta a MaKo para que los entregables del Accelerator sean verdad** (12 tareas, con qué haría cada una, dónde vive
+   y su tamaño): docs/accelerator-entregables-con-mako.md, sección «Lo que hay que implementar». Martín: «déjalo ahí como tarea
+   para las próximas cuentas que sepan que lo deben hacer».
+
+**Lección de la noche** (docs/hallazgos-infra.md): a las 01:33 la PC se quedó sin memoria y se cerró el chat con 9 tareas vivas; el
+disparador probable fue un test con un nodo de jsdom en un `assert`. Con un chat largo, 2 o 3 agentes a la vez, y que miren pocas
+capturas.
+
+
 ## 14/11/2026, ~18:45 UTC — LEER PRIMERO (claude5 al 100%; Martín pasa a otra cuenta y escribe «Continua»)
 
 **Producción:** despliegue lanzado a las ~18:40 UTC con main = 0d86abb59 (dpl_8M2x6upnNnRJFRAaAeXxQAgbiH8Z), con la landing

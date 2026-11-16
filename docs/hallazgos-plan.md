@@ -12,6 +12,12 @@ verificá contra el código.** Las marcadas ⚠️ estaban vivas la última vez 
 
 La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
+## El Plan del cliente no deja asignarle una tarea a una persona de su equipo (16/11/2026, SIN HACER)
+
+- Lo encontró el repaso de los entregables del Accelerator («Delegation Framework: cada persona con sus tareas en tu plan»): el
+  Plan sólo sabe «Míos / De clientes / De terceros / Sin asignar», no «de tal persona del equipo». Para que el texto sea verdad
+  hace falta asignar una tarea a un miembro del equipo del negocio (los roles ya existen en app/equipo/EquipoView.tsx).
+
 ## El tablero del cliente no es toda la tabla: `listTareas` no filtraba (#507, 6/11/2026)
 
 **Síntoma:** el kanban del cliente le mostraba tareas de la Retro y pasos de experimentos mezclados con las suyas. La SPEC del

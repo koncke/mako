@@ -36,6 +36,17 @@ memoria `onboarding-16-11-decisiones`). Lo que no existe y hay que hacer:
   reto) y la instalación de la app de escritorio. Lo que queda abierto: que el contexto se guarde bien sin la app (la preocupación
   de Martín con los MaKo Tokens).
 
+- **El tutorial de la app (app/_ui/Recorrido.tsx), visto desde la maqueta del 16/11**: una ✕ dentro de la tarjeta no recibe el
+  clic si no lleva `z-index` (`.mk-rec__cuerpo` la tapa); si el tutorial mide mientras la barra lateral entra deslizándose, la
+  tarjeta queda corrida (hay que volver a medir al terminar la animación); y «Siguiente» ignora sin avisar los toques a menos de
+  250 ms: en la prueba parecía que el recorrido «no se pausaba», y el diagnóstico obvio era el equivocado.
+- **Una imagen en data URI dentro de un mensaje se copia en cada mensaje** (96 KB cada uno en la maqueta): una sola vez en un
+  `<symbol>` y cada mensaje con `<use>`.
+- **La propuesta de funnels del Funnel Coach** (10, del más probable al menos, con sus pasos en palabras simples y lo que el coach
+  pregunta antes de aceptar uno) espera el OK de Martín; el catálogo del CRM (`lib/pipeline.ts`) no se toca sin él. Abiertos:
+  Follow Me Ads no tiene tipo en el CRM; «Reels de Instagram a DM» reemplazaría a «Instagram orgánico»; «Facturando» sigue siendo
+  una etapa del CRM (`lib/pipeline.ts:73`).
+
 ## El estado del wizard (`lib/onboarding-state.ts`)
 
 ### El paso `productos` no existe en el estado, y el error no se ve

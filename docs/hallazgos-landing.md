@@ -131,6 +131,23 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   está en todos los planes de Calendly), `guests=` para el socio cuando contesta «necesito consultar», `utm_term` para unir la
   reserva con la aplicación, y el píxel de Meta (ni la landing ni el formulario miden Schedule ni Lead).
 
+## Los entregables del Accelerator contados con MaKo, y la /vsl/closing vieja (16/11/2026)
+
+- **Martín: cada entregable de /accelerator se cuenta con lo que MaKo hace, y lo que todavía no hace se escribe como hecho** y se
+  implementa después. El repaso (los 12, con su pantalla y su archivo, lo que falta y la lista para implementar) está en
+  accelerator-entregables-con-mako-16-11.md, en la carpeta de la sesión de Martín, fuera del repo. Lo que más pesa: Communication
+  Angles ya está casi entero en Marketing CoPilot › Oferta y comunicación › Ángulos; el análisis de llamadas existe (transcribe,
+  analiza SPIN y objeciones), pero «Closing Script» y «Sales Roleplay» son pantallas «pronto» sin nada detrás.
+- **Las tarjetas las ata tests/acelerador-landing.test.ts**: entre 80 y 150 caracteres, sin voseo ni «1:1», «garantía», «mi
+  equipo», «sin tope» o «recurrentes», y con «setter con IA» (#7), «tablero de resultados» (#10) y «análisis de llamadas» (#11).
+  El #7 dice «le manda tu agenda para que elija el horario» porque el setter NO reserva la llamada (lib/flujo-ia.ts): el texto
+  cambia en el mismo commit en que se implemente la reserva.
+- **/vsl/closing es una landing vieja**: sólo habla de Fathom, menciona las dos reuniones que se sacaron el 16/11, tiene voseo en
+  el titular y recuadros en vez de la app; está fuera del menú y sin fila en la portada, pero la enlazan las páginas de los
+  funnels de VSL y de YouTube. SIN HACER: rehacerla con el análisis de llamadas y sumarla al menú «Sales».
+- **Landings que faltan de funciones que MaKo ya tiene**: Closing (rehacer), Classroom (curso y comunidad), Second Brain, Equipo,
+  Calendario de contenido, la API (pública) y 3 de los 7 funnels (Anuncio con formulario, Venta directa, Newsletter).
+
 ## El sol y la luna de la portada tomaba las columnas de /planes por el LOGO: el arreglo de la mañana era el síntoma (15/11/2026)
 
 **Vive en:** `app/vsl/_competencia/TemaSitio.tsx` (el selector del logo, en `fuera` y en `llevarAlModo`) y `app/planes/Tarjetas.tsx`
