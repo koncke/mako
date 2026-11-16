@@ -8,6 +8,8 @@ POST /api/accelerator/aplicar, y la landing con el precio) · d95fbd2b8 funnels 
 reuniones / DM funnel) · a0c6f23d6 checkout · cbb4d0431 cosecha · 354b78401 el rojo de la corrida 1456. Mirar la corrida que siguió
 (el vigía: `node "$HOME/.claude/guardia/vigia-ci.mjs" esperar`).
 
+**ACTUALIZACIÓN ~06:30 AST:** la tanda «arreglos-accelerator-sitio-checkout» TERMINÓ (sus informes y la revisión con 10 hallazgos: scratchpad/arreglos-16-11/ de la sesión 1513b896) y la maqueta va por la cuarta vuelta (publicada). Todo lo de esa tanda sigue SIN commitear en el worktree (es la base de la que sigue). Corre ahora «checkout-accelerator-ronda-3» (wf_c88c5b24-8a7): los 10 hallazgos (el freno del blue primero: es plata), el checkout que pidió Martín (el logo REAL de Mercado Pago, el pie en una línea con logos, el mismo botón negro, la página de gracias «revisa tu correo», la prueba gratis por email + WhatsApp con aviso por nombre + negocio) y la tercera tanda del Accelerator (los puntos 2 de la cola). Al terminar: revisar, commitear TODO por ruta, subir. Después, la cola 3 a 5.
+
 **Corría al escribir esto** (si se cortó, retomar así): el workflow «arreglos-accelerator-sitio-checkout» (wf_facd2a8f-d08: los 17
 hallazgos de la revisión del formulario, el sitio y el checkout que pidió Martín —logo de Mercado Pago, «Lo que ya pagas» con el
 carrusel arriba, pie más bajo con WhatsApp, botón flotante de WhatsApp, Second Brain más épico, pesos/dólares según el medio de
@@ -20,9 +22,10 @@ https://claude.ai/artifact/WAwWauFRGGNpTSNfdKUtuZ). NADA de eso está commiteado
 https://claude.ai/artifact/WAwWauFRGGNpTSNfdKUtuZ.
 
 **Esperan una decisión de Martín (preguntadas en el chat):**
-1. La prueba gratis repetida: (a, recomendada) una por persona cruzando email, WhatsApp confirmado y tarjeta / cuenta de Mercado
-   Pago; si ya tuvo, compra sin prueba (nunca se bloquea); la misma tarjeta puede dar una segunda prueba si email y WhatsApp son
-   otros; (b) una por tarjeta, sin excepción; (c) sólo email y WhatsApp.
+1. ~~La prueba gratis repetida~~ DECIDIDO (16/11, ~05:30): la (c), SÓLO email y WhatsApp, sin mirar la tarjeta (memoria
+   prueba-gratis-una-por-persona). Va a la cola: el corte por email ya existe; falta el WhatsApp en el checkout y el aviso al super
+   admin cuando el onboarding confirma un WhatsApp, o un nombre + negocio, que ya tuvo prueba en otra cuenta (Martín: «también
+   podríamos agregar ahí por nombre y negocio»; el nombre solo no, por los homónimos).
 2. Los funnels del Funnel Coach: la propuesta de 10 (funnels-propuesta-16-11.md, en la carpeta de la sesión de Martín): Follow Me
    Ads es nuevo, «Reels de Instagram a DM» reemplaza a «Instagram orgánico», y si «Facturando» del CRM cambia de nombre.
 
