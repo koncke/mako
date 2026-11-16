@@ -10,6 +10,24 @@ reuniones / DM funnel) · a0c6f23d6 checkout · cbb4d0431 cosecha · 354b78401 e
 
 **~08:45 AST: corre «landings-que-faltan» (wf_0902e6bb-000)**, de a dos: Closing (rehacer /vsl/closing) y los tres funnels + la API pública (la misma /api-mako abierta); después Classroom + Second Brain y Equipo + Calendario; y una revisión. Nada commiteado todavía: si se corta, retomar con Workflow({scriptPath, resumeFromRunId}) (lo terminado vuelve del caché) y commitear por ruta.
 
+**ACTUALIZACIÓN ~14:50 AST (18:50 UTC), claude1 al 98 % — LEER PRIMERO:** subido hasta d8025cace y los dos artefactos al día (Sitio de
+MaKo https://claude.ai/artifact/KGnfQnWAuiZ62qg9uioKZb, armado con scratchpad/acelerador-artefacto/dibujar-portada.tsx desde
+C:/dev/vista-main + sitio-artefacto/empaquetar-brain.mjs; Accelerator https://claude.ai/artifact/8tY2zQNguuzAYR2mbSMmdS). Martín pidió NO
+usar multiagentes para feedback. **QUEDA, pedido por Martín (16/11 ~18:40 UTC), en este orden:**
+1. **La animación de Closing, «antes y después»** (eligió esa): dos llamadas del MISMO closer, la nota sube de una a otra y se ve qué
+   cambió (las barras de SPIN, la objeción que antes no respondía, el consejo que siguió). Análisis REAL del Closing Analyst; falta que
+   Martín elija la fuente: dos llamadas públicas de Hormozi (un antes y un después) o dos de prueba que grabe con la Grabadora. Reemplaza
+   los recuadros FaltaAnimacion de la fila de Closing (app/vsl/_sitio/datos.ts), /vsl/closing y la fila de coaching de /vsl/equipo.
+2. **La fila de Equipo de la portada**: «no quiero ver un formulario… imágenes de personas o como si fuera un organigrama… que se vea
+   lindo». Hoy es la grabación de invitar a una closer (public/vsl-assets/sitio/equipo.webm). Va un organigrama bien diseñado: el dueño
+   arriba y setters y closers con su rol (los roles de app/equipo/page.tsx). Preguntarle de dónde salen las fotos (nada de clientes).
+3. **El caso de Mauricio de la PORTADA** (CasoSitio, app/vsl/_sitio/Portada.tsx): sin las gráficas de Antes/Abril/Mayo/Junio
+   (CASO_MESES), con «exactamente el mismo copy que estaba antes» (el del caso original de las landings: CASO en
+   app/vsl/_competencia/marca.tsx), y REDISEÑAR el «Antes de MaKo / Con MaKo» (s-caso-comp): «no me gusta mucho el diseño de esa sección».
+4. **El caso de Mauricio del ACCELERATOR**: ya con los US$ 100.000 en el título y el texto corto (d8025cace), pero del título a «No existe
+   ningún método estándar» siguen 1.314 px a 1440 (el video vertical y el carrusel de fotos): achicarlo.
+Esperan a Martín: «MaKo Esencial» → «MaKo Essential» (sale de la configuración de producción) y desplegar ya o esperar al de las 11:05 UTC.
+
 **ACTUALIZACIÓN ~14:30 AST (18:30 UTC), claude1 al 97 % — LEER PRIMERO:** subido hasta ae45700d5 (la portada con todos los bloques
 del MISMO tamaño —el Brain y el VSL como las filas—, el globito del WhatsApp a la vista con su X, el pie sin el lema con el logo abajo a
 la derecha y el contacto debajo de Legal; el Accelerator con el precio al costado del botón y la tira de los 12 entregables). Los dos
