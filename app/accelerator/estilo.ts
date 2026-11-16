@@ -298,7 +298,15 @@ export const CSS_INVERSION = `
 .acl-inversion { position: relative; margin-top: 0; border: 1.5px solid rgba(245,196,81,.28); border-radius: 22px; overflow: hidden; padding: 40px 40px 38px;
   background: radial-gradient(900px 380px at 100% 0%, rgba(245,196,81,.15), transparent 60%), linear-gradient(180deg, #1a1a1d 0%, #131316 100%);
   box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 22px 50px -28px rgba(0,0,0,.6); }
-.acl-inversion-cabeza { display: flex; align-items: center; flex-wrap: wrap; gap: 24px 48px; padding-bottom: 30px; border-bottom: 1px solid var(--acl-line); }
+/* «APLICA AHORA» EN EL RENGLÓN DEL 1.500 (Martín, 16/11/2026: «tendría que estar alineado al 1500. No importa si abajo queda por los
+   3 meses»): una grilla de dos renglones; el número y el botón en el primero, centrados entre sí, y debajo del número cuánto dura.
+   El precio va con display: contents para que el número y el período sean celdas de la grilla. */
+.acl-inversion-cabeza { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 40px; row-gap: 8px; align-items: center; padding-bottom: 30px; border-bottom: 1px solid var(--acl-line); }
+.acl-inversion-cabeza > .acl-inversion-nombre { grid-column: 1; grid-row: 1 / span 2; }
+.acl-inversion-cabeza > .acl-inversion-precio { display: contents; }
+.acl-inversion-cabeza .acl-inversion-monto { grid-column: 2; grid-row: 1; text-align: right; }
+.acl-inversion-cabeza .acl-inversion-periodo { grid-column: 2; grid-row: 2; margin-top: 0; text-align: right; }
+.acl-root .acl-inversion-cabeza > .acl-btn-oro { grid-column: 3; grid-row: 1; align-self: center; }
 .acl-inversion-nombre { flex: 1 1 260px; min-width: 0; }
 .acl-root .acl-inversion .acl-lbl { color: #F5C451; }
 .acl-root .acl-inversion h3 { margin-top: 10px; font-family: var(--acl-sans); font-weight: 800; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -.02em; line-height: 1.1; color: #fff; }
@@ -315,7 +323,9 @@ export const CSS_INVERSION = `
   .acl-inversion-s { position: relative; z-index: 91; background: var(--acl-bg); }
   .acl-inversion { padding: 30px 22px 28px; }
   /* Una columna, toda centrada: la ceja y el nombre arriba, y el bloque del precio con el botón a todo el ancho de la tarjeta. */
-  .acl-inversion-cabeza { flex-direction: column; align-items: stretch; gap: 22px; padding-bottom: 24px; }
+  .acl-inversion-cabeza { display: flex; flex-direction: column; align-items: stretch; gap: 22px; padding-bottom: 24px; }
+  .acl-inversion-cabeza > .acl-inversion-precio { display: block; }
+  .acl-inversion-cabeza .acl-inversion-periodo { margin-top: 8px; }
   .acl-inversion-nombre { flex: none; text-align: center; }
   .acl-inversion-precio { text-align: center; }
   .acl-root .acl-inversion .acl-btn-oro { display: block; }

@@ -64,8 +64,10 @@ body:has(.d-offer-video.d-offer-flota) .mk-wa-flota{bottom:calc(192px + ${AIRE}p
    entra al segundo y se queda; la X lo cierra y queda cerrado en este navegador (mako.wa.globo, SCRIPT_GLOBO); cerrado, vuelve
    sólo mientras el mouse pasa por el botón. Va adentro del botón, así lo sigue a donde lo suban las reglas de arriba. */
 .mk-wa-globo{position:absolute;right:calc(100% + 12px);top:50%;white-space:nowrap;padding:10px 14px;border-radius:14px;background:#fff;color:#12151B;font:600 14px/18px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;box-shadow:0 10px 28px rgba(0,0,0,.22),0 1px 3px rgba(0,0,0,.12);opacity:1;transform:translateY(-50%);animation:mk-wa-globo-entra .4s 1s both}
-.mk-wa-globo-x{position:absolute;top:-9px;left:-9px;width:22px;height:22px;border-radius:50%;background:#12151B;color:#fff;font:700 13px/22px system-ui,sans-serif;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer}
-.mk-wa-globo-x:hover{background:#2F6FED}
+/* La X: un ícono dibujado (la letra «×» no queda en el centro: su caja depende de la fuente) y centrado con flex; en rojo (Martín). */
+.mk-wa-globo-x{position:absolute;top:-9px;left:-9px;width:22px;height:22px;border-radius:50%;background:#E5484D;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer}
+.mk-wa-globo-x svg{display:block}
+.mk-wa-globo-x:hover{background:#C93C40}
 html.mk-wa-cerrado .mk-wa-globo{opacity:0;pointer-events:none;animation:none}
 html.mk-wa-cerrado .mk-wa-globo-x{display:none}
 .mk-wa-globo b{font-weight:700;color:#128C3E}
@@ -86,8 +88,8 @@ export function WhatsappFlotante() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS_WHATSAPP_FLOTANTE }} />
-      <a className="mk-wa-flota" href={linkWhatsappMako()} target="_blank" rel="noopener noreferrer" aria-label="Escríbenos por WhatsApp" title="Escríbenos por WhatsApp" data-tema-fijo="">{glifo}<span className="mk-wa-globo" aria-hidden="true"><span className="mk-wa-globo-x" data-wa-cerrar="" title="Cerrar">×</span>¿Tienes una pregunta? <b>Escríbenos</b></span></a>
-      <a className="mk-wa-flota mk-wa-martin" href={linkWhatsappMako(MENSAJE_WHATSAPP_ACCELERATOR)} target="_blank" rel="noopener noreferrer" aria-label="Escríbeme por WhatsApp" title="Escríbeme por WhatsApp" data-tema-fijo="">{glifo}<span className="mk-wa-globo" aria-hidden="true"><span className="mk-wa-globo-x" data-wa-cerrar="" title="Cerrar">×</span>¿Tienes una pregunta? <b>Escríbeme</b></span></a>
+      <a className="mk-wa-flota" href={linkWhatsappMako()} target="_blank" rel="noopener noreferrer" aria-label="Escríbenos por WhatsApp" title="Escríbenos por WhatsApp" data-tema-fijo="">{glifo}<span className="mk-wa-globo" aria-hidden="true"><span className="mk-wa-globo-x" data-wa-cerrar="" title="Cerrar"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" /></svg></span>¿Tienes una pregunta? <b>Escríbenos</b></span></a>
+      <a className="mk-wa-flota mk-wa-martin" href={linkWhatsappMako(MENSAJE_WHATSAPP_ACCELERATOR)} target="_blank" rel="noopener noreferrer" aria-label="Escríbeme por WhatsApp" title="Escríbeme por WhatsApp" data-tema-fijo="">{glifo}<span className="mk-wa-globo" aria-hidden="true"><span className="mk-wa-globo-x" data-wa-cerrar="" title="Cerrar"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" /></svg></span>¿Tienes una pregunta? <b>Escríbeme</b></span></a>
       <script dangerouslySetInnerHTML={{ __html: SCRIPT_GLOBO }} />
     </>
   );

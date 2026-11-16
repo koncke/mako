@@ -164,7 +164,7 @@ export function BrainVivo() {
       <style>{CSS}</style>
       <div style={{ width: '100%', height: '100%' }}>
         {/* El flote quieto, espaciado (`floteCada`, ver el cuidado 5): 20 cuadros por segundo en la computadora (un cuadro cada 50 ms) y quieto en el teléfono. */}
-        {monta ? <Grafo filtro={filtro} onFiltro={setFiltro} movil={angosto} floteCada={angosto ? FLOTE_TELEFONO_MS : FLOTE_COMPUTADORA_MS} /> : null}
+        {monta ? <Grafo filtro={filtro} onFiltro={setFiltro} movil={angosto} floteCada={angosto ? FLOTE_TELEFONO_MS : FLOTE_COMPUTADORA_MS} titulosPrincipales /> : null}
       </div>
       {monta ? null : (
         <div className="s-brain-cartel">

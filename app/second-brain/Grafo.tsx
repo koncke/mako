@@ -137,7 +137,7 @@ function hashDe(id: string): number {
   return h >>> 0;
 }
 
-export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFiltro, accion, movil = false, alCerrar, lateral, floteCada }: {
+export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFiltro, accion, movil = false, alCerrar, lateral, floteCada, titulosPrincipales = false }: {
   /** El grafo, con su taxonomía (sin ella, la del negocio). El de la construcción de MaKo trae la suya. */
   cerebro: Cerebro<string>;
   /** Abre el EDITOR de un área en una caja encima del grafo (VistaCerebro → AreasHub). Sólo con una intención
@@ -172,6 +172,13 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
    * Sólo se espacia el flote QUIETO: la entrada, un arrastre, un deslizamiento y un viajero siguen a cada cuadro.
    */
   floteCada?: number;
+  /**
+   * LOS TÍTULOS PRINCIPALES A LA VISTA (16/11/2026, la portada: «no se nota que es un Second Brain si no aparecen los títulos…
+   * sí los principales»). En una caja chica casi todas las etiquetas chocan y se descartan. Con esto, las cinco madre se dibujan
+   * SIEMPRE (sin descarte por choque, y reservan su lugar) y las áreas entran sin el umbral de zoom (siguen por choque). Sin la
+   * prop, como siempre.
+   */
+  titulosPrincipales?: boolean;
 }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
   /** LA TAXONOMÍA de este grafo: la del negocio o, para el super admin, las dos capas juntas (el negocio y la
@@ -475,7 +482,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
       // lo que pidió — «si haces zoom out vayan desapareciendo títulos y queden los más
       // importantes». Con el umbral en 1,35 el nivel 3 no aparecía nunca al encuadre y
       // el mapa arrancaba con 13 nombres de 72.
-      if (n === 2) return z >= 0.5;     // se van al alejarse a la mitad
+      if (n === 2) return titulosPrincipales || z >= 0.5;     // se van al alejarse a la mitad (en la portada, nunca)
       return z >= 0.92;                 // los datos, apenas uno se aleja
     };
     // Sobre los que PASAN el filtro, no sobre todos: antes una etiqueta que había
@@ -496,7 +503,9 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
       const ancho = Math.min(n.etiqueta.length, 34) * alto * 0.58 + alto * 0.6;
       const y0 = p.y + radioNodo(grados[n.id] ?? 0) + 6 / Math.sqrt(kPaso);
       const c = { x0: p.x - ancho / 2, x1: p.x + ancho / 2, y0: y0 - alto * 0.2, y1: y0 + alto * 1.55 };
-      if (cajas.some((b) => c.x0 < b.x1 && c.x1 > b.x0 && c.y0 < b.y1 && c.y1 > b.y0)) continue;
+      // Una madre con `titulosPrincipales` no se descarta: reserva su caja y las demás la esquivan.
+      const fija = titulosPrincipales && nivelDe(n.id) === 1;
+      if (!fija && cajas.some((b) => c.x0 < b.x1 && c.x1 > b.x0 && c.y0 < b.y1 && c.y1 > b.y0)) continue;
       // ⚠️ Y TAMPOCO PUEDE TAPAR EL PUNTO DE OTRO NODO. Esto no importaba mientras la
       // etiqueta era decorativa; desde que es CLICABLE, una que cae encima del círculo
       // del vecino le roba el click y abre un dato que nadie quiso abrir — que es
@@ -509,12 +518,12 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
         const r = radioNodo(grados[otro.id] ?? 0);
         return q.x + r > c.x0 && q.x - r < c.x1 && q.y + r > c.y0 && q.y - r < c.y1;
       });
-      if (tapaUnPunto) continue;
+      if (tapaUnPunto && !fija) continue;
       cajas.push(c);
       ok.add(n.id);
     }
     return ok;
-  }, [nodos, posiciones, grados, kPaso, uEstado, zoomPct, visible, filtro, busca, campos, ia.ids]);
+  }, [nodos, posiciones, grados, kPaso, uEstado, zoomPct, visible, filtro, busca, campos, ia.ids, titulosPrincipales]);
 
   const radioMundo = useCallback((n: NodoCerebro) => radioNodo(grados[n.id] ?? 0), [grados]);
   const kr = Math.sqrt(kPaso);

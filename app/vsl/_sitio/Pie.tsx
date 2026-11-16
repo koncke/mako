@@ -93,13 +93,19 @@ export function Pie({ claro = false }: { claro?: boolean }) {
               <div key={c.titulo} className="s-pie-col">
                 <p className="s-pie-h">{c.titulo}</p>
                 <Links links={c.links} />
-                {/* El email y el WhatsApp, en el hueco que quedaba debajo de Legal (la última columna). */}
-                {i === columnas.length - 1 ? <><p className="s-pie-h s-pie-h-contacto">Contacto</p><Contacto corto /></> : null}
               </div>,
               ...(c.sub ? [
                 <div key={c.sub.titulo} className="s-pie-col">
                   <p className="s-pie-h">{c.sub.titulo}</p>
                   <Links links={c.sub.links} />
+                </div>,
+              ] : []),
+              // El contacto, SU columna al costado de Legal (Martín, 16/11/2026: «no debajo de legal, sino al costado… para que no sea más
+              // alta»).
+              ...(i === columnas.length - 1 ? [
+                <div key="contacto" className="s-pie-col">
+                  <p className="s-pie-h">Contacto</p>
+                  <Contacto corto />
                 </div>,
               ] : []),
             ])}

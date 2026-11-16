@@ -123,10 +123,11 @@ test('«Y en las tres fases, siempre» no vuelve: de los entregables (y su tira)
   }
   assert.doesNotMatch(html, /acl-siempre|class="acl-ac"/, 'volvieron las tarjetas (o su lugar) de «Y en las tres fases, siempre»');
   assert.equal('siempre' in PROGRAMA || 'siempreTitulo' in PROGRAMA, false, 'el texto de «Y en las tres fases, siempre» sigue en ./contenido.ts');
-  // DIRECTO AL PRECIO: entre el último entregable y «La inversión» sólo va la tira de las apps que MaKo reemplaza.
+  // DIRECTO AL PRECIO: entre el último entregable y «La inversión» sólo va una tira (desde el 16/11 ~18:20 UTC, la de las apps con las
+  // que se conecta: Martín pidió ese orden de las tres).
   const entre = html.slice(html.indexOf('Entregable #12:'), html.indexOf('<section class="acl-sec acl-inversion-s"'));
   assert.ok(entre.length > 0, 'el entregable #12 no va antes de «La inversión»');
-  assert.deepEqual([...entre.matchAll(/<(h[1-6]|section)\b[^>]*>/g)].map((m) => m[0]), ['<section class="s-tira s-tira-reemplaza" aria-label="Apps que MaKo reemplaza">'],
+  assert.deepEqual([...entre.matchAll(/<(h[1-6]|section)\b[^>]*>/g)].map((m) => m[0]), ['<section class="s-tira" aria-label="Apps con las que se conecta">'],
     'entre los entregables y el precio hay otra cosa además de la tira');
   // LO QUE DECÍA LA TARJETA DEL ACOMPAÑAMIENTO (cuántas sesiones 1 a 1, de cuántas horas, la asesoría grupal de cada semana y el
   // WhatsApp personal) lo dice ahora sólo la lista que la página muestra, IMPORTADA: y esa lista dice lo mismo que el contrato.
@@ -481,7 +482,9 @@ test('la página vive donde lleva el «Más información» de /planes, es públi
   }
 });
 
-test('las tiras de la portada separan las secciones: las apps con las que se conecta, después de los casos; las que reemplaza, después de los entregables', async () => {
+test('las tiras separan las secciones: primero las que reemplaza, después los 12 entregables, y al final las apps con las que se conecta', async () => {
+  // El orden, de Martín (16/11/2026, ~18:20 UTC): «el primero sea MaKo reemplaza las apps que ya estás pagando, que el segundo sea
+  // los 12 entregables del programa y que el tercero sea funciona con las apps que ya usas».
   // Martín, 16/11/2026: «tal vez faltan los carruseles de las cositas que tenemos en MaKo para separar las secciones. Sobre todo, la
   // sección de donde se terminan los testimonios, que el último es de Social Media Lab, y luego la sección donde se terminan los
   // entregables».
@@ -510,7 +513,8 @@ test('las tiras de la portada separan las secciones: las apps con las que se con
   const t = texto(html);
   const en = (s: string) => t.indexOf(s);
   assert.match(RESULTADOS.casos[RESULTADOS.casos.length - 1].nombre, /^Social Media Lab\b/, 'el último caso ya no es Social Media Lab: ¿la tira sigue donde Martín la pidió?');
-  const orden = [RESULTADOS.casos[RESULTADOS.casos.length - 1].nombre, RESULTADOS.metodologia, 'Funciona con las apps que ya usas', PROGRAMA.titulo, 'Entregable #12:', ROTULO_REEMPLAZA, `La inversión ${PROGRAMA_ACELERADOR.nombre}`];
+  const { APLICAR } = await import('../app/accelerator/contenido');
+  const orden = [APLICAR.titulo, ROTULO_REEMPLAZA, RESULTADOS.casos[RESULTADOS.casos.length - 1].nombre, RESULTADOS.metodologia, 'Los 12 entregables del programa', PROGRAMA.titulo, 'Entregable #12:', 'Funciona con las apps que ya usas', `La inversión ${PROGRAMA_ACELERADOR.nombre}`];
   assert.deepEqual(orden.map(en).map((i, k, l) => i >= 0 && (k === 0 || i > l[k - 1])), orden.map(() => true), `las tiras no van donde Martín las pidió: ${orden.map((s) => `${s.slice(0, 24)}@${en(s)}`).join(' · ')}`);
   assert.equal((html.match(/<div class="s-sitio acl-tira">/g) ?? []).length, 3, 'cada tira, en su caja del sitio (la de los entregables, las apps que conecta y las que reemplaza)');
   // EL CSS: el de la portada (`CSS_REEMPLAZA`) y, después, lo que lo acomoda a esta página (sin el fondo azul noche ni el alto de
@@ -530,17 +534,23 @@ test('«La inversión»: el precio a un costado y «Aplica ahora» al otro, cent
   assert.ok(bloque.includes(`<div class="acl-inversion-precio"><div class="acl-inversion-monto">US$ ${pr.precioUsd.toLocaleString('es-AR')}</div><div class="acl-inversion-periodo">${pr.periodo}</div></div><a href="/accelerator/aplicar" class="acl-btn acl-btn-oro">`), 'el precio y el botón no van uno al costado del otro');
   assert.ok(!bloque.includes('acl-inversion-compra'), 'volvió el bloque apilado');
   const regla = (sel: string) => CSS_INVERSION.match(new RegExp(`(?:^|\\n)${escapar(sel)} \\{([^}]*)\\}`))?.[1] ?? '';
-  assert.match(regla('.acl-inversion-cabeza'), /display: flex; align-items: center;/, 'el precio y el botón no están centrados en el mismo eje');
+  // «Aplica ahora» en el renglón del 1.500 (Martín: «tendría que estar alineado al 1500. No importa si abajo queda por los 3 meses»).
+  assert.match(regla('.acl-inversion-cabeza'), /display: grid; grid-template-columns: minmax\(0, 1fr\) auto auto;[^}]*align-items: center;/, 'la cabeza ya no es la grilla de dos renglones');
+  assert.match(CSS_INVERSION, /\.acl-inversion-cabeza \.acl-inversion-monto \{ grid-column: 2; grid-row: 1;/);
+  assert.match(CSS_INVERSION, /\.acl-root \.acl-inversion-cabeza > \.acl-btn-oro \{ grid-column: 3; grid-row: 1; align-self: center; \}/, '«Aplica ahora» no está en el renglón del 1.500');
+  assert.match(CSS_INVERSION, /\.acl-inversion-cabeza \.acl-inversion-periodo \{ grid-column: 2; grid-row: 2;/, '«por los 3 meses» no va debajo del número');
 });
 
-test('debajo de «Para trabajar conmigo…», la tira de los 12 entregables (no la de las apps)', async () => {
+test('la tira de los 12 entregables del programa (no de apps): debajo de «Para trabajar conmigo…» va la de lo que MaKo reemplaza', async () => {
   // Martín, 16/11/2026, ~17:50 UTC: «agregaría también un carrusel debajo de la primera sección… no me gustaría que sean todos como
   // funciona con las apps que ya usas, porque estamos en la landing de Accelerator».
   const { PROGRAMA } = await import('../app/accelerator/contenido');
   const html = await pagina();
   // Se buscan las etiquetas, no los nombres: el CSS de la página (arriba de todo) también los nombra.
-  const i = html.indexOf('class="acl-sec acl-final acl-tras-heroe"'), j = html.indexOf('class="s-tira acl-tira-entregables"'), k = html.indexOf('class="acl-sec acl-mau-s"');
-  assert.ok(i >= 0 && j > i && j < k, 'la tira de los entregables no va entre la primera sección y el caso de Mauricio');
+  const i = html.indexOf('class="acl-sec acl-final acl-tras-heroe"'), r = html.indexOf('class="s-tira s-tira-reemplaza"'), k = html.indexOf('class="acl-sec acl-mau-s"');
+  assert.ok(i >= 0 && r > i && r < k, 'la tira de lo que MaKo reemplaza no va entre la primera sección y el caso de Mauricio');
+  const j = html.indexOf('class="s-tira acl-tira-entregables"');
+  assert.ok(j > k, 'la tira de los entregables no va después del caso de Mauricio');
   const nombres = PROGRAMA.fases.flatMap((f) => f.entregables.map((e) => e.nombre));
   assert.equal(nombres.length, 12);
   const tira = html.slice(j, html.indexOf('</section>', j));

@@ -76,6 +76,13 @@ test('3. que no pese: el negocio entra CON el grafo, cuando la fila se ve, y el 
 test('4. que no trabe: el flote quieto se espacia en la portada, y el grafo de la app (sin la prop) sigue a cada cuadro', () => {
   const brain = sinComentarios(leer('app/vsl/_sitio/BrainVivo.tsx'));
   assert.match(brain, /floteCada=\{angosto \? FLOTE_TELEFONO_MS : FLOTE_COMPUTADORA_MS\}/);
+  // Los títulos principales a la vista en la caja de la portada (Martín, 16/11/2026: «no se nota que es un Second Brain si no
+  // aparecen los títulos… sí los principales»): las madre sin descarte y las áreas sin umbral de zoom; el grafo de la app, igual.
+  assert.match(brain, /floteCada=\{angosto \? FLOTE_TELEFONO_MS : FLOTE_COMPUTADORA_MS\} titulosPrincipales \/>/);
+  const g = leer('app/second-brain/Grafo.tsx');
+  assert.match(g, /titulosPrincipales = false \}/, 'sin la prop, el grafo de la app tiene que descartar como siempre');
+  assert.match(g, /const fija = titulosPrincipales && nivelDe\(n\.id\) === 1;/);
+  assert.match(g, /if \(n === 2\) return titulosPrincipales \|\| z >= 0\.5;/);
   assert.match(brain, /export const FLOTE_TELEFONO_MS = Number\.POSITIVE_INFINITY;/, 'el teléfono volvió a flotar: con 200 nodos se cae a 24 cuadros por segundo');
   const pc = Number(/export const FLOTE_COMPUTADORA_MS = (\d+);/.exec(brain)?.[1]);
   assert.ok(pc >= 33 && pc <= 100, `la computadora repinta el flote cada ${pc} ms`);

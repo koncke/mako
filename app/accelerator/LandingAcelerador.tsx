@@ -148,7 +148,10 @@ export function LandingAcelerador({ origen = null }: {
             <div className="acl-sec-div" />
           </div>
         </section>
-        <TiraEntregables />
+        {/* LAS TIRAS, EN ESTE ORDEN (Martín, 16/11/2026: «el primero sea MaKo reemplaza las apps que ya estás pagando, que el segundo
+            sea los 12 entregables del programa y que el tercero sea funciona con las apps que ya usas»): ésta, después de la
+            primera sección; los entregables, después de los casos; las apps que se conectan, antes de «La inversión». */}
+        <TiraEntreSecciones cual="reemplaza" />
 
         {/* El tramo de la barra de abajo del teléfono: del caso de Mauricio al «¿Es para ti?». La sección de aplicar va JUSTO
             después y le pasa por encima (./estilo.ts, `.acl-tramo + .acl-final`). */}
@@ -230,7 +233,7 @@ export function LandingAcelerador({ origen = null }: {
           {/* LAS TIRAS DE LA PORTADA, PARA SEPARAR (16/11/2026, Martín: «faltan los carruseles… para separar las secciones. Sobre todo,
               la sección de donde se terminan los testimonios, que el último es de Social Media Lab, y luego la sección donde se
               terminan los entregables»): ésta, la de las apps con las que se conecta MaKo; la otra, después de los entregables. */}
-          <TiraEntreSecciones cual="conecta" />
+          <TiraEntregables />
 
           <section className="acl-sec">
             <div className="acl-wrap">
@@ -268,7 +271,7 @@ export function LandingAcelerador({ origen = null }: {
 
           {/* Después de los entregables, la tira de las apps que MaKo reemplaza, y directo el precio: «Y en las tres fases,
               siempre» se fue (16/11/2026, Martín: «todo eso lo eliminaría para directamente el precio»). */}
-          <TiraEntreSecciones cual="reemplaza" />
+          <TiraEntreSecciones cual="conecta" />
 
           {/* LA INVERSIÓN (16/11/2026, a la tarde). Martín: «me gustaría que la inversión como tal no exista, sino que esté todo dentro
               de lo que incluye MaKo Accelerator. Y me gustaría que esa parte de lo que incluye se llame la inversión… no me gusta de

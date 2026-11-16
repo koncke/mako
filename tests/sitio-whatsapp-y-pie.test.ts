@@ -84,7 +84,8 @@ test('2. el pie: el contacto con el email Y el WhatsApp, a la vista; y las misma
     assert.equal((pliegues.match(/<details class="s-pie-pliegue"><summary>/g) ?? []).length, columnasDelPie().length);
     // En la computadora, el segundo rótulo de una columna (los Funnels) va en SU columna: era la más alta y le daba el alto al pie.
     const columnasPc = (cols.match(/<div class="s-pie-col">/g) ?? []).length;
-    assert.equal(columnasPc, columnasDelPie().length + columnasDelPie().filter((c) => c.sub).length, 'los Funnels volvieron abajo de Industrias');
+    // Más una: el contacto, su columna al costado de Legal.
+    assert.equal(columnasPc, columnasDelPie().length + columnasDelPie().filter((c) => c.sub).length + 1, 'los Funnels volvieron abajo de Industrias (o el contacto no es su columna)');
     assert.ok(!cols.includes('s-pie-h2'), 'en la computadora quedó un segundo rótulo adentro de una columna');
   }
   // La hoja: los renglones sólo en el teléfono, las columnas sólo en la computadora, y el pie más bajo.
@@ -100,7 +101,8 @@ test('2. el pie: el contacto con el email Y el WhatsApp, a la vista; y las misma
   const pie = html(createElement(Pie, {}));
   assert.ok(!pie.includes('s-pie-marca') && !pie.includes('El mejor software para vender High Ticket'), 'volvió el lema arriba del pie');
   assert.match(pie, /<div class="s-pie-base"><p class="s-pie-c">[^<]*<\/p><a href="\/" class="s-pie-logo" aria-label="MaKo — volver a la landing"/, 'el logo no está abajo a la derecha, en el renglón del ©');
-  assert.match(pie, /<p class="s-pie-h s-pie-h-contacto">Contacto<\/p><ul class="s-pie-contacto" aria-label="Contacto">/, 'el contacto no está debajo de Legal');
+  // El contacto, SU columna al costado de Legal (Martín, 16/11/2026: «no debajo de legal, sino al costado… para que no sea más alta»).
+  assert.match(pie, /<p class="s-pie-h">Legal<\/p><ul>[\s\S]*?<\/ul><\/div><div class="s-pie-col"><p class="s-pie-h">Contacto<\/p><ul class="s-pie-contacto" aria-label="Contacto">/, 'el contacto no es la columna que sigue a Legal');
 });
 
 test('3. el WhatsApp flotante: uno por página que lleva el pie, al chat de MaKo con el mensaje escrito, y ninguno en el checkout', async () => {
@@ -213,8 +215,11 @@ test('7. el globito del WhatsApp: a la vista desde que entra, con una X que lo c
   // Martín, 16/11/2026, ~17:50 UTC: «¿tienes una pregunta? Escríbenos, pero no solamente cuando le paso el cursor, sino que esté
   // directamente ahí eso y que se pueda cerrar con una X arriba, y ahí después si le paso el cursor ahí aparezca».
   const portada = html(createElement(PortadaSitio, { planes: PLANES }));
-  assert.ok(sinHojas(portada).includes('<span class="mk-wa-globo" aria-hidden="true"><span class="mk-wa-globo-x" data-wa-cerrar="" title="Cerrar">×</span>¿Tienes una pregunta? <b>Escríbenos</b></span></a>'), 'el botón de MaKo sin su globito con la X');
-  assert.ok(sinHojas(portada).includes('<span class="mk-wa-globo" aria-hidden="true"><span class="mk-wa-globo-x" data-wa-cerrar="" title="Cerrar">×</span>¿Tienes una pregunta? <b>Escríbeme</b></span></a>'), 'el botón de Martín sin su globito con la X');
+  // La X: un ícono dibujado (la letra «×» no queda en el centro) y centrado con flex, en rojo (Martín: «no está centrado… debería ser rojo»).
+  const conX = (voz: string) => new RegExp(`<span class="mk-wa-globo" aria-hidden="true"><span class="mk-wa-globo-x" data-wa-cerrar="" title="Cerrar"><svg viewBox="0 0 10 10"[^>]*>[\\s\\S]*?<\\/svg><\\/span>¿Tienes una pregunta\\? <b>${voz}<\\/b><\\/span><\\/a>`);
+  assert.match(sinHojas(portada), conX('Escríbenos'), 'el botón de MaKo sin su globito con la X');
+  assert.match(sinHojas(portada), conX('Escríbeme'), 'el botón de Martín sin su globito con la X');
+  assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-globo-x\{[^}]*background:#E5484D;display:flex;align-items:center;justify-content:center;/, 'la X no es roja o no está centrada');
   assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-globo\{position:absolute;[^}]*opacity:1;[^}]*animation:mk-wa-globo-entra \.4s 1s both\}/, 'el globito no queda a la vista');
   assert.match(CSS_WHATSAPP_FLOTANTE, /html\.mk-wa-cerrado \.mk-wa-globo\{opacity:0;pointer-events:none;animation:none\}/);
   assert.match(CSS_WHATSAPP_FLOTANTE, /html\.mk-wa-cerrado \.mk-wa-flota:hover \.mk-wa-globo,html\.mk-wa-cerrado \.mk-wa-flota:focus-visible \.mk-wa-globo\{opacity:1\}/, 'cerrado, no vuelve al pasar el mouse');
