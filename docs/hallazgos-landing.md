@@ -131,6 +131,21 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   está en todos los planes de Calendly), `guests=` para el socio cuando contesta «necesito consultar», `utm_term` para unir la
   reserva con la aplicación, y el píxel de Meta (ni la landing ni el formulario miden Schedule ni Lead).
 
+## /accelerator y su formulario: lo que tapa, lo que se esconde y lo que no se pisa (16/11/2026)
+
+- **Hasta 880 px, `.acl-precio-s` y `.acl-final` llevan z-index 91** para tapar la barra pegada del teléfono: TODO lo fijo con
+  menos de 91 desaparece ahí (el botón flotante de WhatsApp necesita 92).
+- **Un `<footer>` adentro de un `<article>` es el pie de esa pieza**: `footer:not(.s-pie)` también escondía el de las tarjetas de
+  Copywriting; el selector es `footer:not(.s-pie):not(article footer)` (`CSS_SOLO_PIE`, app/vsl/_sitio/Barra.tsx).
+- **El sol y la luna recolorean UNA vez, al cargar**: lo que un script reescribe con `innerHTML` (la barra de MaKo Tokens) nace con
+  el color del modo claro y en el oscuro no se ve; el color va en CSS con `html[data-sitio-modo="oscuro"]`. Y un link dentro de
+  un `<details>` con `transition: color` se mide 150 ms después de abrirlo.
+- **La aplicación nunca completa ni pisa una ficha o una fila de «Quieren entrar» que ya existe** (cualquiera escribe el email
+  de otro): lo que trae va al historial «sin verificar». El aviso «agendó» de Calendly sólo cuenta si viene de la ventana de ESE
+  iframe (`e.source`), no sólo del origen calendly.com.
+- **Martín, 16/11: después de aplicar NO se abre la agenda** (él revisa cada aplicación y responde en 24 h); el paso que sigue es
+  la prueba gratis, con su video. El molde «aplica → califica → agenda» de la investigación quedó para quien no promete revisar.
+
 ## Los entregables del Accelerator contados con MaKo, y la /vsl/closing vieja (16/11/2026)
 
 - **Martín: cada entregable de /accelerator se cuenta con lo que MaKo hace, y lo que todavía no hace se escribe como hecho** y se

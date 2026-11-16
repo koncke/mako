@@ -4,6 +4,18 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+## Lo que ve la PC y no GitHub (16/11/2026)
+
+- **Los tests que arman su lista con `git ls-files` no ven un archivo NUEVO sin commitear** (tests/cuenta-revision-escrituras): verde
+  en la PC, rojo en GitHub después del commit (pasó con POST /api/accelerator/aplicar, corrida 1456). Para verlo como GitHub sin
+  tocar el índice: copiar el índice (`git rev-parse --git-path index`), `GIT_INDEX_FILE=<copia> git add -N <nuevos>` y correr
+  los tests con esa variable.
+- **El filtro del pre-push corre sobre el DISCO**: con agentes editando en el mismo worktree da rojos que no son del commit.
+  `MAKO_SIN_FILTRO=1` sólo cuando el commit está verificado aparte (sigue el resto del pre-push y GitHub prueba todo).
+- **Los tests de «una prueba por persona» sólo buscan texto**: ninguna consulta `.or(email.ilike…)` ni `origen->>whatsapp` corre
+  contra una base.
+- **Un arnés que bloquea fonts.gstatic.com mide con la letra de respaldo**: dejar pasar sólo ese dominio.
+
 ## Dos mediciones que dan verde sin mirar (16/11/2026, /accelerator)
 
 - **`s.slice(s.indexOf(A), s.indexOf(B))` devuelve VACÍO si B queda antes que A**, y una aserción sobre ese pedazo pasa sin

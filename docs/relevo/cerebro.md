@@ -8,6 +8,14 @@ POST /api/accelerator/aplicar, y la landing con el precio) · d95fbd2b8 funnels 
 reuniones / DM funnel) · a0c6f23d6 checkout · cbb4d0431 cosecha · 354b78401 el rojo de la corrida 1456. Mirar la corrida que siguió
 (el vigía: `node "$HOME/.claude/guardia/vigia-ci.mjs" esperar`).
 
+**ACTUALIZACIÓN ~08:30 AST (12:30 UTC), claude1 al 87 %:** TODO lo de la noche está COMMITEADO y subido (último d16766c4b): las
+tandas del checkout y del Accelerator y los 12 arreglos de su revisión. Lo que sigue de la cola: 3 (las landings) y 4 (los avisos
+de proveedores). Abierto y anotado en docs/hallazgos-planes-y-cobro.md: el WhatsApp del checkout no se verifica; el texto de
+cómo prender el blue (reemplazar el ajuste entero). Esperan a Martín: los tickets #101 (Rodrigo ya está en Descalificado: ¿se
+cierra? le llega el «listo» al grupo) y #102 (Código quiere pagar las cuentas de Giselle y Marcela: US$ 65,80 por Binance según
+el PDF del 14/11; ¿se les contesta?), la frase «hasta adquirir tus primeros clientes» (choca con el filtro de +$5.000/mes: le
+propuse «hasta que tu sistema te traiga los primeros clientes») y el OK a la propuesta de funnels.
+
 **ACTUALIZACIÓN ~06:30 AST:** la tanda «arreglos-accelerator-sitio-checkout» TERMINÓ (sus informes y la revisión con 10 hallazgos: scratchpad/arreglos-16-11/ de la sesión 1513b896) y la maqueta va por la cuarta vuelta (publicada). Todo lo de esa tanda sigue SIN commitear en el worktree (es la base de la que sigue). Corre ahora «checkout-accelerator-ronda-3» (wf_c88c5b24-8a7): los 10 hallazgos (el freno del blue primero: es plata), el checkout que pidió Martín (el logo REAL de Mercado Pago, el pie en una línea con logos, el mismo botón negro, la página de gracias «revisa tu correo», la prueba gratis por email + WhatsApp con aviso por nombre + negocio) y la tercera tanda del Accelerator (los puntos 2 de la cola). Al terminar: revisar, commitear TODO por ruta, subir. Después, la cola 3 a 5.
 
 **Corría al escribir esto** (si se cortó, retomar así): el workflow «arreglos-accelerator-sitio-checkout» (wf_facd2a8f-d08: los 17

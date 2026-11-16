@@ -10,6 +10,30 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## El precio en pesos al dólar blue, una prueba por persona y el monto que se mostró (16/11/2026)
+
+- **El blue NO existía** (la memoria decía «lo hace un cron diario»; medido el 16/11: ni el cron ni la consulta). Ahora:
+  app/api/cron/dolar-blue (18:05 de Argentina) con lib/dolar-blue*.ts: dolarapi y bluelytics, dólares × venta del blue
+  redondeado hacia arriba al millar. Frenos: si los dos servicios difieren más de un 3 % se frena SIEMPRE; un salto de más del
+  15 % sólo entra con los dos de acuerdo; la banda de ×2; se avisa todo cambio de más del 5 %. La cotización vigente sale sólo
+  de los planes ACTIVOS (un plan viejo con pesos viejos la arrastraba a 667).
+- **Un precio puesto a mano apaga el cron entero** (todo o nada): se compara con lo último que escribió (`escritos`) y se anota
+  `escribiendo` ANTES de escribir, si no un guardado a medias se confunde con un cambio a mano. Para prenderlo hay que REEMPLAZAR
+  el ajuste `planes.dolar_blue` (o borrarlo): sumar y sacar `apagada` deja `escritos` viejo y la primera corrida se vuelve a
+  apagar. La primera corrida después del deploy no tiene contra qué comparar: pisa una vez un precio puesto a mano antes.
+- **El diagnóstico obvio era el equivocado**: «/admin/cobros» es un redirect a Sales desde el 6/11; los pesos se cambian en
+  Settings › Payments (`/admin/settings/payments`), y ahí va el cartel que avisa que el cron los mueve.
+- **El monto que se mostró**: el checkout manda `precioVisto` (por FUERA del pedido: compra-plan.test.ts fija los campos) y la
+  ruta contesta 409 «el precio cambió» antes de crear lead o cobro. `useRouter()` tira sin el router de la app (unos 8 tests
+  dibujan CompraPlan sin él): `useContext(AppRouterContext)` devuelve null.
+- **Una prueba por persona** (Martín: email + WhatsApp, sin tarjeta): quién tuvo prueba = cobros de la plataforma con `creado_por`
+  `planes:%:prueba` y `suscripcion_estado` no nulo (email, `origen.whatsapp`, `alta_ws`). El email sin «+algo» en TODOS los
+  dominios (Hotmail, iCloud, Workspace también lo aceptan) y en Gmail sin puntos; el WhatsApp con y sin el 9. SIN HACER: el
+  WhatsApp del checkout no se verifica, y POST /api/planes/comprar no lo exige fuera de «lo quiero».
+- **Resend**: la misma `idempotencyKey` con otro cuerpo da 409 y el correo se pierde (sólo queda el log): la clave lleva la
+  huella de todo lo que se manda. Y `avisarDePlataforma` SIN clave no tiene tiempo máximo: un Resend colgado frena la ruta hasta
+  su `maxDuration`.
+
 ## El checkout con Mercado Pago elegido no se leía, y el pie se salía en el teléfono (16/11/2026, lo encontró la maqueta del onboarding)
 
 - **Mercado Pago ELEGIDO: «Mercado Pago» en blanco sobre celeste pálido.** La regla de su fila elegida
