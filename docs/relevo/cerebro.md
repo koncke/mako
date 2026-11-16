@@ -10,6 +10,15 @@ reuniones / DM funnel) · a0c6f23d6 checkout · cbb4d0431 cosecha · 354b78401 e
 
 **~08:45 AST: corre «landings-que-faltan» (wf_0902e6bb-000)**, de a dos: Closing (rehacer /vsl/closing) y los tres funnels + la API pública (la misma /api-mako abierta); después Classroom + Second Brain y Equipo + Calendario; y una revisión. Nada commiteado todavía: si se corta, retomar con Workflow({scriptPath, resumeFromRunId}) (lo terminado vuelve del caché) y commitear por ruta.
 
+**DECISIONES DE MARTÍN, 16/11 ~18:50 UTC (contestan los puntos 1-3 de abajo):**
+- **Closing «antes y después»: con las llamadas grabadas con Mauricio** («utiliza de las que tenemos grabadas ahí con Mauricio, eso lo
+  puede utilizar sin problema»), y con POCO texto («no debería tener tanto texto esa animación»). Buscarlas en `closing_analyses` (sólo
+  lectura) por título o lead «Mauricio».
+- **Equipo: caras generadas de personas que no existen** para el organigrama.
+- **«Rediseña todo lo de Mauricio del caso de éxito, y ya con eso estamos»** (la portada y el Accelerator).
+- **Competitor Spy (la fila de la portada):** que la parte de antes de elegir a Alex Hormozi (el scroll y el clic) vaya MÁS RÁPIDO: se
+  confundía con la fila de arriba («Chatea con los referentes»); lo que importa es lo que viene después.
+
 **ACTUALIZACIÓN ~14:50 AST (18:50 UTC), claude1 al 98 % — LEER PRIMERO:** subido hasta d8025cace y los dos artefactos al día (Sitio de
 MaKo https://claude.ai/artifact/KGnfQnWAuiZ62qg9uioKZb, armado con scratchpad/acelerador-artefacto/dibujar-portada.tsx desde
 C:/dev/vista-main + sitio-artefacto/empaquetar-brain.mjs; Accelerator https://claude.ai/artifact/8tY2zQNguuzAYR2mbSMmdS). Martín pidió NO
