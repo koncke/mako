@@ -312,7 +312,7 @@ export const LEGALES: readonly { nombre: string; href: string }[] = [
  * Lo que dibuja una fila: el visual de su landing, uno de app/vsl/_detalle/feature-visuals.ts, una grabación de la app,
  * los referentes, o `brain`: el Second Brain DE VERDAD, el componente que corre adentro de la app (app/vsl/_sitio/BrainVivo.tsx).
  */
-export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | 'brain' | 'closing' | { video: string; poster: string } | { falta: string };
+export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | 'brain' | 'closing' | 'equipo' | { video: string; poster: string } | { falta: string };
 
 /**
  * NADA INVENTADO (Martín, 12/11/2026, noche: «identifica la cantidad de cosas que hiciste inventándote cosas. Eso yo no lo quiero…
@@ -383,7 +383,7 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; ancla?
   // (app/equipo/EquipoView.tsx) de C:/dev/bancos-portada/banco-equipo-landing (grabar.mjs): se invita a una closer y entra a la lista.
   // MaKo Essential es de una sola persona ('equipo.usuarios', lib/topes-plan.ts) y la tasa de cierre de cada closer es de Closing (Pro):
   // las dos van en la frase que lleva el aviso (AVISO_EQUIPO, del tope).
-  { slug: 'equipo', titulo: 'Tu equipo de ventas, cada uno con su rol.', texto: `Invitas a tus setters y closers con su correo, eliges su rol y MaKo les manda el acceso: cada uno entra solo a lo de su trabajo, y tú ves la tasa de cierre de cada closer.${AVISO_EQUIPO}`, visual: { video: '/vsl-assets/sitio/equipo.webm', poster: '/vsl-assets/sitio/equipo.jpg' } },
+  { slug: 'equipo', titulo: 'Tu equipo de ventas, cada uno con su rol.', texto: `Invitas a tus setters y closers con su correo, eliges su rol y MaKo les manda el acceso: cada uno entra solo a lo de su trabajo, y tú ves la tasa de cierre de cada closer.${AVISO_EQUIPO}`, visual: 'equipo' },
   // Martín (14/11/2026): «elimina toda la sección de lo que entrega lo que vendiste, que quede directamente la parte de tu comunidad
   // dentro de MaKo, no tu escuela, y que se vea». Sin apartados: la entrega quedó en esta fila sola, al final.
   // 16/11/2026: con su landing (/vsl/classroom, como Circle). El curso es de los dos planes; la comunidad, de Pro ('comunidad'): el aviso

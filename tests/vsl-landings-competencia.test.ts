@@ -734,7 +734,10 @@ test('Equipo: los roles y lo que ve cada uno son los de la app, las personas sal
   const i = TARJETAS_PORTADA.findIndex((x) => x.slug === 'equipo');
   assert.ok(i > 0 && TARJETAS_PORTADA[i - 1].slug === 'dashboard', 'la fila de Equipo va después de los tableros');
   const v = TARJETAS_PORTADA[i].visual;
-  assert.ok(typeof v === 'object' && 'video' in v && v.video === VIDEO_HERO_EQUIPO.video, 'la fila de Equipo sin su grabación');
+  // Desde el 16/11/2026 la fila de la portada es el organigrama animado (app/vsl/_sitio/OrganigramaEquipo.tsx; Martín: «no quiero ver un
+  // formulario… como si fuera un organigrama»); la grabación del formulario queda en la landing de Equipo.
+  assert.equal(v, 'equipo', 'la fila de Equipo de la portada no es el organigrama');
+  assert.ok(VIDEO_HERO_EQUIPO.video, 'la landing de Equipo perdió su grabación');
   const sales = menuProducto().columnas.find((c) => c.rotulo === 'Sales');
   const j = sales?.items.findIndex((it) => it.href === '/vsl/equipo') ?? -1;
   assert.ok(j > 0 && sales?.items[j - 1].href === '/vsl/closing', 'Equipo no va después de Closing en Producto › Sales');
