@@ -231,6 +231,12 @@ test('la pantalla entera no habla de MaKo por dentro: tarjetas, promesa, garant�
   const { LISTA_DEL_ACELERADOR } = await import('../lib/planes-mako');
   const programa = filasDeComparacion().filter((f) => f.esencial === false && f.pro === false && f.acelerador === true).map((f) => f.que);
   assert.deepEqual(programa, LISTA_DEL_ACELERADOR.map((x) => x.fuerte).filter((t) => !/^MaKo Pro/.test(t)), 'la tabla no dice lo mismo que la tarjeta del Accelerator');
+  // Y cada fila del acompañamiento con su «i» (Martín, 15/11, ~23:00: «en acompañamiento personalizado faltan la I de información»).
+  for (const f of filasDeComparacion().filter((x) => x.esencial === false && x.pro === false && x.acelerador === true)) {
+    assert.ok(f.detalle && f.detalle.length > f.que.length, `«${f.que}» no tiene su «i»`);
+  }
+  const vitrinaFuente = fuente('app/planes/Vitrina.tsx');
+  assert.doesNotMatch(vitrinaFuente, /className="cp-info"[^>]*>i<\/span>/, 'la «i» volvió a ser una letra (en cursiva, corrida del centro)');
   assert.ok(!filasDeComparacion().some((f) => /garantizado|garantía por contrato|recuper\w* (como mínimo )?la inversión/i.test(f.que)), 'volvió la garantía por contrato a la tabla');
 });
 

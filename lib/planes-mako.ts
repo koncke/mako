@@ -279,17 +279,19 @@ export const INCLUYE_EN_EL_CHECKOUT: Readonly<Record<string, readonly string[]>>
  *    nombres y en ESTE orden. Martín: «no está bien los ítems que están ahí… renombraría… y también el orden».
  * ⚠️ Lo arma Martín, no «nuestro equipo» («todavía no tengo equipo»): ver la memoria «sin-equipo-todavia».
  */
-export const LISTA_DEL_ACELERADOR: ReadonlyArray<{ fuerte: string; texto: string }> = [
-  { fuerte: '3 meses de acompañamiento', texto: '' },
-  { fuerte: 'Tu sistema, armado por Martín', texto: '' },
-  { fuerte: '3 sesiones 1 a 1 con Martín', texto: '' },
-  { fuerte: 'Una asesoría en vivo por semana', texto: '' },
-  { fuerte: 'Tu hoja de ruta, armada por MaKo', texto: '' },
-  { fuerte: 'Tablero de resultados', texto: '' },
-  { fuerte: 'Expertos invitados', texto: '' },
-  { fuerte: 'WhatsApp personal de Martín', texto: '' },
-  { fuerte: 'Comunidad de empresarios', texto: '' },
-  { fuerte: 'MaKo Pro completo', texto: '' },
+// `detalle`: lo que dice la «i» de esa fila en la tabla (15/11/2026, ~23:00, Martín: «en acompañamiento personalizado faltan la I
+// de información»). Las demás filas de la tabla la tienen; éstas no, porque su nombre ya era el corto.
+export const LISTA_DEL_ACELERADOR: ReadonlyArray<{ fuerte: string; texto: string; detalle: string }> = [
+  { fuerte: '3 meses de acompañamiento', texto: '', detalle: 'Martín te acompaña 3 meses, desde la estrategia hasta que el sistema está andando' },
+  { fuerte: 'Tu sistema, armado por Martín', texto: '', detalle: 'Tu funnel, tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido, armados por Martín' },
+  { fuerte: '3 sesiones 1 a 1 con Martín', texto: '', detalle: 'Por videollamada, de 2 horas cada una: estrategia, seguimiento y checkpoint' },
+  { fuerte: 'Una asesoría en vivo por semana', texto: '', detalle: 'Grupal, en vivo con Martín, abierta a tu equipo y con su grabación' },
+  { fuerte: 'Tu hoja de ruta, armada por MaKo', texto: '', detalle: 'MaKo arma tu plan de trabajo y lo apruebas antes de empezar' },
+  { fuerte: 'Tablero de resultados', texto: '', detalle: 'Tus leads, tus reuniones y tus ventas, desde la primera semana' },
+  { fuerte: 'Expertos invitados', texto: '', detalle: 'Expertos y referentes del mercado invitados a dar capacitaciones' },
+  { fuerte: 'WhatsApp personal de Martín', texto: '', detalle: 'Para tus dudas, directo con Martín' },
+  { fuerte: 'Comunidad de empresarios', texto: '', detalle: 'Empresarios que venden high ticket, y Martín te presenta a los que te conviene conocer' },
+  { fuerte: 'MaKo Pro completo', texto: '', detalle: 'Todo MaKo Pro durante los 3 meses' },
 ];
 
 export const PROGRAMA_ACELERADOR: ProgramaMako = {

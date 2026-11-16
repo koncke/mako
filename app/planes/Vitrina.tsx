@@ -24,8 +24,12 @@ import { botonDelPlan } from '@/lib/compra-plan-reglas';
 import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, planConPrueba, rutaDelPlan, type PlanMako } from '@/lib/planes-mako';
 import { GRUPOS_DE_LA_TABLA, celdaDeCapa, filasDeComparacion, nombreCorto, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
+import { signoInfo } from './signos';
 import { CSS_TARJETAS, TarjetasPlanes, type PlanEnTarjeta } from './Tarjetas';
 import { CSS_TOKENS, CalculadoraTokens } from './CalculadoraTokens';
+
+/** Lo que dice la «i» de una fila: su detalle (las del Accelerator) o, si el nombre que se ve es el corto, el largo. */
+const infoDeFila = (f: FilaComparacion): string | null => f.detalle ?? (nombreCorto(f.que) !== f.que ? f.que : null);
 
 /** La hoja de la vitrina. La usa también la landing de venta, que dibuja la misma comparación (`CompararPlanes`). */
 export const CSS_VITRINA = `
@@ -52,7 +56,8 @@ body:has(.s-barra) .cp-cab > div { top: 77px; }
 .cp-grupo-t > span { grid-column: 1 / -1; padding: 30px 12px 10px; font-size: 15px; font-weight: 800; color: #12151B; letter-spacing: -.01em; border-bottom: 1px solid #E3E7EF; }
 .cp-que, .cp-celda { padding: 12px; border-bottom: 1px solid #EEF1F5; font-size: 14.5px; color: #12151B; display: flex; align-items: center; gap: 8px; }
 .cp-celda { justify-content: flex-start; }
-.cp-info { position: relative; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 999px; border: 1px solid #B9C1CE; color: #6B7280; font-size: 10px; font-weight: 700; font-style: italic; cursor: help; flex: none; }
+/* La «i» es un DIBUJO centrado (app/planes/signos.ts, signoInfo), no la letra en cursiva: ésa quedaba corrida (Martín, 15/11). */
+.cp-info { position: relative; display: inline-block; box-sizing: border-box; width: 16px; height: 16px; border-radius: 999px; border: 1px solid #B9C1CE; background: ${signoInfo('#6B7280')}; cursor: help; flex: none; }
 .cp-info:hover::after, .cp-info:focus::after { content: attr(data-info); position: absolute; left: 22px; top: 50%; transform: translateY(-50%); z-index: 6; width: max-content; max-width: 280px; padding: 8px 10px; border-radius: 8px; background: #12151B; color: #fff; font-size: 12.5px; font-weight: 500; font-style: normal; line-height: 1.4; box-shadow: 0 10px 24px rgba(18,21,27,.25); }
 .cp-pie > div { padding: 18px 12px; }
 .cp-tel { display: none; }
@@ -233,7 +238,7 @@ export function CompararPlanes({ planes, sufijo = '' }: { planes: readonly Pick<
               <div key={f.que} className="cp-fila" role="row">
                 <div className="cp-que" role="rowheader">
                   {nombreCorto(f.que)}
-                  {nombreCorto(f.que) !== f.que && <span className="cp-info" tabIndex={0} role="note" aria-label={f.que} data-info={f.que}>i</span>}
+                  {infoDeFila(f) && <span className="cp-info" tabIndex={0} role="note" aria-label={infoDeFila(f)!} data-info={infoDeFila(f)!} />}
                 </div>
                 {cols.map((c) => <div key={c.id} className="cp-celda" role="cell" data-destacado={c.destacado ? '' : undefined}><CeldaPlan v={c.celda(f)} /></div>)}
               </div>

@@ -38,7 +38,8 @@ export type Celda = boolean | string;
 // Está para que otra página que promete lo mismo pueda cruzarse contra ESTA fila por el tope y no por el número: dos topes
 // distintos pueden valer lo mismo (hoy SEIS valen 1), y entonces comparar los dígitos no distingue una fila cruzada con la
 // equivocada. Lo usa tests/vsl-comparaciones-competencia.test.ts para cruzar la tabla «MaKo vs» de /vsl/comparaciones.
-export type FilaComparacion = { grupo: string; que: string; esencial: Celda; pro: Celda; acelerador: Celda; tope?: Tope };
+// `detalle` (15/11/2026): lo que dice la «i» cuando el nombre de la fila ya es el corto (las del Accelerator).
+export type FilaComparacion = { grupo: string; que: string; esencial: Celda; pro: Celda; acelerador: Celda; tope?: Tope; detalle?: string };
 
 // «ILIMITADO», NUNCA «SIN TOPE» (15/11/2026, Martín: «en las columnas yo no pondría nunca sin tope… lo eliminaría de todos lados.
 // Pondría ilimitado, que es mejor la palabra… tanto en las columnas como en la comparación de planes»). Concuerda con lo que cuenta
@@ -60,7 +61,7 @@ const filaDeTope = (grupo: string, que: string, t: Tope, prefijo = '', genero: G
 });
 const enTodos = (grupo: string, que: string): FilaComparacion => ({ grupo, que, esencial: true, pro: true, acelerador: true });
 const soloPro = (grupo: string, que: string): FilaComparacion => ({ grupo, que, esencial: false, pro: true, acelerador: true });
-const soloPrograma = (grupo: string, que: string): FilaComparacion => ({ grupo, que, esencial: false, pro: false, acelerador: true });
+const soloPrograma = (grupo: string, que: string, detalle?: string): FilaComparacion => ({ grupo, que, esencial: false, pro: false, acelerador: true, ...(detalle ? { detalle } : {}) });
 
 /**
  * UNA FILA DE TOPE DE GENERACIÓN (15/11/2026). Igual que `filaDeTope`, pero el número sale de los topes de video e imagen
@@ -261,7 +262,7 @@ export function filasDeComparacion(): FilaComparacion[] {
     // que están ahí… renombraría… y también el orden. No me hace sentido que en tercer lugar esté garantía por contrato… la
     // quitaría de todos lados»). Sale de `LISTA_DEL_ACELERADOR` (lib/planes-mako.ts); «MaKo Pro completo» no es una fila: la
     // columna del Accelerator ya tiene ✓ en todo lo de Pro.
-    ...LISTA_DEL_ACELERADOR.filter((x) => !/^MaKo Pro/.test(x.fuerte)).map((x) => soloPrograma(acompanamiento, x.fuerte)),
+    ...LISTA_DEL_ACELERADOR.filter((x) => !/^MaKo Pro/.test(x.fuerte)).map((x) => soloPrograma(acompanamiento, x.fuerte, x.detalle)),
   ];
 }
 

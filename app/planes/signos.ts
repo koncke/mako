@@ -35,3 +35,14 @@ export const SIGNO_SI = signo('si', '#1F7A4D', '#E3F5EB');
 export const SIGNO_NO = signo('no', '#D92D20', '#FDE8E7');
 /** La ✓ del Accelerator, en su bloque oscuro: tinta oscura sobre el dorado de su botón. */
 export const SIGNO_SI_DORADO = signo('si', '#2A1E00', '#F5C451');
+
+/**
+ * LA «i» DE INFORMACIÓN, DIBUJADA (15/11/2026, ~23:00). Martín: «la información en muchos lados nuevamente… no estás centrado en el
+ * círculo». Era la letra «i» en cursiva dentro de un círculo con `place-items: center`: la cursiva inclina la tinta a la derecha y
+ * la caja de la letra no es la tinta (lo mismo que pasó con la ✕, ver arriba). Es un punto y un palo centrados en su lienzo de 16
+ * (la tinta va de 2,3 a 13,6 en alto: el medio es 8), de fondo del propio círculo.
+ */
+export function signoInfo(color: string): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='3.6' r='1.3' fill='${color}'/><rect x='7' y='6.4' width='2' height='7.2' rx='1' fill='${color}'/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") center / 10px 10px no-repeat`;
+}
