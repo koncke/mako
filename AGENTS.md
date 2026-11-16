@@ -4602,6 +4602,34 @@ de descontar. Lo que costó, en [docs/hallazgos-mako-tokens.md](docs/hallazgos-m
   no le cobraría a ninguna de esas 30 rutas — y en verde. Dos reglas que se aplican en el mismo lugar no comparten
   condición: comparten lugar.
 
+- ⚠️⚠️ **UN CANDADO QUE TODAVÍA NO SE INSTALÓ NO FRENA NADA, y es lo que apagó un grupo de WhatsApp real** (tickets #103
+  y #105, 16/11/2026): el código del medidor salió a producción, la migración `0416` no se había aplicado, la RPC no
+  existía y el medidor falló **cerrado** — como estaba escrito que hiciera. Un negocio quedó sin poder contestarle a un
+  lead. **«Fallar cerrado es lo seguro» mezcla dos cosas distintas:** la caja que ESTÁ y no contesta (un 500, un
+  timeout: ahí sí, hay plata que proteger) y la caja que NO ESTÁ INSTALADA (ahí no hay nada que proteger, y frenar sólo
+  apaga el producto). Todo chequeo nuevo contra la base **mira el CÓDIGO del error**: `PGRST202`/`PGRST205`/`42883`/
+  `42P01`/`42703` = «la migración no está» → se deja pasar con un aviso fuerte en el log (`laCajaNoEsta`,
+  `lib/mako-tokens-caja.ts`); cualquier otro error falla cerrado. Lo mismo vale para LEER: un `select` con una columna
+  que todavía no existe falla **entero**, así que se reintenta pidiendo lo que ya está. Y un aviso de orden de
+  despliegue en un mensaje de commit **no es un mecanismo**: el mecanismo es que el código tolere que la migración
+  falte.
+- ⚠️ **El «no hay saldo» NO es un fallo de proveedor: la cascada lo RE-TIRA** (`esSinSaldoDeMt`, 12 guardas en
+  `lib/ai-cheap.ts` y `lib/anthropic.ts`). Ningún otro proveedor arregla una falta de plata — la caja es del NEGOCIO,
+  no de la clave. Tratarlo como «este candidato falló» lo metía en la lista de fallas DEL CLIENTE, y la app traducía esa
+  lista a «tu negocio todavía no conectó su IA. Conecta tu GPT (una clave de OpenAI)»: falso dos veces desde el 15/11.
+  Un `catch` nuevo en la capa de IA que convierta excepciones en renglones de error **tiene** que llevar el guarda, y lo
+  exige un test estático (`tests/mako-tokens-medidor.test.ts`, caso 8e) que se pone rojo nombrando el `catch`.
+- ⚠️ **Un error NUESTRO clasificado como «configuración del negocio» no cuesta un cartel: cuesta la CONVERSACIÓN.** Esa
+  causa ofrece la guía de conexión por WhatsApp y **guarda la oferta**, así que el mensaje siguiente de la persona
+  —cualquiera— lo lee la guía como la respuesta a su paso. Pasó: «Ya contactada», que hablaba de un lead, se leyó como
+  «ya conecté mi clave». Y abrió un ticket que decía «se cierra solo cuando el negocio lo tiene», o sea nunca. Una
+  causa que abra una guía con estado guardado tiene que ser algo que la persona pueda **resolver**.
+- ⚠️ **«No tiene ninguna key» ya NO significa «le falta configurar algo».** `causaDelFallo` empezaba con
+  `if (keysDelCliente === 0) return 'sin_keys'`, que era un atajo correcto mientras cada negocio pagaba su IA. Desde el
+  15/11 no tener keys es el estado NORMAL de un cliente que funciona bien, así que la causa `sin_tokens` se chequea
+  **antes**. Regla general: cuando una decisión de producto cambia qué es «normal», hay que revisar los atajos que daban
+  por hecho lo contrario — un `if` que era un atajo se vuelve una respuesta equivocada sin que nadie toque una línea.
+
 # Un wrapper que se engancha por RE-ENTRADA abre su contexto SIEMPRE, también cuando decide no hacer nada
 
 El patrón de este repo para envolver una función pública sin re-indentar su cuerpo es que la función **se llame a sí
