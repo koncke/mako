@@ -483,12 +483,19 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
       // importantes». Con el umbral en 1,35 el nivel 3 no aparecía nunca al encuadre y
       // el mapa arrancaba con 13 nombres de 72.
       if (n === 2) return titulosPrincipales || z >= 0.5;     // se van al alejarse a la mitad (en la portada, nunca)
-      return z >= 0.92;                 // los datos, apenas uno se aleja
+      // En la portada (`titulosPrincipales`), ningún dato: sólo las madre y las áreas (Martín: «Your brand only compounds… no debería
+      // aparecer»).
+      return !titulosPrincipales && z >= 0.92;                 // los datos, apenas uno se aleja
     };
     // Sobre los que PASAN el filtro, no sobre todos: antes una etiqueta que había
     // perdido su caja contra un nodo filtrado seguía sin dibujarse. Al filtrar tiene que
     // pasar lo contrario — se libera espacio y aparecen más nombres.
-    const orden = nodos.filter((n) => entraPorNivel(n.id) && visible(n)).sort((a, b) => {
+    // En la portada, también el centro de cada racimo de afuera: un dato muy conectado y de nombre corto («Shorts de agosto»,
+    // «64 anuncios en Meta»), para que ninguna parte del mapa quede sin nombre. Y por nivel primero: las madre, después las áreas.
+    const HUB_PORTADA = 11;
+    const esCentroDeRacimo = (n: NodoCerebro) => titulosPrincipales && nivelDe(n.id) === 3 && (grados[n.id] ?? 0) >= HUB_PORTADA && n.etiqueta.length <= 26;
+    const orden = nodos.filter((n) => (entraPorNivel(n.id) || esCentroDeRacimo(n)) && visible(n)).sort((a, b) => {
+      if (titulosPrincipales) { const dn = nivelDe(a.id) - nivelDe(b.id); if (dn !== 0) return dn; }
       const d = (grados[b.id] ?? 0) - (grados[a.id] ?? 0);
       return d !== 0 ? d : a.id < b.id ? -1 : 1;   // desempate estable
     });
@@ -518,7 +525,9 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
         const r = radioNodo(grados[otro.id] ?? 0);
         return q.x + r > c.x0 && q.x - r < c.x1 && q.y + r > c.y0 && q.y - r < c.y1;
       });
-      if (tapaUnPunto && !fija) continue;
+      // En la portada, las áreas tampoco ceden por tapar un punto (el mapa es denso y casi ninguna entraba: «más títulos principales,
+      // sobre todo en la parte donde no aparecen»); siguen sin pisarse entre ellas.
+      if (tapaUnPunto && !fija && !(titulosPrincipales && nivelDe(n.id) >= 2)) continue;
       cajas.push(c);
       ok.add(n.id);
     }

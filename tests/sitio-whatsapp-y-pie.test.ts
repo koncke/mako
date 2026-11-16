@@ -220,6 +220,9 @@ test('7. el globito del WhatsApp: a la vista desde que entra, con una X que lo c
   assert.match(sinHojas(portada), conX('Escríbenos'), 'el botón de MaKo sin su globito con la X');
   assert.match(sinHojas(portada), conX('Escríbeme'), 'el botón de Martín sin su globito con la X');
   assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-globo-x\{[^}]*background:#E5484D;display:flex;align-items:center;justify-content:center;/, 'la X no es roja o no está centrada');
+  // Y chica: la regla del logo (30 px) va sólo para su hijo directo; con «.mk-wa-flota svg» agrandaba también la X («quedó enorme»).
+  assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-flota \.mk-wa-globo-x svg\{display:block;width:10px;height:10px\}/);
+  assert.doesNotMatch(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-flota svg\{/, 'la regla del logo vuelve a agrandar la X');
   assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-globo\{position:absolute;[^}]*opacity:1;[^}]*animation:mk-wa-globo-entra \.4s 1s both\}/, 'el globito no queda a la vista');
   assert.match(CSS_WHATSAPP_FLOTANTE, /html\.mk-wa-cerrado \.mk-wa-globo\{opacity:0;pointer-events:none;animation:none\}/);
   assert.match(CSS_WHATSAPP_FLOTANTE, /html\.mk-wa-cerrado \.mk-wa-flota:hover \.mk-wa-globo,html\.mk-wa-cerrado \.mk-wa-flota:focus-visible \.mk-wa-globo\{opacity:1\}/, 'cerrado, no vuelve al pasar el mouse');

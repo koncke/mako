@@ -83,6 +83,12 @@ test('4. que no trabe: el flote quieto se espacia en la portada, y el grafo de l
   assert.match(g, /titulosPrincipales = false \}/, 'sin la prop, el grafo de la app tiene que descartar como siempre');
   assert.match(g, /const fija = titulosPrincipales && nivelDe\(n\.id\) === 1;/);
   assert.match(g, /if \(n === 2\) return titulosPrincipales \|\| z >= 0\.5;/);
+  // Ningún dato en la portada (Martín: «Your brand only compounds… no debería aparecer») y las áreas no ceden por tapar un punto.
+  assert.match(g, /return !titulosPrincipales && z >= 0\.92;/);
+  assert.match(g, /if \(tapaUnPunto && !fija && !\(titulosPrincipales && nivelDe\(n\.id\) >= 2\)\) continue;/);
+  // El centro de cada racimo de afuera, con su nombre (muy conectado y corto), y las madre primero.
+  assert.match(g, /const esCentroDeRacimo = \(n: NodoCerebro\) => titulosPrincipales && nivelDe\(n\.id\) === 3 && \(grados\[n\.id\] \?\? 0\) >= HUB_PORTADA && n\.etiqueta\.length <= 26;/);
+  assert.match(g, /if \(titulosPrincipales\) \{ const dn = nivelDe\(a\.id\) - nivelDe\(b\.id\); if \(dn !== 0\) return dn; \}/);
   assert.match(brain, /export const FLOTE_TELEFONO_MS = Number\.POSITIVE_INFINITY;/, 'el teléfono volvió a flotar: con 200 nodos se cae a 24 cuadros por segundo');
   const pc = Number(/export const FLOTE_COMPUTADORA_MS = (\d+);/.exec(brain)?.[1]);
   assert.ok(pc >= 33 && pc <= 100, `la computadora repinta el flote cada ${pc} ms`);

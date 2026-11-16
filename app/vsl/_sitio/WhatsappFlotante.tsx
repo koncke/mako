@@ -35,8 +35,8 @@ export const CSS_WHATSAPP_FLOTANTE = `
 .mk-wa-flota{position:fixed;z-index:2147470000;right:calc(${AIRE + 4}px + env(safe-area-inset-right,0px));bottom:calc(${AIRE + 4}px + env(safe-area-inset-bottom,0px));width:56px;height:56px;border-radius:50%;background:${VERDE_WHATSAPP};color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 28px rgba(0,0,0,.28),0 2px 6px rgba(0,0,0,.16);text-decoration:none;transition:transform .15s ease,box-shadow .15s ease,bottom .25s ease}
 .mk-wa-flota:hover{transform:scale(1.06);box-shadow:0 14px 32px rgba(0,0,0,.32),0 2px 6px rgba(0,0,0,.16)}
 .mk-wa-flota:focus-visible{outline:3px solid #2F6FED;outline-offset:3px}
-.mk-wa-flota svg{width:30px;height:30px;display:block}
-@media (max-width:767px){.mk-wa-flota{width:52px;height:52px;right:calc(${AIRE}px + env(safe-area-inset-right,0px));bottom:calc(${AIRE}px + env(safe-area-inset-bottom,0px))}.mk-wa-flota svg{width:28px;height:28px}}
+.mk-wa-flota>svg{width:30px;height:30px;display:block}
+@media (max-width:767px){.mk-wa-flota{width:52px;height:52px;right:calc(${AIRE}px + env(safe-area-inset-right,0px));bottom:calc(${AIRE}px + env(safe-area-inset-bottom,0px))}.mk-wa-flota>svg{width:28px;height:28px}}
 /* Con el menú del teléfono abierto, no: tapaba «PRUÉBALO GRATIS», abajo del menú. */
 body:has(details.s-mv[open]) .mk-wa-flota{display:none}
 /* El sol y la luna, cuando flota abajo a la derecha (una página sin barra): arriba de él. */
@@ -66,7 +66,9 @@ body:has(.d-offer-video.d-offer-flota) .mk-wa-flota{bottom:calc(192px + ${AIRE}p
 .mk-wa-globo{position:absolute;right:calc(100% + 12px);top:50%;white-space:nowrap;padding:10px 14px;border-radius:14px;background:#fff;color:#12151B;font:600 14px/18px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;box-shadow:0 10px 28px rgba(0,0,0,.22),0 1px 3px rgba(0,0,0,.12);opacity:1;transform:translateY(-50%);animation:mk-wa-globo-entra .4s 1s both}
 /* La X: un ícono dibujado (la letra «×» no queda en el centro: su caja depende de la fuente) y centrado con flex; en rojo (Martín). */
 .mk-wa-globo-x{position:absolute;top:-9px;left:-9px;width:22px;height:22px;border-radius:50%;background:#E5484D;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25);cursor:pointer}
-.mk-wa-globo-x svg{display:block}
+/* La X, de 10 px: la regla del logo de WhatsApp (30 px) era para todo svg del botón y la agrandaba («quedó enorme»); ahora es sólo
+   para su hijo directo (el logo). */
+.mk-wa-flota .mk-wa-globo-x svg{display:block;width:10px;height:10px}
 .mk-wa-globo-x:hover{background:#C93C40}
 html.mk-wa-cerrado .mk-wa-globo{opacity:0;pointer-events:none;animation:none}
 html.mk-wa-cerrado .mk-wa-globo-x{display:none}
