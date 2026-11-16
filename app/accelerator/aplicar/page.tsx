@@ -7,9 +7,10 @@
 // /api/accelerator/aplicar. Arriba, la barra del programa (app/accelerator/Barra.tsx): la marca y «El programa» vuelven a la landing.
 // SIN EL PIE DEL SITIO NI EL WHATSAPP QUE FLOTA (16/11/2026, Martín: «durante el formulario no debería salir la bottom bar»): un
 // paso no se abandona por un link del pie, y el botón que flota pisaba el «Siguiente» en el teléfono (revisión, hallazgo 7). El
-// WhatsApp que flota lo dibuja el pie (`PieGlobal`), así que se va con él. Los legales (Términos, Privacidad, Reembolsos) van en un
-// renglón debajo de «Enviar aplicación» (./FormularioAplicacion.tsx, `apl-legales`; revisión del 16/11/2026, hallazgo 5): el formulario
-// pide nombre, email, WhatsApp y facturación, y sin el pie no quedaba ningún link a la privacidad.
+// WhatsApp que flota lo dibuja el pie (`PieGlobal`), así que se va con él. SIN LEGALES (16/11/2026, a la noche, Martín: «en el
+// formulario no pongas ni términos, ni privacidad, ni reembolso. Eso no hace falta en el formulario»): desde la revisión de esa
+// mañana (hallazgo 5) iban en un renglón debajo de «Enviar aplicación», porque sin el pie no quedaba ningún link a la privacidad.
+// Siguen en el pie de la landing del programa (`PieGlobal`, columna Legal), a un toque de la marca de arriba.
 //
 // ⚠️ PÚBLICA (lib/rutas-publicas.ts, por el prefijo /accelerator): sólo GET, no lee cookies, sin <Suspense>. La campaña que trajo
 //    la URL (landing, utm_*, fbclid) viaja en el cuerpo del POST (./origen.ts). No se indexa: es un paso, no una página.
@@ -32,8 +33,9 @@ import { FormularioAplicacion } from './FormularioAplicacion';
 
 const TITULO = `Aplica a ${PROGRAMA_ACELERADOR.nombre}`;
 /**
- * El paso siguiente de la pantalla final: la prueba gratuita es la de MaKo Pro, su checkout de siempre (Martín: «iniciar tu prueba
- * gratuita de 7 días en MaKo»); el formulario le suma la campaña. «Entrar a MaKo» y «Ya hice la prueba gratuita», el login.
+ * El siguiente paso de la pantalla final: «Crear cuenta de MaKo» lleva al checkout de MaKo Pro con su prueba, el de siempre (hasta el
+ * 16/11/2026 a la noche decía «Iniciar prueba gratuita de 7 días»; Martín: «tu siguiente paso es crear cuenta de MaKo o ya tengo
+ * cuenta»); el formulario le suma la campaña. «Ya tengo cuenta» y «Entrar a MaKo», el login.
  */
 const RUTA_PRUEBA = `/planes/${rutaDelPlan('pro')}`;
 const RUTA_ENTRAR = '/login';

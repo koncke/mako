@@ -14,6 +14,8 @@ import { PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
 
 export const RUTA_VER_PLANES = '/planes';
 export const TEXTO_VER_PLANES = 'Ver planes';
+/** El logo de MaKo en el Accelerator, que es sólo oscuro: BLANCO (Martín, 16/11/2026). La palabra ya lo era (`--acl-ink`). */
+export const COLOR_DE_LA_ESTRELLA = '#fff';
 
 /** El nombre del programa: la primera palabra en blanco y el resto en naranja, como «MARKETING KONCEPT» en la de Lovable. */
 export function Marca() {
@@ -36,9 +38,11 @@ export function BarraAccelerator({ boton, marca = MARCA_A_LA_PORTADA }: {
 }) {
   return (
     <header className="acl-hdr">
-      {/* El nombre que se lee primero es el que se ve (revisión del 16/11/2026): decía «MaKo: volver…» y la marca dice el programa. */}
+      {/* El nombre que se lee primero es el que se ve (revisión del 16/11/2026): decía «MaKo: volver…» y la marca dice el programa.
+          LA ESTRELLA, BLANCA (16/11/2026, Martín: «como Accelerator solamente es Dark Mode, el logo de MaKo en todos lados siempre lo
+          pondría en White para que se diferencie»): en el resto del sitio es dorada (`MAKO.dorado`). */}
       <a className="acl-hdr-marca" href={marca.href} aria-label={`${PROGRAMA_ACELERADOR.nombre}: ${marca.aria}`}>
-        <span className="acl-estrella" aria-hidden="true"><EstrellaMaKo size={15} /></span>
+        <span className="acl-estrella" aria-hidden="true"><EstrellaMaKo size={15} color={COLOR_DE_LA_ESTRELLA} /></span>
         <Marca />
       </a>
       <nav className="acl-hdr-der" aria-label={PROGRAMA_ACELERADOR.nombre}>

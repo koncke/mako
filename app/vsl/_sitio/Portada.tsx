@@ -100,7 +100,7 @@ function HeroSitio() {
  * comparativa». La de integraciones bajó a su sección.
  */
 
-function TiraSitio() {
+export function TiraSitio() {
   const apps = integracionesDeLaTira();
   if (!apps.length) return null;
   const lista = (oculta: boolean) => (

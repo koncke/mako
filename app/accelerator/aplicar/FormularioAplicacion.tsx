@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// El formulario de aplicación a MaKo Accelerator (16/11/2026): un paso por sección, y al final el gracias y la prueba de MaKo
+// El formulario de aplicación a MaKo Accelerator (16/11/2026): un paso por sección, y al final el gracias y el siguiente paso
 // =============================================================================
 // Martín, 16/11/2026: «yo no pondría el botón de agendar llamada, sino justamente el botón de aplicar ahora. Y ahí pondría
 // justamente un formulario… muy similar [al de Mastery Haus]. El formulario evidentemente tiene que funcionar… y debería estar
@@ -17,15 +17,17 @@
 //     textarea que crece, con el contador cerca del tope; las de una opción, tarjetas con radios de verdad dentro de un fieldset
 //     (se eligen con las flechas); las de varias, con casilleros; el compromiso, un casillero.
 //   · EL BORRADOR vive en el navegador (`CLAVE_BORRADOR`, con su versión y la campaña con que llegó): si cierra la pestaña, retoma
-//     donde lo dejó. Se borra al enviar bien. Sin almacenamiento (una ventana privada), el formulario anda igual.
+//     donde lo dejó. Se borra al enviar bien. Sin almacenamiento (una ventana privada), el formulario anda igual. No se avisa
+//     debajo del formulario (16/11/2026, Martín: «tampoco el texto de abajo de lo que escribes se guarda en este navegador»): sólo
+//     al retomar, arriba.
 //   · El POST va a `API_APLICAR` con `{ respuestas, web, origen }`: las opciones viajan como ÍNDICES; `web` es el campo trampa.
 //     Si el servidor marca un `campo`, vuelve a su paso y lo marca.
 //   · EL INSTAGRAM Y EL YOUTUBE (16/11/2026): escribe su @, su nombre o pega el link, y la búsqueda de Competitor Spy
 //     (`API_CANAL`) le ofrece las cuentas para que elija la suya (`CampoCanal`). Si la búsqueda no anda, lo escrito vale igual.
 //   · LA PANTALLA FINAL, LA MISMA PARA TODOS (16/11/2026, Martín: «no tiene sentido de que automaticemos… siempre debería ser
-//     gracias, voy a revisar tu aplicación, te responderé en máximo 24 horas… estate atento a tu WhatsApp y a tu email»): el
-//     gracias, el video de Martín (`VIDEO_DE_GRACIAS`) y el paso siguiente, «obligatorio» al final de toda aplicación: la prueba
-//     gratuita de MaKo o «Ya hice la prueba gratuita»; con cuenta, «Entrar a MaKo». NADIE ve la agenda de Calendly al aplicar
+//     gracias, voy a revisar tu aplicación, te responderé en máximo 24 horas… estate atento a tu WhatsApp y a tu email»; neutro:
+//     «Revisa tu WhatsApp y tu email»): el gracias, el video de Martín (`VIDEO_DE_GRACIAS`) y, en su propia tarjeta, «Tu siguiente
+//     paso», «obligatorio» al final de toda aplicación: «Crear cuenta de MaKo» o «Ya tengo cuenta»; con cuenta, «Entrar a MaKo». NADIE ve la agenda de Calendly al aplicar
 //     (hasta esa tarde la veía quien calificaba): `califica` queda para el correo de Martín y la ficha. La aplicación enviada queda
 //     una semana en el navegador (sólo el nombre y si tiene cuenta, `enviadaParaGuardar`): quien vuelve ve su pantalla final.
 // Habla Martín, en primera persona: no hay equipo (memoria «sin-equipo-todavia»).
@@ -38,7 +40,7 @@ import {
   API_APLICAR, API_CANAL, LARGO_MAXIMO, SECCIONES, campo as campoDe, campoVisible, errorDelCampo, erroresDeLaSeccion, queBuscarDelCanal,
   tieneCuentaDeMako, type Campo, type Respuestas, type Valor,
 } from '@/lib/aplicacion-accelerator';
-import { PROGRAMA_ACELERADOR, PRUEBA_DIAS } from '@/lib/planes-mako';
+import { PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
 import type { OrigenCompra } from '@/lib/compra-plan-reglas';
 import { digitosDeFormulario } from '@/lib/paises';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
@@ -62,9 +64,9 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPrueba, rutaEnt
   origen: OrigenCompra | null;
   /** Qué parámetros de la URL son de la campaña (`CLAVES_ORIGEN`): para leerlos de la página anterior si esta URL no los trae. */
   clavesOrigen: readonly string[];
-  /** El checkout de la prueba gratuita de la pantalla final (MaKo Pro); le suma la campaña (`linkDeLaPrueba`). */
+  /** «Crear cuenta de MaKo» de la pantalla final: el checkout de MaKo Pro con su prueba; le suma la campaña (`linkDeLaPrueba`). */
   rutaPrueba: string;
-  /** «Entrar a MaKo» y «Ya hice la prueba gratuita» de la pantalla final: el login. */
+  /** «Ya tengo cuenta» y «Entrar a MaKo» de la pantalla final: el login. */
   rutaEntrar: string;
   /** El código de país que arranca elegido en el WhatsApp: el de donde está la persona (page.tsx, `ladaDelPais`). Lo puede cambiar. */
   ladaInicial: string;
@@ -368,18 +370,14 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPrueba, rutaEnt
               : ultimo ? 'Enviar aplicación' : <>Siguiente<ArrowRight aria-hidden="true" /></>}
           </button>
         </div>
-        {/* LOS LEGALES, SIN EL PIE DEL SITIO (revisión del 16/11/2026, hallazgo 5): al sacar el pie se habían ido, y el formulario pide
-            nombre, email, WhatsApp y facturación. Un renglón, como el checkout (app/planes/[plan]/Checkout.tsx, `ck-legales`), en
-            todos los pasos. En otra pestaña: un paso no se abandona por un link (el borrador queda, pero la persona no se va). */}
-        <p className="apl-legales">
-          <a href="/terminos" target="_blank" rel="noopener">Términos</a>
-          <a href="/privacidad" target="_blank" rel="noopener">Privacidad</a>
-          <a href="/reembolsos" target="_blank" rel="noopener">Reembolsos</a>
-        </p>
+        {/* SIN LEGALES NI NOTA DEBAJO (16/11/2026, Martín: «en el formulario no pongas ni términos, ni privacidad, ni reembolso. Eso no
+            hace falta en el formulario. Tampoco el texto de abajo de lo que escribes se guarda en este navegador. No pongas textos
+            innecesarios»). Debajo de «Enviar aplicación» iban Términos, Privacidad y Reembolsos (revisión del 16/11, hallazgo 5: al
+            sacar el pie no quedaba ningún link a la privacidad), y debajo de la tarjeta, «Lo que escribes se guarda en este navegador:
+            si cierras la página, sigues donde lo dejaste.». Los legales siguen en el pie de la landing del programa, a un toque de la
+            marca de arriba; el borrador se sigue guardando igual (`CLAVE_BORRADOR`), sin decirlo. */}
         <p className="apl-oculto" role="status" aria-live="polite">{aviso}</p>
       </form>
-      {/* Sin «hasta que lo envíes»: enviada, queda una semana para volver a la pantalla final (`CLAVE_ENVIADA`). */}
-      <p className="apl-nota">Lo que escribes se guarda en este navegador: si cierras la página, sigues donde lo dejaste.</p>
     </div>
   );
 }
@@ -665,18 +663,21 @@ function AreaQueCrece({ value, onChange, ...resto }: {
 /**
  * LA PANTALLA DE DESPUÉS DE ENVIAR, LA MISMA PARA TODOS (16/11/2026). Martín: «siempre debería ser gracias, voy a revisar tu
  * aplicación, te responderé en máximo 24 horas… estate atento a tu WhatsApp y a tu email… al final de toda aplicación… como un
- * paso obligatorio. El siguiente paso que tienes que dar es iniciar tu prueba gratuita de 7 días en MaKo… Y ahí te da una opción de
- * iniciar prueba gratuita de 7 días o ya hice la prueba gratuita… Y deja ahí un espacio… para un video… no hace falta tanto texto…
- * Tal vez solamente los botones». Con cuenta de MaKo (lo contestó en «Tus datos»), el botón es «Entrar a MaKo».
+ * paso obligatorio… Y deja ahí un espacio… para un video… no hace falta tanto texto… Tal vez solamente los botones».
+ * ESA NOCHE: el texto NEUTRO («estate atento… para una mujer atento no aplica»: «Revisa tu WhatsApp y tu email»); «el siguiente paso
+ * tal vez debería ser como más visible… está bien la parte de arriba, gracias, pero pondría como una sección más visible del
+ * siguiente paso» (su propia tarjeta, `.apl-siguiente`, con «Tu siguiente paso» de título); y «yo no pondría iniciar la prueba
+ * gratuita de 7 días, sino que tu siguiente paso es crear cuenta de MaKo o ya tengo cuenta»: «Crear cuenta de MaKo» (la misma ruta
+ * que la prueba, `rutaPrueba`) y «Ya tengo cuenta» (el login). Con cuenta de MaKo (lo contestó en «Tus datos»), «Entrar a MaKo».
  * Sin agenda: hasta esa tarde, quien calificaba elegía ahí su horario en el Calendly de Martín.
  */
 export function PantallaFinal({ nombre, conCuenta, rutaPrueba, rutaEntrar, video, tituloRef, onOtra }: {
   nombre: string;
-  /** Ya tiene cuenta de MaKo (`tieneCuentaDeMako`): «Entrar a MaKo» en vez de la prueba. */
+  /** Ya tiene cuenta de MaKo (`tieneCuentaDeMako`): «Entrar a MaKo» en vez de crearla. */
   conCuenta: boolean;
-  /** El checkout de la prueba gratuita, con la campaña (`linkDeLaPrueba`). */
+  /** «Crear cuenta de MaKo»: el checkout de MaKo Pro con su prueba, con la campaña (`linkDeLaPrueba`). */
   rutaPrueba: string;
-  /** El login de MaKo. */
+  /** El login de MaKo («Ya tengo cuenta» y «Entrar a MaKo»). */
   rutaEntrar: string;
   /** El video de Martín (`VIDEO_DE_GRACIAS`, el reproductor de Panda); sin él, no hay bloque del video. */
   video: string | null;
@@ -690,7 +691,7 @@ export function PantallaFinal({ nombre, conCuenta, rutaPrueba, rutaEntrar, video
         <div className="apl-fin-ico" aria-hidden="true" />
         <div aria-live="polite">
           <h1 ref={tituloRef} tabIndex={-1}>{nombre ? `¡Gracias, ${nombre}!` : '¡Gracias!'}</h1>
-          <p className="apl-fin-texto">Voy a revisar tu aplicación y te respondo en máximo 24 horas. Estate atento a tu WhatsApp y a tu email.</p>
+          <p className="apl-fin-texto">Voy a revisar tu aplicación y te respondo en máximo 24 horas. Revisa tu WhatsApp y tu email.</p>
         </div>
         {/* Sin video, no hay bloque (revisión del 16/11/2026, #11): «Muy pronto, un video mío para ti» lo veía todo el que aplicaba,
             y no hay fecha para ese video. Se pega el link en `VIDEO_DE_GRACIAS` (./reglas.ts) y aparece. */}
@@ -701,20 +702,21 @@ export function PantallaFinal({ nombre, conCuenta, rutaPrueba, rutaEntrar, video
             <iframe src={video} title="Un video de Martín para ti" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
           </div>
         )}
-        <div className="apl-siguiente">
-          <p className="apl-siguiente-ceja">Tu siguiente paso</p>
-          {/* Sólo los botones (Martín: «no hace falta tanto texto… Tal vez solamente los botones»). */}
+        {/* TU SIGUIENTE PASO, EN SU PROPIA TARJETA (Martín, 16/11/2026: «pondría como una sección más visible del siguiente paso»):
+            el título y los botones, nada más («no hace falta tanto texto… Tal vez solamente los botones»). */}
+        <section className="apl-siguiente" aria-labelledby="apl-siguiente-titulo">
+          <h2 className="apl-siguiente-titulo" id="apl-siguiente-titulo">Tu siguiente paso</h2>
           <div className="apl-siguiente-botones">
             {conCuenta
               ? <a className="acl-btn" href={rutaEntrar}>Entrar a MaKo</a>
               : (
                 <>
-                  <a className="acl-btn" href={rutaPrueba}>Iniciar prueba gratuita de {PRUEBA_DIAS} días</a>
-                  <a className="apl-boton-borde" href={rutaEntrar}>Ya hice la prueba gratuita</a>
+                  <a className="acl-btn" href={rutaPrueba}>Crear cuenta de MaKo</a>
+                  <a className="apl-boton-borde" href={rutaEntrar}>Ya tengo cuenta</a>
                 </>
               )}
           </div>
-        </div>
+        </section>
         {onOtra && (
           <p className="apl-otra">¿Quieres enviar otra aplicación? <button type="button" onClick={onOtra}>Empezar de nuevo</button></p>
         )}

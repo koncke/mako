@@ -28,9 +28,13 @@
 //     acompañamiento, «No es una mentoría grupal», los testimonios de relleno («Nombre Apellido»), «Marketing Koncept», el
 //     encuentro en Buenos Aires, los clientes «recurrentes» y un equipo que Martín no tiene; «Conmigo, no con un equipo» SÍ
 //     queda;
-//   · el texto está en «tú» (el de Lovable estaba en «vos»);
+//   · el texto está en «tú» (el de Lovable estaba en «vos») y es NEUTRO en género (16/11/2026, a la noche: «para una mujer atento
+//     no aplica»);
 //   · la barra de abajo del teléfono aparece con el caso de Mauricio y la tapa la sección de aplicar;
-//   · la página vive donde lleva el «Más información» de /planes (`RUTA_ACCELERATOR`), es pública, y sólo se lee.
+//   · la página vive donde lleva el «Más información» de /planes (`RUTA_ACCELERATOR`), es pública, y sólo se lee;
+//   · 16/11/2026, a la noche: las dos tiras de la portada entre las secciones (después de los casos y de los entregables), sin «Y en
+//     las tres fases, siempre» (de los entregables, directo al precio), el precio y el botón en UN bloque con el mismo eje, sin «el
+//     acompañamiento más personalizado del mercado» y la estrella de MaKo en blanco.
 //
 // Correr: node --import tsx --test tests/acelerador-landing.test.ts
 //
@@ -94,9 +98,9 @@ test('lo que incluye es el del programa (lib/planes-mako.ts), importado, y «Nue
   // Las horas de la primera semana no se aclaran (Martín, 15/11: «no hace falta que aclares lo de las 10 horas»): son contrato,
   // y las dicen el pedido y /reembolsos.
   assert.doesNotMatch(t, /horas de trabajo/i, 'la landing aclara las horas de la primera semana');
-  // Va en «La inversión», después de «Y en las tres fases, siempre» y antes del filtro.
+  // Va en «La inversión», después del programa (el último entregable y la tira de las apps que MaKo reemplaza) y antes del filtro.
   const incluye = t.indexOf(`La inversión ${PROGRAMA_ACELERADOR.nombre}`);
-  assert.ok(incluye > t.indexOf('Y en las tres fases, siempre:'), 'lo que incluye no va después del programa');
+  assert.ok(incluye > t.indexOf('Entregable #12:'), 'lo que incluye no va después del programa');
   assert.ok(incluye < t.indexOf('¿Esto es realmente para ti?'), 'lo que incluye quedó después del filtro');
   // SIN «NUESTRA PROMESA» (16/11/2026): la misma razón por la que Martín la sacó de la columna de /planes el 15/11 («el sistema
   // de adquisición de clientes ya está en el check número 2»), y esa columna está ahora en esta página, debajo.
@@ -106,12 +110,26 @@ test('lo que incluye es el del programa (lib/planes-mako.ts), importado, y «Nue
   assert.ok(LISTA_PROGRAMA.some((x) => /sistema de adquisici[oó]n de clientes/i.test(`${x.fuerte}${x.texto}`)), 'la tarjeta ya no dice el sistema: la promesa tendría que volver');
 });
 
-test('la tarjeta «Acompañamiento continuo», escrita a mano, dice lo mismo que el programa', async () => {
-  // La lección del sello de la garantía: un texto escrito a mano al lado de una lista importada sigue afirmando lo que la
-  // fuente ya cambió. Si el programa cambia las sesiones, sus horas, la asesoría o el WhatsApp, esto se pone rojo. Se lee de
-  // la lista que la página muestra (nombre y detalle) y del contrato (`incluye`): las dos tienen que decir lo de la tarjeta.
+test('«Y en las tres fases, siempre» no vuelve: de los entregables (y su tira), directo a «La inversión»; lo que decía, lo dice la lista', async () => {
+  // Martín, 16/11/2026: «yo eliminaría también esa parte de, y en las tres fases, siempre conmigo, cero relleno, todo accionable,
+  // todo eso lo eliminaría para directamente el precio». Eran dos tarjetas escritas a mano («Acompañamiento continuo · Conmigo, para
+  // que no te frenes.» y «El programa completo + recursos · Cero relleno: todo accionable.»).
   const { PROGRAMA } = await import('../app/accelerator/contenido');
   const { LISTA_DEL_ACELERADOR } = await import('../lib/planes-mako');
+  const html = await pagina();
+  const t = texto(html);
+  for (const viejo of ['Y en las tres fases', 'Acompañamiento continuo', 'Conmigo, para que no te frenes', 'El programa completo + recursos', 'Cero relleno', 'todo accionable']) {
+    assert.ok(!t.includes(viejo), `volvió «${viejo}»`);
+  }
+  assert.doesNotMatch(html, /acl-siempre|class="acl-ac"/, 'volvieron las tarjetas (o su lugar) de «Y en las tres fases, siempre»');
+  assert.equal('siempre' in PROGRAMA || 'siempreTitulo' in PROGRAMA, false, 'el texto de «Y en las tres fases, siempre» sigue en ./contenido.ts');
+  // DIRECTO AL PRECIO: entre el último entregable y «La inversión» sólo va la tira de las apps que MaKo reemplaza.
+  const entre = html.slice(html.indexOf('Entregable #12:'), html.indexOf('<section class="acl-sec acl-inversion-s"'));
+  assert.ok(entre.length > 0, 'el entregable #12 no va antes de «La inversión»');
+  assert.deepEqual([...entre.matchAll(/<(h[1-6]|section)\b[^>]*>/g)].map((m) => m[0]), ['<section class="s-tira s-tira-reemplaza" aria-label="Apps que MaKo reemplaza">'],
+    'entre los entregables y el precio hay otra cosa además de la tira');
+  // LO QUE DECÍA LA TARJETA DEL ACOMPAÑAMIENTO (cuántas sesiones 1 a 1, de cuántas horas, la asesoría grupal de cada semana y el
+  // WhatsApp personal) lo dice ahora sólo la lista que la página muestra, IMPORTADA: y esa lista dice lo mismo que el contrato.
   const cifras: string[] = [];
   for (const [cual, renglones] of [
     ['la lista de la página', LISTA_DEL_ACELERADOR.map((x) => `${x.fuerte}${x.texto} ${x.detalle}`)],
@@ -125,14 +143,9 @@ test('la tarjeta «Acompañamiento continuo», escrita a mano, dice lo mismo que
     assert.ok(renglones.some((x) => /WhatsApp personal/i.test(x)), `el WhatsApp personal salió de ${cual}: revisar la tarjeta`);
   }
   assert.equal(cifras[0], cifras[1], 'la lista de la página y el contrato no dicen las mismas sesiones (cuántas | de cuántas horas)');
-  const tarjeta = PROGRAMA.siempre[0].texto;
-  const NUMERO: Record<string, string> = { 1: 'Una', 2: 'Dos', 3: 'Tres', 4: 'Cuatro', 5: 'Cinco', 6: 'Seis' };
-  const [n, horas] = cifras[0].split('|');
-  assert.match(tarjeta, new RegExp(`^(${NUMERO[n] ?? n}|${n}) sesiones 1 a 1 `), `la tarjeta no dice las ${n} sesiones 1 a 1`);
-  assert.ok(tarjeta.includes(`de ${horas} horas`), `la tarjeta no dice que son de ${horas} horas`);
-  assert.match(tarjeta, /asesor[ií]a grupal en vivo cada semana/, 'la tarjeta no dice que la asesoría es grupal y semanal');
-  assert.match(tarjeta, /WhatsApp personal/, 'la tarjeta no dice el WhatsApp personal');
-  assert.ok(texto(await pagina()).includes(tarjeta), 'la tarjeta no se dibuja');
+  const loDeLaTarjeta = LISTA_DEL_ACELERADOR.filter((y) => /sesiones 1 a 1|asesor[ií]a|WhatsApp personal/i.test(y.corto));
+  assert.equal(loDeLaTarjeta.length, 3, `la lista ya no tiene las sesiones, la asesoría y el WhatsApp: ${loDeLaTarjeta.map((x) => x.corto).join(' · ')}`);
+  for (const x of loDeLaTarjeta) assert.ok(t.includes(`${x.corto} ${x.detalle}`), `«La inversión» no dice «${x.corto}» con su detalle`);
 });
 
 test('el caso de Mauricio dice los números de hoy', async () => {
@@ -161,6 +174,8 @@ test('lo que Martín corrigió no vuelve', async () => {
     [/Buenos Aires/i, 'el encuentro presencial salió del programa el 15/11'],
     [/sin tope/i, 'Martín, 15/11: «ilimitado», nunca «sin tope»'],
     [/recurrentes/i, 'Martín, 16/11: «no pondría con clientes recurrentes. Pondría con oferta validada»'],
+    [/más personalizado del mercado/i, 'Martín, 16/11: «eliminaría también la frase de con el acompañamiento más personalizado del mercado»'],
+    [/Y en las tres fases|Cero relleno|todo accionable/i, 'Martín, 16/11: «todo eso lo eliminaría para directamente el precio»'],
   ];
   for (const [re, porque] of VIEJOS) {
     assert.doesNotMatch(t, re, porque);
@@ -211,9 +226,12 @@ test('todo «Aplica ahora» lleva al formulario (RUTA_APLICAR), y en la página 
   }
   // El de la sección del final, el grande.
   assert.match(html, new RegExp(`<a class="acl-btn acl-btn-grande" href="${escapar(RUTA_APLICAR)}">Aplica ahora</a>`), 'el botón final no es el grande al formulario');
-  // Ningún link baja a la sección ni sale a una agenda; en toda la página (también su CSS) no hay un Calendly.
+  // Ningún link baja a la sección ni sale a una agenda; en toda la página (también su CSS) no hay un Calendly. Desde el 16/11/2026, a
+  // la noche, la palabra sí está: Calendly es una de las apps de la tira «Funciona con las apps que ya usas» (su logo y su nombre, sin
+  // link). La agenda es calendly.com.
   assert.doesNotMatch(html, /href="#/, 'un botón volvió a bajar a una sección');
-  assert.doesNotMatch(html, /calendly/i, 'la agenda volvió a la página: se abre después de aplicar');
+  assert.doesNotMatch(html, /calendly\.com/i, 'la agenda volvió a la página: se abre después de aplicar');
+  assert.doesNotMatch(html, /<a\b[^>]*calendly/i, 'un link a Calendly volvió a la página');
   assert.ok(!html.includes(TEXTO_AGENDA_ACELERADOR), `volvió «${TEXTO_AGENDA_ACELERADOR}»`);
   // El formulario: una página pública que sólo se lee (lo que manda va a /api/accelerator/aplicar, que valida todo).
   assert.equal(RUTA_APLICAR, '/accelerator/aplicar');
@@ -223,7 +241,7 @@ test('todo «Aplica ahora» lleva al formulario (RUTA_APLICAR), y en la página 
   // Sin botones muertos ni JavaScript propio: todo es un link.
   assert.doesNotMatch(html, /<button\b/, 'un <button> en una página sin JavaScript no hace nada');
   assert.doesNotMatch(html, /<script\b/, 'la página no lleva JavaScript propio');
-  for (const f of ['app/accelerator/page.tsx', 'app/accelerator/LandingAcelerador.tsx', 'app/accelerator/contenido.ts', 'app/accelerator/estilo.ts', 'app/accelerator/Barra.tsx']) {
+  for (const f of ['app/accelerator/page.tsx', 'app/accelerator/LandingAcelerador.tsx', 'app/accelerator/contenido.ts', 'app/accelerator/estilo.ts', 'app/accelerator/Barra.tsx', 'app/accelerator/Tiras.tsx']) {
     assert.doesNotMatch(readFileSync(join(RAIZ, f), 'utf8'), /^\s*['"]use client['"]/m, `${f} es del servidor`);
   }
 });
@@ -301,17 +319,13 @@ test('el CSS: el de la landing, la barra y «La inversión», en ese orden; y el
   const fondo = CSS_ACELERADOR.match(/--acl-bg: (#[0-9a-f]{6});/i)?.[1];
   assert.ok(fondo, 'no encontré el fondo de la página');
   assert.match(CSS_ACELERADOR, new RegExp(`body:has\\(\\.acl-root\\) \\.s-sitio \\.s-pie \\{ background: ${fondo};`), 'el pie del sitio no va del color de la página');
-  // MÁS BAJO («está exageradamente alta»): sin las columnas 2 a 6, que tienen que ser las cuatro familias de la app y las Industrias
-  // (si el pie cambia el orden, se escondería otra cosa: por ejemplo Legal, con Reembolsos, que Meta pide en la página de destino).
-  const { columnasDelPie } = await import('../app/vsl/_sitio/datos');
-  const titulos = columnasDelPie().map((c) => c.titulo);
-  assert.deepEqual(titulos.slice(1, 6), ['Today', 'Sales', 'Marketing', 'Create', 'Industrias'], `el pie cambió sus columnas: ${titulos.join(', ')}`);
-  assert.deepEqual([titulos[0], ...titulos.slice(6)], ['Empezar', 'Recursos', 'Legal'], 'las que quedan a la vista en esta página ya no son Empezar, Recursos y Legal');
-  for (const sel of ['.s-pie-cols > .s-pie-col', '.s-pie-pliegues > .s-pie-pliegue']) {
-    assert.ok(CSS_ACELERADOR.includes(`body:has(.acl-root) .s-sitio ${sel}:nth-child(n+2):nth-child(-n+6)`), `${sel}: no se esconden la 2 a la 6`);
-  }
+  // EL MISMO PIE QUE LA PORTADA, CON TODO (Martín, 16/11/2026, a la tarde: «la bottom bar debe ser el mismo diseño en las dos.
+  // Solamente acá en Accelerator tiene su fondo de ese color… deberían estar todo»): ninguna columna escondida ni achicada aparte.
+  assert.doesNotMatch(CSS_ACELERADOR, /\.s-pie-(?:cols|pliegues)[^{]*nth-child/, 'el pie del Accelerator volvió a esconder columnas');
+  assert.doesNotMatch(CSS_ACELERADOR, /body:has\(\.acl-root\) \.s-sitio \.s-pie-(?:in|cols|col li|h|base|marca|pliegue summary) \{/, 'el pie del Accelerator volvió a achicarse aparte');
   const html = await pagina();
-  assert.match(html, /<div class="s-pie-cols">/, 'el pie cambió su estructura: revisar qué esconde esta página');
+  const { columnasDelPie } = await import('../app/vsl/_sitio/datos');
+  for (const c of columnasDelPie()) assert.ok(html.includes(`<p class="s-pie-h">${c.titulo}</p>`), `el pie del Accelerator no tiene ${c.titulo}`);
 });
 
 test('arriba, la barra de MaKo (vuelve a «/» y lleva a /planes); abajo, el pie del sitio, una vez', async () => {
@@ -350,9 +364,9 @@ test('los entregables: 4, 4 y 4 en dos columnas, del 1 al 12, con Appointment Se
   const t = texto(html);
   for (let i = 1; i <= 12; i++) assert.ok(t.includes(`Entregable #${i}:`), `falta el entregable #${i}`);
   assert.ok(!t.includes('Entregable #13:'));
-  // Cada grilla dibujada, hasta donde empieza lo que sigue (la nota de la fase 02, la fase siguiente o «Y en las tres fases»).
+  // Cada grilla dibujada, hasta donde empieza lo que sigue (la nota de la fase 02, la fase siguiente o el fin de la sección).
   const grillas = html.split('<div class="acl-entregables">').slice(1)
-    .map((g) => g.split(/<div class="acl-creativos">|<div class="acl-fase">|<p class="acl-siempre-lbl">/)[0]);
+    .map((g) => g.split(/<div class="acl-creativos">|<div class="acl-fase">|<\/section>/)[0]);
   assert.deepEqual(grillas.map((g) => (g.match(/class="acl-deliv"/g) ?? []).length), [4, 4, 4], 'las grillas dibujadas no son de 4');
   // DOS COLUMNAS en la computadora (2 y 2), una en el teléfono.
   assert.match(CSS_ACELERADOR, /\.acl-entregables \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/, 'los entregables no van en dos columnas');
@@ -456,6 +470,97 @@ test('la página vive donde lleva el «Más información» de /planes, es públi
   assert.equal(esPublica(`${RUTA_ACCELERATOR}es`), false, 'el prefijo no se hereda a otra ruta');
   const { metadata } = await import('../app/accelerator/page');
   assert.equal(metadata.title, PROGRAMA_ACELERADOR.nombre);
+  // Sin «con el acompañamiento más personalizado del mercado» (Martín, 16/11/2026): ni en la descripción ni al compartirla.
+  for (const d of [metadata.description, metadata.openGraph?.description]) {
+    assert.ok(typeof d === 'string' && d.length > 20, 'la página sin descripción');
+    assert.doesNotMatch(d, /más personalizado del mercado/i, `la descripción sigue diciendo «el acompañamiento más personalizado del mercado»: ${d}`);
+  }
+});
+
+test('las tiras de la portada separan las secciones: las apps con las que se conecta, después de los casos; las que reemplaza, después de los entregables', async () => {
+  // Martín, 16/11/2026: «tal vez faltan los carruseles de las cositas que tenemos en MaKo para separar las secciones. Sobre todo, la
+  // sección de donde se terminan los testimonios, que el último es de Social Media Lab, y luego la sección donde se terminan los
+  // entregables».
+  const { TiraSitio } = await import('../app/vsl/_sitio/Portada');
+  const { SeccionReemplaza } = await import('../app/vsl/_sitio/LoQuePagas');
+  const { CSS_BASE, CSS_REEMPLAZA } = await import('../app/vsl/_sitio/estilos');
+  const { CSS_TIRAS } = await import('../app/accelerator/estilo');
+  const { ROTULO_REEMPLAZA } = await import('../app/accelerator/Tiras');
+  const { PROGRAMA, RESULTADOS } = await import('../app/accelerator/contenido');
+  const html = await pagina();
+  // LA PRIMERA, LA DE LA PORTADA TAL CUAL: el mismo componente (exportado de app/vsl/_sitio/Portada.tsx, no una copia). Sin los
+  // `<link rel="preload">` de sus logos, que React sube al principio del documento.
+  const conecta = renderToStaticMarkup(createElement(TiraSitio)).replace(/<link rel="preload"[^>]*\/>/g, '');
+  assert.match(conecta, /<p class="s-tira-r">Funciona con las apps que ya usas<\/p>/, '¿cambió la tira de la portada? Revisar esta página');
+  assert.equal(html.split(conecta).length - 1, 1, 'la tira de las apps con las que se conecta no está una vez, tal cual la de la portada');
+  // LA SEGUNDA, LA DE «MaKo reemplaza…» (app/vsl/_sitio/LoQuePagas.tsx). Allá no es un componente suelto (va adentro de
+  // `SeccionReemplaza`, con el titular y la cuenta): `TiraReemplaza` (app/accelerator/Tiras.tsx) dibuja la misma, y acá se compara
+  // con la de allá, del rótulo al último logo. Si una cambia y la otra no, rojo.
+  const deAlla = renderToStaticMarkup(createElement(SeccionReemplaza, {})).match(/<p class="s-tira-r">[\s\S]*?<\/ul><\/div><\/div>/)?.[0] ?? '';
+  assert.ok(deAlla.startsWith(`<p class="s-tira-r">${ROTULO_REEMPLAZA}</p>`), `la tira de la portada ya no dice «${ROTULO_REEMPLAZA}»: ${deAlla.slice(0, 120)}`);
+  assert.equal(html.split(deAlla).length - 1, 1, 'la tira de las apps que MaKo reemplaza no es la de la portada (o no está una vez)');
+  // Sin el titular ni la cuenta de lo que pagas: serían un segundo precio (MaKo Pro) justo antes de «La inversión».
+  assert.doesNotMatch(html, /Lo que probablemente ya pagas|class="s-ah/, 'con la tira vino la cuenta de lo que pagas');
+  // DÓNDE: después de los casos (el último es Social Media Lab, y la metodología cierra la sección) y antes del programa; después
+  // del entregable #12 y antes de «La inversión». Cada una, en su caja del sitio.
+  const t = texto(html);
+  const en = (s: string) => t.indexOf(s);
+  assert.match(RESULTADOS.casos[RESULTADOS.casos.length - 1].nombre, /^Social Media Lab\b/, 'el último caso ya no es Social Media Lab: ¿la tira sigue donde Martín la pidió?');
+  const orden = [RESULTADOS.casos[RESULTADOS.casos.length - 1].nombre, RESULTADOS.metodologia, 'Funciona con las apps que ya usas', PROGRAMA.titulo, 'Entregable #12:', ROTULO_REEMPLAZA, `La inversión ${PROGRAMA_ACELERADOR.nombre}`];
+  assert.deepEqual(orden.map(en).map((i, k, l) => i >= 0 && (k === 0 || i > l[k - 1])), orden.map(() => true), `las tiras no van donde Martín las pidió: ${orden.map((s) => `${s.slice(0, 24)}@${en(s)}`).join(' · ')}`);
+  assert.equal((html.match(/<div class="s-sitio acl-tira">/g) ?? []).length, 2, 'cada tira, en su caja del sitio');
+  // EL CSS: el de la portada (`CSS_REEMPLAZA`) y, después, lo que lo acomoda a esta página (sin el fondo azul noche ni el alto de
+  // pantalla de `.s-sitio`). La base del sitio (la letra y los logos casi negros sobre blanco, `CSS_BASE`) la trae el pie.
+  const css = estilos(html);
+  assert.ok(css.includes(CSS_REEMPLAZA) && css.includes(CSS_TIRAS) && css.indexOf(CSS_REEMPLAZA) < css.indexOf(CSS_TIRAS), 'el CSS de las tiras no es el de la portada, seguido del de esta página');
+  assert.ok(css.includes(CSS_BASE), 'sin la base del sitio, las tiras pierden su letra y los logos casi negros su cuadro blanco');
+  assert.match(CSS_TIRAS, /\.acl-root \.s-sitio\.acl-tira \{ background: none; min-height: 0; \}/, 'la caja de la tira trae el fondo azul noche o el alto de pantalla del sitio');
+});
+
+test('«La inversión»: el precio y el botón, UN bloque, en el mismo eje (en la computadora y en el teléfono)', async () => {
+  // Martín, 16/11/2026: «súper importante que el precio de los 1500 esté alineado con el botón». Iban en fila, alineados por abajo
+  // (el número quedaba más arriba que el botón) y en el teléfono el precio a la izquierda y el texto del botón en el centro. Medido
+  // en el artefacto con getBoundingClientRect (el texto del número con un Range): a 1440, el número y el botón miden 251 px y
+  // comparten los dos bordes y el centro; a 390, el centro de la tarjeta, con el botón a todo su ancho.
+  const { CSS_INVERSION } = await import('../app/accelerator/estilo');
+  const pr = PROGRAMA_ACELERADOR;
+  const bloque = (await pagina()).match(/<section class="acl-sec acl-inversion-s"[\s\S]*?<\/section>/)?.[0] ?? '';
+  const compra = bloque.match(/<div class="acl-inversion-compra">([\s\S]*?<\/a>)<\/div>/)?.[1] ?? '';
+  assert.equal(compra, `<div class="acl-inversion-monto">US$ ${pr.precioUsd.toLocaleString('es-AR')}</div><div class="acl-inversion-periodo">${pr.periodo}</div><a href="/accelerator/aplicar" class="acl-btn acl-btn-oro">Aplica ahora</a>`,
+    'el precio, cuánto dura y el botón no van juntos, en ese orden, en su bloque');
+  const regla = (sel: string) => CSS_INVERSION.match(new RegExp(`(?:^|\\n)${escapar(sel)} \\{([^}]*)\\}`))?.[1] ?? '';
+  assert.match(regla('.acl-inversion-compra'), /display: flex; flex-direction: column; align-items: stretch; text-align: center;/, 'el bloque no apila y centra el precio y el botón, con el botón a su ancho');
+  assert.doesNotMatch(CSS_INVERSION, /\.acl-inversion-(precio|compra|monto|periodo)[^{]*\{[^}]*text-align: (left|right)/, 'el precio volvió a irse a un costado del botón');
+  assert.doesNotMatch(regla('.acl-inversion-cabeza'), /flex-end/, 'volvió la fila alineada por abajo: el número queda más arriba que el botón');
+  assert.doesNotMatch(CSS_INVERSION, /\.acl-btn-oro \{[^}]*display: block/, 'en el teléfono el botón vuelve a ir aparte del bloque');
+});
+
+test('el logo de MaKo, blanco: el Accelerator es sólo oscuro (en la barra; el pie es de otra tanda)', async () => {
+  // Martín, 16/11/2026: «como Accelerator solamente es Dark Mode, el logo de MaKo en todos lados siempre lo pondría en White para que
+  // se diferencie». La estrella era la dorada de todo el sitio (`MAKO.dorado`).
+  const { BarraAccelerator, COLOR_DE_LA_ESTRELLA } = await import('../app/accelerator/Barra');
+  const { MAKO } = await import('../app/vsl/_competencia/marca');
+  assert.equal(COLOR_DE_LA_ESTRELLA, '#fff');
+  const barra = renderToStaticMarkup(createElement(BarraAccelerator, {}));
+  assert.match(barra, /<span class="acl-estrella" aria-hidden="true"><svg [^>]*><path d="[^"]+" fill="#fff"><\/path><\/svg><\/span>/, 'la estrella de la barra no es blanca');
+  // En el cuerpo de la página (lo de antes del pie del sitio), ninguna estrella dorada.
+  const html = await pagina();
+  const cuerpo = html.slice(0, html.indexOf('<footer class="s-pie">')).replace(/<style[\s\S]*?<\/style>/g, '');
+  assert.ok(cuerpo.includes('class="acl-estrella"'), 'no encontré la barra en la página');
+  assert.ok(!new RegExp(`fill="${MAKO.dorado}"`, 'i').test(cuerpo), 'quedó un logo de MaKo dorado en la página');
+});
+
+test('neutro en género: nada de «listo», «atento», «bienvenido»… a quien lee (Martín, 16/11/2026)', async () => {
+  // Martín: «revisa bien los copies, porque por ejemplo dice, estate atento… para una mujer atento no aplica. O sea, que sea neutro».
+  const t = texto(await pagina());
+  const MASCULINO = /(?<!\p{L})(listo|atento|bienvenido|preparado|interesado)(?!\p{L})|te dejo solo\b/giu;
+  assert.deepEqual([...t.matchAll(MASCULINO)].map((m) => m[0]), [], 'un texto le habla en masculino a quien lee');
+  // Los que se cambiaron, por si vuelven: «Estás listo para invertir en tu negocio», «No estás listo para invertir» y «no te dejo
+  // solo con la estrategia».
+  const { FILTRO, PROGRAMA } = await import('../app/accelerator/contenido');
+  assert.ok(FILTRO.si.some((x) => x.t === 'Es tu momento de invertir en tu negocio'), 'el filtro ya no dice «Es tu momento de invertir en tu negocio»');
+  assert.ok(FILTRO.no.some((x) => x.t === 'No es tu momento de invertir'), 'el filtro ya no dice «No es tu momento de invertir»');
+  assert.match(PROGRAMA.fases[1].creativos?.texto ?? '', /^Y aquí no me quedo en la estrategia\./);
 });
 
 // Roturas (15/11/2026, segunda vuelta; base 9 / 0), cada una restaurada (pasan / fallan):
@@ -519,3 +624,19 @@ test('la página vive donde lleva el «Más información» de /planes, es públi
 //   · el Blueprint pasa de 150 caracteres                                  -> 15 / 1
 //   · el pie de esta página esconde también Recursos y Legal               -> 15 / 1
 //   Y en tests/planes-tres-bloques.test.ts: vuelve `cuotas: 3` al Accelerator -> 26 / 1.
+// Cuarta tanda (16/11/2026, a la noche; base 20 / 0; scratchpad/acelerador-artefacto/romper3.py, cada rotura sola y restaurada):
+//   · sin la tira de después de los casos                                  -> 19 / 1
+//   · las dos tiras, cambiadas de lugar                                    -> 18 / 2 (las tiras, y lo que va antes del precio)
+//   · la tira de las apps que reemplaza, con otro rótulo                   -> 19 / 1
+//   · esa tira sin la segunda lista (el bucle con corte)                   -> 19 / 1
+//   · vuelve «Y en las tres fases, siempre:»                               -> 18 / 2 (lo viejo, y directo al precio)
+//   · el precio y el botón otra vez en fila (text-align: right)            -> 19 / 1
+//   · el botón fuera del bloque del precio                                 -> 19 / 1
+//   · la cabeza de «La inversión» alineada por abajo                       -> 19 / 1
+//   · vuelve la bajada «Con el acompañamiento más personalizado…»          -> 19 / 1
+//   · vuelve esa frase a la descripción de la página                       -> 19 / 1
+//   · la estrella de la barra, dorada otra vez                             -> 19 / 1
+//   · vuelve «Estás listo para invertir en tu negocio»                     -> 19 / 1
+//   · vuelve «no te dejo solo con la estrategia»                           -> 19 / 1
+//   · sin el CSS que acomoda las tiras                                     -> 19 / 1
+//   · la caja de la tira con el fondo azul noche del sitio                 -> 19 / 1

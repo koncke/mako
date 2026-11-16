@@ -11,10 +11,12 @@
 //     lead, su historial, «Quieren entrar», el correo a Martín (escapado) y que nunca se pierde una aplicación; sin leer la sesión;
 //   · EL REGISTRO: pública y de escritura EXACTA, la página sólo se lee, sin el cromo de la app, y no abre la app de iPhone;
 //   · EL FORMULARIO, MONTADO en un DOM (jsdom): los errores al tocar «Siguiente», el borrador, el POST a `API_APLICAR`, la pantalla
-//     final (la MISMA para todos desde el 16/11 a la tarde: sin agenda, con la prueba de MaKo o «Entrar a MaKo»), el campo que marca
-//     el servidor, la aplicación enviada que vuelve, y el Instagram y el YouTube con la búsqueda de Competitor Spy;
+//     final (la MISMA para todos desde el 16/11 a la tarde: sin agenda; desde esa noche, «Tu siguiente paso» en su tarjeta, con
+//     «Crear cuenta de MaKo» o «Ya tengo cuenta», o «Entrar a MaKo»), el campo que marca el servidor, la aplicación enviada que
+//     vuelve, y el Instagram y el YouTube con la búsqueda de Competitor Spy;
 //   · LA BÚSQUEDA DEL CANAL (tests/_aplicacion-accelerator-canal-hijo.ts): pública, en la plataforma, con sus topes;
-//   · LA PÁGINA y lo que lee el visitante: en «tú», sin «nuestro equipo» ni «te contactaremos», sin «garantía».
+//   · LA PÁGINA y lo que lee el visitante: en «tú» y NEUTRO en género, sin «nuestro equipo» ni «te contactaremos», sin «garantía»,
+//     sin legales ni la nota de debajo del formulario, y sin una opción sola en la última fila (16/11/2026, a la noche).
 //
 // ⚠️ CORRE EN UN DOM (jsdom, que viene en node_modules sin sus tipos, como tests/admin-polar-armazon.test.ts): toca globales
 //    (window, document, fetch). Ninguna comparación es sobre un nodo de jsdom: sólo textos, números y booleanos.
@@ -261,7 +263,10 @@ test('4. la agenda ya contestada (para el correo de Martín): el teléfono en a1
   // profile_slug=koncke, `custom_fields`). Viajan por número (la primera es 1: medido ese día, a4=2 marcó «No», y a5=3, a6=2 y a7=4
   // también): una tilde que cambie allá ya no los deja sin marcar, pero si Martín cambia el ORDEN, cámbialo acá.
   assert.deepEqual([...OPCIONES_DECISION], ['Sí, soy la única persona que toma decisiones en mi negocio.', 'No, necesito consultar con alguien más (invítalo a la llamada).']);
-  assert.deepEqual([...OPCIONES_EMPEZAR], ['De inmediato: estoy listo para arrancar ya', 'La próxima semana: sólo ajusto agenda', 'El próximo mes: estoy planeando arranque', 'En 2-3 meses: tengo barreras que resolver antes']);
+  // La primera, NEUTRA en el formulario (16/11/2026, a la noche: en Calendly dice «De inmediato: estoy listo para arrancar ya»): como
+  // viaja por su número, la agenda la sigue marcando igual.
+  assert.deepEqual([...OPCIONES_EMPEZAR], ['De inmediato: puedo arrancar ya', 'La próxima semana: sólo ajusto agenda', 'El próximo mes: estoy planeando arranque', 'En 2-3 meses: tengo barreras que resolver antes']);
+  assert.equal(new URL(linkDeLaAgenda({ ...LLENA, empezar: 0 })).searchParams.get('a7'), '1', 'la primera de «empezar» no marca la primera de la agenda');
   assert.deepEqual([...OPCIONES_A4], ['Si', 'No']);
   assert.deepEqual([...OPCIONES_A5], ['Menos de $1000', 'Entre $1000 y $3000', 'Entre $3000 y $10000']);
   assert.equal(AGENDA_DE_LA_LLAMADA, 'https://calendly.com/koncke/asesoria');
@@ -354,7 +359,12 @@ test('5. el borrador: se limpia, vence, no retoma en un paso con uno anterior a 
   // Cómo se dibuja: nombre y apellido juntos, WhatsApp y email juntos; las opciones largas en una columna.
   assert.deepEqual(filasDeLaSeccion(SECCIONES[0]).map((f) => f.map((c) => c.id)), [['nombre', 'apellido'], ['whatsapp', 'email'], ['cuenta'], ['emailCuenta']]);
   assert.equal(enUnaColumna(campo('situacion')), true);
-  assert.equal(enUnaColumna(campo('facturacion')), false);
+  // IMPARES, EN UNA COLUMNA (16/11/2026, Martín: «no me gusta que las opciones de 3 estén 2 y 1 abajo. En todo caso, tendría 1, 1 y
+  // 1, pero no me gusta que quede 1 suelto abajo»): la de 3 (la cuenta de MaKo) y las de 5 (clientes, ticket, facturación, equipo).
+  // Las pares y cortas, en dos (2 y 2, 3 y 3).
+  for (const id of ['cuenta', 'clientes', 'ticket', 'facturacion', 'equipo']) assert.equal(enUnaColumna(campo(id)), true, `«${id}» (${campo(id).opciones?.length} opciones) deja una sola abajo`);
+  for (const id of ['antiguedad', 'implementa', 'canal', 'horas', 'inversion']) assert.equal(enUnaColumna(campo(id)), false, `«${id}» (${campo(id).opciones?.length} opciones, cortas) ya no va en dos columnas`);
+  for (const c of CAMPOS.filter((x) => x.opciones && x.opciones.length % 2 === 1)) assert.equal(enUnaColumna(c), true, `«${c.id}» tiene ${c.opciones!.length} opciones y va en dos columnas: una queda sola abajo`);
 });
 
 test('6. la campaña: de la URL y, si no trae, de la página anterior del MISMO sitio; y los «Aplica ahora» la llevan', () => {
@@ -666,6 +676,10 @@ test('13. los errores aparecen al tocar «Siguiente» (con el foco en el primero
   dom.window.localStorage.clear();
   const f = await montar();
   assert.match(f.texto(), /Paso 1 de 6 · Tus datos/);
+  // Sin la promesa de escribirle por WhatsApp (16/11/2026, Martín: «en tus datos no debería decir te escribo por WhatsApp, porque en
+  // este caso no le vamos a escribir por WhatsApp»): «Tus datos» no lleva bajada.
+  assert.equal(f.q('.apl-tarjeta-bajada') === null, true, '«Tus datos» volvió a tener bajada');
+  assert.doesNotMatch(f.texto(), /te escribo/i, '«Tus datos» volvió a prometer que le escribe por WhatsApp');
   assert.equal(f.errores(), 0, 'sin tocar «Siguiente», ningún error');
   await f.siguiente();
   assert.equal(f.errores(), 5);
@@ -741,7 +755,7 @@ async function clicEn(f: Awaited<ReturnType<typeof montar>>, sel: string) {
   await f.esperar(5);
 }
 
-test('14. «Enviar aplicación» postea a API_APLICAR { respuestas, web, origen }; la pantalla final es la MISMA para todos: sin agenda, con la prueba', async () => {
+test('14. «Enviar aplicación» postea a API_APLICAR { respuestas, web, origen }; la pantalla final es la MISMA para todos: sin agenda, con «Tu siguiente paso»', async () => {
   dom.window.localStorage.clear();
   guardar(CLAVE_BORRADOR, { v: 1, paso: 5, r: LLENA, t: Date.now() });
   pedidos.length = 0;
@@ -766,18 +780,25 @@ test('14. «Enviar aplicación» postea a API_APLICAR { respuestas, web, origen 
   assert.equal(pedidos[0].cuerpo.web, '');
   // Tal cual, con el WhatsApp como lo arma el selector de país («+» y los dígitos): las opciones como índices.
   assert.deepEqual(pedidos[0].cuerpo.respuestas, { ...LLENA, whatsapp: '+5491155550101' }, 'viajan las respuestas tal cual: las opciones como índices');
-  // LA PANTALLA FINAL (Martín, 16/11: «siempre debería ser gracias, voy a revisar tu aplicación, te responderé en máximo 24 horas…»).
+  // LA PANTALLA FINAL (Martín, 16/11: «siempre debería ser gracias, voy a revisar tu aplicación, te responderé en máximo 24 horas…»),
+  // NEUTRA (esa noche: «dice, estate atento a tu WhatsApp y a tu email… para una mujer atento no aplica»).
   assert.match(f.q('h1')?.textContent ?? '', /^¡Gracias, Ana!$/);
-  assert.match(f.texto(), /Voy a revisar tu aplicación y te respondo en máximo 24 horas\. Estate atento a tu WhatsApp y a tu email\./);
+  assert.match(f.texto(), /Voy a revisar tu aplicación y te respondo en máximo 24 horas\. Revisa tu WhatsApp y tu email\./);
+  assert.doesNotMatch(f.texto(), /atent[oa]/i, 'volvió «estate atento»');
   // NADIE VE LA AGENDA al aplicar («no tiene sentido de que automaticemos»).
   assert.equal(f.q('iframe') === null, true, 'volvió la agenda (o un iframe) a la pantalla final');
   assert.doesNotMatch(f.cont.innerHTML, /calendly/i);
   // Sin el video de Martín, no hay bloque del video (revisión del 16/11/2026: «Muy pronto, un video mío para ti» lo veía todo el que
-  // aplicaba); y el paso siguiente: la prueba gratuita (con la campaña) o «Ya hice la prueba gratuita».
+  // aplicaba); y TU SIGUIENTE PASO, en su propia tarjeta con su título (esa noche: «pondría como una sección más visible del
+  // siguiente paso»), con «Crear cuenta de MaKo» (la ruta de la prueba, con la campaña) o «Ya tengo cuenta» («yo no pondría iniciar
+  // la prueba gratuita de 7 días, sino que tu siguiente paso es crear cuenta de MaKo o ya tengo cuenta»).
   assert.equal(f.q('.apl-video') === null, true, 'sin video, volvió el bloque del video a la pantalla final');
   assert.doesNotMatch(f.texto(), /Muy pronto/);
-  const botones = [...f.cont.querySelectorAll('.apl-siguiente-botones a')].map((a) => `${a.textContent} → ${a.getAttribute('href')}`);
-  assert.deepEqual(botones, ['Iniciar prueba gratuita de 7 días → /planes/pro?utm_source=fb&landing=accelerator', 'Ya hice la prueba gratuita → /login']);
+  assert.equal(f.q('section.apl-siguiente > h2#apl-siguiente-titulo')?.textContent, 'Tu siguiente paso', 'el siguiente paso no es una sección con su título');
+  assert.equal(f.q('section.apl-siguiente')?.getAttribute('aria-labelledby'), 'apl-siguiente-titulo');
+  const botones = [...f.cont.querySelectorAll('section.apl-siguiente .apl-siguiente-botones a')].map((a) => `${a.textContent} → ${a.getAttribute('href')}`);
+  assert.deepEqual(botones, ['Crear cuenta de MaKo → /planes/pro?utm_source=fb&landing=accelerator', 'Ya tengo cuenta → /login']);
+  assert.doesNotMatch(f.texto(), /prueba gratuita/i, 'volvió «Iniciar prueba gratuita»');
   assert.equal(f.foco(), '', 'el foco va al título (sin id): no se queda en el botón que ya no existe');
   assert.equal(dom.window.document.activeElement?.tagName, 'H1');
   assert.equal(guardado(CLAVE_BORRADOR), null, 'enviada bien, el borrador se borra');
@@ -797,7 +818,7 @@ test('14. «Enviar aplicación» postea a API_APLICAR { respuestas, web, origen 
   guardar(CLAVE_ENVIADA, { v: 1, califica: true, r: LLENA, t: Date.now() });
   const vieja = await montar();
   assert.equal(vieja.q('iframe') === null, true, 'una enviada de antes volvió a abrir la agenda');
-  assert.match(vieja.texto(), /Iniciar prueba gratuita/);
+  assert.match(vieja.texto(), /Crear cuenta de MaKo/);
   assert.deepEqual(guardado(CLAVE_ENVIADA)?.r, { nombre: 'Ana', cuenta: 2 }, 'la enviada de antes siguió guardando el email, el WhatsApp y la meta');
   await vieja.desmontar();
 
@@ -808,9 +829,10 @@ test('14. «Enviar aplicación» postea a API_APLICAR { respuestas, web, origen 
   await n.siguiente();
   await n.esperar(10);
   assert.match(n.texto(), /Voy a revisar tu aplicación y te respondo en máximo 24 horas/);
-  const entrar = [...n.cont.querySelectorAll('.apl-siguiente-botones a')].map((a) => `${a.textContent} → ${a.getAttribute('href')}`);
+  const entrar = [...n.cont.querySelectorAll('section.apl-siguiente .apl-siguiente-botones a')].map((a) => `${a.textContent} → ${a.getAttribute('href')}`);
   assert.deepEqual(entrar, ['Entrar a MaKo → /login']);
-  assert.doesNotMatch(n.texto(), /prueba gratuita/i, 'con cuenta de MaKo, le ofrece la prueba');
+  assert.match(n.texto(), /Tu siguiente paso/);
+  assert.doesNotMatch(n.texto(), /prueba gratuita|Crear cuenta|Ya tengo cuenta/i, 'con cuenta de MaKo, le ofrece crearla');
   await n.desmontar();
 });
 
@@ -931,10 +953,18 @@ test('16. la página: noindex, dinámica, sin cookies ni <Suspense>; la barra de
   assert.equal(html.includes('<footer'), false, 'volvió el pie del sitio al formulario');
   assert.equal(html.includes('mk-wa-flota'), false, 'volvió el WhatsApp que flota al formulario');
   assert.doesNotMatch(sinComentarios(leer('app/accelerator/aplicar/page.tsx')), /PieGlobal/);
-  // LOS LEGALES, SIN EL PIE (revisión del 16/11/2026, hallazgo 5): el formulario pide nombre, email, WhatsApp y facturación. Un
-  // renglón debajo de «Enviar aplicación», en otra pestaña (un paso no se abandona por un link).
-  assert.match(html, /<p class="apl-legales"><a href="\/terminos" target="_blank" rel="noopener">Términos<\/a><a href="\/privacidad" target="_blank" rel="noopener">Privacidad<\/a><a href="\/reembolsos" target="_blank" rel="noopener">Reembolsos<\/a><\/p>/, 'el formulario sin los legales');
-  assert.ok(html.indexOf('class="apl-legales"') > html.indexOf('class="apl-nav"'), 'los legales no van debajo de «Enviar aplicación»');
+  // NI LEGALES NI LA NOTA DE ABAJO (16/11/2026, a la noche, Martín: «en el formulario no pongas ni términos, ni privacidad, ni
+  // reembolso. Eso no hace falta en el formulario. Tampoco el texto de abajo de lo que escribes se guarda en este navegador. No
+  // pongas textos innecesarios»). Desde la revisión de esa mañana (hallazgo 5) iban debajo de «Enviar aplicación». Los legales siguen
+  // en el pie de la landing del programa.
+  const sinHojas = html.replace(/<style[\s\S]*?<\/style>/g, '');
+  assert.doesNotMatch(sinHojas, /apl-legales|apl-nota|href="\/(terminos|privacidad|reembolsos)"|>(Términos|Privacidad|Reembolsos)</, 'volvieron los legales al formulario');
+  assert.doesNotMatch(sinHojas, /se guarda en este navegador/i, 'volvió la nota de debajo del formulario');
+  const { CSS_APLICAR: hoja } = await import('../app/accelerator/aplicar/estilo');
+  assert.doesNotMatch(hoja.replace(/\/\*[\s\S]*?\*\//g, ''), /\.apl-(legales|nota)\b/, 'quedó el CSS de los legales o de la nota');
+  // El logo de MaKo, blanco (16/11/2026, Martín: «como Accelerator solamente es Dark Mode, el logo de MaKo en todos lados siempre lo
+  // pondría en White»): la barra es la de la landing (app/accelerator/Barra.tsx).
+  assert.match(html, /<span class="acl-estrella" aria-hidden="true"><svg [^>]*><path d="[^"]+" fill="#fff"><\/path><\/svg><\/span>/, 'la estrella de la barra del formulario no es blanca');
   assert.ok(html.includes('class="apl-trampa"') && html.includes(`id="${ID_TRAMPA}"`), 'el campo trampa');
   // Con un nombre que ningún autocompletado reconoce (revisión del 16/11/2026): «web» y su rótulo «Web» los llenaba un gestor.
   assert.doesNotMatch(html, /id="apl-web"|name="web"|>Web<\/label>/, 'el campo trampa volvió a llamarse «web»');
@@ -990,7 +1020,24 @@ test('17. lo que lee el visitante: en «tú», sin «nuestro equipo» ni «te co
     [/sin tope/i, '«Ilimitado», nunca «sin tope»'],
     // Sin `\b`: en JavaScript (sin la bandera u) la «í» y la «á» no son letras, y `\belegí\b` no encontraba «Elegí tu horario».
     [/(?<!\p{L})(vos|tenés|querés|podés|contanos|escribinos|elegí|completá|revisá|contá|agendá|aplicá|probá|tocá|mirá)(?!\p{L})/iu, 'en «tú», no en «vos»'],
+    // 16/11/2026, a la noche, Martín: «en tus datos no debería decir te escribo por WhatsApp, porque en este caso no le vamos a
+    // escribir por WhatsApp».
+    [/te escribo por WhatsApp/i, 'no se le promete que se le escribe por WhatsApp'],
+    // Y lo que antes estaba: «Iniciar prueba gratuita de 7 días» / «Ya hice la prueba gratuita» («tu siguiente paso es crear cuenta de
+    // MaKo o ya tengo cuenta»), los legales y la nota de debajo del formulario («no pongas textos innecesarios»).
+    [/Iniciar prueba gratuita|Ya hice la prueba gratuita/i, 'el siguiente paso es «Crear cuenta de MaKo» o «Ya tengo cuenta»'],
+    [/se guarda en este navegador/i, 'sin la nota de debajo del formulario'],
   ] as const) assert.doesNotMatch(visible, mal, por);
+  // NEUTRO EN GÉNERO (16/11/2026, a la noche, Martín: «revisa bien los copies, porque por ejemplo dice, estate atento a tu WhatsApp y
+  // a tu email… para una mujer atento no aplica. O sea, que sea neutro»). Lo que se lee: la página, las dos pantallas finales, las
+  // preguntas, los errores y las frases del formulario (sin las palabras sueltas del código, como el estado 'listo' de la búsqueda).
+  const frases = [
+    await paginaDibujada(), final(false), final(true), ...preguntas, ...errores,
+    ...literales('app/accelerator/aplicar/FormularioAplicacion.tsx').filter((t) => /\s/.test(t)),
+  ].join('\n').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ');
+  const MASCULINO = /(?<!\p{L})(listo|atento|bienvenido|preparado|interesado)(?!\p{L})/giu;
+  assert.deepEqual([...frases.matchAll(MASCULINO)].map((m) => m[0]), [], 'un texto le habla en masculino a quien aplica');
+  assert.match(campo('compromiso').rotulo, /, si hay match, me comprometo con el programa\.$/, 'el compromiso volvió a «estoy listo para comprometerme»');
   // Y con el generador del guard del repo (lib/voseo.ts: las formas salen de los verbos, no de una lista a mano). Ese guard lista
   // con `git ls-files`: estos archivos, nuevos y sin `git add`, no los revisa (docs/hallazgos-pruebas.md, 13/11).
   const { marcasDeVoseo } = await import('../lib/voseo');
@@ -1089,4 +1136,9 @@ test('18. la búsqueda del canal: pública y de sólo lectura, en la plataforma,
 // Revisión del 16/11/2026 (hallazgos 3 y 5, y el video del 11; base 23 / 0, cada una en el repo y restaurada): el formulario sin
 //   los legales (16) · sin video vuelve el bloque del video (14, 17) · sin el código de área se dice «no parece completo» (1) · el
 //   servidor no agrega el 9 (1) · el servidor acepta el WhatsApp sin código de área (1): 22 / 1 cada una, la del video 21 / 2.
+// CUARTA TANDA (16/11/2026, a la noche; base 23 / 0; con scratchpad/acelerador-artefacto/romper3.py, una rotura por vez y restaurada):
+//   · las opciones impares otra vez en dos columnas (5) · vuelven los legales al formulario (16) · vuelve la nota «se guarda en este
+//   navegador» (16, 17) · vuelve «Te escribo por WhatsApp» a «Tus datos» (13, 17) · vuelve «Estate atento» (14, 17) · vuelve
+//   «Iniciar prueba gratuita de 7 días» (14, 17) · el siguiente paso, otra vez una ceja suelta (14) · vuelve «estoy listo para
+//   arrancar ya» (4, 17) · vuelve «estoy listo para comprometerme» (17) · la estrella del formulario, dorada otra vez (16).
 // =============================================================================

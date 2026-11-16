@@ -8,10 +8,12 @@
 // y con lo que el programa es hoy.
 //
 // EL ORDEN (el de Lovable): la barra con «Aplica ahora»; el héroe con el VSL; cómo se aplica (los cuatro pasos); el caso de
-// Mauricio; «No es un caso aislado» (las cifras y los cuatro casos); el programa (las tres fases y los 12 entregables), y
-// después de «Y en las tres fases, siempre», lo nuevo: «La inversión» (16/11/2026, a la tarde: el precio arriba y debajo todo lo
-// que incluye, con su detalle, en UN bloque dorado); «¿Esto es realmente para ti?»; y otra vez cómo se aplica, con el botón grande. Abajo, el pie del sitio
-// (`PieGlobal`, ./page.tsx). Los testimonios de Lovable no están: ver ./contenido.ts.
+// Mauricio; «No es un caso aislado» (las cifras y los cuatro casos) y la tira de las apps con las que se conecta MaKo; el programa
+// (las tres fases y los 12 entregables) y la tira de las apps que MaKo reemplaza (las dos tiras, de la portada: ./Tiras.tsx); lo
+// nuevo, «La inversión» (16/11/2026, a la tarde: el precio arriba y debajo todo lo que incluye, con su detalle, en UN bloque dorado);
+// «¿Esto es realmente para ti?»; y otra vez cómo se aplica, con el botón grande. Abajo, el pie del sitio (`PieGlobal`, ./page.tsx).
+// Los testimonios de Lovable no están: ver ./contenido.ts. «Y en las tres fases, siempre» se fue el 16/11 (Martín: «todo eso lo
+// eliminaría para directamente el precio»): de los entregables, directo a «La inversión».
 //
 // LOS BOTONES (16/11/2026): TODO «Aplica ahora» lleva al formulario de aplicación (`RUTA_APLICAR`, /accelerator/aplicar): el de
 // la barra, el del héroe, el de la barra de abajo del teléfono, el de «La inversión» y el grande del final. Martín: «yo
@@ -42,7 +44,9 @@ import type { OrigenCompra } from '@/lib/compra-plan-reglas';
 import { hrefDelFormulario } from './aplicar/origen';
 import { BarraAccelerator, CSS_BARRA_ACCELERATOR, VerPlanesDelHeroe } from './Barra';
 import { ANCLA_APLICAR, APLICAR, FILTRO, HERO, MAURICIO, PRECIO, PROGRAMA, RESULTADOS, TEXTO_APLICAR, VSL_ACELERADOR, type IconoEntregable, type Rico } from './contenido';
-import { CSS_ACELERADOR, CSS_INVERSION, FUENTES_ACELERADOR } from './estilo';
+import { CSS_ACELERADOR, CSS_INVERSION, CSS_TIRAS, FUENTES_ACELERADOR } from './estilo';
+import { TiraEntreSecciones } from './Tiras';
+import { CSS_REEMPLAZA } from '../vsl/_sitio/estilos';
 
 const ICONOS: Record<IconoEntregable, LucideIcon> = {
   mapa: Mapa, castillo: Castle, ojo: ScanEye, ejes: Axis3d, red: Network, iman: Magnet, calendario: CalendarCheck, manos: Handshake,
@@ -50,10 +54,12 @@ const ICONOS: Record<IconoEntregable, LucideIcon> = {
 };
 
 /**
- * EL CSS DE LA PÁGINA, EN ESTE ORDEN: el de la landing; el de la barra, que la completa (./Barra.tsx: va DESPUÉS); y el de «La
- * inversión» (./estilo.ts). Desde el 16/11/2026 a la tarde la página ya no dibuja la columna de /planes: no lleva su CSS.
+ * EL CSS DE LA PÁGINA, EN ESTE ORDEN: el de la landing; el de la barra, que la completa (./Barra.tsx: va DESPUÉS); el de «La
+ * inversión» (./estilo.ts); y el de las tiras: el del sitio (`CSS_REEMPLAZA`, el mismo de la portada) y, DESPUÉS, lo que lo acomoda
+ * a esta página (`CSS_TIRAS`). Desde el 16/11/2026 a la tarde la página ya no dibuja la columna de /planes: no lleva su CSS.
+ * La base del sitio (`.s-sitio`, sus letras y los logos sobre blanco: `CSS_BASE`) la trae el pie (`PieGlobal`).
  */
-export const CSS_DE_LA_LANDING = CSS_ACELERADOR + CSS_BARRA_ACCELERATOR + CSS_INVERSION;
+export const CSS_DE_LA_LANDING = CSS_ACELERADOR + CSS_BARRA_ACCELERATOR + CSS_INVERSION + CSS_REEMPLAZA + CSS_TIRAS;
 
 /** `**así**` → <b>así</b>. Lo demás, tal cual. */
 export function negritas(texto: Rico): ReactNode[] {
@@ -97,7 +103,6 @@ export function LandingAcelerador({ origen = null }: {
             <div className="acl-hero-in">
               <span className="acl-pill">{HERO.ceja}</span>
               <h1>{HERO.titulo[0]}<em>{HERO.titulo[1]}</em>{HERO.titulo[2]}</h1>
-              <p className="acl-sub">{HERO.bajada}</p>
               <p className="acl-qual">{HERO.calificacion[0]}<b>{HERO.calificacion[1]}</b>{HERO.calificacion[2]}</p>
               <div className="acl-video">
                 <span className="acl-esq acl-esq-1" /><span className="acl-esq acl-esq-2" />
@@ -196,6 +201,11 @@ export function LandingAcelerador({ origen = null }: {
             </div>
           </section>
 
+          {/* LAS TIRAS DE LA PORTADA, PARA SEPARAR (16/11/2026, Martín: «faltan los carruseles… para separar las secciones. Sobre todo,
+              la sección de donde se terminan los testimonios, que el último es de Social Media Lab, y luego la sección donde se
+              terminan los entregables»): ésta, la de las apps con las que se conecta MaKo; la otra, después de los entregables. */}
+          <TiraEntreSecciones cual="conecta" />
+
           <section className="acl-sec">
             <div className="acl-wrap">
               <div className="acl-shead">
@@ -227,19 +237,12 @@ export function LandingAcelerador({ origen = null }: {
                   )}
                 </div>
               ))}
-
-              <p className="acl-siempre-lbl">{PROGRAMA.siempreTitulo}</p>
-              <div className="acl-siempre">
-                {PROGRAMA.siempre.map((s) => (
-                  <div className="acl-ac" key={s.ceja}>
-                    <div className="acl-lbl">{s.ceja}</div>
-                    <h3>{s.titulo}</h3>
-                    <p>{s.texto}</p>
-                  </div>
-                ))}
-              </div>
             </div>
           </section>
+
+          {/* Después de los entregables, la tira de las apps que MaKo reemplaza, y directo el precio: «Y en las tres fases,
+              siempre» se fue (16/11/2026, Martín: «todo eso lo eliminaría para directamente el precio»). */}
+          <TiraEntreSecciones cual="reemplaza" />
 
           {/* LA INVERSIÓN (16/11/2026, a la tarde). Martín: «me gustaría que la inversión como tal no exista, sino que esté todo dentro
               de lo que incluye MaKo Accelerator. Y me gustaría que esa parte de lo que incluye se llame la inversión… no me gusta de
@@ -252,7 +255,12 @@ export function LandingAcelerador({ origen = null }: {
               «Más información» reconoce lo que acaba de leer), cada uno con el detalle de su «i» (Martín, 15/11 ~23:00). Sin garantía
               (Martín la sacó «de todos lados», ./contenido.ts) y sin «Nuestra promesa» (16/11: el sistema ya es el renglón 2).
               El precio es el de la columna (`PROGRAMA_ACELERADOR`), SIN CUOTAS (Martín, 16/11: «en todos lados eliminemos lo de las 3
-              cuotas de 500»): debajo, cuánto dura (`periodo`). */}
+              cuotas de 500»): debajo, cuánto dura (`periodo`).
+              EL PRECIO Y EL BOTÓN, UN SOLO BLOQUE (16/11/2026, Martín: «súper importante que el precio de los 1500 esté alineado con el
+              botón»): el precio, cuánto dura y «Aplica ahora», apilados en `.acl-inversion-compra`, centrados en el mismo eje y con el
+              botón del ancho del bloque (./estilo.ts). Hasta ahí iban en fila, con el precio a la derecha y el botón al lado alineado
+              por abajo con «por los 3 meses»: el número quedaba más arriba que el botón, y en el teléfono el precio a la izquierda y el
+              texto del botón en el centro. */}
           <section className="acl-sec acl-inversion-s" aria-labelledby="acl-inversion-titulo">
             <div className="acl-wrap">
               <div className="acl-inversion">
@@ -261,11 +269,11 @@ export function LandingAcelerador({ origen = null }: {
                     <div className="acl-lbl">{PRECIO.ceja}</div>
                     <h3 id="acl-inversion-titulo">{pr.nombre}</h3>
                   </div>
-                  <div className="acl-inversion-precio">
+                  <div className="acl-inversion-compra">
                     <div className="acl-inversion-monto">US$ {pr.precioUsd.toLocaleString('es-AR')}</div>
                     <div className="acl-inversion-periodo">{pr.periodo}</div>
+                    <Aplica href={aplicar} clase="acl-btn acl-btn-oro" />
                   </div>
-                  <Aplica href={aplicar} clase="acl-btn acl-btn-oro" />
                 </div>
                 <p className="acl-inversion-incluye">{PROGRAMA.incluyeCeja}</p>
                 <ul className="acl-checks">

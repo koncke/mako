@@ -60,8 +60,9 @@ export const HERO = {
   ceja: 'Programa por aplicación · Cupos limitados',
   /** El título, con la palabra que va en cursiva naranja en el medio. Lovable: «Construí un sistema…». */
   titulo: ['Construye un sistema de adquisición de clientes ', 'predecible', '.'] as const,
-  /** Lovable: «Con el acompañamiento 1 a 1 más personalizado del mercado.» El «1 a 1» ya no describe el acompañamiento. */
-  bajada: 'Con el acompañamiento más personalizado del mercado.',
+  // SIN BAJADA (16/11/2026, Martín: «eliminaría también la frase de con el acompañamiento más personalizado del mercado de la landing
+  // de Accelerator»). Era «Con el acompañamiento más personalizado del mercado.» (Lovable: «…1 a 1 más personalizado…»); se fue
+  // también de la descripción de la página (./page.tsx). Debajo del título va directo a quién es el programa.
   calificacion: ['Exclusivo para profesionales, coaches y negocios que ya generan ', '+$5.000 USD/mes', '.'] as const,
 };
 
@@ -195,8 +196,10 @@ export const PROGRAMA = {
       // falta.» Era una promesa sin borde («todo lo que haga falta», dos veces) y con piezas que el programa no trae hechas
       // (anuncios, reels, lead magnets). Hoy: lo que Martín arma la primera semana y las plantillas y guiones probados
       // (`PROGRAMA_ACELERADOR.incluye`), en primera persona porque lo arma él. «acá» → «aquí», el español neutro del sitio.
+      // NEUTRO (16/11/2026, Martín: «para una mujer atento no aplica»): era «no te dejo solo con la estrategia»; «solo» le habla a un
+      // hombre. Lo dice quien no se queda en la estrategia: Martín.
       creativos: {
-        texto: 'Y aquí no te dejo solo con la estrategia. Según el funnel que elijamos, armo lo que necesita para funcionar:',
+        texto: 'Y aquí no me quedo en la estrategia. Según el funnel que elijamos, armo lo que necesita para funcionar:',
         lista: 'tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido, con plantillas y guiones probados para tus anuncios, tu VSL y tus mensajes de venta.',
       },
     },
@@ -229,26 +232,12 @@ export const PROGRAMA = {
     entregables: ReadonlyArray<{ nombre: string; icono: IconoEntregable; texto: string }>;
     creativos?: { texto: string; lista: string };
   }>,
-  siempreTitulo: 'Y en las tres fases, siempre:',
-  siempre: [
-    {
-      ceja: 'Acompañamiento continuo',
-      titulo: 'Conmigo, para que no te frenes.',
-      // Lovable: «Una sesión 1:1 por semana, consultorías las veces que las necesites, y acceso directo a mi chat.» Hoy:
-      // 3 sesiones 1 a 1 de 2 horas cada una, la asesoría de cada semana es GRUPAL, y el WhatsApp personal de Martín.
-      // ⚠️ Escrito a mano al lado de la lista importada (lo que el sello de la garantía enseñó): el test lo ata a esa lista,
-      //    `LISTA_DEL_ACELERADOR` (cuántas sesiones, de cuántas horas, que la asesoría es grupal y semanal, y el WhatsApp).
-      //    Si el programa cambia, el test se pone rojo acá.
-      texto: 'Tres sesiones 1 a 1 conmigo de 2 horas cada una, una asesoría grupal en vivo cada semana y mi WhatsApp personal para tus dudas. Los problemas no esperan a la semana siguiente.',
-    },
-    {
-      ceja: 'El programa completo + recursos',
-      titulo: 'Cero relleno: todo accionable.',
-      // Lovable: «Acceso a todas las etapas, con plantillas, prompts, playbooks y recursos para cada paso del proceso.» Los
-      // playbooks no están en el programa, «prompts» y «playbooks» son jerga, y la página dice «fases», no «etapas».
-      texto: 'Acceso a las tres fases, con plantillas y recursos para cada paso del proceso.',
-    },
-  ] as const,
+  // «Y EN LAS TRES FASES, SIEMPRE:» SE FUE (16/11/2026, Martín: «yo eliminaría también esa parte de, y en las tres fases, siempre
+  // conmigo, cero relleno, todo accionable, todo eso lo eliminaría para directamente el precio»). Eran dos tarjetas escritas a mano
+  // debajo de los entregables: «Acompañamiento continuo · Conmigo, para que no te frenes.» (las 3 sesiones 1 a 1 de 2 horas, la
+  // asesoría grupal de cada semana y el WhatsApp personal de Martín) y «El programa completo + recursos · Cero relleno: todo
+  // accionable.» (las tres fases con plantillas y recursos). Lo mismo lo dice «La inversión», con la lista del programa importada
+  // (`LISTA_DEL_ACELERADOR`): de los entregables y su tira (./Tiras.tsx) se pasa directo al precio.
   /**
    * El rótulo de la lista de «La inversión» (16/11/2026, a la tarde: lo que incluye vive adentro de ese bloque, debajo del precio).
    * Hasta el 16/11 era «Lo que incluye», la ceja de un bloque aparte que tenía al lado «Nuestra promesa».
@@ -278,7 +267,8 @@ export const FILTRO = {
     { t: 'Ya validaste tu oferta', d: 'Tienes casos de éxito, testimonios o experiencia comprobable en el mercado.' },
     { t: 'Tienes presencia digital activa', d: 'Creas contenido y ya empezaste a construir una audiencia.' },
     { t: 'Puedes dedicar tiempo', d: 'Cuentas con algunas horas por día para implementar lo que definamos juntos.' },
-    { t: 'Estás listo para invertir en tu negocio', d: 'Entiendes que crecer requiere inversión y compromiso.' },
+    // NEUTRO (16/11/2026, Martín: «para una mujer atento no aplica… que sea neutro»). Antes → «Estás listo para invertir en tu negocio».
+    { t: 'Es tu momento de invertir en tu negocio', d: 'Entiendes que crecer requiere inversión y compromiso.' },
     { t: 'Buscas estructura, no atajos', d: 'Quieres profesionalizar tu empresa con procesos y sistemas.' },
     { t: 'Tienes mentalidad de ejecución', d: 'Sabes que los resultados dependen de implementar, no solo aprender.' },
   ] as const,
@@ -291,7 +281,8 @@ export const FILTRO = {
     { t: 'No puedes comprometer tiempo', d: 'Tienes otras prioridades que hoy están por encima del negocio.' },
     { t: 'Tienes un negocio de productos', d: 'La metodología está diseñada específicamente para servicios y expertise.' },
     { t: 'Operas desde la excusa', d: 'Responsabilizas al mercado, la competencia o el algoritmo por tus resultados.' },
-    { t: 'No estás listo para invertir', d: 'Buscas soluciones económicas esperando resultados de alto nivel.' },
+    // NEUTRO (16/11/2026), el espejo del «es para ti» de arriba. Antes → «No estás listo para invertir».
+    { t: 'No es tu momento de invertir', d: 'Buscas soluciones económicas esperando resultados de alto nivel.' },
   ] as const,
 };
 

@@ -184,12 +184,7 @@ textarea.apl-input { height: auto; min-height: 150px; padding: 14px 16px; line-h
 @keyframes apl-gira { to { transform: rotate(360deg); } }
 .apl-aviso-error { margin-top: 26px; padding: 14px 16px; border-radius: 12px; font-size: 15.5px; line-height: 1.5; color: #FCA5A5;
   background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.35); }
-.apl-nota { margin-top: 18px; text-align: center; font-size: 13.5px; line-height: 1.5; color: var(--apl-tenue); }
-/* Los legales debajo de Enviar (revisión del 16/11/2026, hallazgo 5): un renglón chico, como el del checkout; el pie del sitio no va. */
-.apl-legales { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; margin: 22px 0 0; font-size: 13px; line-height: 1.5; }
-.apl-root .apl-legales a { color: var(--apl-tenue); text-decoration: underline; text-underline-offset: 3px; }
-.apl-root .apl-legales a:hover { color: var(--acl-ink); }
-.apl-root .apl-legales a:focus-visible { outline: 2px solid var(--acl-accent); outline-offset: 2px; border-radius: 2px; }
+/* Sin la nota de debajo ni los legales (16/11/2026, Martín: «no pongas textos innecesarios»): se fueron .apl-nota y .apl-legales. */
 /* El campo trampa: fuera de la pantalla, sin foco ni lector de pantalla (un bot lo llena; una persona, nunca). */
 .apl-trampa { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
 .apl-sinjs { margin-bottom: 18px; text-align: center; font-size: 15px; color: var(--acl-ink-soft); }
@@ -205,13 +200,17 @@ textarea.apl-input { height: auto; min-height: 150px; padding: 14px 16px; line-h
 .apl-video { position: relative; margin: 30px auto 0; max-width: 560px; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden;
   border: 1px solid var(--acl-line-strong); background: radial-gradient(60% 70% at 50% 45%, #22201d 0%, #141416 70%); }
 .apl-root .apl-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-/* El paso siguiente: la ceja y los botones, nada más (Martín: «no hace falta tanto texto… Tal vez solamente los botones»). */
-/* Los dos botones en un renglón en la computadora, y arriba del borde en una pantalla de 1440 x 900 (medido el 16/11/2026: con el video de 640 el botón
-   quedaba a 25 px del borde). */
+/* TU SIGUIENTE PASO, BIEN VISIBLE (16/11/2026, Martín: «está bien la parte de arriba, gracias, pero pondría como una sección más
+   visible del siguiente paso»): su propia tarjeta, la de los pasos del formulario con el borde y el brillo naranjas, el título grande
+   y los botones, nada más («no hace falta tanto texto… Tal vez solamente los botones»). Hasta ahí era una ceja de 12 px sobre los
+   botones, suelta debajo del gracias. Los dos botones en un renglón en la computadora. */
 .apl-main:has(.apl-fin) { padding-top: 116px; }
-.apl-siguiente { margin: 32px auto 0; max-width: 720px; }
-.apl-siguiente-ceja { font-family: var(--acl-sans); font-weight: 700; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--acl-accent); }
-.apl-siguiente-botones { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 16px; }
+.apl-siguiente { position: relative; margin: 40px auto 0; max-width: 640px; padding: 34px 36px 36px; border-radius: 22px; overflow: hidden;
+  border: 1.5px solid rgba(224,97,59,.55);
+  background: radial-gradient(70% 90% at 50% 0%, rgba(224,97,59,.16), rgba(224,97,59,0) 70%), linear-gradient(180deg, #1a1a1d 0%, #141416 100%);
+  box-shadow: 0 1px 0 rgba(255,255,255,.035) inset, 0 40px 80px -48px rgba(0,0,0,.85); }
+.apl-root .apl-siguiente-titulo { font-family: var(--acl-sans); font-weight: 800; font-size: clamp(1.6rem, 3.4vw, 2.1rem); line-height: 1.15; letter-spacing: -.015em; color: #fff; }
+.apl-siguiente-botones { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 22px; }
 .apl-siguiente-botones .acl-btn, .apl-boton-borde { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 14px 24px; }
 .apl-root .apl-boton-borde { font-family: var(--acl-sans); font-weight: 600; font-size: 15px; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
   color: var(--acl-ink); border: 1px solid var(--acl-line-strong); border-radius: 2px; transition: border-color .25s, background .25s; }
@@ -242,8 +241,9 @@ textarea.apl-input { height: auto; min-height: 150px; padding: 14px 16px; line-h
   .apl-atras-texto { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .apl-nav .acl-btn { margin-left: 0; min-width: 0; padding: 15px 12px; font-size: 14px; letter-spacing: .05em; }
   .apl-nav .acl-btn:only-child { grid-column: 1 / -1; }
-  .apl-siguiente-botones { flex-direction: column; align-items: stretch; }
-  /* En un renglón de 320 a 430: «Iniciar prueba gratuita de 7 días» iba en dos. */
+  .apl-siguiente { padding: 26px 20px 24px; border-radius: 18px; }
+  .apl-siguiente-botones { flex-direction: column; align-items: stretch; margin-top: 18px; }
+  /* En un renglón de 320 a 430 (medido con el texto más largo que tuvo esta pantalla, que con 15 px iba en dos). */
   .apl-siguiente-botones .acl-btn, .apl-root .apl-boton-borde { font-size: 13.5px; letter-spacing: .04em; padding-inline: 12px; }
   .apl-siguiente-botones .acl-btn, .apl-boton-borde { white-space: normal; text-align: center; }
 }

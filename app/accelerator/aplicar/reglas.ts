@@ -11,7 +11,7 @@ import { digitosDeFormulario, numeroTecleado } from '@/lib/paises';
 
 /**
  * EL VIDEO DE MARTÍN EN LA PANTALLA FINAL (16/11/2026). Martín: «deja ahí un espacio… para un video, porque les voy a agradecer por
- * su aplicación, yo en video, y les voy a invitar exactamente a lo mismo» (la prueba gratuita). Cuando lo grabe, va acá el link del
+ * su aplicación, yo en video, y les voy a invitar exactamente a lo mismo» (el siguiente paso: crear su cuenta de MaKo). Cuando lo grabe, va acá el link del
  * reproductor de Panda (el `embed/?v=…`, como `VSL_ACELERADOR` de app/accelerator/contenido.ts). Mientras es null, la pantalla final
  * no tiene el bloque del video (revisión del 16/11/2026: el espacio con «Muy pronto, un video mío para ti» lo veía todo el que aplicaba,
  * y no hay fecha para ese video). Es lo ÚNICO que hay que tocar el día que esté.
@@ -83,8 +83,9 @@ export function enviadaLimpia(crudo: unknown, ahora: number): { respuestas: Resp
 }
 
 /**
- * El botón de la prueba gratuita de la pantalla final: el checkout de MaKo Pro con su prueba (`rutaPrueba`, page.tsx), con la
- * campaña que trajo a quien aplicó y `landing=accelerator` si no traía una (así la compra cuenta que vino de la aplicación).
+ * «Crear cuenta de MaKo» en la pantalla final (hasta el 16/11/2026 a la noche, «Iniciar prueba gratuita de 7 días»): el checkout de
+ * MaKo Pro con su prueba (`rutaPrueba`, page.tsx), con la campaña que trajo a quien aplicó y `landing=accelerator` si no traía una
+ * (así la compra cuenta que vino de la aplicación).
  */
 export function linkDeLaPrueba(rutaPrueba: string, origen: Record<string, string> | null | undefined, claves: readonly string[]): string {
   const q = new URLSearchParams();
@@ -172,8 +173,15 @@ function respuestasLimpias(crudas: unknown): Respuestas | null {
 export const borradorParaGuardar = (paso: number, r: Respuestas, ahora: number, origen: Record<string, string> | null = null) =>
   JSON.stringify({ v: 1, paso, r, t: ahora, ...(origen && Object.keys(origen).length ? { o: origen } : {}) });
 
-/** Las opciones van en dos columnas en la computadora, salvo que alguna sea larga (en el teléfono, siempre una). */
-export const enUnaColumna = (c: Campo): boolean => (c.opciones ?? []).some((o) => o.length > 34);
+/**
+ * Las opciones van en dos columnas en la computadora, salvo que alguna sea larga o que sean IMPARES (en el teléfono, siempre una).
+ * IMPARES, EN UNA (16/11/2026, Martín: «no me gusta que las opciones de 3 estén 2 y 1 abajo. En todo caso, tendría 1, 1 y 1, pero no
+ * me gusta que quede 1 suelto abajo»): con 3 o 5 en dos columnas, la última fila quedaba con una sola. Con 4 o 6, 2 y 2.
+ */
+export const enUnaColumna = (c: Campo): boolean => {
+  const opciones = c.opciones ?? [];
+  return opciones.length % 2 === 1 || opciones.some((o) => o.length > 34);
+};
 
 /** Cómo se escribe cada campo de texto: el teclado del teléfono, el autocompletado y si corrige. */
 export function entradaDe(c: Campo): {

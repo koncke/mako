@@ -15,9 +15,10 @@
 //
 // DESPUÉS DE APLICAR, NADIE AGENDA SOLO (16/11/2026). Martín: «no tiene sentido de que automaticemos… yo estoy prometiendo de que
 // voy a revisar personalmente sus aplicaciones… siempre debería ser gracias, voy a revisar tu aplicación, te responderé en máximo
-// 24 horas… estate atento a tu WhatsApp y a tu email». Hasta esa tarde quien calificaba elegía su horario en la agenda de Martín
-// ahí mismo. Ahora TODOS ven lo mismo: el gracias, el video de Martín y el paso siguiente, la prueba gratuita de MaKo (o «Entrar a
-// MaKo» si ya tiene cuenta, `cuenta`). `califica` queda para Martín: el asunto del correo, su primera línea con lo que falta
+// 24 horas… estate atento a tu WhatsApp y a tu email» (en la pantalla, neutro: «Revisa tu WhatsApp y tu email»). Hasta esa tarde
+// quien calificaba elegía su horario en la agenda de Martín ahí mismo. Ahora TODOS ven lo mismo: el gracias, el video de Martín y su
+// siguiente paso, crear su cuenta de MaKo o «Ya tengo cuenta» (y «Entrar a MaKo» si contestó que ya la tiene, `cuenta`; Martín, esa
+// noche: «tu siguiente paso es crear cuenta de MaKo o ya tengo cuenta»). `califica` queda para Martín: el asunto del correo, su primera línea con lo que falta
 // (`porQueNoCalifica`) y la ficha del CRM (lib/aplicacion-accelerator-servidor.ts). La agenda ya contestada (`linkDeLaAgenda`) va
 // en ese correo, para mandársela si hay match.
 //
@@ -83,7 +84,7 @@ const usd = (v: number) => `US$ ${v.toLocaleString('es-AR')}`;
 
 /**
  * ¿YA TIENE CUENTA EN MaKo? (16/11/2026, Martín: «en el formulario le podríamos preguntar en algún momento si ya tiene cuenta y que
- * nos ponga su email»). Con cuenta, el botón de la pantalla final es «Entrar a MaKo»; sin cuenta, la prueba gratuita. El email
+ * nos ponga su email»). Con cuenta, el botón de la pantalla final es «Entrar a MaKo»; sin cuenta, «Crear cuenta de MaKo». El email
  * de la cuenta se pide sólo si es OTRO (`emailCuenta`): el mismo no se escribe dos veces.
  */
 export const OPCIONES_CUENTA = ['Sí, con este mismo email', 'Sí, con otro email', 'Todavía no'] as const;
@@ -96,12 +97,14 @@ export const tieneCuentaDeMako = (r: Respuestas): boolean => typeof r.cuenta ===
 // preguntas 6 y 7 de esa agenda, y el formulario las pregunta con las mismas palabras. A la agenda viajan por su NÚMERO (el
 // índice + 1, `linkDeLaAgenda`): si Martín cambia una tilde en Calendly siguen marcándose; si cambia el ORDEN, hay que cambiarlo
 // acá (tests/aplicacion-accelerator.test.ts lo recuerda).
+// ⚠️ SALVO LA PRIMERA DE «EMPEZAR», NEUTRA (16/11/2026, Martín: «para una mujer atento no aplica… que sea neutro»): en Calendly dice
+//    «De inmediato: estoy listo para arrancar ya», y acá «puedo arrancar ya». Como viaja por su número, la agenda la sigue marcando.
 export const OPCIONES_DECISION = [
   'Sí, soy la única persona que toma decisiones en mi negocio.',
   'No, necesito consultar con alguien más (invítalo a la llamada).',
 ] as const;
 export const OPCIONES_EMPEZAR = [
-  'De inmediato: estoy listo para arrancar ya',
+  'De inmediato: puedo arrancar ya',
   'La próxima semana: sólo ajusto agenda',
   'El próximo mes: estoy planeando arranque',
   'En 2-3 meses: tengo barreras que resolver antes',
@@ -109,8 +112,10 @@ export const OPCIONES_EMPEZAR = [
 
 export const SECCIONES: readonly Seccion[] = [
   {
+    // SIN BAJADA (16/11/2026, Martín: «en tus datos no debería decir te escribo por WhatsApp, porque en este caso no le vamos a
+    // escribir por WhatsApp»). Decía «Te escribo por WhatsApp: revisa que el código de país y el número estén bien.»; el código de
+    // país se ve y se elige al lado del número, y lo que no va bien lo dice su error.
     id: 'datos', titulo: 'Tus datos',
-    bajada: 'Te escribo por WhatsApp: revisa que el código de país y el número estén bien.',
     campos: [
       { id: 'nombre', rotulo: 'Nombre', tipo: 'texto', obligatorio: true, autoComplete: 'given-name' },
       { id: 'apellido', rotulo: 'Apellido', tipo: 'texto', obligatorio: true, autoComplete: 'family-name' },
@@ -197,8 +202,9 @@ export const SECCIONES: readonly Seccion[] = [
     ],
   },
   {
+    // «Cuanto más concreto, mejor» → «cuanto más detalle, mejor» (16/11/2026, neutro: «concreto» se podía leer como de quien escribe).
     id: 'diagnostico', titulo: 'Tu diagnóstico',
-    bajada: 'Con esto preparo la llamada. Cuanto más concreto, mejor.',
+    bajada: 'Con esto preparo la llamada: cuanto más detalle, mejor.',
     campos: [
       { id: 'queHaces', rotulo: 'Cuéntame qué haces, a quién ayudas y qué servicios ofreces', corto: 'Qué hace', tipo: 'largo', obligatorio: true },
       { id: 'meta', rotulo: '¿Cuál es tu meta más grande para los próximos 12 meses?', corto: 'Meta a 12 meses', tipo: 'largo', obligatorio: true },
@@ -222,7 +228,8 @@ export const SECCIONES: readonly Seccion[] = [
       },
       { id: 'decision', rotulo: '¿Tomas tú las decisiones de tu negocio?', corto: 'Decisión', tipo: 'una', obligatorio: true, opciones: OPCIONES_DECISION },
       { id: 'empezar', rotulo: 'Si hay match, ¿cuándo quieres empezar?', corto: 'Cuándo empezar', tipo: 'una', obligatorio: true, opciones: OPCIONES_EMPEZAR },
-      { id: 'compromiso', rotulo: 'Confirmo que lo que respondí es real y que, si hay match, estoy listo para comprometerme con el programa.', corto: 'Compromiso', tipo: 'confirmo', obligatorio: true },
+      // NEUTRO (16/11/2026). Antes → «…y que, si hay match, estoy listo para comprometerme con el programa.»
+      { id: 'compromiso', rotulo: 'Confirmo que lo que respondí es real y que, si hay match, me comprometo con el programa.', corto: 'Compromiso', tipo: 'confirmo', obligatorio: true },
     ],
   },
 ];

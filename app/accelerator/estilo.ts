@@ -26,6 +26,8 @@
 //   · Lo que incluye vive en «La inversión» (`CSS_INVERSION`), con la lista en dos columnas y los ✓ verdes.
 //   · 16/11/2026: los entregables en DOS columnas (Martín: «no me gusta de que las tarjetas queden 3 y 1, pondría 2 y 2»), y
 //     «La inversión» (`CSS_INVERSION`, abajo): el precio y lo que incluye en un bloque, con el dorado de la columna de /planes.
+//   · 16/11/2026, a la noche: las tiras de logos de la portada entre las secciones (`CSS_TIRAS`, ./Tiras.tsx), sin «Y en las tres
+//     fases, siempre» (sus tarjetas, `.acl-ac`, se fueron con él), y el precio y el botón de «La inversión» en un solo bloque.
 // =============================================================================
 
 import { fondoDeSigno } from '@/app/planes/signos';
@@ -90,8 +92,8 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .acl-pill { display: inline-block; font-family: var(--acl-sans); font-weight: 600; font-size: 12.5px; letter-spacing: .2em; text-transform: uppercase;
   border: 1px solid var(--acl-line-strong); border-radius: 100px; padding: 9px 20px; color: var(--acl-ink-soft); margin-bottom: 16px; }
 .acl-hero h1 { font-size: clamp(2rem, 4.6vw, 3.6rem); font-weight: 800; max-width: 24ch; margin: 0 auto; }
-.acl-sub { margin: 14px auto 0; max-width: 60ch; font-family: var(--acl-serif); font-style: italic; font-weight: 500; font-size: 1.2rem; color: var(--acl-ink-soft); line-height: 1.4; }
-.acl-qual { margin-top: 12px; font-size: 15px; color: var(--acl-muted); letter-spacing: .02em; }
+/* Sin la bajada de debajo del título (16/11/2026, Martín la sacó): a quién es el programa va directo debajo, con su aire. */
+.acl-qual { margin-top: 18px; font-size: 15px; color: var(--acl-muted); letter-spacing: .02em; }
 .acl-qual b { color: var(--acl-accent); font-weight: 700; }
 .acl-video { margin: 22px auto 0; max-width: 900px; position: relative; border: 1px solid var(--acl-line-strong); background: var(--acl-panel); aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden; }
 .acl-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
@@ -200,16 +202,8 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .acl-creativos { margin-top: 18px; background: rgba(47,166,106,.10); border: 1px solid rgba(47,166,106,.35); border-radius: 4px; padding: 26px 28px; }
 .acl-creativos p { color: var(--acl-ink); font-size: 1.02rem; }
 .acl-cr-list { color: var(--acl-ink-soft); font-style: italic; }
-.acl-siempre-lbl { margin-top: 56px; text-align: center; font-family: var(--acl-sans); font-weight: 600; font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--acl-muted); }
-.acl-siempre { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 24px; }
-.acl-ac { position: relative; border-radius: 22px; padding: 38px 34px 36px; background: linear-gradient(180deg, #1a1a1d 0%, #131316 100%); border: 1.5px solid var(--acl-borde); overflow: hidden;
-  display: flex; flex-direction: column; gap: 14px; box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 22px 50px -28px rgba(0,0,0,.6); min-width: 0; }
-.acl-ac::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, var(--acl-accent), transparent); }
-.acl-ac:nth-child(2)::before { background: linear-gradient(180deg, var(--acl-verde), transparent); }
+/* La ceja de «La inversión» (hasta el 16/11/2026 la usaban también las dos tarjetas de debajo de los entregables, que se fueron). */
 .acl-lbl { font-family: var(--acl-sans); font-weight: 700; font-size: 11.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--acl-accent); }
-.acl-ac:nth-child(2) .acl-lbl { color: var(--acl-verde); }
-.acl-root .acl-ac h3 { font-family: var(--acl-sans); font-weight: 800; font-size: 1.55rem; letter-spacing: -.02em; line-height: 1.15; color: #fff; }
-.acl-ac p { font-family: var(--acl-serif); font-style: italic; font-size: 1.02rem; color: var(--acl-gris); line-height: 1.55; }
 
 /* ── Lo que incluye, adentro de «La inversión» (CSS_INVERSION, abajo) ── */
 /* En dos columnas a todo el ancho (eran una, al lado de la promesa): una sola, a 1180 px, dejaba renglones de 20 palabras. */
@@ -236,27 +230,10 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
    PÁGINA Y MÁS BAJO (16/11/2026, a la tarde, Martín: «la button bar no debería ser de otro color en MaKo Accelerator… y está
    exageradamente alta»): el del sitio es azul noche (#060419) y aquí la página es casi negra (#0e0e10); el aire y los huecos,
    más chicos. Sólo con body:has(.acl-root), y con más peso que las reglas del pie (app/vsl/_sitio/estilos.ts, que van después). */
-body:has(.acl-root) .s-sitio .s-pie { background: #0e0e10; padding: 34px 0 26px; }
-/* Y CON LO QUE NECESITA QUIEN MIRA EL PROGRAMA: Empezar (los precios, el programa y entrar), Recursos y Legal (Reembolsos, la que
-   Meta pide en la página de destino). Las cuatro familias de la app y las Industrias (con los Funnels) siguen en el pie de la
-   portada y de Precios. Medido el 16/11/2026: era 551 px a 1440 y 727 a 390, sobre todo por la columna de Industrias y Funnels
-   y los ocho renglones del teléfono. Van por su lugar (columnasDelPie, app/vsl/_sitio/datos.ts): la 2 a la 6;
-   tests/acelerador-landing.test.ts lo ata a ese orden. */
-body:has(.acl-root) .s-sitio .s-pie-cols > .s-pie-col:nth-child(n+2):nth-child(-n+6),
-body:has(.acl-root) .s-sitio .s-pie-pliegues > .s-pie-pliegue:nth-child(n+2):nth-child(-n+6) { display: none; }
-body:has(.acl-root) .s-sitio .s-pie-in { gap: 22px; padding-bottom: 20px; }
-body:has(.acl-root) .s-sitio .s-pie-cols { gap: 20px 24px; }
-body:has(.acl-root) .s-sitio .s-pie-col li { padding-bottom: 5px; }
-body:has(.acl-root) .s-sitio .s-pie-h { margin-bottom: 8px; }
-body:has(.acl-root) .s-sitio .s-pie-base { padding-top: 14px; }
-@media (max-width: 767px) {
-  body:has(.acl-root) .s-sitio .s-pie { padding: 26px 0 20px; }
-  body:has(.acl-root) .s-sitio .s-pie-marca { margin-bottom: 12px; gap: 8px; }
-  body:has(.acl-root) .s-sitio .s-pie-contacto a { min-height: 36px; }
-  body:has(.acl-root) .s-sitio .s-pie-pliegues { margin-bottom: 12px; }
-  body:has(.acl-root) .s-sitio .s-pie-pliegue summary { min-height: 44px; }
-  body:has(.acl-root) .s-sitio .s-pie-base { padding-top: 12px; }
-}
+body:has(.acl-root) .s-sitio .s-pie { background: #0e0e10; }
+/* EL MISMO PIE QUE LA PORTADA, CON TODO (16/11/2026, a la tarde, Martín: «la bottom bar debe ser el mismo diseño en las dos…
+   deberían estar todo»): sólo cambia el fondo; ya no se esconden columnas ni se achica aparte. El pie del sitio es el compacto
+   (app/vsl/_sitio/estilos.ts, CSS_PIE). Este comentario viaja en la página: sin palabras que el test de textos marca. */
 
 /* ── La barra de abajo, en el teléfono: pegada al borde mientras dura el tramo (del caso de Mauricio al «¿Es para ti?») ── */
 .acl-pegado { display: none; }
@@ -268,7 +245,7 @@ body:has(.acl-root) .s-sitio .s-pie-base { padding-top: 14px; }
   .acl-tras-heroe { padding-top: 28px; }
   .acl-mau-s { padding-top: 80px; }
   .acl-hdr .acl-btn { padding: 10px 18px; font-size: 13px; }
-  .acl-entregables, .acl-filtro, .acl-siempre { grid-template-columns: 1fr; gap: 26px; }
+  .acl-entregables, .acl-filtro { grid-template-columns: 1fr; gap: 26px; }
   .acl-checks { grid-template-columns: 1fr; gap: 13px; }
   .acl-tiles, .acl-proceso { grid-template-columns: 1fr 1fr; }
   .acl-mau-split, .acl-mau-top { grid-template-columns: 1fr; }
@@ -315,26 +292,39 @@ body:has(.acl-root) .s-sitio .s-pie-base { padding-top: 14px; }
  * z-index mayor); al terminar, la barra vuelve.
  */
 export const CSS_INVERSION = `
-.acl-inversion-s { padding-top: 0; }
 .acl-inversion { position: relative; margin-top: 0; border: 1.5px solid rgba(245,196,81,.28); border-radius: 22px; overflow: hidden; padding: 40px 40px 38px;
   background: radial-gradient(900px 380px at 100% 0%, rgba(245,196,81,.15), transparent 60%), linear-gradient(180deg, #1a1a1d 0%, #131316 100%);
   box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 22px 50px -28px rgba(0,0,0,.6); }
-.acl-inversion-cabeza { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 20px 36px; padding-bottom: 28px; border-bottom: 1px solid var(--acl-line); }
+.acl-inversion-cabeza { display: flex; align-items: center; flex-wrap: wrap; gap: 24px 48px; padding-bottom: 30px; border-bottom: 1px solid var(--acl-line); }
 .acl-inversion-nombre { flex: 1 1 260px; min-width: 0; }
 .acl-root .acl-inversion .acl-lbl { color: #F5C451; }
 .acl-root .acl-inversion h3 { margin-top: 10px; font-family: var(--acl-sans); font-weight: 800; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -.02em; line-height: 1.1; color: #fff; }
-.acl-inversion-precio { flex: none; text-align: right; }
+/* EL PRECIO Y EL BOTÓN, UN SOLO BLOQUE (16/11/2026, Martín: «súper importante que el precio de los 1500 esté alineado con el botón»):
+   el precio, cuánto dura y el botón, apilados y centrados en el MISMO eje, y el botón estirado al ancho del bloque (que lo pone el
+   número). Hasta ahí iban en fila, alineados por abajo: el número quedaba más arriba que el botón. */
+.acl-inversion-compra { flex: none; display: flex; flex-direction: column; align-items: stretch; text-align: center; }
 .acl-inversion-monto { font-family: var(--acl-sans); font-weight: 800; font-size: clamp(2.4rem, 4.4vw, 3.2rem); line-height: 1; letter-spacing: -.03em; color: #fff; }
 .acl-inversion-periodo { margin-top: 8px; font-size: 15px; line-height: 1.3; color: var(--acl-ink-soft); }
 .acl-root .acl-btn-oro { flex: none; background: #F5C451; border-color: #F5C451; color: #2A1E00 !important; }
 .acl-root .acl-btn-oro:hover { background: #FFD772; border-color: #FFD772; color: #2A1E00 !important; }
+.acl-root .acl-inversion-compra .acl-btn-oro { margin-top: 20px; text-align: center; }
 .acl-inversion-incluye { margin: 26px 0 14px; font-family: var(--acl-sans); font-weight: 700; font-size: 11.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--acl-ink-soft); }
 @media (max-width: 880px) {
   .acl-inversion-s { position: relative; z-index: 91; background: var(--acl-bg); }
   .acl-inversion { padding: 30px 22px 28px; }
-  .acl-inversion-cabeza { flex-direction: column; align-items: stretch; gap: 18px; padding-bottom: 24px; }
-  .acl-inversion-nombre { flex: none; }
-  .acl-inversion-precio { text-align: left; }
-  .acl-root .acl-inversion .acl-btn-oro { display: block; text-align: center; }
+  /* Una columna, toda centrada: la ceja y el nombre arriba, y el bloque del precio con el botón a todo el ancho de la tarjeta. */
+  .acl-inversion-cabeza { flex-direction: column; align-items: stretch; gap: 22px; padding-bottom: 24px; }
+  .acl-inversion-nombre { flex: none; text-align: center; }
 }
+`;
+
+/**
+ * LAS TIRAS DE LA PORTADA ENTRE LAS SECCIONES (16/11/2026, ./Tiras.tsx). Su CSS es el del sitio (`CSS_REEMPLAZA`, que la landing suma
+ * antes que éste); acá, sólo lo que las acomoda a esta página: su caja `.s-sitio` sin lo que es de una página entera (el fondo azul
+ * noche y el alto de pantalla: va sobre el fondo de esta página, que es sólo oscura), y el aire, que lo ponen las secciones de
+ * alrededor (en la portada, la tira de arriba lleva 64 px y la de las apps que reemplaza, 56 y 48).
+ */
+export const CSS_TIRAS = `
+.acl-root .s-sitio.acl-tira { background: none; min-height: 0; }
+.acl-root .s-sitio.acl-tira > .s-tira { padding: 4px 0 0; }
 `;
