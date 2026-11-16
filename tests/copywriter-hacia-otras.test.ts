@@ -145,11 +145,11 @@ test('la portada se guarda ENTRE instancias (4,9 s en cada apertura, medido el 1
 
 test('la OFERTA ELEGIDA va entera a MaKo, con lo que le falta (13/11/2026, el relevo: con el nombre solo, inventaba)', () => {
   const vacia = { nombre: 'WhatsApp Ads Funnel', es_principal: false } as Oferta;
-  const acelerador = { nombre: 'MaKo Accelerator', es_principal: false, para_quien: 'Coaches que venden servicios de más de US$1.000', precio_usd: 1500, precio_nota: null, promesa: 'Armar tu embudo y vender', bonos: [] } as unknown as Oferta;
+  const acelerador = { nombre: 'MaKo Acelerador', es_principal: false, para_quien: 'Coaches que venden servicios de más de US$1.000', precio_usd: 1500, precio_nota: null, promesa: 'Armar tu embudo y vender', bonos: [] } as unknown as Oferta;
   // La que va entre «…» en el pedido; si no, la que se nombra; si no, la principal.
   assert.equal(ofertaDelPedido('Replícalo entero con mi oferta «WhatsApp Ads Funnel»: su estructura', [acelerador, vacia]), vacia);
   assert.equal(ofertaDelPedido('cambia el gancho para mako acelerador', [vacia, acelerador]), acelerador);
-  assert.equal(ofertaDelPedido('cambia el gancho', [vacia, { ...acelerador, es_principal: true }])?.nombre, 'MaKo Accelerator');
+  assert.equal(ofertaDelPedido('cambia el gancho', [vacia, { ...acelerador, es_principal: true }])?.nombre, 'MaKo Acelerador');
   assert.equal(ofertaDelPedido('cambia el gancho', [vacia]), null);
   // «Para mi negocio en general» (13/11, el flujo nuevo): ninguna, aunque haya principal; y en la charla manda lo ÚLTIMO.
   const conPrincipal = [vacia, { ...acelerador, es_principal: true }];
@@ -163,7 +163,7 @@ test('la OFERTA ELEGIDA va entera a MaKo, con lo que le falta (13/11/2026, el re
   assert.match(bloque, /\(La oferta no tiene datos cargados: sólo su nombre\.\)/);
   assert.match(bloque, /Le falta: para quién, qué promete, qué incluye, precio\./);
   // Con datos: van todos, el precio del producto si la oferta no lo tiene, y sólo lo que falta.
-  const lleno = bloqueDeOferta(acelerador, { nombre: 'MaKo Accelerator', tipo: 'unico', monto_usd: 1500, descripcion: 'Te acompañamos a armar tu embudo.' } as unknown as Producto);
+  const lleno = bloqueDeOferta(acelerador, { nombre: 'MaKo Acelerador', tipo: 'unico', monto_usd: 1500, descripcion: 'Te acompañamos a armar tu embudo.' } as unknown as Producto);
   assert.match(lleno, /Para quién: Coaches que venden servicios de más de US\$1\.000\nQué promete: Armar tu embudo y vender\nQué es: Te acompañamos a armar tu embudo\.\nPrecio: US\$ 1500/);
   assert.equal(faltaDeLaOferta(acelerador, { descripcion: 'Te acompañamos' } as Partial<Producto>).join(', '), '');
   // En `editar`: las ofertas y los productos se leen con lo demás, y la elegida va en el bloque del negocio de los dos pedidos.

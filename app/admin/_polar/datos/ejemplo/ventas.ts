@@ -54,7 +54,7 @@ export const COBROS_EJEMPLO: CobroVenta[] = [
     altaCapa: 'agencia', creadoPor: 'planes:pro', createdAt: '2026-10-05T10:00:00Z', pagadoAt: '2026-10-05T10:05:00Z', link: null, suscripcionViva: true,
   },
   {
-    id: 302, nombre: 'Carlos Ruiz', email: 'carlos@ejemplo.com', plan: 'MaKo Esencial', concepto: 'MaKo Esencial', monto: 47, moneda: 'USD', montoUsd: 47,
+    id: 302, nombre: 'Carlos Ruiz', email: 'carlos@ejemplo.com', plan: 'MaKo Essential', concepto: 'MaKo Essential', monto: 47, moneda: 'USD', montoUsd: 47,
     tipo: 'suscripcion', modo: 'real', proveedor: 'mercadopago', estado: 'pendiente', motivo: null, altaEstado: null, altaWs: null, altaWsNombre: null,
     altaCapa: 'completo', creadoPor: 'planes:esencial', createdAt: '2026-11-03T18:00:00Z', pagadoAt: null, link: '/pagar/ejemplo', suscripcionViva: false,
   },
@@ -82,7 +82,7 @@ export const SUSCRIPCIONES_EJEMPLO: SuscripcionVenta[] = [
 ]
 
 export const CHECKOUTS_EJEMPLO: CheckoutVenta[] = [
-  { id: 302, estado: 'open', createdAt: '2026-11-03T18:00:00Z', nombre: 'Carlos Ruiz', email: 'carlos@ejemplo.com', producto: 'MaKo Esencial', monto: 47, moneda: 'USD', montoUsd: 47, tipo: 'suscripcion', modo: 'real', proveedor: 'mercadopago', motivo: null, link: '/pagar/ejemplo' },
+  { id: 302, estado: 'open', createdAt: '2026-11-03T18:00:00Z', nombre: 'Carlos Ruiz', email: 'carlos@ejemplo.com', producto: 'MaKo Essential', monto: 47, moneda: 'USD', montoUsd: 47, tipo: 'suscripcion', modo: 'real', proveedor: 'mercadopago', motivo: null, link: '/pagar/ejemplo' },
   { id: 299, estado: 'failed', createdAt: '2026-11-01T09:00:00Z', nombre: 'Marta Díaz', email: 'marta@ejemplo.com', producto: 'MaKo Pro', monto: 297, moneda: 'USD', montoUsd: 297, tipo: 'unico', modo: 'real', proveedor: 'stripe', motivo: 'La tarjeta no tenía fondos.', link: '/pagar/ejemplo-2' },
 ]
 

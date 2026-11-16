@@ -13,7 +13,7 @@ import { datosDelLibro, type DatosIngresos } from '../finanzas'
 import { pedidosDe, type EntradaVenta } from '../ventas'
 import type { DatosGeneral, DatosNotificaciones, DatosPagos, Emisor } from '../ajustes'
 
-/** Los planes de fábrica, con Esencial y Pro a precio en pesos argentinos (inventado). */
+/** Los planes de fábrica, con Essential y Pro a precio en pesos argentinos (inventado). */
 export const PRODUCTOS_EJEMPLO: ProductoMako[] = PLANES_MAKO_DEFAULT.map((p) =>
   productoDePlan({ ...p, preciosLocales: p.id === 'esencial' ? { ARS: 56000 } : p.id === 'pro' ? { ARS: 115000 } : {} }),
 )

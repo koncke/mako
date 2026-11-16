@@ -68,7 +68,7 @@ test('el catálogo: buscar sin tildes, activos / archivados / todos, ordenar, y 
   assert.deepEqual(filtrarProductos(productos, { show: 'all', sorting: 'name' }).map((p) => p.id), ['esencial', 'pro', 'continuidad'], 'el archivado va al final aunque su nombre vaya primero')
   assert.deepEqual(filtrarProductos(productos, { sorting: '-price_amount' }).map((p) => p.id), ['pro', 'esencial'])
   assert.deepEqual(filtrarProductos(productos, { sorting: 'price_amount' }).map((p) => p.id), ['esencial', 'pro'])
-  assert.deepEqual(filtrarProductos(productos, { query: 'ÉSEN', show: 'all' }).map((p) => p.id), ['esencial'], 'sin mayúsculas ni tildes')
+  assert.deepEqual(filtrarProductos(productos, { query: 'ÉSSEN', show: 'all' }).map((p) => p.id), ['esencial'], 'sin mayúsculas ni tildes')
   assert.equal(leerMostrar('cualquiera'), 'active')
   assert.equal(leerOrden('-created_at'), 'name', '«Newest / Oldest» no existen: un plan no tiene fecha')
 })

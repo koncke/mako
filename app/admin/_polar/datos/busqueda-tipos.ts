@@ -49,7 +49,7 @@ export const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, 
 
 /**
  * Lo que se dice de un negocio debajo de su nombre: de qué agencia es (si es cliente de una), su plan y si está pausado
- * («De Agencia Faro · MaKo Esencial · Pausado»). UNA frase para la búsqueda ⌘K y para la segunda línea de la lista de Customers
+ * («De Agencia Faro · MaKo Essential · Pausado»). UNA frase para la búsqueda ⌘K y para la segunda línea de la lista de Customers
  * (revisión del Cerebro del 6/11/2026, punto 35): con dos, un negocio pausado diría «Pausado» en un lado y nada en el otro.
  */
 export function detalleDeNegocio(n: { plan: string; pausado: boolean; deAgencia?: boolean; agencia?: string | null }): string {

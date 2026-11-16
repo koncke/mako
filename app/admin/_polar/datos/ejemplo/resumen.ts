@@ -166,7 +166,7 @@ export const resumenEjemplo: ResumenAdmin = {
       },
     },
     planes: [
-      { id: 'esencial', nombre: 'Esencial', descripcion: 'Lo básico para vender con MaKo.', aviso: null },
+      { id: 'esencial', nombre: 'Essential', descripcion: 'Lo básico para vender con MaKo.', aviso: null },
       { id: 'completo', nombre: 'Completo', descripcion: 'Todo el producto: ads, CRM, analistas, chats, Retro y Plan.', aviso: 'Dado de alta a mano no tiene los topes de su plan.' },
     ],
     planPorDefecto: 'completo',

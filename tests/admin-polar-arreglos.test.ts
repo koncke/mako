@@ -34,7 +34,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createElement } from 'react'
@@ -57,7 +57,9 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')
 /** Los .ts/.tsx de la Admin nueva (los que están en git y los nuevos). */
 const archivosAdmin = (): string[] =>
-  execSync("git ls-files -co --exclude-standard 'app/admin/_polar/**' 'app/admin/(polar)/**'", { cwd: RAIZ, encoding: 'utf8' })
+  // Los patrones van como argumentos y no en una línea de comandos: con comillas simples, la consola de Windows se las pasaba
+  // a git tal cual y no listaba NADA (los tests 1 y 9 daban rojo en la PC y verde en GitHub, 15/11/2026).
+  execFileSync('git', ['ls-files', '-co', '--exclude-standard', 'app/admin/_polar/**', 'app/admin/(polar)/**'], { cwd: RAIZ, encoding: 'utf8' })
     .split('\n').filter((f) => /\.(ts|tsx)$/.test(f) && !f.includes('/datos/ejemplo/'))
 
 // ── 1. Un formulario de alta ─────────────────────────────────────────────────────────────────────────────────────

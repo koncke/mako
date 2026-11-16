@@ -12,7 +12,7 @@
 //     pero su `creado_por` empieza con «planes:» (lib/compra-plan.ts): ésos NO son un link armado a mano y no van acá.
 //
 // ⚠️ UN LINK GUARDA LA CAPA, NO EL PLAN. `venderPlan` recibe la capa (`alta_capa`), así que «de qué plan es» se contesta sólo
-//    cuando UN plan tiene esa capa. Hoy MaKo Pro y la Continuidad del Acelerador comparten `agencia`: un link de esa capa se
+//    cuando UN plan tiene esa capa. Hoy MaKo Pro y la Continuidad del Accelerator comparten `agencia`: un link de esa capa se
 //    rotula con el nombre de la capa, nunca con el de un plan elegido a ciegas («si hay que desempatar, todavía estás
 //    adivinando», AGENTS.md).
 // =============================================================================
@@ -69,7 +69,7 @@ export type Orden = (typeof ORDENES)[number]
 export const leerMostrar = (v: unknown): Mostrar => ((MOSTRAR as readonly string[]).includes(String(v)) ? (v as Mostrar) : 'active')
 export const leerOrden = (v: unknown): Orden => ((ORDENES as readonly string[]).includes(String(v)) ? (v as Orden) : 'name')
 
-/** Sin mayúsculas ni tildes: «Esencial» se encuentra escribiendo «esen». */
+/** Sin mayúsculas ni tildes: «Essential» se encuentra escribiendo «éssen». */
 const plano = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
 /**
