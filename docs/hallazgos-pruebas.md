@@ -321,3 +321,13 @@ piden las imágenes con `fetch` (o se pasan a `eager`) y se suman; para mirarlas
   cabecera del test lo dice; corrido «antes de commitear» no sirve.
 - **Regla:** con un archivo NUEVO, el guard del voseo (y todo guard que barre el repo con `git ls-files`) se corre DESPUÉS del
   `git add`.
+
+## Mostrar /planes fuera de Next (un visor o un artefacto) (15/11/2026)
+
+- **El modo del sitio** sólo se elige con `localStorage['mako.sitio.modo']` (app/vsl/_competencia/TemaSitio.tsx), y cada
+  cambio se avisa con el evento `mako-sitio-modo`: así se fuerza el oscuro en una captura sin tocar el botón.
+- **El recoloreo aclara todo recuadro oscuro que no tenga `data-tema-fijo`**: el marco del VSL queda claro en el modo claro y
+  sólo lo tapa el video. Y lo que va dentro de `data-tema-fijo` no se da vuelta NUNCA: un texto oscuro ahí queda negro sobre
+  negro en el oscuro (pasó con la barra de MaKo Tokens).
+- **Un iframe de otro sitio no se ve en el visor de claude.ai**, ni en una captura sin red: el VSL de Panda va como una tapa
+  con un link.

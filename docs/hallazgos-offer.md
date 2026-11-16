@@ -1614,3 +1614,14 @@ precio?», la pregunta que el onboarding acaba de hacer. Sacado del código; no 
 **La regla para quien haga que el onboarding deje la oferta:** crearla explícita al cerrar, con lo que contó, sin contar con la
 siembra del brief; y sin mover el orden del cierre (producto y oferta antes que el brief: si no, vuelve el «X · versión 1» del
 16/10, ver hallazgos-onboarding.md, «El orden del cierre es el arreglo»).
+
+## Guardar la oferta del onboarding es un paso aparte (15/11/2026, la maqueta del onboarding)
+
+**Vive en:** lib/onboarding-arranque-server.ts (la charla nace atada al funnel principal), app/offer/Conclusion.tsx («Guardar en
+este funnel», sin selector porque hay un solo funnel), app/api/offer/route.ts (armar no guarda) y lib/funnel-plan.ts (una oferta
+guardada le gana a una armada).
+
+La charla de oferta del onboarding nace atada al funnel principal, así que su conclusión ofrece «Guardar en este funnel» y,
+guardada, dice «Guardada en <nombre del negocio>» porque el cierre le pone ese nombre al funnel. **Armar no guarda**: hasta que
+la persona toca guardar, el Funnel Coach no la ve como guardada. Para la bienvenida nueva (Oferta → Funnel Coach) eso es un
+paso más que hay que mostrar, o hacer solo al cerrar el chat «Oferta».

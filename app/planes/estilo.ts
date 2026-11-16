@@ -19,7 +19,9 @@ import { SIGNO_NO, SIGNO_SI } from './signos';
 export const CSS_PLANES = `
 body:has(.planes-root) aside { display: none !important; }
 body:has(.planes-root) { background: #FFFFFF; }
-.planes-root { min-height: 100vh; padding: 40px 16px 56px; color: #121212;
+/* overflow-x: clip (15/11/2026): el control de la barra de MaKo Tokens mide 100 % + 36 px y pasaba 2 px el borde del teléfono.
+   «clip» y no «hidden»: no arma un contenedor de scroll, así lo «sticky» de adentro sigue andando. */
+.planes-root { min-height: 100vh; padding: 40px 16px 56px; color: #121212; overflow-x: clip;
   font: 400 16px/1.55 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 .planes-root a { color: inherit; }
 .planes-wrap { max-width: 920px; margin: 0 auto; }

@@ -3742,3 +3742,22 @@ a mano; `USO_SUPUESTO` = 25% es el valor inicial de un deslizador; el ledger (`m
 lee; y el gasto de texto POR CLIENTE es imposible de derivar hoy porque `wsDeProveedor()` escribe todas las filas de
 Anthropic en el workspace 1 a propósito. El US$68/mes que circula es el techo de un workspace intensivo de la agencia
 misma, no el promedio de un cliente.
+
+## /planes en la maqueta del onboarding: lo que se vio desde afuera (15/11/2026, corrida de 7 agentes)
+
+- **La barra de MaKo Tokens no se leía en el modo oscuro** (contraste 1,08 en el «+0»). Causa: toda la barra llevaba
+  `data-tema-fijo` y no tiene fondo propio, así que el sol y la luna no tocaban sus textos y quedaban oscuros sobre la página
+  oscura. Arreglado: lo fijo es sólo la pista (el riel y la burbuja son un juego de colores); los textos de abajo se dan vuelta
+  (app/planes/CalculadoraTokens.tsx).
+- **/planes se corría 2 px a lo ancho en el teléfono.** El control de la barra mide 100 % + 36 px (para que el botón quede
+  centrado en las puntas) y pasaba el borde de 16 px. Arreglado con `overflow-x: clip` en `.planes-root` («clip» y no «hidden»:
+  no arma un contenedor de scroll y lo `sticky` de adentro sigue andando). Queda otro empujón de 2 px que no es de /planes: el
+  menú del teléfono de la barra del sitio (lo toma el trabajo de la barra y el pie).
+- **«o entra con tu correo» no existe en el login:** el mail de acceso (lib/invitaciones.ts) y la página de pago
+  (app/pagar/[token]/listo/AccesoMako.tsx) mandan a tocarlo, y el botón del login dice «Entrar con tu correo»
+  (app/login/LoginForm.tsx). Sin hacer.
+- **Los círculos, medidos (la noche del 15/11):** el método de la ✓ y la ✗ (recortar cada círculo a 4x y comparar el centro de
+  la tinta con el del círculo REAL que se ve, no con el recorte, que se redondea a píxeles) quedó en un medidor que recorre la
+  página entera, elementos y `::before`/`::after`. En /planes: 46 «i», 101 ✓/✗ de la tabla y 34 de las columnas, todas a 0,25 px
+  o menos. **Trampa:** un círculo de tamaño IMPAR (21 px) con un dibujo de 12 deja 4,5 px de borde y el navegador lo corre
+  medio píxel (lo midió /accelerator): los círculos con signo van en px PARES.

@@ -7067,3 +7067,41 @@ la N+1.
 `TS2741: Property 'titulo' is missing in type '{ texto: string; }'`. **Regla:** `node --test` y
 `node scripts/tsc-acotado.mjs` miden cosas distintas y las dos hacen falta en la misma pasada; un test que mide TEXTO no
 ve una propiedad que desapareció.
+
+## /accelerator, la landing del programa portada de Lovable: lo que mordió (15/11/2026, corrida de 4 agentes)
+
+**Vive en:** `app/accelerator/` (`contenido.ts`, `LandingAcelerador.tsx`, `estilo.ts`, `page.tsx`); lo vigila
+`tests/acelerador-landing.test.ts`.
+
+- **Un texto escrito a mano al lado de un dato importado sigue diciendo lo que la fuente ya sacó.** La promesa importada
+  (`PROGRAMA_ACELERADOR.promesa`) perdió la garantía a las 21:30 y la página siguió mostrando un sello «GARANTÍA POR CONTRATO»
+  escrito a mano; el test, encima, lo exigía. **Regla:** lo que se escribe a mano al lado de un dato de `lib/` lo ata un test a
+  esa fuente.
+- **El CSS armado como plantilla viaja con sus comentarios.** `CSS_ACELERADOR` va en un `<style>` dentro de la página: sus
+  comentarios los lee el visitante y cualquier guarda que busque palabras viejas en el HTML (se puso rojo por «garantía» y
+  «MARKETING KONCEPT» escritas en comentarios del CSS). Y una comilla invertida dentro de un comentario de esa plantilla la
+  CIERRA: en app/planes/Vitrina.tsx el build dijo «Expected ";" but found "signoInfo"» por un `signoInfo` entre comillas
+  invertidas en un comentario del CSS. **Regla:** en un CSS-plantilla, los comentarios sin comillas invertidas y sin palabras
+  que un test prohíbe.
+- **Una barra `sticky` con `margin-top` negativo sube esos píxeles por encima de su tramo**, y la que termina dentro de su tramo
+  no se va: sube suelta con la página. El arreglo sin JavaScript: la barra sin margen, el tramo empieza donde tiene que
+  aparecer, y la sección siguiente le pasa por encima con `z-index` mayor, margen igual a −alto y fondo opaco
+  (`.acl-pegado`, `.acl-tramo + .acl-final`).
+- **El diagnóstico obvio era el equivocado: «el botón de la agenda se saltea el formulario».** La agenda de Martín ES el
+  formulario: `GET https://calendly.com/api/booking/event_types/lookup?event_type_slug=asesoria&profile_slug=koncke` devuelve
+  sin token las preguntas obligatorias (`custom_fields`): son 7. Así que «Aplicas en el formulario» es verdad con Calendly.
+- **Saber si un video de Panda salta a otro al terminar no necesita la API:** `https://config.tv.pandavideo.com.br/<biblioteca>/<id>.json`
+  es lo que lee el player; si trae `videoRedirect`, salta. El cartel «Pulse aquí para activar el sonido» (en «usted») viene de
+  `.../profiles/<perfil>.json` y lo comparten todos los videos de ese perfil: se cambia en Panda, no acá.
+- **El visor de claude.ai no deja embeber otros sitios**: el VSL (un iframe de Panda) no se ve en ningún artefacto. La landing
+  lo dibuja como una tapa con un link que lo abre aparte; /planes, que también tiene un VSL de Panda en el héroe, necesita lo
+  mismo en su artefacto.
+- **Al portar una página se copian los estilos COMPUTADOS, no las reglas:** una regla de Lovable perdía por especificidad (la
+  frase de Mauricio pedía 1,7rem y se veía al tamaño del texto), y un `<span>` que pasa a `<h3>` hereda el interlineado de los
+  títulos.
+- **Capturas de página entera:** Chromium corta en 16.384 px; se sacan por partes con `clip` y se pegan. Las fotos con
+  `loading="lazy"` y opacidad animada salen vacías en las partes: antes se fuerza `eager` y se espera a que carguen.
+- **Lo que quedó SIN hacer (decisiones de Martín, en el chat del 15/11):** que escuche el VSL (es el «Mentoría 1a1» de Panda);
+  el filtro de entrada (el héroe dice «+$5.000 USD/mes» y el filtro «entre $5K-$10K»); si los entregables #10 y #11 (Hiring y
+  Delegation) quedan; los números de los casos, que nadie revisó (+$1M, +80M views, +20 nichos, +$60k de Axel, $7.000 por
+  cliente); Axel llamado «agencia» y «academia» a la vez.

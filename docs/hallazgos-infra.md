@@ -12607,3 +12607,10 @@ cuidar que una ruta marcada «sin IA» no empiece a llamar a una IA. Sumar el ca
 problema. **La cura no es relajar el test: es actualizar `usa` Y el `porque`**, diciendo qué lee lo nuevo y por qué no es
 una IA (acá: `candadoDeReferente` lee el plan del negocio — cobros y workspaces — antes de abrir la conversación). Si se
 toca una ruta de esa tabla, el test se corre siempre: es el único lugar que lo nota.
+
+## `tsc-acotado` sobre app/accelerator: el 134 es V8 sin memoria, no el vigía (15/11/2026)
+
+Con `--heap=3584` el chequeo acotado de los 6 archivos de `app/accelerator/` terminó con código 134: es V8 que se quedó sin
+memoria, no la guardia de RAM. Con `--heap=4608` terminó (0 errores), usando unos 3,1 GB. El peso no es la landing: es
+lucide-react y el grafo de `app/planes/Tarjetas.tsx`, que entra por la lista del programa. ⚠️ La regla de la casa sigue: si
+falta RAM, se reintenta más tarde; subir `--heap` sólo cuando el 134 es de V8 y la PC tiene el margen.

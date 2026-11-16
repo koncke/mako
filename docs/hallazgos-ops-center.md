@@ -672,3 +672,13 @@ copia al chat «Onboarding», `seEscondeDeOffer` la esconde de la dueña mientra
 onboarding haya un chat «Oferta» no hay que crear nada: dejar de esconderla, nombrarla y escribirle el primer mensaje. Es,
 además, la conversación que lee la tarjeta «Oferta y comunicación» del Marketing CoPilot; lo que guarda el Funnel Coach va a
 otra tabla que el CoPilot no ve.
+
+## Lo que pregunta el Ops Center la primera vez (15/11/2026, la maqueta del onboarding)
+
+- **El saludo del Funnel Coach ya pregunta el presupuesto:** con una oferta, el primer mensaje termina en «¿Cuánto puedes
+  invertir por mes para conseguir clientes?» (lib/funnel-plan.ts), que es la inversión que el onboarding ya preguntó en el
+  diagnóstico (lib/fase-diagnostico.ts). Preguntada dos veces.
+- **La primera vez en el chat principal pregunta la guía, no «tu IA»:** «¿Quieres que te ayude a aprender a usar esta
+  pestaña?» (lib/guia/reglas.ts; app/second-brain/ChatSecondBrain.tsx), y la pregunta de tu IA espera
+  (app/second-brain/PiezasCliente.tsx). Con la bienvenida nueva, «tu IA» y el reto compiten con esa pregunta: va una apertura
+  por pantalla, así que hay que decidir el orden.

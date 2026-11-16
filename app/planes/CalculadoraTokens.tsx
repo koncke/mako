@@ -220,8 +220,11 @@ export function CalculadoraTokens({ planes = [] }: { planes?: readonly PlanBarra
   const ultimo = pasos.length - 1;
   const script = `(function(){var P=${JSON.stringify(pasos)};var c=document.querySelector('[data-tk]');if(!c)return;var r=c.querySelector('.tk-rango'),b=c.querySelector('.tk-burbuja'),x=c.querySelector('.tk-extra');function m(n){return n.toLocaleString('es-AR');}function q(a,id){return document.querySelectorAll('['+a+'="'+id+'"]');}function pon(){var i=Number(r.value),p=P[i]||P[0];c.style.setProperty('--tk-pct',String(${ultimo} ? i*100/${ultimo} : 0));b.textContent='+US$ '+m(p.usd)+'/mes';x.innerHTML='<b>+'+m(p.mt)+'</b> MaKo Tokens extras al mes';p.columnas.forEach(function(k){q('${ATRIBUTO_MT}',k.id).forEach(function(n){n.textContent=k.mt;});q('${ATRIBUTO_ALCANZA}',k.id).forEach(function(n){n.innerHTML=k.alcanza;});});r.setAttribute('aria-valuetext','Sumas '+m(p.mt)+' MaKo Tokens extras al mes por US$ '+m(p.usd));}r.addEventListener('input',pon);pon();})();`;
   return (
-    <section className="tk" aria-label="Sumar MaKo Tokens extras al mes" data-tk="" data-tema-fijo="" style={{ '--tk-pct': '0' } as CSSProperties}>
-      <div className="tk-pista">
+    <section className="tk" aria-label="Sumar MaKo Tokens extras al mes" data-tk="" style={{ '--tk-pct': '0' } as CSSProperties}>
+      {/* `data-tema-fijo` va en la PISTA y no en toda la barra (15/11/2026): el riel y la burbuja son un juego que el sol y la luna
+          no deben separar, pero los textos de abajo sí tienen que darse vuelta; fijos, en el modo oscuro quedaban negro sobre
+          negro (contraste 1,08 en el «+0»). */}
+      <div className="tk-pista" data-tema-fijo="">
         <span className="tk-riel" aria-hidden="true" />
         <span className="tk-relleno" aria-hidden="true" />
         <div className="tk-zona">

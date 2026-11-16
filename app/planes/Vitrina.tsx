@@ -80,7 +80,7 @@ body:has(.s-barra) .cp-cab > div { top: 77px; }
 
 /* EL HÉROE, COMO EL DE LA PORTADA (app/vsl/_sitio/estilos.ts: .s-hero-in, .s-h1, .s-hero-p): dos columnas, el título en la letra
    de la portada con «High Ticket» en el degradé dorado (el del modo claro, que es el de /planes) y la bajada de 20 px. Al
-   costado, en vez del VSL, las animaciones de la portada (<VitrinaVideos>, las mismas clases que en el login). */
+   costado, el VSL de la portada (15/11/2026, ~21:30: «mejor que los videos… lo reemplaces directamente por el VSL»). */
 .planes-heroe { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 40px; align-items: center; text-align: left;
   max-width: none; margin: 8px 0 44px; }
 .planes-heroe-tx { container-type: inline-size; min-width: 0; }
