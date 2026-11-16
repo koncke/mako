@@ -152,7 +152,9 @@ test('«Y en las tres fases, siempre» no vuelve: de los entregables (y su tira)
 test('el caso de Mauricio dice los números de hoy', async () => {
   const t = texto(await pagina());
   // Los $100.000, en el título (Martín, 16/11/2026: «debería ser lo más importante»); los $300 y los $7.000, en el texto.
-  assert.ok(t.includes('Con Mauricio llevamos más de $100.000 dólares facturados.'), 'Mauricio: el título con los $100.000');
+  // Desde el 16/11/2026 ~22:45 UTC, el mismo título que el caso de la portada (Martín: «de meses de menos de 9K a más de 100K
+  // vendidos… eso es lo que me gusta más»).
+  assert.ok(t.includes('De meses de menos de $9k USD a más de $100k USD vendidos.'), 'Mauricio: el título de 9k a 100k');
   assert.ok(t.includes('solo le pagaban $300 dólares') && t.includes('cobra más de $7.000 por cliente'), 'Mauricio: de $300 a $7.000, en el texto');
   assert.doesNotMatch(t, /profesor de marketing y ventas/, 'volvió «y como profesor de marketing y ventas»');
   assert.doesNotMatch(t, /\$50\.000|\$50k/, 'volvió el número viejo de Mauricio');
@@ -418,7 +420,8 @@ test('el filtro dice el corte de la aplicación (más de US$ 5.000, con clientes
   // El mismo corte que la calificación del héroe y que la aplicación (`califica`, lib/aplicacion-accelerator.ts): la primera
   // opción de facturación es «Menos de US$ 5.000» y es la única que no califica.
   const monto = (s: string) => s.match(/\$\s?([\d.]+)/)?.[1];
-  assert.equal(monto(HERO.calificacion[1]), monto(corte), 'el héroe y el filtro dicen cortes distintos');
+  // El héroe ya no dice el corte (Martín, 16/11/2026: en lugar del «Exclusivo para… +$5.000 USD/mes», que se note que incluye MaKo).
+  assert.match(HERO.calificacion.join(''), /yo te incluyo MaKo, el mejor software para vender High Ticket/, 'el héroe no dice que incluye MaKo');
   const facturacion = campo('facturacion').opciones!;
   assert.equal(monto(facturacion[0]), monto(corte), `la aplicación corta en «${facturacion[0]}» y la landing en ${monto(corte)}`);
   const resto = { clientes: 1, situacion: 0, inversion: 0 };

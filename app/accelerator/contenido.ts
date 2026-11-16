@@ -63,7 +63,9 @@ export const HERO = {
   // SIN BAJADA (16/11/2026, Martín: «eliminaría también la frase de con el acompañamiento más personalizado del mercado de la landing
   // de Accelerator»). Era «Con el acompañamiento más personalizado del mercado.» (Lovable: «…1 a 1 más personalizado…»); se fue
   // también de la descripción de la página (./page.tsx). Debajo del título va directo a quién es el programa.
-  calificacion: ['Exclusivo para profesionales, coaches y negocios que ya generan ', '+$5.000 USD/mes', '.'] as const,
+  // Martín, 16/11/2026: en lugar del «Exclusivo para profesionales… +$5.000 USD/mes», que se note que incluye MaKo, en primera persona:
+  // «a diferencia del resto de coach que te dan un PDF, yo te incluyo… el mejor software… para ventas high ticket».
+  calificacion: ['A diferencia de otros programas que te dan un PDF, yo te incluyo MaKo, ', 'el mejor software para vender High Ticket', '.'] as const,
 };
 
 export const APLICAR = {
@@ -83,7 +85,8 @@ export const APLICAR = {
 export const MAURICIO = {
   /** El título: los $100.000 en naranja (Martín, 16/11/2026: «lo de $100.000 es como más impactante… debería ser lo más importante»).
    *  El «de $300 a más de $7.000 por cliente», que era el título, pasa al texto. */
-  titulo: ['Con Mauricio llevamos más de ', '$100.000 dólares', ' facturados.'] as const,
+  // Martín, 16/11/2026 ~22:45 UTC: el mismo título que el caso de la portada («de meses de menos de 9K a más de 100K vendidos»).
+  titulo: ['De meses de menos de $9k USD a ', 'más de $100k USD', ' vendidos.'] as const,
   video: '/vsl-assets/mauricio.mp4',
   // MÁS CORTO (Martín: «está muy largo desde el título hasta no existe ningún método estándar»): eran tres párrafos, la frase de
   // los $100k y dos más del escenario; quedan dos y uno, con los mismos hechos.

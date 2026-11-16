@@ -44,7 +44,8 @@ export function LogoMaKo({ className, tamano = 32, claro = false }: { className?
 
 /** La prueba de todas las landings: el caso de Mauricio, como DATOS (cada diseño lo dibuja con el tratamiento de testimonio de su referencia). */
 export const CASO = {
-  // ⚠️ El test busca «De meses de menos de» en lo dibujado: el titular va tal cual (Martín, 16/11/2026: «de meses de menos de 9K a
+  // ⚠️ El test busca «De meses de menos de» en lo dibujado: el titular va tal cual. Martín, 16/11/2026 ~22:45 UTC: este es el que más
+  // le gusta («de meses de menos de 9K a más de 100K vendidos») y va también en el caso del Accelerator. Antes (Martín, 16/11/2026: «de meses de menos de 9K a
   // más de 100K»; el de antes decía «por debajo de $10k… más de $70k en tres meses»).
   titulo: 'De meses de menos de <span style="white-space:nowrap">$9k USD</span> a más de <span style="white-space:nowrap">$100k USD</span> vendidos.',
   sub: 'Sin cambiar la oferta. Sin cambiar el funnel.',
