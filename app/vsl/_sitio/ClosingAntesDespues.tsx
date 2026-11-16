@@ -19,11 +19,13 @@ const minuto = (s: number) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 };
 const usd = (n: number) => `US$${n.toLocaleString('es-AR')}`;
+/** El color de cada paso del embudo: los dos de reuniones en azul y las ventas en verde. */
+const COLOR_EMBUDO = ['#2F6FED', '#6C9BF3', '#34A853'] as const;
 const FOTO_MAURICIO = '/vsl-assets/sitio/avatar/mauricio-meet.jpg';
 const CICLO = 18;
 /** En qué % del ciclo entra cada objeción (a los 2,4 s, 4,9 s y 7,4 s) y en qué % crece cada mes del gráfico. */
 const ENTRA_OBJ = [13.3, 27.2, 41.1];
-const CRECE_MES = (i: number) => 64 + i * 3;
+const CRECE_MES = (i: number) => Math.round((68 + i * 2.5) * 10) / 10;
 
 const CSS = `
 .s-cad{container-type:inline-size;position:absolute;inset:0;background:#202124;color:#E8EAED;font-family:inherit;overflow:hidden}
@@ -71,52 +73,80 @@ const CSS = `
 .s-cad-der{justify-self:end;display:flex;align-items:center;gap:.6cqw}
 .s-cad-icono{width:4cqw;height:4cqw;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .s-cad-icono-on{background:rgba(138,180,248,.24)}
-/* 2) La hoja Closing de MaKo, sin la barra del costado: el análisis de la llamada y los cierres acumulados con lo vendido. */
+/* 2) La hoja Closing de MaKo, con el diseño de la del Dashboard y sin la barra del costado: cuatro piezas que entran una por una
+   (la tarjeta «Tasa de cierre» en verde petróleo, como hoja-tasa.jpg; la llamada analizada, con su score y sus objeciones; el
+   embudo; y los cierres acumulados de 2026 con lo vendido). 3) La cámara se acerca a los cierres mientras crecen de 0 a 9 (fija la
+   esquina de abajo a la derecha: la pieza entra entera) y las otras tres se apagan. */
 .s-cad-app{position:absolute;inset:0;z-index:2;background:#F4F6FA;color:#12151B;opacity:0;visibility:hidden;animation:s-cad-app ${CICLO}s infinite}
-@keyframes s-cad-app{0%,56%{opacity:0;visibility:hidden}60%,96%{opacity:1;visibility:visible}99%,100%{opacity:0;visibility:hidden}}
-/* 3) La cámara se acerca al gráfico mientras crece (fija su esquina de abajo a la derecha: el gráfico queda entero). */
-.s-cad-dash{position:absolute;inset:0;padding:2.6cqw 3cqw;display:flex;flex-direction:column;gap:1.8cqw;transform-origin:96% 94%;animation:s-cad-zoom2 ${CICLO}s cubic-bezier(.45,0,.2,1) infinite}
-@keyframes s-cad-zoom2{0%,68%{transform:none}78%,96%{transform:scale(1.12)}100%{transform:none}}
-.s-cad-main-t{margin:0;display:flex;align-items:baseline;gap:1.2cqw;font-size:2.4cqw;font-weight:800;white-space:nowrap}
-.s-cad-main-t small{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:1.45cqw;font-weight:600;color:#6B7280}
-.s-cad-main-t em{margin-left:auto;font-style:normal;font-size:1.35cqw;font-weight:700;color:#2F6FED;background:#E8F0FE;padding:.5cqw 1.1cqw;border-radius:99px}
-.s-cad-hoja{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:1.8cqw}
-.s-cad-card{min-height:0;min-width:0;background:#fff;border:1px solid #E5E8EF;border-radius:1.6cqw;padding:2cqw 2.2cqw;display:flex;flex-direction:column;opacity:0;transform:translateY(1.6cqw);animation:${CICLO}s infinite}
-.s-cad-card:nth-child(1){animation-name:s-cad-c1}.s-cad-card:nth-child(2){animation-name:s-cad-c2}
-@keyframes s-cad-c1{0%,59%{opacity:0;transform:translateY(1.6cqw)}63%,72%{opacity:1;transform:none}78%,95%{opacity:.45;transform:none}99%,100%{opacity:0}}
-@keyframes s-cad-c2{0%,61%{opacity:0;transform:translateY(1.6cqw)}65%,95%{opacity:1;transform:none}99%,100%{opacity:0}}
-.s-cad-card-t{margin:0;font-size:1.5cqw;font-weight:700;color:#6B7280}
-/* El análisis de la llamada: el score en su anillo y las objeciones con su estado. */
-.s-cad-nota{display:flex;align-items:center;gap:1.6cqw;margin:1.4cqw 0 1.6cqw}
-.s-cad-anillo{flex:none;width:9cqw;height:9cqw;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(#F9AB00 calc(var(--p) * 1%),#EEF0F4 0);position:relative}
-.s-cad-anillo::before{content:'';position:absolute;inset:1cqw;border-radius:50%;background:#fff}
-.s-cad-anillo b{position:relative;font-size:3cqw;font-weight:800}
-.s-cad-nota p{margin:0;font-size:1.45cqw;line-height:1.35;color:#374151}
-.s-cad-nota p strong{display:block;font-size:1.9cqw;color:#12151B}
-.s-cad-obj{display:flex;align-items:center;gap:.9cqw;padding:1cqw 0;border-top:1px solid #EEF0F4;font-size:1.45cqw;font-weight:600;white-space:nowrap}
+@keyframes s-cad-app{0%,56%{opacity:0;visibility:hidden}59%,96%{opacity:1;visibility:visible}99%,100%{opacity:0;visibility:hidden}}
+.s-cad-dash{position:absolute;inset:0;padding:2.2cqw 2.6cqw;display:flex;flex-direction:column;gap:1.4cqw;transform-origin:97.4% 96.5%;animation:s-cad-zoom2 ${CICLO}s cubic-bezier(.45,0,.2,1) infinite}
+@keyframes s-cad-zoom2{0%,73%{transform:none}81%,96%{transform:scale(1.3)}100%{transform:none}}
+.s-cad-main-t{margin:0;display:flex;align-items:baseline;gap:1.2cqw;font-size:2.2cqw;font-weight:800;white-space:nowrap}
+.s-cad-main-t small{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:1.35cqw;font-weight:600;color:#6B7280}
+.s-cad-main-t em{margin-left:auto;font-style:normal;font-size:1.3cqw;font-weight:700;color:#2F6FED;background:#E8F0FE;padding:.5cqw 1.1cqw;border-radius:99px}
+.s-cad-hoja{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:1.4cqw}
+.s-cad-pieza{min-height:0;min-width:0;opacity:0;transform:translateY(1.6cqw) scale(.97);animation:${CICLO}s infinite}
+.s-cad-pieza:nth-child(1){animation-name:s-cad-p1}.s-cad-pieza:nth-child(2){animation-name:s-cad-p2}.s-cad-pieza:nth-child(3){animation-name:s-cad-p3}.s-cad-pieza:nth-child(4){animation-name:s-cad-p4}
+@keyframes s-cad-p1{0%,57%{opacity:0;transform:translateY(1.6cqw) scale(.97)}61%,74%{opacity:1;transform:none}80%,95%{opacity:.4;transform:none}99%,100%{opacity:0}}
+@keyframes s-cad-p2{0%,59%{opacity:0;transform:translateY(1.6cqw) scale(.97)}63%,74%{opacity:1;transform:none}80%,95%{opacity:.4;transform:none}99%,100%{opacity:0}}
+@keyframes s-cad-p3{0%,61%{opacity:0;transform:translateY(1.6cqw) scale(.97)}65%,74%{opacity:1;transform:none}80%,95%{opacity:.4;transform:none}99%,100%{opacity:0}}
+@keyframes s-cad-p4{0%,63%{opacity:0;transform:translateY(1.6cqw) scale(.97)}67%,95%{opacity:1;transform:none}99%,100%{opacity:0}}
+.s-cad-card{background:#fff;border:1px solid #E5E8EF;border-radius:1.4cqw;padding:1.5cqw 1.8cqw;display:flex;flex-direction:column}
+.s-cad-card-t{margin:0;font-size:1.35cqw;font-weight:700;color:#6B7280}
+.s-cad-tasa{position:relative;overflow:hidden;border-radius:1.4cqw;color:#fff;display:grid;grid-template-columns:minmax(0,1fr) 10.5cqw;gap:1.8cqw;padding:1.7cqw 2.1cqw;background:linear-gradient(135deg,#0A2A2E 0%,#0D3539 55%,#13595F 100%)}
+.s-cad-tasa::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:2.8cqw 2.8cqw}
+.s-cad-tasa>*{position:relative;min-width:0}
+.s-cad-tasa-t{margin:0;font-size:1.45cqw;font-weight:700;color:#CFE6E4}
+.s-cad-tasa-n{display:block;margin-top:.3cqw;font-size:5.4cqw;line-height:1;font-weight:800;letter-spacing:-.02em}
+.s-cad-delta{display:flex;align-items:center;gap:.8cqw;margin-top:.8cqw;font-size:1.2cqw;font-weight:500;color:#E6F2F1;white-space:nowrap}
+.s-cad-delta b{padding:.3cqw .7cqw;border-radius:.6cqw;background:#B6F0C9;color:#0B3B2A;font-weight:800}
+.s-cad-prog{margin-top:1.6cqw;height:.9cqw;border-radius:1cqw;background:rgba(255,255,255,.14);overflow:hidden}
+.s-cad-prog i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#5AB3B8,#E2FAF8);transform-origin:left;transform:scaleX(0);animation:s-cad-llena ${CICLO}s infinite}
+@keyframes s-cad-llena{0%,61%{transform:scaleX(0)}68%,96%{transform:scaleX(1)}99%,100%{transform:scaleX(0)}}
+.s-cad-prog-t{margin:.8cqw 0 0;font-size:1.15cqw;color:#E6F2F1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-cad-tasa-der{border-left:1px solid rgba(255,255,255,.2);padding-left:1.5cqw;display:flex;flex-direction:column;justify-content:center}
+.s-cad-tasa-der p{margin:0;padding:.45cqw 0;font-size:1.2cqw;color:#CFE6E4;border-bottom:1px solid rgba(255,255,255,.14)}
+.s-cad-tasa-der p:last-child{border-bottom:0}
+.s-cad-tasa-der b{display:block;font-size:2.3cqw;line-height:1.1;font-weight:800;color:#fff}
+/* La llamada analizada: el score en su anillo y las objeciones con su estado. */
+.s-cad-nota{display:flex;align-items:center;gap:1.4cqw;margin:.6cqw 0 .3cqw}
+.s-cad-anillo{flex:none;width:5.4cqw;height:5.4cqw;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(#F9AB00 calc(var(--p) * 1%),#EEF0F4 0);position:relative}
+.s-cad-anillo::before{content:'';position:absolute;inset:.8cqw;border-radius:50%;background:#fff}
+.s-cad-anillo b{position:relative;font-size:1.9cqw;font-weight:800}
+.s-cad-nota p{margin:0;font-size:1.25cqw;line-height:1.35;color:#374151}
+.s-cad-nota p strong{display:block;font-size:1.6cqw;color:#12151B}
+.s-cad-obj{display:flex;align-items:center;gap:.8cqw;padding:.42cqw 0;border-top:1px solid #EEF0F4;font-size:1.25cqw;font-weight:600;white-space:nowrap}
 .s-cad-obj span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .s-cad-obj b{margin-left:auto;font-weight:600;color:#9AA0A6}
-/* Los cierres acumulados de 2026: cada mes crece después del anterior, con su número arriba; al final, lo vendido. */
+.s-cad-obj svg{width:1.6cqw;height:1.6cqw}
+/* El embudo: cada paso con su número y su barra, que crece cuando entra la pieza. */
+.s-cad-emb{flex:1;display:flex;flex-direction:column;justify-content:center;gap:.9cqw}
+.s-cad-emb div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;row-gap:.35cqw;font-size:1.25cqw;font-weight:600;color:#374151}
+.s-cad-emb b{font-size:1.45cqw;color:#12151B}
+.s-cad-emb span{grid-column:1/-1;height:1.6cqw;border-radius:.5cqw;background:var(--c);width:var(--w);transform-origin:left;transform:scaleX(0);animation:s-cad-emb ${CICLO}s infinite}
+@keyframes s-cad-emb{0%,63%{transform:scaleX(0)}70%,96%{transform:scaleX(1)}99%,100%{transform:scaleX(0)}}
+/* Los cierres acumulados: cada mes crece después del anterior, con su número arriba; al final, lo vendido. */
 .s-cad-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:1cqw}
 .s-cad-plata{text-align:right;opacity:0;animation:s-cad-plata ${CICLO}s infinite}
-.s-cad-plata strong{display:block;font-size:3.4cqw;line-height:1;font-weight:800;color:#1E8E3E}
-.s-cad-plata small{font-size:1.3cqw;font-weight:600;color:#6B7280}
-@keyframes s-cad-plata{0%,80%{opacity:0;transform:translateY(.8cqw)}84%,95%{opacity:1;transform:none}99%,100%{opacity:0}}
-.s-cad-barras{flex:1;min-height:0;display:grid;grid-template-columns:repeat(6,1fr);gap:1.4cqw;margin-top:1cqw}
-.s-cad-barra-m{display:grid;grid-template-rows:minmax(0,1fr) auto;justify-items:center;gap:.5cqw;min-height:0;font-size:1.35cqw;font-weight:700;color:#6B7280}
-.s-cad-pista{position:relative;width:100%;margin-top:2.6cqw}
-.s-cad-pista i{position:absolute;left:0;right:0;bottom:0;height:var(--h);border-radius:.6cqw .6cqw 0 0;background:#2F6FED;transform-origin:bottom;transform:scaleY(0);animation:${CICLO}s cubic-bezier(.3,0,.2,1) infinite}
-.s-cad-pista b{position:absolute;left:0;right:0;bottom:calc(var(--h) + .4cqw);text-align:center;color:#12151B;font-size:1.7cqw;opacity:0;animation:${CICLO}s infinite}
+.s-cad-plata strong{display:block;font-size:2.6cqw;line-height:1;font-weight:800;color:#1E8E3E}
+.s-cad-plata small{font-size:1.1cqw;font-weight:600;color:#6B7280}
+@keyframes s-cad-plata{0%,83%{opacity:0;transform:translateY(.8cqw)}86%,95%{opacity:1;transform:none}99%,100%{opacity:0}}
+.s-cad-barras{flex:1;min-height:0;display:grid;grid-template-columns:repeat(6,1fr);gap:1cqw;margin-top:.6cqw}
+.s-cad-barra-m{display:grid;grid-template-rows:minmax(0,1fr) auto;justify-items:center;gap:.35cqw;min-height:0;font-size:1.15cqw;font-weight:700;color:#6B7280}
+.s-cad-pista{position:relative;width:100%;margin-top:2cqw}
+.s-cad-pista i{position:absolute;left:0;right:0;bottom:0;height:var(--h);border-radius:.5cqw .5cqw 0 0;background:#2F6FED;transform-origin:bottom;transform:scaleY(0);animation:${CICLO}s cubic-bezier(.3,0,.2,1) infinite}
+.s-cad-pista b{position:absolute;left:0;right:0;bottom:calc(var(--h) + .3cqw);text-align:center;color:#12151B;font-size:1.4cqw;opacity:0;animation:${CICLO}s infinite}
 .s-cad-barra-m.s-cad-cero i{background:#D7DCE6}
-/* En una caja chica (el teléfono): el panel más ancho, la letra más grande, sin el ✓/✕ de la llamada, la barra corta, y en la hoja el
-   análisis y el gráfico más compactos. */
+/* En una caja chica (el teléfono): el panel más ancho, la letra más grande, sin el ✓/✕ de la llamada y la barra corta; en la hoja,
+   sólo la llamada analizada y los cierres (lado a lado), sin el zoom final. */
 @container (max-width:480px){.s-cad-in{grid-template-columns:minmax(0,1fr) 46cqw}
 .s-cad-chip{font-size:2.2cqw;padding:1.1cqw 1.6cqw}.s-cad-chip svg{display:none}.s-cad-chip i{width:2cqw;height:2cqw}.s-cad-panel-t{font-size:3cqw}.s-cad-panel-t small{font-size:2.3cqw}.s-cad-nombre,.s-cad-hora{font-size:2.8cqw}.s-cad-ola{width:4cqw;height:4cqw}
 .s-cad-cc,.s-cad-mano,.s-cad-pres,.s-cad-der .s-cad-icono:not(.s-cad-icono-on){display:none}.s-cad-boton,.s-cad-icono{width:6cqw;height:6cqw}.s-cad-boton svg,.s-cad-icono svg{width:3cqw;height:3cqw}.s-cad-colgar{width:8.6cqw}
-.s-cad-dash{padding:3cqw 3.4cqw;gap:2.2cqw;animation:none}.s-cad-hoja{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}.s-cad-cab{flex-direction:column;gap:.4cqw}.s-cad-plata{text-align:left}.s-cad-main-t{font-size:3.8cqw}.s-cad-main-t small{display:none}.s-cad-main-t em{font-size:2.4cqw;padding:.8cqw 1.8cqw}
-.s-cad-card{padding:2.4cqw 2.6cqw;border-radius:2.4cqw}.s-cad-card-t{font-size:2.3cqw}.s-cad-anillo{width:12cqw;height:12cqw}.s-cad-anillo b{font-size:4.4cqw}.s-cad-nota{margin:1.6cqw 0}.s-cad-nota p{display:none}.s-cad-obj{font-size:2.2cqw;padding:1.2cqw 0}.s-cad-obj b{display:none}.s-cad-obj svg{width:2.6cqw;height:2.6cqw}
-.s-cad-plata strong{font-size:3.8cqw}.s-cad-plata small{font-size:1.9cqw}.s-cad-barra-m{font-size:2.2cqw}.s-cad-pista b{font-size:2.6cqw}.s-cad-pista{margin-top:3.6cqw}}
-@media (prefers-reduced-motion:reduce){.s-cad-cam,.s-cad-tiles,.s-cad-dash{animation:none}.s-cad-chip,.s-cad-card,.s-cad-plata{animation:none;opacity:1;transform:none}.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:none;opacity:1}.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:none}.s-cad-ola i{animation:none;height:1cqw}.s-cad-app{animation:none}.s-cad-pista i{animation:none;transform:none}.s-cad-pista b{animation:none;opacity:1}}
+.s-cad-dash{padding:3cqw 3.4cqw;gap:2.2cqw;animation:none}.s-cad-main-t{font-size:3.8cqw}.s-cad-main-t small{display:none}.s-cad-main-t em{font-size:2.4cqw;padding:.8cqw 1.8cqw}
+.s-cad-hoja{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-rows:minmax(0,1fr);gap:2.4cqw}.s-cad-pieza:nth-child(1),.s-cad-pieza:nth-child(3){display:none}.s-cad-pieza:nth-child(2){animation-name:s-cad-p4}
+.s-cad-card{padding:2.4cqw 2.6cqw;border-radius:2.4cqw}.s-cad-card-t{font-size:2.3cqw}.s-cad-anillo{width:10cqw;height:10cqw}.s-cad-anillo b{font-size:3.6cqw}.s-cad-nota p{display:none}.s-cad-obj{font-size:2.1cqw;padding:1.1cqw 0}.s-cad-obj b{display:none}.s-cad-obj svg{width:2.4cqw;height:2.4cqw}
+.s-cad-cab{flex-direction:column;gap:.4cqw}.s-cad-plata{text-align:left}.s-cad-plata strong{font-size:3.8cqw}.s-cad-plata small{font-size:1.9cqw}.s-cad-barra-m{font-size:2cqw}.s-cad-pista b{font-size:2.4cqw}.s-cad-pista{margin-top:3.4cqw}}
+@media (prefers-reduced-motion:reduce){.s-cad-cam,.s-cad-tiles,.s-cad-dash{animation:none}.s-cad-chip,.s-cad-pieza,.s-cad-plata{animation:none;opacity:1;transform:none}.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:none;opacity:1}.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:none}.s-cad-ola i{animation:none;height:1cqw}.s-cad-app{animation:none}.s-cad-prog i,.s-cad-pista i,.s-cad-emb span{animation:none;transform:none}.s-cad-pista b{animation:none;opacity:1}}
 `;
 
 /** Cada objeción y cada mes con SU tiempo en el ciclo (con un `animation-delay` por elemento, los últimos se cruzaban de una vuelta a
@@ -163,7 +193,8 @@ const Estado = ({ ok }: { ok: boolean }) => (
 );
 
 export function ClosingAntesDespues() {
-  const { antes, despues, porMes, llamada } = CLOSING_MAURICIO;
+  const { antes, despues, porMes, llamada, embudo } = CLOSING_MAURICIO;
+  const tasa = tasaDe(despues);
   // Los cierres ACUMULADOS de 2026 (0, 0, 0, 1, 4, 9) y lo vendido en total (abril a junio).
   const acumulados = porMes.reduce<number[]>((a, m) => [...a, (a[a.length - 1] ?? 0) + m.cierres], []);
   const total = acumulados[acumulados.length - 1] || 1;
@@ -171,7 +202,7 @@ export function ClosingAntesDespues() {
   const sinResponder = llamada.objeciones.filter((o) => !o.respondida).length;
   return (
     <div className="s-cad" data-tema-fijo="" role="img"
-      aria-label={`Una llamada de venta de Mauricio con las objeciones que marcó MaKo, y sus cierres de 2026: de ${antes.cierres} entre ${antes.periodo.toLowerCase()} a ${despues.cierres} entre ${despues.periodo.toLowerCase()} (tasa de cierre ${tasaDe(despues)} %), ${usd(vendido)} vendidos`}>
+      aria-label={`Una llamada de venta de Mauricio con las objeciones que marcó MaKo, y sus cierres de 2026: de ${antes.cierres} entre ${antes.periodo.toLowerCase()} a ${despues.cierres} entre ${despues.periodo.toLowerCase()} (tasa de cierre ${tasa} %), ${usd(vendido)} vendidos`}>
       <style dangerouslySetInnerHTML={{ __html: CSS + CSS_TIEMPOS }} />
       <div className="s-cad-cam">
         <div className="s-cad-in">
@@ -220,7 +251,21 @@ export function ClosingAntesDespues() {
         <div className="s-cad-dash">
           <p className="s-cad-main-t">Closing<small>Las llamadas de venta analizadas: qué decide tus cierres.</small><em>2026</em></p>
           <div className="s-cad-hoja">
-            <div className="s-cad-card">
+            <div className="s-cad-pieza s-cad-tasa">
+              <div>
+                <p className="s-cad-tasa-t">Tasa de cierre</p>
+                <strong className="s-cad-tasa-n">{tasa}%</strong>
+                <span className="s-cad-delta"><b>{tasa - tasaDe(antes)} pts ▲</b>sobre el período anterior</span>
+                <div className="s-cad-prog"><i style={{ width: `${tasa}%` }} /></div>
+                <p className="s-cad-prog-t"><b>{despues.cierres}</b> de {despues.reuniones} primeras reuniones terminaron en venta</p>
+              </div>
+              <div className="s-cad-tasa-der">
+                <p>Analizadas<b>{despues.analizadas}</b></p>
+                <p>Score<b>{despues.score}</b></p>
+                <p>Ganadas<b>{despues.cierres}</b></p>
+              </div>
+            </div>
+            <div className="s-cad-pieza s-cad-card">
               <p className="s-cad-card-t">La llamada, analizada</p>
               <div className="s-cad-nota">
                 <span className="s-cad-anillo" style={{ ['--p' as string]: Number(llamada.score) * 10 }}><b>{llamada.score.replace('.', ',')}</b></span>
@@ -230,7 +275,17 @@ export function ClosingAntesDespues() {
                 <div key={o.tipo} className="s-cad-obj"><Estado ok={o.respondida} /><span>{o.tipo}</span><b>{minuto(o.segundo)}</b></div>
               ))}
             </div>
-            <div className="s-cad-card">
+            <div className="s-cad-pieza s-cad-card">
+              <p className="s-cad-card-t">Embudo de llamadas</p>
+              <div className="s-cad-emb">
+                {embudo.map((e, i) => (
+                  <div key={e.paso}>{e.paso}<b>{e.n}</b>
+                    <span style={{ ['--w' as string]: `${Math.round((e.n / embudo[0].n) * 100)}%`, ['--c' as string]: COLOR_EMBUDO[i] }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="s-cad-pieza s-cad-card">
               <div className="s-cad-cab">
                 <p className="s-cad-card-t">Cierres acumulados</p>
                 <span className="s-cad-plata"><strong>{usd(vendido)}</strong><small>vendidos de abril a junio</small></span>
