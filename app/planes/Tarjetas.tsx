@@ -41,7 +41,7 @@
 // =============================================================================
 
 import type { ReactNode } from 'react';
-import { ASESORIAS_DEL_PROGRAMA, MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, type PlanMako } from '@/lib/planes-mako';
+import { ASESORIAS_DEL_PROGRAMA, LISTA_DEL_ACELERADOR, MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, type PlanMako } from '@/lib/planes-mako';
 import { TOPES } from '@/lib/topes-plan';
 import { PLAN_DE_CAPA, cupoDeCapa } from '@/lib/mako-tokens-reglas';
 import { ATRIBUTO_ALCANZA, ATRIBUTO_MT, generaVideoLaCapa, htmlAlcanza } from './CalculadoraTokens';
@@ -257,18 +257,8 @@ export function tokensDeLaCapa(capa: string): string | null {
 // (docs/acelerador-que-incluyen-los-high-ticket.md) sumó todo menos lo que necesita un equipo: el tablero de resultados, la
 // asesoría abierta a SU equipo, la hoja de ruta que arma MaKo y aprueba él, las presentaciones en la comunidad y los expertos
 // invitados («no lo aclararía que sea por mes»).
-export const LISTA_PROGRAMA: readonly ItemLista[] = [
-  { fuerte: '3 meses de acompañamiento personalizado', texto: '' },
-  { fuerte: 'Tu hoja de ruta, armada por MaKo', texto: ', y la apruebas antes de empezar' },
-  { fuerte: 'Tu sistema de adquisición de clientes', texto: ', armado por Martín: tu funnel, tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido' },
-  { fuerte: 'Un tablero de resultados', texto: ' con tus leads, reuniones y ventas, desde la primera semana' },
-  { fuerte: '3 sesiones 1 a 1 con Martín', texto: ' por videollamada, de 2 horas: estrategia, seguimiento y checkpoint' },
-  { fuerte: 'Una asesoría en vivo por semana', texto: ', abierta a tu equipo' },
-  { fuerte: 'Expertos y referentes del mercado', texto: ' invitados a dar capacitaciones' },
-  { fuerte: 'El WhatsApp personal de Martín', texto: ' para tus dudas' },
-  { fuerte: 'Una comunidad de empresarios', texto: ' que venden high ticket, y Martín te presenta a los que te conviene conocer' },
-  { fuerte: 'MaKo Pro completo', texto: ', los 3 meses' },
-];
+// 15/11/2026, ~21:30: la lista sale de lib/planes-mako.ts (`LISTA_DEL_ACELERADOR`), CORTA, y la tabla de abajo usa la misma.
+export const LISTA_PROGRAMA: readonly ItemLista[] = LISTA_DEL_ACELERADOR;
 
 /**
  * AGENDAR LA LLAMADA DEL ACELERADOR (14/11/2026). Martín, textual: «lo de agendar llamadas sí debería estar todavía para el
@@ -290,7 +280,8 @@ export const TEXTO_AGENDA_ACELERADOR = 'Agenda tu llamada';
  * minutos y el pedido en el CRM con su origen), así que /planes ya no ofrece agendar en ningún lado.
  */
 export const RUTA_ACCELERATOR = '/accelerator';
-export const TEXTO_BOTON_ACCELERATOR = 'Más información';
+// En MAYÚSCULA como los otros dos botones («PRUÉBALO GRATIS AHORA»): Martín, 15/11, «tienes que poner más información todo en mayúscula».
+export const TEXTO_BOTON_ACCELERATOR = 'MÁS INFORMACIÓN';
 
 /** Debajo del precio, una sola cosa: los días gratis, que se paga hoy, o las cuotas. */
 export function bajoElPrecio(p: { id: string }): string {

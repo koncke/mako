@@ -30,6 +30,7 @@ import { TOPES, TABS_SOLO_PRO, type FuncionSoloPro, type Tope } from './topes-pl
 import { CLIPS_POR_MES, IMAGENES_POR_MES } from './mako-tokens-paquetes';
 import { PLAN_DE_CAPA, type Plan } from './mako-tokens-reglas';
 import { ASESORES } from './asesores/catalogo';
+import { LISTA_DEL_ACELERADOR } from './planes-mako';
 
 /** true = incluido, false = no incluido, texto = el tope. */
 export type Celda = boolean | string;
@@ -256,24 +257,11 @@ export function filasDeComparacion(): FilaComparacion[] {
     enTodos(ia, 'Tu oferta y tu funnel, revisados con IA'),
     enTodos(ia, 'Reportes de tus ventas, tus anuncios y tu contenido'),
     enTodos(ia, 'Tus tareas, puntuadas y ordenadas por prioridad'),
-    // Lo que promete el Accelerator (lib/planes-mako.ts, `PROGRAMA_ACELERADOR.promesa`), punto por punto, y lo que trae.
-    soloPrograma(acompanamiento, 'Tu sistema de adquisición de clientes, instalado en 90 días'),
-    soloPrograma(acompanamiento, 'A la medida de tu oferta, armado por Martín Koncke'),
-    soloPrograma(acompanamiento, 'Recuperas como mínimo la inversión, garantizado por contrato'),
-    // Sin «anuncios» (30/10/2026): lo que se arma la primera semana es lo de `PROGRAMA_ACELERADOR.incluye` y /reembolsos §2.
-    // 15/11/2026, a la noche: lo que pidió Martín para el Accelerator (ver `LISTA_PROGRAMA`, app/planes/Tarjetas.tsx).
-    // «La primera semana» SÍ va acá (no las horas): la garantía se mide contra eso, y /reembolsos lo dice igual.
-    // 15/11/2026, ~21:00: lo arma Martín («todavía no tengo equipo»), y se suma lo que eligió de los programas high ticket.
-    soloPrograma(acompanamiento, 'Tu hoja de ruta armada por MaKo, y la apruebas tú'),
-    soloPrograma(acompanamiento, 'Tu sistema armado por Martín la primera semana'),
-    soloPrograma(acompanamiento, 'Un tablero de resultados: tus leads, reuniones y ventas'),
-    soloPrograma(acompanamiento, '3 sesiones 1 a 1 con Martín por videollamada, de 2 horas'),
-    soloPrograma(acompanamiento, 'Una asesoría en vivo cada semana, abierta a tu equipo'),
-    soloPrograma(acompanamiento, 'Expertos y referentes del mercado invitados a capacitarte'),
-    soloPrograma(acompanamiento, 'El WhatsApp personal de Martín para tus dudas'),
-    soloPrograma(acompanamiento, 'Una comunidad de empresarios que venden high ticket'),
-    soloPrograma(acompanamiento, 'Presentaciones con los empresarios que te conviene conocer'),
-    soloPrograma(acompanamiento, 'Plantillas probadas de páginas, mensajes y guiones'),
+    // EL ACOMPAÑAMIENTO ES LO DE LA TARJETA, con sus nombres y en su orden (15/11/2026, ~21:30, Martín: «no está bien los ítems
+    // que están ahí… renombraría… y también el orden. No me hace sentido que en tercer lugar esté garantía por contrato… la
+    // quitaría de todos lados»). Sale de `LISTA_DEL_ACELERADOR` (lib/planes-mako.ts); «MaKo Pro completo» no es una fila: la
+    // columna del Accelerator ya tiene ✓ en todo lo de Pro.
+    ...LISTA_DEL_ACELERADOR.filter((x) => !/^MaKo Pro/.test(x.fuerte)).map((x) => soloPrograma(acompanamiento, x.fuerte)),
   ];
 }
 
@@ -323,19 +311,6 @@ export function nombreCorto(que: string): string {
     'Reportes de tus ventas, tus anuncios y tu contenido': 'Reportes',
     'Tus tareas, puntuadas y ordenadas por prioridad': 'Tareas por prioridad',
     'Personas de tu equipo, cada una con su acceso': 'Usuarios',
-    'Tu sistema de adquisición de clientes, instalado en 90 días': 'Sistema instalado en 90 días',
-    'A la medida de tu oferta, armado por Martín Koncke': 'A la medida de tu oferta',
-    'Recuperas como mínimo la inversión, garantizado por contrato': 'Garantía por contrato',
-    'Tu hoja de ruta armada por MaKo, y la apruebas tú': 'Hoja de ruta que apruebas',
-    'Tu sistema armado por Martín la primera semana': 'Todo armado la semana 1',
-    'Un tablero de resultados: tus leads, reuniones y ventas': 'Tablero de resultados',
-    '3 sesiones 1 a 1 con Martín por videollamada, de 2 horas': 'Sesiones 1 a 1 con Martín',
-    'Una asesoría en vivo cada semana, abierta a tu equipo': 'Asesoría semanal con Martín',
-    'Expertos y referentes del mercado invitados a capacitarte': 'Expertos invitados',
-    'El WhatsApp personal de Martín para tus dudas': 'WhatsApp de Martín',
-    'Una comunidad de empresarios que venden high ticket': 'Comunidad de empresarios',
-    'Presentaciones con los empresarios que te conviene conocer': 'Presentaciones en la comunidad',
-    'Plantillas probadas de páginas, mensajes y guiones': 'Plantillas probadas',
   };
   return k[que] ?? que;
 }

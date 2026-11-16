@@ -18,8 +18,8 @@ import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { PREGUNTAS_SITIO } from '@/app/vsl/_sitio/datos';
 import { TITULAR } from '@/app/vsl/_sitio/estilos';
-import { VitrinaVideos } from '@/app/login/_ui/VitrinaVideos';
-import { CLIPS_VITRINA } from '@/app/_components/clips-portada';
+import PandaPlayer from '@/app/vsl/_detalle/PandaPlayer';
+import { VSL_PORTADA } from '@/app/vsl/_sitio/vsl-portada';
 import { botonDelPlan } from '@/lib/compra-plan-reglas';
 import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, planConPrueba, rutaDelPlan, type PlanMako } from '@/lib/planes-mako';
 import { GRUPOS_DE_LA_TABLA, celdaDeCapa, filasDeComparacion, nombreCorto, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
@@ -84,20 +84,16 @@ body:has(.s-barra) .cp-cab > div { top: 77px; }
 .planes-heroe .planes-sub { margin: 16px 0 0; max-width: 512px; font-size: 20px; line-height: 28px; font-weight: 500; color: #4A5260; }
 .planes-heroe .planes-sub strong { font-weight: 700; color: #12151B; }
 .planes-heroe-vis { position: relative; min-width: 0; }
-.planes-heroe-vis::before { content: ''; position: absolute; inset: -8% -8% -4%; background: radial-gradient(closest-side, rgba(47,111,237,.22), rgba(47,111,237,0)); filter: blur(24px); pointer-events: none; }
-.planes-heroe-vis .lg-vitrina__pieza { position: relative; z-index: 1; margin: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 18px; }
-.planes-heroe-vis .lg-vitrina__pantalla { width: 100%; aspect-ratio: 16 / 10; overflow: hidden; border: 1px solid #E3E7EF; border-radius: 16px; background: #fff;
-  box-shadow: 0 32px 64px -32px rgba(18,21,27,.35); }
-.planes-heroe-vis .lg-vitrina__pantalla video, .planes-heroe-vis .lg-vitrina__pantalla img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.planes-heroe-vis .lg-vitrina__titulo { margin: 0; text-align: center; font-size: 17px; font-weight: 600; line-height: 1.3; color: #12151B; text-wrap: balance;
-  animation: planes-clip-entra .45s ease both; }
-@keyframes planes-clip-entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .planes-heroe-vis .lg-vitrina__titulo { animation: none; } }
-/* En el teléfono y la tableta, sólo el texto: <VitrinaVideos> no baja ningún video por debajo de 1025 px (el 4G de quien
-   sólo vino a ver precios), así que la columna se va con él. */
+.planes-heroe-vis::before { content: ''; position: absolute; inset: -8% -8% -4%; background: radial-gradient(closest-side, rgba(47,111,237,.32), rgba(47,111,237,0)); filter: blur(24px); pointer-events: none; }
+.planes-heroe-vis .mk-vsl-slot { position: relative; width: 100%; aspect-ratio: 16 / 9; }
+.planes-heroe-vis .mk-vsl { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; background: #0B0D12; border: 1px solid rgba(255,255,255,.14); box-shadow: 0 30px 70px -32px rgba(0,0,0,.7); }
+.planes-heroe-vis .mk-vsl iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+.planes-heroe-vis .mk-cor, .planes-heroe-vis .mk-vsl-x { display: none; }
+/* En el teléfono y la tableta, el VSL va debajo del texto, como en la portada. */
 @media (max-width: 1024px) {
-  .planes-heroe { grid-template-columns: minmax(0, 1fr); margin-bottom: 32px; }
-  .planes-heroe-vis { display: none; }
+  .planes-heroe { grid-template-columns: minmax(0, 1fr); margin-bottom: 32px; gap: 28px; }
+  /* El resplandor sale del cuadro (inset negativo): a todo el ancho del teléfono empujaba la página 11 px a la derecha. */
+  .planes-heroe-vis::before { inset: 0; }
 }
 .planes-alta { margin: 12px 0 0; color: #5B6472; font-size: 14px; }
 .planes-faq { max-width: 760px; margin: 48px auto 0; display: grid; gap: 10px; }
@@ -147,7 +143,9 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
           <h1 className="planes-h1">El mejor software<br /> para vender<br /> <em>High Ticket.</em></h1>
           <p className="planes-sub"><strong>Marketing, ventas y entrega del servicio en una sola app.</strong> Con una IA que conoce tu negocio, desde que alguien te descubre hasta que es tu cliente y le entregas lo que compró.</p>
           </div>
-          <div className="planes-heroe-vis"><VitrinaVideos clips={CLIPS_VITRINA} /></div>
+          {/* El VSL de la portada, no las animaciones (15/11/2026, ~21:30, Martín: «mejor que los videos… lo reemplaces
+              directamente por el VSL»). */}
+          <div className="planes-heroe-vis"><PandaPlayer src={VSL_PORTADA} title="MaKo: el video de presentación" /></div>
         </header>
 
         {/* La barra de MaKo Tokens va DEBAJO del selector mensual / anual, sin título (Martín, 15/11/2026, a la noche: «eliminaría

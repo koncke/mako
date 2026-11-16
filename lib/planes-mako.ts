@@ -269,6 +269,29 @@ export const INCLUYE_EN_EL_CHECKOUT: Readonly<Record<string, readonly string[]>>
   ],
 };
 
+/**
+ * LO QUE INCLUYE EL ACCELERATOR, CORTO (15/11/2026, ~21:30). Martín: «las columnas quedaron exageradamente largas… es mucho
+ * texto. Yo las pondría más cortas». Cada renglón es el NOMBRE de la cosa, como en «Compara los planes»; el detalle (las horas,
+ * que la asesoría es grupal y abierta a su equipo, las presentaciones en la comunidad) vive en `PROGRAMA_ACELERADOR.incluye`
+ * (el checkout y /reembolsos) y en la landing /accelerator.
+ * ⚠️ UNA SOLA LISTA PARA LA TARJETA Y LA TABLA: la columna de /planes (`LISTA_PROGRAMA`, app/planes/Tarjetas.tsx) la dibuja tal
+ *    cual, y el grupo «Acompañamiento personalizado» de la comparación (lib/planes-comparacion.ts) arma sus filas con ESTOS
+ *    nombres y en ESTE orden. Martín: «no está bien los ítems que están ahí… renombraría… y también el orden».
+ * ⚠️ Lo arma Martín, no «nuestro equipo» («todavía no tengo equipo»): ver la memoria «sin-equipo-todavia».
+ */
+export const LISTA_DEL_ACELERADOR: ReadonlyArray<{ fuerte: string; texto: string }> = [
+  { fuerte: '3 meses de acompañamiento', texto: '' },
+  { fuerte: 'Tu sistema, armado por Martín', texto: '' },
+  { fuerte: '3 sesiones 1 a 1 con Martín', texto: '' },
+  { fuerte: 'Una asesoría en vivo por semana', texto: '' },
+  { fuerte: 'Tu hoja de ruta, armada por MaKo', texto: '' },
+  { fuerte: 'Tablero de resultados', texto: '' },
+  { fuerte: 'Expertos invitados', texto: '' },
+  { fuerte: 'WhatsApp personal de Martín', texto: '' },
+  { fuerte: 'Comunidad de empresarios', texto: '' },
+  { fuerte: 'MaKo Pro completo', texto: '' },
+];
+
 export const PROGRAMA_ACELERADOR: ProgramaMako = {
   id: 'acelerador',
   nombre: 'MaKo Accelerator',
@@ -306,7 +329,9 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
   // adquisición de clientes a la medida de tu oferta. Y podrás, como mínimo, rentabilizar la inversión que hiciste, garantizado por
   // contrato». Reemplaza a la de esa mañana («el sistema de ventas que armamos… las ventas que pagan el Accelerator») y a la del 25/10
   // («tus anuncios andando…»). El resultado (recuperar la inversión) lo garantiza el CONTRATO; `garantia` sigue siendo la de la entrega.
-  promesa: 'En 90 días, Martín Koncke, el creador de MaKo, te instala el sistema de adquisición de clientes a la medida de tu oferta, y como mínimo recuperas la inversión que hiciste, garantizado por contrato.',
+  // 15/11/2026, ~21:30 (Martín): «la parte de garantía por contrato directamente la quitaría de todos lados. Incluso de la
+  // descripción de nuestra promesa». La devolución de la primera semana (`garantia`, /reembolsos §2) es otra cosa y sigue.
+  promesa: 'En 90 días, Martín Koncke, el creador de MaKo, te instala el sistema de adquisición de clientes a la medida de tu oferta.',
   garantia: 'Si al terminar la primera semana tu sistema de ventas no está armado, te devolvemos la cuota y no pagas las que siguen.',
 };
 

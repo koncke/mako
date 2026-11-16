@@ -31,6 +31,7 @@ import { VisualDeLanding } from '../_competencia/Visuales';
 import { FaltaAnimacion } from '../_competencia/FaltaAnimacion';
 import type { Bloque } from '../_competencia/tipos';
 import PandaPlayer from '../_detalle/PandaPlayer';
+import { VSL_PORTADA } from './vsl-portada';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { CSS_TARJETAS, TarjetasPlanes } from '@/app/planes/Tarjetas';
 import { ASESORES, inspiradoEn } from '@/lib/asesores/catalogo';
@@ -54,7 +55,7 @@ type Hero = Extract<Bloque, { tipo: 'hero' }>;
 const heroDe = (slug: string): Hero | undefined => landingDeSlug(slug)?.bloques.find((b): b is Hero => b.tipo === 'hero');
 
 /** El VSL que grabó Martín, el mismo de la portada de hoy (el documento publicado de hola-mako.com, 12/11/2026). */
-export const VSL_PORTADA = 'https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=25c0684d-528e-4382-9796-d1ec74b79634&color=%232F6FED';
+export { VSL_PORTADA };
 
 function HeroSitio() {
   return (

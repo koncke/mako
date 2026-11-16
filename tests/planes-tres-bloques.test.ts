@@ -225,9 +225,13 @@ test('la pantalla entera no habla de MaKo por dentro: tarjetas, promesa, garant�
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { default: Reembolsos } = await import('../app/reembolsos/page');
   assert.doesNotMatch(sinMarcas(renderToStaticMarkup(React.createElement(Reembolsos))), /\bembudos?\b|\bCRM\b/, '/reembolsos dice «armado» con las mismas palabras');
-  // Y lo que se arma la primera semana es lo mismo en la tabla, en la tarjeta y en /reembolsos: sin «anuncios».
-  const semana = filasDeComparacion().find((f) => /primera semana/.test(f.que));
-  assert.ok(semana && !/anuncios/.test(semana.que), semana?.que);
+  // EL ACOMPAÑAMIENTO DE LA TABLA ES LO DE LA TARJETA: las mismas cosas, con los mismos nombres y en el mismo orden (15/11/2026,
+  // ~21:30, Martín: «no está bien los ítems que están ahí… renombraría… y también el orden»), y sin la garantía por contrato
+  // («la quitaría de todos lados»).
+  const { LISTA_DEL_ACELERADOR } = await import('../lib/planes-mako');
+  const programa = filasDeComparacion().filter((f) => f.esencial === false && f.pro === false && f.acelerador === true).map((f) => f.que);
+  assert.deepEqual(programa, LISTA_DEL_ACELERADOR.map((x) => x.fuerte).filter((t) => !/^MaKo Pro/.test(t)), 'la tabla no dice lo mismo que la tarjeta del Accelerator');
+  assert.ok(!filasDeComparacion().some((f) => /garantizado|garantía por contrato|recuper\w* (como mínimo )?la inversión/i.test(f.que)), 'volvió la garantía por contrato a la tabla');
 });
 
 test('lo que incluye cada plan dice los topes del CÓDIGO, no números escritos a mano', () => {
@@ -256,7 +260,9 @@ test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insi
   assert.doesNotMatch(t, /Todo lo de MaKo Pro, más:/, 'volvió la fórmula «todo lo de X» al Accelerator');
   // 15/11/2026, a la noche (Martín): «el primer ítem debería ser justamente 3 meses de acompañamiento personalizado». El
   // software va al final: si la columna empieza por MaKo Pro, se lee como «MaKo, más algo» y no como acompañamiento.
-  assert.equal(LISTA_PROGRAMA[0].fuerte, '3 meses de acompañamiento personalizado', 'el programa no abre con el acompañamiento');
+  assert.equal(LISTA_PROGRAMA[0].fuerte, '3 meses de acompañamiento', 'el programa no abre con el acompañamiento');
+  // CORTA (15/11/2026, ~21:30, Martín: «las columnas quedaron exageradamente largas»): cada renglón es el nombre de la cosa.
+  assert.ok(LISTA_PROGRAMA.every((x) => !x.texto && (x.fuerte ?? '').split(' ').length <= 7), 'un renglón del Accelerator volvió a ser una frase larga');
   assert.ok(LISTA_PROGRAMA.some((x) => x.fuerte === 'MaKo Pro completo'), 'el programa no dice que trae Pro entero');
   for (const que of ['WhatsApp personal de Martín', 'comunidad de empresarios', '1 a 1 con Martín']) {
     assert.ok(LISTA_PROGRAMA.some((x) => `${x.fuerte ?? ''}${x.texto}`.toLowerCase().includes(que.toLowerCase())), `al Accelerator le falta «${que}»`);
@@ -270,9 +276,9 @@ test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insi
   const equipo = /nuestro equipo|su equipo|del equipo/i;
   assert.ok(!LISTA_PROGRAMA.some((x) => equipo.test(`${x.fuerte ?? ''}${x.texto}`)), 'la tarjeta volvió a prometer un equipo');
   assert.ok(!PROGRAMA_ACELERADOR.incluye.some((x) => equipo.test(x)), 'el checkout y /reembolsos volvieron a prometer un equipo');
-  assert.ok(LISTA_PROGRAMA.some((x) => /armado por Martín/.test(x.texto)), 'el sistema lo arma Martín');
+  assert.ok(LISTA_PROGRAMA.some((x) => /armado por Martín/.test(`${x.fuerte ?? ''}${x.texto}`)), 'el sistema lo arma Martín');
   // Lo que sumó de los programas high ticket (todo menos lo que necesita un equipo).
-  for (const que of ['tablero de resultados', 'hoja de ruta', 'abierta a tu equipo', 'Expertos y referentes', 'te presenta']) {
+  for (const que of ['tablero de resultados', 'hoja de ruta', 'asesoría en vivo', 'expertos invitados', 'comunidad de empresarios']) {
     assert.ok(LISTA_PROGRAMA.some((x) => `${x.fuerte ?? ''}${x.texto}`.toLowerCase().includes(que.toLowerCase())), `al Accelerator le falta «${que}»`);
   }
   assert.ok(!filasDeComparacion().some((f) => presencial.test(f.que)), 'volvió el encuentro presencial a la tabla');
@@ -451,7 +457,7 @@ test('MÁS INFORMACIÓN, a la landing del Accelerator: /planes ya no agenda llam
   // programa con su VSL; la llamada se pide DESDE la landing. Así que en /planes no queda ninguna agenda.
   const { RUTA_ACCELERATOR, TEXTO_BOTON_ACCELERATOR, TEXTO_AGENDA_ACELERADOR } = await import('../app/planes/Tarjetas');
   assert.equal(RUTA_ACCELERATOR, '/accelerator', 'la landing del programa va en inglés (Martín: «como también la ruta»)');
-  assert.equal(TEXTO_BOTON_ACCELERATOR, 'Más información');
+  assert.equal(TEXTO_BOTON_ACCELERATOR, 'MÁS INFORMACIÓN', 'en mayúscula como los otros dos botones');
   const html = await vitrinaHtml();
   assert.ok(html.includes(`href="${RUTA_ACCELERATOR}"`), 'la columna del Accelerator no lleva a su landing');
   assert.doesNotMatch(html, /calendly\.com/, '/planes volvió a ofrecer la agenda: se agenda desde la landing');
@@ -482,10 +488,12 @@ test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón
   const { promesa } = PROGRAMA_ACELERADOR;
   assert.ok(promesa, 'el personalizado lleva promesa (Martín, 24/10)');
   assert.match(promesa!, /^En \d+ días,/, 'con plazo');
-  // Martín, 14/11/2026: atada a un resultado de plata («como mínimo, rentabilizar la inversión… garantizado por contrato»), con
-  // quién la cumple (él) y a la medida de la oferta. Lo que se DEVUELVE sigue en `garantia`, no acá.
+  // Martín, 14/11/2026: con quién la cumple (él) y a la medida de la oferta. Lo que se DEVUELVE sigue en `garantia`, no acá.
+  // 15/11/2026, ~21:30: SIN la garantía de recuperar la inversión («la parte de garantía por contrato directamente la quitaría de
+  // todos lados. Incluso de la descripción de nuestra promesa»).
   assert.doesNotMatch(promesa!, /devolv|reembols/i, 'lo que se devuelve va en `garantia`');
-  assert.match(promesa!, /recuper\w* la inversión|ventas|llamadas|factur/i, 'la promesa es un resultado de plata o del funnel');
+  assert.doesNotMatch(promesa!, /contrato|garant|recuper/i, 'volvió la garantía por contrato a la promesa');
+  assert.match(promesa!, /sistema de adquisición de clientes/, 'la promesa dice qué se instala');
   assert.match(promesa!, /Martín Koncke/, 'con quién la cumple');
   assert.match(promesa!, /tu (oferta|negocio)/i, 'se nota que es a la medida');
   const { TEXTO_BOTON_ACCELERATOR } = await import('../app/planes/Tarjetas');
@@ -513,7 +521,7 @@ test('la GARANTÍA del programa es sobre los entregables de la semana 1, vive en
   // ⚠️ LA TARJETA YA NO LLEVA EL LINK «Con garantía de entrega» (15/11/2026, a la noche; Martín: «en MaKo Accelerator
   // eliminaría esa parte de con garantía de entrega. Eso elimínalo»). Era un renglón suelto debajo del botón que, además, como la
   // fila del botón es compartida entre las tres columnas (subgrid), le dejaba un hueco blanco a Essential y a Pro. La promesa
-  // del Accelerator sigue diciendo «garantizado por contrato», y la garantía entera vive en /reembolsos §2, que es lo que se
+  // del Accelerator ya no habla de garantía (15/11, ~21:30: «la quitaría de todos lados»), y la de entrega vive en /reembolsos §2, que es lo que se
   // vigila acá abajo.
   const t = await vitrina();
   assert.ok(!t.includes('Con garantía de entrega'), 'volvió el link de la garantía a la tarjeta del Accelerator');
