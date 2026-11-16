@@ -34,7 +34,7 @@ import { clavesAProbar, clavesDe, sinCopiasDeLaPlataforma } from '@/lib/ia-keys'
 import { clavesCargadas } from '@/lib/ia-keys-ws';
 import type { QuienContesto } from '@/lib/quien-contesto';
 import { PROVS_SU_IA, conD6bDelPedido, d6bDecidida, pasaPorLaPuerta, proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
-import { conMedidorDeMt, medidorAbierto } from '@/lib/mako-tokens-medidor';
+import { conMedidorDeMt, esSinSaldoDeMt, medidorAbierto } from '@/lib/mako-tokens-medidor';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { conSuIASinClave, CON_SU_IA_SIN_VISION } from '@/lib/fallo-ia-texto';
 import { corregirMarca } from '@/lib/mako-gramatica';
@@ -790,7 +790,11 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     const r = await conClaveDelNegocio({
       system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
       feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(),
-    }).catch(() => null);
+    }).catch((e) => {
+      // Sin saldo NO es un fallo de este proveedor: ningún otro lo arregla, y tratarlo como uno le leía al dueño «conecta tu GPT» (ticket #103).
+      if (esSinSaldoDeMt(e)) throw e;
+      return null;
+    });
     if (r && 'texto' in r) {
       const t = opts.json ? soloElJson(r.texto) : r.texto;
       if (t && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: 'anthropic', de: 'negocio' }); return t; }
@@ -823,7 +827,10 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       const r = await conClaveDelNegocio({
         system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
         feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDelCredito(), cuentaDeLosGrupos: cuenta,
-      }).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+      }).catch((e) => {
+        if (esSinSaldoDeMt(e)) throw e; // ver arriba
+        return { error: e instanceof Error ? e.message : String(e) };
+      });
       if (r && 'texto' in r) {
         const t = opts.json ? soloElJson(r.texto) : r.texto;
         if (t && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: 'anthropic', de: 'credito' }); return t; }
@@ -933,6 +940,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           opts.erroresOut?.push(`${rotulo(inst)}: ${t.trim() ? 'contestó y lo descartamos (no tiene la forma pedida)' : 'contestó vacío'}`);
           break; // respondió (o vacío en ambos modos) pero no sirve → próxima cuenta
         } catch (e) {
+          if (esSinSaldoDeMt(e)) throw e; // ver la puerta 1, arriba
           const m = e instanceof Error ? e.message : String(e);
           console.warn(`[ai-cheap] cascade ${rotulo(inst)} falló${intento ? ' (reintento)' : ''}: ${m}`);
           opts.erroresOut?.push(`${rotulo(inst)}: ${m}`);
@@ -1057,6 +1065,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
               return t;
             }
           } catch (e) {
+            if (esSinSaldoDeMt(e)) throw e; // ver la puerta 1, arriba
             // A la lista de la PLATAFORMA, nunca a la del cliente (ver el doc de la firma).
             const detalle = e instanceof Error ? e.message : String(e);
             opts.erroresPlataformaOut?.push(`${r.provider}/${r.clave}: ${detalle}`);
@@ -1203,6 +1212,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
           if (text.trim()) return { text, provider: prov };
           errs.push(`${rotulo(inst)}: respuesta vacía`);
         } catch (e) {
+          if (esSinSaldoDeMt(e)) throw e; // ver la puerta 1, arriba
           errs.push(`${rotulo(inst)}: ${e instanceof Error ? e.message : String(e)}`);
           anotarSuOpenAI(prov, e instanceof Error ? e.message : String(e), o.feature, model);
         }
@@ -1220,7 +1230,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
     const bloques = bloquesParaClaude(opts);
     if (bloques.length) {
       const { conClaveDelNegocio } = await import('./anthropic');
-      const r = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques }).catch(() => null);
+      const r = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques }).catch((e) => { if (esSinSaldoDeMt(e)) throw e; return null; });
       if (r && 'texto' in r) return { text: opts.json ? soloElJson(r.texto) || r.texto : r.texto, provider: 'anthropic' };
       if (r && 'error' in r) errores.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
       // ── Y EL CRÉDITO DE CLAUDE (11/11/2026): en el espacio de MaKo para todo menos el Plan, y en CUALQUIER negocio para las
@@ -1238,7 +1248,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
         const noHayQuienMire = () => (sinNadaDespues ??= Promise.all(VISION_CASCADE.filter((p) => !opts.sinGemini || p !== 'gemini').map((p) => provsDe(p).catch(() => [])))
           .then((ls) => ls.every((l) => l.length === 0)));
         for (const cuenta of await cuentasDelCreditoParaElPedido(opts.feature, { tambienLosGrupos: true }).catch(() => [] as string[])) {
-          const c = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques, cuentaDeLosGrupos: cuenta }).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+          const c = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques, cuentaDeLosGrupos: cuenta }).catch((e) => { if (esSinSaldoDeMt(e)) throw e; return { error: e instanceof Error ? e.message : String(e) }; });
           if (c && 'texto' in c) return { text: opts.json ? soloElJson(c.texto) || c.texto : c.texto, provider: 'anthropic' };
           if (!c) break;
           console.warn(`[ai-cheap] leer con el crédito de Claude (${cuenta}) no pudo: ${c.error.slice(0, 200)}`);
@@ -1766,6 +1776,7 @@ export async function chatCheapToolsCascade(
           toolChoicePrimerPaso: opts.toolChoicePrimerPaso,
         });
       } catch (e) {
+        if (esSinSaldoDeMt(e)) throw e; // ver la puerta 1, arriba
         const m = e instanceof Error ? e.message : String(e);
         opts.erroresOut?.push(`${rotulo(inst)}: ${m}`);
         console.warn(`[ai-cheap] tools ${rotulo(inst)} falló: ${m}`);
@@ -2139,6 +2150,7 @@ async function escucharCon(
       try {
         return { texto: await sttGemini(p, base64, buf, mime, o, modelo) };
       } catch (e) {
+        if (esSinSaldoDeMt(e)) throw e; // ver la puerta 1, arriba
         const msg = e instanceof Error ? e.message : String(e);
         errores.push(`${rotulo(p)}/${modelo}: ${msg}`);
         console.error(`[stt] ${rotulo(p)}/${modelo} falló: ${msg}`);
@@ -2152,6 +2164,7 @@ async function escucharCon(
     try {
       return { texto: await sttWhisper(p, buf, mime, o) };
     } catch (e) {
+      if (esSinSaldoDeMt(e)) throw e; // ver la puerta 1, arriba
       const msg = e instanceof Error ? e.message : String(e);
       errores.push(`${rotulo(p)}: ${msg}`);
       console.error(`[stt] ${rotulo(p)} falló: ${msg}`);

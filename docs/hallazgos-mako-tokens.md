@@ -11,6 +11,102 @@ abajo se lee contra eso.
 
 ---
 
+## ⚠️⚠️ PASÓ: el medidor apagó el grupo de WhatsApp de un cliente, y «fallar cerrado» era lo equivocado (16/11/2026)
+
+**El síntoma.** Tickets #103 y #105. En el grupo de MaKo del ws 23 («Marcela Fernandez», cliente de la agencia Código
+Inmobiliario, capa Completo) entró el aviso de un lead nuevo. MaKo quiso contestar y no pudo: el error registrado fue
+`anthropic/ANTHROPIC_API_KEY: No pude leer tu saldo de MaKo Tokens`. Doce segundos después le contestó AL GRUPO «⚠️ No
+puedo contestar: tu negocio todavía no conectó su IA. Para que te conteste aquí, conecta tu GPT (una clave de OpenAI)».
+Y la dejó metida en la guía de conexión: su mensaje siguiente —«Ya contactada», que hablaba del lead— lo leyó la guía
+como el «listo» de un paso y le contestó que no había quedado conectado. Le tapó la charla normal del grupo.
+
+**La causa.** La `0416` **nunca se aplicó en producción** y el código sí llegó. Las tres RPC no existían, PostgREST
+devolvió `PGRST202`, y `gastarMt` falló **cerrado** — exactamente como estaba escrito que hiciera.
+
+**El diagnóstico obvio era el equivocado, y es el hallazgo.** «Fallar cerrado es lo seguro» parece inatacable: si la
+caja no contesta, no se gasta. Pero mezcla dos situaciones que no se parecen:
+
+| | qué significa | qué corresponde |
+|---|---|---|
+| La caja **está** y no contesta | un 500, un timeout, la red | **fallar cerrado**: hay plata que proteger |
+| La caja **no está instalada** | la migración no se aplicó | **dejar pasar**: no hay nada que proteger |
+
+**Una caja que no existe no tiene nada que proteger.** Fallar cerrado ahí no protege plata: apaga el producto. Y es la
+tolerancia que este repo ya usa a propósito para que el orden de despliegue no importe — la `0283` (21/10/2026) se leyó
+*sin aplicar* durante semanas y no rompió nada, porque el código tolera que la columna falte; lo único que pasa es que
+no rige lo que la columna habilita.
+
+**La regla que queda** (`laCajaNoEsta`, `lib/mako-tokens-caja.ts`): se mira el **código** del error, no sólo que haya
+error. `PGRST202` (función que no está en el cache de esquema), `PGRST205` (tabla), `42883`, `42P01`, `42703` (columna)
+= «no está instalada» → no se cobra, **no se frena**, y queda un aviso fuerte en el log. Cualquier otro error sigue
+fallando cerrado.
+
+**Y la segunda cara del mismo bug: un `select` con una columna que no existe falla ENTERO.** `saldoDeWorkspace` pedía
+`saldo, comprado, cupo_mes`, y sin la `0416` las dos últimas no existen: el `select` daba `42703`, el saldo quedaba
+ilegible (`null`), y `alcanzaElSaldo` —que falla cerrado, y bien— frenaba el AI Avatar de **todos los negocios**. Ahora
+reintenta pidiendo sólo lo que la `0412` ya tiene. Quien lee lo viejo no necesita lo nuevo.
+
+---
+
+## ⚠️ Un aviso del orden de despliegue en un mensaje de commit NO es un mecanismo (16/11/2026)
+
+Esto estaba escrito, con estas palabras, antes de que pasara: *«La 0416 va antes del código. Si se invierte, lo que se
+rompe tiene nombre»*. Estaba en el mensaje de un commit, en este documento, y en el informe. **No sirvió de nada**, y el
+motivo no es que nadie lea: es que un aviso no es un mecanismo. Nada en el camino de un push a producción pregunta si
+falta una migración.
+
+Lo que sí es un mecanismo, y es lo que quedó: **el código tolera que la migración falte**. El orden deja de importar,
+que es la única versión que no depende de que alguien se acuerde.
+
+Y un detalle que vale para la próxima predicción: el aviso nombraba lo que se iba a romper —«el onboarding de un cliente
+que acaba de pagar»— y **lo que se rompió fue otra cosa**: un cliente de agencia que ya opera, contestando en un grupo.
+El camino que MaKo paga es el **crédito de Claude**, y el crédito es más ancho que el onboarding. Si una predicción
+nombra un caso, conviene buscar la lista entera de los que comparten ese camino, no el primero que vino a la cabeza.
+
+---
+
+## ⚠️ Mi propio comentario afirmaba que la cascada no podía quedarse con esta excepción. Podía (16/11/2026)
+
+En `SinSaldoDeMakoTokens` escribí: *«Se tira ANTES de llamar a cualquier proveedor, así que no hay errores de proveedor
+que la cascada pueda clasificar mal… el camino no llega hasta ahí»*. **Es falso**, y la prueba llegó de producción.
+
+El enganche del medidor está **adentro** de las funciones que la cascada llama (`chatCheap`, `chatClaude`,
+`leerDocumentoIA`…). Cuando una de ellas se llama sin un medidor abierto, la excepción cae justo en el `catch` por
+candidato de quien la llamó, que la convierte en un renglón de texto (`anthropic/ANTHROPIC_API_KEY: …`), la mete en la
+lista de fallas **del cliente** y prueba el proveedor siguiente. Con todos agotados, la app traduce esa lista a «tu
+negocio no conectó su IA».
+
+**La regla:** un wrapper que se engancha **adentro** de una función no puede razonar sobre dónde cae su excepción
+mirando su propio código — cae donde está el `catch` de quien llama. Si la excepción tiene que llegar a la persona, hay
+que **re-tirarla** en cada `catch` que convierte excepciones en renglones de error. Y la afirmación de fondo es de
+diseño, no de implementación: **ningún otro proveedor arregla una falta de saldo**, porque la caja es del NEGOCIO, no
+de la clave. Tratarla como «este candidato falló» es decir algo falso.
+
+Son 12 guardas (`if (esSinSaldoDeMt(e)) throw e;`) en `lib/ai-cheap.ts` y `lib/anthropic.ts`.
+
+---
+
+## El test que no se puede escribir, y el estático que lo reemplaza — encontró 4 `catch` que leyendo no vi (16/11/2026)
+
+Con el enganche donde está, el medidor tira **antes** de que el cuerpo de la cascada corra, así que desde un test **no
+se puede forzar** la excepción adentro de un `catch` por candidato: el camino que pasó en producción no es alcanzable
+desde el arnés. Es una limitación honesta, y aflojarla hubiera sido peor — un test que afirma lo que no prueba.
+
+Lo que sí se puede afirmar sin ambigüedad es **la forma del código**, y eso es el caso 8e: recorre `lib/ai-cheap.ts` y
+`lib/anthropic.ts`, encuentra cada `} catch (e) {` y cada `.catch((e) => {`, **acota el bloque contando llaves**, y si
+ese bloque arma un renglón de error exige que re-tire el error del medidor. Se pone rojo nombrando el `catch` nuevo.
+
+Dos cosas que vale registrar:
+
+- **Encontró 4 que leyendo el código no vi**: la cascada de Whisper, la de Gemini en STT, el `fetch` del crédito dentro
+  de `chatClaude`, y el `catch` que envuelve la cascada gratis en `chatClaude` — ése llama a `chatCheapCascade`, que
+  **sí** tiene el medidor. Doce guardas donde yo había puesto ocho.
+- **Mirar «los próximos N caracteres» daba un falso rojo.** El `catch` del `fetch` crudo a Gemini quedaba marcado por un
+  `.push(` que estaba *después* de su cierre. Contar llaves no es un lujo: sin eso el test pide un guarda donde la
+  excepción no puede llegar, y el que lo lea va a aflojar el test en vez de arreglar el código.
+
+---
+
 ## El medidor estaba «hecho» y no existía: era una lista de precios sin caja (15/11/2026)
 
 **El síntoma:** `lib/mako-tokens-reglas.ts`, `lib/mako-tokens-paquetes.ts`, la migración `0412` con sus dos tablas,
@@ -401,6 +497,51 @@ script prueba el `update` de la `0412`; conviene sumarle las funciones nuevas.
 
 ---
 
+## ⚠️ «No tiene ninguna key» dejó de significar «le falta configurar algo» (16/11/2026)
+
+El clasificador de fallas de IA (`causaDelFallo`, `lib/fallo-ia-texto.ts`) empezaba así:
+
+    if (keysDelCliente === 0) return 'sin_keys';
+
+Era un atajo correcto mientras **cada negocio pagaba su IA**: sin una key cargada no había nada que discutir, y
+cualquier error era secundario. Desde el 15/11/2026 la IA la paga MaKo, así que **no tener ninguna key es el estado
+normal de un cliente que funciona bien** — y ese primer `if` pasó a ganarle a cualquier error, incluido el del medidor.
+Resultado: a una clienta que se quedó sin saldo (o cuyo saldo no se pudo leer) la app le contestó «conecta tu GPT (una
+clave de OpenAI)». Falso dos veces: no le falta una key, y la IA no la paga ella.
+
+**La regla:** cuando una decisión de producto cambia qué es «normal», hay que revisar los atajos que daban por hecho lo
+contrario. Un `if` que era un atajo se vuelve una respuesta equivocada sin que nadie toque una línea.
+
+Quedó la causa `sin_tokens`, chequeada **antes** de «no tiene keys», y su cartel **repite el mensaje del medidor** en
+vez de escribir el suyo: ahí está el número que falta y las dos salidas (sumar MaKo Tokens, o conectar su IA y dejar de
+descontar del cupo). Un texto propio en el cartel quedaría desincronizado del que la persona ve en la app.
+`causaDelCartel` la deja en `null` a propósito: quedarse sin saldo no es un bug ni un problema de configuración, así
+que no abre ticket.
+
+---
+
+## ⚠️ Un error mal clasificado no termina en un cartel: SECUESTRA la conversación (16/11/2026)
+
+Esto es la parte del #105 que no se ve venir, y es la que más molesta al cliente. La cadena completa:
+
+1. El medidor falla → la cascada lo clasifica como «este candidato falló».
+2. Con la lista de fallas agotada y cero keys, la causa sale `sin_keys` → **«configuración del negocio»**.
+3. Eso **ofrece la guía de conexión por WhatsApp**, y la oferta **se guarda** (`setSetting(claveAyuda(jid), …)`).
+4. El mensaje **siguiente** de la persona —cualquiera— lo lee la guía como la respuesta a su paso. «Ya contactada», que
+   hablaba de un lead, se leyó como el «listo» de «ya conecté mi clave».
+5. MaKo le contestó que no había quedado conectado, y abrió un ticket que dice «es de la configuración del negocio, no
+   del código: se cierra solo cuando el negocio lo tiene» — un ticket que **nunca se iba a cerrar**, porque no había
+   nada que el negocio pudiera configurar.
+
+**La regla:** un error NUESTRO clasificado como «configuración del negocio» no cuesta un cartel, cuesta la
+conversación. Toda causa que abra una guía con estado guardado tiene que ser una que la persona pueda **resolver**; si
+no, la guía se queda esperando un «listo» que nunca va a llegar y se come los mensajes de verdad.
+
+(La guía en sí no deja estado *después* de verificar: `despuesDeVerificar` con `conectada: false` devuelve
+`siguiente: null`. Lo que quedaba pegado era la **oferta**, antes de empezar.)
+
+---
+
 ## Qué quedó sin hacer
 
 - ⚠️ **Lo más importante: volver a prestarle la IA de MaKo al negocio que no conectó la suya.** Sin eso, «todo gasta MaKo
@@ -463,3 +604,14 @@ PostgREST de mentira), una rotura por vez, restaurada:
 | el enganche sacado de `chatCheapCascade` | 6 |
 
 `tests/mako-tokens-costos.test.ts`: 10 casos, puros.
+**Las roturas del arreglo de los tickets #103 y #105 (16/11/2026)**, una por vez, restaurada cada una:
+
+| rotura | casos en rojo |
+|---|---|
+| la tolerancia a la caja ausente sacada (vuelve a fallar cerrado) | 8c |
+| `laCajaNoEsta` devolviendo siempre false | 8c |
+| un guarda `esSinSaldoDeMt` sacado de la cascada | 8e, **nombrando el `catch`** |
+| el chequeo de `sin_tokens` sacado de antes de `keysDelCliente === 0` | el caso nuevo de `fallo-ia-texto`, con `'sin_keys'` |
+
+`tests/fallo-ia-texto.test.ts`: 20 casos (uno nuevo, el de los tickets).
+

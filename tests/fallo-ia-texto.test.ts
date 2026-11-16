@@ -299,3 +299,29 @@ test('⚠️ Y EL CARTEL QUEDA REGISTRADO: desde el 30/09 no deja rastro en ning
   assert.match(doer, /recordUsage\('cartel-ia'/,
     'el cartel volvió a salir sin dejar una fila que se pueda contar');
 });
+
+test('⚠️ QUEDARSE SIN MaKo TOKENS NO ES «NO CONECTASTE TU IA» (tickets #103 y #105, 16/11/2026)', () => {
+  // Lo que pasó en producción: a un negocio al que la IA se la paga MaKo —y que por eso NO tiene ninguna key
+  // cargada— el medidor le falló, y `keysDelCliente === 0` ganaba sobre cualquier error: le contestó al grupo «tu
+  // negocio todavía no conectó su IA. Para que te conteste aquí, conecta tu GPT (una clave de OpenAI)». Falso dos
+  // veces: desde el 15/11/2026 todo lo paga MaKo Tokens, y lo que faltó fue plata, no una key. Peor: lo metió en la
+  // guía de conexión, y su mensaje siguiente —que hablaba de un lead— lo leyó la guía como el «listo» de un paso.
+  const sinSaldo = 'Te quedaste sin MaKo Tokens: esto cuesta 8 y tienes 0. Puedes sumar más MaKo Tokens, o conectar tu propia IA en Integraciones y que tu gasto deje de descontar del cupo.';
+  const noLeo = 'No pude leer tu saldo de MaKo Tokens. Vuelve a intentarlo en un momento.';
+  for (const e of [sinSaldo, noLeo]) {
+    assert.equal(causaDelFallo([e], 0), 'sin_tokens', `con CERO keys cargadas: ${e.slice(0, 40)}`);
+    assert.equal(causaDelFallo([e], 3), 'sin_tokens', 'con keys cargadas también: lo que falta es plata');
+  }
+  // Y el cartel repite el mensaje DEL MEDIDOR, que es el que tiene el número y las dos salidas.
+  const t = textoFalloIA('sin_tokens', LINK, 'contestar', 0, [sinSaldo]);
+  assert.match(t, /MaKo Tokens/, 'el cartel no nombra los MaKo Tokens');
+  assert.match(t, /sumar más MaKo Tokens/, 'el cartel no dice cómo salir');
+  assert.doesNotMatch(t, /conecta tu GPT|clave de OpenAI/i, 'le sigue pidiendo una key de OpenAI que no le hace falta');
+  assert.ok(!t.includes(LINK), 'manda al link de cargar keys, que no es lo que le falta');
+  // El rótulo con que la cascada marca a un candidato no se le repite al dueño.
+  const conRotulo = textoFalloIA('sin_tokens', LINK, 'contestar', 0, [`anthropic/ANTHROPIC_API_KEY: ${noLeo}`]);
+  assert.doesNotMatch(conRotulo, /ANTHROPIC_API_KEY/, 'le mostró el nombre de una variable de entorno');
+  assert.match(conRotulo, /No pude leer tu saldo/);
+  // Un 429 de un proveedor NO se confunde con esto.
+  assert.equal(causaDelFallo(['HTTP 429 quota'], 3), 'sin_cuota', 'confundió una cuota de proveedor con falta de MaKo Tokens');
+});

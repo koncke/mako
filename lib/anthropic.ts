@@ -16,7 +16,7 @@ import {
 import { CLAVES_CREDITO_DE_LOS_GRUPOS } from './credito-api';
 import type { ProvName } from './ai-cheap';
 import { PROVS_SU_IA, conD6bDelPedido, pasaPorLaPuerta, planPuedePagarConSuClave, soloSuIA } from './solo-su-ia';
-import { conMedidorDeMt, medidorAbierto } from './mako-tokens-medidor';
+import { conMedidorDeMt, esSinSaldoDeMt, medidorAbierto } from './mako-tokens-medidor';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
 //
@@ -335,6 +335,8 @@ export async function conClaveDelNegocio(p: {
       .trim();
     return texto ? { texto, model: permiso.model } : { error: 'Claude contestó vacío' };
   } catch (e) {
+    // Sin saldo NO es un fallo de este proveedor: ningún otro lo arregla, y tratarlo como uno le leía al dueño «conecta tu GPT» (ticket #103).
+    if (esSinSaldoDeMt(e)) throw e;
     const error = e instanceof Error ? e.message : String(e);
     // Cortada (por plazo o por la red) DESPUÉS de mandar: con el crédito queda la fila de lo que pudo gastar, como en la puerta 3.
     if (permiso.cuentaDelCredito) {
@@ -409,6 +411,7 @@ export async function conCreditoDeLaPlataforma(p: {
       if (texto) return { texto };
       errores.push(`crédito cuenta ${permiso.cuenta}: contestó vacío`);
     } catch (e) {
+      if (esSinSaldoDeMt(e)) throw e; // ver el catch de conClaveDelNegocio
       const detalle = e instanceof Error ? `${e.name} ${e.message}` : String(e);
       errores.push(`crédito cuenta ${permiso.cuenta}: ${detalle}`);
       // Cortada (por plazo o por la red) DESPUÉS de mandar: Anthropic puede haber cobrado igual. Queda la fila, con la marca
@@ -844,6 +847,8 @@ export async function chatClaudeTools(
         else if (n && 'pausa' in n && opts.sinFallbackClaude) throw new Error(`falló la IA (${CLAUDE_EN_PAUSA})`);
         else if (opts.sinFallbackClaude) throw new Error(`falló la IA (${errores.join(' · ').slice(0, 200) || 'sin proveedor gratis disponible'})`);
       } catch (e) {
+        // ⚠️ ACÁ ADENTRO CORRE `chatCheapCascade`, que SÍ tiene el medidor: su «sin saldo» no es un fallo de Gemini.
+        if (esSinSaldoDeMt(e)) throw e;
         // El caller pidió NO caer a Claude (ej. el doer): re-lanzamos para que avise
         // "falló Gemini" en vez de gastar Claude en silencio.
         if (opts.sinFallbackClaude) throw e;

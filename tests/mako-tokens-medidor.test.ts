@@ -21,6 +21,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 const RAIZ = join(__dirname, '..');
 
@@ -155,6 +156,79 @@ test('8b. el REGALO DEL ONBOARDING no se cobra dos veces, y la excepción se cie
   assert.match(String(R.onboardingOtraFeature.tiro), /SinSaldoDeMakoTokens/, 'un negocio sin plan corrió algo que no es del crédito del onboarding');
   // Y el que YA paga un plan sí las paga: el corte es «no tiene cupo», no la feature.
   assert.equal(gastos(R.archiveroConPlan).length, 1, 'un negocio con plan tiene que pagar también El Archivero');
+});
+
+test('8c. LA MIGRACIÓN QUE FALTA no apaga el producto (ticket #103, 16/11/2026)', () => {
+  // ⚠️ ESTE ES EL ROJO QUE PASÓ EN PRODUCCIÓN. El código salió a main y la 0416 no se había aplicado: la RPC no
+  // existía, `gastarMt` falló cerrado —como está escrito que haga— y el grupo de WhatsApp del ws 23 se quedó mudo
+  // frente a un lead nuevo. El diagnóstico obvio («fallar cerrado es lo seguro») era el equivocado: una caja que no
+  // existe no tiene nada que proteger, y fallar cerrado sólo apaga el producto.
+  for (const caso of ['sinCaja', 'sinCajaClaude', 'sinCajaAudio'] as const) {
+    const c = R[caso];
+    // Que NO TIRE es la prueba: el medidor dejó correr el cuerpo y la cascada llegó hasta el final por sus propios
+    // medios. (Hasta dónde llega después no lo decide el medidor: hoy un negocio sin claves no alcanza a ningún
+    // proveedor por la puerta soldada del 22/10 — eso lo mide el caso 2c, y pasa igual CON saldo.)
+    // (Lo que sí puede tirar es otra cosa suya: el ws14 tiene el veto de Claude vencido. Lo que no puede volver a
+    // aparecer es el freno del medidor.)
+    assert.doesNotMatch(String(c.tiro ?? ''), /SinSaldo|Salteado|MaKo Tokens/, `${caso}: la migración que falta frenó la llamada — ${c.tiro}`);
+    // Y se intentó cobrar: la tolerancia no es «no medir», es «no frenar». El aviso queda en el log.
+    assert.ok(c.pedidos.some((p) => p.fn.endsWith('-sin-caja')), `${caso}: no intentó cobrar`);
+    assert.equal(c.pedidos.some((p) => p.fn === 'gastar'), false, `${caso}: cobró con una caja que no existe`);
+  }
+  // Sin la 0416, la llamada se comporta EXACTAMENTE como si tuviera saldo: mismo alcance, sin frenos.
+  assert.deepEqual(R.sinCaja.red, R.conSaldo.red, 'sin la 0416 la llamada no llegó tan lejos como con saldo');
+  // Pero la tolerancia es a que falte la MIGRACIÓN, no a que falte la PLATA: con la caja puesta, sin saldo se frena.
+  assert.deepEqual(R.conCajaDeVuelta.red, [], 'con la caja instalada y sin saldo, la llamada salió igual');
+  assert.match(String(R.conCajaDeVuelta.tiro), /SinSaldoDeMakoTokens/);
+});
+
+test('8d. el «sin saldo» NO se disfraza de falla de proveedor (ticket #103)', () => {
+  // ⚠️ Lo que leyó el dueño del negocio: «tu negocio todavía no conectó su IA… conecta tu GPT (una clave de OpenAI)».
+  // Falso dos veces: desde el 15/11/2026 su IA la paga MaKo Tokens, y lo que falló fue la caja. La cascada tomaba la
+  // excepción del medidor como «este candidato falló», la ponía en la lista de fallas DEL CLIENTE y la app traducía esa
+  // lista a ese cartel. Ningún otro proveedor arregla una falta de saldo: la caja es del NEGOCIO, no de la clave.
+  const lista = (R as unknown as { listaDeErrores: string[] }).listaDeErrores;
+  assert.deepEqual(lista, [], `el medidor dejó su error en la lista del cliente: ${lista.join(' | ')}`);
+  assert.match(String(R.sinSaldoConLista.tiro), /SinSaldoDeMakoTokens/, 'el «sin saldo» tiene que SALIR como excepción, no quedar en una lista');
+  const r = (R as unknown as { reconoceElError: Record<string, boolean> }).reconoceElError;
+  assert.equal(r.propio, true, 'esSinSaldoDeMt no reconoce su propio error');
+  assert.equal(r.salteado, true, 'esSinSaldoDeMt no reconoce el salteo de un camino automático');
+  assert.equal(r.ajeno, false, 'esSinSaldoDeMt confunde un 429 de un proveedor con falta de saldo');
+});
+
+test('8e. NINGÚN `catch` de la capa de IA puede quedarse con el «sin saldo» (estático)', () => {
+  // ⚠️ ESTO ES ESTÁTICO A PROPÓSITO, y la razón es una limitación honesta del caso 8d: con el enganche donde está, el
+  // medidor tira ANTES de que el cuerpo de la cascada corra, así que desde un test no se puede forzar la excepción
+  // ADENTRO de un `catch` por candidato. Pero en producción llegó ahí (ticket #103), y el día que alguien agregue un
+  // `catch` nuevo volvería a llegar. Lo que se puede afirmar sin ambigüedad es la forma del código: un `catch` que
+  // convierte una excepción en un renglón de error TIENE que re-tirar el error del medidor antes.
+  //
+  // Si este test se pone rojo, no hay que aflojarlo: hay que agregarle el guarda al `catch` nuevo.
+  const GUARDA = 'esSinSaldoDeMt(e)';
+  for (const rel of ['lib/ai-cheap.ts', 'lib/anthropic.ts']) {
+    const fuente = readFileSync(join(RAIZ, rel), 'utf8');
+    // Los dos sabores: `} catch (e) {` y `.catch((e) => {`.
+    const trozos = fuente.split(/\}\s*catch \(e\) \{|\.catch\(\(e\) => \{/);
+    trozos.shift(); // lo de antes del primer catch
+    trozos.forEach((t, i) => {
+      // ⚠️ SÓLO EL BLOQUE DEL `catch`, contando llaves. Mirar «los próximos N caracteres» daba un falso rojo: el
+      // `catch` del fetch crudo a Gemini (que no puede recibir esta excepción, no hay nada enganchado adentro) quedaba
+      // marcado por un `.push(` que estaba DESPUÉS de su cierre.
+      let d = 1, fin = t.length;
+      for (let j = 0; j < t.length; j++) {
+        if (t[j] === '{') d++;
+        else if (t[j] === '}' && --d === 0) { fin = j; break; }
+      }
+      const cuerpo = t.slice(0, fin);
+      // Sólo los que ARMAN un renglón de error: los demás (un `return null`, un log) no mienten a nadie.
+      if (!/\.push\(|\{ error/.test(cuerpo)) return;
+      assert.ok(
+        cuerpo.includes(GUARDA),
+        `${rel}: el catch nº ${i + 1} convierte una excepción en un error de proveedor sin re-tirar el «sin saldo».\n` +
+        `Agregale «if (${GUARDA}) throw e;» como primera línea. Empieza así:\n${cuerpo.slice(0, 220)}`,
+      );
+    });
+  }
 });
 
 test('9. SIN WORKSPACE el medidor no se cuelga (el enganche es una RE-ENTRADA)', () => {

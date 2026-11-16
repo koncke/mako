@@ -50,10 +50,24 @@ export type CausaFalloIA =
    * Las keys del CLIENTE contestaron y el problema fue NUESTRO: le pedimos mal, o
    * descartamos lo que devolvieron. No se le pide nada — no hay nada que él pueda hacer.
    */
-  | 'fallo_nuestro';
+  | 'fallo_nuestro'
+  /**
+   * SE QUEDÓ SIN MaKo TOKENS (15/11/2026): la IA la paga MaKo y el cupo del mes no alcanzó. No es una key que falta ni
+   * una cuota de proveedor: es el cupo del plan, y las salidas son otras (sumar MaKo Tokens, o conectar su IA y dejar
+   * de descontar del cupo). Lo dice el medidor (lib/mako-tokens-medidor.ts).
+   */
+  | 'sin_tokens';
 
 /** Un error que dice «esa key no existe». Lo tira `proveedor()` en ai-cheap. */
 const SIN_KEY = /sin proveedor de ia barata|falta [A-Z_]*API_KEY|_API_KEY\)/i;
+
+/**
+ * Un error del MEDIDOR de MaKo Tokens, no de un proveedor. Los dos textos que tira (lib/mako-tokens-medidor.ts)
+ * nombran los MaKo Tokens, y ninguna otra cosa de la cascada los nombra.
+ */
+const esSinTokens = (e: string): boolean => /MaKo Tokens/i.test(e);
+/** El prefijo con que la cascada rotula a un candidato (`anthropic/ANTHROPIC_API_KEY: …`), para no repetirlo al dueño. */
+const sinElRotulo = (e: string): string => e.replace(/^[a-z-]+\/[A-Z0-9_]+:\s*/, '').trim();
 
 /**
  * Cuota agotada. `429` y sus nombres en los distintos proveedores.
@@ -143,6 +157,13 @@ export function causaDelFallo(errores: string[], keysDelCliente: number, ctx: Co
   const porTamano = errores.filter(esTopeDeTamano);
   const resto = errores.filter((e) => !esTopeDeTamano(e));
   const txt = resto.join(' · ');
+  // ⚠️ VA ANTES DE «NO TIENE KEYS», Y ESE ORDEN ROMPIÓ UN GRUPO REAL (ticket #105, 16/11/2026). Un negocio al que la
+  // IA se la paga MaKo no tiene ninguna key cargada —no le hace falta—, así que `keysDelCliente === 0` ganaba sobre
+  // cualquier error y le decía «conecta tu GPT (una clave de OpenAI)». La dueña del ws 23 quedó metida en esa guía: su
+  // mensaje siguiente («Ya contactada», que hablaba de un lead) lo leyó la guía como el «listo» de un paso, y le
+  // contestó que no había quedado conectado. Desde el 15/11/2026 la falta de plata y la falta de key son dos cosas
+  // distintas, con salidas distintas, y la de plata la nombra el medidor.
+  if (resto.some(esSinTokens)) return 'sin_tokens';
   if (keysDelCliente === 0) return 'sin_keys';
   // ⚠️ CERO INSTANCIAS PROBADAS NO ES «SE CAYÓ SU PROVEEDOR». Pasa cuando hay filas en
   // `credenciales` pero ninguna resuelve (no se puede descifrar, quedó de otro entorno),
@@ -179,6 +200,7 @@ export function fraseDelFallo(causa: CausaFalloIA): string {
     case 'ia_lenta': return 'la IA del negocio tardó demasiado en contestar';
     case 'mensaje_muy_largo': return 'es demasiado largo para la IA';
     case 'fallo_nuestro': return 'falló de nuestro lado';
+    case 'sin_tokens': return 'el negocio se quedó sin MaKo Tokens';
   }
 }
 
@@ -331,6 +353,13 @@ export function textoFalloIA(
   const provs = proveedoresDeLosErrores(errores).filter((p) => NOMBRE_IA[p]);
   const prov = provs.length === 1 ? provs[0] : null;
   switch (causa) {
+    // ⚠️ EL MENSAJE LO ESCRIBE EL MEDIDOR, NO ESTE SWITCH, y es a propósito: ahí está el número que falta y las DOS
+    // salidas reales (sumar MaKo Tokens, o conectar su IA y dejar de descontar del cupo). Repetirlo acá lo dejaría
+    // desincronizado del que ve en la app. Lo único que se agrega es qué no se pudo hacer.
+    case 'sin_tokens': {
+      const delMedidor = errores.map(sinElRotulo).find(esSinTokens);
+      return `⚠️ No pude ${que}: ${delMedidor || 'tu negocio se quedó sin MaKo Tokens.'}`;
+    }
     case 'ia_lenta': {
       // ⚠️ NI «SE CAYÓ» NI «CARGA UNA SEGUNDA»: ver TIMEOUT. Dice qué pasó (y que lo cortamos nosotros: nada por
       // detrás), que lo mande de nuevo —casi siempre anda al rato— y, si TODA su IA es de una marca, qué le da respaldo.
