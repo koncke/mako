@@ -60,7 +60,16 @@ body:has(.acl-root) .mk-wa-flota.mk-wa-martin{display:flex}
 body:has(.d-video-fijo.d-video-ver) .mk-wa-flota{bottom:calc(84px + ${AIRE}px + env(safe-area-inset-bottom,0px))}
 body:has(.d-funnel-float.is-on) .mk-wa-flota{bottom:calc(64px + ${AIRE}px + env(safe-area-inset-bottom,0px))}
 body:has(.d-offer-video.d-offer-flota) .mk-wa-flota{bottom:calc(192px + ${AIRE}px + env(safe-area-inset-bottom,0px))}
-@media (prefers-reduced-motion:reduce){.mk-wa-flota{transition:none}}
+/* EL GLOBITO (Martín, 16/11/2026: «debería saltar como un mensajito tipo de chatea por WhatsApp… o haz una pregunta»): sale a los
+   2,5 s, se queda 12 y se va; vuelve cada vez que el mouse pasa por el botón. Va adentro del botón, así lo sigue a donde lo suban
+   las reglas de arriba (la barra pegada del Accelerator, las de cada landing), y no se puede tocar: el que toca es el botón. */
+.mk-wa-globo{position:absolute;right:calc(100% + 12px);top:50%;white-space:nowrap;padding:10px 14px;border-radius:14px;background:#fff;color:#12151B;font:600 14px/18px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;box-shadow:0 10px 28px rgba(0,0,0,.22),0 1px 3px rgba(0,0,0,.12);pointer-events:none;opacity:0;transform:translateY(-50%);animation:mk-wa-globo 15s 2.5s both}
+.mk-wa-globo b{font-weight:700;color:#128C3E}
+.mk-wa-globo::after{content:"";position:absolute;right:-5px;top:50%;width:11px;height:11px;margin-top:-5.5px;background:#fff;transform:rotate(45deg);border-radius:2px}
+.mk-wa-flota:hover .mk-wa-globo,.mk-wa-flota:focus-visible .mk-wa-globo{animation:none;opacity:1}
+@keyframes mk-wa-globo{0%{opacity:0;transform:translateY(-50%) translateX(10px)}6%{opacity:1;transform:translateY(-50%)}86%{opacity:1;transform:translateY(-50%)}100%{opacity:0;transform:translateY(-50%)}}
+@media (max-width:767px){.mk-wa-globo{font-size:13px;line-height:17px;padding:8px 12px}}
+@media (prefers-reduced-motion:reduce){.mk-wa-flota{transition:none}.mk-wa-globo{animation:none}}
 @media print{.mk-wa-flota,html body .mk-wa-flota.mk-wa-martin{display:none}}
 `;
 
@@ -70,8 +79,8 @@ export function WhatsappFlotante() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS_WHATSAPP_FLOTANTE }} />
-      <a className="mk-wa-flota" href={linkWhatsappMako()} target="_blank" rel="noopener noreferrer" aria-label="Escríbenos por WhatsApp" title="Escríbenos por WhatsApp" data-tema-fijo="">{glifo}</a>
-      <a className="mk-wa-flota mk-wa-martin" href={linkWhatsappMako(MENSAJE_WHATSAPP_ACCELERATOR)} target="_blank" rel="noopener noreferrer" aria-label="Escríbeme por WhatsApp" title="Escríbeme por WhatsApp" data-tema-fijo="">{glifo}</a>
+      <a className="mk-wa-flota" href={linkWhatsappMako()} target="_blank" rel="noopener noreferrer" aria-label="Escríbenos por WhatsApp" title="Escríbenos por WhatsApp" data-tema-fijo="">{glifo}<span className="mk-wa-globo" aria-hidden="true">¿Tienes una pregunta? <b>Escríbenos</b></span></a>
+      <a className="mk-wa-flota mk-wa-martin" href={linkWhatsappMako(MENSAJE_WHATSAPP_ACCELERATOR)} target="_blank" rel="noopener noreferrer" aria-label="Escríbeme por WhatsApp" title="Escríbeme por WhatsApp" data-tema-fijo="">{glifo}<span className="mk-wa-globo" aria-hidden="true">¿Tienes una pregunta? <b>Escríbeme</b></span></a>
     </>
   );
 }

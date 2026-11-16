@@ -81,13 +81,19 @@ test('2. el pie: el contacto con el email Y el WhatsApp, a la vista; y las misma
     assert.deepEqual(hrefs(cols), todos, 'las columnas de la computadora no son las del pie');
     assert.deepEqual(hrefs(pliegues), todos, 'los renglones del teléfono perdieron (o cambiaron) links');
     assert.equal((pliegues.match(/<details class="s-pie-pliegue"><summary>/g) ?? []).length, columnasDelPie().length);
+    // En la computadora, el segundo rótulo de una columna (los Funnels) va en SU columna: era la más alta y le daba el alto al pie.
+    const columnasPc = (cols.match(/<div class="s-pie-col">/g) ?? []).length;
+    assert.equal(columnasPc, columnasDelPie().length + columnasDelPie().filter((c) => c.sub).length, 'los Funnels volvieron abajo de Industrias');
+    assert.ok(!cols.includes('s-pie-h2'), 'en la computadora quedó un segundo rótulo adentro de una columna');
   }
   // La hoja: los renglones sólo en el teléfono, las columnas sólo en la computadora, y el pie más bajo.
   assert.match(CSS_PIE, /\.s-pie-pliegues\{display:none\}/);
   const telefono = CSS_PIE.slice(CSS_PIE.indexOf('@media (max-width:767px){'));
   assert.match(telefono, /\.s-pie-cols\{display:none\}/);
   assert.match(telefono, /\.s-pie-pliegues\{display:block;/);
-  assert.match(CSS_PIE, /\.s-pie\{background:[^;]+;border-top:[^;]+;padding:48px 0 40px\}/, 'volvieron los 64 de aire arriba y abajo');
+  // Más bajo otra vez (16/11, a la tarde: «sigo viendo la bottom bar muy alta»): 36 arriba y 24 abajo, los links cada 24 px.
+  assert.match(CSS_PIE, /\.s-pie\{background:[^;]+;border-top:[^;]+;padding:36px 0 24px\}/, 'volvió el aire de antes arriba y abajo');
+  assert.match(CSS_PIE, /\.s-pie-col li\{font-size:13\.5px;line-height:18px;font-weight:500;padding-bottom:6px\}/, 'los links volvieron a ir cada 28 px');
   assert.match(CSS_PIE, /\.s-pie-marca\{display:flex;align-items:center;/, 'la marca volvió a tres renglones apilados');
 });
 
@@ -194,3 +200,14 @@ test('6. «lo que ya pagas»: la tira de las apps que MaKo reemplaza va ARRIBA d
 // 16/11/2026, la segunda tanda (base 6 / 0; restaurado, 6 / 0):
 //   · hasta 880 px el botón vuelve a z-index 80                 -> 5 / 1
 //   · el botón de Martín se ve en todas las páginas             -> 5 / 1
+
+// Martín, 16/11/2026: «el botón de WhatsApp está bien, pero también debería saltar como un mensajito tipo de chatea por WhatsApp
+// o algo así, o haz una pregunta».
+test('7. el globito del WhatsApp: sale solo, adentro de cada botón (con la voz de cada página), y no se puede tocar aparte', () => {
+  const portada = html(createElement(PortadaSitio, { planes: PLANES }));
+  assert.ok(sinHojas(portada).includes('<span class="mk-wa-globo" aria-hidden="true">¿Tienes una pregunta? <b>Escríbenos</b></span></a>'), 'el botón de MaKo sin su globito');
+  assert.ok(sinHojas(portada).includes('<span class="mk-wa-globo" aria-hidden="true">¿Tienes una pregunta? <b>Escríbeme</b></span></a>'), 'el botón de Martín sin su globito');
+  assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-globo\{position:absolute;[^}]*pointer-events:none;opacity:0;[^}]*animation:mk-wa-globo 15s 2\.5s both\}/);
+  assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-flota:hover \.mk-wa-globo,\.mk-wa-flota:focus-visible \.mk-wa-globo\{animation:none;opacity:1\}/);
+  assert.match(CSS_WHATSAPP_FLOTANTE, /@media \(prefers-reduced-motion:reduce\)\{\.mk-wa-flota\{transition:none\}\.mk-wa-globo\{animation:none\}\}/);
+});

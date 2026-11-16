@@ -33,3 +33,11 @@ test('una página que nació oscura no se ve un segundo en negro antes de pasar 
   assert.match(fuente, /if\(ELEGIDO==='claro'\|\|ELEGIDO==='oscuro'\|\|BASE_FIJA!==INICIAL\)/);
   assert.match(fuente, /\(INICIAL==='oscuro'\?'#0e1219':'#ffffff'\)/, 'el fondo de la espera es el del modo con que arranca');
 });
+
+// Martín, 16/11/2026: «en la versión mobile no tiene para fácil acceso el dark mode o white mode y debería tenerlo arriba. Tal vez
+// logramos eso eliminando la palabra MaKo del título y solamente dejando la estrellita».
+test('en el teléfono el sol y la luna van arriba, con la estrellita sola en la barra', async () => {
+  const { CSS_BARRA } = await import('../app/vsl/_sitio/estilos');
+  assert.doesNotMatch(CSS_BARRA, /\.s-barra-der>\.mk-tema-sitio\{display:none\}/, 'el sol y la luna volvió a esconderse en la barra del teléfono');
+  assert.match(CSS_BARRA, /@media \(max-width:767px\)\{\.s-barra-in \.s-logo>span\+span\{display:none\}\}/, 'en el teléfono la barra volvió a tener la palabra MaKo');
+});

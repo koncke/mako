@@ -92,13 +92,22 @@ export function Pie({ claro = false }: { claro?: boolean }) {
             </div>
             <Contacto />
           </div>
+          {/* En la computadora, el segundo rótulo de una columna (los Funnels, debajo de Industrias) va en SU columna: era la más
+              alta y le daba el alto a todo el pie (Martín, 16/11/2026, a la tarde: «sigo viendo la bottom bar muy alta»). En el
+              teléfono sigue adentro de su renglón (abajo): ahí el alto lo dan los renglones, no las columnas. */}
           <div className="s-pie-cols">
-            {columnas.map((c) => (
+            {columnas.flatMap((c) => [
               <div key={c.titulo} className="s-pie-col">
                 <p className="s-pie-h">{c.titulo}</p>
-                <Cuerpo c={c} />
-              </div>
-            ))}
+                <Links links={c.links} />
+              </div>,
+              ...(c.sub ? [
+                <div key={c.sub.titulo} className="s-pie-col">
+                  <p className="s-pie-h">{c.sub.titulo}</p>
+                  <Links links={c.sub.links} />
+                </div>,
+              ] : []),
+            ])}
           </div>
           {/* El teléfono: la misma lista, cada columna en un renglón que se despliega. */}
           <div className="s-pie-pliegues">
@@ -119,7 +128,7 @@ export function Pie({ claro = false }: { claro?: boolean }) {
             08/10/2026 porque no la veía: lib/titular-mako.ts). */}
         <div className="s-pie-base">
           <p className="s-pie-c">{lineaDelCopyright(new Date().getFullYear())}</p>
-          <EstrellaMaKo size={32} />
+          <EstrellaMaKo size={24} />
         </div>
       </div>
       {/* El WhatsApp que flota abajo a la derecha (16/11/2026): va donde va el pie, así lo tiene toda página que lo lleva. */}

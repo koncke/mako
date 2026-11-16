@@ -177,6 +177,8 @@ html:has(.s-mv[open]){overflow:hidden}
 /* El botón (36 px) no estira la fila: «Claro u oscuro» mide lo mismo que «Precios» y las demás (61 px), con su raya igual. */
 .s-mv-tema .mk-tema-sitio{margin:-8px -8px -8px 0}
 @media (max-width:400px){.s-nb-lleno .s-nb-largo{display:none}.s-nb-lleno .s-nb-corto{display:inline}}
+@media (max-width:767px){.s-barra-in .s-logo>span+span{display:none}}
+@media (max-width:359px){.s-barra-der{gap:8px}}
 
 /* La barra clara (la de su página de comparaciones): blanca, filete #060419 al 12 %, el botón principal del color de marca. */
 .s-claro .s-barra{background:#fff;border-bottom-color:rgba(6,4,25,.12)}
@@ -275,9 +277,9 @@ html[data-sitio-modo="oscuro"] .s-cuenta{--cu-fondo:${CARD};--cu-filete:${LINEA1
   .s-barra-der{gap:12px}
   .s-nb-lleno{font-size:14px;line-height:18px;padding:8px 12px}
   .s-mv{display:block}
-  /* En el teléfono el sol y la luna van en el menú (la fila «Claro u oscuro»): en la barra, con el logo, el botón y el ☰, no
-     entraban (13/11/2026, el Cerebro mirando la captura a 375). */
-  .s-barra-der>.mk-tema-sitio{display:none}
+  /* EL SOL Y LA LUNA, ARRIBA Y A MANO TAMBIÉN EN EL TELÉFONO (Martín, 16/11/2026: «no tiene para fácil acceso al dark mode o
+     white mode y debería tenerlo arriba… eliminando la palabra MaKo del título y solamente dejando la estrellita»). Antes iba
+     sólo en el menú: con el logo entero, el botón y el ☰ no entraba (13/11/2026). Abajo de 768 el logo queda en la estrellita. */
   /* La cuenta del pie del menú: el desplegable se ancla a la IZQUIERDA (el botón está a la izquierda del pie) y no se sale
      de los 16 de margen; y los renglones suben a 44 de alto, que es el mínimo para un dedo (el --touch de la app). */
   .s-cuenta-pie .s-cuenta-m{left:0;right:auto;width:min(288px,calc(100vw - 32px))}
@@ -300,9 +302,13 @@ export const CSS_PIE = `
    dibujada: 697 px a 1440, 957 a 1280 y a 1024, 1.409 a 390. En la computadora la marca, la frase y el contacto pasan a UN renglón
    (eran tres renglones apilados: 100 px y 40 de aire), los links van cada 28 px (eran 32), los rótulos con 12 debajo (16) y el pie
    con 48 arriba y 40 abajo (64 y 64). En el teléfono, cada columna es un renglón que se despliega (.s-pie-pliegues): las ocho
-   columnas en dos eran casi dos pantallas. Nada se fue: los mismos links, en el mismo orden. */
-.s-pie{background:${FONDO};border-top:1px solid ${LINEA};padding:48px 0 40px}
-.s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:32px;padding-bottom:28px}
+   columnas en dos eran casi dos pantallas. Nada se fue: los mismos links, en el mismo orden.
+   MÁS BAJO OTRA VEZ, Y CON TODO (16/11/2026, a la tarde, Martín: «sigo viendo la bottom bar muy alta… deberían estar todo, pero
+   que evidentemente se vea bien»): era 551 px a 1440 y 727 a 375. La columna más alta era Industrias con los Funnels debajo: en
+   la computadora los Funnels van en SU columna (./Pie.tsx); los links cada 24 px (eran 28), los rótulos con 8 debajo, el pie con
+   36 arriba y 24 abajo. El mismo pie en el Accelerator, con TODAS las columnas (sólo cambia su fondo). */
+.s-pie{background:${FONDO};border-top:1px solid ${LINEA};padding:36px 0 24px}
+.s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;padding-bottom:18px}
 .s-pie-marca{display:flex;align-items:center;gap:12px 24px}
 .s-pie-logo{flex:none}
 .s-pie-frase{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
@@ -318,17 +324,17 @@ export const CSS_PIE = `
 .s-pie-contacto li:last-child svg{color:#25D366}
 /* LAS COLUMNAS EN UN RENGLÓN DESDE 1440, y en una grilla de cuatro más angosto. Ocho columnas sin cortar un nombre suman 1.150 px
    y a 1440 hay 1.184; a 1280 (1.024 de ancho) y a 1024 (960) no entraban: con siete ya se pasaban y a 1024 cortaban el correo. */
-.s-pie-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px 24px}
-@media (min-width:1440px){.s-pie-cols{display:flex;gap:24px;justify-content:space-between}}
-.s-pie-h{font-size:14px;line-height:20px;font-weight:700;color:#fff;margin-bottom:12px;white-space:nowrap}
+.s-pie-cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px 20px}
+@media (min-width:1440px){.s-pie-cols{display:flex;gap:20px;justify-content:space-between}}
+.s-pie-h{font-size:13.5px;line-height:18px;font-weight:700;color:#fff;margin-bottom:8px;white-space:nowrap}
 /* El segundo rótulo de una columna (los Funnels, debajo de Industrias, como en el menú de la barra). */
 .s-pie-h2{margin-top:16px}
-.s-pie-col li{font-size:14px;line-height:20px;font-weight:500;padding-bottom:8px}
+.s-pie-col li{font-size:13.5px;line-height:18px;font-weight:500;padding-bottom:6px}
 .s-pie-col a{color:${GRIS3};white-space:nowrap;transition:color .15s}
 .s-pie-col a:hover{color:#fff}
 /* La versión del teléfono (los renglones que se despliegan): sólo abajo de 768. */
 .s-pie-pliegues{display:none}
-.s-pie-base{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-top:20px;box-shadow:inset 0 1px 0 color-mix(in srgb,currentColor 14%,transparent)}
+.s-pie-base{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-top:14px;box-shadow:inset 0 1px 0 color-mix(in srgb,currentColor 14%,transparent)}
 .s-pie-c{font-size:14px;line-height:20px;font-weight:500;color:${GRIS2}}
 .s-claro .s-pie{background:#FCFCFD;border-top-color:rgba(6,4,25,.12)}
 .s-claro .s-pie-lema,.s-claro .s-pie-h,.s-claro .s-pie-pliegue summary{color:${TINTA}}
@@ -347,16 +353,16 @@ export const CSS_PIE = `
 /* A 390: arriba la marca con su lema y el contacto (como en la computadora: el Cerebro, 14/11/2026), cada columna en un renglón que se
    despliega, y al final el ©. Los renglones miden 48 (más que los 44 de un dedo) y se separan con una raya de SU color de texto. */
 @media (max-width:767px){
-  .s-pie{padding:36px 0 28px}
+  .s-pie{padding:28px 0 20px}
   .s-pie .s-cont{display:flex;flex-direction:column;padding:0 16px}
   .s-pie-in{display:contents}
-  .s-pie-marca{order:1;flex-direction:column;align-items:flex-start;gap:12px;margin-bottom:20px}
+  .s-pie-marca{order:1;flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:12px}
   .s-pie-frase{flex-direction:column;align-items:flex-start;gap:4px}
   .s-pie-contacto{flex-direction:column;align-items:flex-start;gap:0}
-  .s-pie-contacto a{min-height:40px}
+  .s-pie-contacto a{min-height:34px}
   .s-pie-cols{display:none}
-  .s-pie-pliegues{display:block;order:2;margin-bottom:20px}
-  .s-pie-pliegue summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;cursor:pointer;font-size:15px;line-height:20px;font-weight:700;color:#fff;box-shadow:inset 0 -1px 0 color-mix(in srgb,currentColor 12%,transparent)}
+  .s-pie-pliegues{display:block;order:2;margin-bottom:12px}
+  .s-pie-pliegue summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;cursor:pointer;font-size:15px;line-height:20px;font-weight:700;color:#fff;box-shadow:inset 0 -1px 0 color-mix(in srgb,currentColor 12%,transparent)}
   .s-pie-pliegue summary svg{flex:none;opacity:.7;transition:transform .2s ease}
   .s-pie-pliegue[open] summary svg{transform:rotate(90deg)}
   .s-pie-pliegue .s-pie-col{padding:6px 0 10px}
@@ -603,10 +609,10 @@ ${CSS_REEMPLAZA}
 /* EL SECOND BRAIN, A TODO EL ANCHO Y MÁS ALTO (16/11/2026, Martín: «me gustaría de que se vea mucho más épico»): el texto arriba,
    centrado, y el mapa debajo, del ancho del contenido (1.184 a 1440) y de hasta 680 de alto; en el teléfono, más alto que ancho
    (eran 210 px de alto a 375: el 16:10 de las otras filas). El grafo se reencuadra solo con la caja (app/vsl/_sitio/BrainVivo.tsx). */
-.s-zz-fila.s-zz-brain{grid-template-columns:minmax(0,1fr);gap:40px}
-.s-zz-brain .s-zz-tx{max-width:760px;margin:0 auto;text-align:center}
-.s-zz-brain .s-zz-acc{align-items:center}
-.s-zz-brain .s-zz-vis{aspect-ratio:auto;height:clamp(520px,72vh,680px)}
+/* El Second Brain: una fila más (al costado, como las otras), con el mapa más ancho y más alto (16/11/2026, a la tarde). */
+.s-zz-fila.s-zz-brain{grid-template-columns:minmax(0,4fr) minmax(0,8fr)}
+.s-zz-fila.s-zz-brain.s-zz-inv{grid-template-columns:minmax(0,8fr) minmax(0,4fr)}
+.s-zz-brain .s-zz-vis{aspect-ratio:auto;height:clamp(460px,64vh,560px)}
 /* Los tableros: de a uno, 2,6 s cada uno, entrando de arriba hacia abajo (como su animación de entrada en la app). */
 .s-zz-tableros{background:#fff}
 /* Los tableros: el recuadro es SÓLO el tablero (la pista, que se desliza); las flechas a los costados y el nombre y los puntos debajo,
@@ -771,7 +777,7 @@ html[data-sitio-modo="oscuro"] .s-precios .tk-extra b,html[data-sitio-modo="oscu
   .s-hero-vis{width:576px;max-width:none;margin:40px auto 0}
   .s-fila{flex-direction:column}
   .s-zz{gap:112px;margin-top:56px}
-  .s-zz-fila,.s-zz-inv{grid-template-columns:minmax(0,1fr);gap:28px}
+  .s-zz-fila,.s-zz-inv,.s-zz-fila.s-zz-brain,.s-zz-fila.s-zz-brain.s-zz-inv{grid-template-columns:minmax(0,1fr);gap:28px}
   .s-zz-inv .s-zz-tx{order:0}
   .s-zz-t{font-size:28px;line-height:34px}
   .s-zz-gurus{height:340px}
