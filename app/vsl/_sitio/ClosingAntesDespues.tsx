@@ -1,17 +1,16 @@
 // =============================================================================
-// Closing: el antes y el después de Mauricio, una llamada como en Google Meet y la tarjeta de Closing de MaKo (16/11/2026)
+// Closing: una llamada real de Mauricio como en Google Meet y lo que hace MaKo con ella (16/11/2026)
 // =============================================================================
-// Martín: «me gustaría que aparezca algo así similar a Google Meet y que sea tipo objeciones, dolores, etcétera, y que al principio
-// se vea un antes y después»; «copia como normalmente son las cartas de Google Meet… más horizontales»; «no pongas MaKo en vivo,
-// porque no lo tenemos todavía en vivo»; «en lugar de poner puntuación… la tasa de closing o la cantidad de cierres»; «que
-// aparezcan cosas como negativas que pasan… y que luego justamente se vea una parte dentro de MaKo»; «intenta representarlo un poco
-// mejor con lo que es MaKo» (la hoja Closing del Dashboard); y «un zoom cuando van apareciendo las objeciones… más típicas».
-// El ciclo (16 s, sólo CSS): 1) el antes y el después en cierres (0 → 9 por trimestre); 2) una llamada real de Mauricio como en Meet:
-// la cámara se acerca al costado de MaKo mientras marca las objeciones en su minuto (y si se respondieron); 3) la tarjeta «Tasa de
-// cierre» de la hoja Closing del Dashboard, con su mismo diseño (el de public/vsl-assets/closing/hoja-tasa.jpg) y los números de
-// Mauricio, y debajo los cierres de cada mes. Todo sale de ./closing-mauricio.ts (datos reales, sin frases de terceros).
-// Las tarjetas de Meet son de 16:9 y la foto de Mauricio es su retrato llevado a 16:9 (mauricio-meet.jpg). En unidades del
-// contenedor (cqw): entra igual en la fila de la computadora y en la del teléfono. `data-tema-fijo`: el sol y la luna no lo toca.
+// Martín, en varias vueltas: «similar a Google Meet… tipo objeciones, dolores»; «las cartas de Google Meet… más horizontales»; «no
+// pongas MaKo en vivo»; «la tasa de closing o la cantidad de cierres»; «objeciones más típicas»; y la última: «pasa muy rápido el
+// tema de las objeciones… que el zoom… sea estético»; «que no tenga sidebar el dashboard… que se vea sobre todo el analizar las
+// llamadas… la calificación… o las objeciones»; «el gráfico… que vaya creciendo de 0 a 9 cierres y que se haga un zoom»; «poner
+// tema de dinero»; y «ya no poner más la animación… de 0 a 9, sino que directamente la animación final sea el zoom al gráfico».
+// El ciclo (18 s, sólo CSS): 1) la llamada; la cámara se acerca suave al costado de MaKo (las tarjetas quedan atrás, apagadas) y
+// las tres objeciones salen de a una, con 2,5 s cada una para leerlas; 2) la hoja Closing de MaKo, sin barra del costado: a la
+// izquierda el análisis de esa llamada (su score y sus objeciones, respondidas o no); a la derecha los cierres acumulados de 2026,
+// que crecen de 0 a 9, con lo vendido; 3) la cámara se acerca a ese gráfico mientras crece. Todo sale de ./closing-mauricio.ts
+// (datos reales, sin frases de terceros). En unidades del contenedor (cqw): entra igual en la computadora y en el teléfono.
 import { CLOSING_MAURICIO, tasaDe } from './closing-mauricio';
 
 /** El minuto como lo escribe un reproductor: m:ss, o h:mm:ss pasada la hora. */
@@ -19,27 +18,30 @@ const minuto = (s: number) => {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = String(s % 60).padStart(2, '0');
   return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 };
+const usd = (n: number) => `US$${n.toLocaleString('es-AR')}`;
 const FOTO_MAURICIO = '/vsl-assets/sitio/avatar/mauricio-meet.jpg';
-const CICLO = 16;
+const CICLO = 18;
+/** En qué % del ciclo entra cada objeción (a los 2,4 s, 4,9 s y 7,4 s) y en qué % crece cada mes del gráfico. */
+const ENTRA_OBJ = [13.3, 27.2, 41.1];
+const CRECE_MES = (i: number) => 64 + i * 3;
 
 const CSS = `
 .s-cad{container-type:inline-size;position:absolute;inset:0;background:#202124;color:#E8EAED;font-family:inherit;overflow:hidden}
-/* La «cámara»: la llamada entera se acerca al costado de MaKo mientras salen las objeciones (del 21 % al 49 % del ciclo). */
-.s-cad-cam{position:absolute;inset:0;transform-origin:97% 22%;animation:s-cad-zoom ${CICLO}s infinite}
-@keyframes s-cad-zoom{0%,20%{transform:none}25%,48%{transform:scale(1.4)}53%,100%{transform:none}}
+/* 1) La llamada. La «cámara» se acerca con calma al costado de MaKo: fija su esquina de arriba a la derecha, así el panel entra
+   entero (las objeciones a la vista) y las tarjetas de Meet quedan atrás, apagadas. */
+.s-cad-cam{position:absolute;inset:0;transform-origin:97.6% 3.8%;animation:s-cad-zoom ${CICLO}s cubic-bezier(.45,0,.2,1) infinite}
+@keyframes s-cad-zoom{0%,7%{transform:none}12%,52%{transform:scale(1.25)}57%,100%{transform:none}}
 .s-cad-in{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1fr) 38cqw;gap:2cqw;padding:2.4cqw 2.4cqw 9cqw}
-/* Las tarjetas como las de Meet: 16:9 y del tamaño más grande que entra, que en este alto es una arriba de la otra y centradas
-   (así las acomoda Meet). La caja es de 16:10 (62,5cqw de alto): entre el margen de arriba y la barra quedan 51,1cqw, y dos de
-   44cqw de ancho (24,75 de alto) con su espacio entran. */
-.s-cad-tiles{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4cqw;min-height:0}
+/* Las tarjetas como las de Meet: 16:9, una arriba de la otra y centradas (el tamaño más grande que entra, como las acomoda Meet). */
+.s-cad-tiles{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4cqw;min-height:0;animation:s-cad-apaga ${CICLO}s infinite}
+@keyframes s-cad-apaga{0%,7%{opacity:1}12%,52%{opacity:.35}57%,100%{opacity:1}}
 .s-cad-tile{position:relative;flex:none;width:44cqw;max-width:100%;aspect-ratio:16/9;border-radius:1.2cqw;overflow:hidden;background:#3C4043}
 .s-cad-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .s-cad-tile::after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 .3cqw #8AB4F8;opacity:0}
 .s-cad-apagada{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
 .s-cad-avatar{width:9.5cqw;height:9.5cqw;border-radius:50%;background:#7B61FF;color:#fff;font-size:4.6cqw;font-weight:500;display:flex;align-items:center;justify-content:center}
 .s-cad-nombre{position:absolute;left:1.2cqw;bottom:1cqw;font-size:1.7cqw;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6)}
-/* Quién habla, como en Meet: el borde celeste y el círculo azul con tres barritas. El prospecto mientras van saliendo sus
-   objeciones; el resto del tiempo, Mauricio. */
+/* Quién habla, como en Meet: el borde celeste y el círculo azul con tres barritas (el prospecto mientras salen sus objeciones). */
 .s-cad-ola{position:absolute;top:1cqw;right:1cqw;width:3cqw;height:3cqw;border-radius:50%;background:#1A73E8;display:flex;align-items:center;justify-content:center;gap:.32cqw;opacity:0}
 .s-cad-ola i{width:.42cqw;height:.42cqw;border-radius:.3cqw;background:#fff;animation:s-cad-ola .5s ease-in-out infinite alternate}
 .s-cad-ola i:nth-child(2){animation-delay:-.25s}
@@ -47,8 +49,8 @@ const CSS = `
 @keyframes s-cad-ola{to{height:1.5cqw}}
 .s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:s-cad-a ${CICLO}s infinite}
 .s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:s-cad-b ${CICLO}s infinite}
-@keyframes s-cad-a{0%,20%{opacity:1}22%,50%{opacity:0}52%,100%{opacity:1}}
-@keyframes s-cad-b{0%,20%{opacity:0}22%,50%{opacity:1}52%,100%{opacity:0}}
+@keyframes s-cad-a{0%,11%{opacity:1}13%,52%{opacity:0}54%,100%{opacity:1}}
+@keyframes s-cad-b{0%,11%{opacity:0}13%,52%{opacity:1}54%,100%{opacity:0}}
 .s-cad-panel{background:#fff;color:#12151B;border-radius:1.2cqw;padding:2cqw 1.8cqw;display:flex;flex-direction:column;gap:1.2cqw;min-height:0;overflow:hidden}
 .s-cad-panel-t{display:flex;align-items:center;gap:1cqw;font-size:1.9cqw;font-weight:800}
 .s-cad-panel-t svg{width:2.4cqw;height:2.4cqw}
@@ -58,9 +60,8 @@ const CSS = `
 .s-cad-chip i{flex:none;width:1.3cqw;height:1.3cqw;border-radius:50%;background:#EA4335}
 .s-cad-chip span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .s-cad-chip b{margin-left:auto;font-weight:600;color:#6B7280}
-.s-cad-chip svg{flex:none;width:1.8cqw;height:1.8cqw}
-/* La barra de Meet: la hora a la izquierda; al medio el micrófono, la cámara, los subtítulos, levantar la mano, presentar, más y
-   colgar (la píldora roja); a la derecha los detalles, las personas, el chat, las actividades y MaKo (abierto: resaltado). */
+.s-cad-chip svg,.s-cad-obj svg{flex:none;width:1.8cqw;height:1.8cqw}
+/* La barra de Meet: la hora; micrófono, cámara, subtítulos, mano, presentar, más y colgar; detalles, personas, chat, actividades y MaKo. */
 .s-cad-barra{position:absolute;left:2.4cqw;right:2.4cqw;bottom:0;height:7.5cqw;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
 .s-cad-hora{font-size:1.7cqw;font-weight:600;color:#E8EAED}
 .s-cad-botones{display:flex;align-items:center;gap:1cqw}
@@ -70,97 +71,65 @@ const CSS = `
 .s-cad-der{justify-self:end;display:flex;align-items:center;gap:.6cqw}
 .s-cad-icono{width:4cqw;height:4cqw;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .s-cad-icono-on{background:rgba(138,180,248,.24)}
-/* 1) El antes y el después, en cierres. */
-.s-cad-intro{position:absolute;inset:0;z-index:3;background:rgba(32,33,36,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4cqw;animation:s-cad-intro ${CICLO}s infinite}
-.s-cad-intro-t{font-size:2.2cqw;font-weight:700;color:#BDC1C6;letter-spacing:.08em;text-transform:uppercase}
-.s-cad-notas{display:flex;align-items:center;gap:3cqw}
-.s-cad-nota{display:flex;flex-direction:column;align-items:center;gap:.4cqw}
-.s-cad-n{font-size:10cqw;line-height:1;font-weight:800;letter-spacing:-.03em}
-.s-cad-que{font-size:2.2cqw;font-weight:700;color:#E8EAED}
-.s-cad-mes{font-size:1.8cqw;font-weight:600;color:#9AA0A6}
-.s-cad-n-antes{color:#9AA0A6}
-.s-cad-n-despues{color:#8AB4F8}
-.s-cad-flecha svg{display:block;width:5cqw;height:5cqw;color:#5F6368}
-@keyframes s-cad-intro{0%,15%{opacity:1;visibility:visible}19%,97%{opacity:0;visibility:hidden}100%{opacity:1;visibility:visible}}
-/* 3) La hoja Closing del Dashboard de MaKo, como es hoy (la plantilla «Closing» de lib/graficos-plantillas-analysts.ts): su título,
-   el período y cuatro de sus piezas, que entran una por una y se animan: la tarjeta «Tasa de cierre» (el verde petróleo con la
-   cuadrícula, la de public/vsl-assets/closing/hoja-tasa.jpg), el embudo de llamadas, el score por semana y los cierres de cada mes. */
-.s-cad-app{position:absolute;inset:0;z-index:2;background:#F4F6FA;color:#12151B;display:grid;grid-template-columns:10cqw minmax(0,1fr);opacity:0;visibility:hidden;animation:s-cad-app ${CICLO}s infinite}
-@keyframes s-cad-app{0%,54%{opacity:0;visibility:hidden}57%,95%{opacity:1;visibility:visible}98%,100%{opacity:0;visibility:hidden}}
-.s-cad-lat{background:#fff;border-right:1px solid #E5E8EF;padding:2.4cqw 1.4cqw;display:flex;flex-direction:column;gap:1.5cqw}
-.s-cad-lat svg{width:3cqw;height:3cqw;margin-bottom:1cqw}
-.s-cad-lat span{height:1.2cqw;border-radius:1cqw;background:#E5E8EF}
-.s-cad-lat span.s-cad-lat-on{background:#2F6FED}
-.s-cad-main{padding:2cqw 2.4cqw;display:flex;flex-direction:column;gap:1.4cqw;min-width:0;min-height:0}
-.s-cad-main-t{margin:0;display:flex;align-items:baseline;gap:1.2cqw;font-size:2.2cqw;font-weight:800;white-space:nowrap}
-.s-cad-main-t small{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:1.35cqw;font-weight:600;color:#6B7280}
-.s-cad-main-t em{margin-left:auto;font-style:normal;font-size:1.3cqw;font-weight:700;color:#2F6FED;background:#E8F0FE;padding:.5cqw 1.1cqw;border-radius:99px}
-.s-cad-hoja{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:1.4cqw}
-.s-cad-pieza{min-height:0;min-width:0;opacity:0;transform:translateY(1.6cqw) scale(.97);animation:${CICLO}s infinite}
-.s-cad-pieza:nth-child(1){animation-name:s-cad-p1}.s-cad-pieza:nth-child(2){animation-name:s-cad-p2}.s-cad-pieza:nth-child(3){animation-name:s-cad-p3}.s-cad-pieza:nth-child(4){animation-name:s-cad-p4}
-@keyframes s-cad-p1{0%,56%{opacity:0;transform:translateY(1.6cqw) scale(.97)}60%,95%{opacity:1;transform:none}98%,100%{opacity:0}}
-@keyframes s-cad-p2{0%,58%{opacity:0;transform:translateY(1.6cqw) scale(.97)}62%,95%{opacity:1;transform:none}98%,100%{opacity:0}}
-@keyframes s-cad-p3{0%,60%{opacity:0;transform:translateY(1.6cqw) scale(.97)}64%,95%{opacity:1;transform:none}98%,100%{opacity:0}}
-@keyframes s-cad-p4{0%,62%{opacity:0;transform:translateY(1.6cqw) scale(.97)}66%,95%{opacity:1;transform:none}98%,100%{opacity:0}}
-.s-cad-card{background:#fff;border:1px solid #E5E8EF;border-radius:1.4cqw;padding:1.5cqw 1.8cqw;display:flex;flex-direction:column}
-.s-cad-card>p{margin:0 0 .8cqw;font-size:1.35cqw;font-weight:700;color:#6B7280}
-.s-cad-tasa{position:relative;overflow:hidden;border-radius:1.4cqw;color:#fff;display:grid;grid-template-columns:minmax(0,1fr) 10.5cqw;gap:1.8cqw;padding:1.7cqw 2.1cqw;background:linear-gradient(135deg,#0A2A2E 0%,#0D3539 55%,#13595F 100%)}
-.s-cad-tasa::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:2.8cqw 2.8cqw}
-.s-cad-tasa>*{position:relative;min-width:0}
-.s-cad-tasa-t{margin:0;font-size:1.45cqw;font-weight:700;color:#CFE6E4}
-.s-cad-tasa-n{display:block;margin-top:.3cqw;font-size:5.4cqw;line-height:1;font-weight:800;letter-spacing:-.02em}
-.s-cad-delta{display:flex;align-items:center;gap:.8cqw;margin-top:.8cqw;font-size:1.2cqw;font-weight:500;color:#E6F2F1;white-space:nowrap}
-.s-cad-delta b{padding:.3cqw .7cqw;border-radius:.6cqw;background:#B6F0C9;color:#0B3B2A;font-weight:800}
-.s-cad-prog{margin-top:1.6cqw;height:.9cqw;border-radius:1cqw;background:rgba(255,255,255,.14);overflow:hidden}
-.s-cad-prog i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#5AB3B8,#E2FAF8);transform-origin:left;transform:scaleX(0);animation:s-cad-llena ${CICLO}s infinite}
-@keyframes s-cad-llena{0%,60%{transform:scaleX(0)}67%,100%{transform:scaleX(1)}}
-.s-cad-prog-t{margin-top:.8cqw;font-size:1.15cqw;color:#E6F2F1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.s-cad-tasa-der{border-left:1px solid rgba(255,255,255,.2);padding-left:1.5cqw;display:flex;flex-direction:column;justify-content:center}
-.s-cad-tasa-der p{margin:0;padding:.45cqw 0;font-size:1.2cqw;color:#CFE6E4;border-bottom:1px solid rgba(255,255,255,.14)}
-.s-cad-tasa-der p:last-child{border-bottom:0}
-.s-cad-tasa-der b{display:block;font-size:2.3cqw;line-height:1.1;font-weight:800;color:#fff}
-/* El embudo: cada paso con su número y su barra, que crece cuando entra la pieza. */
-.s-cad-emb{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1cqw}
-.s-cad-emb div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;row-gap:.4cqw;font-size:1.3cqw;font-weight:600;color:#374151}
-.s-cad-emb b{font-size:1.5cqw;color:#12151B}
-.s-cad-emb span{grid-column:1/-1;height:1.8cqw;border-radius:.5cqw;background:var(--c);width:var(--w);transform-origin:left;transform:scaleX(0);animation:s-cad-emb ${CICLO}s infinite}
-@keyframes s-cad-emb{0%,61%{transform:scaleX(0)}68%,100%{transform:scaleX(1)}}
-/* El score por semana: la línea se dibuja de izquierda a derecha. */
-.s-cad-linea{flex:1;min-height:0;width:100%;display:block}
-.s-cad-linea polyline{fill:none;stroke:#2F6FED;stroke-width:1.1;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:s-cad-traza ${CICLO}s infinite}
-.s-cad-linea polygon{fill:rgba(47,111,237,.09);opacity:0;animation:s-cad-area ${CICLO}s infinite}
-@keyframes s-cad-traza{0%,63%{stroke-dashoffset:1}73%,100%{stroke-dashoffset:0}}
-@keyframes s-cad-area{0%,70%{opacity:0}75%,95%{opacity:1}98%,100%{opacity:0}}
-.s-cad-ejes{display:flex;justify-content:space-between;margin-top:.4cqw;font-size:1.15cqw;font-weight:600;color:#9AA0A6}
-.s-cad-barras{flex:1;min-height:0;display:grid;grid-template-columns:repeat(6,1fr);gap:1.2cqw}
-.s-cad-barra-m{display:grid;grid-template-rows:minmax(0,1fr) auto;justify-items:center;gap:.4cqw;min-height:0;font-size:1.2cqw;font-weight:700;color:#6B7280}
-/* El número de cada mes justo arriba de su barra (--h es el alto de la barra), y aparece cuando la barra terminó de crecer. */
-.s-cad-pista{position:relative;width:100%;margin-top:2cqw}
-.s-cad-pista i{position:absolute;left:0;right:0;bottom:0;height:var(--h);border-radius:.5cqw .5cqw 0 0;background:#2F6FED;transform-origin:bottom;transform:scaleY(0);animation:s-cad-crece ${CICLO}s infinite}
-.s-cad-pista b{position:absolute;left:0;right:0;bottom:calc(var(--h) + .3cqw);text-align:center;color:#12151B;font-size:1.3cqw;opacity:0;animation:s-cad-numero ${CICLO}s infinite}
+/* 2) La hoja Closing de MaKo, sin la barra del costado: el análisis de la llamada y los cierres acumulados con lo vendido. */
+.s-cad-app{position:absolute;inset:0;z-index:2;background:#F4F6FA;color:#12151B;opacity:0;visibility:hidden;animation:s-cad-app ${CICLO}s infinite}
+@keyframes s-cad-app{0%,56%{opacity:0;visibility:hidden}60%,96%{opacity:1;visibility:visible}99%,100%{opacity:0;visibility:hidden}}
+/* 3) La cámara se acerca al gráfico mientras crece (fija su esquina de abajo a la derecha: el gráfico queda entero). */
+.s-cad-dash{position:absolute;inset:0;padding:2.6cqw 3cqw;display:flex;flex-direction:column;gap:1.8cqw;transform-origin:96% 94%;animation:s-cad-zoom2 ${CICLO}s cubic-bezier(.45,0,.2,1) infinite}
+@keyframes s-cad-zoom2{0%,68%{transform:none}78%,96%{transform:scale(1.12)}100%{transform:none}}
+.s-cad-main-t{margin:0;display:flex;align-items:baseline;gap:1.2cqw;font-size:2.4cqw;font-weight:800;white-space:nowrap}
+.s-cad-main-t small{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:1.45cqw;font-weight:600;color:#6B7280}
+.s-cad-main-t em{margin-left:auto;font-style:normal;font-size:1.35cqw;font-weight:700;color:#2F6FED;background:#E8F0FE;padding:.5cqw 1.1cqw;border-radius:99px}
+.s-cad-hoja{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:1.8cqw}
+.s-cad-card{min-height:0;min-width:0;background:#fff;border:1px solid #E5E8EF;border-radius:1.6cqw;padding:2cqw 2.2cqw;display:flex;flex-direction:column;opacity:0;transform:translateY(1.6cqw);animation:${CICLO}s infinite}
+.s-cad-card:nth-child(1){animation-name:s-cad-c1}.s-cad-card:nth-child(2){animation-name:s-cad-c2}
+@keyframes s-cad-c1{0%,59%{opacity:0;transform:translateY(1.6cqw)}63%,72%{opacity:1;transform:none}78%,95%{opacity:.45;transform:none}99%,100%{opacity:0}}
+@keyframes s-cad-c2{0%,61%{opacity:0;transform:translateY(1.6cqw)}65%,95%{opacity:1;transform:none}99%,100%{opacity:0}}
+.s-cad-card-t{margin:0;font-size:1.5cqw;font-weight:700;color:#6B7280}
+/* El análisis de la llamada: el score en su anillo y las objeciones con su estado. */
+.s-cad-nota{display:flex;align-items:center;gap:1.6cqw;margin:1.4cqw 0 1.6cqw}
+.s-cad-anillo{flex:none;width:9cqw;height:9cqw;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(#F9AB00 calc(var(--p) * 1%),#EEF0F4 0);position:relative}
+.s-cad-anillo::before{content:'';position:absolute;inset:1cqw;border-radius:50%;background:#fff}
+.s-cad-anillo b{position:relative;font-size:3cqw;font-weight:800}
+.s-cad-nota p{margin:0;font-size:1.45cqw;line-height:1.35;color:#374151}
+.s-cad-nota p strong{display:block;font-size:1.9cqw;color:#12151B}
+.s-cad-obj{display:flex;align-items:center;gap:.9cqw;padding:1cqw 0;border-top:1px solid #EEF0F4;font-size:1.45cqw;font-weight:600;white-space:nowrap}
+.s-cad-obj span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.s-cad-obj b{margin-left:auto;font-weight:600;color:#9AA0A6}
+/* Los cierres acumulados de 2026: cada mes crece después del anterior, con su número arriba; al final, lo vendido. */
+.s-cad-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:1cqw}
+.s-cad-plata{text-align:right;opacity:0;animation:s-cad-plata ${CICLO}s infinite}
+.s-cad-plata strong{display:block;font-size:3.4cqw;line-height:1;font-weight:800;color:#1E8E3E}
+.s-cad-plata small{font-size:1.3cqw;font-weight:600;color:#6B7280}
+@keyframes s-cad-plata{0%,80%{opacity:0;transform:translateY(.8cqw)}84%,95%{opacity:1;transform:none}99%,100%{opacity:0}}
+.s-cad-barras{flex:1;min-height:0;display:grid;grid-template-columns:repeat(6,1fr);gap:1.4cqw;margin-top:1cqw}
+.s-cad-barra-m{display:grid;grid-template-rows:minmax(0,1fr) auto;justify-items:center;gap:.5cqw;min-height:0;font-size:1.35cqw;font-weight:700;color:#6B7280}
+.s-cad-pista{position:relative;width:100%;margin-top:2.6cqw}
+.s-cad-pista i{position:absolute;left:0;right:0;bottom:0;height:var(--h);border-radius:.6cqw .6cqw 0 0;background:#2F6FED;transform-origin:bottom;transform:scaleY(0);animation:${CICLO}s cubic-bezier(.3,0,.2,1) infinite}
+.s-cad-pista b{position:absolute;left:0;right:0;bottom:calc(var(--h) + .4cqw);text-align:center;color:#12151B;font-size:1.7cqw;opacity:0;animation:${CICLO}s infinite}
 .s-cad-barra-m.s-cad-cero i{background:#D7DCE6}
-@keyframes s-cad-crece{0%,65%{transform:scaleY(0)}73%,100%{transform:scaleY(1)}}
-@keyframes s-cad-numero{0%,72%{opacity:0}76%,95%{opacity:1}98%,100%{opacity:0}}
-/* En una caja chica (el teléfono): las dos tarjetas igual (entran: 44cqw al lado de un panel de 46cqw), el panel más ancho, la
-   letra más grande, sin el ✓/✕ de las objeciones, en la barra sólo el micrófono, la cámara, más, colgar y MaKo, y en la hoja de
-   MaKo sólo la tarjeta de la tasa, más grande y sin la barra del costado. */
-@container (max-width:480px){.s-cad-in{grid-template-columns:minmax(0,1fr) 46cqw}.s-cad-cam{transform-origin:98% 20%}
+/* En una caja chica (el teléfono): el panel más ancho, la letra más grande, sin el ✓/✕ de la llamada, la barra corta, y en la hoja el
+   análisis y el gráfico más compactos. */
+@container (max-width:480px){.s-cad-in{grid-template-columns:minmax(0,1fr) 46cqw}
 .s-cad-chip{font-size:2.2cqw;padding:1.1cqw 1.6cqw}.s-cad-chip svg{display:none}.s-cad-chip i{width:2cqw;height:2cqw}.s-cad-panel-t{font-size:3cqw}.s-cad-panel-t small{font-size:2.3cqw}.s-cad-nombre,.s-cad-hora{font-size:2.8cqw}.s-cad-ola{width:4cqw;height:4cqw}
-.s-cad-intro-t{font-size:3.4cqw}.s-cad-que{font-size:3.2cqw}.s-cad-mes{font-size:2.8cqw}
 .s-cad-cc,.s-cad-mano,.s-cad-pres,.s-cad-der .s-cad-icono:not(.s-cad-icono-on){display:none}.s-cad-boton,.s-cad-icono{width:6cqw;height:6cqw}.s-cad-boton svg,.s-cad-icono svg{width:3cqw;height:3cqw}.s-cad-colgar{width:8.6cqw}
-.s-cad-app{grid-template-columns:minmax(0,1fr)}.s-cad-lat,.s-cad-main-t small,.s-cad-pieza:nth-child(n+3),.s-cad-tasa-der,.s-cad-prog-t{display:none}
-.s-cad-main{padding:3.4cqw 3.8cqw;gap:2.4cqw}.s-cad-main-t{font-size:3.8cqw}.s-cad-main-t em{font-size:2.4cqw;padding:.8cqw 1.8cqw}.s-cad-hoja{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:2.4cqw}
-.s-cad-tasa{grid-template-columns:minmax(0,1fr);padding:3cqw 3.4cqw;border-radius:2.4cqw}.s-cad-tasa-t{font-size:2.6cqw}.s-cad-tasa-n{font-size:10cqw}.s-cad-delta{font-size:2.1cqw;white-space:normal}.s-cad-prog{height:1.6cqw;margin-top:2.4cqw}
-.s-cad-card{padding:2.6cqw 3cqw;border-radius:2.4cqw}.s-cad-card>p{font-size:2.4cqw}.s-cad-emb{gap:1.6cqw}.s-cad-emb div{font-size:2.2cqw}.s-cad-emb b{font-size:2.6cqw}.s-cad-emb span{height:2.8cqw}}
-@media (prefers-reduced-motion:reduce){.s-cad-intro{display:none}.s-cad-cam{animation:none}.s-cad-chip{animation:none;opacity:1;transform:none}.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:none;opacity:1}.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:none}.s-cad-ola i{animation:none;height:1cqw}.s-cad-app{animation:none}.s-cad-pieza{animation:none;opacity:1;transform:none}.s-cad-prog i,.s-cad-pista i,.s-cad-emb span{animation:none;transform:none}.s-cad-pista b,.s-cad-linea polygon{animation:none;opacity:1}.s-cad-linea polyline{animation:none;stroke-dashoffset:0}}
+.s-cad-dash{padding:3cqw 3.4cqw;gap:2.2cqw;animation:none}.s-cad-hoja{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}.s-cad-cab{flex-direction:column;gap:.4cqw}.s-cad-plata{text-align:left}.s-cad-main-t{font-size:3.8cqw}.s-cad-main-t small{display:none}.s-cad-main-t em{font-size:2.4cqw;padding:.8cqw 1.8cqw}
+.s-cad-card{padding:2.4cqw 2.6cqw;border-radius:2.4cqw}.s-cad-card-t{font-size:2.3cqw}.s-cad-anillo{width:12cqw;height:12cqw}.s-cad-anillo b{font-size:4.4cqw}.s-cad-nota{margin:1.6cqw 0}.s-cad-nota p{display:none}.s-cad-obj{font-size:2.2cqw;padding:1.2cqw 0}.s-cad-obj b{display:none}.s-cad-obj svg{width:2.6cqw;height:2.6cqw}
+.s-cad-plata strong{font-size:3.8cqw}.s-cad-plata small{font-size:1.9cqw}.s-cad-barra-m{font-size:2.2cqw}.s-cad-pista b{font-size:2.6cqw}.s-cad-pista{margin-top:3.6cqw}}
+@media (prefers-reduced-motion:reduce){.s-cad-cam,.s-cad-tiles,.s-cad-dash{animation:none}.s-cad-chip,.s-cad-card,.s-cad-plata{animation:none;opacity:1;transform:none}.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:none;opacity:1}.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:none}.s-cad-ola i{animation:none;height:1cqw}.s-cad-app{animation:none}.s-cad-pista i{animation:none;transform:none}.s-cad-pista b{animation:none;opacity:1}}
 `;
 
-/** Cada objeción con SU tiempo en el ciclo (la primera a los 3,9 s, cuando la cámara ya se acercó, y una cada 1,2 s; se van todas
- *  juntas al final): con un `animation-delay` por chip, los últimos se cruzaban de una vuelta a la otra. Son los hijos 2.º en adelante. */
-const CSS_CHIPS = CLOSING_MAURICIO.llamada.objeciones.map((_, i) => {
-  const entra = Math.round(((3.9 + i * 1.2) / CICLO) * 1000) / 10;
-  return `.s-cad-chip:nth-child(${i + 2}){animation-name:s-cad-chip-${i}}@keyframes s-cad-chip-${i}{0%,${entra}%{opacity:0;transform:translateY(1cqw)}${Math.round((entra + 2.5) * 10) / 10}%,95%{opacity:1;transform:none}98%,100%{opacity:0;transform:none}}`;
-}).join('\n');
+/** Cada objeción y cada mes con SU tiempo en el ciclo (con un `animation-delay` por elemento, los últimos se cruzaban de una vuelta a
+ *  la otra). Las objeciones son los hijos 2.º en adelante del panel; los meses, los de las barras. */
+const CSS_TIEMPOS = [
+  ...ENTRA_OBJ.map((e, i) => `.s-cad-chip:nth-child(${i + 2}){animation-name:s-cad-chip-${i}}@keyframes s-cad-chip-${i}{0%,${e}%{opacity:0;transform:translateY(1cqw)}${Math.round((e + 2) * 10) / 10}%,55%{opacity:1;transform:none}58%,100%{opacity:0;transform:none}}`),
+  ...CLOSING_MAURICIO.porMes.map((_, i) => {
+    const a = CRECE_MES(i);
+    return `.s-cad-barra-m:nth-child(${i + 1}) i{animation-name:s-cad-mes-${i}}.s-cad-barra-m:nth-child(${i + 1}) b{animation-name:s-cad-num-${i}}`
+      + `@keyframes s-cad-mes-${i}{0%,${a}%{transform:scaleY(0)}${a + 3}%,96%{transform:scaleY(1)}99%,100%{transform:scaleY(0)}}`
+      + `@keyframes s-cad-num-${i}{0%,${a + 1}%{opacity:0}${a + 3}%,96%{opacity:1}99%,100%{opacity:0}}`;
+  }),
+].join('\n');
 
 /** Los íconos de la barra de Meet (los de Material, en 24×24). */
 const ICONO = {
@@ -183,9 +152,6 @@ const Boton = ({ d, clase = '' }: { d: string; clase?: string }) => (
   <span className={`s-cad-boton${clase ? ` ${clase}` : ''}`}><svg viewBox="0 0 24 24"><path d={d} /></svg></span>
 );
 
-/** El color de cada paso del embudo: los dos de reuniones en azul y las ventas en verde. */
-const COLOR_EMBUDO = ['#2F6FED', '#6C9BF3', '#34A853'] as const;
-
 /** ✓ verde si la objeción se respondió; ✕ roja si quedó sin responder. */
 const Estado = ({ ok }: { ok: boolean }) => (
   <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -197,15 +163,16 @@ const Estado = ({ ok }: { ok: boolean }) => (
 );
 
 export function ClosingAntesDespues() {
-  const { antes, despues, porMes, llamada, embudo, scorePorSemana } = CLOSING_MAURICIO;
-  const maxMes = Math.max(...porMes.map((m) => m.cierres), 1);
-  // La línea del score: de 4 a 8 en el alto del gráfico (44), las semanas repartidas en el ancho (120).
-  const puntos = scorePorSemana.map((v, i) => `${Math.round((i / (scorePorSemana.length - 1)) * 1200) / 10},${Math.round((44 - ((v - 4) / 4) * 40 - 2) * 10) / 10}`).join(' ');
-  const tasa = tasaDe(despues);
+  const { antes, despues, porMes, llamada } = CLOSING_MAURICIO;
+  // Los cierres ACUMULADOS de 2026 (0, 0, 0, 1, 4, 9) y lo vendido en total (abril a junio).
+  const acumulados = porMes.reduce<number[]>((a, m) => [...a, (a[a.length - 1] ?? 0) + m.cierres], []);
+  const total = acumulados[acumulados.length - 1] || 1;
+  const vendido = porMes.reduce((a, m) => a + m.usd, 0);
+  const sinResponder = llamada.objeciones.filter((o) => !o.respondida).length;
   return (
     <div className="s-cad" data-tema-fijo="" role="img"
-      aria-label={`Mauricio con MaKo: de ${antes.cierres} cierres (${antes.periodo}) a ${despues.cierres} (${despues.periodo}); una llamada suya con las objeciones que marcó MaKo, y su tasa de cierre de ${tasaDe(antes)} % a ${tasa} %`}>
-      <style dangerouslySetInnerHTML={{ __html: CSS + CSS_CHIPS }} />
+      aria-label={`Una llamada de venta de Mauricio con las objeciones que marcó MaKo, y sus cierres de 2026: de ${antes.cierres} entre ${antes.periodo.toLowerCase()} a ${despues.cierres} entre ${despues.periodo.toLowerCase()} (tasa de cierre ${tasaDe(despues)} %), ${usd(vendido)} vendidos`}>
+      <style dangerouslySetInnerHTML={{ __html: CSS + CSS_TIEMPOS }} />
       <div className="s-cad-cam">
         <div className="s-cad-in">
           <div className="s-cad-tiles">
@@ -250,49 +217,29 @@ export function ClosingAntesDespues() {
         </div>
       </div>
       <div className="s-cad-app" aria-hidden="true">
-        <div className="s-cad-lat"><Estrella /><span /><span /><span className="s-cad-lat-on" /><span /><span /></div>
-        <div className="s-cad-main">
-          <p className="s-cad-main-t">Closing<small>Las llamadas de venta analizadas: qué decide tus cierres.</small><em>{despues.periodo} 2026</em></p>
+        <div className="s-cad-dash">
+          <p className="s-cad-main-t">Closing<small>Las llamadas de venta analizadas: qué decide tus cierres.</small><em>2026</em></p>
           <div className="s-cad-hoja">
-            <div className="s-cad-pieza s-cad-tasa">
-              <div>
-                <p className="s-cad-tasa-t">Tasa de cierre</p>
-                <strong className="s-cad-tasa-n">{tasa}%</strong>
-                <span className="s-cad-delta"><b>{tasa - tasaDe(antes)} pts ▲</b>sobre el período anterior</span>
-                <div className="s-cad-prog"><i style={{ width: `${tasa}%` }} /></div>
-                <p className="s-cad-prog-t"><b>{despues.cierres}</b> de {despues.reuniones} primeras reuniones terminaron en venta</p>
+            <div className="s-cad-card">
+              <p className="s-cad-card-t">La llamada, analizada</p>
+              <div className="s-cad-nota">
+                <span className="s-cad-anillo" style={{ ['--p' as string]: Number(llamada.score) * 10 }}><b>{llamada.score.replace('.', ',')}</b></span>
+                <p><strong>Score {llamada.score.replace('.', ',')} de 10</strong>{sinResponder} de {llamada.objeciones.length} objeciones sin responder</p>
               </div>
-              <div className="s-cad-tasa-der">
-                <p>Analizadas<b>{despues.analizadas}</b></p>
-                <p>Score<b>{despues.score}</b></p>
-                <p>Ganadas<b>{despues.cierres}</b></p>
+              {llamada.objeciones.map((o) => (
+                <div key={o.tipo} className="s-cad-obj"><Estado ok={o.respondida} /><span>{o.tipo}</span><b>{minuto(o.segundo)}</b></div>
+              ))}
+            </div>
+            <div className="s-cad-card">
+              <div className="s-cad-cab">
+                <p className="s-cad-card-t">Cierres acumulados</p>
+                <span className="s-cad-plata"><strong>{usd(vendido)}</strong><small>vendidos de abril a junio</small></span>
               </div>
-            </div>
-            <div className="s-cad-pieza s-cad-card">
-              <p>Embudo de llamadas</p>
-              <div className="s-cad-emb">
-                {embudo.map((e, i) => (
-                  <div key={e.paso}>{e.paso}<b>{e.n}</b>
-                    <span style={{ ['--w' as string]: `${Math.round((e.n / embudo[0].n) * 100)}%`, ['--c' as string]: COLOR_EMBUDO[i] }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="s-cad-pieza s-cad-card">
-              <p>El score por semana</p>
-              <svg className="s-cad-linea" viewBox="0 0 120 44" preserveAspectRatio="none" aria-hidden="true">
-                <polygon points={`0,44 ${puntos} 120,44`} />
-                <polyline points={puntos} pathLength={1} />
-              </svg>
-              <div className="s-cad-ejes"><span>Abr</span><span>May</span><span>Jun</span></div>
-            </div>
-            <div className="s-cad-pieza s-cad-card">
-              <p>Cierres por mes</p>
               <div className="s-cad-barras">
-                {porMes.map((m) => (
-                  <div key={m.mes} className={`s-cad-barra-m${m.cierres ? '' : ' s-cad-cero'}`}>
-                    <span className="s-cad-pista" style={{ ['--h' as string]: `${m.cierres ? Math.round((m.cierres / maxMes) * 100) : 4}%` }}>
-                      <i /><b>{m.cierres}</b>
+                {porMes.map((m, i) => (
+                  <div key={m.mes} className={`s-cad-barra-m${acumulados[i] ? '' : ' s-cad-cero'}`}>
+                    <span className="s-cad-pista" style={{ ['--h' as string]: `${acumulados[i] ? Math.round((acumulados[i] / total) * 100) : 4}%` }}>
+                      <i /><b>{acumulados[i]}</b>
                     </span>
                     {m.mes}
                   </div>
@@ -300,14 +247,6 @@ export function ClosingAntesDespues() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-      <div className="s-cad-intro" aria-hidden="true">
-        <span className="s-cad-intro-t">Mauricio, con MaKo</span>
-        <div className="s-cad-notas">
-          <div className="s-cad-nota"><span className="s-cad-n s-cad-n-antes">{antes.cierres}</span><span className="s-cad-que">cierres</span><span className="s-cad-mes">{antes.periodo}</span></div>
-          <span className="s-cad-flecha"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
-          <div className="s-cad-nota"><span className="s-cad-n s-cad-n-despues">{despues.cierres}</span><span className="s-cad-que">cierres</span><span className="s-cad-mes">{despues.periodo}</span></div>
         </div>
       </div>
     </div>

@@ -16,9 +16,10 @@
 export const CLOSING_MAURICIO = {
   antes: { periodo: 'Ene–Mar', cierres: 0, reuniones: 8 },
   despues: { periodo: 'Abr–Jun', cierres: 9, reuniones: 27, analizadas: 41, score: '6.7' },
+  /** Cierres y lo vendido de cada mes (el CRM: `cerro` y `monto_cierre_usd` por su fecha de cierre). Abril a junio: US$58.200. */
   porMes: [
-    { mes: 'Ene', cierres: 0 }, { mes: 'Feb', cierres: 0 }, { mes: 'Mar', cierres: 0 },
-    { mes: 'Abr', cierres: 1 }, { mes: 'May', cierres: 3 }, { mes: 'Jun', cierres: 5 },
+    { mes: 'Ene', cierres: 0, usd: 0 }, { mes: 'Feb', cierres: 0, usd: 0 }, { mes: 'Mar', cierres: 0, usd: 0 },
+    { mes: 'Abr', cierres: 1, usd: 7000 }, { mes: 'May', cierres: 3, usd: 20500 }, { mes: 'Jun', cierres: 5, usd: 30700 },
   ],
   /** El embudo de abril a junio (personas, del CRM): primeras reuniones a las que fue el prospecto, segundas y ventas. */
   embudo: [
@@ -30,6 +31,8 @@ export const CLOSING_MAURICIO = {
   scorePorSemana: [7.2, 7.1, 5.8, 6.2, 6, 5, 5.5, 7, 6.9, 7.4, 7.5, 6],
   llamada: {
     duracionMin: 110,
+    /** El score que le puso el análisis a esa llamada (de 0 a 10). */
+    score: '5.5',
     objeciones: [
       { tipo: 'No tiene el dinero ahora', segundo: 4190, respondida: false },
       { tipo: 'Lo habla con su socio', segundo: 4312, respondida: false },
