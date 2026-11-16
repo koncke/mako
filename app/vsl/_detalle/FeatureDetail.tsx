@@ -22,7 +22,7 @@ import { RUTA_CTA, TEXTO_CIERRE, TEXTO_CTA } from '../_competencia/cta';
 
 // ⚠️ ACÁ NO SE AGENDA NINGUNA LLAMADA (14/11/2026). Martín, textual: «lo de agendar llamadas sí debería estar todavía para el
 // tema de Accelerator. Ahí debería haber la agenda de llamada. **Pero en ningún otro lado debería estar**». La única agenda
-// del producto es la de la tarjeta del MaKo Acelerador (`AGENDA_ACELERADOR`, app/planes/Tarjetas.tsx); estas 14 pantallas de
+// del producto es la de la tarjeta del MaKo Accelerator (`AGENDA_ACELERADOR`, app/planes/Tarjetas.tsx); estas 14 pantallas de
 // /vsl/<slug> —y, por `Cabecera`, `CtaBand` y `Pie`, también las landings de ../_competencia— llevan a `RUTA_CTA`.
 //
 // Hasta hoy había acá un `export const CALENDLY = '/vsl#beta'` y CINCO botones «Agenda tu llamada» colgados de él. Dos

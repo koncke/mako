@@ -15,7 +15,7 @@
 // ⚠️ LA PUERTA DEL COPYWRITER ES LA SUYA (`esAdminDeTab('copywriter')` + `veCopywriter()`: el corte de `soloAdminDeTab` de /api/copywriter, sin cerrar la ruta): una
 // ruta de Spy no abre una tab que a quien mira no le corresponde.
 // ⚠️ Y SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): este botón ES «replicar el guion de la competencia», lo
-// que la columna de Pro vende y la tabla marca con una cruz en Esencial (lib/planes-comparacion.ts). El candado va ARRIBA de
+// que la columna de Pro vende y la tabla marca con una cruz en Essential (lib/planes-comparacion.ts). El candado va ARRIBA de
 // todo, para las DOS salidas: la página y el texto al portapapeles son el mismo brief de la réplica («Su estructura» + «Tu
 // versión: pídele a MaKo que la escriba»), y dejar el texto sería la misma réplica pegada en una página en blanco —justo lo que
 // `replicarPegado` ya frena (lib/copywriter/pegado-servidor.ts). Lo que la pieza publicó se sigue VIENDO entero en Spy.

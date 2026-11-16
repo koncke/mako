@@ -40,7 +40,7 @@ test('el tema de un texto, por sus palabras: el de bíceps es fitness; el de Wha
   assert.equal(temaRelacionado('negocios', 'tecnologia'), true);
   assert.equal(temaRelacionado('negocios', 'fitness'), false);
   // El negocio de MaKo, con sus ofertas vacías (sólo los nombres): igual se sabe que es de ventas.
-  assert.equal(temaDeTexto(textoDelNegocio({ ofertas: [{ nombre: 'WhatsApp Ads Funnel' }, { nombre: 'MaKo Acelerador' }] }))?.id, 'negocios');
+  assert.equal(temaDeTexto(textoDelNegocio({ ofertas: [{ nombre: 'WhatsApp Ads Funnel' }, { nombre: 'MaKo Accelerator' }] }))?.id, 'negocios');
 });
 
 test('el idioma: el inglés se reconoce por sus palabras chicas; lo dudoso no se marca', () => {
@@ -86,7 +86,7 @@ test('la primera tanda de la página es la de «De tu tema» cuando abre ahí', 
 
 const prep = (falta: string[], relacionado = true): PreparacionCorta => ({
   tema: { original: relacionado ? null : { nombre: 'fitness y deporte' }, negocio: { nombre: 'negocios, marketing y ventas' }, relacionado },
-  ofertas: [{ id: 7, nombre: 'WhatsApp Ads Funnel', falta }, { id: 8, nombre: 'MaKo Acelerador', falta: [] }],
+  ofertas: [{ id: 7, nombre: 'WhatsApp Ads Funnel', falta }, { id: 8, nombre: 'MaKo Accelerator', falta: [] }],
 });
 
 test('MaKo pregunta ANTES de escribir: la oferta, lo que le falta (de a uno) y cómo usar un tema que no tiene que ver', () => {
@@ -94,7 +94,7 @@ test('MaKo pregunta ANTES de escribir: la oferta, lo que le falta (de a uno) y c
   let r: RespuestasIniciativa = {};
   const oferta = pasoDeReplica(p, r)!;
   assert.equal(oferta.pregunta, '¿Para qué oferta lo escribo?');
-  assert.deepEqual(oferta.opciones.map((o) => o.texto), ['WhatsApp Ads Funnel', 'MaKo Acelerador', 'Para mi negocio en general']);
+  assert.deepEqual(oferta.opciones.map((o) => o.texto), ['WhatsApp Ads Funnel', 'MaKo Accelerator', 'Para mi negocio en general']);
   r = responderReplica(oferta, 'oferta:7', r);
   const quien = pasoDeReplica(p, r)!;
   assert.equal(quien.pregunta, 'A «WhatsApp Ads Funnel» le faltan datos para escribir sin inventar. ¿Para quién es? (a quién le vendes)');

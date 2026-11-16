@@ -275,7 +275,7 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
 
 /**
  * «LO QUIERO» SIN PASARELA (24/10/2026, Martín: «No voy a usar Calendly, te dije que pongas las columnas de pricing»). Quien
- * elige un plan que todavía no se cobra en línea (o el Acelerador, que nunca pasa por la pasarela: docs/ofertas-mako.md,
+ * elige un plan que todavía no se cobra en línea (o el Accelerator, que nunca pasa por la pasarela: docs/ofertas-mako.md,
  * docs/estrategia-financiera-mako.md §1.7) deja su nombre, email y WhatsApp, y queda como lead en el CRM de MaKo con el
  * plan, de dónde vino y el código de MaKo Partners en su historial. El equipo recibe el aviso en el momento. Se le da de
  * alta a mano (el alta del super admin), y un referido se reconstruye con el renglón «referido por».
@@ -300,7 +300,7 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
     const de = p.origen?.landing ? ` desde la landing «${p.origen.landing}»` : '';
     const ref = p.ref ? ` (referido por ${p.ref})` : '';
     const wa = p.whatsapp ? ` WhatsApp: +${p.whatsapp}.` : '';
-    // El diagnóstico de la puerta del Acelerador (lib/compra-plan-reglas.ts): con eso arranca la llamada.
+    // El diagnóstico de la puerta del Accelerator (lib/compra-plan-reglas.ts): con eso arranca la llamada.
     const diag = p.diagnostico ? ` Diagnóstico: ${diagnosticoEnTexto(p.diagnostico)}.` : '';
     await logLeadEvent(lead.leadId, 'Pedido de plan', `Quiere ${nombrePlan}${de}${ref}.${wa}${diag}`, 'Planes de MaKo').catch(() => {});
     // También en «Quieren entrar» (30/10/2026), para darle de alta sin ir a buscarlo al CRM. Con el rótulo de correo sin verificar.
@@ -391,7 +391,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
   // usó). Una segunda prueba se rechaza con un texto claro ANTES de abrir el pago.
   // Con el interruptor apagado (30/10/2026, lib/planes-mako.ts), ninguna compra nueva empieza con prueba: se paga y recién ahí se
   // entra (el alta sale de `aplicarPagoAprobado`). A quien ya está en prueba no lo mira nadie acá: no pasa por este camino.
-  // La prueba la deciden los planes que la traen (`planConPrueba`: Esencial y Pro desde el 14/11/2026).
+  // La prueba la deciden los planes que la traen (`planConPrueba`: Essential y Pro desde el 14/11/2026).
   const conPrueba = planConPrueba(plan.id) && !p.sinPrueba;
   if (conPrueba) {
     const puede = await puedeEmpezarPrueba(p.email, ws);
@@ -524,7 +524,7 @@ export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | '
 /**
  * EL PRIMER PLAN PROPIO de una cuenta que pagaba su agencia y la dio de baja (29/10/2026, lib/agencia-baja.ts: «la cuenta
  * queda del cliente, sin la agencia y pausada; si quiere seguir, paga él»). El plan es el de su capa (Pro si tenía Pro, si
- * no Esencial), con la pasarela con que la cobraba su agencia si sigue conectada y tiene precio en esa moneda (si no, la que
+ * no Essential), con la pasarela con que la cobraba su agencia si sigue conectada y tiene precio en esa moneda (si no, la que
  * sirva). El cobro es de SU ficha en el CRM de MaKo (por su email, nunca la de la agencia) y nace atado a su negocio.
  */
 async function primerPlanPropio(ws: number, p: { email: string; nombre: string | null; pais?: string | null }, propios: readonly Cobro[]): Promise<ResultadoCompra> {

@@ -242,7 +242,7 @@ test('el cron: antes de pausar por impago le pregunta a la pasarela, lee las cuo
   assert.match(d, /if \(!f\.ok\) return \{ tipo: 'nada'/, 'si Stripe no contesta, no se abre un cobro aparte');
 });
 
-// La PAUSA de un mes gratis (la retención del Esencial, docs/ofertas-mako.md): ese mes está cubierto, no es deuda.
+// La PAUSA de un mes gratis (la retención del Essential, docs/ofertas-mako.md): ese mes está cubierto, no es deuda.
 // Probado rompiéndolo: sin sumar los `extras` en la cobertura -> 1 fallo (éste).
 test('el mes pausado de la retención cuenta como cubierto: no hay mora', () => {
   const cobros = [sus()];

@@ -1629,7 +1629,7 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
       { k: a.balanceMxn > 0 ? 'Adeudado' : 'Saldo', v: mxn(Math.abs(a.balanceMxn)), c: a.balanceMxn > 0 ? 'var(--bad)' : 'var(--ink)' },
       { k: 'Medio de pago', v: a.fundingCard ? `*${a.fundingCard}` : '—', c: 'var(--ink)' },
       { k: 'Total gastado', v: mxn(a.amountSpentMxn), c: 'var(--ink)' },
-      { k: 'Tope', v: a.spendCapMxn ? mxn(a.spendCapMxn) : 'Sin tope', c: 'var(--ink)' },
+      { k: 'Tope', v: a.spendCapMxn ? mxn(a.spendCapMxn) : 'Ilimitado', c: 'var(--ink)' },
     ];
     actions.push({ label: 'Abrir Ads Manager ↗', href: 'https://adsmanager.facebook.com', primary: true });
   } else if (i.key === 'meta') {

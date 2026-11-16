@@ -29,15 +29,15 @@
 // EL REDISEÑO DEL 12/11/2026 (Martín: «rediseñes los tres bloques de los planes… tienen muchos ítems y puedes fijarte cómo lo
 // hace el diseño de otras aplicaciones»). COPIADO DE beehiiv (beehiiv.com/pricing, mirada el 12/11/2026, la misma referencia
 // del sitio): tarjetas blancas iguales, el nombre y su frase, el precio grande con su nota chica, UN botón a todo el ancho con
-// una nota debajo (su «No credit card required»: aquí, cuándo se paga), una raya y la lista corta, con «Todo lo de Esencial,
+// una nota debajo (su «No credit card required»: aquí, cuándo se paga), una raya y la lista corta, con «Todo lo de Essential,
 // más:» en la del medio. Lo que un plan NO trae ya no va en la tarjeta (eran 8 renglones con ✗): lo dice la comparación.
-// La insignia («Recomendado», «Con acompañamiento») arriba a la derecha, negra, como su «Most Popular». El Acelerador deja de
+// La insignia («Recomendado», «Con acompañamiento») arriba a la derecha, negra, como su «Most Popular». El Accelerator deja de
 // ser un bloque oscuro: el sol y la luna del sitio llevan la página entera a un solo modo (app/vsl/_competencia/TemaSitio.tsx),
 // y un bloque negro en el modo claro es lo que Martín pidió sacar. Se distingue por su insignia y su botón negro.
-// LA PRUEBA, SÓLO EN PRO (12/11/2026): `planConPrueba` (lib/planes-mako.ts). Esencial dice que se paga hoy.
+// LA PRUEBA, SÓLO EN PRO (12/11/2026): `planConPrueba` (lib/planes-mako.ts). Essential dice que se paga hoy.
 // LA TERCERA VUELTA (12/11/2026, noche, Martín: «no pongas tanto texto… los botones… todos tienen que estar alineados… me
-// gustaban los colores de las tarjetas anteriores, el Acelerador estaba negro»): listas cortas (`listaCorta`), sin notas debajo
-// de los botones ni la línea de pagos, filas comunes con subgrid y los colores de antes (el azul de Pro, el Acelerador grafito).
+// gustaban los colores de las tarjetas anteriores, el Accelerator estaba negro»): listas cortas (`listaCorta`), sin notas debajo
+// de los botones ni la línea de pagos, filas comunes con subgrid y los colores de antes (el azul de Pro, el Accelerator grafito).
 // =============================================================================
 
 import type { ReactNode } from 'react';
@@ -62,14 +62,14 @@ export const TEXTO_PRUEBA = PRUEBA_GRATIS_PRENDIDA
   : 'Pagas al empezar y te das de baja cuando quieras.';
 
 /** `CEJA_SOFTWARE` ya no la dibuja la tarjeta: cada columna dice cómo se trabaja en su propia ceja (`listaCorta`). Queda para
- *  quien la cite fuera de acá. `CEJA_PROGRAMA` sí: es la ceja de la lista del Acelerador y el rótulo de su tarjeta. */
+ *  quien la cite fuera de acá. `CEJA_PROGRAMA` sí: es la ceja de la lista del Accelerator y el rótulo de su tarjeta. */
 export const CEJA_SOFTWARE = 'Lo haces tú, con MaKo';
 export const CEJA_PROGRAMA = 'Lo armamos contigo';
 
 /**
  * EL TÍTULO DE LA LISTA DE CADA COLUMNA: «Incluye», en las tres (15/11/2026).
  *
- * Eran «Lo haces tú, con MaKo al lado» y «MaKo lo hace, tú apruebas» (y «Lo armamos contigo» en el Acelerador): decían
+ * Eran «Lo haces tú, con MaKo al lado» y «MaKo lo hace, tú apruebas» (y «Lo armamos contigo» en el Accelerator): decían
  * CÓMO se trabaja en cada plan. Martín, mirando /planes: «no veo que hayas cambiado los textos que están, lo haces tú, MaKo
  * al lado, MaKo lo hace tú apruebas. O sea, todo eso habíamos quedado que debería haber cambiado» — es el «lenguaje
  * nuestro» que pidió sacar de las columnas («eso debería entenderse muy fácilmente. No con lenguaje nuestro»).
@@ -78,7 +78,7 @@ export const CEJA_PROGRAMA = 'Lo armamos contigo';
  */
 export const CEJA_LISTA = 'Incluye';
 
-const n = (v: number | null) => (v == null ? 'sin tope' : v.toLocaleString('es-AR'));
+const n = (v: number | null) => (v == null ? 'ilimitados' : v.toLocaleString('es-AR'));
 /** «1 landing» / «3 landings»: el número con su palabra (los topes cambian; el plural, solo). */
 const nn = (v: number | null, uno: string, varios: string) => `${n(v)} ${v === 1 ? uno : varios}`;
 
@@ -104,7 +104,7 @@ export type ItemLista = { fuerte?: string; texto: string };
  * planes, que existe para eso. Y lo que queda arriba es sólo los MaKo Tokens, que es lo que Martín dijo que sí va.
  */
 export type ListaDeColumna = {
-  /** La ceja arriba de los checks: CÓMO se trabaja en ese plan. Reemplaza al «Todo lo de Esencial, más:» de antes. */
+  /** La ceja arriba de los checks: CÓMO se trabaja en ese plan. Reemplaza al «Todo lo de Essential, más:» de antes. */
   titulo: string;
   /** Los MaKo Tokens que trae por mes, ya escrito. null = no hay dato decidido para esa capa y NO se inventa uno. */
   tokens: string | null;
@@ -135,15 +135,15 @@ export const CEJA_NO_INCLUYE = 'No incluye';
  *     Martín lo rechaza a propósito; el único que lista cada columna entera es ClickFunnels, que es el que más se parece a
  *     nuestro cliente. Leídas en paralelo, Pro gana renglón por renglón; leída sola, cada una se entiende.
  *   · **NINGÚN NÚMERO ADENTRO DE UN BULLET** (Kajabi y beehiiv). Los topes van arriba, en su propia línea. Antes, 5 de los 7
- *     renglones de Esencial eran cifras: la columna barata se leía como una lista de lo que no te alcanza, que empuja a Pro
- *     pero no vende Esencial — y Esencial igual hay que venderlo.
+ *     renglones de Essential eran cifras: la columna barata se leía como una lista de lo que no te alcanza, que empuja a Pro
+ *     pero no vende Essential — y Essential igual hay que venderlo.
  *   · **TODA LA NEGRITA EN PRO, NINGUNA EN ESENCIAL** (ClickFunnels). La columna barata queda visualmente plana sin que le
  *     falte un renglón: no se le puede acusar de esconder nada, y aun así no engancha el ojo.
  *   · **EL BULLET #1 DE PRO ES EL QUE MÁS DUELE, no el más grande** (beehiiv): copiar la landing del competidor, con el dominio
  *     propio pegado ahí. El dominio es la palanca de la marca ajena, la más barata del rubro, y estaba escondida en un renglón
  *     compartido («Comunidad y dominio propio»).
  *   · **PRO NO TIENE MENOS RENGLONES QUE ESENCIAL** (Kajabi 5/6/4, beehiiv 6/6/8/7: la recomendada tiene MÁS). Si hay que
- *     desempatar, el que suma uno es Pro, nunca Esencial.
+ *     desempatar, el que suma uno es Pro, nunca Essential.
  *
  * ⚠️ ESTE ES EL ÚNICO LUGAR QUE SE VE. `PLANES_MAKO_DEFAULT[].incluye` (lib/planes-mako.ts) NO lo lee nadie desde el rediseño
  *    del 12/11 (la tarjeta dibuja esto, y el checkout tiene su propia entrada, `INCLUYE_EN_EL_CHECKOUT`): escribir el cambio
@@ -153,7 +153,7 @@ export const CEJA_NO_INCLUYE = 'No incluye';
  * ⚠️ Y DEPENDE DE LA CAPA, NO DEL id: un plan nuevo del setting `planes.mako` con capa `agencia` dice lo de Pro sin tocar
  *    código. Lo que NO se puede es diferenciar dos planes de la misma capa (§1.5 del relevo).
  * ⚠️ EL AVATAR DE IA NO VA EN NINGUNA COLUMNA aunque ya sea de Pro (`FUNCIONES_SOLO_PRO`, 'ai-avatar'): no se vende hasta que
- *    ande de punta a punta (`AI_AVATAR_SE_VENDE`, lib/planes-comparacion.ts). Cerrarlo en Esencial y venderlo son dos cosas.
+ *    ande de punta a punta (`AI_AVATAR_SE_VENDE`, lib/planes-comparacion.ts). Cerrarlo en Essential y venderlo son dos cosas.
  */
 export function listaCorta(capa: string): ListaDeColumna {
   // ⚠️ EL COPY DE ESTAS DOS LISTAS ES EL DE «COMPARA LOS PLANES» (15/11/2026, más tarde). Martín: «me gustaría reducir bastante
@@ -166,14 +166,14 @@ export function listaCorta(capa: string): ListaDeColumna {
   //   · LAS PALABRAS DE LA TABLA (lib/planes-comparacion.ts): «Copiar landings de la competencia», «Setter con IA», «Análisis de
   //     llamadas», «Copywriting con IA». Así un renglón de la columna se encuentra abajo con el mismo nombre. La jerga de
   //     marketing está permitida desde el 14/11 (Martín); la de nuestra cocina, no (tests/planes-tres-bloques.test.ts).
-  //   · NADA QUE YA DIGA EL BLOQUE DE LOS MaKo TOKENS: el video con IA se fue de los checks (y de la ✗ de Esencial) porque
-  //     arriba ya dice «26 clips de video con IA» en Pro y «0 clips», tachado, en Esencial. Repetirlo era la redundancia.
+  //   · NADA QUE YA DIGA EL BLOQUE DE LOS MaKo TOKENS: el video con IA se fue de los checks (y de la ✗ de Essential) porque
+  //     arriba ya dice «26 clips de video con IA» en Pro y «0 clips», tachado, en Essential. Repetirlo era la redundancia.
   //   · EL DE US$47 DICE LO QUE NO HACE, con una ✗ (`noIncluye`), con las MISMAS palabras y en el MISMO ORDEN que los primeros
   //     checks de Pro: leídas en paralelo, cada ✗ queda frente a su ✓.
-  //   · Ni Esencial dice «todo lo de X» ni Pro «todo lo de Esencial, más» (Martín, 14/11: «la idea es que cada uno se sienta
+  //   · Ni Essential dice «todo lo de X» ni Pro «todo lo de Essential, más» (Martín, 14/11: «la idea es que cada uno se sienta
   //     único»). La negrita es de Pro y de nadie más (ClickFunnels): en Pro va en negrita el nombre de la cosa.
-  //   · LOS NÚMEROS SALEN DEL CÓDIGO (`TOPES`, `ASESORES`), nunca a mano, y el «sin tope» de Pro también: sólo se dice de lo que
-  //     el código no topa. Los MaKo Tokens no están acá: son el primer ítem de la lista y los dibuja la columna.
+  //   · LOS NÚMEROS SALEN DEL CÓDIGO (`TOPES`, `ASESORES`), nunca a mano, y lo «ilimitado» de Pro también: sólo se dice de lo que
+  //     el código no topa. «Ilimitado» y nunca «sin tope» (Martín, 15/11: «lo eliminaría de todos lados»). Los MaKo Tokens no están acá: son el primer ítem de la lista y los dibuja la columna.
   //   · Lo que NO se dice: el avatar, que no se vende todavía; y «subtítulos» como cosa de Pro (corren en el navegador y están en
   //     los dos planes, lib/planes-comparacion.ts, 'ia-editores'). Lo de Pro es la edición de videos CON IA.
   const c = TOPES.completo, a = TOPES.agencia;
@@ -191,7 +191,7 @@ export function listaCorta(capa: string): ListaDeColumna {
         { fuerte: 'Análisis de llamadas', texto: '' },
         { fuerte: `Chat con ${ASESORES.length} referentes`, texto: '' },
         { fuerte: 'Comunidad', texto: ' para alumnos' },
-        ...(sinTopeEnPro.length ? [{ fuerte: sinTopeEnPro.join(' y '), texto: ' sin tope' }] : []),
+        ...(sinTopeEnPro.length ? [{ fuerte: sinTopeEnPro.join(' y '), texto: ' ilimitados' }] : []),
         { fuerte: nn(a['chats.lineas_whatsapp'], 'WhatsApp', 'WhatsApp'), texto: '' },
         { fuerte: nn(a['equipo.usuarios'], 'usuario', 'usuarios'), texto: '' },
       ],
@@ -229,8 +229,8 @@ export function listaCorta(capa: string): ListaDeColumna {
  *
  * ⚠️ El cupo sale de `cupoDeCapa` (lib/mako-tokens-reglas.ts), que es donde vive CUPO_MENSUAL y el mapeo de la capa al nivel y
  *    por qué: los niveles se llaman 'free' | 'pro' | 'growth' y **no son los planes** — el llamado `pro` es el de US$47
- *    (Esencial) y `growth` el de US$97 (MaKo Pro). Leerlos por el nombre pone el cupo cruzado.
- * ⚠️ SIN DATO, NO DICE NADA: el Acelerador no tiene cupo decidido, así que su columna no habla de tokens (null). Nunca un
+ *    (Essential) y `growth` el de US$97 (MaKo Pro). Leerlos por el nombre pone el cupo cruzado.
+ * ⚠️ SIN DATO, NO DICE NADA: el Accelerator no tiene cupo decidido, así que su columna no habla de tokens (null). Nunca un
  *    número inventado en la vitrina.
  */
 export function tokensDeLaCapa(capa: string): string | null {
@@ -252,13 +252,21 @@ export function tokensDeLaCapa(capa: string): string | null {
  * `PROGRAMA_ACELERADOR.incluye` (lib/planes-mako.ts), que es lo que leen el checkout y /reembolsos. Las dos listas dicen las
  * mismas cosas; la de acá, corta.
  */
+// 15/11/2026, ~21:00, lo que decidió Martín: «o quitamos todo o dejamos como está» (la lista ENTERA, nada de un resumen); el
+// sistema lo arma ÉL («todavía no tengo equipo… se nota más personalizado todavía»), y de lo que traen los programas high ticket
+// (docs/acelerador-que-incluyen-los-high-ticket.md) sumó todo menos lo que necesita un equipo: el tablero de resultados, la
+// asesoría abierta a SU equipo, la hoja de ruta que arma MaKo y aprueba él, las presentaciones en la comunidad y los expertos
+// invitados («no lo aclararía que sea por mes»).
 export const LISTA_PROGRAMA: readonly ItemLista[] = [
   { fuerte: '3 meses de acompañamiento personalizado', texto: '' },
-  { fuerte: 'Tu sistema de adquisición de clientes', texto: ', armado por nuestro equipo: tu funnel, tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido' },
+  { fuerte: 'Tu hoja de ruta, armada por MaKo', texto: ', y la apruebas antes de empezar' },
+  { fuerte: 'Tu sistema de adquisición de clientes', texto: ', armado por Martín: tu funnel, tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido' },
+  { fuerte: 'Un tablero de resultados', texto: ' con tus leads, reuniones y ventas, desde la primera semana' },
   { fuerte: '3 sesiones 1 a 1 con Martín', texto: ' por videollamada, de 2 horas: estrategia, seguimiento y checkpoint' },
-  { fuerte: 'Una asesoría en vivo por semana', texto: '' },
+  { fuerte: 'Una asesoría en vivo por semana', texto: ', abierta a tu equipo' },
+  { fuerte: 'Expertos y referentes del mercado', texto: ' invitados a dar capacitaciones' },
   { fuerte: 'El WhatsApp personal de Martín', texto: ' para tus dudas' },
-  { fuerte: 'Una comunidad de empresarios', texto: ' que venden high ticket' },
+  { fuerte: 'Una comunidad de empresarios', texto: ' que venden high ticket, y Martín te presenta a los que te conviene conocer' },
   { fuerte: 'MaKo Pro completo', texto: ', los 3 meses' },
 ];
 
@@ -268,13 +276,21 @@ export const LISTA_PROGRAMA: readonly ItemLista[] = [
  *
  * ⚠️ ES LA ÚNICA EXCEPCIÓN A LA REGLA DEL 12/11/2026 («ningún lado debería estar agendar llamadas, solamente iniciar la prueba
  *    gratuita»), que sigue valiendo para todo lo demás: las landings y el sitio llevan a /planes con `TEXTO_CTA`
- *    (app/vsl/_competencia/cta.ts), y Esencial y Pro se compran sin hablar con nadie. El Acelerador no: se vende por llamada,
+ *    (app/vsl/_competencia/cta.ts), y Essential y Pro se compran sin hablar con nadie. El Accelerator no: se vende por llamada,
  *    como el «hablar con ventas» del tercer bloque de cualquier SaaS, y en esa llamada se ofrece el programa
  *    (docs/vsl/README.md). Si aparece un «Agenda tu llamada» en otra pantalla, es un error: se saca.
  * Es la agenda de MARTÍN, no la de un cliente (en el repo hay otros Calendly que son de Mauricio: no son éste).
  */
 export const AGENDA_ACELERADOR = 'https://calendly.com/koncke/asesoria';
 export const TEXTO_AGENDA_ACELERADOR = 'Agenda tu llamada';
+/**
+ * EL BOTÓN DE LA COLUMNA DEL ACCELERATOR (15/11/2026, ~21:00). Martín: «en lugar de que diga agenda tu llamada, el botón de MaKo
+ * Accelerator… que diga… más información, justamente para que ellos puedan irse para allá», a la landing del programa
+ * (/accelerator, con su VSL). La llamada se pide DESDE la landing, por el pedido de /planes/accelerator (el diagnóstico de 2
+ * minutos y el pedido en el CRM con su origen), así que /planes ya no ofrece agendar en ningún lado.
+ */
+export const RUTA_ACCELERATOR = '/accelerator';
+export const TEXTO_BOTON_ACCELERATOR = 'Más información';
 
 /** Debajo del precio, una sola cosa: los días gratis, que se paga hoy, o las cuotas. */
 export function bajoElPrecio(p: { id: string }): string {
@@ -284,12 +300,12 @@ export function bajoElPrecio(p: { id: string }): string {
 export const CSS_TARJETAS = `
 /* LOS BOTONES ALINEADOS (12/11/2026, Martín: «todos tienen que estar alineados… no puede estar uno más arriba, otro más abajo»):
    cada tarjeta tiene las MISMAS filas (nombre, frase, precio, botón, lista) y con subgrid el alto de cada fila lo pone la más
-   alta de las tres. Los colores, los de antes (Martín: «me gustaban los colores… el Acelerador estaba negro»). */
+   alta de las tres. Los colores, los de antes (Martín: «me gustaban los colores… el Accelerator estaba negro»). */
 .mkpl-grilla { display: grid; gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(4, auto); padding-top: 14px; align-items: stretch; text-align: left; }
 .mkpl-card { position: relative; display: grid; grid-row: span 4; grid-template-rows: subgrid; row-gap: 0; background: #FFFFFF; color: #12151B;
   border: 1px solid #E6EAF2; border-radius: 20px; padding: 26px 24px 24px; box-shadow: 0 1px 2px rgba(18,21,27,.04), 0 10px 28px rgba(18,21,27,.06); }
 /* LA LUZ DE LA ESQUINA, EN AZUL (15/11/2026, Martín: «en MaKo Accelerator hay como una lucecita amarilla arriba a la derecha. Me
-   gustaría que la misma lucecita azul esté en el MaKo Pro de 97»). La MISMA que la del Acelerador (.mkpl-programa): el mismo
+   gustaría que la misma lucecita azul esté en el MaKo Pro de 97»). La MISMA que la del Accelerator (.mkpl-programa): el mismo
    óvalo en la misma esquina, con el azul de la casa en lugar del dorado. El sol y la luna la dejan como está: es un tono medio
    (TemaSitio sólo da vuelta los muy claros y los muy oscuros), así que en el modo oscuro queda la luz azul sobre la tarjeta negra. */
 .mkpl-card.destacado { border-color: #2F6FED; box-shadow: 0 0 0 1px #2F6FED, 0 16px 40px rgba(47,111,237,.18);
@@ -309,14 +325,14 @@ export const CSS_TARJETAS = `
    y el sol y la luna del sitio (app/vsl/_competencia/TemaSitio.tsx) decide color por color, recorriendo el DOM y mirando la
    luz de lo que cada elemento tiene detrás. Las dos tarjetas no tienen el mismo fondo (la de Pro es la destacada), así que
    para el MISMO CSS tomó decisiones distintas. Medido en producción el 15/11 en modo claro:
-     · MaKo Esencial → texto rgb(31,122,77) sobre fondo rgb(26,23,18): verde sobre NEGRO.
+     · MaKo Essential → texto rgb(31,122,77) sobre fondo rgb(26,23,18): verde sobre NEGRO.
      · MaKo Pro      → texto rgb(18,21,27) sobre fondo rgb(227,245,235): negro sobre verde.
    O sea: en una invirtió el fondo y en la otra el texto. Un par de colores apareados no se puede decidir por separado, y la
    cura no es elegir otro verde: es sacarlo del recorrido. Lo mismo vale para cualquier pastilla que se agregue acá. */
 .mkpl-bajo.gratis { align-self: flex-start; padding: 2px 10px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D; font-weight: 800; }
 .mkpl-r-boton { padding: 20px 0 22px; }
 /* UN SOLO TAMAÑO DE BOTÓN para las tres columnas (15/11/2026): el grande, que era el de «.mkpl-btn.prueba». Esa clase ya
-   no existe — agrandaba sólo los dos planes con prueba y dejaba el del Acelerador 11 px más bajo (medido en producción:
+   no existe — agrandaba sólo los dos planes con prueba y dejaba el del Accelerator 11 px más bajo (medido en producción:
    62 px contra 51). El texto puede cortar a propósito: el CTA en mayúsculas es largo y en una columna angosta tiene que
    envolver, no desbordar. */
 .mkpl-btn { display: block; text-align: center; background: #2F6FED; color: #fff !important; text-decoration: none;
@@ -354,7 +370,7 @@ export const CSS_TARJETAS = `
 /* La negrita SELECTIVA (ClickFunnels): el arranque del renglón en negrita, lo que le sigue en peso normal. Sólo la lleva Pro. */
 .mkpl-lista li b { font-weight: 700; color: #12151B; }
 .mkpl-lista li::before { ${SIGNO_SI} }
-/* El Acelerador, OSCURO para que se destaque (grafito #101319, el de la app, con el brillo dorado de su botón). No lo toca el sol
+/* El Accelerator, OSCURO para que se destaque (grafito #101319, el de la app, con el brillo dorado de su botón). No lo toca el sol
    y la luna (data-tema-fijo): es negro en los dos modos. */
 .mkpl-programa { background: radial-gradient(700px 320px at 100% 0%, rgba(245,196,81,.14), transparent 60%), linear-gradient(160deg, #1C1F27 0%, #101319 100%);
   color: #F4F5F7; border-color: #2A2F3A; box-shadow: 0 22px 54px rgba(16,19,25,.34); }
@@ -365,7 +381,7 @@ export const CSS_TARJETAS = `
 .mkpl-programa .mkpl-btn { background: #F5C451; color: #2A1E00 !important; box-shadow: 0 8px 22px rgba(245,196,81,.28); }
 .mkpl-programa .mkpl-lista li::before { ${SIGNO_SI_DORADO} }
 /* La negrita de la lista va en BLANCO en el bloque oscuro (15/11/2026): la regla general (.mkpl-lista li b) la pinta #12151B para
-   las columnas blancas, y desde que el Acelerador lleva cabezas en negrita («3 meses de acompañamiento personalizado»…) quedaban
+   las columnas blancas, y desde que el Accelerator lleva cabezas en negrita («3 meses de acompañamiento personalizado»…) quedaban
    negras sobre negro — invisibles. Lo cazó la captura, no un test. */
 .mkpl-programa .mkpl-lista li b { color: #FFFFFF; }
 /* Mensual o anual: dos radios (escondidos) y sus etiquetas como un selector; :has() muestra los precios del que está
@@ -467,7 +483,7 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
               {/* TODOS LOS BOTONES DEL MISMO TAMAÑO (15/11/2026, Martín: «agendar tu llamada, el botón no es del mismo
                   tamaño que comienza tu prueba gratuita. Eso está mal»). La clase `prueba` agrandaba sólo los de los dos
                   planes con prueba (17 px y 18 de padding contra 15 y 14): medido en producción, 62 px de alto contra 51 del
-                  Acelerador. Ya no existe: el tamaño grande es el de `.mkpl-btn`, para los tres. */}
+                  Accelerator. Ya no existe: el tamaño grande es el de `.mkpl-btn`, para los tres. */}
               <a className={`${borde} mkpl-mes`} href={boton.href}>{boton.texto}</a>
               {conAnual && p.precioAnualUsd && <a className={`${borde} mkpl-anual`} href={botonAnualDelPlan({ id: p.id, sufijo }).href}>{botonAnualDelPlan({ id: p.id, sufijo }).texto}</a>}
             </div>
@@ -478,7 +494,7 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
                     «debería ser un diseño similar a lo de incluye, e incluso debería estar ahí en unos ítems de incluye»; y
                     después, «cuando voy ajustando la barra, cambie también la cantidad de cosas que me alcanzan y tokens abajo en
                     los planes». Por eso las dos cosas llevan su marca: la barra de arriba las mueve (los del plan MÁS los extra).
-                    Los renglones los arma `htmlAlcanza`, la misma función que usa la barra. Sin cupo (el Acelerador), nada. */}
+                    Los renglones los arma `htmlAlcanza`, la misma función que usa la barra. Sin cupo (el Accelerator), nada. */}
                 {cupo != null && (
                   <li className="mkpl-li-tokens">
                     <span>
@@ -515,12 +531,12 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
         <div className="mkpl-r-boton">
           {/* AGENDAR LA LLAMADA, SÓLO ACÁ (14/11/2026, Martín: «lo de agendar llamadas sí debería estar todavía para el tema de
               Accelerator… Pero en ningún otro lado debería estar»). Es la agenda de Martín, fuera del sitio: se abre en otra
-              pestaña (`AGENDA_ACELERADOR`). Esencial y Pro siguen con su botón de siempre, que compra sin hablar con nadie. */}
-          <a className="mkpl-btn" href={AGENDA_ACELERADOR} target="_blank" rel="noopener noreferrer">{TEXTO_AGENDA_ACELERADOR}</a>
+              pestaña (`AGENDA_ACELERADOR`). Essential y Pro siguen con su botón de siempre, que compra sin hablar con nadie. */}
+          <a className="mkpl-btn" href={RUTA_ACCELERATOR}>{TEXTO_BOTON_ACCELERATOR}</a>
         </div>
         {/* SIN EL «PARA QUIÉN» (15/11/2026, a la noche). Martín: «tampoco me gusta el texto de para quién vende solo o para quién
             ya vende y tiene equipo. Ese texto elimínalo». Se fue de las tres columnas, y con él la fila del subgrid: ahora son
-            cuatro (nombre, precio, botón, lista). La promesa del Acelerador abre su lista: ahí no comparte alto con nadie. */}
+            cuatro (nombre, precio, botón, lista). La promesa del Accelerator abre su lista: ahí no comparte alto con nadie. */}
         <div>
           {pr.promesa && <p className="mkpl-promesa"><b>Nuestra promesa:</b> {pr.promesa}</p>}
           {/* Sin «Todo lo de MaKo Pro, más:» (14/11/2026): MaKo Pro es el primer check (`LISTA_PROGRAMA`) y esta columna

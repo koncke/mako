@@ -2,7 +2,7 @@
 // Quién puede abrir AI Avatar — el admin de cualquier negocio, en los tres planes (y la plataforma)
 // =============================================================================
 // Nació el 17/10/2026 sólo para el super admin (la sesión de la agencia), hasta que Martín la validara. El 29/10/2026 la
-// abrió a TODOS: «haz que AI-Avatar esté disponible para todos» (Esencial, Pro y Acelerador; ya no está en TABS_SOLO_PRO).
+// abrió a TODOS: «haz que AI-Avatar esté disponible para todos» (Essential, Pro y Accelerator; ya no está en TABS_SOLO_PRO).
 // La puerta es la de toda tab (sesión, capa, rol y onboarding: `requireRolWs`), como el Video Editor. La usan las pantallas y
 // las server actions, para que el acceso se decida en un solo lugar.
 //
@@ -22,10 +22,10 @@
 //     broll-view.tsx, PanelChat.tsx y clips-view.tsx).
 // ⚠️ LO QUE LEE, PASA. El candado estuvo unas horas en la `puerta()` común de ./actions.ts y apagó una pantalla ajena: la
 //    guía de video del editor (app/video-editor/guia/GuiaEnElChat.tsx) usa `inicioAvatarAction` para listar las FOTOS de la
-//    persona, y a un Esencial le decía «No pude leer tus fotos» y le borraba la galería de su onboarding. El porqué y qué
+//    persona, y a un Essential le decía «No pude leer tus fotos» y le borraba la galería de su onboarding. El porqué y qué
 //    action hace qué, en el comentario de `soloProParaGenerar` (./actions.ts).
 // ⚠️ ANTE LA DUDA, PASA: `esEsencialDeLaSesion` (lib/plan-esencial.ts) devuelve false si no se pudo leer el plan. Y es sólo
-//    para quien MaKo le COBRA el Esencial por la pasarela: el ws1, los acuerdos a mano y la plataforma no lo ven.
+//    para quien MaKo le COBRA el Essential por la pasarela: el ws1, los acuerdos a mano y la plataforma no lo ven.
 // ⚠️ CERRARLA EN ESENCIAL NO ES VENDERLA EN PRO: la tabla de /planes sigue sin prometerla hasta que ande de punta a punta
 //    (`AI_AVATAR_SE_VENDE`, lib/planes-comparacion.ts). Son dos decisiones distintas.
 // ⚠️ Generar pide cosas que son de la persona y no de su plan (la extensión de MaKo en Chrome, su cuenta de Google Flow, sus
@@ -49,7 +49,7 @@ export async function requireAiAvatar(): Promise<void> {
   await requireRolWs([], { nav: 'ai-avatar' });
 }
 
-/** El texto del candado si quien mira paga MaKo Esencial, o null (pasa). Lo dibuja `CartelSoloPro`; las actions lo devuelven. */
+/** El texto del candado si quien mira paga MaKo Essential, o null (pasa). Lo dibuja `CartelSoloPro`; las actions lo devuelven. */
 export async function candadoDeAiAvatar(): Promise<string | null> {
   return (await esEsencialDeLaSesion()) ? textoSoloPro('ai-avatar') : null;
 }

@@ -14,8 +14,8 @@
 //
 // UN TOPE NO ES UN PERMISO (14/11/2026). La prueba NO es una capa propia: vale EL PLAN ELEGIDO desde el primer día
 // (lib/plan-esencial.ts, `capaVendidaDe`) y los DOS planes arrancan con los 7 días (`PLANES_CON_PRUEBA`, lib/planes-mako.ts),
-// así que una prueba del de US$47 es «Esencial por la pasarela» y choca con los candados de `FUNCIONES_SOLO_PRO` igual que un
-// Esencial pagado. El tope de la prueba es el TECHO de quien ya tiene la función por su plan, nunca la llave: lo que decide
+// así que una prueba del de US$47 es «Essential por la pasarela» y choca con los candados de `FUNCIONES_SOLO_PRO` igual que un
+// Essential pagado. El tope de la prueba es el TECHO de quien ya tiene la función por su plan, nunca la llave: lo que decide
 // si la tiene es su plan. Lo que se cuenta en el RESUMEN (y por lo tanto se promete) se filtra por eso:
 // `FUNCION_PRO_DE_CADA_TOPE`, abajo.
 // =============================================================================
@@ -173,12 +173,12 @@ export async function sumarUsoDePrueba(ws: number, cual: TopePrueba, cuantas = 1
 export type UsoDePrueba = { tope: Exclude<TopePrueba, 'prueba.exportar'>; usado: number; de: number };
 
 /**
- * LOS TOPES QUE CUENTAN UNA FUNCIÓN QUE EL PLAN PUEDE CERRAR (14/11/2026, la verificación de lo que se cerró en Esencial).
+ * LOS TOPES QUE CUENTAN UNA FUNCIÓN QUE EL PLAN PUEDE CERRAR (14/11/2026, la verificación de lo que se cerró en Essential).
  * ⚠️ UN TOPE DE LA PRUEBA NO ES UN PERMISO: es el TECHO de lo que se puede llevar quien YA tiene la función por su plan. La
  * tabla de topes no sabe nada de `FUNCIONES_SOLO_PRO` a propósito — son dos ejes distintos (lib/topes-plan.ts) —, y por eso
- * `topeEnPrueba('completo', 'prueba.avatares')` da 1 también para un Esencial: el 1 sale de la prueba porque el PLAN no tiene
+ * `topeEnPrueba('completo', 'prueba.avatares')` da 1 también para un Essential: el 1 sale de la prueba porque el PLAN no tiene
  * la clave (`topeEnPrueba` devuelve el de la prueba cuando el plan no la topa). Leída como «lo que la prueba incluye», esa
- * fila se volvía una promesa: el resumen le contaba «0 de 1 video con avatar de IA» a un Esencial que en /ai-avatar se come
+ * fila se volvía una promesa: el resumen le contaba «0 de 1 video con avatar de IA» a un Essential que en /ai-avatar se come
  * el cartel de Pro (`candadoDeAiAvatar`, app/ai-avatar/acceso.ts). Y los dos planes arrancan con los 7 días
  * (`PLANES_CON_PRUEBA`), con los topes de SU plan desde el primer día (lib/plan-esencial.ts, `capaVendidaDe`): la prueba no
  * es una capa aparte, así que «está en prueba» no destraba nada.
@@ -199,7 +199,7 @@ export type ResumenPrueba =
  * cartel de la barra lateral, la franja de cada pantalla con tope, «Tu plan» del teléfono, y lo lee la API (`ver_mi_prueba`).
  * Las páginas publicadas se cuentan de la tabla (las publicadas hoy), como el freno. Nunca tira.
  * `usos` ES UNA LISTA DE LO QUE LA PRUEBA LE DA, y por eso se filtra por plan: sin el filtro, los cuatro lugares que la
- * dibujan le prometían el avatar de IA a un Esencial que lo tiene cerrado (`FUNCION_PRO_DE_CADA_TOPE`, arriba). Quien lee
+ * dibujan le prometían el avatar de IA a un Essential que lo tiene cerrado (`FUNCION_PRO_DE_CADA_TOPE`, arriba). Quien lee
  * esto no agrega su propia lista de topes: la de acá ya viene filtrada, y una segunda se desfasa el día que cambie el plan.
  */
 export async function resumenDePrueba(ws: number, ahoraMs: number = Date.now()): Promise<ResumenPrueba> {

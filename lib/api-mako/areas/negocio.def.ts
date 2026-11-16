@@ -210,8 +210,8 @@ export const DEFS: readonly OperacionDef[] = [
   // (lib/prueba-uso.ts, `resumenDePrueba`), y «Empezar mi plan ya» de Tu plan (lib/empezar-plan.ts). Cancelarla es
   // dar_de_baja_mi_plan. Empezar una prueba NO está acá: es la compra pública de /planes, de un negocio que todavía no existe.
   //
-  // ⚠️ POR QUÉ LA DESCRIPCIÓN NO LISTA EL VIDEO CON AVATAR DE IA (14/11/2026, la verificación de lo que se cerró en Esencial).
-  // Listaba los cinco topes, el avatar entre ellos, y eso es lo que la IA repetía: un dueño de MaKo Esencial en sus 7 días que
+  // ⚠️ POR QUÉ LA DESCRIPCIÓN NO LISTA EL VIDEO CON AVATAR DE IA (14/11/2026, la verificación de lo que se cerró en Essential).
+  // Listaba los cinco topes, el avatar entre ellos, y eso es lo que la IA repetía: un dueño de MaKo Essential en sus 7 días que
   // pregunta «¿qué incluye mi prueba?» recibía por WhatsApp la misma promesa que ese mismo día se sacó del FAQ del sitio
   // (app/vsl/_sitio/preguntas.ts), y en /ai-avatar se encuentra el cartel de Pro ('ai-avatar' en `FUNCIONES_SOLO_PRO`).
   // LA DESCRIPCIÓN NO PUEDE DEPENDER DEL NEGOCIO, y por eso la lista se fue en vez de aclararse: es UN string por operación, el
@@ -220,7 +220,7 @@ export const DEFS: readonly OperacionDef[] = [
   // (lib/prueba-uso.ts, `FUNCION_PRO_DE_CADA_TOPE`), así que la descripción manda a leerla y le prohíbe nombrar lo que no esté.
   // A un Pro en prueba no le cambia nada: su fila del avatar sigue viniendo en `usos` y la IA la cuenta desde ahí.
   // EL PRECIO DE ESTO ES LA RELEVANCIA, Y LA PAGA OTRA OPERACIÓN, A PROPÓSITO (medido el 15/11/2026, segunda vuelta). Sacar
-  // «avatar» de acá la hundió para una pregunta con esa palabra: con el conjunto visible de un Esencial por WhatsApp (936 de
+  // «avatar» de acá la hundió para una pregunta con esa palabra: con el conjunto visible de un Essential por WhatsApp (936 de
   // 1108), «¿puedo hacer un video con mi avatar de IA?» la dejó en el puesto 161 de `ordenarPorRelevancia` y fuera de los ~16
   // esquemas que entran en el presupuesto del turno (12 000 chars, `PRESUPUESTO_REGISTRO_CHARS`). ⛔ NO SE ARREGLA VOLVIENDO A
   // NOMBRAR EL AVATAR ACÁ: la que tiene que contestar esa pregunta es `ver_avatares` (video.def.ts), que es la que LEE sus
@@ -234,7 +234,7 @@ export const DEFS: readonly OperacionDef[] = [
   // puesto 38 de 936 y NO viaja: con esa frase el tope de la prueba no se lo cuenta nadie. Si eso hay que arreglarlo, se
   // arregla donde se decide la relevancia, no volviendo a nombrar el avatar en esta descripción.
   // NO se cerró la operación entera con el molde de `esEsencialDe` (lib/api-mako/areas/closing.run.ts, `conCandadoDePro`): un
-  // Esencial en prueba tiene derecho a ver su prueba —sus días, su primer cobro, sus videos, sus imágenes, su página—. Lo que
+  // Essential en prueba tiene derecho a ver su prueba —sus días, su primer cobro, sus videos, sus imágenes, su página—. Lo que
   // sobraba era una fila, no la operación.
   {
     id: 'ver_mi_prueba', area: 'negocio', tipo: 'lectura',
@@ -257,7 +257,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_mi_programa_partners', area: 'negocio', tipo: 'lectura',
     titulo: 'Mi panel de MaKo Partners',
-    descripcion: 'El panel de MaKo Partners de este negocio (lo mismo que la pantalla MaKo Partners). MaKo Partners paga en DINERO el 100% del primer mes de cada negocio nuevo que entra con el link o el código del partner (US$ 97 por cada MaKo Pro, US$ 47 por cada MaKo Esencial), cuando ese negocio paga su segundo mes; MaKo se lo transfiere a la cuenta que el partner dejó. Si ya es partner: su link y su código para compartir, cuántas personas abrieron el link, lo ganado, lo que tiene a cobrar, lo que está en camino, lo ya transferido, a dónde se le transfiere, cada negocio que trajo con su estado y lo que le deja, y los mensajes listos para recomendar MaKo con su link (`mensajes_para_recomendar`). Si todavía no lo es: `es_partner: false` y cómo hacerse (hacerme_partner). Hacerse partner es de MaKo Pro.',
+    descripcion: 'El panel de MaKo Partners de este negocio (lo mismo que la pantalla MaKo Partners). MaKo Partners paga en DINERO el 100% del primer mes de cada negocio nuevo que entra con el link o el código del partner (US$ 97 por cada MaKo Pro, US$ 47 por cada MaKo Essential), cuando ese negocio paga su segundo mes; MaKo se lo transfiere a la cuenta que el partner dejó. Si ya es partner: su link y su código para compartir, cuántas personas abrieron el link, lo ganado, lo que tiene a cobrar, lo que está en camino, lo ya transferido, a dónde se le transfiere, cada negocio que trajo con su estado y lo que le deja, y los mensajes listos para recomendar MaKo con su link (`mensajes_para_recomendar`). Si todavía no lo es: `es_partner: false` y cómo hacerse (hacerme_partner). Hacerse partner es de MaKo Pro.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },

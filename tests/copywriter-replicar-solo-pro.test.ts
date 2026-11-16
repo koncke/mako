@@ -5,13 +5,13 @@
 // tests/replicar-solo-pro.test.ts). Una verificación adversarial encontró que la función tenía OTRAS puertas abiertas, y que
 // el candado además había dejado un botón muerto. Este archivo las ata, una por una:
 //   1. /api/copywriter/ia — la puerta PRINCIPAL. Una página con `props.outlier` ES una réplica: el original entero va al
-//      prompt y vuelve el guion adaptado (lib/copywriter/ia.ts, `conElOriginal`), en «Editar» y en «Discutir». El Esencial se
+//      prompt y vuelve el guion adaptado (lib/copywriter/ia.ts, `conElOriginal`), en «Editar» y en «Discutir». El Essential se
 //      llevaba la réplica completa sin tocar ninguna de las cinco puertas cerradas.
 //   2. /api/competitor-spy/copiar — «Hacer uno así», el botón que la columna de Pro vende con esas palabras.
 //   3. La API de MaKo (lib/api-mako/areas/copywriter.run.ts) — el candado estaba sólo en `ejecutar`: por WhatsApp MaKo
-//      PROPONÍA la réplica a un Esencial, quemaba la pendiente con el «sí» y recién ahí decía que no. Va al PROPONER.
+//      PROPONÍA la réplica a un Essential, quemaba la pendiente con el «sí» y recién ahí decía que no. Va al PROPONER.
 //   4. La pantalla — dentro del original abierto, el cartel se dibujaba detrás del modal: el candado va ADENTRO.
-// Y lo que NO se cierra, que es la otra forma de fallar: Pro, el Acelerador, el super admin, el ws1 y los acuerdos a mano
+// Y lo que NO se cierra, que es la otra forma de fallar: Pro, el Accelerator, el super admin, el ws1 y los acuerdos a mano
 // pasan (`esEsencialPorPasarela`), y escribir un guion desde cero sigue en los dos planes.
 //
 // Probado rompiéndolo (14/11/2026): al pie del archivo.
@@ -56,12 +56,12 @@ test('la regla no cambió: replicar el guion de otro es de Pro, y el candado dic
   assert.equal(textoSoloPro('replicar-guion'), 'Replicar el guion de otro es de MaKo Pro. Pasa a Pro para usarlo.');
 });
 
-test('EL QUE PAGA PASA: sólo el Esencial de la pasarela lleva candado (Pro, Acelerador, super admin y los de a mano, no)', () => {
+test('EL QUE PAGA PASA: sólo el Essential de la pasarela lleva candado (Pro, Accelerator, super admin y los de a mano, no)', () => {
   // La capa que se le VENDIÓ y la que tiene hoy, las dos `completo` (lib/plan-esencial-reglas.ts). Es la única combinación
   // con candado: cerrarle la puerta a quien paga es tan grave como dejarla abierta.
   const caso = (e: { ws: number; capa: string | null; capaVendida: string | null }) =>
     esEsencialPorPasarela({ wsPlataforma: 9, ...e });
-  assert.equal(caso({ ws: 3, capa: 'completo', capaVendida: 'completo' }), true, 'Esencial por la pasarela: candado');
+  assert.equal(caso({ ws: 3, capa: 'completo', capaVendida: 'completo' }), true, 'Essential por la pasarela: candado');
   assert.equal(caso({ ws: 3, capa: 'agencia', capaVendida: 'agencia' }), false, 'MaKo Pro pasa');
   assert.equal(caso({ ws: 3, capa: 'agencia', capaVendida: 'completo' }), false, 'el que subió a Pro pasa desde el cambio');
   assert.equal(caso({ ws: 3, capa: 'completo', capaVendida: null }), false, 'sin suscripción de la pasarela (acuerdo a mano) pasa');

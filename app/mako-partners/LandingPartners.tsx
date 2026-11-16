@@ -167,12 +167,12 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
               <span className="mp-ceja">MaKo Partners</span>
               <h1>Recomienda MaKo y llévate el <em>100%</em> de lo que vendes</h1>
               <p className="mp-bajada">
-                Cada negocio que entra con tu link te deja <b>su primer mes entero</b>: {precios.join(' y ')}. En dinero y sin tope.
+                Cada negocio que entra con tu link te deja <b>su primer mes entero</b>: {precios.join(' y ')}, en dinero. Negocios ilimitados.
               </p>
               <div className="mp-acciones"><Boton boton={boton} /></div>
               <ul className="mp-chips">
                 <li>Gratis</li>
-                <li>Sin tope de negocios</li>
+                <li>Negocios ilimitados</li>
                 <li>Cobras en dinero</li>
               </ul>
             </div>
@@ -188,7 +188,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
           <ul className="mp-numeros">
             <li className="mp-numero"><b>100%</b><span>del <strong>primer mes</strong> de cada negocio que traes.</span></li>
             {tope && <li className="mp-numero"><b>{usd(gananciaDelReferido(tope.precioUsd))}</b><span>por cada negocio que elige <strong>{tope.nombre}</strong>.</span></li>}
-            <li className="mp-numero"><b>Sin tope</b><span>Traes 10 negocios, ganas 10 primeros meses. Traes 100, <strong>ganas 100</strong>.</span></li>
+            <li className="mp-numero"><b>Ilimitado</b><span>Traes 10 negocios, ganas 10 primeros meses. Traes 100, <strong>ganas 100</strong>.</span></li>
           </ul>
         </div>
       </section>

@@ -38,7 +38,7 @@ test('«--now» es sólo el signo de los cupos: la letra queda en tinta, que es 
   assert.doesNotMatch(html, /#DC2626|#FEF2F2|#FECACA/i);
 });
 
-test('la tarjeta oscura del Acelerador no se aclara: su letra es blanca y sobre un fondo claro no se lee', () => {
+test('la tarjeta oscura del Accelerator no se aclara: su letra es blanca y sobre un fondo claro no se lee', () => {
   assert.match(HOJA, /\.mkpl-card:not\(\.mkpl-programa\) \{ background:/);
   assert.doesNotMatch(HOJA, /\.mkpl-card \{[^}]*background:/);
 });

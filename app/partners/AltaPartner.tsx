@@ -6,7 +6,7 @@
 // Martín (25/10): «Solo los CTA para que se haga Partner, posterior a apretar eso, un pequeño onboarding, que le pregunte
 // algunas cosas como, cuantos quisiera referir, etc... Y que ahí le de su link de referido». UNA pregunta por pantalla, con
 // respuestas grandes (la regla de Martín: si en un segundo no se deduce qué hacer, está mal), como el diagnóstico del
-// Acelerador y los onboardings de Tolt y Dub (cuántos, por dónde, dónde te pagamos):
+// Accelerator y los onboardings de Tolt y Dub (cuántos, por dónde, dónde te pagamos):
 //   1. ¿A cuántos negocios podrías recomendarle MaKo? (avanza sola al tocar)
 //   2. ¿Cómo vas a llegar a ellos? (varias)
 //   3. ¿Dónde te transferimos lo que ganes? (alias, CBU o PayPal; se puede dejar para después)

@@ -314,7 +314,7 @@ export const RUNNERS: Runners = {
       const productoId = num(input, 'productoId');
       const c = await cursoDe(productoId);
       if ('error' in c) return c;
-      // La copia de un programa con clases es un CURSO más: MaKo Esencial tiene uno (14/11/2026, lib/tope-cursos.ts).
+      // La copia de un programa con clases es un CURSO más: MaKo Essential tiene uno (14/11/2026, lib/tope-cursos.ts).
       const tope = await frenoAlDuplicar(ctx.ws, productoId!);
       if (tope) return { error: tope.texto };
       const nombre = (await nombresDeCursos([productoId!], { conTitulo: true })).get(productoId!) ?? SIN_NOMBRE_EQUIPO;
@@ -474,7 +474,7 @@ export const RUNNERS: Runners = {
       if (!prod.claves.includes(moduloClave)) {
         return { error: `El módulo «${moduloClave}» no existe en este curso.`, disponibles: prod.modulos.map((m) => ({ clave: m.clave, nombre: m.nombre })) };
       }
-      // La PRIMERA clase de un programa crea un curso: MaKo Esencial tiene uno (14/11/2026, lib/tope-cursos.ts).
+      // La PRIMERA clase de un programa crea un curso: MaKo Essential tiene uno (14/11/2026, lib/tope-cursos.ts).
       const tope = await frenoAlCrearClase(ctx.ws, productoId);
       if (tope) return { error: tope.texto };
       const v = await camposDe(input, true);

@@ -85,7 +85,7 @@ const USUARIOS = [
 
 test('23 · el índice: se arma sin el negocio de la plataforma, y si falla una lectura de QUIÉN entra viaja vacío y con su error', async () => {
   const { leerIndice, buscar } = await import('../app/admin/_polar/datos/busqueda-tipos')
-  const plan = (c: string) => (c === 'completo' ? 'MaKo Esencial' : c)
+  const plan = (c: string) => (c === 'completo' ? 'MaKo Essential' : c)
   const lecturas = {
     workspaces: async () => WS, usuarios: async () => USUARIOS, plataforma: async () => 9, deAgencia: async () => new Map<number, number>(),
   }
@@ -238,12 +238,12 @@ test('21 y 24 · la fila del catálogo: «Vender» (el botón y el menú, que se
   const boton = [...m.cont.querySelectorAll('button')].find((b) => b.textContent === 'Vender')
   assert.ok(boton, 'el botón dice «Vender», no «Compartir»')
   await clic(boton)
-  const filas = await abrirMenu(m.cont.querySelector('button[aria-label="Más opciones de MaKo Esencial"]') as Element)
+  const filas = await abrirMenu(m.cont.querySelector('button[aria-label="Más opciones de MaKo Essential"]') as Element)
   assert.deepEqual(filas().map((e) => e.textContent), ['Vender', 'Copiar el ID del plan'])
   await clic(fila(filas, /Vender/))
   // El botón y la fila del menú van al mismo lugar, y ninguno abre la ficha del plan (la fila entera es un link).
   assert.deepEqual(m.llamadas, [`push ${rutaParaVender('esencial')}`, `push ${rutaParaVender('esencial')}`])
-  const filas2 = await abrirMenu(m.cont.querySelector('button[aria-label="Más opciones de MaKo Esencial"]') as Element)
+  const filas2 = await abrirMenu(m.cont.querySelector('button[aria-label="Más opciones de MaKo Essential"]') as Element)
   await clic(fila(filas2, /Copiar/))
   assert.deepEqual(pedidos, ['esencial'])
   assert.ok(fila(filas2, /No pude copiar/), 'si el portapapeles dijo que no, la fila lo dice')

@@ -1,7 +1,7 @@
 // =============================================================================
 // El tope de usuarios del plan al invitar a alguien al equipo (23/10/2026)
 // =============================================================================
-// Los planes de MaKo (docs/ofertas-mako.md): Esencial, 1 usuario; Pro, 5 (lib/topes-plan.ts → 'equipo.usuarios'). Lo hace
+// Los planes de MaKo (docs/ofertas-mako.md): Essential, 1 usuario; Pro, 5 (lib/topes-plan.ts → 'equipo.usuarios'). Lo hace
 // cumplir el alta del equipo (/api/equipo → `invitar`), con un cartel corto y «Pasar a Pro». Las reglas del Cerebro:
 //   · SÓLO a quien MaKo le cobra el plan por la pasarela (`suscripcionDeMakoDe(ws) != null`): nunca al ws1 ni a un acuerdo a
 //     mano, que también tienen capa `completo`;

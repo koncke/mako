@@ -17,7 +17,7 @@
 // al POST.
 //
 // SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes, editarlo
-// con IA no. Un Esencial recibe el 403 con `pasarAPro`, antes del rate limit y de leer archivos.
+// con IA no. Un Essential recibe el 403 con `pasarAPro`, antes del rate limit y de leer archivos.
 
 import type { NextRequest } from 'next/server';
 import { candadoIaDeEditores } from '@/lib/editores-ia-pro';

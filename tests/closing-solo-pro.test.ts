@@ -2,7 +2,7 @@
 // El análisis de las llamadas de venta (la hoja «Closing» del Dashboard) es SÓLO de MaKo Pro (14/11/2026)
 // =============================================================================
 // La tabla de planes lo vendía como de Pro desde el 23/10 (`TABS_SOLO_PRO`, 'closing-analyst') y NINGÚN código lo frenaba:
-// el Esencial veía la hoja entera (el candado «va en el Dashboard», decía lib/plan-esencial-reglas.ts, y nadie lo puso).
+// el Essential veía la hoja entera (el candado «va en el Dashboard», decía lib/plan-esencial-reglas.ts, y nadie lo puso).
 // Martín (14/11/2026): «seas más limitado en el de 47». Lo que se fija acá (la regla y el porqué: lib/closing-solo-pro.ts):
 //   1. el texto, en el molde de `textoSoloPro`; en el teléfono, sin vender;
 //   2. la hoja del Dashboard: el candado EN LUGAR de los gráficos, sin leer sus datos (ni en el server ni en el navegador);
@@ -31,7 +31,7 @@ test('1. es de Pro en la tabla, y el candado lo dice con el molde de textoSoloPr
   assert.ok((TABS_SOLO_PRO as readonly string[]).includes('closing-analyst'));
   const fila = filasDeComparacion().find((f) => f.que === NOMBRE_TAB_PRO['closing-analyst']);
   assert.ok(fila, 'la tabla de /planes vende el análisis de llamadas');
-  assert.equal(fila!.esencial, false, 'y no lo incluye en Esencial: el código tiene que cumplirlo');
+  assert.equal(fila!.esencial, false, 'y no lo incluye en Essential: el código tiene que cumplirlo');
   assert.equal(TEXTO_CLOSING_SOLO_PRO, 'Qué mejorar en cada llamada de venta es de MaKo Pro. Pasa a Pro para usarlo.');
   // El MISMO molde que `textoSoloPro` (lib/topes-plan.ts): «X es de MaKo Pro. Pasa a Pro para usarlo.».
   assert.equal(TEXTO_CLOSING_SOLO_PRO.replace(QUE_ES_CLOSING, 'X'), textoSoloPro('comunidad').replace('La comunidad de tus alumnos', 'X'));

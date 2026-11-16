@@ -20,7 +20,7 @@ import { esEsencialDe, esEsencialDeLaSesion } from '../plan-esencial';
 import { RUTA_CAMBIAR_PLAN, textoSoloPro } from '../topes-plan';
 
 /**
- * El texto del candado si el negocio paga MaKo Esencial, o null. `ws`: el negocio (la API de MaKo pasa `ctx.ws`); sin él, el
+ * El texto del candado si el negocio paga MaKo Essential, o null. `ws`: el negocio (la API de MaKo pasa `ctx.ws`); sin él, el
  * del pedido (la sesión, o el `runWithWorkspace` de la API). Nunca tira: si no se puede leer, null.
  */
 export async function candadoDeReplicar(ws?: number | null): Promise<string | null> {

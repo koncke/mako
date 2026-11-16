@@ -88,7 +88,7 @@ test('las marcas: «desde» es el plan más barato, cada precio el de su plan, y
 
 test('las portadas: los precios salen de los planes (nunca tipeados) y van a la vista desde la portada', () => {
   const src = sinComentarios(leer('scripts/landings-mako-v2.mts'));
-  // Los de los planes (el «US$1.500» que queda es lo que cuesta un diseñador afuera, no el Acelerador).
+  // Los de los planes (el «US$1.500» que queda es lo que cuesta un diseñador afuera, no el Accelerator).
   assert.doesNotMatch(src, /US\$(47|97|297)\b/, 'un precio de MaKo escrito a mano en el script');
   assert.match(src, /PLANES_MAKO_DEFAULT/, 'el respaldo sale de lib/planes-mako.ts');
   for (const cual of CUALES) {

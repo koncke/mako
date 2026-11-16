@@ -6,7 +6,7 @@
 // Contesta como las rutas: `{ ok: false, error }` con su código, así la pantalla muestra el motivo tal cual.
 //
 // ⚠️ Y EL ANÁLISIS DE LAS LLAMADAS ES SÓLO DE MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): estas rutas son la hoja Closing
-//    (su ficha de una llamada, sincronizar, re-analizar, revisar y el transcript que se lee desde la ficha). Al Esencial, 403
+//    (su ficha de una llamada, sincronizar, re-analizar, revisar y el transcript que se lee desde la ficha). Al Essential, 403
 //    con el texto del candado y `pasarAPro`, DESPUÉS de la regla de siempre (sin sesión sigue siendo 401). Ante la duda, pasa.
 
 import 'server-only';

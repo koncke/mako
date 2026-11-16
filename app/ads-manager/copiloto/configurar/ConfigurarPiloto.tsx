@@ -125,7 +125,7 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial,
   inicial: InicialPiloto; pilotoPermitido: boolean; reel: NumeroDelReel | null; canalInicial: Canal;
   /** El piloto de Instagram y YouTube, o null si no se pudo leer (las pestañas quedan sólo con lo de antes). */
   redes: RedesPiloto | null;
-  /** ¿El plan trae el piloto de Instagram y el de YouTube? (lib/copiloto/piloto.ts → `pilotoRedesPermitido`; Esencial no, 14/11/2026). */
+  /** ¿El plan trae el piloto de Instagram y el de YouTube? (lib/copiloto/piloto.ts → `pilotoRedesPermitido`; Essential no, 14/11/2026). */
   redesPermitidas: boolean;
   /** Los dos públicos de Meta del retargeting (lib/retargeting.ts), o null si no se pudo leer (no se muestra el interruptor). */
   publicosMeta: boolean | null;
@@ -221,7 +221,7 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial,
             {redes && <button type="button" aria-current={canal === 'youtube' ? 'page' : undefined} onClick={() => setCanal('youtube')}><LogoRed red="youtube" box={26} /><span>YouTube</span></button>}
           </nav>
           {canal !== 'anuncios' && redesSoloPro ? (
-            // MaKo Esencial: el piloto de Instagram y el de YouTube son de Pro (14/11/2026). Nada que configurar: el candado.
+            // MaKo Essential: el piloto de Instagram y el de YouTube son de Pro (14/11/2026). Nada que configurar: el candado.
             <section className="frn-card mq-cfg__hoja">
               <h2 className="frn-card__t">{canal === 'instagram' ? 'Instagram' : 'YouTube'}</h2>
               <CandadoSoloPro funcion="piloto-redes" style={{ marginTop: 14 }} />

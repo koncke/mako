@@ -32,14 +32,14 @@
 //    mismo que elegir «MaKo»: quien elige MaKo paga Pro igual y conserva los marcos.
 //
 // ⚠️ LAS DOS FORMAS DE FALLAR, y las dos son graves:
-//   (a) una puerta abierta → el Esencial se lleva gratis lo que se vende en Pro;
-//   (b) cerrarle la puerta a quien SÍ tiene derecho → MaKo Pro y el Acelerador (capa `agencia`, lib/planes-mako.ts), el super
+//   (a) una puerta abierta → el Essential se lleva gratis lo que se vende en Pro;
+//   (b) cerrarle la puerta a quien SÍ tiene derecho → MaKo Pro y el Accelerator (capa `agencia`, lib/planes-mako.ts), el super
 //       admin (el ws de la plataforma) y los acuerdos a mano (el ws1) tienen que pasar. Los cubre `esEsencialPorPasarela`
 //       (lib/plan-esencial-reglas.ts): pide `alta_capa = 'completo'` Y capa `completo`, y saca al ws1 y a la plataforma. La
 //       prueba gratis de 7 días corre con los topes DEL PLAN QUE ELIGIÓ (decidido el 25/10/2026, lib/topes-plan.ts): la de Pro
-//       pasa; la de Esencial ve el candado, como el resto de su plan.
+//       pasa; la de Essential ve el candado, como el resto de su plan.
 // ⚠️ ANTE LA DUDA, SE DEJA PASAR (lib/plan-esencial.ts): si no se puede leer el plan, no hay candado. Y es sólo para quien MaKo
-//    le COBRA el Esencial por la pasarela: el ws1, los acuerdos a mano y la plataforma no lo ven.
+//    le COBRA el Essential por la pasarela: el ws1, los acuerdos a mano y la plataforma no lo ven.
 // =============================================================================
 
 import 'server-only';
@@ -48,7 +48,7 @@ import { referenteDeTab } from '../chat-mako-reglas';
 import { textoSoloPro } from '../topes-plan';
 
 /**
- * El texto del candado si ese negocio paga MaKo Esencial, o null (pasa). `clave` es la tab o la clave de la conversación: si no
+ * El texto del candado si ese negocio paga MaKo Essential, o null (pasa). `clave` es la tab o la clave de la conversación: si no
  * es de un gurú, no hay nada que cerrar. Nunca tira: si no se puede leer el plan, null.
  */
 export async function candadoDeReferente(ws: number | null | undefined, clave: string | null | undefined): Promise<string | null> {

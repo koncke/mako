@@ -138,14 +138,14 @@ export const cobraPorPasarela = (mensualidadPrendida: boolean | null): boolean =
 // =============================================================================
 // EL PLAN Y LA PASARELA DE CADA CUENTA (29/10/2026, llamada con Thiago, agencia de España con 27 clientes)
 // =============================================================================
-// «Son los mismos planes, de 47 y 97» [10:24]: la cuenta de un cliente se abre con Esencial o Pro (los de /planes,
+// «Son los mismos planes, de 47 y 97» [10:24]: la cuenta de un cliente se abre con Essential o Pro (los de /planes,
 // lib/planes-mako.ts), a su precio. Y se cobra como /planes: Mercado Pago sólo en el país de SU cuenta (la de MaKo es
 // argentina: cobra en pesos); en el resto del mundo, Stripe, en EUR en la zona euro si el plan tiene ese precio, y si no en
 // USD. Hasta este día sólo cobraba Mercado Pago en pesos: para España no salía ningún link y cada cuenta esperaba la firma.
 
 export type PlanCuenta = 'esencial' | 'pro';
 export const planCuentaDe = (v: unknown): PlanCuenta => (v === 'pro' ? 'pro' : 'esencial');
-/** La capa que abre cada plan (como /planes: Esencial = completo, Pro = agencia). */
+/** La capa que abre cada plan (como /planes: Essential = completo, Pro = agencia). */
 export const CAPA_DE_PLAN: Readonly<Record<PlanCuenta, 'completo' | 'agencia'>> = { esencial: 'completo', pro: 'agencia' };
 export const planDeCapa = (capa: string | null | undefined): PlanCuenta => (capa === 'agencia' ? 'pro' : 'esencial');
 
@@ -192,7 +192,7 @@ export function cobroDeLaCuenta(p: { pais: string | null; opciones: readonly Opc
  *   · APROBADA: su capa. Sin el plan elegido (`sinElegir`, las de antes del 29/10), lo dice.
  */
 export function planQueVeLaAgencia(p: { estado: string; capa: string | null | undefined; hayCuenta: boolean; elegido: PlanCuenta | null; sinElegir: boolean }): { plan: string | null; planId: PlanCuenta; planElegido: boolean } {
-  const nombre = (x: PlanCuenta) => (x === 'pro' ? 'MaKo Pro' : 'MaKo Esencial');
+  const nombre = (x: PlanCuenta) => (x === 'pro' ? 'MaKo Pro' : 'MaKo Essential');
   if (p.estado === 'aprobado' && p.hayCuenta) {
     const planId = planDeCapa(p.capa);
     return { plan: p.sinElegir ? 'Sin elegir (tiene todo lo de Pro)' : nombre(planId), planId, planElegido: !p.sinElegir };
@@ -275,7 +275,7 @@ export function finDeLoQuePago(cobros: readonly CobroEnLaBaja[], onboardingCompl
 // CAMBIAR EL PLAN (29/10/2026, lib/agencia-plan.ts): Pro se tiene cuando se PAGA a precio de Pro
 // =============================================================================
 // La revisión de plata (hallazgos 2a y C): con la capa en el acto y el precio desde el próximo cobro, ir a Pro después de un
-// cobro y volver a Esencial antes del siguiente usaba Pro pagando 47. Un «un cambio cada 30 días» no lo cerraba (con Mercado
+// cobro y volver a Essential antes del siguiente usaba Pro pagando 47. Un «un cambio cada 30 días» no lo cerraba (con Mercado
 // Pago alcanzaba para Pro la mitad de los meses, y en el primer mes regalaba uno). La regla que quedó:
 //   · SUBIR en el acto SÓLO si se cobró la diferencia ahora (Stripe prorratea, `subirPlanStripe`) o si todavía no se pagó
 //     nada (el link del primer mes se rehace a precio de Pro, y la cuenta no se usa antes de pagarlo).
@@ -335,12 +335,12 @@ export function clienteDeAgenciaTocable(p: { agenciaWs: number; clienteWs: numbe
 
 /**
  * ¿Ya entró el primer pago a precio de Pro después de pedir la subida? (los pagos de sus suscripciones anotadas en Pro; `alcanza`:
- * el pago es de al menos el precio de Pro en su moneda, porque una pasarela que no tomó el monto nuevo cobra el de Esencial).
+ * el pago es de al menos el precio de Pro en su moneda, porque una pasarela que no tomó el monto nuevo cobra el de Essential).
  */
 export function subidaCobrada(cambio: CambioDePlan | null, pagosEnPro: readonly { fecha_pago: string | null; alcanza: boolean }[]): boolean {
   if (!cambio || !cambio.pendiente || cambio.plan !== 'pro') return false;
   // Por DÍA y estrictamente después (`fecha_pago` puede venir sin hora): un pago del mismo día pudo ser el de antes, a precio de
-  // Esencial. Si la renovación cae justo ese día, Pro llega con la siguiente.
+  // Essential. Si la renovación cae justo ese día, Pro llega con la siguiente.
   const dia = cambio.at.slice(0, 10);
   return pagosEnPro.some((x) => x.alcanza && !!x.fecha_pago && x.fecha_pago.slice(0, 10) > dia);
 }

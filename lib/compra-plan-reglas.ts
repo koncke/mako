@@ -2,12 +2,12 @@
 // compra-plan-reglas — lo que decide el checkout público de /planes (puro, con test)
 // =============================================================================
 // El servidor vive en lib/compra-plan.ts. Acá: qué se acepta del pedido (nada de precio ni de capa), cómo se limpia el
-// ORIGEN que manda la landing y el código de MaKo Partners, qué pasarela se usa, y el diagnóstico del Acelerador.
+// ORIGEN que manda la landing y el código de MaKo Partners, qué pasarela se usa, y el diagnóstico del Accelerator.
 // =============================================================================
 
 import { CAPACIDADES_PASARELA, esPasarela, type Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
-import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba } from './planes-mako';
+import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, rutaDelPlan } from './planes-mako';
 // De TIPO: se borra al compilar, así que no suma nada al bundle del cliente (esto lo importan componentes 'use client').
 import type { MotivoDuplicado } from './leads-duplicados';
 
@@ -56,10 +56,10 @@ export function codigoRefLimpio(v: unknown): string | null {
 }
 
 // =============================================================================
-// EL DIAGNÓSTICO DE 2 MINUTOS, la puerta del Acelerador (25/10/2026)
+// EL DIAGNÓSTICO DE 2 MINUTOS, la puerta del Accelerator (25/10/2026)
 // =============================================================================
 // docs/como-venden-otros.md §6c, el molde de Ropofy: «un diagnóstico de 2 minutos como puerta, más la llamada». Antes de
-// dejar sus datos, quien pide el Acelerador contesta tres preguntas, una por pantalla, y la llamada arranca sabiendo dónde
+// dejar sus datos, quien pide el Accelerator contesta tres preguntas, una por pantalla, y la llamada arranca sabiendo dónde
 // está su negocio. Son las MISMAS del diagnóstico de fase del onboarding (lib/fase-diagnostico.ts), no unas escritas acá:
 // docs/embudo-y-high-ticket.md §6 califica la llamada por facturación y por cuello, con esos mismos tramos. Lo que se
 // guarda es el TEXTO de la opción (el índice solo no dice nada en el CRM), y nunca lo que escribió el navegador.
@@ -101,7 +101,7 @@ export type PedidoCompra = {
   whatsappEscritoMal?: boolean;
   /** true = «lo quiero» sin pasarela: deja el pedido en el CRM, no abre un pago (`pedirPlanSinPasarela`). */
   quiero: boolean;
-  /** El diagnóstico de la puerta (sólo lo manda el pedido del Acelerador). Incompleto = null: el pedido entra igual. */
+  /** El diagnóstico de la puerta (sólo lo manda el pedido del Accelerator). Incompleto = null: el pedido entra igual. */
   diagnostico: RespuestaDePuerta[] | null;
   /** Por mes o por año (25/10/2026). El anual SIEMPRE se pide: el checkout cobra por mes. */
   periodo: 'mensual' | 'anual';
@@ -352,13 +352,13 @@ export function botonDelPlan(p: { id: string; nombre: string; cobrable: boolean;
   // tal (ver «SIN PASARELA», arriba). Esa es la única excepción a «siempre es lo mismo», y no es de estilo: el botón no
   // puede invitar a una prueba gratis que el cobro no da.
   const texto = !p.cobrable ? `Quiero ${p.nombre}` : TEXTO_BOTON_PRUEBA;
-  return { href: `/planes/${p.id}${p.sufijo}`, texto };
+  return { href: `/planes/${rutaDelPlan(p.id)}${p.sufijo}`, texto };
 }
 
 /** El botón del anual: siempre «Quiero» (se pide), con el origen y el partner del sufijo más `periodo=anual`. */
 export function botonAnualDelPlan(p: { id: string; sufijo: string }): { href: string; texto: string } {
   const sufijo = p.sufijo.startsWith('?') ? `${p.sufijo}&periodo=anual` : '?periodo=anual';
-  return { href: `/planes/${p.id}${sufijo}`, texto: 'Quiero el anual' };
+  return { href: `/planes/${rutaDelPlan(p.id)}${sufijo}`, texto: 'Quiero el anual' };
 }
 
 /** La bajada de /planes: «entras en el acto» sólo si algún plan se puede pagar en línea. */

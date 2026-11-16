@@ -121,7 +121,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   const volverDelPanel = () => { if (k.conectando) { k.setConectando(false); k.mirarSuIA(); } k.setInfoWA(null); };
 
   const [cerebro, ...todasFilas] = k.lista;
-  // Las conversaciones con un gurú, fuera de la lista mientras el plan sea Esencial (14/11/2026, ver `gurusSoloPro`): tocar una
+  // Las conversaciones con un gurú, fuera de la lista mientras el plan sea Essential (14/11/2026, ver `gurusSoloPro`): tocar una
   // abriría un chat que el server contesta con 403.
   const todasLasFilas = gurusSoloPro ? todasFilas.filter((f) => !f.guru) : todasFilas;
   // El coach es del admin del negocio (sus herramientas lo son): su fila, como en la computadora. Con ella, las conversaciones de oferta

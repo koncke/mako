@@ -387,7 +387,7 @@ export function decidirRepetida(marca: MarcaDifusion | null, ahoraMs: number): D
 
 /**
  * UNA DIFUSIÓN TERMINADA SE PAUSA SOLA (la verificación del Cerebro sobre 69b49a31c, 29/10/2026): quedaba prendida para
- * siempre y ocupaba un lugar del tope del plan Esencial (3 activas), y la difusión siguiente fallaba con «Llegaste al tope de
+ * siempre y ocupaba un lugar del tope del plan Essential (3 activas), y la difusión siguiente fallaba con «Llegaste al tope de
  * tu plan» por una que ya había terminado. Se reconoce por la `clave` (`PREFIJO_CLAVE_DIFUSION`: la clave no cambia nunca,
  * el nombre sí) y se pausa cuando no le queda nadie EN CURSO (`pausarDifusionesTerminadas`, lib/difusion.ts, en la corrida de
  * la hora). 'respondio' cuenta como en curso: el desenlace la cierra en la corrida siguiente, y si alguien le sumó una

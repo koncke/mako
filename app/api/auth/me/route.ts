@@ -87,7 +87,7 @@ export async function GET() {
     // Capa que compró el cliente (lib/capas.ts): el Sidebar esconde lo que no
     // incluye. Es cosmético — el enforcement real es requireCapa server-side.
     capa,
-    // MaKo Esencial por la pasarela (23/10/2026): la barra dibuja las tabs de Pro con candado (lib/plan-esencial-reglas.ts).
+    // MaKo Essential por la pasarela (23/10/2026): la barra dibuja las tabs de Pro con candado (lib/plan-esencial-reglas.ts).
     planEsencial,
     clienteDeAgencia,
     legacy: sesion.sub === 'legacy',

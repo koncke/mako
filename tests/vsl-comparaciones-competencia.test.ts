@@ -5,7 +5,7 @@
 // o no tiene, comentarios y las tarjetas «MaKo vs X» abajo. Lo que se fija acá:
 //   · cada app tiene su logo en disco, su página, su comentario y sus tres «Elige X si»;
 //   · cada celda es «si», «no», «?» (sin dato: nunca se muestra como un «no») o un valor corto;
-//   · la columna de MaKo sale del CÓDIGO: lo que es sólo de Pro (lib/topes-plan.ts) dice «En Pro» y el precio es el de Esencial;
+//   · la columna de MaKo sale del CÓDIGO: lo que es sólo de Pro (lib/topes-plan.ts) dice «En Pro» y el precio es el de Essential;
 //   · la página tiene la tabla que se desliza (con sus flechas), las tarjetas y, en cada «MaKo vs X», la tabla de las dos.
 // =============================================================================
 
@@ -63,9 +63,9 @@ test('cada celda es sí, no, sin dato o un valor corto; los «sí» y «no» de 
 
 // ── LAS DOS PÁGINAS PÚBLICAS NO PUEDEN CONTRADECIRSE (15/11/2026) ─────────────────────────────────────────────────────
 // Esta aserción miraba TRES filas (copiar_landing, comunidad, crm) y pasaba 5/5 mientras la tabla le ponía ✓ al lado del
-// precio de Esencial en el setter con IA y en el dominio propio, cerrados en Esencial el 14/11. Nadie vigilaba las otras 23.
+// precio de Essential en el setter con IA y en el dominio propio, cerrados en Essential el 14/11. Nadie vigilaba las otras 23.
 // Ahora se cruzan las DOS páginas públicas, fila por fila: /planes (lib/planes-comparacion.ts) contra la tabla «MaKo vs» de
-// /vsl/comparaciones, y se leen las DOS columnas de /planes (`celdaDeCapa`), no sólo lo que Esencial no trae: con la fila en
+// /vsl/comparaciones, y se leen las DOS columnas de /planes (`celdaDeCapa`), no sólo lo que Essential no trae: con la fila en
 // los dos planes la tabla dice «si», con la fila sólo en Pro «En Pro», y si no está en ninguno la celda va VACÍA, que es otra
 // cosa que «En Pro» (hoy no pasa; el día que un tope quede en 0 en los dos planes, pasa).
 //
@@ -73,9 +73,9 @@ test('cada celda es sí, no, sin dato o un valor corto; los «sí» y «no» de 
 //   · Las 5 filas de FUNCIÓN o de TAB sí cruzan dos fuentes: `celdaDeMaKo` lee `FUNCIONES_SOLO_PRO`/`TABS_SOLO_PRO` y /planes
 //     las escribe A MANO con `soloPro(...)`. Medido sacando 'setter-ia' de `FUNCIONES_SOLO_PRO` en memoria: rojo, 4/5.
 //   · Las 10 filas de TOPE aplicaban la MISMA regla al MISMO `TOPES` en los dos lados: no podían discrepar NUNCA. Medido con
-//     los 10 topes de Esencial en 0: la columna cambiaba 9 celdas de ✓ a «En Pro» y el test seguía 5/5. Lo que sí puede
+//     los 10 topes de Essential en 0: la columna cambiaba 9 celdas de ✓ a «En Pro» y el test seguía 5/5. Lo que sí puede
 //     discrepar es CUÁL tope gobierna la fila, y por eso /planes lo DECLARA (`FilaComparacion.tope`, 15/11/2026) y se cruza
-//     la clave, no el número: medido el 15/11, SEIS de los topes que esta tabla declara valen 1 en Esencial
+//     la clave, no el número: medido el 15/11, SEIS de los topes que esta tabla declara valen 1 en Essential
 //     (`crm.funnels`, `cobros.cuentas`, `chats.lineas_whatsapp`, `web.landings_publicadas`, `spy.competidores` y
 //     `classroom.cursos`), así que cruzar dos de esas filas entre sí pasaba la comparación de dígitos sin rojo: medido
 //     cruzando `crm` con `cuotas`, el test de entonces quedaba 7/7 verde. Con la clave declarada en los dos lados, es rojo
@@ -111,7 +111,7 @@ const EN_PLANES: Readonly<Record<Exclude<ClaveFila, 'precio' | 'espanol'>, strin
   editor_imagen: 'Editor de imágenes y carruseles, como Canva',
   editor_video: 'Editor de video, como CapCut',
   video_ia: NOMBRE_FUNCION_PRO['ia-editores'],
-  // ⚠️ Esencial SÍ trae el media buyer, con 2 recomendaciones por día: un tope mayor que 0 es «lo trae», no «En Pro».
+  // ⚠️ Essential SÍ trae el media buyer, con 2 recomendaciones por día: un tope mayor que 0 es «lo trae», no «En Pro».
   ads_ia: 'Recomendaciones por día para tus campañas de Meta',
   calendario: 'Calendario de contenido y publicación en tus redes',
   cursos: 'Cursos con módulos y clases para tus alumnos',
@@ -133,7 +133,7 @@ const EN_PLANES: Readonly<Record<Exclude<ClaveFila, 'precio' | 'espanol'>, strin
 // —no hay fuente mecánica de «qué nombra el texto de una fila»—, así que lo único que se comprueba es que esté escrita. Una
 // justificación FALSA pasa: medido el 15/11 cerrando `'tracking-leads'` en memoria y declarándola
 // `{ sinFila: 'el tracking no tiene fila propia: va dentro del CRM' }` —falso, la fila «Tracking de cada lead» existe—,
-// este archivo queda 8/8 verde con la celda de `tracking` en ✓ al lado del precio de Esencial. Lo que sí tiene dientes es la otra mitad: la
+// este archivo queda 8/8 verde con la celda de `tracking` en ✓ al lado del precio de Essential. Lo que sí tiene dientes es la otra mitad: la
 // función nueva no COMPILA sin entrada y la lista de claves se compara en runtime, así que alguien TIENE que escribir la
 // frase. Quien la escribe la mira contra `GRUPOS_MATRIZ`; quien la lee después, también.
 /** Qué fila de la tabla «MaKo vs» nombra cada función de Pro (`sinFila`: ninguna la nombra, y por qué). */
@@ -158,19 +158,19 @@ const FILA_QUE_NOMBRA_TAB: Readonly<Record<(typeof TABS_SOLO_PRO)[number], FilaD
 // ── EL COMENTARIO LE PEGA AL COMPETIDOR POR UNA FILA DE ESTA MISMA TABLA (15/11/2026) ─────────────────────────────────
 // Lo descubrió este cambio y es su efecto: la columna de MaKo ya no se tipea, se DERIVA, así que una celda puede pasar a
 // «En Pro» sola. El comentario de cada app, en cambio, es prosa (la genera scripts/visor-landings/matriz-competencia.py
-// desde la investigación) y le pega al competidor por algo CONCRETO. Si esa fila se cierra en Esencial, la página le pega
-// al otro por lo mismo que MaKo no le da a Esencial, en la MISMA página y a pocas líneas.
+// desde la investigación) y le pega al competidor por algo CONCRETO. Si esa fila se cierra en Essential, la página le pega
+// al otro por lo mismo que MaKo no le da a Essential, en la MISMA página y a pocas líneas.
 // Medido el 15/11 dibujando /vsl/comparaciones/gohighlevel: el comentario «GoHighLevel cobra la IA aparte: el setter
 // encarece cada conversación con tus leads.» y, 47 líneas de texto visible más abajo, la fila «Setter con IA | En Pro |
-// Sí, con cargo extra», debajo de una fila de precio que dice el de Esencial contra el plan de entrada de GoHighLevel.
+// Sí, con cargo extra», debajo de una fila de precio que dice el de Essential contra el plan de entrada de GoHighLevel.
 // No hay fuente mecánica de «de qué habla una frase», así que cada app lo DECLARA: `dice` es el trozo literal del comentario
 // (si se regenera con otra frase, esto se pone rojo y hay que volver a declararlo) y `filas` son las filas en las que se
-// apoya, que tienen que estar en Esencial. `seContradice` es para declarar la que YA está, no para tapar una nueva: con ella
-// la fila tiene que NO estar en Esencial, así que el día que se arregle, la entrada sale de acá o la prueba se pone roja.
+// apoya, que tienen que estar en Essential. `seContradice` es para declarar la que YA está, no para tapar una nueva: con ella
+// la fila tiene que NO estar en Essential, así que el día que se arregle, la entrada sale de acá o la prueba se pone roja.
 type ApoyoDelComentario = { dice: string; filas: readonly FilaDeLaTabla[]; seContradice?: string };
 const COMENTARIO_SE_APOYA_EN: Readonly<Record<string, ApoyoDelComentario>> = {
   'gohighlevel': { dice: 'cobra la IA aparte: el setter', filas: ['setter_ia'],
-    seContradice: 'PENDIENTE DE MARTÍN: el setter con IA es de Pro desde el 14/11, así que la página le pega a GoHighLevel por cobrar la IA aparte y su propia celda dice «En Pro». Arreglarlo es decidir cómo se vende MaKo (abrir el setter en Esencial, o dejar de pegarle por eso): lo decide Martín, no un agente' },
+    seContradice: 'PENDIENTE DE MARTÍN: el setter con IA es de Pro desde el 14/11, así que la página le pega a GoHighLevel por cobrar la IA aparte y su propia celda dice «En Pro». Arreglarlo es decidir cómo se vende MaKo (abrir el setter en Essential, o dejar de pegarle por eso): lo decide Martín, no un agente' },
   'clickfunnels': { dice: 'no admite cuotas', filas: ['cuotas'] },
   'kajabi': { dice: 'no tiene pipeline de ventas', filas: ['crm'] },
   'systeme-io': { dice: 'no integra WhatsApp', filas: ['whatsapp'] },
@@ -196,20 +196,20 @@ const COMENTARIO_SE_APOYA_EN: Readonly<Record<string, ApoyoDelComentario>> = {
 // ── «ELIGE MaKo SI»: COPY A MANO, CON EL MISMO ✓, AL LADO DE LA COLUMNA QUE SÍ SE DERIVA (15/11/2026) ─────────────────
 // `ELIGE_MAKO_SI` no es una lista de plan: es el POSICIONAMIENTO de MaKo contra el competidor, y se dibuja con el MISMO tilde
 // que una celda «si» (`s-mx-si`, app/vsl/_sitio/Comparaciones.tsx:156 y :250), dentro del panel donde la fila de precio dice
-// el de Esencial. Dos de los cinco ítems nombran cosas que Esencial NO tiene. Cambiar el copy o escribirle «(en Pro)» cambia
+// el de Essential. Dos de los cinco ítems nombran cosas que Essential NO tiene. Cambiar el copy o escribirle «(en Pro)» cambia
 // cómo se vende MaKo: es decisión de Martín, no de un agente. Lo que NO se deja pasar es que se desincronice en silencio, así
 // que cada ítem declara DOS cosas y las dos se cruzan contra el código:
-//   · qué funciones de Pro nombra (contra `FUNCIONES_SOLO_PRO`): si una se abre en Esencial, el aviso de ese ítem sobra;
-//   · qué FILAS de esta tabla promete con el tilde pelado y Esencial hoy SÍ trae: si una se cierra, el ítem queda prometiendo
+//   · qué funciones de Pro nombra (contra `FUNCIONES_SOLO_PRO`): si una se abre en Essential, el aviso de ese ítem sobra;
+//   · qué FILAS de esta tabla promete con el tilde pelado y Essential hoy SÍ trae: si una se cierra, el ítem queda prometiendo
 //     con ✓ algo que la tabla dice «En Pro» tres bloques más abajo, en la misma página. Medido el 15/11 con los 9 topes de la
 //     tabla en 0: el ítem 2 seguía prometiendo «tu CRM, tu WhatsApp y tus landings» con el mismo tilde mientras la tabla decía
 //     «En Pro» en `crm`, `whatsapp` y `landings`, y el test seguía 7/7 verde. Eso es lo que cierra `prometeDeEsencial`.
 const ELIGE_NOMBRA: ReadonlyArray<readonly [string, readonly FuncionSoloPro[], readonly FilaDeLaTabla[]]> = [
   ['Vendes servicios, mentorías o programas de ticket alto.', [], []],
-  // CRM, WhatsApp y landings están en Esencial, cada una con su tope: el ítem las promete y las tres filas tienen que decir ✓.
+  // CRM, WhatsApp y landings están en Essential, cada una con su tope: el ítem las promete y las tres filas tienen que decir ✓.
   ['Quieres tu CRM, tu WhatsApp y tus landings en una sola app.', [], ['crm', 'whatsapp', 'landings']],
   ['Quieres que la IA conteste, haga el seguimiento y agende por ti.', ['setter-ia'], []],
-  // «Ver» lo que le funciona es la fila de espiar (Esencial, con tope); «replicarlo» son las dos funciones de Pro.
+  // «Ver» lo que le funciona es la fila de espiar (Essential, con tope); «replicarlo» son las dos funciones de Pro.
   ['Quieres ver lo que le funciona a tu competencia y replicarlo.', ['replicar-landing', 'replicar-guion'], ['spy']],
   ['Trabajas en español, con personas reales del otro lado.', [], []],
 ];
@@ -222,26 +222,26 @@ const ELIGE_NOMBRA: ReadonlyArray<readonly [string, readonly FuncionSoloPro[], r
 // Por qué hace falta, medido: el cruce con /planes aplica la MISMA regla al MISMO `TOPES` en los dos lados, así que con los
 // 9 topes de la tabla en 0 la columna pasaba de si=19/«En Pro»=6 a si=11/«En Pro»=14 y el test de entonces seguía 7/7 verde.
 // Y el precio: la aserción que lo vigilaba lo comparaba contra la MISMA expresión que `celdaDeMaKo` evalúa adentro
-// (`PLANES_MAKO_DEFAULT.find(…).precioUsd`), así que no podía fallar: medido con el precio de Esencial en 999 en memoria, el
+// (`PLANES_MAKO_DEFAULT.find(…).precioUsd`), así que no podía fallar: medido con el precio de Essential en 999 en memoria, el
 // test de entonces quedaba 7/7 verde y la celda mostraba «US$ 999». Acá va el número que la página dice HOY, y es el ÚNICO
 // lugar del archivo que lo escribe: mover el precio tiene que pasar por esta línea, y los mensajes de abajo lo interpolan
 // (`celdaDeMaKo('precio').v`) para no quedar viejos. Lo mismo del otro lado: ningún comentario nombra el dígito.
 const COLUMNA_DE_MAKO_HOY: Readonly<Record<ClaveFila, string>> = {
   precio: 'US$ 47',
   landings: 'si', landings_ia: 'si', copiar_landing: EN_PRO, spy: 'si',
-  // 14/11/2026, noche: `web.dominios` pasó a 0 en Esencial. Es el dominio de una LANDING, no el de envío de los emails.
+  // 14/11/2026, noche: `web.dominios` pasó a 0 en Essential. Es el dominio de una LANDING, no el de envío de los emails.
   dominio: EN_PRO,
   crm: 'si', tracking: 'si', agenda: 'si', cuotas: 'si', llamadas_ia: EN_PRO,
   // 14/11/2026, noche: el setter con IA es de Pro ('setter-ia'). Esta celda decía «si» hasta el 15/11.
   whatsapp: 'si', instagram_dm: 'si', setter_ia: EN_PRO, automatizaciones: 'si', email: 'si',
   copy_ia: 'si', editor_imagen: 'si', editor_video: 'si', video_ia: EN_PRO,
-  // El error simétrico, el que miente en contra: un tope mayor que 0 es «lo trae». Esencial SÍ trae el media buyer, en modo
+  // El error simétrico, el que miente en contra: un tope mayor que 0 es «lo trae». Essential SÍ trae el media buyer, en modo
   // «propone», con `ads.recomendaciones_dia` = 2 (25/10/2026).
   ads_ia: 'si', calendario: 'si',
   cursos: 'si', comunidad: EN_PRO, asistente_ia: 'si', espanol: 'si',
 };
 
-test('la columna de MaKo sale del código, TODAS las filas: lo que /planes no le da a Esencial, la tabla lo dice «En Pro»', () => {
+test('la columna de MaKo sale del código, TODAS las filas: lo que /planes no le da a Essential, la tabla lo dice «En Pro»', () => {
   assert.equal(EN_PRO, 'En Pro', 'cambió lo que dice la celda de lo que es de Pro (lo lee quien compara, no el código)');
   assert.equal(ELIGE_MAKO_SI.length, 5);
 
@@ -274,16 +274,16 @@ test('la columna de MaKo sale del código, TODAS las filas: lo que /planes no le
     // existir y todo diría «si» sin que nada falle. Así que primero: esa fila existe.
     const planes = dePlanes.get(que!);
     assert.ok(planes, `«${k}»: /planes ya no tiene la fila «${que}» (cambió su texto: hay que volver a cruzarla)`);
-    // LAS DOS COLUMNAS de /planes, no sólo la de Esencial: en los dos planes es ✓, sólo en Pro es «En Pro», y en ninguno
+    // LAS DOS COLUMNAS de /planes, no sólo la de Essential: en los dos planes es ✓, sólo en Pro es «En Pro», y en ninguno
     // la celda va VACÍA («no»), que es lo que `celdaDeMaKo` devuelve con el tope en 0 en los dos.
     const enEsencial = celdaDeCapa(planes!, 'completo');
     const enPro = celdaDeCapa(planes!, 'agencia');
     const esperado = enEsencial !== false ? 'si' : enPro !== false ? EN_PRO : 'no';
-    assert.equal(v, esperado, `${k}: /planes dice «${esperado}» (Esencial «${String(enEsencial)}», Pro «${String(enPro)}») y la tabla «MaKo vs» dice «${v}»`);
+    assert.equal(v, esperado, `${k}: /planes dice «${esperado}» (Essential «${String(enEsencial)}», Pro «${String(enPro)}») y la tabla «MaKo vs» dice «${v}»`);
     // CUÁL TOPE GOBIERNA LA FILA, que es lo que de verdad puede discrepar: los dos lados aplican la misma regla al mismo
     // `TOPES`, así que el VALOR no puede diferir nunca; lo que está escrito a mano de cada lado es la CLAVE del tope. Desde
     // el 15/11 /planes la declara (`FilaComparacion.tope`), así que se comparan las claves y no los dígitos: medido el
-    // 15/11, SEIS de los topes que esta tabla declara valen 1 en Esencial (`crm.funnels`, `cobros.cuentas`,
+    // 15/11, SEIS de los topes que esta tabla declara valen 1 en Essential (`crm.funnels`, `cobros.cuentas`,
     // `chats.lineas_whatsapp`, `web.landings_publicadas`, `spy.competidores` y `classroom.cursos`), así que comparar los
     // dígitos no distinguía una fila cruzada con la equivocada: cruzando `crm` con `cuotas` el test quedaba 7/7 verde.
     // Se compara en los DOS sentidos (una fila sin tope cruzada con una fila de tope de /planes, también es un cruce).
@@ -297,9 +297,9 @@ test('la columna de MaKo sale del código, TODAS las filas: lo que /planes no le
     if (topeDeLaTabla !== undefined) {
       const n = TOPES.completo[topeDeLaTabla];
       if (typeof n === 'number' && n > 0) {
-        assert.equal(typeof enEsencial, 'string', `${k}: declara el tope «${topeDeLaTabla}» (${n} en Esencial) y /planes no muestra ningún número en «${que}»`);
+        assert.equal(typeof enEsencial, 'string', `${k}: declara el tope «${topeDeLaTabla}» (${n} en Essential) y /planes no muestra ningún número en «${que}»`);
         assert.equal(String(enEsencial).replace(/\D/g, ''), String(n),
-          `${k}: declara el tope «${topeDeLaTabla}» (${n} en Esencial) y /planes muestra «${String(enEsencial)}» en «${que}»`);
+          `${k}: declara el tope «${topeDeLaTabla}» (${n} en Essential) y /planes muestra «${String(enEsencial)}» en «${que}»`);
       }
     }
     cruzadaPor.set(que!, [...(cruzadaPor.get(que!) ?? []), k]);
@@ -319,7 +319,7 @@ test('la columna de MaKo sale del código, TODAS las filas: lo que /planes no le
   // comparaban contra la MISMA expresión que `celdaDeMaKo` evalúa adentro, así que no podían fallar nunca.
 
   // PROBADO ROMPIÉNDOLO: la columna tiene que fallar hacia «En Pro», que es el lado que no promete lo que no hay. Una fila
-  // sin candado declarado (`CANDADO_DE_LA_FILA`) no puede salir con el ✓ al lado del precio de Esencial.
+  // sin candado declarado (`CANDADO_DE_LA_FILA`) no puede salir con el ✓ al lado del precio de Essential.
   assert.equal(celdaDeMaKo('fila_que_nadie_declaro' as ClaveFila).v, EN_PRO, 'una fila sin declarar dice «si»: la tabla falla hacia la promesa');
 });
 
@@ -358,7 +358,7 @@ test('el día que se cierre la función siguiente, esto se pone rojo solo: cada 
   }
 });
 
-test('el comentario de cada app no le pega por algo que MaKo tampoco le da a Esencial', () => {
+test('el comentario de cada app no le pega por algo que MaKo tampoco le da a Essential', () => {
   // En runtime y no con el tipo: los slugs salen de los datos generados, no de una unión.
   assert.deepEqual([...Object.keys(COMENTARIO_SE_APOYA_EN)].sort(), COMPETIDORES.map((c) => c.slug).sort(),
     'entró o salió una app y nadie dijo en qué fila de la tabla se apoya su comentario');
@@ -378,7 +378,7 @@ test('el comentario de cada app no le pega por algo que MaKo tampoco le da a Ese
         continue;
       }
       assert.equal(celda, 'si',
-        `${c.nombre}: el comentario le pega con «${a.dice}» y la columna de MaKo dice «${celda}» en «${nombreDe.get(f)}»: la página le pega al competidor por algo que MaKo tampoco le da a Esencial, al lado del precio de ${celdaDeMaKo('precio').v}. Es decisión de Martín (abrirlo en Esencial, o dejar de pegarle por eso)`);
+        `${c.nombre}: el comentario le pega con «${a.dice}» y la columna de MaKo dice «${celda}» en «${nombreDe.get(f)}»: la página le pega al competidor por algo que MaKo tampoco le da a Essential, al lado del precio de ${celdaDeMaKo('precio').v}. Es decisión de Martín (abrirlo en Essential, o dejar de pegarle por eso)`);
     }
   }
   // Y LA QUE YA ESTÁ, DIBUJADA: que las dos cosas salen en la MISMA página no es un recuerdo. Se dibuja sólo la de las
@@ -412,7 +412,7 @@ test('«Elige MaKo si»: el copy a mano no se desincroniza en silencio de lo que
         `«${dice}» está anotado como que nombra «${f}», de Pro, y «${f}» ya no es de Pro: el aviso de este ítem sobra`);
     }
     // Y AL REVÉS, que es el camino que quedaba abierto: lo que el ítem promete con el tilde pelado tiene que seguir en
-    // Esencial. Un tope en 0 mueve la celda a «En Pro» sola y el copy no se entera: queda el ✓ del ítem contra el «En Pro»
+    // Essential. Un tope en 0 mueve la celda a «En Pro» sola y el copy no se entera: queda el ✓ del ítem contra el «En Pro»
     // de la tabla, en la misma página.
     for (const f of prometeDeEsencial) {
       assert.equal(celdaDeMaKo(f).v, 'si',

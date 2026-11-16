@@ -149,7 +149,7 @@ test('el ALTA al autorizar la prueba; la SUSCRIPCIÓN DE MaKo del negocio incluy
   assert.equal(FILTRO_SUSCRIPCION_DE_MAKO, 'estado.eq.pagado,and(estado.eq.pendiente,suscripcion_estado.not.is.null,creado_por.like.planes:*:prueba)');
   const filtro = ".eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').or(FILTRO_SUSCRIPCION_DE_MAKO)";
   assert.ok(cuerpo('lib/cobros.ts', 'suscripcionDeMakoDe').includes(filtro), 'suscripcionDeMakoDe');
-  assert.ok(fuente('lib/plan-esencial.ts').includes(filtro), 'los topes de Esencial leen lo mismo');
+  assert.ok(fuente('lib/plan-esencial.ts').includes(filtro), 'los topes de Essential leen lo mismo');
   assert.match(fuente('lib/plan-acceso.ts'), /const COLS = '[^']*creado_por, alta_capa';/, 'la vigencia ve la marca de la prueba');
   const baja = cuerpo('lib/cobros.ts', 'darDeBajaMiPlan');
   const rama = baja.indexOf("if (esPruebaDePlan(c) && c.estado === 'pendiente') {");
@@ -214,7 +214,7 @@ test('MaKo PARTNERS: el crédito cuenta cuotas COBRADAS, y la prueba no deja nin
 // Roturas (25/10/2026; base 34 / 0 con mi-plan, plan-esencial y compra-plan), cada una restaurada (pasan / fallan):
 //   · el alta sólo al pagar (la prueba sin cuenta)                          -> 33 / 1
 //   · la suscripción de MaKo sin la prueba (sin topes ni baja)              -> 31 / 3
-//   · los topes de Esencial sin la prueba                                   -> 32 / 2
+//   · los topes de Essential sin la prueba                                   -> 32 / 2
 //   · la baja en prueba como la de un plan pagado                           -> 33 / 1
 //   · una prueba repetida se anula aunque MP no la haya cancelado           -> 33 / 1
 //   · la prueba se activa sin estar autorizada                              -> 33 / 1

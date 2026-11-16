@@ -8,10 +8,10 @@
 // llevan el 100% de lo que venden... No pongas al programa de 1500 en el programa de referidos»). Reemplaza lo decidido el
 // 10/10 en docs/referidos.md (meses de crédito para el plan, plata sólo para los revendedores, el 20% del grupal):
 //   · Cada negocio NUEVO que entra con el link (o con el código al pagar) le deja al partner el 100% de SU PRIMER MES, a
-//     precio de lista del plan que eligió (US$ 97 Pro, US$ 47 Esencial), en dinero. Una sola vez por negocio, sin tope.
+//     precio de lista del plan que eligió (US$ 97 Pro, US$ 47 Essential), en dinero. Una sola vez por negocio, sin tope.
 //   · Se gana cuando el referido ya pagó 2 meses: el que entra y se va al mes no deja nada. Ahí pasa a «a cobrar» y MaKo se
 //     lo transfiere a la cuenta que el partner dejó en su alta. El pago lo anota el super admin (un renglón del libro).
-//   · El Acelerador de US$ 1.500 no entra en Partners. Las agencias tampoco: su panel es otro (Agency Dashboard).
+//   · El Accelerator de US$ 1.500 no entra en Partners. Las agencias tampoco: su panel es otro (Agency Dashboard).
 //   · El origen que vale es el PRIMERO; sólo clientes nuevos; nadie se refiere a sí mismo.
 // =============================================================================
 

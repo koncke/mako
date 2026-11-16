@@ -80,7 +80,7 @@ export default async function MasPagina() {
   const conAgency = ctx.ws != null && (await esAgencia(ctx.ws));
   const paraEste = conAgency ? completo : sinFilas(completo, (k) => k === 'agency');
   const grupos = appIos ? masParaAppIos(paraEste, RUTA_PRONTO) : paraEste;
-  // MaKo Esencial por la pasarela (23/10/2026): las tabs de Pro se ven, marcadas (lib/plan-esencial-reglas.ts). Sin «Pasar a
+  // MaKo Essential por la pasarela (23/10/2026): las tabs de Pro se ven, marcadas (lib/plan-esencial-reglas.ts). Sin «Pasar a
   // Pro»: el teléfono no vende (T5, docs/tiendas-play-appstore.md).
   const esencial = await esEsencialDeLaSesion();
   const ids = grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'pantalla' && f.seccion ? [f.seccion] : [])));

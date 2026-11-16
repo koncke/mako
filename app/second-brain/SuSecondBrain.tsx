@@ -43,7 +43,7 @@ export function CerebroDelGuru({ referente: r, movil = false }: { referente: Ase
   const [cerebro, setCerebro] = useState<Cerebro<string> | null>(null);
   const [error, setError] = useState<string | null>(null);
   // SÓLO MaKo Pro (14/11/2026, lib/asesores/candado.ts): el grafo del curso de un gurú es parte de hablar con él, y la ruta le
-  // contesta 403 con `pasarAPro` a un Esencial. Sin esto, ese 403 caía en `error` y se dibujaba como una falla de la app, con
+  // contesta 403 con `pasarAPro` a un Essential. Sin esto, ese 403 caía en `error` y se dibujaba como una falla de la app, con
   // «Reportar a Soporte»: el cliente creía que se rompió y nos escribía. Acá va el candado, y `marcarSoloPro` prende de una vez
   // todas las demás entradas de la función (la galería, las filas) aunque /api/auth/me todavía no haya contestado.
   const [candado, setCandado] = useState(false);

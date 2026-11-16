@@ -76,7 +76,7 @@ import { medioDelError, medioIADeLosCron, medioQueFrena, mediosQueUsa, type Medi
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { MetricasAutomatizacion } from './MetricasAutomatizacion';
 import { RUTA_LINEAS } from './SalidaWhatsApp';
-// El candado del setter con IA (14/11/2026): Publicar o Activar con MaKo Esencial contesta su texto (lib/setter-ia-reglas.ts).
+// El candado del setter con IA (14/11/2026): Publicar o Activar con MaKo Essential contesta su texto (lib/setter-ia-reglas.ts).
 import { TEXTO_SETTER_SOLO_PRO } from '@/lib/setter-ia-reglas';
 import { marcarSoloPro } from '@/app/_components/solo-pro';
 import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';

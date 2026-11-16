@@ -14,7 +14,7 @@
 //
 // Va detrás de la sesión (NO está en lib/rutas-publicas.ts) y el proxy le exige Origin propio al POST.
 //
-// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes, editarlo con IA no. Un Esencial recibe
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes, editarlo con IA no. Un Essential recibe
 // el 403 con `pasarAPro`, antes del rate limit y de leer los archivos (no gasta nada).
 
 import type { NextRequest } from 'next/server';

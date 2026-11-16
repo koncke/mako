@@ -74,7 +74,7 @@ test('2 · el panel de agentes, Automatizaciones y la API mandan sólo lo que ca
 // ── 9: los agentes propios no gastan IA cuando su respuesta no entraría ──────────────────────────────────────────────────
 
 test('9 · los lugares para los agentes propios son lo que deja el motor (que entra antes)', () => {
-  assert.equal(lugaresParaPropios(2, 0, 2), 0, 'el motor llenó el cupo de Esencial');
+  assert.equal(lugaresParaPropios(2, 0, 2), 0, 'el motor llenó el cupo de Essential');
   assert.equal(lugaresParaPropios(1, 0, 2), 1);
   assert.equal(lugaresParaPropios(0, 2, 2), 0, 'ya se recomendaron dos hoy');
   assert.equal(lugaresParaPropios(5, 1, 2), 0);

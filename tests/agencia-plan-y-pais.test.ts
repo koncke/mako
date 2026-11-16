@@ -1,5 +1,5 @@
 // =============================================================================
-// Las cuentas de agencia: el plan (Esencial o Pro), la pasarela según el país y los topes (29/10/2026)
+// Las cuentas de agencia: el plan (Essential o Pro), la pasarela según el país y los topes (29/10/2026)
 // =============================================================================
 // Llamada con Thiago (agencia de España, 27 clientes): «son los mismos planes, de 47 y 97» [10:24], y para España no salía
 // ningún link (sólo cobraba Mercado Pago en pesos). Se fija: Mercado Pago sólo en su país, Stripe afuera (EUR en la zona

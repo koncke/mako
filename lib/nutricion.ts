@@ -769,8 +769,8 @@ export type PrendidoAlActivar = { whatsapp: boolean; email: boolean };
 
 export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqueDuplique?: boolean; ws?: number } = {}): Promise<{ prendio: PrendidoAlActivar }> {
   const supabase = (await getTenantDb());
-  // ⚠️ EL TOPE DEL PLAN, ACÁ Y NO EN CADA PUERTA (23/10/2026, el chat de las tabs): «hasta 3 activas» del Esencial, antes de
-  // validar nada. Sólo al Esencial de la pasarela; volver a prender una prendida no cuenta (lib/tope-automations.ts). `ws`:
+  // ⚠️ EL TOPE DEL PLAN, ACÁ Y NO EN CADA PUERTA (23/10/2026, el chat de las tabs): «hasta 3 activas» del Essential, antes de
+  // validar nada. Sólo al Essential de la pasarela; volver a prender una prendida no cuenta (lib/tope-automations.ts). `ws`:
   // MaKo por WhatsApp corre sin sesión y lo pasa quien llama. Import dinámico: el motor no carga los planes si no prende.
   if (activa) {
     const { topeAlActivar } = await import('./tope-automations');
@@ -898,7 +898,7 @@ export { textoDelPaso };
  * pregunta; con «… igual», vuelve a pedirlo con `aunqueDuplique`. El mensaje es el aviso, listo para mostrar.
  */
 /**
- * EL TOPE DEL PLAN (MaKo Esencial: hasta 3 automatizaciones activas, lib/tope-automations.ts) al ACTIVAR. Lo tira
+ * EL TOPE DEL PLAN (MaKo Essential: hasta 3 automatizaciones activas, lib/tope-automations.ts) al ACTIVAR. Lo tira
  * `setSecuenciaActiva`, la única puerta que prende: así lo cubre cualquier camino, también uno nuevo. Las rutas lo contestan
  * 403 con `tope: true`; MaKo lo dice en su resumen. El texto es para la persona.
  */
@@ -1028,7 +1028,7 @@ function grafoAGuardar(limpio: PasoSecuencia[]): PasoSecuencia[] {
 }
 
 /**
- * EL SETTER CON IA ES DE MaKo PRO (14/11/2026, Martín): un Esencial no guarda uno NUEVO, lo que le contesta SOLO a un lead con IA (la
+ * EL SETTER CON IA ES DE MaKo PRO (14/11/2026, Martín): un Essential no guarda uno NUEVO, lo que le contesta SOLO a un lead con IA (la
  * regla: lib/setter-ia-reglas.ts; el plan: `setterNuevoSoloPro`, lib/tope-automations.ts). Lo llama `setSecuenciaPasos`, la puerta de
  * todos: el lienzo, el teléfono, la API («agregar caso» con `contestaSolo`) y el hand-off. Lo que ya tenía queda (frena lo nuevo) y, sin
  * poder leer el plan, pasa. Activar (`soloValidar`) no lo pregunta acá: lo hace `topeAlActivar`. Import dinámico, como el tope: el

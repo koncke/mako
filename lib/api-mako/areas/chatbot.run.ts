@@ -1935,7 +1935,7 @@ export const RUNNERS: Runners = {
         titulo: str(input, 'titulo'), cuando: str(input, 'cuando'), comoResponder: str(input, 'comoResponder'),
         ...(input.contestaSolo === true ? { contestaSolo: true } : {}),
       };
-      // `contestaSolo` ES EL SETTER CON IA (14/11/2026: de MaKo Pro, lib/setter-ia-reglas.ts). A un Esencial se le dice ANTES de
+      // `contestaSolo` ES EL SETTER CON IA (14/11/2026: de MaKo Pro, lib/setter-ia-reglas.ts). A un Essential se le dice ANTES de
       // proponer, no después del «sí». La puerta lo frena igual (`setSecuenciaPasos` en el grafo; Activar en la forma de antes).
       if (escenario.contestaSolo && (await esEsencialDe(ctx.ws))) return { error: TEXTO_SETTER_SOLO_PRO };
       // ⚠️ CON «SI RESPONDE», EL CASO ES UNA RAMA DE LA TARJETA: en `estrategia.escenarios` ya no lo

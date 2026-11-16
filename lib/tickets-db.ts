@@ -161,7 +161,7 @@ async function administraUnaAgencia(u: { rol: string; rol_ws: string | null; wor
 }
 
 /**
- * El plan del negocio para la ficha: el que se VENDE (Esencial o Pro), no la capa (`planDeLaFicha`, 12/11/2026, #89). Con
+ * El plan del negocio para la ficha: el que se VENDE (Essential o Pro), no la capa (`planDeLaFicha`, 12/11/2026, #89). Con
  * import diferido, como `administraUnaAgencia`. «No pude leer» → `null`.
  * ⚠️ NO `aplicanTopes` (lib/topes-plan-server.ts): importa lib/cobros, que alcanza una IA, y la Ticketera la llama el Ops Center:
  *    tests/d6b-rutas.test.ts (caso 4) dio ROJO en la punta. `pagaUnPlanDe` lee lo mismo sin lib/cobros (lib/plan-esencial.ts).

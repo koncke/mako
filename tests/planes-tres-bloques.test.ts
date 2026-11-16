@@ -4,7 +4,7 @@
 // Lo que se fija acá:
 //   · la tabla «Compara los planes» sale de los topes que el código HACE CUMPLIR (lib/topes-plan.ts), no de números
 //     escritos a mano: la vitrina no puede prometer más de lo que el producto deja;
-//   · el tercer bloque es el MaKo Acelerador (docs/ofertas-mako.md §3), que se vende por llamada y nunca por la pasarela;
+//   · el tercer bloque es el MaKo Accelerator (docs/ofertas-mako.md §3), que se vende por llamada y nunca por la pasarela;
 //     la Continuidad (US$297) no se publica;
 //   · el ANUAL no se muestra: el checkout cobra por mes, y la vitrina no dice un precio que no se puede comprar;
 //   · la página lleva a MaKo Partners.
@@ -27,13 +27,13 @@ const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\
   .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 
 const numero = (celda: unknown): number | null => {
-  if (celda === 'Sin tope') return null;
-  if (celda === false) return 0; // un tope en 0 es la celda vacía («no lo trae»: Esencial sin dominio propio, 14/11/2026)
+  if (/^Ilimitad[oa]s$/.test(String(celda))) return null; // «ilimitado», nunca «sin tope» (Martín, 15/11/2026)
+  if (celda === false) return 0; // un tope en 0 es la celda vacía («no lo trae»: Essential sin dominio propio, 14/11/2026)
   const m = /([\d.]+)$/.exec(String(celda));
   return m ? Number(m[1].replace(/\./g, '')) : NaN;
 };
 
-test('la comparación dice EXACTAMENTE los topes del código, en Esencial (completo) y en Pro y el Acelerador (agencia)', () => {
+test('la comparación dice EXACTAMENTE los topes del código, en Essential (completo) y en Pro y el Accelerator (agencia)', () => {
   const filas = filasDeComparacion();
   const porTope: Array<[string, keyof (typeof TOPES)['completo']]> = [
     ['Pipelines de venta en tu CRM, con sus etapas', 'crm.funnels'], ['Leads y clientes guardados en tu CRM', 'crm.leads'],
@@ -41,15 +41,15 @@ test('la comparación dice EXACTAMENTE los topes del código, en Esencial (compl
     ['Landings y presentaciones armadas con IA, publicadas', 'web.landings_publicadas'], ['Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'],
     ['Dominio propio para tus landings (tunegocio.com)', 'web.dominios'], ['Cuentas de cobro conectadas: Mercado Pago o Stripe', 'cobros.cuentas'],
     ['Recomendaciones por día para tus campañas de Meta', 'ads.recomendaciones_dia'],
-    // 14/11/2026 (Martín): los competidores de Competitor Spy y los cursos del Classroom, topados en Esencial.
+    // 14/11/2026 (Martín): los competidores de Competitor Spy y los cursos del Classroom, topados en Essential.
     ['Competidores que MaKo scrapea: web, redes y anuncios', 'spy.competidores'], ['Cursos con módulos y clases para tus alumnos', 'classroom.cursos'],
   ];
   for (const [que, t] of porTope) {
     const f = filas.find((x) => x.que === que);
     assert.ok(f, `falta la fila «${que}»`);
-    assert.equal(numero(f!.esencial), TOPES.completo[t], `${que} en Esencial`);
+    assert.equal(numero(f!.esencial), TOPES.completo[t], `${que} en Essential`);
     assert.equal(numero(f!.pro), TOPES.agencia[t], `${que} en Pro`);
-    assert.equal(numero(f!.acelerador), TOPES.agencia[t], `${que} en el Acelerador (trae Pro)`);
+    assert.equal(numero(f!.acelerador), TOPES.agencia[t], `${que} en el Accelerator (trae Pro)`);
   }
 });
 
@@ -60,10 +60,10 @@ test('una tab que todavía no se abrió no se promete; el avatar de IA es de Pro
   assert.deepEqual([...TABS_TODAVIA_CERRADAS], []);
   // 14/11/2026 (Martín, sobre /planes: «el de 97 ya podés generar avatares de IA»): el avatar volvió a ser de Pro, y se cierra
   // con el candado de siempre (`FUNCIONES_SOLO_PRO`, 'ai-avatar') y NO con una tab escondida: la tab se abre igual en los dos
-  // planes y adentro va el cartel, como la comunidad del Classroom. Si vuelve a `TABS_SOLO_PRO`, el Esencial no entra a la
+  // planes y adentro va el cartel, como la comunidad del Classroom. Si vuelve a `TABS_SOLO_PRO`, el Essential no entra a la
   // pantalla y pierde los looks que ya generó: son dos cosas distintas.
   assert.ok(!(TABS_SOLO_PRO as readonly string[]).includes('ai-avatar'), 'AI Avatar volvió a ser una tab escondida');
-  assert.ok((FUNCIONES_SOLO_PRO as readonly string[]).includes('ai-avatar'), 'el avatar de IA volvió a estar abierto en Esencial');
+  assert.ok((FUNCIONES_SOLO_PRO as readonly string[]).includes('ai-avatar'), 'el avatar de IA volvió a estar abierto en Essential');
   // El Cerebro, 29/10/2026: cerrarla no es venderla. Hasta un look real en el ws3 y la extensión 0.69 en la tienda, ni la fila
   // ni un renglón de un plan prometen el avatar (el mismo criterio que sacó los videos del Video Generator).
   assert.equal(AI_AVATAR_SE_VENDE, FUNCIONES_TODAVIA_NO_VENDIDAS.length === 0, 'lo que no se vende tiene que estar en FUNCIONES_TODAVIA_NO_VENDIDAS');
@@ -84,7 +84,7 @@ test('una tab que todavía no se abrió no se promete; el avatar de IA es de Pro
   // Atado a la puerta de verdad: la tab está abierta (la puerta de toda tab, no «sólo el super admin»); venderla es aparte.
   assert.ok(fuente('app/ai-avatar/acceso.ts').includes("await requireRolWs([], { nav: 'ai-avatar' });"), 'AI Avatar volvió a tener la puerta cerrada');
   // Y el candado de Pro es el de `FUNCIONES_SOLO_PRO`, en las DOS puertas: la pantalla (el cartel en lugar del estudio) y cada
-  // server action, que es donde se genera de verdad. Sin el de las actions, un Esencial generaba desde una pestaña ya abierta.
+  // server action, que es donde se genera de verdad. Sin el de las actions, un Essential generaba desde una pestaña ya abierta.
   const acceso = fuente('app/ai-avatar/acceso.ts');
   assert.match(acceso, /export async function candadoDeAiAvatar\(\): Promise<string \| null> \{\n\s*return \(await esEsencialDeLaSesion\(\)\) \? textoSoloPro\('ai-avatar'\) : null;/);
   assert.match(fuente('app/ai-avatar/actions.ts'), /const pro = await candadoDeAiAvatar\(\);\n\s*if \(pro\) return \{ ok: false, error: pro \};/, 'las actions sin el candado');
@@ -95,19 +95,19 @@ test('una tab que todavía no se abrió no se promete; el avatar de IA es de Pro
   }
 });
 
-test('lo que es sólo de Pro sale de TABS_SOLO_PRO: no en Esencial, sí en Pro y en el Acelerador', () => {
+test('lo que es sólo de Pro sale de TABS_SOLO_PRO: no en Essential, sí en Pro y en el Accelerator', () => {
   const filas = filasDeComparacion();
   for (const t of TABS_SOLO_PRO.filter((x) => !(TABS_TODAVIA_CERRADAS as readonly string[]).includes(x))) {
     const f = filas.find((x) => x.que === NOMBRE_TAB_PRO[t]);
     assert.ok(f, `falta ${t}`);
     assert.deepEqual([f!.esencial, f!.pro, f!.acelerador], [false, true, true], t);
   }
-  // 15/11/2026: la fila dice «Una asesoría en vivo con Martín, cada semana» (copy de Martín); que es grupal lo dice el checkout.
+  // 15/11/2026: la fila dice «Una asesoría en vivo cada semana, abierta a tu equipo» (Martín); que es grupal lo dice el checkout.
   const asesoria = filas.find((x) => /asesoría en vivo/.test(x.que));
   assert.deepEqual([asesoria?.esencial, asesoria?.pro, asesoria?.acelerador], [false, false, true], 'la asesoría es sólo del programa');
   // Y lo que es de Pro sin ser una tab (27/10/2026): el scraper de WhatsApp y MaKo Partners, que el candado hace cumplir.
-  // 14/11/2026: lo que está cerrado en Esencial pero TODAVÍA no se vende (hoy el avatar) no tiene fila, igual que una tab que
-  // no se abrió (`TABS_TODAVIA_CERRADAS`). Cerrarlo en Esencial y venderlo en Pro son dos decisiones distintas.
+  // 14/11/2026: lo que está cerrado en Essential pero TODAVÍA no se vende (hoy el avatar) no tiene fila, igual que una tab que
+  // no se abrió (`TABS_TODAVIA_CERRADAS`). Cerrarlo en Essential y venderlo en Pro son dos decisiones distintas.
   for (const fn of FUNCIONES_SOLO_PRO) {
     const f = filas.find((x) => x.que === NOMBRE_FUNCION_PRO[fn]);
     if (FUNCIONES_TODAVIA_NO_VENDIDAS.includes(fn)) {
@@ -130,7 +130,7 @@ test('la tabla habla de marketing, no de MaKo por dentro: ni lo interno, ni fila
   assert.deepEqual([...new Set(filas.map((f) => f.grupo))], [...GRUPOS_COMPARACION], 'cada grupo con sus filas, en orden y seguidas');
 });
 
-test('el tercer bloque es el Acelerador: 1.500 en 3 cuotas de 500, y no es un plan de la pasarela', () => {
+test('el tercer bloque es el Accelerator: 1.500 en 3 cuotas de 500, y no es un plan de la pasarela', () => {
   assert.equal(PROGRAMA_ACELERADOR.precioUsd, 1500);
   assert.equal(PROGRAMA_ACELERADOR.cuotas, 3);
   assert.equal(PROGRAMA_ACELERADOR.precioUsd / PROGRAMA_ACELERADOR.cuotas, 500);
@@ -149,7 +149,9 @@ test('/planes: tres bloques, el programa se pide, la comparación, y el link a M
   // AGENDAR LA LLAMADA, SÓLO EN EL ACELERADOR (14/11/2026, Martín: «lo de agendar llamadas sí debería estar todavía para el tema
   // de Accelerator… Pero en ningún otro lado debería estar»). Antes el botón llevaba a /planes/acelerador, el pedido que cae al
   // CRM con el origen y el código de partner; ahora lleva a la agenda de Martín, fuera del sitio y en otra pestaña.
-  assert.match(t, /<a className="mkpl-btn" href=\{AGENDA_ACELERADOR\} target="_blank" rel="noopener noreferrer">\{TEXTO_AGENDA_ACELERADOR\}<\/a>/, 'el Acelerador no ofrece agendar la llamada');
+  // 15/11/2026, ~21:00 (Martín): «en lugar de que diga agenda tu llamada, el botón de MaKo Accelerator… que diga… más
+  // información, justamente para que ellos puedan irse para allá», a la landing del programa. La llamada se pide desde ahí.
+  assert.match(t, /<a className="mkpl-btn" href=\{RUTA_ACCELERATOR\}>\{TEXTO_BOTON_ACCELERATOR\}<\/a>/, 'el botón del Accelerator no lleva a su landing');
   assert.match(t, /\{p\.destacado && <span className="mkpl-insignia">Recomendado<\/span>\}/);
   assert.match(p, /^\s*const filas = filasDeComparacion\(\);/m);
   // La tabla como Attio (14/11/2026): ver app/planes/Vitrina.tsx, `CompararPlanes`.
@@ -215,7 +217,9 @@ test('sin lenguaje interno: ni la vitrina, ni la landing, ni lo que incluye cada
 // «CRM», «media buyer», «setter» y «cohorte». Ahora se mira la pantalla entera, no sólo las filas.
 // 14/11/2026: la jerga de marketing ya no es un rojo (Martín); lo que sigue prohibido es lo de NUESTRA cocina.
 test('la pantalla entera no habla de MaKo por dentro: tarjetas, promesa, garantía, comparación y preguntas', async () => {
-  const JERGA = /scraper\b|cohorte|workspace|barredora/i; // («Sin tope» es una celda: «topes» se mira en las filas)
+  const JERGA = /scraper\b|cohorte|workspace|barredora/i; // («topes» se mira en las filas)
+  // «Ilimitado», nunca «sin tope», en ningún lado de /planes (Martín, 15/11/2026: «lo eliminaría de todos lados»).
+  assert.doesNotMatch(await vitrina(), /sin topes?/i, '/planes volvió a decir «sin tope»: es «ilimitado»');
   assert.doesNotMatch(await vitrina(), JERGA, '/planes');
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -238,8 +242,8 @@ test('lo que incluye cada plan dice los topes del CÓDIGO, no números escritos 
   assert.doesNotMatch(lib.slice(lib.indexOf('PLANES_MAKO_DEFAULT'), lib.indexOf("id: 'continuidad'")), /[Hh]asta \d|\d+ WhatsApp|\d\.\d{3} contactos/, 'ningún tope a mano');
 });
 
-// 12/11/2026, noche (Martín: «no pongas tanto texto… me gustaban los colores de las tarjetas anteriores, el Acelerador estaba
-// negro»): el Acelerador vuelve a ser el bloque OSCURO, de color fijo (el sol y la luna no lo toca), con su insignia, y su lista es
+// 12/11/2026, noche (Martín: «no pongas tanto texto… me gustaban los colores de las tarjetas anteriores, el Accelerator estaba
+// negro»): el Accelerator vuelve a ser el bloque OSCURO, de color fijo (el sol y la luna no lo toca), con su insignia, y su lista es
 // la corta: «Todo lo de MaKo Pro, más:» y lo suyo (el detalle de cada entregable, en /reembolsos §2).
 test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insignia, todo lo de Pro y lo del programa', async () => {
   const tj = fuente('app/planes/Tarjetas.tsx');
@@ -249,19 +253,28 @@ test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insi
   const t = await vitrina();
   // 14/11/2026 (Martín: «no es la idea de que diga todo lo de Essential más tal, todo lo de MaKo Pro más… la idea es que cada
   // uno se sienta único»): MaKo Pro ya no está en el título de la lista, es el PRIMER check. La columna se lee sola.
-  assert.doesNotMatch(t, /Todo lo de MaKo Pro, más:/, 'volvió la fórmula «todo lo de X» al Acelerador');
+  assert.doesNotMatch(t, /Todo lo de MaKo Pro, más:/, 'volvió la fórmula «todo lo de X» al Accelerator');
   // 15/11/2026, a la noche (Martín): «el primer ítem debería ser justamente 3 meses de acompañamiento personalizado». El
   // software va al final: si la columna empieza por MaKo Pro, se lee como «MaKo, más algo» y no como acompañamiento.
   assert.equal(LISTA_PROGRAMA[0].fuerte, '3 meses de acompañamiento personalizado', 'el programa no abre con el acompañamiento');
   assert.ok(LISTA_PROGRAMA.some((x) => x.fuerte === 'MaKo Pro completo'), 'el programa no dice que trae Pro entero');
   for (const que of ['WhatsApp personal de Martín', 'comunidad de empresarios', '1 a 1 con Martín']) {
-    assert.ok(LISTA_PROGRAMA.some((x) => `${x.fuerte ?? ''}${x.texto}`.toLowerCase().includes(que.toLowerCase())), `al Acelerador le falta «${que}»`);
+    assert.ok(LISTA_PROGRAMA.some((x) => `${x.fuerte ?? ''}${x.texto}`.toLowerCase().includes(que.toLowerCase())), `al Accelerator le falta «${que}»`);
   }
   // 15/11/2026, más tarde (Martín): «quita lo del encuentro presencial en Buenos Aires cada 3 meses. Por ahora no lo vamos a
   // incluir». Ni la tarjeta, ni el checkout y /reembolsos (`PROGRAMA_ACELERADOR.incluye`), ni la tabla lo prometen.
   const presencial = /presencial|Buenos Aires/i;
   assert.ok(!LISTA_PROGRAMA.some((x) => presencial.test(`${x.fuerte ?? ''}${x.texto}`)), 'volvió el encuentro presencial a la tarjeta');
   assert.ok(!PROGRAMA_ACELERADOR.incluye.some((x) => presencial.test(x)), 'volvió el encuentro presencial al checkout y a /reembolsos');
+  // 15/11/2026, ~21:00 (Martín): «todavía no tengo equipo… va a ser armado por mí». Nada del Accelerator promete un equipo.
+  const equipo = /nuestro equipo|su equipo|del equipo/i;
+  assert.ok(!LISTA_PROGRAMA.some((x) => equipo.test(`${x.fuerte ?? ''}${x.texto}`)), 'la tarjeta volvió a prometer un equipo');
+  assert.ok(!PROGRAMA_ACELERADOR.incluye.some((x) => equipo.test(x)), 'el checkout y /reembolsos volvieron a prometer un equipo');
+  assert.ok(LISTA_PROGRAMA.some((x) => /armado por Martín/.test(x.texto)), 'el sistema lo arma Martín');
+  // Lo que sumó de los programas high ticket (todo menos lo que necesita un equipo).
+  for (const que of ['tablero de resultados', 'hoja de ruta', 'abierta a tu equipo', 'Expertos y referentes', 'te presenta']) {
+    assert.ok(LISTA_PROGRAMA.some((x) => `${x.fuerte ?? ''}${x.texto}`.toLowerCase().includes(que.toLowerCase())), `al Accelerator le falta «${que}»`);
+  }
   assert.ok(!filasDeComparacion().some((f) => presencial.test(f.que)), 'volvió el encuentro presencial a la tabla');
   assert.ok(!LISTA_PROGRAMA.some((x) => /grupo de WhatsApp/i.test(`${x.fuerte ?? ''}${x.texto}`)), 'volvió el grupo de WhatsApp: ahora es la comunidad');
   // 15/11/2026: la ceja de las TRES listas es «Incluye» (`CEJA_LISTA`). Las de antes decían cómo se trabaja («Lo armamos
@@ -284,17 +297,17 @@ test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insi
 // ⚠️ Esto se fija sobre `listaCorta`, que es lo que la tarjeta DIBUJA. `PLANES_MAKO_DEFAULT[].incluye` no lo lee nadie desde el
 //    12/11 (§1.4 del relevo): un test sobre `incluye` daría verde con la pantalla sin cambiar.
 
-test('ninguna columna dice «todo lo de X»: las dos se leen solas, y Pro no tiene menos renglones que Esencial', async () => {
+test('ninguna columna dice «todo lo de X»: las dos se leen solas, y Pro no tiene menos renglones que Essential', async () => {
   const { listaCorta } = await import('../app/planes/Tarjetas');
   const es = listaCorta('completo'), pro = listaCorta('agencia');
-  for (const [que, l] of [['Esencial', es], ['Pro', pro]] as const) {
+  for (const [que, l] of [['Essential', es], ['Pro', pro]] as const) {
     assert.doesNotMatch(l.titulo, /todo lo de/i, `${que}: la ceja vuelve a la fórmula «todo lo de X»`);
     for (const it of l.items) assert.doesNotMatch(`${it.fuerte ?? ''}${it.texto}`, /todo lo de/i, `${que}: «${it.texto}»`);
   }
   // La recomendada nunca tiene menos bullets que la barata (Kajabi 5/6/4, beehiiv 6/6/8/7: la del medio tiene MÁS).
-  assert.ok(pro.items.length >= es.items.length, `Pro tiene ${pro.items.length} renglones y Esencial ${es.items.length}`);
+  assert.ok(pro.items.length >= es.items.length, `Pro tiene ${pro.items.length} renglones y Essential ${es.items.length}`);
   // Y la pantalla entera tampoco: ni en las tarjetas, ni en la comparación, ni en las preguntas.
-  assert.doesNotMatch(await vitrina(), /[Tt]odo lo de (Esencial|MaKo Pro)/, '/planes');
+  assert.doesNotMatch(await vitrina(), /[Tt]odo lo de (Essential|MaKo Pro)/, '/planes');
 });
 
 // ⚠️ ESTE TEST DECÍA LO CONTRARIO HASTA EL 15/11/2026, y el cambio es de Martín, no una concesión.
@@ -370,19 +383,19 @@ test('los números de los checks salen del CÓDIGO, y arriba queda sólo la lín
   // El de US$47 es el nivel `pro` del medidor y el de US$97 es `growth`: el nombre engaña, el precio no (PLAN_DE_CAPA).
   // Leerlos por el nombre pone 11.750 MT donde van 24.250, y al revés. Esto es la guarda de ese cruce.
   const esMt = cupoDeCapa('completo'), proMt = cupoDeCapa('agencia');
-  assert.ok(esMt != null && proMt != null && proMt > esMt, `el mapeo está cruzado: Esencial ${esMt}, Pro ${proMt}`);
-  // Una capa sin cupo decidido (el Acelerador no tiene) no inventa un número: su columna no habla de tokens.
+  assert.ok(esMt != null && proMt != null && proMt > esMt, `el mapeo está cruzado: Essential ${esMt}, Pro ${proMt}`);
+  // Una capa sin cupo decidido (el Accelerator no tiene) no inventa un número: su columna no habla de tokens.
   assert.equal(cupoDeCapa('pm'), null);
   const t = await vitrina();
-  assert.ok(t.includes(`${esMt.toLocaleString('es-AR')} MaKo Tokens al mes`), '/planes no dice los tokens de Esencial');
+  assert.ok(t.includes(`${esMt.toLocaleString('es-AR')} MaKo Tokens al mes`), '/planes no dice los tokens de Essential');
   assert.ok(t.includes(`${proMt.toLocaleString('es-AR')} MaKo Tokens al mes`), '/planes no dice los tokens de Pro');
 });
 
 test('la negrita es de Pro y de nadie más: la columna barata queda plana sin que le falte un renglón', async () => {
   const { listaCorta } = await import('../app/planes/Tarjetas');
   // ClickFunnels (3.3 del relevo): en Launch, el barato, no hay NI UN bullet en negrita; en Scale van en negrita los que
-  // mejoran. Así la columna de Esencial no engancha el ojo y aun así no se le puede acusar de esconder nada.
-  for (const it of listaCorta('completo').items) assert.equal(it.fuerte, undefined, `Esencial con negrita: «${it.texto}»`);
+  // mejoran. Así la columna de Essential no engancha el ojo y aun así no se le puede acusar de esconder nada.
+  for (const it of listaCorta('completo').items) assert.equal(it.fuerte, undefined, `Essential con negrita: «${it.texto}»`);
   for (const it of listaCorta('agencia').items) assert.ok(it.fuerte, `Pro sin negrita: «${it.texto}»`);
 });
 
@@ -432,22 +445,37 @@ test('lo que alcanza cada columna sale de los costos que se COBRAN, no de un nú
   }
 });
 
-test('AGENDAR LA LLAMADA, sólo en el Acelerador: ni las dos columnas de software ni el resto de la vitrina la ofrecen', async () => {
-  // Martín, 14/11/2026: «lo de agendar llamadas sí debería estar todavía para el tema de Accelerator. Ahí debería haber la
-  // agenda de llamada. Pero en ningún otro lado debería estar». La regla del 12/11 («ningún lado») queda con esta excepción.
-  const { AGENDA_ACELERADOR, TEXTO_AGENDA_ACELERADOR } = await import('../app/planes/Tarjetas');
-  assert.equal(AGENDA_ACELERADOR, 'https://calendly.com/koncke/asesoria', 'la agenda es la de Martín, no la de un cliente');
+test('MÁS INFORMACIÓN, a la landing del Accelerator: /planes ya no agenda llamadas en ningún lado', async () => {
+  // Martín, 14/11/2026: «lo de agendar llamadas sí debería estar todavía para el tema de Accelerator… Pero en ningún otro lado
+  // debería estar». 15/11/2026, ~21:00: el botón del Accelerator dice «Más información» y lleva a /accelerator, la landing del
+  // programa con su VSL; la llamada se pide DESDE la landing. Así que en /planes no queda ninguna agenda.
+  const { RUTA_ACCELERATOR, TEXTO_BOTON_ACCELERATOR, TEXTO_AGENDA_ACELERADOR } = await import('../app/planes/Tarjetas');
+  assert.equal(RUTA_ACCELERATOR, '/accelerator', 'la landing del programa va en inglés (Martín: «como también la ruta»)');
+  assert.equal(TEXTO_BOTON_ACCELERATOR, 'Más información');
   const html = await vitrinaHtml();
-  // UNA sola, y en otra pestaña: es un link de afuera del sitio.
-  assert.equal((html.match(/calendly\.com/g) ?? []).length, 1, 'la agenda aparece más de una vez en /planes');
-  assert.match(html, new RegExp(`href="${AGENDA_ACELERADOR.replace(/[./]/g, '\\$&')}" target="_blank" rel="noopener noreferrer"`));
-  // Los botones de Esencial y de Pro no agendan nada: se compran (o se piden) en /planes/<id>.
-  for (const id of ['esencial', 'pro']) assert.ok(html.includes(`/planes/${id}`), `el botón de ${id} dejó de llevar a su checkout`);
-  assert.equal((html.match(new RegExp(TEXTO_AGENDA_ACELERADOR, 'g')) ?? []).length, 1, 'otra pantalla de /planes ofrece agendar');
+  assert.ok(html.includes(`href="${RUTA_ACCELERATOR}"`), 'la columna del Accelerator no lleva a su landing');
+  assert.doesNotMatch(html, /calendly\.com/, '/planes volvió a ofrecer la agenda: se agenda desde la landing');
+  assert.ok(!html.includes(TEXTO_AGENDA_ACELERADOR), 'otra pantalla de /planes ofrece agendar');
+  // Los botones de Essential y de Pro no agendan nada: se compran en /planes/<ruta>, y la ruta va en inglés.
+  for (const ruta of ['essential', 'pro']) assert.ok(html.includes(`/planes/${ruta}`), `el botón de ${ruta} dejó de llevar a su checkout`);
+  assert.doesNotMatch(html, /\/planes\/esencial\b/, 'un link quedó con la ruta en español');
   // Y el CTA del sitio sigue siendo la prueba, no la llamada (app/vsl/_competencia/cta.ts).
   const { RUTA_CTA, TEXTO_CTA } = await import('../app/vsl/_competencia/cta');
   assert.equal(RUTA_CTA, '/planes');
   assert.doesNotMatch(TEXTO_CTA, /agend|llamada/i, 'el CTA del sitio volvió a ser agendar una llamada');
+});
+
+test('LAS RUTAS EN INGLÉS: /planes/essential y /planes/accelerator llegan al mismo plan que el id de siempre', async () => {
+  const { rutaDelPlan, planDeLaRuta } = await import('../lib/planes-mako');
+  assert.equal(rutaDelPlan('esencial'), 'essential');
+  assert.equal(rutaDelPlan('acelerador'), 'accelerator');
+  assert.equal(rutaDelPlan('pro'), 'pro');
+  // La página acepta las dos: un link viejo a /planes/esencial sigue andando, y el id guardado en pedidos y cobros no cambia.
+  for (const [ruta, id] of [['essential', 'esencial'], ['esencial', 'esencial'], ['accelerator', 'acelerador'], ['acelerador', 'acelerador'], ['pro', 'pro']]) {
+    assert.equal(planDeLaRuta(ruta), id, ruta);
+  }
+  const pagina = fuente('app/planes/[plan]/page.tsx');
+  assert.match(pagina, /const id = planDeLaRuta\(ruta\);/, 'la página dejó de traducir la ruta al id');
 });
 
 test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón, y que no promete plata', async () => {
@@ -460,14 +488,14 @@ test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón
   assert.match(promesa!, /recuper\w* la inversión|ventas|llamadas|factur/i, 'la promesa es un resultado de plata o del funnel');
   assert.match(promesa!, /Martín Koncke/, 'con quién la cumple');
   assert.match(promesa!, /tu (oferta|negocio)/i, 'se nota que es a la medida');
-  const { TEXTO_AGENDA_ACELERADOR } = await import('../app/planes/Tarjetas');
+  const { TEXTO_BOTON_ACCELERATOR } = await import('../app/planes/Tarjetas');
   const t = await vitrina();
   // ⚠️ DEBAJO DEL BOTÓN DESDE EL 15/11/2026, no arriba. El 25/10 se puso arriba a propósito (la promesa vende antes de
   // que se apriete), y hoy Martín pidió el orden de las tres columnas al revés: «primero el precio y abajo todas las
   // frases. O sea, primero el precio y el botón, por supuesto». La promesa es una de esas frases, así que baja con ellas.
   // Lo que NO cambió y se sigue exigiendo: que esté en la pantalla y que diga exactamente `promesa`.
-  assert.ok(t.indexOf(`Nuestra promesa: ${promesa}`) > 0, 'la promesa, en la columna del Acelerador');
-  assert.ok(t.indexOf('Nuestra promesa') > t.indexOf(TEXTO_AGENDA_ACELERADOR), 'y debajo del botón (el orden del 15/11)');
+  assert.ok(t.indexOf(`Nuestra promesa: ${promesa}`) > 0, 'la promesa, en la columna del Accelerator');
+  assert.ok(t.indexOf('Nuestra promesa') > t.indexOf(TEXTO_BOTON_ACCELERATOR), 'y debajo del botón (el orden del 15/11)');
   const antes = PROGRAMA_ACELERADOR.promesa;
   (PROGRAMA_ACELERADOR as { promesa: string | null }).promesa = null;
   try {
@@ -484,11 +512,11 @@ test('la GARANTÍA del programa es sobre los entregables de la semana 1, vive en
   assert.ok(PROGRAMA_ACELERADOR.incluye.some((x) => x.includes(`hasta ${HORAS_SEMANA_1} horas`)), 'el entregable, escrito con su tope de horas');
   // ⚠️ LA TARJETA YA NO LLEVA EL LINK «Con garantía de entrega» (15/11/2026, a la noche; Martín: «en MaKo Accelerator
   // eliminaría esa parte de con garantía de entrega. Eso elimínalo»). Era un renglón suelto debajo del botón que, además, como la
-  // fila del botón es compartida entre las tres columnas (subgrid), le dejaba un hueco blanco a Esencial y a Pro. La promesa
-  // del Acelerador sigue diciendo «garantizado por contrato», y la garantía entera vive en /reembolsos §2, que es lo que se
+  // fila del botón es compartida entre las tres columnas (subgrid), le dejaba un hueco blanco a Essential y a Pro. La promesa
+  // del Accelerator sigue diciendo «garantizado por contrato», y la garantía entera vive en /reembolsos §2, que es lo que se
   // vigila acá abajo.
   const t = await vitrina();
-  assert.ok(!t.includes('Con garantía de entrega'), 'volvió el link de la garantía a la tarjeta del Acelerador');
+  assert.ok(!t.includes('Con garantía de entrega'), 'volvió el link de la garantía a la tarjeta del Accelerator');
   assert.doesNotMatch(fuente('app/planes/Tarjetas.tsx'), /className="mkpl-garantia"/, 'quedó el link de la garantía en la tarjeta');
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -540,13 +568,13 @@ test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mism
   // LA PRUEBA EN LOS DOS PLANES (14/11/2026, Martín: «habilita nuevamente la prueba gratuita en el del 47»; del 12/11 al 14/11 fue
   // sólo de Pro).
   assert.equal(planConPrueba('pro'), PRUEBA_GRATIS_PRENDIDA, 'Pro trae la prueba');
-  assert.equal(planConPrueba('esencial'), PRUEBA_GRATIS_PRENDIDA, 'Esencial también');
+  assert.equal(planConPrueba('esencial'), PRUEBA_GRATIS_PRENDIDA, 'Essential también');
   // Debajo del precio, una sola cosa (12/11 noche, menos texto): los días gratis.
   const { bajoElPrecio } = await import('../app/planes/Tarjetas');
   if (PRUEBA_GRATIS_PRENDIDA) for (const id of ['pro', 'esencial']) assert.equal(bajoElPrecio({ id }), `${PRUEBA_DIAS} días gratis`);
   // «Y evidentemente no la aclares por otro lado»: ningún texto dice cuál plan no la trae.
   for (const f of ['app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/terminos/page.tsx', 'app/reembolsos/page.tsx', 'lib/partners-recursos.ts'])
-    assert.doesNotMatch(fuente(f), /Esencial (no tiene prueba|se paga al empezar)/, f);
+    assert.doesNotMatch(fuente(f), /Essential (no tiene prueba|se paga al empezar)/, f);
   assert.match(fuente('lib/compra-plan.ts'), /const conPrueba = planConPrueba\(plan\.id\) && !p\.sinPrueba;/, 'el cobro abre la prueba sólo en el plan que la trae');
   assert.match(fuente('app/planes/[plan]/page.tsx'), /const conPrueba = planConPrueba\(plan\.id\) && uno\('sinPrueba'\) !== '1';/, 'y el checkout la dice sólo ahí');
   const t = await vitrina();
@@ -560,7 +588,7 @@ test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mism
   else assert.doesNotMatch(t, /días gratis|prueba gratis/i, '/planes no promete una prueba que ya no existe');
   assert.ok(t.includes('Recomendado MaKo Pro'), 'Pro, el recomendado');
   // La vitrina del test no tiene pasarela (`cobrable: false`): cada botón es un pedido, y su nota lo dice.
-  assert.ok(t.includes('Quiero MaKo Pro') && t.includes('Quiero MaKo Esencial') && t.includes('Quiero el anual'), 'los botones, mensual y anual');
+  assert.ok(t.includes('Quiero MaKo Pro') && t.includes('Quiero MaKo Essential') && t.includes('Quiero el anual'), 'los botones, mensual y anual');
   assert.ok(t.includes(PRUEBA_GRATIS_PRENDIDA ? '¿Cómo es la prueba gratis?' : '¿Cuándo pago y cuándo entro?'), 'la pregunta de cómo se paga');
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -580,7 +608,7 @@ test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mism
   for (const [que, txt] of [['la vitrina', t], ['/reembolsos', r]] as const) {
     assert.doesNotMatch(txt, /días de garantía|Garantía de 14|te devolvemos tu pago/, `${que}: sin la garantía de los planes`);
   }
-  assert.ok(r.includes('Garantía de entrega:'), 'la del Acelerador queda: es otra (sobre los entregables)');
+  assert.ok(r.includes('Garantía de entrega:'), 'la del Accelerator queda: es otra (sobre los entregables)');
   for (const rel of ['lib/planes-mako.ts', 'app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/reembolsos/page.tsx', 'app/planes/[plan]/page.tsx']) {
     assert.doesNotMatch(fuente(rel), /GARANTIA_DIAS/, rel);
   }
@@ -612,17 +640,17 @@ test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo 
   assert.equal(precioEnPesos({ preciosLocales: { ARS: 97000 } }), 97000, 'y el dato sigue existiendo para el checkout');
 });
 
-test('el MEDIA BUYER en Esencial: propone, 2 recomendaciones por día, del tope del plan', () => {
+test('el MEDIA BUYER en Essential: propone, 2 recomendaciones por día, del tope del plan', () => {
   assert.equal(TOPES.completo['ads.recomendaciones_dia'], 2);
   assert.equal(TOPES.agencia['ads.recomendaciones_dia'], null);
   // Dicha sin «media buyer» desde el 27/10/2026 (Leila: «Una persona que no sabe no entiende…»).
   const f = filasDeComparacion().find((x) => x.que === 'Recomendaciones por día para tus campañas de Meta');
   assert.ok(f, 'la fila en la comparación');
   // 14/11/2026: los anuncios van con el contenido (Martín: «eso podrías agruparlo en contenido»).
-  assert.deepEqual([f!.grupo, f!.esencial, f!.pro, f!.acelerador], ['Contenido y anuncios', '2', 'Sin tope', 'Sin tope']);
+  assert.deepEqual([f!.grupo, f!.esencial, f!.pro, f!.acelerador], ['Contenido y anuncios', '2', 'Ilimitadas', 'Ilimitadas']);
   const esencial = PLANES_MAKO_DEFAULT.find((x) => x.id === 'esencial')!;
   assert.ok(esencial.incluye.some((x) => x.includes(`${TOPES.completo['ads.recomendaciones_dia']} recomendaciones por día`) && /tú decides si las aplicas/.test(x)),
-    'en lo que incluye Esencial, y que no aplica solo');
+    'en lo que incluye Essential, y que no aplica solo');
 });
 
 test('sin plan Agencia aparte (10/10): la agencia maneja a sus clientes desde Pro', async () => {
@@ -632,25 +660,25 @@ test('sin plan Agencia aparte (10/10): la agencia maneja a sus clientes desde Pr
 
 // Roturas (24/10/2026; base 8 / 0 con planes-tres-bloques y partners-para-clientes juntos), cada una restaurada (pasan / fallan):
 //   · la fila de automatizaciones escrita a mano con 5                                        -> 7 / 1
-//   · Ads Manager también en Esencial                                                         -> 7 / 1
-//   · el Acelerador con 2 cuotas                                                              -> 7 / 1
+//   · Ads Manager también en Essential                                                         -> 7 / 1
+//   · el Accelerator con 2 cuotas                                                              -> 7 / 1
 //   · el programa con el botón de «Empezar» de un plan                                        -> 7 / 1
 //   · /planes muestra `precioAnualUsd`                                                        -> 7 / 1
 //   · /planes sin el link a MaKo Partners                                                     -> 7 / 1
 //   · la columna de cada plan elegida por su id y no por su capa (revisión del 24/10)              -> 7 / 1
 //   · el alta del super admin sin el aviso de los topes (24/10, base 10 / 0 con los dos)      -> 9 / 1
-//   · `avisoAltaAMano` sólo para Esencial (Pro también tiene topes)                            -> 9 / 1
+//   · `avisoAltaAMano` sólo para Essential (Pro también tiene topes)                            -> 9 / 1
 // Roturas de «que VENDA» (24/10/2026, noche; base 18 / 0 con planes-sin-pasarela), cada una restaurada (pasan / fallan):
-//   · Esencial vuelve a «Ops Center con MaKo y tu propia IA»                                  -> 17 / 1
+//   · Essential vuelve a «Ops Center con MaKo y tu propia IA»                                  -> 17 / 1
 //   · la comparación vuelve a «Ads Manager»                                                    -> 17 / 1
 //   · «Hasta 3 automatizaciones» escrito a mano en lo que incluye                              -> 17 / 1
-//   · el Acelerador sin su bloque oscuro                                                       -> 17 / 1
-//   · el Acelerador con un beneficio menos (queda igual que Pro)                               -> 17 / 1
+//   · el Accelerator sin su bloque oscuro                                                       -> 17 / 1
+//   · el Accelerator con un beneficio menos (queda igual que Pro)                               -> 17 / 1
 //   · una promesa inventada («Si no vendes en 90 días, te devolvemos el dinero»)               -> 17 / 1
 //   · la landing con «Elige tu funnel»                                                         -> 17 / 1
 //   · /planes sin los bloques compartidos                                                      -> 14 / 4
 //   · la fila de automatizaciones escrita a mano con 5                                         -> 17 / 1
-//   · el Acelerador sin la insignia «Con acompañamiento»                                       -> 17 / 1
+//   · el Accelerator sin la insignia «Con acompañamiento»                                       -> 17 / 1
 // Roturas del 25/10/2026 (el anual, la garantía 14/30, los pesos y el media buyer; base 40 / 0 con planes-sin-pasarela,
 // compra-plan y topes-plan), cada una restaurada (pasan / fallan):
 //   · el anual con 1 mes gratis (US$ 1.067)                                                 -> 39 / 1
@@ -666,9 +694,9 @@ test('sin plan Agencia aparte (10/10): la agencia maneja a sus clientes desde Pr
 //   · la tarjeta sin la garantía abajo del botón                                            -> 39 / 1
 //   · un precio en pesos inventado con una tasa                                             -> 39 / 1
 //   · sin la línea de Mercado Pago                                                          -> 39 / 1
-//   · el media buyer de Esencial con 5 por día                                              -> 38 / 2
+//   · el media buyer de Essential con 5 por día                                              -> 38 / 2
 //   · la fila del media buyer escrita a mano                                                -> 39 / 1
-//   · el media buyer de Esencial aplica solo                                                -> 39 / 1
+//   · el media buyer de Essential aplica solo                                                -> 39 / 1
 //   · el pedido no dice que es anual                                                        -> 39 / 1
 // Roturas de la PRUEBA GRATIS (25/10/2026, ~11:00; base 25 / 0 con planes-sin-pasarela), cada una restaurada (pasan / fallan):
 //   · la prueba de 14 días                                                                  -> 24 / 1
@@ -793,7 +821,7 @@ test('la barra dice cuánto sale sumar MaKo Tokens, arranca en «tu plan», y NO
 // Martín: «para una persona que lo mira no entiende mucho la diferencia entre el de 47 y el de 97… en el de 47 hay un montón de
 // cosas que no se pueden hacer directamente, que en el de 97 sí»; y aprobó el copy con un bloque «No incluye» con ✗ ROJAS en
 // el de 47, en el MISMO orden que los primeros checks del de 97. Este test fija ese orden: cada ✗ tiene su ✓ enfrente.
-test('cada ✗ de Esencial queda frente a su ✓ de Pro, en el mismo orden, y la tabla marca ✓ verde y ✗ roja', async () => {
+test('cada ✗ de Essential queda frente a su ✓ de Pro, en el mismo orden, y la tabla marca ✓ verde y ✗ roja', async () => {
   const { listaCorta, CEJA_NO_INCLUYE } = await import('../app/planes/Tarjetas');
   const es = listaCorta('completo'), pro = listaCorta('agencia');
   assert.ok(es.noIncluye && es.noIncluye.length >= 6, 'el de US$47 no dice lo que no hace');
@@ -814,8 +842,8 @@ test('cada ✗ de Esencial queda frente a su ✓ de Pro, en el mismo orden, y la
   assert.equal([...filasEs, ...filasPro].filter((f) => f.includes('<b>0</b>')).length, GENERACION_SE_VENDE ? 1 : 0, 'un cero que no es el de los clips del de US$47');
   const textoPlanes = await vitrina();
   assert.doesNotMatch(textoPlanes, /Los repartes como quieras/, 'volvió la nota del reparto');
-  // Y el Acelerador sin «Con garantía de entrega» (Martín: «eso elimínalo»).
-  assert.doesNotMatch(textoPlanes, /Con garantía de entrega/, 'volvió «Con garantía de entrega» al Acelerador');
+  // Y el Accelerator sin «Con garantía de entrega» (Martín: «eso elimínalo»).
+  assert.doesNotMatch(textoPlanes, /Con garantía de entrega/, 'volvió «Con garantía de entrega» al Accelerator');
   assert.equal(pro.noIncluye, undefined, 'el de US$97 no tiene «No incluye»');
   // La misma cosa, con las palabras de cada lado. Si alguien reordena una de las dos listas, esto se pone rojo.
   // 15/11/2026, más tarde: con las palabras de la tabla de abajo, cortas, y las MISMAS de los dos lados («Compara los planes»).
@@ -828,7 +856,7 @@ test('cada ✗ de Esencial queda frente a su ✓ de Pro, en el mismo orden, y la
     [/^Chat con referentes$/, /^Chat con \d+ referentes$/],
     [/^Comunidad para alumnos$/, /^Comunidad para alumnos$/],
   ];
-  assert.equal(es.noIncluye!.length, PARES.length, 'una ✗ de Esencial sin su ✓ enfrente');
+  assert.equal(es.noIncluye!.length, PARES.length, 'una ✗ de Essential sin su ✓ enfrente');
   // CORTAS, como las filas de la tabla: Martín, «una sola palabra o muy poquitas palabras que se entienda».
   for (const it of [...es.items, ...es.noIncluye!, ...pro.items]) {
     const t = `${it.fuerte ?? ''}${it.texto}`;
@@ -836,7 +864,7 @@ test('cada ✗ de Esencial queda frente a su ✓ de Pro, en el mismo orden, y la
     assert.doesNotMatch(t, /\bcomo\b|[:,]/, `un renglón con aclaración («como Canva y CapCut»): «${t}»`);
   }
   PARES.forEach(([deEs, dePro], i) => {
-    assert.match(es.noIncluye![i].texto, deEs, `la ✗ #${i + 1} de Esencial no es la que va ahí: «${es.noIncluye![i].texto}»`);
+    assert.match(es.noIncluye![i].texto, deEs, `la ✗ #${i + 1} de Essential no es la que va ahí: «${es.noIncluye![i].texto}»`);
     const p = pro.items[i];
     assert.match(`${p.fuerte ?? ''}${p.texto}`, dePro, `el ✓ #${i + 1} de Pro no está frente a su ✗: «${p.fuerte ?? ''}${p.texto}»`);
   });
@@ -873,7 +901,7 @@ test('cada ✗ de Esencial queda frente a su ✓ de Pro, en el mismo orden, y la
 
 // 15/11/2026, a la noche (Martín): «en MaKo Accelerator hay como una lucecita amarilla arriba a la derecha. Me gustaría que la
 // misma lucecita azul esté en el MaKo Pro de 97». La misma: el mismo óvalo en la misma esquina; cambia sólo el color.
-test('MaKo Pro lleva la luz de la esquina del Acelerador, en azul', async () => {
+test('MaKo Pro lleva la luz de la esquina del Accelerator, en azul', async () => {
   const { CSS_TARJETAS } = await import('../app/planes/Tarjetas');
   const luz = (sel: string): string => {
     const m = CSS_TARJETAS.match(new RegExp(`${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{[^}]*?radial-gradient\\(([^)]*\\([^)]*\\)[^)]*)\\)`));
@@ -883,5 +911,5 @@ test('MaKo Pro lleva la luz de la esquina del Acelerador, en azul', async () => 
   const dorada = luz('.mkpl-programa');
   const azul = luz('.mkpl-card.destacado');
   assert.match(azul, /rgba\(47,111,237,/, 'la luz de Pro no es el azul de la casa');
-  assert.equal(azul.replace(/rgba\([^)]*\)/, 'C'), dorada.replace(/rgba\([^)]*\)/, 'C'), 'no es la MISMA luz que la del Acelerador: cambió el óvalo o la esquina');
+  assert.equal(azul.replace(/rgba\([^)]*\)/, 'C'), dorada.replace(/rgba\([^)]*\)/, 'C'), 'no es la MISMA luz que la del Accelerator: cambió el óvalo o la esquina');
 });

@@ -922,7 +922,7 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   // Sigue editándose después, en el «Tipo de funnel» del editor de etapas.
   const [entradas, setEntradas] = useState<EntradaId[]>([]);
   const [err, setErr] = useState<string | null>(null);
-  /** El error es el tope del plan (23/10/2026, MaKo Esencial tiene un CRM): al lado va «Pasar a Pro». */
+  /** El error es el tope del plan (23/10/2026, MaKo Essential tiene un CRM): al lado va «Pasar a Pro». */
   const [tope, setTope] = useState(false);
   const [guardando, startGuardar] = useTransition();
 

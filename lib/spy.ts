@@ -314,7 +314,7 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string, d
   }
 
   // ⚠️ EL TOPE DEL PLAN (14/11/2026, Martín: «Tu competencia solamente debería poder scrapear a una persona de la
-  // competencia, el de 97 ilimitado»): Esencial suma UNO, Pro los que quiera (lib/spy-tope-reglas.ts). Va acá por lo mismo
+  // competencia, el de 97 ilimitado»): Essential suma UNO, Pro los que quiera (lib/spy-tope-reglas.ts). Va acá por lo mismo
   // que el de arriba: lo que ya estaba salió por `yaEsta` y no es nuevo. Y `nuevo` cubre lo que el upsert de abajo junta
   // por su MISMO nombre (un nombre que `nombreComparable` deja vacío): eso tampoco suma una fila.
   const plan = await topeDeCompetidores(existentes.length, !existentes.some((x) => x.nombre === nombre));

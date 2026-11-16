@@ -102,7 +102,7 @@ export function aplicarContenidoLanding(root: HTMLElement): void {
   // que hace el producto — el mejor momento para pedirle que empiece.
   // 14/11/2026: era «Agenda una llamada y te mostramos MaKo con tus propios números» + «Agenda tu llamada» → #beta. Ahora es
   // el CTA único del sitio (`TEXTO_CTA` → `RUTA_CTA`, ./_competencia/cta.ts). Martín, textual: la agenda «en ningún otro lado
-  // debería estar» más que en el Acelerador.
+  // debería estar» más que en el Accelerator.
   if (featGrid && !featGrid.parentElement?.querySelector('.mk-grid-cta')) {
     const cta = doc.createElement('div');
     cta.className = 'mk-grid-cta';

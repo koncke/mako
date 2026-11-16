@@ -31,7 +31,7 @@ export default async function NoEstaEnTuPlanPage({ searchParams }: { searchParam
   await requireSesion();
   const q = await searchParams;
   const tab = q.tab;
-  // `pro=1` (23/10/2026): la tab es de MaKo Pro y el negocio paga el Esencial (lib/tab-access.ts → requireCapa).
+  // `pro=1` (23/10/2026): la tab es de MaKo Pro y el negocio paga el Essential (lib/tab-access.ts → requireCapa).
   const pro = q.pro === '1';
   const key = typeof tab === 'string' ? tab.slice(0, 60) : undefined;
   // «Ir al inicio» va al REPARTIDOR, como el login (21/10/2026): en la computadora, el Ops Center del negocio, que está en

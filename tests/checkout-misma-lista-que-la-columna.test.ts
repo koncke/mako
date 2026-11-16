@@ -5,7 +5,7 @@
 // sienta único». El 14/11 se sacó la fórmula «todo lo de X» de las columnas de /planes (`listaCorta`, app/planes/Tarjetas.tsx),
 // y quedaron DOS puertas más con la lista vieja del mismo plan:
 //   · el checkout mensual, con su propia lista (`INCLUYE_EN_EL_CHECKOUT`, lib/planes-mako.ts);
-//   · el checkout ANUAL, que leía `PLANES_MAKO_DEFAULT[].incluye` — donde Pro todavía dice «Todo lo de Esencial, sin tope de
+//   · el checkout ANUAL, que leía `PLANES_MAKO_DEFAULT[].incluye` — donde Pro todavía dice «Todo lo de Essential, sin tope de
 //     leads, landings ni automatizaciones». El visitante leía la columna nueva, tocaba «Anual / 2 meses gratis» y le aparecía
 //     otra verdad del mismo plan, con la frase que Martín mandó sacar.
 // El relevo del 14/11 (docs/relevo/planes-que-incluye-cada-columna.md §1.4) dio `incluye` por muerto («no lo lee nadie»): era
@@ -97,11 +97,11 @@ test('el checkout muestra LA MISMA lista que la columna, renglón por renglón (
   }
 });
 
-test('el que paga sigue pasando: Pro se lleva en el checkout todo lo que la columna le promete, y Esencial no lo promete', async () => {
+test('el que paga sigue pasando: Pro se lleva en el checkout todo lo que la columna le promete, y Essential no lo promete', async () => {
   const { listaCorta } = await import('../app/planes/Tarjetas');
   const pro = PLANES_MAKO_DEFAULT.find((p) => p.id === 'pro')!;
   const esencial = PLANES_MAKO_DEFAULT.find((p) => p.id === 'esencial')!;
-  // Lo que se cerró en Esencial el 14/11 (`FUNCIONES_SOLO_PRO`): copiar la landing del competidor, la edición con IA y el chat
+  // Lo que se cerró en Essential el 14/11 (`FUNCIONES_SOLO_PRO`): copiar la landing del competidor, la edición con IA y el chat
   // con los referentes. Cerrarlo adentro y no decirlo en el checkout del que SÍ lo paga es la otra forma de romperlo.
   // 15/11/2026, a la noche: el copy aprobado por Martín dice «página de venta» y no «landing», y «Edición automática» y no
   // «Edición con IA» (palabras de cliente). Lo que se vigila es lo mismo: que lo de Pro esté en el checkout de Pro.
@@ -111,13 +111,14 @@ test('el que paga sigue pasando: Pro se lleva en el checkout todo lo que la colu
     const htmlPro = await checkout(pro.capa, pro.nombre, pro.precioUsd, pro.precioAnualUsd!, periodo);
     for (const re of DE_PRO) assert.match(htmlPro, re, `el checkout ${periodo} de Pro no promete lo que Pro paga (${re})`);
     const htmlEs = await checkout(esencial.capa, esencial.nombre, esencial.precioUsd, esencial.precioAnualUsd!, periodo);
-    for (const re of DE_PRO) assert.doesNotMatch(htmlEs, re, `el checkout ${periodo} de Esencial promete algo que no trae (${re})`);
+    for (const re of DE_PRO) assert.doesNotMatch(htmlEs, re, `el checkout ${periodo} de Essential promete algo que no trae (${re})`);
   }
   // Los topes que la columna dice son los que el checkout dice: el que paga el de 97 ve su «sin tope», que es por lo que paga
   // el doble. ⚠️ 15/11/2026: los topes son CHECKS, no una fila aparte (Martín), así que se buscan en `items`.
   const itemsPro = listaCorta('agencia').items.map((x) => `${x.fuerte ?? ''}${x.texto}`);
-  const sinTope = itemsPro.filter((t) => /sin tope/i.test(t));
-  assert.ok(sinTope.length > 0, 'la columna de Pro dejó de decir «sin tope»');
+  const sinTope = itemsPro.filter((t) => /ilimitad/i.test(t));
+  assert.ok(sinTope.length > 0, 'la columna de Pro dejó de decir lo que tiene ilimitado');
+  assert.ok(!itemsPro.some((t) => /sin tope/i.test(t)), 'la columna de Pro volvió a decir «sin tope»: es «ilimitado» (Martín, 15/11/2026)');
   const htmlPro = await checkout(pro.capa, pro.nombre, pro.precioUsd, pro.precioAnualUsd!, 'mes');
   for (const t of sinTope) assert.ok(htmlPro.includes(sinMarcas(t).trim()), `el checkout de Pro se comió sus topes: «${t}»`);
   // La prueba de 7 días (`planConPrueba`: los dos planes desde el 14/11) no la tocó esta vuelta: sigue en el checkout mensual.
@@ -131,18 +132,18 @@ test('el que paga sigue pasando: Pro se lleva en el checkout todo lo que la colu
   assert.match(anualPro, new RegExp(`${MESES_GRATIS_ANUAL} meses gratis`), 'el anual perdió los 2 meses gratis');
 });
 
-test('el Acelerador no pasa por acá: sigue con su lista y se pide por la llamada', () => {
+test('el Accelerator no pasa por acá: sigue con su lista y se pide por la llamada', () => {
   const pagina = fuente('app/planes/[plan]/page.tsx');
   // Es un `ProgramaMako`, no un plan con capa: `listaCorta` no sabe dibujarlo, y su checkout sigue leyendo `PROGRAMA_ACELERADOR`.
-  assert.match(pagina, /incluye: pr\.incluye/, 'el Acelerador perdió su propia lista');
+  assert.match(pagina, /incluye: pr\.incluye/, 'el Accelerator perdió su propia lista');
   assert.ok(pagina.indexOf('PROGRAMA_ACELERADOR.id') < pagina.indexOf('ofertaDelPlan('), 'el programa dejó de salir antes de la pasarela');
 });
 
 // ── Probado rompiéndolo (14/11/2026) ────────────────────────────────────────────────────────────────────────────────
 // Base: 4 pasan / 0 fallan. Cada rotura, restaurada después (pasan / fallan):
-//   · el anual vuelve a la lista vieja («Todo lo de Esencial, sin tope de…»)                -> 1 / 3
+//   · el anual vuelve a la lista vieja («Todo lo de Essential, sin tope de…»)                -> 1 / 3
 //   · el mensual vuelve a `INCLUYE_EN_EL_CHECKOUT[plan.id] ?? plan.incluye`                 -> 3 / 1
 //   · `incluyeDeLaColumna` se saltea los topes (sólo los checks)                            -> 2 / 2
 //   · `incluyeDeLaColumna` escribe un renglón a mano en vez de leer `listaCorta`            -> 3 / 1
-//   · el checkout del Acelerador pasa a `LISTA_PROGRAMA`                                    -> 3 / 1
+//   · el checkout del Accelerator pasa a `LISTA_PROGRAMA`                                    -> 3 / 1
 //   · la página vuelve a armar el resumen del anual a mano                                  -> 3 / 1

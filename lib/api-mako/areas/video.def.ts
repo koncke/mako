@@ -175,12 +175,12 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
   },
-  // ⚠️ NO SE CIERRA, Y ES A PROPÓSITO (14/11/2026, segunda vuelta de lo que se cerró en Esencial): 'ai-avatar' es de MaKo Pro
+  // ⚠️ NO SE CIERRA, Y ES A PROPÓSITO (14/11/2026, segunda vuelta de lo que se cerró en Essential): 'ai-avatar' es de MaKo Pro
   // (`FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), pero esto LEE lo que el cliente YA TIENE. Entre el 29/10 y el 14/11 la función
   // estuvo abierta en los tres planes, así que hay Esenciales con looks y con planes a medio filmar: contestarles «eso es de
   // Pro» les apagaría un dato que es suyo, que es el error espejo que avisa AGENTS.md («¿GENERA o LEE?»: el candado en la
   // `puerta()` de app/ai-avatar/actions.ts apagó la galería de fotos del editor y el cliente leía «No pude leer tus fotos»).
-  // Lo que SÍ se fue para un Esencial es la OFERTA: los temas de la galería (el catálogo de lo que podría hacer) y la nota de
+  // Lo que SÍ se fue para un Essential es la OFERTA: los temas de la galería (el catálogo de lo que podría hacer) y la nota de
   // «se anima y Generar video», que en su plan es mentira. Eso lo decide la RESPUESTA (video.run.ts), que no es un string
   // único: la descripción sólo manda a leerla. Lo cerrado es `ver_plantillas_avatar`, que no tiene nada del cliente.
   {
@@ -280,7 +280,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   // Las 10 plantillas de venta de AI Avatar (6/11/2026, docs/plantillas-reales/avatar.md): datos de MaKo, de negocios ficticios.
   // ⛔ CERRADA EN ESENCIAL (14/11/2026): acá no hay NADA del cliente —es el catálogo de lo que se hace con la función— y «usar
-  //    una» es elegirla en «Nuevo avatar», la pantalla que a un Esencial le contesta el cartel de Pro. Cerrarla no le apaga
+  //    una» es elegirla en «Nuevo avatar», la pantalla que a un Essential le contesta el cartel de Pro. Cerrarla no le apaga
   //    ningún dato propio, así que va con el molde entero (`esEsencialDe`, video.run.ts). La gemela que SÍ queda abierta es
   //    `ver_avatares`, que lee sus looks viejos.
   {

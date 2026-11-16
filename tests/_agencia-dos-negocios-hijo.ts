@@ -50,7 +50,7 @@ db.agencia_clientes = [
   fila(10, 20, 'aprobado'), fila(10, 22, 'aprobado'), fila(10, 40, 'aprobado'), fila(10, 50, 'revocado'), fila(10, 60, 'pendiente'), fila(10, 61, 'pendiente'),
   fila(11, 21, 'aprobado'), fila(11, 40, 'aprobado'),
 ];
-// La marca de la ex: su ex agencia no puede leer ni eso. La de la pendiente dice Esencial y su capa dice Pro: se ve de dónde sale.
+// La marca de la ex: su ex agencia no puede leer ni eso. La de la pendiente dice Essential y su capa dice Pro: se ve de dónde sale.
 db.app_settings = [marca(20, 'esencial'), marca(21, 'pro'), marca(50, 'pro'), marca(60, 'esencial')];
 
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {

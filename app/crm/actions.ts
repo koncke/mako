@@ -960,7 +960,7 @@ async function altaDeLead(formData: FormData, funnelId?: number | null, permitir
   if (!nombre) {
     throw new Error('Nombre es requerido');
   }
-  // El tope del plan (23/10/2026, lib/topes-crm.ts): un alta A MANO no pasa los leads de MaKo Esencial. Lo que entra solo
+  // El tope del plan (23/10/2026, lib/topes-crm.ts): un alta A MANO no pasa los leads de MaKo Essential. Lo que entra solo
   // (anuncios, webhooks) no pasa por acá: entra igual y el tablero avisa.
   const ws = await getWorkspaceActual();
   if (ws != null) await frenarAltaPorTope(ws, 'crm.leads');
@@ -2156,7 +2156,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     return f;
   });
 
-  // El tope del plan (23/10/2026): una importación a mano no pasa los leads de MaKo Esencial. Se mira con las que de
+  // El tope del plan (23/10/2026): una importación a mano no pasa los leads de MaKo Essential. Se mira con las que de
   // verdad se crean (`entra`), antes de escribir ninguna: a medias sería peor que nada.
   const wsImport = await getWorkspaceActual();
   if (wsImport != null) {

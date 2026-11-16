@@ -469,7 +469,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	const [alcance, setAlcance] = useState<"video" | "seleccion">("video");
 	// «Discutir | Editar», con la misma preferencia que los otros chats de MaKo (app/_chat/SelectorIntencion.tsx).
 	const [intencion, elegirIntencion] = useIntencion();
-	// EDITAR CON IA ES SÓLO DE MaKo PRO (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes. Un Esencial ve el
+	// EDITAR CON IA ES SÓLO DE MaKo PRO (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes. Un Essential ve el
 	// hilo, la pregunta de los subtítulos (corren en el navegador, sin IA) y la guía de una plantilla; en lugar de la caja y de
 	// las píldoras, el candado con «Pasar a Pro».
 	const soloPro = useSoloPro("ia-editores");
@@ -732,7 +732,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 			</div>
 
 			{/* El audio grabado entra en este pie por la regla común de `.co-caja` (centro.css) y la barra contenida (VoiceRecorder.tsx). */}
-			{/* Un Esencial: el candado de Pro en el lugar de la caja (app/_components/CandadoSoloPro.tsx). */}
+			{/* Un Essential: el candado de Pro en el lugar de la caja (app/_components/CandadoSoloPro.tsx). */}
 			{soloPro ? (
 				<footer className="shrink-0 px-3 pt-2 pb-3">
 					<CandadoSoloPro funcion="ia-editores" />

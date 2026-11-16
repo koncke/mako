@@ -305,7 +305,7 @@ export const seguir = (r: RespuestasGuiado): RespuestasGuiado => ({ ...r, pausad
 /**
  * ¿Hay que preguntar la oferta antes de arrancar? Sí con DOS o más ofertas y ninguna marcada principal: «la primera» es adivinar.
  *
- * ⚠️ La demo del 13/11/2026 con Julio (min 42): el negocio de Martín tiene «WhatsApp Ads Funnel», «MaKo Acelerador» y una
+ * ⚠️ La demo del 13/11/2026 con Julio (min 42): el negocio de Martín tiene «WhatsApp Ads Funnel», «MaKo Accelerator» y una
  * newsletter, ninguna principal, y «Editar» arrancó solo para «WhatsApp Ads Funnel» (la de `orden` 0), que es un embudo que
  * armó para Mauricio. Martín, en vivo: «no sé por qué no dice MaKo… te dice que no es tu embudo, es el de Mauricio». No estaba
  * inspeccionando a nadie: era SU negocio con una oferta elegida a ciegas (docs/hallazgos-carruseles.md). Con una sola oferta, o con

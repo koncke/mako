@@ -54,7 +54,7 @@ body:has(.planes-root) { background: #FFFFFF; }
 .planes-form .planes-btn, .ck-formulario .planes-btn { width: 100%; margin-top: 22px; }
 .planes-opcion { display: flex; gap: 10px; align-items: center; border: 1px solid rgba(17,17,17,.17); border-radius: 10px; padding: 10px 12px; margin-top: 8px; cursor: pointer; }
 .planes-opcion input { margin: 0; }
-/* El diagnóstico del Acelerador (QuieroPlan con preguntas): una pregunta por pantalla, respuestas grandes que avanzan solas. */
+/* El diagnóstico del Accelerator (QuieroPlan con preguntas): una pregunta por pantalla, respuestas grandes que avanzan solas. */
 .planes-pasos { display: flex; gap: 6px; margin: 0 0 18px; }
 .planes-pasos span { flex: 1; height: 4px; border-radius: 2px; background: #E6EAF0; }
 .planes-pasos span.hecho { background: #121212; }

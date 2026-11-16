@@ -45,10 +45,10 @@ export function useCoaches() {
   // servidor ya corre el coach y las conversaciones de Offer SIN su ficha, y esto es para que la pantalla diga lo mismo.
   // ⚠️ Y ADEMÁS ARREGLA UN BOTÓN QUE DABA ERROR: con un referente al frente se dibujaban «Inspirado en X» y «Second Brain de X»
   //    en el chat del coach (./ChatDelCoach.tsx, app/m/second-brain/HojaDelCoach.tsx) y en cada conversación de Offer
-  //    (./ChatSecondBrain.tsx, `delCoach`); tocarlo pedía `?cerebroDe=`, que a un Esencial le contesta 403, y el 403 salía
+  //    (./ChatSecondBrain.tsx, `delCoach`); tocarlo pedía `?cerebroDe=`, que a un Essential le contesta 403, y el 403 salía
   //    dibujado como un error del sistema con «Reportar a Soporte» (./SuSecondBrain.tsx): el cliente creía que la app se rompió.
   // ⛔ `puedeElegir` NO SE TOCA: dice si esta persona administra el negocio, y la pantalla lo reusa para mostrar la FILA del coach
-  //    (`verCoach`, ./ChatSecondBrain.tsx). Apagarlo le sacaba el Funnel Coach entero a un Esencial, que lo tiene en su plan.
+  //    (`verCoach`, ./ChatSecondBrain.tsx). Apagarlo le sacaba el Funnel Coach entero a un Essential, que lo tiene en su plan.
   //    Lo que ve en su lugar es el candado al elegir quién aconseja (./ElegirReferente.tsx).
   const soloPro = useSoloPro('chat-referentes');
   return { referente: soloPro ? null : referente, oferta, puedeElegir, elegirReferente };

@@ -7,7 +7,7 @@
 // publicada, conectar un dominio a una landing que no tenía) y nunca se despublica ni se suelta nada. Si no se puede
 // leer el plan, deja pasar. Molde: `topeParaLineaNueva` (lib/tope-lineas.ts).
 //
-// ⚠️ UN TOPE EN 0 NO ES «LLEGASTE AL TOPE» (14/11/2026, Martín: Esencial SIN dominio propio; `web.dominios` pasó de 1 a 0).
+// ⚠️ UN TOPE EN 0 NO ES «LLEGASTE AL TOPE» (14/11/2026, Martín: Essential SIN dominio propio; `web.dominios` pasó de 1 a 0).
 //    `textoTope(0)` le decía «Llegaste al tope de tu plan (0)» a quien nunca conectó uno: se leía como un error. Con 0, la
 //    cosa es de Pro y se dice así (`TEXTO_DOMINIO_SOLO_PRO`, el molde de `textoSoloPro`), con el mismo «Pasar a Pro».
 // =============================================================================

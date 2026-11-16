@@ -731,7 +731,7 @@ export async function duplicarServicioAction(productoId: number): Promise<
   try {
     const ws = await adminDeWorkspaceActual();
     if (!ws) return { ok: false, error: 'Sólo un administrador puede duplicar un producto.' };
-    // La copia de un programa con clases es un CURSO más, y MaKo Esencial tiene uno (14/11/2026, lib/tope-cursos.ts).
+    // La copia de un programa con clases es un CURSO más, y MaKo Essential tiene uno (14/11/2026, lib/tope-cursos.ts).
     const tope = await frenoAlDuplicar(ws, Number(productoId));
     if (tope) return { ok: false, error: tope.texto, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) };
     const sesion = await getUsuarioActual();

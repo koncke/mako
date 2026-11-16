@@ -10,7 +10,7 @@
 // maxDuration 300: leer los archivos corta a los 90 s y «Editar» a los 110 (más la reparación del JSON).
 // ⚠️ LA SEGUNDA PUERTA ES EL PLAN (14/11/2026, lib/copywriter/replica-candado.ts): una página con `props.outlier` ES una réplica,
 // y acá el original entero entra al prompt y vuelve el guion adaptado (lib/copywriter/ia.ts, `conElOriginal`). Sin eso, un
-// Esencial se llevaba la réplica COMPLETA por esta ruta sin tocar ninguna de las puertas de «Replicar».
+// Essential se llevaba la réplica COMPLETA por esta ruta sin tocar ninguna de las puertas de «Replicar».
 // =============================================================================
 
 import { soloAdminDeTab } from '@/lib/puerta-admin-tab';

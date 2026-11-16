@@ -8,7 +8,7 @@
 // POST {op:'aviso-nevera', prendido}      → prende o apaga el aviso de la nevera (`copiloto-nevera`, el de Notificaciones).
 // Las dos del retargeting ESCRIBEN y las dispara SIEMPRE un botón de quien administra (lo pidió su chat, «MaKo en la app»): nunca
 // una carga de la página ni un cron. La puerta es la del Media Buyer (`wsDeAdsManager`): el admin del negocio o el super admin.
-// El reel es el piloto de INSTAGRAM, que es de MaKo Pro (14/11/2026): a un Esencial, 403 con el texto del candado y `pasarAPro`
+// El reel es el piloto de INSTAGRAM, que es de MaKo Pro (14/11/2026): a un Essential, 403 con el texto del candado y `pasarAPro`
 // (lo reconoce app/_components/solo-pro.ts → `esRespuestaSoloPro`). El retargeting es de los anuncios: no lleva ese candado.
 // =============================================================================
 

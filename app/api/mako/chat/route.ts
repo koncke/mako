@@ -163,11 +163,11 @@ async function contextoDelChat(quien: PersonaChat, desde: Desde | null): Promise
   // ⛔ EL CANDADO ES DEL REFERENTE, NO DEL COACH (14/11/2026, lib/asesores/candado.ts). El Funnel Coach se vende en los tres planes
   // («Tu oferta y tu funnel, revisados con IA», lib/planes-comparacion.ts) y sigue entero; lo que es de Pro es «con su método», y acá
   // la ficha del gurú llegaba igual que en su chat —los mismos 5.200 caracteres de `contextoDeReferente` en CADA mensaje— con los
-  // tramos de su curso. O sea: el Esencial seguía «hablando con el referente», sólo que por otra pantalla.
+  // tramos de su curso. O sea: el Essential seguía «hablando con el referente», sólo que por otra pantalla.
   // ⚠️ Y NO ALCANZA CON SOLTAR AL ELEGIDO: sin referente, el coach cae en «TUS FUENTES», que son TRES fichas atribuidas (17.272
   //    caracteres, contra 7.863 con uno al frente, medido el 14/11/2026). Soltarlo le daba MÁS método de referentes, no menos. Por eso
   //    con el candado va `sinReferentes`: el coach con sus fases, su calculadora y su plan, y sin la metodología de nadie.
-  // No devuelve 403 A PROPÓSITO: cerrarle el coach a un Esencial sería sacarle algo que paga (lib/asesores/candado.ts, la nota (b)).
+  // No devuelve 403 A PROPÓSITO: cerrarle el coach a un Essential sería sacarle algo que paga (lib/asesores/candado.ts, la nota (b)).
   const sinReferentes = (await candadoDeReferentesDe(quien.ws)) != null;
   const referente = sinReferentes ? null : elegido;
   // ⚠️ `referente` ES OTRA COSA QUE `contexto`, y por eso viaja aparte (2/11/2026). El contexto
@@ -200,7 +200,7 @@ export async function GET(req: NextRequest) {
     if (sp.get('sesiones')) return json({ ok: true, sesiones: await listarSesiones(persona) });
     // La conversación de una tab con chat propio (el Second Brain, 23/10/2026), si ya existe: se lee, no se crea.
     if (sp.has('deTab')) {
-      // SÓLO MaKo Pro el chat con un GURÚ (14/11/2026, lib/asesores/candado.ts): a un Esencial no se le abre su conversación.
+      // SÓLO MaKo Pro el chat con un GURÚ (14/11/2026, lib/asesores/candado.ts): a un Essential no se le abre su conversación.
       // El Second Brain y el chat de MaKo, enteros en los dos planes: lo que lleva candado es el referente.
       const pro = await candadoDeReferente(persona.ws, sp.get('deTab'));
       if (pro) return json({ ok: false, error: pro, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) }, 403);

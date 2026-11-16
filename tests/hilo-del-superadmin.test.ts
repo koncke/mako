@@ -200,7 +200,7 @@ test('5. el cableado: la memoria del SuperAdmin, la del aviso al dueño, el hist
 
 test('7. «¿cuánto paga Código el mes que viene?», con el dato real del 11/11: diciembre, US$426 (US$473 si Pablo pagara)', () => {
   // Medido en producción (sólo lectura, `mensualidadDeAgencia(13)`, 12/11/2026): la mensualidad prendida desde diciembre; Pro de la
-  // agencia (97) y 7 clientes en Esencial (47): Brigitte, Giselle, Marcela, Natalia, Patricia, Sellers y Sergio. Pablo Chavez, en pausa
+  // agencia (97) y 7 clientes en Essential (47): Brigitte, Giselle, Marcela, Natalia, Patricia, Sellers y Sergio. Pablo Chavez, en pausa
   // por su entrada («paga para entrar»): no cuenta. Es el mismo número que da Planes y cobros.
   const c = (ws: number, nombre: string, x: Partial<ClienteDeAgencia> = {}): ClienteDeAgencia => ({
     ws, nombre, estado: 'aprobado', invitado: '2026-10-20', corregido: null, baja: null, plan: 'esencial',

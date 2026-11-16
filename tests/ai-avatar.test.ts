@@ -111,7 +111,7 @@ test('los looks no van al historial del Video Generator', () => {
 //     sin <Requisitos> en la barra del video, o el teléfono con el ComputadoraM de antes → «el paso a paso se ve ARRIBA…»;
 //     'ai-avatar' otra vez en NAV_SOLO_PRO → «la puerta es la de toda tab, en los TRES planes»; la fila de /planes con
 //     `soloPro` → el de planes-tres-bloques.
-//   · (la apertura a Pro) `veAiAvatar` sin el chequeo del Esencial → «la puerta es la de Pro» (37/1); la capa de la plataforma
+//   · (la apertura a Pro) `veAiAvatar` sin el chequeo del Essential → «la puerta es la de Pro» (37/1); la capa de la plataforma
 //     sin 'ai-avatar' → ídem (37/1); TABS_TODAVIA_CERRADAS con 'ai-avatar' otra vez → el de /planes (37/1).
 //   · `quitarLook` sin chequear que el id estaba → «borrar… en POSITIVO».
 //   · `mezclarPorId` devolviendo sólo lo del server → «refrescar no se traga…».
@@ -265,7 +265,7 @@ test('la puerta es la de toda tab (no una tab escondida), y adentro el candado d
   assert.doesNotMatch(acceso, /getSesionAdmin/, 'sigue cerrada al super admin');
   // 14/11/2026 (Martín, sobre /planes: «el de 97 ya podés generar avatares de IA… el de 47 debería estar bien limitado y
   // restrictivo»): el avatar es de Pro otra vez, pero con el candado de `FUNCIONES_SOLO_PRO` y NO escondiendo la tab.
-  // ⚠️ LA DIFERENCIA NO ES COSMÉTICA: en `NAV_SOLO_PRO` / `TABS_SOLO_PRO` la puerta REDIRIGE, y un Esencial que ya generó
+  // ⚠️ LA DIFERENCIA NO ES COSMÉTICA: en `NAV_SOLO_PRO` / `TABS_SOLO_PRO` la puerta REDIRIGE, y un Essential que ya generó
   //    looks no podría ni entrar a ver los suyos. Con el cartel entra, los ve, y lo que no puede es generar.
   assert.doesNotMatch(fuenteDe('lib/plan-esencial-reglas.ts'), /'ai-avatar'/, 'AI Avatar volvió a NAV_SOLO_PRO: la tab redirige');
   assert.doesNotMatch(fuenteDe('lib/topes-plan.ts').match(/export const TABS_SOLO_PRO = \[[^\]]*\]/)![0], /ai-avatar/, 'AI Avatar volvió a TABS_SOLO_PRO');
@@ -274,7 +274,7 @@ test('la puerta es la de toda tab (no una tab escondida), y adentro el candado d
   // El candado, en UN lugar (`candadoDeAiAvatar`) y usado por cada función que GENERA, más el cartel de cada pantalla.
   assert.match(acceso, /return \(await esEsencialDeLaSesion\(\)\) \? textoSoloPro\('ai-avatar'\) : null;/, 'sin el candado de Pro');
   assert.match(fuenteDe('app/ai-avatar/actions.ts'), /const pro = await candadoDeAiAvatar\(\);\n\s*if \(pro\) return \{ ok: false, error: pro \};/,
-    'las actions sin el candado: un Esencial generaba desde una pestaña ya abierta');
+    'las actions sin el candado: un Essential generaba desde una pestaña ya abierta');
   for (const rel of ['app/ai-avatar/page.tsx', 'app/m/ai-avatar/page.tsx']) {
     assert.match(fuenteDe(rel), /if \(pro\) return <\w+[^>]*><CartelSoloPro texto=\{pro\} \/><\/\w+>;/, `${rel} sin el cartel`);
   }
@@ -285,12 +285,12 @@ test('la puerta es la de toda tab (no una tab escondida), y adentro el candado d
 // 14/11/2026, A LA NOCHE — las DOS fallas que encontró la verificación adversarial del candado de arriba, con lo que hacía cada
 // una en producción:
 //   · `crearAvatarAction` (app/video-editor/avatar/actions.ts) preguntaba sólo `veEditorVideo()`. El Video Editor está abierto
-//     en los DOS planes (`TABS_SOLO_PRO` sólo tiene 'closing-analyst'), así que un Esencial entraba por Biblioteca › «Avatar de
+//     en los DOS planes (`TABS_SOLO_PRO` sólo tiene 'closing-analyst'), así que un Essential entraba por Biblioteca › «Avatar de
 //     IA», elegía un look de su historial, escribía el guion y filmaba, gastando créditos de Flow. Cerrar la tab /ai-avatar no
 //     cerraba la función: la puerta de al lado seguía abierta.
 //   · el candado estaba en la `puerta()` COMÚN de app/ai-avatar/actions.ts, o sea también en `inicioAvatarAction`, que SÓLO
 //     LEE y que no usa únicamente este estudio: la guía de video del editor (app/video-editor/guia/GuiaEnElChat.tsx →
-//     `leerDatos`) la llama para listar las FOTOS de la persona. A un cliente de Esencial el chat guiado le decía «No pude
+//     `leerDatos`) la llama para listar las FOTOS de la persona. A un cliente de Essential el chat guiado le decía «No pude
 //     leer tus fotos» —mentira— y perdía la galería de su onboarding y sus personajes aprobados.
 // Probado rompiéndolo: sacar el candado de `crearAvatarAction` → falla «la OTRA puerta…»; devolverlo a `puerta()` → ídem, por
 // `inicioAvatarAction`; sacar `useSoloPro` de AvatarIAView → ídem, por la pestaña.
@@ -307,11 +307,11 @@ test('la OTRA puerta del avatar es el Video Editor, y lo que sólo LEE pasa igua
   const crear = cuerpoDe(editor, 'export async function crearAvatarAction(');
   const iPro = crear.indexOf('const pro = await candadoDeAiAvatar();');
   assert.match(crear, /const pro = await candadoDeAiAvatar\(\);\n\s*if \(pro\) return \{ ok: false, error: pro \};/,
-    'el «Avatar de IA» del editor generaba en Esencial: el Video Editor está abierto en los dos planes');
+    'el «Avatar de IA» del editor generaba en Essential: el Video Editor está abierto en los dos planes');
   assert.ok(iPro >= 0 && crear.indexOf("frenoDePrueba(ws, 'prueba.avatares')") > iPro,
     'el candado después del freno de la prueba: rechazar le gastaría un avatar de su prueba gratis');
 
-  // ② Listar sus avatares LEE: con candado, un Esencial veía la biblioteca vacía con un error en vez de los suyos.
+  // ② Listar sus avatares LEE: con candado, un Essential veía la biblioteca vacía con un error en vez de los suyos.
   assert.doesNotMatch(cuerpoDe(editor, 'export async function avataresAction('), /candadoDeAiAvatar/,
     'leer sus propios avatares no es generar');
 

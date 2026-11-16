@@ -142,7 +142,7 @@ export async function vigilarCuenta(ws: number, opts: { cuentasVistas?: Set<stri
           ahora: Date.now(), hoy: dia.hoy, kpi: config.kpi, objetivo, arbol: datos.arbol, delDia: delDia ?? [], semana: datos.larga,
           historial: decisiones.map(previa), tacticas, fmt: fmtUnidad(datos),
         }).filter((p) => !ya.has(p.clave));
-        // El cupo de MaKo Esencial (plan.ts): lo del día cuenta como una recomendación más.
+        // El cupo de MaKo Essential (plan.ts): lo del día cuenta como una recomendación más.
         const { orden, lugares } = ordenDelCupo(stop, recomendadasHoy(decisiones, dia.hoy), cupo.recomendacionesDia);
         nuevasStop = await guardarPropuestas(ws, orden.slice(0, Math.max(0, lugares)), datos.moneda);
         if (tacticas.stop_loss.estado === 'automatica') { const antes = lanzadas; await lanzarTodas(nuevasStop); stopLanzadas = lanzadas - antes; }

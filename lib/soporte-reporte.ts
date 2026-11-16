@@ -63,7 +63,7 @@ export function sinSecretos(texto: string): string {
  *    llegó «Pasa a MaKo «…»… que te pase a «…»»: el ticket parecía un bug del nombre del plan, y era este filtro.
  */
 const PALABRAS_DE_MAKO = new Set([
-  'Pro', 'Esencial', 'Agency', 'Partners',
+  'Pro', 'Essential', 'Agency', 'Partners',
   'MaKo', 'Ops', 'Center', 'Second', 'Brain', 'CRM', 'Dashboard', 'General', 'Automations', 'Web', 'Generator', 'Image', 'Video',
   'Editor', 'Offer', 'Clients', 'Calendar', 'Plan', 'Ads', 'Manager', 'Writer', 'Analyst', 'Ticketera', 'Soporte', 'Today', 'Sales',
   'Marketing', 'Create', 'Meta', 'Google', 'WhatsApp', 'Instagram', 'Facebook', 'Gmail', 'Drive', 'Sheets', 'Stripe', 'Mercado',

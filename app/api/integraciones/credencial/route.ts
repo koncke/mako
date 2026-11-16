@@ -431,7 +431,7 @@ export async function POST(req: NextRequest) {
       if (!usar) {
         return NextResponse.json({ ok: false, error: `Pega primero tu clave de ${NOMBRE_PASARELA[pasarela]}.`, nadaGuardado: true }, { status: 400 });
       }
-      // El tope del plan (lib/tope-cuentas.ts): la principal de una pasarela que todavía no estaba SUMA una cuenta (Esencial
+      // El tope del plan (lib/tope-cuentas.ts): la principal de una pasarela que todavía no estaba SUMA una cuenta (Essential
       // trae «1 cuenta de Stripe o Mercado Pago»). Volver a conectar la que ya está no suma. Antes de guardar nada.
       if (!(await cuentasDePago(ctx.ws, pasarela)).some((x) => x.principal)) {
         const tope = await topeDeCuentas(ctx.ws, 'cobro');

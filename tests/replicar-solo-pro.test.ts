@@ -8,7 +8,7 @@
 //     `leerParaReplicar()`: quien las llame queda con el candado. Nadie más las importa sin que este test lo sepa;
 //   · las puertas: las dos rutas de la pantalla (403 con `pasarAPro`, antes de leer el cuerpo), el esquema «importar» de la
 //     ruta de IA (la puerta vieja de Replicar) y la operación `replicar_landing` de la API (al proponer y al ejecutar);
-//   · la pantalla: Replicar no arranca sin saber el plan y a un Esencial le muestra el candado; la caja de crear pone el
+//   · la pantalla: Replicar no arranca sin saber el plan y a un Essential le muestra el candado; la caja de crear pone el
 //     candado en el modo y no manda; «Copiar su sitio» de Competitor Spy lleva el candado en vez del link.
 //
 // Probado rompiéndolo (14/11/2026): al pie del archivo.
@@ -54,7 +54,7 @@ test('la regla: copiar landings es de Pro, y el candado dice qué es y cómo ten
   assert.equal(RUTA_CAMBIAR_PLAN, '/configuraciones/plan', '«Pasar a Pro» lleva a «Tu plan»');
 });
 
-test('el candado del servidor: Esencial por la pasarela, ante la duda pasa, y la forma del scraper para las rutas', () => {
+test('el candado del servidor: Essential por la pasarela, ante la duda pasa, y la forma del scraper para las rutas', () => {
   const api = cuerpo(CANDADO, 'candadoDeReplicar');
   assert.match(api, /return w != null && \(await esEsencialDe\(w\)\) \? textoSoloPro\('replicar-landing'\) : null;/);
   assert.match(api, /\} catch \{\n\s*return null;\n\s*\}/, 'si no se puede leer el plan, no hay candado');
@@ -131,7 +131,7 @@ test('LA PANTALLA: Replicar con el candado (y sin arrancar hasta saber el plan),
   assert.match(cuerpo('app/web-generator/crear/Replicar.tsx', 'CandadoReplicar'), /<CandadoSoloPro funcion="replicar-landing" style=\{style\} \/>/);
   const una = cuerpo('app/web-generator/crear/Replicar.tsx', 'ReplicarUnaPagina');
   assert.match(una, /const plan = usePlanEsencial\(\);\n\s*const candado = useSoloPro\('replicar-landing'\);\n\s*if \(!candado && plan === false\) return <ReplicarAbierto \{\.\.\.props\} \/>;\n\s*return <ReplicarConCandado/,
-    'abierto SÓLO sabiendo que no es Esencial: con `auto` leería sola (paga IA)');
+    'abierto SÓLO sabiendo que no es Essential: con `auto` leería sola (paga IA)');
   assert.match(cuerpo('app/web-generator/crear/Replicar.tsx', 'ReplicarConCandado'), /\{candado && <CandadoReplicar /);
   assert.match(cuerpo('app/web-generator/crear/Replicar.tsx', 'FallaReplicar'), /if \(error === TEXTO_CANDADO_REPLICAR\) return <CandadoReplicar /, 'la falla del Diagnóstico');
   // El candado de todas las funciones de Pro: el texto y «Pasar a Pro» a «Tu plan», dentro de CtaPasarAPro.

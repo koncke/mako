@@ -1,8 +1,8 @@
 // =============================================================================
-// MaKo Esencial: las tabs de Pro con candado y «Pasar a Pro», y el tope de automatizaciones al activar (23/10/2026)
+// MaKo Essential: las tabs de Pro con candado y «Pasar a Pro», y el tope de automatizaciones al activar (23/10/2026)
 // =============================================================================
 // Las ofertas: docs/ofertas-mako.md; la tabla: lib/topes-plan.ts. Fija:
-//   1. QUIÉN es Esencial: sólo quien MaKo le cobra el Esencial por la pasarela (el plan vendido, `alta_capa`, y la capa de hoy
+//   1. QUIÉN es Essential: sólo quien MaKo le cobra el Essential por la pasarela (el plan vendido, `alta_capa`, y la capa de hoy
 //      `completo`); nunca el ws1, la plataforma, un acuerdo a mano ni un Pro, y ante la duda, nadie;
 //   2. QUÉ tabs: las de TABS_SOLO_PRO como claves de la barra que existen (Closing Analyst es una hoja del Dashboard: aparte);
 //   3. DÓNDE: la puerta de la página (computadora y teléfono) manda al cartel con «Pasar a Pro», y la barra y More lo dicen;
@@ -23,7 +23,7 @@ import { TABS_SOLO_PRO, cabeOtra, topeDe } from '../lib/topes-plan';
 const leer = (f: string) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
-test('1. Esencial = el Esencial vendido por la pasarela y la capa de hoy; nunca el ws1, la plataforma, un Pro ni un acuerdo a mano', () => {
+test('1. Essential = el Essential vendido por la pasarela y la capa de hoy; nunca el ws1, la plataforma, un Pro ni un acuerdo a mano', () => {
   const base = { ws: 30, wsPlataforma: 9, capa: 'completo', capaVendida: 'completo' };
   assert.equal(esEsencialPorPasarela(base), true);
   assert.equal(esEsencialPorPasarela({ ...base, ws: 1 }), false, 'el ws1 (Mauricio, acuerdo a mano)');
@@ -34,7 +34,7 @@ test('1. Esencial = el Esencial vendido por la pasarela y la capa de hoy; nunca 
   assert.equal(esEsencialPorPasarela({ ...base, ws: null }), false);
   // Ante la duda, nadie: la lectura de la base no saca tabs ni frena activaciones si falla.
   const lectura = sinComentarios(leer('lib/plan-esencial.ts'));
-  assert.match(lectura, /catch \(e\) \{\n\s*console\.warn\([\s\S]*?\);\n\s*return false;/, 'un error de lectura tiene que dar «no es Esencial»');
+  assert.match(lectura, /catch \(e\) \{\n\s*console\.warn\([\s\S]*?\);\n\s*return false;/, 'un error de lectura tiene que dar «no es Essential»');
   // La suscripción se lee con los MISMOS filtros que `suscripcionDeMakoDe`, sin importar lib/cobros (alcanza una IA, y esto lo
   // importa /api/auth/me: tests/d6b-rutas.test.ts).
   // Con la prueba gratis (25/10/2026): la pagada o la prueba autorizada, con el MISMO filtro (lib/prueba-plan-reglas.ts).
@@ -70,8 +70,8 @@ test('3. la puerta de la página manda al cartel con «Pasar a Pro», y la barra
 });
 
 // ⚠️ 23/10/2026: el tope se pregunta ADENTRO de `setSecuenciaActiva` (la única puerta que prende), no en cada ruta.
-// 14/11/2026 (Martín): de 3 a 2 en el Esencial.
-test('4. el tope de automatizaciones: 2 en el Esencial, preguntado en la puerta del motor ANTES de prender', () => {
+// 14/11/2026 (Martín): de 3 a 2 en el Essential.
+test('4. el tope de automatizaciones: 2 en el Essential, preguntado en la puerta del motor ANTES de prender', () => {
   assert.equal(topeDe('completo', 'automations.activas'), 2);
   assert.equal(cabeOtra('completo', 'automations.activas', 1), true);
   assert.equal(cabeOtra('completo', 'automations.activas', 2), false);
@@ -87,7 +87,7 @@ test('4. el tope de automatizaciones: 2 en el Esencial, preguntado en la puerta 
   assert.match(doer, /await setSecuenciaActiva\(id, activa, \{ aunqueDuplique: payload\.aunqueDuplique === true, ws \}\);/);
   assert.match(doer, /if \(e instanceof TopeDelPlanError\) return \{ ok: false, resumen: `No activé la secuencia #\$\{id\}: \$\{e\.message\}` \};/);
   const tope = sinComentarios(leer('lib/tope-automations.ts'));
-  assert.match(tope, /if \(ws == null \|\| !\(await esEsencialDe\(ws\)\)\) return null;/, 'sólo al Esencial de la pasarela');
+  assert.match(tope, /if \(ws == null \|\| !\(await esEsencialDe\(ws\)\)\) return null;/, 'sólo al Essential de la pasarela');
   assert.match(tope, /\?\.activa === true\) return null;/, 'volver a prender una prendida no cuenta');
 });
 

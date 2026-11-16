@@ -94,14 +94,14 @@ var leidosBase=null,planDe={};
 var BOR=['border-top-color','border-bottom-color','border-left-color','border-right-color','outline-color'],TXT=['color','fill','stroke','text-decoration-color'];
 function leer(){
   var todos=[].slice.call(document.querySelectorAll('body, body *'));
-  // Lo marcado «data-tema-fijo» (el Acelerador negro de los precios, el caso de Mauricio) queda igual en los dos modos.
+  // Lo marcado «data-tema-fijo» (el Accelerator negro de los precios, el caso de Mauricio) queda igual en los dos modos.
   // Los logos no se tocan: ni las fotos ni los SVG de marca (sus <symbol>, que dibujan la «f» blanca de Facebook: invertida
   // quedaba negra, Martín 12/11/2026).
   // Y el recuadro de color de un logo (el negro de TikTok, el blanco de Cal.com): cambiado, el logo quedaba del mismo color.
   // Sólo si no tiene texto: el renglón de la tira («logo + nombre») sí cambia, o el nombre queda blanco sobre blanco.
   var esRecuadro=function(n){return n.children.length===1&&!n.textContent.trim()&&n.firstElementChild.matches('svg:has(use), img');};
   // ⚠️ EL LOGO SE RECONOCE POR SU ETIQUETA EXACTA (15/11/2026): «MaKo», o «MaKo — volver a la landing». Era «toda etiqueta que
-  // EMPIECE con MaKo», y las columnas de /planes se llaman «MaKo Esencial» y «MaKo Pro» (Tarjetas.tsx, aria-label del plan):
+  // EMPIECE con MaKo», y las columnas de /planes se llaman «MaKo Essential» y «MaKo Pro» (Tarjetas.tsx, aria-label del plan):
   // el script las tomaba por el logo, les pintaba #1A1712 a su PRIMER <span> y las dejaba fuera del cambio de modo enteras.
   // Así salió negra la pastilla «7 días gratis» la mañana del 15/11 (era su primer span), y a la tarde, con el precio arriba
   // de la columna, el recuadro casi negro pasó a tapar «US$ 47». Lo que se arregló a la mañana con data-tema-fijo era el
@@ -114,7 +114,7 @@ function leer(){
       o.clip=(cs.webkitBackgroundClip||cs.backgroundClip||'').indexOf('text')>=0;}
     // En un SVG, el relleno de un rectángulo o un círculo es FONDO (las columnas del tablero), no letra: se lleva al modo como fondo.
     o.area=n instanceof SVGRectElement||n instanceof SVGCircleElement||n instanceof SVGEllipseElement||n instanceof SVGPolygonElement;
-    // Un botón (un link o un <button> con fondo) conserva sus colores en los dos modos: el negro del Acelerador es a propósito.
+    // Un botón (un link o un <button> con fondo) conserva sus colores en los dos modos: el negro del Accelerator es a propósito.
     o.boton=n.matches('a, button, [role="button"]');return o;});}
 function planDelModo(){
   if(planDe[actual])return planDe[actual];

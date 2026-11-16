@@ -42,9 +42,9 @@
 //     elegir, nace con el CRON a elegir.
 //   · CON MaKo ESENCIAL, SIN EL SETTER (14/11/2026, Martín: el setter con IA es de Pro; lib/setter-ia-reglas.ts). Las
 //     plantillas siguen abiertas, y varias traen un AI Step con algún escenario «Sola» («Confirma», «No puede ahora»). La
-//     puerta (`setSecuenciaPasos`) frena el setter nuevo de un Esencial con su candado; acá, en vez de no crearla, la plantilla
+//     puerta (`setSecuenciaPasos`) frena el setter nuevo de un Essential con su candado; acá, en vez de no crearla, la plantilla
 //     se guarda otra vez con esos escenarios en «Para aprobar» (`guardarSinSetterSiFrena`): nace entera y MaKo deja sus
-//     respuestas para que una persona las mande. Quién es Esencial lo decide la puerta, no esto: sin imports del servidor.
+//     respuestas para que una persona las mande. Quién es Essential lo decide la puerta, no esto: sin imports del servidor.
 //
 // ⚠️ SIN `server-only` Y SIN IMPORTS DEL SERVIDOR, a propósito: la base y los dos setters entran por
 // parámetro, así el test (tests/plantillas-automatizaciones.test.ts) ejecuta la función entera con
@@ -155,7 +155,7 @@ export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlanti
 
   const borrar = () => Promise.resolve(deps.db.from('nutricion_secuencias').delete().eq('id', nueva.id)).catch(() => {});
   try {
-    // Con MaKo Esencial, sin el setter con IA si la puerta lo frena (ver la cabecera): la plantilla nace igual.
+    // Con MaKo Essential, sin el setter con IA si la puerta lo frena (ver la cabecera): la plantilla nace igual.
     await guardarSinSetterSiFrena(pasosDePlantilla(p), (ps) => deps.setPasos(nueva.id, ps as never[]));
   } catch (e) {
     // El motivo de `setSecuenciaPasos` es el que la pantalla muestra («No se guardó: …»). Si el

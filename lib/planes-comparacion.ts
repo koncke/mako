@@ -5,7 +5,7 @@
 //
 // Los números NO se escriben a mano: salen de los topes que el código hace cumplir (lib/topes-plan.ts, `TOPES`), así la
 // vitrina no puede prometer 3 automatizaciones si el producto frena en 2. Lo que es sólo de Pro sale de `TABS_SOLO_PRO` y
-// de `FUNCIONES_SOLO_PRO`. El Acelerador trae MaKo Pro (docs/ofertas-mako.md §3): sus topes son los de Pro, y suma lo del programa.
+// de `FUNCIONES_SOLO_PRO`. El Accelerator trae MaKo Pro (docs/ofertas-mako.md §3): sus topes son los de Pro, y suma lo del programa.
 //
 // SIN LENGUAJE INTERNO (24/10/2026, noche, Martín: «las personas no saben que es "Ops Center" y muchas otras cosas»): cada
 // fila dice lo que la persona CONSIGUE, nunca el nombre de una tab, y van por grupos, como el «Compare features» de Kajabi
@@ -18,8 +18,8 @@
 //
 // EL RELEVAMIENTO DEL 12/11/2026 (Martín: «hagas nuevamente la parte de compara los planes… relevamiento de qué se incluye en
 // cada cosa»). La tabla dice TODO lo que trae MaKo, función por función, de lib/funciones-mako.ts (sólo lo que anda) y de quién
-// ve cada pantalla: las capas `completo` (Esencial) y `agencia` (Pro) ven todas las pantallas (lib/capas.ts, `navKeys: null`)
-// menos las de `TABS_SOLO_PRO`, que en Esencial van con candado. Así que casi todo está en los tres planes, y lo que cambia son
+// ve cada pantalla: las capas `completo` (Essential) y `agencia` (Pro) ven todas las pantallas (lib/capas.ts, `navKeys: null`)
+// menos las de `TABS_SOLO_PRO`, que en Essential van con candado. Así que casi todo está en los tres planes, y lo que cambia son
 // los topes y lo de Pro. Los grupos se abren y se cierran, como el «Compare features» de beehiiv (beehiiv.com/pricing): el
 // primero, lo que entra en cada plan, abierto.
 // =============================================================================
@@ -39,18 +39,23 @@ export type Celda = boolean | string;
 // equivocada. Lo usa tests/vsl-comparaciones-competencia.test.ts para cruzar la tabla «MaKo vs» de /vsl/comparaciones.
 export type FilaComparacion = { grupo: string; que: string; esencial: Celda; pro: Celda; acelerador: Celda; tope?: Tope };
 
-const cantidad = (n: number | null, prefijo = ''): string => (n == null ? 'Sin tope' : `${prefijo}${n.toLocaleString('es-AR')}`);
+// «ILIMITADO», NUNCA «SIN TOPE» (15/11/2026, Martín: «en las columnas yo no pondría nunca sin tope… lo eliminaría de todos lados.
+// Pondría ilimitado, que es mejor la palabra… tanto en las columnas como en la comparación de planes»). Concuerda con lo que cuenta
+// la fila: «Landings: Ilimitadas», «Cursos: Ilimitados». `genero` es el de esa palabra; «tope» queda sólo para el código.
+type Genero = 'm' | 'f';
+export const ilimitado = (genero: Genero = 'm'): string => (genero === 'f' ? 'Ilimitadas' : 'Ilimitados');
+const cantidad = (n: number | null, prefijo = '', genero: Genero = 'm'): string => (n == null ? ilimitado(genero) : `${prefijo}${n.toLocaleString('es-AR')}`);
 
-/** Una fila de tope: Esencial es la capa `completo`; Pro y el Acelerador, `agencia`. */
-// Un tope en 0 es «no lo trae» (14/11/2026: Esencial sin dominio propio): la celda va vacía, no «0».
-const celdaDeTope = (n: number | null, prefijo: string): Celda => (n === 0 ? false : cantidad(n, prefijo));
-const filaDeTope = (grupo: string, que: string, t: Tope, prefijo = ''): FilaComparacion => ({
+/** Una fila de tope: Essential es la capa `completo`; Pro y el Accelerator, `agencia`. */
+// Un tope en 0 es «no lo trae» (14/11/2026: Essential sin dominio propio): la celda va vacía, no «0».
+const celdaDeTope = (n: number | null, prefijo: string, genero: Genero): Celda => (n === 0 ? false : cantidad(n, prefijo, genero));
+const filaDeTope = (grupo: string, que: string, t: Tope, prefijo = '', genero: Genero = 'm'): FilaComparacion => ({
   grupo,
   que,
   tope: t,
-  esencial: celdaDeTope(TOPES.completo[t], prefijo),
-  pro: celdaDeTope(TOPES.agencia[t], prefijo),
-  acelerador: celdaDeTope(TOPES.agencia[t], prefijo),
+  esencial: celdaDeTope(TOPES.completo[t], prefijo, genero),
+  pro: celdaDeTope(TOPES.agencia[t], prefijo, genero),
+  acelerador: celdaDeTope(TOPES.agencia[t], prefijo, genero),
 });
 const enTodos = (grupo: string, que: string): FilaComparacion => ({ grupo, que, esencial: true, pro: true, acelerador: true });
 const soloPro = (grupo: string, que: string): FilaComparacion => ({ grupo, que, esencial: false, pro: true, acelerador: true });
@@ -59,7 +64,7 @@ const soloPrograma = (grupo: string, que: string): FilaComparacion => ({ grupo, 
 /**
  * UNA FILA DE TOPE DE GENERACIÓN (15/11/2026). Igual que `filaDeTope`, pero el número sale de los topes de video e imagen
  * (`CLIPS_POR_MES`, `IMAGENES_POR_MES`) en vez de `TOPES`: son los dos únicos límites que los fija el MARGEN y no el
- * producto, y por eso viven con el precio del clip. El Acelerador trae MaKo Pro, así que lleva lo de Pro.
+ * producto, y por eso viven con el precio del clip. El Accelerator trae MaKo Pro, así que lleva lo de Pro.
  */
 const filaDeGeneracion = (grupo: string, que: string, celda: (p: Plan) => Celda): FilaComparacion => ({
   grupo,
@@ -154,7 +159,7 @@ export const NOMBRE_FUNCION_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'comunidad': 'Comunidad para tus alumnos, como en Skool',
   'setter-ia': 'Setter con IA que responde y agenda por WhatsApp e IG',
   'piloto-redes': 'Piloto automático de Instagram: publica y prueba hooks',
-  // 14/11/2026: las tres últimas que se cerraron en Esencial (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`).
+  // 14/11/2026: las tres últimas que se cerraron en Essential (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`).
   // ⚠️ El avatar NO se vende todavía (`AI_AVATAR_SE_VENDE`): su nombre es el de abajo y su fila sólo aparece el día que se venda.
   'ai-avatar': NOMBRE_AI_AVATAR,
   'replicar-guion': 'Replicar el guion de un video de la competencia',
@@ -162,8 +167,8 @@ export const NOMBRE_FUNCION_PRO: Readonly<Record<FuncionSoloPro, string>> = {
 };
 
 /**
- * Lo que es SÓLO de Pro pero TODAVÍA no se vende: está cerrado en Esencial y aun así no tiene fila en la tabla. Es el mismo
- * criterio que `TABS_TODAVIA_CERRADAS` al revés — ahí la tab no estaba abierta; acá la función anda, se cerró en Esencial y
+ * Lo que es SÓLO de Pro pero TODAVÍA no se vende: está cerrado en Essential y aun así no tiene fila en la tabla. Es el mismo
+ * criterio que `TABS_TODAVIA_CERRADAS` al revés — ahí la tab no estaba abierta; acá la función anda, se cerró en Essential y
  * lo que falta es que ande de punta a punta para prometerla (el Cerebro, 29/10/2026: «no se vende lo que no anduvo de punta a
  * punta»). Hoy: el avatar, hasta que `AI_AVATAR_SE_VENDE` sea true.
  */
@@ -191,12 +196,12 @@ export function filasDeComparacion(): FilaComparacion[] {
     // LENGUAJE DE MARKETING (14/11/2026, Martín: «no tengas problema en utilizar el lenguaje técnico de marketing… solo de
     // marketing»): landing, leads, CRM, pipelines, setter, scrapear. Lo que sigue prohibido es lo INTERNO de MaKo (el nombre de
     // una tab, «capa», «topes»): tests/planes-tres-bloques.test.ts.
-    filaDeTope(captacion, 'Landings y presentaciones armadas con IA, publicadas', 'web.landings_publicadas'),
+    filaDeTope(captacion, 'Landings y presentaciones armadas con IA, publicadas', 'web.landings_publicadas', '', 'f'),
     filaDeTope(captacion, 'Dominio propio para tus landings (tunegocio.com)', 'web.dominios'),
     soloPro(captacion, NOMBRE_FUNCION_PRO['replicar-landing']),
     filaDeTope(captacion, 'Competidores que MaKo scrapea: web, redes y anuncios', 'spy.competidores'),
     soloPro(captacion, NOMBRE_FUNCION_PRO['scraper-whatsapp']),
-    // AI Avatar se cerró en Esencial el 14/11/2026 (Martín: «el de 97 ya podés generar avatares de IA»; estaba abierta en los tres
+    // AI Avatar se cerró en Essential el 14/11/2026 (Martín: «el de 97 ya podés generar avatares de IA»; estaba abierta en los tres
     // desde el 29/10). La tabla sigue sin venderla hasta que ande de punta a punta (`AI_AVATAR_SE_VENDE`), y el día que se venda
     // nace EN PRO, no en los tres: por eso `soloPro` y no `enTodos`. El Video Generator, igual (29/10/2026).
     ...(AI_AVATAR_SE_VENDE ? [soloPro(contenido, NOMBRE_AI_AVATAR)] : []),
@@ -223,9 +228,9 @@ export function filasDeComparacion(): FilaComparacion[] {
     enTodos(contenido, 'Editor de video, como CapCut'),
     soloPro(contenido, NOMBRE_FUNCION_PRO['ia-editores']),
     enTodos(contenido, 'Calendario de contenido y publicación en tus redes'),
-    // Lo que en Esencial propone y no aplica solo (25/10/2026); cuántas, del tope del plan. Los tres pilotos automáticos, cada uno
+    // Lo que en Essential propone y no aplica solo (25/10/2026); cuántas, del tope del plan. Los tres pilotos automáticos, cada uno
     // en su fila y los tres de Pro (14/11/2026, noche, Martín). «ROAS real por campaña» se fue: no se entendía.
-    filaDeTope(contenido, 'Recomendaciones por día para tus campañas de Meta', 'ads.recomendaciones_dia'),
+    filaDeTope(contenido, 'Recomendaciones por día para tus campañas de Meta', 'ads.recomendaciones_dia', '', 'f'),
     soloPro(contenido, 'Piloto automático de tus anuncios de Meta'),
     soloPro(contenido, NOMBRE_FUNCION_PRO['piloto-redes']),
     soloPro(contenido, NOMBRE_PILOTO_YOUTUBE),
@@ -233,13 +238,13 @@ export function filasDeComparacion(): FilaComparacion[] {
     filaDeTope(crm, 'Pipelines de venta en tu CRM, con sus etapas', 'crm.funnels'),
     enTodos(crm, 'Tracking de cada lead: de qué anuncio vino y qué hizo'),
     enTodos(crm, 'Agenda de llamadas sincronizada con Google, Calendly o Cal'),
-    filaDeTope(crm, 'Cuentas de cobro conectadas: Mercado Pago o Stripe', 'cobros.cuentas'),
+    filaDeTope(crm, 'Cuentas de cobro conectadas: Mercado Pago o Stripe', 'cobros.cuentas', '', 'f'),
     enTodos(crm, 'Planes de pago en cuotas, con contrato y comprobantes'),
     soloPro(crm, NOMBRE_TAB_PRO['closing-analyst']),
     filaDeTope(crm, 'Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'),
     enTodos(chats, 'Bandeja única: WhatsApp, Instagram, Messenger y email'),
     filaDeTope(chats, 'Números de WhatsApp conectados', 'chats.lineas_whatsapp'),
-    filaDeTope(chats, 'Automatizaciones activas a la vez', 'automations.activas'),
+    filaDeTope(chats, 'Automatizaciones activas a la vez', 'automations.activas', '', 'f'),
     soloPro(chats, NOMBRE_FUNCION_PRO['setter-ia']),
     enTodos(chats, 'Email marketing: secuencias y envíos con tu dominio'),
     filaDeTope(miembros, 'Cursos con módulos y clases para tus alumnos', 'classroom.cursos'),
@@ -251,18 +256,23 @@ export function filasDeComparacion(): FilaComparacion[] {
     enTodos(ia, 'Tu oferta y tu funnel, revisados con IA'),
     enTodos(ia, 'Reportes de tus ventas, tus anuncios y tu contenido'),
     enTodos(ia, 'Tus tareas, puntuadas y ordenadas por prioridad'),
-    // Lo que promete el Acelerador (lib/planes-mako.ts, `PROGRAMA_ACELERADOR.promesa`), punto por punto, y lo que trae.
+    // Lo que promete el Accelerator (lib/planes-mako.ts, `PROGRAMA_ACELERADOR.promesa`), punto por punto, y lo que trae.
     soloPrograma(acompanamiento, 'Tu sistema de adquisición de clientes, instalado en 90 días'),
     soloPrograma(acompanamiento, 'A la medida de tu oferta, armado por Martín Koncke'),
     soloPrograma(acompanamiento, 'Recuperas como mínimo la inversión, garantizado por contrato'),
     // Sin «anuncios» (30/10/2026): lo que se arma la primera semana es lo de `PROGRAMA_ACELERADOR.incluye` y /reembolsos §2.
-    // 15/11/2026, a la noche: lo que pidió Martín para el Acelerador (ver `LISTA_PROGRAMA`, app/planes/Tarjetas.tsx).
+    // 15/11/2026, a la noche: lo que pidió Martín para el Accelerator (ver `LISTA_PROGRAMA`, app/planes/Tarjetas.tsx).
     // «La primera semana» SÍ va acá (no las horas): la garantía se mide contra eso, y /reembolsos lo dice igual.
-    soloPrograma(acompanamiento, 'Tu sistema armado por nuestro equipo la primera semana'),
+    // 15/11/2026, ~21:00: lo arma Martín («todavía no tengo equipo»), y se suma lo que eligió de los programas high ticket.
+    soloPrograma(acompanamiento, 'Tu hoja de ruta armada por MaKo, y la apruebas tú'),
+    soloPrograma(acompanamiento, 'Tu sistema armado por Martín la primera semana'),
+    soloPrograma(acompanamiento, 'Un tablero de resultados: tus leads, reuniones y ventas'),
     soloPrograma(acompanamiento, '3 sesiones 1 a 1 con Martín por videollamada, de 2 horas'),
-    soloPrograma(acompanamiento, 'Una asesoría en vivo con Martín, cada semana'),
+    soloPrograma(acompanamiento, 'Una asesoría en vivo cada semana, abierta a tu equipo'),
+    soloPrograma(acompanamiento, 'Expertos y referentes del mercado invitados a capacitarte'),
     soloPrograma(acompanamiento, 'El WhatsApp personal de Martín para tus dudas'),
     soloPrograma(acompanamiento, 'Una comunidad de empresarios que venden high ticket'),
+    soloPrograma(acompanamiento, 'Presentaciones con los empresarios que te conviene conocer'),
     soloPrograma(acompanamiento, 'Plantillas probadas de páginas, mensajes y guiones'),
   ];
 }
@@ -316,11 +326,15 @@ export function nombreCorto(que: string): string {
     'Tu sistema de adquisición de clientes, instalado en 90 días': 'Sistema instalado en 90 días',
     'A la medida de tu oferta, armado por Martín Koncke': 'A la medida de tu oferta',
     'Recuperas como mínimo la inversión, garantizado por contrato': 'Garantía por contrato',
-    'Tu sistema armado por nuestro equipo la primera semana': 'Todo armado la semana 1',
+    'Tu hoja de ruta armada por MaKo, y la apruebas tú': 'Hoja de ruta que apruebas',
+    'Tu sistema armado por Martín la primera semana': 'Todo armado la semana 1',
+    'Un tablero de resultados: tus leads, reuniones y ventas': 'Tablero de resultados',
     '3 sesiones 1 a 1 con Martín por videollamada, de 2 horas': 'Sesiones 1 a 1 con Martín',
-    'Una asesoría en vivo con Martín, cada semana': 'Asesoría semanal con Martín',
+    'Una asesoría en vivo cada semana, abierta a tu equipo': 'Asesoría semanal con Martín',
+    'Expertos y referentes del mercado invitados a capacitarte': 'Expertos invitados',
     'El WhatsApp personal de Martín para tus dudas': 'WhatsApp de Martín',
     'Una comunidad de empresarios que venden high ticket': 'Comunidad de empresarios',
+    'Presentaciones con los empresarios que te conviene conocer': 'Presentaciones en la comunidad',
     'Plantillas probadas de páginas, mensajes y guiones': 'Plantillas probadas',
   };
   return k[que] ?? que;

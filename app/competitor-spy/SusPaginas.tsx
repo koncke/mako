@@ -34,7 +34,7 @@ import { Icon } from '../_components/icons';
 import { CandadoSoloPro } from '../_components/CandadoSoloPro';
 import { useSoloPro } from '../_components/solo-pro';
 
-/** El candado de la barra (app/_components/Sidebar.tsx → `Candado`), en «Copiar su sitio» a un Esencial. */
+/** El candado de la barra (app/_components/Sidebar.tsx → `Candado`), en «Copiar su sitio» a un Essential. */
 function IconoCandado() {
   return (
     <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', opacity: 0.7 }}>
@@ -128,7 +128,7 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
   conVistaPrevia: boolean;
 }) {
   const ws = useWs();
-  // «Copiar su sitio» es de MaKo Pro (14/11/2026): a un Esencial, con el candado (app/_components/solo-pro.ts).
+  // «Copiar su sitio» es de MaKo Pro (14/11/2026): a un Essential, con el candado (app/_components/solo-pro.ts).
   const soloPro = useSoloPro('replicar-landing');
   const [verCandado, setVerCandado] = useState(false);
   // ⚠️ LO CAPTURADO CON LA EXTENSIÓN (4/11/2026, Martín: «Pero podemos hacerlo con la extension de mako... Yo no quiero vulnerar
@@ -288,7 +288,7 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
             {/* ⚠️ `?replicar=` (9/11/2026): «Copiar su sitio» abre REPLICAR con esta página (`derechaDeQuery`, app/web-generator/
                 panel-reglas.ts). Con `?analizar=` abría el Diagnóstico, que vuelve a bajar la página por el servidor y no replica: una
                 página bloqueada fallaba otra vez. En Replicar, si el servidor no la baja, se copia con la extensión. */}
-            {/* SÓLO MaKo Pro (14/11/2026, lib/editor-landing/replicar-candado.ts): a un Esencial, el botón con el candado, que
+            {/* SÓLO MaKo Pro (14/11/2026, lib/editor-landing/replicar-candado.ts): a un Essential, el botón con el candado, que
                 abre el candado (el texto y «Pasar a Pro») acá mismo en vez de llevarlo a una pantalla que no puede usar. */}
             {soloPro ? (
               <button type="button" className="spy-boton" title="Copiar su sitio · De MaKo Pro" aria-expanded={verCandado} data-pro=""

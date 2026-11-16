@@ -20,7 +20,7 @@
 
 import { textoSoloPro } from './topes-plan';
 
-/** Lo que lee el ALUMNO de un negocio Esencial si llega a escribir en la comunidad: el plan no es suyo, no se le vende. */
+/** Lo que lee el ALUMNO de un negocio Essential si llega a escribir en la comunidad: el plan no es suyo, no se le vende. */
 export const TEXTO_COMUNIDAD_CERRADA_ALUMNO = 'La comunidad de este programa no está abierta.';
 
 /**

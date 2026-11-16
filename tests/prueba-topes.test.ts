@@ -58,10 +58,10 @@ test('la TABLA de la prueba: los números del Cerebro, con `topeDe(CAPA_PRUEBA, 
   });
   assert.equal(topeDe(CAPA_PRUEBA, 'prueba.videos'), 3);
   assert.equal(topeDe('agencia', 'prueba.videos'), null, 'un plan pagado no tiene tope de videos');
-  assert.equal(topeEnPrueba('completo', 'web.landings_publicadas'), 1, 'Esencial publica 3, en prueba 1');
+  assert.equal(topeEnPrueba('completo', 'web.landings_publicadas'), 1, 'Essential publica 3, en prueba 1');
   assert.equal(topeEnPrueba('agencia', 'web.landings_publicadas'), 1, 'Pro no tiene tope, en prueba 1');
   assert.equal(topeEnPrueba('agencia', 'crm.leads'), null, 'el resto del motor, entero');
-  assert.equal(topeEnPrueba('completo', 'crm.leads'), 2000, 'en prueba de Esencial, los topes de Esencial');
+  assert.equal(topeEnPrueba('completo', 'crm.leads'), 2000, 'en prueba de Essential, los topes de Essential');
 });
 
 test('el TEXTO de cada tope: «Disponible al terminar tu prueba», qué topó, y cómo seguir', () => {
@@ -208,7 +208,7 @@ test('«TU PLAN» DIBUJADA: en la prueba hay fila de Pro, es un BOTÓN que pide,
   // 3. LA SUBIDA EN EL ACTO NO CORRE EN PRUEBA: en la prueba la fila PIDE, y a quien ya paga por la pasarela le cobra. Los dos
   //    textos son distintos a propósito, y son el control uno del otro.
   assert.equal(d.enPrueba.filas[0].detalle, 'US$ 97 por mes. Pídelo y te lo cambiamos antes de que termine tu prueba.');
-  assert.equal(d.pagando.filas[0].detalle, 'US$ 97 por mes, sin topes. Lo tienes en el acto.');
+  assert.equal(d.pagando.filas[0].detalle, 'US$ 97 por mes, con contactos y landings ilimitados. Lo tienes en el acto.');
   assert.deepEqual(comoQuedo(d.pagando), [
     ['Pasar a MaKo Pro', 'boton'], ['Recomienda MaKo', 'link'], ['Darme de baja', 'boton'],
   ], 'quien ya paga no ve «Empezar mi plan ya»');
@@ -306,7 +306,7 @@ mock.module(${url('lib/invitaciones.ts')}, { namedExports: {
   mandarCodigoDeBaja: async () => ({ enviado: true }),
 } });
 mock.module(${url('lib/prueba-uso.ts')}, { namedExports: {
-  estadoDePrueba: async () => ({ enPrueba: true, capa: 'completo', hasta: null, despues: 'US$ 47/mes', plan: 'MaKo Esencial', dias: 5 }),
+  estadoDePrueba: async () => ({ enPrueba: true, capa: 'completo', hasta: null, despues: 'US$ 47/mes', plan: 'MaKo Essential', dias: 5 }),
 } });
 const { pedirProAction } = await import(${url('app/configuraciones/plan/actions.ts')});
 const correr = async (nombre, cambios) => {
@@ -391,7 +391,7 @@ test('«PASAR A PRO» EN PRUEBA: el pedido se ESCRIBE con los datos de la sesió
   assert.equal(s.casos.escrituraFalla.ok, false);
   assert.equal(s.casos.escrituraFalla.resumen, 'No pudimos registrar tu pedido. Prueba otra vez en un minuto.');
   // 4. QUIÉN PUEDE PEDIR: una acción es una puerta POST abierta a cualquiera con sesión. Sin ser admin, mirando otro negocio
-  //    (el pedido llevaría el email del que mira) o fuera de Esencial, no se escribe NADA.
+  //    (el pedido llevaría el email del que mira) o fuera de Essential, no se escribe NADA.
   for (const caso of ['noEsAdmin', 'mirandoOtroNegocio', 'noEsEsencial', 'sesionSinEmail'] as const) {
     assert.equal(s.casos[caso].ok, false, caso);
     assert.equal(s.casos[caso].escribio, 0, `${caso}: escribió un pedido que no le corresponde`);
@@ -423,7 +423,7 @@ test('«LISTO» SÓLO CON UN RASTRO CONFIRMADO, con el NEGOCIO adentro, y un F5 
   assert.match(primero.preheader, /«Tu plan» de Casa Luna/, 'el preheader seguía diciendo «desde la página de planes»');
   assert.match(primero.cuerpo, /^Sol Díaz \(sol@ejemplo\.com\) pide pasar a MaKo Pro\./);
   assert.match(primero.cuerpo, /Negocio: Casa Luna \(negocio 10\)\./, 'el equipo no puede saber a qué cuenta cambiarle el plan');
-  assert.match(primero.cuerpo, /Cómo está hoy: en la prueba gratis de MaKo Esencial, quedan 5 día\(s\)\./, 'ni que es alguien en prueba');
+  assert.match(primero.cuerpo, /Cómo está hoy: en la prueba gratis de MaKo Essential, quedan 5 día\(s\)\./, 'ni que es alguien en prueba');
   assert.match(primero.cuerpo, /\/admin\/customers\/10$/, 'el único link era la ficha del lead: falta dónde se le cambia el plan');
   // 2. SI ESE AVISO NO SALE, NO SE DICE «LISTO». El pedido quedó anotado y se lo dice, con el email del equipo, sin prometer
   //    que alguien lo vio. Es el caso que antes contestaba «Listo» con todo en silencio.

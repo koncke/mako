@@ -2,8 +2,8 @@
 // agencia-cobro — el cobro de un cliente de AGENCIA: el link del primer mes y la renovación (#866 y #867, 17/10/2026)
 // =============================================================================
 // Las reglas y el porqué, en lib/agencia-cobro-reglas.ts. Acá está lo que necesita base y pasarela:
-//   · el precio: el del PLAN de la cuenta (Esencial o Pro, lib/planes-mako.ts, 29/10/2026); el setting viejo
-//     `agencia.precio_cliente` queda sólo como el precio en pesos del Esencial si el plan no tiene uno;
+//   · el precio: el del PLAN de la cuenta (Essential o Pro, lib/planes-mako.ts, 29/10/2026); el setting viejo
+//     `agencia.precio_cliente` queda sólo como el precio en pesos del Essential si el plan no tiene uno;
 //   · `linkPrimerMes`: lo crea `abrirCuentaDePartner` (lib/partners.ts) al abrirle la cuenta;
 //   · `renovacionesDeAgencia`: el cron de cobros (cada 30 min) crea la suscripción mensual cuando el cliente termina el
 //     onboarding, y anota cuando la agencia la autorizó;
@@ -59,14 +59,14 @@ async function leadDeLaAgencia(plataforma: number, agenciaWs: number): Promise<n
 
 export type ResultadoLinkCliente = { ok: true; link: string; yaEstaba: boolean } | { ok: false; motivo: string };
 
-/** El plan de MaKo de esa cuenta (Esencial o Pro), o null si el setting de planes no lo tiene. */
+/** El plan de MaKo de esa cuenta (Essential o Pro), o null si el setting de planes no lo tiene. */
 async function planDe(plan: PlanCuenta): Promise<PlanMako | null> {
   return (await planesMako()).find((x) => x.id === plan) ?? null;
 }
 
 /**
  * Con qué y a cuánto se le cobra a una cuenta de ese PLAN, para quien la abre desde `pais` (`motivo` si hoy no se puede).
- * El Esencial en pesos, si el plan no tiene precio en ARS, sale del setting viejo del cliente de agencia (/admin/cobros).
+ * El Essential en pesos, si el plan no tiene precio en ARS, sale del setting viejo del cliente de agencia (/admin/cobros).
  */
 export async function cobroParaCuenta(plataforma: number, p: { plan: PlanCuenta; pais: string | null }): Promise<{ motivo: string } | { cobro: OpcionDeCobro; plan: PlanMako }> {
   const plan = await planDe(p.plan);
@@ -110,7 +110,7 @@ export async function linkPrimerMes(p: { agenciaWs: number; clienteWs: number; n
 
 /**
  * El link del primer mes SIN PAGAR, rehecho con otro plan (revisión de plata, hallazgo 2c): el link guarda su monto, y
- * cambiar sólo el plan anotado cobraba el Esencial por un mes de Pro (o al revés). La misma pasarela, moneda, ficha y email.
+ * cambiar sólo el plan anotado cobraba el Essential por un mes de Pro (o al revés). La misma pasarela, moneda, ficha y email.
  * ⚠️ PRIMERO SE ANULA EL VIEJO (segunda pasada, hallazgo A): el índice `cobros_un_vivo_por_cliente_de_agencia` deja UN cobro
  * único vivo por cliente, y crear el nuevo con el viejo vivo devolvía el VIEJO (`yaEstaba`), que después se anulaba: la
  * cuenta quedaba sin ningún link. Si el nuevo no se puede crear, se rehace el de antes con su plan y su monto, y se dice.
@@ -152,7 +152,7 @@ type FilaPrimerMes = {
 };
 
 /**
- * El precio de un plan en una moneda: el del plan; el Esencial en la moneda de Mercado Pago, si el plan no la tiene, el del
+ * El precio de un plan en una moneda: el del plan; el Essential en la moneda de Mercado Pago, si el plan no la tiene, el del
  * setting viejo del cliente de agencia (como el primer mes, `cobroParaCuenta`). null = ese plan no se cobra en esa moneda.
  */
 export async function precioDelPlanEn(plan: PlanMako, moneda: string): Promise<number | null> {
@@ -166,7 +166,7 @@ export async function precioDelPlanEn(plan: PlanMako, moneda: string): Promise<n
 /**
  * El precio del mes que sigue, en la MISMA moneda del primero: el de su plan; sin plan (las cuentas de antes), el mismo monto.
  * ⚠️ Con plan y sin precio en esa moneda, null (revisión de plata, hallazgo 2d): caer al monto del primer mes cobraba el Pro
- * a precio de Esencial (o al revés) cuando la agencia cambió el plan antes de la renovación.
+ * a precio de Essential (o al revés) cuando la agencia cambió el plan antes de la renovación.
  */
 async function precioDeRenovacion(f: FilaPrimerMes): Promise<{ monto: number; montoUsd: number | null } | null> {
   if (!f.plan_mako) return { monto: Number(f.monto), montoUsd: f.monto_usd != null ? Number(f.monto_usd) : null };

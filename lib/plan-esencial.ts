@@ -1,5 +1,5 @@
 // =============================================================================
-// plan-esencial — ¿el negocio paga MaKo Esencial por la pasarela? (23/10/2026)
+// plan-esencial — ¿el negocio paga MaKo Essential por la pasarela? (23/10/2026)
 // =============================================================================
 // La regla está en lib/plan-esencial-reglas.ts (pura). Esto la lee contra la base: el de la sesión (una vez por request) y
 // el de un negocio dado (para lo que corre sin sesión, como MaKo por WhatsApp).
@@ -38,7 +38,7 @@ export async function soltadaPorSuAgencia(ws: number): Promise<boolean> {
 }
 
 /**
- * La capa del plan que se le VENDIÓ al negocio (`completo` = Esencial, `agencia` = Pro), o null si no paga un plan. La leen
+ * La capa del plan que se le VENDIÓ al negocio (`completo` = Essential, `agencia` = Pro), o null si no paga un plan. La leen
  * `esEsencialDe` y `planVendidoDe`. Tira si no se puede leer.
  */
 async function capaVendidaDe(ws: number, capa: string | null, plataforma: number | null): Promise<string | null> {
@@ -55,7 +55,7 @@ async function capaVendidaDe(ws: number, capa: string | null, plataforma: number
   // lib/agencia-baja.ts, lib/compra-plan.ts → primerPlanPropio): su plan es su capa (segunda pasada, hallazgo B).
   if (!capaVendida && data) capaVendida = capa ?? null;
   // LA CUENTA DE UNA AGENCIA (29/10/2026, revisión de plata, hallazgo 4): la paga su agencia, no tiene suscripción propia, y
-  // su plan ES su capa (lib/agencia-cobro-reglas.ts, `CAPA_DE_PLAN`). Sin esto, el Esencial de US$47 tenía las tabs de Pro,
+  // su plan ES su capa (lib/agencia-cobro-reglas.ts, `CAPA_DE_PLAN`). Sin esto, el Essential de US$47 tenía las tabs de Pro,
   // las automatizaciones sin tope, el piloto automático y el scraper. La misma cartera que `aplicanTopes` (lib/topes-plan-server.ts).
   if (!capaVendida) {
     const { data: cart, error: eCart } = await getSupabaseServer().from('agencia_clientes').select('cliente_ws').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);

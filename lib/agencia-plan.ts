@@ -1,14 +1,14 @@
 // =============================================================================
-// agencia-plan — cambiar el plan (Esencial ↔ Pro) de la cuenta de un cliente de una agencia (29/10/2026)
+// agencia-plan — cambiar el plan (Essential ↔ Pro) de la cuenta de un cliente de una agencia (29/10/2026)
 // =============================================================================
 // Llamada con Thiago (10:24): «son los mismos planes, de 47 y 97». La cuenta se abre con uno (lib/partners.ts) y la agencia
 // lo puede cambiar después. Hace, en este orden (la pasarela primero: si no cambió lo que se cobra, no cambia nada más):
 //   1. Lo que se COBRA: la suscripción viva pasa al precio del plan nuevo. Una renovación que todavía no se autorizó se anula
 //      y el cron la vuelve a crear con el plan nuevo; el link del primer mes sin pagar se rehace con su precio.
 //   2. Lo que se ANOTA: el plan en el primer mes (de ahí lo lee la renovación) y el precio en la suscripción.
-//   3. La CAPA del plan (Esencial = completo, Pro = agencia): los topes de Esencial corren para estas cuentas.
+//   3. La CAPA del plan (Essential = completo, Pro = agencia): los topes de Essential corren para estas cuentas.
 //
-// LO QUE ENCONTRÓ LA REVISIÓN DE PLATA (29/10/2026, dos pasadas: «se puede tener Pro pagando Esencial»):
+// LO QUE ENCONTRÓ LA REVISIÓN DE PLATA (29/10/2026, dos pasadas: «se puede tener Pro pagando Essential»):
 //   · PRO SE TIENE CUANDO SE PAGA A PRECIO DE PRO (las reglas, en lib/agencia-cobro-reglas.ts → «CAMBIAR EL PLAN»). Subir con
 //     Stripe cobra la diferencia ahora (`subirPlanStripe`, como «Pasar a Pro» de lib/subir-plan.ts) y la capa sube en el acto;
 //     sin nada pagado todavía, también. Si no (Mercado Pago, que no prorratea; o el primer mes pagado sin una renovación
@@ -27,8 +27,8 @@
 // LO QUE ENCONTRÓ LA VERIFICACIÓN INDEPENDIENTE (29/10/2026, C:/dev/revisiones/2910-verificacion-plata-agency-4b42b6a7f.md):
 //   · H2: SIN NINGÚN COBRO NO SE PASA A PRO. Una cuenta que MaKo aprobó a mano (o sin link del primer mes) no tiene qué cobrar,
 //     y «sin nada pagado» la subía en el acto, gratis. Se pide por MaKo.
-//   · H1: LAS CUENTAS DE ANTES, SIN EL PLAN ELEGIDO, SIGUEN COMO PRO (lib/plan-esencial-reglas.ts). Elegirles Esencial deja la
-//     marca y el precio de Esencial; elegirles Pro no les quita nada mientras se cobra (ya tenían todo lo de Pro).
+//   · H1: LAS CUENTAS DE ANTES, SIN EL PLAN ELEGIDO, SIGUEN COMO PRO (lib/plan-esencial-reglas.ts). Elegirles Essential deja la
+//     marca y el precio de Essential; elegirles Pro no les quita nada mientras se cobra (ya tenían todo lo de Pro).
 // ⚠️ Sólo la agencia DUEÑA de la fila de la cartera, y nunca con la cuenta dada de baja.
 // =============================================================================
 
@@ -91,7 +91,7 @@ export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: nu
     return { ok: false, error: `No pude leer su plan: ${e instanceof Error ? e.message : String(e)}` };
   }
   const { data: w } = await db.from('workspaces').select('capa').eq('id', p.clienteWs).maybeSingle();
-  // Las de antes, sin el plan elegido, tienen todo lo de Pro (H1): «Elegir Esencial» SÍ hace algo aunque su capa ya sea Esencial.
+  // Las de antes, sin el plan elegido, tienen todo lo de Pro (H1): «Elegir Essential» SÍ hace algo aunque su capa ya sea Essential.
   const yaTeniaPro = !rigeElPlanDeAgencia(elegido);
   if (planDeCapa((w as { capa?: string } | null)?.capa) === p.plan && !yaTeniaPro) {
     if (!pendiente?.pendiente) return { ok: true, resumen: 'Ya tiene ese plan.' };
@@ -222,7 +222,7 @@ export async function aplicarSubidasPendientes(): Promise<{ subidas: number; err
   for (const { ws, cambio } of pendientes) {
     try {
       // También la cuenta que su agencia soltó (H3 de la verificación independiente): si la pagaba el cliente, su suscripción
-      // pasó a ser suya (`alta_ws`, sin `cliente_ws`) con el monto de Pro, y saltearla la dejaba pagando Pro en Esencial.
+      // pasó a ser suya (`alta_ws`, sin `cliente_ws`) con el monto de Pro, y saltearla la dejaba pagando Pro en Essential.
       const { data: subs, error: eSubs } = await db.from('cobros').select('id, monto, moneda').eq('workspace_id', plataforma).or(`cliente_ws.eq.${ws},alta_ws.eq.${ws}`)
         .eq('tipo', 'suscripcion').eq('plan_mako', 'pro').limit(50);
       if (eSubs) throw new Error(eSubs.message);
@@ -231,7 +231,7 @@ export async function aplicarSubidasPendientes(): Promise<{ subidas: number; err
       const { data: pagos, error: ePagos } = await db.from('pagos').select('cobro_id, fecha_pago, monto_usd, moneda, monto_original').eq('workspace_id', plataforma).in('cobro_id', [...deLaSub.keys()]).eq('pagado', true).limit(200);
       if (ePagos) throw new Error(ePagos.message);
       // Un pago de AL MENOS lo que se le puso a ESA suscripción al subirla (tercera pasada, hallazgo 2: si la pasarela no tomó el
-      // monto nuevo, el cobro de Esencial no sube la capa). Contra el monto de la suscripción y no el precio de Pro del día
+      // monto nuevo, el cobro de Essential no sube la capa). Contra el monto de la suscripción y no el precio de Pro del día
       // (verificación independiente, H4): si el precio sube antes del cobro, el pago quedaba debajo y Pro no llegaba nunca.
       const conMonto = ((pagos ?? []) as Array<{ cobro_id: number; fecha_pago: string | null; monto_usd: number | null; moneda: string | null; monto_original: number | null }>).map((x) => {
         const sub = deLaSub.get(Number(x.cobro_id));

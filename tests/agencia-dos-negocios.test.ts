@@ -71,10 +71,10 @@ test('la cartera: sólo sus cuentas, y el plan sale de la capa SÓLO en las apro
   assert.ok(!por.has(21), 'el cliente de la otra agencia no aparece');
   assert.deepEqual(R.carteraDos.sort(), [21, 40]);
   const plan = (ws: number) => por.get(ws)?.plan;
-  assert.equal(plan(20), 'MaKo Esencial');
+  assert.equal(plan(20), 'MaKo Essential');
   assert.equal(plan(22), 'Sin elegir (tiene todo lo de Pro)');
   assert.equal(plan(50), null, 'dada de baja: ni su capa ni la marca');
-  assert.equal(plan(60), 'MaKo Esencial', 'pendiente: lo que eligió la agencia (su capa dice Pro: no se lee)');
+  assert.equal(plan(60), 'MaKo Essential', 'pendiente: lo que eligió la agencia (su capa dice Pro: no se lee)');
   assert.equal(plan(61), null, 'pendiente sin plan elegido: nada, aunque tenga capa');
 });
 
@@ -87,7 +87,7 @@ test('una agencia no da de baja ni le cambia el plan a la cuenta de otra, y no e
 test('la regla del plan, sin base', () => {
   const v = (o: Partial<Parameters<typeof planQueVeLaAgencia>[0]>) => planQueVeLaAgencia({ estado: 'aprobado', capa: 'agencia', hayCuenta: true, elegido: null, sinElegir: false, ...o });
   assert.deepEqual(v({}), { plan: 'MaKo Pro', planId: 'pro', planElegido: true });
-  assert.deepEqual(v({ capa: 'completo' }), { plan: 'MaKo Esencial', planId: 'esencial', planElegido: true });
+  assert.deepEqual(v({ capa: 'completo' }), { plan: 'MaKo Essential', planId: 'esencial', planElegido: true });
   assert.equal(v({ sinElegir: true }).planElegido, false);
   assert.equal(v({ hayCuenta: false }).plan, null);
   assert.equal(v({ estado: 'revocado', elegido: 'pro' }).plan, null);

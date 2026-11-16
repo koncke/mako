@@ -77,7 +77,7 @@ function BannerCuenta({ account, fetchedAtISO, parcial }: { account: MetaHealth[
     { label: 'Saldo adeudado', value: fmtCuenta(account.balanceMxn, account.currency), sub: account.balanceMxn > 0 ? (account.currency === 'USD' ? undefined : `≈ ${fmtUSD(account.balanceUsd)}`) : 'sin deuda', danger: account.balanceMxn > 0 && account.severidad !== 'verde' },
     { label: 'Medio de pago', value: account.fundingCard ?? (account.isPrepay ? 'Prepago' : '—'), sub: account.isPrepay ? 'cuenta prepago' : undefined },
     { label: 'Total gastado', value: fmtCuenta(account.amountSpentMxn, account.currency), sub: 'histórico de la cuenta' },
-    { label: 'Tope de gasto', value: account.spendCapMxn ? fmtCuenta(account.spendCapMxn, account.currency) : 'sin tope', sub: account.currency },
+    { label: 'Tope de gasto', value: account.spendCapMxn ? fmtCuenta(account.spendCapMxn, account.currency) : 'ilimitado', sub: account.currency },
   ];
 
   return (

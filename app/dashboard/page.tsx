@@ -169,7 +169,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
     }
   }
   const pedidos0 = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
-  // ⚠️ LA HOJA «CLOSING» ES SÓLO DE MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): al Esencial, el candado EN LUGAR de sus
+  // ⚠️ LA HOJA «CLOSING» ES SÓLO DE MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): al Essential, el candado EN LUGAR de sus
   //    gráficos (EditorInforme, `candadoClosing`), y sus datos no se leen ni viajan en el HTML. Ante la duda, se ve.
   const esencial = await esEsencialDeLaSesion();
   // En blanco no se dibuja ningún gráfico: no se lee nada. Tampoco en la hoja Closing con candado.

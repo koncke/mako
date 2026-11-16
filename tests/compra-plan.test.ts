@@ -28,7 +28,7 @@ const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '');
 
-test('las ofertas del 23/10: Esencial 47 (completo), Pro 97 (agencia), Continuidad 297 sin publicar; la baja de cada uno', () => {
+test('las ofertas del 23/10: Essential 47 (completo), Pro 97 (agencia), Continuidad 297 sin publicar; la baja de cada uno', () => {
   const ids = PLANES_MAKO_DEFAULT.map((p) => `${p.id}:${p.precioUsd}:${p.capa}:${p.activo ? 'publico' : 'oculto'}`);
   assert.deepEqual(ids, ['esencial:47:completo:publico', 'pro:97:agencia:publico', 'continuidad:297:agencia:oculto']);
   const [esencial, pro] = PLANES_MAKO_DEFAULT;
@@ -80,7 +80,7 @@ test('el pedido no trae precio ni capa; el campo trampa es un bot', () => {
   if (r.ok) {
     assert.deepEqual(Object.keys(r.pedido).sort(), ['codigoEscrito', 'codigoEscritoMal', 'diagnostico', 'email', 'nombre', 'origen', 'pasarela', 'periodo', 'plan', 'promo', 'quiero', 'ref', 'sinPromo', 'sinPrueba', 'whatsapp', 'whatsappEscritoMal']);
     assert.equal(r.pedido.codigoEscrito, null, 'sin código escrito en el carrito (25/10/2026)');
-    assert.equal(r.pedido.diagnostico, null, 'sin diagnóstico (sólo lo manda el Acelerador)');
+    assert.equal(r.pedido.diagnostico, null, 'sin diagnóstico (sólo lo manda el Accelerator)');
     assert.equal(r.pedido.periodo, 'mensual', 'sin pedirlo, por mes');
     assert.equal(r.pedido.quiero, false, 'sin pedirlo, es una compra');
     assert.equal(r.pedido.email, 'ana@x.com');

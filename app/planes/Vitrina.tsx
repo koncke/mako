@@ -17,8 +17,11 @@
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { PREGUNTAS_SITIO } from '@/app/vsl/_sitio/datos';
+import { TITULAR } from '@/app/vsl/_sitio/estilos';
+import { VitrinaVideos } from '@/app/login/_ui/VitrinaVideos';
+import { CLIPS_VITRINA } from '@/app/_components/clips-portada';
 import { botonDelPlan } from '@/lib/compra-plan-reglas';
-import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, planConPrueba, type PlanMako } from '@/lib/planes-mako';
+import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, planConPrueba, rutaDelPlan, type PlanMako } from '@/lib/planes-mako';
 import { GRUPOS_DE_LA_TABLA, celdaDeCapa, filasDeComparacion, nombreCorto, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
 import { CSS_TARJETAS, TarjetasPlanes, type PlanEnTarjeta } from './Tarjetas';
@@ -70,9 +73,32 @@ body:has(.s-barra) .cp-cab > div { top: 77px; }
   .cp-tel-planes > span[data-destacado] { color: #2F6FED; font-weight: 700; }
 }
 
-.planes-cabeza { text-align: center; max-width: 720px; margin: 0 auto 30px; }
-.planes-cabeza h1 { margin: 10px 0 10px; font-size: 40px; line-height: 1.12; letter-spacing: -.03em; font-weight: 800; }
-.planes-cabeza .planes-sub { margin: 0 auto; max-width: 600px; font-size: 17px; }
+/* EL HÉROE, COMO EL DE LA PORTADA (app/vsl/_sitio/estilos.ts: .s-hero-in, .s-h1, .s-hero-p): dos columnas, el título en la letra
+   de la portada con «High Ticket» en el degradé dorado (el del modo claro, que es el de /planes) y la bajada de 20 px. Al
+   costado, en vez del VSL, las animaciones de la portada (<VitrinaVideos>, las mismas clases que en el login). */
+.planes-heroe { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 40px; align-items: center; text-align: left;
+  max-width: none; margin: 8px 0 44px; }
+.planes-heroe-tx { container-type: inline-size; min-width: 0; }
+.planes-h1 { ${TITULAR}; margin: 0; font-size: min(60px, 9.2cqi); line-height: 1; color: #12151B; }
+.planes-h1 em { font-style: normal; background: linear-gradient(to right, #B87A06, #DE9410); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.planes-heroe .planes-sub { margin: 16px 0 0; max-width: 512px; font-size: 20px; line-height: 28px; font-weight: 500; color: #4A5260; }
+.planes-heroe .planes-sub strong { font-weight: 700; color: #12151B; }
+.planes-heroe-vis { position: relative; min-width: 0; }
+.planes-heroe-vis::before { content: ''; position: absolute; inset: -8% -8% -4%; background: radial-gradient(closest-side, rgba(47,111,237,.22), rgba(47,111,237,0)); filter: blur(24px); pointer-events: none; }
+.planes-heroe-vis .lg-vitrina__pieza { position: relative; z-index: 1; margin: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.planes-heroe-vis .lg-vitrina__pantalla { width: 100%; aspect-ratio: 16 / 10; overflow: hidden; border: 1px solid #E3E7EF; border-radius: 16px; background: #fff;
+  box-shadow: 0 32px 64px -32px rgba(18,21,27,.35); }
+.planes-heroe-vis .lg-vitrina__pantalla video, .planes-heroe-vis .lg-vitrina__pantalla img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.planes-heroe-vis .lg-vitrina__titulo { margin: 0; text-align: center; font-size: 17px; font-weight: 600; line-height: 1.3; color: #12151B; text-wrap: balance;
+  animation: planes-clip-entra .45s ease both; }
+@keyframes planes-clip-entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .planes-heroe-vis .lg-vitrina__titulo { animation: none; } }
+/* En el teléfono y la tableta, sólo el texto: <VitrinaVideos> no baja ningún video por debajo de 1025 px (el 4G de quien
+   sólo vino a ver precios), así que la columna se va con él. */
+@media (max-width: 1024px) {
+  .planes-heroe { grid-template-columns: minmax(0, 1fr); margin-bottom: 32px; }
+  .planes-heroe-vis { display: none; }
+}
 .planes-alta { margin: 12px 0 0; color: #5B6472; font-size: 14px; }
 .planes-faq { max-width: 760px; margin: 48px auto 0; display: grid; gap: 10px; }
 .planes-faq h2 { margin: 0 0 8px; font-size: 22px; text-align: center; }
@@ -83,7 +109,8 @@ body:has(.s-barra) .cp-cab > div { top: 77px; }
 .planes-faq details[open] summary::after { content: "−"; }
 .planes-faq details p { margin: 0 0 16px; color: #4A5260; }
 @media (max-width: 600px) {
-  .planes-cabeza h1 { font-size: 30px; }
+  .planes-h1 { font-size: min(42px, 9.2cqi); line-height: 1.04; }
+  .planes-heroe .planes-sub { margin-top: 8px; font-size: 17px; line-height: 25px; }
 }
 `;
 
@@ -108,12 +135,19 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
     <main className="planes-root">
       <style dangerouslySetInnerHTML={{ __html: CSS_PLANES + CSS_TARJETAS + CSS_VITRINA + CSS_TOKENS }} />
       <div className="planes-wrap planes-ancho">
-        <header className="planes-cabeza">
-          <div className="planes-marca">MaKo</div>
+        {/* EL HÉROE DE LA PORTADA, TAL CUAL (15/11/2026, ~21:10, Martín: «donde dice el mejor software para vender high ticket dentro
+            de precios, yo lo pondría exactamente igual a como está en la landing principal. La misma tipografía, y donde dice high
+            ticket con el mismo degradé de color. Y lo mismo que el subtítulo. Y al costado pondría, en lugar del VSL, las imágenes,
+            lo mismo que tenemos en el [login], que son como van pasando las animaciones»). La letra es `TITULAR` de la portada
+            (app/vsl/_sitio/estilos.ts) y los clips, los de la portada (app/_components/clips-portada.ts). */}
+        <header className="planes-cabeza planes-heroe">
+          <div className="planes-heroe-tx">
           {/* El título y el subtítulo de la portada, tal cual (Martín, 14/11/2026: «en precios, el título tiene que ser el mismo título que
               la landing principal y el mismo subtítulo también. Y elimina el subtítulo de subtítulo, eso no tiene sentido»). */}
-          <h1>El mejor software para vender <em>High Ticket.</em></h1>
+          <h1 className="planes-h1">El mejor software<br /> para vender<br /> <em>High Ticket.</em></h1>
           <p className="planes-sub"><strong>Marketing, ventas y entrega del servicio en una sola app.</strong> Con una IA que conoce tu negocio, desde que alguien te descubre hasta que es tu cliente y le entregas lo que compró.</p>
+          </div>
+          <div className="planes-heroe-vis"><VitrinaVideos clips={CLIPS_VITRINA} /></div>
         </header>
 
         {/* La barra de MaKo Tokens va DEBAJO del selector mensual / anual, sin título (Martín, 15/11/2026, a la noche: «eliminaría
@@ -160,7 +194,7 @@ export function CompararPlanes({ planes, sufijo = '' }: { planes: readonly Pick<
       return { id: p.id, nombre: p.nombre, precio: `US$ ${p.precioUsd}`, periodo: 'por mes', destacado: !!p.destacado, href: boton.href,
         boton: planConPrueba(p.id) ? `${PRUEBA_DIAS} días gratis` : 'Empezar', celda: (f: FilaComparacion) => celdaDeCapa(f, p.capa) };
     }),
-    // EL ACELERADOR, POR SU PEDIDO Y NO POR LA AGENDA — A PROPÓSITO (14/11/2026). Esta pantalla dibuja el Acelerador DOS
+    // EL ACELERADOR, POR SU PEDIDO Y NO POR LA AGENDA — A PROPÓSITO (14/11/2026). Esta pantalla dibuja el Accelerator DOS
     // veces: su tarjeta (./Tarjetas.tsx, que desde hoy abre la agenda de Martín en Calendly, `AGENDA_ACELERADOR`) y esta
     // columna, acá. Son dos caminos al mismo producto, y el que se queda es ÉSTE, /planes/acelerador:
     //   · deja el pedido en el CRM con el origen de la campaña y el código de partner que trae el `sufijo`; Calendly no se
@@ -174,7 +208,7 @@ export function CompararPlanes({ planes, sufijo = '' }: { planes: readonly Pick<
     // en todo el render de /planes. Lo que falta para que haya un solo camino es al revés: que la TARJETA vuelva a este
     // pedido y la agenda viva DENTRO de /planes/acelerador, después del diagnóstico.
     { id: programa.id, nombre: programa.nombre, precio: `US$ ${programa.precioUsd.toLocaleString('es-AR')}`, periodo: `en ${programa.cuotas} cuotas`,
-      destacado: false, href: `/planes/${programa.id}${sufijo}`, boton: 'Quiero el Acelerador', celda: (f: FilaComparacion) => f.acelerador as Celda | null },
+      destacado: false, href: `/planes/${rutaDelPlan(programa.id)}${sufijo}`, boton: 'Quiero el Accelerator', celda: (f: FilaComparacion) => f.acelerador as Celda | null },
   ];
   const grupos = GRUPOS_DE_LA_TABLA.map((g) => ({ titulo: g.titulo, filas: filas.filter((f) => g.de.includes(f.grupo)) })).filter((g) => g.filas.length);
   const corto = (n: string) => n.replace(/^MaKo\s+/, '');

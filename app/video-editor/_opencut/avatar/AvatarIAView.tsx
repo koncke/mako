@@ -28,7 +28,7 @@
 //
 // SÓLO MaKo Pro (14/11/2026, app/ai-avatar/acceso.ts). Martín, sobre /planes: «el de
 // 97 ya podés generar avatares de IA… el de 47 debería estar bien limitado y
-// restrictivo». A un Esencial, el CANDADO en lugar de los dos botones que llevan a
+// restrictivo». A un Essential, el CANDADO en lugar de los dos botones que llevan a
 // generar («Siguiente» y «Generar»), con el molde de las otras cuatro vistas de este
 // árbol (broll-view.tsx, PanelChat.tsx, clips-view.tsx y enjambre-view.tsx):
 // `useSoloPro` + <CandadoSoloPro>. Su biblioteca de avatares se sigue viendo: lo que

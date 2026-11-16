@@ -137,7 +137,7 @@ export async function pedirProAction(): Promise<{ ok: boolean; resumen: string }
   // SU email —los de la sesión, los únicos que no se pueden falsificar desde el navegador— y el equipo le cambiaría el plan al
   // que no lo pidió.
   if (await estaImpersonando().catch(() => true)) return { ok: false, resumen: 'El plan lo pide el dueño del negocio desde su cuenta.' };
-  // Sólo desde Esencial, la misma condición con la que la pantalla ofrece la fila (y la primera que corta `decidirSubida` en el
+  // Sólo desde Essential, la misma condición con la que la pantalla ofrece la fila (y la primera que corta `decidirSubida` en el
   // camino que cobra): una acción es una puerta POST abierta a cualquiera con sesión, y sin esto un acuerdo a mano de 297 o un
   // Pro pueden dejar un «quiere MaKo Pro» en su propia ficha.
   if ((await getCapaActual().catch(() => null)) !== 'completo') return { ok: false, resumen: 'Tu plan no se cambia desde aquí. Escríbenos.' };
@@ -177,11 +177,11 @@ export async function pedirProAction(): Promise<{ ok: boolean; resumen: string }
   const enPrueba = prueba?.enPrueba === true;
   const comoEsta = enPrueba
     ? `en la prueba gratis${prueba?.plan ? ` de ${prueba.plan}` : ''}${prueba?.dias != null ? `, quedan ${prueba.dias} día(s)` : ''}`
-    : 'MaKo Esencial, ya cobrado';
+    : 'MaKo Essential, ya cobrado';
   const r = await pedirPlanSinPasarela({
     plan: PLAN_PRO, nombre: quien, email,
     // `quiero`: el pedido, no el checkout. El resto es del carrito público y acá no existe: ni pasarela, ni código de referido
-    // (este negocio ya entró), ni el diagnóstico de la puerta del Acelerador, ni el anual (`periodo: 'mensual'`).
+    // (este negocio ya entró), ni el diagnóstico de la puerta del Accelerator, ni el anual (`periodo: 'mensual'`).
     // ⚠️ `origen.landing` ES EL ÚNICO CAMPO DEL PEDIDO QUE LLEGA AL TEXTO que el equipo lee (`pedirPlanSinPasarela` lo escribe
     //    como « desde la landing «…»» en el evento del lead y en el correo). No es una landing y el renglón lo dice mal: lo que
     //    se gana es que el rastro del CRM nombre la cuenta, que es lo que falta para poder actuar. El arreglo de verdad es un

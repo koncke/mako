@@ -124,7 +124,7 @@ const ACCIONES_LINK: readonly OpcionDesplegable<PastillaLink>[] = [
   // «Replicar y adaptar» (27/10/2026, Leila): el diseño de la original con el texto de tu oferta.
   { valor: 'adaptar', texto: 'Replica y adapta a tu oferta', icono: 'varita' },
 ];
-/** Las mismas, a un Esencial (14/11/2026): replicar es de MaKo Pro y sus dos pastillas llevan el candado. */
+/** Las mismas, a un Essential (14/11/2026): replicar es de MaKo Pro y sus dos pastillas llevan el candado. */
 const ACCIONES_LINK_ESENCIAL: readonly OpcionDesplegable<PastillaLink>[] = ACCIONES_LINK.map((o) => (o.valor === 'analizar' ? o : { ...o, icono: 'candado' }));
 
 /** El «+»: un archivo de texto, oficina, audio o video, o una imagen (las familias de lib/formatos-archivo.ts). */
@@ -153,7 +153,7 @@ export default function CajaCrear({
   const [modoGen, setModoGen] = useState<ModoGen>(semilla?.modoGen ?? 'plan');
   // Sin la app de escritorio, la caja de pedido tampoco escribe (25/10/2026, «En ningun chat»): app/_chat/useAppDeEscritorio.tsx.
   const appEscritorio = useAppDeEscritorio();
-  // REPLICAR ES DE MaKo PRO (14/11/2026, lib/editor-landing/replicar-candado.ts): un Esencial ve «Replicar landing» con el
+  // REPLICAR ES DE MaKo PRO (14/11/2026, lib/editor-landing/replicar-candado.ts): un Essential ve «Replicar landing» con el
   // candado y, en ese modo, el candado en el cuadro (`CandadoReplicar`, con «Pasar a Pro») en vez del link; el ↑ no manda.
   // Mientras no se sabe el plan, sin candado (app/_components/solo-pro.ts): el servidor frena igual.
   const soloPro = useSoloPro('replicar-landing');
@@ -627,7 +627,7 @@ const CSS_CAJA = `
 .gp .gp-cc-modo { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 14px; border: 0; border-radius: 9999px; background: transparent; color: var(--gp-texto); font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background-color .15s, color .15s; }
 .gp .gp-cc-modo:hover { background: var(--gp-hover); }
 .gp .gp-cc-modo[aria-pressed="true"] { background: var(--gp-activo-fondo); color: var(--gp-activo-texto); }
-/* El candado de Pro en «Replicar landing» a un Esencial (14/11/2026): chico y tenue, como el de la barra lateral. */
+/* El candado de Pro en «Replicar landing» a un Essential (14/11/2026): chico y tenue, como el de la barra lateral. */
 .gp .gp-cc-modo-candado { display: inline-grid; place-items: center; margin-left: -2px; opacity: .7; }
 
 /* Importar sin archivo: el contenedor típico (punteado, para soltar o elegir), adentro del MISMO cuadro y del alto del campo. */

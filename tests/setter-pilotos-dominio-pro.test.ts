@@ -1,12 +1,12 @@
 // =============================================================================
-// MaKo Esencial SIN el setter con IA, SIN los pilotos de Instagram y YouTube y SIN dominio propio (14/11/2026)
+// MaKo Essential SIN el setter con IA, SIN los pilotos de Instagram y YouTube y SIN dominio propio (14/11/2026)
 // =============================================================================
-// Martín decidió el 14/11/2026 que la capa `completo` (Esencial, US$47) no trae: (1) el setter con IA, que contesta y agenda
+// Martín decidió el 14/11/2026 que la capa `completo` (Essential, US$47) no trae: (1) el setter con IA, que contesta y agenda
 // solo; (2) los pilotos automáticos de Instagram y de YouTube del Marketing CoPilot (el de anuncios ya era de Pro); (3) el
 // dominio propio de las landings (`web.dominios` en 0). Pro (`agencia`) trae las tres. Lo que se cuida acá:
 //   A. EL SETTER: la regla (lib/setter-ia-reglas.ts: lo que le contesta SOLO a un lead con IA, y lo que NO lo es), ejecutada;
 //      los dos candados del servidor (Activar → `topeAlActivar`; guardar → `setSecuenciaPasos` con `setterNuevoSoloPro`); las
-//      plantillas y «Crear con IA» de un Esencial nacen enteras con «Sola» en «Para aprobar»; la API lo dice antes del «sí»;
+//      plantillas y «Crear con IA» de un Essential nacen enteras con «Sola» en «Para aprobar»; la API lo dice antes del «sí»;
 //      la pantalla (el AI Step con el candado, «Sola» deshabilitada, y «Pasar a Pro» en el error de Publicar/Activar); y MaKo
 //      en WhatsApp para el DUEÑO no lleva candado.
 //   B. LOS PILOTOS DE REDES: el candado donde se guarda la config (lib/copiloto/piloto.ts), la ruta (403 con `pasarAPro`) y la
@@ -88,7 +88,7 @@ test('A2 · un candado frena lo NUEVO: guardar suma el setter sólo donde no est
   const con = [CRON, MSG, aiStep('sola')];
   assert.equal(sumaSetterIA(sin, con), true);
   assert.equal(sumaSetterIA([], con), true, 'una automatización recién creada');
-  assert.equal(sumaSetterIA(con, con), false, 'lo que ya tenía (un Pro que pasó a Esencial) se sigue editando');
+  assert.equal(sumaSetterIA(con, con), false, 'lo que ya tenía (un Pro que pasó a Essential) se sigue editando');
   assert.equal(sumaSetterIA(con, sin), false, 'sacarlo nunca se frena');
 });
 
@@ -126,11 +126,11 @@ test('A5 · lo que CREA MaKo (plantilla, «Crear con IA») se guarda otra vez si
   assert.deepEqual(una, [[CRON, MSG]]);
 });
 
-test('A6 · las plantillas siguen abiertas: hay plantillas con «Sola», y la de un Esencial nace entera con «Para aprobar»', async () => {
+test('A6 · las plantillas siguen abiertas: hay plantillas con «Sola», y la de un Essential nace entera con «Para aprobar»', async () => {
   const conSetter = PLANTILLAS.filter((p) => tieneSetterIA(pasosDePlantilla(p))).map((p) => p.id);
   assert.ok(conSetter.includes('lead-agendo'), `«Confirma» sale sola en la del agendado (con setter: ${conSetter.join(', ')})`);
   for (const p of PLANTILLAS) assert.equal(tieneSetterIA(sinSetterIA(pasosDePlantilla(p))), false, p.id);
-  // Ejecutado con la puerta de mentira de un Esencial: el primer intento lo frena el candado, el segundo entra sin setter.
+  // Ejecutado con la puerta de mentira de un Essential: el primer intento lo frena el candado, el segundo entra sin setter.
   const db: DbPlantilla = {
     from: () => ({
       select: () => ({ is: async () => ({ data: [], error: null }) }),
@@ -155,7 +155,7 @@ test('A6 · las plantillas siguen abiertas: hay plantillas con «Sola», y la de
 test('A7 · los candados del servidor: Activar (`topeAlActivar`) y guardar los pasos (`setSecuenciaPasos`), con `TopeDelPlanError`', () => {
   const tope = codigo('lib/tope-automations.ts');
   const activar = cuerpo(tope, 'export async function topeAlActivar(');
-  assert.match(activar, /if \(ws == null \|\| !\(await esEsencialDe\(ws\)\)\) return null;/, 'sólo al Esencial');
+  assert.match(activar, /if \(ws == null \|\| !\(await esEsencialDe\(ws\)\)\) return null;/, 'sólo al Essential');
   assert.match(activar, /select\('activa, pasos, estrategia'\)/);
   const iSetter = activar.indexOf('filaConSetterIA(');
   assert.ok(iSetter > 0 && iSetter < activar.indexOf("topeDe('completo', 'automations.activas')"), 'el setter va antes que el tope de las activas');
@@ -177,7 +177,7 @@ test('A7 · los candados del servidor: Activar (`topeAlActivar`) y guardar los p
   // Lo que crea MaKo nace sin el setter: la plantilla y «Crear con IA».
   assert.match(codigo('lib/plantilla-crear.ts'), /await guardarSinSetterSiFrena\(pasosDePlantilla\(p\), \(ps\) => deps\.setPasos\(nueva\.id, ps as never\[\]\)\);/);
   assert.match(codigo('lib/flujo-ia-crear.ts'), /guardarPasos: \(id, pasos\) => guardarSinSetterSiFrena\(pasos, \(ps\) => setSecuenciaPasos\(id, ps as unknown as PasoSecuencia\[\]\)\),/);
-  // La API: `contestaSolo` de un Esencial se dice ANTES de proponer.
+  // La API: `contestaSolo` de un Essential se dice ANTES de proponer.
   const run = codigo('lib/api-mako/areas/chatbot.run.ts');
   const agregar = run.slice(run.indexOf('  agregar_escenario_secuencia: {'), run.indexOf('\n  resolver_handoff: {'));
   assert.match(agregar, /preparar: async \(input, ctx\) => \{/);
@@ -245,7 +245,7 @@ test('B2 · la pantalla: «Configurar piloto» › Instagram y YouTube son el ca
 
 const ESENCIAL = { ws: 42, wsPlataforma: 9, capa: 'completo', cobradoPorPasarela: true, usadas: 0, yaCuenta: false };
 
-test('C1 · Esencial sin dominio propio: el texto dice que es de Pro, nunca «Llegaste al tope de tu plan (0)»', () => {
+test('C1 · Essential sin dominio propio: el texto dice que es de Pro, nunca «Llegaste al tope de tu plan (0)»', () => {
   assert.equal(TOPES.completo['web.dominios'], 0);
   assert.equal(TOPES.agencia['web.dominios'], null);
   assert.deepEqual(topeParaDominio(ESENCIAL), { ok: false, tope: 0, texto: TEXTO_DOMINIO_SOLO_PRO });

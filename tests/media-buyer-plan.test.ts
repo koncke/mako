@@ -1,4 +1,4 @@
-// El Media Buyer según el plan (el Cerebro, 25/10/2026): MaKo Esencial lo trae en «propone», con 2 recomendaciones por día y
+// El Media Buyer según el plan (el Cerebro, 25/10/2026): MaKo Essential lo trae en «propone», con 2 recomendaciones por día y
 // sin piloto automático; Pro, entero, con el piloto opcional y apagado de entrada. El número sale de la tabla de Planes
 // (lib/topes-plan.ts), nunca escrito en el Media Buyer.
 import { test } from 'node:test';
@@ -11,7 +11,7 @@ import { TOPES, topeDe } from '../lib/topes-plan';
 const raiz = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(raiz, r), 'utf8');
 
-test('Esencial: 2 recomendaciones por día y sin piloto automático, leído de la tabla de topes', () => {
+test('Essential: 2 recomendaciones por día y sin piloto automático, leído de la tabla de topes', () => {
   assert.equal(topeDe('completo', 'ads.recomendaciones_dia'), 2);
   assert.deepEqual(cupoDelPlan(true), { recomendacionesDia: 2, piloto: false });
 });

@@ -64,7 +64,7 @@ const mes = (m: string, hoy: string, clientes = CARTERA): CuentaDelMes =>
   cuentaDelMes({ mes: m, primerMes: '2026-11', planAgencia: 'pro', clientes, precios: PRECIOS, hoy, entradasDesde: ENTRADAS_DESDE })!;
 const quienes = (c: CuentaDelMes) => c.lineas.map((l) => (l.tipo === 'agencia' ? 'agencia' : l.nombre));
 
-test('los precios son los del catálogo: Esencial 47 y Pro 97', () => {
+test('los precios son los del catálogo: Essential 47 y Pro 97', () => {
   assert.deepEqual(PRECIOS, { esencial: 47, pro: 97 });
   assert.equal(preciosDelCatalogo([{ id: 'esencial', precioUsd: 47 }]), null, 'sin Pro en el catálogo no se inventa un precio');
 });
@@ -157,7 +157,7 @@ test('dado de baja antes de entrar no se cobra nunca; de baja después de entrar
   assert.ok(!quienes(mes('2027-01', '2026-12-20', [despues])).includes('Flor'), 'se fue antes del 5/1');
 });
 
-test('el plan: el elegido por su capa; sin elegir, Esencial (el acuerdo es 47 por cliente)', () => {
+test('el plan: el elegido por su capa; sin elegir, Essential (el acuerdo es 47 por cliente)', () => {
   assert.equal(planQueSeCobra({ elegido: true, capa: 'agencia' }), 'pro');
   assert.equal(planQueSeCobra({ elegido: false, capa: 'agencia' }), 'esencial');
   assert.equal(planQueSeCobra({ elegido: true, capa: 'completo' }), 'esencial');

@@ -24,9 +24,9 @@ import { funcionesMako, funcionDeKey } from '../lib/funciones-mako';
 
 const ORDEN = ['Copywriting', 'Video', 'Image', 'Web Generator'];
 
-/** Las personas: el admin de un cliente (Esencial y Pro), un closer, y el super admin en su barra. */
+/** Las personas: el admin de un cliente (Essential y Pro), un closer, y el super admin en su barra. */
 const PERSONAS: Array<[string, VistaNav]> = [
-  ['cliente Esencial', { adminShell: false, rolWs: 'admin', capa: 'completo' }],
+  ['cliente Essential', { adminShell: false, rolWs: 'admin', capa: 'completo' }],
   ['cliente Pro', { adminShell: false, rolWs: 'admin', capa: 'agencia' }],
   ['closer', { adminShell: false, rolWs: 'closer', capa: 'completo' }],
   ['super admin', { adminShell: true, rolWs: 'admin', capa: 'superadmin' }],

@@ -14,7 +14,7 @@
 // Integraciones AHÍ, sin salir de la tab) y «Abrir el diseño» con las guías. Las láminas guía también se ven armándose, y si no
 // se pudo armar nada, la tira de cuadros vacíos se va (6/11/2026: Martín vio el modal con las miniaturas en blanco).
 //
-// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. A un Esencial la ruta le contesta 403 con `pasarAPro` y
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. A un Essential la ruta le contesta 403 con `pasarAPro` y
 // acá se dibuja el candado con «Pasar a Pro» (app/_components/CandadoSoloPro.tsx), no «No se pudo armar».
 //
 // Sirve también para una miniatura de YouTube (Thumbnails, 6/11/2026): una lámina de 1280 × 720. Y para una VERTICAL (13/11/2026,
@@ -168,7 +168,7 @@ export function EditarCarrusel({ carrusel = null, thumbnail = null, vertical = n
     }
   }, [guiado, fin, visibles, paginas.length, abrir]);
 
-  // Un Esencial (y nada armado): el candado con «Pasar a Pro», en vez de las fases o de «No se pudo armar».
+  // Un Essential (y nada armado): el candado con «Pasar a Pro», en vez de las fases o de «No se pudo armar».
   if (soloPro && !fin && !paginas.length) {
     return (
       <Modal titulo="Editar con IA" encabezado={`Del ejemplo de ${ej.quien}`} onCerrar={() => { corto.current?.abort(); onCerrar(); }} ancho={480}

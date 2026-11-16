@@ -7,7 +7,7 @@
 // funciona" y "Por ahora MaKo da de alta a mano"... Revisa las preguntas frecuentes... Ya no hay "meses" ni "devolución"...
 // Si pueden hacer ads que digan "mako", no aclares eso... Elimina lo de "Si llegó con varios links, vale el primero."... No
 // se entiende "No. Cada negocio nuevo que traes suma el suyo."». Lo que se cuida acá:
-//   · el título dice el 100% y la bajada cuánto por plan, en dinero; nada de meses, crédito, Acelerador ni devolución;
+//   · el título dice el 100% y la bajada cuánto por plan, en dinero; nada de meses, crédito, Accelerator ni devolución;
 //   · la calculadora es UN bloque azul, en el hero, donde estaba «Si se suscribe», y cuenta n veces el primer mes entero;
 //   · sin «Cómo funciona» ni el aviso del alta a mano; las preguntas nuevas, claras;
 //   · UNA acción (un link): hacerse partner (`RUTA_ALTA_PARTNERS`), volver al panel, o ninguna (el super admin mirando);
@@ -33,8 +33,8 @@ const usd = (n: number) => `US$ ${n.toLocaleString('es-AR')}`;
 const planes = PLANES_MAKO_DEFAULT.filter((p) => p.activo).slice().sort((a, b) => b.precioUsd - a.precioUsd);
 const texto = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|\s+/g, ' ');
 
-/** Lo que la landing ya no puede decir: los meses, el crédito, el Acelerador y la devolución (Martín, 25/10). */
-const VIEJO = /meses de tu plan|meses gratis|cr[eé]dito para|tu cr[eé]dito|Acelerador|1\.500|devoluci[oó]n|devuelvan|garant[ií]a|da de alta a mano|vale el primero|suma el suyo|C[oó]mo funciona|la palabra «MaKo»/i;
+/** Lo que la landing ya no puede decir: los meses, el crédito, el Accelerator y la devolución (Martín, 25/10). */
+const VIEJO = /meses de tu plan|meses gratis|cr[eé]dito para|tu cr[eé]dito|Accelerator|1\.500|devoluci[oó]n|devuelvan|garant[ií]a|da de alta a mano|vale el primero|suma el suyo|C[oó]mo funciona|la palabra «MaKo»/i;
 
 type Props = { modo?: 'publica' | 'app'; accion?: { href: string; texto: string } | null; rotulo?: React.ReactNode };
 async function landing(p: Props = {}): Promise<{ html: string; t: string }> {
@@ -47,10 +47,10 @@ test('el TÍTULO dice el 100%, y la bajada cuánto por plan, en dinero (los núm
   const { html, t } = await landing();
   assert.match(html, /<h1>Recomienda MaKo y llévate el <em>100%<\/em> de lo que vendes<\/h1>/);
   for (const p of planes) assert.ok(t.includes(`${usd(p.precioUsd)} por cada ${p.nombre}`), `la bajada dice ${p.nombre}`);
-  assert.match(t, /En dinero y sin tope\./);
+  assert.match(t, /, en dinero\. Negocios ilimitados\./);
   assert.match(t, /Cobras en dinero/);
-  assert.doesNotMatch(t, VIEJO, 'nada de meses, crédito, Acelerador, devolución, «Cómo funciona» ni el alta a mano');
-  assert.ok(!t.includes(PROGRAMA_ACELERADOR.nombre), 'el Acelerador no está en Partners');
+  assert.doesNotMatch(t, VIEJO, 'nada de meses, crédito, Accelerator, devolución, «Cómo funciona» ni el alta a mano');
+  assert.ok(!t.includes(PROGRAMA_ACELERADOR.nombre), 'el Accelerator no está en Partners');
 });
 
 test('la CALCULADORA: un bloque azul en el hero (donde estaba «Si se suscribe»), n veces el primer mes entero', async () => {
@@ -108,7 +108,7 @@ test('adentro de la app, la landing usa los colores de la app (cambia con el tem
   assert.doesNotMatch(css, /body:has\(\.mp-root\)/, 'la tab no esconde la barra de la app');
 });
 
-test('NINGUNA pantalla de Partners habla de meses, crédito ni del Acelerador (landing, panel, teléfono, «Tu plan», /planes, los mails)', () => {
+test('NINGUNA pantalla de Partners habla de meses, crédito ni del Accelerator (landing, panel, teléfono, «Tu plan», /planes, los mails)', () => {
   for (const rel of ['app/mako-partners/LandingPartners.tsx', 'app/mako-partners/Calculadora.tsx', 'app/partners/PanelPartner.tsx', 'app/partners/ProgramaPartners.tsx',
     'app/partners/AltaPartner.tsx', 'app/m/partners/ReferidosM.tsx', 'lib/partners-programa.ts']) {
     const f = fuente(rel);

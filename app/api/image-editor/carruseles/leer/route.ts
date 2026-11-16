@@ -11,7 +11,7 @@
 // de a una (AGENTS.md) y esto corre mientras la persona contesta.
 //
 // SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es la IA del negocio leyendo el ejemplo, y sólo sirve para «Editar» con IA
-// (./replicar). Un Esencial recibe el 403 y la pestaña guiada lo toma como «no se sabe» (lo mismo que sin IA).
+// (./replicar). Un Essential recibe el 403 y la pestaña guiada lo toma como «no se sabe» (lo mismo que sin IA).
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';

@@ -11,7 +11,7 @@
 //     (`hojaPropiaDe`, con el informe de `tableroDelPedido`: la página lo reusa y no se lee dos veces).
 // Qué página es lo dice la ruta de la URL, que en el teléfono es la de escritorio (`paginaDelPedido`, ./redireccion.ts).
 // LA PUERTA, SIEMPRE (25/10/2026, chat «Landings»): `requireMovil` también redirige por dentro (al onboarding pendiente, a
-// lo de Esencial, sin sesión). Pasarla sólo cuando se iba a redirigir dejaba esos casos yendo desde ADENTRO del loader: el
+// lo de Essential, sin sesión). Pasarla sólo cuando se iba a redirigir dejaba esos casos yendo desde ADENTRO del loader: el
 // mismo #310. Las dos páginas de la carpeta tienen la misma: va primero, como en ellas, y su contexto es el que decide.
 // =============================================================================
 

@@ -1719,7 +1719,7 @@ export function EditorInforme({
                 {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informeGeneralODashboard} senales={senales} conTodas={!!unido} />}
               </div>
             ) : cerradaPorPlan && candadoClosing ? (
-              // La hoja Closing de un Esencial (14/11/2026, lib/closing-solo-pro.ts): el candado con «Pasar a Pro» EN LUGAR de
+              // La hoja Closing de un Essential (14/11/2026, lib/closing-solo-pro.ts): el candado con «Pasar a Pro» EN LUGAR de
               // sus gráficos. La hoja sigue en el informe, intacta: con Pro vuelve a dibujarse tal cual.
               <div className="lk-no-arrastrar" onClick={(e) => e.stopPropagation()}><CartelSoloPro texto={candadoClosing} /></div>
             ) : disenoEntero ? (

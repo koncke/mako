@@ -40,8 +40,8 @@ test('1. de un outlier sale la ADAPTADA directo: la ruta, la consulta y el arran
 });
 
 test('2. sin «Tu oferta», la principal del negocio (y la lectura dice cuál)', () => {
-  assert.equal(textoDeOferta({ nombre: 'MaKo Acelerador', promesa: 'Tu negocio en piloto automático', para_quien: 'coaches', precio_usd: 997, precio_nota: 'un pago', garantia: null }),
-    'MaKo Acelerador; promesa: Tu negocio en piloto automático; para: coaches; precio: US$997 (un pago)');
+  assert.equal(textoDeOferta({ nombre: 'MaKo Accelerator', promesa: 'Tu negocio en piloto automático', para_quien: 'coaches', precio_usd: 997, precio_nota: 'un pago', garantia: null }),
+    'MaKo Accelerator; promesa: Tu negocio en piloto automático; para: coaches; precio: US$997 (un pago)');
   assert.equal(textoDeOferta({ nombre: '  ' }), '');
   assert.equal(textoDeOferta(null), '');
   assert.match(fuente('lib/editor-landing/replicar.ts'), /if \(!partes\.texto && !entrada\.oferta\?\.trim\(\)\) \{\s*const principal = await ofertaPrincipalParaReplica\(\);/);

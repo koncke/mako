@@ -177,7 +177,7 @@ export function EnjambreView() {
 	const fallas = useEnjambre((s) => s.lineas.filter((l) => l.tipo === "falla").map((l) => `${l.agente}: ${l.texto}`).join(" · "));
 	const hayLinea = useEditor((e) => e.timeline.getTotalDuration() > 0);
 	const corriendo = fase === "corriendo";
-	// Editar con IA es SÓLO de MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): a un Esencial, el candado en lugar del botón.
+	// Editar con IA es SÓLO de MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): a un Essential, el candado en lugar del botón.
 	const soloPro = useSoloPro("ia-editores");
 
 	const editar = async () => {

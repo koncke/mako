@@ -37,7 +37,7 @@ export function tablaFalta(e: { code?: string | null; message?: string | null } 
   return e.code === '42P01' || e.code === 'PGRST205' || /media_buyer_\w+.*(does not exist|schema cache)/i.test(e.message ?? '');
 }
 
-/** El plan no trae el piloto automático (MaKo Esencial por la pasarela: lib/media-buyer/plan.ts). */
+/** El plan no trae el piloto automático (MaKo Essential por la pasarela: lib/media-buyer/plan.ts). */
 export class PlanSinPiloto extends Error {
   constructor() { super('Tu plan trae el Media Buyer en modo «propone»: MaKo recomienda y tú decides. El piloto automático es de MaKo Pro.'); this.name = 'PlanSinPiloto'; }
 }

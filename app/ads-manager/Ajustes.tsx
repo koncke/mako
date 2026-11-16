@@ -210,7 +210,7 @@ export function Ajustes({ config: inicial, cupo, perfil: perfilInicial = null }:
           <FilaAjustes titulo="Subida máxima por día" fin={<CampoFila etiqueta="Subida máxima por día" modo="numeric" ancho={80} sufijo="%"
             valor={String(config.subidaMaxPctDia)} onGuardar={conPct} />} />
           <FilaAjustes titulo="Presupuesto máximo por día" detalle="Lo prendido de toda la cuenta" fin={<CampoFila etiqueta="Presupuesto máximo por día" prefijo="US$"
-            valor={txt(config.presupuestoMaxDia)} placeholder="Sin tope" onGuardar={(s) => conMonto('presupuestoMaxDia', s)} />} />
+            valor={txt(config.presupuestoMaxDia)} placeholder="Ilimitado" onGuardar={(s) => conMonto('presupuestoMaxDia', s)} />} />
         </GrupoAjustes>
 
         {/* DÓNDE y HASTA (main, 29/10): la zona y la fecha de fin. Sin la migración 0350 guardarlas da error, y `guardar`

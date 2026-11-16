@@ -1,10 +1,10 @@
 // =============================================================================
 // El tope de usuarios del plan al invitar al equipo (23/10/2026)
 // =============================================================================
-// Los planes de MaKo: Esencial 1 usuario, Pro 5 (lib/topes-plan.ts → 'equipo.usuarios'). El Cerebro: hacerlo cumplir al
+// Los planes de MaKo: Essential 1 usuario, Pro 5 (lib/topes-plan.ts → 'equipo.usuarios'). El Cerebro: hacerlo cumplir al
 // invitar, con un cartel corto y «Pasar a Pro», SÓLO a quien MaKo le cobra por la pasarela (nunca al ws1 ni a un acuerdo a
 // mano), y sin que nadie del equipo pierda el acceso.
-//   1. la regla (lib/tope-equipo-reglas.ts): Esencial con su dueño ya está lleno; Pro, con 5; sin cobro de MaKo, sin tope;
+//   1. la regla (lib/tope-equipo-reglas.ts): Essential con su dueño ya está lleno; Pro, con 5; sin cobro de MaKo, sin tope;
 //   2. la ruta lo mira SÓLO al invitar, antes de crear la cuenta, y si no puede leer el cobro no frena a nadie;
 //   3. el cartel en la computadora y en el teléfono, con «Pasar a Pro» (en el teléfono, aparte del error para Soporte).
 //
@@ -23,7 +23,7 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('1. la regla: Esencial con su dueño ya está lleno; Pro, con 5; sin cobro de MaKo, sin tope', () => {
+test('1. la regla: Essential con su dueño ya está lleno; Pro, con 5; sin cobro de MaKo, sin tope', () => {
   assert.deepEqual(topeAlInvitar({ cobraMako: true, capa: 'completo', miembros: 1 }), { ok: false, tope: 1, error: textoTope(1), pasarAPro: HREF_PASAR_A_PRO });
   assert.deepEqual(topeAlInvitar({ cobraMako: true, capa: 'completo', miembros: 0 }), { ok: true });
   assert.deepEqual(topeAlInvitar({ cobraMako: true, capa: 'agencia', miembros: 4 }), { ok: true }, 'Pro: el quinto entra');

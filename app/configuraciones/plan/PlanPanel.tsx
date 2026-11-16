@@ -63,7 +63,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
   /** La cuenta de un cliente de una agencia (29/10/2026): su plan lo maneja la agencia; no ve «Recomienda MaKo». */
   clienteDeAgencia?: boolean;
   plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion; retencion?: string | null;
-  /** «Pasar a Pro» (23/10/2026): a quien paga MaKo Esencial por la pasarela. El monto de Pro, en su moneda; null = no se ofrece. */
+  /** «Pasar a Pro» (23/10/2026): a quien paga MaKo Essential por la pasarela. El monto de Pro, en su moneda; null = no se ofrece. */
   subir?: { nombre: string; monto: string } | null;
   /**
    * «Pasar a Pro» cuando NO se puede subir en el acto (en la prueba, o sin pasarela que cobre). Es a donde llevan los carteles
@@ -142,7 +142,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
   // mismo («Recomienda MaKo» dos veces y su frase dos veces). Es el «texto de sobra» que Martín rechazó el 25/10: cada tarjeta dice
   // lo suyo una vez, en su fila.
   // «Empezar mi plan ya» (25/10/2026, la prueba gratis): arriba si se llegó desde un tope de la prueba, si no debajo del plan.
-  // ⚠️ YA NO DICE «Y TIENES TODO» (14/11/2026): desde que el Esencial quedó «bien limitado y restrictivo» (los candados de
+  // ⚠️ YA NO DICE «Y TIENES TODO» (14/11/2026): desde que el Essential quedó «bien limitado y restrictivo» (los candados de
   //    `FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), prometerle «todo» a la prueba del de 47 era falso — pagaba los US$47 creyendo
   //    que destrababa el avatar de IA, replicar el guion o el chat con los referentes, y volvía a encontrar el candado. Dice lo
   //    que el botón hace de verdad: se van los topes de la PRUEBA. Lo que falta para tener todo es la fila «Pasar a MaKo Pro»,
@@ -160,7 +160,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
   const filaPro = (
     <>
       {subir && puedeDarseDeBaja && (
-        <FilaAjustes icono="subir" titulo={`Pasar a ${subir.nombre}`} detalle={`${subir.monto} por mes, sin topes. Lo tienes en el acto.`}
+        <FilaAjustes icono="subir" titulo={`Pasar a ${subir.nombre}`} detalle={`${subir.monto} por mes, con contactos y landings ilimitados. Lo tienes en el acto.`}
           onClick={corriendo ? undefined : () => setConfirmarSubida(true)} apilada />
       )}
       {porLlamada && (
@@ -171,7 +171,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
   );
   // ⚠️ PRO ARRIBA DE «EMPEZAR MI PLAN YA» (14/11/2026): el candado de una función de Pro lleva a `RUTA_CAMBIAR_PLAN`
   //    (/configuraciones/plan, SIN `?empezar=1`), así que quien venía de «Pasa a Pro para usarlo» aterrizaba con «Empezar mi
-  //    plan ya» de primera fila — el botón que cobra los US$47 del Esencial y que NO destraba lo que vino a buscar (el avatar
+  //    plan ya» de primera fila — el botón que cobra los US$47 del Essential y que NO destraba lo que vino a buscar (el avatar
   //    de IA, replicar el guion, el chat con los referentes: `FUNCIONES_SOLO_PRO`, lib/topes-plan.ts). El `?empezar=1` de los
   //    topes de la PRUEBA (`RUTA_EMPEZAR_PLAN`) sigue mandando, porque ahí la persona SÍ pidió empezar su plan; sin él manda
   //    Pro (Martín, 14/11: «la idea es que compren el de 97, no el de 47»). Sin parámetro nuevo: el que ya existe alcanza.

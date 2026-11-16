@@ -61,7 +61,7 @@ export async function crearCrmAction(
     }
     const siembra = siembraDeCrm(eleccion ?? {});
     if ('error' in siembra) return { error: siembra.error };
-    // El tope del plan (23/10/2026): MaKo Esencial tiene UN CRM. Se dice y se ofrece «Pasar a Pro»; no se borra nada.
+    // El tope del plan (23/10/2026): MaKo Essential tiene UN CRM. Se dice y se ofrece «Pasar a Pro»; no se borra nada.
     const ws = await getWorkspaceActual();
     if (ws != null) await frenarAltaPorTope(ws, 'crm.funnels');
     const r = await crearCrm(typeof nombre === 'string' ? nombre : '', siembra);

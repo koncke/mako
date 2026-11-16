@@ -23,7 +23,7 @@ import { PLANES_MAKO_DEFAULT } from './planes-mako';
 import { capaDef } from './capas';
 
 /**
- * El plan como lo vende MaKo («MaKo Esencial», «MaKo Pro») y no el nombre interno de su capa («Completo», «Agencia»): la
+ * El plan como lo vende MaKo («MaKo Essential», «MaKo Pro») y no el nombre interno de su capa («Completo», «Agencia»): la
  * capa `agencia` ES el plan Pro (lib/planes-mako.ts). Una capa sin plan a la venta («Project Manager») dice el suyo.
  */
 export const nombreDePlan = (capa: string): string => PLANES_MAKO_DEFAULT.find((p) => p.capa === capa)?.nombre ?? capaDef(capa).nombre;

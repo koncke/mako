@@ -188,7 +188,7 @@ export const PISO_DE_MARGEN_BRUTO = 0.74;
 
 /**
  * Qué clave de acá es cada plan que se VENDE (14/11/2026). ⚠️ Los nombres no coinciden y confunden: estas claves son de
- * cuando los planes eran Free/Pro/Growth (8/8). Hoy MaKo Esencial (US$47, capa `completo`) es `pro` y MaKo Pro (US$97, capa
+ * cuando los planes eran Free/Pro/Growth (8/8). Hoy MaKo Essential (US$47, capa `completo`) es `pro` y MaKo Pro (US$97, capa
  * `agencia`) es `growth` (lib/planes-mako.ts). Leer «pro» acá como «MaKo Pro» le da al plan de US$97 el cupo del de US$47.
  */
 export const PLAN_DE_CAPA: Readonly<Record<string, Plan>> = { completo: 'pro', agencia: 'growth' };

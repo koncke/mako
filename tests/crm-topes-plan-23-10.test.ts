@@ -1,7 +1,7 @@
 // =============================================================================
 // Los topes del plan en el CRM: leads y CRMs (23/10/2026)
 // =============================================================================
-// Pedido del Cerebro: MaKo Esencial (US$47) tiene 1 CRM y 2.000 leads (lib/topes-plan.ts). Al llegar al tope, un cartel
+// Pedido del Cerebro: MaKo Essential (US$47) tiene 1 CRM y 2.000 leads (lib/topes-plan.ts). Al llegar al tope, un cartel
 // corto y «Pasar a Pro», sin borrar ni esconder nada; SÓLO a quien MaKo cobra por la pasarela (nunca al ws1 ni a un
 // acuerdo a mano); un lead que entra solo (anuncio, webhook) nunca se pierde: entra y se avisa.
 // La decisión (lib/topes-crm-reglas.ts) se EJECUTA; la lectura, los frenos y la pantalla se leen como fuente.
@@ -32,7 +32,7 @@ const sinComentarios = (src: string) => src
   .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
   .replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('la decisión: Esencial frena el alta 2.001 y el segundo CRM; Pro y quien no paga por la pasarela, nunca', () => {
+test('la decisión: Essential frena el alta 2.001 y el segundo CRM; Pro y quien no paga por la pasarela, nunca', () => {
   const esencial = (usadas: number) => ({ capa: 'completo', tope: 2000, usadas });
   assert.equal(pasaElTope(esencial(1999), 'crm.leads'), false, 'el 2.000 entra');
   assert.equal(pasaElTope(esencial(2000), 'crm.leads'), true, 'el 2.001, no');

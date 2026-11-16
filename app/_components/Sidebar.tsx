@@ -300,7 +300,7 @@ export function Identidad({ open, nombre, avatar, subrotulo }: {
   );
 }
 
-/** El candado de una tab de MaKo Pro en el Esencial (23/10/2026): se ve, y al entrar dice «Pasar a Pro». */
+/** El candado de una tab de MaKo Pro en el Essential (23/10/2026): se ve, y al entrar dice «Pasar a Pro». */
 function Candado() {
   return (
     <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', opacity: 0.7 }}>
@@ -311,7 +311,7 @@ function Candado() {
 
 export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge = 0, onClick, pro = false }: {
   item: NavItem; active: boolean; expanded: boolean; tema?: Tema; size?: number; badge?: number; onClick?: () => void;
-  /** Una tab de MaKo Pro y el negocio paga el Esencial: el candado, y «Pasar a Pro» al pasar el mouse. `agencia`: el cliente de
+  /** Una tab de MaKo Pro y el negocio paga el Essential: el candado, y «Pasar a Pro» al pasar el mouse. `agencia`: el cliente de
    *  una agencia (29/10/2026): el candado y «De MaKo Pro», sin «Pasar a Pro» (su plan lo cambia su agencia). */
   pro?: boolean | 'agencia';
 }) {
@@ -401,7 +401,7 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
    * es el único caso en que las tabs de producto le dan 403.
    */
   onEntrarComoDueno?: (href: string) => void;
-  /** ¿Esta tab lleva el candado de MaKo Pro? (el Esencial por la pasarela, lib/plan-esencial-reglas.ts) */
+  /** ¿Esta tab lleva el candado de MaKo Pro? (el Essential por la pasarela, lib/plan-esencial-reglas.ts) */
   esPro?: (key: string) => boolean | 'agencia';
 }) {
   const activa = [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)].some((i) => i.match(pathname));
@@ -507,7 +507,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const [rolWs, setRolWs] = useState<string>('');
   const [capa, setCapa] = useState<string>('');
   const [clienteDeAgencia, setClienteDeAgencia] = useState(false);
-  // MaKo Esencial por la pasarela (/api/auth/me): las tabs de Pro con candado (23/10/2026).
+  // MaKo Essential por la pasarela (/api/auth/me): las tabs de Pro con candado (23/10/2026).
   const [planEsencial, setPlanEsencial] = useState(false);
   const esPro = (key: string): boolean | 'agencia' => (planEsencial && esNavSoloPro(key) ? (clienteDeAgencia ? 'agencia' : true) : false);
   const [impersonando, setImpersonando] = useState(inicial?.clienteNombre != null);

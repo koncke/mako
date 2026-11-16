@@ -27,7 +27,7 @@ const funnelDe = async (funnelId: number | null): Promise<number | null> => funn
 
 /**
  * SÓLO MaKo Pro (27/10/2026, Martín en la llamada con Leila, Fathom 876470842-15; lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`): un
- * Esencial que paga por la pasarela ve el candado y «Pasar a Pro». Lo mira CADA acción, no sólo la de abrir: la pantalla no es
+ * Essential que paga por la pasarela ve el candado y «Pasar a Pro». Lo mira CADA acción, no sólo la de abrir: la pantalla no es
  * la única puerta. Ante la duda (no se pudo leer el plan) no hay candado, como en las tabs de Pro (lib/plan-esencial.ts).
  */
 async function candadoDePro(): Promise<{ ok: false; error: string; pasarAPro: string } | null> {

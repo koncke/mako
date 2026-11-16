@@ -6,7 +6,7 @@
 //   · las 10 respuestas de IA de esa réplica (anthropic_usage, 21:14:58 → 21:15:48 UTC) son del ws 9, el de Martín: NO inspeccionaba;
 //   · la IA contestó (49 s en escribir); la réplica terminó bien a los 95 s (request-logs de Vercel), cuando él ya había pasado a
 //     Automations;
-//   · su negocio tiene «WhatsApp Ads Funnel» (orden 0), «MaKo Acelerador» y una newsletter, NINGUNA principal, y lo de por defecto
+//   · su negocio tiene «WhatsApp Ads Funnel» (orden 0), «MaKo Accelerator» y una newsletter, NINGUNA principal, y lo de por defecto
 //     tomaba «la primera»: el saludo dijo «para «WhatsApp Ads Funnel»», un embudo que él armó para Mauricio.
 //
 // Esto fija (lib/carruseles/guiado.ts, app/image-editor/carruseles/ReplicarGuiado.tsx, lib/carruseles/replica.ts y la ruta):
@@ -34,7 +34,7 @@ const leer = (p: string) => readFileSync(new URL(p, import.meta.url), 'utf8').re
 // Las ofertas ACTIVAS del ws 9 el 14/11/2026, tal cual (listarOfertas(true), en su orden).
 const DEL_WS9 = [
   { id: 14, nombre: 'WhatsApp Ads Funnel', principal: false },
-  { id: 31, nombre: 'MaKo Acelerador', principal: false },
+  { id: 31, nombre: 'MaKo Accelerator', principal: false },
   { id: 34, nombre: 'Newslletter PRUEBA JULIO', principal: false },
 ];
 
@@ -55,8 +55,8 @@ test('1 · varias ofertas sin principal: pregunta SÓLO cuál, y al contestar ar
   assert.ok(p && /ofertas/.test(p.texto), p?.texto);
   const valores = (p?.botones ?? []).map((b) => ('valor' in b ? b.valor : null));
   assert.ok(valores.includes(VALOR.oferta(14)) && valores.includes(VALOR.oferta(31)), valores.join(', '));
-  // Contesta «MaKo Acelerador»: arranca, sin preguntar la foto ni qué cambiar (eso ya estaba por defecto).
-  const r2 = responder(h, r, { tipo: 'respuesta', rotulo: 'MaKo Acelerador', valor: VALOR.oferta(31) });
+  // Contesta «MaKo Accelerator»: arranca, sin preguntar la foto ni qué cambiar (eso ya estaba por defecto).
+  const r2 = responder(h, r, { tipo: 'respuesta', rotulo: 'MaKo Accelerator', valor: VALOR.oferta(31) });
   assert.equal(pasoDe(h, r2), 'listo', 'después de la oferta siguió preguntando');
   assert.deepEqual(pedidoDelGuiado(h, r2), { ofertaId: 31, ofertaLibre: null, avatar: 'cara', cambio: 'textos', pedido: null });
 });
@@ -73,7 +73,7 @@ test('2 · «Lo escribo yo» en esa pregunta también arranca', () => {
 test('3 · con una principal, con una sola o sin ninguna: arranca como antes', () => {
   const conPrincipal = hechos({ ofertas: DEL_WS9.map((o) => ({ ...o, principal: o.id === 31 })) });
   const r = respuestasPorDefecto(conPrincipal);
-  assert.deepEqual(r.oferta, { id: 31, nombre: 'MaKo Acelerador' });
+  assert.deepEqual(r.oferta, { id: 31, nombre: 'MaKo Accelerator' });
   assert.equal(pasoDe(conPrincipal, r), 'listo');
   const una = hechos({ ofertas: [DEL_WS9[0]] });
   assert.deepEqual(respuestasPorDefecto(una).oferta, { id: 14, nombre: 'WhatsApp Ads Funnel' }, 'con una sola no hay nada que adivinar');

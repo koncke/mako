@@ -3,7 +3,7 @@
 // =============================================================================
 // EL SÍNTOMA: /vsl/copywriting vendía como TITULAR el chat con los referentes del marketing (metaTitle, <h1> y la primera
 // cifra del hero), /vsl/video vendía la Edición automática y /vsl/image el chat del editor y «Editar» — y las tres cosas se
-// cerraron en Esencial el 14/11/2026 (Martín, sobre /planes: «el de 47 debería estar bien limitado y restrictivo. En cambio
+// cerraron en Essential el 14/11/2026 (Martín, sobre /planes: «el de 47 debería estar bien limitado y restrictivo. En cambio
 // el de 97 ya podés generar avatares de IA, podés editar videos, podés replicar landing… La idea es que compren el de 97, no
 // el de 47»). Estas páginas no llevan las columnas de planes (`PlanesSitio` / `TarjetasPlanes` no están en
 // LandingCompetencia.tsx), así que el titular era la ÚNICA señal de plan: alguien que paga US$47 elegía su plan leyendo una
@@ -55,7 +55,7 @@
 //
 // Y MIDE LAS DOS DIRECCIONES, porque MARCAR DE MÁS TAMBIÉN ES MENTIR (y encima espanta al de US$47). Lo esperado sale de
 // `FUNCIONES_SOLO_PRO` y `FUNCIONES_TODAVIA_NO_VENDIDAS`, nunca de una lista escrita acá:
-//   · cerrada en Esencial y vendida  → la landing TIENE que decir «Con MaKo Pro» junto a la promesa;
+//   · cerrada en Essential y vendida  → la landing TIENE que decir «Con MaKo Pro» junto a la promesa;
 //   · cerrada pero todavía no vendida (hoy el avatar, `AI_AVATAR_SE_VENDE`) → NO la puede decir: sería empezar a venderla;
 //   · abierta en los dos planes → NO la puede decir, y `ABIERTAS` es la lista de lo que el candado NO cierra.
 // ⚠️ DE ESE LADO HAY UNA TAUTOLOGÍA, Y ESTÁ ACOTADA A PROPÓSITO: el aviso de la página sale de `soloPro`, que evalúa la MISMA
@@ -68,10 +68,10 @@
 // PROBADO ROMPIÉNDOLO (15/11/2026; base 8 pass / 0 fail, ya con /vsl/competitor-spy adentro). Las tres primeras mueven la
 // TABLA DE PLANES sin tocar ningún archivo, con el precargador ./_mutar-funciones-de-pro.ts (un `--import` que muta el array
 // exportado en memoria: NO hace falta `mock.module` ni `--experimental-test-module-mocks`):
-//   1. `PRO_SUMA=funcion-nueva`, una DÉCIMA función cerrada en Esencial                 → 7 / 1: «se cerró en Esencial y
+//   1. `PRO_SUMA=funcion-nueva`, una DÉCIMA función cerrada en Essential                 → 7 / 1: «se cerró en Essential y
 //      este test no sabe con qué palabras la nombran». ESTE es el que antes daba verde con los avisos intactos, y es la
 //      razón de que la cobertura ya no sea una lista de lugares;
-//   2. `PRO_SACA=chat-referentes`, la función se ABRE en Esencial                        → 7 / 1, y es la otra mitad: los 5
+//   2. `PRO_SACA=chat-referentes`, la función se ABRE en Essential                        → 7 / 1, y es la otra mitad: los 5
 //      avisos de los referentes DESAPARECEN SOLOS del dibujo (/vsl/copywriting pasa de 7 «Con MaKo Pro» a 2) y el único rojo
 //      es la fila de `HUELLAS` que quedó colgada, con qué hacer. Con la fila sacada también, 8 / 0;
 //   3. `PRO_VENDE=1`, o sea `AI_AVATAR_SE_VENDE` en true                                 → 6 / 2. De las CUATRO apariciones
@@ -141,7 +141,7 @@ const MARCA = 'Con MaKo Pro';
  */
 const PAGINAS = ['copywriting', 'video', 'image', 'competitor-spy'] as const;
 
-/** LA FUENTE DE VERDAD, la misma que leen las landings: cerrada en Esencial Y ya vendida. */
+/** LA FUENTE DE VERDAD, la misma que leen las landings: cerrada en Essential Y ya vendida. */
 const seVendeEnPro = (f: FuncionSoloPro): boolean =>
   (FUNCIONES_SOLO_PRO as readonly string[]).includes(f) && !FUNCIONES_TODAVIA_NO_VENDIDAS.includes(f);
 
@@ -297,7 +297,7 @@ const HUELLAS: Readonly<Record<FuncionSoloPro, Huella>> = {
   },
   'ai-avatar': {
     palabras: ['avatar', 'personaje con IA'],
-    laNombran: true, porque: 'cerrado en Esencial y TODAVÍA sin vender (`AI_AVATAR_SE_VENDE`): hoy estas palabras NO pueden llevar aviso',
+    laNombran: true, porque: 'cerrado en Essential y TODAVÍA sin vender (`AI_AVATAR_SE_VENDE`): hoy estas palabras NO pueden llevar aviso',
   },
   'replicar-guion': {
     // `Replicas su` entró el 15/11/2026 con /vsl/competitor-spy: su tarjeta «Su guion, con tu oferta» dice «Replicas su reel»,
@@ -350,11 +350,11 @@ function aparicionesDe(f: FuncionSoloPro): Aparicion[] {
 // Esto es lo que se pone rojo EL DÍA QUE SE CIERRE LA FUNCIÓN SIGUIENTE, sin que nadie toque este archivo: se recorre
 // `FUNCIONES_SOLO_PRO` (la tabla, no una lista de acá) y cada clave tiene que traer su fila. El typecheck lo pide también
 // (`Record<FuncionSoloPro, Huella>`), y hace falta: node --test no ve la exhaustividad de un Record.
-test('toda función cerrada en Esencial tiene declarado cómo la nombran estas páginas', () => {
+test('toda función cerrada en Essential tiene declarado cómo la nombran estas páginas', () => {
   for (const f of FUNCIONES_SOLO_PRO) {
     assert.ok(
       HUELLAS[f],
-      `«${f}» se cerró en Esencial (lib/topes-plan.ts, FUNCIONES_SOLO_PRO) y este test no sabe con qué palabras la nombran ` +
+      `«${f}» se cerró en Essential (lib/topes-plan.ts, FUNCIONES_SOLO_PRO) y este test no sabe con qué palabras la nombran ` +
       `las páginas de PAGINAS (hoy copywriting, video, image y competitor-spy). Agregá su fila en HUELLAS: las palabras, ` +
       `si alguna de ellas la nombra ` +
       `(se comprueba) y por qué. Si estas páginas no la venden, va con laNombran: false y sus palabras no pueden aparecer.`,
@@ -372,7 +372,7 @@ test('toda función cerrada en Esencial tiene declarado cómo la nombran estas p
   for (const f of Object.keys(HUELLAS) as FuncionSoloPro[]) {
     assert.ok(
       (FUNCIONES_SOLO_PRO as readonly string[]).includes(f),
-      `HUELLAS tiene la fila de «${f}», que ya NO está cerrada en Esencial: sacala (y revisá que la landing dejó de avisar)`,
+      `HUELLAS tiene la fila de «${f}», que ya NO está cerrada en Essential: sacala (y revisá que la landing dejó de avisar)`,
     );
   }
 });
@@ -417,7 +417,7 @@ test('las palabras declaradas aparecen donde se dijo que aparecen, y no donde se
 
 /**
  * LO QUE EL CANDADO NO CIERRA, y por eso NO puede llevar el aviso (lib/editores-ia-pro.ts dice la lista exacta). Cada ancla es
- * una promesa que un Esencial SÍ puede cumplir: si alguien le cuelga un «Con MaKo Pro», esto se pone rojo. El ancla también
+ * una promesa que un Essential SÍ puede cumplir: si alguien le cuelga un «Con MaKo Pro», esto se pone rojo. El ancla también
  * tiene que seguir existiendo, así que una promesa abierta que se reescribe no pasa en silencio.
  */
 const ABIERTAS: ReadonlyArray<{ slug: string; ancla: string; porque: string }> = [
@@ -434,7 +434,7 @@ const ABIERTAS: ReadonlyArray<{ slug: string; ancla: string; porque: string }> =
   { slug: 'image', ancla: 'Ordenas por «Mayor outlier»', porque: 'mirar la biblioteca de carruseles no tiene candado' },
 ];
 
-test('lo que sigue abierto en Esencial no lleva el aviso', () => {
+test('lo que sigue abierto en Essential no lleva el aviso', () => {
   const cuerpos = new Map(PAGINAS.map((s) => [s as string, cuerpoDe(de(s))]));
   const barrido = FUNCIONES_SOLO_PRO.flatMap((f) => aparicionesDe(f).map((a) => ({ f, ...a })));
   for (const a of ABIERTAS) {
@@ -526,7 +526,7 @@ test('la landing y la tabla de /planes dicen lo mismo de cada función', () => {
       noIncluyeEsencial.includes(NOMBRE_FUNCION_PRO[f]),
       seVendeEnPro(f),
       seVendeEnPro(f)
-        ? `la landing marca «${f}» como de Pro y la tabla de /planes no la nombra en lo que Esencial no incluye («${NOMBRE_FUNCION_PRO[f]}»)`
+        ? `la landing marca «${f}» como de Pro y la tabla de /planes no la nombra en lo que Essential no incluye («${NOMBRE_FUNCION_PRO[f]}»)`
         : `la tabla de /planes vende «${NOMBRE_FUNCION_PRO[f]}» y la landing no la marca: o ya se vende y falta el aviso, o la fila sobra`,
     );
   }

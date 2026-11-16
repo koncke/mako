@@ -2,7 +2,7 @@
 // tope-cursos-reglas — cuántos CURSOS puede tener un negocio en Classroom según su plan (14/11/2026, puro)
 // =============================================================================
 // Martín (14/11/2026): «no pusiste nada de la parte de Classroom… seas más limitado en el de 47». La tabla es
-// lib/topes-plan.ts → 'classroom.cursos' (MaKo Esencial, 1; Pro, sin tope). Esto decide si un cambio pasa el tope; lo
+// lib/topes-plan.ts → 'classroom.cursos' (MaKo Essential, 1; Pro, sin tope). Esto decide si un cambio pasa el tope; lo
 // pregunta lib/tope-cursos.ts (con la base) en cada puerta que crea un curso.
 //
 // ⚠️ QUÉ ES «UN CURSO», Y POR QUÉ NO ES «UN PRODUCTO». No hay una tabla `cursos`: Classroom dibuja un programa por cada
@@ -18,7 +18,7 @@
 // ⚠️ NADA SE SACA: quien ya tiene más cursos que el tope los sigue editando (sus programas ya tienen clases). Y los «Deshacer»
 //    (restaurar una clase, un módulo o un programa eliminado) no pasan por acá: devuelven lo que la persona ya tenía.
 // ⚠️ SÓLO AL ESENCIAL QUE MaKo COBRA (`esEsencialDe`, lib/plan-esencial.ts): es lo mismo que `aplicanTopes` con un tope que
-//    sólo tiene Esencial, y no mete lib/cobros (que alcanza una IA) en el grafo de las acciones del curso. Ante la duda, pasa.
+//    sólo tiene Essential, y no mete lib/cobros (que alcanza una IA) en el grafo de las acciones del curso. Ante la duda, pasa.
 // =============================================================================
 
 import { cabeOtra, textoTope, topeDe } from './topes-plan';

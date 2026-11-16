@@ -161,7 +161,7 @@ export async function PATCH(req: NextRequest) {
     if (err instanceof PasosInvalidosError) return Response.json({ ok: false, error: msg, ...(err.tarjeta ? { tarjeta: err.tarjeta } : {}) }, { status: 400 });
     // Otra activa ya le escribe lo mismo a la misma gente: la pantalla pregunta y, con «… igual», vuelve con `aunqueDuplique`.
     if (err instanceof DuplicadaError) return Response.json({ ok: false, error: msg, duplicada: err.otra }, { status: 409 });
-    // El tope del plan (MaKo Esencial: hasta 3 activas): lo tira `setSecuenciaActiva`, la única puerta que prende.
+    // El tope del plan (MaKo Essential: hasta 3 activas): lo tira `setSecuenciaActiva`, la única puerta que prende.
     if (err instanceof TopeDelPlanError) return Response.json({ ok: false, error: msg, tope: true }, { status: 403 });
     console.error(`[api:whatsapp/secuencias PATCH] ${msg}`);
     return Response.json({ ok: false, error: msg }, { status: 500 });

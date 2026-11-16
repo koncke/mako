@@ -579,7 +579,7 @@ export const RUNNERS_EDITOR: Runners = {
       let actual: string | null = null;
       try { actual = ((await docsEditor.leerFilaDoc(ctx.ws, id, 'id, dominio')) as unknown as { dominio?: string | null } | null)?.dominio ?? null; } catch { actual = null; }
       if (actual && actual !== d) return { error: `«${f.titulo}» ya tiene el dominio ${actual}: se quita primero (quitar_dominio_landing).` };
-      // El tope del plan ANTES de proponer (14/11/2026): Esencial no trae dominio propio (`web.dominios` en 0) y la propuesta
+      // El tope del plan ANTES de proponer (14/11/2026): Essential no trae dominio propio (`web.dominios` en 0) y la propuesta
       // terminaba en un «No se pudo conectar» después del «sí». El mismo freno que la pantalla y que `conectarDominio`.
       const freno = await frenoDeTope(ctx.ws, 'dominio', !!actual);
       if (freno) return { error: freno.error };

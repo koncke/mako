@@ -41,7 +41,7 @@ const DORADO_CLARO = '#FDF0CC';
 const TINTA = '#060419';
 const GRIS_CLARO = '#6F6F8A';
 const GRIS_CLARO2 = '#4E4E6C';
-const TITULAR = `font-family:'s-archivo','s-figtree',Arial,sans-serif;font-weight:900;font-stretch:88%;text-transform:uppercase;text-wrap:balance`;
+export const TITULAR = `font-family:'s-archivo','s-figtree',Arial,sans-serif;font-weight:900;font-stretch:88%;text-transform:uppercase;text-wrap:balance`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La base: fuentes, el contenedor y el botón

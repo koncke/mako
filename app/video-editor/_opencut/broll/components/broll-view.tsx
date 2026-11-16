@@ -16,7 +16,7 @@
 //   · sin Pexels conectado, el modal de Pexels se abre ACÁ (la regla de las integraciones: nunca se sale de la tab).
 // Las fotos y los videos son de Pexels con su licencia, y cada uno dice quién lo sacó o lo filmó (lo pide su API).
 // SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): que MaKo proponga es editar con IA (la IA elige cada imagen). A un
-// Esencial, el candado en lugar de «Proponer» y de sus avisos. Lo que ya está en el video (dejar, sacar, «Otra») sigue.
+// Essential, el candado en lugar de «Proponer» y de sus avisos. Lo que ya está en el video (dejar, sacar, «Otra») sigue.
 
 import { useMemo } from "react";
 import { useSoloPro } from "@/app/_components/solo-pro";

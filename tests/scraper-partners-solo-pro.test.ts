@@ -3,7 +3,7 @@
 // =============================================================================
 // Martín, en la llamada con Leila (Fathom 876470842-15), ya decidido: traer los contactos de un grupo de WhatsApp y hacerse
 // partner son de MaKo Pro. Antes, `TABS_SOLO_PRO` no tenía al scraper (no es una tab) y `hacermePartner` no miraba el plan:
-// un Esencial hacía las dos cosas. Lo que se cuida acá:
+// un Essential hacía las dos cosas. Lo que se cuida acá:
 //   · la regla y el texto del candado (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`, `textoSoloPro`);
 //   · el scraper: CADA acción del CRM y cada operación de la API lo frenan (la pantalla no es la única puerta), y la pantalla
 //     muestra «Pasar a Pro»;
@@ -47,7 +47,7 @@ test('la regla: el scraper es de Pro (Partners ya no), y el candado dice qué es
     'ai-avatar', 'replicar-guion', 'chat-referentes',
   ]);
   assert.equal(textoSoloPro('scraper-whatsapp'), 'Traer los contactos de un grupo de WhatsApp es de MaKo Pro. Pasa a Pro para usarlo.');
-  // Lo que está cerrado en Esencial Y se vende tiene su fila en «Compara los planes». Lo que está cerrado pero todavía NO se
+  // Lo que está cerrado en Essential Y se vende tiene su fila en «Compara los planes». Lo que está cerrado pero todavía NO se
   // vende (hoy el avatar: `AI_AVATAR_SE_VENDE`) no tiene fila a propósito: cerrarlo y venderlo son dos decisiones.
   for (const f of FUNCIONES_SOLO_PRO) {
     const fila = filasDeComparacion().find((x) => x.que === NOMBRE_FUNCION_PRO[f]);
@@ -68,7 +68,7 @@ test('el SCRAPER: cada acción del CRM pasa por el candado, después del «sólo
       /if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return \{ ok: false, error: SOLO_ADMIN \};\n  const pro = await candadoDePro\(\);\n  if \(pro\) return pro;\n  try \{/, a);
   }
   const candado = cuerpo('app/crm/grupo-wa-actions.ts', 'candadoDePro');
-  assert.match(candado, /if \(!\(await esEsencialDeLaSesion\(\)\)\) return null;/, 'sólo a un Esencial que paga por la pasarela');
+  assert.match(candado, /if \(!\(await esEsencialDeLaSesion\(\)\)\) return null;/, 'sólo a un Essential que paga por la pasarela');
   assert.match(candado, /return \{ ok: false, error: textoSoloPro\('scraper-whatsapp'\), pasarAPro: await rutaConWs\(RUTA_CAMBIAR_PLAN\) \};/);
   assert.equal(RUTA_CAMBIAR_PLAN, '/configuraciones/plan', '«Pasar a Pro» lleva a «Tu plan»');
   // La pantalla: el texto del candado y el botón.

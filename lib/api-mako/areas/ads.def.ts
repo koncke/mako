@@ -775,7 +775,7 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'hooks_al_video_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Hooks del Media Buyer al video',
     // ⚠️ ACÁ NO SE NOMBRA AI AVATAR (14/11/2026): la descripción es UN string para todos los negocios, y decir «AI Avatar los
-    // ofrece también, para filmarlos con el avatar del negocio» le prometía a un MaKo Esencial una función que su plan tiene
+    // ofrece también, para filmarlos con el avatar del negocio» le prometía a un MaKo Essential una función que su plan tiene
     // cerrada ('ai-avatar' en `FUNCIONES_SOLO_PRO`, lib/topes-plan.ts). Llevar los hooks al Video Generator NO es de Pro: la
     // operación no se cierra, se fue la frase de al lado. Lo que depende del plan se dice en la RESPUESTA, nunca acá.
     // ⚠️ Y LA FRASE NO SE MUDÓ A LA RESPUESTA (15/11/2026, tercera vuelta): la primera versión de este comentario mandaba a
@@ -1076,7 +1076,7 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'preparar_subida_media_buyer', area: 'ads', tipo: 'lectura',
     titulo: 'Preparar la subida de creativos nuevos',
     // ⚠️ `generados` NO DICE DE QUÉ TAB SALIÓ CADA VIDEO, Y ESTA DESCRIPCIÓN NO LO PUEDE PROMETER (15/11/2026, tercera vuelta).
-    // La frase de antes nombraba las tabs («AI Avatar y Video Generator») y eso le prometía AI Avatar a un MaKo Esencial, que
+    // La frase de antes nombraba las tabs («AI Avatar y Video Generator») y eso le prometía AI Avatar a un MaKo Essential, que
     // la tiene cerrada; la que la reemplazó mandaba a leer la tab en la respuesta, y la respuesta NO LA TRAE: el runner mapea
     // `origen` a «anuncio montado» o «toma» (ads.run.ts) y lo demás de `CreativoMako` (lib/creativo-mako.ts) es `ref`, `titulo`,
     // `toma` y `fecha` — ninguna tab, en ningún plan. Las dos fuentes son del Video Generator (`montadosDelWorkspace` y

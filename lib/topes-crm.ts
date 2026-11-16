@@ -1,7 +1,7 @@
 // =============================================================================
 // Los topes del plan en el CRM: leads y CRMs (23/10/2026)
 // =============================================================================
-// La tabla es lib/topes-plan.ts (MaKo Esencial: 1 CRM y 2.000 leads; Pro, sin tope). Acá se hace cumplir en el CRM, con
+// La tabla es lib/topes-plan.ts (MaKo Essential: 1 CRM y 2.000 leads; Pro, sin tope). Acá se hace cumplir en el CRM, con
 // tres reglas del pedido del Cerebro:
 //   · SÓLO a los negocios que MaKo cobra por la pasarela (`suscripcionDeMakoDe(ws) != null`): nunca al ws1 ni a un
 //     acuerdo a mano, que también tienen la capa `completo`;

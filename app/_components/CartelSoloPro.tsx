@@ -6,7 +6,7 @@
 // Martín (14/11/2026): «seas más limitado en el de 47». Dos formas, con UN solo «Pasar a Pro»:
 //   · `CartelSoloPro`: la pantalla entera de algo que es de Pro (la comunidad de Classroom, la hoja Closing del Dashboard),
 //     con el texto del candado (`textoSoloPro`, lib/topes-plan.ts, o el de Closing, lib/closing-solo-pro.ts) EN LUGAR de los
-//     datos. Nada se borra: se deja de mostrar mientras el plan sea Esencial.
+//     datos. Nada se borra: se deja de mostrar mientras el plan sea Essential.
 //   · `TextoConPasarAPro`: el texto de un tope (`textoTope`) con el link, para el aviso corto (el toast) de quien choca con
 //     él al crear (el segundo curso de Classroom).
 // El link va a `RUTA_CAMBIAR_PLAN` (la única) adentro de `CtaPasarAPro`, que al cliente de una agencia le dice a quién

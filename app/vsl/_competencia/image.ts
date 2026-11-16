@@ -122,7 +122,7 @@ export const LANDING_IMAGE: LandingCompetencia = {
   nombre: 'Image',
   icono: I.imagen,
   referencia: { nombre: 'PostNitro — creador de carruseles con IA (es)', url: 'https://postnitro.ai/es', leida: '2026-11-14' },
-  // El metaTitle queda sin aviso a propósito: «en tu versión editable» TAMBIÉN se cumple en Esencial por el camino sin IA
+  // El metaTitle queda sin aviso a propósito: «en tu versión editable» TAMBIÉN se cumple en Essential por el camino sin IA
   // (`crear_carrusel_desde_referencia`, la estructura con guías), y marcarlo de más espanta al de US$47. Lo que sí está
   // cerrado y se promete en el metaDesc es la réplica «con un clic» y el chat del lienzo: el aviso va ahí.
   metaTitle: 'Image de MaKo: los carruseles que funcionan, en tu versión editable',
@@ -265,7 +265,7 @@ export const LANDING_IMAGE: LandingCompetencia = {
       bajada: 'Diseña a mano en el editor o deja que el chat, WhatsApp o tu propio código lo hagan por ti. Las mismas plantillas y los mismos diseños para todos ellos.',
       items: [
         { icono: I.formas, titulo: 'A mano', meta: 'Arrastrar y soltar', texto: 'En el lienzo, como en Canva: texto, formas, imágenes, marcos y capas.' },
-        // De las cuatro maneras de conducir el motor, la única cerrada en Esencial es el chat: a mano, por WhatsApp (pedir un
+        // De las cuatro maneras de conducir el motor, la única cerrada en Essential es el chat: a mano, por WhatsApp (pedir un
         // diseño desde una plantilla y cambiarle los textos, `cambiar_textos_diseno_imagen`) y con la API siguen abiertas. Y
         // el aviso va en el TÍTULO, no al final del cuerpo: el título es lo que se lee en la grilla, y al final del cuerpo
         // quedaba a dos frases de él, colgando de «Nada cambia hasta que eliges Aceptar» —que es la aprobación, no el candado.

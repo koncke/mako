@@ -148,7 +148,7 @@ test('abrir: el email, la agencia, el lead, el email libre ANTES de crear, nace 
     'lead = await leadParaPartners(',
     'if (lead.clienteWs) return',
     'if (await buscarUsuarioPorEmail(correo))',
-    // Desde el 29/10/2026 con la capa de su plan (Esencial o Pro).
+    // Desde el 29/10/2026 con la capa de su plan (Essential o Pro).
     'const ws = await crearWorkspace(nombre, CAPA_DE_PLAN[plan]);',
     ".insert({ agencia_ws: p.agenciaWs, cliente_ws: ws.id, estado: 'pendiente' })",
     'update({ cliente_ws: ws.id })',

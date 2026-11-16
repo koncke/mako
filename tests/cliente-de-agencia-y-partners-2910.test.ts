@@ -43,7 +43,7 @@ test('la barra: MaKo Partners no se le ve al cliente de una agencia, y al resto 
   assert.ok(partners?.noParaClienteDeAgencia, 'la entrada de Partners lleva la marca');
   const v = { adminShell: false, rolWs: 'admin', capa: 'agencia' };
   assert.equal(puedeVerItem(partners!, v), true);
-  assert.equal(puedeVerItem(partners!, { ...v, capa: 'completo' }), true, 'el Esencial también es partner');
+  assert.equal(puedeVerItem(partners!, { ...v, capa: 'completo' }), true, 'el Essential también es partner');
   assert.equal(puedeVerItem(partners!, { ...v, clienteDeAgencia: true }), false);
   // Una entrada sin la marca no cambia.
   const otra = USER_NAV.find((x) => !x.noParaClienteDeAgencia && puedeVerItem(x, v));

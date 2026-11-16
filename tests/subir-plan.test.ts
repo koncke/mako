@@ -1,7 +1,7 @@
 // =============================================================================
 // «Pasar a Pro» desde «Tu plan» (23/10/2026)
 // =============================================================================
-// Adonde llevan los carteles de tope. Sube de MaKo Esencial a Pro, y el negocio pasa a la capa de Pro en el acto.
+// Adonde llevan los carteles de tope. Sube de MaKo Essential a Pro, y el negocio pasa a la capa de Pro en el acto.
 // Lo que falla callado si se rompe:
 //   1. EN STRIPE SE COBRA LA DIFERENCIA AHORA, y si ese cobro falla la suscripción no cambia: la capa tampoco sube.
 //   2. EL ANUAL SIGUE ANUAL, con el precio anual de Pro (nunca un anual pasa a mensual).
@@ -38,7 +38,7 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
 
 const PLANES = PLANES_MAKO_DEFAULT as readonly PlanMako[];
 
-test('a qué plan y a qué precio: Esencial sube a Pro; el anual sólo en Stripe y en USD; nunca baja', () => {
+test('a qué plan y a qué precio: Essential sube a Pro; el anual sólo en Stripe y en USD; nunca baja', () => {
   const base = { montoHoy: 47, capa: 'completo' };
   const s = decidirSubida({ ...base, planActual: 'esencial', planes: PLANES, moneda: 'USD', proveedor: 'stripe' });
   assert.equal(s.accion, 'subir');

@@ -181,7 +181,7 @@ export type AbrirCuenta = {
   agenciaWs: number; nombre: string; email: string; leadId?: number | null; pagador: string | null;
   /** Quién paga su cuenta (25/10/2026). Sin esto, la agencia: lo que pasaba antes de que se pudiera elegir. */
   paga?: QuienPaga | null;
-  /** Su plan (29/10/2026): Esencial o Pro, a su precio. Sin esto, Esencial. */
+  /** Su plan (29/10/2026): Essential o Pro, a su precio. Sin esto, Essential. */
   plan?: PlanCuenta | null;
   /** El país de quien la abre (`x-vercel-ip-country`): decide la pasarela, como /planes. */
   pais?: string | null;

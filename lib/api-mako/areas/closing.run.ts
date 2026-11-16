@@ -130,7 +130,7 @@ async function exigirIa(): Promise<FaltaDeConexion | null> {
 /**
  * EL ANÁLISIS DE LAS LLAMADAS ES SÓLO DE MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): la tabla de planes lo vendía como
  * de Pro y nada lo frenaba. Toda operación del área, MENOS las grabaciones (`OPERACIONES_CLOSING_ABIERTAS`), le contesta al
- * Esencial el texto del candado: la lectura antes de leer, la acción antes de proponer y otra vez al confirmar. El plan es el
+ * Essential el texto del candado: la lectura antes de leer, la acción antes de proponer y otra vez al confirmar. El plan es el
  * del negocio (`ctx.ws`, no hay sesión por la API); ante la duda, pasa (`esEsencialDe`). El molde: `soloDesdeLaApp`
  * (./video-estudio.run.ts).
  */

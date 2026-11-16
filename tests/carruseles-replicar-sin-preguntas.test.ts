@@ -23,14 +23,14 @@ import {
 
 const hechos = (o: Partial<HechosGuiado> = {}): HechosGuiado => ({
   laminas: 6, creador: '@lifeofarjav',
-  ofertas: [{ id: 14, nombre: 'WhatsApp Ads Funnel', principal: false }, { id: 31, nombre: 'MaKo Acelerador', principal: true }, { id: 40, nombre: 'Taller', principal: false }],
+  ofertas: [{ id: 14, nombre: 'WhatsApp Ads Funnel', principal: false }, { id: 31, nombre: 'MaKo Accelerator', principal: true }, { id: 40, nombre: 'Taller', principal: false }],
   persona: null, leyendo: true, fotos: { cara: true, look: false }, kit: true, ...o,
 });
 
 test('1 · lo de por defecto: la oferta principal, su cara, sólo los textos, y arranca sin preguntar', () => {
   const h = hechos();
   const r = respuestasPorDefecto(h);
-  assert.deepEqual(r.oferta, { id: 31, nombre: 'MaKo Acelerador' }, 'la principal, aunque no sea la primera de la lista');
+  assert.deepEqual(r.oferta, { id: 31, nombre: 'MaKo Accelerator' }, 'la principal, aunque no sea la primera de la lista');
   assert.equal(r.avatar, 'cara');
   assert.equal(r.cambio, 'textos');
   assert.equal(pasoDe(h, r), 'listo', 'arrancó preguntando');

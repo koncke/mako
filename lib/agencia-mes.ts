@@ -226,7 +226,7 @@ export async function mensualidadDeAgencia(agenciaWs: number, ahora: Date = new 
     if (!(await esAgencia(agenciaWs))) return { ok: false, error: 'Este negocio no es Agency.' };
     const [zona, cartera, libro, planes] = await Promise.all([zonaDelNegocioEstricta(agenciaWs), leerCartera(agenciaWs), leerLibro(agenciaWs), planesMako()]);
     const precios = preciosDelCatalogo(planes);
-    if (!precios) return { ok: false, error: 'No encontré el precio de MaKo Esencial o de MaKo Pro en los planes.' };
+    if (!precios) return { ok: false, error: 'No encontré el precio de MaKo Essential o de MaKo Pro en los planes.' };
 
     const ids = [...new Set(cartera.filas.map((f) => Number(f.cliente_ws)))];
     const [cuentas, marcas] = await Promise.all([

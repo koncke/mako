@@ -42,14 +42,14 @@ type Escena = {
 type Fila = { titulo: string; detalle: string; como: 'link' | 'boton' | 'quieta'; href: string | null };
 
 const PLANES = [
-  { id: 'esencial', nombre: 'MaKo Esencial', activo: true, capa: 'completo', precioUsd: 47, preciosLocales: {}, precioAnualUsd: null },
+  { id: 'esencial', nombre: 'MaKo Essential', activo: true, capa: 'completo', precioUsd: 47, preciosLocales: {}, precioAnualUsd: null },
   { id: 'pro', nombre: 'MaKo Pro', activo: true, capa: 'agencia', precioUsd: 97, preciosLocales: {}, precioAnualUsd: 970 },
 ];
 /** La prueba gratis que «Tu plan» reconoce (`esPruebaDePlan`: suscripción, con `alta_capa`, `creado_por` «planes:…:prueba»). */
 const PRUEBA = {
   tipo: 'suscripcion', alta_capa: 'completo', proveedor: 'stripe', monto: 47, moneda: 'USD', estado: 'pendiente',
   creado_por: 'planes:esencial:prueba', suscripcion_estado: 'activa', motivo: null, inicio_at: '2026-11-22T00:00:00.000Z',
-  concepto: 'MaKo Esencial · mensual',
+  concepto: 'MaKo Essential · mensual',
 };
 const PAGADA = { ...PRUEBA, estado: 'pagado', creado_por: 'planes:esencial', inicio_at: null };
 

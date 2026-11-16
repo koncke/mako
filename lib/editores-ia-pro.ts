@@ -17,7 +17,7 @@
 // reemplaza textos). La «Edición automática» corre en el navegador: su candado está en el botón y en `correrEnjambre`.
 //
 // ⚠️ ANTE LA DUDA, PASA: `esEsencialDe` / `esEsencialDeLaSesion` (lib/plan-esencial.ts) ya devuelven `false` si no pueden
-//    leer el plan. Sacarle la IA a quien paga Pro es peor que dejársela a un Esencial un rato.
+//    leer el plan. Sacarle la IA a quien paga Pro es peor que dejársela a un Essential un rato.
 // ⚠️ La respuesta es la de toda ruta de los editores (`{ ok: false, error }`, sin caché) con `pasarAPro`: la pantalla la
 //    reconoce por ese campo y dibuja el candado (app/_components/solo-pro.ts → `esRespuestaSoloPro`).
 // =============================================================================

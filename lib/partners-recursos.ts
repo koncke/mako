@@ -31,7 +31,7 @@ export function mensajesParaCopiar(p: { link: string; codigo: string; planes?: r
   // La prueba es sólo de Pro desde el 12/11/2026 (`planConPrueba`, lib/planes-mako.ts): los mensajes lo dicen.
   const gratis = `${PRUEBA_DIAS} días gratis con ${NOMBRE_PLAN_CON_PRUEBA}`;
   const entrada = PRUEBA_GRATIS_PRENDIDA ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis y te das de baja cuando quieras.` : 'Te das de baja cuando quieras.';
-  const precio = [esencial && `MaKo Esencial cuesta ${usd(esencial.precioUsd)} por mes`, pro && `MaKo Pro, ${usd(pro.precioUsd)}`].filter(Boolean).join(' y ');
+  const precio = [esencial && `MaKo Essential cuesta ${usd(esencial.precioUsd)} por mes`, pro && `MaKo Pro, ${usd(pro.precioUsd)}`].filter(Boolean).join(' y ');
   return [
     {
       id: 'conocido', titulo: 'Para un conocido, por WhatsApp',
@@ -57,7 +57,7 @@ export function mensajesParaCopiar(p: { link: string; codigo: string; planes?: r
 }
 
 /** Un renglón de lo que trae un plan, como lo dice la tabla de /planes: «Páginas web para vender, publicadas: 3». */
-const renglon = (f: FilaComparacion, c: Celda): string => (typeof c === 'string' ? `${f.que}: ${c === 'Sin tope' ? 'sin límite' : c.charAt(0).toLowerCase() + c.slice(1)}` : f.que);
+const renglon = (f: FilaComparacion, c: Celda): string => (typeof c === 'string' ? `${f.que}: ${c.charAt(0).toLowerCase() + c.slice(1)}` : f.que);
 
 /**
  * Un plan en el PDF. ⚠️ SIN `resumen` DESDE EL 15/11/2026, A LA NOCHE: la frase de «para quién es» («Para quien vende solo…»)
@@ -75,7 +75,7 @@ export type PdfDeVenta = {
 
 /**
  * El PDF de venta: una hoja para mandarle a un negocio. Qué hace MaKo, los dos planes con su precio y lo que trae cada uno
- * (Pro, «todo lo de Esencial» y lo que suma), la prueba gratis y, al pie, SU link y SU código. El Acelerador no va: se vende
+ * (Pro, «todo lo de Essential» y lo que suma), la prueba gratis y, al pie, SU link y SU código. El Accelerator no va: se vende
  * por llamada y el programa de partners paga por los planes (lib/partners-reglas.ts).
  */
 export function pdfDeVenta(p: { link: string; codigo: string; deParte?: string | null; planes?: readonly PlanMako[] }): PdfDeVenta {

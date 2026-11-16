@@ -51,7 +51,7 @@ export default async function HojaPropiaPagina({ params, searchParams }: {
   const h = hojaPropiaDe(lectura.tablero, id);
   if (!h) redirect(await rutaConWs(VOLVER_AL_DASHBOARD));
 
-  // La hoja Closing es SÓLO de MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): al Esencial, de qué plan es (el teléfono no
+  // La hoja Closing es SÓLO de MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): al Essential, de qué plan es (el teléfono no
   // vende) EN LUGAR de sus datos, que no se leen. Ante la duda, se ve.
   if (esHojaClosing(h) && (await esEsencialDeLaSesion())) {
     return (

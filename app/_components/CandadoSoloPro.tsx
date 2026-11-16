@@ -3,7 +3,7 @@
 // =============================================================================
 // CandadoSoloPro — la entrada a algo que es SÓLO de MaKo Pro, con su candado (14/11/2026)
 // =============================================================================
-// Lo que ve un Esencial en lugar de la entrada (la IA de los editores: el chat de Image y el de Video, la «Edición automática»,
+// Lo que ve un Essential en lugar de la entrada (la IA de los editores: el chat de Image y el de Video, la «Edición automática»,
 // «Clips mágicos», «B-roll de MaKo» y «Editar» un ejemplo): el candado, `textoSoloPro` («Editar con IA es de MaKo Pro. Pasa a
 // Pro para usarlo.») y el botón «Pasar a Pro» a «Tu plan» (`RUTA_CAMBIAR_PLAN`). Como el candado del scraper
 // (app/crm/TraerDeGrupoWA.tsx): el texto en gris y el botón lleno, adentro de `CtaPasarAPro` (al cliente de una agencia, a

@@ -19,7 +19,7 @@
 // La puerta es la del Image Editor (`puerta`: sesión, admin con la tab en su capa y un workspace). Va detrás de la sesión (NO
 // está en lib/rutas-publicas.ts) y el proxy le exige Origin propio al POST. El id se vuelve a leer de la base del negocio.
 //
-// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. Un Esencial recibe el 403 en JSON (no el stream), con
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. Un Essential recibe el 403 en JSON (no el stream), con
 // `pasarAPro`: la pantalla (app/image-editor/carruseles/EditarCarrusel.tsx) lo lee antes de abrir el stream y dibuja el candado.
 
 import type { NextRequest } from 'next/server';

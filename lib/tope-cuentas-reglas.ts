@@ -1,7 +1,7 @@
 // =============================================================================
 // tope-cuentas-reglas — cuántas cuentas de cobro y de agenda puede conectar un plan de MaKo (23/10/2026)
 // =============================================================================
-// Las ofertas del 23/10 (docs/ofertas-mako.md): MaKo Esencial trae «1 cuenta de Stripe o Mercado Pago»; MaKo Pro, varias
+// Las ofertas del 23/10 (docs/ofertas-mako.md): MaKo Essential trae «1 cuenta de Stripe o Mercado Pago»; MaKo Pro, varias
 // de Stripe, Mercado Pago, Calendly y Cal. El número vive en lib/topes-plan.ts (`cobros.cuentas`); esto decide cuándo
 // se aplica. Se cuentan por GRUPO: las de cobro (Stripe y Mercado Pago juntas) y las de agenda (Calendly y Cal juntas).
 //

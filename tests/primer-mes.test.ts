@@ -150,7 +150,7 @@ conPromo('las tarjetas, dibujadas: con el reloj vivo dicen el primer mes de los 
   const dibujar = (promoVigente: boolean) => renderToStaticMarkup(React.createElement(VitrinaPlanes, { ofertas, sufijo: '', promoVigente }))
     .replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   const conReloj = dibujar(true);
-  assert.ok(conReloj.includes('Tu primer mes: US$ 23,50'), 'Esencial');
+  assert.ok(conReloj.includes('Tu primer mes: US$ 23,50'), 'Essential');
   assert.ok(conReloj.includes('Tu primer mes: US$ 48,50'), 'Pro');
   assert.ok(conReloj.includes('Después, el precio de siempre.'));
   assert.ok(conReloj.includes('US$ 47 / mes'), 'el precio de lista sigue a la vista');

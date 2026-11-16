@@ -9,7 +9,7 @@
 // imagen se regenera con IA (la regla de los carruseles; nunca se entrega por partes ni recortada). «Hacer uno así», al lado en
 // el pie de la caja, lo lleva a Copywriting.
 //
-// «Replicar en Image» es editar con IA: SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts). Un Esencial ve el candado con «Pasar
+// «Replicar en Image» es editar con IA: SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts). Un Essential ve el candado con «Pasar
 // a Pro» en el lugar del botón. Desarmar (mirar la pieza) es de Competitor Spy y queda abierto.
 // =============================================================================
 

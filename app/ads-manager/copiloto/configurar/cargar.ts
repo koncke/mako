@@ -15,7 +15,7 @@ import type { ComponentProps } from 'react';
 import type { ConfigurarPiloto, InicialPiloto } from './ConfigurarPiloto';
 
 export async function cargarConfigurar(ws: number, pedida: string | undefined): Promise<ComponentProps<typeof ConfigurarPiloto>> {
-  // `redesPermitidas`: el piloto de Instagram y el de YouTube son de MaKo Pro (14/11/2026); a un Esencial, su hoja es el candado.
+  // `redesPermitidas`: el piloto de Instagram y el de YouTube son de MaKo Pro (14/11/2026); a un Essential, su hoja es el candado.
   // Ante la duda, abierto (el servidor decide igual: lib/copiloto/piloto.ts → `guardarPilotoRedes` y `guardarNumeroReel`).
   const [config, cupo, reel, rt, redesPermitidas] = await Promise.all([leerConfig(ws), cupoDe(ws), numeroDelReel(ws).catch(() => null), verRetargeting(ws).catch(() => null), pilotoRedesPermitido(ws).catch(() => true)]);
   const red = pedida === 'instagram' || pedida === 'youtube' ? pedida : 'anuncios';

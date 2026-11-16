@@ -990,7 +990,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [ocupado, setOcupado] = useState(false);
   const [errorModal, setErrorModal] = useState<string | null>(null);
   /**
-   * El error de sumar uno que es el TOPE DEL PLAN (14/11/2026: Esencial suma un competidor, lib/spy-tope-reglas.ts). Se guarda
+   * El error de sumar uno que es el TOPE DEL PLAN (14/11/2026: Essential suma un competidor, lib/spy-tope-reglas.ts). Se guarda
    * el TEXTO y no un sí/no: «Pasar a Pro» sale sólo mientras el error que se ve sea ese, y no queda pegado a otro error después.
    */
   const [errorConPro, setErrorConPro] = useState<string | null>(null);

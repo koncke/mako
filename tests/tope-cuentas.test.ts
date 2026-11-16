@@ -1,7 +1,7 @@
 // =============================================================================
 // El tope del plan al conectar una cuenta más de Stripe, Mercado Pago, Calendly o Cal (23/10/2026)
 // =============================================================================
-// MaKo Esencial trae «1 cuenta de Stripe o Mercado Pago»; MaKo Pro, varias (docs/ofertas-mako.md, lib/topes-plan.ts).
+// MaKo Essential trae «1 cuenta de Stripe o Mercado Pago»; MaKo Pro, varias (docs/ofertas-mako.md, lib/topes-plan.ts).
 // Lo que falla callado si se rompe:
 //   1. EL TOPE SE LE APLICA AL WS1 O A UN ACUERDO A MANO: también tienen capa `completo`, y no pagan por la pasarela.
 //   2. SE FRENA LO QUE NO SUMA: volver a conectar, cambiar la clave o la principal que ya está.
@@ -39,7 +39,7 @@ const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('la regla: Esencial conecta una, Pro varias; el ws1 y los acuerdos a mano no tienen tope', () => {
+test('la regla: Essential conecta una, Pro varias; el ws1 y los acuerdos a mano no tienen tope', () => {
   const esencial = { ws: 13, cobradoPorPasarela: true, capa: 'completo' };
   assert.equal(topeAlConectar({ ...esencial, usadas: 0 }), null, 'la primera cuenta siempre se conecta');
   assert.deepEqual(topeAlConectar({ ...esencial, usadas: 1 }), { tope: 1, texto: 'Llegaste al tope de tu plan (1). Pasa a MaKo Pro para tener más.' });

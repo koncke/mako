@@ -92,7 +92,7 @@ export const msg = (e: unknown, def: string) => (e instanceof Error && e.message
 
 /**
  * LA COMUNIDAD ES SÓLO DE MaKo Pro (14/11/2026, lib/comunidad-solo-pro.ts): el texto del candado si el NEGOCIO dueño (`a.ws`,
- * nunca la sesión: el alumno no la tiene) paga el Esencial, o null. Lo preguntan lo que hace NACER algo en la comunidad —un
+ * nunca la sesión: el alumno no la tiene) paga el Essential, o null. Lo preguntan lo que hace NACER algo en la comunidad —un
  * post (`publicarPost`) y un evento (`guardarEvento`, lib/comunidad-calendario.ts)—, no los comentarios de una clase.
  * Ante la duda, pasa (`esEsencialDe` devuelve false si no puede leer el plan).
  */

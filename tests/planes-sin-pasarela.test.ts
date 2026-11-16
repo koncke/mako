@@ -5,7 +5,7 @@
 // tiene que tener una salida de verdad mientras tanto. Desde el 24/10 esa salida NO es la agenda (Martín: «No voy a usar
 // Calendly, te dije que pongas las columnas de pricing de las ofertas»): el botón lleva a la página del plan, y ahí, sin
 // pasarela, la persona deja nombre, email y WhatsApp y queda como lead en el CRM de MaKo con el plan, el origen y el código
-// de partner (lib/compra-plan.ts, `pedirPlanSinPasarela`). El Acelerador siempre se pide. La landing de venta muestra las
+// de partner (lib/compra-plan.ts, `pedirPlanSinPasarela`). El Accelerator siempre se pide. La landing de venta muestra las
 // columnas de precios donde estaba la agenda (app/vsl/PreciosLanding.tsx).
 //
 // Probado rompiéndolo (24/10/2026): al pie del archivo.
@@ -47,20 +47,23 @@ const dibujarTuPlan = (): PantallaDelPlan => {
   return dibujo;
 };
 
-test('SIN AGENDA en los PLANES (24/10, Martín: «No voy a usar Calendly»), con la única excepción del Acelerador', () => {
-  // Esencial y Pro se compran sin hablar con nadie: su botón lleva al checkout o al pedido, nunca a una agenda.
+test('SIN AGENDA en los PLANES (24/10, Martín: «No voy a usar Calendly»), con la única excepción del Accelerator', () => {
+  // Essential y Pro se compran sin hablar con nadie: su botón lleva al checkout o al pedido, nunca a una agenda.
   for (const rel of ['lib/compra-plan-reglas.ts', 'app/planes/Vitrina.tsx', 'app/planes/[plan]/page.tsx', 'app/configuraciones/plan/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/PreciosLanding.tsx']) {
     assert.doesNotMatch(fuente(rel), /calendly\.com|AGENDA_MAKO|agendaConOrigen|initInlineWidget/, rel);
   }
   // ⚠️ LA EXCEPCIÓN, Y UNA SOLA (14/11/2026). Martín: «lo de agendar llamadas sí debería estar todavía para el tema de
-  // Accelerator. Ahí debería haber la agenda de llamada. Pero en ningún otro lado debería estar». El Acelerador es el bloque
+  // Accelerator. Ahí debería haber la agenda de llamada. Pero en ningún otro lado debería estar». El Accelerator es el bloque
   // que se vende POR llamada y nunca por la pasarela; las dos columnas de software, no.
   const tj = fuente('app/planes/Tarjetas.tsx');
   assert.equal((tj.match(/calendly\.com/g) ?? []).length, 1, 'la agenda aparece más de una vez en las tarjetas');
   assert.doesNotMatch(tj, /AGENDA_MAKO|agendaConOrigen|initInlineWidget/, 'volvió el widget de Calendly de antes');
   assert.match(tj, /export const AGENDA_ACELERADOR = 'https:\/\/calendly\.com\/koncke\/asesoria';/, 'la agenda es la de Martín');
   // Y la usa SÓLO la tarjeta del programa: el botón de un plan sigue saliendo de `botonDelPlan`.
-  assert.match(tj, /<a className="mkpl-btn" href=\{AGENDA_ACELERADOR\} target="_blank" rel="noopener noreferrer">/);
+  // 15/11/2026, ~21:00: el botón de la columna dice «Más información» y lleva a la landing del programa (/accelerator); la
+  // llamada se pide desde ahí. La agenda sigue siendo la de Martín (la constante), pero ningún botón de /planes la abre.
+  assert.match(tj, /<a className="mkpl-btn" href=\{RUTA_ACCELERATOR\}>\{TEXTO_BOTON_ACCELERATOR\}<\/a>/);
+  assert.doesNotMatch(tj, /href=\{AGENDA_ACELERADOR\}/, 'un botón de /planes volvió a abrir la agenda');
   assert.doesNotMatch(tj.slice(tj.indexOf('{planes.map((p) => {'), tj.indexOf('mkpl-programa"')), /AGENDA_ACELERADOR/, 'un plan de software ofrece agendar');
 });
 
@@ -79,7 +82,7 @@ test('el botón del plan: la MISMA frase que las landings; sin pasarela, «Quier
   assert.equal(TEXTO_BOTON_PRUEBA, TEXTO_BOTON_PRUEBA.toUpperCase(), 'todo en mayúscula, como lo pidió Martín');
   assert.deepEqual(botonDelPlan({ id: 'pro', nombre: 'MaKo Pro', cobrable: true, sufijo: '?ref=ana' }), { href: '/planes/pro?ref=ana', texto: TEXTO_BOTON_PRUEBA });
   // Y el MISMO texto en los dos planes: el de US$47 ya no dice una cosa distinta del de US$97.
-  assert.deepEqual(botonDelPlan({ id: 'esencial', nombre: 'MaKo Esencial', cobrable: true, sufijo: '' }), { href: '/planes/esencial', texto: TEXTO_BOTON_PRUEBA });
+  assert.deepEqual(botonDelPlan({ id: 'esencial', nombre: 'MaKo Essential', cobrable: true, sufijo: '' }), { href: '/planes/essential', texto: TEXTO_BOTON_PRUEBA });
   // ⚠️ LA ÚNICA EXCEPCIÓN, y no es de estilo: sin pasarela no se puede prometer una prueba gratis que el cobro no da. Lo
   //    que hay es dejar los datos, y eso es otra acción.
   assert.deepEqual(botonDelPlan({ id: 'pro', nombre: 'MaKo Pro', cobrable: false, sufijo: '?ref=ana' }), { href: '/planes/pro?ref=ana', texto: 'Quiero MaKo Pro' },
@@ -97,7 +100,7 @@ test('el pedido sin pago: el WhatsApp es obligatorio, sólo dígitos, de 8 a 15'
   assert.ok(ok.ok && ok.pedido.quiero && ok.pedido.whatsapp === '525512345678' && ok.pedido.ref === 'estudio-sol');
 });
 
-test('la puerta del Acelerador: las preguntas del diagnóstico de fase, se guarda el texto, e incompleta no traba el pedido', () => {
+test('la puerta del Accelerator: las preguntas del diagnóstico de fase, se guarda el texto, e incompleta no traba el pedido', () => {
   assert.deepEqual(PREGUNTAS_DE_LA_PUERTA.map((q) => q.id), ['facturacion', 'inversion', 'cuello']);
   for (const q of PREGUNTAS_DE_LA_PUERTA) assert.equal(q, PREGUNTAS.find((x) => x.id === q.id), `${q.id}: la del onboarding, no una copia`);
   const d = diagnosticoLimpio({ facturacion: 1, inversion: 0, cuello: 1 });
@@ -119,7 +122,7 @@ test('la bajada de /planes: «entras en el acto» sólo si algún plan se puede 
   assert.match(bajadaDePlanes(false), /te damos de alta por WhatsApp/);
 });
 
-test('«Pasar a Pro» por pedido: sólo desde Esencial y sólo sin la subida en el acto', () => {
+test('«Pasar a Pro» por pedido: sólo desde Essential y sólo sin la subida en el acto', () => {
   assert.equal(proPorLlamada({ capa: 'completo', subidaEnLinea: false }), true);
   assert.equal(proPorLlamada({ capa: 'completo', subidaEnLinea: true }), false, 'con pasarela, la subida en el acto');
   assert.equal(proPorLlamada({ capa: 'agencia', subidaEnLinea: false }), false, 'Pro no sube a nada');
@@ -142,13 +145,13 @@ test('/planes arma el botón con la regla y decide por plan con la misma cuenta 
   assert.match(ofertas, /catch/, 'sin poder leer las pasarelas, ninguno es cobrable (no se rompe la página)');
 });
 
-test('/planes/<plan>: con pasarela el pago; sin pasarela el pedido; el Acelerador SIEMPRE el pedido', () => {
+test('/planes/<plan>: con pasarela el pago; sin pasarela el pedido; el Accelerator SIEMPRE el pedido', () => {
   const pagina = fuente('app/planes/[plan]/page.tsx');
   assert.match(pagina, /pasarelas\.length\s*\?\s*<CompraPlan[\s\S]*?:\s*\([\s\S]*?<QuieroPlan plan=\{plan\.id\}/);
   const programa = pagina.indexOf('if (id === PROGRAMA_ACELERADOR.id) {');
   assert.ok(programa > 0 && programa < pagina.indexOf('ofertaDelPlan('), 'el programa no pasa por la pasarela');
   assert.match(pagina, /<QuieroPlan plan=\{pr\.id\} nombrePlan=\{pr\.nombre\} origen=\{origen\} refCodigo=\{ref\} preguntas=\{PREGUNTAS_DE_LA_PUERTA\} \/>/,
-    'el Acelerador se pide con el diagnóstico como puerta');
+    'el Accelerator se pide con el diagnóstico como puerta');
   const form = fuente('app/planes/[plan]/QuieroPlan.tsx');
   assert.match(form, /JSON\.stringify\(\{\s*plan: p\.plan, nombre, email, whatsapp, quiero: true, origen: p\.origen, ref: p\.refCodigo, web, diagnostico, periodo: p\.periodo,\s*codigo: preguntas\.length \? undefined : codigoParaMandar\(codigo, p\.refCodigo\),\s*\}\)/);
   // La ruta: el pedido va con el código de partner que ganó (la cookie de /r primero), y nunca abre un pago.
@@ -207,11 +210,11 @@ test('la LANDING de venta: las columnas de precios donde estaba la agenda, con e
   assert.ok(landing.indexOf('setDestinoPrecios(montarPrecios(root));') < landing.indexOf("sc.id = 'gm-diseno-js';"));
   const precios = fuente('app/vsl/PreciosLanding.tsx');
   assert.match(precios, /<TarjetasPlanes promoVigente=\{promoVigente\} planes=\{planes\} sufijo=\{sufijo\} \/>/, 'los mismos bloques (y el mismo botón) que /planes');
-  // 14/11/2026: el botón del Acelerador pasó de su pedido (/planes/acelerador, que viajaba con el origen y el partner del
+  // 14/11/2026: el botón del Accelerator pasó de su pedido (/planes/acelerador, que viajaba con el origen y el partner del
   // sufijo) a la agenda de Martín. ⚠️ CONSECUENCIA MEDIDA, no un detalle: por ese camino el origen y el código de partner ya
   // NO llegan al CRM, y la agenda de Martín todavía no tiene su webhook (docs/hallazgos-integraciones.md).
-  assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{AGENDA_ACELERADOR\} target="_blank"/);
-  assert.doesNotMatch(fuente('app/planes/Tarjetas.tsx'), /Quiero el Acelerador/, 'volvió el botón del pedido');
+  assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{RUTA_ACCELERATOR\}/);
+  assert.doesNotMatch(fuente('app/planes/Tarjetas.tsx'), /Quiero el Accelerator/, 'volvió el botón del pedido');
   // El anual (25/10/2026) se muestra y SIEMPRE se pide: su botón es otro, nunca el del checkout mensual.
   assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{botonAnualDelPlan\(\{ id: p\.id, sufijo \}\)\.href\}/);
   for (const rel of ['app/page.tsx', 'app/vsl/[slug]/page.tsx']) assert.match(fuente(rel), /planesParaLanding\(\)/, rel);
@@ -221,7 +224,7 @@ test('la LANDING de venta: las columnas de precios donde estaba la agenda, con e
 //   · `botonDelPlan` dice «Empezar» aunque no se cobre                                         -> 8 / 1
 //   · el pedido sin pago acepta no tener WhatsApp                                              -> 8 / 1
 //   · `whatsappLimpio` acepta 3 dígitos                                                        -> 8 / 1
-//   · el Acelerador pasa por la pasarela (sin su rama)                                          -> 8 / 1
+//   · el Accelerator pasa por la pasarela (sin su rama)                                          -> 8 / 1
 //   · la ruta manda el pedido al checkout (sin la rama de `quiero`)                             -> 8 / 1
 //   · el pedido no deja el partner en el historial del lead                                    -> 8 / 1
 //   · la landing deja el `data-calendly` del Web Generator (se carga Calendly)                 -> 8 / 1

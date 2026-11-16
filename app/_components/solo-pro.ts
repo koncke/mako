@@ -5,7 +5,7 @@
 // =============================================================================
 // Martín: «el editor de imágenes y editor de videos sí deberían estar disponibles para la versión de 47, pero no deberían
 // estar disponibles el tema de editar con inteligencia artificial». La defensa es el servidor (lib/editores-ia-pro.ts: 403
-// con `pasarAPro`); esto es para que un Esencial vea el CANDADO en la entrada (./CandadoSoloPro.tsx) en vez de tocar y
+// con `pasarAPro`); esto es para que un Essential vea el CANDADO en la entrada (./CandadoSoloPro.tsx) en vez de tocar y
 // recibir un error.
 //
 // Dos fuentes, y basta una:

@@ -17,7 +17,7 @@ const precioDe = (nombre: string): string => { const x = STACK_TIPICO.find((y) =
 // EL VIDEO CON AVATAR DE IA, FUERA DE LA PROMESA DE LA PRUEBA (14/11/2026). Esta respuesta prometía «1 video con avatar de IA» a
 // toda prueba gratis, y hoy es mentira para la mitad: los DOS planes arrancan con los 7 días (`PLANES_CON_PRUEBA`,
 // lib/planes-mako.ts) y la prueba vale EL PLAN ELEGIDO desde el primer día («el negocio en prueba tiene los topes de su plan
-// desde el primer día», lib/plan-esencial.ts → `capaVendidaDe`), así que quien arranca la prueba del de 47 es «Esencial por la
+// desde el primer día», lib/plan-esencial.ts → `capaVendidaDe`), así que quien arranca la prueba del de 47 es «Essential por la
 // pasarela» (`esEsencialPorPasarela`: `alta_capa` completo + capa completo) y en /ai-avatar le sale el cartel de Pro, no el
 // estudio (`candadoDeAiAvatar`, app/ai-avatar/acceso.ts). Martín, 14/11/2026: «el de 97 ya podés generar avatares de IA… el de
 // 47 debería estar bien limitado y restrictivo».
@@ -27,7 +27,7 @@ const precioDe = (nombre: string): string => { const x = STACK_TIPICO.find((y) =
 // Se saca de la promesa en vez de aclarar «en Pro» porque el sitio NO vende el avatar hasta que ande de punta a punta
 // (`AI_AVATAR_SE_VENDE`, lib/planes-comparacion.ts): la misma razón por la que no tiene fila en la tabla de /planes, ni renglón
 // en las tarjetas, ni fila en /vsl/crm. El día que se venda, la línea vuelve sola — y ⚠️ ESE DÍA tiene que decir que es la
-// prueba de MaKo Pro, porque en Esencial sigue con candado.
+// prueba de MaKo Pro, porque en Essential sigue con candado.
 const AVATAR_EN_LA_PRUEBA = AI_AVATAR_SE_VENDE ? `${TOPES_PRUEBA['prueba.avatares']} video con avatar de IA, ` : '';
 // Martín, 14/11/2026: «me gusta que sean algunas objeciones, pero piensa en cosas más generales… como "¿y si la IA contesta mal un
 // cliente y lo pierdo?" son objeciones demasiado específicas… también puedes poner preguntas realmente frecuentes». Lo que se
@@ -36,7 +36,7 @@ const AVATAR_EN_LA_PRUEBA = AI_AVATAR_SE_VENDE ? `${TOPES_PRUEBA['prueba.avatare
 // por llamada, los setters y closers, y «vendo por WhatsApp».
 export const PREGUNTAS_SITIO: readonly { p: string; r: string }[] = [
   { p: '¿Para quién es MaKo?', r: 'Para quien vende servicios, programas o mentorías de ticket alto: coaches, infoproductores, agencias e inmobiliarias. Vendas por anuncios, por Instagram, por WhatsApp o en una llamada, MaKo ordena el camino entero: desde que alguien te descubre hasta que te paga.' },
-  { p: '¿Necesito saber de marketing o de tecnología?', r: 'No. Le cuentas a MaKo qué vendes y a quién, y te arma la oferta, las páginas y los mensajes: tú revisas y apruebas. Si prefieres que lo armemos contigo, está el Acelerador.' },
+  { p: '¿Necesito saber de marketing o de tecnología?', r: 'No. Le cuentas a MaKo qué vendes y a quién, y te arma la oferta, las páginas y los mensajes: tú revisas y apruebas. Si prefieres que lo armemos contigo, está el Accelerator.' },
   // La objeción de GoHighLevel, «muy bien presentada» (el audio de feedback que pasó Martín, 14/11/2026: «es uno de los competidores
   // principales»). Los precios, de STACK_TIPICO (./reemplaza.ts, con su fuente).
   { p: 'Ya pago GoHighLevel, ManyChat y un editor de video. ¿Para qué cambiar?', r: `Porque con lo que hoy pagas sólo por GoHighLevel (US$${precioDe('GoHighLevel')} por mes, su plan Starter) tienes MaKo Pro, y además dejas de pagar ManyChat (US$${precioDe('ManyChat')}) y tu editor de video (CapCut, US$${precioDe('CapCut')}). GoHighLevel ordena tus contactos y tus páginas de venta; MaKo hace eso y además te muestra lo que le funciona a tu competencia, replica sus páginas de venta, sus carruseles y sus guiones con tu oferta, edita tus videos y hace tus anuncios con tu avatar, con una IA que conoce tu negocio. En «Comparaciones» ves, trabajo por trabajo, qué app reemplaza.` },

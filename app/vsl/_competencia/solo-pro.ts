@@ -23,7 +23,7 @@
 import { FUNCIONES_SOLO_PRO, type FuncionSoloPro } from '@/lib/topes-plan';
 import { FUNCIONES_TODAVIA_NO_VENDIDAS } from '@/lib/planes-comparacion';
 
-/** Cerrada en Esencial Y ya vendida: las dos condiciones, que es lo que decide si el aviso sale o no. */
+/** Cerrada en Essential Y ya vendida: las dos condiciones, que es lo que decide si el aviso sale o no. */
 export const seVendeEnPro = (f: FuncionSoloPro): boolean =>
   (FUNCIONES_SOLO_PRO as readonly string[]).includes(f) && !FUNCIONES_TODAVIA_NO_VENDIDAS.includes(f);
 

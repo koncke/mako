@@ -22,7 +22,7 @@
 //
 // La puerta es la de /api/video-editor/ia (la prueba 1d de tests/video-editor-integracion.test.ts lo exige).
 //
-// SÓLO MaKo Pro, `elegir` (14/11/2026, lib/editores-ia-pro.ts): que la IA elija las imágenes es editar con IA; un Esencial
+// SÓLO MaKo Pro, `elegir` (14/11/2026, lib/editores-ia-pro.ts): que la IA elija las imágenes es editar con IA; un Essential
 // recibe el 403 con `pasarAPro`. `pexels`, `buscar` y bajar la foto o el video no usan IA: quedan abiertos.
 
 import type { NextRequest } from 'next/server';

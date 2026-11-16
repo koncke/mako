@@ -78,7 +78,7 @@ export function Seguidos({ competidores, telefono = false, onAbrir, rutaGuion = 
   const [error, setError] = useState<string | null>(null);
   const [cambiando, setCambiando] = useState<number | null>(null);
   const [replicando, setReplicando] = useState<number | null>(null);
-  // Replicar el guion de un original es de MaKo Pro (14/11/2026): a un Esencial, el candado (app/_components/solo-pro.ts).
+  // Replicar el guion de un original es de MaKo Pro (14/11/2026): a un Essential, el candado (app/_components/solo-pro.ts).
   const soloPro = useSoloPro('replicar-guion');
   const [verCandado, setVerCandado] = useState(false);
 
@@ -119,7 +119,7 @@ export function Seguidos({ competidores, telefono = false, onAbrir, rutaGuion = 
   const replicar = async (a: AlertaVista) => {
     if (replicando != null) return;
     // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts): «¿Creamos uno parecido?» replica el guion del original,
-    // la misma función que «Replicar» en Copywriting. A un Esencial, el candado en vez de un pedido que vuelve con un 403.
+    // la misma función que «Replicar» en Copywriting. A un Essential, el candado en vez de un pedido que vuelve con un 403.
     if (soloPro) { setVerCandado(true); return; }
     setReplicando(a.pieza.id);
     setError(null);

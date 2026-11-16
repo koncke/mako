@@ -564,7 +564,7 @@ export type PropsReplicarUnaPagina = {
 };
 
 /**
- * «Replicar landing», a la derecha del Panel. SÓLO MaKo Pro (14/11/2026, `CandadoReplicar`): un Esencial ve el candado y
+ * «Replicar landing», a la derecha del Panel. SÓLO MaKo Pro (14/11/2026, `CandadoReplicar`): un Essential ve el candado y
  * nada arranca. Hasta saber el plan (`usePlanEsencial`, /api/auth/me) tampoco: con `auto` (el ↑ de la caja, «Copiar su sitio»,
  * la tarjeta de un outlier) leería sola, y eso ya paga IA. Ante la duda (no se pudo leer), es Pro: lo frena el servidor, y su
  * 403 prende el candado (`useSoloPro`, app/_components/solo-pro.ts).

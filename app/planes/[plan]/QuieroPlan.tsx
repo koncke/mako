@@ -4,11 +4,11 @@
 // `quiero: true` (lib/compra-plan.ts, `pedirPlanSinPasarela`): queda el pedido en el CRM de MaKo con el plan, de dónde vino
 // y el código de partner, y el equipo escribe por WhatsApp para dar el alta. Nunca dice «pagaste» ni abre un pago.
 //
-// Con `preguntas` (el Acelerador, 25/10/2026): antes de los datos, el diagnóstico de 2 minutos, UNA pregunta por pantalla y
+// Con `preguntas` (el Accelerator, 25/10/2026): antes de los datos, el diagnóstico de 2 minutos, UNA pregunta por pantalla y
 // con respuestas grandes que avanzan solas al tocarlas (lib/compra-plan-reglas.ts, `PREGUNTAS_DE_LA_PUERTA`). Se mandan los
 // índices; el servidor guarda el texto de cada opción.
 //
-// EL CÓDIGO DE REFERIDO (25/10/2026), como en el checkout (CodigoReferido.tsx): en el pedido de un PLAN. El Acelerador no lo
+// EL CÓDIGO DE REFERIDO (25/10/2026), como en el checkout (CodigoReferido.tsx): en el pedido de un PLAN. El Accelerator no lo
 // lleva: no entra en MaKo Partners (Martín: «No pongas al programa de 1500 en el programa de referidos»).
 
 import { useEffect, useRef, useState } from 'react';

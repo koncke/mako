@@ -453,7 +453,7 @@ function depsReales(ws: number): DepsCrearIA {
       if (error) throw new Error(error.message);
     },
     pausar: (id) => setSecuenciaActiva(id, false),
-    // Con MaKo Esencial, lo que arma la IA nace SIN el setter con IA si la puerta lo frena (14/11/2026, lib/setter-ia-reglas.ts):
+    // Con MaKo Essential, lo que arma la IA nace SIN el setter con IA si la puerta lo frena (14/11/2026, lib/setter-ia-reglas.ts):
     // cada «Sola» en «Para aprobar», y la automatización se crea igual.
     guardarPasos: (id, pasos) => guardarSinSetterSiFrena(pasos, (ps) => setSecuenciaPasos(id, ps as unknown as PasoSecuencia[])),
     motivoDePasos: (e) => (e instanceof PasosInvalidosError ? e.message : null),

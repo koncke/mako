@@ -11,9 +11,9 @@
 //
 // Cómo (el orden importa: tsx primero, esto después, el test al final):
 //   PRO_SUMA=funcion-nueva   node --import tsx --import ./tests/_mutar-funciones-de-pro.ts --test tests/<x>.test.ts
-//     → cierra en Esencial una función que no existía: el test TIENE que ponerse rojo.
+//     → cierra en Essential una función que no existía: el test TIENE que ponerse rojo.
 //   PRO_SACA=chat-referentes node --import tsx --import ./tests/_mutar-funciones-de-pro.ts --test tests/<x>.test.ts
-//     → ABRE esa función en Esencial: el aviso de la landing desaparece solo y el test se queda VERDE (los dos se mueven juntos).
+//     → ABRE esa función en Essential: el aviso de la landing desaparece solo y el test se queda VERDE (los dos se mueven juntos).
 //   PRO_VENDE=1              node --import tsx --import ./tests/_mutar-funciones-de-pro.ts --test tests/<x>.test.ts
 //     → vacía `FUNCIONES_TODAVIA_NO_VENDIDAS`, o sea `AI_AVATAR_SE_VENDE = true`: lo cerrado-y-no-vendido pasa a vendido.
 // =============================================================================

@@ -48,7 +48,7 @@ export default async function ComunidadPagina({ searchParams }: {
   await requireMovil({ navKey: 'cs-comunidad' });
   // La app de iPhone no lleva Community: Apple (1.2) pide bloquear a un usuario desde la app, y la moderación está en la computadora.
   if (await esAppIosDelPedido()) redirect(await rutaConWs('/m/curso'));
-  // La comunidad es SÓLO de MaKo Pro (14/11/2026, lib/comunidad-solo-pro.ts): al Esencial, de qué plan es y nada más (el
+  // La comunidad es SÓLO de MaKo Pro (14/11/2026, lib/comunidad-solo-pro.ts): al Essential, de qué plan es y nada más (el
   // teléfono no vende). Antes de leer nada; ante la duda, se ve.
   if (await esEsencialDeLaSesion()) {
     return (

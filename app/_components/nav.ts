@@ -475,7 +475,7 @@ export const FAMILIAS: NavFamilia[] = [
           // Su estudio se usa desde Video («Tu personaje con IA» en «Nuevo video») y desde los botones que llevan a /ai-avatar
           // (la biblioteca de anuncios, la guía de video, los carruseles, el CoPilot): por eso la ruta NO redirige —redirigirla
           // a Video rompía justamente la tarjeta de Video—. El ítem queda, como Offer: su key es contrato (capas, API, teléfono).
-          // Un Esencial (Video es sólo de Pro, lib/plan-esencial-reglas.ts) llega por esos botones; decide Martín si Video entra.
+          // Un Essential (Video es sólo de Pro, lib/plan-esencial-reglas.ts) llega por esos botones; decide Martín si Video entra.
           key: 'ai-avatar', label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil', fueraDeLaBarra: true,
           match: starts('/ai-avatar'),
         },

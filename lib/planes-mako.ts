@@ -5,8 +5,8 @@
 // Hasta hoy un plan se vendía SÓLO armando el link a mano en /admin/cobros (el super admin tipeaba el precio). El
 // checkout público de /planes necesita saber qué se vende, a cuánto y qué capa abre: eso vive acá.
 //
-// LAS OFERTAS (el Cerebro, 23/10/2026, docs/ofertas-mako.md): MaKo Esencial US$47/mes (US$470/año), MaKo Pro US$97/mes
-// (US$970/año), y la Continuidad del Acelerador, US$297/mes (no se vende en /planes: se ofrece al terminar el programa).
+// LAS OFERTAS (el Cerebro, 23/10/2026, docs/ofertas-mako.md): MaKo Essential US$47/mes (US$470/año), MaKo Pro US$97/mes
+// (US$970/año), y la Continuidad del Accelerator, US$297/mes (no se vende en /planes: se ofrece al terminar el programa).
 // PARAMETRIZABLE: El super admin los cambia sin deploy con el setting `planes.mako` del workspace de
 // la plataforma (lib/planes-mako-server.ts): el setting manda, y un plan mal escrito se descarta (nunca se vende un
 // precio que no pasó `planesDeSetting`).
@@ -27,7 +27,7 @@ import { PROMO_ENTRADA } from './promo-entrada-reglas';
 // tarjetas, que es lo primero que se lee: «embudo», «CRM», «media buyer», «setter», «cohorte». La promesa y la garantía dicen lo
 // mismo de antes, en palabras de quien no conoce el rubro. Lo fija tests/planes-tres-bloques.test.ts.
 const T = TOPES;
-const n = (v: number | null): string => (v == null ? 'sin tope' : v.toLocaleString('es-AR'));
+const n = (v: number | null): string => (v == null ? 'ilimitados' : v.toLocaleString('es-AR'));
 /** «1 landing publicada» / «3 landings publicadas»: el número con su palabra (los topes cambian; el plural, solo). */
 const nn = (v: number | null, uno: string, varios: string): string => `${n(v)} ${v === 1 ? uno : varios}`;
 
@@ -79,10 +79,10 @@ export const PRUEBA_DIAS = 7;
 /**
  * ⚠️ PRENDIDA DE NUEVO EL 12/11/2026 (Martín: «Sí, préndela»): el botón de todo el sitio público es «Comienza tu prueba gratuita»
  * (app/vsl/_competencia/cta.ts). Lo de abajo es por qué se había apagado.
- * ⚠️ Y CON UNA SOLA EXCEPCIÓN DESDE EL 14/11/2026: la tarjeta del MaKo Acelerador ofrece agendar una llamada con Martín
+ * ⚠️ Y CON UNA SOLA EXCEPCIÓN DESDE EL 14/11/2026: la tarjeta del MaKo Accelerator ofrece agendar una llamada con Martín
  * (`AGENDA_ACELERADOR`, app/planes/Tarjetas.tsx). Textual: «lo de agendar llamadas sí debería estar todavía para el tema de
  * Accelerator. Ahí debería haber la agenda de llamada. Pero en ningún otro lado debería estar». El programa se vende por
- * llamada (nunca pasa por la pasarela); Esencial y Pro se compran sin hablar con nadie, y ninguna otra pantalla la ofrece.
+ * llamada (nunca pasa por la pasarela); Essential y Pro se compran sin hablar con nadie, y ninguna otra pantalla la ofrece.
  * ⚠️ EL INTERRUPTOR DE LA PRUEBA GRATIS (30/10/2026, docs/estrategia-lanzamiento-low-to-high.md §4): APAGADA. No se borró: vuelve con
  * esto en true, el día que se venda MaKo como SaaS suelto. Es de la PLATAFORMA, no de cada negocio (el Cerebro): es cómo vende MaKo.
  * Los motivos de Martín, que deciden los bordes: 50% + prueba gratis se lee como sospechoso; la prueba es para vender un SaaS por
@@ -95,7 +95,7 @@ export const PRUEBA_GRATIS_PRENDIDA: boolean = true;
 
 /**
  * LA PRUEBA, SÓLO EN PRO (12/11/2026, Martín: «como oferta para que vayan a la de 97 y no la de 47, ponerlo 7 días gratis ahí,
- * en la de 97… que para acceder a la de 47 haya que pagar directamente»). La prueba empuja hacia Pro: Esencial se paga al
+ * en la de 97… que para acceder a la de 47 haya que pagar directamente»). La prueba empuja hacia Pro: Essential se paga al
  * empezar. Todo lo que dice o decide la prueba de UN plan pregunta aquí: las tarjetas (app/planes/Tarjetas.tsx), el checkout
  * (app/planes/[plan]/page.tsx) y el cobro (lib/compra-plan.ts, `comprarPlan`). El interruptor de arriba la apaga en todos.
  */
@@ -105,6 +105,16 @@ export const PLANES_CON_PRUEBA: readonly string[] = ['esencial', 'pro'];
 export const planConPrueba = (id: string): boolean => PRUEBA_GRATIS_PRENDIDA && PLANES_CON_PRUEBA.includes(id);
 /** El plan de la prueba, como lo nombran los textos generales («MaKo Pro empieza con 7 días gratis»). */
 export const NOMBRE_PLAN_CON_PRUEBA = 'MaKo';
+
+/**
+ * LA RUTA DE CADA PLAN, EN INGLÉS (15/11/2026, Martín: «los planes, tanto MaKo Essential como MaKo Accelerator, sean en inglés,
+ * como también la ruta»). El ID NO CAMBIA: lo guardan los pedidos, los cobros y el setting `planes.mako`, y cambiarlo dejaría
+ * huérfano todo lo anterior. Lo que cambia es la dirección: /planes/essential y /planes/accelerator. La página acepta las dos
+ * (`planDeLaRuta`), así que un link viejo a /planes/esencial sigue andando.
+ */
+export const RUTA_DEL_PLAN: Readonly<Record<string, string>> = { esencial: 'essential', acelerador: 'accelerator' };
+export const rutaDelPlan = (id: string): string => RUTA_DEL_PLAN[id] ?? id;
+export const planDeLaRuta = (ruta: string): string => Object.keys(RUTA_DEL_PLAN).find((id) => RUTA_DEL_PLAN[id] === ruta) ?? ruta;
 
 /** El descuento del primer mes, sobre los dos planes (§3). Con la prueba prendida no se ofrece: son una cosa o la otra. */
 export const DESCUENTO_PRIMER_MES_PCT = PROMO_ENTRADA.pct;
@@ -125,7 +135,7 @@ export const precioEnPesos = (p: Pick<PlanMako, 'preciosLocales'>): number | nul
 export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
   {
     id: 'esencial',
-    nombre: 'MaKo Esencial',
+    nombre: 'MaKo Essential',
     capa: 'completo',
     precioUsd: 47,
     precioAnualUsd: 470,
@@ -135,7 +145,7 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     // entre el nombre y el precio. Antes: «Para empezar a vender por internet, por tu cuenta.»
     resumen: 'Para quien vende solo: tu página, tus leads y tu WhatsApp, por fin en un solo lugar.',
     incluye: [
-      // 14/11/2026 (Martín): con el lenguaje técnico del marketing y Esencial más limitado (lib/planes-comparacion.ts).
+      // 14/11/2026 (Martín): con el lenguaje técnico del marketing y Essential más limitado (lib/planes-comparacion.ts).
       'MaKo, tu asistente con IA, trabajando en tu negocio',
       `Hasta ${n(T.completo['crm.leads'])} leads en tu CRM y ${nn(T.completo['crm.funnels'], 'pipeline', 'pipelines')} de venta`,
       `${n(T.completo['chats.lineas_whatsapp'])} WhatsApp más Instagram, en una sola bandeja`,
@@ -156,14 +166,14 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     precioUsd: 97,
     precioAnualUsd: 970,
     preciosLocales: {},
-    // 14/11/2026 (§4.1 del relevo): el eje que hace únicas a las dos columnas sin decir «todo lo de X» — Esencial, lo haces tú;
+    // 14/11/2026 (§4.1 del relevo): el eje que hace únicas a las dos columnas sin decir «todo lo de X» — Essential, lo haces tú;
     // Pro, MaKo lo hace y tú apruebas. Antes: «¿Ya vendes? Para escalar con anuncios, contenido y equipo.»
     resumen: 'Para quien ya vende y tiene equipo: MaKo produce, pauta y responde, y tú apruebas.',
     incluye: [
       // 29/10/2026: decía «sin topes», y Pro SÍ tiene (las líneas de WhatsApp y las personas, dos renglones más abajo, de
-      // lib/topes-plan.ts). Gana el código: sin tope es lo que la tabla dice «Sin tope».
-      'Todo lo de Esencial, sin tope de leads, landings ni automatizaciones',
-      // 14/11/2026 (Martín): lo que Pro suma sobre un Esencial más limitado (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`).
+      // lib/topes-plan.ts). Gana el código. 15/11/2026: «ilimitado», nunca «sin tope» (Martín), ni «todo lo de X».
+      'Leads, landings y automatizaciones ilimitados',
+      // 14/11/2026 (Martín): lo que Pro suma sobre un Essential más limitado (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`).
       'Toda tu competencia scrapeada, y sus landings copiadas con tu oferta',
       // Generar imágenes con IA no existe: editar con IA sí (subtítulos, cortes, B-roll y diseños).
       'Edición con IA de tus videos y tus imágenes',
@@ -172,7 +182,7 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
       'Setter con IA que responde y agenda por WhatsApp e Instagram',
       'Piloto automático de Instagram y YouTube',
       'Análisis de tus llamadas de venta con IA',
-      'Cursos sin tope, comunidad y dominio propio',
+      'Cursos ilimitados, comunidad y dominio propio',
       `Hasta ${n(T.agencia['chats.lineas_whatsapp'])} WhatsApp y ${n(T.agencia['equipo.usuarios'])} personas de tu equipo`,
       'Si eres agencia, las cuentas de tus clientes en tu cuenta',
     ],
@@ -182,11 +192,11 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
   },
   {
     id: 'continuidad',
-    nombre: 'Continuidad del Acelerador',
+    nombre: 'Continuidad del Accelerator',
     capa: 'agencia',
     precioUsd: 297,
     preciosLocales: {},
-    resumen: 'MaKo Pro y la asesoría grupal de Martín, al terminar el Acelerador.',
+    resumen: 'MaKo Pro y la asesoría grupal de Martín, al terminar el Accelerator.',
     incluye: ['MaKo Pro', 'La asesoría grupal en vivo de cada semana'],
     activo: false,
     retencion: { descuento: { pct: 50, meses: 2 }, bajarA: 'pro' },
@@ -197,7 +207,7 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
  * El TERCER escalón de /planes (24/10/2026, Martín: «quiero ver los 3 bloques de pricing típicos que tiene toda app»): el
  * programa con Martín, docs/ofertas-mako.md §3. No es un `PlanMako`: no tiene capa propia ni se cobra por la pasarela; se
  * vende por llamada, como el «hablar con ventas» del tercer bloque de cualquier SaaS. La Continuidad (US$297) NO va en la
- * vitrina: se ofrece al terminar el programa, y al lado de Esencial y Pro un desconocido no sabría qué es.
+ * vitrina: se ofrece al terminar el programa, y al lado de Essential y Pro un desconocido no sabría qué es.
  */
 export type ProgramaMako = {
   id: string;
@@ -234,7 +244,7 @@ export const ASESORIAS_DEL_PROGRAMA = 12;
 
 /**
  * LO QUE TE LLEVAS, EN EL CHECKOUT (14/11/2026, Martín: «en los bullet point… de qué incluye MaKo Pro, creo que eso está bastante viejo,
- * está mal. Piensa muy a profundidad qué poner ahí»). En el checkout se ve UN plan: «Todo lo de Esencial, más:» no dice nada ahí. Seis
+ * está mal. Piensa muy a profundidad qué poner ahí»). En el checkout se ve UN plan: «Todo lo de Essential, más:» no dice nada ahí. Seis
  * renglones, en el orden de la portada (conseguir clientes → crear → anuncios → vender → el equipo), y sólo lo que ese plan trae de
  * verdad (la comparación de /planes, lib/planes-comparacion.ts: los editores de video e imagen, que MaKo aplique las mejoras de los
  * anuncios y los grupos de WhatsApp son de Pro). Sin jerga (ni «CRM» ni «embudo»): lo lee alguien que todavía no entró.
@@ -261,7 +271,7 @@ export const INCLUYE_EN_EL_CHECKOUT: Readonly<Record<string, readonly string[]>>
 
 export const PROGRAMA_ACELERADOR: ProgramaMako = {
   id: 'acelerador',
-  nombre: 'MaKo Acelerador',
+  nombre: 'MaKo Accelerator',
   precioUsd: 1500,
   cuotas: 3,
   // 14/11/2026 (§4.1 del relevo): para quién es, por el momento del negocio, como los otros dos. La tarjeta muestra la
@@ -275,22 +285,26 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
   // Pro los 3 meses, más:», app/planes/Tarjetas.tsx). Lo de cada entregable sigue entero en /reembolsos §2.
   // ⚠️ LAS MISMAS COSAS QUE LA TARJETA (`LISTA_PROGRAMA`, app/planes/Tarjetas.tsx), con lo que es CONTRATO (15/11/2026): las
   // horas de la primera semana (la garantía se mide contra eso, ver `garantia`) y que la asesoría semanal es grupal. La tarjeta
-  // lo dice corto; esto lo leen el checkout del Acelerador y /reembolsos §2.
+  // lo dice corto; esto lo leen el checkout del Accelerator y /reembolsos §2.
+  // 15/11/2026, ~21:00 (Martín): el sistema lo arma ÉL, no «nuestro equipo» («todavía no tengo equipo»), y se suma lo que eligió
+  // de los programas high ticket. Las horas de la primera semana siguen siendo contrato (la garantía se mide contra eso).
   incluye: [
-    '3 meses de acompañamiento personalizado con Martín y su equipo',
-    // «Tablero de clientes» y no «CRM»: /reembolsos lo dice con palabras de cliente (tests/planes-tres-bloques.test.ts lo vigila).
-    `Tu sistema de adquisición de clientes armado por nuestro equipo la primera semana: tu funnel, tu página de venta, tu tablero de clientes, tus automatizaciones y tu sistema de contenido (hasta ${HORAS_SEMANA_1} horas de nuestro equipo)`,
+    '3 meses de acompañamiento personalizado con Martín',
+    'Tu hoja de ruta armada por MaKo, que apruebas antes de empezar',
+    `Tu sistema de adquisición de clientes armado por Martín la primera semana: tu funnel, tu página de venta, tu tablero de clientes, tus automatizaciones y tu sistema de contenido (hasta ${HORAS_SEMANA_1} horas de trabajo de Martín)`,
+    'Un tablero de resultados con tus leads, reuniones y ventas desde la primera semana',
     'Tu IA conectada y lista desde el primer día',
     '3 sesiones 1 a 1 con Martín por videollamada, de 2 horas cada una: estrategia, seguimiento y checkpoint',
-    `Una asesoría grupal en vivo por semana con Martín (${ASESORIAS_DEL_PROGRAMA} en los 3 meses), con su grabación`,
+    `Una asesoría grupal en vivo por semana con Martín (${ASESORIAS_DEL_PROGRAMA} en los 3 meses), abierta a tu equipo y con su grabación`,
+    'Expertos y referentes del mercado invitados a dar capacitaciones',
     'El WhatsApp personal de Martín para tus dudas',
-    'La comunidad de empresarios del programa',
+    'La comunidad de empresarios del programa, y Martín te presenta a los que te conviene conocer',
     'Plantillas probadas de páginas, mensajes y guiones',
   ],
   despues: { nombre: 'Continuidad', precioUsd: 297 },
   // Martín, 14/11/2026 (la segunda vez, sus palabras): «en 90 días, Martín Koncke, el creador de MaKo, te instalará el sistema de
   // adquisición de clientes a la medida de tu oferta. Y podrás, como mínimo, rentabilizar la inversión que hiciste, garantizado por
-  // contrato». Reemplaza a la de esa mañana («el sistema de ventas que armamos… las ventas que pagan el Acelerador») y a la del 25/10
+  // contrato». Reemplaza a la de esa mañana («el sistema de ventas que armamos… las ventas que pagan el Accelerator») y a la del 25/10
   // («tus anuncios andando…»). El resultado (recuperar la inversión) lo garantiza el CONTRATO; `garantia` sigue siendo la de la entrega.
   promesa: 'En 90 días, Martín Koncke, el creador de MaKo, te instala el sistema de adquisición de clientes a la medida de tu oferta, y como mínimo recuperas la inversión que hiciste, garantizado por contrato.',
   garantia: 'Si al terminar la primera semana tu sistema de ventas no está armado, te devolvemos la cuota y no pagas las que siguen.',

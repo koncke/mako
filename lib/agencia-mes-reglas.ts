@@ -2,7 +2,7 @@
 // agencia-mes-reglas — la MENSUALIDAD de una agencia, en reglas puras (Martín, 5/11/2026, sobre el acuerdo del 30/10)
 // =============================================================================
 // Lo que se cobra (Código Inmobiliario, negocio 13, Juanfran y Joan; sirve para cualquier agencia con esta modalidad):
-//   · la agencia paga su plan (MaKo Pro, US$97) y cada cliente adentro paga el suyo (MaKo Esencial, US$47), del catálogo;
+//   · la agencia paga su plan (MaKo Pro, US$97) y cada cliente adentro paga el suyo (MaKo Essential, US$47), del catálogo;
 //   · desde que la agencia INVITA a un cliente (`agencia_clientes.created_at`, o la corrección `cobra_desde`) corren 14 días
 //     sin costo; si lo dan de baja antes, no se cobra;
 //   · se paga UNA vez por mes, del 1 al 5, por Binance: MaKo avisa por el grupo de WhatsApp con la agencia (un PDF con la
@@ -212,8 +212,8 @@ export function situacion(c: ClienteDeAgencia, hoy: Dia, entradasDesde: Dia, pre
 }
 
 /**
- * El plan que se le cobra a un cliente: el que la agencia le eligió (su capa: Esencial o Pro) y, si nunca se lo eligió,
- * Esencial (el acuerdo es US$47 por cliente, aunque las cuentas de antes del 29/10 tengan todo lo de Pro).
+ * El plan que se le cobra a un cliente: el que la agencia le eligió (su capa: Essential o Pro) y, si nunca se lo eligió,
+ * Essential (el acuerdo es US$47 por cliente, aunque las cuentas de antes del 29/10 tengan todo lo de Pro).
  */
 export const planQueSeCobra = (p: { elegido: boolean; capa: string | null | undefined }): PlanCuenta =>
   p.elegido && p.capa === 'agencia' ? 'pro' : 'esencial';
@@ -222,7 +222,7 @@ export const planQueSeCobra = (p: { elegido: boolean; capa: string | null | unde
 
 export type Precios = Readonly<Record<PlanCuenta, number>>;
 
-/** Los precios de Esencial y Pro del catálogo de planes. null = el catálogo no tiene alguno de los dos. */
+/** Los precios de Essential y Pro del catálogo de planes. null = el catálogo no tiene alguno de los dos. */
 export function preciosDelCatalogo(planes: readonly { id: string; precioUsd: number }[]): Precios | null {
   const de = (id: PlanCuenta) => planes.find((p) => p.id === id)?.precioUsd;
   const esencial = de('esencial');
@@ -587,7 +587,7 @@ export function usd(n: number): string {
 /** La tarifa de un día, con 4 decimales: US$ 1,5667. */
 export const usdDia = (n: number): string => `US$ ${n.toFixed(4).replace('.', ',')}`;
 
-export const NOMBRE_PLAN: Readonly<Record<PlanCuenta, string>> = { esencial: 'MaKo Esencial', pro: 'MaKo Pro' };
+export const NOMBRE_PLAN: Readonly<Record<PlanCuenta, string>> = { esencial: 'MaKo Essential', pro: 'MaKo Pro' };
 
 /** Qué es una línea de la mensualidad, sin el monto (la pantalla lo pone en su columna). */
 export function conceptoDeLinea(l: LineaDelMes): string {

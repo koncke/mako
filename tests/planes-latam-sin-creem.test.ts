@@ -55,7 +55,7 @@ test('1. sin Creem, LatAm fuera de Argentina: Stripe si está; si no, ninguna (y
   // Lo que hacía antes con Creem conectado no cambió: el merchant of record sigue mandando en LatAm (por su capacidad).
   assert.deepEqual(pasarelasDelPais('MX', [MP_AR, ST, CREEM]), [CREEM]);
   // Lo que ve quien no puede pagar en línea: «Quiero …», y la página le pide los datos (nunca un error).
-  assert.equal(botonDelPlan({ id: 'esencial', nombre: 'MaKo Esencial', cobrable: false, sufijo: '' }).texto, 'Quiero MaKo Esencial');
+  assert.equal(botonDelPlan({ id: 'esencial', nombre: 'MaKo Essential', cobrable: false, sufijo: '' }).texto, 'Quiero MaKo Essential');
   assert.match(TEXTO_SIN_PASARELA, /Déjanos tus datos/);
 });
 
@@ -76,7 +76,7 @@ test('2. el checkout REAL desde México sin Creem: nada se cobra en línea, y un
   assert.equal(r.trasMx.cobros, 0, 'ningún cobro abierto');
   assert.equal(r.trasMx.leads, 2, 'su ficha en el CRM de MaKo');
   assert.equal(r.trasMx.pedidos, 2, 'y en «Quieren entrar»');
-  assert.ok(r.trasMx.detalle.every((d: string) => /Quiere MaKo Esencial/.test(d)));
+  assert.ok(r.trasMx.detalle.every((d: string) => /Quiere MaKo Essential/.test(d)));
   assert.equal(r.alCreem, 0, 'ni un pedido a Creem');
 });
 

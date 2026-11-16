@@ -14,7 +14,7 @@ import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/l
  *
  * ⚠️ UNA EXCEPCIÓN, Y UNA SOLA (14/11/2026). Martín, textual: «lo de agendar llamadas sí debería estar todavía para el tema de
  * Accelerator. Ahí debería haber la agenda de llamada. **Pero en ningún otro lado debería estar**». La agenda vive en la
- * tarjeta del MaKo Acelerador (`AGENDA_ACELERADOR`, app/planes/Tarjetas.tsx), que es el bloque que se vende POR llamada y
+ * tarjeta del MaKo Accelerator (`AGENDA_ACELERADOR`, app/planes/Tarjetas.tsx), que es el bloque que se vende POR llamada y
  * nunca por la pasarela. Las landings, el sitio, la portada y las dos columnas de software siguen con `TEXTO_CTA`: si aparece
  * un «Agenda tu llamada» en cualquier otra pantalla, es un error y se saca.
  * El botón y la frase del cierre SIGUEN AL INTERRUPTOR de la prueba (`PRUEBA_GRATIS_PRENDIDA`, lib/planes-mako.ts): con la

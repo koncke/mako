@@ -27,7 +27,7 @@ import { useEffect, useState } from 'react';
  * /api/auth/me, que sólo viene para él: lib/vista-de-otro.ts).
  */
 type SuperAdminMira = { agenciaWs: number; clienteWs: number };
-/** `planEsencial`: el negocio paga MaKo Esencial por la pasarela (lib/plan-esencial.ts, el mismo dato que lee el Sidebar). */
+/** `planEsencial`: el negocio paga MaKo Essential por la pasarela (lib/plan-esencial.ts, el mismo dato que lee el Sidebar). */
 type QuienMira = { clienteDeAgencia: boolean; agenciaAdentroDe: number | null; superAdminMira: SuperAdminMira | null; planEsencial: boolean };
 let promesa: Promise<QuienMira | null> | null = null;
 
@@ -96,7 +96,7 @@ export function useClienteDeAgencia(): boolean | null {
 /**
  * ¿El negocio paga MaKo ESENCIAL por la pasarela? (14/11/2026, la IA de los editores: app/_components/solo-pro.ts). La misma
  * lectura de /api/auth/me. ⚠️ AL REVÉS QUE `leerClienteDeAgencia`, un fallo es `false` («ante la duda, no hay candado», como
- * en el servidor, lib/plan-esencial.ts): sacarle la IA a quien paga Pro es peor que mostrársela a un Esencial, que igual
+ * en el servidor, lib/plan-esencial.ts): sacarle la IA a quien paga Pro es peor que mostrársela a un Essential, que igual
  * rebota en el servidor.
  */
 export function leerPlanEsencial(): Promise<boolean> {

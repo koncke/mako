@@ -84,10 +84,10 @@ const ERROR_HISTORIAL = 'No pude leer el historial de anuncios de /video-generat
  *
  * ⚠️ Y SE PREGUNTA POR OPERACIÓN, no en una puerta común del área: la regla de AGENTS.md («¿GENERA o LEE?»). `ver_avatares`
  * LEE los looks que el cliente ya tiene —entre el 29/10 y el 14/11 la función estuvo abierta en los tres planes, así que un
- * Esencial puede tener looks y planes a medio filmar— y cerrarla le apagaría un dato propio; lo que se le va es la OFERTA (la
+ * Essential puede tener looks y planes a medio filmar— y cerrarla le apagaría un dato propio; lo que se le va es la OFERTA (la
  * galería). `ver_plantillas_avatar` es sólo el catálogo de la función, sin nada suyo: se cierra entera.
  * La prueba gratis NO cambia esto: vale el plan elegido desde el primer día (lib/plan-esencial.ts, `capaVendidaDe`) y los dos
- * planes arrancan con los 7 días, así que una prueba del de US$47 choca con este candado igual que un Esencial pagado.
+ * planes arrancan con los 7 días, así que una prueba del de US$47 choca con este candado igual que un Essential pagado.
  */
 const avatarCerradoEn = async (ctx: Ctx): Promise<boolean> => esEsencialDe(ctx.ws);
 

@@ -3,16 +3,16 @@
 // =============================================================================
 // Otra mirada, de otro chat, después de las tres pasadas del mismo revisor (C:/dev/revisiones/
 // 2910-verificacion-plata-agency-4b42b6a7f.md). El Cerebro pidió arreglar H2 y H3 y dejar listo H1 como lo decida Martín:
-//   · H1: las cuentas de agencia que ya existían (6, de la agencia ws13, capa `completo`) bajaban a Esencial al desplegar.
+//   · H1: las cuentas de agencia que ya existían (6, de la agencia ws13, capa `completo`) bajaban a Essential al desplegar.
 //     Siguen como PRO hasta que su agencia les elija el plan (`CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO`, una línea si Martín dice
-//     que pasen a Esencial). Una cuenta abierta desde hoy nace con el plan elegido.
+//     que pasen a Essential). Una cuenta abierta desde hoy nace con el plan elegido.
 //   · H2: una cuenta sin ningún cobro (aprobada a mano) pasaba a Pro gratis.
-//   · H3: con una subida a Pro pendiente, si su agencia la soltaba, el cliente pagaba Pro y quedaba en Esencial para siempre.
+//   · H3: con una subida a Pro pendiente, si su agencia la soltaba, el cliente pagaba Pro y quedaba en Essential para siempre.
 // Y las MEDIA chicas: H4 (la subida pendiente contra el precio de Pro del día), H5 (el soltado que pagó y queda pausado), la
 // guarda del ws1 de H6 y H8 (el fin de lo pagado desde el primer pago). H7 (el país de la pasarela) queda anotado.
 //
 // Probado rompiéndolo (29/10/2026; base 9 / 0). Una rotura por vez, restaurando (pasan / fallan):
-//   · las cuentas sin elegir rigen como Esencial (la línea en `false` sin decirlo el test)   -> 8 / 1
+//   · las cuentas sin elegir rigen como Essential (la línea en `false` sin decirlo el test)   -> 8 / 1
 //   · los candados no miran si el plan está elegido                                         -> 8 / 1
 //   · abrir la cuenta sin dejar la marca del plan elegido                                   -> 8 / 1
 //   · «Pasar a Pro» sin ningún cobro                                                        -> 8 / 1
@@ -36,7 +36,7 @@ const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '');
 
 test('H1: las cuentas de agencia sin el plan elegido siguen como Pro (hasta que Martín diga otra cosa); con el plan elegido, rige', () => {
-  // ⚠️ Si Martín decide que pasen a Esencial, la línea de lib/plan-esencial-reglas.ts va a `false` y este test cambia con ella.
+  // ⚠️ Si Martín decide que pasen a Essential, la línea de lib/plan-esencial-reglas.ts va a `false` y este test cambia con ella.
   assert.equal(CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO, true);
   assert.equal(rigeElPlanDeAgencia(false), false, 'sin elegir: sin topes ni candados, como antes');
   assert.equal(rigeElPlanDeAgencia(true), true, 'elegido: rigen');
@@ -60,8 +60,8 @@ test('H1: abrir una cuenta deja el plan elegido, y la ficha ofrece elegirlo a la
   assert.match(fuente('lib/agencia-cobro-reglas.ts'), /planElegido: !p\.sinElegir \};/);
   const app = fuente('app/agency/AgencyApp.tsx');
   assert.match(app, /!abierta\.planElegido && \(\['esencial', 'pro'\] as const\)\.map\(/);
-  assert.match(app, /pl === 'pro' \? 'Elegir Pro' : 'Elegir Esencial'/);
-  // Elegirle Esencial a una de antes SÍ hace algo (deja la marca y su precio), y elegirle Pro no le quita nada mientras se cobra.
+  assert.match(app, /pl === 'pro' \? 'Elegir Pro' : 'Elegir Essential'/);
+  // Elegirle Essential a una de antes SÍ hace algo (deja la marca y su precio), y elegirle Pro no le quita nada mientras se cobra.
   const plan = fuente('lib/agencia-plan.ts');
   assert.match(plan, /const yaTeniaPro = !rigeElPlanDeAgencia\(elegido\);\n\s*if \(planDeCapa\(\(w as \{ capa\?: string \} \| null\)\?\.capa\) === p\.plan && !yaTeniaPro\) \{/);
 });

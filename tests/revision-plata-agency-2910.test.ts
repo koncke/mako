@@ -20,8 +20,8 @@
 //   · rehacer el primer mes creando el nuevo con el viejo vivo                        -> 11 / 1
 //   · la renovación cae al monto del primer mes cuando su plan no tiene precio        -> 11 / 1
 //   · el cron renueva sin releer la cartera                                          -> 11 / 1
-//   · el Esencial de agencia sin los candados de Pro                                 -> 11 / 1
-//   · el ex cliente con su Esencial propio sin los candados                          -> 11 / 1
+//   · el Essential de agencia sin los candados de Pro                                 -> 11 / 1
+//   · el ex cliente con su Essential propio sin los candados                          -> 11 / 1
 //   · la pausa programada marca la cuenta pausada en el acto                         -> 11 / 1
 //   · el partner gana lo cobrado cuando la compra no anota el plan                    -> 11 / 1
 //   · el primer plan propio con la agencia todavía pagando                           -> 11 / 1
@@ -90,7 +90,7 @@ test('cambiar el plan (2a, C): Pro se tiene cuando se paga a precio de Pro', () 
   assert.ok(cambio?.pendiente);
   assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-10-29', alcanza: true }]), false, 'un pago del mismo día pudo ser el de antes');
   assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-11-29T09:00:00.000Z', alcanza: true }]), true);
-  assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-11-29', alcanza: false }]), false, 'un cobro de Esencial (la pasarela no tomó el monto) no sube');
+  assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-11-29', alcanza: false }]), false, 'un cobro de Essential (la pasarela no tomó el monto) no sube');
   assert.equal(subidaCobrada({ ...cambio!, pendiente: false }, [{ fecha_pago: '2026-11-29', alcanza: true }]), false);
   const plan = fuente('lib/agencia-plan.ts');
   // Citaba la línea entera con `c.proveedor === 'stripe'` y se puso roja cuando la tercera pasarela obligó a
@@ -141,14 +141,14 @@ test('la renovación (2d, 3a, 10, 11): sin precio del plan no se crea, la devuel
     'con una pasarela que no difiere el primer cobro, el anotado se anula; preguntado por capacidad y no por nombre');
 });
 
-test('los candados de Pro (4): el Esencial de una cuenta de agencia los tiene, por su cartera', () => {
+test('los candados de Pro (4): el Essential de una cuenta de agencia los tiene, por su cartera', () => {
   const e = fuente('lib/plan-esencial.ts');
   assert.match(e, /if \(!capaVendida\) \{\n\s*const \{ data: cart, error: eCart \} = await getSupabaseServer\(\)\.from\('agencia_clientes'\)\.select\('cliente_ws'\)\.eq\('cliente_ws', ws\)\.neq\('estado', 'revocado'\)/);
   // Con el plan elegido (H1 de la verificación independiente: tests/verificacion-plata-agency-2910.test.ts).
   assert.match(e, /if \(\(cart\?\.length \|\| \(await soltadaPorSuAgencia\(ws\)\)\) && \(await rigeElPlanDeAgenciaEn\(ws\)\)\) capaVendida = capa \?\? null;/);
   // Y la que su agencia soltó y todavía usa lo que pagó (tercera pasada): candados y topes.
   assert.match(fuente('lib/topes-plan-server.ts'), /if \(!\(data \?\? \[\]\)\.length && !\(await soltadaPorSuAgencia\(ws\)\)\) return false;/);
-  // B (segunda pasada): el ex cliente que paga su propio Esencial (sin `alta_capa`) también.
+  // B (segunda pasada): el ex cliente que paga su propio Essential (sin `alta_capa`) también.
   assert.match(e, /if \(!capaVendida && data\) capaVendida = capa \?\? null;/);
 });
 

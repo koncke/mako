@@ -240,7 +240,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   const [abierto, setAbierto] = useState<OutlierCopy | null>(null);
   const [replicando, setReplicando] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  // Replicar el guion de otro es de MaKo Pro (14/11/2026): a un Esencial, el candado en lugar de la réplica.
+  // Replicar el guion de otro es de MaKo Pro (14/11/2026): a un Essential, el candado en lugar de la réplica.
   const soloPro = useSoloPro('replicar-guion');
   const [candado, setCandado] = useState(false);
   // Y QUE SE VEA: el cartel va arriba de la grilla, así que tocando «Replicar» en una tarjeta de más abajo quedaba fuera de la
@@ -337,7 +337,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
     //    abajo, fuera de la pantalla). Por eso el modal lleva su propio candado y el cartel se trae a la vista.
     if (soloPro) { setCandado(true); return; }
     // ⚠️ EL LOADER VA DESPUÉS DEL CANDADO (15/11/2026, al unir las dos puntas): `capa.empezar` tapa la pantalla esperando
-    //    una página nueva, y a un Esencial no se le va a crear ninguna. Al revés, el candado quedaba debajo del loader.
+    //    una página nueva, y a un Essential no se le va a crear ninguna. Al revés, el candado quedaba debajo del loader.
     capa.empezar('la página nueva');
     setReplicando(o.id);
     setAviso(null);
@@ -485,7 +485,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
         )}
       </div>
       {/* El original abierto lleva el candado ADENTRO (14/11/2026): el cartel de más arriba se dibuja detrás del modal, así que
-          un Esencial tocaba «Replicar» en el original abierto y no pasaba nada. `soloPro` también se prende con el primer 403
+          un Essential tocaba «Replicar» en el original abierto y no pasaba nada. `soloPro` también se prende con el primer 403
           (`marcarSoloPro`), así que el candado aparece aunque el plan se sepa recién al pedir. */}
       {abierto ? (
         <OutlierAbierto o={abierto} telefono={telefono} replicando={replicando === abierto.id} soloPro={soloPro}

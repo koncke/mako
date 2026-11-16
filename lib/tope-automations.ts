@@ -1,5 +1,5 @@
 // =============================================================================
-// tope-automations — «hasta 3 automatizaciones activas» del Esencial, al ACTIVAR una (23/10/2026)
+// tope-automations — «hasta 3 automatizaciones activas» del Essential, al ACTIVAR una (23/10/2026)
 // =============================================================================
 // docs/ofertas-mako.md y lib/topes-plan.ts (`automations.activas`). Lo pregunta `setSecuenciaActiva` (lib/nutricion.ts), la
 // única puerta que prende una automatización, y tira `TopeDelPlanError` (23/10/2026: estaba en cada puerta; ahí lo cubre
@@ -44,7 +44,7 @@ export async function topeAlActivar(id: number, wsDado?: number): Promise<string
 }
 
 /**
- * ¿Guardar `nuevos` (sobre lo guardado, `antes`) le CREA el setter con IA a un Esencial? null = se puede; si no, el texto del
+ * ¿Guardar `nuevos` (sobre lo guardado, `antes`) le CREA el setter con IA a un Essential? null = se puede; si no, el texto del
  * candado. Lo barato primero: sin un setter nuevo en los pasos, no se lee el plan. Ante la duda (sin negocio, o sin poder leer
  * el plan: `esEsencialDe` ya devuelve false), pasa.
  */

@@ -6,9 +6,9 @@
 // replica de un copy), entero, con qué es (su guion, su pie, su descripción, su copy). Derecha: el tipo y la fecha, el gancho, el
 // múltiplo con «lo usual de este creador» (o los días al aire de un anuncio), los números, «Replicar» como acción principal y
 // «Ver original». En un celular, a pantalla completa y con «Replicar» en el pie.
-// ⚠️ EL CANDADO VA ADENTRO (14/11/2026): replicar el guion de otro es de MaKo Pro, y a un Esencial le va el candado EN EL LUGAR
+// ⚠️ EL CANDADO VA ADENTRO (14/11/2026): replicar el guion de otro es de MaKo Pro, y a un Essential le va el candado EN EL LUGAR
 // de «Replicar», como en el resto de la app (app/video-editor/_opencut/clips/components/clips-view.tsx y broll-view.tsx ponen
-// `CandadoSoloPro` donde iría el botón). Dejarlo afuera no sirve: el cartel se dibujaba DETRÁS del modal y el Esencial tocaba
+// `CandadoSoloPro` donde iría el botón). Dejarlo afuera no sirve: el cartel se dibujaba DETRÁS del modal y el Essential tocaba
 // «Replicar» y no pasaba nada —ni candado, ni error, ni «Armando…»—. El original se sigue leyendo entero: lo de Pro es replicarlo.
 // =============================================================================
 
@@ -30,7 +30,7 @@ const fechaLarga = (iso: string | null): string => {
 
 export function OutlierAbierto({ o, telefono, replicando, soloPro, onReplicar, onCerrar }: {
   o: OutlierCopy; telefono: boolean; replicando: boolean;
-  /** Quien mira paga Esencial: en vez de «Replicar», el candado (lo decide `useSoloPro('replicar-guion')` en la portada). */
+  /** Quien mira paga Essential: en vez de «Replicar», el candado (lo decide `useSoloPro('replicar-guion')` en la portada). */
   soloPro?: boolean;
   onReplicar: () => void; onCerrar: () => void;
 }) {

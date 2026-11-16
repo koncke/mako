@@ -1149,7 +1149,7 @@ export const RUNNERS: Runners = {
       });
       return J({
         prendido: config.encendido, modo, resultado: config.kpi, objetivo: config.objetivo,
-        // El plan (MaKo Esencial: N recomendaciones por día y sin piloto automático; null = sin tope).
+        // El plan (MaKo Essential: N recomendaciones por día y sin piloto automático; null = sin tope).
         plan: { recomendacionesPorDia: cupo.recomendacionesDia, pilotoAutomatico: cupo.piloto },
         topes: { subidaMaxPctDia: config.subidaMaxPctDia, presupuestoMaxDia: config.presupuestoMaxDia },
         metas: { ventasMes: config.metaVentasMes, gastoMes: config.metaGastoMes },
@@ -1292,7 +1292,7 @@ export const RUNNERS: Runners = {
       // ⛔ LA SEGUNDA FRASE DEL RESUMEN ES UNA OFERTA, Y SÓLO VA SI SU PLAN INCLUYE LA FUNCIÓN (15/11/2026, tercera vuelta).
       //    La descripción de esta operación ya dejó de nombrar AI Avatar (ads.def.ts) porque es UN string para todos los
       //    negocios — y la promesa no se fue: SE MUDÓ ACÁ. «En AI Avatar están en “Hooks ganadores”, para filmarlos con tu
-      //    avatar» viajaba sin condición, así que un MaKo Esencial recibía, al terminar la acción, la invitación a una tab que
+      //    avatar» viajaba sin condición, así que un MaKo Essential recibía, al terminar la acción, la invitación a una tab que
       //    su plan tiene cerrada ('ai-avatar' en `FUNCIONES_SOLO_PRO`, lib/topes-plan.ts: /ai-avatar le contesta el cartel de
       //    Pro). Llevar los hooks al Video Generator NO es de Pro: la operación no se cierra, se condiciona la frase.
       // ⚠️ Y ES ACÁ Y NO EN OTRA OPERACIÓN, medido el 15/11/2026: para «pasame los hooks ganadores para filmarlos con mi

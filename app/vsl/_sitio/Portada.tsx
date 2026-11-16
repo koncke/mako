@@ -18,7 +18,7 @@
 //   · «Trusted by names you know» → el caso de Mauricio TAL CUAL estaba en la landing de /vsl (CasoMauricio: su video, su historia
 //     y el carrusel de fotos). Martín, 12/11/2026: «vuelve a como estaba antes la parte del testimonio de Mauricio».
 //   · «Build your way»: los planes salen de planesParaLanding() (lib/compra-plan.ts) y se dibujan con los MISMOS bloques de
-//     /planes (TarjetasPlanes, con el Acelerador), sobre una franja clara (Martín: «está todo en negro… y falta el Accelerator»).
+//     /planes (TarjetasPlanes, con el Accelerator), sobre una franja clara (Martín: «está todo en negro… y falta el Accelerator»).
 //   · «The numbers tell the story» se fue el 12/11/2026 (Martín: «la parte de MaKo en números para mí no tiene mucho sentido»).
 //   · «Powerful integrations»: su imagen de logos son los logos de las integraciones del catálogo que un negocio puede conectar.
 //   · «Have a question?»: las preguntas de las landings de MaKo, que el código sostiene.
@@ -266,7 +266,7 @@ function CasoSitio() {
 }
 
 /**
- * Los precios: LOS MISMOS tres bloques de /planes (app/planes/Tarjetas.tsx → TarjetasPlanes: Esencial, Pro y el Acelerador), sobre
+ * Los precios: LOS MISMOS tres bloques de /planes (app/planes/Tarjetas.tsx → TarjetasPlanes: Essential, Pro y el Accelerator), sobre
  * una franja clara. Martín (12/11/2026): «en la parte de pricing está todo en negro cuando no debería ser así. Y falta el MaKo
  * Accelerator». Lo que se cambie en los bloques de /planes se ve aquí sin tocar nada.
  */

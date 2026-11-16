@@ -33,7 +33,7 @@ const productoDe = (o: Pick<Oferta, 'nombre'>, ps: readonly Producto[]) => ps.fi
 
 export async function prepararReplica(outlier: string): Promise<PreparacionReplica | Falla> {
   // SÓLO MaKo Pro (14/11/2026, ./replica-candado.ts): las preguntas de antes de escribir son parte de replicar, y leen las
-  // ofertas del negocio. Sin esto, un Esencial no escribía la réplica pero igual recorría el flujo hasta el final.
+  // ofertas del negocio. Sin esto, un Essential no escribía la réplica pero igual recorría el flujo hasta el final.
   const pro = await candadoDeReplicarGuion();
   if (pro) return { ok: false, error: pro, status: 403 };
   let o: Awaited<ReturnType<typeof outlierCopyPorId>>;

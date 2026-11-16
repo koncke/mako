@@ -40,7 +40,7 @@
 // ⚠️ IG Y MESSENGER SE OFRECEN DESDE QUE EL MOTOR CONTESTA POR AHÍ (TikTok fase 0, 14/10/2026; §6: «la pantalla
 // ofrece lo que el emisor hace»): `asistirRespuesta` con el medio, la respuesta por Zernio. Un medio que ya tiene
 // su AI Step no se puede elegir (`puedeSumarAIStep`, la misma regla que Publicar: uno por medio).
-// ⚠️ «SOLA» ES EL SETTER CON IA, Y ES DE MaKo PRO (14/11/2026, Martín; lib/setter-ia-reglas.ts). Con MaKo Esencial
+// ⚠️ «SOLA» ES EL SETTER CON IA, Y ES DE MaKo PRO (14/11/2026, Martín; lib/setter-ia-reglas.ts). Con MaKo Essential
 // (`useSoloPro('setter-ia')`): el candado arriba de los escenarios, «Sola» deshabilitada en cada desplegable y lo NUEVO
 // (el catálogo, «✦ Armar», «✦ Otro con MaKo») nace en «Para aprobar». Lo que ya estaba no se toca. «Para aprobar» y «Sólo
 // te avisa» siguen abiertos: MaKo no le contesta solo a nadie. El freno de verdad es el server (`setSecuenciaPasos` y Activar).
@@ -167,7 +167,7 @@ type OpcionDeLibertad = { value: Libertad; label: string; disabled: boolean };
 /** Las opciones de un desplegable de libertad, con su ícono. */
 const opcionesConIconos = (ops: ReadonlyArray<OpcionDeLibertad>): DropdownOption[] =>
   ops.map((o) => ({ value: o.value, label: o.label, icono: ICONO_LIBERTAD[o.value], disabled: o.disabled }));
-/** Con MaKo Esencial, «Sola» va deshabilitada: el setter con IA es de Pro (14/11/2026, lib/setter-ia-reglas.ts). */
+/** Con MaKo Essential, «Sola» va deshabilitada: el setter con IA es de Pro (14/11/2026, lib/setter-ia-reglas.ts). */
 const sinSolaConEsencial = (ops: ReadonlyArray<OpcionDeLibertad>, esencial: boolean): ReadonlyArray<OpcionDeLibertad> =>
   (esencial ? ops.map((o) => (o.value === 'sola' ? { ...o, disabled: true } : o)) : ops);
 
@@ -194,11 +194,11 @@ export function EditorPasoIA({ id, paso, pasos, busy, cambiar, secuenciaId, onEr
 
   /** Los casos nuevos de la tarjeta (un cambio que apila). */
   const setCasos = (cs: CasoRespuesta[]) => cambiar({ casos: cs }, true);
-  // EL SETTER CON IA ES DE MaKo PRO (14/11/2026): con Esencial, «Sola» va deshabilitada y lo NUEVO nace «Para aprobar».
+  // EL SETTER CON IA ES DE MaKo PRO (14/11/2026): con Essential, «Sola» va deshabilitada y lo NUEVO nace «Para aprobar».
   const setterSoloPro = useSoloPro('setter-ia');
   const conIconos = (ops: ReadonlyArray<OpcionDeLibertad>) => opcionesConIconos(sinSolaConEsencial(ops, setterSoloPro));
   const sinSola = (c: CasoRespuesta): CasoRespuesta => (setterSoloPro && escenarioContestaSolo(c) ? conLibertad(c, 'aprueba') : c);
-  /** Lo que arma MaKo («✦ Armar», «✦ Otro con MaKo»), con Esencial sin «Sola»: los escenarios y «Lo demás» en «Para aprobar». */
+  /** Lo que arma MaKo («✦ Armar», «✦ Otro con MaKo»), con Essential sin «Sola»: los escenarios y «Lo demás» en «Para aprobar». */
   const armadoDelPlan = (a: ArmadoAIStep): ArmadoAIStep => (!setterSoloPro ? a : {
     escenarios: a.escenarios.map((e) => (e.libertad === 'sola' ? { ...e, libertad: 'aprueba' as const } : e)),
     lo_demas: a.lo_demas === 'sola' ? 'aprueba' : a.lo_demas,
@@ -323,7 +323,7 @@ export function EditorPasoIA({ id, paso, pasos, busy, cambiar, secuenciaId, onEr
       </PasoAIStep>
 
       <PasoAIStep n={2} titulo="Escenarios" abierto={abierto === 2} onAbrir={() => abrir(2)} resumen={resumenes[2]} rojo={rojo(2)}>
-        {/* MaKo Esencial: que MaKo conteste SOLA es el setter con IA, de Pro (14/11/2026). */}
+        {/* MaKo Essential: que MaKo conteste SOLA es el setter con IA, de Pro (14/11/2026). */}
         {setterSoloPro && <CandadoSoloPro funcion="setter-ia" />}
         {escenarios.map((c) => {
           // «SOLA» CON SU AVISO (14/10/2026): con plata ya se puede, y se dice al lado (`avisoDeLibertad`).

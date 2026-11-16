@@ -18,7 +18,7 @@ import { RUTA_CAMBIAR_PLAN, textoTope } from '../lib/topes-plan';
 
 const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
 
-test('1. la regla: Esencial 1, Pro 3, y sólo a quien MaKo le cobra el plan por la pasarela', () => {
+test('1. la regla: Essential 1, Pro 3, y sólo a quien MaKo le cobra el plan por la pasarela', () => {
   const cobrado = { ws: 40, cobradoPorPasarela: true };
   assert.deepEqual(topeParaLineaNueva({ ...cobrado, capa: 'completo', usadas: 0 }), { ok: true }, 'la primera línea siempre');
   assert.deepEqual(topeParaLineaNueva({ ...cobrado, capa: 'completo', usadas: 1 }), { ok: false, tope: 1, texto: textoTope(1) });
@@ -61,6 +61,6 @@ test('3. la ruta y la pantalla: un 403 con el tope, y el cartel corto con «Pasa
   assert.doesNotMatch(cartel, /var\(--bad/, 'el tope no es un error');
 });
 
-// Las roturas del arnés (cada una, en rojo): el tope a un acuerdo a mano · el tope al ws1 · Pro con el tope de Esencial ·
+// Las roturas del arnés (cada una, en rojo): el tope a un acuerdo a mano · el tope al ws1 · Pro con el tope de Essential ·
 // el tope también al reconectar · sin poder leer el plan, no deja conectar · todos como cobrados · la ruta sin el 403 ·
 // la pantalla sin el cartel · el cartel sin «Pasar a Pro» · el cartel en rojo, como un error · una ruta propia para «Pasar a Pro».

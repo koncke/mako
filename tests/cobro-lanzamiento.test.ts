@@ -152,8 +152,8 @@ test('⚠️ el aviso «Entró un pago» dice que el mail no salió, y {{pago_al
   const iCon = linea.indexOf("if (estado === 'hecha') return");
   assert.ok(iSin > 0 && iCon > iSin, 'el caso sin mail va ANTES que «le llegó el acceso»');
   assert.match(linea.slice(iSin, iCon), /NO salió/);
-  assert.equal(valoresDelPago({ monto: 47, moneda: 'USD', concepto: 'MaKo Esencial', proveedor: 'stripe', renovacion: false, modo: 'real', alta: 'hecha', altaSinMail: true }).pago_alta, 'Cuenta creada, sin mail de acceso');
-  assert.equal(valoresDelPago({ monto: 47, moneda: 'USD', concepto: 'MaKo Esencial', proveedor: 'stripe', renovacion: false, modo: 'real', alta: 'hecha' }).pago_alta, 'Cuenta creada');
+  assert.equal(valoresDelPago({ monto: 47, moneda: 'USD', concepto: 'MaKo Essential', proveedor: 'stripe', renovacion: false, modo: 'real', alta: 'hecha', altaSinMail: true }).pago_alta, 'Cuenta creada, sin mail de acceso');
+  assert.equal(valoresDelPago({ monto: 47, moneda: 'USD', concepto: 'MaKo Essential', proveedor: 'stripe', renovacion: false, modo: 'real', alta: 'hecha' }).pago_alta, 'Cuenta creada');
   assert.match(fuente('app/pagar/[token]/listo/page.tsx'), /mailSalio=\{!mailDeAccesoNoSalio\(c\.alta_motivo\)\}/);
   assert.match(fuente('app/pagar/[token]/listo/AccesoMako.tsx'), /\{mailSalio \|\| aviso\n\s*\? <p>Te mandamos el acceso a/);
 });

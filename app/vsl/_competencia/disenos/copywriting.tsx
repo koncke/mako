@@ -475,7 +475,7 @@ type Tarjetas = Extract<Bloque, { tipo: 'tarjetas' }>;
  * Los referentes, en el cuadro de la tarjeta del hero (donde la referencia pone su pila de 14 libros). Contados del catálogo
  * (lib/asesores/catalogo.ts), con su caricatura y «Inspirado en»: ninguno participa en MaKo ni la respalda. Que su método
  * llega a tu IA es el chat con un referente (lib/asesores/contexto.ts → contextoDeReferente, en cada mensaje) — y ESO es lo
- * que se cerró en Esencial el 14/11/2026, así que este titular lleva el aviso derivado ('chat-referentes'). Entre paréntesis
+ * que se cerró en Essential el 14/11/2026, así que este titular lleva el aviso derivado ('chat-referentes'). Entre paréntesis
  * y no como frase aparte: es un titular, y el molde de la frase suelta es el de ../competitor-spy.ts.
  */
 function Referentes() {
@@ -645,7 +645,7 @@ function secciones(bloques: Bloque[]): ReactNode[] {
               )}
               {/* Su «You're not getting a prompt. You're getting the thinking behind the best ads and sales pages ever written,
                   working inside your own AI.», traducido con lo que MaKo tiene: los referentes (la tarjeta de la derecha).
-                  Es la promesa MÁS FUERTE de la página y vende el chat con los referentes, cerrado en Esencial: lleva el aviso
+                  Es la promesa MÁS FUERTE de la página y vende el chat con los referentes, cerrado en Essential: lleva el aviso
                   derivado, como frase aparte (el molde de ../competitor-spy.ts). */}
               <p className="d-copywriting-noprompt"><strong>No te llevas un prompt.</strong> Te llevas el método de {ASESORES.length} referentes del marketing, trabajando dentro de tu propia IA.{soloPro('chat-referentes')}</p>
             </div>

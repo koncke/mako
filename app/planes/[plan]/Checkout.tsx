@@ -17,7 +17,7 @@ import { CSS_PLANES } from '../estilo';
 
 /** Lo que dice el resumen de la izquierda (Stripe Checkout): sólo datos del plan, nada inventado. */
 export type Resumen = {
-  /** «Suscribirte a MaKo Esencial»: lo de arriba del precio. */
+  /** «Suscribirte a MaKo Essential»: lo de arriba del precio. */
   etiqueta: string;
   nombre: string;
   /** El precio grande y, al lado, el período. */
@@ -42,7 +42,7 @@ export type Resumen = {
  *
  * ⚠️ POR QUÉ. Martín, 14/11/2026, textual: «no es la idea de que diga todo lo de Essential más tal, todo lo de MaKo Pro más… la
  *    idea es que cada uno se sienta único». Hasta hoy el checkout tenía su propia lista y el ANUAL leía una tercera
- *    (`PLANES_MAKO_DEFAULT[].incluye`, que todavía dice «Todo lo de Esencial, sin tope de leads, landings ni automatizaciones»):
+ *    (`PLANES_MAKO_DEFAULT[].incluye`, que todavía dice «Todo lo de Essential, sin tope de leads, landings ni automatizaciones»):
  *    el visitante leía la columna nueva, tocaba «Anual» y le aparecía otra verdad del mismo plan, con la fórmula que Martín
  *    mandó sacar. Dos listas para un plan son dos promesas, y la que se cumple es una sola.
  * ⚠️ DEPENDE DE LA CAPA, NO DEL id, igual que la columna (§1.5 de docs/relevo/planes-que-incluye-cada-columna.md): un plan nuevo

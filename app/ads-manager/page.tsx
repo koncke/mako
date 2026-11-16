@@ -56,7 +56,7 @@ export default async function MediaBuyerPage({ searchParams }: { searchParams: P
     cupoDe(ws),
     leerPerfilCopiloto(ws),
   ]);
-  // El modo que VALE: un negocio en Esencial nunca ve el piloto prendido (lib/media-buyer/plan.ts → modoEfectivo).
+  // El modo que VALE: un negocio en Essential nunca ve el piloto prendido (lib/media-buyer/plan.ts → modoEfectivo).
   const config = { ...guardada, modo: modoEfectivo(guardada.modo, cupo) };
   const nombre = (yo?.nombre ?? '').trim().split(/\s+/)[0] || 'equipo';
   // LA PRIMERA ENTRADA (6/11/2026): quien nunca trabajó con el Media Buyer (sin corrida, sin decisiones, sin piloto) y no terminó

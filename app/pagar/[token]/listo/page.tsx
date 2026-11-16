@@ -20,6 +20,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
+import { rutaDelPlan } from '@/lib/planes-mako';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { activarPruebaSiAutorizo, getCobroPorToken, inicioDeLaPrueba } from '@/lib/cobros';
 import { diaDelCobro, esPruebaDePlan, esPruebaRechazada, TEXTO_PRUEBA_USADA_EMAIL, TEXTO_PRUEBA_USADA_TARJETA } from '@/lib/prueba-plan-reglas';
@@ -169,7 +170,7 @@ export default async function PagoListo({ params, searchParams }: Params) {
     return (
       <Tarjeta negocio={negocio} titulo="Ya usaste tu prueba gratis">
         <p>{CAPACIDADES_PASARELA[c.proveedor].huellaDeTarjeta ? TEXTO_PRUEBA_USADA_TARJETA : TEXTO_PRUEBA_USADA_EMAIL}</p>
-        {plan && <a className="pagar-btn" href={`/planes/${plan}?sinPrueba=1`}>Empezar sin prueba</a>}
+        {plan && <a className="pagar-btn" href={`/planes/${rutaDelPlan(plan)}?sinPrueba=1`}>Empezar sin prueba</a>}
       </Tarjeta>
     );
   }

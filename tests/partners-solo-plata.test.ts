@@ -6,7 +6,7 @@
 // referidos, tanto para superadmin como para los clientes». Y: «Todo, todo siempre tiene que ir a la API». Lo que se cuida:
 //   · lo que se gana es el 100% del primer mes A PRECIO DE LISTA POR MES (un anual cobra el año: no se gana el año);
 //   · el alta (lo que contestó) se valida y se guarda limpia; el link cuenta visitas sin robots y sólo la primera vez;
-//   · el código del carrito: escrito gana sobre la cookie y el `?ref=`; uno que no es de nadie se dice; el Acelerador no lo lleva;
+//   · el código del carrito: escrito gana sobre la cookie y el `?ref=`; uno que no es de nadie se dice; el Accelerator no lo lleva;
 //   · el panel del partner (Tolt) y el del super admin (FirstPromoter): sus números, y «Marcar pagado» sólo del super admin y
 //     nunca más de lo que se debe;
 //   · la API: las cinco operaciones, con sus puertas.
@@ -106,7 +106,7 @@ test('el CÓDIGO en el carrito: escrito gana; si no, el primer link (cookie) y d
   assert.ok(compra.indexOf('<CodigoReferido') > 0 && compra.indexOf('<CodigoReferido') < compra.indexOf('type="submit"'), 'arriba del botón de pagar');
   assert.match(compra, /codigo: codigoParaMandar\(codigo, p\.refCodigo\)/);
   const quiero = fuente('app/planes/[plan]/QuieroPlan.tsx');
-  assert.match(quiero, /\{preguntas\.length === 0 && \(\s*<CodigoReferido/, 'el Acelerador (con preguntas) no lleva código');
+  assert.match(quiero, /\{preguntas\.length === 0 && \(\s*<CodigoReferido/, 'el Accelerator (con preguntas) no lleva código');
   assert.match(fuente('app/planes/[plan]/CodigoReferido.tsx'), /¿Te recomendó alguien\? Pon su código/);
   assert.match(fuente('lib/partners-programa.ts'), /export async function esCodigoDePartner[\s\S]*?!== \(await wsSuperAdmin\(\)\)/, 'el código de la plataforma no es de un partner');
 });
@@ -181,4 +181,4 @@ test('la API: las cinco operaciones de Partners, con sus puertas y la misma func
 //   · «Marcar pagado» lo puede usar cualquier admin                             -> 26 / 1
 //   · registrar_pago_partner sale por HTTP                                      -> 26 / 1
 //   · el carrito sin el campo del código                                        -> 26 / 1
-//   · el Acelerador con el campo del código                                     -> 26 / 1
+//   · el Accelerator con el campo del código                                     -> 26 / 1

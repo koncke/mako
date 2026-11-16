@@ -64,7 +64,7 @@ const archivosAdmin = (): string[] =>
 
 test('1 · un solo formulario de alta: el de Customers, que el aviso «Quieren entrar» abre con lo del pedido', () => {
   const opciones: OpcionesAlta = {
-    planes: [{ id: 'completo', nombre: 'MaKo Esencial', descripcion: 'x', aviso: null }, { id: 'agencia', nombre: 'MaKo Pro', descripcion: 'y', aviso: null }],
+    planes: [{ id: 'completo', nombre: 'MaKo Essential', descripcion: 'x', aviso: null }, { id: 'agencia', nombre: 'MaKo Pro', descripcion: 'y', aviso: null }],
     planPorDefecto: 'agencia',
   }
   assert.deepEqual(inicialDeAlta(opciones), { nombre: '', email: '', adminNombre: '', plan: 'agencia' }, 'el «+» de Customers: vacío');
@@ -161,10 +161,10 @@ test('4 · un cliente de una agencia no es un cliente de MaKo: no va en «Todos�
     ],
     usuarios: [],
     plataforma: 9,
-    plan: (c) => (c === 'agencia' ? 'MaKo Pro' : 'MaKo Esencial'),
+    plan: (c) => (c === 'agencia' ? 'MaKo Pro' : 'MaKo Essential'),
     deAgencia: new Map([[30, 27]]),
   })
-  assert.deepEqual(buscar(indice, 'arce').negocios.map((n) => n.detalle), ['De Agencia Faro · MaKo Esencial · Pausado'], 'se encuentra, y dice de qué agencia es')
+  assert.deepEqual(buscar(indice, 'arce').negocios.map((n) => n.detalle), ['De Agencia Faro · MaKo Essential · Pausado'], 'se encuentra, y dice de qué agencia es')
   assert.deepEqual(buscar(indice, 'faro').negocios.map((n) => n.detalle), ['MaKo Pro'])
 })
 

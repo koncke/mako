@@ -57,7 +57,7 @@ async function puerta(): Promise<{ ok: true } | { ok: false; error: string }> {
  * ⚠️ EL 14/11/2026 ESTO ESTUVO EN `puerta()` —la de TODAS las actions— Y ROMPIÓ UNA LECTURA QUE NO TIENE NADA QUE VER:
  *    `inicioAvatarAction` no genera, y no la usa sólo este estudio: la GUÍA DE VIDEO del Video Editor
  *    (app/video-editor/guia/GuiaEnElChat.tsx → `leerDatos`) la llama para listar las FOTOS de la persona (las del Video
- *    Generator, `estadoContextoVideo`) y sus personajes ya aprobados. A un cliente de Esencial el chat guiado le decía «No
+ *    Generator, `estadoContextoVideo`) y sus personajes ya aprobados. A un cliente de Essential el chat guiado le decía «No
  *    pude leer tus fotos» —mentira: se leen bien— y perdía la galería de su onboarding, que antes elegía con un toque.
  *    O sea: el candado de una función le apagó una pantalla ajena. Por eso va en las que GENERAN y la lectura pasa:
  *      · generan → `crearLookAction` (una imagen en Flow) y `crearVideoAction` (el plan y las tomas que se pagan);

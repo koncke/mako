@@ -1,7 +1,7 @@
 // =============================================================================
 // subir-plan — «Pasar a Pro» desde «Tu plan» (23/10/2026)
 // =============================================================================
-// A donde llevan todos los carteles de tope (lib/topes-plan.ts, RUTA_CAMBIAR_PLAN). Sube de MaKo Esencial a Pro, y el
+// A donde llevan todos los carteles de tope (lib/topes-plan.ts, RUTA_CAMBIAR_PLAN). Sube de MaKo Essential a Pro, y el
 // negocio pasa a la capa de Pro (`agencia`) en el acto. Las reglas (a qué plan, a qué precio, si ya está) están en
 // lib/subir-plan-reglas.ts.
 //

@@ -377,7 +377,7 @@ export const RUNNERS: Runners = {
   },
 
   // SÓLO MaKo Pro (14/11/2026, lib/copywriter/replica-candado.ts). AL PROPONER, no al ejecutar: por WhatsApp, con el candado
-  // sólo en `ejecutar`, MaKo le PROPONÍA la réplica a un Esencial, dejaba la pendiente, pedía el «sí», quemaba la pendiente y
+  // sólo en `ejecutar`, MaKo le PROPONÍA la réplica a un Essential, dejaba la pendiente, pedía el «sí», quemaba la pendiente y
   // recién ahí contestaba «No se pudo: Replicar el guion de otro es de MaKo Pro». El cliente leía una promesa que el producto no
   // cumple y encima perdía la pendiente. Lo que el plan no permite, MaKo no lo ofrece (el molde: `replicar_landing`,
   // lib/api-mako/areas/landing.run.ts). Al ejecutar lo frena igual `replicarOutlier`, que lo tiene de primera línea: entre

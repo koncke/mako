@@ -1,17 +1,17 @@
 // =============================================================================
-// La API de MaKo deja de prometer el video con avatar de IA en la prueba de Esencial (14/11/2026)
+// La API de MaKo deja de prometer el video con avatar de IA en la prueba de Essential (14/11/2026)
 // =============================================================================
 // El 14/11 el avatar de IA volvió a ser de MaKo Pro ('ai-avatar' en `FUNCIONES_SOLO_PRO`, lib/topes-plan.ts) y ese mismo día
 // se sacó del FAQ del sitio (app/vsl/_sitio/preguntas.ts). Una verificación encontró la promesa VIVA por la puerta de la API:
-// un dueño de MaKo Esencial en sus 7 días que le pregunta a MaKo por WhatsApp «¿qué incluye mi prueba?» la seguía recibiendo,
+// un dueño de MaKo Essential en sus 7 días que le pregunta a MaKo por WhatsApp «¿qué incluye mi prueba?» la seguía recibiendo,
 // por dos caminos que se suman:
 //   · la DESCRIPCIÓN de `ver_mi_prueba` (negocio.def.ts) listaba los cinco topes, el avatar entre ellos: eso es el texto que
 //     lee el modelo, y es lo que repetía;
-//   · el RESUMEN (lib/prueba-uso.ts, `resumenDePrueba`) metía la fila del avatar en `usos` también para un Esencial, así que
+//   · el RESUMEN (lib/prueba-uso.ts, `resumenDePrueba`) metía la fila del avatar en `usos` también para un Essential, así que
 //     el dato confirmaba la promesa — y lo mismo dibujaban el cartel de la barra, la franja y «Tu plan» del teléfono.
 //
 // ⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: no hay nada roto en el tope. `topeEnPrueba('completo', 'prueba.avatares')` da 1
-//    para un Esencial porque la tabla del PLAN no tiene esa clave y `topeEnPrueba` cae al de la prueba — y eso está bien: un
+//    para un Essential porque la tabla del PLAN no tiene esa clave y `topeEnPrueba` cae al de la prueba — y eso está bien: un
 //    tope de la prueba es el TECHO de quien YA tiene la función por su plan, no la llave. La prueba tampoco es una capa
 //    aparte: vale el plan elegido desde el primer día y los dos planes arrancan con los 7 días. Lo que faltaba era cruzar los
 //    dos ejes (el tope y el candado del plan) en el único lugar que arma la lista. Este test FIJA el 1, para que el próximo
@@ -24,7 +24,7 @@
 // de verdad aparecieron DOS que ni la descripción mostraba, escondidas en el input_schema: `proponer_crear_campana` y
 // `editar_ejemplo_carrusel`. Lo que cambió acá:
 //   · el barrido se arma con los nombres que el repo YA usa (la tab de lib/movil-rutas.ts, la etiqueta del tope, el texto del
-//     candado) y corre sobre el conjunto VISIBLE de un Esencial por sus tres canales, mirando el ToolDef ENTERO;
+//     candado) y corre sobre el conjunto VISIBLE de un Essential por sus tres canales, mirando el ToolDef ENTERO;
 //   · cada operación que lo nombra tiene su decisión escrita (`DECIDIDAS`), y una cuarta puerta no tiene y da rojo;
 //   · el candado se mide CORRIÉNDOLO (el hijo llama a los runners reales), no leyendo el fuente.
 //
@@ -39,7 +39,7 @@
 // dos planes — y justo en el único turno donde esa operación es la que contesta. Los otros tres eran de este archivo, y son la
 // LECCIÓN, que vale para cualquier test de acá en adelante:
 //   · UNA ASERCIÓN SOBRE EL NOMBRE DE UNA CLAVE no mide que el dato no viaje: mide cómo se llama. Renombrando
-//     `temas_de_la_galeria` a `temas_sugeridos`, este archivo quedaba 7/0 verde con los 33 temas viajando a un Esencial. Se
+//     `temas_de_la_galeria` a `temas_sugeridos`, este archivo quedaba 7/0 verde con los 33 temas viajando a un Essential. Se
 //     asertan las CLAVES DE LA RESPUESTA ENTERA, ordenadas, contra el conjunto exacto.
 //   · UNA ASERCIÓN SOBRE EL PRIMER ELEMENTO de una lista de textos deja pasar los que se agreguen después: `notas[0]` dejaba
 //     entrar una nota nueva que listara los temas. Se asertan las notas enteras.
@@ -111,7 +111,7 @@ const COMO_LA_NOMBRA_EL_REPO = new RegExp(
 /**
  * ⚠️ CADA FORMA CON SU ROJO PROPIO, PORQUE EL REPO NO LAS EJERCITA (15/11/2026, tercera vuelta). Una lente midió que de las
  * cinco alternativas de arriba sólo la de «AI Avatar» cambia el resultado del barrido: tres no matchean NINGUNA de las 936
- * operaciones visibles de un Esencial, y «tu/su avatar» encuentra sólo lo que el label de la tab ya encuentra. O sea que se
+ * operaciones visibles de un Essential, y «tu/su avatar» encuentra sólo lo que el label de la tab ya encuentra. O sea que se
  * podían BORRAR las cuatro con este archivo entero en verde: el regex se habría ido angostando de vuelta al de la ronda uno,
  * que daba cero con tres puertas abiertas. Esta tabla es lo que las sostiene — una frase por forma, cada una escrita para
  * matchear por SU alternativa y por ninguna otra (comprobado: borrar cualquiera de las cinco pone esta tabla en rojo).
@@ -133,11 +133,11 @@ const FRASES: ReadonlyArray<{ frase: string; nombra: boolean }> = [
   { frase: 'sus avatares de compra ya están definidos', nombra: false },
 ];
 
-/** La vista de un MaKo Esencial que pide por un canal: la capa de Esencial es `completo` (lib/plan-esencial-reglas.ts). */
+/** La vista de un MaKo Essential que pide por un canal: la capa de Essential es `completo` (lib/plan-esencial-reglas.ts). */
 const vistaEsencial = (canal: Vista['canal']): Vista => ({ canal, alcance: 'ejecutar', ws: 40, rol: 'admin', tabs: tabsDeCapa('completo') });
 const VISIBLES_WA = REGISTRO.filter((d) => visible(d, vistaEsencial('whatsapp')));
 /**
- * Todo lo que un Esencial puede ver nombrado, por CUALQUIERA de sus tres canales, y medido sobre lo que el modelo recibe de
+ * Todo lo que un Essential puede ver nombrado, por CUALQUIERA de sus tres canales, y medido sobre lo que el modelo recibe de
  * verdad: el ToolDef entero (`JSON.stringify(aToolDef(d))`), no la `descripcion` sola. El esquema también viaja, y ahí estaban
  * escondidas dos de las puertas que la ronda uno no vio (`proponer_crear_campana`, `editar_ejemplo_carrusel`).
  */
@@ -166,7 +166,7 @@ const DECIDIDAS: Readonly<Record<string, { estado: 'cerrada' | 'abierta' | 'abie
   },
   editar_ejemplo_carrusel: {
     estado: 'abierta-sin-arreglar',
-    porque: '⛔ PENDIENTE, Y SÓLO EL TEXTO (medido el 15/11/2026): la OPERACIÓN ya está cerrada para un Esencial en su `preparar`, por `candadoIaDeEditoresDe(ctx.ws)` (lib/api-mako/areas/imagen.run.ts, que llega a lib/editores-ia-pro.ts), porque editar con IA es otra función de Pro (`textoSoloPro(\'ia-editores\')`): no hay fuga de EJECUCIÓN. Lo que sigue abierto es que su `input_schema` le NOMBRA la función —el param `avatar` ofrece «look (su último look de AI Avatar)», lib/api-mako/areas/imagen.def.ts— y el esquema viaja al modelo, así que la promesa llega aunque la acción se niegue. Arreglarlo es una línea en imagen.def.ts; ese archivo quedó fuera del alcance de esta corrida.',
+    porque: '⛔ PENDIENTE, Y SÓLO EL TEXTO (medido el 15/11/2026): la OPERACIÓN ya está cerrada para un Essential en su `preparar`, por `candadoIaDeEditoresDe(ctx.ws)` (lib/api-mako/areas/imagen.run.ts, que llega a lib/editores-ia-pro.ts), porque editar con IA es otra función de Pro (`textoSoloPro(\'ia-editores\')`): no hay fuga de EJECUCIÓN. Lo que sigue abierto es que su `input_schema` le NOMBRA la función —el param `avatar` ofrece «look (su último look de AI Avatar)», lib/api-mako/areas/imagen.def.ts— y el esquema viaja al modelo, así que la promesa llega aunque la acción se niegue. Arreglarlo es una línea en imagen.def.ts; ese archivo quedó fuera del alcance de esta corrida.',
   },
 };
 
@@ -193,7 +193,7 @@ test('EL TOPE NO ES EL PROBLEMA Y NO SE TOCA: 1 para los dos planes, porque es e
 });
 
 test('LA DESCRIPCIÓN que lee el modelo ya no promete el avatar, y lo manda a leer `usos`', () => {
-  assert.doesNotMatch(DESCRIPCION, /avatar/i, 'la descripción es UN string para todos los negocios: nombrarlo es prometérselo al Esencial');
+  assert.doesNotMatch(DESCRIPCION, /avatar/i, 'la descripción es UN string para todos los negocios: nombrarlo es prometérselo al Essential');
   assert.match(DESCRIPCION, /`usos`/, 'los topes que el negocio tiene de verdad vienen en la respuesta');
   assert.match(DESCRIPCION, /LOS QUE VENGAN EN `usos` y sólo ésos/, 'y se le prohíbe nombrar lo que no esté ahí');
   // Lo que NO se fue: los cuatro topes que los dos planes tienen siguen nombrados (el modelo los usa para elegir la operación).
@@ -202,9 +202,9 @@ test('LA DESCRIPCIÓN que lee el modelo ya no promete el avatar, y lo manda a le
   assert.equal(COMO_SE_LLAMA, 'video con avatar de IA');
 });
 
-test('TODA operación que le nombre el avatar a un Esencial tiene su decisión, y una cuarta puerta cae acá', () => {
+test('TODA operación que le nombre el avatar a un Essential tiene su decisión, y una cuarta puerta cae acá', () => {
   // La ronda uno medía con `includes('video con avatar de IA') || /avatar de IA/` y daba [] con TRES puertas abiertas: el repo
-  // escribe «AI Avatar». Lo que mide esto: el conjunto VISIBLE de verdad de un Esencial, por sus tres canales, con el ToolDef
+  // escribe «AI Avatar». Lo que mide esto: el conjunto VISIBLE de verdad de un Essential, por sus tres canales, con el ToolDef
   // entero (descripción + esquema). ⚠️ LO QUE NO MIDE: el `titulo` (no se le manda al modelo, pero sí sale en el catálogo HTTP
   // y en docs/api-mako.md). Los textos que los runners devuelven al EJECUTAR tampoco los ve este barrido, y ahí estaba el
   // agujero más concreto: se miden corriéndolos, en el test del `resumen` de `hooks_al_video_media_buyer`.
@@ -234,7 +234,7 @@ test('TODA operación que le nombre el avatar a un Esencial tiene su decisión, 
   }
 });
 
-test('EL CANDADO DEL AVATAR, CORRIDO: al Esencial le queda lo suyo y se le va la oferta; a Pro no le cambia nada', () => {
+test('EL CANDADO DEL AVATAR, CORRIDO: al Essential le queda lo suyo y se le va la oferta; a Pro no le cambia nada', () => {
   const PRO = textoSoloPro('ai-avatar');
   /**
    * ⚠️ EL CONJUNTO EXACTO DE CLAVES, NO «¿VIENE `temas_de_la_galeria`?» (15/11/2026, tercera vuelta, y es la lección del
@@ -342,13 +342,13 @@ test('LA PREGUNTA POR EL AVATAR LA CONTESTA LA OPERACIÓN HONESTA, y le llega al
   assert.equal(hooks.primera, 'hooks_al_video_media_buyer', 'si esto cambia, revisá el test del `resumen`: puede que ya no sea la única que contesta');
   assert.ok(hooks.puesto('ver_avatares') >= hooks.puesto('hooks_al_video_media_buyer'),
     `la honesta le ganó a la acción en su propia pregunta (ver_avatares puesto ${hooks.puesto('ver_avatares')}): el candado del resumen sigue siendo el que cuenta`);
-  // Y la que gana ese turno NO le promete el avatar a un Esencial: el resumen corrido, del test de arriba.
+  // Y la que gana ese turno NO le promete el avatar a un Essential: el resumen corrido, del test de arriba.
   assert.doesNotMatch(R.hooksAlVideo[40].resumen, COMO_LA_NOMBRA_EL_REPO, 'el turno de los hooks se queda sin ninguna operación honesta');
 });
 
-test('EL RESUMEN: a un Esencial en prueba no le cuenta el avatar; a todos los demás no les cambia nada (corrido de verdad)', () => {
-  assert.deepEqual(R.ws40.usos, CUATRO_ABIERTOS, 'Esencial por la pasarela, en prueba: sin la fila del avatar');
-  assert.equal(R.ws40.plan, 'MaKo Esencial', 'y sigue viendo SU prueba: la operación no se cerró, se fue una fila');
+test('EL RESUMEN: a un Essential en prueba no le cuenta el avatar; a todos los demás no les cambia nada (corrido de verdad)', () => {
+  assert.deepEqual(R.ws40.usos, CUATRO_ABIERTOS, 'Essential por la pasarela, en prueba: sin la fila del avatar');
+  assert.equal(R.ws40.plan, 'MaKo Essential', 'y sigue viendo SU prueba: la operación no se cerró, se fue una fila');
   assert.deepEqual(R.ws41.usos, CON_AVATAR, 'MaKo Pro en prueba: igual que antes');
   assert.deepEqual(R.ws1.usos, CON_AVATAR, 'el ws1 (acuerdo a mano) no lleva candado: igual que antes');
   // ⚠️ EL CASO QUE ATA EL «ws» Y NO LA CAPA VENDIDA: el que subió a Pro durante su prueba tiene capa `agencia` hoy y
@@ -364,7 +364,7 @@ test('LA API SIRVE `usos` TAL CUAL: ni una segunda lista de topes, ni la operaci
     'la lista sale del resumen, que ya viene filtrado por plan');
   const sinComentarios = op.replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(sinComentarios, /avatar/i, 'el runner no nombra ningún tope: una segunda lista se desfasa cuando cambie el plan');
-  assert.doesNotMatch(sinComentarios, /esEsencialDe|SOLO_PRO|candado/i, 'un Esencial en prueba tiene derecho a ver su prueba: la operación NO se cierra');
+  assert.doesNotMatch(sinComentarios, /esEsencialDe|SOLO_PRO|candado/i, 'un Essential en prueba tiene derecho a ver su prueba: la operación NO se cierra');
   // El candado vive en el resumen (una sola vez), y con el ws del pedido: por la API no hay sesión.
   const uso = fuente('lib/prueba-uso.ts');
   assert.match(uso, /const cerradoPorSuPlan = await esEsencialDe\(ws\);/);
@@ -394,7 +394,7 @@ test('LA API SIRVE `usos` TAL CUAL: ni una segunda lista de topes, ni la operaci
 //     la función», nombrando `ver_plantillas_avatar` y `editar_ejemplo_carrusel`: una entrada muerta es un barrido ciego)
 //   · `ver_plantillas_avatar` sin su candado                                      → 6 / 1  (el catálogo se cierra entero, CORRIDO)
 //   · `ver_avatares` cerrada ENTERA (el arreglo obvio y equivocado)               → 6 / 1  («los looks que YA tenía se le devuelven igual»)
-//   · la galería viajando igual a un Esencial                                     → 6 / 1  («la galería es la OFERTA y no viaja»)
+//   · la galería viajando igual a un Essential                                     → 6 / 1  («la galería es la OFERTA y no viaja»)
 //   · la lista de cinco topes de vuelta en `ver_mi_prueba` (la regresión)          → 5 / 2  (la descripción y el barrido)
 //   · `ver_avatares` con su descripción de antes                                   → 5 / 2  (la relevancia: deja de ganar la pregunta
 //     por el avatar; y la referencia queda vieja)

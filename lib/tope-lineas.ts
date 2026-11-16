@@ -2,7 +2,7 @@
 // tope-lineas — cuántas líneas de WhatsApp puede conectar un negocio según su plan (23/10/2026)
 // =============================================================================
 // El Cerebro, 23/10/2026: «Hacé cumplir `topeDe(capa, 'chats.lineas_whatsapp')` con `cabeOtra` al conectar una línea nueva,
-// con un cartel corto `textoTope(n)` y «Pasar a Pro»». La tabla es lib/topes-plan.ts (Esencial 1, Pro 3); esto decide si
+// con un cartel corto `textoTope(n)` y «Pasar a Pro»». La tabla es lib/topes-plan.ts (Essential 1, Pro 3); esto decide si
 // se aplica, y es PURO para poder probarlo. Lo llama `conectar({ nueva: true })` (lib/evolution.ts), que es «Agregar otro
 // número» y es por donde nace TODA línea nueva de un negocio.
 //

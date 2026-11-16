@@ -58,7 +58,7 @@ import { ASESORES } from '@/lib/asesores/catalogo';
 import type { LandingCompetencia } from './tipos';
 
 // ── «Con MaKo Pro» NO SE TIPEA, SE DERIVA: la derivación vive en ./solo-pro.ts ────────────────────────────────────────
-// Esta landing vendía como incluido lo que el 14/11/2026 se cerró en Esencial, y el aviso sale de lo que el producto cierra
+// Esta landing vendía como incluido lo que el 14/11/2026 se cerró en Essential, y el aviso sale de lo que el producto cierra
 // de verdad (ver ./solo-pro.ts, que dice la regla y por qué hay UN archivo y no una copia por landing).
 // ⚠️ NO TODO EL TEXTO DE ESTA PÁGINA VIVE ACÁ: el hero de ./disenos/copywriting.tsx escribe DOS promesas propias (la frase
 //    «No te llevas un prompt…» traducida de la referencia y el titular de la tarjeta de caricaturas), y por eso las dos se
@@ -127,10 +127,10 @@ export const REPLICAS: {
     titulo: 'Un short',
     meta: 'Short de YouTube · @AlexHormozi',
     icono: I.redes,
-    cambio: 'El original es una escena (alguien que pide un descuento) y su moraleja. MaKo tomó esa estructura, no la idea del descuento, y la llevó a la oferta «MaKo Acelerador».',
+    cambio: 'El original es una escena (alguien que pide un descuento) y su moraleja. MaKo tomó esa estructura, no la idea del descuento, y la llevó a la oferta «MaKo Accelerator».',
     video: { src: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' },
     original: { rotulo: 'Original: su short', pie: '@AlexHormozi · 105.615 vistas' },
-    mako: { rotulo: 'Lo que escribió MaKo', pie: 'Reel · 45 s · con «MaKo Acelerador»' },
+    mako: { rotulo: 'Lo que escribió MaKo', pie: 'Reel · 45 s · con «MaKo Accelerator»' },
   },
   {
     titulo: 'Un anuncio',

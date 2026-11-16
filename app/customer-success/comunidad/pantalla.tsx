@@ -36,7 +36,7 @@ const mensaje = (e: unknown, def: string) => (e instanceof Error && e.message ? 
 
 export async function PantallaComunidad({ searchParams }: { searchParams: Promise<{ producto?: string; post?: string }> }) {
   await requireCapa('customer-success');
-  // ⚠️ LA COMUNIDAD ES SÓLO DE MaKo Pro (14/11/2026, lib/comunidad-solo-pro.ts): al Esencial, el candado EN LUGAR de la
+  // ⚠️ LA COMUNIDAD ES SÓLO DE MaKo Pro (14/11/2026, lib/comunidad-solo-pro.ts): al Essential, el candado EN LUGAR de la
   //    comunidad, antes de leer nada. No se borra nada: con Pro vuelve tal cual estaba. Ante la duda (no se pudo leer el
   //    plan), `esEsencialDeLaSesion` dice que no y se ve la comunidad. Crear posts y eventos también lo pregunta el server.
   if (await esEsencialDeLaSesion()) return <CartelSoloPro texto={textoSoloPro('comunidad')} />;

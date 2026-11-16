@@ -9,7 +9,7 @@
 // «Inspirado en»: la persona no participa.
 //
 // SÓLO MaKo Pro (14/11/2026, lib/asesores/candado.ts): como la galería de «Nuevo chat» (./GaleriaDeGurus.tsx), con el candado EN LUGAR
-// de la lista y «Pasar a Pro». Y acá es ADEMÁS lo honesto: el servidor corre el coach sin la ficha de nadie cuando el plan es Esencial
+// de la lista y «Pasar a Pro». Y acá es ADEMÁS lo honesto: el servidor corre el coach sin la ficha de nadie cuando el plan es Essential
 // (app/api/mako/chat/route.ts → `contextoDelChat`), así que una lista de caras que no cambian nada sería un botón que miente.
 // ⛔ El coach NO se cierra: se abre igual en los dos planes y aconseja con los marcos de MaKo, atribuyendo. Lo que lleva candado es
 //    poner a UNO al frente. El hook va adentro porque a esta pieza la monta cada chat, nunca un test como función.

@@ -12,7 +12,7 @@
 // 12 en un lienzo de 16) queda en el medio en todos lados, y es el mismo en todos lados.
 //
 // Va en un ::before en los dos lados. El color del trazo va ADENTRO del dibujo: un `background: <color>` posterior (el dorado
-// del Acelerador) borra la imagen, por eso cada combinación se arma entera con `signo()`.
+// del Accelerator) borra la imagen, por eso cada combinación se arma entera con `signo()`.
 
 const TRAZO_SI = 'M3.5 8.5l3 3 6-7';
 const TRAZO_NO = 'M4 4l8 8M12 4l-8 8';
@@ -33,5 +33,5 @@ export function signo(cual: 'si' | 'no', trazo: string, fondo: string): string {
 export const SIGNO_SI = signo('si', '#1F7A4D', '#E3F5EB');
 /** La ✗ («no lo trae»): el mismo círculo, rojo sobre rojo pálido. */
 export const SIGNO_NO = signo('no', '#D92D20', '#FDE8E7');
-/** La ✓ del Acelerador, en su bloque oscuro: tinta oscura sobre el dorado de su botón. */
+/** La ✓ del Accelerator, en su bloque oscuro: tinta oscura sobre el dorado de su botón. */
 export const SIGNO_SI_DORADO = signo('si', '#2A1E00', '#F5C451');

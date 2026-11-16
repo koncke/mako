@@ -6,7 +6,7 @@
 // Pedido de Leila (30/10/2026): de un video largo a varios cortos. «Buscar los mejores momentos» (../buscar.ts) lista los
 // clips con su título, su puntaje de 0 a 99 (como OpusClip) y lo primero que se dice; «Ver» lleva el cabezal a su
 // arranque, y «Abrir» lo arma en un proyecto NUEVO, vertical y con subtítulos (../abrir.ts). El original no se toca.
-// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. A un Esencial, el candado en lugar de «Buscar…», ANTES
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. A un Essential, el candado en lugar de «Buscar…», ANTES
 // de transcribir el video (la ruta le diría que no recién después de escucharlo entero).
 
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";

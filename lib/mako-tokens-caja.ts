@@ -44,7 +44,7 @@ export function mesDeCupo(ahora: Date = new Date()): string {
 /**
  * El cupo mensual que le toca a ese negocio, o null si su capa no vende cupo.
  *
- * ⚠️ `cupoDeCapa` devuelve null para cualquier capa que no sea `completo` o `agencia` — el Acelerador incluido, a
+ * ⚠️ `cupoDeCapa` devuelve null para cualquier capa que no sea `completo` o `agencia` — el Accelerator incluido, a
  * propósito (nadie decidió cuántos MaKo Tokens da, y esto NO lo inventa). Un null acá significa «este negocio no recibe
  * cupo»: va a poder gastar sólo lo que haya comprado, y si no compró nada, nada. Es lo correcto hasta que Martín decida
  * el número.

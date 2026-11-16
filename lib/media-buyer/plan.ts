@@ -27,7 +27,7 @@ export function cupoDelPlan(esEsencial: boolean): CupoMediaBuyer {
   return { recomendacionesDia: tope, piloto: tope == null };
 }
 
-/** El modo que vale de verdad: un negocio que pasó de Pro a Esencial con el piloto prendido queda en «propone». */
+/** El modo que vale de verdad: un negocio que pasó de Pro a Essential con el piloto prendido queda en «propone». */
 export const modoEfectivo = (modo: 'propone' | 'piloto', cupo: CupoMediaBuyer): 'propone' | 'piloto' =>
   modo === 'piloto' && cupo.piloto ? 'piloto' : 'propone';
 

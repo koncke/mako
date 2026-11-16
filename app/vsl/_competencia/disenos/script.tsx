@@ -60,7 +60,7 @@ export const FORMATOS: readonly { t: string; v: string; s: string; malo?: boolea
   { t: 'Lo que no le rinde', v: 'Tutorial', s: '<b>0,6×</b> la mediana, en 44 videos', malo: true },
 ];
 /** Escena 4 y paso 3: el guion que MaKo escribió replicando su reel «When someone asks for a discount» con la oferta «MaKo
- *  Acelerador» (Copywriting → Replicar, 14/11/2026; notas de la sesión, copy-reel-hormozi/texto.txt). Es el de la grabación
+ *  Accelerator» (Copywriting → Replicar, 14/11/2026; notas de la sesión, copy-reel-hormozi/texto.txt). Es el de la grabación
  *  public/vsl-assets/sitio/copywriting.webm. Tramos tal cual, recortados con «…». */
 export const GUION_REPLICADO: readonly { t: string; v: string }[] = [
   { t: 'Gancho', v: 'Compré la herramienta para armar mi embudo y sigue sin vender.' },

@@ -2,7 +2,7 @@
 // closing-solo-pro — el análisis de las llamadas de venta (Closing Analyst) es SÓLO de MaKo Pro (14/11/2026, puro)
 // =============================================================================
 // La tabla de planes lo vende como de Pro desde el 23/10 (`TABS_SOLO_PRO`, 'closing-analyst', lib/topes-plan.ts; la fila
-// «Análisis de tus llamadas de venta con IA», lib/planes-comparacion.ts) y NINGÚN código lo frenaba: el Esencial veía la
+// «Análisis de tus llamadas de venta con IA», lib/planes-comparacion.ts) y NINGÚN código lo frenaba: el Essential veía la
 // hoja entera. `SOLO_PRO_FUERA_DE_LA_BARRA` (lib/plan-esencial-reglas.ts) decía que su candado «va en el Dashboard», y nadie
 // lo había puesto. Lo decide el plan del negocio (`esEsencialDeLaSesion` / `esEsencialDe(ctx.ws)`); ante la duda, pasa.
 //

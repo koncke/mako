@@ -328,7 +328,7 @@ test('14. sin @ del negocio, a quién seguir es el negocio por su nombre; un ace
   const t = 'Tu estrategia de ventas por WhatsApp';
   const de = t.indexOf('de ');
   assert.deepEqual(sinVaciasSueltas(t, [[de, de + 2]]), []);
-  const a = 'Acelerador de Ventas';
+  const a = 'Accelerator de Ventas';
   assert.equal(sinVaciasSueltas(a, [[0, 10], [11, 13], [14, 20]]).length, 3, 'entre dos palabras de acento, la vacía queda');
 });
 

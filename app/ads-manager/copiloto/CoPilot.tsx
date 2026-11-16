@@ -78,7 +78,7 @@ export type DatosCoPilot = {
   /** Su VSL (lib/copiloto/vsl.ts), si su campaña lleva uno: la curva del Pixel, o null sin eventos (la tarjeta pide conectar). */
   vsl?: { landing: string | null; resumen: ResumenVsl | null };
   /**
-   * ¿El plan trae el piloto de Instagram y el de YouTube? (lib/copiloto/piloto.ts → `pilotoRedesPermitido`). MaKo Esencial no
+   * ¿El plan trae el piloto de Instagram y el de YouTube? (lib/copiloto/piloto.ts → `pilotoRedesPermitido`). MaKo Essential no
    * (14/11/2026, 'piloto-redes'): en el paso «Piloto automático» esas dos tarjetas muestran el candado con «Pasar a Pro».
    */
   redesPermitidas: boolean;
@@ -243,7 +243,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial, enTelefono = false
   const numeroDe = (t: Tarjeta): { n: string; de?: string; s: string } => {
     if (paso === 'piloto') {
       // Instagram y YouTube (14/11): lo que hace el piloto de verdad ahí (publicar, avisar, proponer), contado.
-      // El de Instagram y el de YouTube son de MaKo Pro (14/11/2026): a un Esencial, la tarjeta lo dice.
+      // El de Instagram y el de YouTube son de MaKo Pro (14/11/2026): a un Essential, la tarjeta lo dice.
       if ((t === 'instagram' || t === 'youtube') && !datos.redesPermitidas) return { n: '—', s: 'De MaKo Pro' };
       if ((t === 'instagram' || t === 'youtube') && datos.pilotoRedes) {
         const k = cosasDelPiloto(t, datos.pilotoRedes).length;
@@ -713,7 +713,7 @@ function SinPiloto({ que }: { que: string }) {
   );
 }
 
-/** El piloto de Instagram o de YouTube con MaKo Esencial (14/11/2026, 'piloto-redes'): el candado y «Pasar a Pro». */
+/** El piloto de Instagram o de YouTube con MaKo Essential (14/11/2026, 'piloto-redes'): el candado y «Pasar a Pro». */
 function PilotoRedesSoloPro({ red }: { red: 'instagram' | 'youtube' }) {
   return (
     <section className="frn-card">

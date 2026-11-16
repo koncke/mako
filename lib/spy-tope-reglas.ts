@@ -2,7 +2,7 @@
 // spy-tope-reglas — el tope del plan al sumar un competidor a Competitor Spy (14/11/2026), puro
 // =============================================================================
 // Martín, 14/11/2026: «Tu competencia solamente debería poder scrapear a una persona de la competencia, el de 97 ilimitado».
-// MaKo Esencial (capa `completo`) suma UN competidor; Pro (`agencia`), los que quiera (lib/topes-plan.ts, 'spy.competidores').
+// MaKo Essential (capa `completo`) suma UN competidor; Pro (`agencia`), los que quiera (lib/topes-plan.ts, 'spy.competidores').
 // Lo hace cumplir `agregarCompetidor` (lib/spy.ts), la única entrada, con la lectura de lib/spy-tope.ts. Las reglas de la casa
 // (AGENTS.md, «Hacer cumplir un tope del plan»):
 //   · SÓLO si `aplicanTopes(ws)` dice que sí: nunca al ws1 ni a un alta a mano, que también tienen capa `completo`;
@@ -21,7 +21,7 @@ export type TopeAlSumarCompetidor = { ok: true } | { ok: false; tope: number; er
 export function topeAlSumarCompetidor(p: {
   /** `aplicanTopes(ws)`: MaKo le cobra el plan, o es la cuenta de un cliente de agencia. */
   aplica: boolean;
-  /** La capa del negocio hoy (Esencial = `completo`, Pro = `agencia`). Una que no es un plan no tiene tope. */
+  /** La capa del negocio hoy (Essential = `completo`, Pro = `agencia`). Una que no es un plan no tiene tope. */
   capa: string | null | undefined;
   /** Los competidores que el negocio YA tiene. */
   usadas: number;

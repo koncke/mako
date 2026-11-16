@@ -938,10 +938,10 @@ async function referenteDelOfferCoach(mensajes: MensajeGuardado[]): Promise<stri
   if (!id) return '';
   // ⛔ SÓLO MaKo Pro EL REFERENTE, NO LA TAB OFFER (14/11/2026, lib/asesores/candado.ts, `FUNCIONES_SOLO_PRO` → 'chat-referentes').
   // Cada conversación de Offer corría con la MISMA ficha que el chat del gurú (`contextoDeReferente`, 5.200 caracteres en cada
-  // mensaje) y con los tramos de su curso: el Esencial seguía hablando con el referente, sólo que por esta pantalla. Sin él, Offer
+  // mensaje) y con los tramos de su curso: el Essential seguía hablando con el referente, sólo que por esta pantalla. Sin él, Offer
   // queda entera —se vende en los tres planes— y MaKo aconseja con su criterio.
   // ⚠️ SIN WS NO HAY CANDADO, igual que adentro del candado (lib/plan-esencial.ts: «ante la duda, se deja pasar»): sacarle el
-  //    referente a quien paga Pro por un bache de la base es peor que dejárselo un rato a un Esencial.
+  //    referente a quien paga Pro por un bache de la base es peor que dejárselo un rato a un Essential.
   const ws = await getWorkspaceActual().catch(() => null);
   if (ws != null && (await candadoDeReferentesDe(ws))) return '';
   // Import dinámico: el grafo y su catálogo no tienen por qué entrar en el camino del onboarding.

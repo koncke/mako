@@ -108,7 +108,7 @@ export async function requireMovil(opts: { navKey?: string | null; onboarding?: 
   if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(RUTA_CENTRO_M, await wsSuperAdmin()));
   if (opts.onboarding !== false && (await onboardingPendiente())) redirect(await rutaConWs(RUTA_CONFIGURAR_MOVIL));
   if (opts.navKey && !puedeVerKey(opts.navKey, ctx.rol, ctx.capa)) redirect(await rutaConWs(HOME_MOVIL));
-  // MaKo Esencial (23/10/2026): la tab de Pro, como en la computadora (lib/tab-access.ts → requireCapa), a su cartel con «Pasar a Pro».
+  // MaKo Essential (23/10/2026): la tab de Pro, como en la computadora (lib/tab-access.ts → requireCapa), a su cartel con «Pasar a Pro».
   if (opts.navKey && esNavSoloPro(opts.navKey) && (await esEsencialDeLaSesion())) redirect(await rutaConWs(`/no-esta-en-tu-plan?tab=${encodeURIComponent(opts.navKey)}&pro=1`));
   return ctx;
 }

@@ -65,11 +65,11 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
   //    planes de la plataforma, y antes de esta ronda también las pasarelas, con su pedido saliente a Mercado Pago— y la
   //    anulaba 20 líneas después, en el `return`.
   const deAgencia = (await esClienteDeAgencia(ws)) !== false;
-  // «Pasar a Pro»: a quien paga MaKo Esencial por la pasarela (capa `completo`), con el precio de Pro en SU moneda.
+  // «Pasar a Pro»: a quien paga MaKo Essential por la pasarela (capa `completo`), con el precio de Pro en SU moneda.
   // Y TAMBIÉN EN LA PRUEBA, DESDE EL 14/11/2026: con AI Avatar, replicar el guion y el chat con los referentes cerrados en
-  // Esencial (`FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), el «Pasa a Pro para usarlo» de esos candados trae acá a un negocio que
+  // Essential (`FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), el «Pasa a Pro para usarlo» de esos candados trae acá a un negocio que
   // está en sus 7 días gratis del de 47 (los dos planes arrancan con prueba: `PLANES_CON_PRUEBA`, lib/planes-mako.ts), y acá NO
-  // había NINGUNA fila para pasar a Pro: la única era «Empezar mi plan ya», que cobra los US$47 del Esencial. Martín: «La idea es
+  // había NINGUNA fila para pasar a Pro: la única era «Empezar mi plan ya», que cobra los US$47 del Essential. Martín: «La idea es
   // que compren el de 97, no el de 47» — el camino tiene que terminar donde dice que termina.
   const pro = capa === 'completo' && !deAgencia ? (await planesMako().catch(() => [])).find((p) => p.id === PLAN_PRO && p.activo) ?? null : null;
   const precioPro = pro && sus ? precioEn(pro, sus.moneda) : null;

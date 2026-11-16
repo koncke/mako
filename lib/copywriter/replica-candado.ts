@@ -21,7 +21,7 @@
 // La pantalla (los outliers de Copywriting, el original abierto, «Replicar» de Competitors Spy) muestra el candado con
 // `useSoloPro('replicar-guion')`, pero no es la defensa.
 // ⚠️ ANTE LA DUDA, SE DEJA PASAR (lib/plan-esencial.ts): si no se puede leer el plan, no hay candado. Y es sólo para quien MaKo
-//    le COBRA el Esencial por la pasarela: el ws1, los acuerdos a mano y la plataforma no lo ven.
+//    le COBRA el Essential por la pasarela: el ws1, los acuerdos a mano y la plataforma no lo ven.
 // =============================================================================
 
 import 'server-only';
@@ -30,7 +30,7 @@ import { esEsencialDe, esEsencialDeLaSesion } from '../plan-esencial';
 import { RUTA_CAMBIAR_PLAN, textoSoloPro } from '../topes-plan';
 
 /**
- * El texto del candado si el negocio paga MaKo Esencial, o null. `ws`: el negocio (la API de MaKo corre dentro de su
+ * El texto del candado si el negocio paga MaKo Essential, o null. `ws`: el negocio (la API de MaKo corre dentro de su
  * `runWithWorkspace`); sin él, el del pedido. Nunca tira: si no se puede leer, null.
  */
 export async function candadoDeReplicarGuion(ws?: number | null): Promise<string | null> {

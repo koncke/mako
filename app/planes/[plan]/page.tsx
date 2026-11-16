@@ -14,7 +14,7 @@ import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { origenLimpio, codigoRefLimpio, paisDelVisitante, TEXTO_SIN_PASARELA, PREGUNTAS_DE_LA_PUERTA } from '@/lib/compra-plan-reglas';
-import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba } from '@/lib/planes-mako';
+import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, planDeLaRuta } from '@/lib/planes-mako';
 import { entornoPromo, promoVigente } from '@/lib/promo-entrada';
 import { COOKIE_PROMO, PROMO_ENTRADA } from '@/lib/promo-entrada-reglas';
 import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas';
@@ -36,13 +36,15 @@ export default async function PlanPage({ params, searchParams }: {
   params: Promise<{ plan: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { plan: id } = await params;
-  if (!/^[a-z0-9-]{1,32}$/.test(id)) notFound();
+  const { plan: ruta } = await params;
+  if (!/^[a-z0-9-]{1,32}$/.test(ruta)) notFound();
+  // La ruta en inglés (/planes/essential) o el id de siempre (/planes/esencial): las dos llegan al mismo plan.
+  const id = planDeLaRuta(ruta);
   const sp = await searchParams;
   const uno = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const origen = origenLimpio(Object.fromEntries(['landing', 'avatar', 'funcionalidad', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid'].map((k) => [k, uno(k)])));
   const ref = codigoRefLimpio(uno('ref'));
-  // El Acelerador NUNCA pasa por la pasarela (docs/estrategia-financiera-mako.md §1.7: con llamadas, un merchant of record
+  // El Accelerator NUNCA pasa por la pasarela (docs/estrategia-financiera-mako.md §1.7: con llamadas, un merchant of record
   // no lo toma): siempre se pide, y se cobra aparte. Con el diagnóstico de 2 minutos como puerta (25/10/2026, el molde de
   // Ropofy): tres preguntas, una por pantalla, y después los datos. La llamada arranca sabiendo dónde está su negocio.
   if (id === PROGRAMA_ACELERADOR.id) {
@@ -69,7 +71,7 @@ export default async function PlanPage({ params, searchParams }: {
   // EL ANUAL (25/10/2026) se pide siempre, aunque haya pasarela: el checkout cobra por mes, y nunca se cobra un mes en lugar
   // del año. Sin precio anual, la página del plan es la de siempre.
   // LA MISMA LISTA QUE LA COLUMNA, TAMBIÉN ACÁ (14/11/2026): este pedazo leía `plan.incluye`, que sigue diciendo «Todo lo de
-  // Esencial, sin tope de leads, landings ni automatizaciones» — la fórmula que Martín mandó sacar («no es la idea de que diga
+  // Essential, sin tope de leads, landings ni automatizaciones» — la fórmula que Martín mandó sacar («no es la idea de que diga
   // todo lo de Essential más tal»), y una tercera versión de lo que incluye el MISMO plan: el visitante leía la columna, tocaba
   // «Anual / 2 meses gratis» y le cambiaba la lista. Ahora las dos puertas dicen lo de `listaCorta` (ver `incluyeDeLaColumna`).
   if (uno('periodo') === 'anual' && plan.precioAnualUsd) {
@@ -87,7 +89,7 @@ export default async function PlanPage({ params, searchParams }: {
   const precio = pasarelas.map((x) => (conPromo
     ? `${formatoMonto(conPrimerMes(x.monto), x.moneda)} el primer mes, después ${formatoMonto(x.monto, x.moneda)} por mes`
     : `${formatoMonto(x.monto, x.moneda)} por mes`)).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`;
-  // La prueba, en los planes que la traen (`planConPrueba`: Esencial y Pro desde el 14/11/2026).
+  // La prueba, en los planes que la traen (`planConPrueba`: Essential y Pro desde el 14/11/2026).
   const conPrueba = planConPrueba(plan.id) && uno('sinPrueba') !== '1';
   return (
     <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumenDelPlan({ nombre: plan.nombre, incluye: incluyeDeLaColumna(plan.capa), precioUsd: plan.precioUsd, pasarelas, conPromo, conPrueba, conPrimerMes, precio })}>

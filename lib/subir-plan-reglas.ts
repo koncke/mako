@@ -11,8 +11,8 @@ import { CAPACIDADES_PASARELA, type Pasarela } from './cobros-tipos';
 export const PLAN_PRO = 'pro';
 /**
  * «Pasar a Pro» SIN pasarela (23/10/2026). Todo cartel de tope lleva a «Tu plan» (RUTA_CAMBIAR_PLAN), y ahí la subida en el
- * acto existe sólo para quien paga Esencial POR LA PASARELA. Hasta que MaKo cobre en línea nadie paga así, y el «Pasar a
- * Pro» de un tope caía en una pantalla sin ninguna forma de pasar a Pro. A quien está en Esencial (capa `completo`) y no
+ * acto existe sólo para quien paga Essential POR LA PASARELA. Hasta que MaKo cobre en línea nadie paga así, y el «Pasar a
+ * Pro» de un tope caía en una pantalla sin ninguna forma de pasar a Pro. A quien está en Essential (capa `completo`) y no
  * tiene esa subida se le ofrece la agenda: una llamada y el cambio a mano. Pro (`agencia`) no sube a nada.
  */
 export function proPorLlamada(p: { capa: string | null; subidaEnLinea: boolean }): boolean {
@@ -35,7 +35,7 @@ export type Subida =
  * en la moneda que cobra la pasarela: USD en Stripe; la del sitio en Mercado Pago (sin ella, no se inventa una tasa).
  */
 export function decidirSubida(p: { planActual: string | null; planes: readonly PlanMako[]; moneda: string; proveedor: Pasarela; montoHoy: number; capa: string | null }): Subida {
-  // Sólo desde Esencial (revisión adversarial: un acuerdo de 297 con capa `agencia` llamaba la acción y pasaba a pagar 97).
+  // Sólo desde Essential (revisión adversarial: un acuerdo de 297 con capa `agencia` llamaba la acción y pasaba a pagar 97).
   if (p.capa !== 'completo') return { accion: 'no', motivo: 'Tu plan no se cambia desde aquí. Escríbenos.' };
   const destino = p.planes.find((x) => x.id === PLAN_PRO && x.activo);
   if (!destino) return { accion: 'no', motivo: 'MaKo Pro no está a la venta ahora. Escríbenos.' };

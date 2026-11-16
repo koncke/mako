@@ -1,5 +1,5 @@
 // =============================================================================
-// El tope del plan en Competitor Spy: Esencial suma UN competidor, Pro los que quiera (14/11/2026)
+// El tope del plan en Competitor Spy: Essential suma UN competidor, Pro los que quiera (14/11/2026)
 // =============================================================================
 // Martín: «Tu competencia solamente debería poder scrapear a una persona de la competencia, el de 97 ilimitado».
 // La tabla es lib/topes-plan.ts ('spy.competidores'); la regla, lib/spy-tope-reglas.ts; la lectura, lib/spy-tope.ts; el
@@ -45,8 +45,8 @@ function cuerpoDe(src: string, firma: string): string {
 
 const esencial = { aplica: true, capa: 'completo', nuevo: true };
 
-test('la regla: Esencial suma uno; con 1 ya no, con el cartel y «Pasar a Pro»; Pro no tiene tope', () => {
-  assert.equal(topeDe('completo', 'spy.competidores'), 1, 'MaKo Esencial suma UN competidor (lib/topes-plan.ts)');
+test('la regla: Essential suma uno; con 1 ya no, con el cartel y «Pasar a Pro»; Pro no tiene tope', () => {
+  assert.equal(topeDe('completo', 'spy.competidores'), 1, 'MaKo Essential suma UN competidor (lib/topes-plan.ts)');
   assert.equal(topeDe('agencia', 'spy.competidores'), null, 'MaKo Pro no tiene tope de competidores');
 
   assert.deepEqual(topeAlSumarCompetidor({ ...esencial, usadas: 0 }), { ok: true }, 'el primero siempre entra');
@@ -70,7 +70,7 @@ test('la regla: sin plan cobrado, sin una capa de plan o sin algo nuevo, no fren
 test('`agregarCompetidor` pasa por el freno DESPUÉS de buscar el duplicado y ANTES de crear la fila', () => {
   const alta = cuerpoDe(leer('lib/spy.ts'), 'export async function agregarCompetidor');
   const freno = alta.indexOf('await topeDeCompetidores(');
-  assert.ok(freno >= 0, '`agregarCompetidor` no pasa por el tope del plan: un Esencial suma todos los que quiera');
+  assert.ok(freno >= 0, '`agregarCompetidor` no pasa por el tope del plan: un Essential suma todos los que quiera');
   assert.ok(alta.indexOf('if (yaEsta)') >= 0 && alta.indexOf('if (yaEsta)') < freno,
     'el freno va antes de buscar el duplicado: volver a pegar al que ya mira (o sumarle un canal) se frena');
   assert.ok(freno < alta.indexOf('.upsert('), 'el freno va después del upsert: la fila ya se creó');

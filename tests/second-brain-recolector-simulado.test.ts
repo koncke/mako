@@ -111,7 +111,7 @@ const v1 = await recolectarWhatsApp(10, { deadline, ahora }); const f1 = foto();
 const v2 = await recolectarWhatsApp(10, { deadline, ahora }); const p2 = pedidos.length;
 for (const [i, t] of ['Ya pagué', 'Perfecto, gracias', '¿Cuándo empezamos?'].entries()) tablas.wa_mensajes.push({ workspace_id: 10, chat_jid: 'ana@s.whatsapp.net', wa_timestamp: min(20, i), from_me: false, tipo: 'text', texto: t, lead_id: 5, push_name: 'Ani', telefono: '5491100000001' });
 const v3 = await recolectarWhatsApp(10, { deadline, ahora }); const f3 = foto(); const p3 = pedidos.length;
-for (const [i, t] of ['Hola', 'Quiero info', 'del plan Esencial'].entries()) tablas.wa_mensajes.push({ workspace_id: 10, chat_jid: 'beto@s.whatsapp.net', wa_timestamp: min(21, i), from_me: false, tipo: 'text', texto: t, lead_id: 6, push_name: 'Beto', telefono: '5491100000002' });
+for (const [i, t] of ['Hola', 'Quiero info', 'del plan Essential'].entries()) tablas.wa_mensajes.push({ workspace_id: 10, chat_jid: 'beto@s.whatsapp.net', wa_timestamp: min(21, i), from_me: false, tipo: 'text', texto: t, lead_id: 6, push_name: 'Beto', telefono: '5491100000002' });
 falla = true;
 const v4 = await recolectarWhatsApp(10, { deadline, ahora }); const f4 = foto();
 falla = false;

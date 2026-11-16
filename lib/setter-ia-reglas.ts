@@ -1,7 +1,7 @@
 // =============================================================================
 // setter-ia-reglas — qué es «el setter con IA» dentro de una automatización (14/11/2026, puro)
 // =============================================================================
-// Martín (14/11/2026): MaKo Esencial NO trae «el setter con IA, que contesta y agenda solo por WhatsApp e Instagram»; Pro sí
+// Martín (14/11/2026): MaKo Essential NO trae «el setter con IA, que contesta y agenda solo por WhatsApp e Instagram»; Pro sí
 // (`FUNCIONES_SOLO_PRO`, 'setter-ia', lib/topes-plan.ts). En el código, el setter es la IA que le CONTESTA SOLA a un lead que
 // le escribió, dentro de una automatización. Son dos formas del mismo motor (lib/nutricion.ts → `redactarRespuesta`, el paso
 // «¿SALE SOLA?»):
@@ -10,7 +10,7 @@
 //   · un «MaKo contesta» (`tipo: 'ia'`) colgado de «Si responde» con `revisar === false` (la forma de siempre; hoy lo escriben
 //     la API, `agregar_escenario_secuencia` con `contestaSolo`, y el hand-off que se enseña).
 //
-// LO QUE NO ES EL SETTER, y sigue abierto en Esencial (la frontera más conservadora: candado sólo en lo que le contesta SOLO a
+// LO QUE NO ES EL SETTER, y sigue abierto en Essential (la frontera más conservadora: candado sólo en lo que le contesta SOLO a
 // un lead con IA):
 //   · «Para aprobar»: MaKo deja la respuesta en Chats › Borradores y la manda una persona (como el Media Buyer en «propone»);
 //   · «Sólo te avisa»: MaKo lee el mensaje y avisa al equipo; no le escribe al lead;
@@ -19,7 +19,7 @@
 //     DUEÑO del negocio (lib/mako-bot.ts, los grupos): le contesta a él, no a sus leads.
 //
 // Quién lo usa: el candado al ACTIVAR (lib/tope-automations.ts → `topeAlActivar`), el de GUARDAR los pasos (lib/nutricion.ts →
-// `setSecuenciaPasos`, con `setterNuevoSoloPro`), las plantillas de un Esencial (lib/plantilla-crear.ts: «Sola» nace «Para
+// `setSecuenciaPasos`, con `setterNuevoSoloPro`), las plantillas de un Essential (lib/plantilla-crear.ts: «Sola» nace «Para
 // aprobar») y la pantalla (app/automations/EditorPasoIA.tsx: «Sola» con el candado).
 // ⚠️ PURO y sin `server-only`: lo importan el lienzo (cliente), el motor y los tests.
 // =============================================================================
@@ -73,7 +73,7 @@ export function filaConSetterIA(pasos: unknown, escenarios: ReadonlyArray<{ cont
 }
 
 /**
- * ¿Guardar `nuevos` sobre `antes` SUMA el setter? Un candado frena lo NUEVO: lo que ya tenía (un Pro que pasó a Esencial) se
+ * ¿Guardar `nuevos` sobre `antes` SUMA el setter? Un candado frena lo NUEVO: lo que ya tenía (un Pro que pasó a Essential) se
  * puede seguir editando; lo que se frena es crearlo donde no estaba.
  */
 export const sumaSetterIA = (antes: unknown, nuevos: unknown): boolean =>
@@ -81,8 +81,8 @@ export const sumaSetterIA = (antes: unknown, nuevos: unknown): boolean =>
 
 /**
  * Para lo que CREA MaKo (una plantilla, «Crear con IA»): guarda los pasos con `guardar` (la puerta, `setSecuenciaPasos`) y, si
- * la puerta frena el setter (MaKo Esencial), los guarda otra vez SIN el setter (`sinSetterIA`). Lo creado nace entero y MaKo deja
- * sus respuestas para que una persona las mande, en vez de no crearse. Quién es Esencial lo decide la puerta, no esto. Cualquier
+ * la puerta frena el setter (MaKo Essential), los guarda otra vez SIN el setter (`sinSetterIA`). Lo creado nace entero y MaKo deja
+ * sus respuestas para que una persona las mande, en vez de no crearse. Quién es Essential lo decide la puerta, no esto. Cualquier
  * otro rechazo sigue como siempre. NO va en lo que publica una persona (el lienzo, la API): ahí el candado se dice.
  */
 export async function guardarSinSetterSiFrena<P extends PasoGrafo>(pasos: readonly P[], guardar: (ps: P[]) => Promise<void>): Promise<void> {
@@ -97,7 +97,7 @@ export async function guardarSinSetterSiFrena<P extends PasoGrafo>(pasos: readon
 /**
  * Los mismos pasos SIN el setter: cada «Sola» pasa a «Para aprobar» (`conLibertad`, la única que escribe la libertad) y cada
  * «MaKo contesta» que salía solo queda para aprobar (`revisar: true`). Lo demás, tal cual. Lo usan las plantillas de un
- * Esencial (lib/plantilla-crear.ts): la plantilla nace entera y MaKo deja sus respuestas para que una persona las mande.
+ * Essential (lib/plantilla-crear.ts): la plantilla nace entera y MaKo deja sus respuestas para que una persona las mande.
  */
 export function sinSetterIA<P extends PasoGrafo>(pasos: readonly P[]): P[] {
   if (!pasos.every(esPaso)) return [...pasos];

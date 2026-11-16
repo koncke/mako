@@ -21,7 +21,7 @@
 // app/ai-avatar/acceso.ts → `FUNCIONES_SOLO_PRO`, 'ai-avatar'), no uno nuevo.
 // ⚠️ ESTA ERA LA PUERTA QUE FALTABA: el 14/11 se cerró la tab AI Avatar y se dio por
 //    cerrada la función, pero el VIDEO EDITOR está abierto en los dos planes
-//    (`TABS_SOLO_PRO` sólo tiene 'closing-analyst'), así que un Esencial entraba por
+//    (`TABS_SOLO_PRO` sólo tiene 'closing-analyst'), así que un Essential entraba por
 //    Biblioteca › «Avatar de IA», elegía un look de su historial, escribía el guion y
 //    filmaba el video gastando créditos de Flow, sin pasar nunca por /ai-avatar. El
 //    candado va en la FUNCIÓN QUE HACE LA COSA (AGENTS.md: «no en la pantalla»), o
@@ -55,7 +55,7 @@ const NO_PUEDE = 'Solo el administrador del workspace puede generar avatares.';
 
 /**
  * ⚠️ SIN CANDADO, A PROPÓSITO: esto LEE (los escenarios que ya están en su historial, el acento y si tiene fotos). Lo que es
- * de Pro es GENERAR, y cerrar la lectura le deja a un Esencial una biblioteca vacía con un error en vez de sus propios
+ * de Pro es GENERAR, y cerrar la lectura le deja a un Essential una biblioteca vacía con un error en vez de sus propios
  * avatares — el mismo daño que hizo el candado en la puerta común de app/ai-avatar/actions.ts, que le borró la galería de
  * fotos a la guía del chat. Como dice el test de la tab: entra, los ve, y lo que no puede es generar.
  */

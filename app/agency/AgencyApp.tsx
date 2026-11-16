@@ -315,11 +315,11 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
       )}
 
       {planAConfirmar && (
-        <ConfirmDialog titulo={`¿Pasar ${planAConfirmar.nombre} a MaKo ${planAConfirmar.plan === 'pro' ? 'Pro' : 'Esencial'}?`}
+        <ConfirmDialog titulo={`¿Pasar ${planAConfirmar.nombre} a MaKo ${planAConfirmar.plan === 'pro' ? 'Pro' : 'Essential'}?`}
           detalle={planAConfirmar.plan === 'pro'
             ? 'Con tarjeta se cobra hoy la diferencia de este mes y tiene Pro en el acto. Con Mercado Pago, o si todavía no se cobró su renovación, tiene Pro desde su próximo cobro, que ya es al precio de Pro.'
-            : 'Pasa a Esencial en el acto, con sus topes, y desde el próximo cobro se cobra el precio de Esencial.'}
-          confirmLabel={planAConfirmar.plan === 'pro' ? 'Pasar a Pro' : 'Pasar a Esencial'}
+            : 'Pasa a Essential en el acto, con sus topes, y desde el próximo cobro se cobra el precio de Essential.'}
+          confirmLabel={planAConfirmar.plan === 'pro' ? 'Pasar a Pro' : 'Pasar a Essential'}
           onCancel={() => setPlanAConfirmar(null)} onConfirm={() => void cambiarPlan(planAConfirmar.ws, planAConfirmar.plan)} />
       )}
 
@@ -351,14 +351,14 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
                 {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && abierta.planElegido && (
                   <button type="button" className="ad-acc" style={{ marginLeft: 10 }} disabled={cambiandoPlan}
                     onClick={() => setPlanAConfirmar({ ws: abierta.ws, plan: abierta.planId === 'pro' ? 'esencial' : 'pro', nombre: abierta.nombre })}>
-                    {cambiandoPlan ? 'Cambiando…' : abierta.planId === 'pro' ? 'Pasar a Esencial' : 'Pasar a Pro'}
+                    {cambiandoPlan ? 'Cambiando…' : abierta.planId === 'pro' ? 'Pasar a Essential' : 'Pasar a Pro'}
                   </button>
                 )}
                 {/* Las de antes del 29/10, sin el plan elegido, siguen como Pro hasta que la agencia lo elija (lib/plan-esencial-reglas.ts). */}
                 {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && !abierta.planElegido && (['esencial', 'pro'] as const).map((pl) => (
                   <button key={pl} type="button" className="ad-acc" style={{ marginLeft: 10 }} disabled={cambiandoPlan}
                     onClick={() => setPlanAConfirmar({ ws: abierta.ws, plan: pl, nombre: abierta.nombre })}>
-                    {cambiandoPlan ? 'Cambiando…' : pl === 'pro' ? 'Elegir Pro' : 'Elegir Esencial'}
+                    {cambiandoPlan ? 'Cambiando…' : pl === 'pro' ? 'Elegir Pro' : 'Elegir Essential'}
                   </button>
                 ))}
               </dd></div>

@@ -47,7 +47,7 @@ export function ModalNuevoCliente({ leadId = null, nombre: nombreInicial = '', e
   const [nombre, setNombre] = useState(nombreInicial);
   const [email, setEmail] = useState(emailInicial ?? '');
   const [paga, setPaga] = useState<QuienPaga>(pagaSugerida);
-  // Su plan (29/10/2026, Thiago: «son los mismos planes, de 47 y 97»): Esencial o Pro, con los topes de cada uno.
+  // Su plan (29/10/2026, Thiago: «son los mismos planes, de 47 y 97»): Essential o Pro, con los topes de cada uno.
   const [plan, setPlan] = useState<'esencial' | 'pro'>('esencial');
   const [ya, setYa] = useState<number | null>(null);
   const [mal, setMal] = useState('');
@@ -164,7 +164,7 @@ export function ModalNuevoCliente({ leadId = null, nombre: nombreInicial = '', e
           <legend className="nc-lab">Su plan</legend>
           <label className="nc-op" data-on={plan === 'esencial'}>
             <input type="radio" name="nc-plan" checked={plan === 'esencial'} onChange={() => setPlan('esencial')} />
-            <span><b>MaKo Esencial</b><small>{`US$ 47 al mes. ${TOPES.completo['crm.funnels']} funnel, ${TOPES.completo['chats.lineas_whatsapp']} WhatsApp, ${TOPES.completo['automations.activas']} automatizaciones y ${TOPES.completo['web.landings_publicadas']} ${TOPES.completo['web.landings_publicadas'] === 1 ? 'landing' : 'landings'}.`}</small></span>
+            <span><b>MaKo Essential</b><small>{`US$ 47 al mes. ${TOPES.completo['crm.funnels']} funnel, ${TOPES.completo['chats.lineas_whatsapp']} WhatsApp, ${TOPES.completo['automations.activas']} automatizaciones y ${TOPES.completo['web.landings_publicadas']} ${TOPES.completo['web.landings_publicadas'] === 1 ? 'landing' : 'landings'}.`}</small></span>
           </label>
           <label className="nc-op" data-on={plan === 'pro'}>
             <input type="radio" name="nc-plan" checked={plan === 'pro'} onChange={() => setPlan('pro')} />

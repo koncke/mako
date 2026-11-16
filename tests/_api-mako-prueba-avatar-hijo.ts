@@ -10,7 +10,7 @@
 // `ver_mi_prueba` y la que dibujan el cartel y la franja, o sea lo que el dueño LEE como «lo que incluye mi prueba».
 //
 // Y desde el 15/11/2026, el CANDADO DEL AVATAR en la API: corre de verdad `ver_avatares` y `ver_plantillas_avatar`
-// (lib/api-mako/areas/video.run.ts, los RUNNERS reales) para un Esencial en prueba, un Esencial que ya paga, un Pro en prueba
+// (lib/api-mako/areas/video.run.ts, los RUNNERS reales) para un Essential en prueba, un Essential que ya paga, un Pro en prueba
 // y el ws1 sin candado. Lo que se mide es la RESPUESTA, no el fuente: si la galería viaja, si viene `cerrado_por_su_plan` y si
 // las plantillas contestan el texto de Pro.
 
@@ -39,22 +39,22 @@ const negocio = (id: number, nombre: string, capa: string) => ({ id, nombre, cap
 db.workspaces = [
   negocio(PLATAFORMA, 'MaKo', 'superadmin'),
   negocio(1, 'Mauricio (ws1)', 'completo'),
-  negocio(40, 'Esencial en prueba', 'completo'),
+  negocio(40, 'Essential en prueba', 'completo'),
   negocio(41, 'Pro en prueba', 'agencia'),
   negocio(42, 'Subio a Pro en la prueba', 'agencia'),
-  negocio(43, 'Esencial que ya paga', 'completo'),
+  negocio(43, 'Essential que ya paga', 'completo'),
 ];
 /** La suscripción que `FILTRO_SUSCRIPCION_DE_MAKO` reconoce como PRUEBA autorizada y sin cobrar. */
 const prueba = (alta_ws: number, capa: 'completo' | 'agencia') => ({
   id: 100 + alta_ws, workspace_id: PLATAFORMA, alta_ws, tipo: 'suscripcion', estado: 'pendiente',
   suscripcion_estado: 'autorizada', creado_por: capa === 'agencia' ? 'planes:pro:prueba' : 'planes:esencial:prueba',
   alta_capa: capa, pagado_at: null, inicio_at: enDias(5),
-  monto: capa === 'agencia' ? 97 : 47, moneda: 'USD', concepto: `MaKo ${capa === 'agencia' ? 'Pro' : 'Esencial'} · mensual`,
+  monto: capa === 'agencia' ? 97 : 47, moneda: 'USD', concepto: `MaKo ${capa === 'agencia' ? 'Pro' : 'Essential'} · mensual`,
 });
 db.cobros = [
   prueba(1, 'completo'), prueba(40, 'completo'), prueba(41, 'agencia'),
   // EL QUE SUBIÓ A PRO DURANTE SU PRUEBA: capa `agencia` hoy, `alta_capa` todavía `completo`. Es el caso que distingue
-  // «la capa que tiene hoy» de «la que se le vendió»: con la vendida parecería un Esencial y se le escondería su tope.
+  // «la capa que tiene hoy» de «la que se le vendió»: con la vendida parecería un Essential y se le escondería su tope.
   prueba(42, 'completo'),
   // El control fuera de la prueba: una suscripción PAGADA (ya no está en prueba, y los topes se van solos).
   { ...prueba(43, 'completo'), estado: 'pagado', pagado_at: enDias(-3), inicio_at: null },
@@ -152,7 +152,7 @@ async function main() {
     return [ws, 'error' in r ? r : {
       // ⚠️ LAS CLAVES DE LA RESPUESTA ENTERA, ORDENADAS, Y NO «¿ESTÁ ESTA CLAVE?» (15/11/2026): mirar sólo si viene
       // `temas_de_la_galeria` medía EL NOMBRE DE LA CLAVE, no que la oferta no viaje — renombrándola a `temas_sugeridos` el
-      // test quedaba verde con los 33 temas viajando a un Esencial (medido con estos mismos runners). Con el conjunto exacto,
+      // test quedaba verde con los 33 temas viajando a un Essential (medido con estos mismos runners). Con el conjunto exacto,
       // cualquier clave nueva que se le agregue a la respuesta de un negocio con la función cerrada da rojo y se decide.
       claves: Object.keys(r.json).sort(),
       // Cuántos looks le llegan (lo que YA es suyo), cuántos temas (la OFERTA) y el texto del candado.

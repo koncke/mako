@@ -94,7 +94,7 @@ export async function requireCapa(nav: string, opts?: { gateOnboarding?: boolean
   // (Con el cartel APAGADO, lib/api-tab.ts, vuelve a la casa del plan.)
   if (!tabEnCapa(nav, capa)) redirect(await rutaConWs(CORTE_POR_PLAN_PRENDIDO ? `/no-esta-en-tu-plan?tab=${encodeURIComponent(nav)}` : homeDeCapa(capa)));
   // MaKo ESENCIAL (23/10/2026, docs/ofertas-mako.md): las tabs de Pro se ven con candado y la pantalla dice «Pasar a Pro». SÓLO
-  // a quien MaKo le cobra el Esencial por la pasarela (lib/plan-esencial-reglas.ts); ante la duda, sin candado. Va prendido
+  // a quien MaKo le cobra el Essential por la pasarela (lib/plan-esencial-reglas.ts); ante la duda, sin candado. Va prendido
   // aunque el cartel de la capa esté apagado: acá la tab EXISTE en su capa, lo que falta es el plan.
   if (esNavSoloPro(nav) && (await esEsencialDeLaSesion())) redirect(await rutaConWs(`/no-esta-en-tu-plan?tab=${encodeURIComponent(nav)}&pro=1`));
   // El onboarding se gatea ACÁ y no en cada página. Antes quedaba librado a que

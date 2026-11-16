@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function AiAvatarPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireAiAvatar();
-  // SÓLO MaKo Pro (14/11/2026, ./acceso.ts): al Esencial, el cartel EN LUGAR del estudio, antes de leer nada. Nada se borra:
+  // SÓLO MaKo Pro (14/11/2026, ./acceso.ts): al Essential, el cartel EN LUGAR del estudio, antes de leer nada. Nada se borra:
   // con Pro vuelve tal cual estaba. La defensa de verdad es la puerta de las actions (./actions.ts); esto es lo que se ve.
   const pro = await candadoDeAiAvatar();
   if (pro) return <Pagina ancho="completo" densidad="compacta"><CartelSoloPro texto={pro} /></Pagina>;

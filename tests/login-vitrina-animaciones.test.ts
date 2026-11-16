@@ -21,7 +21,7 @@ const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 
 test('los clips del login SON los de la portada: se derivan de TARJETAS_PORTADA, no se copian', () => {
-  const tarjeta = leer('app/login/_ui/TarjetaLogin.tsx');
+  const tarjeta = leer('app/_components/clips-portada.ts');
   assert.match(tarjeta, /CLIPS_VITRINA[^=]*=\s*TARJETAS_PORTADA\.flatMap/, 'una lista a mano se separa de la portada el primer día que cambie una grabación');
   // Y hay de dónde sacarlos: si la portada se quedara sin grabaciones, el panel quedaría vacío sin que nadie lo note.
   const conVideo = TARJETAS_PORTADA.filter((t) => typeof t.visual === 'object' && 'video' in t.visual);
@@ -32,10 +32,10 @@ test('cada grabación tiene su corte medido: si no, se ve la vuelta a su arranqu
   // Las grabaciones de la portada terminan volviendo a su primer cuadro (allá se repiten solas). En el login eso se veía
   // como que «por un segundo se reinicia la animación original» (Martín, 15/11). Un clip nuevo en la portada entra solo
   // al login, pero su corte hay que mirarlo: este test es el que avisa.
-  const fuente = leer('app/login/_ui/TarjetaLogin.tsx');
+  const fuente = leer('app/_components/clips-portada.ts');
   const conVideo = TARJETAS_PORTADA.flatMap((t) => (typeof t.visual === 'object' && 'video' in t.visual ? [t.visual.video] : []));
   const sinMedir = conVideo.filter((v) => !fuente.includes(`'${v}':`));
-  assert.deepEqual(sinMedir, [], `sin corte medido en HASTA_DONDE (TarjetaLogin.tsx): ${sinMedir.join(', ')}`);
+  assert.deepEqual(sinMedir, [], `sin corte medido en HASTA_DONDE (app/_components/clips-portada.ts): ${sinMedir.join(', ')}`);
 });
 
 test('en el teléfono no se baja ningún video: el corte del componente y el de la hoja son el MISMO', () => {

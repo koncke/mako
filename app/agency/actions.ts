@@ -121,7 +121,7 @@ export async function darDeBajaClienteAction(clienteWs: number): Promise<{ ok: t
   }
 }
 
-/** Cambiar el plan (Esencial ↔ Pro) de la cuenta de un cliente (29/10/2026, lib/agencia-plan.ts): sólo el admin de la agencia. */
+/** Cambiar el plan (Essential ↔ Pro) de la cuenta de un cliente (29/10/2026, lib/agencia-plan.ts): sólo el admin de la agencia. */
 export async function cambiarPlanClienteAction(clienteWs: number, plan: string): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
   try {
     const agenciaWs = await adminDeWorkspaceActual();

@@ -135,7 +135,7 @@ test('(a) cada llamador de `setSecuenciaActiva` que puede prender maneja la dupl
   assert.match(doer, /proponer\('nutricion_toggle', \{ secuenciaId, activa, \.\.\.\(otra \? \{ aunqueDuplique: true \} : \{\}\) \},/);
   // (23/10/2026: con `ws`, para el tope del plan que pregunta `setSecuenciaActiva`; MaKo por WhatsApp corre sin sesión.)
   assert.match(doer, /await setSecuenciaActiva\(id, activa, \{ aunqueDuplique: payload\.aunqueDuplique === true, ws \}\);/);
-  // Y EL TOPE DEL PLAN (MaKo Esencial: hasta 3 activas) lo pregunta la PUERTA, antes de validar: cualquier camino nuevo lo hereda.
+  // Y EL TOPE DEL PLAN (MaKo Essential: hasta 3 activas) lo pregunta la PUERTA, antes de validar: cualquier camino nuevo lo hereda.
   const puerta = cuerpo(FUENTE.get('lib/nutricion.ts')!, 'export async function setSecuenciaActiva(');
   assert.ok(puerta.indexOf('topeAlActivar(id, o.ws)') > 0 && puerta.indexOf('topeAlActivar(id, o.ws)') < puerta.indexOf('await validarActivacion(id)'), 'el tope del plan no está en la puerta, antes de validar');
   for (const f of ['app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuencias/route.ts', 'lib/mako-doer-acciones.ts']) {

@@ -1,12 +1,12 @@
 // =============================================================================
 // topes-plan — lo que puede usar cada plan de MaKo (la tabla; hacerla cumplir es de cada área)
 // =============================================================================
-// Las ofertas del 23/10/2026 (docs/ofertas-mako.md): Esencial y Pro se diferencian por TOPES, no por funciones escondidas
+// Las ofertas del 23/10/2026 (docs/ofertas-mako.md): Essential y Pro se diferencian por TOPES, no por funciones escondidas
 // («el cliente ve todo MaKo desde el primer día»), copiado de Systeme.io. Esto es la tabla, declarativa como la de las
 // tabs por capa (lib/capas.ts): el chat de cada área la LEE en el punto donde se crea la cosa (`topeDe(capa, 'crm.leads')`)
 // y dice «llegaste al tope de tu plan» con el link a /planes.
 //
-// La clave es la CAPA (lo que el workspace ya tiene): Esencial = `completo`, Pro = `agencia` (lib/planes-mako.ts, en la rama
+// La clave es la CAPA (lo que el workspace ya tiene): Essential = `completo`, Pro = `agencia` (lib/planes-mako.ts, en la rama
 // de la suscripción). Un negocio sin plan vendido por la pasarela (el ws1, los acuerdos a mano) también tiene capa `completo`
 // y NO se le aplican topes: quien hace cumplir uno pregunta primero si MaKo le cobra el plan por la pasarela
 // (`suscripcionDeMakoDe(ws) != null`, lib/cobros.ts).
@@ -17,7 +17,7 @@ import type { CapaId } from './capas';
 export type Tope =
   | 'crm.funnels' | 'crm.leads' | 'chats.lineas_whatsapp' | 'automations.activas' | 'web.landings_publicadas'
   | 'web.dominios' | 'cobros.cuentas' | 'equipo.usuarios'
-  // El media buyer con IA (25/10/2026, el Cerebro): Esencial lo tiene en modo «propone», con 2 recomendaciones por día y sin
+  // El media buyer con IA (25/10/2026, el Cerebro): Essential lo tiene en modo «propone», con 2 recomendaciones por día y sin
   // piloto automático (el cupo del plan de entrada de AdAmigo). Lo hace cumplir el chat «Media Buyer»; la vitrina lo lee acá.
   | 'ads.recomendaciones_dia'
   // 14/11/2026 (Martín: «Tu competencia solamente debería poder scrapear a una persona de la competencia, el de 97 ilimitado»):
@@ -28,7 +28,7 @@ export type Tope =
 
 /** null = sin tope. */
 export const TOPES: Readonly<Record<'completo' | 'agencia', Readonly<Record<Tope, number | null>>>> = {
-  // MaKo Esencial (US$47)
+  // MaKo Essential (US$47)
   completo: {
     // 14/11/2026, noche (Martín, mirando /planes): 2 automatizaciones (eran 3) y SIN dominio propio (era 1; 0 = no se conecta).
     'crm.funnels': 1, 'crm.leads': 2000, 'chats.lineas_whatsapp': 1, 'automations.activas': 2,
@@ -60,7 +60,7 @@ export const TABS_SOLO_PRO = ['closing-analyst'] as const;
 /**
  * Lo que es SÓLO de Pro y no es una tab (27/10/2026, Martín en la llamada con Leila, Fathom 876470842-15): traer los contactos
  * de un grupo de WhatsApp (el scraper, app/crm/grupo-wa-actions.ts y la API) y hacerse MaKo Partner (`hacermePartner`,
- * lib/partners-programa.ts). Un Esencial que paga por la pasarela las ve con el candado y «Pasar a Pro» (`textoSoloPro`); la
+ * lib/partners-programa.ts). Un Essential que paga por la pasarela las ve con el candado y «Pasar a Pro» (`textoSoloPro`); la
  * vitrina lo dice en la tabla (lib/planes-comparacion.ts). Quien YA era partner antes del 27/10 sigue siéndolo.
  */
 // MaKo Partners salió de acá el 29/10/2026: cualquier plan es partner (la llamada con Thiago, «una persona refiere a MaKo», y
@@ -68,7 +68,7 @@ export const TABS_SOLO_PRO = ['closing-analyst'] as const;
 // 14/11/2026 (Martín, el relevo de lo que hace MaKo: «seas más limitado en el de 47»): copiar la landing de un competidor
 // (Replicar del Web Generator y «Copiar su sitio» de Competitor Spy), la IA de los editores de imagen y de video, y la comunidad
 // del Classroom. Cada una la hace cumplir su área con `esEsencialDe` / `esEsencialDeLaSesion` y dice `textoSoloPro`.
-// 14/11/2026, noche (Martín): el setter con IA y los pilotos automáticos de Instagram y de YouTube, tampoco en Esencial (el de los
+// 14/11/2026, noche (Martín): el setter con IA y los pilotos automáticos de Instagram y de YouTube, tampoco en Essential (el de los
 // anuncios ya era de Pro: lib/media-buyer/store.ts, `PlanSinPiloto`).
 // ── 14/11/2026, LAS TRES ÚLTIMAS (Martín, sobre /planes: «el de 47 debería estar bien limitado y restrictivo. En cambio el de 97 ya
 // podés generar avatares de IA, podés editar videos, podés replicar landing… La idea es que compren el de 97, no el de 47»; el relevo

@@ -44,7 +44,7 @@ export type ResumenCorrida = {
   agentes?: string[];
   /** Protect: lo que se rompió en la cuenta (protect.ts). Queda en `ultimaCorridaInfo` y la pantalla lo muestra. */
   alertas?: Alerta[];
-  /** Las que el motor vio y no entraron en el cupo del plan de hoy (MaKo Esencial: lib/media-buyer/plan.ts). */
+  /** Las que el motor vio y no entraron en el cupo del plan de hoy (MaKo Essential: lib/media-buyer/plan.ts). */
   fueraDelCupo?: number;
   /**
    * Lo que el agente VIO en la cuenta: campañas vivas y, de ellas, prendidas. Van SÓLO con la corrida terminada (estado
@@ -128,7 +128,7 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
 
   // Las variaciones se escriben ANTES de guardar: una propuesta de variaciones sin variaciones no se puede lanzar. Sólo las
   // que todavía no existen (misma clave = ya se escribieron hoy, no se gasta IA dos veces).
-  // EL CUPO DEL PLAN (Esencial: 2 por día) se mira ANTES de escribirlas: lo que no entra hoy no gasta IA, y mañana el motor
+  // EL CUPO DEL PLAN (Essential: 2 por día) se mira ANTES de escribirlas: lo que no entra hoy no gasta IA, y mañana el motor
   // lo vuelve a ver si sigue igual. Entra primero lo que cuida la plata (plan.ts → ordenDelCupo).
   const yaGuardadas = new Set(decisiones.map((d) => d.clave));
   // Los agentes PROPIOS (una regla escrita en palabras, agentes-propios.ts): la IA del negocio la mira contra la cuenta y
@@ -184,7 +184,7 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
   let lanzadas = 0;
   const fallidas: string[] = [];
   // Sólo lo de las tácticas AUTOMÁTICAS (tacticas.ts: la táctica elegida así, o todas con el piloto general). Un negocio que
-  // bajó a Esencial con el piloto prendido queda en «propone» (resolverTacticas con `pilotoPermitido`). La fecha de fin se
+  // bajó a Essential con el piloto prendido queda en «propone» (resolverTacticas con `pilotoPermitido`). La fecha de fin se
   // lanza SIEMPRE (también en «propone» y en un «mirá la cuenta» por chat): es la regla que puso la persona, no algo que MaKo
   // recomienda.
   const automaticas = [

@@ -376,7 +376,7 @@ test('9. el cableado: el chat del editor lleva el hueco del velo y monta la guí
   // ítem queda (`fueraDeLaBarra`, su key es contrato) y la RUTA SIGUE: la abren «Tu personaje con IA» de Video y los botones de la
   // biblioteca de anuncios, la guía de video, los carruseles y el CoPilot.
   // VIDEO ES DE LOS DOS PLANES desde el 14/11/2026 (Martín: «el editor de imágenes y editor de videos sí deberían estar disponibles
-  // para la versión de 47»): un Esencial entra a Video, y lo de Pro es su IA (lib/editores-ia-pro.ts,
+  // para la versión de 47»): un Essential entra a Video, y lo de Pro es su IA (lib/editores-ia-pro.ts,
   // tests/editores-ia-solo-pro.test.ts). Hasta ese día esto exigía que /ai-avatar no mandara a Video «mientras Video sea sólo de Pro».
   const create = FAMILIAS.find((f) => f.key === 'create');
   const items = (create?.bloques ?? []).flat();
@@ -384,7 +384,7 @@ test('9. el cableado: el chat del editor lleva el hueco del velo y monta la guí
   const avatar = items.find((it) => it.key === 'ai-avatar');
   assert.ok(avatar, 'el ítem de AI Avatar sigue: su key es contrato');
   assert.equal(avatar?.fueraDeLaBarra, true, 'y no se dibuja');
-  assert.equal(NAV_SOLO_PRO.has('video-editor'), false, 'Video volvió a ser sólo de Pro: un Esencial rebota de la tab entera');
+  assert.equal(NAV_SOLO_PRO.has('video-editor'), false, 'Video volvió a ser sólo de Pro: un Essential rebota de la tab entera');
 });
 
 test('10. «el inicio» del editor es la lista de proyectos, y «Replicar» no arma dos', () => {

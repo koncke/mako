@@ -346,7 +346,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos, onCerrar }: {
         <p style={{ ...nota, padding: 0 }}>{err ?? 'Conecta una línea de WhatsApp para extraer los contactos de un grupo.'}</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={onAtras} style={btnAtras}>← Atrás</button>
-          {/* El candado de Pro (27/10/2026, ./grupo-wa-actions.ts): un Esencial lo ve con «Pasar a Pro», que lleva a «Tu plan».
+          {/* El candado de Pro (27/10/2026, ./grupo-wa-actions.ts): un Essential lo ve con «Pasar a Pro», que lleva a «Tu plan».
               El cliente de una agencia, no (6/11/2026, #494): el cambio de plan se lo pide a su agencia, que ya se lo paga. */}
           {pasarAPro && <CtaPasarAPro><a href={pasarAPro} style={btnPro}>{ROTULO_PASAR_A_PRO}</a></CtaPasarAPro>}
         </div>

@@ -61,7 +61,7 @@ import type { LandingCompetencia } from './tipos';
 //    subtítulos, quitar el ruido, buscar en Pexels y la línea de tiempo entera. Por eso los cuatro chips del hero y
 //    «Te muestra qué grabar» (los outliers del editor: `rutaReplicar` arma el proyecto y no pasa por ningún candado) van
 //    sin aviso.
-// ⚠️ «Tu personaje con IA» (el avatar) está cerrado en Esencial pero TODAVÍA NO SE VENDE (`FUNCIONES_TODAVIA_NO_VENDIDAS`,
+// ⚠️ «Tu personaje con IA» (el avatar) está cerrado en Essential pero TODAVÍA NO SE VENDE (`FUNCIONES_TODAVIA_NO_VENDIDAS`,
 //    por `AI_AVATAR_SE_VENDE`): sale sin aviso a propósito, porque decir «Con MaKo Pro» ahí sería empezar a venderlo.
 //    «EL AVISO APARECE SOLO» VALE SÓLO DONDE ESTÁ LA LLAMADA, y hoy está en UNA: el cuerpo de la tarjeta «Tu personaje con
 //    IA» de «Y todo lo que rodea al video», con `soloPro('ai-avatar')`. ESTA PÁGINA NOMBRA EL AVATAR EN CINCO LUGARES y el
@@ -134,7 +134,7 @@ export const LANDING_VIDEO: LandingCompetencia = {
         // pausas, los subtítulos y el volumen corren en el navegador, sin candado) y UNA cerrada (el B-roll en `elegir`), con
         // el aviso al final, así que el de US$47 leía que los subtítulos son de Pro. Es el mismo defecto de «Pone los
         // subtítulos y el B-roll» de más abajo, y se arregla igual: lo cerrado —la pasada automática y el B-roll— se queda en
-        // su frase con el aviso pegado, y lo que un Esencial SÍ tiene sale DESPUÉS del aviso, donde ya no lo pinta.
+        // su frase con el aviso pegado, y lo que un Essential SÍ tiene sale DESPUÉS del aviso, donde ya no lo pinta.
         texto: `De una pasada: la <strong>Edición automática</strong> te lo devuelve sin pausas, subtitulado, con el B-roll donde hace falta y el audio parejo.${soloPro('ia-editores')} Los subtítulos, el volumen y los cortes también los pones tú a mano en la línea de tiempo.`,
       },
     },

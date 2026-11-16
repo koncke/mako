@@ -3,13 +3,13 @@
 // =============================================================================
 // Martín: «el editor de imágenes y editor de videos sí deberían estar disponibles para la versión de 47, pero no deberían
 // estar disponibles el tema de editar con inteligencia artificial». Hasta ese día `image-editor` y `video-editor` estaban en
-// `TABS_SOLO_PRO` / `NAV_SOLO_PRO`: un Esencial rebotaba de la tab entera. Lo que se cuida acá:
+// `TABS_SOLO_PRO` / `NAV_SOLO_PRO`: un Essential rebotaba de la tab entera. Lo que se cuida acá:
 //   1. la regla: las tabs salieron, 'ia-editores' es la función de Pro y su texto;
 //   2. el editor SIN IA no tiene candado de plan: las puertas de las páginas, de su API y de la API de MaKo son las de toda
 //      tab, y ninguna ruta del editor que no llame a la IA mira el plan;
 //   3. el candado del SERVIDOR (lib/editores-ia-pro.ts) en CADA ruta que llama a la IA, antes de llamarla y después de la
 //      puerta (401 / 404 primero); y en la API de MaKo, al proponer y al ejecutar las operaciones con IA;
-//   4. la PANTALLA: un Esencial ve el candado con «Pasar a Pro» en cada entrada a la IA (el chat de Image, el de Video, la
+//   4. la PANTALLA: un Essential ve el candado con «Pasar a Pro» en cada entrada a la IA (el chat de Image, el de Video, la
 //      «Edición automática», «Clips mágicos», «B-roll de MaKo», «Editar» un ejemplo y «Replicar en Image» de Spy), y el primer
 //      403 del servidor también lo prende (app/_components/solo-pro.ts).
 //
@@ -56,7 +56,7 @@ const CANDADO_RUTA = /const pro = await candadoIaDeEditores\(\);\n\s*if \(pro\) 
 test('1 · la regla: los editores salieron de lo que es sólo de Pro, y su IA entró, con su texto', () => {
   for (const t of ['image-editor', 'video-editor']) {
     assert.equal((TABS_SOLO_PRO as readonly string[]).includes(t), false, `${t} sigue en TABS_SOLO_PRO: la vitrina lo vende como sólo de Pro`);
-    assert.equal(NAV_SOLO_PRO.has(t), false, `${t} sigue en NAV_SOLO_PRO: un Esencial rebota de la tab entera`);
+    assert.equal(NAV_SOLO_PRO.has(t), false, `${t} sigue en NAV_SOLO_PRO: un Essential rebota de la tab entera`);
     assert.equal(esNavSoloPro(t), false);
   }
   assert.ok((FUNCIONES_SOLO_PRO as readonly string[]).includes('ia-editores'));
@@ -91,7 +91,7 @@ test('2 · el editor SIN IA no tiene candado de plan: páginas, su API y la API 
   }
 });
 
-test('3 · el candado del servidor: sólo a un Esencial, 403 con el texto y «Pasar a Pro» a «Tu plan»', () => {
+test('3 · el candado del servidor: sólo a un Essential, 403 con el texto y «Pasar a Pro» a «Tu plan»', () => {
   const lib = codigo('lib/editores-ia-pro.ts');
   assert.match(lib, /^import 'server-only';$/m);
   const ruta = lib.slice(lib.indexOf('export async function candadoIaDeEditores('), lib.indexOf('export async function candadoIaDeEditoresDe('));
@@ -179,13 +179,13 @@ test('7 · cada entrada a la IA muestra el candado, y su pedido lo prende con el
   const image = codigo('app/image-editor/mako/chat/PanelMakoIA.tsx');
   assert.match(image, /const soloPro = useSoloPro\('ia-editores'\);/);
   assert.match(image, /if \(soloPro\) \{\n\s*return \(\n\s*<div className=\{styles\.panel\}>[\s\S]{0,700}?<CandadoSoloPro funcion="ia-editores"/);
-  assert.match(image, /if \(plan !== false \|\| soloPro\) return;\n[\s\S]{0,400}?pedirEdicion\(editorRef\.current, PEDIDO_ESCRIBIR_PLANTILLA/, '«Usar plantilla» escribe con IA a un Esencial');
+  assert.match(image, /if \(plan !== false \|\| soloPro\) return;\n[\s\S]{0,400}?pedirEdicion\(editorRef\.current, PEDIDO_ESCRIBIR_PLANTILLA/, '«Usar plantilla» escribe con IA a un Essential');
   assert.match(codigo('app/image-editor/mako/chat/acciones.ts'), /if \(res\.status === 403 && esRespuestaSoloPro\(json\)\) marcarSoloPro\('ia-editores'\);/);
   // El chat «Editar con IA» de Video: la caja y las píldoras, por el candado (el hilo y los subtítulos, sin IA, siguen).
   const video = codigo('app/video-editor/_opencut/chat/PanelChat.tsx');
   assert.match(video, /const soloPro = useSoloPro\("ia-editores"\);/);
   assert.match(video, /\{soloPro \? \(\n\s*<footer[^>]*>\n\s*<CandadoSoloPro funcion="ia-editores" \/>/);
-  assert.equal(video.match(/!guiaHablando && !soloPro && \(/g)?.length, 2, 'las píldoras de sugerencias siguen a la vista de un Esencial');
+  assert.equal(video.match(/!guiaHablando && !soloPro && \(/g)?.length, 2, 'las píldoras de sugerencias siguen a la vista de un Essential');
   assert.match(video, /if \(res\.status === 403 && esRespuestaSoloPro\(json\)\) marcarSoloPro\("ia-editores"\);/);
   // La «Edición automática» corre en el navegador: el candado está en `correrEnjambre` (lo PRIMERO), en el botón del panel y
   // en el de la barra (abre el panel con el candado, no un aviso que se va).
@@ -210,7 +210,7 @@ test('7 · cada entrada a la IA muestra el candado, y su pedido lo prende con el
   // «Replicar en Image» de Competitor Spy: el 403 de Pro NO es «Tu plan no incluye Image» (Image es de los dos planes).
   const spy = codigo('app/competitor-spy/DesarmarImagen.tsx');
   const pro = spy.indexOf("if (r.status === 403 && esRespuestaSoloPro(j)) { marcarSoloPro('ia-editores'); return; }");
-  assert.ok(pro > 0 && pro < spy.indexOf("'Tu plan no incluye Image.'"), 'un Esencial leía «Tu plan no incluye Image.»');
+  assert.ok(pro > 0 && pro < spy.indexOf("'Tu plan no incluye Image.'"), 'un Essential leía «Tu plan no incluye Image.»');
   assert.match(spy, /: soloPro\n\s*\? <CandadoSoloPro funcion="ia-editores" \/>\n\s*: <button[\s\S]{0,120}?>Replicar en Image<\/button>/);
   for (const rel of [
     'app/image-editor/mako/chat/PanelMakoIA.tsx', 'app/video-editor/_opencut/chat/PanelChat.tsx', 'app/video-editor/_opencut/enjambre/components/enjambre-view.tsx',

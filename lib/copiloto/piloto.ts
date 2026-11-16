@@ -28,12 +28,12 @@ export const CLAVE_PILOTO_COPILOTO = 'marketing-copilot.piloto';
 /** `redes`: lo del piloto de Instagram y YouTube (./piloto-redes.ts), crudo; se sanea al leerlo contra lo de fábrica. */
 export type PilotoCoPilot = { reel: number | null; redes?: Record<string, unknown> };
 
-/** El plan no trae el piloto de Instagram ni el de YouTube (MaKo Esencial). El par de `PlanSinPiloto` (lib/media-buyer/store.ts). */
+/** El plan no trae el piloto de Instagram ni el de YouTube (MaKo Essential). El par de `PlanSinPiloto` (lib/media-buyer/store.ts). */
 export class PlanSinPilotoRedes extends Error {
   constructor() { super(textoSoloPro('piloto-redes')); this.name = 'PlanSinPilotoRedes'; }
 }
 
-/** ¿Puede prender o configurar el piloto de Instagram y el de YouTube? Esencial no; ante la duda, sí (`esEsencialDe`). */
+/** ¿Puede prender o configurar el piloto de Instagram y el de YouTube? Essential no; ante la duda, sí (`esEsencialDe`). */
 export const pilotoRedesPermitido = async (ws: number): Promise<boolean> => !(await esEsencialDe(ws));
 
 /** Lo que se acepta como número de un reel de prueba: vistas, entero, entre 50 y 10 millones. */
@@ -58,7 +58,7 @@ export async function leerPilotoRedes(ws: number, ritmo: RitmoNevera | null): Pr
 
 /** Guarda lo de UNA red (o las dos), saneado. Lee estricto antes: un cambio sobre una lectura caída borraría lo demás. */
 export async function guardarPilotoRedes(ws: number, cambio: { instagram?: unknown; youtube?: unknown }, ritmo: RitmoNevera | null): Promise<ReturnType<typeof sanearPilotoRedes>> {
-  // El candado de Pro (14/11/2026, Martín: los pilotos de Instagram y YouTube no son del Esencial), antes que nada.
+  // El candado de Pro (14/11/2026, Martín: los pilotos de Instagram y YouTube no son del Essential), antes que nada.
   if (!(await pilotoRedesPermitido(ws))) throw new PlanSinPilotoRedes();
   return runWithWorkspace(ws, async () => {
     const actual = sanear(await getSettingEstricto(CLAVE_PILOTO_COPILOTO));

@@ -3,7 +3,7 @@
 // Lo que se vio, lámina por lámina al lado del original:
 //   · @lifeofarjav (crema, naranja y negro): «STEP 1», «The Result» y el CTA eran texto blanco sobre una pastilla o una caja
 //     naranja. La réplica traía el blanco sin la forma: «PASO 1», «EL RESULTADO» y «Comenta ACELERADOR y te la envío» quedaron
-//     blancos sobre crema, invisibles. Y «= Tu Acelerador» (Archivo Black, 119 px, caja de 518) se cortaba en «Acelerad».
+//     blancos sobre crema, invisibles. Y «= Tu Accelerator» (Archivo Black, 119 px, caja de 518) se cortaba en «Acelerad».
 //   · @vilmanunez (traído por link, 10 láminas con fotos de salones): 7 láminas con un hueco amarillo del tamaño de la foto
 //     (se buscaban como mucho 3 escenas), y «ACELERADOR» bajaba hasta quedar encima de una foto oscura.
 //   · @AlexHormozi (un anuncio que es una tarjeta de tuit blanca): la IA «leyó» «pantalla dividida, dos cuadros apilados», que era
@@ -61,12 +61,12 @@ test('2 · el color de cada texto: la pastilla perdida vuelve, el titular toma t
   assert.deepEqual(colorQueSeLee({ rol: 'titulo', color: NARANJA, relleno: null }, base), { color: NARANJA, relleno: null });
 });
 
-test('3 · «= Tu Acelerador» no se corta: la palabra más larga entra en su caja, y el otro pedazo del titular queda igual', () => {
+test('3 · «= Tu Accelerator» no se corta: la palabra más larga entra en su caja, y el otro pedazo del titular queda igual', () => {
   const ARCHIVO = { familia: '"Archivo Black", sans-serif', peso: 400, italica: false };
   const a = texto({ rol: 'titulo', texto: 'MaKo +\nClaude', x: 518 / 1080, y: 338 / 1350, ancho: 518 / 1080, tamano: 119 / 1080 });
-  const b = texto({ rol: 'titulo', texto: '= Tu Acelerador', x: 518 / 1080, y: 625 / 1350, ancho: 518 / 1080, tamano: 119 / 1080 });
-  // El caso de producción: a 119 px «Acelerador» no entra en 518.
-  assert.ok(medidorReal('Acelerador', { ...ARCHIVO, tam: 119 }) > 518, 'si entra, el caso no reproduce lo que se vio');
+  const b = texto({ rol: 'titulo', texto: '= Tu Accelerator', x: 518 / 1080, y: 625 / 1350, ancho: 518 / 1080, tamano: 119 / 1080 });
+  // El caso de producción: a 119 px «Accelerator» no entra en 518.
+  assert.ok(medidorReal('Accelerator', { ...ARCHIVO, tam: 119 }) > 518, 'si entra, el caso no reproduce lo que se vio');
   const [pa, pb] = acomodarTextos([a, b].map((t) => ({ t, fuente: { ...ARCHIVO, tam: 119 }, interlineado: 1.06 })), { ancho: 1080, alto: 1350 });
   for (const p of [pa, pb]) {
     for (const r of p.renglones) assert.ok(medidorReal(r, { ...ARCHIVO, tam: p.tam }) <= p.width, `«${r}» a ${p.tam} px no entra en ${p.width}`);

@@ -9,7 +9,7 @@
 //
 // LO QUE SE DICE DE OTRA APP ES PÚBLICO: cada celda de los competidores sale de una investigación con su fuente (la web oficial de
 // la app: precios, funciones, ayuda), en ./competencia-datos.ts. Lo que no se pudo confirmar queda «sin dato», nunca como un «no».
-// Las de MaKo salen del código: lo que es sólo de Pro (lib/topes-plan.ts) dice «En Pro», y el precio es el de Esencial.
+// Las de MaKo salen del código: lo que es sólo de Pro (lib/topes-plan.ts) dice «En Pro», y el precio es el de Essential.
 // ⚠️ ESO VALE PARA LA COLUMNA DE LA TABLA, NO PARA TODO LO QUE DICE LA PÁGINA: `ELIGE_MAKO_SI`, más abajo, es copy a mano y
 // lleva el MISMO tilde que una celda «si». Lo que lo vigila está en su comentario.
 // =============================================================================
@@ -40,10 +40,10 @@ export type Competidor = {
   /**
    * Una frase: la limitación concreta y lo que le cuesta a quien vende High Ticket.
    * ⚠️ LE PEGA AL COMPETIDOR POR UNA FILA DE ESTA MISMA TABLA, y la columna de MaKo se DERIVA: el día que esa fila se cierre
-   * en Esencial, la página le pega al otro por algo que la tabla dice «En Pro» un bloque más abajo, en la misma página. Pasó
+   * en Essential, la página le pega al otro por algo que la tabla dice «En Pro» un bloque más abajo, en la misma página. Pasó
    * el 15/11 con GoHighLevel y el setter con IA. Cada comentario declara en qué fila se apoya
    * (`COMENTARIO_SE_APOYA_EN`, tests/vsl-comparaciones-competencia.test.ts) y la prueba se pone roja si esa fila deja de ser
-   * de Esencial. Arreglar la contradicción es decidir cómo se vende: la decide Martín.
+   * de Essential. Arreglar la contradicción es decidir cómo se vende: la decide Martín.
    */
   comentario: string;
 };
@@ -92,9 +92,9 @@ export const GRUPOS_MATRIZ: ReadonlyArray<{ titulo: string; filas: ReadonlyArray
 
 // ── LA COLUMNA DE MaKo SE DERIVA DEL CÓDIGO, NO SE TIPEA (15/11/2026) ─────────────────────────────────────────────────
 // Hasta hoy acá había una lista ESCRITA A MANO (`SOLO_PRO`) de cuatro filas y `celdaDeMaKo` devolvía «si» para TODO lo demás.
-// El 14/11 se cerraron en Esencial el setter con IA (`FUNCIONES_SOLO_PRO`, 'setter-ia') y el dominio propio
+// El 14/11 se cerraron en Essential el setter con IA (`FUNCIONES_SOLO_PRO`, 'setter-ia') y el dominio propio
 // (`TOPES.completo['web.dominios']` = 0, lib/editor-landing/tope-landings.ts lo hace cumplir), nadie volvió a esta lista, y
-// esta tabla siguió poniéndoles ✓ al lado del precio de Esencial: alguien elegía su plan leyendo una promesa que el producto no
+// esta tabla siguió poniéndoles ✓ al lado del precio de Essential: alguien elegía su plan leyendo una promesa que el producto no
 // le iba a cumplir, y /planes decía lo contrario en la misma web. La lista a mano fallaba hacia el «sí», el lado que miente
 // a favor.
 // La regla es la que /planes ya aplica (lib/planes-comparacion.ts, `soloPro` y `filaDeTope`): cada fila DECLARA cuál es el
@@ -104,7 +104,7 @@ export const GRUPOS_MATRIZ: ReadonlyArray<{ titulo: string; filas: ReadonlyArray
 
 type TabSoloPro = (typeof TABS_SOLO_PRO)[number];
 
-/** Qué decide, EN EL CÓDIGO, si Esencial (la capa `completo`) tiene esa fila. */
+/** Qué decide, EN EL CÓDIGO, si Essential (la capa `completo`) tiene esa fila. */
 type Candado =
   /** La cierra una función de Pro (`FUNCIONES_SOLO_PRO`). */
   | { funcion: FuncionSoloPro }
@@ -125,7 +125,7 @@ export const CANDADO_DE_LA_FILA: Readonly<Record<Exclude<ClaveFila, 'precio'>, C
   landings_ia: { tope: 'web.landings_publicadas' },
   copiar_landing: { funcion: 'replicar-landing' },
   spy: { tope: 'spy.competidores' },
-  // 14/11/2026, noche (Martín, mirando /planes): Esencial SIN dominio propio (el tope pasó de 1 a 0).
+  // 14/11/2026, noche (Martín, mirando /planes): Essential SIN dominio propio (el tope pasó de 1 a 0).
   dominio: { tope: 'web.dominios' },
   crm: { tope: 'crm.funnels' },
   tracking: { enLosDos: true },
@@ -145,7 +145,7 @@ export const CANDADO_DE_LA_FILA: Readonly<Record<Exclude<ClaveFila, 'precio'>, C
   editor_imagen: { enLosDos: true },
   editor_video: { enLosDos: true },
   video_ia: { funcion: 'ia-editores' },
-  // ⚠️ NO es una fila de Pro: Esencial trae el media buyer en modo «propone», con `ads.recomendaciones_dia` = 2
+  // ⚠️ NO es una fila de Pro: Essential trae el media buyer en modo «propone», con `ads.recomendaciones_dia` = 2
   // (25/10/2026). De Pro es el PILOTO automático, que no tiene fila en esta tabla.
   ads_ia: { tope: 'ads.recomendaciones_dia' },
   calendario: { enLosDos: true },
@@ -159,7 +159,7 @@ export const CANDADO_DE_LA_FILA: Readonly<Record<Exclude<ClaveFila, 'precio'>, C
 /** Lo que dice la celda cuando eso es sólo de MaKo Pro (lo dibuja `ValorCelda` como un valor corto). */
 export const EN_PRO = 'En Pro';
 
-/** La columna de MaKo: el precio de Esencial y, fila por fila, lo que el código le da hoy a la capa `completo`. */
+/** La columna de MaKo: el precio de Essential y, fila por fila, lo que el código le da hoy a la capa `completo`. */
 export function celdaDeMaKo(clave: ClaveFila): Celda {
   if (clave === 'precio') return { v: `US$ ${PLANES_MAKO_DEFAULT.find((p) => p.id === 'esencial')?.precioUsd ?? 47}` };
   const c: Candado | undefined = (CANDADO_DE_LA_FILA as Partial<Record<ClaveFila, Candado>>)[clave];
@@ -170,7 +170,7 @@ export function celdaDeMaKo(clave: ClaveFila): Celda {
   if ('tab' in c) return { v: (TABS_SOLO_PRO as readonly string[]).includes(c.tab) ? EN_PRO : 'si' };
   if ('tope' in c) {
     if (TOPES.completo[c.tope] !== 0) return { v: 'si' };
-    // 0 en Esencial: lo trae Pro. Salvo que ahí también sea 0, y entonces no es de nadie: la celda va vacía, no «En Pro».
+    // 0 en Essential: lo trae Pro. Salvo que ahí también sea 0, y entonces no es de nadie: la celda va vacía, no «En Pro».
     return { v: TOPES.agencia[c.tope] === 0 ? 'no' : EN_PRO };
   }
   return { v: 'si' };
@@ -188,13 +188,13 @@ export const rutaVs = (c: Pick<Competidor, 'slug'>): string => `/vsl/comparacion
  *
  * ⚠️ ESTO ES COPY A MANO, AL LADO DE UNA COLUMNA QUE SÍ SE DERIVA (15/11/2026). No es una lista de plan: es el
  * POSICIONAMIENTO de MaKo contra el competidor. Pero se dibuja con el MISMO tilde que una celda «si» (`s-mx-si`,
- * Comparaciones.tsx:156 y :250), dentro del panel donde la fila de precio dice el de Esencial, y DOS de los cinco nombran
- * cosas que Esencial no tiene: el tercero es el setter con IA ('setter-ia') y el cuarto es replicar ('replicar-landing' y
+ * Comparaciones.tsx:156 y :250), dentro del panel donde la fila de precio dice el de Essential, y DOS de los cinco nombran
+ * cosas que Essential no tiene: el tercero es el setter con IA ('setter-ia') y el cuarto es replicar ('replicar-landing' y
  * 'replicar-guion'), las tres en `FUNCIONES_SOLO_PRO`.
  * ⛔ No se toca por iniciativa de un agente: cambiar el copy o escribirle «(en Pro)» cambia cómo se vende MaKo, y eso lo
  *    decide Martín. Lo que sí está cerrado es que no se desincronice en silencio: cada ítem declara qué nombra de Pro Y qué
  *    filas de la tabla promete con el tilde pelado, en tests/vsl-comparaciones-competencia.test.ts (`ELIGE_NOMBRA`). Editar
- *    el copy, abrir una de esas funciones en Esencial o CERRAR una de esas filas (un tope en 0) pone esa prueba roja.
+ *    el copy, abrir una de esas funciones en Essential o CERRAR una de esas filas (un tope en 0) pone esa prueba roja.
  */
 export const ELIGE_MAKO_SI: readonly string[] = [
   'Vendes servicios, mentorías o programas de ticket alto.',

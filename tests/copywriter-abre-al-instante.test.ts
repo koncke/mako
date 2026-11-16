@@ -143,7 +143,7 @@ test('2a · «Replicar»: el loader está en el clic, con el server todavía cre
     assert.equal(v.delCopy().length, 1, 'salió UN pedido al copywriter, no dos');
     assert.equal(v.delCopy()[0].cuerpo.accion, 'replicar');
     // Y la lectura del plan SALIÓ: es de lo que vive el candado de Pro en el clic. Si deja de salir, el candado se apaga
-    // en silencio y un Esencial toca y recibe un 403 (la defensa es el server, pero él ve un error en vez del cartel).
+    // en silencio y un Essential toca y recibe un 403 (la defensa es el server, pero él ve un error en vez del cartel).
     assert.ok(v.leyoElPlan(), 'el candado de Pro necesita la lectura del plan (/api/auth/me)');
     assert.equal(v.navegado.length, 0, 'todavía no navegó: el server no contestó');
     assert.equal(v.cargando(), 'Cargando la página nueva', 'el loader tiene que estar YA, no cuando el server conteste');

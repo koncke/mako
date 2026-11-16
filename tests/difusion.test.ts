@@ -253,7 +253,7 @@ test('MaKo: la difusión sólo en la app, y el goteo fuera de rango se dice ante
   assert.ok(g > 0 && g < preparar.indexOf('await prepararDifusion('), 'se valida antes de proponer');
 });
 
-// [baja] Cada difusión quedaba prendida para siempre y ocupaba un lugar del tope del plan Esencial (3 activas): la siguiente
+// [baja] Cada difusión quedaba prendida para siempre y ocupaba un lugar del tope del plan Essential (3 activas): la siguiente
 // fallaba con «Llegaste al tope de tu plan» por una que ya había terminado.
 test('la difusión que terminó se pausa sola, en la corrida de la hora, reconocida por su clave', () => {
   assert.equal(PREFIJO_CLAVE_DIFUSION, 'difusion-');

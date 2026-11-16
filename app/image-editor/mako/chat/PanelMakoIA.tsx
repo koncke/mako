@@ -162,7 +162,7 @@ export function PanelMakoIA() {
   /** En blanco: una sola página y sin nada adentro (lib/aperturas/image.ts). */
   const enBlanco = useEditorState((s) => s.doc.pages.length === 1 && s.doc.pages[0].objects.length === 0);
   const hilo = useHilo(disenoId);
-  // EDITAR CON IA ES SÓLO DE MaKo PRO (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes; a un Esencial, en vez
+  // EDITAR CON IA ES SÓLO DE MaKo PRO (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes; a un Essential, en vez
   // del chat, el candado con «Pasar a Pro» (abajo). `plan`: `null` mientras no se sabe (lo espera «Usar plantilla», que escribe solo).
   const soloPro = useSoloPro('ia-editores');
   const plan = usePlanEsencial();
@@ -247,7 +247,7 @@ export function PanelMakoIA() {
   const escribirPlantilla = useRef<'no' | 'pedido' | 'hecho'>('no');
   useEffect(() => {
     if (escribirPlantilla.current !== 'no' || !disenoId || hilo.corriendo || hilo.mensajes.length || appEscritorio.bloqueada) return;
-    // Escribirla es editar con IA: un Esencial no (y mientras no se sabe el plan, se espera).
+    // Escribirla es editar con IA: un Essential no (y mientras no se sabe el plan, se espera).
     if (plan !== false || soloPro) return;
     const url = new URL(window.location.href);
     if (url.searchParams.get(ESCRIBIR_PLANTILLA) !== '1') return;
@@ -296,7 +296,7 @@ export function PanelMakoIA() {
     };
   };
 
-  // Un Esencial: la apertura sin IA (la medida de la publicación, el mismo resize del panel de tamaño) y, después, el candado en
+  // Un Essential: la apertura sin IA (la medida de la publicación, el mismo resize del panel de tamaño) y, después, el candado en
   // vez del chat. El recorte de la persona sigue montado (no es la IA del chat: corre en el navegador).
   if (soloPro) {
     return (

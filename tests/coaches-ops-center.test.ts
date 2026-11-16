@@ -87,7 +87,7 @@ test('5. el contexto de un referente nunca finge ser él y siempre atribuye', ()
   // Sin referente al frente (eligió «MaKo»): una ficha por tema que trabaja, la oferta incluida (4/11/2026).
   assert.ok(sinFrente.includes(FICHAS.hormozi) && sinFrente.includes(FICHAS['juan-ads']) && sinFrente.includes(FICHAS['julian-otalora']));
   assert.ok(sinFrente.length < 18_500, 'cada ficha son 5.000 caracteres en el system: sumar a todas lo infla');
-  // EL TERCER ESTADO (14/11/2026, lib/asesores/candado.ts): el coach de un Esencial. NO es lo mismo que elegir «MaKo» —elegir MaKo
+  // EL TERCER ESTADO (14/11/2026, lib/asesores/candado.ts): el coach de un Essential. NO es lo mismo que elegir «MaKo» —elegir MaKo
   // paga Pro y conserva los marcos—: con el candado no viaja la metodología de NADIE, y se le dice que no nombre ni atribuya a
   // nadie, porque el modelo los conoce de antes y si no atribuye de memoria (una cita inventada Y la función de Pro, regalada).
   const conCandado = contextoDelFunnelCoach('hormozi', true);

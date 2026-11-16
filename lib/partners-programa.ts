@@ -229,7 +229,7 @@ export async function hacermePartner(ws: number, respuestas: unknown): Promise<R
     //    guarda de la revisión de plata, y un `false` por una base caída la abriría justo cuando no se puede comprobar nada.
     if ((await esClienteDeAgencia(ws)) !== false) return { ok: false, error: 'Tu cuenta la maneja tu agencia: MaKo Partners no está para tu cuenta.' };
     const antes = await altaDePartner(ws).catch(() => null);
-    // CUALQUIERA ES PARTNER (29/10/2026, alineado con las landings: «gratis», «cualquier plan»): ya no se frena al Esencial.
+    // CUALQUIERA ES PARTNER (29/10/2026, alineado con las landings: «gratis», «cualquier plan»): ya no se frena al Essential.
     const codigo = await codigoDe(ws);
     if (!codigo) return { ok: false, error: 'No pudimos crear tu link. Prueba otra vez en un minuto.' };
     const alta = altaLimpia({ ...(respuestas && typeof respuestas === 'object' ? respuestas : {}), at: antes?.at });

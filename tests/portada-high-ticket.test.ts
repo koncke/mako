@@ -49,15 +49,15 @@ test('el respaldo sin documento publicado tampoco dice «VSL Funnel»', () => {
 // incluye o lo que no... Y en la landing no está la comparativa, la tabla». Cada tarjeta dice con ✗ lo que su plan NO trae, y
 // abajo va la comparación de /planes. Las dos salen de lib/planes-comparacion.ts (los topes del código): no se contradicen.
 // Verificado rompiéndolo: sin la lista de ✗ en la tarjeta, sin la tabla en la portada, el ✗ leído de otra columna y la
-// celda de Esencial leída de la de Pro → cada una, rojo.
+// celda de Essential leída de la de Pro → cada una, rojo.
 
 test('lo que un plan NO trae sale de la misma tabla de la comparación', () => {
   const filas = filasDeComparacion();
   assert.equal(noIncluyeDe('completo').length, filas.filter((f) => f.esencial === false).length);
   assert.equal(noIncluyeDe('agencia').length, filas.filter((f) => f.pro === false).length);
-  assert.ok(noIncluyeDe('completo').includes(NOMBRE_TAB_PRO['closing-analyst']), 'Esencial no trae el análisis de las llamadas');
+  assert.ok(noIncluyeDe('completo').includes(NOMBRE_TAB_PRO['closing-analyst']), 'Essential no trae el análisis de las llamadas');
   assert.ok(!noIncluyeDe('agencia').includes(NOMBRE_TAB_PRO['closing-analyst']), 'Pro sí lo trae');
-  assert.ok(noIncluyeDe('agencia').includes('Una asesoría en vivo con Martín, cada semana'), 'la asesoría es del Acelerador');
+  assert.ok(noIncluyeDe('agencia').includes('Una asesoría en vivo cada semana, abierta a tu equipo'), 'la asesoría es del Accelerator');
   assert.deepEqual(noIncluyeDe('pm'), [], 'una capa sin columna no inventa nada');
 });
 
@@ -73,20 +73,20 @@ test('la portada dibuja las tarjetas y la tabla comparativa, que dice lo que NO 
   for (const f of filasDeComparacion()) assert.ok(html.includes(f.que), `la tabla no dice «${f.que}»`);
   const esencial = planes.find((p) => p.capa === 'completo')!;
   const tarjeta = html.slice(html.indexOf(`<h3>${esencial.nombre}</h3>`), html.indexOf('</section>', html.indexOf(`<h3>${esencial.nombre}</h3>`)));
-  assert.doesNotMatch(tarjeta, /class="mkpl-lista mkpl-no"/, 'la tarjeta de Esencial volvió a la lista de ✗');
+  assert.doesNotMatch(tarjeta, /class="mkpl-lista mkpl-no"/, 'la tarjeta de Essential volvió a la lista de ✗');
   // La tabla como Attio (14/11/2026): cada fila con su nombre corto y la frase entera en el (i).
   for (const x of noIncluyeDe('completo')) assert.ok(html.includes(`data-info="${x}"`) || html.includes(`role="rowheader">${x}<`), `la tabla no dice «${x}»`);
   assert.ok(html.includes('aria-label="No incluido"'), 'la tabla marca lo que no incluye');
 });
 
-// ── Sin fondo azul también en el Acelerador (29/10/2026, el Cerebro con la regla de Martín: «fondo claro, el azul sólo de
+// ── Sin fondo azul también en el Accelerator (29/10/2026, el Cerebro con la regla de Martín: «fondo claro, el azul sólo de
 // acento»): su bloque sigue oscuro para destacarse, pero en el grafito de la app. Verificado rompiéndolo: volver al azul
 // marino → rojo.
-// 12/11/2026: el Acelerador dejó de ser un bloque oscuro (el sol y la luna llevan la página entera a un solo modo); lo que queda
+// 12/11/2026: el Accelerator dejó de ser un bloque oscuro (el sol y la luna llevan la página entera a un solo modo); lo que queda
 // de esta regla es que no vuelva el fondo azul marino.
-test('el bloque del Acelerador no vuelve al fondo azul', () => {
+test('el bloque del Accelerator no vuelve al fondo azul', () => {
   const t = leer('app/planes/Tarjetas.tsx');
-  assert.doesNotMatch(t, /#142B66|#0B1735|122,162,255/, 'el Acelerador volvió al fondo azul');
+  assert.doesNotMatch(t, /#142B66|#0B1735|122,162,255/, 'el Accelerator volvió al fondo azul');
 });
 
 // ── Que toda la venta diga lo mismo (29/10/2026, el Cerebro): las páginas de cada funcionalidad (/vsl/<slug>) también apuntan a

@@ -170,7 +170,7 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
         // lib/pagina-real.ts) y Spy ofrece «Capturar». Lo que sí se ve de su web es la réplica: «Copiar su sitio» la lleva al Web
         // Generator (replicar.webm es acquisition.com replicada, la de la portada); el candado, lib/editor-landing/replicar-candado.ts.
         // EL «Con MaKo Pro.» ESTABA TIPEADO A MANO ACÍ (15/11/2026), que es justo lo que la regla prohíbe (./solo-pro.ts): el
-        // día que 'replicar-landing' se abra en Esencial, este se queda escrito y la página miente. Ahora se deriva.
+        // día que 'replicar-landing' se abra en Essential, este se queda escrito y la página miente. Ahora se deriva.
         // ⚠️ EL TÍTULO NO LLEVA AVISO PROPIO, Y ES A PROPÓSITO: las tres tarjetas de este bloque son de Pro y las tres lo dicen
         //    en su cuerpo, debajo de su título. Probado: ponerle también uno al título (`soloProEntre`) no agrega ninguna guarda
         //    —sacándoselo el test queda 8/0— porque este diseño dibuja los tres títulos en fila y después los tres cuerpos, y el

@@ -33,7 +33,7 @@ test('page.tsx: sin informe guardado y sin pedir una hoja, la pantalla va en bla
   const src = leer('app/dashboard/page.tsx');
   assert.match(src, /if \(lectura\.estado === 'inicial'\) \{/);
   assert.match(src, /else sinPaginas = true;/);
-  // 14/11/2026: tampoco la hoja Closing de un Esencial, que muestra el candado de Pro (tests/closing-solo-pro.test.ts).
+  // 14/11/2026: tampoco la hoja Closing de un Essential, que muestra el candado de Pro (tests/closing-solo-pro.test.ts).
   assert.match(src, /const graficos = sinPaginas \|\| \(esencial && esHojaClosing\(hoja\)\) \? \[\] : pedidos0\.graficos;/);
   assert.match(src, /sinPaginas=\{sinPaginas\}/);
 });

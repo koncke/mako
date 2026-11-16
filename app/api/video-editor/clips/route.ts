@@ -10,7 +10,7 @@
 //
 // La puerta es la de /api/video-editor/ia (la prueba 1d de tests/video-editor-integracion.test.ts lo exige).
 //
-// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): «Clips mágicos» es editar con IA. Un Esencial recibe el 403 con
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): «Clips mágicos» es editar con IA. Un Essential recibe el 403 con
 // `pasarAPro` (también sin el respaldo por las reglas: la pantalla le muestra el candado antes de transcribir).
 
 import type { NextRequest } from 'next/server';

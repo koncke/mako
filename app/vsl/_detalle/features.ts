@@ -564,7 +564,7 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "«¿En qué te ayudo hoy?»: le pides a MaKo lo que quieres y te arma los cambios por cada producto de tu CRM.",
           "<strong>Variaciones del anuncio ganador</strong> con la IA de tu negocio, y subes creativos nuevos a un conjunto sin entrar a Meta.",
-          "En MaKo Esencial, 2 recomendaciones por día y tú decides si las aplicas; en MaKo Pro, sin tope y con piloto automático.",
+          "En MaKo Essential, 2 recomendaciones por día y tú decides si las aplicas; en MaKo Pro, ilimitadas y con piloto automático.",
         ],
       },
     ],

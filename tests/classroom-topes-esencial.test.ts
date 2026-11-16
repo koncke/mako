@@ -1,8 +1,8 @@
 // =============================================================================
-// Classroom en MaKo Esencial: UN curso, y la comunidad de los alumnos es de Pro (14/11/2026)
+// Classroom en MaKo Essential: UN curso, y la comunidad de los alumnos es de Pro (14/11/2026)
 // =============================================================================
 // Martín: «no pusiste nada de la parte de Classroom, la parte de comunidad… seas más limitado en el de 47». La tabla ya lo
-// decía (lib/topes-plan.ts: 'classroom.cursos' 1 en Esencial, sin tope en Pro; 'comunidad' en `FUNCIONES_SOLO_PRO`); esto fija
+// decía (lib/topes-plan.ts: 'classroom.cursos' 1 en Essential, sin tope en Pro; 'comunidad' en `FUNCIONES_SOLO_PRO`); esto fija
 // que el CÓDIGO lo cumpla:
 //   1. QUÉ ES UN CURSO (no hay tabla `cursos`): un programa de Classroom con al menos una clase viva. Lo crean la primera
 //      clase de un programa vacío y duplicar uno con clases (lib/tope-cursos-reglas.ts, puro).
@@ -66,7 +66,7 @@ function codigo(dir: string): string[] {
 
 // ── 1. La regla pura ───────────────────────────────────────────────────────────────────────────────────────────────
 
-test('1. la tabla: Esencial un curso, Pro sin tope', () => {
+test('1. la tabla: Essential un curso, Pro sin tope', () => {
   assert.equal(TOPES.completo['classroom.cursos'], 1);
   assert.equal(TOPES.agencia['classroom.cursos'], null);
 });
@@ -78,7 +78,7 @@ test('2. qué crea un curso: la primera clase de un programa vacío, o duplicar 
   assert.equal(creaUnCurso('duplicar', false), false, 'la copia de un programa vacío nace vacía');
 });
 
-test('3. el tope: frena SÓLO el segundo curso del Esencial, nunca lo que ya tiene, y nunca al Pro', () => {
+test('3. el tope: frena SÓLO el segundo curso del Essential, nunca lo que ya tiene, y nunca al Pro', () => {
   const tope = { ok: false, tope: 1, texto: textoTope(1) };
   // El primer curso, siempre.
   assert.deepEqual(topeParaCursoNuevo({ esencial: true, como: 'clase', programaConClases: false, otrosCursos: 0 }), { ok: true });
@@ -196,7 +196,7 @@ test('10. la pantalla del negocio: el candado EN LUGAR de la comunidad, antes de
   assert.match(m, /<VacioM frase=\{TEXTO_COMUNIDAD_SOLO_PRO_TELEFONO\} \/>/);
 });
 
-test('11. el portal del alumno: sin la entrada «Comunidad» si el NEGOCIO paga Esencial; los comentarios de clase siguen', () => {
+test('11. el portal del alumno: sin la entrada «Comunidad» si el NEGOCIO paga Essential; los comentarios de clase siguen', () => {
   assert.equal(ofreceComunidad({ vistaPrevia: false, area: null }), true, 'sin decir el plan, se ofrece (ante la duda)');
   assert.equal(ofreceComunidad({ vistaPrevia: false, area: null, delPlan: true }), true);
   assert.equal(ofreceComunidad({ vistaPrevia: false, area: null, delPlan: false }), false);

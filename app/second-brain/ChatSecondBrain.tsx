@@ -454,7 +454,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   };
   /** Cuándo fue lo último con un gurú. */
   const edadDeGuru = (id: IdAsesor | undefined) => { const at = gurusConCharla.find((g) => g.id === id)?.at; return edadCorta(at ? Date.parse(at) : null, k.ahora); };
-  // SÓLO MaKo Pro (14/11/2026, lib/asesores/candado.ts): a un Esencial, la galería va con el candado (más abajo) y sus
+  // SÓLO MaKo Pro (14/11/2026, lib/asesores/candado.ts): a un Essential, la galería va con el candado (más abajo) y sus
   // conversaciones con gurús NO se listan. Nada se borra: con Pro vuelven tal cual, como la comunidad del Classroom. La
   // defensa es /api/mako/chat, que contesta 403 con `pasarAPro`; esto es para que no toque y reciba un error.
   const filasDeGurus = gurusSoloPro ? [] : gurusDeLaBarra({ conCharla: gurusConCharla, abierto: guru, busca });

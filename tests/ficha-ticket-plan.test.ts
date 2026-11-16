@@ -2,7 +2,7 @@
 // La ficha de un ticket dice el PLAN que se vende, no la capa (12/11/2026, después del ticket #89)
 // =============================================================================
 // #89 llegó con «negocio «Sellers» (ws 24) · plan Completo», y se leyó como «un plan completo con tope 1». Completo es la
-// CAPA: la capa `completo` es MaKo Esencial (1 usuario) y la `agencia`, Pro. Pero la misma capa la tienen el ws1 y los
+// CAPA: la capa `completo` es MaKo Essential (1 usuario) y la `agencia`, Pro. Pero la misma capa la tienen el ws1 y los
 // acuerdos a mano, que no pagan un plan ni tienen topes: lo que separa es si se le aplican los topes (`aplicanTopes`).
 // Correr: node --import tsx --test tests/ficha-ticket-plan.test.ts
 import { test } from 'node:test';
@@ -14,18 +14,18 @@ import { CAPA_DE_PLAN } from '../lib/agencia-cobro-reglas';
 
 const fuente = (rel: string): string => readFileSync(join(import.meta.dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 
-test('1. con los topes de su plan: Esencial o Pro, como se vende', () => {
-  // Sellers el 12/11: capa `completo`, Esencial elegido por su agencia.
-  assert.equal(planDeLaFicha({ capa: 'completo', nombreCapa: 'Completo', rige: true }), 'Esencial');
+test('1. con los topes de su plan: Essential o Pro, como se vende', () => {
+  // Sellers el 12/11: capa `completo`, Essential elegido por su agencia.
+  assert.equal(planDeLaFicha({ capa: 'completo', nombreCapa: 'Completo', rige: true }), 'Essential');
   assert.equal(planDeLaFicha({ capa: 'agencia', nombreCapa: 'Agencia', rige: true }), 'Pro');
   // La misma tabla que usa la agencia para abrir y cambiar planes.
   assert.equal(CAPA_DE_PLAN.esencial, 'completo');
   assert.equal(CAPA_DE_PLAN.pro, 'agencia');
 });
 
-test('2. sin topes (ws1, un acuerdo a mano) no es Esencial aunque tenga la capa; sin leer, se dice', () => {
+test('2. sin topes (ws1, un acuerdo a mano) no es Essential aunque tenga la capa; sin leer, se dice', () => {
   const ws1 = planDeLaFicha({ capa: 'completo', nombreCapa: 'Completo', rige: false });
-  assert.doesNotMatch(ws1, /Esencial|Pro/);
+  assert.doesNotMatch(ws1, /Essential|Pro/);
   assert.match(ws1, /sin cobro de MaKo, sin topes \(capa Completo\)/);
   assert.equal(planDeLaFicha({ capa: 'completo', nombreCapa: 'Completo', rige: null }), '? (capa Completo)');
   // Una capa que no es un plan (Project Manager, SuperAdmin): su nombre.

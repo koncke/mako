@@ -452,7 +452,7 @@ export async function generarTomaAction(
   // FILMAR las tomas de un plan que YA EXISTE pasa por acá, y acá sólo se preguntaba `ctxAdmin()`.
   //
   // O sea que quedaba una cola abierta, y con material de verdad adentro: entre el 29/10 y el 14/11 la función estuvo
-  // abierta en los tres planes, así que hay negocios que hoy pagan Esencial con planes de avatar a medio filmar en su
+  // abierta en los tres planes, así que hay negocios que hoy pagan Essential con planes de avatar a medio filmar en su
   // historial —y podían terminarlos toma por toma, gastando los créditos de Flow, sin pasar por ninguna puerta cerrada.
   //
   // El freno se acota a `tipo === 'avatar'` (`tipoDePlan`, ./historial-cupos) y NO toca los anuncios comunes, que son de los

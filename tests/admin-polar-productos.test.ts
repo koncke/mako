@@ -60,8 +60,8 @@ const plan = (p: Partial<PlanMako> & Pick<PlanMako, 'id' | 'nombre'>): PlanMako 
 test('el catálogo: buscar sin tildes, activos / archivados / todos, ordenar, y los archivados al final', () => {
   const productos = [
     productoDePlan(plan({ id: 'pro', nombre: 'MaKo Pro', capa: 'agencia', precioUsd: 97 })),
-    productoDePlan(plan({ id: 'esencial', nombre: 'MaKo Esencial', precioUsd: 47 })),
-    productoDePlan(plan({ id: 'continuidad', nombre: 'Continuidad del Acelerador', capa: 'agencia', precioUsd: 297, activo: false })),
+    productoDePlan(plan({ id: 'esencial', nombre: 'MaKo Essential', precioUsd: 47 })),
+    productoDePlan(plan({ id: 'continuidad', nombre: 'Continuidad del Accelerator', capa: 'agencia', precioUsd: 297, activo: false })),
   ]
   assert.deepEqual(filtrarProductos(productos).map((p) => p.id), ['esencial', 'pro'], 'por defecto, los activos de la A a la Z')
   assert.deepEqual(filtrarProductos(productos, { show: 'archived' }).map((p) => p.id), ['continuidad'])
@@ -106,7 +106,7 @@ test('Checkout Links: sólo los de «Vender un plan», nunca los del checkout p�
 
 test('el plan de un link: el único con esa capa, o el nombre de la capa si dos la comparten', () => {
   const productos = PLANES_MAKO_DEFAULT.map(productoDePlan)
-  assert.equal(productoDeCapa('completo', productos), 'MaKo Esencial')
+  assert.equal(productoDeCapa('completo', productos), 'MaKo Essential')
   assert.equal(productoDeCapa('agencia', productos), 'Agencia', 'Pro y Continuidad comparten la capa: no se elige uno a ciegas')
   const l = linkDeVenta(cobro({ id: 9, alta_capa: 'agencia' }), productos)
   assert.equal(l.producto, 'Agencia')
@@ -158,7 +158,7 @@ test('«Vender» abre el formulario NUEVO con el plan puesto, nunca el primer li
 test('el índice de Checkout Links salta al primer link del filtro, sin llevarse el pedido de abrir el formulario', () => {
   const datos = CHECKOUT_LINKS_EJEMPLO
   const primero = ordenarLinks(filtrarLinksPorProducto(datos.links, ['esencial'], datos.productos))[0]
-  assert.ok(primero, 'el ejemplo tiene un link de Esencial')
+  assert.ok(primero, 'el ejemplo tiene un link de Essential')
   // Con el formulario pedido: el link de atrás es el primero del plan, y `create_checkout_link` ya lo atendió la barra.
   const conFormulario = destinoDelIndiceDeLinks({ productId: 'esencial', create_checkout_link: 'true' }, datos)
   assert.equal(conFormulario, `/admin/products/checkout-links/${primero.id}?productId=esencial`, 'un F5 en el link no vuelve a abrir el formulario')

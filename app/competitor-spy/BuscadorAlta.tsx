@@ -176,7 +176,7 @@ export function BuscadorAlta({ textoInicial = '', para = null, competidores, ocu
   competidores: Competidor[];
   ocupado: boolean;
   error: string | null;
-  /** El `error` es el tope del plan (lib/spy-tope-reglas.ts: Esencial suma un competidor): al lado va «Pasar a Pro». */
+  /** El `error` es el tope del plan (lib/spy-tope-reglas.ts: Essential suma un competidor): al lado va «Pasar a Pro». */
   pasarAPro?: boolean;
   onClose: () => void;
   /** `nombre` y `web` los leyó la confirmación: no se vuelven a pagar al guardar. */

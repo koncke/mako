@@ -54,15 +54,15 @@ test('el PDF: qué hace MaKo, los dos planes con lo que trae cada uno (como /pla
   assert.equal(d.link, LINK);
   assert.equal(d.codigo, 'leila');
   assert.equal(d.deParte, 'Leila Coach');
-  assert.deepEqual(d.planes.map((p) => p.nombre), ['MaKo Esencial', 'MaKo Pro'], 'el Acelerador no: se vende por llamada');
+  assert.deepEqual(d.planes.map((p) => p.nombre), ['MaKo Essential', 'MaKo Pro'], 'el Accelerator no: se vende por llamada');
   assert.equal(d.planes[0].precio, 'US$ 47 por mes');
   assert.equal(d.planes[1].precio, 'US$ 97 por mes');
   assert.ok(d.planes[0].incluye.includes(`Landings y presentaciones armadas con IA, publicadas: ${TOPES.completo['web.landings_publicadas']}`), 'los topes de verdad');
   assert.ok(d.planes[0].incluye.includes('Leads y clientes guardados en tu CRM: hasta 2.000'), d.planes[0].incluye.join(' | '));
-  assert.ok(!d.planes[0].incluye.some((x) => /grupos de WhatsApp/.test(x)), 'Esencial no trae el scraper');
-  assert.equal(d.planes[1].incluye[0], 'Todo lo de MaKo Esencial, con más lugar');
+  assert.ok(!d.planes[0].incluye.some((x) => /grupos de WhatsApp/.test(x)), 'Essential no trae el scraper');
+  assert.equal(d.planes[1].incluye[0], 'Todo lo de MaKo Essential, con más lugar');
   assert.ok(d.planes[1].incluye.includes('Scrapear los contactos de tus grupos de WhatsApp'), 'Pro sí');
-  assert.ok(!d.planes[1].incluye.some((x) => /asesoría grupal/.test(x)), 'lo del Acelerador no va en Pro');
+  assert.ok(!d.planes[1].incluye.some((x) => /asesoría grupal/.test(x)), 'lo del Accelerator no va en Pro');
   if (PRUEBA_GRATIS_PRENDIDA) assert.match(d.prueba, /d[ií]as gratis/i, 'el PDF dice la prueba');
   else assert.doesNotMatch(d.prueba, /d[ií]as gratis/i, 'el PDF no promete una prueba que ya no existe');
   // 15/11/2026: los planes del PDF ya no traen `resumen` (la frase «para quién es» se fue de /planes y del PDF), así que se
@@ -104,5 +104,5 @@ test('se VEN: el panel de la computadora y el del teléfono, con el link y el c�
 // Probado rompiéndolo (27/10/2026), una rotura por vez sobre la base en verde (3 pases, 0 fallos; el del PDF armado en Node se
 // sumó después), restaurando el texto con un script (nunca git). Rota (pases / fallos):
 //   · un mensaje sin el link                                                   → 2 / 1
-//   · Pro repite todo lo de Esencial                                           → 2 / 1
-//   · Esencial con lo de Pro                                                   → 2 / 1
+//   · Pro repite todo lo de Essential                                           → 2 / 1
+//   · Essential con lo de Pro                                                   → 2 / 1

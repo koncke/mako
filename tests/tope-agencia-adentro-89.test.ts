@@ -2,8 +2,8 @@
 // Ticket #89 (12/11/2026): «Llegaste al tope de tu plan (1). Pasa a MaKo «…» para tener más. Pídele a tu agencia que te pase a «…»»
 // =============================================================================
 // Código Inmobiliario (la agencia, ws13), operando dentro de «Sellers» (ws24), quiso invitar a alguien al equipo. Medido en la
-// base ese día: Sellers es cliente aprobado de ws13, con el plan Esencial ELEGIDO por la agencia el 11/11 (`agency.plan_cambiado`)
-// y capa `completo`; Esencial es 1 usuario y ya lo ocupa su dueño. El tope (1) es el de la tabla: no era el bug.
+// base ese día: Sellers es cliente aprobado de ws13, con el plan Essential ELEGIDO por la agencia el 11/11 (`agency.plan_cambiado`)
+// y capa `completo`; Essential es 1 usuario y ya lo ocupa su dueño. El tope (1) es el de la tabla: no era el bug.
 // Las dos fallas de verdad:
 //   1. El «…» no lo vio el cliente: es `sinNombres` (lib/soporte-reporte.ts) tapando «Pro» como si fuera el nombre de un lead.
 //   2. El cartel le decía A LA AGENCIA «Pídele a tu agencia que te pase a Pro». Ahora le da la puerta que le toca: salir de la
@@ -67,7 +67,7 @@ test('3. «Reportar a Soporte» no tapa el nombre del plan: el ticket dice lo qu
   const visto = `${textoTope(1)} ${TEXTO_PEDIR_PRO_A_LA_AGENCIA}`;
   assert.equal(sinNombres(visto), visto);
   assert.equal(limpio(visto, TOPE_ERROR), visto);
-  assert.equal(sinNombres('Pasa a Esencial para seguir'), 'Pasa a Esencial para seguir');
+  assert.equal(sinNombres('Pasa a Essential para seguir'), 'Pasa a Essential para seguir');
   // Lo que sí es un nombre se sigue tapando.
   assert.equal(sinNombres('No pude invitar a Roberto Pérez a Pro'), 'No pude invitar a «…» a Pro');
 });

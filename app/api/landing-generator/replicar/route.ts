@@ -27,7 +27,7 @@
 //
 // La puerta es la de todo /api/landing-generator: admin del workspace y la tab `landing-writer` en su
 // capa (sin el rol, un closer usaría por acá la IA y la red que su pantalla le esconde). Y desde el 14/11/2026, MaKo Pro:
-// un Esencial recibe 403 con `pasarAPro` (lib/editor-landing/replicar-candado.ts).
+// un Essential recibe 403 con `pasarAPro` (lib/editor-landing/replicar-candado.ts).
 // maxDuration 300: por bloques corre las tandas de la IA con un plazo total de 240 s.
 // =============================================================================
 

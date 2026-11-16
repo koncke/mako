@@ -859,7 +859,7 @@ export function colorQueSeLee(t: Pick<TextoReplica, 'rol' | 'color' | 'relleno'>
  * arriba abajo (`sinSuperponer`, con un aire de un cuarto del cuerpo más chico). Si así algo se sale de la lámina, TODOS se achican
  * juntos (la jerarquía no cambia) hasta que entran. Devuelve uno por texto, en el mismo orden.
  *
- * Y A LO ANCHO (12/11/2026, «MaKo + Claude = Tu Acelerador»: «Acelerador» en Archivo Black a 119 px no entraba en su caja de
+ * Y A LO ANCHO (12/11/2026, «MaKo + Claude = Tu Accelerator»: «Accelerator» en Archivo Black a 119 px no entraba en su caja de
  * 518 px, el editor la estira y la lámina la corta: «= Tu Acelerad»). Partir en renglones no alcanza cuando UNA palabra es más
  * ancha que la caja: ese texto se achica hasta que su palabra más larga entra, y con él los de su mismo papel y cuerpo (los dos
  * pedazos de un titular siguen iguales).
@@ -1017,7 +1017,7 @@ function acentosPorPosicion(contenido: string, renglones: readonly string[], b: 
 
 /**
  * Los acentos sin una palabra VACÍA sola (13/11/2026, la portada en producción: «Tu estrategia *de* ventas», porque en el original
- * ahí estaba «Hormozi» en naranja). Entre dos palabras de acento («Acelerador *de* Ventas»), sí queda.
+ * ahí estaba «Hormozi» en naranja). Entre dos palabras de acento («Accelerator *de* Ventas»), sí queda.
  */
 export function sinVaciasSueltas(contenido: string, acentos: ReadonlyArray<readonly [number, number]>): Array<[number, number]> {
   const vacia = (a: number, b: number) => PALABRAS_VACIAS.has(contenido.slice(a, b).toLocaleLowerCase('es').replace(/[^\p{L}]/gu, ''));

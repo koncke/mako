@@ -200,7 +200,7 @@ async function conLead(input: Record<string, unknown>, fn: (lead: Lead) => Promi
 /** El grupo de WhatsApp que se pidió (su id o su nombre) en la línea del negocio: lo usan traer y completar nombres. */
 /**
  * SÓLO MaKo Pro (27/10/2026, Martín en la llamada con Leila; lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`): traer de un grupo de
- * WhatsApp. Lo mismo que la pantalla (app/crm/grupo-wa-actions.ts): un Esencial que paga por la pasarela recibe el texto de
+ * WhatsApp. Lo mismo que la pantalla (app/crm/grupo-wa-actions.ts): un Essential que paga por la pasarela recibe el texto de
  * subir de plan. Ante la duda, sin candado (lib/plan-esencial.ts).
  */
 async function candadoDeGrupos(): Promise<string | null> {
@@ -2866,7 +2866,7 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const nombre = s(input.nombre);
       if (!nombre) return { error: 'Falta el nombre del CRM.', faltan: ['nombre'] };
-      // El tope del plan (23/10/2026, lib/topes-crm.ts): con MaKo Esencial, un CRM. No se propone lo que va a fallar.
+      // El tope del plan (23/10/2026, lib/topes-crm.ts): con MaKo Essential, un CRM. No se propone lo que va a fallar.
       const tope = await estadoTopeCrm(ctx.ws, 'crm.funnels');
       if (tope && enElTope(tope, 'crm.funnels')) return { error: `${textoTope(tope.tope)} Planes: /planes.` };
       if (nombre.toLowerCase() === FUNNEL_DEFAULT_NOMBRE.toLowerCase()) return { error: `«${FUNNEL_DEFAULT_NOMBRE}» es el nombre del CRM que ya existe. Ponle otro.` };

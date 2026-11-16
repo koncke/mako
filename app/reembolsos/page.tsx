@@ -48,7 +48,7 @@ export default function Page() {
         queda claro, escríbenos a {mail} antes de pagar.
       </>}
     >
-      <H id="mensuales">1. Planes de MaKo (Esencial y Pro)</H>
+      <H id="mensuales">1. Planes de MaKo (Essential y Pro)</H>
       <ul>
         {!PRUEBA_GRATIS_PRENDIDA && (
           <>

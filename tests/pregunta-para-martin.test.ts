@@ -89,7 +89,7 @@ test('3. el motivo nombra la palabra y dice qué hacer, en tú', () => {
   assert.match(orden, /qué haces primero/);
   assert.equal(motivoParaElChat(juzgarPregunta({ pregunta: '¿Cobramos US$47 o US$97?' })), null);
   // Con el tema de Martín, se reescribe: nunca «decídela tú» sobre un precio (la revisión del 10/11/2026).
-  const precio = motivoParaElChat(juzgarPregunta({ pregunta: '¿Subimos el Esencial a US$97? (hay que hacer deploy de /planes)' }))!;
+  const precio = motivoParaElChat(juzgarPregunta({ pregunta: '¿Subimos el Essential a US$97? (hay que hacer deploy de /planes)' }))!;
   assert.match(precio, /decisión de Martín/);
   assert.match(precio, /No la decidas tú/);
   assert.doesNotMatch(precio, /decídela tú/);
@@ -156,11 +156,11 @@ test('5. el hook de AskUserQuestion le pasa al chat el motivo de la técnica', (
     assert.doesNotMatch(m.permissionDecisionReason, /no se guardó|mandala/i, 'no es una falla del cartero');
     assert.equal(existsSync(join(cartero, 'preguntas')) ? readdirSync(join(cartero, 'preguntas')).length : 0, 0);
     // Una de Martín con jerga: se le pide reescribirla y mandarla con `preguntar`, nunca decidirla (la revisión del 10/11/2026).
-    const precio = motivoDe(correr([{ question: '¿Subimos el Esencial a US$97? (hay que hacer deploy de /planes)', header: 'Precio', options: [{ label: 'Sí (Recommended)' }, { label: 'No' }] }]));
+    const precio = motivoDe(correr([{ question: '¿Subimos el Essential a US$97? (hay que hacer deploy de /planes)', header: 'Precio', options: [{ label: 'Sí (Recommended)' }, { label: 'No' }] }]));
     assert.equal(precio.permissionDecision, 'deny');
     assert.match(precio.permissionDecisionReason, /Reescríbela sin lenguaje técnico y mándala con `.*preguntar`/);
     assert.doesNotMatch(precio.permissionDecisionReason, /NO la vuelvas a preguntar|decídela y sigue/);
-    const suya = correr([{ question: '¿Cobramos US$47 o US$97 por el plan Esencial?', header: 'Precio', options: [{ label: 'US$47 (Recommended)' }, { label: 'US$97' }] }]);
+    const suya = correr([{ question: '¿Cobramos US$47 o US$97 por el plan Essential?', header: 'Precio', options: [{ label: 'US$47 (Recommended)' }, { label: 'US$97' }] }]);
     assert.match(motivoDe(suya).permissionDecisionReason, /YA QUEDÓ GUARDADA/);
     assert.equal(readdirSync(join(cartero, 'preguntas')).length, 1);
   } finally { rmSync(raiz, { recursive: true, force: true }); }

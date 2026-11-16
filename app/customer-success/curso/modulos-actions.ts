@@ -235,7 +235,7 @@ export async function guardarBloqueoAction(
 /**
  * «Nueva clase» AL PRINCIPIO del módulo. Devuelve la clase: la pantalla la abre para editarla.
  *
- * ⚠️ LA PRIMERA CLASE DE UN PROGRAMA CREA UN CURSO, y MaKo Esencial tiene uno (14/11/2026, lib/tope-cursos.ts): pasado el
+ * ⚠️ LA PRIMERA CLASE DE UN PROGRAMA CREA UN CURSO, y MaKo Essential tiene uno (14/11/2026, lib/tope-cursos.ts): pasado el
  *    tope, el texto del tope y `pasarAPro` (la pantalla dibuja «Pasar a Pro»). Una clase en el curso que ya tiene, siempre.
  */
 export async function crearClaseAction(productoId: number, moduloClave: string): Promise<{ ok: true; clase: Clase } | (Fallo & { pasarAPro?: string })> {
