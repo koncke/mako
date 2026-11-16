@@ -291,4 +291,38 @@ export const BITACORA: Hito[] = [
       '⚠️ Vivo: `lib/embeddings.ts`, `lib/transcribe.ts` y `app/api/ads-manager/analyze-creatives/route.ts` siguen con 0 `recordUsage` y resuelven la key con `envCred` → un cliente BYOK igual se lo paga la agencia',
     ],
   },
+  // ── 16 de noviembre: el medidor apagó un grupo de WhatsApp ────────────────
+  {
+    fecha: '16 nov', hora: '13:55', chat: 'Medidor de MaKo Tokens', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Un candado que todavía no se instaló no frena nada: fallar cerrado apagó el grupo de un cliente',
+    pedido: 'Tickets #103 y #105, del Cerebro: en el grupo de MaKo del ws 23 («Marcela Fernandez», cliente de la agencia Código Inmobiliario) entró el aviso de un lead nuevo, MaKo no pudo contestar («No pude leer tu saldo de MaKo Tokens») y le contestó al grupo que conectara su GPT. El mensaje siguiente de la dueña, que hablaba del lead, quedó atrapado en la guía de conexión.',
+    puntos: [
+      '**La causa: la migración `0416` nunca se aplicó en producción y el código sí llegó.** Las tres RPC de la caja no existían, PostgREST devolvió `PGRST202` y `gastarMt` falló **cerrado** — exactamente como estaba escrito que hiciera. Medido leyendo el catálogo de producción con `scripts/verificar-migraciones-aplicadas.mjs`.',
+      '⚠️ **El diagnóstico obvio era el equivocado: «fallar cerrado es lo seguro» mezcla dos cosas distintas.** La caja que ESTÁ y no contesta (un 500, un timeout) sí tiene plata que proteger; la caja que NO ESTÁ INSTALADA no tiene nada que proteger, y frenar ahí sólo apaga el producto. Ahora se mira el **código** del error — `PGRST202`, `PGRST205`, `42883`, `42P01`, `42703` — y eso deja pasar sin cobrar, con un aviso fuerte en el log. Cualquier otro error sigue fallando cerrado.',
+      '**La segunda cara del mismo bug: un `select` con una columna que no existe falla ENTERO.** `saldoDeWorkspace` pedía `saldo, comprado, cupo_mes` y sin la `0416` las dos últimas no están: el saldo quedaba ilegible y `alcanzaElSaldo`, que falla cerrado y bien, frenaba el AI Avatar de **todos** los negocios. Ahora reintenta pidiendo lo que la `0412` ya tiene.',
+      '⚠️ **Un aviso de orden de despliegue en un mensaje de commit no es un mecanismo.** Estaba escrito con estas palabras antes de que pasara, en el commit, en los hallazgos y en el informe, y no sirvió: nada en el camino de un push a producción pregunta si falta una migración. El mecanismo es que el código tolere que la migración falte. Y la predicción nombró el caso equivocado («el onboarding de un cliente que acaba de pagar»): lo que se rompió fue un cliente de agencia que ya opera, porque el camino que MaKo paga es el **crédito de Claude**, que es más ancho que el onboarding.',
+      '⚠️ **El «sin saldo» no es un fallo de proveedor, y la cascada se lo quedaba.** El enganche del medidor está ADENTRO de las funciones que la cascada llama, así que su excepción caía en el `catch` por candidato, se volvía un renglón de texto (`anthropic/ANTHROPIC_API_KEY: …`), iba a la lista de fallas **del cliente** y la app la traducía a «tu negocio todavía no conectó su IA». Mi propio comentario afirmaba que eso no podía pasar. Quedan 12 guardas que lo re-tiran: ningún otro proveedor arregla una falta de plata, porque la caja es del NEGOCIO, no de la clave.',
+      '**«No tiene ninguna key» dejó de significar «le falta configurar algo».** `causaDelFallo` empezaba con `if (keysDelCliente === 0) return \'sin_keys\'`, un atajo correcto mientras cada negocio pagaba su IA; desde el 15/11 no tener keys es el estado NORMAL de un cliente que anda bien. Causa nueva `sin_tokens`, chequeada antes, y su cartel repite el mensaje del medidor en vez de escribir el suyo: ahí está el número que falta y las dos salidas.',
+      '⚠️ **Un error nuestro clasificado como «configuración del negocio» no cuesta un cartel: cuesta la conversación.** Esa causa ofrece la guía de conexión por WhatsApp y **guarda la oferta**, así que el mensaje siguiente de la persona —«Ya contactada», que hablaba del lead— lo leyó la guía como el «listo» de un paso. Y abrió un ticket que decía «se cierra solo cuando el negocio lo tiene»: nunca, porque no había nada que configurar. `causaDelCartel` deja `sin_tokens` en `null` a propósito: quedarse sin saldo no es un bug ni un problema de configuración.',
+      '**El test que no se puede escribir, y el estático que lo reemplaza.** Con el enganche donde está, el medidor tira antes de que el cuerpo de la cascada corra, así que el camino que pasó en producción no es alcanzable desde el arnés. El caso 8e recorre los dos archivos, acota cada bloque `catch` **contando llaves** y exige el guarda donde ese bloque arma un renglón de error: **encontró 4 `catch` que leyendo el código no vi**. Mirar «los próximos N caracteres» en vez de contar llaves daba un falso rojo en el `fetch` crudo a Gemini.',
+      '⚠️ **Vivo, y es de Martín: la `0416` sigue sin aplicarse.** Hasta que se aplique el medidor deja pasar todo sin cobrar — correcto, pero no mide. Al aplicarla hay que correr `scripts/probar-concurrencia-saldo.mjs`, que es lo único que ejercita la carrera de verdad.',
+      '⚠️ **Y de paso, medido en el mismo chequeo: otras DOS migraciones tampoco están aplicadas en producción** — la `0411` (`carruseles_biblioteca_piezas.revisada_en`) y la `0415` (`lead_formularios`, 16 objetos). No son de esta área, pero quien las escribió no lo sabe.',
+    ],
+    commits: [
+      { sha: '0a103c0c', msg: 'El medidor apagó un grupo de WhatsApp porque la 0416 no estaba aplicada, y fallar cerrado era lo equivocado', lineas: 0, archivos: 7 },
+      { sha: 'f9ec47ba', msg: 'Quedarse sin MaKo Tokens no es «no conectaste tu IA», y el orden del clasificador decía que sí', lineas: 0, archivos: 2 },
+      { sha: '1d5f1e7b', msg: 'Cosecha de los tickets #103 y #105: un candado que no se instaló, y el aviso que no era un mecanismo', lineas: 0, archivos: 3 },
+    ],
+    archivos: [
+      'lib/mako-tokens-caja.ts — `laCajaNoEsta`: el código del error decide si la caja no está instalada o si la base falló',
+      'lib/mako-tokens-medidor.ts — `esSinSaldoDeMt`, y la caja ausente abre el almacén y deja correr (nunca `fn()`: es el bucle de la re-entrada)',
+      'lib/fallo-ia-texto.ts — la causa `sin_tokens`, chequeada ANTES de «no tiene keys»; el cartel repite el mensaje del medidor',
+      'lib/ai-cheap.ts · lib/anthropic.ts — 12 guardas que re-tiran el «sin saldo» en vez de probar el proveedor siguiente',
+      'tests/mako-tokens-medidor.test.ts — casos 8c, 8d y 8e (el estático); 17 casos, 4 roturas probadas una por vez',
+      'docs/hallazgos-mako-tokens.md — los cinco hallazgos, con su línea en el índice',
+    ],
+    revisar: '/admin/dev/ai-spend-cuotas',
+    tickets: [103, 105],
+  },
 ];
