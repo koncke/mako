@@ -19,6 +19,10 @@ import { SIGNO_NO, SIGNO_SI } from './signos';
 export const CSS_PLANES = `
 body:has(.planes-root) aside { display: none !important; }
 body:has(.planes-root) { background: #FFFFFF; }
+/* EN EL OSCURO, LO QUE LA BARRA DE MAKO TOKENS VUELVE A ESCRIBIR (16/11/2026): el sol y la luna recolorea una sola vez, al cargar;
+   el «+N MaKo Tokens extras al mes» y las cifras de cada columna los reescribe el script de la barra al moverla, y nacían con el
+   color del modo claro: negro sobre negro. El color va acá, por el modo (lo mismo que la portada, app/vsl/_sitio/estilos.ts). */
+html[data-sitio-modo="oscuro"] .planes-root .tk-extra b, html[data-sitio-modo="oscuro"] .planes-root .mkpl-alcanza li:not(.mkpl-alcanza-sin) b { color: rgb(228,231,237); }
 /* overflow-x: clip (15/11/2026): el control de la barra de MaKo Tokens mide 100 % + 36 px y pasaba 2 px el borde del teléfono.
    «clip» y no «hidden»: no arma un contenedor de scroll, así lo «sticky» de adentro sigue andando. */
 .planes-root { min-height: 100vh; padding: 40px 16px 56px; color: #121212; overflow-x: clip;
@@ -236,7 +240,9 @@ body:has(.ck-root) { background: #FFFFFF; }
 .ck-medio-mp .ck-medio-texto b { color: #FFFFFF; font-size: 16px; }
 .ck-medio-mp .ck-medio-texto small { color: rgba(255,255,255,.88); }
 .ck-medio-mp input { accent-color: #FFFFFF; }
-.ck-medio-mp:has(input:checked) { background: #0084C2 !important; box-shadow: inset 0 0 0 2px #FFFFFF, inset 4px 0 0 #FFE600 !important; }
+/* «.ck-medio.ck-medio-mp» y no «.ck-medio-mp» (16/11/2026): con el mismo peso que la regla general de la fila elegida (más abajo,
+   también con !important) ganaba la general, y «Mercado Pago» quedaba en blanco sobre celeste pálido, sin leerse. */
+.ck-medio.ck-medio-mp:has(input:checked) { background: #0084C2 !important; box-shadow: inset 0 0 0 2px #FFFFFF, inset 4px 0 0 #FFE600 !important; }
 .planes-btn.ck-btn-mp { display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
 .planes-btn.ck-btn-mp:hover { filter: brightness(.95); }
 .ck-btn-mp-logo { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; background: #fff; }
@@ -264,7 +270,10 @@ body:has(.ck-root) { background: #FFFFFF; }
   .ck-plegable[open] .ck-ver-abrir, .ck-plegable:not([open]) .ck-ver-cerrar { display: none; }
   .ck-detalle { margin-top: 18px; }
   .ck-incluye, .ck-totales, .ck-nota-res { margin-left: 0; }
-  .ck-pie .ck-col { justify-content: center; text-align: center; }
+  /* En el teléfono (16/11/2026) no entraba en una línea y se salía a lo ancho: «Pagos procesados por…» va en su renglón y los tres
+     links siguen juntos en el de abajo, sin cortarse (Martín, 14/11: «privacidad y reembolsos… no deberían saltarse de línea»). */
+  .ck-pie .ck-col { justify-content: center; text-align: center; flex-wrap: wrap; }
+  .ck-pie .ck-procesa { flex-basis: 100%; padding-right: 0; border-right: 0; white-space: normal; }
 }
 @media (prefers-reduced-motion: reduce) {
   .planes-btn, .ck-volver, .ck-plegable .ck-ver::after, .ck-medio { transition: none; }
