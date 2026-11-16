@@ -46,8 +46,20 @@ export function eventIdScheduleDelAviso(data: unknown): string | null {
   return id ? `schedule:${id}` : null;
 }
 
-export function esAgendaDeCalendly(origin: string, data: unknown): boolean {
+export function esAgendaDeCalendly(origin: string, data: unknown, ventanas?: { source: unknown; marco: unknown }): boolean {
   if (origin !== 'https://calendly.com') return false;
+  // Con la ventana del iframe (la página que dibuja la agenda la conoce): sólo ESA agenda. Ver `esDelMarcoDeCalendly`.
+  if (ventanas && !esDelMarcoDeCalendly(origin, ventanas.source, ventanas.marco)) return false;
   if (!data || typeof data !== 'object') return false;
   return (data as { event?: unknown }).event === 'calendly.event_scheduled';
+}
+
+/**
+ * ¿Este `message` lo mandó ESA agenda: la ventana del iframe de Calendly que dibujó la página (`marco`, su `contentWindow`)?
+ * ⚠️ EL ORIGEN SOLO NO ALCANZA (revisión del 16/11/2026): cualquier otra ventana de calendly.com con referencia a la página (otro
+ * iframe, una pestaña que se abrió desde ahí) manda con el mismo origen, y su «agendó» hacía que /accelerator/aplicar guardara
+ * la llamada como agendada y no volviera a mostrar la agenda. Sin la ventana del iframe, no se cree.
+ */
+export function esDelMarcoDeCalendly(origin: string, source: unknown, marco: unknown): boolean {
+  return origin === 'https://calendly.com' && marco != null && source === marco;
 }

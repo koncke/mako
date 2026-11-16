@@ -8,6 +8,10 @@
 // En una venta de MaKo (el alta automática, decisión de Martín del 11/10/2026) dice además a qué
 // email le llegó el acceso y ofrece cambiarlo: el login es sólo Google, y se paga con el email que
 // uno tenga a mano. El formulario es ./AccesoMako.tsx y escribe por POST /api/pagar/email.
+// «REVISA TU CORREO» (16/11/2026, Martín: «rediseña mucho mejor la parte de la thank you page de tu prueba gratis empezó… ese
+// pequeño ticket ahí con un montón de texto no es lo mejor»): con la cuenta creada y sin haber entrado todavía, la página ES el paso
+// que falta —abrir el correo de acceso— y lo del pago o la prueba va en una línea arriba y otra abajo (./AccesoMako.tsx). La
+// tarjeta queda para lo demás: el pago que se confirma, el que falló, la cuenta que se está creando o la que ya entró.
 //
 // ⚠️ PÚBLICA (prefijo `/pagar`, lib/rutas-publicas.ts), y por eso:
 //   · Sólo GET, y NO LEE NINGUNA COOKIE: lo de la base va con el cliente de servicio y el
@@ -20,7 +24,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
-import { rutaDelPlan } from '@/lib/planes-mako';
+import { PRUEBA_DIAS, rutaDelPlan } from '@/lib/planes-mako';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { activarPruebaSiAutorizo, getCobroPorToken, inicioDeLaPrueba } from '@/lib/cobros';
 import { diaDelCobro, esPruebaDePlan, esPruebaRechazada, TEXTO_PRUEBA_USADA_EMAIL, TEXTO_PRUEBA_USADA_TARJETA } from '@/lib/prueba-plan-reglas';
@@ -30,7 +34,7 @@ import { esTokenCobro, NOMBRE_PASARELA, type Cobro } from '@/lib/cobros-tipos';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { montoDelPrimerPago } from '@/lib/primer-mes-reglas';
 import { nombreDelNegocio, usuarioDelAlta } from '../../acceso';
-import { cambiosRestantes, dentroDeLaVentana } from '../../cambio-email';
+import { bandejaDeEntrada, cambiosRestantes, dentroDeLaVentana } from '../../cambio-email';
 import { AccesoMako } from './AccesoMako';
 
 export const dynamic = 'force-dynamic';
@@ -74,16 +78,7 @@ body:has(.pagar-root) { background: #efefed; }
 .pagar-btn:hover { background: #202020; }
 .pagar-btn:focus-visible { outline: 2px solid #F2B01E; outline-offset: 2px; }
 .pagar-btn[disabled] { opacity: .6; cursor: default; }
-.pagar-link { background: none; border: 0; padding: 0; margin-top: 16px; color: #121212; font: inherit; font-size: 14px;
-  text-decoration: underline; cursor: pointer; }
 .pagar-acceso { margin-top: 22px; padding-top: 20px; border-top: 1px solid rgba(17,17,17,.09); }
-.pagar-form { margin-top: 16px; text-align: left; }
-.pagar-form label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
-.pagar-form input { width: 100%; box-sizing: border-box; font: inherit; padding: 11px 12px; border: 1px solid rgba(17,17,17,.17); border-radius: 10px; background: #fff; }
-.pagar-form input:focus { outline: none; border-color: #121212; box-shadow: 0 0 0 3px rgba(242,176,30,.35); }
-.pagar-form .pagar-btn { width: 100%; margin-top: 12px; }
-.pagar-error { color: #b1412a !important; font-size: 14px; }
-.pagar-ok { color: #22735c !important; font-size: 14px; }
 `;
 
 /** La tarjeta. `refrescar` = la página se recarga sola (mientras el pago se confirma). */
@@ -141,6 +136,13 @@ export default async function PagoListo({ params, searchParams }: Params) {
   );
 
   if (c.estado === 'pagado') {
+    if (c.alta_capa) {
+      const revisa = await revisaTuCorreo(c, {
+        negocio, chip: `Pago recibido · ${c.concepto} · ${formatoMonto(montoDelPrimerPago(c), c.moneda)}`,
+        nota: c.tipo === 'suscripcion' ? `${pasarela} confirmó tu pago. Se renueva cada mes hasta que lo canceles desde «Tu plan».` : `${pasarela} confirmó tu pago.`,
+      });
+      if (revisa) return revisa;
+    }
     return (
       <Tarjeta negocio={negocio} titulo="Pago recibido" tono="ok" refrescar={!!c.alta_capa && (c.alta_estado == null || c.alta_estado === 'pendiente')}>
         {detalle}
@@ -153,13 +155,16 @@ export default async function PagoListo({ params, searchParams }: Params) {
   // La prueba autorizada: empezó, con su alta. El cobro sigue pendiente hasta el día 8 (no es un pago todavía).
   if (esPruebaDePlan(c) && c.estado === 'pendiente' && c.suscripcion_estado === 'activa') {
     const inicio = await inicioDeLaPrueba(c).catch(() => null);
+    // Cuándo se cobra, en UNA línea (la letra chica de «Revisa tu correo»).
+    const cuando = `${inicio ? `El primer cobro es el ${diaDelCobro(inicio)}: ${formatoMonto(c.monto, c.moneda)} con tu tarjeta, y te avisamos dos días antes. ` : ''}Si te das de baja antes desde «Tu plan», no se te cobra nada.`;
+    if (c.alta_capa) {
+      const revisa = await revisaTuCorreo(c, { negocio, chip: `Tu prueba gratis de ${PRUEBA_DIAS} días empezó · hoy no se cobra nada`, nota: cuando });
+      if (revisa) return revisa;
+    }
     return (
       <Tarjeta negocio={negocio} titulo="Tu prueba gratis empezó" tono="ok" refrescar={!!c.alta_capa && (c.alta_estado == null || c.alta_estado === 'pendiente')}>
         {detalle}
-        <p>
-          No se te cobró nada.{inicio ? ` El ${diaDelCobro(inicio)} ${pasarela} cobra ${formatoMonto(c.monto, c.moneda)} con tu tarjeta, y te avisamos dos días antes.` : ''}{' '}
-          Si te das de baja antes desde «Tu plan», no se te cobra nada.
-        </p>
+        <p>No se te cobró nada. {cuando}</p>
         {c.alta_capa && <AltaDeMako c={c} />}
       </Tarjeta>
     );
@@ -222,30 +227,50 @@ export default async function PagoListo({ params, searchParams }: Params) {
   );
 }
 
+/**
+ * «REVISA TU CORREO» (./AccesoMako.tsx): la página entera, cuando la cuenta de MaKo ya está creada y la persona todavía no entró.
+ * null si no corresponde (la cuenta no está hecha, no se pudo leer, o ya entró): ahí sigue la tarjeta, con `AltaDeMako`.
+ */
+async function revisaTuCorreo(c: Cobro, p: { negocio: string | null; chip: string; nota: string | null }) {
+  if (c.alta_estado !== 'hecha') return null;
+  const u = await usuarioDelAlta(c).catch((e: unknown) => {
+    console.error('[pagar/listo] no pude leer la cuenta del alta:', e instanceof Error ? e.message : e);
+    return null;
+  });
+  if (!u || u.ultimo_login) return null;
+  return (
+    <AccesoMako
+      token={c.token}
+      emailInicial={emailEnmascarado(u.email) ?? ''}
+      bandeja={bandejaDeEntrada(u.email)}
+      puedeCambiar={cambiosRestantes(c) > 0 && dentroDeLaVentana(c)}
+      contacto={EMAIL_MAKO}
+      // Con el mail caído no se le dice «te mandamos el acceso» (revisión del 23/10/2026): esperaría un mail que no llega.
+      mailSalio={!mailDeAccesoNoSalio(c.alta_motivo)}
+      negocio={p.negocio}
+      chip={p.chip}
+      nota={p.nota}
+      deprueba={c.modo === 'prueba'}
+    />
+  );
+}
+
 /** La venta de un plan de MaKo: en qué quedó la cuenta. Con el cobro PAGADO, o con la prueba gratis autorizada. */
 async function AltaDeMako({ c }: { c: Cobro }) {
   if (c.alta_estado === 'hecha') {
-    const u = await usuarioDelAlta(c).catch((e: unknown) => {
-      console.error('[pagar/listo] no pude leer la cuenta del alta:', e instanceof Error ? e.message : e);
-      return null;
-    });
-    if (!u) {
+    const u = await usuarioDelAlta(c).catch(() => null);
+    if (u?.ultimo_login) {
       return (
         <div className="pagar-acceso">
-          <p>Tu cuenta de MaKo ya está creada. Si no te llegó el acceso, escríbenos a <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>.</p>
+          <p>Tu cuenta de MaKo ya está activa.</p>
+          <a className="pagar-btn" href="/login">Entrar a MaKo</a>
         </div>
       );
     }
     return (
-      <AccesoMako
-        token={c.token}
-        emailInicial={emailEnmascarado(u.email) ?? ''}
-        yaEntro={!!u.ultimo_login}
-        puedeCambiar={!u.ultimo_login && cambiosRestantes(c) > 0 && dentroDeLaVentana(c)}
-        contacto={EMAIL_MAKO}
-        // Con el mail caído no se le dice «te mandamos el acceso» (revisión del 23/10/2026): esperaría un mail que no llega.
-        mailSalio={!mailDeAccesoNoSalio(c.alta_motivo)}
-      />
+      <div className="pagar-acceso">
+        <p>Tu cuenta de MaKo ya está creada. Si no te llegó el acceso, escríbenos a <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>.</p>
+      </div>
     );
   }
   if (c.alta_estado === 'ya_tenia_cuenta') {

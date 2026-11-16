@@ -123,7 +123,7 @@ test('el CHECKOUT: sólo con la pasarela que arma la prueba, una por email/cuent
   const plan = fuente('lib/compra-plan.ts');
   assert.match(cuerpo('lib/compra-plan.ts', 'monedasDeLaPlataforma'), /if \(!PASARELAS_CON_PRUEBA\.includes\(p\)\) continue;/);
   const comprar = cuerpo('lib/compra-plan.ts', 'iniciarCompraDePlan');
-  const freno = comprar.indexOf('const puede = await puedeEmpezarPrueba(p.email, ws);');
+  const freno = comprar.indexOf('const puede = await puedeEmpezarPrueba({ email: p.email, whatsapp: p.whatsapp }, ws);');
   assert.ok(freno > 0 && freno < comprar.indexOf('crearCobro('), 'la segunda prueba se frena antes de abrir el pago');
   // Con el interruptor (30/10/2026): el camino de la prueba sigue entero, y sólo se toma con `PRUEBA_GRATIS_PRENDIDA`.
   // Y desde el 12/11/2026, sólo en el plan que la trae (`planConPrueba`: Pro; Martín: «para acceder a la de 47 hay que pagar
@@ -131,15 +131,17 @@ test('el CHECKOUT: sólo con la pasarela que arma la prueba, una por email/cuent
   assert.match(comprar, /const conPrueba = planConPrueba\(plan\.id\) && !p\.sinPrueba;/);
   assert.match(comprar, /creadoPor: conPrueba \? creadoPorPrueba\(plan\.id\) : conDescuento \? creadoPorPrimerMes\(plan\.id\) : `planes:\$\{plan\.id\}`,/);
   assert.match(comprar, /inicioAt: conPrueba \? finDeLaPrueba\(Date\.now\(\)\) : null,/, 'el primer cobro, el día 8 (el start_date de MP)');
-  assert.match(comprar, /: \{ ok: false, status: 409, error: TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true \};/, 'quien ya la usó puede empezar sin ella');
+  // 16/11/2026: por email o por WhatsApp (una por persona), y la compra sigue sin la prueba (`sinPrueba`): tests/prueba-una-por-persona.test.ts.
+  assert.match(comprar, /return \{ ok: false, status: 409, error: puede\.motivo === 'whatsapp' \? TEXTO_PRUEBA_USADA_WHATSAPP : TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true \};/, 'quien ya la usó puede empezar sin ella');
   const puede = cuerpo('lib/compra-plan.ts', 'puedeEmpezarPrueba');
   assert.match(puede, /\(await listarUsuarios\(\)\)\.some\(\(u\) => u\.email === email\)/, 'un negocio que ya existe no tiene prueba');
-  assert.match(puede, /\.eq\('email', email\)\.like\('creado_por', 'planes:%:prueba'\)\.not\('suscripcion_estado', 'is', null\)/, 'una prueba autorizada por email');
+  assert.match(puede, /\.like\('creado_por', 'planes:%:prueba'\)\.not\('suscripcion_estado', 'is', null\)/, 'una prueba autorizada');
+  assert.match(puede, /await pruebas\(\)\.eq\('email', email\)\.limit\(1\)/, 'por email');
   assert.ok(plan.includes("import { listarUsuarios } from './usuarios';"));
   const r = leerPedidoCompra({ plan: 'pro', nombre: 'Ana', email: 'a@x.com', sinPrueba: true });
   assert.ok(r.ok && r.pedido.sinPrueba === true);
   assert.ok(fuente('app/api/planes/comprar/route.ts').includes('...(r.sinPrueba ? { sinPrueba: true } : {})'));
-  assert.match(fuente('app/planes/[plan]/CompraPlan.tsx'), /onClick=\{\(e\) => \{ setSinPrueba\(true\); void enviar\(e, true\); \}\}>Empezar sin prueba<\/button>/);
+  assert.match(fuente('app/planes/[plan]/CompraPlan.tsx'), /if \(j\.sinPrueba && !sin\) \{ setSinPrueba\(true\);/, 'con la prueba ya usada, la compra no sigue sin ella');
 });
 
 test('el ALTA al autorizar la prueba; la SUSCRIPCIÓN DE MaKo del negocio incluye la prueba (topes, baja, «Tu plan»)', () => {

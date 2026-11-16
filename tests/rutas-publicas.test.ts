@@ -147,7 +147,10 @@ test('el comprador de un link de pago entra sin sesión, y sólo a lo suyo (11/1
   // Lo único que escribe es el cambio de email, EXACTO: nada colgado abajo ni al lado hereda el POST.
   assert.equal(esPublica('/api/pagar/email'), true);
   assert.equal(esPublicaDeEscritura('/api/pagar/email'), true);
-  assert.equal(esPublica('/api/pagar/email/otra'), true, 'PUBLICOS es por prefijo: por eso la escritura es exacta');
+  // Desde el 16/11/2026 las públicas que ESCRIBEN también entran exactas en PUBLICOS (`esPublica`): colgado abajo, ya ni siquiera
+  // entra sin sesión. Antes esto era `true` («PUBLICOS es por prefijo»), y una ruta nueva ahí abajo quedaba sin sesión y sin el
+  // chequeo de Origin (la revisión de la aplicación a MaKo Accelerator). Medido ese día: ninguna ruta que existe cambió.
+  assert.equal(esPublica('/api/pagar/email/otra'), false, 'una ruta colgada de una pública que escribe entra sin sesión');
   assert.equal(esPublicaDeEscritura('/api/pagar/email/otra'), false);
   assert.equal(esPublicaDeEscritura('/api/pagar/emails'), false);
   assert.equal(esPublica('/api/pagar/otra'), false, '/api/pagar no es un prefijo público');

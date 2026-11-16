@@ -95,7 +95,9 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
       return <ChipEtapa texto={s?.label ?? v} dot={s?.dot} />;
     }
     if (campo === 'Estado') return <ChipEtapa texto={ESTADO_LABEL[v] ?? v} />;
-    return <span>{v}</span>;
+    // CON SUS SALTOS DE LÍNEA (16/11/2026): la aplicación a MaKo Accelerator llega por secciones, con viñetas y párrafos (hasta unos
+    // 10.000 caracteres), y se leía en un solo bloque corrido. Un link largo, cortado donde haga falta.
+    return <span style={{ whiteSpace: 'pre-line', overflowWrap: 'anywhere' }}>{v}</span>;
   };
   const [pending, startTransition] = useTransition();
   const [audit, setAudit] = useState<LeadAuditRowFull[]>([]);

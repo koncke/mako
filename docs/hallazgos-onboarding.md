@@ -47,6 +47,10 @@ memoria `onboarding-16-11-decisiones`). Lo que no existe y hay que hacer:
   Follow Me Ads no tiene tipo en el CRM; «Reels de Instagram a DM» reemplazaría a «Instagram orgánico»; «Facturando» sigue siendo
   una etapa del CRM (`lib/pipeline.ts:73`).
 
+- **WhatsApp no deja mandar un mensaje solo desde un link**: wa.me deja el texto ESCRITO y la persona toca Enviar (16/11, la
+  maqueta lo muestra saliendo solo). Para el código del onboarding: la persona manda el mensaje ya escrito y MaKo le contesta con el
+  código; para que no toque nada, el código lo tendría que mandar MaKo primero por la API de WhatsApp Business.
+
 ## El estado del wizard (`lib/onboarding-state.ts`)
 
 ### El paso `productos` no existe en el estado, y el error no se ve

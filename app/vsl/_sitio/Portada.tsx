@@ -132,7 +132,8 @@ function FilaFuncion({ slug, rotulo, ancla, titulo, texto, visual, inv }: (typeo
   const grabacion = typeof visual === 'object' && 'video' in visual ? visual : null;
   const falta = typeof visual === 'object' && 'falta' in visual ? visual.falta : null;
   return (
-    <div id={ancla} className={`s-zz-fila${inv ? ' s-zz-inv' : ''}`}>
+    // El Second Brain va a todo el ancho, con el texto arriba (`s-zz-brain`, 16/11/2026: Martín lo quiere «mucho más épico»).
+    <div id={ancla} className={`s-zz-fila${visual === 'brain' ? ' s-zz-brain' : inv ? ' s-zz-inv' : ''}`}>
       <div className="s-zz-tx">
         <p className="s-zz-r">{rotulo ?? (l ? nombreCorto(l) : '')}</p>
         <h3 className="s-zz-t">{titulo}</h3>

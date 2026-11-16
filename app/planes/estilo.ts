@@ -14,7 +14,35 @@
 //
 // ⚠️ Las tarjetas de /planes (CSS_TARJETAS, app/planes/Tarjetas.tsx) las comparte la landing de /vsl: acá se pintan SÓLO dentro
 // de `.planes-root`, para no tocar la landing.
+import { PASARELAS } from '@/lib/cobros-tipos';
 import { SIGNO_NO, SIGNO_SI } from './signos';
+
+/**
+ * LA MONEDA DE LA PASARELA ELEGIDA (16/11/2026, Martín: «si pongo tarjeta de crédito, debería decirme dólares. Y si pongo Mercado
+ * Pago, debería decirme los pesos correspondientes»). El servidor dibuja el precio de cada pasarela en su envoltorio
+ * (`data-ck-moneda`, app/planes/[plan]/Checkout.tsx y el botón de CompraPlan.tsx) y esto deja ver UNO: el de la fila elegida o,
+ * sin elegir, el de la primera (`data-ck-primera`). Sin JavaScript (el radio elegido se lee con `:has()` desde `.ck`, que abarca
+ * el resumen y el formulario) y sin recargar. El envoltorio va con `display: contents`: no arma caja, así el precio sigue en su
+ * renglón flexible. Sin `:has()` (un navegador muy viejo) se ve siempre el de la primera, que es el de su país.
+ */
+const CSS_MONEDA = `
+.ck [data-ck-moneda] { display: contents; }
+.ck [data-ck-moneda]:not([data-ck-primera]) { display: none; }
+.ck:has(input[name="pasarela"]:checked) [data-ck-moneda] { display: none; }
+${PASARELAS.map((x) => `.ck:has(input[name="pasarela"][value="${x}"]:checked) [data-ck-moneda="${x}"]`).join(',\n')} { display: contents; }
+`;
+
+/**
+ * CON Y SIN LA PRUEBA (16/11/2026, una prueba por persona). La página se dibuja con la prueba y con su versión sin ella
+ * (`SegunPrueba`, app/planes/[plan]/Checkout.tsx); si la ruta dice que el email o el WhatsApp ya la usaron, el formulario se marca
+ * con `data-ck-sin-prueba` (app/planes/[plan]/CompraPlan.tsx) y desde `.ck` se ve la sin prueba: la etiqueta, el precio grande y los
+ * totales dicen lo mismo que el botón («Suscribirme por …»). Sin `:has()`, la de la prueba, como antes.
+ */
+const CSS_PRUEBA = `
+.ck [data-ck-prueba] { display: contents; }
+.ck [data-ck-prueba="sin"], .ck:has(form[data-ck-sin-prueba]) [data-ck-prueba="con"] { display: none; }
+.ck:has(form[data-ck-sin-prueba]) [data-ck-prueba="sin"] { display: contents; }
+`;
 
 export const CSS_PLANES = `
 body:has(.planes-root) aside { display: none !important; }
@@ -199,10 +227,21 @@ body:has(.ck-root) { background: #FFFFFF; }
 .ck-item b { display: block; font-size: 15px; font-weight: 700; }
 .ck-item small { display: block; color: #636360; font-size: 13px; margin-top: 2px; }
 .ck-item-precio { font-weight: 700; font-size: 15px; white-space: nowrap; }
-.ck-incluye { list-style: none; margin: 12px 0 0 58px; padding: 0; display: grid; gap: 6px; }
-.ck-incluye li { position: relative; padding-left: 22px; font-size: 13.5px; line-height: 1.45; color: #2b2b29; }
-.ck-incluye li::before { content: "✓"; position: absolute; left: 0; top: 0; width: 16px; height: 16px; border-radius: 999px; background: #EEF4FF;
-  color: #8F6709; font-size: 10px; font-weight: 800; display: grid; place-items: center; margin-top: 2px; }
+/* LAS ✓ Y LAS ✗ DE LA COLUMNA (16/11/2026, Martín: «los checks… deberían ser iguales a los checks que tenemos en la columna de los
+   planes, exactamente iguales, con el mismo diseño, con el mismo color… O las cruces»). Era la letra «✓» dorada en un círculo
+   celeste de 16 px; ahora el renglón es el de la columna (.mkpl-lista, app/planes/Tarjetas.tsx): el círculo de 20 px de
+   app/planes/signos.ts —verde pálido con la tilde verde, rojo pálido con la cruz roja— al costado, 10 px de aire, el texto de
+   arriba alineado al círculo, la negrita del arranque y «No incluye» en gris con su ✗. Y los títulos, los de la columna. */
+.ck-lista { margin: 16px 0 0 58px; }
+.ck-lista-t { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: #121212; }
+.ck-lista-t-no { margin-top: 18px; }
+.ck-incluye { list-style: none; margin: 12px 0 0 58px; padding: 0; display: grid; gap: 10px; font-size: 14.5px; line-height: 1.4; color: #12151B; }
+.ck-lista .ck-incluye { margin: 0; }
+.ck-incluye li { display: flex; gap: 10px; align-items: flex-start; }
+.ck-incluye li b { font-weight: 700; color: #12151B; }
+.ck-incluye li::before { ${SIGNO_SI} }
+.ck-incluye.ck-no-incluye li { color: #5B6472; }
+.ck-incluye.ck-no-incluye li::before { ${SIGNO_NO} }
 .ck-totales { margin: 16px 0 0 58px; padding: 0; }
 .ck-totales div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid rgba(17,17,17,.09); font-size: 14.5px; }
 .ck-totales dt { margin: 0; color: #2b2b29; }
@@ -211,11 +250,17 @@ body:has(.ck-root) { background: #FFFFFF; }
 .ck-totales div.ck-total dt, .ck-totales div.ck-total dd { font-weight: 800; color: #121212; }
 .ck-totales div.ck-descuento dd { color: #22735c; }
 .ck-nota-res { margin: 10px 0 0 58px; color: #636360; font-size: 13px; line-height: 1.45; }
-/* En una sola línea (Martín, 14/11/2026: «privacidad y reembolsos en el checkout no deberían saltarse de línea»). */
-.ck-pie .ck-col { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px 12px; color: #636360; font-size: 12.5px; white-space: nowrap; }
+/* EN UN RENGLÓN, CON LOS LOGOS (16/11/2026, Martín: «no me gustaría que tenga doble salto de línea… en lugar de poner la palabra
+   Mercado Pago y Stripe, poner los logos»). Quién procesa (los dos logos), un filete y los tres links, sin partirse nunca: de 320 a
+   1440 entra en su columna (medido; en el teléfono angosto la letra y los huecos se achican, abajo). Antes, con los nombres escritos,
+   eran 478 px en una columna de 400 y «Reembolsos» chocaba con la línea del formulario: por eso se había partido en dos. */
+.ck-pie .ck-col { display: flex; flex-wrap: nowrap; align-items: center; gap: 0 10px; color: #636360; font-size: 12.5px; white-space: nowrap; }
 .ck-pie a { color: #636360; text-decoration: none; }
 .ck-pie a:hover { color: #121212; text-decoration: underline; }
-.ck-pie .ck-procesa { padding-right: 14px; border-right: 1px solid rgba(17,17,17,.15); }
+.ck-pie .ck-procesa { display: inline-flex; align-items: center; gap: 6px; }
+.ck-pie .ck-procesa-logo { display: inline-flex; align-items: center; flex: none; }
+.ck-pie .ck-procesa-corto { display: none; }
+.ck-pie .ck-legales { display: inline-flex; gap: 10px; padding-left: 10px; border-left: 1px solid rgba(17,17,17,.16); }
 .ck-pie b { color: #4f4f4c; font-weight: 700; }
 .ck-plegable { display: none; }
 .ck-titulo { margin: 0 0 4px; font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
@@ -223,29 +268,33 @@ body:has(.ck-root) { background: #FFFFFF; }
 .ck-formulario label:first-of-type { margin-top: 10px; }
 .ck-sub { margin: 0 0 6px; color: #636360; font-size: 13.5px; }
 .ck-medios { margin-top: 10px; border: 1px solid rgba(17,17,17,.17); border-radius: 12px; overflow: hidden; background: #fff; }
-.ck-formulario label.ck-medio { display: grid; grid-template-columns: 18px 28px 1fr auto; gap: 12px; align-items: center; margin: 0; padding: 14px 16px;
+/* La columna del ícono, de 30 (16/11/2026): el logo de Mercado Pago (el óvalo, 29 × 20) y el de la tarjeta (28 × 20) entran en la
+   misma, así el nombre de las dos filas empieza en el mismo lugar. Era de 36 por el círculo blanco que llevaba el logo de antes, y a
+   320 px «Tarjeta de crédito o débito» quedaba en 5 renglones (revisión del 16/11, hallazgo 6; ver también el teléfono angosto). */
+.ck-formulario label.ck-medio { display: grid; grid-template-columns: 18px 30px 1fr auto; gap: 12px; align-items: center; margin: 0; padding: 14px 16px;
   cursor: pointer; font-weight: 500; border-top: 1px solid rgba(17,17,17,.09); transition: background .15s ease; }
 .ck-formulario label.ck-medio:first-child { border-top: 0; }
 .ck-formulario label.ck-medio:hover { background: #f7f7f6; }
 .ck-medio input { margin: 0; width: 16px; height: 16px; accent-color: #121212; }
-.ck-medio-icono { width: 28px; height: 20px; border-radius: 4px; display: grid; place-items: center; background: #F1F3F7; color: #4f4f4c; font-size: 13px; }
+.ck-medio-icono { justify-self: center; width: 28px; height: 20px; border-radius: 4px; display: grid; place-items: center; background: #F1F3F7; color: #4f4f4c; font-size: 13px; }
 .ck-medio-texto b { display: block; font-size: 15px; font-weight: 600; color: #121212; }
 .ck-medio-texto small { display: block; font-size: 12.5px; color: #636360; margin-top: 1px; }
 .ck-marcas { display: flex; gap: 4px; align-items: center; }
 .ck-marcas svg { display: block; width: 34px; height: auto; }
-/* Mercado Pago, bien distinto (14/11/2026): su celeste y su logo en la fila, y el botón en su azul cuando se elige. */
+/* Mercado Pago, bien distinto (14/11/2026): su celeste y su logo en la fila. El logo es el de verdad (el óvalo celeste con la mano
+   blanca y el borde azul oscuro, app/planes/[plan]/MarcasDePago.tsx) y va sin el círculo blanco que necesitaba el de antes: sobre su
+   celeste se lee por el borde. El botón ya no cambia (16/11/2026, Martín: «el mismo botón negro del mismo tamaño»). */
 .ck-formulario label.ck-medio.ck-medio-mp { background: #009EE3; }
 .ck-formulario label.ck-medio.ck-medio-mp:hover { background: #0090CF; }
-.ck-formulario label.ck-medio.ck-medio-mp .ck-medio-icono { width: 36px; height: 36px; border-radius: 999px; background: #FFFFFF; }
+.ck-formulario label.ck-medio.ck-medio-mp .ck-medio-icono { width: auto; height: auto; border-radius: 0; background: none; }
 .ck-medio-mp .ck-medio-texto b { color: #FFFFFF; font-size: 16px; }
 .ck-medio-mp .ck-medio-texto small { color: rgba(255,255,255,.88); }
 .ck-medio-mp input { accent-color: #FFFFFF; }
 /* «.ck-medio.ck-medio-mp» y no «.ck-medio-mp» (16/11/2026): con el mismo peso que la regla general de la fila elegida (más abajo,
    también con !important) ganaba la general, y «Mercado Pago» quedaba en blanco sobre celeste pálido, sin leerse. */
 .ck-medio.ck-medio-mp:has(input:checked) { background: #0084C2 !important; box-shadow: inset 0 0 0 2px #FFFFFF, inset 4px 0 0 #FFE600 !important; }
-.planes-btn.ck-btn-mp { display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
-.planes-btn.ck-btn-mp:hover { filter: brightness(.95); }
-.ck-btn-mp-logo { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; background: #fff; }
+/* Por qué la compra sigue sin la prueba (el email o el WhatsApp ya la usaron): un aviso, no un error. */
+.ck-aviso { margin: 18px 0 -8px; padding: 10px 12px; border-radius: 10px; background: #FDF4DE; color: #5c4306; font-size: 14px; line-height: 1.45; }
 .ck-medio:has(input:checked) { background: #EEF4FF !important; box-shadow: inset 3px 0 0 #F2B01E; }
 .ck-legal { margin: 16px 0 0; color: #636360; font-size: 12.5px; line-height: 1.5; text-align: center; }
 /* Teléfono (como Stripe debajo de ~900px): una columna; el resumen arriba y plegado. */
@@ -269,13 +318,23 @@ body:has(.ck-root) { background: #FFFFFF; }
   .ck-plegable[open] .ck-ver::after { transform: translateY(2px) rotate(225deg); }
   .ck-plegable[open] .ck-ver-abrir, .ck-plegable:not([open]) .ck-ver-cerrar { display: none; }
   .ck-detalle { margin-top: 18px; }
-  .ck-incluye, .ck-totales, .ck-nota-res { margin-left: 0; }
-  /* En el teléfono (16/11/2026) no entraba en una línea y se salía a lo ancho: «Pagos procesados por…» va en su renglón y los tres
-     links siguen juntos en el de abajo, sin cortarse (Martín, 14/11: «privacidad y reembolsos… no deberían saltarse de línea»). */
-  .ck-pie .ck-col { justify-content: center; text-align: center; flex-wrap: wrap; }
-  .ck-pie .ck-procesa { flex-basis: 100%; padding-right: 0; border-right: 0; white-space: normal; }
+  .ck-incluye, .ck-totales, .ck-nota-res, .ck-lista { margin-left: 0; }
+  /* El pie, centrado y en un renglón también en el teléfono (16/11/2026). */
+  .ck-pie .ck-col { justify-content: center; }
+}
+/* El teléfono angosto (16/11/2026): el pie sigue en UN renglón con la letra y los huecos un poco más chicos (a 320 px, «Pagos procesados
+   por», los dos logos y los tres links miden lo que deja el margen), y las marcas de la tarjeta bajan debajo de su nombre: al lado,
+   «Tarjeta de crédito o débito» se partía en cinco renglones (revisión, hallazgo 6). */
+@media (max-width: 420px) {
+  .ck-pie .ck-col { font-size: 11.5px; gap: 0 7px; }
+  .ck-pie .ck-procesa-largo { display: none; }
+  .ck-pie .ck-procesa-corto { display: inline; }
+  .ck-pie .ck-procesa { gap: 4px; }
+  .ck-pie .ck-legales { gap: 7px; padding-left: 7px; }
+  .ck-formulario label.ck-medio { grid-template-columns: 18px 30px 1fr; row-gap: 8px; }
+  .ck-formulario label.ck-medio .ck-marcas { grid-column: 3; grid-row: 2; }
 }
 @media (prefers-reduced-motion: reduce) {
   .planes-btn, .ck-volver, .ck-plegable .ck-ver::after, .ck-medio { transition: none; }
 }
-`;
+${CSS_MONEDA}${CSS_PRUEBA}`;

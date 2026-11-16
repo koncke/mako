@@ -8,6 +8,7 @@
 import { CAPACIDADES_PASARELA, esPasarela, type Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
 import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, rutaDelPlan } from './planes-mako';
+import { localArgentino } from './paises';
 // De TIPO: se borra al compilar, así que no suma nada al bundle del cliente (esto lo importan componentes 'use client').
 import type { MotivoDuplicado } from './leads-duplicados';
 
@@ -415,4 +416,70 @@ export function leadDeLaCompra(coincidencias: ReadonlyArray<{ motivo: MotivoDupl
   });
   if (fuerte) return fuerte.lead.id;
   return coincidencias.length === 1 && !coincidencias[0].lead.email?.trim() ? coincidencias[0].lead.id : null;
+}
+
+// ── UNA PRUEBA GRATIS POR PERSONA (16/11/2026) ───────────────────────────────────────────────────────────────────────────
+// Martín: «la opción C de email y WhatsApp sin mirar la tarjeta… O incluso también podríamos agregar ahí por nombre y negocio».
+// La persona se reconoce por su email o su WhatsApp en el CHECKOUT (si ya tuvieron una prueba, la compra sigue SIN ella: se cobra
+// desde hoy y se dice por qué; nunca se bloquea una compra: lib/compra-plan.ts, `puedeEmpezarPrueba`), y por su nombre y su negocio
+// o su WhatsApp en el ONBOARDING (si ya tuvieron prueba en otra cuenta, se le avisa al super admin y no se corta nada:
+// lib/onboarding-arranque-server.ts, `avisarSiYaTuvoPrueba`). La tarjeta no se mira acá (la huella de Mercado Pago, al autorizar:
+// lib/cobros.ts). Quién tuvo prueba: los cobros de la plataforma con `creado_por` «planes:<plan>:prueba» que llegaron a
+// autorizarse (`suscripcion_estado` no nulo), con su `email`, su `origen.whatsapp` y la cuenta que crearon (`alta_ws`).
+
+/** Lo que se le dice a quien compra con un WhatsApp que ya tuvo su prueba (el del email es `TEXTO_PRUEBA_USADA_EMAIL`). */
+export const TEXTO_PRUEBA_USADA_WHATSAPP = 'Ese WhatsApp ya usó su prueba gratis de MaKo. Si quieres empezar igual, el plan se cobra desde hoy.';
+
+const DOMINIOS_GMAIL: readonly string[] = ['gmail.com', 'googlemail.com'];
+
+/**
+ * La CASILLA de un email: en minúsculas y, en Gmail, sin puntos ni «+algo». Gmail los ignora (a.b+promo@gmail.com le llega a
+ * ab@gmail.com), así que son la misma persona y una sola prueba. En los demás dominios, tal cual: ahí un punto puede ser otra casilla.
+ */
+export function casillaDeEmail(email: string): string {
+  const e = (email || '').trim().toLowerCase();
+  const at = e.lastIndexOf('@');
+  if (at < 1) return e;
+  const dominio = e.slice(at + 1);
+  if (!DOMINIOS_GMAIL.includes(dominio)) return e;
+  return `${e.slice(0, at).split('+')[0].replace(/\./g, '')}@gmail.com`;
+}
+
+/**
+ * Los patrones ILIKE que traen de la base TODAS las formas de escribir esa casilla de Gmail: con puntos en cualquier lugar, con
+ * «+algo» y con googlemail.com (`a%b%c%@gmail.com`). Traen de más —el `%` entre dos letras deja pasar cualquier cosa— y por eso lo
+ * traído se compara después con `casillaDeEmail`. null si no es Gmail o si la casilla tiene algo que Gmail no admite (sólo letras y
+ * números): ahí se busca el email exacto.
+ */
+export function patronesDeGmail(email: string): string[] | null {
+  const [local, dominio] = casillaDeEmail(email).split('@');
+  if (dominio !== 'gmail.com' || !/^[a-z0-9]{1,64}$/.test(local ?? '')) return null;
+  const cuerpo = local.split('').join('%');
+  return DOMINIOS_GMAIL.map((d) => `${cuerpo}%@${d}`);
+}
+
+/**
+ * El WhatsApp de la prueba (E.164 sin el «+»: los dígitos con su país) y las formas en que pudo quedar guardado ese MISMO número.
+ * Desde el 16/11/2026 un celular argentino se guarda con el 9 (`localArgentino`, lib/paises.ts); antes podía quedar sin él (54 11…):
+ * los dos son la misma persona. null = no es un número.
+ */
+export function whatsappsDeLaPrueba(digitos: string | null | undefined): string[] | null {
+  const d = (digitos ?? '').replace(/\D/g, '');
+  if (d.length < 8 || d.length > 15) return null;
+  if (!d.startsWith('54')) return [d];
+  const local = localArgentino(d.slice(2));
+  return local.length === 11 && local.startsWith('9') ? [`54${local}`, `54${local.slice(1)}`] : [`54${local}`];
+}
+
+const textoComparable = (x: string | null | undefined) =>
+  (x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/**
+ * El nombre y el negocio juntos, para reconocer a la misma persona en otra cuenta: en minúsculas, sin tildes ni signos y con un
+ * espacio entre palabras («María José Ríos» + «Nutri-Vale» → «maria jose rios|nutri vale»). Con uno de los dos vacío, null: el
+ * nombre solo lo comparten miles, y el negocio solo, dos socios.
+ */
+export function huellaDeNombreYNegocio(nombre: string | null | undefined, negocio: string | null | undefined): string | null {
+  const n = textoComparable(nombre), g = textoComparable(negocio);
+  return n.length >= 2 && g.length >= 2 ? `${n}|${g}` : null;
 }

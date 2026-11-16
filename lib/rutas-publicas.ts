@@ -132,6 +132,10 @@ export const PUBLICOS = [
   // workspace es siempre el de la plataforma), mira el Origin a mano y en positivo (sólo un host de MaKo), con topes por IP y por
   // email, un tope al tamaño del cuerpo y un campo trampa: cada envío deja un lead en el CRM de MaKo y un correo a Martín.
   '/api/accelerator/aplicar',
+  // La búsqueda del Instagram y el YouTube de quien aplica (16/11/2026, lib/aplicacion-accelerator-canal.ts: la de Competitor Spy).
+  // Sólo GET y no escribe nada; no lee la cookie de sesión (el workspace es el de la plataforma). Cuesta crédito de Apify: topes
+  // por IP y por día, y no entra un pedido que el navegador marca de otro sitio (`Sec-Fetch-Site`).
+  '/api/accelerator/canal',
   // El robots.txt (app/robots.ts). Sin esto el gate lo mandaba a /login: un crawler que
   // pedía reglas recibía una página de login.
   '/robots.txt',
@@ -318,10 +322,22 @@ export const PUBLICOS_ESCRITURA = [
   '/api/accelerator/aplicar',
 ] as const;
 
+/** Las de PUBLICOS_ESCRITURA, para que `esPublica` las compare exactas (y no por prefijo, como al resto de PUBLICOS). */
+const ESCRITURA_EXACTA: ReadonlySet<string> = new Set(PUBLICOS_ESCRITURA);
+
 const matchea = (lista: readonly string[], pathname: string) =>
   lista.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
-export const esPublica = (pathname: string) => matchea(PUBLICOS, pathname);
+/**
+ * ¿Entra sin sesión? Por prefijo, SALVO las públicas que escriben (las de PUBLICOS_ESCRITURA que están acá con su nombre):
+ * ésas, EXACTAS (revisión del 16/11/2026). Decían «EXACTA» y se comparaban por prefijo, así que cualquier
+ * `/api/accelerator/aplicar/<algo>` (o `/api/planes/comprar/<algo>`) entraba sin sesión y sin el chequeo de Origin, que el
+ * early-return del proxy saltea: una ruta que mañana se cuelgue ahí y lea la cookie quedaba abierta a un POST de otro sitio.
+ * Medido ese día sobre todo app/: ninguna ruta de hoy cambia (ninguna de esas cinco tiene hijas). Las carpetas públicas por
+ * construcción (`/api/compartido`, `/api/v1`, `/l`…) siguen por prefijo: no están en PUBLICOS_ESCRITURA con su nombre.
+ */
+export const esPublica = (pathname: string) =>
+  PUBLICOS.some((p) => pathname === p || (!ESCRITURA_EXACTA.has(p) && pathname.startsWith(`${p}/`)));
 
 /** Match EXACTO: `/api/compartido/curso/tarea/loquesea` no hereda el permiso. */
 export const esPublicaDeEscritura = (pathname: string) =>

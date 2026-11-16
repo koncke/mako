@@ -54,27 +54,59 @@
 //      `--u` es `1/porPixel`, que cancela la escala del viewBox, así que la etiqueta se dibuja a 13,5 px siempre.
 //      Lo que NO se toca acá: que la fila sea tan baja en el teléfono es del `aspect-ratio` de `.s-zz-vis`, y ese archivo
 //      lo está editando otro. Si se quiere el mapa más alto en el teléfono, se cambia ahí.
+//      16/11/2026: se cambió ahí (`.s-zz-brain`, ./estilos.ts): la fila del Brain es otra (ver el cuidado 5).
+//   5. MÁS ÉPICO, SIN QUE PESE (16/11/2026). Martín: «el Second Brain me gustaría de que se vea mucho más épico, ya sea con mucho
+//      más nodos o algo así». Tres cosas, y cada una medida:
+//      · MÁS NODOS, TODOS DE VERDAD: 200 en vez de 53 (414 aristas en vez de 94), del MISMO negocio y de las MISMAS lecturas de
+//        Competitor Spy y de Offer —las nueve notas de su oferta con su porqué, sus fortalezas y los cambios que propone, lo que
+//        dice su web, sus páginas y sus píxeles, sus 64 anuncios agrupados por adónde llevan, y los más vistos de sus 500 videos
+//        de YouTube por mes y formato, con las vistas reales—. Lo arma `armar-cerebro-grande.mts` (al lado de armar-cerebro.mts,
+//        en el banco del cerebro) con la forma del de verdad (lib/cerebro-grafo.ts) y pasa las métricas de scripts/medir-grafo.mjs
+//        (densidad 2,07, hojas 1 %, hub 4,1×, clustering 0,47, una sola isla).
+//      · MÁS GRANDE: la fila del Brain va a todo el ancho, con el texto arriba y el mapa debajo, y más alta (`.s-zz-brain`).
+//      · QUE NO PESE: el JSON (105 KB, ~20 KB comprimido) ya no viaja con la página: entra junto con el grafo, cuando la fila se ve.
+//        Y el grafo se DESMONTA cuando la fila sale de la pantalla: su bucle de animación reescribe cada nodo y cada arista en
+//        cada cuadro, y seguía corriendo aunque la persona ya estuviera en los precios. Al volver, entra de nuevo (la entrada de
+//        los nodos desde afuera es parte de lo vivo).
+//      · EL FLOTE, ESPACIADO (`floteCada` de app/second-brain/Grafo.tsx, que sin la prop sigue a cada cuadro como siempre).
+//        MEDIDO en un banco con este mismo componente (Chromium, 4 s de flote ya asentado; «teléfono» = 390 px y la CPU frenada 4×,
+//        la vara de un teléfono de gama media), CPU del hilo principal por segundo y cuadros de más de 20 ms:
+//          53 nodos, flote a cada cuadro (lo de antes) ...... computadora 197 ms/s, 0 % · teléfono 848 ms/s, 8 % (52 cuadros/s)
+//          200 nodos, flote a cada cuadro .................. computadora 456 ms/s, 1 % · teléfono 997 ms/s, 95 % (24 cuadros/s)
+//          200 nodos, flote a 30 / 20 por segundo ......... computadora 366 ms/s, 3 % · teléfono 784 ms/s, 41 %: todavía traba
+//          200 nodos, 20 por segundo / quieto en el teléfono  computadora 162 ms/s, 0 % · teléfono 83 ms/s, 0 % (60 cuadros/s)
+//        Así que en la computadora flota a 20 cuadros por segundo (un nodo se corre 0,3 px por cuadro: no se ve el escalón) y en el
+//        teléfono entra volando y después queda quieto hasta que lo arrastran o lo acercan, que van a cada cuadro. Lo único caro
+//        que queda en el teléfono es el montaje, una vez, al tocar «Tocar para explorar el mapa» (la tarea más larga, 275 ms).
 // =============================================================================
 
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { filtroVacio, type EstadoFiltro } from '@/lib/cerebro-filtro';
 import type { Cerebro } from '@/lib/cerebro-modelo';
-import datos from './cerebro-ejemplo.json';
 
-const cerebro = datos as unknown as Cerebro<string>;
+type PropsDelGrafo = Omit<ComponentProps<typeof import('@/app/second-brain/Grafo').Grafo>, 'cerebro'>;
 
-// Sin SSR: el grafo mide el contenedor y escucha la rueda; en el servidor no hay ninguna de las dos cosas.
-const Grafo = dynamic(() => import('@/app/second-brain/Grafo').then((m) => m.Grafo), { ssr: false });
+// Sin SSR: el grafo mide el contenedor y escucha la rueda; en el servidor no hay ninguna de las dos cosas. Y el negocio de ejemplo
+// entra CON el grafo (los dos `import()` juntos), no con la página: son 105 KB que nadie necesita antes de que la fila se vea.
+const Grafo = dynamic(() => Promise.all([import('@/app/second-brain/Grafo'), import('./cerebro-ejemplo.json')]).then(([m, datos]) => {
+  const cerebro = ((datos as { default?: unknown }).default ?? datos) as unknown as Cerebro<string>;
+  return function GrafoDeLaPortada(p: PropsDelGrafo) { return <m.Grafo cerebro={cerebro} {...p} />; };
+}), { ssr: false });
 
 const POSTER = '/vsl-assets/sitio/cerebro.jpg';
+/** Cada cuánto se repinta el flote quieto del grafo (`floteCada` de app/second-brain/Grafo.tsx): ver el cuidado 5. */
+export const FLOTE_COMPUTADORA_MS = 50;
+export const FLOTE_TELEFONO_MS = Number.POSITIVE_INFINITY;
 
 // Lo que NO es el mapa ni la ficha de un punto. Mismo recorte que el banco con el que se grabó el video
 // (C:/dev/bancos-portada/banco-cerebro/entrada.tsx): Martín lo pidió «sin botones ni textos de más».
 const CSS = `
 /* El piso de alto no puede pasarse de la fila, o el mapa se dibuja afuera del recorte (ver el cuidado 4). */
+/* El fondo: el negro del tema (var(--bg), ver el cuidado 2) con un halo azul al centro, quieto (el movimiento lo pone el grafo). */
 .s-brain { position: relative; width: 100%; height: 100%; min-height: min(380px, 100%); overflow: hidden;
-  background: var(--bg); color: var(--ink); color-scheme: dark; border-radius: inherit; }
+  background: var(--bg); background-image: radial-gradient(60% 55% at 50% 48%, rgba(47,111,237,.20), rgba(47,111,237,0) 70%), radial-gradient(35% 30% at 22% 78%, rgba(242,176,30,.08), rgba(242,176,30,0) 70%);
+  color: var(--ink); color-scheme: dark; border-radius: inherit; }
 .s-brain .cbg { padding: 0; grid-template-columns: minmax(0, 1fr) 0 0; gap: 0; height: 100%; }
 .s-brain .cbg-barra, .s-brain .cbg-pie, .s-brain .cbg-tirador, .s-brain .cbg-nav, .s-brain .cbg-det__acciones,
 .s-brain .cbg-det__cab, .s-brain .cbg-det__origen, .s-brain .cbg-det__mas, .s-brain .cbg-viajeros,
@@ -108,12 +140,17 @@ export function BrainVivo() {
     return () => mq.removeEventListener('change', leer);
   }, []);
 
-  // Carga el grafo recién cuando la fila se ve.
+  // El grafo entra cuando la fila se ve (un cuarto de ella) y SALE cuando deja de verse del todo: mientras está montado, su bucle
+  // reescribe cada nodo y cada arista en cada cuadro (ver el cuidado 5). Sin IntersectionObserver, se monta y se queda.
   useEffect(() => {
     const el = caja.current;
     if (!el) return;
     if (typeof IntersectionObserver === 'undefined') { setVisto(true); return; }
-    const io = new IntersectionObserver(([e]) => { if (e?.isIntersecting) setVisto(true); }, { threshold: 0.25 });
+    const io = new IntersectionObserver(([e]) => {
+      if (!e) return;
+      if (e.intersectionRatio >= 0.25) setVisto(true);
+      else if (!e.isIntersecting) setVisto(false);
+    }, { threshold: [0, 0.25] });
     io.observe(el);
     return () => io.disconnect();
   }, []);
@@ -126,7 +163,8 @@ export function BrainVivo() {
     <div className="s-brain" data-tema="oscuro" data-tema-fijo="" ref={caja}>
       <style>{CSS}</style>
       <div style={{ width: '100%', height: '100%' }}>
-        {monta ? <Grafo cerebro={cerebro} filtro={filtro} onFiltro={setFiltro} movil={angosto} /> : null}
+        {/* El flote quieto, espaciado (`floteCada`, ver el cuidado 5): 20 cuadros por segundo en la computadora (un cuadro cada 50 ms) y quieto en el teléfono. */}
+        {monta ? <Grafo filtro={filtro} onFiltro={setFiltro} movil={angosto} floteCada={angosto ? FLOTE_TELEFONO_MS : FLOTE_COMPUTADORA_MS} /> : null}
       </div>
       {monta ? null : (
         <div className="s-brain-cartel">

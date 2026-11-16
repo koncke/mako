@@ -130,10 +130,15 @@ test('la tabla habla de marketing, no de MaKo por dentro: ni lo interno, ni fila
   assert.deepEqual([...new Set(filas.map((f) => f.grupo))], [...GRUPOS_COMPARACION], 'cada grupo con sus filas, en orden y seguidas');
 });
 
-test('el tercer bloque es el Accelerator: 1.500 en 3 cuotas de 500, y no es un plan de la pasarela', () => {
+test('el tercer bloque es el Accelerator: US$ 1.500 por los 3 meses (sin cuotas a la vista), y no es un plan de la pasarela', () => {
   assert.equal(PROGRAMA_ACELERADOR.precioUsd, 1500);
-  assert.equal(PROGRAMA_ACELERADOR.cuotas, 3);
-  assert.equal(PROGRAMA_ACELERADOR.precioUsd / PROGRAMA_ACELERADOR.cuotas, 500);
+  // 16/11/2026, Martín: «en todos lados eliminemos lo de las 3 cuotas de 500… Sería sí de contado o sí en cuotas». Debajo del
+  // precio va cuánto dura; cuántas cuotas, se habla en la llamada.
+  assert.equal(PROGRAMA_ACELERADOR.periodo, 'por los 3 meses');
+  assert.equal('cuotas' in PROGRAMA_ACELERADOR, false, 'volvió el número de cuotas del Accelerator');
+  for (const f of ['app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/planes/[plan]/page.tsx', 'lib/aplicacion-accelerator.ts']) {
+    assert.doesNotMatch(fuente(f), /\.cuotas\b|cuotas de US/, `${f} vuelve a decir las cuotas del Accelerator`);
+  }
   assert.equal(PROGRAMA_ACELERADOR.despues.precioUsd, 297);
   assert.ok(!PLANES_MAKO_DEFAULT.some((p) => p.id === PROGRAMA_ACELERADOR.id), 'el programa no se compra por /planes/<id>');
   assert.equal(PLANES_MAKO_DEFAULT.find((p) => p.id === 'continuidad')?.activo, false, 'la Continuidad no va en la vitrina');

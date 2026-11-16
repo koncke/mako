@@ -22,10 +22,20 @@
 //      Lo que queda abierto (que quien PAGA no sea el dueño de la cuenta) se cierra con un código al
 //      email actual: docs/hallazgos-planes-y-cobro.md, «Lo que quedó SIN hacer».
 //
+//
+// LA PRUEBA GRATIS TAMBIÉN (16/11/2026, Martín: «rediseña mucho mejor la parte de la thank you page de tu prueba gratis empezó…
+// debería haberle llegado justamente el acceso para validar su cuenta desde el correo»). La prueba autorizada crea la cuenta sin
+// pagar (el cobro sigue `pendiente`, con la suscripción `activa`, hasta el día 8: lib/cobros.ts, `altaSiCorresponde`), y estas
+// condiciones pedían `pagado`: a quien empezaba la prueba —la mayoría de los que compran— la página no le ofrecía cambiar el email ni
+// la ruta se lo dejaba. Ahora la condición 1 es «pagado, o la prueba autorizada», y su ventana cuenta desde que abrió el checkout
+// (`created_at`: la prueba se autoriza en esos minutos). Y se puede REENVIAR el correo de acceso al mismo email
+// (`motivoParaNoReenviar`): las mismas condiciones, sin gastar ninguno de los 3 cambios (la ruta le pone su propio tope).
+//
 // ⚠️ SIN `server-only` a propósito: lo ejecuta el test. La base la lee la ruta.
 
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
+import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import type { Cobro } from '@/lib/cobros-tipos';
 
 export const MAX_CAMBIOS_EMAIL = 3;
@@ -41,13 +51,18 @@ export const RESPUESTA_GENERICA = {
   error: `Desde este link no se puede cambiar el email. Escríbenos a ${EMAIL_MAKO} y lo cambiamos.`,
 } as const;
 
-export type CobroParaCambio = Pick<Cobro, 'estado' | 'alta_estado' | 'alta_ws' | 'alta_email_cambios' | 'pagado_at'>;
+export type CobroParaCambio = Pick<Cobro, 'estado' | 'alta_estado' | 'alta_ws' | 'alta_email_cambios' | 'pagado_at'>
+  & Partial<Pick<Cobro, 'tipo' | 'alta_capa' | 'creado_por' | 'suscripcion_estado' | 'created_at'>>;
+
+/** La prueba gratis autorizada: el cobro sigue pendiente hasta el día 8, pero la tarjeta quedó cargada y la cuenta ya se creó. */
+export const esPruebaAutorizada = (c: Partial<Pick<Cobro, 'estado' | 'tipo' | 'alta_capa' | 'creado_por' | 'suscripcion_estado'>>): boolean =>
+  c.estado === 'pendiente' && c.suscripcion_estado === 'activa' && esPruebaDePlan({ tipo: c.tipo ?? '', alta_capa: c.alta_capa, creado_por: c.creado_por });
 export type UsuarioDelAlta = { id: number; email: string; ultimo_login: string | null };
 export type NoSePuede = { status: number; error: string };
 
-/** El cobro, solo, ¿es de una cuenta de MaKo ya creada por un pago? (condiciones 1 y 2). */
+/** El cobro, solo, ¿es de una cuenta de MaKo ya creada por un pago o por una prueba autorizada? (condiciones 1 y 2). */
 export const esAltaHecha = (c: CobroParaCambio | null): boolean =>
-  !!c && c.estado === 'pagado' && c.alta_estado === 'hecha' && c.alta_ws != null;
+  !!c && (c.estado === 'pagado' || esPruebaAutorizada(c)) && c.alta_estado === 'hecha' && c.alta_ws != null;
 
 /** Cuántos cambios le quedan (para la página: si es 0, no se ofrece el formulario). */
 export const cambiosRestantes = (c: Pick<Cobro, 'alta_email_cambios'>): number =>
@@ -57,9 +72,13 @@ export const cambiosRestantes = (c: Pick<Cobro, 'alta_email_cambios'>): number =
  * `null` = se puede cambiar. Si no, por qué, con lo que tiene que hacer la persona. El orden importa:
  * lo que no dice nada de la cuenta (genérico) va primero.
  */
-/** ¿Sigue abierta la ventana del cambio? Sin fecha de pago, no (fail-closed). */
-export function dentroDeLaVentana(c: Pick<Cobro, 'pagado_at'>, ahoraMs: number = Date.now()): boolean {
-  const t = Date.parse(c.pagado_at ?? '');
+/**
+ * ¿Sigue abierta la ventana del cambio? Cuenta desde el pago o, en una prueba autorizada (que no tiene pago), desde que abrió el
+ * checkout. Sin fecha, no (fail-closed).
+ */
+export function dentroDeLaVentana(c: Pick<Cobro, 'pagado_at'> & Partial<Pick<Cobro, 'estado' | 'tipo' | 'alta_capa' | 'creado_por' | 'suscripcion_estado' | 'created_at'>>, ahoraMs: number = Date.now()): boolean {
+  const desde = c.pagado_at ?? (esPruebaAutorizada(c) ? c.created_at : null);
+  const t = Date.parse(desde ?? '');
   return Number.isFinite(t) && ahoraMs - t <= VENTANA_CAMBIO_HORAS * 3_600_000;
 }
 
@@ -75,6 +94,40 @@ export function motivoParaNoCambiar(c: CobroParaCambio | null, u: UsuarioDelAlta
   if (cambiosRestantes(c!) <= 0) {
     return { status: 429, error: `Ya cambiaste el email ${MAX_CAMBIOS_EMAIL} veces. Escríbenos a ${EMAIL_MAKO} y lo cambiamos.` };
   }
+  return null;
+}
+
+/** Lo que se contesta si el token no existe Y si el cobro no habilita reenviar: la misma respuesta, como en el cambio. */
+export const RESPUESTA_GENERICA_REENVIO = {
+  status: 404,
+  error: `Desde este link no se puede reenviar el acceso. Escríbenos a ${EMAIL_MAKO} y te lo mandamos.`,
+} as const;
+
+/**
+ * ¿Se le puede REENVIAR el correo de acceso al email que ya tiene? `null` = sí. Las condiciones del cambio salvo el tope de 3 (no
+ * cambia nada: el correo va al mismo email, que es el de la cuenta). La ruta le pone su propio tope por link.
+ */
+export function motivoParaNoReenviar(c: CobroParaCambio | null, u: UsuarioDelAlta | null, ahoraMs: number = Date.now()): NoSePuede | null {
+  if (!esAltaHecha(c)) return RESPUESTA_GENERICA_REENVIO;
+  if (!dentroDeLaVentana(c!, ahoraMs)) {
+    return { status: 409, error: `El acceso se reenvía desde aquí sólo en las primeras ${VENTANA_CAMBIO_HORAS} horas. Escríbenos a ${EMAIL_MAKO} y te lo mandamos.` };
+  }
+  if (!u) return { status: 409, error: `No encontramos la cuenta de este pago. Escríbenos a ${EMAIL_MAKO} y lo resolvemos.` };
+  if (u.ultimo_login) return { status: 409, error: 'Ya entraste a MaKo con esta cuenta: entra desde hola-mako.com/login.' };
+  return null;
+}
+
+/**
+ * «ABRIR MI CORREO» (16/11/2026): la bandeja de entrada del proveedor de ese email, si es uno conocido. Un email de empresa no tiene
+ * una dirección para abrir su bandeja: null, y la página ofrece entrar a MaKo. Sólo mira el dominio.
+ */
+export function bandejaDeEntrada(email: string | null | undefined): { href: string; nombre: string } | null {
+  const dominio = String(email ?? '').trim().toLowerCase().split('@')[1] ?? '';
+  if (/^(gmail|googlemail)\.com$/.test(dominio)) return { href: 'https://mail.google.com/mail/u/0/#inbox', nombre: 'Gmail' };
+  if (/^(outlook|hotmail|live|msn)\.[a-z.]+$/.test(dominio)) return { href: 'https://outlook.live.com/mail/0/', nombre: 'Outlook' };
+  if (/^(yahoo|ymail)\.[a-z.]+$/.test(dominio)) return { href: 'https://mail.yahoo.com/', nombre: 'Yahoo' };
+  if (/^(icloud|me|mac)\.com$/.test(dominio)) return { href: 'https://www.icloud.com/mail', nombre: 'iCloud' };
+  if (/^(proton\.me|protonmail\.com|pm\.me)$/.test(dominio)) return { href: 'https://mail.proton.me/', nombre: 'Proton' };
   return null;
 }
 

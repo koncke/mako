@@ -29,7 +29,7 @@
 
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import { PAISES, flagUrl, numeroTecleado } from '@/lib/paises';
+import { PAISES, ejemploDeTelefono, flagUrl, numeroTecleado } from '@/lib/paises';
 
 /**
  * Las opciones del selector, UNA POR LADA.
@@ -58,8 +58,8 @@ function opcionesPorLada() {
 }
 
 export function TelefonoConPais({
-  lada, numero, onLada, onNumero, onEnter, inputStyle, placeholder = '223 355 0684',
-  portalTo, anchoLada = 128, autoFocus, estiloLada, autoComplete, inputId,
+  lada, numero, onLada, onNumero, onEnter, inputStyle, placeholder,
+  portalTo, anchoLada = 128, autoFocus, estiloLada, autoComplete, inputId, inputClassName, inputAria,
 }: {
   lada: string;
   numero: string;
@@ -67,6 +67,10 @@ export function TelefonoConPais({
   onNumero: (v: string) => void;
   onEnter?: () => void;
   inputStyle: CSSProperties;
+  /**
+   * Sin esto, el ejemplo del país elegido (`ejemploDeTelefono`, lib/paises.ts: «9 11 2345 6789» con +54, «55 1234 5678» con +52),
+   * que cambia con la lada (16/11/2026). Era «223 355 0684» para todos: con +54 enseñaba a escribir el celular sin el 9.
+   */
   placeholder?: string;
   /** El nodo del modal/panel que lo contiene. Ver la nota de arriba. */
   portalTo?: HTMLElement | null;
@@ -78,6 +82,13 @@ export function TelefonoConPais({
   autoComplete?: string;
   /** Con un `<label htmlFor>` propio: el rótulo visible nombra al campo, en vez del aria-label. */
   inputId?: string;
+  /**
+   * La clase del campo del número, para un formulario con su propio campo (el de MaKo Accelerator, `apl-input`, con su foco y su
+   * error por CSS: un estilo en línea no tiene `:focus`). Sin esto, el campo es el de siempre, sólo con `inputStyle`.
+   */
+  inputClassName?: string;
+  /** Lo que el lector de pantalla tiene que saber del número: si está mal, qué lo describe (su error) y si es obligatorio. */
+  inputAria?: { invalid?: boolean; describedBy?: string; required?: boolean };
 }) {
   const opciones = useMemo(opcionesPorLada, []);
 
@@ -104,14 +115,18 @@ export function TelefonoConPais({
         options={opciones} buttonStyle={estiloLada}
       />
       <input
+        className={inputClassName}
         style={{ ...inputStyle, flex: 1, minWidth: 0 }}
         value={numero}
-        placeholder={placeholder}
+        placeholder={placeholder ?? ejemploDeTelefono(lada)}
         inputMode="tel"
         autoComplete={autoComplete}
         autoFocus={autoFocus}
         id={inputId}
         aria-label={inputId ? undefined : 'Número sin el código de país'}
+        aria-invalid={inputAria?.invalid || undefined}
+        aria-describedby={inputAria?.describedBy}
+        aria-required={inputAria?.required || undefined}
         // Se dejan espacios y guiones para que pueda escribirlo como lo lee; los
         // dígitos se extraen al guardar. Un `+` al principio es el código de país
         // y se muda al selector (`numeroTecleado`, lib/paises.ts): dejarlo adentro

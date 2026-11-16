@@ -210,7 +210,7 @@ export function CompararPlanes({ planes, sufijo = '' }: { planes: readonly Pick<
     // miran: tests/planes-tres-bloques.test.ts exige UNA sola aparición de `calendly.com` y UNA sola de «Agenda tu llamada»
     // en todo el render de /planes. Lo que falta para que haya un solo camino es al revés: que la TARJETA vuelva a este
     // pedido y la agenda viva DENTRO de /planes/acelerador, después del diagnóstico.
-    { id: programa.id, nombre: programa.nombre, precio: `US$ ${programa.precioUsd.toLocaleString('es-AR')}`, periodo: `en ${programa.cuotas} cuotas`,
+    { id: programa.id, nombre: programa.nombre, precio: `US$ ${programa.precioUsd.toLocaleString('es-AR')}`, periodo: programa.periodo,
       destacado: false, href: `/planes/${rutaDelPlan(programa.id)}${sufijo}`, boton: 'Quiero el Accelerator', celda: (f: FilaComparacion) => f.acelerador as Celda | null },
   ];
   const grupos = GRUPOS_DE_LA_TABLA.map((g) => ({ titulo: g.titulo, filas: filas.filter((f) => g.de.includes(f.grupo)) })).filter((g) => g.filas.length);

@@ -361,7 +361,9 @@ export async function mandarCodigoDeBaja(p: { to: string; codigo: string; plan: 
  * Un aviso de MaKo sobre el PLAN de un negocio (la pausa por impago, la bienvenida de un referido: lib/plan-deuda.ts,
  * lib/partners.ts). Sale como todo mail de la plataforma (`enviarDePlataforma`: remitente de MaKo, sin link de baja).
  */
-export async function avisarDePlataforma(m: { to: string; asunto: string; preheader: string; cuerpo: string; tag: string }): Promise<{ enviado: boolean; error?: string }> {
+// `idempotencyKey` (16/11/2026, la aplicación del Accelerator): con ella el envío corta a los 15 s y el mismo pedido no manda dos
+// correos (lib/resend.ts). Sin ella, como siempre.
+export async function avisarDePlataforma(m: { to: string; asunto: string; preheader: string; cuerpo: string; tag: string; idempotencyKey?: string }): Promise<{ enviado: boolean; error?: string }> {
   const to = (m.to ?? '').trim().toLowerCase();
   if (!to) return { enviado: false, error: 'no hay a quién mandarlo' };
   const r = await enviarDePlataforma({ ...m, to });

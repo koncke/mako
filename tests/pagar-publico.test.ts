@@ -12,6 +12,8 @@
 //      cambios), EJECUTANDO `motivoParaNoCambiar` — y que la ruta la llame antes de escribir nada.
 //   2. Que ninguna de las rutas (ni lo que importan de app/pagar) lea cookies.
 //   3. Que /pagar y /listo validen el token ANTES de ir a la base.
+//   4. (16/11/2026) La prueba gratis autorizada también: «Revisa tu correo» con «Reenviar el correo» y «Cambiar el email», y la
+//      ruta que reenvía el acceso al MISMO email (`motivoParaNoReenviar`) sin gastar los 3 cambios.
 //
 // Probado rompiéndolo (11/10/2026), cada rotura sola sobre una base de 7 pases (el detalle, al final).
 
@@ -19,10 +21,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  MAX_CAMBIOS_EMAIL, RESPUESTA_GENERICA, cambiosRestantes, emailNuevoValido, motivoParaNoCambiar,
-  type CobroParaCambio, type UsuarioDelAlta,
+  MAX_CAMBIOS_EMAIL, RESPUESTA_GENERICA, RESPUESTA_GENERICA_REENVIO, bandejaDeEntrada, cambiosRestantes, dentroDeLaVentana, emailNuevoValido,
+  esAltaHecha, motivoParaNoCambiar, motivoParaNoReenviar, type CobroParaCambio, type UsuarioDelAlta,
 } from '../app/pagar/cambio-email';
+import { AccesoMako } from '../app/pagar/[token]/listo/AccesoMako';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -87,13 +92,19 @@ test('la ruta del email aplica las cuatro condiciones ANTES de escribir, y con c
   assert.ok(ini > 0, 'no encontré el POST');
   const cuerpo = src.slice(ini);
   const decide = cuerpo.indexOf('motivoParaNoCambiar(c, u)');
-  const escribe = cuerpo.indexOf('.update(');
+  const escribe = cuerpo.indexOf('.update(', decide);
   assert.ok(decide > 0, 'la ruta no decide con motivoParaNoCambiar');
   assert.ok(escribe > decide, 'la ruta escribe antes de decidir');
+  // El reenvío (16/11/2026) decide con SUS condiciones antes de su única escritura (anotar si el correo salió).
+  const decideReenvio = cuerpo.indexOf('motivoParaNoReenviar(c, u)');
+  const escribeReenvio = cuerpo.indexOf('.update(');
+  assert.ok(decideReenvio > 0 && escribeReenvio > decideReenvio && decideReenvio < decide, 'el reenvío escribe antes de decidir');
   // El usuario se lee de verdad (no un usuario de mentira que pase la condición 3).
   assert.match(cuerpo, /u = await usuarioDelAlta\(c\)/);
   // El reclamo del contador es compare-and-set sobre el valor leído y sobre el estado que lo habilita.
-  assert.match(cuerpo, /\.eq\('alta_email_cambios', antes\)\.eq\('estado', 'pagado'\)\.eq\('alta_estado', 'hecha'\)/);
+  assert.match(cuerpo, /\.eq\('id', cobro\.id\)\.eq\('alta_email_cambios', antes\)\.eq\('alta_estado', 'hecha'\);/);
+  // Y sobre el estado que lo habilita: pagado, o la prueba autorizada (pendiente con la suscripción activa).
+  assert.match(cuerpo, /cobro\.estado === 'pagado'\n\s*\? reclamar\.eq\('estado', 'pagado'\)\n\s*: reclamar\.eq\('estado', 'pendiente'\)\.eq\('suscripcion_estado', 'activa'\)\)/);
   // Y el email del usuario cambia sólo si sigue sin haber entrado.
   assert.match(cuerpo, /\.is\('ultimo_login', null\)/);
   // El token se valida antes de ir a la base.
@@ -105,7 +116,7 @@ test('«ese email ya es de otro» se pregunta DESPUÉS del reclamo y gasta el in
   // Revisión del 11/10/2026: antes salía sin gastar ninguno de los 3 cambios, y un link servía para preguntar sin
   // límite qué emails tienen cuenta en MaKo (los topes por IP y por token viven en memoria, por instancia).
   const cuerpo = sinComentarios(leer(EMAIL));
-  const reclamo = cuerpo.indexOf(".eq('alta_email_cambios', antes).eq('estado', 'pagado')");
+  const reclamo = cuerpo.indexOf(".eq('alta_email_cambios', antes).eq('alta_estado', 'hecha')");
   const pregunta = cuerpo.indexOf('buscarUsuarioPorEmail(nuevo.email)');
   assert.ok(reclamo > 0 && pregunta > reclamo, 'se pregunta si el email es de otro ANTES de gastar el intento');
   assert.match(cuerpo, /if \(otro && otro\.id !== usuario\.id\) return no\(409, EMAIL_NO_DISPONIBLE\);/, 'el «ya es de otro» devuelve el intento');
@@ -172,6 +183,74 @@ test('la página del comprador no recibe POST (lo único que escribe es /api/pag
   assert.doesNotMatch(src, /export (async )?function (POST|PUT|PATCH|DELETE)/);
 });
 
+// ── La prueba gratis y «Revisa tu correo» (16/11/2026) ────────────────────────────────────────────────────────────────
+/** La prueba autorizada: pendiente, con la suscripción activa, de un plan con prueba, la cuenta creada y sin pago todavía. */
+const PRUEBA_OK: CobroParaCambio = { estado: 'pendiente', suscripcion_estado: 'activa', tipo: 'suscripcion', alta_capa: 'completo', creado_por: 'planes:esencial:prueba',
+  alta_estado: 'hecha', alta_ws: 43, alta_email_cambios: 0, pagado_at: null, created_at: new Date(Date.now() - 3_600_000).toISOString() };
+
+test('la PRUEBA autorizada también deja cambiar el email (era sólo con el cobro pagado), y su ventana cuenta desde el checkout', () => {
+  assert.equal(esAltaHecha(PRUEBA_OK), true);
+  assert.equal(motivoParaNoCambiar(PRUEBA_OK, USUARIO_OK), null, 'quien empezó la prueba no podía cambiar el email');
+  assert.equal(dentroDeLaVentana(PRUEBA_OK), true);
+  assert.equal(dentroDeLaVentana({ ...PRUEBA_OK, created_at: new Date(Date.now() - 49 * 3_600_000).toISOString() }), false, 'sin ventana');
+  // Lo que NO es una prueba autorizada sigue sin poder: la cancelada, la que no se autorizó, un cobro común pendiente.
+  for (const [que, c] of [
+    ['cancelada', { ...PRUEBA_OK, suscripcion_estado: 'cancelada' as const }],
+    ['sin autorizar', { ...PRUEBA_OK, suscripcion_estado: null }],
+    ['un cobro común pendiente', { ...PRUEBA_OK, creado_por: 'planes:esencial' }],
+  ] as const) assert.deepEqual(motivoParaNoCambiar(c, USUARIO_OK), RESPUESTA_GENERICA, que);
+  // La página le pasa al formulario la ventana de la prueba (antes `dentroDeLaVentana` sólo miraba la fecha del pago).
+  assert.match(leer(LISTO), /puedeCambiar=\{cambiosRestantes\(c\) > 0 && dentroDeLaVentana\(c\)\}/);
+});
+
+test('REENVIAR el correo: al mismo email, con las condiciones del cambio salvo el tope de 3, y su propio tope en la ruta', () => {
+  assert.equal(motivoParaNoReenviar(PRUEBA_OK, USUARIO_OK), null);
+  assert.equal(motivoParaNoReenviar({ ...COBRO_OK, alta_email_cambios: MAX_CAMBIOS_EMAIL }, USUARIO_OK), null, 'reenviar no gasta los cambios');
+  assert.deepEqual(motivoParaNoReenviar(null, null), RESPUESTA_GENERICA_REENVIO, 'el token que no existe contesta lo mismo');
+  assert.deepEqual(motivoParaNoReenviar({ ...COBRO_OK, estado: 'pendiente' }, USUARIO_OK), RESPUESTA_GENERICA_REENVIO);
+  assert.equal(motivoParaNoReenviar(COBRO_OK, { ...USUARIO_OK, ultimo_login: '2026-11-16T12:00:00Z' })?.status, 409, 'ya entró: no hace falta');
+  assert.equal(motivoParaNoReenviar({ ...COBRO_OK, pagado_at: new Date(Date.now() - 49 * 3_600_000).toISOString() }, USUARIO_OK)?.status, 409);
+  const cuerpo = sinComentarios(leer(EMAIL));
+  assert.match(cuerpo, /const reenviar = cuerpo\.reenviar === true;/);
+  assert.match(cuerpo, /rateLimit\(`pagar-email:reenvio:\$\{token\}`, 3, 60 \* 60_000\)/, 'el reenvío sin su tope');
+  // Va al email que YA tiene la cuenta (el del usuario leído), nunca a uno que mande el pedido.
+  assert.match(cuerpo, /invitarPorEmail\(\{ email: u!\.email, workspace: ws\?\.nombre, rolWs: 'admin' \}\)/);
+  assert.ok(cuerpo.indexOf('if (reenviar) {') < cuerpo.indexOf('emailNuevoValido('), 'el reenvío lee un email del pedido');
+});
+
+test('«Revisa tu correo»: lo grande es abrir el correo, con el email, «Reenviar el correo» y «Cambiar el email»; poco texto', () => {
+  const props = { token: 't', emailInicial: 'va***@gmail.com', bandeja: bandejaDeEntrada('valentina@gmail.com'), puedeCambiar: true, contacto: 'equipo@hola-mako.com',
+    chip: 'Tu prueba gratis de 7 días empezó · hoy no se cobra nada', nota: 'El primer cobro es el domingo, 23 de noviembre.' };
+  const h = renderToStaticMarkup(createElement(AccesoMako, props)).replace(/<style[\s\S]*?<\/style>/g, '');
+  assert.match(h, /<h1>Revisa tu correo<\/h1>/);
+  assert.match(h, /Te mandamos el acceso a <b>va\*\*\*@gmail\.com<\/b>/);
+  assert.match(h, /<a class="gr-btn" href="https:\/\/mail\.google\.com\/mail\/u\/0\/#inbox" target="_blank" rel="noopener noreferrer">Abrir mi correo<\/a>/);
+  assert.match(h, />Reenviar el correo<\/button>/);
+  assert.match(h, />Cambiar el email<\/button>/);
+  const chip = /<p class="gr-chip">([\s\S]*?)<\/p>/.exec(h)?.[1] ?? '';
+  assert.equal(chip.replace(/<[^>]+>/g, ''), '✓ Tu prueba gratis de 7 días empezó · hoy no se cobra nada');
+  assert.match(chip, /<span class="gr-chip-p"><span aria-hidden="true">✓ <\/span>Tu prueba gratis de 7 días empezó<\/span>/, 'en el teléfono corta en el medio de la frase');
+  assert.ok(h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().split(' ').length < 70, 'volvió el montón de texto');
+  // Un email de empresa no tiene una bandeja para abrir: el botón es entrar a MaKo. Sin ventana, no se ofrece cambiarlo.
+  const empresa = renderToStaticMarkup(createElement(AccesoMako, { ...props, bandeja: bandejaDeEntrada('vale@nutrivale.com.ar'), puedeCambiar: false }));
+  assert.match(empresa, /<a class="gr-btn" href="\/login">Entrar a MaKo<\/a>/);
+  assert.doesNotMatch(empresa, /Cambiar el email/);
+  // Con el correo caído no se dice «revisa tu correo»: se dice que no salió y el botón lo reenvía.
+  const caido = renderToStaticMarkup(createElement(AccesoMako, { ...props, mailSalio: false }));
+  assert.match(caido, /<h1>Tu cuenta está lista<\/h1>/);
+  assert.doesNotMatch(caido, /Revisa tu correo|Te mandamos el acceso/);
+  assert.match(caido, /<button type="button" class="gr-btn">Reenviar el correo<\/button>/);
+  // Las bandejas que se conocen, y ninguna inventada.
+  assert.equal(bandejaDeEntrada('a@hotmail.com')?.nombre, 'Outlook');
+  assert.equal(bandejaDeEntrada('a@yahoo.com.ar')?.nombre, 'Yahoo');
+  assert.equal(bandejaDeEntrada('a@icloud.com')?.nombre, 'iCloud');
+  assert.equal(bandejaDeEntrada('a@empresa.com'), null);
+  // La página: con la cuenta hecha y sin haber entrado, ES «Revisa tu correo» (pagado y prueba); lo demás, la tarjeta.
+  const pagina = leer(LISTO);
+  assert.equal((pagina.match(/const revisa = await revisaTuCorreo\(c, /g) ?? []).length, 2, 'el pagado y la prueba pasan por «Revisa tu correo»');
+  assert.match(pagina, /if \(!u \|\| u\.ultimo_login\) return null;/);
+});
+
 // Probado rompiéndolo (11/10/2026), sobre una base de 7 pases, cada rotura sola y restaurada a mano:
 //   · sacar la condición de `ultimo_login` de `motivoParaNoCambiar`            → 1 fallo / 6 pases (el 1º);
 //   · que la ruta decida con un usuario de mentira (`{ ultimo_login: null }`)  → 1 / 6 (el 3º);
@@ -187,3 +266,8 @@ test('la página del comprador no recibe POST (lo único que escribe es /api/pag
 //   · el texto otra vez «Ese email ya tiene una cuenta de MaKo»                 → 7 / 1
 // Y con el aviso al email anterior (9 pases en verde), cada una → 8 / 1: sin mandarlo, mandándolo al email NUEVO,
 // y con el nuevo sin enmascarar en el texto.
+// Y el 16/11/2026, con la prueba y «Revisa tu correo» (12 pases en verde; pases / fallos):
+//   · `esAltaHecha` vuelve a pedir el cobro pagado                              -> 10 / 2
+//   · la ventana de la prueba sin `created_at` (sólo la fecha del pago)          -> 10 / 2
+//   · el reenvío gasta uno de los 3 cambios                                     -> 11 / 1
+//   · «Revisa tu correo» con el correo caído                                    -> 11 / 1

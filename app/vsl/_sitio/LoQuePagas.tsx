@@ -88,9 +88,13 @@ function LoQuePagas() {
 }
 
 /**
- * La sección entera, en este orden (Martín, 14/11/2026): el titular, el ticket con el ahorro al costado, la tira de logos que se
- * desliza (sólo las apps más conocidas, ./reemplaza.ts → appsDeLaTira) y, si se pasa `ver`, el link a la comparación (en
- * Comparaciones no va: la comparación está justo abajo).
+ * La sección entera, en este orden: la tira de logos que se desliza con su rótulo (sólo las apps más conocidas, ./reemplaza.ts →
+ * appsDeLaTira), el titular, el ticket con el ahorro al costado y, si se pasa `ver`, el link a la comparación (en Comparaciones no
+ * va: la comparación está justo abajo).
+ * LA TIRA ARRIBA DEL TITULAR (16/11/2026, Martín: «me gustaría que el carrusel de MaKo reemplaza las apps que ya estás pagando,
+ * esté arriba de el título, lo que probablemente ya pagas de tu negocio»). Hasta hoy iba debajo del ticket (el orden del 14/11):
+ * primero se ven las apps y después la cuenta de lo que cuestan. Es la misma sección en la portada y en Comparaciones, así que
+ * cambia en las dos.
  */
 export function SeccionReemplaza({ claro = false, principal = false, ver }: { claro?: boolean; principal?: boolean; ver?: string }) {
   // `principal`: la sección abre la página (Comparaciones) y su titular es el h1.
@@ -106,12 +110,12 @@ export function SeccionReemplaza({ claro = false, principal = false, ver }: { cl
   );
   return (
     <section className={`s-tira s-tira-reemplaza${claro ? ' s-reemplaza-claro' : ''}`} aria-labelledby="lo-que-pagas">
-      {principal ? <h1 className="s-ah-h" id="lo-que-pagas">{titular}</h1> : <h2 className="s-ah-h" id="lo-que-pagas">{titular}</h2>}
-      <LoQuePagas />
       <p className="s-tira-r">MaKo reemplaza las apps que ya estás pagando</p>
       <div className="s-tira-v">
         <div className="s-tira-p">{lista(false)}{lista(true)}</div>
       </div>
+      {principal ? <h1 className="s-ah-h" id="lo-que-pagas">{titular}</h1> : <h2 className="s-ah-h" id="lo-que-pagas">{titular}</h2>}
+      <LoQuePagas />
       {ver ? <p className="s-tira-ver"><a href={ver}>Ver la comparación, trabajo por trabajo <Flecha size={18} /></a></p> : null}
     </section>
   );

@@ -137,7 +137,7 @@ function hashDe(id: string): number {
   return h >>> 0;
 }
 
-export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFiltro, accion, movil = false, alCerrar, lateral }: {
+export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFiltro, accion, movil = false, alCerrar, lateral, floteCada }: {
   /** El grafo, con su taxonomía (sin ella, la del negocio). El de la construcción de MaKo trae la suya. */
   cerebro: Cerebro<string>;
   /** Abre el EDITOR de un área en una caja encima del grafo (VistaCerebro → AreasHub). Sólo con una intención
@@ -164,6 +164,14 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   /** Lo que ocupa la columna derecha en lugar del navegador de «Tu negocio»: el chat con MaKo (23/10/2026,
    *  ChatDelSecondBrain.tsx). El detalle de un punto tocado se abre encima. Sin esto, el navegador de siempre. */
   lateral?: ReactNode;
+  /**
+   * CADA CUÁNTOS ms SE REPINTA EL FLOTE QUIETO (16/11/2026, el Second Brain de 200 nodos de la portada). Sin esto, cada cuadro,
+   * como siempre. El bucle reescribe CADA nodo y los cuatro extremos de CADA arista en cada cuadro, y con 200 nodos y 414
+   * aristas eso es lo que traba un teléfono: medido con la CPU frenada 4×, 24 cuadros por segundo y el 95 % de los cuadros
+   * pasados de 20 ms. El flote es lento (vueltas de 7 y 11 s, ±16 unidades de mundo): a 30 cuadros no se nota la diferencia.
+   * Sólo se espacia el flote QUIETO: la entrada, un arrastre, un deslizamiento y un viajero siguen a cada cuadro.
+   */
+  floteCada?: number;
 }) {
   const { nodos, aristas, cuenta, posiciones, encuadre } = cerebro;
   /** LA TAXONOMÍA de este grafo: la del negocio o, para el super admin, las dos capas juntas (el negocio y la
@@ -687,10 +695,22 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   // llegaba una vez; con el grafo VIVO (VistaCerebro lo vuelve a pedir) cada vuelta reiniciaba el reloj y el mapa
   // entero volvía a nacer desde afuera. Las posiciones nuevas las toma el efecto de abajo, deslizando.
   const sinMovimiento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  // `floteCada` por ref: el bucle arranca una sola vez (ver arriba) y lee el valor de cada render.
+  const floteCadaRef = useRef(floteCada);
+  floteCadaRef.current = floteCada;
   useEffect(() => {
     if (sinMovimiento()) { pintarRef.current(99_999); return; }
     t0.current = performance.now();
-    const latir = () => { pintarRef.current(performance.now() - t0.current); animRef.current = requestAnimationFrame(latir); };
+    let ultimo = -Infinity;
+    const latir = () => {
+      const t = performance.now() - t0.current;
+      // El flote QUIETO, espaciado si se pidió (`floteCada`): pasada la entrada (~1,6 s), sin arrastre, sin deslizamiento y sin
+      // viajeros en camino. Todo lo demás, a cada cuadro.
+      const cada = floteCadaRef.current ?? 0;
+      const quieto = cada > 0 && t > 1800 && arrastrando.current == null && !deslizarRef.current && !viajesRef.current.some((v) => !v.llego);
+      if (!quieto || t - ultimo >= cada) { pintarRef.current(t); ultimo = t; }
+      animRef.current = requestAnimationFrame(latir);
+    };
     animRef.current = requestAnimationFrame(latir);
     return () => { if (animRef.current != null) cancelAnimationFrame(animRef.current); animRef.current = null; };
   }, []);

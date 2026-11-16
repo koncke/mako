@@ -155,7 +155,11 @@ test('⚠️ el aviso «Entró un pago» dice que el mail no salió, y {{pago_al
   assert.equal(valoresDelPago({ monto: 47, moneda: 'USD', concepto: 'MaKo Essential', proveedor: 'stripe', renovacion: false, modo: 'real', alta: 'hecha', altaSinMail: true }).pago_alta, 'Cuenta creada, sin mail de acceso');
   assert.equal(valoresDelPago({ monto: 47, moneda: 'USD', concepto: 'MaKo Essential', proveedor: 'stripe', renovacion: false, modo: 'real', alta: 'hecha' }).pago_alta, 'Cuenta creada');
   assert.match(fuente('app/pagar/[token]/listo/page.tsx'), /mailSalio=\{!mailDeAccesoNoSalio\(c\.alta_motivo\)\}/);
-  assert.match(fuente('app/pagar/[token]/listo/AccesoMako.tsx'), /\{mailSalio \|\| aviso\n\s*\? <p>Te mandamos el acceso a/);
+  // 16/11/2026 («Revisa tu correo»): con el correo caído, ni ese título ni «te mandamos»; se ofrece reenviarlo.
+  const acceso = fuente('app/pagar/[token]/listo/AccesoMako.tsx');
+  assert.match(acceso, /const \[salio, setSalio\] = useState\(mailSalio\);/);
+  assert.match(acceso, /<h1>\{salio \? 'Revisa tu correo' : 'Tu cuenta está lista'\}<\/h1>/);
+  assert.match(acceso, /\{salio\n\s*\? <p className="gr-txt">Te mandamos el acceso a/);
 });
 
 // ── 7 · Un alta cortada se termina con su propia cuenta ────────────────────

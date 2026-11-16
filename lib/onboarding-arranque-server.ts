@@ -8,6 +8,7 @@
 // =============================================================================
 
 import QRCode from 'qrcode';
+import { after } from 'next/server';
 import { linkApp } from './app-url';
 import { RUTA_APP } from './app-tiendas';
 import { avisosDeQuienEntra } from './avisos-telefono';
@@ -82,7 +83,26 @@ export async function guardarEstadoArranque(patch: Partial<EstadoArranque>): Pro
     else nuevo[k] = v;
   }
   await setSetting(CLAVE, JSON.stringify(nuevo));
+  // Guardó el nombre o el negocio, o confirmó su WhatsApp: ¿ya tuvo una prueba gratis en otra cuenta? (`avisarSiYaTuvoPrueba`)
+  if (patch.nombre !== undefined || patch.negocio !== undefined || patch.telefono === 'verificado') await programarAvisoDePrueba(nuevo as EstadoArranque);
   return nuevo as EstadoArranque;
+}
+
+// ── LA PRUEBA GRATIS REPETIDA (16/11/2026) ────────────────────────────────────────────────────────────────────────────────
+// Guardó el nombre o el negocio, o confirmó su WhatsApp: ¿ya tuvo una prueba gratis en otra cuenta? Lo decide y lo avisa
+// lib/prueba-repetida.ts (`avisarSiYaTuvoPrueba`). Se carga recién al correr, y sólo DESPUÉS de contestar (`after`): el onboarding no
+// lo espera, y sin un pedido de Next (un test, un script) no corre, así nunca sale a la red desde una prueba.
+
+/** Después de contestar (`after`). Sin Next, no corre. Nunca tira. */
+async function programarAvisoDePrueba(e: EstadoArranque): Promise<void> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  if (ws == null) return;
+  const correr = async () => {
+    try { await (await import('./prueba-repetida')).avisarSiYaTuvoPrueba(ws, e); } catch (err) {
+      console.error('[arranque] el aviso de la prueba repetida falló:', err instanceof Error ? err.message : err);
+    }
+  };
+  try { after(correr); } catch { /* sin un pedido de Next: no se avisa */ }
 }
 
 /**

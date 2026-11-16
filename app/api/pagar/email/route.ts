@@ -6,8 +6,13 @@
 // con la que va a entrar». Recibe `{ token, email }`, cambia `usuarios.email` del admin del alta y le
 // reenvía el mail de acceso a la dirección nueva.
 //
-// LAS CUATRO CONDICIONES (pagado, alta hecha, nunca entró, menos de 3 cambios) viven en
+// LAS CUATRO CONDICIONES (pagado o la prueba autorizada, alta hecha, nunca entró, menos de 3 cambios) viven en
 // `motivoParaNoCambiar` (app/pagar/cambio-email.ts), pura y con test: acá sólo se leen los datos.
+//
+// REENVIAR EL CORREO (16/11/2026, la página de gracias rediseñada: «Revisa tu correo», con «Reenviar el correo»): con
+// `{ token, reenviar: true }` le vuelve a mandar el acceso al email que YA tiene la cuenta. Las mismas condiciones salvo el tope de
+// 3 cambios (`motivoParaNoReenviar`), con su propio tope por link (3 por hora): no cambia nada de la cuenta, y el correo va a quien
+// ya es el dueño del email, así que el link no sirve para mandarle nada a otro.
 //
 // ⚠️ PÚBLICA y de ESCRITURA (PUBLICOS y PUBLICOS_ESCRITURA en lib/rutas-publicas.ts, exacta):
 //   · La credencial es el token del cobro, en el CUERPO. NO LEE NINGUNA COOKIE: si leyera la sesión,
@@ -31,7 +36,9 @@ import { emailEnmascarado } from '@/lib/cobros-reglas';
 import { esTokenCobro, type Cobro } from '@/lib/cobros-tipos';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
-import { RESPUESTA_GENERICA, cambiosRestantes, emailNuevoValido, esAltaHecha, motivoParaNoCambiar } from '@/app/pagar/cambio-email';
+import {
+  RESPUESTA_GENERICA, RESPUESTA_GENERICA_REENVIO, bandejaDeEntrada, cambiosRestantes, emailNuevoValido, esAltaHecha, motivoParaNoCambiar, motivoParaNoReenviar,
+} from '@/app/pagar/cambio-email';
 import { usuarioDelAlta } from '@/app/pagar/acceso';
 
 export const dynamic = 'force-dynamic';
@@ -52,14 +59,16 @@ export async function POST(req: NextRequest) {
     return no(429, 'Demasiados intentos. Prueba de nuevo en unos minutos.');
   }
 
-  let cuerpo: { token?: unknown; email?: unknown } = {};
+  let cuerpo: { token?: unknown; email?: unknown; reenviar?: unknown } = {};
   try {
     const crudo = await req.text();
     if (crudo.length <= TOPE_CUERPO) cuerpo = (JSON.parse(crudo) as typeof cuerpo | null) ?? {};
   } catch { /* un cuerpo que no es JSON es un pedido sin token: contesta lo genérico */ }
 
   const token = cuerpo.token;
-  if (!esTokenCobro(token)) return no(RESPUESTA_GENERICA.status, RESPUESTA_GENERICA.error);
+  const reenviar = cuerpo.reenviar === true;
+  const generica = reenviar ? RESPUESTA_GENERICA_REENVIO : RESPUESTA_GENERICA;
+  if (!esTokenCobro(token)) return no(generica.status, generica.error);
   if (!rateLimit(`pagar-email:token:${token}`, 6, 60 * 60_000)) {
     return no(429, 'Demasiados intentos con este link. Prueba de nuevo en una hora.');
   }
@@ -75,7 +84,27 @@ export async function POST(req: NextRequest) {
     return noPude();
   }
 
-  // Las cuatro condiciones: pagado, alta hecha, el usuario nunca entró, menos de 3 cambios.
+  // REENVIAR: al email que ya tiene la cuenta, sin tocar la cuenta. Su tope, aparte del de los cambios.
+  if (reenviar) {
+    const porQue = motivoParaNoReenviar(c, u);
+    if (porQue) return no(porQue.status, porQue.error);
+    if (!rateLimit(`pagar-email:reenvio:${token}`, 3, 60 * 60_000)) {
+      return no(429, `Ya te lo mandamos varias veces. Revisa la carpeta de spam, o escríbenos a ${EMAIL_MAKO}.`);
+    }
+    const ws = await getWorkspace(c!.alta_ws!).catch(() => null);
+    const inv = await invitarPorEmail({ email: u!.email, workspace: ws?.nombre, rolWs: 'admin' });
+    const { error: eR } = await getSupabaseServer().from('cobros')
+      .update({ alta_motivo: inv.enviado ? null : `${PREFIJO_MAIL_NO_SALIO}: ${inv.error ?? 'sin detalle'}`.slice(0, 300) })
+      .eq('id', c!.id);
+    if (eR) console.error(`[pagar-email] no pude anotar el reenvío en el cobro ${c!.id}: ${eR.message}`);
+    const enm = emailEnmascarado(u!.email);
+    return NextResponse.json({
+      ok: true, email: enm, enviado: inv.enviado, abrir: bandejaDeEntrada(u!.email),
+      mensaje: inv.enviado ? `Te lo mandamos de nuevo a ${enm}. Si no lo ves, revisa la carpeta de spam.` : `No pudimos mandarlo. Prueba en unos minutos, o escríbenos a ${EMAIL_MAKO}.`,
+    }, { headers: SIN_CACHE });
+  }
+
+  // Las cuatro condiciones: pagado (o la prueba autorizada), alta hecha, el usuario nunca entró, menos de 3 cambios.
   const motivo = motivoParaNoCambiar(c, u);
   if (motivo) return no(motivo.status, motivo.error);
   const cobro = c!;
@@ -88,10 +117,14 @@ export async function POST(req: NextRequest) {
   const antes = cobro.alta_email_cambios;
 
   // 1. El RECLAMO del cambio: compare-and-set sobre el contador leído, y sobre el estado que lo
-  //    habilita. Si otro pedido ganó mientras tanto, éste no hace nada.
-  const { data: reclamo, error: e1 } = await db.from('cobros')
+  //    habilita (pagado, o la prueba autorizada: pendiente con la suscripción activa). Si otro pedido ganó mientras tanto, o la
+  //    prueba se canceló en el medio, éste no hace nada.
+  const reclamar = db.from('cobros')
     .update({ alta_email_cambios: antes + 1, updated_at: new Date().toISOString() })
-    .eq('id', cobro.id).eq('alta_email_cambios', antes).eq('estado', 'pagado').eq('alta_estado', 'hecha')
+    .eq('id', cobro.id).eq('alta_email_cambios', antes).eq('alta_estado', 'hecha');
+  const { data: reclamo, error: e1 } = await (cobro.estado === 'pagado'
+    ? reclamar.eq('estado', 'pagado')
+    : reclamar.eq('estado', 'pendiente').eq('suscripcion_estado', 'activa'))
     .select('id').maybeSingle();
   if (e1) {
     console.error(`[pagar-email] no pude reclamar el cambio del cobro ${cobro.id}: ${e1.message}`);
@@ -161,6 +194,7 @@ export async function POST(req: NextRequest) {
     ok: true,
     email: enmascarado,
     enviado: invitacion.enviado,
+    abrir: bandejaDeEntrada(nuevo.email),
     restantes: cambiosRestantes({ alta_email_cambios: antes + 1 }),
     mensaje: invitacion.enviado
       ? `Listo: te mandamos el acceso a ${enmascarado}.`

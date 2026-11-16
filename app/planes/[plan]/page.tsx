@@ -21,7 +21,7 @@ import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas'
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { ladaDelPais } from '@/lib/paises';
 import { CompraPlan } from './CompraPlan';
-import { Ficha, incluyeDeLaColumna, resumenDelAnual, resumenDelPlan } from './Checkout';
+import { Ficha, incluyeDeLaColumna, resumenDelAnual, resumenDelPlan, totalDeHoyPorPasarela } from './Checkout';
 import { QuieroPlan } from './QuieroPlan';
 
 export const dynamic = 'force-dynamic';
@@ -52,7 +52,8 @@ export default async function PlanPage({ params, searchParams }: {
     return (
       <Ficha resumen={{
         etiqueta: `Pedir ${pr.nombre}`, nombre: pr.nombre, precio: `US$ ${pr.precioUsd.toLocaleString('es-AR')}`,
-        periodo: `en ${pr.cuotas} cuotas de US$ ${Math.round(pr.precioUsd / pr.cuotas).toLocaleString('es-AR')}`,
+        // Sin las cuotas (16/11/2026, Martín: «en todos lados eliminemos lo de las 3 cuotas de 500»): cuánto dura.
+        periodo: pr.periodo,
         detalle: 'Se cobra aparte, después de la llamada', incluye: pr.incluye, nota: pr.resumen,
       }}>
         <QuieroPlan plan={pr.id} nombrePlan={pr.nombre} origen={origen} refCodigo={ref} preguntas={PREGUNTAS_DE_LA_PUERTA} />
@@ -91,12 +92,20 @@ export default async function PlanPage({ params, searchParams }: {
     : `${formatoMonto(x.monto, x.moneda)} por mes`)).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`;
   // La prueba, en los planes que la traen (`planConPrueba`: Essential y Pro desde el 14/11/2026).
   const conPrueba = planConPrueba(plan.id) && uno('sinPrueba') !== '1';
+  // `capa`: la lista del resumen con las ✓ y las ✗ de su columna (`listaDelCheckout`). El resumen trae el precio de CADA pasarela,
+  // en su moneda, y el botón dice lo que cobra hoy la elegida (`totalDeHoyPorPasarela`): los dos salen de lo mismo.
+  const armado = { nombre: plan.nombre, incluye: incluyeDeLaColumna(plan.capa), capa: plan.capa, precioUsd: plan.precioUsd, pasarelas, conPromo, conPrimerMes, precio };
+  const resumen = resumenDelPlan({ ...armado, conPrueba });
+  // SIN LA PRUEBA, AUNQUE LA PÁGINA LA TENGA (16/11/2026): si el email o el WhatsApp ya la usaron, la ruta lo dice y la compra sigue
+  // sin ella (./CompraPlan.tsx). El resumen tiene preparada su versión sin prueba (`sinPrueba` de `Ficha`) y el botón dice lo que se
+  // cobra hoy SIN la prueba: con el resumen de la prueba, ese total es 0 y decía «Suscribirme por US$ 0 al mes» (revisión, hallazgo 4).
+  const resumenSin = conPrueba ? resumenDelPlan({ ...armado, conPrueba: false }) : resumen;
   return (
-    <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumenDelPlan({ nombre: plan.nombre, incluye: incluyeDeLaColumna(plan.capa), precioUsd: plan.precioUsd, pasarelas, conPromo, conPrueba, conPrimerMes, precio })}>
+    <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumen} sinPrueba={conPrueba ? resumenSin : undefined}>
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
           agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
       {pasarelas.length
-        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={!conPrueba} promo={conPromo} ladaInicial={ladaDelPais(pais)} />
+        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={!conPrueba} promo={conPromo} ladaInicial={ladaDelPais(pais)} hoy={totalDeHoyPorPasarela(resumenSin)} />
         : (
           <>
             <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>

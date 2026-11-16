@@ -12,6 +12,13 @@ export type OrigenPedido = 'google' | 'planes';
 export type PedidoNuevo = {
   email: string; nombre: string | null; origen: OrigenPedido; verificado: boolean;
   detalle: string | null; whatsapp: string | null; leadId: number | null;
+  /**
+   * En una fila que YA existe, sólo suma el intento: no completa ni pisa nada (`pedidoQueVuelve`). Lo lleva lo que llega sin
+   * verificar de un formulario que cualquiera llena con el email de otro: la aplicación a MaKo Accelerator (16/11/2026). Sin esto,
+   * una fila que Google ya había verificado pasaba a tener el nombre, el WhatsApp y el origen de quien la escribió, y seguía
+   * diciendo «Correo verificado por Google». El pedido de /planes no lo lleva: sigue como estaba.
+   */
+  sinCompletar?: true;
 };
 
 export type FilaPedido = {
@@ -30,7 +37,7 @@ export function intentoDeGoogle(ui: { email?: unknown; email_verified?: unknown;
 }
 
 /** El pedido limpio, o null si no trae un correo que sirva. */
-export function pedidoLimpio(p: { email: unknown; nombre?: unknown; origen: OrigenPedido; verificado: boolean; detalle?: unknown; whatsapp?: unknown; leadId?: unknown }): PedidoNuevo | null {
+export function pedidoLimpio(p: { email: unknown; nombre?: unknown; origen: OrigenPedido; verificado: boolean; detalle?: unknown; whatsapp?: unknown; leadId?: unknown; sinCompletar?: boolean }): PedidoNuevo | null {
   const email = typeof p.email === 'string' ? p.email.trim().toLowerCase() : '';
   if (!EMAIL_RE.test(email) || email.length > 254) return null;
   const texto = (v: unknown, tope: number) => {
@@ -42,15 +49,17 @@ export function pedidoLimpio(p: { email: unknown; nombre?: unknown; origen: Orig
   return {
     email, nombre: texto(p.nombre, 200), origen: p.origen, verificado: p.verificado, detalle: texto(p.detalle, 300),
     whatsapp: /^\d{8,15}$/.test(wa) ? wa : null, leadId: Number.isInteger(lead) && lead > 0 ? lead : null,
+    ...(p.sinCompletar === true ? { sinCompletar: true as const } : {}),
   };
 }
 
 /**
  * Cómo queda la fila cuando la misma persona vuelve. Suma el intento y completa lo que faltaba, sin pisar con vacíos. Un correo
  * que Google ya confirmó no se desconfirma porque después alguien lo haya escrito en /planes. El estado no se toca: un
- * descartado sigue descartado aunque insista (no vuelve a la bandeja ni a mandar el aviso).
+ * descartado sigue descartado aunque insista (no vuelve a la bandeja ni a mandar el aviso). Con `sinCompletar`, SÓLO el intento.
  */
 export function pedidoQueVuelve(f: Pick<FilaPedido, 'nombre' | 'correo_verificado' | 'detalle' | 'whatsapp' | 'lead_id' | 'intentos'>, p: PedidoNuevo, ahora: string) {
+  if (p.sinCompletar) return { intentos: f.intentos + 1, ultimo_at: ahora };
   return {
     intentos: f.intentos + 1, ultimo_at: ahora, origen: p.origen, correo_verificado: f.correo_verificado || p.verificado,
     nombre: p.nombre ?? f.nombre, detalle: p.detalle ?? f.detalle, whatsapp: p.whatsapp ?? f.whatsapp, lead_id: p.leadId ?? f.lead_id,

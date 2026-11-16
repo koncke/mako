@@ -289,49 +289,84 @@ html[data-sitio-modo="oscuro"] .s-cuenta{--cu-fondo:${CARD};--cu-filete:${LINEA1
 // El pie
 // ─────────────────────────────────────────────────────────────────────────────
 export const CSS_PIE = `
-/* Su pie: filete arriba, 64 de aire; arriba la marca (el logo, el lema y su bajada) y debajo las columnas (títulos 14/20 700, links
-   14/20 500 #9393A9 cada 32 px); abajo, el © con la razón social y la estrella.
+/* Su pie: filete arriba; arriba la marca (el logo, el lema y su bajada) con el contacto, debajo las columnas (títulos 14/20 700,
+   links 14/20 500 #9393A9) y abajo el © con la razón social y la estrella.
    LA RAZÓN SOCIAL, PEGADA A LO DE ARRIBA (15/11/2026, Martín: «quedó como muy alejado, hay mucha separación»). Eran 109 px entre el
    último link y el ©: 48 + 32 alrededor de un filete blanco al 6 % que no se veía, y 16 de margen del © que lo separaban de una fila
-   de links legales que se fue el 12/11 (los legales pasaron a su columna). Ahora 28 + 20, el © centrado con la estrella, y el filete
+   de links legales que se fue el 12/11 (los legales pasaron a su columna). Ahora el © va centrado con la estrella, y el filete
    lo dibuja la base con SU color de texto (una sombra con currentColor: el sol y la luna da vuelta el color y la sombra lo sigue; un
-   borde, en el claro, lo aclaraba hasta perderlo, como en la cuenta de lo que pagas). */
-.s-pie{background:${FONDO};border-top:1px solid ${LINEA};padding:64px 0}
-.s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;padding-bottom:28px}
-.s-pie-logo{margin-bottom:14px}
+   borde, en el claro, lo aclaraba hasta perderlo, como en la cuenta de lo que pagas).
+   MÁS BAJO (16/11/2026, Martín: «la bottom bar quedó demasiado alta, entonces hay que ver cómo reducir eso»). Medido con la portada
+   dibujada: 697 px a 1440, 957 a 1280 y a 1024, 1.409 a 390. En la computadora la marca, la frase y el contacto pasan a UN renglón
+   (eran tres renglones apilados: 100 px y 40 de aire), los links van cada 28 px (eran 32), los rótulos con 12 debajo (16) y el pie
+   con 48 arriba y 40 abajo (64 y 64). En el teléfono, cada columna es un renglón que se despliega (.s-pie-pliegues): las ocho
+   columnas en dos eran casi dos pantallas. Nada se fue: los mismos links, en el mismo orden. */
+.s-pie{background:${FONDO};border-top:1px solid ${LINEA};padding:48px 0 40px}
+.s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:32px;padding-bottom:28px}
+.s-pie-marca{display:flex;align-items:center;gap:12px 24px}
+.s-pie-logo{flex:none}
+.s-pie-frase{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
 /* Sin el tope de 300 px: cortaba «High / Ticket.» y dejaba «Ticket.» solo en su renglón. */
-.s-pie-lema{font-size:16px;line-height:24px;font-weight:700;color:#fff;max-width:420px;text-wrap:balance}
-.s-pie-sub{margin-top:12px;font-size:14px;line-height:20px;font-weight:500;color:${GRIS3};max-width:300px}
+.s-pie-lema{font-size:16px;line-height:24px;font-weight:700;color:#fff;text-wrap:balance}
+.s-pie-sub{font-size:14px;line-height:20px;font-weight:500;color:${GRIS3}}
+/* EL CONTACTO, A LA VISTA (16/11/2026, Martín: «que no solamente esté el email, sino que también esté el WhatsApp de MaKo»): el email
+   y el WhatsApp de MaKo (./contacto.ts), con su logo en su verde. Antes el email iba al final de la columna Legal. */
+.s-pie-contacto{flex:none;display:flex;align-items:center;gap:6px 20px;flex-wrap:wrap}
+.s-pie-contacto a{display:inline-flex;align-items:center;gap:8px;min-height:32px;font-size:14px;line-height:20px;font-weight:600;color:${GRIS};white-space:nowrap;transition:color .15s}
+.s-pie-contacto a:hover{color:#fff}
+.s-pie-contacto svg{flex:none}
+.s-pie-contacto li:last-child svg{color:#25D366}
 /* LAS COLUMNAS EN UN RENGLÓN DESDE 1440, y en una grilla de cuatro más angosto. Ocho columnas sin cortar un nombre suman 1.150 px
    y a 1440 hay 1.184; a 1280 (1.024 de ancho) y a 1024 (960) no entraban: con siete ya se pasaban y a 1024 cortaban el correo. */
-.s-pie-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px 24px}
+.s-pie-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px 24px}
 @media (min-width:1440px){.s-pie-cols{display:flex;gap:24px;justify-content:space-between}}
-.s-pie-h{font-size:14px;line-height:20px;font-weight:700;color:#fff;margin-bottom:16px;white-space:nowrap}
+.s-pie-h{font-size:14px;line-height:20px;font-weight:700;color:#fff;margin-bottom:12px;white-space:nowrap}
 /* El segundo rótulo de una columna (los Funnels, debajo de Industrias, como en el menú de la barra). */
-.s-pie-h2{margin-top:20px}
-.s-pie-col li{font-size:14px;line-height:20px;font-weight:500;padding-bottom:12px}
+.s-pie-h2{margin-top:16px}
+.s-pie-col li{font-size:14px;line-height:20px;font-weight:500;padding-bottom:8px}
 .s-pie-col a{color:${GRIS3};white-space:nowrap;transition:color .15s}
 .s-pie-col a:hover{color:#fff}
+/* La versión del teléfono (los renglones que se despliegan): sólo abajo de 768. */
+.s-pie-pliegues{display:none}
 .s-pie-base{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-top:20px;box-shadow:inset 0 1px 0 color-mix(in srgb,currentColor 14%,transparent)}
 .s-pie-c{font-size:14px;line-height:20px;font-weight:500;color:${GRIS2}}
 .s-claro .s-pie{background:#FCFCFD;border-top-color:rgba(6,4,25,.12)}
-.s-claro .s-pie-lema,.s-claro .s-pie-h{color:${TINTA}}
+.s-claro .s-pie-lema,.s-claro .s-pie-h,.s-claro .s-pie-pliegue summary{color:${TINTA}}
 .s-claro .s-pie-sub,.s-claro .s-pie-col a{color:${GRIS_CLARO}}
-.s-claro .s-pie-col a:hover{color:${TINTA}}
+.s-claro .s-pie-contacto a{color:${GRIS_CLARO2}}
+.s-claro .s-pie-col a:hover,.s-claro .s-pie-contacto a:hover{color:${TINTA}}
 .s-claro .s-pie-c{color:${GRIS_CLARO2}}
+/* Entre 768 y 1279 la marca y la frase no entran con el contacto en un renglón: el contacto baja. */
+@media (max-width:1279px){
+  .s-pie-marca{flex-wrap:wrap}
+  .s-pie-contacto{flex-basis:100%}
+}
 @media (max-width:1023px){
   .s-pie-cols{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 16px}
 }
-/* A 390: arriba la marca con su lema (como en la computadora: el Cerebro, 14/11/2026), los links en dos columnas, y al final el ©. */
+/* A 390: arriba la marca con su lema y el contacto (como en la computadora: el Cerebro, 14/11/2026), cada columna en un renglón que se
+   despliega, y al final el ©. Los renglones miden 48 (más que los 44 de un dedo) y se separan con una raya de SU color de texto. */
 @media (max-width:767px){
-  .s-pie{padding:40px 0}
+  .s-pie{padding:36px 0 28px}
   .s-pie .s-cont{display:flex;flex-direction:column;padding:0 16px}
   .s-pie-in{display:contents}
-  .s-pie-cols{order:2;grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:16px}
-  .s-pie-col a{white-space:normal}
-  .s-pie-base{order:3;padding-top:16px}
-  .s-pie-marca{order:1;margin-bottom:32px}
+  .s-pie-marca{order:1;flex-direction:column;align-items:flex-start;gap:12px;margin-bottom:20px}
+  .s-pie-frase{flex-direction:column;align-items:flex-start;gap:4px}
+  .s-pie-contacto{flex-direction:column;align-items:flex-start;gap:0}
+  .s-pie-contacto a{min-height:40px}
+  .s-pie-cols{display:none}
+  .s-pie-pliegues{display:block;order:2;margin-bottom:20px}
+  .s-pie-pliegue summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;cursor:pointer;font-size:15px;line-height:20px;font-weight:700;color:#fff;box-shadow:inset 0 -1px 0 color-mix(in srgb,currentColor 12%,transparent)}
+  .s-pie-pliegue summary svg{flex:none;opacity:.7;transition:transform .2s ease}
+  .s-pie-pliegue[open] summary svg{transform:rotate(90deg)}
+  .s-pie-pliegue .s-pie-col{padding:6px 0 10px}
+  .s-pie-pliegue .s-pie-col li{padding-bottom:0}
+  .s-pie-pliegue .s-pie-col a{display:inline-flex;align-items:center;min-height:36px;white-space:normal}
+  .s-pie-pliegue .s-pie-h2{margin:10px 0 4px}
+  /* El lugar del WhatsApp que flota (./WhatsappFlotante.tsx, 52 px a 16 del borde): al final de la página tapaba la estrella. */
+  .s-pie-base{order:3;padding-top:16px;padding-right:60px}
 }
+@media (prefers-reduced-motion:reduce){.s-pie-pliegue summary svg{transition:none}}
 `;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -390,7 +425,10 @@ export const CSS_REEMPLAZA = `
 .s-ah-gana-mk{margin-top:18px;display:flex;align-items:center;gap:12px;font-size:17px;line-height:24px}
 .s-ah-gana-n{margin-top:22px;padding-top:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.28);font-size:18px;line-height:30px}
 .s-ah-gana-n strong{font-size:26px;font-weight:800;color:#FDE68A}
-.s-tira-reemplaza > .s-tira-r{margin-top:56px}
+/* La tira va ARRIBA del titular (16/11/2026, Martín: «que el carrusel… esté arriba de el título»): el aire que la separaba del ticket
+   (56 arriba del rótulo) pasa a separarla del titular. */
+.s-tira-reemplaza > .s-ah-h{margin-top:48px}
+.s-tira-reemplaza > .s-tira-ver{margin-top:28px}
 /* En Comparaciones (la página clara, donde la sección abre la página): blanca, con la letra en tinta. */
 .s-reemplaza-claro{background:#fff;padding:64px 0 72px}
 .s-reemplaza-claro .s-ah-h,.s-reemplaza-claro .s-tira-r,.s-reemplaza-claro .s-tira-i{color:${TINTA}}
@@ -418,7 +456,7 @@ export const CSS_REEMPLAZA = `
   .s-ah-gana{padding:22px 20px;border-radius:16px}
   .s-ah-gana-t{font-size:25px;line-height:30px}
   .s-ah-gana-n strong{font-size:22px}
-  .s-tira-reemplaza > .s-tira-r{margin-top:40px}
+  .s-tira-reemplaza > .s-ah-h{margin-top:32px}
   .s-reemplaza-claro{padding:40px 0 48px}
 }
 `;
@@ -562,6 +600,13 @@ ${CSS_REEMPLAZA}
 .s-zz-vis > .s-panel{border-radius:0;max-height:460px;overflow:hidden}
 .s-zz-vis{aspect-ratio:16/10}
 .s-zz-video video{display:block;width:100%;height:100%;object-fit:cover}
+/* EL SECOND BRAIN, A TODO EL ANCHO Y MÁS ALTO (16/11/2026, Martín: «me gustaría de que se vea mucho más épico»): el texto arriba,
+   centrado, y el mapa debajo, del ancho del contenido (1.184 a 1440) y de hasta 680 de alto; en el teléfono, más alto que ancho
+   (eran 210 px de alto a 375: el 16:10 de las otras filas). El grafo se reencuadra solo con la caja (app/vsl/_sitio/BrainVivo.tsx). */
+.s-zz-fila.s-zz-brain{grid-template-columns:minmax(0,1fr);gap:40px}
+.s-zz-brain .s-zz-tx{max-width:760px;margin:0 auto;text-align:center}
+.s-zz-brain .s-zz-acc{align-items:center}
+.s-zz-brain .s-zz-vis{aspect-ratio:auto;height:clamp(520px,72vh,680px)}
 /* Los tableros: de a uno, 2,6 s cada uno, entrando de arriba hacia abajo (como su animación de entrada en la app). */
 .s-zz-tableros{background:#fff}
 /* Los tableros: el recuadro es SÓLO el tablero (la pista, que se desliza); las flechas a los costados y el nombre y los puntos debajo,
@@ -731,6 +776,8 @@ html[data-sitio-modo="oscuro"] .s-precios .tk-extra b,html[data-sitio-modo="oscu
   .s-zz-t{font-size:28px;line-height:34px}
   .s-zz-gurus{height:340px}
   .s-bento .s-fila > :nth-child(n){flex:none}
+  /* El Brain en el teléfono: más alto que ancho, para que el mapa no quede en una tira. */
+  .s-zz-brain .s-zz-vis{height:auto;aspect-ratio:4/5}
 }
 /* A 390: 40 de aire en cada sección, 20 a los lados, titulares 42/44 y 36/40, todo en una columna. */
 @media (max-width:767px){

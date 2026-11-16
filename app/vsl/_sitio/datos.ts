@@ -26,7 +26,6 @@ import { FUNNELS_SITIO, rutaFunnel } from './funnels-datos';
 import { DEFS, defsVisibles, ordenCategoria, type Def } from '@/lib/integraciones-catalogo';
 import { SIN_USO_TODAVIA, tarjetaDeRed, type RedConTarjeta } from '@/lib/zernio-redes';
 import { CATALOGO_GRABADORES } from '@/lib/grabadores/catalogo';
-import { EMAIL_MAKO } from '@/lib/app-url';
 import { EXTENSION_URL_TIENDA } from '@/lib/extension-tienda';
 import { PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
 import { COMPETIDORES, rutaVs } from './competencia';
@@ -265,7 +264,9 @@ export function columnasDelPie(): ColumnaDelPie[] {
     })),
     { titulo: 'Industrias', links: INDUSTRIAS.map((i) => ({ nombre: i.nombre, href: i.href })), sub: { titulo: 'Funnels', links: FUNNELS_SITIO.map((f) => ({ nombre: f.nombre, href: rutaFunnel(f.id) })) } },
     { titulo: 'Recursos', links: recursosDelPie() },
-    { titulo: 'Legal', links: [...LEGALES, { nombre: EMAIL_MAKO, href: `mailto:${EMAIL_MAKO}` }] },
+    // El email ya no va al final de Legal (16/11/2026): el pie tiene su renglón de CONTACTO, a la vista, con el email y el WhatsApp
+    // de MaKo (app/vsl/_sitio/Pie.tsx). Martín: «que no solamente esté el email, sino que también esté el WhatsApp de MaKo».
+    { titulo: 'Legal', links: [...LEGALES] },
   ];
 }
 
@@ -383,7 +384,9 @@ const TIRA: readonly string[] = ['meta', 'whatsapp', 'red-instagram', 'red-faceb
 /**
  * El logo ORIGINAL de cada app de la tira, flotando (Martín, 12/11/2026: «hay logos que están un poco raros todavía, como el de
  * Mercado Pago»). En public/vsl-assets/logos/integraciones/: el ícono que publica su sitio, o, donde era chico (Meta, WhatsApp,
- * Zoom, Mercado Pago), su logo de simple-icons 13.21.0 en el color de su marca.
+ * Zoom), su logo de simple-icons 13.21.0 en el color de su marca. Mercado Pago, desde el 16/11/2026, su logo de VERDAD (el óvalo
+ * celeste con la mano blanca y el borde azul oscuro, recortado de la captura que mandó Martín): `mercadopago.svg` envuelve el mismo
+ * archivo que public/logos/mercadopago.png, el del checkout y el de «Tus apps, conectadas».
  */
 export const LOGO_INTEGRACION: Readonly<Record<string, string>> = {
   meta: 'meta.svg', whatsapp: 'whatsapp.svg', 'red-instagram': 'instagram.png', 'red-facebook': 'facebook.png', calendly: 'calendly.png',

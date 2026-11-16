@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DIAL_DEFAULT, ladaDelPais, numeroTecleado, telefonoDeFormulario } from '../lib/paises';
+import { DIAL_DEFAULT, PAISES, ejemploDeTelefono, ladaDelPais, localArgentino, numeroTecleado, telefonoDeFormulario } from '../lib/paises';
 import { leerPedidoCompra, TEXTO_WHATSAPP_MAL } from '../lib/compra-plan-reglas';
 import { whatsappDelPago } from '../lib/origen-cuenta';
 
@@ -46,7 +46,7 @@ test('la lada del país y lo que manda el formulario', () => {
   assert.equal(telefonoDeFormulario('+54', ''), '', 'la lada sola no es un número');
   assert.equal(telefonoDeFormulario('+54', '  - '), '');
   assert.equal(telefonoDeFormulario('+54', '9 11 2233-4455'), '5491122334455');
-  assert.equal(telefonoDeFormulario('+54', '011 2233-4455'), '541122334455', 'sin el 0 de larga distancia');
+  assert.equal(telefonoDeFormulario('+54', '011 2233-4455'), '5491122334455', 'sin el 0 de larga distancia (y con el 9 del celular)');
   assert.equal(telefonoDeFormulario('+52', '+999 123456'), '999123456', 'un + que el selector no reconoció ya trae su país');
   assert.equal(telefonoDeFormulario('+54', '54 9 11 2233 4455'), '5491122334455', 'el país sin el +: no van dos');
   assert.equal(telefonoDeFormulario('+54', '0054 9 11 2233 4455'), '5491122334455');
@@ -56,6 +56,45 @@ test('la lada del país y lo que manda el formulario', () => {
   const conMarcas = numeroTecleado('\u202a+54 9 11 2233-4455\u202c');
   assert.equal(conMarcas.lada, '+54', 'pegado de una app de contactos');
   assert.equal(telefonoDeFormulario(conMarcas.lada!, conMarcas.numero), '5491122334455');
+});
+
+test('EL CELULAR ARGENTINO LLEVA EL 9 (16/11/2026): con +54, sin el 0 ni el 15, y el 9 adelante; el checkout y el Accelerator', () => {
+  // La revisión del 16/11 (hallazgo 2): «11 2345 6789» con +54 mandaba +541123456789, sin el 9: a ese número WhatsApp no lo encuentra.
+  const AR: Array<[string, string, string]> = [
+    ['11 2345 6789', '5491123456789', 'Buenos Aires, como se marca allá'],
+    ['011 15 2345-6789', '5491123456789', 'con el 0 y el 15'],
+    ['11 15 2345 6789', '5491123456789', 'con el 15 después del 11'],
+    ['223 15 555 1234', '5492235551234', 'un código de 3 dígitos con su 15'],
+    ['3764 15 67-3479', '5493764673479', 'un código de 4 dígitos con su 15'],
+    ['3764 67-3479', '5493764673479', 'el mismo, sin el 15'],
+    ['9 11 2345 6789', '5491123456789', 'ya con el 9: no van dos'],
+    ['9 11 15 2345 6789', '5491123456789', 'con el 9 y también el 15'],
+    ['54 11 2345 6789', '5491123456789', 'el país sin el +, sin el 9'],
+  ];
+  for (const [escrito, sale, que] of AR) assert.equal(telefonoDeFormulario('+54', escrito), sale, que);
+  // Lo que no es un celular de 10 dígitos queda como vino (no se inventa un número), y otro país no se toca.
+  assert.equal(localArgentino('2345 678'), '2345678');
+  assert.equal(telefonoDeFormulario('+52', '55 1234 5678'), '525512345678', 'México no lleva el 9 de Argentina');
+  assert.equal(telefonoDeFormulario('+34', '612 34 56 78'), '34612345678');
+  // Lo usan las dos puertas: el checkout y el formulario de MaKo Accelerator (la misma función, no una copia).
+  assert.match(fuente('app/planes/[plan]/CompraPlan.tsx'), /whatsapp: telefonoDeFormulario\(lada, numero\)/);
+  assert.match(fuente('app/accelerator/aplicar/reglas.ts'), /telefonoDeFormulario\(lada, t\.numero\)/);
+});
+
+test('UN EJEMPLO POR PAÍS en el campo del número (16/11/2026): el de +54 con el 9, y ninguno de otro país', () => {
+  assert.equal(ejemploDeTelefono('+54'), '9 11 2345 6789');
+  assert.equal(ejemploDeTelefono('+52'), '55 1234 5678');
+  // Cada lada del selector tiene el suyo, y cada ejemplo, escrito tal cual con su lada, es un número completo (10 dígitos o más con el país).
+  for (const dial of new Set(PAISES.map((p) => p.dial))) {
+    const ej = ejemploDeTelefono(dial);
+    assert.match(ej, /^\d[\d ]+$/, `${dial} no tiene ejemplo`);
+    assert.ok(telefonoDeFormulario(dial, ej).length >= 10, `${dial}: «${ej}» no es un número completo`);
+  }
+  assert.equal(ejemploDeTelefono('+999'), 'Tu número, sin el código de país', 'una lada sin ejemplo no muestra el de otro país');
+  // El campo lo usa cuando quien lo monta no pasa el suyo (el formulario del Accelerator no lo pasa).
+  const campo = fuente('app/_components/TelefonoConPais.tsx');
+  assert.match(campo, /placeholder=\{placeholder \?\? ejemploDeTelefono\(lada\)\}/);
+  assert.doesNotMatch(campo, /placeholder = '223 355 0684'/, 'volvió el ejemplo único, sin el 9');
 });
 
 test('la regla: vacío sigue, algo que no puede ser un número se dice; en el pedido sin pasarela sigue siendo obligatorio', () => {
@@ -170,6 +209,11 @@ test('whatsappDelPago: lo que no puede ser un número no llega al onboarding', (
 //   · un reintento pisa el número                      -> 11 / 1
 //   · la lada sola cuenta como número                  -> 11 / 1
 //   · queda el 0 de larga distancia                    -> 11 / 1
+//   (16/11/2026; base 16 / 0)
+//   · con +54 no se agrega el 9                        -> 14 / 2
+//   · con +54 queda el 15                              -> 15 / 1
+//   · el 9 se agrega también a otro país               -> 14 / 2
+//   · el campo vuelve al ejemplo único «223 355 0684»  -> 15 / 1
 //   · el campo pasa a obligatorio                      -> 11 / 1
 //   · el formulario no manda el número                 -> 11 / 1
 //   · arranca siempre con el país por defecto          -> 11 / 1

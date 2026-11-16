@@ -187,6 +187,9 @@ test('4. el pie en TODAS las páginas públicas que ve el visitante, una sola ve
   // Las públicas SIN el pie del sitio, a propósito.
   const SIN_PIE: Record<string, string> = {
     '/planes/[plan]': 'el checkout: Martín, 14/11, sin la barra y «que no haya scroll» (app/planes/[plan]/Checkout.tsx)',
+    // 16/11/2026, a la tarde, Martín: «durante el formulario no debería salir la bottom bar» (y el WhatsApp que flota, que va con el
+    // pie, pisaba «Siguiente» en el teléfono). Los legales siguen en la landing del programa, a un toque de la marca de arriba.
+    '/accelerator/aplicar': 'el formulario de aplicación a MaKo Accelerator: un paso, sin la barra de abajo (app/accelerator/aplicar/page.tsx)',
     '/login': 'entrar a la app', '/login/2fa': 'entrar a la app', '/login/restablecer': 'entrar a la app',
     '/app': 'instalar MaKo en el teléfono: la abre el QR del onboarding, una sola tarea a pantalla completa',
     '/pagar/[token]/listo': 'el comprador del link de pago de UN CLIENTE: no es el sitio de MaKo',

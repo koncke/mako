@@ -275,6 +275,10 @@
     {
       "path": "/api/cron/vigia-aprobaciones",
       "schedule": "11 * * * *"
+    },
+    {
+      "path": "/api/cron/dolar-blue",
+      "schedule": "5 21 * * *"
     }
   ]
 }

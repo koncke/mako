@@ -113,7 +113,8 @@ export function ladaDelPais(iso2: string | null | undefined): string {
  * sola no es un número). Sin el 0 de larga distancia del número local: «+54 011…» no existe. Un `+código` que el selector no
  * reconoció sigue en el campo (`numeroTecleado`): ahí ya viene el país, y sumarle la lada serían dos. Lo mismo sin el `+` («54 9 11…»,
  * «0054…»): con 11 dígitos o más ya no es un número local, y si arranca con la lada elegida, ésa es la que trae. Con menos no se toca:
- * 5512345678 es un celular de México, no un +52 sin terminar.
+ * 5512345678 es un celular de México, no un +52 sin terminar. Con +54, el celular lleva el 9 (`localArgentino`).
+ * Lo usan el checkout (app/planes/[plan]/CompraPlan.tsx) y el formulario de MaKo Accelerator (app/accelerator/aplicar).
  */
 export function telefonoDeFormulario(lada: string, local: string): string {
   const t = (local || '').trim();
@@ -122,7 +123,59 @@ export function telefonoDeFormulario(lada: string, local: string): string {
   if (t.startsWith('+')) return digitos;
   const pais = lada.replace(/\D/g, '');
   const sinCero = digitos.replace(/^0+/, '');
-  return unirTelefono(lada, sinCero.length >= 11 && sinCero.startsWith(pais) ? sinCero.slice(pais.length) : sinCero);
+  const resto = sinCero.length >= 11 && sinCero.startsWith(pais) ? sinCero.slice(pais.length) : sinCero;
+  return unirTelefono(lada, pais === '54' ? localArgentino(resto) : resto);
+}
+
+/**
+ * EL CELULAR ARGENTINO LLEVA EL 9 (16/11/2026, revisión del formulario del Accelerator, hallazgo 2). Para WhatsApp, un celular de
+ * Argentina es +54 9 <área sin el 0> <número sin el 15>: 10 dígitos después del 9. Quien lo escribe como lo marca en Argentina
+ * («11 2345 6789», «011 15 2345-6789», «223 15 555 1234») mandaba +54 11 2345 6789, sin el 9: la validación lo aceptaba (tiene los
+ * dígitos) y a ese número WhatsApp no lo encuentra, así que el `wa.me` del correo y el mensaje de la agenda iban a ningún lado.
+ * Acá: sin el 0, sin el 15 que va después del código de área y, si quedan 10 dígitos que no empiezan con 9, con el 9 adelante.
+ * Ningún código de área argentino empieza con 9 (son 11, 2xx(x) y 3xx(x)), así que un 9 adelante es siempre el del celular. Lo que no
+ * se reconoce (otro largo) queda como vino: no se inventa un número.
+ */
+export function localArgentino(local: string): string {
+  const d = (local || '').replace(/\D/g, '').replace(/^0+/, '');
+  if (d.startsWith('9')) {
+    // «9 11 15 2345 6789»: ya trae el 9, y también el 15.
+    const sin = d.length === 13 ? sinElQuince(d.slice(1)) : null;
+    return sin ? `9${sin}` : d;
+  }
+  const sin = d.length === 12 ? sinElQuince(d) ?? d : d;
+  return sin.length === 10 ? `9${sin}` : sin;
+}
+
+/**
+ * El 15 del celular va después del código de área: de 2 dígitos sólo es Buenos Aires (11); el resto, 3 o 4. Con el 15, el número
+ * tiene 12 dígitos; sin él, 10. El 15 no puede estar a la vez después del tercero y del cuarto dígito (uno pide un 5 y el otro un 1 en
+ * el mismo lugar), así que no hay dos lecturas.
+ */
+function sinElQuince(d: string): string | null {
+  if (d.length !== 12) return null;
+  for (const n of d.startsWith('11') ? [2] : [3, 4]) if (d.slice(n, n + 2) === '15') return d.slice(0, n) + d.slice(n + 2);
+  return null;
+}
+
+/**
+ * UN EJEMPLO POR PAÍS (16/11/2026): el que muestra el campo del número de `TelefonoConPais` mientras está vacío, como se escribe un
+ * celular de ESE país sin el código. Era uno solo para todos («223 355 0684», un fijo de Mar del Plata sin el 9): con +54 enseñaba
+ * a escribirlo sin el 9 (hallazgo 2 de la revisión), y con México o España no se parecía a nada que la persona conozca. Los
+ * números son de ejemplo (series reservadas o de muestra), no de nadie.
+ */
+const EJEMPLO_POR_LADA: Readonly<Record<string, string>> = {
+  '+52': '55 1234 5678', '+34': '612 34 56 78', '+54': '9 11 2345 6789', '+57': '300 123 4567', '+56': '9 6123 4567',
+  '+51': '912 345 678', '+593': '99 123 4567', '+598': '94 123 456', '+595': '981 123 456', '+591': '7123 4567',
+  '+58': '412 123 4567', '+506': '8312 3456', '+507': '6123 4567', '+502': '5123 4567', '+504': '9123 4567', '+503': '7012 3456',
+  '+505': '8123 4567', '+1809': '555 0123', '+1787': '555 0123', '+53': '5 123 4567', '+55': '11 91234 5678', '+1': '201 555 0123',
+  '+44': '7400 123456', '+33': '6 12 34 56 78', '+49': '1512 3456789', '+39': '312 345 6789', '+351': '912 345 678',
+  '+31': '6 12345678', '+41': '78 123 45 67', '+353': '85 123 4567', '+91': '81234 56789', '+61': '412 345 678', '+971': '50 123 4567',
+};
+
+/** El ejemplo del campo del número para esa lada; uno genérico si no hay (nunca uno de otro país). */
+export function ejemploDeTelefono(lada: string): string {
+  return EJEMPLO_POR_LADA[lada] ?? 'Tu número, sin el código de país';
 }
 
 /**

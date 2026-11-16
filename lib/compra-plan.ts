@@ -41,7 +41,7 @@ import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tip
 import { CLAVE_PLANES, conceptoDelPlan, planConPrueba, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
-import { diagnosticoEnTexto, esFalloPasajero, leadDeLaCompra, opcionStripe, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
+import { casillaDeEmail, diagnosticoEnTexto, esFalloPasajero, leadDeLaCompra, opcionStripe, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, patronesDeGmail, TEXTO_PRUEBA_USADA_WHATSAPP, TEXTO_SIN_PASARELA, whatsappsDeLaPrueba, type PedidoCompra } from './compra-plan-reglas';
 import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
 import { creadoPorPrimerMes, TEXTO_PROMO_CUENTA, TEXTO_PROMO_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
 import { PROMO_ENTRADA } from './promo-entrada-reglas';
@@ -213,23 +213,30 @@ export async function guardarPrecioLocal(planId: string, moneda: string, monto: 
  * DE DÓNDE VIENE EL LEAD (16/11/2026): quién firma lo que se anota en su historial y cómo se cuenta un WhatsApp distinto. El checkout
  * («al comprar») y la aplicación a MaKo Accelerator (lib/aplicacion-accelerator-servidor.ts, «al aplicar…») crean el lead con lo
  * mismo, y quien aplica todavía no compró nada.
+ * `sinVerificar`: lo que trae lo escribió cualquiera en un formulario público y nada lo confirma. En una ficha que YA existe no
+ * completa ni pisa nada: lo distinto va a su historial con «(sin verificar)». ⚠️ Lo lleva la aplicación (revisión del 16/11/2026:
+ * tipeando el email de otra persona, cualquiera le escribía SU WhatsApp en la ficha, `telefono_normalizado` incluido, la llave con
+ * que se atan el inbox, Calendly y Meta). El checkout no: ahí lo frena el pago, y sigue completando lo vacío como siempre.
  */
-export type DondeDelLead = { autor: string; al: string };
+export type DondeDelLead = { autor: string; al: string; sinVerificar?: boolean };
 export const DEL_CHECKOUT: DondeDelLead = { autor: 'Checkout de MaKo', al: 'al comprar' };
 
 /**
  * El WhatsApp de quien compra en una ficha que YA existe. Se completa sólo si está vacía: la ruta es pública, y cualquiera puede escribir el
- * email de otro. Si la ficha tiene otro número, no se pisa y queda en su historial. Nunca frena la compra.
+ * email de otro. Si la ficha tiene otro número, no se pisa y queda en su historial. Nunca frena la compra. Con `sinVerificar`, ni
+ * siquiera lo vacío se completa: va al historial.
  */
 async function whatsappEnFicha(leadId: number, whatsapp: string | null | undefined, donde: DondeDelLead = DEL_CHECKOUT): Promise<void> {
   if (!whatsapp) return;
   const tel = `+${whatsapp}`;
   try {
-    if ((await enriquecerLead(leadId, { telefono: tel }, donde.autor)).length) return;
+    if (!donde.sinVerificar && (await enriquecerLead(leadId, { telefono: tel }, donde.autor)).length) return;
     const actual = await getLead(leadId);
     // Todos los dígitos: corregir sólo el país deja iguales los últimos 10, y eso también es otro número.
     if (String(actual?.telefono_normalizado ?? actual?.telefono ?? '').replace(/\D/g, '') === whatsapp) return;
-    await logLeadEvent(leadId, 'WhatsApp', `Dejó este WhatsApp ${donde.al}: ${tel}. No se cambió el de la ficha.`, donde.autor);
+    await logLeadEvent(leadId, 'WhatsApp', donde.sinVerificar
+      ? `Dejó este WhatsApp ${donde.al}: ${tel} (sin verificar). No se escribió en la ficha.`
+      : `Dejó este WhatsApp ${donde.al}: ${tel}. No se cambió el de la ficha.`, donde.autor);
   } catch (e) {
     console.warn(`[compra-plan] no pude anotar el WhatsApp en el lead ${leadId}:`, msg(e));
   }
@@ -273,7 +280,10 @@ export async function leadDelComprador(p: Pick<PedidoCompra, 'nombre' | 'email' 
     // ficha lo marca en «Posibles duplicados».
     const mismo = leadDeLaCompra(e.coincidencias, p.email);
     if (mismo != null) {
-      await enriquecerLead(mismo, { email: p.email, telefono: datos.telefono }, donde.autor).catch((x) => console.warn(`[compra-plan] no pude completar el lead ${mismo}: ${msg(x)}`));
+      // Sin verificar (la aplicación), el email tampoco se escribe en esa ficha (la del mismo número, de un grupo y sin email): queda
+      // en su historial, y si eran la misma persona lo confirma Martín.
+      if (donde.sinVerificar) await logLeadEvent(mismo, 'Email', `Dejó este email ${donde.al}: ${p.email} (sin verificar). No se escribió en la ficha.`, donde.autor);
+      else await enriquecerLead(mismo, { email: p.email, telefono: datos.telefono }, donde.autor).catch((x) => console.warn(`[compra-plan] no pude completar el lead ${mismo}: ${msg(x)}`));
       await whatsappEnFicha(mismo, p.whatsapp, donde);
       return { leadId: mismo, nuevo: false };
     }
@@ -360,18 +370,37 @@ async function puedeUsarPromo(email: string, plataforma: number, ahoraMs: number
 }
 
 /**
- * ¿Este email puede empezar una PRUEBA GRATIS? (25/10/2026, el Cerebro: «una prueba por negocio Y por tarjeta y por email»).
- * No, si ya tiene una cuenta de MaKo (es un negocio que ya existe: su plan va por «Tu plan»), o si alguna prueba con ese email
- * llegó a autorizarse (con la tarjeta cargada). La tarjeta se mira al autorizar (lib/cobros.ts, `activarPruebaSiAutorizo`).
+ * ¿Esta persona puede empezar una PRUEBA GRATIS? (25/10/2026, el Cerebro: «una prueba por negocio Y por tarjeta y por email»).
+ * No, si ya tiene una cuenta de MaKo (es un negocio que ya existe: su plan va por «Tu plan»), o si alguna prueba con su email o con
+ * su WhatsApp llegó a autorizarse (con la tarjeta cargada). La tarjeta se mira al autorizar (lib/cobros.ts, `activarPruebaSiAutorizo`).
  * Sin poder leer, deja pasar: el freno por tarjeta sigue en pie, y un comprador no se queda afuera por una base caída.
+ *
+ * UNA POR PERSONA (16/11/2026, Martín: «la opción C de email y WhatsApp sin mirar la tarjeta»). El email se compara por su CASILLA
+ * (`casillaDeEmail`: en Gmail sin puntos ni «+algo», que son la misma casilla) y el WhatsApp con su país, con o sin el 9 de un
+ * celular argentino (`whatsappsDeLaPrueba`; el número está en el `origen` del cobro desde el 31/10). Lo que NO hace es frenar la
+ * compra: quien ya la usó sigue sin la prueba (`sinPrueba`, ./compra-plan-reglas.ts).
  */
-async function puedeEmpezarPrueba(email: string, plataforma: number): Promise<{ ok: true } | { ok: false; motivo: 'cuenta' | 'email' }> {
+async function puedeEmpezarPrueba(p: { email: string; whatsapp: string | null }, plataforma: number): Promise<{ ok: true } | { ok: false; motivo: 'cuenta' | 'email' | 'whatsapp' }> {
+  const { email } = p;
   try {
     if ((await listarUsuarios()).some((u) => u.email === email)) return { ok: false, motivo: 'cuenta' };
-    const { data, error } = await getSupabaseServer().from('cobros').select('id')
-      .eq('workspace_id', plataforma).eq('email', email).like('creado_por', 'planes:%:prueba').not('suscripcion_estado', 'is', null).limit(1);
-    if (error) throw new Error(error.message);
-    return (data ?? []).length ? { ok: false, motivo: 'email' } : { ok: true };
+    // Las pruebas que llegaron a autorizarse (la tarjeta quedó cargada): las de la plataforma, «planes:<plan>:prueba».
+    const pruebas = () => getSupabaseServer().from('cobros').select('id, email')
+      .eq('workspace_id', plataforma).like('creado_por', 'planes:%:prueba').not('suscripcion_estado', 'is', null);
+    const gmail = patronesDeGmail(email);
+    const porEmail = gmail
+      ? await pruebas().or(gmail.map((x) => `email.ilike.${x}`).join(',')).limit(50)
+      : await pruebas().eq('email', email).limit(1);
+    if (porEmail.error) throw new Error(porEmail.error.message);
+    const casilla = casillaDeEmail(email);
+    if (((porEmail.data ?? []) as Array<{ email: string | null }>).some((c) => casillaDeEmail(c.email ?? '') === casilla)) return { ok: false, motivo: 'email' };
+    const numeros = whatsappsDeLaPrueba(p.whatsapp);
+    if (numeros) {
+      const { data, error } = await pruebas().in('origen->>whatsapp', numeros).limit(1);
+      if (error) throw new Error(error.message);
+      if ((data ?? []).length) return { ok: false, motivo: 'whatsapp' };
+    }
+    return { ok: true };
   } catch (e) {
     console.warn(`[compra-plan] no pude mirar si ${email.replace(/^(.).*@/, '$1…@')} ya usó su prueba; la dejo empezar:`, msg(e));
     return { ok: true };
@@ -405,11 +434,12 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
   // La prueba la deciden los planes que la traen (`planConPrueba`: Essential y Pro desde el 14/11/2026).
   const conPrueba = planConPrueba(plan.id) && !p.sinPrueba;
   if (conPrueba) {
-    const puede = await puedeEmpezarPrueba(p.email, ws);
+    const puede = await puedeEmpezarPrueba({ email: p.email, whatsapp: p.whatsapp }, ws);
     if (!puede.ok) {
-      return puede.motivo === 'cuenta'
-        ? { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_CUENTA }
-        : { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true };
+      // El email o el WhatsApp ya la usaron: la compra SIGUE sin la prueba. El checkout dice por qué y su botón pasa a lo que se
+      // cobra hoy («Suscribirme por …», app/planes/[plan]/CompraPlan.tsx): un toque y sigue, nunca se bloquea.
+      if (puede.motivo === 'cuenta') return { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_CUENTA };
+      return { ok: false, status: 409, error: puede.motivo === 'whatsapp' ? TEXTO_PRUEBA_USADA_WHATSAPP : TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true };
     }
   }
   // EL 50% DEL PRIMER MES (30/10/2026): sólo con el reloj vivo (`promoVigente`, lo lee la ruta de su cookie) y en los planes del cartel.

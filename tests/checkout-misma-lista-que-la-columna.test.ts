@@ -38,19 +38,26 @@ const sinMarcas = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, '')
  * mensual, `resumenDelAnual` el anual). Si el resumen se armara acá a mano, este test diría verde con la pantalla mintiendo:
  * es exactamente lo que pasó hasta hoy, cuando el anual se armaba a mano adentro de la página.
  */
-async function checkout(capa: string, nombre: string, precioUsd: number, precioAnualUsd: number, periodo: 'mes' | 'anual'): Promise<string> {
+async function checkoutCrudo(capa: string, nombre: string, precioUsd: number, precioAnualUsd: number, periodo: 'mes' | 'anual'): Promise<string> {
   const React = await import('react');
   (globalThis as unknown as { React: unknown }).React = React;
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { Ficha, incluyeDeLaColumna, resumenDelAnual, resumenDelPlan } = await import('../app/planes/[plan]/Checkout');
+  // 16/11/2026: con `capa`, como la página (`listaDelCheckout`: la lista con su negrita y el «No incluye» de la columna).
   const resumen = periodo === 'anual'
     ? resumenDelAnual({ nombre, capa, precioAnualUsd })
     : resumenDelPlan({
-      nombre, incluye: incluyeDeLaColumna(capa), precioUsd, pasarelas: [{ pasarela: 'stripe' as const, moneda: 'USD', monto: precioUsd }],
+      nombre, incluye: incluyeDeLaColumna(capa), capa, precioUsd, pasarelas: [{ pasarela: 'stripe' as const, moneda: 'USD', monto: precioUsd }],
       conPromo: false, conPrueba: true, conPrimerMes: (m: number) => m, precio: `US$ ${precioUsd} por mes`,
     });
-  return sinMarcas(renderToStaticMarkup(React.createElement(Ficha, { resumen, pasarelas: ['stripe'], children: 'formulario' })));
+  return renderToStaticMarkup(React.createElement(Ficha, { resumen, pasarelas: ['stripe'], children: 'formulario' }));
 }
+const checkout = async (...a: Parameters<typeof checkoutCrudo>) => sinMarcas(await checkoutCrudo(...a));
+/**
+ * Sin el bloque «No incluye» (16/11/2026): desde que el checkout dice, con su ✗, lo que Essential NO trae (como la columna),
+ * «Copiar landings de la competencia» se lee en el checkout de Essential — tachado de la lista, no prometido.
+ */
+const sinNoIncluye = (html: string) => html.replace(/<p class="ck-lista-t ck-lista-t-no">[\s\S]*?<\/ul>/g, '');
 
 /** Los dos planes que se venden, con su capa: el checkout habla por CAPA, igual que la columna. */
 const VENDIDOS = PLANES_MAKO_DEFAULT.filter((p) => p.activo && p.precioAnualUsd);
@@ -110,8 +117,12 @@ test('el que paga sigue pasando: Pro se lleva en el checkout todo lo que la colu
   for (const periodo of ['mes', 'anual'] as const) {
     const htmlPro = await checkout(pro.capa, pro.nombre, pro.precioUsd, pro.precioAnualUsd!, periodo);
     for (const re of DE_PRO) assert.match(htmlPro, re, `el checkout ${periodo} de Pro no promete lo que Pro paga (${re})`);
-    const htmlEs = await checkout(esencial.capa, esencial.nombre, esencial.precioUsd, esencial.precioAnualUsd!, periodo);
+    const crudoEs = await checkoutCrudo(esencial.capa, esencial.nombre, esencial.precioUsd, esencial.precioAnualUsd!, periodo);
+    const htmlEs = sinMarcas(sinNoIncluye(crudoEs));
     for (const re of DE_PRO) assert.doesNotMatch(htmlEs, re, `el checkout ${periodo} de Essential promete algo que no trae (${re})`);
+    // Y lo dice con la ✗ de la columna: cada renglón del «No incluye» de Essential, en la lista de las cruces.
+    const cruces = /<ul class="ck-incluye ck-no-incluye"[^>]*>([\s\S]*?)<\/ul>/.exec(crudoEs)?.[1] ?? '';
+    for (const x of listaCorta(esencial.capa).noIncluye ?? []) assert.ok(sinMarcas(cruces).includes(x.texto), `el checkout ${periodo} de Essential no dice con su ✗ que no trae «${x.texto}»`);
   }
   // Los topes que la columna dice son los que el checkout dice: el que paga el de 97 ve su «sin tope», que es por lo que paga
   // el doble. ⚠️ 15/11/2026: los topes son CHECKS, no una fila aparte (Martín), así que se buscan en `items`.
