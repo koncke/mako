@@ -85,17 +85,12 @@ test('4. que no trabe: el flote quieto se espacia en la portada, y el grafo de l
   assert.match(grafo, /if \(!quieto \|\| t - ultimo >= cada\) \{ pintarRef\.current\(t\); ultimo = t; \}/);
 });
 
-// Martín, 16/11/2026, a la tarde: «el Second Brain no debería ser una sección diferente a las otras. O sea, está bien que sea más
-// grande, pero no debería ser una tarjeta más grande… debería estar al costado como el resto de las tarjetas».
-test('5. más grande, pero una fila más: al costado como las otras, con el mapa más ancho y más alto (y apilado en el teléfono)', () => {
+// Martín, 16/11/2026, a la tarde: «el Second Brain… debería estar al costado como el resto de las tarjetas», y más tarde: «no debe
+// ser más grande que los otros bloques… todos los bloques deben ser del mismo tamaño… exactamente igual».
+test('5. una fila más, al costado y del MISMO tamaño que las otras', () => {
   assert.match(leer('app/vsl/_sitio/Portada.tsx'), /className=\{`s-zz-fila\$\{inv \? ' s-zz-inv' : ''\}\$\{visual === 'brain' \? ' s-zz-brain' : ''\}`\}/);
-  assert.match(CSS_PORTADA, /\.s-zz-fila\.s-zz-brain\{grid-template-columns:minmax\(0,4fr\) minmax\(0,8fr\)\}/);
-  assert.match(CSS_PORTADA, /\.s-zz-fila\.s-zz-brain\.s-zz-inv\{grid-template-columns:minmax\(0,8fr\) minmax\(0,4fr\)\}/);
-  assert.doesNotMatch(CSS_PORTADA, /\.s-zz-fila\.s-zz-brain\{grid-template-columns:minmax\(0,1fr\)/, 'el Brain volvió a ir a todo el ancho');
-  assert.doesNotMatch(CSS_PORTADA, /\.s-zz-brain \.s-zz-tx\{[^}]*text-align:center/, 'el texto del Brain volvió a ir arriba y centrado');
-  assert.match(CSS_PORTADA, /\.s-zz-brain \.s-zz-vis\{aspect-ratio:auto;height:clamp\(460px,64vh,560px\)\}/);
-  assert.match(CSS_PORTADA, /\.s-zz-fila\.s-zz-brain,\.s-zz-fila\.s-zz-brain\.s-zz-inv\{grid-template-columns:minmax\(0,1fr\)/, 'en el teléfono el Brain no se apila como las otras filas');
-  assert.match(CSS_PORTADA, /\.s-zz-brain \.s-zz-vis\{height:auto;aspect-ratio:4\/5\}/, 'en el teléfono la fila vuelve a ser una tira de 210 px');
+  assert.doesNotMatch(CSS_PORTADA, /\.s-zz-fila\.s-zz-brain[^{]*\{/, 'el Brain volvió a tener columnas propias');
+  assert.doesNotMatch(CSS_PORTADA, /\.s-zz-brain \.s-zz-vis\{/, 'el Brain volvió a tener un tamaño propio');
 });
 
 // ── Probado rompiéndolo (16/11/2026) ───────────────────────────────────────────────────────────────────────────────────

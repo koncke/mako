@@ -307,8 +307,11 @@ export const CSS_PIE = `
    que evidentemente se vea bien»): era 551 px a 1440 y 727 a 375. La columna más alta era Industrias con los Funnels debajo: en
    la computadora los Funnels van en SU columna (./Pie.tsx); los links cada 24 px (eran 28), los rótulos con 8 debajo, el pie con
    36 arriba y 24 abajo. El mismo pie en el Accelerator, con TODAS las columnas (sólo cambia su fondo). */
-.s-pie{background:${FONDO};border-top:1px solid ${LINEA};padding:36px 0 24px}
-.s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;padding-bottom:18px}
+/* SIN EL LEMA Y MÁS JUNTO (16/11/2026, ~17:50 UTC, Martín: «podríamos eliminar el mejor software para ventas high ticket… que el
+   logo de MaKo esté abajo a la derecha, en donde hoy está la estrellita… equipo y WhatsApp en ese espacio en blanco al lado de
+   legal… juntar un poquito más las cosas»): las columnas arriba de todo, el contacto debajo de Legal, el logo en el renglón del ©. */
+.s-pie{background:${FONDO};border-top:1px solid ${LINEA};padding:30px 0 20px}
+.s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:0;padding-bottom:16px}
 .s-pie-marca{display:flex;align-items:center;gap:12px 24px}
 .s-pie-logo{flex:none}
 .s-pie-frase{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
@@ -325,13 +328,19 @@ export const CSS_PIE = `
 /* LAS COLUMNAS EN UN RENGLÓN DESDE 1440, y en una grilla de cuatro más angosto. Ocho columnas sin cortar un nombre suman 1.150 px
    y a 1440 hay 1.184; a 1280 (1.024 de ancho) y a 1024 (960) no entraban: con siete ya se pasaban y a 1024 cortaban el correo. */
 .s-pie-cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px 20px}
-@media (min-width:1440px){.s-pie-cols{display:flex;gap:20px;justify-content:space-between}}
-.s-pie-h{font-size:13.5px;line-height:18px;font-weight:700;color:#fff;margin-bottom:8px;white-space:nowrap}
+@media (min-width:1440px){.s-pie-cols{display:flex;gap:16px;justify-content:space-between}}
+.s-pie-h{font-size:13.5px;line-height:18px;font-weight:700;color:#fff;margin-bottom:6px;white-space:nowrap}
 /* El segundo rótulo de una columna (los Funnels, debajo de Industrias, como en el menú de la barra). */
 .s-pie-h2{margin-top:16px}
-.s-pie-col li{font-size:13.5px;line-height:18px;font-weight:500;padding-bottom:6px}
+.s-pie-col li{font-size:13.5px;line-height:18px;font-weight:500;padding-bottom:4px}
 .s-pie-col a{color:${GRIS3};white-space:nowrap;transition:color .15s}
 .s-pie-col a:hover{color:#fff}
+/* El contacto adentro de la última columna (Legal), con la letra de los links. En el teléfono va aparte, a la vista (.s-pie-contacto-tel). */
+.s-pie-h-contacto{margin-top:10px}
+.s-pie-col .s-pie-contacto{display:block}
+.s-pie-col .s-pie-contacto a{min-height:0;gap:6px;font-size:13.5px;line-height:18px;font-weight:500;color:${GRIS3}}
+.s-pie-col .s-pie-contacto svg{width:14px;height:14px}
+.s-pie-contacto-tel{display:none}
 /* La versión del teléfono (los renglones que se despliegan): sólo abajo de 768. */
 .s-pie-pliegues{display:none}
 .s-pie-base{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-top:14px;box-shadow:inset 0 1px 0 color-mix(in srgb,currentColor 14%,transparent)}
@@ -362,6 +371,7 @@ export const CSS_PIE = `
   .s-pie-contacto a{min-height:34px}
   .s-pie-cols{display:none}
   .s-pie-pliegues{display:block;order:2;margin-bottom:12px}
+  .s-pie-contacto-tel{display:flex;order:3;margin-bottom:12px}
   .s-pie-pliegue summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;cursor:pointer;font-size:15px;line-height:20px;font-weight:700;color:#fff;box-shadow:inset 0 -1px 0 color-mix(in srgb,currentColor 12%,transparent)}
   .s-pie-pliegue summary svg{flex:none;opacity:.7;transition:transform .2s ease}
   .s-pie-pliegue[open] summary svg{transform:rotate(90deg)}
@@ -370,7 +380,7 @@ export const CSS_PIE = `
   .s-pie-pliegue .s-pie-col a{display:inline-flex;align-items:center;min-height:36px;white-space:normal}
   .s-pie-pliegue .s-pie-h2{margin:10px 0 4px}
   /* El lugar del WhatsApp que flota (./WhatsappFlotante.tsx, 52 px a 16 del borde): al final de la página tapaba la estrella. */
-  .s-pie-base{order:3;padding-top:16px;padding-right:60px}
+  .s-pie-base{order:4;padding-top:16px;padding-right:60px}
 }
 @media (prefers-reduced-motion:reduce){.s-pie-pliegue summary svg{transition:none}}
 `;
@@ -474,12 +484,14 @@ export const CSS_PORTADA = `
 /* El hero: 96 arriba y abajo; dos columnas de 576 con 32 de separación; el titular 60/60 en mayúsculas con el último renglón en
    degradado, la bajada 20/28 en 512 px, los dos botones de 50 separados 12, la nota 14/20 #B8B8C8 y el visual de 634 × 475. */
 .s-hero{position:relative;padding:96px 0}
-.s-hero-in{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:32px;align-items:center}
+/* El héroe con la MISMA disposición que las filas de abajo (Martín, 16/11/2026: «el recuadro del VSL… debería estar también del
+   mismo tamaño que los bloques de las animaciones»): 5 y 7, 72 de aire, y el video en 16/10. */
+.s-hero-in{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:72px;align-items:center}
 /* El VSL de Martín en el lugar de la composición de beehiiv (12/11/2026): 16:9, con el halo azul de su composición. */
 .s-hero-vsl{position:relative}
 .s-hero-vsl::before{content:'';position:absolute;inset:-8% -8% -4%;background:radial-gradient(closest-side,rgba(47,111,237,.32),rgba(47,111,237,0));filter:blur(24px);pointer-events:none}
-.s-hero-vsl .mk-vsl-slot{position:relative;width:100%;aspect-ratio:16/9}
-.s-hero-vsl .mk-vsl{position:absolute;inset:0;border-radius:14px;overflow:hidden;background:#0B0D12;border:1px solid rgba(255,255,255,.14);box-shadow:0 30px 70px -32px rgba(0,0,0,.7)}
+.s-hero-vsl .mk-vsl-slot{position:relative;width:100%;aspect-ratio:16/10}
+.s-hero-vsl .mk-vsl{position:absolute;inset:0;border-radius:16px;overflow:hidden;background:#0B0D12;border:1px solid rgba(255,255,255,.14);box-shadow:0 30px 70px -32px rgba(0,0,0,.7)}
 .s-hero-vsl .mk-vsl iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 .s-hero-vsl .mk-cor,.s-hero-vsl .mk-vsl-x{display:none}
 .s-hero-tx{container-type:inline-size;min-width:0}
@@ -609,10 +621,8 @@ ${CSS_REEMPLAZA}
 /* EL SECOND BRAIN, A TODO EL ANCHO Y MÁS ALTO (16/11/2026, Martín: «me gustaría de que se vea mucho más épico»): el texto arriba,
    centrado, y el mapa debajo, del ancho del contenido (1.184 a 1440) y de hasta 680 de alto; en el teléfono, más alto que ancho
    (eran 210 px de alto a 375: el 16:10 de las otras filas). El grafo se reencuadra solo con la caja (app/vsl/_sitio/BrainVivo.tsx). */
-/* El Second Brain: una fila más (al costado, como las otras), con el mapa más ancho y más alto (16/11/2026, a la tarde). */
-.s-zz-fila.s-zz-brain{grid-template-columns:minmax(0,4fr) minmax(0,8fr)}
-.s-zz-fila.s-zz-brain.s-zz-inv{grid-template-columns:minmax(0,8fr) minmax(0,4fr)}
-.s-zz-brain .s-zz-vis{aspect-ratio:auto;height:clamp(460px,64vh,560px)}
+/* El Second Brain: una fila más, del MISMO tamaño que las otras (16/11/2026, a la tarde, Martín: «todos los bloques deben ser del
+   mismo tamaño… exactamente igual en relación a la disposición, los tamaños»): sin reglas de tamaño propias. */
 /* Los tableros: de a uno, 2,6 s cada uno, entrando de arriba hacia abajo (como su animación de entrada en la app). */
 .s-zz-tableros{background:#fff}
 /* Los tableros: el recuadro es SÓLO el tablero (la pista, que se desliza); las flechas a los costados y el nombre y los puntos debajo,
@@ -777,13 +787,12 @@ html[data-sitio-modo="oscuro"] .s-precios .tk-extra b,html[data-sitio-modo="oscu
   .s-hero-vis{width:576px;max-width:none;margin:40px auto 0}
   .s-fila{flex-direction:column}
   .s-zz{gap:112px;margin-top:56px}
-  .s-zz-fila,.s-zz-inv,.s-zz-fila.s-zz-brain,.s-zz-fila.s-zz-brain.s-zz-inv{grid-template-columns:minmax(0,1fr);gap:28px}
+  .s-zz-fila,.s-zz-inv{grid-template-columns:minmax(0,1fr);gap:28px}
   .s-zz-inv .s-zz-tx{order:0}
   .s-zz-t{font-size:28px;line-height:34px}
   .s-zz-gurus{height:340px}
   .s-bento .s-fila > :nth-child(n){flex:none}
   /* El Brain en el teléfono: más alto que ancho, para que el mapa no quede en una tira. */
-  .s-zz-brain .s-zz-vis{height:auto;aspect-ratio:4/5}
 }
 /* A 390: 40 de aire en cada sección, 20 a los lados, titulares 42/44 y 36/40, todo en una columna. */
 @media (max-width:767px){

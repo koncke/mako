@@ -25,7 +25,7 @@
 //     árbol de accesibilidad).
 // =============================================================================
 
-import { EstrellaMaKo, LogoMaKo } from '../_competencia/marca';
+import { LogoMaKo } from '../_competencia/marca';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { columnasDelPie, type ColumnaDelPie, type LinkDelPie } from './datos';
@@ -56,9 +56,10 @@ function Cuerpo({ c }: { c: ColumnaDelPie }) {
 }
 
 /** El contacto, a la vista: el email y el WhatsApp de MaKo (que abre el chat con un mensaje ya escrito). */
-function Contacto() {
+/** `corto`: sin la palabra «WhatsApp» delante del número (en la columna de Legal, donde el ancho es poco). */
+function Contacto({ corto = false, clase }: { corto?: boolean; clase?: string }) {
   return (
-    <ul className="s-pie-contacto" aria-label="Contacto">
+    <ul className={clase ? `s-pie-contacto ${clase}` : 's-pie-contacto'} aria-label="Contacto">
       <li>
         <a href={`mailto:${EMAIL_MAKO}`}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z" /><path d="M3 7l9 6l9 -6" /></svg>
@@ -68,7 +69,7 @@ function Contacto() {
       <li>
         <a href={linkWhatsappMako()} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp de MaKo: ${WHATSAPP_MAKO.visible}`}>
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d={GLIFO_WHATSAPP} /></svg>
-          WhatsApp {WHATSAPP_MAKO.visible}
+          {corto ? WHATSAPP_MAKO.visible : `WhatsApp ${WHATSAPP_MAKO.visible}`}
         </a>
       </li>
     </ul>
@@ -82,24 +83,18 @@ export function Pie({ claro = false }: { claro?: boolean }) {
     <footer className="s-pie">
       <div className="s-cont">
         <div className="s-pie-in">
-          <div className="s-pie-marca">
-            {/* Lo mismo que dice arriba (Martín, 12/11/2026: «sigue el texto viejo… tienes que copiarlo de cómo está arriba hoy»), con
-                el logo encima («tienes que poner también el logo otra vez. No puede quedar flotando eso»). */}
-            <LogoMaKo className="s-pie-logo" tamano={30} claro={!claro} />
-            <div className="s-pie-frase">
-              <p className="s-pie-lema">El mejor software para vender High Ticket.</p>
-              <p className="s-pie-sub">Ventas, marketing y contenido en una sola app.</p>
-            </div>
-            <Contacto />
-          </div>
+          {/* SIN EL LEMA ARRIBA (Martín, 16/11/2026, ~17:50 UTC: «podríamos eliminar el mejor software para ventas high ticket… y
+              que el logo de MaKo esté abajo a la derecha»): el logo va en el renglón del ©, y el contacto, debajo de Legal. */}
           {/* En la computadora, el segundo rótulo de una columna (los Funnels, debajo de Industrias) va en SU columna: era la más
               alta y le daba el alto a todo el pie (Martín, 16/11/2026, a la tarde: «sigo viendo la bottom bar muy alta»). En el
               teléfono sigue adentro de su renglón (abajo): ahí el alto lo dan los renglones, no las columnas. */}
           <div className="s-pie-cols">
-            {columnas.flatMap((c) => [
+            {columnas.flatMap((c, i) => [
               <div key={c.titulo} className="s-pie-col">
                 <p className="s-pie-h">{c.titulo}</p>
                 <Links links={c.links} />
+                {/* El email y el WhatsApp, en el hueco que quedaba debajo de Legal (la última columna). */}
+                {i === columnas.length - 1 ? <><p className="s-pie-h s-pie-h-contacto">Contacto</p><Contacto corto /></> : null}
               </div>,
               ...(c.sub ? [
                 <div key={c.sub.titulo} className="s-pie-col">
@@ -120,6 +115,8 @@ export function Pie({ claro = false }: { claro?: boolean }) {
               </details>
             ))}
           </div>
+          {/* En el teléfono, el contacto a la vista, después de los renglones. */}
+          <Contacto clase="s-pie-contacto-tel" />
         </div>
         {/* LA RAZÓN SOCIAL, PEGADA A LO DE ARRIBA (Martín, 15/11/2026: «el tema de la razón social se me hace que quedó como muy
             alejado, hay mucha separación»): el aire que la separaba era de una fila de legales que se fue el 12/11 (los márgenes
@@ -128,7 +125,7 @@ export function Pie({ claro = false }: { claro?: boolean }) {
             08/10/2026 porque no la veía: lib/titular-mako.ts). */}
         <div className="s-pie-base">
           <p className="s-pie-c">{lineaDelCopyright(new Date().getFullYear())}</p>
-          <EstrellaMaKo size={24} />
+          <LogoMaKo className="s-pie-logo" tamano={26} claro={!claro} />
         </div>
       </div>
       {/* El WhatsApp que flota abajo a la derecha (16/11/2026): va donde va el pie, así lo tiene toda página que lo lleva. */}

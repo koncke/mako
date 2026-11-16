@@ -61,6 +61,31 @@ const ICONOS: Record<IconoEntregable, LucideIcon> = {
  */
 export const CSS_DE_LA_LANDING = CSS_ACELERADOR + CSS_BARRA_ACCELERATOR + CSS_INVERSION + CSS_REEMPLAZA + CSS_TIRAS;
 
+/**
+ * LA TIRA DE LOS 12 ENTREGABLES (Martín, 16/11/2026, ~17:50 UTC: «agregaría también un carrusel debajo de la primera sección…
+ * no me gustaría que sean todos como funciona con las apps que ya usas, porque estamos en la landing de Accelerator»): lo que
+ * se construye en el programa, con los íconos de sus tarjetas, en la misma tira que se desliza (las clases de la portada).
+ */
+function TiraEntregables() {
+  const todos = PROGRAMA.fases.flatMap((f) => f.entregables);
+  const lista = (oculta: boolean) => (
+    <ul className="s-tira-l" aria-hidden={oculta || undefined}>
+      {todos.map((e) => {
+        const Icono = ICONOS[e.icono];
+        return <li key={e.nombre} className="s-tira-i acl-tira-ent"><Icono aria-hidden="true" size={22} strokeWidth={1.8} />{e.nombre}</li>;
+      })}
+    </ul>
+  );
+  return (
+    <div className="s-sitio acl-tira">
+      <section className="s-tira acl-tira-entregables" aria-label="Los 12 entregables del programa">
+        <p className="s-tira-r">Los 12 entregables del programa</p>
+        <div className="s-tira-v"><div className="s-tira-p">{lista(false)}{lista(true)}</div></div>
+      </section>
+    </div>
+  );
+}
+
 /** `**así**` → <b>así</b>. Lo demás, tal cual. */
 export function negritas(texto: Rico): ReactNode[] {
   return texto.split(/\*\*(.+?)\*\*/g).map((parte, i) => (i % 2 === 1 ? <b key={i}>{parte}</b> : parte));
@@ -123,6 +148,7 @@ export function LandingAcelerador({ origen = null }: {
             <div className="acl-sec-div" />
           </div>
         </section>
+        <TiraEntregables />
 
         {/* El tramo de la barra de abajo del teléfono: del caso de Mauricio al «¿Es para ti?». La sección de aplicar va JUSTO
             después y le pasa por encima (./estilo.ts, `.acl-tramo + .acl-final`). */}
@@ -256,11 +282,8 @@ export function LandingAcelerador({ origen = null }: {
               (Martín la sacó «de todos lados», ./contenido.ts) y sin «Nuestra promesa» (16/11: el sistema ya es el renglón 2).
               El precio es el de la columna (`PROGRAMA_ACELERADOR`), SIN CUOTAS (Martín, 16/11: «en todos lados eliminemos lo de las 3
               cuotas de 500»): debajo, cuánto dura (`periodo`).
-              EL PRECIO Y EL BOTÓN, UN SOLO BLOQUE (16/11/2026, Martín: «súper importante que el precio de los 1500 esté alineado con el
-              botón»): el precio, cuánto dura y «Aplica ahora», apilados en `.acl-inversion-compra`, centrados en el mismo eje y con el
-              botón del ancho del bloque (./estilo.ts). Hasta ahí iban en fila, con el precio a la derecha y el botón al lado alineado
-              por abajo con «por los 3 meses»: el número quedaba más arriba que el botón, y en el teléfono el precio a la izquierda y el
-              texto del botón en el centro. */}
+              AL COSTADO, COMO ANTES (16/11/2026, a la tarde, Martín: «me gustaba como estaba antes al costado y al otro costado el
+              aplicar ahora»): el nombre, el precio y «Aplica ahora» en una fila, centrados en el mismo eje (./estilo.ts). */}
           <section className="acl-sec acl-inversion-s" aria-labelledby="acl-inversion-titulo">
             <div className="acl-wrap">
               <div className="acl-inversion">
@@ -269,11 +292,11 @@ export function LandingAcelerador({ origen = null }: {
                     <div className="acl-lbl">{PRECIO.ceja}</div>
                     <h3 id="acl-inversion-titulo">{pr.nombre}</h3>
                   </div>
-                  <div className="acl-inversion-compra">
+                  <div className="acl-inversion-precio">
                     <div className="acl-inversion-monto">US$ {pr.precioUsd.toLocaleString('es-AR')}</div>
                     <div className="acl-inversion-periodo">{pr.periodo}</div>
-                    <Aplica href={aplicar} clase="acl-btn acl-btn-oro" />
                   </div>
+                  <Aplica href={aplicar} clase="acl-btn acl-btn-oro" />
                 </div>
                 <p className="acl-inversion-incluye">{PROGRAMA.incluyeCeja}</p>
                 <ul className="acl-checks">

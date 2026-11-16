@@ -302,15 +302,14 @@ export const CSS_INVERSION = `
 .acl-inversion-nombre { flex: 1 1 260px; min-width: 0; }
 .acl-root .acl-inversion .acl-lbl { color: #F5C451; }
 .acl-root .acl-inversion h3 { margin-top: 10px; font-family: var(--acl-sans); font-weight: 800; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -.02em; line-height: 1.1; color: #fff; }
-/* EL PRECIO Y EL BOTÓN, UN SOLO BLOQUE (16/11/2026, Martín: «súper importante que el precio de los 1500 esté alineado con el botón»):
-   el precio, cuánto dura y el botón, apilados y centrados en el MISMO eje, y el botón estirado al ancho del bloque (que lo pone el
-   número). Hasta ahí iban en fila, alineados por abajo: el número quedaba más arriba que el botón. */
-.acl-inversion-compra { flex: none; display: flex; flex-direction: column; align-items: stretch; text-align: center; }
+/* EL PRECIO AL COSTADO DEL BOTÓN, COMO ANTES (16/11/2026, a la tarde, Martín: «me gustaba como estaba antes al costado y al
+   otro costado el aplicar ahora»): en la fila, centrados en el mismo eje (align-items: center de la cabeza). */
+.acl-inversion-precio { flex: none; text-align: right; }
 .acl-inversion-monto { font-family: var(--acl-sans); font-weight: 800; font-size: clamp(2.4rem, 4.4vw, 3.2rem); line-height: 1; letter-spacing: -.03em; color: #fff; }
 .acl-inversion-periodo { margin-top: 8px; font-size: 15px; line-height: 1.3; color: var(--acl-ink-soft); }
 .acl-root .acl-btn-oro { flex: none; background: #F5C451; border-color: #F5C451; color: #2A1E00 !important; }
 .acl-root .acl-btn-oro:hover { background: #FFD772; border-color: #FFD772; color: #2A1E00 !important; }
-.acl-root .acl-inversion-compra .acl-btn-oro { margin-top: 20px; text-align: center; }
+.acl-root .acl-inversion .acl-btn-oro { text-align: center; }
 .acl-inversion-incluye { margin: 26px 0 14px; font-family: var(--acl-sans); font-weight: 700; font-size: 11.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--acl-ink-soft); }
 @media (max-width: 880px) {
   .acl-inversion-s { position: relative; z-index: 91; background: var(--acl-bg); }
@@ -318,6 +317,8 @@ export const CSS_INVERSION = `
   /* Una columna, toda centrada: la ceja y el nombre arriba, y el bloque del precio con el botón a todo el ancho de la tarjeta. */
   .acl-inversion-cabeza { flex-direction: column; align-items: stretch; gap: 22px; padding-bottom: 24px; }
   .acl-inversion-nombre { flex: none; text-align: center; }
+  .acl-inversion-precio { text-align: center; }
+  .acl-root .acl-inversion .acl-btn-oro { display: block; }
 }
 `;
 
@@ -329,5 +330,8 @@ export const CSS_INVERSION = `
  */
 export const CSS_TIRAS = `
 .acl-root .s-sitio.acl-tira { background: none; min-height: 0; }
+/* La tira de los entregables: sus íconos, en el naranja de la página. */
+.acl-root .acl-tira-ent { gap: 10px; }
+.acl-root .acl-tira-ent svg { flex: none; color: #E0613B; }
 .acl-root .s-sitio.acl-tira > .s-tira { padding: 4px 0 0; }
 `;

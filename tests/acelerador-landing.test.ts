@@ -240,7 +240,9 @@ test('todo «Aplica ahora» lleva al formulario (RUTA_APLICAR), y en la página 
   assert.equal(esPublicaSoloLeer(RUTA_APLICAR), true, 'la página del formulario no acepta POST: lo recibe la API');
   // Sin botones muertos ni JavaScript propio: todo es un link.
   assert.doesNotMatch(html, /<button\b/, 'un <button> en una página sin JavaScript no hace nada');
-  assert.doesNotMatch(html, /<script\b/, 'la página no lleva JavaScript propio');
+  // El único script es el del globito del WhatsApp que trae el pie del sitio (su X, app/vsl/_sitio/WhatsappFlotante.tsx).
+  const { SCRIPT_GLOBO } = await import('../app/vsl/_sitio/WhatsappFlotante');
+  assert.doesNotMatch(html.split(SCRIPT_GLOBO).join(''), /<script\b[^>]*>(?!<\/script>)/, 'la página no lleva JavaScript propio');
   for (const f of ['app/accelerator/page.tsx', 'app/accelerator/LandingAcelerador.tsx', 'app/accelerator/contenido.ts', 'app/accelerator/estilo.ts', 'app/accelerator/Barra.tsx', 'app/accelerator/Tiras.tsx']) {
     assert.doesNotMatch(readFileSync(join(RAIZ, f), 'utf8'), /^\s*['"]use client['"]/m, `${f} es del servidor`);
   }
@@ -510,7 +512,7 @@ test('las tiras de la portada separan las secciones: las apps con las que se con
   assert.match(RESULTADOS.casos[RESULTADOS.casos.length - 1].nombre, /^Social Media Lab\b/, 'el último caso ya no es Social Media Lab: ¿la tira sigue donde Martín la pidió?');
   const orden = [RESULTADOS.casos[RESULTADOS.casos.length - 1].nombre, RESULTADOS.metodologia, 'Funciona con las apps que ya usas', PROGRAMA.titulo, 'Entregable #12:', ROTULO_REEMPLAZA, `La inversión ${PROGRAMA_ACELERADOR.nombre}`];
   assert.deepEqual(orden.map(en).map((i, k, l) => i >= 0 && (k === 0 || i > l[k - 1])), orden.map(() => true), `las tiras no van donde Martín las pidió: ${orden.map((s) => `${s.slice(0, 24)}@${en(s)}`).join(' · ')}`);
-  assert.equal((html.match(/<div class="s-sitio acl-tira">/g) ?? []).length, 2, 'cada tira, en su caja del sitio');
+  assert.equal((html.match(/<div class="s-sitio acl-tira">/g) ?? []).length, 3, 'cada tira, en su caja del sitio (la de los entregables, las apps que conecta y las que reemplaza)');
   // EL CSS: el de la portada (`CSS_REEMPLAZA`) y, después, lo que lo acomoda a esta página (sin el fondo azul noche ni el alto de
   // pantalla de `.s-sitio`). La base del sitio (la letra y los logos casi negros sobre blanco, `CSS_BASE`) la trae el pie.
   const css = estilos(html);
@@ -519,22 +521,30 @@ test('las tiras de la portada separan las secciones: las apps con las que se con
   assert.match(CSS_TIRAS, /\.acl-root \.s-sitio\.acl-tira \{ background: none; min-height: 0; \}/, 'la caja de la tira trae el fondo azul noche o el alto de pantalla del sitio');
 });
 
-test('«La inversión»: el precio y el botón, UN bloque, en el mismo eje (en la computadora y en el teléfono)', async () => {
-  // Martín, 16/11/2026: «súper importante que el precio de los 1500 esté alineado con el botón». Iban en fila, alineados por abajo
-  // (el número quedaba más arriba que el botón) y en el teléfono el precio a la izquierda y el texto del botón en el centro. Medido
-  // en el artefacto con getBoundingClientRect (el texto del número con un Range): a 1440, el número y el botón miden 251 px y
-  // comparten los dos bordes y el centro; a 390, el centro de la tarjeta, con el botón a todo su ancho.
+test('«La inversión»: el precio a un costado y «Aplica ahora» al otro, centrados en el mismo eje', async () => {
+  // Martín, 16/11/2026, ~17:50 UTC: «no me gusta lo que hiciste con los 1500… me gustaba como estaba antes al costado y al otro
+  // costado el aplicar ahora». Como antes, en una fila; y centrados en altura (antes iban alineados por abajo y el número quedaba más arriba).
   const { CSS_INVERSION } = await import('../app/accelerator/estilo');
   const pr = PROGRAMA_ACELERADOR;
   const bloque = (await pagina()).match(/<section class="acl-sec acl-inversion-s"[\s\S]*?<\/section>/)?.[0] ?? '';
-  const compra = bloque.match(/<div class="acl-inversion-compra">([\s\S]*?<\/a>)<\/div>/)?.[1] ?? '';
-  assert.equal(compra, `<div class="acl-inversion-monto">US$ ${pr.precioUsd.toLocaleString('es-AR')}</div><div class="acl-inversion-periodo">${pr.periodo}</div><a href="/accelerator/aplicar" class="acl-btn acl-btn-oro">Aplica ahora</a>`,
-    'el precio, cuánto dura y el botón no van juntos, en ese orden, en su bloque');
+  assert.ok(bloque.includes(`<div class="acl-inversion-precio"><div class="acl-inversion-monto">US$ ${pr.precioUsd.toLocaleString('es-AR')}</div><div class="acl-inversion-periodo">${pr.periodo}</div></div><a href="/accelerator/aplicar" class="acl-btn acl-btn-oro">`), 'el precio y el botón no van uno al costado del otro');
+  assert.ok(!bloque.includes('acl-inversion-compra'), 'volvió el bloque apilado');
   const regla = (sel: string) => CSS_INVERSION.match(new RegExp(`(?:^|\\n)${escapar(sel)} \\{([^}]*)\\}`))?.[1] ?? '';
-  assert.match(regla('.acl-inversion-compra'), /display: flex; flex-direction: column; align-items: stretch; text-align: center;/, 'el bloque no apila y centra el precio y el botón, con el botón a su ancho');
-  assert.doesNotMatch(CSS_INVERSION, /\.acl-inversion-(precio|compra|monto|periodo)[^{]*\{[^}]*text-align: (left|right)/, 'el precio volvió a irse a un costado del botón');
-  assert.doesNotMatch(regla('.acl-inversion-cabeza'), /flex-end/, 'volvió la fila alineada por abajo: el número queda más arriba que el botón');
-  assert.doesNotMatch(CSS_INVERSION, /\.acl-btn-oro \{[^}]*display: block/, 'en el teléfono el botón vuelve a ir aparte del bloque');
+  assert.match(regla('.acl-inversion-cabeza'), /display: flex; align-items: center;/, 'el precio y el botón no están centrados en el mismo eje');
+});
+
+test('debajo de «Para trabajar conmigo…», la tira de los 12 entregables (no la de las apps)', async () => {
+  // Martín, 16/11/2026, ~17:50 UTC: «agregaría también un carrusel debajo de la primera sección… no me gustaría que sean todos como
+  // funciona con las apps que ya usas, porque estamos en la landing de Accelerator».
+  const { PROGRAMA } = await import('../app/accelerator/contenido');
+  const html = await pagina();
+  // Se buscan las etiquetas, no los nombres: el CSS de la página (arriba de todo) también los nombra.
+  const i = html.indexOf('class="acl-sec acl-final acl-tras-heroe"'), j = html.indexOf('class="s-tira acl-tira-entregables"'), k = html.indexOf('class="acl-sec acl-mau-s"');
+  assert.ok(i >= 0 && j > i && j < k, 'la tira de los entregables no va entre la primera sección y el caso de Mauricio');
+  const nombres = PROGRAMA.fases.flatMap((f) => f.entregables.map((e) => e.nombre));
+  assert.equal(nombres.length, 12);
+  const tira = html.slice(j, html.indexOf('</section>', j));
+  for (const n of nombres) assert.ok(tira.includes(`</svg>${n.replace(/&/g, '&amp;')}</li>`), `falta ${n} en la tira`);
 });
 
 test('el logo de MaKo, blanco: el Accelerator es sólo oscuro (en la barra; el pie es de otra tanda)', async () => {

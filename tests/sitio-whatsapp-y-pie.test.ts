@@ -76,7 +76,8 @@ test('2. el pie: el contacto con el email Y el WhatsApp, a la vista; y las misma
     // NADA SE PERDIÓ: el teléfono (renglones que se despliegan) tiene los mismos links que la computadora, en el mismo orden.
     const cols = /<div class="s-pie-cols">([\s\S]*?)<div class="s-pie-pliegues">/.exec(h)?.[1] ?? '';
     const pliegues = /<div class="s-pie-pliegues">([\s\S]*?)<div class="s-pie-base">/.exec(h)?.[1] ?? '';
-    const hrefs = (s: string) => [...s.matchAll(/<a href="([^"]+)"/g)].map((m) => m[1]);
+    // El contacto (el email y el WhatsApp) va debajo de Legal y, en el teléfono, aparte: no son links de las columnas.
+    const hrefs = (s: string) => [...s.matchAll(/<a href="([^"]+)"/g)].map((m) => m[1]).filter((u) => !u.startsWith('mailto:') && !u.startsWith('https://wa.me/'));
     const todos = columnasDelPie().flatMap((c) => [...c.links, ...(c.sub?.links ?? [])].map((l) => l.href.replace(/&/g, '&amp;')));
     assert.deepEqual(hrefs(cols), todos, 'las columnas de la computadora no son las del pie');
     assert.deepEqual(hrefs(pliegues), todos, 'los renglones del teléfono perdieron (o cambiaron) links');
@@ -92,9 +93,14 @@ test('2. el pie: el contacto con el email Y el WhatsApp, a la vista; y las misma
   assert.match(telefono, /\.s-pie-cols\{display:none\}/);
   assert.match(telefono, /\.s-pie-pliegues\{display:block;/);
   // Más bajo otra vez (16/11, a la tarde: «sigo viendo la bottom bar muy alta»): 36 arriba y 24 abajo, los links cada 24 px.
-  assert.match(CSS_PIE, /\.s-pie\{background:[^;]+;border-top:[^;]+;padding:36px 0 24px\}/, 'volvió el aire de antes arriba y abajo');
-  assert.match(CSS_PIE, /\.s-pie-col li\{font-size:13\.5px;line-height:18px;font-weight:500;padding-bottom:6px\}/, 'los links volvieron a ir cada 28 px');
-  assert.match(CSS_PIE, /\.s-pie-marca\{display:flex;align-items:center;/, 'la marca volvió a tres renglones apilados');
+  assert.match(CSS_PIE, /\.s-pie\{background:[^;]+;border-top:[^;]+;padding:30px 0 20px\}/, 'volvió el aire de antes arriba y abajo');
+  assert.match(CSS_PIE, /\.s-pie-col li\{font-size:13\.5px;line-height:18px;font-weight:500;padding-bottom:4px\}/, 'los links volvieron a ir más separados');
+  // Sin el lema arriba (Martín, 16/11/2026, ~17:50 UTC: «podríamos eliminar el mejor software para ventas high ticket… y que el logo
+  // de MaKo esté abajo a la derecha, en donde hoy está la estrellita… y equipo y WhatsApp en ese espacio en blanco al lado de legal»).
+  const pie = html(createElement(Pie, {}));
+  assert.ok(!pie.includes('s-pie-marca') && !pie.includes('El mejor software para vender High Ticket'), 'volvió el lema arriba del pie');
+  assert.match(pie, /<div class="s-pie-base"><p class="s-pie-c">[^<]*<\/p><a href="\/" class="s-pie-logo" aria-label="MaKo — volver a la landing"/, 'el logo no está abajo a la derecha, en el renglón del ©');
+  assert.match(pie, /<p class="s-pie-h s-pie-h-contacto">Contacto<\/p><ul class="s-pie-contacto" aria-label="Contacto">/, 'el contacto no está debajo de Legal');
 });
 
 test('3. el WhatsApp flotante: uno por página que lleva el pie, al chat de MaKo con el mensaje escrito, y ninguno en el checkout', async () => {
@@ -156,7 +162,7 @@ test('4. el botón no tapa lo que va pegado abajo: cada regla nombra una clase q
   assert.match(CSS_WHATSAPP_FLOTANTE, /body:has\(details\.s-mv\[open\]\) \.mk-wa-flota\{display:none\}/);
   assert.match(html(createElement(PortadaSitio, { planes: PLANES })), /<details class="s-mv">/);
   // Y en el teléfono, la base del pie le deja su lugar (al final de la página tapaba la estrella).
-  assert.match(CSS_PIE.slice(CSS_PIE.indexOf('@media (max-width:767px){')), /\.s-pie-base\{order:3;padding-top:16px;padding-right:60px\}/);
+  assert.match(CSS_PIE.slice(CSS_PIE.indexOf('@media (max-width:767px){')), /\.s-pie-base\{order:4;padding-top:16px;padding-right:60px\}/);
 });
 
 test('5. el pie (y el botón) en TODAS las landings, DIBUJADAS: las 19 nuevas, las viejas, los funnels y las comparaciones', async () => {
@@ -203,11 +209,15 @@ test('6. «lo que ya pagas»: la tira de las apps que MaKo reemplaza va ARRIBA d
 
 // Martín, 16/11/2026: «el botón de WhatsApp está bien, pero también debería saltar como un mensajito tipo de chatea por WhatsApp
 // o algo así, o haz una pregunta».
-test('7. el globito del WhatsApp: sale solo, adentro de cada botón (con la voz de cada página), y no se puede tocar aparte', () => {
+test('7. el globito del WhatsApp: a la vista desde que entra, con una X que lo cierra; cerrado, sólo al pasar el mouse', () => {
+  // Martín, 16/11/2026, ~17:50 UTC: «¿tienes una pregunta? Escríbenos, pero no solamente cuando le paso el cursor, sino que esté
+  // directamente ahí eso y que se pueda cerrar con una X arriba, y ahí después si le paso el cursor ahí aparezca».
   const portada = html(createElement(PortadaSitio, { planes: PLANES }));
-  assert.ok(sinHojas(portada).includes('<span class="mk-wa-globo" aria-hidden="true">¿Tienes una pregunta? <b>Escríbenos</b></span></a>'), 'el botón de MaKo sin su globito');
-  assert.ok(sinHojas(portada).includes('<span class="mk-wa-globo" aria-hidden="true">¿Tienes una pregunta? <b>Escríbeme</b></span></a>'), 'el botón de Martín sin su globito');
-  assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-globo\{position:absolute;[^}]*pointer-events:none;opacity:0;[^}]*animation:mk-wa-globo 15s 2\.5s both\}/);
-  assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-flota:hover \.mk-wa-globo,\.mk-wa-flota:focus-visible \.mk-wa-globo\{animation:none;opacity:1\}/);
+  assert.ok(sinHojas(portada).includes('<span class="mk-wa-globo" aria-hidden="true"><span class="mk-wa-globo-x" data-wa-cerrar="" title="Cerrar">×</span>¿Tienes una pregunta? <b>Escríbenos</b></span></a>'), 'el botón de MaKo sin su globito con la X');
+  assert.ok(sinHojas(portada).includes('<span class="mk-wa-globo" aria-hidden="true"><span class="mk-wa-globo-x" data-wa-cerrar="" title="Cerrar">×</span>¿Tienes una pregunta? <b>Escríbeme</b></span></a>'), 'el botón de Martín sin su globito con la X');
+  assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-globo\{position:absolute;[^}]*opacity:1;[^}]*animation:mk-wa-globo-entra \.4s 1s both\}/, 'el globito no queda a la vista');
+  assert.match(CSS_WHATSAPP_FLOTANTE, /html\.mk-wa-cerrado \.mk-wa-globo\{opacity:0;pointer-events:none;animation:none\}/);
+  assert.match(CSS_WHATSAPP_FLOTANTE, /html\.mk-wa-cerrado \.mk-wa-flota:hover \.mk-wa-globo,html\.mk-wa-cerrado \.mk-wa-flota:focus-visible \.mk-wa-globo\{opacity:1\}/, 'cerrado, no vuelve al pasar el mouse');
+  assert.ok(portada.includes("localStorage.setItem(K,'cerrado')") && portada.includes('e.preventDefault()'), 'la X no cierra (o abre el WhatsApp)');
   assert.match(CSS_WHATSAPP_FLOTANTE, /@media \(prefers-reduced-motion:reduce\)\{\.mk-wa-flota\{transition:none\}\.mk-wa-globo\{animation:none\}\}/);
 });
