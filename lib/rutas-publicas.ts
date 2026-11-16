@@ -121,6 +121,10 @@ export const PUBLICOS = [
   '/r',
   // La página pública del programa de MaKo Partners (sólo GET): explica las reglas y lleva a /planes.
   '/mako-partners',
+  // La página del MaKo Accelerator (15/11/2026, la landing de Martín que vivía en Lovable): la abre quien todavía no tiene
+  // cuenta, desde el «Más información» de la tercera columna de /planes (`RUTA_ACCELERATOR`, app/planes/Tarjetas.tsx) o un
+  // anuncio. Es una página: sólo GET (`esPublicaSoloLeer`); no lee la sesión ni la base. tests/acelerador-landing.test.ts.
+  '/accelerator',
   // El robots.txt (app/robots.ts). Sin esto el gate lo mandaba a /login: un crawler que
   // pedía reglas recibía una página de login.
   '/robots.txt',

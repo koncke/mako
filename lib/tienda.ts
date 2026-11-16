@@ -28,7 +28,7 @@ export const esAppIos = (userAgent: string | null | undefined): boolean => Strin
  * iPhone no se abre (`esRutaDeVenta` en proxy.ts): un link universal o un toque en un correo no pueden terminar en un cobro
  * sin compra integrada de Apple. Afuera de la app sigue igual: el comprador de un negocio paga desde su navegador.
  */
-export const RUTAS_DE_VENTA = ['/planes', '/pagar', '/r', '/mako-partners', '/reembolsos', '/vsl', '/vsl-assets'] as const;
+export const RUTAS_DE_VENTA = ['/planes', '/accelerator', '/pagar', '/r', '/mako-partners', '/reembolsos', '/vsl', '/vsl-assets'] as const;
 
 export function esRutaDeVenta(pathname: string): boolean {
   return pathname === '/' || RUTAS_DE_VENTA.some((r) => pathname === r || pathname.startsWith(`${r}/`));

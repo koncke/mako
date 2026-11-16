@@ -97,8 +97,8 @@ export default function Page() {
       <ul>
         <li>
           <strong>«Armado» quiere decir:</strong> tu página de venta publicada, tu tablero de clientes, tus mensajes de
-          apertura y de seguimiento cargados, y tu IA conectada. Para eso ponemos hasta {HORAS_SEMANA_1} horas de nuestro
-          equipo en la primera semana.
+          apertura y de seguimiento cargados, y tu IA conectada. Para eso Martín pone hasta {HORAS_SEMANA_1} horas de
+          trabajo en la primera semana.
         </li>
         <li>
           La semana empieza a correr cuando nos das lo que te pedimos al arrancar: tus accesos (tu WhatsApp y tu IA) y los

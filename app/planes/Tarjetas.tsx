@@ -271,8 +271,9 @@ export const TEXTO_AGENDA_ACELERADOR = 'Agenda tu llamada';
 /**
  * EL BOTÓN DE LA COLUMNA DEL ACCELERATOR (15/11/2026, ~21:00). Martín: «en lugar de que diga agenda tu llamada, el botón de MaKo
  * Accelerator… que diga… más información, justamente para que ellos puedan irse para allá», a la landing del programa
- * (/accelerator, con su VSL). La llamada se pide DESDE la landing, por el pedido de /planes/accelerator (el diagnóstico de 2
- * minutos y el pedido en el CRM con su origen), así que /planes ya no ofrece agendar en ningún lado.
+ * (/accelerator, con su VSL). La llamada se agenda DESDE la landing, con la agenda de Martín (`AGENDA_ACELERADOR`: su Calendly
+ * pide 7 respuestas obligatorias antes de confirmar, así que «aplicas en el formulario» es verdad), así que /planes ya no ofrece
+ * agendar en ningún lado. El pedido con el diagnóstico de 2 minutos (/planes/accelerator) sigue en el botón de la tabla.
  */
 export const RUTA_ACCELERATOR = '/accelerator';
 // En MAYÚSCULA como los otros dos botones («PRUÉBALO GRATIS AHORA»): Martín, 15/11, «tienes que poner más información todo en mayúscula».

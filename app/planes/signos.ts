@@ -46,3 +46,9 @@ export function signoInfo(color: string): string {
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='3.6' r='1.3' fill='${color}'/><rect x='7' y='6.4' width='2' height='7.2' rx='1' fill='${color}'/></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") center / 10px 10px no-repeat`;
 }
+
+/** Sólo el FONDO de un signo (el dibujo y el color del círculo), para un círculo que ya tiene su tamaño: lo usa /accelerator. */
+export function fondoDeSigno(cual: 'si' | 'no', trazo: string, fondo: string): string {
+  const tam = cual === 'si' ? 12 : 10;
+  return `${dibujo(cual === 'si' ? TRAZO_SI : TRAZO_NO, trazo)} center / ${tam}px ${tam}px no-repeat, ${fondo}`;
+}
