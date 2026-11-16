@@ -35,6 +35,7 @@
 
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
+import { mailDeAccesoNoSalio } from '@/lib/cobros-reglas';
 import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import type { Cobro } from '@/lib/cobros-tipos';
 
@@ -115,6 +116,22 @@ export function motivoParaNoReenviar(c: CobroParaCambio | null, u: UsuarioDelAlt
   if (!u) return { status: 409, error: `No encontramos la cuenta de este pago. Escríbenos a ${EMAIL_MAKO} y lo resolvemos.` };
   if (u.ultimo_login) return { status: 409, error: 'Ya entraste a MaKo con esta cuenta: entra desde hola-mako.com/login.' };
   return null;
+}
+
+/**
+ * Lo que anota lib/cobros.ts (`altaSiCorresponde`) cuando termina un alta que se había cortado: el correo de acceso PUDO haber salido
+ * en el primer intento (tests/pagar-publico.test.ts fija que la frase siga siendo ésta).
+ */
+export const MAIL_INCIERTO = 'no sé si el mail llegó';
+
+/**
+ * EL CORREO DE ACCESO, EN TRES (revisión del 16/11/2026, hallazgo 4): 'salio'; 'no-salio' (la pasarela de correo dijo que no); o
+ * 'no-se' (el alta cortada que se terminó en un reintento: lib/cobros.ts lo anota como «no salió», pero dice «no sé si el mail
+ * llegó»). La página de gracias decía «No pudimos mandarte el correo» también en el tercero, y el correo podía estar en su bandeja.
+ */
+export function correoDeAcceso(altaMotivo: string | null | undefined): 'salio' | 'no-salio' | 'no-se' {
+  if (!mailDeAccesoNoSalio(altaMotivo)) return 'salio';
+  return String(altaMotivo).includes(MAIL_INCIERTO) ? 'no-se' : 'no-salio';
 }
 
 /**

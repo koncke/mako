@@ -27,9 +27,18 @@
 // de su contexto de apilado. Es `position: fixed`, así que el `overflow` del
 // modal no lo recorta.
 
-import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import { PAISES, ejemploDeTelefono, flagUrl, numeroTecleado } from '@/lib/paises';
+import { PAISES, TEXTO_FALTA_EL_AREA, TEXTO_NUMERO_ARGENTINO_INCOMPLETO, digitosDeFormulario, ejemploDeTelefono, faltaAlWhatsapp, flagUrl, numeroTecleado } from '@/lib/paises';
+
+/**
+ * EL AVISO DE UN NÚMERO DE ARGENTINA QUE NO SIRVE (16/11/2026, revisión, hallazgo 3): al salir del campo, con +54, si le falta el
+ * código de área («15 2345 6789», «5555-1234») o no puede ser un número (`faltaAlWhatsapp`, lib/paises.ts). El checkout no manda
+ * ese número (`telefonoDeFormulario` da '', y su botón queda apagado): sin el aviso, la persona no sabía por qué. Mientras escribe
+ * no aparece (a los 8 dígitos de «11 2345 6789» todavía no terminó). Debajo del campo, sin cambiar nada cuando no hay aviso: la
+ * fila es la misma de siempre.
+ */
+const ESTILO_AVISO: CSSProperties = { margin: '6px 0 0', fontSize: 13, lineHeight: 1.4, color: 'var(--bad, #b1412a)', contain: 'inline-size' };
 
 /**
  * Las opciones del selector, UNA POR LADA.
@@ -59,7 +68,7 @@ function opcionesPorLada() {
 
 export function TelefonoConPais({
   lada, numero, onLada, onNumero, onEnter, inputStyle, placeholder,
-  portalTo, anchoLada = 128, autoFocus, estiloLada, autoComplete, inputId, inputClassName, inputAria,
+  portalTo, anchoLada = 128, autoFocus, estiloLada, autoComplete, inputId, inputClassName, inputAria, sinAviso,
 }: {
   lada: string;
   numero: string;
@@ -89,8 +98,16 @@ export function TelefonoConPais({
   inputClassName?: string;
   /** Lo que el lector de pantalla tiene que saber del número: si está mal, qué lo describe (su error) y si es obligatorio. */
   inputAria?: { invalid?: boolean; describedBy?: string; required?: boolean };
+  /** Sin el aviso de un número de Argentina que no sirve (`ESTILO_AVISO`): para un formulario que dice sus propios errores (el de MaKo Accelerator). */
+  sinAviso?: boolean;
 }) {
   const opciones = useMemo(opcionesPorLada, []);
+  // Salió del campo y no volvió a escribir: recién ahí se mira el número (ver `ESTILO_AVISO`).
+  const [mirado, setMirado] = useState(false);
+  const idAviso = useId();
+  const falta = !sinAviso && mirado && lada === '+54' ? faltaAlWhatsapp(digitosDeFormulario(lada, numero)) : null;
+  const aviso = falta === 'area' ? TEXTO_FALTA_EL_AREA : falta === 'numero' ? TEXTO_NUMERO_ARGENTINO_INCOMPLETO : null;
+  const describe = [inputAria?.describedBy, aviso ? idAviso : null].filter(Boolean).join(' ') || undefined;
 
   // ⚠️ UN NÚMERO QUE LLEGA CON SU «+código» CAMBIA LAS DOS COSAS, Y NO EN EL MISMO EVENTO (revisión
   // del 12/10/2026). Varios padres guardan lada y número en UN objeto con un spread sobre el estado
@@ -106,7 +123,9 @@ export function TelefonoConPais({
     onNumero(p.numero);
   }, [lada, onNumero]);
 
+  // Siempre un fragmento, con la fila primero: si el aviso cambiara la raíz, React rearmaría el campo y se perdería el foco.
   return (
+    <>
     <div style={{ display: 'flex', gap: 8 }}>
       {/* Bandera como IMAGEN vía el prop avatar: los emoji de bandera en Windows
           se ven como las dos letras del país ("MX") — bug real reportado. */}
@@ -124,9 +143,10 @@ export function TelefonoConPais({
         autoFocus={autoFocus}
         id={inputId}
         aria-label={inputId ? undefined : 'Número sin el código de país'}
-        aria-invalid={inputAria?.invalid || undefined}
-        aria-describedby={inputAria?.describedBy}
+        aria-invalid={inputAria?.invalid || !!aviso || undefined}
+        aria-describedby={describe}
         aria-required={inputAria?.required || undefined}
+        onBlur={() => setMirado(true)}
         // Se dejan espacios y guiones para que pueda escribirlo como lo lee; los
         // dígitos se extraen al guardar. Un `+` al principio es el código de país
         // y se muda al selector (`numeroTecleado`, lib/paises.ts): dejarlo adentro
@@ -134,6 +154,7 @@ export function TelefonoConPais({
         // hacer imposible.
         onChange={(e) => {
           pendiente.current = null;
+          setMirado(false);
           const r = numeroTecleado(e.target.value);
           if (r.lada && r.lada !== lada) { pendiente.current = { lada: r.lada, numero: r.numero }; onLada(r.lada); return; }
           onNumero(r.numero);
@@ -141,5 +162,7 @@ export function TelefonoConPais({
         onKeyDown={(e) => { if (e.key === 'Enter' && onEnter) { e.preventDefault(); onEnter(); } }}
       />
     </div>
+    {aviso && <p id={idAviso} className="tel-aviso" role="status" style={ESTILO_AVISO}>{aviso}</p>}
+    </>
   );
 }

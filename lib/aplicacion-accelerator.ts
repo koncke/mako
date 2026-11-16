@@ -27,6 +27,7 @@
 // =============================================================================
 
 import { PROGRAMA_ACELERADOR } from './planes-mako';
+import { TEXTO_FALTA_EL_AREA, faltaAlWhatsapp, whatsappNormalizado } from './paises';
 
 /** La página del formulario y la ruta que lo recibe. */
 export const RUTA_APLICAR = '/accelerator/aplicar';
@@ -245,13 +246,16 @@ const MARCAS_INVISIBLES = /[‎‏‪-‮⁦-⁩]/g;
  * contaban los dígitos y se le ponía un «+» adelante, así que «55 1234 5678» (un celular de México) quedaba +5512345678, de Brasil;
  * «(212) 555-1234», de Marruecos; «0412…», un +0412 que no existe. El WhatsApp con que contesta Martín no llegaba, el `wa.me` del
  * correo abría otro país y la agenda recibía ese número. Ningún código de país empieza con 0.
+ * ⚠️ CON +54, EL CELULAR CON SU 9 Y CON SU CÓDIGO DE ÁREA (revisión del 16/11/2026, hallazgo 3): el servidor también lo normaliza
+ * (`whatsappNormalizado`: una pestaña de antes, o un POST directo, lo mandaban sin el 9), y uno sin el código de área («+54 15 2345
+ * 6789») o que no es 549 y 10 dígitos no pasa (`faltaAlWhatsapp`, lib/paises.ts): ese número no es de nadie.
  */
 export function whatsappDeLaAplicacion(v: unknown): string | null {
   const s = (typeof v === 'string' ? v : '').replace(MARCAS_INVISIBLES, '').trim();
   const conPais = s.startsWith('+') ? s.slice(1) : s.startsWith('00') ? s.slice(2) : null;
   if (conPais == null) return null;
-  const d = conPais.replace(/\D/g, '');
-  return /^[1-9]\d{9,14}$/.test(d) ? d : null;
+  const d = whatsappNormalizado(conPais.replace(/\D/g, ''));
+  return /^[1-9]\d{9,14}$/.test(d) && !faltaAlWhatsapp(d) ? d : null;
 }
 export const TEXTO_WHATSAPP_INCOMPLETO = 'Ese número no parece completo: revisa el código de país y el número.';
 export const TEXTO_WHATSAPP_SIN_PAIS = 'Falta el código de país: elígelo a la izquierda del número.';
@@ -385,7 +389,10 @@ export function errorDelCampo(c: Campo, v: Valor | undefined): string | null {
       if (s.length > LARGO_MAXIMO.whatsapp) return 'Ese número es muy largo. Revísalo.';
       if (whatsappDeLaAplicacion(s)) return null;
       // Sin «+» ni «00» no hay país: lo manda alguien que no usa el formulario, o un borrador de antes del selector.
-      return /^(\+|00)/.test(s.replace(MARCAS_INVISIBLES, '')) ? TEXTO_WHATSAPP_INCOMPLETO : TEXTO_WHATSAPP_SIN_PAIS;
+      const sinMarcas = s.replace(MARCAS_INVISIBLES, '');
+      if (!/^(\+|00)/.test(sinMarcas)) return TEXTO_WHATSAPP_SIN_PAIS;
+      // Con +54 y sin el código de área, se dice cuál falta (lib/paises.ts).
+      return faltaAlWhatsapp(sinMarcas.replace(/^00/, '').replace(/\D/g, '')) === 'area' ? TEXTO_FALTA_EL_AREA : TEXTO_WHATSAPP_INCOMPLETO;
     }
     case 'largo': {
       const s = limpioLargo(v);

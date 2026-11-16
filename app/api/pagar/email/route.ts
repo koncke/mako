@@ -21,8 +21,12 @@
 //   · El contador `alta_email_cambios` se RECLAMA antes de tocar el usuario (compare-and-set sobre el
 //     valor leído): dos pedidos simultáneos no pasan los dos el tope de 3.
 //
-// ⚠️ ESCRIBE `cobros` FUERA DE lib/cobros.ts (sólo `alta_email_cambios` y `alta_motivo`): el contador
-// es de esta ruta y de nadie más. Si se mueve, va a lib/cobros.ts como una función propia.
+// ⚠️ ESCRIBE `cobros` FUERA DE lib/cobros.ts (sólo `alta_email_cambios`, `alta_motivo` y, en una prueba, `origen.email_acceso`): el
+// contador es de esta ruta y de nadie más. Si se mueve, va a lib/cobros.ts como una función propia.
+//
+// UNA PRUEBA POR PERSONA (revisión del 16/11/2026, hallazgo 6): en la prueba gratis, el email nuevo queda anotado en su cobro
+// (`origen.email_acceso`, sin tocar el `email` del pago, que es el de la pasarela): `puedeEmpezarPrueba` (lib/compra-plan.ts) mira los
+// dos, y el email de acceso no empieza otra prueba.
 
 import { after, NextResponse, type NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -34,6 +38,7 @@ import { logLeadEvent } from '@/lib/leads';
 import { getCobroPorToken } from '@/lib/cobros';
 import { emailEnmascarado } from '@/lib/cobros-reglas';
 import { esTokenCobro, type Cobro } from '@/lib/cobros-tipos';
+import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import {
@@ -93,10 +98,12 @@ export async function POST(req: NextRequest) {
     }
     const ws = await getWorkspace(c!.alta_ws!).catch(() => null);
     const inv = await invitarPorEmail({ email: u!.email, workspace: ws?.nombre, rolWs: 'admin' });
-    const { error: eR } = await getSupabaseServer().from('cobros')
-      .update({ alta_motivo: inv.enviado ? null : `${PREFIJO_MAIL_NO_SALIO}: ${inv.error ?? 'sin detalle'}`.slice(0, 300) })
-      .eq('id', c!.id);
-    if (eR) console.error(`[pagar-email] no pude anotar el reenvío en el cobro ${c!.id}: ${eR.message}`);
+    // Sólo si salió (revisión del 16/11/2026, hallazgo 4): un reenvío que no salió no pisa lo que se sabía del primero. Si aquél
+    // salió, la página no tiene que decir después «no pudimos mandarte el correo».
+    if (inv.enviado) {
+      const { error: eR } = await getSupabaseServer().from('cobros').update({ alta_motivo: null }).eq('id', c!.id);
+      if (eR) console.error(`[pagar-email] no pude anotar el reenvío en el cobro ${c!.id}: ${eR.message}`);
+    } else console.error(`[pagar-email] no salió el reenvío del acceso del cobro ${c!.id}: ${inv.error ?? 'sin detalle'}`);
     const enm = emailEnmascarado(u!.email);
     return NextResponse.json({
       ok: true, email: enm, enviado: inv.enviado, abrir: bandejaDeEntrada(u!.email),
@@ -172,6 +179,16 @@ export async function POST(req: NextRequest) {
     .update({ alta_motivo: invitacion.enviado ? null : `${PREFIJO_MAIL_NO_SALIO}: ${invitacion.error ?? 'sin detalle'}`.slice(0, 300) })
     .eq('id', cobro.id);
   if (e4) console.error(`[pagar-email] no pude anotar el envío en el cobro ${cobro.id}: ${e4.message}`);
+
+  // 3a. EN LA PRUEBA, EL EMAIL NUEVO QUEDA EN SU COBRO (hallazgo 6): `origen.email_acceso`, junto a lo que ya tenía (la campaña, el
+  //     WhatsApp). Si no se pudo anotar, el cambio igual quedó: se dice en el log.
+  if (esPruebaDePlan(cobro)) {
+    const { data: fila, error: e5 } = await db.from('cobros').select('origen').eq('id', cobro.id).maybeSingle();
+    const previo = (fila as { origen?: unknown } | null)?.origen;
+    const origen = previo && typeof previo === 'object' && !Array.isArray(previo) ? (previo as Record<string, unknown>) : {};
+    const { error: e6 } = e5 ? { error: e5 } : await db.from('cobros').update({ origen: { ...origen, email_acceso: nuevo.email } }).eq('id', cobro.id);
+    if (e6) console.error(`[pagar-email] no pude anotar el email de acceso en la prueba ${cobro.id}: ${e6.message}`);
+  }
 
   // 3b. ⚠️ EL AVISO AL EMAIL ANTERIOR (15/10/2026), después de contestar: quien tenga el link de la compra puede cambiar
   //     el acceso, y el dueño de la dirección anterior se entera y puede pedir que se revierta (lib/invitaciones.ts).

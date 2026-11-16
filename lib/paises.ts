@@ -109,14 +109,15 @@ export function ladaDelPais(iso2: string | null | undefined): string {
 }
 
 /**
- * Lo que manda un formulario público con `TelefonoConPais`: los dígitos con su lada, o '' si no escribió ningún número (la lada
+ * Los dígitos que escribió en un formulario público con `TelefonoConPais`, con su lada, o '' si no escribió ningún número (la lada
  * sola no es un número). Sin el 0 de larga distancia del número local: «+54 011…» no existe. Un `+código` que el selector no
  * reconoció sigue en el campo (`numeroTecleado`): ahí ya viene el país, y sumarle la lada serían dos. Lo mismo sin el `+` («54 9 11…»,
  * «0054…»): con 11 dígitos o más ya no es un número local, y si arranca con la lada elegida, ésa es la que trae. Con menos no se toca:
  * 5512345678 es un celular de México, no un +52 sin terminar. Con +54, el celular lleva el 9 (`localArgentino`).
- * Lo usan el checkout (app/planes/[plan]/CompraPlan.tsx) y el formulario de MaKo Accelerator (app/accelerator/aplicar).
+ * AUNQUE NO ESTÉ COMPLETO: es para decir QUÉ le falta (el formulario de MaKo Accelerator, `faltaAlWhatsapp`). Lo que se manda es
+ * `telefonoDeFormulario`.
  */
-export function telefonoDeFormulario(lada: string, local: string): string {
+export function digitosDeFormulario(lada: string, local: string): string {
   const t = (local || '').trim();
   const digitos = t.replace(/\D/g, '');
   if (!digitos) return '';
@@ -125,6 +126,63 @@ export function telefonoDeFormulario(lada: string, local: string): string {
   const sinCero = digitos.replace(/^0+/, '');
   const resto = sinCero.length >= 11 && sinCero.startsWith(pais) ? sinCero.slice(pais.length) : sinCero;
   return unirTelefono(lada, pais === '54' ? localArgentino(resto) : resto);
+}
+
+/**
+ * Lo que manda un formulario público con `TelefonoConPais` (`digitosDeFormulario`), o '' si no escribió un número que sirva: un
+ * WhatsApp de Argentina sin el código de área, o que no es 549 y 10 dígitos (`faltaAlWhatsapp`), no se manda. Así el botón del
+ * checkout (app/planes/[plan]/CompraPlan.tsx, «al menos 10 dígitos») queda apagado con «5555-1234», que con el 54 sumaba 10, y el
+ * campo dice qué falta (`TelefonoConPais`, revisión del 16/11/2026, hallazgo 3).
+ */
+export function telefonoDeFormulario(lada: string, local: string): string {
+  const d = digitosDeFormulario(lada, local);
+  return d && faltaAlWhatsapp(d) ? '' : d;
+}
+
+/** Lo que se le dice a quien escribe un celular de Argentina sin el código de área («15 2345 6789», «5555-1234»). */
+export const TEXTO_FALTA_EL_AREA = 'Agrega el código de área (11 en Buenos Aires).';
+/** Y a quien escribe uno de Argentina que no puede ser un número (le faltan o le sobran dígitos). */
+export const TEXTO_NUMERO_ARGENTINO_INCOMPLETO = 'Ese número no parece completo. Revísalo.';
+
+/**
+ * EL WHATSAPP CON SU PAÍS (los dígitos, E.164 sin el «+»), como lo guarda un servidor: con 54, el celular con el 9 (`localArgentino`);
+ * de otro país, tal cual. (Revisión del 16/11/2026, hallazgo 3: sólo lo hacía el navegador, y una pestaña con el código de antes o
+ * un POST directo guardaban el número sin el 9.) Ningún otro código de país empieza con 54.
+ */
+export function whatsappNormalizado(digitos: string): string {
+  const d = (digitos || '').replace(/\D/g, '');
+  return d.startsWith('54') ? `54${localArgentino(d.slice(2))}` : d;
+}
+
+/**
+ * ¿QUÉ LE FALTA A UN WHATSAPP DE ARGENTINA? (16/11/2026, revisión, hallazgo 3.) Los dígitos con el 54, normalizados
+ * (`whatsappNormalizado`). Completo es 549, el código de área y el número: 10 dígitos que empiezan con 11, 2 o 3 (todos los códigos
+ * de área de Argentina). 'area': escribió el número sin el código de área —8 dígitos, o 10 que empiezan con 15, el del celular:
+ * ningún código de área empieza con 15—, que con +54 y la regla de «10 dígitos o más» pasaba («5555-1234» quedaba 5455551234, y
+ * «15 2345 6789», 5491523456789: un código de área que no existe). 'numero': cualquier otra cosa que no es 549 y esos 10 dígitos.
+ * null: está completo, o no es de Argentina (ahí no se mira).
+ */
+export function faltaAlWhatsapp(digitos: string): 'area' | 'numero' | null {
+  const n = whatsappNormalizado(digitos);
+  if (!n.startsWith('54')) return null;
+  const local = n.slice(2);
+  const nacional = local.startsWith('9') ? local.slice(1) : local;
+  if (nacional.length === 8 || (nacional.length === 10 && nacional.startsWith('15'))) return 'area';
+  return /^549(?:11\d{8}|[23]\d{9})$/.test(n) ? null : 'numero';
+}
+
+/**
+ * El WhatsApp de un PEDIDO que llega al servidor del checkout (lib/compra-plan.ts): normalizado (`whatsappNormalizado`), o por qué
+ * no sigue (un número de Argentina que no sirve, `faltaAlWhatsapp`). Lo de otro país lo sigue mirando la ruta (`whatsappEscritoMal`).
+ * El texto nombra al WhatsApp: llega arriba del botón, no debajo del campo (sólo lo ve una pestaña de antes o un POST directo; el
+ * formulario de hoy no lo manda).
+ */
+export function whatsappDelPedido(digitos: string | null | undefined): { ok: true; whatsapp: string | null } | { ok: false; error: string } {
+  if (!digitos) return { ok: true, whatsapp: digitos ?? null };
+  const falta = faltaAlWhatsapp(digitos);
+  if (falta === 'area') return { ok: false, error: 'A tu WhatsApp le falta el código de área (11 en Buenos Aires).' };
+  if (falta === 'numero') return { ok: false, error: 'Ese WhatsApp no parece completo. Revísalo.' };
+  return { ok: true, whatsapp: whatsappNormalizado(digitos) };
 }
 
 /**

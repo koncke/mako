@@ -24,9 +24,10 @@ import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  MAX_CAMBIOS_EMAIL, RESPUESTA_GENERICA, RESPUESTA_GENERICA_REENVIO, bandejaDeEntrada, cambiosRestantes, dentroDeLaVentana, emailNuevoValido,
-  esAltaHecha, motivoParaNoCambiar, motivoParaNoReenviar, type CobroParaCambio, type UsuarioDelAlta,
+  MAIL_INCIERTO, MAX_CAMBIOS_EMAIL, RESPUESTA_GENERICA, RESPUESTA_GENERICA_REENVIO, bandejaDeEntrada, cambiosRestantes, correoDeAcceso, dentroDeLaVentana,
+  emailNuevoValido, esAltaHecha, motivoParaNoCambiar, motivoParaNoReenviar, type CobroParaCambio, type UsuarioDelAlta,
 } from '../app/pagar/cambio-email';
+import { PREFIJO_MAIL_NO_SALIO } from '../lib/cobros-reglas';
 import { AccesoMako } from '../app/pagar/[token]/listo/AccesoMako';
 
 const RAIZ = join(__dirname, '..');
@@ -236,7 +237,7 @@ test('«Revisa tu correo»: lo grande es abrir el correo, con el email, «Reenvi
   assert.match(empresa, /<a class="gr-btn" href="\/login">Entrar a MaKo<\/a>/);
   assert.doesNotMatch(empresa, /Cambiar el email/);
   // Con el correo caído no se dice «revisa tu correo»: se dice que no salió y el botón lo reenvía.
-  const caido = renderToStaticMarkup(createElement(AccesoMako, { ...props, mailSalio: false }));
+  const caido = renderToStaticMarkup(createElement(AccesoMako, { ...props, correo: 'no-salio' as const }));
   assert.match(caido, /<h1>Tu cuenta está lista<\/h1>/);
   assert.doesNotMatch(caido, /Revisa tu correo|Te mandamos el acceso/);
   assert.match(caido, /<button type="button" class="gr-btn">Reenviar el correo<\/button>/);
@@ -249,6 +250,48 @@ test('«Revisa tu correo»: lo grande es abrir el correo, con el email, «Reenvi
   const pagina = leer(LISTO);
   assert.equal((pagina.match(/const revisa = await revisaTuCorreo\(c, /g) ?? []).length, 2, 'el pagado y la prueba pasan por «Revisa tu correo»');
   assert.match(pagina, /if \(!u \|\| u\.ultimo_login\) return null;/);
+});
+
+test('«Revisa tu correo» fuera de la ventana, el reenvío que no salió y el «no sé si llegó» (revisión del 16/11/2026, hallazgo 4)', () => {
+  const props = { token: 't', emailInicial: 'va***@gmail.com', bandeja: bandejaDeEntrada('valentina@gmail.com'), puedeCambiar: false, contacto: 'equipo@hola-mako.com',
+    chip: 'Tu prueba gratis de 7 días empezó · hoy no se cobra nada' };
+  const dibujar = (extra: object) => renderToStaticMarkup(createElement(AccesoMako, { ...props, ...extra })).replace(/<style[\s\S]*?<\/style>/g, '');
+  // Fuera de las 48 horas la ruta contesta 409 siempre, y quien no recibió el correo es justo quien vuelve días después: no se ofrece
+  // reenviar, se ofrece escribirnos.
+  const fuera = dibujar({ puedeReenviar: false });
+  assert.doesNotMatch(fuera, /Reenviar el correo/, 'fuera de la ventana se ofrece reenviar (y la ruta contesta 409)');
+  assert.match(fuera, /¿No te llegó\? <a href="mailto:equipo@hola-mako\.com">Escríbenos a equipo@hola-mako\.com<\/a>/);
+  const caidoFuera = dibujar({ puedeReenviar: false, correo: 'no-salio' });
+  assert.match(caidoFuera, /<h1>Tu cuenta está lista<\/h1>/);
+  assert.doesNotMatch(caidoFuera, /Reenviar el correo|Reenvíalo/);
+  assert.match(caidoFuera, /<a class="gr-btn" href="\/login">Entrar a MaKo<\/a>/);
+  assert.match(caidoFuera, /escríbenos a <a href="mailto:equipo@hola-mako\.com">equipo@hola-mako\.com<\/a>/);
+  // Dentro de la ventana, con el correo caído, reenviar sigue siendo el botón principal.
+  assert.match(dibujar({ correo: 'no-salio' }), /<button type="button" class="gr-btn">Reenviar el correo<\/button>/);
+  // «No sé si el mail llegó» no es «no pudimos mandarte el correo»: puede estar en su bandeja.
+  const noSe = dibujar({ correo: 'no-se' });
+  assert.match(noSe, /<h1>Revisa tu correo<\/h1>/);
+  assert.match(noSe, /Te mandamos el acceso a <b>va\*\*\*@gmail\.com<\/b>, pero no sabemos si llegó\./);
+  assert.doesNotMatch(noSe, /No pudimos mandarte/);
+  assert.match(noSe, />Abrir mi correo<\/a>/);
+  assert.equal(correoDeAcceso(null), 'salio');
+  assert.equal(correoDeAcceso(`${PREFIJO_MAIL_NO_SALIO}: el dominio no está verificado`), 'no-salio');
+  assert.equal(correoDeAcceso(`${PREFIJO_MAIL_NO_SALIO}: el alta se cortó y se terminó en un reintento, ${MAIL_INCIERTO}`), 'no-se');
+  // La frase la escribe lib/cobros.ts (`altaSiCorresponde`): si cambia allá, esto deja de reconocerla.
+  assert.ok(leer('lib/cobros.ts').includes(MAIL_INCIERTO), 'lib/cobros.ts ya no anota «no sé si el mail llegó»: `correoDeAcceso` no lo reconoce');
+  // La página le pasa la ventana y el correo en tres.
+  const pagina = leer(LISTO);
+  assert.match(pagina, /puedeReenviar=\{dentroDeLaVentana\(c\)\}/);
+  assert.match(pagina, /correo=\{correoDeAcceso\(c\.alta_motivo\)\}/);
+  // Un reenvío que contestó pero no salió es un error (en rojo), no un aviso en verde; y en la base no pisa lo que se sabía del primero.
+  const acceso = sinComentarios(leer('app/pagar/[token]/listo/AccesoMako.tsx'));
+  const reenviar = acceso.slice(acceso.indexOf('async function reenviar('), acceso.indexOf('async function cambiar('));
+  assert.match(reenviar, /if \(!r\.enviado\) \{ setError\(/);
+  assert.ok(reenviar.indexOf('if (!r.enviado)') < reenviar.indexOf('setAviso(r.mensaje'), 'el reenvío que no salió se pinta en verde');
+  const ruta = sinComentarios(leer(EMAIL));
+  const reenvio = ruta.slice(ruta.indexOf('if (reenviar) {'), ruta.indexOf('const motivo = motivoParaNoCambiar('));
+  assert.match(reenvio, /if \(inv\.enviado\) \{\n\s*const \{ error: eR \} = await getSupabaseServer\(\)\.from\('cobros'\)\.update\(\{ alta_motivo: null \}\)/);
+  assert.doesNotMatch(reenvio, /PREFIJO_MAIL_NO_SALIO/, 'un reenvío que no salió pisa lo que se sabía del primero');
 });
 
 // Probado rompiéndolo (11/10/2026), sobre una base de 7 pases, cada rotura sola y restaurada a mano:
@@ -271,3 +314,10 @@ test('«Revisa tu correo»: lo grande es abrir el correo, con el email, «Reenvi
 //   · la ventana de la prueba sin `created_at` (sólo la fecha del pago)          -> 10 / 2
 //   · el reenvío gasta uno de los 3 cambios                                     -> 11 / 1
 //   · «Revisa tu correo» con el correo caído                                    -> 11 / 1
+// Revisión del 16/11/2026, hallazgo 4 (base 13 / 0; sobre copias, y las dos que se dibujan en el repo, restauradas):
+//   · fuera de la ventana se ofrece reenviar                                    -> 12 / 1
+//   · el reenvío que no salió se pinta en verde                                 -> 12 / 1
+//   · «no sé si llegó» se lee como «no salió» (correoDeAcceso)                  -> 12 / 1
+//   · la página dibuja «no sé» como «no salió»                                  -> 12 / 1
+//   · un reenvío que no salió pisa lo que se sabía del primero                  -> 12 / 1
+//   · la página no le pasa la ventana                                           -> 12 / 1

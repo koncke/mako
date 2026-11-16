@@ -16,7 +16,7 @@ import type { NextRequest } from 'next/server';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { origenDelPago } from '@/lib/editor-landing/pago-pedido';
-import { TEXTO_CODIGO_NO_EXISTE, TEXTO_WHATSAPP_MAL, codigoQueCuenta, codigoRefLimpio, leerPedidoCompra, paisDelVisitante } from '@/lib/compra-plan-reglas';
+import { TEXTO_CODIGO_NO_EXISTE, TEXTO_WHATSAPP_MAL, codigoQueCuenta, codigoRefLimpio, leerPedidoCompra, paisDelVisitante, precioVistoDelPedido } from '@/lib/compra-plan-reglas';
 import { esCodigoDePartner } from '@/lib/partners-programa';
 import { iniciarCompraDePlan, pedirPlanSinPasarela } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
@@ -70,8 +70,11 @@ export async function POST(req: NextRequest) {
     // El reloj del 50% (la cookie de lib/promo-entrada.ts). Con el interruptor de Landings apagado, siempre false: precio normal.
     promoVigente: promoVigente(req.cookies.get(COOKIE_PROMO)?.value, Date.now() - (pedido.promo ? MINUTOS_DE_GRACIA * 60_000 : 0), entornoPromo()),
     pais: paisDelVisitante(req.headers.get('x-vercel-ip-country')),
+    // El monto que mostró la página (segunda revisión del 16/11/2026, hallazgo 10): si el cron del blue lo cambió, 409 y no se
+    // cobra otro número. Sólo frena: lo que se cobra sale del plan, nunca de acá (`PrecioVisto`).
+    precioVisto: precioVistoDelPedido(body),
   });
-  if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}), ...(r.sinPrueba ? { sinPrueba: true } : {}), ...(r.sinPromo ? { sinPromo: true } : {}) }, { status: r.status });
+  if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}), ...(r.sinPrueba ? { sinPrueba: true } : {}), ...(r.sinPromo ? { sinPromo: true } : {}), ...(r.precioCambio ? { precioCambio: true } : {}) }, { status: r.status });
   // Sin pasarela para su país (5/11/2026): lo que escribió quedó como pedido, como el «Quiero» de arriba.
   if ('pedido' in r) return Response.json({ ok: true, pedido: true });
   return Response.json({ ok: true, link: r.link });

@@ -15,10 +15,17 @@
 // EL WHATSAPP (31/10/2026, Martín: «que le pida también el whatsapp»): con su código de país. OBLIGATORIO desde el 14/11/2026
 // (Martín: «WhatsApp no debe ser opcional… no debería poder darle clic al botón… si no completé todo lo anterior»): el botón
 // queda apagado hasta que el email, el nombre, el WhatsApp y la forma de pago están, y la ruta también lo exige.
+//
+// EL PRECIO QUE SE MOSTRÓ (segunda revisión del 16/11/2026, hallazgo 10): el botón promete una cifra y el cron del blue mueve los
+// pesos una vez por día. El POST lleva el monto y la moneda de la pasarela elegida tal como se mostraron (`precioVisto`); si ya no
+// son los de hoy, la ruta contesta 409 sin cobrar nada, y acá se dice y se redibuja la página con el nuevo. `router.refresh()` no
+// desmonta el formulario: lo escrito queda. El router se lee con `useContext` y no con `useRouter`, que tira sin él (los tests
+// dibujan este formulario solo); sin router, se recarga la página.
 
-import { useState } from 'react';
+import { useContext, useState } from 'react';
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import type { Pasarela } from '@/lib/cobros-tipos';
-import type { OrigenCompra } from '@/lib/compra-plan-reglas';
+import { TEXTO_PRECIO_CAMBIO, type OrigenCompra } from '@/lib/compra-plan-reglas';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { telefonoDeFormulario } from '@/lib/paises';
 import { PRUEBA_DIAS } from '@/lib/planes-mako';
@@ -104,6 +111,7 @@ export function CompraPlan(p: {
   // Sin pasarela para su país al momento de pagar (5/11/2026, una pestaña de antes del cierre de Creem): la ruta lo tomó como
   // pedido (lib/compra-plan.ts, `iniciarCompraDePlan`). Nunca un error: lo que escribió ya quedó.
   const [pedido, setPedido] = useState(false);
+  const router = useContext(AppRouterContext);
 
   // Con un WhatsApp de verdad: su país y al menos 10 dígitos en total (la misma regla que la ruta, `whatsappEscritoMal`).
   const whatsappCompleto = telefonoDeFormulario(lada, numero).replace(/\D/g, '').length >= 10;
@@ -117,19 +125,23 @@ export function CompraPlan(p: {
     setError(null);
     setErrorCodigo(null);
     setErrorWhatsapp(null);
+    // Lo que esta página mostró de la pasarela elegida (el monto por mes y su moneda): la ruta no cobra otro número.
+    const visto = p.pasarelas.find((x) => x.pasarela === pasarela);
     try {
       const r = await fetch('/api/planes/comprar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: p.plan, nombre, email, whatsapp: telefonoDeFormulario(lada, numero), pasarela, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web, sinPrueba: sin, promo: !!p.promo, sinPromo: sinDescuento }),
+        body: JSON.stringify({ plan: p.plan, nombre, email, whatsapp: telefonoDeFormulario(lada, numero), pasarela, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web, sinPrueba: sin, promo: !!p.promo, sinPromo: sinDescuento, precioVisto: visto ? { monto: visto.monto, moneda: visto.moneda } : null }),
       });
-      const j = (await r.json().catch(() => ({}))) as { link?: string; pedido?: boolean; error?: string; sinPrueba?: boolean; sinPromo?: boolean; campo?: string };
+      const j = (await r.json().catch(() => ({}))) as { link?: string; pedido?: boolean; error?: string; sinPrueba?: boolean; sinPromo?: boolean; precioCambio?: boolean; campo?: string };
       if (r.ok && j.link) { window.location.href = j.link; return; }
       if (r.ok && j.pedido) { setPedido(true); setEnviando(false); return; }
       if (j.campo === 'codigo') { setErrorCodigo(j.error ?? 'Revisa el código.'); setEnviando(false); return; }
       if (j.campo === 'whatsapp') { setErrorWhatsapp(j.error ?? 'Revisa tu WhatsApp.'); setEnviando(false); return; }
       // La prueba ya se usó: la compra sigue sin ella. Se dice por qué y el botón pasa a lo que se cobra hoy; un toque y sigue.
       if (j.sinPrueba && !sin) { setSinPrueba(true); setPorQueSinPrueba(j.error ?? null); setEnviando(false); return; }
+      // El precio cambió desde que se dibujó la página: no se cobró nada. Se dice y se redibuja con el nuevo; lo escrito queda.
+      if (j.precioCambio) { setError(j.error ?? TEXTO_PRECIO_CAMBIO); setEnviando(false); if (router) router.refresh(); else window.location.reload(); return; }
       setError(j.error ?? 'No pudimos abrir el pago. Prueba otra vez.');
       setOfrecerSinPromo(!!j.sinPromo);
     } catch {

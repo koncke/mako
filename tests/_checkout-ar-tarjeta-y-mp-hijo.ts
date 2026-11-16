@@ -112,7 +112,7 @@ async function main() {
     });
     const r = await comprarRuta(req);
     const j = await r.json() as Fila;
-    return { status: r.status, link: typeof j.link === 'string' ? j.link : null, error: j.error ?? null, elegir: Array.isArray(j.elegir) ? (j.elegir as Fila[]).map((x) => x.pasarela) : null };
+    return { status: r.status, link: typeof j.link === 'string' ? j.link : null, error: j.error ?? null, elegir: Array.isArray(j.elegir) ? (j.elegir as Fila[]).map((x) => x.pasarela) : null, precioCambio: j.precioCambio === true };
   };
   const pasarelas = async (pais: string | null, conPrueba = false) =>
     ((await ofertaDelPlan('esencial', { pais, conPrueba }))?.pasarelas ?? []).map((x: { pasarela: string }) => x.pasarela);
@@ -123,6 +123,13 @@ async function main() {
   out.compraArSinElegir = await comprar('AR');
   out.compraArTarjeta = await comprar('AR', { pasarela: 'stripe' });
   out.checkoutsStripe = checkoutsStripe;
+
+  // ── 1b. El monto que mostró la página (segunda revisión del 16/11/2026, hallazgo 10): otro número u otra moneda, 409 y nada creado. ──
+  const antes = { cobros: db.cobros.length, checkouts: checkoutsStripe, leads: db.leads.length };
+  out.precioViejo = await comprar('AR', { pasarela: 'stripe', precioVisto: { monto: 40, moneda: 'USD' } });
+  out.monedaVieja = await comprar('AR', { pasarela: 'stripe', precioVisto: { monto: 47, moneda: 'ARS' } });
+  out.sinCrearNada = { cobros: db.cobros.length - antes.cobros, checkouts: checkoutsStripe - antes.checkouts, leads: db.leads.length - antes.leads };
+  out.precioDeHoy = await comprar('AR', { pasarela: 'stripe', precioVisto: { monto: 47, moneda: 'USD' } });
 
   // ── 2. Mercado Pago no contesta UNA vez; el token no se lee UNA vez. ──
   avisos.length = 0;

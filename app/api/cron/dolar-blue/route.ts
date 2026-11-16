@@ -5,9 +5,9 @@
 // debería estar creada… para actualizar diariamente al dólar blue del día». Lo hace lib/dolar-blue.ts (`actualizarPesosAlBlue`):
 // lee el blue (dolarapi.com o bluelytics; Mercado Pago no lo publica), calcula el precio en pesos de cada plan que ya lo tiene
 // (dólares × venta, hacia arriba al millar) y escribe SÓLO eso en el setting `planes.mako`. Con frenos: si la cotización no
-// llega, es vieja, o salta más de un 15 % contra los precios en vigor sin que los dos servicios coincidan, no toca nada y deja el
-// aviso; un salto grande confirmado se aplica y también se avisa (lib/dolar-blue-reglas.ts). Los links de pago ya emitidos no
-// cambian: guardan su monto.
+// llega, es vieja, los dos servicios no coinciden, o salta más de un 15 % contra los precios en vigor con uno solo, no toca nada
+// y deja el aviso; todo cambio aplicado de más de un 5 % también se avisa. Un precio en pesos cambiado a mano no se pisa: la
+// automatización se apaga sola y avisa (lib/dolar-blue-reglas.ts). Los links de pago ya emitidos no cambian: guardan su monto.
 // `?seco=1` dice lo que haría, sin escribir ni avisar.
 // Auth: Bearer ${CRON_SECRET} (lib/cron-auth.ts).
 // =============================================================================

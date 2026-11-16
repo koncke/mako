@@ -35,6 +35,7 @@ import {
   linkDeLaAgenda, porQueNoCalifica, queBuscarDelCanal, tieneCuentaDeMako, whatsappDeLaAplicacion, youtubeDeLaAplicacion, type Respuestas,
 } from '../lib/aplicacion-accelerator';
 import { PROGRAMA_ACELERADOR } from '../lib/planes-mako';
+import { TEXTO_FALTA_EL_AREA } from '../lib/paises';
 import {
   CLAVE_BORRADOR, CLAVE_ENVIADA, ID_TRAMPA, VIGENCIA_BORRADOR_MS, VIGENCIA_ENVIADA_MS, borradorLimpio, borradorParaGuardar, enUnaColumna, enviadaLimpia,
   enviadaParaGuardar, filasDeLaSeccion, linkDeLaPrueba, origenDelReferer, pasoQueVale, telefonoDelBorrador,
@@ -114,6 +115,14 @@ test('1. cada tipo de campo: lo vacío, lo corto, lo largo y lo que vale', () =>
   assert.equal(whatsappDeLaAplicacion('0054 9 11 5555 0101'), '5491155550101', 'con 00 también trae el país');
   assert.equal(whatsappDeLaAplicacion('‪+54 9 11 5555 0101‬'), '5491155550101', 'pegado de una app de contactos');
   assert.equal(whatsappDeLaAplicacion('+0412 123 4567'), null, 'ningún código de país empieza con 0');
+  // CON +54, SIN EL CÓDIGO DE ÁREA NO PASA y se dice cuál falta (revisión del 16/11/2026, hallazgo 3); el 9 lo agrega el servidor.
+  assert.equal(errorDelCampo(wa, '+54 15 2345 6789'), TEXTO_FALTA_EL_AREA, 'el 15 sin el 11 adelante');
+  assert.equal(errorDelCampo(wa, '+54 5555 1234'), TEXTO_FALTA_EL_AREA, 'el número local solo');
+  assert.equal(errorDelCampo(wa, '+54 11 15 2345 678'), TEXTO_WHATSAPP_INCOMPLETO, 'le falta un dígito');
+  assert.equal(whatsappDeLaAplicacion('+54 15 2345 6789'), null);
+  assert.equal(whatsappDeLaAplicacion('+54 11 2345 6789'), '5491123456789', 'sin el 9 (una pestaña de antes, un POST directo): el servidor lo agrega');
+  const sinArea = leerAplicacion({ respuestas: { ...LLENA, whatsapp: '+54 15 2345 6789' } });
+  assert.equal(!sinArea.ok && sinArea.campo, 'whatsapp', 'el servidor aceptó un WhatsApp sin código de área');
   // INSTAGRAM Y YOUTUBE, LOS DOS OPCIONALES (16/11/2026, Martín: «el link de tu Instagram y el link de tu YouTube… pero no… TikTok
   // ni LinkedIn»). Un @, el usuario solo o el link de su perfil o su canal; un nombre suelto, otra red o una publicación, no.
   const ig = campo('instagram');
@@ -763,8 +772,10 @@ test('14. «Enviar aplicación» postea a API_APLICAR { respuestas, web, origen 
   // NADIE VE LA AGENDA al aplicar («no tiene sentido de que automaticemos»).
   assert.equal(f.q('iframe') === null, true, 'volvió la agenda (o un iframe) a la pantalla final');
   assert.doesNotMatch(f.cont.innerHTML, /calendly/i);
-  // El espacio del video de Martín, y el paso siguiente: la prueba gratuita (con la campaña) o «Ya hice la prueba gratuita».
-  assert.match(f.q('.apl-video')?.textContent ?? '', /Muy pronto/);
+  // Sin el video de Martín, no hay bloque del video (revisión del 16/11/2026: «Muy pronto, un video mío para ti» lo veía todo el que
+  // aplicaba); y el paso siguiente: la prueba gratuita (con la campaña) o «Ya hice la prueba gratuita».
+  assert.equal(f.q('.apl-video') === null, true, 'sin video, volvió el bloque del video a la pantalla final');
+  assert.doesNotMatch(f.texto(), /Muy pronto/);
   const botones = [...f.cont.querySelectorAll('.apl-siguiente-botones a')].map((a) => `${a.textContent} → ${a.getAttribute('href')}`);
   assert.deepEqual(botones, ['Iniciar prueba gratuita de 7 días → /planes/pro?utm_source=fb&landing=accelerator', 'Ya hice la prueba gratuita → /login']);
   assert.equal(f.foco(), '', 'el foco va al título (sin id): no se queda en el botón que ya no existe');
@@ -920,6 +931,10 @@ test('16. la página: noindex, dinámica, sin cookies ni <Suspense>; la barra de
   assert.equal(html.includes('<footer'), false, 'volvió el pie del sitio al formulario');
   assert.equal(html.includes('mk-wa-flota'), false, 'volvió el WhatsApp que flota al formulario');
   assert.doesNotMatch(sinComentarios(leer('app/accelerator/aplicar/page.tsx')), /PieGlobal/);
+  // LOS LEGALES, SIN EL PIE (revisión del 16/11/2026, hallazgo 5): el formulario pide nombre, email, WhatsApp y facturación. Un
+  // renglón debajo de «Enviar aplicación», en otra pestaña (un paso no se abandona por un link).
+  assert.match(html, /<p class="apl-legales"><a href="\/terminos" target="_blank" rel="noopener">Términos<\/a><a href="\/privacidad" target="_blank" rel="noopener">Privacidad<\/a><a href="\/reembolsos" target="_blank" rel="noopener">Reembolsos<\/a><\/p>/, 'el formulario sin los legales');
+  assert.ok(html.indexOf('class="apl-legales"') > html.indexOf('class="apl-nav"'), 'los legales no van debajo de «Enviar aplicación»');
   assert.ok(html.includes('class="apl-trampa"') && html.includes(`id="${ID_TRAMPA}"`), 'el campo trampa');
   // Con un nombre que ningún autocompletado reconoce (revisión del 16/11/2026): «web» y su rótulo «Web» los llenaba un gestor.
   assert.doesNotMatch(html, /id="apl-web"|name="web"|>Web<\/label>/, 'el campo trampa volvió a llamarse «web»');
@@ -957,8 +972,9 @@ test('17. lo que lee el visitante: en «tú», sin «nuestro equipo» ni «te co
     nombre: 'Ana', conCuenta, rutaPrueba: '/planes/pro?landing=accelerator', rutaEntrar: '/login', video,
   }));
   assert.doesNotMatch(final(false) + final(true), /<iframe|calendly/i, 'la pantalla final no tiene agenda');
-  // Con el video de Martín (`VIDEO_DE_GRACIAS`), su reproductor en el espacio de «Muy pronto».
+  // Con el video de Martín (`VIDEO_DE_GRACIAS`), su reproductor en el marco; sin él, no hay bloque ni «Muy pronto» (revisión del 16/11).
   assert.match(final(false, 'https://player.example/embed/?v=1'), /<div class="apl-video">(<span[^>]*><\/span>){4}<iframe src="https:\/\/player\.example\/embed\/\?v=1"/);
+  assert.doesNotMatch(final(false) + final(true), /apl-video|Muy pronto/, 'sin video, el bloque del video sigue');
   const preguntas = SECCIONES.flatMap((s) => [s.titulo, s.bajada ?? '', ...s.campos.flatMap((c) => [c.rotulo, c.ayuda ?? '', c.placeholder ?? '', ...(c.opciones ?? [])])]);
   const errores = CAMPOS.flatMap((c) => [errorDelCampo(c, undefined), errorDelCampo(c, c.tipo === 'largo' ? 'corto' : 'x')]).filter(Boolean);
   const literales = (f: string) => [...sinComentarios(leer(f)).matchAll(/'([^'\n]*[a-záéíóúñ][^'\n]*)'/gi)].map((m) => m[1]);
@@ -1070,4 +1086,7 @@ test('18. la búsqueda del canal: pública y de sólo lectura, en la plataforma,
 //     la portada (16) · sin el tope del día por nombre (18) · sin el tope por IP de la búsqueda (18) · la búsqueda entra desde otro
 //     sitio (18) · la lectura por @ sin la reserva de Spy (18) · la búsqueda fuera del workspace de la plataforma (18) · una foto
 //     http se ofrece (18)
+// Revisión del 16/11/2026 (hallazgos 3 y 5, y el video del 11; base 23 / 0, cada una en el repo y restaurada): el formulario sin
+//   los legales (16) · sin video vuelve el bloque del video (14, 17) · sin el código de área se dice «no parece completo» (1) · el
+//   servidor no agrega el 9 (1) · el servidor acepta el WhatsApp sin código de área (1): 22 / 1 cada una, la del video 21 / 2.
 // =============================================================================

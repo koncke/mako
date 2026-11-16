@@ -16,6 +16,10 @@
 // cuenta (lib/cobros.ts, `altaSiCorresponde`) y trae el link para entrar; la cuenta se confirma al entrar con ese email (con Google,
 // o creando la contraseña desde el correo). Si ese correo NO salió, no se dice «revisa tu correo»: se dice que no salió y se ofrece
 // reenviarlo (revisión del 23/10/2026: nunca prometer un mail que no llega).
+// LA VENTANA Y LO QUE NO SE SABE (revisión del 16/11/2026, hallazgo 4): «Reenviar el correo» sólo dentro de las 48 horas
+// (`puedeReenviar`: fuera de ellas la ruta contesta 409 siempre, y quien no recibió el correo es justo quien vuelve días después);
+// fuera, «Escríbenos». Un reenvío que no salió se dice en rojo, no en verde. Y un «no sé si el mail llegó» (`correo: 'no-se'`, el
+// alta cortada que se terminó en un reintento) no es «no pudimos mandarte el correo»: puede estar en su bandeja.
 //
 // El primer dibujo sale del server y se lee sin JavaScript (el email y el botón); reenviar y cambiar el email sí necesitan JavaScript
 // (POST /api/pagar/email). Sólo recibe props: no importa nada del server.
@@ -26,16 +30,21 @@ import { CSS_GRACIAS } from './estilo-gracias';
 
 type Bandeja = { href: string; nombre: string } | null;
 
-export function AccesoMako({ token, emailInicial, bandeja, puedeCambiar, contacto, mailSalio = true, negocio, chip, nota, deprueba }: {
+export function AccesoMako({ token, emailInicial, bandeja, puedeCambiar, puedeReenviar = true, contacto, correo: correoInicial = 'salio', negocio, chip, nota, deprueba }: {
   token: string;
   /** Ya enmascarado (`ma***@gmail.com`): el link se reenvía. */
   emailInicial: string;
   /** La bandeja de entrada de su proveedor («Abrir mi correo»); null con un email de empresa: el botón es «Entrar a MaKo». */
   bandeja: Bandeja;
   puedeCambiar: boolean;
+  /** Dentro de la ventana del reenvío (`dentroDeLaVentana`, ../../cambio-email.ts). Fuera, en vez de «Reenviar el correo», escribirnos. */
+  puedeReenviar?: boolean;
   contacto: string;
-  /** false = la cuenta está creada pero el correo de acceso no salió: no se promete un correo que no va a llegar. */
-  mailSalio?: boolean;
+  /**
+   * El correo de acceso (`correoDeAcceso`, ../../cambio-email.ts): 'no-salio' = la cuenta está creada pero el correo no salió (no se
+   * promete un correo que no va a llegar); 'no-se' = pudo haber salido, y se dice así.
+   */
+  correo?: 'salio' | 'no-salio' | 'no-se';
   /** El negocio que cobra (arriba, chico). */
   negocio?: string | null;
   /** Lo que ya pasó, en una línea («Tu prueba gratis de 7 días empezó · hoy no se cobra nada»). */
@@ -47,7 +56,8 @@ export function AccesoMako({ token, emailInicial, bandeja, puedeCambiar, contact
 }) {
   const [email, setEmail] = useState(emailInicial);
   const [abrir, setAbrir] = useState<Bandeja>(bandeja);
-  const [salio, setSalio] = useState(mailSalio);
+  const [correo, setCorreo] = useState(correoInicial);
+  const noSalio = correo === 'no-salio';
   const [abierto, setAbierto] = useState(false);
   const [nuevo, setNuevo] = useState('');
   const [enviando, setEnviando] = useState<'cambio' | 'reenvio' | null>(null);
@@ -66,7 +76,9 @@ export function AccesoMako({ token, emailInicial, bandeja, puedeCambiar, contact
     try {
       const r = await pedir({ reenviar: true });
       if (!r?.ok) { setError(r?.error || `No pudimos reenviarlo. Escríbenos a ${contacto}.`); return; }
-      if (r.enviado) setSalio(true);
+      // Contestó, pero el correo no salió: es un error, no un «listo» en verde (hallazgo 4).
+      if (!r.enviado) { setError(r.mensaje || `No pudimos mandarlo. Prueba en unos minutos, o escríbenos a ${contacto}.`); return; }
+      setCorreo('salio');
       setAviso(r.mensaje ?? null);
     } catch {
       setError('No hay conexión. Revisa tu internet y prueba de nuevo.');
@@ -82,7 +94,7 @@ export function AccesoMako({ token, emailInicial, bandeja, puedeCambiar, contact
       if (!r?.ok) { setError(r?.error || `No pudimos cambiar el email. Escríbenos a ${contacto}.`); return; }
       if (r.email) setEmail(r.email);
       if (r.abrir !== undefined) setAbrir(r.abrir);
-      if (typeof r.enviado === 'boolean') setSalio(r.enviado);
+      if (typeof r.enviado === 'boolean') setCorreo(r.enviado ? 'salio' : 'no-salio');
       if (typeof r.restantes === 'number') setPuede(r.restantes > 0);
       setAviso(r.mensaje ?? null);
       setAbierto(false);
@@ -106,19 +118,28 @@ export function AccesoMako({ token, emailInicial, bandeja, puedeCambiar, contact
           <Fragment key={i}>{i > 0 && <span className="gr-chip-sep"> · </span>}<span className="gr-chip-p">{i === 0 && <span aria-hidden="true">✓ </span>}{parte}</span></Fragment>
         ))}</p>
         {deprueba && <p className="gr-prueba">Pago de prueba</p>}
-        <h1>{salio ? 'Revisa tu correo' : 'Tu cuenta está lista'}</h1>
-        {salio
-          ? <p className="gr-txt">Te mandamos el acceso a <b>{email}</b>. Ábrelo y entra a MaKo desde ahí.</p>
-          : <p className="gr-txt">No pudimos mandarte el correo de acceso a <b>{email}</b>. Reenvíalo, o entra con Google usando ese email.</p>}
-        {salio && abrir
+        <h1>{noSalio ? 'Tu cuenta está lista' : 'Revisa tu correo'}</h1>
+        {correo === 'salio' && <p className="gr-txt">Te mandamos el acceso a <b>{email}</b>. Ábrelo y entra a MaKo desde ahí.</p>}
+        {correo === 'no-se' && (
+          <p className="gr-txt">Te mandamos el acceso a <b>{email}</b>, pero no sabemos si llegó. {puedeReenviar
+            ? 'Si no lo ves, reenvíalo o entra con Google usando ese email.'
+            : <>Si no lo ves, entra con Google usando ese email o escríbenos a <a href={`mailto:${contacto}`}>{contacto}</a>.</>}</p>
+        )}
+        {noSalio && (
+          <p className="gr-txt">No pudimos mandarte el correo de acceso a <b>{email}</b>. {puedeReenviar
+            ? 'Reenvíalo, o entra con Google usando ese email.'
+            : <>Entra con Google usando ese email, o escríbenos a <a href={`mailto:${contacto}`}>{contacto}</a>.</>}</p>
+        )}
+        {!noSalio && abrir
           ? <a className="gr-btn" href={abrir.href} target="_blank" rel="noopener noreferrer">Abrir mi correo</a>
-          : salio
+          : !noSalio || !puedeReenviar
             ? <a className="gr-btn" href="/login">Entrar a MaKo</a>
             : <button type="button" className="gr-btn" onClick={() => void reenviar()} disabled={!!enviando}>{enviando === 'reenvio' ? 'Reenviando…' : 'Reenviar el correo'}</button>}
         <div className="gr-links">
-          {salio
-            ? <button type="button" onClick={() => void reenviar()} disabled={!!enviando}>{enviando === 'reenvio' ? 'Reenviando…' : 'Reenviar el correo'}</button>
-            : <a href="/login">Entrar a MaKo</a>}
+          {!noSalio && puedeReenviar && <button type="button" onClick={() => void reenviar()} disabled={!!enviando}>{enviando === 'reenvio' ? 'Reenviando…' : 'Reenviar el correo'}</button>}
+          {/* Fuera de la ventana, el reenvío no sale desde aquí: lo mandamos nosotros. («no-se» y «no salió» ya lo dicen arriba.) */}
+          {correo === 'salio' && !puedeReenviar && <span className="gr-links-txt">¿No te llegó? <a href={`mailto:${contacto}`}>Escríbenos a {contacto}</a></span>}
+          {noSalio && puedeReenviar && <a href="/login">Entrar a MaKo</a>}
           {puede && !abierto && <button type="button" onClick={() => { setAbierto(true); setAviso(null); setError(null); }}>Cambiar el email</button>}
         </div>
         {aviso && <p className="gr-ok" role="status">{aviso}</p>}

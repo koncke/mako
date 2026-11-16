@@ -31,7 +31,8 @@ export const metadata = {
   description: 'Cómo cancelar un plan de MaKo, cuándo devolvemos un pago y cómo pedirlo.',
 };
 
-const ACTUALIZADO = '5 de noviembre de 2026';
+// 16/11/2026: la garantía del Accelerator (§2) sin «cuotas»: lo pagado se devuelve entero y no se cobra nada más.
+const ACTUALIZADO = '16 de noviembre de 2026';
 
 // El mismo responsable que en /terminos y /privacidad, de la misma constante (lib/titular-mako.ts).
 const RESPONSABLE = `${RAZON_SOCIAL_MAKO} (MaKo)`;
@@ -105,7 +106,7 @@ export default function Page() {
           datos de tu oferta.
         </li>
         <li>
-          La pides escribiéndonos a {mail}. Te devolvemos la primera cuota entera y no se te cobran las siguientes.
+          La pides escribiéndonos a {mail}. Te devolvemos lo que pagaste, entero, y no se te cobra nada más.
         </li>
         <li>
           Es una garantía sobre lo que armamos, no sobre lo que vendas: lo que vendas depende también de tu oferta y de
@@ -113,8 +114,7 @@ export default function Page() {
         </li>
       </ul>
       <p>
-        Pasada la primera semana con tu sistema de ventas armado, las cuotas ya pagadas no se reembolsan, salvo en los casos de la
-        sección 3.
+        Pasada la primera semana con tu sistema de ventas armado, lo ya pagado no se reembolsa, salvo en los casos de la sección 3.
       </p>
 
       <H id="errores">3. Cuándo devolvemos un pago</H>

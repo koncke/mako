@@ -354,7 +354,9 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
   // 15/11/2026, ~21:30 (Martín): «la parte de garantía por contrato directamente la quitaría de todos lados. Incluso de la
   // descripción de nuestra promesa». La devolución de la primera semana (`garantia`, /reembolsos §2) es otra cosa y sigue.
   promesa: 'En 90 días, Martín Koncke, el creador de MaKo, te instala el sistema de adquisición de clientes a la medida de tu oferta.',
-  garantia: 'Si al terminar la primera semana tu sistema de ventas no está armado, te devolvemos la cuota y no pagas las que siguen.',
+  // Sin «cuotas» (16/11/2026: lo que vende el Accelerator no habla de cuotas). Vale para cualquier forma de pago: se devuelve lo
+  // pagado y no se cobra nada más.
+  garantia: 'Si al terminar la primera semana tu sistema de ventas no está armado, te devolvemos lo que pagaste y no pagas nada más.',
 };
 
 const CAPAS_DE_PLAN: ReadonlySet<string> = new Set(['pm', 'completo', 'agencia']);

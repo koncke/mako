@@ -14,7 +14,10 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DIAL_DEFAULT, PAISES, ejemploDeTelefono, ladaDelPais, localArgentino, numeroTecleado, telefonoDeFormulario } from '../lib/paises';
+import {
+  DIAL_DEFAULT, PAISES, TEXTO_FALTA_EL_AREA, digitosDeFormulario, ejemploDeTelefono, faltaAlWhatsapp, ladaDelPais, localArgentino, numeroTecleado,
+  telefonoDeFormulario, whatsappDelPedido,
+} from '../lib/paises';
 import { leerPedidoCompra, TEXTO_WHATSAPP_MAL } from '../lib/compra-plan-reglas';
 import { whatsappDelPago } from '../lib/origen-cuenta';
 
@@ -76,9 +79,51 @@ test('EL CELULAR ARGENTINO LLEVA EL 9 (16/11/2026): con +54, sin el 0 ni el 15, 
   assert.equal(localArgentino('2345 678'), '2345678');
   assert.equal(telefonoDeFormulario('+52', '55 1234 5678'), '525512345678', 'México no lleva el 9 de Argentina');
   assert.equal(telefonoDeFormulario('+34', '612 34 56 78'), '34612345678');
-  // Lo usan las dos puertas: el checkout y el formulario de MaKo Accelerator (la misma función, no una copia).
+  // Lo usan las dos puertas: el checkout y el formulario de MaKo Accelerator (la misma lectura, lib/paises.ts, no una copia; el
+  // Accelerator, con los dígitos aunque no estén completos, para decir qué falta).
   assert.match(fuente('app/planes/[plan]/CompraPlan.tsx'), /whatsapp: telefonoDeFormulario\(lada, numero\)/);
-  assert.match(fuente('app/accelerator/aplicar/reglas.ts'), /telefonoDeFormulario\(lada, t\.numero\)/);
+  assert.match(fuente('app/accelerator/aplicar/reglas.ts'), /digitosDeFormulario\(lada, t\.numero\)/);
+});
+
+test('SIN CÓDIGO DE ÁREA NO PASA (16/11/2026, revisión, hallazgo 3): con +54, 549 y 10 dígitos; el checkout no lo manda, el campo dice qué falta, el servidor lo frena', () => {
+  // Como lo escribe la gente: un porteño con el 15 y sin el 11, el número local solo, y al que le falta o le sobra un dígito.
+  for (const [escrito, falta] of [
+    ['15 2345 6789', 'area'], ['15-5555-1234', 'area'], ['5555-1234', 'area'], ['9 15 2345 6789', 'area'], ['0 15 2345 6789', 'area'],
+    ['11 15 2345 678', 'numero'], ['11 2345 678', 'numero'], ['12 3456 7890', 'numero'], ['4321 1234 56', 'numero'],
+    ['11 2345 6789', null], ['011 15 2345-6789', null], ['223 15 555 1234', null], ['3764 67-3479', null], ['2966 15 12 3456', null],
+  ] as const) {
+    const d = digitosDeFormulario('+54', escrito);
+    assert.equal(faltaAlWhatsapp(d), falta, `«${escrito}»`);
+    assert.equal(telefonoDeFormulario('+54', escrito), falta ? '' : d, `«${escrito}»: ${falta ? 'el checkout lo manda' : 'el checkout no lo manda'}`);
+  }
+  // Otro país no se mira: lo sigue mirando la regla de los 10 dígitos.
+  assert.equal(faltaAlWhatsapp('525512345678'), null);
+  assert.equal(telefonoDeFormulario('+52', '5555 1234'), '5255551234');
+  // El servidor: el 9 de una pestaña de antes se agrega, y lo que no sirve se frena con el WhatsApp nombrado (llega arriba del botón).
+  assert.deepEqual(whatsappDelPedido('541123456789'), { ok: true, whatsapp: '5491123456789' }, 'sin el 9, de una pestaña de antes');
+  assert.deepEqual(whatsappDelPedido('5491123456789'), { ok: true, whatsapp: '5491123456789' });
+  assert.deepEqual(whatsappDelPedido('525512345678'), { ok: true, whatsapp: '525512345678' });
+  assert.deepEqual(whatsappDelPedido(null), { ok: true, whatsapp: null });
+  assert.match((whatsappDelPedido('5455551234') as { error: string }).error, /^A tu WhatsApp le falta el código de área \(11 en Buenos Aires\)\.$/);
+  assert.match((whatsappDelPedido('5411152345678') as { error: string }).error, /WhatsApp no parece completo/);
+  // Las dos entradas del checkout lo miran antes que nada (la ruta es de otro archivo: la pestaña de antes y el POST directo pasan por acá).
+  const plan = fuente('lib/compra-plan.ts');
+  for (const f of ['export async function pedirPlanSinPasarela(', 'export async function iniciarCompraDePlan(']) {
+    const ini = plan.indexOf(f);
+    const cuerpo = plan.slice(ini, plan.indexOf('\n}\n', ini));
+    assert.match(cuerpo, /const wa = whatsappDelPedido\(p\.whatsapp\);\n\s*if \(!wa\.ok\) return \{ ok: false, status: 400, error: wa\.error \};\n\s*p = \{ \.\.\.p, whatsapp: wa\.whatsapp \};/, f);
+    assert.ok(cuerpo.indexOf('whatsappDelPedido(') < cuerpo.indexOf('await '), `${f}: lee la base antes de mirar el WhatsApp`);
+  }
+  // El campo lo dice al salir (no mientras escribe: a los 8 dígitos de «11 2345 6789» todavía no terminó), sólo con +54; el formulario
+  // que dice sus propios errores (el Accelerator) lo apaga.
+  const campo = fuente('app/_components/TelefonoConPais.tsx');
+  assert.match(campo, /const falta = !sinAviso && mirado && lada === '\+54' \? faltaAlWhatsapp\(digitosDeFormulario\(lada, numero\)\) : null;/);
+  assert.match(campo, /const aviso = falta === 'area' \? TEXTO_FALTA_EL_AREA : falta === 'numero' \? TEXTO_NUMERO_ARGENTINO_INCOMPLETO : null;/);
+  assert.match(campo, /onBlur=\{\(\) => setMirado\(true\)\}/);
+  assert.match(campo, /setMirado\(false\);\n\s*const r = numeroTecleado/, 'el aviso sigue mientras escribe');
+  assert.match(campo, /\{aviso && <p id=\{idAviso\} className="tel-aviso" role="status"/);
+  assert.match(fuente('app/accelerator/aplicar/FormularioAplicacion.tsx'), /inputAria=\{\{ invalid: invalido, describedBy: describe, required: c\.obligatorio \}\} sinAviso/);
+  assert.equal(TEXTO_FALTA_EL_AREA, 'Agrega el código de área (11 en Buenos Aires).');
 });
 
 test('UN EJEMPLO POR PAÍS en el campo del número (16/11/2026): el de +54 con el 9, y ninguno de otro país', () => {
@@ -225,3 +270,7 @@ test('whatsappDelPago: lo que no puede ser un número no llega al onboarding', (
 // Sobrevive acá «ni con la ficha sin email se reconoce» (12 / 0): con UN parecido entra por la regla del nombre y da lo mismo. Lo ve
 // tests/compra-plan-lead.test.ts, que pasa dos parecidos.
 // Lo que NO corre acá: Mercado Pago y Stripe de verdad, y la pantalla en producción (se miró en un banco, con la regla real y la ruta simulada).
+// Revisión del 16/11/2026, hallazgo 3 («SIN CÓDIGO DE ÁREA NO PASA»; base 1 / 0, sobre una copia del test sin el hijo y copias de los
+// archivos, porque el repo lo usa otra sesión): el 15 sin el 11 pasa · el número local solo pasa · el checkout manda el número sin área ·
+// sólo 549 y 10 dígitos sin mirar el código de área · el servidor no agrega el 9 · iniciarCompraDePlan no mira el WhatsApp · el aviso
+// sigue mientras escribe · el Accelerator muestra el aviso dos veces: 0 / 1 cada una.

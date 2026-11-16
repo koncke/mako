@@ -41,8 +41,9 @@ import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tip
 import { CLAVE_PLANES, conceptoDelPlan, planConPrueba, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
-import { casillaDeEmail, diagnosticoEnTexto, esFalloPasajero, leadDeLaCompra, opcionStripe, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, patronesDeGmail, TEXTO_PRUEBA_USADA_WHATSAPP, TEXTO_SIN_PASARELA, whatsappsDeLaPrueba, type PedidoCompra } from './compra-plan-reglas';
-import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
+import { diagnosticoEnTexto, esFalloPasajero, leadDeLaCompra, opcionStripe, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, precioCambio, TEXTO_PRECIO_CAMBIO, TEXTO_PRUEBA_USADA_WHATSAPP, TEXTO_SIN_PASARELA, whatsappsDeLaPrueba, type PedidoCompra, type PrecioVisto } from './compra-plan-reglas';
+import { casillaDeLaPrueba, creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, patronesDeLaCasilla, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
+import { whatsappDelPedido } from './paises';
 import { creadoPorPrimerMes, TEXTO_PROMO_CUENTA, TEXTO_PROMO_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
 import { PROMO_ENTRADA } from './promo-entrada-reglas';
 import { listarUsuarios } from './usuarios';
@@ -302,6 +303,10 @@ export async function leadDelComprador(p: Pick<PedidoCompra, 'nombre' | 'email' 
  * alta a mano (el alta del super admin), y un referido se reconstruye con el renglón «referido por».
  */
 export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  // El WhatsApp, como en el formulario: con +54, con su 9 y su código de área (lib/paises.ts, `whatsappDelPedido`; hallazgo 3).
+  const wa = whatsappDelPedido(p.whatsapp);
+  if (!wa.ok) return { ok: false, status: 400, error: wa.error };
+  p = { ...p, whatsapp: wa.whatsapp };
   const elegido = p.plan === PROGRAMA_ACELERADOR.id ? null : (await planesMako()).find((x) => x.id === p.plan && x.activo) ?? null;
   const nombre = p.plan === PROGRAMA_ACELERADOR.id ? PROGRAMA_ACELERADOR.nombre : elegido?.nombre ?? null;
   if (!nombre) return { ok: false, status: 404, error: 'Ese plan no existe.' };
@@ -339,7 +344,7 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
 
 export type ResultadoCompra =
   | { ok: true; link: string }
-  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true; sinPromo?: true };
+  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true; sinPromo?: true; precioCambio?: true };
 
 /**
  * La compra PÚBLICA también puede terminar en un PEDIDO (5/11/2026): sin pasarela que cobre desde el país de quien compra, lo
@@ -376,24 +381,28 @@ async function puedeUsarPromo(email: string, plataforma: number, ahoraMs: number
  * Sin poder leer, deja pasar: el freno por tarjeta sigue en pie, y un comprador no se queda afuera por una base caída.
  *
  * UNA POR PERSONA (16/11/2026, Martín: «la opción C de email y WhatsApp sin mirar la tarjeta»). El email se compara por su CASILLA
- * (`casillaDeEmail`: en Gmail sin puntos ni «+algo», que son la misma casilla) y el WhatsApp con su país, con o sin el 9 de un
- * celular argentino (`whatsappsDeLaPrueba`; el número está en el `origen` del cobro desde el 31/10). Lo que NO hace es frenar la
- * compra: quien ya la usó sigue sin la prueba (`sinPrueba`, ./compra-plan-reglas.ts).
+ * (`casillaDeLaPrueba`, ./prueba-plan-reglas.ts: sin el «+algo» en todos los dominios y, en Gmail, también sin puntos) contra el
+ * email del pago y el de acceso, si lo cambió en la página de gracias (`origen.email_acceso`, app/api/pagar/email: revisión del
+ * 16/11/2026, hallazgo 6), y el WhatsApp con su país, con o sin el 9 de un celular argentino (`whatsappsDeLaPrueba`; el número está
+ * en el `origen` del cobro desde el 31/10). Lo que NO hace es frenar la compra: quien ya la usó sigue sin la prueba (`sinPrueba`,
+ * ./compra-plan-reglas.ts).
  */
 async function puedeEmpezarPrueba(p: { email: string; whatsapp: string | null }, plataforma: number): Promise<{ ok: true } | { ok: false; motivo: 'cuenta' | 'email' | 'whatsapp' }> {
   const { email } = p;
   try {
     if ((await listarUsuarios()).some((u) => u.email === email)) return { ok: false, motivo: 'cuenta' };
     // Las pruebas que llegaron a autorizarse (la tarjeta quedó cargada): las de la plataforma, «planes:<plan>:prueba».
-    const pruebas = () => getSupabaseServer().from('cobros').select('id, email')
+    const pruebas = () => getSupabaseServer().from('cobros').select('id, email, origen')
       .eq('workspace_id', plataforma).like('creado_por', 'planes:%:prueba').not('suscripcion_estado', 'is', null);
-    const gmail = patronesDeGmail(email);
-    const porEmail = gmail
-      ? await pruebas().or(gmail.map((x) => `email.ilike.${x}`).join(',')).limit(50)
+    const patrones = patronesDeLaCasilla(email);
+    const porEmail = patrones
+      ? await pruebas().or(patrones.flatMap((x) => [`email.ilike.${x}`, `origen->>email_acceso.ilike.${x}`]).join(',')).limit(50)
       : await pruebas().eq('email', email).limit(1);
     if (porEmail.error) throw new Error(porEmail.error.message);
-    const casilla = casillaDeEmail(email);
-    if (((porEmail.data ?? []) as Array<{ email: string | null }>).some((c) => casillaDeEmail(c.email ?? '') === casilla)) return { ok: false, motivo: 'email' };
+    const casilla = casillaDeLaPrueba(email);
+    const usados = (c: { email: string | null; origen?: { email_acceso?: unknown } | null }) => [c.email, c.origen?.email_acceso];
+    if (((porEmail.data ?? []) as Array<{ email: string | null; origen?: { email_acceso?: unknown } | null }>)
+      .some((c) => usados(c).some((x) => typeof x === 'string' && casillaDeLaPrueba(x) === casilla))) return { ok: false, motivo: 'email' };
     const numeros = whatsappsDeLaPrueba(p.whatsapp);
     if (numeros) {
       const { data, error } = await pruebas().in('origen->>whatsapp', numeros).limit(1);
@@ -409,9 +418,15 @@ async function puedeEmpezarPrueba(p: { email: string; whatsapp: string | null },
 
 /**
  * El checkout de un plan. Ver el orden arriba. `conPrueba`: quien compra es el super admin (ver `ofertaDelPlan`). `pais`: de
- * dónde compra (el encabezado de Vercel): Mercado Pago sólo en su país (`pasarelasDelPais`).
+ * dónde compra (el encabezado de Vercel): Mercado Pago sólo en su país (`pasarelasDelPais`). `precioVisto`: el monto y la moneda
+ * que mostró la página (./compra-plan-reglas.ts, `PrecioVisto`): si no son los de hoy, 409 y no se cobra.
  */
-export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean; pais?: string | null; promoVigente?: boolean } = {}): Promise<ResultadoCompraPublica> {
+export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean; pais?: string | null; promoVigente?: boolean; precioVisto?: PrecioVisto | null } = {}): Promise<ResultadoCompraPublica> {
+  // EL WHATSAPP EN EL SERVIDOR (revisión del 16/11/2026, hallazgo 3): con +54, con su 9 (una pestaña de antes o un POST directo lo
+  // mandaban sin él) y con su código de área; si no, no sigue. Lo mismo que el formulario (lib/paises.ts, `whatsappDelPedido`).
+  const wa = whatsappDelPedido(p.whatsapp);
+  if (!wa.ok) return { ok: false, status: 400, error: wa.error };
+  p = { ...p, whatsapp: wa.whatsapp };
   const oferta = await ofertaDelPlan(p.plan, opts);
   if (!oferta) return { ok: false, status: 404, error: 'Ese plan no existe.' };
   const { plan, pasarelas } = oferta;
@@ -426,6 +441,9 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
     return q.ok ? { ok: true, pedido: true } : q;
   }
   const via = pasarelas.find((x) => x.pasarela === eleccion.pasarela)!;
+  // EL PRECIO QUE SE MOSTRÓ (segunda revisión del 16/11/2026, hallazgo 10): el cron del blue cambia los pesos una vez por día, y el
+  // botón prometía una cifra. Si no es la de hoy, no se crea nada ni se cobra otro número: la página se redibuja con el nuevo.
+  if (precioCambio(opts.precioVisto, via)) return { ok: false, status: 409, error: TEXTO_PRECIO_CAMBIO, precioCambio: true };
   const ws = await wsSuperAdmin();
   // LA PRUEBA GRATIS (25/10/2026): toda compra en línea empieza con 7 días gratis, salvo que pida empezar sin ella (quien ya la
   // usó). Una segunda prueba se rechaza con un texto claro ANTES de abrir el pago.

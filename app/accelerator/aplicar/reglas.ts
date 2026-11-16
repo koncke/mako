@@ -7,13 +7,14 @@
 // =============================================================================
 
 import { CAMPOS, LARGO_MAXIMO, SECCIONES, erroresDeLaSeccion, type Campo, type Respuestas, type Seccion } from '@/lib/aplicacion-accelerator';
-import { numeroTecleado, telefonoDeFormulario } from '@/lib/paises';
+import { digitosDeFormulario, numeroTecleado } from '@/lib/paises';
 
 /**
  * EL VIDEO DE MARTÍN EN LA PANTALLA FINAL (16/11/2026). Martín: «deja ahí un espacio… para un video, porque les voy a agradecer por
  * su aplicación, yo en video, y les voy a invitar exactamente a lo mismo» (la prueba gratuita). Cuando lo grabe, va acá el link del
- * reproductor de Panda (el `embed/?v=…`, como `VSL_ACELERADOR` de app/accelerator/contenido.ts). Mientras es null, el espacio está
- * igual, con «Muy pronto»: así se ve dónde va y la pantalla no cambia de forma el día que llega.
+ * reproductor de Panda (el `embed/?v=…`, como `VSL_ACELERADOR` de app/accelerator/contenido.ts). Mientras es null, la pantalla final
+ * no tiene el bloque del video (revisión del 16/11/2026: el espacio con «Muy pronto, un video mío para ti» lo veía todo el que aplicaba,
+ * y no hay fecha para ese video). Es lo ÚNICO que hay que tocar el día que esté.
  */
 export const VIDEO_DE_GRACIAS: string | null = null;
 
@@ -135,7 +136,8 @@ export function telefonoDelBorrador(guardado: unknown, ladaInicial: string): { l
   const conPais = s.startsWith('00') ? `+${s.slice(2)}` : s;
   const t = conPais.startsWith('+') ? numeroTecleado(conPais) : { lada: null, numero: numeroTecleado(s).numero };
   const lada = t.lada ?? ladaInicial;
-  const d = telefonoDeFormulario(lada, t.numero);
+  // Los dígitos aunque no esté completo, como al escribirlo (FormularioAplicacion.tsx, `cambiarTel`): la validación dice qué falta.
+  const d = digitosDeFormulario(lada, t.numero);
   return { lada, numero: t.numero, whatsapp: d ? `+${d}` : undefined, revisar: !conPais.startsWith('+') };
 }
 

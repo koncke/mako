@@ -35,6 +35,11 @@ const CLAVE_AVISO_PRUEBA = 'prueba.aviso_repetida';
 
 type FilaDePrueba = { alta_ws: number; email: string | null; nombre: string | null; origen: { whatsapp?: unknown } | null; created_at: string };
 
+/** Lo más que devuelve Supabase por pedido (el `max-rows` de PostgREST): de a eso se pide. */
+const PAGINA = 1000;
+/** Un techo, por las dudas: 50 páginas son 50.000 pruebas. */
+const TOPE_DE_PRUEBAS = 50 * PAGINA;
+
 /**
  * ¿Este negocio, que está en su prueba gratis, coincide con OTRA cuenta que ya tuvo la suya, por el nombre y el negocio que dijo
  * en el onboarding o por el WhatsApp que confirmó? Si sí, un correo a equipo@hola-mako.com con las dos cuentas (una vez por cuenta y
@@ -55,10 +60,20 @@ export async function avisarSiYaTuvoPrueba(ws: number, e: Pick<EstadoArranque, '
   const numeros = e.telefono === 'verificado' ? whatsappsDeLaPrueba(e.telefonoNumero) : null;
   if (!huella && !numeros) return 'nada';
 
-  const { data: otrasFilas, error: e2 } = await pruebas().neq('alta_ws', ws).order('created_at', { ascending: false }).limit(2000);
-  if (e2) throw new Error(`no pude leer las otras pruebas: ${e2.message}`);
+  // ⚠️ DE A PÁGINAS (revisión del 16/11/2026): Supabase devuelve como mucho 1000 filas por pedido y corta SIN AVISAR (un
+  // `limit(2000)` trae 1000), así que desde la prueba número 1001 las más viejas no se miraban. Con el `id` de desempate, una página
+  // no repite ni saltea filas de la misma fecha.
+  const otrasFilas: FilaDePrueba[] = [];
+  for (let desde = 0; desde < TOPE_DE_PRUEBAS; desde += PAGINA) {
+    const { data, error: e2 } = await pruebas().neq('alta_ws', ws).order('created_at', { ascending: false }).order('id', { ascending: false }).range(desde, desde + PAGINA - 1);
+    if (e2) throw new Error(`no pude leer las otras pruebas: ${e2.message}`);
+    const filas = (data ?? []) as FilaDePrueba[];
+    otrasFilas.push(...filas);
+    if (filas.length < PAGINA) break;
+  }
+  if (otrasFilas.length >= TOPE_DE_PRUEBAS) console.warn(`[arranque] la prueba repetida miró sólo las ${TOPE_DE_PRUEBAS} pruebas más nuevas`);
   const otras = new Map<number, FilaDePrueba>();
-  for (const f of (otrasFilas ?? []) as FilaDePrueba[]) if (!otras.has(Number(f.alta_ws))) otras.set(Number(f.alta_ws), f);
+  for (const f of otrasFilas) if (!otras.has(Number(f.alta_ws))) otras.set(Number(f.alta_ws), f);
   const coinciden = new Map<number, Set<string>>();
   const sumar = (w: number, motivo: string) => { const m = coinciden.get(w) ?? new Set<string>(); m.add(motivo); coinciden.set(w, m); };
   const mismoNumero = (x: unknown) => !!numeros && !!whatsappsDeLaPrueba(typeof x === 'string' ? x : null)?.some((n) => numeros.includes(n));

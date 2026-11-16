@@ -149,6 +149,46 @@ export const TEXTO_PRUEBA_USADA_EMAIL = 'Ese email ya usó su prueba gratis de M
 export const TEXTO_PRUEBA_USADA_CUENTA = 'Ese email ya tiene una cuenta de MaKo, y la prueba gratis es para negocios nuevos. Para tu plan, entra a «Tu plan» en tu cuenta.';
 export const TEXTO_PRUEBA_USADA_TARJETA = 'Esa tarjeta ya usó su prueba gratis de MaKo, así que no empezamos otra ni te cobramos nada. Si quieres empezar igual, el plan se cobra desde hoy.';
 
+// ── El email de una prueba, por su CASILLA (16/11/2026, revisión, hallazgo 6) ─────────────────────────────────────────
+
+const DOMINIOS_GMAIL: readonly string[] = ['gmail.com', 'googlemail.com'];
+
+/**
+ * LA CASILLA DE UN EMAIL, PARA LA PRUEBA: en minúsculas y SIN EL «+algo» EN TODOS LOS DOMINIOS (Hotmail, Outlook, iCloud, Proton,
+ * Google Workspace y Microsoft 365 también lo aceptan: martin+1@hotmail.com le llega a martin@hotmail.com, así que es la misma
+ * persona y una sola prueba); en Gmail, además, sin los puntos y con googlemail.com como gmail.com. Fuera de Gmail los puntos se
+ * quedan: ahí un punto puede ser otra casilla. Reemplaza, para la prueba, a `casillaDeEmail` (lib/compra-plan-reglas.ts), que sacaba
+ * el «+» sólo en Gmail: con cualquier otro dominio, «+1», «+2»… eran una prueba nueva cada vez.
+ */
+export function casillaDeLaPrueba(email: string): string {
+  const e = (email || '').trim().toLowerCase();
+  const at = e.lastIndexOf('@');
+  if (at < 1) return e;
+  const local = e.slice(0, at).split('+')[0];
+  const dominio = e.slice(at + 1);
+  if (!local) return e;
+  return DOMINIOS_GMAIL.includes(dominio) ? `${local.replace(/\./g, '')}@gmail.com` : `${local}@${dominio}`;
+}
+
+/**
+ * Los patrones ILIKE que traen de la base TODAS las formas de escribir esa casilla: en Gmail, con puntos en cualquier lugar, con
+ * «+algo» y con googlemail.com (`v%a%l%e%@gmail.com`); en los demás, la casilla y la casilla con «+algo» (`vale@x.com`,
+ * `vale+%@x.com`). Traen de más (el `%`, y el `_`, que en un ILIKE es cualquier letra), así que lo traído se compara después con
+ * `casillaDeLaPrueba`. null si la casilla tiene algo que no entra en un filtro de PostgREST (una coma, un paréntesis, un `%`): ahí
+ * se busca el email exacto.
+ */
+export function patronesDeLaCasilla(email: string): string[] | null {
+  const [local, dominio] = casillaDeLaPrueba(email).split('@');
+  if (!local || !dominio) return null;
+  if (dominio === 'gmail.com') {
+    if (!/^[a-z0-9]{1,64}$/.test(local)) return null;
+    const cuerpo = local.split('').join('%');
+    return DOMINIOS_GMAIL.map((d) => `${cuerpo}%@${d}`);
+  }
+  if (!/^[a-z0-9._-]{1,64}$/.test(local) || !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(dominio)) return null;
+  return [`${local}@${dominio}`, `${local}+%@${dominio}`];
+}
+
 /** El motivo que queda en el cobro anulado por una prueba repetida (lo lee la página de vuelta del pago). */
 export const PREFIJO_PRUEBA_RECHAZADA = 'Prueba rechazada:';
 export const esPruebaRechazada = (motivo: string | null | undefined): boolean => typeof motivo === 'string' && motivo.startsWith(PREFIJO_PRUEBA_RECHAZADA);

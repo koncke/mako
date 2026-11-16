@@ -5,8 +5,9 @@
 // y los botones viven en ./LandingAcelerador.tsx (y lo que dice, en ./contenido.ts). Lo que incluye es `LISTA_DEL_ACELERADOR`
 // (lib/planes-mako.ts, los mismos nombres que la columna de /planes) y el precio es el de esa columna (`PROGRAMA_ACELERADOR`), los
 // dos en «La inversión», así que si Martín cambia la oferta cambia en los dos lugares. Sin «Nuestra promesa» (16/11) y sin
-// agenda: todo «Aplica ahora» lleva al formulario (`RUTA_APLICAR`, /accelerator/aplicar) y la agenda de Martín se abre después de
-// aplicar, a quien califica. Llega desde el «Más información» de la columna de /planes (`RUTA_ACCELERATOR`: la ruta en inglés,
+// agenda: todo «Aplica ahora» lleva al formulario (`RUTA_APLICAR`, /accelerator/aplicar), y la agenda de Martín ya no se abre a
+// nadie (16/11, a la tarde): después de aplicar, la pantalla final es la misma para todos (Martín responde en 24 horas, y el paso
+// siguiente es la prueba gratuita). Llega desde el «Más información» de la columna de /planes (`RUTA_ACCELERATOR`: la ruta en inglés,
 // como los planes; Martín 15/11: «como también la ruta»). La barra lateral de la app se esconde por CSS (`body:has(.acl-root)
 // aside`), como en /planes; la barra del sitio NO va: esta página tiene la suya (./Barra.tsx). EL PIE ES EL DEL SITIO
 // (`PieGlobal`; 15/11/2026, Martín: «la bottom bar… debería estar en todas las landing, todas las rutas»): la landing ya no tiene

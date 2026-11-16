@@ -185,6 +185,11 @@ textarea.apl-input { height: auto; min-height: 150px; padding: 14px 16px; line-h
 .apl-aviso-error { margin-top: 26px; padding: 14px 16px; border-radius: 12px; font-size: 15.5px; line-height: 1.5; color: #FCA5A5;
   background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.35); }
 .apl-nota { margin-top: 18px; text-align: center; font-size: 13.5px; line-height: 1.5; color: var(--apl-tenue); }
+/* Los legales debajo de Enviar (revisión del 16/11/2026, hallazgo 5): un renglón chico, como el del checkout; el pie del sitio no va. */
+.apl-legales { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; margin: 22px 0 0; font-size: 13px; line-height: 1.5; }
+.apl-root .apl-legales a { color: var(--apl-tenue); text-decoration: underline; text-underline-offset: 3px; }
+.apl-root .apl-legales a:hover { color: var(--acl-ink); }
+.apl-root .apl-legales a:focus-visible { outline: 2px solid var(--acl-accent); outline-offset: 2px; border-radius: 2px; }
 /* El campo trampa: fuera de la pantalla, sin foco ni lector de pantalla (un bot lo llena; una persona, nunca). */
 .apl-trampa { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
 .apl-sinjs { margin-bottom: 18px; text-align: center; font-size: 15px; color: var(--acl-ink-soft); }
@@ -195,16 +200,11 @@ textarea.apl-input { height: auto; min-height: 150px; padding: 14px 16px; line-h
   box-shadow: 0 0 0 9px rgba(47,166,106,.13); }
 .apl-root .apl-fin h1 { font-size: clamp(2.3rem, 5vw, 3.3rem); font-weight: 800; letter-spacing: -.02em; outline: none; }
 .apl-fin-texto { margin: 18px auto 0; max-width: 44ch; font-size: 1.2rem; line-height: 1.55; color: var(--acl-ink-soft); text-wrap: balance; }
-/* El video de Martín (16/11/2026): el marco del VSL de la landing (.acl-video, con sus esquinas), del ancho del texto. Sin video,
-   el mismo marco con «Muy pronto»: así se ve dónde va y la pantalla no cambia de forma el día que llega. */
+/* El video de Martín (16/11/2026): el marco del VSL de la landing (.acl-video, con sus esquinas), del ancho del texto. Sólo con
+   video (VIDEO_DE_GRACIAS, ./reglas.ts): sin él no hay bloque (revisión del 16/11/2026, ya no dice «Muy pronto»). */
 .apl-video { position: relative; margin: 30px auto 0; max-width: 560px; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden;
   border: 1px solid var(--acl-line-strong); background: radial-gradient(60% 70% at 50% 45%, #22201d 0%, #141416 70%); }
 .apl-root .apl-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.apl-video-falta { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  font-family: var(--acl-sans); font-weight: 600; font-size: 12.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--acl-ink-soft); }
-.apl-video-play { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--acl-ink);
-  background: rgba(224,97,59,.22); border: 1.5px solid rgba(224,97,59,.55); }
-.apl-video-play svg { margin-left: 3px; fill: currentColor; }
 /* El paso siguiente: la ceja y los botones, nada más (Martín: «no hace falta tanto texto… Tal vez solamente los botones»). */
 /* Los dos botones en un renglón en la computadora, y arriba del borde en una pantalla de 1440 x 900 (medido el 16/11/2026: con el video de 640 el botón
    quedaba a 25 px del borde). */

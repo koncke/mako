@@ -6,6 +6,8 @@
 // (`SettingsGroup` / `SettingsGroupItem`: el nombre a la izquierda, el control a la derecha).
 //   · «Mercado Pago»: el precio de cada plan activo en la moneda de la Mercado Pago de MaKo (`guardarPrecioLocalAction`).
 //     Sin ese precio, /planes no ofrece Mercado Pago para ese plan: nunca se inventa una tasa.
+//     En pesos, con el cartel del dólar blue (`CARTEL_DEL_BLUE`, 16/11/2026): un cron los pone al día todos los días, no pisa uno
+//     cambiado a mano (se apaga solo y avisa) y se apaga con un ajuste. Sin el cartel, un precio puesto acá parecía quedar fijo.
 //   · «Cliente de agencia»: lo que paga una agencia por cada cliente, en dólares y en Mercado Pago
 //     (`guardarPrecioClienteAgenciaAction`).
 // ⚠️ GUARDA AL SALIR DEL CAMPO, NO CON LA DEMORA DE POLAR (`useAutoSave` a 200 ms): un precio a medio escribir («1» de
@@ -21,6 +23,7 @@ import { Alert, Input, Text } from '@/app/admin/_polar/orbit'
 import { Box } from '@/app/admin/_polar/orbit/components/Box'
 import { useRouter } from '@/app/_ui/Link'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
+import { CARTEL_DEL_BLUE, MONEDA_PESOS } from '@/lib/dolar-blue-reglas'
 import React, { useEffect, useState } from 'react'
 import { SettingsGroup, SettingsGroupItem } from './SettingsGroup'
 import {
@@ -190,6 +193,11 @@ const OrganizationPaymentSettings: React.FC<{ datos: DatosPagos }> = ({ datos })
         </SettingsGroup>
       ) : (
         <SettingsGroup title="Mercado Pago" description={`El precio de cada plan por mes, en ${locales.moneda}. Sin precio, ese plan se paga sólo con tarjeta, en dólares.`}>
+          {locales.moneda === MONEDA_PESOS ? (
+            <Box paddingHorizontal="xl" paddingVertical="l">
+              <Alert variant="info" title={CARTEL_DEL_BLUE.titulo} description={CARTEL_DEL_BLUE.texto} />
+            </Box>
+          ) : null}
           {activos.map((p) => (
             <PrecioDePlan key={p.id} plan={p} moneda={locales.moneda as string} />
           ))}

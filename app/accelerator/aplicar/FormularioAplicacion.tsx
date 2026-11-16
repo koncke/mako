@@ -33,14 +33,14 @@
 
 import { iniciales } from '@/lib/unicode-seguro';
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode, type RefObject } from 'react';
-import { ArrowLeft, ArrowRight, Check, Play } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import {
   API_APLICAR, API_CANAL, LARGO_MAXIMO, SECCIONES, campo as campoDe, campoVisible, errorDelCampo, erroresDeLaSeccion, queBuscarDelCanal,
   tieneCuentaDeMako, type Campo, type Respuestas, type Valor,
 } from '@/lib/aplicacion-accelerator';
 import { PROGRAMA_ACELERADOR, PRUEBA_DIAS } from '@/lib/planes-mako';
 import type { OrigenCompra } from '@/lib/compra-plan-reglas';
-import { telefonoDeFormulario } from '@/lib/paises';
+import { digitosDeFormulario } from '@/lib/paises';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import {
   CLAVE_BORRADOR, CLAVE_ENVIADA, ID_TRAMPA, NOMBRE_TRAMPA, ROTULO_TRAMPA, VIDEO_DE_GRACIAS, borradorLimpio, borradorParaGuardar, enUnaColumna,
@@ -193,10 +193,15 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPrueba, rutaEnt
     setErrorEnvio(null);
   }
 
-  /** El WhatsApp: lo que se ve (la lada y el número) y la respuesta, siempre con su país (`telefonoDeFormulario`, como el checkout). */
+  /**
+   * El WhatsApp: lo que se ve (la lada y el número) y la respuesta, siempre con su país (`digitosDeFormulario`, lib/paises.ts: la
+   * misma lectura que el checkout). Aunque
+   * no esté completo: con «+54 15 2345 6789» la respuesta lleva esos dígitos, y la validación dice qué falta («Agrega el código de área»)
+   * en vez de «Escribe tu WhatsApp».
+   */
   function cambiarTel(t: Telefono) {
     setTel(t);
-    const d = telefonoDeFormulario(t.lada, t.numero);
+    const d = digitosDeFormulario(t.lada, t.numero);
     cambiar('whatsapp', d ? `+${d}` : undefined);
   }
 
@@ -363,6 +368,14 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPrueba, rutaEnt
               : ultimo ? 'Enviar aplicación' : <>Siguiente<ArrowRight aria-hidden="true" /></>}
           </button>
         </div>
+        {/* LOS LEGALES, SIN EL PIE DEL SITIO (revisión del 16/11/2026, hallazgo 5): al sacar el pie se habían ido, y el formulario pide
+            nombre, email, WhatsApp y facturación. Un renglón, como el checkout (app/planes/[plan]/Checkout.tsx, `ck-legales`), en
+            todos los pasos. En otra pestaña: un paso no se abandona por un link (el borrador queda, pero la persona no se va). */}
+        <p className="apl-legales">
+          <a href="/terminos" target="_blank" rel="noopener">Términos</a>
+          <a href="/privacidad" target="_blank" rel="noopener">Privacidad</a>
+          <a href="/reembolsos" target="_blank" rel="noopener">Reembolsos</a>
+        </p>
         <p className="apl-oculto" role="status" aria-live="polite">{aviso}</p>
       </form>
       {/* Sin «hasta que lo envíes»: enviada, queda una semana para volver a la pantalla final (`CLAVE_ENVIADA`). */}
@@ -524,7 +537,7 @@ function CampoWhatsapp({ id, c, telefono, invalido, describe }: {
         lada={lada} numero={numero} onLada={(v) => onCambio({ lada: v, numero })} onNumero={(v) => onCambio({ lada, numero: v })}
         inputStyle={{}} inputClassName="apl-input" estiloLada={CARA_LADA} anchoLada={118} portalTo={menus}
         autoComplete={c.autoComplete ?? 'tel'} inputId={id} placeholder={c.placeholder}
-        inputAria={{ invalid: invalido, describedBy: describe, required: c.obligatorio }}
+        inputAria={{ invalid: invalido, describedBy: describe, required: c.obligatorio }} sinAviso
       />
     </div>
   );
@@ -665,7 +678,7 @@ export function PantallaFinal({ nombre, conCuenta, rutaPrueba, rutaEntrar, video
   rutaPrueba: string;
   /** El login de MaKo. */
   rutaEntrar: string;
-  /** El video de Martín (`VIDEO_DE_GRACIAS`, el reproductor de Panda); sin él, el espacio con «Muy pronto». */
+  /** El video de Martín (`VIDEO_DE_GRACIAS`, el reproductor de Panda); sin él, no hay bloque del video. */
   video: string | null;
   tituloRef?: RefObject<HTMLHeadingElement | null>;
   /** «Empezar de nuevo» (la aplicación enviada queda guardada una semana en el navegador): sin esto, no se ofrece. */
@@ -679,18 +692,15 @@ export function PantallaFinal({ nombre, conCuenta, rutaPrueba, rutaEntrar, video
           <h1 ref={tituloRef} tabIndex={-1}>{nombre ? `¡Gracias, ${nombre}!` : '¡Gracias!'}</h1>
           <p className="apl-fin-texto">Voy a revisar tu aplicación y te respondo en máximo 24 horas. Estate atento a tu WhatsApp y a tu email.</p>
         </div>
-        <div className="apl-video">
-          <span className="acl-esq acl-esq-1" /><span className="acl-esq acl-esq-2" />
-          <span className="acl-esq acl-esq-3" /><span className="acl-esq acl-esq-4" />
-          {video
-            ? <iframe src={video} title="Un video de Martín para ti" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
-            : (
-              <div className="apl-video-falta">
-                <span className="apl-video-play" aria-hidden="true"><Play width={22} height={22} /></span>
-                <span>Muy pronto, un video mío para ti</span>
-              </div>
-            )}
-        </div>
+        {/* Sin video, no hay bloque (revisión del 16/11/2026, #11): «Muy pronto, un video mío para ti» lo veía todo el que aplicaba,
+            y no hay fecha para ese video. Se pega el link en `VIDEO_DE_GRACIAS` (./reglas.ts) y aparece. */}
+        {video && (
+          <div className="apl-video">
+            <span className="acl-esq acl-esq-1" /><span className="acl-esq acl-esq-2" />
+            <span className="acl-esq acl-esq-3" /><span className="acl-esq acl-esq-4" />
+            <iframe src={video} title="Un video de Martín para ti" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+          </div>
+        )}
         <div className="apl-siguiente">
           <p className="apl-siguiente-ceja">Tu siguiente paso</p>
           {/* Sólo los botones (Martín: «no hace falta tanto texto… Tal vez solamente los botones»). */}

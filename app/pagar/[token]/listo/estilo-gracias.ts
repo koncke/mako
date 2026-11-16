@@ -20,6 +20,7 @@ body:has(.gr-root) { background: #F0F0EE; }
 .gr h1 { margin: 16px 0 10px; font-size: 42px; line-height: 1.08; font-weight: 800; letter-spacing: -.025em; }
 .gr-txt { margin: 0 auto; max-width: 440px; color: #4f4f4c; font-size: 17px; line-height: 1.5; }
 .gr-txt b { color: #121212; font-weight: 700; word-break: break-word; }
+.gr-txt a { color: #121212; text-decoration: underline; text-underline-offset: 3px; word-break: break-word; }
 .gr-btn { display: inline-block; box-sizing: border-box; min-width: 260px; margin-top: 26px; padding: 15px 28px; border: 0; border-radius: 12px; background: #121212;
   color: #fff !important; font: inherit; font-size: 16px; font-weight: 700; text-decoration: none; cursor: pointer; transition: background .15s ease; }
 .gr-btn:hover { background: #262626; }
@@ -29,6 +30,8 @@ body:has(.gr-root) { background: #F0F0EE; }
 .gr-links a, .gr-links button { padding: 0; border: 0; background: none; color: #2b2b29; font: inherit; font-size: 14.5px; text-decoration: underline;
   text-underline-offset: 3px; cursor: pointer; }
 .gr-links button[disabled] { opacity: .6; cursor: default; }
+/* Fuera de la ventana del reenvío (hallazgo 4): «¿No te llegó? Escríbenos a …», con la letra de los links. */
+.gr-links-txt { color: #4f4f4c; font-size: 14.5px; }
 .gr-ok { margin: 16px 0 0; color: #1E6A52; font-size: 14px; }
 .gr-error { margin: 14px 0 0; color: #b1412a; font-size: 14px; }
 .gr-form { margin: 22px auto 0; max-width: 380px; text-align: left; }

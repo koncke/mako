@@ -194,6 +194,33 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
 }
 
 /**
+ * EL PRECIO QUE LA PÁGINA MOSTRÓ (segunda revisión del 16/11/2026, hallazgo 10). El botón promete una cifra («Suscribirme por
+ * $ 75.000 ARS al mes») y el precio en pesos lo mueve un cron una vez por día (lib/dolar-blue.ts): si cambia entre que se dibuja la
+ * página y el clic, se cobraría otro número. El formulario manda el monto y la moneda de la pasarela elegida tal como los mostró, y
+ * si no son los de hoy la compra NO sigue: 409 con `TEXTO_PRECIO_CAMBIO`, y la página se redibuja con el nuevo.
+ * ⚠️ NO ES PARTE DEL PEDIDO, A PROPÓSITO: el pedido nunca trae precio (`leerPedidoCompra`). Esto sólo puede FRENAR un cobro, nunca
+ * fijar uno: lo que se cobra sigue saliendo del plan. Sin él (una pestaña con el código de antes), no se compara.
+ */
+export type PrecioVisto = { monto: number; moneda: string };
+
+export const TEXTO_PRECIO_CAMBIO = 'El precio cambió mientras tenías abierta esta página. Ya te mostramos el nuevo: revísalo y vuelve a tocar el botón.';
+
+/** El `precioVisto` del cuerpo del POST, o null si no vino o no se entiende. */
+export function precioVistoDelPedido(body: unknown): PrecioVisto | null {
+  const v = body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>).precioVisto : null;
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const { monto, moneda } = v as Record<string, unknown>;
+  if (typeof monto !== 'number' || !Number.isFinite(monto) || monto <= 0 || typeof moneda !== 'string' || !/^[A-Za-z]{3}$/.test(moneda)) return null;
+  return { monto, moneda: moneda.toUpperCase() };
+}
+
+/** ¿Lo que se va a cobrar no es lo que se mostró? Al centavo y en la misma moneda. Sin precio visto, no se compara. */
+export function precioCambio(visto: PrecioVisto | null | undefined, cobra: { monto: number; moneda: string }): boolean {
+  if (!visto) return false;
+  return visto.moneda !== cobra.moneda.toUpperCase() || Math.round(visto.monto * 100) !== Math.round(cobra.monto * 100);
+}
+
+/**
  * Con qué pasarela se cobra: la que eligió (si está conectada y el plan tiene precio en su moneda), o la única que sirve.
  * Con dos que sirven y ninguna elegida, se pregunta (null + `elegir`).
  */
@@ -427,8 +454,12 @@ export function leadDeLaCompra(coincidencias: ReadonlyArray<{ motivo: MotivoDupl
 // lib/cobros.ts). Quién tuvo prueba: los cobros de la plataforma con `creado_por` «planes:<plan>:prueba» que llegaron a
 // autorizarse (`suscripcion_estado` no nulo), con su `email`, su `origen.whatsapp` y la cuenta que crearon (`alta_ws`).
 
-/** Lo que se le dice a quien compra con un WhatsApp que ya tuvo su prueba (el del email es `TEXTO_PRUEBA_USADA_EMAIL`). */
-export const TEXTO_PRUEBA_USADA_WHATSAPP = 'Ese WhatsApp ya usó su prueba gratis de MaKo. Si quieres empezar igual, el plan se cobra desde hoy.';
+/**
+ * Lo que se le dice a quien compra con un WhatsApp que ya tuvo su prueba (el del email es `TEXTO_PRUEBA_USADA_EMAIL`). ⚠️ SIN NOMBRAR
+ * AL WHATSAPP (revisión del 16/11/2026, hallazgo 7): el del checkout no se verifica, y «Ese WhatsApp ya usó su prueba» le decía a
+ * cualquiera que tecleara un número si esa persona había probado MaKo.
+ */
+export const TEXTO_PRUEBA_USADA_WHATSAPP = 'La prueba gratis es una por persona. Si quieres empezar igual, el plan se cobra desde hoy.';
 
 const DOMINIOS_GMAIL: readonly string[] = ['gmail.com', 'googlemail.com'];
 

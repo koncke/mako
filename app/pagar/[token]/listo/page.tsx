@@ -29,12 +29,12 @@ import { EMAIL_MAKO } from '@/lib/app-url';
 import { activarPruebaSiAutorizo, getCobroPorToken, inicioDeLaPrueba } from '@/lib/cobros';
 import { diaDelCobro, esPruebaDePlan, esPruebaRechazada, TEXTO_PRUEBA_USADA_EMAIL, TEXTO_PRUEBA_USADA_TARJETA } from '@/lib/prueba-plan-reglas';
 import { CAPACIDADES_PASARELA } from '@/lib/cobros-tipos';
-import { emailEnmascarado, mailDeAccesoNoSalio } from '@/lib/cobros-reglas';
+import { emailEnmascarado } from '@/lib/cobros-reglas';
 import { esTokenCobro, NOMBRE_PASARELA, type Cobro } from '@/lib/cobros-tipos';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { montoDelPrimerPago } from '@/lib/primer-mes-reglas';
 import { nombreDelNegocio, usuarioDelAlta } from '../../acceso';
-import { bandejaDeEntrada, cambiosRestantes, dentroDeLaVentana } from '../../cambio-email';
+import { bandejaDeEntrada, cambiosRestantes, correoDeAcceso, dentroDeLaVentana } from '../../cambio-email';
 import { AccesoMako } from './AccesoMako';
 
 export const dynamic = 'force-dynamic';
@@ -244,9 +244,13 @@ async function revisaTuCorreo(c: Cobro, p: { negocio: string | null; chip: strin
       emailInicial={emailEnmascarado(u.email) ?? ''}
       bandeja={bandejaDeEntrada(u.email)}
       puedeCambiar={cambiosRestantes(c) > 0 && dentroDeLaVentana(c)}
+      // Reenviar, sólo dentro de la ventana (revisión del 16/11/2026, hallazgo 4): fuera de ella la ruta contesta 409 siempre, y
+      // quien no recibió el correo es justo quien vuelve días después. Ahí, escribirnos.
+      puedeReenviar={dentroDeLaVentana(c)}
       contacto={EMAIL_MAKO}
-      // Con el mail caído no se le dice «te mandamos el acceso» (revisión del 23/10/2026): esperaría un mail que no llega.
-      mailSalio={!mailDeAccesoNoSalio(c.alta_motivo)}
+      // Con el mail caído no se le dice «te mandamos el acceso» (revisión del 23/10/2026): esperaría un mail que no llega. Y con un
+      // «no sé si llegó» no se le dice que no salió (hallazgo 4): `correoDeAcceso`.
+      correo={correoDeAcceso(c.alta_motivo)}
       negocio={p.negocio}
       chip={p.chip}
       nota={p.nota}

@@ -7,7 +7,9 @@
 // /api/accelerator/aplicar. Arriba, la barra del programa (app/accelerator/Barra.tsx): la marca y «El programa» vuelven a la landing.
 // SIN EL PIE DEL SITIO NI EL WHATSAPP QUE FLOTA (16/11/2026, Martín: «durante el formulario no debería salir la bottom bar»): un
 // paso no se abandona por un link del pie, y el botón que flota pisaba el «Siguiente» en el teléfono (revisión, hallazgo 7). El
-// WhatsApp que flota lo dibuja el pie (`PieGlobal`), así que se va con él. Los legales siguen en la landing.
+// WhatsApp que flota lo dibuja el pie (`PieGlobal`), así que se va con él. Los legales (Términos, Privacidad, Reembolsos) van en un
+// renglón debajo de «Enviar aplicación» (./FormularioAplicacion.tsx, `apl-legales`; revisión del 16/11/2026, hallazgo 5): el formulario
+// pide nombre, email, WhatsApp y facturación, y sin el pie no quedaba ningún link a la privacidad.
 //
 // ⚠️ PÚBLICA (lib/rutas-publicas.ts, por el prefijo /accelerator): sólo GET, no lee cookies, sin <Suspense>. La campaña que trajo
 //    la URL (landing, utm_*, fbclid) viaja en el cuerpo del POST (./origen.ts). No se indexa: es un paso, no una página.

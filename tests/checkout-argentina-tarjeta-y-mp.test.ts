@@ -14,13 +14,18 @@
 //      elige nadie (`pasarelasDelPais`: el primer plan propio, la agencia) sigue Mercado Pago sola;
 //   2. lo que no se sabe que es real no lo es (`opcionStripe`): una clave sin leer no se ofrece;
 //   3. el checkout REAL (tests/_checkout-ar-tarjeta-y-mp-hijo.ts): con un reintento, una caída de una vez no saca a Mercado
-//      Pago; con todo caído no se ofrece nada (la página pide los datos), nunca la Stripe de prueba al público.
+//      Pago; con todo caído no se ofrece nada (la página pide los datos), nunca la Stripe de prueba al público;
+//   4. el monto que mostró la página (`precioVisto`, 16/11/2026): si el cron del blue lo cambió, 409 «el precio cambió» y no se
+//      crea ni se cobra nada.
 //
 // PROBADO ROMPIÉNDOLO (13/11/2026), con el archivo en verde (5 / 0), una rotura por vez y restaurada (pasan / fallan):
 //   · `pasarelasParaOfrecer` sin la tarjeta (la regla de antes)                                    → 2 / 3 (1, 3 y 4)
 //   · la rama de Stripe como antes (`prueba: modoDeClaveStripe(...) === 'prueba'`, sin `opcionStripe`)  → 3 / 2 (2 y 5)
 //   · `leerCuentaMp` sin el reintento                                                               → 3 / 2 (2 y 4)
 //   · `claveDeLaPasarela` sin el reintento (una sola lectura)                                       → 3 / 2 (2 y 4)
+// Y el 16/11/2026 (el 6, el monto que mostró la página: segunda revisión, hallazgo 10), con el archivo en 6 / 0:
+//   · la ruta no le pasa a la compra el `precioVisto`                                               → 5 / 1 (6)
+//   · el formulario no manda lo que mostró                                                          → 5 / 1 (6)
 // ⚠️ La base del hijo falla con un 500, no con un 503: postgrest-js reintenta SOLO los 503 y 520 de un GET (3 veces, esperando
 // 1, 2 y 4 s). Con un 503 la última rotura pasaba el checkout real (sólo la cazaba el test de la fuente) y el archivo tardaba 50 s.
 // Correr: node --import tsx --test tests/checkout-argentina-tarjeta-y-mp.test.ts
@@ -31,7 +36,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { esFalloPasajero, opcionStripe, pasarelasDelPais, pasarelasParaOfrecer } from '../lib/compra-plan-reglas';
+import { esFalloPasajero, leerPedidoCompra, opcionStripe, pasarelasDelPais, pasarelasParaOfrecer, precioCambio, precioVistoDelPedido, TEXTO_PRECIO_CAMBIO } from '../lib/compra-plan-reglas';
 import type { Pasarela } from '../lib/cobros-tipos';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -123,4 +128,35 @@ test('5. la Stripe de PRUEBA nunca al público, tampoco con su clave sin leer; c
   assert.deepEqual(r.todoCaido.MX, []);
   assert.ok(r.todoCaido.cobrablesAR.every((c: boolean) => c === false), '/planes: «Quiero …», no «Empezar»');
   assert.ok(r.avisosCaido > 0, 'y queda en el log por qué no se ofreció');
+});
+
+test('6. (segunda revisión del 16/11, hallazgo 10) el monto que mostró la página: si ya no es el de hoy, 409 «el precio cambió» y no se crea nada', () => {
+  const r = hijo();
+  assert.equal(r.error, undefined, r.error);
+  // La ruta REAL: el cron del blue cambió el precio entre que se dibujó la página y el clic (otro monto, u otra moneda).
+  for (const k of ['precioViejo', 'monedaVieja']) {
+    assert.equal(r[k].status, 409, `${k}: ${JSON.stringify(r[k])}`);
+    assert.equal(r[k].precioCambio, true, `${k}: el formulario no sabe que tiene que redibujar el precio`);
+    assert.equal(r[k].error, TEXTO_PRECIO_CAMBIO);
+    assert.equal(r[k].link, null, `${k}: abrió un pago por otro número`);
+  }
+  assert.deepEqual(r.sinCrearNada, { cobros: 0, checkouts: 0, leads: 0 }, 'con el precio cambiado se creó algo');
+  assert.equal(r.precioDeHoy.status, 200, JSON.stringify(r.precioDeHoy));
+  assert.match(String(r.precioDeHoy.link), /^https:\/\/mako\.test\/pagar\//);
+  // Las reglas: al centavo y en la misma moneda; sin precio visto (una pestaña de antes) no se compara.
+  assert.equal(precioCambio(null, { monto: 47, moneda: 'USD' }), false);
+  assert.equal(precioCambio({ monto: 75_000, moneda: 'ARS' }, { monto: 75_000, moneda: 'ars' }), false);
+  assert.equal(precioCambio({ monto: 75_000, moneda: 'ARS' }, { monto: 76_000, moneda: 'ARS' }), true);
+  assert.deepEqual(precioVistoDelPedido({ precioVisto: { monto: 75_000, moneda: 'ars' } }), { monto: 75_000, moneda: 'ARS' });
+  for (const malo of [{}, { precioVisto: { monto: '75000', moneda: 'ARS' } }, { precioVisto: { monto: -1, moneda: 'ARS' } }, { precioVisto: { monto: 1, moneda: 'pesos' } }]) {
+    assert.equal(precioVistoDelPedido(malo), null, JSON.stringify(malo));
+  }
+  // Lo visto sólo frena: el pedido sigue sin traer precio (lo que se cobra sale del plan).
+  const pedido = leerPedidoCompra({ plan: 'pro', nombre: 'Ana', email: 'a@x.com', precioVisto: { monto: 1, moneda: 'USD' } });
+  assert.ok(pedido.ok && !('precioVisto' in pedido.pedido));
+  // El formulario manda lo que mostró de la pasarela elegida y, con el 409, dice y redibuja (sin perder lo escrito).
+  const form = fuente('app/planes/[plan]/CompraPlan.tsx');
+  assert.match(form, /precioVisto: visto \? \{ monto: visto\.monto, moneda: visto\.moneda \} : null/);
+  assert.match(form, /if \(j\.precioCambio\) \{ setError\(j\.error \?\? TEXTO_PRECIO_CAMBIO\); setEnviando\(false\); if \(router\) router\.refresh\(\); else window\.location\.reload\(\); return; \}/);
+  assert.match(fuente('lib/compra-plan.ts'), /if \(precioCambio\(opts\.precioVisto, via\)\) return \{ ok: false, status: 409, error: TEXTO_PRECIO_CAMBIO, precioCambio: true \};\n {2}const ws = await wsSuperAdmin\(\);/, 'el precio se compara después de crear algo');
 });

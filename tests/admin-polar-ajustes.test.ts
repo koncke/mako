@@ -257,6 +257,9 @@ test('41 · Payments: el monto de Mercado Pago dice la consecuencia, sin el crit
           },
         }))))
   assert.ok(html.includes('Sin este monto no sale el link del primer mes.'))
+  // En pesos, el cartel del dólar blue (16/11/2026, lib/dolar-blue-reglas.ts): el cron los mueve, no pisa uno a mano y cómo apagarlo.
+  assert.ok(html.includes('Estos precios en pesos se ponen al día solos con el dólar blue'), 'sin el cartel del dólar blue')
+  assert.ok(html.includes('planes.dolar_blue'), 'el cartel no dice cómo apagarlo')
   assert.ok(!html.includes('no se inventa una tasa'))
   assert.ok(!html.includes('Guardado'), '«Guardado» sólo después de guardar')
 })
