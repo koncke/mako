@@ -95,7 +95,7 @@ test('2. el pie: el contacto con el email Y el WhatsApp, a la vista; y las misma
   assert.match(telefono, /\.s-pie-pliegues\{display:block;/);
   // Más bajo otra vez (16/11, a la tarde: «sigo viendo la bottom bar muy alta»): 36 arriba y 24 abajo, los links cada 24 px.
   assert.match(CSS_PIE, /\.s-pie\{background:[^;]+;border-top:[^;]+;padding:30px 0 20px\}/, 'volvió el aire de antes arriba y abajo');
-  assert.match(CSS_PIE, /\.s-pie-col li\{font-size:13px;line-height:18px;font-weight:500;padding-bottom:4px\}/, 'los links volvieron a ir más separados');
+  assert.match(CSS_PIE, /\.s-pie-col li\{font-size:12\.5px;line-height:18px;font-weight:500;padding-bottom:4px\}/, 'los links volvieron a ir más separados');
   // Sin el lema arriba (Martín, 16/11/2026, ~17:50 UTC: «podríamos eliminar el mejor software para ventas high ticket… y que el logo
   // de MaKo esté abajo a la derecha, en donde hoy está la estrellita… y equipo y WhatsApp en ese espacio en blanco al lado de legal»).
   const pie = html(createElement(Pie, {}));
