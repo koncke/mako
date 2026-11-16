@@ -8,6 +8,8 @@ POST /api/accelerator/aplicar, y la landing con el precio) · d95fbd2b8 funnels 
 reuniones / DM funnel) · a0c6f23d6 checkout · cbb4d0431 cosecha · 354b78401 el rojo de la corrida 1456. Mirar la corrida que siguió
 (el vigía: `node "$HOME/.claude/guardia/vigia-ci.mjs" esperar`).
 
+**~08:45 AST: corre «landings-que-faltan» (wf_0902e6bb-000)**, de a dos: Closing (rehacer /vsl/closing) y los tres funnels + la API pública (la misma /api-mako abierta); después Classroom + Second Brain y Equipo + Calendario; y una revisión. Nada commiteado todavía: si se corta, retomar con Workflow({scriptPath, resumeFromRunId}) (lo terminado vuelve del caché) y commitear por ruta.
+
 **ACTUALIZACIÓN ~08:30 AST (12:30 UTC), claude1 al 87 %:** TODO lo de la noche está COMMITEADO y subido (último d16766c4b): las
 tandas del checkout y del Accelerator y los 12 arreglos de su revisión. Lo que sigue de la cola: 3 (las landings) y 4 (los avisos
 de proveedores). Abierto y anotado en docs/hallazgos-planes-y-cobro.md: el WhatsApp del checkout no se verifica; el texto de
