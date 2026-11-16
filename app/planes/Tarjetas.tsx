@@ -284,7 +284,7 @@ export const RUTA_ACCELERATOR = '/accelerator';
 // En MAYÚSCULA como los otros dos botones («PRUÉBALO GRATIS AHORA»): Martín, 15/11, «tienes que poner más información todo en mayúscula».
 export const TEXTO_BOTON_ACCELERATOR = 'MÁS INFORMACIÓN';
 
-/** Debajo del precio, una sola cosa: los días gratis, que se paga hoy, o las cuotas. */
+/** Debajo del precio, una sola cosa: los días gratis o que se paga hoy (el del Accelerator, cuánto dura: `PROGRAMA_ACELERADOR.periodo`). */
 export function bajoElPrecio(p: { id: string }): string {
   return planConPrueba(p.id) ? `${PRUEBA_DIAS} días gratis` : 'Se paga al empezar';
 }
@@ -520,14 +520,12 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
 }
 
 /**
- * LA COLUMNA DEL ACCELERATOR, SOLA (16/11/2026). Martín, sobre la landing del programa: «en esta Landing Accelerator también
- * necesita tener el precio… es mi política de que ya tenga todo el precio… la columna que hicimos». Así que la columna es UNA y
- * se dibuja en dos lugares: acá, en /planes (`TarjetasPlanes`, con «MÁS INFORMACIÓN» a la landing), y en la landing
- * (app/accelerator/LandingAcelerador.tsx, con «APLICA AHORA» al formulario). El precio, la insignia y la lista salen de lo mismo
- * (`PROGRAMA_ACELERADOR`, `LISTA_PROGRAMA`): si Martín cambia la oferta, cambia en las dos a la vez.
- * Lo único que cambia es el botón. Afuera de /planes necesita `CSS_TARJETAS` y la letra de /planes: ver `CSS_PRECIO_ACELERADOR`
- * (app/accelerator/estilo.ts). Afuera de la grilla de tres (`.mkpl-grilla`), el subgrid no tiene filas que compartir y la tarjeta
- * mide lo suyo.
+ * LA COLUMNA DEL ACCELERATOR, SOLA (16/11/2026). Se dibuja en /planes (`TarjetasPlanes`, con «MÁS INFORMACIÓN» a la landing). Esa
+ * mañana la dibujaba también la landing del programa, con «APLICA AHORA»; esa tarde Martín la sacó de ahí («no me gusta de que
+ * esté una columna vertical sola y suelta»): la landing tiene «La inversión» (app/accelerator/LandingAcelerador.tsx), con el MISMO
+ * precio y lo que dura (`PROGRAMA_ACELERADOR`) y la lista entera (`LISTA_DEL_ACELERADOR`, de la que `LISTA_PROGRAMA` es un pedazo).
+ * El botón lo elige quien la dibuja. Afuera de la grilla de tres (`.mkpl-grilla`), el subgrid no tiene filas que compartir y la
+ * tarjeta mide lo suyo.
  */
 export function TarjetaAccelerator({ boton }: {
   /** El botón de la tarjeta: en /planes, «MÁS INFORMACIÓN» a /accelerator; en /accelerator, «APLICA AHORA» al formulario. */
@@ -541,7 +539,8 @@ export function TarjetaAccelerator({ boton }: {
       {/* El mismo orden que las otras dos columnas (15/11/2026): precio, botón, y la promesa debajo. */}
       <div className="mkpl-r-precio">
         <div className="mkpl-precio">US$ {precio(pr.precioUsd)}</div>
-        <span className="mkpl-bajo">en {pr.cuotas} cuotas de US$ {precio(Math.round(pr.precioUsd / pr.cuotas))}</span>
+        {/* SIN LAS CUOTAS (16/11/2026, Martín: «en todos lados eliminemos lo de las 3 cuotas de 500»): cuánto dura (`periodo`). */}
+        <span className="mkpl-bajo">{pr.periodo}</span>
       </div>
       <div className="mkpl-r-boton">
         {/* EL BOTÓN LO ELIGE QUIEN DIBUJA LA TARJETA (16/11/2026). Ninguno agenda: desde el 15/11 el de /planes lleva a la

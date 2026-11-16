@@ -27,6 +27,11 @@ const TILDE = (color: string, grosor = 2.2) => dibujo(`<path d='M3.5 8.5l3 3 6-7
 const ALERTA = dibujo(`<circle cx='8' cy='8' r='6.6' fill='none' stroke='#F87171' stroke-width='1.5'/><path d='M8 4.6v4.1' stroke='#F87171' stroke-width='1.6' stroke-linecap='round'/><circle cx='8' cy='11.2' r='.95' fill='#F87171'/>`);
 
 export const CSS_APLICAR = `
+/* SIN ANCLAJE DEL SCROLL (revisión del 16/11/2026): quien bajaba hasta «Siguiente» y pasaba a un paso más largo veía la página
+   bajar de golpe y después subir sola. Chrome deja quieto en la pantalla el botón mientras el paso crece debajo y después el
+   formulario la lleva a la tarjeta: medio segundo de página volando (1.330 px de más del paso 1 al 2 a 1440). Sin el ancla va
+   directo y se queda quieta a los 364 ms en vez de 746. */
+html:has(.apl-root) { overflow-anchor: none; }
 .apl-root { --apl-error: #F87171; --apl-campo: #0e0e10; --apl-borde-campo: #303036; --apl-tenue: #8E887E; }
 .apl-main { position: relative; padding: 136px 0 104px; }
 .apl-main::before { content: ""; position: absolute; left: 50%; top: 0; width: min(980px, 100%); height: 460px; transform: translateX(-50%); pointer-events: none;
@@ -41,7 +46,8 @@ export const CSS_APLICAR = `
 @media (max-width: 520px) {
   .apl-root .acl-hdr { padding-inline: 16px; gap: 10px; }
   .apl-root .acl-hdr .acl-marca { font-size: 13px; letter-spacing: .1em; white-space: nowrap; }
-  .apl-root .acl-hdr .acl-btn { padding: 8px 12px; font-size: 11.5px; letter-spacing: .05em; }
+  /* Del alto de un dedo: medía 34 a 37 px de 320 a 390 (revisión del 16/11/2026). */
+  .apl-root .acl-hdr .acl-btn { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 12px; font-size: 11.5px; letter-spacing: .05em; }
 }
 @media (max-width: 380px) { .apl-root .acl-hdr .acl-marca { letter-spacing: .08em; } }
 @media (max-width: 359px) {
@@ -94,6 +100,39 @@ legend.apl-rotulo + * { clear: both; }
 .apl-input[aria-invalid="true"]:focus { box-shadow: 0 0 0 4px rgba(248,113,113,.18); }
 .apl-input:-webkit-autofill { -webkit-text-fill-color: var(--acl-ink); caret-color: var(--acl-ink); box-shadow: 0 0 0 1000px #17171b inset; transition: background-color 9999s ease 0s; }
 .apl-input:-webkit-autofill:focus { box-shadow: 0 0 0 1000px #17171b inset, 0 0 0 4px rgba(224,97,59,.20); }
+/* ── El WhatsApp: el código de país que se elige y el número (TelefonoConPais, el del checkout). El selector y su menú son los de
+   la app y se pintan con sus variables: aquí valen las del oscuro del formulario. El menú se dibuja en .apl-menus (portalTo),
+   adentro de la tarjeta y FUERA de los campos: en el cuerpo de la página tomaba los colores del tema de la app, y adentro de los
+   campos, que entran con un transform, se ubicaba mal mientras duraba la animación. El número es un .apl-input más. ── */
+.apl-tel, .apl-menus { --surface: #141416; --surface-2: #232328; --border: #2c2c31; --border-strong: #3a3a41; --ink: var(--acl-ink);
+  --dim: var(--acl-ink-soft); --faint: var(--apl-tenue); --primary: var(--acl-accent); --primary-bg: rgba(224,97,59,.14);
+  --focus-ring: 0 0 0 4px rgba(224,97,59,.20); }
+.apl-tel button[aria-haspopup="listbox"] { transition: border-color .16s ease, box-shadow .16s ease; }
+.apl-tel button[aria-haspopup="listbox"]:hover { border-color: #46464e !important; }
+.apl-tel button[aria-haspopup="listbox"]:focus-visible, .apl-tel button[aria-expanded="true"] { border-color: var(--acl-accent) !important; box-shadow: 0 0 0 4px rgba(224,97,59,.20); }
+.apl-menus [role="listbox"] { box-shadow: 0 28px 60px -24px rgba(0,0,0,.9) !important; }
+.apl-menus [role="listbox"] button { font-family: var(--acl-body) !important; font-size: 15px !important; }
+/* El buscador del menú: con menos de 16 px el iPhone agranda la página al tocarlo. */
+.apl-menus [role="listbox"] input { font-size: 16px !important; background: var(--apl-campo); color: var(--acl-ink); }
+/* ── El Instagram y el YouTube (16/11/2026): el campo, lo que dice la búsqueda y las cuentas para elegir (CampoCanal). Cada cuenta
+   es un botón del alto de un dedo, con su foto (o su inicial, si la foto no carga), su nombre, su @ y «Es la mía». ── */
+.apl-canal-estado { min-height: 0; margin-top: 8px; font-size: 14.5px; line-height: 1.45; color: var(--acl-ink-soft); }
+.apl-canal-estado:empty { display: none; }
+.apl-canal-ok { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-top: 9px; font-size: 14.5px; line-height: 1.45; font-weight: 600; color: var(--acl-ink); }
+.apl-canal-ok svg { flex: none; color: var(--acl-verde); }
+.apl-canal-ok span { font-weight: 400; color: var(--acl-ink-soft); }
+.apl-canal-lista { display: grid; gap: 8px; margin-top: 10px; }
+.apl-canal-op { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 14px 8px 10px; border-radius: 12px; cursor: pointer;
+  text-align: left; font: inherit; color: var(--acl-ink); background: #111113; border: 1.5px solid #2c2c31; transition: border-color .16s ease, background-color .16s ease; }
+.apl-canal-op:hover { border-color: var(--acl-accent); background: rgba(224,97,59,.08); }
+.apl-canal-op:focus-visible { outline: none; border-color: var(--acl-accent); box-shadow: 0 0 0 4px rgba(224,97,59,.24); }
+.apl-canal-foto { position: relative; flex: none; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center;
+  font-family: var(--acl-sans); font-weight: 700; font-size: 16px; color: var(--acl-ink-soft); background: #232328; }
+.apl-root .apl-canal-foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.apl-canal-quien { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
+.apl-canal-quien b { font-weight: 600; font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.apl-canal-quien span { font-size: 13.5px; color: var(--acl-ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.apl-canal-es { flex: none; font-family: var(--acl-sans); font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--acl-accent); }
 /* Crece con lo que se escribe (FormularioAplicacion.tsx, AreaQueCrece): sin la manija de agrandar ni barra adentro. */
 textarea.apl-input { height: auto; min-height: 150px; padding: 14px 16px; line-height: 1.55; resize: none; overflow-y: auto; }
 .apl-pie-campo { display: flex; align-items: flex-start; gap: 14px; margin-top: 9px; }
@@ -156,23 +195,28 @@ textarea.apl-input { height: auto; min-height: 150px; padding: 14px 16px; line-h
   box-shadow: 0 0 0 9px rgba(47,166,106,.13); }
 .apl-root .apl-fin h1 { font-size: clamp(2.3rem, 5vw, 3.3rem); font-weight: 800; letter-spacing: -.02em; outline: none; }
 .apl-fin-texto { margin: 18px auto 0; max-width: 44ch; font-size: 1.2rem; line-height: 1.55; color: var(--acl-ink-soft); text-wrap: balance; }
-.apl-fin-nota { margin: 10px auto 0; max-width: 52ch; font-size: 15px; line-height: 1.5; color: var(--apl-tenue); text-wrap: balance; }
-/* La agenda, del ancho del formulario: ahí Calendly se arma en una columna (la foto y la duración arriba, el calendario abajo) y
-   mide unos 930 px; de 1.140 px para arriba se arma en dos, pero quedaba una tarjeta de 800 en una franja blanca de 1.100. El alto
-   lo corrige el aviso de Calendly (calendly.page_height): éste es el de antes de que llegue. */
-.apl-agenda { margin: 32px auto 0; overflow: hidden; border-radius: 22px; background: #fff; border: 1.5px solid var(--acl-borde); box-shadow: 0 40px 80px -48px rgba(0,0,0,.85); }
-.apl-root .apl-agenda iframe { display: block; width: 100%; height: 930px; border: 0; background: #fff; }
-.apl-agenda-pie { margin-top: 16px; font-size: 15px; color: var(--acl-ink-soft); }
-.apl-root .apl-agenda-pie a, .apl-root .apl-link { color: var(--acl-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(241,238,232,.35); }
-.apl-root .apl-agenda-pie a:hover, .apl-root .apl-link:hover { text-decoration-color: var(--acl-accent); }
-.apl-agendada { margin: 26px auto 0; max-width: 560px; padding: 14px 18px; border-radius: 14px; font-size: 16px; line-height: 1.5; color: var(--acl-ink);
-  background: rgba(47,166,106,.10); border: 1px solid rgba(47,166,106,.40); }
-.apl-mako { margin: 40px auto 0; max-width: 560px; padding: 26px 28px; border-radius: 22px; text-align: left; border: 1.5px solid var(--acl-borde);
-  background: linear-gradient(180deg, #1a1a1d 0%, #141416 100%); }
-.apl-mako-ceja { font-family: var(--acl-sans); font-weight: 700; font-size: 11.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--acl-accent); }
-.apl-mako-texto { margin-top: 10px; font-size: 1.02rem; line-height: 1.55; color: var(--acl-ink-soft); text-wrap: pretty; }
-/* Con 8 px arriba y abajo: el link mide 44 px de alto en el teléfono (sin eso, 28), y se ve igual. */
-.apl-mako .apl-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding-block: 8px; font-weight: 600; }
+/* El video de Martín (16/11/2026): el marco del VSL de la landing (.acl-video, con sus esquinas), del ancho del texto. Sin video,
+   el mismo marco con «Muy pronto»: así se ve dónde va y la pantalla no cambia de forma el día que llega. */
+.apl-video { position: relative; margin: 30px auto 0; max-width: 560px; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden;
+  border: 1px solid var(--acl-line-strong); background: radial-gradient(60% 70% at 50% 45%, #22201d 0%, #141416 70%); }
+.apl-root .apl-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.apl-video-falta { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  font-family: var(--acl-sans); font-weight: 600; font-size: 12.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--acl-ink-soft); }
+.apl-video-play { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--acl-ink);
+  background: rgba(224,97,59,.22); border: 1.5px solid rgba(224,97,59,.55); }
+.apl-video-play svg { margin-left: 3px; fill: currentColor; }
+/* El paso siguiente: la ceja y los botones, nada más (Martín: «no hace falta tanto texto… Tal vez solamente los botones»). */
+/* Los dos botones en un renglón en la computadora, y arriba del borde en una pantalla de 1440 x 900 (medido el 16/11/2026: con el video de 640 el botón
+   quedaba a 25 px del borde). */
+.apl-main:has(.apl-fin) { padding-top: 116px; }
+.apl-siguiente { margin: 32px auto 0; max-width: 720px; }
+.apl-siguiente-ceja { font-family: var(--acl-sans); font-weight: 700; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--acl-accent); }
+.apl-siguiente-botones { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 16px; }
+.apl-siguiente-botones .acl-btn, .apl-boton-borde { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 14px 24px; }
+.apl-root .apl-boton-borde { font-family: var(--acl-sans); font-weight: 600; font-size: 15px; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+  color: var(--acl-ink); border: 1px solid var(--acl-line-strong); border-radius: 2px; transition: border-color .25s, background .25s; }
+.apl-root .apl-boton-borde:hover { background: rgba(241,238,232,.07); border-color: var(--acl-ink-soft); }
+.apl-boton-borde:focus-visible { outline: 2px solid var(--acl-accent); outline-offset: 3px; }
 .apl-otra { margin-top: 40px; font-size: 14px; color: var(--apl-tenue); }
 .apl-otra button { padding: 0; border: 0; background: none; font: inherit; color: var(--acl-ink-soft); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .apl-otra button:hover { color: var(--acl-ink); }
@@ -198,11 +242,15 @@ textarea.apl-input { height: auto; min-height: 150px; padding: 14px 16px; line-h
   .apl-atras-texto { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .apl-nav .acl-btn { margin-left: 0; min-width: 0; padding: 15px 12px; font-size: 14px; letter-spacing: .05em; }
   .apl-nav .acl-btn:only-child { grid-column: 1 / -1; }
-  .apl-agenda { border-radius: 16px; }
-  .apl-mako { padding: 22px 20px; }
+  .apl-siguiente-botones { flex-direction: column; align-items: stretch; }
+  /* En un renglón de 320 a 430: «Iniciar prueba gratuita de 7 días» iba en dos. */
+  .apl-siguiente-botones .acl-btn, .apl-root .apl-boton-borde { font-size: 13.5px; letter-spacing: .04em; padding-inline: 12px; }
+  .apl-siguiente-botones .acl-btn, .apl-boton-borde { white-space: normal; text-align: center; }
 }
 @media (max-width: 359px) {
   .apl-tarjeta { padding: 22px 16px 20px; }
+  /* A 320 el número del WhatsApp mide 130 px al lado del código de país: con menos aire adentro, uno de 10 cifras entra entero. */
+  .apl-tel .apl-input { padding-inline: 11px; }
   .apl-op { gap: 12px; padding: 12px 14px; }
   .apl-nav .acl-btn { padding-inline: 10px; font-size: 13px; letter-spacing: .04em; }
 }

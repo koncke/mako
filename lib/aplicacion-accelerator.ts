@@ -13,9 +13,13 @@
 // (`linkDeLaAgenda`). Lo que se le sumó al de Mastery Haus: cuánto paga un cliente (es un programa para vender high ticket) y
 // cómo consigue clientes hoy (con eso se elige el funnel).
 //
-// DESPUÉS DE APLICAR (el molde «aplica → califica → agenda» de los programas high ticket): quien califica (`califica`) elige su
-// horario en la agenda de Martín en el momento, con todo lo que escribió adentro; el resto recibe «la leo personalmente y, si hay
-// match, te escribo por WhatsApp». Las dos quedan en el CRM de MaKo y en el correo del equipo (lib/aplicacion-accelerator-servidor.ts).
+// DESPUÉS DE APLICAR, NADIE AGENDA SOLO (16/11/2026). Martín: «no tiene sentido de que automaticemos… yo estoy prometiendo de que
+// voy a revisar personalmente sus aplicaciones… siempre debería ser gracias, voy a revisar tu aplicación, te responderé en máximo
+// 24 horas… estate atento a tu WhatsApp y a tu email». Hasta esa tarde quien calificaba elegía su horario en la agenda de Martín
+// ahí mismo. Ahora TODOS ven lo mismo: el gracias, el video de Martín y el paso siguiente, la prueba gratuita de MaKo (o «Entrar a
+// MaKo» si ya tiene cuenta, `cuenta`). `califica` queda para Martín: el asunto del correo, su primera línea con lo que falta
+// (`porQueNoCalifica`) y la ficha del CRM (lib/aplicacion-accelerator-servidor.ts). La agenda ya contestada (`linkDeLaAgenda`) va
+// en ese correo, para mandársela si hay match.
 //
 // UN SOLO LUGAR: lo usan el formulario (app/accelerator/aplicar/), que valida cada paso, y la ruta (app/api/accelerator/aplicar/),
 // que vuelve a validar TODO: es pública y nunca confía en lo que manda el navegador. Las respuestas de opción viajan como ÍNDICES y
@@ -34,13 +38,20 @@ export const API_APLICAR = '/api/accelerator/aplicar';
  */
 export const AGENDA_DE_LA_LLAMADA = 'https://calendly.com/koncke/asesoria';
 
-export type TipoCampo = 'texto' | 'email' | 'whatsapp' | 'link' | 'largo' | 'una' | 'varias' | 'confirmo';
+export type TipoCampo = 'texto' | 'email' | 'whatsapp' | 'link' | 'canal' | 'largo' | 'una' | 'varias' | 'confirmo';
+
+/** Las dos redes que se piden (16/11/2026, Martín: «el link de tu Instagram y el link de tu YouTube… pero no… TikTok ni LinkedIn»). */
+export type RedDeLaAplicacion = 'instagram' | 'youtube';
 
 export type Campo = {
   id: string;
   /** La pregunta, como la lee quien aplica. */
   rotulo: string;
   tipo: TipoCampo;
+  /** De `canal`: cuál de las dos redes (el buscador de Competitor Spy la busca, app/api/accelerator/canal). */
+  red?: RedDeLaAplicacion;
+  /** Se pregunta SÓLO si en `id` se eligió una de `opciones` (el email de la cuenta, si es otro). Escondido, ni se valida ni se guarda. */
+  soloSi?: { id: string; opciones: readonly number[] };
   /** La ayuda debajo de la pregunta. */
   ayuda?: string;
   placeholder?: string;
@@ -61,19 +72,29 @@ export type Respuestas = Record<string, Valor | undefined>;
 
 /** Los topes de largo: lo que pasa de acá es un error, no un recorte silencioso. */
 export const LARGO_MAXIMO: Record<TipoCampo, number> = {
-  texto: 120, email: 200, whatsapp: 30, link: 300, largo: 2000, una: 0, varias: 0, confirmo: 0,
+  texto: 120, email: 200, whatsapp: 30, link: 300, canal: 300, largo: 2000, una: 0, varias: 0, confirmo: 0,
 };
 /** Lo mínimo que se pide en una respuesta larga: con una palabra no se prepara una llamada. */
 export const LARGO_MINIMO_LARGO = 15;
 
 const pr = PROGRAMA_ACELERADOR;
 const usd = (v: number) => `US$ ${v.toLocaleString('es-AR')}`;
-const CUOTA = Math.round(pr.precioUsd / pr.cuotas);
 
-// LAS OPCIONES DE LA AGENDA, TEXTUALES. Leídas el 16/11/2026 en la consulta pública de Calendly
+/**
+ * ¿YA TIENE CUENTA EN MaKo? (16/11/2026, Martín: «en el formulario le podríamos preguntar en algún momento si ya tiene cuenta y que
+ * nos ponga su email»). Con cuenta, el botón de la pantalla final es «Entrar a MaKo»; sin cuenta, la prueba gratuita. El email
+ * de la cuenta se pide sólo si es OTRO (`emailCuenta`): el mismo no se escribe dos veces.
+ */
+export const OPCIONES_CUENTA = ['Sí, con este mismo email', 'Sí, con otro email', 'Todavía no'] as const;
+/** Las opciones de `cuenta` que dicen que ya tiene cuenta. */
+export const CON_CUENTA: readonly number[] = [0, 1];
+export const tieneCuentaDeMako = (r: Respuestas): boolean => typeof r.cuenta === 'number' && CON_CUENTA.includes(r.cuenta);
+
+// LAS OPCIONES DE LA AGENDA, TEXTUALES Y EN SU ORDEN. Leídas el 16/11/2026 en la consulta pública de Calendly
 // (calendly.com/api/booking/event_types/lookup?event_type_slug=asesoria&profile_slug=koncke, `custom_fields`). Son las
-// preguntas 6 y 7 de esa agenda: con el MISMO texto, la agenda las recibe marcadas (`linkDeLaAgenda`). Si Martín las cambia en
-// Calendly, hay que cambiarlas acá (tests/aplicacion-accelerator.test.ts lo recuerda).
+// preguntas 6 y 7 de esa agenda, y el formulario las pregunta con las mismas palabras. A la agenda viajan por su NÚMERO (el
+// índice + 1, `linkDeLaAgenda`): si Martín cambia una tilde en Calendly siguen marcándose; si cambia el ORDEN, hay que cambiarlo
+// acá (tests/aplicacion-accelerator.test.ts lo recuerda).
 export const OPCIONES_DECISION = [
   'Sí, soy la única persona que toma decisiones en mi negocio.',
   'No, necesito consultar con alguien más (invítalo a la llamada).',
@@ -88,12 +109,18 @@ export const OPCIONES_EMPEZAR = [
 export const SECCIONES: readonly Seccion[] = [
   {
     id: 'datos', titulo: 'Tus datos',
-    bajada: 'Te escribo por WhatsApp: revisa que el número esté completo, con el código de país.',
+    bajada: 'Te escribo por WhatsApp: revisa que el código de país y el número estén bien.',
     campos: [
       { id: 'nombre', rotulo: 'Nombre', tipo: 'texto', obligatorio: true, autoComplete: 'given-name' },
       { id: 'apellido', rotulo: 'Apellido', tipo: 'texto', obligatorio: true, autoComplete: 'family-name' },
-      { id: 'whatsapp', rotulo: 'WhatsApp, con el código de país', corto: 'WhatsApp', tipo: 'whatsapp', obligatorio: true, autoComplete: 'tel', placeholder: '+54 9 11 1234 5678' },
+      // El código de país se ELIGE (`TelefonoConPais`, el del checkout): el campo de al lado es el número sin él.
+      { id: 'whatsapp', rotulo: 'WhatsApp', corto: 'WhatsApp', tipo: 'whatsapp', obligatorio: true, autoComplete: 'tel' },
       { id: 'email', rotulo: 'Email', tipo: 'email', obligatorio: true, autoComplete: 'email', placeholder: 'tu@email.com' },
+      { id: 'cuenta', rotulo: '¿Ya tienes cuenta en MaKo?', corto: 'Cuenta de MaKo', tipo: 'una', obligatorio: true, opciones: OPCIONES_CUENTA },
+      {
+        id: 'emailCuenta', rotulo: 'El email de tu cuenta de MaKo', corto: 'Email de su cuenta de MaKo', tipo: 'email', obligatorio: true,
+        autoComplete: 'off', placeholder: 'el email con el que entras', soloSi: { id: 'cuenta', opciones: [1] },
+      },
     ],
   },
   {
@@ -104,7 +131,12 @@ export const SECCIONES: readonly Seccion[] = [
         id: 'rubro', rotulo: '¿Qué vendes?', corto: 'Qué vende', tipo: 'una', obligatorio: true,
         opciones: ['Coaching o mentoría', 'Consultoría', 'Agencia o servicios de marketing', 'Formación o cursos', 'Servicios profesionales (salud, legal, finanzas, inmobiliario…)', 'Otro'],
       },
-      { id: 'red', rotulo: 'El link de tu red social principal', corto: 'Red social', tipo: 'link', obligatorio: false, placeholder: 'instagram.com/tu.usuario', ayuda: 'Instagram, YouTube, TikTok o LinkedIn: la que más uses.' },
+      // INSTAGRAM Y YOUTUBE, LOS DOS OPCIONALES (16/11/2026). Martín: «en lugar del link de tu red social principal sea el link de tu
+      // Instagram y el link de tu YouTube. Ambos sí pueden ser opcionales, pero no… TikTok ni LinkedIn. Y… reutilicemos lo que ya
+      // tenemos en Competitor Spy… Entonces la persona puede como seleccionarse su propio canal». Escribe su @, su nombre o pega el
+      // link, y elige su cuenta de la lista (app/api/accelerator/canal); si la búsqueda no anda, lo que escribió vale igual.
+      { id: 'instagram', rotulo: 'Tu Instagram', corto: 'Instagram', tipo: 'canal', red: 'instagram', obligatorio: false, placeholder: '@tu.usuario o el link de tu perfil' },
+      { id: 'youtube', rotulo: 'Tu canal de YouTube', corto: 'YouTube', tipo: 'canal', red: 'youtube', obligatorio: false, placeholder: '@tucanal o el link de tu canal' },
       {
         id: 'antiguedad', rotulo: '¿Hace cuánto vendes tu servicio?', corto: 'Hace cuánto vende', tipo: 'una', obligatorio: true,
         opciones: ['Todavía no empecé', 'Menos de 6 meses', 'Entre 6 meses y 1 año', 'Entre 1 y 3 años', 'Entre 3 y 10 años', 'Más de 10 años'],
@@ -181,10 +213,11 @@ export const SECCIONES: readonly Seccion[] = [
         opciones: ['Más de 15', 'Entre 10 y 15', 'Entre 5 y 10', 'Menos de 5'],
       },
       {
-        // El precio de verdad, el de la columna de /planes: Martín, 16/11, «es mi política de que ya tenga todo el precio».
-        id: 'inversion', rotulo: `${pr.nombre} cuesta ${usd(pr.precioUsd)}, en ${pr.cuotas} cuotas de ${usd(CUOTA)}. Si hay match, ¿puedes invertirlo?`,
+        // El precio de verdad, el de la columna de /planes: Martín, 16/11, «es mi política de que ya tenga todo el precio». SIN
+        // CUOTAS (esa misma tarde: «elimínalo bien en el formulario. Sería sí de contado o sí en cuotas»): cuántas, en la llamada.
+        id: 'inversion', rotulo: `${pr.nombre} cuesta ${usd(pr.precioUsd)} ${pr.periodo}. Si hay match, ¿puedes invertirlo?`,
         corto: 'Inversión', tipo: 'una', obligatorio: true,
-        opciones: ['Sí, de contado', `Sí, en las ${pr.cuotas} cuotas`, 'Lo tendría que conseguir', 'Hoy no puedo invertir eso'],
+        opciones: ['Sí, de contado', 'Sí, en cuotas', 'Lo tendría que conseguir', 'Hoy no puedo invertir eso'],
       },
       { id: 'decision', rotulo: '¿Tomas tú las decisiones de tu negocio?', corto: 'Decisión', tipo: 'una', obligatorio: true, opciones: OPCIONES_DECISION },
       { id: 'empezar', rotulo: 'Si hay match, ¿cuándo quieres empezar?', corto: 'Cuándo empezar', tipo: 'una', obligatorio: true, opciones: OPCIONES_EMPEZAR },
@@ -203,13 +236,124 @@ export const campo = (id: string): Campo => {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-/** El WhatsApp: sólo dígitos, con el código de país, de 10 a 15 (E.164; con el país, ninguno tiene menos de 10). */
+/** Las marcas invisibles que pegan las apps de contactos alrededor de un número (las mismas que saca `numeroTecleado`, lib/paises.ts). */
+const MARCAS_INVISIBLES = /[‎‏‪-‮⁦-⁩]/g;
+
+/**
+ * El WhatsApp: los dígitos CON el código de país, de 10 a 15 (E.164), o null. Tiene que llegar con su país: con «+» (lo que manda el
+ * formulario, que lo elige con `TelefonoConPais`) o con «00». ⚠️ UN NÚMERO LOCAL NO PASA (revisión del 16/11/2026): sólo se
+ * contaban los dígitos y se le ponía un «+» adelante, así que «55 1234 5678» (un celular de México) quedaba +5512345678, de Brasil;
+ * «(212) 555-1234», de Marruecos; «0412…», un +0412 que no existe. El WhatsApp con que contesta Martín no llegaba, el `wa.me` del
+ * correo abría otro país y la agenda recibía ese número. Ningún código de país empieza con 0.
+ */
 export function whatsappDeLaAplicacion(v: unknown): string | null {
-  const d = (typeof v === 'string' ? v : '').replace(/[^\d]/g, '');
-  return d.length >= 10 && d.length <= 15 ? d : null;
+  const s = (typeof v === 'string' ? v : '').replace(MARCAS_INVISIBLES, '').trim();
+  const conPais = s.startsWith('+') ? s.slice(1) : s.startsWith('00') ? s.slice(2) : null;
+  if (conPais == null) return null;
+  const d = conPais.replace(/\D/g, '');
+  return /^[1-9]\d{9,14}$/.test(d) ? d : null;
 }
-const limpio = (v: unknown) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
-const limpioLargo = (v: unknown) => (typeof v === 'string' ? v.replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim() : '');
+export const TEXTO_WHATSAPP_INCOMPLETO = 'Ese número no parece completo: revisa el código de país y el número.';
+export const TEXTO_WHATSAPP_SIN_PAIS = 'Falta el código de país: elígelo a la izquierda del número.';
+
+/**
+ * LOS CARACTERES DE CONTROL SE VAN (revisión del 16/11/2026): un `\u0000` pegado de un PDF pasaba la validación y Postgres no lo
+ * guarda en un `text`, así que el lead y «Quieren entrar» fallaban y quedaba sólo el correo (y si el correo también fallaba, un
+ * 503 en cada reintento). Se quedan el tabulador y los saltos de línea, que son texto (como `origenLimpio`, lib/compra-plan-reglas.ts).
+ */
+// eslint-disable-next-line no-control-regex
+const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+const limpio = (v: unknown) => (typeof v === 'string' ? v.replace(CONTROL, '').replace(/\s+/g, ' ').trim() : '');
+const limpioLargo = (v: unknown) => (typeof v === 'string' ? v.replace(CONTROL, '').replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim() : '');
+
+/**
+ * Lo que va después de instagram.com/ y NO es un usuario: el link de una publicación, un reel o una historia. Sin esto,
+ * instagram.com/p/Cx… llegaba a la agenda como «@p» (16/11/2026).
+ */
+const RUTAS_DE_INSTAGRAM = new Set(['p', 'reel', 'reels', 'stories', 'explore', 'tv', 'accounts', 's']);
+const conProtocolo = (s: string) => (/^https?:\/\//i.test(s) ? s : `https://${s}`);
+
+/**
+ * EL INSTAGRAM DE LA APLICACIÓN, como «@usuario» en minúscula: de un @, del usuario solo o del link de su perfil (con o sin https y
+ * con o sin `?igsh=`). null = no es un Instagram: un nombre con espacios, el link de una publicación, otra red.
+ */
+export function instagramDeLaAplicacion(v: unknown): string | null {
+  const s = limpio(v).replace(MARCAS_INVISIBLES, '');
+  if (!s) return null;
+  if (/instagram\.com|instagr\.am/i.test(s)) {
+    let u: URL;
+    try { u = new URL(conProtocolo(s.replace(/^(https?:\/\/)?instagr\.am\//i, 'https://instagram.com/'))); } catch { return null; }
+    if (!/(^|\.)instagram\.com$/i.test(u.hostname)) return null;
+    const usuario = u.pathname.split('/').filter(Boolean)[0] ?? '';
+    return /^[A-Za-z0-9._]{1,30}$/.test(usuario) && !RUTAS_DE_INSTAGRAM.has(usuario.toLowerCase()) ? `@${usuario.toLowerCase()}` : null;
+  }
+  const m = /^@?([A-Za-z0-9._]{1,30})$/.exec(s);
+  return m && /[a-z0-9]/i.test(m[1]) ? `@${m[1].toLowerCase()}` : null;
+}
+
+/**
+ * EL CANAL DE YOUTUBE DE LA APLICACIÓN, como su link: el @ del canal, su id (UC…) o el link del canal (/@x, /channel/UC…, /user/x
+ * o /c/x). null = no es un canal: un nombre con espacios, el link de un VIDEO (youtu.be/…, /watch), otra red.
+ */
+export function youtubeDeLaAplicacion(v: unknown): string | null {
+  const s = limpio(v).replace(MARCAS_INVISIBLES, '');
+  if (!s) return null;
+  if (/^@[A-Za-z0-9._-]{3,30}$/.test(s)) return `https://www.youtube.com/${s}`;
+  if (/^UC[A-Za-z0-9_-]{20,}$/.test(s)) return `https://www.youtube.com/channel/${s}`;
+  if (!/youtube\.com/i.test(s)) return null;
+  let u: URL;
+  try { u = new URL(conProtocolo(s)); } catch { return null; }
+  if (!/(^|\.)youtube\.com$/i.test(u.hostname)) return null;
+  const [a, b] = u.pathname.split('/').filter(Boolean);
+  if (a && /^@[A-Za-z0-9._-]{3,30}$/.test(a)) return `https://www.youtube.com/${a}`;
+  if (a === 'channel' && b && /^UC[A-Za-z0-9_-]{20,}$/.test(b)) return `https://www.youtube.com/channel/${b}`;
+  if ((a === 'user' || a === 'c') && b && /^[A-Za-z0-9._-]{1,100}$/.test(b)) return `https://www.youtube.com/${a}/${b}`;
+  return null;
+}
+
+/** La búsqueda del Instagram y el YouTube de quien aplica (la de Competitor Spy: lib/aplicacion-accelerator-canal.ts). */
+export const API_CANAL = '/api/accelerator/canal';
+/** Lo que se busca: con menos letras no se gasta una corrida; más largo que esto, no es un @ ni un nombre. */
+export const MINIMO_PARA_BUSCAR = 3;
+export const MAXIMO_PARA_BUSCAR = 120;
+
+/**
+ * Lo escrito en un campo `canal`, como lo lee la búsqueda: una cuenta EXACTA (el usuario de Instagram sin @; de YouTube, lo que lee
+ * `leerCanalHallado`: `@handle`, `UC…` o `user:x`) o un NOMBRE (con espacios). Nada = no se busca. Lo usan el formulario (para no
+ * pedir de más) y la ruta.
+ */
+export function queBuscarDelCanal(red: RedDeLaAplicacion, q: string): { exacto: string | null; nombre: string | null } {
+  const t = q.replace(/\s+/g, ' ').trim().slice(0, MAXIMO_PARA_BUSCAR);
+  if (t.replace(/[@\s]/g, '').length < MINIMO_PARA_BUSCAR) return { exacto: null, nombre: null };
+  const nombre = /\s/.test(t) && !/[/:@]/.test(t) ? t : null;
+  if (red === 'instagram') {
+    const ig = instagramDeLaAplicacion(t);
+    return ig ? { exacto: ig.slice(1), nombre: null } : { exacto: null, nombre };
+  }
+  // Una palabra sola puede ser el @ del canal; un /c/ no tiene cómo leerse (vale como link, pero no se busca).
+  const yt = youtubeDeLaAplicacion(t) ?? (/^[A-Za-z0-9._-]{3,30}$/.test(t) ? `https://www.youtube.com/@${t}` : null);
+  if (yt) {
+    const [a, b] = new URL(yt).pathname.split('/').filter(Boolean);
+    return { exacto: a?.startsWith('@') ? a : a === 'channel' ? b : a === 'user' ? `user:${b}` : null, nombre: null };
+  }
+  return { exacto: null, nombre };
+}
+
+/** El canal de un campo `canal`, ya leído (`@usuario` o el link del canal), o null. */
+export const canalDeLaAplicacion = (c: Pick<Campo, 'red'>, v: unknown): string | null =>
+  c.red === 'youtube' ? youtubeDeLaAplicacion(v) : instagramDeLaAplicacion(v);
+
+export const TEXTO_CANAL_INVALIDO: Record<RedDeLaAplicacion, string> = {
+  instagram: 'Escribe tu @ o pega el link de tu perfil de Instagram.',
+  youtube: 'Escribe el @ de tu canal o pega su link de YouTube.',
+};
+
+/** ¿Este campo se pregunta, con lo que ya contestó? (`soloSi`: el email de la cuenta, sólo si es otro). */
+export function campoVisible(c: Campo, r: Respuestas): boolean {
+  if (!c.soloSi) return true;
+  const v = r[c.soloSi.id];
+  return typeof v === 'number' && c.soloSi.opciones.includes(v);
+}
 
 /**
  * El error de UN campo, o null. Lo usan el formulario (al pasar de paso) y el servidor (todo junto). El texto es el que lee
@@ -224,6 +368,12 @@ export function errorDelCampo(c: Campo, v: Valor | undefined): string | null {
       if (c.tipo === 'texto' && s.length < 2) return 'Completa este campo.';
       return null;
     }
+    case 'canal': {
+      const s = limpio(v);
+      if (!s) return c.obligatorio ? 'Completa este campo.' : null;
+      if (s.length > LARGO_MAXIMO.canal) return `Es muy largo: hasta ${LARGO_MAXIMO.canal} caracteres.`;
+      return canalDeLaAplicacion(c, s) ? null : TEXTO_CANAL_INVALIDO[c.red ?? 'instagram'];
+    }
     case 'email': {
       const s = limpio(v).toLowerCase();
       if (!s) return c.obligatorio ? 'Escribe tu email.' : null;
@@ -233,8 +383,9 @@ export function errorDelCampo(c: Campo, v: Valor | undefined): string | null {
       const s = limpio(v);
       if (!s) return c.obligatorio ? 'Escribe tu WhatsApp.' : null;
       if (s.length > LARGO_MAXIMO.whatsapp) return 'Ese número es muy largo. Revísalo.';
-      // El ejemplo con espacios que no cortan: en el teléfono se partía en «+54 9 / 11 1234 5678» (medido el 16/11/2026).
-      return whatsappDeLaAplicacion(s) ? null : 'Ese número no parece completo: escríbelo con el código de país (por ejemplo, +54\u00a09\u00a011\u00a01234\u00a05678).';
+      if (whatsappDeLaAplicacion(s)) return null;
+      // Sin «+» ni «00» no hay país: lo manda alguien que no usa el formulario, o un borrador de antes del selector.
+      return /^(\+|00)/.test(s.replace(MARCAS_INVISIBLES, '')) ? TEXTO_WHATSAPP_INCOMPLETO : TEXTO_WHATSAPP_SIN_PAIS;
     }
     case 'largo': {
       const s = limpioLargo(v);
@@ -260,10 +411,11 @@ export function errorDelCampo(c: Campo, v: Valor | undefined): string | null {
   }
 }
 
-/** Los errores de una sección (para el botón «Siguiente»): id del campo → texto. Vacío = se puede seguir. */
+/** Los errores de una sección (para el botón «Siguiente»): id del campo → texto. Vacío = se puede seguir. Lo escondido no cuenta. */
 export function erroresDeLaSeccion(s: Seccion, r: Respuestas): Record<string, string> {
   const e: Record<string, string> = {};
   for (const c of s.campos) {
+    if (!campoVisible(c, r)) continue;
     const m = errorDelCampo(c, r[c.id]);
     if (m) e[c.id] = m;
   }
@@ -279,6 +431,7 @@ export function respuestaEnTexto(c: Campo, v: Valor | undefined): string {
     case 'largo': return limpioLargo(v);
     case 'email': return limpio(v).toLowerCase();
     case 'whatsapp': { const d = whatsappDeLaAplicacion(v); return d ? `+${d}` : ''; }
+    case 'canal': return canalDeLaAplicacion(c, v) ?? '';
     default: return limpio(v);
   }
 }
@@ -302,17 +455,16 @@ export function califica(r: Respuestas): boolean {
 }
 
 /**
- * Lo que va después de instagram.com/ y NO es un usuario: el link de una publicación, un reel o una historia. Sin esto,
- * instagram.com/p/Cx… llegaba a la agenda como «@p» (16/11/2026).
+ * Por qué NO califica, en palabras de Martín (la primera línea de su correo): lo que le falta del corte de `califica`, en su
+ * orden. Vacío = califica.
  */
-const RUTAS_DE_INSTAGRAM = new Set(['p', 'reel', 'reels', 'stories', 'explore', 'tv', 'accounts', 's']);
-
-/** El @ de Instagram de un link (instagram.com/usuario → @usuario); de otra red, o de una publicación, el link tal cual. */
-export function arrobaDeInstagram(link: string): string {
-  const s = link.trim();
-  const m = /(?:^|\/\/|\.)instagram\.com\/([A-Za-z0-9._]{1,30})/i.exec(s) ?? /^instagram\.com\/([A-Za-z0-9._]{1,30})/i.exec(s);
-  if (m && !RUTAS_DE_INSTAGRAM.has(m[1].toLowerCase())) return `@${m[1]}`;
-  return s;
+export function porQueNoCalifica(r: Respuestas): string[] {
+  const falta: string[] = [];
+  if (elegida(r, 'facturacion') < 1) falta.push('factura menos de US$ 5.000 por mes');
+  if (elegida(r, 'clientes') < 1) falta.push('todavía no tiene clientes');
+  if (![0, 1].includes(elegida(r, 'situacion'))) falta.push('su oferta todavía no está validada');
+  if (![0, 1].includes(elegida(r, 'inversion'))) falta.push('hoy no puede invertir el programa');
+  return falta;
 }
 
 /**
@@ -333,19 +485,33 @@ export function enUnRenglon(s: string, tope: number): string {
   return `${(espacio > tope / 2 ? corte.slice(0, espacio) : corte).replace(/[\s.,;:·-]+$/, '')}…`;
 }
 
+/** Las opciones de a4 y a5 en la agenda de Martín, en su orden (las de a6 y a7 son `OPCIONES_DECISION` y `OPCIONES_EMPEZAR`). */
+export const OPCIONES_A4 = ['Si', 'No'] as const;
+export const OPCIONES_A5 = ['Menos de $1000', 'Entre $1000 y $3000', 'Entre $3000 y $10000'] as const;
+/** El número con que Calendly marca una opción: la primera es 1. */
+const numeroDe = (lista: readonly string[], opcion: string): string => String(lista.indexOf(opcion) + 1);
+
+/** Lo que va en el @ de la agenda si no dejó ni su Instagram ni su YouTube: la pregunta es obligatoria allá y opcional acá. */
+export const SIN_RED_EN_LA_AGENDA = 'No lo indicó';
+
 /**
  * LA AGENDA, YA CONTESTADA (16/11/2026). La agenda de Martín pide nombre, email y siete respuestas obligatorias antes de
  * confirmar; quien ya aplicó no tiene por qué escribirlas otra vez. Calendly acepta las respuestas en el link (`name`,
  * `email` y `a1`…`a7`, en el ORDEN de sus preguntas, leído el 16/11 en la consulta pública):
  *   a1 Número de WhatsApp (teléfono) · a2 ¿Cuál es tu @ en Instagram? · a3 ¿Qué quieres lograr…? · a4 ¿Tienes posibilidad de
- *   invertir…? (Si / No) · a5 ¿Cuánto estarías dispuesto a invertir? (Menos de $1000 / Entre $1000 y $3000 / Entre $3000 y
- *   $10000) · a6 ¿Tenés autonomía…? · a7 ¿Cuándo quieres empezar?
- * Las de opción se marcan con el texto EXACTO de la opción: por eso la decisión y el arranque usan las de la agenda (verificado el
- * 16/11 en su formulario: las cuatro quedan marcadas y «Programar evento» queda listo para tocar). Los textos, en un renglón y
- * dentro de sus topes (`TOPE_AGENDA`). Lo que no se sabe, no se marca (la persona lo elige ahí). `embed`: el dominio de la página
- * que la muestra adentro.
+ *   invertir…? (`OPCIONES_A4`) · a5 ¿Cuánto estarías dispuesto a invertir? (`OPCIONES_A5`) · a6 ¿Tenés autonomía…?
+ *   (`OPCIONES_DECISION`) · a7 ¿Cuándo quieres empezar? (`OPCIONES_EMPEZAR`)
+ * LAS DE OPCIÓN VAN POR NÚMERO (revisión del 16/11/2026): Calendly marca la opción con su texto exacto o con su número (la primera
+ * es 1; medido ese día en su formulario: a4=2 marcó «No», y a5=3, a6=2 y a7=4 también, scratchpad/aplicacion/
+ * informe-investigacion-agenda.md). Por texto, una tilde que Martín cambiara allá («Si» va sin tilde en a4 y «Sí,» con tilde en
+ * a6) la dejaba sin marcar y sin aviso. EL @ VA SIEMPRE: allá es obligatorio y acá opcional, y quien califica sin red social
+ * chocaba con un campo vacío antes de «Programar evento» (`SIN_RED_EN_LA_AGENDA`). Los textos, en un renglón y dentro de sus
+ * topes (`TOPE_AGENDA`). Lo demás que no se sabe, no se marca (la persona lo elige ahí).
+ * DESDE EL 16/11/2026 A LA TARDE LO LEE MARTÍN, NO QUIEN APLICA: nadie ve la agenda al aplicar (Martín: «no tiene sentido de que
+ * automaticemos»). Va en su correo, para mandársela por WhatsApp si hay match: quien la abre ya la encuentra contestada. En el @
+ * va su Instagram; si no dejó, su YouTube.
  */
-export function linkDeLaAgenda(r: Respuestas, opciones: { embed?: string } = {}): string {
+export function linkDeLaAgenda(r: Respuestas): string {
   const q = new URLSearchParams();
   const nombre = enUnRenglon(`${limpio(r.nombre)} ${limpio(r.apellido)}`, TOPE_AGENDA.nombre);
   if (nombre) q.set('name', nombre);
@@ -353,26 +519,21 @@ export function linkDeLaAgenda(r: Respuestas, opciones: { embed?: string } = {})
   if (EMAIL_RE.test(email)) q.set('email', email);
   const wa = whatsappDeLaAplicacion(r.whatsapp);
   if (wa) q.set('a1', `+${wa}`);
-  const red = limpio(r.red);
-  if (red) q.set('a2', enUnRenglon(arrobaDeInstagram(red), TOPE_AGENDA.linea));
+  const red = instagramDeLaAplicacion(r.instagram) ?? youtubeDeLaAplicacion(r.youtube);
+  q.set('a2', red ? enUnRenglon(red, TOPE_AGENDA.linea) : SIN_RED_EN_LA_AGENDA);
   // La meta y lo que la frena, seguidas en un renglón (la respuesta entera llega a Martín por el correo y la ficha).
   const meta = limpio(r.meta);
   const frena = limpio(r.obstaculo) ? `Lo que me frena hoy: ${limpio(r.obstaculo)}` : '';
   const lograr = meta && frena ? `${meta}${/[.!?…]$/.test(meta) ? '' : '.'} ${frena}` : meta || frena;
   if (lograr) q.set('a3', enUnRenglon(lograr, TOPE_AGENDA.linea));
   const inv = elegida(r, 'inversion');
-  if (inv >= 0) q.set('a4', inv <= 1 ? 'Si' : 'No');
+  if (inv >= 0) q.set('a4', numeroDe(OPCIONES_A4, inv <= 1 ? 'Si' : 'No'));
   // El programa cuesta US$ 1.500: quien puede invertirlo está «Entre $1000 y $3000». Si no, no se adivina.
-  if (inv === 0 || inv === 1) q.set('a5', 'Entre $1000 y $3000');
+  if (inv === 0 || inv === 1) q.set('a5', numeroDe(OPCIONES_A5, 'Entre $1000 y $3000'));
   const dec = elegida(r, 'decision');
-  if (dec >= 0 && OPCIONES_DECISION[dec]) q.set('a6', OPCIONES_DECISION[dec]);
+  if (dec >= 0 && OPCIONES_DECISION[dec]) q.set('a6', String(dec + 1));
   const emp = elegida(r, 'empezar');
-  if (emp >= 0 && OPCIONES_EMPEZAR[emp]) q.set('a7', OPCIONES_EMPEZAR[emp]);
-  if (opciones.embed) {
-    q.set('embed_domain', opciones.embed);
-    q.set('embed_type', 'Inline');
-    q.set('hide_gdpr_banner', '1');
-  }
+  if (emp >= 0 && OPCIONES_EMPEZAR[emp]) q.set('a7', String(emp + 1));
   return `${AGENDA_DE_LA_LLAMADA}?${q.toString()}`;
 }
 
@@ -389,13 +550,20 @@ export type AplicacionLimpia = {
 /**
  * Lee el cuerpo del POST (la ruta pública): el campo trampa, cada campo con `errorDelCampo` y los textos con su tope. Un campo
  * mal = el error de ESE campo (el formulario lo marca). Lo que no es un campo de la aplicación, se ignora.
+ * EL CAMPO TRAMPA LLENO (`bot`) SE LEE IGUAL (revisión del 16/11/2026): un autocompletado o una extensión pueden llenarlo en el
+ * navegador de una persona de verdad, y su aplicación se perdía sin rastro. Si el resto es una aplicación válida, viene en
+ * `aplicacion` (la ruta se la manda a Martín como «posible bot», sin guardarla); un error de un campo no se le dice al bot.
  */
-export function leerAplicacion(body: unknown): { ok: true; aplicacion: AplicacionLimpia } | { ok: false; error: string; campo?: string; bot?: true } {
+export function leerAplicacion(body: unknown):
+  | { ok: true; aplicacion: AplicacionLimpia }
+  | { ok: false; error: string; campo?: string; bot?: true; aplicacion?: AplicacionLimpia } {
   const b = body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
-  if (typeof b.web === 'string' && b.web.trim()) return { ok: false, error: 'bot', bot: true };
+  const trampa = typeof b.web === 'string' && b.web.trim() !== '';
   const crudas = b.respuestas && typeof b.respuestas === 'object' && !Array.isArray(b.respuestas) ? (b.respuestas as Record<string, unknown>) : {};
   const valores: Respuestas = {};
   for (const c of CAMPOS) {
+    // Lo escondido (el email de la cuenta si no dijo «con otro email») ni se valida ni se guarda. `cuenta` va antes: ya está leído.
+    if (!campoVisible(c, valores)) continue;
     const v = crudas[c.id];
     const leido: Valor | undefined =
       c.tipo === 'una' ? (typeof v === 'number' ? v : undefined)
@@ -403,28 +571,31 @@ export function leerAplicacion(body: unknown): { ok: true; aplicacion: Aplicacio
           : c.tipo === 'confirmo' ? v === true
             : typeof v === 'string' ? v : undefined;
     const error = errorDelCampo(c, leido);
-    if (error) return { ok: false, error: `${c.corto ?? c.rotulo}: ${error}`, campo: c.id };
+    if (error) return trampa ? { ok: false, error: 'bot', bot: true } : { ok: false, error: `${c.corto ?? c.rotulo}: ${error}`, campo: c.id };
     if (leido !== undefined) valores[c.id] = leido;
   }
   const respuestas = SECCIONES.flatMap((s) => s.campos.map((c) => ({ seccion: s.titulo, id: c.id, rotulo: c.corto ?? c.rotulo, respuesta: respuestaEnTexto(c, valores[c.id]) })))
     .filter((x) => x.respuesta);
-  return {
-    ok: true,
-    aplicacion: {
-      nombre: respuestaEnTexto(campo('nombre'), valores.nombre),
-      apellido: respuestaEnTexto(campo('apellido'), valores.apellido),
-      email: respuestaEnTexto(campo('email'), valores.email),
-      whatsapp: whatsappDeLaAplicacion(valores.whatsapp) ?? '',
-      respuestas, valores, califica: califica(valores),
-    },
+  const aplicacion: AplicacionLimpia = {
+    nombre: respuestaEnTexto(campo('nombre'), valores.nombre),
+    apellido: respuestaEnTexto(campo('apellido'), valores.apellido),
+    email: respuestaEnTexto(campo('email'), valores.email),
+    whatsapp: whatsappDeLaAplicacion(valores.whatsapp) ?? '',
+    respuestas, valores, califica: califica(valores),
   };
+  return trampa ? { ok: false, error: 'bot', bot: true, aplicacion } : { ok: true, aplicacion };
 }
 
 /** La aplicación en texto, por sección (el correo del equipo y el historial de la ficha). */
-export function aplicacionEnTexto(a: Pick<AplicacionLimpia, 'respuestas' | 'califica'>): string {
-  const lineas: string[] = [a.califica
-    ? 'CALIFICA para agendar ya: factura más de US$ 5.000 por mes, con clientes y oferta validada, y puede invertir. Se le abrió tu agenda.'
-    : 'NO califica para agendar ya: no se le abrió la agenda. Si hay match, le escribes tú por WhatsApp.'];
+export function aplicacionEnTexto(a: Pick<AplicacionLimpia, 'respuestas' | 'califica'> & { valores?: Respuestas }): string {
+  // Sin «se le abrió tu agenda» (16/11/2026): nadie agenda solo. Lo que leyó en la pantalla final es la promesa de las 24 horas.
+  const falta = a.califica ? [] : porQueNoCalifica(a.valores ?? {});
+  const lineas: string[] = [
+    a.califica
+      ? 'CALIFICA: factura más de US$ 5.000 por mes, con clientes y oferta validada, y puede invertir.'
+      : `NO califica${falta.length ? `: ${falta.join('; ')}` : ''}.`,
+    'En la pantalla final leyó que le respondes en máximo 24 horas, por WhatsApp o por email.',
+  ];
   let seccion = '';
   for (const x of a.respuestas) {
     if (x.seccion !== seccion) { seccion = x.seccion; lineas.push('', seccion.toUpperCase()); }

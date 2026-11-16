@@ -23,11 +23,9 @@
 //     sección de aplicar (`.acl-tramo + .acl-final`), con un `z-index` mayor y fondo opaco.
 //   · Los títulos de las fases (01/02/03) eran un <span> en Lovable y acá son <h3>: heredaban el interlineado apretado de los
 //     títulos (1.06). Llevan el del texto (1.62), como allá.
-//   · El bloque nuevo de la oferta (`.acl-oferta`: lo que incluye) usa las mismas piezas que las tarjetas de «Y en las tres
-//     fases, siempre» (el degradé, el borde, el verde de los ✓), separado de ellas para que no se lea como una tercera tarjeta
-//     de esa lista. Hasta el 16/11 tenía la promesa a la derecha; sin ella, la lista va en dos columnas.
+//   · Lo que incluye vive en «La inversión» (`CSS_INVERSION`), con la lista en dos columnas y los ✓ verdes.
 //   · 16/11/2026: los entregables en DOS columnas (Martín: «no me gusta de que las tarjetas queden 3 y 1, pondría 2 y 2»), y
-//     el precio, que es la tarjeta de /planes con su propio CSS (`CSS_PRECIO_ACELERADOR`, abajo).
+//     «La inversión» (`CSS_INVERSION`, abajo): el precio y lo que incluye en un bloque, con el dorado de la columna de /planes.
 // =============================================================================
 
 import { fondoDeSigno } from '@/app/planes/signos';
@@ -80,7 +78,8 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .acl-btn { font-family: var(--acl-sans); font-weight: 600; font-size: 15px; letter-spacing: .06em; text-transform: uppercase; background: var(--acl-ink); color: #0B0B0C !important;
   padding: 14px 26px; border: 1px solid var(--acl-ink); border-radius: 2px; cursor: pointer; display: inline-block; white-space: nowrap;
   transition: transform .2s, background .25s, color .25s, border-color .25s; }
-.acl-btn:hover { background: var(--acl-accent); border-color: var(--acl-accent); color: var(--acl-ink) !important; transform: translateY(-2px); }
+/* Con el mouse encima, el texto oscuro: el claro sobre el naranja daba 3,05:1; éste, 5,5:1 (revisión del 16/11/2026). */
+.acl-btn:hover { background: var(--acl-accent); border-color: var(--acl-accent); color: #0B0B0C !important; transform: translateY(-2px); }
 .acl-btn:focus-visible { outline: 2px solid var(--acl-accent); outline-offset: 3px; }
 .acl-btn-sm { padding: 11px 20px; font-size: 14px; }
 .acl-btn-grande { font-size: 1.05rem; padding: 18px 42px; }
@@ -212,11 +211,7 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .acl-root .acl-ac h3 { font-family: var(--acl-sans); font-weight: 800; font-size: 1.55rem; letter-spacing: -.02em; line-height: 1.15; color: #fff; }
 .acl-ac p { font-family: var(--acl-serif); font-style: italic; font-size: 1.02rem; color: var(--acl-gris); line-height: 1.55; }
 
-/* ── Lo que incluye (nuevo, 15/11/2026; sin la promesa al lado desde el 16/11: ver ./LandingAcelerador.tsx) ── */
-.acl-oferta { margin-top: 56px; border: 1.5px solid var(--acl-borde); border-radius: 22px; overflow: hidden;
-  background: linear-gradient(180deg, #1a1a1d 0%, #131316 100%); box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 22px 50px -28px rgba(0,0,0,.6); }
-.acl-oferta-lista { padding: 38px 34px 36px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.acl-root .acl-oferta h3 { font-family: var(--acl-sans); font-weight: 800; font-size: 1.55rem; letter-spacing: -.02em; line-height: 1.15; color: #fff; }
+/* ── Lo que incluye, adentro de «La inversión» (CSS_INVERSION, abajo) ── */
 /* En dos columnas a todo el ancho (eran una, al lado de la promesa): una sola, a 1180 px, dejaba renglones de 20 palabras. */
 .acl-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 40px; margin-top: 8px; }
 .acl-checks li { display: flex; gap: 13px; align-items: flex-start; color: var(--acl-ink); font-size: 1rem; line-height: 1.5; }
@@ -237,7 +232,31 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 .acl-fcol li small { color: var(--acl-ink-soft); font-size: .92rem; line-height: 1.45; }
 .acl-fcol .acl-mk { flex-basis: 20px; width: 20px; height: 20px; }
 
-/* El pie propio se fue el 16/11/2026: la página lleva el del sitio (PieGlobal), que lo escondía. */
+/* El pie propio se fue el 16/11/2026: la página lleva el del sitio (PieGlobal), que lo escondía. EN ESTA PÁGINA, DEL COLOR DE LA
+   PÁGINA Y MÁS BAJO (16/11/2026, a la tarde, Martín: «la button bar no debería ser de otro color en MaKo Accelerator… y está
+   exageradamente alta»): el del sitio es azul noche (#060419) y aquí la página es casi negra (#0e0e10); el aire y los huecos,
+   más chicos. Sólo con body:has(.acl-root), y con más peso que las reglas del pie (app/vsl/_sitio/estilos.ts, que van después). */
+body:has(.acl-root) .s-sitio .s-pie { background: #0e0e10; padding: 34px 0 26px; }
+/* Y CON LO QUE NECESITA QUIEN MIRA EL PROGRAMA: Empezar (los precios, el programa y entrar), Recursos y Legal (Reembolsos, la que
+   Meta pide en la página de destino). Las cuatro familias de la app y las Industrias (con los Funnels) siguen en el pie de la
+   portada y de Precios. Medido el 16/11/2026: era 551 px a 1440 y 727 a 390, sobre todo por la columna de Industrias y Funnels
+   y los ocho renglones del teléfono. Van por su lugar (columnasDelPie, app/vsl/_sitio/datos.ts): la 2 a la 6;
+   tests/acelerador-landing.test.ts lo ata a ese orden. */
+body:has(.acl-root) .s-sitio .s-pie-cols > .s-pie-col:nth-child(n+2):nth-child(-n+6),
+body:has(.acl-root) .s-sitio .s-pie-pliegues > .s-pie-pliegue:nth-child(n+2):nth-child(-n+6) { display: none; }
+body:has(.acl-root) .s-sitio .s-pie-in { gap: 22px; padding-bottom: 20px; }
+body:has(.acl-root) .s-sitio .s-pie-cols { gap: 20px 24px; }
+body:has(.acl-root) .s-sitio .s-pie-col li { padding-bottom: 5px; }
+body:has(.acl-root) .s-sitio .s-pie-h { margin-bottom: 8px; }
+body:has(.acl-root) .s-sitio .s-pie-base { padding-top: 14px; }
+@media (max-width: 767px) {
+  body:has(.acl-root) .s-sitio .s-pie { padding: 26px 0 20px; }
+  body:has(.acl-root) .s-sitio .s-pie-marca { margin-bottom: 12px; gap: 8px; }
+  body:has(.acl-root) .s-sitio .s-pie-contacto a { min-height: 36px; }
+  body:has(.acl-root) .s-sitio .s-pie-pliegues { margin-bottom: 12px; }
+  body:has(.acl-root) .s-sitio .s-pie-pliegue summary { min-height: 44px; }
+  body:has(.acl-root) .s-sitio .s-pie-base { padding-top: 12px; }
+}
 
 /* ── La barra de abajo, en el teléfono: pegada al borde mientras dura el tramo (del caso de Mauricio al «¿Es para ti?») ── */
 .acl-pegado { display: none; }
@@ -251,7 +270,6 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
   .acl-hdr .acl-btn { padding: 10px 18px; font-size: 13px; }
   .acl-entregables, .acl-filtro, .acl-siempre { grid-template-columns: 1fr; gap: 26px; }
   .acl-checks { grid-template-columns: 1fr; gap: 13px; }
-  .acl-oferta-lista { padding: 32px 24px 30px; }
   .acl-tiles, .acl-proceso { grid-template-columns: 1fr 1fr; }
   .acl-mau-split, .acl-mau-top { grid-template-columns: 1fr; }
   .acl-cv, .acl-cv.acl-flip { grid-template-columns: 1fr; gap: 22px; }
@@ -287,34 +305,36 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 `;
 
 /**
- * LA LETRA DE /planes, la que hereda su tarjeta: la de `.planes-root` (app/planes/estilo.ts). «Geist» es Urbanist, declarada en
- * app/globals.css, que carga toda página. tests/acelerador-landing.test.ts la compara con la de /planes: si allá cambia, acá se
- * pone rojo.
+ * «LA INVERSIÓN» (16/11/2026, a la tarde): UN bloque a todo el ancho con el precio arriba y TODO lo que incluye debajo (antes, «Lo
+ * que incluye» y, debajo, la columna de /planes sola en el medio: Martín, «no me gusta de que esté una columna vertical sola y
+ * suelta»). «Me gusta de que tenga como ese colorcito dorado, excepto los checks que sigan siendo verdes»: el dorado es el de la
+ * columna del Accelerator de /planes (app/planes/Tarjetas.tsx, `.mkpl-programa`: el brillo en la esquina y el botón #F5C451 con el
+ * texto #2A1E00); los ✓ son los verdes de la página (`.acl-mk-c`).
+ * En el teléfono, mientras se ve, la barra de abajo (z-index 90, sticky) queda DEBAJO de esta sección: el bloque tiene su botón, y
+ * con la barra de arriba eran tres «Aplica ahora» en la misma pantalla. El mismo truco que la sección del final (fondo opaco y un
+ * z-index mayor); al terminar, la barra vuelve.
  */
-export const LETRA_DE_PLANES = `400 16px/1.55 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
-
-/**
- * EL PRECIO EN LA LANDING (16/11/2026): la columna del Accelerator de /planes (`TarjetaAccelerator`, app/planes/Tarjetas.tsx), que
- * Martín pidió con sus palabras: «la columna que hicimos». Para que se vea IGUAL que allá:
- *   · su CSS es `CSS_TARJETAS`, entero y DESPUÉS de `CSS_ACELERADOR` (./LandingAcelerador.tsx, `CSS_DE_LA_LANDING`): el reseteo
- *     de márgenes de esta página (`.acl-root *`) y sus títulos (`.acl-root h3`) empatan en peso con las reglas de la tarjeta, y en
- *     un empate gana la que viene después;
- *   · su letra es la de /planes (`LETRA_DE_PLANES`), no la de esta página (Sora, Hanken Grotesk), y su título no toma Sora:
- *     `.acl-root h3` le pone la letra de los títulos de la landing y la tarjeta no dice ninguna (en /planes, hereda);
- *   · va en la grilla de /planes (`.mkpl-grilla`, que le deja lugar arriba a su insignia y alinea a la izquierda), de UNA
- *     columna y de unos 420 px, centrada.
- * Al revés, la tarjeta no toca nada de esta página: todas las reglas de `CSS_TARJETAS` llevan `.mkpl-`.
- */
-export const CSS_PRECIO_ACELERADOR = `
-.acl-precio-s { padding-top: 0; }
-.acl-precio-s .acl-siempre-lbl { margin-top: 0; }
-.acl-precio { max-width: 420px; margin: 22px auto 0; font: ${LETRA_DE_PLANES}; color: #121212; }
-.acl-precio .mkpl-grilla { grid-template-columns: minmax(0, 1fr); }
-.acl-root .acl-precio h3 { font-family: inherit; }
-/* En el teléfono, mientras se ve el precio, la barra de abajo (z-index 90, sticky) queda DEBAJO de esta sección: la tarjeta ya
-   tiene su botón, y con la barra de arriba eran tres «Aplica ahora» en la misma pantalla. El mismo truco que la sección del
-   final (fondo opaco y un z-index mayor); al terminar el precio, la barra vuelve. */
+export const CSS_INVERSION = `
+.acl-inversion-s { padding-top: 0; }
+.acl-inversion { position: relative; margin-top: 0; border: 1.5px solid rgba(245,196,81,.28); border-radius: 22px; overflow: hidden; padding: 40px 40px 38px;
+  background: radial-gradient(900px 380px at 100% 0%, rgba(245,196,81,.15), transparent 60%), linear-gradient(180deg, #1a1a1d 0%, #131316 100%);
+  box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 22px 50px -28px rgba(0,0,0,.6); }
+.acl-inversion-cabeza { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 20px 36px; padding-bottom: 28px; border-bottom: 1px solid var(--acl-line); }
+.acl-inversion-nombre { flex: 1 1 260px; min-width: 0; }
+.acl-root .acl-inversion .acl-lbl { color: #F5C451; }
+.acl-root .acl-inversion h3 { margin-top: 10px; font-family: var(--acl-sans); font-weight: 800; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -.02em; line-height: 1.1; color: #fff; }
+.acl-inversion-precio { flex: none; text-align: right; }
+.acl-inversion-monto { font-family: var(--acl-sans); font-weight: 800; font-size: clamp(2.4rem, 4.4vw, 3.2rem); line-height: 1; letter-spacing: -.03em; color: #fff; }
+.acl-inversion-periodo { margin-top: 8px; font-size: 15px; line-height: 1.3; color: var(--acl-ink-soft); }
+.acl-root .acl-btn-oro { flex: none; background: #F5C451; border-color: #F5C451; color: #2A1E00 !important; }
+.acl-root .acl-btn-oro:hover { background: #FFD772; border-color: #FFD772; color: #2A1E00 !important; }
+.acl-inversion-incluye { margin: 26px 0 14px; font-family: var(--acl-sans); font-weight: 700; font-size: 11.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--acl-ink-soft); }
 @media (max-width: 880px) {
-  .acl-precio-s { position: relative; z-index: 91; background: var(--acl-bg); }
+  .acl-inversion-s { position: relative; z-index: 91; background: var(--acl-bg); }
+  .acl-inversion { padding: 30px 22px 28px; }
+  .acl-inversion-cabeza { flex-direction: column; align-items: stretch; gap: 18px; padding-bottom: 24px; }
+  .acl-inversion-nombre { flex: none; }
+  .acl-inversion-precio { text-align: left; }
+  .acl-root .acl-inversion .acl-btn-oro { display: block; text-align: center; }
 }
 `;

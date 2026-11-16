@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// El formulario de aplicación a MaKo Accelerator (16/11/2026): un paso por sección, y al final la agenda de Martín adentro
+// El formulario de aplicación a MaKo Accelerator (16/11/2026): un paso por sección, y al final el gracias y la prueba de MaKo
 // =============================================================================
 // Martín, 16/11/2026: «yo no pondría el botón de agendar llamada, sino justamente el botón de aplicar ahora. Y ahí pondría
 // justamente un formulario… muy similar [al de Mastery Haus]. El formulario evidentemente tiene que funcionar… y debería estar
@@ -11,31 +11,40 @@
 // el servidor. Acá, cómo se recorren:
 //   · UN PASO POR SECCIÓN (seis), con la barra de seis tramos y «Paso N de 6 · <la sección>». Al tocar «Siguiente» se marcan los
 //     errores de ese paso (`errorDelCampo`), el foco va al primero, y desde ahí se corrigen EN VIVO mientras escribe o elige.
-//   · Cada tipo, su control: texto, email, WhatsApp y link son un input con su teclado y su autocompletado (./reglas.ts,
-//     `entradaDe`); las largas, un textarea que crece, con el contador cerca del tope; las de una opción, tarjetas con radios de
-//     verdad dentro de un fieldset (se eligen con las flechas); las de varias, con casilleros; el compromiso, un casillero.
-//   · EL BORRADOR vive en el navegador (`CLAVE_BORRADOR`, con su versión): si cierra la pestaña, retoma donde lo dejó. Se borra
-//     al enviar bien. Sin almacenamiento (una ventana privada), el formulario anda igual.
+//   · Cada tipo, su control: texto, email y link son un input con su teclado y su autocompletado (./reglas.ts, `entradaDe`); el
+//     WhatsApp, el código de país que se ELIGE y el número (`TelefonoConPais`, el del checkout: revisión del 16/11/2026, un número
+//     local se guardaba con el país equivocado), arrancando en el país de donde está la persona (`ladaInicial`); las largas, un
+//     textarea que crece, con el contador cerca del tope; las de una opción, tarjetas con radios de verdad dentro de un fieldset
+//     (se eligen con las flechas); las de varias, con casilleros; el compromiso, un casillero.
+//   · EL BORRADOR vive en el navegador (`CLAVE_BORRADOR`, con su versión y la campaña con que llegó): si cierra la pestaña, retoma
+//     donde lo dejó. Se borra al enviar bien. Sin almacenamiento (una ventana privada), el formulario anda igual.
 //   · El POST va a `API_APLICAR` con `{ respuestas, web, origen }`: las opciones viajan como ÍNDICES; `web` es el campo trampa.
 //     Si el servidor marca un `campo`, vuelve a su paso y lo marca.
-//   · LA PANTALLA FINAL: quien califica elige su horario en la agenda de Martín, ahí mismo y con lo que escribió ya cargado
-//     (`linkDeLaAgenda`); el resto lee «la leo personalmente y, si hay match, te escribo por WhatsApp», y un link a /planes.
-//     La aplicación enviada queda una semana en el navegador: quien vuelve sin haber agendado ve su agenda otra vez; quien ya
-//     agendó (Calendly avisa `calendly.event_scheduled`) lee que su llamada ya quedó agendada, SIN la agenda: no agenda dos.
+//   · EL INSTAGRAM Y EL YOUTUBE (16/11/2026): escribe su @, su nombre o pega el link, y la búsqueda de Competitor Spy
+//     (`API_CANAL`) le ofrece las cuentas para que elija la suya (`CampoCanal`). Si la búsqueda no anda, lo escrito vale igual.
+//   · LA PANTALLA FINAL, LA MISMA PARA TODOS (16/11/2026, Martín: «no tiene sentido de que automaticemos… siempre debería ser
+//     gracias, voy a revisar tu aplicación, te responderé en máximo 24 horas… estate atento a tu WhatsApp y a tu email»): el
+//     gracias, el video de Martín (`VIDEO_DE_GRACIAS`) y el paso siguiente, «obligatorio» al final de toda aplicación: la prueba
+//     gratuita de MaKo o «Ya hice la prueba gratuita»; con cuenta, «Entrar a MaKo». NADIE ve la agenda de Calendly al aplicar
+//     (hasta esa tarde la veía quien calificaba): `califica` queda para el correo de Martín y la ficha. La aplicación enviada queda
+//     una semana en el navegador (sólo el nombre y si tiene cuenta, `enviadaParaGuardar`): quien vuelve ve su pantalla final.
 // Habla Martín, en primera persona: no hay equipo (memoria «sin-equipo-todavia»).
 // =============================================================================
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode, type RefObject } from 'react';
+import { ArrowLeft, ArrowRight, Check, Play } from 'lucide-react';
 import {
-  API_APLICAR, LARGO_MAXIMO, SECCIONES, campo as campoDe, errorDelCampo, erroresDeLaSeccion, linkDeLaAgenda,
-  type Campo, type Respuestas, type Valor,
+  API_APLICAR, API_CANAL, LARGO_MAXIMO, SECCIONES, campo as campoDe, campoVisible, errorDelCampo, erroresDeLaSeccion, queBuscarDelCanal,
+  tieneCuentaDeMako, type Campo, type Respuestas, type Valor,
 } from '@/lib/aplicacion-accelerator';
-import { PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
+import { PROGRAMA_ACELERADOR, PRUEBA_DIAS } from '@/lib/planes-mako';
 import type { OrigenCompra } from '@/lib/compra-plan-reglas';
+import { telefonoDeFormulario } from '@/lib/paises';
+import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import {
-  CLAVE_BORRADOR, CLAVE_ENVIADA, borradorLimpio, borradorParaGuardar, enUnaColumna, entradaDe, enviadaLimpia, enviadaParaGuardar,
-  filasDeLaSeccion, idDelCampo, nombreDelSaludo, origenDelReferer, pasoDelCampo,
+  CLAVE_BORRADOR, CLAVE_ENVIADA, ID_TRAMPA, NOMBRE_TRAMPA, ROTULO_TRAMPA, VIDEO_DE_GRACIAS, borradorLimpio, borradorParaGuardar, enUnaColumna,
+  entradaDe, enviadaLimpia, enviadaParaGuardar, filasDeLaSeccion, idDelCampo, linkDeLaPrueba, nombreDelSaludo, origenDelReferer, pasoDelCampo,
+  telefonoDelBorrador,
 } from './reglas';
 
 const TOTAL = SECCIONES.length;
@@ -44,17 +53,24 @@ const ERROR_DE_RED = 'No se pudo conectar. Revisa tu internet y prueba otra vez:
 const ERROR_DEL_ENVIO = 'No se pudo enviar tu aplicación. Prueba otra vez en un minuto.';
 
 type Pendiente = { a: 'titulo' } | { a: 'campo'; id: string } | { a: 'final' };
+/** El WhatsApp como se ve: el código de país elegido y el número sin él (`TelefonoConPais`). La respuesta es `+` y los dígitos. */
+type Telefono = { lada: string; numero: string };
 
-export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
+export function FormularioAplicacion({ origen, clavesOrigen, rutaPrueba, rutaEntrar, ladaInicial }: {
   /** La campaña que trajo la URL de esta página (lo lee page.tsx con `origenLimpio`). */
   origen: OrigenCompra | null;
   /** Qué parámetros de la URL son de la campaña (`CLAVES_ORIGEN`): para leerlos de la página anterior si esta URL no los trae. */
   clavesOrigen: readonly string[];
-  /** A dónde lleva el link a los planes de MaKo de la pantalla final. */
-  rutaPlanes: string;
+  /** El checkout de la prueba gratuita de la pantalla final (MaKo Pro); le suma la campaña (`linkDeLaPrueba`). */
+  rutaPrueba: string;
+  /** «Entrar a MaKo» y «Ya hice la prueba gratuita» de la pantalla final: el login. */
+  rutaEntrar: string;
+  /** El código de país que arranca elegido en el WhatsApp: el de donde está la persona (page.tsx, `ladaDelPais`). Lo puede cambiar. */
+  ladaInicial: string;
 }) {
   const [paso, setPaso] = useState(0);
   const [r, setR] = useState<Respuestas>({});
+  const [tel, setTel] = useState<Telefono>({ lada: ladaInicial, numero: '' });
   /** Los pasos donde ya se tocó «Siguiente»: ahí los errores se muestran, y en vivo. */
   const [intentados, setIntentados] = useState<readonly number[]>([]);
   /** El error que marcó el servidor en un campo: se va cuando la persona cambia ese valor. */
@@ -62,9 +78,17 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
   const [web, setWeb] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
-  /** La pantalla final: si califica, y si ya agendó (leído del navegador al volver: entonces no ve la agenda otra vez). */
-  const [final, setFinal] = useState<{ califica: boolean; agendada: boolean } | null>(null);
-  const [retomada, setRetomada] = useState(false);
+  /** La pantalla final, la misma para todos (16/11/2026): ya se envió, o vuelve en la semana (`CLAVE_ENVIADA`). */
+  const [final, setFinal] = useState(false);
+  /** Retomó un borrador: 'todo', o 'telefono' si su WhatsApp era de antes del selector de país (sin país: que lo mire). */
+  const [retomada, setRetomada] = useState<'todo' | 'telefono' | null>(null);
+  /**
+   * Donde se dibuja el menú del código de país: adentro del formulario (toma sus colores, ./estilo.ts `.apl-menus`) y FUERA de
+   * los campos. ⚠️ Los campos entran con una animación de `transform` (`.apl-entra`): un menú `position: fixed` adentro de ellos
+   * se ubica contra ESA caja mientras dura, y al enfocar su buscador la página saltaba y el menú se cerraba (medido el 16/11/2026,
+   * abriéndolo apenas cargado el paso).
+   */
+  const [menus, setMenus] = useState<HTMLDivElement | null>(null);
   const [listo, setListo] = useState(false);
   const [aviso, setAviso] = useState('');
   const [, forzar] = useState(0);
@@ -77,7 +101,7 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
   const origenDelEnvio = useRef<OrigenCompra | Record<string, string> | null>(origen);
 
   // Lo guardado, una vez y después de hidratar (el servidor no ve el navegador). Retomar NO mueve el foco ni la página. Primero, la
-  // aplicación ya ENVIADA (vuelve a su pantalla final, con su agenda); si no, el borrador.
+  // aplicación ya ENVIADA (vuelve a su pantalla final); si no, el borrador.
   useEffect(() => {
     const leer = (clave: string): unknown => {
       try {
@@ -89,28 +113,43 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
       }
     };
     const enviada = enviadaLimpia(leer(CLAVE_ENVIADA), Date.now());
-    const b = enviada ? null : borradorLimpio(leer(CLAVE_BORRADOR), Date.now());
+    const b = enviada ? null : borradorLimpio(leer(CLAVE_BORRADOR), Date.now(), clavesOrigen);
     if (enviada) {
       setR(enviada.respuestas);
-      setFinal({ califica: enviada.califica, agendada: enviada.agendada });
+      setFinal(true);
+      // Una de antes (con lo que leía la agenda): se vuelve a guardar sólo con lo que esta pantalla usa.
+      if (enviada.reescribir) {
+        try { window.localStorage.setItem(CLAVE_ENVIADA, enviadaParaGuardar(enviada.respuestas, Date.now())); } catch { /* bloqueado */ }
+      }
     } else if (b) {
-      setR(b.respuestas);
+      // El WhatsApp, al selector de país: el guardado puede ser de antes del selector, sin país (`telefonoDelBorrador`).
+      const t = telefonoDelBorrador(b.respuestas.whatsapp, ladaInicial);
+      const respuestas = { ...b.respuestas };
+      if (t.whatsapp) respuestas.whatsapp = t.whatsapp; else delete respuestas.whatsapp;
+      setTel({ lada: t.lada, numero: t.numero });
+      setR(respuestas);
       setPaso(b.paso);
-      setRetomada(true);
+      setRetomada(t.revisar ? 'telefono' : 'todo');
+      // La campaña con que llegó la primera vez, si esta visita no trae otra (la de la URL, o la de la página anterior, abajo).
+      if (!origen && b.origen) origenDelEnvio.current = b.origen;
     }
     setListo(true);
+    // Una vez, al hidratar: las props no cambian.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // La campaña: la de esta URL; si no trae, la de la página de la que vino (la landing con su ?utm_…).
+  // La campaña: la de esta URL; si no trae, la de la página de la que vino (la landing con su ?utm_…); si tampoco, la del borrador.
   useEffect(() => {
-    if (!origen) origenDelEnvio.current = origenDelReferer(document.referrer, window.location.href, clavesOrigen);
+    if (origen) return;
+    const delReferer = origenDelReferer(document.referrer, window.location.href, clavesOrigen);
+    if (delReferer) origenDelEnvio.current = delReferer;
   }, [origen, clavesOrigen]);
 
-  // Lo que escribe se guarda mientras escribe (nunca antes de haber leído el borrador: lo pisaría vacío).
+  // Lo que escribe se guarda mientras escribe (nunca antes de haber leído el borrador: lo pisaría vacío), con la campaña.
   useEffect(() => {
     if (!listo || final || !Object.keys(r).length) return;
     try {
-      window.localStorage.setItem(CLAVE_BORRADOR, borradorParaGuardar(paso, r, Date.now()));
+      window.localStorage.setItem(CLAVE_BORRADOR, borradorParaGuardar(paso, r, Date.now(), origenDelEnvio.current as Record<string, string> | null));
     } catch {
       // Lleno o bloqueado: el formulario sigue igual.
     }
@@ -153,12 +192,19 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
     setErrorEnvio(null);
   }
 
+  /** El WhatsApp: lo que se ve (la lada y el número) y la respuesta, siempre con su país (`telefonoDeFormulario`, como el checkout). */
+  function cambiarTel(t: Telefono) {
+    setTel(t);
+    const d = telefonoDeFormulario(t.lada, t.numero);
+    cambiar('whatsapp', d ? `+${d}` : undefined);
+  }
+
   function irA(n: number) {
     pendiente.current = { a: 'titulo' };
     setPaso(n);
     setErrorEnvio(null);
     setAviso('');
-    setRetomada(false);
+    setRetomada(null);
   }
 
   /** Marca los errores del paso `i` y lleva al primero. true = había errores. */
@@ -194,17 +240,16 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ respuestas: r, web, origen: origenDelEnvio.current }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; califica?: boolean; error?: string; campo?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; campo?: string };
       if (res.ok && j.ok) {
-        const califica = j.califica === true;
         try {
           window.localStorage.removeItem(CLAVE_BORRADOR);
-          window.localStorage.setItem(CLAVE_ENVIADA, enviadaParaGuardar(califica, r, Date.now()));
+          window.localStorage.setItem(CLAVE_ENVIADA, enviadaParaGuardar(r, Date.now()));
         } catch {
           // Bloqueado: no hay borrador que borrar, y si vuelve a entrar ve el formulario vacío.
         }
         pendiente.current = { a: 'final' };
-        setFinal({ califica, agendada: false });
+        setFinal(true);
         return;
       }
       const donde = j.campo ? pasoDelCampo(j.campo) : -1;
@@ -232,29 +277,20 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
   function otra() {
     try { window.localStorage.removeItem(CLAVE_ENVIADA); } catch { /* bloqueado: no había nada guardado */ }
     setR({});
+    setTel({ lada: ladaInicial, numero: '' });
     setIntentados([]);
     setDelServidor(null);
-    setRetomada(false);
-    setFinal(null);
+    setRetomada(null);
+    setFinal(false);
     irA(0);
   }
-
-  /** Calendly avisó que agendó: queda en la aplicación guardada, así al volver no ve la agenda otra vez. */
-  const alAgendar = useCallback(() => {
-    try {
-      window.localStorage.setItem(CLAVE_ENVIADA, enviadaParaGuardar(true, r, Date.now(), true));
-    } catch {
-      // Bloqueado: si vuelve a entrar, ve la agenda otra vez (como antes de esto).
-    }
-  }, [r]);
 
   if (final) {
     return (
       <PantallaFinal
-        nombre={nombreDelSaludo(r)} califica={final.califica} yaAgendada={final.agendada} rutaPlanes={rutaPlanes}
-        tituloRef={tituloFinal} onOtra={otra} onAgendada={alAgendar}
-        agenda={final.califica && !final.agendada ? linkDeLaAgenda(r, { embed: window.location.hostname }) : ''}
-        agendaAparte={final.califica && !final.agendada ? linkDeLaAgenda(r) : ''}
+        nombre={nombreDelSaludo(r)} conCuenta={tieneCuentaDeMako(r)} rutaEntrar={rutaEntrar}
+        rutaPrueba={linkDeLaPrueba(rutaPrueba, origenDelEnvio.current as Record<string, string> | null, clavesOrigen)}
+        video={VIDEO_DE_GRACIAS} tituloRef={tituloFinal} onOtra={otra}
       />
     );
   }
@@ -267,7 +303,13 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
         <span className="acl-pill">Aplicación</span>
         <h1>{primera} <em>{resto.join(' ')}</em></h1>
         <p className="apl-bajada">Te lleva unos 5 minutos. Leo cada aplicación personalmente.</p>
-        {retomada && <p className="apl-retomada">Lo que habías escrito sigue aquí: retomas donde lo dejaste.</p>}
+        {retomada && (
+          <p className="apl-retomada">
+            {retomada === 'telefono'
+              ? 'Lo que habías escrito sigue aquí. Revisa el código de país de tu WhatsApp y sigue.'
+              : 'Lo que habías escrito sigue aquí: retomas donde lo dejaste.'}
+          </p>
+        )}
       </div>
 
       {/* ⚠️ SIN JAVASCRIPT ESTE FORMULARIO NO SE MANDA: un <form> sin `action` se manda por GET a esta misma URL, y los datos
@@ -284,15 +326,23 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
 
         {/* Con la clave del paso: al cambiar, los campos entran de nuevo (y su animación corre otra vez). */}
         <div className="apl-campos apl-entra" key={seccion.id}>
-          {filasDeLaSeccion(seccion).map((fila) => {
-            const campos = fila.map((c) => <CampoDeLaAplicacion key={c.id} c={c} valor={r[c.id]} error={errorDe(c)} onCambio={(v) => cambiar(c.id, v)} />);
+          {/* Sólo lo que se pregunta con lo que ya contestó (`campoVisible`: el email de la cuenta, si es otro). */}
+          {filasDeLaSeccion({ ...seccion, campos: seccion.campos.filter((c) => campoVisible(c, r)) }).map((fila) => {
+            const campos = fila.map((c) => (
+              <CampoDeLaAplicacion
+                key={c.id} c={c} valor={r[c.id]} error={errorDe(c)} onCambio={(v) => cambiar(c.id, v)}
+                telefono={c.tipo === 'whatsapp' ? { ...tel, onCambio: cambiarTel, menus } : undefined}
+              />
+            ));
             return fila.length > 1 ? <div className="apl-fila" key={fila[0].id}>{campos}</div> : campos[0];
           })}
         </div>
+        <div className="apl-menus" ref={setMenus} />
 
+        {/* El campo trampa, con un nombre y un rótulo que ningún autocompletado toma por «sitio web» (./reglas.ts, `ID_TRAMPA`). */}
         <div className="apl-trampa" aria-hidden="true">
-          <label htmlFor="apl-web">Web</label>
-          <input id="apl-web" name="web" type="text" tabIndex={-1} autoComplete="off" value={web} onChange={(e) => setWeb(e.target.value)} />
+          <label htmlFor={ID_TRAMPA}>{ROTULO_TRAMPA}</label>
+          <input id={ID_TRAMPA} name={NOMBRE_TRAMPA} type="text" tabIndex={-1} autoComplete="off" value={web} onChange={(e) => setWeb(e.target.value)} />
         </div>
 
         {/* `role="status"` + `aria-live="assertive"` y no `role="alert"` (16/11/2026): el «Reportar a Soporte» que exige un alert
@@ -314,7 +364,7 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPlanes }: {
         </div>
         <p className="apl-oculto" role="status" aria-live="polite">{aviso}</p>
       </form>
-      {/* Sin «hasta que lo envíes»: enviada, la aplicación sigue guardada una semana para volver a la agenda (`CLAVE_ENVIADA`). */}
+      {/* Sin «hasta que lo envíes»: enviada, queda una semana para volver a la pantalla final (`CLAVE_ENVIADA`). */}
       <p className="apl-nota">Lo que escribes se guarda en este navegador: si cierras la página, sigues donde lo dejaste.</p>
     </div>
   );
@@ -334,9 +384,13 @@ function enfocarCampo(id: string) {
   el?.focus({ preventScroll: true });
 }
 
-/** Un campo de la aplicación, según su tipo. */
-function CampoDeLaAplicacion({ c, valor, error, onCambio }: {
+/** Lo que necesita el WhatsApp: la lada y el número que se ven, cómo cambiarlos, y dónde se dibuja el menú de los países. */
+type TelefonoDelCampo = Telefono & { onCambio: (t: Telefono) => void; menus: HTMLElement | null };
+
+/** Un campo de la aplicación, según su tipo. `telefono`: el del WhatsApp. */
+function CampoDeLaAplicacion({ c, valor, error, onCambio, telefono }: {
   c: Campo; valor: Valor | undefined; error: string | null; onCambio: (v: Valor | undefined) => void;
+  telefono?: TelefonoDelCampo;
 }) {
   const id = idDelCampo(c.id);
   const idAyuda = `${id}-ayuda`;
@@ -346,11 +400,26 @@ function CampoDeLaAplicacion({ c, valor, error, onCambio }: {
   const ayuda = c.ayuda ? <p className="apl-ayuda" id={idAyuda}>{c.ayuda}</p> : null;
   const textoError = error ? <p className="apl-error" id={idError}>{error}</p> : null;
 
+  if (c.tipo === 'whatsapp' && telefono) {
+    return (
+      <div className="apl-campo">
+        <label className="apl-rotulo" htmlFor={id}>{c.rotulo}{opcional}</label>
+        {ayuda}
+        <CampoWhatsapp id={id} c={c} telefono={telefono} invalido={!!error} describe={describe} />
+        {textoError}
+      </div>
+    );
+  }
+
   if (c.tipo === 'una' || c.tipo === 'varias') {
     const varias = c.tipo === 'varias';
     const elegidas = varias ? (Array.isArray(valor) ? valor : []) : [];
+    // ⚠️ El error y la ayuda, también en CADA opción (revisión del 16/11/2026): el foco va al radio o al casillero, no al fieldset,
+    // y el lector de pantalla no decía el error. Las de una opción son un radiogroup obligatorio (`aria-required` no vale en un
+    // grupo de casilleros: ahí lo dice la ayuda).
+    const grupo = !varias && c.obligatorio ? { role: 'radiogroup' as const, 'aria-required': true as const } : {};
     return (
-      <fieldset className={`apl-campo apl-grupo${error ? ' apl-con-error' : ''}`} aria-describedby={describe}>
+      <fieldset className={`apl-campo apl-grupo${error ? ' apl-con-error' : ''}`} aria-describedby={describe} {...grupo}>
         <legend className="apl-rotulo">{c.rotulo}{opcional}</legend>
         {ayuda}
         <div className={`apl-opciones${enUnaColumna(c) ? ' apl-una-col' : ''}`}>
@@ -360,7 +429,7 @@ function CampoDeLaAplicacion({ c, valor, error, onCambio }: {
               <label key={o} className={`apl-op${varias ? ' apl-op-caja' : ''}${sel ? ' apl-op-sel' : ''}`}>
                 <input
                   className="apl-op-input" type={varias ? 'checkbox' : 'radio'} name={c.id} value={i} checked={sel}
-                  id={i === 0 ? id : undefined} aria-invalid={error ? true : undefined}
+                  id={i === 0 ? id : undefined} aria-invalid={error ? true : undefined} aria-describedby={describe}
                   onChange={() => onCambio(varias ? (sel ? elegidas.filter((x) => x !== i) : [...elegidas, i].sort((x, y) => x - y)) : i)}
                 />
                 <span className="apl-marca" aria-hidden="true" />
@@ -392,6 +461,16 @@ function CampoDeLaAplicacion({ c, valor, error, onCambio }: {
   }
 
   const texto = typeof valor === 'string' ? valor : '';
+  if (c.tipo === 'canal') {
+    return (
+      <div className="apl-campo">
+        <label className="apl-rotulo" htmlFor={id}>{c.rotulo}{opcional}</label>
+        {ayuda}
+        <CampoCanal id={id} c={c} valor={texto} invalido={!!error} describe={describe} onCambio={(v) => onCambio(v)} />
+        {textoError}
+      </div>
+    );
+  }
   if (c.tipo === 'largo') {
     return (
       <div className="apl-campo">
@@ -419,6 +498,125 @@ function CampoDeLaAplicacion({ c, valor, error, onCambio }: {
         aria-required={c.obligatorio || undefined} onChange={(ev) => onCambio(ev.target.value)}
       />
       {textoError}
+    </div>
+  );
+}
+
+/** La cara del selector de país (el `buttonStyle` del Dropdown): del alto y del oscuro de los campos de este formulario (./estilo.ts). */
+const CARA_LADA: CSSProperties = {
+  height: 54, minHeight: 54, padding: '0 12px 0 14px', borderRadius: 12, border: '1.5px solid var(--apl-borde-campo)',
+  background: 'var(--apl-campo)', color: 'var(--acl-ink)', fontFamily: 'var(--acl-body)', fontSize: 16, fontWeight: 600,
+};
+
+/**
+ * El WhatsApp: el código de país que se elige y el número (`TelefonoConPais`, el del checkout). El menú del selector es el de la
+ * app y se dibuja en `menus` (`portalTo`), adentro del formulario: así toma los colores de este formulario (./estilo.ts,
+ * `.apl-tel` y `.apl-menus`) y no los del tema de la app, que en una página pública puede ser el claro.
+ */
+function CampoWhatsapp({ id, c, telefono, invalido, describe }: {
+  id: string; c: Campo; telefono: TelefonoDelCampo; invalido: boolean; describe: string | undefined;
+}) {
+  const { lada, numero, onCambio, menus } = telefono;
+  return (
+    <div className="apl-tel">
+      <TelefonoConPais
+        lada={lada} numero={numero} onLada={(v) => onCambio({ lada: v, numero })} onNumero={(v) => onCambio({ lada, numero: v })}
+        inputStyle={{}} inputClassName="apl-input" estiloLada={CARA_LADA} anchoLada={118} portalTo={menus}
+        autoComplete={c.autoComplete ?? 'tel'} inputId={id} placeholder={c.placeholder}
+        inputAria={{ invalid: invalido, describedBy: describe, required: c.obligatorio }}
+      />
+    </div>
+  );
+}
+
+/** Una cuenta que ofrece la búsqueda (app/api/accelerator/canal): `valor` es lo que queda escrito al elegirla. */
+type Candidato = { valor: string; nombre: string | null; usuario: string; foto: string | null; seguidores: number | null };
+type Busqueda =
+  | { q: string; estado: 'buscando' }
+  | { q: string; estado: 'listo'; candidatos: Candidato[]; vacio: 'no-anda' | 'limite' | null };
+/** Cuánto se espera a que deje de escribir antes de buscar: cada búsqueda puede costar una corrida de Apify. */
+const ESPERA_BUSQUEDA_MS = 700;
+
+/**
+ * EL INSTAGRAM O EL YOUTUBE, CON LA BÚSQUEDA DE SPY (16/11/2026, Martín: «reutilicemos lo que ya tenemos en Competitor Spy… la
+ * persona puede como seleccionarse su propio canal»). Escribe su @, su nombre o pega el link; cuando deja de escribir, la búsqueda
+ * (`API_CANAL`) trae las cuentas y elige la suya («Es la mía»), que queda escrita como su @ o el link del canal. Si la búsqueda no
+ * anda (sin crédito, el tope del día), lo dice y lo escrito vale igual: un @ o un link pasan la validación (`errorDelCampo`).
+ */
+function CampoCanal({ id, c, valor, invalido, describe, onCambio }: {
+  id: string; c: Campo; valor: string; invalido: boolean; describe: string | undefined; onCambio: (v: string) => void;
+}) {
+  const red = c.red ?? 'instagram';
+  const [busqueda, setBusqueda] = useState<Busqueda | null>(null);
+  const [elegido, setElegido] = useState<Candidato | null>(null);
+  const idEstado = `${id}-busqueda`;
+  useEffect(() => {
+    const pedido = queBuscarDelCanal(red, valor);
+    // Lo que no se busca (vacío, muy corto) y lo recién elegido no piden nada.
+    if ((!pedido.exacto && !pedido.nombre) || elegido?.valor === valor) { setBusqueda(null); return; }
+    const ctrl = new AbortController();
+    const espera = window.setTimeout(async () => {
+      setBusqueda({ q: valor, estado: 'buscando' });
+      try {
+        const res = await fetch(`${API_CANAL}?red=${red}&q=${encodeURIComponent(valor.trim())}`, { signal: ctrl.signal });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; candidatos?: unknown; vacio?: unknown };
+        const bien = res.ok && j.ok === true;
+        const candidatos = bien && Array.isArray(j.candidatos) ? (j.candidatos as Candidato[]).filter((k) => k && typeof k.valor === 'string').slice(0, 5) : [];
+        const vacio = !bien ? 'no-anda' : j.vacio === 'no-anda' || j.vacio === 'limite' ? j.vacio : null;
+        setBusqueda({ q: valor, estado: 'listo', candidatos, vacio });
+      } catch {
+        if (!ctrl.signal.aborted) setBusqueda({ q: valor, estado: 'listo', candidatos: [], vacio: 'no-anda' });
+      }
+    }, ESPERA_BUSQUEDA_MS);
+    return () => { ctrl.abort(); window.clearTimeout(espera); };
+  }, [red, valor, elegido]);
+
+  const elegir = (k: Candidato) => { setElegido(k); setBusqueda(null); onCambio(k.valor); };
+  const cuantos = red === 'youtube' ? 'suscriptores' : 'seguidores';
+  const listo = busqueda?.estado === 'listo' && busqueda.q === valor ? busqueda : null;
+  const estado = busqueda?.estado === 'buscando' ? 'Buscando…'
+    : !listo ? ''
+      : listo.candidatos.length ? (listo.candidatos.length === 1 ? '¿Es tu cuenta?' : 'Elige la tuya:')
+        : listo.vacio ? 'No pude buscarla ahora: escribe tu @ o pega el link.'
+          : 'No la encontré: revisa el @ o pega el link.';
+  const e = entradaDe(c);
+  return (
+    <div className="apl-canal">
+      <input
+        className="apl-input" id={id} name={c.id} type={e.type} inputMode={e.inputMode} autoComplete={e.autoComplete}
+        autoCapitalize={e.autoCapitalize} spellCheck={e.spellCheck} placeholder={c.placeholder} value={valor}
+        maxLength={LARGO_MAXIMO.canal} aria-invalid={invalido ? true : undefined}
+        aria-describedby={[describe, estado ? idEstado : null].filter(Boolean).join(' ') || undefined}
+        onChange={(ev) => onCambio(ev.target.value)}
+      />
+      {elegido?.valor === valor
+        ? <p className="apl-canal-ok"><Check aria-hidden="true" width={16} height={16} />{elegido.nombre ?? elegido.usuario}{elegido.nombre ? <span>{elegido.usuario}</span> : null}</p>
+        : <p className="apl-canal-estado" id={idEstado} role="status" aria-live="polite">{estado}</p>}
+      {listo && listo.candidatos.length > 0 && elegido?.valor !== valor && (
+        <ul className="apl-canal-lista">
+          {listo.candidatos.map((k) => (
+            <li key={k.valor}>
+              <button type="button" className="apl-canal-op" onClick={() => elegir(k)}>
+                <span className="apl-canal-foto" aria-hidden="true">
+                  {(k.nombre ?? k.usuario).replace(/^@/, '').slice(0, 1).toUpperCase()}
+                  {k.foto && (
+                    // eslint-disable-next-line @next/next/no-img-element -- la foto que trae la búsqueda (Instagram o YouTube), de otro sitio
+                    <img src={k.foto} alt="" width={40} height={40} loading="lazy" referrerPolicy="no-referrer" onError={(ev) => { ev.currentTarget.style.display = 'none'; }} />
+                  )}
+                </span>
+                <span className="apl-canal-quien">
+                  <b>{k.nombre ?? k.usuario}</b>
+                  {/* Sin nombre, el @ ya va arriba: abajo, sólo los seguidores (si se saben). */}
+                  {(k.nombre || k.seguidores != null) && (
+                    <span>{[k.nombre ? k.usuario : null, k.seguidores != null ? `${miles(k.seguidores)} ${cuantos}` : null].filter(Boolean).join(' · ')}</span>
+                  )}
+                </span>
+                <span className="apl-canal-es">Es la mía</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -451,81 +649,61 @@ function AreaQueCrece({ value, onChange, ...resto }: {
 }
 
 /**
- * La pantalla de después de enviar. Quien califica, la agenda de Martín ADENTRO (con su alto: Calendly avisa cuánto mide su
- * página con `calendly.page_height`, y si no, el del CSS); si ya agendó (vuelve después de agendar), que su llamada ya quedó
- * agendada y SIN la agenda (no agenda dos); el resto, «la leo personalmente» y los planes de MaKo.
+ * LA PANTALLA DE DESPUÉS DE ENVIAR, LA MISMA PARA TODOS (16/11/2026). Martín: «siempre debería ser gracias, voy a revisar tu
+ * aplicación, te responderé en máximo 24 horas… estate atento a tu WhatsApp y a tu email… al final de toda aplicación… como un
+ * paso obligatorio. El siguiente paso que tienes que dar es iniciar tu prueba gratuita de 7 días en MaKo… Y ahí te da una opción de
+ * iniciar prueba gratuita de 7 días o ya hice la prueba gratuita… Y deja ahí un espacio… para un video… no hace falta tanto texto…
+ * Tal vez solamente los botones». Con cuenta de MaKo (lo contestó en «Tus datos»), el botón es «Entrar a MaKo».
+ * Sin agenda: hasta esa tarde, quien calificaba elegía ahí su horario en el Calendly de Martín.
  */
-export function PantallaFinal({ nombre, califica, yaAgendada = false, agenda, agendaAparte, rutaPlanes, tituloRef, onOtra, onAgendada }: {
-  nombre: string; califica: boolean;
-  /** Ya agendó antes, en este navegador (`CLAVE_ENVIADA` con `agendada`): no ve la agenda otra vez. */
-  yaAgendada?: boolean;
-  /** La agenda para el iframe (`linkDeLaAgenda` con `embed`) y la de otra pestaña (sin `embed`). Vacías si no califica. */
-  agenda: string; agendaAparte: string;
-  rutaPlanes: string;
+export function PantallaFinal({ nombre, conCuenta, rutaPrueba, rutaEntrar, video, tituloRef, onOtra }: {
+  nombre: string;
+  /** Ya tiene cuenta de MaKo (`tieneCuentaDeMako`): «Entrar a MaKo» en vez de la prueba. */
+  conCuenta: boolean;
+  /** El checkout de la prueba gratuita, con la campaña (`linkDeLaPrueba`). */
+  rutaPrueba: string;
+  /** El login de MaKo. */
+  rutaEntrar: string;
+  /** El video de Martín (`VIDEO_DE_GRACIAS`, el reproductor de Panda); sin él, el espacio con «Muy pronto». */
+  video: string | null;
   tituloRef?: RefObject<HTMLHeadingElement | null>;
   /** «Empezar de nuevo» (la aplicación enviada queda guardada una semana en el navegador): sin esto, no se ofrece. */
   onOtra?: () => void;
-  /** Calendly avisó que agendó (`calendly.event_scheduled`): quien la usa lo guarda. */
-  onAgendada?: () => void;
 }) {
-  const [alto, setAlto] = useState<number | null>(null);
-  const [agendada, setAgendada] = useState(false);
-  const conAgenda = califica && !yaAgendada;
-  useEffect(() => {
-    if (!conAgenda) return;
-    // Calendly avisa cuánto mide lo que muestra (medido el 16/11/2026: 927 px en una columna, 798 en dos, y unos 26 y 2 px mientras
-    // carga, que se descartan). Con su alto, la agenda no tiene barra de scroll adentro; si no avisa, queda el del CSS.
-    const escuchar = (e: MessageEvent) => {
-      if (e.origin !== 'https://calendly.com') return;
-      const d = e.data as { event?: unknown; payload?: { height?: unknown } } | null;
-      if (d?.event === 'calendly.page_height') {
-        const h = Number.parseInt(String(d.payload?.height ?? ''), 10);
-        if (h >= 400 && h <= 3600) setAlto(h);
-      }
-      if (d?.event === 'calendly.event_scheduled') {
-        setAgendada(true);
-        onAgendada?.();
-      }
-    };
-    window.addEventListener('message', escuchar);
-    return () => window.removeEventListener('message', escuchar);
-  }, [conAgenda, onAgendada]);
-
-  // Recién agendada, la agenda sigue (adentro, Calendly muestra el día y la hora), pero lo de arriba ya no dice «elige el horario».
-  const texto = !califica
-    ? 'Recibí tu aplicación. La leo personalmente y, si hay match, te escribo por WhatsApp.'
-    : yaAgendada || agendada
-      ? 'Tu llamada conmigo ya quedó agendada.'
-      : 'Por lo que me cuentas, tiene sentido que hablemos. Elige el día y la hora de tu llamada conmigo:';
   return (
     <div className="apl-wrap">
       <div className="apl-fin">
         <div className="apl-fin-ico" aria-hidden="true" />
         <div aria-live="polite">
           <h1 ref={tituloRef} tabIndex={-1}>{nombre ? `¡Gracias, ${nombre}!` : '¡Gracias!'}</h1>
-          <p className="apl-fin-texto">{texto}</p>
+          <p className="apl-fin-texto">Voy a revisar tu aplicación y te respondo en máximo 24 horas. Estate atento a tu WhatsApp y a tu email.</p>
         </div>
-        {conAgenda ? (
-          <>
-            {!agendada && <p className="apl-fin-nota">Lo que me contaste ya va cargado en la agenda: sólo elige el horario.</p>}
-            {/* La región está desde el principio: un aviso que entra ya escrito no siempre se lee en voz alta. */}
-            <div role="status" aria-live="polite">
-              {agendada && <p className="apl-agendada">¡Listo! Te llegó la confirmación por email, con el día y la hora. Nos vemos ahí.</p>}
-            </div>
-            <div className="apl-agenda">
-              <iframe src={agenda} title={`Mi agenda: elige el horario de tu llamada de ${PROGRAMA_ACELERADOR.nombre}`} style={alto ? { height: alto } : undefined} />
-            </div>
-            <p className="apl-agenda-pie">¿No se ve la agenda? <a href={agendaAparte} target="_blank" rel="noopener noreferrer">Ábrela aquí</a></p>
-          </>
-        ) : califica ? (
-          <p className="apl-fin-nota">La confirmación te llegó por email: ahí tienes el día, la hora y el link para cambiarla si lo necesitas.</p>
-        ) : (
-          <div className="apl-mako">
-            <p className="apl-mako-ceja">Mientras tanto</p>
-            <p className="apl-mako-texto">Conoce MaKo, el software con el que armo los sistemas de mis clientes.</p>
-            <a className="apl-link" href={rutaPlanes}>Ver los planes de MaKo<ArrowRight aria-hidden="true" width={16} height={16} /></a>
+        <div className="apl-video">
+          <span className="acl-esq acl-esq-1" /><span className="acl-esq acl-esq-2" />
+          <span className="acl-esq acl-esq-3" /><span className="acl-esq acl-esq-4" />
+          {video
+            ? <iframe src={video} title="Un video de Martín para ti" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+            : (
+              <div className="apl-video-falta">
+                <span className="apl-video-play" aria-hidden="true"><Play width={22} height={22} /></span>
+                <span>Muy pronto, un video mío para ti</span>
+              </div>
+            )}
+        </div>
+        <div className="apl-siguiente">
+          <p className="apl-siguiente-ceja">Tu siguiente paso</p>
+          {/* Sólo los botones (Martín: «no hace falta tanto texto… Tal vez solamente los botones»). */}
+          <div className="apl-siguiente-botones">
+            {conCuenta
+              ? <a className="acl-btn" href={rutaEntrar}>Entrar a MaKo</a>
+              : (
+                <>
+                  <a className="acl-btn" href={rutaPrueba}>Iniciar prueba gratuita de {PRUEBA_DIAS} días</a>
+                  <a className="apl-boton-borde" href={rutaEntrar}>Ya hice la prueba gratuita</a>
+                </>
+              )}
           </div>
-        )}
+        </div>
         {onOtra && (
           <p className="apl-otra">¿Quieres enviar otra aplicación? <button type="button" onClick={onOtra}>Empezar de nuevo</button></p>
         )}

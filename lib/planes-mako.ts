@@ -213,8 +213,13 @@ export type ProgramaMako = {
   id: string;
   nombre: string;
   precioUsd: number;
-  /** En cuántas cuotas iguales se paga. */
-  cuotas: number;
+  /**
+   * Lo que va debajo del precio (16/11/2026): por cuánto tiempo es. SIN CUOTAS A LA VISTA. Martín: «en todos lados eliminemos lo
+   * de las 3 cuotas de 500… Sería sí de contado o sí en cuotas»: se puede pagar en cuotas, pero ninguna página promete cuántas ni
+   * de cuánto (eso se habla en la llamada). Lo dicen la columna de /planes, la landing, «Compara los planes», /planes/accelerator y
+   * la pregunta de la inversión de la aplicación.
+   */
+  periodo: string;
   resumen: string;
   incluye: string[];
   /** Lo que sigue al terminar, si quiere. */
@@ -286,8 +291,9 @@ export const INCLUYE_EN_EL_CHECKOUT: Readonly<Record<string, readonly string[]>>
 // cada cosa tiene DOS formas: `corto` es el nombre de su fila en la tabla, y `fuerte` + `texto` lo que dice la tarjeta, largo.
 // La tarjeta muestra sólo las que llevan `enTarjeta`; la tabla, todas (menos «MaKo Pro completo», que en la tabla es la columna).
 export const LISTA_DEL_ACELERADOR: ReadonlyArray<{ corto: string; fuerte: string; texto: string; detalle: string; enTarjeta: boolean }> = [
-  { corto: '3 meses de acompañamiento', fuerte: '3 meses de acompañamiento personalizado', texto: ' con Martín, desde la estrategia hasta que tu sistema está andando',
-    detalle: 'Martín te acompaña 3 meses, desde la estrategia hasta que el sistema está andando', enTarjeta: true },
+  // 16/11/2026 (Martín): «…desde la estrategia hasta adquirir tus primeros clientes». Antes → «…hasta que tu sistema está andando».
+  { corto: '3 meses de acompañamiento', fuerte: '3 meses de acompañamiento personalizado', texto: ' con Martín, desde la estrategia hasta adquirir tus primeros clientes',
+    detalle: 'Martín te acompaña 3 meses, desde la estrategia hasta adquirir tus primeros clientes', enTarjeta: true },
   { corto: 'Tu sistema, armado por Martín', fuerte: 'Tu sistema de adquisición de clientes', texto: ', armado por Martín: tu funnel, tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido',
     detalle: 'Tu funnel, tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido, armados por Martín', enTarjeta: true },
   { corto: '3 sesiones 1 a 1 con Martín', fuerte: '3 sesiones 1 a 1 con Martín', texto: ' por videollamada, de 2 horas: estrategia, seguimiento y checkpoint',
@@ -312,7 +318,7 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
   id: 'acelerador',
   nombre: 'MaKo Accelerator',
   precioUsd: 1500,
-  cuotas: 3,
+  periodo: 'por los 3 meses',
   // 14/11/2026 (§4.1 del relevo): para quién es, por el momento del negocio, como los otros dos. La tarjeta muestra la
   // `promesa` si la hay, no esto; el `resumen` lo leen el bot de WhatsApp y el checkout. Antes: «Armamos contigo cómo
   // consigues clientes y te acompañamos a vender. No es sólo la herramienta.»

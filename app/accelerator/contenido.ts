@@ -7,8 +7,8 @@
 // de $100.000 facturados… hay varias partes donde menciona el acompañamiento 1 a 1 conmigo, y eso ya no es así».
 //
 // ⚠️ LO QUE NO VIVE ACÁ, A PROPÓSITO: el nombre del programa (`PROGRAMA_ACELERADOR.nombre`), lo que incluye
-//    (`LISTA_DEL_ACELERADOR`: los nombres de la columna de /planes, con el detalle de su «i» en la tabla) y el precio (la columna
-//    del Accelerator de /planes ENTERA, `TarjetaAccelerator`): se importan de lib/planes-mako.ts y app/planes/Tarjetas.tsx. Si
+//    (`LISTA_DEL_ACELERADOR`: los nombres de la columna de /planes, con el detalle de su «i» en la tabla) y el precio con cuánto dura
+//    (`PROGRAMA_ACELERADOR`, el de la columna del Accelerator de /planes): se importan de lib/planes-mako.ts. Si
 //    Martín cambia la oferta, cambia en los dos lugares a la vez. El 15/11 a la noche, sin ir más lejos, cambió cuatro veces en
 //    dos horas: la lista pasó de 7 renglones a 10, después a nombres cortos y después a nombres con detalle; el nombre pasó a
 //    inglés y la promesa perdió la garantía. Tampoco viven acá el formulario de aplicación ni adónde lleva cada «Aplica ahora»
@@ -156,6 +156,10 @@ export const PROGRAMA = {
    * (la fila de abajo quedaba con una sola tarjeta); ahora cada fase tiene cuatro, en dos columnas (./estilo.ts).
    * Y «que se tenga mucho más en cuenta el software de MaKo… en esas partes»: lo nuevo y lo de la fase 03 cuentan lo que hace
    * MaKo, con funciones que EXISTEN (cada una, con dónde vive, en su comentario).
+   * LOS 12 CONTADOS CON MaKo (16/11/2026, a la tarde): los textos de docs/accelerator-entregables-con-mako.md, uno por entregable,
+   * MENOS el #7 (Appointment Setting), que sigue diciendo que el setter manda tu agenda hasta que el setter reserve la llamada (I-6
+   * de ese documento). Ahí está, de cada uno, lo que MaKo ya hace y lo que falta construir (I-1 a I-12) para que el texto sea entero.
+   * Los comentarios de abajo cuentan el texto de antes de cada uno.
    */
   fases: [
     {
@@ -165,23 +169,26 @@ export const PROGRAMA = {
         // Hoy la hoja de ruta la arma MaKo y se aprueba antes de empezar (`PROGRAMA_ACELERADOR.incluye`, y más abajo en esta
         // misma página: «Tu hoja de ruta, armada por MaKo»), y una «Sesión 1:1» suelta se leía como una cuarta sesión además
         // de las tres. Es la primera de las tres, y «1 a 1» como en el resto de la página.
-        { nombre: 'Blueprint', icono: 'mapa', texto: 'MaKo arma tu hoja de ruta y en nuestra primera sesión 1 a 1 la ajustamos juntos: el paso a paso exacto del programa, desde el día uno.' },
-        { nombre: 'Foundations Method', icono: 'castillo', texto: 'Dejamos firmes las bases que casi nadie se toma el tiempo de ordenar: nicho, avatar, oferta y precio.' },
-        { nombre: 'Market Domination', icono: 'ojo', texto: 'Definimos en qué parte del mercado vas a competir y contra quién, alineado a tu forma de ser y tus valores.' },
-        { nombre: 'Communication Angles', icono: 'ejes', texto: 'Ángulos que conectan con los dolores reales de tu cliente, para que tu mensaje pegue fuerte y te posicione.' },
+        { nombre: 'Blueprint', icono: 'mapa', texto: 'MaKo arma tu hoja de ruta de 90 días, en nuestra primera sesión 1 a 1 la ajustamos y la apruebas: cada entregable con su fecha y su avance.' },
+        { nombre: 'Foundations Method', icono: 'castillo', texto: 'Dejamos firmes tu nicho, tu avatar, tu oferta y tu precio: MaKo los revisa con IA punto por punto y los usa en cada guion, anuncio y landing.' },
+        { nombre: 'Market Domination', icono: 'ojo', texto: 'MaKo pone tu oferta al lado de la de tu competencia y te muestra el hueco libre: ahí definimos dónde compites, fiel a tu forma de ser y tus valores.' },
+        { nombre: 'Communication Angles', icono: 'ejes', texto: 'El Marketing CoPilot saca tus ángulos de tus llamadas, tus chats y tus anuncios, los cruza con tu competencia y te dice cuál vende y cuál se quemó.' },
       ],
     },
     {
       num: '02', titulo: 'Sistema de adquisición de clientes predecible',
       entregables: [
-        { nombre: 'Marketing Ecosystem', icono: 'red', texto: 'Plan claro de qué contenido hacer, en qué canal y en qué orden, para atraer clientes y no publicar al vacío.' },
-        { nombre: 'Lead Generation', icono: 'iman', texto: 'Sistema de generación de leads a tu medida, montado sobre tus fortalezas y lo que ya te dio resultado.' },
+        { nombre: 'Marketing Ecosystem', icono: 'red', texto: 'MaKo arma tu semana de contenido según tu funnel: qué pieza, en qué red y qué día, cada una en tu calendario lista para editar y publicar.' },
+        { nombre: 'Lead Generation', icono: 'iman', texto: 'Elegimos tu funnel con lo que ya te funcionó y lo montamos en MaKo: tu landing, tus anuncios, tu lead magnet y cada lead en tu CRM con su origen.' },
         // NUEVO (16/11/2026), el cuarto de la fase: entre conseguir el lead y cerrarlo, el paso que faltaba (marketing → leads →
         // agenda → cierre). Es el setter con IA de MaKo Pro, que el programa trae entero: le contesta SOLO a quien escribe, en el
         // momento («Si responde» no deja esperas, lib/nutricion.ts), con un objetivo como «Que agende una llamada»
         // (lib/setter-ia-reglas.ts; en /planes, «Setter con IA que responde y agenda por WhatsApp e IG», lib/planes-comparacion.ts).
-        { nombre: 'Appointment Setting', icono: 'calendario', texto: 'El setter con IA de MaKo contesta a cada lead por WhatsApp en segundos, lo califica y le agenda la llamada: nadie se enfría esperando.' },
-        { nombre: 'Closing Method', icono: 'manos', texto: 'Proceso de cierre claro para vender high ticket sin presión falsa, sin manipular a nadie.' },
+        // ⚠️ NO AGENDA ÉL (revisión del 16/11/2026): decía «le agenda la llamada», y el setter no ve la agenda: manda el link para
+        // que la persona elija el horario (lib/flujo-ia.ts, regla 4: «MaKo no ve la agenda; para agendar, el "link" de agenda»). Sin
+        // «nadie se enfría esperando», que no entraba en los 150 caracteres de una tarjeta: «en segundos» ya lo dice.
+        { nombre: 'Appointment Setting', icono: 'calendario', texto: 'El setter con IA de MaKo contesta a cada lead por WhatsApp en segundos, lo califica y le manda tu agenda para que elija el horario.' },
+        { nombre: 'Closing Method', icono: 'manos', texto: 'Cierras sin presión falsa: MaKo arma tu guion con tus objeciones reales y el análisis de llamadas transcribe, traduce y puntúa cada una con SPIN.' },
       ],
       // Lovable: «Y acá no te dejo solo con la estrategia. Según el funnel que elijamos, construimos juntos todo lo que haga
       // falta para que funcione: anuncios, VSL, reels, lead magnets, landing pages, mensajes de venta y todo lo que haga
@@ -196,25 +203,25 @@ export const PROGRAMA = {
     {
       num: '03', titulo: 'Sistematización y escala',
       entregables: [
-        { nombre: 'Delivery System', icono: 'rompecabezas', texto: 'Ordenamos cómo entregas tu servicio para dar el mejor resultado de la forma más simple, sin resentir la calidad.' },
+        { nombre: 'Delivery System', icono: 'rompecabezas', texto: 'MaKo arma las etapas de tu entrega desde tu oferta: cada cliente en su etapa, tu curso y tu comunidad en la app, y quién necesita atención hoy.' },
         // Lovable: «Instalamos los sistemas, las automatizaciones, el CRM y las métricas…». Hoy el CRM y las automatizaciones
         // se arman la PRIMERA semana (`PROGRAMA_ACELERADOR.incluye`, lo que es contrato): en la fase 3 se afinan.
         // 16/11/2026, «en MaKo»: antes → «Afinamos los sistemas, las automatizaciones, el CRM y las métricas para decidir con
         // números en la mano.» Las métricas son el tablero de resultados que el programa trae (`LISTA_DEL_ACELERADOR`, el mismo
         // nombre que se lee más abajo en «Lo que incluye»), y todo vive en MaKo.
-        { nombre: 'Operations & Metrics', icono: 'barras', texto: 'Afinamos en MaKo tus automatizaciones, tu CRM y tu tablero de resultados, para decidir con números en la mano.' },
+        { nombre: 'Operations & Metrics', icono: 'barras', texto: 'Afinamos en MaKo tus automatizaciones y tu CRM, y cada lunes lees tus leads, reuniones y ventas en tu tablero de resultados: decides con números.' },
         // 16/11/2026, CON MaKo. Antes → «Sistema para atraer, evaluar y sumar a las personas correctas sin perder tiempo ni bajar
         // tus estándares.» Martín: «voy a dejar Hiring Process y Delegation Framework. Yo lo que me gustaría que se haga ahí es que
         // se tenga mucho más en cuenta el software de MaKo». Con MaKo, contratar empieza por lo que ya no hace falta contratar:
         // el setter con IA (el entregable #7) y la IA que escribe tus textos cubren puestos enteros. Y a quien entra, MaKo lo
         // mide: el análisis de llamadas puntúa cada llamada de venta y la anota a nombre de su closer (lib/closing.ts,
         // «analizar el desempeño del closer»; en /planes, «Análisis de llamadas», de MaKo Pro).
-        { nombre: 'Hiring Process', icono: 'persona', texto: 'Definimos qué puestos ya cubre MaKo y a quién sumar para el resto; y con el análisis de llamadas ves cómo vende cada persona que entra.' },
+        { nombre: 'Hiring Process', icono: 'persona', texto: 'Definimos qué puestos ya cubre MaKo y a quién sumar: MaKo filtra a tus candidatos y el análisis de llamadas te muestra cómo vende quien entra.' },
         // 16/11/2026, CON MaKo. Antes → «Definimos qué delegar, cuándo y a quién, para soltar tareas sin perder el control ni el
         // nivel de tu equipo.» Lo que hace que delegar no sea perder el control, en MaKo: cada persona entra con SU rol (setter,
         // closer o admin, y cada rol ve lo suyo: app/equipo/EquipoView.tsx) y sus tareas viven en tu plan, con su responsable y
         // su avance (app/plan/board).
-        { nombre: 'Delegation Framework', icono: 'compartir', texto: 'Definimos qué delegar, cuándo y a quién: cada persona entra a MaKo con su rol y sus permisos, y en tu plan ves si sus tareas se cumplen.' },
+        { nombre: 'Delegation Framework', icono: 'compartir', texto: 'Definimos qué delegar y a quién: cada persona entra a MaKo con su rol, recibe sus tareas en tu plan y ahí ves si las cumple a tiempo.' },
       ],
     },
   ] as ReadonlyArray<{
@@ -243,16 +250,16 @@ export const PROGRAMA = {
     },
   ] as const,
   /**
-   * La ceja del bloque de lo que incluye (15/11/2026). Hasta el 16/11 el bloque tenía al lado «Nuestra promesa»
-   * (`PROGRAMA_ACELERADOR.promesa`); se fue al llegar el precio (ver ./LandingAcelerador.tsx, «LO QUE INCLUYE»).
+   * El rótulo de la lista de «La inversión» (16/11/2026, a la tarde: lo que incluye vive adentro de ese bloque, debajo del precio).
+   * Hasta el 16/11 era «Lo que incluye», la ceja de un bloque aparte que tenía al lado «Nuestra promesa».
    */
-  incluyeCeja: 'Lo que incluye',
+  incluyeCeja: 'Incluye',
 };
 
 /**
- * EL PRECIO (16/11/2026). Martín: «en esta Landing Accelerator también necesita tener el precio… es mi política de que ya tenga
- * todo el precio… la columna que hicimos». La tarjeta es la columna del Accelerator de /planes (`TarjetaAccelerator`): acá sólo
- * vive la ceja que va arriba, y el botón, que dice `TEXTO_APLICAR` en mayúsculas.
+ * LA INVERSIÓN (16/11/2026). Martín: «en esta Landing Accelerator también necesita tener el precio… es mi política de que ya tenga
+ * todo el precio». Esa tarde, el bloque de lo que incluye pasó a llamarse así, con el precio arriba (ya no la columna de /planes
+ * sola debajo): «me gustaría que esa parte de lo que incluye se llame la inversión». Acá vive su ceja.
  */
 export const PRECIO = {
   ceja: 'La inversión',
