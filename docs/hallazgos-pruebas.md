@@ -4,6 +4,35 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+## Dos mediciones que dan verde sin mirar (16/11/2026, /accelerator)
+
+- **`s.slice(s.indexOf(A), s.indexOf(B))` devuelve VACÍO si B queda antes que A**, y una aserción sobre ese pedazo pasa sin
+  mirar nada (pasó en tests/planes-sin-pasarela.test.ts al mover `TarjetaAccelerator`). Afirmar también el orden
+  (`indexOf(A) < indexOf(B)`) o que el pedazo no esté vacío.
+- **`getClientRects()` de un hijo de un flex da 1 aunque su texto se parta en dos renglones**: para contar renglones, un `Range`
+  sobre su contenido (`range.selectNodeContents(el); range.getClientRects()`).
+
+## Un `\b` después de una tilde nunca calza: 23 guards del voseo no ven «elegí» ni «mirá» (16/11/2026, /accelerator/aplicar)
+
+- **Síntoma:** el guard de tests/aplicacion-accelerator.test.ts tenía `elegí|completá|revisá` y daba verde con «Elegí tu horario»
+  en la pantalla.
+- **Causa:** en JavaScript, sin la bandera `u`, `\b` sólo reconoce `[A-Za-z0-9_]`: la «í» final no cuenta como letra, y entre «í»
+  y un espacio no hay borde. `/\b(elegí|mirá|acá)\b/i` no calza con «Elegí tu horario», «mirá esto» ni «está acá.». Las que
+  terminan en consonante (`tenés`, `podés`) sí calzan, y por eso el guard parecía andar.
+- **Regla:** para palabras con tilde, `(?<!\p{L})(…)(?!\p{L})` con la bandera `u`, y el guard se prueba con una palabra que
+  TERMINE en tilde. Mejor todavía: `marcasDeVoseo` (lib/voseo.ts) genera las formas y separa las palabras con `\p{L}`.
+- **SIN HACER:** 23 tests tienen palabras así adentro de `\b(…)\b`: centro-limbo, conectar-ia, conversacion-resumen-reglas,
+  copiloto-comunicacion, curso-admin, editor-landing-replicar-animaciones, email-remitente, ficha-editar-con-mako, ia-pc-ola2,
+  image-editor-plantillas-crear, m-second-brain, mako-bot-reglas, mako-no-descalifica, marketing-copilot-descubrir, pedir-avisos,
+  plan-a-mano-recorrido, plan-a-mano, sugerencias-crm, tutoriales-legibles, video-outliers-criterio, video-puestas,
+  zernio-aviso-cobro y zernio-conectar-redes. Arreglarlos puede destapar voseo de verdad en esas pantallas.
+- **El guard que barre el repo no ve un archivo nuevo** (ya anotado el 13/11: lista con `git ls-files`). Una pantalla nueva, sin
+  `git add`, queda sin revisar: su propio test pasa `marcasDeVoseo` por lo que lee el visitante.
+- **Dos trampas al medir con Playwright:** `getComputedStyle(input, '::placeholder').color` devuelve el color del TEXTO del campo
+  en Chromium (dio 16,65:1 para un placeholder de 3,23:1): el contraste del placeholder se calcula con el valor del CSS. Y una
+  captura justo después de mover el mouse saca el botón a mitad de su transición (desteñido): se espera lo que dura (0,25 s en
+  `.acl-btn`).
+
 ## Cómo juzgar una réplica con el panel oculto: los lienzos del editor al lado del original (12/11/2026, Image)
 
 **El problema:** con el panel oculto la captura sale a 800 × 500 para una página de 1440: una lámina del editor queda en ~260 px de
@@ -122,6 +151,12 @@ el documento, todo) no entra en memoria. El reporte por defecto se come el error
 **La regla:** en un test con jsdom, se compara un DATO del elemento (`img?.getAttribute('src') ?? null`), nunca el elemento.
 Y un «tests N» menor que la cantidad de `test(` del archivo es un proceso que se murió, no una pasada: se vuelve a correr con
 `--test-reporter=tap`.
+
+**Volvió a pasar el 16/11/2026, con esta regla escrita en la cabecera del mismo test** (tests/aplicacion-accelerator.test.ts):
+`assert.equal(n.q('iframe'), null)`. Con la agenda rota a propósito, la corrida tardaba de 35 a 117 s y terminaba con
+«✖ tests\aplicacion-accelerator.test.ts» sin decir qué test; una de esas roturas corría cuando la PC se quedó sin memoria
+(01:33) y se cerró el proceso del agente. Un comentario no alcanzó: el test ahora se revisa a sí mismo (sin comentarios, ningún
+`assert.equal(x.q(…), …)`) y compara `x.q(…) === null`. Y lo que se monta se desmonta en un `afterEach`, falle o no el test.
 
 ## El juez decide UNA vez, en el horizonte del plan: medido con pruebas A/A (25/10/2026)
 

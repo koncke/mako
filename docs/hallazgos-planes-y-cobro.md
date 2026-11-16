@@ -10,6 +10,21 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## El checkout con Mercado Pago elegido no se leía, y el pie se salía en el teléfono (16/11/2026, lo encontró la maqueta del onboarding)
+
+- **Mercado Pago ELEGIDO: «Mercado Pago» en blanco sobre celeste pálido.** La regla de su fila elegida
+  (`.ck-medio-mp:has(input:checked)`, fondo #0084C2) y la general de cualquier fila elegida (`.ck-medio:has(input:checked)`, fondo
+  #EEF4FF) pesan lo mismo (0,2,1) y las dos llevan `!important`: gana la que viene después, la general. Arreglado subiendo el peso
+  de la de MP (`.ck-medio.ck-medio-mp:has(...)`, app/planes/estilo.ts). Con dos `!important` sobre lo mismo, el peso y el orden
+  siguen decidiendo: mirar el color calculado, no la regla escrita.
+- **El pie del checkout no cortaba a 390 px** («Pagos procesados por Mercado Pago y Stripe» + los tres links en una línea con
+  `nowrap`) y la página se corría a lo ancho. En el teléfono la frase va en su renglón y los tres links siguen juntos abajo (lo que
+  Martín pidió el 14/11: que privacidad y reembolsos no se partan).
+- **El diagnóstico equivocado del 15/11**: la maqueta mostró sólo la tarjeta porque buscó el precio en pesos en
+  `PLANES_MAKO_DEFAULT`; el precio en pesos vive en la BASE (el setting `planes.mako`), así que sin leerla no hay Mercado Pago.
+- **El checkout se mide con la ventana** (`min-height: 100vh` y `100dvh` en app/planes/estilo.ts): metido en un marco más bajo
+  (una maqueta, un panel) scrollea lo que le falta, y un `height: 100%` de un hijo no vale nada si el padre sólo tiene `min-height`.
+
 ## La ✓ y la ✗ son DIBUJOS, no letras: centrar la caja de una letra no centra su trazo (15/11/2026)
 
 **Vive en:** `app/planes/signos.ts` (las declaraciones del círculo con su signo). Las usan `CSS_TARJETAS`

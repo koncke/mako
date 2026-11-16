@@ -20,6 +20,43 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Sacar un funnel del catálogo sin romper a quien ya lo tiene (16/11/2026)
+
+Martín, mirando el catálogo de funnels del CRM en el Funnel Coach de la maqueta del onboarding: sacar LinkedIn («Nosotros no
+hacemos LinkedIn»), Dos reuniones («es llamada de venta directamente») y DM funnel («para eso ya tenemos conversaciones por
+chat»); «Recurso gratis» → «Lead Magnet Funnel» en toda la app y «Carrito» → «Venta Directa». Vive en `lib/pipeline.ts`
+(`TIPOS_CRM`), lo fija `tests/funnels-que-se-ofrecen.test.ts`.
+
+- **El id del tipo NO está en `funnels`.** Un CRM de «Nuevo CRM» guarda sus etapas y su entrada; `funnels.plantilla` anota la
+  plantilla del CANAL (`simple`, `conversaciones`…), no el tipo. Sacar un tipo no toca ningún CRM creado. El id SÍ está en
+  `onboarding.arranque.crmTipo` (lo elegido), `crmPropuesta.tipo` (el CRM a medida) y el `payload` de un `crear_crm` que espera
+  el «sí». Medido en producción, sólo lectura, el 16/11: un negocio, «Cliente de Prueba», con dos reuniones elegido y propuesto
+  en el onboarding; ningún funnel con la forma de LinkedIn ni de DM funnel; un `crear_crm` de LinkedIn de esa cuenta, cancelado.
+- **Regla: lo que deja de ofrecerse va a `TIPOS_CRM_HEREDADOS`, nunca se borra.** `TIPOS_CRM` es lo que se OFRECE (el modal, el
+  onboarding, `recomendarFunnel`, `tipos_de_crm` y el enum de `crear_crm`). Lo guardado se lee con `tipoCrmPorId` (las dos listas)
+  y lo que se propone con `tipoCrmOfrecido`. `FunnelRecomendado.tipo` es `TipoCrmOfrecidoId`: recomendar uno heredado no compila.
+- **La trampa: buscar lo ELEGIDO en la lista de lo que se OFRECE.** El historial del onboarding dibujaba la respuesta con
+  `TIPOS_CRM.find(...)`: con el tipo afuera, la respuesta se borraba sin error y la pregunta del CRM volvía a salir con sus
+  botones, aunque `etapaDeArranque` ya la diera por contestada. Al revés, la tarjeta dibujaba la PROPUESTA guardada con
+  `tipoCrmPorId` mientras la pregunta ya recomendaba otro.
+- **El «sí» por chat ejecuta el `payload` guardado SIN volver a validarlo** (`lib/api-mako/acciones.ts` llama a `ejecutar`
+  directo); el enum frena al proponer y en /mako/revisar, no ahí. Por eso `siembraDeCrm` acepta los heredados: crea lo que se
+  confirmó.
+- **LinkedIn era el ÚNICO tipo con la entrada `chat_saliente`.** Sin él, quien contesta «Tú les escribes» en el onboarding
+  recibe «Llamada de venta», que siembra la entrada `landing`: la primera frase de MaKo supone que llenó un formulario (ya pasaba
+  con «Agendan llamada»). **SIN HACER:** sembrar la entrada que contestó (`sembrarCrmPrincipal`, lib/onboarding-arranque-server.ts,
+  y su llamada en app/api/onboarding/arranque/route.ts).
+- **«Recurso gratis» tiene más formas que la obvia:** el grep literal no ve «regalo gratuito» (lib/asesores/ficha-vilma-nunez.ts)
+  ni «el recurso que regalas» (lib/guion-angulos.ts). El barrido del test las busca en app/, lib/, extension/, nativo/ y public/,
+  sin comentarios. Lo dicen A PROPÓSITO, y están exceptuados: los cursos de terceros (app/conocimientos: «7 Recursos Gratuitos»
+  es el título de una clase), sus transcripciones (.json) y el catálogo del Competitor Spy (lo que escriben las páginas de la
+  competencia).
+- **SIN HACER (decide Martín):** el canal «Carrito / checkout» (lib/fase-diagnostico.ts:368), la entrada «Compran en el carrito»
+  (lib/pipeline.ts:813) y el tipo de funnel del editor «Anuncios a carrito» (lib/pipeline.ts:859) no son el nombre del funnel, y
+  dos son palabras literales suyas (29/09 y 12/10). Un CRM creado como «Recurso gratis» conservaría su etapa «Pidió el recurso»
+  (se guarda en su funnel): medido el 16/11, no hay ninguno. El Marketing CoPilot sigue aconsejando LinkedIn para servicios
+  a empresas (lib/media-buyer/copiloto-conocimiento.ts:27): es otro catálogo, como el del Funnel Coach (lib/funnel-plan.ts).
+
 ## La ficha del lead es un PANEL a la derecha, no un modal (14/11/2026, claude5)
 
 Martín, sobre la grabación del CRM de la portada: «que ya no se vaya al modal sino que esté así como un desplegable a la derecha». La carcasa es

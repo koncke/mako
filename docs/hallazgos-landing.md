@@ -46,6 +46,91 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## El sitio en todas sus rutas: un pie de un solo lugar, «Recursos», y lo que mide mal el medidor de círculos (15-16/11/2026)
+
+- **Los 2 px de más del teléfono NO eran el menú** (el diagnóstico que traía el pedido era el equivocado): con el menú cerrado
+  y abierto, a 360, 375 y 390, todas las páginas miden lo mismo que la pantalla. Era el control de la barra de MaKo Tokens
+  (100 % + 36 px), ya arreglado en `9bf533401` (`overflow-x: clip` en `.planes-root`). Antes de culpar a un elemento, medir
+  `scrollWidth` con él y sin él.
+- **El pie lo dibuja UN lugar**: `PieGlobal` (app/vsl/_sitio/Barra.tsx) en cada página pública, salvo la portada,
+  Comparaciones y los funnels, que lo traen adentro. Esconde el pie propio de la página (`footer:not(.s-pie)`).
+  `tests/sitio-recursos-y-pie.test.ts` recorre las páginas públicas: una nueva sin pie se pone roja salvo que figure en
+  `SIN_PIE` con su motivo, y el pie no puede salir dos veces. Sin pie a propósito: el checkout (Martín: sin barra ni scroll),
+  /login*, /app, /pagar/…/listo, /compartido/*, las redirecciones y las 7 legales (se abren dentro de la app de iPhone, y ahí no
+  se puede enlazar a comprar).
+- **La razón social en UN nodo de texto** (Meta busca la frase entera): `renderToStaticMarkup` NO escribe los `<!-- -->` que
+  React pone entre dos nodos de texto, así que un test con él da verde aunque la frase esté partida; hay que dibujar con
+  `renderToString` (`lineaDelCopyright`, app/vsl/_sitio/Pie.tsx).
+- **Una página del servidor que importa un archivo con hooks corta la compilación de Next**: `sufijoAPlanes` salió de
+  app/vsl/PreciosLanding.tsx a app/vsl/sufijo-a-planes.ts para que app/page.tsx lo pueda leer.
+- **Un ícono que el sol y la luna dan vuelta sin querer**: el de MaKo en «Lo que ya pagas» salía blanco en el modo claro porque
+  le faltaba `data-tema-fijo` (TemaSitio recolorea por luminancia todo lo que no lo tiene).
+- **Los círculos con un signo**: una letra se centra por su caja y no por su tinta (y la fuente de reemplazo la corre), así que
+  van dibujos SVG (app/planes/signos.ts); y un signo de lado impar dentro de un círculo par cae en medio píxel: lados pares. El
+  medidor (`auditar-circulos.cjs`, en el scratchpad de la sesión) tiene falsos positivos: abre a la fuerza el menú del teléfono
+  (marca el sol y la luna), ubica los `::after` al principio de la fila (el + y el − de las preguntas van al final), en
+  Comparaciones la foto de página entera cambia el ancho y el script de las flechas vuelve a medir, y cuenta como círculo lo
+  que está detrás (una foto, una sombra, una animación).
+- **«Recursos» tiene dos ítems que piden sesión**: `/agency` y `/api-mako` (marcados `conCuenta` en app/vsl/_sitio/datos.ts).
+  Si una pasa a ser pública, hay que sacarle la marca (el test avisa).
+- **SIN HACER**: páginas públicas de agencias y de la API (la de la API puede mostrar `referenciaMarkdown` de
+  lib/api-mako/docs.ts, sin los tokens); el pie en las legales sólo fuera de la app de iPhone; que app/planes/Vitrina.tsx use
+  `ColumnasPlanes` (hoy un test cuida que la portada y /planes dibujen lo mismo); la burbuja de la barra de tokens se corta al
+  máximo en el teléfono (app/planes/CalculadoraTokens.tsx); las 3 landings de Web Generator sin la barra de tokens (su script no
+  corre dentro del portal) y con «con nosotros a tu lado»; las 14 landings viejas con «Solo 5 cupos»; la ✓ del checkout es una
+  letra (app/planes/estilo.ts); el logo de Zoom es la palabra y queda chico; lo que «Recursos» suele tener y MaKo no (blog,
+  centro de ayuda, novedades, comunidad, estado del servicio).
+
+## /accelerator con el precio y «Aplica ahora»: una tarjeta de /planes adentro de otra página (16/11/2026)
+
+- **La columna del Accelerator es UN componente** (`TarjetaAccelerator({ boton })`, app/planes/Tarjetas.tsx): la usan /planes
+  («MÁS INFORMACIÓN» → /accelerator) y la landing («APLICA AHORA» → /accelerator/aplicar). /planes quedó igual byte por byte.
+- **Una tarjeta que entra en otra página hereda lo que no declara y empata con su reseteo**: el reseteo de la landing
+  (`.acl-root *`) tiene el mismo peso que las reglas de la tarjeta y gana el que viene después en el CSS; y el título, que no
+  declara su letra, se iba a la Sora de la landing. Se arregla con el orden del CSS (el de la tarjeta, después) y la letra de
+  /planes declarada en la caja de la tarjeta. Medido: 25 propiedades calculadas iguales a las de /planes.
+- **La barra pegada abajo en el teléfono + el botón de una sección = tres «Aplica ahora» en la misma pantalla**: la sección del
+  precio tapa la barra mientras se ve (`z-index` mayor y fondo opaco), sin JavaScript; al terminar el precio, la barra vuelve.
+- **Ningún «Aplica ahora» va a Calendly**: los cinco van al formulario (`RUTA_APLICAR`); la agenda la abre el formulario, y sólo a
+  quien califica (lib/aplicacion-accelerator.ts). «Nuestra promesa» se fue de la landing por lo mismo que de la columna: el
+  sistema de adquisición ya es el segundo renglón.
+- **SIN DECIDIR**: `PROGRAMA_ACELERADOR.promesa` (lib/planes-mako.ts) ya no se dibuja en ninguna página pública; y en el
+  teléfono angosto (420 px o menos) «MaKo Accelerator» de la barra se parte en dos renglones (no desborda; se ajusta en
+  `CSS_BARRA_ACCELERATOR`, app/accelerator/Barra.tsx).
+
+## /accelerator/aplicar: la agenda «ya contestada» tiene topes que el link no respeta, y volver después de agendar (16/11/2026)
+
+- **Lo que llega por el link de Calendly no lo frena el `maxlength`, y una pregunta de UNA línea borra los saltos.** En la agenda
+  de Martín el nombre admite 155 caracteres, y las preguntas de texto (el @ y «¿Qué quieres lograr…?», `format: "string"` en la
+  consulta pública) son `<input maxlength="255">`. `linkDeLaAgenda` mandaba la meta y «Lo que me frena hoy» separadas por un
+  renglón en blanco y hasta 600 caracteres: se veían pegadas («…referidos.Lo que me frena…») y con 598 en un campo de 255, con el
+  riesgo de que la agenda no deje confirmar. **Lo obvio era lo equivocado:** el test fijaba ese texto con `\n\n` y daba verde; se
+  vio recién leyendo el formulario de la agenda de verdad. Regla: lo que se carga por link va en un renglón y cortado al tope del
+  campo (`enUnRenglon` y `TOPE_AGENDA`, lib/aplicacion-accelerator.ts). Las cuatro de opción (a4–a7) sí quedan marcadas con el
+  texto exacto, y «Programar evento» queda listo para tocar.
+- **Para leer ese formulario sin agendar:** abrir la agenda con el link cargado, elegir día y horario
+  (`button[data-container="time-button"]`), «Siguiente», y leer los campos. NUNCA «Programar evento»: crea una reunión de verdad
+  (y en /vsl dispara Schedule y Lead en Meta). Los días sin horario también dicen «disponibles» en su `aria-label` («No hay horas
+  disponibles»): hay que descartarlos al elegir.
+- **El iframe de Calendly SIN su widget.js sí avisa por `postMessage`**, pero sólo si el link lleva `embed_domain` y
+  `embed_type=Inline` (sin los dos, 0 mensajes; la ayuda de Calendly dice que un iframe no puede, y está incompleta). Llegan
+  `calendly.page_height` (el alto, como «927px»: con eso el iframe no tiene barra adentro) y `calendly.event_scheduled`.
+  `embed_domain` no se valida: se filtra por `e.origin === 'https://calendly.com'`. Altos medidos: en el teléfono, 602 px el
+  calendario, 815 los horarios y 1.792 el formulario con las 7 preguntas; con unos 700 px de ancho, unos 930 (en una columna).
+  Mientras carga manda altos de 2 y 26 px: se descartan. (Medido el 16/11 por la investigación de la agenda y en el formulario.)
+- **Volver después de agendar:** la aplicación enviada queda una semana en el navegador, para que quien cerró sin elegir horario
+  vuelva a su agenda sin llenar nada. Sin guardar el aviso `calendly.event_scheduled`, quien YA agendó volvía a la agenda cargada
+  y podía agendar dos llamadas. Ahora queda `agendada` y lee «Tu llamada conmigo ya quedó agendada», sin la agenda.
+- **El `:hover` queda pegado en el teléfono** (iOS, después de tocar): el «Siguiente» del paso nuevo seguía con el hover de la
+  landing (naranja con el texto claro, 3,05:1). En el formulario, `@media (hover: none)` lo deja como está.
+- **SIN HACER.** En la landing (app/accelerator/estilo.ts): el hover de `.acl-btn` (3,05:1 también con mouse) y el gris tenue
+  `--acl-muted` #7C766C (4,28:1 sobre la página y 3,86:1 sobre las tarjetas; lo mínimo para texto chico es 4,5:1, y el
+  formulario usa #8E887E). En la agenda de Calendly, lo hace Martín: sacar sus 7 preguntas o volverlas opcionales (ya llegan
+  contestadas, pero el formulario mide 1.792 px en el teléfono), y un evento «secreto» para los que califican (hoy el link directo
+  saltea el filtro). Para la asistencia: un WhatsApp al agendar y un recordatorio unas 24 h antes (el webhook `invitee.created`
+  está en todos los planes de Calendly), `guests=` para el socio cuando contesta «necesito consultar», `utm_term` para unir la
+  reserva con la aplicación, y el píxel de Meta (ni la landing ni el formulario miden Schedule ni Lead).
+
 ## El sol y la luna de la portada tomaba las columnas de /planes por el LOGO: el arreglo de la mañana era el síntoma (15/11/2026)
 
 **Vive en:** `app/vsl/_competencia/TemaSitio.tsx` (el selector del logo, en `fuera` y en `llevarAlModo`) y `app/planes/Tarjetas.tsx`

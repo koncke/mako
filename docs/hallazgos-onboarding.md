@@ -20,6 +20,22 @@ todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
 ---
 
+## La maqueta del 16/11: lo que hace falta en la app para construirla
+
+Martín la aprobó por partes el 16/11/2026 (la maqueta: https://claude.ai/artifact/WAwWauFRGGNpTSNfdKUtuZ; las decisiones, en la
+memoria `onboarding-16-11-decisiones`). Lo que no existe y hay que hacer:
+
+- **El código por WhatsApp**: hoy el WhatsApp se confirma cuando llega el mensaje al webhook (lib/onboarding-arranque.ts, cerca de
+  la línea 1218), sin código. Lo nuevo: MaKo contesta el saludo con un código y la persona lo pega en el mismo recuadro; sin
+  «Ahora no» (es obligatorio).
+- **El chat en un bloque**: da vuelta el «sin recuadro» del 17/10 (Martín, 16/11: «está como que muy suelto»).
+- **El tutorial con DOS huecos**: el de hoy (app/_ui/Recorrido.tsx) oscurece todo menos un elemento; el de la bienvenida tiene que
+  dejar sin oscurecer lo marcado Y el video de Martín, que sigue hablando mientras marca.
+- **Los tramos de plata con «$» se leen en pesos desde Argentina**: van con «US$» (la maqueta ya los cambió).
+- **Lo que deja de pasar en el onboarding**: oferta y funnel (pasan a Offer Coach y Funnel Coach), el QR del teléfono (al día 1 del
+  reto) y la instalación de la app de escritorio. Lo que queda abierto: que el contexto se guarde bien sin la app (la preocupación
+  de Martín con los MaKo Tokens).
+
 ## El estado del wizard (`lib/onboarding-state.ts`)
 
 ### El paso `productos` no existe en el estado, y el error no se ve

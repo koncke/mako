@@ -272,6 +272,28 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 ---
 
 
+## El chat se cerró solo a las 01:33: el proceso de Claude Code se quedó sin memoria (16/11/2026)
+
+- **Síntoma**: el chat del Cerebro desapareció en medio de dos workflows y dos agentes; al volver, todo figuraba «stopped».
+- **Causa** (en %LOCALAPPDATA%\Claude\Logs\main.log): «memory pressure (critical)» y, 18 s después, «Claude Code process
+  exited with code 3221226505» (0xC0000409, el cierre de un proceso que se queda sin memoria), «torn down with 9 live
+  task(s)». No fue la GPU (la otra causa conocida, en la memoria `claude-se-cierra-gpu-hibrida`). Los agentes de un workflow y
+  los sueltos viven ADENTRO del proceso del chat, y cada captura que miran (un PNG leído como imagen) queda en su contexto: con
+  6 agentes sacando y mirando capturas, en un chat de 3.500 mensajes (104 MB de transcript), no entró.
+- **El disparador probable, que no era el diagnóstico obvio** (lo encontró después el agente que terminó el formulario): a
+  esa hora corría tests/aplicacion-accelerator.test.ts rompiéndose a propósito, y comparaba un nodo de jsdom con
+  `assert.equal(n.q('iframe'), null)`. Al fallar, el reporte inspecciona el nodo con su ventana entera: la corrida pasaba de
+  14 s a 35-117 s y se comía la memoria de la PC (la regla de AGENTS.md ya decía «nunca assert.equal sobre un nodo de jsdom»,
+  que una vez llegó a 26 GB). Los agentes de más fueron el agravante, no la causa. Ahora el test compara booleanos y se
+  revisa a sí mismo.
+- **Regla**: ningún nodo de jsdom adentro de un `assert` (comparar `!!nodo` o una cuenta); y con un chat largo, a lo sumo 2 o
+  3 agentes a la vez; a cada agente que saca capturas, pedirle que mire pocas (las
+  que importan) y que mida con código el resto; los procesos de a uno y cerrados.
+- **Al retomar**: el `journal.jsonl` de cada workflow dice qué agente terminó (`Workflow` con `resumeFromRunId` reusa lo
+  terminado, pero un agente que se cortó arranca de cero); un agente suelto se retoma con `SendMessage` a su id (su transcript
+  queda guardado). Un proceso hijo puede seguir vivo después del corte (el vigía de CI siguió corriendo, y un script escribió
+  un archivo 2 minutos después): buscarlo por PID y matarlo si es propio.
+
 ## Una punta que ya se subió y después se rebasó: no se fuerza, se une, y después NUNCA `pull --rebase` (14/11/2026, claude5)
 
 La punta tenía un commit subido (rojo en GitHub, sin llegar a main) y el arreglo se rebasó sobre main: el push normal se rechaza

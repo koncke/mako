@@ -3028,6 +3028,21 @@ reporte de Automations, donde cada paso del lienzo es una tarjeta: los tickets d
 los tomara. Antes de sumar una palabra, se busca en los rótulos de la app (`grep -ri "<palabra>" app/`); si nombra una pieza, va con su
 contexto («tarjeta de crédito», «pagar con tarjeta»), y el test lleva una frase real de esa pieza. Detalle: docs/hallazgos-ticketera.md.
 
+# Una palabra con tilde no se busca con `\b`
+
+En JavaScript, sin la bandera `u`, `\b` sólo reconoce `[A-Za-z0-9_]`: `/\b(elegí|mirá|acá)\b/` NUNCA calza con «Elegí tu horario»,
+«mirá esto» ni «está acá.» (la tilde final no cuenta como letra, y entre ella y el espacio no hay borde). Las que terminan en
+consonante (`tenés`) sí calzan, y por eso el guard parece andar. Para palabras con tilde: `(?<!\p{L})(…)(?!\p{L})` con la bandera
+`u`, o `marcasDeVoseo` (lib/voseo.ts); y el guard se prueba con una palabra que TERMINE en tilde. El 16/11/2026, 23 tests tenían
+todavía el patrón ciego: la lista está en docs/hallazgos-pruebas.md.
+
+# En un test con jsdom, NUNCA un nodo adentro de un `assert`
+
+`assert.equal(el, null)` con `el` un elemento de jsdom, al FALLAR, hace que el reporte inspeccione el nodo entero, con su ventana:
+el proceso se come la memoria y el archivo termina sin decir qué test falló. Pasó el 10/11 y otra vez el 16/11/2026, con esta regla
+escrita en la cabecera del mismo test; una de esas roturas corría cuando la PC se quedó sin memoria. Se compara un DATO:
+`el === null`, `el?.getAttribute('src') ?? null`, `el?.textContent`. Detalle: docs/hallazgos-pruebas.md.
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres
@@ -4057,6 +4072,12 @@ elegir no es lo mismo que esconder lo que ya está elegido.
 La cura es una línea: el valor actual entra a la lista aunque no cumpla la regla, marcado
 (`Q2 2026 (pasado)`). Molde: `quartersElegibles(hoy, cuantos, incluir)` en
 `app/plan/board/cuando.ts`.
+
+**Lo mismo con un CATÁLOGO que se achica** (16/11/2026, los tipos de «Nuevo CRM»): sacar una
+opción de lo que se OFRECE no es borrarla. Si su id puede estar guardado, va a una lista de
+heredados (`TIPOS_CRM_HEREDADOS`, lib/pipeline.ts) y hay DOS búsquedas: la de lo que se propone
+(`tipoCrmOfrecido`) y la de lo guardado (`tipoCrmPorId`). Buscar lo elegido en la lista de lo
+ofrecido no da error: la respuesta desaparece de la pantalla (docs/hallazgos-crm.md).
 
 # Un layout que se auto-mide tiene que acertar SIEMPRE; uno fijo no tiene casos
 
