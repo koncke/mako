@@ -10,6 +10,15 @@ reuniones / DM funnel) · a0c6f23d6 checkout · cbb4d0431 cosecha · 354b78401 e
 
 **~08:45 AST: corre «landings-que-faltan» (wf_0902e6bb-000)**, de a dos: Closing (rehacer /vsl/closing) y los tres funnels + la API pública (la misma /api-mako abierta); después Classroom + Second Brain y Equipo + Calendario; y una revisión. Nada commiteado todavía: si se corta, retomar con Workflow({scriptPath, resumeFromRunId}) (lo terminado vuelve del caché) y commitear por ruta.
 
+**MARTÍN, 16/11 ~19:20 UTC — «TERMÍNALO TODO, NO ME VUELVAS A PREGUNTAR»:**
+- Closing: NO las barras. Una pantalla tipo **Google Meet** (la llamada) donde MaKo va marcando **objeciones, dolores**, etc., y al
+  principio un **antes y después** (6,2 → 8,0). Datos de las llamadas reales de Mauricio, sin frases ni nombres de terceros.
+- El caso de Mauricio de la portada: «Con MaKo» dice **más de US$100k** (no 70k); «Antes», **menos de US$9k**; la mitad de MaKo NO toda
+  azul: como la columna de MaKo Pro de US$97 (degradado azul sutil); y el **video de Mauricio intercalado con sus fotos** en un carrusel
+  que pasa solo.
+- Y terminar: el **organigrama de Equipo** (caras generadas), el **caso de Mauricio del Accelerator** (más corto) y el antes y después
+  de Closing en /vsl/closing y en la fila de coaching de /vsl/equipo.
+
 **HECHO ~19:15 UTC (6208470ab):** Spy más rápido al elegir a Hormozi (b3b94d780); el caso de Mauricio de la portada rediseñado (84b93b78a:
 el copy original, sin las barras, y el antes/después en una tarjeta); Closing con el antes y después REAL de dos llamadas de Mauricio
 (app/vsl/_sitio/ClosingAntesDespues.tsx + closing-mauricio.ts: 6,2 → 8,0, sólo notas) en la fila de la portada; el rojo de la 1488.
