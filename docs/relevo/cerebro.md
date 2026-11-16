@@ -11,6 +11,8 @@
   del carrusel. AI Avatar ya no arranca solo con sonido.
 - Artefacto «Sitio de MaKo»: https://claude.ai/artifact/KGnfQnWAuiZ62qg9uioKZb (versión 15).
 
+**22:40 UTC:** hecho y subido el Closing con la hoja de MaKo (tasa, llamadas analizadas con nombres inventados y scores reales, score por semana, cierres 0 → 9 con US$58.200 y zoom final) y el caso de Mauricio del Accelerator en una fila (554 px del título a «No existe ningún método estándar»; eran 1314). Martín: «MaKo Essential tiene que estar en inglés siempre» y «no vamos a desplegar todavía». Queda el organigrama de Equipo.
+
 **SIN HACER (en orden):** 1) el VSL en Safari: no se reprodujo; preguntarle a Martín aparato, página y qué ve
 (docs/hallazgos-landing.md, la entrada del 16/11 a la noche). 2) El organigrama de la fila Equipo de la portada con caras
 generadas de personas que no existen (hoy es el video del formulario de invitar; Martín: «no quiero ver un formulario»). 3) El

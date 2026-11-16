@@ -159,28 +159,26 @@ export function LandingAcelerador({ origen = null }: {
           <section className="acl-sec acl-mau-s">
             <div className="acl-wrap">
               <div className="acl-mau">
-                <div className="acl-mau-titulo">
-                  <h2>
-                    {MAURICIO.titulo[0]}<span className="acl-plata">{MAURICIO.titulo[1]}</span>{MAURICIO.titulo[2]}
-                  </h2>
-                </div>
-                <div className="acl-mau-top">
-                  <div className="acl-mau-video">
-                    <video src={MAURICIO.video} autoPlay muted loop playsInline preload="auto" aria-label="Mauricio en el escenario" />
-                  </div>
-                  <div className="acl-mau-txt">{MAURICIO.intro.map((p) => <p key={p}>{negritas(p)}</p>)}</div>
-                </div>
-                <div className="acl-mau-split">
-                  <div className="acl-mau-txt">
-                    <p className="acl-mau-em">{MAURICIO.importa}</p>
-                    {MAURICIO.escenario.map((p) => <p key={p}>{negritas(p)}</p>)}
-                  </div>
-                  <div className="acl-carr">
+                {/* EL CASO EN UNA FILA (Martín, 16/11/2026: «falta el rediseño de el caso de éxito de Mauricio en MaKo Accelerator»; antes:
+                    «está muy largo desde el título hasta no existe ningún método estándar»): como el caso de la portada, el video y las
+                    tres fotos en un carrusel que pasa solo (CSS, cuatro segundos cada uno) y al lado el título y el texto. */}
+                <div className="acl-mau-fila">
+                  <div className="acl-mau-carr">
+                    <div className="acl-mau-slide">
+                      <video src={MAURICIO.video} autoPlay muted loop playsInline preload="auto" aria-label="Mauricio en el escenario" />
+                    </div>
                     {MAURICIO.fotos.map((f) => (
                       // eslint-disable-next-line @next/next/no-img-element -- fotos de /public en un carrusel hecho con CSS
-                      <img key={f.src} src={f.src} alt={f.alt} width={f.ancho} height={f.alto} loading="lazy" decoding="async" />
+                      <div className="acl-mau-slide" key={f.src}><img src={f.src} alt={f.alt} width={f.ancho} height={f.alto} loading="lazy" decoding="async" /></div>
                     ))}
-                    <div className="acl-puntos" aria-hidden="true">{MAURICIO.fotos.map((f) => <span key={f.src} />)}</div>
+                  </div>
+                  <div className="acl-mau-txt">
+                    <h2>
+                      {MAURICIO.titulo[0]}<span className="acl-plata">{MAURICIO.titulo[1]}</span>{MAURICIO.titulo[2]}
+                    </h2>
+                    {MAURICIO.intro.map((p) => <p key={p}>{negritas(p)}</p>)}
+                    <p className="acl-mau-em">{MAURICIO.importa}</p>
+                    {MAURICIO.escenario.map((p) => <p key={p}>{negritas(p)}</p>)}
                   </div>
                 </div>
                 <div className="acl-mau-bottom">

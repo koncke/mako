@@ -19,8 +19,8 @@ const minuto = (s: number) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 };
 const usd = (n: number) => `US$${n.toLocaleString('es-AR')}`;
-/** El color de cada paso del embudo: los dos de reuniones en azul y las ventas en verde. */
-const COLOR_EMBUDO = ['#2F6FED', '#6C9BF3', '#34A853'] as const;
+/** El color del círculo con la inicial de cada llamada (como los avatares de la app). */
+const COLOR_AVATAR = ['#7B61FF', '#12B5CB', '#F9AB00', '#E8710A'] as const;
 const FOTO_MAURICIO = '/vsl-assets/sitio/avatar/mauricio-meet.jpg';
 const CICLO = 18;
 /** En qué % del ciclo entra cada objeción (a los 2,4 s, 4,9 s y 7,4 s) y en qué % crece cada mes del gráfico. */
@@ -125,6 +125,21 @@ const CSS = `
 .s-cad-emb b{font-size:1.45cqw;color:#12151B}
 .s-cad-emb span{grid-column:1/-1;height:1.6cqw;border-radius:.5cqw;background:var(--c);width:var(--w);transform-origin:left;transform:scaleX(0);animation:s-cad-emb ${CICLO}s infinite}
 @keyframes s-cad-emb{0%,63%{transform:scaleX(0)}70%,96%{transform:scaleX(1)}99%,100%{transform:scaleX(0)}}
+/* Las llamadas analizadas: la inicial, con quién, cuánto duró, si avanzó y su score con el color de la nota. */
+.s-cad-llam{display:flex;align-items:center;gap:1cqw;padding:.6cqw 0;border-top:1px solid #EEF0F4;font-size:1.25cqw;font-weight:600;white-space:nowrap}
+.s-cad-card-t+.s-cad-llam{margin-top:.6cqw;border-top:0}
+.s-cad-llam i{flex:none;width:2.4cqw;height:2.4cqw;border-radius:50%;background:var(--c);color:#fff;font-style:normal;font-size:1.1cqw;font-weight:700;display:flex;align-items:center;justify-content:center}
+.s-cad-llam span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.s-cad-llam small{color:#9AA0A6;font-weight:600}
+.s-cad-llam em{margin-left:auto;font-style:normal;font-size:1.1cqw;color:#6B7280}
+.s-cad-llam b{flex:none;min-width:3.4cqw;text-align:center;padding:.25cqw .6cqw;border-radius:.6cqw;font-size:1.2cqw;background:var(--f);color:var(--t)}
+/* El score por semana: la línea se dibuja de izquierda a derecha y después aparece el área. */
+.s-cad-linea{flex:1;min-height:0;width:100%;display:block;margin-top:.8cqw}
+.s-cad-linea polyline{fill:none;stroke:#2F6FED;stroke-width:1.1;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:s-cad-traza ${CICLO}s infinite}
+.s-cad-linea polygon{fill:rgba(47,111,237,.09);opacity:0;animation:s-cad-area ${CICLO}s infinite}
+@keyframes s-cad-traza{0%,63%{stroke-dashoffset:1}72%,96%{stroke-dashoffset:0}99%,100%{stroke-dashoffset:1}}
+@keyframes s-cad-area{0%,69%{opacity:0}73%,95%{opacity:1}99%,100%{opacity:0}}
+.s-cad-ejes{display:flex;justify-content:space-between;margin-top:.4cqw;font-size:1.1cqw;font-weight:600;color:#9AA0A6}
 /* Los cierres acumulados: cada mes crece después del anterior, con su número arriba; al final, lo vendido. */
 .s-cad-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:1cqw}
 .s-cad-plata{text-align:right;opacity:0;animation:s-cad-plata ${CICLO}s infinite}
@@ -145,8 +160,8 @@ const CSS = `
 .s-cad-dash{padding:3cqw 3.4cqw;gap:2.2cqw;animation:none}.s-cad-main-t{font-size:3.8cqw}.s-cad-main-t small{display:none}.s-cad-main-t em{font-size:2.4cqw;padding:.8cqw 1.8cqw}
 .s-cad-hoja{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-rows:minmax(0,1fr);gap:2.4cqw}.s-cad-pieza:nth-child(1),.s-cad-pieza:nth-child(3){display:none}.s-cad-pieza:nth-child(2){animation-name:s-cad-p4}
 .s-cad-card{padding:2.4cqw 2.6cqw;border-radius:2.4cqw}.s-cad-card-t{font-size:2.3cqw}.s-cad-anillo{width:10cqw;height:10cqw}.s-cad-anillo b{font-size:3.6cqw}.s-cad-nota p{display:none}.s-cad-obj{font-size:2.1cqw;padding:1.1cqw 0}.s-cad-obj b{display:none}.s-cad-obj svg{width:2.4cqw;height:2.4cqw}
-.s-cad-cab{flex-direction:column;gap:.4cqw}.s-cad-plata{text-align:left}.s-cad-plata strong{font-size:3.8cqw}.s-cad-plata small{font-size:1.9cqw}.s-cad-barra-m{font-size:2cqw}.s-cad-pista b{font-size:2.4cqw}.s-cad-pista{margin-top:3.4cqw}}
-@media (prefers-reduced-motion:reduce){.s-cad-cam,.s-cad-tiles,.s-cad-dash{animation:none}.s-cad-chip,.s-cad-pieza,.s-cad-plata{animation:none;opacity:1;transform:none}.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:none;opacity:1}.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:none}.s-cad-ola i{animation:none;height:1cqw}.s-cad-app{animation:none}.s-cad-prog i,.s-cad-pista i,.s-cad-emb span{animation:none;transform:none}.s-cad-pista b{animation:none;opacity:1}}
+.s-cad-llam{font-size:2.1cqw;padding:1cqw 0}.s-cad-llam i{width:3.6cqw;height:3.6cqw;font-size:1.8cqw}.s-cad-llam small,.s-cad-llam em{display:none}.s-cad-llam b{font-size:2cqw;margin-left:auto}.s-cad-cab{flex-direction:column;gap:.4cqw}.s-cad-plata{text-align:left}.s-cad-plata strong{font-size:3.8cqw}.s-cad-plata small{font-size:1.9cqw}.s-cad-barra-m{font-size:2cqw}.s-cad-pista b{font-size:2.4cqw}.s-cad-pista{margin-top:3.4cqw}}
+@media (prefers-reduced-motion:reduce){.s-cad-cam,.s-cad-tiles,.s-cad-dash{animation:none}.s-cad-chip,.s-cad-pieza,.s-cad-plata{animation:none;opacity:1;transform:none}.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:none;opacity:1}.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:none}.s-cad-ola i{animation:none;height:1cqw}.s-cad-app{animation:none}.s-cad-prog i,.s-cad-pista i{animation:none;transform:none}.s-cad-linea polyline{animation:none;stroke-dashoffset:0}.s-cad-linea polygon{animation:none;opacity:1}.s-cad-pista b{animation:none;opacity:1}}
 `;
 
 /** Cada objeción y cada mes con SU tiempo en el ciclo (con un `animation-delay` por elemento, los últimos se cruzaban de una vuelta a
@@ -193,13 +208,14 @@ const Estado = ({ ok }: { ok: boolean }) => (
 );
 
 export function ClosingAntesDespues() {
-  const { antes, despues, porMes, llamada, embudo } = CLOSING_MAURICIO;
+  const { antes, despues, porMes, llamada, llamadas, scorePorSemana } = CLOSING_MAURICIO;
+  // La línea del score: de 4 a 8 en el alto del gráfico (44), las semanas repartidas en el ancho (120).
+  const puntos = scorePorSemana.map((v, i) => `${Math.round((i / (scorePorSemana.length - 1)) * 1200) / 10},${Math.round((44 - ((v - 4) / 4) * 40 - 2) * 10) / 10}`).join(' ');
   const tasa = tasaDe(despues);
   // Los cierres ACUMULADOS de 2026 (0, 0, 0, 1, 4, 9) y lo vendido en total (abril a junio).
   const acumulados = porMes.reduce<number[]>((a, m) => [...a, (a[a.length - 1] ?? 0) + m.cierres], []);
   const total = acumulados[acumulados.length - 1] || 1;
   const vendido = porMes.reduce((a, m) => a + m.usd, 0);
-  const sinResponder = llamada.objeciones.filter((o) => !o.respondida).length;
   return (
     <div className="s-cad" data-tema-fijo="" role="img"
       aria-label={`Una llamada de venta de Mauricio con las objeciones que marcó MaKo, y sus cierres de 2026: de ${antes.cierres} entre ${antes.periodo.toLowerCase()} a ${despues.cierres} entre ${despues.periodo.toLowerCase()} (tasa de cierre ${tasa} %), ${usd(vendido)} vendidos`}>
@@ -249,7 +265,6 @@ export function ClosingAntesDespues() {
       </div>
       <div className="s-cad-app" aria-hidden="true">
         <div className="s-cad-dash">
-          <p className="s-cad-main-t">Closing<small>Las llamadas de venta analizadas: qué decide tus cierres.</small><em>2026</em></p>
           <div className="s-cad-hoja">
             <div className="s-cad-pieza s-cad-tasa">
               <div>
@@ -266,24 +281,24 @@ export function ClosingAntesDespues() {
               </div>
             </div>
             <div className="s-cad-pieza s-cad-card">
-              <p className="s-cad-card-t">La llamada, analizada</p>
-              <div className="s-cad-nota">
-                <span className="s-cad-anillo" style={{ ['--p' as string]: Number(llamada.score) * 10 }}><b>{llamada.score.replace('.', ',')}</b></span>
-                <p><strong>Score {llamada.score.replace('.', ',')} de 10</strong>{sinResponder} de {llamada.objeciones.length} objeciones sin responder</p>
-              </div>
-              {llamada.objeciones.map((o) => (
-                <div key={o.tipo} className="s-cad-obj"><Estado ok={o.respondida} /><span>{o.tipo}</span><b>{minuto(o.segundo)}</b></div>
-              ))}
+              <p className="s-cad-card-t">Llamadas analizadas</p>
+              {llamadas.map((l, i) => {
+                const n = Number(l.score);
+                const [f, t] = n >= 7 ? ['#E6F4EA', '#137333'] : n >= 6 ? ['#FEF7E0', '#B06000'] : ['#FCE8E6', '#C5221F'];
+                return (
+                  <div key={l.con} className="s-cad-llam" style={{ ['--c' as string]: COLOR_AVATAR[i % COLOR_AVATAR.length], ['--f' as string]: f, ['--t' as string]: t }}>
+                    <i>{l.con[0]}</i><span>Llamada con {l.con}</span><small>{l.min} min</small><em>{l.avanzo ? 'Avanzó' : 'Sin definir'}</em><b>{l.score.replace('.', ',')}</b>
+                  </div>
+                );
+              })}
             </div>
             <div className="s-cad-pieza s-cad-card">
-              <p className="s-cad-card-t">Embudo de llamadas</p>
-              <div className="s-cad-emb">
-                {embudo.map((e, i) => (
-                  <div key={e.paso}>{e.paso}<b>{e.n}</b>
-                    <span style={{ ['--w' as string]: `${Math.round((e.n / embudo[0].n) * 100)}%`, ['--c' as string]: COLOR_EMBUDO[i] }} />
-                  </div>
-                ))}
-              </div>
+              <p className="s-cad-card-t">El score por semana</p>
+              <svg className="s-cad-linea" viewBox="0 0 120 44" preserveAspectRatio="none" aria-hidden="true">
+                <polygon points={`0,44 ${puntos} 120,44`} />
+                <polyline points={puntos} pathLength={1} />
+              </svg>
+              <div className="s-cad-ejes"><span>Abr</span><span>May</span><span>Jun</span></div>
             </div>
             <div className="s-cad-pieza s-cad-card">
               <div className="s-cad-cab">

@@ -29,6 +29,14 @@ export const CLOSING_MAURICIO = {
   ],
   /** El score promedio de sus llamadas de venta analizadas, semana por semana (del 30/03 al 15/06/2026). */
   scorePorSemana: [7.2, 7.1, 5.8, 6.2, 6, 5, 5.5, 7, 6.9, 7.4, 7.5, 6],
+  /** Llamadas analizadas de abril a junio: la duración y el score son de llamadas reales de Mauricio; los nombres son INVENTADOS
+   *  (Martín: «llamada con Lucrecia o clientes así potenciales inventados»). `avanzo`: el análisis la marcó como que avanzó. */
+  llamadas: [
+    { con: 'Lucrecia', min: 87, score: '8.0', avanzo: true },
+    { con: 'Tomás', min: 73, score: '7.5', avanzo: true },
+    { con: 'Valeria', min: 92, score: '7.2', avanzo: true },
+    { con: 'Andrés', min: 110, score: '5.5', avanzo: false },
+  ],
   llamada: {
     duracionMin: 110,
     /** El score que le puso el análisis a esa llamada (de 0 a 10). */

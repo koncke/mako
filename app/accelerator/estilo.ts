@@ -125,6 +125,22 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
 
 /* ── Mauricio ── */
 .acl-mau { max-width: 1040px; margin: 0 auto; }
+/* El caso en una fila (16/11/2026): el carrusel del video y las fotos a la izquierda, el título y el texto a la derecha. */
+.acl-mau-fila { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 48px; align-items: center; }
+.acl-mau-carr { position: relative; width: 100%; aspect-ratio: 4 / 5; border: 1px solid var(--acl-line-strong); border-radius: 3px; overflow: hidden; background: #000; }
+.acl-mau-slide { position: absolute; inset: 0; opacity: 0; animation: acl-mau-pasa 16s infinite; }
+.acl-mau-slide:nth-child(1) { animation-delay: -.6s; }
+.acl-mau-slide:nth-child(2) { animation-delay: 3.4s; }
+.acl-mau-slide:nth-child(3) { animation-delay: 7.4s; }
+.acl-mau-slide:nth-child(4) { animation-delay: 11.4s; }
+.acl-mau-slide video, .acl-mau-slide img { display: block; width: 100%; height: 100%; object-fit: cover; }
+@keyframes acl-mau-pasa { 0% { opacity: 0; } 4%, 25% { opacity: 1; } 29%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .acl-mau-slide { animation: none; } .acl-mau-slide:nth-child(1) { opacity: 1; } }
+.acl-mau-fila .acl-mau-txt { gap: 16px; }
+.acl-mau-fila .acl-mau-txt h2 { font-size: clamp(1.9rem, 3.4vw, 2.6rem); margin: 0 0 6px; line-height: 1.1; }
+.acl-mau-fila .acl-mau-txt p { font-size: 1.12rem; }
+.acl-mau-fila + .acl-mau-bottom { margin-top: 64px; }
+@media (max-width: 880px) { .acl-mau-fila { grid-template-columns: 1fr; gap: 28px; } .acl-mau-carr { max-width: 420px; margin: 0 auto; } }
 .acl-mau-titulo h2 { font-size: clamp(2rem, 4.2vw, 3rem); margin: 0; max-width: 34ch; line-height: 1.08; }
 .acl-plata { color: var(--acl-accent); font-weight: 800; }
 .acl-mau-top { display: grid; grid-template-columns: .7fr 1fr; gap: 44px; margin-top: 42px; align-items: stretch; }
