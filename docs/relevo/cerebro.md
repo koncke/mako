@@ -10,6 +10,13 @@ reuniones / DM funnel) · a0c6f23d6 checkout · cbb4d0431 cosecha · 354b78401 e
 
 **~08:45 AST: corre «landings-que-faltan» (wf_0902e6bb-000)**, de a dos: Closing (rehacer /vsl/closing) y los tres funnels + la API pública (la misma /api-mako abierta); después Classroom + Second Brain y Equipo + Calendario; y una revisión. Nada commiteado todavía: si se corta, retomar con Workflow({scriptPath, resumeFromRunId}) (lo terminado vuelve del caché) y commitear por ruta.
 
+**HECHO ~19:15 UTC (6208470ab):** Spy más rápido al elegir a Hormozi (b3b94d780); el caso de Mauricio de la portada rediseñado (84b93b78a:
+el copy original, sin las barras, y el antes/después en una tarjeta); Closing con el antes y después REAL de dos llamadas de Mauricio
+(app/vsl/_sitio/ClosingAntesDespues.tsx + closing-mauricio.ts: 6,2 → 8,0, sólo notas) en la fila de la portada; el rojo de la 1488.
+**QUEDA:** (a) el organigrama de Equipo con caras generadas (la fila de la portada; hoy, la grabación del formulario de invitar); (b) el
+caso de Mauricio del Accelerator, más corto en pantalla (el video vertical y el carrusel de fotos); (c) el antes y después también en
+/vsl/closing (sus tres recuadros) y en la fila de coaching de /vsl/equipo.
+
 **DECISIONES DE MARTÍN, 16/11 ~18:50 UTC (contestan los puntos 1-3 de abajo):**
 - **Closing «antes y después»: con las llamadas grabadas con Mauricio** («utiliza de las que tenemos grabadas ahí con Mauricio, eso lo
   puede utilizar sin problema»), y con POCO texto («no debería tener tanto texto esa animación»). Buscarlas en `closing_analyses` (sólo
