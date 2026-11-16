@@ -2788,7 +2788,7 @@ curl -L \
 
 ### `GET /api/v1/crm/tipos` — Tipos de CRM para crear
 
-Los tipos de CRM que se pueden crear con crear_crm, los mismos de «Nuevo CRM» en la pantalla: llamada de venta, dos reuniones (high-ticket), webinar, sesión presencial, conversaciones por chat, DM funnel (comentan una palabra clave), Instagram orgánico, anuncio con formulario de Meta, recurso gratis (lead magnet), LinkedIn, YouTube y carrito. Por cada uno, su id, qué es en una línea, cómo se vende, cómo llega la gente y las etapas con las que nace el tablero. Úsala antes de crear_crm cuando no está claro cuál corresponde. El tipo otro arma el CRM con el canal y las entradas que se pasen.
+Los tipos de CRM que se pueden crear con crear_crm, los mismos de «Nuevo CRM» en la pantalla: llamada de venta, webinar, sesión presencial, conversaciones por chat, Instagram orgánico, anuncio con formulario de Meta, Lead Magnet Funnel (piden tu lead magnet en un formulario), YouTube y Venta Directa (compran en tu página, sin llamada). LinkedIn, DM funnel y dos reuniones ya no se ofrecen: quien prospecta escribiendo o cierra en dos reuniones va a llamada de venta, y un DM es conversaciones por chat. Por cada uno, su id, qué es en una línea, cómo se vende, cómo llega la gente y las etapas con las que nace el tablero. Úsala antes de crear_crm cuando no está claro cuál corresponde. El tipo otro arma el CRM con el canal y las entradas que se pasen.
 
 - **Ruta por operación:** `GET /api/v1/crm/tipos_de_crm`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -2825,7 +2825,7 @@ PROPONE crear un CRM nuevo del negocio, con su propio tablero de etapas, de un t
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `nombre` | string | sí | cómo se llama el CRM, por ejemplo «Mentoría». No puede ser «Funnel principal», que es el del negocio. |
-| `tipo` | string (llamada \\| dos_reuniones \\| webinar \\| presencial \\| conversaciones \\| dm_funnel \\| instagram \\| formulario_meta \\| recurso_gratis \\| linkedin \\| youtube \\| carrito \\| otro) | sí | el tipo de CRM (de tipos_de_crm), u otro para elegir a mano el canal y las entradas. |
+| `tipo` | string (llamada \\| webinar \\| presencial \\| conversaciones \\| instagram \\| formulario_meta \\| recurso_gratis \\| youtube \\| carrito \\| otro) | sí | el tipo de CRM (de tipos_de_crm), u otro para elegir a mano el canal y las entradas. |
 | `canal` | string (llamadas \\| conversaciones \\| carrito \\| webinar \\| presencial) | no | solo con tipo otro, y obligatorio ahí: cómo se cierra la venta (de él salen las etapas). |
 | `entradas` | string[] (landing \\| agenda_sola \\| chat_entrante \\| chat_saliente \\| carrito) | no | solo con tipo otro, y al menos una ahí: cómo llega la gente (hasta 3). |
 
@@ -15536,7 +15536,7 @@ curl -L \
 
 ### `GET /api/v1/contenido/siguientes-pasos` — Siguientes pasos para el CTA
 
-La lista CERRADA de lo que la persona recibe al hacer clic en el anuncio (agenda una llamada, ve un video de ventas, recibe un recurso por WhatsApp…), con el default del funnel del negocio primero. Es de donde se elige SIEMPRE el siguientePaso de escribir_guion_anuncio, copiando el texto exacto: nunca un texto libre. No requiere parámetros.
+La lista CERRADA de lo que la persona recibe al hacer clic en el anuncio (agenda una llamada, ve un video de ventas, recibe un lead magnet por WhatsApp…), con el default del funnel del negocio primero. Es de donde se elige SIEMPRE el siguientePaso de escribir_guion_anuncio, copiando el texto exacto: nunca un texto libre. No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/contenido/opciones_siguiente_paso_guion`
 - **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)

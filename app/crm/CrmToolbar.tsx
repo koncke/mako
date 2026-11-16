@@ -30,7 +30,7 @@ const MONO = "'Geist Mono', monospace";
 import { Modal } from '@/app/_ui/Modal';
 
 import { CANALES } from '@/lib/fase-diagnostico';
-import { ENTRADAS, ENTRADAS_OFRECIDAS, TIPOS_CRM, TIPO_CRM_OTRO, type EntradaId, type TipoCrmId } from '@/lib/pipeline';
+import { ENTRADAS, ENTRADAS_OFRECIDAS, TIPOS_CRM, TIPO_CRM_OTRO, type EntradaId, type TipoCrmOfrecidoId } from '@/lib/pipeline';
 import { TIPO_CRM_NEWSLETTER } from '@/lib/newsletter-reglas';
 import { embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction, contarPapeleraAction } from './actions';
 import { EVENTO_PAPELERA, PapeleraLeadsModal } from './PapeleraLeads';
@@ -865,21 +865,18 @@ function Opcion({ label, desc, on, onClick, icono }: { label: string; desc?: str
 /**
  * El ícono de cada tipo de «Nuevo CRM». `Record` a propósito: un tipo nuevo en `TIPOS_CRM` no
  * compila sin el suyo (AGENTS.md, «íconos en los desplegables»). Los de las redes no están en el
- * set de la casa, así que van por lo que hace la gente: el `#` de la palabra que comentan, la
- * imagen de un posteo, el avión de «tú les escribes» (el mismo de Prospección en el editor del
- * funnel) y el play de un video.
+ * set de la casa, así que van por lo que hace la gente: la imagen de un posteo y el play de un
+ * video. Sólo los que se OFRECEN (16/11/2026): Dos reuniones, DM funnel y LinkedIn salieron de la
+ * lista y del modal (lib/pipeline.ts → `TIPOS_CRM_HEREDADOS`).
  */
-const ICONO_TIPO_CRM: Record<TipoCrmId | typeof TIPO_CRM_OTRO, NombreIconoMenu> = {
+const ICONO_TIPO_CRM: Record<TipoCrmOfrecidoId | typeof TIPO_CRM_OTRO, NombreIconoMenu> = {
   llamada: 'telefono',
-  dos_reuniones: 'calendario',
   webinar: 'video',
   presencial: 'equipo',
   conversaciones: 'whatsapp',
-  dm_funnel: 'numero',
   instagram: 'imagen',
   formulario_meta: 'anuncio',
   recurso_gratis: 'descargar',
-  linkedin: 'enviar',
   youtube: 'activar',
   carrito: 'dinero',
   otro: 'configurar',
@@ -890,9 +887,10 @@ const ICONO_TIPO_CRM: Record<TipoCrmId | typeof TIPO_CRM_OTRO, NombreIconoMenu> 
  *
  * ⚠️ EL TIPO LLENA LO QUE ANTES ERAN DOS PREGUNTAS (14/10/2026, §2 de docs/diseno-ficha-bloques.md).
  * «Cómo lo vendes» y «cómo te llega la gente» eran dos pantallas, y los funnels que Martín pidió
- * (DM funnel, Instagram orgánico, LinkedIn, YouTube, recurso gratis, dos reuniones, formulario de
- * Meta) no salían de ninguna de las dos. Cada tipo trae el canal, la entrada y las etapas
- * (`TIPOS_CRM`, lib/pipeline.ts), así que elegirlo crea el CRM sin preguntar nada más. Las dos
+ * (Instagram orgánico, YouTube, el lead magnet, formulario de Meta; y DM funnel, LinkedIn y dos
+ * reuniones, que dejaron de ofrecerse el 16/11/2026) no salían de ninguna de las dos. Cada tipo
+ * trae el canal, la entrada y las etapas (`TIPOS_CRM`, lib/pipeline.ts), así que elegirlo crea el
+ * CRM sin preguntar nada más. Las dos
  * preguntas de antes siguen, UNA POR PANTALLA, detrás de «Otro, lo armo yo».
  *
  * ⚠️ ERAN TODAS JUNTAS Y SE PARTIÓ: «Nuevo producto hazlo modular el formulario, en 3 pasos, no
@@ -915,7 +913,7 @@ function NuevoProductoModal({ onCerrar, onCreado }: { onCerrar: () => void; onCr
   // bug que esta pregunta vino a cerrar, con un paso más de por medio—, y desde el 14/10 el tipo
   // decide además cómo llega la gente, que es lo que MaKo dice en la primera frase. Se elige, o no
   // hay CRM.
-  const [tipo, setTipo] = useState<TipoCrmId | typeof TIPO_CRM_OTRO | typeof TIPO_CRM_NEWSLETTER | ''>('');
+  const [tipo, setTipo] = useState<TipoCrmOfrecidoId | typeof TIPO_CRM_OTRO | typeof TIPO_CRM_NEWSLETTER | ''>('');
   const [canal, setCanal] = useState<string>('');
   // ⚠️ CÓMO ENTRA LA GENTE SE PREGUNTA ACÁ (con «Otro»), al crear el CRM. Era una subtab del
   // pop-up y se mudó: «eso debería estar como un paso al momento de crear un nuevo producto».

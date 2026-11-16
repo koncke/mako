@@ -125,7 +125,7 @@ export const ANGULOS_GUION_DEFAULT: AnguloGuion[] = [
       "Nunca escondas que hay que registrarse si el flujo lo requiere: fricción sorpresa mata la confianza.",
     ],
     preguntas: [
-      "¿Qué incluye exactamente el recurso que regalas (puntos, páginas, plantillas)?",
+      "¿Qué incluye exactamente el lead magnet que regalas (puntos, páginas, plantillas)?",
       "¿Qué resultado concreto obtiene alguien que lo aplica, y en cuánto tiempo?",
       "¿Por qué tú puedes regalar esto (de dónde sale ese conocimiento)?",
     ],

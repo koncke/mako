@@ -17,13 +17,17 @@
 //   · `recurso_gratis` con la entrada `chat_entrante`         → 7 / 1 (la §4: «te-escriben»)
 //   · `siembraDeCrm` con un tipo inexistente cayendo a `llamada` → 7 / 1 (falla cerrado)
 //   · `apagadasAlCrear` sin `suppressedInicial`               → 7 / 1
+//
+// 16/11/2026: LinkedIn, Dos reuniones y DM funnel dejaron de OFRECERSE (lib/pipeline.ts → `TIPOS_CRM_HEREDADOS`) y se
+// siguen sembrando desde lo guardado, así que la forma se fija sobre los DOCE (`TODOS`). Lo que se ofrece lo fija
+// tests/funnels-que-se-ofrecen.test.ts.
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TIPOS_CRM, TIPO_CRM_OTRO, siembraDeCrm, apagadasAlCrear, generateFunnel, suppressedInicial, templateDeCanal,
-  tipoDeFunnel, fechaFijaDelEvento, MAX_LABEL_ETAPA, ENTRADAS_OFRECIDAS,
+  TIPOS_CRM, TIPOS_CRM_HEREDADOS, TIPO_CRM_OTRO, siembraDeCrm, apagadasAlCrear, generateFunnel, suppressedInicial, templateDeCanal,
+  tipoDeFunnel, fechaFijaDelEvento, tipoCrmPorId, MAX_LABEL_ETAPA, ENTRADAS_OFRECIDAS,
   type Stage, type StageDerivable, type TipoCrm, type TipoCrmId,
 } from '../lib/pipeline';
 import { etapaVigenteDe } from '../lib/funnel-etapas';
@@ -104,12 +108,15 @@ const FICHA_DE_LA_TABLA: Record<TipoCrmId, string> = {
   recurso_gratis: 'landing',
 };
 
-const tipo = (id: TipoCrmId): TipoCrm => TIPOS_CRM.find((t) => t.id === id)!;
+/** Los doce: los que se ofrecen y los heredados, que se siguen sembrando desde lo guardado. */
+const TODOS: readonly TipoCrm[] = [...TIPOS_CRM, ...TIPOS_CRM_HEREDADOS];
+const tipo = (id: TipoCrmId): TipoCrm => tipoCrmPorId(id)!;
 
-test('están los doce tipos de la §2, cada uno con un canal y una entrada que existen', () => {
-  assert.deepEqual(new Set(TIPOS_CRM.map((t) => t.id)), new Set(Object.keys(FICHA_DE_LA_TABLA)), 'los tipos no son los de la tabla');
-  assert.equal(new Set(TIPOS_CRM.map((t) => t.id)).size, TIPOS_CRM.length, 'hay un tipo repetido');
-  for (const t of TIPOS_CRM) {
+test('siguen los doce tipos de la §2 (nueve se ofrecen, tres heredados), cada uno con un canal y una entrada que existen', () => {
+  assert.deepEqual(new Set(TODOS.map((t) => t.id)), new Set(Object.keys(FICHA_DE_LA_TABLA)), 'los tipos no son los de la tabla');
+  assert.equal(new Set(TODOS.map((t) => t.id)).size, TODOS.length, 'hay un tipo repetido (o uno está en las dos listas)');
+  assert.equal(TIPOS_CRM.length, 9);
+  for (const t of TODOS) {
     // Un tipo NO es un canal nuevo: combina uno de los cinco que ya existen.
     assert.ok(CANALES.some((c) => c.id === t.canal), `«${t.id}»: el canal «${t.canal}» no existe`);
     // Una sola entrada, como el «Tipo de funnel» del editor («que solo se pueda elegir 1 opción»).
@@ -124,7 +131,7 @@ test('están los doce tipos de la §2, cada uno con un canal y una entrada que e
 });
 
 test('cada etapa de cada tipo usa una clave que el tablero sabe ubicar', () => {
-  for (const t of TIPOS_CRM) {
+  for (const t of TODOS) {
     const { stages } = generateFunnel(t.pipeline, apagadasAlCrear(t.pipeline, t.suppressed));
     for (const etapa of t.pipeline) {
       const lead = leadEn(etapa.key, t.pipeline);
@@ -137,13 +144,13 @@ test('cada etapa de cada tipo usa una clave que el tablero sabe ubicar', () => {
 });
 
 test('§4: la plantilla de ficha que le toca a cada tipo es la de la tabla de la §2', () => {
-  for (const t of TIPOS_CRM) {
+  for (const t of TODOS) {
     assert.equal(plantillaDeFicha(t), FICHA_DE_LA_TABLA[t.id], `«${t.id}» elegiría «${plantillaDeFicha(t)}»`);
   }
 });
 
 test('ningún nombre de etapa pasa el tope, y el texto que se dibuja es corto', () => {
-  for (const t of TIPOS_CRM) {
+  for (const t of TODOS) {
     // Más largo que el tope, el editor lo recorta al primer guardado (sanearLabels).
     for (const s of t.pipeline) assert.ok(s.label.length <= MAX_LABEL_ETAPA, `«${t.id}»: «${s.label}» pasa de ${MAX_LABEL_ETAPA}`);
     assert.ok(t.label.length <= 24, `«${t.id}»: el nombre «${t.label}» es largo`);
@@ -153,14 +160,20 @@ test('ningún nombre de etapa pasa el tope, y el texto que se dibuja es corto', 
 
 test('ningún tipo sin reunión genera nutrición de No Show de reunión', () => {
   // El daño de sembrar mal (tests/funnel-por-canal.test.ts): avisos de reuniones que no existen.
-  for (const t of TIPOS_CRM.filter((x) => !x.pipeline.some((s) => s.kind === 'reunion'))) {
+  for (const t of TODOS.filter((x) => !x.pipeline.some((s) => s.kind === 'reunion'))) {
     const { stages } = generateFunnel(t.pipeline, apagadasAlCrear(t.pipeline, t.suppressed));
     const noShow = stages.filter((s) => /^noshow_r[12]$/.test(s.key)).map((s) => s.key);
     assert.deepEqual(noShow, [], `«${t.id}» generó ${noShow.join(', ')}`);
   }
 });
 
-test('siembraDeCrm: un tipo trae su canal, su entrada y sus etapas', () => {
+test('siembraDeCrm: un tipo trae su canal, su entrada y sus etapas (también uno heredado, desde lo guardado)', () => {
+  const lm = siembraDeCrm({ tipo: 'recurso_gratis' });
+  assert.ok(!('error' in lm));
+  assert.equal(lm.tipo, 'recurso_gratis', 'el id no cambia con el nombre');
+  assert.deepEqual(lm.entradas, ['landing']);
+  assert.equal(lm.pipeline[0].label, 'Pidió el lead magnet');
+  // Un heredado (16/11/2026) siembra lo MISMO que sembraba: un `crear_crm` confirmado después del cambio crea lo que se confirmó.
   const s = siembraDeCrm({ tipo: 'dm_funnel' });
   assert.ok(!('error' in s));
   assert.equal(s.tipo, 'dm_funnel');

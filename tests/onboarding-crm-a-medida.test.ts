@@ -63,12 +63,31 @@ test('las etapas con sus nombres: mismas claves y en el mismo orden', () => {
 });
 
 test('la propuesta manda: va primero, y «Sí, ese» elige ESE tipo', () => {
-  const e: EstadoArranque = { ...QUIEN, crmPropuesta: { tipo: 'dos_reuniones', etapas: { agenda: 'Primera consulta' } } };
-  assert.equal(tiposOfrecidos('llamadas', false, e.crmPropuesta).tipos[0].id, 'dos_reuniones');
+  // Era `dos_reuniones` hasta el 16/11/2026, cuando dejó de ofrecerse: el otro de su canal que se ofrece es YouTube.
+  const e: EstadoArranque = { ...QUIEN, crmPropuesta: { tipo: 'youtube', etapas: { agenda: 'Primera consulta' } } };
+  assert.equal(tiposOfrecidos('llamadas', false, e.crmPropuesta).tipos[0].id, 'youtube');
   assert.equal(tiposOfrecidos('llamadas', false, null).tipos[0].id, 'llamada', 'sin propuesta, la plantilla de su canal');
   assert.ok(mensajesDeArranque(e, H).despues.some((m) => m.id === 'arr-crm' && m.opciones?.[0] === CRM_SI));
-  assert.deepEqual(leerRespuesta(e, H, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'dos_reuniones' } });
+  assert.deepEqual(leerRespuesta(e, H, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'youtube' } });
   assert.deepEqual(leerRespuesta({ ...QUIEN, crmPropuesta: null }, H, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'llamada' } });
+});
+
+test('16/11/2026: una propuesta GUARDADA de un tipo que ya no se ofrece no se vuelve a ofrecer (manda el recomendado)', () => {
+  // Medido ese día en producción: «Cliente de Prueba» tenía `crmPropuesta.tipo = 'dos_reuniones'`.
+  for (const heredado of ['dos_reuniones', 'linkedin'] as const) {
+    const e: EstadoArranque = { ...QUIEN, crmPropuesta: { tipo: heredado, etapas: { agenda: 'Primera consulta' } } };
+    assert.equal(tiposOfrecidos('llamadas', false, e.crmPropuesta, 'llamada').tipos[0].id, 'llamada', heredado);
+    assert.ok(!tiposOfrecidos('llamadas', true, e.crmPropuesta).tipos.some((t) => t.id === heredado), `${heredado} volvió a la lista`);
+    assert.deepEqual(leerRespuesta(e, H, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'llamada' } }, heredado);
+  }
+  const dm: EstadoArranque = { ...QUIEN, entrada: 'chat_entrante', crmPropuesta: { tipo: 'dm_funnel', etapas: {} } };
+  const porChat = { ...H, canalNegocio: 'conversaciones' as const };
+  assert.notEqual(tiposOfrecidos('conversaciones', false, dm.crmPropuesta).tipos[0].id, 'dm_funnel');
+  const resp = leerRespuesta(dm, porChat, { opcion: 0, opcionTexto: CRM_SI });
+  assert.ok(resp.ok && resp.patch.crmTipo !== 'dm_funnel', `«Sí, ese» eligió ${resp.ok ? resp.patch.crmTipo : '?'}`);
+  // La tarjeta tampoco la dibuja: lo PROPUESTO pasa por `tipoCrmOfrecido`; lo ELEGIDO, por `tipoCrmPorId` (es su CRM).
+  assert.match(sinComentarios(leer('app/onboarding/ChatArranque.tsx')),
+    /\(vista\.crmTipo && tipoCrmPorId\(vista\.crmTipo\)\) \|\| \(p && tipoCrmOfrecido\(p\.tipo\)\) \|\| tipoCrmPorId\(vista\.crmRecomendado\)/);
 });
 
 test('la ruta la arma UNA vez al llegar al CRM, y siembra con sus nombres', () => {

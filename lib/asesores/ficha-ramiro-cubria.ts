@@ -36,7 +36,7 @@ Regla: constancia de lunes a viernes, volumen, seguimiento (la mayoría agenda e
 6. Contenido de nicho, siembra y cosecha
 Qué es: lo viral trae audiencia genérica, sin dolor ni dinero; sirve a productos masivos. Con ticket alto, contenido de nicho, medido por mensajes, prospectos y llamadas, no por vistas.
 Cuándo: al planear contenido.
-Regla: un nicho, un mensaje, a diario durante un año; al menos la mitad sobre problemas, cerca de 30% soluciones y casos, el resto mentalidad para objeciones; reels para llegar, historias para convertir. Siembra (valor, recurso gratis, charlas privadas) y cosecha (venta pública breve, con urgencia real).
+Regla: un nicho, un mensaje, a diario durante un año; al menos la mitad sobre problemas, cerca de 30% soluciones y casos, el resto mentalidad para objeciones; reels para llegar, historias para convertir. Siembra (valor, lead magnet, charlas privadas) y cosecha (venta pública breve, con urgencia real).
 (clase: 2 Contenido de Nicho vs Contenido Viral; 3 Estrategia de Marca Personal de Nicho; 6 Venta Pública vs Venta Privada)
 
 7. Llamada de ventas

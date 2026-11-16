@@ -12,11 +12,17 @@
 // SIEMPRE RESPETA EL CANAL que dijo (dónde cierra la venta): nunca le recomienda un funnel de chat a quien cierra por llamada.
 // Gana la primera regla que aplica. El `porque` lo escribe el código con los datos de la persona, en una frase.
 //
+// ⚠️ SÓLO RECOMIENDA LO QUE SE OFRECE (16/11/2026): `FunnelRecomendado.tipo` es un `TipoCrmOfrecidoId`, así que un tipo
+// heredado (LinkedIn, Dos reuniones, DM funnel; lib/pipeline.ts → `TIPOS_CRM_HEREDADOS`) no compila acá. Lo que devolvía
+// esos tres pasó al más cercano que queda EN SU CANAL: LinkedIn y Dos reuniones → «Llamada de venta» (Martín: «es llamada de
+// venta directamente»), DM funnel → «Conversaciones por chat» («para eso ya tenemos conversaciones por chat»). El porqué de
+// cada regla no cambió: describe lo que hace la persona, no el nombre del funnel.
+//
 // Puro (sin `server-only`): lo importan el onboarding, la pantalla y los tests.
 // =============================================================================
 
 import type { CanalId } from './fase-diagnostico';
-import { TIPOS_CRM, type EntradaId, type TipoCrmId } from './pipeline';
+import { TIPOS_CRM, tipoCrmPorId, type EntradaId, type TipoCrmId, type TipoCrmOfrecidoId } from './pipeline';
 
 /**
  * Lo que se sabe del negocio. Los tramos son el ÍNDICE de la opción del diagnóstico (lib/fase-diagnostico.ts → PREGUNTAS):
@@ -35,7 +41,7 @@ export type DatosFunnel = {
   fase?: number | null;
 };
 
-export type FunnelRecomendado = { tipo: TipoCrmId; porque: string };
+export type FunnelRecomendado = { tipo: TipoCrmOfrecidoId; porque: string };
 
 /** Desde qué tramo «invierte»: $600 al mes o más. */
 const INVIERTE = 1;
@@ -44,7 +50,7 @@ const PUBLICA = 1;
 /** Desde qué respuesta «ya le funciona»: un funnel completo con algo que funciona seguro. */
 const FUNCIONA = 2;
 
-const rec = (tipo: TipoCrmId, porque: string): FunnelRecomendado => ({ tipo, porque });
+const rec = (tipo: TipoCrmOfrecidoId, porque: string): FunnelRecomendado => ({ tipo, porque });
 
 /** El funnel que se le recomienda, con su porqué. Siempre devuelve uno (sin canal, «Llamada de venta», sin porqué). */
 export function recomendarFunnel(d: DatosFunnel): FunnelRecomendado {
@@ -67,8 +73,8 @@ export function recomendarFunnel(d: DatosFunnel): FunnelRecomendado {
   // 2. Ya le funciona y dijo cómo le llegan: el de su canal y su entrada, medido como está.
   if (funnelHoy >= FUNCIONA && entrada) {
     const ya = 'Ya te funciona: lo medimos como está.';
-    if (llamada && (entrada === 'landing' || entrada === 'agenda_sola')) return rec('llamada', ya);
-    if (llamada && entrada === 'chat_saliente') return rec('linkedin', ya);
+    // «Tú les escribes» por llamada era LinkedIn hasta el 16/11/2026: ahora es la llamada de venta, como las otras dos entradas.
+    if (llamada && (entrada === 'landing' || entrada === 'agenda_sola' || entrada === 'chat_saliente')) return rec('llamada', ya);
     if (chat && entrada === 'chat_entrante') return rec('conversaciones', ya);
     if (chat && entrada === 'formulario_anuncio') return rec('formulario_meta', ya);
     if (chat && entrada === 'landing') return rec('recurso_gratis', ya);
@@ -78,29 +84,32 @@ export function recomendarFunnel(d: DatosFunnel): FunnelRecomendado {
     // 3. Le dejan sus datos: el funnel de esa entrada.
     if (entrada === 'formulario_anuncio') return rec('formulario_meta', 'Te dejan sus datos en el anuncio.');
     if (entrada === 'landing') return rec('recurso_gratis', 'Te dejan sus datos en un formulario.');
-    // 4 a 6. Por chat: con inversión, un anuncio que abre la charla; sin ella, lo orgánico.
+    // 4 a 6. Por chat: con inversión, un anuncio que abre la charla; sin ella, lo orgánico. Quien publica seguido iba al DM
+    // funnel hasta el 16/11/2026: ahora a las conversaciones por chat, que tienen sus mismas etapas.
     if (invierte) return rec('conversaciones', 'Con tu inversión, un anuncio que abre la charla.');
-    if (publica) return rec('dm_funnel', 'Publicas seguido: que te comenten una palabra.');
+    if (publica) return rec('conversaciones', 'Publicas seguido: que te comenten una palabra.');
     return rec('instagram', 'Inviertes menos de $600 al mes: empieza sin pagar anuncios.');
   }
 
   if (llamada) {
-    // 7 y 8. Por llamada, sin pagar anuncios: les escribe, o publica seguido.
-    if (entrada === 'chat_saliente' || (!invierte && !publica)) return rec('linkedin', 'Les escribes y agendan, sin pagar anuncios.');
+    // 7 y 8. Por llamada, sin pagar anuncios: les escribe, o publica seguido. «Les escribes» iba a LinkedIn hasta el
+    // 16/11/2026: ahora a la llamada de venta (el único tipo por llamada que queda sin video de por medio).
+    if (entrada === 'chat_saliente' || (!invierte && !publica)) return rec('llamada', 'Les escribes y agendan, sin pagar anuncios.');
     if (!invierte) return rec('youtube', 'Publicas seguido: del video a la agenda.');
     // 9. Con inversión: anuncios a una página donde agendan. Desde la fase 2, con un video de venta; desde la 3, y anuncios a
-    // quien ya lo vio (el «VSL Funnel» de la fase). Dos reuniones desde la fase 4.
+    // quien ya lo vio (el «VSL Funnel» de la fase). Desde la fase 4 eran dos reuniones, hasta el 16/11/2026: ahora la llamada,
+    // como en las otras fases («es llamada de venta directamente»).
     const extra = fase >= 2 ? ', con un video de venta en la página y anuncios para quien ya te vio'
       : fase >= 1 ? ', con un video de venta en la página' : '';
-    return rec(fase >= 3 ? 'dos_reuniones' : 'llamada', `Con tu inversión: anuncios a una página donde agendan${extra}.`);
+    return rec('llamada', `Con tu inversión: anuncios a una página donde agendan${extra}.`);
   }
 
   // 10. Sin canal: el de siempre, sin porqué (no se sabe nada para escribirlo).
   return rec('llamada', '');
 }
 
-/** El nombre del funnel recomendado, como se lee en pantalla («Instagram orgánico»). */
-export const nombreDelFunnel = (tipo: TipoCrmId): string => TIPOS_CRM.find((t) => t.id === tipo)?.label ?? tipo;
+/** El nombre del funnel, como se lee en pantalla («Instagram orgánico»). Uno heredado conserva el suyo («LinkedIn»). */
+export const nombreDelFunnel = (tipo: TipoCrmId): string => tipoCrmPorId(tipo)?.label ?? tipo;
 
-/** Cuántos funnels hay en MaKo (el «Ver los 12»). */
+/** Cuántos funnels OFRECE MaKo (el «Ver los 9»; eran 12 hasta el 16/11/2026): los heredados no cuentan. */
 export const CUANTOS_FUNNELS = TIPOS_CRM.length;

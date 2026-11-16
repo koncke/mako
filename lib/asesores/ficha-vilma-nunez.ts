@@ -16,7 +16,7 @@ Regla: se le vende primero a quien ya compró; si un producto nuevo lo compran m
 (clase: 4. Plan de Marketing Orientado a Resultados y Crecimiento)
 
 3. Oferta como estrategia de precio, valor y retención
-Qué es: la oferta no es un precio bajo. Se arma en torno a la solución principal, con un regalo gratuito o recurso previo para captar contactos, un extra pequeño al momento de pagar y otros escalones antes y después.
+Qué es: la oferta no es un precio bajo. Se arma en torno a la solución principal, con un lead magnet previo para captar contactos, un extra pequeño al momento de pagar y otros escalones antes y después.
 Cuándo: al diseñar qué se vende y cómo se presenta.
 Regla: lo gratuito educa y abre la conversación; el extra del pago cuesta igual o menos que lo principal y no estorba la compra. Dejar de ofrecerlo es dejar dinero sobre la mesa.
 (clase: 3. Creación de ofertas, precio y valor)

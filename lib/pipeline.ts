@@ -1308,8 +1308,8 @@ export function templateDeCanal(canal: string | null | undefined): FunnelTemplat
 
 // ── Los TIPOS de «Nuevo CRM» (14/10/2026, §2 de docs/diseno-ficha-bloques.md) ─────────────
 /**
- * Lo que se elige en «Nuevo CRM»: un TIPO de la lista («DM funnel · comentan una palabra y les
- * escribes»), que llena de una el canal, la entrada y las etapas. Pedido de Martín: «piensa en
+ * Lo que se elige en «Nuevo CRM»: un TIPO de la lista («Instagram orgánico · te escriben desde tu
+ * perfil»), que llena de una el canal, la entrada y las etapas. Pedido de Martín: «piensa en
  * todos los bloques que un usuario, con los diferentes funnels que tenemos... podría llegar a
  * querer ver», «también los funnels orgánico, de Instagram, LinkedIn, DM Funnel, YouTube, lead
  * magnet». Lo de antes (canal y entradas a mano) queda como «Otro, lo armo yo» (`siembraDeCrm`).
@@ -1331,13 +1331,32 @@ export function templateDeCanal(canal: string | null | undefined): FunnelTemplat
  *
  * Los textos se dibujan: cortos y con tuteo. El ícono de cada uno vive en la pantalla
  * (app/crm/CrmToolbar.tsx), como el del tipo de funnel en el editor.
+ *
+ * ⚠️ LO QUE SE OFRECE NO ES TODO LO QUE SE LEE (16/11/2026). Martín, mirando el catálogo: «de esos
+ * funnel, por ahora, elimina LinkedIn. Nosotros no hacemos LinkedIn. También elimina el funnel de 2
+ * reuniones, no tiene sentido. O sea, es llamada de venta directamente. Elimina el funnel de DM
+ * funnel, para eso ya tenemos conversaciones por chat». `TIPOS_CRM` es lo que se OFRECE (el modal,
+ * el onboarding, `recomendarFunnel`, `tipos_de_crm` y el enum de `crear_crm`); los tres que se
+ * fueron viven en `TIPOS_CRM_HEREDADOS`, sin ofrecerse, porque su id puede estar GUARDADO:
+ * `onboarding.arranque.crmTipo` (lo que eligió en el onboarding), `crmPropuesta.tipo` (el CRM a
+ * medida) y el `payload` de un `crear_crm` que espera el «sí». Medido en producción ese día: uno
+ * solo, «Cliente de Prueba», con dos reuniones elegido en el onboarding. Un CRM YA CREADO no
+ * depende de esto: `funnels` guarda sus etapas y su entrada, nunca el id del tipo (`plantilla`
+ * anota la del CANAL), así que sigue andando igual aunque el tipo se borrara.
+ * El mismo día cambiaron dos nombres: «Recurso gratis» → «Lead Magnet Funnel» y «Carrito» →
+ * «Venta Directa». Los ids (`recurso_gratis`, `carrito`) quedan: se guardan.
  */
-export type TipoCrmId =
-  | 'llamada' | 'dos_reuniones' | 'webinar' | 'presencial' | 'conversaciones' | 'dm_funnel'
-  | 'instagram' | 'formulario_meta' | 'recurso_gratis' | 'linkedin' | 'youtube' | 'carrito';
+/** Los tipos que se OFRECEN: el modal «Nuevo CRM», el onboarding, la recomendación y la API de MaKo. */
+export type TipoCrmOfrecidoId =
+  | 'llamada' | 'webinar' | 'presencial' | 'conversaciones'
+  | 'instagram' | 'formulario_meta' | 'recurso_gratis' | 'youtube' | 'carrito';
+/** Los que dejaron de ofrecerse el 16/11/2026 y pueden estar guardados (`TIPOS_CRM_HEREDADOS`). */
+export type TipoCrmHeredadoId = 'dos_reuniones' | 'dm_funnel' | 'linkedin';
+/** Cualquier id que pueda estar GUARDADO: el de un tipo que se ofrece o el de uno heredado. */
+export type TipoCrmId = TipoCrmOfrecidoId | TipoCrmHeredadoId;
 
-export type TipoCrm = {
-  id: TipoCrmId;
+export type TipoCrm<Id extends TipoCrmId = TipoCrmId> = {
+  id: Id;
   label: string;
   /** Una línea: qué hace la gente y qué haces tú. */
   linea: string;
@@ -1364,32 +1383,50 @@ function etapasDe(plantilla: string, nombres: Readonly<Record<string, string>> =
   };
 }
 
-export const TIPOS_CRM: readonly TipoCrm[] = [
+/** Los que se OFRECEN, en el orden de la lista (el primero de cada canal es el que `tipoRecomendado` propone). */
+export const TIPOS_CRM: readonly TipoCrm<TipoCrmOfrecidoId>[] = [
   { id: 'llamada', label: 'Llamada de venta', linea: 'Una llamada y cierras ahí', canal: 'llamadas', entradas: ['landing'], ...etapasDe('simple') },
-  // La plantilla `highticket` existía en el editor y ningún canal la sembraba: `llamadas` va a
-  // `simple` a propósito (TEMPLATE_POR_CANAL explica por qué pedir de más no es el lado seguro).
-  { id: 'dos_reuniones', label: 'Dos reuniones', linea: 'R1 y R2 antes de cerrar', canal: 'llamadas', entradas: ['landing'], ...etapasDe('highticket') },
   { id: 'webinar', label: 'Webinar', linea: 'Vendes en un evento en vivo', canal: 'webinar', entradas: ['landing'], ...etapasDe('vsl') },
   { id: 'presencial', label: 'Sesión presencial', linea: 'Cierras en una sesión gratis', canal: 'presencial', entradas: ['chat_entrante'], ...etapasDe('presencial') },
   { id: 'conversaciones', label: 'Conversaciones por chat', linea: 'Te escriben y vendes por chat', canal: 'conversaciones', entradas: ['chat_entrante'], ...etapasDe('conversaciones') },
-  { id: 'dm_funnel', label: 'DM funnel', linea: 'Comentan una palabra y les escribes', canal: 'conversaciones', entradas: ['chat_entrante'], ...etapasDe('conversaciones', { lead: 'Lead entrante (comentó)' }) },
   { id: 'instagram', label: 'Instagram orgánico', linea: 'Te escriben desde tu perfil', canal: 'conversaciones', entradas: ['chat_entrante'], ...etapasDe('conversaciones', { lead: 'Lead entrante (DM)' }) },
   // La entrada `formulario_anuncio` estaba en el editor del funnel y «Nuevo CRM» no la ofrecía
   // (ENTRADAS_OFRECIDAS). Incluye la inmobiliaria: sus preguntas van en la ficha, no en otro tipo.
   { id: 'formulario_meta', label: 'Anuncio con formulario', linea: 'Dejan sus datos en el anuncio', canal: 'conversaciones', entradas: ['formulario_anuncio'], ...etapasDe('conversaciones') },
-  { id: 'recurso_gratis', label: 'Recurso gratis', linea: 'Lo piden en un formulario', canal: 'conversaciones', entradas: ['landing'], ...etapasDe('conversaciones', { lead: 'Pidió el recurso' }) },
+  // «Recurso gratis» hasta el 16/11/2026. Martín: «Recurso gratis, cámbialo en toda la app… debería decir Lead Magnet. Y en
+  // ese caso Lead Magnet Funnel». Un CRM que ya nació con «Pidió el recurso» lo conserva: los nombres se guardan en su funnel.
+  { id: 'recurso_gratis', label: 'Lead Magnet Funnel', linea: 'Lo piden en un formulario', canal: 'conversaciones', entradas: ['landing'], ...etapasDe('conversaciones', { lead: 'Pidió el lead magnet' }) },
+  { id: 'youtube', label: 'YouTube', linea: 'Del video a la agenda', canal: 'llamadas', entradas: ['landing'], ...etapasDe('simple') },
+  // «Carrito» hasta el 16/11/2026 (Martín: «el funnel de carrito debería ser Venta Directa»). El id y el canal `carrito` quedan.
+  { id: 'carrito', label: 'Venta Directa', linea: 'Compran en tu página', canal: 'carrito', entradas: ['carrito'], ...etapasDe('directa') },
+];
+
+/**
+ * Los que dejaron de OFRECERSE el 16/11/2026 (arriba, «lo que se ofrece no es todo lo que se lee») y se siguen LEYENDO,
+ * iguales a como eran, nombre incluido: quien eligió «LinkedIn» en el onboarding lo sigue viendo así en su historial, y un
+ * `crear_crm` propuesto antes de ese día crea lo que la persona confirmó. Nada de lo que OFRECE mira esta lista.
+ */
+export const TIPOS_CRM_HEREDADOS: readonly TipoCrm<TipoCrmHeredadoId>[] = [
+  // La plantilla `highticket` existía en el editor y ningún canal la sembraba: `llamadas` va a
+  // `simple` a propósito (TEMPLATE_POR_CANAL explica por qué pedir de más no es el lado seguro).
+  { id: 'dos_reuniones', label: 'Dos reuniones', linea: 'R1 y R2 antes de cerrar', canal: 'llamadas', entradas: ['landing'], ...etapasDe('highticket') },
+  { id: 'dm_funnel', label: 'DM funnel', linea: 'Comentan una palabra y les escribes', canal: 'conversaciones', entradas: ['chat_entrante'], ...etapasDe('conversaciones', { lead: 'Lead entrante (comentó)' }) },
   // Prospección que cierra en UNA llamada: la conversación y después la reunión. No hay plantilla
   // con esa forma, así que se arma acá con las mismas piezas (claves canónicas).
   {
     id: 'linkedin', label: 'LinkedIn', linea: 'Les escribes y agendan', canal: 'llamadas', entradas: ['chat_saliente'],
     pipeline: [pk('lead', 'entrada'), CONVERSANDO, pk('agenda', 'reunion'), pk('ganado', 'cierre')],
   },
-  { id: 'youtube', label: 'YouTube', linea: 'Del video a la agenda', canal: 'llamadas', entradas: ['landing'], ...etapasDe('simple') },
-  { id: 'carrito', label: 'Carrito', linea: 'Compran en tu página', canal: 'carrito', entradas: ['carrito'], ...etapasDe('directa') },
 ];
 
-export const esTipoCrm = (v: unknown): v is TipoCrmId => typeof v === 'string' && TIPOS_CRM.some((t) => t.id === v);
-export const tipoCrmPorId = (v: unknown): TipoCrm | null => TIPOS_CRM.find((t) => t.id === v) ?? null;
+const TODOS_LOS_TIPOS: readonly TipoCrm[] = [...TIPOS_CRM, ...TIPOS_CRM_HEREDADOS];
+
+/** ¿Es el id de un tipo, se ofrezca o no? Lo guardado se sigue leyendo. */
+export const esTipoCrm = (v: unknown): v is TipoCrmId => typeof v === 'string' && TODOS_LOS_TIPOS.some((t) => t.id === v);
+/** El tipo de un id GUARDADO, se ofrezca o no: lo que alguien ya eligió se sigue dibujando y sembrando igual. */
+export const tipoCrmPorId = (v: unknown): TipoCrm | null => TODOS_LOS_TIPOS.find((t) => t.id === v) ?? null;
+/** El tipo sólo si se OFRECE hoy: para lo que se propone (una propuesta guardada de uno heredado no se vuelve a ofrecer). */
+export const tipoCrmOfrecido = (v: unknown): TipoCrm<TipoCrmOfrecidoId> | null => TIPOS_CRM.find((t) => t.id === v) ?? null;
 
 /** Con qué nace un CRM nuevo: el canal, la entrada, las etapas y las nutriciones que ya vienen apagadas. */
 export type SiembraCrm = {
@@ -1405,6 +1442,11 @@ export type SiembraCrm = {
  * Lo que elige la persona (o MaKo por su API) en «Nuevo CRM», saneado: un tipo de `TIPOS_CRM`, o
  * `otro` con el canal y las entradas a mano. La comparten el modal y la op `crear_crm`, así un
  * tipo no siembra una cosa en la pantalla y otra por WhatsApp.
+ *
+ * Un tipo HEREDADO (`TIPOS_CRM_HEREDADOS`, 16/11/2026) siembra lo mismo que sembraba: llega sólo
+ * de algo GUARDADO (el `payload` de un `crear_crm` propuesto antes y confirmado después, o un
+ * script de prueba), porque nada de lo que se ofrece lo manda: el modal y el onboarding dibujan
+ * `TIPOS_CRM`, y el enum de `crear_crm` rechaza los otros antes de llegar acá.
  *
  * Falla CERRADO, como `templateDeCanal`: sin un tipo que exista, o con `otro` sin canal o sin
  * entradas, devuelve el error y no una plantilla por default. Elegir por la persona es justo lo

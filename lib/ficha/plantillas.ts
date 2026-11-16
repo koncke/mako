@@ -110,7 +110,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     apagados: ['empresa', 'plan', 'comprobante', 'dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal'],
   },
   {
-    // Incluye el recurso gratis y el link de la bio o de YouTube; ws13 (landing con Cal.com sin etapa de reunión).
+    // Incluye el Lead Magnet Funnel y el link de la bio o de YouTube; ws13 (landing con Cal.com sin etapa de reunión).
     id: 'landing', nombre: 'Landing con opt-in',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'lo-que-contesto', 'pagina-de-registro', 'origen', 'proxima-reunion', 'charla-whatsapp', 'automatizaciones-en-curso', 'lo-que-le-mandamos', 'tiempo-en-etapa', 'calificacion', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
@@ -120,8 +120,8 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     apagados: ['dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal'],
   },
   {
-    // WhatsApp, Instagram o Messenger, incluido el DM funnel. «El teléfono sigue avisando, porque pedirlo
-    // es parte de la charla». El «contrato» del documento no es un dato sin marcar: no tiene StepId.
+    // WhatsApp, Instagram o Messenger (y el DM funnel que ya exista: dejó de ofrecerse el 16/11/2026). «El teléfono sigue
+    // avisando, porque pedirlo es parte de la charla». El «contrato» del documento no es un dato sin marcar: no tiene StepId.
     id: 'te-escriben', nombre: 'Te escriben',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'charla-dm', 'charla-whatsapp', 'pase-a-humano', 'mensaje-listo', 'contacto', 'publicacion-de-entrada', 'origen', 'setter-y-closer', 'tiempo-en-etapa', 'automatizaciones-en-curso', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
@@ -142,7 +142,9 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
   {
     // «El comprobante sólo se pide en un pago a mano»: no está entre los apagados del documento, aunque
     // `cuotas` (su bloque) no viene. Ver `siguenAvisando`.
-    id: 'carrito', nombre: 'Carrito',
+    // El nombre es el del funnel: «Carrito» hasta el 16/11/2026 (Martín: «el funnel de carrito debería ser Venta Directa»).
+    // El id se guarda (`funnels.data.ficha`): no cambia.
+    id: 'carrito', nombre: 'Venta Directa',
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'cobrado', 'origen', 'lo-que-contesto', 'charla-whatsapp', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
       pagos: ['suscripcion', 'cobrado', 'links-de-pago', 'cuotas', 'movimientos', 'venta', 'oferta', 'cliente-en-cs'],

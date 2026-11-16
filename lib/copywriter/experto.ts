@@ -43,7 +43,7 @@ export const PREGUNTA_DE: Readonly<Record<DatoNegocio, { pregunta: string; ejemp
   palabra_clave: { pregunta: '¿Tienes la automatización que contesta la palabra clave?', ejemplo: 'Sí, con GUIA' },
   mecanismo: { pregunta: '¿Cómo se llama tu método y en qué pasos funciona?', ejemplo: 'Método 3C: captar, calificar, cerrar' },
   historia: { pregunta: '¿Cuál fue tu peor momento antes de encontrar el método?', ejemplo: 'Un mes con 2 clientes' },
-  recurso: { pregunta: '¿Qué recurso gratuito das (guía, checklist, clase)?', ejemplo: 'Checklist de 12 puntos' },
+  recurso: { pregunta: '¿Qué lead magnet das (guía, checklist, clase)?', ejemplo: 'Checklist de 12 puntos' },
 };
 
 /** Lo que pide una plantilla, como lo lee la IA: una línea por dato, en su orden, con la pregunta y un ejemplo. */

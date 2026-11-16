@@ -281,7 +281,8 @@ export async function siguientePasoOpciones(): Promise<string[]> {
   const base = [
     await siguientePasoDefault(),
     've un video de ventas (VSL) y después puede agendar una llamada',
-    'recibe un recurso gratis por WhatsApp',
+    // «recurso gratis» hasta el 16/11/2026 (Martín: «Recurso gratis, cámbialo en toda la app… debería decir Lead Magnet»).
+    'recibe un lead magnet por WhatsApp',
     'recibe una cotización por WhatsApp',
     'se registra a un webinar en vivo',
     'compra directo en la página',

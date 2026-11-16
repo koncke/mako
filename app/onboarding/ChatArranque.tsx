@@ -31,7 +31,7 @@ import { conWs } from '@/lib/ws-tab';
 import { VistaPdf } from '../offer/VistaPdf';
 import { Button } from '@/app/_ui';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
-import { tipoCrmPorId } from '@/lib/pipeline';
+import { tipoCrmOfrecido, tipoCrmPorId } from '@/lib/pipeline';
 import { etapasConNombres } from '@/lib/onboarding-crm';
 import { RUTA_AL_TERMINAR, rutaDelHilo, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
 import { MENSAJE_BLOQUEADO } from '@/lib/onboarding-guardia';
@@ -354,7 +354,9 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
 /** El CRM que propone (o eligió): su tipo y sus etapas, como lo va a ver en el tablero. */
 function TarjetaCrm({ vista }: { vista: VistaArranque }) {
   const p = vista.crmPropuesta;
-  const tipo = (vista.crmTipo && tipoCrmPorId(vista.crmTipo)) || (p && tipoCrmPorId(p.tipo)) || tipoCrmPorId(vista.crmRecomendado) || tipoRecomendado(vista.canal);
+  // Lo ELEGIDO se dibuja aunque hoy no se ofrezca (es su CRM); lo PROPUESTO, sólo si se ofrece (16/11/2026): una propuesta
+  // guardada de Dos reuniones, DM funnel o LinkedIn cede al recomendado, como en la pregunta (`tiposOfrecidos`).
+  const tipo = (vista.crmTipo && tipoCrmPorId(vista.crmTipo)) || (p && tipoCrmOfrecido(p.tipo)) || tipoCrmPorId(vista.crmRecomendado) || tipoRecomendado(vista.canal);
   // Con los nombres de SU negocio si MaKo los armó para este tipo (20/10/2026, el CRM a medida: lib/onboarding-crm.ts).
   const etapas = etapasConNombres(tipo.pipeline, p?.tipo === tipo.id ? p.etapas : null);
   return (

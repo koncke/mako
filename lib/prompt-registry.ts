@@ -1701,7 +1701,7 @@ export const REGISTRY: Group[] = [
         label: 'Lo que sabe de los otros caminos', kind: 'instruction', dynamic: false, variables: [],
         scope: 'full', sensitive: false,
         default: PROMPTS_COPILOTO.canales.tpl,
-        context: 'Tienda online, negocio local o inmobiliaria, Instagram orgánico, YouTube, email, lead magnet, LinkedIn y referidos, y qué hacer cuando la persona pide pasar de un funnel a otro. Criterio general sin cifras de nadie: si agregas un número, di de dónde sale. Pesa en cada mensaje: lo que sumes, sácalo de otro lado.',
+        context: 'Tienda online, negocio local o inmobiliaria, Instagram orgánico, YouTube, email, lead magnet, referidos (LinkedIn no: MaKo no trabaja ese canal, 16/11/2026), y qué hacer cuando la persona pide pasar de un funnel a otro. Criterio general sin cifras de nadie: si agregas un número, di de dónde sale. Pesa en cada mensaje: lo que sumes, sácalo de otro lado.',
       },
       {
         key: PROMPTS_COPILOTO.anuncios.key, source: 'override',

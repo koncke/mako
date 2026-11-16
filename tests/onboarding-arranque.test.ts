@@ -167,10 +167,10 @@ test('el CRM: primero cómo le llegan (por chat), después el funnel que le reco
   const e = { ...QUIEN, entrada: 'chat_entrante' as const };
   const crm = mensajesDeArranque(e, h).despues.find((m) => m.id === 'arr-crm');
   assert.ok(crm && crm.tarjeta === 'crm');
-  // «Sí, ese» acepta el recomendado (en la tarjeta), y «Ver los 12» abre la lista.
+  // «Sí, ese» acepta el recomendado (en la tarjeta), y «Ver los 9» abre la lista (eran 12 hasta el 16/11/2026).
   assert.equal(crm.opciones?.[0], CRM_SI);
   assert.ok(crm.opciones?.includes(VER_OTROS_TIPOS));
-  assert.match(crm.texto, /^Hay 12 funnels en MaKo\. Para ti: «Instagram orgánico»\./);
+  assert.match(crm.texto, /^Hay 9 funnels en MaKo\. Para ti: «Instagram orgánico»\./);
   assert.deepEqual(leerRespuesta(e, h, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'instagram' } });
   const todos = mensajesDeArranque({ ...e, crmVerTodos: true }, h).despues.find((m) => m.id === 'arr-crm');
   assert.equal(todos?.opciones?.[0], 'Instagram orgánico', 'con la lista abierta, primero el recomendado');

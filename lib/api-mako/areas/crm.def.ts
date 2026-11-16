@@ -795,14 +795,17 @@ export const DEFS: readonly OperacionDef[] = [
   },
 
   // ── Crear un CRM por su TIPO (14/10/2026, §2 de docs/diseno-ficha-bloques.md) ──────────────
-  // «Nuevo CRM» elige un tipo (DM funnel, LinkedIn, dos reuniones…) que trae canal, entrada y
-  // etapas (`TIPOS_CRM`, lib/pipeline.ts), o «otro» con el canal y las entradas a mano. Las dos
-  // ops van por el mismo camino que el modal: `siembraDeCrm` sanea y `crearCrm` (lib/nuevo-crm.ts)
+  // «Nuevo CRM» elige un tipo (Instagram orgánico, YouTube, Lead Magnet Funnel…) que trae canal,
+  // entrada y etapas (`TIPOS_CRM`, lib/pipeline.ts), o «otro» con el canal y las entradas a mano. Las
+  // dos ops van por el mismo camino que el modal: `siembraDeCrm` sanea y `crearCrm` (lib/nuevo-crm.ts)
   // escribe. Por HTTP a propósito: un tipo y sus etapas no traen datos de nadie.
+  // ⚠️ Desde el 16/11/2026 se OFRECEN nueve: LinkedIn, DM funnel y dos reuniones quedaron heredados
+  // (`TIPOS_CRM_HEREDADOS`), fuera de la lista y del enum de `crear_crm`. La descripción lo dice para que
+  // MaKo no proponga uno que se fue si alguien lo nombra.
   {
     id: 'tipos_de_crm', area: 'crm', tipo: 'lectura',
     titulo: 'Tipos de CRM para crear',
-    descripcion: 'Los tipos de CRM que se pueden crear con crear_crm, los mismos de «Nuevo CRM» en la pantalla: llamada de venta, dos reuniones (high-ticket), webinar, sesión presencial, conversaciones por chat, DM funnel (comentan una palabra clave), Instagram orgánico, anuncio con formulario de Meta, recurso gratis (lead magnet), LinkedIn, YouTube y carrito. Por cada uno, su id, qué es en una línea, cómo se vende, cómo llega la gente y las etapas con las que nace el tablero. Úsala antes de crear_crm cuando no está claro cuál corresponde. El tipo otro arma el CRM con el canal y las entradas que se pasen.',
+    descripcion: 'Los tipos de CRM que se pueden crear con crear_crm, los mismos de «Nuevo CRM» en la pantalla: llamada de venta, webinar, sesión presencial, conversaciones por chat, Instagram orgánico, anuncio con formulario de Meta, Lead Magnet Funnel (piden tu lead magnet en un formulario), YouTube y Venta Directa (compran en tu página, sin llamada). LinkedIn, DM funnel y dos reuniones ya no se ofrecen: quien prospecta escribiendo o cierra en dos reuniones va a llamada de venta, y un DM es conversaciones por chat. Por cada uno, su id, qué es en una línea, cómo se vende, cómo llega la gente y las etapas con las que nace el tablero. Úsala antes de crear_crm cuando no está claro cuál corresponde. El tipo otro arma el CRM con el canal y las entradas que se pasen.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },

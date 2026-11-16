@@ -37,7 +37,7 @@
 // =============================================================================
 
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, type CanalId } from './fase-diagnostico';
-import { ENTRADAS, TIPOS_CRM, type EntradaId, type TipoCrm, type TipoCrmId } from './pipeline';
+import { ENTRADAS, TIPOS_CRM, tipoCrmOfrecido, tipoCrmPorId, type EntradaId, type TipoCrm, type TipoCrmId } from './pipeline';
 import { CUANTOS_FUNNELS, nombreDelFunnel, recomendarFunnel, type FunnelRecomendado } from './funnel-recomendado';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
 import type { PropuestaCrm } from './onboarding-crm';
@@ -191,7 +191,7 @@ export const CODIGO_CARGADO = 'Listo, ya lo cargué.';
 /** Lo mismo, cuando la persona le escribió a MaKo (4/11/2026): no cargó nada en la app. */
 export const MENSAJE_MANDADO = 'Listo, ya te escribí.';
 export const CAMBIAR_NUMERO = 'Cambiar número';
-/** Abre la lista de los doce funnels (5/11/2026, plan.md §3.1 paso 10: «Ver los 12»). */
+/** Abre la lista de los funnels que se ofrecen (5/11/2026, plan.md §3.1 paso 10: «Ver los 12»; «Ver los 9» desde el 16/11/2026). */
 export const VER_OTROS_TIPOS = `Ver los ${CUANTOS_FUNNELS}`;
 /** La primera respuesta del CRM: acepta el que MaKo le recomienda (`recomendarFunnel`). Hasta el 5/11 era «Sí, es correcto»
  *  sobre «¿Te sirven?», que preguntaba una acción. */
@@ -931,13 +931,15 @@ export function tipoRecomendado(canal: CanalId | null): TipoCrm {
 }
 
 /**
- * Los tipos que se ofrecen: el recomendado primero y los demás de su canal; con «ver todos», los doce. El
+ * Los tipos que se ofrecen: el recomendado primero y los demás de su canal; con «ver todos», todos los de `TIPOS_CRM`. El
  * marco de Offer es de alto ticket vendido por llamada (lib/offer-autores.ts), así que sin canal manda
  * «Llamada de venta». Con el CRM a medida (`propuesta`, 20/10/2026), el recomendado es el que eligió MaKo.
+ * ⚠️ Una propuesta GUARDADA de un tipo que dejó de ofrecerse (16/11/2026: Dos reuniones, DM funnel, LinkedIn) no se vuelve a
+ * ofrecer: manda el recomendado, y «Sí, ese» siembra ése con sus nombres de fábrica (los de la propuesta eran de otro tipo).
  */
 export function tiposOfrecidos(canal: CanalId | null, verTodos: boolean, propuesta?: PropuestaCrm | null, recomendado?: TipoCrmId | null): { tipos: TipoCrm[]; hayMas: boolean } {
-  const rec = (propuesta && TIPOS_CRM.find((t) => t.id === propuesta.tipo))
-    || (recomendado && TIPOS_CRM.find((t) => t.id === recomendado)) || tipoRecomendado(canal);
+  const rec = (propuesta && tipoCrmOfrecido(propuesta.tipo))
+    || (recomendado && tipoCrmOfrecido(recomendado)) || tipoRecomendado(canal);
   const base = verTodos ? [...TIPOS_CRM] : TIPOS_CRM.filter((t) => t.canal === rec.canal);
   const tipos = [rec, ...base.filter((t) => t.id !== rec.id)];
   return { tipos, hayMas: !verTodos && tipos.length < TIPOS_CRM.length };
@@ -1167,8 +1169,9 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     }
     const rec = funnelDelArranque(e, h);
     const { tipos } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos, e.crmPropuesta, rec.tipo);
-    // Primero el que le recomienda, con «Sí, ese»; «Ver los 12» abre la lista (plan.md §3.1, paso 10).
-    const elegido = e.crmTipo ? (e.crmTipo === tipos[0].id && !e.crmVerTodos ? CRM_SI : TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label) : undefined;
+    // Primero el que le recomienda, con «Sí, ese»; «Ver los 9» abre la lista (plan.md §3.1, paso 10). Lo que ya eligió se dibuja
+    // aunque hoy no se ofrezca (`tipoCrmPorId`, 16/11/2026): quien eligió «LinkedIn» lo sigue viendo como su respuesta.
+    const elegido = e.crmTipo ? (e.crmTipo === tipos[0].id && !e.crmVerTodos ? CRM_SI : tipoCrmPorId(e.crmTipo)?.label) : undefined;
     const opciones = e.crmVerTodos ? tipos.map((t) => t.label) : [CRM_SI, VER_OTROS_TIPOS];
     preguntar(despues, 'crm', crmPregunta(rec), elegido, opciones, 'crm');
     if (etapa === 'crm') return { antes, despues };

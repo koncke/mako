@@ -91,7 +91,7 @@ export const GUIAS: Readonly<Record<string, Readonly<Record<string, string>>>> =
     GANCHO: 'Los primeros 30 segundos: lo que promete la miniatura, qué se lleva y qué pierde si no lo sabe.',
     INTRO: 'Quién eres, en una frase, y de dónde salen los datos del video.',
     'BLOQUE UNO': 'Una idea completa: abre con una interrupción y cierra con un resumen y un puente.',
-    'CTA MEDIO': 'Un recurso gratis ligado al tema, en 15 segundos.',
+    'CTA MEDIO': 'Un lead magnet ligado al tema, en 15 segundos.',
     'BLOQUE DOS': 'La primera línea vuelve a enganchar; después, una idea, un resumen y un puente.',
     'BLOQUE TRES': 'La idea más teórica, con un ejemplo en pantalla.',
     REGANCHO: 'Lo que ya vio, en una frase, y lo mejor que falta.',
@@ -113,5 +113,5 @@ export const OBJETIVOS: Readonly<Record<string, readonly string[]>> = {
   'secuencia-nutricion': ['Agendar llamadas', 'Vender un programa', 'Llevar a una clase'],
   'vsl-respuesta-directa': ['Agendar llamadas', 'Vender directo'],
   'vsl-clase-educativa': ['Vender en la clase', 'Agendar llamadas'],
-  youtube: ['Traer clientes', 'Crecer el canal', 'Llevar a un recurso gratis'],
+  youtube: ['Traer clientes', 'Crecer el canal', 'Llevar a un lead magnet'],
 };

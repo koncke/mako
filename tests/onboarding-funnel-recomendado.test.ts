@@ -42,7 +42,8 @@ test('1. recomendarFunnel: respeta el canal, gana la primera regla, y el porqué
   // 2. Ya le funciona y dijo la entrada: el de su canal y su entrada.
   const ya = 'Ya te funciona: lo medimos como está.';
   assert.deepEqual(r({ canal: 'llamadas', entrada: 'agenda_sola', funnelHoy: 2 }), { tipo: 'llamada', porque: ya });
-  assert.deepEqual(r({ canal: 'llamadas', entrada: 'chat_saliente', funnelHoy: 3 }), { tipo: 'linkedin', porque: ya });
+  // «Tú les escribes» por llamada era LinkedIn hasta el 16/11/2026 («Nosotros no hacemos LinkedIn»): la llamada de venta.
+  assert.deepEqual(r({ canal: 'llamadas', entrada: 'chat_saliente', funnelHoy: 3 }), { tipo: 'llamada', porque: ya });
   assert.deepEqual(r({ canal: 'conversaciones', entrada: 'chat_entrante', funnelHoy: 2 }), { tipo: 'conversaciones', porque: ya });
   assert.deepEqual(r({ canal: 'conversaciones', entrada: 'landing', funnelHoy: 2 }), { tipo: 'recurso_gratis', porque: ya });
   // 3. Le dejan sus datos.
@@ -50,18 +51,23 @@ test('1. recomendarFunnel: respeta el canal, gana la primera regla, y el porqué
   assert.deepEqual(r({ canal: 'conversaciones', entrada: 'formulario_anuncio' }), { tipo: 'formulario_meta', porque: 'Te dejan sus datos en el anuncio.' });
   // 4 a 6. Por chat: inversión, publica, o lo orgánico. El ejemplo de Ana (plan.md §3.2).
   assert.equal(r({ canal: 'conversaciones', entrada: 'chat_entrante', inversion: 1 }).tipo, 'conversaciones');
-  assert.equal(r({ canal: 'conversaciones', entrada: 'chat_entrante', inversion: 0, creativos: 1 }).tipo, 'dm_funnel');
+  // Quien publica seguido iba al DM funnel hasta el 16/11/2026 («para eso ya tenemos conversaciones por chat»).
+  assert.deepEqual(r({ canal: 'conversaciones', entrada: 'chat_entrante', inversion: 0, creativos: 1 }),
+    { tipo: 'conversaciones', porque: 'Publicas seguido: que te comenten una palabra.' });
   assert.deepEqual(r({ canal: 'conversaciones', entrada: 'chat_entrante', inversion: 0, creativos: 0, funnelHoy: 1 }),
     { tipo: 'instagram', porque: 'Inviertes menos de $600 al mes: empieza sin pagar anuncios.' });
   // 7 y 8. Por llamada sin pagar anuncios.
-  assert.equal(r({ canal: 'llamadas', entrada: 'chat_saliente', inversion: 3 }).tipo, 'linkedin', 'les escribe: LinkedIn aunque invierta');
-  assert.equal(r({ canal: 'llamadas', entrada: 'agenda_sola', inversion: 0, creativos: 0 }).tipo, 'linkedin');
+  // «Les escribes» era LinkedIn hasta el 16/11/2026: ahora la llamada de venta, con el mismo porqué.
+  assert.deepEqual(r({ canal: 'llamadas', entrada: 'chat_saliente', inversion: 3 }), { tipo: 'llamada', porque: 'Les escribes y agendan, sin pagar anuncios.' }, 'les escribe: aunque invierta');
+  assert.equal(r({ canal: 'llamadas', entrada: 'agenda_sola', inversion: 0, creativos: 0 }).tipo, 'llamada');
   assert.equal(r({ canal: 'llamadas', entrada: 'landing', inversion: 0, creativos: 2 }).tipo, 'youtube');
-  // 9. Por llamada con inversión: la fase suma el video de venta y los anuncios a quien ya lo vio; desde la 4, dos reuniones.
+  // 9. Por llamada con inversión: la fase suma el video de venta y los anuncios a quien ya lo vio. Desde la 4 eran dos reuniones
+  // hasta el 16/11/2026 («es llamada de venta directamente»): ahora la llamada, con el porqué de la fase.
   assert.deepEqual(r({ canal: 'llamadas', entrada: 'landing', inversion: 1, fase: 0 }), { tipo: 'llamada', porque: 'Con tu inversión: anuncios a una página donde agendan.' });
   assert.match(r({ canal: 'llamadas', entrada: 'landing', inversion: 1, fase: 1 }).porque, /, con un video de venta en la página\.$/);
   assert.match(r({ canal: 'llamadas', entrada: 'landing', inversion: 2, fase: 2 }).porque, /y anuncios para quien ya te vio\.$/);
-  assert.equal(r({ canal: 'llamadas', entrada: 'landing', inversion: 2, fase: 3 }).tipo, 'dos_reuniones');
+  assert.deepEqual(r({ canal: 'llamadas', entrada: 'landing', inversion: 2, fase: 3 }),
+    { tipo: 'llamada', porque: 'Con tu inversión: anuncios a una página donde agendan, con un video de venta en la página y anuncios para quien ya te vio.' });
   // 10. Sin canal: el de siempre, sin porqué.
   assert.deepEqual(r({ canal: null }), { tipo: 'llamada', porque: '' });
   // Siempre respeta el canal: ningún tipo de otro canal, con cualquier combinación.
@@ -69,10 +75,11 @@ test('1. recomendarFunnel: respeta el canal, gana la primera regla, y el porqué
   const entradas = [null, 'landing', 'agenda_sola', 'chat_entrante', 'chat_saliente', 'formulario_anuncio'] as const;
   for (const canal of canales) for (const entrada of entradas) for (const inversion of [0, 1, 4]) for (const funnelHoy of [0, 2]) for (const creativos of [0, 1]) {
     const x = r({ canal, entrada, inversion, funnelHoy, creativos, fase: 2 });
-    assert.equal(TIPOS_CRM.find((t) => t.id === x.tipo)?.canal, canal, `${canal}/${entrada}: recomendó ${x.tipo}, de otro canal`);
+    // `TIPOS_CRM` es lo que se OFRECE: uno heredado (LinkedIn, Dos reuniones, DM funnel) no lo encuentra y falla acá.
+    assert.equal(TIPOS_CRM.find((t) => t.id === x.tipo)?.canal, canal, `${canal}/${entrada}: recomendó ${x.tipo}, de otro canal o que no se ofrece`);
     assert.deepEqual(marcasDeVoseo(x.porque), [], x.porque);
   }
-  assert.equal(CUANTOS_FUNNELS, 12);
+  assert.equal(CUANTOS_FUNNELS, 9, 'eran 12 hasta el 16/11/2026');
 });
 
 const H: HechosArranque = {
@@ -99,8 +106,9 @@ test('2. el arranque: «¿Cómo te llegan hoy los clientes?» por llamada o por 
   const ana = { ...ANA, entrada: 'chat_entrante' as const };
   assert.equal(etapaDeArranque(ana, H), 'crm');
   const crm = mensajesDeArranque(ana, H).despues.find((m) => m.id === 'arr-crm')!;
-  assert.equal(crm.texto, 'Hay 12 funnels en MaKo. Para ti: «Instagram orgánico». Inviertes menos de $600 al mes: empieza sin pagar anuncios.');
+  assert.equal(crm.texto, 'Hay 9 funnels en MaKo. Para ti: «Instagram orgánico». Inviertes menos de $600 al mes: empieza sin pagar anuncios.');
   assert.deepEqual(crm.opciones, [CRM_SI, VER_OTROS_TIPOS]);
+  assert.equal(VER_OTROS_TIPOS, 'Ver los 9');
   assert.equal(crm.tarjeta, 'crm', 'con la tarjeta de sus etapas');
   assert.deepEqual(leerRespuesta(ana, H, { opcion: 0, opcionTexto: CRM_SI }), { ok: true, patch: { crmTipo: 'instagram' } });
   assert.equal(funnelDelArranque(ana, H).tipo, 'instagram');
@@ -144,3 +152,6 @@ test('4. la IA ya no elige el tipo (UN candidato), y el link del borrador del pl
 //   · la entrada se pregunta también con webinar                                     → 3/1 (2)
 //   · el cobro vuelve a «¿Lo cargo así?»                                             → 3/1 (3)
 //   · la ruta le pasa los candidatos de su canal a la IA (sin el recomendado)        → 3/1 (4)
+// 16/11/2026: LinkedIn, Dos reuniones y DM funnel dejaron de ofrecerse (la segunda rotura de arriba ya no aplica: la llamada
+// con menos de $600 ES «Llamada de venta»). La regla 7 devolviendo `linkedin` otra vez → 3/1 (1): el barrido de canales no
+// lo encuentra en `TIPOS_CRM`. Lo que se ofrece entero lo fija tests/funnels-que-se-ofrecen.test.ts.

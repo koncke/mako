@@ -163,8 +163,9 @@ test('4. EN VIVO, el onboarding entero como lo corre la ruta: cada pregunta con 
     assert.ok(textos.includes(NEGOCIO_CONFIRMAR[0]));
     assert.ok(!textos.includes('Otro nombre') && !textos.some((x) => /Otro nombre/.test(x)), 'el negocio arreglado después no reescribe lo que pasó');
     const iVer = textos.indexOf(VER_OTROS_TIPOS);
-    // La recomendación del funnel (5/11/2026): «Hay 12 funnels en MaKo. Para ti: «…».», con el porqué que escribe el código.
-    const esCrm = (x: string | undefined) => /^Hay 12 funnels en MaKo\. Para ti: «/.test(x ?? '');
+    // La recomendación del funnel (5/11/2026): «Hay 9 funnels en MaKo. Para ti: «…».» (eran 12 hasta el 16/11/2026), con el
+    // porqué que escribe el código.
+    const esCrm = (x: string | undefined) => /^Hay 9 funnels en MaKo\. Para ti: «/.test(x ?? '');
     assert.ok(iVer > 0 && esCrm(textos[iVer - 1]) && esCrm(textos[iVer + 1]), 'la pregunta que vuelve, otra vez');
     assert.ok(textos.includes('¿Cómo te llegan hoy los clientes?'), 'por llamada, la entrada antes del CRM');
     if (variante === 'cambiar') {
@@ -203,8 +204,8 @@ test('4b. EN VIVO: el mismo toque dos veces (dos POST a la vez) no duplica pregu
   assert.deepEqual(h4.map((x) => x.texto), ['¿Te llamo «Que Tal»?', NOMBRE_CONFIRMAR[1], '¿Te llamo «Que Tal»?', NOMBRE_CONFIRMAR[1]]);
 });
 
-test('5. EN VIVO: la pregunta que vuelve después de una respuesta se anota otra vez («Ver los 12»)', () => {
-  const CRM_PREGUNTA = 'Hay 12 funnels en MaKo. Para ti: «Llamada de venta».';
+test('5. EN VIVO: la pregunta que vuelve después de una respuesta se anota otra vez («Ver los 9»)', () => {
+  const CRM_PREGUNTA = 'Hay 9 funnels en MaKo. Para ti: «Llamada de venta».';
   const crm = (opciones: string[]) => vistaDe([], [m('arr-crm', 'mako', CRM_PREGUNTA, opciones)]);
   let h = conLoNuevo([], crm([CRM_SI, VER_OTROS_TIPOS]), { ahora: 10, vivo: true })!;
   h = conLoNuevo(h, crm([CRM_SI, VER_OTROS_TIPOS]), { ahora: 20, vivo: true, respuesta: loQueContesto(crm([CRM_SI, VER_OTROS_TIPOS]), { opcion: 1 }) })!;

@@ -147,7 +147,7 @@ CTA (no siempre obligatorio): responder la story con una palabra clave en MAYÚS
     guia: `GANCHO (0:00-0:30, en tres tiempos): el agarre (hasta el segundo 5) muestra lo que promete la miniatura; la promesa (hasta el 15) dice qué se lleva quien mire el video; lo que está en juego (hasta el 30) dice qué pierde si no lo sabe. Sin saludo y sin presentarte antes del gancho.
 INTRO (0:30-1:30): quién eres, en una frase y en función del tema, y de dónde salen los datos del video. Cierra con un puente al primer bloque.
 BLOQUE UNO (1:30-3:00): abre con una interrupción (cambio de cámara, gráfico o ejemplo en pantalla), entrega una idea completa que se pueda aplicar y cierra con un resumen de una línea y un puente al bloque siguiente.
-CTA MEDIO (cerca del minuto 3, el 25 % del video; 15 segundos como máximo): un recurso gratuito ligado al tema (una guía, un checklist) y dónde encontrarlo. No pide comprar ni agendar.
+CTA MEDIO (cerca del minuto 3, el 25 % del video; 15 segundos como máximo): un lead magnet ligado al tema (una guía, un checklist), nombrado por lo que es, y dónde encontrarlo. No pide comprar ni agendar.
 BLOQUE DOS (3:15-5:00): su primera línea vuelve a enganchar a quien se iba a ir («lo que sigue te va a doler»). Misma forma: interrupción, una idea, resumen y puente.
 BLOQUE TRES (5:00-7:30): la idea más teórica, siempre con un ejemplo en pantalla. Misma forma.
 REGANCHO (cerca del minuto 7:30, el 60 % del video): una o dos frases que resumen lo que ya vio y prometen lo mejor que falta.

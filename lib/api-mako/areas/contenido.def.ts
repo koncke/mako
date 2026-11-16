@@ -144,7 +144,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'opciones_siguiente_paso_guion', area: 'contenido', tipo: 'lectura',
     titulo: 'Siguientes pasos para el CTA',
-    descripcion: 'La lista CERRADA de lo que la persona recibe al hacer clic en el anuncio (agenda una llamada, ve un video de ventas, recibe un recurso por WhatsApp…), con el default del funnel del negocio primero. Es de donde se elige SIEMPRE el siguientePaso de escribir_guion_anuncio, copiando el texto exacto: nunca un texto libre. No requiere parámetros.',
+    descripcion: 'La lista CERRADA de lo que la persona recibe al hacer clic en el anuncio (agenda una llamada, ve un video de ventas, recibe un lead magnet por WhatsApp…), con el default del funnel del negocio primero. Es de donde se elige SIEMPRE el siguientePaso de escribir_guion_anuncio, copiando el texto exacto: nunca un texto libre. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_ADS,
   },
