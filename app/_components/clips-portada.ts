@@ -46,7 +46,8 @@ const HASTA_DONDE: Readonly<Record<string, number>> = {
   // 16/11/2026, medidos con la tira (fps=1 y fps=2): el Calendario queda con «Programadas: 6» hasta el 9,3 (después funde con su
   // arranque); Equipo, con Sofía ya en la lista y el aviso verde, hasta el 11,8. Sus grabaciones: C:/dev/bancos-portada/banco-
   // calendario-landing/grabar.mjs y banco-equipo-landing/grabar.mjs.
-  '/vsl-assets/sitio/equipo.webm': 11.8,
+  // (Equipo salió de la portada el 16/11/2026: su fila es el organigrama animado, app/vsl/_sitio/OrganigramaEquipo.tsx; la grabación
+  // queda en su landing, que no se corta.)
 };
 
 /**
