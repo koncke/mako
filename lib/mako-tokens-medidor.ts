@@ -144,6 +144,21 @@ export class SinSaldoDeMakoTokens extends Error {
   }
 }
 
+/**
+ * ¿Este error es del medidor —«no hay saldo»— y no de un proveedor?
+ *
+ * ⚠️ LA CASCADA DE IA TIENE QUE RE-TIRARLO, NO PROBAR EL SIGUIENTE PROVEEDOR. Ningún otro proveedor arregla una falta
+ * de saldo: la caja es del NEGOCIO, no de la clave. Y mientras la cascada lo trataba como «este candidato falló», el
+ * error terminaba en la lista de fallas del cliente y la app le leía al dueño «tu negocio todavía no conectó su IA.
+ * Conecta tu GPT», que es falso dos veces —desde el 15/11/2026 todo lo paga MaKo Tokens— y lo manda a configurar algo
+ * que no le falta. Medido en producción el 16/11/2026: ticket #103, grupo de WhatsApp del ws 23.
+ *
+ * Mi propio comentario en `SinSaldoDeMakoTokens` decía que esto no podía pasar porque la excepción se tira «antes de
+ * llamar a cualquier proveedor». Era falso: el enganche está ADENTRO de las funciones que la cascada llama, así que la
+ * excepción cae justo en su `catch` por candidato.
+ */
+export const esSinSaldoDeMt = (e: unknown): boolean => e instanceof SinSaldoDeMakoTokens || e instanceof SalteadoSinSaldo;
+
 /** Lo que se saltea un camino AUTOMÁTICO cuando el negocio no tiene saldo: no es un error de nadie, es un «no esta vuelta». */
 export class SalteadoSinSaldo extends Error {
   constructor(readonly feature: string, readonly cuesta: number) {
@@ -312,6 +327,12 @@ export async function conMedidorDeMt<T>(feature: string | null | undefined, fn: 
   if (cupo == null && (await esDelCreditoDelOnboarding(f))) return almacen.run(SIN_COBRO(f), fn);
 
   const r = await gastarMt(ws, reserva, { feature: f, costoUsd: costoDeFeature(feature).costoUsd, cupo });
+  // ⚠️ LA CAJA QUE NO ESTÁ INSTALADA NO FRENA NADA, y es el bug que rompió un cliente el 16/11/2026 (ticket #103):
+  // la 0416 no estaba aplicada, la RPC no existía, el medidor falló CERRADO —como está escrito que haga— y el grupo
+  // de WhatsApp del negocio se quedó mudo. Una caja que no existe no tiene nada que proteger.
+  // `almacen.run` y NO `fn()`: el enganche es por RE-ENTRADA, y devolver `fn()` sin abrir el almacén es el bucle
+  // infinito que este repo ya pagó dos veces (ver `medidorAbierto`).
+  if (!r.ok && r.sinCaja) return almacen.run(SIN_COBRO(f), fn);
   if (!r.ok) {
     if (esAutomatica(feature)) throw new SalteadoSinSaldo(f, r.cuesta);
     throw new SinSaldoDeMakoTokens(r.cuesta, r.saldo?.total ?? 0, r.saldo == null ? 0 : r.falta);
@@ -362,6 +383,8 @@ export async function cobrarMediosMt(
   if (cuesta <= 0) return null;
   const r = await gastarMt(ws, cuesta, { feature: o.feature, costoUsd: o.costoUsd ?? null, referencia: o.referencia ?? null, cupo: await cupoConMemoria(ws) });
   if (r.ok) return null;
+  // La caja sin instalar no cobra el medio, pero tampoco lo frena (ticket #103).
+  if (r.sinCaja) return null;
   return r.saldo == null
     ? 'No pude leer tu saldo de MaKo Tokens. Vuelve a intentarlo en un momento.'
     : `Te quedaste sin MaKo Tokens: esto cuesta ${r.cuesta} y tienes ${r.saldo.total}. ${SIN_SALDO_QUE_HACER}`;

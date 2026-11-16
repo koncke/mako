@@ -242,6 +242,12 @@ export function crearPostgrest(o: {
     // verdad, no una lista vacía. Es la diferencia entre probar «no hay bajas» y probar «no sé si hay bajas», y un código
     // que falla abierto pasa el primero y falla el segundo.
     if (faltan.has(tabla)) {
+      // Una FUNCIÓN que falta no contesta como una tabla que falta: PostgREST da PGRST202 y nombra la función. La
+      // diferencia importa porque el código mira el código de error para saber si la migración se aplicó (ticket #103).
+      if (tabla.startsWith('rpc/')) {
+        const f = tabla.slice(4);
+        return json(404, { code: 'PGRST202', message: `Could not find the function public.${f} in the schema cache`, details: null, hint: null });
+      }
       return json(404, { code: 'PGRST205', message: `Could not find the table 'public.${tabla}' in the schema cache`, details: null, hint: null });
     }
     // ⚠️ UNA TABLA QUE NADIE MOCKEÓ CONTESTA 200 Y UNA LISTA VACÍA, y queda anotada en `sinMock`. Es cómodo para no

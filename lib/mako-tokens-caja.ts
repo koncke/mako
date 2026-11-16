@@ -59,8 +59,16 @@ export async function cupoDelWorkspace(ws: number): Promise<number | null> {
 /** El saldo tal como está. `null` si no se pudo leer. Un negocio sin fila tiene cero, que es distinto de «no se pudo leer». */
 export async function saldoDeWorkspace(ws: number): Promise<SaldoDeCaja | null> {
   try {
-    const { data, error } = await getSupabaseServer()
+    let { data, error } = await getSupabaseServer()
       .from('mako_tokens_saldo').select('saldo, comprado, cupo_mes').eq('workspace_id', ws).maybeSingle();
+    // ⚠️ SIN LAS COLUMNAS DE LA 0416, SE LEE LO QUE SÍ ESTÁ. Un `select` con una columna que no existe falla ENTERO
+    // (42703), así que sin esto el saldo quedaba ilegible —null— y `alcanzaElSaldo` frenaba el AI Avatar de todos.
+    // El que lee no necesita la caja nueva para contestar lo viejo (ticket #103, 16/11/2026).
+    if (error && laCajaNoEsta(error)) {
+      const vieja = await getSupabaseServer().from('mako_tokens_saldo').select('saldo').eq('workspace_id', ws).maybeSingle();
+      data = vieja.data as typeof data;
+      error = vieja.error;
+    }
     if (error) throw new Error(error.message);
     const cupo = Number((data as { saldo?: number } | null)?.saldo ?? 0) || 0;
     const comprado = Number((data as { comprado?: number } | null)?.comprado ?? 0) || 0;
@@ -76,7 +84,37 @@ export type Tomado = { readonly cupo: number; readonly comprado: number };
 
 export type Gasto =
   | { readonly ok: true; readonly cuesta: number; readonly tomado: Tomado; readonly queda: SaldoDeCaja }
-  | { readonly ok: false; readonly cuesta: number; readonly saldo: SaldoDeCaja | null; readonly falta: number };
+  | { readonly ok: false; readonly cuesta: number; readonly saldo: SaldoDeCaja | null; readonly falta: number; readonly sinCaja?: true };
+
+/**
+ * Códigos con los que la base dice «eso que pedís NO EXISTE», que es distinto de «la base falló».
+ *
+ * PGRST202 = la función no está en el cache de esquema · PGRST205 = la tabla tampoco · 42883 = función inexistente ·
+ * 42P01 = tabla inexistente · 42703 = columna inexistente (es el que da la 0416 sin aplicar: `comprado` no existe).
+ */
+const CODIGOS_SIN_CAJA = new Set(['PGRST202', 'PGRST205', '42883', '42P01', '42703']);
+
+/**
+ * ¿La caja NO ESTÁ INSTALADA? (la migración 0416 no se aplicó todavía)
+ *
+ * ⚠️ ESTO EXISTE PORQUE EL 16/11/2026 EL MEDIDOR ROMPIÓ UN CLIENTE EN PRODUCCIÓN (ticket #103, ws 23 «Marcela
+ * Fernandez»). El código salió a main y la 0416 nunca se aplicó, así que la RPC no existía: `gastarMt` fallaba
+ * CERRADO —como está escrito que haga— y el grupo de WhatsApp del negocio se quedó sin respuesta, con un aviso que
+ * además le decía que conectara una clave de OpenAI que no necesita.
+ *
+ * El diagnóstico obvio («fallar cerrado es lo seguro») era el equivocado: **una caja que no existe no tiene nada que
+ * proteger**. Fallar cerrado protege la plata cuando la caja está y no contesta; cuando la caja todavía no se instaló,
+ * lo único que hace es apagar el producto. Es la misma tolerancia que el repo ya usa para que el ORDEN DE DESPLIEGUE no
+ * importe (la 0283, 21/10/2026: el código lee la columna que falta sin romperse, sólo no rige lo que habilita).
+ *
+ * Lo que NO afloja: un error de red, un timeout, un 500, una fila que no vuelve. Eso sigue fallando cerrado.
+ */
+export function laCajaNoEsta(error: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!error) return false;
+  if (CODIGOS_SIN_CAJA.has(String(error.code ?? ''))) return true;
+  const m = String(error.message ?? '').toLowerCase();
+  return m.includes('schema cache') || m.includes('does not exist');
+}
 
 /**
  * Descuenta `cuesta` MT del negocio, acreditándole antes el cupo del mes si le corresponde y todavía no lo cobró.
@@ -105,7 +143,14 @@ export async function gastarMt(
       p_costo_usd: o.costoUsd ?? null,
       p_referencia: o.referencia ?? null,
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      // La 0416 sin aplicar: no se cobra, pero TAMPOCO se frena (ver `laCajaNoEsta`).
+      if (laCajaNoEsta(error)) {
+        console.error(`[mako-tokens-caja] ⚠️ LA CAJA NO ESTÁ INSTALADA (falta la migración 0416): ws=${ws} gastó ${c} MT SIN COBRAR (${o.feature ?? 'sin feature'}) — ${error.message}`);
+        return { ok: false, cuesta: c, saldo: null, falta: c, sinCaja: true };
+      }
+      throw new Error(error.message);
+    }
     // La función devuelve SIEMPRE una fila. Ninguna fila es una base que no es la que creemos: falla cerrado.
     const f = (Array.isArray(data) ? data[0] : data) as
       { ok?: boolean; saldo?: number; comprado?: number; tomado_cupo?: number; tomado_comprado?: number } | null;

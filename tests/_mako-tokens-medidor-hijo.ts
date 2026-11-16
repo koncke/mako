@@ -33,6 +33,15 @@ const PLATAFORMA = 9;
 
 /** Lo que el test pone antes de cada caso. */
 let saldo = 0;
+/**
+ * ¿Está instalada la caja? (o sea: ¿se aplicó la migración 0416?)
+ *
+ * ⚠️ `false` ES EL ESTADO EN QUE ESTUVO PRODUCCIÓN EL 16/11/2026 (ticket #103): el código salió a main y la 0416 no se
+ * había aplicado, así que las tres RPC NO EXISTÍAN. PostgREST contesta 404 con PGRST202, no una lista vacía, y la
+ * diferencia es todo: una lista vacía parece «no hay saldo» y un PGRST202 dice «no hay caja».
+ */
+let cajaInstalada = true;
+const SIN_CAJA = (fn: string) => json(404, { code: 'PGRST202', message: `Could not find the function public.${fn} in the schema cache`, details: null, hint: null });
 /** Lo que el medidor pidió: un renglón por llamada a la caja. */
 type Pedido = { fn: string; ws: number; cuesta?: number; feature?: string | null; dioOk?: boolean; deltaCupo?: number; deltaComprado?: number; motivo?: string };
 let pedidos: Pedido[] = [];
@@ -46,6 +55,11 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
   if (u.host === 'supa.test') {
     const cuerpo = typeof init.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {};
+    const rpc = u.pathname.split('/rpc/')[1];
+    if (!cajaInstalada && rpc?.startsWith('mako_tokens_')) {
+      pedidos.push({ fn: `${rpc}-sin-caja`, ws: Number(cuerpo.p_ws ?? 0) });
+      return SIN_CAJA(rpc);
+    }
     if (u.pathname.endsWith('/rpc/mako_tokens_gastar')) {
       const cuesta = Number(cuerpo.p_cuesta ?? 0);
       const ok = cuesta <= 0 || saldo >= cuesta;
@@ -78,7 +92,7 @@ async function main() {
   const ai = await import('../lib/ai-cheap');
   const { chatClaude } = await import('../lib/anthropic');
   const { olvidarD6b } = await import('../lib/solo-su-ia');
-  const { olvidarCupos } = await import('../lib/mako-tokens-medidor');
+  const { olvidarCupos, esSinSaldoDeMt, SinSaldoDeMakoTokens, SalteadoSinSaldo } = await import('../lib/mako-tokens-medidor');
   const { mtReservaDeFeature } = await import('../lib/mako-tokens-costos');
 
   pg.db.workspaces.push(
@@ -102,14 +116,16 @@ async function main() {
   const out: Record<string, unknown> = {};
 
   /** Corre una cosa con un saldo dado y devuelve qué pasó: si salió a la red, qué le pidió a la caja, y si tiró. */
-  const correr = async (ws: number, conSaldo: number, f: () => Promise<unknown>) => {
+  const correr = async (ws: number, conSaldo: number, f: () => Promise<unknown>, o: { sinCaja?: boolean } = {}) => {
     olvidarD6b(); olvidarCupos();
+    cajaInstalada = !o.sinCaja;
     saldo = conSaldo;
     pedidos = []; red = [];
     let tiro: string | null = null;
     await runWithWorkspace(ws, async () => {
       try { await f(); } catch (e) { tiro = e instanceof Error ? `${e.name}: ${e.message.slice(0, 120)}` : String(e); }
     });
+    cajaInstalada = true;
     return { red: [...new Set(red)], pedidos: [...pedidos], saldoFinal: saldo, ...(tiro ? { tiro } : {}) };
   };
 
@@ -169,6 +185,32 @@ async function main() {
   out.onboardingOtraFeature = await correr(20, 0, texto('closing'));
   // Y el que YA paga un plan sí paga esas tres: la excepción se cierra sola (el ws14 tiene capa `agencia`).
   out.archiveroConPlan = await correr(14, 50_000, texto('El Archivero'));
+
+  // ── 7c. LA 0416 SIN APLICAR: el medidor NO PUEDE SER LO QUE ROMPE EL PRODUCTO (ticket #103, 16/11/2026) ──
+  // El código salió a main y la migración no se aplicó. La RPC no existía, el medidor falló CERRADO —como estaba
+  // escrito que hiciera— y el grupo de WhatsApp de un negocio real se quedó sin respuesta. Una caja que no existe no
+  // tiene nada que proteger: se avisa fuerte en el log y la llamada SALE.
+  out.sinCaja = await correr(14, 0, texto('closing'), { sinCaja: true });
+  out.sinCajaClaude = await correr(14, 0, claude('closing'), { sinCaja: true });
+  out.sinCajaAudio = await correr(14, 0, audio('stt-nota-voz'), { sinCaja: true });
+  // Y con la caja puesta otra vez, el mismo negocio sin saldo SÍ se frena: la tolerancia es a que falte la migración,
+  // no a que falte la plata.
+  out.conCajaDeVuelta = await correr(14, 0, texto('closing'));
+
+  // ── 7d. EL MENSAJE QUE LE LLEGA A LA PERSONA no se disfraza de falla de proveedor (ticket #103) ──
+  // ⚠️ Lo que leyó el dueño del ws 23: «No puedo contestar: tu negocio todavía no conectó su IA. Para que te conteste
+  // aquí, conecta tu GPT (una clave de OpenAI)». Falso dos veces: su IA la paga MaKo desde el 15/11, y lo que pasó fue
+  // un error de la caja. La cascada había tomado la excepción del medidor como «este candidato falló» y la había puesto
+  // en la lista de fallas DEL CLIENTE, que es la que la app traduce a ese cartel.
+  const listaDeErrores: string[] = [];
+  out.sinSaldoConLista = await correr(14, 0, () =>
+    ai.chatCheapCascade({ system: 's', user: 'x', feature: 'closing', redDePlataforma: true, erroresOut: listaDeErrores }));
+  out.listaDeErrores = listaDeErrores as unknown as never;
+  out.reconoceElError = {
+    propio: esSinSaldoDeMt(new SinSaldoDeMakoTokens(8, 0, 8)),
+    salteado: esSinSaldoDeMt(new SalteadoSinSaldo('spy', 9)),
+    ajeno: esSinSaldoDeMt(new Error('HTTP 429 rate limit')),
+  } as unknown as never;
 
   // ── 8. SIN WORKSPACE no se cuelga ────────────────────────────────────────
   // ⚠️ EL BUG QUE ESTE REPO YA PAGÓ UNA VEZ, y volvió el 15/11/2026: el enganche es una RE-ENTRADA (la función se llama a
