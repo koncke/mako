@@ -553,7 +553,7 @@ const ABIERTAS: ReadonlyArray<{ donde: string; ancla: string; porque: string }> 
   { donde: '/vsl/image', ancla: 'Ordenas por «Mayor outlier»', porque: 'mirar la biblioteca de carruseles no tiene candado' },
   // 16/11/2026, la portada, los funnels y /vsl/equipo: lo de los dos planes que vive al lado de una promesa de Pro.
   { donde: 'la portada, la fila «Mira todo lo que publica tu competencia.»', ancla: 'Pegas el link de un competidor', porque: 'Competitor Spy es de los dos planes (Essential sigue a uno: `spy.competidores`)' },
-  { donde: 'la portada, la fila «Programa tu semana de contenido de una vez.»', ancla: 'Conectas tus redes una vez', porque: 'el Calendario y publicar en tus redes son de los dos planes (la fila «Calendario de contenido y publicación en tus redes» de /planes)' },
+  // (La fila del Calendario salió de la portada el 16/11/2026: Martín, «por ahora elimina la parte del calendario de contenidos».)
   { donde: '/vsl/funnels/instagram, el paso «La palabra clave»', ancla: 'con la automatización de Instagram', porque: 'las automatizaciones son de los dos planes (Essential, con su tope: `automations.activas`); lo de Pro es el setter con IA' },
   { donde: '/vsl/funnels/whatsapp, el paso «Te escriben»', ancla: 'Cada chat entra a una sola bandeja', porque: 'Chats es de los dos planes' },
   { donde: '/vsl/equipo', ancla: 'Cada closer y cada setter entra a Calendar', porque: 'el setter y el closer son ROLES de Equipo, no el setter con IA, y Calendar es de los dos planes' },

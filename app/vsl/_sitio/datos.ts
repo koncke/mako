@@ -23,7 +23,7 @@ import { CASO } from '../_competencia/marca';
 import type { LandingCompetencia } from '../_competencia/tipos';
 // Lo que es de MaKo Pro se DERIVA del plan, no se tipea (app/vsl/_competencia/solo-pro.ts): las filas de la portada que lo venden.
 import { soloPro, soloProEntre } from '../_competencia/solo-pro';
-import { AVISO_PRO_CLOSING, FALTA_ANALISIS } from '../_competencia/closing';
+import { AVISO_PRO_CLOSING } from '../_competencia/closing';
 import { AVISO_COMUNIDAD } from '../_competencia/classroom';
 import { AVISO_EQUIPO } from '../_competencia/equipo';
 import { AVATARES, type AvatarOrigen } from '@/lib/origen-cuenta';
@@ -312,7 +312,7 @@ export const LEGALES: readonly { nombre: string; href: string }[] = [
  * Lo que dibuja una fila: el visual de su landing, uno de app/vsl/_detalle/feature-visuals.ts, una grabación de la app,
  * los referentes, o `brain`: el Second Brain DE VERDAD, el componente que corre adentro de la app (app/vsl/_sitio/BrainVivo.tsx).
  */
-export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | 'brain' | { video: string; poster: string } | { falta: string };
+export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | 'brain' | 'closing' | { video: string; poster: string } | { falta: string };
 
 /**
  * NADA INVENTADO (Martín, 12/11/2026, noche: «identifica la cantidad de cosas que hiciste inventándote cosas. Eso yo no lo quiero…
@@ -374,9 +374,10 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; ancla?
   // llamada. «Traduce» es que el análisis sale en español: las citas quedan en su idioma.
   // ⚠️ SIN GRABACIÓN, CON EL RECUADRO: lo que se ve de Closing lo ESCRIBE el análisis (el puntaje con sus notas y citas, las objeciones,
   // el coaching), y la grabación que iba era de una llamada INVENTADA (la de «Paola Núñez con Ana», un 7.1 que MaKo nunca escribió). Va
-  // `falta` hasta que haya un análisis real (FALTA_ANALISIS, app/vsl/_competencia/closing.ts); por eso tampoco pasa por el login
+  // El «antes y después» de dos llamadas REALES de Mauricio (16/11/2026, ./ClosingAntesDespues.tsx, sin nombres ni frases): un
+  // componente, no una grabación, así que no pasa por el login. Antes iba el recuadro (FALTA_ANALISIS).
   // (app/_components/clips-portada.ts toma sólo las filas con `video`). El análisis es de MaKo Pro: el aviso sale del plan.
-  { slug: 'closing', titulo: 'Analiza todas tus llamadas de venta con IA.', texto: `Cada llamada, transcrita y puntuada con el método SPIN: MaKo marca cada objeción con su frase y su minuto, y te deja el coaching y el seguimiento por WhatsApp, en español aunque la llamada sea en otro idioma.${AVISO_PRO_CLOSING}`, visual: { falta: FALTA_ANALISIS.portada } },
+  { slug: 'closing', titulo: 'Analiza todas tus llamadas de venta con IA.', texto: `Cada llamada, transcrita y puntuada con el método SPIN: MaKo marca cada objeción con su frase y su minuto, y te deja el coaching y el seguimiento por WhatsApp, en español aunque la llamada sea en otro idioma.${AVISO_PRO_CLOSING}`, visual: 'closing' },
   { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tus anuncios de Meta, tu landing, tus leads del CRM, tus pagos y tus llamadas en una sola pantalla, con tableros listos para ventas, anuncios y llamadas.', visual: 'tableros' },
   // Equipo (16/11/2026, su landing como Pipedrive): después de los números, quién los hace. El video es la sección Equipo REAL
   // (app/equipo/EquipoView.tsx) de C:/dev/bancos-portada/banco-equipo-landing (grabar.mjs): se invita a una closer y entra a la lista.

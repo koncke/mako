@@ -42,6 +42,7 @@ import type { PlanMako } from '@/lib/planes-mako';
 import { Barra } from './Barra';
 import { AvatarVideos, TablerosCarrusel } from './Interactivos';
 import { BrainVivo } from './BrainVivo';
+import { ClosingAntesDespues } from './ClosingAntesDespues';
 import { Pie } from './Pie';
 import { Boton, Flecha } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
@@ -151,6 +152,8 @@ function FilaFuncion({ slug, rotulo, ancla, titulo, texto, visual, inv }: (typeo
           // El Second Brain de verdad, no una grabación: el mismo componente que corre adentro de la app. Se toca, así que
           // NO va `aria-hidden` (arriba) y entra diferido, cuando la fila se ve (app/vsl/_sitio/BrainVivo.tsx).
           <BrainVivo />
+        ) : visual === 'closing' ? (
+          <ClosingAntesDespues />
         ) : grabacion ? (
           // Sin sonido y en bucle: arranca sola, como un GIF (el navegador sólo deja eso si está muda).
           <video src={grabacion.video} poster={grabacion.poster} autoPlay muted loop playsInline preload="metadata" />

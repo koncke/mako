@@ -557,7 +557,11 @@ test('Closing: el muro sale del código, lo que escribe el análisis va con el r
   const i = TARJETAS_PORTADA.findIndex((x) => x.slug === 'closing');
   assert.ok(i > 0 && TARJETAS_PORTADA[i - 1].slug === 'whatsapp' && TARJETAS_PORTADA[i + 1]?.slug === 'dashboard', 'la fila de Closing va entre Chats y los tableros');
   const v = TARJETAS_PORTADA[i].visual;
-  assert.ok(typeof v === 'object' && 'falta' in v && v.falta === FALTA_ANALISIS.portada, 'la fila de Closing de la portada tiene que llevar el recuadro');
+  // Desde el 16/11/2026 la fila lleva el «antes y después» real de dos llamadas de Mauricio (app/vsl/_sitio/ClosingAntesDespues.tsx).
+  assert.equal(v, 'closing', 'la fila de Closing de la portada tiene que llevar el antes y después de Mauricio');
+  const { CLOSING_MAURICIO } = await import('../app/vsl/_sitio/closing-mauricio');
+  assert.ok(CLOSING_MAURICIO.despues.nota > CLOSING_MAURICIO.antes.nota, 'el después no es mejor que el antes');
+  assert.doesNotMatch(leer('app/vsl/_sitio/closing-mauricio.ts'), /quote|note|lead|prospecto:/i, 'en los datos del antes y después hay algo más que notas');
   if ((TABS_SOLO_PRO as readonly string[]).includes('closing-analyst')) assert.ok(TARJETAS_PORTADA[i].texto.includes('Con MaKo Pro'), 'la fila de Closing de la portada no dice que es de Pro');
   const sales = menuProducto().columnas.find((c) => c.rotulo === 'Sales');
   assert.ok(sales?.items.some((it) => it.href === '/vsl/closing'), 'Closing no está en Producto › Sales');
