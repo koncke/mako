@@ -82,21 +82,24 @@ async function main() {
     id, workspace_id: NEGOCIO, usuario_id: 2, usuario_email: 'p2@test.com', titulo: `Ticket ${id}`, estado: 'nuevo', canal: 'formulario',
     ref: null, avance_email: null, created_at: hace(1), updated_at: hace(1), ...f,
   });
+  // ⚠️ NÚMEROS QUE NINGÚN TICKET REAL VA A TENER (16/11/2026, el rojo de la suite de la noche): el cron de tickets CIERRA los
+  // números que nombra un hito del código (lib/tickets-cierre.ts, cerrarLosDesplegados). Con #101-#130, el día que entró el
+  // hito real de los tickets #103 y #105, el cron de abajo «cerró» el #103 de mentira y mandó un correo de más.
   db.tickets.push(
-    ticket(101, {}),                                                        // nuevo → «Recibimos tu ticket»
-    ticket(102, { estado: 'en_curso', avance_email: 'recibido' }),          // avanza → «Ya lo estamos desarrollando»
-    ticket(103, { estado: 'en_curso', avance_email: 'tu_respuesta' }),      // rebote: no
-    ticket(104, { usuario_id: 3 }),                                         // apagó: no
-    ticket(105, { canal: 'sistema' }),                                      // lo abrió el sistema: no
-    ticket(106, { canal: 'chat_app', ref: 'np:abc' }),                      // automático por la persona: no
-    ticket(107, { workspace_id: PLATAFORMA, usuario_id: 4 }),               // la plataforma: no
-    ticket(108, { usuario_id: 5 }),                                         // suspendida: no
-    ticket(109, { usuario_id: 6 }),                                         // de otro negocio: no
-    ticket(110, { estado: 'resuelto', avance_email: 'en_curso', updated_at: hace(72) }), // viejo: no
-    ticket(111, { estado: 'rechazado' }),                                   // cerrado: no
-    ticket(112, { usuario_id: null, usuario_email: 'whatsapp:5215500000000' }), // sin cuenta: no
-    ticket(113, { estado: 'resuelto', avance_email: 'en_curso', avisado_at: hace(0.5) }), // → «Tu ticket está resuelto»
-    ticket(115, { usuario_id: 7 }),                                         // su email no es un email: no
+    ticket(990101, {}),                                                        // nuevo → «Recibimos tu ticket»
+    ticket(990102, { estado: 'en_curso', avance_email: 'recibido' }),          // avanza → «Ya lo estamos desarrollando»
+    ticket(990103, { estado: 'en_curso', avance_email: 'tu_respuesta' }),      // rebote: no
+    ticket(990104, { usuario_id: 3 }),                                         // apagó: no
+    ticket(990105, { canal: 'sistema' }),                                      // lo abrió el sistema: no
+    ticket(990106, { canal: 'chat_app', ref: 'np:abc' }),                      // automático por la persona: no
+    ticket(990107, { workspace_id: PLATAFORMA, usuario_id: 4 }),               // la plataforma: no
+    ticket(990108, { usuario_id: 5 }),                                         // suspendida: no
+    ticket(990109, { usuario_id: 6 }),                                         // de otro negocio: no
+    ticket(990110, { estado: 'resuelto', avance_email: 'en_curso', updated_at: hace(72) }), // viejo: no
+    ticket(990111, { estado: 'rechazado' }),                                   // cerrado: no
+    ticket(990112, { usuario_id: null, usuario_email: 'whatsapp:5215500000000' }), // sin cuenta: no
+    ticket(990113, { estado: 'resuelto', avance_email: 'en_curso', avisado_at: hace(0.5) }), // → «Tu ticket está resuelto»
+    ticket(990115, { usuario_id: 7 }),                                         // su email no es un email: no
   );
   const tk = (id: number) => db.tickets.find((t) => t.id === id)!;
   const R: Record<string, unknown> = {};
@@ -107,12 +110,12 @@ async function main() {
   // ── 1. Una vuelta: los tres que tocan, nada más ──────────────────────────────────────────────────────────────────────
   R.vuelta1 = await avisarAvancesPorEmail(ahora);
   R.correos1 = correos.map((c) => ({ to: c.to, asunto: c.asunto, from: c.from }));
-  R.marcas1 = Object.fromEntries([101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 115].map((id) => [id, tk(id).avance_email ?? null]));
-  const c101 = correos.find((c) => c.asunto.includes('#101'))!;
+  R.marcas1 = Object.fromEntries([990101, 990102, 990103, 990104, 990105, 990106, 990107, 990108, 990109, 990110, 990111, 990112, 990113, 990115].map((id) => [id, tk(id).avance_email ?? null]));
+  const c101 = correos.find((c) => c.asunto.includes('#990101'))!;
   R.correo101 = { texto: c101.texto, html: c101.html, headers: c101.headers };
   R.bajaDe2 = linkBajaTickets(2);
   R.notas1 = db.ticket_eventos.map((e) => ({ id: e.ticket_id, texto: e.texto }));
-  R.updatedSinTocar = tk(101).updated_at === hace(1);
+  R.updatedSinTocar = tk(990101).updated_at === hace(1);
 
   // ── 2. Otra vuelta enseguida: ni uno más ─────────────────────────────────────────────────────────────────────────────
   const antes2 = correos.length;
@@ -120,21 +123,21 @@ async function main() {
   R.correos2 = correos.length - antes2;
 
   // ── 3. Dos vueltas A LA VEZ sobre un ticket nuevo: un solo correo ────────────────────────────────────────────────────
-  db.tickets.push(ticket(120, {}));
+  db.tickets.push(ticket(990120, {}));
   const antes3 = correos.length;
   await Promise.all([avisarAvancesPorEmail(ahora), avisarAvancesPorEmail(ahora)]);
   R.correos3 = correos.slice(antes3).map((c) => c.asunto);
 
   // ── 4. Resend falla: queda anotado y NO se repite (marcar antes de mandar) ───────────────────────────────────────────
-  db.tickets.push(ticket(121, {}));
+  db.tickets.push(ticket(990121, {}));
   resendCaido = true;
   R.vuelta4 = await avisarAvancesPorEmail(ahora);
   resendCaido = false;
   const antes4 = correos.length;
   R.vuelta4b = await avisarAvancesPorEmail(ahora);
   R.correos4b = correos.length - antes4;
-  R.nota121 = db.ticket_eventos.filter((e) => e.ticket_id === 121).map((e) => e.texto);
-  R.marca121 = tk(121).avance_email;
+  R.nota121 = db.ticket_eventos.filter((e) => e.ticket_id === 990121).map((e) => e.texto);
+  R.marca121 = tk(990121).avance_email;
 
   // ── 5. La baja: GET no apaga, POST sí, y respeta el resto del perfil ─────────────────────────────────────────────────
   const { GET, POST } = await imp(CORRE.baja);
@@ -150,7 +153,7 @@ async function main() {
   R.postHtml = await p.text();
   R.perfilTrasPost = { ...(db.usuarios.find((u) => u.id === 2)!.perfil as Fila) };
   // Apagado: un ticket nuevo suyo ya no manda nada.
-  db.tickets.push(ticket(122, {}));
+  db.tickets.push(ticket(990122, {}));
   const antes5 = correos.length;
   R.vuelta5 = await avisarAvancesPorEmail(ahora);
   R.correos5 = correos.length - antes5;
@@ -263,7 +266,7 @@ async function main() {
   (db.usuarios.find((u) => u.id === 2)!.perfil as Fila).ticketsPorEmail = undefined;
   delete (db.usuarios.find((u) => u.id === 2)!.perfil as Fila).ticketsPorEmail;
   db.correo_bajas = db.correo_bajas.filter((b) => b.email !== 'p2@test.com');
-  db.tickets.push(ticket(130, {}));
+  db.tickets.push(ticket(990130, {}));
   const { GET: cron } = await imp(CORRE.cron);
   const antes6 = correos.length;
   const rc = await cron(new Request('https://mako.test/api/cron/tickets', { headers: { authorization: 'Bearer cron-de-prueba' } }));

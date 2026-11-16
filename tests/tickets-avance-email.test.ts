@@ -64,18 +64,18 @@ test('0. el hijo corrió entero y no salió a la red', () => {
 
 test('1. un correo por hito, sólo a quien le toca', () => {
   assert.deepEqual(R.correos1.map((c: { asunto: string }) => c.asunto), [
-    'Recibimos tu ticket · Ticket #101',
-    'Ya lo estamos desarrollando · Ticket #102',
-    'Tu ticket está resuelto · Ticket #113',
+    'Recibimos tu ticket · Ticket #990101',
+    'Ya lo estamos desarrollando · Ticket #990102',
+    'Tu ticket está resuelto · Ticket #990113',
   ]);
   for (const c of R.correos1) {
     assert.equal(c.to, 'p2@test.com', 'a la dirección de la persona que lo levantó');
     assert.equal(c.from, 'MaKo <equipo@hola-mako.com>', 'lo firma MaKo, no el negocio');
   }
   // Ninguno de los que no tocan quedó marcado: el día que les toque, sale.
-  for (const id of [104, 105, 106, 107, 108, 109, 111, 112, 115]) assert.equal(R.marcas1[id], null, `#${id} no se marca`);
-  assert.equal(R.marcas1[103], 'tu_respuesta', 'el rebote no se pisa');
-  assert.equal(R.marcas1[110], 'en_curso', 'un ticket que no cambió en dos días no manda nada');
+  for (const id of [990104, 990105, 990106, 990107, 990108, 990109, 990111, 990112, 990115]) assert.equal(R.marcas1[id], null, `#${id} no se marca`);
+  assert.equal(R.marcas1[990103], 'tu_respuesta', 'el rebote no se pisa');
+  assert.equal(R.marcas1[990110], 'en_curso', 'un ticket que no cambió en dos días no manda nada');
   assert.deepEqual(R.vuelta1.salteados, { apagado: 1, automatico: 1, plataforma: 1, suspendida: 1, otro_negocio: 1, sin_email: 1 });
   assert.ok(R.updatedSinTocar, 'marcar el correo no mueve `updated_at` (lo leen la Ticketera y el aviso final)');
 });
@@ -83,18 +83,18 @@ test('1. un correo por hito, sólo a quien le toca', () => {
 test('2. el correo dice en qué anda, lleva su link con el negocio y la baja de un toque', () => {
   const c = R.correo101;
   assert.match(c.texto, /Lo recibimos y ya está en la lista del equipo\./);
-  assert.match(c.texto, /https:\/\/mako\.test\/tickets\?t=101&ws=30/);
+  assert.match(c.texto, /https:\/\/mako\.test\/tickets\?t=990101&ws=30/);
   assert.ok(c.texto.includes(`Si no quieres recibir estos correos: ${R.bajaDe2}`));
   assert.equal(c.headers['List-Unsubscribe'], `<${R.bajaDe2}>`);
   assert.equal(c.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
   assert.match(c.html, /Ver mi ticket/);
   assert.match(c.html, /darme de baja/);
-  assert.deepEqual(R.notas1.map((n: { id: number }) => n.id), [101, 102, 113], 'cada correo queda anotado en su ticket');
+  assert.deepEqual(R.notas1.map((n: { id: number }) => n.id), [990101, 990102, 990113], 'cada correo queda anotado en su ticket');
 });
 
 test('3. otra vuelta, o dos a la vez, no repiten', () => {
   assert.equal(R.correos2, 0, 'la vuelta siguiente no manda nada');
-  assert.deepEqual(R.correos3, ['Recibimos tu ticket · Ticket #120'], 'dos vueltas a la vez: un solo correo');
+  assert.deepEqual(R.correos3, ['Recibimos tu ticket · Ticket #990120'], 'dos vueltas a la vez: un solo correo');
 });
 
 test('4. si Resend falla, queda anotado y no se repite cada 15 minutos', () => {
@@ -162,8 +162,8 @@ test('6. la firma es de esa persona', () => {
 test('7. el cron de tickets corre la vuelta', () => {
   assert.equal(R.cron.status, 200);
   assert.equal(R.cron.body.correos.enviados, 2);
-  // El #122 se levantó con los correos apagados: al volverlos a prender, le llega el hito de hoy (uno, no los perdidos).
-  assert.deepEqual(R.correosCron, ['Recibimos tu ticket · Ticket #122', 'Recibimos tu ticket · Ticket #130']);
+  // El #990122 se levantó con los correos apagados: al volverlos a prender, le llega el hito de hoy (uno, no los perdidos).
+  assert.deepEqual(R.correosCron, ['Recibimos tu ticket · Ticket #990122', 'Recibimos tu ticket · Ticket #990130']);
 });
 
 test('5d. la casilla de Notificaciones apaga lo mismo que el link, sin pasar por el correo', () => {
