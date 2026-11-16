@@ -326,6 +326,8 @@ test('el CSS: el de la landing, la barra y «La inversión», en ese orden; y el
   const html = await pagina();
   const { columnasDelPie } = await import('../app/vsl/_sitio/datos');
   for (const c of columnasDelPie()) assert.ok(html.includes(`<p class="s-pie-h">${c.titulo}</p>`), `el pie del Accelerator no tiene ${c.titulo}`);
+  // La estrella de MaKo, en blanco también en el pie (la página es sólo oscura: el logo va en blanco en todos lados).
+  assert.ok(CSS_ACELERADOR.includes('body:has(.acl-root) .s-sitio .s-pie path[fill="#F2B01E"] { fill: #fff; }'), 'la estrella del pie volvió a ser dorada');
 });
 
 test('arriba, la barra de MaKo (vuelve a «/» y lleva a /planes); abajo, el pie del sitio, una vez', async () => {

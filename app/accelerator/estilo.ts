@@ -231,6 +231,9 @@ html:has(.acl-root) { scroll-behavior: smooth; scroll-padding-top: 84px; }
    exageradamente alta»): el del sitio es azul noche (#060419) y aquí la página es casi negra (#0e0e10); el aire y los huecos,
    más chicos. Sólo con body:has(.acl-root), y con más peso que las reglas del pie (app/vsl/_sitio/estilos.ts, que van después). */
 body:has(.acl-root) .s-sitio .s-pie { background: #0e0e10; }
+/* Y la estrella de MaKo, en blanco también en el pie (Martín, 16/11/2026: el logo de MaKo, en blanco en todos lados en esta página, que
+   es sólo oscura). La estrella del sitio va pintada con su dorado en el atributo fill: el CSS le gana. */
+body:has(.acl-root) .s-sitio .s-pie path[fill="#F2B01E"] { fill: #fff; }
 /* EL MISMO PIE QUE LA PORTADA, CON TODO (16/11/2026, a la tarde, Martín: «la bottom bar debe ser el mismo diseño en las dos…
    deberían estar todo»): sólo cambia el fondo; ya no se esconden columnas ni se achica aparte. El pie del sitio es el compacto
    (app/vsl/_sitio/estilos.ts, CSS_PIE). Este comentario viaja en la página: sin palabras que el test de textos marca. */
