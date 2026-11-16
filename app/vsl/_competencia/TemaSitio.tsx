@@ -49,9 +49,13 @@ var LS =${JSON.stringify(LS_MODO_SITIO)}, LUNA = ${JSON.stringify(LUNA)}, SOL = 
 // SIN EL SEGUNDO EN NEGRO (Martín, 12/11/2026: «cuando le doy clic al logo… se pone por un segundo en negro y después en white
 // mode»): con un modo elegido, la página no se muestra hasta tenerlo puesto (el fondo ya es el del modo). Un tope de 1,5 s por
 // si algo falla: nunca queda en blanco.
+// SIEMPRE ARRANCA EN CLARO (Martín, 16/11/2026: «siempre en modo claro y que el usuario active el modo oscuro si quiere»): sin un
+// modo elegido, el claro, aunque la página haya nacido oscura (la portada); el oscuro, sólo si la persona lo eligió con el sol y
+// la luna. Una página que nació en el otro modo también espera hasta tener el suyo puesto: si no, se ve un segundo en negro.
 var ELEGIDO=null;try{ELEGIDO=localStorage.getItem(LS);}catch(e){}
+var INICIAL=ELEGIDO==='oscuro'?'oscuro':'claro';
 function quitarEspera(){var e=document.getElementById('mk-tema-espera');if(e)e.parentNode.removeChild(e);}
-if(ELEGIDO==='claro'||ELEGIDO==='oscuro'){var st=document.createElement('style');st.id='mk-tema-espera';st.textContent='html{background:'+(ELEGIDO==='oscuro'?'#0e1219':'#ffffff')+'!important}body{visibility:hidden!important}';(document.head||document.documentElement).appendChild(st);setTimeout(quitarEspera,1500);}
+if(ELEGIDO==='claro'||ELEGIDO==='oscuro'||BASE_FIJA!==INICIAL){var st=document.createElement('style');st.id='mk-tema-espera';st.textContent='html{background:'+(INICIAL==='oscuro'?'#0e1219':'#ffffff')+'!important}body{visibility:hidden!important}';(document.head||document.documentElement).appendChild(st);setTimeout(quitarEspera,1500);}
 var RGB = /rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?\\)/g;
 function hsl(r,g,b){r/=255;g/=255;b/=255;var mx=Math.max(r,g,b),mn=Math.min(r,g,b),h=0,s=0,l=(mx+mn)/2;if(mx!==mn){var d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;}return [h,s,l];}
 function rgb(h,s,l){function k(n){return (n+h/30)%12;}var a=s*Math.min(l,1-l);function f(n){return l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));}return [f(0),f(8),f(4)].map(function(v){return Math.round(v*255);});}
@@ -178,7 +182,7 @@ function ubicar(){enElMenu();if(document.querySelector('[data-tema-sitio-boton]:
 // (el carrusel de tableros, el sonido de AI Avatar) quedaban colgados de nodos viejos. Sin Next (el visor estático), entra ya.
 function trasHidratar(fn){if(!document.querySelector('script[src*="/_next/"]'))return fn();var t0=Date.now();(function mira(){var h=Object.keys(document.body).some(function(k){return k.indexOf('__reactFiber')===0||k.indexOf('__reactProps')===0;});if(h||Date.now()-t0>6000)fn();else setTimeout(mira,60);})();}
 function iniciar(){base=BASE_FIJA==='oscuro'||BASE_FIJA==='claro'?BASE_FIJA:medirBase();document.documentElement.setAttribute('data-sitio-base',base);trasHidratar(function(){ubicar();botones();});var p=null;try{p=localStorage.getItem(LS);}catch(e){}
-  aplicar(p==='oscuro'||p==='claro'?p:base);quitarEspera();
+  aplicar(p==='oscuro'?'oscuro':'claro');quitarEspera();
   document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-tema-sitio-boton]');if(!b)return;e.preventDefault();var n=actual==='oscuro'?'claro':'oscuro';try{localStorage.setItem(LS,n);}catch(err){}barrido(b,function(){aplicar(n);});});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
 })();`;
