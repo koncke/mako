@@ -189,11 +189,10 @@ export function listaCorta(capa: string): ListaDeColumna {
         { fuerte: 'Setter con IA', texto: '' },
         { fuerte: 'Piloto automático', texto: ' de ads y redes' },
         { fuerte: 'Análisis de llamadas', texto: '' },
-        { fuerte: `Chat con ${ASESORES.length} referentes`, texto: '' },
-        { fuerte: 'Comunidad', texto: ' para alumnos' },
+        // 15/11/2026, ~23:20 (Martín aprobó la propuesta para achicar): el chat con los referentes y la comunidad para alumnos
+        // siguen en la tabla de abajo; acá, lo que más pesa.
         ...(sinTopeEnPro.length ? [{ fuerte: sinTopeEnPro.join(' y '), texto: ' ilimitados' }] : []),
-        { fuerte: nn(a['chats.lineas_whatsapp'], 'WhatsApp', 'WhatsApp'), texto: '' },
-        { fuerte: nn(a['equipo.usuarios'], 'usuario', 'usuarios'), texto: '' },
+        { fuerte: `${nn(a['chats.lineas_whatsapp'], 'WhatsApp', 'WhatsApp')} y ${nn(a['equipo.usuarios'], 'usuario', 'usuarios')}`, texto: '' },
       ],
     };
   }
@@ -206,8 +205,7 @@ export function listaCorta(capa: string): ListaDeColumna {
       { texto: nn(c['chats.lineas_whatsapp'], 'WhatsApp', 'WhatsApp') },
       { texto: 'Copywriting con IA' },
       { texto: 'Editor de imágenes y video' },
-      { texto: nn(c['automations.activas'], 'automatización', 'automatizaciones') },
-      { texto: nn(c['equipo.usuarios'], 'usuario', 'usuarios') },
+      // 15/11/2026, ~23:20: las automatizaciones y los usuarios siguen en la tabla de abajo (la propuesta para achicar, aprobada).
     ],
     // CON LAS MISMAS PALABRAS Y EN EL MISMO ORDEN QUE LOS PRIMEROS CHECKS DE PRO (ver arriba): cada ✗ de acá tiene su ✓ enfrente.
     noIncluye: [
@@ -215,9 +213,6 @@ export function listaCorta(capa: string): ListaDeColumna {
       { texto: 'Edición de videos con IA' },
       { texto: 'Setter con IA' },
       { texto: 'Piloto automático de ads y redes' },
-      { texto: 'Análisis de llamadas' },
-      { texto: 'Chat con referentes' },
-      { texto: 'Comunidad para alumnos' },
     ],
   };
 }
@@ -258,7 +253,7 @@ export function tokensDeLaCapa(capa: string): string | null {
 // asesoría abierta a SU equipo, la hoja de ruta que arma MaKo y aprueba él, las presentaciones en la comunidad y los expertos
 // invitados («no lo aclararía que sea por mes»).
 // 15/11/2026, ~21:30: la lista sale de lib/planes-mako.ts (`LISTA_DEL_ACELERADOR`), CORTA, y la tabla de abajo usa la misma.
-export const LISTA_PROGRAMA: readonly ItemLista[] = LISTA_DEL_ACELERADOR;
+export const LISTA_PROGRAMA: readonly ItemLista[] = LISTA_DEL_ACELERADOR.filter((x) => x.enTarjeta).map(({ fuerte, texto }) => ({ fuerte, texto }));
 
 /**
  * AGENDAR LA LLAMADA DEL ACELERADOR (14/11/2026). Martín, textual: «lo de agendar llamadas sí debería estar todavía para el

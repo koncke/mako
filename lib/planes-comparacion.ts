@@ -262,7 +262,7 @@ export function filasDeComparacion(): FilaComparacion[] {
     // que están ahí… renombraría… y también el orden. No me hace sentido que en tercer lugar esté garantía por contrato… la
     // quitaría de todos lados»). Sale de `LISTA_DEL_ACELERADOR` (lib/planes-mako.ts); «MaKo Pro completo» no es una fila: la
     // columna del Accelerator ya tiene ✓ en todo lo de Pro.
-    ...LISTA_DEL_ACELERADOR.filter((x) => !/^MaKo Pro/.test(x.fuerte)).map((x) => soloPrograma(acompanamiento, x.fuerte, x.detalle)),
+    ...LISTA_DEL_ACELERADOR.filter((x) => !/^MaKo Pro/.test(x.corto)).map((x) => soloPrograma(acompanamiento, x.corto, x.detalle)),
   ];
 }
 

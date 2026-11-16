@@ -281,17 +281,31 @@ export const INCLUYE_EN_EL_CHECKOUT: Readonly<Record<string, readonly string[]>>
  */
 // `detalle`: lo que dice la «i» de esa fila en la tabla (15/11/2026, ~23:00, Martín: «en acompañamiento personalizado faltan la I
 // de información»). Las demás filas de la tabla la tienen; éstas no, porque su nombre ya era el corto.
-export const LISTA_DEL_ACELERADOR: ReadonlyArray<{ fuerte: string; texto: string; detalle: string }> = [
-  { fuerte: '3 meses de acompañamiento', texto: '', detalle: 'Martín te acompaña 3 meses, desde la estrategia hasta que el sistema está andando' },
-  { fuerte: 'Tu sistema, armado por Martín', texto: '', detalle: 'Tu funnel, tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido, armados por Martín' },
-  { fuerte: '3 sesiones 1 a 1 con Martín', texto: '', detalle: 'Por videollamada, de 2 horas cada una: estrategia, seguimiento y checkpoint' },
-  { fuerte: 'Una asesoría en vivo por semana', texto: '', detalle: 'Grupal, en vivo con Martín, abierta a tu equipo y con su grabación' },
-  { fuerte: 'Tu hoja de ruta, armada por MaKo', texto: '', detalle: 'MaKo arma tu plan de trabajo y lo apruebas antes de empezar' },
-  { fuerte: 'Tablero de resultados', texto: '', detalle: 'Tus leads, tus reuniones y tus ventas, desde la primera semana' },
-  { fuerte: 'Expertos invitados', texto: '', detalle: 'Expertos y referentes del mercado invitados a dar capacitaciones' },
-  { fuerte: 'WhatsApp personal de Martín', texto: '', detalle: 'Para tus dudas, directo con Martín' },
-  { fuerte: 'Comunidad de empresarios', texto: '', detalle: 'Empresarios que venden high ticket, y Martín te presenta a los que te conviene conocer' },
-  { fuerte: 'MaKo Pro completo', texto: '', detalle: 'Todo MaKo Pro durante los 3 meses' },
+// 15/11/2026, ~23:20, Martín: «con respecto a MaKo Accelerator, estaría bueno… volver a… el texto un poco más largo como teníamos
+// antes, porque justamente es más personalizado, quiero que se note de esa manera, pero tal vez que sean menos ítems». Así que
+// cada cosa tiene DOS formas: `corto` es el nombre de su fila en la tabla, y `fuerte` + `texto` lo que dice la tarjeta, largo.
+// La tarjeta muestra sólo las que llevan `enTarjeta`; la tabla, todas (menos «MaKo Pro completo», que en la tabla es la columna).
+export const LISTA_DEL_ACELERADOR: ReadonlyArray<{ corto: string; fuerte: string; texto: string; detalle: string; enTarjeta: boolean }> = [
+  { corto: '3 meses de acompañamiento', fuerte: '3 meses de acompañamiento personalizado', texto: ' con Martín, desde la estrategia hasta que tu sistema está andando',
+    detalle: 'Martín te acompaña 3 meses, desde la estrategia hasta que el sistema está andando', enTarjeta: true },
+  { corto: 'Tu sistema, armado por Martín', fuerte: 'Tu sistema de adquisición de clientes', texto: ', armado por Martín: tu funnel, tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido',
+    detalle: 'Tu funnel, tu página de venta, tu CRM, tus automatizaciones y tu sistema de contenido, armados por Martín', enTarjeta: true },
+  { corto: '3 sesiones 1 a 1 con Martín', fuerte: '3 sesiones 1 a 1 con Martín', texto: ' por videollamada, de 2 horas: estrategia, seguimiento y checkpoint',
+    detalle: 'Por videollamada, de 2 horas cada una: estrategia, seguimiento y checkpoint', enTarjeta: true },
+  { corto: 'Una asesoría en vivo por semana', fuerte: 'Una asesoría en vivo por semana', texto: ' con Martín, abierta a tu equipo y con su grabación',
+    detalle: 'Grupal, en vivo con Martín, abierta a tu equipo y con su grabación', enTarjeta: true },
+  { corto: 'Tu hoja de ruta, armada por MaKo', fuerte: 'Tu hoja de ruta, armada por MaKo', texto: ', y la apruebas antes de empezar',
+    detalle: 'MaKo arma tu plan de trabajo y lo apruebas antes de empezar', enTarjeta: false },
+  { corto: 'Tablero de resultados', fuerte: 'Un tablero de resultados', texto: ' con tus leads, reuniones y ventas',
+    detalle: 'Tus leads, tus reuniones y tus ventas, desde la primera semana', enTarjeta: false },
+  { corto: 'Expertos invitados', fuerte: 'Expertos y referentes del mercado', texto: ' invitados a dar capacitaciones',
+    detalle: 'Expertos y referentes del mercado invitados a dar capacitaciones', enTarjeta: false },
+  { corto: 'WhatsApp personal de Martín', fuerte: 'El WhatsApp personal de Martín', texto: ' para tus dudas',
+    detalle: 'Para tus dudas, directo con Martín', enTarjeta: false },
+  { corto: 'Comunidad de empresarios', fuerte: 'Una comunidad de empresarios', texto: ' que venden high ticket, y Martín te presenta a los que te conviene conocer',
+    detalle: 'Empresarios que venden high ticket, y Martín te presenta a los que te conviene conocer', enTarjeta: true },
+  { corto: 'MaKo Pro completo', fuerte: 'MaKo Pro completo', texto: ', los 3 meses',
+    detalle: 'Todo MaKo Pro durante los 3 meses', enTarjeta: true },
 ];
 
 export const PROGRAMA_ACELERADOR: ProgramaMako = {

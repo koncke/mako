@@ -230,7 +230,7 @@ test('la pantalla entera no habla de MaKo por dentro: tarjetas, promesa, garant�
   // («la quitaría de todos lados»).
   const { LISTA_DEL_ACELERADOR } = await import('../lib/planes-mako');
   const programa = filasDeComparacion().filter((f) => f.esencial === false && f.pro === false && f.acelerador === true).map((f) => f.que);
-  assert.deepEqual(programa, LISTA_DEL_ACELERADOR.map((x) => x.fuerte).filter((t) => !/^MaKo Pro/.test(t)), 'la tabla no dice lo mismo que la tarjeta del Accelerator');
+  assert.deepEqual(programa, LISTA_DEL_ACELERADOR.map((x) => x.corto).filter((t) => !/^MaKo Pro/.test(t)), 'la tabla no dice las cosas del Accelerator, en su orden');
   // Y cada fila del acompañamiento con su «i» (Martín, 15/11, ~23:00: «en acompañamiento personalizado faltan la I de información»).
   for (const f of filasDeComparacion().filter((x) => x.esencial === false && x.pro === false && x.acelerador === true)) {
     assert.ok(f.detalle && f.detalle.length > f.que.length, `«${f.que}» no tiene su «i»`);
@@ -266,11 +266,13 @@ test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insi
   assert.doesNotMatch(t, /Todo lo de MaKo Pro, más:/, 'volvió la fórmula «todo lo de X» al Accelerator');
   // 15/11/2026, a la noche (Martín): «el primer ítem debería ser justamente 3 meses de acompañamiento personalizado». El
   // software va al final: si la columna empieza por MaKo Pro, se lee como «MaKo, más algo» y no como acompañamiento.
-  assert.equal(LISTA_PROGRAMA[0].fuerte, '3 meses de acompañamiento', 'el programa no abre con el acompañamiento');
-  // CORTA (15/11/2026, ~21:30, Martín: «las columnas quedaron exageradamente largas»): cada renglón es el nombre de la cosa.
-  assert.ok(LISTA_PROGRAMA.every((x) => !x.texto && (x.fuerte ?? '').split(' ').length <= 7), 'un renglón del Accelerator volvió a ser una frase larga');
+  assert.equal(LISTA_PROGRAMA[0].fuerte, '3 meses de acompañamiento personalizado', 'el programa no abre con el acompañamiento');
+  // MENOS ÍTEMS, CON EL TEXTO LARGO (15/11/2026, ~23:20, Martín: «volver a… el texto un poco más largo como teníamos antes, porque
+  // justamente es más personalizado… pero tal vez que sean menos ítems»). Lo que no entra en la tarjeta sigue en la tabla.
+  assert.ok(LISTA_PROGRAMA.length <= 6, `la tarjeta del Accelerator volvió a tener ${LISTA_PROGRAMA.length} ítems`);
+  assert.ok(LISTA_PROGRAMA.filter((x) => !/^MaKo Pro/.test(x.fuerte ?? '')).every((x) => x.texto.length > 10), 'un ítem del Accelerator perdió su detalle (Martín lo quiere largo)');
   assert.ok(LISTA_PROGRAMA.some((x) => x.fuerte === 'MaKo Pro completo'), 'el programa no dice que trae Pro entero');
-  for (const que of ['WhatsApp personal de Martín', 'comunidad de empresarios', '1 a 1 con Martín']) {
+  for (const que of ['comunidad de empresarios', '1 a 1 con Martín', 'asesoría en vivo']) {
     assert.ok(LISTA_PROGRAMA.some((x) => `${x.fuerte ?? ''}${x.texto}`.toLowerCase().includes(que.toLowerCase())), `al Accelerator le falta «${que}»`);
   }
   // 15/11/2026, más tarde (Martín): «quita lo del encuentro presencial en Buenos Aires cada 3 meses. Por ahora no lo vamos a
@@ -284,8 +286,10 @@ test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insi
   assert.ok(!PROGRAMA_ACELERADOR.incluye.some((x) => equipo.test(x)), 'el checkout y /reembolsos volvieron a prometer un equipo');
   assert.ok(LISTA_PROGRAMA.some((x) => /armado por Martín/.test(`${x.fuerte ?? ''}${x.texto}`)), 'el sistema lo arma Martín');
   // Lo que sumó de los programas high ticket (todo menos lo que necesita un equipo).
-  for (const que of ['tablero de resultados', 'hoja de ruta', 'asesoría en vivo', 'expertos invitados', 'comunidad de empresarios']) {
-    assert.ok(LISTA_PROGRAMA.some((x) => `${x.fuerte ?? ''}${x.texto}`.toLowerCase().includes(que.toLowerCase())), `al Accelerator le falta «${que}»`);
+  // Lo que eligió de los programas high ticket: en la tarjeta o en la tabla (LISTA_DEL_ACELERADOR tiene las dos).
+  const { LISTA_DEL_ACELERADOR: todoElPrograma } = await import('../lib/planes-mako');
+  for (const que of ['tablero de resultados', 'hoja de ruta', 'asesoría en vivo', 'expertos invitados', 'comunidad de empresarios', 'WhatsApp personal de Martín']) {
+    assert.ok(todoElPrograma.some((x) => `${x.corto} ${x.fuerte}${x.texto}`.toLowerCase().includes(que.toLowerCase())), `al Accelerator le falta «${que}»`);
   }
   assert.ok(!filasDeComparacion().some((f) => presencial.test(f.que)), 'volvió el encuentro presencial a la tabla');
   assert.ok(!LISTA_PROGRAMA.some((x) => /grupo de WhatsApp/i.test(`${x.fuerte ?? ''}${x.texto}`)), 'volvió el grupo de WhatsApp: ahora es la comunidad');
@@ -838,7 +842,7 @@ test('la barra dice cuánto sale sumar MaKo Tokens, arranca en «tu plan», y NO
 test('cada ✗ de Essential queda frente a su ✓ de Pro, en el mismo orden, y la tabla marca ✓ verde y ✗ roja', async () => {
   const { listaCorta, CEJA_NO_INCLUYE } = await import('../app/planes/Tarjetas');
   const es = listaCorta('completo'), pro = listaCorta('agencia');
-  assert.ok(es.noIncluye && es.noIncluye.length >= 6, 'el de US$47 no dice lo que no hace');
+  assert.ok(es.noIncluye && es.noIncluye.length >= 4, 'el de US$47 no dice lo que no hace');
   // LOS RENGLONES DE LOS MaKo TOKENS, ALINEADOS ENTRE LAS DOS COLUMNAS (Martín, 15/11, a la noche: «que sigan como un mismo
   // lineamiento… en el de 47, 0 clips de videos con IA o algo en rojo tipo tachado»), con «o» desde el segundo («me gustaba que
   // antes decía o») y sin la nota del reparto («elimina el texto de los repartes como quieras»).
@@ -866,9 +870,6 @@ test('cada ✗ de Essential queda frente a su ✓ de Pro, en el mismo orden, y l
     [/^Edición de videos con IA$/, /^Edición de videos con IA$/],
     [/^Setter con IA$/, /^Setter con IA$/],
     [/^Piloto automático de ads y redes$/, /^Piloto automático de ads y redes$/],
-    [/^Análisis de llamadas$/, /^Análisis de llamadas$/],
-    [/^Chat con referentes$/, /^Chat con \d+ referentes$/],
-    [/^Comunidad para alumnos$/, /^Comunidad para alumnos$/],
   ];
   assert.equal(es.noIncluye!.length, PARES.length, 'una ✗ de Essential sin su ✓ enfrente');
   // CORTAS, como las filas de la tabla: Martín, «una sola palabra o muy poquitas palabras que se entienda».
