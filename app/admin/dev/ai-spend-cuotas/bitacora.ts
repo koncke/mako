@@ -293,7 +293,7 @@ export const BITACORA: Hito[] = [
   },
   // ── 16 de noviembre: el medidor apagó un grupo de WhatsApp ────────────────
   {
-    fecha: '16 nov', hora: '13:55', chat: 'Medidor de MaKo Tokens', cuenta: 'claude1',
+    fecha: '16 nov', hora: '13:55', chat: 'Medidor de MaKo Tokens', sesion: 'local_22603dec-2a11-4a8d-b4cd-2252bb25ddeb', cuenta: 'claude1',
     actor: 'claude', tipo: 'correccion',
     titulo: 'Un candado que todavía no se instaló no frena nada: fallar cerrado apagó el grupo de un cliente',
     pedido: 'Tickets #103 y #105, del Cerebro: en el grupo de MaKo del ws 23 («Marcela Fernandez», cliente de la agencia Código Inmobiliario) entró el aviso de un lead nuevo, MaKo no pudo contestar («No pude leer tu saldo de MaKo Tokens») y le contestó al grupo que conectara su GPT. El mensaje siguiente de la dueña, que hablaba del lead, quedó atrapado en la guía de conexión.',
