@@ -157,14 +157,15 @@ function visible(a){return a.offsetParent!==null&&!a.closest('details, [role="me
 function barraDeArriba(){var mejor=null;[].forEach.call(document.querySelectorAll('header, nav, [class*="barra"], [class*="nav"]'),function(e){var r=e.getBoundingClientRect();
     if(r.height>0&&r.height<170&&r.top<130&&r.width>innerWidth*.6&&(!mejor||r.top<mejor.r.top-1||(Math.abs(r.top-mejor.r.top)<=1&&r.width*r.height<mejor.r.width*mejor.r.height)))mejor={e:e,r:r};});
   return mejor&&mejor.e;}
-// Dónde va: DESPUÉS del botón para empezar de la barra, a la derecha del todo (Martín, 12/11/2026); si la barra no lo muestra (el teléfono), antes de lo que está más a la
+// Dónde va: ANTES del botón para empezar de la barra (Martín, 16/11/2026: «la luna que pase a estar antes de pruébalo gratis ahora… y
+// la luna siempre se queda antes»; hasta ese día iba después, a la derecha del todo, donde ahora va «Iniciar sesión» o la cara); si la barra no lo muestra (el teléfono), antes de lo que está más a la
 // derecha (el ☰ del menú, que puede no ser un link); y si a la derecha no hay nada, al final de la barra, empujado a la derecha.
 function enElMenu(){var panel=document.querySelector('.s-mv-panel');if(!panel||panel.querySelector('[data-tema-sitio-boton]'))return;
   var fila=document.createElement('div');fila.className='s-mv-fila s-mv-tema';var t=document.createElement('span');t.textContent='Claro u oscuro';fila.appendChild(t);fila.appendChild(boton());panel.insertBefore(fila,panel.querySelector('.s-mv-pie'));}
 function ubicar(){enElMenu();if(document.querySelector('[data-tema-sitio-boton]:not(.s-mv-tema [data-tema-sitio-boton])'))return;
   var barra=barraDeArriba(),b=boton(),ref=null;
   var despues=false;
-  if(barra){var cta=[].filter.call(barra.querySelectorAll('a[href="/planes"]'),visible);ref=cta[cta.length-1];despues=!!ref;
+  if(barra){var cta=[].filter.call(barra.querySelectorAll('a[href="/planes"]'),visible);ref=cta[cta.length-1];despues=false;
     if(!ref){var der=null;[].forEach.call(barra.querySelectorAll('*'),function(e){if(e.offsetParent===null&&!(e instanceof SVGElement))return;if(e.closest('[role="menu"], [aria-modal]')||(e.closest('details')&&!e.closest('summary')))return;var r=e.getBoundingClientRect();
         if(r.width<1||r.height<1||r.width>innerWidth*.45||r.left<innerWidth*.45)return;
         if(!der||r.right>der.r.right+1||(Math.abs(r.right-der.r.right)<=1&&r.width>der.r.width))der={e:e,r:r};});

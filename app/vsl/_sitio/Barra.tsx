@@ -228,13 +228,15 @@ export function Barra({ claro = false }: { claro?: boolean }) {
           </nav>
         </div>
         <div className="s-barra-der">
+          {/* El orden (Martín, 16/11/2026): la luna (la pone TemaSitio, antes del botón), el botón para empezar y, a la derecha del
+              todo, «Iniciar sesión» o la cara de quien ya entró. */}
+          {/* En el teléfono angosto el botón se acorta («PRUÉBALO GRATIS»): con el logo y el menú no entraba a 360 (el Cerebro, 13/11). */}
+          <a className="s-nb s-nb-lleno" href={RUTA_CTA}><span className="s-nb-largo">{TEXTO_CTA}</span><span className="s-nb-corto" aria-hidden="true">{TEXTO_CTA.replace(/\s+AHORA$/i, '')}</span></a>
           {/* «Iniciar sesión», o la cara de quien ya entró con su desplegable (Martín, 15/11/2026: «si yo ya tengo iniciada la
               sesión, en lugar de decirme iniciar sesión, debería ahí estar mi imagen de perfil»). Quién está adentro lo
               pregunta el navegador, no esta página: esta barra la arman 25 páginas y también `renderToStaticMarkup`, fuera
               de todo pedido, donde `cookies()` revienta (./Cuenta.tsx). */}
           <MenuCuenta entrar={RUTA_ENTRAR} />
-          {/* En el teléfono angosto el botón se acorta («PRUÉBALO GRATIS»): con el logo y el menú no entraba a 360 (el Cerebro, 13/11). */}
-          <a className="s-nb s-nb-lleno" href={RUTA_CTA}><span className="s-nb-largo">{TEXTO_CTA}</span><span className="s-nb-corto" aria-hidden="true">{TEXTO_CTA.replace(/\s+AHORA$/i, '')}</span></a>
           <MenuMovil m={m} />
         </div>
       </div>
