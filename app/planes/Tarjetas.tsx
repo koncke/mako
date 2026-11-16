@@ -524,7 +524,9 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
             ya vende y tiene equipo. Ese texto elimínalo». Se fue de las tres columnas, y con él la fila del subgrid: ahora son
             cuatro (nombre, precio, botón, lista). La promesa del Accelerator abre su lista: ahí no comparte alto con nadie. */}
         <div>
-          {pr.promesa && <p className="mkpl-promesa"><b>Nuestra promesa:</b> {pr.promesa}</p>}
+          {/* SIN «NUESTRA PROMESA» EN LA TARJETA (15/11/2026, ~23:35, Martín: «eliminaría también la parte de nuestra promesa porque
+              justamente el sistema de adquisición de clientes ya está en el check número 2»). La promesa sigue en
+              `PROGRAMA_ACELERADOR.promesa` y la dice la landing del programa (/accelerator). */}
           {/* Sin «Todo lo de MaKo Pro, más:» (14/11/2026): MaKo Pro es el primer check (`LISTA_PROGRAMA`) y esta columna
               también se lee sola. La ceja dice cómo se trabaja, como en las otras dos. */}
           <p className="mkpl-lista-t">{CEJA_LISTA}</p>

@@ -506,19 +506,10 @@ test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón
   assert.match(promesa!, /sistema de adquisición de clientes/, 'la promesa dice qué se instala');
   assert.match(promesa!, /Martín Koncke/, 'con quién la cumple');
   assert.match(promesa!, /tu (oferta|negocio)/i, 'se nota que es a la medida');
-  const { TEXTO_BOTON_ACCELERATOR } = await import('../app/planes/Tarjetas');
-  const t = await vitrina();
-  // ⚠️ DEBAJO DEL BOTÓN DESDE EL 15/11/2026, no arriba. El 25/10 se puso arriba a propósito (la promesa vende antes de
-  // que se apriete), y hoy Martín pidió el orden de las tres columnas al revés: «primero el precio y abajo todas las
-  // frases. O sea, primero el precio y el botón, por supuesto». La promesa es una de esas frases, así que baja con ellas.
-  // Lo que NO cambió y se sigue exigiendo: que esté en la pantalla y que diga exactamente `promesa`.
-  assert.ok(t.indexOf(`Nuestra promesa: ${promesa}`) > 0, 'la promesa, en la columna del Accelerator');
-  assert.ok(t.indexOf('Nuestra promesa') > t.indexOf(TEXTO_BOTON_ACCELERATOR), 'y debajo del botón (el orden del 15/11)');
-  const antes = PROGRAMA_ACELERADOR.promesa;
-  (PROGRAMA_ACELERADOR as { promesa: string | null }).promesa = null;
-  try {
-    assert.doesNotMatch(await vitrina(), /Nuestra promesa/, 'sin promesa, no se inventa una');
-  } finally { (PROGRAMA_ACELERADOR as { promesa: string | null }).promesa = antes; }
+  // ⚠️ YA NO VA EN LA TARJETA (15/11/2026, ~23:35, Martín: «eliminaría también la parte de nuestra promesa porque justamente el
+  // sistema de adquisición de clientes ya está en el check número 2»). La promesa sigue escrita acá y la dice la landing del
+  // programa (/accelerator); /planes no la repite.
+  assert.doesNotMatch(await vitrina(), /Nuestra promesa/, 'volvió «Nuestra promesa» a la columna del Accelerator');
 });
 
 test('la GARANTÍA del programa es sobre los entregables de la semana 1, vive en /reembolsos, y la tarjeta ya no la linkea', async () => {
