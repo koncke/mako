@@ -44,8 +44,9 @@ export function LogoMaKo({ className, tamano = 32, claro = false }: { className?
 
 /** La prueba de todas las landings: el caso de Mauricio, como DATOS (cada diseño lo dibuja con el tratamiento de testimonio de su referencia). */
 export const CASO = {
-  // ⚠️ El test busca «De meses por debajo de» en lo dibujado: el titular va tal cual.
-  titulo: 'De meses por debajo de <span style="white-space:nowrap">$10k USD</span> a más de $70k USD en tres meses.',
+  // ⚠️ El test busca «De meses de menos de» en lo dibujado: el titular va tal cual (Martín, 16/11/2026: «de meses de menos de 9K a
+  // más de 100K»; el de antes decía «por debajo de $10k… más de $70k en tres meses»).
+  titulo: 'De meses de menos de <span style="white-space:nowrap">$9k USD</span> a más de <span style="white-space:nowrap">$100k USD</span> vendidos.',
   sub: 'Sin cambiar la oferta. Sin cambiar el funnel.',
   quien: 'Mauricio',
   rol: 'Más de 20 años de trayectoria y 30 mil seguidores',
@@ -54,7 +55,7 @@ export const CASO = {
     'Mauricio no era ningún novato. Más de 20 años de trayectoria, más de 30 mil seguidores y videos con <strong>millones de vistas</strong>.',
     'Pero vendía por impulsos: un mes bien, dos flojos, y nunca sabía por qué. Miraba Meta por un lado, Calendly por otro, y el resto lo cargaba a mano en un Excel.',
   ],
-  resultado: 'De meses por debajo de los <strong>$10k</strong> a más de <strong>$70k en tres meses</strong>: 14k en abril, 20k en mayo, +40k en junio. La misma oferta. El mismo funnel. <strong>Lo único que cambió fue que empezó a decidir con datos.</strong>',
+  resultado: 'De meses de menos de <strong>$9k</strong> a más de <strong>$100k vendidos</strong>. La misma oferta. El mismo funnel. <strong>Lo único que cambió fue que empezó a decidir con datos.</strong>',
   meses: [{ mes: 'Abril', monto: '$14k' }, { mes: 'Mayo', monto: '$20k' }, { mes: 'Junio', monto: '+$40k' }],
 } as const;
 

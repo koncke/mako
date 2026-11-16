@@ -149,7 +149,11 @@ export function AvatarVideos({ videos }: { videos: readonly VideoAvatar[] }) {
     const io = new IntersectionObserver((es) => {
       for (const e of es) {
         const v = e.target as HTMLVideoElement;
-        if (e.isIntersecting) void v.play().catch(() => {}); else v.pause();
+        // Al salir de la pantalla se pausa Y se calla (Martín, 16/11/2026: «está sonando un montón de veces la reproducción del video
+        // con IA mío y del Mauricio… no tiene que empezar a reproducirse de la nada»): con el sonido prendido una vez, al volver con el
+        // scroll arrancaba solo, con sonido y en bucle.
+        if (e.isIntersecting) void v.play().catch(() => {});
+        else { v.pause(); if (!v.muted) { v.muted = true; setSonando(null); } }
       }
     }, { threshold: 0.4 });
     for (const v of refs.current) if (v) io.observe(v);

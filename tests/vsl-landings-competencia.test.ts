@@ -52,7 +52,7 @@ const textoVisible = (html: string) => html
 /** Lo que identifica a un bloque en lo dibujado, tal cual se escribió (los títulos van crudos, sin escapar). */
 function huella(b: Bloque): string {
   switch (b.tipo) {
-    case 'caso': return 'De meses por debajo de';
+    case 'caso': return 'De meses de menos de';
     case 'cifras': return b.items[0].label;
     case 'logos': return b.titulo;
     default: return b.titulo;
@@ -560,7 +560,7 @@ test('Closing: el muro sale del código, lo que escribe el análisis va con el r
   // Desde el 16/11/2026 la fila lleva el «antes y después» real de dos llamadas de Mauricio (app/vsl/_sitio/ClosingAntesDespues.tsx).
   assert.equal(v, 'closing', 'la fila de Closing de la portada tiene que llevar el antes y después de Mauricio');
   const { CLOSING_MAURICIO } = await import('../app/vsl/_sitio/closing-mauricio');
-  assert.ok(CLOSING_MAURICIO.despues.nota > CLOSING_MAURICIO.antes.nota, 'el después no es mejor que el antes');
+  assert.ok(CLOSING_MAURICIO.despues.cierres > CLOSING_MAURICIO.antes.cierres, 'el después no tiene más cierres que el antes');
   assert.doesNotMatch(leer('app/vsl/_sitio/closing-mauricio.ts'), /quote|note|lead|prospecto:/i, 'en los datos del antes y después hay algo más que notas');
   if ((TABS_SOLO_PRO as readonly string[]).includes('closing-analyst')) assert.ok(TARJETAS_PORTADA[i].texto.includes('Con MaKo Pro'), 'la fila de Closing de la portada no dice que es de Pro');
   const sales = menuProducto().columnas.find((c) => c.rotulo === 'Sales');

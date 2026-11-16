@@ -1,53 +1,56 @@
 // =============================================================================
-// Closing: una llamada como en Google Meet, con lo que MaKo va marcando, y antes el «antes y después» (16/11/2026)
+// Closing: el antes y el después de Mauricio, una llamada como en Google Meet y la pantalla de MaKo (16/11/2026)
 // =============================================================================
 // Martín: «me gustaría que aparezca algo así similar a Google Meet y que sea tipo objeciones, dolores, etcétera, y que al principio
-// se vea un antes y después». Con dos llamadas de venta REALES de Mauricio (./closing-mauricio.ts): primero sus notas (septiembre →
-// octubre) y después la llamada de octubre, donde MaKo marca el dolor, la implicación, la propuesta, la objeción respondida y el
-// próximo paso, cada uno en el minuto real en que pasó. Sin nombres ni frases de terceros: el prospecto va con la cámara apagada
-// (como en Meet, con la inicial en un círculo) y Mauricio con su foto, que es el caso público del sitio.
-// Y después: «copia como normalmente son las cartas de Google Meet. No son tan alargadas, son como más horizontales». Las
-// tarjetas son de 16:9 y la foto de Mauricio es su retrato llevado a 16:9 (mauricio-meet.jpg: el retrato al medio y el fondo
-// gris de la foto estirado a los costados, como el cuadro de una cámara).
-// Server component, sin JavaScript: todo es CSS en un bucle de 12 s, en unidades del contenedor (cqw), así entra igual en la fila
-// de la computadora y en la del teléfono. `data-tema-fijo`: el sol y la luna no lo toca (Meet es oscuro en los dos modos).
-import { CLOSING_MAURICIO } from './closing-mauricio';
+// se vea un antes y después»; «copia como normalmente son las cartas de Google Meet… más horizontales»; «no pongas MaKo en vivo,
+// porque no lo tenemos todavía en vivo»; «en lugar de poner puntuación… la tasa de closing o la cantidad de cierres»; y «que
+// aparezcan cosas como negativas que pasan… y que luego justamente se vea una parte dentro de MaKo… que pase de tantas llamadas
+// cerradas a tantas, o aumentar tanto el factor de closing».
+// El ciclo (16 s, sólo CSS): 1) el antes y el después en cierres (0 → 9 por trimestre); 2) una llamada real de Mauricio como en Meet,
+// con el costado de MaKo marcando las objeciones en su minuto (y si se respondieron); 3) la pantalla de Closing de MaKo: la tasa de
+// cierre (0 % → 33 %) y los cierres de cada mes creciendo. Todo sale de ./closing-mauricio.ts (datos reales, sin frases de terceros).
+// Las tarjetas de Meet son de 16:9 y la foto de Mauricio es su retrato llevado a 16:9 (mauricio-meet.jpg). En unidades del
+// contenedor (cqw): entra igual en la fila de la computadora y en la del teléfono. `data-tema-fijo`: el sol y la luna no lo toca.
+import { CLOSING_MAURICIO, tasaDe } from './closing-mauricio';
 
-const coma = (n: number) => (Math.round(n * 10) / 10).toFixed(1).replace('.', ',');
 const minuto = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 const FOTO_MAURICIO = '/vsl-assets/sitio/avatar/mauricio-meet.jpg';
+const CICLO = 16;
 
 const CSS = `
 .s-cad{container-type:inline-size;position:absolute;inset:0;background:#202124;color:#E8EAED;font-family:inherit;overflow:hidden}
-.s-cad-in{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1fr) 34cqw;gap:2cqw;padding:2.4cqw 2.4cqw 9cqw}
+.s-cad-in{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1fr) 38cqw;gap:2cqw;padding:2.4cqw 2.4cqw 9cqw}
 /* Las tarjetas como las de Meet: 16:9 y del tamaño más grande que entra, que en este alto es una arriba de la otra y centradas
    (así las acomoda Meet). La caja es de 16:10 (62,5cqw de alto): entre el margen de arriba y la barra quedan 51,1cqw, y dos de
    44cqw de ancho (24,75 de alto) con su espacio entran. */
 .s-cad-tiles{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4cqw;min-height:0}
-.s-cad-tile{position:relative;flex:none;width:44cqw;aspect-ratio:16/9;border-radius:1.2cqw;overflow:hidden;background:#3C4043}
+.s-cad-tile{position:relative;flex:none;width:44cqw;max-width:100%;aspect-ratio:16/9;border-radius:1.2cqw;overflow:hidden;background:#3C4043}
 .s-cad-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .s-cad-tile::after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 .3cqw #8AB4F8;opacity:0}
 .s-cad-apagada{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
 .s-cad-avatar{width:9.5cqw;height:9.5cqw;border-radius:50%;background:#7B61FF;color:#fff;font-size:4.6cqw;font-weight:500;display:flex;align-items:center;justify-content:center}
 .s-cad-nombre{position:absolute;left:1.2cqw;bottom:1cqw;font-size:1.7cqw;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6)}
-/* Quién habla, como en Meet: el borde celeste y el círculo azul con tres barritas arriba a la derecha. El prospecto mientras
-   cuenta el dolor y la implicación (del 27 % al 44 % del ciclo); el resto del tiempo, Mauricio. */
+/* Quién habla, como en Meet: el borde celeste y el círculo azul con tres barritas. El prospecto mientras van saliendo sus
+   objeciones (del 21 % al 50 % del ciclo); el resto del tiempo, Mauricio. */
 .s-cad-ola{position:absolute;top:1cqw;right:1cqw;width:3cqw;height:3cqw;border-radius:50%;background:#1A73E8;display:flex;align-items:center;justify-content:center;gap:.32cqw;opacity:0}
 .s-cad-ola i{width:.42cqw;height:.42cqw;border-radius:.3cqw;background:#fff;animation:s-cad-ola .5s ease-in-out infinite alternate}
 .s-cad-ola i:nth-child(2){animation-delay:-.25s}
 .s-cad-ola i:nth-child(3){animation-delay:-.4s}
 @keyframes s-cad-ola{to{height:1.5cqw}}
-.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:s-cad-a 12s infinite}
-.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:s-cad-b 12s infinite}
-@keyframes s-cad-a{0%,26%{opacity:1}28%,43%{opacity:0}45%,100%{opacity:1}}
-@keyframes s-cad-b{0%,26%{opacity:0}28%,43%{opacity:1}45%,100%{opacity:0}}
-.s-cad-panel{background:#fff;color:#12151B;border-radius:1.2cqw;padding:2cqw 1.8cqw;display:flex;flex-direction:column;gap:1.3cqw;min-height:0}
+.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:s-cad-a ${CICLO}s infinite}
+.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:s-cad-b ${CICLO}s infinite}
+@keyframes s-cad-a{0%,20%{opacity:1}22%,50%{opacity:0}52%,100%{opacity:1}}
+@keyframes s-cad-b{0%,20%{opacity:0}22%,50%{opacity:1}52%,100%{opacity:0}}
+.s-cad-panel{background:#fff;color:#12151B;border-radius:1.2cqw;padding:2cqw 1.8cqw;display:flex;flex-direction:column;gap:1.2cqw;min-height:0;overflow:hidden}
 .s-cad-panel-t{display:flex;align-items:center;gap:1cqw;font-size:1.9cqw;font-weight:800}
 .s-cad-panel-t svg{width:2.4cqw;height:2.4cqw}
-.s-cad-vivo{margin-left:auto;font-size:1.5cqw;font-weight:700;color:#D93025}
-.s-cad-chip{display:flex;align-items:center;gap:1cqw;padding:1.1cqw 1.3cqw;border-radius:1.2cqw;background:#F4F6FA;font-size:1.8cqw;font-weight:700;opacity:0;transform:translateY(1cqw);animation:12s infinite}
-.s-cad-chip i{flex:none;width:1.3cqw;height:1.3cqw;border-radius:50%;background:var(--c)}
+.s-cad-panel-t small{margin-left:auto;font-size:1.45cqw;font-weight:700;color:#6B7280}
+/* Cada objeción: el punto rojo (algo que frena la venta), qué fue, su minuto y si Mauricio la respondió (✓ verde) o no (✕ rojo). */
+.s-cad-chip{display:flex;align-items:center;gap:.9cqw;padding:1.1cqw 1.3cqw;border-radius:1.2cqw;background:#FDF3F2;font-size:1.6cqw;font-weight:700;white-space:nowrap;opacity:0;transform:translateY(1cqw);animation:${CICLO}s infinite}
+.s-cad-chip i{flex:none;width:1.3cqw;height:1.3cqw;border-radius:50%;background:#EA4335}
+.s-cad-chip span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .s-cad-chip b{margin-left:auto;font-weight:600;color:#6B7280}
+.s-cad-chip svg{flex:none;width:1.8cqw;height:1.8cqw}
 /* La barra de Meet: la hora a la izquierda; al medio el micrófono, la cámara, los subtítulos, levantar la mano, presentar, más y
    colgar (la píldora roja); a la derecha los detalles, las personas, el chat, las actividades y MaKo (abierto: resaltado). */
 .s-cad-barra{position:absolute;left:2.4cqw;right:2.4cqw;bottom:0;height:7.5cqw;display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
@@ -59,33 +62,64 @@ const CSS = `
 .s-cad-der{justify-self:end;display:flex;align-items:center;gap:.6cqw}
 .s-cad-icono{width:4cqw;height:4cqw;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .s-cad-icono-on{background:rgba(138,180,248,.24)}
-.s-cad-intro{position:absolute;inset:0;z-index:2;background:rgba(32,33,36,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4cqw;animation:s-cad-intro 12s infinite}
+/* 1) El antes y el después, en cierres. */
+.s-cad-intro{position:absolute;inset:0;z-index:3;background:rgba(32,33,36,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4cqw;animation:s-cad-intro ${CICLO}s infinite}
 .s-cad-intro-t{font-size:2.2cqw;font-weight:700;color:#BDC1C6;letter-spacing:.08em;text-transform:uppercase}
 .s-cad-notas{display:flex;align-items:center;gap:3cqw}
-.s-cad-nota{display:flex;flex-direction:column;align-items:center;gap:.6cqw}
-.s-cad-mes{font-size:2cqw;font-weight:600;color:#9AA0A6}
+.s-cad-nota{display:flex;flex-direction:column;align-items:center;gap:.4cqw}
 .s-cad-n{font-size:10cqw;line-height:1;font-weight:800;letter-spacing:-.03em}
+.s-cad-que{font-size:2.2cqw;font-weight:700;color:#E8EAED}
+.s-cad-mes{font-size:1.8cqw;font-weight:600;color:#9AA0A6}
 .s-cad-n-antes{color:#9AA0A6}
 .s-cad-n-despues{color:#8AB4F8}
 .s-cad-flecha svg{display:block;width:5cqw;height:5cqw;color:#5F6368}
-/* El ciclo de 12 s: el antes y el después a la vista hasta los 2,7 s; después, uno por uno, lo que MaKo marca en la llamada. */
-@keyframes s-cad-intro{0%,22%{opacity:1;visibility:visible}27%,96%{opacity:0;visibility:hidden}100%{opacity:1;visibility:visible}}
+@keyframes s-cad-intro{0%,15%{opacity:1;visibility:visible}19%,97%{opacity:0;visibility:hidden}100%{opacity:1;visibility:visible}}
+/* 3) La pantalla de Closing de MaKo (clara, como la app): la tasa de cierre y los cierres de cada mes. */
+.s-cad-app{position:absolute;inset:0;z-index:2;background:#F4F6FA;color:#12151B;display:grid;grid-template-columns:15cqw minmax(0,1fr);opacity:0;visibility:hidden;animation:s-cad-app ${CICLO}s infinite}
+@keyframes s-cad-app{0%,55%{opacity:0;visibility:hidden;transform:translateY(2cqw)}59%,95%{opacity:1;visibility:visible;transform:none}98%,100%{opacity:0;visibility:hidden}}
+.s-cad-lat{background:#fff;border-right:1px solid #E5E8EF;padding:2.6cqw 1.8cqw;display:flex;flex-direction:column;gap:1.6cqw}
+.s-cad-lat svg{width:3.2cqw;height:3.2cqw;margin-bottom:1cqw}
+.s-cad-lat span{height:1.3cqw;border-radius:1cqw;background:#E5E8EF}
+.s-cad-lat span.s-cad-lat-on{background:#2F6FED}
+.s-cad-main{padding:3cqw 3.4cqw;display:flex;flex-direction:column;gap:2.2cqw;min-width:0}
+.s-cad-main-t{font-size:2.6cqw;font-weight:800}
+.s-cad-main-t small{display:block;margin-top:.4cqw;font-size:1.6cqw;font-weight:600;color:#6B7280}
+.s-cad-kpis{display:grid;grid-template-columns:1fr 1fr;gap:1.8cqw}
+.s-cad-kpi{background:#fff;border:1px solid #E5E8EF;border-radius:1.4cqw;padding:2cqw 2.2cqw}
+.s-cad-kpi p{margin:0;font-size:1.6cqw;font-weight:700;color:#6B7280}
+.s-cad-kpi strong{display:flex;align-items:baseline;gap:1.2cqw;margin-top:.8cqw;font-size:5.2cqw;line-height:1;font-weight:800;letter-spacing:-.02em}
+.s-cad-kpi strong s{text-decoration:none;color:#9AA0A6;font-size:3.4cqw}
+.s-cad-kpi strong em{font-style:normal;color:#2F6FED}
+.s-cad-kpi small{display:block;margin-top:.8cqw;font-size:1.4cqw;font-weight:600;color:#6B7280}
+.s-cad-graf{flex:1;min-height:0;background:#fff;border:1px solid #E5E8EF;border-radius:1.4cqw;padding:1.8cqw 2.2cqw 1.4cqw;display:flex;flex-direction:column}
+.s-cad-graf p{margin:0 0 1cqw;font-size:1.6cqw;font-weight:700;color:#6B7280}
+.s-cad-barras{flex:1;min-height:0;display:grid;grid-template-columns:repeat(6,1fr);gap:1.6cqw}
+.s-cad-barra-m{display:grid;grid-template-rows:minmax(0,1fr) auto;justify-items:center;gap:.5cqw;min-height:0;font-size:1.4cqw;font-weight:700;color:#6B7280}
+/* El número de cada mes justo arriba de su barra (--h es el alto de la barra), y aparece cuando la barra terminó de crecer. */
+.s-cad-pista{position:relative;width:100%;margin-top:2.4cqw}
+.s-cad-pista i{position:absolute;left:0;right:0;bottom:0;height:var(--h);border-radius:.6cqw .6cqw 0 0;background:#2F6FED;transform-origin:bottom;transform:scaleY(0);animation:s-cad-crece ${CICLO}s infinite}
+.s-cad-pista b{position:absolute;left:0;right:0;bottom:calc(var(--h) + .4cqw);text-align:center;color:#12151B;font-size:1.6cqw;opacity:0;animation:s-cad-numero ${CICLO}s infinite}
+.s-cad-barra-m.s-cad-cero i{background:#D7DCE6}
+@keyframes s-cad-crece{0%,59%{transform:scaleY(0)}68%,100%{transform:scaleY(1)}}
+@keyframes s-cad-numero{0%,66%{opacity:0}70%,95%{opacity:1}98%,100%{opacity:0}}
 /* En una caja chica (el teléfono): las dos tarjetas igual (entran: 44cqw al lado de un panel de 46cqw), el panel más ancho, la
-   letra más grande y en la barra sólo el micrófono, la cámara, más, colgar y MaKo. */
+   letra más grande, sin el ✓/✕ de las objeciones, en la barra sólo el micrófono, la cámara, más, colgar y MaKo, y la pantalla de
+   MaKo sin su barra del costado. */
 @container (max-width:480px){.s-cad-in{grid-template-columns:minmax(0,1fr) 46cqw}
-.s-cad-panel{overflow:hidden;gap:1.2cqw}.s-cad-chip{font-size:2.6cqw;padding:1.1cqw 1.6cqw;white-space:nowrap}.s-cad-chip:nth-child(4){display:none}.s-cad-chip i{width:2cqw;height:2cqw}.s-cad-panel-t{font-size:3cqw}.s-cad-vivo{font-size:2.4cqw}.s-cad-nombre,.s-cad-hora{font-size:2.8cqw}.s-cad-ola{width:4cqw;height:4cqw}.s-cad-intro-t{font-size:3.4cqw}.s-cad-mes{font-size:3.2cqw}
-.s-cad-cc,.s-cad-mano,.s-cad-pres,.s-cad-der .s-cad-icono:not(.s-cad-icono-on){display:none}.s-cad-boton,.s-cad-icono{width:6cqw;height:6cqw}.s-cad-boton svg,.s-cad-icono svg{width:3cqw;height:3cqw}.s-cad-colgar{width:8.6cqw}}
-@media (prefers-reduced-motion:reduce){.s-cad-intro{display:none}.s-cad-chip{animation:none;opacity:1;transform:none}.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:none;opacity:1}.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:none}.s-cad-ola i{animation:none;height:1cqw}}
+.s-cad-chip{font-size:2.3cqw;padding:1.1cqw 1.6cqw}.s-cad-chip svg{display:none}.s-cad-chip i{width:2cqw;height:2cqw}.s-cad-panel-t{font-size:3cqw}.s-cad-panel-t small{font-size:2.3cqw}.s-cad-nombre,.s-cad-hora{font-size:2.8cqw}.s-cad-ola{width:4cqw;height:4cqw}
+.s-cad-intro-t{font-size:3.4cqw}.s-cad-que{font-size:3.2cqw}.s-cad-mes{font-size:2.8cqw}
+.s-cad-cc,.s-cad-mano,.s-cad-pres,.s-cad-der .s-cad-icono:not(.s-cad-icono-on){display:none}.s-cad-boton,.s-cad-icono{width:6cqw;height:6cqw}.s-cad-boton svg,.s-cad-icono svg{width:3cqw;height:3cqw}.s-cad-colgar{width:8.6cqw}
+.s-cad-app{grid-template-columns:minmax(0,1fr)}.s-cad-lat{display:none}.s-cad-main{padding:3.6cqw 4cqw;gap:2.6cqw}.s-cad-main-t{font-size:4cqw}.s-cad-main-t small{font-size:2.8cqw}.s-cad-kpi p,.s-cad-graf p{font-size:2.6cqw}.s-cad-kpi strong{font-size:7cqw}.s-cad-kpi strong s{font-size:4.6cqw}.s-cad-barra-m,.s-cad-pista b{font-size:2.4cqw}
+.s-cad-main-t small,.s-cad-kpi small{display:none}.s-cad-kpi{padding:1.6cqw 2.4cqw}.s-cad-kpi strong{font-size:6cqw;margin-top:.4cqw}.s-cad-kpi strong s{font-size:4cqw}.s-cad-graf{padding:1.4cqw 2.4cqw 1cqw}.s-cad-graf p{margin-bottom:.4cqw}.s-cad-pista{margin-top:3.4cqw}}
+@media (prefers-reduced-motion:reduce){.s-cad-intro{display:none}.s-cad-chip{animation:none;opacity:1;transform:none}.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:none;opacity:1}.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:none}.s-cad-ola i{animation:none;height:1cqw}.s-cad-app{animation:none}.s-cad-pista i{animation:none;transform:none}.s-cad-pista b{animation:none;opacity:1}}
 `;
 
-/** Cada chip con SU tiempo en el ciclo de 12 s (entra a los 3,2 s + 1,15 s por chip y se van todos juntos al final): con un
- *  `animation-delay` por chip, los últimos se cruzaban de una vuelta a la otra. Los chips son los hijos 2.º en adelante del panel. */
-const CSS_CHIPS = CLOSING_MAURICIO.llamada.momentos.map((_, i) => {
-  const entra = Math.round(((3.2 + i * 1.15) / 12) * 1000) / 10;
-  return `.s-cad-chip:nth-child(${i + 2}){animation-name:s-cad-chip-${i}}@keyframes s-cad-chip-${i}{0%,${entra}%{opacity:0;transform:translateY(1cqw)}${Math.round((entra + 3) * 10) / 10}%,92%{opacity:1;transform:none}96%,100%{opacity:0;transform:none}}`;
+/** Cada objeción con SU tiempo en el ciclo (la primera a los 3,4 s y una cada 1,3 s; se van todas juntas al final): con un
+ *  `animation-delay` por chip, los últimos se cruzaban de una vuelta a la otra. Las objeciones son los hijos 2.º en adelante. */
+const CSS_CHIPS = CLOSING_MAURICIO.llamada.objeciones.map((_, i) => {
+  const entra = Math.round(((3.4 + i * 1.3) / CICLO) * 1000) / 10;
+  return `.s-cad-chip:nth-child(${i + 2}){animation-name:s-cad-chip-${i}}@keyframes s-cad-chip-${i}{0%,${entra}%{opacity:0;transform:translateY(1cqw)}${Math.round((entra + 2.5) * 10) / 10}%,95%{opacity:1;transform:none}98%,100%{opacity:0;transform:none}}`;
 }).join('\n');
-
-const COLOR: Record<string, string> = { dolor: '#EA4335', implicacion: '#F9AB00', propuesta: '#1A73E8', ok: '#34A853' };
 
 /** Los íconos de la barra de Meet (los de Material, en 24×24). */
 const ICONO = {
@@ -102,16 +136,28 @@ const ICONO = {
   actividades: 'M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.87L12 5.84zM17.5 13c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zm0 7c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 21.5h8v-8H3v8zm2-6h4v4H5v-4z',
 } as const;
 const ESTRELLA = 'M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z';
+const Estrella = () => <svg viewBox="-12 -12 24 24" aria-hidden="true"><path d={ESTRELLA} fill="#F2B01E" /></svg>;
 
 const Boton = ({ d, clase = '' }: { d: string; clase?: string }) => (
   <span className={`s-cad-boton${clase ? ` ${clase}` : ''}`}><svg viewBox="0 0 24 24"><path d={d} /></svg></span>
 );
 
+/** ✓ verde si la objeción se respondió; ✕ roja si quedó sin responder. */
+const Estado = ({ ok }: { ok: boolean }) => (
+  <svg viewBox="0 0 16 16" aria-hidden="true">
+    <circle cx="8" cy="8" r="8" fill={ok ? '#34A853' : '#EA4335'} />
+    {ok
+      ? <path d="M4.6 8.3 7 10.6l4.4-4.8" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      : <path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" />}
+  </svg>
+);
+
 export function ClosingAntesDespues() {
-  const { antes, despues, llamada } = CLOSING_MAURICIO;
+  const { antes, despues, porMes, llamada } = CLOSING_MAURICIO;
+  const maxMes = Math.max(...porMes.map((m) => m.cierres), 1);
   return (
     <div className="s-cad" data-tema-fijo="" role="img"
-      aria-label={`Una llamada de venta de Mauricio analizada por MaKo: de ${coma(antes.nota)} en ${antes.mes.toLowerCase()} a ${coma(despues.nota)} en ${despues.mes.toLowerCase()}, con el dolor, la objeción y el próximo paso marcados`}>
+      aria-label={`Mauricio con MaKo: de ${antes.cierres} cierres (${antes.periodo}) a ${despues.cierres} (${despues.periodo}); una llamada suya con las objeciones que marcó MaKo, y su tasa de cierre de ${tasaDe(antes)} % a ${tasaDe(despues)} %`}>
       <style dangerouslySetInnerHTML={{ __html: CSS + CSS_CHIPS }} />
       <div className="s-cad-in">
         <div className="s-cad-tiles">
@@ -128,13 +174,10 @@ export function ClosingAntesDespues() {
           </div>
         </div>
         <div className="s-cad-panel">
-          <div className="s-cad-panel-t">
-            <svg viewBox="-12 -12 24 24" aria-hidden="true"><path d={ESTRELLA} fill="#F2B01E" /></svg>
-            MaKo<span className="s-cad-vivo">● en vivo</span>
-          </div>
-          {llamada.momentos.map((m) => (
-            <div key={m.parte} className="s-cad-chip" style={{ ['--c' as string]: COLOR[m.tono] }}>
-              <i />{m.parte}<b>{minuto(m.segundo)}</b>
+          <div className="s-cad-panel-t"><Estrella />MaKo<small>Objeciones</small></div>
+          {llamada.objeciones.map((o) => (
+            <div key={o.tipo} className="s-cad-chip">
+              <i /><span>{o.tipo}</span><b>{minuto(o.segundo)}</b><Estado ok={o.respondida} />
             </div>
           ))}
         </div>
@@ -154,15 +197,46 @@ export function ClosingAntesDespues() {
           {[ICONO.info, ICONO.personas, ICONO.chat, ICONO.actividades].map((d) => (
             <span key={d} className="s-cad-icono"><svg viewBox="0 0 24 24"><path d={d} /></svg></span>
           ))}
-          <span className="s-cad-icono s-cad-icono-on"><svg viewBox="-12 -12 24 24"><path d={ESTRELLA} fill="#F2B01E" /></svg></span>
+          <span className="s-cad-icono s-cad-icono-on"><Estrella /></span>
+        </div>
+      </div>
+      <div className="s-cad-app" aria-hidden="true">
+        <div className="s-cad-lat"><Estrella /><span /><span /><span className="s-cad-lat-on" /><span /><span /></div>
+        <div className="s-cad-main">
+          <p className="s-cad-main-t" style={{ margin: 0 }}>Closing<small>Mauricio · 2026</small></p>
+          <div className="s-cad-kpis">
+            <div className="s-cad-kpi">
+              <p>Tasa de cierre</p>
+              <strong><s>{tasaDe(antes)} %</s>→<em>{tasaDe(despues)} %</em></strong>
+              <small>{antes.periodo} → {despues.periodo}</small>
+            </div>
+            <div className="s-cad-kpi">
+              <p>Cierres</p>
+              <strong><s>{antes.cierres}</s>→<em>{despues.cierres}</em></strong>
+              <small>de {antes.reuniones} y de {despues.reuniones} primeras reuniones</small>
+            </div>
+          </div>
+          <div className="s-cad-graf">
+            <p>Cierres por mes</p>
+            <div className="s-cad-barras">
+              {porMes.map((m) => (
+                <div key={m.mes} className={`s-cad-barra-m${m.cierres ? '' : ' s-cad-cero'}`}>
+                  <span className="s-cad-pista" style={{ ['--h' as string]: `${m.cierres ? Math.round((m.cierres / maxMes) * 100) : 4}%` }}>
+                    <i /><b>{m.cierres}</b>
+                  </span>
+                  {m.mes}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
       <div className="s-cad-intro" aria-hidden="true">
         <span className="s-cad-intro-t">Mauricio, con MaKo</span>
         <div className="s-cad-notas">
-          <div className="s-cad-nota"><span className="s-cad-n s-cad-n-antes">{coma(antes.nota)}</span><span className="s-cad-mes">{antes.mes}</span></div>
+          <div className="s-cad-nota"><span className="s-cad-n s-cad-n-antes">{antes.cierres}</span><span className="s-cad-que">cierres</span><span className="s-cad-mes">{antes.periodo}</span></div>
           <span className="s-cad-flecha"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
-          <div className="s-cad-nota"><span className="s-cad-n s-cad-n-despues">{coma(despues.nota)}</span><span className="s-cad-mes">{despues.mes}</span></div>
+          <div className="s-cad-nota"><span className="s-cad-n s-cad-n-despues">{despues.cierres}</span><span className="s-cad-que">cierres</span><span className="s-cad-mes">{despues.periodo}</span></div>
         </div>
       </div>
     </div>

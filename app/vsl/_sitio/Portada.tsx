@@ -247,6 +247,15 @@ function CasoSitio() {
         <div className="s-caso-tira-p">{tira(false)}{tira(true)}</div>
       </div>
       <div className="s-cont">
+        {/* EL TÍTULO ARRIBA y, al lado del carrusel, el antes y el después (Martín, 16/11/2026: «si ponemos el caso de éxito un poco
+            más arriba, las dos tarjetas de antes de MaKo y con MaKo podría caber a la derecha también de las imágenes»). De la historia
+            queda el primer párrafo: el segundo («un mes bien, dos flojos… Meta, Calendly y un Excel») ya lo dice el «antes». */}
+        <div className="s-caso-tx s-caso-cab">
+          <p className="s-caso-r">Caso de éxito</p>
+          <h2 className="s-caso-h" dangerouslySetInnerHTML={{ __html: CASO.titulo }} />
+          <p className="s-caso-sub">{CASO.sub}</p>
+          <p className="s-caso-p" dangerouslySetInnerHTML={{ __html: CASO.historia[0] }} />
+        </div>
         <div className="s-caso-arriba">
           {/* EL VIDEO Y SUS FOTOS, EN UN CARRUSEL QUE PASA SOLO (Martín, 16/11/2026: «el video de Mauricio… intercalándolo como si fuera
               un carrusel que pasa solo con las fotos que tenemos con Mauricio»): el video y las tres fotos de Cancún (las mismas del
@@ -262,28 +271,22 @@ function CasoSitio() {
               <div key={f.src} className="s-caso-slide"><img src={f.src} alt={f.alt} loading="lazy" /></div>
             ))}
           </div>
-          <div className="s-caso-tx">
-            <p className="s-caso-r">Caso de éxito</p>
-            {/* El copy de siempre, el del caso de las landings (CASO, ../_competencia/marca.tsx), sin las barras de los meses (Martín,
-                16/11/2026: «eliminaría las gráficas de antes, abril, mayo, junio, y pondría exactamente el mismo copy que estaba antes»). */}
-            <h2 className="s-caso-h" dangerouslySetInnerHTML={{ __html: CASO.titulo }} />
-            <p className="s-caso-sub">{CASO.sub}</p>
-            {CASO.historia.map((h) => <p key={h} className="s-caso-p" dangerouslySetInnerHTML={{ __html: h }} />)}
-          </div>
-        </div>
-        {/* EL ANTES Y EL DESPUÉS, UNA SOLA TARJETA (Martín, 16/11/2026: «piensa mejor el antes y después… no me gusta mucho el diseño de
-            esa sección»): dos mitades con su número grande arriba, la de MaKo en el azul de la marca, y una flecha entre las dos. */}
-        <div className="s-caso-vs">
-          <div className="s-caso-lado s-caso-lado-antes">
-            <p className="s-caso-lado-t">Antes de MaKo</p>
-            <p className="s-caso-lado-n">Menos de US$9k<small>por mes</small></p>
-            <ul>{CASO_ANTES.map((t) => <li key={t}><span className="s-caso-x" aria-hidden="true" />{t}</li>)}</ul>
-          </div>
-          <span className="s-caso-flecha" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
-          <div className="s-caso-lado s-caso-lado-mako">
-            <p className="s-caso-lado-t">Con MaKo</p>
-            <p className="s-caso-lado-n">Más de US$100k<small>vendidos</small></p>
-            <ul>{CASO_CON_MAKO.map((t) => <li key={t}><span className="s-caso-ok" aria-hidden="true" />{t}</li>)}</ul>
+          <div className="s-caso-der">
+            {/* EL ANTES Y EL DESPUÉS, UNA SOLA TARJETA (Martín, 16/11/2026: «piensa mejor el antes y después… no me gusta mucho el diseño de
+                esa sección»): dos mitades con su número grande arriba, la de MaKo en el azul de la marca, y una flecha entre las dos. */}
+            <div className="s-caso-vs">
+              <div className="s-caso-lado s-caso-lado-antes">
+                <p className="s-caso-lado-t">Antes de MaKo</p>
+                <p className="s-caso-lado-n">Menos de US$9k<small>por mes</small></p>
+                <ul>{CASO_ANTES.map((t) => <li key={t}><span className="s-caso-x" aria-hidden="true" />{t}</li>)}</ul>
+              </div>
+              <span className="s-caso-flecha" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+              <div className="s-caso-lado s-caso-lado-mako">
+                <p className="s-caso-lado-t">Con MaKo</p>
+                <p className="s-caso-lado-n">Más de US$100k<small>vendidos</small></p>
+                <ul>{CASO_CON_MAKO.map((t) => <li key={t}><span className="s-caso-ok" aria-hidden="true" />{t}</li>)}</ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>
