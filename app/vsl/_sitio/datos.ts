@@ -353,11 +353,8 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; ancla?
   // El equipo de agentes es la «Edición automática»: la IA del editor de video ('ia-editores').
   { slug: 'video', titulo: 'Edita tus videos con inteligencia artificial.', texto: `Subes el clip tal cual sale del celular y un equipo de agentes de MaKo lo edita a la vista: corta las pausas, lo subtitula, propone B-roll y deja el volumen listo.${soloPro('ia-editores')}`, visual: { video: '/vsl-assets/sitio/video.webm', poster: '/vsl-assets/sitio/video.jpg' } },
   { slug: 'ai-avatar', titulo: 'Anuncios de video estilo UGC con tu cara.', texto: 'Tu avatar de IA dice tu guion en videos que se ven grabados con el celular: más anuncios para Instagram, TikTok y Meta, sin coordinar creadores ni esperar entregas.', visual: 'avatar' },
-  // Calendario de contenido (16/11/2026, su landing como Metricool): después de crear el contenido, publicarlo. El video es el Calendario
-  // REAL (app/calendario/CalendarioApp.tsx) con la semana de ejemplo de C:/dev/bancos-portada/banco-calendario-landing (grabar.mjs):
-  // «Programar publicaciones» → «Programar en serie» → las seis de la semana, programadas. Publicar pide conectar cada red una vez, con la
-  // clave del propio negocio (lib/zernio-conectar.ts, sin respaldo de la plataforma): el texto lo dice sin nombrar al proveedor.
-  { slug: 'calendario', titulo: 'Programa tu semana de contenido de una vez.', texto: 'Conectas tus redes una vez, armas la semana en el Calendario, tocas «Programar publicaciones» y cada reel, story o post sale solo a su hora en tu Instagram, TikTok, YouTube y tus otras redes.', visual: { video: '/vsl-assets/sitio/calendario.webm', poster: '/vsl-assets/sitio/calendario.jpg' } },
+  // El Calendario de contenido salió de la portada (Martín, 16/11/2026, ~18:40 UTC: «por ahora elimina la parte del calendario de
+  // contenidos… puede permanecer en la landing»): su landing /vsl/calendario sigue, con su grabación.
   // 14/11/2026 (el audio de feedback que pasó Martín): «anuncios realmente requiere su sección aparte… no lo juntaría ni con YouTube ni con
   // Instagram». Esta fila habla SÓLO de los anuncios de Meta.
   // Lo aprueba en los dos planes (Essential propone: ads.recomendaciones_dia); el piloto automático es de Pro ('piloto-redes').

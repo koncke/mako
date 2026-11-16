@@ -61,7 +61,7 @@ body:has(.d-video-fijo.d-video-ver) .mk-wa-flota{bottom:calc(84px + ${AIRE}px + 
 body:has(.d-funnel-float.is-on) .mk-wa-flota{bottom:calc(64px + ${AIRE}px + env(safe-area-inset-bottom,0px))}
 body:has(.d-offer-video.d-offer-flota) .mk-wa-flota{bottom:calc(192px + ${AIRE}px + env(safe-area-inset-bottom,0px))}
 /* EL GLOBITO, A LA VISTA Y CON SU X (Martín, 16/11/2026: «que esté directamente ahí eso y que se pueda cerrar con una X arriba»):
-   entra al segundo y se queda; la X lo cierra y queda cerrado en este navegador (mako.wa.globo, SCRIPT_GLOBO); cerrado, vuelve
+   entra al segundo y se queda; la X lo cierra en esta página (SCRIPT_GLOBO; en la próxima vuelve a salir solo); cerrado, vuelve
    sólo mientras el mouse pasa por el botón. Va adentro del botón, así lo sigue a donde lo suban las reglas de arriba. */
 .mk-wa-globo{position:absolute;right:calc(100% + 12px);top:50%;white-space:nowrap;padding:10px 14px;border-radius:14px;background:#fff;color:#12151B;font:600 14px/18px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;box-shadow:0 10px 28px rgba(0,0,0,.22),0 1px 3px rgba(0,0,0,.12);opacity:1;transform:translateY(-50%);animation:mk-wa-globo-entra .4s 1s both}
 /* La X: un ícono dibujado (la letra «×» no queda en el centro: su caja depende de la fuente) y centrado con flex; en rojo (Martín). */
@@ -81,8 +81,9 @@ html.mk-wa-cerrado .mk-wa-flota:hover .mk-wa-globo,html.mk-wa-cerrado .mk-wa-flo
 @media print{.mk-wa-flota,html body .mk-wa-flota.mk-wa-martin{display:none}}
 `;
 
-/** La X del globito: lo cierra (y lo deja cerrado en este navegador) sin abrir el WhatsApp del botón que lo lleva adentro. */
-export const SCRIPT_GLOBO = "(function(){var K='mako.wa.globo',h=document.documentElement;try{if(localStorage.getItem(K)==='cerrado')h.classList.add('mk-wa-cerrado');}catch(e){}if(window.__mkWaGlobo)return;window.__mkWaGlobo=1;document.addEventListener('click',function(e){var x=e.target&&e.target.closest&&e.target.closest('[data-wa-cerrar]');if(!x)return;e.preventDefault();e.stopPropagation();h.classList.add('mk-wa-cerrado');try{localStorage.setItem(K,'cerrado');}catch(err){}},true);})();";
+/** La X del globito: lo cierra EN ESTA PÁGINA (no se guarda: en cada página vuelve a salir solo, Martín: «no me está saliendo
+ *  automáticamente») sin abrir el WhatsApp del botón que lo lleva adentro. */
+export const SCRIPT_GLOBO = "(function(){if(window.__mkWaGlobo)return;window.__mkWaGlobo=1;document.addEventListener('click',function(e){var x=e.target&&e.target.closest&&e.target.closest('[data-wa-cerrar]');if(!x)return;e.preventDefault();e.stopPropagation();document.documentElement.classList.add('mk-wa-cerrado');},true);})();";
 
 /** El botón flotante. Uno por página: lo monta el pie del sitio (con su versión en la voz de Martín, para /accelerator). */
 export function WhatsappFlotante() {

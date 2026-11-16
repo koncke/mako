@@ -211,6 +211,8 @@ test('6. «lo que ya pagas»: la tira de las apps que MaKo reemplaza va ARRIBA d
 
 // Martín, 16/11/2026: «el botón de WhatsApp está bien, pero también debería saltar como un mensajito tipo de chatea por WhatsApp
 // o algo así, o haz una pregunta».
+const SCRIPT_GLOBO_DE = (h: string) => h.match(/<script>\(function\(\)\{if\(window\.__mkWaGlobo\)[\s\S]*?<\/script>/)?.[0] ?? '';
+
 test('7. el globito del WhatsApp: a la vista desde que entra, con una X que lo cierra; cerrado, sólo al pasar el mouse', () => {
   // Martín, 16/11/2026, ~17:50 UTC: «¿tienes una pregunta? Escríbenos, pero no solamente cuando le paso el cursor, sino que esté
   // directamente ahí eso y que se pueda cerrar con una X arriba, y ahí después si le paso el cursor ahí aparezca».
@@ -226,6 +228,8 @@ test('7. el globito del WhatsApp: a la vista desde que entra, con una X que lo c
   assert.match(CSS_WHATSAPP_FLOTANTE, /\.mk-wa-globo\{position:absolute;[^}]*opacity:1;[^}]*animation:mk-wa-globo-entra \.4s 1s both\}/, 'el globito no queda a la vista');
   assert.match(CSS_WHATSAPP_FLOTANTE, /html\.mk-wa-cerrado \.mk-wa-globo\{opacity:0;pointer-events:none;animation:none\}/);
   assert.match(CSS_WHATSAPP_FLOTANTE, /html\.mk-wa-cerrado \.mk-wa-flota:hover \.mk-wa-globo,html\.mk-wa-cerrado \.mk-wa-flota:focus-visible \.mk-wa-globo\{opacity:1\}/, 'cerrado, no vuelve al pasar el mouse');
-  assert.ok(portada.includes("localStorage.setItem(K,'cerrado')") && portada.includes('e.preventDefault()'), 'la X no cierra (o abre el WhatsApp)');
+  assert.ok(portada.includes("classList.add('mk-wa-cerrado')") && portada.includes('e.preventDefault()'), 'la X no cierra (o abre el WhatsApp)');
+  // Sale SIEMPRE al entrar (Martín, 16/11/2026: «no me está saliendo automáticamente»): nada se guarda al cerrarlo.
+  assert.ok(!SCRIPT_GLOBO_DE(portada).includes('localStorage'), 'el globito cerrado queda guardado y ya no sale solo');
   assert.match(CSS_WHATSAPP_FLOTANTE, /@media \(prefers-reduced-motion:reduce\)\{\.mk-wa-flota\{transition:none\}\.mk-wa-globo\{animation:none\}\}/);
 });

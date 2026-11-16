@@ -798,11 +798,10 @@ test('Calendario de contenido: las redes, «Esta semana» y las pestañas salen 
     assert.ok(existsSync(join(RAIZ, destino)), `${href} no existe`);
   }
   assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
-  // Su lugar: la fila de la portada entre AI Avatar y el Marketing CoPilot, con su grabación; y Producto › Marketing, después del CoPilot.
-  const i = TARJETAS_PORTADA.findIndex((x) => x.slug === 'calendario');
-  assert.ok(i > 0 && TARJETAS_PORTADA[i - 1].slug === 'ai-avatar' && TARJETAS_PORTADA[i + 1]?.slug === 'ads', 'la fila del Calendario va entre AI Avatar y el Marketing CoPilot');
-  const v = TARJETAS_PORTADA[i].visual;
-  assert.ok(typeof v === 'object' && 'video' in v && v.video === VIDEO_CALENDARIO.video, 'la fila del Calendario sin su grabación');
+  // Su lugar: NO en la portada (Martín, 16/11/2026, ~18:40 UTC: «por ahora elimina la parte del calendario… puede permanecer en la
+  // landing»); sí en Producto › Marketing, después del CoPilot. La grabación queda para su landing.
+  assert.equal(TARJETAS_PORTADA.findIndex((x) => x.slug === 'calendario'), -1, 'volvió la fila del Calendario a la portada');
+  void VIDEO_CALENDARIO;
   const mk = menuProducto().columnas.find((c) => c.rotulo === 'Marketing');
   const j = mk?.items.findIndex((it) => it.href === '/vsl/calendario') ?? -1;
   assert.ok(j > 0 && mk?.items[j - 1].href === '/vsl/ads', 'el Calendario no va después del Marketing CoPilot en Producto › Marketing');
