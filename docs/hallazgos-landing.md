@@ -7303,3 +7303,32 @@ ve una propiedad que desapareció.
   el filtro de entrada (el héroe dice «+$5.000 USD/mes» y el filtro «entre $5K-$10K»); si los entregables #10 y #11 (Hiring y
   Delegation) quedan; los números de los casos, que nadie revisó (+$1M, +80M views, +20 nichos, +$60k de Axel, $7.000 por
   cliente); Axel llamado «agencia» y «academia» a la vez.
+
+## Closing de la portada, el caso de Mauricio y el sonido de AI Avatar (16/11/2026, noche)
+
+- **Los cierres de verdad NO están en `closing_analyses`.** Su `outcome` es casi siempre «-» (y cuando hay texto, es una frase
+  del análisis, no un estado): para «de tantos cierres a tantos» se leyó el CRM (`leads.cerro` por `fecha_cierre`; la tasa,
+  cierres / `asistio_j1` por `fecha_junta_1`). Mauricio: enero a marzo 0 de 8, abril a junio 9 de 27. Mes a mes es ruido (agosto y
+  septiembre dan 0 %; octubre 100 % con 4 reuniones): **se compara por trimestre**, no se elige el mes que conviene.
+- **Las objeciones** de `closing_analyses.objections` son `{note, quote, handled, t_seconds}`: sin categoría. La categoría
+  («no tiene el dinero ahora», «lo habla con su socio», «no tiene tiempo ahora») la escribimos nosotros leyendo la nota, y en la
+  página va SÓLO eso, el minuto y si se respondió: nunca `quote` ni `note` (son palabras de terceros). Martín pidió objeciones
+  «más típicas»: se eligió una llamada real que las tuviera (15/05/2026), no se juntaron de varias llamadas en una sola escena.
+- **«Como es MaKo» = la hoja Closing del Dashboard** (la plantilla «Closing» de lib/graficos-plantillas-analysts.ts: «Tus
+  llamadas», el embudo, los factores, los closers, el score por semana). La tarjeta «Tasa de cierre» se copió de
+  public/vsl-assets/closing/hoja-tasa.jpg (el verde petróleo con cuadrícula). Martín no quiso sólo esa tarjeta: «todo, no
+  solamente esa hoja verde».
+- **Las tarjetas de Meet son 16:9.** Con el panel al costado, dos de 16:9 entran más grandes una arriba de la otra que de costado
+  (es lo que hace Meet: el tamaño más grande que entra). Un retrato vertical no sirve de cámara: mauricio-meet.jpg es su retrato
+  al medio con el fondo gris de la foto estirado a los costados.
+- **AI Avatar sonaba solo:** con el sonido prendido una vez, el IntersectionObserver lo volvía a reproducir al entrar a la
+  pantalla, con sonido y en bucle. Regla: un video que sale de la pantalla se pausa **y se calla** (app/vsl/_sitio/Interactivos.tsx).
+- **El caso de Mauricio va TODO al costado del carrusel** (título, texto y las dos tarjetas del antes y el después, una al lado de
+  la otra). Martín, al ver el título arriba: «ya pierde el diseño». El título dice «De meses de menos de $9k USD a más de $100k USD
+  vendidos» en todas las landings (CASO, app/vsl/_competencia/marca.tsx); el de antes (10k y 70k en tres meses) quedó viejo.
+- **SIN HACER:** el VSL «no carga en Safari» NO se reprodujo (ver docs/hallazgos-pruebas.md: el WebKit de Windows no sirve para
+  video). Lo que se descartó: el video de Panda es H.264 Main + AAC en TS (Safari lo reproduce), los certificados de los cinco
+  dominios de Panda están completos y el embed responde igual con el agente de Safari. Falta saber en qué aparato y en qué página
+  (la portada usa `tv.pandavideo.com`, el Accelerator `tv.pandavideo.com.br`) y qué se ve. También sin hacer: el organigrama de la
+  fila Equipo (caras generadas de personas que no existen), el caso de Mauricio del Accelerator más corto y las tres cajas de
+  «falta» de /vsl/closing (app/vsl/_competencia/disenos/closing.tsx, `Figura`).

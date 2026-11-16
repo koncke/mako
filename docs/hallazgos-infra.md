@@ -12651,3 +12651,9 @@ Con `--heap=3584` el chequeo acotado de los 6 archivos de `app/accelerator/` ter
 memoria, no la guardia de RAM. Con `--heap=4608` terminó (0 errores), usando unos 3,1 GB. El peso no es la landing: es
 lucide-react y el grafo de `app/planes/Tarjetas.tsx`, que entra por la lista del programa. ⚠️ La regla de la casa sigue: si
 falta RAM, se reintenta más tarde; subir `--heap` sólo cuando el 134 es de V8 y la PC tiene el margen.
+
+## El REST de Supabase corta en 1000 filas sin avisar (16/11/2026)
+
+- `leads?select=…&limit=5000` devolvió 1000 filas y ningún error: el tope del servidor (`max-rows`) gana al `limit`. Las cuentas
+  de cierres de Mauricio salieron mal hasta paginar con `order=id.asc&limit=1000&offset=…` (eran 1310). Regla para todo script que
+  cuente: paginar siempre, o pedir `count=exact` y comparar.

@@ -395,3 +395,17 @@ piden las imágenes con `fetch` (o se pasan a `eager`) y se suman; para mirarlas
   negro en el oscuro (pasó con la barra de MaKo Tokens).
 - **Un iframe de otro sitio no se ve en el visor de claude.ai**, ni en una captura sin red: el VSL de Panda va como una tapa
   con un link.
+
+## Una prueba con WebKit hizo sonar los videos en la compu de Martín (16/11/2026)
+
+- **El WebKit de Playwright en Windows reproduce el audio por los parlantes reales.** Una prueba del VSL en el motor de Safari
+  hizo sonar «un montón de veces» los anuncios con IA de Martín y Mauricio mientras él estaba por entrar a una llamada. Chromium:
+  siempre `--mute-audio`; WebKit no tiene esa bandera: no correrlo con la página entera (o pisar `HTMLMediaElement.prototype.play`
+  para que todo arranque mudo).
+- **No sirve para probar video:** el WebKit de Windows (WinCairo) no trae HLS ni H.264, así que el reproductor de Panda carga su
+  interfaz y nunca su video. Con la portada, además, el evento `load` no llega en 60 s y la captura se queda «waiting for fonts».
+  Un «no carga en Safari» no se confirma ni se descarta desde esta PC.
+- **La versión:** playwright-core pedía `webkit-2370` y está instalado `webkit-2359`: se le pasa `executablePath` al .exe de esa
+  carpeta.
+- **La guardia de RAM frena por palabras del comando** (un listado con «playwright» en la ruta también): para mirar procesos,
+  `Get-Process` por nombre o `Win32_Process -Filter "ProcessId=…"`, sin nombrar el navegador.

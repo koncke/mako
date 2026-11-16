@@ -20,11 +20,19 @@ export const CLOSING_MAURICIO = {
     { mes: 'Ene', cierres: 0 }, { mes: 'Feb', cierres: 0 }, { mes: 'Mar', cierres: 0 },
     { mes: 'Abr', cierres: 1 }, { mes: 'May', cierres: 3 }, { mes: 'Jun', cierres: 5 },
   ],
+  /** El embudo de abril a junio (personas, del CRM): primeras reuniones a las que fue el prospecto, segundas y ventas. */
+  embudo: [
+    { paso: 'Primeras reuniones', n: 27 },
+    { paso: 'Segundas reuniones', n: 10 },
+    { paso: 'Ventas', n: 9 },
+  ],
+  /** El score promedio de sus llamadas de venta analizadas, semana por semana (del 30/03 al 15/06/2026). */
+  scorePorSemana: [7.2, 7.1, 5.8, 6.2, 6, 5, 5.5, 7, 6.9, 7.4, 7.5, 6],
   llamada: {
     duracionMin: 110,
     objeciones: [
       { tipo: 'No tiene el dinero ahora', segundo: 4190, respondida: false },
-      { tipo: 'Lo tiene que hablar con su socio', segundo: 4312, respondida: false },
+      { tipo: 'Lo habla con su socio', segundo: 4312, respondida: false },
       { tipo: 'No tiene tiempo ahora', segundo: 4815, respondida: true },
     ],
   },

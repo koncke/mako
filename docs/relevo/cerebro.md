@@ -1,5 +1,22 @@
 # Relevo del Cerebro
 
+## 16/11/2026, ~22:10 UTC — LEER PRIMERO (claude1 al 98-99 % semanal; se reinicia el 18/11 10:00 UTC)
+
+**Martín: «Continúa con todo y cierra lo que te pedí»; commitear recién al 99 %.** Subido a punta/portada-brain-login:
+- Closing de la portada (app/vsl/_sitio/ClosingAntesDespues.tsx + closing-mauricio.ts): 0 → 9 cierres por trimestre; la llamada
+  como Google Meet (tarjetas 16:9), con zoom al costado de MaKo mientras salen tres objeciones típicas reales (15/05) y si se
+  respondieron; y la hoja Closing del Dashboard animada (tasa 33 % con el diseño de hoja-tasa.jpg, embudo 27 → 10 → 9, score por
+  semana, cierres por mes). Sin «en vivo».
+- El caso de Mauricio: título «De meses de menos de $9k USD a más de $100k USD vendidos» (todas las landings) y todo al costado
+  del carrusel. AI Avatar ya no arranca solo con sonido.
+- Artefacto «Sitio de MaKo»: https://claude.ai/artifact/KGnfQnWAuiZ62qg9uioKZb (versión 15).
+
+**SIN HACER (en orden):** 1) el VSL en Safari: no se reprodujo; preguntarle a Martín aparato, página y qué ve
+(docs/hallazgos-landing.md, la entrada del 16/11 a la noche). 2) El organigrama de la fila Equipo de la portada con caras
+generadas de personas que no existen (hoy es el video del formulario de invitar; Martín: «no quiero ver un formulario»). 3) El
+caso de Mauricio del Accelerator más corto (video vertical + carrusel de fotos). 4) Las tres cajas de «falta» de /vsl/closing.
+5) «MaKo Esencial» → «MaKo Essential» (ajuste de producción: espera la línea de Martín) y desplegar ya o esperar al 17/11 11:05 UTC.
+
 ## 16/11/2026, ~05:15 AST (09:15 UTC) — LEER PRIMERO (claude1 al 82 % semanal; se reinicia el 18/11 10:00 UTC)
 
 **Subido a punta/portada-brain-login (NO en producción todavía):** 39e976911 el sitio (Recursos, pie en todas las páginas, lo que

@@ -82,44 +82,65 @@ const CSS = `
 .s-cad-n-despues{color:#8AB4F8}
 .s-cad-flecha svg{display:block;width:5cqw;height:5cqw;color:#5F6368}
 @keyframes s-cad-intro{0%,15%{opacity:1;visibility:visible}19%,97%{opacity:0;visibility:hidden}100%{opacity:1;visibility:visible}}
-/* 3) La hoja Closing del Dashboard de MaKo: su tarjeta «Tasa de cierre» (el verde petróleo con la cuadrícula, el número grande, la
-   diferencia con el período anterior, la barra de las llamadas que terminaron en venta y la columna de analizadas, score y ganadas)
-   y debajo los cierres de cada mes. */
-.s-cad-app{position:absolute;inset:0;z-index:2;background:#F4F6FA;color:#12151B;display:grid;grid-template-columns:13cqw minmax(0,1fr);opacity:0;visibility:hidden;animation:s-cad-app ${CICLO}s infinite}
-@keyframes s-cad-app{0%,55%{opacity:0;visibility:hidden;transform:translateY(2cqw)}59%,95%{opacity:1;visibility:visible;transform:none}98%,100%{opacity:0;visibility:hidden}}
-.s-cad-lat{background:#fff;border-right:1px solid #E5E8EF;padding:2.6cqw 1.6cqw;display:flex;flex-direction:column;gap:1.6cqw}
-.s-cad-lat svg{width:3.2cqw;height:3.2cqw;margin-bottom:1cqw}
-.s-cad-lat span{height:1.3cqw;border-radius:1cqw;background:#E5E8EF}
+/* 3) La hoja Closing del Dashboard de MaKo, como es hoy (la plantilla «Closing» de lib/graficos-plantillas-analysts.ts): su título,
+   el período y cuatro de sus piezas, que entran una por una y se animan: la tarjeta «Tasa de cierre» (el verde petróleo con la
+   cuadrícula, la de public/vsl-assets/closing/hoja-tasa.jpg), el embudo de llamadas, el score por semana y los cierres de cada mes. */
+.s-cad-app{position:absolute;inset:0;z-index:2;background:#F4F6FA;color:#12151B;display:grid;grid-template-columns:10cqw minmax(0,1fr);opacity:0;visibility:hidden;animation:s-cad-app ${CICLO}s infinite}
+@keyframes s-cad-app{0%,54%{opacity:0;visibility:hidden}57%,95%{opacity:1;visibility:visible}98%,100%{opacity:0;visibility:hidden}}
+.s-cad-lat{background:#fff;border-right:1px solid #E5E8EF;padding:2.4cqw 1.4cqw;display:flex;flex-direction:column;gap:1.5cqw}
+.s-cad-lat svg{width:3cqw;height:3cqw;margin-bottom:1cqw}
+.s-cad-lat span{height:1.2cqw;border-radius:1cqw;background:#E5E8EF}
 .s-cad-lat span.s-cad-lat-on{background:#2F6FED}
-.s-cad-main{padding:2.6cqw 3cqw;display:flex;flex-direction:column;gap:1.8cqw;min-width:0}
-.s-cad-main-t{margin:0;font-size:2.4cqw;font-weight:800}
-.s-cad-main-t small{margin-left:1.2cqw;font-size:1.5cqw;font-weight:600;color:#6B7280}
-.s-cad-tasa{position:relative;overflow:hidden;border-radius:2cqw;color:#fff;display:grid;grid-template-columns:minmax(0,1fr) 15cqw;gap:2.4cqw;padding:2.4cqw 2.8cqw;background:linear-gradient(135deg,#0A2A2E 0%,#0D3539 55%,#13595F 100%)}
-.s-cad-tasa::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:3.4cqw 3.4cqw}
-.s-cad-tasa>*{position:relative}
-.s-cad-tasa-t{margin:0;font-size:1.7cqw;font-weight:700;color:#CFE6E4}
-.s-cad-tasa-n{display:block;margin-top:.6cqw;font-size:7cqw;line-height:1;font-weight:800;letter-spacing:-.02em}
-.s-cad-delta{display:flex;align-items:center;gap:1cqw;margin-top:1.2cqw;font-size:1.5cqw;font-weight:500;color:#E6F2F1}
-.s-cad-delta b{padding:.4cqw .9cqw;border-radius:.7cqw;background:#B6F0C9;color:#0B3B2A;font-weight:800}
-.s-cad-prog{margin-top:2.6cqw;height:1.1cqw;border-radius:1cqw;background:rgba(255,255,255,.14);overflow:hidden}
+.s-cad-main{padding:2cqw 2.4cqw;display:flex;flex-direction:column;gap:1.4cqw;min-width:0;min-height:0}
+.s-cad-main-t{margin:0;display:flex;align-items:baseline;gap:1.2cqw;font-size:2.2cqw;font-weight:800;white-space:nowrap}
+.s-cad-main-t small{min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:1.35cqw;font-weight:600;color:#6B7280}
+.s-cad-main-t em{margin-left:auto;font-style:normal;font-size:1.3cqw;font-weight:700;color:#2F6FED;background:#E8F0FE;padding:.5cqw 1.1cqw;border-radius:99px}
+.s-cad-hoja{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:1.4cqw}
+.s-cad-pieza{min-height:0;min-width:0;opacity:0;transform:translateY(1.6cqw) scale(.97);animation:${CICLO}s infinite}
+.s-cad-pieza:nth-child(1){animation-name:s-cad-p1}.s-cad-pieza:nth-child(2){animation-name:s-cad-p2}.s-cad-pieza:nth-child(3){animation-name:s-cad-p3}.s-cad-pieza:nth-child(4){animation-name:s-cad-p4}
+@keyframes s-cad-p1{0%,56%{opacity:0;transform:translateY(1.6cqw) scale(.97)}60%,95%{opacity:1;transform:none}98%,100%{opacity:0}}
+@keyframes s-cad-p2{0%,58%{opacity:0;transform:translateY(1.6cqw) scale(.97)}62%,95%{opacity:1;transform:none}98%,100%{opacity:0}}
+@keyframes s-cad-p3{0%,60%{opacity:0;transform:translateY(1.6cqw) scale(.97)}64%,95%{opacity:1;transform:none}98%,100%{opacity:0}}
+@keyframes s-cad-p4{0%,62%{opacity:0;transform:translateY(1.6cqw) scale(.97)}66%,95%{opacity:1;transform:none}98%,100%{opacity:0}}
+.s-cad-card{background:#fff;border:1px solid #E5E8EF;border-radius:1.4cqw;padding:1.5cqw 1.8cqw;display:flex;flex-direction:column}
+.s-cad-card>p{margin:0 0 .8cqw;font-size:1.35cqw;font-weight:700;color:#6B7280}
+.s-cad-tasa{position:relative;overflow:hidden;border-radius:1.4cqw;color:#fff;display:grid;grid-template-columns:minmax(0,1fr) 10.5cqw;gap:1.8cqw;padding:1.7cqw 2.1cqw;background:linear-gradient(135deg,#0A2A2E 0%,#0D3539 55%,#13595F 100%)}
+.s-cad-tasa::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:2.8cqw 2.8cqw}
+.s-cad-tasa>*{position:relative;min-width:0}
+.s-cad-tasa-t{margin:0;font-size:1.45cqw;font-weight:700;color:#CFE6E4}
+.s-cad-tasa-n{display:block;margin-top:.3cqw;font-size:5.4cqw;line-height:1;font-weight:800;letter-spacing:-.02em}
+.s-cad-delta{display:flex;align-items:center;gap:.8cqw;margin-top:.8cqw;font-size:1.2cqw;font-weight:500;color:#E6F2F1;white-space:nowrap}
+.s-cad-delta b{padding:.3cqw .7cqw;border-radius:.6cqw;background:#B6F0C9;color:#0B3B2A;font-weight:800}
+.s-cad-prog{margin-top:1.6cqw;height:.9cqw;border-radius:1cqw;background:rgba(255,255,255,.14);overflow:hidden}
 .s-cad-prog i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#5AB3B8,#E2FAF8);transform-origin:left;transform:scaleX(0);animation:s-cad-llena ${CICLO}s infinite}
-@keyframes s-cad-llena{0%,60%{transform:scaleX(0)}68%,100%{transform:scaleX(1)}}
-.s-cad-prog-t{display:flex;justify-content:space-between;gap:1cqw;margin-top:1cqw;font-size:1.45cqw;color:#E6F2F1}
-.s-cad-tasa-der{border-left:1px solid rgba(255,255,255,.2);padding-left:2cqw;display:flex;flex-direction:column;justify-content:center}
-.s-cad-tasa-der p{margin:0;padding:.7cqw 0;font-size:1.5cqw;color:#CFE6E4;border-bottom:1px solid rgba(255,255,255,.14)}
+@keyframes s-cad-llena{0%,60%{transform:scaleX(0)}67%,100%{transform:scaleX(1)}}
+.s-cad-prog-t{margin-top:.8cqw;font-size:1.15cqw;color:#E6F2F1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-cad-tasa-der{border-left:1px solid rgba(255,255,255,.2);padding-left:1.5cqw;display:flex;flex-direction:column;justify-content:center}
+.s-cad-tasa-der p{margin:0;padding:.45cqw 0;font-size:1.2cqw;color:#CFE6E4;border-bottom:1px solid rgba(255,255,255,.14)}
 .s-cad-tasa-der p:last-child{border-bottom:0}
-.s-cad-tasa-der b{display:block;font-size:2.8cqw;line-height:1.1;font-weight:800;color:#fff}
-.s-cad-graf{flex:1;min-height:0;background:#fff;border:1px solid #E5E8EF;border-radius:1.4cqw;padding:1.6cqw 2.2cqw 1.2cqw;display:flex;flex-direction:column}
-.s-cad-graf p{margin:0 0 .6cqw;font-size:1.5cqw;font-weight:700;color:#6B7280}
-.s-cad-barras{flex:1;min-height:0;display:grid;grid-template-columns:repeat(6,1fr);gap:1.6cqw}
-.s-cad-barra-m{display:grid;grid-template-rows:minmax(0,1fr) auto;justify-items:center;gap:.5cqw;min-height:0;font-size:1.4cqw;font-weight:700;color:#6B7280}
+.s-cad-tasa-der b{display:block;font-size:2.3cqw;line-height:1.1;font-weight:800;color:#fff}
+/* El embudo: cada paso con su número y su barra, que crece cuando entra la pieza. */
+.s-cad-emb{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1cqw}
+.s-cad-emb div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;row-gap:.4cqw;font-size:1.3cqw;font-weight:600;color:#374151}
+.s-cad-emb b{font-size:1.5cqw;color:#12151B}
+.s-cad-emb span{grid-column:1/-1;height:1.8cqw;border-radius:.5cqw;background:var(--c);width:var(--w);transform-origin:left;transform:scaleX(0);animation:s-cad-emb ${CICLO}s infinite}
+@keyframes s-cad-emb{0%,61%{transform:scaleX(0)}68%,100%{transform:scaleX(1)}}
+/* El score por semana: la línea se dibuja de izquierda a derecha. */
+.s-cad-linea{flex:1;min-height:0;width:100%;display:block}
+.s-cad-linea polyline{fill:none;stroke:#2F6FED;stroke-width:1.1;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:s-cad-traza ${CICLO}s infinite}
+.s-cad-linea polygon{fill:rgba(47,111,237,.09);opacity:0;animation:s-cad-area ${CICLO}s infinite}
+@keyframes s-cad-traza{0%,63%{stroke-dashoffset:1}73%,100%{stroke-dashoffset:0}}
+@keyframes s-cad-area{0%,70%{opacity:0}75%,95%{opacity:1}98%,100%{opacity:0}}
+.s-cad-ejes{display:flex;justify-content:space-between;margin-top:.4cqw;font-size:1.15cqw;font-weight:600;color:#9AA0A6}
+.s-cad-barras{flex:1;min-height:0;display:grid;grid-template-columns:repeat(6,1fr);gap:1.2cqw}
+.s-cad-barra-m{display:grid;grid-template-rows:minmax(0,1fr) auto;justify-items:center;gap:.4cqw;min-height:0;font-size:1.2cqw;font-weight:700;color:#6B7280}
 /* El número de cada mes justo arriba de su barra (--h es el alto de la barra), y aparece cuando la barra terminó de crecer. */
-.s-cad-pista{position:relative;width:100%;margin-top:2.4cqw}
-.s-cad-pista i{position:absolute;left:0;right:0;bottom:0;height:var(--h);border-radius:.6cqw .6cqw 0 0;background:#2F6FED;transform-origin:bottom;transform:scaleY(0);animation:s-cad-crece ${CICLO}s infinite}
-.s-cad-pista b{position:absolute;left:0;right:0;bottom:calc(var(--h) + .4cqw);text-align:center;color:#12151B;font-size:1.5cqw;opacity:0;animation:s-cad-numero ${CICLO}s infinite}
+.s-cad-pista{position:relative;width:100%;margin-top:2cqw}
+.s-cad-pista i{position:absolute;left:0;right:0;bottom:0;height:var(--h);border-radius:.5cqw .5cqw 0 0;background:#2F6FED;transform-origin:bottom;transform:scaleY(0);animation:s-cad-crece ${CICLO}s infinite}
+.s-cad-pista b{position:absolute;left:0;right:0;bottom:calc(var(--h) + .3cqw);text-align:center;color:#12151B;font-size:1.3cqw;opacity:0;animation:s-cad-numero ${CICLO}s infinite}
 .s-cad-barra-m.s-cad-cero i{background:#D7DCE6}
-@keyframes s-cad-crece{0%,59%{transform:scaleY(0)}68%,100%{transform:scaleY(1)}}
-@keyframes s-cad-numero{0%,66%{opacity:0}70%,95%{opacity:1}98%,100%{opacity:0}}
+@keyframes s-cad-crece{0%,65%{transform:scaleY(0)}73%,100%{transform:scaleY(1)}}
+@keyframes s-cad-numero{0%,72%{opacity:0}76%,95%{opacity:1}98%,100%{opacity:0}}
 /* En una caja chica (el teléfono): las dos tarjetas igual (entran: 44cqw al lado de un panel de 46cqw), el panel más ancho, la
    letra más grande, sin el ✓/✕ de las objeciones, en la barra sólo el micrófono, la cámara, más, colgar y MaKo, y en la hoja de
    MaKo sólo la tarjeta de la tasa, más grande y sin la barra del costado. */
@@ -127,9 +148,11 @@ const CSS = `
 .s-cad-chip{font-size:2.2cqw;padding:1.1cqw 1.6cqw}.s-cad-chip svg{display:none}.s-cad-chip i{width:2cqw;height:2cqw}.s-cad-panel-t{font-size:3cqw}.s-cad-panel-t small{font-size:2.3cqw}.s-cad-nombre,.s-cad-hora{font-size:2.8cqw}.s-cad-ola{width:4cqw;height:4cqw}
 .s-cad-intro-t{font-size:3.4cqw}.s-cad-que{font-size:3.2cqw}.s-cad-mes{font-size:2.8cqw}
 .s-cad-cc,.s-cad-mano,.s-cad-pres,.s-cad-der .s-cad-icono:not(.s-cad-icono-on){display:none}.s-cad-boton,.s-cad-icono{width:6cqw;height:6cqw}.s-cad-boton svg,.s-cad-icono svg{width:3cqw;height:3cqw}.s-cad-colgar{width:8.6cqw}
-.s-cad-app{grid-template-columns:minmax(0,1fr)}.s-cad-lat,.s-cad-graf{display:none}.s-cad-main{padding:4cqw 4.4cqw;gap:2.6cqw;justify-content:center}.s-cad-main-t{font-size:4cqw}.s-cad-main-t small{font-size:2.8cqw}
-.s-cad-tasa{grid-template-columns:minmax(0,1fr) 22cqw;padding:3.6cqw 4cqw}.s-cad-tasa-t{font-size:3cqw}.s-cad-tasa-n{font-size:11cqw}.s-cad-delta{font-size:2.4cqw}.s-cad-prog{height:1.8cqw}.s-cad-prog-t{font-size:2.3cqw}.s-cad-prog-t span+span{display:none}.s-cad-tasa-der p{font-size:2.4cqw}.s-cad-tasa-der b{font-size:4.4cqw}}
-@media (prefers-reduced-motion:reduce){.s-cad-intro{display:none}.s-cad-cam{animation:none}.s-cad-chip{animation:none;opacity:1;transform:none}.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:none;opacity:1}.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:none}.s-cad-ola i{animation:none;height:1cqw}.s-cad-app{animation:none}.s-cad-prog i,.s-cad-pista i{animation:none;transform:none}.s-cad-pista b{animation:none;opacity:1}}
+.s-cad-app{grid-template-columns:minmax(0,1fr)}.s-cad-lat,.s-cad-main-t small,.s-cad-pieza:nth-child(n+3),.s-cad-tasa-der,.s-cad-prog-t{display:none}
+.s-cad-main{padding:3.4cqw 3.8cqw;gap:2.4cqw}.s-cad-main-t{font-size:3.8cqw}.s-cad-main-t em{font-size:2.4cqw;padding:.8cqw 1.8cqw}.s-cad-hoja{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:2.4cqw}
+.s-cad-tasa{grid-template-columns:minmax(0,1fr);padding:3cqw 3.4cqw;border-radius:2.4cqw}.s-cad-tasa-t{font-size:2.6cqw}.s-cad-tasa-n{font-size:10cqw}.s-cad-delta{font-size:2.1cqw;white-space:normal}.s-cad-prog{height:1.6cqw;margin-top:2.4cqw}
+.s-cad-card{padding:2.6cqw 3cqw;border-radius:2.4cqw}.s-cad-card>p{font-size:2.4cqw}.s-cad-emb{gap:1.6cqw}.s-cad-emb div{font-size:2.2cqw}.s-cad-emb b{font-size:2.6cqw}.s-cad-emb span{height:2.8cqw}}
+@media (prefers-reduced-motion:reduce){.s-cad-intro{display:none}.s-cad-cam{animation:none}.s-cad-chip{animation:none;opacity:1;transform:none}.s-cad-tile-a::after,.s-cad-tile-a .s-cad-ola{animation:none;opacity:1}.s-cad-tile-b::after,.s-cad-tile-b .s-cad-ola{animation:none}.s-cad-ola i{animation:none;height:1cqw}.s-cad-app{animation:none}.s-cad-pieza{animation:none;opacity:1;transform:none}.s-cad-prog i,.s-cad-pista i,.s-cad-emb span{animation:none;transform:none}.s-cad-pista b,.s-cad-linea polygon{animation:none;opacity:1}.s-cad-linea polyline{animation:none;stroke-dashoffset:0}}
 `;
 
 /** Cada objeción con SU tiempo en el ciclo (la primera a los 3,9 s, cuando la cámara ya se acercó, y una cada 1,2 s; se van todas
@@ -160,6 +183,9 @@ const Boton = ({ d, clase = '' }: { d: string; clase?: string }) => (
   <span className={`s-cad-boton${clase ? ` ${clase}` : ''}`}><svg viewBox="0 0 24 24"><path d={d} /></svg></span>
 );
 
+/** El color de cada paso del embudo: los dos de reuniones en azul y las ventas en verde. */
+const COLOR_EMBUDO = ['#2F6FED', '#6C9BF3', '#34A853'] as const;
+
 /** ✓ verde si la objeción se respondió; ✕ roja si quedó sin responder. */
 const Estado = ({ ok }: { ok: boolean }) => (
   <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -171,8 +197,10 @@ const Estado = ({ ok }: { ok: boolean }) => (
 );
 
 export function ClosingAntesDespues() {
-  const { antes, despues, porMes, llamada } = CLOSING_MAURICIO;
+  const { antes, despues, porMes, llamada, embudo, scorePorSemana } = CLOSING_MAURICIO;
   const maxMes = Math.max(...porMes.map((m) => m.cierres), 1);
+  // La línea del score: de 4 a 8 en el alto del gráfico (44), las semanas repartidas en el ancho (120).
+  const puntos = scorePorSemana.map((v, i) => `${Math.round((i / (scorePorSemana.length - 1)) * 1200) / 10},${Math.round((44 - ((v - 4) / 4) * 40 - 2) * 10) / 10}`).join(' ');
   const tasa = tasaDe(despues);
   return (
     <div className="s-cad" data-tema-fijo="" role="img"
@@ -224,35 +252,52 @@ export function ClosingAntesDespues() {
       <div className="s-cad-app" aria-hidden="true">
         <div className="s-cad-lat"><Estrella /><span /><span /><span className="s-cad-lat-on" /><span /><span /></div>
         <div className="s-cad-main">
-          <p className="s-cad-main-t">Closing<small>Mauricio · {despues.periodo} 2026</small></p>
-          <div className="s-cad-tasa">
-            <div>
-              <p className="s-cad-tasa-t">Tasa de cierre</p>
-              <strong className="s-cad-tasa-n">{tasa}%</strong>
-              <span className="s-cad-delta"><b>{tasa - tasaDe(antes)} pts ▲</b>sobre el período anterior</span>
-              <div className="s-cad-prog"><i style={{ width: `${tasa}%` }} /></div>
-              <div className="s-cad-prog-t">
-                <span><b>{despues.cierres}</b> de {despues.reuniones} primeras reuniones terminaron en venta</span>
-                <span>{despues.reuniones - despues.cierres} sin cerrar</span>
+          <p className="s-cad-main-t">Closing<small>Las llamadas de venta analizadas: qué decide tus cierres.</small><em>{despues.periodo} 2026</em></p>
+          <div className="s-cad-hoja">
+            <div className="s-cad-pieza s-cad-tasa">
+              <div>
+                <p className="s-cad-tasa-t">Tasa de cierre</p>
+                <strong className="s-cad-tasa-n">{tasa}%</strong>
+                <span className="s-cad-delta"><b>{tasa - tasaDe(antes)} pts ▲</b>sobre el período anterior</span>
+                <div className="s-cad-prog"><i style={{ width: `${tasa}%` }} /></div>
+                <p className="s-cad-prog-t"><b>{despues.cierres}</b> de {despues.reuniones} primeras reuniones terminaron en venta</p>
+              </div>
+              <div className="s-cad-tasa-der">
+                <p>Analizadas<b>{despues.analizadas}</b></p>
+                <p>Score<b>{despues.score}</b></p>
+                <p>Ganadas<b>{despues.cierres}</b></p>
               </div>
             </div>
-            <div className="s-cad-tasa-der">
-              <p>Analizadas<b>{despues.analizadas}</b></p>
-              <p>Score<b>{despues.score}</b></p>
-              <p>Ganadas<b>{despues.cierres}</b></p>
+            <div className="s-cad-pieza s-cad-card">
+              <p>Embudo de llamadas</p>
+              <div className="s-cad-emb">
+                {embudo.map((e, i) => (
+                  <div key={e.paso}>{e.paso}<b>{e.n}</b>
+                    <span style={{ ['--w' as string]: `${Math.round((e.n / embudo[0].n) * 100)}%`, ['--c' as string]: COLOR_EMBUDO[i] }} />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-          <div className="s-cad-graf">
-            <p>Cierres por mes</p>
-            <div className="s-cad-barras">
-              {porMes.map((m) => (
-                <div key={m.mes} className={`s-cad-barra-m${m.cierres ? '' : ' s-cad-cero'}`}>
-                  <span className="s-cad-pista" style={{ ['--h' as string]: `${m.cierres ? Math.round((m.cierres / maxMes) * 100) : 4}%` }}>
-                    <i /><b>{m.cierres}</b>
-                  </span>
-                  {m.mes}
-                </div>
-              ))}
+            <div className="s-cad-pieza s-cad-card">
+              <p>El score por semana</p>
+              <svg className="s-cad-linea" viewBox="0 0 120 44" preserveAspectRatio="none" aria-hidden="true">
+                <polygon points={`0,44 ${puntos} 120,44`} />
+                <polyline points={puntos} pathLength={1} />
+              </svg>
+              <div className="s-cad-ejes"><span>Abr</span><span>May</span><span>Jun</span></div>
+            </div>
+            <div className="s-cad-pieza s-cad-card">
+              <p>Cierres por mes</p>
+              <div className="s-cad-barras">
+                {porMes.map((m) => (
+                  <div key={m.mes} className={`s-cad-barra-m${m.cierres ? '' : ' s-cad-cero'}`}>
+                    <span className="s-cad-pista" style={{ ['--h' as string]: `${m.cierres ? Math.round((m.cierres / maxMes) * 100) : 4}%` }}>
+                      <i /><b>{m.cierres}</b>
+                    </span>
+                    {m.mes}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
