@@ -81,20 +81,19 @@ export const APLICAR = {
 };
 
 export const MAURICIO = {
-  /** El título: lo que va en naranja son los dos montos. */
-  titulo: ['De clientes que solo pagaban ', '$300 dólares', ' a cobrar más de ', '$7.000', ' por cliente.'] as const,
+  /** El título: los $100.000 en naranja (Martín, 16/11/2026: «lo de $100.000 es como más impactante… debería ser lo más importante»).
+   *  El «de $300 a más de $7.000 por cliente», que era el título, pasa al texto. */
+  titulo: ['Con Mauricio llevamos más de ', '$100.000 dólares', ' facturados.'] as const,
   video: '/vsl-assets/mauricio.mp4',
+  // MÁS CORTO (Martín: «está muy largo desde el título hasta no existe ningún método estándar»): eran tres párrafos, la frase de
+  // los $100k y dos más del escenario; quedan dos y uno, con los mismos hechos.
   intro: [
-    'Cuando empezamos, Mauricio no era ningún novato. Era un profesional con más de 20 años de trayectoria, padre de familia. Tenía más de 30.000 seguidores en Instagram y videos con millones de visitas. Desde afuera, todo parecía estar bien.',
-    'Pero las visitas no son clientes. Peor: **la viralidad le traía los clientes equivocados.** Por su forma de ser y su nivel de entrega, les dedicaba todo su tiempo y energía a personas que solo le pagaban $300 dólares.',
-    // Lovable: «más de $50.000 dólares facturados». Martín, 15/11/2026: «hoy en día ya vamos más de $100.000 facturados».
-    'Lo primero que hicimos no fue tocar el marketing. Fue entender qué negocio quería tener realmente. Después construimos su oferta desde cero, y hoy llevamos juntos **más de $100.000 dólares facturados**.',
+    'Mauricio no era ningún novato: más de 20 años de trayectoria y videos con millones de visitas. Pero la viralidad le traía los clientes equivocados, que **solo le pagaban $300 dólares.**',
+    'No empezamos por el marketing: primero entendimos qué negocio quería tener y construimos su oferta desde cero. Hoy **cobra más de $7.000 por cliente.**',
   ] as readonly Rico[],
-  /** Lovable: «…ese número de los $50k.» */
-  importa: 'Hay algo que me importa mucho más que ese número de los $100k.',
+  importa: 'Y hay algo que me importa más que el número.',
   escenario: [
-    'Mauricio quería algo más que facturar: quería ser reconocido como autoridad en su industria. Quería estar parado arriba de un escenario y que lo vean como referente.',
-    'Por eso viajé desde Argentina hasta Cancún para hacer un evento con él. Mauricio fue speaker, frente a más de 100 personas de su sector. Ese día no solo consolidó su autoridad — consolidó la versión del negocio que quería tener.',
+    'Quería ser referente de su industria. Viajé de Argentina a Cancún para hacer un evento con él: fue speaker frente a más de 100 personas de su sector.',
   ] as readonly Rico[],
   /** Las tres fotos del carrusel, en el orden de Lovable. Son las mismas que usa el resto del sitio (public/vsl-assets). */
   fotos: [
@@ -136,7 +135,7 @@ export const RESULTADOS = {
    * Era la bajada de los testimonios de Lovable (se fueron: ver arriba). Es lo único real de esa sección.
    * 16/11/2026: «en la agencia de IA de Axel» → «en la agencia y academia de IA de Axel», como su caso de arriba.
    */
-  metodologia: 'Y como profesor de marketing y ventas en la agencia y academia de IA de Axel, creé desde cero la metodología con la que muchos alumnos llevaron sus propias agencias de 0 a +$5k.',
+  // La frase de la metodología («Y como profesor de marketing y ventas…») se fue: Martín, 16/11/2026, «esa parte elimínala».
 };
 
 /** El nombre de cada ícono de los entregables (lucide, los mismos de Lovable; el del calendario, del 16/11/2026). */

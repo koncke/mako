@@ -151,8 +151,10 @@ test('«Y en las tres fases, siempre» no vuelve: de los entregables (y su tira)
 
 test('el caso de Mauricio dice los números de hoy', async () => {
   const t = texto(await pagina());
-  assert.ok(t.includes('hoy llevamos juntos más de $100.000 dólares facturados'), 'Mauricio: más de $100.000');
-  assert.ok(t.includes('ese número de los $100k'), 'Mauricio: los $100k');
+  // Los $100.000, en el título (Martín, 16/11/2026: «debería ser lo más importante»); los $300 y los $7.000, en el texto.
+  assert.ok(t.includes('Con Mauricio llevamos más de $100.000 dólares facturados.'), 'Mauricio: el título con los $100.000');
+  assert.ok(t.includes('solo le pagaban $300 dólares') && t.includes('cobra más de $7.000 por cliente'), 'Mauricio: de $300 a $7.000, en el texto');
+  assert.doesNotMatch(t, /profesor de marketing y ventas/, 'volvió «y como profesor de marketing y ventas»');
   assert.doesNotMatch(t, /\$50\.000|\$50k/, 'volvió el número viejo de Mauricio');
 });
 
@@ -426,7 +428,7 @@ test('el filtro dice el corte de la aplicación (más de US$ 5.000, con clientes
   assert.ok(FILTRO.no.some((x) => /^No tienes clientes\b/.test(x.d)), 'el «no es para ti» de la oferta sin validar ya no dice los clientes');
   // Axel: «Axel es ambos, es una agencia y es una academia».
   assert.ok(t.includes('Axel — Agencia y academia de IA'), 'el caso de Axel no dice agencia y academia');
-  assert.ok(t.includes('en la agencia y academia de IA de Axel'), 'la metodología no dice agencia y academia');
+  // La frase de la metodología («Y como profesor de marketing y ventas en la agencia y academia de IA de Axel…») se fue (Martín, 16/11/2026).
   assert.doesNotMatch(t, /agencia de IA de Axel|Axel — Agencia de IA/, 'quedó Axel como sólo agencia');
 });
 
@@ -514,7 +516,7 @@ test('las tiras separan las secciones: primero las que reemplaza, después los 1
   const en = (s: string) => t.indexOf(s);
   assert.match(RESULTADOS.casos[RESULTADOS.casos.length - 1].nombre, /^Social Media Lab\b/, 'el último caso ya no es Social Media Lab: ¿la tira sigue donde Martín la pidió?');
   const { APLICAR } = await import('../app/accelerator/contenido');
-  const orden = [APLICAR.titulo, ROTULO_REEMPLAZA, RESULTADOS.casos[RESULTADOS.casos.length - 1].nombre, RESULTADOS.metodologia, 'Los 12 entregables del programa', PROGRAMA.titulo, 'Entregable #12:', 'Funciona con las apps que ya usas', `La inversión ${PROGRAMA_ACELERADOR.nombre}`];
+  const orden = [APLICAR.titulo, ROTULO_REEMPLAZA, RESULTADOS.casos[RESULTADOS.casos.length - 1].nombre, 'Los 12 entregables del programa', PROGRAMA.titulo, 'Entregable #12:', 'Funciona con las apps que ya usas', `La inversión ${PROGRAMA_ACELERADOR.nombre}`];
   assert.deepEqual(orden.map(en).map((i, k, l) => i >= 0 && (k === 0 || i > l[k - 1])), orden.map(() => true), `las tiras no van donde Martín las pidió: ${orden.map((s) => `${s.slice(0, 24)}@${en(s)}`).join(' · ')}`);
   assert.equal((html.match(/<div class="s-sitio acl-tira">/g) ?? []).length, 3, 'cada tira, en su caja del sitio (la de los entregables, las apps que conecta y las que reemplaza)');
   // EL CSS: el de la portada (`CSS_REEMPLAZA`) y, después, lo que lo acomoda a esta página (sin el fondo azul noche ni el alto de

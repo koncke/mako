@@ -162,7 +162,6 @@ export function LandingAcelerador({ origen = null }: {
                 <div className="acl-mau-titulo">
                   <h2>
                     {MAURICIO.titulo[0]}<span className="acl-plata">{MAURICIO.titulo[1]}</span>{MAURICIO.titulo[2]}
-                    <span className="acl-plata">{MAURICIO.titulo[3]}</span>{MAURICIO.titulo[4]}
                   </h2>
                 </div>
                 <div className="acl-mau-top">
@@ -226,7 +225,6 @@ export function LandingAcelerador({ origen = null }: {
                   </div>
                 ))}
               </div>
-              <p className="acl-meto">{RESULTADOS.metodologia}</p>
             </div>
           </section>
 
