@@ -186,7 +186,7 @@ test('la PÁGINA DE VUELTA: «Tu prueba gratis empezó» con el día del cobro; 
   assert.match(p, /No se te cobró nada\./);
   // Se dice por qué, y «esa tarjeta» sólo si la pasarela de verdad la reconoce (Creem no: va por email).
   assert.match(p, /huellaDeTarjeta \? TEXTO_PRUEBA_USADA_TARJETA : TEXTO_PRUEBA_USADA_EMAIL/);
-  assert.match(p, /href=\{`\/planes\/\$\{plan\}\?sinPrueba=1`\}>Empezar sin prueba<\/a>/);
+  assert.match(p, /href=\{`\/planes\/\$\{rutaDelPlan\(plan\)\}\?sinPrueba=1`\}>Empezar sin prueba<\/a>/); // la ruta en inglés (15/11/2026)
   assert.match(fuente('app/planes/[plan]/page.tsx'), /const conPrueba = planConPrueba\(plan\.id\) && uno\('sinPrueba'\) !== '1';/);
   assert.match(fuente('app/planes/[plan]/page.tsx'), /sinPrueba=\{!conPrueba\}/);
 });
