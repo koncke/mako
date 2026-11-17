@@ -27,6 +27,7 @@ Los journals siguen en disco, en
 
 | Fecha | Corrida | Agentes | Qué se fue a buscar | |
 |---|---|---|---|---|
+| 2026-11-17 | `animaciones-html-con-claude` (`wf_90a71bff-e00`) | 5 | Cómo se hacen los videos animados por código que escribe Claude: las 7 referencias de Martín, la web (Remotion, HyperFrames, Claude Motion), lo que ya tiene MaKo, el plan y un refutador | ya escrita: editor-video/animaciones-por-codigo.md y hallazgos-video-pipeline.md §17 |
 | 2026-11-17 | `guiones-reto-7-dias` (`wf_15437be0-9c1`) | 5 | Los guiones del día 1 del reto (bienvenida, recorrido, Offer Coach y Funnel Coach): leer el método de los VSL cortos, el reto de la maqueta y el curso de Sofía Contreras, escribir y un crítico | ya escrita: reto-7-dias/guiones-dia-1.md y hallazgos-video-pipeline.md §17 |
 | 2026-11-17 | `omni-por-apimart-competitivo` (`wf_1d9bf4cd-78d`) | 5 | El Omni de Martín por ApiMart, el mismo Omni en otros proveedores, Higgsfield medido con el botón Generate y cómo competir sin cambiar de modelo, con un refutador | ya escrita: hallazgos-mako-tokens.md, hallazgos-video-pipeline.md y competencia/precios-video-con-ia.md |
 | 2026-11-17 | `precio-30-dias-contenido` (`wf_42fb8b45-5da`) | 6 | Cuánto cobrar por 30 días de contenido con IA y cuánto cobran y dan Higgsfield, Kling, Google, HeyGen y los demás: costos del repo, dos lectores de precios oficiales, el cálculo y dos refutadores | ya escrita: hallazgos-mako-tokens.md («lo decide el modelo») y competencia/precios-video-con-ia.md |
