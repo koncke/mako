@@ -11,6 +11,56 @@ abajo se lee contra eso.
 
 ---
 
+## El precio de «30 días de contenido» lo decide el MODELO, no el margen (17/11/2026)
+
+**Síntoma:** Martín preguntó cuánto cobrar por un reel por día. El chat de MaKo Tokens había dicho «sólo la IA cuesta
+US$102». La corrida `wf_42fb8b45-5da` lo rehízo: según el modelo, el mismo mes cuesta **US$60 o US$127**. Las cuentas
+eran 30 reels con 30 s generados, la mitad de los clips rehecha una vez (135 clips de 10 s), 9 carruseles, 13 imágenes y
+el texto que el repo presupuesta.
+
+**La causa: el código tiene dos «Omni» y no son el mismo producto.**
+- `lib/mako-tokens-paquetes.ts:36-48` dice que «el único Omni del catálogo es kling-v3-omni» y cobra **US$0,896** por clip.
+  kling-v3-omni devuelve **16:9** (`lib/apimart-reglas.ts:65-76`), así que un reel vertical sale recortado.
+- El 8/11 se generó y se pagó por ApiMart un **Omni-Flash-Ext**, el Omni de Google, el que Martín llama «Omni», a
+  **US$0,40**. Salió vertical 720×1280, con voz y labios (`docs/video-avatar-desde-foto.md:15`).
+- La fórmula «US$0,15 + 0,025 por s» de `docs/costos-fijos-mako.md:68-79`, que el 15/11 se atribuyó a Flow, da justo 0,40.
+- La fila «clip» de `lib/mako-tokens-costos.ts:323-324` explica Omni Flash y pone el número de kling.
+
+**La trampa del medidor: dos precios para los mismos 10 s.**
+- `MT_POR_CLIP` = 900 (`paquetes.ts:104`).
+- `mtDeVideo` = 384, porque usa seedance a 0,0384 por s (`lib/mako-tokens-reglas.ts:86` y `:210`). Es el que
+  `cobrarMediosMt` dice usar (`lib/mako-tokens-medidor.ts:363-368`).
+- Si se engancha así, un cliente que agota un paquete de US$297 con kling le hace perder a MaKo unos US$22. Antes de
+  vender un paquete, el medidor tiene que cobrar el mismo número que la cuenta del precio.
+
+**Lo que no se reproducía del chat anterior:**
+- Los US$102 sólo salen rehaciendo un cuarto de los clips. Con la mitad, son US$122,71.
+- Los márgenes de su escala (75, 70, 64 y 55 %) no descuentan el 10,16 % de pasarela e impuesto
+  (`lib/economia-unitaria.ts:36-42`). Descontado, quedan 64,8, 59,8, 53,8 y 44,8 %.
+- Los pasos de la barra son 0, 10, 20, 40, 60, 80, 100, 120, 160 y 200 (`app/planes/CalculadoraTokens.tsx:141`). Los tramos
+  de 25, 50 y 75 de esa escala no existen.
+
+**El diagnóstico obvio era el equivocado.** Parecía que el margen fijaba el precio, y lo fija el modelo. Sobre la factura
+entera (Pro + extra), un paquete de US$297 deja 48 %. Ese número esconde que el extra solo deja 39,8 %, contra la regla del
+75 % (`paquetes.ts:54-69`) y `PISO_DE_MARGEN_BRUTO` 0,74 (`reglas.ts:152`). Y pasar de US$0,896 a US$0,40 por clip mueve
+el precio más que cualquier margen: con Omni Flash, el mes entra en Pro + US$100 y deja ~60 %.
+
+**La regla:** un precio de video se calcula con el modelo que entrega el reel (9:16, con voz), con clips enteros de 10 s y
+cobrando cada intento. El margen se mide sobre lo que se agrega, no sobre la factura con el plan adentro.
+
+**SIN HACER, con dónde vive:**
+- Martín tiene que decidir cuál Omni se usa. Después, volver a medir el Omni-Flash-Ext por ApiMart: costo, que entregue 9:16
+  y qué duraciones acepta. Rechazó 6 s y aceptó 10 (`docs/video-avatar-desde-foto.md:44-45`).
+- Unificar el costo de 10 s de video: `MT_POR_CLIP`, `mtDeVideo` y la fila «clip» de `lib/mako-tokens-costos.ts`.
+- Medir cuántos intentos lleva un clip. La única regla del repo es «3×», de agosto y con otros modelos
+  (`docs/costos-ia-y-planes.md:677-679`). Con 3 intentos, el mismo mes cuesta el doble.
+- Con qué se recarga ApiMart: no está en el repo. Con tarjeta argentina se suma el IVA del 21 %, y el clip de US$0,896 pasa
+  a ~US$1,08.
+- Los precios de la competencia, con sus trampas, están en
+  [competencia/precios-video-con-ia.md](competencia/precios-video-con-ia.md).
+
+---
+
 ## ⚠️⚠️ PASÓ: el medidor apagó el grupo de WhatsApp de un cliente, y «fallar cerrado» era lo equivocado (16/11/2026)
 
 **El síntoma.** Tickets #103 y #105. En el grupo de MaKo del ws 23 («Marcela Fernandez», cliente de la agencia Código
