@@ -5002,6 +5002,36 @@ ventana.
   tarjeta en orden. Con `display: contents` en la fila de adentro y una grilla con áreas, el marcado queda igual y se ve en otro
   orden. Un lector de pantalla sigue leyendo el orden lógico.
 
+### Pestañas ENTERAS en HTML estático, con la barra real (17/11/2026, chat «Pestañas»)
+
+Para la maqueta del onboarding se dibujaron las pestañas de la app con sus componentes (`renderToStaticMarkup` + el CSS
+compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo que no se ve leyendo el código:
+
+- **Un botón adentro de otro DESARMA la página sin dar error.** La galería de plantillas del Dashboard salía repartida por toda
+  la página (265.000 px de alto, una miniatura a pantalla completa). Parecía la escala de las miniaturas o el CSS que no cargaba
+  (los dos estaban bien): cada tarjeta es un `<button>` y la hoja de adentro trae sus propios botones («Abrir», «Editar la meta»).
+  React en el navegador los anida con `createElement`; el parser de HTML cierra el botón de afuera en el primero de adentro. 380
+  etiquetas en esa sola pantalla. Al pasar a HTML: un `<button>`/`<a>` adentro de otro va a `<span>`, y un `<p>` con un bloque
+  adentro va a `<div>` (`sanear.ts` allá).
+- **Los `.css` que importa un componente desaparecen en silencio** si el registrador los cambia por un módulo vacío: la estrella de
+  MaKo salía sin estilo (chat.css). Se anotan en el gancho de `resolve` y se suman; las que importa la PÁGINA (`../aa.css` de
+  Marketing CoPilot, `./estudio.css` de AI Avatar) el registrador no las ve porque la página no se dibuja: van a mano.
+- **Lo que un componente arma en un efecto sale vacío o escondido**: las miniaturas de las plantillas (`MiniaturaHoja`: escala por
+  ResizeObserver, cuerpos por IntersectionObserver), el curso (`useCssUgc` espera el `load` de /cono-doc/ugc.css y muestra «Abriendo
+  el curso…»), el Sidebar (rol, capa y foto por `/api/auth/me`), Automations y el Ops Center (loader hasta leer). Lo que anduvo:
+  una COPIA del archivo al lado del original (`X.artefacto.tsx`, así sus imports relativos siguen) con el valor inicial del
+  `useState` cambiado, y el gancho de `resolve` que manda ahí. Cada cambio tiene que aparecer UNA vez o corta: si el componente
+  cambia, se revisa el parche en vez de forzarlo. Las copias se borran al terminar (y las que quedaron de una corrida cortada, al
+  empezar: `git ls-files --others` con `.artefacto.`).
+- **En oscuro hay blanco sobre blanco en la app de verdad** (no es del dibujo): «+ Nuevo lead» del CRM (`background:
+  var(--ink)` con `color: #F3F5F8` fijo, en la barra de arriba de `app/crm/CrmBoard.tsx`) y las iniciales de la foto de la barra
+  (`Identidad` en `app/_components/Sidebar.tsx`: `background: var(--primary)` con `color: #fff`; en oscuro `--primary` es
+  #ededeb). Sin arreglar.
+- **A 390 la app no es la de escritorio achicada**: un teléfono va a MaKo Mobile (`app/m/…`, `MOVIL_ACTIVO`). Una captura de la
+  pestaña de escritorio a 390 no muestra lo que ve nadie.
+- **Republicar la página de un artefacto escribiéndola con Python en Windows** le cambia los finales de línea a `\r\n` (+110 bytes en
+  el visor del Sitio, versión 14 del artefacto único). Con Node, o `newline=''`.
+
 ## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
 
 **El síntoma:** las fotos del arnés de Chats a 390 × 844 salían con las burbujas cortadas a la derecha y el botón del
