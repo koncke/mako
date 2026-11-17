@@ -42,20 +42,22 @@ test('el ciclo en el que cae un día es el mes en que ARRANCÓ', () => {
   assert.equal(cicloPropioDe('2027-01-26', LEILA), '2027-01');
 });
 
-test('diaLimite: el 5 de siempre sin ciclo propio; con él, el día que arranca más 4', () => {
+test('diaLimite: el 5 de siempre sin ciclo propio; con él, el mismo día que arranca (sin días de gracia)', () => {
   assert.equal(diaLimite('2026-12'), '2026-12-05');
-  assert.equal(diaLimite('2026-11', LEILA), '2026-11-30');
-  assert.equal(diaLimite('2026-12', LEILA), '2026-12-30');
-  assert.equal(diaLimite('2026-11', { dia: 29, plan: 'pro' }), '2026-12-03', 'la ventana cruza el fin de mes');
+  assert.equal(diaLimite('2026-11', LEILA), '2026-11-26');
+  assert.equal(diaLimite('2026-12', LEILA), '2026-12-26');
+  assert.equal(diaLimite('2027-02', { dia: 31, plan: 'pro' }), '2027-02-28', 'un 31 en febrero: el último día del mes');
 });
 
-test('mesQueSeAvisa con ciclo propio: del día que arranca al último del plazo, y no antes del primer mes que se factura así', () => {
+test('mesQueSeAvisa con ciclo propio: SÓLO el día que arranca, y no antes del primer mes que se factura así', () => {
   assert.equal(mesQueSeAvisa('2026-11-25', '2026-11', LEILA), null);
-  for (const d of ['2026-11-26', '2026-11-27', '2026-11-30']) assert.equal(mesQueSeAvisa(d, '2026-11', LEILA), '2026-11', d);
+  assert.equal(mesQueSeAvisa('2026-11-26', '2026-11', LEILA), '2026-11');
+  assert.equal(mesQueSeAvisa('2026-11-27', '2026-11', LEILA), null, 'al día siguiente ya no se avisa: se pausa');
   assert.equal(mesQueSeAvisa('2026-12-01', '2026-11', LEILA), null);
   assert.equal(mesQueSeAvisa('2026-12-26', '2026-11', LEILA), '2026-12');
   assert.equal(mesQueSeAvisa('2026-10-26', '2026-11', LEILA), null, 'el de octubre lo pagó en el acto: no se avisa');
-  assert.equal(mesQueSeAvisa('2026-12-02', '2026-11', { dia: 29, plan: 'pro' }), '2026-11', 'la ventana que cruza el fin de mes');
+  assert.equal(mesQueSeAvisa('2026-11-29', '2026-11', { dia: 29, plan: 'pro' }), '2026-11');
+  assert.equal(mesQueSeAvisa('2027-02-28', '2027-02', { dia: 31, plan: 'pro' }), '2027-02', 'un 31 en febrero se avisa el 28');
   // Las agencias: del 1 al 5, como siempre.
   assert.equal(mesQueSeAvisa('2026-12-03', '2026-12'), '2026-12');
   assert.equal(mesQueSeAvisa('2026-12-26', '2026-12'), null);
@@ -67,7 +69,7 @@ test('la cuenta del mes de una cuenta suelta es UN renglón, su plan, sin client
   assert.equal(c.totalUsd, 97);
   assert.equal(c.lineas.length, 1);
   assert.equal(c.lineas[0].plan, 'pro', 'el plan sale de su config, no de la capa de la cuenta');
-  assert.equal(c.limite, '2026-11-30');
+  assert.equal(c.limite, '2026-11-26');
   assert.equal(cuentaDelMes({ mes: '2026-10', primerMes: '2026-11', planAgencia: 'esencial', clientes: [], precios: PRECIOS, hoy: '2026-11-26', entradasDesde: '2026-11-17', ciclo: LEILA }), null);
 });
 
@@ -76,33 +78,34 @@ test('el PDF y el texto del aviso hablan de SU ciclo: sin «1 al 5», sin agenci
   const tabla = tablaDelMes({ agencia: 'Leila Fittipaldi', cuenta, medio: 'Binance', ciclo: LEILA });
   assert.equal(tabla.titulo, 'Mensualidad de noviembre');
   assert.deepEqual(tabla.filas, [['Tu plan MaKo Pro', 'del 26 de noviembre al 25 de diciembre', 'US$ 97']]);
-  assert.equal(tabla.limite, '2026-11-30');
+  assert.equal(tabla.limite, '2026-11-26');
   const todo = [tabla.subtitulo, ...tabla.notas].join(' ');
   assert.doesNotMatch(todo, /del 1 al 5|clientes|agencia/i);
-  assert.match(todo, /hasta el 30 de noviembre/);
+  assert.match(todo, /hasta el 26 de noviembre/);
   assert.match(todo, /se pausa tu cuenta/);
   const texto = textoDelAvisoDelMes({ agencia: 'Leila Fittipaldi', tabla, medio: 'Binance', ciclo: LEILA, mes: '2026-11' });
   assert.match(texto, /Tu mensualidad de MaKo, del 26 de noviembre al 25 de diciembre, es de US\$ 97/);
-  assert.match(texto, /Págala por Binance hasta el 30 de noviembre y manda aquí la captura del comprobante: la registro y te mando el recibo\./);
+  assert.match(texto, /Págala por Binance hasta el 26 de noviembre y manda aquí la captura del comprobante: la registro y te mando el recibo\./);
   assert.doesNotMatch(texto, /agencia|clientes/i);
 });
 
-test('la pausa de una cuenta suelta usa SU límite (el 30/11), no el 5', () => {
-  const mes = (extra: object = {}) => [{ mes: '2026-11', totalUsd: 97, pagadoUsd: 0, avisadoUsd: 97, limite: '2026-11-30', ...extra }];
+test('la pausa de una cuenta suelta usa SU límite (el 26/11, el día que arranca), no el 5', () => {
+  const mes = (extra: object = {}) => [{ mes: '2026-11', totalUsd: 97, pagadoUsd: 0, avisadoUsd: 97, limite: '2026-11-26', ...extra }];
   const quien = (hoy: string, meses = mes()) => quienVaEnPausa({ agenciaWs: 11, hoy, meses, clientes: [] });
-  assert.equal(quien('2026-11-30').size, 0, 'el último día del plazo todavía no se pausa');
-  assert.deepEqual([...quien('2026-12-01')], [[11, ['mes:2026-11']]]);
-  assert.equal(quien('2026-12-01', mes({ pagadoUsd: 97 })).size, 0, 'pagado, no se pausa');
-  assert.equal(quien('2026-12-01', mes({ avisadoUsd: null })).size, 0, 'sin aviso no se pausa: no se le pudo pedir');
+  assert.equal(quien('2026-11-26').size, 0, 'el día que vence todavía no se pausa');
+  assert.deepEqual([...quien('2026-11-27')], [[11, ['mes:2026-11']]], 'al día siguiente, sí');
+  assert.equal(quien('2026-11-27', mes({ pagadoUsd: 97 })).size, 0, 'pagado, no se pausa');
+  assert.equal(quien('2026-11-27', mes({ avisadoUsd: null })).size, 0, 'sin aviso no se pausa: no se le pudo pedir');
   // Una agencia (sin `limite`): el 5, como siempre.
   assert.equal(quienVaEnPausa({ agenciaWs: 13, hoy: '2026-12-05', meses: [{ mes: '2026-12', totalUsd: 426, pagadoUsd: 0, avisadoUsd: 426 }], clientes: [] }).size, 0);
   assert.equal(quienVaEnPausa({ agenciaWs: 13, hoy: '2026-12-06', meses: [{ mes: '2026-12', totalUsd: 426, pagadoUsd: 0, avisadoUsd: 426 }], clientes: [] }).size, 1);
 });
 
 test('los textos de la pausa, del impago y del pago dicen «tu cuenta», sin clientes', () => {
-  const p = textoDePausaDelMes({ mes: '2026-11', faltaUsd: 97, ciclo: LEILA });
-  assert.match(p, /Tu mensualidad de MaKo \(del 26 de noviembre al 25 de diciembre\) no entró: desde hoy tu cuenta está en pausa\. Falta US\$ 97\./);
-  assert.doesNotMatch(p, /clientes/);
+  const p = textoDePausaDelMes({ mes: '2026-11', faltaUsd: 97, ciclo: LEILA, medio: 'Binance' });
+  assert.match(p, /^Tu cuenta quedó en pausa porque falta el pago de tu mensualidad de MaKo \(del 26 de noviembre al 25 de diciembre\): son US\$ 97\. Págala por Binance y manda aquí la captura del comprobante: vuelves a entrar en el acto\./);
+  assert.match(p, /El detalle va en el PDF\./);
+  assert.doesNotMatch(p, /clientes|agencia/);
   assert.match(textoDeMesImpago({ agencia: 'Leila Fittipaldi', mes: '2026-11', debeUsd: 97, diasDeAtraso: 1, ciclo: LEILA }), /Su cuenta queda en pausa hasta que entre el pago\./);
   assert.equal(textoDeCuentasActivas({ clientes: [], agencia: true, propia: true }), 'Tu cuenta sigue activa.');
   assert.equal(textoDeCuentasActivas({ clientes: [], agencia: true }), 'La cuenta de la agencia sigue activa.');
@@ -129,7 +132,7 @@ test('Admin › Revenue: «lo próximo» de una cuenta con ciclo propio es el d�
   ];
   const lectura = (config: object) => pagosDelLibro(filas(config), { atadas: new Set(), nombreWs: new Map(), hoy: '2026-12-10' }).proximos.get('agencia:11')!;
   const propio = lectura({ desde: '2026-11', entradasDesde: '2026-11-17', medio: 'Binance', cicloPropio: { dia: 26, plan: 'pro' } });
-  assert.deepEqual(propio.siguiente, { fecha: '2026-12-30', usd: 97 }, 'el límite de diciembre: el 26 más 4 días');
+  assert.deepEqual(propio.siguiente, { fecha: '2026-12-26', usd: 97 }, 'el límite de diciembre: el 26');
   assert.equal(propio.atrasado, null);
   // Una agencia con el mismo libro: el 5 de siempre (ya pasó el 5/12 → atrasada).
   const agencia = lectura({ desde: '2026-11', entradasDesde: '2026-11-17', medio: 'Binance' });
@@ -255,7 +258,7 @@ test('antes de su primer ciclo (20/11) la corrida no manda nada ni pausa', async
   assert.equal(del11().estado, 'activo');
 });
 
-test('el 26/11 sale UN aviso al grupo con el PDF del sistema, y ni repetirlo ni el día siguiente lo manda otra vez', async () => {
+test('el 26/11 sale UN aviso al grupo con el PDF del sistema, y repetir la corrida no lo manda otra vez', async () => {
   const r = await corrida('2026-11-26');
   assert.equal(r[0].ok, true);
   assert.equal(r[0].mes, 'avisado');
@@ -266,12 +269,11 @@ test('el 26/11 sale UN aviso al grupo con el PDF del sistema, y ni repetirlo ni 
   assert.equal(g.pdf!.nombre, 'MaKo - Mensualidad de noviembre.pdf');
   assert.equal(Buffer.from(g.pdf!.base64, 'base64').subarray(0, 4).toString(), '%PDF');
   assert.match(g.texto, /Tu mensualidad de MaKo, del 26 de noviembre al 25 de diciembre, es de US\$ 97\./);
-  assert.match(g.texto, /Págala por Binance hasta el 30 de noviembre/);
+  assert.match(g.texto, /Págala por Binance hasta el 26 de noviembre/);
   assert.ok(claves().includes('agencia.mensualidad.11.aviso.2026-11'));
   assert.equal((await corrida('2026-11-26'))[0].mes, 'ya-estaba');
-  assert.equal((await corrida('2026-11-27'))[0].mes, 'ya-estaba');
   assert.equal(grupo.length, 1);
-  assert.equal(del11().estado, 'activo');
+  assert.equal(del11().estado, 'activo', 'el día que vence todavía no se pausa');
 });
 
 test('en seco no manda nada: dice lo que saldría', async () => {
@@ -282,42 +284,45 @@ test('en seco no manda nada: dice lo que saldría', async () => {
   assert.equal(claves().some((k) => k.includes('.aviso.')), false);
 });
 
-test('sin pagar, el 30/11 sigue activa y el 1/12 se pausa UNA vez: lo dice al grupo y se lo avisa a Martín', async () => {
+test('sin pagar, el 26/11 sigue activa y el 27/11 se pausa UNA vez: lo dice al grupo (con el PDF, el monto y cómo pagar) y se lo avisa a Martín', async () => {
   await corrida('2026-11-26');
   grupo.length = 0;
-  await corrida('2026-11-30');
-  assert.equal(del11().estado, 'activo', 'el último día del plazo no se pausa');
+  await corrida('2026-11-26');
+  assert.equal(del11().estado, 'activo', 'el día que vence no se pausa');
   assert.equal(aMartin.length, 0);
-  const r = await corrida('2026-12-01');
+  const r = await corrida('2026-11-27');
   assert.equal(del11().estado, 'pausado');
   assert.equal(r[0].pausas?.length, 1);
   const corte = JSON.parse(String(appSettings.find((f) => f.workspace_id === 11 && f.key === 'plan.corte_por_pago')!.value));
   assert.equal(corte.motivo, 'paga-para-entrar');
   assert.equal(corte.vigente, true);
   assert.deepEqual(corte.mensualidad, { agenciaWs: 11, rol: 'agencia', causas: ['mes:2026-11'], perdonadas: [] });
-  const pausa = grupo.filter((g) => !g.pdf);
-  assert.equal(pausa.length, 1);
-  assert.match(pausa[0].texto, /Tu mensualidad de MaKo \(del 26 de noviembre al 25 de diciembre\) no entró: desde hoy tu cuenta está en pausa\. Falta US\$ 97\./);
+  assert.equal(grupo.length, 1, 'el aviso de la pausa va a su grupo');
+  assert.equal(grupo[0].ws, 11);
+  assert.match(grupo[0].texto, /^Tu cuenta quedó en pausa porque falta el pago de tu mensualidad de MaKo \(del 26 de noviembre al 25 de diciembre\): son US\$ 97\. Págala por Binance/);
+  assert.ok(grupo[0].pdf, 'con el PDF: todo pedido de pago lleva el PDF (regla del 16/11), también el de la pausa');
+  assert.equal(grupo[0].pdf!.nombre, 'MaKo - Mensualidad de noviembre.pdf');
+  assert.equal(Buffer.from(grupo[0].pdf!.base64, 'base64').subarray(0, 4).toString(), '%PDF');
   assert.equal(aMartin.length, 1);
   assert.match(aMartin[0], /Leila Fittipaldi: su mensualidad de MaKo .* no entró y lleva 1 día de atraso\. Falta US\$ 97\./);
-  await corrida('2026-12-02');
-  assert.equal(grupo.filter((g) => !g.pdf).length, 1, 'el aviso de la pausa sale una vez');
+  await corrida('2026-11-28');
+  assert.equal(grupo.length, 1, 'el aviso de la pausa sale una vez');
   assert.equal(aMartin.length, 1, 'y el de Martín, también');
 });
 
 test('pagó: el pago se anota, sale el recibo con el período y «Tu cuenta sigue activa» a la par, y la cuenta vuelve a entrar', async () => {
   await corrida('2026-11-26');
-  await corrida('2026-12-01');
+  await corrida('2026-11-27');
   assert.equal(del11().estado, 'pausado');
   grupo.length = 0;
-  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-12-02T15:00:00Z') });
+  mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-28T15:00:00Z') });
   const { mensualidadDeAgencia, aplicarPagoDeAgencia, cerrarElPagoDeAgencia } = await lib();
-  const ahora = new Date('2026-12-02T15:00:00Z');
+  const ahora = new Date('2026-11-28T15:00:00Z');
   const m = await mensualidadDeAgencia(11, ahora);
   assert.equal(m.ok, true);
   if (!m.ok) return;
-  assert.deepEqual(m.pendientes.map((p) => [p.tipo, (p as { mes?: string }).mes, p.debeUsd, p.limite]), [['mes', '2026-11', 97, '2026-11-30']]);
-  const r = await aplicarPagoDeAgencia(m, { orden: '465000000000000001', monto: 97, moneda: 'USDT', montoUsd: 97, fecha: '2026-12-02T12:00:00' }, [{ clave: 'mes:2026-11', montoUsd: 97 }], 'test');
+  assert.deepEqual(m.pendientes.map((p) => [p.tipo, (p as { mes?: string }).mes, p.debeUsd, p.limite]), [['mes', '2026-11', 97, '2026-11-26']]);
+  const r = await aplicarPagoDeAgencia(m, { orden: '465000000000000001', monto: 97, moneda: 'USDT', montoUsd: 97, fecha: '2026-11-28T12:00:00' }, [{ clave: 'mes:2026-11', montoUsd: 97 }], 'test');
   assert.deepEqual(r, { ok: true, completas: ['mes:2026-11'] });
   const cierre = await cerrarElPagoDeAgencia(m, r.ok ? r.completas : [], 'test', { ahora });
   assert.equal(cierre.recibo?.ok, true, JSON.stringify(cierre.recibo));
@@ -329,9 +334,9 @@ test('pagó: el pago se anota, sale el recibo con el período y «Tu cuenta sigu
   assert.equal(del11().estado, 'activo', 'pagado, entra solo');
   assert.equal(cierre.texto, 'Tu cuenta sigue activa.');
   assert.deepEqual(grupo.map((g) => g.texto), ['Tu cuenta sigue activa.'], 'a la par del recibo, el aviso de que su cuenta sigue activa');
-  // Y con el mes pagado, el día 3 no la vuelve a pausar.
-  mock.timers.setTime(Date.parse('2026-12-03T15:00:00Z'));
-  const otra = await corrida('2026-12-03');
+  // Y con el mes pagado, el día siguiente no la vuelve a pausar.
+  mock.timers.setTime(Date.parse('2026-11-29T15:00:00Z'));
+  const otra = await corrida('2026-11-29');
   assert.equal(otra[0].pausas?.length ?? 0, 0);
   assert.equal(del11().estado, 'activo');
 });
@@ -347,7 +352,7 @@ test('el 26/12 arranca su siguiente ciclo y se le avisa el mes nuevo, otra vez c
   assert.match(grupo[0].texto, /del 26 de diciembre al 25 de enero/);
 });
 
-test('paga ADELANTADO (el 25 para el ciclo del 26): el pago cuenta, y el 26 ya no se le avisa ni se le pausa', async () => {
+test('paga ADELANTADO (el 25 para el ciclo del 26): el pago cuenta, y el 26 ya no se le avisa ni el 27 se le pausa', async () => {
   mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-25T15:00:00Z') });
   const { mensualidadDeAgencia, aplicarPagoDeAgencia } = await lib();
   const ahora = new Date('2026-11-25T15:00:00Z');
@@ -361,7 +366,7 @@ test('paga ADELANTADO (el 25 para el ciclo del 26): el pago cuenta, y el 26 ya n
   const dia26 = await corrida('2026-11-26');
   assert.equal(dia26[0].mes, 'pagado');
   assert.equal(grupo.length, 0, 'pagado de antemano: no se le manda el aviso de cobro');
-  await corrida('2026-12-01');
+  await corrida('2026-11-27');
   assert.equal(del11().estado, 'activo');
   // Seis días antes todavía no se debe nada.
   mock.timers.setTime(Date.parse('2026-11-20T15:00:00Z'));
@@ -398,19 +403,19 @@ test('prenderla con ciclo propio guarda el día y el plan, y repetirla no cambia
 
 // Probado ROMPIENDO (17/11/2026), una rotura por vez y restaurando de memoria. Con el código como está: 19 pases, 0 fallos.
 // Rota (pases / fallos):
-//   · diaLimite con ciclo propio devuelve el 5                                           → 8 / 10
-//   · mesQueSeAvisa con ciclo propio sin mirar el plazo                                   → 16 / 2
-//   · quienVaEnPausa con el 5 en vez de `limite`                                          → 15 / 3
-//   · cuentaDelMes sin la rama del ciclo propio                                           → 12 / 6
-//   · mensualidadDeAgencia pidiendo `esAgencia` con ciclo propio                          → 12 / 6
-//   · el «mes de hoy» sin el ciclo propio (el 3/12 caería en diciembre)                   → 17 / 1
-//   · el aviso del mes sin `ciclo` (sale el texto de las agencias)                        → 16 / 2
-//   · el texto de la pausa sin `ciclo`                                                    → 17 / 1
-//   · quiénes quedaron activos sin `propia` («la cuenta de la agencia»)                   → 17 / 1
-//   · el recibo sin el período                                                            → 17 / 1
-//   · la lectura de pausas sin el límite del mes                                          → 16 / 2
-//   · el límite de los pendientes sin el ciclo                                            → 16 / 2
-//   · Admin › Revenue: «lo próximo» sin el ciclo                                          → 17 / 1
-//   · prender dejando pasar un ciclo propio a una agencia                                 → 17 / 1
-//   · la config sin leer el ciclo propio                                                  → 9 / 9
-//   · el pago adelantado: `mesHoy` sin sumarle los 5 días de adelanto                      → 18 / 1
+//   · diaLimite con ciclo propio devuelve el 5                                           → 8 / 11
+//   · mesQueSeAvisa con ciclo propio sin mirar el plazo                                   → 17 / 2
+//   · quienVaEnPausa con el 5 en vez de `limite`                                          → 16 / 3
+//   · cuentaDelMes sin la rama del ciclo propio                                           → 12 / 7
+//   · mensualidadDeAgencia pidiendo `esAgencia` con ciclo propio                          → 12 / 7
+//   · el aviso del mes sin `ciclo` (sale el texto de las agencias)                        → 17 / 2
+//   · quiénes quedaron activos sin `propia` («la cuenta de la agencia»)                   → 18 / 1
+//   · el recibo sin el período                                                            → 18 / 1
+//   · la lectura de pausas sin el límite del mes                                          → 17 / 2
+//   · el límite de los pendientes sin el ciclo                                            → 17 / 2
+//   · Admin › Revenue: «lo próximo» sin el ciclo                                          → 18 / 1
+//   · prender dejando pasar un ciclo propio a una agencia                                 → 18 / 1
+//   · la gracia de 4 días (la regla vieja, antes de lo que dijo Martín)                   → 11 / 8
+//   · el aviso de la pausa SIN el PDF                                                     → 18 / 1
+//   · el pago adelantado sin los 5 días                                                   → 18 / 1
+//   · la config sin leer el ciclo propio                                                  → 9 / 10
