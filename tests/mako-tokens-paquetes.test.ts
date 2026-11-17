@@ -66,11 +66,22 @@ test('las cifras que se PROMETEN son redondas, y la bolsa las compra exactas', (
   for (const plan of ['free', 'pro', 'growth'] as const) {
     assert.equal(IMAGENES_POR_MES[plan], IMAGENES_DEL_CUPO[plan],
       `${plan}: la vitrina promete ${IMAGENES_DEL_CUPO[plan]} imágenes y el cupo compra ${IMAGENES_POR_MES[plan]}`);
-    assert.equal(CUPO_MENSUAL[plan] % MT_POR_IMAGEN.normal, 0,
-      `${plan}: su cupo de ${CUPO_MENSUAL[plan]} MT deja un resto que no compra ni una imagen`);
+    // Lo que sobra después de la última imagen tiene que ser MENOS que una imagen: ni se promete de más ni queda una sin
+    // prometer. Decía «múltiplo exacto de 12», y valía mientras el cupo de los dos planes se decidía en imágenes; desde el
+    // 17/11/2026 el de US$47 se decide proporcional (7.000) y le sobran 4 MT, que pagan texto.
+    const resto = CUPO_MENSUAL[plan] - IMAGENES_DEL_CUPO[plan] * MT_POR_IMAGEN.normal;
+    assert.ok(resto >= 0 && resto < MT_POR_IMAGEN.normal, `${plan}: su cupo de ${CUPO_MENSUAL[plan]} MT deja ${resto} sin prometer`);
   }
-  // Y redondas de verdad, que es lo único que pidió: nada de 958.
-  assert.equal(IMAGENES_DEL_CUPO.pro % 500, 0, 'el número del de US$47 lo lee un cliente antes de comprar');
+  // ⚠️ EL DE US$47 ES PROPORCIONAL AL DE US$97 (17/11/2026). Martín: «no tiene sentido de que en el de 97 le demos 14.400 y
+  // en el de 47 12.000 tokens. Tiene que ser proporcional». 14.400 × 47 ÷ 97 = 6.977 → 7.000 (la centena más cercana). Si
+  // se toca el cupo del de US$97, esto se pone rojo y pide recalcular el del de US$47: no se arrastra solo a propósito,
+  // porque es un número que lee un cliente.
+  assert.equal(CUPO_MENSUAL.pro, 7_000);
+  assert.equal(CUPO_MENSUAL.pro, Math.round((CUPO_MENSUAL.growth * USD_DEL_PLAN.pro) / USD_DEL_PLAN.growth / 100) * 100,
+    'el cupo del de US$47 dejó de ser proporcional al del de US$97');
+  assert.ok(Math.abs(usdDeMt(CUPO_MENSUAL.pro) / USD_DEL_PLAN.pro - usdDeMt(CUPO_MENSUAL.growth) / USD_DEL_PLAN.growth) < 0.001,
+    'por dólar, los dos planes tienen que dar lo mismo de IA (a una décima de punto)');
+  assert.equal(IMAGENES_DEL_CUPO.pro, 583, 'sus imágenes salen del cupo: 7.000 ÷ 12');
   // ⚠️ El de US$97 se decide en MINUTOS desde el 17/11/2026 (Martín, la opción B: 10 minutos), y sus imágenes son la
   // consecuencia: 1.200. Lo redondo ahí son los minutos, y la bolsa los compra exactos.
   assert.equal(MINUTOS_DEL_CUPO_PRO, 10, 'el de US$97 trae 10 minutos de video');

@@ -23,7 +23,15 @@ modelo»; «descarta completamente Flow»; y en las columnas «0 minutos o 4 min
   docs/hallazgos-video-pipeline.md). `MODELO_OMNI` en `lib/apimart-reglas.ts`.
   `USD_POR_SEGUNDO.normal` (`lib/mako-tokens-reglas.ts`) lo lee de ahí. Un minuto son 1.440 MT.
 - **El cupo del de US$97** baja de 24.000 a **14.400 MT = 10 minutos** (`MINUTOS_DEL_CUPO_PRO`). Sus imágenes pasan a ser la
-  consecuencia: 1.200. El de US$47 no cambia (12.000, sin video).
+  consecuencia: 1.200.
+- **El del de US$47 pasa a ser PROPORCIONAL** (el mismo 17/11, Martín: «no tiene sentido de que en el de 97 le demos 14.400 y
+  en el de 47 12.000 tokens»): 14.400 × 47 ÷ 97 = 6.977 → **7.000 MT** (`CUPO_ESSENTIAL_MT`). Sigue sin video. Sus imágenes son
+  583 y se dicen «580» en las columnas y en la tabla (`redondoParaLeer`, ahora en lib/mako-tokens-paquetes.ts). Según el
+  Cerebro, con IVA, cobro y el costo del cliente, deja 47 % si usa todo, 56 % al 50 % y 60 % al 25 %; con 12.000 daba 34, 49 y
+  57 %. Un test exige que siga siendo proporcional si se toca el de US$97.
+- ⚠️ **Mauricio Bustos (US$47) gastó 8.680 MT en los últimos 30 días** (medido el 17/11 a la tarde): más que los 7.000. Hoy no
+  lo frena nada porque la caja no está aplicada. Qué pasa con él lo decide Martín antes de activar el cobro. El siguiente es
+  el negocio de prueba, con 2.263; ningún otro pasa de 1.500.
 - **La tarifa del extra** pasa a **288 MT por dólar, lineal** (`MT_POR_DOLAR`): cada US$10 son 2 minutos, US$100 son 20, y
   el minuto suelto sale US$5 exactos (`USD_POR_MINUTO_SUELTO`). Margen bruto de IA del extra, a precio de lista: 71,2 %
   (`MARGEN_BRUTO_DEL_EXTRA`).
@@ -65,8 +73,8 @@ US$197, US$109,60 (56 %) con 30 minutos. Los MT van a precio de lista, sin IVA: 
   la entrada de abajo. La cara que habla ya se probó (docs/hallazgos-video-pipeline.md).
 - **Que el video salga por ApiMart:** hoy los clips salen por el Flow del cliente (la entrada de abajo). `MODELO_VIDEO_POR_DEFECTO`
   sigue en Hailuo y no se tocó, porque `generarVideo` no tiene llamador.
-- **Mauricio Bustos usa el 74 % del cupo de US$47 sólo en texto.** El día que la caja cobre, puede llegar al tope antes de
-  fin de mes.
+- **Mauricio Bustos gasta más que el cupo nuevo del de US$47** (8.680 de 7.000, sólo en texto). El día que la caja cobre,
+  se queda sin MaKo Tokens antes de fin de mes: lo decide Martín antes de aplicar la 0416.
 - **`scripts/probar-0416-pglite.mjs` tiene los cupos viejos escritos a mano** (11.750 y 24.250).
 - **Cuántos intentos lleva un clip** sigue sin medir.
 

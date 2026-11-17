@@ -137,16 +137,28 @@ export type Plan = 'free' | 'pro' | 'growth';
  * ⚠️ EL DE US$97 SE DIO VUELTA OTRA VEZ EL 17/11/2026: lo que se decide ahí son los MINUTOS de video (10, la opción B de
  * Martín), y sus imágenes son la consecuencia: 14.400 MT ÷ 12 = **1.200**. Era 2.000 (24.000 MT), un cupo que sólo cerraba
  * con el clip mal cobrado. La misma bolsa da 10 minutos o 1.200 imágenes, como quiera.
+ *
+ * ⚠️ Y EL DE US$47 TAMBIÉN, EL MISMO DÍA: su cupo se decide PROPORCIONAL al de US$97 (`CUPO_ESSENTIAL_MT`, 7.000 MT), y
+ * sus imágenes salen de ahí: 7.000 ÷ 12 = **583**, que la vitrina dice «580» (redondea hacia abajo: es una promesa). Las
+ * «1.000 imágenes, porque queda marketinero» del 15/11 se fueron con eso.
  */
+export const CUPO_ESSENTIAL_MT = 7_000;
+
 export const IMAGENES_DEL_CUPO: Record<Plan, number> = {
   free: 125,
-  pro: 1_000,
+  pro: Math.floor(CUPO_ESSENTIAL_MT / MT_POR_IMAGEN.normal),
   growth: (MINUTOS_DEL_CUPO_PRO * MT_POR_MINUTO_DE_VIDEO) / MT_POR_IMAGEN.normal,
 };
 
 /**
- * Los MaKo Tokens que trae cada plan al mes: **lo que cuestan sus imágenes prometidas** (o, en el de US$97, sus minutos).
- * free 1.500 (US$1,50) · pro 12.000 (US$12,00) · growth 14.400 (US$14,40 = 10 minutos de video).
+ * Los MaKo Tokens que trae cada plan al mes: **lo que cuestan sus imágenes prometidas** (en el de US$97, sus minutos; en el
+ * de US$47, su parte proporcional). free 1.500 (US$1,50) · pro 7.000 (US$7,00) · growth 14.400 (US$14,40 = 10 minutos).
+ *
+ * ⚠️ EL DE US$47 ES PROPORCIONAL AL DE US$97 (17/11/2026). Martín: «no tiene sentido de que en el de 97 le demos 14.400 y en
+ * el de 47 12.000 tokens. Tiene que ser proporcional para que justamente la rentabilidad también suba». 14.400 × 47 ÷ 97 =
+ * 6.977, redondeado a la centena: **7.000** (23 MT de más, US$0,023 por cliente por mes en el peor caso). Era 12.000: por
+ * dólar, el plan barato daba casi el doble que el caro. Un test vigila que siga siendo proporcional si se toca el de US$97.
+ * Sus 7.000 no son múltiplo de 12: los 4 MT que no compran una imagen pagan texto (un mensaje de MaKo cuesta 1).
  *
  * ⚠️ NO ES EL COSTO ESPERADO, ES EL TECHO: es lo máximo que un cliente nos puede costar en IA, y por eso fija el margen
  * bruto MÍNIMO del plan (ver `PISO_DE_MARGEN_BRUTO`). Un workspace intensivo medido gastaba **US$68/mes** sin medidor
@@ -154,7 +166,7 @@ export const IMAGENES_DEL_CUPO: Record<Plan, number> = {
  */
 export const CUPO_MENSUAL: Record<Plan, number> = {
   free: IMAGENES_DEL_CUPO.free * MT_POR_IMAGEN.normal,
-  pro: IMAGENES_DEL_CUPO.pro * MT_POR_IMAGEN.normal,
+  pro: CUPO_ESSENTIAL_MT,
   growth: IMAGENES_DEL_CUPO.growth * MT_POR_IMAGEN.normal,
 };
 
@@ -162,16 +174,12 @@ export const CUPO_MENSUAL: Record<Plan, number> = {
  * EL MARGEN BRUTO QUE NINGÚN PLAN BAJA: **74%**. Es la guarda del negocio, y el número que hay que mirar antes de
  * agrandarle el cupo a cualquier plan.
  *
- * Por qué 74 y no 75 (15/11/2026): las 1.000 imágenes redondas del de US$47 cuestan US$12,00 de un precio de US$47, o sea
- * **25,5% del precio en vez del 25% de la meta → 74,5% de margen**. Martín lo decidió con el costo a la vista («no sé cómo
- * quedaría el margen ahí, pero yo creo que tranquilamente nos podríamos permitir eso»): **un punto de margen por un número
- * que el cliente puede repetir de memoria**. El de US$97 queda en 85,2% desde el 17/11/2026 (14.400 MT de US$97: sus 10
- * minutos con el Omni a costo de lista; con el 21 % de IVA de la tarjeta, 82%).
+ * Por qué 74 y no 75 (15/11/2026): las 1.000 imágenes redondas del de US$47 costaban US$12,00 de un precio de US$47, o sea
+ * 25,5% del precio → 74,5% de margen, y Martín lo decidió con el costo a la vista. **Desde el 17/11/2026 ya no hace falta
+ * el punto de menos:** los dos planes quedan en ~85% a costo de lista (7.000 MT de US$47 = 85,1%; 14.400 de US$97 = 85,2%;
+ * con el 21 % de IVA de la tarjeta, 82%). El piso sigue en 74 como guarda, no como meta.
  *
- * Lo que cuesta en plata, para que la decisión se pueda revisar con un dato y no con una sensación: el cupo del plan chico
- * sube 500 MT, o sea **US$0,50 por cliente por mes** — y sólo si lo gasta TODO, que es el peor caso, no el esperado.
- *
- * ⚠️ ES EL ÚNICO LUGAR DEL CIRCUITO DONDE SE ELIGIÓ QUEDAR POR DEBAJO DEL 75%. Todos los demás redondeos van para nuestro
+ * ⚠️ El 15/11 éste era el único lugar del circuito donde se eligió quedar por debajo del 75%. Todos los demás redondeos van para nuestro
  * lado (`mtDeUsd` sube el gasto; el cupo baja cuando no cae redondo). Si alguien agranda otro cupo «porque queda lindo»,
  * el margen se va sumando por abajo y nadie lo ve: por eso el piso está escrito acá y hay un test que recorre TODAS las
  * mezclas de video e imagen de los dos planes contra él.
@@ -186,9 +194,9 @@ export const PISO_DE_MARGEN_BRUTO = 0.74;
  * el de ABAJO. Las dos reglas apuntan al mismo lado — el redondeo siempre queda de nuestro lado — y por eso van en
  * direcciones opuestas. El que toque uno de los dos sin pensar en cuál es cuál, lo va a invertir.
  *
- * ⚠️ Y HAY UNA EXCEPCIÓN, UNA SOLA, DECIDIDA A OJO ABIERTO: las 1.000 imágenes del plan de US$47 redondean para ARRIBA
- * (958 → 1.000), porque ese número lo lee un cliente antes de comprar. Cuesta un punto de margen y está medido en
- * `PISO_DE_MARGEN_BRUTO`. No se extiende sola a los otros cupos: ahí la regla sigue siendo hacia abajo.
+ * ⚠️ Y HAY UNA EXCEPCIÓN, UNA SOLA, DECIDIDA A OJO ABIERTO: el cupo del de US$47 redondea a la centena MÁS CERCANA
+ * (6.977 → 7.000, 17/11/2026), porque ese número lo lee un cliente antes de comprar. Son 23 MT. Hasta el 17/11 la excepción
+ * eran sus 1.000 imágenes (958 → 1.000). No se extiende sola a los otros cupos: ahí la regla sigue siendo hacia abajo.
  */
 
 

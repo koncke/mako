@@ -169,6 +169,18 @@ export const IMAGENES_POR_MES: Record<Plan, number> = {
   growth: Math.floor(CUPO_MENSUAL.growth / mtDeImagenes(1)),
 };
 
+/**
+ * Una cantidad, REDONDEADA HACIA ABAJO a una cifra que se lea: 2.666 → 2.600, 583 → 580, 26 → 26.
+ * Hacia abajo porque es una promesa: «2.700» promete 34 que no entran. La usan las columnas de /planes y la tabla de
+ * comparación, para que digan el mismo número (17/11/2026: las 583 imágenes del de US$47 se dicen «580» en las dos).
+ */
+export function redondoParaLeer(n: number): number {
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (n >= 1000) return Math.floor(n / 100) * 100;
+  if (n >= 100) return Math.floor(n / 10) * 10;
+  return Math.floor(n);
+}
+
 /** Cuántas imágenes se dejan de hacer por cada clip, y al revés: la equivalencia que explica la bolsa en una línea. */
 export const IMAGENES_POR_CLIP = MT_POR_CLIP / mtDeImagenes(1);
 

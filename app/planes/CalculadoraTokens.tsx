@@ -36,7 +36,7 @@
 // =============================================================================
 
 import type { CSSProperties } from 'react';
-import { MT_POR_DOLAR, MT_POR_MINUTO, GENERA_VIDEO } from '@/lib/mako-tokens-paquetes';
+import { MT_POR_DOLAR, MT_POR_MINUTO, GENERA_VIDEO, redondoParaLeer } from '@/lib/mako-tokens-paquetes';
 import { CUPO_MENSUAL, PLAN_DE_CAPA, mtDeImagenes, type Plan } from '@/lib/mako-tokens-reglas';
 import { mtReservaDeFeature } from '@/lib/mako-tokens-costos';
 import { GENERACION_SE_VENDE } from '@/lib/planes-comparacion';
@@ -80,16 +80,9 @@ export const LO_QUE_ALCANZA: readonly CosaQueAlcanza[] = [
   DEL_MEDIDOR('pagina', 'landing-writer', 'página de venta escrita con IA', 'páginas de venta escritas con IA'),
 ];
 
-/**
- * Una cantidad, REDONDEADA HACIA ABAJO a una cifra que se lea: 2.666 → 2.600, 545 → 540, 26 → 26.
- * Hacia abajo porque es una promesa: «2.700» promete 34 que no entran.
- */
-export function redondoParaLeer(n: number): number {
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  if (n >= 1000) return Math.floor(n / 100) * 100;
-  if (n >= 100) return Math.floor(n / 10) * 10;
-  return Math.floor(n);
-}
+// `redondoParaLeer` vive en lib/mako-tokens-paquetes.ts desde el 17/11/2026: la tabla de comparación (lib/planes-comparacion.ts)
+// tiene que redondear igual que las columnas, y lib no puede importar de app. Se re-exporta para los que la buscan acá.
+export { redondoParaLeer };
 
 /** Para cuánto alcanzan `mt` MaKo Tokens en un plan que genera video (o no). Sin ceros: lo que no alcanza ni para uno, no va. */
 export function alcanzaPara(mt: number, conVideo: boolean): Array<{ clave: string; n: number; que: string }> {
