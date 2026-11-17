@@ -1,0 +1,7 @@
+# Lo que genera el render: se rehace con los scripts, no se versiona.
+*.png
+*.jpg
+*.mp4
+*.mp3
+alin.json
+beats.js
