@@ -8,11 +8,16 @@
 // «Listo: tu ticket #N («título») está resuelto. <respuesta>»: lo MISMO que ve en /tickets. La `respuesta` es el copy para el cliente
 // (español neutro con «tú», qué quedó y cómo probarlo, sin promesas). Un «ya quedó» aparte por scripts/avisar-arreglo-al-grupo.mts lo
 // frena lib/aviso-arreglo.ts: sería un segundo aviso, o uno que la Ticketera desmiente.
-// Uso: node scripts/tickets-cerrar-resueltos.mjs <.env.local> <archivo.json con [{ id, respuesta, nota, hecho? }]>
+// Uso: node scripts/tickets-cerrar-resueltos.mjs <.env.local> <archivo.json con [{ id, respuesta, nota, hecho?, preguntar? }]>
 // ⚠️ UN PEDIDO DELEGADO NO SE CIERRA COMO «RESUELTO» SI NO SE HIZO (ticket #80, 10/11/2026). Su aviso es un «Listo: ya quedó tu pedido
 // #n» FIJO (lib/tickets-reglas.ts, `textoDelAviso`): la `respuesta` NO viaja. Así le llegó a Leandro que el recurso se les mandó a dos
 // contactos (no se pudo) y a Joan que lo del audio quedó agendado (no se leyó). Un delegado se cierra sólo con `"hecho": true` en su
-// fila; lo que no se hizo se le contesta en su grupo (scripts/mensaje-equipo-al-grupo.mts) y el ticket se cierra a mano.
+// fila.
+// ⚠️ LO QUE ESPERA AL CLIENTE SE PREGUNTA DESDE EL TICKET (17/11/2026, #58). `"preguntar": true` lo pasa a «Espera tu respuesta»
+// (`esperando_cliente`) con la `respuesta` como la pregunta, y el cron le manda a su grupo «Sobre tu pedido #N, el equipo te
+// pregunta: …» desde ese mismo cambio. Nunca un mensaje suelto con el ticket cerrado o en «Recibido»: así a Joan WhatsApp le dijo
+// «no quedó agendado: mándalo de nuevo» y la Ticketera siguió en «Resuelto» seis días. Sólo para un ticket ABIERTO: uno cerrado
+// por error se reabre a mano, mirando antes qué le llegó a su grupo (otro aviso sería un duplicado).
 import { readFileSync } from 'node:fs';
 
 const env = Object.fromEntries(readFileSync(process.argv[2], 'utf8').split(/\r?\n/)
@@ -29,7 +34,17 @@ const lista = JSON.parse(readFileSync(process.argv[3], 'utf8'));
 for (const t of lista) {
   const [fila] = await pedido('GET', `tickets?select=id,estado,contexto&id=eq.${t.id}`);
   if (!fila) { console.log(`#${t.id}: no existe`); continue; }
-  if (fila.contexto?.delegado === true && t.hecho !== true) { console.log(`#${t.id}: es un pedido DELEGADO y su aviso dice «Listo: ya quedó» (la respuesta no viaja). Si se hizo, pon "hecho": true; si no, contéstale en su grupo. No lo toqué.`); continue; }
+  if (t.preguntar === true) {
+    if (!['nuevo', 'esperando_decision', 'en_curso'].includes(fila.estado)) { console.log(`#${t.id}: está ${fila.estado}; «preguntar» es para un ticket abierto. No lo toqué.`); continue; }
+    const ahora = new Date().toISOString();
+    const preguntado = await pedido('PATCH', `tickets?id=eq.${t.id}&estado=eq.${fila.estado}`,
+      { estado: 'esperando_cliente', respuesta: t.respuesta.slice(0, 2000), avisado_at: null, updated_at: ahora });
+    if (!preguntado.length) { console.log(`#${t.id}: cambió mientras tanto (${fila.estado}), no lo toqué`); continue; }
+    await pedido('POST', 'ticket_eventos', { ticket_id: t.id, actor: 'cerebro', tipo: 'nota', texto: t.nota.slice(0, 2000) });
+    console.log(`#${t.id}: ${fila.estado} → esperando_cliente (la pregunta le llega a su grupo con el cron)`);
+    continue;
+  }
+  if (fila.contexto?.delegado === true && t.hecho !== true) { console.log(`#${t.id}: es un pedido DELEGADO y su aviso dice «Listo: ya quedó» (la respuesta no viaja). Si se hizo, pon "hecho": true; si falta algo del cliente, pon "preguntar": true con la pregunta en "respuesta". No lo toqué.`); continue; }
   if (fila.estado === 'resuelto') { console.log(`#${t.id}: ya estaba resuelto`); continue; }
   const ahora = new Date().toISOString();
   const hecho = await pedido('PATCH', `tickets?id=eq.${t.id}&estado=eq.${fila.estado}`,

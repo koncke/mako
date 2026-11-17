@@ -1,5 +1,17 @@
 # Relevo del Cerebro
 
+## 17/11/2026 ~08:00 UTC — LOS PENDIENTES DEL 7/11, VERIFICADOS (claude2, punta/pendientes-1711)
+
+- **La fuente del estado es docs/pendientes-verificados-17-11.md:** de 285, 73 cerrados, 36 en disputa, 127 abiertos, 49 a medir.
+  Se reparte desde ahí, no desde los encargos viejos (siguen repartiendo cosas hechas). Lo que costó: hallazgos-operaciones.md.
+- **⚠️ La línea de WhatsApp de Mauricio (`mako_ws1`) está CAÍDA desde el 30/10.** Cero mensajes desde entonces y 146 leads
+  nuevos. Volver a vincular es de Mauricio: se le dijo a Martín. Automations prueba si el aviso diario le llega a su grupo.
+- **Repartido:** Ticketera (P4: el #58 dijo «Listo» sin estar hecho), Cobros (P27, P30, P7, P26, P1, P24, P29), CRM (P28, P25,
+  P33), Automations (T1). **Sin repartir:** Traba (ops-center P34/T5/T6, ads-manager P13/P14/T2, spy P11/T12) y Construir.
+- **SIN HACER:** tachar en su documento las líneas que las trampas marcan como falsas (están en el documento verificado).
+- **Sitio:** el recorrido del 16/11 está publicado (versión 4 del artefacto KGn9GUek4GRqKm6M1Q345M, commit c7408c745 en
+  punta/sitio-1611). El onboarding tiene pendiente «Validar mi cuenta» → login.html y el logo de Mercado Pago.
+
 ## 16/11/2026, noche — EL SITIO (claude2, punta/sitio-1611) — los artefactos tienen links NUEVOS
 
 - **EL RECORRIDO DE MARTÍN CON SU PAREJA (tres audios, `C:/dev/artefactos-mako/feedback-16-11/`), aplicado:** Precios con el
