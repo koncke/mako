@@ -17,6 +17,7 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { TAG } from '@/lib/cache';
 import { getUsuarioActual } from '@/lib/auth';
 import { getTenantDb } from '@/lib/workspace';
+import { exigirSesion } from '@/lib/sesion-accion';
 import { logLeadEvent } from '@/lib/leads';
 import { recordatoriosDelLead } from '@/lib/pagos';
 import {
@@ -24,12 +25,12 @@ import {
 } from '@/lib/pagos-bloques-lead';
 
 type Fallo = { ok: false; error: string };
-const SIN_SESION = 'Tu sesión no está activa en este negocio. Recarga la página.';
 const idValido = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0;
 const mensaje = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-async function quienEs(): Promise<string | null> {
-  try { const u = await getUsuarioActual(); return u ? u.email?.trim() || 'CRM' : null; } catch { return null; }
+/** Quién lo hizo, para el historial. La SESIÓN la exige `exigirSesion()` al arrancar cada acción (contra la base). */
+async function autor(): Promise<string> {
+  try { return (await getUsuarioActual())?.email?.trim() || 'CRM'; } catch { return 'CRM'; }
 }
 
 function alCambiar(leadId: number) {
@@ -41,7 +42,7 @@ function alCambiar(leadId: number) {
 /** Las cuotas sin cobrar del lead que tienen un recordatorio corriendo, con cuándo sale lo próximo. */
 export async function recordatoriosDeCobroAction(leadId: number): Promise<{ ok: true; recordatorios: RecordatorioDeCuota[] } | Fallo> {
   try {
-    if (!(await quienEs())) return { ok: false, error: SIN_SESION };
+    await exigirSesion();
     if (!idValido(leadId)) return { ok: false, error: 'Lead inválido.' };
     const { cuotas, corridas } = await recordatoriosDelLead(leadId);
     return { ok: true, recordatorios: recordatoriosPorCuota(corridas, cuotas) };
@@ -57,7 +58,7 @@ export async function recordatoriosDeCobroAction(leadId: number): Promise<{ ok: 
  */
 export async function motivosDeExcepcionesAction(leadId: number): Promise<{ ok: true; motivos: Record<string, string> } | Fallo> {
   try {
-    if (!(await quienEs())) return { ok: false, error: SIN_SESION };
+    await exigirSesion();
     if (!idValido(leadId)) return { ok: false, error: 'Lead inválido.' };
     const db = await getTenantDb();
     const { data, error } = await db.from('lead_audit').select('campo, valor_nuevo, created_at')
@@ -81,8 +82,7 @@ export async function motivosDeExcepcionesAction(leadId: number): Promise<{ ok: 
  */
 export async function quitarExcepcionAction(leadId: number, id: IdExcepcion): Promise<{ ok: true; antes: boolean | string; cambio: boolean } | Fallo> {
   try {
-    const autor = await quienEs();
-    if (!autor) return { ok: false, error: SIN_SESION };
+    await exigirSesion();
     if (!idValido(leadId) || !esIdExcepcion(id)) return { ok: false, error: 'Excepción inválida.' };
     const db = await getTenantDb();
     const { data: fila, error: eLeer } = await db.from('leads').select(id).eq('id', leadId).maybeSingle();
@@ -96,7 +96,7 @@ export async function quitarExcepcionAction(leadId: number, id: IdExcepcion): Pr
     const { data: hecho, error } = await q.select('id');
     if (error) return { ok: false, error: `No pude quitarla: ${error.message}` };
     if (!hecho?.length) return { ok: false, error: 'La excepción cambió mientras tanto. Recarga la ficha.' };
-    await logLeadEvent(leadId, 'Excepción', lineaAlQuitar(id), autor);
+    await logLeadEvent(leadId, 'Excepción', lineaAlQuitar(id), await autor());
     alCambiar(leadId);
     return { ok: true, antes: antes as boolean | string, cambio: true };
   } catch (e) {
@@ -107,15 +107,14 @@ export async function quitarExcepcionAction(leadId: number, id: IdExcepcion): Pr
 /** El Deshacer de «Quitar»: la vuelve a poner con lo que tenía (true, o el motivo de la R2 por fuera). */
 export async function volverExcepcionAction(leadId: number, id: IdExcepcion, antes: boolean | string): Promise<{ ok: true } | Fallo> {
   try {
-    const autor = await quienEs();
-    if (!autor) return { ok: false, error: SIN_SESION };
+    await exigirSesion();
     if (!idValido(leadId) || !esIdExcepcion(id)) return { ok: false, error: 'Excepción inválida.' };
     const valor = id === 'r2_agenda_externa_motivo' ? (typeof antes === 'string' && antes.trim() ? antes.trim().slice(0, 500) : null) : antes === true;
     if (valor == null || valor === false) return { ok: false, error: 'No hay nada que volver a poner.' };
     const db = await getTenantDb();
     const { error } = await db.from('leads').update({ [id]: valor }).eq('id', leadId);
     if (error) return { ok: false, error: `No pude volver a ponerla: ${error.message}` };
-    await logLeadEvent(leadId, 'Excepción', lineaAlVolver(id), autor);
+    await logLeadEvent(leadId, 'Excepción', lineaAlVolver(id), await autor());
     alCambiar(leadId);
     return { ok: true };
   } catch (e) {

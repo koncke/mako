@@ -77,10 +77,14 @@ test('confirmación: cuántos días van sin el primer pago, y nada que alertar s
   assert.equal(c('2026-11-10T15:00:00Z', null).fecha, '2026-11-10', 'un timestamp se lee como su día');
 });
 
-test('confirmación: sólo no aplica a quien salió sin confirmar', () => {
-  const ctx = (lead: Record<string, unknown>) => ({ lead, data: { pagos: [] } } as unknown as CtxFicha);
+test('confirmación: sin fecha, sólo con deal (la regla de la tab); con fecha, siempre', () => {
+  // ⚠️ REESCRITO el 17/11/2026 (la punta dio rojo en tests/pagos-tab-bloques.test.ts): decía «un lead abierto la llena
+  // aquí», y eso rompía la regla de la tab de Martín, «a un lead que todavía no compró le quedan la oferta y los links».
+  const ctx = (lead: Record<string, unknown>, etapa = 'agenda') => ({ lead, etapa, data: { pagos: [] } } as unknown as CtxFicha);
   const vacio = REGLAS_PAGOS['confirmacion-de-pago'].estaVacio;
-  assert.equal(vacio(ctx({ estado_lead: 'abierto' })), false, 'un lead abierto la llena aquí');
+  assert.equal(vacio(ctx({ estado_lead: 'abierto' })), true, 'sin compra ni fecha: le quedan la oferta y los links');
+  assert.equal(vacio(ctx({ estado_lead: 'abierto', fecha_confirmacion: '2026-11-12' })), false, 'confirmó y no pagó: es justo a quien hay que mostrárselo');
+  assert.equal(vacio(ctx({ estado_lead: 'ganado' }, 'ganado')), false, 'con deal, se llena aquí');
   assert.equal(vacio(ctx({ estado_lead: 'perdido' })), true);
   assert.equal(vacio(ctx({ estado_lead: 'perdido', fecha_confirmacion: '2026-11-01' })), false, 'si confirmó, se ve aunque haya salido');
 });

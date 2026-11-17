@@ -200,6 +200,9 @@ const ES_CLIENTE: Record<string, string> = {
   'lib/api-mako/areas/cs.run.ts': 'invitar_cliente_curso_cs: ¿es cliente del servicio al que se lo invita? (la regla del kanban); la entrega (mover, quitar, devolver)',
   // (23/10/2026) El acceso por HTTP: abrir exige ser cliente de ESE producto; lo que VE sale de productosVisibles.
   'lib/api-mako/areas/curso.run.ts': 'dar_acceso_curso y quitar_curso_del_acceso: ¿es cliente de ese producto? (la regla del kanban)',
+  // (17/11/2026, P28) El bloque «Cliente en CS» de la tab Pagos: en qué etapa de la ENTREGA va en cada servicio del que es
+  // cliente (la regla del kanban, como la ficha de CS). No decide qué cursos le abre el portal: eso no lo muestra.
+  'app/crm/lead-view/ficha/pagos/cliente-en-cs-actions.ts': 'el bloque «Cliente en CS» de la ficha: la etapa de entrega de cada servicio del que es cliente',
 };
 
 function archivos(dir: string): string[] {

@@ -29,7 +29,6 @@ import { diasEntre, ingresoNoAplica, paginaLegible, textoDias, tiempoEnEtapa, us
 import { estadoDeTarjeta, ordenarTarjetas, type AutomatizacionesVista, type TonoTarjeta } from '@/app/crm/automatizacion-lead';
 import type { Cobrado } from '@/lib/cobrado-lead';
 import { ROTULO_METODO, esMetodoPago, type MetodoPago } from '@/lib/pagos-campo';
-import { usd } from '@/lib/pagos-vistazo';
 import { fechaEnPalabras } from '@/lib/date-utils';
 import { ROTULO_CAMBIO, ROTULO_ESTADO_MES, estadoDeSuscripcion, nombreDelMes, type EstadoMes } from '@/lib/suscripcion-meses';
 

@@ -1904,6 +1904,13 @@ ejemplo), las lecturas y «Quitar» una excepción (con Deshacer y compare-and-s
 **La regla que deja** (tests/ficha-pagos-bloques-nuevos.test.ts): todo bloque de Pagos que pone una plantilla tiene componente
 o lo dibuja adentro otro de la misma lista (`incluye`). La misma falla fuera de Pagos quedó anotada en docs/hallazgos-crm.md.
 
+**El rojo de la punta (corrida 1518, 17/11/2026), lo que atajó:** «Confirmación de pago» se dibujaba en un lead sin compra, y la
+regla de la tab dice «a un lead que todavía no compró le quedan la oferta y los links» (tests/pagos-tab-bloques.test.ts). Quedó:
+sin fecha, sólo con deal; CON fecha, siempre (el «confirmó y no pagó» es justo el lead sin deal). Y las dos acciones nuevas tenían
+que cortar con `exigirSesion()`, entrar al snapshot de la cuenta de revisión (cortadas, como todas las de la ficha) y la de «Cliente
+en CS» clasificarse como «de qué es cliente». Las barredoras locales dieron verde porque leen `git ls-files` y los archivos no
+estaban commiteados (docs/hallazgos-infra.md, la trampa ya anotada).
+
 **Sin hacer:** «Recordatorios de cobro» no muestra el PRIMER aviso que todavía no arrancó («la cuota 4 vence el 5/12: MaKo avisa
 el 4/12»): eso pide leer si el negocio tiene prendido `cuota-por-vencer`, y es otra pieza. «Quitar» una excepción no existe en la
 API de MaKo (sólo en la ficha).

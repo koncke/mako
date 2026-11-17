@@ -70,9 +70,14 @@ export const suscripcionAlLado = (ctx: CtxFicha, hermanos?: readonly string[]): 
 export const conCuotasSinCobrar = (ctx: CtxFicha): boolean =>
   cuotasDe(ctx).some((q) => !q.pagado) || (ctx.data?.tratos ?? []).some((t) => t.pagos.some((q) => !q.pagado));
 
-/** Un lead que salió (perdido o descalificado) y nunca confirmó: la confirmación de pago no aplica. */
-const salioSinConfirmar = (ctx: CtxFicha): boolean =>
-  (ctx.lead.estado_lead === 'perdido' || ctx.lead.estado_lead === 'descalificado') && !ctx.lead.fecha_confirmacion;
+/**
+ * ¿La confirmación de pago no tiene nada que decir? Sin fecha de confirmación, se calla si no hay deal (la regla de la tab:
+ * «a un lead que todavía no compró le quedan la oferta y los links», tests/pagos-tab-bloques.test.ts) o si el lead salió.
+ * CON fecha se ve siempre: «confirmó hace 5 días y no pagó» es justo el lead que todavía no tiene deal. La fecha de un lead
+ * sin deal se carga en la R1 (Reuniones), como siempre.
+ */
+export const sinConfirmacionQueMostrar = (ctx: CtxFicha): boolean =>
+  !ctx.lead.fecha_confirmacion && (!conDeal(ctx) || ctx.lead.estado_lead === 'perdido' || ctx.lead.estado_lead === 'descalificado');
 
 export const REGLAS_PAGOS = {
   oferta: {},
@@ -93,8 +98,8 @@ export const REGLAS_PAGOS = {
   'promesa-y-garantia': { estaVacio: sinDealSalvo('dealPromesa'), disenos: ['cajas', 'cita'] },
   obligaciones: { estaVacio: sinDealSalvo('dealObligaciones'), disenos: ['listas', 'tabla'] },
   // (17/11/2026, P28) Los cuatro que estaban en el catálogo y en las plantillas sin componente: la ficha los saltaba callada.
-  // La confirmación se llena ahí (`sinDatos: 'raya'`): sólo no aplica a quien salió sin confirmar.
-  'confirmacion-de-pago': { estaVacio: salioSinConfirmar, disenos: ['fecha', 'alerta'] },
+  // La confirmación se llena ahí (`sinDatos: 'raya'`) en un lead con deal; con la fecha puesta se ve siempre.
+  'confirmacion-de-pago': { estaVacio: sinConfirmacionQueMostrar, disenos: ['fecha', 'alerta'] },
   'recordatorios-de-cobro': { estaVacio: (ctx) => !conCuotasSinCobrar(ctx), disenos: ['lista', 'renglon'] },
   excepciones: { estaVacio: (ctx) => !tieneExcepciones(ctx.lead), disenos: ['chips', 'lista'] },
   // Sólo en un ganado. Es del CLIENTE, no del trato: mirando un CRM agregado dice lo mismo (sin `delTrato` en el registro).
