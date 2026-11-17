@@ -1972,3 +1972,31 @@ respuesta trae los espacios como si fueran palabras (85 entradas para 43 palabra
   de producir, se captura la app real.
 - Los guiones de cada pestaña. Hoy `guionTab` de la maqueta es genérico.
 - La música phonk de julio salió de `Downloads` sin licencia anotada: no se reusa sin verificarla (ver §5).
+
+
+### Escribir guiones para este motor: lo que encontró la corrida de los guiones del reto (17/11/2026, `wf_15437be0-9c1`)
+
+Los guiones del día 1 del reto están en [reto-7-dias/guiones-dia-1.md](reto-7-dias/guiones-dia-1.md).
+
+**Antes de prometer una pantalla, hay que ver si el motor la tiene.**
+- **`type:app` dibuja una sola captura** (`app-ops.png`), con un recuadro FIJO sobre Second Brain (`engine.js:28` y `:201-221`). Para el chat de
+  cada coach, el CRM y cada pestaña hace falta una captura y un recuadro por pantalla.
+- **Sólo hay dos íconos precargados,** brain y message-circle (`engine.js:26-27`). Cada ícono nuevo se suma a `icons/` y a esa lista.
+- **`side`** (la cara de Martín a un lado y el texto al otro) **y `flow`** (el ojo que lleva al dinero) existen sólo en `vsl-julio/kinetic-full.js`.
+  Hay que pasarlos a `engine.js` antes de usarlos.
+- **«vsl» en minúscula** era para que la voz de julio lo pronunciara bien. `beats.mjs` no tiene el reemplazo `d` de julio, así que en pantalla
+  saldría «vsl».
+
+**El diagnóstico obvio era el equivocado: «inspirarse en los cursos» no es copiarlos.** El primer borrador calcó casi palabra
+por palabra frases de Sofía Contreras (MasteryHaus MH-090 ¶20, MH-092 ¶9, MH-061 ¶11) y de ATV («los seis caminos a oscuras», ¶5),
+y el crítico las reescribió.
+- **La regla:** de un curso se toma la IDEA (la ecuación de valor, el ejemplo del mismo deseo con dos soluciones) y el ejemplo se arma con MaKo.
+
+**Copiar el VSL de julio al pie de la letra rompe reglas de hoy:**
+- «si estás cansado» va contra los textos neutros;
+- julio tenía voseo y la regla de que «la narra una voz de IA». El reto es «un video mío».
+
+**Para escribir el guion:**
+- La voz va a 3,2 palabras por segundo: un minuto son unas 190 palabras.
+- Los números se escriben en letras, y «Máko» con tilde.
+- Un mensaje de la maqueta que Martín leyó y no entendió («tu reto ya tiene los días de tu funnel») no va en ningún video.
