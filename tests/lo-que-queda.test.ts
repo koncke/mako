@@ -27,7 +27,7 @@ const FIJO_TODO = 1144.25;   // si pagara también lo de Mauricio
 // 82,78 → 76,37, 389,50 → 325,42, 1.217,26 → 1.089,09, y pagando todo el fijo el equilibrio vuelve a 15.
 test('un cliente de US$97 deja US$76,37: se le resta cobrar y el CAC, NO su IA', () => {
   const deja = dejaUnCliente(PLAN_97);
-  assert.ok(Math.abs(deja - (97 - 97 * PARTE_DE_COBRAR - cacPorMes())) < 1e-9);
+  assert.ok(Math.abs(deja - (97 - 97 * PARTE_DE_COBRAR - cacPorMes(97))) < 1e-9);
   assert.ok(Math.abs(deja - 76.37) < 0.01, `dio US$${deja.toFixed(2)}`);
   // ⚠️ La IA del cliente la paga él (BYOK): restarla acá la contaría dos veces.
   assert.ok(deja > 97 * 0.75, 'si alguien suma un costo de IA por cliente, este número se desploma y hay que discutirlo');
@@ -56,7 +56,10 @@ test('el equilibrio: 6 clientes hoy, 15 si pagara TODO el fijo', () => {
 test('el plan de 47 necesita el doble de clientes que el de 97, o más', () => {
   const con47 = clientesParaNoPerder(47, FIJO_HOY)!;
   const con97 = clientesParaNoPerder(PLAN_97, FIJO_HOY)!;
-  assert.ok(con47 >= con97 * 2, `47 pide ${con47} y 97 pide ${con97}: el CAC pesa igual en los dos, así que el de 47 deja mucho menos`);
+  assert.ok(con47 >= con97 * 2, `47 pide ${con47} y 97 pide ${con97}`);
+  // Desde el 17/11/2026 el CAC es el precio del plan (`cacDelPlan`), así que lo que deja un cliente es PROPORCIONAL al precio:
+  // cobrar y el CAC son los dos un porcentaje. Hasta ahí el CAC pesaba igual (US$97) en los dos y el de 47 dejaba mucho menos.
+  assert.ok(Math.abs(dejaUnCliente(47) / dejaUnCliente(PLAN_97) - 47 / PLAN_97) < 1e-9, 'lo que deja un cliente ya no es proporcional al precio');
 });
 
 test('sin clientes no se inventa un cero: queda el fijo en negativo', () => {
@@ -65,5 +68,8 @@ test('sin clientes no se inventa un cero: queda el fijo en negativo', () => {
 });
 
 test('si un plan no cubriera ni su propio CAC, NO hay cantidad de clientes: null, no un número enorme', () => {
-  assert.equal(clientesParaNoPerder(3, FIJO_HOY), null, 'US$3 no alcanzan ni para cobrarlos y el CAC');
+  // Decía «US$3 no alcanzan ni para cobrarlos y el CAC»: valía con un CAC fijo de 97. Con el CAC proporcional (17/11/2026) todo
+  // precio que cobra deja el 78,7 % antes del fijo, así que el caso que no alcanza es el que no cobra nada.
+  assert.equal(clientesParaNoPerder(0, FIJO_HOY), null, 'un plan que no cobra no cubre nada');
+  assert.ok(clientesParaNoPerder(3, FIJO_HOY) != null, 'con el CAC proporcional, hasta US$3 cubren su propio CAC');
 });

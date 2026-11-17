@@ -41,9 +41,9 @@ import {
   partidasViejas,
 } from '@/lib/costos-fijos'
 import {
-  CAC_USD,
   MESES_DE_VIDA,
   PARTE_DE_COBRAR,
+  cacPorMes,
   clientesParaNoPerder,
   dejaUnCliente,
   loQueQueda,
@@ -354,7 +354,8 @@ export default function ClientPage({
                   {
                     clave: 'deja-cliente',
                     label: 'Lo que deja cada cliente',
-                    pie: ['ya sin cobrar ni IA', `CAC ${usd(CAC_USD / MESES_DE_VIDA)}/mes`],
+                    // El CAC de cada cliente es el precio de su plan (17/11/2026): en el pie, el del de 47 y el del de 97.
+                    pie: ['ya sin cobrar ni IA', `CAC ${usd(cacPorMes(USD_DEL_PLAN.pro))} o ${usd(cacPorMes(USD_DEL_PLAN.growth))}/mes`],
                     valor: economia.dejaCadaCliente == null ? '—' : usd(economia.dejaCadaCliente),
                     pct: null as number | null,
                   },

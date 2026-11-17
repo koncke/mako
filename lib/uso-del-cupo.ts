@@ -39,7 +39,7 @@ export { USO_SUPUESTO, techoDeIa };
  */
 export function dejaConUso(planUsd: number, plan: Plan, tasa: number): number {
   const t = Math.min(1, Math.max(0, Number.isFinite(tasa) ? tasa : 0));
-  return planUsd - planUsd * PARTE_DE_COBRAR - cacPorMes() - techoDeIa(plan) * t;
+  return planUsd - planUsd * PARTE_DE_COBRAR - cacPorMes(planUsd) - techoDeIa(plan) * t;
 }
 
 export type UsoMedido = {

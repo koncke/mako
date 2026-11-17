@@ -27,7 +27,7 @@ import {
 } from '../dev/pricing/modelo';
 // El modelo del 7/11 (las tortas del 47 y del 97). Relativos, como los de arriba: el test lo importa con tsx.
 import {
-  PASARELA, IMPUESTO, META_CLIENTES, CAC_USD, MESES_DE_VIDA, USO_SUPUESTO, NOMBRE_DE_PARTE, loQueSeVaDeUnaSuscripcion,
+  PASARELA, IMPUESTO, META_CLIENTES, MESES_DE_VIDA, USO_SUPUESTO, NOMBRE_DE_PARTE, loQueSeVaDeUnaSuscripcion,
   type PlanPago, type ClaveDeParte,
 } from '../../../lib/economia-unitaria';
 import { fijoDeMartin } from '../../../lib/costos-fijos';
@@ -217,7 +217,8 @@ export const VIDA_GROWTH = GROWTH.vidaMeses;
 // octubre: ahí todavía hay Paddle y la IA de MaKo. No se tocó en esta vuelta.
 const CUENTA_DE_PARTE = (s: ReturnType<typeof loQueSeVaDeUnaSuscripcion>): Record<ClaveDeParte, string> => ({
   ganancia: 'Lo que queda',
-  conseguir: `CAC ${num(CAC_USD)} (el primer mes del Partner) ÷ ${num(MESES_DE_VIDA, 1)} meses de vida`,
+  // El CAC es el precio del plan desde el 17/11/2026 (`cacDelPlan`): un supuesto hasta medir los anuncios.
+  conseguir: `CAC ${num(s.cacUsd)}, el precio del plan (el primer mes del Partner) ÷ ${num(MESES_DE_VIDA, 1)} meses de vida`,
   servir: `Video con IA ${num(s.videoUsd, 2)} (${num(USO_SUPUESTO * 100)}% del cupo) + gasto fijo ${num(s.fijoPorClienteUsd ?? 0, 2)} (US$${num(fijoDeMartin())} ÷ ${num(META_CLIENTES)} clientes)`,
   impuesto: `Monotributo ${num(IMPUESTO * 100, 2)}%, hoy lo paga Leandro`,
   cobro: `Mercado Pago ${num(PASARELA * 100, 2)}%, con acreditación a 35 días`,

@@ -85,15 +85,19 @@ test('un conteo roto no rompe la cuenta: cae a 0 y avisa', () => {
 
 test('el CAC se reparte en la vida del cliente, y una vida corta lo EMPEORA', () => {
   // Va al revés de la intuición y por eso se fija acá.
-  assert.ok(Math.abs(cacPorMes() - CAC_USD / MESES_DE_VIDA) < 1e-9);
-  assert.ok(cacPorMes() > 10 && cacPorMes() < 11, `a ${MESES_DE_VIDA} meses el CAC pesa US$${cacPorMes().toFixed(2)}/mes`);
+  assert.ok(Math.abs(cacPorMes(CAC_USD) - CAC_USD / MESES_DE_VIDA) < 1e-9);
+  assert.ok(cacPorMes(97) > 10 && cacPorMes(97) < 11, `a ${MESES_DE_VIDA} meses el CAC del de 97 pesa US$${cacPorMes(97).toFixed(2)}/mes`);
   const siSeFueranAntes = CAC_USD / 4;
-  assert.ok(siSeFueranAntes > cacPorMes() * 2, 'quedarse menos tiempo hace que el CAC pese MÁS por mes');
+  assert.ok(siSeFueranAntes > cacPorMes(97) * 2, 'quedarse menos tiempo hace que el CAC pese MÁS por mes');
+  // Y es PROPORCIONAL al plan desde el 17/11/2026 (Martín: «Puedes dejarlo también proporcional»): el CAC es el precio.
+  assert.ok(Math.abs(cacPorMes(47) - 47 / MESES_DE_VIDA) < 1e-9, 'el de 47 carga su propio precio, no el del de 97');
+  assert.equal(Math.round(cacPorMes(47) * 100) / 100, 5.22);
 });
 
 test('cobrar se lleva su parte antes que nada', () => {
   const e = economiaDelMes({ ...base, iaDelMesUsd: 0, fijoMensualUsd: 0, clientesQuePagan: 1 });
   // Sin IA ni fijo, lo que queda es el MRR menos lo de cobrar menos el CAC del mes.
-  const esperado = base.mrrUsd! - base.mrrUsd! * PARTE_DE_COBRAR - cacPorMes();
+  // Un solo cliente: su CAC es el precio de su plan, que es todo lo facturado (17/11/2026).
+  const esperado = base.mrrUsd! - base.mrrUsd! * PARTE_DE_COBRAR - cacPorMes(base.mrrUsd!);
   assert.ok(e.resultadoDelMes != null && Math.abs(e.resultadoDelMes - esperado) < 1e-9);
 });

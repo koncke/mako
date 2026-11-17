@@ -30,8 +30,9 @@ modelo»; «descarta completamente Flow»; y en las columnas «0 minutos o 4 min
   Cerebro, con IVA, cobro y el costo del cliente, deja 47 % si usa todo, 56 % al 50 % y 60 % al 25 %; con 12.000 daba 34, 49 y
   57 %. Un test exige que siga siendo proporcional si se toca el de US$97.
 - ⚠️ **Mauricio Bustos (US$47) gastó 8.680 MT en los últimos 30 días** (medido el 17/11 a la tarde): más que los 7.000. Hoy no
-  lo frena nada porque la caja no está aplicada. Qué pasa con él lo decide Martín antes de activar el cobro. El siguiente es
-  el negocio de prueba, con 2.263; ningún otro pasa de 1.500.
+  lo frena nada porque la caja no está aplicada. El siguiente es el negocio de prueba, con 2.263; ningún otro pasa de 1.500.
+  **Martín lo decidió el mismo día: sin excepción.** «A Mauricio sí le dejamos con los tokens de Essential… Mauricio de por sí
+  va a tener el plan de 47». No hay nada especial para él en el código.
 - **La tarifa del extra** pasa a **288 MT por dólar, lineal** (`MT_POR_DOLAR`): cada US$10 son 2 minutos, US$100 son 20, y
   el minuto suelto sale US$5 exactos (`USD_POR_MINUTO_SUELTO`). Margen bruto de IA del extra, a precio de lista: 71,2 %
   (`MARGEN_BRUTO_DEL_EXTRA`).
@@ -45,6 +46,11 @@ modelo»; «descarta completamente Flow»; y en las columnas «0 minutos o 4 min
 **Los márgenes del Cerebro**, con el 21 % de IVA de pagar ApiMart con tarjeta, el 12,36 % de cobrar y el costo de conseguir
 al cliente (US$97 ÷ 9), sin los gastos fijos: el de US$97 deja US$56,81 (59 %); el extra solo, US$52,79 (53 %); juntos, a
 US$197, US$109,60 (56 %) con 30 minutos. Los MT van a precio de lista, sin IVA: con IVA, cada MT cuesta US$0,00121.
+- **El costo de conseguir un cliente pasó a ser PROPORCIONAL al plan** (17/11, Martín: «Puedes dejarlo también proporcional para
+  que quede en 59 %… es una suposición»): el CAC de cada plan es su precio, lo que se lleva un Partner el primer mes
+  (`cacDelPlan`, lib/economia-unitaria.ts). Repartido en 9 meses: US$5,22 en el Essential y US$10,78 en el Pro. Con el mismo
+  US$97 para todos pesaba 23 % del Essential y 11 % del Pro. Es un supuesto hasta medir los anuncios. La idea de proyectar que
+  el cliente del Essential termina pasándose al Pro quedó anotada ahí y sin hacer: no hay una tasa de paso medida.
 
 **Medido en producción antes de bajar el cupo (17/11, sólo lectura):**
 - ⚠️ **La caja no está instalada.** No hay ninguna función `mako_tokens_*`. `mako_tokens_saldo` tiene sólo las columnas de
@@ -68,13 +74,13 @@ US$197, US$109,60 (56 %) con 30 minutos. Los MT van a precio de lista, sin IVA: 
 
 **SIN HACER, con dónde vive:**
 - **Aplicar la 0416 en producción** (`supabase/migrations/0416_mako_tokens_caja.sql`). Sin ella el medidor no cobra nada.
-  Es escribir en producción: pide el sí de Martín.
+  Es escribir en producción: pide el sí de Martín. ⚠️ **El día que se aplique, Mauricio Bustos se queda corto:** gasta ~8.700
+  MT por mes en texto y su cupo de Essential es 7.000, sin excepción (decisión de Martín, 17/11). Va a ver «te quedaste sin
+  MaKo Tokens» antes de fin de mes, y los caminos automáticos de su negocio se saltean en silencio (`fallaBlanda`).
 - **Los riesgos del canal Ext** (si se corta y hay que pasar al canal normal, el extra deja ~7 %): en «Riesgos sin medir», en
   la entrada de abajo. La cara que habla ya se probó (docs/hallazgos-video-pipeline.md).
 - **Que el video salga por ApiMart:** hoy los clips salen por el Flow del cliente (la entrada de abajo). `MODELO_VIDEO_POR_DEFECTO`
   sigue en Hailuo y no se tocó, porque `generarVideo` no tiene llamador.
-- **Mauricio Bustos gasta más que el cupo nuevo del de US$47** (8.680 de 7.000, sólo en texto). El día que la caja cobre,
-  se queda sin MaKo Tokens antes de fin de mes: lo decide Martín antes de aplicar la 0416.
 - **`scripts/probar-0416-pglite.mjs` tiene los cupos viejos escritos a mano** (11.750 y 24.250).
 - **Cuántos intentos lleva un clip** sigue sin medir.
 
