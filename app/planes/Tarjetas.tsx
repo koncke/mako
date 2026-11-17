@@ -317,11 +317,11 @@ export const CSS_TARJETAS = `
 /* Lo que suma la barra de MaKo Tokens, chiquito debajo del precio del plan: «+ US$ 200 / mes en créditos extra». */
 .mkpl-extra { font-size: 14px; font-weight: 700; color: #2F6FED; }
 .mkpl-extra[hidden] { display: none; }
-/* «Agrega créditos extra»: la barra de MaKo Tokens debajo de las columnas. */
-.mkpl-extras { max-width: 760px; margin: 56px auto 0; text-align: center; }
-.mkpl-extras-t { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; }
-.mkpl-extras-b { margin: 8px 0 0; font-size: 15px; color: #5B6472; }
-.mkpl-extras .tk { text-align: left; margin-bottom: 0; }
+/* «Agrega créditos extra»: la barra de MaKo Tokens ARRIBA de las columnas, debajo del selector mensual / anual (17/11/2026). */
+.mkpl-extras { margin: 26px 0 0; text-align: center; }
+.mkpl-extras-t { margin: 0; font-size: 20px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; }
+.mkpl-extras-b { margin: 6px 0 0; font-size: 15px; color: #5B6472; }
+.mkpl-extras .tk { text-align: left; }
 /* La aclaración del total cuando la barra de MaKo Tokens pide más de lo que trae el plan. Nace oculta (hidden) y la
    muestra el script: sin él no hay nada que aclarar. */
 /* ⚠️ LA PASTILLA VERDE LLEVA «data-tema-fijo» EN EL JSX, Y ÉSTA ES LA RAZÓN (15/11/2026). Martín: «7 días gratis en el de
@@ -414,8 +414,9 @@ const precio = (v: number) => v.toLocaleString('es-AR');
 export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: {
   planes: readonly PlanEnTarjeta[]; sufijo: string;
   /**
-   * La barra de MaKo Tokens (./CalculadoraTokens.tsx). Desde el 16/11/2026 a la noche va DEBAJO de las columnas, en «Agrega
-   * créditos extra» (antes, debajo del selector mensual / anual).
+   * La barra de MaKo Tokens (./CalculadoraTokens.tsx), en «Agrega créditos extra», DEBAJO del selector mensual / anual y ARRIBA
+   * de las columnas. La noche del 16/11/2026 bajó debajo de las columnas y el 17/11 Martín la devolvió: «eso siempre tiene que
+   * estar arriba como antes».
    * Martín, 15/11/2026: «eliminaría el texto de calcula cuántos MaKo Tokens necesitas, pondría la barra directamente abajo de
    * mensual o anual». Entra por acá para que la portada, que dibuja las mismas columnas, no la arrastre.
    */
@@ -436,6 +437,17 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
             <label htmlFor="mkpl-p-anual">Anual<b>{MESES_GRATIS_ANUAL} meses gratis</b></label>
           </div>
         </div>
+      )}
+      {/* LA BARRA DE MaKo TOKENS, ARRIBA DE LAS COLUMNAS, en su subsección «Agrega créditos extra». Martín, 17/11/2026: «pusiste lo
+          de agregar créditos extra abajo cuando eso siempre tiene que estar arriba como antes». La noche del 16/11 había bajado
+          debajo de las columnas («tal vez eso inclusive ponerlo abajo… crearía una subsección de agrega créditos extra»): de esa
+          vuelta quedan el título de la subsección y el «+ US$ X» aparte, debajo del precio de cada plan. */}
+      {barra && (
+        <section className="mkpl-extras" aria-label="Agrega créditos extra">
+          <h3 className="mkpl-extras-t">Agrega créditos extra</h3>
+          <p className="mkpl-extras-b">MaKo Tokens para usar cada mes, además de los de tu plan.</p>
+          {barra}
+        </section>
       )}
       <div className="mkpl-grilla">
       {planes.map((p) => {
@@ -531,16 +543,6 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
           de siempre, que compra sin hablar con nadie. */}
       <TarjetaAccelerator boton={{ href: RUTA_ACCELERATOR, texto: TEXTO_BOTON_ACCELERATOR }} />
       </div>
-      {/* LA BARRA DE MaKo TOKENS, DEBAJO DE LAS COLUMNAS, EN SU PROPIA SUBSECCIÓN (Martín, 16/11/2026, a la noche: «tal vez eso
-          inclusive ponerlo abajo porque la persona… lo único que va a comprar es primero que nada el plan y después tal vez crearía
-          una subsección de agrega créditos extra»). Hasta esa noche iba arriba, pegada al selector mensual / anual. */}
-      {barra && (
-        <section className="mkpl-extras" aria-label="Agrega créditos extra">
-          <h3 className="mkpl-extras-t">Agrega créditos extra</h3>
-          <p className="mkpl-extras-b">MaKo Tokens para usar cada mes, además de los de tu plan.</p>
-          {barra}
-        </section>
-      )}
     </div>
   );
 }

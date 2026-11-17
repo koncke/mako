@@ -754,13 +754,13 @@ test('la barra dice cuánto sale sumar MaKo Tokens, arranca en «tu plan», y NO
   //   «Me gustaba el que teníamos antes… una barrita más simple» (la de la primera calculadora: un range, riel y botón).
   assert.doesNotMatch(t, /Calcula cuántos MaKo Tokens necesitas/, 'volvió el título de la barra');
   // Se busca el MARCADO (`class="…"`), no el nombre suelto: los nombres aparecen antes en la hoja de estilos de la página.
-  // DESDE EL 16/11/2026 A LA NOCHE, DEBAJO DE LAS COLUMNAS, en «Agrega créditos extra» (Martín: «tal vez eso inclusive ponerlo
-  // abajo porque la persona… lo único que va a comprar es primero que nada el plan y después tal vez crearía una subsección de
-  // agrega créditos extra»). PROBADO ROMPIÉNDOLO: con `{barra}` de vuelta arriba de la grilla → falla acá.
+  // ARRIBA DE LAS COLUMNAS, debajo del selector, en «Agrega créditos extra». Martín, 17/11/2026: «pusiste lo de agregar créditos
+  // extra abajo cuando eso siempre tiene que estar arriba como antes» (la noche del 16/11 había bajado debajo de las columnas).
+  // PROBADO ROMPIÉNDOLO: con la subsección de vuelta debajo de la grilla → falla acá.
   const iSel = html.indexOf('class="mkpl-periodo"'), iBarra = html.indexOf('data-tk=""'), iCols = html.indexOf('class="mkpl-grilla"');
   const iExtras = html.indexOf('class="mkpl-extras"');
-  assert.ok(iSel > 0 && iSel < iCols && iCols < iExtras && iExtras < iBarra,
-    'la barra va debajo de las columnas, en su subsección «Agrega créditos extra»');
+  assert.ok(iSel > 0 && iSel < iExtras && iExtras < iBarra && iBarra < iCols,
+    'la barra va arriba de las columnas, debajo del selector, en su subsección «Agrega créditos extra»');
   assert.match(t, /Agrega créditos extra/, 'la subsección de la barra sin su título');
   // Y lo que suma va APARTE del precio del plan, chiquito y oculto en cero («97 más 200… y si está en cero, evidentemente que no
   // aparece más nada»): cada columna con cupo lleva su «+ US$ X», nace oculto y la barra lo prende.
