@@ -16,8 +16,11 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supa.test';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-de-prueba';
 
 let n = 5000;
+// Desde el 16/11/2026 el aviso de un ticket de un CLIENTE va también a su grupo (lib/tickets-reglas.ts, `avisaEnSuGrupo`), por
+// `enviarAlGrupoMaKo`: lee qué negocio es la plataforma (`workspaces`) y copia el aviso al hilo del grupo de la app (`grupo_mensajes`
+// y quiénes lo ven). Sin el grupo de WhatsApp (no hay `mako.grupo_jid`), lo que se mide acá sigue igual.
 const pg = crearPostgrest({
-  tablas: ['tickets', 'ticket_eventos', 'app_settings'],
+  tablas: ['tickets', 'ticket_eventos', 'app_settings', 'workspaces', 'grupo_mensajes', 'usuarios', 'agencia_clientes', 'grupo_invitados'],
   defaults: (t, f) => ({ id: ++n, ...(t === 'ticket_eventos' ? { at: new Date().toISOString() } : {}), ...f }),
   orCompleto: true,
 });
@@ -44,6 +47,8 @@ async function main() {
   const eventos = (id: number) => pg.db.ticket_eventos.filter((e) => e.ticket_id === id).map((e) => e.tipo);
   const estados = () => Object.fromEntries([93, 94, 95].map((id) => [id, { estado: fila(id).estado, avisado: fila(id).avisado_at != null }]));
 
+  // La plataforma (los tickets de Martín) y el negocio cliente de los tickets.
+  pg.db.workspaces.push({ id: 9, capa: 'superadmin', nombre: 'MaKo', estado: 'activo' }, { id: 77, capa: 'cliente', nombre: 'Cliente', estado: 'activo' });
   // El #93 (con un paso en producción que falta), el #94 (sin nada que falte) y un duplicado del #93.
   pg.db.tickets.push(ticket(93, 'arreglado'), ticket(94, 'en_curso'), ticket(95, 'nuevo', { duplicado_de: 93 }));
   const desplegados = new Map([

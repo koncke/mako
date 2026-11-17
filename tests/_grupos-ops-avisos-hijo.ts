@@ -178,6 +178,9 @@ async function main() {
   await correrDespues();
   out.ticket = { t1, t2, filas: filas(WS).length, avisado: !!db.tickets.find((t) => t.id === 700)?.avisado_at };
   limpiar(); escenaNueva({ evolution: 'cae' });
+  // Un aviso de arreglo con la clave de un ticket es el del cron a OTRO negocio que vio el mismo error: el ticket existe, está
+  // resuelto y es de otro negocio (16/11/2026, `frenoDelAvisoDeArreglo`, lib/tickets-reglas.ts). Antes el #701 no existía.
+  db.tickets.push({ id: 701, titulo: 'El botón no anda', estado: 'resuelto', respuesta: 'Listo', duplicado_de: null, workspace_id: OTRO, usuario_id: null, canal: 'sistema', contexto: {}, avisado_at: new Date().toISOString(), updated_at: new Date().toISOString() });
   const pedido = { ws: WS, clave: 'ticket:701', texto: 'Ya quedó arreglado lo del botón', prueba: 'deploy de prueba', origen: 'ticketera' };
   const a1 = await avisarArregloAlGrupo(pedido);
   const a2 = await avisarArregloAlGrupo(pedido);

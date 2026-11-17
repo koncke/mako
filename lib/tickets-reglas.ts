@@ -1060,7 +1060,7 @@ export function frenoDelAvisoDeArreglo(ws: number, deLaClave: readonly number[],
   const propios = filas.filter((f) => Number(f.ws) === Number(ws));
   if (propios.length) {
     return `${listaDeTickets(propios)} es de este negocio: su aviso sale solo al cerrarlo, con lo mismo que dice la Ticketera `
-      + '(scripts/tickets-cerrar-resueltos.mjs, con tu texto como respuesta). Por acá sería un segundo aviso, o uno que la Ticketera desmiente.';
+      + '(scripts/tickets-cerrar-resueltos.mjs, con tu texto como respuesta). Por aquí sería un segundo aviso, o uno que la Ticketera desmiente.';
   }
   const abiertos = filas.filter((f) => f.estado !== 'resuelto');
   if (abiertos.length) return `${listaDeTickets(abiertos)} todavía no está resuelto: un «ya quedó» por WhatsApp lo desmentiría la Ticketera`;
