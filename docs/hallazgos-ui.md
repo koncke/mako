@@ -12,6 +12,22 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+
+## Marcar pasos de un tutorial sobre las pestañas en HTML: los selectores que mienten (17/11/2026)
+
+Lo encontró el agente que escribió los 17 tutoriales (`docs/reto-7-dias/tutoriales-por-pestana.md`).
+
+**Selectores que no sirven:**
+- **Los ids de `useId`** (`#_mkc-R_18p_-0`) **y los `#co-msg-…`** cambian en cada render. No sirven para marcar un paso.
+- **Contar un `data-recorrido` con grep engaña.** `spy-mejores` da 18 coincidencias y ninguna es un elemento: aparece sólo en el CSS. Hay que contar con un parser.
+- **Los `au-*` de Automations no existen en el HTML estático.** Los pone `marcar` sólo con el recorrido abierto (`app/automations/recorrido-automations.ts`).
+
+**Una trampa al leer:** mientras otro chat corre `armar.mjs`, `publicar/` queda un momento sin algunos archivos (ENOENT). Quien lee tiene que copiar la carpeta antes.
+
+**La regla:**
+- Un paso se marca con `data-recorrido="tour-<pestaña>-<cosa>"` o con un `aria-label` estable.
+- Lo que sólo tiene clase o texto lleva un `tour-*` nuevo.
+- Cada selector se chequea contra la página publicada, con el comprobador `chequear.cjs` de esa corrida.
 ## Cuatro trampas que destapó rediseñar el login (14/11/2026)
 
 **Vive en:** `app/login/_ui/TarjetaLogin.tsx` y `app/login/_ui/login.css` (el velo y la tarjeta, que antes estaban copiados a
@@ -5047,6 +5063,18 @@ compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo 
   que las usa, y una publicación manda como mucho 255 entradas (las bajas con `null` cuentan).
 - **Republicar la página de un artefacto escribiéndola con Python en Windows** le cambia los finales de línea a `\r\n` (+110 bytes en
   el visor del Sitio, versión 14 del artefacto único). Con Node, o `newline=''`.
+- **Un componente del server `async` corta TODO el dibujo** con «A component suspended while responding to synchronous input»: las
+  sub-tabs de Classroom en el teléfono (`SeccionesClientsM`, que pregunta con `headers()` si el pedido viene de la app de iPhone).
+  Parecía un `lazy` o un `next/dynamic` (no hay ninguno en la cadena): se `await`-ea la función y se dibuja lo que devuelve; sin
+  Next, `headers()` falla y el `catch` contesta «no es iPhone».
+- **Un parche de varias líneas «aparece 0 veces» aunque el texto esté**: el clon de Windows tiene CRLF y el parche está escrito con
+  LF. Se le pone al parche el fin de línea del archivo antes de buscarlo.
+- **La misma miniatura incrustada se repite cada vez que aparece**: Spy pesaba 10,4 MB (cada pieza de Hormozi en la grilla, en el
+  gráfico y en la ficha, y React suma un `<link rel="preload">` por cada `<img>`). Con UN diccionario por página (`MK_IMG`, la
+  `<img>` lleva el número) y sin esos preload: 3,2 MB.
+- **Las marcas de los recorridos (`data-recorrido`) no pueden salir de un id del render**: los de `useId` y los `#co-msg-…` cambian
+  en cada dibujo. Se ponen al armar, por una clase fija o por el texto del control, sólo en la versión de computadora (en la del
+  teléfono, que va en el mismo archivo, quedarían repetidas), y si no aparece se avisa.
 
 ## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
 
