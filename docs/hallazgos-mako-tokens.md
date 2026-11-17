@@ -59,6 +59,42 @@ cobrando cada intento. El margen se mide sobre lo que se agrega, no sobre la fac
 - Los precios de la competencia, con sus trampas, están en
   [competencia/precios-video-con-ia.md](competencia/precios-video-con-ia.md).
 
+**⚠️ CORRIGE LO DE ARRIBA, el mismo 17/11** (corrida `wf_1d9bf4cd-78d`, 5 agentes con un refutador). El «Omni-Flash-Ext» de
+US$0,40 **no** es el Omni de Flow de Martín: hoy ApiMart lo llama `gemini-omni-1.1-flash-ext`, o sea Omni **1.1**. El de Flow es
+Omni **1.2** Flash. ApiMart lo vende de dos maneras, según su página oficial (apimart.ai/model/gemini-omni-1-2-flash, leída el 17/11):
+- **`gemini-omni-1.2-flash-ext`:**
+  - US$0,024 por segundo, lineal, sin cargo fijo;
+  - clips de 3 a 15 s, en 9:16, con audio;
+  - la foto va en `first_frame_image`.
+  - **1 minuto = US$1,44 = 1.440 MT.** 15 s cuestan lo mismo por segundo que 10.
+- **`gemini-omni-1.2-flash`, el canal normal:** cobra por tokens, ~US$0,0556 por s, o sea ~US$3,34 el minuto. El 9/11 se midieron
+  0,0559 por s.
+
+**El diagnóstico obvio era el equivocado, otra vez.** El repo dice «el 0,412 era Flow y no nuestro costo» en:
+- `lib/mako-tokens-paquetes.ts:39`;
+- `lib/mako-tokens-costos.ts:324`;
+- `docs/costos-fijos-mako.md:70`;
+- `docs/hallazgos-video-pipeline.md:1820`;
+- `docs/hallazgos-planes-y-cobro.md:3736`.
+
+Es falso. US$0,15 + 0,025 por s es la tabla de ApiMart del 1.1 Ext (4 s 0,25 · 6 s 0,30 · 8 s 0,35 · 10 s 0,40). Flow cobra
+créditos, no dólares.
+
+**Lo que decidió Martín con esto (17/11), la opción B:**
+- El Pro trae 10 min (14.400 MT).
+- Con US$100 extra se suman 20 min (288 MT por dólar). La barra llega hasta US$100.
+- Las columnas dicen minutos, no clips.
+- Lo implementa el chat de MaKo Tokens.
+- Margen sin los fijos, con el IVA del 21 % en el video: Pro 59 %, el extra 53 %.
+
+**Riesgos sin medir:**
+- **De dónde sale el canal Ext.** Cobra ~65 % menos que Google (US$0,0695 por s) y no lo dice. Su doc prevé
+  `503 source_channel_unavailable`. Si se corta y hay que pasar al canal normal, el extra de la opción B deja ~7 %.
+- **El 3/12/2026** Google empieza a redirigir la 1.1 a la 1.2 (aistudio.google.com/docs/pricing).
+- **La cara que habla nunca se probó por ApiMart con el 1.2 Ext.** El clip de prueba, de US$0,24, espera el sí de Martín.
+- **Con kling no se gastó nada:** hoy ningún cliente genera video por ApiMart. `generarVideo` (lib/apimart.ts:66) no tiene
+  llamador, y el estudio filma por el puente de Flow (app/ai-avatar/filmar.ts:17-18). Los 900 MT sólo inflaban lo que se mostraba.
+
 ---
 
 ## ⚠️⚠️ PASÓ: el medidor apagó el grupo de WhatsApp de un cliente, y «fallar cerrado» era lo equivocado (16/11/2026)

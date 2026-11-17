@@ -20,7 +20,7 @@ clips rehecha una vez**. Eso es 135 clips de 10 s, o 22,5 minutos generados para
 |---|---|---|---:|---:|---:|---|
 | Google Flow | Omni Flash 1.2 a 720p (3 cr/s hasta 10 s) | AI Ultra | 99,99 | 55,6 | 1,80 | support.google.com/flow/answer/16526234 |
 | Google Flow | el mismo | AI Pro (con los 50 cr diarios) | 19,99 | ~13,9 | 1,44 | la misma |
-| Higgsfield | Kling 3.0 1080p | Ultra 3K | 129 | 17,9 a 28,6 | 4,52 a 7,22 | higgsfield.ai/pricing |
+| Higgsfield | Kling 3.0 720p con audio (20 cr por 10 s, botón Generate) | Ultra 3K | 129 | 25 | 5,16 | higgsfield.ai/ai/video |
 | Higgsfield | Kling 4.0 1080p | Ultra 3K | 129 | 15,4 | 8,39 | la misma |
 | Higgsfield | Kling 4.0 1080p | Ultra 6K | 250 | 30,8 | 8,13 | la misma |
 | Kling (oficial) | Kling 3.0 con audio (12 cr/s) | Premier 18K | 181,99 | 25 | 7,28 | kling.ai/app/membership/membership-plan |
@@ -54,10 +54,49 @@ clips rehecha una vez**. Eso es 135 clips de 10 s, o 22,5 minutos generados para
 **Armarlo afuera:** el video (Google AI Ultra, Higgsfield Ultra 3K o Kling 18K) más edición y subtítulos (CapCut Pro US$17,99
 o Submagic Pro US$39) suma entre US$118 y US$221 por mes. No trae guiones automáticos ni CRM.
 
+## Higgsfield, medido con el botón Generate (17/11, corrida `wf_1d9bf4cd-78d`)
+
+**Los tres números de la tabla de precios eran el mismo Kling 3.0, leído de tres maneras.** Los tres son clips de 5 s,
+y ninguno es el de una persona que habla:
+- el «~8» de la lista es 1080p sin audio, redondeado;
+- el 8,75 es el mismo número sin redondear: la tabla anual cuenta videos POR AÑO;
+- el «~14» del configurador es una cifra fija que no cambia con las opciones.
+
+El costo real lo muestra el botón **Generate** de higgsfield.ai/ai/video, y se ve sin cuenta. La ayuda de Higgsfield dice que
+ese es el que se descuenta. Clip de 10 s, 9:16, 720p:
+
+| Modelo | Créditos | Minutos con Ultra 3K (US$129, 3.000 cr) | US$ por minuto (mensual) | US$ por minuto (anual de Black Friday, US$50 por mes) |
+|---|---:|---:|---:|---:|
+| **Gemini Omni Flash 1.2 (el Omni de Flow)** | 22,5 | 22,2 | 5,81 | 2,25 |
+| Kling 3.0 con audio | 20 | 25 | 5,16 | 2,00 |
+| Kling 3.0 Omni con sonido (el Kling O3, el mismo `kling-v3-omni` que tenía el código) | 12,5 | 40 | 3,23 | 1,25 |
+| Kling 4.0 | 22,5 | 22,2 | 5,81 | — |
+
+- **Kling 3.0 cobra por segundo:** 2 cr/s con audio a 720p y 2,5 a 1080p.
+- **El Omni 1.2 no tiene interruptor de audio.** Si sale con voz y labios, sólo se sabe generando.
+- **Lo «ilimitado» no incluye video** en los planes individuales. En los de empresa dura 7 días, es sólo en la web y prohíbe
+  automatizar y revender.
+
+## El mismo Omni 1.2 en otros proveedores (clip de 10 s, 720p, con audio)
+
+| Proveedor | US$ por clip | US$ por minuto |
+|---|---:|---:|
+| **ApiMart `gemini-omni-1.2-flash-ext`** | **0,24** | **1,44** |
+| Kie.ai | 0,45 | 2,70 |
+| ApiMart `gemini-omni-1.2-flash` (canal normal) | ~0,56 | ~3,34 |
+| Google directo (AI Studio, Vertex) | 0,70 | 4,18 |
+| OpenRouter, AI/ML API, Runware, WaveSpeed | ~0,70 | ~4,2 |
+| Segmind, sin la promo | 0,74 | 4,42 |
+| Atlas Cloud | 0,75 | 4,48 |
+| fal.ai | 0,82 | 4,91 |
+| Replicate | 1,05 | 6,30 |
+
+Leonardo sólo tiene la 1.1, y PiAPI no tiene ninguna versión. El clip del 8/11 («Omni-Flash-Ext», US$0,40) era la 1.1.
+
 ## Trampas al leer estas páginas
 
 - **HeyGen «30 min» no es lo que da por mes:** es el largo máximo de cada video. El chat del 16/11 lo leyó al revés.
-- **Higgsfield publica tres costos para Kling 3.0 en la misma página:** ~8 cr por 5 s en la lista, 8,75 en la tabla
+- **(Resuelto abajo, en «Higgsfield, medido con el botón Generate».)** Higgsfield publica tres costos para Kling 3.0 en la misma página: ~8 cr por 5 s en la lista, 8,75 en la tabla
   anual y ~14 en el configurador. No dice si trae audio. Por eso va un rango y no un número.
 - **Higgsfield no tiene plan de US$59:** Plus cuesta US$49. Team muestra 5 asientos, pero dice «2 to 9 members».
 - **Dreamina muestra los segundos con el descuento de Black Friday aplicado,** incluido el -43 % de Seedance 2.0 Fast.

@@ -31,6 +31,35 @@ Los tres corolarios, cada uno pagado por un caso real de abajo:
 
 ---
 
+## ⚠️ El Omni de ApiMart son CINCO productos, y el código eligió uno que no es de Google (17/11/2026)
+
+**Síntoma:** `lib/apimart-reglas.ts` y `lib/mako-tokens-paquetes.ts` dan `kling-v3-omni` por «el único Omni». Con eso el minuto
+de video costaba 3,7 veces más que el de Martín, y salía 16:9.
+
+**La causa:** «Omni» es una palabra del nombre, no un modelo. En ApiMart hay cinco Omni de Google (Omni Flash Preview, 1.1 Flash,
+1.1 Flash Ext, 1.2 Flash y 1.2 Flash Ext), y `kling-v3-omni` es de Kling. Leído el 17/11 en las páginas de ApiMart, sin generar nada:
+
+| id | Qué es | Cobro a 720p | Duraciones | Detalle |
+|---|---|---|---|---|
+| `gemini-omni-1.2-flash-ext` | **Omni 1.2, el de Flow** | US$0,024 por s, lineal | 3 a 15 s | foto en `first_frame_image`; sólo 16:9 o 9:16 |
+| `gemini-omni-1.2-flash` | Omni 1.2, canal normal | ~US$0,0556 por s (por tokens) | 3 a 15 s | reserva `max(10, duración)` y ajusta al terminar |
+| `gemini-omni-1.1-flash-ext` | Omni 1.1: el «Omni-Flash-Ext» del 8/11 | US$0,15 + 0,025 por s | sólo 4, 6, 8 y 10 | `generation_type: 'frame'` con una imagen |
+| `kling-v3-omni` | **De Kling, no de Google** | US$0,0896 por s | — | devuelve 16:9 |
+
+**La regla:** el modelo de video para una cara que habla se elige por su id exacto, nunca por la palabra «Omni». Y antes de
+fijar un costo se lee la página del modelo: cada una publica su tabla, así que el comentario de `lib/apimart-reglas.ts:30`,
+«el catálogo de ApiMart no trae precios», ya no vale.
+
+**SIN HACER, con dónde vive** (el precio lo arregla el chat de MaKo Tokens; esto es lo de generar):
+- **`MODELO_VIDEO_POR_DEFECTO` y `MODELO_PARA_PROBAR` son Hailuo** (`lib/apimart-reglas.ts:90` y `:102`). Si alguien conecta
+  `generarVideo` sin pasarle el modelo, una cara que habla sale con Hailuo, contra la regla «sólo Omni».
+- **`cuerpoDePedido` manda cualquier duración** (`lib/apimart-reglas.ts:200`). Un 5 le da `invalid_duration` al 1.1 Ext.
+  Tampoco manda `resolution`, `aspect_ratio` ni `generation_type` según el modelo.
+- **Conectar ApiMart de verdad es otro trabajo:** hoy `generarVideo` (lib/apimart.ts:66) no tiene llamador, y el estudio filma
+  por el puente de Flow.
+
+---
+
 ## 1. Lo que se puede usar HOY (licencia verificada con cláusula, cero ambigüedad)
 
 Todo este bloque es **software**, no assets. Esa es la razón de fondo por la que no aplica la trampa que ya costó dinero: la licencia de una herramienta no gobierna su output. La cláusula que lo dice es LGPL 2.1 §0 / GPL v2 §0 / GPL v3 §2, verbatim: *"The act of running the Program is not restricted, and the output from the Program is covered only if its contents constitute a work based on the Program"*. El MP4 no contiene código, contiene los píxeles del cliente.
