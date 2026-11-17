@@ -5026,7 +5026,8 @@ compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo 
 - **En oscuro hay blanco sobre blanco en la app de verdad** (no es del dibujo): «+ Nuevo lead» del CRM (`background:
   var(--ink)` con `color: #F3F5F8` fijo, en la barra de arriba de `app/crm/CrmBoard.tsx`) y las iniciales de la foto de la barra
   (`Identidad` en `app/_components/Sidebar.tsx`: `background: var(--primary)` con `color: #fff`; en oscuro `--primary` es
-  #ededeb). Sin arreglar.
+  #ededeb), y el número de HOY del Calendario (`app/calendario/gc-css.ts`, `.gc-cab-num` y `.gc-mes-num` de hoy: `background:
+  var(--gc-azul); color: #fff`). Sin arreglar.
 - **A 390 la app no es la de escritorio achicada**: un teléfono va a MaKo Mobile (`app/m/…`, `MOVIL_ACTIVO`). Una captura de la
   pestaña de escritorio a 390 no muestra lo que ve nadie.
 - **Republicar la página de un artefacto escribiéndola con Python en Windows** le cambia los finales de línea a `\r\n` (+110 bytes en
