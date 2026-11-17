@@ -2,6 +2,12 @@
 
 ## 16/11/2026, noche — EL SITIO (claude2, punta/sitio-1611) — los artefactos tienen links NUEVOS
 
+- **UN SOLO ARTEFACTO (más tarde esa noche):** https://claude.ai/artifact/KGn9GUek4GRqKm6M1Q345M — portada, Precios, Accelerator y
+  su aplicación, closing, equipo, crm y Onboarding, con una barra arriba. Se arma con `C:/dev/artefactos-mako/armar.mjs` (LEEME.md:
+  quién sube qué y qué tiene que compartir Martín UNA vez). Reemplaza a los tres de abajo. El `onboarding.html` lo sube su chat.
+- **La barra del sitio volvió a como estaba:** «Iniciar sesión» → «Pruébalo gratis» → la luna a la derecha del todo.
+- **El pie:** pendiente en docs/pendientes-martin.md («El pie que le gusta a Martín»): producción no estaba vieja; el Precios del
+  artefacto viejo era un dibujo de antes del rediseño del pie.
 - **Artefactos de claude2** (los de claude1 dan «artifact not found» desde esta cuenta): Sitio de MaKo
   https://claude.ai/artifact/79AimtJ2MzW4SvGNRxtij2 · MaKo Accelerator https://claude.ai/artifact/CrnSRQoQZWdsPcWi3pUuiG · Landings
   de MaKo (closing, equipo, crm) https://claude.ai/artifact/7XYp8VDGaMfjFrnfTDxVg3. Cómo se dibujan: C:/dev/artefactos-sitio/LEEME.md.

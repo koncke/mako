@@ -1846,3 +1846,68 @@ docs/hallazgos-ai-avatar.md implican 0,253 y 0,384. Los otros cuatro modelos de 
 dividen por el US$/s del código: lo más probable es que fueran clips de **6 s rotulados como 10**. La duración no quedó
 anotada, así que no se puede cerrar sin volver a medir. **Regla: una medición de costo sin la duración anotada no se puede
 comparar con otra.**
+
+## §17 — Los videos de texto animado: el VSL de julio y los tutoriales del onboarding (16/11/2026)
+
+Martín quiere los tutoriales del onboarding «como el VSL que animamos nosotros» para la landing vieja: tipografía, cortes y
+la voz de ElevenLabs. El código de la muestra está en `scripts/tutorial-animado/` (con su `LEEME.md`), y lo recuperado de
+julio en `scripts/tutorial-animado/vsl-julio/`. Los videos están en `OneDrive/Escritorio/MaKo-VSL/`.
+
+### ⚠️ El diagnóstico obvio era el equivocado: no fue Remotion
+
+Remotion entró recién el 11/11. El VSL de Funnel (julio, 1:41) es una página que dibuja cada pantalla en un canvas 2D
+(`kinetic-full.js`, `window.renderFrame(t)`), fotografiada cuadro por cuadro por Chrome sin ventana con un cliente CDP escrito
+a mano (`cdp-render-b.js`, 24 fps) y montada con ffmpeg (`assemble.sh`: intro, cuadros, video de Mauricio, voz, música con
+techo y efectos). Para 15 a 20 tutoriales fijos ese motor alcanza: la muestra de 13,7 s se renderiza en 34 s. Remotion sólo
+tiene sentido si algún día los tutoriales los arma el cliente.
+
+### El código estaba perdido, y la nota apuntaba a la nada
+
+`MaKo-VSL/funnel/funnel.md` lista las «piezas reutilizables» en `scratchpad/anim/…` y `scratchpad/vsl-research/…`. Era el
+scratchpad de la sesión `4d6acb52` en `%TEMP%`, que ya no existe. Se recuperó repitiendo el transcript
+(`~/.claude/projects/<proyecto>/4d6acb52-….jsonl`): el último `Write` de cada archivo más los `Edit` posteriores que no
+fallaron; ningún `Edit` posterior al último `Write` quedó sin aplicar, así que el estado final está completo. Lo que NO se
+recupera así son los binarios: logos, capturas, cuadros del video de stock y la intro `.mov`. Por eso el motor de julio no
+corre tal cual. **Regla: una herramienta de producción que se va a reusar va al repo el mismo día. Una nota que apunta a un
+scratchpad apunta a algo que se va a borrar.**
+
+### La voz de julio NO es la regla de hoy
+
+Julio usó la voz «David» (`id7LQ3n0ft94moeTT1ER`, impersonal a propósito: «la narra una voz de IA, no Martín») con
+`eleven_multilingual_v2`, stability 0,35, similarity 0,85, style 0,5, speed 1,08 y speaker boost. Copiar
+`vsl-julio/eleven-gen.js` trae de vuelta las dos cosas que hoy están prohibidas. Para texto, hoy va `eleven_v4` con el clon
+profesional `I2d6BR9P2dAopVw1khNv`, que `voz.mjs` lee de `C:/dev/reel-mentores/voz/LA-CONFIG.json`.
+
+- `eleven_v4` declara `can_use_style: false` y `can_use_speaker_boost: false` en `GET /v1/models`: los `voice_settings` de
+  julio no aplican, y la muestra va sin `voice_settings`.
+- Cobró 95 créditos por 217 caracteres (header `character-cost`), unos 0,44 por carácter; multilingual v2 cobraba 1. La
+  muestra entera, con la alineación y dos transcripciones, costó 104 créditos. La voz de julio costó unos 18.000 (11 tomas).
+- Medido en la muestra: 43 palabras en 13,4 s (3,2 por segundo), ningún hueco de más de 0,47 s, transcripción idéntica al
+  guion. El tono dio **143 Hz**, contra los 128 de Martín y los 119 del voice-to-voice aprobado: hay que escucharlo antes de
+  producir.
+- «Máko» con tilde sigue sirviendo con v4. «Second Brain» lo dice en inglés.
+
+### El texto se cronometra solo
+
+`/v1/forced-alignment` (el audio más el guion exacto) devuelve cada palabra con su segundo. `beats.mjs` arma las pantallas
+por rangos de palabras, así que el texto en pantalla es siempre lo que dice la voz. Esto también resuelve las pausas del
+recorrido de la maqueta del onboarding, donde dice «los tiempos se cronometran después»: salen de la alineación. ⚠️ La
+respuesta trae los espacios como si fueran palabras (85 entradas para 43 palabras): hay que filtrar por `text.trim()`.
+
+### Trampas del render
+
+- `canvas.toDataURL()` en una página `file://` que dibujó una imagen local tira `SecurityError: Tainted canvases may not be
+  exported`. Se arregla lanzando Chromium con `--allow-file-access-from-files`. Julio lo esquivaba con capturas de pantalla
+  por CDP.
+- Acercar 2× una captura tomada a 1× la deja borrosa. La app se captura con `deviceScaleFactor` 2,4 (3840×2160).
+- Cuando la cámara se acerca a un botón en una esquina, el encuadre queda clavado contra el borde de la imagen y el botón
+  termina abajo al centro, justo donde va la marca de agua de MaKo. En las pantallas de la app la marca de agua no va.
+
+### Lo que quedó SIN hacer
+
+- Lo decide Martín: la voz (su clon o «David»), si va música o efectos (la muestra va sin nada) y si se saca cada tutorial en
+  claro y en oscuro.
+- La muestra marca una captura de la MAQUETA (`C:/dev/artefactos-onboarding/onboarding.html`), no de la app desplegada. Antes
+  de producir, se captura la app real.
+- Los guiones de cada pestaña. Hoy `guionTab` de la maqueta es genérico.
+- La música phonk de julio salió de `Downloads` sin licencia anotada: no se reusa sin verificarla (ver §5).
