@@ -432,9 +432,9 @@ test('16 · Cargar pago: el recibo atado a su pago del CRM suma una vez; el que 
     { id: 3, medio: 'binance', referencia: '123456789012345670', fecha: '2026-11-05T12:00:00Z', monto_usd: 10, anulado: true, pago_id: null },
     { id: 4, medio: 'binance', referencia: '123456789012345671', fecha: '2026-11-05T12:00:00Z', monto_usd: 10, anulado: false, pago_id: 77 },
   ]
-  assert.deepEqual(planParaElCrm(cobros, new Map()), { atar: [], registrar: { ids: [1, 2], usd: 238, fecha: '2026-11-05T12:00:00Z' } }, 'un pago de 238; el anulado y el ya atado, nada')
+  assert.deepEqual(planParaElCrm(cobros, new Map()), { atar: [], registrar: { ids: [1, 2], usd: 238, fecha: '2026-11-05T12:00:00Z', moneda: null, montoOriginal: null } }, 'un pago de 238; el anulado y el ya atado, nada')
   const atar = new Map([[claveDelCobro('binance', '1234-5678-9012-3456-78'), 802]])
-  assert.deepEqual(planParaElCrm(cobros, atar), { atar: [{ id: 1, pagoId: 802 }], registrar: { ids: [2], usd: 144, fecha: '2026-11-05T12:00:00Z' } }, 'el que se eligió, a su pago; el resto, a uno nuevo')
+  assert.deepEqual(planParaElCrm(cobros, atar), { atar: [{ id: 1, pagoId: 802 }], registrar: { ids: [2], usd: 144, fecha: '2026-11-05T12:00:00Z', moneda: null, montoOriginal: null } }, 'el que se eligió, a su pago; el resto, a uno nuevo')
   assert.equal(planParaElCrm([{ ...cobros[0], monto_usd: null }], new Map()).registrar?.usd, null, 'sin dólares no se registra (nunca una tasa)')
   assert.deepEqual(planParaElCrm([cobros[3]], new Map()), { atar: [], registrar: null }, 'un reintento: lo atado no se registra dos veces')
   // El mismo pago del CRM elegido para dos cobros se frena antes de emitir (un recibo emitido gasta su número).

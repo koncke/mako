@@ -359,7 +359,7 @@ test('10. el cableado del cobro: Creem tiene su rama en TODO camino que mueve pl
 
   // Un link anulado que sigue pagable es un DOBLE COBRO: `cerrarLinkEnLaPasarela` no tenía else y Creem se caía por el
   // hueco. Lo que se corta es la suscripción (lo que seguiría cobrando todos los meses).
-  assert.match(src, /c\.proveedor === 'creem' && c\.proveedor_ref\)/);
+  assert.match(src, /async function cerrarLinkEnLaPasarela[\s\S]*?c\.proveedor === 'creem'\) \{[\s\S]*?cancelarSuscripcionCreem\(creem\.key, susId, idemAnular\(c\.id\), false\)/);
 
   // El cron de reconciliación es la RED de lo que el aviso perdió (Creem abandona a las 24 h): tiene que ver Creem.
   assert.match(src, /c\.proveedor === 'creem' && creem && c\.proveedor_ref\)/);

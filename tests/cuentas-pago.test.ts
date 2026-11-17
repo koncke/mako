@@ -263,7 +263,10 @@ test('la landing no reusa un pendiente de OTRA cuenta', () => {
 
 test('lo chico de la segunda revisión: anular no corta, el aviso usa el id validado, la landing pide el modo del producto', () => {
   // Anular con la base cayendo a mitad (buscar la cuenta del cobro tira): el cobro queda anulado y anular contesta ok.
-  assert.deepEqual(R.anular, { r: { ok: true }, estado: 'anulado' }, 'anular cortó después de anular: «No pude anular» de algo anulado');
+  // (17/11, P27: ya no contesta `ok` a secas: dice que la pasarela no pudo cerrar el link. Sigue siendo `ok` —la fila quedó anulada—.)
+  assert.equal(R.anular.r.ok, true, 'anular cortó después de anular: «No pude anular» de algo anulado');
+  assert.match(String((R.anular.r as { sigueAbierto?: string }).sigueAbierto), /la base no contesta/);
+  assert.equal(R.anular.estado, 'anulado');
   assert.match(sinComentarios(leer('app/api/webhooks/stripe/route.ts')), /procesarEventoStripe\(wsFinal, ev, cuentaFinal, cuenta \? acct : null\)/);
   assert.match(sinComentarios(leer('app/api/webhooks/mercadopago/route.ts')), /aplicarNotificacionMp\(wsFinal, lectura, cuentaFinal, cuenta \? n\.userId : null\)/);
   assert.match(sinComentarios(leer('lib/editor-landing/pago-landing-server.ts')), /modo: \(pasarela, productoId\) => modoDeLaPasarela\(l\.ws, pasarela, productoId\),/);
