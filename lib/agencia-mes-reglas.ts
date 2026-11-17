@@ -48,6 +48,31 @@ export const MEDIO_POR_DEFECTO = 'Binance';
 export type Dia = string;
 export type Mes = string;
 
+// ── Una cuenta SUELTA con ciclo propio (Leila Fittipaldi, 17/11/2026) ─────────────────────────────────────────────
+// Martín: «implementa el mismo proceso que tenemos con Código Inmobiliario que le cobramos por Binance, pero para Leila […] con ella no
+// vamos a cobrarle del 1 al 5, sino que como no tiene clientes, es la fecha que pagó, la misma fecha pero al siguiente mes».
+// Es la MISMA mensualidad (aviso al grupo con el PDF, Binance, comprobante, recibo, pausa) con dos diferencias, que viajan en la config
+// (`cicloPropio`) y no cambian nada de las agencias:
+//   · UN solo ítem, su plan, sin clientes ni reloj de 14 días;
+//   · el ciclo arranca el día del mes en que pagó (`dia`) y no el 5: el mes `AAAA-MM` es el que EMPIEZA ese mes (pagó el 26/10 → el
+//     ciclo `2026-10` va del 26/10 al 25/11, y el que se avisa el 26/11 es el `2026-11`). Si el mes no tiene ese día (el 31, en febrero),
+//     arranca el último día del mes.
+// El aviso sale el día que arranca el ciclo y se paga hasta `DIAS_DE_GRACIA_CICLO_PROPIO` días después (la misma ventana de 5 días que
+// tiene una agencia, del 1 al 5); el día siguiente, sin el pago, se pausa la cuenta, igual que con Código.
+export type CicloPropio = { dia: number; plan: PlanCuenta };
+/**
+ * Desde cuántos días ANTES de que arranque su ciclo se acepta el pago (revisión del 17/11/2026): quien paga el 25 para el ciclo del 26
+ * mandaba un comprobante «de nada pendiente» a Martín, y el 26 igual se le avisaba y, si nadie lo aplicaba, se le pausaba pagada. Con un
+ * ciclo propio el pago cuenta para el ciclo que arranca dentro de este plazo; el aviso sigue saliendo el día que arranca (y no sale si ya pagó).
+ */
+export const DIAS_DE_ADELANTO_CICLO_PROPIO = 5;
+/** Días de plazo, después del que arranca el ciclo, para pagar: el aviso y 4 más = 5 días, como el 1 al 5 de una agencia. */
+export const DIAS_DE_GRACIA_CICLO_PROPIO = 4;
+export const esCicloPropio = (v: unknown): v is CicloPropio => {
+  const o = v as { dia?: unknown; plan?: unknown } | null;
+  return !!o && typeof o === 'object' && Number.isInteger(o.dia) && (o.dia as number) >= 1 && (o.dia as number) <= 31 && (o.plan === 'pro' || o.plan === 'esencial');
+};
+
 // ── Días y meses, sin zona: el día ya viene en la zona de la agencia ──────────────────────────────────────────────
 
 const DIA_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -84,8 +109,11 @@ export function mesSiguiente(m: Mes): Mes {
   const [y, mm] = m.split('-').map(Number);
   return mm === 12 ? `${y + 1}-01` : `${y}-${dos(mm + 1)}`;
 }
-/** El último día para pagar el mes (el 5). Desde el día siguiente, sin el total, se suspende. */
-export const diaLimite = (m: Mes): Dia => `${m}-${dos(DIA_LIMITE_DE_PAGO)}`;
+/**
+ * El último día para pagar el mes: el 5 (desde el día siguiente, sin el total, se suspende). Con ciclo propio, el día que arranca su
+ * ciclo más los días de plazo.
+ */
+export const diaLimite = (m: Mes, ciclo?: CicloPropio | null): Dia => (ciclo ? sumarDias(inicioDelCiclo(m, ciclo), DIAS_DE_GRACIA_CICLO_PROPIO) : `${m}-${dos(DIA_LIMITE_DE_PAGO)}`);
 
 /** Los meses de `desde` a `hasta`, los dos incluidos (vacío si `desde` es posterior). Tope de 60: cinco años. */
 export function mesesEntre(desde: Mes, hasta: Mes): Mes[] {
@@ -96,8 +124,10 @@ export function mesesEntre(desde: Mes, hasta: Mes): Mes[] {
 
 // ── El ciclo del 5 al 5 y el diferencial ──────────────────────────────────────────────────────────────────────────
 
-/** El día en que arranca el ciclo del mes `m` (su 5). */
-export const inicioDelCiclo = (m: Mes): Dia => `${m}-${dos(DIA_DEL_CICLO)}`;
+/** El día en que arranca el ciclo del mes `m` (su 5; con ciclo propio, el día en que pagó, o el último del mes si ese día no existe). */
+export const inicioDelCiclo = (m: Mes, ciclo?: CicloPropio | null): Dia => `${m}-${dos(ciclo ? Math.min(ciclo.dia, diasDelMes(m)) : DIA_DEL_CICLO)}`;
+/** El ciclo propio en el que cae un día (el mes en que ARRANCÓ): del 26/11 al 25/12 es `2026-11`; el 3/12, también. */
+export const cicloPropioDe = (d: Dia, ciclo: CicloPropio): Mes => (d >= inicioDelCiclo(mesDe(d), ciclo) ? mesDe(d) : mesAnterior(mesDe(d)));
 /** El ciclo en el que cae un día: del 5 de ese mes (si ya pasó el 5) o del 5 del mes anterior. */
 export const cicloDe = (d: Dia): Mes => (diaDelMes(d) >= DIA_DEL_CICLO ? mesDe(d) : mesAnterior(mesDe(d)));
 /** Los días del ciclo de `m`: del 5 de `m` al 5 del mes siguiente (30 del 5/11 al 5/12, 31 del 5/12 al 5/1). */
@@ -275,8 +305,14 @@ export function cuentaDelMes(p: {
   precios: Precios;
   hoy: Dia;
   entradasDesde: Dia;
+  /** Una cuenta suelta con ciclo propio: un solo renglón, su plan, y el límite sale de su ciclo. */
+  ciclo?: CicloPropio | null;
 }): CuentaDelMes | null {
   if (!esMes(p.mes) || !esMes(p.primerMes) || p.mes < p.primerMes) return null;
+  if (p.ciclo) {
+    const monto = p.precios[p.ciclo.plan];
+    return { mes: p.mes, limite: diaLimite(p.mes, p.ciclo), lineas: [{ tipo: 'agencia', plan: p.ciclo.plan, montoUsd: monto }], totalUsd: redondo(monto) };
+  }
   const lineas: LineaDelMes[] = [{ tipo: 'agencia', plan: p.planAgencia, montoUsd: p.precios[p.planAgencia] }];
   const clientes = [...p.clientes].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es') || a.ws - b.ws);
   for (const c of clientes) {
@@ -295,8 +331,13 @@ export const clientesEnLaCuenta = (c: CuentaDelMes): number => c.lineas.filter((
  * El mes cuya mensualidad se avisa hoy, o null. El aviso sale el día 1, pero se prueba del 1 al 5: si el del día 1 no
  * salió (el cron no corrió, no había grupo), sale al día siguiente. Que no se repita lo cuida quien lo manda.
  */
-export function mesQueSeAvisa(hoy: Dia, primerMes: Mes): Mes | null {
+export function mesQueSeAvisa(hoy: Dia, primerMes: Mes, ciclo?: CicloPropio | null): Mes | null {
   if (!esDia(hoy) || !esMes(primerMes)) return null;
+  // Con ciclo propio, el aviso sale el día que arranca y se prueba todos los días del plazo (si el del primero no salió, sale al otro día).
+  if (ciclo) {
+    for (const m of [mesDe(hoy), mesAnterior(mesDe(hoy))]) if (m >= primerMes && hoy >= inicioDelCiclo(m, ciclo) && hoy <= diaLimite(m, ciclo)) return m;
+    return null;
+  }
   const m = mesDe(hoy);
   const d = diaDelMes(hoy);
   return m >= primerMes && d >= 1 && d <= DIA_LIMITE_DE_PAGO ? m : null;
@@ -419,7 +460,7 @@ export type Causa = 'entrada' | `mes:${string}`;
 export const esCausa = (v: unknown): v is Causa => v === 'entrada' || (typeof v === 'string' && /^mes:\d{4}-(0[1-9]|1[0-2])$/.test(v));
 
 /** Lo que se sabe de cada mes desde que se prendió: el total que se le dijo, lo que entró, y si el aviso salió. */
-export type EstadoDelMes = { mes: Mes; totalUsd: number; pagadoUsd: number; avisadoUsd: number | null };
+export type EstadoDelMes = { mes: Mes; totalUsd: number; pagadoUsd: number; avisadoUsd: number | null; /** El último día para pagarlo, si no es el 5 (ciclo propio). */ limite?: Dia };
 /** Lo que se sabe de cada cliente: su situación, y si el aviso de su entrada salió (para pausarlo hace falta que haya salido). */
 export type EstadoDeCliente = { ws: number; situacion: Situacion; avisoEntrada: boolean };
 
@@ -439,7 +480,7 @@ export function quienVaEnPausa(p: { agenciaWs: number; hoy: Dia; meses: readonly
     if (s.tipo === 'paga-para-entrar' || (s.tipo === 'debe-entrada' && s.vencida && c.avisoEntrada)) sumar(c.ws, 'entrada');
   }
   for (const m of p.meses) {
-    if (p.hoy <= diaLimite(m.mes) || m.avisadoUsd == null) continue;
+    if (p.hoy <= (m.limite ?? diaLimite(m.mes)) || m.avisadoUsd == null) continue;
     // Se exige lo que se le dijo, o el total de hoy si bajó (una baja después del aviso). Nunca más de lo que se le dijo.
     const exigido = Math.min(m.avisadoUsd, m.totalUsd);
     if (cubre(m.pagadoUsd, exigido)) continue;
@@ -490,6 +531,8 @@ export type ConfigMensualidad = {
   medio: string;
   prendidaPor: string | null;
   prendidaAt: string | null;
+  /** Una cuenta suelta que paga su plan con el ciclo de la fecha en que pagó (no una agencia): ver `CicloPropio`. */
+  cicloPropio?: CicloPropio;
 };
 
 const texto = (v: unknown, max: number): string | null => (typeof v === 'string' && v.trim() ? v.replace(/\s+/g, ' ').trim().slice(0, max) : null);
@@ -507,7 +550,10 @@ export function leerConfigMensualidad(raw: unknown): ConfigMensualidad | null {
   if (!o || !esMes(o.desde)) return null;
   // Las de antes del 6/11 no tenían el día: las entradas se cobran desde el primer día del primer mes.
   const entradasDesde = esDia(o.entradasDesde) ? o.entradasDesde : primerDia(o.desde);
-  return { desde: o.desde, entradasDesde, medio: texto(o.medio, 40) ?? MEDIO_POR_DEFECTO, prendidaPor: texto(o.prendidaPor, 120), prendidaAt: texto(o.prendidaAt, 40) };
+  return {
+    desde: o.desde, entradasDesde, medio: texto(o.medio, 40) ?? MEDIO_POR_DEFECTO, prendidaPor: texto(o.prendidaPor, 120), prendidaAt: texto(o.prendidaAt, 40),
+    ...(esCicloPropio(o.cicloPropio) ? { cicloPropio: { dia: o.cicloPropio.dia, plan: o.cicloPropio.plan } } : {}),
+  };
 }
 
 /**
@@ -596,7 +642,7 @@ export function conceptoDeLinea(l: LineaDelMes): string {
 }
 
 /** Qué cubre un ciclo: «del 5 de diciembre al 4 de enero». */
-export const periodoDelCiclo = (m: Mes): string => `del ${diaLargo(inicioDelCiclo(m))} al ${diaLargo(sumarDias(inicioDelCiclo(mesSiguiente(m)), -1))}`;
+export const periodoDelCiclo = (m: Mes, ciclo?: CicloPropio | null): string => `del ${diaLargo(inicioDelCiclo(m, ciclo))} al ${diaLargo(sumarDias(inicioDelCiclo(mesSiguiente(m), ciclo), -1))}`;
 
 /** Una tabla para el PDF: encabezados, filas y el total. Lo dibuja lib/agencia-mes-pdf.ts. */
 export type TablaDeCobro = {
@@ -610,12 +656,26 @@ export type TablaDeCobro = {
 };
 
 /** La tabla del aviso del mes: un renglón por línea, con el período que cubre. */
-export function tablaDelMes(p: { agencia: string; cuenta: CuentaDelMes; medio: string; pagadoUsd?: number }): TablaDeCobro {
+export function tablaDelMes(p: { agencia: string; cuenta: CuentaDelMes; medio: string; pagadoUsd?: number; ciclo?: CicloPropio | null }): TablaDeCobro {
   const mes = nombreDelMes(p.cuenta.mes);
-  const periodo = periodoDelCiclo(p.cuenta.mes);
+  const periodo = periodoDelCiclo(p.cuenta.mes, p.ciclo);
   const filas = p.cuenta.lineas.map((l) => [conceptoDeLinea(l), periodo, usd(l.montoUsd)]);
   const ya = p.pagadoUsd && p.pagadoUsd > 0.009 ? p.pagadoUsd : 0;
   if (ya) filas.push(['Ya pagado a cuenta', '', usd(-ya)]);
+  if (p.ciclo) {
+    return {
+      titulo: `Mensualidad de ${mes}`,
+      subtitulo: `${p.agencia} · se paga hasta el ${diaLargo(p.cuenta.limite)}, por ${p.medio}`,
+      columnas: ['Concepto', 'Cubre', 'Importe'],
+      filas,
+      totalUsd: redondo(p.cuenta.totalUsd - ya),
+      limite: p.cuenta.limite,
+      notas: [
+        `Cubre ${periodo}: tu mes arranca el día en que pagaste.`,
+        `Si el ${diaLargo(p.cuenta.limite)} no está pagada, el día siguiente se pausa tu cuenta hasta que entre el pago. Tus datos quedan guardados.`,
+      ],
+    };
+  }
   return {
     titulo: `Mensualidad de ${mes}`,
     subtitulo: `${p.agencia} · se paga del 1 al ${DIA_LIMITE_DE_PAGO} de ${mes}, por ${p.medio}`,
@@ -656,8 +716,14 @@ export function tablaDeEntradas(p: { agencia: string; medio: string; entradas: R
 }
 
 /** El texto que acompaña al PDF del mes en el grupo. Español neutro, de tú, y pide el comprobante. */
-export function textoDelAvisoDelMes(p: { agencia: string; tabla: TablaDeCobro; medio: string; actualizado?: boolean }): string {
+export function textoDelAvisoDelMes(p: { agencia: string; tabla: TablaDeCobro; medio: string; actualizado?: boolean; ciclo?: CicloPropio | null; mes?: Mes }): string {
   const mes = p.tabla.titulo.replace('Mensualidad de ', '');
+  if (p.ciclo && p.mes) {
+    return [
+      p.actualizado ? `Se actualizó tu mensualidad de MaKo: ahora son ${usd(p.tabla.totalUsd)}.` : `Hola. Tu mensualidad de MaKo, ${periodoDelCiclo(p.mes, p.ciclo)}, es de ${usd(p.tabla.totalUsd)}. El detalle va en el PDF.`,
+      `Págala por ${p.medio} hasta el ${diaLargo(p.tabla.limite)} y manda aquí la captura del comprobante: la registro y te mando el recibo.`,
+    ].join('\n');
+  }
   return [
     p.actualizado ? `Se actualizó la mensualidad de ${mes} de ${p.agencia}: ahora son ${usd(p.tabla.totalUsd)}.` : `Hola. La mensualidad de MaKo de ${mes} de ${p.agencia} es de ${usd(p.tabla.totalUsd)}. El detalle va en el PDF.`,
     `Págala por ${p.medio} hasta el ${diaLargo(p.tabla.limite)} y manda aquí la captura del comprobante: la registro y te mando el recibo.`,
@@ -686,7 +752,8 @@ export function textoDelAvisoDeEntradas(p: { tabla: TablaDeCobro; medio: string;
 }
 
 /** Lo que dice MaKo en el grupo cuando la agencia queda en pausa el día 6 (sin montos de sus clientes). */
-export function textoDePausaDelMes(p: { mes: Mes; faltaUsd: number }): string {
+export function textoDePausaDelMes(p: { mes: Mes; faltaUsd: number; ciclo?: CicloPropio | null }): string {
+  if (p.ciclo) return `Tu mensualidad de MaKo (${periodoDelCiclo(p.mes, p.ciclo)}) no entró: desde hoy tu cuenta está en pausa. Falta ${usd(p.faltaUsd)}. Manda aquí el comprobante y vuelves a entrar en el acto. Tus datos están guardados.`;
   return `La mensualidad de ${nombreDelMes(p.mes)} no entró: desde hoy tu cuenta y las de tus clientes están en pausa. Falta ${usd(p.faltaUsd)}. Manda aquí el comprobante y vuelven a entrar en el acto.`;
 }
 
@@ -697,9 +764,10 @@ export function textoDePausaDelMes(p: { mes: Mes; faltaUsd: number }): string {
  *
  * Es un reporte, no un mensaje a una persona: sin segunda persona, con el monto y los días que lleva.
  */
-export function textoDeMesImpago(p: { agencia: string; mes: Mes; debeUsd: number; diasDeAtraso: number }): string {
+export function textoDeMesImpago(p: { agencia: string; mes: Mes; debeUsd: number; diasDeAtraso: number; ciclo?: CicloPropio | null }): string {
   const d = p.diasDeAtraso;
   const cuanto = d <= 0 ? 'vence hoy' : d === 1 ? 'lleva 1 día de atraso' : `lleva ${d} días de atraso`;
+  if (p.ciclo) return `${p.agencia}: su mensualidad de MaKo (${periodoDelCiclo(p.mes, p.ciclo)}) no entró y ${cuanto}. Falta ${usd(p.debeUsd)}. Su cuenta queda en pausa hasta que entre el pago.`;
   return `${p.agencia}: la mensualidad de ${nombreDelMes(p.mes)} no entró y ${cuanto}. Falta ${usd(p.debeUsd)}. La cuenta de la agencia y las de sus clientes quedan en pausa hasta que entre el pago.`;
 }
 
@@ -788,12 +856,13 @@ export const enLista = (xs: readonly string[]): string => (xs.length <= 1 ? xs.j
 
 // ── Lo que quedó activo con un pago (16/11/2026) ─────────────────────────────────────────────────────────────────
 /** Quiénes quedaron adentro con un pago: los clientes cuya entrada se completó o cuya cuenta se reabrió, y la agencia si pagó su mes. */
-export type CuentasActivas = { clientes: string[]; agencia: boolean };
-export function cuentasActivasDelPago(p: { agenciaWs: number; completas: readonly string[]; reabiertas: readonly number[]; clientes: ReadonlyArray<{ ws: number; nombre: string }> }): CuentasActivas {
+export type CuentasActivas = { clientes: string[]; agencia: boolean; /** Una cuenta suelta con ciclo propio: se le dice «tu cuenta», no «la cuenta de la agencia». */ propia?: boolean };
+export function cuentasActivasDelPago(p: { agenciaWs: number; completas: readonly string[]; reabiertas: readonly number[]; clientes: ReadonlyArray<{ ws: number; nombre: string }>; propia?: boolean }): CuentasActivas {
   const ws = [...new Set([...p.completas.filter((c) => c.startsWith('entrada:')).map((c) => Number(c.slice(8))), ...p.reabiertas.filter((w) => w !== p.agenciaWs)])];
   return {
     clientes: ws.map((w) => p.clientes.find((c) => c.ws === w)?.nombre?.trim() ?? '').filter(Boolean),
     agencia: p.completas.some((c) => c.startsWith('mes:')) || p.reabiertas.includes(p.agenciaWs),
+    ...(p.propia ? { propia: true } : {}),
   };
 }
 
@@ -807,7 +876,7 @@ export function textoDeCuentasActivas(a: CuentasActivas): string {
   const partes: string[] = [];
   if (a.clientes.length === 1) partes.push(`Ya quedó activa la cuenta de ${a.clientes[0]}: puede entrar tranquilamente.`);
   else if (a.clientes.length > 1) partes.push(`Ya quedaron activas las cuentas de ${enLista(a.clientes)}: pueden entrar tranquilamente.`);
-  if (a.agencia) partes.push(a.clientes.length ? 'La cuenta de la agencia también sigue activa.' : 'La cuenta de la agencia sigue activa.');
+  if (a.agencia) partes.push(a.propia ? 'Tu cuenta sigue activa.' : a.clientes.length ? 'La cuenta de la agencia también sigue activa.' : 'La cuenta de la agencia sigue activa.');
   return partes.join(' ');
 }
 
