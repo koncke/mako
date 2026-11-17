@@ -176,6 +176,23 @@ const CSS_TIEMPOS = [
   }),
 ].join('\n');
 
+/** `soloLlamada` (la fila «Cada objeción, respondida o no» de /vsl/closing, 16/11/2026): sólo la llamada, en un ciclo propio de 12 s —la
+ *  cámara se acerca al costado de MaKo, las tres objeciones salen de a una, se quedan a la vista y vuelve—, sin la hoja de MaKo (la fila
+ *  de los cierres de esa landing es otra). Pisa los tiempos de la de la portada; con «menos movimiento» quedan los de arriba (quieta). */
+const CICLO_SOLO = 12;
+const ENTRA_OBJ_SOLO = [20, 38, 56];
+const CSS_SOLO = `@media (prefers-reduced-motion:no-preference){
+.s-cad[data-solo] .s-cad-cam{animation-name:s-cad-zoom-s;animation-duration:${CICLO_SOLO}s}
+@keyframes s-cad-zoom-s{0%,8%{transform:none}16%,84%{transform:scale(1.25)}92%,100%{transform:none}}
+.s-cad[data-solo] .s-cad-tiles{animation-name:s-cad-apaga-s;animation-duration:${CICLO_SOLO}s}
+@keyframes s-cad-apaga-s{0%,8%{opacity:1}16%,84%{opacity:.35}92%,100%{opacity:1}}
+.s-cad[data-solo] .s-cad-tile-a::after,.s-cad[data-solo] .s-cad-tile-a .s-cad-ola{animation-name:s-cad-a-s;animation-duration:${CICLO_SOLO}s}
+.s-cad[data-solo] .s-cad-tile-b::after,.s-cad[data-solo] .s-cad-tile-b .s-cad-ola{animation-name:s-cad-b-s;animation-duration:${CICLO_SOLO}s}
+@keyframes s-cad-a-s{0%,14%{opacity:1}17%,84%{opacity:0}88%,100%{opacity:1}}
+@keyframes s-cad-b-s{0%,14%{opacity:0}17%,84%{opacity:1}88%,100%{opacity:0}}
+${ENTRA_OBJ_SOLO.map((e, i) => `.s-cad[data-solo] .s-cad-chip:nth-child(${i + 2}){animation-name:s-cad-chip-s${i};animation-duration:${CICLO_SOLO}s}@keyframes s-cad-chip-s${i}{0%,${e}%{opacity:0;transform:translateY(1cqw)}${e + 3}%,86%{opacity:1;transform:none}90%,100%{opacity:0;transform:none}}`).join('\n')}
+}`;
+
 /** Los íconos de la barra de Meet (los de Material, en 24×24). */
 const ICONO = {
   mic: 'M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z',
@@ -207,7 +224,7 @@ const Estado = ({ ok }: { ok: boolean }) => (
   </svg>
 );
 
-export function ClosingAntesDespues() {
+export function ClosingAntesDespues({ soloLlamada = false }: { soloLlamada?: boolean } = {}) {
   const { antes, despues, porMes, llamada, llamadas, scorePorSemana } = CLOSING_MAURICIO;
   // La línea del score: de 4 a 8 en el alto del gráfico (44), las semanas repartidas en el ancho (120).
   const puntos = scorePorSemana.map((v, i) => `${Math.round((i / (scorePorSemana.length - 1)) * 1200) / 10},${Math.round((44 - ((v - 4) / 4) * 40 - 2) * 10) / 10}`).join(' ');
@@ -217,9 +234,11 @@ export function ClosingAntesDespues() {
   const total = acumulados[acumulados.length - 1] || 1;
   const vendido = porMes.reduce((a, m) => a + m.usd, 0);
   return (
-    <div className="s-cad" data-tema-fijo="" role="img"
-      aria-label={`Una llamada de venta de Mauricio con las objeciones que marcó MaKo, y sus cierres de 2026: de ${antes.cierres} entre ${antes.periodo.toLowerCase()} a ${despues.cierres} entre ${despues.periodo.toLowerCase()} (tasa de cierre ${tasa} %), ${usd(vendido)} vendidos`}>
-      <style dangerouslySetInnerHTML={{ __html: CSS + CSS_TIEMPOS }} />
+    <div className="s-cad" data-tema-fijo="" data-solo={soloLlamada ? '' : undefined} role="img"
+      aria-label={soloLlamada
+        ? `Una llamada de venta de Mauricio con las objeciones que marcó MaKo y si las respondió: ${llamada.objeciones.map((o) => `${o.tipo.toLowerCase()}, ${o.respondida ? 'respondida' : 'sin responder'}`).join('; ')}`
+        : `Una llamada de venta de Mauricio con las objeciones que marcó MaKo, y sus cierres de 2026: de ${antes.cierres} entre ${antes.periodo.toLowerCase()} a ${despues.cierres} entre ${despues.periodo.toLowerCase()} (tasa de cierre ${tasa} %), ${usd(vendido)} vendidos`}>
+      <style dangerouslySetInnerHTML={{ __html: CSS + CSS_TIEMPOS + (soloLlamada ? CSS_SOLO : '') }} />
       <div className="s-cad-cam">
         <div className="s-cad-in">
           <div className="s-cad-tiles">
@@ -263,7 +282,7 @@ export function ClosingAntesDespues() {
           </div>
         </div>
       </div>
-      <div className="s-cad-app" aria-hidden="true">
+      {!soloLlamada && <div className="s-cad-app" aria-hidden="true">
         <div className="s-cad-dash">
           <div className="s-cad-hoja">
             <div className="s-cad-pieza s-cad-tasa">
@@ -318,7 +337,7 @@ export function ClosingAntesDespues() {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

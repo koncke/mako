@@ -26,8 +26,7 @@ import type { Bloque } from '../tipos';
 import type { PropsDiseno } from './index';
 import { RUTA_CTA, LogoMaKo, TEXTO_CTA, TEXTO_CIERRE, CASO, html, otrasFunciones } from '../marca';
 import { RENGLON_PLAN } from '../equipo';
-import { FALTA_ANALISIS } from '../closing';
-import { FaltaAnimacion } from '../FaltaAnimacion';
+import { ClosingCoaching } from '../../_sitio/ClosingNotas';
 import { integracionesVivas, integracionesDeLaTira, LOGO_INTEGRACION, RUTA_INTEGRACIONES } from '../../_sitio/datos';
 
 const P = 'd-equipo';
@@ -37,7 +36,7 @@ export const VIDEO_HERO_EQUIPO = { video: '/vsl-assets/sitio/equipo.webm', poste
 
 /** Las pantallas REALES: Equipo y su modal (banco C:/dev/bancos-portada/banco-equipo-landing) y la hoja Closing (la de /vsl/closing,
  *  banco-closing-landing: números de ejemplo). Nombres ficticios. ⚠️ La ficha de una llamada (sus fortalezas, lo que hay que mejorar y
- *  el coaching) NO va en foto: lo escribe el análisis, y la que había era de una llamada INVENTADA. Va el recuadro (`FIGURAS_FILAS`). */
+ *  el coaching) NO va en foto: lo escribe el análisis, y la que había era de una llamada INVENTADA. Va la animación (`FIGURAS_FILAS`). */
 export const FOTOS_EQUIPO = {
   invitar: { src: '/vsl-assets/equipo/invitar.jpg', w: 900, h: 900, alt: '«Invitar al equipo» en MaKo: el correo y el nombre de Sofía Lara, y el rol abierto con sus tres opciones: Setter (CRM, WhatsApp, Email), Closer (CRM, WhatsApp, Closing) y Admin (todo el negocio)' },
   miembros: { src: '/vsl-assets/equipo/miembros.jpg', w: 1400, h: 912, alt: 'La sección Equipo de MaKo: cinco personas, cada una con su rol (una Admin, tres closers y una setter) y Sofía Lara con «invitación enviada»' },
@@ -48,10 +47,10 @@ export const FOTOS_EQUIPO = {
 } as const;
 
 /** La figura de cada sección, en su orden: la de «Qué necesita…» y las de las cuatro filas (una por fila, como las suyas). La de lo
- *  que hace bien y corrige cada closer es el coaching que escribe el análisis: `'falta'`, el recuadro (el mismo texto de /vsl/closing,
- *  `FALTA_ANALISIS.coaching`), hasta que haya un análisis real. */
+ *  que hace bien y corrige cada closer es el coaching que escribe el análisis: `'coaching'`, la animación de /vsl/closing con dos
+ *  llamadas REALES de Mauricio (app/vsl/_sitio/ClosingNotas.tsx: el coaching de una y cómo quedó la de un mes después, sólo notas). */
 export const FIGURA_QUE_NECESITA = 'invitar' as const;
-export const FIGURAS_FILAS = [['miembros'], ['tasa', 'closers'], 'falta', ['rol']] as const;
+export const FIGURAS_FILAS = [['miembros'], ['tasa', 'closers'], 'coaching', ['rol']] as const;
 
 const CSS = `
 @font-face{font-family:'d-equipo-inter';src:url('/vsl-assets/fuentes/inter/inter-latin-var.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
@@ -84,6 +83,8 @@ const CSS = `
 .d-equipo-figura{margin:0;justify-self:center;width:100%;max-width:560px;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 18px 40px -20px rgba(25,36,53,.35);border:1px solid #E6E8EE}
 .d-equipo-figura img{display:block;width:100%;height:auto}
 .d-equipo-figura.d-equipo-foto{max-width:420px}
+.d-equipo-figura.d-equipo-anim{position:relative;max-width:644px;aspect-ratio:16/10}
+@media (max-width:767px){.d-equipo-figura.d-equipo-anim{aspect-ratio:4/3}}
 .d-equipo-figura.d-equipo-dos{display:grid;gap:12px;padding:16px;background:#F4F3EF}
 .d-equipo-figura.d-equipo-dos img{border-radius:8px}
 .d-equipo-figura.d-equipo-dos img+img{width:72%}
@@ -244,7 +245,9 @@ function secciones(bloques: Bloque[]): ReactNode[] {
         out.push(
           <section key={`${k}-${i}`} className={`${P}-fila`}>
             <div className={`${P}-in ${P}-par${i % 2 ? ` ${P}-vuelta` : ''}`}>
-              {fig === 'falta' ? <FaltaAnimacion que={FALTA_ANALISIS.coaching} /> : <Figura cuales={fig ?? []} />}
+              {fig === 'coaching' ? (
+                <figure className={`${P}-figura ${P}-anim`} data-tema-fijo="" data-animacion="coaching"><ClosingCoaching /></figure>
+              ) : <Figura cuales={fig ?? []} />}
               <div className={`${P}-copia`}>
                 <h2 className={`${P}-h2`} dangerouslySetInnerHTML={html(it.titulo)} />
                 <p className={`${P}-p`} dangerouslySetInnerHTML={html(it.texto)} />

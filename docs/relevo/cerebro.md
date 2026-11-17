@@ -1,5 +1,16 @@
 # Relevo del Cerebro
 
+## 16/11/2026, noche — EL SITIO (claude2, punta/sitio-1611) — los artefactos tienen links NUEVOS
+
+- **Artefactos de claude2** (los de claude1 dan «artifact not found» desde esta cuenta): Sitio de MaKo
+  https://claude.ai/artifact/79AimtJ2MzW4SvGNRxtij2 · MaKo Accelerator https://claude.ai/artifact/CrnSRQoQZWdsPcWi3pUuiG · Landings
+  de MaKo (closing, equipo, crm) https://claude.ai/artifact/7XYp8VDGaMfjFrnfTDxVg3. Cómo se dibujan: C:/dev/artefactos-sitio/LEEME.md.
+- **/vsl/closing sin cajas de «falta»:** la nota de una llamada real de Mauricio (6,2, sus siete dimensiones), su coaching y la de un
+  mes después (8,0), y la llamada tipo Meet con sus objeciones (app/vsl/_sitio/ClosingNotas.tsx, `<ClosingAntesDespues soloLlamada />`).
+  **/vsl/equipo:** la fila del coaching lleva el mismo antes y después. Sólo notas, sin frases ni nombres.
+- **SIN HACER:** la pestaña «Cerrar» de /vsl/crm sigue con su caja (sin «Agenda R1» en el texto): falta grabar la tarjeta que pasa sola
+  a la etapa de la reunión y la grabación en su ficha (banco C:/dev/bancos-portada/banco-crm). Detalle: docs/hallazgos-landing.md.
+
 ## 16/11/2026, ~22:10 UTC — LEER PRIMERO (claude1 al 98-99 % semanal; se reinicia el 18/11 10:00 UTC)
 
 **Martín: «Continúa con todo y cierra lo que te pedí»; commitear recién al 99 %.** Subido a punta/portada-brain-login:

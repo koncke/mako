@@ -19,8 +19,9 @@
 // llamada, contado del código), su segundo botón («Try free demo»: no hay una demo), su arte de hilos del cierre (es suyo) y su
 // menú (va la barra del sitio, BarraGlobal; la copiada se oculta por su clase, BARRA_PROPIA de ../TemaSitio.tsx).
 // Sus capturas de producto: la hoja Closing del Dashboard (números de ejemplo) y los grabadores, sí; las tres de lo que ESCRIBE el
-// análisis (el puntaje con sus notas, el coaching y las objeciones), con el recuadro de «falta» hasta que haya un análisis real
-// (../closing.ts, `FALTA_ANALISIS`: la regla de Martín del 12/11 y el 13/11/2026).
+// análisis (el puntaje con sus notas, el coaching y las objeciones) son animaciones con llamadas REALES de Mauricio, sólo sus notas
+// (app/vsl/_sitio/ClosingNotas.tsx y ClosingAntesDespues.tsx; la regla de Martín del 12/11 y el 13/11/2026: lo que escribe la IA no
+// se inventa).
 // Server component sin JS: las preguntas son <details>. Las figuras van con data-tema-fijo: son capturas sobre blanco, como las suyas,
 // y el sol y la luna no las toca.
 // =============================================================================
@@ -29,15 +30,16 @@ import type { ReactNode } from 'react';
 import type { Bloque } from '../tipos';
 import type { PropsDiseno } from './index';
 import { RUTA_CTA, LogoMaKo, TEXTO_CTA, TEXTO_CIERRE, html, otrasFunciones } from '../marca';
-import { FALTA_ANALISIS, GRABADORES_CLOSING, TITULO_CIERRE_CLOSING } from '../closing';
-import { FaltaAnimacion } from '../FaltaAnimacion';
+import { GRABADORES_CLOSING, TITULO_CIERRE_CLOSING } from '../closing';
+import { ClosingAntesDespues } from '../../_sitio/ClosingAntesDespues';
+import { ClosingCoaching, ClosingPuntaje } from '../../_sitio/ClosingNotas';
 
 const P = 'd-closing';
 
 /** Las fotos de la hoja Closing del Dashboard (la tasa del período y la de cada closer): números y nombres ficticios de los datos de
  *  ejemplo de la hoja, sin una palabra escrita por la IA (banco C:/dev/bancos-portada/banco-closing-landing: fotos.mjs --solo-hoja).
  *  ⚠️ La ficha de una llamada (el puntaje con sus notas y citas, el coaching y las objeciones) NO va en foto: lo escribe el análisis, y
- *  la que había era una llamada INVENTADA. Va el recuadro de «falta» (`FALTA_ANALISIS`, ../closing.ts) hasta que haya un análisis real. */
+ *  la que había era una llamada INVENTADA. Van las animaciones con las llamadas reales de Mauricio (`FIGURAS_FILAS`). */
 export const FOTOS_CLOSING = {
   tasa: { src: '/vsl-assets/closing/hoja-tasa.jpg', w: 1412, h: 480, alt: 'La hoja Closing del Dashboard: la tasa de cierre del período y cuántas llamadas cerraron' },
   closers: { src: '/vsl-assets/closing/hoja-closers.jpg', w: 1002, h: 344, alt: 'La tasa de cierre de cada closer, de la más alta a la más baja' },
@@ -53,8 +55,17 @@ export const LOGO_GRABADOR: Readonly<Record<string, string>> = {
 };
 
 /** La figura de cada fila de «De cada llamada a tu próximo cierre», en su orden (una por fila, como las suyas). Las tres primeras son
- *  lo que escribe el análisis: su recuadro de «falta» (`FALTA_ANALISIS`). */
+ *  lo que escribe el análisis, con llamadas REALES de Mauricio (16/11/2026; Martín: «utiliza de las que tenemos grabadas ahí con
+ *  Mauricio»), sólo sus notas y las categorías de sus objeciones, sin frases ni nombres: la nota de una llamada y sus siete
+ *  dimensiones (ClosingPuntaje), el coaching de esa llamada y cómo quedó la de un mes después (ClosingCoaching), y la llamada como en
+ *  Google Meet con sus objeciones, respondidas o no (la de la portada, sólo la llamada). */
 export const FIGURAS_FILAS = ['puntaje', 'coaching', 'objeciones', 'hoja', 'grabadores'] as const;
+/** Las tres animaciones de lo que escribe el análisis, en su caja 16:10. */
+const ANIMACION_FILA = {
+  puntaje: <ClosingPuntaje />,
+  coaching: <ClosingCoaching />,
+  objeciones: <ClosingAntesDespues soloLlamada />,
+} as const;
 
 const CSS = `
 @font-face{font-family:'d-closing-sans';src:url('/vsl-assets/fuentes/geist/geist-latin-var.woff2') format('woff2');font-weight:400 600;font-style:normal;font-display:swap}
@@ -98,6 +109,8 @@ const CSS = `
 .d-closing-tildes svg{flex:none;width:15px;height:15px;margin-top:4.2px;color:var(--dc-tinta)}
 .d-closing-figura{margin:0;border:.8px solid var(--dc-filete);background:#fff;padding:28px}
 .d-closing-figura img{display:block;width:100%;height:auto}
+.d-closing-anim{position:relative;padding:0;aspect-ratio:16/10;overflow:hidden}
+@media (max-width:767px){.d-closing-anim:not([data-animacion="objeciones"]){aspect-ratio:4/3}}
 .d-closing-hoja{background:#F4F3EF;display:grid;gap:14px}
 .d-closing-hoja img:last-child{width:71%}
 .d-closing-graba{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
@@ -159,11 +172,13 @@ const Boton = ({ flecha = false }: { flecha?: boolean }) => <a href={RUTA_CTA} c
 
 type Tarjetas = Extract<Bloque, { tipo: 'tarjetas' }>;
 
-/** La figura de la fila `i`: el recuadro de lo que escribe el análisis, la hoja Closing (dos tarjetas, como su composición de dos
+/** La figura de la fila `i`: la animación de lo que escribe el análisis, la hoja Closing (dos tarjetas, como su composición de dos
  *  capturas) o los grabadores. */
 function Figura({ i }: { i: number }) {
   const cual = FIGURAS_FILAS[i];
-  if (cual === 'puntaje' || cual === 'coaching' || cual === 'objeciones') return <FaltaAnimacion que={FALTA_ANALISIS[cual]} />;
+  if (cual === 'puntaje' || cual === 'coaching' || cual === 'objeciones') {
+    return <figure className={`${P}-figura ${P}-anim`} data-tema-fijo="" data-animacion={cual}>{ANIMACION_FILA[cual]}</figure>;
+  }
   if (cual === 'hoja') {
     return (
       <figure className={`${P}-figura ${P}-hoja`} data-tema-fijo="">

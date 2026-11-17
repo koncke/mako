@@ -23,11 +23,11 @@
 //   · Sus capturas son de su producto. ⚠️ LO QUE ESCRIBE EL ANÁLISIS NO SE INVENTA (Martín, 12/11 y 13/11/2026: una pantalla se puede
 //     montar con su componente real y datos de ejemplo, pero lo que escribió la IA —un puntaje con sus notas y citas, el coaching, las
 //     objeciones— tiene que ser algo que MaKo hizo de verdad). Las tres primeras filas mostraban una llamada INVENTADA (la de «Paola
-//     Núñez con la closer Ana», un 7.1 con notas, citas, objeciones y coaching que MaKo nunca escribió): van con el recuadro de
-//     «falta» (FALTA_ANALISIS, ./FaltaAnimacion.tsx) hasta que haya un análisis REAL del Closing Analyst sobre una llamada de prueba
-//     grabada con la Grabadora en el espacio de prueba (docs/relevo/landings-vsl.md). Medido el 16/11/2026 en producción, sólo
-//     lectura: el espacio de prueba (ws 3) no tiene ningún análisis, y los del espacio de MaKo (ws 9) son llamadas de venta con
-//     prospectos reales, que no se usan. Las fotos descartadas: C:/dev/bancos-portada/banco-closing-landing/descartadas/.
+//     Núñez con la closer Ana», un 7.1 con notas, citas, objeciones y coaching que MaKo nunca escribió). Desde el 16/11/2026 llevan
+//     llamadas REALES de Mauricio (Martín: «utiliza de las que tenemos grabadas ahí con Mauricio, eso lo puede utilizar sin problema»),
+//     leídas en sólo lectura de su espacio, y de ellas sólo las notas, las categorías de sus objeciones y tres temas del coaching
+//     escritos por nosotros: ni frases, ni nombres (app/vsl/_sitio/closing-mauricio.ts, ClosingNotas.tsx y ClosingAntesDespues.tsx).
+//     Las fotos descartadas de la llamada inventada: C:/dev/bancos-portada/banco-closing-landing/descartadas/.
 //     La hoja Closing del Dashboard SÍ queda (la fila de los cierres): son números y nombres ficticios de los datos de ejemplo de la
 //     hoja (los mismos de su miniatura de «Nueva hoja»), sin una palabra escrita por la IA.
 //   · Su tercera fila (practicar con roleplays de IA) MaKo no la tiene: en su lugar, lo que se juega antes de la próxima llamada en MaKo
@@ -76,18 +76,6 @@ export const PARTES_FICHA: readonly string[] = ['Resumen del análisis', 'Próxi
 const EN_INGLES: ReadonlySet<string> = new Set(['Transcript']);
 /** Cómo se lee una parte de la ficha en el muro de la landing. */
 export const parteEnLaLanding = (p: string): string => (EN_INGLES.has(p) ? `«${p}»` : p);
-
-/**
- * LO QUE ESCRIBE EL ANÁLISIS, mientras no haya uno REAL para mostrar: lo que dice el recuadro de «falta» (./FaltaAnimacion.tsx) en las
- * tres primeras filas de la landing, en la fila de la portada y en la del coaching de /vsl/equipo. Se reemplaza con un análisis real del
- * Closing Analyst sobre una llamada de prueba grabada con la Grabadora en el espacio de prueba (docs/relevo/landings-vsl.md).
- */
-export const FALTA_ANALISIS = {
-  puntaje: 'Una llamada de prueba analizada de verdad por MaKo: su puntaje de 0 a 10 y sus siete notas, cada una con su frase y su minuto.',
-  coaching: 'Lo que hizo bien el closer, lo que tiene que mejorar y el coaching que MaKo escribió después de una llamada de prueba real.',
-  objeciones: 'Las objeciones de una llamada de prueba real, respondidas o no, y el próximo paso que dejó MaKo.',
-  portada: 'Una llamada de prueba analizada de verdad por MaKo: el puntaje con el método SPIN, sus objeciones y el coaching.',
-} as const;
 
 /** Los grabadores que se conectan HOY (lib/grabadores/catalogo.ts): si se suma uno, la landing lo dice sola. */
 export const GRABADORES_CLOSING: readonly string[] = Object.values(CATALOGO_GRABADORES).filter((g) => g.conectable).map((g) => g.nombre);

@@ -47,6 +47,31 @@ export const CLOSING_MAURICIO = {
       { tipo: 'No tiene tiempo ahora', segundo: 4815, respondida: true },
     ],
   },
+  /** El antes y el después de /vsl/closing y de la fila del coaching de /vsl/equipo (16/11/2026): dos llamadas de venta de Mauricio
+   *  que analizó el Closing Analyst, la del 17/09/2026 (41 min) y la del 20/10/2026 (50 min), con su nota y la de cada dimensión, tal
+   *  cual las guardó el análisis. `coaching`: tres de las recomendaciones que MaKo le dejó a la de septiembre, en un tema corto escrito
+   *  por nosotros (no su texto), cada una con la dimensión que toca. Lo dibuja ./ClosingNotas.tsx. */
+  notas: {
+    antes: {
+      mes: 'Septiembre', min: 41, nota: 6.2,
+      dims: [
+        { d: 'Situación', n: 8 }, { d: 'Problema', n: 7.5 }, { d: 'Implicación', n: 5 }, { d: 'Necesidad / beneficio', n: 6 },
+        { d: 'Presentación de la propuesta', n: 5.5 }, { d: 'Manejo de objeciones', n: 4 }, { d: 'CTA / siguientes pasos', n: 5 },
+      ],
+    },
+    despues: {
+      mes: 'Octubre', min: 50, nota: 8,
+      dims: [
+        { d: 'Situación', n: 9 }, { d: 'Problema', n: 9 }, { d: 'Implicación', n: 8 }, { d: 'Necesidad / beneficio', n: 7 },
+        { d: 'Presentación de la propuesta', n: 8 }, { d: 'Manejo de objeciones', n: 6 }, { d: 'CTA / siguientes pasos', n: 9 },
+      ],
+    },
+    coaching: [
+      { tema: 'Profundiza en la implicación', d: 'Implicación' },
+      { tema: 'Acorta la explicación', d: 'Presentación de la propuesta' },
+      { tema: 'Responde la objeción', d: 'Manejo de objeciones' },
+    ],
+  },
 } as const;
 
 /** La tasa de cierre en porcentaje entero (0 de 8 → 0; 9 de 27 → 33). */

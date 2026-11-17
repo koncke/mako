@@ -486,19 +486,22 @@ test('Funnels: el hero turna cuatro pantallas reales, la lámina lleva «Editar 
 // «Transcript», entre comillas); la última de sus cinco filas trae los logos de los grabadores que se conectan HOY, y la de los cierres la
 // hoja Closing (números de ejemplo); el aviso de Pro sale del plan; no nombra las dos reuniones (salieron de los funnels el 16/11/2026); y
 // su fila de la portada va entre Chats y los tableros, y su lugar en Producto › Sales.
-// ⚠️ LO QUE ESCRIBE EL ANÁLISIS VA CON EL RECUADRO (la regla de Martín del 12/11 y el 13/11/2026: lo que escribió la IA tiene que ser algo
-// que MaKo hizo de verdad). Las tres primeras filas y la fila de la portada mostraban una llamada INVENTADA (la de «Paola Núñez con Ana»:
-// un 7.1 con notas, citas, objeciones y coaching que MaKo nunca escribió): ahora piden el recuadro de «falta», y esas fotos y la grabación
-// no pueden volver a public/ (se movieron a C:/dev/bancos-portada/banco-closing-landing/descartadas/).
+// ⚠️ LO QUE ESCRIBE EL ANÁLISIS ES DE UNA LLAMADA REAL (la regla de Martín del 12/11 y el 13/11/2026: lo que escribió la IA tiene que ser
+// algo que MaKo hizo de verdad). Las tres primeras filas y la fila de la portada mostraban una llamada INVENTADA (la de «Paola Núñez con
+// Ana»: un 7.1 con notas, citas, objeciones y coaching que MaKo nunca escribió): esas fotos y la grabación no pueden volver a public/ (se
+// movieron a C:/dev/bancos-portada/banco-closing-landing/descartadas/). Desde el 16/11/2026 (noche) las tres filas llevan animaciones con
+// llamadas REALES de Mauricio, sólo sus notas (app/vsl/_sitio/ClosingNotas.tsx y la llamada de la portada, sin la hoja), y ningún
+// recuadro de «falta».
 // PROBADO ROMPIÉNDOLO (16/11/2026; base 20 / 0 antes del recuadro): `hoja-tasa.jpg` → `hoja-tasax.jpg` en FOTOS_CLOSING → falla «falta
 // public/…»; el aviso de Pro sacado de la bajada → falla «es de Pro y la landing no lo dice»; «la R2» en el texto de una fila → falla «las
 // dos reuniones»; la fila de la portada movida después de los tableros → falla «entre Chats y los tableros». Y las del recuadro (16/11,
 // base 24 / 0, cada una 23 / 1): el recuadro de la primera fila sacado → falla «la fila 1 sin su recuadro»; la grabación inventada de
 // vuelta en la fila de la portada → falla «la fila de Closing de la portada tiene que llevar el recuadro»; puntaje.jpg copiado de vuelta
-// a public/vsl-assets/closing/ → falla «es de la llamada inventada y volvió a public/».
-test('Closing: el muro sale del código, lo que escribe el análisis va con el recuadro, los grabadores sus logos, el aviso de Pro y su lugar', async () => {
+// a public/vsl-assets/closing/ → falla «es de la llamada inventada y volvió a public/». Y las de las animaciones (16/11, noche): la fila
+// del coaching con el recuadro de vuelta → falla «la fila 2 sin su animación»; una nota de octubre en 4 → falla «no subió en octubre».
+test('Closing: el muro sale del código, lo que escribe el análisis es de llamadas reales, los grabadores sus logos, el aviso de Pro y su lugar', async () => {
   const { FOTOS_CLOSING, FIGURAS_FILAS, LOGO_GRABADOR } = await import('../app/vsl/_competencia/disenos/closing');
-  const { DIMENSIONES_CLOSING, PARTES_FICHA, GRABADORES_CLOSING, FALTA_ANALISIS, TITULO_CIERRE_CLOSING, parteEnLaLanding } = await import('../app/vsl/_competencia/closing');
+  const { DIMENSIONES_CLOSING, PARTES_FICHA, GRABADORES_CLOSING, TITULO_CIERRE_CLOSING, parteEnLaLanding } = await import('../app/vsl/_competencia/closing');
   const { TARJETAS_PORTADA, menuProducto } = await import('../app/vsl/_sitio/datos');
   const { CATALOGO_GRABADORES } = await import('../lib/grabadores/catalogo');
   const { TABS_SOLO_PRO } = await import('../lib/topes-plan');
@@ -516,15 +519,29 @@ test('Closing: el muro sale del código, lo que escribe el análisis va con el r
   for (const x of [...DIMENSIONES_CLOSING.map((d) => d.label), ...PARTES_FICHA.map(parteEnLaLanding)]) assert.ok(muro.includes(`>${x}</li>`), `el muro sin «${x}»`);
   // La pestaña que la app escribe en inglés se lee como su NOMBRE (entre comillas), no suelta en la prosa.
   assert.ok(muro.includes('>«Transcript»</li>') && !muro.includes('>Transcript</li>'), '«Transcript» va entre comillas, como el nombre de la pestaña');
-  // Una figura por fila: las tres primeras son lo que ESCRIBE el análisis y llevan el recuadro con lo que va ahí; las otras, sus piezas.
+  // Una figura por fila: las tres primeras son lo que ESCRIBE el análisis, con su animación de llamadas reales; las otras, sus piezas.
   const filas = l.bloques.filter((b): b is Extract<Bloque, { tipo: 'tarjetas' }> => b.tipo === 'tarjetas')[2];
   assert.ok(filas, 'Closing sin sus cinco filas');
   assert.equal(FIGURAS_FILAS.length, filas.items.length, 'una fila sin su figura');
-  const recuadros = [...html.matchAll(/<div class="mk-falta"[^>]*aria-label="Aquí falta la animación: ([^"]+)"/g)].map((m) => m[1]);
   const escritoPorLaIa = ['puntaje', 'coaching', 'objeciones'] as const;
   assert.deepEqual(FIGURAS_FILAS.slice(0, 3), [...escritoPorLaIa], 'las tres primeras filas son lo que escribe el análisis');
-  escritoPorLaIa.forEach((k, n) => assert.equal(recuadros[n], FALTA_ANALISIS[k], `la fila ${n + 1} sin su recuadro (lo que escribe el análisis no se inventa)`));
-  assert.equal(recuadros.length, escritoPorLaIa.length, 'un recuadro de «falta» de más o de menos');
+  const animaciones = [...html.matchAll(/<figure [^>]*data-animacion="([a-z]+)"/g)].map((m) => m[1]);
+  escritoPorLaIa.forEach((k, n) => assert.equal(animaciones[n], k, `la fila ${n + 1} sin su animación (lo que escribe el análisis es de una llamada real)`));
+  assert.equal(animaciones.length, escritoPorLaIa.length, 'una animación de más o de menos');
+  assert.ok(html.includes('class="s-cno s-cno-p"') && html.includes('class="s-cno s-cno-c"'), 'sin la nota de la llamada o sin su coaching');
+  assert.match(html, /class="s-cad" data-tema-fijo="" data-solo=""/, 'la fila de las objeciones no es la llamada de la portada sola');
+  assert.doesNotMatch(html, /class="s-cad-app"/, 'la fila de las objeciones lleva la hoja de MaKo (va sólo la llamada)');
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
+  // Las notas son las del análisis: sus siete dimensiones, y cada consejo del coaching toca una que subió en octubre.
+  const { CLOSING_MAURICIO: CM } = await import('../app/vsl/_sitio/closing-mauricio');
+  const dims = DIMENSIONES_CLOSING.map((d) => d.label);
+  assert.deepEqual(CM.notas.antes.dims.map((x) => x.d), dims, 'las notas de septiembre no son las siete dimensiones del análisis');
+  assert.deepEqual(CM.notas.despues.dims.map((x) => x.d), dims, 'las notas de octubre no son las siete dimensiones del análisis');
+  assert.ok(CM.notas.despues.nota > CM.notas.antes.nota, 'la llamada de octubre no tiene más nota que la de septiembre');
+  for (const c of CM.notas.coaching) {
+    const a = CM.notas.antes.dims.find((x) => x.d === c.d)?.n, b = CM.notas.despues.dims.find((x) => x.d === c.d)?.n;
+    assert.ok(a != null && b != null && b > a, `«${c.tema}» toca «${c.d}», que no subió en octubre`);
+  }
   for (const f of Object.values(FOTOS_CLOSING)) {
     assert.ok(existsSync(join(RAIZ, 'public', f.src)), `falta public${f.src}`);
     assert.ok(html.includes(`src="${f.src}"`), `no se dibuja ${f.src}`);
@@ -672,16 +689,16 @@ test('Second Brain: la ventana es el grafo real, las muestras salen del código,
 // de Equipo (app/equipo/EquipoView.tsx); cuántas personas entran sale del tope del plan (lib/topes-plan.ts, 'equipo.usuarios'); la tasa
 // de cierre y el análisis de cada llamada llevan el aviso de Pro mientras Closing lo sea; cada fila trae su pantalla REAL (banco
 // C:/dev/bancos-portada/banco-equipo-landing y la hoja Closing de /vsl/closing) menos la del coaching de cada closer, que lo ESCRIBE el
-// análisis y lleva el recuadro de «falta» (la foto que había era de una llamada inventada: la regla de Martín del 12/11 y el 13/11/2026);
+// análisis y lleva la animación del coaching de /vsl/closing, con dos llamadas REALES de Mauricio (la foto que había era de una llamada
+// inventada: la regla de Martín del 12/11 y el 13/11/2026);
 // el hero, la grabación de Equipo; no muestra la lista de «Llamadas» (dice R1 y R2); y su lugar: la fila de la portada después de los
 // tableros, con su grabación, y Producto › Sales después de Closing.
 // PROBADO ROMPIÉNDOLO (16/11/2026; base 24 / 0 antes del recuadro): `miembros.jpg` → `miembrosx.jpg` en FOTOS_EQUIPO → falla «falta
 // public/…»; «la hoja Closing» → «el tablero Closing» en QUE_VE_CADA_ROL → falla «no es la línea de la página»; el tope de Pro escrito
 // «hasta 10 personas» en RENGLON_PLAN → falla «no es el tope del plan»; la fila de la portada con otro slug (`equipox`) → falla «después
-// de los tableros»; una foto de vuelta en la fila del coaching (16/11, 23 / 1) → falla «la fila del coaching sin su recuadro».
+// de los tableros»; una foto de vuelta en la fila del coaching (16/11, 23 / 1) → falla «la fila del coaching sin su animación».
 test('Equipo: los roles y lo que ve cada uno son los de la app, las personas salen del plan, cada fila trae su pantalla real y su lugar en el sitio', async () => {
   const { FOTOS_EQUIPO, FIGURAS_FILAS, FIGURA_QUE_NECESITA, VIDEO_HERO_EQUIPO } = await import('../app/vsl/_competencia/disenos/equipo');
-  const { FALTA_ANALISIS } = await import('../app/vsl/_competencia/closing');
   const { QUE_VE_CADA_ROL, RENGLON_PLAN, PERSONAS_PRO } = await import('../app/vsl/_competencia/equipo');
   const { TARJETAS_PORTADA, menuProducto } = await import('../app/vsl/_sitio/datos');
   const { TOPES, TABS_SOLO_PRO } = await import('../lib/topes-plan');
@@ -709,14 +726,16 @@ test('Equipo: los roles y lo que ve cada uno son los de la app, las personas sal
     for (const it of deClosing) assert.ok(it.texto.includes('Con MaKo Pro'), `«${it.titulo}» es de Pro y no lo dice`);
   }
   // Las pantallas: cada una en disco y dibujada, una figura por fila, y el hero con su grabación. La del coaching de cada closer es lo
-  // que ESCRIBE el análisis: su recuadro, con el texto de /vsl/closing, y la foto de la llamada inventada no se dibuja.
+  // que ESCRIBE el análisis: la animación del coaching de /vsl/closing (llamadas reales de Mauricio), y la foto de la llamada inventada
+  // no se dibuja.
   assert.equal(FIGURAS_FILAS.length, filas.items.length, 'una fila sin su pantalla');
   const coaching = filas.items.findIndex((x) => /fortalezas/.test(x.texto));
-  assert.ok(coaching >= 0 && FIGURAS_FILAS[coaching] === 'falta', 'la fila del coaching sin su recuadro (lo que escribe el análisis no se inventa)');
-  const recuadros = [...html.matchAll(/<div class="mk-falta"[^>]*aria-label="Aquí falta la animación: ([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(recuadros, [FALTA_ANALISIS.coaching], 'un recuadro de «falta» de más, o el del coaching con otro texto');
+  assert.ok(coaching >= 0 && FIGURAS_FILAS[coaching] === 'coaching', 'la fila del coaching sin su animación (lo que escribe el análisis es de una llamada real)');
+  assert.deepEqual([...html.matchAll(/<figure [^>]*data-animacion="([a-z]+)"/g)].map((m) => m[1]), ['coaching'], 'la animación del coaching de más o de menos');
+  assert.ok(html.includes('class="s-cno s-cno-c"'), 'la fila del coaching sin el coaching de las llamadas de Mauricio');
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
   assert.ok(!html.includes('/vsl-assets/closing/coaching.jpg'), 'se dibuja el coaching de la llamada inventada');
-  const fotos = FIGURAS_FILAS.flatMap((x) => (x === 'falta' ? [] : [...x]));
+  const fotos = FIGURAS_FILAS.flatMap((x) => (x === 'coaching' ? [] : [...x]));
   for (const k of [FIGURA_QUE_NECESITA, ...fotos, 'caso'] as const) {
     const f = FOTOS_EQUIPO[k];
     assert.ok(existsSync(join(RAIZ, 'public', f.src)), `falta public${f.src}`);

@@ -7332,3 +7332,25 @@ ve una propiedad que desapareció.
   (la portada usa `tv.pandavideo.com`, el Accelerator `tv.pandavideo.com.br`) y qué se ve. También sin hacer: el organigrama de la
   fila Equipo (caras generadas de personas que no existen), el caso de Mauricio del Accelerator más corto y las tres cajas de
   «falta» de /vsl/closing (app/vsl/_competencia/disenos/closing.tsx, `Figura`).
+
+## Closing en /vsl/closing y en el coaching de /vsl/equipo: las llamadas reales de Mauricio, sin la caja de «falta» (16/11/2026, noche)
+
+- **El antes y el después de verdad (6,2 → 8,0) son dos llamadas del 17/09 y el 20/10/2026** (41 y 50 min, `closing_analyses`, ws 1,
+  sólo lectura). Ojo: ese 17/09 hay DOS análisis (6,2 y 6,3); el de 6,2 es el de 41 min. Sus `dims` traen `{label, score, note}`: se
+  usan sólo `label` y `score`. El coaching (`recs`) y lo que hay que mejorar (`weaknesses`) son texto de la IA sobre un tercero: en la
+  página van tres temas escritos por nosotros, cada uno atado a la dimensión que toca, y el test exige que esa dimensión haya subido
+  en octubre (app/vsl/_sitio/closing-mauricio.ts, `notas`). La fila de las objeciones es la llamada de la portada sola
+  (`<ClosingAntesDespues soloLlamada />`, sin la hoja: la fila de los cierres de esa landing es otra).
+- **Dos escenas con la misma hoja de estilos en una página se pisan.** ClosingPuntaje y ClosingCoaching repiten CSS_BASE en su
+  `<style>`; la segunda volvía a poner el tamaño de la cabecera DESPUÉS del `@container` de la primera, y en el teléfono la cabecera
+  quedaba en 6,7 px. Lo común en una caja chica va en la hoja común, no en cada escena (app/vsl/_sitio/ClosingNotas.tsx).
+- **Un componente con `cqw` hereda el `line-height` de la landing que lo aloja.** /vsl/equipo pone 30 px: cada pastilla de nota
+  salía como una columna alta. La escena fija el suyo (`line-height:1.3`).
+- **Un regex sobre el HTML encuentra también el CSS.** `data-animacion="…"` aparece en un selector (`:not([data-animacion=…])`) antes
+  que en la figura: el test busca `<figure …data-animacion=`, no el atributo suelto.
+- **tsc-acotado: «código 1, 0 bytes» y «código 134» no son rojos.** Con 3,4 GB libres, el de los diseños de /vsl (que arrastran medio
+  sitio) murió por RAM (1, sin salida) y por heap (134 con 2,2 GB). Los componentes sueltos sí se chequearon (y encontró un error real
+  de tipos: `indexOf` con un objeto ensanchado sobre una lista `as const`).
+- **SIN HACER:** la pestaña «Cerrar» de /vsl/crm sigue con su caja (app/vsl/_competencia/disenos/crm.tsx, `VIDEOS_CICLO[2]`): la
+  tarjeta que pasa sola a la etapa de la reunión cuando el lead agenda y la grabación en su ficha. Se puede grabar con el tablero
+  REAL del banco C:/dev/bancos-portada/banco-crm (nombres ficticios); falta la pieza de la ficha que muestra la grabación.

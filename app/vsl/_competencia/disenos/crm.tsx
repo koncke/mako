@@ -56,7 +56,7 @@ const VSL_CRM = FEATURES.crm?.videoEmbed ?? '';
 export const VIDEOS_CICLO: readonly ({ video: string; poster: string; alt: string } | { falta: string })[] = [
   { video: `${S}/chats.webm`, poster: '/vsl-assets/crm/chats-poster.jpg', alt: 'Chats de MaKo: WhatsApp, Instagram, Messenger y email en una sola bandeja, y cada lead nuevo como «Lead entrante»' },
   { video: `${S}/automations.webm`, poster: `${S}/automations.jpg`, alt: 'Automations de MaKo: cuando el lead entra a «Reunión agendada», MaKo le confirma la reunión por WhatsApp' },
-  { falta: 'La tarjeta del lead que pasa sola a «Agenda R1» cuando agenda, y la grabación de su reunión enganchada en su ficha' },
+  { falta: 'La tarjeta del lead que pasa sola a la etapa de su reunión cuando agenda, y la grabación de la reunión enganchada en su ficha' },
   { video: `${S}/cobranza.webm`, poster: '/vsl-assets/crm/cobranza-poster.jpg', alt: 'La ficha de un lead en MaKo: lo que debe, el plan de cuotas y «Cobrar la cuota 2»' },
   { video: '/vsl-assets/crm/difusion.webm', poster: '/vsl-assets/crm/difusion.jpg', alt: 'El CRM de MaKo: el «⋯» de la columna «Nutrición - No Agenda», «Mandar mensaje de difusión», a cuántos les llega por cada canal y el ritmo de envío, y el mensaje de WhatsApp escrito' },
 ];

@@ -375,7 +375,7 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; ancla?
   // ⚠️ SIN GRABACIÓN, CON EL RECUADRO: lo que se ve de Closing lo ESCRIBE el análisis (el puntaje con sus notas y citas, las objeciones,
   // el coaching), y la grabación que iba era de una llamada INVENTADA (la de «Paola Núñez con Ana», un 7.1 que MaKo nunca escribió). Va
   // El «antes y después» de dos llamadas REALES de Mauricio (16/11/2026, ./ClosingAntesDespues.tsx, sin nombres ni frases): un
-  // componente, no una grabación, así que no pasa por el login. Antes iba el recuadro (FALTA_ANALISIS).
+  // componente, no una grabación, así que no pasa por el login. Antes iba el recuadro de «falta».
   // (app/_components/clips-portada.ts toma sólo las filas con `video`). El análisis es de MaKo Pro: el aviso sale del plan.
   { slug: 'closing', titulo: 'Analiza todas tus llamadas de venta con IA.', texto: `Cada llamada, transcrita y puntuada con el método SPIN: MaKo marca cada objeción con su frase y su minuto, y te deja el coaching y el seguimiento por WhatsApp, en español aunque la llamada sea en otro idioma.${AVISO_PRO_CLOSING}`, visual: 'closing' },
   { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tus anuncios de Meta, tu landing, tus leads del CRM, tus pagos y tus llamadas en una sola pantalla, con tableros listos para ventas, anuncios y llamadas.', visual: 'tableros' },

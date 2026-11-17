@@ -21,8 +21,8 @@
 //     equipo» y el rol de una persona (banco C:/dev/bancos-portada/banco-equipo-landing, fotos.mjs) y la hoja Closing (la de
 //     /vsl/closing, con sus números de ejemplo). Nombres ficticios: los closers Ana, Diego y Sofía son los de la hoja Closing de ejemplo.
 //     ⚠️ La fila del coaching de cada closer NO lleva la ficha de una llamada: lo que escribe el análisis tiene que ser un análisis real
-//     (la regla de Martín del 12/11 y el 13/11/2026), y la foto que había era de una llamada inventada. Va el recuadro de «falta», el
-//     mismo de /vsl/closing (./closing.ts, `FALTA_ANALISIS`).
+//     (la regla de Martín del 12/11 y el 13/11/2026), y la foto que había era de una llamada inventada. Va la animación del coaching de
+//     /vsl/closing, con dos llamadas REALES de Mauricio (app/vsl/_sitio/ClosingNotas.tsx, sólo notas).
 //   · Su franja de calificaciones (G2, Capterra, Gartner) y sus testimonios («Utilizado por más de 100,000 empresas») no van: MaKo no
 //     inventa notas ni clientes. Su caso de estudio es el caso de Mauricio, como en todas las landings.
 //   · «Planea proyectos conjuntos» y «Protege tus datos» no son de MaKo: en su lugar, dos piezas de Equipo que sí existen (cada lead con su
