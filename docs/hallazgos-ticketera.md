@@ -29,6 +29,11 @@ avisos de arreglo), WhatsApp hablaba de un ticket por caminos que no pasaban por
    registrados, así que puede haber alguno más que sí se avisó a mano).
 3. **La Ticketera atrasada:** el pedido de Mauricio de los 22 correos de Sprint (#78) seguía en «Recibido» el 16/11, con el
    trabajo hecho y contado en su grupo el 11/11. El equipo lo trabajó por mensajes libres y nadie movió el estado.
+4. **La Ticketera adelantada (medido el 17/11):** el #58 de Joan (Código Inmobiliario, «agendame eso que te pedí en el audio») se
+   cerró en tanda el 10/11 como resuelto sin hacerse: le llegó «Listo: ya quedó tu pedido #58», y 23 minutos después la corrección
+   por WhatsApp («no quedó agendado: tu audio del 4/11 no se pudo leer; mándalo de nuevo»). La regla de ese día (más abajo, #80)
+   decía «se le contesta en su grupo y el ticket se cierra a mano»: WhatsApp dijo «no se hizo» y la Ticketera siguió en
+   «Resuelto» seis días. Cuando lo que falta es del cliente, el estado es «Espera tu respuesta» (`esperando_cliente`).
 
 MaKo en el grupo NO era la causa: lee el estado del ticket (`bloqueDePedidos`), y en `mako_doer_conv` no hubo ni un «resuelto»
 antes del cierre.
@@ -46,7 +51,13 @@ estado, y el aviso de cada cambio de estado le llega a SU grupo.
   estado. Sin poder leer los tickets, no sale.
 - **El script de los chats pregunta:** si el negocio tiene tickets abiertos, `avisar-arreglo-al-grupo.mts` los muestra y no
   manda sin `--no-es-de-un-ticket` (el #75 venía con la clave de un commit y sin el número).
-- Lo fija tests/ticketera-whatsapp-coherente.test.ts, probado con nueve roturas (una por guarda, 1 fallo cada una).
+- **Lo que espera al cliente se pregunta DESDE el ticket (17/11):** `"preguntar": true` en `scripts/tickets-cerrar-resueltos.mjs`
+  lo pasa a «Espera tu respuesta» con la pregunta en `respuesta` y `avisado_at: null`, y el cron le manda a su grupo «Sobre tu
+  pedido #N, el equipo te pregunta: …» (`textoDelAviso`) desde ese mismo cambio. Es lo que hace «Preguntar» en la bandeja de
+  Martín (`decidir`, lib/tickets-db.ts); los chats no tenían esa puerta y sólo podían cerrar o mandar un mensaje suelto. Si el
+  cliente contesta en el grupo, MaKo lo suma al ticket (`sumarAlPedidoDelNegocio`) y vuelve a «Recibido». Sólo para un ticket
+  abierto: uno cerrado por error se reabre a mano, mirando antes qué le llegó a su grupo.
+- Lo fija tests/ticketera-whatsapp-coherente.test.ts, probado con catorce roturas (una por guarda, 1 fallo cada una).
 
 ⚠️ **El freno del mensaje libre es por PALABRAS** («resuelto», «quedó», «arreglamos», «ya anda», «corregido»…) y frena también
 «el #63 todavía no quedó resuelto». Es a propósito (un «resuelto» de más es lo que el cliente reportó; uno frenado se reescribe),
@@ -56,6 +67,22 @@ pero un mensaje que da algo por resuelto SIN nombrar el número no lo frena nadi
 en la nota del ticket). **No reparado a propósito:** los 19 resueltos sin línea en su grupo son del 29/10 al 13/11 y la Ticketera
 los dice bien; un «Listo» dos semanas tarde, de algo que quizás tampoco quedó bien para el cliente (la otra mitad de la queja),
 haría más ruido que bien. Si se manda, que sea UNO por negocio.
+
+**Reparado el 17/11:** el #58 pasó a «Espera tu respuesta» con el texto de la corrección que ya le había llegado (sin «y lo
+agendo»: agendar un delegado espera el sí de Martín), sin aviso nuevo. ⚠️ **Antes de «contestarle de nuevo» a un cliente, mirar
+`grupo_mensajes`:** la corrección del #58 ya había salido el 10/11 23:54 (con `wa_message_id`, o sea por WhatsApp). El pendiente
+pedía mandarla otra vez, y habría sido un duplicado, lo mismo que Martín reclamó esa noche («¿por qué me envías esto por 2da vez?»).
+
+**El pendiente P4 de la lista del 7/11 («#38, #39, #43 y #58 abiertos sin cerrar ni contestar») ya era falso el 10/11:** los cuatro
+estaban cerrados y contestados ese día. Un pendiente se mide contra la base del día, no contra la lista. Lo único mal era el #58.
+- **#39 (Brigitte):** su fila de `errores_app` (1/11 11:35) es anterior a las `pistas` (8f19b1229) y no trae ninguna, y en 16 días
+  no hubo otro #418 en /crm en ningún negocio (`errores_app` tiene 10 filas en toda su historia; la última, del 12/11). Con ese
+  caso no hay causa que buscar, y su respuesta en /tickets («pasó una sola vez… si lo vuelves a ver, escríbenos») sigue siendo cierta.
+- **#38 (Martín):** es el mismo pedido que docs/funnel-coach.md §9 (Fastlane), que lo dice («De dónde sale: ticket #38»). Se
+  contestó una sola vez por WhatsApp; lo que queda es elegir qué copiar.
+- **#43 (Código Inmobiliario):** contestado el 10/11 con el camino a mano (adjuntar en el Second Brain de Marcela). Siguen siendo
+  de Martín cargarlo por WhatsApp en el negocio de un cliente (una escritura en otro negocio) y que `reclasificar` acepte
+  `esperando_decision` (ver «#43» más abajo).
 
 **Sin hacer (y dónde vive):**
 - El texto del cierre por hito es el TÍTULO del hito, escrito para la bitácora (`cerrarLosDesplegados`, lib/tickets-cierre.ts):
@@ -1350,7 +1377,9 @@ explicaba por qué no se mandó nunca.
 **Causa.** El aviso de un pedido delegado (`contexto.delegado`, lib/tickets-reglas.ts `textoDelAviso`) es FIJO a propósito (sólo lo
 que pidió y un link de MaKo), para que el texto del Cerebro no llegue crudo. `scripts/tickets-cerrar-resueltos.mjs` lo cerraba
 igual que un ticket común. **Regla:** un delegado se cierra como resuelto sólo si se HIZO (`"hecho": true`, ahora obligatorio en
-el script); lo que no se hizo se le contesta en su grupo como equipo y el ticket se cierra después.
+el script); lo que no se hizo se le contesta en su grupo como equipo y el ticket se cierra después. ⚠️ **Corregido el 17/11:**
+contestarle aparte y cerrar dejó al #58 «Resuelto» con WhatsApp diciendo «no se hizo». Si falta algo del cliente se pregunta
+DESDE el ticket (`"preguntar": true`, ver «WhatsApp y la Ticketera decían cosas distintas», arriba).
 
 *2026-11-10 claude4, chat Tickets*
 
