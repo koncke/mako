@@ -1,8 +1,12 @@
 # Reto de 7 días: los guiones del DÍA 1 (borrador del 17/11/2026, para el feedback de Martín)
 
-Lo pidió Martín el 17/11: «primero haz lo del primer día, lo de oferta y lo de funnel… el resto de días yo te voy dando feedback». Lo escribió la corrida `wf_15437be0-9c1` (leer el método de los VSL cortos, el reto de la maqueta y el curso de Sofía Contreras → escribir → un crítico que corrige). Los días 2 a 7 NO están.
+Lo pidió Martín el 17/11: «primero haz lo del primer día, lo de oferta y lo de funnel… el resto de días yo te voy dando feedback». Lo escribió la corrida `wf_15437be0-9c1`: leyó el método de los VSL cortos, el reto de la maqueta y el curso de Sofía Contreras, escribió y un crítico lo corrigió. El recorrido (V2) ya tiene el primer feedback de Martín, del 17/11. Los días 2 a 7 NO están.
 
-**Cómo se lee:** «Dice» es el texto exacto de la voz (con «Máko» con tilde para que la voz lo pronuncie; en pantalla sale «MaKo»). «Muestra» es lo que se ve. Duración = palabras ÷ 3,2 + 0,38 s (scripts/tutorial-animado/beats.mjs:9).
+**Cómo se lee:**
+
+- «Dice» es el texto exacto de la voz. Va «Máko» con tilde para que la voz lo pronuncie; en pantalla sale «MaKo».
+- «Muestra» es lo que se ve.
+- Duración = palabras ÷ 3,2 + 0,38 s (scripts/tutorial-animado/beats.mjs:9).
 
 ## Resumen
 
@@ -10,7 +14,7 @@ Día 1: 4 videos que ve todo el mundo (V1 a V4) y un molde para los 11 opcionale
 
 Duración por palabras, a 3,2 palabras/s + 0,38 s de cola (beats.mjs:9):
 - V1, bienvenida: 72 palabras, ~23 s de voz. A cámara, con el arranque, queda cerca de los 28 s que pidió Martín (audio-12.33.22.txt:1).
-- V2, recorrido: 139 palabras, ~44 s de voz, más lo que la persona tarde en las 10 pausas.
+- V2, recorrido: 114 palabras, ~36 s de voz, más lo que la persona tarde en las pausas (corregido el 17/11).
 - V3, Offer Coach: 170 palabras, ~54 s.
 - V4, Funnel Coach: 128 palabras, ~40 s.
 - Los cuatro suman unos 2:40. Cada opcional tiene de 34 a 41 palabras (11 a 13 s), y los 11 juntos, unos 2:12.
@@ -59,24 +63,23 @@ Para cosechar en docs/hallazgos-video-pipeline.md §17:
 
 - **Dónde:** En el chat de Onboarding, enseguida de V1, con el mensaje «Te doy la bienvenida a tu Ops Center, {n}. Dale play: te muestro dónde está cada cosa.» (cuerpo.html:858, 1489-1492). El video se para en 10 pausas. Dos piden clic, y el video sigue recién después del clic (cuerpo.html:1269-1271).
 - **Para qué:** Que sepa dónde está cada cosa y deje de preguntarse qué hacer con todo. Vende la app (audio-12.33.22.txt:1). Acción final: elegir en el recuadro de arriba «Seguir con el reto de 7 días de MaKo» o «Muéstrame {pestaña}» (cuerpo.html:1497-1503).
-- **Largo:** 139 palabras, ~44 s
+- **Largo:** 114 palabras, ~36 s
 
 | # | Dice | Muestra |
 |---|---|---|
-| 1 | ¡Hola de nuevo! Te muestro dónde está cada cosa. | El video chico de Martín en el chat de Onboarding. La app, en el Ops Center, sin nada marcado (cuerpo.html:1274). |
-| 2 | A la izquierda están tus chats: cada uno, un experto que trabaja para ti. | Pausa: velo oscuro, con la lista de chats marcada (`sb-chats`), la tarjeta «Tus chats» y «Siguiente» (cuerpo.html:1275). |
-| 3 | El primero es el Ops Center: es Máko. Le pides lo que necesites y lo reparte. | Pausa: marcado `sb-ops`, con la tarjeta «Ops Center» (cuerpo.html:1276). |
-| 4 | Offer Coach arma tu oferta contigo, inspirado en Alex Hormozi y otros referentes. | Pausa: marcado `sb-offer`, con la tarjeta «Offer Coach» (cuerpo.html:1277). Reemplaza el subtítulo viejo, «con el método de Alex Hormozi». |
-| 5 | Funnel Coach te ayuda a elegir tu sistema de adquisición de clientes. | Pausa: marcado `sb-funnel`, con la tarjeta «Funnel Coach» (cuerpo.html:1278). |
-| 6 | Y te llega tu reto de siete días. Puedes adelantar días cuando quieras. | Pausa: entra la tarjeta del reto, marcada (`sb-reto`, cuerpo.html:1279). T_RETO cae en la palabra «reto», la número 69, a unos 21 s a 3,2 palabras/s, y no a los 30 s de cuerpo.html:1272. Se ajusta con la alineación. |
-| 7 | Este es tu panel: tus ventas, tu marketing y todo lo que creas. | Pausa: entra la barra «Tu panel», marcada (`nav`), y queda para siempre (cuerpo.html:1280; onboarding-16-11-decisiones.md:42). |
-| 8 | Toca Second Brain: es todo lo que Máko sabe de tu negocio. | Pausa con clic: marcado `sb-second-brain`, con «Haz clic en Second Brain». El video sigue recién después del clic (cuerpo.html:1281). |
-| 9 | Por ahora, esto es lo que sé de ti. A medida que te conozco, voy armando tu Second Brain automáticamente. | Pausa: adentro del Second Brain, con el grafo marcado (`sb-grafo`) y la tarjeta «Lo que MaKo sabe de ti» (cuerpo.html:1282). |
-| 10 | Para volver, toca Ops Center. | Pausa con clic: marcado `nav-ops`, con «Haz clic en Ops Center» (cuerpo.html:1283). |
-| 11 | ¿Una duda? Escríbele a Máko aquí. | Pausa: marcada la caja para escribir (`sb-escribir`, cuerpo.html:1284). |
-| 12 | Y ahora, elige arriba cómo seguimos. | Sin marca. Arriba del chat aparece el recuadro con «Seguir con el reto de 7 días de MaKo» y «Muéstrame {pestaña}» (cuerpo.html:1497-1503). |
+| 1 | ¡Hola de nuevo! Te muestro dónde está cada cosa. | El video chico de Martín en el chat de Onboarding. La app, en el Ops Center, sin nada marcado. |
+| 2 | A la izquierda están tus chats. | Pausa: marcada la lista de chats (`sb-chats`). No se explica cada chat (Martín, 17/11: «no es necesario aclararlo»). |
+| 3 | Arriba tienes tu reto de siete días. Puedes adelantar días cuando quieras. | Pausa: marcado el reto ARRIBA, al lado de los mensajes fijados, con su barra de progreso (Martín, 17/11: el reto sale del chat). |
+| 4 | Este es tu panel: tus ventas, tu marketing y todo lo que creas. | Pausa: marcada la barra «Tu panel», idéntica a la de MaKo. Al terminar de presentarla, se pliega (Martín, 17/11). |
+| 5 | Toca Second Brain: es todo lo que Máko sabe de tu negocio. | Pausa con clic: marcado `sb-second-brain`, con «Haz clic en Second Brain». |
+| 6 | Por ahora, esto es lo que sé de ti. A medida que te conozco, voy armando tu Second Brain automáticamente. | Pausa: adentro del Second Brain, con el grafo marcado y la tarjeta «Lo que MaKo sabe de ti». |
+| 7 | Para volver, toca la flecha de aquí arriba. | Pausa con clic: marcado el botón para volver DEL PROPIO Second Brain, no el Ops Center de la barra (Martín, 17/11). |
+| 8 | ¿Algo falla, o quieres proponer algo nuevo? | Pausa: marcada la Ticketera. |
+| 9 | Mándale un audio o un mensaje a Máko aquí, en la Ticketera. | Sigue marcada la Ticketera; el recuadro late con «aquí». |
+| 10 | Nos comprometemos a resolverlo en menos de veinticuatro horas. | Sigue marcada la Ticketera. |
+| 11 | Y ahora, elige arriba cómo seguimos. | Sin marca. Arriba del chat, el recuadro con «Seguir con el reto de 7 días de MaKo» y «Muéstrame {pestaña}». Si elige seguir con el reto, el tutorial oscurece todo y marca el chat de Offer Coach en la barra (Martín, 17/11). |
 
-**De dónde sale:** Las 10 pausas, lo que marca cada una y sus tarjetas son las de la maqueta (cuerpo.html:1273-1285). Varias frases son de Martín (audio-12.33.22.txt:1; onboarding-16-11-decisiones.md:42-43):
+**De dónde sale:** Corregido con el feedback de Martín del 17/11: sin explicar cada chat; el reto arriba, al lado de los mensajes fijados; la barra se pliega; se vuelve del Second Brain con su propio botón; la Ticketera después del Second Brain, con su compromiso de 24 horas; y sin «¿Una duda? Escríbele a MaKo aquí». Las 10 pausas, lo que marca cada una y sus tarjetas son las de la maqueta (cuerpo.html:1273-1285). Varias frases son de Martín (audio-12.33.22.txt:1; onboarding-16-11-decisiones.md:42-43):
 - «Tu panel», con «tus ventas, tu marketing y todo lo que creas».
 - Las dos frases del Second Brain. Las dice él mismo en el video: en el audio aclara «yo voy diciendo».
 Offer Coach va «inspirado en Alex Hormozi y otros referentes» (:44), y así se corrige el subtítulo viejo. Vende la app, como pidió Martín (audio:1): cada chat es un experto y el panel junta todo. Del método: frases cortas, «aquí» y ninguna palabra repetida dentro del video (_voz-martin.md:10, 17). El cierre manda al recuadro, porque la persona puede elegir el reto o lo que pidió primero (cuerpo.html:859).
