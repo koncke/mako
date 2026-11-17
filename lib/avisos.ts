@@ -125,9 +125,15 @@ export type EmitirAvisoResult = {
   ok: boolean; feedId: number | null; wa: boolean; deduped: boolean; waError?: string;
   /**
    * Quedó en el hilo del grupo de la app (lib/grupo-app.ts). `wa` sigue diciendo sólo WhatsApp: el puente por mail y el `waError` no cambian. Quien REINTENTA con el
-   * resultado del aviso lo cuenta como que llegó (avisos-resumen, lineas-vigilante, `llegoLaTarjeta`): con la voz fuera de los grupos, cada reintento sumaría una burbuja.
+   * resultado del aviso lo cuenta como que llegó (avisos-resumen, `llegoLaTarjeta`): con la voz fuera de los grupos, cada reintento sumaría una burbuja.
+   * ⚠️ El vigilante de líneas YA NO (17/11/2026, `llegoElAvisoDeLinea`): marca «avisado» sólo con lo que salió (`salieron`).
    */
   enApp?: true;
+  /**
+   * Un EVENTO de MaKo (`emitirPorEvento`): cuántas tarjetas SALIERON por WhatsApp o email (17/11/2026). Ahí `wa` es «corrió una
+   * fila», no «salió». Ausente fuera de los eventos.
+   */
+  salieron?: number;
   /** no salió porque el negocio lo espació en la pantalla, no porque se repitiera. */
   espaciado?: boolean;
   /** el dueño apagó este aviso en Configuraciones › Notificaciones. */
@@ -552,7 +558,7 @@ async function depsDelEvento(): Promise<DepsEvento> {
     agenciasDelCliente: agenciasDelClienteParaAvisar,
     correr: async (flujoId, pasos, ws, ctx) => {
       // Lo que LLEGÓ en esta vuelta (16/10/2026): lo cuenta `ejecutarPasos` en `entregas`.
-      const entregas = { llegaron: 0 };
+      const entregas = { llegaron: 0, salieron: 0 };
       await runWithWorkspace(ws, () => ejecutarPasos(flujoId, pasos, ws, ctx, undefined, entregas));
       return entregas;
     },

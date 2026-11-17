@@ -563,6 +563,14 @@ export function resultadoDelAviso(r: ResultadoAviso, lead: { nombre: string } | 
  * 17/10. Con «por email» y el correo que no salió (nadie en Notificaciones) también quedó en la app: reintentar cada hora
  * no le crea un grupo ni un destinatario, sólo suma filas. «No pude dejarlo en la app» (`feedId` null) no llegó.
  */
+/**
+ * ¿SALIÓ POR UN CANAL QUE EL NEGOCIO VE FUERA DE LA APP? WhatsApp o email (17/11/2026, T1 del ws1). `llegoLaTarjeta` cuenta
+ * además lo que quedó sólo en la app, a propósito: a quien reintenta, un reintento le suma burbujas. Al vigilante de líneas
+ * no le sirve: con eso marcaba «avisado» y dejaba de insistir aunque el aviso no hubiera salido de la app
+ * (`llegoElAvisoDeLinea`, lib/linea-vigilancia.ts). `wa` de `emitirAviso` es el WhatsApp de verdad (`env.ok`).
+ */
+export const salioLaTarjeta = (r: { ok: boolean; wa: boolean; email?: boolean }): boolean => r.ok && (r.wa || r.email === true);
+
 export function llegoLaTarjeta(r: { ok: boolean; wa: boolean; email?: boolean; sinGrupo?: SinGrupo; feedId?: number | null; enApp?: boolean }): boolean {
   if (!r.ok) return false;
   if (r.wa || r.email === true) return true;
