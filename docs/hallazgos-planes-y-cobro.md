@@ -3834,7 +3834,7 @@ Dos pendientes de plata del barrido del 7/11 que seguían abiertos. Cada uno, co
 
 ### P30 · un pago en USDT nacía sin moneda y contaba como dólares
 
-- *El diagnóstico equivocado:* «hay que corregir las 66 filas viejas». Las 66 filas tienen `moneda` en null **porque ningún camino la
+- *El diagnóstico equivocado:* «hay que corregir las 66 filas viejas» (hoy son 79). Las filas tienen `moneda` en null **porque ningún camino la
   escribía**, no porque se perdiera. El rastro de una orden en USDT vive en `recibo_pagos` (atado por `pago_id`, mig 0408) y, desde el
   10/11, la mensualidad de Código entra por el libro de agencias (`app_settings`), que no escribe en `pagos`. Lo que había que arreglar
   era el camino que NACE sin moneda: «Cargar pago» → `registrarReciboEnElCrm` → `registrarPagoSuelto` sin `moneda`.
@@ -3849,8 +3849,8 @@ Dos pendientes de plata del barrido del 7/11 que seguían abiertos. Cada uno, co
 - ⚠️ *La trampa que mostró la revisión:* **el monto por defecto pisaba lo cobrado.** `pagoEnMoneda` tomaba `montoUsd ?? default ?? 1:1`, y al
   marcar una cuota de US$1000 con 500 USDT, el default (la cuota entera) ganaba: contaba 1000 y no dejaba diferencia, en silencio (antes
   USDT daba error). Ahora la stablecoin gana sobre el default, y `cobrarCuota` no le pasa «la cuota entera» como dólares.
-- ⚠️ **SIN APLICAR: la 0417 necesita el sí de Martín** (se aplica en producción). Sin hacer: contar cuántas de las 66 filas tienen
-  `metodo` null y decidir si se marcan «sin dato» (hay que MEDIR en la base: `select count(*) from pagos where moneda is null`).
+- ⚠️ **SIN APLICAR: la 0417 necesita el sí de Martín** (se aplica en producción). Sin hacer: decidir si las 79 filas viejas (todas sin moneda, 58 sin método;
+  medido el 17/11) se marcan «sin dato»: no hay nada que corregir, la moneda nunca se guardó.
 - *Vive en:* supabase/migrations/0417_pagos_moneda_cripto.sql · lib/pasarela-moneda.ts · lib/pagos-campo.ts · lib/recibos-reglas.ts ·
   lib/recibos.ts · tests/pagos-usdt.test.ts (probado rompiéndolo, 7 roturas).
 
