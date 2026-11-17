@@ -27,6 +27,7 @@ Los journals siguen en disco, en
 
 | Fecha | Corrida | Agentes | Qué se fue a buscar | |
 |---|---|---|---|---|
+| 2026-11-17 | `verificar-pendientes-17-11` (`wf_397d0e13-b23`) | 70 | Los 285 pendientes del 7/11 que nadie había verificado, contra origin/main: verificador por lote de 8 y refutador de lo que daba por cerrado (refutó 36 de 109) | ya escrita: pendientes-verificados-17-11.md, hallazgos-operaciones y AGENTS.md |
 | 2026-10-24 | `pixel-meta-sprint-2410` (`wf_d253310f-574`) | 8 | El gasto de Meta del ws1 «perdido» desde el 15/10 (no era ceguera: Meta frenó la cuenta por saldo impago, y MaKo dejó de avisar el 16/10), la página de venta del Sprint (estaba publicada y se pisó con la de gracias al pegar el Pixel) y dos diseños, venta externa por Stripe y eventos a Meta por funnel, cada uno con un verificador que lo refutó en parte | ya escrita: hallazgos-ads, -landing, -pagos, -comunicacion y los dos diseno-*.md |
 | 2026-10-24 | `auditoria-pixel` (`wf_3f17ed7e-123`) | 7 | El Pixel de MaKo punta a punta por funnel, pedido de Martín del 23/10: qué mide, la venta por el Stripe propio que no entra, el Schedule doble de Mauricio | ya escrita: hallazgos-landing, -pagos y -ads |
 | 2026-10-21 | `revision-ola1` | 13 | La ola 1 del Ops Center (061c1b74d): los arreglos de caja-voz (todos bien), seguridad multi-inquilino (limpia) y 8 errores confirmados en las piezas nuevas (el guardia de promesas borra confirmaciones reales; trabajos «En curso» para siempre) | ya escrita |

@@ -24,6 +24,15 @@ corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no fren
 
 ---
 
+## 📋 LOS PENDIENTES DEL 7/11, VERIFICADOS UNO POR UNO (17/11/2026) → [pendientes-verificados-17-11.md](pendientes-verificados-17-11.md)
+
+De los 285 que nadie había verificado: **73 ya estaban cerrados** (65 hechos, 8 que una decisión tuya volvió innecesarios),
+**127 siguen abiertos**, 36 quedaron en disputa (el primer agente los dio por hechos y el segundo encontró qué falta) y 49
+sólo se saben mirando producción o la pantalla. De plata quedan 27 abiertos y de lo que traba otra cosa, 13. Se reparten
+desde ese documento, no desde los encargos viejos: varios encargos siguen repartiendo cosas ya hechas.
+
+---
+
 ## 🦶 El pie que le gusta a Martín — PENDIENTE, no se toca hasta que él lo diga (16/11/2026, noche)
 
 Martín, mirando el artefacto: «no sé por qué en producción no se ve igual la bottom bar. Me gusta como está actualmente la bottom
@@ -628,7 +637,7 @@ El detalle, con el método y las dos trampas en que caí midiéndolo:
 ordenados por «cliente roto > plata > traba > features»:
 https://claude.ai/artifact/2MnMGyV8oyXjbYz2W8NQXs
 
-⚠️ **Lo que quedó SIN hacer:** verificar uno por uno si ya se resolvieron. Pide leer el código de
+~~⚠️ **Lo que quedó SIN hacer:** verificar uno por uno si ya se resolvieron.~~ ✅ **Hecho el 17/11:** [pendientes-verificados-17-11.md](pendientes-verificados-17-11.md). Pide leer el código de
 cada pendiente, y la guardia de RAM bloqueó repartirlo en agentes (1,67 GB de los 3 que exige).
 **De las 232 seguramente sobren más.**
 

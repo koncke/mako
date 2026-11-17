@@ -1,5 +1,10 @@
 # Los pendientes, depurados — 7/11/2026
 
+> ## ➡️ 17/11/2026: VERIFICADOS LOS 285 RESTANTES → [pendientes-verificados-17-11.md](pendientes-verificados-17-11.md)
+>
+> 73 ya estaban cerrados, 36 quedaron en disputa, 127 siguen abiertos y 49 sólo se saben midiendo. **El estado de
+> cada pendiente es el de ese documento**; éste queda como historia de cómo se depuró.
+
 > ## ⚠️ VERIFICADOS 12, SOBRABAN 11
 >
 > Al 7/11 por la noche se verificaron los primeros seis; el 8/11, seis más. **Once de los doce ya**
@@ -73,7 +78,7 @@ La versión navegable: https://claude.ai/artifact/2MnMGyV8oyXjbYz2W8NQXs
   cursos» no se resuelve porque `lib/knowledge-modulos.ts` exista. Esa comprobación automática
   no sirve: hay que leer el código de cada uno.
 
-**Lo que quedó SIN hacer:** verificar una por una si ya se resolvieron. Necesita leer el código de
+~~**Lo que quedó SIN hacer:** verificar una por una si ya se resolvieron.~~ ✅ **Hecho el 17/11:** [pendientes-verificados-17-11.md](pendientes-verificados-17-11.md). Necesita leer el código de
 cada pendiente y la PC no tuvo RAM para repartirlo en agentes (1,67 GB de los 3 que pide la
 guardia). De las 232 seguramente sobren más.
 

@@ -200,6 +200,11 @@ cosechar lo nuevo — mientras el «falta» siga escrito en presente, el pendien
 ⚠️ **Si el motivo del renglón era equivocado, decilo ahí.** «La red no corre fuera del ws9» y «la
 rampa sólo es del email» eran las dos premisas de dos pendientes del 6/11, y las dos eran falsas o
 incompletas: el que las lea sin medir repite el diagnóstico.
+⚠️ **Y para TACHARLO no alcanza una lectura.** El 17/11/2026 se verificaron contra `origin/main` los 285
+pendientes de la lista del 7/11: 73 ya estaban cerrados, pero de los 109 que un primer agente dio por hechos,
+un segundo que buscaba refutarlos encontró qué faltaba en 36. Lo que se da por cerrado lo mira alguien más,
+contra `origin/main` recién traído (no un worktree), antes de tacharse. El estado de esa lista vive en
+[docs/pendientes-verificados-17-11.md](docs/pendientes-verificados-17-11.md); el porqué, en hallazgos-operaciones.md → «Los pendientes se fabrican solos».
 
 # Cómo se sube lo terminado: a su punta, y GitHub la lleva a main (todas las cuentas, 4/11/2026)
 

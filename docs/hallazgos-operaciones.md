@@ -7,6 +7,42 @@ del código.
 
 ---
 
+## Los pendientes se fabrican solos: 73 de 285 ya estaban cerrados, y un «ya está» de una lectura falla un tercio (17/11/2026)
+
+**Vive en:** las listas de pendientes (`docs/pendientes-*.md`, `docs/encargos-*/`, `docs/relevo/*.md`) y las secciones «Sin
+hacer» de `docs/hallazgos-*.md`, que es de donde las listas copian. El estado medido, ítem por ítem:
+[pendientes-verificados-17-11.md](pendientes-verificados-17-11.md).
+
+**Síntoma:** de los 285 pendientes de la lista del 7/11 que nadie había verificado, 73 ya estaban cerrados (65 hechos, 8
+obsoletos por una decisión posterior de Martín), varios desde ANTES de anotarse. Y de 109 que un primer agente dio por
+cerrados, un segundo con la consigna de refutarlos encontró qué faltaba en 36.
+
+**Lo que no se ve en el código, y costó:**
+
+- **El inventario se midió en un worktree atrasado.** `C:/dev/wt-puntas` iba detrás de `origin/main`: P21 y P22 ya eran
+  falsos esa misma tarde (2b9c0bd13 y bf395e599), y los números de línea de los «Dónde» son de ese árbol. Se mide contra
+  `origin/main` recién traído, nunca contra un worktree.
+- **Una lista nueva copia lo que la anterior ya cerró.** La depuración del 7/11 volvió a anotar cuatro ítems que la triaje
+  del 6/11 (`docs/encargos-6-11/triaje-varios.md`) había dado por hechos, y `docs/encargos-7-11/encargo-crm.md` (ítems 7 y
+  11) sigue repartiendo trabajo hecho. Un encargo viejo no se reparte sin pasar por la lista verificada.
+- **«Sin aplicar» en un doc no es el estado de una migración.** 0372, 0390, 0394, 0401 y 0404-0408 figuraban sin aplicar en
+  seis documentos y estaban aplicadas. Se mide en la base, no en el texto.
+- **Ticket cerrado ≠ hecho, y grep vacío ≠ abierto.** El #58 se cerró en tanda el 10/11 y el cliente recibió «Listo: ya
+  quedó» sin estar hecho (hallazgos-ticketera.md:1346). Al revés, el #12 está cerrado y ninguna bitácora lo nombra: su hito
+  salió como `tickets:[17]` y el cierre vive en `ticket_eventos`, en la base.
+- **Un commit que dice «resuelve X» puede arreglar otra cosa.** 9a949bb07 dice cerrar el pendiente del cron del Runner y
+  arregla otra: que la guardia apagada no se avisaba.
+- **El diagnóstico del renglón era el equivocado** en varios: «falta el campo de primer contacto» (no hay campo: se calcula de
+  `wa_mensajes.automatico` y quedó hecho el 5/11, un día antes del inventario); F36, «una línea con origen email» (era
+  `soloPausa`, y la pausa va ANTES de inscribir); F42, leído al revés por una coma.
+
+**La regla que queda:** para tachar un pendiente no alcanza una lectura: va una segunda que intenta refutarlo, contra
+`origin/main`. Y el que reparte trabajo lo saca de la lista verificada, no de un encargo ni de un relevo. Lo midió la corrida
+`wf_397d0e13-b23` (36 lotes de 8, verificador y refutador, 70 agentes). Las 236 trampas que encontró están pegadas a su
+pendiente en ese documento.
+
+---
+
 ## A Martín sólo le llegan sus decisiones: el juez va en la fuente Y en lo que ya llegó (10/11/2026)
 
 **Vive en:** `lib/pregunta-para-martin.ts` (el juez, puro) y su copia en `scripts/operaciones/cartero.mjs` (1.27.0, con test
