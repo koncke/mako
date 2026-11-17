@@ -75,6 +75,21 @@ de Hormozi y vuelve. Dos clips de 4 s con fotograma inicial y final, con `gemini
   lo cobrado. Coincidió con `data.cost`.
 - Con inicio y final, `duration` va de 3 a 10. `first_frame_image` y `last_frame_image` no se mezclan con `image_urls`.
 
+**La segunda vuelta (17/11), porque Martín no quería «un fundido» sino «un efecto donde me transformo»:**
+- **La transición que funciona con fotograma inicial y final: la palma a la cámara.** Habla, tapa el lente con la mano y, al sacarla, ya es el otro.
+  - Tapa casi todo el cuadro, así que el cambio queda escondido y nunca hay dos caras superpuestas.
+  - Pasar la mano frente a la cara deja el pelo y la ropa cambiando a la vista.
+  - Girar obliga a inventar la nuca.
+  - Un chasquido en una toma termina en destello o fundido.
+  - Se pide en UNA frase, después de la frase hablada. Costó US$0,096 por clip de 4 s y no hubo que reintentar.
+- **«Se empezó a reír al final» no era una risa: era el fotograma final.** La caricatura de Hormozi sonríe con la boca abierta, y el
+  modelo llena el silencio que sobra después de la frase con esa sonrisa muda. Duración justa y «boca cerrada» la acortan; para
+  sacarla del todo hace falta un fotograma final con la boca cerrada, y una imagen nueva necesita el OK de Martín.
+- **El modelo agrega por su cuenta un «whoosh» al mover la mano**, y el cambio de voz lo convierte en un «Mmm» fuerte. Martín ya había
+  rechazado los efectos de sonido en la transformación. Arreglo: silenciar el audio original después de la última palabra, ANTES
+  del cambio de voz.
+- **Archivos:** `C:/dev/reel-mentores/clips-apimart/v2/`.
+
 ---
 
 ## 1. Lo que se puede usar HOY (licencia verificada con cláusula, cero ambigüedad)
