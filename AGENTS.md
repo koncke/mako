@@ -8088,7 +8088,9 @@ que ya está solucionado».
   audiencia es México), qué quedó resuelto y cómo probarlo, sin promesas, en menos de 500 caracteres. Un aviso de arreglo que
   nombra un ticket de ese negocio NO sale (`frenoPorTickets`, lib/aviso-arreglo.ts), y un mensaje libre del equipo que da por
   resuelto un ticket que la Ticketera tiene abierto tampoco (`enviarAlGrupoMaKo`). Si lo que vas a decir es de un ticket,
-  cerralo; si no lo podés cerrar todavía, no digas que quedó.
+  cerralo; si no lo podés cerrar todavía, no digas que quedó. **Si lo que falta es del cliente, no lo cierres ni le escribas
+  aparte: `"preguntar": true`** (en el mismo script, con la pregunta en `respuesta`) lo pasa a «Espera tu respuesta» y la
+  pregunta le llega a su grupo desde ese cambio (17/11/2026: el #58 quedó «Resuelto» seis días con WhatsApp diciendo «no se hizo»).
 - **«Resuelto» es resuelto PARA EL CLIENTE.** Si se arregló la herramienta pero el dato del cliente sigue mal (el plan de
   pagos de una clienta de Leila, el 28/10), no se cierra: se dice qué falta.
 - **A Martín, un ticket se le nombra por quién y de qué trata** («Leila: no podía adjuntar un documento»), nunca por su número.
