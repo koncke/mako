@@ -418,7 +418,9 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
    * de las columnas. La noche del 16/11/2026 bajó debajo de las columnas y el 17/11 Martín la devolvió: «eso siempre tiene que
    * estar arriba como antes».
    * Martín, 15/11/2026: «eliminaría el texto de calcula cuántos MaKo Tokens necesitas, pondría la barra directamente abajo de
-   * mensual o anual». Entra por acá para que la portada, que dibuja las mismas columnas, no la arrastre.
+   * mensual o anual».
+   * ⚠️ LA PORTADA TAMBIÉN LA LLEVA: app/vsl/_sitio/ColumnasPlanes.tsx le pasa la misma `barra` que /planes (desde el 15/11). Un cambio
+   * acá se ve en /planes Y en la portada. Las landings de /vsl (app/vsl/PreciosLanding.tsx) son las que van sin barra.
    */
   barra?: ReactNode;
   /** El reloj del 50% sigue vivo en este navegador: cada plan del cartel dice lo que sale su primer mes. Después, el precio de siempre. */

@@ -7374,6 +7374,10 @@ Las transcripciones: `C:/dev/artefactos-mako/feedback-16-11/` (fuera del repo).
   estar arriba como antes». Su «tal vez inclusive ponerlo abajo» del audio era una idea en voz alta, no un pedido. La subsección
   volvió ARRIBA, debajo del selector mensual / anual; quedaron su título y el «+ US$ X» aparte. La regla: un «tal vez» de un audio no
   mueve una pieza que Martín ya había ubicado él; se propone y se pregunta.
+  **Y la portada también la lleva:** `app/vsl/_sitio/ColumnasPlanes.tsx` le pasa a `TarjetasPlanes` la misma `barra` que /planes.
+  Un comentario viejo de `Tarjetas.tsx` decía que la barra entraba por props «para que la portada no la arrastre», y por eso en el
+  artefacto se redibujó sólo Precios: Martín siguió viendo la barra abajo en la portada. El código ya estaba bien; el dibujo de la
+  portada era el de antes. El comentario quedó corregido.
 - **«Activa los avisos» en el sitio:** el layout raíz monta `<PedirAvisos>` para cualquiera con sesión, en cualquier ruta; la
   regla (`lib/pedir-avisos-reglas.ts`) sólo sacaba el onboarding, el login y la cuenta del teléfono. Ahora tampoco en las páginas
   del sitio: `esPublica` (lib/rutas-publicas.ts) más la portada `/`, que NO está en esa lista porque la sirve la raíz.
