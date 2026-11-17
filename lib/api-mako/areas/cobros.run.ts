@@ -28,7 +28,7 @@ import { getLead, logLeadEvent } from '@/lib/leads';
 import { listProductos } from '@/lib/productos';
 import { cobroDelProducto } from '@/lib/cobro-etapa-server';
 import {
-  anularCobro, cancelarSuscripcionCobro, crearCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro,
+  anularCobro, avisoLinkSigueAbierto, cancelarSuscripcionCobro, crearCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro,
 } from '@/lib/cobros';
 import { ESTADOS_COBRO, NOMBRE_PASARELA, esPasarela, rotuloEstado, type Cobro, type EstadoCobro, type Pasarela } from '@/lib/cobros-tipos';
 import { decidirCobro, laCobraLaPasarela, mesesTranscurridos } from '@/lib/cobros-reglas';
@@ -338,7 +338,9 @@ export const RUNNERS: Runners = {
     ejecutar: (payload, ctx) => seguro('anular el link de pago', async () => {
       const r = await anularCobro(ctx.ws, Number(payload.cobroId), autorDe(ctx));
       if (!r.ok) return { ok: false, resumen: `No se pudo anular el link: ${r.error ?? 'sin detalle'}` };
-      return { ok: true, resumen: `Listo: el link del cobro #${String(payload.cobroId)} quedó anulado.`, datos: { cobroId: Number(payload.cobroId) } };
+      // Anulado en MaKo pero abierto en la pasarela: se le dice a quien pidió anularlo (P27, 17/11).
+      const abierto = r.sigueAbierto ? ` ⚠️ ${avisoLinkSigueAbierto(r.sigueAbierto)}` : '';
+      return { ok: true, resumen: `Listo: el link del cobro #${String(payload.cobroId)} quedó anulado.${abierto}`, datos: { cobroId: Number(payload.cobroId), ...(r.sigueAbierto ? { sigueAbierto: r.sigueAbierto } : {}) } };
     }),
   },
 

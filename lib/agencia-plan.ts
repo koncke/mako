@@ -165,7 +165,8 @@ export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: nu
       .eq('id', c.id).eq('workspace_id', plataforma);
   }
   for (const c of sinAutorizar) {
-    const r = await anularCobro(plataforma, c.id, p.autor);
+    // `exigirCierre`: la renovación vieja sin autorizar seguía viva en la pasarela y la nueva era una segunda suscripción (P27, 17/11).
+    const r = await anularCobro(plataforma, c.id, p.autor, { exigirCierre: true });
     if (!r.ok) return { ok: false, error: `No pude rehacer su renovación: ${r.error ?? 'sin detalle'}` };
   }
   for (const c of primerMesSinPagar) {

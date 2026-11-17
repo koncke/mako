@@ -129,7 +129,8 @@ export async function rehacerPrimerMes(cobroId: number, plan: PlanMako, autor: s
   if (c.tipo !== 'unico' || (c.estado !== 'pendiente' && c.estado !== 'fallido') || !c.lead_id) return { ok: false, error: 'Su primer mes ya no se puede rehacer.' };
   const monto = await precioDelPlanEn(plan, c.moneda);
   if (monto == null) return { ok: false, error: `${plan.nombre} no tiene precio en ${c.moneda}.` };
-  const anulado = await anularCobro(plataforma, cobroId, autor);
+  // `exigirCierre`: con el link de antes todavía pagable en la pasarela, el nuevo eran dos cobros posibles del mismo mes (P27, 17/11).
+  const anulado = await anularCobro(plataforma, cobroId, autor, { exigirCierre: true });
   if (!anulado.ok) return { ok: false, error: `No pude anular su link de antes: ${anulado.error ?? 'sin detalle'}` };
   const crear = (m: number, usd: number | null, concepto: string) => crearCobro(plataforma, {
     leadId: c.lead_id!, pasarela: c.proveedor, tipo: 'unico', monto: m, moneda: c.moneda, montoUsd: usd, concepto,

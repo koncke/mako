@@ -25,7 +25,7 @@ import { revalidatePath } from 'next/cache';
 import { getSesionAdmin } from '@/lib/auth';
 import { getWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { venderPlan, type VentaPlan, type ResultadoVenta } from '@/lib/vender-plan';
-import { anularCobro, atarCobroASuCuenta, cancelarSuscripcionCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro } from '@/lib/cobros';
+import { anularCobro, atarCobroASuCuenta, avisoLinkSigueAbierto, cancelarSuscripcionCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro } from '@/lib/cobros';
 import type { Cobro, EstadoAlta, EstadoCobro, ModoCobro, Pasarela, TipoCobro } from '@/lib/cobros-tipos';
 import { capaDef } from '@/lib/capas';
 import { guardarPrecioClienteDeAgencia, precioClienteDeAgencia } from '@/lib/agencia-cobro';
@@ -152,6 +152,8 @@ export async function anularCobroMakoAction(id: number): Promise<{ ok: boolean; 
   try {
     const r = await anularCobro(await wsSuperAdmin(), id, autorDe(admin));
     if (r.ok) revalidatePath('/admin/cobros');
+    // Anulado en MaKo pero abierto en la pasarela: se dice (antes volvía `ok` y nadie se enteraba, P27 17/11).
+    if (r.ok && r.sigueAbierto) return { ok: false, error: avisoLinkSigueAbierto(r.sigueAbierto) };
     return r;
   } catch (e) {
     return { ok: false, error: mensaje(e, 'No pude anular el link.') };

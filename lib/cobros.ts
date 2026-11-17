@@ -1650,16 +1650,39 @@ export async function aplicarSuscripcionCancelada(c: Cobro): Promise<void> {
 // Lo que pide una persona (la ficha, la API, el super admin)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function anularCobro(ws: number, id: number, autor: string): Promise<{ ok: boolean; error?: string }> {
+/** Lo que le decimos a quien anuló un link que la pasarela NO pudo cerrar: quedó anulado en MaKo y todavía se puede pagar allá. */
+export const avisoLinkSigueAbierto = (motivo: string): string =>
+  `El link quedó anulado en MaKo, pero sigue abierto en la pasarela y se puede pagar: ${motivo}. Ciérralo desde su panel; si lo pagan, MaKo lo registra como pago de un link anulado.`;
+
+/**
+ * Anula un link sin pagar. `ok: true` quiere decir que la FILA quedó anulada; `sigueAbierto` dice, además, que la pasarela no
+ * pudo cerrar el link (17/11, P27: antes devolvía siempre `ok` y nadie se enteraba de un link anulado que seguía cobrable).
+ *
+ * `exigirCierre`: lo pide quien está a punto de CREAR otro link para lo mismo (rehacer el primer mes, la renovación): con el
+ * viejo todavía pagable eran dos cobros posibles de la misma plata. Si la pasarela no lo cerró (falló o no está conectada), la
+ * fila vuelve a como estaba y devuelve `ok: false`. Lo que la pasarela NO sabe cerrar (un pago único de Creem) no lo frena: no se
+ * puede arreglar reintentando, y sigue llegando como `sigueAbierto`.
+ */
+export async function anularCobro(ws: number, id: number, autor: string, opts: { exigirCierre?: boolean } = {}): Promise<{ ok: boolean; error?: string; sigueAbierto?: string }> {
   const c = await getCobro(ws, id);
   if (!c) return { ok: false, error: 'No encontré ese cobro.' };
   if (c.estado !== 'pendiente' && c.estado !== 'fallido') return { ok: false, error: 'Sólo se anula un link que todavía no se pagó.' };
   const r = await actualizar(ws, id, { estado: 'anulado', motivo: `Anulado por ${autor}`.slice(0, 300) }, { estado: ['pendiente', 'fallido'] });
   if (!r) return { ok: false, error: 'El cobro cambió mientras tanto: recarga.' };
-  await cerrarLinkEnLaPasarela(ws, c);
+  const cierre = await cerrarLinkEnLaPasarela(ws, c);
+  if (!cierre.cerrado && opts.exigirCierre && !cierre.imposible) {
+    // El link viejo sigue pagable: la fila vuelve a como estaba, para que quien reintente encuentre UN solo link vivo.
+    await actualizar(ws, id, { estado: c.estado, motivo: c.motivo ?? null }, { estado: ['anulado'] }).catch((e) => {
+      console.error(`[cobros] no pude volver a abrir el cobro ${id} tras no poder cerrar su link: ${e instanceof Error ? e.message : String(e)}`);
+    });
+    return { ok: false, error: `no pude cerrar su link en ${NOMBRE_PASARELA[c.proveedor]} (${cierre.motivo ?? 'sin detalle'}), así que lo dejé como estaba` };
+  }
   if (c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Link de pago', `Anulado: ${c.concepto}`, autor));
-  return { ok: true };
+  return cierre.cerrado ? { ok: true } : { ok: true, sigueAbierto: cierre.motivo ?? 'no pude cerrarlo' };
 }
+
+/** `cerrado`: la pasarela ya no cobra ese link (o no había nada que cerrar). `imposible`: la pasarela no sabe cerrarlo, reintentar no ayuda. */
+type CierreDelLink = { cerrado: boolean; motivo?: string; imposible?: boolean };
 
 /**
  * El link se CIERRA también del lado de la pasarela: Stripe expira la sesión; Mercado Pago vence la preferencia
@@ -1669,15 +1692,17 @@ export async function anularCobro(ws: number, id: number, autor: string): Promis
  * ⚠️ NUNCA TIRA: el cobro YA está anulado. Buscar su cuenta (mig 0328) puede tirar si la base no contesta, y cortar acá
  * decía «No pude anular» de algo anulado, y `anularLinksDeCuota` dejaba vivos los otros links de una cuota ya pagada.
  */
-async function cerrarLinkEnLaPasarela(ws: number, c: Cobro): Promise<void> {
+async function cerrarLinkEnLaPasarela(ws: number, c: Cobro): Promise<CierreDelLink> {
+  const nombre = NOMBRE_PASARELA[c.proveedor];
   try {
-    if (c.proveedor === 'stripe' && c.proveedor_ref) {
+    if (!c.proveedor_ref) return { cerrado: true };
+    if (c.proveedor === 'stripe') {
       const stripe = await credStripe(ws, await cuentaVivaDelCobro(ws, c));
-      if (stripe) {
-        const e = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);
-        if (!e.ok) console.warn(`[cobros] no pude expirar la sesión ${c.proveedor_ref}: ${e.error}`);
-      }
-    } else if (c.proveedor === 'creem' && c.proveedor_ref) {
+      if (!stripe) return { cerrado: false, motivo: `${nombre} no está conectado` };
+      const e = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);
+      if (!e.ok) { console.warn(`[cobros] no pude expirar la sesión ${c.proveedor_ref}: ${e.error}`); return { cerrado: false, motivo: e.error }; }
+      return { cerrado: true };
+    } else if (c.proveedor === 'creem') {
       // ⚠️ EL `if/else if` NO TENÍA else Y CREEM SE CAÍA POR EL HUECO (31/10/2026): un link de Creem anulado en MaKo
       // quedaba ABIERTO y pagable en Creem, sin un solo aviso. Lo llaman `anularCobro` y `anularLinksDeCuota` (la cuota
       // que ya se cobró por otro lado), así que el agujero es exactamente un DOBLE COBRO.
@@ -1685,35 +1710,39 @@ async function cerrarLinkEnLaPasarela(ws: number, c: Cobro): Promise<void> {
       // SUSCRIPCIÓN, que es lo que seguiría cobrando todos los meses. Un pago único de Creem queda pagable: eso NO se
       // puede arreglar desde acá, y la red es el aviso de `aplicarPagoAprobado` sobre un cobro anulado.
       const creem = await credCreem(ws, await cuentaVivaDelCobro(ws, c));
-      if (creem) {
-        if (c.tipo === 'suscripcion') {
-          // El `proveedor_ref` de Creem es el CHECKOUT: cancelar con ese id no cortaba nada. La suscripción sale de él, si ya se pagó.
-          let susId = idDeSuscripcion(c);
-          if (!susId && c.proveedor_ref) {
-            const ch = await leerCheckoutCreem(creem.key, c.proveedor_ref);
-            susId = ch.ok ? ch.suscripcionId : null;
-          }
-          if (susId) {
-            const e = await cancelarSuscripcionCreem(creem.key, susId, idemAnular(c.id), false);
-            if (!e.ok) console.warn(`[cobros] no pude cancelar la suscripción ${susId} en Creem: ${e.error}`);
-          } else {
-            console.warn(`[cobros] el cobro ${c.id} quedó anulado, pero su checkout de Creem (${c.proveedor_ref}) no se puede cerrar. Si lo pagan, su suscripción se corta al entrar el pago.`);
-          }
-        } else {
-          console.warn(`[cobros] el cobro ${c.id} quedó anulado, pero su checkout de Creem (${c.proveedor_ref}) no se puede cerrar: Creem no tiene endpoint para expirarlo. Si lo pagan, el aviso lo marca como pago de un link anulado.`);
+      if (!creem) return { cerrado: false, motivo: `${nombre} no está conectado` };
+      if (c.tipo === 'suscripcion') {
+        // El `proveedor_ref` de Creem es el CHECKOUT: cancelar con ese id no cortaba nada. La suscripción sale de él, si ya se pagó.
+        let susId = idDeSuscripcion(c);
+        if (!susId) {
+          const ch = await leerCheckoutCreem(creem.key, c.proveedor_ref);
+          susId = ch.ok ? ch.suscripcionId : null;
         }
+        if (susId) {
+          const e = await cancelarSuscripcionCreem(creem.key, susId, idemAnular(c.id), false);
+          if (!e.ok) { console.warn(`[cobros] no pude cancelar la suscripción ${susId} en Creem: ${e.error}`); return { cerrado: false, motivo: e.error }; }
+          return { cerrado: true };
+        }
+        console.warn(`[cobros] el cobro ${c.id} quedó anulado, pero su checkout de Creem (${c.proveedor_ref}) no se puede cerrar. Si lo pagan, su suscripción se corta al entrar el pago.`);
+        return { cerrado: false, imposible: true, motivo: 'Creem no deja cerrar el checkout; si lo pagan, MaKo corta la suscripción al entrar el pago' };
       }
-    } else if (c.proveedor === 'mercadopago' && c.proveedor_ref) {
+      console.warn(`[cobros] el cobro ${c.id} quedó anulado, pero su checkout de Creem (${c.proveedor_ref}) no se puede cerrar: Creem no tiene endpoint para expirarlo. Si lo pagan, el aviso lo marca como pago de un link anulado.`);
+      return { cerrado: false, imposible: true, motivo: 'Creem no deja cerrar un pago único' };
+    } else if (c.proveedor === 'mercadopago') {
       const mp = await credMp(ws, await cuentaVivaDelCobro(ws, c));
-      if (mp) {
-        const e = c.tipo === 'suscripcion'
-          ? await cancelarSuscripcionMp(mp.token, c.proveedor_ref, idemAnular(c.id))
-          : await vencerPreferenciaMp(mp.token, c.proveedor_ref, idemAnular(c.id));
-        if (!e.ok) console.warn(`[cobros] no pude cerrar el link ${c.proveedor_ref} en Mercado Pago: ${e.error}`);
-      }
+      if (!mp) return { cerrado: false, motivo: `${nombre} no está conectado` };
+      const e = c.tipo === 'suscripcion'
+        ? await cancelarSuscripcionMp(mp.token, c.proveedor_ref, idemAnular(c.id))
+        : await vencerPreferenciaMp(mp.token, c.proveedor_ref, idemAnular(c.id));
+      if (!e.ok) { console.warn(`[cobros] no pude cerrar el link ${c.proveedor_ref} en Mercado Pago: ${e.error}`); return { cerrado: false, motivo: e.error }; }
+      return { cerrado: true };
     }
+    // Una pasarela nueva: que no compile en silencio (la regla de lib/cobros-tipos.ts).
+    const _x: never = c.proveedor;
+    return { cerrado: false, motivo: `pasarela sin cierre: ${String(_x)}` };
   } catch (e) {
     console.warn(`[cobros] el cobro ${c.id} quedó anulado, pero no pude cerrar su link en la pasarela: ${e instanceof Error ? e.message : String(e)}`);
+    return { cerrado: false, motivo: e instanceof Error ? e.message : String(e) };
   }
 }
 

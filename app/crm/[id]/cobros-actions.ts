@@ -32,7 +32,7 @@ import { adminDeWorkspaceActual, getWorkspaceActual, runWithWorkspace } from '@/
 import { credMpDe, credStripeDe, cuentasDePago } from '@/lib/cuentas-pago-server';
 import { listProductos } from '@/lib/productos';
 import {
-  anularCobro, cancelarSuscripcionCobro, crearCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro,
+  anularCobro, avisoLinkSigueAbierto, cancelarSuscripcionCobro, crearCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro,
 } from '@/lib/cobros';
 import { leerCuentaStripe } from '@/lib/stripe-api';
 import { leerCuentaMp } from '@/lib/mercadopago-api';
@@ -307,6 +307,8 @@ export async function anularCobroAction(cobroId: number): Promise<{ ok: boolean;
       bust(TAG.pagos, TAG.leads);
       revalidarLead(c.lead_id);
     }
+    // Anulado en MaKo pero abierto en la pasarela: se dice (antes volvía `ok` y nadie se enteraba, P27 17/11).
+    if (r.ok && r.sigueAbierto) return { ok: false, error: avisoLinkSigueAbierto(r.sigueAbierto) };
     return r;
   } catch (e) {
     return { ok: false, error: `No pude anular el link: ${mensaje(e)}` };

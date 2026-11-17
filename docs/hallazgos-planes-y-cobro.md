@@ -3800,3 +3800,46 @@ misma, no el promedio de un cliente.
   página entera, elementos y `::before`/`::after`. En /planes: 46 «i», 101 ✓/✗ de la tabla y 34 de las columnas, todas a 0,25 px
   o menos. **Trampa:** un círculo de tamaño IMPAR (21 px) con un dibujo de 12 deja 4,5 px de borde y el navegador lo corre
   medio píxel (lo midió /accelerator): los círculos con signo van en px PARES.
+
+## Un link anulado que sigue cobrable, y un pago en USDT «en dólares, sin rastro» (17/11/2026, pendientes P27 y P30)
+
+Dos pendientes de plata del barrido del 7/11 que seguían abiertos. Cada uno, con el diagnóstico que no era el obvio.
+
+### P27 · `anularCobro` decía «ok» aunque la pasarela no cerrara el link
+
+- *Lo que pasaba:* `anularCobro` marca la fila `anulado` y llama a `cerrarLinkEnLaPasarela`, que **se tragaba todo error** (`void`) y
+  devolvía siempre `{ ok: true }`. Un link anulado en MaKo que seguía pagable en Stripe, Mercado Pago o Creem no lo sabía nadie. Y quien
+  rehace el link (`rehacerPrimerMes`, la renovación de `agencia-plan`) creaba el nuevo **con el viejo todavía cobrable**: dos cobros
+  posibles del mismo mes. La red de siempre es el aviso «pago por un link anulado» (`aplicarPagoAprobado`): la plata se registra, pero la
+  plata entró dos veces.
+- *Ahora:* `cerrarLinkEnLaPasarela` devuelve `{ cerrado, motivo?, imposible? }` (no hay nada que cerrar sin `proveedor_ref`; una cuenta
+  desconectada, un error de la pasarela o un `throw` son «no cerrado»; Creem **no sabe** cerrar un pago único ni un checkout: `imposible`).
+  `anularCobro` sigue devolviendo `ok: true` cuando la FILA quedó anulada, y suma `sigueAbierto` con el motivo. Las pantallas que anulan
+  (/admin/cobros, la ficha del lead, el chat de MaKo) se lo dicen a quien lo pidió (`avisoLinkSigueAbierto`).
+- *`exigirCierre`* lo piden `rehacerPrimerMes` y la renovación: si la pasarela no cerró el viejo, la fila **vuelve a como estaba** (mismo
+  estado y motivo; queda UN solo link vivo) y devuelve `ok: false`. Lo `imposible` (Creem) no frena: reintentar no ayuda, y llega como
+  `sigueAbierto`. Es una decisión: un primer mes de Creem se puede rehacer aunque el viejo siga pagable, porque lo contrario lo deja sin
+  rehacerse nunca; si lo pagan, queda el aviso. Si esa decisión no es la de Martín, el cambio es una línea (`!cierre.imposible`).
+- *Sin hacer:* `anularLinksDeCuota` (la cuota cobrada por otro lado) sólo loguea `sigueAbierto`; `agencia-baja` y los compensadores
+  (`.catch(() => {})`) siguen sin mirar el resultado. Una cuota ya cobrada con su link vivo en Creem sigue pudiéndose pagar dos veces.
+- *Vive en:* lib/cobros.ts (`anularCobro`, `cerrarLinkEnLaPasarela`) · lib/agencia-cobro.ts · lib/agencia-plan.ts · tests/anular-cobro-cierre.test.ts
+  (9 tests, ejecutados contra `lib/cobros.ts` con las pasarelas y la base reemplazadas; probado rompiéndolo).
+
+### P30 · un pago en USDT nacía sin moneda y contaba como dólares
+
+- *El diagnóstico equivocado:* «hay que corregir las 66 filas viejas». Las 66 filas tienen `moneda` en null **porque ningún camino la
+  escribía**, no porque se perdiera. El rastro de una orden en USDT vive en `recibo_pagos` (atado por `pago_id`, mig 0408) y, desde el
+  10/11, la mensualidad de Código entra por el libro de agencias (`app_settings`), que no escribe en `pagos`. Lo que había que arreglar
+  era el camino que NACE sin moneda: «Cargar pago» → `registrarReciboEnElCrm` → `registrarPagoSuelto` sin `moneda`.
+- *Lo que lo frenaba:* el CHECK de la 0255 (`'^[A-Z]{3}$'`) y `normalizarMoneda` (la de las pasarelas: Stripe y Mercado Pago no cobran en
+  cripto, y **tiene que seguir rechazándola**). Los recibos aceptan 3 a 5 letras desde la 0397.
+- *Ahora:* `normalizarMonedaDePago` (3 letras o USDT/USDC) la usa `pagoEnMoneda` y las lecturas de la cuota (`monedaDe`, `monedaDeCuota`);
+  una stablecoin vale sus dólares (1:1) sin pedirlos aparte; `monedaDelPago` (lib/recibos-reglas.ts) decide la moneda de UN pago a partir
+  de los cobros del recibo (dos órdenes del mismo mes = UN pago; monedas mezcladas o sin monto = como siempre, sin moneda);
+  `registrarReciboEnElCrm` la pasa. La **migración 0417** ensancha el CHECK a 3-5 letras y no toca filas.
+- *El orden de deploy no importa:* si la base todavía no tiene la 0417, `registrarReciboEnElCrm` ve el `pagos_moneda_check` y reintenta SIN
+  moneda (el pago nace como hoy) en vez de perderse con un «no pude registrarlo en el CRM».
+- ⚠️ **SIN APLICAR: la 0417 necesita el sí de Martín** (se aplica en producción). Sin hacer: contar cuántas de las 66 filas tienen
+  `metodo` null y decidir si se marcan «sin dato» (hay que MEDIR en la base: `select count(*) from pagos where moneda is null`).
+- *Vive en:* supabase/migrations/0417_pagos_moneda_cripto.sql · lib/pasarela-moneda.ts · lib/pagos-campo.ts · lib/recibos-reglas.ts ·
+  lib/recibos.ts · tests/pagos-usdt.test.ts (probado rompiéndolo, 7 roturas).
