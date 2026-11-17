@@ -2000,3 +2000,30 @@ y el crítico las reescribió.
 - La voz va a 3,2 palabras por segundo: un minuto son unas 190 palabras.
 - Los números se escriben en letras, y «Máko» con tilde.
 - Un mensaje de la maqueta que Martín leyó y no entendió («tu reto ya tiene los días de tu funnel») no va en ningún video.
+
+
+### Videos animados por código: la investigación del 17/11 (`wf_90a71bff-e00`)
+
+Lo que hay que saber, con el detalle y las fuentes en [editor-video/animaciones-por-codigo.md](editor-video/animaciones-por-codigo.md).
+
+**El diagnóstico obvio era el equivocado: «se ve como HTML» no quiere decir «es HTML».**
+- Morrow hace 3D en JavaScript (SCENE.JS), no en Blender.
+- sanji.chien usa Higgsfield y Seedance: IA PAGA y patrocinada.
+- mrcreates edita material filmado.
+
+Antes de copiar un método, hay que ver la herramienta en pantalla o en la transcripción.
+
+**Trampas de licencia:**
+- **HyperFrames:** su núcleo es Apache-2.0, pero sus bloques cargan GSAP. La licencia de GSAP prohíbe usarlo en editores visuales sin código que
+  compitan con Webflow, así que para los clientes de MaKo no sirve tal cual.
+- **Las skills de HyperFrames que imitan una referencia** (`/reverse-any-video`, `/style-sampling`) son de HyperFrames Pro: US$25 por mes, con cuenta de HeyGen.
+- **Remotion:** ⛔ ya está decidido el 11/11, con Lambda BYOK. Es gratis con 3 personas o menos; desde la 4.ª, se avisa a Martín ANTES.
+- **Claude Motion (Anthropic)** existe, pero sólo para los planes Team y Enterprise.
+
+**Trampa técnica:** la captura exacta cuadro por cuadro de HyperFrames sólo anda en Linux. Una prueba en esta PC con Windows mide un modo que nunca
+iría a producción: se hace en un chat en la nube.
+
+**SIN HACER, con dónde vive:**
+- El motor propio depende de piezas FUERA del repo: `C:/dev/reel-mentores/voz/chequear-guion.mjs`, el Chromium de `C:/dev/playwright-medidor`,
+  `LA-CONFIG.json` y `C:/dev/bancos-portada/`. Hay que versionarlas.
+- Le falta 9:16, porque `engine.js:225` es 1920×1080.

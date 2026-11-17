@@ -55,7 +55,7 @@ const ciclo = { dia, plan: plan as 'pro' | 'esencial' };
 // ⚠️ `--desde` es el PRIMER ciclo que se avisa: un ciclo que ya se pagó en el acto (el de octubre, de Leila) no está en el libro y saldría como deuda.
 if (diaLimite(desde, ciclo) < hoy) { console.error(`✗ El ciclo ${desde} ya venció (su último día para pagar fue el ${diaLimite(desde, ciclo)}): saldría como deuda. Usa el ciclo que viene.`); process.exit(2); }
 console.log(`\nprendería: avisa desde el ciclo ${desde}, ${periodoDelCiclo(desde, ciclo)}`);
-console.log(`  el aviso sale el ${inicioDelCiclo(desde, ciclo)} (con el PDF, a su grupo de MaKo); se paga por ${medio} hasta el ${diaLimite(desde, ciclo)} (${DIAS_DE_GRACIA_CICLO_PROPIO + 1} días con el del aviso);`);
+console.log(`  el aviso sale el ${inicioDelCiclo(desde, ciclo)} (con el PDF, a su grupo de MaKo); se paga por ${medio} hasta el ${diaLimite(desde, ciclo)} (sin días de gracia: ${DIAS_DE_GRACIA_CICLO_PROPIO});`);
 console.log(`  sin el pago, el ${new Date(Date.parse(`${diaLimite(desde, ciclo)}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)} se pausa su cuenta (los datos no se tocan) y se le avisa a Martín.`);
 console.log(`  hoy es ${hoy}${hoy < inicioDelCiclo(desde, ciclo) ? ': todavía no vence, no sale nada hasta esa fecha' : ': el aviso sale en la próxima corrida del cron (14:07 UTC)'}.`);
 if (!aplicar) { console.log('\nSin --aplicar: no escribí nada.'); process.exit(0); }
