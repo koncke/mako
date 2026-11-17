@@ -3849,7 +3849,7 @@ Dos pendientes de plata del barrido del 7/11 que seguían abiertos. Cada uno, co
 - ⚠️ *La trampa que mostró la revisión:* **el monto por defecto pisaba lo cobrado.** `pagoEnMoneda` tomaba `montoUsd ?? default ?? 1:1`, y al
   marcar una cuota de US$1000 con 500 USDT, el default (la cuota entera) ganaba: contaba 1000 y no dejaba diferencia, en silencio (antes
   USDT daba error). Ahora la stablecoin gana sobre el default, y `cobrarCuota` no le pasa «la cuota entera» como dólares.
-- ⚠️ **SIN APLICAR: la 0417 necesita el sí de Martín** (se aplica en producción). Sin hacer: decidir si las 79 filas viejas (todas sin moneda, 58 sin método;
+- ✅ **0417 APLICADA el 17/11/2026** por el Cerebro con el sí de Martín («USDT y USDC»): `pagos_moneda_check` = `CHECK (moneda IS NULL OR moneda ~ '^[A-Z]{3,5}$')`, releído en producción. El reintento sin moneda de `registrarReciboEnElCrm` ya no hace falta, y se dejó (lo cubre un test; no estorba). Sin hacer: decidir si las 79 filas viejas (todas sin moneda, 58 sin método;
   medido el 17/11) se marcan «sin dato»: no hay nada que corregir, la moneda nunca se guardó.
 - *Vive en:* supabase/migrations/0417_pagos_moneda_cripto.sql · lib/pasarela-moneda.ts · lib/pagos-campo.ts · lib/recibos-reglas.ts ·
   lib/recibos.ts · tests/pagos-usdt.test.ts (probado rompiéndolo, 7 roturas).

@@ -12,6 +12,22 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+
+## Marcar pasos de un tutorial sobre las pestañas en HTML: los selectores que mienten (17/11/2026)
+
+Lo encontró el agente que escribió los 17 tutoriales (`docs/reto-7-dias/tutoriales-por-pestana.md`).
+
+**Selectores que no sirven:**
+- **Los ids de `useId`** (`#_mkc-R_18p_-0`) **y los `#co-msg-…`** cambian en cada render. No sirven para marcar un paso.
+- **Contar un `data-recorrido` con grep engaña.** `spy-mejores` da 18 coincidencias y ninguna es un elemento: aparece sólo en el CSS. Hay que contar con un parser.
+- **Los `au-*` de Automations no existen en el HTML estático.** Los pone `marcar` sólo con el recorrido abierto (`app/automations/recorrido-automations.ts`).
+
+**Una trampa al leer:** mientras otro chat corre `armar.mjs`, `publicar/` queda un momento sin algunos archivos (ENOENT). Quien lee tiene que copiar la carpeta antes.
+
+**La regla:**
+- Un paso se marca con `data-recorrido="tour-<pestaña>-<cosa>"` o con un `aria-label` estable.
+- Lo que sólo tiene clase o texto lleva un `tour-*` nuevo.
+- Cada selector se chequea contra la página publicada, con el comprobador `chequear.cjs` de esa corrida.
 ## Cuatro trampas que destapó rediseñar el login (14/11/2026)
 
 **Vive en:** `app/login/_ui/TarjetaLogin.tsx` y `app/login/_ui/login.css` (el velo y la tarjeta, que antes estaban copiados a

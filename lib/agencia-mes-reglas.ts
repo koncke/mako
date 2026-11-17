@@ -57,8 +57,9 @@ export type Mes = string;
 //   · el ciclo arranca el día del mes en que pagó (`dia`) y no el 5: el mes `AAAA-MM` es el que EMPIEZA ese mes (pagó el 26/10 → el
 //     ciclo `2026-10` va del 26/10 al 25/11, y el que se avisa el 26/11 es el `2026-11`). Si el mes no tiene ese día (el 31, en febrero),
 //     arranca el último día del mes.
-// El aviso sale el día que arranca el ciclo y se paga hasta `DIAS_DE_GRACIA_CICLO_PROPIO` días después (la misma ventana de 5 días que
-// tiene una agencia, del 1 al 5); el día siguiente, sin el pago, se pausa la cuenta, igual que con Código.
+// El aviso sale el día que arranca el ciclo, se paga ESE día y, sin el pago, al día siguiente se pausa la cuenta y se le avisa por el grupo
+// (Martín, 17/11/2026: «Leila se debería pausar el día siguiente en caso de que no pague y ahí avisarle por WhatsApp»). No tiene la ventana de
+// 5 días de una agencia (del 1 al 5): `DIAS_DE_GRACIA_CICLO_PROPIO` es 0.
 export type CicloPropio = { dia: number; plan: PlanCuenta };
 /**
  * Desde cuántos días ANTES de que arranque su ciclo se acepta el pago (revisión del 17/11/2026): quien paga el 25 para el ciclo del 26
@@ -66,8 +67,8 @@ export type CicloPropio = { dia: number; plan: PlanCuenta };
  * ciclo propio el pago cuenta para el ciclo que arranca dentro de este plazo; el aviso sigue saliendo el día que arranca (y no sale si ya pagó).
  */
 export const DIAS_DE_ADELANTO_CICLO_PROPIO = 5;
-/** Días de plazo, después del que arranca el ciclo, para pagar: el aviso y 4 más = 5 días, como el 1 al 5 de una agencia. */
-export const DIAS_DE_GRACIA_CICLO_PROPIO = 4;
+/** Días de plazo después del que arranca el ciclo: 0 (se paga ese día; al siguiente se pausa). Una agencia tiene del 1 al 5; Leila, no (Martín, 17/11). */
+export const DIAS_DE_GRACIA_CICLO_PROPIO = 0;
 export const esCicloPropio = (v: unknown): v is CicloPropio => {
   const o = v as { dia?: unknown; plan?: unknown } | null;
   return !!o && typeof o === 'object' && Number.isInteger(o.dia) && (o.dia as number) >= 1 && (o.dia as number) <= 31 && (o.plan === 'pro' || o.plan === 'esencial');
@@ -752,8 +753,9 @@ export function textoDelAvisoDeEntradas(p: { tabla: TablaDeCobro; medio: string;
 }
 
 /** Lo que dice MaKo en el grupo cuando la agencia queda en pausa el día 6 (sin montos de sus clientes). */
-export function textoDePausaDelMes(p: { mes: Mes; faltaUsd: number; ciclo?: CicloPropio | null }): string {
-  if (p.ciclo) return `Tu mensualidad de MaKo (${periodoDelCiclo(p.mes, p.ciclo)}) no entró: desde hoy tu cuenta está en pausa. Falta ${usd(p.faltaUsd)}. Manda aquí el comprobante y vuelves a entrar en el acto. Tus datos están guardados.`;
+export function textoDePausaDelMes(p: { mes: Mes; faltaUsd: number; ciclo?: CicloPropio | null; medio?: string }): string {
+  // Con ciclo propio: dice por qué, cuánto y cómo pagar (el PDF va con él: todo pedido de pago lleva el PDF, regla del 16/11).
+  if (p.ciclo) return `Tu cuenta quedó en pausa porque falta el pago de tu mensualidad de MaKo (${periodoDelCiclo(p.mes, p.ciclo)}): son ${usd(p.faltaUsd)}. Págala por ${p.medio ?? MEDIO_POR_DEFECTO} y manda aquí la captura del comprobante: vuelves a entrar en el acto. Tus datos están guardados. El detalle va en el PDF.`;
   return `La mensualidad de ${nombreDelMes(p.mes)} no entró: desde hoy tu cuenta y las de tus clientes están en pausa. Falta ${usd(p.faltaUsd)}. Manda aquí el comprobante y vuelven a entrar en el acto.`;
 }
 
