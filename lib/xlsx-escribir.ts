@@ -81,16 +81,22 @@ const NS_MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const NS_PKG = 'http://schemas.openxmlformats.org/package/2006/relationships';
 
+// ⚠️ LOS TEXTOS ARMADOS CON CONSTANTES VAN CON `[…].join('')`, NUNCA CON TEMPLATES UNIDOS POR «+»: el minificador del build
+// (SWC) se come el medio (tests/minificador-templates.test.ts) y el .xlsx saldría roto SÓLO en producción. Lo marcó la punta
+// el 17/11/2026 (corrida 1525) en las relaciones del libro.
+
 // Dos estilos: 0 = normal, 1 = encabezado (negrita, el texto se parte en renglones en vez de cortarse).
-const ESTILOS = `${XML}<styleSheet xmlns="${NS_MAIN}">`
-  + '<fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts>'
-  + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
-  + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
-  + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-  + '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
-  + '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs>'
-  + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
-  + '</styleSheet>';
+const ESTILOS = [
+  XML, `<styleSheet xmlns="${NS_MAIN}">`,
+  '<fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font></fonts>',
+  '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>',
+  '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>',
+  '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>',
+  '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',
+  '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs>',
+  '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>',
+  '</styleSheet>',
+].join('');
 
 /**
  * La planilla: `filas[0]` es el encabezado (en negrita, fijo y con filtro) salvo `encabezado: false`.
@@ -120,18 +126,22 @@ export function xlsxDeTabla(filas: ReadonlyArray<ReadonlyArray<CeldaXlsx>>, o: {
   const libro = `${XML}<workbook xmlns="${NS_MAIN}" xmlns:r="${NS_REL}"><sheets><sheet name="${textoXml(hoja)}" sheetId="1" r:id="rId1"/></sheets>${nombres}</workbook>`;
 
   const archivos: Record<string, string> = {
-    '[Content_Types].xml': `${XML}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`
-      + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-      + '<Default Extension="xml" ContentType="application/xml"/>'
-      + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-      + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
-      + '</Types>',
+    '[Content_Types].xml': [
+      XML, '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>',
+      '<Default Extension="xml" ContentType="application/xml"/>',
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>',
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>',
+      '</Types>',
+    ].join(''),
     '_rels/.rels': `${XML}<Relationships xmlns="${NS_PKG}"><Relationship Id="rId1" Type="${NS_REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
     'xl/workbook.xml': libro,
-    'xl/_rels/workbook.xml.rels': `${XML}<Relationships xmlns="${NS_PKG}">`
-      + `<Relationship Id="rId1" Type="${NS_REL}/worksheet" Target="worksheets/sheet1.xml"/>`
-      + `<Relationship Id="rId2" Type="${NS_REL}/styles" Target="styles.xml"/></Relationships>`,
+    'xl/_rels/workbook.xml.rels': [
+      XML, `<Relationships xmlns="${NS_PKG}">`,
+      `<Relationship Id="rId1" Type="${NS_REL}/worksheet" Target="worksheets/sheet1.xml"/>`,
+      `<Relationship Id="rId2" Type="${NS_REL}/styles" Target="styles.xml"/></Relationships>`,
+    ].join(''),
     'xl/styles.xml': ESTILOS,
     'xl/worksheets/sheet1.xml': hojaXml,
   };

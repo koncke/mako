@@ -12228,6 +12228,9 @@ problema con el contenido»): un carácter de control o medio emoji en un texto 
 caracteres; `textoXml` saca los dos. No hay Excel en la PC ni en Actions: el test lo relee con el lector del importador
 (`xlsxATexto`), así que lo que se baja también se puede volver a subir. La acción devuelve el .xlsx en base64 (una acción del
 servidor devuelve texto) y el modal lo vuelve bytes.
+**El rojo de la punta (corrida 1525):** las partes fijas del XML estaban armadas con templates unidos por «+», y el minificador del
+build se come el medio de eso (tests/minificador-templates.test.ts): el .xlsx habría salido roto SÓLO en producción, con los tests de
+la PC en verde. Van con `[…].join('')`. No lo vio la PC porque ese barrido no estaba entre los tests corridos a mano.
 
 **El pie del modal en el teléfono:** a 375 px «Cancelar», el conteo y los formatos medían ~310 px en 162, y «Descargar» quedaba
 ENCIMA de los botones de formato (ya pasaba con CSV y MD). En el teléfono el formato sube a su renglón, arriba de las opciones.
