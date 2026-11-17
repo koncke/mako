@@ -15,11 +15,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  USD_POR_CLIP, USD_POR_CLIP_SUELTO, CLIPS_POR_MINUTO, CLIPS_POR_MES, MT_POR_CLIP, PAQUETES,
-  pisoMarginal, rateDelPlan, respetaElPiso, paqueteDeMinutos, gananciaDe, margenDe, minutosDelPlan,
-  IMAGENES_POR_MES, IMAGENES_POR_CLIP, GENERA_VIDEO, USD_DEL_PLAN,
+  USD_POR_CLIP, USD_POR_CLIP_SUELTO, USD_POR_MINUTO_SUELTO, CLIPS_POR_MINUTO, CLIPS_POR_MES, MT_POR_CLIP, MT_POR_MINUTO, PAQUETES,
+  pisoMarginal, pisoPorMinuto, rateDelPlan, respetaElPiso, paqueteDeMinutos, gananciaDe, margenDe, minutosDelPlan,
+  IMAGENES_POR_MES, IMAGENES_POR_CLIP, GENERA_VIDEO, USD_DEL_PLAN, MT_POR_DOLAR, MARGEN_BRUTO_DEL_EXTRA,
 } from '../lib/mako-tokens-paquetes';
-import { CUPO_MENSUAL, IMAGENES_DEL_CUPO, MT_POR_IMAGEN, PISO_DE_MARGEN_BRUTO, mtDeImagenes, usdDeMt } from '../lib/mako-tokens-reglas';
+import {
+  CUPO_MENSUAL, IMAGENES_DEL_CUPO, MINUTOS_DEL_CUPO_PRO, MT_POR_IMAGEN, MT_POR_USD, PISO_DE_MARGEN_BRUTO, USD_POR_SEGUNDO,
+  mtDeImagenes, mtDeVideo, usdDeMt,
+} from '../lib/mako-tokens-reglas';
+import { MODELOS_VIDEO, MODELO_OMNI } from '../lib/apimart-reglas';
 
 // =============================================================================
 // EL CUPO ES UNA BOLSA SOLA, Y ESO ES LO QUE HAY QUE PROTEGER (15/11/2026)
@@ -67,7 +71,13 @@ test('las cifras que se PROMETEN son redondas, y la bolsa las compra exactas', (
   }
   // Y redondas de verdad, que es lo único que pidió: nada de 958.
   assert.equal(IMAGENES_DEL_CUPO.pro % 500, 0, 'el número del de US$47 lo lee un cliente antes de comprar');
-  assert.equal(IMAGENES_DEL_CUPO.growth % 500, 0, 'y el del de US$97 también');
+  // ⚠️ El de US$97 se decide en MINUTOS desde el 17/11/2026 (Martín, la opción B: 10 minutos), y sus imágenes son la
+  // consecuencia: 1.200. Lo redondo ahí son los minutos, y la bolsa los compra exactos.
+  assert.equal(MINUTOS_DEL_CUPO_PRO, 10, 'el de US$97 trae 10 minutos de video');
+  assert.equal(CUPO_MENSUAL.growth, MINUTOS_DEL_CUPO_PRO * MT_POR_MINUTO, 'el cupo del de US$97 es lo que cuestan sus minutos');
+  assert.equal(CUPO_MENSUAL.growth, 14_400);
+  assert.equal(minutosDelPlan('growth'), MINUTOS_DEL_CUPO_PRO, 'y la bolsa compra los 10 minutos exactos, sin resto');
+  assert.equal(IMAGENES_DEL_CUPO.growth % 100, 0, 'sus imágenes también se leen: 1.200');
 });
 
 test('los extremos de la bolsa salen del CUPO, no de un número escrito a mano', () => {
@@ -80,7 +90,8 @@ test('los extremos de la bolsa salen del CUPO, no de un número escrito a mano',
   }
   // La equivalencia que explica la bolsa en una línea, y que es lo que se le dice al cliente.
   assert.equal(IMAGENES_POR_CLIP, MT_POR_CLIP / mtDeImagenes(1));
-  assert.equal(IMAGENES_POR_CLIP, 75, 'cada clip que no hace le compra 75 imágenes más');
+  assert.equal(IMAGENES_POR_CLIP, 20, 'cada clip de 10 s que no hace le compra 20 imágenes más (con el clip de Kling eran 75)');
+  assert.equal(MT_POR_MINUTO / mtDeImagenes(1), 120, 'y cada minuto, 120');
   // El plan barato tiene menos de todo, porque tiene menos bolsa.
   assert.ok(IMAGENES_POR_MES.pro < IMAGENES_POR_MES.growth, 'el plan barato tiene una bolsa más chica');
 });
@@ -112,24 +123,32 @@ test('NINGUNA mezcla puede bajar del piso de margen: el cupo es el techo, gaste 
 
 test('el precio decidido pasa el piso, y uno por debajo no', () => {
   assert.equal(respetaElPiso(USD_POR_CLIP_SUELTO), true, `US$${USD_POR_CLIP_SUELTO} tiene que pasar`);
+  // ⚠️ Y EMPATA EL PISO, A PROPÓSITO (17/11/2026): el minuto extra sale US$5, lo mismo que cada minuto del salto de US$47
+  // a US$97 (US$50 ÷ 10). Empatar alcanza porque el de US$47 no genera video: recargando no consigue ni un segundo.
+  assert.equal(GENERA_VIDEO.pro, false, 'si el de US$47 volviera a generar video, empatar el piso ya no alcanzaría');
+  assert.equal(USD_POR_MINUTO_SUELTO, 5, 'el minuto extra sale US$5 exactos');
+  assert.equal(pisoPorMinuto(), 5, 'y el minuto del escalón, también');
   // ⚠️ EL EJEMPLO SE DERIVA DEL PISO, no se escribe a mano (15/11/2026). Acá decía `1.5`, que estaba debajo del piso de ese
   // momento (US$1,667) y quedó ARRIBA cuando el de US$97 volvió a 6 minutos y el piso bajó a US$1,389. El test se puso rojo
   // diciendo «por debajo del piso» sobre un precio que ya no lo estaba — el mismo error que el del divisor clavado, dos
   // tests más arriba, y en el mismo archivo. Un ejemplo numérico de un límite MÓVIL tiene que moverse con el límite.
   assert.equal(respetaElPiso(pisoMarginal()! * 0.9), false, 'por debajo del piso, a un Pro le conviene recargar antes que subir');
-  assert.equal(respetaElPiso(pisoMarginal()!), false, 'empatar el piso no alcanza: no habría razón para subir');
+  // Empatar el piso alcanza SÓLO con el candado de video (ver arriba y `respetaElPiso`).
+  assert.equal(respetaElPiso(pisoMarginal()!), !GENERA_VIDEO.pro, 'con el candado, empatar alcanza; sin él, no');
 });
 
-test('el precio suelto siempre es más caro que subir de plan: el escalón se sostiene', () => {
+test('el precio suelto nunca es más barato que subir de plan: el escalón se sostiene', () => {
+  // Decía «siempre MÁS caro». Desde el 17/11/2026 es IGUAL (US$5 el minuto por los dos caminos) y el escalón lo sostiene el
+  // candado de video del de US$47: ver `respetaElPiso`.
   const piso = pisoMarginal()!;
-  assert.ok(USD_POR_CLIP_SUELTO > piso,
-    `el clip suelto (US$${USD_POR_CLIP_SUELTO}) tiene que salir más que subir de plan (US$${piso.toFixed(2)})`);
+  assert.ok(USD_POR_CLIP_SUELTO >= piso - 1e-9,
+    `el clip suelto (US$${USD_POR_CLIP_SUELTO}) no puede salir menos que subir de plan (US$${piso.toFixed(2)})`);
 });
 
 test('un paquete se arma por minutos y los MT salen de la unidad, no del precio', () => {
   const p = paqueteDeMinutos(1);
   assert.equal(p.clips, CLIPS_POR_MINUTO);
-  assert.equal(p.usd, CLIPS_POR_MINUTO * USD_POR_CLIP_SUELTO);
+  assert.equal(p.usd, USD_POR_MINUTO_SUELTO, 'un minuto sale lo que dice la tarifa: US$5');
   assert.equal(p.mt, CLIPS_POR_MINUTO * MT_POR_CLIP, 'los MT miden COSTO: no se mueven si cambia el precio');
 });
 
@@ -139,20 +158,48 @@ test('un paquete se arma por minutos y los MT salen de la unidad, no del precio'
 // el mismo 25% del precio que el plan destina a IA. Antes el paquete se vendía por minutos a un precio puesto a mano, y el
 // margen quedaba a la deriva del costo del modelo: con el clip de Omni, el minuto a US$18 dejaba 70% sin que nadie lo
 // decidiera. Lo que este test fija es que no se pueda volver a desacoplar.
-test('los paquetes dejan el MISMO margen que el plan, y la tarifa es lo que lo garantiza', () => {
+// ⚠️ 17/11/2026: EL MARGEN DEL EXTRA DEJÓ DE SER EL DEL PLAN, POR DECISIÓN DE MARTÍN. El 16/11: «si compran de más, sí
+// estaría bueno como reducir tal vez un poco ese margen»; el 17/11 eligió la opción B: US$1 = 288 MT, lineal, 71,2% bruto de
+// IA. Lo que este test fija ahora es que el margen del extra sea UNO solo (la tarifa es lineal), que salga de la tarifa y no
+// de un número a mano, y que nunca se venda un MT por debajo de lo que cuesta.
+test('los paquetes dejan el margen de la tarifa, uno solo, y nunca venden por debajo del costo', () => {
   assert.ok(PAQUETES.length >= 3);
   const margenes = PAQUETES.map(margenDe);
   for (const m of margenes) assert.ok(Math.abs(m - margenes[0]) < 1e-9, 'un paquete con otro margen pide explicar por qué');
-  // El margen del plan: su cupo es el techo de IA, y el resto del precio es margen bruto.
+  assert.ok(Math.abs(margenes[0] - MARGEN_BRUTO_DEL_EXTRA) < 1e-9, 'el margen del paquete ES el de la tarifa');
+  assert.ok(Math.abs(MARGEN_BRUTO_DEL_EXTRA - 0.712) < 1e-9, `la opción B deja 71,2% y dio ${(MARGEN_BRUTO_DEL_EXTRA * 100).toFixed(1)}%`);
+  assert.ok(MT_POR_DOLAR < MT_POR_USD, 'un dólar no puede comprar más MaKo Tokens de los que cuesta');
+  // Y el plan sigue dejando más que el extra: el extra rinde más, el plan es el producto.
   const margenDelPlan = 1 - usdDeMt(CUPO_MENSUAL.growth) / USD_DEL_PLAN.growth;
-  assert.ok(margenes[0] >= 0.75, `el margen del paquete dio ${(margenes[0] * 100).toFixed(1)}% y tiene que ser 75% o más`);
-  assert.ok(Math.abs(margenes[0] - margenDelPlan) < 0.01,
-    `el paquete deja ${(margenes[0] * 100).toFixed(1)}% y el plan ${(margenDelPlan * 100).toFixed(1)}%: se desacoplaron`);
-  // Y redondos en las DOS unidades (Martín, 15/11: «que el cálculo de los MaKo Tokens sean redondos para el cliente»).
+  assert.ok(margenDelPlan > MARGEN_BRUTO_DEL_EXTRA, `el plan deja ${(margenDelPlan * 100).toFixed(1)}% y el extra ${(MARGEN_BRUTO_DEL_EXTRA * 100).toFixed(1)}%`);
+  // Redondos en DÓLARES y en MINUTOS (Martín, 17/11: «pongas 0 minutos o 4 minutos, 10 minutos»): cada US$10 son 2 minutos.
   for (const p of PAQUETES) {
     assert.equal(p.usd % 10, 0, `el paquete de US$${p.usd} no es un precio redondo`);
-    assert.equal(p.mt % 500, 0, `el paquete de US$${p.usd} da ${p.mt} MT, que no es redondo`);
+    assert.equal(p.mt % MT_POR_MINUTO, 0, `el paquete de US$${p.usd} da ${p.mt} MT, que no son minutos enteros`);
+    assert.equal(p.minutos, p.usd / 5, `el paquete de US$${p.usd} tiene que dar ${p.usd / 5} minutos y da ${p.minutos}`);
   }
+});
+
+// LA OPCIÓN B DE MARTÍN, TAL CUAL (17/11/2026): el de US$97 trae 10 minutos y US$100 extra suman 20 más: 30 en total.
+test('la opción B: 10 minutos en el plan, 20 más con US$100, 30 en total', () => {
+  const cien = PAQUETES.find((p) => p.usd === 100);
+  assert.ok(cien, 'el paquete de US$100 tiene que existir: es el tope de la barra');
+  assert.equal(cien!.mt, 28_800);
+  assert.equal(cien!.minutos, 20);
+  assert.equal(minutosDelPlan('growth') + cien!.minutos, 30, 'Martín: «que con esos $100 extra ya le alcance los 30 minutos»');
+});
+
+// ⚠️ EL COSTO DEL VIDEO ES EL OMNI DE MARTÍN, Y HABÍA DOS PRECIOS PARA LOS MISMOS 10 SEGUNDOS (17/11/2026). `MT_POR_CLIP`
+// decía 900 (el clip de `kling-v3-omni`, de Kling) y `mtDeVideo(10)` daba 384 (el segundo de seedance). Ninguno era Omni 1.2
+// Flash de Google, el de Flow. Ahora sale todo del catálogo y los dos caminos dan lo mismo.
+test('el video cuesta lo del Omni 1.2, y los mismos segundos cuestan lo mismo por cualquier camino', () => {
+  assert.equal(MODELO_OMNI, 'gemini-omni-1.2-flash-ext', 'el Omni de Martín es el de Google, no el de Kling');
+  assert.equal(USD_POR_SEGUNDO.normal, MODELOS_VIDEO[MODELO_OMNI].usdPorSegundo, 'el segundo de video sale del catálogo');
+  assert.equal(MT_POR_CLIP, mtDeVideo(10), 'el clip y diez segundos sueltos son el mismo número');
+  assert.equal(MT_POR_CLIP, 240);
+  assert.equal(MT_POR_MINUTO, 1_440, 'un minuto: 60 × US$0,024 = US$1,44');
+  assert.equal(MT_POR_MINUTO, mtDeVideo(60));
+  assert.ok(Math.abs(USD_POR_CLIP - 0.24) < 1e-9);
 });
 
 test('ninguna ganancia es negativa, y cada paquete cubre su costo', () => {

@@ -168,7 +168,7 @@ export function listaCorta(capa: string): ListaDeColumna {
   //     llamadas», «Copywriting con IA». Así un renglón de la columna se encuentra abajo con el mismo nombre. La jerga de
   //     marketing está permitida desde el 14/11 (Martín); la de nuestra cocina, no (tests/planes-tres-bloques.test.ts).
   //   · NADA QUE YA DIGA EL BLOQUE DE LOS MaKo TOKENS: el video con IA se fue de los checks (y de la ✗ de Essential) porque
-  //     arriba ya dice «26 clips de video con IA» en Pro y «0 clips», tachado, en Essential. Repetirlo era la redundancia.
+  //     arriba ya dice «10 minutos de video con IA» en Pro y «0 minutos», tachado, en Essential (en clips hasta el 17/11). Repetirlo era la redundancia.
   //   · EL DE US$47 DICE LO QUE NO HACE, con una ✗ (`noIncluye`), con las MISMAS palabras y en el MISMO ORDEN que los primeros
   //     checks de Pro: leídas en paralelo, cada ✗ queda frente a su ✓.
   //   · Ni Essential dice «todo lo de X» ni Pro «todo lo de Essential, más» (Martín, 14/11: «la idea es que cada uno se sienta
@@ -353,10 +353,10 @@ export const CSS_TARJETAS = `
    tilde en ::before) viene DESPUÉS en esta hoja y con la misma especificidad, así que ganaba — el número y la palabra quedaban
    separados por 10 px y la «o» se leía como una viñeta. */
 .mkpl-lista .mkpl-alcanza li { display: block; position: relative; padding-left: 14px; }
-/* Una viñeta chica por renglón (no un tilde: el tilde es del ítem de arriba, «24.000 MaKo Tokens al mes:»). */
+/* Una viñeta chica por renglón (no un tilde: el tilde es del ítem de arriba, «14.400 MaKo Tokens al mes:»). */
 .mkpl-lista .mkpl-alcanza li::before { content: ""; position: absolute; left: 3px; top: .62em; width: 5px; height: 5px; border-radius: 50%; background: #9AA1AD; }
 .mkpl-alcanza b { color: #12151B; font-weight: 700; }
-/* El «0 clips de video con IA» del plan que no genera video: tachado y en rojo, en la misma línea que los clips del otro plan
+/* El «0 minutos de video con IA» del plan que no genera video: tachado y en rojo, en la misma línea que los minutos del otro plan
    (Martín, 15/11: «0 clips de videos con IA o algo en rojo tipo tachado… para que sigan como el mismo alineamiento»). */
 .mkpl-lista .mkpl-alcanza .mkpl-alcanza-sin { color: #D92D20; text-decoration: line-through; }
 .mkpl-lista .mkpl-alcanza .mkpl-alcanza-sin b { color: #D92D20; }

@@ -27,7 +27,7 @@
 import { TOPES, TABS_SOLO_PRO, type FuncionSoloPro, type Tope } from './topes-plan';
 // Los topes de GENERACION no viven en `TOPES`: viven con el precio del clip y de la imagen
 // (./mako-tokens-paquetes.ts), porque lo que los fija es el margen, no un limite de la app.
-import { CLIPS_POR_MES, IMAGENES_POR_MES } from './mako-tokens-paquetes';
+import { CLIPS_POR_MES, CLIPS_POR_MINUTO, IMAGENES_POR_MES } from './mako-tokens-paquetes';
 import { PLAN_DE_CAPA, type Plan } from './mako-tokens-reglas';
 import { ASESORES } from './asesores/catalogo';
 import { LISTA_DEL_ACELERADOR } from './planes-mako';
@@ -218,12 +218,13 @@ export function filasDeComparacion(): FilaComparacion[] {
     ...(GENERACION_SE_VENDE ? [
       // «HASTA», porque es una sola bolsa (Martín, 15/11: «te alcanza para todo esto, punto. Después que él decida cómo lo
       // reparte»): las dos filas son los extremos de los MISMOS MaKo Tokens, no dos cupos que se suman. Y el video en
-      // CLIPS, no en minutos («queda mejor 18 clips que 3 minutos»).
+      // MINUTOS desde el 17/11/2026 (Martín: «pongas 0 minutos o 4 minutos, 10 minutos»); el 15/11 había pedido clips.
       filaDeGeneracion(contenido, NOMBRE_GENERACION_IMAGEN, (p) => `Hasta ${IMAGENES_POR_MES[p].toLocaleString('es-AR')} al mes`),
       filaDeGeneracion(contenido, NOMBRE_GENERACION_VIDEO, (p) => {
-        const clips = CLIPS_POR_MES[p];
-        // Cero no se dice «0 clips»: se dice que no lo trae, y la celda dibuja el guión (`CeldaPlan`).
-        return clips === 0 ? false : `Hasta ${clips} ${clips === 1 ? 'clip' : 'clips'} al mes`;
+        const minutos = Math.floor(CLIPS_POR_MES[p] / CLIPS_POR_MINUTO);
+        // Cero no se dice «0 minutos»: se dice que no lo trae, y la celda dibuja el guión (`CeldaPlan`). La prueba gratis
+        // (1 clip, 10 s) no llega a un minuto y también cae acá.
+        return minutos === 0 ? false : `Hasta ${minutos} ${minutos === 1 ? 'minuto' : 'minutos'} al mes`;
       }),
     ] : []),
     enTodos(contenido, 'Editor de imágenes y carruseles, como Canva'),

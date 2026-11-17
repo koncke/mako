@@ -68,7 +68,10 @@ test('gastar más que el cupo no da una tasa mayor a 1', () => {
 
 test('la compra del mes es el DIFERENCIAL: sólo lo que falta para llegar al techo', () => {
   assert.equal(compraDelMes('growth', 0), TECHO_97, 'cuenta vacía: se compra el cupo entero');
-  assert.equal(compraDelMes('growth', 20), Math.round((TECHO_97 - 20) * 100) / 100, 'con US$20 sin gastar, se repone sólo lo que falta');
+  // El saldo de ejemplo SALE DEL TECHO (17/11/2026): decía US$20 a mano, que era menos que el techo de 24 y pasó a ser más
+  // que el de 14,40 cuando el cupo del de US$97 bajó a 10 minutos. Un ejemplo de un límite móvil se mueve con el límite.
+  const sinGastar = Math.round((TECHO_97 / 2) * 100) / 100;
+  assert.equal(compraDelMes('growth', sinGastar), Math.round((TECHO_97 - sinGastar) * 100) / 100, `con US$${sinGastar} sin gastar, se repone sólo lo que falta`);
   assert.equal(compraDelMes('growth', TECHO_97), 0, 'no gastó nada: no se compra NADA este mes');
   assert.equal(compraDelMes('growth', 100), 0, 'con saldo de sobra tampoco se compra');
 });

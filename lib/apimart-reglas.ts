@@ -73,6 +73,16 @@ export const MODELOS_VIDEO = {
   // Los de voz nativa (`audio: true`), medidos el 7/11 con 10 s. Son los que generan el habla Y los
   // labios juntos: montar un audio encima de un video mudo NO sincroniza nada.
   'wan2.5-preview':          { id: 'wan2.5-preview',          usdPorSegundo: 0.0664, formato: '3:4',  respetaLaEntrada: true,  campoImagen: 'image_urls' },
+  // ⛔ EL OMNI DE MARTÍN ES ÉSTE (17/11/2026): Omni 1.2 Flash, de GOOGLE, el mismo que usa en Flow. ApiMart lo vende como
+  // `gemini-omni-1.2-flash-ext`: US$0,024 por segundo a 720p (tarifa Gold), sin cargo fijo, de 3 a 15 s, 9:16 y con
+  // audio, «billed per second» (apimart.ai/model/gemini-omni-1-2-flash y docs.apimart.ai).
+  // MEDIDO GENERANDO el 17/11, con el sí de Martín: dos clips de 4 s a 720p y 9:16, US$0,096 cada uno (0,024 × 4, igual que
+  // la tabla), la cara y los labios igual de fieles que en Flow (docs/hallazgos-video-pipeline.md). `respetaLaEntrada:
+  // false` porque eso no se midió (se pide `aspect_ratio` explícito, sólo 16:9 o 9:16); la imagen va como `first_frame_image`.
+  'gemini-omni-1.2-flash-ext': { id: 'gemini-omni-1.2-flash-ext', usdPorSegundo: 0.024, formato: '9:16', respetaLaEntrada: false, campoImagen: 'first_frame_image' },
+  // ⚠️ `kling-v3-omni` NO ES EL OMNI DE MARTÍN, aunque se llame así: es de KLING, sale 16:9 y cuesta 3,7 veces más
+  // (5.400 MT el minuto contra 1.440). Del 15 al 17/11 lib/mako-tokens-paquetes.ts cobró el clip con éste creyendo que era
+  // «el único Omni». Queda en el catálogo para que nadie lo vuelva a medir, pero NO se elige (ver `MODELO_OMNI`).
   'kling-v3-omni':           { id: 'kling-v3-omni',           usdPorSegundo: 0.0896, formato: '16:9', respetaLaEntrada: false, campoImagen: 'image_urls' },
   'kling-v4':                { id: 'kling-v4',                usdPorSegundo: 0.1400, formato: '3:4',  respetaLaEntrada: true,  campoImagen: 'image_urls' },
   // ⚠️ 36 VECES Hailuo. Devuelve 1920×1080 y cambia el encuadre: para una pieza vertical no sirve,
@@ -86,10 +96,24 @@ export const MODELOS_VIDEO = {
  * ⚠️ Esto costó US$ 12,96 para entregar un clip de US$ 1,40 (7/11): el 89% se tiró validando con
  * modelos caros preguntas que NO dependen del modelo (¿se mueven los labios?, ¿aguanta la cara?,
  * ¿se rompe el texto?, ¿respeta la proporción?). Hailuo las contesta por 36 veces menos.
+ *
+ * ⚠️ DESDE EL 17/11/2026 EL MÁS BARATO DEL CATÁLOGO ES EL OMNI (US$0,024 contra los 0,0253 de Hailuo), así que probar
+ * y entregar pasan a ser el MISMO modelo y la regla de arriba deja de pedir uno aparte. Que el más barato sea justo el
+ * que hay que usar es la mejor noticia posible para esta regla. Cambiar este nombre no genera nada.
  */
-export const MODELO_PARA_PROBAR: IdModeloVideo = 'MiniMax-Hailuo-2.3-Fast';
+export const MODELO_PARA_PROBAR: IdModeloVideo = 'gemini-omni-1.2-flash-ext';
 
 export type IdModeloVideo = keyof typeof MODELOS_VIDEO;
+
+/**
+ * EL OMNI: el modelo para una cara que habla, y el que fija lo que cuesta el video en MaKo Tokens (17/11/2026).
+ *
+ * Martín: «Lo único que no quiero es cambiar de modelo» y «descarta completamente Flow». Su Omni es Omni 1.2 Flash de
+ * Google; por ApiMart es `gemini-omni-1.2-flash-ext`. El costo del segundo de video (`USD_POR_SEGUNDO`,
+ * lib/mako-tokens-reglas.ts) sale de acá: si se cambia de modelo, se cambia en UN lugar y todo lo demás se recalcula.
+ * ⚠️ El «Omni-Flash-Ext» del clip del 8/11 hoy se llama `gemini-omni-1.1-flash-ext`: es Omni 1.1 (US$0,40 los 10 s), otro.
+ */
+export const MODELO_OMNI: IdModeloVideo = 'gemini-omni-1.2-flash-ext';
 
 /**
  * El default: el MÁS BARATO de los que respetan la proporción de entrada.

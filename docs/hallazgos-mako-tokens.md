@@ -11,6 +11,67 @@ abajo se lee contra eso.
 
 ---
 
+## La opción B en el código, y la caja que no está en producción (17/11/2026)
+
+**Lo que decidió Martín** (17/11, por el Cerebro): «me gusta la opción B… mientras más compra, más tiene»; «que paguen
+como máximo $100 extra y que con esos $100 extra ya le alcance los 30 minutos»; «Lo único que no quiero es cambiar de
+modelo»; «descarta completamente Flow»; y en las columnas «0 minutos o 4 minutos, 10 minutos», no clips.
+
+**Lo que quedó, y dónde vive:**
+- **El Omni es Omni 1.2 Flash de Google:** `gemini-omni-1.2-flash-ext`, US$0,024 por segundo a 720p, sin cargo fijo, de 3 a
+  15 s, 9:16 y con audio. Medido generando el mismo 17/11 (US$0,096 por 4 s, la cara igual que en Flow:
+  docs/hallazgos-video-pipeline.md). `MODELO_OMNI` en `lib/apimart-reglas.ts`.
+  `USD_POR_SEGUNDO.normal` (`lib/mako-tokens-reglas.ts`) lo lee de ahí. Un minuto son 1.440 MT.
+- **El cupo del de US$97** baja de 24.000 a **14.400 MT = 10 minutos** (`MINUTOS_DEL_CUPO_PRO`). Sus imágenes pasan a ser la
+  consecuencia: 1.200. El de US$47 no cambia (12.000, sin video).
+- **La tarifa del extra** pasa a **288 MT por dólar, lineal** (`MT_POR_DOLAR`): cada US$10 son 2 minutos, US$100 son 20, y
+  el minuto suelto sale US$5 exactos (`USD_POR_MINUTO_SUELTO`). Margen bruto de IA del extra, a precio de lista: 71,2 %
+  (`MARGEN_BRUTO_DEL_EXTRA`).
+- **La barra** va de US$0 a US$100, de a 10 (`PASOS_USD`). Las columnas dicen «10 minutos de video con IA» y «0 minutos…»
+  tachado (`LO_QUE_ALCANZA`), y la línea de abajo dice «+11.520 MaKo Tokens extras al mes = 8 minutos más de video»
+  (`htmlExtra`, app/planes/CalculadoraTokens.tsx). La tabla de comparación dice «Hasta 10 minutos al mes»
+  (`lib/planes-comparacion.ts`).
+- **Un solo precio para los mismos 10 s:** `MT_POR_CLIP` = `mtDeVideo(10)` = 240, y la fila «clip» de
+  `lib/mako-tokens-costos.ts` dice lo mismo.
+
+**Los márgenes del Cerebro**, con el 21 % de IVA de pagar ApiMart con tarjeta, el 12,36 % de cobrar y el costo de conseguir
+al cliente (US$97 ÷ 9), sin los gastos fijos: el de US$97 deja US$56,81 (59 %); el extra solo, US$52,79 (53 %); juntos, a
+US$197, US$109,60 (56 %) con 30 minutos. Los MT van a precio de lista, sin IVA: con IVA, cada MT cuesta US$0,00121.
+
+**Medido en producción antes de bajar el cupo (17/11, sólo lectura):**
+- ⚠️ **La caja no está instalada.** No hay ninguna función `mako_tokens_*`. `mako_tokens_saldo` tiene sólo las columnas de
+  la 0412, sin `comprado` ni `cupo_mes`, así que **la 0416 no se aplicó**. El libro `mako_tokens_movimientos` tiene **0
+  filas**. Hoy no se descuenta nada a nadie: «el texto ya se cobra desde el 15/11» es cierto en el código y falso en
+  producción. Por eso el consumo no se puede leer del libro.
+- **Se midió con `anthropic_usage`** (30 días). A lo que se anota en US$0 (Gemini gratis) se le puso el precio de Gemini
+  pago, como techo. El único negocio con el plan de US$97, Código Inmobiliario, gastó **≈1.082 MT** de los 14.400. El más
+  alto de todos, Mauricio Bustos (US$47), gastó **8.827 MT** de 12.000. Ninguno pasa de 14.400: bajar el cupo no le saca
+  nada a nadie.
+
+**Trampas de este cambio:**
+- **El piso ahora empata, a propósito.** Subir del de US$47 al de US$97 son US$50 por 10 minutos, o sea US$5 el minuto, lo
+  mismo que el extra. `respetaElPiso` acepta empatar sólo porque el de US$47 no genera video (`GENERA_VIDEO.pro`). Si algún
+  día lo genera, ese test se pone rojo, que es lo que tiene que pasar.
+- **El modelo más barato del catálogo es el Omni.** `MODELO_PARA_PROBAR` (el más barato, por regla) pasa a ser el mismo
+  que el de entregar. Cambiar el nombre no genera nada.
+- **El test del margen decía «el paquete deja el MISMO 75 % que el plan»**, por lo que Martín pidió el 15/11. El 16 y el 17/11
+  lo dio vuelta para el extra. Ahora el test exige un solo margen (la tarifa es lineal), que salga de la tarifa y que un
+  dólar nunca compre más MT de los que cuesta.
+
+**SIN HACER, con dónde vive:**
+- **Aplicar la 0416 en producción** (`supabase/migrations/0416_mako_tokens_caja.sql`). Sin ella el medidor no cobra nada.
+  Es escribir en producción: pide el sí de Martín.
+- **Los riesgos del canal Ext** (si se corta y hay que pasar al canal normal, el extra deja ~7 %): en «Riesgos sin medir», en
+  la entrada de abajo. La cara que habla ya se probó (docs/hallazgos-video-pipeline.md).
+- **Que el video salga por ApiMart:** hoy los clips salen por el Flow del cliente (la entrada de abajo). `MODELO_VIDEO_POR_DEFECTO`
+  sigue en Hailuo y no se tocó, porque `generarVideo` no tiene llamador.
+- **Mauricio Bustos usa el 74 % del cupo de US$47 sólo en texto.** El día que la caja cobre, puede llegar al tope antes de
+  fin de mes.
+- **`scripts/probar-0416-pglite.mjs` tiene los cupos viejos escritos a mano** (11.750 y 24.250).
+- **Cuántos intentos lleva un clip** sigue sin medir.
+
+---
+
 ## El precio de «30 días de contenido» lo decide el MODELO, no el margen (17/11/2026)
 
 **Síntoma:** Martín preguntó cuánto cobrar por un reel por día. El chat de MaKo Tokens había dicho «sólo la IA cuesta
@@ -49,9 +110,9 @@ el precio más que cualquier margen: con Omni Flash, el mes entra en Pro + US$10
 cobrando cada intento. El margen se mide sobre lo que se agrega, no sobre la factura con el plan adentro.
 
 **SIN HACER, con dónde vive:**
-- Martín tiene que decidir cuál Omni se usa. Después, volver a medir el Omni-Flash-Ext por ApiMart: costo, que entregue 9:16
-  y qué duraciones acepta. Rechazó 6 s y aceptó 10 (`docs/video-avatar-desde-foto.md:44-45`).
-- Unificar el costo de 10 s de video: `MT_POR_CLIP`, `mtDeVideo` y la fila «clip» de `lib/mako-tokens-costos.ts`.
+- ~~Martín tiene que decidir cuál Omni se usa~~ **Decidido el 17/11: Omni 1.2 Flash de Google** (ver la entrada de arriba). El
+  Omni-Flash-Ext del 8/11 hoy se llama `gemini-omni-1.1-flash-ext`: es el 1.1, otro. Falta generar uno de prueba con el 1.2.
+- ~~Unificar el costo de 10 s de video~~ **Hecho el 17/11:** `MT_POR_CLIP` = `mtDeVideo(10)` = 240, y la fila «clip» igual.
 - Medir cuántos intentos lleva un clip. La única regla del repo es «3×», de agosto y con otros modelos
   (`docs/costos-ia-y-planes.md:677-679`). Con 3 intentos, el mismo mes cuesta el doble.
 - Con qué se recarga ApiMart: no está en el repo. Con tarjeta argentina se suma el IVA del 21 %, y el clip de US$0,896 pasa

@@ -96,9 +96,11 @@ test('el default es el MÁS BARATO de los que respetan la entrada', () => {
     `el default cuesta US$${def.usdPorSegundo}/s y hay uno más barato que también respeta la entrada`);
 });
 
-test('el modelo para PROBAR es el más barato de todos, y no es el de entregar', () => {
+test('el modelo para PROBAR es el más barato de todos', () => {
   // ⚠️ Esta guarda vale US$ 11,51: lo que se tiró el 7/11 validando con modelos caros preguntas que no
   // dependen del modelo. El de probar tiene que ser el piso de precio del catálogo, siempre.
+  // Decía «y no es el de entregar»: desde el 17/11/2026 el piso del catálogo ES el Omni de Martín
+  // (`gemini-omni-1.2-flash-ext`, US$0,024/s), así que probar y entregar coinciden. Lo que se vigila es el precio.
   const probar = MODELOS_VIDEO[MODELO_PARA_PROBAR];
   const piso = Math.min(...Object.values(MODELOS_VIDEO).map((m) => m.usdPorSegundo));
   assert.equal(probar.usdPorSegundo, piso,

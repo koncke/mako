@@ -26,6 +26,10 @@
 // 41 días, 23,4M tokens) y de los precios verificados el 7/11 en docs/hallazgos-video-pipeline.md.
 // =============================================================================
 
+// El único import, y es a propósito: el costo del video lo fija el modelo (el Omni), y el modelo vive en el catálogo.
+// ./apimart-reglas.ts no importa nada, así que no arma ningún ciclo (ver la nota de imports de ./economia-unitaria.ts).
+import { MODELOS_VIDEO, MODELO_OMNI } from './apimart-reglas';
+
 /** 1.000 MaKo Tokens = US$1 de costo real de IA. */
 export const MT_POR_USD = 1000;
 
@@ -78,12 +82,26 @@ export const usdDeMt = (mt: number): number => mt / MT_POR_USD;
 export type Calidad = 'normal' | 'premium';
 
 /**
- * US$ por segundo de video generado, por calidad. **Medido el 7/11/2026 contra ApiMart**, no estimado.
+ * US$ por segundo de video generado, por calidad.
  *
- * ⚠️ `normal` era 0,030 y estaba 28 % por debajo del costo real: eso salía directo del margen en cada
- * generación. Si se cambia de modelo, este número se vuelve a MEDIR; no se copia del tarifario.
+ * ⚠️ DESDE EL 17/11/2026 `normal` ES EL OMNI DE MARTÍN y sale del catálogo, no de un número escrito acá:
+ * `gemini-omni-1.2-flash-ext` a US$0,024/s (`MODELO_OMNI`, ./apimart-reglas.ts). Era 0,0384, el de `seedance-2.0-mini`
+ * —un modelo que Martín prohibió para una cara que habla el 8/11— y convivía con OTRO costo del mismo clip:
+ * `MT_POR_CLIP` = 900 (el de `kling-v3-omni`). Los mismos 10 s costaban 384 MT por un camino y 900 por el otro. Ahora
+ * son 240 por los dos, y el minuto, 1.440.
+ * ⚠️ `premium` (0,084, la familia `-face`) no lo usa nadie para una cara que habla: queda por la vitrina de costos.
+ * Antes `normal` era 0,030 y estaba 28 % por debajo del costo real: si se cambia de modelo, se cambia en el catálogo.
  */
-export const USD_POR_SEGUNDO: Record<Calidad, number> = { normal: 0.0384, premium: 0.084 };
+export const USD_POR_SEGUNDO: Record<Calidad, number> = { normal: MODELOS_VIDEO[MODELO_OMNI].usdPorSegundo, premium: 0.084 };
+
+/** Lo que cuesta, en MT, UN MINUTO de video con el Omni: 60 × US$0,024 = US$1,44 = **1.440 MT**. Es como se le habla al cliente. */
+export const MT_POR_MINUTO_DE_VIDEO = mtDeUsd(60 * USD_POR_SEGUNDO.normal);
+
+/**
+ * LOS MINUTOS DE VIDEO QUE TRAE EL PLAN DE US$97, que es el número que se DECIDE (Martín, 17/11/2026, la opción B):
+ * **10 minutos** = 14.400 MT. El de US$47 no genera video (`GENERA_VIDEO`, ./mako-tokens-paquetes.ts).
+ */
+export const MINUTOS_DEL_CUPO_PRO = 10;
 
 /** US$ por imagen, por calidad. FLUX.2 dev y GPT Image 2 medium. */
 export const USD_POR_IMAGEN: Record<Calidad, number> = { normal: 0.012, premium: 0.047 };
@@ -114,13 +132,21 @@ export type Plan = 'free' | 'pro' | 'growth';
  * imágenes y un resto que no le alcanza para nada. Un test lo comprueba en los dos sentidos.
  *
  * El de US$47 no genera video (`GENERA_VIDEO`, ./mako-tokens-paquetes.ts), así que su bolsa se cuenta en imágenes y nada
- * más. El de US$97 reparte la MISMA bolsa entre 2.000 imágenes o 26 clips, como quiera.
+ * más.
+ *
+ * ⚠️ EL DE US$97 SE DIO VUELTA OTRA VEZ EL 17/11/2026: lo que se decide ahí son los MINUTOS de video (10, la opción B de
+ * Martín), y sus imágenes son la consecuencia: 14.400 MT ÷ 12 = **1.200**. Era 2.000 (24.000 MT), un cupo que sólo cerraba
+ * con el clip mal cobrado. La misma bolsa da 10 minutos o 1.200 imágenes, como quiera.
  */
-export const IMAGENES_DEL_CUPO: Record<Plan, number> = { free: 125, pro: 1_000, growth: 2_000 };
+export const IMAGENES_DEL_CUPO: Record<Plan, number> = {
+  free: 125,
+  pro: 1_000,
+  growth: (MINUTOS_DEL_CUPO_PRO * MT_POR_MINUTO_DE_VIDEO) / MT_POR_IMAGEN.normal,
+};
 
 /**
- * Los MaKo Tokens que trae cada plan al mes: **lo que cuestan sus imágenes prometidas**.
- * free 1.500 (US$1,50) · pro 12.000 (US$12,00) · growth 24.000 (US$24,00).
+ * Los MaKo Tokens que trae cada plan al mes: **lo que cuestan sus imágenes prometidas** (o, en el de US$97, sus minutos).
+ * free 1.500 (US$1,50) · pro 12.000 (US$12,00) · growth 14.400 (US$14,40 = 10 minutos de video).
  *
  * ⚠️ NO ES EL COSTO ESPERADO, ES EL TECHO: es lo máximo que un cliente nos puede costar en IA, y por eso fija el margen
  * bruto MÍNIMO del plan (ver `PISO_DE_MARGEN_BRUTO`). Un workspace intensivo medido gastaba **US$68/mes** sin medidor
@@ -139,7 +165,8 @@ export const CUPO_MENSUAL: Record<Plan, number> = {
  * Por qué 74 y no 75 (15/11/2026): las 1.000 imágenes redondas del de US$47 cuestan US$12,00 de un precio de US$47, o sea
  * **25,5% del precio en vez del 25% de la meta → 74,5% de margen**. Martín lo decidió con el costo a la vista («no sé cómo
  * quedaría el margen ahí, pero yo creo que tranquilamente nos podríamos permitir eso»): **un punto de margen por un número
- * que el cliente puede repetir de memoria**. El de US$97 no se tocó y sigue en 75,3%.
+ * que el cliente puede repetir de memoria**. El de US$97 queda en 85,2% desde el 17/11/2026 (14.400 MT de US$97: sus 10
+ * minutos con el Omni a costo de lista; con el 21 % de IVA de la tarjeta, 82%).
  *
  * Lo que cuesta en plata, para que la decisión se pueda revisar con un dato y no con una sensación: el cupo del plan chico
  * sube 500 MT, o sea **US$0,50 por cliente por mes** — y sólo si lo gasta TODO, que es el peor caso, no el esperado.

@@ -4,17 +4,19 @@
 // `mako-tokens-reglas.ts` dice lo que las cosas CUESTAN. Esto dice lo que se COBRA, que es otra
 // decisión y la toma Martín. Van separados a propósito: el costo se mide, el precio se decide.
 //
-// ── La unidad es el CLIP de 10 segundos ─────────────────────────────────────
+// ── La unidad que lee el cliente es el MINUTO (17/11/2026) ─────────────────
 //
-// No es arbitrario: 10 s es el TOPE de Omni Flash (`invalid duration 60, must be one of 4/6/8/10`)
-// y es el más barato POR SEGUNDO, porque el modelo cobra US$0,15 fijos + US$0,025 por segundo. Un
-// clip de 4 s sale US$0,0625 el segundo; uno de 10 s, US$0,040. **Partir una pieza en clips cortos
-// la encarece sin que nadie lo note.** Al cliente se le habla en MINUTOS: seis clips.
+// Martín, 17/11: «ya no pongas 0 clip de video… sino que pongas 0 minutos o 4 minutos, 10 minutos». El Omni de Martín por
+// ApiMart (`gemini-omni-1.2-flash-ext`) cobra POR SEGUNDO y sin cargo fijo, de 3 a 15 s: el clip de 10 s ya no es «el más
+// barato por segundo» como con el Omni 1.1 Ext (US$0,15 fijos + US$0,025/s, la tabla de ApiMart que el 15/11 se tomó por
+// Flow: Flow cobra créditos, no dólares), así que deja de ser una unidad de precio.
+// Queda como la cuenta de adentro: 6 clips de 10 s = un minuto = 1.440 MT.
 //
 // ── El piso, y el que NO es piso ────────────────────────────────────────────
 //
-// ⚠️ EL ÚNICO PISO ES EL MARGINAL: lo que cuesta cada clip de más al subir del de US$47 al de US$97
-// (US$50 ÷ 26 clips = **US$1,92**, con el de US$97 repartiendo su bolsa en hasta 26 clips y el de US$47 sin video).
+// ⚠️ EL ÚNICO PISO ES EL MARGINAL: lo que cuesta cada minuto de más al subir del de US$47 al de US$97
+// (US$50 ÷ 10 minutos = **US$5**, con el de US$47 sin video). Desde el 17/11 el extra sale EXACTO eso: ver
+// `USD_POR_MINUTO_SUELTO` y por qué empatarlo ya no borra el escalón (el candado de `GENERA_VIDEO`).
 // Es la única alternativa real que tiene el cliente, y si el paquete sale menos que eso, a uno del plan chico le
 // conviene recargar antes que subir y el escalón de planes se borra. **Este piso se mueve cada vez que se toca el
 // cupo**, y el 15/11 se movió TRES veces en un día sin que nadie lo notara (18 → 26 clips al caerse los topes): el
@@ -30,88 +32,83 @@
 // `respetaElPiso` no lo usa, y esa distinción es justamente lo que este archivo existe para fijar.
 // =============================================================================
 
-import { CUPO_MENSUAL, mtDeImagenes, usdDeMt, type Plan } from './mako-tokens-reglas';
+import { CUPO_MENSUAL, MT_POR_MINUTO_DE_VIDEO, MT_POR_USD, USD_POR_SEGUNDO, mtDeImagenes, mtDeVideo, usdDeMt, type Plan } from './mako-tokens-reglas';
+
+/** Los segundos de un clip. Con el Omni 1.2 se cobra por segundo y sin cargo fijo, así que el clip ya no es más barato por largo. */
+export const SEGUNDOS_POR_CLIP = 10;
 
 /**
- * Lo que nos cuesta generar un clip de 10 s. **US$0,896: `kling-v3-omni` a US$0,0896/s**, medido el 7/11/2026 contra
- * ApiMart (lib/apimart-reglas.ts, `MODELOS_VIDEO`).
+ * Lo que nos cuesta generar un clip de 10 s: **US$0,24**, el Omni de Martín (`gemini-omni-1.2-flash-ext`, US$0,024/s a
+ * 720p, ./apimart-reglas.ts) por diez segundos. Se DERIVA del costo por segundo: no es un número aparte (17/11/2026).
  *
- * ⚠️ ERA 0,412 Y ESE NÚMERO NO ERA NUESTRO COSTO: era Omni Flash en **Google Flow** (US$0,15 fijo + US$0,025/s, más
- * US$0,012 de la imagen de referencia), y Flow lo paga el cliente con sus créditos. Desde el 15/11/2026 los clips salen
- * por ApiMart y los pagamos nosotros (Martín: «la idea es darles a todos la opción de generar los clips con MaKo Tokens,
- * que nosotros lo hacemos a través de ApiMart para que no tenga que estar conectando su Flow»), y el modelo es Omni y
- * sólo Omni (⛔⛔ 8/11: «TENÉS PROHIBIDO USAR OTRO MODELO QUE NO SEA OMNI»; 15/11: «la generación de video sí o sí la vamos
- * a hacer con Omni»). Estimar con el costo de Flow era estimar con el precio del camino que no pagamos — y dio 2,2 veces
- * menos.
- * ⚠️ No se copia de un tarifario: si se cambia de modelo, se vuelve a MEDIR.
+ * ⚠️ ERA 0,896 Y ESE NO ERA EL OMNI DE MARTÍN: era `kling-v3-omni`, un modelo de KLING que sale 16:9, tomado el 15/11 por
+ * «el único Omni». El Omni de Martín es Omni 1.2 Flash de GOOGLE, el de Flow (Martín, 17/11: «Lo único que no quiero es
+ * cambiar de modelo»; «descarta completamente Flow»). Con el de Kling el minuto costaba 5.400 MT; con el de Google, 1.440.
+ * Antes de eso era 0,412: se escribió «es Omni Flash en Flow, el camino que paga el cliente», y era falso. Es la tabla de
+ * ApiMart del Omni 1.1 Ext (US$0,15 + 0,025 por s, más la imagen); Flow cobra créditos, no dólares (docs/hallazgos-mako-tokens.md).
+ * El precio por segundo se midió generando el 17/11 (dos clips de 4 s a US$0,096) y la cara habló igual de bien que en Flow.
  */
-export const USD_POR_CLIP = 0.896;
+export const USD_POR_CLIP = SEGUNDOS_POR_CLIP * USD_POR_SEGUNDO.normal;
 
-/** Seis clips de 10 s. Es como se le cuenta al cliente: «un minuto». */
+/** Seis clips de 10 s: un minuto. */
 export const CLIPS_POR_MINUTO = 6;
 
 /**
- * LA TARIFA DE MaKo TOKENS: **US$1 = 250 MaKo Tokens** (15/11/2026).
+ * LA TARIFA DE MaKo TOKENS EXTRA: **US$1 = 288 MaKo Tokens, lineal** (Martín, 17/11/2026, la opción B).
  *
- * De dónde sale, y es una cuenta de un paso: 1.000 MaKo Tokens son, por definición, US$1 de costo real de IA
- * (`MT_POR_USD`, ./mako-tokens-reglas.ts). Vendidos a US$4 dejan el **75% de margen**, que es exactamente el margen del
- * plan (su cupo es el 25% del precio). O sea: US$4 → 1.000 MT, o US$1 → 250 MT.
+ * De dónde sale: Martín pidió «que paguen como máximo $100 extra y que con esos $100 extra ya le alcance los 30 minutos»,
+ * y el plan de US$97 trae 10 (`MINUTOS_DEL_CUPO_PRO`). Los 20 que faltan son 20 × 1.440 = 28.800 MT por US$100: 288 por
+ * dólar. Cada US$10 son 2.880 MT = **2 minutos**, y el minuto sale **US$5** (`USD_POR_MINUTO_SUELTO`). Lo eligió así:
+ * «me gusta la opción B, evidentemente, porque es la que más rentabilidad nos da y aparte para el usuario le incita a
+ * comprar más porque mientras más compra, más tiene».
  *
- * Martín, 15/11, al pedirla: «dame el cálculo de los usuarios que compran MaKo Tokens, ahí cuánto les alcanzaría…
- * tampoco tienes que reducir el porcentaje de los MaKo Tokens. Debería quedarnos más o menos el mismo margen de
- * ganancia.» Con esta tarifa el margen del paquete y el del plan son el MISMO número, no «parecido»: los dos 75%.
- *
- * ⚠️ Y POR ESO SE VENDEN TOKENS Y NO MINUTOS. Antes se vendía el minuto a un precio en dólares puesto a mano
- * (`USD_POR_CLIP_SUELTO`), y eso dejaba el margen del paquete a la deriva del costo del modelo: con el clip de Omni a
- * US$0,896, el minuto a US$18 dejaba 70% — cinco puntos por debajo del plan, sin que nadie lo decidiera. Con una tarifa
- * por token, el margen es la tarifa: no se puede desacoplar.
+ * ⚠️ EL MARGEN DEL EXTRA YA NO ES EL DEL PLAN, Y ES A PROPÓSITO. La tarifa del 15/11 (250 por dólar) daba el 75% del
+ * plan exacto («tampoco tienes que reducir el porcentaje… más o menos el mismo margen»); el 16/11 Martín lo dio vuelta para
+ * lo que se compra aparte («si compran de más, sí estaría bueno como reducir tal vez un poco ese margen»). Con 288 el extra
+ * deja **71,2% bruto de IA** (1 − 288 / 1.000) a precio de lista; con el 21% de IVA de pagar ApiMart con tarjeta, 65%.
+ * Después de cobrar (12,36%) quedan US$52,79 de cada US$100 (la cuenta del Cerebro, 17/11, en docs/hallazgos-mako-tokens.md).
+ * ⚠️ Lo que NO puede pasar nunca: que un dólar compre más MT de los que cuesta. `MT_POR_DOLAR` < `MT_POR_USD` lo prueba
+ * un test.
  */
-export const MT_POR_DOLAR = 250;
+export const MT_POR_DOLAR = 288;
 
-
-/**
- * CUÁNTOS MaKo TOKENS VALE UN CLIP DE 10 SEGUNDOS: **900 — los 896 que CUESTA, redondeados hacia arriba** (15/11/2026).
- *
- * ⚠️ ERA 500 Y ESO PERDÍA PLATA EN CADA GENERACIÓN. Los 500 salían de «redondo hacia arriba desde los 412 de costo: deja
- * aire», y esos 412 eran el costo de **Omni Flash en Google Flow**, que lo pagaba el cliente con sus créditos. Desde que
- * los clips salen por ApiMart y los paga MaKo (Martín, 15/11: «la idea es darles a todos la opción de generar los clips
- * con MaKo Tokens, que nosotros lo hacemos a través de ApiMart para justamente que no tenga que estar conectando su
- * Flow»), el costo es el de **`kling-v3-omni`, el único modelo autorizado** para una cara que habla (⛔⛔ regla de Martín
- * del 8/11, en la cabecera de lib/apimart-reglas.ts; Martín, 15/11: «la generación de video sí o sí la vamos a hacer con
- * Omni, no la vamos a hacer con ningún otro»). Omni sale **US$0,0896/s medidos contra ApiMart** = US$0,896 el clip de
- * 10 s. Cobrando 500 MT (US$0,50) se perdían **US$0,40 en cada clip**.
- *
- * **POR QUÉ AL COSTO Y NO CON MARGEN ADENTRO, que es el error que había:** la unidad está definida como «1.000 MaKo
- * Tokens = US$1 de COSTO real de IA» (./mako-tokens-reglas.ts, `MT_POR_USD`), y el margen vive en el **precio del plan**
- * — el cupo es el 25% del precio, o sea 75% de margen bruto. Poner margen también adentro del token lo cuenta dos veces,
- * y acá lo contaba **para abajo**: un clip «con margen» de 500 MT costaba 896 de verdad.
- * El único lugar del circuito donde el margen va adentro del precio de una generación es el clip SUELTO, que por eso
- * está en dólares y no en MT: ver `USD_POR_CLIP_SUELTO`.
- *
- * El minuto son 6 clips = **5.400 MT**. Y el clip de 10 s es la unidad con la que se le habla al cliente — Martín,
- * 15/11: «también puede ser 18 clips, que creo que queda mejor 18 clips que 3 minutos».
- *
- * ⚠️ REDONDO PARA EL CLIENTE, Y HACIA ARRIBA. Martín, 15/11: «el cálculo de los MaKo Tokens sean redondos para el
- * cliente… no me gusta que sean 1337, que sea 1400 directa… obviamente redondeando para arriba para que nosotros nos
- * quede mayor margen». Los 896 exactos se redondean a 900: el cliente ve números que puede sumar de cabeza (1 clip 900,
- * 18 clips 16.200, un minuto 5.400) y los 4 MT del redondeo quedan de nuestro lado. Es poca plata por clip (US$0,004) y
- * no es por la plata: **un gasto con cifras como 16.128 se lee como un error de cálculo**, igual que el «US$ 109,5» que
- * el test del clip suelto pescó esta misma tarde.
- * **La regla, para el que agregue una generación nueva:** el costo se mide, y el PRECIO en MT es ese costo redondeado
- * HACIA ARRIBA a una cifra que se lea (centena para el video, unidad para la imagen). Nunca hacia abajo: eso es regalar
- * margen en cada llamada.
- */
-export const MT_POR_CLIP = 900;
+/** El margen bruto de IA del extra, de 0 a 1: 0,712 (lo que paga menos lo que cuestan sus MT, a precio de lista). */
+export const MARGEN_BRUTO_DEL_EXTRA = 1 - MT_POR_DOLAR / MT_POR_USD;
 
 /**
- * Lo que sale un clip suelto, DERIVADO de la tarifa: 900 MT ÷ 250 = **US$3,60**.
+ * CUÁNTOS MaKo TOKENS VALE UN CLIP DE 10 SEGUNDOS: **240**, lo que cuesta (17/11/2026). Sale de `mtDeVideo`, el MISMO
+ * camino que cobra cualquier otra duración: un solo precio para los mismos segundos.
  *
- * ⚠️ YA NO SE ESCRIBE A MANO, y el ida y vuelta del 15/11 es el porqué: en un mismo día fue 2 → 3 → 2,50 → 3, cada vez
- * persiguiendo el piso marginal, que se mueve con los clips del plan. Derivado de la tarifa deja de perseguir nada.
- * El piso se sigue vigilando (`respetaElPiso`), pero ahora como una COMPROBACIÓN y no como la fuente del precio: con 26
- * clips en el plan grande y 0 en el chico, el piso es US$1,92 y los US$3,60 lo pasan con aire — recargar sigue siendo
- * más caro que subir de plan, que es lo que Martín quiere («la idea es que compren el de 97»).
+ * ⚠️ HABÍA DOS PRECIOS PARA LOS MISMOS 10 s: esto decía 900 (el clip de `kling-v3-omni`, redondeado hacia arriba) y
+ * `mtDeVideo(10)` daba 384 (el segundo de `seedance-2.0-mini`). Ninguno era el Omni de Martín. Ahora los dos caminos son
+ * el mismo número porque uno sale del otro.
+ *
+ * **POR QUÉ AL COSTO Y NO CON MARGEN ADENTRO:** la unidad está definida como «1.000 MaKo Tokens = US$1 de COSTO real de
+ * IA» (./mako-tokens-reglas.ts, `MT_POR_USD`), y el margen vive en el PRECIO: el del plan y la tarifa del extra
+ * (`MT_POR_DOLAR`). Poner margen también adentro del token lo cuenta dos veces.
+ *
+ * ⚠️ AL CLIENTE SE LE HABLA EN MINUTOS, NO EN CLIPS (Martín, 17/11: «ya no pongas 0 clip de video… sino que pongas 0
+ * minutos o 4 minutos, 10 minutos»). El minuto, 1.440 MT, es redondo; el clip de 240 es la cuenta de adentro. El 15/11
+ * había pedido lo contrario («queda mejor 18 clips que 3 minutos»): manda lo posterior.
  */
+export const MT_POR_CLIP = mtDeVideo(SEGUNDOS_POR_CLIP);
+
+/** Un minuto de video, en MT: 1.440. Re-exportado de las reglas para que la vitrina hable en minutos sin otra cuenta. */
+export const MT_POR_MINUTO = MT_POR_MINUTO_DE_VIDEO;
+
+/**
+ * Lo que sale UN MINUTO de video comprado aparte, DERIVADO de la tarifa: 1.440 MT ÷ 288 = **US$5**, exacto (17/11/2026).
+ *
+ * ⚠️ El precio se dice por MINUTO y no por clip porque el del clip no es redondo (US$0,83): «un precio con coma en una
+ * página de precios se lee como un error de cálculo» (el «US$ 109,5» del 15/11).
+ * ⚠️ Y EMPATA EL PISO, A PROPÓSITO: subir del de US$47 al de US$97 cuesta US$50 por 10 minutos, o sea US$5 el minuto, lo
+ * mismo que el extra. El piso existía para que al del plan chico no le conviniera recargar antes que subir; desde el
+ * 15/11 el de US$47 NO genera video (`GENERA_VIDEO`), así que recargando no consigue ni un segundo: el escalón lo sostiene
+ * el candado, no el precio. Ver `respetaElPiso`.
+ */
+export const USD_POR_MINUTO_SUELTO = MT_POR_MINUTO / MT_POR_DOLAR;
+
+/** El clip suelto, por si alguna pantalla lo necesita: US$0,83. No se muestra: el precio se dice por minuto. */
 export const USD_POR_CLIP_SUELTO = MT_POR_CLIP / MT_POR_DOLAR;
 
 /**
@@ -135,9 +132,9 @@ export const GENERA_VIDEO: Record<Plan, boolean> = { free: true, pro: false, gro
  * dos planes está en `PISO_DE_MARGEN_BRUTO`, ./mako-tokens-reglas.ts). Un tope por tipo
  * no protege nada que el cupo no proteja ya; lo único que hace es que el plan se sienta más chico de lo que es.
  *
- * Entonces la bolsa es ÚNICA y fungible: con 24.000 MT son **26 clips**, o **2.000 imágenes**, o cualquier mezcla, y de
- * ahí salen también los guiones, los copys y las transcripciones. La equivalencia que la explica en una línea:
- * **1 clip = 75 imágenes** (900 ÷ 12). Cada clip que no hace le compra 75 imágenes más.
+ * Entonces la bolsa es ÚNICA y fungible: con 14.400 MT son **60 clips (10 minutos)**, o **1.200 imágenes**, o cualquier
+ * mezcla, y de ahí salen también los guiones, los copys y las transcripciones (17/11/2026; con el clip de Kling eran 24.000
+ * MT y 26 clips). La equivalencia que la explica en una línea: **1 minuto = 120 imágenes** (1.440 ÷ 12).
  *
  * ⚠️ Y POR ESO ESTO SE DERIVA, no se escribe: es `cupo ÷ MT_POR_CLIP`. Un número a mano acá vuelve a ser un tope, y el
  * día que se mida otra vez el costo del modelo quedaría mintiendo. `free` no genera video de verdad (es la prueba): su
@@ -206,10 +203,26 @@ export function rateDelPlan(plan: Plan = 'growth'): number | null {
   return clips > 0 && USD_DEL_PLAN[plan] > 0 ? USD_DEL_PLAN[plan] / clips : null;
 }
 
-/** Si un precio por clip respeta el piso. Mira el marginal y SOLO el marginal. */
+/** El mismo piso, por MINUTO, que es como se dice el precio: US$50 ÷ 10 minutos = US$5 (17/11/2026). */
+export function pisoPorMinuto(de: Plan = 'pro', a: Plan = 'growth'): number | null {
+  const m = pisoMarginal(de, a);
+  return m == null ? null : m * CLIPS_POR_MINUTO;
+}
+
+/**
+ * Si un precio por clip respeta el piso. Mira el marginal y SOLO el marginal.
+ *
+ * ⚠️ CON EL CANDADO, EMPATAR ALCANZA (17/11/2026). El piso existe para que al del plan chico no le convenga recargar antes
+ * que subir. Si el plan chico GENERA video, empatar no alcanza: le daría lo mismo recargar. Pero desde el 15/11 el de US$47
+ * no genera video (`GENERA_VIDEO.pro`), así que recargando no consigue ni un segundo y el escalón lo sostiene el candado.
+ * Ahí basta con no quedar POR DEBAJO, y la opción B de Martín queda justo en el piso: el minuto extra sale US$5, lo mismo
+ * que cada minuto del salto de US$47 a US$97. Si algún día el de US$47 vuelve a generar video, vuelve el «estrictamente
+ * más» y este precio se pone rojo, que es lo que tiene que pasar.
+ */
 export function respetaElPiso(usdPorClip: number): boolean {
   const m = pisoMarginal();
-  return m != null && usdPorClip > m;
+  if (m == null) return false;
+  return GENERA_VIDEO.pro ? usdPorClip > m : usdPorClip >= m - 1e-9;
 }
 
 export type Paquete = {
@@ -225,8 +238,8 @@ export type Paquete = {
 /**
  * Un paquete de MaKo Tokens por `usd` dólares, y para cuánto le alcanza.
  *
- * Los clips y las imágenes son **los dos extremos**, no una división del paquete: con 5.000 MT se hacen 5 clips, o 416
- * imágenes, o cualquier mezcla. Se muestran los extremos porque es lo que contesta «¿para qué me alcanza?».
+ * Los minutos y las imágenes son **los dos extremos**, no una división del paquete: con 5.760 MT se hacen 4 minutos, o
+ * 480 imágenes, o cualquier mezcla. Se muestran los extremos porque es lo que contesta «¿para qué me alcanza?».
  */
 export function paqueteDeTokens(usd: number): Paquete {
   const mt = Math.max(0, usd) * MT_POR_DOLAR;
@@ -236,12 +249,13 @@ export function paqueteDeTokens(usd: number): Paquete {
 
 /**
  * LOS PAQUETES QUE SE OFRECEN, en dólares redondos (15/11/2026, Martín: «que el cálculo de los MaKo Tokens sean redondos
- * para el cliente»). Con la tarifa de 250 MT por dólar, los cuatro quedan redondos **en las dos unidades**:
- *     US$10 →  2.500 MT   (2 clips, o 208 imágenes)
- *     US$20 →  5.000 MT   (5 clips, o 416 imágenes)
- *     US$40 → 10.000 MT   (11 clips, o 833 imágenes)
- *     US$100 → 25.000 MT  (27 clips, o 2.083 imágenes)
- * Y los cuatro dejan el 75%, el mismo margen que el plan.
+ * para el cliente»). Con la tarifa de 288 MT por dólar (17/11/2026), los cuatro quedan redondos **en minutos**:
+ *     US$10 →  2.880 MT   (2 minutos, o 240 imágenes)
+ *     US$20 →  5.760 MT   (4 minutos, o 480 imágenes)
+ *     US$40 → 11.520 MT   (8 minutos, o 960 imágenes)
+ *     US$100 → 28.800 MT  (20 minutos, o 2.400 imágenes)
+ * Y los cuatro dejan lo mismo: 71,2% bruto de IA (`MARGEN_BRUTO_DEL_EXTRA`). La tarifa es lineal: comprar más da más,
+ * en la misma proporción.
  *
  * ⚠️ ANTES SE NOMBRABAN POR MINUTOS («un minuto de video, US$12») y la razón era buena — el minuto es lo que la persona
  * entiende. Lo que la rompió es que desde el 15/11 **el mismo cupo paga video, imagen y texto**: un paquete «de minutos»
