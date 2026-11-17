@@ -1,5 +1,40 @@
 # Relevo del Cerebro
 
+## 17/11/2026 ~19:00 UTC — LEER PRIMERO (claude2 al 90 % semanal; se reinicia el 17/11 a las 21:00 UTC)
+
+**Decidido hoy por Martín** (memorias: video-en-planes-opcion-b, rentabilidad-por-cliente-sin-fijos y preguntas-con-explicacion):
+- **Video de los clientes:** sale por ApiMart con Omni 1.2 Flash (`gemini-omni-1.2-flash-ext`, US$1,44 el minuto). Flow queda sólo para el contenido de Martín.
+- **Planes:**
+  - Pro con 14.400 MT, que son 10 minutos de video;
+  - el extra a 288 MT por dólar, hasta US$100 (20 minutos más);
+  - Essential con 7.000 MT y sin video;
+  - el CAC proporcional al plan.
+
+  Todo está en main.
+- **Mauricio se queda en el Essential.** ApiMart se paga con cripto, para no pagar IVA.
+- **La 0417 (pagos en USDT y USDC) quedó aplicada en producción** el 17/11 desde el Cerebro.
+- **Leila:** su ciclo propio cobra el 26 de cada mes. Si no paga, el 27 se pausa la cuenta y le llega un WhatsApp. Lo arma Cobros (`punta/cobros-leila-1711`), y se prende después del deploy.
+- **Ticket #106** (la descarga de leads con las respuestas y en XLSX) está en main.
+- **El artefacto único** (KGn9GUek4GRqKm6M1Q345M), versión 13 o más:
+  - sin la barra de arriba;
+  - el pie en dos filas;
+  - en la portada, sólo la barra de créditos;
+  - los planes en minutos.
+
+**En curso:**
+- El chat **Onboarding** aplica el feedback del día 1 (memoria onboarding-16-11-decisiones, sección 17/11).
+- El chat **«Artefacto: todas las pestañas de MaKo dibujadas»** (`pestanas-artefacto`) dibuja las pestañas de la app en el artefacto. Ya están CRM, Plan, Offer y Automations. Puede leer los outliers de Hormozi del ws 9 en sólo lectura.
+- Los **guiones del día 1 del reto** están en `docs/reto-7-dias/guiones-dia-1.md` (`punta/guiones-reto-dia1`). Esperan siete decisiones de Martín.
+- El **workflow `wf_90a71bff-e00`** investiga los videos animados en HTML hechos por Claude: las 7 referencias de Martín, Remotion y HyperFrames, y el plan para el reto, la marca personal y MaKo. Si se corta, se retoma con `resumeFromRunId` y después se cosecha.
+- El **clip de Hormozi** por ApiMart (la palma frente a la cámara) está aprobado y ya va en el reel (`C:/dev/reel-mentores/montaje/REEL-v-hormozi-palma.mp4`).
+
+**Esperan a Martín:**
+- Que pegue en el chat **Automations** el sí a la #259, el texto nuevo del aviso de WhatsApp caído. Si llega antes de las 03:00 UTC del 18/11, el próximo aviso a Mauricio ya sale con el texto nuevo.
+- Activar el cobro de MaKo Tokens (la 0416). Mauricio pasaría su cupo.
+
+**SIN HACER:**
+- **Un bug de la app real en el modo oscuro:** «+ Nuevo lead» del CRM y las iniciales de la foto de la barra quedan blanco sobre blanco. Los colores están fijos en el componente: `var(--ink)` o `var(--primary)` con `#F3F5F8` o `#fff`. Lo encontró pestanas-artefacto.
+
 ## 17/11/2026 ~08:00 UTC — LOS PENDIENTES DEL 7/11, VERIFICADOS (claude2, punta/pendientes-1711)
 
 - **La fuente del estado es docs/pendientes-verificados-17-11.md:** de 285, 73 cerrados, 36 en disputa, 127 abiertos, 49 a medir.

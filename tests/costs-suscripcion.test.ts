@@ -27,7 +27,6 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 import { PathnameContext, SearchParamsContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime'
 import {
-  CAC_USD,
   ESCENARIO_DEL_MODELO,
   IMPUESTO,
   META_CLIENTES,
@@ -80,19 +79,23 @@ test('1. el 97 y el 47 con el escenario del modelo: las cinco partes, el primer 
   // 97: captación 10,78 (97 ÷ 9 meses, decisión de Martín del 10/11) · impuesto 8,11 · cobro 1,75 — esas tres van
   // escritas porque son decisiones. «Servir» sale del cupo y la ganancia es el resto, así que se derivan.
   // Con 22,2 meses de vida la captación eran 4,37 (el número del encargo) y la ganancia 67,94.
+  // 17/11/2026: el CAC de cada plan es SU precio (Martín: «Puedes dejarlo también proporcional»), así que la captación del 47
+  // es 47 ÷ 9 = 5,22, no los 10,78 del 97. Es una decisión, y por eso va escrita.
   const RESTO_97 = [10.78, servirDe('growth'), 8.11, 1.75]
-  const RESTO_47 = [10.78, servirDe('pro'), 3.93, 0.85]
+  const RESTO_47 = [5.22, servirDe('pro'), 3.93, 0.85]
   assert.deepEqual(montos('growth'), [gananciaDe('growth', RESTO_97), ...RESTO_97])
   assert.deepEqual(montos('pro'), [gananciaDe('pro', RESTO_47), ...RESTO_47])
   const g = loQueSeVaDeUnaSuscripcion('growth')
   assert.deepEqual(g.partes.map((p) => p.clave), ['ganancia', 'conseguir', 'servir', 'impuesto', 'cobro'])
   // El primer mes paga el CAC entero; desde el segundo deja la ganancia más la captación.
   assert.equal(g.desdeElSegundoMesUsd, r2(gananciaDe('growth', RESTO_97) + 10.78))
-  assert.equal(g.primerMesUsd, r2(g.desdeElSegundoMesUsd - ESCENARIO_DEL_MODELO.cacUsd))
+  assert.equal(g.cacUsd, 97, 'el CAC del de 97 es su precio')
+  assert.equal(g.primerMesUsd, r2(g.desdeElSegundoMesUsd - g.cacUsd))
   assert.equal(g.desdeElSegundoMesUsd, Math.round((g.partes[0].usd + g.partes[1].usd) * 100) / 100)
   const p = loQueSeVaDeUnaSuscripcion('pro')
-  assert.equal(p.desdeElSegundoMesUsd, r2(gananciaDe('pro', RESTO_47) + 10.78))
-  assert.equal(p.primerMesUsd, r2(p.desdeElSegundoMesUsd - ESCENARIO_DEL_MODELO.cacUsd))
+  assert.equal(p.cacUsd, 47, 'el CAC del de 47 es su precio, no el del de 97')
+  assert.equal(p.desdeElSegundoMesUsd, r2(gananciaDe('pro', RESTO_47) + 5.22))
+  assert.equal(p.primerMesUsd, r2(p.desdeElSegundoMesUsd - p.cacUsd))
   // Los cupos: el techo de IA del plan y lo que se supone que se usa. Leídos del cupo, no transcriptos.
   assert.deepEqual([g.cupoMt, g.techoIaUsd, g.videoUsd],
     [CUPO_MENSUAL.growth, usdDeMt(CUPO_MENSUAL.growth), usdDeMt(CUPO_MENSUAL.growth) * USO_SUPUESTO])
@@ -100,9 +103,9 @@ test('1. el 97 y el 47 con el escenario del modelo: las cinco partes, el primer 
   // Lo que mudó de lib/uso-del-cupo.ts se sigue leyendo de ahí igual.
   assert.equal(USO_DESDE_EL_CUPO, USO_SUPUESTO)
   assert.equal(techoDesdeElCupo('growth'), techoDeIa('growth'))
-  // El escenario del modelo es el del 7/11.
+  // El escenario del modelo es el del 7/11, con el CAC de cada plan = su precio desde el 17/11 (`null`).
   assert.deepEqual(ESCENARIO_DEL_MODELO, {
-    clientes: META_CLIENTES, cacUsd: CAC_USD, usoDelCupo: USO_SUPUESTO, pasarela: PASARELA, impuesto: IMPUESTO,
+    clientes: META_CLIENTES, cacUsd: null, usoDelCupo: USO_SUPUESTO, pasarela: PASARELA, impuesto: IMPUESTO,
     fijoMensualUsd: fijoDeMartin(),
   })
 })
@@ -119,8 +122,11 @@ test('2. la torta de /admin/estrategia es la misma función, con los mismos nomb
 
 test('3. cada selector mueve lo suyo, y las partes suman el precio al centavo en cualquier escenario', async () => {
   const { escenarioDe } = await import('../app/admin/(polar)/analytics/costs/Suscripcion')
-  const base = { clientes: 50, cacUsd: 97, uso: 0.25, pasarela: 'mp-35', conImpuesto: true, fijo: 'tuyo' as const }
+  const base = { clientes: 50, cacUsd: null, uso: 0.25, pasarela: 'mp-35', conImpuesto: true, fijo: 'tuyo' as const }
   assert.deepEqual(escenarioDe(base), ESCENARIO_DEL_MODELO, 'lo que viene elegido es el modelo')
+  // Un CAC fijo del selector manda sobre el del modelo, igual para los dos planes.
+  assert.equal(escenarioDe({ ...base, cacUsd: 97 }).cacUsd, 97)
+  assert.equal(loQueSeVaDeUnaSuscripcion('pro', escenarioDe({ ...base, cacUsd: 97 })).cacUsd, 97)
   assert.equal(escenarioDe({ ...base, pasarela: 'mp-ya' }).pasarela, 0.0761)
   assert.equal(escenarioDe({ ...base, pasarela: 'directo' }).pasarela, 0)
   assert.equal(escenarioDe({ ...base, conImpuesto: false }).impuesto, 0)
@@ -208,8 +214,9 @@ test('6. Costs dibuja las tres secciones, con la ganancia del 97 derivada del cu
   // separarse, y el día que Martín vuelva a mover el cupo este test lo sigue en vez de ponerse rojo.
   const g97 = gananciaDe('growth', [10.78, servirDe('growth'), 8.11, 1.75])
   const desde97 = r2(g97 + 10.78)
-  const desde47 = r2(gananciaDe('pro', [10.78, servirDe('pro'), 3.93, 0.85]) + 10.78)
-  const pierde97 = r2(ESCENARIO_DEL_MODELO.cacUsd - desde97)
+  // El 47 carga SU CAC desde el 17/11/2026: 47 ÷ 9 = 5,22 por mes, y 47 entero el primer mes.
+  const desde47 = r2(gananciaDe('pro', [5.22, servirDe('pro'), 3.93, 0.85]) + 5.22)
+  const pierde97 = r2(97 - desde97)
   assert.match(t, new RegExp(`Plan de US\\$97 Ganancia US\\$ ${pesos(g97)} Captación US\\$ 10,78 Servir la cuenta US\\$ ${pesos(servirDe('growth'))} Impuesto US\\$ 8,11 Cobro US\\$ 1,75 Total US\\$ 97,00`))
   assert.match(t, new RegExp(`US\\$97 · primer mes .*?\u2212US\\$ ${pesos(pierde97)}`))
   assert.match(t, new RegExp(`el de 97 arranca perdiendo US\\$ ${pesos(pierde97)}`))

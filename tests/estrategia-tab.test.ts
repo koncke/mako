@@ -110,7 +110,8 @@ test('cada porción del 47 y del 97 sale de donde vive su número, no escrita en
   for (const [clave, precio, plan] of [['pro', 47, 'pro'], ['growth', 97, 'growth']] as const) {
     assert.equal(de(clave, 'cobro'), r2(precio * PASARELA), `${clave}: el cobro es la pasarela`);
     assert.equal(de(clave, 'impuesto'), r2(precio * IMPUESTO), `${clave}: el impuesto va APARTE de la pasarela`);
-    assert.equal(de(clave, 'conseguir'), r2(cacPorMes()), `${clave}: la captación es el CAC repartido, el mismo que usa Costs`);
+    // El CAC de cada plan es su precio desde el 17/11/2026: la captación del 47 es 47 ÷ 9, no 97 ÷ 9.
+    assert.equal(de(clave, 'conseguir'), r2(cacPorMes(precio)), `${clave}: la captación es el CAC de su plan repartido, el mismo que usa Costs`);
     assert.equal(de(clave, 'servir'), r2(techoDeIa(plan) * USO_SUPUESTO + fijoDeMartin() / META_CLIENTES), `${clave}: video + fijo`);
   }
   // Lo que ya no existe no se dibuja: ni Paddle ni la IA de texto a cargo de MaKo.

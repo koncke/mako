@@ -5,8 +5,9 @@
 // acumularse. Eso me reduce un montón el gasto por cliente. Hoy la gran mayoría, por no decir el 100%, no usa la generación
 // de video: Código Inmobiliario y sus clientes no lo necesitan para su negocio».
 //
-// ⚠️ EL CUPO NO ES UN COSTO: ES UN TECHO. El plan de US$97 incluye `CUPO_MENSUAL.growth` = 24.000 MT = US$24,00 de costo de
-// video e imagen (lib/mako-tokens-reglas.ts, `MT_POR_USD = 1000`). Pero sólo se gasta lo que el cliente genera. Un cliente
+// ⚠️ EL CUPO NO ES UN COSTO: ES UN TECHO. El plan de US$97 incluye `CUPO_MENSUAL.growth` = 14.400 MT = US$14,40 de costo de
+// IA, sus 10 minutos de video con el Omni (lib/mako-tokens-reglas.ts, `MT_POR_USD = 1000`; era 24.000 hasta el 17/11/2026).
+// Pero sólo se gasta lo que el cliente genera. Un cliente
 // que nunca abre AI Avatar cuesta CERO de cupo, y su plan deja casi todo.
 //
 // ── Por qué esto no es «breakage» de los libros, y el número de afuera no sirve ──
@@ -38,7 +39,7 @@ export { USO_SUPUESTO, techoDeIa };
  */
 export function dejaConUso(planUsd: number, plan: Plan, tasa: number): number {
   const t = Math.min(1, Math.max(0, Number.isFinite(tasa) ? tasa : 0));
-  return planUsd - planUsd * PARTE_DE_COBRAR - cacPorMes() - techoDeIa(plan) * t;
+  return planUsd - planUsd * PARTE_DE_COBRAR - cacPorMes(planUsd) - techoDeIa(plan) * t;
 }
 
 export type UsoMedido = {

@@ -45,10 +45,29 @@ export const PARTE_DE_COBRAR = PASARELA + IMPUESTO;
 export const META_CLIENTES = 50;
 
 /**
- * Lo que cuesta traer un cliente. Es el 100% del primer mes que cobra un MaKo Partner, y también
+ * Lo que cuesta traer un cliente del plan de US$97. Es el 100% del primer mes que cobra un MaKo Partner, y también
  * el techo que Martín se puso en Meta (7/11: «lo máximo que debería ponerme como objetivo»).
+ * ⚠️ Desde el 17/11/2026 el CAC de cada plan es SU precio (`cacDelPlan`): esto queda como el del de US$97 y como una de las
+ * opciones fijas del selector de Costs.
  */
 export const CAC_USD = 97;
+
+/**
+ * LO QUE CUESTA TRAER UN CLIENTE DE ESE PLAN: **el precio de su plan**, lo que se lleva un MaKo Partner por su primer mes
+ * (17/11/2026). US$47 en el Essential y US$97 en el Pro; repartido en `MESES_DE_VIDA`, US$5,22 y US$10,78 por mes.
+ *
+ * Martín: «Puedes dejarlo también proporcional para que quede en 59 %… todo esto también lo vamos a saber cuando empecemos
+ * a invertir en anuncios, así que es una suposición». Hasta ese día todos los planes cargaban el mismo US$97: pesaba 23 %
+ * del Essential y 11 % del Pro, y por eso el Essential daba 47 % contra el 59 % del Pro.
+ *
+ * ⚠️ ES UN SUPUESTO HASTA MEDIR LOS ANUNCIOS. Con pauta, el CAC sale de lo gastado ÷ los clientes que entran, y no tiene por
+ * qué ser el precio del plan. El día que haya ese dato, se reemplaza acá.
+ *
+ * ⚠️ LO QUE NO ESTÁ HECHO, A PROPÓSITO: Martín quiere proyectar que el cliente del Essential termina pasándose al Pro («el de
+ * 47 lo tenemos para que lo prueben»). Eso cambiaría el CAC efectivo del Essential (se paga una vez y factura después como
+ * Pro), pero no hay una tasa de paso medida y no se inventa. Queda anotado, sin implementar.
+ */
+export const cacDelPlan = (planUsd: number): number => Math.max(0, Number.isFinite(planUsd) ? planUsd : 0);
 
 /**
  * Los meses que se queda un cliente: 9, decisión de Martín (10/11/2026), hasta que haya bajas reales para medirla. Textual:
@@ -88,8 +107,8 @@ export type Economia = {
   readonly avisos: readonly string[];
 };
 
-/** El CAC repartido en la vida del cliente, que es lo que pesa cada mes. */
-export const cacPorMes = (): number => CAC_USD / MESES_DE_VIDA;
+/** El CAC de un cliente de ese plan, repartido en su vida: lo que pesa cada mes. US$5,22 en el de 47, US$10,78 en el de 97. */
+export const cacPorMes = (planUsd: number): number => cacDelPlan(planUsd) / MESES_DE_VIDA;
 
 // =============================================================================
 // LO QUE QUEDA EN EL BOLSILLO con N clientes (7/11/2026)
@@ -106,7 +125,7 @@ export const cacPorMes = (): number => CAC_USD / MESES_DE_VIDA;
 // lo más que duplica — la segunda decena ya no tiene que pagar el fijo otra vez.
 
 /** Lo que deja UN cliente de ese plan cada mes: lo que cobra, menos cobrarlo, menos su parte del CAC. */
-export const dejaUnCliente = (planUsd: number): number => planUsd - planUsd * PARTE_DE_COBRAR - cacPorMes();
+export const dejaUnCliente = (planUsd: number): number => planUsd - planUsd * PARTE_DE_COBRAR - cacPorMes(planUsd);
 
 /** Lo que queda en el bolsillo con `clientes` de ese plan, pagando `fijoMensualUsd`. Negativo = se pierde. */
 export const loQueQueda = (clientes: number, planUsd: number, fijoMensualUsd: number): number =>
@@ -144,14 +163,16 @@ export function economiaDelMes(e: EntradaEconomia): Economia {
 
   if (e.mrrUsd != null && e.iaDelMesUsd != null) {
     const cobrar = e.mrrUsd * PARTE_DE_COBRAR;
-    const cac = n * cacPorMes();
+    // El CAC de cada cliente es el precio de SU plan (`cacDelPlan`, 17/11/2026), así que sumados son lo que facturan:
+    // lo facturado ÷ los meses de vida. Así no hace falta saber de qué plan es cada uno.
+    const cac = e.mrrUsd / MESES_DE_VIDA;
     resultadoDelMes = e.mrrUsd - cobrar - e.iaDelMesUsd - e.fijoMensualUsd - cac;
     margen = e.mrrUsd > 0 ? resultadoDelMes / e.mrrUsd : null;
     if (e.mrrUsd <= 0) avisos.push('Lo facturado es cero: no hay margen que calcular.');
 
     if (n > 0) {
       // Lo que deja UN cliente, sin el fijo: es lo que después cubre el fijo.
-      dejaCadaCliente = (e.mrrUsd - cobrar - e.iaDelMesUsd) / n - cacPorMes();
+      dejaCadaCliente = (e.mrrUsd - cobrar - e.iaDelMesUsd - cac) / n;
       equilibrio = dejaCadaCliente > 0 ? Math.ceil(e.fijoMensualUsd / dejaCadaCliente) : null;
       if (dejaCadaCliente <= 0) {
         avisos.push('Cada cliente cuesta más de lo que deja: no hay cantidad de clientes que alcance.');
@@ -182,7 +203,7 @@ export function economiaDelMes(e: EntradaEconomia): Economia {
 //   cobro      precio × pasarela (Mercado Pago a 35 días, 1,80%)
 //   impuesto   precio × impuesto (monotributo H, 8,36%). Va APARTE de la pasarela (docs/tableros/LEEME.md)
 //   servir     el video con IA (el uso del cupo del plan) + su parte del gasto fijo (el fijo ÷ los clientes)
-//   conseguir  el CAC repartido en la vida del cliente
+//   conseguir  el CAC repartido en la vida del cliente (el CAC es el precio del plan desde el 17/11/2026: `cacDelPlan`)
 //   ganancia   lo que queda
 // La IA de texto NO es una parte: la paga cada negocio con su clave (lib/ia-del-negocio.ts).
 //
@@ -224,8 +245,11 @@ export const PASARELAS = [
 export type Escenario = {
   /** Entre cuántos clientes se reparte el fijo. */
   readonly clientes: number;
-  /** Lo que cuesta traer un cliente, en US$, entero. */
-  readonly cacUsd: number;
+  /**
+   * Lo que cuesta traer un cliente, en US$, entero. `null` = **el precio de su plan** (`cacDelPlan`, el supuesto del modelo
+   * desde el 17/11/2026). Un número fijo es para mirar otro escenario: 0 (orgánico), 50, 97.
+   */
+  readonly cacUsd: number | null;
   /** La parte del cupo de video que se usa, de 0 a 1. */
   readonly usoDelCupo: number;
   /** Lo que se lleva la pasarela, de 0 a 1. */
@@ -236,10 +260,13 @@ export type Escenario = {
   readonly fijoMensualUsd: number;
 };
 
-/** El escenario del modelo del 7/11: 50 clientes, CAC de 97, 25% del cupo, Mercado Pago a 35 días, con impuesto, el fijo de Martín. */
+/**
+ * El escenario del modelo: 50 clientes, el CAC de cada plan = su precio (17/11/2026; hasta ahí, 97 para todos), 25% del cupo,
+ * Mercado Pago a 35 días, con impuesto, el fijo de Martín.
+ */
 export const ESCENARIO_DEL_MODELO: Escenario = {
   clientes: META_CLIENTES,
-  cacUsd: CAC_USD,
+  cacUsd: null,
   usoDelCupo: USO_SUPUESTO,
   pasarela: PASARELA,
   impuesto: IMPUESTO,
@@ -295,7 +322,8 @@ export function loQueSeVaDeUnaSuscripcion(plan: PlanPago, cambios: Partial<Escen
   const avisos: string[] = [];
   const precio = USD_DEL_PLAN[plan];
   const clientes = Number.isFinite(e.clientes) ? Math.max(0, Math.trunc(e.clientes)) : 0;
-  const cac = noNegativo(e.cacUsd);
+  // `null` es el supuesto del modelo: el CAC de un cliente es el precio de su plan (`cacDelPlan`).
+  const cac = e.cacUsd == null ? cacDelPlan(precio) : noNegativo(e.cacUsd);
   const techoIa = techoDeIa(plan);
   const video = techoIa * entre01(e.usoDelCupo);
   const fijoPorCliente = clientes > 0 ? noNegativo(e.fijoMensualUsd) / clientes : null;

@@ -29,8 +29,8 @@
 // los deriva `mtDeUsd` y nunca se escriben a mano.
 //
 // ⚠️ Y LA SEGUNDA, del mismo tipo: los MEDIOS de la `TARIFA` están viejos. Dice US$0,05 por segundo de video («publicado»);
-// la medición del 07/11 contra ApiMart, con cuatro generaciones pagadas, da **US$0,0384** (`USD_POR_SEGUNDO`). Los medios
-// salen de `mako-tokens-reglas.ts`, que es donde se midieron, no de la tabla de agosto.
+// desde el 17/11/2026 el segundo es el del Omni de Martín por ApiMart, **US$0,024** (`USD_POR_SEGUNDO`, que lo lee del
+// catálogo de lib/apimart-reglas.ts). Los medios salen de `mako-tokens-reglas.ts`, no de la tabla de agosto.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // DE DÓNDE SALE CADA NÚMERO
@@ -317,11 +317,11 @@ export type AccionDeMedios = {
 export const MEDIOS = (calidad: Calidad = 'normal'): readonly AccionDeMedios[] => [
   {
     id: 'video-segundo', label: 'Un segundo de video generado', costoUsd: USD_POR_SEGUNDO[calidad], unidad: 'un segundo', origen: 'publicado',
-    porque: 'Medido el 07/11/2026 contra ApiMart con cuatro generaciones pagadas (seedance-2.0-mini, 720×1280). ⚠️ La versión anterior decía US$0,030 y estaba 28 % por debajo del costo real.',
+    porque: 'El Omni de Martín por ApiMart (gemini-omni-1.2-flash-ext): US$0,024 por segundo a 720p, sin cargo fijo; medido generando el 17/11/2026 (dos clips de 4 s, US$0,096 cada uno). Era el de seedance-2.0-mini (US$0,0384), un modelo que Martín no usa para una cara que habla.',
   },
   {
     id: 'clip', label: 'Un clip de 10 segundos', costoUsd: USD_POR_CLIP, unidad: 'un clip', origen: 'publicado',
-    porque: 'Medido el 07/11/2026. 10 s es el tope de Omni Flash y el más barato POR SEGUNDO: el modelo cobra US$0,15 fijos + US$0,025 por segundo, así que partir una pieza en clips cortos la encarece sin que nadie lo note.',
+    porque: 'Diez segundos del Omni 1.2: US$0,24 = 240 MT, el mismo número que da el segundo por diez (se cobra por segundo, sin cargo fijo). Del 15 al 17/11 decía 900 MT, el clip de kling-v3-omni, que no es el Omni de Martín.',
   },
   {
     id: 'imagen', label: 'Generar una imagen', costoUsd: USD_POR_IMAGEN[calidad], unidad: 'una imagen', origen: 'publicado',

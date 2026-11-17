@@ -31,6 +31,67 @@ Los tres corolarios, cada uno pagado por un caso real de abajo:
 
 ---
 
+## ⚠️ El Omni de ApiMart son CINCO productos, y el código eligió uno que no es de Google (17/11/2026)
+
+**Síntoma:** `lib/apimart-reglas.ts` y `lib/mako-tokens-paquetes.ts` dan `kling-v3-omni` por «el único Omni». Con eso el minuto
+de video costaba 3,7 veces más que el de Martín, y salía 16:9.
+
+**La causa:** «Omni» es una palabra del nombre, no un modelo. En ApiMart hay cinco Omni de Google (Omni Flash Preview, 1.1 Flash,
+1.1 Flash Ext, 1.2 Flash y 1.2 Flash Ext), y `kling-v3-omni` es de Kling. Leído el 17/11 en las páginas de ApiMart, sin generar nada:
+
+| id | Qué es | Cobro a 720p | Duraciones | Detalle |
+|---|---|---|---|---|
+| `gemini-omni-1.2-flash-ext` | **Omni 1.2, el de Flow** | US$0,024 por s, lineal | 3 a 15 s | foto en `first_frame_image`; sólo 16:9 o 9:16 |
+| `gemini-omni-1.2-flash` | Omni 1.2, canal normal | ~US$0,0556 por s (por tokens) | 3 a 15 s | reserva `max(10, duración)` y ajusta al terminar |
+| `gemini-omni-1.1-flash-ext` | Omni 1.1: el «Omni-Flash-Ext» del 8/11 | US$0,15 + 0,025 por s | sólo 4, 6, 8 y 10 | `generation_type: 'frame'` con una imagen |
+| `kling-v3-omni` | **De Kling, no de Google** | US$0,0896 por s | — | devuelve 16:9 |
+
+**La regla:** el modelo de video para una cara que habla se elige por su id exacto, nunca por la palabra «Omni». Y antes de
+fijar un costo se lee la página del modelo: cada una publica su tabla, así que el comentario de `lib/apimart-reglas.ts:30`,
+«el catálogo de ApiMart no trae precios», ya no vale.
+
+**SIN HACER, con dónde vive** (el precio lo arregla el chat de MaKo Tokens; esto es lo de generar):
+- **`MODELO_VIDEO_POR_DEFECTO` y `MODELO_PARA_PROBAR` son Hailuo** (`lib/apimart-reglas.ts:90` y `:102`). Si alguien conecta
+  `generarVideo` sin pasarle el modelo, una cara que habla sale con Hailuo, contra la regla «sólo Omni».
+- **`cuerpoDePedido` manda cualquier duración** (`lib/apimart-reglas.ts:200`). Un 5 le da `invalid_duration` al 1.1 Ext.
+  Tampoco manda `resolution`, `aspect_ratio` ni `generation_type` según el modelo.
+- **Conectar ApiMart de verdad es otro trabajo:** hoy `generarVideo` (lib/apimart.ts:66) no tiene llamador, y el estudio filma
+  por el puente de Flow.
+
+**Medido GENERANDO el 17/11, con el sí de Martín:** el clip 4 del reel de los pistachos, en el que Martín se transforma en la caricatura
+de Hormozi y vuelve. Dos clips de 4 s con fotograma inicial y final, con `gemini-omni-1.2-flash-ext` a 720p en 9:16.
+- **Cuánto costó:** US$0,096 cada uno, 0,024 × 4, igual que la tabla. Tardaron 92 y 114 s, en paralelo.
+- **Cómo salió:** la cara y los labios igual de fieles que en Flow, y las frases exactas.
+- **La transformación:** de caricatura a Martín salió mejor que en Flow, por etapas en vez de con dos caras superpuestas. De Martín a
+  caricatura salió peor: 1 s de fundido con la gorra y la barba transparentes.
+- **Archivos:** `C:/dev/reel-mentores/clips-apimart/` (comparación cuadro por cuadro en `clip4-flow-vs-apimart.jpg`). Herramienta:
+  `C:/dev/reel-mentores/omni/omni-fotogramas.mjs`, que no relanza una salida que ya tiene `.task.txt`.
+
+**Trampas de la API:**
+- El estado se lee en `GET /v1/tasks/<id>`. `data` viene como LISTA al lanzar y como OBJETO al consultar.
+- El progreso queda en 10 % hasta el final, y no está trabado.
+- El video está en `data.result.videos[0].url[0]` (una lista) y **vence a las 24 h** (`expires_at`): se baja enseguida.
+- `GET /v1/pricing/model?model=…&resolution=720p&duration=4` da el precio sin cobrar, y `GET /v1/logs/requests/<task_id>` confirma
+  lo cobrado. Coincidió con `data.cost`.
+- Con inicio y final, `duration` va de 3 a 10. `first_frame_image` y `last_frame_image` no se mezclan con `image_urls`.
+
+**La segunda vuelta (17/11), porque Martín no quería «un fundido» sino «un efecto donde me transformo»:**
+- **La transición que funciona con fotograma inicial y final: la palma a la cámara.** Habla, tapa el lente con la mano y, al sacarla, ya es el otro.
+  - Tapa casi todo el cuadro, así que el cambio queda escondido y nunca hay dos caras superpuestas.
+  - Pasar la mano frente a la cara deja el pelo y la ropa cambiando a la vista.
+  - Girar obliga a inventar la nuca.
+  - Un chasquido en una toma termina en destello o fundido.
+  - Se pide en UNA frase, después de la frase hablada. Costó US$0,096 por clip de 4 s y no hubo que reintentar.
+- **«Se empezó a reír al final» no era una risa: era el fotograma final.** La caricatura de Hormozi sonríe con la boca abierta, y el
+  modelo llena el silencio que sobra después de la frase con esa sonrisa muda. Duración justa y «boca cerrada» la acortan; para
+  sacarla del todo hace falta un fotograma final con la boca cerrada, y una imagen nueva necesita el OK de Martín.
+- **El modelo agrega por su cuenta un «whoosh» al mover la mano**, y el cambio de voz lo convierte en un «Mmm» fuerte. Martín ya había
+  rechazado los efectos de sonido en la transformación. Arreglo: silenciar el audio original después de la última palabra, ANTES
+  del cambio de voz.
+- **Archivos:** `C:/dev/reel-mentores/clips-apimart/v2/`.
+
+---
+
 ## 1. Lo que se puede usar HOY (licencia verificada con cláusula, cero ambigüedad)
 
 Todo este bloque es **software**, no assets. Esa es la razón de fondo por la que no aplica la trampa que ya costó dinero: la licencia de una herramienta no gobierna su output. La cláusula que lo dice es LGPL 2.1 §0 / GPL v2 §0 / GPL v3 §2, verbatim: *"The act of running the Program is not restricted, and the output from the Program is covered only if its contents constitute a work based on the Program"*. El MP4 no contiene código, contiene los píxeles del cliente.
@@ -1911,3 +1972,31 @@ respuesta trae los espacios como si fueran palabras (85 entradas para 43 palabra
   de producir, se captura la app real.
 - Los guiones de cada pestaña. Hoy `guionTab` de la maqueta es genérico.
 - La música phonk de julio salió de `Downloads` sin licencia anotada: no se reusa sin verificarla (ver §5).
+
+
+### Escribir guiones para este motor: lo que encontró la corrida de los guiones del reto (17/11/2026, `wf_15437be0-9c1`)
+
+Los guiones del día 1 del reto están en [reto-7-dias/guiones-dia-1.md](reto-7-dias/guiones-dia-1.md).
+
+**Antes de prometer una pantalla, hay que ver si el motor la tiene.**
+- **`type:app` dibuja una sola captura** (`app-ops.png`), con un recuadro FIJO sobre Second Brain (`engine.js:28` y `:201-221`). Para el chat de
+  cada coach, el CRM y cada pestaña hace falta una captura y un recuadro por pantalla.
+- **Sólo hay dos íconos precargados,** brain y message-circle (`engine.js:26-27`). Cada ícono nuevo se suma a `icons/` y a esa lista.
+- **`side`** (la cara de Martín a un lado y el texto al otro) **y `flow`** (el ojo que lleva al dinero) existen sólo en `vsl-julio/kinetic-full.js`.
+  Hay que pasarlos a `engine.js` antes de usarlos.
+- **«vsl» en minúscula** era para que la voz de julio lo pronunciara bien. `beats.mjs` no tiene el reemplazo `d` de julio, así que en pantalla
+  saldría «vsl».
+
+**El diagnóstico obvio era el equivocado: «inspirarse en los cursos» no es copiarlos.** El primer borrador calcó casi palabra
+por palabra frases de Sofía Contreras (MasteryHaus MH-090 ¶20, MH-092 ¶9, MH-061 ¶11) y de ATV («los seis caminos a oscuras», ¶5),
+y el crítico las reescribió.
+- **La regla:** de un curso se toma la IDEA (la ecuación de valor, el ejemplo del mismo deseo con dos soluciones) y el ejemplo se arma con MaKo.
+
+**Copiar el VSL de julio al pie de la letra rompe reglas de hoy:**
+- «si estás cansado» va contra los textos neutros;
+- julio tenía voseo y la regla de que «la narra una voz de IA». El reto es «un video mío».
+
+**Para escribir el guion:**
+- La voz va a 3,2 palabras por segundo: un minuto son unas 190 palabras.
+- Los números se escriben en letras, y «Máko» con tilde.
+- Un mensaje de la maqueta que Martín leyó y no entendió («tu reto ya tiene los días de tu funnel») no va en ningún video.

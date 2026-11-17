@@ -11,6 +11,167 @@ abajo se lee contra eso.
 
 ---
 
+## La opción B en el código, y la caja que no está en producción (17/11/2026)
+
+**Lo que decidió Martín** (17/11, por el Cerebro): «me gusta la opción B… mientras más compra, más tiene»; «que paguen
+como máximo $100 extra y que con esos $100 extra ya le alcance los 30 minutos»; «Lo único que no quiero es cambiar de
+modelo»; «descarta completamente Flow»; y en las columnas «0 minutos o 4 minutos, 10 minutos», no clips.
+
+**Lo que quedó, y dónde vive:**
+- **El Omni es Omni 1.2 Flash de Google:** `gemini-omni-1.2-flash-ext`, US$0,024 por segundo a 720p, sin cargo fijo, de 3 a
+  15 s, 9:16 y con audio. Medido generando el mismo 17/11 (US$0,096 por 4 s, la cara igual que en Flow:
+  docs/hallazgos-video-pipeline.md). `MODELO_OMNI` en `lib/apimart-reglas.ts`.
+  `USD_POR_SEGUNDO.normal` (`lib/mako-tokens-reglas.ts`) lo lee de ahí. Un minuto son 1.440 MT.
+- **El cupo del de US$97** baja de 24.000 a **14.400 MT = 10 minutos** (`MINUTOS_DEL_CUPO_PRO`). Sus imágenes pasan a ser la
+  consecuencia: 1.200.
+- **El del de US$47 pasa a ser PROPORCIONAL** (el mismo 17/11, Martín: «no tiene sentido de que en el de 97 le demos 14.400 y
+  en el de 47 12.000 tokens»): 14.400 × 47 ÷ 97 = 6.977 → **7.000 MT** (`CUPO_ESSENTIAL_MT`). Sigue sin video. Sus imágenes son
+  583 y se dicen «580» en las columnas y en la tabla (`redondoParaLeer`, ahora en lib/mako-tokens-paquetes.ts). Según el
+  Cerebro, con IVA, cobro y el costo del cliente, deja 47 % si usa todo, 56 % al 50 % y 60 % al 25 %; con 12.000 daba 34, 49 y
+  57 %. Un test exige que siga siendo proporcional si se toca el de US$97.
+- ⚠️ **Mauricio Bustos (US$47) gastó 8.680 MT en los últimos 30 días** (medido el 17/11 a la tarde): más que los 7.000. Hoy no
+  lo frena nada porque la caja no está aplicada. El siguiente es el negocio de prueba, con 2.263; ningún otro pasa de 1.500.
+  **Martín lo decidió el mismo día: sin excepción.** «A Mauricio sí le dejamos con los tokens de Essential… Mauricio de por sí
+  va a tener el plan de 47». No hay nada especial para él en el código.
+- **La tarifa del extra** pasa a **288 MT por dólar, lineal** (`MT_POR_DOLAR`): cada US$10 son 2 minutos, US$100 son 20, y
+  el minuto suelto sale US$5 exactos (`USD_POR_MINUTO_SUELTO`). Margen bruto de IA del extra, a precio de lista: 71,2 %
+  (`MARGEN_BRUTO_DEL_EXTRA`).
+- **La barra** va de US$0 a US$100, de a 10 (`PASOS_USD`). Las columnas dicen «10 minutos de video con IA» y «0 minutos…»
+  tachado (`LO_QUE_ALCANZA`), y la línea de abajo dice «+11.520 MaKo Tokens extras al mes = 8 minutos más de video»
+  (`htmlExtra`, app/planes/CalculadoraTokens.tsx). La tabla de comparación dice «Hasta 10 minutos al mes»
+  (`lib/planes-comparacion.ts`).
+- **Un solo precio para los mismos 10 s:** `MT_POR_CLIP` = `mtDeVideo(10)` = 240, y la fila «clip» de
+  `lib/mako-tokens-costos.ts` dice lo mismo.
+
+**Los márgenes del Cerebro**, con el 21 % de IVA de pagar ApiMart con tarjeta, el 12,36 % de cobrar y el costo de conseguir
+al cliente (US$97 ÷ 9), sin los gastos fijos: el de US$97 deja US$56,81 (59 %); el extra solo, US$52,79 (53 %); juntos, a
+US$197, US$109,60 (56 %) con 30 minutos. Los MT van a precio de lista, sin IVA: con IVA, cada MT cuesta US$0,00121.
+- **El costo de conseguir un cliente pasó a ser PROPORCIONAL al plan** (17/11, Martín: «Puedes dejarlo también proporcional para
+  que quede en 59 %… es una suposición»): el CAC de cada plan es su precio, lo que se lleva un Partner el primer mes
+  (`cacDelPlan`, lib/economia-unitaria.ts). Repartido en 9 meses: US$5,22 en el Essential y US$10,78 en el Pro. Con el mismo
+  US$97 para todos pesaba 23 % del Essential y 11 % del Pro. Es un supuesto hasta medir los anuncios. La idea de proyectar que
+  el cliente del Essential termina pasándose al Pro quedó anotada ahí y sin hacer: no hay una tasa de paso medida.
+
+**Medido en producción antes de bajar el cupo (17/11, sólo lectura):**
+- ⚠️ **La caja no está instalada.** No hay ninguna función `mako_tokens_*`. `mako_tokens_saldo` tiene sólo las columnas de
+  la 0412, sin `comprado` ni `cupo_mes`, así que **la 0416 no se aplicó**. El libro `mako_tokens_movimientos` tiene **0
+  filas**. Hoy no se descuenta nada a nadie: «el texto ya se cobra desde el 15/11» es cierto en el código y falso en
+  producción. Por eso el consumo no se puede leer del libro.
+- **Se midió con `anthropic_usage`** (30 días). A lo que se anota en US$0 (Gemini gratis) se le puso el precio de Gemini
+  pago, como techo. El único negocio con el plan de US$97, Código Inmobiliario, gastó **≈1.082 MT** de los 14.400. El más
+  alto de todos, Mauricio Bustos (US$47), gastó **8.827 MT** de 12.000. Ninguno pasa de 14.400: bajar el cupo no le saca
+  nada a nadie.
+
+**Trampas de este cambio:**
+- **El piso ahora empata, a propósito.** Subir del de US$47 al de US$97 son US$50 por 10 minutos, o sea US$5 el minuto, lo
+  mismo que el extra. `respetaElPiso` acepta empatar sólo porque el de US$47 no genera video (`GENERA_VIDEO.pro`). Si algún
+  día lo genera, ese test se pone rojo, que es lo que tiene que pasar.
+- **El modelo más barato del catálogo es el Omni.** `MODELO_PARA_PROBAR` (el más barato, por regla) pasa a ser el mismo
+  que el de entregar. Cambiar el nombre no genera nada.
+- **El test del margen decía «el paquete deja el MISMO 75 % que el plan»**, por lo que Martín pidió el 15/11. El 16 y el 17/11
+  lo dio vuelta para el extra. Ahora el test exige un solo margen (la tarifa es lineal), que salga de la tarifa y que un
+  dólar nunca compre más MT de los que cuesta.
+
+**SIN HACER, con dónde vive:**
+- **Aplicar la 0416 en producción** (`supabase/migrations/0416_mako_tokens_caja.sql`). Sin ella el medidor no cobra nada.
+  Es escribir en producción: pide el sí de Martín. ⚠️ **El día que se aplique, Mauricio Bustos se queda corto:** gasta ~8.700
+  MT por mes en texto y su cupo de Essential es 7.000, sin excepción (decisión de Martín, 17/11). Va a ver «te quedaste sin
+  MaKo Tokens» antes de fin de mes, y los caminos automáticos de su negocio se saltean en silencio (`fallaBlanda`).
+- **Los riesgos del canal Ext** (si se corta y hay que pasar al canal normal, el extra deja ~7 %): en «Riesgos sin medir», en
+  la entrada de abajo. La cara que habla ya se probó (docs/hallazgos-video-pipeline.md).
+- **Que el video salga por ApiMart:** hoy los clips salen por el Flow del cliente (la entrada de abajo). `MODELO_VIDEO_POR_DEFECTO`
+  sigue en Hailuo y no se tocó, porque `generarVideo` no tiene llamador.
+- **`scripts/probar-0416-pglite.mjs` tiene los cupos viejos escritos a mano** (11.750 y 24.250).
+- **Cuántos intentos lleva un clip** sigue sin medir.
+
+---
+
+## El precio de «30 días de contenido» lo decide el MODELO, no el margen (17/11/2026)
+
+**Síntoma:** Martín preguntó cuánto cobrar por un reel por día. El chat de MaKo Tokens había dicho «sólo la IA cuesta
+US$102». La corrida `wf_42fb8b45-5da` lo rehízo: según el modelo, el mismo mes cuesta **US$60 o US$127**. Las cuentas
+eran 30 reels con 30 s generados, la mitad de los clips rehecha una vez (135 clips de 10 s), 9 carruseles, 13 imágenes y
+el texto que el repo presupuesta.
+
+**La causa: el código tiene dos «Omni» y no son el mismo producto.**
+- `lib/mako-tokens-paquetes.ts:36-48` dice que «el único Omni del catálogo es kling-v3-omni» y cobra **US$0,896** por clip.
+  kling-v3-omni devuelve **16:9** (`lib/apimart-reglas.ts:65-76`), así que un reel vertical sale recortado.
+- El 8/11 se generó y se pagó por ApiMart un **Omni-Flash-Ext**, el Omni de Google, el que Martín llama «Omni», a
+  **US$0,40**. Salió vertical 720×1280, con voz y labios (`docs/video-avatar-desde-foto.md:15`).
+- La fórmula «US$0,15 + 0,025 por s» de `docs/costos-fijos-mako.md:68-79`, que el 15/11 se atribuyó a Flow, da justo 0,40.
+- La fila «clip» de `lib/mako-tokens-costos.ts:323-324` explica Omni Flash y pone el número de kling.
+
+**La trampa del medidor: dos precios para los mismos 10 s.**
+- `MT_POR_CLIP` = 900 (`paquetes.ts:104`).
+- `mtDeVideo` = 384, porque usa seedance a 0,0384 por s (`lib/mako-tokens-reglas.ts:86` y `:210`). Es el que
+  `cobrarMediosMt` dice usar (`lib/mako-tokens-medidor.ts:363-368`).
+- Si se engancha así, un cliente que agota un paquete de US$297 con kling le hace perder a MaKo unos US$22. Antes de
+  vender un paquete, el medidor tiene que cobrar el mismo número que la cuenta del precio.
+
+**Lo que no se reproducía del chat anterior:**
+- Los US$102 sólo salen rehaciendo un cuarto de los clips. Con la mitad, son US$122,71.
+- Los márgenes de su escala (75, 70, 64 y 55 %) no descuentan el 10,16 % de pasarela e impuesto
+  (`lib/economia-unitaria.ts:36-42`). Descontado, quedan 64,8, 59,8, 53,8 y 44,8 %.
+- Los pasos de la barra son 0, 10, 20, 40, 60, 80, 100, 120, 160 y 200 (`app/planes/CalculadoraTokens.tsx:141`). Los tramos
+  de 25, 50 y 75 de esa escala no existen.
+
+**El diagnóstico obvio era el equivocado.** Parecía que el margen fijaba el precio, y lo fija el modelo. Sobre la factura
+entera (Pro + extra), un paquete de US$297 deja 48 %. Ese número esconde que el extra solo deja 39,8 %, contra la regla del
+75 % (`paquetes.ts:54-69`) y `PISO_DE_MARGEN_BRUTO` 0,74 (`reglas.ts:152`). Y pasar de US$0,896 a US$0,40 por clip mueve
+el precio más que cualquier margen: con Omni Flash, el mes entra en Pro + US$100 y deja ~60 %.
+
+**La regla:** un precio de video se calcula con el modelo que entrega el reel (9:16, con voz), con clips enteros de 10 s y
+cobrando cada intento. El margen se mide sobre lo que se agrega, no sobre la factura con el plan adentro.
+
+**SIN HACER, con dónde vive:**
+- ~~Martín tiene que decidir cuál Omni se usa~~ **Decidido el 17/11: Omni 1.2 Flash de Google** (ver la entrada de arriba). El
+  Omni-Flash-Ext del 8/11 hoy se llama `gemini-omni-1.1-flash-ext`: es el 1.1, otro. Falta generar uno de prueba con el 1.2.
+- ~~Unificar el costo de 10 s de video~~ **Hecho el 17/11:** `MT_POR_CLIP` = `mtDeVideo(10)` = 240, y la fila «clip» igual.
+- Medir cuántos intentos lleva un clip. La única regla del repo es «3×», de agosto y con otros modelos
+  (`docs/costos-ia-y-planes.md:677-679`). Con 3 intentos, el mismo mes cuesta el doble.
+- Con qué se recarga ApiMart: no está en el repo. Con tarjeta argentina se suma el IVA del 21 %, y el clip de US$0,896 pasa
+  a ~US$1,08.
+- Los precios de la competencia, con sus trampas, están en
+  [competencia/precios-video-con-ia.md](competencia/precios-video-con-ia.md).
+
+**⚠️ CORRIGE LO DE ARRIBA, el mismo 17/11** (corrida `wf_1d9bf4cd-78d`, 5 agentes con un refutador). El «Omni-Flash-Ext» de
+US$0,40 **no** es el Omni de Flow de Martín: hoy ApiMart lo llama `gemini-omni-1.1-flash-ext`, o sea Omni **1.1**. El de Flow es
+Omni **1.2** Flash. ApiMart lo vende de dos maneras, según su página oficial (apimart.ai/model/gemini-omni-1-2-flash, leída el 17/11):
+- **`gemini-omni-1.2-flash-ext`:**
+  - US$0,024 por segundo, lineal, sin cargo fijo;
+  - clips de 3 a 15 s, en 9:16, con audio;
+  - la foto va en `first_frame_image`.
+  - **1 minuto = US$1,44 = 1.440 MT.** 15 s cuestan lo mismo por segundo que 10.
+- **`gemini-omni-1.2-flash`, el canal normal:** cobra por tokens, ~US$0,0556 por s, o sea ~US$3,34 el minuto. El 9/11 se midieron
+  0,0559 por s.
+
+**El diagnóstico obvio era el equivocado, otra vez.** El repo dice «el 0,412 era Flow y no nuestro costo» en:
+- `lib/mako-tokens-paquetes.ts:39`;
+- `lib/mako-tokens-costos.ts:324`;
+- `docs/costos-fijos-mako.md:70`;
+- `docs/hallazgos-video-pipeline.md:1820`;
+- `docs/hallazgos-planes-y-cobro.md:3736`.
+
+Es falso. US$0,15 + 0,025 por s es la tabla de ApiMart del 1.1 Ext (4 s 0,25 · 6 s 0,30 · 8 s 0,35 · 10 s 0,40). Flow cobra
+créditos, no dólares.
+
+**Lo que decidió Martín con esto (17/11), la opción B:**
+- El Pro trae 10 min (14.400 MT).
+- Con US$100 extra se suman 20 min (288 MT por dólar). La barra llega hasta US$100.
+- Las columnas dicen minutos, no clips.
+- Lo implementa el chat de MaKo Tokens.
+- Margen sin los fijos, con el IVA del 21 % en el video: Pro 59 %, el extra 53 %.
+
+**Riesgos sin medir:**
+- **De dónde sale el canal Ext.** Cobra ~65 % menos que Google (US$0,0695 por s) y no lo dice. Su doc prevé
+  `503 source_channel_unavailable`. Si se corta y hay que pasar al canal normal, el extra de la opción B deja ~7 %.
+- **El 3/12/2026** Google empieza a redirigir la 1.1 a la 1.2 (aistudio.google.com/docs/pricing).
+- **La cara que habla nunca se probó por ApiMart con el 1.2 Ext.** El clip de prueba, de US$0,24, espera el sí de Martín.
+- **Con kling no se gastó nada:** hoy ningún cliente genera video por ApiMart. `generarVideo` (lib/apimart.ts:66) no tiene
+  llamador, y el estudio filma por el puente de Flow (app/ai-avatar/filmar.ts:17-18). Los 900 MT sólo inflaban lo que se mostraba.
+
+---
+
 ## ⚠️⚠️ PASÓ: el medidor apagó el grupo de WhatsApp de un cliente, y «fallar cerrado» era lo equivocado (16/11/2026)
 
 **El síntoma.** Tickets #103 y #105. En el grupo de MaKo del ws 23 («Marcela Fernandez», cliente de la agencia Código

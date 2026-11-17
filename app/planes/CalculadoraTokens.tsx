@@ -20,7 +20,12 @@
 //     «tampoco separaría tanto el mensual y anual de la barra» → sin título, pegada al selector (TarjetasPlanes, `barra`).
 //
 // LOS NÚMEROS NO SE ESCRIBEN ACÁ:
-//   · lo que se suma: la TARIFA (`MT_POR_DOLAR`, US$1 = 250 MT, lib/mako-tokens-paquetes.ts), con el mismo 75% del plan.
+//   · lo que se suma: la TARIFA (`MT_POR_DOLAR`, US$1 = 288 MT, lineal, lib/mako-tokens-paquetes.ts): cada US$10 son
+//     2 minutos de video, y US$100 son 20 (Martín, 17/11/2026, la opción B).
+//
+// LO DEL 17/11 (Martín, textual): «en las columnas de los planes ya no pongas 0 clip de video, sino o 26 clips de video con
+// IA, sino que pongas 0 minutos o 4 minutos, 10 minutos, lo que sea» → el video se cuenta en MINUTOS en las columnas y en
+// la línea de la barra («+11.520 MaKo Tokens extras al mes = 8 minutos más de video»), y la barra llega a US$100.
 //   · lo que trae cada plan: `CUPO_MENSUAL` por la capa (`PLAN_DE_CAPA`, lib/mako-tokens-reglas.ts).
 //   · lo que cuesta cada cosa: el clip y la imagen de las reglas de venta, y el resto del MEDIDOR (`mtReservaDeFeature`,
 //     lib/mako-tokens-costos.ts), que es lo que se descuenta del saldo.
@@ -31,7 +36,7 @@
 // =============================================================================
 
 import type { CSSProperties } from 'react';
-import { MT_POR_DOLAR, MT_POR_CLIP, GENERA_VIDEO } from '@/lib/mako-tokens-paquetes';
+import { MT_POR_DOLAR, MT_POR_MINUTO, GENERA_VIDEO, redondoParaLeer } from '@/lib/mako-tokens-paquetes';
 import { CUPO_MENSUAL, PLAN_DE_CAPA, mtDeImagenes, type Plan } from '@/lib/mako-tokens-reglas';
 import { mtReservaDeFeature } from '@/lib/mako-tokens-costos';
 import { GENERACION_SE_VENDE } from '@/lib/planes-comparacion';
@@ -42,12 +47,12 @@ const mil = (n: number) => n.toLocaleString('es-AR');
  * LO QUE SE CUENTA EN CADA COLUMNA, debajo de sus MaKo Tokens, en el orden en que se lee (15/11/2026, copy aprobado por
  * Martín esa noche: «me gusta cómo está»).
  *
- * ⚠️ CADA COSTO SALE DE DONDE SE COBRA, no de acá. El clip (`MT_POR_CLIP`) y la imagen (`mtDeImagenes`) son las reglas de
+ * ⚠️ CADA COSTO SALE DE DONDE SE COBRA, no de acá. El minuto (`MT_POR_MINUTO`) y la imagen (`mtDeImagenes`) son las reglas de
  * venta; el resto es el costo MEDIDO del medidor (`mtReservaDeFeature`). El `feature` es el del medidor: uno mal escrito cae
  * en su costo por defecto SIN avisar, y por eso un test exige que los cuatro existan de verdad.
  *
- * `generacion`: el clip y la imagen son GENERACIÓN, y sólo se cuentan si se vende (`GENERACION_SE_VENDE`). `video`: el clip
- * sólo se cuenta en un plan que genera video (`GENERA_VIDEO`): el de US$47 no lo trae.
+ * `generacion`: el video y la imagen son GENERACIÓN, y sólo se cuentan si se vende (`GENERACION_SE_VENDE`). `video`: el video
+ * sólo se cuenta en un plan que genera video (`GENERA_VIDEO`): el de US$47 no lo trae. El video va en MINUTOS (17/11/2026).
  * Las palabras son las de la persona: «páginas de venta», no «landings» (Martín: «no con lenguaje nuestro»).
  */
 export type CosaQueAlcanza = {
@@ -65,7 +70,7 @@ const DEL_MEDIDOR = (clave: string, feature: string, uno: string, varios: string
   ({ clave, feature, uno, varios, mt: mtReservaDeFeature(feature) });
 
 export const LO_QUE_ALCANZA: readonly CosaQueAlcanza[] = [
-  { clave: 'clip', uno: 'clip de video con IA', varios: 'clips de video con IA', mt: MT_POR_CLIP, generacion: true, video: true },
+  { clave: 'video', uno: 'minuto de video con IA', varios: 'minutos de video con IA', mt: MT_POR_MINUTO, generacion: true, video: true },
   { clave: 'imagen', uno: 'imagen con IA', varios: 'imágenes con IA', mt: mtDeImagenes(1), generacion: true },
   DEL_MEDIDOR('competidor', 'spy', 'análisis de un competidor', 'análisis de competidores'),
   // ⚠️ SIN «GUIONES DE REELS» (15/11/2026, a la noche). Martín: «lo que no queda claro es guiones con IA. Creo que quisiste
@@ -75,16 +80,9 @@ export const LO_QUE_ALCANZA: readonly CosaQueAlcanza[] = [
   DEL_MEDIDOR('pagina', 'landing-writer', 'página de venta escrita con IA', 'páginas de venta escritas con IA'),
 ];
 
-/**
- * Una cantidad, REDONDEADA HACIA ABAJO a una cifra que se lea: 2.666 → 2.600, 545 → 540, 26 → 26.
- * Hacia abajo porque es una promesa: «2.700» promete 34 que no entran.
- */
-export function redondoParaLeer(n: number): number {
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  if (n >= 1000) return Math.floor(n / 100) * 100;
-  if (n >= 100) return Math.floor(n / 10) * 10;
-  return Math.floor(n);
-}
+// `redondoParaLeer` vive en lib/mako-tokens-paquetes.ts desde el 17/11/2026: la tabla de comparación (lib/planes-comparacion.ts)
+// tiene que redondear igual que las columnas, y lib no puede importar de app. Se re-exporta para los que la buscan acá.
+export { redondoParaLeer };
 
 /** Para cuánto alcanzan `mt` MaKo Tokens en un plan que genera video (o no). Sin ceros: lo que no alcanza ni para uno, no va. */
 export function alcanzaPara(mt: number, conVideo: boolean): Array<{ clave: string; n: number; que: string }> {
@@ -106,15 +104,16 @@ export function alcanzaPara(mt: number, conVideo: boolean): Array<{ clave: strin
  *     son los extremos de UNA bolsa, no cajones que se suman.
  *   · «elimina el texto de los repartes como quieras. Eso no es necesario» → sin nota al final; la «o» ya lo dice.
  *   · «intentaría que más o menos sigan como un mismo lineamiento… puedes en el de 47, 0 clips de videos con IA o algo en rojo
- *     tipo tachado» → el plan que NO genera video abre con «0 clips de video con IA», tachado y en rojo: así las dos columnas
- *     tienen los mismos renglones en el mismo orden, y la diferencia se ve en la misma línea. Es el ÚNICO cero que se dibuja.
+ *     tipo tachado» → el plan que NO genera video abre con «0 minutos de video con IA» (en clips hasta el 17/11), tachado y en
+ *     rojo: así las dos columnas tienen los mismos renglones en el mismo orden, y la diferencia se ve en la misma línea. Es el
+ *     ÚNICO cero que se dibuja.
  */
 export function htmlAlcanza(mt: number, conVideo: boolean): string {
   const items = alcanzaPara(mt, conVideo);
   if (!items.length) return '';
-  const clip = LO_QUE_ALCANZA.find((c) => c.clave === 'clip');
-  // El renglón tachado va PRIMERO y ocupa el lugar de los clips: desde ahí, todos los demás llevan «o».
-  const tachado = GENERACION_SE_VENDE && !conVideo && clip ? `<li class="mkpl-alcanza-sin"><b>0</b> ${clip.varios}</li>` : '';
+  const video = LO_QUE_ALCANZA.find((c) => c.clave === 'video');
+  // El renglón tachado va PRIMERO y ocupa el lugar de los minutos: desde ahí, todos los demás llevan «o».
+  const tachado = GENERACION_SE_VENDE && !conVideo && video ? `<li class="mkpl-alcanza-sin"><b>0</b> ${video.varios}</li>` : '';
   const filas = items.map((x, i) => `<li>${i || tachado ? 'o ' : ''}<b>${mil(x.n)}</b> ${x.que}</li>`);
   return tachado + filas.join('');
 }
@@ -134,11 +133,26 @@ export function usdDeLaDiferencia(faltan: number): number {
 }
 
 /**
- * LOS PASOS DE LA BARRA, EN DÓLARES REDONDOS (porque la barra dice el precio): de cero —lo que ya trae tu plan— a US$200.
- * Los MaKo Tokens de cada paso salen de la tarifa, y con US$1 = 250 quedan redondos en las dos unidades (US$10 = 2.500).
+ * LOS PASOS DE LA BARRA, EN DÓLARES REDONDOS (porque la barra dice el precio): de cero —lo que ya trae tu plan— a US$100,
+ * de a US$10 (17/11/2026). Martín: «que paguen como máximo $100 extra y que con esos $100 extra ya le alcance los 30
+ * minutos». Hasta el 16/11 llegaba a US$200. Con US$1 = 288 MT, cada paso suma 2.880 MT = 2 minutos: redondo en minutos.
  * Los cuatro paquetes que se venden (`PAQUETES`, lib/mako-tokens-paquetes.ts: 10, 20, 40 y 100) son pasos de la barra.
  */
-export const PASOS_USD: readonly number[] = [0, 10, 20, 40, 60, 80, 100, 120, 160, 200];
+export const PASOS_USD: readonly number[] = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+/** Los minutos de video que suman `mt` MaKo Tokens extra, redondeado hacia abajo: es una promesa. */
+export const minutosDeMt = (mt: number): number => (mt > 0 ? Math.floor(mt / MT_POR_MINUTO) : 0);
+
+/**
+ * La línea de debajo de la barra, en HTML: los MaKo Tokens extra y, si el video se vende, sus minutos (17/11/2026: «+US$40
+ * = 8 minutos más»). En cero queda como la pidió Martín el 15/11: «+0 MaKo Tokens extras al mes», sin minutos.
+ * La usan el servidor (la primera pantalla) y el script de la barra: no pueden decir cosas distintas.
+ */
+export function htmlExtra(mt: number): string {
+  const min = GENERACION_SE_VENDE ? minutosDeMt(mt) : 0;
+  const minutos = min > 0 ? ` = <b>${mil(min)} ${min === 1 ? 'minuto' : 'minutos'}</b> más de video` : '';
+  return `<b>+${mil(mt)}</b> MaKo Tokens extras al mes${minutos}`;
+}
 
 /** Un plan, como lo necesita la barra: con qué id lo encuentra el script en su columna y de qué capa es. */
 export type PlanBarra = { id: string; capa: string };
@@ -146,7 +160,7 @@ export type PlanBarra = { id: string; capa: string };
 /** Una columna en un paso: sus MaKo Tokens (los del plan más los extra) y sus renglones de «alcanza». */
 export type ColumnaEnPaso = { id: string; mt: string; alcanza: string };
 
-export type PasoTokens = { usd: number; mt: number; columnas: ColumnaEnPaso[] };
+export type PasoTokens = { usd: number; mt: number; extra: string; columnas: ColumnaEnPaso[] };
 
 /**
  * Los pasos de la barra para estos planes. Cada paso suma los MISMOS MaKo Tokens extra a todas las columnas; cada columna
@@ -161,6 +175,7 @@ export function pasosDeLaBarra(planes: readonly PlanBarra[] = []): PasoTokens[] 
     return {
       usd,
       mt: extra,
+      extra: htmlExtra(extra),
       columnas: conCupo.map(({ id, plan }) => {
         const total = CUPO_MENSUAL[plan] + extra;
         return { id, mt: mil(total), alcanza: htmlAlcanza(total, GENERA_VIDEO[plan]) };
@@ -220,7 +235,7 @@ export const CSS_TOKENS = `
 export function CalculadoraTokens({ planes = [] }: { planes?: readonly PlanBarra[] }) {
   const pasos = pasosDeLaBarra(planes);
   const ultimo = pasos.length - 1;
-  const script = `(function(){var P=${JSON.stringify(pasos)};var c=document.querySelector('[data-tk]');if(!c)return;var r=c.querySelector('.tk-rango'),b=c.querySelector('.tk-burbuja'),x=c.querySelector('.tk-extra');function m(n){return n.toLocaleString('es-AR');}function q(a,id){return document.querySelectorAll('['+a+'="'+id+'"]');}function pon(){var i=Number(r.value),p=P[i]||P[0];c.style.setProperty('--tk-pct',String(${ultimo} ? i*100/${ultimo} : 0));b.textContent='+US$ '+m(p.usd)+'/mes';x.innerHTML='<b>+'+m(p.mt)+'</b> MaKo Tokens extras al mes';p.columnas.forEach(function(k){q('${ATRIBUTO_MT}',k.id).forEach(function(n){n.textContent=k.mt;});q('${ATRIBUTO_ALCANZA}',k.id).forEach(function(n){n.innerHTML=k.alcanza;});q('${ATRIBUTO_EXTRA}',k.id).forEach(function(n){n.hidden=!p.usd;n.textContent=p.usd?'+ US$ '+m(p.usd)+' / mes en créditos extra':'';});});r.setAttribute('aria-valuetext','Sumas '+m(p.mt)+' MaKo Tokens extras al mes por US$ '+m(p.usd));}r.addEventListener('input',pon);pon();})();`;
+  const script = `(function(){var P=${JSON.stringify(pasos)};var c=document.querySelector('[data-tk]');if(!c)return;var r=c.querySelector('.tk-rango'),b=c.querySelector('.tk-burbuja'),x=c.querySelector('.tk-extra');function m(n){return n.toLocaleString('es-AR');}function q(a,id){return document.querySelectorAll('['+a+'="'+id+'"]');}function pon(){var i=Number(r.value),p=P[i]||P[0];c.style.setProperty('--tk-pct',String(${ultimo} ? i*100/${ultimo} : 0));b.textContent='+US$ '+m(p.usd)+'/mes';x.innerHTML=p.extra;p.columnas.forEach(function(k){q('${ATRIBUTO_MT}',k.id).forEach(function(n){n.textContent=k.mt;});q('${ATRIBUTO_ALCANZA}',k.id).forEach(function(n){n.innerHTML=k.alcanza;});q('${ATRIBUTO_EXTRA}',k.id).forEach(function(n){n.hidden=!p.usd;n.textContent=p.usd?'+ US$ '+m(p.usd)+' / mes en créditos extra':'';});});r.setAttribute('aria-valuetext','Sumas '+m(p.mt)+' MaKo Tokens extras al mes por US$ '+m(p.usd));}r.addEventListener('input',pon);pon();})();`;
   return (
     <section className="tk" aria-label="Sumar MaKo Tokens extras al mes" data-tk="" style={{ '--tk-pct': '0' } as CSSProperties}>
       {/* `data-tema-fijo` va en la PISTA y no en toda la barra (15/11/2026): el riel y la burbuja son un juego que el sol y la luna
@@ -241,7 +256,7 @@ export function CalculadoraTokens({ planes = [] }: { planes?: readonly PlanBarra
       </div>
       <div className="tk-pie">
         <span className="tk-plan" aria-hidden="true">Tu plan</span>
-        <span className="tk-extra" aria-live="polite"><b>+0</b> MaKo Tokens extras al mes</span>
+        <span className="tk-extra" aria-live="polite" dangerouslySetInnerHTML={{ __html: htmlExtra(0) }} />
       </div>
       <script data-visor="" dangerouslySetInnerHTML={{ __html: script }} />
     </section>

@@ -30,5 +30,7 @@ export function ColumnasPlanes({ planes, sufijo, promoVigente = false }: {
   /** El reloj del 50 % del primer mes sigue vivo en este navegador: las columnas lo dicen, como en /planes. */
   promoVigente?: boolean;
 }) {
-  return <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} barra={<CalculadoraTokens planes={planes} />} />;
+  // LA BARRA SOLA, sin «Agrega créditos extra» ni la línea de abajo (Martín, 17/11/2026: «en la landing principal elimina el texto…
+  // lo que quede simplemente la barra»). Es lo ÚNICO que difiere de /planes (tests/sitio-recursos-y-pie.test.ts, el 7).
+  return <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} barra={<CalculadoraTokens planes={planes} />} barraSola />;
 }

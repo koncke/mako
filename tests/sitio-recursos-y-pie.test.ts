@@ -289,7 +289,13 @@ test('7. las columnas de precios de la portada son LAS de /planes: el mismo bloq
     const enPortada = bloqueDiv(portada(sufijo, promo), '<div class="mkpl-bloques">');
     const enPlanes = bloqueDiv(html(createElement(VitrinaPlanes, { ofertas: OFERTAS, sufijo, promoVigente: promo })), '<div class="mkpl-bloques">');
     assert.ok(enPlanes.includes('data-tk=""'), '/planes sin la barra de MaKo Tokens: ¿cambió /planes?');
-    assert.equal(enPortada, enPlanes, `las columnas de la portada no son las de /planes (sufijo «${sufijo}», promo ${promo}): si cambió una prop en app/planes/Vitrina.tsx, súmala en app/vsl/_sitio/ColumnasPlanes.tsx`);
+    // LO ÚNICO DISTINTO: la portada lleva la barra SOLA, sin el título ni la línea de «Agrega créditos extra» (Martín, 17/11/2026:
+    // «en la landing principal elimina el texto… lo que quede simplemente la barra»). /planes los sigue teniendo.
+    const tituloExtras = /<h3 class="mkpl-extras-t">Agrega créditos extra<\/h3><p class="mkpl-extras-b">[^<]*<\/p>/;
+    assert.match(enPlanes, tituloExtras, '/planes perdió el título de «Agrega créditos extra»');
+    assert.ok(!enPortada.includes('mkpl-extras-t') && !enPortada.includes('mkpl-extras-b'), 'la portada volvió a tener el texto arriba de la barra');
+    assert.ok(enPortada.includes('<section class="mkpl-extras" aria-label="Agrega créditos extra"><section class="tk"'), 'la portada sin la barra en su lugar');
+    assert.equal(enPortada, enPlanes.replace(tituloExtras, ''), `las columnas de la portada no son las de /planes (sufijo «${sufijo}», promo ${promo}): si cambió una prop en app/planes/Vitrina.tsx, súmala en app/vsl/_sitio/ColumnasPlanes.tsx`);
   }
   // La hoja de las columnas y de su barra, y la letra y el ancho de /planes.
   const h = portada();

@@ -33,7 +33,15 @@ desde ese documento, no desde los encargos viejos: varios encargos siguen repart
 
 ---
 
-## 🦶 El pie que le gusta a Martín — PENDIENTE, no se toca hasta que él lo diga (16/11/2026, noche)
+## 🦶 El pie que le gusta a Martín — DECIDIDO el 17/11/2026: dos renglones de títulos, sin que quede alto
+
+Martín, 17/11: «me gustaba como estaba antes, que tenían como dos filas de… títulos de empezar o today… Tenía dos filas, no toda
+una sola fila. Eso me gustaba más, pero tampoco que esté súper alto». Hecho: en todas las computadoras las diez columnas van en dos
+renglones de cinco (Empezar · Today · Sales · Marketing · Create / Industrias · Funnels · Recursos · Legal · Contacto), a 13 px, con
+16 px entre renglones (`CSS_PIE` de `app/vsl/_sitio/estilos.ts`). Desde el 16/11 a la madrugada, a 1440 o más iban en UN renglón.
+No volvió el lema arriba ni el logo de arriba: eso lo sacó él el 16/11 a la tarde. Lo de abajo es la historia de lo que había.
+
+### Lo anotado el 16/11 a la noche
 
 Martín, mirando el artefacto: «no sé por qué en producción no se ve igual la bottom bar. Me gusta como está actualmente la bottom
 bar [la del artefacto]… eso hay que tenerlo en cuenta para después». («Bottom bar» es el PIE: así le dijo el 15/11.)

@@ -62,7 +62,8 @@ const pct = (tasa: number) => {
 /** Lo que se elige en los selectores. Arranca en el escenario del modelo. */
 export type Eleccion = {
   clientes: number
-  cacUsd: number
+  /** `null` = el CAC de cada plan es su precio (el supuesto del modelo desde el 17/11/2026). */
+  cacUsd: number | null
   uso: number
   pasarela: string
   conImpuesto: boolean
@@ -83,7 +84,12 @@ const conElDelModelo = (valores: number[], delModelo: number) =>
   Array.from(new Set([...valores, delModelo])).sort((a, b) => a - b)
 
 const CLIENTES = conElDelModelo([10, 20, 50, 100, 200], INICIAL.clientes)
-const CACS = conElDelModelo([0, 50, 97], INICIAL.cacUsd)
+// Los CAC fijos, para mirar otro escenario. El del modelo (el precio de cada plan) va aparte, como «plan»: no es un número.
+const CACS = [0, 50, 97]
+/** El valor del selector del CAC: «plan» es el del modelo; si no, el número. */
+const valorDelCac = (cac: number | null) => (cac == null ? 'plan' : String(cac))
+/** Cómo se dice el CAC elegido en una frase. */
+const cacEnPalabras = (cac: number | null) => (cac == null ? 'el CAC igual al precio de cada plan' : `un CAC de ${usd(cac)}`)
 const USOS = conElDelModelo([0, 0.25, 0.5, 1], INICIAL.uso)
 
 /** De lo elegido al escenario que entiende la función. */
@@ -132,7 +138,8 @@ export function SuscripcionCosts({ inicial }: { inicial?: Partial<Eleccion> }) {
   )
 
   const techos = planes.map((p) => ({ p, techo: p.desdeElSegundoMesUsd }))
-  const pierden = techos.filter((t) => eleccion.cacUsd > t.techo)
+  // El CAC que pierde es el de CADA plan (`p.cacUsd`): con el del modelo, el de 47 carga 47 y el de 97 carga 97.
+  const pierden = techos.filter((t) => t.p.cacUsd > t.techo)
 
   return (
     <>
@@ -145,8 +152,10 @@ export function SuscripcionCosts({ inicial }: { inicial?: Partial<Eleccion> }) {
         <div className="mb-4 flex flex-col items-center gap-2 lg:flex-row lg:flex-wrap">
           {selector('Clientes', String(eleccion.clientes), (v) => cambiar({ clientes: Number(v) }),
             CLIENTES.map((n) => ({ valor: String(n), texto: `${enteros(n)} clientes` })))}
-          {selector('Costo de adquisición', String(eleccion.cacUsd), (v) => cambiar({ cacUsd: Number(v) }),
-            CACS.map((n) => ({ valor: String(n), texto: n === 0 ? 'CAC US$0 (orgánico)' : `CAC US$${enteros(n)}` })))}
+          {selector('Costo de adquisición', valorDelCac(eleccion.cacUsd), (v) => cambiar({ cacUsd: v === 'plan' ? null : Number(v) }), [
+            { valor: 'plan', texto: 'CAC = el precio del plan' },
+            ...CACS.map((n) => ({ valor: String(n), texto: n === 0 ? 'CAC US$0 (orgánico)' : `CAC US$${enteros(n)}` })),
+          ])}
           {selector('Cuánto del cupo de video usan', String(eleccion.uso), (v) => cambiar({ uso: Number(v) }),
             USOS.map((n) => ({ valor: String(n), texto: `Video: ${pct(n)} del cupo` })))}
           {selector('Por dónde se cobra', eleccion.pasarela, (v) => cambiar({ pasarela: v }),
@@ -214,9 +223,9 @@ export function SuscripcionCosts({ inicial }: { inicial?: Partial<Eleccion> }) {
           title={`Techo del CAC: ${techos.map((t) => `${usd(t.techo)} en el de ${t.p.precioUsd}`).join(' y ')}`}
           description={
             pierden.length === 0
-              ? `Con un CAC de ${usd(eleccion.cacUsd)}, los dos planes dejan plata desde el primer mes.`
-              : `Por arriba del techo, el cliente entra perdiendo plata y la recupera en los meses siguientes. Con un CAC de ` +
-                `${usd(eleccion.cacUsd)}, ${pierden.map((t) => `el de ${t.p.precioUsd} arranca perdiendo ${usd(-t.p.primerMesUsd)}`).join(' y ')}.`
+              ? `Con ${cacEnPalabras(eleccion.cacUsd)}, los dos planes dejan plata desde el primer mes.`
+              : `Por arriba del techo, el cliente entra perdiendo plata y la recupera en los meses siguientes. Con ` +
+                `${cacEnPalabras(eleccion.cacUsd)}, ${pierden.map((t) => `el de ${t.p.precioUsd} arranca perdiendo ${usd(-t.p.primerMesUsd)}`).join(' y ')}.`
           }
         />
       </section>

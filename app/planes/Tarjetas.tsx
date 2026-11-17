@@ -168,7 +168,7 @@ export function listaCorta(capa: string): ListaDeColumna {
   //     llamadas», «Copywriting con IA». Así un renglón de la columna se encuentra abajo con el mismo nombre. La jerga de
   //     marketing está permitida desde el 14/11 (Martín); la de nuestra cocina, no (tests/planes-tres-bloques.test.ts).
   //   · NADA QUE YA DIGA EL BLOQUE DE LOS MaKo TOKENS: el video con IA se fue de los checks (y de la ✗ de Essential) porque
-  //     arriba ya dice «26 clips de video con IA» en Pro y «0 clips», tachado, en Essential. Repetirlo era la redundancia.
+  //     arriba ya dice «10 minutos de video con IA» en Pro y «0 minutos», tachado, en Essential (en clips hasta el 17/11). Repetirlo era la redundancia.
   //   · EL DE US$47 DICE LO QUE NO HACE, con una ✗ (`noIncluye`), con las MISMAS palabras y en el MISMO ORDEN que los primeros
   //     checks de Pro: leídas en paralelo, cada ✗ queda frente a su ✓.
   //   · Ni Essential dice «todo lo de X» ni Pro «todo lo de Essential, más» (Martín, 14/11: «la idea es que cada uno se sienta
@@ -353,10 +353,10 @@ export const CSS_TARJETAS = `
    tilde en ::before) viene DESPUÉS en esta hoja y con la misma especificidad, así que ganaba — el número y la palabra quedaban
    separados por 10 px y la «o» se leía como una viñeta. */
 .mkpl-lista .mkpl-alcanza li { display: block; position: relative; padding-left: 14px; }
-/* Una viñeta chica por renglón (no un tilde: el tilde es del ítem de arriba, «24.000 MaKo Tokens al mes:»). */
+/* Una viñeta chica por renglón (no un tilde: el tilde es del ítem de arriba, «14.400 MaKo Tokens al mes:»). */
 .mkpl-lista .mkpl-alcanza li::before { content: ""; position: absolute; left: 3px; top: .62em; width: 5px; height: 5px; border-radius: 50%; background: #9AA1AD; }
 .mkpl-alcanza b { color: #12151B; font-weight: 700; }
-/* El «0 clips de video con IA» del plan que no genera video: tachado y en rojo, en la misma línea que los clips del otro plan
+/* El «0 minutos de video con IA» del plan que no genera video: tachado y en rojo, en la misma línea que los minutos del otro plan
    (Martín, 15/11: «0 clips de videos con IA o algo en rojo tipo tachado… para que sigan como el mismo alineamiento»). */
 .mkpl-lista .mkpl-alcanza .mkpl-alcanza-sin { color: #D92D20; text-decoration: line-through; }
 .mkpl-lista .mkpl-alcanza .mkpl-alcanza-sin b { color: #D92D20; }
@@ -411,16 +411,24 @@ export const CSS_TARJETAS = `
 
 const precio = (v: number) => v.toLocaleString('es-AR');
 
-export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: {
+export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra, barraSola = false }: {
   planes: readonly PlanEnTarjeta[]; sufijo: string;
   /**
    * La barra de MaKo Tokens (./CalculadoraTokens.tsx), en «Agrega créditos extra», DEBAJO del selector mensual / anual y ARRIBA
    * de las columnas. La noche del 16/11/2026 bajó debajo de las columnas y el 17/11 Martín la devolvió: «eso siempre tiene que
    * estar arriba como antes».
    * Martín, 15/11/2026: «eliminaría el texto de calcula cuántos MaKo Tokens necesitas, pondría la barra directamente abajo de
-   * mensual o anual». Entra por acá para que la portada, que dibuja las mismas columnas, no la arrastre.
+   * mensual o anual».
+   * ⚠️ LA PORTADA TAMBIÉN LA LLEVA: app/vsl/_sitio/ColumnasPlanes.tsx le pasa la misma `barra` que /planes (desde el 15/11). Un cambio
+   * acá se ve en /planes Y en la portada. Las landings de /vsl (app/vsl/PreciosLanding.tsx) son las que van sin barra.
    */
   barra?: ReactNode;
+  /**
+   * La barra SOLA, sin el título «Agrega créditos extra» ni la línea de abajo: la portada (Martín, 17/11/2026: «en la landing
+   * principal elimina el texto, agrega créditos extra, MaKo tokens para usar cada mes, además de lo de tu plan… lo que quede
+   * simplemente la barra»). Habló sólo de la landing principal: /planes sigue con su título.
+   */
+  barraSola?: boolean;
   /** El reloj del 50% sigue vivo en este navegador: cada plan del cartel dice lo que sale su primer mes. Después, el precio de siempre. */
   promoVigente?: boolean;
 }) {
@@ -444,8 +452,10 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
           vuelta quedan el título de la subsección y el «+ US$ X» aparte, debajo del precio de cada plan. */}
       {barra && (
         <section className="mkpl-extras" aria-label="Agrega créditos extra">
-          <h3 className="mkpl-extras-t">Agrega créditos extra</h3>
-          <p className="mkpl-extras-b">MaKo Tokens para usar cada mes, además de los de tu plan.</p>
+          {!barraSola && <>
+            <h3 className="mkpl-extras-t">Agrega créditos extra</h3>
+            <p className="mkpl-extras-b">MaKo Tokens para usar cada mes, además de los de tu plan.</p>
+          </>}
           {barra}
         </section>
       )}

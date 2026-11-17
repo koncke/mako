@@ -3879,3 +3879,25 @@ Dos pendientes de plata del barrido del 7/11 que seguían abiertos. Cada uno, co
   con el checkout abierto, el estado de un preapproval al llegar su `end_date`, el PUT del monto, `hosted_invoice_url` en `past_due` y la factura de $0).
   **Se suma uno por el P27:** qué contesta Mercado Pago al vencer una preferencia (o cancelar una suscripción) que YA estaba vencida o cancelada: si da error,
   `exigirCierre` frena de más el rehacer el primer mes.
+
+
+## El costo de conseguir un cliente pasa a ser el precio de SU plan (17/11/2026)
+
+**Lo que pasaba:** `lib/economia-unitaria.ts` le restaba a todos los planes el mismo CAC de US$97 ÷ 9 meses = US$10,78 por mes.
+Pesaba 23 % del Essential y 11 % del Pro, y por eso el Essential daba 47 % contra el 59 % del Pro.
+
+**Lo decidido:** Martín: «Puedes dejarlo también proporcional para que quede en 59 %… todo esto también lo vamos a saber cuando
+empecemos a invertir en anuncios, así que es una suposición». El CAC de un cliente es el precio de su plan, lo que se lleva un
+MaKo Partner por el primer mes (`cacDelPlan`): US$5,22 por mes en el Essential y US$10,78 en el Pro. `cacPorMes` y `dejaUnCliente`
+reciben el precio. El selector de Costs arranca en «CAC = el precio del plan» y conserva los fijos (0, 50, 97).
+
+**Trampas:**
+- **En `economiaDelMes` no hace falta saber de qué plan es cada cliente:** si cada CAC es su precio, sumados son lo facturado. El
+  CAC del mes es lo facturado ÷ 9.
+- **Lo que deja un cliente ahora es proporcional al precio** (cobrar y el CAC son porcentajes). Por eso el test «un plan de US$3
+  no cubre ni su CAC» dejó de valer: cualquier precio que cobra deja el 78,7 % antes del fijo. Ahora el caso que no alcanza es el
+  de US$0.
+
+**SIN HACER, a propósito:** proyectar que el cliente del Essential se pasa al Pro («el de 47 lo tenemos para que lo prueben»).
+No hay una tasa de paso medida y no se inventa. Está anotado en el comentario de `cacDelPlan`. Cuando haya pauta, el CAC sale de lo
+gastado ÷ los clientes que entran, y se reemplaza ahí.

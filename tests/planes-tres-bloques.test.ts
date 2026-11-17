@@ -387,9 +387,10 @@ test('los números de los checks salen del CÓDIGO, y arriba queda sólo la lín
     // cambiar la cantidad de clips o de imágenes que me alcanzan»), y un check fijo diciendo el mismo número se desfasa el
     // primer día que la barra se mueve. Los checks NO repiten la generación; la frase de arriba sí la dice.
     const { alcanzaPara } = await import('../app/planes/CalculadoraTokens');
-    assert.ok(alcanzaPara(esMtAntes, false).every((x) => x.clave !== 'clip'), 'al de US$47 no le promete ni un clip');
-    assert.ok(alcanzaPara(proMtAntes, true).some((x) => x.clave === 'clip'), 'al de US$97 le dice sus clips');
-    // Que el de US$47 NO genera video lo dice el «0 clips de video con IA», tachado, del bloque de los MaKo Tokens (lo vigila el
+    // El video en MINUTOS desde el 17/11/2026 (Martín: «pongas 0 minutos o 4 minutos, 10 minutos»); hasta ahí, en clips.
+    assert.ok(alcanzaPara(esMtAntes, false).every((x) => x.clave !== 'video'), 'al de US$47 no le promete ni un minuto de video');
+    assert.ok(alcanzaPara(proMtAntes, true).some((x) => x.clave === 'video'), 'al de US$97 le dice sus minutos de video');
+    // Que el de US$47 NO genera video lo dice el «0 minutos de video con IA», tachado, del bloque de los MaKo Tokens (lo vigila el
     // test de las ✗, abajo). Los checks y las ✗ NO lo repiten (Martín, 15/11, más tarde: «hay muchas cosas redundantes»).
     for (const it of [...listaCorta('completo').items, ...(listaCorta('completo').noIncluye ?? []), ...listaCorta('agencia').items]) {
       assert.doesNotMatch(`${it.fuerte ?? ''}${it.texto}`, /Generar videos|Videos con IA/, `un renglón repite el video del bloque de los MaKo Tokens: «${it.fuerte ?? ''}${it.texto}»`);
@@ -430,11 +431,15 @@ test('lo que alcanza cada columna sale de los costos que se COBRAN, no de un nú
   // fijaba la tabla, que es lo que importa: **ningún costo escrito a ojo en la vitrina**. Un costo inventado es un cobro
   // inventado.
   const { LO_QUE_ALCANZA } = await import('../app/planes/CalculadoraTokens');
-  const { MT_POR_CLIP } = await import('../lib/mako-tokens-paquetes');
-  const { mtDeImagenes, CUPO_MENSUAL } = await import('../lib/mako-tokens-reglas');
+  const { MT_POR_MINUTO } = await import('../lib/mako-tokens-paquetes');
+  const { mtDeImagenes, mtDeVideo, CUPO_MENSUAL } = await import('../lib/mako-tokens-reglas');
   const { costoDeFeature, mtReservaDeFeature, COSTO_POR_DEFECTO } = await import('../lib/mako-tokens-costos');
   for (const c of LO_QUE_ALCANZA) {
-    if (c.clave === 'clip') assert.equal(c.mt, MT_POR_CLIP, 'el clip, a lo que se cobra el clip');
+    // El minuto, a lo que se cobra un minuto de video (17/11/2026: en minutos, no en clips).
+    if (c.clave === 'video') {
+      assert.equal(c.mt, MT_POR_MINUTO, 'el minuto, a lo que se cobra el minuto');
+      assert.equal(c.mt, mtDeVideo(60), 'y es lo mismo que cobra el medidor por 60 segundos');
+    }
     else if (c.clave === 'imagen') assert.equal(c.mt, mtDeImagenes(1), 'la imagen, a lo que se cobra la imagen');
     else {
       assert.ok(c.feature, `«${c.varios}» no dice de qué feature del medidor sale su costo`);
@@ -737,7 +742,7 @@ test('sin plan Agencia aparte (10/10): la agencia maneja a sus clientes desde Pr
 // Lo que este test vigila ahora: que la barra MUEVA el precio de las columnas (que es para lo que existe), que no vuelva a
 // dibujar una tarjeta de plan propia, y que nunca prometa video donde no hay.
 test('la barra dice cuánto sale sumar MaKo Tokens, arranca en «tu plan», y NO mueve los precios de las columnas', async () => {
-  const { MT_POR_DOLAR, PAQUETES, CLIPS_POR_MES } = await import('../lib/mako-tokens-paquetes');
+  const { MT_POR_DOLAR, MT_POR_MINUTO, PAQUETES, CLIPS_POR_MES } = await import('../lib/mako-tokens-paquetes');
   const { CUPO_MENSUAL } = await import('../lib/mako-tokens-reglas');
   const { pasosDeLaBarra, PASOS_USD, usdDeLaDiferencia, alcanzaPara, redondoParaLeer } = await import('../app/planes/CalculadoraTokens');
   const { GENERACION_SE_VENDE } = await import('../lib/planes-comparacion');
@@ -789,7 +794,19 @@ test('la barra dice cuánto sale sumar MaKo Tokens, arranca en «tu plan», y NO
   assert.ok(pasos.every((p, i) => i === 0 || p.usd > pasos[i - 1].usd), 'sólo se sube');
   for (const p of pasos) {
     assert.equal(p.mt, p.usd * MT_POR_DOLAR, 'los tokens de cada paso son la tarifa, no un número a mano');
-    assert.equal(p.mt % 500, 0, `el paso de US$${p.usd} da ${p.mt} MaKo Tokens, que no es redondo`);
+    // Redondo en MINUTOS (17/11/2026): con US$1 = 288, cada US$10 son 2.880 MT = 2 minutos. Decía «múltiplo de 500».
+    assert.equal(p.mt % MT_POR_MINUTO, 0, `el paso de US$${p.usd} da ${p.mt} MaKo Tokens, que no son minutos enteros`);
+    assert.equal(p.mt / MT_POR_MINUTO, p.usd / 5, `el paso de US$${p.usd} tiene que sumar ${p.usd / 5} minutos`);
+  }
+  // La barra llega a US$100 (Martín: «que paguen como máximo $100 extra»), y con eso suma 20 minutos.
+  assert.equal(PASOS_USD[PASOS_USD.length - 1], 100, 'la barra no llega a US$100, o se pasa');
+  // Y la línea de abajo dice los minutos que suma («+US$40 = 8 minutos más»), sin minutos en cero.
+  {
+    const { htmlExtra } = await import('../app/planes/CalculadoraTokens');
+    assert.equal(htmlExtra(0), '<b>+0</b> MaKo Tokens extras al mes', 'en cero, como la pidió Martín el 15/11');
+    if (GENERACION_SE_VENDE) {
+      assert.equal(htmlExtra(40 * MT_POR_DOLAR), '<b>+11.520</b> MaKo Tokens extras al mes = <b>8 minutos</b> más de video');
+    }
   }
   // Los paquetes que se venden son pasos de la barra: la barra no puede ofrecer un monto que no se vende.
   for (const paq of PAQUETES) assert.ok(PASOS_USD.includes(paq.usd), `el paquete de US$${paq.usd} no está en la barra`);
@@ -828,10 +845,14 @@ test('la barra dice cuánto sale sumar MaKo Tokens, arranca en «tu plan», y NO
   }
   // Redondo para leer, y HACIA ABAJO, que es una promesa: 2.666 → 2.600 (2.700 prometería 34 que no entran).
   assert.deepEqual([2666, 545, 26, 0.4].map(redondoParaLeer), [2600, 540, 26, 0]);
-  // El de US$47 no genera video, y el video se dice en CLIPS, nunca en minutos.
+  // El de US$47 no genera video, y el video se dice en MINUTOS, nunca en clips. Se dio vuelta el 17/11/2026 (Martín: «ya no
+  // pongas 0 clip de video… sino que pongas 0 minutos o 4 minutos, 10 minutos»); el 15/11 había pedido clips.
   assert.equal(CLIPS_POR_MES.pro, 0, 'el plan de US$47 no genera video');
-  assert.doesNotMatch(t, /minutos? de video/, '/planes vuelve a hablar de minutos de video');
-  if (GENERACION_SE_VENDE) assert.ok(alcanzaPara(CUPO_MENSUAL.growth, true).some((x) => x.clave === 'clip'), 'la columna del de US$97 no dice sus clips');
+  assert.doesNotMatch(t, /clips? de video con IA/, '/planes vuelve a hablar de clips de video');
+  if (GENERACION_SE_VENDE) {
+    assert.ok(alcanzaPara(CUPO_MENSUAL.growth, true).some((x) => x.clave === 'video'), 'la columna del de US$97 no dice sus minutos');
+    assert.match(t, /10\s+minutos de video con IA/, 'la columna del de US$97 no dice sus 10 minutos');
+  }
 
   // Lo que sale sumar: la TARIFA al dólar entero, hacia arriba (la usan el checkout y el ledger).
   assert.equal(usdDeLaDiferencia(0), 0);
@@ -865,11 +886,12 @@ test('cada ✗ de Essential queda frente a su ✓ de Pro, en el mismo orden, y l
   const filasPro = htmlAlcanza(CUPO_MENSUAL.growth, true).split('</li>').filter(Boolean);
   if (GENERACION_SE_VENDE) {
     assert.equal(filasEs.length, filasPro.length, 'las dos columnas no tienen los mismos renglones de MaKo Tokens');
-    assert.match(filasEs[0], /class="mkpl-alcanza-sin"><b>0<\/b> clips de video con IA/, 'el de US$47 no abre con «0 clips», tachado');
-    assert.match(filasPro[0], /<li><b>\d+<\/b> clips de video con IA/, 'el de US$97 no abre con sus clips');
+    // En MINUTOS desde el 17/11/2026: «0 minutos de video con IA» tachado, y «10 minutos de video con IA» enfrente.
+    assert.match(filasEs[0], /class="mkpl-alcanza-sin"><b>0<\/b> minutos de video con IA/, 'el de US$47 no abre con «0 minutos», tachado');
+    assert.match(filasPro[0], /<li><b>\d+<\/b> minutos de video con IA/, 'el de US$97 no abre con sus minutos');
   }
   for (const f of [...filasEs.slice(1), ...filasPro.slice(1)]) assert.match(f, /^<li>o <b>/, `un renglón sin «o»: ${f}`);
-  assert.equal([...filasEs, ...filasPro].filter((f) => f.includes('<b>0</b>')).length, GENERACION_SE_VENDE ? 1 : 0, 'un cero que no es el de los clips del de US$47');
+  assert.equal([...filasEs, ...filasPro].filter((f) => f.includes('<b>0</b>')).length, GENERACION_SE_VENDE ? 1 : 0, 'un cero que no es el de los minutos del de US$47');
   const textoPlanes = await vitrina();
   assert.doesNotMatch(textoPlanes, /Los repartes como quieras/, 'volvió la nota del reparto');
   // Y el Accelerator sin «Con garantía de entrega» (Martín: «eso elimínalo»).

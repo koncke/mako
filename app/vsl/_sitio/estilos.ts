@@ -329,21 +329,21 @@ export const CSS_PIE = `
 .s-pie-contacto a:hover{color:#fff}
 .s-pie-contacto svg{flex:none}
 .s-pie-contacto li:last-child svg{color:#25D366}
-/* LAS COLUMNAS EN UN RENGLÓN DESDE 1440, y en una grilla de cuatro más angosto. Ocho columnas sin cortar un nombre suman 1.150 px
-   y a 1440 hay 1.184; a 1280 (1.024 de ancho) y a 1024 (960) no entraban: con siete ya se pasaban y a 1024 cortaban el correo. */
-.s-pie-cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px 20px}
-/* Diez columnas (el contacto, la décima) a 12,5 px: medido, a 13 px y 10 de aire se pasaban 46 px de 1184; así sobran 16. El aire lo
-   reparte space-between; el mínimo de 8 es para que no se peguen. */
-@media (min-width:1440px){.s-pie-cols{display:flex;gap:8px;justify-content:space-between}}
-.s-pie-h{font-size:12.5px;line-height:18px;font-weight:700;color:#fff;margin-bottom:6px;white-space:nowrap}
+/* LAS COLUMNAS EN DOS RENGLONES DE CINCO, EN TODAS LAS COMPUTADORAS (17/11/2026, Martín: «me gustaba como estaba antes, que tenían
+   como dos filas de… títulos de empezar o today… Tenía dos filas, no toda una sola fila. Eso me gustaba más, pero tampoco que esté
+   súper alto»). Arriba Empezar, Today, Sales, Marketing y Create; abajo Industrias, Funnels, Recursos, Legal y Contacto. Desde el
+   16/11 a la madrugada, a 1440 o más iban las diez en UN renglón (display:flex), apretadas a 12,5 px para entrar en 1184; en dos
+   renglones sobra ancho y la letra vuelve a 13. Para que no crezca de más: 16 px entre los dos renglones y los links cada 22. */
+.s-pie-cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px 24px}
+.s-pie-h{font-size:13px;line-height:18px;font-weight:700;color:#fff;margin-bottom:6px;white-space:nowrap}
 /* El segundo rótulo de una columna (los Funnels, debajo de Industrias, como en el menú de la barra). */
 .s-pie-h2{margin-top:16px}
-.s-pie-col li{font-size:12.5px;line-height:18px;font-weight:500;padding-bottom:4px}
+.s-pie-col li{font-size:13px;line-height:18px;font-weight:500;padding-bottom:4px}
 .s-pie-col a{color:${GRIS3};white-space:nowrap;transition:color .15s}
 .s-pie-col a:hover{color:#fff}
 /* El contacto, su columna al costado de Legal, con la letra de los links. En el teléfono va aparte, a la vista (.s-pie-contacto-tel). */
 .s-pie-col .s-pie-contacto{display:block}
-.s-pie-col .s-pie-contacto a{min-height:0;gap:6px;font-size:12.5px;line-height:18px;font-weight:500;color:${GRIS3}}
+.s-pie-col .s-pie-contacto a{min-height:0;gap:6px;font-size:13px;line-height:18px;font-weight:500;color:${GRIS3}}
 .s-pie-col .s-pie-contacto svg{width:14px;height:14px}
 .s-pie-contacto-tel{display:none}
 /* La versión del teléfono (los renglones que se despliegan): sólo abajo de 768. */
@@ -360,6 +360,10 @@ export const CSS_PIE = `
 @media (max-width:1279px){
   .s-pie-marca{flex-wrap:wrap}
   .s-pie-contacto{flex-basis:100%}
+  /* Los dos renglones de cinco, más angostos: en Precios y en el Accelerator el ancho útil a 1024 es 768 y «Instagram con lead
+     magnet» se pasaba 25 px de su columna (medido 17/11/2026). Con 16 de aire y 12,5 px no pisa la de al lado. */
+  .s-pie-cols{column-gap:16px}
+  .s-pie-h,.s-pie-col li,.s-pie-col .s-pie-contacto a{font-size:12.5px}
 }
 @media (max-width:1023px){
   .s-pie-cols{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 16px}
