@@ -5028,6 +5028,12 @@ compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo 
   (`Identidad` en `app/_components/Sidebar.tsx`: `background: var(--primary)` con `color: #fff`; en oscuro `--primary` es
   #ededeb), y el número de HOY del Calendario (`app/calendario/gc-css.ts`, `.gc-cab-num` y `.gc-mes-num` de hoy: `background:
   var(--gc-azul); color: #fff`). Sin arreglar.
+- **Los CSS Modules (`x.module.css`) salen sin estilo y sin error**: con el módulo vacío, `s.tarjeta` es undefined y React no pone
+  la clase (Copywriting, Spy y el Video Editor los usan). Lo que anduvo: el módulo devuelve `<prefijo>_tarjeta` y la hoja se suma
+  con el MISMO prefijo en sus clases (`:global(…)` sin tocar).
+- **Lo que se esconde hasta que «cargó» algo del navegador**: Spy con una sola cuenta abre su ficha y la tapa mientras corre la
+  entrada animada (`data-entrando='esperando'`, opacidad 0), y su gráfico de piezas queda `visibility: hidden` hasta precargar las
+  miniaturas. Sin navegador, una página en blanco que mide 1.271 px de alto.
 - **A 390 la app no es la de escritorio achicada**: un teléfono va a MaKo Mobile (`app/m/…`, `MOVIL_ACTIVO`). Una captura de la
   pestaña de escritorio a 390 no muestra lo que ve nadie.
 - **Republicar la página de un artefacto escribiéndola con Python en Windows** le cambia los finales de línea a `\r\n` (+110 bytes en
