@@ -29,7 +29,7 @@
 // Sin `server-only`: lo ejecutan los tests (tests/admin-ingresos-libro.test.ts). La lectura de la base, en lib/admin-ingresos.ts.
 // =============================================================================
 
-import { cubre, diaLimite, leerOrden, leerPagoDelMes, mesSiguiente, nombreDelMes, type PagoDelMes } from './agencia-mes-reglas';
+import { cubre, diaLimite, leerConfigMensualidad, leerOrden, leerPagoDelMes, mesSiguiente, nombreDelMes, type CicloPropio, type PagoDelMes } from './agencia-mes-reglas';
 import { claveDelCobro, referenciaNormal } from './recibos-reglas';
 import { suscripcionDelLibro, type PagoIngreso, type ProximoDeSuscripcion } from './admin-ingresos-reglas';
 
@@ -91,7 +91,7 @@ function partes(montoUsd: number, aplicado: readonly unknown[]): Array<{ clave: 
  * último mes pagado (si se pagó a medias), o el mes siguiente entero, con su día límite (el 5): atrasado desde ese día. Con la
  * mensualidad apagada (sin `config`), no se espera nada más.
  */
-function historiaDelLibro(porMes: ReadonlyMap<string, number>, pagoDe: ReadonlyMap<string, PagoDelMes>, prendida: boolean, hoy: string): ProximoDeSuscripcion {
+function historiaDelLibro(porMes: ReadonlyMap<string, number>, pagoDe: ReadonlyMap<string, PagoDelMes>, prendida: boolean, hoy: string, ciclo?: CicloPropio | null): ProximoDeSuscripcion {
   const meses = [...porMes.keys()].sort();
   const ultimo = meses[meses.length - 1];
   const ultimoUsd = r2(porMes.get(ultimo) ?? 0);
@@ -99,8 +99,8 @@ function historiaDelLibro(porMes: ReadonlyMap<string, number>, pagoDe: ReadonlyM
   if (!prendida) return { sinCobro: true, atrasado: null, siguiente: null, mensualidad };
   const pago = pagoDe.get(ultimo);
   const debe = pago && !cubre(pago.pagadoUsd, pago.totalUsd)
-    ? { fecha: diaLimite(ultimo), usd: r2(pago.totalUsd - pago.pagadoUsd) }
-    : { fecha: diaLimite(mesSiguiente(ultimo)), usd: ultimoUsd };
+    ? { fecha: diaLimite(ultimo, ciclo), usd: r2(pago.totalUsd - pago.pagadoUsd) }
+    : { fecha: diaLimite(mesSiguiente(ultimo), ciclo), usd: ultimoUsd };
   return debe.fecha <= hoy ? { sinCobro: false, atrasado: debe, siguiente: null, mensualidad } : { sinCobro: false, atrasado: null, siguiente: debe, mensualidad };
 }
 
@@ -113,6 +113,8 @@ export function pagosDelLibro(filas: readonly FilaLibro[], o: { atadas: Readonly
   const pagos: PagoIngreso[] = [];
   const agencias = new Set<number>();
   const prendidas = new Set<number>();
+  // Una cuenta suelta con ciclo propio (Leila): su «lo próximo» es el día de su ciclo, no el 5.
+  const ciclos = new Map<number, CicloPropio>();
   const pagosDelMes = new Map<number, Map<string, PagoDelMes>>();
   const porMes = new Map<number, Map<string, number>>();
   let atadas = 0;
@@ -120,7 +122,12 @@ export function pagosDelLibro(filas: readonly FilaLibro[], o: { atadas: Readonly
   let ilegibles = 0;
   for (const f of filas) {
     const mc = RE_CONFIG.exec(f.key);
-    if (mc) { prendidas.add(Number(mc[1])); continue; }
+    if (mc) {
+      prendidas.add(Number(mc[1]));
+      const ciclo = leerConfigMensualidad(f.value)?.cicloPropio;
+      if (ciclo) ciclos.set(Number(mc[1]), ciclo);
+      continue;
+    }
     const mp = RE_PAGO.exec(f.key);
     if (mp) {
       const pago = leerPagoDelMes(f.value);
@@ -168,7 +175,7 @@ export function pagosDelLibro(filas: readonly FilaLibro[], o: { atadas: Readonly
   }
   const proximos = new Map<string, ProximoDeSuscripcion>();
   for (const [ag, meses] of porMes) {
-    proximos.set(suscripcionDelLibro(ag), historiaDelLibro(meses, pagosDelMes.get(ag) ?? new Map(), prendidas.has(ag), o.hoy));
+    proximos.set(suscripcionDelLibro(ag), historiaDelLibro(meses, pagosDelMes.get(ag) ?? new Map(), prendidas.has(ag), o.hoy, ciclos.get(ag)));
   }
   const avisos: string[] = [];
   if (aMano) avisos.push(`lo que entró en ${aMano === 1 ? '1 pago de agencia marcado' : `${aMano} pagos de agencia marcados`} a mano sin su orden (no suma en Revenue: si entró plata, cárgala con «Cargar pago»)`);

@@ -6,6 +6,62 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 [hallazgos-customer-success.md](hallazgos-customer-success.md); la seguridad del «Entrar como», en
 [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Vista de agencia».
 
+## La mensualidad de una cuenta SUELTA con ciclo propio: Leila Fittipaldi (17/11/2026)
+
+**Vive en:** `lib/agencia-mes-reglas.ts` (`CicloPropio`, `inicioDelCiclo`, `diaLimite`, `mesQueSeAvisa`, `cuentaDelMes`, `tablaDelMes` y los textos,
+todos con un `ciclo` opcional), `lib/agencia-mes.ts` (`mensualidadDeAgencia`, `prenderMensualidad`, la corrida del día, el recibo),
+`lib/admin-ingresos-libro.ts` (Revenue) y `scripts/mensualidad-ciclo-propio.mts` (para prenderla). Test: `tests/mensualidad-ciclo-propio.test.ts`
+(19 casos, 9 de ellos EJECUTAN la corrida, el pago y el recibo con una base de mentira; probado rompiéndolo 16 veces, las 16 las ve).
+
+- **El pedido (Martín, 17/11):** «el mismo proceso que tenemos con Código Inmobiliario que le cobramos por Binance, pero para Leila […] con ella
+  no vamos a cobrarle del 1 al 5, sino que como no tiene clientes, es la fecha que pagó, la misma fecha pero al siguiente mes».
+- **Medido en producción, sólo lectura (17/11):** Leila Fittipaldi es la cuenta 11 (capa `completo`, activa) y la ficha 2473 del CRM de la plataforma.
+  **Pagó el 26/10/2026 a las 19:46, US$97** (`pagos` 114, concepto «Mensualidad», `es_mensualidad`), así que su ciclo arranca los **26**: el mes
+  que pagó cubre del 26/10 al 25/11 y **el siguiente vence el 26/11/2026, dentro de 9 días**. Hoy no se le debe nada y **no se mandó nada**.
+  Sin cobros en ninguna pasarela, sin recibo (los N.º 0001 al 0005 son todos de Código), `suscripcion_movimientos` 4 (US$97 desde octubre, del Cerebro).
+  Su grupo de MaKo existe (`mako.grupo_jid`); desde el 20/10 tiene 8 mensajes, ninguno de pago. Su línea de WhatsApp se desconectó el 13/11 y volvió.
+- ⚠️ **Dos datos del encargo no coincidían con la base.** (1) «Se cobra por Binance»: el pago del 26/10 está cargado como `transferencia`, y
+  no hay ningún comprobante de Binance de ella (el «Cerebro (comprobantes de Binance)» del movimiento 4 es el nombre de un lote del 5/11, que
+  sirvió también para Código). El medio que va en el PDF es **el que dice Martín (Binance)**; el del 26/10 no se tocó. (2) «La próxima era la
+  0005»: **la 0005 ya salió el 16/11** (diferencial de Giselle, Código); el que sigue es el **0006** (el sistema lo numera solo).
+- ⚠️ **El diagnóstico obvio era el equivocado: «Código con cero clientes».** Prender la mensualidad de Código en Leila no andaba por tres lados:
+  `mensualidadDeAgencia` exige `esAgencia` (ella es capa `completo`), el ciclo y el plazo del 5 estaban escritos en `diaLimite`/`inicioDelCiclo`/
+  `mesQueSeAvisa` (aviso del 1 al 5), y el plan de la cuenta salía de la capa (`planDeCapa`: sólo `agencia` es Pro). Por eso el ciclo propio va **en la
+  config** (`cicloPropio: { dia: 26, plan: 'pro' }`) y no cambia nada de las agencias (los 45 tests de `agencia-mes.test.ts` siguen iguales).
+- **Cómo funciona (igual que Código, con dos diferencias):** UN solo renglón, su plan (US$97 del catálogo), sin clientes ni reloj de 14 días; y el
+  ciclo arranca el día que pagó. El mes `AAAA-MM` es el que EMPIEZA ese mes (el 26/11 arranca `2026-11`, que dura hasta el 25/12; el 3/12 sigue siendo
+  `2026-11`); si el mes no tiene ese día (un 31 en febrero), arranca el último. **El aviso sale el día que arranca el ciclo**, con el PDF del sistema, a SU
+  grupo de MaKo (nunca sólo el texto del monto, regla del 16/11); se paga por Binance y manda el comprobante al grupo; un comprobante dudoso va a
+  Martín; con el recibo sale a la par «Tu cuenta sigue activa» (regla del 16/11); montos sólo en dólares. El recibo trae el período en el
+  renglón («Tu plan MaKo Pro · del 26 de noviembre al 25 de diciembre»).
+- **Paga ADELANTADO (lo encontró la revisión independiente):** quien paga el 25 para el ciclo del 26 mandaba un comprobante «de nada pendiente» a Martín, el 26 igual
+  se le avisaba y, si nadie lo aplicaba, se le pausaba pagada. Ahora el ciclo que arranca dentro de 5 días (`DIAS_DE_ADELANTO_CICLO_PROPIO`) ya es lo que se debe: el pago
+  se aplica solo, y el 26 no sale el aviso (queda «pagado»). Lo que revisó y NO encontró: ningún cambio para una agencia sin `cicloPropio`, y los bordes (día 29/30/31,
+  febrero, diciembre→enero, 2028) simulados para los 31 días de 26 meses, sin una violación.
+- ⚠️ **DECISIÓN MÍA QUE MARTÍN TIENE QUE CONFIRMAR: el plazo y la pausa.** Martín dijo «sin pagar en la fecha, pasa lo mismo que con Código». Código tiene
+  5 días (del 1 al 5) y el día 6 se pausa. Como el aviso de Leila sale el día que arranca, le di la misma ventana: **el aviso y 4 días más
+  (`DIAS_DE_GRACIA_CICLO_PROPIO` = 4), y al sexto día sin el total se pausa su cuenta** y se le avisa a Martín. Para el 26/11: se paga hasta el
+  **30/11** y se pausa el **1/12**. Medido en la base no hay nada de Leila que choque, pero **la pausa le corta TODA su cuenta de MaKo** (su plata está
+  muy ajustada, memoria del 26/10): si Martín prefiere no pausarla sola y que sólo le avise a él, se cambia en `quienVaEnPausa` (una condición).
+- **No está prendida.** La config de la cuenta 11 se escribe con `scripts/mensualidad-ciclo-propio.mts … --aplicar` **después del deploy** (antes, la
+  corrida diaria la vería como «no es Agency»: un error por día, sin efecto) y **con el sí de Martín** (desde que está prendida MaKo le escribe a su
+  grupo y, sin pago, le pausa la cuenta). La herramienta de MaKo `prender_mensualidad_agencia` NO sabe de ciclo propio: sólo el script.
+- **Probado ejecutándolo, con envíos de mentira, no con uno real.** Sin la config: el 20/11 no manda nada. El 26/11 sale UN aviso con el PDF (`%PDF`,
+  «Mensualidad de noviembre.pdf»), repetirlo o el 27/11 no lo manda otra vez. El 30/11 sigue activa; el 1/12 se pausa UNA vez (corte `paga-para-entrar`
+  con `rol: 'agencia'` sobre sí misma, que es el que dice «La mensualidad de MaKo no entró…») y se avisa al grupo y a Martín una sola vez. Pagada con una orden
+  de Binance: el recibo, la cuenta vuelve a entrar y «Tu cuenta sigue activa.» sale a la par. El 26/12 arranca el ciclo siguiente.
+  **No se vio el PDF como imagen** (la PC no tiene `pdftoppm`; se leyó su texto: es el mismo generador que el de Código).
+- **Trampa de test:** `await import('./recibos')` adentro de `lib/agencia-mes.ts` NO pasa por `Module._load` con su archivo como padre: el falso se deja en
+  `require.cache`. Y `mock.timers.enable({ apis: ['Date'] })` fija el «hoy» de lo que lee con `new Date()` sin pasarlo (el cierre del pago).
+- **Falta (no hecho):** (1) ver Admin › Revenue con los datos de Leila una vez prendida: el libro de la cuenta 11 pasa a ser su mensualidad desde noviembre y
+  `conElLibro` retira la suscripción del CRM que ya existe (lo mismo que se hizo con Código); el «próximo» es el 30/11 (probado), el resto no se midió en
+  pantalla. (2) Si su línea de WhatsApp está caída el día del aviso, sale sólo a la app (como pasó con Código el 11/11, «sin `wa_message_id`»): hay que mirar
+  que haya llegado a su teléfono. (3) La pantalla de Agency (`app/agency/Mensualidad.tsx`) es de agencias: Leila no la ve y no se tocó (si el super admin abre el ws 11 ahí vería «del 1 al 5»).
+  (4) `marcarMesPagado` valida «ese mes ya empezó» con el mes de CALENDARIO: antes del 26/11 deja marcar el ciclo `2026-11` a mano. Sólo lo hace un operador. (5) Un `cicloPropio`
+  escrito a mano en la config de una agencia (sin pasar por `prenderMensualidad`, que lo impide) la cobraría como una sola línea y sin clientes: no hay otro candado.
+  (6) Medido para descartar un corte por la pasarela: la cuenta 11 no tiene ningún cobro ni está en la cartera de ninguna agencia (así que el recibo no se rechaza por «la paga su agencia»).
+  Arreglado de paso: `ver_mensualidad_agencia` (MaKo) le contestaba «este negocio no es Agency» a una cuenta con ciclo propio; ahora la lee.
+
 ## ⚠️ «No puede entrar a inspeccionar» era un bloqueo CORRECTO sin aviso (14/11/2026)
 
 **Vive en:** `app/api/agencia/entrar/route.ts` (contesta `pausa: 'falta-pagar'` ANTES de la cookie), `lib/agency-reglas.ts`

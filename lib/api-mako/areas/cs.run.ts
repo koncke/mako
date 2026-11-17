@@ -770,9 +770,10 @@ export const RUNNERS: Runners = {
   // La mensualidad por fuera de MaKo (lib/agencia-mes.ts): lo que la agencia paga este mes y desde cuándo cuenta cada cliente.
   ver_mensualidad_agencia: {
     leer: async (_input, ctx) => {
-      if (!(await esAgencia(ctx.ws))) return fallo('Este negocio no es Agency: no tiene mensualidad de clientes.');
+      // Una cuenta suelta con ciclo propio (Leila, 17/11/2026) también tiene su mensualidad aunque no sea agencia: lo dice `mensualidadDeAgencia`,
+      // que contesta «no es Agency» sólo si tampoco tiene ciclo propio.
       const m = await mensualidadDeAgencia(ctx.ws);
-      if (!m.ok) return fallo(`No pude armar la mensualidad: ${m.error}`);
+      if (!m.ok) return fallo(m.error === 'Este negocio no es Agency.' ? 'Este negocio no es Agency: no tiene mensualidad de clientes.' : `No pude armar la mensualidad: ${m.error}`);
       if (!m.config) return json({ prendida: false, nota: 'Tu agencia no tiene la mensualidad por fuera de MaKo: tus cuentas se pagan con su link (ver_pagos_clientes_agencia).' });
       return json(mensualidadParaMako(m));
     },

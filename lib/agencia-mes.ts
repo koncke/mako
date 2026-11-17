@@ -45,7 +45,7 @@ import {
   leerConfigMensualidad, leerEntrada, leerPagoDelMes, mesDe, mesQueSeAvisa, mesesEntre, nombreDelMes, periodoDelCiclo, planQueSeCobra,
   preciosDelCatalogo, situacion, arrancaElReloj, sumarDias, tablaDeEntradas, tablaDelMes, textoDeComprobante, textoDePausaDelMes,
   textoDeMesImpago, textoDelAvisoDeEntradas, textoDelAvisoDelMes, usd, clavePendiente, diferencialDe, DIAS_SIN_COSTO, DIA_LIMITE_DE_PAGO, MEDIO_POR_DEFECTO,
-  NOMBRE_PLAN, leerOrden, mesSiguiente, cuentasActivasDelPago, textoDeCuentasActivas, type CuentasActivas,
+  NOMBRE_PLAN, leerOrden, mesSiguiente, cuentasActivasDelPago, textoDeCuentasActivas, cicloPropioDe, esCicloPropio, DIAS_DE_ADELANTO_CICLO_PROPIO, type CicloPropio, type CuentasActivas,
   type ClienteDeAgencia, type ConfigMensualidad, type CuentaDelMes, type Dia, type Diferencial, type EntradaGuardada, type Mes,
   type OrdenAnotada, type PagoDelMes, type Pendiente, type Precios, type Situacion,
 } from './agencia-mes-reglas';
@@ -223,8 +223,11 @@ const enPausaPorMensualidad = (c: CorteGuardado | null, agenciaWs: number): bool
 export async function mensualidadDeAgencia(agenciaWs: number, ahora: Date = new Date()): Promise<Mensualidad> {
   if (!esWs(agenciaWs)) return { ok: false, error: 'Agencia inválida.' };
   try {
-    if (!(await esAgencia(agenciaWs))) return { ok: false, error: 'Este negocio no es Agency.' };
-    const [zona, cartera, libro, planes] = await Promise.all([zonaDelNegocioEstricta(agenciaWs), leerCartera(agenciaWs), leerLibro(agenciaWs), planesMako()]);
+    // Una cuenta SUELTA con ciclo propio (Leila, 17/11/2026) no es una agencia ni tiene cartera: lo dice su config.
+    const [zona, libro, planes] = await Promise.all([zonaDelNegocioEstricta(agenciaWs), leerLibro(agenciaWs), planesMako()]);
+    const ciclo = libro.config?.cicloPropio ?? null;
+    if (!ciclo && !(await esAgencia(agenciaWs))) return { ok: false, error: 'Este negocio no es Agency.' };
+    const cartera = ciclo ? { filas: [] as FilaCartera[], conColumna: false } : await leerCartera(agenciaWs);
     const precios = preciosDelCatalogo(planes);
     if (!precios) return { ok: false, error: 'No encontré el precio de MaKo Essential o de MaKo Pro en los planes.' };
 
@@ -239,7 +242,8 @@ export async function mensualidadDeAgencia(agenciaWs: number, ahora: Date = new 
     const elegidos = new Set(((marcas.data ?? []) as Array<{ workspace_id: number; value: unknown }>).filter((m) => leerCambioDePlan(m.value) != null).map((m) => Number(m.workspace_id)));
 
     const hoy = hoyEnTz(zona, ahora);
-    const mesHoy = mesDe(hoy);
+    // Con ciclo propio, el «mes de hoy» es el ciclo en el que cae hoy (el que arrancó el 26/11 sigue siendo el de noviembre el 3/12).
+    const mesHoy = ciclo ? cicloPropioDe(sumarDias(hoy, DIAS_DE_ADELANTO_CICLO_PROPIO), ciclo) : mesDe(hoy);
     const config = libro.config;
     const entradasDesde = config?.entradasDesde ?? hoy;
     const dia = (iso: string | null): Dia | null => (iso && Number.isFinite(Date.parse(iso)) ? hoyEnTz(zona, new Date(iso)) : null);
@@ -271,7 +275,7 @@ export async function mensualidadDeAgencia(agenciaWs: number, ahora: Date = new 
     const primerMes = config?.desde ?? mesHoy;
     const planAgencia = planDeCapa(ag.capa);
     const armar = (mes: Mes): MesDeMensualidad | null => {
-      const cuenta = cuentaDelMes({ mes, primerMes, planAgencia, clientes, precios, hoy, entradasDesde });
+      const cuenta = cuentaDelMes({ mes, primerMes, planAgencia, clientes, precios, hoy, entradasDesde, ciclo });
       if (!cuenta) return null;
       const pago = libro.pagos.get(mes) ?? null;
       const pagadoUsd = pago?.pagadoUsd ?? 0;
@@ -289,7 +293,7 @@ export async function mensualidadDeAgencia(agenciaWs: number, ahora: Date = new 
     const pendientes: Pendiente[] = [];
     if (config) {
       for (const m of [...anteriores].reverse().concat(mesHoy >= primerMes ? [actual] : [])) {
-        if (m.debeUsd > 0.01) pendientes.push({ tipo: 'mes', mes: m.mes, totalUsd: m.cuenta.totalUsd, pagadoUsd: m.pagadoUsd, debeUsd: m.debeUsd, limite: diaLimite(m.mes) });
+        if (m.debeUsd > 0.01) pendientes.push({ tipo: 'mes', mes: m.mes, totalUsd: m.cuenta.totalUsd, pagadoUsd: m.pagadoUsd, debeUsd: m.debeUsd, limite: diaLimite(m.mes, ciclo) });
       }
       for (const f of filas) {
         const s = f.situacion;
@@ -330,19 +334,25 @@ export type Resultado = { ok: true; resumen: string; yaEstaba?: true } | { ok: f
  * Prende la mensualidad de una agencia: desde qué mes la avisa MaKo, desde qué día se cobran las entradas (sin el día, hoy: los
  * clientes cuyos 14 días terminaron antes entraron a mano) y por qué medio paga.
  */
-export async function prenderMensualidad(p: { agenciaWs: number; desde: string; entradasDesde?: string | null; medio?: string | null; autor: string }, ahora: Date = new Date()): Promise<Resultado> {
+export async function prenderMensualidad(p: { agenciaWs: number; desde: string; entradasDesde?: string | null; medio?: string | null; autor: string; cicloPropio?: CicloPropio | null }, ahora: Date = new Date()): Promise<Resultado> {
   if (!esWs(p.agenciaWs)) return { ok: false, error: 'Agencia inválida.' };
   if (!esMes(p.desde)) return { ok: false, error: 'El mes va como AAAA-MM (por ejemplo 2026-12).' };
   if (p.entradasDesde != null && p.entradasDesde !== '' && !esDia(p.entradasDesde)) return { ok: false, error: 'El día de las entradas va como AAAA-MM-DD.' };
+  if (p.cicloPropio != null && !esCicloPropio(p.cicloPropio)) return { ok: false, error: 'El ciclo propio va como { dia: 1 a 31, plan: «pro» o «esencial» }.' };
   try {
-    if (!(await esAgencia(p.agenciaWs))) return { ok: false, error: 'Ese negocio no es Agency.' };
+    // Una agencia se prende como agencia; una cuenta suelta, con su ciclo propio. Mezclarlas dejaría una agencia sin su cartera.
+    const esAg = await esAgencia(p.agenciaWs);
+    if (p.cicloPropio && esAg) return { ok: false, error: 'Ese negocio es una agencia: se prende con sus clientes, sin ciclo propio.' };
+    if (!p.cicloPropio && !esAg) return { ok: false, error: 'Ese negocio no es Agency.' };
     const medio = (p.medio ?? '').replace(/\s+/g, ' ').trim().slice(0, 40) || MEDIO_POR_DEFECTO;
     const hoy = hoyEnTz(await zonaDelNegocioEstricta(p.agenciaWs), ahora);
     const antes = (await leerLibro(p.agenciaWs)).config;
     const entradasDesde = p.entradasDesde || antes?.entradasDesde || hoy;
-    if (antes && antes.desde === p.desde && antes.medio === medio && antes.entradasDesde === entradasDesde) return { ok: true, resumen: 'La mensualidad ya estaba prendida así.', yaEstaba: true };
-    const valor: ConfigMensualidad = { desde: p.desde, entradasDesde, medio, prendidaPor: p.autor.slice(0, 120), prendidaAt: new Date().toISOString() };
+    const mismoCiclo = (antes?.cicloPropio?.dia ?? null) === (p.cicloPropio?.dia ?? null) && (antes?.cicloPropio?.plan ?? null) === (p.cicloPropio?.plan ?? null);
+    if (antes && antes.desde === p.desde && antes.medio === medio && antes.entradasDesde === entradasDesde && mismoCiclo) return { ok: true, resumen: 'La mensualidad ya estaba prendida así.', yaEstaba: true };
+    const valor: ConfigMensualidad = { desde: p.desde, entradasDesde, medio, prendidaPor: p.autor.slice(0, 120), prendidaAt: new Date().toISOString(), ...(p.cicloPropio ? { cicloPropio: { dia: p.cicloPropio.dia, plan: p.cicloPropio.plan } } : {}) };
     await enLaPlataforma(() => setSetting(KEY_CONFIG(p.agenciaWs), JSON.stringify(valor)));
+    if (p.cicloPropio) return { ok: true, resumen: `Mensualidad prendida con ciclo propio: avisa el día ${p.cicloPropio.dia} de cada mes desde ${nombreDelMes(p.desde)} ${p.desde.slice(0, 4)} (${NOMBRE_PLAN[p.cicloPropio.plan]}), por ${medio}.` };
     return { ok: true, resumen: `Mensualidad prendida: avisa desde ${nombreDelMes(p.desde)} ${p.desde.slice(0, 4)} y cobra las entradas desde el ${diaCorto(entradasDesde)}, por ${medio}.` };
   } catch (e) {
     return { ok: false, error: `No pude prender la mensualidad: ${msg(e)}` };
@@ -445,7 +455,8 @@ export async function emitirReciboDeLoCompleto(agenciaWs: number, completas: rea
       const mes = c.slice(4);
       const x = mes === m.actual.mes ? m.actual : m.anteriores.find((y) => y.mes === mes);
       if (!x) continue;
-      for (const l of x.cuenta.lineas) lineas.push({ concepto: conceptoDeLinea(l), mes: `${nombreDelMes(mes)} ${mes.slice(0, 4)}`, monto: l.montoUsd, moneda: 'USD' });
+      const cp = m.config?.cicloPropio ?? null;
+      for (const l of x.cuenta.lineas) lineas.push({ concepto: cp ? `${conceptoDeLinea(l)} · ${periodoDelCiclo(mes, cp)}` : conceptoDeLinea(l), mes: `${nombreDelMes(mes)} ${mes.slice(0, 4)}`, monto: l.montoUsd, moneda: 'USD' });
       for (const o of x.pago?.ordenes ?? []) ordenes.add(o);
       clave ??= m.libro.pagos.get(mes)?.recibo ? `mensualidad:${agenciaWs}:${mes}:${[...(x.pago?.ordenes ?? [])].at(-1)}` : `mensualidad:${agenciaWs}:${mes}`;
     } else if (c.startsWith('entrada:')) {
@@ -490,7 +501,7 @@ export async function cerrarElPagoDeAgencia(m: MensualidadOk, completas: readonl
   const recibo = o.conRecibo !== false && completas.length ? await emitirReciboDeLoCompleto(ag, completas, autor).catch((e) => ({ ok: false, error: msg(e) })) : null;
   const pausas = await revisarPausasDeAgencia(ag, { ahora: o.ahora }).catch(() => null);
   const reabiertas = pausas?.ok ? pausas.cambios.filter((c) => c.paso === 'reabrir' && c.ok).map((c) => c.ws) : [];
-  const activas = cuentasActivasDelPago({ agenciaWs: ag, completas, reabiertas, clientes: m.clientes });
+  const activas = cuentasActivasDelPago({ agenciaWs: ag, completas, reabiertas, clientes: m.clientes, propia: !!m.config?.cicloPropio });
   const texto = textoDeCuentasActivas(activas);
   if (texto && o.conTexto !== false) await textoAlGrupoDeLaAgencia(ag, texto).catch(() => false);
   return { recibo, activas, texto };
@@ -608,7 +619,7 @@ export async function corregirRelojDeCliente(p: { agenciaWs: number; clienteWs: 
 export function lecturaParaPausas(m: MensualidadOk): LecturaParaPausas {
   if (!m.config) throw new Error('la mensualidad está apagada');
   const meses = [...m.anteriores, m.actual].filter((x) => x.mes >= m.config!.desde && x.mes <= mesDe(m.hoy))
-    .map((x) => ({ mes: x.mes, totalUsd: x.cuenta.totalUsd, pagadoUsd: x.pagadoUsd, avisadoUsd: x.avisadoUsd }));
+    .map((x) => ({ mes: x.mes, totalUsd: x.cuenta.totalUsd, pagadoUsd: x.pagadoUsd, avisadoUsd: x.avisadoUsd, limite: x.cuenta.limite }));
   const clientes = m.clientes.map((f) => ({
     ws: f.ws, situacion: f.situacion,
     avisoEntrada: f.situacion.tipo === 'debe-entrada' && m.libro.avisosEntrada.has(`${f.ws}.${f.situacion.limite}`),
@@ -770,7 +781,8 @@ async function corridaDeUnaAgencia(agenciaWs: number, ahora: Date, o: { dry?: bo
 
   // 1. El mes.
   let estadoMes: CorridaDeAgencia['mes'] = null;
-  const mesAviso = mesQueSeAvisa(m.hoy, config.desde);
+  const ciclo = config.cicloPropio ?? null;
+  const mesAviso = mesQueSeAvisa(m.hoy, config.desde, ciclo);
   if (mesAviso && mesAviso === m.actual.mes) {
     const a = m.actual;
     if (a.pagado) estadoMes = 'pagado';
@@ -779,8 +791,8 @@ async function corridaDeUnaAgencia(agenciaWs: number, ahora: Date, o: { dry?: bo
       const cambio = avisado?.totalUsd != null && Math.abs(avisado.totalUsd - a.cuenta.totalUsd) > 0.009;
       if (avisado && !cambio) estadoMes = 'ya-estaba';
       else {
-        const tabla = tablaDelMes({ agencia: m.agencia, cuenta: a.cuenta, medio: config.medio, pagadoUsd: a.pagadoUsd });
-        const texto = textoDelAvisoDelMes({ agencia: m.agencia, tabla, medio: config.medio, actualizado: !!avisado });
+        const tabla = tablaDelMes({ agencia: m.agencia, cuenta: a.cuenta, medio: config.medio, pagadoUsd: a.pagadoUsd, ciclo });
+        const texto = textoDelAvisoDelMes({ agencia: m.agencia, tabla, medio: config.medio, actualizado: !!avisado, ciclo, mes: a.mes });
         if (o.dry) { estadoMes = 'saldria'; saldrian.push(`${tabla.titulo}: ${usd(tabla.totalUsd)}${avisado ? ' (actualizado)' : ''}`); }
         else {
           const pdf = await pdfDelCobro(tabla, m.hoy, m.agencia);
@@ -843,7 +855,7 @@ async function corridaDeUnaAgencia(agenciaWs: number, ahora: Date, o: { dry?: bo
       if (p.tipo !== 'mes' || m.hoy <= p.limite) continue;
       await avisarUnaVez(
         KEY_IMPAGO(agenciaWs, p.mes), { mes: p.mes, debeUsd: p.debeUsd },
-        async () => ({ ok: await avisarAMartin(textoDeMesImpago({ agencia: m.agencia, mes: p.mes, debeUsd: p.debeUsd, diasDeAtraso: diasEntre(p.limite, m.hoy) })) }),
+        async () => ({ ok: await avisarAMartin(textoDeMesImpago({ agencia: m.agencia, mes: p.mes, debeUsd: p.debeUsd, diasDeAtraso: diasEntre(p.limite, m.hoy), ciclo })) }),
       ).catch((e) => { console.warn(`[agencia-mes] agencia ${agenciaWs}: no pude avisar el impago de ${p.mes}: ${msg(e)}`); return 'fallo' as const; });
     }
   }
@@ -862,7 +874,7 @@ async function avisarPausasNuevas(m: MensualidadOk, cambios: ResultadoPausas['ca
       const mes = causa.slice(4);
       const x = mes === m.actual.mes ? m.actual : m.anteriores.find((y) => y.mes === mes);
       if (!x) continue;
-      await avisarUnaVez(KEY_PAUSA(ag, ag, causa), {}, async () => ({ ok: await textoAlGrupoDeLaAgencia(ag, textoDePausaDelMes({ mes, faltaUsd: x.debeUsd })) }));
+      await avisarUnaVez(KEY_PAUSA(ag, ag, causa), {}, async () => ({ ok: await textoAlGrupoDeLaAgencia(ag, textoDePausaDelMes({ mes, faltaUsd: x.debeUsd, ciclo: m.config?.cicloPropio ?? null })) }));
     }
   }
   // Las entradas vencidas: una tabla con lo que pagarían hoy.
@@ -898,7 +910,7 @@ export function mensualidadParaMako(m: MensualidadOk) {
     agencia_en_pausa: m.agenciaEnPausa,
     este_mes: {
       mes: m.actual.mes,
-      cubre: periodoDelCiclo(m.actual.mes),
+      cubre: periodoDelCiclo(m.actual.mes, m.config?.cicloPropio),
       total_usd: m.actual.cuenta.totalUsd,
       pagado_usd: m.actual.pagadoUsd,
       debe_usd: m.actual.debeUsd,
@@ -910,7 +922,7 @@ export function mensualidadParaMako(m: MensualidadOk) {
     // «¿Cuánto paga el mes que viene?» (12/11/2026): con los clientes de hoy; quien entra o se va en el medio no está.
     mes_que_viene: m.siguiente ? {
       mes: m.siguiente.mes,
-      cubre: periodoDelCiclo(m.siguiente.mes),
+      cubre: periodoDelCiclo(m.siguiente.mes, m.config?.cicloPropio),
       total_usd: m.siguiente.cuenta.totalUsd,
       se_paga_hasta: m.siguiente.cuenta.limite,
       renglones: m.siguiente.cuenta.lineas.map((l) => ({ concepto: conceptoDeLinea(l), monto_usd: l.montoUsd })),
@@ -936,7 +948,7 @@ export function mensualidadParaMako(m: MensualidadOk) {
 export const mesDeLaMensualidad = (m: MensualidadOk, mes: Mes): MesDeMensualidad | null => (mes === m.actual.mes ? m.actual : m.anteriores.find((x) => x.mes === mes) ?? null);
 
 /** Días que le quedan a un mes para vencer (negativo: vencido). */
-export const diasParaVencer = (m: MensualidadOk, mes: Mes): number => diasEntre(m.hoy, diaLimite(mes));
+export const diasParaVencer = (m: MensualidadOk, mes: Mes): number => diasEntre(m.hoy, diaLimite(mes, m.config?.cicloPropio));
 
 /** El texto que contesta un comprobante (re-exportado para lib/agencia-mes-comprobante.ts). */
 export { textoDeComprobante };
