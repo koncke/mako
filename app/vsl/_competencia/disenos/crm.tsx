@@ -12,7 +12,7 @@
 //   · pasada la mitad del hero aparece ARRIBA su franja fija («Take your marketing to the next level!» con el botón amarillo de dos
 //     renglones), que se prende con la opacidad en 0,5 s; aquí, debajo de la barra del sitio;
 //   · las pestañas del ciclo cambian al tocarlas, sin animación, y al pasar el mouse se prende su brillo de color en 0,4 s; cada una
-//     con su video en bucle (aquí, la grabación de esa parte en MaKo; «Cerrar», el recuadro de lo que falta);
+//     con su video en bucle (aquí, la grabación de esa parte en MaKo);
 //   · el botón oscuro cruza un brillo (`left` en 0,6 s) y el del hero brilla blanco;
 //   · en el teléfono, los testimonios son un carrusel que avanza solo cada 3 s (0,3 s, se frena con el mouse), con sus puntos;
 //   · la cinta de logos corre sola (40 px por segundo, como la suya: 66 s por vuelta de 2.646 px) con los bordes que se desvanecen;
@@ -51,12 +51,14 @@ export const VIDEO_HERO_CRM = { video: '/vsl-assets/crm/ficha-hero.webm', poster
 const VSL_CRM = FEATURES.crm?.videoEmbed ?? '';
 
 /** El video de cada pestaña del ciclo, EN EL ORDEN de las pestañas de ../crm.ts (Captar, Nutrir, Cerrar, Cobrar, Reactivar): la
- *  grabación REAL de esa parte (las de la portada; la difusión, del banco C:/dev/bancos-portada/banco-crm-difusion con la hoja REAL),
- *  o lo que falta grabar. Los pósters de Chats y de Cobranza son su PRIMER cuadro (los de la portada son cuadros del medio). */
+ *  grabación REAL de esa parte (las de la portada; la difusión, del banco C:/dev/bancos-portada/banco-crm-difusion con la hoja REAL;
+ *  «Cerrar», del banco banco-crm-cerrar: el tablero REAL con las etapas del CRM «Llamada de venta» y la tarjeta REAL de Reuniones de
+ *  la ficha, con leads de ejemplo; la tarjeta pasa sola cuando agenda y la reunión se completa con la grabación, como con los
+ *  webhooks de Calendly y Fathom), o lo que falta grabar. Los pósters de Chats, Cobranza y Cerrar son su PRIMER cuadro. */
 export const VIDEOS_CICLO: readonly ({ video: string; poster: string; alt: string } | { falta: string })[] = [
   { video: `${S}/chats.webm`, poster: '/vsl-assets/crm/chats-poster.jpg', alt: 'Chats de MaKo: WhatsApp, Instagram, Messenger y email en una sola bandeja, y cada lead nuevo como «Lead entrante»' },
   { video: `${S}/automations.webm`, poster: `${S}/automations.jpg`, alt: 'Automations de MaKo: cuando el lead entra a «Reunión agendada», MaKo le confirma la reunión por WhatsApp' },
-  { falta: 'La tarjeta del lead que pasa sola a la etapa de su reunión cuando agenda, y la grabación de la reunión enganchada en su ficha' },
+  { video: '/vsl-assets/crm/cerrar.webm', poster: '/vsl-assets/crm/cerrar.jpg', alt: 'El CRM de MaKo: la tarjeta del lead pasa sola a la etapa de su reunión cuando agenda, y en su ficha la reunión queda con «Asistió» y la grabación de Fathom enganchada' },
   { video: `${S}/cobranza.webm`, poster: '/vsl-assets/crm/cobranza-poster.jpg', alt: 'La ficha de un lead en MaKo: lo que debe, el plan de cuotas y «Cobrar la cuota 2»' },
   { video: '/vsl-assets/crm/difusion.webm', poster: '/vsl-assets/crm/difusion.jpg', alt: 'El CRM de MaKo: el «⋯» de la columna «Nutrición - No Agenda», «Mandar mensaje de difusión», a cuántos les llega por cada canal y el ritmo de envío, y el mensaje de WhatsApp escrito' },
 ];

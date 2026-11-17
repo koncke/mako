@@ -278,7 +278,8 @@ test('Chats: cada pestaña de la galería tiene su pantalla grabada, y cada piez
 // de CRM es la grabación REAL del CRM que abre el mini-VSL en una ventana, cada pestaña del ciclo trae su lista y su video (o el recuadro
 // de lo que falta grabar), y el script sube los contadores, prende la franja fija y abre el popup de salida.
 // PROBADO ROMPIÉNDOLO (14/11/2026): renombrar ficha-hero.webm en VIDEO_HERO_CRM → falla «falta public/…»; sacar un video de VIDEOS_CICLO
-// → falla «un video por pestaña»; sacar `-fija` del script → falla «sin su script».
+// → falla «un video por pestaña»; sacar `-fija` del script → falla «sin su script». Y (16/11/2026, noche) «Cerrar» de vuelta al recuadro
+// → falla «una pestaña del ciclo sin su grabación».
 test('CRM: el hero lleva la grabación real que abre el mini-VSL, y cada pestaña su lista y su video', async () => {
   const { VIDEO_HERO_CRM, VIDEOS_CICLO } = await import('../app/vsl/_competencia/disenos/crm');
   const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'crm');
@@ -293,6 +294,9 @@ test('CRM: el hero lleva la grabación real que abre el mini-VSL, y cada pestañ
     assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
     assert.ok(html.includes(`"${f}"`), `${f} no se dibuja`);
   }
+  // Desde el 16/11/2026 (noche) las cinco pestañas tienen su grabación: «Cerrar» era el recuadro de «falta».
+  assert.ok(VIDEOS_CICLO.every((v) => 'video' in v), 'una pestaña del ciclo sin su grabación');
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
   assert.match(html, /data-src="https:\/\/player-vz-[^"]+pandavideo\.com/, 'la ventana del hero sin el mini-VSL de Panda');
   const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
   assert.ok(scripts.some((x) => x.includes("'d-crm'") && x.includes('data-fin') && x.includes('-fija') && x.includes('-salida')), 'sin su script');

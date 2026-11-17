@@ -7351,6 +7351,12 @@ ve una propiedad que desapareció.
 - **tsc-acotado: «código 1, 0 bytes» y «código 134» no son rojos.** Con 3,4 GB libres, el de los diseños de /vsl (que arrastran medio
   sitio) murió por RAM (1, sin salida) y por heap (134 con 2,2 GB). Los componentes sueltos sí se chequearon (y encontró un error real
   de tipos: `indexOf` con un objeto ensanchado sobre una lista `as const`).
-- **SIN HACER:** la pestaña «Cerrar» de /vsl/crm sigue con su caja (app/vsl/_competencia/disenos/crm.tsx, `VIDEOS_CICLO[2]`): la
-  tarjeta que pasa sola a la etapa de la reunión cuando el lead agenda y la grabación en su ficha. Se puede grabar con el tablero
-  REAL del banco C:/dev/bancos-portada/banco-crm (nombres ficticios); falta la pieza de la ficha que muestra la grabación.
+- **La pestaña «Cerrar» de /vsl/crm, grabada** (public/vsl-assets/crm/cerrar.webm, banco C:/dev/bancos-portada/banco-crm-cerrar:
+  `node build.mjs`, `node grabar.mjs --fotos fotos` para mirar cada momento y `node grabar.mjs v/crudo.webm` + codificar-bucle.sh).
+  El tablero REAL con las etapas del CRM «Llamada de venta» (TIPOS_CRM: hasta hoy esa plantilla dice «Agenda R1») y la tarjeta REAL
+  de Reuniones de la ficha. Trampas: (1) la tarjeta que cambia de etapa en la app SALTA; para que la toma se lea se la desliza con
+  FLIP, y la tarjeta es el primer contenedor con sombra o borde (la fila de adentro no: se deslizaba sólo el nombre); (2) las
+  columnas recortan lo que se sale (`overflow`): mientras viaja se abren y después vuelven; (3) el «t = 0» de la grabación cambia de
+  una toma a otra (de 0,3 a 2,2 s): el corte se mide en cada crudo mirando cuadros, no se copia del anterior; (4) con la cámara a 1,45
+  las tarjetas quedaban de 7 px en la pestaña de 519 px: a 2× y sólo las dos columnas que importan; (5) el final es un plano quieto
+  que se funde con el comienzo, no la tarjeta volviendo para atrás.
