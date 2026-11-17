@@ -901,7 +901,8 @@ export function pagoEnMoneda(
   const moneda = crudaMoneda == null ? null : normalizarMonedaDePago(crudaMoneda);
   if (crudaMoneda != null && !moneda) return { ok: false, error: 'Esa moneda no existe (va el código de 3 letras: USD, MXN, ARS…, o USDT/USDC).', faltan: ['moneda'] };
   // Una stablecoin en dólares (USDT, USDC) vale lo que dice: sus dólares son lo cobrado, sin pedirlos aparte (y sin inventar una tasa).
-  const usd = pos(p.montoUsd) ?? pos(opts.montoUsdPorDefecto) ?? (moneda != null && STABLECOINS_USD.has(moneda) ? pos(p.montoOriginal) : null);
+  // ⚠️ Lo cobrado GANA sobre el monto por defecto (la cuota entera): marcar una cuota de US$1000 con 500 USDT contaba 1000 (revisión del 17/11).
+  const usd = pos(p.montoUsd) ?? (moneda != null && STABLECOINS_USD.has(moneda) ? pos(p.montoOriginal) : null) ?? pos(opts.montoUsdPorDefecto);
   if (moneda == null || moneda === 'USD') {
     const m = pos(p.montoUsd) ?? pos(p.montoOriginal) ?? pos(opts.montoUsdPorDefecto);
     if (m == null) return { ok: false, error: 'El monto tiene que ser mayor a cero.', faltan: ['monto'] };

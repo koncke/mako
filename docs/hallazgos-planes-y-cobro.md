@@ -3820,6 +3820,13 @@ Dos pendientes de plata del barrido del 7/11 que seguían abiertos. Cada uno, co
   estado y motivo; queda UN solo link vivo) y devuelve `ok: false`. Lo `imposible` (Creem) no frena: reintentar no ayuda, y llega como
   `sigueAbierto`. Es una decisión: un primer mes de Creem se puede rehacer aunque el viejo siga pagable, porque lo contrario lo deja sin
   rehacerse nunca; si lo pagan, queda el aviso. Si esa decisión no es la de Martín, el cambio es una línea (`!cierre.imposible`).
+- ⚠️ *La trampa que mostró la revisión:* **Stripe sólo expira una sesión ABIERTA.** Las de MaKo duran ≤ 23 h, así que el link de ayer ya
+  venció y `expire` contesta 400: tomarlo por «no cerrado» frenaba rehacer cualquier primer mes de más de un día. Ahora, si `expire`
+  falla, se LEE la sesión: `expired` = cerrada; `complete` = ya se pagó (no cerrada: la plata viene en camino y no se crea otro link).
+  Mercado Pago (preferencia o suscripción ya vencida/cancelada) **no se midió**: no sé si contesta error o ok; si da error, `exigirCierre`
+  frena de más. Medirlo con claves de prueba (P29).
+- *Las pantallas:* un `sigueAbierto` es un aviso (`ok: false` con el texto) salvo lo `imposible` (Creem), que es siempre y no se muestra
+  como error; el chat de MaKo sí lo dice. Si la fila no se pudo volver a abrir, el mensaje no dice «lo dejé como estaba».
 - *Sin hacer:* `anularLinksDeCuota` (la cuota cobrada por otro lado) sólo loguea `sigueAbierto`; `agencia-baja` y los compensadores
   (`.catch(() => {})`) siguen sin mirar el resultado. Una cuota ya cobrada con su link vivo en Creem sigue pudiéndose pagar dos veces.
 - *Vive en:* lib/cobros.ts (`anularCobro`, `cerrarLinkEnLaPasarela`) · lib/agencia-cobro.ts · lib/agencia-plan.ts · tests/anular-cobro-cierre.test.ts
@@ -3839,6 +3846,9 @@ Dos pendientes de plata del barrido del 7/11 que seguían abiertos. Cada uno, co
   `registrarReciboEnElCrm` la pasa. La **migración 0417** ensancha el CHECK a 3-5 letras y no toca filas.
 - *El orden de deploy no importa:* si la base todavía no tiene la 0417, `registrarReciboEnElCrm` ve el `pagos_moneda_check` y reintenta SIN
   moneda (el pago nace como hoy) en vez de perderse con un «no pude registrarlo en el CRM».
+- ⚠️ *La trampa que mostró la revisión:* **el monto por defecto pisaba lo cobrado.** `pagoEnMoneda` tomaba `montoUsd ?? default ?? 1:1`, y al
+  marcar una cuota de US$1000 con 500 USDT, el default (la cuota entera) ganaba: contaba 1000 y no dejaba diferencia, en silencio (antes
+  USDT daba error). Ahora la stablecoin gana sobre el default, y `cobrarCuota` no le pasa «la cuota entera» como dólares.
 - ⚠️ **SIN APLICAR: la 0417 necesita el sí de Martín** (se aplica en producción). Sin hacer: contar cuántas de las 66 filas tienen
   `metodo` null y decidir si se marcan «sin dato» (hay que MEDIR en la base: `select count(*) from pagos where moneda is null`).
 - *Vive en:* supabase/migrations/0417_pagos_moneda_cripto.sql · lib/pasarela-moneda.ts · lib/pagos-campo.ts · lib/recibos-reglas.ts ·

@@ -308,7 +308,7 @@ export async function anularCobroAction(cobroId: number): Promise<{ ok: boolean;
       revalidarLead(c.lead_id);
     }
     // Anulado en MaKo pero abierto en la pasarela: se dice (antes volvía `ok` y nadie se enteraba, P27 17/11).
-    if (r.ok && r.sigueAbierto) return { ok: false, error: avisoLinkSigueAbierto(r.sigueAbierto) };
+    if (r.ok && r.sigueAbierto && !r.imposible) return { ok: false, error: avisoLinkSigueAbierto(r.sigueAbierto) };
     return r;
   } catch (e) {
     return { ok: false, error: `No pude anular el link: ${mensaje(e)}` };

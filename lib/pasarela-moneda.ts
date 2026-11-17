@@ -37,6 +37,9 @@ export const normalizarMoneda = (m: string | null | undefined): string | null =>
  */
 export const STABLECOINS_USD: ReadonlySet<string> = new Set(['USDT', 'USDC']);
 
+/** ¿Es una stablecoin atada al dólar 1:1 (USDT, USDC)? Acepta minúsculas y espacios. */
+export const esStablecoinUsd = (m: string | null | undefined): boolean => STABLECOINS_USD.has(String(m ?? '').trim().toUpperCase());
+
 /** La moneda de un PAGO del CRM: las de 3 letras (ISO) o una stablecoin en dólares. null = no es una moneda que un pago pueda guardar. */
 export const normalizarMonedaDePago = (m: string | null | undefined): string | null => {
   const iso = normalizarMoneda(m);

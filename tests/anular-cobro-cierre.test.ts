@@ -25,6 +25,9 @@ let mpVence: { ok: true } | { ok: false; status: number; error: string } = { ok:
 let mpCancela: { ok: true } | { ok: false; status: number; error: string } = { ok: true };
 let credStripe: unknown = { pasarela: 'stripe', key: 'sk_test_x', acct: 'acct_1', cuenta: 'principal' };
 let credStripeTira = false;
+/** Lo que Stripe contesta al LEER la sesión cuando expirarla falló (ya vencida, ya pagada, o sigue abierta). */
+let sesionStripe: { ok: true; estado: string } | { ok: false; status: number; error: string } = { ok: true, estado: 'open' };
+let reabrirFalla = false;
 let credCreem: unknown = { pasarela: 'creem', key: 'ck_test', webhookId: 'w', secretoAviso: 's', cuenta: 'principal' };
 
 /** La tabla `cobros` mínima: select().eq().maybeSingle() y update().eq().in().select().maybeSingle(). */
@@ -33,6 +36,7 @@ const db = {
     return {
       select: () => ({ eq: (_c: string, id: number) => ({ maybeSingle: async () => ({ data: filas.find((f) => f.id === id) ?? null, error: null }) }) }),
       update: (patch: Fila) => {
+        if (reabrirFalla && patch.estado === 'pendiente') throw new Error('la base no contesta');
         let id = 0; let estados: string[] | null = null;
         const q = {
           eq: (_c: string, v: number) => { id = v; return q; },
@@ -64,7 +68,10 @@ const falsos: Record<string, unknown> = {
     credCreemDe: async () => credCreem,
     cuentaDeIdentificador: async () => 'principal', cuentasDePago: async () => [],
   },
-  './stripe-api': { expirarCheckoutStripe: async (_k: string, id: string) => { llamadas.push(`stripe.expirar ${id}`); return stripeExpira; } },
+  './stripe-api': {
+    expirarCheckoutStripe: async (_k: string, id: string) => { llamadas.push(`stripe.expirar ${id}`); return stripeExpira; },
+    leerCheckoutStripe: async (_k: string, id: string) => { llamadas.push(`stripe.leer ${id}`); return sesionStripe; },
+  },
   './mercadopago-api': {
     vencerPreferenciaMp: async (_t: string, id: string) => { llamadas.push(`mp.vencer ${id}`); return mpVence; },
     cancelarSuscripcionMp: async (_t: string, id: string) => { llamadas.push(`mp.cancelar ${id}`); return mpCancela; },
@@ -91,6 +98,7 @@ beforeEach(() => {
   filas = [cobro()]; llamadas.length = 0; eventos.length = 0;
   stripeExpira = { ok: true }; mpVence = { ok: true }; mpCancela = { ok: true };
   credStripe = { pasarela: 'stripe', key: 'sk_test_x', acct: 'acct_1', cuenta: 'principal' }; credStripeTira = false;
+  sesionStripe = { ok: true, estado: 'open' }; reabrirFalla = false;
   credCreem = { pasarela: 'creem', key: 'ck_test', webhookId: 'w', secretoAviso: 's', cuenta: 'principal' };
   // Los warn de lo que falla a propósito no ensucian la salida.
   console.warn = () => undefined; console.error = () => undefined;
@@ -122,6 +130,31 @@ test('⚠️ la cuenta de Stripe ya no está conectada, o la base no contesta: t
   assert.match(r.sigueAbierto ?? '', /la base no contesta/);
 });
 
+test('⚠️ Stripe no puede expirar una sesión que YA venció (la de ayer): se lee, y vencida cuenta como cerrada (antes frenaba rehacer el primer mes)', async () => {
+  stripeExpira = { ok: false, status: 400, error: 'Only Checkout Sessions with a status in ["open"] can be expired.' };
+  sesionStripe = { ok: true, estado: 'expired' };
+  assert.deepEqual(await anular({ exigirCierre: true }), { ok: true });
+  assert.deepEqual(llamadas, ['stripe.expirar cs_123', 'stripe.leer cs_123']);
+});
+
+test('⚠️ Stripe no puede expirarla porque YA SE PAGÓ: no es «cerrada» (la plata viene en camino) y exigirCierre no deja crear otro link', async () => {
+  stripeExpira = { ok: false, status: 400, error: 'Only Checkout Sessions with a status in ["open"] can be expired.' };
+  sesionStripe = { ok: true, estado: 'complete' };
+  const r = await anular({ exigirCierre: true });
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? '', /ya se pagó en Stripe/);
+  assert.equal(filas[0].estado, 'pendiente');
+});
+
+test('si además la base no deja volver a abrir la fila, el mensaje NO dice «lo dejé como estaba»', async () => {
+  stripeExpira = { ok: false, status: 500, error: 'Stripe respondió 500' };
+  reabrirFalla = true;
+  const r = await anular({ exigirCierre: true });
+  assert.equal(r.ok, false);
+  assert.match(r.error ?? '', /tampoco pude dejarlo como estaba/);
+  assert.doesNotMatch(r.error ?? '', /así que lo dejé como estaba/);
+});
+
 test('Mercado Pago: la preferencia se vence y la suscripción se cancela; si falla, sigueAbierto', async () => {
   filas = [cobro({ proveedor: 'mercadopago', proveedor_ref: 'pref_1' })];
   assert.deepEqual(await anular(), { ok: true });
@@ -144,6 +177,7 @@ test('Creem, pago único: no se puede cerrar (sigueAbierto), y ni siquiera exigi
   const r = await anular({ exigirCierre: true });
   assert.equal(r.ok, true);
   assert.match(r.sigueAbierto ?? '', /Creem no deja cerrar un pago único/);
+  assert.equal(r.imposible, true, 'las pantallas no muestran como error lo que la pasarela nunca podrá cerrar');
   assert.equal(filas[0].estado, 'anulado');
 });
 

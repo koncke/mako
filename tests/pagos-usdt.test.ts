@@ -36,11 +36,18 @@ test('normalizarMonedaDePago: ISO de 3 letras y USDT/USDC; la de las pasarelas s
 test('pagoEnMoneda: una stablecoin vale sus dólares sin pedirlos; las demás monedas siguen pidiendo los dólares', () => {
   assert.deepEqual(pagoEnMoneda({ moneda: 'USDT', montoOriginal: 426 }), { ok: true, montoUsd: 426, moneda: 'USDT', montoOriginal: 426 });
   assert.deepEqual(pagoEnMoneda({ moneda: 'usdc', montoOriginal: 94.5, montoUsd: 94.4 }), { ok: true, montoUsd: 94.4, moneda: 'USDC', montoOriginal: 94.5 });
+  // Lo cobrado gana sobre el monto por defecto: 500 USDT de una cuota de US$1000 son 500, no 1000 (revisión del 17/11).
+  assert.deepEqual(pagoEnMoneda({ moneda: 'USDT', montoOriginal: 500 }, { montoUsdPorDefecto: 1000 }), { ok: true, montoUsd: 500, moneda: 'USDT', montoOriginal: 500 });
   const mxn = pagoEnMoneda({ moneda: 'MXN', montoOriginal: 1700 });
   assert.equal(mxn.ok, false, 'sin los dólares, un pago en pesos no inventa una tasa');
   assert.deepEqual(pagoEnMoneda({ moneda: 'DOGE4', montoOriginal: 5 }).ok, false);
   const sinMonto = pagoEnMoneda({ moneda: 'USDT' });
   assert.equal(sinMonto.ok, false);
+});
+
+test('cobrarCuota no le pasa a una stablecoin «la cuota entera» como dólares (el monto por defecto no pisa lo cobrado)', () => {
+  const src = readFileSync(join(RAIZ, 'lib/pagos.ts'), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
+  assert.match(src, /pagoEnMoneda\(\{ montoUsd: monto \?\? \(esStablecoinUsd\(datos\.moneda\) \? null : original\), moneda: datos\.moneda/);
 });
 
 test('monedaDelPago: dos órdenes USDT del mismo mes son UN pago en USDT; mezcladas, en dólares o sin monto, nace como siempre', () => {

@@ -1663,7 +1663,7 @@ export const avisoLinkSigueAbierto = (motivo: string): string =>
  * fila vuelve a como estaba y devuelve `ok: false`. Lo que la pasarela NO sabe cerrar (un pago único de Creem) no lo frena: no se
  * puede arreglar reintentando, y sigue llegando como `sigueAbierto`.
  */
-export async function anularCobro(ws: number, id: number, autor: string, opts: { exigirCierre?: boolean } = {}): Promise<{ ok: boolean; error?: string; sigueAbierto?: string }> {
+export async function anularCobro(ws: number, id: number, autor: string, opts: { exigirCierre?: boolean } = {}): Promise<{ ok: boolean; error?: string; sigueAbierto?: string; imposible?: true }> {
   const c = await getCobro(ws, id);
   if (!c) return { ok: false, error: 'No encontré ese cobro.' };
   if (c.estado !== 'pendiente' && c.estado !== 'fallido') return { ok: false, error: 'Sólo se anula un link que todavía no se pagó.' };
@@ -1672,13 +1672,15 @@ export async function anularCobro(ws: number, id: number, autor: string, opts: {
   const cierre = await cerrarLinkEnLaPasarela(ws, c);
   if (!cierre.cerrado && opts.exigirCierre && !cierre.imposible) {
     // El link viejo sigue pagable: la fila vuelve a como estaba, para que quien reintente encuentre UN solo link vivo.
-    await actualizar(ws, id, { estado: c.estado, motivo: c.motivo ?? null }, { estado: ['anulado'] }).catch((e) => {
+    const abierto = await actualizar(ws, id, { estado: c.estado, motivo: c.motivo ?? null }, { estado: ['anulado'] }).catch((e) => {
       console.error(`[cobros] no pude volver a abrir el cobro ${id} tras no poder cerrar su link: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
     });
-    return { ok: false, error: `no pude cerrar su link en ${NOMBRE_PASARELA[c.proveedor]} (${cierre.motivo ?? 'sin detalle'}), así que lo dejé como estaba` };
+    const quedo = abierto ? 'así que lo dejé como estaba' : 'y tampoco pude dejarlo como estaba: revisa su estado en /admin/cobros';
+    return { ok: false, error: `no pude cerrar su link en ${NOMBRE_PASARELA[c.proveedor]} (${cierre.motivo ?? 'sin detalle'}), ${quedo}` };
   }
   if (c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Link de pago', `Anulado: ${c.concepto}`, autor));
-  return cierre.cerrado ? { ok: true } : { ok: true, sigueAbierto: cierre.motivo ?? 'no pude cerrarlo' };
+  return cierre.cerrado ? { ok: true } : { ok: true, sigueAbierto: cierre.motivo ?? 'no pude cerrarlo', ...(cierre.imposible ? { imposible: true as const } : {}) };
 }
 
 /** `cerrado`: la pasarela ya no cobra ese link (o no había nada que cerrar). `imposible`: la pasarela no sabe cerrarlo, reintentar no ayuda. */
@@ -1700,8 +1702,14 @@ async function cerrarLinkEnLaPasarela(ws: number, c: Cobro): Promise<CierreDelLi
       const stripe = await credStripe(ws, await cuentaVivaDelCobro(ws, c));
       if (!stripe) return { cerrado: false, motivo: `${nombre} no está conectado` };
       const e = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);
-      if (!e.ok) { console.warn(`[cobros] no pude expirar la sesión ${c.proveedor_ref}: ${e.error}`); return { cerrado: false, motivo: e.error }; }
-      return { cerrado: true };
+      if (e.ok) return { cerrado: true };
+      // ⚠️ Stripe sólo expira una sesión ABIERTA: una que ya venció (las de MaKo duran ≤ 23 h, así que es el caso de todo link de ayer) o
+      // ya se pagó contesta 400. Antes de dar el link por «sin cerrar» se LEE la sesión (revisión del 17/11/2026: frenaba rehacer el primer mes).
+      const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
+      if (s.ok && s.estado === 'expired') return { cerrado: true };
+      if (s.ok && s.estado === 'complete') return { cerrado: false, motivo: 'ya se pagó en Stripe: espera su aviso' };
+      console.warn(`[cobros] no pude expirar la sesión ${c.proveedor_ref}: ${e.error}`);
+      return { cerrado: false, motivo: e.error };
     } else if (c.proveedor === 'creem') {
       // ⚠️ EL `if/else if` NO TENÍA else Y CREEM SE CAÍA POR EL HUECO (31/10/2026): un link de Creem anulado en MaKo
       // quedaba ABIERTO y pagable en Creem, sin un solo aviso. Lo llaman `anularCobro` y `anularLinksDeCuota` (la cuota

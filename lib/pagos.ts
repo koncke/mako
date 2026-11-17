@@ -28,7 +28,7 @@ import {
 } from './pagos-campo';
 import { getLead, logLeadChanges, logLeadEvent } from './leads';
 import { esCuotaDeBaja, esCuotaDevuelta, noEsDeuda } from './cobrado-lead';
-import { normalizarMoneda } from './pasarela-moneda';
+import { esStablecoinUsd, normalizarMoneda } from './pasarela-moneda';
 import { borrarSettingSi, cambiarSettingSi, getSettingEstricto, getSetting, setSetting } from './settings';
 import { keyEspaciado } from './espaciado';
 import { AVISOS_DE_CUOTA, DEDUP_OLVIDADO, claveDedupCuota, cuotasReprogramadas, marcaAlDeshacer } from './cobranza';
@@ -1072,7 +1072,7 @@ export async function cobrarCuota(
   // medias no dejaba diferencia (revisión de 9fc4030dd, alta). La API de MaKo manda los pesos sin los dólares.
   const monto = datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 ? centavos(datos.monto) : dolaresALaTasaDeLaCuota(fila, datos);
   // La moneda en que se cobró (decisión 7). `monto` sigue siendo DÓLARES; sin `moneda`, todo como siempre.
-  const enMonedaR = datos.moneda ? pagoEnMoneda({ montoUsd: monto ?? original, moneda: datos.moneda, montoOriginal: datos.montoOriginal }) : null;
+  const enMonedaR = datos.moneda ? pagoEnMoneda({ montoUsd: monto ?? (esStablecoinUsd(datos.moneda) ? null : original), moneda: datos.moneda, montoOriginal: datos.montoOriginal }) : null;
   if (enMonedaR && !enMonedaR.ok) throw new Error(enMonedaR.error);
   const enMoneda = enMonedaR && enMonedaR.ok ? enMonedaR : null;
   const pend = diferenciaPendiente(original, monto, { yaPagada: fila.pagado, resto: datos.resto });
