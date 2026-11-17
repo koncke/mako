@@ -5037,6 +5037,9 @@ compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo 
   miniaturas. Sin navegador, una página en blanco que mide 1.271 px de alto.
 - **A 390 la app no es la de escritorio achicada**: un teléfono va a MaKo Mobile (`app/m/…`, `MOVIL_ACTIVO`). Una captura de la
   pestaña de escritorio a 390 no muestra lo que ve nadie.
+- **Dos `renderToStaticMarkup` en la misma página repiten los `useId`**: cada render arranca de cero, y el logo de la barra (su
+  degradado y su `@keyframes` llevan el id) quedó apagado en el Ops Center porque un componente de la pestaña sacó el mismo id.
+  Cada render va con su `identifierPrefix`.
 - **El artefacto único admite 511 archivos por versión, entre TODOS los chats que publican ahí.** Las 259 miniaturas de Hormozi como
   archivos lo llenaron («manifest exceeds 512 entries») y bloquearon a todos; van achicadas e incrustadas (data: URI) en la página
   que las usa, y una publicación manda como mucho 255 entradas (las bajas con `null` cuentan).
