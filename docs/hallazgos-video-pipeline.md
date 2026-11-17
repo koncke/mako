@@ -2132,3 +2132,40 @@ en 304 s. De a UNO: dos Chromium a la vez dejan la PC sin RAM (la guardia frenó
 
 **Trampas de la consola:** un heredoc con comillas invertidas de JavaScript rompe el bash del tool («unexpected EOF») y un
 `\\n` dentro de un heredoc llega como salto de línea real: los parches con JS van en un archivo escrito con Write.
+
+### La investigación de formatos (17/11/2026, noche): qué se ve profesional y qué delata un video generado
+
+Martín: «todavía no… no me gustaron tanto los formatos que están acá». Un agente bajó y miró 9 videos de YouTube y 4 de
+TikTok (hojas de contacto, cuadros, transcripciones) y leyó las skills públicas. El documento entero, con las recetas, quedó en
+[`docs/editor-video/formatos-animados-investigacion.md`](editor-video/formatos-animados-investigacion.md); la evidencia (hojas,
+cuadros, transcripciones, el texto de las skills) en `C:/dev/artefactos-animaciones/investigacion/`.
+
+**Lo que se ve profesional casi nunca es un «estilo»:** es algo REAL (la interfaz del producto, la cara del creador, el logo
+original) movido con números medidos: movimientos de 0,3-0,6 s que aterrizan frenando (`expo.out`/`power4.out`), nada que nazca
+de tamaño cero, salidas un 40-50 % más cortas que las entradas, transiciones CAUSADAS (morph, zoom a través de un botón, golpe de
+color) y nunca un fundido cruzado. El lanzamiento oficial de Anthropic tiene un solo corte duro en 82 s.
+
+**Lo que delata un video generado** (lista de HyperFrames y motionmaxxing): neón, bloom y partículas decorativas; vidrio y
+degradés azules o violetas; papel crema con serif y etiquetas en mono; todo centrado entrando a la vez; y, la señal número 1, el
+«chrome» de página: contador «02 / 07» o «PASO N» pegado en una esquina, timecode, barra de progreso. Cuatro de los ocho reels
+de la galería se apoyaban en eso, y Martín sacó justo tres de ellos (sanji, el resumen del año y la interfaz en capas). Copiar la
+superficie de una referencia trae sus defaults.
+
+**El diagnóstico obvio era el equivocado (otra vez):** la investigación descartaba el corto animado con personaje («no lleva
+a Martín, es caro y falla en 3D»), pero es el que más rinde (hasta 1,17 M) y es la familia de Morrow, el que más le gustó a
+Martín. Lo que manda es lo que él eligió: con esas reglas se hizo el corto nuevo «Cuatro clientes» (Martín en cubos, cifras
+reales que aterrizan, un solo golpe de color, cámara que casi siempre se mueve, sin chrome).
+
+**Abierto, para Martín:** la receta n.º 1 de la investigación (reel a cámara con gráficos) pide su toma REAL, «sin clon,
+porque dijo "No es mi voz"»; los reels de la galería usan su clon de ElevenLabs por pedido del Cerebro. Hay que confirmar con
+él cuál vale para qué.
+
+**Trampas del entorno:**
+- La detección de escenas de ffmpeg (`select='gt(scene,0.3)'`) no ve morphs ni zooms (1 cambio en 82 s en el de Anthropic):
+  el ritmo se cuenta a mano en una hoja de contacto con marca de tiempo.
+- Una hoja con `fps=1/N` decodifica el video entero (3 min para 12 min de video); saltar con `-ss` a cada cuadro tarda ~40 s.
+- `python -I` ignora `PYTHONIOENCODING`: en Windows, imprimir emojis rompe con cp1252; va `sys.stdout.reconfigure(encoding='utf-8')`.
+- Un ID de YouTube que empieza con «-» rompe ffmpeg y ls (lo toman como opción): se pasa como `./-x6ZjVTK8aI`.
+- Pedir subtítulos `es.*,en.*` pide también las traducciones y YouTube corta con 429; `--sub-langs en-orig --sleep-subtitles 8` anduvo.
+- yt-dlp no lista perfiles ni hashtags de TikTok o Instagram sin sesión; el video suelto por URL sí baja.
+- Las skills de Remotion no traen licencia propia (caen bajo la Remotion License): no van a un repositorio público.
