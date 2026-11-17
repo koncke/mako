@@ -3853,3 +3853,29 @@ Dos pendientes de plata del barrido del 7/11 que seguían abiertos. Cada uno, co
   `metodo` null y decidir si se marcan «sin dato» (hay que MEDIR en la base: `select count(*) from pagos where moneda is null`).
 - *Vive en:* supabase/migrations/0417_pagos_moneda_cripto.sql · lib/pasarela-moneda.ts · lib/pagos-campo.ts · lib/recibos-reglas.ts ·
   lib/recibos.ts · tests/pagos-usdt.test.ts (probado rompiéndolo, 7 roturas).
+
+### Lo medido leyendo producción el 17/11 (sólo lectura), y lo que sigue abierto
+
+- **P30, los números reales:** `pagos` tiene **79 filas (no 66), TODAS con `moneda` en null y ninguna con `monto_original`**; 58 sin `metodo`.
+  O sea que ningún pago del CRM guardó nunca una moneda: no hay nada «mal» que corregir, hay un camino que nacía sin ella. Los 6 `recibo_pagos`
+  tienen su moneda (USDT) y todos `pago_id` en null.
+- **P1 (Cargar pago, sin probar):** los 5 recibos que hay (n.º 1 a 5, el último del 16/11) salieron todos como `origen = manual` por el Cerebro; ninguno
+  por «Cargar pago». La alternativa de sólo lectura del pendiente (un `recibo_pagos` con `pago_id` no nulo desde el 6/11) **da cero**: «Cargar pago» no se
+  ejercitó nunca con un pago real, y el fallback del P30 tampoco. Sigue sin probar; hay que hacerlo con un pago real y Martín mirando.
+- **P24 (c), inferido, no visto:** hay marcas `avisoentrada.17.2026-11-11` (9/11), `.23.2026-11-13` (11/11) y `.24.2026-11-25` (11/11), y las pausas de
+  la 17 y la 23 se aplicaron el 12/11 y el 14/11. La marca se **suelta** si el envío del PDF falla (`reclamarYMandar`) y la pausa sólo toca a quien tiene
+  marca, así que el PDF armado con jsPDF en Vercel salió. No leí el mensaje en el grupo de WhatsApp: es una inferencia de la marca. (a), (b) y (d) siguen sin
+  medir: (d) tiene su primera ocasión el 1 al 5/12, con el pago de Código.
+- **P26 y P7, con la cartera real:** `mensualidadDeAgencia(13)` (lectura) da `actual.totalUsd = 426`, sin pago, `debeUsd = 426`: **la cuenta del servidor es
+  la buena (US$426 de diciembre)**. Pablo Chavez (18) en pausa `paga-para-entrar` con su entrada de US$28,20; Sellers (24) sin costo hasta el 25/11 con su
+  entrada pagada. **No miré la pantalla `/agency?ws=13`** (hace falta la sesión de Martín): la parte «la pantalla muestra lo correcto» de P26 sigue abierta.
+  P7 sigue abierto y es lo que explica el 4/12 US$238 de «Por cobrar»: `pagosDelLibro` (lib/admin-ingresos-libro.ts) sólo arma `proximos` para agencias con un mes
+  ya pagado por el libro (`porMes`), y Código, con `config.desde = 2026-12`, no tiene ninguno; la mensualidad del CRM (238) sigue mandando. La salida: en
+  `vistaDeIngresos` (lib/admin-ingresos.ts) pedirle `mensualidadDeAgencia(ag)` a cada agencia **prendida** (`prendidas`) sin mes pagado y armar su
+  `ProximoDeSuscripcion` (`siguiente: { fecha: diaLimite(config.desde), usd: actual.totalUsd }`), y que `conElLibro` reemplace la suscripción del CRM desde
+  que se prende el libro. **No lo hice**: toca la lectura de Admin › Overview, es una vista y no mueve plata, y necesita mirarse en pantalla con datos reales.
+- **P29 (claves de PRUEBA de Stripe y Mercado Pago), sin medir:** este chat no tiene claves de prueba. Siguen sin medirse los siete puntos de
+  hallazgos-planes-y-cobro.md (la `rk_` restringida con `GET /v1/account`, la firma de la `notification_url` de MP, el vencimiento de una preferencia anulada
+  con el checkout abierto, el estado de un preapproval al llegar su `end_date`, el PUT del monto, `hosted_invoice_url` en `past_due` y la factura de $0).
+  **Se suma uno por el P27:** qué contesta Mercado Pago al vencer una preferencia (o cancelar una suscripción) que YA estaba vencida o cancelada: si da error,
+  `exigirCierre` frena de más el rehacer el primer mes.
