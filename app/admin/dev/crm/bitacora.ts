@@ -4109,4 +4109,26 @@ export const BITACORA: Hito[] = [
     tickets: [98],
     faltaEnProduccion: 'Volver a pendiente la Cuota 2 de Raúl Landeros (pago 122, ws1) con tmp-medir/arreglo-cuota-122.mts --aplicar (C:/dev/wt-mauricio), con el sí de Martín, y verla pendiente en la base. Después: scripts/tickets.ts paso-hecho 98.',
   },
+  {
+    fecha: '17 nov', hora: '05:40', chat: 'CRM: la plata de la ficha', sesion: 'local_b5a8cd89-b593-47de-9ff0-1cf7375f58a2', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tab Pagos dibuja los cuatro bloques que se salteaban, y el teléfono muestra la suscripción mes a mes',
+    puntos: [
+      '**Del Cerebro (pendientes verificados del 17/11, «Toca la plata»):** P28, P25 y P33.',
+      '**P28:** «Confirmación de pago» (cuántos días van sin el primer pago, con «Cobrar con link»), «Recordatorios de cobro» (qué cuota tiene la cobranza corriendo y cuándo sale, con «Cortarlo»), «Excepciones» (lo eximido al mover la etapa, con su motivo y «Quitar» con Deshacer) y «Cliente en CS» (estado, etapa de entrega, curso y cuenta de MaKo). Estaban en el catálogo y en las plantillas y no se veían.',
+      '**Sin la migración que pedía el pendiente:** la corrida de cobranza ya trae la cuota (`ctx.cuotaId`); se lee por las cuotas sin cobrar del lead.',
+      '**P25:** en el teléfono, la pieza «Mes a mes»: estado, cuánto paga, cuándo le toca, lo pagado y los meses en una hoja.',
+      '**P33:** medido en producción, los datos de las tres suscripciones del negocio 9 ya estaban cargados.',
+    ],
+    archivos: [
+      'lib/pagos-bloques-lead.ts · app/crm/lead-view/ficha/pagos/bloques-seguimiento.tsx · pagos/seguimiento-actions.ts',
+      'lib/cliente-en-cs.ts · pagos/cliente-en-cs.tsx · pagos/cliente-en-cs-actions.ts',
+      'lib/pagos.ts — `recordatoriosDelLead` · lib/suscripcion-meses.ts — `estadoDeSuscripcion`',
+      'app/m/crm/ficha-bloques.ts — `mesAMesDelTelefono` · app/m/crm/datos.ts · app/m/crm/[id]/FichaLead.tsx',
+      'tests/ficha-pagos-bloques-nuevos.test.ts · tests/ficha-cliente-en-cs.test.ts · tests/m-ficha-bloques.test.ts — probados rompiéndolos',
+      'docs/hallazgos-pagos.md · docs/hallazgos-mobile.md · docs/hallazgos-crm.md',
+    ],
+    revisar: '/crm',
+    faltaEnProduccion: 'Mirar los cuatro bloques en una ficha del ws 3 (un ganado con cuotas impagas y una excepción) y /m/crm/2474 en el teléfono. Los recordatorios sólo se ven con la cobranza corriendo.',
+  },
 ];

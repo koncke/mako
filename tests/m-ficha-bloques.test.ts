@@ -33,6 +33,14 @@
 // ADENTRO en todos los funnels: tests/ficha-resumen-lo-de-antes.test.ts), así que el teléfono suma sus filas 'redes' e
 // 'ingreso' donde escritorio las pone. Lo que se fija no cambia. Re-verificado rompiéndolo (base 8/0): 'ingreso-estimado'
 // fuera de PIEZA_DE_BLOQUE → 3 / 5.
+//
+// ⚠️ REESCRITO EL 17/11/2026 (P25, «la suscripción mes a mes no existe en el teléfono»): Pagos entra al teléfono con DOS
+// piezas, el mes a mes (`suscripcion` → 'mes-a-mes', que fuera de una suscripción se calla) y el estado de cuenta. Las
+// plantillas de Pagos ponen la suscripción primero, así que el respaldo con Pagos termina en 'mes-a-mes', 'saldo'. Lo que
+// se fija del estado de cuenta no cambia. Lo nuevo: «el mes a mes en el teléfono», al final.
+// Probado rompiéndolo (17/11/2026, base 9/0): `suscripcion` fuera de PIEZA_DE_BLOQUE → 7 / 2 («con un deal» y «mes a mes»);
+// y cada una → 8 / 1 («mes a mes»): `mesAMesDelTelefono` del más viejo al más nuevo; los cortados sin juntar; el server sin
+// callar el estado de cuenta con el mes a mes puesto; la ficha sin dibujar la pieza; `estadoDeSuscripcion` sin la cancelada.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -43,7 +51,7 @@ import { aplicarCambio, fichaEfectiva, RESPALDO_VACIO, type FichaGuardada } from
 import { PLANTILLAS_FICHA, type PlantillaId } from '../lib/ficha/plantillas';
 import type { TabFicha } from '../lib/ficha/catalogo';
 import {
-  gruposDeLaFicha, piezasDelTelefono, piezasQueSeDibujan, resumenDelTelefono, saldoDelTelefono, tabsQueVe, PIEZA_DE_BLOQUE,
+  gruposDeLaFicha, mesAMesDelTelefono, piezasDelTelefono, piezasQueSeDibujan, resumenDelTelefono, saldoDelTelefono, tabsQueVe, PIEZA_DE_BLOQUE,
   type PiezaFicha, type PiezaPuesta,
 } from '../app/m/crm/ficha-bloques';
 import { REGLAS_RESUMEN } from '../app/crm/lead-view/ficha/reglas-resumen';
@@ -101,15 +109,17 @@ test('con cada plantilla, el teléfono ve los bloques que tienen versión de tel
   }
 });
 
-test('con un deal, Pagos entra al teléfono con UNA pieza: el estado de cuenta, que sin nada que contar se calla', () => {
+test('con un deal, Pagos entra al teléfono con el mes a mes y el estado de cuenta, que sin nada que contar se callan', () => {
   // 16/10/2026 (la tab Pagos en bloques): `cobrado` («Estado de cuenta») → 'saldo'. Va después de las tabs que van
   // antes en escritorio, y sin deal la tab ni entra (`verPagos`).
   // Probado rompiéndolo (16/10/2026; entero, 7 / 0): `cobrado` sin pieza → 4 / 3; Pagos nunca entra → 6 / 1; el saldo
   // no se calla vacío → 6 / 1; la ficha no lo dibuja → 6 / 1; el server lo cuenta por su lado → 6 / 1.
   const conPagos = tabsQueVe({ verTracking: true, verReuniones: true, verPagos: true });
   assert.deepEqual(conPagos, ['resumen', 'tracking', 'reuniones', 'pagos']);
-  // El respaldo no lo trae en el Resumen: sale de Pagos, al final, y sólo si el lead ve Pagos.
-  assert.deepEqual(delFunnel('respaldo', null, conPagos), [...ESPERADO.respaldo.piezas, 'saldo']);
+  // El respaldo no lo trae en el Resumen: sale de Pagos, al final, y sólo si el lead ve Pagos. (17/11/2026, P25) Antes va
+  // el mes a mes: la plantilla de Pagos pone la suscripción primero.
+  assert.deepEqual(delFunnel('respaldo', null, conPagos), [...ESPERADO.respaldo.piezas, 'mes-a-mes', 'saldo']);
+  assert.ok(!delFunnel('respaldo', null, conReunion).includes('mes-a-mes'), 'sin deal, tampoco el mes a mes');
   assert.ok(!delFunnel('respaldo', null, conReunion).includes('saldo'), 'sin deal, Pagos no está y el saldo tampoco');
   // Una llamada lo trae también en el Resumen: va ahí, una sola vez.
   assert.deepEqual(delFunnel('una-llamada', null, conPagos).filter((x) => x === 'saldo').length, 1);
@@ -258,4 +268,60 @@ test('el Resumen nativo en el teléfono: una fila por bloque, y se calla lo que 
   // La ficha las dibuja como filas, y el server las arma con la misma función.
   assert.match(sinComentarios(leer('app/m/crm/[id]/FichaLead.tsx')), /default: \{\s*const v = p\.resumen\?\.\[pz\];/);
   assert.match(sinComentarios(leer('app/m/crm/datos.ts')), /resumen: lead \? resumenDelTelefono\(lead, \{/);
+});
+
+test('el mes a mes en el teléfono: la misma cuenta que la computadora, destilada (P25, 17/11/2026)', async () => {
+  const { cobradoDelLead } = await import('../lib/cobrado-lead');
+  // El caso de Código Inmobiliario (lead 2474 del negocio 9, medido en producción el 17/11/2026): 146 → 238 → 426, y
+  // noviembre pagado en dos pagos por Binance.
+  const c = cobradoDelLead({
+    ventaTipo: 'suscripcion', montoCierreUsd: null, suscripcionMontoUsd: 238, suscripcionMeses: null, fechaCierre: '2026-10-21', hoy: '2026-11-17',
+    movimientos: [
+      { tipo: 'monto', desde: '2026-10-01', montoUsd: 146 },
+      { tipo: 'monto', desde: '2026-11-01', montoUsd: 238, dia: 5 },
+      { tipo: 'monto', desde: '2026-12-01', montoUsd: 426 },
+    ],
+    pagos: [
+      { id: 115, monto_usd: 146, pagado: true, fecha_esperada: '2026-10-21', fecha_pago: '2026-10-21', metodo: 'cripto', es_mensualidad: true, nacio_cobrada: true },
+      { id: 135, monto_usd: 94, pagado: true, fecha_esperada: '2026-11-04', fecha_pago: '2026-11-04', metodo: 'cripto', es_mensualidad: true, nacio_cobrada: true, suscripcion_mes: '2026-11-01' },
+      { id: 136, monto_usd: 144, pagado: true, fecha_esperada: '2026-11-05', fecha_pago: '2026-11-05', metodo: 'cripto', es_mensualidad: true, nacio_cobrada: true, suscripcion_mes: '2026-11-01' },
+    ],
+  });
+  assert.ok(c.suscripcion, 'es una suscripción');
+  const m = mesAMesDelTelefono(c.suscripcion!, '2026-11-17');
+  assert.deepEqual(m.estado, { texto: 'Al día', tono: 'verde' });
+  assert.equal(m.pagaHoy, '$238/mes · día 5');
+  assert.deepEqual(m.leToca, { rotulo: 'Le toca', texto: '5 de diciembre · $426' });
+  assert.equal(m.pagado, '$384 · 2 meses pagados');
+  assert.equal(m.debe, null);
+  assert.deepEqual(m.meses.map((x) => x.mes), ['diciembre', 'noviembre', 'octubre'], 'del más nuevo al más viejo');
+  assert.deepEqual(m.meses[1], { mes: 'noviembre', texto: '$238 de $238', detalle: 'Subió de $146 · 2 pagos · Cripto', tono: 'verde' });
+  assert.equal(m.meses[2].detalle, 'Empezó · 1 pago · Cripto');
+  assert.equal(m.meses[0].tono, 'gris', 'el que viene no está en deuda');
+
+  // Cortada desde diciembre y sin pagar noviembre: el estado lo dice, los meses cortados van en UN renglón.
+  const cortada = cobradoDelLead({
+    ventaTipo: 'suscripcion', montoCierreUsd: null, suscripcionMontoUsd: 100, suscripcionMeses: null, fechaCierre: '2026-08-10', hoy: '2027-02-20',
+    movimientos: [{ tipo: 'monto', desde: '2026-08-01', montoUsd: 100 }, { tipo: 'corte', desde: '2026-12-01' }],
+    pagos: [8, 9, 10].map((mes, i) => ({ id: 200 + i, monto_usd: 100, pagado: true, fecha_esperada: `2026-${String(mes).padStart(2, '0')}-10`, fecha_pago: `2026-${String(mes).padStart(2, '0')}-10`, metodo: 'transferencia', es_mensualidad: true, nacio_cobrada: true })),
+  });
+  const mc = mesAMesDelTelefono(cortada.suscripcion!, '2027-02-20');
+  assert.equal(mc.pagaHoy, null, 'cortada: no paga');
+  assert.deepEqual(mc.estado, { texto: 'Cortada desde diciembre 2026', tono: 'gris' }, 'la misma cuenta que la computadora (`estadoDeSuscripcion`)');
+  assert.deepEqual(mc.meses.filter((x) => x.texto === 'Cortada').map((x) => x.mes), ['diciembre 2026 – marzo'], 'los meses cortados seguidos, en UN renglón');
+  assert.deepEqual(mc.meses[1], { mes: 'noviembre 2026', texto: '$0 de $100', detalle: 'Vencido', tono: 'rojo' }, 'lo que quedó sin pagar antes del corte, en rojo');
+  assert.equal(mc.debe, '$100');
+
+  // Se dibuja sólo con una suscripción, y la ficha lo dibuja; con él puesto, el server calla el estado de cuenta de la casa.
+  assert.equal(PIEZA_DE_BLOQUE.suscripcion, 'mes-a-mes');
+  const puestas = piezasDelTelefono(fichaEfectiva('respaldo', null, RESPALDO_VACIO).tabs, tabsQueVe({ verTracking: true, verReuniones: true, verPagos: true }));
+  const base = { proxima: null, llegoPor: null, respuestas: 0, llamada: false };
+  assert.ok(!piezas(piezasQueSeDibujan(puestas, { ...base, mesAMes: null })).includes('mes-a-mes'), 'sin suscripción, se calla');
+  assert.ok(piezas(piezasQueSeDibujan(puestas, { ...base, mesAMes: m })).includes('mes-a-mes'));
+  const ficha = sinComentarios(leer('app/m/crm/[id]/FichaLead.tsx'));
+  assert.match(ficha, /case 'mes-a-mes': \{[\s\S]{0,300}?const m = p\.mesAMes/);
+  assert.match(ficha, /<SheetM id="meses"/, 'los meses abren en una hoja');
+  const datos = sinComentarios(leer('app/m/crm/datos.ts'));
+  assert.match(datos, /mesAMes: cobrado\.suscripcion \? mesAMesDelTelefono\(cobrado\.suscripcion, hoy\) : null/, 'de la MISMA cuenta que el estado de cuenta');
+  assert.match(datos, /saldo: conMesAMes \? null :/, 'con el mes a mes puesto, el estado de cuenta de la casa se calla');
 });

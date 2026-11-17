@@ -424,7 +424,7 @@ No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
 | ~~El Dashboard dibuja «Pendiente» una cuota de baja (o devuelta) en la tabla de cuotas con «Todo»~~ **Hecho el 17/10/2026 (B4), ver §5** | lib/graficos-datos.ts, `filasPagos` | Es una tabla de filas, no una suma. Es del Dashboard |
 | La «baja del cliente» no se vio en el navegador | app/crm/lead-view/ficha/pagos/bloques-cobro.tsx | Sin RAM para `next dev`. Mirarla en el ws3 con un ganado con cuotas vencidas |
 | La tab Pagos de **Customer Success** sigue montando DealDetailsCard. Con ella siguen vivos EditarDeal, `?edit=1`, «✦ Completar con IA», `saveDealSectionsAction` y `saveCuotasAction`. Cuando CS pase a bloques, se borran juntos, con las aserciones que los fijan (crm-cuota-cobrada, ganado-monto, muestra-pagos, pago-comprobante, ficha-se-relee) | app/customer-success/FichaPestanas.tsx:84, app/crm/[id]/LeadDetailBody.tsx:207 | Es la tanda T3 del CRM (Pagos + CS). La ficha de CS no tiene el `CtxFicha` entero |
-| Bloques del catálogo sin componente: `confirmacion-de-pago`, `recordatorios-de-cobro`, `excepciones` y `cliente-en-cs`. Están en las plantillas y se saltean | app/crm/lead-view/ficha/reglas-pagos.ts | Cada uno necesita su lectura. Para los recordatorios, por ejemplo, no hay forma barata de leerlos por lead: falta la columna `lead_id` (mig 0186) |
+| ~~Bloques del catálogo sin componente: `confirmacion-de-pago`, `recordatorios-de-cobro`, `excepciones` y `cliente-en-cs`. Están en las plantillas y se saltean~~ **Hecho el 17/11/2026 (P28), ver «Los bloques de Pagos que una plantilla ponía…» al final** | app/crm/lead-view/ficha/reglas-pagos.ts | Cada uno necesita su lectura. Para los recordatorios, por ejemplo, no hay forma barata de leerlos por lead: falta la columna `lead_id` (mig 0186) |
 | Diseños que no se dibujan: `cobrado` anillo, `cuotas` lista y calendario, `suscripcion` tarjeta y meses, y los de `oferta` (OfertaDelLead es sólo el desplegable) | registro-pagos.tsx | No se ofrecen: el menú «Diseño» sólo muestra los que están en `disenos` |
 | **No se vio en el navegador**, ni en escritorio ni en el teléfono | — | No hubo RAM para `next dev`. Hay que mirarlo en producción con un ganado con cuotas, una suscripción y un lead abierto |
 | El teléfono muestra el saldo pero no cobra: no hay «Mandar link» | app/m/crm/[id]/FichaLead.tsx | El teléfono destila. El cobro con link en el teléfono es otra pieza |
@@ -1873,3 +1873,37 @@ la cantidad de negocios con pasarela divide a 48: si una corrida se queda sin ti
 y la corrida termina). Una anual cuesta una llamada a Stripe por día pasados los 25 días (gratis, con el tope de tiempo).
 **Vive en:** lib/cobros.ts (`renovacionesPerdidasStripe`) · lib/cobros-eventos.ts (`renovacionesQueFaltan`) ·
 lib/cobro-sesion-ajena.ts · app/api/cron/cobros-reconciliar/route.ts · tests/stripe-renovacion-perdida.test.ts
+
+## Los bloques de Pagos que una plantilla ponía y la ficha salteaba callada (17/11/2026, P28)
+
+**El síntoma:** `confirmacion-de-pago`, `recordatorios-de-cobro`, `excepciones` y `cliente-en-cs` estaban en el catálogo
+(lib/ficha/catalogo.ts) y en las plantillas de la ficha (lib/ficha/plantillas.ts), y no se veían nunca: un bloque sin entrada en
+app/crm/lead-view/ficha/registro-pagos.tsx no se dibuja ni se ofrece, y nada avisa. El pendiente llevaba desde el 6/11.
+
+**⚠️ El diagnóstico obvio era el equivocado: no hacía falta la columna `lead_id` en `flujo_corridas`.** Tres documentos
+(docs/diseno-ficha-bloques.md, el encargo del 7/11 y el pendiente del 17/11) decían «no hay forma barata de leer los
+recordatorios por lead: falta la columna (mig 0186)». La corrida de cobranza YA trae la cuota en `ctx.cuotaId` (la pone la
+cobranza al abrirla para cortarla al pagar, lib/aviso-evento.ts y app/api/cron/cobranza/route.ts), y las cuotas sin cobrar del
+lead se saben. Se pregunta por ESAS (`recordatoriosDelLead`, lib/pagos.ts): `.eq('estado','pendiente').in('ctx->>cuotaId', ids)`,
+el mismo filtro jsonb que ya corren en producción `proteccionesDeCuotas` y `cerrarCorridasDeCuota`, acotado al negocio y a las
+pendientes (índice `flujo_corridas_ws_abiertas`). Sin migración, sin tocar el motor de Automations y sin backfill. Una columna
+generada `(ctx->>'leadId')::bigint` además habría sido peligrosa: un `leadId` no numérico en un ctx rompe el INSERT de la corrida.
+
+**Medido en producción (17/11/2026, sólo lectura):** ningún negocio tenía una corrida pendiente, y el ws 9 tenía 8 en total,
+todas `sec:256`/`sec:260` sin cuota. Hoy el bloque de recordatorios se calla en todas las fichas: es lo correcto (no hay nada
+corriendo), no una lectura rota. Para verlo dibujado hace falta un negocio con la automatización «Cobranza de cuotas vencidas»
+prendida y una cuota vencida.
+
+**⚠️ Los recordatorios salen al GRUPO de MaKo, nunca al cliente** (la decisión del 06/10/2026, en `cuota-vencida` de
+lib/avisos-catalogo.ts). El diseño decía «MaKo le recuerda la cuota 3»; el bloque dice «MaKo avisa en el grupo», porque «le
+recuerda» se lee como que le escribe al cliente.
+
+**Lo que quedó:** lo puro en lib/pagos-bloques-lead.ts (confirmación, excepciones, recordatorios), los componentes en
+app/crm/lead-view/ficha/pagos/bloques-seguimiento.tsx (cada uno separa la VISTA de la lectura, para mirarlo con datos de
+ejemplo), las lecturas y «Quitar» una excepción (con Deshacer y compare-and-set) en pagos/seguimiento-actions.ts.
+**La regla que deja** (tests/ficha-pagos-bloques-nuevos.test.ts): todo bloque de Pagos que pone una plantilla tiene componente
+o lo dibuja adentro otro de la misma lista (`incluye`). La misma falla fuera de Pagos quedó anotada en docs/hallazgos-crm.md.
+
+**Sin hacer:** «Recordatorios de cobro» no muestra el PRIMER aviso que todavía no arrancó («la cuota 4 vence el 5/12: MaKo avisa
+el 4/12»): eso pide leer si el negocio tiene prendido `cuota-por-vencer`, y es otra pieza. «Quitar» una excepción no existe en la
+API de MaKo (sólo en la ficha).

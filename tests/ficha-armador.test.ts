@@ -114,12 +114,16 @@ test('mirando, lo vacío no se dibuja ni deja hueco; editando, se dibuja marcado
   assert.deepEqual(mirando.map((b) => b.def.id), ['calificacion', 'tiempo-en-etapa', 'ingreso-estimado', 'setter-y-closer', 'contacto', 'redes-y-web', 'notas']);
   assert.deepEqual(mirando.map((b) => b.span), [4, 4, 4, 6, 6, 12, 12], 'las redes quedan solas en su fila: se estiran');
   // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: `charla-whatsapp` ya tiene componente (todos los del Resumen lo tienen). El de
-  // ejemplo es `confirmacion-de-pago`, de Pagos, que sigue sin él (la grilla no mira la tab: mira el registro).
+  // ejemplo es `confirmacion-de-pago`, de Pagos (la grilla no mira la tab: mira el registro).
+  // ⚠️ Y OTRA VEZ el 17/11/2026 (P28): `confirmacion-de-pago` ya tiene componente. Lo que se fija es lo mismo —sin entrada en
+  // el registro, no se dibuja ni editando—, con un registro que no la trae, en vez de depender de qué bloque falte hoy.
+  const sinConfirmacion = (id: BloqueId) => (id === 'confirmacion-de-pago' ? undefined : reglasDe(id));
   const conUnoSinComponente: BloquePuesto[] = [...respaldo.tabs.resumen, { id: 'confirmacion-de-pago', ancho: 4, diseno: bloqueDef('confirmacion-de-pago')!.disenos[0].id }];
-  const editando = bloquesDeLaGrilla(conUnoSinComponente, { reglasDe, vacio: vacioCon(ctx), editando: true, verPrivado: true });
+  const editando = bloquesDeLaGrilla(conUnoSinComponente, { reglasDe: sinConfirmacion, vacio: vacioCon(ctx), editando: true, verPrivado: true });
   assert.ok(editando.some((b) => b.def.id === 'origen' && b.vacio), 'editando, lo vacío se ve (para moverlo o sacarlo)');
-  assert.ok(!reglasDe('confirmacion-de-pago'));
+  assert.ok(reglasDe('confirmacion-de-pago'), 'desde el 17/11/2026 tiene componente');
   assert.ok(!editando.some((b) => b.def.id === 'confirmacion-de-pago'), 'lo que no tiene componente no se dibuja ni editando');
+  assert.ok(bloquesDeLaGrilla(conUnoSinComponente, { reglasDe, vacio: vacioCon(ctx), editando: true, verPrivado: true }).some((b) => b.def.id === 'confirmacion-de-pago'), 'con su componente, sí');
 
   const perdido = ctxDe({ estado_lead: 'perdido', utm_source: 'ig' });
   const ids = bloquesDeLaGrilla(respaldo.tabs.resumen, { reglasDe, vacio: vacioCon(perdido), editando: false, verPrivado: true }).map((b) => b.def.id);
@@ -160,9 +164,11 @@ test('«Agregar bloque» ofrece sólo lo que tiene componente y no está puesto'
   // Uno que NO está puesto y no tiene componente. ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: en el Resumen ya no queda
   // ninguno (`charla-whatsapp` y los otros seis de la charla tienen el suyo), así que se mira en Pagos.
   const pagos = respaldo.tabs.pagos;
-  const ofrecePagos = (l: readonly BloquePuesto[]) => ofrecerEnAgregar('pagos', l, { registrado: (id) => !!reglasDe(id), verPrivado: true }).map((d) => d.id);
-  assert.ok(!pagos.some((p) => p.id === 'confirmacion-de-pago') && !reglasDe('confirmacion-de-pago'));
-  assert.ok(!ofrecePagos(pagos).includes('confirmacion-de-pago'), 'lo que no tiene componente no se ofrece («pronto» no)');
+  // ⚠️ 17/11/2026 (P28): `confirmacion-de-pago` ya tiene componente; el «sin componente» es un registro que no la trae.
+  const ofrecePagos = (l: readonly BloquePuesto[], registrado: (id: BloqueId) => boolean) => ofrecerEnAgregar('pagos', l, { registrado, verPrivado: true }).map((d) => d.id);
+  assert.ok(!pagos.some((p) => p.id === 'confirmacion-de-pago'));
+  assert.ok(!ofrecePagos(pagos, (id) => id !== 'confirmacion-de-pago' && !!reglasDe(id)).includes('confirmacion-de-pago'), 'lo que no tiene componente no se ofrece («pronto» no)');
+  assert.ok(ofrecePagos(pagos, (id) => !!reglasDe(id)).includes('confirmacion-de-pago'), 'con su componente, se ofrece');
   assert.ok(ofrece(lista).includes('charla-whatsapp'), 'lo que tiene componente y no está puesto, sí');
   const sinNotas = lista.filter((p) => p.id !== 'notas');
   assert.ok(ofrece(sinNotas).includes('notas'));

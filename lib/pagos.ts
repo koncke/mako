@@ -824,6 +824,39 @@ export async function cortarRecordatoriosDeCuota(leadId: number, pagoId: number)
 }
 
 /**
+ * LOS RECORDATORIOS DE COBRO DE UN LEAD QUE ESTÁN CORRIENDO (P28, 17/11/2026: el bloque `recordatorios-de-cobro`): las
+ * corridas de cobranza vivas (`flujo_corridas`, estado 'pendiente') de sus cuotas SIN COBRAR, de la casa y de cada CRM
+ * agregado. Lo puro que las agrupa por cuota es `recordatoriosPorCuota` (lib/pagos-bloques-lead.ts).
+ *
+ * ⚠️ NO HIZO FALTA LA COLUMNA `lead_id` QUE PEDÍA EL PENDIENTE. La corrida ya trae la cuota en `ctx.cuotaId` (la pone la
+ * cobranza al abrirla, para cortarla al pagar), y las cuotas impagas del lead las sabemos: se pregunta por ESAS, con el
+ * mismo filtro sobre el jsonb que ya corren en producción `proteccionesDeCuotas` (arriba) y `cerrarCorridasDeCuota`. La
+ * consulta va acotada al negocio (getTenantDb) y a las pendientes, que tienen su índice (`flujo_corridas_ws_abiertas`,
+ * mig 0186). Medido el 17/11/2026 en producción: ningún negocio tenía una corrida pendiente, y el ws 9, ocho en total.
+ *
+ * TIRA si no puede leer: el bloque dice «No pude leer los recordatorios», que no es «no tiene ninguno».
+ */
+export async function recordatoriosDelLead(leadId: number): Promise<{ cuotas: Pago[]; corridas: Array<{ id: number; pagoId: number; titulo: string | null; proximaAt: string | null }> }> {
+  const cuotas = (await getPagosByLead(leadId, 'todos')).filter((q) => !q.pagado);
+  if (!cuotas.length) return { cuotas, corridas: [] };
+  const db = await getTenantDb();
+  const { data, error } = await db.from('flujo_corridas').select('id, aviso_id, proxima_at, ctx')
+    .eq('estado', 'pendiente').in('ctx->>cuotaId', cuotas.map((q) => String(q.id)));
+  if (error) throw new Error(`No pude leer los recordatorios de cobro: ${error.message}`);
+  const filas = (data ?? []) as Array<{ id: number; aviso_id: string; proxima_at: string | null; ctx: { cuotaId?: unknown; aviso?: { titulo?: unknown } } | null }>;
+  // El nombre: el de la automatización que el negocio armó (`ctx.aviso.titulo`, lib/aviso-evento.ts); si la corrida es
+  // la cadencia de un aviso del catálogo (`cuota-por-vencer`), el título del catálogo.
+  const { CATALOGO_AVISOS } = await import('./avisos-catalogo');
+  const corridas = filas.map((f) => ({
+    id: Number(f.id),
+    pagoId: Number(f.ctx?.cuotaId),
+    titulo: typeof f.ctx?.aviso?.titulo === 'string' ? f.ctx.aviso.titulo : CATALOGO_AVISOS.find((a) => a.id === f.aviso_id)?.titulo ?? null,
+    proximaAt: f.proxima_at ?? null,
+  })).filter((c) => Number.isInteger(c.pagoId) && c.pagoId > 0);
+  return { cuotas, corridas };
+}
+
+/**
  * ⚠️ AL COBRAR UNA CUOTA SE ANULAN SUS LINKS SIN PAGAR (`anularLinksDeCuota`, lib/cobros.ts): un link vivo de una
  * cuota ya cobrada se podía pagar otra vez (revisión del 14/10/2026). Lo llama `marcarPago`, que es por donde pasan
  * la ficha, el doer, la API y la pasarela. Si la salda la pasarela, su propio cobro (`cobro_id`) queda afuera.

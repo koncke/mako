@@ -65,7 +65,7 @@ import { huecosR2Action, reservarR2Action } from '@/app/crm/agendar-r2-actions';
 import { linkInstagram } from '@/app/crm/campo-inline';
 import { notaLeadAction, moverEtapaAction, deshacerMoverAction } from '../acciones';
 import { chipsDeDia, rotuloAgendar, rotuloDia, type CualAgendar, type EtapaM, type LineaActividad } from '../reglas';
-import { gruposDeLaFicha, type PiezaFicha, type ResumenTelefono, type SaldoTelefono } from '../ficha-bloques';
+import { gruposDeLaFicha, type MesAMesTelefono, type PiezaFicha, type ResumenTelefono, type SaldoTelefono } from '../ficha-bloques';
 
 export type ProductoFicha = { funnelId: number; nombre: string; esCasa: boolean; etapa: string | null; etapaLabel: string | null; movibles: EtapaM[] };
 export type ModoAgendaFicha = 'google' | 'calendly-r2' | 'link' | 'nada';
@@ -103,6 +103,8 @@ export type FichaLeadProps = {
   saldo?: SaldoTelefono | null;
   /** El de cada CRM agregado con plata (una renovación, CO2): una fila más, con el nombre del CRM. */
   saldosCrm?: Array<{ crm: string; saldo: SaldoTelefono }>;
+  /** La suscripción mes a mes (17/11/2026, P25: la pieza `mes-a-mes`); null = no es una suscripción. */
+  mesAMes?: MesAMesTelefono | null;
   /** Las filas del Resumen nativo (16/10/2026, `resumenDelTelefono`): una en null no se dibuja. */
   resumen?: ResumenTelefono | null;
   /** El color del punto de la fila «Automatización» (24/10/2026, `tonoDeAutomatizaciones`). */
@@ -120,7 +122,7 @@ const ROTULO_RESUMEN: Readonly<Record<string, string>> = {
   entrada: 'Entró', direccion: 'Dirección', sexo: 'Sexo', automatizaciones: 'Automatización',
 };
 
-type Sheet = 'agendar' | 'nota' | 'notas' | 'mover' | 'llamada' | 'respuestas' | 'grabar' | null;
+type Sheet = 'agendar' | 'nota' | 'notas' | 'mover' | 'llamada' | 'respuestas' | 'grabar' | 'meses' | null;
 
 /** Cuántas notas se ven en la ficha; las demás (hasta 20) abren en un sheet. */
 const NOTAS_A_LA_VISTA = 3;
@@ -194,6 +196,23 @@ export function FichaLead(p: FichaLeadProps) {
           <>
             {p.saldo && <FilaDatoM k="Estado de cuenta" v={<span style={{ color: tono(p.saldo.tono) }}>{p.saldo.texto}</span>} />}
             {(p.saldosCrm ?? []).map((x) => <FilaDatoM key={x.crm} k={`Estado de cuenta · ${x.crm}`} v={<span style={{ color: tono(x.saldo.tono) }}>{x.saldo.texto}</span>} />)}
+          </>
+        );
+      }
+      // La suscripción mes a mes (17/11/2026, P25): lo de arriba del bloque de la computadora, en filas que se leen, y los
+      // meses en una hoja. El teléfono no registra pagos ni cambia el monto (destila).
+      case 'mes-a-mes': {
+        const m = p.mesAMes;
+        if (!m) return null;
+        const tono = (t: SaldoTelefono['tono']) => (t === 'rojo' ? 'var(--bad)' : t === 'ambar' ? 'var(--warn)' : t === 'verde' ? 'var(--good)' : undefined);
+        return (
+          <>
+            <FilaDatoM k="Suscripción" v={<span style={{ color: tono(m.estado.tono) }}>{m.estado.texto}</span>} />
+            {m.pagaHoy && <FilaDatoM k="Paga hoy" v={m.pagaHoy} />}
+            {m.leToca && <FilaDatoM k={m.leToca.rotulo} v={m.leToca.rotulo === 'Venció' ? <span style={{ color: 'var(--bad)' }}>{m.leToca.texto}</span> : m.leToca.texto} />}
+            <FilaDatoM k="Pagó en total" v={m.pagado} />
+            {m.debe && <FilaDatoM k="Debe" v={<span style={{ color: 'var(--bad)' }}>{m.debe}</span>} />}
+            {m.meses.length > 0 && <FilaM icono="calendario" navegacion titulo="Mes a mes" riel={String(m.meses.length)} onClick={() => setSheet('meses')} />}
           </>
         );
       }
@@ -371,6 +390,22 @@ export function FichaLead(p: FichaLeadProps) {
         <SheetM id="notas" abierto={sheet === 'notas'} onCerrar={() => setSheet(null)} titulo="Notas" snap="alto">
           <ListaM>{p.notas.map((n) => <Nota key={n.id} n={n} />)}</ListaM>
           {p.totalNotas > p.notas.length && <ComputadoraM que="Las notas más viejas" />}
+        </SheetM>
+      )}
+      {p.mesAMes && p.mesAMes.meses.length > 0 && (
+        <SheetM id="meses" abierto={sheet === 'meses'} onCerrar={() => setSheet(null)} titulo="Mes a mes" snap="alto">
+          <dl className="m-crm-dl">
+            {p.mesAMes.meses.map((m, i) => (
+              <div key={i}>
+                <dt style={{ textTransform: 'capitalize' }}>{m.mes}</dt>
+                <dd>
+                  <span style={{ color: m.tono === 'rojo' ? 'var(--bad)' : m.tono === 'ambar' ? 'var(--warn)' : undefined }}>{m.texto}</span>
+                  {m.detalle && <span style={{ display: 'block', color: 'var(--dim)', fontSize: 13 }}>{m.detalle}</span>}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <ComputadoraM que="Registrar un pago o cambiar el monto" />
         </SheetM>
       )}
       {p.respuestas.length > 0 && (

@@ -11,7 +11,10 @@
 // no está en bloques (docs/hallazgos-pagos.md, «Lo que quedó sin hacer»).
 //   · los de plata, en ./pagos/bloques-cobro.tsx: estado de cuenta, cuotas, links, movimientos y venta;
 //   · (5/11/2026) la suscripción, mes a mes, en ./pagos/suscripcion.tsx (docs/investigacion-suscripciones.md);
-//   · los del deal, en ./pagos/bloques-deal.tsx: contrato, datos fiscales, servicio, promesa y obligaciones.
+//   · los del deal, en ./pagos/bloques-deal.tsx: contrato, datos fiscales, servicio, promesa y obligaciones;
+//   · (17/11/2026, P28) los del seguimiento, en ./pagos/bloques-seguimiento.tsx: la confirmación de pago, los
+//     recordatorios de cobro y las excepciones; y el cliente en CS, en ./pagos/cliente-en-cs.tsx. Estaban en el catálogo
+//     y en las plantillas sin componente.
 // =============================================================================
 
 import type { ComponentType } from 'react';
@@ -20,6 +23,8 @@ import { REGLAS_PAGOS } from './reglas-pagos';
 import { Cuotas, EstadoDeCuenta, LinksDePago, Movimientos, Venta } from './pagos/bloques-cobro';
 import { SuscripcionMesAMes } from './pagos/suscripcion';
 import { Contrato, DatosFiscales, Obligaciones, PromesaYGarantia, ServicioVendido } from './pagos/bloques-deal';
+import { ConfirmacionDePago, Excepciones, RecordatoriosDeCobro } from './pagos/bloques-seguimiento';
+import { ClienteEnCs } from './pagos/cliente-en-cs';
 import { ctxDelTrato } from './pagos/trato';
 import type { CtxFicha, EntradaRegistro, PropsBloque, ReglasBloque } from './tipos';
 
@@ -51,4 +56,8 @@ export const REGISTRO_PAGOS: { [K in keyof typeof REGLAS_PAGOS]: EntradaRegistro
   'servicio-vendido': { Componente: ServicioVendido, ...REGLAS_PAGOS['servicio-vendido'] },
   'promesa-y-garantia': { Componente: PromesaYGarantia, ...REGLAS_PAGOS['promesa-y-garantia'] },
   obligaciones: { Componente: Obligaciones, ...REGLAS_PAGOS.obligaciones },
+  'confirmacion-de-pago': { Componente: ConfirmacionDePago, ...REGLAS_PAGOS['confirmacion-de-pago'] },
+  'recordatorios-de-cobro': { Componente: RecordatoriosDeCobro, ...REGLAS_PAGOS['recordatorios-de-cobro'] },
+  excepciones: { Componente: Excepciones, ...REGLAS_PAGOS.excepciones },
+  'cliente-en-cs': { Componente: ClienteEnCs, ...REGLAS_PAGOS['cliente-en-cs'] },
 };

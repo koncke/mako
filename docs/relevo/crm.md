@@ -6,6 +6,28 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω33. 17/11/2026, madrugada (chat «CRM», cuenta `claude2`): la plata de la ficha, P28, P25 y P33
+
+Del Cerebro: los tres pendientes de plata de la ficha verificados contra main el 17/11 (docs/pendientes-verificados-17-11.md,
+«Toca la plata», en `punta/pendientes-1711`). Rama `punta/crm-plata-1711`, worktree C:/dev/wt-crm-plata.
+
+- **P33 (medir): no había nada que cargar.** Leído en producción (sólo lectura, ws 9): Código (2474) tiene 146 → 238 → 426
+  con día 5, los pagos del 4/11 (US$94) y del 5/11 (US$144) con `suscripcion_mes` 2026-11, y su pago del 21/10 ya en cripto;
+  la cuenta da «Paga hoy US$238», «Pagó en total US$384». Leila (2473) y Florencia (2659): US$97 desde 2026-10, Florencia
+  con cierre el 18/10. Todo lo del §2 de docs/relevo/nube-suscripciones.md está hecho.
+- **P28: los cuatro bloques de Pagos que se salteaban** (`confirmacion-de-pago`, `recordatorios-de-cobro`, `excepciones`,
+  `cliente-en-cs`) tienen componente. **Sin migración:** la corrida ya trae `ctx.cuotaId` (docs/hallazgos-pagos.md, al final).
+  `cliente-en-cs` lo escribió un subagente (sus fuentes y trampas, en la cabecera de su action y de lib/cliente-en-cs.ts).
+- **P25: el mes a mes en el teléfono** (la pieza `mes-a-mes`; docs/hallazgos-mobile.md, al final). El estado de la
+  suscripción salió a `estadoDeSuscripcion` (lib/suscripcion-meses.ts) y lo usan los dos.
+- **Encontrado de paso, sin hacer:** cuatro bloques más que una plantilla pone y no se dibujan, fuera de Pagos (`cohorte`,
+  `anuncio-de-origen`, `diagnostico-mako`, `ciclo-de-venta`): docs/hallazgos-crm.md, al final.
+
+**Sin mirar en producción:** los cuatro bloques en una ficha de verdad (en el ws 3, nunca en el ws 1) y /m/crm/2474 en el
+teléfono. Los recordatorios no se van a ver en ningún negocio hasta que alguno tenga la cobranza corriendo (hoy, cero corridas
+vivas). **Sin hacer de P25:** el prorrateo del diferencial, el monto de una suscripción de la pasarela (sale del lead) y
+cambiar el medio de un pago ya cobrado.
+
 ## 0-Ω32. 30/10/2026, noche (chat «CRM», cuenta `claude1`): Código Inmobiliario y los puntos 12 a 21 del 24/10
 
 - **Código Inmobiliario, cerrado.** Los 21 fallos eran avisos al equipo y los 10 borradores, mensajes por aprobar; los 7 borradores vivos de la #241 se descartaron en producción. Causa y lo que quedó sin hacer: hallazgos-chatbot, «MaKo no les escribió a sus leads». No se reenvió nada a propósito.

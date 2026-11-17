@@ -27,13 +27,18 @@ import { COMO_ENTRO, entradaSocialGuardada } from '@/lib/canal-social';
 import { usuarioInstagram } from '@/app/crm/campo-inline';
 import { diasEntre, ingresoNoAplica, paginaLegible, textoDias, tiempoEnEtapa, usd, ETAPAS_SIN_RELOJ } from '@/app/crm/lead-view/ficha/resumen/logica';
 import { estadoDeTarjeta, ordenarTarjetas, type AutomatizacionesVista, type TonoTarjeta } from '@/app/crm/automatizacion-lead';
+import type { Cobrado } from '@/lib/cobrado-lead';
+import { ROTULO_METODO, esMetodoPago, type MetodoPago } from '@/lib/pagos-campo';
+import { usd } from '@/lib/pagos-vistazo';
+import { fechaEnPalabras } from '@/lib/date-utils';
+import { ROTULO_CAMBIO, ROTULO_ESTADO_MES, estadoDeSuscripcion, nombreDelMes, type EstadoMes } from '@/lib/suscripcion-meses';
 
 /**
  * Las piezas que el teléfono sabe dibujar. Cada una es la versión de teléfono de UN bloque de escritorio.
  * 16/10/2026 (el Resumen nativo): cada bloque nuevo del Resumen tiene la suya, en UNA fila que se lee (el teléfono no
  * edita esos datos: «Pagos, historial y campos · En la computadora»).
  */
-export type PiezaFicha = 'proxima' | 'contacto' | 'llego-por' | 'contesto' | 'llamada' | 'notas' | 'saldo' | PiezaResumen;
+export type PiezaFicha = 'proxima' | 'contacto' | 'llego-por' | 'contesto' | 'llamada' | 'notas' | 'saldo' | 'mes-a-mes' | PiezaResumen;
 
 /** Las filas del Resumen nativo (`resumenDelTelefono`). */
 export type PiezaResumen = 'siguiente' | 'equipo' | 'calificado' | 'ingreso' | 'en-etapa' | 'motivo' | 'plazo' | 'redes' | 'pagina' | 'entrada' | 'direccion' | 'sexo' | 'automatizaciones';
@@ -52,6 +57,9 @@ export const PIEZA_DE_BLOQUE: Readonly<Partial<Record<BloqueId, PiezaFicha>>> = 
   // El estado de cuenta (16/10/2026, la tab Pagos en bloques): lo que debe o «Al día», en una fila. El teléfono no
   // cobra: destila (`saldoDelTelefono`).
   cobrado: 'saldo',
+  // La suscripción mes a mes (17/11/2026, P25): cuánto paga, si está al día, lo pagado y sus meses. El teléfono no
+  // registra pagos ni cambia el monto: eso es de la computadora (`mesAMesDelTelefono`).
+  suscripcion: 'mes-a-mes',
   // El Resumen nativo (16/10/2026): una fila por bloque (`resumenDelTelefono`).
   'siguiente-accion': 'siguiente',
   'setter-y-closer': 'equipo',
@@ -113,6 +121,8 @@ export type ConQueDibujar = {
   saldosCrm?: number;
   /** Las filas del Resumen nativo (`resumenDelTelefono`); una en null no se dibuja. */
   resumen?: ResumenTelefono | null;
+  /** La suscripción mes a mes (`mesAMesDelTelefono`); null = no es una suscripción. */
+  mesAMes?: MesAMesTelefono | null;
 };
 
 /**
@@ -203,6 +213,7 @@ export function piezaVacia(p: PiezaFicha, d: ConQueDibujar): boolean {
     case 'contesto': return d.respuestas === 0;
     case 'llamada': return !d.llamada;
     case 'saldo': return !d.saldo && !d.saldosCrm;
+    case 'mes-a-mes': return !d.mesAMes;
     case 'contacto':
     case 'notas': return false;
     default: return !d.resumen?.[p];
@@ -230,4 +241,90 @@ export function gruposDeLaFicha(piezas: readonly PiezaFicha[]): GrupoFicha[] {
     else out.push({ tipo: 'filas', piezas: [p], primero: false });
   }
   return out;
+}
+
+// =============================================================================
+// LA SUSCRIPCIÓN MES A MES EN EL TELÉFONO (17/11/2026, P25)
+// =============================================================================
+// El pendiente (docs/pendientes-verificados-17-11.md, P25): «La suscripción mes a mes no existe en el teléfono. La fila
+// "Estado de cuenta" ya se calcula mes a mes (app/m/crm/datos.ts): falta el bloque». Es el bloque `suscripcion` de la
+// computadora (app/crm/lead-view/ficha/pagos/suscripcion.tsx) DESTILADO, con la misma cuenta (`cobradoDelLead(...)
+// .suscripcion`, lib/suscripcion-meses.ts): arriba lo que paga hoy, cuándo le toca y lo pagado, con el estado del mismo
+// `estadoDeSuscripcion`; abajo los meses, del más nuevo al más viejo, que se abren en una hoja. El teléfono LEE: registrar
+// un pago, cambiar el monto, cortar y retomar son de la computadora, como el resto de la plata.
+// ⚠️ Con este bloque en la hoja, la fila «Estado de cuenta» de la casa se calla (como en la computadora con
+// `suscripcionAlLado`): diría lo mismo dos veces. La de cada CRM agregado sigue.
+// =============================================================================
+
+export type MesTelefono = { mes: string; texto: string; detalle: string | null; tono: SaldoTelefono['tono'] };
+
+export type MesAMesTelefono = {
+  estado: SaldoTelefono;
+  /** «US$238/mes · día 5»; null si no está activa. */
+  pagaHoy: string | null;
+  /** «Le toca» · «5 de diciembre · US$426», o «Venció» · «5 de noviembre · falta US$100»; null sin nada pendiente. */
+  leToca: { rotulo: 'Le toca' | 'Venció'; texto: string } | null;
+  /** «US$384 · 2 meses pagados». */
+  pagado: string;
+  /** «US$100», si debe. */
+  debe: string | null;
+  /** Del más nuevo al más viejo. Los meses cortados seguidos y sin pagos, en un renglón. */
+  meses: MesTelefono[];
+};
+
+const TONO_DEL_MES: Readonly<Record<EstadoMes, SaldoTelefono['tono']>> = {
+  pagado: 'verde', parcial: 'ambar', vencido: 'rojo', 'vence-hoy': 'ambar', 'por-cobrar': 'gris', proximo: 'gris', cortado: 'gris',
+};
+
+/** «2 pagos · Cripto» de los pagos de un mes (el mismo resumen que la computadora, sin la fecha). */
+function pagosDelMes(pagos: ReadonlyArray<{ metodo: string | null; proveedor: string | null }>): string | null {
+  if (!pagos.length) return null;
+  const medios = [...new Set(pagos.map((p) => (esMetodoPago(p.metodo) ? ROTULO_METODO[p.metodo as MetodoPago].split(' (')[0] : p.proveedor ? 'Pasarela' : null)).filter(Boolean))];
+  return [pagos.length === 1 ? '1 pago' : `${pagos.length} pagos`, medios.join(', ')].filter(Boolean).join(' · ');
+}
+
+/** La suscripción del lead, destilada. Pura: la arma el server (./datos.ts) y la ejecuta tests/m-ficha-bloques.test.ts. */
+export function mesAMesDelTelefono(s: NonNullable<Cobrado['suscripcion']>, hoy: string): MesAMesTelefono {
+  const h = s.historia;
+  const est = estadoDeSuscripcion(s, hoy);
+  const activa = s.estado === 'activa';
+  const pagaHoy = activa && s.mensualidadUsd != null
+    ? `${usd(s.mensualidadUsd)}/mes${s.mensualidadInferida ? ' (estimado)' : h.diaDeCobro ? ` · día ${h.diaDeCobro}` : ''}`
+    : null;
+  const p = h.proximo;
+  const leToca = p
+    ? { rotulo: p.vencido ? 'Venció' as const : 'Le toca' as const, texto: `${fechaEnPalabras(p.vence, hoy)}${p.faltaUsd != null ? ` · ${p.vencido ? 'falta ' : ''}${usd(p.faltaUsd)}` : ''}` }
+    : null;
+  const meses: MesTelefono[] = [];
+  let cortadoDesde: string | null = null;
+  let cortadoHasta: string | null = null;
+  const cerrarCorte = () => {
+    if (!cortadoDesde || !cortadoHasta) return;
+    const rango = cortadoDesde === cortadoHasta ? nombreDelMes(cortadoDesde, hoy) : `${nombreDelMes(cortadoDesde, hoy)} – ${nombreDelMes(cortadoHasta, hoy)}`;
+    meses.push({ mes: rango, texto: 'Cortada', detalle: null, tono: 'gris' });
+    cortadoDesde = cortadoHasta = null;
+  };
+  for (const m of [...h.meses].reverse()) {
+    if (m.estado === 'cortado' && !m.pagos.length && !m.ajustes.length) {
+      // Del más nuevo al más viejo: el primero que se ve es el «hasta».
+      if (!cortadoHasta) cortadoHasta = m.mes;
+      cortadoDesde = m.mes;
+      continue;
+    }
+    cerrarCorte();
+    const texto = m.esperadoUsd != null ? `${usd(m.pagadoUsd)} de ${usd(m.esperadoUsd)}` : m.pagadoUsd > 0 ? usd(m.pagadoUsd) : 'Sin monto';
+    const cambio = m.cambio ? `${ROTULO_CAMBIO[m.cambio]}${m.antesUsd != null ? ` de ${usd(m.antesUsd)}` : ''}` : null;
+    const detalle = [m.estado === 'pagado' ? null : ROTULO_ESTADO_MES[m.estado], cambio, pagosDelMes(m.pagos), m.ajustes.length ? `+${usd(m.ajustes.reduce((t, a) => t + a.montoUsd, 0))} en ajustes` : null]
+      .filter(Boolean).join(' · ') || null;
+    meses.push({ mes: nombreDelMes(m.mes, hoy), texto, detalle, tono: TONO_DEL_MES[m.estado] });
+  }
+  cerrarCorte();
+  return {
+    estado: { texto: est.texto, tono: est.tono },
+    pagaHoy,
+    leToca,
+    pagado: `${usd(h.totalPagadoUsd)} · ${h.mesesPagados === 1 ? '1 mes pagado' : `${h.mesesPagados} meses pagados`}`,
+    debe: h.deudaUsd > 0 ? usd(h.deudaUsd) : null,
+    meses,
+  };
 }
