@@ -360,6 +360,10 @@ export const CSS_PIE = `
 @media (max-width:1279px){
   .s-pie-marca{flex-wrap:wrap}
   .s-pie-contacto{flex-basis:100%}
+  /* Los dos renglones de cinco, más angostos: en Precios y en el Accelerator el ancho útil a 1024 es 768 y «Instagram con lead
+     magnet» se pasaba 25 px de su columna (medido 17/11/2026). Con 16 de aire y 12,5 px no pisa la de al lado. */
+  .s-pie-cols{column-gap:16px}
+  .s-pie-h,.s-pie-col li,.s-pie-col .s-pie-contacto a{font-size:12.5px}
 }
 @media (max-width:1023px){
   .s-pie-cols{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 16px}
