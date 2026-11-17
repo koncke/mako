@@ -24,6 +24,28 @@ corrida roja a propósito). Tampoco hace falta esperar: **una punta roja no fren
 
 ---
 
+## 🦶 El pie que le gusta a Martín — PENDIENTE, no se toca hasta que él lo diga (16/11/2026, noche)
+
+Martín, mirando el artefacto: «no sé por qué en producción no se ve igual la bottom bar. Me gusta como está actualmente la bottom
+bar [la del artefacto]… eso hay que tenerlo en cuenta para después». («Bottom bar» es el PIE: así le dijo el 15/11.)
+
+- **La causa (medida, no supuesta):** producción NO tiene un deploy viejo. El pie de la portada es idéntico en hola-mako.com y en el
+  artefacto (mismo HTML, mismo alto: 285 px a 1440 y 569 a 375). La diferencia estaba en **Precios del artefacto viejo**: su
+  `planes.html` se había dibujado ANTES del rediseño del pie de esa tarde, y mostraba el pie de antes. Producción muestra el de
+  ahora. Capturas lado a lado: `C:/dev/artefactos-sitio/sitio-artefacto/fotos/pie-planes-art.jpg` (el que le gusta) y
+  `pie-planes-prod.jpg` (el de producción).
+- **El que le gusta** es el de `7030954b8` (16/11, 08:11 de la PC): arriba, en un renglón, el logo con «El mejor software para vender
+  High Ticket.» y «Ventas, marketing y contenido en una sola app.», y a la derecha el email y el WhatsApp; abajo ocho columnas con
+  más aire, los Funnels debajo de Industrias; y la estrella sola abajo a la derecha. 551 px de alto a 1440.
+- **El de producción** salió de `d095c5721` («el pie más bajo y con todo») y `5e3831873`/`80c5d76b4` (sin el lema, el logo abajo a
+  la derecha y el contacto como columna al lado de Legal): diez columnas apretadas, 285 px. Esos cambios los pidió él esa misma tarde.
+- **Para que producción quede como le gusta:** volver `app/vsl/_sitio/Pie.tsx` y el `CSS_PIE` de `app/vsl/_sitio/estilos.ts` a
+  como estaban en `7030954b8`, conservando los links que se sumaron después (Closing, Equipo, Classroom, Calendario de contenido,
+  Funnels, Anuncios con formulario, Venta directa, Newsletter) y la razón social de abajo; ajustar los tests que fijan el pie
+  (`tests/sitio-arranca-claro.test.ts`, `tests/portada-brain-epico.test.ts` y los que encuentre un grep de `s-pie`). **Antes,
+  confirmar con Martín** que quiere ése y no el «más bajo» que pidió a la tarde.
+- Desde esta noche el artefacto único dibuja Precios del código de main (`C:/dev/artefactos-mako`): ya no muestra el pie viejo.
+
 ## 🚀 EL LANZAMIENTO ORGÁNICO — lo decidido el 7/11 y lo que lo frena
 
 Martín, 7/11: sale a prospectar con **orgánico primero** (2 reels + 1 carrusel por día), no con los
