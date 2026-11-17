@@ -30,6 +30,21 @@ export const normalizarMoneda = (m: string | null | undefined): string | null =>
   return /^[A-Z]{3}$/.test(s) ? s : null;
 };
 
+/**
+ * Las monedas cripto atadas al dólar 1:1 que un pago A MANO puede traer: el rastro de una orden en USDT (Código Inmobiliario paga así,
+ * recibos mig 0397). NO son monedas de una pasarela (Stripe y Mercado Pago no las cobran: `normalizarMoneda` las sigue rechazando);
+ * son lo que `pagos.moneda` puede guardar desde la mig 0417 para que el pago del CRM no nazca «en dólares, sin rastro» (P30, 17/11/2026).
+ */
+export const STABLECOINS_USD: ReadonlySet<string> = new Set(['USDT', 'USDC']);
+
+/** La moneda de un PAGO del CRM: las de 3 letras (ISO) o una stablecoin en dólares. null = no es una moneda que un pago pueda guardar. */
+export const normalizarMonedaDePago = (m: string | null | undefined): string | null => {
+  const iso = normalizarMoneda(m);
+  if (iso) return iso;
+  const s = String(m ?? '').trim().toUpperCase();
+  return STABLECOINS_USD.has(s) ? s : null;
+};
+
 export const esCeroDecimales = (moneda: string): boolean => {
   const m = moneda.toUpperCase();
   return CERO_DECIMALES.has(m) && !ESPECIALES_X100.has(m);

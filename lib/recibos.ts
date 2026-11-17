@@ -794,10 +794,10 @@ export async function registrarReciboEnElCrm(p: {
 }): Promise<{ aviso?: string }> {
   try {
     const plataforma = await wsSuperAdmin();
-    const { data, error } = await db().from('recibo_pagos').select('id, medio, referencia, fecha, monto_usd, anulado, pago_id').eq('recibo_id', p.reciboId);
+    const { data, error } = await db().from('recibo_pagos').select('id, medio, referencia, fecha, monto, moneda, monto_usd, anulado, pago_id').eq('recibo_id', p.reciboId);
     if (error) return { aviso: faltaLaColumnaDelPago(error) ? AVISO_SIN_CRM['sin-columna'] : AVISO_SIN_CRM['no-pude'] };
     const cobros: CobroDelRecibo[] = ((data ?? []) as Array<Record<string, unknown>>).map((f) => ({
-      id: Number(f.id), medio: String(f.medio), referencia: String(f.referencia), fecha: String(f.fecha), monto_usd: n(f.monto_usd), anulado: !!f.anulado, pago_id: n(f.pago_id),
+      id: Number(f.id), medio: String(f.medio), referencia: String(f.referencia), fecha: String(f.fecha), monto_usd: n(f.monto_usd), anulado: !!f.anulado, pago_id: n(f.pago_id), monto: n(f.monto), moneda: f.moneda == null ? null : String(f.moneda),
     }));
     const plan = planParaElCrm(cobros, p.atar);
     for (const a of plan.atar) {
@@ -819,10 +819,21 @@ export async function registrarReciboEnElCrm(p: {
     let pagoId = ((ya ?? []) as Array<{ id: number; concepto: string | null }>).find((x) => String(x.concepto ?? '').startsWith(prefijo))?.id ?? null;
     if (pagoId == null) {
       const medio = cobros.find((c) => c.id === plan.registrar!.ids[0])?.medio ?? 'otro';
-      const r = await runWithWorkspace(plataforma, () => registrarPagoSuelto(lead.id, {
+      const base = {
         monto: usd, fecha: diaEnLaZona(plan.registrar!.fecha, zona), mensualidad: lead.suscripcion,
         concepto: conceptoDelPagoDeRecibo(p.numero, p.lineas), metodo: metodoDelMedio(medio),
-      }));
+      };
+      // La moneda en que se cobró (P30, 17/11/2026): una orden en USDT dejaba un pago «en dólares, sin rastro». Si la base todavía no
+      // acepta esa moneda (la mig 0417 sin aplicar: el CHECK de `pagos.moneda`), el pago nace como siempre, sin ella, en vez de perderse.
+      const { moneda, montoOriginal } = plan.registrar;
+      let r: { pagoId: number };
+      try {
+        r = await runWithWorkspace(plataforma, () => registrarPagoSuelto(lead.id, moneda ? { ...base, moneda, montoOriginal } : base));
+      } catch (e) {
+        if (!moneda || !/pagos_moneda_check/.test(msg(e))) throw e;
+        console.warn(`[recibos] recibo ${p.reciboId}: la base no acepta ${moneda} en pagos.moneda (falta la mig 0417); el pago nace sin moneda`);
+        r = await runWithWorkspace(plataforma, () => registrarPagoSuelto(lead.id, base));
+      }
       pagoId = r.pagoId;
     }
     const { error: e4 } = await db().from('recibo_pagos').update({ pago_id: Number(pagoId) }).in('id', plan.registrar.ids).is('pago_id', null);

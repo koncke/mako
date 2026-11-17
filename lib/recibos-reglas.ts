@@ -12,7 +12,7 @@
 // dos ramas (AGENTS.md, «Un cobro pasa por lib/cobros.ts»).
 
 import { CAPACIDADES_PASARELA, esPasarela, type Pasarela } from './cobros-tipos';
-import { formatoMonto } from './pasarela-moneda';
+import { formatoMonto, normalizarMonedaDePago } from './pasarela-moneda';
 import { instanteDe } from './cron-aviso';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -588,11 +588,23 @@ export function problemaDeLosElegidos(ids: readonly number[]): string | null {
 }
 
 /** Un cobro de un recibo, como lo lee lib/recibos.ts para atarlo. */
-export type CobroDelRecibo = { id: number; medio: string; referencia: string; fecha: string; monto_usd: number | null; anulado: boolean; pago_id: number | null };
+export type CobroDelRecibo = { id: number; medio: string; referencia: string; fecha: string; monto_usd: number | null; anulado: boolean; pago_id: number | null; monto?: number | null; moneda?: string | null };
 
 /** La clave de un cobro (`medio:referencia` normalizada): con la que el formulario dice a qué pago del CRM atarlo. */
 export const claveDelCobro = (medio: string, referencia: string): string =>
   `${medio}:${esMedio(medio) ? referenciaNormal(medio, referencia) ?? referencia.trim() : referencia.trim()}`;
+
+/**
+ * La moneda en que se cobró lo que se registra en UN pago del CRM (P30, 17/11/2026: el pago nacía SIN moneda y una orden en USDT quedaba
+ * «en dólares, sin rastro»). Sólo si TODOS los cobros son de una misma moneda que un pago puede guardar y no es el dólar (el dólar es lo
+ * de siempre: null); con monedas mezcladas, o sin el monto cobrado, null y el pago nace como siempre.
+ */
+export function monedaDelPago(cobros: readonly CobroDelRecibo[]): { moneda: string | null; montoOriginal: number | null } {
+  const monedas = new Set(cobros.map((c) => normalizarMonedaDePago(c.moneda ?? null)));
+  const m = [...monedas][0] ?? null;
+  if (monedas.size !== 1 || !m || m === 'USD' || cobros.some((c) => !(Number(c.monto) > 0))) return { moneda: null, montoOriginal: null };
+  return { moneda: m, montoOriginal: Math.round(cobros.reduce((s, c) => s + Number(c.monto), 0) * 100) / 100 };
+}
 
 /**
  * Qué hacer con los cobros de un recibo en el CRM. Los que ya tienen su pago, nada (un reintento no registra dos veces). Los que se
@@ -602,7 +614,7 @@ export const claveDelCobro = (medio: string, referencia: string): string =>
  * registra (`pagos.monto_usd` no admite vacío y nunca se pone una tasa).
  */
 export function planParaElCrm(cobros: readonly CobroDelRecibo[], atar: ReadonlyMap<string, number>):
-  { atar: Array<{ id: number; pagoId: number }>; registrar: { ids: number[]; usd: number | null; fecha: string } | null } {
+  { atar: Array<{ id: number; pagoId: number }>; registrar: { ids: number[]; usd: number | null; fecha: string; moneda: string | null; montoOriginal: number | null } | null } {
   const conPago: Array<{ id: number; pagoId: number }> = [];
   const resto: CobroDelRecibo[] = [];
   for (const c of cobros) {
@@ -614,5 +626,5 @@ export function planParaElCrm(cobros: readonly CobroDelRecibo[], atar: ReadonlyM
   if (!resto.length) return { atar: conPago, registrar: null };
   const usd = resto.some((c) => c.monto_usd == null) ? null : Math.round(resto.reduce((s, c) => s + Number(c.monto_usd), 0) * 100) / 100;
   const fecha = resto.map((c) => c.fecha).sort().at(-1) as string;
-  return { atar: conPago, registrar: { ids: resto.map((c) => c.id), usd, fecha } };
+  return { atar: conPago, registrar: { ids: resto.map((c) => c.id), usd, fecha, ...monedaDelPago(resto) } };
 }

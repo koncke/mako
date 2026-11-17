@@ -24,7 +24,7 @@
 // =============================================================================
 
 import { centavos } from './pagos-diferencia';
-import { formatoMonto, normalizarMoneda } from './pasarela-moneda';
+import { formatoMonto, normalizarMoneda, normalizarMonedaDePago, STABLECOINS_USD } from './pasarela-moneda';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
 import { esCuotaDelPlan, esPlataSuelta, mesesDeUnaCobrada, noEsDeuda, sumarMeses } from './cobrado-lead';
 
@@ -359,13 +359,13 @@ const mismaPlata = (a: number, b: number) => Math.abs(Number(a) - Number(b)) < 0
 /** La moneda que pide una deseada, limpia (null = USD), o undefined si no dice nada de moneda. */
 function monedaPedida(d: CuotaDeseada): MonedaDeCuota | undefined {
   if (d.moneda === undefined) return undefined;
-  const m = normalizarMoneda(d.moneda);
+  const m = normalizarMonedaDePago(d.moneda);
   const original = d.monto_original == null ? null : Number(d.monto_original);
   return m && m !== 'USD' && original != null && Number.isFinite(original) && original > 0
     ? { moneda: m, monto_original: centavos(original) } : { moneda: null, monto_original: null };
 }
 const monedaDe = (q: CuotaExistente): MonedaDeCuota => {
-  const m = normalizarMoneda(q.moneda ?? null);
+  const m = normalizarMonedaDePago(q.moneda ?? null);
   return m && m !== 'USD' && q.monto_original != null ? { moneda: m, monto_original: Number(q.monto_original) } : { moneda: null, monto_original: null };
 };
 
@@ -898,9 +898,10 @@ export function pagoEnMoneda(
 ): Resultado<{ montoUsd: number; moneda: string | null; montoOriginal: number | null }> {
   const pos = (v: unknown): number | null => (v != null && v !== '' && Number.isFinite(Number(v)) && Number(v) > 0 && Number(v) <= MAX_MONTO_USD ? centavos(Number(v)) : null);
   const crudaMoneda = p.moneda == null || p.moneda === '' ? null : p.moneda;
-  const moneda = crudaMoneda == null ? null : normalizarMoneda(crudaMoneda);
-  if (crudaMoneda != null && !moneda) return { ok: false, error: 'Esa moneda no existe (va el código de 3 letras: USD, MXN, ARS…).', faltan: ['moneda'] };
-  const usd = pos(p.montoUsd) ?? pos(opts.montoUsdPorDefecto);
+  const moneda = crudaMoneda == null ? null : normalizarMonedaDePago(crudaMoneda);
+  if (crudaMoneda != null && !moneda) return { ok: false, error: 'Esa moneda no existe (va el código de 3 letras: USD, MXN, ARS…, o USDT/USDC).', faltan: ['moneda'] };
+  // Una stablecoin en dólares (USDT, USDC) vale lo que dice: sus dólares son lo cobrado, sin pedirlos aparte (y sin inventar una tasa).
+  const usd = pos(p.montoUsd) ?? pos(opts.montoUsdPorDefecto) ?? (moneda != null && STABLECOINS_USD.has(moneda) ? pos(p.montoOriginal) : null);
   if (moneda == null || moneda === 'USD') {
     const m = pos(p.montoUsd) ?? pos(p.montoOriginal) ?? pos(opts.montoUsdPorDefecto);
     if (m == null) return { ok: false, error: 'El monto tiene que ser mayor a cero.', faltan: ['monto'] };
@@ -1162,7 +1163,7 @@ const positivo = (v: unknown): number | null =>
 const dmy = (f: string): string => `${f.slice(8, 10)}/${f.slice(5, 7)}/${f.slice(0, 4)}`;
 const diaSiguiente = (f: string): string => new Date(Date.parse(`${f}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
 /** null para dólares: una cuota en USD no lleva moneda (la columna es «null = USD»). */
-export const monedaDeCuota = (m: unknown): string | null => { const n = normalizarMoneda(m == null ? null : String(m)); return n && n !== 'USD' ? n : null; };
+export const monedaDeCuota = (m: unknown): string | null => { const n = normalizarMonedaDePago(m == null ? null : String(m)); return n && n !== 'USD' ? n : null; };
 
 /**
  * Lo que vale una cuota: en dólares, o en otra moneda con su valor en dólares DECLARADO. Sin él se pide, como el pago a mano
@@ -1170,7 +1171,7 @@ export const monedaDeCuota = (m: unknown): string | null => { const n = normaliz
  */
 export function plataDeCuota(p: { monto: unknown; moneda?: unknown; montoUsd?: unknown }): Resultado<{ monto_usd: number; moneda: string | null; monto_original: number | null }> {
   const cruda = p.moneda == null || p.moneda === '' ? null : String(p.moneda);
-  if (cruda != null && !normalizarMoneda(cruda)) return { ok: false, error: 'Esa moneda no existe (va el código de 3 letras: USD, MXN, ARS…).' };
+  if (cruda != null && !normalizarMonedaDePago(cruda)) return { ok: false, error: 'Esa moneda no existe (va el código de 3 letras: USD, MXN, ARS…, o USDT/USDC).' };
   const moneda = monedaDeCuota(cruda);
   const monto = positivo(p.monto);
   if (monto == null) return { ok: false, error: 'El monto tiene que ser mayor a cero.' };
