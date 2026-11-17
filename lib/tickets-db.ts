@@ -27,6 +27,7 @@ import {
   TOPE_AUTOMATICOS_POR_DIA, TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, delegadoQueDecideMartin, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type PersonaDelNegocio, type Prioridad, type TipoTicket, type Triage,
   ESTADOS, PRIORIDADES, emailDelTelefono, esRefDelSistema, esTipo, mismoTelefono, nombreDelActor, planDeLaFicha, sanearContexto, telefonoDelActor, triageAlSumarLaPersona, TOPES,
+  daPorResuelto, frenoDelMensajeDelEquipo, ticketsDelTexto, type TicketNombrado,
 } from './tickets-reglas';
 
 /** El número del dueño que cargó el negocio: la misma clave que `KEY_NUMERO_DUENO` (lib/mako-grupo.ts, lib/mako-bot.ts). */
@@ -466,6 +467,33 @@ export async function ticketsDelNegocioEntre(ws: number, ids: readonly number[])
   const { data, error } = await getSupabaseServer().from(T).select('id').eq('workspace_id', ws).in('id', [...ids]);
   if (error) throw new Error(error.message);
   return new Set((data ?? []).map((f) => Number(f.id)));
+}
+
+/**
+ * De los tickets `ids`, los que existen, con su negocio y su estado de HOY (16/11/2026, lo que WhatsApp dice de un ticket sale de su
+ * estado: lib/tickets-reglas.ts, `frenoDelAvisoDeArreglo` y `frenoDelMensajeDelEquipo`). `soloWs`: sólo los de ese negocio. Si no se
+ * pudo leer, TIRA: quien llama no manda (un «ya quedó» que la Ticketera desmiente es peor que un aviso que se reintenta).
+ */
+export async function ticketsNombrados(ids: readonly number[], soloWs?: number): Promise<TicketNombrado[]> {
+  const unicos = [...new Set(ids.filter((n) => Number.isInteger(n) && n > 0))];
+  if (!unicos.length) return [];
+  let q = getSupabaseServer().from(T).select('id, workspace_id, estado').in('id', unicos);
+  if (soloWs != null) q = q.eq('workspace_id', soloWs);
+  const { data, error } = await q;
+  if (error) throw new Error(`no pude leer los tickets que nombra el mensaje: ${error.message}`);
+  return (data ?? []).map((f) => ({ id: Number(f.id), ws: Number(f.workspace_id), estado: String(f.estado) }));
+}
+
+/**
+ * El freno de un mensaje LIBRE del equipo al grupo del negocio `ws` (lo llama `enviarAlGrupoMaKo`, lib/mako-grupo.ts). Sin tocar la
+ * base si no da nada por resuelto o no nombra ningún ticket, que es casi siempre. Sólo cuenta los tickets de ESE negocio: un «#2» del
+ * texto puede ser el paso 2 de una automatización, y el número de otro negocio no es asunto de este grupo.
+ */
+export async function frenoDelEquipoPorTickets(ws: number, texto: string): Promise<string | null> {
+  if (!daPorResuelto(texto)) return null;
+  const ids = ticketsDelTexto(texto);
+  if (!ids.length) return null;
+  return frenoDelMensajeDelEquipo(texto, ws, await ticketsNombrados(ids, ws));
 }
 
 /**

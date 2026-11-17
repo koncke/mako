@@ -31,6 +31,8 @@ import { anotarEnviadoAlGrupo } from '@/lib/mako-doer-in';
 import {
   claveDelAviso, textoDelAviso, bloqueoDelWs, avisosDelDia, PREFIJO_REGISTRO_AVISO, TOPE_AVISOS_POR_DIA,
 } from '@/lib/aviso-arreglo-reglas';
+import { frenoDelAvisoDeArreglo, ticketsDeLaClave, ticketsDelTexto } from '@/lib/tickets-reglas';
+import { ticketsNombrados } from '@/lib/tickets-db';
 
 export type PedidoAviso = {
   /** El negocio al que le falló. */
@@ -49,7 +51,32 @@ export type PedidoAviso = {
 
 export type ResultadoAviso =
   | { ok: true; id: string; clave: string; texto: string }
-  | { ok: false; motivo: 'invalido' | 'tope' | 'ya-avisado' | 'sin-grupo' | 'envio' | 'base'; detalle: string };
+  | { ok: false; motivo: 'invalido' | 'ticket' | 'tope' | 'ya-avisado' | 'sin-grupo' | 'envio' | 'base'; detalle: string };
+
+/**
+ * ¿Este aviso nombra tickets que no puede dar por arreglados? (16/11/2026, lib/tickets-reglas.ts → `frenoDelAvisoDeArreglo`). Los de
+ * la clave («ticket:30») se buscan en cualquier negocio; los del texto («#75»), sólo entre los de ESTE negocio (un «#2» suelto puede
+ * ser otra cosa). Sin poder leerlos, tira: quien llama no manda.
+ */
+export async function frenoPorTickets(ws: number, clave: string, texto: string): Promise<string | null> {
+  const deLaClave = ticketsDeLaClave(clave);
+  const delTexto = ticketsDelTexto(texto).filter((id) => !deLaClave.includes(id));
+  if (!deLaClave.length && !delTexto.length) return null;
+  const filas = [...await ticketsNombrados(deLaClave), ...(delTexto.length ? await ticketsNombrados(delTexto, ws) : [])];
+  return frenoDelAvisoDeArreglo(ws, deLaClave, filas);
+}
+
+/**
+ * Los tickets ABIERTOS del negocio (lo lee scripts/avisar-arreglo-al-grupo.mts antes de mandar). Un aviso de arreglo que no nombra
+ * ningún ticket puede ser, igual, el de uno abierto: el 10/11 a Leandro le llegó «ya está corregido» de las variantes 4 h antes de
+ * que su #75 se cerrara, con la clave de un commit. El script los muestra y pide decir cuál es (o que no es de ninguno).
+ */
+export async function ticketsAbiertosDelNegocio(ws: number): Promise<Array<{ id: number; titulo: string; estado: string }>> {
+  const { data, error } = await getSupabaseServer().from('tickets').select('id, titulo, estado')
+    .eq('workspace_id', ws).not('estado', 'in', '(resuelto,rechazado,duplicado)').order('id');
+  if (error) throw new Error(`no pude leer los tickets abiertos del ws${ws}: ${error.message}`);
+  return (data ?? []).map((f) => ({ id: Number(f.id), titulo: String(f.titulo ?? ''), estado: String(f.estado) }));
+}
 
 /** El texto final, sin mandar nada: lo usa el script para mostrar qué saldría. */
 export function vistaPrevia(texto: string) {
@@ -65,6 +92,13 @@ export async function avisarArregloAlGrupo(p: PedidoAviso): Promise<ResultadoAvi
   if (!t.ok) return { ok: false, motivo: 'invalido', detalle: t.error };
   if (!(p.prueba ?? '').trim()) return { ok: false, motivo: 'invalido', detalle: 'falta la prueba de que el arreglo está en producción' };
   if (!(p.origen ?? '').trim()) return { ok: false, motivo: 'invalido', detalle: 'falta quién lo manda' };
+  // 1b. LO QUE DICE DE UN TICKET LO DICE SU ESTADO (16/11/2026): un aviso que nombra un ticket de ESTE negocio no sale por acá (su
+  //     aviso sale al cerrarlo, con lo que dice la Ticketera), y uno de otro negocio tiene que estar resuelto. Antes del tope: un
+  //     aviso frenado no le gasta el cupo del día al negocio.
+  let freno: string | null;
+  try { freno = await frenoPorTickets(p.ws, clave, t.texto); }
+  catch (e) { return { ok: false, motivo: 'base', detalle: e instanceof Error ? e.message : String(e) }; }
+  if (freno) return { ok: false, motivo: 'ticket', detalle: freno };
   const key = `${PREFIJO_REGISTRO_AVISO}${clave}`;
 
   return runWithWorkspace(p.ws, async () => {

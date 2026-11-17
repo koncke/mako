@@ -2895,6 +2895,10 @@ envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una acla
   --commit <sha> --texto "…" --origen "<tu chat>"`. Sin `--enviar` no manda nada: prueba la producción y muestra el texto.
   Con `--enviar`, `avisarArregloAlGrupo` (lib/aviso-arreglo.ts) firma «👨‍💻 Desarrollador de MaKo», respeta el tope del
   día, no repite la misma clave y deja el registro en el negocio (`mako.dev.aviso_arreglo.<clave>`).
+- **El arreglo de un TICKET no se avisa por acá** (16/11/2026): se cierra el ticket con la respuesta para el cliente y el
+  aviso sale del cierre, con lo que dice la Ticketera («Un ticket resuelto se CIERRA y se AVISA», más abajo). El script frena
+  una clave o un texto que nombra un ticket de ese negocio, y si el negocio tiene tickets abiertos los muestra y no manda sin
+  `--no-es-de-un-ticket`.
 - **Nunca antes de producción.** El script lo prueba: el commit en `origin/main` Y un despliegue de producción de Vercel
   en «Ready» que lo contiene. «Pushear no es desplegar».
 - **Nunca en el ws1 sin estar seguro** (es de Mauricio, un cliente): `--ws1-seguro` y sólo después de mirar que el
@@ -8070,10 +8074,16 @@ que ya está solucionado».
 - **Lo normal es que se cierre solo:** el hito de la bitácora con `tickets: [n]` llega en el deploy y lib/tickets-cierre.ts lo
   cierra. Lo que quede abierto con el arreglo ya en producción (un ticket que esperaba decisión, uno sin hito) lo cierra el
   Cerebro con `scripts/tickets-cerrar-resueltos.mjs`, sin preguntar.
-- **Cada cierre lleva su aviso al grupo de MaKo del negocio**, con `scripts/avisar-arreglo-al-grupo.mts`: primero sin
-  `--enviar` (prueba que el arreglo está en main y servido en hola-mako.com) y después con `--enviar`. El copy, en español
-  neutro con «tú» (sin voseo: la audiencia es México): qué quedó resuelto y cómo probarlo, sin promesas, en menos de 500
-  caracteres. La firma «Desarrollador de MaKo» la pone el script.
+- **Cada cierre lleva su aviso al grupo de MaKo del negocio, y el aviso SALE DEL CIERRE** (16/11/2026; antes iba aparte, con
+  `scripts/avisar-arreglo-al-grupo.mts`, y un cliente reportó que «no existe una constante entre lo que se dice por WhatsApp y
+  lo que dice la Ticketera»: medido, un «ya quedó» salía horas o días antes del cierre, y el tope de 3 avisos de arreglo por día
+  dejaba tickets resueltos sin una línea en su grupo; docs/hallazgos-ticketera.md). Al cerrar, `avisado_at` queda en null y el
+  cron de tickets le manda a su grupo «Listo: tu ticket #N («título») está resuelto. <respuesta>», lo MISMO que ve en /tickets,
+  a todo cliente y sin tope. Así que **la `respuesta` del cierre ES el copy**: en español neutro con «tú» (sin voseo: la
+  audiencia es México), qué quedó resuelto y cómo probarlo, sin promesas, en menos de 500 caracteres. Un aviso de arreglo que
+  nombra un ticket de ese negocio NO sale (`frenoPorTickets`, lib/aviso-arreglo.ts), y un mensaje libre del equipo que da por
+  resuelto un ticket que la Ticketera tiene abierto tampoco (`enviarAlGrupoMaKo`). Si lo que vas a decir es de un ticket,
+  cerralo; si no lo podés cerrar todavía, no digas que quedó.
 - **«Resuelto» es resuelto PARA EL CLIENTE.** Si se arregló la herramienta pero el dato del cliente sigue mal (el plan de
   pagos de una clienta de Leila, el 28/10), no se cierra: se dice qué falta.
 - **A Martín, un ticket se le nombra por quién y de qué trata** («Leila: no podía adjuntar un documento»), nunca por su número.

@@ -986,3 +986,114 @@ export function planDeLaFicha(p: { capa: string | null; nombreCapa: string; rige
   if (p.rige === false) return `sin cobro de MaKo, sin topes (capa ${p.nombreCapa})`;
   return `? (capa ${p.nombreCapa})`;
 }
+
+// ── LO QUE DICE WHATSAPP SALE DEL MISMO ESTADO QUE VE LA TICKETERA (16/11/2026) ─────────────────────────────────────
+// Un cliente, en un audio a Martín: «no existe una constante entre lo que se dice por WhatsApp y lo que dice la Ticketera… en uno me
+// dice que el problema está abierto o que ya se envió, y por otro lado en WhatsApp me dice que ya se resolvió». Medido ese día en la
+// base (docs/hallazgos-ticketera.md, «WhatsApp y la Ticketera decían cosas distintas»): había DOS puertas por las que WhatsApp daba
+// por resuelto un ticket sin pasar por su estado, y una que callaba un ticket resuelto:
+//   · el aviso de arreglo de un chat (scripts/avisar-arreglo-al-grupo.mts) con su propia clave: «ya está corregido» 4 h antes de que el
+//     ticket pasara a resuelto (#30 y #75 de Leandro);
+//   · un mensaje libre del equipo («el ticket #63 quedó resuelto», dos días antes del cierre);
+//   · y al revés, el TOPE de 3 avisos de arreglo por día y por negocio: el cuarto ticket resuelto del día no se avisaba, y quedaba
+//     marcado «avisado» igual (seis de Leila y dos de Leandro, del 29/10 al 4/11).
+// Ahora la regla es una sola: WhatsApp dice de un ticket lo que dice su estado, y el aviso del cambio de estado le llega a SU grupo.
+
+/** Los tickets que nombra un texto: «#12», «ticket 12», «tickets #31 y #32», «pedido #78». Sin repetir, en orden. */
+export function ticketsDelTexto(texto: string | null | undefined): number[] {
+  const out: number[] = [];
+  const sumar = (n: number) => { if (Number.isInteger(n) && n > 0 && !out.includes(n)) out.push(n); };
+  for (const m of (texto ?? '').matchAll(/#\s*(\d{1,7})(?!\d)/g)) sumar(Number(m[1]));
+  for (const m of (texto ?? '').matchAll(/\b(?:tickets?|pedidos?)\s+(?:n[º°o]\.?\s*)?(\d{1,7})(?!\d)/giu)) sumar(Number(m[1]));
+  return out;
+}
+
+/** Los tickets que nombra la CLAVE de un aviso de arreglo: «ticket:42», «ticket:5-6», «ticket-27-hoja-crm-movil». */
+export function ticketsDeLaClave(clave: string | null | undefined): number[] {
+  const m = /^tickets?[:_-](\d{1,7}(?:[-,]\d{1,7})*)(?!\d)/i.exec((clave ?? '').trim());
+  if (!m) return [];
+  return [...new Set(m[1].split(/[-,]/).map(Number))].filter((n) => Number.isInteger(n) && n > 0);
+}
+
+/**
+ * ¿El texto da algo por resuelto? «está resuelto», «quedó arreglado», «ya está corregido», «ya quedó», «Arreglamos…», «ya anda»,
+ * «Listo:». ⚠️ Es amplio A PROPÓSITO, y por eso sólo frena cuando además nombra un ticket ABIERTO de ese negocio
+ * (`frenoDelMensajeDelEquipo`): «el #63 todavía no quedó resuelto» también frena, y quien lo manda lo dice de otra forma. Un
+ * «resuelto» de más en WhatsApp con la Ticketera diciendo «En curso» es justo lo que el cliente reportó; un mensaje frenado se
+ * reescribe en un minuto.
+ */
+const DA_POR_RESUELTO = /\b(?:resuelt[oa]s?|solucionad[oa]s?|arreglad[oa]s?|corregid[oa]s?|arreglamos|ya\s+qued[oó]|qued[oó]\s+(?:list|hech)[oa]s?|ya\s+(?:anda|funciona)|listo\s*[:,.!])/iu;
+export const daPorResuelto = (texto: string | null | undefined): boolean => DA_POR_RESUELTO.test(texto ?? '');
+
+/** Un ticket nombrado, como lo lee el código: de qué negocio es y en qué estado está HOY. */
+export type TicketNombrado = { id: number; ws: number; estado: string };
+
+const listaDeTickets = (ts: readonly TicketNombrado[]): string =>
+  ts.map((t) => `#${t.id} («${ROTULO_ESTADO_CLIENTE[estadoParaElCliente(t.estado as EstadoTicket)] ?? t.estado}» en la Ticketera)`).join(', ');
+
+/**
+ * ¿Puede salir un mensaje LIBRE del equipo (un chat, un script) al grupo del negocio `ws`? Si da algo por resuelto y nombra tickets
+ * de ESE negocio (`nombrados` trae ésos), cada uno tiene que estar resuelto. El motivo para no mandarlo, o null.
+ * Los avisos que salen del propio ticket (`avisarPendientes`, atados con `{ de: 'equipo', ticket }`) no pasan por acá: ésos ya son
+ * su estado.
+ */
+export function frenoDelMensajeDelEquipo(texto: string, ws: number, nombrados: readonly TicketNombrado[]): string | null {
+  if (!daPorResuelto(texto)) return null;
+  const abiertos = nombrados.filter((t) => Number(t.ws) === Number(ws) && t.estado !== 'resuelto');
+  if (!abiertos.length) return null;
+  return `el mensaje da por resuelto ${listaDeTickets(abiertos)}: el cliente leería una cosa en WhatsApp y otra en la Ticketera. `
+    + 'Si está resuelto, ciérralo (scripts/tickets-cerrar-resueltos.mjs, con tu texto como respuesta): su aviso sale solo, con lo mismo. '
+    + 'Si no, dilo sin darlo por resuelto.';
+}
+
+/**
+ * ¿Puede salir un AVISO DE ARREGLO («ya quedó arreglado», lib/aviso-arreglo.ts) que nombra tickets? `deLaClave`: los que nombra su
+ * clave (de cualquier negocio); `filas`: los que se encontraron, los de la clave y los del texto que son de ESTE negocio.
+ *  · un ticket de ESTE negocio no se avisa por acá: su aviso sale al CERRARLO (`avisarPendientes`), con lo que dice la Ticketera.
+ *    Por acá sería un segundo aviso, o uno que la Ticketera desmiente (el #30 y el #75 de Leandro);
+ *  · uno de OTRO negocio (el cron, a los negocios que vieron el mismo error) tiene que estar resuelto;
+ *  · una clave que nombra un ticket que no existe, no sale.
+ */
+export function frenoDelAvisoDeArreglo(ws: number, deLaClave: readonly number[], filas: readonly TicketNombrado[]): string | null {
+  const falta = deLaClave.find((id) => !filas.some((f) => Number(f.id) === id));
+  if (falta != null) return `la clave nombra el ticket #${falta}, que no existe`;
+  const propios = filas.filter((f) => Number(f.ws) === Number(ws));
+  if (propios.length) {
+    return `${listaDeTickets(propios)} es de este negocio: su aviso sale solo al cerrarlo, con lo mismo que dice la Ticketera `
+      + '(scripts/tickets-cerrar-resueltos.mjs, con tu texto como respuesta). Por acá sería un segundo aviso, o uno que la Ticketera desmiente.';
+  }
+  const abiertos = filas.filter((f) => f.estado !== 'resuelto');
+  if (abiertos.length) return `${listaDeTickets(abiertos)} todavía no está resuelto: un «ya quedó» por WhatsApp lo desmentiría la Ticketera`;
+  return null;
+}
+
+/**
+ * ¿El cambio de estado de un ticket le debe un aviso a SU grupo de WhatsApp? A todo negocio CLIENTE, lo haya levantado por donde lo
+ * haya levantado (Martín, 28/10/2026: «siempre envía mensaje al grupo avisando»); a la plataforma (los tickets de Martín), sólo si lo
+ * levantó por WhatsApp. Sin saber cuál es la plataforma (`null`), se avisa: a lo sumo le llega a Martín, a su propio grupo.
+ * Hasta el 16/11 sólo lo recibían los levantados por WhatsApp y, por la vía libre, los de Leandro, Leila y Mauricio con su hito
+ * desplegado (con el tope de 3 por día); los demás clientes veían «Resuelto» en la Ticketera y nada en su grupo.
+ */
+export function avisaEnSuGrupo(t: { workspace_id: number | string; canal: string | null }, wsPlataforma: number | null): boolean {
+  if (t.canal === 'whatsapp') return true;
+  return wsPlataforma == null || Number(t.workspace_id) !== wsPlataforma;
+}
+
+/** Cuántas horas se reintenta el aviso al grupo de un ticket antes de darlo por perdido (y anotarlo en su historial). */
+export const HORAS_REINTENTO_GRUPO = 24;
+
+/**
+ * Qué hacer con el aviso al grupo de un ticket según lo que contestó el envío (`enviarAlGrupoMaKo`, lib/mako-grupo.ts):
+ *  · salió (por WhatsApp o en el hilo de la app) → `salio`;
+ *  · el negocio no tiene grupo → `sin_grupo` (no se le debe nada por ahí);
+ *  · falló → `reintentar` (el ticket NO queda avisado y el cron lo vuelve a probar en 15 minutos) hasta `HORAS_REINTENTO_GRUPO`
+ *    después del cambio de estado; pasado eso, `perdido`: se avisa por lo demás y el historial dice que el WhatsApp no salió.
+ * ⚠️ Lo que NO existe acá es un «no salió, pero contalo como avisado»: el tope de 3 por día hacía exactamente eso.
+ */
+export type DestinoDelAvisoAlGrupo = 'salio' | 'sin_grupo' | 'reintentar' | 'perdido';
+export function destinoDelAvisoAlGrupo(r: { ok: boolean; sinGrupo?: boolean }, cambioMs: number, ahoraMs: number): DestinoDelAvisoAlGrupo {
+  if (r.ok) return 'salio';
+  if (r.sinGrupo) return 'sin_grupo';
+  if (!Number.isFinite(cambioMs)) return 'reintentar';
+  return ahoraMs - cambioMs < HORAS_REINTENTO_GRUPO * 3600_000 ? 'reintentar' : 'perdido';
+}

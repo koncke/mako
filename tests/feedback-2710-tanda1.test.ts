@@ -16,7 +16,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { APROBADOS_POR_REGLA, aprobadoPorRegla, clasificar, estimaMasDeUnDia, reglaDelNegocio, sanearContexto, type EntradaTriage } from '../lib/tickets-reglas';
+import { APROBADOS_POR_REGLA, aprobadoPorRegla, avisaEnSuGrupo, clasificar, estimaMasDeUnDia, reglaDelNegocio, sanearContexto, type EntradaTriage } from '../lib/tickets-reglas';
 import { AVISO_CHROME } from '../lib/ia-pc-reglas';
 import { ERROR_SUBIDA, porQueFallo } from '../app/admin/operaciones/leer-adjunto';
 
@@ -32,7 +32,10 @@ test('1. Leila tiene la vía libre, pero lo que el triage estima en más de un d
   assert.deepEqual(reglaDelNegocio(1), { nombre: 'Mauricio' });
   assert.equal(clasificar(e('Quiero que el CRM se integre con HubSpot'), { aprobadoPorRegla: 'Mauricio', hastaUnDia: reglaDelNegocio(1)?.hastaUnDia }).autoArreglo, true);
   assert.equal(clasificar(e('No me deja cobrar con tarjeta'), { aprobadoPorRegla: 'Mauricio' }).autoArreglo, false, 'lo delicado salió sin Martín');
-  assert.match(leer('lib/tickets-cierre.ts'), /ws1Seguro: ws === 1 \}\);/, 'su aviso no llega a su grupo: el ws 1 está protegido');
+  // Su aviso llega a su grupo (16/11/2026: por el aviso de SU ticket, `enviarAlGrupoMaKo`, que no tiene el freno del ws1 de los
+  // avisos de arreglo que se arman solos; antes, `ws1Seguro: ws === 1` en `avisarArregloAlGrupo`).
+  assert.equal(avisaEnSuGrupo({ workspace_id: 1, canal: 'chat_app' }, 9), true, 'su aviso no llega a su grupo');
+  assert.match(leer('lib/tickets-cierre.ts'), /enviarAlGrupoMaKo\(ws, sanearSalida\(texto, \{ corrioHerramientas: true \}\)\.texto, \{ de: 'equipo', ticket: Number\(f\.id\) \}\)/, 'su aviso no llega a su grupo');
   assert.deepEqual(reglaDelNegocio(11), { nombre: 'Leila', hastaUnDia: true });
   assert.equal(reglaDelNegocio(10)?.hastaUnDia, undefined, 'Leandro: el 100%');
   const chico = clasificar(e('Quiero que el botón de exportar diga «Descargar»'), { aprobadoPorRegla: 'Leila', hastaUnDia: true });

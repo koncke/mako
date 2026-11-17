@@ -15,7 +15,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { aprobadoPorRegla, clasificar, estadoInicial, leerTriage, sanearContexto, type EntradaTriage } from '../lib/tickets-reglas';
+import { aprobadoPorRegla, avisaEnSuGrupo, clasificar, estadoInicial, leerTriage, sanearContexto, type EntradaTriage } from '../lib/tickets-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (p: string) => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
@@ -66,12 +66,19 @@ test('3. la marca se guarda y se ve; el alta la toma del negocio', () => {
   assert.match(leer('scripts/tickets.ts'), /APROBADO POR REGLA \(\$\{triage\.regla\}\)[\s\S]*?NO lo reclasifiques/, 'el Cerebro no sabe que no lo devuelva');
 });
 
-test('4. desplegado, el aviso va a su grupo por el camino del equipo, con la prueba del hito', () => {
+// 16/11/2026: el aviso de la vía libre iba por `avisarArregloAlGrupo` y con el hito desplegado, con el tope de 3 por día: seis tickets
+// de Leila y dos de Leandro quedaron «Resuelto» sin una línea en su grupo. Ahora es el aviso de todo cliente, el MISMO cambio de
+// estado con el texto de la Ticketera (tests/ticketera-whatsapp-coherente.test.ts lo fija entero); acá, que la vía libre lo recibe.
+test('4. resuelto, el aviso va a su grupo con el texto de la Ticketera, sin el tope de los avisos de arreglo', () => {
+  for (const ws of [1, 10, 11]) {
+    assert.ok(aprobadoPorRegla(ws));
+    for (const canal of ['chat_app', 'chat_movil', 'formulario', 'whatsapp', 'sistema']) {
+      assert.equal(avisaEnSuGrupo({ workspace_id: ws, canal }, 9), true, `el ticket de ws${ws} por ${canal} no se avisa en su grupo`);
+    }
+  }
   const cierre = sinComentarios(leer('lib/tickets-cierre.ts'));
-  const bloque = cierre.slice(cierre.indexOf('if (aprobadoPorRegla(ws)'));
-  assert.ok(bloque.length > 20, 'el cierre no mira la regla');
-  assert.match(bloque, /f\.canal !== 'whatsapp' && f\.estado === 'resuelto'\) \{\s*const hito = desplegados\.get\(f\.id\)/, 'sin la prueba del despliegue, o repetido por WhatsApp');
-  assert.match(bloque, /avisarArregloAlGrupo\(\{ ws, clave: `ticket:\$\{f\.id\}`, texto: textoArregloAlGrupo\(f\), prueba, origen: 'ticketera', ws1Seguro: ws === 1 \}\)/);
+  assert.doesNotMatch(cierre, /if \(aprobadoPorRegla\(ws\)/, 'la vía libre volvió a tener su aviso aparte (con el tope del día)');
+  assert.doesNotMatch(cierre, /avisarArregloAlGrupo\(\{ ws, /, 'el aviso de SU ticket va otra vez por el aviso de arreglo, con su tope de 3 por día');
 });
 
 // PROBADO ROMPIÉNDOLO (26/10/2026, base 4/0): la regla ignorada → 3 rojos (1, 2 y 3); sin mirar lo delicado → 1 rojo (2); sin lo que

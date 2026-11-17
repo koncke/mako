@@ -4,6 +4,68 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## WhatsApp y la Ticketera decían cosas distintas (16/11/2026, claude2)
+
+**El síntoma:** un cliente, en un audio a Martín: «no existe una constante entre lo que se dice por WhatsApp y lo que dice la
+Ticketera… en uno me dice que el problema está abierto o que ya se envió, y por otro lado en WhatsApp me dice que ya se resolvió.
+Pero hay otras cosas en la Ticketera que me dicen que ya se resolvió y no se resolvió».
+
+**El diagnóstico obvio era el equivocado: «la RAM y el Runner».** Así lo explicó Martín en el mismo audio (los tickets esperan
+porque la PC no da abasto). Eso explica la DEMORA, no la contradicción. Medido en la base (sólo lectura: `tickets`,
+`ticket_eventos`, `grupo_mensajes`, `mako_doer_conv` y el registro `mako.dev.aviso_arreglo.*` de `app_settings`; 101 tickets, 65
+avisos de arreglo), WhatsApp hablaba de un ticket por caminos que no pasaban por su estado:
+
+1. **Un «ya quedó» antes del cierre, por dos puertas.** El aviso de arreglo de un chat (scripts/avisar-arreglo-al-grupo.mts) con
+   su propia clave: «Sí, quedó en la documentación» por `ticket:30` 4 h antes de que el #30 se cerrara; «Ya está corregido» de
+   las variantes con la clave de un COMMIT 4 h antes que el #75 (los dos de Leandro). Y un mensaje libre del equipo, «el ticket
+   #63 quedó resuelto», dos días antes del cierre. La regla de AGENTS.md (28/10) lo pedía así: cerrar con un script y avisar
+   con OTRO. Dos pasos sueltos se desfasan.
+2. **Al revés: un ticket «Resuelto» sin una línea en su grupo, y marcado «avisado».** El aviso de la vía libre (Leandro, Leila,
+   Mauricio) iba por `avisarArregloAlGrupo`, que tiene un TOPE de 3 avisos por día y por negocio. El cuarto ticket resuelto del
+   día volvía con `motivo: 'tope'`, se logueaba, y `avisarUno` marcaba `avisado_at` igual (por el «tickets» del chat sin hilo):
+   seis de Leila (#21, #31, #32, #45, #52, #53) y dos de Leandro (#17, #19), del 29/10 al 4/11, nunca se avisaron. Y los clientes
+   SIN la vía libre (Código Inmobiliario, Brigitte, Giselle, Natalia, Marcela, Sellers) no recibían nada en su grupo por un
+   ticket del chat o del formulario: 19 resueltos sin una línea por WhatsApp (los mensajes libres de antes del 4/11 no quedaron
+   registrados, así que puede haber alguno más que sí se avisó a mano).
+3. **La Ticketera atrasada:** el pedido de Mauricio de los 22 correos de Sprint (#78) seguía en «Recibido» el 16/11, con el
+   trabajo hecho y contado en su grupo el 11/11. El equipo lo trabajó por mensajes libres y nadie movió el estado.
+
+MaKo en el grupo NO era la causa: lee el estado del ticket (`bloqueDePedidos`), y en `mako_doer_conv` no hubo ni un «resuelto»
+antes del cierre.
+
+**Regla (lib/tickets-reglas.ts, «LO QUE DICE WHATSAPP SALE DEL MISMO ESTADO»):** lo que WhatsApp dice de un ticket lo dice su
+estado, y el aviso de cada cambio de estado le llega a SU grupo.
+- **El aviso sale del cierre:** `avisarUno` (lib/tickets-cierre.ts) le manda a su grupo `textoDelAviso` —el estado y la respuesta
+  que ve en /tickets— a todo negocio cliente, lo haya levantado por donde lo haya levantado (`avisaEnSuGrupo`; la plataforma,
+  sólo por WhatsApp). Sin tope. Va PRIMERO: si falla, el ticket no queda avisado y se reintenta entero (no se repiten el push
+  ni el chat) por 24 h; después sale por lo demás y el historial dice que el WhatsApp no salió (`destinoDelAvisoAlGrupo`).
+- **Nada da por resuelto un ticket abierto:** `avisarArregloAlGrupo` frena un aviso cuya clave o texto nombra un ticket del
+  MISMO negocio (su aviso es el del cierre) y uno de otro negocio que no esté resuelto (`frenoDelAvisoDeArreglo`);
+  `enviarAlGrupoMaKo` frena un mensaje libre del equipo (o firmado por el equipo) que da por resuelto un ticket abierto de ese
+  negocio (`frenoDelMensajeDelEquipo`). Lo atado a su ticket (`{ de: 'equipo', ticket }`) no pasa por ese freno: ya es su
+  estado. Sin poder leer los tickets, no sale.
+- **El script de los chats pregunta:** si el negocio tiene tickets abiertos, `avisar-arreglo-al-grupo.mts` los muestra y no
+  manda sin `--no-es-de-un-ticket` (el #75 venía con la clave de un commit y sin el número).
+- Lo fija tests/ticketera-whatsapp-coherente.test.ts, probado con nueve roturas (una por guarda, 1 fallo cada una).
+
+⚠️ **El freno del mensaje libre es por PALABRAS** («resuelto», «quedó», «arreglamos», «ya anda», «corregido»…) y frena también
+«el #63 todavía no quedó resuelto». Es a propósito (un «resuelto» de más es lo que el cliente reportó; uno frenado se reescribe),
+pero un mensaje que da algo por resuelto SIN nombrar el número no lo frena nadie fuera del script.
+
+**Reparado ese día:** el #78 de Mauricio pasó a resuelto con lo que ya le habían contado en su grupo, sin un aviso nuevo (detalle
+en la nota del ticket). **No reparado a propósito:** los 19 resueltos sin línea en su grupo son del 29/10 al 13/11 y la Ticketera
+los dice bien; un «Listo» dos semanas tarde, de algo que quizás tampoco quedó bien para el cliente (la otra mitad de la queja),
+haría más ruido que bien. Si se manda, que sea UNO por negocio.
+
+**Sin hacer (y dónde vive):**
+- El texto del cierre por hito es el TÍTULO del hito, escrito para la bitácora (`cerrarLosDesplegados`, lib/tickets-cierre.ts):
+  a Marcela le llegó el 16/11 «Ya está arreglado: Un candado que todavía no se instaló no frena nada: fallar cerrado apagó el
+  grupo de un cliente» (#105). Falta un campo del hito para el cliente (app/admin/dev/_registro/tipos.ts).
+- Un pedido delegado que el equipo trabaja por el grupo no pasa solo a «En curso» (#78). Y el #77 de Giselle (una nota a un
+  lead) espera desde el 10/11: «no llegó al Cerebro: el chat destino está cerrado».
+
+---
+
 ## La marca `[[no-pude: …]]` larga le llegaba entera al cliente, y sin ticket (13/11/2026, claude5)
 
 **El síntoma:** el 4/11 Natalia (ws19) le pidió a MaKo, en el grupo de la APP, la lista de leads de una campaña. La respuesta terminó

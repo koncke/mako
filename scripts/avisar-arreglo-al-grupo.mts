@@ -3,9 +3,16 @@
 // =============================================================================
 // Uso (desde un worktree, con el .env.local del clon, que es PRODUCCIÓN):
 //   NODE_OPTIONS=--conditions=react-server npx tsx scripts/avisar-arreglo-al-grupo.mts --ws 13 --clave conv:12345 --commit 618c79c45 \
-//       --texto "Ya quedó arreglado: …" --origen "MaKo en WhatsApp" [--ws1-seguro] [--enviar]
+//       --texto "Ya quedó arreglado: …" --origen "MaKo en WhatsApp" [--ws1-seguro] [--no-es-de-un-ticket] [--enviar]
 //
 // SIN `--enviar` NO MANDA NADA: prueba la producción y muestra el texto que saldría. Así se mira antes de mandar.
+//
+// ⚠️ EL ARREGLO DE UN TICKET NO SE AVISA POR ACÁ (16/11/2026, docs/hallazgos-ticketera.md, «WhatsApp y la Ticketera decían cosas
+// distintas»). Se CIERRA el ticket (scripts/tickets-cerrar-resueltos.mjs, con el texto para el cliente como `respuesta`) y el cron le
+// avisa en su grupo con lo mismo que dice /tickets. Este script lo hace cumplir:
+//   · una clave o un texto que nombra un ticket de ESE negocio no sale (lib/aviso-arreglo.ts → `frenoPorTickets`);
+//   · si el negocio tiene tickets ABIERTOS, los muestra y no manda hasta que digas que no es de ninguno (`--no-es-de-un-ticket`). El
+//     10/11 a Leandro le llegó «ya está corregido» de las variantes, con la clave de un commit, 4 h antes de que su #75 se cerrara.
 //
 // Qué prueba, antes de llamar a lib/aviso-arreglo.ts (que reserva, manda, registra y no repite):
 //   1. que `--commit` esté en `origin/main` (`git merge-base --is-ancestor`, después de un fetch): main sólo avanza
@@ -105,10 +112,19 @@ function pruebaDeProduccion(): string | null {
 const imp = (rel: string) => import(pathToFileURL(path.join(REPO, rel)).href);
 const dotenv = await imp('node_modules/dotenv/lib/main.js');
 (dotenv.default ?? dotenv).config({ path: ENV, quiet: true });
-const { vistaPrevia, avisarArregloAlGrupo } = await imp('lib/aviso-arreglo.ts');
+const { vistaPrevia, avisarArregloAlGrupo, frenoPorTickets, ticketsAbiertosDelNegocio } = await imp('lib/aviso-arreglo.ts');
 
 const vista = vistaPrevia(texto) as { ok: true; texto: string } | { ok: false; error: string };
 if (!vista.ok) { console.error(`NO: ${vista.error}`); process.exit(2); }
+// Lo que dice de un ticket lo dice su estado: antes de mirar Vercel, que tarda.
+const freno = (await frenoPorTickets(ws, clave, vista.texto)) as string | null;
+if (freno) { console.error(`NO: ${freno}`); process.exit(2); }
+const abiertos = (await ticketsAbiertosDelNegocio(ws)) as Array<{ id: number; titulo: string; estado: string }>;
+if (abiertos.length && !flag('--no-es-de-un-ticket')) {
+  console.error(`NO: el ws${ws} tiene ${abiertos.length} ticket(s) abierto(s). Si el aviso es de uno, ciérralo con scripts/tickets-cerrar-resueltos.mjs (tu texto va como respuesta) y su aviso sale solo, con lo mismo que dice la Ticketera. Si no es de ninguno, vuelve a correrlo con --no-es-de-un-ticket.`);
+  for (const t of abiertos) console.error(`  #${t.id} (${t.estado}) ${t.titulo.slice(0, 100)}`);
+  process.exit(2);
+}
 const prueba = pruebaDeProduccion();
 if (!prueba) process.exit(2);
 console.log(`Prueba: ${prueba}\n\nSaldría al grupo de MaKo del ws${ws}:\n${vista.texto}\n`);

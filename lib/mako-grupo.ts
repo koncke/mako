@@ -35,6 +35,7 @@ import { respondiendoA } from './respuesta-en-curso';
 import { antesDeEscribir, trasEscribir } from './linea-freno';
 import { tituloDelGrupo } from './grupo-reglas';
 import { cartelParaLaApp, esClaveDeLaApp, esIdDeLaApp, idDeLaApp, salidaPara, wsDeClaveDeLaApp } from './grupo-salida';
+import { esFirmaDelEquipo } from './aviso-arreglo-reglas';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -1116,6 +1117,20 @@ export async function enviarAlGrupoMaKo(ws: number, texto0: string, memoria: Mem
   // lib/links-con-ws.ts): quien lo abre mirando otra cuenta llega al lead correcto. Uno que ya trae su `ws` no se toca.
   const texto = linksConWs(texto0, ws, APP_BASE_URL);
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
+  // ⚠️ UN MENSAJE DEL EQUIPO NO DA POR RESUELTO UN TICKET QUE LA TICKETERA TIENE ABIERTO (16/11/2026; lib/tickets-reglas.ts,
+  // `frenoDelMensajeDelEquipo`). «Leandro, el ticket #63 quedó resuelto» salió dos días antes de que el #63 se cerrara, y el cliente
+  // leía una cosa en su grupo y otra en /tickets. Lo libre del equipo (un chat, un script, el aviso de un arreglo; lo firmado por el
+  // equipo aunque llegue sin memoria) pasa por acá. Lo ATADO a su ticket (`{ de: 'equipo', ticket }`) no: lo arma el código desde
+  // el estado del ticket (lib/tickets-cierre.ts). Sin poder leer los tickets que nombra, no sale.
+  const atadoASuTicket = memoria !== null && typeof memoria === 'object';
+  if (!atadoASuTicket && (memoria === 'equipo' || esFirmaDelEquipo(texto))) {
+    const { frenoDelEquipoPorTickets } = await import('./tickets-db');
+    const freno = await frenoDelEquipoPorTickets(ws, texto).catch((e: unknown) => (e instanceof Error ? e.message : String(e)));
+    if (freno) {
+      console.error(`[mako-grupo] ws${ws}: no mandé un mensaje del equipo: ${freno}`);
+      return { ok: false, error: freno };
+    }
+  }
   const app = memoria === null ? null : await grupoApp();
   const copia = app ? await app.copiarAlGrupo(ws, { texto, de: memoria === 'mako' ? 'mako' : 'equipo' }) : null;
   const r = await enviarPorWhatsApp(ws, texto, memoria);

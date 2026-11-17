@@ -279,4 +279,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/tickets/bandeja',
   },
+  {
+    fecha: '16 nov', hora: '22:40', chat: 'Ticketera y WhatsApp', sesion: 'local_1e95160e-e54d-449b-a0b3-8654434f1449', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Lo que WhatsApp dice de un ticket sale del mismo cambio de estado que ve la Ticketera',
+    puntos: [
+      '**El feedback de un cliente (16/11):** «no existe una constante entre lo que se dice por WhatsApp y lo que dice la Ticketera… en uno me dice que el problema está abierto o que ya se envió, y por otro lado en WhatsApp me dice que ya se resolvió».',
+      '**Lo obvio (la RAM y el Runner) explicaba la demora, no la contradicción.** Medido en la base: un «ya quedó» salía por el aviso de arreglo de un chat o por un mensaje libre, horas o días antes del cierre; y al revés, el tope de 3 avisos de arreglo por día dejó ocho tickets de Leila y Leandro resueltos sin una línea en su grupo, marcados «avisado».',
+      '**Ahora el aviso sale del cierre:** a todo cliente, en su grupo, sin tope y con el texto que ve en /tickets; si no sale, el ticket no queda avisado y se reintenta. Un aviso de arreglo o un mensaje del equipo que da por resuelto un ticket abierto no sale.',
+      '**Reparado:** el pedido de los 22 correos de Mauricio, que seguía en «Recibido» con el trabajo hecho y contado en su grupo.',
+    ],
+    archivos: [
+      'lib/tickets-reglas.ts — «LO QUE DICE WHATSAPP SALE DEL MISMO ESTADO»: `avisaEnSuGrupo`, `destinoDelAvisoAlGrupo`, `frenoDelAvisoDeArreglo`, `frenoDelMensajeDelEquipo`',
+      'lib/tickets-cierre.ts — `avisarUno`: su grupo primero, sin el aviso de arreglo; lib/tickets-db.ts — `ticketsNombrados`, `frenoDelEquipoPorTickets`',
+      'lib/aviso-arreglo.ts — `frenoPorTickets` antes del tope; lib/mako-grupo.ts — el freno en `enviarAlGrupoMaKo`',
+      'scripts/avisar-arreglo-al-grupo.mts — muestra los tickets abiertos (`--no-es-de-un-ticket`); scripts/tickets-cerrar-resueltos.mjs — la respuesta ES el aviso',
+      'tests/ticketera-whatsapp-coherente.test.ts — con los casos medidos; probado con nueve roturas',
+      'AGENTS.md — la regla del 28/10, corregida · docs/hallazgos-ticketera.md',
+    ],
+    revisar: '/tickets/bandeja',
+  },
 ];

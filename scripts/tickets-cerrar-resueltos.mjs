@@ -2,7 +2,12 @@
 // Martín, 28/10/2026, en el chat del Cerebro: «Si ya están resueltos siempre ciérralos, no me preguntes y siempre envía
 // mensaje al grupo avisando con un buen copy que ya está solucionado».
 // Compare-and-set sobre el estado (sólo cierra si sigue en el estado que se leyó), deja la respuesta que ve el cliente en
-// /tickets y una nota del Cerebro en el historial. El aviso al grupo va aparte (scripts/avisar-arreglo-al-grupo.mts).
+// /tickets y una nota del Cerebro en el historial.
+// ⚠️ EL AVISO AL GRUPO SALE DE ESTE CIERRE, NO VA APARTE (16/11/2026, docs/hallazgos-ticketera.md, «WhatsApp y la Ticketera decían
+// cosas distintas»). `avisado_at: null` deja que el cron de tickets (cada 15 minutos, lib/tickets-cierre.ts) le mande a su grupo
+// «Listo: tu ticket #N («título») está resuelto. <respuesta>»: lo MISMO que ve en /tickets. La `respuesta` es el copy para el cliente
+// (español neutro con «tú», qué quedó y cómo probarlo, sin promesas). Un «ya quedó» aparte por scripts/avisar-arreglo-al-grupo.mts lo
+// frena lib/aviso-arreglo.ts: sería un segundo aviso, o uno que la Ticketera desmiente.
 // Uso: node scripts/tickets-cerrar-resueltos.mjs <.env.local> <archivo.json con [{ id, respuesta, nota, hecho? }]>
 // ⚠️ UN PEDIDO DELEGADO NO SE CIERRA COMO «RESUELTO» SI NO SE HIZO (ticket #80, 10/11/2026). Su aviso es un «Listo: ya quedó tu pedido
 // #n» FIJO (lib/tickets-reglas.ts, `textoDelAviso`): la `respuesta` NO viaja. Así le llegó a Leandro que el recurso se les mandó a dos
