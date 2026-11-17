@@ -11,7 +11,7 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 **Vive en:** `lib/agencia-mes-reglas.ts` (`CicloPropio`, `inicioDelCiclo`, `diaLimite`, `mesQueSeAvisa`, `cuentaDelMes`, `tablaDelMes` y los textos,
 todos con un `ciclo` opcional), `lib/agencia-mes.ts` (`mensualidadDeAgencia`, `prenderMensualidad`, la corrida del día, el recibo),
 `lib/admin-ingresos-libro.ts` (Revenue) y `scripts/mensualidad-ciclo-propio.mts` (para prenderla). Test: `tests/mensualidad-ciclo-propio.test.ts`
-(19 casos, 9 de ellos EJECUTAN la corrida, el pago y el recibo con una base de mentira; probado rompiéndolo 16 veces, las 16 las ve).
+(19 casos, 9 de ellos EJECUTAN la corrida, el pago y el recibo con una base de mentira; probado rompiéndolo 18 veces, las 18 las ve).
 
 - **El pedido (Martín, 17/11):** «el mismo proceso que tenemos con Código Inmobiliario que le cobramos por Binance, pero para Leila […] con ella
   no vamos a cobrarle del 1 al 5, sino que como no tiene clientes, es la fecha que pagó, la misma fecha pero al siguiente mes».
@@ -38,23 +38,25 @@ todos con un `ciclo` opcional), `lib/agencia-mes.ts` (`mensualidadDeAgencia`, `p
   se le avisaba y, si nadie lo aplicaba, se le pausaba pagada. Ahora el ciclo que arranca dentro de 5 días (`DIAS_DE_ADELANTO_CICLO_PROPIO`) ya es lo que se debe: el pago
   se aplica solo, y el 26 no sale el aviso (queda «pagado»). Lo que revisó y NO encontró: ningún cambio para una agencia sin `cicloPropio`, y los bordes (día 29/30/31,
   febrero, diciembre→enero, 2028) simulados para los 31 días de 26 meses, sin una violación.
-- ⚠️ **DECISIÓN MÍA QUE MARTÍN TIENE QUE CONFIRMAR: el plazo y la pausa.** Martín dijo «sin pagar en la fecha, pasa lo mismo que con Código». Código tiene
-  5 días (del 1 al 5) y el día 6 se pausa. Como el aviso de Leila sale el día que arranca, le di la misma ventana: **el aviso y 4 días más
-  (`DIAS_DE_GRACIA_CICLO_PROPIO` = 4), y al sexto día sin el total se pausa su cuenta** y se le avisa a Martín. Para el 26/11: se paga hasta el
-  **30/11** y se pausa el **1/12**. Medido en la base no hay nada de Leila que choque, pero **la pausa le corta TODA su cuenta de MaKo** (su plata está
-  muy ajustada, memoria del 26/10): si Martín prefiere no pausarla sola y que sólo le avise a él, se cambia en `quienVaEnPausa` (una condición).
+- ⚠️ **EL PLAZO Y LA PAUSA, DECIDIDOS POR MARTÍN (17/11):** «Leila se debería pausar el día siguiente en caso de que no pague y ahí avisarle por WhatsApp,
+  evidentemente». Mi primera lectura de «pasa lo mismo que con Código» era la ventana de 5 días (del 1 al 5) y la pausa al sexto: **no es eso**. Con Leila
+  **no hay días de gracia** (`DIAS_DE_GRACIA_CICLO_PROPIO` = 0): se paga el mismo día que arranca el ciclo (el **26/11**) y, sin el pago, **el 27/11 se pausa su
+  cuenta** y se le avisa a su grupo de MaKo, **con el PDF**, que quedó en pausa porque falta el pago, cuánto son y cómo pagar (por Binance); a Martín también. Por
+  eso el aviso del mes sale UN solo día (el que arranca): si ese día el cron no corre, no hay aviso, no hay pausa (la pausa exige que el aviso haya salido) y
+  Martín igual se entera el día siguiente por el aviso de impago. El pago adelantado de hasta 5 días antes sigue igual. **La pausa le corta TODA su cuenta**
+  (su plata está muy ajustada, memoria del 26/10): lo sabe Martín y lo quiso así.
 - **No está prendida.** La config de la cuenta 11 se escribe con `scripts/mensualidad-ciclo-propio.mts … --aplicar` **después del deploy** (antes, la
   corrida diaria la vería como «no es Agency»: un error por día, sin efecto) y **con el sí de Martín** (desde que está prendida MaKo le escribe a su
   grupo y, sin pago, le pausa la cuenta). La herramienta de MaKo `prender_mensualidad_agencia` NO sabe de ciclo propio: sólo el script.
 - **Probado ejecutándolo, con envíos de mentira, no con uno real.** Sin la config: el 20/11 no manda nada. El 26/11 sale UN aviso con el PDF (`%PDF`,
-  «Mensualidad de noviembre.pdf»), repetirlo o el 27/11 no lo manda otra vez. El 30/11 sigue activa; el 1/12 se pausa UNA vez (corte `paga-para-entrar`
-  con `rol: 'agencia'` sobre sí misma, que es el que dice «La mensualidad de MaKo no entró…») y se avisa al grupo y a Martín una sola vez. Pagada con una orden
+  «Mensualidad de noviembre.pdf») y repetir la corrida no lo manda otra vez. El 26/11 sigue activa; el 27/11 se pausa UNA vez (corte `paga-para-entrar`
+  con `rol: 'agencia'` sobre sí misma, que es el que dice «La mensualidad de MaKo no entró…») y se avisa al grupo (con el PDF) y a Martín una sola vez. Pagada con una orden
   de Binance: el recibo, la cuenta vuelve a entrar y «Tu cuenta sigue activa.» sale a la par. El 26/12 arranca el ciclo siguiente.
   **No se vio el PDF como imagen** (la PC no tiene `pdftoppm`; se leyó su texto: es el mismo generador que el de Código).
 - **Trampa de test:** `await import('./recibos')` adentro de `lib/agencia-mes.ts` NO pasa por `Module._load` con su archivo como padre: el falso se deja en
   `require.cache`. Y `mock.timers.enable({ apis: ['Date'] })` fija el «hoy» de lo que lee con `new Date()` sin pasarlo (el cierre del pago).
 - **Falta (no hecho):** (1) ver Admin › Revenue con los datos de Leila una vez prendida: el libro de la cuenta 11 pasa a ser su mensualidad desde noviembre y
-  `conElLibro` retira la suscripción del CRM que ya existe (lo mismo que se hizo con Código); el «próximo» es el 30/11 (probado), el resto no se midió en
+  `conElLibro` retira la suscripción del CRM que ya existe (lo mismo que se hizo con Código); el «próximo» es el 26 de cada mes (probado), el resto no se midió en
   pantalla. (2) Si su línea de WhatsApp está caída el día del aviso, sale sólo a la app (como pasó con Código el 11/11, «sin `wa_message_id`»): hay que mirar
   que haya llegado a su teléfono. (3) La pantalla de Agency (`app/agency/Mensualidad.tsx`) es de agencias: Leila no la ve y no se tocó (si el super admin abre el ws 11 ahí vería «del 1 al 5»).
   (4) `marcarMesPagado` valida «ese mes ya empezó» con el mes de CALENDARIO: antes del 26/11 deja marcar el ciclo `2026-11` a mano. Sólo lo hace un operador. (5) Un `cicloPropio`
