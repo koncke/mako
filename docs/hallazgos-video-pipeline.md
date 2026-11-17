@@ -2000,3 +2000,172 @@ y el crítico las reescribió.
 - La voz va a 3,2 palabras por segundo: un minuto son unas 190 palabras.
 - Los números se escriben en letras, y «Máko» con tilde.
 - Un mensaje de la maqueta que Martín leyó y no entendió («tu reto ya tiene los días de tu funnel») no va en ningún video.
+
+
+### Videos animados por código: la investigación del 17/11 (`wf_90a71bff-e00`)
+
+Lo que hay que saber, con el detalle y las fuentes en [editor-video/animaciones-por-codigo.md](editor-video/animaciones-por-codigo.md).
+
+**El diagnóstico obvio era el equivocado: «se ve como HTML» no quiere decir «es HTML».**
+- Morrow hace 3D en JavaScript (SCENE.JS), no en Blender.
+- sanji.chien usa Higgsfield y Seedance: IA PAGA y patrocinada.
+- mrcreates edita material filmado.
+
+Antes de copiar un método, hay que ver la herramienta en pantalla o en la transcripción.
+
+**Trampas de licencia:**
+- **HyperFrames:** su núcleo es Apache-2.0, pero sus bloques cargan GSAP. La licencia de GSAP prohíbe usarlo en editores visuales sin código que
+  compitan con Webflow, así que para los clientes de MaKo no sirve tal cual.
+- **Las skills de HyperFrames que imitan una referencia** (`/reverse-any-video`, `/style-sampling`) son de HyperFrames Pro: US$25 por mes, con cuenta de HeyGen.
+- **Remotion:** ⛔ ya está decidido el 11/11, con Lambda BYOK. Es gratis con 3 personas o menos; desde la 4.ª, se avisa a Martín ANTES.
+- **Claude Motion (Anthropic)** existe, pero sólo para los planes Team y Enterprise.
+
+**Trampa técnica:** la captura exacta cuadro por cuadro de HyperFrames sólo anda en Linux. Una prueba en esta PC con Windows mide un modo que nunca
+iría a producción: se hace en un chat en la nube.
+
+**SIN HACER, con dónde vive:**
+- El motor propio depende de piezas FUERA del repo: `C:/dev/reel-mentores/voz/chequear-guion.mjs`, el Chromium de `C:/dev/playwright-medidor`,
+  `LA-CONFIG.json` y `C:/dev/bancos-portada/`. Hay que versionarlas.
+- Le falta 9:16, porque `engine.js:225` es 1920×1080.
+
+### Recrear una referencia con código: la galería de animaciones (17/11/2026, chat «galería de animaciones», claude2)
+
+Martín rechazó dos galerías («muy básicas… hiciste una cosa cuadrada sin ojos») y aprobó rehacerlas como recreaciones
+fieles de sus 7 referencias. Quedaron 5 reels de 36 a 53 s en https://claude.ai/artifact/CXe1Ana7MvnJ44gzaXc7hF; la fuente
+vive en `C:/dev/artefactos-animaciones/` (FUERA del repo, con su `LEEME.md`).
+
+**El diagnóstico obvio era el equivocado.** «Se ve básico porque le falta 3D o una librería» no era la causa: dos de los
+cinco reels que sí se parecen (mrcreates y adilet) son 2D puro con HTML, SVG y GSAP. Lo que faltaba era FIDELIDAD: medir el
+píxel de cada color en cuadros a resolución completa (ffmpeg `-ss t -frames:v 1`), armar el personaje pieza por pieza
+(el chico voxel de Morrow lleva 14 piezas: mechones, cejas, ojos con pupila y brillo, párpados, nariz, orejas, capucha,
+cordones, bolsillo, puños, jean, zapatillas con suela) y recorrer los MISMOS momentos del original en el mismo orden.
+La regla: antes de escribir una línea, una hoja de contacto de 10-14 cuadros y una tabla de colores medidos; y cada
+reel se MIRA en capturas al lado del cuadro de la referencia antes de publicarlo.
+
+**La arquitectura que sirve (y que sirve también para exportar):** una sola línea de tiempo GSAP pausada y
+`window.__seek(t)`, que congela cualquier segundo. Con `?cap&t=12` el reel arranca congelado; Playwright (el Chromium de
+`C:/dev/playwright-medidor`, por http local porque `file://` no carga módulos ES ni fuentes) saca la captura de ese segundo.
+Todo lo que se mueve tiene que salir de `tl.time()`: un `Date.now()` o un `requestAnimationFrame` con estado propio hace
+que el mismo segundo salga distinto en cada captura. Es lo mismo que necesita un exportador a mp4 cuadro por cuadro.
+
+**Trampas medidas:**
+- `tl.fromTo()` dentro de una línea de tiempo tiene `immediateRender: true` por defecto: el «from» de la última toma pisa
+  el estado inicial al CREAR la línea. Va `immediateRender: false` en todos y el estado inicial en el CSS
+  (`visibility:hidden; opacity:0`).
+- Un `display:flex` colapsa los espacios entre un texto y un elemento en línea: «MAKO HIZO <y>ESTE</y>» se veía
+  «MAKO HIZOESTE». Se envuelve todo en un `<span>`.
+- Un `fromTo` con `rotate` en el «from» y sin `rotate` en el «to» deja la pieza girada para siempre: el ✓ del tilde rojo
+  se veía como «>».
+- Bloom de Three (`UnrealBloomPass`) con umbral bajo quema la escena entera (el vidrio refleja el entorno y pasa el umbral):
+  umbral 0,85, colores del neón en HDR (×2,2 con `toneMapped:false`) y luces e `envMapIntensity` bajos. Así brilla sólo
+  el neón, como en sanji.
+- Three 0.160 (jsDelivr con importmap; cdnjs sólo tiene el `three.min.js` sin `RoundedBoxGeometry` ni postprocesado) usa
+  luces físicas y colores sRGB: las intensidades de la galería vieja (r128) no sirven.
+- El Chromium sin ventana renderiza WebGL con sombras y bloom por SwiftShader: lento (≈10 s por cuadro con bloom) pero exacto.
+- La herramienta Artifact sólo publica archivos de la carpeta del chat o del scratchpad: hay que copiar `galeria.html` y
+  `reels/` antes de publicar.
+- Los videos de YouTube bajaron a 854×480: alcanzan para la composición, pero los colores medidos de las refs 1 y 2 son
+  aproximados.
+- 16.000 partículas con mezcla aditiva y bloom se suman hasta el blanco puro y el texto no se lee: cada punto va con opacidad
+  0,3-0,7 y tamaño chico, y el texto se dibuja en el lienzo invisible con una fuente que entre en los 1000 px (si no, el
+  lienzo lo corta y la palabra sale mocha, «JS$3.000»).
+- La página de la galería no lleva `<meta charset>` porque el artefacto le pone su esqueleto al publicar; servida suelta por
+  `python -m http.server` sale con los acentos rotos («GalerÃa»). No es un error del artefacto publicado.
+- La guardia de RAM frena comandos que nombran `node` o `ffprobe` con menos de 3 GB libres aunque pesen poco; a los pocos
+  minutos pasan.
+
+**Decisiones de contenido:** el logo de Claude se reemplaza por la chispa de MaKo (el `SPARK` de `app/_components/MakoBrand.tsx`,
+dorado `#F8CB63 → #F2B01E`), y el avatar de mrcreates por la insignia de MaKo. Las vistas, seguidores y montos de los reels
+son de ejemplo y la galería lo dice. La caricatura de Martín (adilet) es una PROPUESTA dibujada en SVG desde
+`public/vsl-assets/sitio/avatar/martin.jpg`; se le preguntó al Cerebro cuál usar y no hubo respuesta antes de publicar.
+
+**SIN HACER, con dónde vive:**
+- Además de los 5 reels de las referencias, 3 estilos nuevos publicados: partículas, «resumen del año» (estilo GitHub
+  Unwrapped) e interfaz en capas 3D. Quedó sin hacer el globo con arcos: no hay un mapa del mundo en el disco y bajarlo es
+  una descarga que pide permiso.
+- Exportar cada reel a mp4: recorrer `__seek` a 30 fps con Playwright y montar con ffmpeg (el motor de `scripts/tutorial-animado/`
+  ya hace lo mismo con canvas).
+- ~~Que Martín confirme la caricatura de adilet~~: aprobada (ver abajo).
+- Los reels viven fuera del repo (`C:/dev/artefactos-animaciones/`): si pasan al Video Editor, van a Remotion (decidido el 11/11).
+
+### La voz de Martín en los reels, el ritmo y el MP4 (17/11/2026, noche, chat «galería de animaciones», claude2)
+
+Martín pidió, después de ver Morrow: letra que se lea, su voz de ElevenLabs y que el personaje se parezca a él. Quedaron con su
+voz Morrow, Ale Ferr, mrcreates y adilet (en dos versiones: Martín en cubos y la caricatura); sanji, el resumen del año y la
+interfaz en capas los sacó él. Todo vive en `C:/dev/artefactos-animaciones/` (`voz/`, `tools/`, `mp4/`).
+
+**El diagnóstico obvio era el equivocado: alargar con silencios.** Si una escena duraba menos de lo que lleva leerla
+(palabras/3,2 + 0,5 s), le metí silencios a la voz (+4,9 s en mrcreates). Chocó con una regla ⛔ de Martín: «ritmo de la
+referencia, sin silencios muertos» (memoria `edicion-ritmo-de-la-referencia`). La voz va CONTINUA, con pausas de 0,3 s como
+máximo; lo que no se alcanza a leer se arregla en la pantalla: menos palabras, el texto de la escena siguiente entrando mientras
+sigue el anterior, o la frase repartida en dos escenas. Lo más simple: que el texto en pantalla SEA lo que se dice (el título de
+mrcreates y de adilet se escribe con las palabras de la voz), así se lee mientras se oye.
+
+**`eleven_v4` deja pausas de hasta 0,58 s entre oraciones** (en las cinco voces: entre 8 y 26 pausas de más de 0,3 s, de 1 a
+3,6 s de sobra por reel). `tools/apretar.py` saca el CENTRO de cada pausa larga y la deja en 0,3 s; las palabras no se tocan y
+`chequear-guion.mjs` sigue dando «dice exactamente el guion». Ojo: esa revisión transcribe «Máko» como «maco»; no es un error.
+
+**Poner la voz sin reescribir el reel:** el reel se escribió con segundos fijos. `TW()` lleva cada segundo viejo al segundo en
+que la voz dice esa escena (los nudos salen de la alineación forzada: el arranque de la primera palabra de cada escena) y se
+parchean `tl.fromTo` y `tl.to` para que corran posición y duración. Así se mueven solas las tomas, tarjetas y contadores
+(`tools/voz_en_reel.py`). Trampas: un `if (b < DUR)` que compara un segundo VIEJO con la duración NUEVA se saltea el cierre de
+una escena (la lista de mrcreates quedaba debajo del perfil final); y los arreglos que viven fuera de la línea de tiempo
+(carteles, parpadeos, tramos con `T > 26.4`) hay que pasarlos por `TW()` a mano.
+
+**El sonido sólo después de un toque:** botón «Ver con la voz»; la voz sigue a la línea de tiempo (si se desfasa más de 0,15 s,
+se corrige el audio, no la animación). En un iframe chico un botón fijo de 230 px tapa el reel: va `min(230px, 36vw)`.
+
+**Martín en voxel:** rulos cobrizos en dos tonos y muchos mechones redondeados, piel clara cálida (albedo `#e8a682`; `#f4c9aa`
+salía blanca con ACES), ojos marrones con pupila negra y brillo, cejas oscuras, remera negra de manga corta y cadenita. Sacado de
+`C:/dev/reel-mentores/omni/personaje-bueno-original.jpg`. Le gustó mucho («yo en cubos»).
+
+**La caricatura con IA (aprobada a la primera):** `gemini-nano-banana-2.1-ext` por ApiMart, US$0,012, UNA generación: base = su
+personaje, UNA referencia (recorte de la caricatura de adilet) y un prompt de una frase. `POST /v1/images/generations` con
+`image_urls` en `data:` y `size: '3:4'` → `GET /v1/tasks/<id>`. El fondo crema se saca con un flood fill desde los bordes
+(umbral 26) y conserva la sombra de puntos. Script: `tools/caricatura.mjs`.
+
+**Render a MP4 1080×1920:** `tools/render-mp4.mjs` congela cada cuadro con `__seek(t)`, saca un JPEG y monta con ffmpeg y la
+voz (`apad` para la cola). Medido: Morrow (Three.js con sombras) 1310 cuadros en 1203 s; Ale Ferr 1007 en 592 s; mrcreates 892
+en 304 s. De a UNO: dos Chromium a la vez dejan la PC sin RAM (la guardia frenó un chequeo con 1,9 GB libres).
+⚠️ `TaskStop` de la tarea de bash NO mata el `node` ni el Chromium que abrió: quedan huérfanos y hay que cerrarlos por PID
+(buscando el proceso por su línea de comandos y sus hijos por `ParentProcessId`), nunca por nombre.
+
+**Trampas de la consola:** un heredoc con comillas invertidas de JavaScript rompe el bash del tool («unexpected EOF») y un
+`\\n` dentro de un heredoc llega como salto de línea real: los parches con JS van en un archivo escrito con Write.
+
+### La investigación de formatos (17/11/2026, noche): qué se ve profesional y qué delata un video generado
+
+Martín: «todavía no… no me gustaron tanto los formatos que están acá». Un agente bajó y miró 9 videos de YouTube y 4 de
+TikTok (hojas de contacto, cuadros, transcripciones) y leyó las skills públicas. El documento entero, con las recetas, quedó en
+[`docs/editor-video/formatos-animados-investigacion.md`](editor-video/formatos-animados-investigacion.md); la evidencia (hojas,
+cuadros, transcripciones, el texto de las skills) en `C:/dev/artefactos-animaciones/investigacion/`.
+
+**Lo que se ve profesional casi nunca es un «estilo»:** es algo REAL (la interfaz del producto, la cara del creador, el logo
+original) movido con números medidos: movimientos de 0,3-0,6 s que aterrizan frenando (`expo.out`/`power4.out`), nada que nazca
+de tamaño cero, salidas un 40-50 % más cortas que las entradas, transiciones CAUSADAS (morph, zoom a través de un botón, golpe de
+color) y nunca un fundido cruzado. El lanzamiento oficial de Anthropic tiene un solo corte duro en 82 s.
+
+**Lo que delata un video generado** (lista de HyperFrames y motionmaxxing): neón, bloom y partículas decorativas; vidrio y
+degradés azules o violetas; papel crema con serif y etiquetas en mono; todo centrado entrando a la vez; y, la señal número 1, el
+«chrome» de página: contador «02 / 07» o «PASO N» pegado en una esquina, timecode, barra de progreso. Cuatro de los ocho reels
+de la galería se apoyaban en eso, y Martín sacó justo tres de ellos (sanji, el resumen del año y la interfaz en capas). Copiar la
+superficie de una referencia trae sus defaults.
+
+**El diagnóstico obvio era el equivocado (otra vez):** la investigación descartaba el corto animado con personaje («no lleva
+a Martín, es caro y falla en 3D»), pero es el que más rinde (hasta 1,17 M) y es la familia de Morrow, el que más le gustó a
+Martín. Lo que manda es lo que él eligió: con esas reglas se hizo el corto nuevo «Cuatro clientes» (Martín en cubos, cifras
+reales que aterrizan, un solo golpe de color, cámara que casi siempre se mueve, sin chrome).
+
+**Abierto, para Martín:** la receta n.º 1 de la investigación (reel a cámara con gráficos) pide su toma REAL, «sin clon,
+porque dijo "No es mi voz"»; los reels de la galería usan su clon de ElevenLabs por pedido del Cerebro. Hay que confirmar con
+él cuál vale para qué.
+
+**Trampas del entorno:**
+- La detección de escenas de ffmpeg (`select='gt(scene,0.3)'`) no ve morphs ni zooms (1 cambio en 82 s en el de Anthropic):
+  el ritmo se cuenta a mano en una hoja de contacto con marca de tiempo.
+- Una hoja con `fps=1/N` decodifica el video entero (3 min para 12 min de video); saltar con `-ss` a cada cuadro tarda ~40 s.
+- `python -I` ignora `PYTHONIOENCODING`: en Windows, imprimir emojis rompe con cp1252; va `sys.stdout.reconfigure(encoding='utf-8')`.
+- Un ID de YouTube que empieza con «-» rompe ffmpeg y ls (lo toman como opción): se pasa como `./-x6ZjVTK8aI`.
+- Pedir subtítulos `es.*,en.*` pide también las traducciones y YouTube corta con 429; `--sub-langs en-orig --sleep-subtitles 8` anduvo.
+- yt-dlp no lista perfiles ni hashtags de TikTok o Instagram sin sesión; el video suelto por URL sí baja.
+- Las skills de Remotion no traen licencia propia (caen bajo la Remotion License): no van a un repositorio público.
