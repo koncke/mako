@@ -2085,5 +2085,50 @@ son de ejemplo y la galería lo dice. La caricatura de Martín (adilet) es una P
   una descarga que pide permiso.
 - Exportar cada reel a mp4: recorrer `__seek` a 30 fps con Playwright y montar con ffmpeg (el motor de `scripts/tutorial-animado/`
   ya hace lo mismo con canvas).
-- Que Martín confirme la caricatura de adilet (`reels/adilet.html`, el `<svg id="cari">`).
+- ~~Que Martín confirme la caricatura de adilet~~: aprobada (ver abajo).
 - Los reels viven fuera del repo (`C:/dev/artefactos-animaciones/`): si pasan al Video Editor, van a Remotion (decidido el 11/11).
+
+### La voz de Martín en los reels, el ritmo y el MP4 (17/11/2026, noche, chat «galería de animaciones», claude2)
+
+Martín pidió, después de ver Morrow: letra que se lea, su voz de ElevenLabs y que el personaje se parezca a él. Quedaron con su
+voz Morrow, Ale Ferr, mrcreates y adilet (en dos versiones: Martín en cubos y la caricatura); sanji, el resumen del año y la
+interfaz en capas los sacó él. Todo vive en `C:/dev/artefactos-animaciones/` (`voz/`, `tools/`, `mp4/`).
+
+**El diagnóstico obvio era el equivocado: alargar con silencios.** Si una escena duraba menos de lo que lleva leerla
+(palabras/3,2 + 0,5 s), le metí silencios a la voz (+4,9 s en mrcreates). Chocó con una regla ⛔ de Martín: «ritmo de la
+referencia, sin silencios muertos» (memoria `edicion-ritmo-de-la-referencia`). La voz va CONTINUA, con pausas de 0,3 s como
+máximo; lo que no se alcanza a leer se arregla en la pantalla: menos palabras, el texto de la escena siguiente entrando mientras
+sigue el anterior, o la frase repartida en dos escenas. Lo más simple: que el texto en pantalla SEA lo que se dice (el título de
+mrcreates y de adilet se escribe con las palabras de la voz), así se lee mientras se oye.
+
+**`eleven_v4` deja pausas de hasta 0,58 s entre oraciones** (en las cinco voces: entre 8 y 26 pausas de más de 0,3 s, de 1 a
+3,6 s de sobra por reel). `tools/apretar.py` saca el CENTRO de cada pausa larga y la deja en 0,3 s; las palabras no se tocan y
+`chequear-guion.mjs` sigue dando «dice exactamente el guion». Ojo: esa revisión transcribe «Máko» como «maco»; no es un error.
+
+**Poner la voz sin reescribir el reel:** el reel se escribió con segundos fijos. `TW()` lleva cada segundo viejo al segundo en
+que la voz dice esa escena (los nudos salen de la alineación forzada: el arranque de la primera palabra de cada escena) y se
+parchean `tl.fromTo` y `tl.to` para que corran posición y duración. Así se mueven solas las tomas, tarjetas y contadores
+(`tools/voz_en_reel.py`). Trampas: un `if (b < DUR)` que compara un segundo VIEJO con la duración NUEVA se saltea el cierre de
+una escena (la lista de mrcreates quedaba debajo del perfil final); y los arreglos que viven fuera de la línea de tiempo
+(carteles, parpadeos, tramos con `T > 26.4`) hay que pasarlos por `TW()` a mano.
+
+**El sonido sólo después de un toque:** botón «Ver con la voz»; la voz sigue a la línea de tiempo (si se desfasa más de 0,15 s,
+se corrige el audio, no la animación). En un iframe chico un botón fijo de 230 px tapa el reel: va `min(230px, 36vw)`.
+
+**Martín en voxel:** rulos cobrizos en dos tonos y muchos mechones redondeados, piel clara cálida (albedo `#e8a682`; `#f4c9aa`
+salía blanca con ACES), ojos marrones con pupila negra y brillo, cejas oscuras, remera negra de manga corta y cadenita. Sacado de
+`C:/dev/reel-mentores/omni/personaje-bueno-original.jpg`. Le gustó mucho («yo en cubos»).
+
+**La caricatura con IA (aprobada a la primera):** `gemini-nano-banana-2.1-ext` por ApiMart, US$0,012, UNA generación: base = su
+personaje, UNA referencia (recorte de la caricatura de adilet) y un prompt de una frase. `POST /v1/images/generations` con
+`image_urls` en `data:` y `size: '3:4'` → `GET /v1/tasks/<id>`. El fondo crema se saca con un flood fill desde los bordes
+(umbral 26) y conserva la sombra de puntos. Script: `tools/caricatura.mjs`.
+
+**Render a MP4 1080×1920:** `tools/render-mp4.mjs` congela cada cuadro con `__seek(t)`, saca un JPEG y monta con ffmpeg y la
+voz (`apad` para la cola). Medido: Morrow (Three.js con sombras) 1310 cuadros en 1203 s; Ale Ferr 1007 en 592 s; mrcreates 892
+en 304 s. De a UNO: dos Chromium a la vez dejan la PC sin RAM (la guardia frenó un chequeo con 1,9 GB libres).
+⚠️ `TaskStop` de la tarea de bash NO mata el `node` ni el Chromium que abrió: quedan huérfanos y hay que cerrarlos por PID
+(buscando el proceso por su línea de comandos y sus hijos por `ParentProcessId`), nunca por nombre.
+
+**Trampas de la consola:** un heredoc con comillas invertidas de JavaScript rompe el bash del tool («unexpected EOF») y un
+`\\n` dentro de un heredoc llega como salto de línea real: los parches con JS van en un archivo escrito con Write.
