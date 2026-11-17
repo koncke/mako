@@ -121,7 +121,7 @@ test('cambiar el plan (2a, 2b, 2c, 2d): subir con Stripe cobra la diferencia, la
   // el nuevo no sale se rehace el de antes.
   const cobro = fuente('lib/agencia-cobro.ts');
   const rehacer = cobro.slice(cobro.indexOf('export async function rehacerPrimerMes('));
-  const anula = rehacer.indexOf('const anulado = await anularCobro(plataforma, cobroId, autor);');
+  const anula = rehacer.indexOf('const anulado = await anularCobro(plataforma, cobroId, autor, { exigirCierre: true });');
   assert.ok(anula > 0 && anula < rehacer.indexOf('const r = await crear('), 'anula antes de crear');
   assert.match(rehacer, /if \(!r\.ok \|\| r\.cobro\.id === cobroId\) \{\n[^\n]*\n\s*const atras = await crear\(Number\(c\.monto\)/);
 });

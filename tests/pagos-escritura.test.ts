@@ -101,7 +101,8 @@ test('la etiqueta del pago va en un update aparte que no tira, y la moneda viaja
   assert.doesNotMatch(e, /throw /, 'perder la etiqueta no puede tumbar el registro del pago');
   assert.match(e, /\.update\(\{ concepto: e\.concepto, metodo: e\.metodo \}\)/);
   const cobrar = bloque(PAGOS, 'export async function cobrarCuota(');
-  assert.match(cobrar, /pagoEnMoneda\(\{ montoUsd: monto \?\? original, moneda: datos\.moneda/, 'la cuota pone los dólares que se declaran');
+  // Desde el 17/11/2026 una stablecoin (USDT/USDC) no hereda «la cuota entera» como dólares: vale lo cobrado (tests/pagos-usdt.test.ts).
+  assert.match(cobrar, /pagoEnMoneda\(\{ montoUsd: monto \?\? \(esStablecoinUsd\(datos\.moneda\) \? null : original\), moneda: datos\.moneda/, 'la cuota pone los dólares que se declaran');
   assert.match(cobrar, /upd\.moneda = enMoneda\.moneda; upd\.monto_original = enMoneda\.montoOriginal;/);
   assert.match(bloque(PAGOS, 'export async function registrarPagoSuelto('), /\{ moneda: enMoneda\.moneda, monto_original: enMoneda\.montoOriginal \}/);
 });
