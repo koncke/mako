@@ -2027,3 +2027,55 @@ iría a producción: se hace en un chat en la nube.
 - El motor propio depende de piezas FUERA del repo: `C:/dev/reel-mentores/voz/chequear-guion.mjs`, el Chromium de `C:/dev/playwright-medidor`,
   `LA-CONFIG.json` y `C:/dev/bancos-portada/`. Hay que versionarlas.
 - Le falta 9:16, porque `engine.js:225` es 1920×1080.
+
+### Recrear una referencia con código: la galería de animaciones (17/11/2026, chat «galería de animaciones», claude2)
+
+Martín rechazó dos galerías («muy básicas… hiciste una cosa cuadrada sin ojos») y aprobó rehacerlas como recreaciones
+fieles de sus 7 referencias. Quedaron 5 reels de 36 a 53 s en https://claude.ai/artifact/CXe1Ana7MvnJ44gzaXc7hF; la fuente
+vive en `C:/dev/artefactos-animaciones/` (FUERA del repo, con su `LEEME.md`).
+
+**El diagnóstico obvio era el equivocado.** «Se ve básico porque le falta 3D o una librería» no era la causa: dos de los
+cinco reels que sí se parecen (mrcreates y adilet) son 2D puro con HTML, SVG y GSAP. Lo que faltaba era FIDELIDAD: medir el
+píxel de cada color en cuadros a resolución completa (ffmpeg `-ss t -frames:v 1`), armar el personaje pieza por pieza
+(el chico voxel de Morrow lleva 14 piezas: mechones, cejas, ojos con pupila y brillo, párpados, nariz, orejas, capucha,
+cordones, bolsillo, puños, jean, zapatillas con suela) y recorrer los MISMOS momentos del original en el mismo orden.
+La regla: antes de escribir una línea, una hoja de contacto de 10-14 cuadros y una tabla de colores medidos; y cada
+reel se MIRA en capturas al lado del cuadro de la referencia antes de publicarlo.
+
+**La arquitectura que sirve (y que sirve también para exportar):** una sola línea de tiempo GSAP pausada y
+`window.__seek(t)`, que congela cualquier segundo. Con `?cap&t=12` el reel arranca congelado; Playwright (el Chromium de
+`C:/dev/playwright-medidor`, por http local porque `file://` no carga módulos ES ni fuentes) saca la captura de ese segundo.
+Todo lo que se mueve tiene que salir de `tl.time()`: un `Date.now()` o un `requestAnimationFrame` con estado propio hace
+que el mismo segundo salga distinto en cada captura. Es lo mismo que necesita un exportador a mp4 cuadro por cuadro.
+
+**Trampas medidas:**
+- `tl.fromTo()` dentro de una línea de tiempo tiene `immediateRender: true` por defecto: el «from» de la última toma pisa
+  el estado inicial al CREAR la línea. Va `immediateRender: false` en todos y el estado inicial en el CSS
+  (`visibility:hidden; opacity:0`).
+- Un `display:flex` colapsa los espacios entre un texto y un elemento en línea: «MAKO HIZO <y>ESTE</y>» se veía
+  «MAKO HIZOESTE». Se envuelve todo en un `<span>`.
+- Un `fromTo` con `rotate` en el «from» y sin `rotate` en el «to» deja la pieza girada para siempre: el ✓ del tilde rojo
+  se veía como «>».
+- Bloom de Three (`UnrealBloomPass`) con umbral bajo quema la escena entera (el vidrio refleja el entorno y pasa el umbral):
+  umbral 0,85, colores del neón en HDR (×2,2 con `toneMapped:false`) y luces e `envMapIntensity` bajos. Así brilla sólo
+  el neón, como en sanji.
+- Three 0.160 (jsDelivr con importmap; cdnjs sólo tiene el `three.min.js` sin `RoundedBoxGeometry` ni postprocesado) usa
+  luces físicas y colores sRGB: las intensidades de la galería vieja (r128) no sirven.
+- El Chromium sin ventana renderiza WebGL con sombras y bloom por SwiftShader: lento (≈10 s por cuadro con bloom) pero exacto.
+- La herramienta Artifact sólo publica archivos de la carpeta del chat o del scratchpad: hay que copiar `galeria.html` y
+  `reels/` antes de publicar.
+- Los videos de YouTube bajaron a 854×480: alcanzan para la composición, pero los colores medidos de las refs 1 y 2 son
+  aproximados.
+- La guardia de RAM frena comandos que nombran `node` o `ffprobe` con menos de 3 GB libres aunque pesen poco; a los pocos
+  minutos pasan.
+
+**Decisiones de contenido:** el logo de Claude se reemplaza por la chispa de MaKo (el `SPARK` de `app/_components/MakoBrand.tsx`,
+dorado `#F8CB63 → #F2B01E`), y el avatar de mrcreates por la insignia de MaKo. Las vistas, seguidores y montos de los reels
+son de ejemplo y la galería lo dice. La caricatura de Martín (adilet) es una PROPUESTA dibujada en SVG desde
+`public/vsl-assets/sitio/avatar/martin.jpg`; se le preguntó al Cerebro cuál usar y no hubo respuesta antes de publicar.
+
+**SIN HACER, con dónde vive:**
+- Exportar cada reel a mp4: recorrer `__seek` a 30 fps con Playwright y montar con ffmpeg (el motor de `scripts/tutorial-animado/`
+  ya hace lo mismo con canvas).
+- Que Martín confirme la caricatura de adilet (`reels/adilet.html`, el `<svg id="cari">`).
+- Los reels viven fuera del repo (`C:/dev/artefactos-animaciones/`): si pasan al Video Editor, van a Remotion (decidido el 11/11).
