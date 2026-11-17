@@ -2066,6 +2066,11 @@ que el mismo segundo salga distinto en cada captura. Es lo mismo que necesita un
   `reels/` antes de publicar.
 - Los videos de YouTube bajaron a 854×480: alcanzan para la composición, pero los colores medidos de las refs 1 y 2 son
   aproximados.
+- 16.000 partículas con mezcla aditiva y bloom se suman hasta el blanco puro y el texto no se lee: cada punto va con opacidad
+  0,3-0,7 y tamaño chico, y el texto se dibuja en el lienzo invisible con una fuente que entre en los 1000 px (si no, el
+  lienzo lo corta y la palabra sale mocha, «JS$3.000»).
+- La página de la galería no lleva `<meta charset>` porque el artefacto le pone su esqueleto al publicar; servida suelta por
+  `python -m http.server` sale con los acentos rotos («GalerÃa»). No es un error del artefacto publicado.
 - La guardia de RAM frena comandos que nombran `node` o `ffprobe` con menos de 3 GB libres aunque pesen poco; a los pocos
   minutos pasan.
 
@@ -2075,6 +2080,9 @@ son de ejemplo y la galería lo dice. La caricatura de Martín (adilet) es una P
 `public/vsl-assets/sitio/avatar/martin.jpg`; se le preguntó al Cerebro cuál usar y no hubo respuesta antes de publicar.
 
 **SIN HACER, con dónde vive:**
+- Además de los 5 reels de las referencias, 3 estilos nuevos publicados: partículas, «resumen del año» (estilo GitHub
+  Unwrapped) e interfaz en capas 3D. Quedó sin hacer el globo con arcos: no hay un mapa del mundo en el disco y bajarlo es
+  una descarga que pide permiso.
 - Exportar cada reel a mp4: recorrer `__seek` a 30 fps con Playwright y montar con ffmpeg (el motor de `scripts/tutorial-animado/`
   ya hace lo mismo con canvas).
 - Que Martín confirme la caricatura de adilet (`reels/adilet.html`, el `<svg id="cari">`).
