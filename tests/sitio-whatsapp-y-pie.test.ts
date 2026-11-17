@@ -95,7 +95,12 @@ test('2. el pie: el contacto con el email Y el WhatsApp, a la vista; y las misma
   assert.match(telefono, /\.s-pie-pliegues\{display:block;/);
   // Más bajo otra vez (16/11, a la tarde: «sigo viendo la bottom bar muy alta»): 36 arriba y 24 abajo, los links cada 24 px.
   assert.match(CSS_PIE, /\.s-pie\{background:[^;]+;border-top:[^;]+;padding:30px 0 20px\}/, 'volvió el aire de antes arriba y abajo');
-  assert.match(CSS_PIE, /\.s-pie-col li\{font-size:12\.5px;line-height:18px;font-weight:500;padding-bottom:4px\}/, 'los links volvieron a ir más separados');
+  assert.match(CSS_PIE, /\.s-pie-col li\{font-size:13px;line-height:18px;font-weight:500;padding-bottom:4px\}/, 'los links volvieron a ir más separados');
+  // DOS RENGLONES DE CINCO TÍTULOS en todas las computadoras (Martín, 17/11/2026: «tenían como dos filas de… títulos de empezar o
+  // today… no toda una sola fila… pero tampoco que esté súper alto»). PROBADO ROMPIÉNDOLO: con el display:flex de vuelta desde 1440,
+  // falla acá.
+  assert.match(CSS_PIE, /\.s-pie-cols\{display:grid;grid-template-columns:repeat\(5,minmax\(0,1fr\)\);gap:16px 24px\}/, 'el pie no está en cinco columnas');
+  assert.ok(!/\.s-pie-cols\{display:flex/.test(CSS_PIE), 'las columnas del pie volvieron a UN renglón');
   // Sin el lema arriba (Martín, 16/11/2026, ~17:50 UTC: «podríamos eliminar el mejor software para ventas high ticket… y que el logo
   // de MaKo esté abajo a la derecha, en donde hoy está la estrellita… y equipo y WhatsApp en ese espacio en blanco al lado de legal»).
   const pie = html(createElement(Pie, {}));

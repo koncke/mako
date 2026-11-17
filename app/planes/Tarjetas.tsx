@@ -411,7 +411,7 @@ export const CSS_TARJETAS = `
 
 const precio = (v: number) => v.toLocaleString('es-AR');
 
-export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: {
+export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra, barraSola = false }: {
   planes: readonly PlanEnTarjeta[]; sufijo: string;
   /**
    * La barra de MaKo Tokens (./CalculadoraTokens.tsx), en «Agrega créditos extra», DEBAJO del selector mensual / anual y ARRIBA
@@ -423,6 +423,12 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
    * acá se ve en /planes Y en la portada. Las landings de /vsl (app/vsl/PreciosLanding.tsx) son las que van sin barra.
    */
   barra?: ReactNode;
+  /**
+   * La barra SOLA, sin el título «Agrega créditos extra» ni la línea de abajo: la portada (Martín, 17/11/2026: «en la landing
+   * principal elimina el texto, agrega créditos extra, MaKo tokens para usar cada mes, además de lo de tu plan… lo que quede
+   * simplemente la barra»). Habló sólo de la landing principal: /planes sigue con su título.
+   */
+  barraSola?: boolean;
   /** El reloj del 50% sigue vivo en este navegador: cada plan del cartel dice lo que sale su primer mes. Después, el precio de siempre. */
   promoVigente?: boolean;
 }) {
@@ -446,8 +452,10 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
           vuelta quedan el título de la subsección y el «+ US$ X» aparte, debajo del precio de cada plan. */}
       {barra && (
         <section className="mkpl-extras" aria-label="Agrega créditos extra">
-          <h3 className="mkpl-extras-t">Agrega créditos extra</h3>
-          <p className="mkpl-extras-b">MaKo Tokens para usar cada mes, además de los de tu plan.</p>
+          {!barraSola && <>
+            <h3 className="mkpl-extras-t">Agrega créditos extra</h3>
+            <p className="mkpl-extras-b">MaKo Tokens para usar cada mes, además de los de tu plan.</p>
+          </>}
           {barra}
         </section>
       )}
