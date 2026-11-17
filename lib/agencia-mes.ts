@@ -874,7 +874,16 @@ async function avisarPausasNuevas(m: MensualidadOk, cambios: ResultadoPausas['ca
       const mes = causa.slice(4);
       const x = mes === m.actual.mes ? m.actual : m.anteriores.find((y) => y.mes === mes);
       if (!x) continue;
-      await avisarUnaVez(KEY_PAUSA(ag, ag, causa), {}, async () => ({ ok: await textoAlGrupoDeLaAgencia(ag, textoDePausaDelMes({ mes, faltaUsd: x.debeUsd, ciclo: m.config?.cicloPropio ?? null })) }));
+      const ciclo = m.config?.cicloPropio ?? null;
+      await avisarUnaVez(KEY_PAUSA(ag, ag, causa), {}, async () => {
+        const texto = textoDePausaDelMes({ mes, faltaUsd: x.debeUsd, ciclo, medio: m.config?.medio });
+        if (!ciclo || !m.config) return { ok: await textoAlGrupoDeLaAgencia(ag, texto) };
+        // Una cuenta suelta: el pedido de pago va CON el PDF (regla del 16/11), no sólo el texto del monto.
+        try {
+          const tabla = tablaDelMes({ agencia: m.agencia, cuenta: x.cuenta, medio: m.config.medio, pagadoUsd: x.pagadoUsd, ciclo });
+          return await mandarPdfAlGrupoDeLaAgencia(ag, { texto, pdf: await pdfDelCobro(tabla, m.hoy, m.agencia), nombrePdf: nombreDelPdf(tabla) });
+        } catch (e) { return { ok: false, error: msg(e) }; }
+      });
     }
   }
   // Las entradas vencidas: una tabla con lo que pagarían hoy.
