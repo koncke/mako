@@ -243,7 +243,8 @@ test('7. lo que LLEGÓ se cuenta, y una CONDITION de datos no se guarda fuera de
   const flujos = leer('lib/flujos.ts');
   // (17/10/2026: también la campanita, cuando el negocio no tiene grupo y la tarjeta dice «queda en la app»:
   // `llegoLaTarjeta`, lib/mako-tarjeta.ts, con su test en tests/sin-grupo-campanita.test.ts.)
-  assert.match(flujos, /return llegoLaTarjeta\(r\);\n\}/);
+  // 17/11/2026: dice además si SALIÓ (WhatsApp o email) o sólo llegó a la app (tests/linea-aviso-salio.test.ts).
+  assert.match(flujos, /return salioLaTarjeta\(r\) \? true : llegoLaTarjeta\(r\) \? 'app' : false;\n\}/);
   assert.match(leer('lib/mako-tarjeta.ts'), /if \(r\.wa \|\| r\.email === true\) return true;/);
   assert.match(leer('lib/avisos.ts'), /const entregas = \{ llegaron: 0, salieron: 0 \};\n\s*await runWithWorkspace\(ws, \(\) => ejecutarPasos\(flujoId, pasos, ws, ctx, undefined, entregas\)\);\n\s*return entregas;/);
   // Fuera de una fila de evento no hay evento que conteste un dato: Publicar lo frena (la API, «Crear con IA»).

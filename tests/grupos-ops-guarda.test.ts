@@ -190,11 +190,14 @@ test('la guarda se prueba: `memoria: null` o `sinCopia` fuera de emitirAviso, ro
   assert.ok(auditar(g).some((m) => m.includes('`sinCopia` es sólo de emitirAviso')));
 });
 
-test('quien reintenta con el resultado del aviso cuenta `enApp` como que llegó', () => {
+test('quien reintenta con el resultado del aviso cuenta `enApp` como que llegó (menos el vigilante de líneas)', () => {
   const leer = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8'));
   assert.match(leer('app/api/cron/avisos-resumen/route.ts'), /res\.wa \|\| res\.enApp \|\| res\.apagado/, 'las filas del resumen quedarían pendientes y volverían cada mañana');
   const vigilante = leer('lib/lineas-vigilante.ts');
-  assert.equal((vigilante.match(/const llego = r\.wa \|\| r\.enApp === true \|\| r\.email === true;/g) ?? []).length, 2);
+  // ⚠️ EL VIGILANTE DE LÍNEAS YA NO (17/11/2026, T1 del ws1): marca «avisado» sólo con lo que SALIÓ por WhatsApp o email
+  // (`llegoElAvisoDeLinea`, tests/linea-aviso-salio.test.ts). Con la marca deja de insistir y habilita el «volvió», y lo que
+  // quedó en la app no lo vio nadie. Las burbujas no se apilan: lo frena el dedup del catálogo (20 h), no cada 10 minutos.
+  assert.equal((vigilante.match(/const llego = llegoElAvisoDeLinea\(r\);/g) ?? []).length, 2);
   assert.match(leer('lib/reunion-auto.ts'), /aviso\.wa \|\| aviso\.enApp/);
   assert.equal((leer('lib/curso-mensajes.ts').match(/r\.wa \|\| r\.enApp/g) ?? []).length, 3);
   assert.match(leer('lib/aviso-evento.ts'), /rs\.some\(\(r\) => r\.enApp\)/);
