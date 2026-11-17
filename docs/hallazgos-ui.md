@@ -5037,6 +5037,8 @@ compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo 
   miniaturas. Sin navegador, una página en blanco que mide 1.271 px de alto.
 - **A 390 la app no es la de escritorio achicada**: un teléfono va a MaKo Mobile (`app/m/…`, `MOVIL_ACTIVO`). Una captura de la
   pestaña de escritorio a 390 no muestra lo que ve nadie.
+- **`next/dynamic` en un render estático se queda en su `loading` para siempre** (la Ticketera del cliente: «Cargando…»). El cargador
+  compilado dice qué módulo pide (`import("@/app/tickets/soporte/ChatSoporte")`): se trae con `require` desde el archivo que llamó.
 - **Dos `renderToStaticMarkup` en la misma página repiten los `useId`**: cada render arranca de cero, y el logo de la barra (su
   degradado y su `@keyframes` llevan el id) quedó apagado en el Ops Center porque un componente de la pestaña sacó el mismo id.
   Cada render va con su `identifierPrefix`.
