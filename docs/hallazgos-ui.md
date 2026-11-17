@@ -5030,7 +5030,8 @@ compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo 
   var(--gc-azul); color: #fff`). Sin arreglar.
 - **Los CSS Modules (`x.module.css`) salen sin estilo y sin error**: con el módulo vacío, `s.tarjeta` es undefined y React no pone
   la clase (Copywriting, Spy y el Video Editor los usan). Lo que anduvo: el módulo devuelve `<prefijo>_tarjeta` y la hoja se suma
-  con el MISMO prefijo en sus clases (`:global(…)` sin tocar).
+  con el MISMO prefijo en sus clases (`:global(…)` sin tocar). Y en sus `@keyframes`: Next también los renombra, y sin el prefijo
+  uno con el mismo nombre en otra hoja los pisa (Web Generator: las tarjetas de landings quedaban en opacidad 0).
 - **Lo que se esconde hasta que «cargó» algo del navegador**: Spy con una sola cuenta abre su ficha y la tapa mientras corre la
   entrada animada (`data-entrando='esperando'`, opacidad 0), y su gráfico de piezas queda `visibility: hidden` hasta precargar las
   miniaturas. Sin navegador, una página en blanco que mide 1.271 px de alto.
