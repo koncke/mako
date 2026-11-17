@@ -26,7 +26,7 @@ import { fechaEnPalabras } from '@/lib/date-utils';
 import { ROTULO_METODO, esMetodoPago, type MetodoPago } from '@/lib/pagos-campo';
 import { usd } from '@/lib/pagos-vistazo';
 import {
-  mesDe, mesSugerido, nombreDelMes, ROTULO_CAMBIO, ROTULO_ESTADO_MES, sumarAlMes,
+  estadoDeSuscripcion, mesDe, mesSugerido, nombreDelMes, ROTULO_CAMBIO, ROTULO_ESTADO_MES, sumarAlMes,
   type EstadoMes, type HistoriaSuscripcion, type MesSuscripcion, type PagoEnElMes,
 } from '@/lib/suscripcion-meses';
 import { marcarPagoAction } from '@/app/crm/actions';
@@ -36,7 +36,7 @@ import type { PropsBloque } from '../tipos';
 import { useCobrado } from './bloques-cobro';
 import { refrescarCobros, useMonedaDelNegocio } from './datos';
 import {
-  Aviso, Caja, CamposDeCuando, CamposDePlata, MONO, Tarjeta, VerComprobante, msg, nada, plataParaServer, useHoraDelNegocio, type Plata,
+  Aviso, Caja, CamposDeCuando, CamposDePlata, MONO, TONO_UI, Tarjeta, VerComprobante, msg, nada, plataParaServer, useHoraDelNegocio, type Plata,
 } from './piezas';
 
 const TONO_MES: Readonly<Record<EstadoMes, TonoUi>> = {
@@ -129,12 +129,9 @@ export function SuscripcionMesAMes(props: PropsBloque) {
   };
 
   // ── Lo de arriba: estado, cuánto paga hoy, cuándo le toca y lo pagado ──
-  const estado = s.estado === 'cancelada'
-    ? { tono: 'neutral' as TonoUi, txt: h.cortadaDesde ? `Cortada desde ${nombreDelMes(h.cortadaDesde, ctx.hoy)}` : 'Cancelada' }
-    : s.estado === 'terminada' ? { tono: 'neutral' as TonoUi, txt: 'Terminó el plazo' }
-    : s.renovacionFallida ? { tono: 'bad' as TonoUi, txt: 'Falló la renovación' }
-    : h.mesesSinPagar + h.mesesParciales > 0 ? { tono: (h.proximo?.vencido ? 'bad' : 'warn') as TonoUi, txt: h.mesesSinPagar + h.mesesParciales === 1 ? 'Debe 1 mes' : `Debe ${h.mesesSinPagar + h.mesesParciales} meses` }
-    : { tono: 'good' as TonoUi, txt: 'Al día' };
+  // (17/11/2026) La misma cuenta que la versión de teléfono (`estadoDeSuscripcion`, lib/suscripcion-meses.ts).
+  const est = estadoDeSuscripcion(s, ctx.hoy);
+  const estado: { tono: TonoUi; txt: string } = { tono: TONO_UI[est.tono], txt: est.texto };
   const pagaHoy = s.mensualidadUsd;
   const proximo = h.proximo;
 

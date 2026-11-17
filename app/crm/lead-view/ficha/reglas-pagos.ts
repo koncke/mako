@@ -17,6 +17,8 @@
 import { planEnLead, tieneDeal } from '@/lib/muestra-pagos';
 import { cobradoDelLead, esCuotaDevuelta, type CuotaParaCobrado } from '@/lib/cobrado-lead';
 import { estadoDeCuenta } from '@/lib/pagos-vistazo';
+import { tieneExcepciones } from '@/lib/pagos-bloques-lead';
+import { DISENOS_CLIENTE_EN_CS, sinClienteEnCs } from '@/lib/cliente-en-cs';
 import type { StepId } from '@/lib/stage-requirements';
 import type { CtxFicha, ReglasDeTab } from './tipos';
 
@@ -60,6 +62,23 @@ const sinDealSalvo = (...pasos: StepId[]) => (ctx: CtxFicha) => !conDeal(ctx) &&
 export const suscripcionAlLado = (ctx: CtxFicha, hermanos?: readonly string[]): boolean =>
   ctx.lead.venta_tipo === 'suscripcion' && !ctx.crm && !!hermanos?.includes('suscripcion');
 
+/**
+ * (17/11/2026, P28) ¿Tiene alguna cuota sin cobrar, en la casa o en un CRM agregado? Sin ninguna no puede haber un
+ * recordatorio de cobro corriendo, así que `recordatorios-de-cobro` ni pide su lectura. Con alguna, el bloque lee las
+ * corridas al montarse y, si no hay ninguna viva, no dibuja nada (el armador esconde la celda vacía).
+ */
+export const conCuotasSinCobrar = (ctx: CtxFicha): boolean =>
+  cuotasDe(ctx).some((q) => !q.pagado) || (ctx.data?.tratos ?? []).some((t) => t.pagos.some((q) => !q.pagado));
+
+/**
+ * ¿La confirmación de pago no tiene nada que decir? Sin fecha de confirmación, se calla si no hay deal (la regla de la tab:
+ * «a un lead que todavía no compró le quedan la oferta y los links», tests/pagos-tab-bloques.test.ts) o si el lead salió.
+ * CON fecha se ve siempre: «confirmó hace 5 días y no pagó» es justo el lead que todavía no tiene deal. La fecha de un lead
+ * sin deal se carga en la R1 (Reuniones), como siempre.
+ */
+export const sinConfirmacionQueMostrar = (ctx: CtxFicha): boolean =>
+  !ctx.lead.fecha_confirmacion && (!conDeal(ctx) || ctx.lead.estado_lead === 'perdido' || ctx.lead.estado_lead === 'descalificado');
+
 export const REGLAS_PAGOS = {
   oferta: {},
   'links-de-pago': { disenos: ['lista', 'pendiente'] },
@@ -78,4 +97,11 @@ export const REGLAS_PAGOS = {
   'servicio-vendido': { estaVacio: sinDealSalvo('dealServicio'), disenos: ['grilla', 'renglon'] },
   'promesa-y-garantia': { estaVacio: sinDealSalvo('dealPromesa'), disenos: ['cajas', 'cita'] },
   obligaciones: { estaVacio: sinDealSalvo('dealObligaciones'), disenos: ['listas', 'tabla'] },
+  // (17/11/2026, P28) Los cuatro que estaban en el catálogo y en las plantillas sin componente: la ficha los saltaba callada.
+  // La confirmación se llena ahí (`sinDatos: 'raya'`) en un lead con deal; con la fecha puesta se ve siempre.
+  'confirmacion-de-pago': { estaVacio: sinConfirmacionQueMostrar, disenos: ['fecha', 'alerta'] },
+  'recordatorios-de-cobro': { estaVacio: (ctx) => !conCuotasSinCobrar(ctx), disenos: ['lista', 'renglon'] },
+  excepciones: { estaVacio: (ctx) => !tieneExcepciones(ctx.lead), disenos: ['chips', 'lista'] },
+  // Sólo en un ganado. Es del CLIENTE, no del trato: mirando un CRM agregado dice lo mismo (sin `delTrato` en el registro).
+  'cliente-en-cs': { estaVacio: (ctx) => sinClienteEnCs(ctx.lead), disenos: DISENOS_CLIENTE_EN_CS },
 } satisfies ReglasDeTab;

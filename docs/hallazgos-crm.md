@@ -12178,3 +12178,19 @@ Lo vio la tarea de la landing de Cobranza al grabar la ficha en Pagos (docs/hall
 misma pantalla conviven tres formatos para un monto. Viven en `app/crm/lead-view/ficha/pagos/bloques-cobro.tsx` y
 `app/crm/[id]/CobrarConLink.tsx`, cada uno con su propio formateo. **Lo que queda por hacer:** un solo formateador de montos (moneda +
 separador de miles del idioma) para toda la ficha, y un test que mire que la ficha no mezcle formatos.
+
+## Bloques que una plantilla pone y la ficha no dibuja: la misma falla fuera de Pagos (17/11/2026, medido al cerrar P28)
+
+Al cerrar P28 (los cuatro de Pagos, docs/hallazgos-pagos.md) se escribió la regla que lo hubiera atajado: todo bloque que pone
+una plantilla tiene componente o lo dibuja adentro otro de la misma lista (`incluye`). Corrida sobre TODAS las listas
+(PLANTILLA_RESPALDO, PLANTILLAS_FICHA, PLANTILLAS_TAB_PAGOS y PLANTILLAS_TAB_RESUMEN), encontró cuatro más, fuera de Pagos:
+
+- `cohorte` (en Reuniones: el respaldo y «Dos reuniones»; en el Resumen la dibuja el contacto con `incluye`, en Reuniones nadie);
+- `anuncio-de-origen` (Tracking: «Dos reuniones», «Una llamada», «Carrito»);
+- `diagnostico-mako` (Reuniones: «Dos reuniones», «Una llamada»);
+- `ciclo-de-venta` (Reuniones: «Dos reuniones», «Una llamada», «Evento»).
+
+Se saltean callados igual que los de Pagos. **Sin hacer** (no era el encargo): darles componente o sacarlos de las plantillas.
+Están fijados en tests/ficha-pagos-bloques-nuevos.test.ts (`CONOCIDOS_SIN_COMPONENTE`) para que la lista no crezca sin que
+nadie se entere; quien arregle uno, lo saca de ahí. **La regla:** un bloque nuevo en una plantilla lleva su componente en el
+mismo commit; el catálogo solo no alcanza.

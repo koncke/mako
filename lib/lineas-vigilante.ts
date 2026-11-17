@@ -36,7 +36,7 @@ import { emitirDelCatalogo } from './avisos';
 import { linkApp } from './app-url';
 import { zonaDelNegocio } from './timezone';
 import {
-  decidirLinea, avisoDeCaida, datosCaida, datosVolvio, lineaLegible, keyDesde, keyAvisado, keyUltimoNumero, DEDUP_LINEA_MIN,
+  decidirLinea, avisoDeCaida, datosCaida, datosVolvio, lineaLegible, llegoElAvisoDeLinea, keyDesde, keyAvisado, keyUltimoNumero, DEDUP_LINEA_MIN,
   type DecisionLinea, type MarcasLinea,
 } from './linea-vigilancia';
 
@@ -141,10 +141,11 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
       const r = await emitirDelCatalogo('wa-reconectado', {
         ws, datos: datosVolvio({ linea: await nombre() }), dedupKey: `volvio:${linea}`, dedupTtlMin: DEDUP_LINEA_MIN,
       });
-      const llego = r.wa || r.enApp === true || r.email === true;
+      // Sólo lo que SALIÓ (17/11/2026, `llegoElAvisoDeLinea`): lo que quedó en la app no lo vio nadie.
+      const llego = llegoElAvisoDeLinea(r);
       return {
         ...base, llego,
-        ...(llego ? {} : { error: r.waError ?? (r.apagado ? 'el negocio lo tiene apagado' : r.deduped ? 'ya avisado hace poco' : 'no salió por ningún canal') }),
+        ...(llego ? {} : { error: r.waError ?? (r.apagado ? 'el negocio lo tiene apagado' : r.deduped ? 'ya avisado hace poco' : r.enApp ? 'quedó sólo en la app' : 'no salió por ningún canal') }),
       };
     }
     if (decision.que !== 'avisar') return base;
@@ -162,11 +163,12 @@ async function vigilarUna(f: FilaLinea): Promise<ResultadoLinea> {
     // ⚠️ LA MARCA SE PONE SÓLO SI LE LLEGÓ. Si el aviso no salió (el negocio no tiene grupo
     // todavía, la voz de MaKo está caída, lo apagó), la próxima corrida vuelve a probar: el
     // dedup del catálogo es el que impide repetirlo cada 10 minutos.
-    const llego = r.wa || r.enApp === true || r.email === true;
+    // Sólo lo que SALIÓ por WhatsApp o email (17/11/2026, T1 del ws1): `wa` era «corrió una fila» y `enApp`, «quedó en la app».
+    const llego = llegoElAvisoDeLinea(r);
     if (llego) await runWithWorkspace(ws, () => setSetting(keyAvisado(linea), ahora));
     return {
       ...base, llego,
-      ...(llego ? {} : { error: r.waError ?? (r.apagado ? 'el negocio lo tiene apagado' : r.deduped ? 'ya avisado hace poco' : 'no salió por ningún canal') }),
+      ...(llego ? {} : { error: r.waError ?? (r.apagado ? 'el negocio lo tiene apagado' : r.deduped ? 'ya avisado hace poco' : r.enApp ? 'quedó sólo en la app' : 'no salió por ningún canal') }),
     };
   } catch (e) {
     return { ...base, error: msg(e) };

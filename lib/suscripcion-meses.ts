@@ -459,6 +459,25 @@ export const ROTULO_CAMBIO: Readonly<Record<CambioDelMes, string>> = {
   empezo: 'Empezó', subio: 'Subió', bajo: 'Bajó', 'se-corto': 'Se cortó', volvio: 'Volvió',
 };
 
+/**
+ * EL ESTADO DE UNA SUSCRIPCIÓN EN DOS PALABRAS (17/11/2026, P25): «Al día», «Debe 2 meses», «Cortada desde octubre», «Falló
+ * la renovación». Lo dicen el bloque «Suscripción» de la computadora (app/crm/lead-view/ficha/pagos/suscripcion.tsx) y su
+ * versión de teléfono (app/m/crm/ficha-bloques.ts, `mesAMesDelTelefono`): una sola cuenta, para que no digan distinto.
+ * Debe en rojo si el primer mes que falta ya venció; si no (vence hoy, o un mes a medias), en ámbar.
+ */
+export function estadoDeSuscripcion(
+  s: { estado: 'activa' | 'cancelada' | 'terminada'; renovacionFallida: string | null; historia: HistoriaSuscripcion },
+  hoy: string,
+): { tono: 'verde' | 'ambar' | 'rojo' | 'gris'; texto: string } {
+  const h = s.historia;
+  if (s.estado === 'cancelada') return { tono: 'gris', texto: h.cortadaDesde ? `Cortada desde ${nombreDelMes(h.cortadaDesde, hoy)}` : 'Cancelada' };
+  if (s.estado === 'terminada') return { tono: 'gris', texto: 'Terminó el plazo' };
+  if (s.renovacionFallida) return { tono: 'rojo', texto: 'Falló la renovación' };
+  const debe = h.mesesSinPagar + h.mesesParciales;
+  if (debe > 0) return { tono: h.proximo?.vencido ? 'rojo' : 'ambar', texto: debe === 1 ? 'Debe 1 mes' : `Debe ${debe} meses` };
+  return { tono: 'verde', texto: 'Al día' };
+}
+
 /** El rótulo corto del estado de un mes. */
 export const ROTULO_ESTADO_MES: Readonly<Record<EstadoMes, string>> = {
   pagado: 'Pagado', parcial: 'Parcial', vencido: 'Vencido', 'vence-hoy': 'Vence hoy', 'por-cobrar': 'Por cobrar', proximo: 'Próximo', cortado: 'Cortada',

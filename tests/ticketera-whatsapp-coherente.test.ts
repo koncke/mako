@@ -9,7 +9,10 @@
 //      y el aviso de arreglo de un ticket del MISMO negocio no sale nunca (su aviso es el del cierre);
 //   2. un ticket resuelto sin su aviso: el tope de 3 avisos de arreglo por día dejó sin una línea seis de Leila y dos de Leandro, y
 //      los clientes sin la vía libre no recibían nada en su grupo → el aviso del cambio de estado va a SU grupo, sin tope, con el
-//      texto de la Ticketera, y el ticket no queda «avisado» si no salió.
+//      texto de la Ticketera, y el ticket no queda «avisado» si no salió;
+//   3. (17/11) WhatsApp que dice «no se hizo, mándalo de nuevo» con la Ticketera en «Resuelto» (el #58 de Joan, 10/11) → lo que
+//      espera al cliente se PREGUNTA desde el ticket (`"preguntar": true` en el script de los chats): «Espera tu respuesta» y la
+//      pregunta a su grupo salen del mismo cambio.
 // Lo puro se EJECUTA; el cableado (dónde se llama cada freno, en qué orden) se lee del código, sin comentarios.
 // =============================================================================
 
@@ -149,8 +152,26 @@ test('9. las puertas del «ya quedó»: el aviso de arreglo, el mensaje libre de
   assert.match(sinComentarios(leer('scripts/tickets-cerrar-resueltos.mjs')), /\{ estado: 'resuelto', resuelto_at: ahora, respuesta: t\.respuesta\.slice\(0, 2000\), avisado_at: null, updated_at: ahora \}/);
 });
 
+test('10. lo que espera al cliente se pregunta DESDE el ticket: a su grupo le llega la pregunta, no un «Listo» (el #58 de Joan, 10/11)', () => {
+  // El caso: un pedido delegado («agendame eso que te pedí en el audio») que no se pudo hacer porque el audio no se leyó.
+  const t = { id: 58, titulo: 'Pide que agenda algo que solicitó en un audio', estado: 'esperando_cliente', respuesta: 'Tu audio del 4/11 no se pudo leer. ¿Me lo escribes o lo mandas de nuevo por aquí?', duplicado_de: null, contexto: { delegado: true }, workspace_id: 13 };
+  assert.equal(textoDelAviso(t), 'Sobre tu pedido #58 («Pide que agenda algo que solicitó en un audio»), el equipo te pregunta: Tu audio del 4/11 no se pudo leer. ¿Me lo escribes o lo mandas de nuevo por aquí?');
+  // Cerrado como resuelto, la respuesta de un delegado NO viaja: el grupo lee «Listo: ya quedó» (lo que le llegó el 10/11).
+  assert.doesNotMatch(textoDelAviso({ ...t, estado: 'resuelto' }), /no se pudo leer/);
+
+  const sc = sinComentarios(leer('scripts/tickets-cerrar-resueltos.mjs'));
+  const preg = sc.indexOf('if (t.preguntar === true) {');
+  assert.ok(preg > 0 && preg < sc.indexOf('fila.contexto?.delegado === true'), 'un delegado que espera al cliente no tiene por dónde preguntarle: el freno del delegado lo para antes');
+  assert.match(sc, /\{ estado: 'esperando_cliente', respuesta: t\.respuesta\.slice\(0, 2000\), avisado_at: null, updated_at: ahora \}/, 'la pregunta no le llega a su grupo');
+  assert.match(sc, /if \(!\['nuevo', 'esperando_decision', 'en_curso'\]\.includes\(fila\.estado\)\)/, '«preguntar» reabre un ticket cerrado y le manda otro aviso');
+  assert.match(sc, /si falta algo del cliente, pon "preguntar": true/, 'el freno del delegado no dice por dónde preguntar');
+});
+
 // PROBADO ROMPIÉNDOLO (16/11/2026, 9 de 9 en verde antes; una rotura por vez, un archivo por rotura, restaurado de una copia). Nueve
 // roturas, 1 fallo cada una: el freno del mensaje del equipo que nunca frena (3) · el aviso de arreglo de un ticket propio que sale
 // (4) · sólo los de WhatsApp avisan en su grupo, lo de antes (5) · un grupo que falló cuenta como avisado, lo del tope (6) · el cierre
 // que marca avisado aunque el grupo falló (8) · su negocio que recibe además el «Arreglamos…» (8) · el aviso de arreglo sin mirar los
 // tickets (9) · lo firmado por el equipo sin memoria, sin freno (9) · el script sin mirar los tickets abiertos (9). Restaurado: 9 de 9.
+// El 10 (17/11/2026, 10 de 10 en verde antes), cinco roturas más, 1 fallo cada una: el delegado que espera al cliente recibe el «Listo»
+// fijo · el freno del delegado antes de «preguntar» · la pregunta sin `avisado_at: null` · «preguntar» sobre un ticket resuelto · el
+// freno del delegado que vuelve a decir «contéstale en su grupo».

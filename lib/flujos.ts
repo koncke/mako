@@ -35,7 +35,7 @@ import { abrirCorrida, avanzar, cerrarCorrida } from './flujo-corridas';
 import { reclamarEspaciado } from './espaciado';
 import { AVISOS_POR_EVENTO, ESTADO_EVENTO, esperaApertura, filaDeIdCorrida, pasosParaRetomar, type FilaParaRetomar } from './aviso-evento';
 import { CLAVE_MENSAJE_MAKO } from './variables-aviso';
-import { avisoPorEmail, llegoLaTarjeta, textoDePreparadas, type PartePreparada } from './mako-tarjeta';
+import { avisoPorEmail, llegoLaTarjeta, salioLaTarjeta, textoDePreparadas, type PartePreparada } from './mako-tarjeta';
 import type { ParteMensaje } from './mensaje-partes';
 import type { HechosLead } from './flujo-grafo';
 import { datoDeCampo, hechosDelEvento, soloDatosDelEvento } from './dato-evento';
@@ -176,8 +176,11 @@ export async function correrFlujoDe(avisoId: string, ws: number, ctx: CtxFlujo =
 export async function ejecutarPasos(
   flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo,
   corrida?: { id: number; paso: number; desdeAt: Date; respondioAt: Date | null },
-  /** Cuántas tarjetas de un evento LLEGARON en esta vuelta (16/10/2026): lo pasa el emisor de eventos (`depsDelEvento`). */
-  entregas?: { llegaron: number },
+  /**
+   * Cuántas tarjetas de un evento LLEGARON en esta vuelta (16/10/2026): lo pasa el emisor de eventos (`depsDelEvento`). Y cuántas
+   * SALIERON por WhatsApp o email (`salieron`, 17/11/2026): lo que quedó sólo en la app llega pero no sale.
+   */
+  entregas?: { llegaron: number; salieron?: number },
 ): Promise<void> {
   let i = corrida?.paso ?? 0;
   let desde = corrida?.desdeAt ?? new Date();
@@ -272,7 +275,11 @@ export async function ejecutarPasos(
       if (!mio) return;
     }
     cadena = null;
-    try { if ((await ejecutarPaso(flujoId, d.paso, ws, ctx)) === true && entregas) entregas.llegaron += 1; }
+    try {
+      const hecho = await ejecutarPaso(flujoId, d.paso, ws, ctx);
+      if (entregas && (hecho === true || hecho === 'app')) entregas.llegaron += 1;
+      if (entregas && hecho === true) entregas.salieron = (entregas.salieron ?? 0) + 1;
+    }
     catch (e) { console.error(`[flujos] paso de ${flujoId}:`, e instanceof Error ? e.message : String(e)); }
     i = d.siguiente;
     desde = new Date();
@@ -392,7 +399,8 @@ async function filaParaRetomar(filaId: number): Promise<FilaParaRetomar | null> 
 }
 
 /** `true` = una tarjeta de un evento de MaKo que LLEGÓ (al grupo o por email); lo demás no devuelve nada. */
-async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlujo): Promise<boolean | void> {
+// `true` = salió por WhatsApp o email; `'app'` = quedó sólo en la app (llegó, no salió); `false` = no llegó (`emitirTarjetaDelEvento`).
+async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlujo): Promise<boolean | 'app' | void> {
   // INSISTIR: el mensaje sale AHORA y además queda una insistencia abierta. Vuelve
   // cada `cadaMin` hasta `veces`, o hasta que alguien escriba «ok» en el grupo.
   // El techo (5 veces, 30 min) lo recorta `sanearInsistir` adentro de abrirInsistencia:
@@ -544,7 +552,7 @@ function nombreDelAviso(flujoId: string): string {
  */
 async function emitirTarjetaDelEvento(
   flujoId: string, tarjeta: { texto: string; partes?: ParteMensaje[]; email?: { asunto: string }; sinGrupo?: 'email' }, ws: number, ctx: CtxFlujo, aviso: { id: string; titulo: string },
-): Promise<boolean> {
+): Promise<boolean | 'app'> {
   // ⚠️ `{{mensaje_mako}}` SE SIGUE INYECTANDO hasta la limpieza (docs/diseno-undecima-tanda.md §8.7): #239 y #240 lo usan
   // hasta que el script de flujos las archive. Ya no se ofrece ni se publica (`problemasDeTokens`, lib/tokens-del-flujo.ts).
   // Los datos van con el renglón opcional (`conVariables` → `textoConDatos`): «📱 {{lead_telefono}}» sin teléfono no sale.
@@ -581,5 +589,6 @@ async function emitirTarjetaDelEvento(
   if (!r.ok) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió`);
   else if (porEmail && !r.email) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió por email (ws ${wsDestino}: ¿sin destinatarios?)`);
   else if (partes && !r.wa && !r.enApp && r.waError && !r.sinGrupo) console.error(`[flujos] ${flujoId}: el aviso «${aviso.id}» no salió al grupo — ${r.waError}`);
-  return llegoLaTarjeta(r);
+  // Salió (WhatsApp o email), llegó sólo a la app, o no llegó (17/11/2026): el vigilante de líneas marca con lo primero.
+  return salioLaTarjeta(r) ? true : llegoLaTarjeta(r) ? 'app' : false;
 }

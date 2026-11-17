@@ -2261,3 +2261,22 @@ navegador. En el teléfono va con `className`.
 hay que envolverla en `ShellM` con `barraMovil(...)` (si no, falta la cabecera y los márgenes), y esperar la entrada de MaKo
 (el splash, unos 5 s con el panel de fondo) y la animación de la hoja antes de capturar. El tema oscuro no se prende con
 `data-tema`: el marco lo lee por su cuenta.
+
+## La suscripción mes a mes en el teléfono: el estado de cuenta se calla al lado (17/11/2026, P25)
+
+**El pendiente:** «la suscripción mes a mes no existe en el teléfono» (P25). La cuenta ya estaba (la fila «Estado de cuenta» de
+app/m/crm/datos.ts usa la misma `cobradoDelLead` con los cambios de la 0401); faltaba el bloque. Ahora `suscripcion` → la pieza
+`mes-a-mes` (app/m/crm/ficha-bloques.ts, `mesAMesDelTelefono`): estado, cuánto paga hoy, cuándo le toca, lo pagado y lo que
+debe, en filas que se leen, y los meses (del más nuevo al más viejo, los cortados seguidos en un renglón) en una hoja.
+
+- **Con el mes a mes en la hoja, la fila «Estado de cuenta» de la casa se calla**, como en la computadora (`suscripcionAlLado`):
+  dirían lo mismo dos veces. La de cada CRM agregado sigue.
+- **El estado («Al día», «Debe 2 meses», «Cortada desde octubre») salió de la computadora a lib/suscripcion-meses.ts
+  (`estadoDeSuscripcion`)**: estaba escrito adentro del componente de escritorio, y copiarlo al teléfono era la receta para que
+  un día dijeran distinto. Los dos lo llaman.
+- Probado con los datos de Código Inmobiliario medidos en producción (lead 2474): «$238/mes · día 5», «Le toca 5 de diciembre ·
+  $426», «$384 · 2 meses pagados», noviembre «Subió de $146 · 2 pagos · Cripto».
+
+**Sin hacer (resto de P25):** el prorrateo del diferencial (hoy un ajuste a mano), el monto de una suscripción de la pasarela que
+sale del lead y no del cobro (lib/cobrado-lead.ts), y cambiar el medio de un pago ya cobrado (no hay operación). El teléfono no
+registra pagos ni cambia el monto: «en la computadora».

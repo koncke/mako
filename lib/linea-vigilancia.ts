@@ -105,6 +105,18 @@ export function decidirLinea(e: {
 }
 
 /**
+ * ¿LE LLEGÓ EL AVISO DE LA LÍNEA? Con esto se marca «avisado» (17/11/2026, T1 del ws1). Sólo lo que SALIÓ por WhatsApp o
+ * email: era `r.wa || r.enApp || r.email`, y para un evento de la plataforma `wa` es «corrió una fila» (`emitirPorEvento`) y
+ * `enApp` es «quedó en el hilo de la app», que un negocio que no la abre no ve. Con la marca puesta el vigilante deja de
+ * insistir y el «volvió» queda habilitado. Sin ella, la próxima corrida vuelve a probar: el dedup del catálogo
+ * (`DEDUP_LINEA_MIN`) impide repetirlo cada 10 minutos. Un evento trae `salieron`; otro aviso, su `wa` (el WhatsApp de verdad).
+ */
+export function llegoElAvisoDeLinea(r: { wa: boolean; email?: boolean; salieron?: number }): boolean {
+  if (typeof r.salieron === 'number') return r.salieron > 0;
+  return r.wa || r.email === true;
+}
+
+/**
  * Cómo se nombra la línea en el aviso: el nombre que le puso el negocio, o su número. El número de la fila gana; si la
  * caída lo borró, el último que tuvo (`keyUltimoNumero`).
  */

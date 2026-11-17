@@ -13928,3 +13928,35 @@ su CRM —elegida (`columnasEmail.rebote`) o por su nombre— aunque quede antes
 - **El tope que frena un envío no deja fila** (`nutricion_envios`): sólo la nota en la corrida. Por eso los 34 parecían «sin motivo».
 - **La reserva no es por automatización:** una lista fría de leads NUEVOS (una base importada hoy con `origen_lead`) cuenta como
   caliente. Lo mismo que en el WhatsApp (lib/nutricion-prioridad.ts, la revisión adversarial del 21/10).
+
+### «¿Le llega el aviso de la línea caída?»: sí, y la marca `avisado` no era la prueba (17/11/2026, T1, ws1)
+
+**La pregunta:** la línea `mako_ws1` de Mauricio está caída desde el 30/10 01:20 UTC y MaKo le manda «Se desconectó tu
+WhatsApp» cada 24 h. ¿Le llega de verdad a su grupo? **Lo que NO prueba la entrega:** ni `wa.linea.caida.avisado.<línea>`
+ni el dedup `mako.aviso.last.*`. El vigilante (lib/lineas-vigilante.ts) marca «avisado» con `r.wa || r.enApp || r.email`, y
+para un evento de la PLATAFORMA `emitirPorEvento` devuelve `wa: dePlataforma && n > 0`, o sea «corrió una fila», no «salió»
+(lo dice el propio tipo: para contar lo que salió está `llegaron`). Además, desde el 3/11 `enviarAlGrupoMaKo` copia primero al
+hilo de la app y devuelve `ok` con `enApp: true` aunque WhatsApp falle. **Lo que SÍ lo prueba, en una consulta:** la fila del
+aviso en `grupo_mensajes` (el hilo del grupo en la app) tiene `wa_message_id` sólo si Evolution aceptó el envío por la voz
+(`atarIdDeWhatsApp`). **Medido:** los 13 avisos del 5/11 al 17/11 tienen `wa_message_id`; la voz (`mako_superadmin_muylqv8r`,
+estado `open`) es admin del grupo `120363411646661065@g.us` (`GET /group/participants/<voz>?groupJid=`, 0,4 s); los
+miembros son …3479 (Martín), …2605 (la voz) y …8122, la propia línea de negocio de Mauricio, desde la que él escribe en el
+grupo casi a diario (7/11 al 14/11, `autor_tipo` persona, `canal` whatsapp). **El diagnóstico obvio era el equivocado:**
+«la línea caída no recibe» confunde la sesión de Evolution con la cuenta. Lo que se cayó es el dispositivo vinculado; el
+número …8122 sigue vivo en su teléfono y el grupo le llega. `wa_at` está en null en todos: no hay acuse de entrega guardado,
+sólo la aceptación. Del 30/10 al 4/11 no se puede probar (el hilo de la app nació el 3/11) y no hay errores registrados.
+**Arreglado el mismo día:** (1) el vigilante marca «avisado» sólo con lo que SALIÓ por WhatsApp o email
+(`llegoElAvisoDeLinea`, lib/linea-vigilancia.ts): la tarjeta de un evento dice si salió (`true`), si sólo llegó a la app
+(`'app'`) o si no llegó, `ejecutarPasos` cuenta `salieron` aparte de `llegaron`, y `emitirPorEvento` lo devuelve.
+`enviarAlGrupoMaKo` sigue devolviendo `ok` con `enApp`: cambiar eso haría que todo el que reintenta sume burbujas en la app
+(la razón del 3/11); la distinción viaja aparte. Sin la marca, lo que frena el reintento es el dedup de 20 h, no cada 10 min.
+(2) El aviso llegaba y no se entendía: el 12/11 Mauricio escribió «yo no conecte a mako» y el 14/11 «me confirmas que está
+conectado», con el «Se desconectó tu WhatsApp» del día en el mismo grupo. **La trampa del texto:** decía «tu teléfono está
+bien, pero por ese número no entran ni salen mensajes», y su número SÍ manda y recibe en su teléfono: lo que no puede es
+MaKo. El texto nuevo dice eso, que su WhatsApp anda, y el paso a paso del QR; cada dato en su renglón (sin número o sin fecha
+se va ese renglón, no el aviso). Vive en la plantilla (lib/plantillas-automatizaciones.ts, `mako-whatsapp-desvinculado`) y en
+la fila #259 del ws9, que es la que se manda (dato de producción: se cambia con el sí de Martín).
+**Test:** tests/linea-aviso-salio.test.ts (probado rompiéndolo) y tests/avisos-plataforma.test.ts (el texto).
+**Vive en:** lib/lineas-vigilante.ts · lib/aviso-evento.ts (`emitirPorEvento`) · lib/mako-grupo.ts (`enviarAlGrupoMaKo`) ·
+lib/grupo-app.ts (`grupo_mensajes`) · lib/mako-tarjeta.ts (`salioLaTarjeta`) · lib/flujos.ts (`ejecutarPasos`).
+*17/11/2026, chat «Automations» (claude2).*

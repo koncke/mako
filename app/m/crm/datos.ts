@@ -47,7 +47,7 @@ import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
 import type { Lead } from '@/lib/leads';
 import type { ContactoCopia } from '@/lib/sin-conexion/reglas';
-import { filaDeAutomatizaciones, piezasDelTelefono, resumenDelTelefono, saldoDelTelefono, tabsQueVe, tonoDeAutomatizaciones, type PiezaPuesta, type ResumenTelefono, type SaldoTelefono } from './ficha-bloques';
+import { filaDeAutomatizaciones, mesAMesDelTelefono, piezasDelTelefono, resumenDelTelefono, saldoDelTelefono, tabsQueVe, tonoDeAutomatizaciones, type MesAMesTelefono, type PiezaPuesta, type ResumenTelefono, type SaldoTelefono } from './ficha-bloques';
 import { enAutomatizaciones } from '@/lib/automatizaciones-del-lead';
 import { fechaCorta, vistaDeEnAutomatizacion, type TonoTarjeta } from '@/app/crm/automatizacion-lead';
 import { tiempoEnEtapaAction } from '@/app/crm/lead-view/ficha/resumen/bloques-actions';
@@ -93,6 +93,11 @@ export type FichaV2 = {
    */
   saldosCrm: Array<{ crm: string; saldo: SaldoTelefono }>;
   /**
+   * La suscripción mes a mes (17/11/2026, P25: la pieza `mes-a-mes`, `mesAMesDelTelefono`), con la MISMA cuenta que el
+   * bloque de la computadora. null = no es una suscripción (o no se pudo leer).
+   */
+  mesAMes: MesAMesTelefono | null;
+  /**
    * Las filas del Resumen nativo (16/10/2026): la siguiente acción, el equipo, la calificación, cuánto lleva en la
    * etapa… (`resumenDelTelefono`, ./ficha-bloques.ts). null = sin el lead (no se dibuja ninguna).
    */
@@ -118,11 +123,11 @@ export type FichaV2 = {
  * pantalla de escritorio), las etapas DEL LEAD para saber si ve Reuniones, la regla de Tracking, y
  * «N sin marcar» con sus insumos. Nunca tira: lo que falla no se dibuja.
  */
-async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[]; sinMarcar: number | null; saldo: SaldoTelefono | null; saldosCrm: Array<{ crm: string; saldo: SaldoTelefono }> }> {
+async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[]; sinMarcar: number | null; saldo: SaldoTelefono | null; saldosCrm: Array<{ crm: string; saldo: SaldoTelefono }>; mesAMes: MesAMesTelefono | null }> {
   // El respaldo del negocio sólo cambia redes, ingreso, dirección, sexo y cohorte: ninguna tiene versión de
   // teléfono, así que el vacío da las mismas piezas que la pantalla de escritorio con su `resumen`.
   const respaldo = fichaEfectiva('respaldo', null, RESPALDO_VACIO);
-  if (!lead) return { piezas: piezasDelTelefono(respaldo.tabs, ['resumen']), sinMarcar: null, saldo: null, saldosCrm: [] };
+  if (!lead) return { piezas: piezasDelTelefono(respaldo.tabs, ['resumen']), sinMarcar: null, saldo: null, saldosCrm: [], mesAMes: null };
   const [ficha, insumos, verTracking] = await Promise.all([
     fichaDelFunnelDelLead(lead.funnel_id ?? null),
     leerInsumosDatosLead(lead),
@@ -139,7 +144,11 @@ async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[
   } catch (e) {
     console.error(`[m/crm] datos sin marcar ${lead.id}: ${msg(e)}`);
   }
-  return { piezas, sinMarcar, saldo: verPagos ? await saldoDelLead(lead, insumos.pagos) : null, saldosCrm };
+  const cuenta = verPagos ? await saldoDelLead(lead, insumos.pagos) : null;
+  // ⚠️ Con el mes a mes en la hoja, la fila «Estado de cuenta» de la casa se calla: el bloque ya dice si está al día (la
+  // regla de la computadora, `suscripcionAlLado`, app/crm/lead-view/ficha/reglas-pagos.ts). La de cada CRM agregado sigue.
+  const conMesAMes = !!cuenta?.mesAMes && piezas.some((x) => x.pieza === 'mes-a-mes');
+  return { piezas, sinMarcar, saldo: conMesAMes ? null : cuenta?.saldo ?? null, saldosCrm, mesAMes: conMesAMes ? cuenta?.mesAMes ?? null : null };
 }
 
 /**
@@ -173,7 +182,7 @@ async function saldosDeCrms(lead: Lead): Promise<Array<{ crm: string; saldo: Sal
  * para una suscripción de la pasarela, sus cobros (una renovación rechazada se dice). Nunca tira: sin los cobros,
  * cuenta con las cuotas.
  */
-async function saldoDelLead(lead: Lead, pagos: Awaited<ReturnType<typeof leerInsumosDatosLead>>['pagos']): Promise<SaldoTelefono | null> {
+async function saldoDelLead(lead: Lead, pagos: Awaited<ReturnType<typeof leerInsumosDatosLead>>['pagos']): Promise<{ saldo: SaldoTelefono | null; mesAMes: MesAMesTelefono | null } | null> {
   try {
     const ws = await getWorkspaceActual();
     const [cobros, hoy, cambios] = await Promise.all([
@@ -189,7 +198,11 @@ async function saldoDelLead(lead: Lead, pagos: Awaited<ReturnType<typeof leerIns
       suscripcionCanceladaAt: (fila.suscripcion_cancelada_at as string | null | undefined) ?? null, pagos, cobros, hoy,
       movimientos: cambios?.movimientos ?? [],
     });
-    return saldoDelTelefono(estadoDeCuenta({ cobrado, pagos, ganado: lead.estado_lead === 'ganado', hoy }));
+    return {
+      saldo: saldoDelTelefono(estadoDeCuenta({ cobrado, pagos, ganado: lead.estado_lead === 'ganado', hoy })),
+      // La suscripción mes a mes (P25): de la MISMA cuenta, sin otra lectura.
+      mesAMes: cobrado.suscripcion ? mesAMesDelTelefono(cobrado.suscripcion, hoy) : null,
+    };
   } catch (e) {
     console.error(`[m/crm] estado de cuenta ${lead.id}: ${msg(e)}`);
     return null;

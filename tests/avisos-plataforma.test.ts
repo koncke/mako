@@ -103,7 +103,8 @@ test('el texto ES el de la fila: «se desconectó» y «se cortó» son dos even
   assert.equal(avisoDeCaida({ motivo: null }), 'wa-desconectado');
   assert.equal(avisoDeCaida({ motivo: { desvinculado: false, cuando: null } }), 'wa-desconectado');
   assert.equal(textoConDatos(tarjeta('mako-whatsapp-desvinculado'), datosCaida(HECHOS)),
-    '🔴 *Se desconectó tu WhatsApp*\n📱 +5215512345678\n🕐 Desde el 3 de octubre\nWhatsApp cerró la sesión del dispositivo vinculado: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:\nhttps://hola-mako.com/whatsapp\n\n— MaKo');
+    // 17/11/2026 (T1): el texto nuevo, que se entienda: qué dejó de hacer MaKo, que su WhatsApp anda, y el paso a paso del QR.
+    '🔴 *MaKo perdió acceso a tu WhatsApp*\n📱 +5215512345678\n🕐 Desde el 3 de octubre\nMaKo ya no puede mandar ni leer los mensajes de ese número: tus automatizaciones de WhatsApp no salen. Tu WhatsApp sigue andando normal en tu teléfono.\n\nPara que MaKo vuelva:\n1. Abre este link en tu computadora: https://hola-mako.com/whatsapp\n2. En tu teléfono, entra a WhatsApp › Dispositivos vinculados (en el menú ⋮ o en Configuración) y toca «Vincular un dispositivo».\n3. Escanea el código QR que aparece en la computadora.\n\n— MaKo');
   assert.equal(textoConDatos(tarjeta('mako-whatsapp-caido'), datosCaida({ ...HECHOS, motivo: null, desde: '2026-10-03T15:00:00Z' })),
     '🔴 *Se cortó tu WhatsApp*\n📱 +5215512345678\n🕐 Desde el 3 de octubre\nPor ese número no entran ni salen mensajes. Puede volver solo; si sigue así, reconéctalo:\nhttps://hola-mako.com/whatsapp\n\n— MaKo');
   // La firma «— MaKo» cuenta (16/10/2026): una tarjeta TAL CUAL no le suma envoltorio, así que va en la plantilla.
