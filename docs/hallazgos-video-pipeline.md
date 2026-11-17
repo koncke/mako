@@ -58,6 +58,23 @@ fijar un costo se lee la página del modelo: cada una publica su tabla, así que
 - **Conectar ApiMart de verdad es otro trabajo:** hoy `generarVideo` (lib/apimart.ts:66) no tiene llamador, y el estudio filma
   por el puente de Flow.
 
+**Medido GENERANDO el 17/11, con el sí de Martín:** el clip 4 del reel de los pistachos, en el que Martín se transforma en la caricatura
+de Hormozi y vuelve. Dos clips de 4 s con fotograma inicial y final, con `gemini-omni-1.2-flash-ext` a 720p en 9:16.
+- **Cuánto costó:** US$0,096 cada uno, 0,024 × 4, igual que la tabla. Tardaron 92 y 114 s, en paralelo.
+- **Cómo salió:** la cara y los labios igual de fieles que en Flow, y las frases exactas.
+- **La transformación:** de caricatura a Martín salió mejor que en Flow, por etapas en vez de con dos caras superpuestas. De Martín a
+  caricatura salió peor: 1 s de fundido con la gorra y la barba transparentes.
+- **Archivos:** `C:/dev/reel-mentores/clips-apimart/` (comparación cuadro por cuadro en `clip4-flow-vs-apimart.jpg`). Herramienta:
+  `C:/dev/reel-mentores/omni/omni-fotogramas.mjs`, que no relanza una salida que ya tiene `.task.txt`.
+
+**Trampas de la API:**
+- El estado se lee en `GET /v1/tasks/<id>`. `data` viene como LISTA al lanzar y como OBJETO al consultar.
+- El progreso queda en 10 % hasta el final, y no está trabado.
+- El video está en `data.result.videos[0].url[0]` (una lista) y **vence a las 24 h** (`expires_at`): se baja enseguida.
+- `GET /v1/pricing/model?model=…&resolution=720p&duration=4` da el precio sin cobrar, y `GET /v1/logs/requests/<task_id>` confirma
+  lo cobrado. Coincidió con `data.cost`.
+- Con inicio y final, `duration` va de 3 a 10. `first_frame_image` y `last_frame_image` no se mezclan con `image_urls`.
+
 ---
 
 ## 1. Lo que se puede usar HOY (licencia verificada con cláusula, cero ambigüedad)
