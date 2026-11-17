@@ -36,8 +36,10 @@ en [hallazgos-operaciones.md](hallazgos-operaciones.md) → «Los pendientes se 
   líneas reciben después del corte del 7/11 (ws 9, 10, 11, 13, 18, 19, 20, 21 y 22), así que el webhook firmado anda.
   `mako_ws1` no: 1.697 entrantes del 17/10 al 30/10 y ninguno después, ni entrante ni saliente, con 146 leads nuevos
   desde el 7/11 (`app_settings`: `wa.linea.caida.desde.mako_ws1` = 2026-10-30T01:20, `…avisado…` = 17/11 03:00). El aviso
-  va sólo a su grupo de MaKo cada 24 h (decisión del 6/10, `lib/linea-vigilancia.ts:9`); que le llegue no está probado.
-  Volver a vincular con el QR es de Mauricio. Repartido a Automations: probar que el aviso le llega.
+  va sólo a su grupo de MaKo cada 24 h (decisión del 6/10, `lib/linea-vigilancia.ts:9`). **Automations lo midió: SÍ le
+  llega** (13 avisos del 5 al 17/11 aceptados por Evolution; la voz es admin del grupo; Mauricio escribe ahí desde el …8122).
+  Lo caído es la SESIÓN de Evolution del …8122, no su WhatsApp, y el aviso no se entiende («yo no conecte a mako», 12/11).
+  Volver a vincular con el QR es de Mauricio. Detalle en hallazgos-comunicacion.md (punta/aut-t1-linea-ws1, b47efae5f).
 - **Repartidos el 17/11:** P4 → Ticketera · P27, P30, P7, P26, P1, P24, P29 → Cobros · P28, P25, P33 → CRM · T1 → Automations.
   Lo de «Traba» y «Construir» queda acá hasta que haya RAM y cuota para más chats a la vez.
 
