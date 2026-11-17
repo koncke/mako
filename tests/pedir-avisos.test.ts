@@ -46,6 +46,15 @@ test('donde ya hay otro pedido o todavía no se entró, no se pide', () => {
   for (const r of ['/general', '/apps', '/aplicaciones', '/m/cuentas-por-cobrar', '/crm']) assert.equal(rutaSinPedido(r), false, r);
 });
 
+// Martín, 16/11/2026, a la noche, con la sesión iniciada en el sitio: «sigue estando la parte de activa los avisos en la landing… eso
+// no debe estar… solamente dentro de MaKo». PROBADO ROMPIÉNDOLO: sin `delSitio` en `rutaSinPedido` → falla «/: se pide en el sitio».
+test('en el sitio (la portada, Precios, el Accelerator, las landings) no se pide: sólo adentro de MaKo', () => {
+  for (const r of ['/', '/planes', '/planes/pro', '/accelerator', '/accelerator/aplicar', '/vsl/closing', '/vsl/comparaciones/gohighlevel', '/mako-partners']) {
+    assert.equal(rutaSinPedido(r), true, `${r}: se pide en el sitio`);
+    assert.equal(pide('apagado', r), 'nada', r);
+  }
+});
+
 test('«Ahora no» calla UN día, y uno vencido o ilegible no calla nada', () => {
   assert.equal(POSPONER_MS, 24 * 3600_000);
   assert.equal(pide('apagado', '/general', String(AHORA + 60_000)), 'nada');

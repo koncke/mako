@@ -754,9 +754,18 @@ test('la barra dice cuánto sale sumar MaKo Tokens, arranca en «tu plan», y NO
   //   «Me gustaba el que teníamos antes… una barrita más simple» (la de la primera calculadora: un range, riel y botón).
   assert.doesNotMatch(t, /Calcula cuántos MaKo Tokens necesitas/, 'volvió el título de la barra');
   // Se busca el MARCADO (`class="…"`), no el nombre suelto: los nombres aparecen antes en la hoja de estilos de la página.
+  // DESDE EL 16/11/2026 A LA NOCHE, DEBAJO DE LAS COLUMNAS, en «Agrega créditos extra» (Martín: «tal vez eso inclusive ponerlo
+  // abajo porque la persona… lo único que va a comprar es primero que nada el plan y después tal vez crearía una subsección de
+  // agrega créditos extra»). PROBADO ROMPIÉNDOLO: con `{barra}` de vuelta arriba de la grilla → falla acá.
   const iSel = html.indexOf('class="mkpl-periodo"'), iBarra = html.indexOf('data-tk=""'), iCols = html.indexOf('class="mkpl-grilla"');
-  assert.ok(iSel > 0 && iSel < iBarra && iBarra < iCols,
-    'la barra va debajo del selector mensual / anual y arriba de las columnas');
+  const iExtras = html.indexOf('class="mkpl-extras"');
+  assert.ok(iSel > 0 && iSel < iCols && iCols < iExtras && iExtras < iBarra,
+    'la barra va debajo de las columnas, en su subsección «Agrega créditos extra»');
+  assert.match(t, /Agrega créditos extra/, 'la subsección de la barra sin su título');
+  // Y lo que suma va APARTE del precio del plan, chiquito y oculto en cero («97 más 200… y si está en cero, evidentemente que no
+  // aparece más nada»): cada columna con cupo lleva su «+ US$ X», nace oculto y la barra lo prende.
+  for (const id of ['esencial', 'pro']) assert.match(html, new RegExp(`<div class="mkpl-extra" data-tk-extra="${id}" hidden=""></div>`), `${id}: sin el «+ US$ X» oculto debajo del precio`);
+  assert.ok(html.includes("q('data-tk-extra',k.id)") && html.includes('n.hidden=!p.usd'), 'la barra no prende ni apaga el «+ US$ X» de cada columna');
   for (const pieza of ['tk-riel', 'tk-relleno', 'tk-burbuja', 'tk-plan', 'type="range"']) assert.ok(html.includes(pieza), `a la barra le falta ${pieza}`);
   for (const vieja of ['tk-incluido', 'tk-valor', 'tk-lleno']) assert.ok(!html.includes(vieja), `volvió el bloque de 46 px (${vieja})`);
   assert.doesNotMatch(t, /Si te faltan/, 'volvió el «si te faltan, sumas más cuando quieras»');

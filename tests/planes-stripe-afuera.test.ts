@@ -195,13 +195,15 @@ test('la ACTIVACIÓN de Stripe: checkout completo de ESTE cobro, suscripción en
 const MP = { pasarela: 'mercadopago' as const, moneda: 'ARS', monto: 140_000 };
 const ST = { pasarela: 'stripe' as const, moneda: 'USD', monto: 97 };
 
-test('Mercado Pago SÓLO en su país, y ahí la única; afuera, Stripe; sin saber el país, las dos', () => {
+test('Mercado Pago SÓLO en su país, y ahí la única; afuera, Stripe; sin saber el país, tampoco Mercado Pago', () => {
   assert.deepEqual(pasarelasDelPais('MX', [MP, ST]), [ST], 'la clienta de México: Stripe, nunca la MP argentina');
   assert.deepEqual(pasarelasDelPais('US', [MP, ST]), [ST]);
   assert.deepEqual(pasarelasDelPais('AR', [MP, ST]), [MP], 'en Argentina, en pesos (sin el recargo de la tarjeta internacional)');
   assert.deepEqual(pasarelasDelPais('AR', [ST]), [ST], 'en Argentina sin precio en pesos: Stripe');
   assert.deepEqual(pasarelasDelPais('MX', [MP]), [], 'desde México con sólo la MP argentina: no se cobra en línea (se pide)');
-  assert.deepEqual(pasarelasDelPais(null, [MP, ST]), [MP, ST], 'sin país, elige la persona');
+  // Sin saber el país, las que cobran en todo el mundo (16/11/2026, a la noche, Martín: «revisa eso, que Mercado Pago solamente salta en Argentina»); Mercado Pago sólo si no hay otra.
+  assert.deepEqual(pasarelasDelPais(null, [MP, ST]), [ST], 'sin país, Mercado Pago no');
+  assert.deepEqual(pasarelasDelPais(null, [MP]), [MP], 'sin país y sin otra, no se deja sin pagar');
   assert.deepEqual(pasarelasDelPais('MX', [{ ...MP, moneda: 'MXN' }, ST]), [{ ...MP, moneda: 'MXN' }], 'una MP de México cobra en México');
 });
 

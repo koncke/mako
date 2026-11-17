@@ -260,6 +260,10 @@ html[data-sitio-modo="oscuro"] .s-cuenta{--cu-fondo:${CARD};--cu-filete:${LINEA1
 .s-cuenta-f:focus-visible{outline:2px solid ${AZUL};outline-offset:-2px}
 .s-cuenta-f:hover svg,.s-cuenta-f:focus-visible svg{color:var(--cu-tinta)}
 .s-cuenta-f[disabled]{cursor:default;opacity:.6}
+/* «Cerrar sesión», en ROJO (Martín, 16/11/2026, a la noche: «cerrar sesión debería estar en rojo»): el texto y su ícono, también al
+   pasar el mouse. El mismo rojo en los dos modos (el menú lleva data-tema-fijo). */
+.s-cuenta-f.s-cuenta-salir,.s-cuenta-f.s-cuenta-salir svg,.s-cuenta-f.s-cuenta-salir:hover svg,.s-cuenta-f.s-cuenta-salir:focus-visible svg{color:#D93025}
+.s-cuenta-f.s-cuenta-salir:hover,.s-cuenta-f.s-cuenta-salir:focus-visible{background:rgba(217,48,37,.08)}
 
 @media (prefers-reduced-motion:reduce){
   .s-mega,.s-nav-it:hover>.s-mega,.s-nav-it:focus-within>.s-mega{transition:none;transform:none}

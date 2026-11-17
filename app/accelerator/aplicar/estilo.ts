@@ -254,6 +254,28 @@ textarea.apl-input { height: auto; min-height: 150px; padding: 14px 16px; line-h
   .apl-op { gap: 12px; padding: 12px 14px; }
   .apl-nav .acl-btn { padding-inline: 10px; font-size: 13px; letter-spacing: .04em; }
 }
+/* ── EL PRIMER PASO, SIN SCROLL (Martín, 16/11/2026, a la noche: «no debería tener scroll… al menos en el primer paso del formulario;
+   en los otros, si es más largo, bueno, se entiende»). Medido antes a 1440 × 900: 419 px de más. La cabeza sin la ceja y más baja, la
+   tarjeta más apretada y, en una pantalla ancha, las tres respuestas de «¿Ya tienes cuenta en MaKo?» en un renglón. Los demás pasos
+   quedan como estaban. */
+.apl-wrap[data-paso="0"] .apl-cabeza { margin-bottom: 22px; }
+.apl-wrap[data-paso="0"] .apl-cabeza .acl-pill { display: none; }
+.apl-root .apl-wrap[data-paso="0"] .apl-cabeza h1 { font-size: clamp(2.1rem, 4.2vw, 2.8rem); }
+.apl-wrap[data-paso="0"] .apl-bajada { margin-top: 8px; font-size: 1.12rem; }
+.apl-wrap[data-paso="0"] .apl-tarjeta { padding-top: 26px; padding-bottom: 24px; }
+.apl-wrap[data-paso="0"] .apl-barra { margin-bottom: 20px; }
+.apl-wrap[data-paso="0"] .apl-campos { gap: 20px; margin-top: 20px; }
+.apl-wrap[data-paso="0"] .apl-fila { row-gap: 20px; }
+.apl-wrap[data-paso="0"] .apl-rotulo { margin-bottom: 7px; font-size: 16px; }
+.apl-wrap[data-paso="0"] .apl-input { height: 50px; }
+.apl-wrap[data-paso="0"] .apl-op { min-height: 52px; padding-block: 10px; }
+.apl-wrap[data-paso="0"] .apl-nav { margin-top: 24px; padding-top: 18px; }
+.apl-main:has(.apl-wrap[data-paso="0"]) { padding-top: 104px; padding-bottom: 24px; }
+@media (min-width: 721px) {
+  .apl-wrap[data-paso="0"] .apl-opciones.apl-una-col { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .apl-wrap[data-paso="0"] .apl-op { font-size: 15.5px; gap: 10px; padding-inline: 14px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .apl-entra, .apl-girando { animation: none; }
   .apl-barra span::after, .apl-op, .apl-marca, .apl-marca::after, .apl-input { transition: none; }

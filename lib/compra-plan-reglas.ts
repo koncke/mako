@@ -240,7 +240,9 @@ export function pasarelaDeLaCompra(p: {
 // pago. La cuenta del vendedor es de otro país». Mercado Pago cobra sólo dentro del país de SU cuenta (la de MaKo es
 // argentina: cobra en ARS). Así que Mercado Pago se ofrece sólo a quien está en ese país, y ahí es la ÚNICA (en pesos, sin
 // el recargo de la tarjeta internacional: docs/estrategia-financiera-mako.md); en el resto del mundo, Stripe. Sin saber el
-// país (sin el encabezado de Vercel: local, o una IP que Vercel no ubica), las dos, y elige la persona.
+// país (sin el encabezado de Vercel: local, o una IP que Vercel no ubica), las que cobran en todo el mundo: Mercado Pago NO
+// (16/11/2026, a la noche, Martín: «Mercado Pago solamente está disponible en la Argentina… revisa eso, que Mercado Pago solamente
+// salta en Argentina»). Hasta esa noche, sin país salían todas, Mercado Pago incluido, y a alguien de afuera se lo podía rechazar.
 
 /**
  * Cómo se ofrece la Stripe de la plataforma según el MODO de su clave (13/11/2026). Sólo una clave `real` va al público; una
@@ -308,8 +310,13 @@ const PAISES_LATAM: ReadonlySet<string> = new Set([
  *    significa «el otro» es correcto sólo mientras haya dos.
  */
 export function pasarelasDelPais<T extends { pasarela: Pasarela; moneda: string }>(pais: string | null, opciones: readonly T[]): T[] {
-  // Sin saber el país (local, o una IP que Vercel no ubica), todas, y elige la persona.
-  if (!pais) return [...opciones];
+  // Sin saber el país (local, o una IP que Vercel no ubica): las que cobran en todo el mundo, y elige la persona. Mercado Pago no:
+  // sólo cobra en el país de su cuenta (Argentina), y no se sabe que esté ahí. Sólo si no hay ninguna otra conectada queda ella,
+  // para no dejar sin forma de pagar a quien sí está en Argentina.
+  if (!pais) {
+    const enTodoElMundo = opciones.filter((o) => !CAPACIDADES_PASARELA[o.pasarela].soloEnSuPais);
+    return enTodoElMundo.length ? enTodoElMundo : [...opciones];
+  }
   const locales = opciones.filter((o) => o.pasarela === 'mercadopago' && PAIS_DE_MERCADO_PAGO[o.moneda.toUpperCase()] === pais);
   if (locales.length) return locales;
   // Las que cobran en todo el mundo: nunca la que sólo cobra en el país de su cuenta (Mercado Pago), que afuera rechaza.
@@ -336,7 +343,7 @@ export function pasarelasDelPais<T extends { pasarela: Pasarela; moneda: string 
  */
 export function pasarelasParaOfrecer<T extends { pasarela: Pasarela; moneda: string }>(pais: string | null, reales: readonly T[], dePrueba: readonly T[]): T[] {
   const segunPais = pasarelasDelPais(pais, reales);
-  // Con país, `pasarelasDelPais` sólo devuelve Mercado Pago si es la de ese país (sin país ya vienen todas).
+  // Con país, `pasarelasDelPais` sólo devuelve Mercado Pago si es la de ese país (sin país, sólo si no hay otra).
   const enSuPais = pais != null && segunPais.some((o) => o.pasarela === 'mercadopago');
   const tarjeta = enSuPais ? pasarelasDelPais(pais, reales.filter((o) => !CAPACIDADES_PASARELA[o.pasarela].soloEnSuPais)) : [];
   const yaEstan = new Set(reales.map((o) => o.pasarela));

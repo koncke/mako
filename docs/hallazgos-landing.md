@@ -7360,3 +7360,30 @@ ve una propiedad que desapareció.
   una toma a otra (de 0,3 a 2,2 s): el corte se mide en cada crudo mirando cuadros, no se copia del anterior; (4) con la cámara a 1,45
   las tarjetas quedaban de 7 px en la pestaña de 519 px: a 2× y sólo las dos columnas que importan; (5) el final es un plano quieto
   que se funde con el comienzo, no la tarjeta volviendo para atrás.
+
+## El recorrido de Martín con su pareja: precios, el Accelerator, el formulario y el checkout (16/11/2026, noche)
+
+Las transcripciones: `C:/dev/artefactos-mako/feedback-16-11/` (fuera del repo).
+
+- **La barra de MaKo Tokens no mueve el precio, pero igual parecía incluida.** Desde el 15/11 el precio de la columna quedaba fijo
+  y la barra movía los MaKo Tokens y «lo que alcanza» de cada columna. Martín: «veo cómo aumenta la cantidad de tokens… entiendo que
+  eso está incluido dentro del plan». Lo que faltaba era decir CUÁNTO SE SUMA al lado del precio: «+ US$ 200 / mes en créditos
+  extra», chiquito y oculto en cero (`data-tk-extra`). Y la barra bajó a una subsección «Agrega créditos extra», debajo de las
+  columnas: primero se compra el plan.
+- **«Activa los avisos» en el sitio:** el layout raíz monta `<PedirAvisos>` para cualquiera con sesión, en cualquier ruta; la
+  regla (`lib/pedir-avisos-reglas.ts`) sólo sacaba el onboarding, el login y la cuenta del teléfono. Ahora tampoco en las páginas
+  del sitio: `esPublica` (lib/rutas-publicas.ts) más la portada `/`, que NO está en esa lista porque la sirve la raíz.
+- **Mercado Pago sin país:** `pasarelasDelPais(null, …)` devolvía TODAS, Mercado Pago incluido (con IP que Vercel no ubica, o
+  local). Desde esta noche, sin país sólo las que cobran en todo el mundo; Mercado Pago queda sólo si no hay otra conectada. Con
+  país ya estaba bien: sólo en Argentina, en pesos; la tarjeta, en dólares.
+- **La «bottom bar» del formulario de aplicar no era el pie** (en producción el formulario no lo tiene desde el 16/11 a la tarde): en
+  el artefacto, el panel «Vista previa · Autocompletar» iba fijo abajo y a lo ancho, y tapaba las respuestas. Va arriba a la derecha,
+  chico (`fuentes/acelerador/post-demo.py`). Y ojo: el mismo panel le ponía al body un `padding-bottom` de su alto + 32 px
+  (`demo-autocompletar.js`), que con el panel arriba quedó como 143 px de scroll vacío debajo del primer paso. Antes de culpar al CSS
+  del formulario, medir `document.body` en el artefacto: en producción ese padding no existe.
+- **El primer paso de aplicar tenía 419 px de scroll a 1440 × 900.** `data-paso` en `.apl-wrap` y una hoja propia del paso 0: la
+  cabeza sin la ceja y más baja, la tarjeta más apretada y las tres respuestas de «¿Ya tienes cuenta en MaKo?» en un renglón.
+- **«Validar mi cuenta» no existe en la app:** es de la maqueta del onboarding. En la app, el correo «Tu acceso a MaKo» lleva a
+  `/inicio`, que sin sesión termina en el login. En el artefacto único ahora está el Login de verdad (`login.html`); el botón de la
+  maqueta lo tiene que apuntar ahí su chat.
+

@@ -213,8 +213,11 @@ test('6. la pasarela por país: Mercado Pago sólo en el suyo, Creem en LatAm, S
   for (const pais of ['US', 'ES', 'DE', 'GB', 'AU']) {
     assert.deepEqual(pasarelasDelPais(pais, ops).map((o) => o.pasarela), ['stripe'], `${pais} tendría que seguir en Stripe`);
   }
-  // Sin saber el país (local, o una IP que Vercel no ubica): todas, y elige la persona.
-  assert.equal(pasarelasDelPais(null, ops).length, 3);
+  // Sin saber el país (local, o una IP que Vercel no ubica): las que cobran en todo el mundo, y elige la persona. Mercado Pago
+  // NO (16/11/2026, a la noche, Martín: «revisa eso, que Mercado Pago solamente salta en Argentina»); sólo si no hay otra.
+  // PROBADO ROMPIÉNDOLO: con el `if (!pais) return [...opciones]` de antes → falla acá (salían las tres).
+  assert.deepEqual(pasarelasDelPais(null, ops).map((o) => o.pasarela), ['stripe', 'creem']);
+  assert.deepEqual(pasarelasDelPais(null, [ops[1]]).map((o) => o.pasarela), ['mercadopago'], 'sin otra conectada, queda Mercado Pago (no se deja sin pagar a quien está en Argentina)');
   // Y si la que le tocaba no está conectada, no se lo deja sin pagar: queda la internacional que haya.
   assert.deepEqual(pasarelasDelPais('MX', [ops[0], ops[1]]).map((o) => o.pasarela), ['stripe']);
   assert.deepEqual(pasarelasDelPais('US', [ops[1], ops[2]]).map((o) => o.pasarela), ['creem']);

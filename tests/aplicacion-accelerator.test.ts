@@ -780,10 +780,10 @@ test('14. «Enviar aplicación» postea a API_APLICAR { respuestas, web, origen 
   assert.equal(pedidos[0].cuerpo.web, '');
   // Tal cual, con el WhatsApp como lo arma el selector de país («+» y los dígitos): las opciones como índices.
   assert.deepEqual(pedidos[0].cuerpo.respuestas, { ...LLENA, whatsapp: '+5491155550101' }, 'viajan las respuestas tal cual: las opciones como índices');
-  // LA PANTALLA FINAL (Martín, 16/11: «siempre debería ser gracias, voy a revisar tu aplicación, te responderé en máximo 24 horas…»),
-  // NEUTRA (esa noche: «dice, estate atento a tu WhatsApp y a tu email… para una mujer atento no aplica»).
-  assert.match(f.q('h1')?.textContent ?? '', /^¡Gracias, Ana!$/);
-  assert.match(f.texto(), /Voy a revisar tu aplicación y te respondo en máximo 24 horas\. Revisa tu WhatsApp y tu email\./);
+  // LA PANTALLA FINAL, NEUTRA (16/11: «dice, estate atento… para una mujer atento no aplica»), con el texto de Martín de esa noche:
+  // «Gracias Valentina, ya voy a revisar personalmente tu aplicación y te enviaré un mensaje por WhatsApp y por email».
+  assert.match(f.q('h1')?.textContent ?? '', /^Gracias, Ana$/);
+  assert.match(f.texto(), /Ya voy a revisar personalmente tu aplicación y te enviaré un mensaje por WhatsApp y por email\./);
   assert.doesNotMatch(f.texto(), /atent[oa]/i, 'volvió «estate atento»');
   // NADIE VE LA AGENDA al aplicar («no tiene sentido de que automaticemos»).
   assert.equal(f.q('iframe') === null, true, 'volvió la agenda (o un iframe) a la pantalla final');
@@ -791,7 +791,8 @@ test('14. «Enviar aplicación» postea a API_APLICAR { respuestas, web, origen 
   // Sin el video de Martín, no hay bloque del video (revisión del 16/11/2026: «Muy pronto, un video mío para ti» lo veía todo el que
   // aplicaba); y TU SIGUIENTE PASO, en su propia tarjeta con su título (esa noche: «pondría como una sección más visible del
   // siguiente paso»), con «Crear cuenta de MaKo» (la ruta de la prueba, con la campaña) o «Ya tengo cuenta» («yo no pondría iniciar
-  // la prueba gratuita de 7 días, sino que tu siguiente paso es crear cuenta de MaKo o ya tengo cuenta»).
+  // la prueba gratuita de 7 días, sino que tu siguiente paso es crear cuenta de MaKo o ya tengo cuenta»; y otra vez el 16/11 a la
+  // noche: «lo que pusimos, el siguiente paso, está bien, eso no lo cambies»).
   assert.equal(f.q('.apl-video') === null, true, 'sin video, volvió el bloque del video a la pantalla final');
   assert.doesNotMatch(f.texto(), /Muy pronto/);
   assert.equal(f.q('section.apl-siguiente > h2#apl-siguiente-titulo')?.textContent, 'Tu siguiente paso', 'el siguiente paso no es una sección con su título');
@@ -807,7 +808,7 @@ test('14. «Enviar aplicación» postea a API_APLICAR { respuestas, web, origen 
 
   // Vuelve en la semana: su pantalla final otra vez, sin llenar nada. Y «Empezar de nuevo» la borra.
   const otra = await montar();
-  assert.match(otra.q('h1')?.textContent ?? '', /^¡Gracias, Ana!$/);
+  assert.match(otra.q('h1')?.textContent ?? '', /^Gracias, Ana$/);
   await clicEn(otra, '.apl-otra button');
   assert.match(otra.texto(), /Paso 1 de 6/);
   assert.equal((otra.q('#apl-nombre') as HTMLInputElement | null)?.value, '');
@@ -828,7 +829,7 @@ test('14. «Enviar aplicación» postea a API_APLICAR { respuestas, web, origen 
   const n = await montar();
   await n.siguiente();
   await n.esperar(10);
-  assert.match(n.texto(), /Voy a revisar tu aplicación y te respondo en máximo 24 horas/);
+  assert.match(n.texto(), /Ya voy a revisar personalmente tu aplicación/);
   const entrar = [...n.cont.querySelectorAll('section.apl-siguiente .apl-siguiente-botones a')].map((a) => `${a.textContent} → ${a.getAttribute('href')}`);
   assert.deepEqual(entrar, ['Entrar a MaKo → /login']);
   assert.match(n.texto(), /Tu siguiente paso/);
@@ -1043,7 +1044,9 @@ test('17. lo que lee el visitante: en «tú», sin «nuestro equipo» ni «te co
   const { marcasDeVoseo } = await import('../lib/voseo');
   assert.deepEqual(marcasDeVoseo(visible), [], 'voseo en lo que lee quien aplica');
   assert.match(visible, /Leo cada aplicación personalmente/);
-  assert.match(visible, /te respondo en máximo 24 horas/);
+  // El gracias con las palabras de Martín (16/11/2026, a la noche: «gracias Valentina, ya voy a revisar personalmente tu aplicación y
+  // te enviaré un mensaje por WhatsApp y por email»), que reemplaza al «te respondo en máximo 24 horas».
+  assert.match(visible, /Ya voy a revisar personalmente tu aplicación y te enviaré un mensaje por WhatsApp y por email/);
 });
 
 // =============================================================================

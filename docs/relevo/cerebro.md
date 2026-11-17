@@ -2,6 +2,11 @@
 
 ## 16/11/2026, noche — EL SITIO (claude2, punta/sitio-1611) — los artefactos tienen links NUEVOS
 
+- **EL RECORRIDO DE MARTÍN CON SU PAREJA (tres audios, `C:/dev/artefactos-mako/feedback-16-11/`), aplicado:** Precios con el
+  «+ US$ X» aparte y la barra en «Agrega créditos extra», debajo; «Análisis de la competencia ilimitado» en Pro; «Activa los avisos»
+  sólo adentro de MaKo; «Cerrar sesión» en rojo; «MaKo Agency»; el menú Comparar con GoHighLevel, HubSpot, ManyChat y CapCut (una por
+  cada cosa grande de MaKo; sin Kajabi, ClickFunnels ni Higgsfield); el primer paso de aplicar sin scroll y el gracias con el texto de Martín (el «siguiente paso» queda como estaba);
+  Mercado Pago nunca sin saber que es Argentina; y el Login en el artefacto único. Lo del onboarding (la maqueta) es de su chat.
 - **UN SOLO ARTEFACTO (más tarde esa noche):** https://claude.ai/artifact/KGn9GUek4GRqKm6M1Q345M — portada, Precios, Accelerator y
   su aplicación, closing, equipo, crm y Onboarding, con una barra arriba. Se arma con `C:/dev/artefactos-mako/armar.mjs` (LEEME.md:
   quién sube qué y qué tiene que compartir Martín UNA vez). Reemplaza a los tres de abajo. El `onboarding.html` lo sube su chat.

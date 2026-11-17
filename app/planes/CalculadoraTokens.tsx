@@ -173,6 +173,8 @@ export function pasosDeLaBarra(planes: readonly PlanBarra[] = []): PasoTokens[] 
 export const ATRIBUTO_MT = 'data-tk-mt';
 /** La marca de la lista de «alcanza» de una columna. */
 export const ATRIBUTO_ALCANZA = 'data-tk-alcanza';
+/** La marca del «+ US$ X» debajo del precio de una columna: lo que suma la barra, aparte del plan (oculto en cero). */
+export const ATRIBUTO_EXTRA = 'data-tk-extra';
 
 /** El texto de la burbuja: el precio de lo que se suma, por mes. */
 export const textoBurbuja = (usd: number): string => `+US$ ${mil(usd)}/mes`;
@@ -218,7 +220,7 @@ export const CSS_TOKENS = `
 export function CalculadoraTokens({ planes = [] }: { planes?: readonly PlanBarra[] }) {
   const pasos = pasosDeLaBarra(planes);
   const ultimo = pasos.length - 1;
-  const script = `(function(){var P=${JSON.stringify(pasos)};var c=document.querySelector('[data-tk]');if(!c)return;var r=c.querySelector('.tk-rango'),b=c.querySelector('.tk-burbuja'),x=c.querySelector('.tk-extra');function m(n){return n.toLocaleString('es-AR');}function q(a,id){return document.querySelectorAll('['+a+'="'+id+'"]');}function pon(){var i=Number(r.value),p=P[i]||P[0];c.style.setProperty('--tk-pct',String(${ultimo} ? i*100/${ultimo} : 0));b.textContent='+US$ '+m(p.usd)+'/mes';x.innerHTML='<b>+'+m(p.mt)+'</b> MaKo Tokens extras al mes';p.columnas.forEach(function(k){q('${ATRIBUTO_MT}',k.id).forEach(function(n){n.textContent=k.mt;});q('${ATRIBUTO_ALCANZA}',k.id).forEach(function(n){n.innerHTML=k.alcanza;});});r.setAttribute('aria-valuetext','Sumas '+m(p.mt)+' MaKo Tokens extras al mes por US$ '+m(p.usd));}r.addEventListener('input',pon);pon();})();`;
+  const script = `(function(){var P=${JSON.stringify(pasos)};var c=document.querySelector('[data-tk]');if(!c)return;var r=c.querySelector('.tk-rango'),b=c.querySelector('.tk-burbuja'),x=c.querySelector('.tk-extra');function m(n){return n.toLocaleString('es-AR');}function q(a,id){return document.querySelectorAll('['+a+'="'+id+'"]');}function pon(){var i=Number(r.value),p=P[i]||P[0];c.style.setProperty('--tk-pct',String(${ultimo} ? i*100/${ultimo} : 0));b.textContent='+US$ '+m(p.usd)+'/mes';x.innerHTML='<b>+'+m(p.mt)+'</b> MaKo Tokens extras al mes';p.columnas.forEach(function(k){q('${ATRIBUTO_MT}',k.id).forEach(function(n){n.textContent=k.mt;});q('${ATRIBUTO_ALCANZA}',k.id).forEach(function(n){n.innerHTML=k.alcanza;});q('${ATRIBUTO_EXTRA}',k.id).forEach(function(n){n.hidden=!p.usd;n.textContent=p.usd?'+ US$ '+m(p.usd)+' / mes en créditos extra':'';});});r.setAttribute('aria-valuetext','Sumas '+m(p.mt)+' MaKo Tokens extras al mes por US$ '+m(p.usd));}r.addEventListener('input',pon);pon();})();`;
   return (
     <section className="tk" aria-label="Sumar MaKo Tokens extras al mes" data-tk="" style={{ '--tk-pct': '0' } as CSSProperties}>
       {/* `data-tema-fijo` va en la PISTA y no en toda la barra (15/11/2026): el riel y la burbuja son un juego que el sol y la luna

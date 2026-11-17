@@ -48,7 +48,7 @@ import { PortadaSitio } from '../app/vsl/_sitio/Portada';
 import { SeccionReemplaza } from '../app/vsl/_sitio/LoQuePagas';
 import { ComparacionesSitio } from '../app/vsl/_sitio/Comparaciones';
 import { CSS_BASE, CSS_PIE, CSS_PORTADA } from '../app/vsl/_sitio/estilos';
-import { HISTORIA, RECURSOS, RUTA_ACCELERATOR_SITIO, RUTA_COMPARACIONES, RUTA_INTEGRACIONES, RUTA_PREGUNTAS, columnasDelPie, recursosDelPie } from '../app/vsl/_sitio/datos';
+import { HISTORIA, RECURSOS, RUTA_ACCELERATOR_SITIO, RUTA_COMPARACIONES, RUTA_INTEGRACIONES, RUTA_PREGUNTAS, columnasDelPie, recursosDelPie, VS_DEL_MENU } from '../app/vsl/_sitio/datos';
 import { esSeccionDeEstaPagina } from '../app/vsl/_sitio/CerrarMenuMovil';
 import { COMPETIDORES, rutaVs } from '../app/vsl/_sitio/competencia';
 import { LOGOS_SOBRE_BLANCO, STACK_QUE_REEMPLAZA, STACK_TIPICO, appsDeLaTira } from '../app/vsl/_sitio/reemplaza';
@@ -124,9 +124,16 @@ test('1. «Recursos» en lugar de «Comparaciones»: un menú como Producto e In
   for (const [que, href] of [['MaKo Partners', '/mako-partners'], ['agencias', '/agency'], ['las comparaciones', RUTA_COMPARACIONES], ['la documentación de la API', '/api-mako']] as const) {
     assert.ok(todos.some((i) => i.href === href), `falta ${que} (${href})`);
   }
-  // Las «MaKo vs.» son las primeras de la comparación, no escritas a mano.
+  // Las «MaKo vs.» del menú: GoHighLevel y después la más grande de cada cosa que hace MaKo, sin Kajabi ni ClickFunnels (Martín,
+  // 16/11/2026, a la noche: «Kajabi no lo pondría y ClickFunnels tampoco… MaKo hace muchas cosas. Piensa lo más atractivo»). Cada una
+  // es una comparación de verdad (está en COMPETIDORES y tiene su página), y no son dos de lo mismo.
   const vs = RECURSOS.find((g) => g.rotulo === 'Comparar')!.items.filter((i) => i.href !== RUTA_COMPARACIONES);
-  assert.deepEqual(vs.map((i) => i.href), COMPETIDORES.slice(0, vs.length).map(rutaVs));
+  assert.deepEqual(vs.map((i) => i.href), VS_DEL_MENU.map((slug) => rutaVs({ slug })), 'una «MaKo vs.» del menú no es una comparación que exista');
+  for (const slug of VS_DEL_MENU) assert.ok(COMPETIDORES.some((c) => c.slug === slug), `${slug} no está en la comparación`);
+  assert.equal(VS_DEL_MENU[0], 'gohighlevel', 'GoHighLevel va primero');
+  for (const fuera of ['kajabi', 'clickfunnels']) assert.ok(!VS_DEL_MENU.includes(fuera), `${fuera} volvió al menú`);
+  assert.equal(new Set(VS_DEL_MENU).size, VS_DEL_MENU.length, 'una comparación repetida en el menú');
+  assert.ok(todos.some((i) => i.nombre === 'MaKo Agency'), '«MaKo Agency» en inglés, como en la app');
   // El Accelerator del menú es la página a la que lleva /planes.
   assert.equal(RUTA_ACCELERATOR_SITIO, RUTA_ACCELERATOR, 'la ruta del Accelerator del sitio no es la de /planes');
 });

@@ -70,7 +70,9 @@ test('1. en Argentina el checkout ofrece Mercado Pago Y la tarjeta; donde no eli
   // Afuera, nada cambia: la Mercado Pago argentina rechaza a quien no es de su país.
   assert.deepEqual(pasarelasParaOfrecer('MX', [MP, ST], []), [ST]);
   assert.deepEqual(pasarelasParaOfrecer('US', [MP, ST], []), [ST]);
-  assert.deepEqual(pasarelasParaOfrecer(null, [MP, ST], []), [MP, ST]);
+  // Sin saber el país, Mercado Pago no (16/11/2026, a la noche, Martín: «revisa eso, que Mercado Pago solamente salta en Argentina»); sólo si no hay otra.
+  assert.deepEqual(pasarelasParaOfrecer(null, [MP, ST], []), [ST]);
+  assert.deepEqual(pasarelasParaOfrecer(null, [MP], []), [MP]);
   // La de prueba (sólo el super admin) no se duplica con la real.
   assert.deepEqual(pasarelasParaOfrecer('AR', [MP], [ST]), [MP, ST]);
   assert.deepEqual(pasarelasParaOfrecer('AR', [MP, ST], [{ ...ST, monto: 1 }]), [MP, ST]);
@@ -100,7 +102,7 @@ test('3. el checkout REAL con las dos reales: desde Argentina Mercado Pago y tar
   assert.deepEqual(r.ambas.AR, ['mercadopago', 'stripe']);
   assert.deepEqual(r.ambas.MX, ['stripe'], 'México sigue sin la Mercado Pago argentina');
   assert.deepEqual(r.ambas.US, ['stripe']);
-  assert.deepEqual([...r.ambas.sinPais].sort(), ['mercadopago', 'stripe']);
+  assert.deepEqual(r.ambas.sinPais, ['stripe'], 'sin saber el país, Mercado Pago no');
   // Sin elegir, se le pregunta con las dos; con la tarjeta, el link de pago de Stripe.
   assert.equal(r.compraArSinElegir.status, 409);
   assert.deepEqual(r.compraArSinElegir.elegir, ['mercadopago', 'stripe']);

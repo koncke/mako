@@ -212,11 +212,21 @@ export const RUTA_INTEGRACIONES = '/#integraciones';
  * /mako-partners lo es de /partners). `externo`: sale de MaKo, y abre en otra pestaña.
  */
 export type ItemRecurso = { nombre: string; href: string; pie?: string | false; conCuenta?: true; externo?: true };
-// (`pie: false` también para lo que el pie ya tiene en Industrias: «MaKo para agencias» es «Agencias».)
+// (`pie: false` también para lo que el pie ya tiene en Industrias: «MaKo Agency» es «Agencias».)
 export type GrupoRecursos = { rotulo: string; items: readonly ItemRecurso[] };
 
-/** Cuántas «MaKo vs. X» van en el menú: las primeras de la comparación (COMPETIDORES, ./competencia.ts), no a mano. */
-const VS_EN_EL_MENU = 3;
+/**
+ * Las «MaKo vs. X» del menú, en su orden: una por cada cosa grande que hace MaKo, contra la herramienta más conocida de esa cosa, para
+ * que el menú solo ya muestre el abanico. Martín, 16/11/2026, a la noche: «contra Go High Level está bien… luego contra las más
+ * grandes… Kajabi no lo pondría y ClickFunnels tampoco», y después: «no sé si CapCut y Higgsfield sean las comparaciones que
+ * quiero… las dos se tratan de video. MaKo hace muchas cosas. Piensa lo más atractivo».
+ *   · GoHighLevel: el todo en uno (lo que más se parece a MaKo entero).
+ *   · HubSpot: el CRM más conocido (el CRM, el seguimiento y el email de MaKo).
+ *   · ManyChat: los DMs y el WhatsApp automáticos (los chats, las automatizaciones y el setter con IA).
+ *   · CapCut: el contenido y el video (el editor de video con IA, y al lado Canva para las imágenes).
+ * Las demás siguen en «Todas las comparaciones». Un slug que no esté en COMPETIDORES no se dibuja (y el test lo marca).
+ */
+export const VS_DEL_MENU: readonly string[] = ['gohighlevel', 'hubspot', 'manychat', 'capcut'];
 
 export const RECURSOS: readonly GrupoRecursos[] = [
   { rotulo: 'Programas', items: [
@@ -224,11 +234,14 @@ export const RECURSOS: readonly GrupoRecursos[] = [
     { nombre: 'MaKo Partners', href: '/mako-partners' },
     // La de sumarse como agencia (Agency Dashboard, app/agency): PIDE SESIÓN. Es la misma de «Industrias → Agencias», y en el pie
     // ya está ahí.
-    { nombre: 'MaKo para agencias', href: '/agency', conCuenta: true, pie: false },
+    // «MaKo Agency», en inglés como en la app (Martín, 16/11/2026, a la noche: «en lugar de MaKo para agencias, si ya estamos haciendo
+    // todo en inglés, tiene que ser MaKo Agency, como ya lo tenemos en la aplicación»).
+    { nombre: 'MaKo Agency', href: '/agency', conCuenta: true, pie: false },
     { nombre: PROGRAMA_ACELERADOR.nombre, href: RUTA_ACCELERATOR_SITIO, pie: false },
   ] },
   { rotulo: 'Comparar', items: [
-    ...COMPETIDORES.slice(0, VS_EN_EL_MENU).map((c): ItemRecurso => ({ nombre: `MaKo vs. ${c.nombre}`, href: rutaVs(c), pie: false })),
+    ...VS_DEL_MENU.map((slug) => COMPETIDORES.find((c) => c.slug === slug)).filter((c): c is (typeof COMPETIDORES)[number] => !!c)
+      .map((c): ItemRecurso => ({ nombre: `MaKo vs. ${c.nombre}`, href: rutaVs(c), pie: false })),
     { nombre: 'Todas las comparaciones', href: RUTA_COMPARACIONES, pie: 'Comparaciones' },
   ] },
   { rotulo: 'Conecta', items: [

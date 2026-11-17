@@ -45,7 +45,7 @@ import { ASESORIAS_DEL_PROGRAMA, LISTA_DEL_ACELERADOR, MESES_GRATIS_ANUAL, NOMBR
 import { AGENDA_DE_LA_LLAMADA } from '@/lib/aplicacion-accelerator';
 import { TOPES } from '@/lib/topes-plan';
 import { PLAN_DE_CAPA, cupoDeCapa } from '@/lib/mako-tokens-reglas';
-import { ATRIBUTO_ALCANZA, ATRIBUTO_MT, generaVideoLaCapa, htmlAlcanza } from './CalculadoraTokens';
+import { ATRIBUTO_ALCANZA, ATRIBUTO_EXTRA, ATRIBUTO_MT, generaVideoLaCapa, htmlAlcanza } from './CalculadoraTokens';
 import { SIGNO_NO, SIGNO_SI, SIGNO_SI_DORADO } from './signos';
 import { ASESORES } from '@/lib/asesores/catalogo';
 // Los topes de generación (15/11/2026): cuánto video y cuántas imágenes trae el plan. Viven con el precio del clip
@@ -190,6 +190,10 @@ export function listaCorta(capa: string): ListaDeColumna {
         { fuerte: 'Setter con IA', texto: '' },
         { fuerte: 'Piloto automático', texto: ' de ads y redes' },
         { fuerte: 'Análisis de llamadas', texto: '' },
+        // 16/11/2026, a la noche (Martín: «para el de 97 fíjate competidores uno y acá es ilimitados… yo pondría un check más en el
+        // de 97 que diga análisis de la competencia ilimitado»). Sale del tope de Competitor Spy: sólo si Pro no tiene tope y
+        // Essential sí.
+        ...(a['spy.competidores'] == null && c['spy.competidores'] != null ? [{ fuerte: 'Análisis de la competencia', texto: ' ilimitado' }] : []),
         // 15/11/2026, ~23:20 (Martín aprobó la propuesta para achicar): el chat con los referentes y la comunidad para alumnos
         // siguen en la tabla de abajo; acá, lo que más pesa.
         ...(sinTopeEnPro.length ? [{ fuerte: sinTopeEnPro.join(' y '), texto: ' ilimitados' }] : []),
@@ -310,6 +314,14 @@ export const CSS_TARJETAS = `
 .mkpl-precio { font-size: 40px; line-height: 1; font-weight: 800; letter-spacing: -.03em; }
 .mkpl-precio small { font-size: 15px; font-weight: 500; letter-spacing: 0; color: #5B6472; }
 .mkpl-bajo { font-size: 13px; font-weight: 600; color: #5B6472; }
+/* Lo que suma la barra de MaKo Tokens, chiquito debajo del precio del plan: «+ US$ 200 / mes en créditos extra». */
+.mkpl-extra { font-size: 14px; font-weight: 700; color: #2F6FED; }
+.mkpl-extra[hidden] { display: none; }
+/* «Agrega créditos extra»: la barra de MaKo Tokens debajo de las columnas. */
+.mkpl-extras { max-width: 760px; margin: 56px auto 0; text-align: center; }
+.mkpl-extras-t { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; }
+.mkpl-extras-b { margin: 8px 0 0; font-size: 15px; color: #5B6472; }
+.mkpl-extras .tk { text-align: left; margin-bottom: 0; }
 /* La aclaración del total cuando la barra de MaKo Tokens pide más de lo que trae el plan. Nace oculta (hidden) y la
    muestra el script: sin él no hay nada que aclarar. */
 /* ⚠️ LA PASTILLA VERDE LLEVA «data-tema-fijo» EN EL JSX, Y ÉSTA ES LA RAZÓN (15/11/2026). Martín: «7 días gratis en el de
@@ -402,7 +414,8 @@ const precio = (v: number) => v.toLocaleString('es-AR');
 export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: {
   planes: readonly PlanEnTarjeta[]; sufijo: string;
   /**
-   * La barra de MaKo Tokens (./CalculadoraTokens.tsx), que va DEBAJO del selector mensual / anual y arriba de las columnas.
+   * La barra de MaKo Tokens (./CalculadoraTokens.tsx). Desde el 16/11/2026 a la noche va DEBAJO de las columnas, en «Agrega
+   * créditos extra» (antes, debajo del selector mensual / anual).
    * Martín, 15/11/2026: «eliminaría el texto de calcula cuántos MaKo Tokens necesitas, pondría la barra directamente abajo de
    * mensual o anual». Entra por acá para que la portada, que dibuja las mismas columnas, no la arrastre.
    */
@@ -424,7 +437,6 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
           </div>
         </div>
       )}
-      {barra}
       <div className="mkpl-grilla">
       {planes.map((p) => {
         // El mismo botón en /planes y en la landing: «Empezar» sólo con un cobro detrás; sin pasarela, «Quiero …» y se pide.
@@ -457,6 +469,10 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
                 {/* El precio NO lo mueve la barra (Martín, 15/11/2026, a la noche: «la idea no es que el precio de abajo se
                     modifique, sino que la barra deslizable diga el precio en dólares»). */}
                 <div className="mkpl-precio">US$ {precio(p.precioUsd)} <small>/ mes</small></div>
+                {/* LO QUE SUMA LA BARRA, APARTE Y CHIQUITO (Martín, 16/11/2026, a la noche: «veo cómo aumenta la cantidad de tokens,
+                    pero no debería aumentar equivalentemente el precio del plan… pondría como un pequeño texto de 97 más… lo que
+                    se aumentó… y si está en cero, evidentemente que no aparece más nada»). Nace oculto; la barra lo prende. */}
+                {cupo != null && <div className="mkpl-extra" {...{ [ATRIBUTO_EXTRA]: p.id }} hidden />}
                 {/* SIN LA CONVERSIÓN A PESOS (15/11/2026, Martín: «No pongas la conversión en pesos argentinos. Eso ya cada
                     uno luego lo ve»). El precio en pesos sigue existiendo donde se COBRA — el checkout lo muestra con la
                     pasarela elegida — y acá competía con el precio en dólares, que es el que ancla. */}
@@ -515,6 +531,16 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false, barra }: 
           de siempre, que compra sin hablar con nadie. */}
       <TarjetaAccelerator boton={{ href: RUTA_ACCELERATOR, texto: TEXTO_BOTON_ACCELERATOR }} />
       </div>
+      {/* LA BARRA DE MaKo TOKENS, DEBAJO DE LAS COLUMNAS, EN SU PROPIA SUBSECCIÓN (Martín, 16/11/2026, a la noche: «tal vez eso
+          inclusive ponerlo abajo porque la persona… lo único que va a comprar es primero que nada el plan y después tal vez crearía
+          una subsección de agrega créditos extra»). Hasta esa noche iba arriba, pegada al selector mensual / anual. */}
+      {barra && (
+        <section className="mkpl-extras" aria-label="Agrega créditos extra">
+          <h3 className="mkpl-extras-t">Agrega créditos extra</h3>
+          <p className="mkpl-extras-b">MaKo Tokens para usar cada mes, además de los de tu plan.</p>
+          {barra}
+        </section>
+      )}
     </div>
   );
 }

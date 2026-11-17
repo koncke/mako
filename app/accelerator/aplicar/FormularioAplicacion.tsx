@@ -306,7 +306,8 @@ export function FormularioAplicacion({ origen, clavesOrigen, rutaPrueba, rutaEnt
   const [primera, ...resto] = PROGRAMA_ACELERADOR.nombre.split(' ');
   const ultimo = paso === TOTAL - 1;
   return (
-    <div className="apl-wrap">
+    // `data-paso`: el primer paso entra sin scroll (Martín, 16/11/2026, a la noche; ./estilo.ts, «EL PRIMER PASO, SIN SCROLL»).
+    <div className="apl-wrap" data-paso={paso}>
       <div className="apl-cabeza">
         <span className="acl-pill">Aplicación</span>
         <h1>{primera} <em>{resto.join(' ')}</em></h1>
@@ -690,8 +691,10 @@ export function PantallaFinal({ nombre, conCuenta, rutaPrueba, rutaEntrar, video
       <div className="apl-fin">
         <div className="apl-fin-ico" aria-hidden="true" />
         <div aria-live="polite">
-          <h1 ref={tituloRef} tabIndex={-1}>{nombre ? `¡Gracias, ${nombre}!` : '¡Gracias!'}</h1>
-          <p className="apl-fin-texto">Voy a revisar tu aplicación y te respondo en máximo 24 horas. Revisa tu WhatsApp y tu email.</p>
+          <h1 ref={tituloRef} tabIndex={-1}>{nombre ? `Gracias, ${nombre}` : 'Gracias'}</h1>
+          {/* Martín, 16/11/2026, a la noche (ya lo había pedido): «Gracias Valentina, ya voy a revisar personalmente tu aplicación y te
+              enviaré un mensaje por WhatsApp y por email». */}
+          <p className="apl-fin-texto">Ya voy a revisar personalmente tu aplicación y te enviaré un mensaje por WhatsApp y por email.</p>
         </div>
         {/* Sin video, no hay bloque (revisión del 16/11/2026, #11): «Muy pronto, un video mío para ti» lo veía todo el que aplicaba,
             y no hay fecha para ese video. Se pega el link en `VIDEO_DE_GRACIAS` (./reglas.ts) y aparece. */}

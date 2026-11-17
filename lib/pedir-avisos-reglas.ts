@@ -12,6 +12,7 @@
 // =============================================================================
 
 import type { EstadoAvisos } from './push-cliente';
+import { esPublica } from './rutas-publicas';
 
 export type PedidoAvisos = 'nada' | 'activar' | 'instalar';
 
@@ -25,7 +26,14 @@ export const CLAVE_POSPUESTO = 'mako:pedir-avisos:hasta';
  * y las de antes de entrar. `ruta` es la INTERNA (`/m/cuenta` en el teléfono, aunque la URL diga otra cosa).
  */
 const SIN_PEDIDO = [/^\/onboarding(\/|$)/, /^\/login(\/|$)/, /^\/app\/?$/, /^\/m\/cuenta(\/|$)/, /^\/cuenta-pausada(\/|$)/];
-export const rutaSinPedido = (ruta: string | null | undefined): boolean => SIN_PEDIDO.some((re) => re.test(ruta ?? ''));
+/**
+ * NI EN EL SITIO (16/11/2026, a la noche). Martín, recorriendo el sitio con la sesión iniciada: «sigue estando la parte de activa los
+ * avisos en la landing y eso ya habíamos dicho de que eso no debe estar… solamente dentro de MaKo». El layout raíz monta la tarjeta
+ * para cualquiera con sesión, y en la portada, /planes, /accelerator o una landing de /vsl salía igual. Las páginas del sitio son
+ * las públicas (lib/rutas-publicas.ts, `esPublica`) más la portada, que no está en esa lista porque la sirve la raíz.
+ */
+const delSitio = (ruta: string): boolean => ruta === '/' || esPublica(ruta);
+export const rutaSinPedido = (ruta: string | null | undefined): boolean => SIN_PEDIDO.some((re) => re.test(ruta ?? '')) || delSitio(ruta ?? '');
 
 /** ¿Sigue callada? Un valor ilegible o vencido no calla nada. */
 export function pospuesto(hasta: string | null | undefined, ahora: number): boolean {
