@@ -93,6 +93,27 @@ ese es el que se descuenta. Clip de 10 s, 9:16, 720p:
 
 Leonardo sólo tiene la 1.1, y PiAPI no tiene ninguna versión. El clip del 8/11 («Omni-Flash-Ext», US$0,40) era la 1.1.
 
+## Vheer (vheer.com): «gratis», pero no para lo que hace MaKo (leído el 17/11/2026)
+
+Martín lo pidió por voz como «bheer.com». No hay nada con ese nombre: es **Vheer**, operado por «Sparklightforce», sin país
+declarado (vheer.com/terms).
+
+- **Lo gratis:** 50 créditos por mes, «basic image generation», sin marca de agua. Las imágenes del modelo «Quality» del plan
+  gratis son sólo para uso personal (términos, 11.2).
+- **El video gratis:** el modelo propio «Vheer Quality», 5 s a 768p, sin voz ni labios a la vista. Los modelos premium
+  (Seedance 1.5 Pro, Hailuo 2.3, LTX 2.3, Sora 2 y Veo 3.1) gastan créditos, y cuántos no se ve sin cuenta. **No tiene Omni.**
+- **Planes:**
+  - Premium, US$9,99 por 1.000 créditos;
+  - Business, US$19,99 por 2.000;
+  - Ultra, US$49,99 por 5.000;
+  - paquetes sueltos de US$3,99 a 69,99.
+
+  Se cobra por PayPro (vheer.com/pricing).
+- **Para integrarlo:** no tiene API, y los términos prohíben bots y automatizar («automated tools… bots, crawlers»).
+- **Lo que se sube:** se borra cada 6 h, y dicen que no entrenan con eso.
+- **Conclusión:** sirve, como mucho, para que Martín haga a mano imágenes o b-roll mudo de 5 s, con el plan pago si va a anuncios.
+  No sirve para el video con una persona que habla, y no se puede enchufar a MaKo.
+
 ## Trampas al leer estas páginas
 
 - **HeyGen «30 min» no es lo que da por mes:** es el largo máximo de cada video. El chat del 16/11 lo leyó al revés.
