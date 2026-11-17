@@ -36,7 +36,9 @@ import { Aviso, MONO, Semaforo, Tarjeta, nada } from './piezas';
 import { motivosDeExcepcionesAction, quitarExcepcionAction, recordatoriosDeCobroAction, volverExcepcionAction } from './seguimiento-actions';
 
 const caja: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', minWidth: 0 };
-const fila: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid var(--border)' };
+// Texto a la izquierda y el botón a la derecha, siempre: con `flex-wrap`, un renglón largo mandaba el botón a una línea
+// propia, suelto a la izquierda (visto a 1440 en el artefacto de la verificación, 17/11/2026).
+const fila: CSSProperties = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: '1px solid var(--border)' };
 const chips: CSSProperties = { display: 'flex', gap: 8, flexWrap: 'wrap' };
 
 // ─────────────────────────────────────────────────────────────────────────────
