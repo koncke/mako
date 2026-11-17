@@ -178,9 +178,10 @@ test('⚠️ el texto manda a re-escanear SÓLO cuando WhatsApp cerró la sesió
   };
   assert.equal(avisoDeCaida(hCerrada), 'wa-desvinculado');
   const cerrada = deLaFila('mako-whatsapp-desvinculado', datosCaida(hCerrada));
-  assert.match(cerrada, /Vuelve a escanear el QR/);
+  // 17/11/2026 (T1): el texto nuevo da el paso a paso; el escaneo sigue siendo SÓLO de este caso.
+  assert.match(cerrada, /Escanea el código QR/);
   assert.match(cerrada, /el 3 de octubre/, 'la fecha de la caída es la que dio Evolution, no la nuestra');
-  assert.match(cerrada, /tu teléfono está bien/, 'el dueño abre WhatsApp, lo ve andando y no entiende el aviso');
+  assert.match(cerrada, /Tu WhatsApp sigue andando/, 'el dueño abre WhatsApp, lo ve andando y no entiende el aviso');
   assert.ok(cerrada.includes(link) && cerrada.includes('+5215512345678'));
   // Cualquier otro motivo, o no saberlo: puede volver solo, y re-escanear ahí la tumba.
   for (const motivo of [{ desvinculado: false, cuando: null }, null]) {

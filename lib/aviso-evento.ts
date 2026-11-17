@@ -474,7 +474,7 @@ export type DepsEvento = {
    * `ejecutarPasos` (lib/flujos.ts) adentro del workspace. Devuelve cuántas tarjetas LLEGARON (al grupo o por email) en esta
    * vuelta (16/10/2026): una que se durmió hasta que abra la oficina, o que no salió, no cuenta. Sin devolver nada, cero.
    */
-  correr: (flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo) => Promise<{ llegaron: number } | void>;
+  correr: (flujoId: string, pasos: Paso[], ws: number, ctx: CtxFlujo) => Promise<{ llegaron: number; salieron?: number } | void>;
   /** El ws de la PLATAFORMA (`wsSuperAdmin`): de él son las filas de un evento `plataforma`. */
   wsPlataforma?: () => Promise<number>;
   /**
@@ -518,6 +518,7 @@ async function avisoALasAgencias(
   return {
     ok: rs.some((r) => r.ok), feedId: null, wa: rs.some((r) => r.wa), deduped: rs.every((r) => r.deduped),
     filas: rs.reduce((n, r) => n + r.filas, 0), llegaron: rs.reduce((n, r) => n + (r.llegaron ?? 0), 0),
+    salieron: rs.reduce((n, r) => n + (r.salieron ?? 0), 0),
     ...(rs.some((r) => r.enApp) ? { enApp: true as const } : {}),
   };
 }
@@ -614,6 +615,7 @@ export async function emitirPorEvento(
 
   let n = 0;
   let llegaron = 0;
+  let salieron = 0;
   for (const { fila, pasos, firma } of corren) {
     const ctx: CtxFlujo = {
       ws: wsFilas,
@@ -640,11 +642,13 @@ export async function emitirPorEvento(
       const r = await deps.correr(idCorridaDeFila(fila.id), pasos, wsFilas, ctx);
       n += 1;
       llegaron += r?.llegaron ?? 0;
+      salieron += r?.salieron ?? 0;
     } catch (e) {
       log(`[aviso-evento] ${cat.id} (ws ${wsFilas}): la automatización #${fila.id} falló — ${e instanceof Error ? e.message : String(e)}`);
     }
   }
   // El envío lo afirma cada tarjeta (con su feed y su `wa`); ningún llamador de los del negocio lee `wa`. ⚠️ El de la línea
   // caída SÍ (lib/lineas-vigilante.ts): marca «avisado» sólo si llegó, y sin esa marca el «volvió» no sale nunca.
-  return { ok: true, feedId: null, wa: dePlataforma && n > 0, deduped: false, filas: n, llegaron };
+  // ⚠️ Y `salieron` (17/11/2026): lo que salió por WhatsApp o email. El vigilante marca con eso (`llegoElAvisoDeLinea`).
+  return { ok: true, feedId: null, wa: dePlataforma && n > 0, deduped: false, filas: n, llegaron, salieron };
 }

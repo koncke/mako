@@ -1123,7 +1123,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'wa-desvinculado', titulo: 'WhatsApp de empresa desvinculado', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cuando WhatsApp cierra la sesión del dispositivo vinculado de una línea del negocio (se prueba cada 10 minutos, dos pruebas seguidas). Avisa al negocio y repite cada 24 h mientras siga así.',
-    ejemplo: `🔴 *Se desconectó tu WhatsApp*\n📱 +52 55 1234 5678\n🕐 Desde el 3 de octubre\nWhatsApp cerró la sesión del dispositivo vinculado: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:\nhttps://hola-mako.com/whatsapp\n\n— MaKo`,
+    ejemplo: `🔴 *MaKo perdió acceso a tu WhatsApp*\n📱 +52 55 1234 5678\n🕐 Desde el 3 de octubre\nMaKo ya no puede mandar ni leer los mensajes de ese número: tus automatizaciones de WhatsApp no salen. Tu WhatsApp sigue andando normal en tu teléfono.\n\nPara que MaKo vuelva:\n1. Abre este link en tu computadora: https://hola-mako.com/whatsapp\n2. En tu teléfono, entra a WhatsApp › Dispositivos vinculados (en el menú ⋮ o en Configuración) y toca «Vincular un dispositivo».\n3. Escanea el código QR que aparece en la computadora.\n\n— MaKo`,
   },
   {
     /**

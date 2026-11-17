@@ -202,7 +202,8 @@ test('5. sólo datos: no lee ningún lead, y se decide sin esperar a que abra la
   assert.match(flujos, /const dormirEn = cadena \?\? i;\n\s*if \(corridaId\) await avanzar\(ws, corridaId, i, dormirEn, hasta, ctx\);\n\s*else await abrirCorrida\(ws, flujoId, dormirEn, hasta, ctx, \{ reintento: true \}\);/,
     'fuera del horario, la corrida tiene que dormir en la primera condición de la cadena');
   assert.match(flujos, /cadena = pasos\[i\]\?\.tipo === 'condicion' \? \(cadena \?\? i\) : null;\n\s*i = d\.siguiente;/);
-  assert.match(flujos, /cadena = null;\n\s*try \{ if \(\(await ejecutarPaso\(flujoId, d\.paso, ws, ctx\)\) === true && entregas\) entregas\.llegaron \+= 1; \}/);
+  // 17/11/2026: cuenta también lo que SALIÓ (WhatsApp o email) aparte de lo que llegó (tests/linea-aviso-salio.test.ts).
+  assert.match(flujos, /cadena = null;\n\s*try \{\n\s*const hecho = await ejecutarPaso\(flujoId, d\.paso, ws, ctx\);\n\s*if \(entregas && \(hecho === true \|\| hecho === 'app'\)\) entregas\.llegaron \+= 1;/);
 });
 
 test('6. la plantilla de la cuenta frenada corre entera: el techo, cada estado y el «Si no»', () => {
@@ -242,9 +243,10 @@ test('7. lo que LLEGÓ se cuenta, y una CONDITION de datos no se guarda fuera de
   const flujos = leer('lib/flujos.ts');
   // (17/10/2026: también la campanita, cuando el negocio no tiene grupo y la tarjeta dice «queda en la app»:
   // `llegoLaTarjeta`, lib/mako-tarjeta.ts, con su test en tests/sin-grupo-campanita.test.ts.)
-  assert.match(flujos, /return llegoLaTarjeta\(r\);\n\}/);
+  // 17/11/2026: dice además si SALIÓ (WhatsApp o email) o sólo llegó a la app (tests/linea-aviso-salio.test.ts).
+  assert.match(flujos, /return salioLaTarjeta\(r\) \? true : llegoLaTarjeta\(r\) \? 'app' : false;\n\}/);
   assert.match(leer('lib/mako-tarjeta.ts'), /if \(r\.wa \|\| r\.email === true\) return true;/);
-  assert.match(leer('lib/avisos.ts'), /const entregas = \{ llegaron: 0 \};\n\s*await runWithWorkspace\(ws, \(\) => ejecutarPasos\(flujoId, pasos, ws, ctx, undefined, entregas\)\);\n\s*return entregas;/);
+  assert.match(leer('lib/avisos.ts'), /const entregas = \{ llegaron: 0, salieron: 0 \};\n\s*await runWithWorkspace\(ws, \(\) => ejecutarPasos\(flujoId, pasos, ws, ctx, undefined, entregas\)\);\n\s*return entregas;/);
   // Fuera de una fila de evento no hay evento que conteste un dato: Publicar lo frena (la API, «Crear con IA»).
   assert.match(leer('lib/nutricion.ts'), /if \(\(previo as \{ trigger_tipo\?: string \} \| null\)\?\.trigger_tipo !== TRIGGER_AVISO_MAKO && filasDelFlujo\(grafo\)\.some\(\(f\) => datoDeCampo\(f\.campo\) != null\)\) \{\n\s*throw new PasosInvalidosError\(/);
 });

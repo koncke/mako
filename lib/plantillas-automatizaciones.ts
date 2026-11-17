@@ -846,7 +846,9 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_desvinculado' },
     pasos: [
-      mako('wd_mk', '🔴 *Se desconectó tu WhatsApp*\n📱 {{linea_numero}}\n🕐 Desde el {{linea_fecha}}\nWhatsApp cerró la sesión del dispositivo vinculado: tu teléfono está bien, pero por ese número no entran ni salen mensajes. Vuelve a escanear el QR:\n{{linea_link}}\n\n— MaKo', null),
+      // 17/11/2026 (T1): Mauricio no lo entendía («yo no conecte a mako»). Dice qué dejó de hacer MaKo, que su WhatsApp anda, y
+      // el paso a paso del QR. Cada dato en su renglón: sin número o sin fecha se va ese renglón, no el aviso.
+      mako('wd_mk', '🔴 *MaKo perdió acceso a tu WhatsApp*\n📱 {{linea_numero}}\n🕐 Desde el {{linea_fecha}}\nMaKo ya no puede mandar ni leer los mensajes de ese número: tus automatizaciones de WhatsApp no salen. Tu WhatsApp sigue andando normal en tu teléfono.\n\nPara que MaKo vuelva:\n1. Abre este link en tu computadora: {{linea_link}}\n2. En tu teléfono, entra a WhatsApp › Dispositivos vinculados (en el menú ⋮ o en Configuración) y toca «Vincular un dispositivo».\n3. Escanea el código QR que aparece en la computadora.\n\n— MaKo', null),
     ],
   },
   {

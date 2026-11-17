@@ -13945,9 +13945,18 @@ grupo casi a diario (7/11 al 14/11, `autor_tipo` persona, `canal` whatsapp). **E
 «la línea caída no recibe» confunde la sesión de Evolution con la cuenta. Lo que se cayó es el dispositivo vinculado; el
 número …8122 sigue vivo en su teléfono y el grupo le llega. `wa_at` está en null en todos: no hay acuse de entrega guardado,
 sólo la aceptación. Del 30/10 al 4/11 no se puede probar (el hilo de la app nació el 3/11) y no hay errores registrados.
-**Sin hacer:** (1) el vigilante debería marcar «avisado» por `llegaron` y no por `wa` (hoy es inocuo: el aviso sale); (2) el
-aviso llega y no se entiende: el 12/11 Mauricio escribió «yo no conecte a mako» y el 14/11 «me confirmas que está conectado»,
-con el «Se desconectó tu WhatsApp» del día en el mismo grupo. Eso es copy/producto, no entrega.
+**Arreglado el mismo día:** (1) el vigilante marca «avisado» sólo con lo que SALIÓ por WhatsApp o email
+(`llegoElAvisoDeLinea`, lib/linea-vigilancia.ts): la tarjeta de un evento dice si salió (`true`), si sólo llegó a la app
+(`'app'`) o si no llegó, `ejecutarPasos` cuenta `salieron` aparte de `llegaron`, y `emitirPorEvento` lo devuelve.
+`enviarAlGrupoMaKo` sigue devolviendo `ok` con `enApp`: cambiar eso haría que todo el que reintenta sume burbujas en la app
+(la razón del 3/11); la distinción viaja aparte. Sin la marca, lo que frena el reintento es el dedup de 20 h, no cada 10 min.
+(2) El aviso llegaba y no se entendía: el 12/11 Mauricio escribió «yo no conecte a mako» y el 14/11 «me confirmas que está
+conectado», con el «Se desconectó tu WhatsApp» del día en el mismo grupo. **La trampa del texto:** decía «tu teléfono está
+bien, pero por ese número no entran ni salen mensajes», y su número SÍ manda y recibe en su teléfono: lo que no puede es
+MaKo. El texto nuevo dice eso, que su WhatsApp anda, y el paso a paso del QR; cada dato en su renglón (sin número o sin fecha
+se va ese renglón, no el aviso). Vive en la plantilla (lib/plantillas-automatizaciones.ts, `mako-whatsapp-desvinculado`) y en
+la fila #259 del ws9, que es la que se manda (dato de producción: se cambia con el sí de Martín).
+**Test:** tests/linea-aviso-salio.test.ts (probado rompiéndolo) y tests/avisos-plataforma.test.ts (el texto).
 **Vive en:** lib/lineas-vigilante.ts · lib/aviso-evento.ts (`emitirPorEvento`) · lib/mako-grupo.ts (`enviarAlGrupoMaKo`) ·
-lib/grupo-app.ts (`grupo_mensajes`).
+lib/grupo-app.ts (`grupo_mensajes`) · lib/mako-tarjeta.ts (`salioLaTarjeta`) · lib/flujos.ts (`ejecutarPasos`).
 *17/11/2026, chat «Automations» (claude2).*
