@@ -26,7 +26,11 @@ export type CampoLead =
   | 'contacto' | 'etapa' | 'montos' | 'reuniones' | 'equipo'
   | 'origen' | 'fechas' | 'respuestas' | 'perdida' | 'tracking';
 
-export type FormatoLeads = 'csv' | 'md';
+/** CSV, planilla de Excel (ticket 106: «mucho más cómodo y ordenado») o el documento en Markdown. */
+export type FormatoLeads = 'csv' | 'xlsx' | 'md';
+
+export const FORMATOS_LEADS: FormatoLeads[] = ['csv', 'xlsx', 'md'];
+export const esFormatoLeads = (v: unknown): v is FormatoLeads => v === 'csv' || v === 'xlsx' || v === 'md';
 
 export const CAMPOS_LEAD: Array<{ id: CampoLead; label: string; sub: string }> = [
   { id: 'contacto',   label: 'Contacto',                 sub: 'email, teléfono y empresa' },
@@ -43,16 +47,6 @@ export const CAMPOS_LEAD: Array<{ id: CampoLead; label: string; sub: string }> =
 
 export const CAMPOS_LEAD_HABITUALES: CampoLead[] = ['contacto', 'etapa', 'montos'];
 
-/** Las preguntas del formulario de agenda, con la columna donde vive cada respuesta. */
-export const PREGUNTAS_FORM: Array<[columna: string, pregunta: string]> = [
-  ['respuesta_objetivo', '¿A qué se dedica?'],
-  ['respuesta_facturacion', 'Facturación mensual actual'],
-  ['respuesta_colaboradores', 'Colaboradores'],
-  ['respuesta_cuando_empezar', '¿Cuándo quiere empezar?'],
-  ['respuesta_inversion', '¿Listo para invertir?'],
-  ['respuesta_decisor', '¿Es el decisor?'],
-];
-
 /**
  * Columnas reales de `leads` por grupo. id y nombre van siempre (no se listan acá).
  * Las que empiezan con `#` son DERIVADAS (no existen en la base): se calculan en
@@ -66,7 +60,10 @@ export const COLUMNAS_POR_CAMPO: Record<CampoLead, Array<[string, string]>> = {
   equipo:     [['closer', 'Closer'], ['setter', 'Setter']],
   origen:     [['#origen', 'Origen'], ['meta_campaign_name', 'Campaña'], ['meta_ad_name', 'Anuncio'], ['utm_campaign', 'UTM campaña'], ['utm_content', 'UTM contenido']],
   fechas:     [['created_at', 'Creado'], ['fecha_agenda', 'Fecha agenda'], ['fecha_cierre', 'Fecha cierre'], ['fecha_primer_pago', 'Primer pago']],
-  respuestas: PREGUNTAS_FORM.map(([col, q]) => [col, q] as [string, string]),
+  // UNA COLUMNA POR PREGUNTA, y las preguntas son las del formulario de CADA negocio: salen de los datos al armar el archivo
+  // (app/crm/leads-exportar-respuestas.ts). Hasta el 17/11/2026 acá había seis columnas fijas de Calendly del ws 1, vacías en
+  // cualquier otro negocio, y dos con el rótulo que invertía su sentido («¿Es el decisor?»). Ticket 106.
+  respuestas: [],
   perdida:    [['motivo_perdida', 'Por qué se perdió']],
   tracking:   [['visitor_id', 'Visitor ID']],
 };
@@ -278,6 +275,15 @@ export function slugAlcance(f: FiltrosLeads): string {
  * BOM: sin él Excel abre el CSV en Windows-1252 y los acentos salen rotos («Diseño» → «DiseÃ±o»). Un export ilegible no es un export.
  */
 export function csvDeLeads(columnas: ReadonlyArray<readonly [clave: string, rotulo: string]>, filas: ReadonlyArray<Record<string, unknown>>): string {
+  return armarCsv(tablaDeLeads(columnas, filas), { numero: String });
+}
+
+/**
+ * La tabla de los leads (el encabezado y una fila por lead), la MISMA para el CSV y para el .xlsx: un número sigue siendo
+ * número, un booleano sale «Sí» / «No» y un vacío sale vacío. El escape de fórmulas no va acá: lo pone cada formato (el CSV con
+ * lib/csv-celda.ts; el .xlsx guarda todo texto como texto, lib/xlsx-escribir.ts).
+ */
+export function tablaDeLeads(columnas: ReadonlyArray<readonly [clave: string, rotulo: string]>, filas: ReadonlyArray<Record<string, unknown>>): Array<Array<string | number>> {
   const dato = (v: unknown): string | number => (v == null ? '' : typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 'Sí' : 'No') : String(v));
-  return armarCsv([columnas.map(([, rotulo]) => rotulo), ...filas.map((fila) => columnas.map(([clave]) => dato(fila[clave])))], { numero: String });
+  return [columnas.map(([, rotulo]) => rotulo), ...filas.map((fila) => columnas.map(([clave]) => dato(fila[clave])))];
 }

@@ -12194,3 +12194,40 @@ Se saltean callados igual que los de Pagos. **Sin hacer** (no era el encargo): d
 Están fijados en tests/ficha-pagos-bloques-nuevos.test.ts (`CONOCIDOS_SIN_COMPONENTE`) para que la lista no crezca sin que
 nadie se entere; quien arregle uno, lo saca de ahí. **La regla:** un bloque nuevo en una plantilla lleva su componente en el
 mismo commit; el catálogo solo no alcanza.
+
+## El export de leads «con las respuestas del formulario» salía con seis columnas vacías (ticket 106, 17/11/2026)
+
+**Síntoma:** Codigo Inmobiliario (ws 13) bajaba los leads con «Respuestas del formulario» tildado y el archivo no traía ninguna.
+Sin error: seis columnas con rótulo y vacías.
+
+**Causa:** el grupo leía seis columnas FIJAS de `leads` (`respuesta_objetivo`, `respuesta_decisor`…), que sólo llena el webhook de
+Calendly con las frases del formulario de entonces del ws 1 (`extractRespuestaPorFrase`). Medido en producción: 0 de 111 en el ws 13,
+0 en los ws 9, 10 y 11. Lo que contesta un lead vive en TRES lugares, y la ficha ya leía los tres:
+- `lead_respuestas`: lo que deja Cal.com / Calendly al agendar, un set por reunión (ws 13: 64 filas, 60 leads; ws 1: 141).
+- `leads.meta_field_data`: el formulario de Meta (ws 1: 161 leads con «¿Cuál describe mejor tu rol?», que tampoco salían).
+- `leads.optin_respuestas`: el de la landing (hoy vacío en todos).
+
+**La regla que queda:** cada negocio tiene SU formulario, así que las columnas de las respuestas salen de los DATOS (una por
+pregunta, en el orden en que aparecen) y nunca de una lista en el código. Y el archivo dice lo mismo que la ficha: la agenda con la
+regla del resumen (`respuestasDelResumen`: si hay columnas de Calendly, ésas con su rótulo curado; si no, el último set de cada
+reunión, «R2 · » adelante), más Meta y la landing (app/crm/leads-exportar-respuestas.ts).
+
+**Trampas:**
+- Los rótulos de esas columnas estaban escritos DOS veces y distintos: el resumen tenía los curados (el comentario de
+  `PREGUNTAS_CALENDLY` explica por qué «¿Decide solo?» invertía el sentido) y el export seguía con «¿Es el decisor?» y «Facturación
+  mensual actual». Ahora hay una sola lista en lib/lead-respuestas.ts. `getLeadRespuestas` (lib/leads.ts) tiene una TERCERA, para su
+  respaldo de la R1: **sin unificar todavía**.
+- `lead_formularios` (mig 0415) NO existe en producción («Could not find the table»), aunque el código la nombra: no se lee.
+- Dos sets del ws 13 son de leads que ya no existen (2735 y 2736, borrados el 16/10): quedan afuera, bien.
+- Un lead del ws 1 (2767) tiene en Meta campos llamados «0», «1» y «2»: salen como columnas, igual que en su ficha
+  (`respuestasPropias`). **Sin hacer:** que `respuestasPropias` descarte los nombres que son sólo un número.
+
+**XLSX:** lib/xlsx-escribir.ts, con `fflate` (ya estaba): sin SheetJS ni exceljs. Cada texto va como `inlineStr`, así que un «=…» no
+es fórmula (el CSV necesita el apóstrofo de lib/csv-celda.ts; el .xlsx no). Lo que rompe un .xlsx en silencio («encontramos un
+problema con el contenido»): un carácter de control o medio emoji en un texto (XML 1.0 no los admite) y una celda de más de 32.767
+caracteres; `textoXml` saca los dos. No hay Excel en la PC ni en Actions: el test lo relee con el lector del importador
+(`xlsxATexto`), así que lo que se baja también se puede volver a subir. La acción devuelve el .xlsx en base64 (una acción del
+servidor devuelve texto) y el modal lo vuelve bytes.
+
+**El pie del modal en el teléfono:** a 375 px «Cancelar», el conteo y los formatos medían ~310 px en 162, y «Descargar» quedaba
+ENCIMA de los botones de formato (ya pasaba con CSV y MD). En el teléfono el formato sube a su renglón, arriba de las opciones.

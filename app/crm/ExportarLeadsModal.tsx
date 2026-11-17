@@ -27,8 +27,8 @@ import { EmpezarPlanYa } from '@/app/_ui/EmpezarPlanYa';
 import {
   ACOTARES, BANDAS, CAMPOS_FECHA, CAMPOS_LEAD, CAMPOS_LEAD_HABITUALES, DINEROS,
   FILTROS_INICIALES, ORDENES, PERIODOS, RECETAS, SIN_ASIGNAR,
-  filtrosDeReceta, slugAlcance,
-  type CampoLead, type EtapaRef, type FiltrosLeads, type RecetaLeads,
+  esFormatoLeads, filtrosDeReceta, slugAlcance,
+  type CampoLead, type EtapaRef, type FiltrosLeads, type FormatoLeads, type RecetaLeads,
 } from './leads-exportar';
 
 const SANS = "'Geist', sans-serif";
@@ -81,12 +81,24 @@ type PasoId = 'receta' | 'banda' | 'etapas' | 'acotar' | 'periodo' | 'campoFecha
 /** El formato elegido la última vez, por navegador. Es una preferencia, no un dato. */
 const FORMATO_CLAVE = 'crm.export.formato';
 
+const CSS_FORMATO = '.crm-exp-cuerpo{display:none}@media (max-width:560px){.crm-exp-pie{display:none!important}.crm-exp-cuerpo{display:flex}}';
+
+/** El tipo de un .xlsx. Vive acá y no se importa de lib/xlsx-escribir.ts, que trae `fflate` al navegador. */
+const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+function blobDeBase64(b64: string, tipo: string): Blob {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: tipo });
+}
+
 /** El modal se monta recién al hacer click, así que acá no hay render del server que
  *  desencajar: se puede leer en el inicializador sin romper la hidratación. */
-function formatoGuardado(): 'csv' | 'md' | null {
+function formatoGuardado(): FormatoLeads | null {
   try {
     const v = window.localStorage.getItem(FORMATO_CLAVE);
-    return v === 'csv' || v === 'md' ? v : null;
+    return esFormatoLeads(v) ? v : null;
   } catch {
     return null;
   }
@@ -203,12 +215,10 @@ export function ExportarLeadsModal({ onClose }: { onClose: () => void }) {
         return exportLeadsAction(f);
       })
       .then((contenido) => {
-        const ext = f.formato === 'md' ? 'md' : 'csv';
-        descargar(
-          nombreArchivo('Leads', slugAlcance(f), ext, cuantos == null ? '' : `${cuantos} leads`),
-          contenido,
-          f.formato === 'md' ? 'text/markdown' : 'text/csv',
-        );
+        const nombre = nombreArchivo('Leads', slugAlcance(f), f.formato, cuantos == null ? '' : `${cuantos} leads`);
+        // El .xlsx llega en base64 (una acción del servidor devuelve texto): acá se vuelve bytes.
+        if (f.formato === 'xlsx') descargar(nombre, blobDeBase64(contenido, MIME_XLSX), MIME_XLSX);
+        else descargar(nombre, contenido, f.formato === 'md' ? 'text/markdown' : 'text/csv');
         onClose();
       })
       .catch((e) => { setErr(e instanceof Error ? e.message : 'No se pudo exportar'); setBajando(false); });
@@ -365,11 +375,21 @@ export function ExportarLeadsModal({ onClose }: { onClose: () => void }) {
   const contando = cuantos == null;
   const hayAlgo = contando || cuantos > 0;
 
-  const elegirFormato = (v: 'csv' | 'md') => {
+  const elegirFormato = (v: FormatoLeads) => {
     set({ formato: v });
     try { window.localStorage.setItem(FORMATO_CLAVE, v); } catch { /* ventana privada */ }
   };
   const { q, sub } = PREGUNTAS[actual];
+
+  // El formato, en el pie y no en una pantalla propia: dos (ahora tres) opciones no son una pregunta, son un interruptor.
+  const formatos = (
+    <span role="group" aria-label="Formato del archivo" style={{ display: 'inline-flex', gap: 5 }}>
+      <Lote activo={f.formato === 'csv'} onClick={() => elegirFormato('csv')}>CSV</Lote>
+      {/* Ticket 106 (Codigo Inmobiliario, 17/11/2026): «en XLSX, que es mucho más cómodo y ordenado». */}
+      <Lote activo={f.formato === 'xlsx'} onClick={() => elegirFormato('xlsx')}>XLSX</Lote>
+      <Lote activo={f.formato === 'md'} onClick={() => elegirFormato('md')}>MD</Lote>
+    </span>
+  );
 
   return (
     <WizardShell
@@ -390,17 +410,22 @@ export function ExportarLeadsModal({ onClose }: { onClose: () => void }) {
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           {/* En la prueba gratis: el botón para empezar el plan, al lado del «Disponible al terminar tu prueba». */}
           <EmpezarPlanYa texto={err} />
-          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{resumen}</span>
-          <span aria-hidden style={{ color: 'var(--border-strong)' }}>·</span>
-          {/* El formato, acá y no en una pantalla propia. Dos opciones no son una
-              pregunta: son un interruptor. */}
-          <span role="group" aria-label="Formato del archivo" style={{ display: 'inline-flex', gap: 5 }}>
-            <Lote activo={f.formato === 'csv'} onClick={() => elegirFormato('csv')}>CSV</Lote>
-            <Lote activo={f.formato === 'md'} onClick={() => elegirFormato('md')}>MD</Lote>
+          <span className="crm-exp-pie" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{resumen}</span>
+            <span aria-hidden style={{ color: 'var(--border-strong)' }}>·</span>
+            {formatos}
           </span>
         </span>
       )}
     >
+      {/* ⚠️ EN EL TELÉFONO EL PIE NO ALCANZA (mirado a 375 el 17/11/2026): «Cancelar», el conteo y los formatos medían ~310 px
+          en 162, y «Descargar» quedaba ENCIMA de los botones de formato (ya pasaba con dos). Ahí el formato sube a su renglón,
+          arriba de las opciones; en la computadora sigue en el pie. */}
+      <style>{CSS_FORMATO}</style>
+      <div className="crm-exp-cuerpo" style={{ alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>Formato</span>
+        {formatos}
+      </div>
       {cuerpo()}
     </WizardShell>
   );

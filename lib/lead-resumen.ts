@@ -20,7 +20,7 @@ import 'server-only';
 // =============================================================================
 
 import { getLead, getLeadRespuestas, type Lead, type FathomLink } from './leads';
-import { respuestasDelResumen, type RespuestaFormulario } from './lead-respuestas';
+import { PREGUNTAS_CALENDLY, respuestasDelResumen, type RespuestaFormulario } from './lead-respuestas';
 import { APP_BASE_URL } from './app-url';
 import { getTenantDb, getWorkspaceActual, WS_NINGUNO } from './workspace';
 import { linkApp } from './app-url';
@@ -78,37 +78,8 @@ export type ResumenLead = {
   borradorSeguimiento: { texto: string; creadoIso: string | null } | null;
 };
 
-/**
- * Las respuestas del formulario, con la PREGUNTA que las originó.
- *
- * Las columnas se llaman `respuesta_facturacion`, `respuesta_decisor`… y solas
- * no dicen nada: leídas en el celular treinta segundos antes de entrar a la
- * llamada, «Sí» sin la pregunta es ruido.
- *
- * ⚠️ EL NOMBRE DE LA COLUMNA NO ES LA PREGUNTA, y confundirlos acá miente en la
- * pantalla. Dos casos medidos contra el formulario real:
- *
- *  · `respuesta_facturacion` NO guarda cuánto factura: guarda el SÍ/NO a
- *    «este programa está enfocado en negocios que facturan +$20M MXN al año,
- *    ¿es tu caso?». Rotulada «¿Cuánto factura al año?» se leía «Si», que no es
- *    una facturación.
- *  · `respuesta_decisor` guarda el SÍ/NO a «¿alguien MÁS participa en la
- *    decisión?». Rotulada «¿Decide solo?» invertía el sentido: un «No» —que
- *    significa que decide él— se leía como que NO decide él. Esa es la que
- *    manda a la llamada con la estrategia al revés.
- *
- * La verdad de qué pregunta llena cada columna vive en el webhook
- * (`extractRespuestaPorFrase` en app/api/webhooks/calendly/route.ts): si ahí
- * cambian las frases que se matchean, estos rótulos se tocan en el mismo commit.
- */
-const PREGUNTAS: ReadonlyArray<{ campo: keyof Lead; pregunta: string }> = [
-  { campo: 'respuesta_objetivo', pregunta: '¿Qué quiere lograr?' },
-  { campo: 'respuesta_colaboradores', pregunta: '¿Cuántos colaboradores tiene?' },
-  { campo: 'respuesta_facturacion', pregunta: '¿Factura más de $20M MXN al año?' },
-  { campo: 'respuesta_inversion', pregunta: '¿Tiene posibilidad de invertir?' },
-  { campo: 'respuesta_decisor', pregunta: '¿Alguien más participa en la decisión?' },
-  { campo: 'respuesta_cuando_empezar', pregunta: '¿Cuándo quiere empezar?' },
-];
+// Las respuestas del formulario con la PREGUNTA que las originó: `PREGUNTAS_CALENDLY` (lib/lead-respuestas.ts), la misma
+// lista que usa el export de leads del CRM (ticket 106, 17/11/2026).
 
 /**
  * La reunión que VIENE: la primera de R1/R2 que todavía no pasó.
@@ -145,7 +116,7 @@ export async function getResumenLead(leadId: number): Promise<ResumenLead | null
 
   // Las columnas de Calendly, con sus rótulos curados. Sin ninguna (un lead de Cal.com), las
   // respuestas salen de `lead_respuestas`: ver `respuestasDelResumen`.
-  const legado: RespuestaFormulario[] = PREGUNTAS
+  const legado: RespuestaFormulario[] = PREGUNTAS_CALENDLY
     .map(({ campo, pregunta }) => ({ pregunta, respuesta: String(lead[campo] ?? '').trim() }))
     .filter((r) => r.respuesta.length > 0);
 

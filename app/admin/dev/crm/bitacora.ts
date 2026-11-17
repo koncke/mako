@@ -4131,4 +4131,26 @@ export const BITACORA: Hito[] = [
     revisar: '/crm',
     faltaEnProduccion: 'Mirar los cuatro bloques en una ficha del ws 3 (un ganado con cuotas impagas y una excepción) y /m/crm/2474 en el teléfono. Los recordatorios sólo se ven con la cobranza corriendo.',
   },
+  {
+    fecha: '17 nov', hora: '09:35', chat: 'CRM: la plata de la ficha', sesion: 'local_b5a8cd89-b593-47de-9ff0-1cf7375f58a2', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La descarga de leads del CRM trae las respuestas del formulario, una columna por pregunta, y se puede bajar en XLSX',
+    puntos: [
+      '**Ticket #106 (Codigo Inmobiliario, ws 13):** «no me descarga las respuestas del formulario» y «agregar descargarlos en XLSX».',
+      '**Por qué no salían:** el export leía seis columnas fijas del formulario de Calendly del negocio 1, vacías en cualquier otro. Las del ws 13 viven en las respuestas que deja Cal.com al agendar (60 de sus 111 leads). Ahora salen las mismas que muestra la ficha: las de la agenda, las del formulario de Meta y las de la landing, una columna por pregunta de cada formulario.',
+      '**Medido en producción con el archivo armado:** el ws 13 baja sus cinco preguntas con 55 a 58 respuestas cada una; el negocio 1 suma las dos preguntas de su formulario de Meta (161 leads), que tampoco salían.',
+      '**XLSX:** un tercer botón al lado de CSV y MD. La primera fila queda fija y con filtro, los montos son números y ningún texto se vuelve fórmula. En el teléfono el formato pasa a su renglón: el pie no alcanzaba y «Descargar» tapaba los botones.',
+      '**Los rótulos de Calendly:** el export usaba dos que invertían el sentido («¿Es el decisor?»). Ahora son los mismos del resumen del lead.',
+    ],
+    archivos: [
+      'app/crm/leads-exportar-respuestas.ts — las respuestas de cada lead y sus columnas',
+      'lib/xlsx-escribir.ts — la planilla, con fflate (sin dependencias nuevas)',
+      'app/crm/actions.ts — `exportLeadsAction` · app/crm/leads-exportar.ts · app/crm/ExportarLeadsModal.tsx',
+      'lib/lead-respuestas.ts — `PREGUNTAS_CALENDLY`, una sola lista para el resumen y el export',
+      'tests/crm-exportar-respuestas.test.ts · tests/xlsx-escribir.test.ts — probados rompiéndolos',
+      'docs/hallazgos-crm.md',
+    ],
+    revisar: '/crm?ws=13',
+    tickets: [106],
+  },
 ];

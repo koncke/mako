@@ -183,8 +183,10 @@ function tareaAMarkdown(t: BoardTask, on: Set<CampoExtra>): string[] {
 }
 
 /** Dispara la descarga en el navegador. */
-export function descargar(nombre: string, contenido: string, mime: string): void {
-  const url = URL.createObjectURL(new Blob([contenido], { type: `${mime};charset=utf-8` }));
+/** Un texto (sale en UTF-8) o un archivo ya armado, como el .xlsx de los leads del CRM (un binario no lleva `charset`). */
+export function descargar(nombre: string, contenido: string | Blob, mime: string): void {
+  const blob = typeof contenido === 'string' ? new Blob([contenido], { type: `${mime};charset=utf-8` }) : contenido;
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = nombre;

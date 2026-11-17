@@ -6,7 +6,7 @@
 // allá. Las dos se equivocaron sin dar un solo error (09/10/2026), y por eso tienen red.
 // =============================================================================
 
-import type { RespuestaQA } from './leads';
+import type { Lead, RespuestaQA } from './leads';
 
 /** Una pregunta del formulario con su respuesta, como la muestra el resumen del lead. */
 export type RespuestaFormulario = { pregunta: string; respuesta: string };
@@ -62,3 +62,38 @@ export function respuestasDelResumen(
     ...porReunion.R2.filter(conTexto).map(({ q, a }) => ({ pregunta: `R2 · ${q}`, respuesta: a })),
   ];
 }
+
+/**
+ * Las respuestas del formulario, con la PREGUNTA que las originó.
+ *
+ * Las columnas se llaman `respuesta_facturacion`, `respuesta_decisor`… y solas
+ * no dicen nada: leídas en el celular treinta segundos antes de entrar a la
+ * llamada, «Sí» sin la pregunta es ruido.
+ *
+ * ⚠️ EL NOMBRE DE LA COLUMNA NO ES LA PREGUNTA, y confundirlos acá miente en la
+ * pantalla. Dos casos medidos contra el formulario real:
+ *
+ *  · `respuesta_facturacion` NO guarda cuánto factura: guarda el SÍ/NO a
+ *    «este programa está enfocado en negocios que facturan +$20M MXN al año,
+ *    ¿es tu caso?». Rotulada «¿Cuánto factura al año?» se leía «Si», que no es
+ *    una facturación.
+ *  · `respuesta_decisor` guarda el SÍ/NO a «¿alguien MÁS participa en la
+ *    decisión?». Rotulada «¿Decide solo?» invertía el sentido: un «No» —que
+ *    significa que decide él— se leía como que NO decide él. Esa es la que
+ *    manda a la llamada con la estrategia al revés.
+ *
+ * Vivía en lib/lead-resumen.ts (`server-only`). El export de leads (app/crm/leads-exportar.ts) tenía SU lista, con los dos
+ * rótulos que este comentario dice que mentían («Facturación mensual actual», «¿Es el decisor?»): ticket 106, 17/11/2026.
+ *
+ * La verdad de qué pregunta llena cada columna vive en el webhook
+ * (`extractRespuestaPorFrase` en app/api/webhooks/calendly/route.ts): si ahí
+ * cambian las frases que se matchean, estos rótulos se tocan en el mismo commit.
+ */
+export const PREGUNTAS_CALENDLY: ReadonlyArray<{ campo: keyof Lead & `respuesta_${string}`; pregunta: string }> = [
+  { campo: 'respuesta_objetivo', pregunta: '¿Qué quiere lograr?' },
+  { campo: 'respuesta_colaboradores', pregunta: '¿Cuántos colaboradores tiene?' },
+  { campo: 'respuesta_facturacion', pregunta: '¿Factura más de $20M MXN al año?' },
+  { campo: 'respuesta_inversion', pregunta: '¿Tiene posibilidad de invertir?' },
+  { campo: 'respuesta_decisor', pregunta: '¿Alguien más participa en la decisión?' },
+  { campo: 'respuesta_cuando_empezar', pregunta: '¿Cuándo quiere empezar?' },
+];

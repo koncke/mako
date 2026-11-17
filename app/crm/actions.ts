@@ -92,10 +92,14 @@ import {
   type OpEtapa as OpEtapaDeLib, type EtapaQuitada as EtapaQuitadaDeLib, type DeshacerEtapa as DeshacerEtapaDeLib, type ResultadoEtapa,
 } from '@/lib/etapas-crm-server';
 import {
-  CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
-  alcanceLegible, csvDeLeads, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
+  CAMPOS_LEAD, COLUMNAS_POR_CAMPO, SIN_ASIGNAR,
+  alcanceLegible, csvDeLeads, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo, tablaDeLeads,
   type CampoFechaLeads, type FiltrosLeads, type OrdenLeads,
 } from './leads-exportar';
+import { COLS_RESPUESTAS, agendaPorLead, columnasDeRespuestas, respuestasDeFila, type AgendaDelLead } from './leads-exportar-respuestas';
+import type { RespuestaFormulario } from '@/lib/lead-respuestas';
+import { leerTodo } from '@/lib/supabase-paginado';
+import { xlsxDeTabla } from '@/lib/xlsx-escribir';
 import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
 import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, etiquetasDeCelda, leadsPorEtiqueta, type FilaImport } from './leads-importar';
@@ -1973,7 +1977,8 @@ function filaALeadDoc(l: FilaLead): LeadDoc {
     cierre: diaDe(l.fecha_cierre),
     primerPago: diaDe(l.fecha_primer_pago),
     visitorId: sTxt(l.visitor_id),
-    respuestas: PREGUNTAS_FORM.map(([col, q]) => ({ q, a: sTxt(l[col]) ?? '' })).filter((r) => r.a),
+    // Las mismas que las columnas del CSV y del .xlsx (`ponerRespuestas`): agenda, formulario de Meta y de la landing.
+    respuestas: ((l['#respuestas'] as RespuestaFormulario[] | undefined) ?? []).map((r) => ({ q: r.pregunta, a: r.respuesta })),
     motivoPerdida: sTxt(l.motivo_perdida),
   };
 }
@@ -2000,19 +2005,53 @@ export async function topeDeExportarAction(): Promise<string | null> {
   return r.ok ? null : r.texto;
 }
 
+/**
+ * Lo que dejó Cal.com / Calendly al agendar, de TODO el negocio: el último set de cada reunión por lead (`agendaPorLead`).
+ * ⚠️ Un error de lectura TIRA, no devuelve vacío: un archivo sin las respuestas y sin aviso es justo el bug del ticket 106.
+ */
+async function agendaDelNegocio(): Promise<Map<number, AgendaDelLead>> {
+  const filas = await leerTodo<{ lead_id: unknown; reunion: unknown; respuestas: unknown }>(
+    await getTenantDb(), 'lead_respuestas', 'id, lead_id, reunion, respuestas, created_at',
+    { orden: [{ col: 'created_at', asc: false }, { col: 'id', asc: false }] },
+  );
+  return agendaPorLead(filas);
+}
+
+/**
+ * «Respuestas del formulario»: una columna por pregunta, metidas donde va el grupo (ticket 106, 17/11/2026). Deja en cada fila
+ * su lista (`#respuestas`, la que imprime el documento) y el valor de cada columna (`#resp:N`).
+ */
+async function ponerRespuestas(filas: FilaLead[], columnas: Array<[string, string]>, dondeVan: number): Promise<void> {
+  const agenda = await agendaDelNegocio();
+  const porLead = filas.map((l) => respuestasDeFila(l, agenda.get(Number(l.id)) ?? null));
+  const { columnas: deRespuestas, valores } = columnasDeRespuestas(porLead);
+  filas.forEach((l, i) => { l['#respuestas'] = porLead[i]; Object.assign(l, valores[i]); });
+  columnas.splice(dondeVan, 0, ...deRespuestas);
+}
+
+/**
+ * El archivo: el texto del CSV o del documento, o el .xlsx EN BASE64 (una acción del servidor devuelve texto; el modal lo
+ * vuelve bytes al bajarlo).
+ */
 export async function exportLeadsAction(f: FiltrosLeads): Promise<string> {
   await exigirSesion();
   const tope = await topeDeExportarAction();
   if (tope) throw new Error(tope);
   // id y nombre van SIEMPRE; el resto según los grupos elegidos.
   const columnas: Array<[string, string]> = [['id', 'ID'], ['nombre', 'Nombre']];
+  // Dónde van las columnas de las respuestas: se saben recién con los leads en la mano (una por pregunta).
+  let dondeVanRespuestas = -1;
   for (const c of CAMPOS_LEAD.map((x) => x.id)) {
-    if (f.campos.includes(c)) columnas.push(...COLUMNAS_POR_CAMPO[c]);
+    if (!f.campos.includes(c)) continue;
+    if (c === 'respuestas') dondeVanRespuestas = columnas.length;
+    columnas.push(...COLUMNAS_POR_CAMPO[c]);
   }
   // El documento necesita empresa y montos aunque no se hayan tildado: el resumen
   // por etapa y la línea de identidad son la columna vertebral del formato.
   const extraDoc = f.formato === 'md' ? ['empresa', 'monto_cierre_usd', 'total_cobrado_usd'] : [];
-  const { filas, stages, ordenEtapas } = await leadsFiltrados(f, [...columnas.map(([k]) => k), ...extraDoc]);
+  const extraRespuestas = dondeVanRespuestas >= 0 ? COLS_RESPUESTAS : [];
+  const { filas, stages, ordenEtapas } = await leadsFiltrados(f, [...columnas.map(([k]) => k), ...extraDoc, ...extraRespuestas]);
+  if (dondeVanRespuestas >= 0) await ponerRespuestas(filas, columnas, dondeVanRespuestas);
 
   if (f.formato === 'md') {
     const etapasRef = stages.map((s) => ({ key: s.key, label: s.label, band: s.band ?? ('nutricion' as StageBand) }));
@@ -2030,6 +2069,7 @@ export async function exportLeadsAction(f: FiltrosLeads): Promise<string> {
     );
   }
 
+  if (f.formato === 'xlsx') return Buffer.from(xlsxDeTabla(tablaDeLeads(columnas, filas), { hoja: 'Leads' })).toString('base64');
   return csvDeLeads(columnas, filas);
 }
 

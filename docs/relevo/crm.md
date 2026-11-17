@@ -6,6 +6,14 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω34. 17/11/2026, mañana (chat «CRM», cuenta `claude2`): ticket 106, el export de leads con las respuestas y en XLSX
+
+Del Cerebro: Codigo Inmobiliario (ws 13) bajaba los leads y no salían las respuestas del formulario; pidió también XLSX. Hecho en
+`punta/crm-plata-1711`, con el hito `tickets: [106]` en la bitácora (se cierra solo al desplegarse). El porqué y las trampas, en
+docs/hallazgos-crm.md → «El export de leads… seis columnas vacías». **Sin hacer:** unificar la tercera lista de rótulos de Calendly
+(`getLeadRespuestas`, lib/leads.ts) y que `respuestasPropias` descarte los campos de Meta llamados «0», «1», «2» (lead 2767 del ws 1).
+**Sin mirar:** el .xlsx abierto en un Excel de verdad (no hay en la PC ni en Actions; se relee con el lector del importador).
+
 ## 0-Ω33. 17/11/2026, madrugada (chat «CRM», cuenta `claude2`): la plata de la ficha, P28, P25 y P33
 
 Del Cerebro: los tres pendientes de plata de la ficha verificados contra main el 17/11 (docs/pendientes-verificados-17-11.md,
