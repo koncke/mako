@@ -5059,6 +5059,13 @@ compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo 
 - **Las marcas de los recorridos (`data-recorrido`) no pueden salir de un id del render**: los de `useId` y los `#co-msg-…` cambian
   en cada dibujo. Se ponen al armar, por una clase fija o por el texto del control, sólo en la versión de computadora (en la del
   teléfono, que va en el mismo archivo, quedarían repetidas), y si no aparece se avisa.
+- **Una versión escondida con CSS sigue respondiendo a `querySelector`**: los recorridos del onboarding buscan el paso con
+  `document.querySelector(sel)` y lo saltean si no se ve. A 390, los 11 recorridos del teléfono no mostraban NINGÚN paso. No era que
+  faltaran las marcas en el teléfono: la versión de computadora va primero en la página y el selector la encontraba a ella,
+  escondida. La versión que no se ve sale del documento (a un `<template>`, inerte) y vuelve si cambia el ancho.
+- **Reescribir el `href` de un link para que navegue rompe a quien lo busca por su ruta**: `a[href="/perfil/instalar"]` dejaba de
+  existir al cargar (pasaba a `app-settings.html#…`) y esos pasos se salteaban sin error. La ruta de la app queda en el `href`; adónde
+  va se decide al hacer clic.
 
 ## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
 
