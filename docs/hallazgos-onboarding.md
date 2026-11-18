@@ -69,6 +69,10 @@ La maqueta queda como ESPECIFICACIÓN. Lo que mordió al construirlo:
   en el silencio del final; la marca siguiente, recién en el t_inicio de SU frase. `timeupdate` llega cada ~250 ms: la pausa justa se
   mira con `requestAnimationFrame` (app/_ui/tutorial/MotorTutorial.tsx). La maqueta tiene su propio motor y lleva lo mismo
   (`premarcaEn`, C:/dev/artefactos-onboarding/cuerpo.html).
+- **«El mapa del Second Brain es sólo del admin» NO quería decir el admin de la plataforma.** `veMapa` es `esAdminDeTab('second-brain')`
+  (lib/puerta-admin-tab.ts): el rol `admin` DEL NEGOCIO, que la app ya le da al dueño y a la agencia. Quedan afuera los closers y
+  los setters. El grafo es el del propio negocio, armado en el servidor (lo de la construcción de MaKo sólo para quien opera). Para
+  el recorrido aprobado no hubo que abrir nada: sólo faltaban las marcas (`sb-second-brain`, `sb-grafo`, `sb-brain-volver`).
 - **El Chromium de Playwright no reproduce mp4 (H.264):** para mirar el video hay que lanzar el Chrome instalado
   (`chromium.launch({ channel: 'chrome' })`). Con el otro, el video «no carga» y parece un error del motor.
 

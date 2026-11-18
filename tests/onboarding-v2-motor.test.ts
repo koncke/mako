@@ -81,8 +81,9 @@ test('los videos de los momentos del onboarding: sus keys, el recorrido la prime
   assert.equal(nombreDeFrase('Imagina un equipo que trabaja para tu negocio.'), null, 'una frase sin «aquí» no nombra nada');
   const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
   const motor = leer('app/_ui/tutorial/MotorTutorial.tsx');
-  // 18/11, Martín: el video «recorrido» no seguía el recorrido aprobado. Hasta que se rehaga, ninguno en su lugar.
-  assert.match(motor, /const VIDEO_PRIMERA_VEZ_OPS: string \| null = null;/, 'la primera vez en el Ops Center, sin el video del recorrido');
+  // 18/11, Martín: la primera vez en el Ops Center, el recorrido APROBADO, y su video sólo si sigue sus pasos.
+  assert.match(motor, /mostrarTutorial\(t\.pestana === 'ops-center' \? TUTORIAL_RECORRIDO : t,/, 'la primera vez en el Ops Center, el recorrido aprobado');
+  assert.match(motor, /VIDEO_FIEL\.has\(senal\.tutorial\.pestana\) && !sigueLosPasos\(/, 'un video que no sigue los pasos no se usa');
   // La pausa al FINAL de la frase, no al empezar (la voz terminaba la frase con la marca ya en la siguiente).
   assert.match(motor, /if \(t >= frase\.t_fin - 0\.05\) \{ if \(frase\.espera_clic\)/, 'la pausa en el t_fin');
   assert.doesNotMatch(motor, /if \(f\.espera_clic\) v\.pause\(\);/, 'nunca la pausa en el t_inicio');
@@ -90,4 +91,31 @@ test('los videos de los momentos del onboarding: sus keys, el recorrido la prime
   for (const k of ['onboarding-bienvenida', 'onboarding-whatsapp', 'onboarding-seguir-pc']) assert.match(chat, new RegExp(`clave[=:] ?["']${k}["']`), `el lugar de ${k}`);
   assert.match(leer('app/onboarding/page.tsx'), /videos=\{v2 \? \{ revision: esRevision\(v2\) \} : null\}/, 'sólo el onboarding V2 tiene los videos');
   assert.doesNotMatch(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /landing|vsl/i, 'nunca otro video en su lugar');
+});
+
+test('el recorrido aprobado en la app: sus pasos, sus marcas en los componentes y su video sólo si los sigue (Martín, 18/11)', async () => {
+  const { TUTORIAL_RECORRIDO } = await import('../lib/onboarding-v2/recorrido');
+  const { sigueLosPasos, frasesDe } = await import('../lib/tutoriales/videos');
+  assert.deepEqual(TUTORIAL_RECORRIDO.pasos.map((p) => p.titulo), ['El reto de 7 días de MaKo', 'Tu panel', 'Tu Second Brain', 'Lo que MaKo sabe de ti', 'Vuelve a tus chats', 'La Ticketera'], 'el GUION aprobado de la maqueta, en su orden');
+  assert.doesNotMatch(JSON.stringify(TUTORIAL_RECORRIDO), /Funnel Coach|Offer Coach/, '«no tiene sentido mostrarle por primera vez el Funnel Coach»');
+  const fiel = frasesDe([
+    { id: '1', t_inicio: 0, t_fin: 4, texto: '¡Hola de nuevo!' },
+    { id: '2', t_inicio: 5, t_fin: 10, texto: 'reto', sel: '[data-recorrido="sb-reto-chat"]', espera_clic: false },
+    { id: '3', t_inicio: 11, t_fin: 14, texto: 'panel', sel: 'aside[data-sidebar]', espera_clic: false },
+    { id: '4', t_inicio: 15, t_fin: 18, texto: 'Toca Second Brain', sel: '[data-recorrido="sb-second-brain"]' },
+    { id: '5', t_inicio: 19, t_fin: 22, texto: 'grafo', sel: '[data-recorrido="sb-grafo"]', espera_clic: false },
+    { id: '6', t_inicio: 23, t_fin: 25, texto: 'la flecha', sel: '[data-recorrido="sb-brain-volver"], button.cbg-atras' },
+    { id: '7', t_inicio: 26, t_fin: 32, texto: 'Ticketera', sel: '[data-recorrido="sb-ticketera"]', espera_clic: false },
+  ]);
+  assert.ok(sigueLosPasos(fiel, TUTORIAL_RECORRIDO.pasos), 'el video rehecho sigue los pasos');
+  const deLaManana = frasesDe([
+    { id: 'a', t_inicio: 10, t_fin: 15, texto: 'Funnel Coach', sel: 'button[title="Funnel Coach"]' },
+    { id: 'b', t_inicio: 16, t_fin: 21, texto: 'Uso', sel: '[data-recorrido="sb-uso"]' },
+  ]);
+  assert.equal(sigueLosPasos(deLaManana, TUTORIAL_RECORRIDO.pasos), false, 'el de la mañana (Funnel Coach, Uso…) no se usa');
+  const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
+  assert.equal((leer('app/second-brain/ChatSecondBrain.tsx').match(/data-recorrido="sb-second-brain"/g) ?? []).length, 2, 'la marca en los dos «Second Brain»');
+  const grafo = leer('app/second-brain/Grafo.tsx');
+  assert.match(grafo, /className="cbg-marco" data-recorrido="sb-grafo"/);
+  assert.match(grafo, /aria-label="Volver a la lista" data-recorrido="sb-brain-volver"/);
 });

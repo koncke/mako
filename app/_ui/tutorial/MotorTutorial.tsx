@@ -29,15 +29,16 @@ import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
 import { motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
 import { useVideoTutorial } from './useVideoTutorial';
-import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
+import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, sigueLosPasos, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
+import { TUTORIAL_RECORRIDO } from '@/lib/onboarding-v2/recorrido';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
 
 /**
- * Otro video para la primera vez en el Ops Center: NINGUNO por ahora. El «recorrido» del chat de los videos marcaba Funnel Coach, Uso,
- * la Ticketera y el reto, y no el recorrido que Martín aprobó (18/11: «antes era mucho mejor, le mostrábamos la sidebar»). Vuelve
- * cuando ese video siga los pasos aprobados, uno por frase.
+ * Los tutoriales cuyo video tiene que seguir SUS pasos, en su orden (`sigueLosPasos`): el recorrido aprobado. El «recorrido» de la
+ * mañana del 18/11 marcaba Funnel Coach, Uso, la Ticketera y el reto, y se perdió el recorrido de Martín («el video sigue al
+ * recorrido, nunca al revés»). Si el video no es fiel, el tutorial va sin él.
  */
-const VIDEO_PRIMERA_VEZ_OPS: string | null = null;
+const VIDEO_FIEL = new Set(['recorrido']);
 /** Cuánto se espera a que aparezca lo de un paso antes de saltearlo. */
 const ESPERA_PASO_MS = 3000;
 /** MaKo Mobile: por debajo de esto la pestaña es la del teléfono (los pasos `soloComputadora` no van). */
@@ -154,7 +155,9 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
       if (!vivo || pedido.current || senalAhora()) return;
       // La PRIMERA vez en el Ops Center (recién salida del onboarding), el video del recorrido en lugar del de la pestaña: presenta
       // a los coaches, Uso, la Ticketera y termina mandando al chat del reto (acordado con el chat de los videos, 18/11).
-      if (lugarDe(pasos[0].sel) || Date.now() - desde > 6000) { pedido.current = true; mostrarTutorial(t, { alTerminar: onCerrar, ...(t.pestana === 'ops-center' && VIDEO_PRIMERA_VEZ_OPS ? { video: VIDEO_PRIMERA_VEZ_OPS } : {}) }); return; }
+      // La PRIMERA vez en el Ops Center, el RECORRIDO APROBADO (lib/onboarding-v2/recorrido.ts) en lugar del tutorial de la pestaña:
+      // el reto, la barra, el Second Brain, la Ticketera. Lo visto se anota como el del Ops Center, así sale una vez.
+      if (lugarDe(pasos[0].sel) || Date.now() - desde > 6000) { pedido.current = true; mostrarTutorial(t.pestana === 'ops-center' ? TUTORIAL_RECORRIDO : t, { alTerminar: onCerrar }); return; }
       window.setTimeout(mirar, 250);
     };
     const id = window.setTimeout(mirar, 600);
@@ -178,7 +181,8 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
   // El video de la pestaña y, si trae frases con marca, el modo en que el video manda (después de «Empezar»).
   const videoPedido = useVideoTutorial(senal.tipo === 'tutorial' ? senal.video ?? null : null);
   const videoPropio = useVideoTutorial(senal.tipo === 'tutorial' ? senal.tutorial.pestana : null);
-  const video = videoPedido ?? videoPropio;
+  const videoAlgun = videoPedido ?? videoPropio;
+  const video = videoAlgun && senal.tipo === 'tutorial' && VIDEO_FIEL.has(senal.tutorial.pestana) && !sigueLosPasos(videoAlgun.frases ?? [], senal.tutorial.pasos) ? null : videoAlgun;
   // Con otro video que el de la pestaña (el recorrido), su cierre es SU último lugar marcado («toca aquí, en Reto de 7 días»), no el
   // último paso del tutorial de la pestaña.
   const conVideoPedido = !!videoPedido;

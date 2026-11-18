@@ -1945,13 +1945,14 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
         }
       `}</style>
 
-      <div className="cbg-marco">
+      {/* La marca del recorrido del onboarding V2 (lib/onboarding-v2/recorrido.ts): «Lo que MaKo sabe de ti». */}
+      <div className="cbg-marco" data-recorrido="sb-grafo">
         {/* ── LA BARRA DE CONTROL, FLOTANDO SOBRE EL LIENZO ─────────────────────
             Martín, 17/10/2026: la búsqueda a la IZQUIERDA, antes de «Filtrar», con el filtro casi pegado a ella;
             «Exportar» adentro del grafo, arriba a la derecha (donde estaba el zoom). */}
         <div className="cbg-barra">
           {alCerrar && (
-            <button type="button" className="cbg-ico cbg-atras" onClick={alCerrar} title="Volver a la lista" aria-label="Volver a la lista">
+            <button type="button" className="cbg-ico cbg-atras" onClick={alCerrar} title="Volver a la lista" aria-label="Volver a la lista" data-recorrido="sb-brain-volver">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 6l-6 6 6 6" /></svg>
             </button>
           )}
