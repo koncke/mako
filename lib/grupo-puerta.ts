@@ -13,6 +13,7 @@ import 'server-only';
 import { cache } from 'react';
 import { getUsuarioActual } from './auth';
 import { getSupabaseServer } from './supabase';
+import { fotoDePersonaSegura } from './foto-perfil';
 import { negocioPausado, wsSuperAdmin } from './workspace';
 import { agenciasAprobadasDe, carteraDeAgencia } from './agencia';
 import { administraActivo } from './agencia-equipo-grupo';
@@ -68,7 +69,7 @@ export const accesoAlGrupo = cache(async (ws: number): Promise<PersonaDelGrupo |
   const a = await juzgar(ws, p);
   if (!a || !p) return null;
   return {
-    ...a, ws, usuarioId: Number(p.id), email: String(p.email ?? '').toLowerCase(), nombre: (p.nombre ?? '').trim(), fotoUrl: p.foto_url ?? null,
+    ...a, ws, usuarioId: Number(p.id), email: String(p.email ?? '').toLowerCase(), nombre: (p.nombre ?? '').trim(), fotoUrl: fotoDePersonaSegura(p.foto_url),
     letra: letraDeAcceso(a), invitado: a.tipo === 'invitado',
   };
 });
@@ -96,7 +97,7 @@ export type Miembros = { conCuenta: MiembroDelGrupo[]; invitadosSinCuenta: strin
  */
 export async function miembrosDelGrupo(ws: number): Promise<Miembros> {
   const fila = (u: FilaPersona, tipo: MiembroDelGrupo['tipo'], abrio = true): MiembroDelGrupo => ({
-    usuarioId: Number(u.id), email: String(u.email ?? '').toLowerCase(), nombre: (u.nombre ?? '').trim(), fotoUrl: u.foto_url ?? null, tipo, abrio,
+    usuarioId: Number(u.id), email: String(u.email ?? '').toLowerCase(), nombre: (u.nombre ?? '').trim(), fotoUrl: fotoDePersonaSegura(u.foto_url), tipo, abrio,
   });
   const plataforma = await wsSuperAdmin().catch(() => null);
   if (plataforma === ws) {

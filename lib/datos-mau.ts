@@ -24,6 +24,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
+import { fotoDePersonaSegura } from './foto-perfil';
 import { leerPorPaginas } from './supabase-paginado';
 import { OWNER_WS } from './auth-session';
 import { SERVICIOS_METODO } from './metodo-catalogo';
@@ -469,7 +470,7 @@ async function copiarPerfilDelDueno(destino: number, recibo: Recibo, avisos: str
 
   const { error } = await getSupabaseServer().from('usuarios').update({
     nombre: origen.nombre ?? '',
-    foto_url: origen.foto_url ?? null,
+    foto_url: fotoDePersonaSegura(origen.foto_url),
     perfil: extra,
     updated_at: new Date().toISOString(),
   }).eq('id', dest.id).eq('workspace_id', destino); // cinturón: nunca fuera del destino

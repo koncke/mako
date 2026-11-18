@@ -63,7 +63,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_conversaciones_whatsapp_oficial', area: 'whatsapp', tipo: 'lectura',
     titulo: 'Bandeja del WhatsApp oficial',
-    descripcion: 'La bandeja oficial agrupada por persona (últimos 10 dígitos del teléfono): si el último mensaje es del lead (lo que dice si falta contestar; no hay contador de no leídos), si la ventana de 24 h está abierta y cuándo vence, y el lead del CRM que coincide con su etapa del inbox. Úsala para «¿quién me escribió y no le contesté?» o «¿a quién le vence la ventana hoy?». Lee las páginas más recientes de Chatwoot (25 conversaciones por página) y lo dice.',
+    descripcion: 'La bandeja oficial agrupada por persona (últimos 10 dígitos del teléfono): si el último mensaje es del lead (lo que dice si falta contestar; no hay contador de no leídos), si la ventana de 24 h está abierta y cuándo vence, y el lead del CRM que coincide con su etapa del CRM. Úsala para «¿quién me escribió y no le contesté?» o «¿a quién le vence la ventana hoy?». Lee las páginas más recientes de Chatwoot (25 conversaciones por página) y lo dice.',
     parametros: [
       { nombre: 'paginas', tipo: 'number', entero: true, minimo: 1, maximo: 8, descripcion: 'cuántas páginas de Chatwoot leer, de la más reciente (default 2 = ~50 conversaciones).' },
       { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'cuántas personas devolver como máximo (default 30).' },
@@ -236,7 +236,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'etapa_inbox_de_lead', area: 'whatsapp', tipo: 'lectura',
     titulo: 'Etapa del inbox de un lead',
-    descripcion: 'La etapa con la que las dos bandejas de WhatsApp muestran y filtran a un lead (cliente, por-cobrar, no-show, j2, post-j1, agendo, vio-vsl, form, abierto), derivada de sus fechas y asistencias. NO es la etapa del funnel configurable (pipeline_stage): la respuesta trae las dos para que digas cuál es cuál.',
+    descripcion: 'La etapa del CRM de un lead: la columna donde lo dibuja su tablero, con el funnel de su casa, la misma que muestra Chats. Trae también la derivación fija que decide la etiqueta del celular (cliente, por-cobrar, no-show, j2, post-j1, agendo, vio-vsl, form, abierto), con su nombre aparte.',
     parametros: [LEAD_ID],
     salida: 'json', canales: TODOS, costo: 'gratis',
     gating: { tab: 'whatsapp' },

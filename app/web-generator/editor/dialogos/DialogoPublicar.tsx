@@ -68,7 +68,7 @@ import { avisoDeCobro, productosDePago } from '@/lib/editor-landing/pago-landing
 import { useCobroLanding } from '../nodos/CobroBoton';
 import { useEditorLanding } from '../contexto';
 import Link from '@/app/_ui/Link';
-import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';
+import { CtaPasarAPro, TextoDelTope } from '@/app/_components/CtaPasarAPro';
 import { esTopeDePrueba, RUTA_CAMBIAR_PLAN, RUTA_EMPEZAR_PLAN } from '@/lib/topes-plan';
 import { TEXTO_DOMINIO_SOLO_PRO, pidePasarAPro } from '@/lib/editor-landing/tope-landings';
 import { usePlanEsencial } from '@/app/_components/useClienteDeAgencia';
@@ -560,7 +560,7 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
           {publicando ? <Giro chico etiqueta="Publicando" /> : <Icono nombre="subir" tam={14} />}Publicar sitio
         </button>
       </div>
-      {error && <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="alert">{error}<PasarAPro error={error} /><ReportarASoporte /></p>}
+      {error && <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="alert"><TextoDelTope texto={error} /><PasarAPro error={error} /><ReportarASoporte /></p>}
       {avisoCobro && (
         <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="status">
           {avisoCobro.texto}
@@ -763,7 +763,7 @@ function SeccionDominio({ docId, urlMako, prefijo, publicado, confirmar, avisar 
           {verificado && !publicado && <p className="gmp-ayuda" style={{ marginTop: 8 }}>Publica el sitio para que se vea en tu dominio.</p>}
         </>
       ) : esencial === true ? (
-        <p className="gmp-ayuda" role="status" data-solo-pro="dominio">{TEXTO_DOMINIO_SOLO_PRO}<PasarAPro error={TEXTO_DOMINIO_SOLO_PRO} /></p>
+        <p className="gmp-ayuda" role="status" data-solo-pro="dominio"><TextoDelTope texto={TEXTO_DOMINIO_SOLO_PRO} /><PasarAPro error={TEXTO_DOMINIO_SOLO_PRO} /></p>
       ) : (
         <Campo etiqueta="Añadir un dominio" htmlFor="gmp-dominio" ayuda="Un dominio o subdominio que ya tengas.">
           <form className="gmp-dom-nuevo" onSubmit={(e) => { e.preventDefault(); void conectar(escrito); }}>
@@ -775,7 +775,7 @@ function SeccionDominio({ docId, urlMako, prefijo, publicado, confirmar, avisar 
           </form>
         </Campo>
       )}
-      {error && <p className="gmp-error" role="alert" style={{ marginTop: 8 }}>{error}<PasarAPro error={error} /><ReportarASoporte /></p>}
+      {error && <p className="gmp-error" role="alert" style={{ marginTop: 8 }}><TextoDelTope texto={error} /><PasarAPro error={error} /><ReportarASoporte /></p>}
     </>
   );
 }

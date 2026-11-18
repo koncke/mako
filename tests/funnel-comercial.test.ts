@@ -228,7 +228,8 @@ test('getFunnelEtapas no escribe las keys del tramo comercial a mano', () => {
   // El contador de la cohorte del ALTA tiene que estar cableado de verdad: sin esta
   // consulta, el tramo sin reuniones queda con los dos lados en 0.
   assert.ok(fn.includes('cierres_entradas:'), 'falta el contador `cierres_entradas` en getFunnelEtapas');
-  assert.ok(/created_at/.test(fn), 'falta la cohorte del alta (created_at) en getFunnelEtapas');
+  // (18/11/2026, F152: el alta se cuenta por `fecha_original` si la tiene y si no por `created_at`, en `contarAltas`.)
+  assert.ok(fn.includes('contarAltas(supabase, altaDesde, altaHasta'), 'falta la cohorte del alta (contarAltas) en getFunnelEtapas');
 });
 
 test('retro-datos lee los números por ROL y no por key canónica', () => {

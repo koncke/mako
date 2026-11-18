@@ -13,6 +13,8 @@ import { credWs } from './credenciales';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
 import { META_PAGE_ID } from './config';
 import { esDelWebhookTodavia, esNuevoParaElNegocio } from './meta-leads-poll-reglas';
+import { sinAnunciarDe } from './meta-anuncio';
+import type { CandidatoReintento } from './meta-anuncio-reglas';
 
 export const META_GRAPH_VERSION = process.env.META_API_VERSION || 'v24.0';
 
@@ -94,6 +96,8 @@ export type PollLeadsResult = {
   del_webhook: number;
   /** los creados recientes que el poll ANUNCIÓ: el aviso, los flujos y las automatizaciones (`alNacerLeadDeMeta`, #868). */
   anunciados: number;
+  /** los que ya estaban y se anunciaron ahora porque su anuncio se había caído (F117, lib/meta-anuncio.ts). */
+  reanunciados: number;
   errores: number;
   detalle_errores?: string[];
 };
@@ -168,6 +172,9 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
   let existentes = 0;
   let delWebhook = 0;
   let anunciados = 0;
+  let reanunciados = 0;
+  // Los que ya estaban, por si su anuncio se cayó (F117): se miran todos juntos al final, en una lectura.
+  const yaEstaban: Array<CandidatoReintento & { nombre: string; telefono: string | null; fieldData: MetaFieldData | null; campana: string | null }> = [];
   const ahoraMs = Date.now();
   const errores: string[] = [];
 
@@ -221,7 +228,13 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
             meta_campos_no_reconocidos: noReconocidos,
           });
           if (created) creados++;
-          else existentes++;
+          else {
+            existentes++;
+            yaEstaban.push({
+              id: lead.id, creadoAt: lead.created_at, formCreadoEn: lr.created_time ?? null,
+              nombre: lead.nombre, telefono: lead.telefono ?? null, fieldData: lr.field_data ?? null, campana: lr.campaign_name ?? null,
+            });
+          }
           // ⚠️ LO INMEDIATO TAMBIÉN DESDE ACÁ (17/10/2026, #868): una página sin suscribir no recibe el webhook nunca, y
           // sus leads entraban sin disparar ninguna automatización. Sólo uno recién creado y RECIENTE: un rescate de
           // días no se anuncia como nuevo (`esNuevoParaElNegocio`). Import dinámico: el motor no viaja con cada importador.
@@ -243,6 +256,27 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
     }
   }
 
+  // ⚠️ EL QUE YA ESTABA Y NO SE ANUNCIÓ (F117, 18/11/2026): la puerta que lo creó se cayó después del insert. Sólo los que
+  // pasan las reglas de lib/meta-anuncio-reglas.ts (sin la marca del anuncio, el mismo lead nuevo de hoy), y cada uno
+  // reclama antes de anunciar: si el webhook lo está anunciando a la vez, sale una vez.
+  if (yaEstaban.length) {
+    const ws = await getWorkspaceActual();
+    if (ws != null) {
+      const sinAnunciar = await sinAnunciarDe(ws, yaEstaban, ahoraMs);
+      if (sinAnunciar.size) {
+        const { alNacerLeadDeMeta } = await import('./meta-lead-nuevo');
+        for (const c of yaEstaban.filter((x) => sinAnunciar.has(x.id))) {
+          try {
+            await alNacerLeadDeMeta(ws, { id: c.id, nombre: c.nombre, telefono: c.telefono }, { fieldData: c.fieldData, campana: c.campana }, { esReintento: true });
+            reanunciados++;
+          } catch (err) {
+            errores.push(`lead ${c.id} (anuncio): ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+      }
+    }
+  }
+
   return {
     dias,
     forms_revisados: forms.length,
@@ -251,6 +285,7 @@ export async function pollMetaLeads(dias: number): Promise<PollLeadsResult> {
     existentes,
     del_webhook: delWebhook,
     anunciados,
+    reanunciados,
     errores: errores.length,
     ...(errores.length > 0 ? { detalle_errores: errores.slice(0, 10) } : {}),
   };
