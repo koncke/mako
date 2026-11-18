@@ -3956,6 +3956,9 @@ gastado ÷ los clientes que entran, y se reemplaza ahí.
     `wsSuperAdmin`, y un import estático de lib/plan-esencial no enlazaría en ESM.
   · El hijo que dibuja «Tu plan» (tests/_plan-pedir-pro-hijo.ts) ahora simula `pagaUnPlanDe`. Sin eso, el nombre del plan
     iría a la base de verdad.
+  · `esClienteDeAgencia` tiene una lista CERRADA de quién la llama (tests/agency-dos-duenos.test.ts): un uso nuevo da rojo
+    hasta que se suma ahí, con su «no sé» resuelto con `!== false`. Acá el «no sé» cuenta como de agencia, igual que el resto
+    de «Tu plan», que con «no sé» ya dice «Lo maneja tu agencia». El filtro del push lo cazó antes de GitHub.
 - *Sin hacer (otros textos que nombran la capa):*
   · lib/api-mako/areas/negocio.run.ts:219, cuando MaKo le contesta al cliente qué plan tiene;
   · lib/cobros.ts:492, el concepto de reserva de un cobro de alta sin concepto («MaKo · plan Agencia»);

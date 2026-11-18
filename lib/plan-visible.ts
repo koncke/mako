@@ -25,10 +25,13 @@ export function nombresDelCatalogo(planes: readonly Pick<PlanMako, 'id' | 'nombr
 
 /** El nombre del plan del negocio `ws` para el cliente: «MaKo Pro», «MaKo Essential», «Plan de tu agencia» o «Plan a medida». */
 export async function nombreDelPlanDe(ws: number, capa: string | null): Promise<string> {
-  const [rige, deAgencia, planes] = await Promise.all([
+  const [rige, planes] = await Promise.all([
     capa === 'completo' || capa === 'agencia' ? pagaUnPlanDe(ws, capa).catch(() => null) : Promise.resolve(null),
-    esClienteDeAgencia(ws).catch(() => null),
     planesMako().catch(() => [] as PlanMako[]),
   ]);
-  return nombreDelPlanVisible({ capa, rige, clienteDeAgencia: deAgencia === true, nombres: nombresDelCatalogo(planes) });
+  // Con «no sé» (`null`) cuenta como de agencia: lo MISMO que «Tu plan» (`deAgencia`, app/configuraciones/plan/page.tsx), que
+  // con «no sé» ya dice «Lo maneja tu agencia». Así el título y el resto de la pantalla no se contradicen. Si paga un plan del
+  // catálogo, esto no cambia nada: el nombre es el del catálogo. Lo fija tests/agency-dos-duenos.test.ts.
+  const deAgencia = (await esClienteDeAgencia(ws)) !== false;
+  return nombreDelPlanVisible({ capa, rige, clienteDeAgencia: deAgencia, nombres: nombresDelCatalogo(planes) });
 }
