@@ -89,7 +89,7 @@ test('la CALCULADORA: el botón del plan que alterna, el deslizador, el precio e
   assert.equal(calcT.trim(),
     // Cada botón muestra SÓLO la opción de ahora: el texto completo (computadora) y el corto (teléfono), el CSS muestra uno; el del
     // plan, con su precio debajo.
-    'MaKo Pro: US$ 97 Pro: US$ 97 MaKo Essential: US$ 47 Essential: US$ 47 ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
+    'MaKo: US$ 97 MaKo: US$ 97 MaKo: US$ 47 MaKo: US$ 47 ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
     'sin JavaScript: 5 negocios con el plan más caro, cobrando directo; y NADA más');
   assert.equal((calc.match(/<input/g) ?? []).length, 1, 'un solo deslizador');
   assert.match(calc, /<input id="mp-calc-n" class="mp-calc-barra" type="range" min="1" max="100"/, 'hasta 100 negocios');
@@ -101,7 +101,7 @@ test('la CALCULADORA: el botón del plan que alterna, el deslizador, el precio e
   assert.doesNotMatch(calc, /mp-calc-mini|mp-calc-alt-ic|<svg/, 'sin mini interruptor ni ícono');
   assert.doesNotMatch(calcT, /Pasarela|Transferencia/, 'no hay forma de pago');
   assert.doesNotMatch(calcT, /Binance|%/, 'sin «Binance» ni el porcentaje en los botones');
-  assert.ok(calcT.indexOf('MaKo Pro: US$ 97') < calcT.indexOf('¿Cuántos negocios traes?'), 'los botones, arriba del deslizador');
+  assert.ok(calcT.indexOf('MaKo: US$ 97') < calcT.indexOf('¿Cuántos negocios traes?'), 'los botones, arriba del deslizador');
   const cssCalc = fuente('app/mako-partners/LandingPartners.tsx');
   assert.match(cssCalc, /\.mp-calc-alts \{ display: grid; grid-template-columns: 1fr 1fr;/, 'uno al lado del otro');
   assert.match(cssCalc, /\.mp-calc-alt\.elegido \{[^}]*background: var\(--mp-sobre-azul\);[^}]*box-shadow:/, 'el elegido, lleno y con sombra');
@@ -299,28 +299,42 @@ test('«¿Por qué ser partner de MaKo te conviene?»: seis beneficios y «MaKo 
     + 'Hecha para Latinoamérica Pensada para cómo se vende en Latinoamérica: por WhatsApp y en español. Y se paga por transferencia, Mercado Pago o Binance. '
     + 'Te ayudamos a vender Nunca vendes sin ayuda: material listo con tu link, te ayudamos con tus anuncios y respondemos las dudas de tus contactos antes de que compren.'),
     'las seis tarjetas, en orden (el 30%, de la constante)');
-  assert.equal((html.match(/class="mp-ventaja-ic"/g) ?? []).length, 6, 'un ícono por tarjeta');
+  // Martín: «que sea como una tarjeta grandota… un carrusel que vaya desplazando con las opciones».
+  assert.match(html, /<div id="beneficios" class="mp-car" role="region" aria-roledescription="carrusel"/, 'el carrusel');
+  assert.equal((html.match(/class="mp-car-tarjeta"/g) ?? []).length, 6, 'seis tarjetas grandes');
+  assert.equal((html.match(/class="mp-car-ic"/g) ?? []).length, 6, 'un ícono grande por tarjeta');
+  assert.equal((html.match(/aria-hidden="true" inert=""/g) ?? []).length, 5, 'se ve UNA a la vez: las otras cinco, fuera del lector y del tabulador');
+  assert.equal((html.match(/<div class="mp-car-puntos">/g) ?? []).length, 1);
+  assert.ok(html.includes('aria-label="Anterior"') && html.includes('aria-label="Siguiente"'), 'las flechas');
+  const car = fuente('app/mako-partners/Carrusel.tsx');
+  assert.match(car, /const CADA_MS = 4000;/, 'pasa sola cada 4 s');
+  assert.match(car, /if \(pausa \|\| quieto/, 'se pausa (mouse, toque, foco) y con «reducir movimiento» queda quieta');
+  assert.match(car, /onTouchStart=[\s\S]*onTouchEnd=/, 'se desliza con el dedo');
   assert.doesNotMatch(t, /Recomendar MaKo es fácil|Hace de todo|en vez de diez|cinco herramientas|rápido y en persona|No te dejamos solo|cobrando por/,
     'lo que se fue, los números inventados y lo que no se puede prometer');
   const recursos = fuente('lib/partners-recursos.ts');
   assert.ok(recursos.includes('export function pdfDeVenta') && recursos.includes('export function mensajesParaCopiar'), 'el material que la tarjeta promete existe');
   assert.doesNotMatch(t, /clases|videos|audios/i, 'nada de material que todavía no existe');
 
-  // La comparación: el MISMO componente de las comparaciones del sitio (TarjetasVs), con UNA tarjeta, la de GoHighLevel.
-  assert.ok(fuente('app/mako-partners/LandingPartners.tsx').includes('<TarjetasVs solo={[COMPARACION_CON]}'), 'el componente del sitio, no una copia');
-  assert.equal((html.match(/<label class="s-vs">/g) ?? []).length, 1, 'una sola tarjeta');
-  assert.ok(t.includes('MaKo vs GoHighLevel'));
-  assert.ok(html.indexOf('<label class="s-vs">') > html.indexOf(h2) && html.indexOf('<label class="s-vs">') < html.indexOf('<h2>Preguntas frecuentes</h2>'));
-  const panel = html.slice(html.indexOf('id="vs-gohighlevel"'), html.indexOf('<h2>Preguntas frecuentes</h2>'));
-  const filas = [...panel.matchAll(/<th scope="row" class="s-mx-c0">([^<]+)<\/th>/g)].map((m) => m[1]);
-  assert.deepEqual(filas, ['Soporte por WhatsApp', 'Centro de ayuda en español', 'WhatsApp incluido en el plan', 'IA que contesta a tus clientes', 'Precio de entrada']);
+  // La comparación, A LA VISTA y a favor de MaKo (Martín: «posicionar a MaKo por arriba de HighLevel»): sin desplegable.
+  assert.doesNotMatch(html, /class="s-vs"|TarjetasVs/, 'sin el desplegable de las comparaciones');
+  const tabla = html.slice(html.indexOf('<div class="mp-vs2">'), html.indexOf('<h2>Preguntas frecuentes</h2>'));
+  assert.ok(html.indexOf('<div class="mp-vs2">') > html.indexOf('id="beneficios"'), 'debajo del carrusel');
+  assert.ok(texto(tabla).includes('Lo que GoHighLevel te cobra aparte o ni siquiera tiene, en MaKo viene incluido'), 'el título que posiciona');
+  assert.match(tabla, /<th scope="col" class="mk"><span class="mp-vs2-chip">Recomendado<\/span>/, 'MaKo, destacada y «Recomendado»');
+  const filas = [...tabla.matchAll(/<th scope="row">([^<]+)<\/th>/g)].map((m) => m[1]);
+  assert.deepEqual(filas, COMPARACION.map((f) => f.nombre));
+  assert.deepEqual(filas, ['WhatsApp incluido en el plan', 'IA que contesta a tus clientes', 'Precio de entrada', 'Soporte por WhatsApp',
+    'Centro de ayuda en español', 'Pagar con Mercado Pago, transferencia o Binance']);
+  assert.equal((tabla.match(/class="mp-vs2-si"/g) ?? []).length, filas.length, 'MaKo: un tilde verde por fila');
+  assert.equal((tabla.match(/class="otra costo"/g) ?? []).length + (tabla.match(/class="otra no"/g) ?? []).length, filas.length, 'GoHighLevel: lo que cuesta o la cruz');
   // ⚠️ Cada fila sobre GoHighLevel es verdad y tiene su fuente en su sitio oficial. Sin fuente, no entra.
-  for (const f of COMPARACION) assert.match(f.otra.fuente ?? '', /^https:\/\/(www\.|help\.)?gohighlevel\.com\//, `${f.nombre}: la fuente es de GoHighLevel`);
+  for (const f of COMPARACION) assert.match(f.fuente, /^https:\/\/(www\.|help\.)?gohighlevel\.com\//, `${f.nombre}: la fuente es de GoHighLevel`);
   // Lo de MaKo, derivado: el setter con IA es de Pro, el precio es el de Essential.
-  assert.equal(COMPARACION[3].mako.v, EN_PRO);
-  assert.equal(COMPARACION[4].mako.v, `Desde ${usd(PLANES_MAKO_DEFAULT.find((p) => p.id === 'esencial')!.precioUsd)} al mes`);
-  assert.ok(texto(panel).includes('Precio de entrada Desde US$ 47 al mes Desde US$ 97 al mes'));
-  assert.ok(texto(panel).includes('Datos de gohighlevel.com y de su centro de ayuda, noviembre de 2026.'), 'la comparación, con fecha');
+  assert.equal(COMPARACION[1].mako, EN_PRO);
+  assert.equal(COMPARACION[2].mako, `Desde ${usd(PLANES_MAKO_DEFAULT.find((p) => p.id === 'esencial')!.precioUsd)} al mes`);
+  assert.ok(texto(tabla).includes('Precio de entrada Sí Desde US$ 47 al mes Desde US$ 97 al mes'));
+  assert.ok(texto(tabla).includes('Datos de gohighlevel.com y de su centro de ayuda, noviembre de 2026.'), 'la comparación, con fecha');
   // Sin la comisión (ellos pagan 40% y juega en contra: Martín compite por valor).
-  assert.doesNotMatch(texto(panel), /comisi[oó]n|40 ?%|recurrente/i);
+  assert.doesNotMatch(texto(tabla), /comisi[oó]n|40 ?%|recurrente/i);
 });

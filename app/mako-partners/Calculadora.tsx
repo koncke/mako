@@ -119,10 +119,10 @@ export function Calculadora({ planes, children }: {
   const plan = planes.find((p) => p.id === planId) ?? planes[0];
   const porMes = useCorre(plan ? gananciaPorMes(n, plan.precioUsd) : 0);
   if (!plan) return null;
-  // «MaKo Pro: US$ 97» en la computadora y «Pro: US$ 97» en el teléfono (el nombre sin «MaKo»), de los planes.
+  // «MaKo: US$ 97» y «MaKo: US$ 47», también en el teléfono (Martín, 18/11/2026: «MaKo 97 o MaKo 47, sin el nombre del plan»); el
+  // lector de pantalla sí oye el nombre del plan.
   const opcionesPlan = planes.slice(0, 2).map((p) => ({
-    id: p.id, texto: `${p.nombre}: ${usd(p.precioUsd)}`, corto: `${p.nombre.replace(/^MaKo\s+/, '')}: ${usd(p.precioUsd)}`,
-    completo: `${p.nombre}, ${usd(p.precioUsd)}`,
+    id: p.id, texto: `MaKo: ${usd(p.precioUsd)}`, corto: `MaKo: ${usd(p.precioUsd)}`, completo: `${p.nombre}, ${usd(p.precioUsd)}`,
   }));
   return (
     <div className="mp-calc" id="calculadora" aria-label="Calculadora de lo que ganas">

@@ -36,12 +36,14 @@ import Link from 'next/link';
 import { COMISION_PARTNER_DIRECTO, RUTA_ALTA_PARTNERS } from '@/lib/partners-reglas';
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
-import { PORCENTAJE_DIRECTO, gananciaPorMes, porcentaje, usd } from './numeros';
-import { COMPARACION, COMPARACION_CON, COMPARACION_LEIDA } from './comparacion';
-import { TarjetasVs } from '@/app/vsl/_sitio/Comparaciones';
+import { gananciaPorMes, porcentaje, usd } from './numeros';
+import { COMPARACION, COMPARACION_LEIDA, COMPARACION_TITULO, LOGO_OTRA, NOMBRE_OTRA } from './comparacion';
+import { BENEFICIOS } from './beneficios';
+import { Carrusel } from './Carrusel';
+import { EstrellaMaKo } from '@/app/vsl/_competencia/marca';
 import { MARCA } from '@/lib/tutoriales/marcas';
 import { INDUSTRIAS } from '@/app/vsl/_sitio/datos';
-import { CSS_BASE, CSS_COMPARACIONES, CSS_REEMPLAZA } from '@/app/vsl/_sitio/estilos';
+import { CSS_REEMPLAZA } from '@/app/vsl/_sitio/estilos';
 
 const CSS = `
 .mp-root { --mp-ink: #12151B; --mp-dim: #4A5260; --mp-suave: #5B6472; --mp-borde: #E6EAF2; --mp-sup: #FFFFFF; --mp-gris: #F6F8FB;
@@ -142,26 +144,77 @@ body:has(.mp-publica) { background: #FFFFFF; }
 /* Aire entre el título de una sección y sus tarjetas (sin bajada en medio). */
 .mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-pasos { margin-top: 28px; }
 /* «¿Por qué ser partner de MaKo te conviene?»: «te conviene» con el degradé de la marca; las mismas tarjetas que «Así de simple»,
-   2 × 2, con el ícono en un recuadro (sin línea punteada); y debajo, la tabla contra GoHighLevel. */
+   y debajo, el carrusel y la tabla contra GoHighLevel. */
 .mp-conviene { font-style: normal; font-weight: 900; color: var(--mp-azul);
   background: linear-gradient(90deg, var(--mp-azul-osc) 0%, var(--mp-azul) 55%, color-mix(in srgb, var(--mp-azul) 70%, #22B8F0) 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-.mp-pasos.mp-ventajas { grid-template-columns: repeat(2, 1fr); gap: 16px; }
-.mp-ventajas .mp-paso::after { display: none; }
-.mp-paso > .mp-ventaja-ic { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-bottom: 10px; border-radius: 12px;
-  color: var(--mp-azul); background: var(--mp-azul-bg); }
-.mp-ventaja-ic svg { width: 24px; height: 24px; }
 /* LA sección fuerte: más aire, el título más grande, seis tarjetas 3 × 2. */
 .mp-seccion.mp-conviene-sec { padding: 112px 0 104px; }
 .mp-seccion.mp-conviene-sec h2 { font-size: 46px; }
 .mp-conviene-sec h2 + .mp-pasos { margin-top: 40px; }
-.mp-conviene-sec .mp-pasos.mp-ventajas { grid-template-columns: repeat(3, 1fr); gap: 20px; }
-/* La comparación del sitio (TarjetasVs) adentro de la landing: sin su banda lavanda ni su relleno de página, la tarjeta a lo ancho. */
-.mp-vs.s-sitio { min-height: 0; background: transparent; overflow-x: visible; margin-top: 48px; }
-.mp-vs .s-cv { background: transparent; padding: 0; }
-.mp-vs .s-cont { max-width: 860px; padding: 0; }
-.mp-vs .s-cv-grilla { margin-top: 0; grid-template-columns: minmax(0, 1fr); }
-.mp-vs .s-mx-fecha { margin-top: 14px; font-size: 13px; line-height: 18px; color: #6B7280; text-align: center; }
+/* El carrusel: UNA tarjeta grande a la vez (Martín: «como una tarjeta grandota»). La ventana recorta, la pista se corre una
+   tarjeta entera; todas miden lo mismo (la fila de flex las estira a la más alta), así no salta el alto al pasar. */
+.mp-car { position: relative; max-width: 860px; margin: 40px auto 0; }
+.mp-car-ventana { overflow: hidden; border-radius: 28px; border: 1px solid var(--mp-borde);
+  background: radial-gradient(640px 280px at 50% 0%, color-mix(in srgb, var(--mp-azul) 14%, transparent), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--mp-azul) 6%, var(--mp-sup)) 0%, var(--mp-sup) 80%);
+  box-shadow: 0 30px 70px -36px color-mix(in srgb, var(--mp-azul) 55%, transparent); }
+.mp-car-pista { display: flex; transition: transform .55s cubic-bezier(.22, .61, .36, 1); }
+.mp-car-tarjeta { flex: 0 0 100%; box-sizing: border-box; min-height: 320px; padding: 52px 96px 46px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px; text-align: center; }
+.mp-car-ic { display: inline-flex; align-items: center; justify-content: center; width: 80px; height: 80px; border-radius: 24px; color: var(--mp-sobre-azul);
+  background: linear-gradient(140deg, var(--mp-azul) 0%, var(--mp-azul-osc) 100%); box-shadow: 0 16px 32px -14px color-mix(in srgb, var(--mp-azul) 75%, transparent); }
+.mp-car-ic svg { width: 42px; height: 42px; }
+.mp-car-tarjeta h3 { margin: 8px 0 0; font-size: 32px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; color: var(--mp-ink); }
+.mp-car-tarjeta p { margin: 0; max-width: 580px; font-size: 19px; line-height: 1.5; color: var(--mp-dim); }
+.mp-car-fl { position: absolute; top: calc(50% - 22px); transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--mp-borde); background: var(--mp-sup); color: var(--mp-ink); cursor: pointer;
+  box-shadow: 0 10px 24px -12px rgba(0,0,0,.35); transition: color .15s ease, border-color .15s ease; }
+.mp-car-fl.ant { left: -24px; } .mp-car-fl.sig { right: -24px; }
+.mp-car-fl:hover { color: var(--mp-azul); border-color: var(--mp-azul); }
+.mp-car-fl:focus-visible, .mp-car-puntos button:focus-visible { outline: 2px solid var(--mp-azul); outline-offset: 2px; }
+.mp-car-puntos { display: flex; justify-content: center; gap: 2px; margin-top: 16px; }
+.mp-car-puntos button { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 0;
+  background: none; cursor: pointer; transition: width .25s ease; }
+.mp-car-puntos button::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--mp-azul) 28%, transparent);
+  transition: width .25s ease, background .25s ease; }
+.mp-car-puntos button.activo { width: 36px; }
+.mp-car-puntos button.activo::before { width: 26px; background: var(--mp-azul); }
+@media (prefers-reduced-motion: reduce) { .mp-car-pista, .mp-car-puntos button, .mp-car-puntos button::before { transition: none; } }
+.mp-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* MaKo frente a GoHighLevel, a la vista: la columna de MaKo destacada de arriba abajo (fondo de marca suave, borde azul, el logo y
+   el chip «Recomendado»), tildes verdes grandes; la de GoHighLevel en gris, lo que cuesta aparte en rojo y la cruz donde no lo tiene. */
+.mp-vs2 { max-width: 860px; margin: 72px auto 0; }
+.mp-vs2-t { margin: 0 0 30px; text-align: center; font-size: 28px; line-height: 1.2; font-weight: 800; letter-spacing: -.02em; color: var(--mp-ink); text-wrap: balance; }
+.mp-vs2-tabla { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.mp-vs2-tabla .c1 { width: 40%; } .mp-vs2-tabla .c2 { width: 29%; } .mp-vs2-tabla .c3 { width: 31%; }
+.mp-vs2-tabla th, .mp-vs2-tabla td { padding: 15px 18px; vertical-align: middle; font-size: 16px; line-height: 1.35; border-bottom: 1px solid var(--mp-borde); }
+.mp-vs2-tabla thead th, .mp-vs2-tabla thead td { padding: 30px 12px 16px; text-align: center; }
+.mp-vs2-tabla thead td { border-bottom-color: transparent; }
+.mp-vs2-tabla thead th b { display: block; margin-top: 8px; font-size: 18px; font-weight: 800; color: var(--mp-ink); }
+.mp-vs2-tabla tbody th { text-align: left; font-weight: 700; color: var(--mp-ink); }
+.mp-vs2-tabla .mk { position: relative; text-align: center; color: var(--mp-ink); font-weight: 700; background: color-mix(in srgb, var(--mp-azul) 8%, var(--mp-sup));
+  border-left: 2px solid var(--mp-azul); border-right: 2px solid var(--mp-azul); }
+.mp-vs2-tabla thead .mk { border-top: 2px solid var(--mp-azul); border-radius: 18px 18px 0 0; }
+.mp-vs2-tabla tbody tr:last-child .mk { border-bottom: 2px solid var(--mp-azul); border-radius: 0 0 18px 18px; }
+.mp-vs2-tabla tbody tr:last-child th, .mp-vs2-tabla tbody tr:last-child .otra { border-bottom-color: transparent; }
+.mp-vs2-tabla .otra { text-align: center; color: #6B7280; background: color-mix(in srgb, #6B7280 5%, var(--mp-sup)); }
+.mp-vs2-tabla thead .otra { border-radius: 18px 18px 0 0; }
+.mp-vs2-tabla thead .otra b { color: #6B7280; }
+.mp-vs2-tabla thead .otra .mp-vs2-logo { filter: grayscale(1); opacity: .65; }
+.mp-vs2-tabla .otra.costo .mp-vs2-dato { color: #C2413B; font-weight: 700; }
+.mp-vs2-chip { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mp-sobre-azul); background: var(--mp-azul);
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--mp-azul) 80%, transparent); }
+.mp-vs2-logo { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; vertical-align: middle; }
+.mp-vs2-logo.mk-logo { background: #12151B; }
+.mp-vs2-si { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; color: #fff;
+  background: var(--mp-bien); box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--mp-bien) 80%, transparent); vertical-align: middle; }
+.mp-vs2-si svg { width: 18px; height: 18px; }
+.mp-vs2-tabla .mk .mp-vs2-dato { display: block; margin-top: 6px; font-size: 14.5px; }
+.mp-vs2-no { display: block; margin-bottom: 2px; color: #C2413B; font-size: 18px; font-weight: 800; line-height: 1; }
+.mp-vs2-tabla .otra.no .mp-vs2-dato { font-size: 14.5px; }
+.mp-vs2-nota { margin: 16px 0 0; font-size: 13px; line-height: 18px; color: #6B7280; text-align: center; }
 /* «Así de simple»: profundidad suave (borde fino, sombra y un degradé muy leve de la marca), el número en un círculo, un ícono, y en
    la computadora la línea punteada que une los pasos (en el hueco entre tarjetas). */
 .mp-pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; grid-template-columns: repeat(3, 1fr); }
@@ -194,7 +247,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-pie { text-align: center; color: #8A93A2; font-size: 13.5px; padding: 28px 0 40px; }
 .mp-pie a { color: #5B6472; }
 @media (max-width: 860px) {
-  .mp-hero-grilla, .mp-numeros, .mp-pasos, .mp-pasos.mp-ventajas { grid-template-columns: 1fr; }
+  .mp-hero-grilla, .mp-numeros, .mp-pasos { grid-template-columns: 1fr; }
   .mp-pasos { gap: 14px; }
   .mp-paso:not(:last-child)::after { display: none; }
   .mp-hero h1, .mp-app .mp-hero h1 { font-size: 36px; }
@@ -209,9 +262,28 @@ body:has(.mp-publica) { background: #FFFFFF; }
 @media (max-width: 860px) {
   .mp-seccion.mp-conviene-sec { padding: 72px 0 64px; }
   .mp-seccion.mp-conviene-sec h2 { font-size: 31px; }
-  .mp-conviene-sec h2 + .mp-pasos { margin-top: 28px; }
-  .mp-conviene-sec .mp-pasos.mp-ventajas { grid-template-columns: 1fr; gap: 14px; }
-  .mp-vs.s-sitio { margin-top: 32px; }
+  .mp-car { margin-top: 28px; }
+  .mp-car-fl { display: none; }
+  .mp-car.quieto .mp-car-fl { display: inline-flex; top: auto; bottom: -6px; transform: none; width: 40px; height: 40px; }
+  .mp-car.quieto .mp-car-fl.ant { left: 0; } .mp-car.quieto .mp-car-fl.sig { right: 0; }
+  .mp-car-tarjeta { min-height: 300px; padding: 36px 22px 32px; }
+  .mp-car-ic { width: 64px; height: 64px; border-radius: 20px; } .mp-car-ic svg { width: 34px; height: 34px; }
+  .mp-car-tarjeta h3 { font-size: 25px; }
+  .mp-car-tarjeta p { font-size: 16.5px; }
+  .mp-vs2 { margin-top: 56px; }
+  .mp-vs2-t { font-size: 22px; margin-bottom: 26px; }
+}
+/* La tabla en el teléfono: las tres columnas en el ancho, sin scroll. */
+@media (max-width: 560px) {
+  .mp-vs2-tabla .c1 { width: 36%; } .mp-vs2-tabla .c2 { width: 31%; } .mp-vs2-tabla .c3 { width: 33%; }
+  .mp-vs2-tabla th, .mp-vs2-tabla td { padding: 12px 6px; font-size: 13.5px; }
+  .mp-vs2-tabla tbody th { padding-left: 4px; }
+  .mp-vs2-tabla thead th, .mp-vs2-tabla thead td { padding: 26px 4px 12px; }
+  .mp-vs2-tabla thead th b { font-size: 14.5px; }
+  .mp-vs2-chip { font-size: 10px; padding: 4px 8px; letter-spacing: .04em; }
+  .mp-vs2-logo { width: 30px; height: 30px; }
+  .mp-vs2-si { width: 26px; height: 26px; } .mp-vs2-si svg { width: 15px; height: 15px; }
+  .mp-vs2-tabla .mk .mp-vs2-dato, .mp-vs2-tabla .otra.no .mp-vs2-dato { font-size: 12.5px; }
 }
 }
 `;
@@ -224,34 +296,9 @@ const PASOS: ReadonlyArray<{ titulo: string; texto: string; icono: readonly stri
   { titulo: 'Compartes tu link', texto: 'En redes, grupos o anuncios.',
     icono: ['M9 15l6 -6', 'M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464', 'M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463'] },
   { titulo: 'El negocio se suma a MaKo', texto: 'Paga con tu link o tu código.',
-    icono: ['M3 21l18 0', 'M5 21v-14l8 -4v18', 'M19 21v-10l-6 -4', 'M9 9l0 .01', 'M9 12l0 .01', 'M9 15l0 .01', 'M9 18l0 .01'] },
+    icono: ['M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0', 'M16 19h6', 'M19 16v6', 'M6 21v-2a4 4 0 0 1 4 -4h4'] },
   { titulo: 'Cobras del 1 al 5 de cada mes', texto: 'En dólares por Binance o en pesos.',
     icono: ['M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12', 'M20 12v4h-4a2 2 0 0 1 0 -4h4'] },
-];
-
-/**
- * «¿POR QUÉ SER PARTNER DE MaKo TE CONVIENE?» (18/11/2026, Martín por el Cerebro: «que se sepa el valor para el partner… ¿qué le
- * evita que sea fácil de usar? Le evita que le estén preguntando todo el tiempo»). La sección importante de la página: el
- * beneficio PARA EL PARTNER, no para el negocio. Sólo lo que existe: el onboarding y los tutoriales, el grupo de WhatsApp de cada
- * negocio con el equipo, las funciones del sitio y el material de lib/partners-recursos.ts (el PDF de venta y los mensajes para
- * copiar; los audios y videos todavía no están grabados y no se nombran). Sin números inventados («en vez de diez» no va).
- * Íconos de Tabler (MIT).
- */
-const BENEFICIOS: ReadonlyArray<{ titulo: string; texto: string; icono: readonly string[] }> = [
-  { titulo: 'Todo en una sola app', texto: 'CRM, WhatsApp, automatizaciones, anuncios e IA juntos. Dejan de pagar varias herramientas y no quieren volver atrás.',
-    icono: ['M4 4h6v6h-6z', 'M14 4h6v6h-6z', 'M4 14h6v6h-6z', 'M14 17h6', 'M17 14v6'] },
-  { titulo: 'Ingresos que duran', texto: `Un negocio que lo tiene todo en MaKo no se va. Y tu ${PORCENTAJE_DIRECTO} sigue entrando, mes tras mes.`,
-    icono: ['M3 17l6 -6l4 4l8 -8', 'M14 7l7 0l0 7'] },
-  { titulo: 'Fácil de usar', texto: 'Lo aprenden solos con el onboarding y los tutoriales. Nadie te escribe para preguntarte cómo se usa.',
-    icono: ['M3 12l3 0', 'M12 3l0 3', 'M7.8 7.8l-2.2 -2.2', 'M16.2 7.8l2.2 -2.2', 'M7.8 16.2l-2.2 2.2', 'M12 12l9 3l-4 2l-2 4l-3 -9'] },
-  { titulo: 'Soporte prioritario', texto: 'Si algo les pasa, les respondemos nosotros en su grupo de WhatsApp. Tú sólo cobras.',
-    icono: ['M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9', 'M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1'] },
-  // «cobrando por transferencia…» decía que el NEGOCIO cobra así con MaKo, y eso no está: lo que es verdad es que MaKo se paga así.
-  { titulo: 'Hecha para Latinoamérica', texto: 'Pensada para cómo se vende en Latinoamérica: por WhatsApp y en español. Y se paga por transferencia, Mercado Pago o Binance.',
-    icono: ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0', 'M3.6 9h16.8', 'M3.6 15h16.8', 'M11.5 3a17 17 0 0 0 0 18', 'M12.5 3a17 17 0 0 1 0 18'] },
-  // «No te dejamos solo» no es neutro en género (memoria «textos neutros»): «Nunca vendes sin ayuda».
-  { titulo: 'Te ayudamos a vender', texto: 'Nunca vendes sin ayuda: material listo con tu link, te ayudamos con tus anuncios y respondemos las dudas de tus contactos antes de que compren.',
-    icono: ['M18 8a3 3 0 0 1 0 6', 'M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5', 'M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8'] },
 ];
 
 /** La acción de la landing: hacerse partner, o volver al panel. Siempre un link (sin JavaScript también lleva). */
@@ -368,24 +415,49 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
       <section className="mp-seccion mp-conviene-sec">
         <div className="mp-wrap">
           <h2>¿Por qué ser partner de MaKo <em className="mp-conviene">te conviene</em>?</h2>
-          <ul className="mp-pasos mp-ventajas">
-            {BENEFICIOS.map((v) => (
-              <li key={v.titulo} className="mp-paso">
-                <span className="mp-ventaja-ic">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    {v.icono.map((d) => <path key={d} d={d} />)}
-                  </svg>
-                </span>
-                <b>{v.titulo}</b>
-                <span>{v.texto}</span>
-              </li>
-            ))}
-          </ul>
-          {/* La comparación con el MISMO componente de las del sitio (Martín: «copia el diseño que ya hicimos en todas las comparaciones,
-              MaKo versus otro, que cuando le doy clic abajo sale el desplegable con la tabla»): una tarjeta, sus 5 filas y la fecha. */}
-          <div className="s-sitio s-claro mp-vs">
-            <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_COMPARACIONES }} />
-            <TarjetasVs solo={[COMPARACION_CON]} titulo={null} filas={COMPARACION} nota={`Datos de gohighlevel.com y de su centro de ayuda, ${COMPARACION_LEIDA}.`} conBoton={false} />
+          <Carrusel items={BENEFICIOS} />
+          {/* MaKo FRENTE A GoHighLevel, A LA VISTA (Martín: «la idea es posicionar a MaKo por arriba de HighLevel… sacar ventaja para
+              que elijan revender esto»): la columna de MaKo destacada (fondo de marca, borde, el logo y «Recomendado») con tildes
+              verdes; la de GoHighLevel en gris, con lo que cuesta aparte en rojo o la cruz. Cada fila, con su fuente
+              (./comparacion.ts). */}
+          <div className="mp-vs2">
+            <h3 className="mp-vs2-t">{COMPARACION_TITULO}</h3>
+            <table className="mp-vs2-tabla">
+              <colgroup><col className="c1" /><col className="c2" /><col className="c3" /></colgroup>
+              <thead>
+                <tr>
+                  <td />
+                  <th scope="col" className="mk">
+                    <span className="mp-vs2-chip">Recomendado</span>
+                    {/* `data-tema-fijo`: el sol y la luna del sitio aclara los cuadros oscuros; el del logo queda negro. */}
+                    <span className="mp-vs2-logo mk-logo" data-tema-fijo=""><EstrellaMaKo size={22} /></span>
+                    <b>MaKo</b>
+                  </th>
+                  <th scope="col" className="otra">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img className="mp-vs2-logo" src={LOGO_OTRA} alt="" width={36} height={36} loading="lazy" />
+                    <b>{NOMBRE_OTRA}</b>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARACION.map((f) => (
+                  <tr key={f.nombre}>
+                    <th scope="row">{f.nombre}</th>
+                    <td className="mk">
+                      <span className="mp-vs2-si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5l9 -10" /></svg></span>
+                      <span className="mp-oculto">Sí</span>
+                      {f.mako ? <span className="mp-vs2-dato">{f.mako}</span> : null}
+                    </td>
+                    <td className={`otra ${f.tipo}`}>
+                      {f.tipo === 'no' ? <><span className="mp-vs2-no" aria-hidden="true">✕</span><span className="mp-oculto">No.</span></> : null}
+                      <span className="mp-vs2-dato">{f.otra}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mp-vs2-nota">Datos de gohighlevel.com y de su centro de ayuda, {COMPARACION_LEIDA}.</p>
           </div>
         </div>
       </section>

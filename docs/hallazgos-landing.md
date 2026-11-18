@@ -7509,13 +7509,12 @@ Martín: «Me gusta la misma… solamente calculado a esto». Era la misma landi
   pagan aparte («AI Agents… remain paid»).
 - **Lo propio también se verifica.** «IA que contesta a tus clientes» es de MaKo Pro (el setter con IA está en
   `FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), así que la celda dice «En MaKo Pro» y no un tilde a secas.
-- **Dónde vive:** las filas, en app/mako-partners/comparacion.ts (forma `FilaPropia`, la fuente en la celda de la otra app; lo
-  de MaKo derivado con `celdaDeMaKo`: el setter dice «En Pro» solo, y el precio sale de Essential). La tabla la dibuja el MISMO
-  componente de las comparaciones del sitio (`TarjetasVs` de app/vsl/_sitio/Comparaciones.tsx, con `solo`, `titulo={null}`,
-  `filas`, `nota` y `conBoton={false}`: en Partners no va el «PRUÉBALO GRATIS» de su cabecera). No vive en LandingPartners.tsx
-  porque el test «ningún número a mano» prohíbe `US$ \d` en la landing, y los números de GoHighLevel no son nuestros. El test
-  exige una fuente de gohighlevel.com por fila y que no aparezca la comisión (ellos pagan 40%).
-- **Trampa:** tests/vsl-comparaciones-competencia.test.ts prohíbe `<p className="s-mx-nota">` (Martín sacó la nota de las fuentes
-  de /vsl/comparaciones). La nota con fecha de Partners usa otra clase (`s-mx-fecha`) y el test pide que la página de
-  comparaciones no pase `nota=`.
+- **Dónde vive:** las filas, en app/mako-partners/comparacion.ts (`FilaVs`: lo de MaKo derivado con `celdaDeMaKo`, el setter
+  dice «En Pro» solo y el precio sale de Essential; lo de GoHighLevel, `costo` en rojo o `no` con la cruz, y su `fuente`). La
+  tabla va A LA VISTA en la landing (Martín: «no tiene sentido… que sea el desplegable»), con la columna de MaKo destacada; el
+  componente de /vsl/comparaciones quedó como estaba. No vive en LandingPartners.tsx porque el test «ningún número a mano»
+  prohíbe `US$ \d` en la landing, y los números de GoHighLevel no son nuestros.
+- **Trampa:** el «sol y la luna» del sitio aclara con `style="background-color: … !important"` todo cuadro oscuro de la página
+  (el logo de MaKo en su cuadro negro salía gris claro aunque el CSS dijera `#12151B`). El cuadro que tiene que quedar oscuro
+  lleva `data-tema-fijo=""`.
 - **Regla:** si GoHighLevel cambia, la fila se corrige o se va. Una fila sin fuente oficial no entra.
