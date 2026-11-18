@@ -194,7 +194,10 @@ test('4. la burbuja lleva su cara y su nombre, no una criatura sorteada', async 
 
 test('4. el Funnel Coach con un gurú al frente tampoco dibuja otra criatura', () => {
   // Su motor (el mismo de la computadora y el teléfono, 4/11/2026) le pasa su cara al chat.
-  assert.match(sinComentarios(leer('app/second-brain/useChatDelCoach.ts')), /useChatCliente\(\{[^}]*tab: TAB_FUNNEL_COACH, quien \}\)/);
+  // Desde el 18/11/2026 el mismo motor corre los dos coaches del onboarding V2 (`DEL_COACH`): la conversación de cada uno y su cara.
+  const motor = sinComentarios(leer('app/second-brain/useChatDelCoach.ts'));
+  assert.match(motor, /useChatCliente\(\{[^}]*desde: de\.desde, tab: de\.tab, quien \}\)/);
+  assert.match(motor, /funnel: \{ titulo: ORIGEN_FUNNEL_COACH, tab: TAB_FUNNEL_COACH,/);
 });
 
 test('4. el historial: en la lista lleva su nombre y su cara, y abre su chat', () => {

@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 // Las cuentas y sus dispositivos del Uso (CuentasYDispositivos.tsx): el mismo dibujo que «Tus cuentas de IA».
 import '@/app/integraciones/tus-cuentas-ia.css';
 import { redirect } from 'next/navigation';
-import { getSesionAdmin } from '@/lib/auth';
+import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
+import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 import { getWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { RUTA_OPS_CENTER_NEGOCIO } from '@/lib/ops-center-ruta';
 import { Pagina, PermissionState } from '@/app/_ui';
@@ -48,5 +49,10 @@ export default async function OperacionesPage({ searchParams }: { searchParams: 
     mapa = await mapaDelSecondBrain();
   }
 
-  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="centro" />;
+  // LOS DOS COACHES DEL ONBOARDING V2 (18/11/2026): Martín revisa desde ACÁ (a él /second-brain lo trae a este Ops Center), y el
+  // servidor del chat decide el contexto con el mismo interruptor (app/api/mako/chat/route.ts → `veDosCoaches`). Sin esto, su barra
+  // mostraba el coach único mientras el servidor le contestaba como el Funnel Coach del V2, sin la oferta. El reto no: es del cliente.
+  const sesion = await getUsuarioActual().catch(() => null);
+  const dosCoaches = !!sesion && veOnboardingV2({ email: sesion.email, ws });
+  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="centro" dosCoaches={dosCoaches} />;
 }

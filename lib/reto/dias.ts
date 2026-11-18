@@ -57,12 +57,18 @@ const en = (ruta: string): string => `En ${ruta}`;
 
 export const DIAS_RETO: readonly DiaReto[] = [
   {
+    // DOS TAREAS, EN ORDEN (18/11/2026; Martín, 15/11: «al terminar el onboarding, Oferta y Funnel Coach en DOS chats separados»): la
+    // oferta con el Offer Coach y después el sistema para conseguir clientes con el Funnel Coach. La marca lleva de uno al otro: la
+    // fila de cada coach (app/second-brain/ChatSecondBrain.tsx, `sb-offer` y `sb-funnel`). El reto es del onboarding V2, y con él
+    // están los dos coaches (el mismo interruptor). ⚠️ El id de la segunda sigue siendo 'funnel': lo guardado antes (`1:funnel`) vale.
     n: 1, titulo: 'Tu oferta y tu sistema de adquisición', video: 'reto-dia-1',
-    mensaje: 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta y tu sistema de adquisición de clientes, con Funnel Coach.',
-    tareas: [{
-      id: 'funnel', titulo: 'Tu oferta y tu funnel, con Funnel Coach', donde: 'En el Ops Center', detalle: 'Te pregunta como un coach y te deja tu funnel en el CRM.',
-      marcas: [{ sel: '[data-recorrido="sb-funnel"]', titulo: 'Tu día 1 sigue en Funnel Coach', texto: 'Ahí armas tu oferta y tu sistema de adquisición.', haz: 'Haz clic en Funnel Coach', lado: 'derecha' }],
-    }],
+    mensaje: 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta, con Offer Coach, y después tu sistema para conseguir clientes, con Funnel Coach.',
+    tareas: [
+      { id: 'offer', titulo: 'Tu oferta, con Offer Coach', donde: 'En el Ops Center', detalle: 'Te pregunta como un coach y te deja el diagnóstico de tu oferta.',
+        marcas: [{ sel: '[data-recorrido="sb-offer"]', titulo: 'Tu día 1 sigue en Offer Coach', texto: 'Ahí armamos tu oferta.', haz: 'Haz clic en Offer Coach', lado: 'derecha' }] },
+      { id: 'funnel', titulo: 'Tu sistema para conseguir clientes, con Funnel Coach', donde: 'En el Ops Center', detalle: 'Con tu oferta ya hecha, elige contigo tu funnel y su plan.',
+        marcas: [{ sel: '[data-recorrido="sb-funnel"]', titulo: 'Ahora, Funnel Coach', texto: 'Ahí armas tu sistema para conseguir clientes.', haz: 'Haz clic en Funnel Coach', lado: 'derecha' }] },
+    ],
   },
   {
     n: 2, titulo: 'Conecta todo: la app, la extensión y tus integraciones', video: 'reto-dia-2',

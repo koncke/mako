@@ -214,7 +214,9 @@ test('8. el teléfono: la lista es la pantalla y cada chat se abre en su hoja, c
   assert.match(m, /<NuevoChatFlotante onClick=\{\(\) => abrir\(\{ virtual: 'nuevo' \}\)\} \/>/, '«Nuevo chat», el «+» flotante');
   // Desde el 22/10, agrupados por su origen con `porJefe` (tests/ops-center-lista-cliente.test.ts), en la misma lista.
   // Desde el 4/11/2026, entre los dos, el coach con sus conversaciones de oferta (tests/coaches-ops-center.test.ts, 15).
-  assert.match(m, /\{cerebro && coincide\(cerebro\.titulo, busca\) && fila\(cerebro\)\}\s*\{verCoach && coincide\(ORIGEN_FUNNEL_COACH, busca\) && \([\s\S]{0,700}?\.map\(\(f\) => fila\(f, true\)\)\}\s*(?:\{\}\s*)?\{porJefe\(corte\)\.flatMap\(/, 'el Cerebro, el coach y después todos, en la MISMA lista');
+  // Con el onboarding V2 (18/11/2026), los DOS coaches en su bloque (`verCoach && dosCoaches`), y sin él, el coach único: los dos van
+  // entre el Cerebro y el resto (tests/coaches-ops-center.test.ts mide sus puertas).
+  assert.match(m, /\{cerebro && coincide\(cerebro\.titulo, busca\) && fila\(cerebro\)\}\s*\{verCoach && dosCoaches && \([\s\S]{0,2000}?\{verCoach && !dosCoaches && coincide\(ORIGEN_FUNNEL_COACH, busca\) && \([\s\S]{0,700}?\.map\(\(f\) => fila\(f, true\)\)\}\s*(?:\{\}\s*)?\{porJefe\(corte\)\.flatMap\(/, 'el Cerebro, el coach y después todos, en la MISMA lista');
 });
 
 // 21/10/2026 (~23:10), tres reglas de Martín para toda la app: el chat de MaKo de cada tab a la IZQUIERDA, con la estrella y al

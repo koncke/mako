@@ -37,7 +37,7 @@ import { TEXTO_SEGUNDO_RENGLON, partesDelNombre, porJefe } from '@/lib/centro-ch
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
-import { ORIGEN_FUNNEL_COACH, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, edadCorta, esFilaDe, jefeDelGrupo, type CoachDelOps, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { ASPECTO_MAKO, aspectoDeChat, aspectoDeReferente } from '@/lib/centro-munecos';
 import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { GaleriaDeGurus } from '@/app/second-brain/GaleriaDeGurus';
@@ -50,7 +50,8 @@ import { useGrupos } from '@/app/_chat/grupo/useGrupos';
 import { useMisTickets } from '@/app/tickets/usarMisTickets';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { previaDelCoach } from '@/lib/funnel-plan';
+import { PREVIA_DEL_FUNNEL_COACH_V2, previaDelCoach, previaDelOfferCoach } from '@/lib/funnel-plan';
+import { ASPECTO_FUNNEL_COACH_V2 } from '@/app/second-brain/useChatDelCoach';
 
 /** Cuántos chats se ven antes de «Ver todos» (los de ChatsMovil.tsx). */
 const VISIBLES = 10;
@@ -80,7 +81,9 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   const hilo = useRef<HTMLDivElement>(null);
   // El coach (uno desde el 4/11/2026): quién aconseja, si hay oferta y si esta persona lo puede cambiar. Su referente es también la cara
   // de las conversaciones de oferta, que cuelgan de él.
-  const { referente, oferta, puedeElegir, elegirReferente } = useCoaches();
+  // Con el onboarding V2 (18/11/2026, `dosCoaches`, lo dice el servidor), los DOS: el Offer Coach, con las conversaciones de oferta
+  // colgando de él, y después el Funnel Coach. Hasta que contesta (null), el coach único: nunca un Offer Coach que no le toca.
+  const { referente, oferta, puedeElegir, elegirReferente, dosCoaches } = useCoaches();
   const delCoach = asesorPorId(referente);
   const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: false, chatInicial, opcionArmar, busca: '', caja, sesionesIniciales, aspectoOffer: delCoach ? aspectoDeReferente(delCoach.id) : null });
   // Su Ticketera: el número de la fila (los que esperan su respuesta).
@@ -107,14 +110,14 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   // El grupo del negocio (3/11/2026): su hoja, con su motor (HojaDelGrupo.tsx). Lo mismo: una hoja por vez (también la del coach).
   const grupos = useGrupos();
   const [grupo, setGrupo] = useState<number | null>(grupoInicial);
-  const [conCoach, setConCoach] = useState(false);
+  const [conCoach, setConCoach] = useState<CoachDelOps | null>(null);
   // Hablar con un gurú es de MaKo Pro (14/11/2026, lib/asesores/candado.ts): la galería va con el candado y las filas de
   // gurús no se listan. Nada se borra: con Pro vuelven. La defensa es /api/mako/chat (403 con `pasarAPro`).
   const gurusSoloPro = useSoloPro('chat-referentes');
-  const abrirGuru = (id: IdAsesor) => { setAbierta(false); setGrupo(null); setConCoach(false); setGuru(id); };
-  const abrirGrupo = (ws: number) => { setAbierta(false); setGuru(null); setConCoach(false); setGrupo(ws); };
-  const abrirCoach = () => { setAbierta(false); setGuru(null); setGrupo(null); setConCoach(true); };
-  const abrir = (e: ElegidoChat) => { if (k.elegir(e)) { setGuru(null); setGrupo(null); setConCoach(false); setAbierta(true); } };
+  const abrirGuru = (id: IdAsesor) => { setAbierta(false); setGrupo(null); setConCoach(null); setGuru(id); };
+  const abrirGrupo = (ws: number) => { setAbierta(false); setGuru(null); setConCoach(null); setGrupo(ws); };
+  const abrirCoach = (cual: CoachDelOps = 'funnel') => { setAbierta(false); setGuru(null); setGrupo(null); setConCoach(cual); };
+  const abrir = (e: ElegidoChat) => { if (k.elegir(e)) { setGuru(null); setGrupo(null); setConCoach(null); setAbierta(true); } };
   const cerrar = () => { setAbierta(false); k.setInfoWA(null); k.setConectando(false); k.setMenuWA(null); };
   /** Lo que se abre ADENTRO de la hoja, con su «‹» (una sola hoja): la Info de un mensaje o «Tus cuentas de IA». */
   const panel = k.conectando ? 'conectar' : k.infoWA ? 'info' : null;
@@ -167,14 +170,33 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
           {/* Fijado, el primero de los chats (Martín: «que esté posicionado arriba»). */}
           {(!buscando || coincide(grupos.grupos?.map((g) => g.titulo).join(' ') ?? '', busca)) && <FilasDelGrupoM g={grupos} abierto={grupo} onAbrir={abrirGrupo} />}
           {cerebro && coincide(cerebro.titulo, busca) && fila(cerebro)}
-          {verCoach && coincide(ORIGEN_FUNNEL_COACH, busca) && (
+          {verCoach && dosCoaches && (
+            <>
+              {coincide(ORIGEN_OFFER_COACH, busca) && (
+                <FilaM chevron={false}
+                  leading={<Muneco titulo={delCoach?.nombre ?? 'MaKo'} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" size={48} />}
+                  titulo={<span className="m-operaciones-texto1">{ORIGEN_OFFER_COACH}</span>}
+                  segunda={delCoach ? inspiradoEn(delCoach) : previaDelOfferCoach(oferta)}
+                  onClick={() => abrirCoach('offer')} />
+              )}
+              {filasOffer.map((f) => fila(f, true))}
+              {coincide(ORIGEN_FUNNEL_COACH, busca) && (
+                <FilaM chevron={false}
+                  leading={<Muneco titulo={ORIGEN_FUNNEL_COACH} aspecto={ASPECTO_FUNNEL_COACH_V2} animo="despierto" size={48} />}
+                  titulo={<span className="m-operaciones-texto1">{ORIGEN_FUNNEL_COACH}</span>}
+                  segunda={PREVIA_DEL_FUNNEL_COACH_V2}
+                  onClick={() => abrirCoach('funnel')} />
+              )}
+            </>
+          )}
+          {verCoach && !dosCoaches && coincide(ORIGEN_FUNNEL_COACH, busca) && (
             <FilaM chevron={false}
               leading={<Muneco titulo={delCoach?.nombre ?? 'MaKo'} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" size={48} />}
               titulo={<span className="m-operaciones-texto1">{ORIGEN_FUNNEL_COACH}</span>}
               segunda={delCoach ? inspiradoEn(delCoach) : previaDelCoach(oferta)}
-              onClick={abrirCoach} />
+              onClick={() => abrirCoach('funnel')} />
           )}
-          {filasOffer.map((f) => fila(f, true))}
+          {!dosCoaches && filasOffer.map((f) => fila(f, true))}
           {/* Agrupados por su origen (22/10/2026), con el agrupado del super admin: cada grupo con su fila JEFE (la suya, o la de
               `jefeDelGrupo` si no tiene chat propio: «Offer», «Dashboard») y los suyos debajo, sin títulos de sección. */}
           {porJefe(corte).flatMap((g) => {
@@ -229,7 +251,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
         )}
       </PantallaChatM>
       {delGuru && <HojaDelGuru key={delGuru.id} referente={delGuru} onCerrar={() => setGuru(null)} />}
-      {conCoach && <HojaDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onCerrar={() => setConCoach(false)} />}
+      {conCoach && <HojaDelCoach key={conCoach} cual={dosCoaches ? conCoach : 'funnel'} dosCoaches={!!dosCoaches} referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onCerrar={() => setConCoach(null)} />}
       {grupo != null && (
         <HojaDelGrupo key={grupo} ws={grupo} grupo={grupos.grupos?.find((f) => f.ws === grupo) ?? null} onCerrar={() => { setGrupo(null); grupos.recargar(); }} onLeido={grupos.anotarLeido}
           onCambio={grupos.recargar} onSalio={() => { setGrupo(null); grupos.recargar(); }} />
