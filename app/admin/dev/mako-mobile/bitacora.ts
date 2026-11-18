@@ -438,4 +438,26 @@ export const BITACORA: Hito[] = [
     revisar: '/m/agency',
     tickets: [94],
   },
+  {
+    fecha: '18 nov', hora: '04:58', chat: 'De octubre › Mobile', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Teléfono: tu número y el de MaKo en Chats, iniciales sin media letra, tus plantillas en Image y las hojas propias de la ficha',
+    puntos: [
+      'Chats: el filtro trae un renglón por número de WhatsApp, como el chip «Canales» de la computadora (la misma lista, `opcionesDeCanal`): el super admin pasa de su número al de MaKo.',
+      'Iniciales: el avatar del teléfono, la tarjeta del kanban y la lista de un curso compartido ya no parten una letra como «𝐀» ni un emoji del email; la guarda mira también lib/.',
+      'Image: «Nuevo diseño» trae «Tus plantillas» y «De la comunidad», y tocar una la usa.',
+      'La ficha del lead suma las hojas propias del funnel al final. Strategy y Offer Playbook quedan como de la computadora a propósito.',
+      '**Sigue en la computadora:** conectar una integración, las pistas del Video Editor, crear y analizar una landing y cobrar con link desde la ficha.',
+    ],
+    commits: [{ sha: '03ac655c', msg: 'Teléfono: cambiar entre tu número y el de MaKo en Chats, iniciales sin media letra, tus plantillas en Image y las hojas propias de la ficha', lineas: 716, archivos: 26 }],
+    archivos: [
+      'lib/chats-reglas.ts — `opcionesDeCanal`, la lista de canales de la computadora y del teléfono',
+      'app/m/chats/ListaChats.tsx · app/m/chats/modelo.ts · app/m/chats/datos.ts — un renglón por línea',
+      'app/m/_ui/formato.ts · lib/tarjeta-kanban.ts · app/conocimientos/Compartir.tsx — las iniciales por letra',
+      'app/m/image-editor/InicioImagenM.tsx — las plantillas propias y de la comunidad',
+      'app/m/crm/ficha-bloques.ts · lib/movil-rutas.ts — las hojas propias y las marcas de More',
+      'tests/m-chats-lineas.test.ts · tests/iniciales-con-emoji.test.ts · tests/image-movil-propias.test.ts · tests/m-ficha-bloques.test.ts',
+    ],
+    revisar: '/m/chats',
+  },
 ];

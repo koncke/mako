@@ -24,6 +24,7 @@ import { Icon } from '@/app/_components/icons';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { CaraTarjeta } from '@/app/_ui/TarjetaKanban';
 import type { FilaTicket } from '@/lib/tickets-db';
+import { tiempoDelTicket } from '@/lib/tickets-demora';
 import { haceCuanto, leerTicket, linkDeOrigen, nombreDe, origenDe, quienDiceLaNota, textoDeLaPersona, tipoCorto } from './mazo-reglas';
 
 /** La cara de quien lo levantó, con la insignia de por dónde entró. */
@@ -90,6 +91,8 @@ export function TarjetaTicket({ t, ahora, onVerTodo, atras = false }: {
   const apura = t.prioridad === 'urgente' || t.prioridad === 'alta';
   const sub = [d.donde, d.negocio].filter((x): x is string => !!x);
   const idDetalle = `ticket-${t.id}-detalle`;
+  // Cuánto lleva (o tardó), al lado de «hace X» (lib/tickets-demora.ts, 18/11/2026): en rojo si pasó las 24 h en nuestra cancha.
+  const demora = tiempoDelTicket(t, ahora);
   return (
     <div className="tickets-bandeja__carta-cuerpo">
       <div className="tickets-bandeja__carta-que">
@@ -107,6 +110,7 @@ export function TarjetaTicket({ t, ahora, onVerTodo, atras = false }: {
             {/* Un solo texto que se corta al final: la pantalla, que va primero, no se pierde por el negocio. */}
             {sub.length > 0 && <span>{sub.join(' · ')} · </span>}
             <time dateTime={t.created_at} title={new Date(t.created_at).toLocaleString('es')}>{haceCuanto(t.created_at, ahora)}</time>
+            {demora && <span className={`tickets-bandeja__demora tickets-bandeja__demora--${demora.tono}`}>{` · ${demora.texto}`}</span>}
           </span>
         </div>
       </div>

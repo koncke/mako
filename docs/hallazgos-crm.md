@@ -20,6 +20,28 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Traer los contactos de un grupo por el chat: con más de un funnel, el destino lo dice la persona (18/11/2026, O45)
+
+- **El síntoma:** por el chat de MaKo, «traé los contactos del grupo X» caía en «Prospección» o en el funnel principal sin preguntar,
+  y la tarjeta que se confirma nombraba la etapa («a «Tibio»») y no el CRM. El pendiente lo ata al caso de Leila (llamada del 30/10);
+  la nota original de esa llamada (`docs/pendientes-30-10.md`) ya no está en el repo, así que no se sabe si ella lo hizo por la
+  pantalla o por el chat: lo medido es el camino del chat.
+- **La causa:** `traer_contactos_de_grupo` (lib/api-mako/areas/crm.run.ts) resolvía el destino con `funnelPorDefecto`
+  («Prospección» si lo hay, si no el principal), una regla pensada para la pantalla. La pantalla ya no la usa (cb24330c6: trae al
+  CRM que se está mirando); por el chat no hay CRM «que se mira», así que la regla elegía por la persona, y el resumen no lo nombraba.
+- **Lo que quedó:** sin `embudoId` y con dos o más funnels, `preparar` no elige: devuelve el error con los funnels del negocio
+  (`faltan: ['embudoId']`, `disponibles` con id y nombre) y MaKo pregunta. Con uno solo, ése, como antes. El resumen nombra el
+  funnel («al funnel «Ventas», en «Tibio»»). Y lee con `leerFunnels`, no con `listarFunnels`: con la base caída `listarFunnels`
+  devuelve `[]`, que con esta regla se leería como «no hay ninguno» (o, sin pregunta, como «hay uno»); ahora es «no pude leer» con
+  `falla: true`.
+- **La regla que queda:** un default que se escribió para una PANTALLA (donde se ve dónde está parada la persona) no se reusa en una
+  operación de la API: ahí elegir por la persona es escribir en un lugar que nadie confirmó. Con más de una opción, se pregunta, y lo
+  que la tarjeta confirma nombra el destino entero (el CRM y la etapa), no sólo la etapa.
+- **Lo que quedó SIN hacer:** `funnelPorDefecto` (lib/grupo-wa-reglas.ts) queda sin llamadores en la API; se dejó con un comentario
+  por si la pantalla vuelve a necesitarlo. Lo que Leila ya trajo al funnel equivocado no se movió (es producción).
+- **Vive en:** `lib/api-mako/areas/crm.run.ts` (`traer_contactos_de_grupo`) · `lib/api-mako/areas/crm.def.ts` (`embudoId`) ·
+  `tests/traer-grupo-funnel.test.ts` (corre `preparar` con uno y con dos funnels).
+
 ## Sacar un funnel del catálogo sin romper a quien ya lo tiene (16/11/2026)
 
 Martín, mirando el catálogo de funnels del CRM en el Funnel Coach de la maqueta del onboarding: sacar LinkedIn («Nosotros no
@@ -222,10 +244,15 @@ tira: un 5xx de Supabase le da `ZONA_POR_DEFECTO` (Tijuana). En ESTE corte, caer
 va atrás, la reunión parece futura y no se pide nada. Es la misma regla que la línea de arriba en `setPipelineStage` («sin
 poder leer el lead no hay nada contra qué validar: cortamos»): validar con un dato que no se pudo leer es mover a ciegas.
 
-**Sin hacer, y es el MISMO defecto en otros dos lugares** (se dejaron fuera a propósito: tocan el camino que usa toda la UI):
+~~**Sin hacer, y es el MISMO defecto en otros dos lugares** (se dejaron fuera a propósito: tocan el camino que usa toda la UI):
 `faltantesDeLead` (lib/leads.ts, el «Datos sin marcar» / «A revisar») y `valoresDeRequisitos` (app/crm/actions.ts, el wizard)
 siguen con `hoyISO: hoyEnTijuana()`. Hasta que se arreglen, para un negocio fuera de Tijuana el wizard y el corte del server
-pueden discrepar unas horas por día.
+pueden discrepar unas horas por día.~~ **Hecho el 18/11/2026 (F125, nube):** los dos piden `hoyISO` obligatorio y sin default
+(en `faltantesDeLead`/`resueltosDeLead` va en `ExtraRequisitos`; en `valoresDeRequisitos`, como parámetro), y cada llamador
+lo saca de su negocio: `leerInsumosDatosLead` trae `hoy`, el teléfono usa el suyo, el worklist el `hoy` que ya recibe, la API
+`hoyDelWorkspace(ctx.ws)`. Con la lectura TOLERANTE (`hoyEnWorkspace`), a propósito: cuando la zona se lee da el mismo día que
+el corte estricto, y cuando no, el server no deja mover igual. Lo fija tests/dias-del-negocio.test.ts («A revisar cuenta…»). El
+porqué de las otras ~70 fechas de Tijuana, en docs/hallazgos-infra.md → «Las ~85 fechas de Tijuana son TRES relojes».
 
 **Vive en:** lib/leads.ts (`AportadoAlMover`, `faltantesParaMover`, `setPipelineStage`) · lib/timezone.ts
 (`hoyEnWorkspaceEstricto`) · lib/api-mako/areas/crm.run.ts · lib/mako-doer-acciones.ts ·

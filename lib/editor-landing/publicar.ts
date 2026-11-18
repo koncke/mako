@@ -37,6 +37,7 @@ import { hojaDeDiseno, tieneEditables } from './html-editable';
 import { TEXTO_PIDE_CONTRASENA, fuentesHtmlLibre, pideContrasena } from './html-libre';
 import { huecosParaPublicar } from './replicar-estructura';
 import { productosDePago } from './pago-landing';
+import { claveLugarLanding } from './prueba-landing-servir';
 import {
   falla, leerFilaDoc, crearVersion, slugsOcupados, temasPropiosDe, limpiarContenido, limpiarConfig,
   type FallaHttp, type FilaDoc, type Resultado,
@@ -65,6 +66,11 @@ export type SitioPublico = {
   foto: FotoPublicada & { sitio: ConfigLanding['sitio']; temaId: string; animaciones: boolean; estiloAnimacion: IdEstilo };
   /** La página pedida, ya elegida por su ruta (`titulo`/`descripcion` = su `<title>` y su SEO). */
   pagina: PaginaPublicada;
+  /**
+   * Lo que la foto guarda y `leerFoto` no copia, CRUDO: los productos de los botones de pago y el HTML personalizado. Lo
+   * compara la prueba A/B (prueba-landing-servir.ts): una rama B tiene que tener lo MISMO que A. Sólo en lo publicado.
+   */
+  estructura?: { pagos?: unknown; htmlLibre?: unknown };
 };
 
 /** La página `ruta` de una foto, como la consumen las rutas públicas. null si no es de ese sitio. */
@@ -218,6 +224,19 @@ export async function publicar(idRaw: unknown, versionRaw: unknown, slugRaw: unk
       const { marcarPasoTab } = await import('../tab-onboarding-state');
       await marcarPasoTab('landing-writer', 'lg_publicar');
     } catch { /* accesorio a la publicación (el paso es opcional y lo declara el catálogo de la tab) */ }
+    // PUBLICAR A MANO DETIENE LA PRUEBA A/B (docs/diseno-pruebas-ab.md 2.4 y 3.2): la otra versión se armó sobre la que
+    // estaba publicada. La página pública ya sirve A si la versión cambió (prueba-landing-servir.ts); esto la cierra con su
+    // porqué en el historial. Accesorio: lo publicado ya está.
+    try {
+      const { pruebaVivaDe, detenerPrueba } = await import('../pruebas/store');
+      const p = await pruebaVivaDe(ws, claveLugarLanding(id));
+      if (p && Number(p.lugar.version_base) !== version) {
+        const yo = await getUsuarioActual();
+        await detenerPrueba(ws, p.id, yo?.sub || 'dueno', 'Se publicó otra versión de la landing: la prueba se armó sobre la anterior.');
+      }
+    } catch (e) {
+      console.warn(`[editor-landing] publicar #${id}: no pude detener su prueba A/B: ${msg(e)}`);
+    }
 
     await vencerLandingMako(ws);
     const url = urlPublicaLanding(slug);
@@ -296,7 +315,9 @@ export async function leerPublicado(slug: string, ruta = ''): Promise<SitioPubli
   }
   // La configuración congelada se vuelve a sanear al servirla: de ahí salen el favicon, la imagen
   // para compartir y el Píxel de Meta que van al <head> de una página pública.
-  return sitioDe(Number(f.workspace_id), Number(f.id), f.titulo, { ...foto, config: limpiarConfig(foto.config, `servir /l/${slug}`).config }, ruta);
+  const sitio = sitioDe(Number(f.workspace_id), Number(f.id), f.titulo, { ...foto, config: limpiarConfig(foto.config, `servir /l/${slug}`).config }, ruta);
+  const crudo = f.publicado as { pagos?: unknown; htmlLibre?: unknown };
+  return sitio ? { ...sitio, estructura: { pagos: crudo.pagos, htmlLibre: crudo.htmlLibre } } : null;
 }
 
 /**

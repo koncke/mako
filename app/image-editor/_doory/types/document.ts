@@ -60,6 +60,8 @@ export interface DocMeta {
   presetId?: string
   bleedPx?: number
   brandKitId?: string
+  /** MaKo: la tarjeta de «Nuevo diseño» de la que nació (lib/image-editor/reglas.ts → `conPlantilla`). */
+  plantilla?: string
 }
 
 export interface DoryDocument {

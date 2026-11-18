@@ -184,7 +184,7 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'cliente-cs', test: /\bficha de la? client[ae]\b|\bclient[ae]s? en riesgo\b|\bcartera de clientes\b|\bcomo (?:baja|en riesgo|activ[oa]|pausad[oa])\b|\bclientes? (?:sin|que no)\b/, areas: ['cs'], relevancia: 'ver cliente cs ficha estado marcar baja riesgo cartera' },
   { id: 'curso', test: /\b(?:cursos?|modulos?|lecciones|leccion)\b|\bclase\b[^.\n]{0,20}\b(?:modulo|curso)\b|\b(?:agreg\w+|cre\w+|sub\w+)\b[^.\n]{0,15}\bclase\b/, areas: ['curso', 'cs'], relevancia: 'curso modulo clase' },
   { id: 'comunidad', test: /\bcomunidad\b/, areas: ['comunidad'], relevancia: 'comunidad' },
-  { id: 'perfil-negocio', test: /\bmi negocio se llama\b|\b(?:mi|el) (?:negocio|perfil|marca)\b[^.\n]{0,30}\b(?:corregi\w*|cambi\w+|se llama)\b/, areas: ['negocio'], relevancia: 'guardar campo perfil negocio nombre corregir', actua: true },
+  { id: 'perfil-negocio', test: /\bmi negocio se llama\b|\b(?:mi|el) (?:negocio|perfil|marca)\b[^.\n]{0,30}\b(?:corregi\w*|cambi\w+|se llama)\b/, areas: ['negocio'], relevancia: 'guardar campo perfil corregir campo perfil negocio nombre', actua: true },
   { id: 'contenido-programado', test: /\b(?:reel|reels|story|stories|post|posts|carrusel|publicacion|contenido)\b[^.\n]{0,40}\b(?:para el|el|este|manana|hoy)\b|\b(?:programa\w*|agend\w*)\b[^.\n]{0,20}\b(?:reel|post|story|carrusel|publicacion)\b/, areas: ['calendario'], relevancia: 'crear evento calendario contenido publicacion reel post programar', actua: true, ganaALaAgenda: true },
   // ── Plan, Calendario y Dashboard (tanda 2) ──
   { id: 'completar-tarea', test: /^complet\w+\s+(?:la|las|esa|esta)\s+tareas?\b/, areas: ['plan'], relevancia: 'cerrar tareas plan cierre', actua: true },

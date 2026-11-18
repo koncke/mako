@@ -154,6 +154,10 @@ test('las cifras y la garantía sin fuente se avisan (12/11/2026, en producción
   assert.equal(c.garantia, true);
   assert.equal(cifrasSinFuente('Una garantía de 30 días.', 'Garantía de devolución de 30 días.').garantia, false, 'la garantía del negocio sí');
   assert.deepEqual(cifrasSinFuente('El 41 % de los que escriben compra.', 'testimonio: 41 % compró').cifras, []);
+  // 18/11/2026: el guion de antes llega con su id adelante de cada renglón (`guionParaIA`), y un id es al azar. El «73» de
+  // «[bq73xk2ab]» no es una fuente del «73 %» (los evals del experto daban rojo una vez cada tantas corridas por esto).
+  assert.deepEqual(cifrasSinFuente('El 73 % llegaba a la propuesta.', '[bq73xk2ab] (texto) Hola\n[b4k9z7mwp] ## SECCIÓN CTA: CTA').cifras, ['73 %'], 'el id de un bloque no es una fuente');
+  assert.deepEqual(cifrasSinFuente('El 73 % llegaba a la propuesta.', '[bq73xk2ab] (texto) El 73 % compró').cifras, [], 'lo que el bloque DICE sí lo es');
   const avisos = avisosDeCifras(c);
   assert.match(avisos[0], /Tiene cifras que no salen de tu negocio \(73 %, 60 %\)/);
   assert.match(avisos[1], /Promete una garantía o una devolución/);
@@ -618,5 +622,7 @@ test('las plantillas largas: el largo lo da la duración, no el ejemplo resumido
   assert.match(avisoDeDuracion(600, 2_520) ?? '', /unas 2000 palabras/, 'la clase de 42 minutos topa en lo que entra en un pedido');
   assert.equal(avisoDeDuracion(80, 45), null, 'un anuncio de 45 s: manda el ejemplo');
   assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /EL LARGO lo da la DURACIÓN de la pieza, no el ejemplo \(que puede estar resumido\): unas 150 palabras dichas por minuto, hasta 2\.000 palabras/);
-  assert.ok(leer('lib/copywriter/ia.ts').includes('const duracion = avisoDeDuracion(m.escritas, r.props.duracion ?? g.props.duracion);'));
+  // Desde el 18/11/2026 la pieza escrita POR SECCIONES (lib/copywriter/por-secciones.ts) se avisa contra su largo real; la que entra
+  // en un pedido, como antes (tests/copywriter-por-secciones.test.ts ejecuta la otra rama).
+  assert.ok(leer('lib/copywriter/ia.ts').includes(': avisoDeDuracion(m.escritas, r.props.duracion ?? g.props.duracion);'));
 });

@@ -167,5 +167,7 @@ export const USO_EJEMPLO: CustomerUsageViewProps = {
     { key: 'automations', label: 'Automations', keys: ['automations'] },
   ],
   ia: IA_EJEMPLO,
+  // Quién es cada persona de `filas` (la tabla «Por persona», F169): las del negocio de ejemplo, con su cara de Members.
+  personas: MIEMBROS_EJEMPLO.filter((m) => m.id === 101 || m.id === 102).map((m) => ({ id: m.id, nombre: m.nombre, email: m.email, cara: m.cara })),
   inicio: '2026-07-01',
 }

@@ -254,14 +254,15 @@ export type BoardTask = {
    * `null` = nadie lo dijo, que NO es «mío». Es lo que mira el filtro «Responsable» del kanban
    * (16/10/2026, app/plan/board/kanban.ts).
    *
-   * ⚠️ SÓLO LO TIENE EL TABLERO DEL CLIENTE (`experimento_tareas.responsable_tipo`). Lo escribe
-   * la extracción de una reunión (`aplicarPropuestas`); `plan_tareas` no tiene la columna, así
-   * que en el tablero del dueño llega siempre `undefined` y el filtro no se dibuja (`Repo.responsables`).
+   * LO TIENEN LOS DOS TABLEROS: el del cliente (`experimento_tareas.responsable_tipo`, mig 0159) y,
+   * desde el 18/11/2026, el del dueño (`plan_tareas.responsable_tipo`, mig 0419, F156). Lo escribe
+   * la extracción de una reunión (`aplicarPropuestas`, lib/plan-propuesta.ts).
    *
-   * ⚠️ SE LEE Y NO SE ESCRIBE desde el tablero, a propósito: `editPatch` (TodoBoard.tsx) es
-   * PARCIAL y no lo manda, así que ningún guardado puede borrarlo; y `taskToRow` del dueño no
-   * tiene a dónde escribirlo. No hay control en pantalla para cambiarlo — el día que lo haya, va
-   * por los seis lugares (AGENTS.md).
+   * ⚠️ NINGÚN CONTROL LO CAMBIA desde el tablero, a propósito. En el del cliente `editPatch`
+   * (TodoBoard.tsx) es PARCIAL y no lo manda; en el del dueño el guardado es la fila ENTERA, así
+   * que lo DEVUELVE tal cual (`responsableParaGuardar`, lib/todo-estados.ts) — y si la fila se leyó
+   * sin la columna (la 0419 sin aplicar), la tarjeta no trae la clave y el guardado no la manda.
+   * El día que haya un control, va por los seis lugares (AGENTS.md).
    */
   responsableTipo?: ResponsableTipo | null;
 };
@@ -564,10 +565,10 @@ export type Repo = {
   mover?(id: string, estado: EstadoTarea, orden?: number, opts?: { motivo?: string | null; historial?: Hist[]; progreso?: number; columna?: string | null }): Promise<BoardTask | null>;
   /**
    * ¿LAS TARJETAS DE ESTE TABLERO SABEN QUIÉN LAS HACE? (`BoardTask.responsableTipo`, mig 0159).
-   * Es lo que dibuja el filtro «Responsable» del kanban (16/10/2026). Sólo el del CLIENTE:
-   * `plan_tareas` no tiene la columna, y un filtro que en el tablero del dueño mete el 100% de
-   * las tarjetas en «Sin asignar» se lee como un control roto. La prop ES la capacidad, como
-   * `prioridadManual` y `debatePrioridad`.
+   * Es lo que dibuja el filtro «Responsable» del kanban (16/10/2026). Hasta el 18/11/2026 sólo el
+   * del CLIENTE, porque `plan_tareas` no tenía la columna y un filtro que mete el 100% de las
+   * tarjetas en «Sin asignar» se lee como un control roto; desde la mig 0419 (F156) también el
+   * del dueño. La prop ES la capacidad, como `prioridadManual` y `debatePrioridad`.
    */
   responsables?: boolean;
   /**

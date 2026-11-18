@@ -548,7 +548,7 @@ export const AREAS: AreaDev[] = [
     // este panel. Es la regla de AGENTS.md «Una ruta que apunta a la nada»: el `vive`
     // cubre dónde cae el trabajo de verdad, no solo el endpoint que le da nombre al área.
     vive: [
-      'app/api/track/vsl/route.ts', 'app/api/track/optin/route.ts',
+      'app/api/track/vsl/route.ts', 'app/api/track/optin/route.ts', 'lib/lead-visita.ts',
       'lib/landing-token.ts', 'lib/landing-paginas.ts', 'lib/landing-videos.ts',
       'lib/landing-analisis.ts', 'lib/landing-config.ts', 'lib/vsl-retencion.ts', 'lib/panda.ts',
       'app/integraciones/ProbarTracking.tsx', 'app/integraciones/NombrarVideos.tsx',
@@ -1176,7 +1176,7 @@ export const AREAS: AreaDev[] = [
     alcance: 'El cliente levanta un ticket desde el chat de MaKo o en «Reportar problema»; el triage separa el bug evidente (se arregla solo) de lo nuevo (decide Martín); la decisión va firmada al Cerebro y el ticket se cierra solo cuando se despliega. Falta enchufar la entrega del bug automático en el cartero, la bandeja en el teléfono y WhatsApp.',
     vive: [
       'app/tickets/page.tsx', 'app/tickets/soporte/', 'lib/soporte-chat.ts', 'lib/soporte-reporte.ts', 'app/api/soporte/reportar/route.ts', 'app/_ui/ReportarASoporte.tsx', 'app/tickets/acciones.ts', 'app/tickets/tickets.css', 'app/tickets/bandeja/',
-      'lib/tickets-reglas.ts', 'lib/tickets-db.ts', 'lib/tickets-cierre.ts', 'lib/tickets-aviso.ts', 'lib/tickets-runner.ts',
+      'lib/tickets-reglas.ts', 'lib/tickets-db.ts', 'lib/tickets-cierre.ts', 'lib/tickets-aviso.ts', 'lib/tickets-runner.ts', 'lib/tickets-demora.ts', 'tests/tickets-24h.test.ts', 'tests/_tickets-24h-hijo.ts',
       'lib/tickets-avance.ts', 'lib/tickets-avance-email.ts', 'app/api/email/unsubscribe/tickets/route.ts', 'supabase/migrations/0364_ticket_avance_por_email.sql', 'tests/tickets-avance.test.ts', 'tests/tickets-avance-email.test.ts', 'tests/_tickets-avance-email-hijo.ts',
       'lib/api-mako/areas/tickets.def.ts', 'lib/api-mako/areas/tickets.run.ts', 'app/api/cron/tickets/route.ts', 'scripts/tickets.ts',
       'lib/errores-app.ts', 'lib/errores-app-reglas.ts', 'app/api/errores/route.ts', 'app/_components/ReportarErrores.tsx', 'supabase/migrations/0313_errores_app.sql', 'tests/errores-app.test.ts', 'tests/tickets-cartero.test.ts',

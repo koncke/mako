@@ -432,6 +432,12 @@ export type DepPago = {
   linkDe: (token: string) => string;
   /** Una línea en el historial del lead (para el DUEÑO: ahí van los errores de la pasarela). */
   historial: (leadId: number, texto: string) => Promise<void>;
+  /**
+   * ⚠️ P17 (18/11/2026): la pasarela no dejó abrir el pago (su cuenta desconectada, una clave vencida, la pasarela caída). El historial
+   * del lead sólo lo ve quien abre ESA ficha, y el comprador vio «no se pudo» y se fue: al dueño se le avisa donde mira (la campanita).
+   * Opcional para los tests de antes; best effort (lo que falla acá no cambia lo que ve el visitante).
+   */
+  avisarFallo?: (leadId: number, texto: string) => Promise<void>;
 };
 
 /**
@@ -474,12 +480,14 @@ export async function ejecutarPago(p: { productoId: number; email: string; slug:
       // de alta cuentas de MaKo (pago-landing-server.ts, la cabecera).
       const c = await dep.crear(leadId, pasarela);
       if (c.ok) return { tipo: 'redirigir', url: c.link, reusado: false };
-      // El error de `crearCobro` está escrito para el DUEÑO: va a su historial, nunca a la pantalla del visitante.
+      // El error de `crearCobro` está escrito para el DUEÑO: va a su historial y a su campanita, nunca a la pantalla del visitante.
       await dep.historial(leadId, `No se pudo abrir el pago de ${quePide}: ${c.error}`);
+      await dep.avisarFallo?.(leadId, `Alguien quiso pagar ${quePide} desde tu landing y no se pudo abrir el pago: ${c.error}`).catch(() => {});
       dep.candado.log('error', `lead=${leadId}: ${c.error}`);
       return { tipo: 'fallo' };
     } catch (e) {
       await dep.historial(leadId, `No se pudo abrir el pago de ${quePide}: falló la conexión. Prueba el link desde la ficha.`).catch(() => {});
+      await dep.avisarFallo?.(leadId, `Alguien quiso pagar ${quePide} desde tu landing y no se pudo abrir el pago: falló la conexión con la pasarela. Prueba el link desde su ficha.`).catch(() => {});
       dep.candado.log('error', `lead=${leadId} (excepción): ${e instanceof Error ? e.message : String(e)}`);
       return { tipo: 'fallo' };
     }

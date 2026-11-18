@@ -66,6 +66,37 @@ de 12.000 del chat de la app (tests/ops-center-bateria.test.ts) antes de declara
 app/api/mako/chat/route.ts · lib/mako-turno-app.ts · lib/chat-mako-reglas.ts · tests/ops-menu-cliente.test.ts
 
 ---
+## La topología del grafo, por fin con test: el armado se mudó a un módulo puro (18/11/2026)
+
+**Vive en:** `lib/cerebro-armado.ts` (el armado, sin `server-only`) · `lib/cerebro-grafo.ts` (sólo las lecturas) ·
+`lib/cerebro-vivo.ts` · `tests/cerebro-topologia.test.ts`
+
+- **Síntoma:** ninguna de las reglas de forma del grafo («las etapas de nutrición no se cuelgan de su área», «los padres nunca
+  de la raíz», «un solo componente») se ponía roja si alguien la deshacía (F109). **Causa:** todo el armado vivía adentro de
+  `construirCerebro`, con `server-only`: las métricas de `scripts/medir-grafo.mjs` sólo se sacaban del HTML de producción.
+  **Regla:** el grafo se parte en LEER (lib/cerebro-grafo.ts, las 20 lecturas en paralelo) y ARMAR (`armarCerebro`, puro, con
+  tipos mínimos de lo que usa de cada fila, el molde de lib/cerebro-vivo.ts). Un nodo nuevo se arma allá y su lectura se agrega
+  acá. El movimiento se hizo con un script que copia las líneas (no a mano) y se comparó contra `git show HEAD:` línea por línea.
+- **Lo que mide el test, y el margen de hoy:** un negocio completo da ~90 nodos, densidad 1,8, hojas 6-7 %, hub 3,8-4,1× y
+  clustering 0,25 en las cuatro plantillas; un negocio recién creado, un solo componente. Probado con seis roturas.
+- ⚠️ **La excepción «sólo la fila Activo» ya no la cuida el umbral del hub:** medido el 18/11, rompiéndola, el hub de un negocio
+  sin documentos queda en 3,7× (el funnel principal y los leads, que llegaron después del 6,1× que justificó la regla, ya reparten
+  el racimo). Por eso el test la fija directo: ninguna etapa de nutrición tiene arista al nodo de área.
+- ⚠️ **Lo que el test NO caza, y está vivo:** un negocio con los 13 campos del brief cargados A MANO (sin un documento: cada campo
+  cuelga de la raíz con «Un dato del negocio») llega a **hub 6,9×** con el armado de hoy. El negocio de prueba saca los campos de
+  documentos, como el caso normal. Arreglarlo es decidir de dónde cuelga un campo escrito a mano (de su nodo de área, por
+  ejemplo), y no se tocó.
+- **Tipar las lecturas destapó un bug de agosto:** `vozcom` contaba `vozEvidencia.conversaciones?.length`, un campo que
+  `VozEvidencia` no tiene: daba 0 siempre, y «Cómo hablas vendiendo» decía «Lo que anotaste» sobre una voz que MaKo había leído.
+  Ahora cuenta `convsConVenta`. Un cast `as { campo?: … }` sobre un tipo que no lo tiene compila y miente; con el tipo mínimo
+  declarado, el compilador lo cazó.
+- **F108, los campos del brief del esquema vivo:** `camposDelBrief(vivo, porDefecto)` reparte por GRUPO (negocio → Diagnóstico,
+  oferta → La oferta, avatar → Cliente ideal, marca → Voz; un grupo nuevo → Resumen del negocio). Lo de fábrica que el esquema
+  vivo no tiene se recorre DETRÁS: el esquema se guarda entero, y el de un negocio que lo guardó antes de que DEFAULT_SCHEMA
+  sumara un campo no lo tiene aunque sus documentos lo llenen. Sin esa mitad, el cambio borraba nodos que hoy se dibujan.
+- **F82, la meta de una sola fuente:** el nodo `objetivo` («12 cierres en 90 días», de `objetivo_cierres` y `objetivo_cash_usd`)
+  se borró; la meta son los `okr:` de `objectives`, y el de CIERRES se engancha con la etapa de cierre (la arista que tenía el
+  nodo viejo). No vuelve como respaldo para un negocio sin objetivos: caer al origen viejo es volver a tener dos fuentes.
 
 ## Un arreglo que entra con un `if` del modo en que se descubrió deja el otro modo roto, y en silencio (6/11/2026)
 
@@ -1340,11 +1371,11 @@ medición**. Persistir sigue siendo lo correcto cuando un workspace real pase de
 
 ### Lo que quedó sin hacer acá
 
-- **No hay ningún test que mire la topología del grafo**, y no se puede escribir hoy:
-  `lib/cerebro-grafo.ts` lleva `server-only`, así que ningún test lo puede importar. Es
-  el mismo agujero que ya se pagó con `lib/vault.ts` y el README que contaba mal, y la
-  salida ya está probada: mover la parte pura a un módulo sin la marca. Mientras tanto,
-  todo lo medido acá se puede romper en un commit posterior sin una sola señal roja.
+- ~~**No hay ningún test que mire la topología del grafo**, y no se puede escribir hoy:
+  `lib/cerebro-grafo.ts` lleva `server-only`, así que ningún test lo puede importar.~~ Hecho el
+  18/11/2026 (F109): el armado se mudó a `lib/cerebro-armado.ts` (puro) y
+  `tests/cerebro-topologia.test.ts` lo corre con las métricas de `scripts/medir-grafo.mjs`. Ver
+  «La topología del grafo, por fin con test» más abajo.
 - **Cambiar el pipeline cambia los ids de los nodos** (`etapa:<key>`) y por lo tanto la
   huella del layout: el mapa entero se reacomoda cada vez que el cliente toca el editor
   del funnel. El camino incremental de `layoutCerebro` (el parámetro `previo`) existe,
@@ -1503,11 +1534,11 @@ una omisión: **es información falsa**. Ahora lo dice en sus datos.
   justifica el costo por consulta. Tendría caso para buscar por el CONTENIDO de los
   detalles («dónde dice cuánto cobro»), que es semántico y no textual. Vive en
   `app/plan/board/BuscadorTareas.tsx` + `/api/plan-buscar`.
-- **El brief sigue entrando por cuatro listas hardcodeadas** (`CAMPOS_NORTE`,
+- ~~**El brief sigue entrando por cuatro listas hardcodeadas** (`CAMPOS_NORTE`,
   `CAMPOS_OFERTA`, `CAMPOS_CLIENTE`, `CAMPOS_MARCA` en `lib/cerebro-grafo.ts`) mientras
-  `getSchema()` lee el esquema vivo. Hoy es **latente** —ningún workspace tiene esquema
-  propio— pero la UI de /onboarding ya tiene `addField`: el primer cliente que agregue un
-  campo lo activa en silencio. Es el molde del bug del parser del panorama.
+  `getSchema()` lee el esquema vivo.~~ Hecho el 18/11/2026 (F108): las claves salen del esquema
+  vivo, repartidas por grupo (`camposDelBrief`, `lib/cerebro-armado.ts`); un grupo nuevo cae en
+  el Resumen del negocio.
 - **El local graph** (re-encuadrar sobre el vecindario a 2 saltos al fijar) es la
   alternativa BARATA al layout elíptico y resolvería el 56-67% de lienzo vacío sin tocar
   `RECETA` ni cambiarle el mapa a todos los clientes. Vecindario medido a 2 saltos: 14
@@ -2927,7 +2958,8 @@ leer-archivo mira el tamaño y el tipo de lo que BAJÓ (en «subir-url» los dec
 (`feature: 'mako-chat'`, no «Importar al plan»). El cartel «Suelta para adjuntar» quedaba pegado si se soltaba sobre la caja (que
 corta la propagación): el panel lo apaga en `onDropCapture`. tests/chat-adjuntos-revision.test.ts.
 
-**Sin hacer:** lo subido para leer que nunca se lee (pestaña cerrada) queda en archivero/<ws>/chat-leer: no hay purga. La visión
+**Sin hacer:** ~~lo subido para leer que nunca se lee (pestaña cerrada) queda en archivero/<ws>/chat-leer: no hay purga.~~
+**Hecho el 18/11/2026** (F96): lo borra el cron /api/cron/limpieza-colgados a las 24 horas (lib/chat-leer-purga.ts). La visión
 de una foto va a la Gemini del negocio antes que a su GPT (lib/ai-cheap.ts, `VISION_CASCADE`): ya pasaba en producción con el
 chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `PROVS_SU_IA`.
 

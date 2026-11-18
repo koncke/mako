@@ -101,6 +101,11 @@ export function repoPlan(): Repo {
     // pop-up del lote para decir un rango en vez de un número que sería mentira. El del
     // cliente no lo declara, y no es un olvido: allá no hay cascada.
     prioridadDesempata: true,
+    // QUIÉN la hace (mig 0419, F156, 18/11/2026): `plan_tareas.responsable_tipo` existe, la extracción de una reunión lo
+    // escribe y `rowToTask` lo lee, así que el filtro «Responsable» del kanban se dibuja también acá. Viaja adentro del
+    // `BoardTask` y vuelve tal cual en el guardado (`responsableParaGuardar`, lib/todo-estados.ts); no hay control para
+    // cambiarlo, como en el tablero del cliente.
+    responsables: true,
     priorizarNuevas: async (ids, proyectoIds, contexto) => {
       const j = await apiPlan({ action: 'priorizar-nuevas', ids, proyectoIds: proyectoIds ?? [], contexto: contexto ?? '' });
       if (!j.ok) throw new Error(j.error || 'no se pudo priorizar');
