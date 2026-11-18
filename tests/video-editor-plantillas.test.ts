@@ -43,8 +43,12 @@ const porId = (id: string) => plantillaPorId(id) as Plantilla;
 
 test('1: cada id existe en el motor (animaciones, transiciones, efectos, fuentes, subtítulos)', () => {
   const efectos = new Map(EFECTOS_TEXTO.map((e) => [e.id, e]));
-  // Las cinco del plan y las dos variantes del coordinador (máquina de escribir y glitch).
-  assert.deepEqual(PLANTILLAS.map((p) => p.id), ['gancho', 'gancho-escrito', 'testimonio', 'antes-despues', 'beneficios', 'oferta', 'oferta-glitch']);
+  // Las once de docs/plantillas-reales/video.md (2.0), en el orden de su tabla. Las dos variantes del coordinador (máquina
+  // de escribir y glitch) se retiraron el 18/11/2026 (F164): con el ejemplo lleno eran dos tarjetas iguales a su original.
+  assert.deepEqual(PLANTILLAS.map((p) => p.id), [
+    'gancho', 'respuesta-comentario', 'beneficios', 'testimonio', 'caso-numeros', 'historia', 'tres-errores', 'clip-podcast',
+    'oferta', 'tour-propiedad', 'antes-despues',
+  ]);
   for (const p of PLANTILLAS) {
     assert.equal(plantillaPorId(p.id), p);
     if (p.subtitulos) assert.ok(PLANTILLAS_SUBTITULO.some((s) => s.id === p.subtitulos), `${p.id}: subtítulos «${p.subtitulos}»`);
@@ -267,6 +271,9 @@ function medidor() {
 const muestra = (id: string) => ({ mediaId: id, width: 1080, height: 1920 });
 const MUESTRAS = {
   'Tu clip': muestra('m-clip'), Antes: muestra('m-antes'), 'Después': muestra('m-despues'), 'Tu producto': muestra('m-producto'), '': muestra('m-final'),
+  // Las de las seis nuevas (18/11/2026): la captura del caso y los espacios del tour.
+  'Captura del panel': muestra('m-pantalla'), 'Fachada u obra': muestra('m-fachada'), Sala: muestra('m-sala'), Cocina: muestra('m-cocina'),
+  'Recámara': muestra('m-recamara'), Amenidad: muestra('m-amenidad'), 'Asesor a cámara': muestra('m-asesor'),
 };
 function armar(plantilla: Plantilla, lienzo = { width: 1080, height: 1920 }, extra: Partial<ArmarLinea> = {}) {
   let n = 0;
@@ -379,10 +386,13 @@ test('10: armarLinea: principal pegada, pistas en orden, marcas, animaciones, tr
     }
     assert.equal(hasta, pl.duracion * TPS, pl.id);
   }
-  // Las variantes cambian UNA cosa: la transición, o la entrada del gancho.
-  assert.equal(p(armar(porId('oferta-glitch')).tracks.main.elements[0], 'transicion.id'), 'glitch');
-  const escrito = armar(porId('gancho-escrito')).tracks.overlay[0].elements[0];
-  assert.deepEqual([p(escrito, ANIM.entrada.id), p(escrito, ANIM.entrada.duracion), escrito.duration], ['maquina-escribir', 1.5, 3000]);
+  // La máquina de escribir, que era la variante retirada `gancho-escrito`, vive en el quiebre de `historia` (doc 2.0): el
+  // texto de 9 a 13 s, en la pista texto-2. Y el tour encadena sus espacios con «Empujar a la izquierda» (doc 2.10).
+  const encima: TimelineElement[] = armar(porId('historia')).tracks.overlay.flatMap((t): TimelineElement[] => [...t.elements]);
+  const quiebre = encima.find((e) => e.startTime === 9000 && e.type === 'text');
+  assert.ok(quiebre, 'el quiebre de la historia no se armó');
+  assert.deepEqual([p(quiebre, ANIM.entrada.id), p(quiebre, ANIM.entrada.duracion), quiebre.duration], ['maquina-escribir', 1, 4000]);
+  assert.equal(p(armar(porId('tour-propiedad')).tracks.main.elements[0], 'transicion.id'), 'empujar-izquierda');
 });
 
 test('11: en 2160x3840 las posiciones y el relleno van ×2; las escalas y la letra, iguales', () => {
@@ -455,11 +465,11 @@ test('13: escenaEn: lo que se ve, en orden de dibujo y con la pose del editor', 
   // En `duracion` se ve el último cuadro, no nada.
   assert.equal(escenaEn(gancho, 15).length, 3);
   assert.equal(frase.revelado, null);
-  // «Gancho escrito»: la máquina de escribir no mueve, revela. A la mitad de su 1,5 s, la mitad.
-  const escrito = porId('gancho-escrito');
-  const aMedias = escenaEn(escrito, 0.75).find((x) => nombreDe(x.pieza) === 'gancho');
+  // El quiebre de la historia: la máquina de escribir no mueve, revela. A la mitad de su 1 s (9,5 s), la mitad.
+  const historia = porId('historia');
+  const aMedias = escenaEn(historia, 9.5).find((x) => nombreDe(x.pieza) === 'quiebre');
   assert.deepEqual(aMedias?.revelado, { fraccion: 0.5, modo: 'caracter' });
-  assert.equal(escenaEn(escrito, 1.5).find((x) => nombreDe(x.pieza) === 'gancho')?.revelado, null);
+  assert.equal(escenaEn(historia, 10).find((x) => nombreDe(x.pieza) === 'quiebre')?.revelado, null);
 });
 
 test('14: validarValores: hueco que no existe, texto largo, medio en un hueco de texto', () => {
@@ -507,3 +517,7 @@ test('14: validarValores: hueco que no existe, texto largo, medio en un hueco de
 // · «maquina-de-escribir» → 11/3 (1, 10, 13). · máquina de 3 s en un gancho de 3 s → 11/3 (8; 10 y 13 porque
 //   el panel acorta la salida). · «glitchh» → 12/2 (1, 10). · glitch de 3,5 s (tope 3) → 13/1 (8).
 // · la escena no revela → 13/1 (13). Restaurado: 14/0.
+//
+// Las seis del 18/11/2026 (F164) y las dos variantes retiradas, base 14 de 14 con las once; cada una restaurada:
+// · el tour fuera del catálogo → 12/2 (1, 10). · el quiebre de la historia sin la máquina de escribir → 11/3 (1, 10, 13).
+// Restaurado: 14/0.

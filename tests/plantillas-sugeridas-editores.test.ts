@@ -79,7 +79,7 @@ test('sin señales: la galería de Video, la API y el chat en el orden de siempr
 
 // ── Qué se sugiere a quién: Video Editor ─────────────────────────────────────────────────────
 
-test('video · cobra en un checkout: primero «Oferta con cuenta regresiva», y su variante con glitch no', () => {
+test('video · cobra en un checkout: primero «Oferta con cuenta regresiva», sola', () => {
   const r = plantillasEnOrden(CHECKOUT);
   assert.deepEqual(sugeridasVideo(CHECKOUT), ['oferta']);
   assert.equal(r[0].plantilla.id, 'oferta', 'la sugerida va primero');
@@ -87,9 +87,10 @@ test('video · cobra en un checkout: primero «Oferta con cuenta regresiva», y 
   assert.deepEqual(r.slice(1).map((x) => x.plantilla.id), PLANTILLAS.map((p) => p.id).filter((id) => id !== 'oferta'), 'y las demás, en el orden de siempre');
 });
 
-test('video · vende por llamada, los leads vienen de anuncios y el cuello es la conversión: Testimonio y el gancho', () => {
+test('video · vende por llamada, los leads vienen de anuncios y el cuello es la conversión: Testimonio, el caso y el gancho', () => {
   const s: SenalesNegocio = { ...NADA, canales: ['llamadas'], entradas: ['formulario_anuncio'], cuello: 'conversion' };
-  assert.deepEqual(sugeridasVideo(s), ['testimonio', 'gancho']);
+  // El caso con números es de quien vende por llamada (18/11/2026, docs/plantillas-reales/video.md 2.5).
+  assert.deepEqual(sugeridasVideo(s), ['testimonio', 'caso-numeros', 'gancho']);
   assert.ok(!sugeridasVideo(s).includes('oferta'), 'la oferta es de UN modo de vender: no se sugiere por un cuello genérico');
 });
 
@@ -97,13 +98,13 @@ test('video · el cuello en la oferta y le compran desde su página: Beneficios,
   assert.deepEqual(sugeridasVideo({ ...NADA, entradas: ['landing'], cuello: 'oferta' }), ['beneficios', 'gancho', 'antes-despues']);
 });
 
-test('video · las variantes no se sugieren nunca, y nunca más de tres', () => {
+test('video · el clip de podcast no se sugiere nunca, y nunca más de tres', () => {
+  // Las variantes (gancho escrito, oferta con glitch) se retiraron el 18/11/2026. La que va `{}` ahora es el clip de
+  // podcast: es para recortar un video largo, y ninguna señal del negocio lo distingue.
   const r = sugeridasVideo(TODO);
   assert.equal(r.length, 3);
-  for (const variante of ['gancho-escrito', 'oferta-glitch']) {
-    assert.deepEqual(ETIQUETAS_VIDEO[variante], {}, `${variante} es una variante: \`{}\``);
-    assert.ok(!r.includes(variante));
-  }
+  assert.deepEqual(ETIQUETAS_VIDEO['clip-podcast'], {}, 'el clip de podcast va `{}`');
+  assert.ok(!r.includes('clip-podcast'));
 });
 
 // ── Qué se sugiere a quién: Image Editor ─────────────────────────────────────────────────────
@@ -171,6 +172,7 @@ test('el chat «Editar con IA» lee las plantillas en el mismo orden, con la sug
 //   · la pestaña ordena sin las señales / no lee el contexto / no dice «Sugerido»      -> 14/1 cada una
 //   · la page del video no pasa las señales / el cliente no las pone en el contexto  -> 14/1 cada una
 //   · la variante con glitch con la fila de la original                               -> 13/2
+//     (18/11/2026: las variantes se retiraron; la rotura es ahora el clip de podcast con una fila, medida abajo)
 //   · la oferta con un cuello genérico                                                -> 14/1
 //   · una plantilla de video sin su fila                                              -> 13/2
 //   · una etiqueta con un canal que no existe                                         -> 14/1
@@ -184,3 +186,6 @@ test('el chat «Editar con IA» lee las plantillas en el mismo orden, con la sug
 // imagen sin las señales, la tarjeta de presentación con un cuello genérico) se fueron el 6/11/2026 con las plantillas
 // que ordenaban. Medido el 6/11/2026: la base es 12/0, y el panel sugiriendo algo (su `list` devolviendo una fila) da
 // 11/1 en «imagen · sin plantillas, el panel no sugiere nada».
+// 18/11/2026 (F164, las seis plantillas nuevas): el clip de podcast con una fila → 1 rojo («el clip de podcast no se
+// sugiere nunca»). · el caso con números sin «llamadas» → 1 rojo («vende por llamada…»). · el tour fuera del catálogo con
+// su fila puesta → 1 rojo («cada plantilla … tiene su fila»). Restaurado: en verde.
