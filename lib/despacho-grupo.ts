@@ -99,7 +99,7 @@ const sinTildes = (s: string): string => (s || '').normalize('NFD').replace(/[̀
  *  ambiguos: «Mensaje a Juan», «Correo a Ana» o «Presupuesto nuevo…» pueden ser otra acción. */
 const RX_PARAMETRO = /^\s*(?:(?:la|el|los|las|su|sus|con|y)\s+)?(?:duracion|horario|hora|fecha|dia|titulo|nombre|monto|precio|importe|etapa|lugar|ubicacion|direccion|descripcion|cantidad|valor|moneda|formato|color|asunto)\b/;
 /** Una parte que sólo LEE: «Buscar la reunión de Rodrigo», «Ver el lead», «Revisar la campaña». La hace el turno, sin escribir. */
-const RX_LECTURA = /^\s*(?:buscar?|busca(?:rla|rlo|rlas|rlos)|ver|mirar?|revisar?|fijarse|fijate|consultar?|leer|encontrar|ubicar|chequear?|averiguar|identificar|localizar)\b/;
+const RX_LECTURA = /^\s*(?:buscar?|busca(?:rla|rlo|rlas|rlos)|ver|mirar?|revisar?|fijarse|consultar?|leer|encontrar|ubicar|chequear?|averiguar|identificar|localizar)\b/;
 /** Lo que no dice NADA de una parte: artículos, preposiciones, y los verbos con que se dice un dato («que dure», «que se llame»). */
 const VACIAS = new Set(['que', 'los', 'las', 'del', 'con', 'por', 'para', 'una', 'unos', 'unas', 'este', 'esta', 'esto', 'sus', 'mis', 'tus',
   'dure', 'dura', 'llame', 'sea', 'quede', 'diga', 'nombre', 'titulo', 'duracion', 'hora', 'horas', 'minuto', 'minutos', 'min', 'hs']);
