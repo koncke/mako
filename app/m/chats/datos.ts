@@ -14,11 +14,11 @@
 
 import 'server-only';
 import { listarChats, puertaChats, type YoChats } from '@/lib/chats';
-import { contarBandejas, type ConteosBandeja } from '@/lib/chats-reglas';
+import { contarBandejas, opcionesDeCanal, type ConteosBandeja, type OpcionCanal } from '@/lib/chats-reglas';
 import type { ChatResumen, EtapaChat } from '@/lib/chats-tipos';
 import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
 import { haceCuanto } from '@/app/m/crm/reglas';
-import { PAGINAS_WHATSAPP_M, TOPE_FILAS_M, canalesPresentes, segundaLinea } from './modelo';
+import { PAGINAS_WHATSAPP_M, TOPE_FILAS_M, segundaLinea } from './modelo';
 
 /** Una fila del teléfono: la conversación tal cual la arma escritorio, y lo que se dibuja ya calculado. */
 export type FilaChatM = { chat: ChatResumen; segunda: string; riel: string };
@@ -29,7 +29,12 @@ export type ChatsM = {
   /** Quien mira: «Míos» se decide por su nombre (el CRM guarda nombres en setter/closer). */
   yo: YoChats;
   etapas: EtapaChat[];
-  canales: ReturnType<typeof canalesPresentes>;
+  /**
+   * Los renglones del filtro de canal: cada número de WhatsApp, cada cuenta de Instagram y Messenger, y el Email. La MISMA
+   * lista del chip «Canales» de escritorio (`opcionesDeCanal`): el super admin pasa de su número al de MaKo (O48, 18/11/2026).
+   * Se arma con TODAS las conversaciones leídas, no sólo las que viajan.
+   */
+  canales: OpcionCanal[];
   /** Las fuentes que NO se pudieron leer (lib/chats.ts): «no pude leer» no es «no hay chats». */
   fallas: string[];
   /** Cuántas conversaciones quedaron en la computadora por el tope. */
@@ -53,7 +58,7 @@ export async function leerChatsM(): Promise<ChatsM | null> {
       conteos: contarBandejas(lista.chats, puerta.yo),
       yo: puerta.yo,
       etapas: lista.etapas,
-      canales: canalesPresentes(lista.chats),
+      canales: opcionesDeCanal(lista.lineas, lista.cuentasSociales, lista.chats),
       fallas: lista.fallas,
       fuera: Math.max(0, lista.chats.length - visibles.length),
     };

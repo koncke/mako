@@ -36,8 +36,12 @@ async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error
   return { ok: true, ws };
 }
 
-export type GenerarPlanActionOut =
-  | { ok: true; item: PlanGuardado; historial: PlanGuardado[] }
+/**
+ * Lo que devuelve. Con `guardar: false` no trae `historial`, porque no se guardó nada: quien llama todavía tiene que
+ * terminar el item y guardarlo él (ver `guardar` abajo).
+ */
+export type GenerarPlanActionOut<G extends boolean = true> =
+  | (G extends false ? { ok: true; item: PlanGuardado } : { ok: true; item: PlanGuardado; historial: PlanGuardado[] })
   | { ok: false; error: string };
 
 /**
@@ -45,12 +49,23 @@ export type GenerarPlanActionOut =
  * regenerar con feedback, `anteriorId` apunta al plan del historial y
  * `feedback` dice qué cambiar: el plan anterior viaja RESUMIDO dentro del tema
  * (título, ritmo, el guion de corrido), no el JSON entero.
+ *
+ * ⚠️ `guardar: false` (F168, 18/11/2026): arma el plan y NO lo guarda. Es para quien todavía tiene que convertir el item en
+ * OTRA cosa antes de que exista en el historial —el avatar de IA (`conAvatar` lo sella `tipo: 'avatar'`) o el mismo anuncio
+ * con su id de siempre (`cambiarMuletillasAction`)—. Sin esto se guardaba DOS veces, y la primera era la que dañaba:
+ *   · un avatar entraba como ANUNCIO protegido al cupo de los anuncios (app/video-generator/historial-cupos.ts), y con 10
+ *     anuncios ahí `recortarPorCupo` tiraba uno —uno con clips PAGADOS si los 10 los tenían— y lo escribía en la base. El
+ *     segundo guardado, ya sellado como avatar, no lo devolvía: «un avatar no empuja a un anuncio» no se cumplía.
+ *   · rehacer el guion con las muletillas dejaba un FANTASMA: el plan nuevo con su id al azar quedaba como otro anuncio
+ *     más (y empujaba igual), al lado del de verdad, que se guardaba después con su id.
+ * Con `guardar: false` hay UNA escritura, la de quien llama, y con el item ya terminado. Lo fija
+ * tests/video-avatar-no-saca-anuncios.test.ts, corriendo las tres acciones reales.
  */
-export async function generarPlanAction(
+export async function generarPlanAction<G extends boolean = true>(
   // `clipsMinimos`: el piso de tomas cuando no es el del formato. Lo usa el
   // «Avatar de IA» del Video Editor (app/video-editor/avatar/actions.ts).
-  input: PedidoVideo & { anteriorId?: string; clipsMinimos?: number },
-): Promise<GenerarPlanActionOut> {
+  input: PedidoVideo & { anteriorId?: string; clipsMinimos?: number; guardar?: G },
+): Promise<GenerarPlanActionOut<G>> {
   const ctx = await ctxAdmin();
   if (!ctx.ok) return ctx;
 
@@ -118,8 +133,9 @@ export async function generarPlanAction(
       // Con el lugar decidido al crear, el wizard no lo vuelve a preguntar después del guion (estudio/proyectos.ts).
       ...(lugar?.ok ? { lugarEnElAlta: true as const, ...(lugar.escenarioId ? { escenarioId: lugar.escenarioId } : {}) } : {}),
     };
+    if (input.guardar === false) return { ok: true, item } as GenerarPlanActionOut<G>;
     const historial = await guardarEnHistorial(item);
-    return { ok: true, item, historial };
+    return { ok: true, item, historial } as GenerarPlanActionOut<G>;
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

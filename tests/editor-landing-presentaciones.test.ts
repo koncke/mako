@@ -221,17 +221,20 @@ test('ia: las reglas de diapositivas llegan a esquema, secciones y editar, sólo
     assert.ok(ini > 0, nombre);
     return src.slice(ini, fin > 0 ? fin : undefined);
   };
+  // 6/11/2026 (el carrusel de Leila): el que elige las reglas es `reglasDeFormato`, UNA función
+  // para los tres prompts, porque ahora hay tres juegos (página, diapositiva y lámina de 4:5).
+  assert.match(src, /const reglasDeFormato = \(params: unknown, cual: 'esquema' \| 'secciones' \| 'editar'\): string =>/);
+  assert.match(src, /if \(!esDiapositivas\(params\)\) return REGLAS_PAGINA;/, 'sin formato presentación viajan las reglas de página');
+  assert.match(src, /return cual === 'esquema' \? REGLAS_DIAPOSITIVAS_ESQUEMA : cual === 'secciones' \? REGLAS_DIAPOSITIVAS_SECCIONES : REGLAS_DIAPOSITIVAS_EDITAR;/);
+  // Y los tres prompts la llaman con el pedido CRUDO (`p.params`): `normalizarParams` no conoce
+  // ni `formato` ni `proporcion`, así que con el normalizado todo saldría como una landing.
   const esq = cuerpo('esquema');
-  assert.match(esq, /const diapos = esDiapositivas\(p\.params\)/, 'se lee del pedido CRUDO: normalizarParams no conoce el campo');
-  // Integración (12/10/2026, feedback de una prueba: «te lo creó tipo presentación diapositiva»):
-  // sin formato presentación, lo que viaja en ese mismo lugar es REGLAS_PAGINA (ia-reglas.ts).
-  // Probado rompiéndolo: las secciones con la forma vieja (`: ''`, sin REGLAS_PAGINA) → 16 / 1.
-  assert.match(esq, /ajustes: ajustesAutoritativos\(params, cantidad\) \+ `\\n\$\{diapos \? REGLAS_DIAPOSITIVAS_ESQUEMA : REGLAS_PAGINA\}`/);
+  assert.match(esq, /ajustes: ajustesAutoritativos\(params, cantidad\) \+ `\\n\$\{reglasDeFormato\(p\.params, 'esquema'\)\}`/);
   const sec = cuerpo('secciones');
-  assert.match(sec, /const diapos = esDiapositivas\(p\.params\)/);
-  assert.match(sec, /ajustes: ajustesAutoritativos\(params, esq\.secciones\.length\) \+ `\\n\$\{diapos \? REGLAS_DIAPOSITIVAS_SECCIONES : REGLAS_PAGINA\}`/);
+  assert.match(sec, /ajustes: ajustesAutoritativos\(params, esq\.secciones\.length\) \+ `\\n\$\{reglasDeFormato\(p\.params, 'secciones'\)\}`/);
   const ed = cuerpo('editar');
-  assert.match(ed, /`\\n\$\{esDiapositivas\(p\.params\) \? REGLAS_DIAPOSITIVAS_EDITAR : REGLAS_PAGINA\}`/);
+  assert.match(ed, /`\\n\$\{reglasDeFormato\(p\.params, 'editar'\)\}`/);
+  assert.doesNotMatch(src, /\? REGLAS_DIAPOSITIVAS_\w+ : REGLAS_PAGINA/, 'un prompt elige las reglas por su cuenta');
   // Lo que dicen: una idea por diapositiva, poco texto, diseños optimizados.
   assert.match(REGLAS_DIAPOSITIVAS_ESQUEMA, /una sola idea por diapositiva/i);
   assert.match(REGLAS_DIAPOSITIVAS_SECCIONES, /poco texto/i);

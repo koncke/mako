@@ -352,6 +352,14 @@ export async function pagarDesdeLanding(
     },
     linkDe: linkDelCobro,
     historial: (leadId, texto) => runWithWorkspace(l.ws, () => logLeadEvent(leadId, 'Pago desde la landing', texto, autor)),
+    // P17: la campanita del dueño, con el link a la ficha de quien quiso pagar (una por lead y landing: su `entityId`).
+    avisarFallo: async (leadId, texto) => {
+      const [{ crearNotificacion }, { linkDelLeadDelAviso }] = await Promise.all([import('../notificaciones'), import('../aviso-lead')]);
+      await crearNotificacion({
+        ws: l.ws, tipo: 'pago-landing-fallo', severidad: 'urgente', titulo: 'No se pudo abrir un pago desde tu landing',
+        descripcion: texto, link: linkDelLeadDelAviso({ lead: { id: leadId } }), entityType: 'lead', entityId: String(leadId), origen: `landing:${l.slug}`,
+      });
+    },
   });
 }
 
