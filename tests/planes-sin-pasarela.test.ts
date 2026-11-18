@@ -167,7 +167,7 @@ test('/planes/<plan>: con pasarela el pago; sin pasarela el pedido; el Accelerat
   assert.ok(ruta.indexOf('if (pedido.quiero)') < ruta.indexOf('iniciarCompraDePlan('), 'un pedido no llega al checkout');
   const lib = fuente('lib/compra-plan.ts');
   const pedir = lib.slice(lib.indexOf('export async function pedirPlanSinPasarela'));
-  assert.match(pedir, /logLeadEvent\(lead\.leadId, 'Pedido de plan', `Quiere \$\{nombrePlan\}\$\{de\}\$\{ref\}\.\$\{wa\}\$\{diag\}`/,
+  assert.match(pedir, /logLeadEvent\(lead\.leadId, 'Pedido de plan', `Quiere \$\{nombrePlan\}\$\{de\}\$\{ref\}\.\$\{dePago\}\$\{wa\}\$\{diag\}`/,
     'el partner y el diagnóstico quedan en el historial del lead');
   assert.match(pedir, /avisarDePlataforma\(\{\s*to: EMAIL_MAKO,/, 'el equipo se entera en el momento');
 });

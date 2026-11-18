@@ -1914,3 +1914,32 @@ estaban commiteados (docs/hallazgos-infra.md, la trampa ya anotada).
 **Sin hacer:** «Recordatorios de cobro» no muestra el PRIMER aviso que todavía no arrancó («la cuota 4 vence el 5/12: MaKo avisa
 el 4/12»): eso pide leer si el negocio tiene prendido `cuota-por-vencer`, y es otra pieza. «Quitar» una excepción no existe en la
 API de MaKo (sólo en la ficha).
+
+## «Transferencia o Binance · 5 % OFF» en el checkout, para todos (18/11/2026)
+
+Martín: «agregar ahí la opción de transferencia para el resto de personas, incluso que no son por partners… ofrecerle también a ellos un descuento… es el 5 %».
+Una fila más junto a las pasarelas en `app/planes/[plan]/CompraPlan.tsx`; las reglas puras en `lib/pago-directo-reglas.ts`, la constante
+`DESCUENTO_PAGO_DIRECTO` en `lib/partners-reglas.ts` (junto a las de Partners).
+
+- **Qué hace hoy:** al elegirla se ven los datos de MaKo (cada uno con «Copiar»), el monto exacto con el 5 % (Binance: USD/USDT × 0,95 → Pro 92,15,
+  Essential 44,65; transferencia: el precio en pesos del plan × 0,95 al millar hacia arriba) y los botones «ENVIAR COMPROBANTE POR WHATSAPP» (`wa.me`) y
+  «Enviar por email». «Confirmar mi pedido» entra por `pedirPlanSinPasarela`: el lead, «Quieren entrar» y el aviso al equipo, ahora con el medio, el monto con
+  descuento y el código de partner si vino con uno.
+- ⚠️ **El monto nunca viaja del cliente:** lo calcula el servidor con el plan (`montoDelMedio`). El POST sólo lleva el medio (`medioDirecto`).
+- ⚠️ **La activación SIGUE SIENDO DE MARTÍN, A MANO.** Ningún texto promete «se activa sola»; el aviso al equipo dice «Falta VERIFICAR que la plata entró».
+  La verificación contra Mercado Pago y Binance está pendiente (docs/pendientes-partners-pagos-1811.md, sección 2).
+- ⚠️ **Los datos de MaKo NO están cargados, y la opción no aparece hasta que lo estén.** `DATOS_DE_PAGO_DIRECTO` (lib/pago-directo-reglas.ts) sale con todo en
+  null: Binance Pay ID, alias, CVU, titular, WhatsApp y email de cobros. Binance se ofrece si hay Pay ID; transferencia si hay alias o CVU (y el plan tiene precio en
+  pesos). Hay que pedírselos a Martín: nada se inventó ni se dejó de ejemplo.
+- **Partners:** un referido que paga así le cuenta el canal `directo` (30 %) sobre lo que pagó con el descuento: lo anota Martín como pago de método `cripto` o
+  `transferencia` y `canalDelPago` lo toma solo.
+- **Sin hacer:** la cotización en vivo para la transferencia (hoy usa el precio en pesos vigente del plan: pendiente, sección 1); las capturas a 1440 y 375 (la
+  pantalla sólo se probó dibujada a HTML estático y con los tests de las fuentes; no se vio en un navegador).
+
+## `GET /v1/payments/search` de Mercado Pago trae TAMBIÉN lo que MaKo PAGA (aviso del Cerebro, 18/11/2026)
+
+Con el token de la cuenta de MaKo (ws 9), `payments/search` no trae sólo lo cobrado: trae los pagos donde MaKo es la que PAGA (Uber, PedidosYa, Mercado Libre, HBO).
+Esos pagos traen `fee_details` y `charges_details` (comisión, SIRTAC, IIBB, débitos y créditos, `tax_withholding-iget`), pero son los costos del OTRO vendedor.
+Sin filtrar, dan «costos reales» de 1 % a 49 % que no son de MaKo. Para medir lo cobrado hay que filtrar por `collector.id` igual al usuario de la cuenta, u
+`operation_type` `regular_payment`/`recurring_payment` con `collector_id` propio. Además: **no hay ningún cobro real de un plan por Mercado Pago todavía** (los 826
+movimientos de la cuenta del ws 9 eran gastos personales y transferencias), así que ninguna tasa de pasarela (el 25 % de Partners, la brecha del blue) se pudo medir con pagos reales.

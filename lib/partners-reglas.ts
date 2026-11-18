@@ -67,6 +67,13 @@ export const COMISION_PARTNER_PASARELA = 0.25;
 
 export type CanalDelPago = 'directo' | 'pasarela';
 
+/**
+ * El descuento por pagar con Binance o transferencia en el checkout, PARA TODOS (con o sin partner; Martín, 18/11/2026: «utilizamos lo
+ * mismo para todos y es el mismo descuento, es el 5 %»). Los montos salen de `lib/pago-directo-reglas.ts`. Un negocio referido que
+ * paga así le cuenta a su partner el canal `directo` (30 %) sobre lo que pagó, ya con el descuento.
+ */
+export const DESCUENTO_PAGO_DIRECTO = 0.05;
+
 /** Lo que le toca al partner de UN pago de `montoUsd`, en dólares con centavos (Pro 97 → 29,10 directo, 24,25 por pasarela). */
 export function comisionDelPago(montoUsd: number, canal: CanalDelPago): number {
   const centavos = Math.round(Math.max(0, Number(montoUsd) || 0) * 100);

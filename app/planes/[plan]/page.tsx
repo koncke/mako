@@ -14,13 +14,14 @@ import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { origenLimpio, codigoRefLimpio, paisDelVisitante, TEXTO_SIN_PASARELA, PREGUNTAS_DE_LA_PUERTA } from '@/lib/compra-plan-reglas';
-import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, planDeLaRuta } from '@/lib/planes-mako';
+import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, planDeLaRuta, precioEnPesos } from '@/lib/planes-mako';
 import { entornoPromo, promoVigente } from '@/lib/promo-entrada';
 import { COOKIE_PROMO, PROMO_ENTRADA } from '@/lib/promo-entrada-reglas';
 import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { ladaDelPais } from '@/lib/paises';
-import { CompraPlan } from './CompraPlan';
+import { CompraPlan, type OpcionDirecta } from './CompraPlan';
+import { DATOS_DE_PAGO_DIRECTO, MEDIOS_DIRECTOS, mediosDisponibles, montoDelMedio, type MedioDirecto } from '@/lib/pago-directo-reglas';
 import { Ficha, incluyeDeLaColumna, resumenDelAnual, resumenDelPlan, totalDeHoyPorPasarela } from './Checkout';
 import { QuieroPlan } from './QuieroPlan';
 
@@ -100,12 +101,18 @@ export default async function PlanPage({ params, searchParams }: {
   // sin ella (./CompraPlan.tsx). El resumen tiene preparada su versión sin prueba (`sinPrueba` de `Ficha`) y el botón dice lo que se
   // cobra hoy SIN la prueba: con el resumen de la prueba, ese total es 0 y decía «Suscribirme por US$ 0 al mes» (revisión, hallazgo 4).
   const resumenSin = conPrueba ? resumenDelPlan({ ...armado, conPrueba: false }) : resumen;
+  // «Transferencia o Binance · 5% OFF» (18/11/2026): sólo con los datos de MaKo cargados, y cada medio con su monto (transferencia necesita el
+  // precio en pesos del plan). Sin ningún medio, la fila no se dibuja.
+  const montosDirectos: OpcionDirecta['montos'] = {};
+  for (const m of MEDIOS_DIRECTOS) { const v = montoDelMedio(m, { precioUsd: plan.precioUsd, precioArs: precioEnPesos(plan) }); if (v) montosDirectos[m] = v; }
+  const mediosDirectos = mediosDisponibles(DATOS_DE_PAGO_DIRECTO).filter((m: MedioDirecto) => montosDirectos[m]);
+  const directo: OpcionDirecta | undefined = mediosDirectos.length ? { medios: mediosDirectos, montos: montosDirectos, datos: DATOS_DE_PAGO_DIRECTO, nombrePlan: plan.nombre } : undefined;
   return (
     <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumen} sinPrueba={conPrueba ? resumenSin : undefined}>
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
           agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
       {pasarelas.length
-        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={!conPrueba} promo={conPromo} ladaInicial={ladaDelPais(pais)} hoy={totalDeHoyPorPasarela(resumenSin)} />
+        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={!conPrueba} promo={conPromo} ladaInicial={ladaDelPais(pais)} hoy={totalDeHoyPorPasarela(resumenSin)} directo={directo} />
         : (
           <>
             <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>

@@ -16,6 +16,12 @@
 // (Martín: «WhatsApp no debe ser opcional… no debería poder darle clic al botón… si no completé todo lo anterior»): el botón
 // queda apagado hasta que el email, el nombre, el WhatsApp y la forma de pago están, y la ruta también lo exige.
 //
+// «TRANSFERENCIA O BINANCE · 5% OFF» (18/11/2026, Martín: «la opción de transferencia para el resto de personas… un descuento si pagan
+// por eso… es el 5%»): una fila más junto a las pasarelas, para todos. Al elegirla se ven los datos de MaKo (cada uno con su «Copiar»),
+// el monto exacto con el descuento y dos botones para mandar el comprobante; al confirmar, el pedido entra por el flujo de «Quiero»
+// (`pedirPlanSinPasarela`) y avisa al equipo. ⚠️ La activación es de Martín, a mano: nada de acá dice que «se activa sola». Sin datos de
+// MaKo cargados (`DATOS_DE_PAGO_DIRECTO`), la fila no se dibuja (la arma `page.tsx`: sin `directo`).
+//
 // EL PRECIO QUE SE MOSTRÓ (segunda revisión del 16/11/2026, hallazgo 10): el botón promete una cifra y el cron del blue mueve los
 // pesos una vez por día. El POST lleva el monto y la moneda de la pasarela elegida tal como se mostraron (`precioVisto`); si ya no
 // son los de hoy, la ruta contesta 409 sin cobrar nada, y acá se dice y se redibuja la página con el nuevo. `router.refresh()` no
@@ -26,6 +32,10 @@ import { useContext, useState } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import type { Pasarela } from '@/lib/cobros-tipos';
 import { TEXTO_PRECIO_CAMBIO, type OrigenCompra } from '@/lib/compra-plan-reglas';
+import {
+  CHIP_PAGO_DIRECTO, NOMBRE_MEDIO_DIRECTO, formatoDelMonto, textoDelComprobante, urlDeEmail, urlDeWhatsApp,
+  type DatosDePagoDirecto, type MedioDirecto,
+} from '@/lib/pago-directo-reglas';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { telefonoDeFormulario } from '@/lib/paises';
 import { PRUEBA_DIAS } from '@/lib/planes-mako';
@@ -58,6 +68,45 @@ const DETALLE: Readonly<Record<Pasarela, { sub: string | null }>> = {
 };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/** Lo que `page.tsx` le pasa cuando hay con qué cobrar «Transferencia o Binance»: los medios con dato cargado, su monto con el 5% y los datos. */
+export type OpcionDirecta = {
+  medios: MedioDirecto[];
+  montos: Partial<Record<MedioDirecto, { monto: number; moneda: 'USD' | 'ARS' }>>;
+  datos: DatosDePagoDirecto;
+  nombrePlan: string;
+};
+
+const PANEL_DIRECTO: React.CSSProperties = { border: '1px solid rgba(17,17,17,.14)', borderRadius: 12, padding: '14px 14px 12px', background: '#fafafa', marginTop: 10, display: 'grid', gap: 10 };
+const FILA_DATO: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' };
+const BOTON_CHICO: React.CSSProperties = { font: 'inherit', fontSize: 13, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(17,17,17,.25)', background: '#fff', color: '#121212', cursor: 'pointer' };
+
+/** Un dato de MaKo para pagar, con su botón de copiar (sin dato, no se dibuja). */
+function DatoCopiable({ etiqueta, valor }: { etiqueta: string; valor: string | null }) {
+  const [copiado, setCopiado] = useState(false);
+  if (!valor) return null;
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(valor); setCopiado(true); setTimeout(() => setCopiado(false), 1800); } catch { /* sin portapapeles: se copia a mano */ }
+  };
+  return (
+    <div style={FILA_DATO}>
+      <span style={{ fontSize: 14 }}><small style={{ display: 'block', opacity: 0.65 }}>{etiqueta}</small><b style={{ wordBreak: 'break-all' }}>{valor}</b></span>
+      <button type="button" style={BOTON_CHICO} onClick={copiar} aria-label={`Copiar ${etiqueta}`}>{copiado ? 'Copiado' : 'Copiar'}</button>
+    </div>
+  );
+}
+
+/** Los dos botones para mandar el comprobante: WhatsApp (`wa.me` con el texto armado) y email. Sin el dato de contacto, no se dibuja. */
+function BotonesDeComprobante({ datos, texto, plan }: { datos: DatosDePagoDirecto; texto: string; plan: string }) {
+  const wa = urlDeWhatsApp(datos.whatsapp, texto);
+  const mail = urlDeEmail(datos.email, `Comprobante de pago · ${plan}`, texto);
+  if (!wa && !mail) return null;
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      {wa && <a className="planes-btn planes-btn-borde" href={wa} target="_blank" rel="noopener noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>ENVIAR COMPROBANTE POR WHATSAPP</a>}
+      {mail && <a className="planes-btn planes-btn-borde" href={mail} style={{ textAlign: 'center', textDecoration: 'none' }}>Enviar por email</a>}
+    </div>
+  );
+}
 /**
  * «Suscribirme por …» (16/11/2026): lo que cobra hoy la pasarela elegida, en SU moneda, y sin elegir la primera (como el resumen).
  * Con dos pasarelas van las dos cifras y `CSS_PLANES` deja ver la de la fila elegida con el mismo `:has()` que el resumen, así el
@@ -91,6 +140,8 @@ export function CompraPlan(p: {
    * con la prueba ese total es 0: quien ya la había usado veía «Suscribirme por US$ 0 al mes».
    */
   hoy?: Partial<Record<Pasarela, string>>;
+  /** «Transferencia o Binance · 5% OFF»: sin esto (sin datos de MaKo cargados) la fila no se dibuja. */
+  directo?: OpcionDirecta;
 }) {
   const [sinPrueba, setSinPrueba] = useState(!!p.sinPrueba);
   const [sinPromo, setSinPromo] = useState(false);
@@ -108,6 +159,9 @@ export function CompraPlan(p: {
   const [pasarela, setPasarela] = useState<Pasarela | null>(p.pasarelas.length === 1 ? p.pasarelas[0].pasarela : null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // «Transferencia o Binance»: elegida la fila y con qué medio. Con ella elegida, el botón no abre ningún pago: avisa al equipo.
+  const [directoElegido, setDirectoElegido] = useState(false);
+  const [medioDirecto, setMedioDirecto] = useState<MedioDirecto | null>(p.directo?.medios[0] ?? null);
   // Sin pasarela para su país al momento de pagar (5/11/2026, una pestaña de antes del cierre de Creem): la ruta lo tomó como
   // pedido (lib/compra-plan.ts, `iniciarCompraDePlan`). Nunca un error: lo que escribió ya quedó.
   const [pedido, setPedido] = useState(false);
@@ -115,23 +169,25 @@ export function CompraPlan(p: {
 
   // Con un WhatsApp de verdad: su país y al menos 10 dígitos en total (la misma regla que la ruta, `whatsappEscritoMal`).
   const whatsappCompleto = telefonoDeFormulario(lada, numero).replace(/\D/g, '').length >= 10;
-  const completo = EMAIL_OK.test(email.trim()) && nombre.trim().length >= 2 && whatsappCompleto && (p.pasarelas.length === 1 || pasarela != null);
+  const completo = EMAIL_OK.test(email.trim()) && nombre.trim().length >= 2 && whatsappCompleto && (directoElegido ? medioDirecto != null : (p.pasarelas.length === 1 || pasarela != null));
+  const montoDirecto = directoElegido && medioDirecto ? p.directo?.montos[medioDirecto] ?? null : null;
 
   async function enviar(e: React.FormEvent, sin = sinPrueba, sinDescuento = sinPromo) {
     e.preventDefault();
     if (enviando || !completo) return;
-    if (p.pasarelas.length > 1 && !pasarela) { setError('Elige con qué quieres pagar.'); return; }
+    if (!directoElegido && p.pasarelas.length > 1 && !pasarela) { setError('Elige con qué quieres pagar.'); return; }
     setEnviando(true);
     setError(null);
     setErrorCodigo(null);
     setErrorWhatsapp(null);
     // Lo que esta página mostró de la pasarela elegida (el monto por mes y su moneda): la ruta no cobra otro número.
-    const visto = p.pasarelas.find((x) => x.pasarela === pasarela);
+    const visto = directoElegido ? undefined : p.pasarelas.find((x) => x.pasarela === pasarela);
     try {
       const r = await fetch('/api/planes/comprar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: p.plan, nombre, email, whatsapp: telefonoDeFormulario(lada, numero), pasarela, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web, sinPrueba: sin, promo: !!p.promo, sinPromo: sinDescuento, precioVisto: visto ? { monto: visto.monto, moneda: visto.moneda } : null }),
+        // Con «Transferencia o Binance» va el medio (nunca el monto: lo calcula el servidor) y NO abre ningún pago: es un pedido.
+        body: JSON.stringify(directoElegido ? { plan: p.plan, nombre, email, whatsapp: telefonoDeFormulario(lada, numero), quiero: true, medioDirecto, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web } : { plan: p.plan, nombre, email, whatsapp: telefonoDeFormulario(lada, numero), pasarela, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web, sinPrueba: sin, promo: !!p.promo, sinPromo: sinDescuento, precioVisto: visto ? { monto: visto.monto, moneda: visto.moneda } : null }),
       });
       const j = (await r.json().catch(() => ({}))) as { link?: string; pedido?: boolean; error?: string; sinPrueba?: boolean; sinPromo?: boolean; precioCambio?: boolean; campo?: string };
       if (r.ok && j.link) { window.location.href = j.link; return; }
@@ -150,6 +206,16 @@ export function CompraPlan(p: {
     setEnviando(false);
   }
 
+  if (pedido && directoElegido && p.directo) {
+    const texto = textoDelComprobante({ nombre, plan: p.directo.nombrePlan, medio: medioDirecto ?? 'transferencia', monto: montoDirecto });
+    return (
+      <div role="status" aria-live="polite" style={{ display: 'grid', gap: 10 }}>
+        <p className="planes-sub" style={{ marginBottom: 0, color: '#121212', fontWeight: 600 }}>¡Listo! Recibimos tu pedido.</p>
+        <p className="planes-sub" style={{ marginBottom: 0 }}>Cuando veamos tu pago te damos de alta; ahí te llega tu acceso. Si todavía no mandaste el comprobante, mándalo por acá:</p>
+        <BotonesDeComprobante datos={p.directo.datos} texto={texto} plan={p.directo.nombrePlan} />
+      </div>
+    );
+  }
   if (pedido) {
     return (
       <div role="status" aria-live="polite">
@@ -181,7 +247,7 @@ export function CompraPlan(p: {
         {p.pasarelas.map((x) => (
           <label key={x.pasarela} className={`ck-medio${x.pasarela === 'mercadopago' ? ' ck-medio-mp' : ''}`}>
             {/* `value`: lo lee el resumen de la izquierda para mostrar el precio en la moneda de ESTA fila (`CSS_PLANES`, `:has()`). */}
-            <input type="radio" name="pasarela" value={x.pasarela} checked={pasarela === x.pasarela} onChange={() => setPasarela(x.pasarela)} />
+            <input type="radio" name="pasarela" value={x.pasarela} checked={pasarela === x.pasarela} onChange={() => { setPasarela(x.pasarela); setDirectoElegido(false); }} />
             <span className="ck-medio-icono" aria-hidden="true">{x.pasarela === 'mercadopago'
               ? <LogoMercadoPago alto={20} />
               : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /><path d="M3 10h18" /><path d="M7 15h.01" /><path d="M11 15h2" /></svg>}</span>
@@ -190,13 +256,48 @@ export function CompraPlan(p: {
           </label>
         ))}
       </div>
+      {p.directo && (
+        <>
+          <div className="ck-medios" role="radiogroup" aria-label="Transferencia o Binance" style={{ marginTop: 8 }}>
+            <label className="ck-medio">
+              <input type="radio" name="pasarela" value="directo" checked={directoElegido} onChange={() => { setDirectoElegido(true); setPasarela(null); }} />
+              <span className="ck-medio-icono" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M3 10l9 -6l9 6" /><path d="M5 10v8" /><path d="M10 10v8" /><path d="M14 10v8" /><path d="M19 10v8" /><path d="M3 20h18" /></svg></span>
+              <span className="ck-medio-texto"><b>Transferencia o Binance</b></span>
+              <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: '#e6f6ec', color: '#14663a' }}>{CHIP_PAGO_DIRECTO}</span>
+            </label>
+          </div>
+          {directoElegido && (
+            <div style={PANEL_DIRECTO} data-ck-directo="">
+              {p.directo.medios.length > 1 && (
+                <div role="radiogroup" aria-label="Con qué pagas" style={{ display: 'flex', gap: 8 }}>
+                  {p.directo.medios.map((m) => (
+                    <button key={m} type="button" role="radio" aria-checked={medioDirecto === m} onClick={() => setMedioDirecto(m)}
+                      style={{ ...BOTON_CHICO, ...(medioDirecto === m ? { background: '#121212', color: '#fff', borderColor: '#121212' } : {}) }}>{NOMBRE_MEDIO_DIRECTO[m]}</button>
+                  ))}
+                </div>
+              )}
+              {montoDirecto && <p style={{ margin: 0, fontSize: 15 }}>Envía exactamente <b>{formatoDelMonto(montoDirecto)}</b> <small>(ya con el 5% de descuento)</small></p>}
+              {medioDirecto === 'binance' && <DatoCopiable etiqueta="Binance Pay ID" valor={p.directo.datos.binancePayId} />}
+              {medioDirecto === 'transferencia' && (
+                <>
+                  <DatoCopiable etiqueta="Alias" valor={p.directo.datos.alias} />
+                  <DatoCopiable etiqueta="CVU" valor={p.directo.datos.cvu} />
+                </>
+              )}
+              <DatoCopiable etiqueta="Titular" valor={p.directo.datos.titular} />
+              <p style={{ margin: 0, fontSize: 13, opacity: 0.75 }}>Haz el pago, manda el comprobante y toca «Confirmar mi pedido»: avisamos al equipo y te damos de alta apenas veamos tu pago.</p>
+              <BotonesDeComprobante datos={p.directo.datos} texto={textoDelComprobante({ nombre, plan: p.directo.nombrePlan, medio: medioDirecto ?? 'transferencia', monto: montoDirecto })} plan={p.directo.nombrePlan} />
+            </div>
+          )}
+        </>
+      )}
       <CodigoReferido valor={codigo} onCambio={(v) => { setCodigo(v); setErrorCodigo(null); }} delLink={p.refCodigo} error={errorCodigo} />
       {porQueSinPrueba && <p className="ck-aviso" role="status" aria-live="polite">{porQueSinPrueba}</p>}
       {/* EL MISMO BOTÓN NEGRO CON LAS DOS FORMAS DE PAGO (16/11/2026, Martín: «si pongo tarjeta de crédito o débito, no debería cambiar
           el botón a cuando aprieto Mercado Pago… el mismo botón negro del mismo tamaño»). Con Mercado Pago pasaba a su azul y sumaba
           su logo: lo que distingue a Mercado Pago es su fila. */}
       <button className="planes-btn" type="submit" disabled={enviando || !completo}>
-        {enviando ? 'Abriendo el pago…' : sinPrueba ? <TextoSuscribirme pasarelas={p.pasarelas} hoy={sinPromo ? undefined : p.hoy} primerMes={!!p.promo} /> : `Empezar mis ${PRUEBA_DIAS} días gratis`}
+        {enviando ? (directoElegido ? 'Enviando tu pedido…' : 'Abriendo el pago…') : directoElegido ? 'Confirmar mi pedido' : sinPrueba ? <TextoSuscribirme pasarelas={p.pasarelas} hoy={sinPromo ? undefined : p.hoy} primerMes={!!p.promo} /> : `Empezar mis ${PRUEBA_DIAS} días gratis`}
       </button>
       {/* role="status" y no "alert": /planes es pública y sin sesión, así que «Reportar a soporte» no serviría acá. */}
       {error && <p className="planes-error" role="status" aria-live="polite">{error}</p>}

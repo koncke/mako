@@ -1,0 +1,99 @@
+// =============================================================================
+// pago-directo-reglas — «Transferencia o Binance · 5 % OFF» en el checkout, para TODOS (18/11/2026)
+// =============================================================================
+// Martín (18/11): «el tema de la pasarela de pago, también deberías agregar ahí la opción de transferencia para el resto de personas,
+// incluso que no son por partners, y… ofrecerle también a ellos un descuento si pagan por eso… utilizamos lo mismo para todos y es el
+// mismo descuento, es el 5 %».
+//
+// QUÉ ES HOY: una opción más junto a las pasarelas (app/planes/[plan]/CompraPlan.tsx). Al elegirla se ven los datos de MaKo para
+// pagar, el monto exacto con el descuento y dos botones para mandar el comprobante (WhatsApp / email). Al confirmar entra por el
+// flujo de «Quiero» (`pedirPlanSinPasarela`, lib/compra-plan.ts): el lead en el CRM, «Quieren entrar» y el aviso al equipo, con el
+// medio, el monto con descuento y el código de partner si vino con uno.
+// ⚠️ LA ACTIVACIÓN ES DE MARTÍN, A MANO. Todavía no se verifica la plata contra Mercado Pago ni Binance (docs/pendientes-partners-pagos-1811.md,
+// sección 2): ningún texto de este checkout promete que «se activa sola».
+//
+// LOS DATOS DE MARTÍN NO SE INVENTAN: `DATOS_DE_PAGO_DIRECTO` sale vacío. Una opción sin ningún dato cargado NO se muestra (`mediosDisponibles`
+// da []): no se le pide a nadie que pague a un alias que no existe. Se cargan acá, con lo que Martín mande.
+//
+// A un negocio referido que paga así le cuenta el canal «directo» (30 % para su partner, lib/partners-reglas.ts `canalDelPago`) sobre lo
+// que pagó, ya con el descuento: lo anota Martín en el CRM como pago de método transferencia o cripto.
+//
+// Puro (lo importa también el cliente): sin red ni base. Lo prueba tests/pago-directo.test.ts.
+// =============================================================================
+
+import { DESCUENTO_PAGO_DIRECTO } from './partners-reglas';
+
+export type MedioDirecto = 'binance' | 'transferencia';
+export const MEDIOS_DIRECTOS: readonly MedioDirecto[] = ['binance', 'transferencia'];
+export const esMedioDirecto = (v: unknown): v is MedioDirecto => MEDIOS_DIRECTOS.includes(v as MedioDirecto);
+
+export const NOMBRE_MEDIO_DIRECTO: Readonly<Record<MedioDirecto, string>> = { binance: 'Binance', transferencia: 'Transferencia' };
+/** El chip de la fila del checkout: «5% OFF». */
+export const CHIP_PAGO_DIRECTO = `${Math.round(DESCUENTO_PAGO_DIRECTO * 100)}% OFF`;
+
+/** Los datos de MaKo para recibir el pago. Cada uno null hasta que Martín lo mande: NUNCA un número de ejemplo. */
+export type DatosDePagoDirecto = {
+  /** Binance: el Pay ID de MaKo. */
+  binancePayId: string | null;
+  /** Transferencia: alias y CVU de la Mercado Pago de MaKo. */
+  alias: string | null;
+  cvu: string | null;
+  /** A nombre de quién están las cuentas. */
+  titular: string | null;
+  /** Adónde mandar el comprobante: el WhatsApp de MaKo (sólo dígitos, con código de país) y el email de cobros. */
+  whatsapp: string | null;
+  email: string | null;
+};
+
+// ⚠️ SIN INVENTAR NADA (Cerebro, 18/11): los carga Martín. Mientras estén vacíos, la opción no aparece en el checkout.
+export const DATOS_DE_PAGO_DIRECTO: DatosDePagoDirecto = {
+  binancePayId: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null,
+};
+
+/** Con qué se puede pagar HOY: Binance si hay Pay ID; transferencia si hay alias o CVU. Vacío = la opción no se muestra. */
+export function mediosDisponibles(d: DatosDePagoDirecto): MedioDirecto[] {
+  const out: MedioDirecto[] = [];
+  if (d.binancePayId) out.push('binance');
+  if (d.alias || d.cvu) out.push('transferencia');
+  return out;
+}
+
+const centavos = (n: number) => Math.round(n * 100) / 100;
+
+/** El precio en dólares/USDT con el descuento: Pro 97 → 92,15; Essential 47 → 44,65. */
+export const usdConDescuento = (usd: number): number => centavos(Math.max(0, usd) * (1 - DESCUENTO_PAGO_DIRECTO));
+
+/** El precio en pesos con el descuento, redondeado al millar HACIA ARRIBA (la regla de la casa, lib/dolar-blue-reglas.ts `pesosDelPlan`). */
+export function pesosConDescuento(pesos: number): number {
+  const exacto = Math.round(Math.max(0, pesos) * (1 - DESCUENTO_PAGO_DIRECTO) * 1e6) / 1e6;
+  return Math.ceil(exacto / 1000) * 1000;
+}
+
+/** Lo que se paga con ese medio: dólares/USDT por Binance, pesos por transferencia (null = el plan no tiene precio en pesos). */
+export function montoDelMedio(medio: MedioDirecto, p: { precioUsd: number; precioArs: number | null }): { monto: number; moneda: 'USD' | 'ARS' } | null {
+  if (medio === 'binance') return { monto: usdConDescuento(p.precioUsd), moneda: 'USD' };
+  return p.precioArs != null && p.precioArs > 0 ? { monto: pesosConDescuento(p.precioArs), moneda: 'ARS' } : null;
+}
+
+export function formatoDelMonto(m: { monto: number; moneda: 'USD' | 'ARS' }): string {
+  const n = m.monto.toLocaleString('es-AR', { minimumFractionDigits: m.moneda === 'USD' && !Number.isInteger(m.monto) ? 2 : 0, maximumFractionDigits: 2 });
+  return m.moneda === 'USD' ? `US$ ${n}` : `$ ${n} ARS`;
+}
+
+/** El texto que arma el botón de WhatsApp / el email: quién es, qué plan, cuánto y por qué medio. */
+export function textoDelComprobante(p: { nombre: string; plan: string; medio: MedioDirecto; monto: { monto: number; moneda: 'USD' | 'ARS' } | null }): string {
+  const cuanto = p.monto ? formatoDelMonto(p.monto) : 'el monto del plan con el 5% de descuento';
+  return `Hola, soy ${p.nombre.trim() || '—'}. Pagué ${p.plan} por ${NOMBRE_MEDIO_DIRECTO[p.medio]}: ${cuanto} (con el ${Math.round(DESCUENTO_PAGO_DIRECTO * 100)}% de descuento). Te mando el comprobante.`;
+}
+
+/** `wa.me` al WhatsApp de MaKo con el texto armado. null si todavía no hay WhatsApp cargado (el botón no se muestra). */
+export function urlDeWhatsApp(whatsapp: string | null, texto: string): string | null {
+  const n = String(whatsapp ?? '').replace(/\D/g, '');
+  return n.length >= 10 ? `https://wa.me/${n}?text=${encodeURIComponent(texto)}` : null;
+}
+
+/** `mailto:` al email de cobros con asunto y cuerpo. null si todavía no hay email cargado. */
+export function urlDeEmail(email: string | null, asunto: string, texto: string): string | null {
+  const e = String(email ?? '').trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e) ? `mailto:${e}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}` : null;
+}

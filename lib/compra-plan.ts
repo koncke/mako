@@ -38,12 +38,14 @@ import { leerCuentaMp } from './mercadopago-api';
 import { modoDeClaveStripe } from './stripe-api';
 import { modoDeClaveCreem } from './creem-api';
 import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tipos';
-import { CLAVE_PLANES, conceptoDelPlan, planConPrueba, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
+import { CLAVE_PLANES, conceptoDelPlan, planConPrueba, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, precioEnPesos, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
 import { diagnosticoEnTexto, esFalloPasajero, leadDeLaCompra, opcionStripe, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, precioCambio, TEXTO_PRECIO_CAMBIO, TEXTO_PRUEBA_USADA_WHATSAPP, TEXTO_SIN_PASARELA, whatsappsDeLaPrueba, type PedidoCompra, type PrecioVisto } from './compra-plan-reglas';
 import { casillaDeLaPrueba, creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, patronesDeLaCasilla, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
 import { whatsappDelPedido } from './paises';
+import { DESCUENTO_PAGO_DIRECTO } from './partners-reglas';
+import { formatoDelMonto, montoDelMedio, NOMBRE_MEDIO_DIRECTO } from './pago-directo-reglas';
 import { creadoPorPrimerMes, TEXTO_PROMO_CUENTA, TEXTO_PROMO_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
 import { PROMO_ENTRADA } from './promo-entrada-reglas';
 import { listarUsuarios } from './usuarios';
@@ -325,16 +327,24 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
     }
     const de = p.origen?.landing ? ` desde la landing «${p.origen.landing}»` : '';
     const ref = p.ref ? ` (referido por ${p.ref})` : '';
+    // «Transferencia o Binance · 5 % OFF» (18/11/2026): el medio y el monto CON el descuento, calculado acá con el plan (nunca el del cliente).
+    // La activación es de Martín, a mano: el aviso dice que hay que verificar que la plata entró.
+    const directo = p.medioDirecto && elegido
+      ? { medio: p.medioDirecto, monto: montoDelMedio(p.medioDirecto, { precioUsd: elegido.precioUsd, precioArs: precioEnPesos(elegido) }) }
+      : null;
+    const dePago = directo
+      ? ` Va a pagar por ${NOMBRE_MEDIO_DIRECTO[directo.medio]}${directo.monto ? ` ${formatoDelMonto(directo.monto)}` : ''}, con el ${Math.round(DESCUENTO_PAGO_DIRECTO * 100)}% de descuento por pagar así.`
+      : '';
     const wa = p.whatsapp ? ` WhatsApp: +${p.whatsapp}.` : '';
     // El diagnóstico de la puerta del Accelerator (lib/compra-plan-reglas.ts): con eso arranca la llamada.
     const diag = p.diagnostico ? ` Diagnóstico: ${diagnosticoEnTexto(p.diagnostico)}.` : '';
-    await logLeadEvent(lead.leadId, 'Pedido de plan', `Quiere ${nombrePlan}${de}${ref}.${wa}${diag}`, 'Planes de MaKo').catch(() => {});
+    await logLeadEvent(lead.leadId, 'Pedido de plan', `Quiere ${nombrePlan}${de}${ref}.${dePago}${wa}${diag}`, 'Planes de MaKo').catch(() => {});
     // También en «Quieren entrar» (30/10/2026), para darle de alta sin ir a buscarlo al CRM. Con el rótulo de correo sin verificar.
-    await registrarPedido(pedidoLimpio({ email: p.email, nombre: p.nombre, origen: 'planes', verificado: false, detalle: `Quiere ${nombrePlan}`, whatsapp: p.whatsapp, leadId: lead.leadId }));
+    await registrarPedido(pedidoLimpio({ email: p.email, nombre: p.nombre, origen: 'planes', verificado: false, detalle: `Quiere ${nombrePlan}${dePago}`, whatsapp: p.whatsapp, leadId: lead.leadId }));
     // El aviso al equipo, en el momento: el domingo nadie tiene que estar mirando el CRM para enterarse. Best effort.
     await avisarDePlataforma({
-      to: EMAIL_MAKO, tag: 'planes-pedido', asunto: `${p.nombre} quiere ${nombrePlan}`, preheader: 'Pedido desde la página de planes.',
-      cuerpo: [`${p.nombre} (${p.email}) quiere ${nombrePlan}${de}${ref}.`, '', `WhatsApp: +${p.whatsapp ?? '—'}`, '',
+      to: EMAIL_MAKO, tag: 'planes-pedido', asunto: directo ? `${p.nombre} quiere ${nombrePlan} y paga por ${NOMBRE_MEDIO_DIRECTO[directo.medio]}` : `${p.nombre} quiere ${nombrePlan}`, preheader: 'Pedido desde la página de planes.',
+      cuerpo: [`${p.nombre} (${p.email}) quiere ${nombrePlan}${de}${ref}.${dePago}`, '', ...(directo ? ['Falta VERIFICAR que la plata entró (todavía no se verifica sola) y darle de alta a mano.', ''] : []), `WhatsApp: +${p.whatsapp ?? '—'}`, '',
         ...(p.diagnostico ? ['Su diagnóstico:', ...p.diagnostico.map((x) => `· ${x.rotulo}: ${x.respuesta}`), ''] : []),
         'Su ficha en el CRM de MaKo:', linkApp(`/crm/${lead.leadId}`, ws)].join('\n'),
     }).catch((e) => console.warn('[compra-plan] no pude avisar del pedido:', msg(e)));

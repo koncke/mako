@@ -9,6 +9,7 @@ import { CAPACIDADES_PASARELA, esPasarela, type Pasarela } from './cobros-tipos'
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
 import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, rutaDelPlan } from './planes-mako';
 import { localArgentino } from './paises';
+import { esMedioDirecto, type MedioDirecto } from './pago-directo-reglas';
 // De TIPO: se borra al compilar, así que no suma nada al bundle del cliente (esto lo importan componentes 'use client').
 import type { MotivoDuplicado } from './leads-duplicados';
 
@@ -102,6 +103,11 @@ export type PedidoCompra = {
   whatsappEscritoMal?: boolean;
   /** true = «lo quiero» sin pasarela: deja el pedido en el CRM, no abre un pago (`pedirPlanSinPasarela`). */
   quiero: boolean;
+  /**
+   * «Transferencia o Binance · 5 % OFF» (18/11/2026): por dónde va a pagar. Sólo viaja con `quiero`; el MONTO nunca viaja (se calcula en el
+   * servidor con el plan: `montoDelMedio`, lib/pago-directo-reglas.ts). La activación sigue siendo de Martín, a mano.
+   */
+  medioDirecto?: MedioDirecto | null;
   /** El diagnóstico de la puerta (sólo lo manda el pedido del Accelerator). Incompleto = null: el pedido entra igual. */
   diagnostico: RespuestaDePuerta[] | null;
   /** Por mes o por año (25/10/2026). El anual SIEMPRE se pide: el checkout cobra por mes. */
@@ -174,7 +180,8 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
   // Por el guard compartido, no por los dos nombres a mano (31/10/2026): con la lista escrita acá, quien elegía Creem
   // en /planes/<id> mandaba `pasarela: 'creem'` y el server lo leía como «no eligió ninguna».
   const pasarela = esPasarela(b.pasarela) ? b.pasarela : null;
-  const quiero = b.quiero === true;
+  const medioDirecto = esMedioDirecto(b.medioDirecto) ? b.medioDirecto : null;
+  const quiero = b.quiero === true || medioDirecto != null;
   const whatsapp = whatsappLimpio(b.whatsapp);
   if (quiero && !whatsapp) return { ok: false, error: 'Escribe tu WhatsApp con el código de país: por ahí te damos de alta.' };
   const periodo = b.periodo === 'anual' ? 'anual' : 'mensual';
@@ -182,7 +189,7 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
   return {
     ok: true,
     pedido: {
-      plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
+      plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero, medioDirecto,
       // Con la lada ya elegida, 8 dígitos dejan pasar un número a medias (+54 y «112233»): ningún WhatsApp del mundo tiene menos de 10 con su país.
       whatsappEscritoMal: !quiero && typeof b.whatsapp === 'string' && b.whatsapp.trim() !== '' && (whatsapp ?? '').length < 10,
       diagnostico: diagnosticoLimpio(b.diagnostico), periodo, sinPrueba: b.sinPrueba === true,
