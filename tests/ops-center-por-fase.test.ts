@@ -182,15 +182,15 @@ test('de punta a punta en la PC: entrega con Sonnet, `fase` deja a Opus para el 
   try {
     // Un chat de la APP (su archivo en claude-code-sessions y su sesión viva en la carpeta) y el Runner de esa carpeta.
     mkdirSync(join(dir, 'app', 'c4c4c4c4-aaaa-4bbb-8ccc-dddddddddddd'), { recursive: true });
-    writeFileSync(join(dir, 'app', 'c4c4c4c4-aaaa-4bbb-8ccc-dddddddddddd', `${APP}.json`), JSON.stringify({ sessionId: APP, title: 'CRM', cwd: 'C:\\dev\\x', lastActivityAt: Date.now() }));
+    writeFileSync(join(dir, 'app', 'c4c4c4c4-aaaa-4bbb-8ccc-dddddddddddd', `${APP}.json`), JSON.stringify({ sessionId: APP, title: 'CRM', cwd: '/proyectos/mako', lastActivityAt: Date.now() }));
     mkdirSync(join(cfg, 'sessions'), { recursive: true });
     const sesion = (pid: number, nombre: string, host: string) => writeFileSync(join(cfg, 'sessions', `${pid}.json`), JSON.stringify({
-      pid, sessionId: `0000000${pid % 10}-2222-4333-8444-555555555555`, hostSessionId: host, cwd: 'C:\\dev\\x', entrypoint: 'claude-desktop',
+      pid, sessionId: `0000000${pid % 10}-2222-4333-8444-555555555555`, hostSessionId: host, cwd: '/proyectos/mako', entrypoint: 'claude-desktop',
       kind: 'interactive', status: 'idle', name: nombre, messagingSocketPath: `\\\\.\\pipe\\LOCAL\\cc-msg-${nombre}`,
     }));
     sesion(runner, 'Runner', OTRO_APP); sesion(chat, 'CRM', APP);
     writeFileSync(join(dir, 'config.json'), JSON.stringify({
-      url: `http://127.0.0.1:${(srv.address() as { port: number }).port}`, token: 'mkop_' + 'x'.repeat(30), cwds: ['C:\\dev\\'],
+      url: `http://127.0.0.1:${(srv.address() as { port: number }).port}`, token: 'mkop_' + 'x'.repeat(30), cwds: ['/proyectos/'],
       carpetas: { 'c4c4c4c4-aaaa-4bbb-8ccc-dddddddddddd': 'claude4' }, carteros: { claude4: { fuentes: [{ fuente: 'app', configDir: cfg }] } },
     }));
     writeFileSync(join(dir, 'claves.txt'), `${spki}\n`);
