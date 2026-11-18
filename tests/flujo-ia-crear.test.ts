@@ -64,6 +64,9 @@ function deps(o: {
     borrar: async (id) => { anota('borrar', id); },
     pausar: async (id) => { anota('pausar', id); },
     guardarPasos: async (id, pasos) => { anota('guardar', id); if (o.guardarTira) throw o.guardarTira; guardados = pasos; },
+    // Sin nota de voz por grabar (F80) no se guarda como borrador: tests/audio-por-grabar.test.ts lo ejecuta.
+    guardarBorrador: async () => { throw new Error('este flujo no va al borrador'); },
+    borradorDe: async () => null,
     motivoDePasos: (e) => (e instanceof MotivoPasos ? e.message : null),
     ponerDisparador: async (id, valor) => { anota('cron', id, valor); if (o.triggerTira) throw o.triggerTira; },
     motivoDeDisparador: (e) => (e instanceof MotivoCron ? e.message : null),

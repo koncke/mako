@@ -109,6 +109,9 @@ function deps(pedido: string, o: { contar?: number | null; modelo?: Record<strin
     borrar: async (id) => { anota('borrar', id); },
     pausar: async (id) => { anota('pausar', id); },
     guardarPasos: async (id, pasos) => { anota('guardar', id); guardados = pasos; },
+    // Sin nota de voz por grabar (F80) no se guarda como borrador: tests/audio-por-grabar.test.ts lo ejecuta.
+    guardarBorrador: async () => { throw new Error('este flujo no va al borrador'); },
+    borradorDe: async () => null,
     motivoDePasos: () => null,
     ponerDisparador: async (id, valor, cron) => { anota('cron', id, valor, cron ?? null); },
     motivoDeDisparador: () => null,

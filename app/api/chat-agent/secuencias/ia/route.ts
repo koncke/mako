@@ -311,7 +311,7 @@ export async function POST(req: NextRequest) {
               // Y QUÉ IA LO ESCRIBIÓ (27/10/2026, lib/quien-contesto.ts): el chat lo dice («Con tu Claude»).
               const ia = textoDeQuienContesto(r.quien);
               await anotar([mensajeChat('mako', r.texto, 'app', { avisos: r.avisos, ...(ia ? { ia } : {}) })]);
-              send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador, texto: r.texto, ...(r.cron ? { cron: r.cron } : {}), ...(ia ? { ia } : {}) });
+              send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador, texto: r.texto, ...(r.cron ? { cron: r.cron } : {}), ...(ia ? { ia } : {}), ...(r.borrador ? { borrador: true } : {}) });
               await siSeFue({ t: 'listo', nombre: r.nombre });
             } catch (err) {
               console.error(`[api:secuencias/ia] ${msg(err)}`);
