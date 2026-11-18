@@ -26,6 +26,9 @@ import { crearDesdeCopia } from './flujo-copia-negocio';
 import { disparadoresDeSecuencia } from './disparadores-canales';
 import { audiosDe, copiaDeFlujo, type CronCopiado, type PasoCopiado } from './flujo-copia';
 import { definicionPublicable, leerDefinicionAutomatizacion, resumenAutomatizacion } from './creaciones-automatizacion';
+import { guardarTableroSi, leerTableroVersionado } from './graficos-tablero';
+import { nombreDeHoja } from './graficos-copia';
+import { dashboardParaPublico, definicionDeHoja, hojaParaUsar, hojasPublicables, informeConHoja, resumenDashboard } from './creaciones-dashboard';
 import type { Posiciones } from './lienzo-posiciones';
 import type { TipoEnchufado } from './creaciones-reglas';
 
@@ -161,9 +164,56 @@ const formatoImagen: Enchufe = {
   },
 };
 
+// ── dashboard (una hoja del Dashboard, 18/11/2026) ───────────────────────────
+// El informe del Dashboard es POR PERSONA y por negocio (lib/graficos-tablero.ts): lo que se guarda como plantilla es una
+// hoja del informe de quien mira, y usarla la suma al SUYO. Sin sesión (un turno de WhatsApp) no hay de quién: lo dice.
+// ⚠️ La pantalla del Dashboard NO usa `usar` (el editor tiene el informe abierto y lo autoguarda con su versión: una hoja
+//    escrita por detrás le haría chocar el próximo guardado). Pide la definición con `tomarCreacion` y la agrega ella, con la
+//    misma `hojaParaUsar`. `usar` es la puerta de la galería (/creaciones) y de la API, que después abren el Dashboard.
+
+const SIN_INFORME = 'Esto se hace desde el Dashboard: la hoja va al informe de quien entra.';
+
+async function quienMiraElDashboard(): Promise<string> {
+  const yo = await getUsuarioActual();
+  if (!yo?.sub) throw new Error(SIN_INFORME);
+  return yo.sub;
+}
+
+const dashboard: Enchufe = {
+  async opciones() {
+    const l = await leerTableroVersionado(await quienMiraElDashboard());
+    return hojasPublicables(l.tablero).map((h) => ({ id: h.id, nombre: nombreDeHoja(h) }));
+  },
+
+  async exportar(origenId) {
+    const l = await leerTableroVersionado(await quienMiraElDashboard());
+    const h = hojasPublicables(l.tablero).find((x) => x.id === origenId);
+    if (!h) throw new NoExisteError('No existe esa hoja en tu Dashboard.');
+    return { definicion: definicionDeHoja(h), nombre: nombreDeHoja(h) };
+  },
+
+  resumir: resumenDashboard,
+  paraPublico: dashboardParaPublico,
+
+  async usar(def) {
+    const nueva = hojaParaUsar(def);
+    if (!nueva) throw new Error('La hoja de la plantilla no se pudo leer.');
+    const sub = await quienMiraElDashboard();
+    // Compare-and-set (`guardarTableroSi`): si otra pestaña autoguardó en el medio, se relee y se vuelve a sumar, una vez.
+    for (let vuelta = 0; vuelta < 2; vuelta++) {
+      const l = await leerTableroVersionado(sub);
+      const r = informeConHoja(l.tablero, nueva);
+      if ('error' in r) throw new Error(r.error);
+      const g = await guardarTableroSi(sub, r.tablero, l.version);
+      if (g.ok) return { id: r.hoja.id, nombre: nombreDeHoja(r.hoja), aviso: null, ruta: `/dashboard?hoja=${encodeURIComponent(r.hoja.id)}` };
+    }
+    throw new Error('Tu Dashboard cambió mientras se sumaba la hoja. Prueba de nuevo.');
+  },
+};
+
 /** Lo que se pidió no existe (o no sirve) en el negocio: un 404 legible, no un 500. */
 export class NoExisteError extends Error {
   constructor(m: string) { super(m); this.name = 'NoExisteError'; }
 }
 
-export const ENCHUFES: Record<TipoEnchufado, Enchufe> = { automatizacion, guion, formato_imagen: formatoImagen };
+export const ENCHUFES: Record<TipoEnchufado, Enchufe> = { automatizacion, guion, formato_imagen: formatoImagen, dashboard };

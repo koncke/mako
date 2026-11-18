@@ -77,6 +77,8 @@ const POR_QUE_NO: Record<string, string> = {
   'sin-clases': 'sus funnels no tienen clases',
   cortado: 'su acceso está cortado',
   'no-ganado': 'no está ganado en su funnel principal',
+  // (18/11/2026, O12) Lo sacaron de ese programa en Members: volver a ganarlo no le reabre el curso.
+  sacado: 'se le sacó del programa en Members',
 };
 
 /**

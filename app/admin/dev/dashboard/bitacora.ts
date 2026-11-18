@@ -1339,4 +1339,29 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '18 nov', hora: '01:30', chat: 'Lo que falta construir (nube)', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes: las plantillas propias del Dashboard',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: ['Llegó por el coordinador de la nube, con la lista verificada del 17/11 (F122, F123: el Dashboard sin enchufe de creaciones).'],
+  },
+  {
+    fecha: '18 nov', hora: '01:49', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una hoja se guarda como plantilla y aparece en «Nueva hoja», para tu negocio o para la comunidad',
+    puntos: [
+      '**«Guardar como plantilla» en el ⋮ de cada hoja**: sólo para tu negocio, o para toda la comunidad.',
+      '**«Nueva hoja» las muestra primero**, con la miniatura de la hoja: las tuyas y las mejores de la comunidad.',
+      '**Compartida, sale sin tus datos**: sin los filtros que nombran a tu gente o tus campañas, sin tus fotos ni enlaces, y con los textos limpios.',
+      '**Usarla la agrega al final de tu Dashboard**, con todo nuevo; desde la galería o desde MaKo, también.',
+    ],
+    commits: [{ sha: '1fe0232071', msg: 'Plantillas propias del Dashboard, la moderación de lo publicado en Admin y el precio «USD 1,200 al mes» de Offer', lineas: 1131, archivos: 25 }],
+    archivos: [
+      'lib/creaciones-dashboard.ts — qué es la plantilla, qué sale al compartirla y cómo entra al informe',
+      'lib/creaciones-enchufes.ts — el enchufe `dashboard` (lo usan la galería y la API)',
+      'app/dashboard/PlantillasPropiasHoja.tsx — «Tus plantillas» en «Nueva hoja»',
+      'app/dashboard/Cabecera.tsx · EditorInforme.tsx — el «Guardar como plantilla» del ⋮',
+    ],
+    revisar: '/dashboard',
+  },
 ];
