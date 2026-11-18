@@ -154,6 +154,10 @@ test('las cifras y la garantía sin fuente se avisan (12/11/2026, en producción
   assert.equal(c.garantia, true);
   assert.equal(cifrasSinFuente('Una garantía de 30 días.', 'Garantía de devolución de 30 días.').garantia, false, 'la garantía del negocio sí');
   assert.deepEqual(cifrasSinFuente('El 41 % de los que escriben compra.', 'testimonio: 41 % compró').cifras, []);
+  // 18/11/2026: el guion de antes llega con su id adelante de cada renglón (`guionParaIA`), y un id es al azar. El «73» de
+  // «[bq73xk2ab]» no es una fuente del «73 %» (los evals del experto daban rojo una vez cada tantas corridas por esto).
+  assert.deepEqual(cifrasSinFuente('El 73 % llegaba a la propuesta.', '[bq73xk2ab] (texto) Hola\n[b4k9z7mwp] ## SECCIÓN CTA: CTA').cifras, ['73 %'], 'el id de un bloque no es una fuente');
+  assert.deepEqual(cifrasSinFuente('El 73 % llegaba a la propuesta.', '[bq73xk2ab] (texto) El 73 % compró').cifras, [], 'lo que el bloque DICE sí lo es');
   const avisos = avisosDeCifras(c);
   assert.match(avisos[0], /Tiene cifras que no salen de tu negocio \(73 %, 60 %\)/);
   assert.match(avisos[1], /Promete una garantía o una devolución/);

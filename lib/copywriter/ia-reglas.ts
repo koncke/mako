@@ -43,6 +43,12 @@ export function guionParaIA(doc: JsonNodo): string {
   return lineas.join('\n') || '(el guion está vacío)';
 }
 
+/**
+ * El texto de `guionParaIA` sin los ids de bloque («[b4k73xq2z]», la forma de `BID_RE` en ./doc). Los ids son al azar: para
+ * buscar un NÚMERO en lo que MaKo leyó, sus dígitos no cuentan (`cifrasSinFuente`).
+ */
+export const sinIdsDeBloque = (t: string): string => t.replace(/\[b[a-z0-9]{6,16}\]/g, ' ');
+
 /** Las propiedades del guion en una línea (tipo, ángulo, estructura y duración, con sus nombres). */
 export function propsParaIA(props: PropsGuion, nombres: { angulo?: string | null; estructura?: string | null }): string {
   const partes = [`Tipo: ${INFO_TIPO[props.tipo].label} (${INFO_TIPO[props.tipo].uno})`];
@@ -113,10 +119,14 @@ export function bloqueIdiomaCopy(acentoPrompt: string | null, vosea = false): st
  * «N veces / Nx» (las duraciones y las cantidades de la estructura, como «30 días» o «3 segundos», no), y una promesa de garantía
  * o devolución. Una cifra tiene fuente si ese número aparece en lo que MaKo leyó (el negocio, el original, la charla, el guion de
  * antes, los adjuntos).
+ * ⚠️ Sin los ids de bloque (18/11/2026, lo encontraron los evals del experto: daban rojo una vez cada tantas corridas). El guion
+ * de antes llega como `guionParaIA`, con «[b4k73xq2z]» adelante de cada renglón: son al azar, y el «73» de un id le daba fuente
+ * al «73 %» que el modelo inventó. Medido con ids al azar: con 30 bloques, un número de dos cifras sale suelto en algún id el
+ * 10 % de las veces (con 60, el 19 %), y uno de una cifra («3 veces», «5x») el 99 %: ésos no se avisaban casi nunca.
  */
 export function cifrasSinFuente(escrito: string, fuentes: string): { cifras: string[]; garantia: boolean } {
   const digitos = (t: string) => t.replace(/[.,\s]/g, '');
-  const conFuente = new Set((fuentes.match(/\d+(?:[.,]\d+)*/g) ?? []).map(digitos));
+  const conFuente = new Set((sinIdsDeBloque(fuentes).match(/\d+(?:[.,]\d+)*/g) ?? []).map(digitos));
   const cifras: string[] = [];
   for (const m of escrito.matchAll(/(\d+(?:[.,]\d+)*)\s*(%|por ciento|veces\b|x\b)/gi)) {
     const tal = m[0].replace(/\s+/g, ' ').trim();

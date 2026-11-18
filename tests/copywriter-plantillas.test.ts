@@ -27,7 +27,7 @@ import { ESTRUCTURAS_VSL_DEFAULT } from '../lib/vsl-estructuras';
 import { idDeMudanza, loQueSeMuda, paginasDeAdsWriter, paginasDeReels, TOPE_MUDANZA } from '../lib/copywriter/mudanza-reglas';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { REALES, sinAcentos } from './_reales';
+import { REALES, problemasDelEjemplo, sinAcentos } from './_reales';
 
 const catalogos = catalogosLite(ANGULOS_GUION_DEFAULT, conVsl(ESTRUCTURAS_GUION_DEFAULT));
 const plantillas = plantillasDe(catalogos);
@@ -42,13 +42,18 @@ test('los templates: ids únicos, tipos que existen y los grupos en su orden', (
   // Lo que pidió Martín: Reels, copys de anuncios, emails, posts y VSL; y lo que ya tenía (el guion de anuncio, stories, YouTube).
   for (const id of ['reel', 'copy-anuncio', 'email', 'carrusel', 'guion-anuncio', 'stories', 'youtube', 'blanco']) assert.ok(plantillaPorId(catalogos, id), id);
   assert.ok(plantillas.some((p) => p.tipo === 'vsl'));
-  // Las 12 de las plantillas reales (docs/plantillas-reales/copywriter.md, 2), en la galería y en su orden, más la página
-  // en blanco. Las tres VSL sin ejemplo salen de la galería pero siguen resolviendo por id (la API).
+  // Las 12 de las plantillas reales (docs/plantillas-reales/copywriter.md, 2) y las tres VSL que volvieron con su ejemplo el
+  // 18/11/2026, en la galería y en su orden, más la página en blanco.
   assert.deepEqual(plantillasVisibles(plantillas).map((p) => p.id), [
     'guion-anuncio', 'testimonio', 'copy-anuncio', 'banco-ganchos', 'reel', 'stories', 'carrusel', 'email', 'secuencia-nutricion',
-    'vsl-respuesta-directa', 'vsl-clase-educativa', 'youtube', 'blanco',
+    'vsl-respuesta-directa', 'vsl-clase-educativa', 'vsl-anti-solucion', 'vsl-diagnostico', 'vsl-historia-fundador', 'youtube', 'blanco',
   ]);
-  for (const id of ['vsl-anti-solucion', 'vsl-diagnostico', 'vsl-historia-fundador']) assert.equal(plantillaPorId(catalogos, id)?.visible, false, id);
+  // Ninguna VSL de fábrica queda fuera de la galería: todas tienen su ejemplo y su estructura fija.
+  for (const v of ESTRUCTURAS_VSL_DEFAULT.filter((x) => x.activo)) {
+    const p = plantillaPorId(catalogos, v.id);
+    assert.ok(p?.visible !== false && p?.ejemplo, `${v.id}: sin ejemplo o fuera de la galería`);
+    assert.equal(p!.estructura, v.id, `${v.id}: la página nace con su estructura`);
+  }
 });
 
 test('cada template nace guardable y vuelve igual de BlockNote', () => {
@@ -151,7 +156,7 @@ const MULETILLAS = /en el mundo de hoy|\bdescubre\b|\bpotencia\b|transforma tu v
 test('cada ejemplo es completo y de un negocio ficticio: 🧪 arriba, sin [DATO:, sin {{, sin voseo, sin muletillas ni nombres reales', () => {
   assert.ok(REALES.length >= 10, 'no se pudo leer la lista REALES');
   const conEjemplo = plantillas.filter((p) => p.ejemplo);
-  assert.equal(conEjemplo.length, 12);
+  assert.equal(conEjemplo.length, 15, 'las 12 de las plantillas reales y las tres VSL del 18/11/2026');
   for (const p of conEjemplo) {
     const doc = p.contenido();
     const texto = textoDelDoc(doc);
@@ -162,6 +167,7 @@ test('cada ejemplo es completo y de un negocio ficticio: 🧪 arriba, sin [DATO:
     assert.deepEqual(marcasDeVoseo(texto), [], `${p.id}: voseo`);
     assert.ok(!MULETILLAS.test(texto), `${p.id}: una muletilla que el experto prohíbe`);
     for (const r of REALES) assert.ok(!sinAcentos(texto).includes(sinAcentos(r)), `${p.id} nombra a ${r}, que es real`);
+    assert.deepEqual(problemasDelEjemplo(texto), [], `${p.id}: gente real, voseo o regionalismos`);
     for (const b of bloquesDelDoc(doc)) {
       const n = (b.texto.match(CONTRASTE) ?? []).length;
       assert.ok(n === 0 || (n === 1 && ['GANCHO', 'TEXTO PRINCIPAL'].includes(b.seccion ?? '')), `${p.id}: un contraste fuera del gancho (${b.seccion}): «${b.texto.slice(0, 80)}»`);
@@ -284,3 +290,6 @@ test('la mudanza pone los Reels PRIMERO: con el tope lleno de guiones, los Reels
 // Verificado rompiéndolo (29/10/2026, 7 tests): con `TITULO` fuera de CON_TILDE (doc.ts), 1 falla (el «Título»); con el
 // template del Reel sin la sección CAPTION, 1; con la mudanza sin mirar el catálogo (el ángulo tal cual), 1; con
 // `loQueSeMuda` sin contar al padre, ninguno hasta que se sumó el caso de 5 lugares: ahora 1. Restaurado: 7 de 7.
+// Y las tres VSL del 18/11/2026 (base 16/0): sin la fila de `vsl-diagnostico` en VSL_CON_EJEMPLO, 2 fallan (la galería y los
+// 15 con ejemplo); con un «no es un guion, es la venta consultiva» en la CATEGORIA NUEVA de la contrarian, 1 (el contraste
+// fuera del gancho). Restaurado: 16 de 16.
