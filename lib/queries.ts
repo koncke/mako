@@ -666,15 +666,16 @@ export type SCLLeadItem = {
  */
 export async function getSCLLeads(): Promise<SCLLeadItem[]> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('leads')
-    .select('id, nombre, fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago')
-    .not('fecha_agenda', 'is', null)
-    .not('fecha_primer_pago', 'is', null);
-  if (error) throw new Error(`getSCLLeads falló: ${error.message}`);
+  type FilaSCL = { id: number; nombre: string | null; fecha_agenda: string; fecha_junta_1: string | null; fecha_junta_2: string | null; fecha_confirmacion: string | null; fecha_primer_pago: string };
+  // Paginado (P20, 18/11/2026): un `.select()` plano cortaba en 1000 leads sin error y el desglose de SCL perdía a los
+  // del final. Orden por `id` (PK); el orden que se muestra (por días, abajo) se aplica en memoria DESPUÉS de leer.
+  const data = await leerTodo<FilaSCL>(
+    supabase, 'leads', 'id, nombre, fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago',
+    { orden: 'id', filtros: (q) => q.not('fecha_agenda', 'is', null).not('fecha_primer_pago', 'is', null) },
+  ).catch((e: unknown) => { throw new Error(`getSCLLeads falló: ${e instanceof Error ? e.message : String(e)}`); });
 
   const out: SCLLeadItem[] = [];
-  for (const r of (data ?? []) as Array<{ id: number; nombre: string | null; fecha_agenda: string; fecha_junta_1: string | null; fecha_junta_2: string | null; fecha_confirmacion: string | null; fecha_primer_pago: string }>) {
+  for (const r of data) {
     const [ay, am, ad] = r.fecha_agenda.split('-').map(Number);
     const [py, pm, pd] = r.fecha_primer_pago.split('-').map(Number);
     const dias = Math.floor((Date.UTC(py, pm - 1, pd) - Date.UTC(ay, am - 1, ad)) / 86400000);

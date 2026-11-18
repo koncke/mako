@@ -14,7 +14,10 @@ línea «18/11» debajo de cada uno); acá va lo que hace falta para seguir.
 - **P27, lo que le quedaba** (`d33fa5ec`): el link que sigue abierto en la pasarela de una cuota ya cobrada va a los errores de la app.
 - **P17** (`34c00bc4`): la pasarela no abre el pago de una landing → notificación urgente al negocio.
 - **P37** (`34c00bc4`): el Admin del teléfono ya no dice «Plan a mano» de quien no lo tiene.
-- **P20**: ver la línea de P20 en el documento de pendientes (lo hizo un ayudante; el resultado está ahí).
+- **P20**: 20 de las 23 lecturas con techo de 1000 filas paginan (tests/techo-1000-p20.test.ts). De paso: el barrido de
+  dependencias ya no borra todo con la lectura caída, «proyectos vacíos» no da a todos por vacíos si no pudo leer, y el
+  aviso «recortado» del Plan mide sólo los proyectos. Queda `soldUsd` (necesita que tests/venta-sin-cobro.test.ts reconozca
+  la forma paginada) y los proyectos, que siguen sin paginar.
 - **P21**: `docs/hallazgos.md` con una fila por documento (81 → 64), sin perder entradas.
 
 ## Lo que espera al Cerebro (escribe en producción: con el sí de Martín)
