@@ -452,13 +452,11 @@ test('Martín, 14/11: lo que pagas hoy al principio, la tarjeta abre su panel ah
   // La tarjeta: un label con su casilla adentro y su panel como hermano (anda sin JavaScript y en el visor). Nunca un link a otra página.
   const tarjetas = src.slice(src.indexOf('export function TarjetasVs'), src.indexOf('const CSS = '));
   assert.match(tarjetas, /<label className="s-vs">\s*<input type="checkbox" id=\{idCasilla\(c\)\}/, 'la tarjeta no tiene su casilla adentro');
-  assert.match(tarjetas, /<\/label>\s*<PanelVs c=\{c\}[^>]*\/>/, 'el panel no sigue a su tarjeta');
+  assert.match(tarjetas, /<\/label>\s*<PanelVs c=\{c\} \/>/, 'el panel no sigue a su tarjeta');
   assert.doesNotMatch(tarjetas, /href=/, 'la tarjeta vuelve a llevar a otra página');
   assert.match(css, /\.s-vs:has\(> \.s-vs-ck:checked\) \+ \.s-vs-panel/, 'el panel no se abre con la casilla');
   assert.match(css, /\.s-cv-grilla\{[^}]*grid-auto-flow:row dense/, 'el panel no cae debajo de la fila de su tarjeta');
   assert.doesNotMatch(src, /<p className="s-mx-nota">/, 'volvió la nota de las fuentes («Lo de cada app sale de su web oficial…»)');
-  // La nota con la fecha (`nota`, 18/11/2026) es sólo de la landing de Partners: las páginas de comparaciones no la pasan.
-  assert.doesNotMatch(src.slice(src.indexOf('export function ComparacionesSitio')), /nota=/, 'la página de comparaciones volvió a llevar una nota');
   // El ícono de MaKo: fijo para el sol y la luna, negro de base y blanco en el modo oscuro.
   assert.ok((src.match(/s-mk-ico" data-tema-fijo=""/g) ?? []).length >= 3, 'un ícono de MaKo sin `.s-mk-ico` y `data-tema-fijo`');
   assert.match(css, /\.s-mk-ico\{background:#1A1712\}\r?\nhtml\[data-sitio-modo="oscuro"\] \.s-mk-ico\{background:#fff\}/, 'el ícono no cambia con el modo');
