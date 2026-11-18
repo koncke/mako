@@ -2293,6 +2293,9 @@ una tanda con su chequeo; `renders.mjs` renderiza y deja una hoja de cuadros por
   del centro, para no pasar por su cabeza. Esperaba también después de un título azul, donde el personaje no está y entra por la
   derecha: el texto nunca se cruza con él. Ahora espera sólo después de una pantalla `heroe` (engine3.js, `textoLado`). Se vio en
   la hoja de cuadros de funnel-coach, no en el log.
+- **El chequeo de la voz dejaba pasar una palabra DE MÁS.** Partners (18/11) decía «se suma A lo tuyo» y salió con ✅: el
+  chequeo marca las palabras agregadas como «de más», y `hacer.mjs` sólo buscaba «sobrante» o «repetida». Ahora «de más» es una
+  diferencia de verdad y pide otra toma. Revisados los 47 de ese día: era el único.
 - **La regla de las letras tapadas se mide sólo en el modo de cuadros de `render2.cjs`.** Un `hacer.mjs <id> video` no la mide.
   `renders.mjs` corre antes una pasada de cuadros y anota el veredicto.
 - **Medido:** 47 voces dicen su guion (3 pidieron una toma más) y cobraron ~8.600 créditos. Cada render tarda 45 a 110 s con la GPU.

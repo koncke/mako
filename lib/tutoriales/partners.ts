@@ -15,7 +15,7 @@ export const TUTORIAL_PARTNERS: TutorialPestana = {
   pestana: 'partners',
   nombre: 'MaKo Partners',
   ruta: '/partners',
-  intro: 'Cada negocio que traes a MaKo te deja su primer mes entero, en dinero.',
+  intro: 'Cada negocio que traes a MaKo te deja el 30 por ciento de lo que paga, todos los meses, para siempre.',
   pasos: [
     {
       sel: '[data-recorrido="tour-partners-hacerme"]',
@@ -27,8 +27,8 @@ export const TUTORIAL_PARTNERS: TutorialPestana = {
     {
       sel: '[data-recorrido="tour-partners-a-cobrar"]',
       titulo: 'A cobrar',
-      texto: 'Lo que ganaste y todavía no te transferimos: entra cuando el negocio que trajiste paga su segundo mes.',
-      sub: 'Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes.',
+      texto: 'Lo que ganaste y todavía no te transferimos: cada mes que el negocio que trajiste paga, se suma tu parte.',
+      sub: 'Toca aquí, en A cobrar: cada mes que ese negocio paga, se suma a lo tuyo.',
       lado: 'abajo',
     },
   ],

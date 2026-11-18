@@ -2598,39 +2598,39 @@
    "ruta": "/partners",
    "archivo": "/tutoriales/partners.mp4",
    "poster": "/tutoriales/partners.jpg",
-   "duracion_s": 27.7,
-   "peso_kb": 1321,
-   "guion": "Cada negocio que traes a MaKo te deja su primer mes entero, en dinero. Te doy la bienvenida a MaKo Partners, en el menú de tu foto: aquí vas a poder ganar dinero por recomendar MaKo. Mira aquí, Hacerme partner: es gratis, son tres preguntas y tu link aparece al instante. Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes. Listo: comparte tu link, y si alguien no entra por él, que ponga tu código al pagar.",
+   "duracion_s": 29.77,
+   "peso_kb": 1476,
+   "guion": "Cada negocio que traes a MaKo te deja el 30 por ciento de lo que paga, todos los meses, para siempre. Te doy la bienvenida a MaKo Partners, en el menú de tu foto: aquí vas a poder ganar dinero por recomendar MaKo. Mira aquí, Hacerme partner: es gratis, son tres preguntas y tu link aparece al instante. Toca aquí, en A cobrar: cada mes que ese negocio paga, se suma a lo tuyo. Listo: comparte tu link, y si alguien no entra por él, que ponga tu código al pagar.",
    "frases": [
     {
      "id": "partners-1",
      "rol": "gancho",
-     "texto": "Cada negocio que traes a MaKo te deja su primer mes entero, en dinero.",
-     "t_inicio": 0.06,
-     "t_fin": 4.22
+     "texto": "Cada negocio que traes a MaKo te deja el 30 por ciento de lo que paga, todos los meses, para siempre.",
+     "t_inicio": 0.04,
+     "t_fin": 6.08
     },
     {
      "id": "partners-2",
      "rol": "que-es",
      "texto": "Te doy la bienvenida a MaKo Partners, en el menú de tu foto: aquí vas a poder ganar dinero por recomendar MaKo.",
-     "t_inicio": 4.76,
-     "t_fin": 10.78
+     "t_inicio": 6.6,
+     "t_fin": 12.8
     },
     {
      "id": "partners-3",
      "rol": "accion",
      "texto": "Mira aquí, Hacerme partner: es gratis, son tres preguntas y tu link aparece al instante.",
-     "t_inicio": 11.22,
-     "t_fin": 16.74,
+     "t_inicio": 13.24,
+     "t_fin": 18.78,
      "sel": "[data-recorrido=\"tour-partners-hacerme\"]",
      "espera_clic": false
     },
     {
      "id": "partners-4",
      "rol": "accion",
-     "texto": "Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes.",
-     "t_inicio": 17.26,
-     "t_fin": 21.92,
+     "texto": "Toca aquí, en A cobrar: cada mes que ese negocio paga, se suma a lo tuyo.",
+     "t_inicio": 19.22,
+     "t_fin": 24.02,
      "sel": "[data-recorrido=\"tour-partners-a-cobrar\"]",
      "espera_clic": true
     },
@@ -2638,8 +2638,8 @@
      "id": "partners-5",
      "rol": "cierre",
      "texto": "Listo: comparte tu link, y si alguien no entra por él, que ponga tu código al pagar.",
-     "t_inicio": 22.42,
-     "t_fin": 27.02,
+     "t_inicio": 24.5,
+     "t_fin": 29.06,
      "espera_clic": false
     }
    ],
@@ -2647,8 +2647,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "idéntico",
-   "hecho": "2026-11-18T14:31:43.806Z"
+   "chequeo": "30 → treinta (ortografía del transcriptor)",
+   "hecho": "2026-11-18T18:19:29.525Z"
   },
   {
    "key": "agency",
