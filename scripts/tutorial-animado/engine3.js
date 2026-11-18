@@ -142,7 +142,9 @@ function textoDetras(ctx, W, H, c, age, life) {
 function textoLado(ctx, W, H, c, age, life) {
   var f = ajustar(ctx, unido(c), 112, W * 0.52, 3, 72), lh = f.size * 1.14, alto = f.lines.length * lh;
   // when he is still crossing over from the center, the text waits for him (it would show through his head)
-  var espera = CH[CH.indexOf(c) - 1] && CH[CH.indexOf(c) - 1].modo !== 'lado' ? 220 : 0, a2 = age - espera;
+  // only when he comes from the CENTER (heroe): after a blue title he enters from the right edge and the text never meets him —
+  // waiting there left ~0,3 s of empty white between the blue and the next screen (seen 18/11 in funnel-coach)
+  var espera = CH[CH.indexOf(c) - 1] && CH[CH.indexOf(c) - 1].modo === 'heroe' ? 220 : 0, a2 = age - espera;
   var op = eoCubic(clamp(a2 / 300, 0, 1)), dx = lerp(-36, 0, eoBack(clamp(a2 / 420, 0, 1)));
   if (age > life - 200) op *= 1 - clamp((age - (life - 200)) / 200, 0, 1) * 0.9;
   ctx.save(); ctx.globalAlpha = op; ctx.translate(dx, 0);

@@ -2,63 +2,220 @@
  "_": "Los tutoriales en video de cada pestaña de MaKo (texto al ritmo de la voz de Martín, su clon de ElevenLabs). Los arma scripts/tutorial-animado/hacer.mjs; key = id del guion en scripts/tutorial-animado/guiones.json.",
  "videos": [
   {
+   "key": "onboarding-bienvenida",
+   "pestana": "Onboarding · Bienvenida",
+   "ruta": "/onboarding",
+   "archivo": "/tutoriales/onboarding-bienvenida.mp4",
+   "poster": "/tutoriales/onboarding-bienvenida.jpg",
+   "duracion_s": 21.2,
+   "peso_kb": 1206,
+   "guion": "¡Hola! Soy Martín, el creador de MaKo. Bueno, mi versión en cubos. Te doy la bienvenida a MaKo: desde hoy tienes un equipo entero trabajando para tu negocio. Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho. Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
+   "frases": [
+    {
+     "id": "onboarding-bienvenida-1",
+     "rol": "gancho",
+     "texto": "¡Hola! Soy Martín, el creador de MaKo. Bueno, mi versión en cubos.",
+     "t_inicio": 0.04,
+     "t_fin": 4.24
+    },
+    {
+     "id": "onboarding-bienvenida-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a MaKo: desde hoy tienes un equipo entero trabajando para tu negocio.",
+     "t_inicio": 4.76,
+     "t_fin": 9.78
+    },
+    {
+     "id": "onboarding-bienvenida-3",
+     "rol": "cosa",
+     "texto": "Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho.",
+     "t_inicio": 10.38,
+     "t_fin": 15
+    },
+    {
+     "id": "onboarding-bienvenida-4",
+     "rol": "cierre",
+     "texto": "Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
+     "t_inicio": 15.48,
+     "t_fin": 20.52,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "7 → siete (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:40:43.218Z"
+  },
+  {
+   "key": "onboarding-whatsapp",
+   "pestana": "Onboarding · Tu WhatsApp",
+   "ruta": "/onboarding",
+   "archivo": "/tutoriales/onboarding-whatsapp.mp4",
+   "poster": "/tutoriales/onboarding-whatsapp.jpg",
+   "duracion_s": 18.37,
+   "peso_kb": 1096,
+   "guion": "Tu WhatsApp es por donde MaKo te manda avances sobre tu negocio. Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito, con tu código. En cuanto llega, tu número queda confirmado solo. Y guarda el contacto de MaKo en tu teléfono: así esos avances siempre te llegan.",
+   "frases": [
+    {
+     "id": "onboarding-whatsapp-1",
+     "rol": "gancho",
+     "texto": "Tu WhatsApp es por donde MaKo te manda avances sobre tu negocio.",
+     "t_inicio": 0.1,
+     "t_fin": 3.36
+    },
+    {
+     "id": "onboarding-whatsapp-2",
+     "rol": "que-es",
+     "texto": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito, con tu código.",
+     "t_inicio": 3.78,
+     "t_fin": 9.28
+    },
+    {
+     "id": "onboarding-whatsapp-3",
+     "rol": "cosa",
+     "texto": "En cuanto llega, tu número queda confirmado solo.",
+     "t_inicio": 9.8,
+     "t_fin": 12.7
+    },
+    {
+     "id": "onboarding-whatsapp-4",
+     "rol": "cierre",
+     "texto": "Y guarda el contacto de MaKo en tu teléfono: así esos avances siempre te llegan.",
+     "t_inicio": 13.24,
+     "t_fin": 17.68,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T13:41:24.897Z"
+  },
+  {
+   "key": "onboarding-seguir-pc",
+   "pestana": "Onboarding · Sigamos en tu computadora",
+   "ruta": "/onboarding (en el teléfono)",
+   "archivo": "/tutoriales/onboarding-seguir-pc.mp4",
+   "poster": "/tutoriales/onboarding-seguir-pc.jpg",
+   "duracion_s": 19.5,
+   "peso_kb": 1105,
+   "guion": "Desde el teléfono, esto era todo por ahora. Lo que sigue se ve mucho mejor en una pantalla grande: MaKo por dentro y tu reto de 7 días. Abre MaKo en tu computadora con el link que te mandamos a tu correo, y entra con tu cuenta. Lo que contestaste ya está guardado: sigues justo donde quedaste.",
+   "frases": [
+    {
+     "id": "onboarding-seguir-pc-1",
+     "rol": "gancho",
+     "texto": "Desde el teléfono, esto era todo por ahora.",
+     "t_inicio": 0.1,
+     "t_fin": 2.42
+    },
+    {
+     "id": "onboarding-seguir-pc-2",
+     "rol": "que-es",
+     "texto": "Lo que sigue se ve mucho mejor en una pantalla grande: MaKo por dentro y tu reto de 7 días.",
+     "t_inicio": 2.88,
+     "t_fin": 9.18
+    },
+    {
+     "id": "onboarding-seguir-pc-3",
+     "rol": "cosa",
+     "texto": "Abre MaKo en tu computadora con el link que te mandamos a tu correo, y entra con tu cuenta.",
+     "t_inicio": 9.74,
+     "t_fin": 14.32
+    },
+    {
+     "id": "onboarding-seguir-pc-4",
+     "rol": "cierre",
+     "texto": "Lo que contestaste ya está guardado: sigues justo donde quedaste.",
+     "t_inicio": 14.86,
+     "t_fin": 18.82,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "7 → siete (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:42:07.724Z"
+  },
+  {
    "key": "recorrido",
    "pestana": "Recorrido general (onboarding)",
    "ruta": "/second-brain",
    "archivo": "/tutoriales/recorrido.mp4",
    "poster": "/tutoriales/recorrido.jpg",
-   "duracion_s": 36.83,
-   "peso_kb": 1366,
-   "guion": "MaKo trae un equipo entero para tu negocio: te lo presento en un minuto. Todo arranca en el Ops Center: escribes lo que te hace falta, y MaKo se encarga. Toca aquí, en Funnel Coach, que arma contigo tu oferta y tu sistema para conseguir clientes. A la izquierda, tu panel con todas las pestañas: toca aquí, en Uso, para ver cuánto lleva gastado tu IA. Si algo falla, toca aquí, en Ticketera, y repórtalo al equipo en su propio chat. Ahora que conoces a tu equipo, toca aquí, en Reto de 7 días, y arranca tu día 1: cada día trae su paso y su video, y puedes adelantar días.",
+   "duracion_s": 41.57,
+   "peso_kb": 1523,
+   "guion": "¡Hola de nuevo! Ya estás adentro de MaKo. MaKo trae un equipo entero para tu negocio: te lo presento en un minuto. Todo arranca en el Ops Center: escribes lo que te hace falta, y MaKo se encarga. Mira aquí, Offer Coach: arma contigo tu oferta. Y aquí, Funnel Coach: tu sistema para conseguir clientes. A la izquierda, tu panel con todas las pestañas: toca aquí, en Uso, para ver cuánto lleva gastado tu IA. Si algo falla, toca aquí, en Ticketera, y repórtalo al equipo en su propio chat. Ahora que conoces a tu equipo, toca aquí, en Reto de 7 días, y arranca tu día 1: cada día trae su paso y su video, y puedes adelantar días.",
    "frases": [
     {
      "id": "recorrido-1",
      "rol": "gancho",
-     "texto": "MaKo trae un equipo entero para tu negocio: te lo presento en un minuto.",
-     "t_inicio": 0.1,
-     "t_fin": 4.52
+     "texto": "¡Hola de nuevo! Ya estás adentro de MaKo.",
+     "t_inicio": 0.04,
+     "t_fin": 2.5
     },
     {
      "id": "recorrido-2",
-     "rol": "que-es",
-     "texto": "Todo arranca en el Ops Center: escribes lo que te hace falta, y MaKo se encarga.",
-     "t_inicio": 5,
-     "t_fin": 9.56
+     "rol": "gancho",
+     "texto": "MaKo trae un equipo entero para tu negocio: te lo presento en un minuto.",
+     "t_inicio": 2.94,
+     "t_fin": 7.4
     },
     {
      "id": "recorrido-3",
-     "rol": "accion",
-     "texto": "Toca aquí, en Funnel Coach, que arma contigo tu oferta y tu sistema para conseguir clientes.",
-     "t_inicio": 9.94,
-     "t_fin": 15.2,
-     "sel": "button[title=\"Funnel Coach\"]",
-     "espera_clic": true
+     "rol": "que-es",
+     "texto": "Todo arranca en el Ops Center: escribes lo que te hace falta, y MaKo se encarga.",
+     "t_inicio": 7.96,
+     "t_fin": 12.5
     },
     {
      "id": "recorrido-4",
      "rol": "accion",
+     "texto": "Mira aquí, Offer Coach: arma contigo tu oferta.",
+     "t_inicio": 12.9,
+     "t_fin": 16,
+     "sel": "button[title=\"Offer Coach\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "recorrido-5",
+     "rol": "accion",
+     "texto": "Y aquí, Funnel Coach: tu sistema para conseguir clientes.",
+     "t_inicio": 16.38,
+     "t_fin": 19.8,
+     "sel": "button[title=\"Funnel Coach\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "recorrido-6",
+     "rol": "accion",
      "texto": "A la izquierda, tu panel con todas las pestañas: toca aquí, en Uso, para ver cuánto lleva gastado tu IA.",
-     "t_inicio": 15.56,
-     "t_fin": 21.82,
+     "t_inicio": 20.2,
+     "t_fin": 26.42,
      "sel": "[data-recorrido=\"sb-uso\"]",
      "espera_clic": true,
      "cierra_despues": true
     },
     {
-     "id": "recorrido-5",
+     "id": "recorrido-7",
      "rol": "accion",
      "texto": "Si algo falla, toca aquí, en Ticketera, y repórtalo al equipo en su propio chat.",
-     "t_inicio": 22.28,
-     "t_fin": 26.88,
+     "t_inicio": 26.88,
+     "t_fin": 31.44,
      "sel": "[data-recorrido=\"sb-ticketera\"]",
      "espera_clic": true
     },
     {
-     "id": "recorrido-6",
+     "id": "recorrido-8",
      "rol": "cierre",
      "texto": "Ahora que conoces a tu equipo, toca aquí, en Reto de 7 días, y arranca tu día 1: cada día trae su paso y su video, y puedes adelantar días.",
-     "t_inicio": 27.3,
-     "t_fin": 36.14,
+     "t_inicio": 31.92,
+     "t_fin": 40.86,
      "sel": "button[title=\"Reto de 7 días\"]",
      "espera_clic": false
     }
@@ -67,8 +224,503 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "mako → maco · center → opcenter · mako → maco · 7 → siete · 1 → uno (ortografía del transcriptor)",
-   "hecho": "2026-11-18T06:48:51.487Z"
+   "chequeo": "mako → maco · mako → maco · mako → maco · 7 → siete · 1 → uno (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:50:20.983Z"
+  },
+  {
+   "key": "offer-coach",
+   "pestana": "Offer Coach",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/offer-coach.mp4",
+   "poster": "/tutoriales/offer-coach.jpg",
+   "duracion_s": 22.57,
+   "peso_kb": 1261,
+   "guion": "Si tu oferta no convence, ningún anuncio la salva. Te doy la bienvenida a Offer Coach: aquí armas tu oferta, que es todo lo que prometes y entregas. Te pregunta una cosa a la vez, y si algo no conviene, te frena. Al final te deja el diagnóstico de tu oferta, con su nota. Mira aquí, la caja del chat: contéstale la primera pregunta.",
+   "frases": [
+    {
+     "id": "offer-coach-1",
+     "rol": "gancho",
+     "texto": "Si tu oferta no convence, ningún anuncio la salva.",
+     "t_inicio": 0.1,
+     "t_fin": 3.28
+    },
+    {
+     "id": "offer-coach-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a Offer Coach: aquí armas tu oferta, que es todo lo que prometes y entregas.",
+     "t_inicio": 3.8,
+     "t_fin": 10
+    },
+    {
+     "id": "offer-coach-3",
+     "rol": "cosa",
+     "texto": "Te pregunta una cosa a la vez, y si algo no conviene, te frena.",
+     "t_inicio": 10.54,
+     "t_fin": 14.34
+    },
+    {
+     "id": "offer-coach-4",
+     "rol": "cosa",
+     "texto": "Al final te deja el diagnóstico de tu oferta, con su nota.",
+     "t_inicio": 14.82,
+     "t_fin": 17.94
+    },
+    {
+     "id": "offer-coach-5",
+     "rol": "cierre",
+     "texto": "Mira aquí, la caja del chat: contéstale la primera pregunta.",
+     "t_inicio": 18.5,
+     "t_fin": 21.88,
+     "sel": "[data-recorrido=\"sb-escribir\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T13:44:42.961Z"
+  },
+  {
+   "key": "funnel-coach",
+   "pestana": "Funnel Coach",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-coach.mp4",
+   "poster": "/tutoriales/funnel-coach.jpg",
+   "duracion_s": 30.43,
+   "peso_kb": 1434,
+   "guion": "Una oferta que nadie ve, no vende. Te doy la bienvenida a Funnel Coach: aquí armas tu sistema para conseguir clientes. Tu funnel es un solo camino, desde que alguien te ve hasta que te paga, y se arma alrededor de tu oferta. Conviene empezar por uno: con varios a la vez, no ves cuál te trae clientes. Funnel Coach te pregunta una cosa a la vez, y lo que elijas queda en tu CRM, con sus etapas. Mira aquí, la caja del chat: contéstale la primera pregunta.",
+   "frases": [
+    {
+     "id": "funnel-coach-1",
+     "rol": "gancho",
+     "texto": "Una oferta que nadie ve, no vende.",
+     "t_inicio": 0.1,
+     "t_fin": 2.5
+    },
+    {
+     "id": "funnel-coach-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a Funnel Coach: aquí armas tu sistema para conseguir clientes.",
+     "t_inicio": 3,
+     "t_fin": 8.04
+    },
+    {
+     "id": "funnel-coach-3",
+     "rol": "cosa",
+     "texto": "Tu funnel es un solo camino, desde que alguien te ve hasta que te paga, y se arma alrededor de tu oferta.",
+     "t_inicio": 8.5,
+     "t_fin": 15.08
+    },
+    {
+     "id": "funnel-coach-4",
+     "rol": "cosa",
+     "texto": "Conviene empezar por uno: con varios a la vez, no ves cuál te trae clientes.",
+     "t_inicio": 15.46,
+     "t_fin": 19.54
+    },
+    {
+     "id": "funnel-coach-5",
+     "rol": "cosa",
+     "texto": "Funnel Coach te pregunta una cosa a la vez, y lo que elijas queda en tu CRM, con sus etapas.",
+     "t_inicio": 19.96,
+     "t_fin": 25.92
+    },
+    {
+     "id": "funnel-coach-6",
+     "rol": "cierre",
+     "texto": "Mira aquí, la caja del chat: contéstale la primera pregunta.",
+     "t_inicio": 26.34,
+     "t_fin": 29.74,
+     "sel": "[data-recorrido=\"sb-escribir\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T13:48:38.475Z"
+  },
+  {
+   "key": "reto-dia-1",
+   "pestana": "Reto · Día 1: tu oferta y tu sistema de adquisición",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-1.mp4",
+   "poster": "/tutoriales/reto-dia-1.jpg",
+   "duracion_s": 23.47,
+   "peso_kb": 1294,
+   "guion": "Te doy la bienvenida al día 1 del reto de 7 días. Tu onboarding ya está. Hoy armas tu oferta con Offer Coach, y después tu sistema para conseguir clientes con Funnel Coach. Los dos te preguntan como un coach, una cosa a la vez, y tu funnel queda armado en el CRM. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+   "frases": [
+    {
+     "id": "reto-dia-1-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 1 del reto de 7 días.",
+     "t_inicio": 0.04,
+     "t_fin": 3.44
+    },
+    {
+     "id": "reto-dia-1-2",
+     "rol": "que-es",
+     "texto": "Tu onboarding ya está. Hoy armas tu oferta con Offer Coach, y después tu sistema para conseguir clientes con Funnel Coach.",
+     "t_inicio": 3.8,
+     "t_fin": 11.44
+    },
+    {
+     "id": "reto-dia-1-3",
+     "rol": "cosa",
+     "texto": "Los dos te preguntan como un coach, una cosa a la vez, y tu funnel queda armado en el CRM.",
+     "t_inicio": 12.02,
+     "t_fin": 17.54
+    },
+    {
+     "id": "reto-dia-1-4",
+     "rol": "cierre",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 18.1,
+     "t_fin": 22.78,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "1 → uno · 7 → siete (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:46:34.689Z"
+  },
+  {
+   "key": "reto-dia-2",
+   "pestana": "Reto · Día 2: conecta todo",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-2.mp4",
+   "poster": "/tutoriales/reto-dia-2.jpg",
+   "duracion_s": 37.77,
+   "peso_kb": 1368,
+   "guion": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso. Primero, MaKo en tu teléfono: escaneas un QR, y los avisos de tu negocio te llegan al instante. Después, la extensión para Chrome, para tener a MaKo a mano mientras navegas. En Integraciones conectas sólo lo que necesita tu funnel, y al final, tu perfil y tu foto. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+   "frases": [
+    {
+     "id": "reto-dia-2-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso.",
+     "t_inicio": 0.04,
+     "t_fin": 5.22
+    },
+    {
+     "id": "reto-dia-2-2",
+     "rol": "que-es",
+     "texto": "Primero, MaKo en tu teléfono: escaneas un QR, y los avisos de tu negocio te llegan al instante.",
+     "t_inicio": 5.82,
+     "t_fin": 12
+    },
+    {
+     "id": "reto-dia-2-3",
+     "rol": "cosa",
+     "texto": "Después, la extensión para Chrome, para tener a MaKo a mano mientras navegas.",
+     "t_inicio": 12.58,
+     "t_fin": 16.48
+    },
+    {
+     "id": "reto-dia-2-4",
+     "rol": "cosa",
+     "texto": "En Integraciones conectas sólo lo que necesita tu funnel, y al final, tu perfil y tu foto.",
+     "t_inicio": 17,
+     "t_fin": 22.58
+    },
+    {
+     "id": "reto-dia-2-5",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 23.28,
+     "t_fin": 28.16
+    },
+    {
+     "id": "reto-dia-2-6",
+     "rol": "cierre",
+     "texto": "Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+     "t_inicio": 28.8,
+     "t_fin": 37.06,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "2 → dos (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:53:17.225Z"
+  },
+  {
+   "key": "reto-dia-3",
+   "pestana": "Reto · Día 3: tus contactos",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-3.mp4",
+   "poster": "/tutoriales/reto-dia-3.jpg",
+   "duracion_s": 27.13,
+   "peso_kb": 1522,
+   "guion": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda. Cargas tus clientes en el CRM, con un CSV o integrando el CRM que ya usas. Y conectas tu calendario: las llamadas que agenden caen en tu agenda. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
+   "frases": [
+    {
+     "id": "reto-dia-3-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda.",
+     "t_inicio": 0.04,
+     "t_fin": 4.92
+    },
+    {
+     "id": "reto-dia-3-2",
+     "rol": "que-es",
+     "texto": "Cargas tus clientes en el CRM, con un CSV o integrando el CRM que ya usas.",
+     "t_inicio": 5.48,
+     "t_fin": 10.72
+    },
+    {
+     "id": "reto-dia-3-3",
+     "rol": "cosa",
+     "texto": "Y conectas tu calendario: las llamadas que agenden caen en tu agenda.",
+     "t_inicio": 11.26,
+     "t_fin": 15.28
+    },
+    {
+     "id": "reto-dia-3-4",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 15.94,
+     "t_fin": 20.78
+    },
+    {
+     "id": "reto-dia-3-5",
+     "rol": "cierre",
+     "texto": "Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
+     "t_inicio": 21.32,
+     "t_fin": 26.44,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "3 → tres · mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:54:13.163Z"
+  },
+  {
+   "key": "reto-dia-4",
+   "pestana": "Reto · Día 4: copia lo que le funciona a tu competencia",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-4.mp4",
+   "poster": "/tutoriales/reto-dia-4.jpg",
+   "duracion_s": 28.9,
+   "peso_kb": 1395,
+   "guion": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia. En Competitor Spy agregas a tres competidores y miras lo que más tiempo llevan activo: si sigue activo, es porque vende. Después, en Web Generator pegas una página que ya vende, y la arma con tu oferta. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
+   "frases": [
+    {
+     "id": "reto-dia-4-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia.",
+     "t_inicio": 0.06,
+     "t_fin": 5.48
+    },
+    {
+     "id": "reto-dia-4-2",
+     "rol": "que-es",
+     "texto": "En Competitor Spy agregas a tres competidores y miras lo que más tiempo llevan activo: si sigue activo, es porque vende.",
+     "t_inicio": 6.1,
+     "t_fin": 13.22
+    },
+    {
+     "id": "reto-dia-4-3",
+     "rol": "cosa",
+     "texto": "Después, en Web Generator pegas una página que ya vende, y la arma con tu oferta.",
+     "t_inicio": 13.78,
+     "t_fin": 18.7
+    },
+    {
+     "id": "reto-dia-4-4",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 19.32,
+     "t_fin": 24.12
+    },
+    {
+     "id": "reto-dia-4-5",
+     "rol": "cierre",
+     "texto": "Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
+     "t_inicio": 24.44,
+     "t_fin": 28.2,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "4 → cuatro (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:55:15.713Z"
+  },
+  {
+   "key": "reto-dia-5",
+   "pestana": "Reto · Día 5: tu carrusel y tu guion",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-5.mp4",
+   "poster": "/tutoriales/reto-dia-5.jpg",
+   "duracion_s": 24.8,
+   "peso_kb": 1363,
+   "guion": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco. En Ímich replicas un carrusel que ya funcionó, con tu oferta. Y en Copywriting escribes tu guion replicando a tu referente. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
+   "frases": [
+    {
+     "id": "reto-dia-5-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco.",
+     "t_inicio": 0.04,
+     "t_fin": 6.02
+    },
+    {
+     "id": "reto-dia-5-2",
+     "rol": "que-es",
+     "texto": "En Image replicas un carrusel que ya funcionó, con tu oferta.",
+     "t_inicio": 6.62,
+     "t_fin": 10.22
+    },
+    {
+     "id": "reto-dia-5-3",
+     "rol": "cosa",
+     "texto": "Y en Copywriting escribes tu guion replicando a tu referente.",
+     "t_inicio": 10.74,
+     "t_fin": 14.12
+    },
+    {
+     "id": "reto-dia-5-4",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 14.74,
+     "t_fin": 19.4
+    },
+    {
+     "id": "reto-dia-5-5",
+     "rol": "cierre",
+     "texto": "Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
+     "t_inicio": 19.92,
+     "t_fin": 24.1,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "5 → cinco · imich → image · mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:56:07.040Z"
+  },
+  {
+   "key": "reto-dia-6",
+   "pestana": "Reto · Día 6: tu video con IA",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-6.mp4",
+   "poster": "/tutoriales/reto-dia-6.jpg",
+   "duracion_s": 26,
+   "peso_kb": 1488,
+   "guion": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte. En Video, dentro de AI Avatar, armas tu personaje con una foto tuya. Y el clip de 10 segundos va de regalo, con el gancho del guion que escribiste ayer. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
+   "frases": [
+    {
+     "id": "reto-dia-6-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte.",
+     "t_inicio": 0.04,
+     "t_fin": 5.52
+    },
+    {
+     "id": "reto-dia-6-2",
+     "rol": "que-es",
+     "texto": "En Video, dentro de AI Avatar, armas tu personaje con una foto tuya.",
+     "t_inicio": 6.12,
+     "t_fin": 10.76
+    },
+    {
+     "id": "reto-dia-6-3",
+     "rol": "cosa",
+     "texto": "Y el clip de 10 segundos va de regalo, con el gancho del guion que escribiste ayer.",
+     "t_inicio": 11.2,
+     "t_fin": 15.28
+    },
+    {
+     "id": "reto-dia-6-4",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 16,
+     "t_fin": 20.62
+    },
+    {
+     "id": "reto-dia-6-5",
+     "rol": "cierre",
+     "texto": "Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
+     "t_inicio": 21.22,
+     "t_fin": 25.3,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "6 → seis · 10 → diez (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:57:01.183Z"
+  },
+  {
+   "key": "reto-dia-7",
+   "pestana": "Reto · Día 7: tu Marketing CoPilot",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-7.mp4",
+   "poster": "/tutoriales/reto-dia-7.jpg",
+   "duracion_s": 22.2,
+   "peso_kb": 1250,
+   "guion": "Te doy la bienvenida al día 7, el último del reto. Hoy tu Marketing CoPilot revisa todo lo que armaste: tu oferta, tu página y tu contenido. Y te deja las tareas de cada semana en tu Plan. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
+   "frases": [
+    {
+     "id": "reto-dia-7-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 7, el último del reto.",
+     "t_inicio": 0.04,
+     "t_fin": 3.68
+    },
+    {
+     "id": "reto-dia-7-2",
+     "rol": "que-es",
+     "texto": "Hoy tu Marketing CoPilot revisa todo lo que armaste: tu oferta, tu página y tu contenido.",
+     "t_inicio": 4.2,
+     "t_fin": 9.94
+    },
+    {
+     "id": "reto-dia-7-3",
+     "rol": "cosa",
+     "texto": "Y te deja las tareas de cada semana en tu Plan.",
+     "t_inicio": 10.44,
+     "t_fin": 12.6
+    },
+    {
+     "id": "reto-dia-7-4",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 13.16,
+     "t_fin": 17.94
+    },
+    {
+     "id": "reto-dia-7-5",
+     "rol": "cierre",
+     "texto": "Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
+     "t_inicio": 18.44,
+     "t_fin": 21.5,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "7 → siete (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:57:47.749Z"
   },
   {
    "key": "ops-center",
