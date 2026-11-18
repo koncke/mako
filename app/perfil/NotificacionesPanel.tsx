@@ -34,6 +34,7 @@ import { Toast, useToast } from '../_ui/Toast';
 import { ReportarASoporte } from '../_ui/ReportarASoporte';
 import { tiposParaRol } from '../m/cuenta/cuenta-ui';
 import { NOMBRE_CANAL, ciudadDeZona, resumenApp, resumenCelular, resumenDestinatarios, type CanalNotif, type Resumen } from './notificaciones-reglas';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 const BASE = '/perfil/notificaciones';
 const VOLVER = { href: BASE, label: 'Notificaciones' };
@@ -183,7 +184,7 @@ export function NotificacionesPanel({ canal, admin, zona, deOtro = false }: {
       <>
         <TituloAjustes titulo="Notificaciones" bajada={deOtro ? 'A quién le avisa MaKo en esta cuenta.' : undefined} />
         {errorDe(deOtro ? dest.error : inApp.error ?? push.error ?? correos.error ?? dest.error)}
-        <GrupoAjustes titulo="Canales">
+        <GrupoAjustes titulo="Canales" recorrido={MARCA.notifCanales}>
           {!deOtro && <FilaAjustes icono="avisar" titulo={NOMBRE_CANAL.app} href={`${BASE}?canal=app`} valor={<Estado r={inApp.dato && resumenApp(inApp.dato)} />} />}
           {!deOtro && <FilaAjustes icono="celular" titulo={NOMBRE_CANAL.celular} href={`${BASE}?canal=celular`} valor={<Estado r={push.dato && resumenCelular(push.dato, telefonos, ids)} />} />}
           {admin && <FilaAjustes icono="whatsapp" titulo={NOMBRE_CANAL.whatsapp} href={`${BASE}?canal=whatsapp`} valor={<Estado r={dest.dato && resumenDestinatarios(dest.dato.telefonos.length, 'whatsapp')} />} />}
@@ -201,7 +202,7 @@ export function NotificacionesPanel({ canal, admin, zona, deOtro = false }: {
 
         {!deOtro && <GrupoAjustes titulo="No molestar">
           <FilaAjustes titulo="Pausar los avisos al celular" detalle={silencio ? `Hora de ${ciudadDeZona(zona)}` : undefined}
-            fin={<Switch checked={!!silencio} disabled={!push.dato} label={undefined} onChange={(v) => cambiarSilencio(v ? SILENCIO_SUGERIDO : null)} />} />
+            fin={<Switch checked={!!silencio} disabled={!push.dato} label={undefined} onChange={(v) => cambiarSilencio(v ? SILENCIO_SUGERIDO : null)} />} recorrido={MARCA.notifNoMolestar} />
           {silencio && (
             <FilaAjustes titulo="Horario" fin={(
               <span className="aj-horario">
