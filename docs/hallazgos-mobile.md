@@ -18,6 +18,11 @@ app/m/crm/ficha-bloques.ts, lib/movil-rutas.ts. Los ítems O48, O14, O35 y O2 de
   que sus dos WhatsApp eran «WhatsApp». **La causa no era el teléfono, era la copia:** las dos listas se escribieron por separado. Ahora
   las arma una sola función pura, `opcionesDeCanal`, y el server del teléfono manda los renglones ya armados (con TODAS las
   conversaciones leídas, no sólo las 150 que viajan). Lo fija tests/m-chats-lineas.test.ts.
+  ⚠️ **Y el corte de 150 va DESPUÉS de filtrar por línea** (la revisión de ese mismo día): la lista filtraba sólo las 150 más nuevas que
+  viajan, y el número del renglón cuenta todas las leídas; con las 150 más nuevas de su número, la línea de MaKo decía «3 sin leer» y la
+  lista «Nada en esta bandeja». Ahora viajan las 150 de todas Y las 150 de cada renglón (`filasQueViajan`, app/m/chats/modelo.ts), con
+  lo ya leído; sin un renglón elegido la lista sigue siendo las 150 de todas (`enTope`, `filasDelFiltro`). **Regla:** un número que
+  se dibuja al lado de un filtro y la lista que ese filtro deja tienen que contar sobre el mismo universo.
 - **Las iniciales (O14): la guarda no veía tres formas, y había TRES casos vivos, no uno.** El pendiente nombraba el avatar del teléfono
   (`inicialesM`: `partes[0][0]`, `slice(0, 2)` y la del email con `trim()[0]`); la guarda nueva (caso 4 de
   tests/iniciales-con-emoji.test.ts, que barre app/ —con app/m— y lib/) encontró además la tarjeta del kanban de CRM, Clients y Plan

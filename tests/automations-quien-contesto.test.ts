@@ -59,8 +59,12 @@ test('de `generar` a la ruta: crear, contestar una pregunta y editar dicen quié
   assert.match(sinComentarios(leer('lib/flujo-ia-crear-core.ts')), /quien: g\.quien \?\? null,/, 'lo creado no lleva quién lo escribió');
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
   assert.match(ruta, /const ia = textoDeQuienContesto\(r\.quien\);/, 'crear no lo dice');
-  assert.match(ruta, /await contestar\(g\.r\.respuesta, g\.r\.falta, textoDeQuienContesto\(g\.quien\)\);/, 'la respuesta a una pregunta no lo dice');
-  assert.match(ruta, /const ia = textoDeQuienContesto\(g\.quien\);\n\s*if \(r\.respuesta\) \{ await contestar\(r\.respuesta, r\.falta, ia\); return; \}/, 'editar no lo dice');
+  // Desde el 18/11/2026 el motor de editar y de explicar vive en lib/flujo-ia-editar.ts (la ruta y la API de MaKo lo llaman):
+  // ahí se arma el «ia» de la respuesta y de la edición, y la ruta lo pasa al chat y al `listo`.
+  const editar = sinComentarios(leer('lib/flujo-ia-editar.ts'));
+  assert.match(editar, /return \{ t: 'contesta', respuesta: g\.r\.respuesta, \.\.\.\(g\.r\.falta \? \{ falta: g\.r\.falta \} : \{\}\), ia: textoDeQuienContesto\(g\.quien\) \};/, 'la respuesta a una pregunta no lo dice');
+  assert.match(editar, /const ia = textoDeQuienContesto\(g\.quien\);\n\s*if \(r\.respuesta\) return \{ t: 'contesta', respuesta: r\.respuesta, \.\.\.\(r\.falta \? \{ falta: r\.falta \} : \{\}\), ia \};\n\s*return \{ t: 'edicion', r, ia \};/, 'editar no lo dice');
+  assert.match(ruta, /if \(g\.t === 'contesta'\) \{ await contestar\(g\.respuesta, g\.falta, g\.ia\); return; \}\n\s*const \{ r, ia \} = g;/, 'la ruta no pasa el «ia» del motor');
   // En el mensaje guardado y en el `listo`, en los tres caminos (crear: 2, contestar: 2, editar: 2).
   assert.ok(cuantas(ruta, '...(ia ? { ia } : {})') >= 6, `el «ia» no viaja en todos lados (${cuantas(ruta, '...(ia ? { ia } : {})')})`);
 });

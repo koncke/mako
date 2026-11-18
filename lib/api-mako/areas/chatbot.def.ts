@@ -947,4 +947,31 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla, y que la dispara «Envió el formulario»',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // EDITAR CON IA UNA QUE YA EXISTE, CON RAMAS (pendiente O19, P0-7, 18/11/2026). `editar_pasos_secuencia_mensajes` reescribe la
+  // lista por orden y rechaza todo lo que tiene ramas; ésta usa el MISMO motor que el chat del lienzo («Editar»:
+  // lib/flujo-ia-editar.ts), que cambia, quita o agrega tarjetas por id. Copiada de `editar_hoja_con_ia_dashboard`:
+  //   · MaKo arma el cambio en `preparar` (la IA del negocio, nunca Claude ni nada que cobre) y lo PROPONE: lo que la persona
+  //     confirma son los pasos que se van a publicar, y sólo si nadie la tocó en el medio (`firmaPublicado`, el compare-and-set).
+  //   · `chat` y no `pantalla`: la pantalla genérica vuelve a correr `preparar` al confirmar, y con la IA adentro confirmaría
+  //     OTRO resultado que el que leyó. El «sí» por WhatsApp va sin nada más (`aTerceros`): si está activa, a los leads les
+  //     llega lo nuevo.
+  //   · Al confirmar crea las etiquetas nuevas y PUBLICA por `publicarPasos` (`validarGrafo`), y el CRON por `publicarCrons`.
+  //   · Por HTTP la IA tiene 40 s (la ruta corta a 60): si no termina, error sin proponer nada. Un flujo no la corre.
+  //   · ⚠️ AL FINAL DEL ÁREA y sin «automatización», «flujo» ni «WhatsApp» en el id, el título ni la descripción, y sin
+  //     «cambiar» en el id ni en el título (tests/ops-center-bateria.test.ts: a igual puntaje gana la declarada antes, y
+  //     «Cambiá…» es cómo empiezan los pedidos de editar_pasos, cambiar_espera_paso y cambiar_crons_secuencia). Medido: con el
+  //     id `editar_automatizacion_con_ia` (el nombre del pendiente) el CRON quedaba con -923 caracteres de margen y MaKo dejaba
+  //     de poder cambiar qué dispara una automatización. Por eso se llama `editar_armada_con_ia`.
+  {
+    id: 'editar_armada_con_ia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat', aTerceros: true,
+    titulo: 'Editar con IA una ya armada',
+    descripcion: 'PROPONE editar con IA una secuencia que ya existe, aunque tenga ramas (condiciones, «Si responde», AI Step, botones): MaKo quita, agrega o reescribe tarjetas según el pedido en palabras, deja el resto como está, y el resumen dice qué queda distinto. No escribe nada hasta que alguien confirme; al confirmar la publica (si está prendida, a los leads les llega lo nuevo), crea las etiquetas nuevas que nombre y, si el pedido lo pide, también qué la dispara. Si alguien la toca antes de confirmar, no se aplica. Para preguntar qué hace, ficha_secuencia_mensajes. Pide antes el secuenciaId con listar_secuencias_nutricion. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin proponer nada.',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'qué hay que cambiar en la automatización, con las palabras de la persona (si mandó un audio, la transcripción).' },
+    ],
+    reversible: false,
+    escribe: 'reescribe nutricion_secuencias.pasos (publica, sin historial de versiones), crea las etiquetas nuevas que nombre y, si el pedido lo pide, cambia sus CRON',
+    canales: TODOS, costo: 'ia', lenta: true, gating: { tab: TAB, rolMinimo: 'admin' },
+  },
 ];

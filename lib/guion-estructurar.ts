@@ -72,9 +72,12 @@ function catalogoParaPrompt(estructuras: EstructuraGuion[]): string {
  * Le pone los rótulos a un guion. `null` si no se pudo — y no se pudo es un
  * resultado válido, no un error: el guion se guarda igual, sin rótulos.
  *
+ * `opts.hastaMs`: hasta cuándo puede contestar la IA (epoch ms). La carga por la API de MaKo corre por HTTP, que corta a
+ * los 60 s (lib/guiones-cargar.ts): sin plazo, una cascada lenta dejaba el pedido entero sin respuesta.
+ *
  * Nunca lanza. Cargar los guiones no puede depender de que un modelo conteste.
  */
-export async function estructurarGuion(texto: string): Promise<GuionEstructurado | null> {
+export async function estructurarGuion(texto: string, opts: { hastaMs?: number } = {}): Promise<GuionEstructurado | null> {
   const limpio = (texto || '').trim();
   if (!limpio) return null;
 
@@ -114,6 +117,7 @@ export async function estructurarGuion(texto: string): Promise<GuionEstructurado
       temperature: 0,
       feature: 'guion-estructurar',
       motivo: 'ordenar un guion cargado por el cliente',
+      ...(opts.hastaMs != null ? { hastaMs: opts.hastaMs } : {}),
       validar: (t) => !!validarCortes(t, estructuras, numeradas.length),
     });
   } catch { return null; }
