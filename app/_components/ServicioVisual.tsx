@@ -14,6 +14,7 @@
 
 import { RafagaClaude } from './icons';
 import { GLIFO_SOCIAL } from '@/lib/canal-social';
+import { iniciales } from '@/lib/unicode-seguro';
 
 // ── Iconos de marca por servicio (color de fondo + símbolo SVG) ──────────────
 // REGLA: acá solo van logos OFICIALES, copiados tal cual de la fuente de la marca
@@ -186,8 +187,11 @@ export const ICON: Record<string, IconDef> = {
  * de servicio. Ahora cae en la inicial sobre un gris neutro — feo a propósito, para
  * que se note que falta, y sin decir nada falso.
  */
+// La inicial sale de `iniciales` (lib/unicode-seguro.ts) y no de `k.trim()[0]` (18/11/2026, O14): hoy `k` es una clave de
+// servicio en ASCII y da la misma letra, pero la primera UNIDAD de un texto que no sea ASCII es medio carácter, y la guarda
+// de tests/iniciales-con-emoji.test.ts (caso 4) no deja escribir esa forma en ningún lado.
 export const iconFor = (k: string): IconDef =>
-  ICON[k] ?? { letter: (k.trim()[0] ?? '?').toUpperCase(), bg: '#4A5160' };
+  ICON[k] ?? { letter: iniciales(k, 1, '?'), bg: '#4A5160' };
 
 export function SvcIcon({ k, size = 21, box = 34, radius = 9 }: { k: string; size?: number; box?: number; radius?: number }) {
   const ic = iconFor(k);

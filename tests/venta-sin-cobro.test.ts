@@ -265,8 +265,10 @@ test('toda lectura que suma `monto_cierre_usd` de ganados excluye los «sin cobr
   }
   assert.deepEqual(malos, [], `suman lo vendido contando a los becados: ${malos.join(' · ')}`);
   // Si esto baja, el barrido dejó de ver lo que tiene que ver (Sold del período, la
-  // serie mensual, el objetivo, el desglose del Sold y el KPI «Firmado»).
-  assert.ok(vistos.length >= 5, `vio ${vistos.length}: ${vistos.join(' · ')}`);
+  // serie mensual, el desglose del Sold y el KPI «Firmado»). Eran 5 con «el objetivo»
+  // (`getObjetivoProgreso`, lib/queries.ts), que se borró el 18/11/2026 sin llamadores (F82):
+  // la meta sale de `objectives`, y su Sold es el KPI «Firmado» (lib/objectives-fuentes.ts).
+  assert.ok(vistos.length >= 4, `vio ${vistos.length}: ${vistos.join(' · ')}`);
 });
 
 test('las métricas que cuentan en JS o por conteo también lo excluyen', () => {

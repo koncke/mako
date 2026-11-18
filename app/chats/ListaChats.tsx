@@ -18,18 +18,16 @@
 // «Longest/Shortest Open» (no se guarda desde cuándo está abierta). El número de no leídos: el contrato
 // trae SI hay (`sinLeer`), no cuántos, así que va el punto azul sin número.
 
-import { useMemo, type KeyboardEvent, type ReactNode } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Check, IdCard, LoaderCircle, Search, Timer, UserRound, UserRoundPlus, UserRoundX, X } from 'lucide-react';
-import { Dropdown, type DropdownGroup, type DropdownOption } from '@/app/components/Dropdown';
+import { useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { ArrowDownLeft, ArrowUpRight, Check, LoaderCircle, Search, Timer, UserRound, X } from 'lucide-react';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { useMenuContextual, type PropsMenuFila } from '@/app/_ui/useMenuContextual';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { ChatResumen, EtapaChat, LineaChat } from '@/lib/chats-tipos';
 import { MAKO_SETTER } from '@/lib/pipeline';
-import { pideProducto, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
-import { horaDeFila, previewDe, sePuedeAgregar } from './lista-reglas';
+import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
+import { horaDeFila, previewDe } from './lista-reglas';
 import { AvatarRio } from './ventana-piezas';
-import { portalRio } from './portal';
 import { accionDeMenuChat, itemsFilaChat } from './menu-contextual-chats';
 
 /**
@@ -108,6 +106,11 @@ export function ListaChats(props: {
   // La fila del menú se busca de nuevo en la lista de ahora: el sondeo la puede haber cambiado con el menú abierto.
   const menu = useMenuContextual<ChatResumen>();
   const delMenu = menu.abierto ? chats.find((x) => x.clave === menu.abierto?.de.clave) ?? menu.abierto.de : null;
+  /** El «⋯» de una fila abre ESE menú, debajo del botón (como el «⋯» de una columna del CRM: la pieza lo corre si no entra). */
+  const abrirMenuDesde = (c: ChatResumen, boton: HTMLElement) => {
+    const r = boton.getBoundingClientRect();
+    menu.abrir(c, r.left, r.bottom + 4);
+  };
 
   const q = buscar.trim();
   const textoFallas = fallas.length ? `No pude leer: ${fallas.map((f) => nombreDeFalla(f, lineas)).join(', ')}.` : null;
@@ -139,7 +142,8 @@ export function ListaChats(props: {
           <Fila key={c.clave} ws={ws} c={c} sel={c.clave === seleccionada} ahora={ahora}
             colorEtapa={c.etapaKey ? colorEtapa.get(c.etapaKey) ?? null : null}
             fotoAsignado={c.asignado ? fotoDe.get(c.asignado) ?? null : null}
-            equipo={equipo} productos={productos} onElegir={onElegir} onAccion={onAccion} conMenu={menu.propsDe(c)} />
+            equipo={equipo} productos={productos} onElegir={onElegir} conMenu={menu.propsDe(c)}
+            menuAbierto={menu.abierto?.de.clave === c.clave} onAbrirMenu={(b) => abrirMenuDesde(c, b)} />
         ))}
         {modoBusca && buscandoRemoto && <div className="rio-lista-pie"><LoaderCircle size={16} className="rio-girando" aria-label="Buscando" /></div>}
       </div>
@@ -197,7 +201,7 @@ export function ListaChats(props: {
 
 // ── Una fila ─────────────────────────────────────────────────────────────────────────────────
 
-function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, productos, onElegir, onAccion, conMenu }: {
+function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, productos, onElegir, conMenu, menuAbierto, onAbrirMenu }: {
   ws: number | null;
   c: ChatResumen;
   sel: boolean;
@@ -207,9 +211,12 @@ function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, productos, 
   equipo: Miembro[];
   productos: ProductoParaAlta[] | null;
   onElegir: (c: ChatResumen) => void;
-  onAccion: (c: ChatResumen, a: AccionFila) => void;
   /** El clic derecho y mantener presionado (`useMenuContextual`): van en la fila entera, con su «⋯» adentro. */
   conMenu: PropsMenuFila;
+  /** El menú de ESTA fila está abierto (lo abrió su «⋯» o su clic derecho). */
+  menuAbierto: boolean;
+  /** El «⋯»: abre el mismo menú que el clic derecho, debajo del botón. */
+  onAbrirMenu: (boton: HTMLElement) => void;
 }) {
   const preview = previewDe(c);
   const hora = horaDeFila(c.ultimaFecha, ahora);
@@ -252,7 +259,7 @@ function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, productos, 
           </div>
         </div>
       </div>
-      <MasAcciones c={c} equipo={equipo} productos={productos} onAccion={onAccion} />
+      <MasAcciones c={c} equipo={equipo} productos={productos} abierto={menuAbierto} onAbrir={onAbrirMenu} />
     </div>
   );
 }
@@ -265,71 +272,38 @@ function Asignado({ nombre, foto, ws }: { nombre: string | null; foto: string | 
 }
 
 /**
- * El «⋯» de la fila. Va por el Dropdown de la casa con el portal ADENTRO de `.rio`: la lista scrollea, y un menú `absolute`
- * colgado de la fila se cortaría en el borde del scroll. Abre hacia afuera (`align="afuera"`), sin tapar la fila.
+ * El «⋯» de la fila: abre el MISMO menú que su clic derecho (`itemsFilaChat`, app/chats/menu-contextual-chats.ts), debajo del
+ * botón (la pieza lo corre si no entra). AGENTS.md, «El "⋯" y el clic derecho de lo mismo son un menú»: hasta el 18/11/2026
+ * era un Dropdown con su propia lista, y las dos se cruzaban en un test (el F119 de docs/pendientes-verificados-17-11.md).
+ * Ahora hay una lista sola, y el «⋯» suma «Abrir» arriba, como el clic derecho.
  *
  * ⚠️ SIN CERRAR NI POSPONER (27/10/2026, Martín: «no debería decir nada de "Cerrar" o posponer, ahí deberían haber otras
  * opciones, entre esas, la de agregar al CRM»). Era la copia del de respond.io (Close · Snooze › · Assign ›). Ahora es lo
  * del CRM: «Agregar al CRM» (sin lead; con 2+ funnels, en cuál) o «Abrir ficha», y Asignar. Cerrar y posponer viven en la
- * cabecera del chat abierto. Un chat sin nada que ofrecer (un grupo) no dibuja el «⋯».
+ * cabecera del chat abierto. Un chat sin nada que ofrecer (un grupo: sólo «Abrir») no dibuja el «⋯».
  */
-function MasAcciones({ c, equipo, productos, onAccion }: {
+function MasAcciones({ c, equipo, productos, abierto, onAbrir }: {
   c: ChatResumen;
   equipo: Miembro[];
   productos: ProductoParaAlta[] | null;
-  onAccion: (c: ChatResumen, a: AccionFila) => void;
+  /** El menú de esta fila está abierto (el «⋯» queda a la vista y dice que su menú está desplegado). */
+  abierto: boolean;
+  /** Abre el menú de la fila debajo del botón. */
+  onAbrir: (boton: HTMLElement) => void;
 }) {
-  const grupos: DropdownGroup[] = [];
-  if (c.leadId != null) {
-    grupos.push({ title: '', options: [{ value: 'ficha', label: 'Abrir ficha', icono: <IdCard size={16} /> }] });
-  } else if (sePuedeAgregar(c)) {
-    grupos.push(productos && pideProducto(productos)
-      ? { title: 'Agregar al CRM en', options: productos.map((p) => ({ value: `alta:${p.id}`, label: p.nombre, icono: <UserRoundPlus size={16} /> })) }
-      : { title: '', options: [{ value: 'alta:', label: 'Agregar al CRM', icono: <UserRoundPlus size={16} /> }] });
-  }
-  // Asignar = el setter del lead (plano §6.2): sin lead no hay a quién asignar todavía.
-  if (c.leadId != null) {
-    const opciones: DropdownOption[] = [];
-    if (c.asignado) opciones.push({ value: 'asig:', label: 'Quitar asignación', icono: <UserRoundX size={16} /> });
-    opciones.push({ value: `asig:${MAKO_SETTER}`, label: MAKO_SETTER, icono: <MakoLogo size={18} animate={false} /> });
-    for (const m of equipo) {
-      if (m.nombre && m.nombre !== MAKO_SETTER) opciones.push({ value: `asig:${m.nombre}`, label: m.nombre, avatar: m.foto_url });
-    }
-    grupos.push({ title: 'Asignar', options: opciones });
-  }
-  if (!grupos.length) return null;
-  const elegir = (v: string) => {
-    if (v === 'ficha') { onAccion(c, { tipo: 'ficha' }); return; }
-    if (v.startsWith('alta:')) {
-      const id = Number(v.slice(5));
-      onAccion(c, { tipo: 'agregar', funnelId: v.length > 5 && Number.isSafeInteger(id) && id > 0 ? id : null });
-      return;
-    }
-    if (v.startsWith('asig:')) {
-      const nombre = v.slice(5);
-      if ((nombre || null) !== (c.asignado ?? null)) onAccion(c, { tipo: 'asignar', setter: nombre || null });
-    }
-  };
+  // ⚠️ ANTES del `return` de abajo (AGENTS.md, los hooks detrás de un return). Un toque en el «⋯» con su menú abierto lo
+  // CIERRA: el menú se cierra solo en el `pointerdown` (un toque afuera), y sin esto el `click` que sigue lo volvía a abrir.
+  const estabaAbierto = useRef(false);
+  if (itemsFilaChat(c, equipo, productos).length <= 1) return null;
   return (
-    // El clic del menú (que vive en un portal) BURBUJEA por el árbol de React hasta la fila: sin este
-    // corte, elegir «Cerrar» además abría la conversación.
-    <span className="rio-fila-mas" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-      <Dropdown
-        value=""
-        resetAfterSelect
-        sinFlecha
-        align="afuera"
-        columns={[grupos]}
-        alContenido
-        subEnColumnas
-        search={false}
-        portalTo={portalRio()}
-        ariaLabel="Más acciones"
-        botonLabel={<span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1, letterSpacing: 1 }}>⋯</span>}
-        onChange={elegir}
-        menuMinAncho={220}
-        buttonStyle={{ width: 24, height: 24, padding: 0, border: 'none', borderRadius: 6, background: 'var(--rio-bg)', color: 'var(--rio-text)', justifyContent: 'center', boxShadow: '0 0 0 1px var(--rio-border)' }}
-      />
+    // El clic del «⋯» no es el de la fila: sin este corte, además abría la conversación.
+    <span className="rio-fila-mas" data-abierto={abierto ? 'true' : undefined} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <button type="button" aria-label="Más acciones" aria-haspopup="menu" aria-expanded={abierto}
+        onPointerDown={() => { estabaAbierto.current = abierto; }}
+        onClick={(e) => { if (estabaAbierto.current) { estabaAbierto.current = false; return; } onAbrir(e.currentTarget); }}
+        style={{ width: 24, height: 24, padding: 0, border: 'none', borderRadius: 6, background: 'var(--rio-bg)', color: 'var(--rio-text)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 0 1px var(--rio-border)', cursor: 'pointer' }}>
+        <span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1, letterSpacing: 1 }}>⋯</span>
+      </button>
     </span>
   );
 }

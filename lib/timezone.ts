@@ -27,7 +27,7 @@
 import 'server-only';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
-import { hoyEnTz } from '@/lib/date-utils';
+import { hoyEnTz, diasEnTz, type DiasEnTz } from '@/lib/date-utils';
 import {
   ZONA_POR_DEFECTO, CLAVE_ZONA, CLAVE_ZONA_ORIGEN, zonaCanonica, zonaDeUbicacion, leerOrigen, origenVigente, origenParaGuardar, decidirZona,
   type OrigenZona, type OrigenGuardado, type DecisionZona,
@@ -167,6 +167,59 @@ export async function hoyEnWorkspaceEstricto(date: Date = new Date()): Promise<s
   const ws = await getWorkspaceActual();
   if (ws == null) throw new Error('No hay un negocio en contexto: no puedo saber qué día es «hoy» para él.');
   return hoyEnTz(await zonaDelNegocioEstricta(ws), date);
+}
+
+// ── «Ayer», «el lunes» y «el primero del mes» del NEGOCIO (18/11/2026, F125) ───────────────────────
+// Los reemplazos de `ayerEnTijuana`, `lunesActualEnTijuana` y `primerDiaDelMesEnTijuana`, con la misma vara que «hoy»:
+//   · `diasDelNegocio(ws)` / `diasDelNegocioEstricto(ws)` — ws EXPLÍCITO, para un cron que recorre negocios (el del
+//     ambiente sería el del primero, o el ws1). La tolerante es para MOSTRAR; la estricta, para lo que DECIDE.
+//   · `diasEnWorkspace()` / `diasEnWorkspaceEstricto()` — el negocio del CONTEXTO (un request, o un `runWithWorkspace`).
+//     Sin negocio, la tolerante usa el default (como `hoyEnWorkspace`) y la estricta TIRA: no se adivina de quién es.
+//   · `ayerEnWorkspaceEstricto()`, `lunesEnWorkspaceEstricto()`, `primerDiaDelMesEnWorkspaceEstricto()` — los tres sueltos.
+// Las cuatro fechas salen de UNA lectura del reloj (`diasEnTz`, lib/date-utils.ts): con dos lecturas, una corrida a la
+// medianoche podía tener un «hoy» del martes y un «ayer» del martes también.
+//
+// ⚠️ NO TODO `ayerEnTijuana()` ES EL DÍA DEL NEGOCIO. Las ventanas «hasta ayer» sobre la ingesta diaria
+// (marketing_metrics_daily, que app/api/cron/meta-daily sella a las 13:00 UTC con el ayer de Tijuana) esperan a ESA
+// ingesta: pasadas a la zona del negocio, piden un día que todavía no se cargó. Y las claves que escriben los webhooks
+// de agenda (`isoToFechaTijuana`) se comparan con un «hoy» de Tijuana. Esas se migran con su escritor, no solas
+// (docs/hallazgos-infra.md → «Las primitivas de fecha siguen ancladas a Tijuana»).
+
+/** Los bordes del día del negocio `ws`. Nunca tira: sin zona legible, los del default (para MOSTRAR). */
+export async function diasDelNegocio(ws: number, date: Date = new Date()): Promise<DiasEnTz> {
+  return diasEnTz(await zonaDelNegocio(ws), date);
+}
+
+/** Los mismos, pero si no se puede leer la zona TIRA (para lo que DECIDE con el día). */
+export async function diasDelNegocioEstricto(ws: number, date: Date = new Date()): Promise<DiasEnTz> {
+  return diasEnTz(await zonaDelNegocioEstricta(ws), date);
+}
+
+/** Los bordes del día del negocio del contexto. Nunca tira (sin negocio o sin zona, el default): para MOSTRAR. */
+export async function diasEnWorkspace(date: Date = new Date()): Promise<DiasEnTz> {
+  return diasEnTz(await tzActual(), date);
+}
+
+/** Los bordes del día del negocio del contexto, ESTRICTOS: sin negocio o sin poder leer su zona, TIRA. */
+export async function diasEnWorkspaceEstricto(date: Date = new Date()): Promise<DiasEnTz> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) throw new Error('No hay un negocio en contexto: no puedo saber qué día es para él.');
+  return diasDelNegocioEstricto(ws, date);
+}
+
+/** «Ayer» del negocio del contexto. Tira como `hoyEnWorkspaceEstricto`. */
+export async function ayerEnWorkspaceEstricto(date: Date = new Date()): Promise<string> {
+  return (await diasEnWorkspaceEstricto(date)).ayer;
+}
+
+/** El lunes de la semana en curso del negocio del contexto. Tira como `hoyEnWorkspaceEstricto`. */
+export async function lunesEnWorkspaceEstricto(date: Date = new Date()): Promise<string> {
+  return (await diasEnWorkspaceEstricto(date)).lunes;
+}
+
+/** El primer día del mes en curso del negocio del contexto. Tira como `hoyEnWorkspaceEstricto`. */
+export async function primerDiaDelMesEnWorkspaceEstricto(date: Date = new Date()): Promise<string> {
+  return (await diasEnWorkspaceEstricto(date)).primerDiaDelMes;
 }
 
 // ── El escritor ───────────────────────────────────────────────────────────────────────────────────
