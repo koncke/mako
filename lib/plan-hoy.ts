@@ -17,8 +17,10 @@
 // autocompleta tareas por señales en cada carga: una lectura que escribe. Desde el teléfono
 // no se decide eso; acá sólo se lee.
 //
-// ⚠️ SIN PAGINAR, COMO EL TABLERO: `listPlanBoard` y `listTareas` cortan en 1000 filas sin
-// avisar. `recortado` lo dice cuando una lectura llega justo al tope.
+// ⚠️ LAS TAREAS SE LEEN ENTERAS desde el 18/11/2026 (P20: `listPlanBoard` y `listTareasConTope`
+// paginan). Lo que todavía no pagina son los PROYECTOS (`plan_proyectos`, `tarea_categorias`), y
+// `recortado` mide sólo eso: medido contra las tareas, saltaría con un tablero de 1000 tarjetas
+// aunque nada se haya cortado.
 //
 // ⚠️ NO SIRVE SIN SESIÓN (un cron, un push): `tableroActual` lee la cookie. Ahí va
 // `tableroDeCapa` + `runWithWorkspace` (molde: app/api/cron/plan-recurvar).
@@ -104,11 +106,11 @@ export async function tableroDelPlan(): Promise<{ que: 'dueno' | 'cliente'; tare
 async function leerTablero(que: 'dueno' | 'cliente'): Promise<{ tareas: BoardTask[]; proyectos: Label[]; deps: Dep[]; recortado: boolean }> {
   if (que === 'dueno') {
     const b = await listPlanBoard();
-    return { ...b, recortado: b.tareas.length >= TOPE_FILAS || b.proyectos.length >= TOPE_FILAS };
+    return { ...b, recortado: b.proyectos.length >= TOPE_FILAS };
   }
-  // El mismo tablero, con el mismo filtro que /plan (#507): sólo las del PLAN. Y `recortado` se mide
-  // con las filas LEÍDAS, no con las que quedaron: el filtro le sacaría el aviso a una lectura cortada.
-  const [{ tareas: ts, leidas }, cs] = await Promise.all([listTareasConTope({ soloDelPlan: true }), listCategorias()]);
+  // El mismo tablero, con el mismo filtro que /plan (#507): sólo las del PLAN. Las tareas vienen
+  // enteras (paginadas, P20), así que `recortado` sólo mide los proyectos, que todavía no paginan.
+  const [{ tareas: ts }, cs] = await Promise.all([listTareasConTope({ soloDelPlan: true }), listCategorias()]);
   return {
     // ⚠️ `no_cumple` SE SACA ANTES DE `toBoard`, que pierde el estado: una tarea que el
     // criterio no dejó pasar NO es un pendiente (lib/todo-estados.ts), y después del mapper
@@ -122,7 +124,7 @@ async function leerTablero(que: 'dueno' | 'cliente'): Promise<{ tareas: BoardTas
       .map((t) => ({ ...toBoard(t), creadaEn: Date.parse(String(t.created_at ?? '')) || undefined })),
     proyectos: cs.map(toLabel),
     deps: [],
-    recortado: leidas >= TOPE_FILAS || cs.length >= TOPE_FILAS,
+    recortado: cs.length >= TOPE_FILAS,
   };
 }
 

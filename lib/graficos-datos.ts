@@ -43,6 +43,7 @@ import {
 import { ESTADO_COBRADO } from './graficos-acciones';
 import { esCuotaDeBaja, noEsDeuda } from './cobrado-lead';
 import { ubicarLeads } from './funnels-elegidos-server';
+import { funnelsDeLaFilaDeLead } from './graficos-funnel-fila';
 import { faltaColumnaFunnel, funnelDelMomento } from './funnels-elegidos';
 import { diasConSigno, diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, esLlamadaDeIa, gano, rotuloMadurez, tramoDeAtraso, tramosDelCiclo } from './graficos-datos-puro';
 import { horasHastaResponder, rotuloDeTarjeta, tipoDeEnvio } from './automatizacion-metricas';
@@ -250,9 +251,13 @@ async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
     // Sólo los funnels en los que YA estaba el día de esta fila (revisión de B5, la regla de lib/funnels-elegidos.ts): una alta
     // o una agenda de antes de que se lo agregara a «Renovación» no es de «Renovación». Sin fecha, ninguno.
     const fila = fecha === 'agenda' ? fechaTj(x.fecha_junta_1) : fecha === 'cierre' ? fechaTj(x.fecha_cierre) : fechaTj(x.created_at);
-    const tambien = fila ? (agregados.get(Number(x.id)) ?? []).filter((a) => a.nombre !== rot.producto(x.funnel_id) && !!a.desde && a.desde <= fila).map((a) => a.nombre) : [];
     const ciclo = diasEntre(x.fecha_agenda, x.fecha_primer_pago);
     const vendio = gano(x);
+    // Y por fecha de cierre, de qué funnel es la VENTA: la del OKR (`funnelDelMomento`, 18/11/2026, lib/graficos-funnel-fila.ts).
+    const funnels = funnelsDeLaFilaDeLead({
+      fecha, dia: fila, casa: x.funnel_id == null ? null : Number(x.funnel_id), casaNombre: rot.producto(x.funnel_id),
+      agregados: agregados.get(Number(x.id)) ?? [], vendio, fechaCierre: x.fecha_cierre, nombreDe: rot.producto,
+    });
     const cicloCierre = vendio ? diasEntre(x.fecha_junta_1, x.fecha_cierre) : null;
     const j1 = x.fecha_junta_1 ? x.fecha_junta_1.slice(0, 10) : null;
     const t = tramosDelCiclo(x);
@@ -273,8 +278,9 @@ async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
         madurez_mes: j1 ? madurez.mes.get(`${j1.slice(0, 7)}-01`) || null : null,
       },
       r: { lead: String(x.id) },
-      // La venta, lo cobrado y el ciclo hasta el pago son de su casa: por un funnel agregado, en 0 (`Fila.soloCasa`).
-      ...(tambien.length ? { m: { producto: tambien }, soloCasa: ['cierres', 'vendido', 'cobrado', 'dias_ciclo', 'con_ciclo', 'dias_ciclo_cierre', 'con_ciclo_cierre'] } : {}),
+      // La venta, lo cobrado y el ciclo hasta el pago son de su DUEÑO (`Fila.soloCasa` + `Fila.duenoDe`): la casa, o por fecha
+      // de cierre el funnel agregado donde estaba el lead ese día. Filtrada por otro funnel, en 0.
+      ...funnels,
       v: {
         leads: 1, agendas: x.fecha_junta_1 ? 1 : 0, asistencias: x.asistio_j1 ? 1 : 0, calificados: x.calificado ? 1 : 0,
         limpias: x.asistio_j1 && x.calificado ? 1 : 0,

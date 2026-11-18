@@ -1927,4 +1927,65 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '18 nov', hora: '03:10', chat: 'Nube › Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Continuar con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la nube con la lista «Lo que falta construir» (docs/pendientes-verificados-17-11.md): acá, F16 (el carrusel 4:5) y F112 (los pedidos al chat) del Web Generator.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '04:30', chat: 'Nube › Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El carrusel 4:5 se elige al crear, y «sacá el video» llega con la herramienta',
+    puntos: [
+      '**El carrusel vertical 4:5 ya se elige al crear**, con una plantilla por cada tipo de carrusel de MaKo: lo había dejado hecho otro chat el 7/11 y no había llegado porque daba rojo. Se rescató.',
+      'El rojo: la lista de plantillas que viajaba en una herramienta de MaKo le sacaba el lugar a «Editar la landing con IA», y un pedido como «hacé la landing más corta» llegaba sin ella. La lista ya no viaja; MaKo la lee de las plantillas y un nombre que no existe vuelve con las dos listas.',
+      '**«Sacá el video de la web» ya le llega a MaKo con la herramienta que saca un bloque.** Antes entendía que era editar pero no tenía cómo hacerlo.',
+      'Queda: los diseños con animaciones piden copiar el panel de Framer, que la nube no puede abrir.',
+    ],
+    archivos: [
+      'lib/editor-landing/plantillas-carrusel.ts — las plantillas de carrusel (de la punta del 7/11)',
+      'lib/api-mako/areas/landing.def.ts y landing.run.ts — crear_presentacion_desde_plantilla sin la lista de ids; el runner valida',
+      'lib/api-mako/areas/landing-editor.def.ts — «sacar» en el título de acomodar_bloque_landing',
+      'tests/web-generator-carrusel-45.test.ts y tests/_presentacion-plantilla-hijo.ts — el runner real, probado rompiéndolo',
+      'tests/mako-intencion-landing.test.ts — «sacá el video de la web» con acomodar_bloque_landing',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '18 nov', hora: '01:30', chat: 'De octubre', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que MaKo propone en el chat de una landing se ve armarse',
+    puntos: [
+      'Cuando le pides un cambio a MaKo en el chat de una landing, las secciones que cambian aparecen de a una, con un pequeño delay, en vez de todas de golpe.',
+      '«Aceptar» aparece con todo a la vista; mientras tanto, «Ver todo» lo muestra de una. Con «reducir movimiento» del sistema, se ve todo sin animación.',
+      'Aplicar sigue siendo un solo paso: se guarda la versión de antes y «Restaurar» lo deshace como siempre.',
+      '**Cómo se prueba:** abre una landing, pídele a MaKo «cambia el título de la portada»: las secciones de la tarjeta aparecen una tras otra.',
+    ],
+    archivos: [
+      'app/web-generator/editor/revelado-propuesta.ts — qué propuesta se arma y cuándo se puede aceptar',
+      'app/web-generator/editor/paneles/PanelAgente.tsx — la tarjeta «Original | Modificado» con useRevelado',
+      'tests/web-generator-propuesta-revelada.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '18 nov', hora: '02:20', chat: 'De octubre', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una landing publicada ya puede mostrar dos versiones y medir cuál convierte más',
+    puntos: [
+      'Con una prueba A/B corriendo, cada visitante ve siempre la misma versión de la landing (la de siempre o la nueva), y queda anotado cuál vio.',
+      'Una versión nueva que cambia un botón de pago, un formulario o un enlace no se muestra: la prueba sólo compara textos y orden. Si se publica otra versión a mano, la prueba se detiene.',
+      'Cada día MaKo cuenta, en las dos versiones, cuántos tocaron el botón de conversión, dejaron sus datos o le dieron play al video, contando sólo a quienes vieron la página.',
+      'Todavía no hay cómo crear una prueba de landing: la primera en público espera el sí de Martín.',
+    ],
+    archivos: [
+      'lib/editor-landing/prueba-landing-servir.ts — qué versión se le sirve a cada visitante',
+      'lib/editor-landing/pagina-publica.ts · app/l/[slug] · app/api/landing-generator/dominio — la página publicada con la prueba',
+      'lib/pruebas/medidores-landing.ts · app/api/cron/pruebas — los medidores de la landing en el cron diario',
+      'tests/pruebas-landing.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/web-generator',
+  },
 ];

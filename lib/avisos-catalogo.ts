@@ -483,8 +483,9 @@ Nada urgente, por eso esperaron. — MaKo`,
     // La primera oración es lo que dibuja la tarjeta CRON («Hoy sale solo: …», `disparadorCorto`):
     // decía «Cron los lunes…», o sea el nombre de la pieza y no el momento.
     // ⚠️ NO «EN LA HORA DEL NEGOCIO» (revisión del ws9, 10/10/2026): el cron corre a las 14:20 UTC para todos
-    // (vercel.json, `20 14 * * 1`) y `buildReporteSemanal` corta la semana con la hora de Tijuana. En Buenos
-    // Aires llega 11:20. Si el reporte pasa a la zona de cada negocio (`tzDeWorkspace`), esto se cambia.
+    // (vercel.json, `20 14 * * 1`). En Buenos Aires llega 11:20. Desde el 18/11/2026 (F125) `buildReporteSemanal`
+    // corta la semana con la zona de CADA negocio (`diasEnWorkspace`), pero la HORA a la que sale sigue siendo la del
+    // cron: esta línea dice cuándo llega, y eso no cambió.
     disparador: 'Los lunes a la mañana, hora de Tijuana: ads, cierres, CAC, cash y ritmo a la meta.',
     ejemplo: `🗓️ *Reporte semanal* — 07/07 al 13/07\n\n*Ads:* $640 · 92 leads · CPL $6,9 · 4 cierres · CAC $160\n*Cash de la semana:* $12.800\n*Objetivo:* 8/12 cierres · ~6 semanas para la meta\n\nVienes bien. — MaKo`,
   },

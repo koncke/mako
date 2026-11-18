@@ -2632,7 +2632,7 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   `hoyEnTz(await tzDeWorkspace(ws))`); nunca se le mete un `await` de base a una función de decisión. Y donde el día DECIDE
   va `hoyEnWorkspaceEstricto()` (lib/timezone.ts) y no `hoyEnWorkspace()`: éste nunca tira y cae a Tijuana, y en un corte
   eso falla ABIERTO. Fuera de `runWithWorkspace` (el `proponer_` del doer) el ws va EXPLÍCITO: ahí `getWorkspaceActual()`
-  no es el del grupo. Sigue pendiente en `faltantesDeLead` (lib/leads.ts) y `valoresDeRequisitos` (app/crm/actions.ts).
+  no es el del grupo. ~~Sigue pendiente en `faltantesDeLead` (lib/leads.ts) y `valoresDeRequisitos` (app/crm/actions.ts).~~ Hecho el 18/11/2026 (F125): los dos piden `hoyISO`. Y no todo `ayerEnTijuana()` es del negocio: las ventanas sobre la ingesta diaria y las fechas de los webhooks de agenda son otro reloj (docs/hallazgos-infra.md → «Las ~85 fechas de Tijuana son TRES relojes»).
 - **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
   devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
   **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
@@ -12599,3 +12599,11 @@ Closing se vendió como de Pro desde el 23/10 y nada lo frenaba; la tabla promet
 - Lo que le contesta SOLO a un lead con IA (el setter) se pregunta con `tieneSetterIA` / `sumaSetterIA` (lib/setter-ia-reglas.ts), nunca
   mirando `paso_ia` a mano; lo que crea MaKo pasa por `guardarSinSetterSiFrena`.
 - Un tope en 0 es «no lo trae»: la tabla lo dibuja vacío y el freno dice que es de Pro (`pidePasarAPro`, lib/editor-landing/tope-landings.ts).
+
+## Las marcas de los tutoriales (`data-recorrido`, 18/11/2026)
+- Un control que señala un tutorial (lib/tutoriales) lleva su marca de `lib/tutoriales/marcas.ts`: la MISMA en la computadora y en
+  MaKo Mobile. Si se cambia el control, se cambia el paso: tests/tutoriales-pestanas.test.ts exige que cada marca que pide un paso
+  la ponga algún componente.
+- Nunca un selector de un tutorial con una clase de un CSS Module, un id de `useId` ni un dato (el nombre de un lead, un id).
+- Un atributo nuevo en un JSX va donde no parte el texto que fijan los tests de esa pantalla: antes de subir,
+  `grep -l <ruta-sin-extensión> tests/*.test.ts` y correr esos.

@@ -79,6 +79,8 @@ export type FilaMProps = {
   swipeIzquierda?: AccionSwipe;
   /** El nombre accesible de la fila si el título solo no alcanza. */
   etiqueta?: string;
+  /** La marca del tutorial de la pestaña (`data-recorrido`, lib/tutoriales): la MISMA que el control de la computadora. */
+  recorrido?: string;
 };
 
 type Arrastre = { id: number; x0: number; y0: number; eje: 'x' | 'y' | null; x: number; muestras: Muestra[]; listo: boolean };
@@ -211,7 +213,7 @@ export function FilaM(p: FilaMProps) {
         ? <button type="button" className="m-fila__abre m-fila--toca" onClick={p.onClick} disabled={p.deshabilitada} aria-label={p.etiqueta}>{cuerpo}</button>
         : <span className="m-fila__abre">{cuerpo}</span>;
     return (
-      <div className="m-fila-envoltorio">
+      <div className="m-fila-envoltorio" data-recorrido={p.recorrido}>
         <div className="m-fila m-fila--control" aria-disabled={p.deshabilitada || undefined}>
           {zona}
           <span className="m-fila__control">{p.control}</span>
@@ -246,7 +248,7 @@ export function FilaM(p: FilaMProps) {
   }
 
   return (
-    <div className="m-fila-envoltorio">
+    <div className="m-fila-envoltorio" data-recorrido={p.recorrido}>
       {conSwipe && p.swipeDerecha && <FondoSwipe lado="derecha" accion={p.swipeDerecha} refFondo={fondoDer} />}
       {conSwipe && p.swipeIzquierda && <FondoSwipe lado="izquierda" accion={p.swipeIzquierda} refFondo={fondoIzq} />}
       {fila}

@@ -191,9 +191,11 @@ test('los tres que entendía mal: sacar un botón no es bajar la web, quitar el 
   const casos: Array<[string, string, string[]]> = [
     ['quita el botón de la web', 'editar', ['acomodar_bloque_landing', 'ver_secciones_landing', 'listar_landings_creadas']],
     ['quítale el formulario a la landing', 'editar', ['acomodar_bloque_landing', 'ver_secciones_landing', 'listar_landings_creadas']],
-    // Editar, ya no despublicar. La herramienta de borrar un bloque no entra: «sacá» y «video» suman más en otras
-    // (listar_videos_landing, despublicar_landing); subirla por el título sacaba la lista de «quítale la animación…».
-    ['sacá el video de la web', 'editar', ['listar_landings_creadas']],
+    // Editar, ya no despublicar. Y desde el 18/11/2026 (F112) trae la herramienta que lo hace: «sacar» va en el TÍTULO de
+    // acomodar_bloque_landing («Mover, sacar o borrar un bloque», peso doble), que con la raíz sólo en la descripción
+    // empataba con una docena de operaciones declaradas antes y quedaba a 560 caracteres afuera del presupuesto. El título
+    // no lleva «quitar»: ése le sacaba la lista a «quítale la animación…» (el caso de abajo lo cuida).
+    ['sacá el video de la web', 'editar', ['acomodar_bloque_landing', 'ver_secciones_landing', 'listar_landings_creadas']],
     ['analiza las animaciones de mi landing', 'animar', ['ver_configuracion_landing', 'listar_landings_creadas']],
     ['revisá los botones de mi landing', 'analizar', ['diagnosticar_landing_creada']],
   ];
@@ -253,4 +255,6 @@ test('los tres que entendía mal: sacar un botón no es bajar la web, quitar el 
 //   T3  analizar las animaciones no va a animar (sin ver_configuracion_landing) .... 4 / 1
 //   T4  acomodar_bloque_landing sin «quitar» ni las piezas en la descripción ....... 4 / 1
 // Restaurado: 5 / 0 (sha256 igual).
+//   T5  (18/11/2026, F112) el título de acomodar_bloque_landing sin «sacar» («sacá el video de la web» sin la
+//       herramienta que lo hace) .................................................... 4 / 1
 // =============================================================================

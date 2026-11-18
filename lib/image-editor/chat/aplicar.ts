@@ -15,9 +15,14 @@
 //     Fabric guardó en cada objeto (`cajaDe`/`ponerCaja`). Girar es sobre el centro, como en Canva.
 //   · «Nuevo» (agregar texto o forma) arma el objeto con los valores del motor (las fuentes y los colores de
 //     `_doory/editor/engine/objects/factories.ts`); Fabric completa lo demás al cargarlo.
+//   · LOS FILTROS Y EL RECORTE DE UNA FOTO van en su JSON como los guarda el motor (./fotos.ts). Cambiar el tamaño del
+//     DISEÑO es la función del motor (`resizeDocument` de _doory/editor/engine/magicResize.ts), que le pasa el panel
+//     (`redimensionar`): este módulo no la puede importar (lo lee el server) y no tiene su copia. Sin ella, se dice.
 // =============================================================================
 
-import type { AlinearA, EstiloTexto, OperacionImagen } from './catalogo';
+import type { AlinearA, ContenidoAlRedimensionar, EstiloTexto, OperacionImagen } from './catalogo';
+import { FILTROS_FOTO, PROPORCIONES_RECORTE, conAjustes, filtrosDe, filtrosIguales, normalizarFiltros, ponerFiltros, recorteConProporcion, textoDeFiltros } from './fotos';
+import { TAMANOS_API } from '../tamanos';
 import { cajaDe, factorOrigen, familiaDe, tipoDe } from './vista';
 
 /** Lo de la vista que hace falta para aplicar: ref → id (y su título) de los elementos, y ref → id de las páginas. */
@@ -72,17 +77,30 @@ function centroDe(o: Obj): { cx: number; cy: number } {
   return { cx: num(o.left) + dx * Math.cos(a) - dy * Math.sin(a), cy: num(o.top) + dx * Math.sin(a) + dy * Math.cos(a) };
 }
 
-/** Gira sobre el centro: el origen se corre para que el centro quede donde estaba. */
-function girar(o: Obj, grados: number): void {
-  const { cx, cy } = centroDe(o);
+/** Pone el origen para que el centro de la caja (con su giro) quede en (cx, cy). */
+function ponerCentro(o: Obj, cx: number, cy: number): void {
   const c = cajaDe(o);
-  const a = (grados * Math.PI) / 180;
+  const a = (num(o.angle) * Math.PI) / 180;
   const dx = (0.5 - factorOrigen(o.originX)) * c.ancho;
   const dy = (0.5 - factorOrigen(o.originY)) * c.alto;
-  o.angle = grados;
   o.left = r1(cx - (dx * Math.cos(a) - dy * Math.sin(a)));
   o.top = r1(cy - (dx * Math.sin(a) + dy * Math.cos(a)));
 }
+
+/** Gira sobre el centro: el origen se corre para que el centro quede donde estaba. */
+function girar(o: Obj, grados: number): void {
+  const { cx, cy } = centroDe(o);
+  o.angle = grados;
+  ponerCentro(o, cx, cy);
+}
+
+/** Una foto de verdad (no un QR, que el motor dibuja de su texto y no guarda filtros). */
+const esFoto = (o: Obj) => String(o.type ?? '').toLowerCase() === 'image' && !o.qr;
+
+/** Lo que el panel le pasa para cambiar el tamaño del diseño: `resizeDocument` del motor, con su modo. */
+export type Redimensionar = (doc: unknown, ancho: number, alto: number, modo: 'scale' | 'magic' | 'keep') => unknown;
+const MODO_MOTOR: Record<ContenidoAlRedimensionar, 'scale' | 'magic' | 'keep'> = { escalar: 'scale', reubicar: 'magic', igual: 'keep' };
+const r2 = (n: number) => Math.round(n * 100) / 100;
 
 const ALINEACION_FABRIC: Record<string, string> = { izquierda: 'left', centro: 'center', derecha: 'right', justificado: 'justify' };
 const PALABRA_TIPO: Record<string, string> = { texto: 'Texto', forma: 'Forma', imagen: 'Imagen', linea: 'Línea', grupo: 'Grupo', otro: 'Elemento' };
@@ -192,8 +210,10 @@ export function aplicarOperaciones(p: {
   soloRefs?: ReadonlySet<string> | null; fuente?: (nombre: string) => string | null;
   /** Las fotos que se le ofrecieron a la IA. Sin ellas, una operación con foto se descarta con su motivo. */
   fotos?: ReadonlyMap<string, FotoDelChat> | null;
+  /** Cambiar el tamaño del diseño (la del motor). Sin ella, «redimensionar» se descarta con su motivo. */
+  redimensionar?: Redimensionar | null;
 }): ResultadoAplicar {
-  const doc = clonar(p.doc) as Doc;
+  let doc = clonar(p.doc) as Doc;
   const cambios: CambioImagen[] = [];
   const descartes: string[] = [];
   const fuentes = new Set<string>();
@@ -514,6 +534,51 @@ export function aplicarOperaciones(p: {
         const antes = bg.type === 'solid' ? String(bg.color) : bg.type === 'image' ? 'imagen' : 'degradado';
         pg.background = { type: 'image', src: f.url, fit: 'cover' };
         hecho({ tipo: 'cambia', titulo: `Fondo de la página ${doc.pages.indexOf(pg) + 1}`, antes, despues: f.nombre });
+        break;
+      }
+      case 'filtro_foto':
+      case 'ajustar_foto': {
+        const e = elemento(op.ref);
+        if (typeof e === 'string') { descartes.push(e); break; }
+        if (!esFoto(e.o)) { descartes.push(`${e.titulo} no es una foto`); break; }
+        const antes = filtrosDe(e.o);
+        const nuevos = op.op === 'filtro_foto' ? normalizarFiltros(FILTROS_FOTO[op.filtro].specs) : conAjustes(antes, op);
+        if (filtrosIguales(antes, nuevos)) { descartes.push(`${e.titulo} ya está así`); break; }
+        ponerFiltros(e.o, nuevos);
+        hecho({ tipo: 'cambia', titulo: `${op.op === 'filtro_foto' ? 'Filtro' : 'Ajustes'} de ${e.titulo}`, antes: textoDeFiltros(antes), despues: op.op === 'filtro_foto' ? FILTROS_FOTO[op.filtro].nombre : textoDeFiltros(nuevos) });
+        break;
+      }
+      case 'recortar_foto': {
+        const e = elemento(op.ref);
+        if (typeof e === 'string') { descartes.push(e); break; }
+        if (!esFoto(e.o)) { descartes.push(`${e.titulo} no es una foto`); break; }
+        // Como el motor: una foto en un marco se acomoda moviéndola adentro del marco, no se recorta.
+        if (e.o.slot) { descartes.push(`${e.titulo} va en un marco: se acomoda adentro del marco`); break; }
+        const sx = Math.abs(num(e.o.scaleX, 1)) || 1;
+        const sy = Math.abs(num(e.o.scaleY, 1)) || 1;
+        const actual = { cropX: num(e.o.cropX), cropY: num(e.o.cropY), width: num(e.o.width), height: num(e.o.height) };
+        if (actual.width <= 0 || actual.height <= 0) { descartes.push(`${e.titulo} no tiene medidas`); break; }
+        const nuevo = recorteConProporcion(actual, sx, sy, PROPORCIONES_RECORTE[op.proporcion]);
+        if (Math.abs(nuevo.width - actual.width) < 0.5 && Math.abs(nuevo.height - actual.height) < 0.5) { descartes.push(`${e.titulo} ya tiene esa proporción`); break; }
+        const antes = cajaDe(e.o);
+        const { cx, cy } = centroDe(e.o);
+        Object.assign(e.o, { cropX: r2(nuevo.cropX), cropY: r2(nuevo.cropY), width: r2(nuevo.width), height: r2(nuevo.height) });
+        ponerCentro(e.o, cx, cy);
+        const d = cajaDe(e.o);
+        hecho({ tipo: 'cambia', titulo: `Recorte de ${e.titulo}`, antes: `${Math.round(antes.ancho)} × ${Math.round(antes.alto)}`, despues: `${Math.round(d.ancho)} × ${Math.round(d.alto)} (${op.proporcion})` });
+        break;
+      }
+      case 'redimensionar': {
+        if (p.soloRefs) { descartes.push(deLaPagina('El tamaño del diseño')); break; }
+        if (!p.redimensionar) { descartes.push('el tamaño del diseño se cambia desde el editor'); break; }
+        const antes = { ancho: num(doc.width), alto: num(doc.height) };
+        if (antes.ancho === op.ancho && antes.alto === op.alto && doc.pages.every((pg) => anchoDe(pg) === op.ancho && altoDe(pg) === op.alto)) {
+          descartes.push(`el diseño ya mide ${op.ancho} × ${op.alto}`);
+          break;
+        }
+        doc = p.redimensionar(doc, op.ancho, op.alto, MODO_MOTOR[op.contenido]) as Doc;
+        const nombre = Object.values(TAMANOS_API).find((t) => t.ancho === op.ancho && t.alto === op.alto)?.nombre;
+        hecho({ tipo: 'cambia', titulo: 'Tamaño del diseño', antes: `${antes.ancho} × ${antes.alto}`, despues: `${op.ancho} × ${op.alto}${nombre ? ` (${nombre})` : ''}` });
         break;
       }
     }

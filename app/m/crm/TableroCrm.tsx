@@ -47,6 +47,7 @@ import { CaraTarjeta, CuerpoFichaRapida, EstiloTarjetas } from '@/app/_ui/Tarjet
 import { ReunionesParaPreparar } from '@/app/crm/TarjetaReunion';
 import { insigniaDeCanal, subtituloEnOrden, subtituloLead, type CampoTarjetaLead } from '@/lib/tarjeta-kanban';
 import type { TableroCrmM } from './datos';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 type Busqueda =
   | { fase: 'quieto' }
@@ -153,6 +154,7 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
           columnas={columnas}
           tarjetas={tarjetas}
           unidades="leads"
+          recorridoTarjeta={MARCA.crmVerInfo}
           arriba={arriba}
           onTocar={(id) => setRapida(datos.tarjetas.find((t) => String(t.id) === id) ?? null)}
           pedirMover={pedirMover}
