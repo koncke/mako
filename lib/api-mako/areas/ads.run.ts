@@ -1766,7 +1766,7 @@ export const RUNNERS: Runners = {
         zernio: !!datos.conexion,
         ...(datos.conexion ? {} : { nota: 'Para publicar creativos nuevos conecta la cuenta por Zernio (con el token propio, Meta los rechaza: error 1885183).' }),
         conjuntos,
-        ...(plantilla ? { textosDePartida: { ...plantilla.textos, deAnuncio: plantilla.deAnuncio } } : {}),
+        ...(plantilla ? { textosDePartida: { ...plantilla.textos, deAnuncio: plantilla.deAnuncio, deAnuncioId: plantilla.deAnuncioId } } : {}),
         subidas,
         ...(subidas.length ? { comoSubir: 'Un PUT por archivo a subirA, con esas cabeceras y el archivo como cuerpo. Después, subir_creativos_media_buyer con cada path. El archivo se borra a las 6 horas si no se publica.' } : {}),
       });
