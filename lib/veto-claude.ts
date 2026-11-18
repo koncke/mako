@@ -229,6 +229,11 @@ export const MOTIVO_CLAVE_DEL_NEGOCIO = '⚠ clave de Anthropic del negocio';
  * Lo elige el admin en «Tus cuentas de IA»; lo paga su cuenta.
  */
 export const CLAVE_MODELO_SU_CLAUDE = 'ia.su_claude.modelo';
+/**
+ * Los modelos con los que puede ir el CRÉDITO de Max de la plataforma por la puerta 2: el barato y los dos del router del turno
+ * (lib/mako-router.ts, `SONNET` y `OPUS`, con los mismos ids). El primero es el default. Lo fija tests/credito-modelo-router.test.ts.
+ */
+export const MODELOS_DEL_CREDITO: readonly string[] = ['claude-haiku-4-5', 'claude-sonnet-5', 'claude-opus-4-8'];
 export const MODELO_SU_CLAUDE = { haiku: 'claude-haiku-4-5', sonnet: 'claude-sonnet-5' } as const;
 export type EleccionSuClaude = keyof typeof MODELO_SU_CLAUDE;
 /**
@@ -276,10 +281,15 @@ export function evaluarClaveDelNegocio(p: {
   clave?: string | null; clavesPlataforma: ReadonlyArray<string | null | undefined>;
   /**
    * Las claves del CRÉDITO de Max de la plataforma (`CLAVES_CREDITO_PLATAFORMA`), o `null` si no se pudieron leer. Una clave
-   * del negocio que ES una de ésas (el ws10: Martín le puso su cuenta 2) se usa sólo con el modelo barato, elija lo que
-   * elija: lo paga Martín (IA5). Sin poder leerlas, igual: «no pude leer» nunca habilita gastar más.
+   * del negocio que ES una de ésas (el ws10: Martín le puso su cuenta 2) va con `modeloConCredito`, no con lo que eligió el
+   * negocio para SU Claude. Sin poder leerlas, el barato: «no pude leer» nunca habilita gastar más.
    */
   creditosPlataforma?: ReadonlyArray<string | null | undefined> | null;
+  /**
+   * El modelo con el que va el CRÉDITO (18/11/2026, Martín: «Si, cambia el modelo sin problema»): el que pide el router del turno
+   * (lib/mako-router.ts). Uno de `MODELOS_DEL_CREDITO`; sin él, o con otro, el barato.
+   */
+  modeloConCredito?: string;
 }): { ok: true; permiso: PermisoClaveDelNegocio } | { ok: false; razon: string } {
   if (p.pausa) return { ok: false, razon: 'Claude está PAUSADO a mano (`mako.claude.pausa`): apaga también la clave del negocio.' };
   const feature = (p.feature ?? '').trim();
@@ -295,8 +305,9 @@ export function evaluarClaveDelNegocio(p: {
   const modelos: readonly string[] = CLAUDE_CON_CLAVE_DEL_NEGOCIO.modelos;
   let model = (p.model ?? '').trim() || modelos[0];
   if (!modelos.includes(model)) return { ok: false, razon: `con la clave del negocio sólo ${modelos.join(', ')}, no «${model}».` };
-  // El crédito de Max de la PLATAFORMA puesto como clave de un negocio: sólo el barato (IA5).
-  // `creditosPlataforma` trae también la propia clave del negocio cuando está MARCADA como crédito (lib/credito-marca.ts).
+  // El crédito de Max de la PLATAFORMA puesto como clave de un negocio (el ws10, el asignado al ws1, el de los grupos y el del
+  // espacio de MaKo). `creditosPlataforma` trae también la propia clave del negocio cuando está MARCADA como crédito
+  // (lib/credito-marca.ts).
   const coincide = (p.creditosPlataforma ?? []).some((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === clave);
   const esCredito = p.creditosPlataforma === null || coincide;
   // El Plan, sólo con la clave que paga el negocio (Martín, 22/10/2026: «Sí, si es su clave»), y siempre con el barato.
@@ -305,7 +316,13 @@ export function evaluarClaveDelNegocio(p: {
       ? `«${feature}» es del Plan: sin poder leer el crédito de Max de la plataforma, no se sabe si esta clave la paga el negocio.`
       : `«${feature}» es del Plan, y esa clave es el crédito de Max de la PLATAFORMA: el Plan sólo paga con la clave que paga el negocio.` };
   }
-  if (esCredito || delPlan) model = modelos[0];
+  if (delPlan) model = modelos[0];
+  // ⚠️ EL CRÉDITO VA CON EL MODELO DEL ROUTER (18/11/2026). Hasta acá el crédito iba SIEMPRE con el barato (IA5, 22/10): el router
+  // del turno pedía Sonnet u Opus y contestaba Haiku. Martín, por el Cerebro: «hoy MaKo usa siempre Haiku con el crédito… ¿lo
+  // cambiamos? Contesta mejor cuando hace falta pensar, pero el crédito se gasta más rápido» → «Si, cambia el modelo sin
+  // problema». Sin poder leer el crédito (`null`), el barato igual: no se sabe de quién es la clave.
+  else if (coincide) model = MODELOS_DEL_CREDITO.includes((p.modeloConCredito ?? '').trim()) ? (p.modeloConCredito ?? '').trim() : modelos[0];
+  else if (esCredito) model = modelos[0];
   // `esCredito` en el permiso sólo cuando SE SABE (coincide): su gasto es del crédito de la plataforma, no del negocio, y así
   // se anota (lib/anthropic.ts). Sin poder leer, va con el barato pero no se afirma de quién es.
   return { ok: true, permiso: fabricar({ model, feature, porque: CLAUDE_CON_CLAVE_DEL_NEGOCIO.porque, clave, ...(coincide ? { esCredito: true as const } : {}) }) };
@@ -363,7 +380,8 @@ export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuran
  *
  * ⚠️ NO SE PEGA EN LA FILA DEL NEGOCIO: el ws1 es el workspace del ENTORNO (`hidratarCredenciales`), y su fila pasaría a ser la
  * clave de MaKo (la trampa del 18/10). Entra por la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthropic.ts) como el crédito
- * del ws10: con el modelo barato, nunca el Plan, y su gasto con la marca del crédito. Su clave propia, si la conecta, gana.
+ * del ws10: con el modelo del router (desde el 18/11/2026; antes, el barato), nunca el Plan, y su gasto con la marca del crédito.
+ * Su clave propia, si la conecta, gana.
  */
 export type CreditoDeUnNegocio = { ws: number; clave: (typeof CLAVES_CREDITO_PLATAFORMA)[number]; quien: string };
 export const CREDITO_DE_UN_NEGOCIO: readonly CreditoDeUnNegocio[] = [
@@ -377,7 +395,7 @@ export const claveDelInterruptorDeCredito = (ws: number): string => `ia.credito_
  * tenemos disponibles con todas las cuentas de planes 200», después de que MaKo le contestara cualquier cosa a Leandro (ws10) por un
  * Gemini que no respondió. El turno de texto de un grupo (`FEATURE_DE_LOS_GRUPOS`) de CUALQUIER negocio sin su Claude contesta con el
  * crédito de las cuentas Max que tienen clave, repartido entre ellas (lib/credito-negocio.ts, `cuentasDelCreditoDeLosGrupos`). Entra
- * por la puerta 2 como el crédito asignado: el modelo barato (Haiku), nunca el Plan, y su gasto con la marca del crédito. Su Claude
+ * por la puerta 2 como el crédito asignado: el modelo del router (desde el 18/11/2026; antes, Haiku), nunca el Plan, y su gasto con la marca del crédito. Su Claude
  * propio, si lo conecta, gana. Se apaga con la fila `CLAVE_INTERRUPTOR_CREDITO_GRUPOS` («apagado») de la plataforma.
  * Las cuentas son las del Uso (`CLAVES_CREDITO_DE_LOS_GRUPOS`, lib/credito-api.ts, de `CUENTAS_DEL_CREDITO`): N, no cuatro fijas.
  */
@@ -396,7 +414,7 @@ export const FEATURES_DE_LOS_GRUPOS: readonly string[] = [FEATURE_DE_LOS_GRUPOS,
  * EL CRÉDITO PARA TODO LO DEL ESPACIO DE MaKo, MENOS EL PLAN (11/11/2026). Martín, textual: «MaKo con WhatsApp ya habíamos dicho
  * que eso se gaste con los tokens de las cuentas de Claude 200 dólares que estoy pagando… En general, yo creo que sería bueno que
  * gastemos eso para todo esto en lugar de Gemini, porque es mucho más estable.» Va PRIMERO y Gemini queda de respaldo. Entra por
- * la puerta 2, con las cuentas de los grupos (lib/credito-negocio.ts → `cuentasDelCredito('plataforma')`): Haiku, la marca
+ * la puerta 2, con las cuentas de los grupos (lib/credito-negocio.ts → `cuentasDelCredito('plataforma')`): el modelo que se pida (sin router, Haiku), la marca
  * «(cuenta N)» y nunca el Plan. Vence como toda excepción al gasto de la plataforma.
  */
 export const CREDITO_PARA_LA_PLATAFORMA = {
@@ -455,8 +473,8 @@ export function primeroConElCredito(feature: string, hoy?: Date): string | null 
   const v = puedeUsarUnaCuentaDelCredito({ feature, esLaPlataforma: true, hoy });
   if (!v.ok) return null;
   return v.para === 'grupos'
-    ? 'primero: crédito de Claude (Haiku), en los grupos de WhatsApp de todos los negocios sin su Claude'
-    : 'primero: crédito de Claude (Haiku), sólo en el espacio de MaKo';
+    ? 'primero: crédito de Claude (con el modelo que pide el router: Haiku, Sonnet u Opus), en los grupos de WhatsApp de todos los negocios sin su Claude'
+    : 'primero: crédito de Claude (Haiku, o el modelo que se pida), sólo en el espacio de MaKo';
 }
 
 /**

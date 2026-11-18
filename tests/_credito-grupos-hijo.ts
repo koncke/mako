@@ -32,6 +32,8 @@ const CREDITO9 = `sk-ant-api03-credito-cuenta9-${'g'.repeat(40)}`;
 const PROPIA = `sk-ant-api03-propia-del-ws13-${'m'.repeat(40)}`;
 
 let anthropic: Array<{ clave: string; modelo: string }> = [];
+/** El effort de cada pedido a Anthropic (`output_config.effort`), o null si no fue (18/11/2026: el crédito con el modelo del router). */
+let esfuerzos: Array<string | null> = [];
 /** Cada pedido a Anthropic, ¿llevó plazo? (11/11/2026: el bucle con herramientas no tenía). */
 const conPlazo: boolean[] = [];
 /** El system «herramienta-y-falla»: el primer pedido pide una herramienta, los siguientes contestan 429. */
@@ -54,8 +56,9 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     let system = '';
     // El system llega como texto o, con la caché de prompt (12/11/2026, lib/anthropic.ts), como bloques: se leen los dos.
     try {
-      const b = JSON.parse(String(init.body ?? '{}')) as { model?: unknown; system?: string | Array<{ text?: string }> };
+      const b = JSON.parse(String(init.body ?? '{}')) as { model?: unknown; system?: string | Array<{ text?: string }>; output_config?: { effort?: string } };
       modelo = String(b.model ?? '');
+      esfuerzos.push(b.output_config?.effort ?? null);
       system = typeof b.system === 'string' ? b.system : Array.isArray(b.system) ? b.system.map((x) => x.text ?? '').join('\n') : '';
     } catch { /* sin cuerpo */ }
     anthropic.push({ clave: clave.slice(0, 29), modelo });
@@ -233,6 +236,19 @@ async function main() {
   await runWithWorkspace(PLATAFORMA, () => setSetting('ia.credito_plataforma', 'prendido'));
   delete process.env.ANTHROPIC_CREDITO_CUENTA3;
   delete process.env.ANTHROPIC_CREDITO_CUENTA9;
+
+  // ── El crédito con el modelo del ROUTER (18/11/2026, Martín: «Si, cambia el modelo sin problema») ────────────────────────────
+  // El turno del grupo pide Opus (razonamiento) o Sonnet (un dato) con su effort: con el crédito va ése. Con SU Claude (ws13), lo
+  // que eligió el negocio: el modelo del router no le cambia la clave que paga él.
+  const conModelo = (ws: number, cuenta: string | undefined, modeloDelCredito: string, effort: 'medium' | 'high') => runWithWorkspace(ws, () => chatClaudeTools('s', [{ role: 'user', content: 'qué conviene' }], [], async () => 'ok', {
+    feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, modeloDelCredito, effort, maxTokens: 2500, motivo: 'Claude del grupo',
+  })).then((r) => r.text, (e) => `tiró: ${e instanceof Error ? e.message : String(e)}`);
+  anthropic = []; esfuerzos = [];
+  out.routerOpus = { texto: await conModelo(10, 'ANTHROPIC_CREDITO_CUENTA2', 'claude-opus-4-8', 'high'), pedidos: [...anthropic], esfuerzos: [...esfuerzos] };
+  anthropic = []; esfuerzos = [];
+  out.routerSonnet = { texto: await conModelo(10, 'ANTHROPIC_CREDITO_CUENTA2', 'claude-sonnet-5', 'medium'), pedidos: [...anthropic], esfuerzos: [...esfuerzos] };
+  anthropic = []; esfuerzos = [];
+  out.routerSuClaude = { texto: await conModelo(13, undefined, 'claude-opus-4-8', 'high'), pedidos: [...anthropic], esfuerzos: [...esfuerzos] };
 
   // ── Sin ninguna clave cargada: ninguna ─────────────────────────────────────────────────────────────────────────────
   pg.db.credenciales = pg.db.credenciales.filter((f) => !String(f.clave).startsWith('ANTHROPIC_CREDITO_'));
