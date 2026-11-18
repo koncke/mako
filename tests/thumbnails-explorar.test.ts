@@ -149,3 +149,17 @@ test('el filtro «Cuentas»: los canales con cuántas miniaturas, de más a meno
   const xs = [t({ id: 1, canalId: 1 }), t({ id: 2, canalId: 2, canal: { nombre: 'Dos', handle: null, foto: null } }), t({ id: 3, canalId: 2, canal: { nombre: 'Dos', handle: null, foto: null } })];
   assert.deepEqual(canalesDe(xs).map((c) => [c.id, c.n]), [[2, 2], [1, 1]]);
 });
+
+test('el rubro es del CANAL: un video de marketing de un canal de ventas queda en ventas, y la API lo dice (18/11/2026)', async () => {
+  // La regla vive en la cabecera de lib/thumbnails/explorar.ts: el rubro lo pone la búsqueda que trajo al canal y lo hereda cada
+  // video; no hay clasificador por video a propósito. La pantalla dice «Rubro del canal» y la API lo describe igual.
+  // Probado rompiéndolo (18/11/2026), base 9/0: con `thumbnailsDe` poniendo un rubro fijo en vez del del canal → 7/2 (cae también «la biblioteca…»); con la
+  // descripción del parámetro vuelta a «El rubro.» → 8/1.
+  const [x] = thumbnailsDe([video({ id: 300, titulo: 'Plan de marketing digital para 2027' })], [canal({ nicho: 'ventas' })], AHORA);
+  assert.equal(x.nicho, 'ventas', 'el video hereda el rubro de su canal');
+  assert.deepEqual(filtrarThumbnails([x], { ...FILTROS_THUMBNAIL, nicho: 'marketing' }, new Set(), AHORA).map((y) => y.id), [], 'filtrar «marketing» no lo trae');
+  const { DEFS } = await import('../lib/api-mako/areas/imagen.def');
+  const p = DEFS.find((d) => d.id === 'buscar_thumbnails')?.parametros?.find((q) => q.nombre === 'nicho');
+  assert.ok(p, 'buscar_thumbnails tiene el parámetro nicho');
+  assert.match(p.descripcion ?? '', /del canal/, 'la API no le promete al modelo el tema de cada video');
+});

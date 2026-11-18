@@ -76,7 +76,7 @@ import { CIERRE_EDICION, ordenarAvisos } from '@/lib/flujo-ia-cliente';
 import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, conLimite, limitesDeFabrica, limitesParaGuardar, limitesVigentes, rangoDeLimite, type LimitesEnvio, type OpcionesRango } from '@/lib/limites-envio';
-import { horarioDeLaAutomatizacion, origenDelHorario, textoDeHorario, configParaGuardar, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
+import { horarioDeLaAutomatizacion, origenDelHorario, textoDeHorario, configParaGuardar, diasDeGoteoDelTexto, textoDeDiasGoteo, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
 import { crmDeLaAutomatizacion } from '@/lib/email-eventos-crm';
 import { etapasDeProducto } from '@/lib/lead-funnel';
 import { terminalEstadoFor } from '@/lib/pipeline';
@@ -203,7 +203,7 @@ function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Paramete
   // todos los canales desde el 24/10/2026 (Martín, f21): hasta ese día había otro del email (goteoEmail…), que ya no existe.
   if (input.sinGoteo === true) { cambio.goteo = null; partes.push('sin goteo'); }
   else {
-    const g: { minutos?: number; dia?: number; arranque?: { dia: number; sube: number } | null } = {};
+    const g: { minutos?: number; dia?: number; arranque?: { dia: number; sube: number } | null; dias?: DiaSemana[] | null } = {};
     if (input.goteoMinutos != null) { g.minutos = num(input, 'goteoMinutos'); partes.push(`uno cada ${g.minutos} min`); }
     if (input.goteoPorDia != null) { g.dia = num(input, 'goteoPorDia'); partes.push(`hasta ${g.dia} por día en cada canal`); }
     if (input.sinArranque === true) { g.arranque = null; partes.push('sin arranque gradual'); }
@@ -212,9 +212,16 @@ function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Paramete
       g.arranque = { dia: num(input, 'goteoArranqueDia'), sube: num(input, 'goteoArranqueSube') };
       partes.push(`arranca con ${g.arranque.dia} y sube ${g.arranque.sube} por día`);
     }
+    // LOS DÍAS DEL GOTEO (18/11/2026, F79): lo mismo que la fila «Días» de la tuerca. «horario» los saca.
+    if (input.goteoDias != null) {
+      const d = diasDeGoteoDelTexto(str(input, 'goteoDias'));
+      if ('error' in d) return { error: d.error };
+      g.dias = d.dias;
+      partes.push(d.dias ? `sale sólo ${textoDeDiasGoteo(d.dias)}` : 'sale los días de su horario');
+    }
     if (Object.keys(g).length) cambio.goteo = g;
   }
-  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), el goteo (goteoMinutos, goteoPorDia) o las columnas del email (columnasEmail).' };
+  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), el goteo (goteoMinutos, goteoPorDia, goteoDias) o las columnas del email (columnasEmail).' };
   // Contra lo que tiene: el arranque sube hasta su tope, que puede estar puesto de antes (`configParaGuardar`).
   const prueba = configParaGuardar(previo, cambio, cuenta);
   if (!prueba.ok) return { error: prueba.error };
@@ -1176,7 +1183,7 @@ export const RUNNERS: Runners = {
         secuencia: { id, nombre: s.nombre },
         // `de`: «fabrica» = el 9 a 21 que le puso MaKo; cede si el negocio pone el suyo (`configurar_horario_envio`).
         horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: origenDelHorario(config, delNegocio) },
-        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, arranque: config.goteo?.arranque ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
+        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, arranque: config.goteo?.arranque ?? null, dias: config.goteo?.dias?.length ? textoDeDiasGoteo(config.goteo.dias) : 'los de su horario', canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
         // Las columnas del email (4/11/2026): a cuál pasa la tarjeta en su CRM cuando el email sale, se abre o se cliquea.
         columnas_email: { enviado: config.columnasEmail?.enviado ?? null, abrio: config.columnasEmail?.abrio ?? null, clic: config.columnasEmail?.clic ?? null, rebote: config.columnasEmail?.rebote ?? null },

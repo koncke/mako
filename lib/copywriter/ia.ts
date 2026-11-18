@@ -58,6 +58,8 @@ import type { Referencia } from './referencias-reglas';
 import { textoDeNodo, textoDelDoc } from './doc';
 import { PROMPTS_EXPERTO, pideParaIA } from './experto';
 import { extractoDelDoc, plantillaPorId } from './plantillas';
+import { avisoDeDuracionPorSecciones, escribirPorSecciones, esLargaParaUnPedido, presupuestoPorSeccion, type ResultadoPorSecciones } from './por-secciones';
+import { esSinSaldoDeMt } from '../mako-tokens-medidor';
 
 /** El método del Copywriter (editable en /configuraciones): va en los dos system, antes de la regla de lo que no existe. */
 const metodo = () => renderPrompt(PROMPTS_EXPERTO.experto.key, PROMPTS_EXPERTO.experto.tpl, {});
@@ -227,8 +229,11 @@ export type ResultadoEditar = {
  * (`props.plantilla`) y el pedido va con `copywriter.adaptar.user`: MaKo pregunta lo que falta (operaciones vacías) o
  * reescribe la pieza entera, con [DATO: …] donde el negocio no tiene el dato. La instrucción (el botón o la respuesta de
  * la persona a su pregunta) viaja en la charla: el prompt de adaptar no tiene un slot para ella.
+ *
+ * `porSecciones` (18/11/2026, ./por-secciones.ts): una pieza más larga de lo que entra en un pedido se termina de escribir en
+ * tandas, cada una una llamada. Lo prende la pantalla (app/api/copywriter/ia, `maxDuration` 300); la API de MaKo no (corta a 60 s).
  */
-export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; charla?: unknown; lecturas?: readonly { nombre: string; texto: string }[]; referencias?: readonly Referencia[]; adaptar?: boolean }): Promise<ResultadoIA<ResultadoEditar>> {
+export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; charla?: unknown; lecturas?: readonly { nombre: string; texto: string }[]; referencias?: readonly Referencia[]; adaptar?: boolean; porSecciones?: boolean }): Promise<ResultadoIA<ResultadoEditar>> {
   const t0 = Date.now();
   const instruccion = typeof p.instruccion === 'string' ? p.instruccion.trim().slice(0, TOPES_IA.pregunta) : '';
   if (!instruccion) return invalido('Escribe qué quieres que escriba o cambie.');
@@ -310,13 +315,18 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     // Lo que escribió, ya saneado, en la voz del negocio y sin lo que nadie pidió, aplicado y medido.
     // Lo que el negocio LLAMA así (sus ofertas, sus productos, lo pedido): sus palabras no se pasan al español («Free Money Club»).
     const permitido = [...ofertas.map((o) => o.nombre), ...productos.map((x) => x.nombre), instruccion].join('\n');
-    const medir = (x: Record<string, unknown>) => {
+    // Partido en dos (18/11/2026): `procesar` sanea una respuesta y `medirS` la aplica y la mide. Las tandas de una pieza larga
+    // (./por-secciones.ts) se procesan igual que la primera pasada, y la lista final, con sus secciones en su lugar, se mide igual.
+    const procesar = (x: Record<string, unknown>) => {
       const s = sanearOperaciones(x.operaciones, g.doc, catalogo);
       // La voz (13/11/2026): «tú» salvo un acento DECLARADO que vosea; lo que el modelo voseó igual se pasa solo (ia-reglas).
       if (!vosea) s.ops = operacionesAlTuteo(s.ops);
       // Las palabras sueltas en inglés, al español, también solas (13/11/2026, el Cerebro: «en more budget» en un guion real).
       s.ops = operacionesAlEspanol(s.ops, permitido);
       s.ops = sinExtrasNoPedidos(s.ops, seccionesDeLaPagina, instruccion);
+      return s;
+    };
+    const medirS = (s: ReturnType<typeof procesar>, x: Record<string, unknown>) => {
       const r = aplicarTodo(g.doc, s.ops);
       const nuevos = new Set(r.nuevos);
       const dicho = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string) && b.type !== 'heading').map(textoDeNodo).join('\n');
@@ -325,6 +335,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       const ingles = palabrasEnIngles(`${dicho}\n${typeof x.respuesta === 'string' ? x.respuesta : ''}`, `${negocio}\n${oferta}\n${instruccion}`);
       return { s, r, nuevos, entera: secciones.length >= 2, escritas: palabrasDe(dicho), secciones, ingles };
     };
+    const medir = (x: Record<string, unknown>) => medirS(procesar(x), x);
     let m = medir(raw);
     // LA RÉPLICA SE CORRIGE SOLA (13/11/2026, el Cerebro: «Martín quiere que la réplica SALGA bien, no que le avisen que salió mal»;
     // en producción el anuncio de 35 palabras salió de 83 y el YouTube no siguió sus 8 capítulos). Fuera del ±25 % del largo, o sin
@@ -348,7 +359,14 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       const objetivo = original ? null : objetivoDeDuracion(segundosDe(x));
       return Number(f.largo) + Number(f.capitulos) + Number(f.corta) + Number(f.ingles) + (largo ? Math.abs(x.escritas - largo) / largo / 10 : 0) + (objetivo ? Math.abs(x.escritas - objetivo) / objetivo / 10 : 0);
     };
-    const f1 = fallas(m);
+    // UNA PIEZA LARGA SE ESCRIBE POR SECCIONES (18/11/2026, ./por-secciones.ts): la que pide más de lo que entra en un pedido
+    // (`PALABRAS_POR_PEDIDO`, unos 13 minutos dichos), escrita entera sobre una estructura (la de la página o la sugerida) y que no
+    // replica nada. La primera pasada es el borrador; sus secciones cortas se piden de nuevo, de a tandas que entran en un pedido.
+    // Esa pieza NO pasa por la segunda pasada de abajo: completarla «entera» en un pedido es justo lo que no entra, y el tiempo
+    // es de las tandas. Sólo con `porSecciones` (la pantalla): la API de MaKo corta a los 60 s por HTTP y no tiene tiempo para tandas.
+    const estructuraUsada = estructura ?? sugerida;
+    const largaPorSecciones = !!p.porSecciones && !original && !!estructuraUsada && m.entera && esLargaParaUnPedido(segundosDe(m));
+    const f1 = largaPorSecciones ? { largo: false, capitulos: false, corta: false, ingles: false } : fallas(m);
     if (m.entera && (f1.largo || f1.capitulos || f1.corta || f1.ingles) && Date.now() < t0 + 170_000) {
       const segundos = segundosDe(m) ?? 0;
       const correccion = pedidoDeCorreccion({
@@ -363,6 +381,28 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
         const m2 = medir(raw2);
         if (m2.entera && puntos(m2) < puntos(m)) { raw = raw2; m = m2; }
       }
+    }
+    // Las tandas de la pieza larga: el MISMO chat (el pedido, el borrador y el pedido de la tanda), la misma reparación del JSON y el
+    // mismo saneo. Cada tanda es una llamada y se cobra aparte (N llamadas = N cobros; lib/mako-tokens-costos.ts, `copywriter-ia`).
+    // Se arranca una sólo si quedan 60 s antes del corte de la ruta (300 s, con lo que leer los archivos ya gastó), y la primera que
+    // falla o se queda sin MaKo Tokens corta: lo escrito hasta ahí queda en la propuesta y el aviso dice qué falta.
+    let porSecciones: ResultadoPorSecciones | null = null;
+    if (largaPorSecciones && estructuraUsada) {
+      const segundos = segundosDe(m) ?? 0;
+      const borrador = raw;
+      porSecciones = await escribirPorSecciones({
+        ops: m.s.ops,
+        presupuesto: presupuestoPorSeccion(estructuraUsada, segundos),
+        segundos,
+        pedir: async (mensaje) => {
+          const x = await pedir([...primero, { role: 'assistant', content: JSON.stringify(borrador) }, { role: 'user', content: mensaje }], Math.min(Date.now() + 90_000, t0 + 270_000));
+          return salidaVacia(x) ? [] : procesar(x).ops;
+        },
+        quedaTiempo: () => Date.now() < t0 + 210_000,
+        esSinSaldo: esSinSaldoDeMt,
+      });
+      if (porSecciones.alargadas.length) m = medirS({ ...m.s, ops: porSecciones.ops }, raw);
+      if (porSecciones.corte) console.warn(`[copywriter] la pieza larga quedó a medias (${porSecciones.corte}, ${porSecciones.llamadas} tandas): faltan ${porSecciones.faltan.join(', ') || 'ninguna'}`);
     }
     const { s, r, nuevos, entera } = m;
     const ne = await conPedidoDeNoExisteDeLaSesion(typeof raw.respuesta === 'string' ? raw.respuesta.trim() : '', { chat: 'copywriter (Editar)', ruta: '/copywriter', pedido: instruccion });
@@ -407,10 +447,15 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       if (!siguenLosCapitulos(m.secciones, capitulos)) avisos.push(`El original tiene ${capitulos.length} capítulos y el guion no los sigue: pídele a MaKo una sección por capítulo.`);
     }
     // La duración de una pieza escrita entera que no replica nada (las plantillas largas: VSL, YouTube, la clase).
+    // La escrita por secciones se mide contra su largo REAL y nombra las secciones cortas; la otra, contra lo que entra en un pedido.
     if (!original && entera) {
-      const duracion = avisoDeDuracion(m.escritas, r.props.duracion ?? g.props.duracion);
+      const duracion = porSecciones
+        ? avisoDeDuracionPorSecciones(m.escritas, segundosDe(m) ?? 0, porSecciones.faltan)
+        : avisoDeDuracion(m.escritas, r.props.duracion ?? g.props.duracion);
       if (duracion) avisos.push(duracion);
     }
+    // Y si las tandas se cortaron por el saldo, lo dice el medidor con sus palabras (qué cuesta, qué tiene y las dos salidas).
+    if (porSecciones?.corte === 'saldo' && porSecciones.motivo) avisos.push(porSecciones.motivo);
     // La respuesta a la persona va SIEMPRE en «tú» (la regla del chat, ia-reglas → bloqueIdiomaCopy); lo citado en ella es del guion,
     // así que se pasa también, salvo en un negocio que vosea (ahí lo citado es su voz). Y con el largo REAL de la réplica.
     let respuesta = alEspanol(alTuteo([ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n'), { citas: !vosea }), permitido) || (s.ops.length ? 'Listo: revisa lo que escribí.' : salidaVacia(raw) ? SALIDA_VACIA : 'No cambié nada.');

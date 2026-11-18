@@ -339,7 +339,10 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'configurar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Configurar una automatización',
-    descripcion: 'PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos y hasta M por día, adentro del tope de la línea; UNO SOLO para todos sus canales —WhatsApp, email, Instagram y Messenger—, y cada canal cuenta sus mensajes), lo mismo que su tuerca en Automations. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    // ⚠️ VA ANTES que `cambiar_crons_secuencia` en el orden del turno (tests/ops-center-bateria, el 4): un parámetro nuevo
+    // se paga acortando la op, nunca con el margen (18/11/2026: `goteoDias` entró así, con la descripción, `sinGoteo` y
+    // `goteoArranqueDia` más cortos; la op quedó en 2.201 caracteres, uno menos que antes).
+    descripcion: 'PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos, hasta M por día y en qué días, adentro del tope de la línea; uno para todos sus canales), como su tuerca. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [
       pSecuenciaId,
       { nombre: 'horario', tipo: 'string', enum: ['propio', 'negocio', 'sin_horario'], descripcion: 'opcional: «propio» (con desde, hasta y dias), «negocio» para volver al del negocio, o «sin_horario» para que mande a cualquier hora.' },
@@ -347,11 +350,12 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'con horario propio: la hora en que cierra (21 = hasta las 20:59).' },
       { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
       { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: minutos entre dos mensajes por canal.' },
-      { nombre: 'goteoArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: WhatsApp arranca con estos por día (con tope).' },
+      { nombre: 'goteoArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: WhatsApp arranca con estos por día.' },
       { nombre: 'goteoArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y sube esto cada día que llega al suyo.' },
       { nombre: 'sinArranque', tipo: 'boolean', descripcion: 'opcional: true lo saca.' },
       { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: tope de mensajes en 24 h por canal.' },
-      { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo y el tope por día.' },
+      { nombre: 'goteoDias', tipo: 'string', max: 40, descripcion: 'opcional: días en que salen, como dias («horario» = los del horario).' },
+      { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true le saca el goteo entero.' },
       // Las columnas del email (4/11/2026, lib/email-eventos-crm.ts): UN parámetro y corto, a propósito. Con cuatro, la op
       // creció 600 caracteres y dejó a `cambiar_crons_secuencia` fuera del presupuesto del turno (tests/ops-center-bateria).
       { nombre: 'columnasEmail', tipo: 'string', descripcion: 'opcional: "enviado=key,abrio=key,clic=key,rebote=key", columnas de su CRM que siguen al email («ninguna» saca).' },

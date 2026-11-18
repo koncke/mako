@@ -387,6 +387,12 @@
 .tickets-bandeja__estado--esperando_cliente { background: var(--warn-bg); color: var(--warn); }
 .tickets-bandeja__estado--en_curso, .tickets-bandeja__estado--arreglado { background: var(--mako-bg); color: var(--mako-ink); }
 .tickets-bandeja__estado--resuelto { background: var(--good-bg); color: var(--good); }
+/* Cuánto tardó, o cuánto lleva si pasó las 24 h en nuestra cancha (18/11/2026, lib/tickets-demora.ts → tiempoDelTicket): en la
+   tabla, debajo de «hace X»; en la tarjeta, al lado, sin cortarse (el que cede es el «dónde» de adelante). */
+.tickets-bandeja__demora { display: block; font-size: 11.5px; font-weight: 600; color: var(--dim); }
+.tickets-bandeja__demora--tarde { color: var(--warn); }
+.tickets-bandeja__demora--vencido { color: var(--bad); font-weight: 650; }
+.tickets-bandeja__carta-sub > .tickets-bandeja__demora { display: inline; flex: none; min-width: auto; overflow: visible; font-size: inherit; }
 
 /* El teléfono DESTILA la tabla: cada fila es un renglón doble (la cara con su canal; el número y el título; quién, el
    negocio y cuándo; el estado), y el orden se elige con un selector. */
@@ -409,7 +415,7 @@
   .tickets-bandeja__col--negocio { grid-area: sub; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
   .tickets-bandeja__col--estado { grid-area: estado; justify-self: end; }
   .tickets-bandeja__col--estado .tickets-bandeja__estado { height: 22px; font-size: 11.5px; padding: 0 8px; }
-  .tickets-bandeja__col--cuando { grid-area: cuando; justify-self: end; font-size: 12.5px; }
+  .tickets-bandeja__col--cuando { grid-area: cuando; justify-self: end; font-size: 12.5px; text-align: end; }
   .tickets-bandeja__solo-angosto { display: inline; }
   .tickets-bandeja__col--titulo .tickets-bandeja__solo-angosto { color: var(--dim); font-weight: 600; }
 }

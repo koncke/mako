@@ -5,7 +5,7 @@
 // =============================================================================
 
 import { getPendientesDeMarcar } from '@/lib/queries';
-import { hoyEnTijuana } from '@/lib/date-utils';
+import { hoyEnWorkspace } from '@/lib/timezone';
 import { getTenantDb } from '@/lib/workspace';
 import { urlGravatar } from '@/lib/gravatar';
 import { crmPedido, delCrm, filasPorLead, ocultosPorLead, type FilaLead as FilaBase } from '@/lib/a-revisar-filas';
@@ -46,7 +46,10 @@ const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() 
 export async function GET(req: Request) {
   try {
     const sp = new URL(req.url).searchParams;
-    const todo = await getPendientesDeMarcar(hoyEnTijuana());
+    // El «hoy» del NEGOCIO, el MISMO que le pasa el tablero (app/crm/page.tsx): `getPendientesDeMarcar` es una lectura
+    // con caché por argumento, y con el de Tijuana el contador de la barra y la lista del CRM eran DOS lecturas que
+    // podían contar distinto a un negocio de otra zona (F125, 18/11/2026).
+    const todo = await getPendientesDeMarcar(await hoyEnWorkspace());
     // `?funnel=`: el CRM que se mira en el tablero (24/10/2026, «No debo estar en un CRM y que me traigan las
     // notificaciones de otro»). Sin él (el Sidebar, otra pantalla), el negocio entero, como siempre.
     const pedido = crmPedido(sp.get('funnel'));
