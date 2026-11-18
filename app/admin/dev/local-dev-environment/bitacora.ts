@@ -489,4 +489,20 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-infra.md → «Se cayó con 7 chats adentro y NO fue la GPU»',
     ],
   },
+  {
+    fecha: '18 nov', hora: '05:50', chat: 'Construir: seguridad e infraestructura', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La limpieza semanal de %TEMP% está construida: falta que Martín la instale',
+    puntos: [
+      '**F69:** scripts/limpiar-temporales-instalar.cmd registra la tarea `mako-limpiar-temporales` (lunes 13:17, con el node de esa PC, y si estaba apagada corre al prenderse) y scripts/limpiar-temporales-semanal.cmd corre el limpiador con `--aplicar` y deja un log.',
+      'No lo instaló ninguna sesión: lo corre Martín una vez, en una terminal de su PC.',
+    ],
+    archivos: [
+      'scripts/limpiar-temporales-instalar.cmd, scripts/limpiar-temporales-semanal.cmd',
+      'tests/limpiar-temporales-instalar.test.ts',
+      'docs/hallazgos-infra.md → «La limpieza semanal de %TEMP%…» (18/11/2026)',
+    ],
+    commits: [
+      { sha: '32685406d', msg: 'Infra: el instalador de la limpieza semanal de %TEMP%, para que lo instale Martín (F69)', lineas: 184, archivos: 4 },
+    ],
+  },
 ];
