@@ -84,21 +84,24 @@ test('la CALCULADORA: dos botones que alternan (plan y cómo te pagan), el desli
   assert.equal(calcT.trim(),
     // Cada botón muestra SÓLO la opción de ahora: el texto completo (computadora) y el corto (teléfono), el CSS muestra uno; el del
     // plan, con su precio debajo.
-    'MaKo Pro Pro US$ 97 Transferencia Transferencia ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
+    'MaKo Pro: US$ 97 Pro: US$ 97 Transferencia Transferencia ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
     'sin JavaScript: 5 negocios con el plan más caro, cobrando directo; y NADA más');
   assert.equal((calc.match(/<input/g) ?? []).length, 1, 'un solo deslizador');
   assert.match(calc, /<input id="mp-calc-n" class="mp-calc-barra" type="range" min="1" max="100"/, 'hasta 100 negocios');
   // Martín: «un único botón que si lo cliqueas cambia a la otra opción y que esté un botón al lado del otro».
   assert.equal((calc.match(/<button/g) ?? []).length, 2, 'dos botones: el plan y cómo te pagan');
-  assert.ok(calc.includes('aria-label="Plan: MaKo Pro. Cambiar a MaKo Essential"'), 'dice cuál es y a cuál cambia');
+  assert.ok(calc.includes('aria-label="Plan: MaKo Pro: US$ 97. Cambiar a MaKo Essential: US$ 47"'), 'dice cuál es y a cuál cambia');
   assert.ok(calc.includes('aria-label="Cómo te pagan: Transferencia. Cambiar a Pasarela de pago"'));
-  assert.equal((calc.match(/class="mp-calc-alt-ic"/g) ?? []).length, 2, 'cada uno con el ícono de alternar');
+  // Martín: «el pequeño botoncito dentro del botón que se note que es switchable, pero no me convence el ícono».
+  assert.equal((calc.match(/class="mp-calc-mini"/g) ?? []).length, 2, 'cada uno con su mini interruptor');
+  assert.doesNotMatch(calc, /mp-calc-alt-ic|<svg/, 'sin el ícono ⇄');
   assert.doesNotMatch(calcT, /Essential|Pasarela/, 'cada botón muestra sólo la opción de ahora');
   assert.doesNotMatch(calcT, /Binance|%/, 'sin «Binance» ni el porcentaje en los interruptores');
   assert.ok(calcT.indexOf('Transferencia') < calcT.indexOf('¿Cuántos negocios traes?'), 'los botones, arriba del deslizador');
   // En el teléfono, los nombres cortos con letra de 14 px (el Cerebro: «13 px o más»).
   const cssCalc = fuente('app/mako-partners/LandingPartners.tsx');
-  assert.match(cssCalc, /@media \(max-width: 479px\) \{[^}]*\}\s*\.mp-calc-alt \{[^}]*\}\s*\.mp-calc-alt-largo \{ display: none; \}\s*\.mp-calc-alt-corto \{ display: inline; font-size: 14px; \}/);
+  assert.match(cssCalc, /\.mp-calc-alt-largo, \.mp-calc-alt-corto \{ font-size: clamp\(13px,/, 'la letra nunca baja de 13 px');
+  assert.match(cssCalc, /\.mp-calc-alt:not\(\.tocado\) \.mp-calc-mini \{ animation: mp-late 2s ease-in-out \.6s infinite; \}/, 'late hasta que lo tocan');
   assert.doesNotMatch(calcT, /Si pagan por pasarela|negocios ×/, 'ni la línea de la pasarela ni la cuenta');
   assert.equal((calc.match(/<a /g) ?? []).length, 1, 'una sola llamada a la acción');
   const { gananciaPorMes, gananciaEnUnAnio } = await import('../app/mako-partners/numeros');

@@ -87,33 +87,40 @@ body:has(.mp-publica) { background: #FFFFFF; }
   border: 3px solid var(--mp-azul-osc); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
 .mp-calc-barra::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--mp-sobre-azul); border: 3px solid var(--mp-azul-osc); }
 .mp-calc-barra:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 6px; }
-/* Los dos botones que alternan (18/11/2026): uno al lado del otro, cada uno con la opción de ahora y el ícono de alternar. Borde,
-   fondo y sombra de botón; se levanta al pasar el mouse y se hunde al tocarlo. El del plan, con el precio en una línea chica. */
+/* Los dos botones que alternan (18/11/2026): uno al lado del otro, cada uno con la opción de ahora en UNA línea y un mini interruptor
+   (pista y bolita) que se desliza al otro lado al tocar, y late cada ~2 s hasta que tocan ese botón. Borde, fondo y sombra de botón;
+   se levanta al pasar el mouse y se hunde al tocarlo. */
 .mp-calc-alts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.mp-calc-alt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 62px; padding: 10px 10px 10px 14px;
+.mp-calc-alt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 56px; padding: 8px 10px 8px 12px;
   border-radius: 14px; cursor: pointer; font: inherit; text-align: left; color: var(--mp-sobre-azul); background: rgba(255,255,255,.14);
   border: 1px solid rgba(255,255,255,.4); box-shadow: 0 6px 16px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.2);
-  transition: transform .12s ease, background .15s ease, box-shadow .15s ease; -webkit-tap-highlight-color: transparent; }
+  transition: transform .12s ease, background .15s ease, box-shadow .15s ease; -webkit-tap-highlight-color: transparent; container-type: inline-size; }
 .mp-calc-alt:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.25); }
 .mp-calc-alt:active { transform: translateY(1px) scale(.98); box-shadow: 0 2px 6px rgba(0,0,0,.18); }
 .mp-calc-alt:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 3px; }
-.mp-calc-alt-tx { display: flex; flex-direction: column; min-width: 0; }
+.mp-calc-alt-tx { display: flex; min-width: 0; }
 .mp-calc-alt-tx.entra { animation: mp-cambia .22s ease; }
-.mp-calc-alt-largo, .mp-calc-alt-corto { font-size: 15px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
+/* Una línea: la letra sigue el ancho del botón y nunca baja de 13 px. */
+.mp-calc-alt-largo, .mp-calc-alt-corto { font-size: clamp(13px, calc((100cqi - 44px) / 11.2), 15px); font-weight: 800; line-height: 1.2; white-space: nowrap; }
 .mp-calc-alt-corto { display: none; }
-.mp-calc-alt-sub { margin-top: 2px; font-size: 13px; font-weight: 600; opacity: .85; font-variant-numeric: tabular-nums; }
-.mp-calc-alt-ic { flex: none; width: 30px; height: 30px; padding: 6px; border-radius: 999px; background: rgba(255,255,255,.2); }
+/* El mini interruptor: una pista de 28 × 16 con su bolita; a la derecha cuando está la segunda opción. */
+.mp-calc-mini { position: relative; flex: none; width: 28px; height: 16px; border-radius: 999px; background: rgba(255,255,255,.3); box-shadow: inset 0 0 0 1px rgba(255,255,255,.45); }
+.mp-calc-mini-bola { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--mp-sobre-azul);
+  box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s ease; }
+.mp-calc-alt.der .mp-calc-mini-bola { transform: translateX(12px); }
 @keyframes mp-cambia { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-@keyframes mp-pulso { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,.55); } 50% { transform: scale(1.18); box-shadow: 0 0 0 8px rgba(255,255,255,0); } }
-.mp-invita .mp-calc-alt-ic { animation: mp-pulso 1.1s ease .4s 1; }
-@media (prefers-reduced-motion: reduce) { .mp-calc-alt, .mp-calc-alt-tx.entra, .mp-invita .mp-calc-alt-ic { transition: none; animation: none; } }
-/* En el teléfono, los nombres cortos, 13 px o más, y el ícono un poco más chico para que todo entre en media fila. */
+@keyframes mp-late { 0%, 60%, 100% { transform: scale(1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.45), 0 0 0 0 rgba(255,255,255,.5); }
+  25% { transform: scale(1.15); box-shadow: inset 0 0 0 1px rgba(255,255,255,.6), 0 0 0 6px rgba(255,255,255,0); } }
+.mp-calc-alt:not(.tocado) .mp-calc-mini { animation: mp-late 2s ease-in-out .6s infinite; }
+@media (prefers-reduced-motion: reduce) { .mp-calc-alt, .mp-calc-alt-tx.entra, .mp-calc-mini, .mp-calc-mini-bola { transition: none; animation: none !important; } }
+/* En el teléfono, los nombres cortos («Pro: US$ 97») en una línea de 13 px o más; para que entren, el mini interruptor va arriba a la
+   derecha y el texto abajo, a todo el ancho del botón. */
 @media (max-width: 479px) {
   .mp-calc-alts { gap: 8px; }
-  .mp-calc-alt { padding: 10px 6px 10px 10px; gap: 6px; }
+  .mp-calc-alt { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 8px 10px; }
+  .mp-calc-mini { order: -1; justify-self: end; }
   .mp-calc-alt-largo { display: none; }
-  .mp-calc-alt-corto { display: inline; font-size: 14px; }
-  .mp-calc-alt-ic { width: 24px; height: 24px; padding: 4px; }
+  .mp-calc-alt-corto { display: inline; font-size: clamp(13px, calc(100cqi / 8.6), 15px); }
 }
 .mp-calc-res { margin: 18px 0 22px; container-type: inline-size; }
 /* El precio en UNA línea con «al mes» al final, más chico; la letra sigue el ancho del recuadro (cqi) para que el monto más largo

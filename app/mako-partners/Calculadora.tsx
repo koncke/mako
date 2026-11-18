@@ -32,11 +32,14 @@ export const NEGOCIOS_DE_ARRANQUE = 5;
 // de ahora y, al tocarlo, pasa a la otra. Se nota que es un botón: borde, fondo y sombra, el ícono de alternar, se levanta al pasar
 // el mouse y se hunde al tocarlo; el texto entra con una transición corta y el monto corre hasta el número nuevo. El ícono late UNA
 // vez cuando el recuadro aparece en pantalla, como invitación (sin textos de «toca para cambiar»).
-// El del plan va en dos líneas a propósito: «MaKo Essential · US$ 47» no entra en un renglón en medio recuadro con el ícono (ni en
-// la computadora), así que el nombre arriba y el precio abajo, más chico. En el teléfono (menos de 480 px), los nombres cortos.
+// AJUSTE (18/11/2026, Martín sobre la versión 60: «me gusta… el pequeño botoncito dentro del botón que se note que es switchable,
+// pero no me convence el ícono… yo lo haría parpadear hasta que el usuario dé clic… MaKo Pro tiene que ser dos puntos US$ 97… en
+// una sola línea»): en vez del ⇄, un MINI INTERRUPTOR (una pista con su bolita, que se desliza al otro lado al tocar); late cada
+// ~2 s hasta que tocan ESE botón; y el plan en una línea, «MaKo Pro: US$ 97». En el teléfono «Pro: US$ 97» no entra al lado del mini
+// interruptor con letra de 13 px en medio recuadro: ahí el mini interruptor va arriba a la derecha y el texto, en una línea, abajo.
 
-/** Una opción de un botón que alterna: lo que dice en la computadora, en el teléfono, y (si tiene) la línea chica de abajo. */
-type Opcion<T extends string> = { id: T; texto: string; corto: string; sub?: string };
+/** Una opción de un botón que alterna: lo que dice en la computadora y en el teléfono. */
+type Opcion<T extends string> = { id: T; texto: string; corto: string };
 
 /** Cómo te pagan: el texto simple, sin el porcentaje (Martín: «transferencia o pasarela de pago. Simple»). */
 const CANALES: readonly [Opcion<CanalDelPago>, Opcion<CanalDelPago>] = [
@@ -44,14 +47,6 @@ const CANALES: readonly [Opcion<CanalDelPago>, Opcion<CanalDelPago>] = [
   { id: 'pasarela', texto: 'Pasarela de pago', corto: 'Pasarela' },
 ];
 
-/** El ícono de alternar (⇄). */
-function IconoAlternar() {
-  return (
-    <svg className="mp-calc-alt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 8h13l-3.5-3.5" /><path d="M19 16H6l3.5 3.5" />
-    </svg>
-  );
-}
 
 /** UN botón que muestra la opción de ahora y, al tocarlo, pasa a la otra. */
 function Alternar<T extends string>({ opciones: [a, b], valor, cambiar, etiqueta }: {
@@ -61,14 +56,15 @@ function Alternar<T extends string>({ opciones: [a, b], valor, cambiar, etiqueta
   const otra = actual === a ? b : a;
   // La transición del texto, sólo cuando lo tocan: al cargar, el texto está quieto (una animación que arranca en opacidad 0 deja
   // el botón vacío si el navegador la frena, por ejemplo en una pestaña de fondo).
+  // `tocado` también apaga el latido del mini interruptor: late hasta que tocan ESE botón.
   const [tocado, setTocado] = useState(false);
   return (
-    <button type="button" className="mp-calc-alt" onClick={() => { setTocado(true); cambiar(otra.id); }} aria-label={`${etiqueta}: ${actual.texto}. Cambiar a ${otra.texto}`}>
+    <button type="button" className={`mp-calc-alt${tocado ? ' tocado' : ''}${actual === b ? ' der' : ''}`}
+      onClick={() => { setTocado(true); cambiar(otra.id); }} aria-label={`${etiqueta}: ${actual.texto}. Cambiar a ${otra.texto}`}>
       <span className={`mp-calc-alt-tx${tocado ? ' entra' : ''}`} key={actual.id}>
         <span className="mp-calc-alt-largo">{actual.texto}</span><span className="mp-calc-alt-corto">{actual.corto}</span>
-        {actual.sub && <span className="mp-calc-alt-sub">{actual.sub}</span>}
       </span>
-      <IconoAlternar />
+      <span className="mp-calc-mini" aria-hidden="true"><span className="mp-calc-mini-bola" /></span>
     </button>
   );
 }
@@ -102,22 +98,14 @@ export function Calculadora({ planes, children }: {
   const [n, setN] = useState(NEGOCIOS_DE_ARRANQUE);
   const [planId, setPlanId] = useState(planes[0]?.id ?? '');
   const [canal, setCanal] = useState<CanalDelPago>(CANALES[0].id);
-  const [invita, setInvita] = useState(false);
-  const caja = useRef<HTMLDivElement>(null);
   const plan = planes.find((p) => p.id === planId) ?? planes[0];
   const porMes = useCorre(plan ? gananciaPorMes(n, plan.precioUsd, canal) : 0);
-  // El pulso del ícono, UNA vez, cuando el recuadro aparece en pantalla.
-  useEffect(() => {
-    const el = caja.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { setInvita(true); io.disconnect(); } }, { threshold: 0.6 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
   if (!plan) return null;
-  const opcionesPlan = planes.slice(0, 2).map((p) => ({ id: p.id, texto: p.nombre, corto: p.nombre.replace(/^MaKo\s+/, ''), sub: usd(p.precioUsd) }));
+  const opcionesPlan = planes.slice(0, 2).map((p) => ({
+    id: p.id, texto: `${p.nombre}: ${usd(p.precioUsd)}`, corto: `${p.nombre.replace(/^MaKo\s+/, '')}: ${usd(p.precioUsd)}`,
+  }));
   return (
-    <div ref={caja} className={`mp-calc${invita ? ' mp-invita' : ''}`} id="calculadora" aria-label="Calculadora de lo que ganas">
+    <div className="mp-calc" id="calculadora" aria-label="Calculadora de lo que ganas">
       <div className="mp-calc-alts">
         {opcionesPlan.length === 2 && (
           <Alternar etiqueta="Plan" opciones={[opcionesPlan[0], opcionesPlan[1]]} valor={plan.id} cambiar={setPlanId} />
