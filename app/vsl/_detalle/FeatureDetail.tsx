@@ -19,7 +19,7 @@ import PandaPlayer from './PandaPlayer';
 import CasoCarrusel from './CasoCarrusel';
 import { gridHtml } from './grid-landing';
 import { RUTA_CTA, TEXTO_CIERRE, TEXTO_CTA } from '../_competencia/cta';
-import { PieGlobal } from '../_sitio/Barra';
+import { BarraGlobal, PieGlobal } from '../_sitio/Barra';
 
 // ⚠️ ACÁ NO SE AGENDA NINGUNA LLAMADA (14/11/2026). Martín, textual: «lo de agendar llamadas sí debería estar todavía para el
 // tema de Accelerator. Ahí debería haber la agenda de llamada. **Pero en ningún otro lado debería estar**». La única agenda
@@ -176,16 +176,15 @@ export default function FeatureDetail({ slug }: { slug: string }) {
     <div className="mk-det">
       <style dangerouslySetInnerHTML={{ __html: CSS_DETALLE }} />
 
-      <Cabecera />
+      {/* LA BARRA DEL SITIO arriba (18/11/2026, el mismo criterio que Martín dio para MaKo Partners: «esto al fin y al cabo es una
+          landing dentro de la landing principal… todo eso igual»). Va adentro de `.mk-det` (la caja fija con su propio scroll):
+          `position: sticky` la deja arriba al bajar. Reemplaza la cabecera propia (`Cabecera`, que siguen usando las landings). */}
+      <BarraGlobal claro />
 
       <main className="mk-det-main">
         {/* Fila de volver: link a la izquierda, nombre de la feature a la DERECHA
             (a la misma altura), para que no compita con el h1 del hero. */}
         <div className="mk-toprow">
-          <a href={`/vsl#feat-${slug}`} className="mk-back">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
-            Todas las funcionalidades
-          </a>
           <div className="mk-eyebrow mk-eyebrow-top">
             <span className="mk-eyebrow-tile"><Icon paths={f.icon} size={20} /></span>
             <span className="mk-eyebrow-txt">{f.name}</span>
@@ -385,6 +384,9 @@ body:has(.mk-det) aside { display: none !important; }
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
 }
 .mk-det * { box-sizing: border-box; }
+/* La barra del sitio adentro de la caja (18/11/2026): \`.mk-det\` es una columna flex de alto fijo y la barra trae \`min-height: 0\`,
+   así que el flex la achicaba a 0 px y el contenido arrancaba DEBAJO de ella (tapaba la fila del nombre de la función). */
+.mk-det > .s-solo-barra { flex: none; }
 .mk-det ::selection { background: rgba(47,111,237,.15); }
 
 @keyframes mkText { 0% { background-position: 130% 0 } 55%,100% { background-position: -30% 0 } }

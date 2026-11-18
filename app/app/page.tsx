@@ -15,6 +15,7 @@ import { linkApp } from '@/lib/app-url';
 import { RUTA_APP, destinoDeLaApp } from '@/lib/app-tiendas';
 import { plataformaDeUA } from '@/lib/push-payload';
 import { GuiaApp } from './GuiaApp';
+import { BarraGlobal } from '../vsl/_sitio/Barra';
 
 export const metadata: Metadata = { title: 'Instala MaKo', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -25,5 +26,6 @@ export default async function AppPage() {
   if (destino.tipo === 'tienda') redirect(destino.url);
   // Se arma también para un iPad, que se presenta como computadora: el server no lo distingue, y lo decide la pantalla.
   const qr = destino.tipo === 'qr' ? await QRCode.toDataURL(linkApp(RUTA_APP, null), { margin: 1, width: 480 }).catch(() => null) : null;
-  return <GuiaApp inicial={destino} qr={qr} />;
+  // La barra del sitio arriba, como el resto de las páginas del sitio (18/11/2026, el Cerebro con el criterio de Martín para Partners).
+  return <><BarraGlobal claro /><GuiaApp inicial={destino} qr={qr} /></>;
 }
