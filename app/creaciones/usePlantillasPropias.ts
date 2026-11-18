@@ -14,21 +14,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import type { PlantillaCrear } from '@/app/_crear/reglas';
-import type { Creacion } from '@/lib/creaciones';
+import type { CreacionConDefinicion } from '@/lib/creaciones';
 import type { TipoCreacion } from '@/lib/creaciones-reglas';
-import { plantillasDelTipoAction, usarCreacionAction } from './actions';
+import { plantillasDelTipoAction, tomarPlantillaAction, usarCreacionAction } from './actions';
 import { tarjetaDeCreacion, idDeTarjeta } from './plantillas-tarjeta';
 
-export function usePlantillasPropias(tipo: TipoCreacion, opts: { formato?: string } = {}) {
+/**
+ * `conDefinicion` (18/11/2026, el Dashboard): cada creación viaja con su definición, para que la tab dibuje su miniatura
+ * (`creaciones`) y la cree ella misma (`tomar`: la definición, con el uso contado) en vez de navegar.
+ */
+export function usePlantillasPropias(tipo: TipoCreacion, opts: { formato?: string; conDefinicion?: boolean } = {}) {
   const router = useRouter();
-  const [lista, setLista] = useState<{ mias: Creacion[]; comunidad: Creacion[] } | null>(null);
+  const [lista, setLista] = useState<{ mias: CreacionConDefinicion[]; comunidad: CreacionConDefinicion[] } | null>(null);
   const [vuelta, setVuelta] = useState(0);
+  const conDefinicion = opts.conDefinicion === true;
   useEffect(() => {
     let vivo = true;
-    plantillasDelTipoAction(tipo).then((r) => { if (vivo) setLista('error' in r ? { mias: [], comunidad: [] } : r); })
+    plantillasDelTipoAction(tipo, { conDefinicion }).then((r) => { if (vivo) setLista('error' in r ? { mias: [], comunidad: [] } : r); })
       .catch(() => { if (vivo) setLista({ mias: [], comunidad: [] }); });
     return () => { vivo = false; };
-  }, [tipo, vuelta]);
+  }, [tipo, vuelta, conDefinicion]);
   const recargar = useCallback(() => setVuelta((v) => v + 1), []);
 
   const plantillas = useMemo((): PlantillaCrear[] => {
@@ -49,5 +54,9 @@ export function usePlantillasPropias(tipo: TipoCreacion, opts: { formato?: strin
     return null;
   }, [router]);
 
-  return { plantillas, usar, recargar };
+  /** La definición de una plantilla guardada, para crearla en la pantalla (sin navegar). */
+  const tomar = useCallback(async (id: number): Promise<{ definicion: unknown; titulo: string } | { error: string }> =>
+    tomarPlantillaAction(id, tipo).catch(() => ({ error: 'Sin conexión' })), [tipo]);
+
+  return { plantillas, usar, recargar, tomar, creaciones: lista };
 }
