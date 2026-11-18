@@ -203,7 +203,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Las miniaturas de videos de YouTube de la biblioteca de MaKo (canales de ventas, marketing, emprendimiento y servicios), con su canal, sus vistas y el link al video. Filtra por rubro, idioma y período, o busca por tema o @canal.',
     parametros: [
       { nombre: 'buscar', tipo: 'string', max: 120, descripcion: 'Palabras del título, o un @canal.' },
-      { nombre: 'nicho', tipo: 'string', enum: NICHOS_THUMBNAIL.map((x) => x.value), descripcion: 'El rubro.' },
+      { nombre: 'nicho', tipo: 'string', enum: NICHOS_THUMBNAIL.map((x) => x.value), descripcion: 'El rubro del canal: lo hereda cada video del canal, no es el tema de cada video.' },
       { nombre: 'idioma', tipo: 'string', enum: IDIOMAS_THUMBNAIL.map((x) => x.value), descripcion: 'es, en o pt.' },
       { nombre: 'periodo', tipo: 'string', enum: PERIODOS_THUMBNAIL.map((x) => x.value), descripcion: 'Publicados en los últimos N días, o cuando sea.' },
       { nombre: 'orden', tipo: 'string', enum: ORDENES_THUMBNAIL.map((x) => x.value), descripcion: 'vistas (por defecto), nuevos, viejos; outlier sólo cuando YouTube habilite el múltiplo.' },

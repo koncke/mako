@@ -30,7 +30,7 @@ import { avisosParaAgencia } from './avisos-catalogo';
 import { letraVigente, miembrosDelGrupo, type PersonaDelGrupo } from './grupo-puerta';
 import {
   AVISO_DE_INVITACION_CADA_MS, AVISOS_QUE_NO_VE_UN_INVITADO, POR_PAGINA, TOPE_INVITACIONES_POR_HORA, TOPE_INVITADOS, autorDePersona, esPathDelGrupo, filaAlHilo, laVeElEquipo, laVeUnInvitado, veElHiloRecortado, sinLinksParaInvitado,
-  msgDeFila, textoInvitacionSinCuenta, textoParaComparar, tituloDelGrupo, tituloParaInvitado, type AdjuntoGrupo, type FilaGrupo, type MensajeDelHilo, type TipoAdjuntoGrupo,
+  msgDeFila, paresFilaWa, textoInvitacionSinCuenta, textoParaComparar, tituloDelGrupo, tituloParaInvitado, type AdjuntoGrupo, type FilaGrupo, type MensajeDelHilo, type TipoAdjuntoGrupo,
 } from './grupo-reglas';
 import type { PartePreparada } from './mako-tarjeta';
 
@@ -90,7 +90,11 @@ async function insertar(ws: number, f: FilaNueva): Promise<{ fila: FilaGrupo } |
   return { fila: data as unknown as FilaGrupo };
 }
 
-export type Copia = { id: number; ids: number[] };
+/**
+ * Lo que dejó una copia en el hilo: la última fila (`id`), las filas en orden (`ids`) y, por cada PARTE que se pidió copiar, su fila o
+ * null si esa parte no dejó fila (`porParte`, alineado con las partes: es lo que usa `atarIdsDeWhatsApp`).
+ */
+export type Copia = { id: number; ids: number[]; porParte: (number | null)[] };
 
 /** Lo que dice una parte de una tarjeta, y lo que hay que subir de ella. */
 function filaDeParte(p: PartePreparada, de: 'mako' | 'equipo', ws: number, avisoTipo: string | null): { fila: FilaNueva; subir?: { base64: string; mime: string; nombre?: string } } {
@@ -156,11 +160,15 @@ export async function copiarAlGrupo(ws: number, o: { texto: string; de?: 'mako' 
       ? o.partes.map((p) => filaDeParte(p, de, ws, o.avisoTipo ?? null))
       : [filaDeParte({ tipo: 'texto', texto: o.texto }, de, ws, o.avisoTipo ?? null)];
     const ids: number[] = [];
-    for (const { fila, subir } of lista) {
+    // Una entrada por PARTE, con su fila o null: así el id de WhatsApp de la parte k se ata a la fila de la parte k (`paresFilaWa`).
+    const porParte: (number | null)[] = lista.map(() => null);
+    const hecha = (): Copia | null => (ids.length ? { id: ids[ids.length - 1], ids, porParte } : null);
+    for (const [k, { fila, subir }] of lista.entries()) {
       if (!fila.texto.trim() && !subir) continue;
       const r = await insertar(ws, fila);
-      if (!('fila' in r)) return ids.length ? { id: ids[ids.length - 1], ids } : null;
+      if (!('fila' in r)) return hecha();
       ids.push(Number(r.fila.id));
+      porParte[k] = Number(r.fila.id);
       if (subir) {
         await porDetras(async () => {
           const path = await guardarArchivoDelGrupo(ws, Buffer.from(soloB64(subir.base64), 'base64'), subir.mime, subir.nombre);
@@ -170,7 +178,7 @@ export async function copiarAlGrupo(ws: number, o: { texto: string; de?: 'mako' 
       // Sólo la primera parte suena: una tarjeta en tres mensajes es UN aviso.
       if (ids.length === 1) await porDetras(() => avisarMiembros(ws, r.fila, { pushYaSalio: o.pushYaSalio }));
     }
-    return ids.length ? { id: ids[ids.length - 1], ids } : null;
+    return hecha();
   })().catch((e: unknown) => {
     console.error(`[grupo-app] ws${ws}: la copia falló: ${e instanceof Error ? e.message : String(e)}`);
     return null;
@@ -235,6 +243,15 @@ export async function atarIdDeWhatsApp(ws: number, fila: number, waId: string): 
   const { error } = await db().from(T).update({ wa_message_id: waId }).eq('workspace_id', ws).eq('id', fila).is('wa_message_id', null);
   // 23505: el eco ganó la carrera y ya hay una fila con ese id. No es un error.
   if (error && error.code !== '23505') console.warn(`[grupo-app] ws${ws}: no pude atar ${waId} a la fila ${fila}: ${error.message}`);
+}
+
+/**
+ * Ata los ids de WhatsApp de un envío POR PARTES a las filas que dejó su copia, parte por parte (`paresFilaWa`). Nunca tira: el eco por
+ * texto cubre lo que no se ate. Es la única forma de atar una copia entera: un `copia.ids.map((f, i) => ids[i] …)` empareja por posición.
+ */
+export async function atarIdsDeWhatsApp(ws: number, copia: Copia | null | undefined, idsWa: readonly (string | null | undefined)[]): Promise<void> {
+  if (!copia) return;
+  await Promise.all(paresFilaWa(copia.porParte, idsWa).map((p) => atarIdDeWhatsApp(ws, p.fila, p.waId))).catch(() => {});
 }
 
 /** Una burbuja del sistema: «Joan entró al grupo». No suena. */
