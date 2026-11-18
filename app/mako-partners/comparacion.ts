@@ -12,8 +12,7 @@
 //   · Soporte: chat, Zoom, tickets y teléfono; WhatsApp no figura.
 //   · Tutoriales en español: su centro de ayuda está en inglés (también /es/).
 //   · Ayuda con anuncios y atención de contactos: a sus afiliados les da material (Brand Kit, Asset Library), no esa ayuda.
-//   · Latinoamérica y los medios de pago: «We don't accept PayPal, checks» y el plan se paga con tarjeta; ni pesos, ni Binance, ni
-//     Mercado Pago.
+//   · Latinoamérica y Mercado Pago: «We don't accept PayPal, checks» y el plan se paga con tarjeta; ni Mercado Pago ni pesos.
 // Lo que NO va como ✕ porque sería falso (Martín lo pidió y el Cerebro lo descartó): «todo en una sola app» (GoHighLevel también lo
 // es) y «material para vender» (también lo da). Las filas 4 y 7 lo dicen de una forma que sí es verdad. Tampoco la comisión (ellos
 // pagan 40% recurrente; Martín compite por valor).
@@ -45,6 +44,8 @@ export const COMPARACION: readonly FilaVs[] = [
   { nombre: 'Soporte por WhatsApp', fuente: `${AYUDA}155000000969-24-7-customer-support-options` },
   { nombre: 'Fácil de usar, con tutoriales en español de cada pantalla', fuente: 'https://help.gohighlevel.com/support/home' },
   { nombre: 'Te ayudamos con tus anuncios y atendemos a tus contactos', fuente: 'https://www.gohighlevel.com/affiliate' },
-  { nombre: 'Pensada para vender en Latinoamérica: WhatsApp, pesos y Binance', fuente: PAGOS },
-  { nombre: 'Pagar con Mercado Pago, transferencia o Binance', fuente: PAGOS },
+  // 18/11/2026 (Martín vuelve al sistema simple: Mercado Pago o pasarela, sin transferencia ni Binance en el checkout por ahora):
+  // la tabla no promete lo que no está.
+  { nombre: 'Pensada para vender en Latinoamérica', fuente: PAGOS },
+  { nombre: 'Pagar con Mercado Pago, en pesos', fuente: PAGOS },
 ];
