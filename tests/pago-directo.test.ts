@@ -14,7 +14,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DESCUENTO_PAGO_DIRECTO, canalDelPago } from '../lib/partners-reglas';
 import {
-  CHIP_PAGO_DIRECTO, DATOS_DE_PAGO_DIRECTO, mediosDisponibles, montoDelMedio, pesosConDescuento, textoDelComprobante, urlDeEmail, urlDeWhatsApp, usdConDescuento,
+  CHIP_PAGO_DIRECTO, CLAVE_PAGO_DIRECTO, DATOS_VACIOS, datosDeSetting, datosLimpios, mediosDisponibles, montoDelMedio, pesosConDescuento, textoDelComprobante, urlDeEmail, urlDeWhatsApp, usdConDescuento,
   type DatosDePagoDirecto,
 } from '../lib/pago-directo-reglas';
 import { leerPedidoCompra } from '../lib/compra-plan-reglas';
@@ -42,11 +42,32 @@ test('los montos con el 5 %: Pro 92,15 y Essential 44,65 en USDT; los pesos al m
 });
 
 test('los datos de MaKo NO se inventan: sin ninguno la opción no se ofrece, y cada medio pide su dato', () => {
-  assert.deepEqual(mediosDisponibles(DATOS_DE_PAGO_DIRECTO), [], 'el repo no trae ningún dato cargado');
-  assert.ok(Object.values(DATOS_DE_PAGO_DIRECTO).every((v) => v === null));
+  assert.deepEqual(mediosDisponibles(DATOS_VACIOS), [], 'el repo no trae ningún dato cargado');
+  assert.ok(Object.values(DATOS_VACIOS).every((v) => v === null));
+  assert.deepEqual(datosDeSetting(null), DATOS_VACIOS, 'sin setting, sin datos');
+  assert.deepEqual(datosDeSetting('esto no es json'), DATOS_VACIOS, 'un setting roto no muestra nada');
   assert.deepEqual(mediosDisponibles({ ...DATOS, alias: null, cvu: null }), ['binance']);
   assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null }), ['transferencia']);
   assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null, alias: null, cvu: '0000003100000000000001' }), ['transferencia']);
+});
+
+test('los datos viven en un SETTING editable (no en una constante) y se limpian: lo que no se entiende no se muestra a un cliente', () => {
+  assert.equal(CLAVE_PAGO_DIRECTO, 'planes.pago_directo');
+  const l = datosLimpios({ binancePayId: '  123 456  ', alias: 'mako.cobros', cvu: '', titular: 'MaKo SRL', whatsapp: '+54 9 11 2233-4455', email: 'COBROS@Mako.com' });
+  assert.deepEqual(l, { binancePayId: '123 456', alias: 'mako.cobros', cvu: null, titular: 'MaKo SRL', whatsapp: '5491122334455', email: 'cobros@mako.com' });
+  const m = datosLimpios({ whatsapp: '12345', email: 'no-es-email', alias: 42 });
+  assert.equal(m.whatsapp, null, 'un WhatsApp con pocos dígitos');
+  assert.equal(m.email, null);
+  assert.equal(m.alias, null);
+  assert.deepEqual(datosDeSetting(JSON.stringify(l)), l);
+  // Quién lo lee y lo guarda: la página pública con el cliente de servicio; Settings › Payments sólo el super admin.
+  const srv = fuente('lib/pago-directo.ts');
+  assert.match(srv, /\.eq\('workspace_id', ws\)\.eq\('key', CLAVE_PAGO_DIRECTO\)/);
+  assert.match(srv, /no se muestra/, 'si no se puede leer, la opción no se muestra');
+  const acc = fuente('app/admin/cobros/actions.ts');
+  const a = acc.slice(acc.indexOf('export async function guardarPagoDirectoAction'));
+  assert.match(a.slice(0, 220), /const admin = await getSesionAdmin\(\);\s+if \(!admin\) return/, 'getSesionAdmin en la primera línea');
+  assert.match(fuente('app/admin/_polar/web/Settings/OrganizationPaymentSettings.tsx'), /guardarPagoDirectoAction\(valores/);
 });
 
 test('los botones del comprobante: wa.me y mailto con el texto armado, y sin el contacto no hay botón', () => {

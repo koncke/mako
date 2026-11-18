@@ -1928,9 +1928,10 @@ Una fila más junto a las pasarelas en `app/planes/[plan]/CompraPlan.tsx`; las r
 - ⚠️ **El monto nunca viaja del cliente:** lo calcula el servidor con el plan (`montoDelMedio`). El POST sólo lleva el medio (`medioDirecto`).
 - ⚠️ **La activación SIGUE SIENDO DE MARTÍN, A MANO.** Ningún texto promete «se activa sola»; el aviso al equipo dice «Falta VERIFICAR que la plata entró».
   La verificación contra Mercado Pago y Binance está pendiente (docs/pendientes-partners-pagos-1811.md, sección 2).
-- ⚠️ **Los datos de MaKo NO están cargados, y la opción no aparece hasta que lo estén.** `DATOS_DE_PAGO_DIRECTO` (lib/pago-directo-reglas.ts) sale con todo en
-  null: Binance Pay ID, alias, CVU, titular, WhatsApp y email de cobros. Binance se ofrece si hay Pay ID; transferencia si hay alias o CVU (y el plan tiene precio en
-  pesos). Hay que pedírselos a Martín: nada se inventó ni se dejó de ejemplo.
+- ⚠️ **Los datos de MaKo NO están cargados, y la opción no aparece hasta que lo estén.** Viven en un SETTING del negocio de la plataforma (`planes.pago_directo`,
+  lib/pago-directo.ts), que Martín edita en **Settings › Payments** (sección «Transferencia o Binance · 5% OFF»): Binance Pay ID, alias, CVU, titular, WhatsApp y
+  email de cobros. Se cargan sin otro despliegue. Binance se ofrece si hay Pay ID; transferencia si hay alias o CVU (y el plan tiene precio en pesos). Un WhatsApp con
+  pocos dígitos o un email roto se guardan vacíos (no se le muestra basura a un cliente). Si el setting no se puede leer, la opción no se muestra. Nada se inventó.
 - **Partners:** un referido que paga así le cuenta el canal `directo` (30 %) sobre lo que pagó con el descuento: lo anota Martín como pago de método `cripto` o
   `transferencia` y `canalDelPago` lo toma solo.
 - **Sin hacer:** la cotización en vivo para la transferencia (hoy usa el precio en pesos vigente del plan: pendiente, sección 1); las capturas a 1440 y 375 (la

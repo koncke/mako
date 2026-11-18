@@ -11,6 +11,7 @@ import { pasarelasConectadas } from '@/lib/cobros'
 import { wsSuperAdmin } from '@/lib/workspace'
 import { precioClienteAgenciaAction, preciosLocalesAction } from '@/app/admin/cobros/actions'
 import type { DatosGeneral, DatosNotificaciones, DatosPagos } from './ajustes'
+import { leerDatosDePagoDirecto } from '@/lib/pago-directo'
 
 const msg = (e: unknown, def: string): string => (e instanceof Error && e.message ? e.message : def)
 
@@ -34,6 +35,7 @@ export async function leerAjustesPagos(): Promise<DatosPagos> {
     precioAgencia: agencia.ok ? agencia.precio : null,
     errorAgencia: agencia.ok ? null : agencia.error,
     conMercadoPago: !!pasarelas?.includes('mercadopago'),
+    pagoDirecto: await leerDatosDePagoDirecto().catch(() => null),
   }
 }
 

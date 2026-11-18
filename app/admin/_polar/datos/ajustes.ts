@@ -25,6 +25,7 @@
 
 import type { Emisor } from '@/lib/recibos-reglas'
 import type { PrecioClienteAgencia } from '@/lib/agencia-cobro-reglas'
+import type { DatosDePagoDirecto } from '@/lib/pago-directo-reglas'
 
 export type { Emisor, PrecioClienteAgencia }
 
@@ -47,6 +48,8 @@ export type DatosPagos = {
   errorAgencia: string | null
   /** ¿La plataforma tiene Mercado Pago conectado? (con qué se cobra el lugar de un cliente de agencia). */
   conMercadoPago: boolean
+  /** Los datos de MaKo para «Transferencia o Binance» (lib/pago-directo-reglas.ts). null = no se pudo leer. */
+  pagoDirecto: DatosDePagoDirecto | null
 }
 
 export type DatosNotificaciones = { ok: true; emisor: Emisor; waSolo: boolean } | { ok: false; error: string }

@@ -21,7 +21,8 @@ import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas'
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { ladaDelPais } from '@/lib/paises';
 import { CompraPlan, type OpcionDirecta } from './CompraPlan';
-import { DATOS_DE_PAGO_DIRECTO, MEDIOS_DIRECTOS, mediosDisponibles, montoDelMedio, type MedioDirecto } from '@/lib/pago-directo-reglas';
+import { MEDIOS_DIRECTOS, mediosDisponibles, montoDelMedio, type MedioDirecto } from '@/lib/pago-directo-reglas';
+import { leerDatosDePagoDirecto } from '@/lib/pago-directo';
 import { Ficha, incluyeDeLaColumna, resumenDelAnual, resumenDelPlan, totalDeHoyPorPasarela } from './Checkout';
 import { QuieroPlan } from './QuieroPlan';
 
@@ -105,8 +106,9 @@ export default async function PlanPage({ params, searchParams }: {
   // precio en pesos del plan). Sin ningún medio, la fila no se dibuja.
   const montosDirectos: OpcionDirecta['montos'] = {};
   for (const m of MEDIOS_DIRECTOS) { const v = montoDelMedio(m, { precioUsd: plan.precioUsd, precioArs: precioEnPesos(plan) }); if (v) montosDirectos[m] = v; }
-  const mediosDirectos = mediosDisponibles(DATOS_DE_PAGO_DIRECTO).filter((m: MedioDirecto) => montosDirectos[m]);
-  const directo: OpcionDirecta | undefined = mediosDirectos.length ? { medios: mediosDirectos, montos: montosDirectos, datos: DATOS_DE_PAGO_DIRECTO, nombrePlan: plan.nombre } : undefined;
+  const datosDirectos = await leerDatosDePagoDirecto();
+  const mediosDirectos = mediosDisponibles(datosDirectos).filter((m: MedioDirecto) => montosDirectos[m]);
+  const directo: OpcionDirecta | undefined = mediosDirectos.length ? { medios: mediosDirectos, montos: montosDirectos, datos: datosDirectos, nombrePlan: plan.nombre } : undefined;
   return (
     <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumen} sinPrueba={conPrueba ? resumenSin : undefined}>
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la

@@ -12,8 +12,10 @@
 // ⚠️ LA ACTIVACIÓN ES DE MARTÍN, A MANO. Todavía no se verifica la plata contra Mercado Pago ni Binance (docs/pendientes-partners-pagos-1811.md,
 // sección 2): ningún texto de este checkout promete que «se activa sola».
 //
-// LOS DATOS DE MARTÍN NO SE INVENTAN: `DATOS_DE_PAGO_DIRECTO` sale vacío. Una opción sin ningún dato cargado NO se muestra (`mediosDisponibles`
-// da []): no se le pide a nadie que pague a un alias que no existe. Se cargan acá, con lo que Martín mande.
+// LOS DATOS DE MARTÍN NO SE INVENTAN, Y VIVEN EN UN SETTING (Cerebro, 18/11: «no en constantes: así se cargan sin otro despliegue»): la clave
+// `CLAVE_PAGO_DIRECTO` del negocio de la plataforma, que se edita en Settings › Payments (lib/pago-directo.ts). Sin cargar sale vacío
+// (`DATOS_VACIOS`). Una opción sin ningún dato cargado NO se muestra (`mediosDisponibles` da []): no se le pide a nadie que pague a un
+// alias que no existe.
 //
 // A un negocio referido que paga así le cuenta el canal «directo» (30 % para su partner, lib/partners-reglas.ts `canalDelPago`) sobre lo
 // que pagó, ya con el descuento: lo anota Martín en el CRM como pago de método transferencia o cripto.
@@ -45,10 +47,37 @@ export type DatosDePagoDirecto = {
   email: string | null;
 };
 
+/** El ajuste del negocio de la plataforma donde Martín carga sus datos (Settings › Payments). */
+export const CLAVE_PAGO_DIRECTO = 'planes.pago_directo';
+
 // ⚠️ SIN INVENTAR NADA (Cerebro, 18/11): los carga Martín. Mientras estén vacíos, la opción no aparece en el checkout.
-export const DATOS_DE_PAGO_DIRECTO: DatosDePagoDirecto = {
-  binancePayId: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null,
+export const DATOS_VACIOS: DatosDePagoDirecto = { binancePayId: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null };
+
+const texto = (v: unknown, max: number): string | null => {
+  const t = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '';
+  return t || null;
 };
+
+/** Los datos como los escribió Martín, limpios (lo que no se entiende queda en null: nunca se guarda basura que se muestre a un cliente). */
+export function datosLimpios(v: unknown): DatosDePagoDirecto {
+  const o = v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+  const wa = String(o.whatsapp ?? '').replace(/\D/g, '');
+  const email = texto(o.email, 200);
+  return {
+    binancePayId: texto(o.binancePayId, 40),
+    alias: texto(o.alias, 60),
+    cvu: texto(o.cvu, 40),
+    titular: texto(o.titular, 120),
+    whatsapp: wa.length >= 10 && wa.length <= 15 ? wa : null,
+    email: email && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? email.toLowerCase() : null,
+  };
+}
+
+/** Lo guardado en el setting (JSON) como datos; vacío o roto = sin datos (la opción no se muestra). */
+export function datosDeSetting(crudo: string | null): DatosDePagoDirecto {
+  if (!crudo) return { ...DATOS_VACIOS };
+  try { return datosLimpios(JSON.parse(crudo)); } catch { return { ...DATOS_VACIOS }; }
+}
 
 /** Con qué se puede pagar HOY: Binance si hay Pay ID; transferencia si hay alias o CVU. Vacío = la opción no se muestra. */
 export function mediosDisponibles(d: DatosDePagoDirecto): MedioDirecto[] {

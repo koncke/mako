@@ -31,6 +31,8 @@ import { capaDef } from '@/lib/capas';
 import { guardarPrecioClienteDeAgencia, precioClienteDeAgencia } from '@/lib/agencia-cobro';
 import type { PrecioClienteAgencia } from '@/lib/agencia-cobro-reglas';
 import { guardarPrecioLocal, monedaDeMercadoPagoDeMako, planesMako } from '@/lib/compra-plan';
+import { guardarDatosDePagoDirecto } from '@/lib/pago-directo';
+import type { DatosDePagoDirecto } from '@/lib/pago-directo-reglas';
 
 const NO_ADMIN = 'Sólo el super admin vende planes de MaKo.';
 /** Tope de la lista: es lo que devuelve `listarCobros` como máximo. Llegar a él se DICE en pantalla. */
@@ -266,6 +268,15 @@ export async function preciosLocalesAction(): Promise<{ ok: true; moneda: string
   } catch (e) {
     return { ok: false, error: mensaje(e, 'No pude leer los planes.') };
   }
+}
+
+/** Guarda los datos de MaKo para «Transferencia o Binance» (Settings › Payments). Sólo el super admin; lo que no se entiende queda vacío. */
+export async function guardarPagoDirectoAction(datos: DatosDePagoDirecto): Promise<{ ok: true; datos: DatosDePagoDirecto } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!admin) return { ok: false, error: NO_ADMIN };
+  const r = await guardarDatosDePagoDirecto(datos);
+  if (r.ok) revalidatePath('/planes', 'layout');
+  return r;
 }
 
 /** Guarda (o saca, con null) el precio de un plan en la moneda de la Mercado Pago de MaKo. */
