@@ -11,10 +11,11 @@
 // mails, simulados. Nada toca la base de producción ni manda un mail.
 //   1. «Empezar mi plan ya» hereda el código de la prueba, sin marcar el alta 'hecha' (le abriría el cambio de email);
 //   2. pagado el 1º mes del cobro nuevo (la prueba, anulada): quedan atados y salen las bienvenidas;
-//   3. pagado el 2º: el partner gana el 100% del primer mes, y el tablero y el panel del super admin lo cuentan;
+//   3. pagado el 1º y el 2º (18/11: un crédito por cada pago, 27 % por pasarela): el partner gana por cada uno, y el tablero y el
+//      panel del super admin lo cuentan;
 //   4. una prueba que NO creó la cuenta no pasa su código (el programa es para clientes nuevos);
 //   5. el que canceló la prueba sin pagar nada figura «se fue», no «en camino», AUNQUE su negocio siga 'activo' (con el corte
-//      de acceso apagado nadie lo pausa: ronda 2); el que sigue en su prueba, sí está «en camino»;
+//      de acceso apagado nadie lo pausa: ronda 2); el que sigue en su prueba, 'registrado' (todavía no pagó: no deja nada);
 //   6. un link de «Empezar mi plan ya» abierto ANTES de este arreglo (sin código) se reusa, y ahora con el código.
 //
 // Correr: node --import tsx --test --test-concurrency=1 tests/partners-empezar-ya.test.ts
@@ -102,7 +103,8 @@ function from(tabla) {
   function ejecutar() {
     if (st.op === 'insert') {
       for (const v of st.valores) {
-        if (tabla === 'partner_creditos' && v.tipo === 'referido' && filas().some((r) => r.tipo === 'referido' && r.referidor_ws === v.referidor_ws && r.referido_ws === v.referido_ws)) {
+        if (tabla === 'partner_creditos' && v.tipo === 'referido' && filas().some((r) => r.tipo === 'referido' && r.referidor_ws === v.referidor_ws
+          && (v.pago_id == null ? r.pago_id == null && r.referido_ws === v.referido_ws : r.pago_id === v.pago_id))) {
           return { data: null, error: { code: '23505', message: 'duplicate key' } };
         }
         filas().push({ id: filas().length + 1, created_at: '2026-11-22T10:00:00Z', ...v });
@@ -164,14 +166,14 @@ for (const w of [20, 40]) {
   const n = nuevoDe(w);
   Object.assign(n, { estado: 'pagado', pagado_at: '2026-10-22T10:05:00Z', suscripcion_estado: 'activa' });
   Object.assign(tablas.cobros.find((c) => c.alta_ws === w && c.creado_por === 'planes:pro:prueba'), { estado: 'anulado', suscripcion_estado: 'cancelada' });
-  tablas.pagos.push({ id: tablas.pagos.length + 1, workspace_id: 9, cobro_id: n.id, pagado: true, fecha_pago: '2026-10-22' });
+  tablas.pagos.push({ id: tablas.pagos.length + 1, workspace_id: 9, cobro_id: n.id, pagado: true, fecha_pago: '2026-10-22', monto_usd: 97, proveedor: 'mercadopago', metodo: 'tarjeta' });
 }
 const r1 = await acreditarReferidos();
 const mails1 = mails.length;
 // El tablero con el 1º mes pagado: la prueba del Parque está anulada, pero su cobro nuevo sigue vivo.
 const tablero1 = await tableroDe(10);
 // El 2º mes.
-for (const w of [20, 40]) tablas.pagos.push({ id: tablas.pagos.length + 1, workspace_id: 9, cobro_id: nuevoDe(w).id, pagado: true, fecha_pago: '2026-11-22' });
+for (const w of [20, 40]) tablas.pagos.push({ id: tablas.pagos.length + 1, workspace_id: 9, cobro_id: nuevoDe(w).id, pagado: true, fecha_pago: '2026-11-22', monto_usd: 97, proveedor: 'mercadopago', metodo: 'tarjeta' });
 const r2 = await acreditarReferidos();
 const tablero = await tableroDe(10);
 const programa = await resumenDelPrograma();
@@ -187,12 +189,12 @@ console.log(JSON.stringify({
 
 type Cobro = { id: number; alta_ws: number | null; ref_codigo: string | null; alta_estado: string | null; plan_mako: string | null; creado_por: string };
 type Corrida = { vistos: number; atados: number; acreditados: number };
-type Tablero = { referidos: Array<{ ws: number; nombre: string; estado: string; mesesPagados: number }>; resumen: { ganadoUsd: number; aCobrarUsd: number; porGanarUsd: number } };
+type Tablero = { referidos: Array<{ ws: number; nombre: string; estado: string; mesesPagados: number }>; resumen: { ganadoUsd: number; aCobrarUsd: number; cadaMesUsd: number } };
 type Salida = {
   e20: { ok: boolean; link?: string }; e40: { ok: boolean; link?: string }; e60: { ok: boolean; link?: string }; reusado60: Cobro; nuevos60: number;
   nuevo20: Cobro; nuevo40: Cobro;
   r1: Corrida; r2: Corrida; mails: Array<{ to: string; tag: string }>; mails1: number;
-  creditos: Array<{ referidor_ws: number; referido_ws: number; tipo: string; monto_usd: number }>;
+  creditos: Array<{ referidor_ws: number; referido_ws: number; tipo: string; monto_usd: number; canal: string | null }>;
   atado20: number | null; atado40: number | null;
   tablero1: Tablero; tablero: Tablero;
   programa: { referidos: number; ganadoUsd: number; aPagarUsd: number };
@@ -218,23 +220,23 @@ test('«Empezar mi plan ya» hereda el código del partner de la prueba, sin mar
   assert.equal(s.nuevo20.alta_estado, null, "nunca 'hecha': le abriría el cambio de email del acceso (/api/pagar/email)");
 });
 
-test('pagado el 1º mes del cobro nuevo (la prueba, anulada): quedan atados y salen las bienvenidas', () => {
+test('pagado el 1º mes del cobro nuevo (la prueba, anulada): quedan atados, salen las bienvenidas y ya gana el 27 % de ese pago', () => {
   const s = correr();
   assert.equal(s.atado20, 10, 'el Parque quedó como referido de Estudio Sol');
   assert.equal(s.r1.atados, 1);
-  assert.equal(s.r1.acreditados, 0, 'con un mes, todavía no se gana');
-  assert.deepEqual(s.mails.slice(0, s.mails1).map((m) => `${m.tag}→${m.to}`).sort(), ['partners-bienvenida→parque@ejemplo.com', 'partners-nuevo-referido→sol@ejemplo.com']);
+  assert.equal(s.r1.acreditados, 1, 'con el primer pago ya se gana (18/11: un crédito por cada pago)');
+  assert.deepEqual(s.mails.slice(0, s.mails1).map((m) => `${m.tag}→${m.to}`).sort(), ['partners-bienvenida→parque@ejemplo.com', 'partners-credito→sol@ejemplo.com', 'partners-nuevo-referido→sol@ejemplo.com']);
 });
 
-test('pagado el 2º mes: el partner gana el 100% del primer mes, y el tablero y el panel del super admin lo cuentan', () => {
+test('pagado el 2º mes: otro 27 %, y el tablero y el panel del super admin lo cuentan', () => {
   const s = correr();
   assert.equal(s.r2.acreditados, 1);
-  assert.deepEqual(s.creditos.map((c) => [c.referidor_ws, c.referido_ws, c.tipo, c.monto_usd]), [[10, 20, 'referido', 97]]);
+  assert.deepEqual(s.creditos.map((c) => [c.referidor_ws, c.referido_ws, c.tipo, c.monto_usd, c.canal]), [[10, 20, 'referido', 26.19, 'pasarela'], [10, 20, 'referido', 26.19, 'pasarela']]);
   const parque = s.tablero.referidos.find((r) => r.ws === 20);
-  assert.deepEqual(parque && [parque.estado, parque.mesesPagados], ['acreditado', 2], 'ya no figura «en camino» para siempre');
-  assert.equal(s.tablero.resumen.aCobrarUsd, 97);
+  assert.deepEqual(parque && [parque.estado, parque.mesesPagados], ['pagando', 2], 'paga cada mes');
+  assert.equal(s.tablero.resumen.aCobrarUsd, 52.38);
   assert.equal(s.programa.referidos, 1, 'el panel del super admin lo cuenta (con el mismo filtro que el cron)');
-  assert.equal(s.programa.aPagarUsd, 97);
+  assert.equal(s.programa.aPagarUsd, 52.38);
 });
 
 test('una prueba que NO creó la cuenta no pasa su código: el programa es para clientes nuevos', () => {
@@ -246,16 +248,16 @@ test('una prueba que NO creó la cuenta no pasa su código: el programa es para 
   assert.ok(!s.mails.some((m) => m.to === 'laura@ejemplo.com'));
 });
 
-test('el que canceló la prueba sin pagar nada figura «se fue» aunque su negocio siga activo; el que sigue en prueba, «en camino»', () => {
+test('el que canceló la prueba sin pagar nada figura «se fue» aunque su negocio siga activo; el que sigue en prueba, «registrado»', () => {
   const s = correr();
   const gimnasio = s.tablero.referidos.find((r) => r.ws === 50);
   assert.deepEqual(gimnasio && [gimnasio.estado, gimnasio.mesesPagados], ['se-fue', 0], "su negocio sigue 'activo': lo dicen sus cobros");
   const luna = s.tablero.referidos.find((r) => r.ws === 60);
   assert.deepEqual(luna && [luna.estado, luna.mesesPagados], ['registrado', 0], 'sigue en su prueba');
-  assert.equal(s.tablero.resumen.porGanarUsd, 97, 'sólo Estudio Luna: ni el Parque (ya ganado) ni el gimnasio (se fue)');
+  assert.equal(s.tablero.resumen.cadaMesUsd, 26.19, 'lo que deja cada mes: sólo el Parque, que paga; ni Estudio Luna (todavía no pagó) ni el gimnasio (se fue)');
   // Con la prueba ANULADA por «Empezar mi plan ya» y el cobro nuevo pagado, el Parque sigue: no «se fue».
   const parque1 = s.tablero1.referidos.find((r) => r.ws === 20);
-  assert.deepEqual(parque1 && [parque1.estado, parque1.mesesPagados], ['primer-pago', 1]);
+  assert.deepEqual(parque1 && [parque1.estado, parque1.mesesPagados], ['pagando', 1]);
 });
 
 test('un link de «Empezar mi plan ya» abierto antes del arreglo (sin código) se reusa, y ahora lleva el código', () => {

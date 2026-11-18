@@ -322,6 +322,7 @@ async function pagosDeLosReferidos(plataforma: number, wss: readonly number[], i
   if (!wss.length) return out;
   const cobros = (await cobrosDeLugares(plataforma)).filter((c) => c.alta_ws != null && wss.includes(Number(c.alta_ws)));
   const dueno = new Map(cobros.map((c) => [c.id, Number(c.alta_ws)]));
+  const mesesDe = new Map(cobros.map((c) => [c.id, c.meses ?? null]));
   const db = getSupabaseServer();
   const ids = cobros.map((c) => c.id);
   // De a tandas y paginado (PostgREST corta en 1.000), como `cuotasDeLugares`.
@@ -335,7 +336,7 @@ async function pagosDeLosReferidos(plataforma: number, wss: readonly number[], i
         const ws = dueno.get(p.cobro_id);
         if (ws == null) continue;
         const lista = out.get(ws) ?? [];
-        lista.push({ id: Number(p.id), montoUsd: p.monto_usd == null ? null : Number(p.monto_usd), fecha: String(p.fecha_pago ?? '').slice(0, 10), metodo: p.metodo, proveedor: p.proveedor });
+        lista.push({ id: Number(p.id), montoUsd: p.monto_usd == null ? null : Number(p.monto_usd), fecha: String(p.fecha_pago ?? '').slice(0, 10), metodo: p.metodo, proveedor: p.proveedor, meses: mesesDe.get(p.cobro_id) ?? null });
         out.set(ws, lista);
       }
       if ((data ?? []).length < 1000) break;
@@ -538,9 +539,10 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
     .in('estado', ['pagado', 'reembolsado']).order('created_at', { ascending: true }).limit(1000);
   if (error) { console.warn(`[partners] no pude leer las compras con código: ${error.message}`); return out; }
   // El PRIMERO vale: la compra más vieja de cada negocio decide quién lo refirió.
-  const primero = new Map<number, { codigo: string }>();
+  const primero = new Map<number, { codigo: string; precio: number | null }>();
   for (const c of (data ?? []) as Array<CompraConCodigo & { ref_codigo: string }>) {
-    if (!primero.has(Number(c.alta_ws))) primero.set(Number(c.alta_ws), { codigo: c.ref_codigo });
+    // El precio de LISTA por mes de su plan: el tope de lo que cuenta de cada pago (`creditosDeUnReferido`).
+    if (!primero.has(Number(c.alta_ws))) primero.set(Number(c.alta_ws), { codigo: c.ref_codigo, precio: precioDeListaPorMes(conPlanDeLista(c), listaDe) });
   }
   const pagosDe = await pagosDeLosReferidos(plataforma, [...primero.keys()]).catch((e) => { console.warn(`[partners] no pude leer los pagos de los referidos: ${msg(e)}`); return null; });
   // Lo ya acreditado, de una lectura. Si no se puede leer (o falta la 0421: sin `pago_id` no hay cómo no acreditar dos veces) no
@@ -551,7 +553,7 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
     if (r.error) console.warn(`[partners] no acredito por pago: no pude leer lo ya acreditado (${r.error.message}). ¿Falta la migración 0421?`);
     else previo = (r.data ?? []) as typeof previo;
   }
-  for (const [referido, { codigo }] of primero) {
+  for (const [referido, { codigo, precio }] of primero) {
     out.vistos++;
     try {
       const referidor = await wsDelCodigo(codigo);
@@ -566,7 +568,7 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
       if (!pagosDe || !previo) continue;
       const suyos = previo.filter((f) => Number(f.referido_ws) === referido && Number(f.referidor_ws) === referidor);
       const { acreditar, sinMonto } = creditosDeUnReferido({
-        pagos: pagosDe.get(referido) ?? [],
+        pagos: (pagosDe.get(referido) ?? []).map((p) => ({ ...p, topeUsd: precio != null ? Math.round(precio * (p.meses && p.meses > 0 ? p.meses : 1) * 100) / 100 : null })),
         yaAcreditados: new Set(suyos.filter((f) => f.pago_id != null).map((f) => Number(f.pago_id))),
         teniaCreditoViejo: suyos.some((f) => f.pago_id == null),
       });
@@ -578,7 +580,7 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
         const pct = Math.round((cr.canal === 'directo' ? COMISION_PARTNER_DIRECTO : COMISION_PARTNER_PASARELA) * 100);
         const { error: e2 } = await db.from('partner_creditos').insert({
           referidor_ws: referidor, referido_ws: referido, tipo: 'referido', monto_usd: cr.comisionUsd, pago_id: cr.pagoId, canal: cr.canal,
-          nota: `Su pago de ${formatoMonto(cr.pagoUsd, 'USD')} (${cr.canal === 'directo' ? 'Binance o transferencia' : 'pasarela'}): el ${pct} %`,
+          nota: `Su pago de ${formatoMonto(cr.pagoUsd, 'USD')}${cr.topado ? ' (tope: el precio de lista)' : ''} (${cr.canal === 'directo' ? 'Binance o transferencia' : 'pasarela'}): el ${pct} %`,
         });
         if (e2) { if (e2.code !== '23505') console.warn(`[partners] no pude acreditar ${referidor}←${referido} (pago ${cr.pagoId}): ${e2.message}`); continue; }
         out.acreditados++; ganado += cr.comisionUsd; cuantos++;

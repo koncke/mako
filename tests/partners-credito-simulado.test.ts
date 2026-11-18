@@ -7,8 +7,9 @@
 //
 // Corre `acreditarReferidos` (lib/partners-programa.ts) REAL contra una base EN MEMORIA (lib/supabase.ts simulado) y con
 // los mails anotados en vez de enviados (lib/invitaciones.ts simulado). Nada toca la base de producción ni manda un mail.
-//   1. un negocio entra con el link de otro y paga su primer mes → quedan atados y salen las DOS bienvenidas; sin crédito;
-//   2. paga su segundo mes → gana el 100% de su primer mes, a precio de lista, y sale el aviso al partner;
+//   1. un negocio entra con el link de otro y paga su primer mes (por pasarela) → quedan atados, salen las DOS bienvenidas y ya
+//      gana el 27 % de ESE pago, con el aviso al partner (18/11/2026: un crédito por cada pago, ya no se espera al 2º);
+//   2. paga su segundo mes (por Binance) → gana el 30 % de ese pago, y sale otro aviso;
 //   3. el cron vuelve a correr → nada se repite (ni crédito ni mails);
 //   4. el tablero del partner y el panel del super admin cuentan lo mismo.
 //
@@ -51,8 +52,9 @@ const tablas = {
     // Coach Laura entró con el código de la PLATAFORMA y pagó dos meses: ni atado, ni crédito, ni mails.
     { id: 2, workspace_id: 9, tipo: 'suscripcion', alta_ws: 30, ref_codigo: 'mako', alta_estado: 'hecha', estado: 'pagado',
     monto_usd: 47, moneda: 'USD', created_at: '2026-10-25T11:00:00Z', cliente_ws: null }],
-  pagos: [{ id: 1, workspace_id: 9, cobro_id: 1, pagado: true, fecha_pago: '2026-10-25' },
-    { id: 10, workspace_id: 9, cobro_id: 2, pagado: true, fecha_pago: '2026-10-25' }, { id: 11, workspace_id: 9, cobro_id: 2, pagado: true, fecha_pago: '2026-11-25' }],
+  pagos: [{ id: 1, workspace_id: 9, cobro_id: 1, pagado: true, fecha_pago: '2026-10-25', monto_usd: 97, proveedor: 'mercadopago', metodo: 'tarjeta' },
+    { id: 10, workspace_id: 9, cobro_id: 2, pagado: true, fecha_pago: '2026-10-25', monto_usd: 47, proveedor: 'mercadopago', metodo: 'tarjeta' },
+    { id: 11, workspace_id: 9, cobro_id: 2, pagado: true, fecha_pago: '2026-11-25', monto_usd: 47, proveedor: 'mercadopago', metodo: 'tarjeta' }],
   partner_creditos: [],
   // Estudio Sol se hizo partner (el alta, 25/10/2026): el panel del programa cuenta las ALTAS, no los códigos.
   app_settings: [{ workspace_id: 10, key: 'partners.alta', value: JSON.stringify({ at: '2026-10-20T10:00:00Z', cuantos: '3-5', como: ['clientes'], cobro: 'estudio.sol.mp' }) }],
@@ -83,8 +85,9 @@ function from(tabla) {
   function ejecutar() {
     if (st.op === 'insert') {
       for (const v of st.valores) {
-        // El índice único del libro (mig 0330): un referido se acredita una vez.
-        if (tabla === 'partner_creditos' && v.tipo === 'referido' && filas().some((r) => r.tipo === 'referido' && r.referidor_ws === v.referidor_ws && r.referido_ws === v.referido_ws)) {
+        // Los índices únicos del libro (mig 0421): el crédito viejo (sin pago) es uno por negocio; el nuevo, uno por pago.
+        if (tabla === 'partner_creditos' && v.tipo === 'referido' && filas().some((r) => r.tipo === 'referido' && r.referidor_ws === v.referidor_ws
+          && (v.pago_id == null ? r.pago_id == null && r.referido_ws === v.referido_ws : r.pago_id === v.pago_id))) {
           return { data: null, error: { code: '23505', message: 'duplicate key' } };
         }
         filas().push({ id: filas().length + 1, created_at: '2026-11-25T10:00:00Z', ...v });
@@ -117,7 +120,7 @@ const { acreditarReferidos, tableroDe, resumenDelPrograma } = await import(${url
 
 const r1 = await acreditarReferidos();
 const mails1 = mails.length;
-tablas.pagos.push({ id: 2, workspace_id: 9, cobro_id: 1, pagado: true, fecha_pago: '2026-11-25' });
+tablas.pagos.push({ id: 2, workspace_id: 9, cobro_id: 1, pagado: true, fecha_pago: '2026-11-25', monto_usd: 97, metodo: 'cripto', proveedor: null });
 const r2 = await acreditarReferidos();
 const mails2 = mails.length;
 const r3 = await acreditarReferidos();
@@ -135,10 +138,10 @@ console.log(JSON.stringify({
 type Salida = {
   r1: { vistos: number; atados: number; acreditados: number }; r2: Salida['r1']; r3: Salida['r1'];
   mails: Array<{ to: string; tag: string; asunto: string }>; mails1: number; mails2: number;
-  creditos: Array<{ referidor_ws: number; referido_ws: number; tipo: string; monto_usd: number }>;
+  creditos: Array<{ referidor_ws: number; referido_ws: number; tipo: string; monto_usd: number; pago_id: number | null; canal: string | null }>;
   atado: number | null;
   atadoPlataforma: number | null;
-  tablero: { link: string | null; referidos: Array<{ ws: number; nombre: string; estado: string; mesesPagados: number }>; resumen: { ganadoUsd: number; aCobrarUsd: number } };
+  tablero: { link: string | null; referidos: Array<{ ws: number; nombre: string; estado: string; mesesPagados: number; mensualUsd: number | null; ganadoUsd: number }>; resumen: { ganadoUsd: number; aCobrarUsd: number; cadaMesUsd: number } };
   programa: { partners: number; referidos: number; ganadoUsd: number; aPagarUsd: number; lista: Array<{ ws: number; nombre: string; referidos: number; ganadoUsd: number; aCobrarUsd: number; cobro: string | null }> };
 };
 
@@ -152,49 +155,55 @@ const correr = (): Salida => {
   return salida;
 };
 
-test('primer mes pagado: quedan atados y salen las DOS bienvenidas (a los admins), todavía sin crédito', () => {
+test('primer pago (por pasarela): quedan atados, salen las DOS bienvenidas (a los admins) y ya gana el 27 % de ese pago', () => {
   const s = correr();
-  assert.deepEqual(s.r1, { vistos: 2, atados: 1, acreditados: 0 });
+  assert.deepEqual(s.r1, { vistos: 2, atados: 1, acreditados: 1 });
   assert.equal(s.atadoPlataforma, null, 'el código de la plataforma no ata a nadie');
   assert.ok(!s.mails.some((m) => m.to === 'laura@ejemplo.com'), 'ni le da la bienvenida');
   assert.equal(s.atado, 10, 'el Parque quedó como referido de Estudio Sol');
-  const bienvenidas = s.mails.slice(0, s.mails1);
+  const bienvenidas = s.mails.slice(0, s.mails1).filter((m) => m.tag !== 'partners-credito');
   assert.deepEqual(bienvenidas.map((m) => `${m.tag}→${m.to}`).sort(), ['partners-bienvenida→parque@ejemplo.com', 'partners-nuevo-referido→sol@ejemplo.com']);
+  assert.deepEqual(s.mails.slice(0, s.mails1).filter((m) => m.tag === 'partners-credito').map((m) => m.to), ['sol@ejemplo.com'], 'y el aviso de lo ganado en ese primer pago');
   assert.ok(!bienvenidas.some((m) => m.to === 'closer@ejemplo.com'), 'la bienvenida es para los admins, no para el closer');
   assert.match(bienvenidas.find((m) => m.tag === 'partners-bienvenida')!.asunto, /de parte de Estudio Sol/);
 });
 
-test('segundo mes pagado: gana el 100% de su primer mes a precio de lista, y el partner recibe el aviso', () => {
+test('segundo pago (por Binance): gana el 30 % de ese pago, un crédito por cada pago, y el partner recibe otro aviso', () => {
   const s = correr();
   assert.deepEqual(s.r2, { vistos: 2, atados: 0, acreditados: 1 });
-  assert.deepEqual(s.creditos.map((c) => [c.referidor_ws, c.referido_ws, c.tipo, c.monto_usd]), [[10, 20, 'referido', 97]]);
+  assert.deepEqual(s.creditos.map((c) => [c.referidor_ws, c.referido_ws, c.tipo, c.monto_usd, c.pago_id, c.canal]), [
+    [10, 20, 'referido', 26.19, 1, 'pasarela'],
+    [10, 20, 'referido', 29.1, 2, 'directo'],
+  ]);
   const aviso = s.mails.slice(s.mails1, s.mails2);
   assert.deepEqual(aviso.map((m) => `${m.tag}→${m.to}`), ['partners-credito→sol@ejemplo.com']);
-  assert.match(aviso[0].asunto, /^Ganaste US\$\s?97/, 'en dinero: «Ganaste US$ 97», no «crédito»');
+  assert.match(aviso[0].asunto, /^Ganaste US\$\s?29,10/, 'en dinero: «Ganaste US$ 29,10», no «crédito»');
 });
 
 test('el cron vuelve a correr: nada se repite (ni el crédito, ni un mail)', () => {
   const s = correr();
   assert.deepEqual(s.r3, { vistos: 2, atados: 0, acreditados: 0 });
-  assert.equal(s.creditos.length, 1);
+  assert.equal(s.creditos.length, 2, 'un crédito por cada pago, y ninguno repetido');
   assert.equal(s.mails.length, s.mails2, 'el cron no vuelve a mandar nada');
 });
 
 test('el tablero del partner y el panel del super admin cuentan lo mismo', () => {
   const s = correr();
   assert.equal(s.tablero.link, 'https://hola-mako.com/r/estudio-sol');
-  assert.deepEqual(s.tablero.referidos.map((r) => [r.nombre, r.estado, r.mesesPagados]), [['Inmobiliaria del Parque', 'acreditado', 2]]);
-  assert.equal(s.tablero.resumen.ganadoUsd, 97);
-  assert.equal(s.tablero.resumen.aCobrarUsd, 97, 'todavía nadie se lo transfirió');
+  assert.deepEqual(s.tablero.referidos.map((r) => [r.nombre, r.estado, r.mesesPagados]), [['Inmobiliaria del Parque', 'pagando', 2]]);
+  assert.equal(s.tablero.referidos[0].mensualUsd, 29.1, 'lo que deja cada mes: el 30 % de US$ 97, con el canal de su último pago (Binance)');
+  assert.equal(s.tablero.referidos[0].ganadoUsd, 55.29);
+  assert.equal(s.tablero.resumen.ganadoUsd, 55.29);
+  assert.equal(s.tablero.resumen.cadaMesUsd, 29.1);
+  assert.equal(s.tablero.resumen.aCobrarUsd, 55.29, 'todavía nadie se lo transfirió');
   assert.equal(s.programa.referidos, 1, 'Coach Laura (código de la plataforma) no cuenta');
   assert.equal(s.programa.partners, 1, 'partners = los que terminaron el alta (la plataforma tiene código y no cuenta)');
-  assert.equal(s.programa.ganadoUsd, 97);
-  assert.equal(s.programa.aPagarUsd, 97);
-  assert.deepEqual(s.programa.lista.map((p) => [p.nombre, p.referidos, p.ganadoUsd, p.aCobrarUsd, p.cobro]), [['Estudio Sol', 1, 97, 97, 'estudio.sol.mp']]);
+  assert.equal(s.programa.ganadoUsd, 55.29);
+  assert.equal(s.programa.aPagarUsd, 55.29);
+  assert.deepEqual(s.programa.lista.map((p) => [p.nombre, p.referidos, p.ganadoUsd, p.aCobrarUsd, p.cobro]), [['Estudio Sol', 1, 55.29, 55.29, 'estudio.sol.mp']]);
 });
 
 // Roturas (24/10/2026; base 4 / 0), cada una restaurada (pasan / fallan):
-//   · el crédito con el PRIMER mes (PAGOS_PARA_ACREDITAR = 1)                                  -> 2 / 2
 //   · atar sin mirar si ya estaba atado (las bienvenidas se repiten en cada corrida)           -> 2 / 2
 //   · el crédito vale 0                                                                        -> 1 / 3
 //   · la bienvenida también al closer                                                          -> 3 / 1

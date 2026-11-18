@@ -155,9 +155,15 @@ export function canalDelPago(p: { proveedor?: string | null; metodo?: string | n
 }
 
 /** Un pago cobrado de un referido, como lo lee el cron (`pagos`: `monto_usd` es lo que entró, en dólares). */
-export type PagoDeReferido = { id: number; montoUsd: number | null; fecha: string; proveedor?: string | null; metodo?: string | null };
+export type PagoDeReferido = {
+  id: number; montoUsd: number | null; fecha: string; proveedor?: string | null; metodo?: string | null;
+  /** Los meses que paga su cobro (un anual, 12; null = 1). Con el precio de lista por mes da el TOPE de lo que cuenta de ese pago. */
+  meses?: number | null;
+  /** Lo más que cuenta de este pago: el precio de lista × sus meses (revisión de plata del 29/10, hallazgo 6: un partner nunca gana más que la lista). */
+  topeUsd?: number | null;
+};
 
-export type CreditoPorPago = { pagoId: number; pagoUsd: number; canal: CanalDelPago; comisionUsd: number };
+export type CreditoPorPago = { pagoId: number; pagoUsd: number; canal: CanalDelPago; comisionUsd: number; topado: boolean };
 
 /**
  * Lo que hay que acreditar HOY de un referido: UN crédito por cada pago cobrado que todavía no tiene el suyo. Los pagos van en orden
@@ -175,7 +181,10 @@ export function creditosDeUnReferido(p: { pagos: ReadonlyArray<PagoDeReferido>; 
     const usd = Number(pago.montoUsd);
     if (pago.montoUsd == null || !Number.isFinite(usd) || usd <= 0) { sinMonto.push(pago.id); return; }
     const canal = canalDelPago(pago);
-    acreditar.push({ pagoId: pago.id, pagoUsd: Math.round(usd * 100) / 100, canal, comisionUsd: comisionDelPago(usd, canal) });
+    // TOPE: un pago de US$ 1.500 (una venta a mano, un precio especial) no deja el 30 % de 1.500: cuenta hasta el precio de lista.
+    const topado = pago.topeUsd != null && pago.topeUsd > 0 && usd > pago.topeUsd;
+    const base = topado ? pago.topeUsd! : usd;
+    acreditar.push({ pagoId: pago.id, pagoUsd: Math.round(base * 100) / 100, canal, comisionUsd: comisionDelPago(base, canal), topado });
   });
   return { acreditar, sinMonto };
 }
