@@ -446,7 +446,8 @@ export const RUNNERS: Runners = {
     preparar: async (input) => {
       const plan = sanearPlan(input);
       if (!plan) return { error: 'Falta qué funnel se eligió.' };
-      return { payload: { ...plan }, resumen: `Guardar el plan del funnel: ${ROTULO_FUNNEL[plan.funnel]}` };
+      const despues = plan.otros?.length ? ` (y después ${plan.otros.map((f) => ROTULO_FUNNEL[f]).join(', ')})` : '';
+      return { payload: { ...plan }, resumen: `Guardar el plan del funnel: ${ROTULO_FUNNEL[plan.funnel]}${despues}` };
     },
     ejecutar: async (p) => {
       const plan = sanearPlan(p, new Date().toISOString());

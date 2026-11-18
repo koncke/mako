@@ -589,7 +589,7 @@ test('21. el Offer Coach tiene su conversación, fija en su fila, y su video la 
   for (const f of ['app/second-brain/ChatDelCoach.tsx', 'app/m/second-brain/HojaDelCoach.tsx']) {
     const c = leer(f);
     assert.match(c, /const portada = useVideoDelCoach\(cual, dosCoaches, saludo\);/, f);
-    assert.match(c, /<HiloMako items=\{portada\.items\} [^\n]*enMensaje=\{portada\.enMensaje\}/, `${f}: en la portada (el chat vacío)`);
+    assert.match(c, /<HiloMako items=\{portada\.items\} [^\n]*enMensaje=\{(?:dosCoaches \? conVoz\(true, portada\.enMensaje as never\) : )?portada\.enMensaje\}/, `${f}: en la portada (el chat vacío)`);
   }
   // El Funnel Coach del V2 no elige referente (su criatura); el Offer Coach sí.
   assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /const eligeReferente = puedeElegir && !\(dosCoaches && cual === 'funnel'\);/);
@@ -605,4 +605,17 @@ test('cada coach del V2 con el referente de SU área (el Cerebro, 18/11): Juan A
   assert.equal(referenteDelOfferCoachV2('hormozi'), 'hormozi');
   assert.equal(referenteDelFunnelCoachV2('hormozi'), null, 'uno de oferta no va al Funnel Coach: su criatura');
   assert.equal(referenteDelOfferCoachV2(null), null, 'eligió MaKo: se respeta');
+});
+
+test('hasta 3 funnels en el Funnel Coach del V2 (el Cerebro, 18/11): el principal y hasta 2 más, en orden; el coach único, igual', () => {
+  const p = sanearPlan({ funnel: 'anuncios', otros: ['organico', 'anuncios', 'tiktok', 'organico', 'youtube', 'anuncios-a-vsl'] }, '2026-11-18');
+  assert.deepEqual(p?.otros, ['organico', 'youtube'], 'sin repetir, sin el principal, sólo funnels de verdad, y 2 como mucho');
+  assert.deepEqual(sanearPlan({ funnel: 'anuncios', otros: 'youtube, organico' })?.otros, ['youtube', 'organico'], 'también «a, b»');
+  const solo = sanearPlan({ funnel: 'anuncios' }, '2026-11-18')!;
+  assert.equal('otros' in solo, false, 'sin otros, la clave no está: el plan de siempre queda igual');
+  assert.deepEqual(lineasDelPlan(p!).map((l) => l.rotulo), ['Funnel', 'Después']);
+  assert.equal(lineasDelPlan(p!)[1].valor, 'Orgánico, YouTube');
+  assert.match(contextoDelFunnelCoachV2(), /HASTA TRES: puede elegir hasta 3 funnels/);
+  assert.match(contextoDelFunnelCoachV2(), /en otros \(hasta 2\)/);
+  assert.doesNotMatch(contextoDelFunnelCoach(null), /HASTA TRES/, 'el coach único sigue con uno');
 });

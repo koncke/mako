@@ -758,3 +758,20 @@ funnel van en DOS chats. Volvieron, sólo para quien ve el V2 (`lib/onboarding-v
     tecla en el último segundo no es la persona.
   - Lo que falta: en la maqueta (C:/dev/artefactos-onboarding/cuerpo.html, después de `oferta-lista`) la marca sigue saliendo en el
     acto; es del chat de la maqueta.
+
+## Montar en el Ops Center algo que llama a una /api AJENA la vuelve tuya para d6b (18/11/2026, la voz de los coaches)
+
+- **Síntoma:** la punta en rojo en `tests/d6b-rutas.test.ts`, prueba 4 («el Ops Center va ADENTRO»), con una ruta que no era
+  mía: `app/api/voz-coach/route.ts#GET/#POST` (y antes `app/api/ia-pc/descargar/route.ts#GET`). Las dos ya estaban en main y en
+  verde.
+- **Causa real:** la prueba sigue los imports del NAVEGADOR de las pantallas del Ops Center (app/second-brain, app/_chat, …) por
+  todo el repo. Montar `BotonVozCoach` en `ChatDelCoach` hizo que su `/api/voz-coach` entrara a ese recorrido, y la ruta llega a
+  `lib/ai-cheap.ts` de paso por sus imports. Mientras nadie la montaba en el Ops Center, la prueba no la miraba.
+- **El diagnóstico obvio era el equivocado:** «es un rojo de otro chat, no lo toco». El rojo lo provoca QUIEN monta el componente,
+  no quien escribió la ruta.
+- **Regla:** al montar en una pantalla del Ops Center un componente que llama a una `/api/…`, decidir esa ruta en d6b en el MISMO
+  commit. Si no le pide nada a una IA, va a `SIN_IA` con lo que usa cada handler. Si le pide algo, se prende el contexto
+  (`conSuIADelNegocio`).
+- **Trampa del entorno:** el filtro local de la punta corre sólo los tests «suyos» de lo tocado y no incluyó d6b-rutas (sí entra
+  cuando se toca el test). El verde local no cubre esto: lo ve recién GitHub, con los tests afectados por el grafo.
+

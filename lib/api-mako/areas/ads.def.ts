@@ -1133,6 +1133,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE guardar el plan del funnel decidido con la persona. Reemplaza el anterior. Sin esto el plan sólo existe en el chat.',
     parametros: [
       { nombre: 'funnel', tipo: 'string', obligatorio: true, enum: FUNNELS, descripcion: 'El funnel elegido.' },
+      { nombre: 'otros', tipo: 'string[]', max: 2, descripcion: 'Si eligió varios: hasta 2 funnels más, en orden, para después del principal (los mismos valores que funnel).' },
       { nombre: 'porque', tipo: 'string', max: 600, descripcion: 'Por qué ese, con lo que dijo la persona.' },
       { nombre: 'presupuestoMensual', tipo: 'number', minimo: 0, descripcion: 'Inversión por mes, en dólares.' },
       { nombre: 'creativos', tipo: 'number', entero: true, minimo: 0, descripcion: 'Cuántos creativos.' },

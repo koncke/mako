@@ -26,7 +26,13 @@ export type PlanFunnel = {
   landings: number | null;
   pasos: string[];
   guardadoEn: string;
+  /** Hasta 2 funnels MÁS, en orden, para después del principal (el Funnel Coach del V2 deja elegir hasta 3, como la maqueta del
+   *  onboarding; el Cerebro, 18/11). Sin otros, la clave no está: el plan de siempre queda igual. */
+  otros?: Funnel[];
 };
+
+/** Cuántos funnels se eligen como mucho, contando el principal. */
+export const TOPE_FUNNELS = 3;
 
 const TOPE_TEXTO = 600;
 const TOPE_PASOS = 12;
@@ -44,9 +50,16 @@ export function sanearPlan(v: unknown, guardadoEn?: string): PlanFunnel | null {
   const funnel = FUNNELS.find((f) => f === o.funnel);
   if (!funnel) return null;
   const pasos = Array.isArray(o.pasos) ? o.pasos.map((p) => texto(p, 200)).filter(Boolean).slice(0, TOPE_PASOS) : [];
+  // Los otros: una lista o «a, b» (como llegan de una herramienta); sólo funnels de verdad, sin repetir ni el principal.
+  const crudos = Array.isArray(o.otros) ? o.otros : typeof o.otros === 'string' ? o.otros.split(',') : [];
+  const otros: Funnel[] = [];
+  for (const x of crudos) {
+    const f = FUNNELS.find((y) => y === (typeof x === 'string' ? x.trim() : x));
+    if (f && f !== funnel && !otros.includes(f) && otros.length < TOPE_FUNNELS - 1) otros.push(f);
+  }
   return {
     funnel, porque: texto(o.porque), presupuestoMensual: numero(o.presupuestoMensual), creativos: numero(o.creativos), angulos: numero(o.angulos),
-    landings: numero(o.landings), pasos, guardadoEn: guardadoEn ?? texto(o.guardadoEn, 40),
+    landings: numero(o.landings), pasos, guardadoEn: guardadoEn ?? texto(o.guardadoEn, 40), ...(otros.length ? { otros } : {}),
   };
 }
 
@@ -55,6 +68,7 @@ export function lineasDelPlan(p: PlanFunnel): Array<{ rotulo: string; valor: str
   const dato = (rotulo: string, n: number | null, conMoneda = false) => (n == null ? [] : [{ rotulo, valor: conMoneda ? `US$ ${n.toLocaleString('es-MX')}` : String(n) }]);
   return [
     { rotulo: 'Funnel', valor: ROTULO_FUNNEL[p.funnel] },
+    ...(p.otros?.length ? [{ rotulo: 'Después', valor: p.otros.map((f) => ROTULO_FUNNEL[f]).join(', ') }] : []),
     ...dato('Inversión por mes', p.presupuestoMensual, true), ...dato('Creativos', p.creativos), ...dato('Ángulos', p.angulos), ...dato('Landings', p.landings),
   ];
 }

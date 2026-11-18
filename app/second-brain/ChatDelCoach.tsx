@@ -35,6 +35,8 @@ import type { CoachDelOps } from '@/lib/chat-mako-reglas';
 import { inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { ROTULO_FUNNEL, type OfertaDelCoach } from '@/lib/funnel-plan';
 import { VideosDelChat } from '@/app/_ui/tutorial/VideosDelChat';
+import { BotonVozCoach } from '@/app/_ui/voz-coach/BotonVozCoach';
+import type { EnMensaje } from '@/app/_chat/HiloMako';
 import { VIDEOS_DEL_FUNNEL, VIDEOS_DEL_OFFER } from './VideoDelCoach';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
 import { PARA_TODOS } from '@/lib/onboarding-v2/revision';
@@ -64,6 +66,16 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   // Con la oferta entregada, la marca a Funnel Coach, recién cuando la persona la vio (Martín, 18/11: «mínimo déjame verla»).
   usePasoAlFunnel({ activo: dosCoaches && cual === 'offer' && visible, entregadaEn, ocupado, contenedor: useCallback(() => hilo.current, []) });
   const portada = useVideoDelCoach(cual, dosCoaches, saludo);
+  // LA VOZ DE LOS COACHES (el Cerebro, 18/11; app/_ui/voz-coach): un botón debajo de cada mensaje del coach, sin tapar el texto. El
+  // último del coach suena solo; el saludo (la portada) es una pregunta fija. Sin la clave de ElevenLabs, o fuera de la revisión de
+  // Martín, BotonVozCoach no dibuja nada.
+  const ultimoDelCoach = [...k.items].reverse().find((x) => x.k === 'msg')?.id ?? null;
+  const conVoz = (fija: boolean, previo?: (x: { id: string; texto: string }) => EnMensaje | null) => (x: { id: string; texto: string; k?: string }): EnMensaje | null => {
+    const antes = previo?.(x as never) ?? null;
+    if (!x.texto?.trim()) return antes;
+    const voz = <BotonVozCoach id={x.id} texto={x.texto} fija={fija} autoplay={fija ? false : x.id === ultimoDelCoach} />;
+    return { ...antes, abajo: <>{antes?.abajo}{voz}</> };
+  };
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
   // Quién aconseja se elige en el coach único y, con el V2, en el Offer Coach: el Funnel Coach del V2 no tiene referente al frente.
@@ -110,9 +122,9 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
         estado={estadoDelCliente(k)}>
         {mostrandoPlan ? <VistaDelPlan plan={plan} />
           : vacio ? (
-            <HiloMako items={portada.items} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null} enMensaje={portada.enMensaje}
+            <HiloMako items={portada.items} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null} enMensaje={dosCoaches ? conVoz(true, portada.enMensaje as never) : portada.enMensaje}
               onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />
-          ) : <HiloDelCliente k={k} />}
+          ) : <HiloDelCliente k={k} enMensaje={dosCoaches ? conVoz(false) : undefined} />}
       </PanelDeChat>
       {eligiendo && <ElegirReferente titulo={titulo} elegido={referente} onCerrar={() => setEligiendo(false)} onElegir={(id) => { setEligiendo(false); onReferente(id); }} />}
       {k.conectando && (
