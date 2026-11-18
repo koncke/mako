@@ -4169,4 +4169,35 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '18 nov', hora: '01:05', chat: 'Lo que falta construir (nube) › F125', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los pendientes verificados del 17/11, uno por uno',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el Cerebro como el lote «Lo que falta construir»: a este chat le tocó el F125 (las primitivas de fecha ancladas a Tijuana).',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '01:55', chat: 'Lo que falta construir (nube) › F125', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«A revisar», el asistente de mover, el export y los reportes cuentan los días del negocio, no los de Tijuana',
+    puntos: [
+      '**F125, parcial:** de las ~85 llamadas a las fechas de Tijuana, 14 pasan al día del negocio y 4 ya lo eran; las demás se quedan, con su motivo, porque son otro reloj (la ingesta diaria y las fechas que escriben los webhooks de agenda).',
+      '**El #510 que faltaba:** la ficha, «A revisar», el worklist y el asistente de mover pedían la asistencia a una reunión con el día de Tijuana mientras el corte del server ya usaba el del negocio. Ahora los cuatro usan el mismo día.',
+      '**El contador de «A revisar» de la barra** contaba con Tijuana y la lista del CRM con el negocio: dos lecturas que podían no coincidir.',
+      '**El reporte semanal de cada cliente** corta la semana, las cuotas vencidas y el cash con los días de SU negocio.',
+      '**Nuevas en lib/timezone.ts:** «ayer», «el lunes» y «el primero del mes» del negocio, estrictas para lo que decide y con el ws explícito para los crons.',
+    ],
+    archivos: [
+      'lib/date-utils.ts — `diasEnTz`, `ayerEnTz`, `lunesEnTz`, `primerDiaDelMesEnTz` (puras)',
+      'lib/timezone.ts — `diasDelNegocio(ws)`, `diasDelNegocioEstricto(ws)`, `diasEnWorkspace()`, `ayer/lunes/primerDiaDelMesEnWorkspaceEstricto()`',
+      'lib/leads.ts — `faltantesDeLead`/`resueltosDeLead` piden `hoyISO` · app/crm/actions.ts — `valoresDeRequisitos(…, hoyISO, …)`, el export',
+      'lib/datos-del-lead.ts · lib/lead-insights.ts · lib/crm-movil.ts · lib/queries.ts · lib/api-mako/areas/crm.helpers.ts + crm.run.ts',
+      'lib/reportes.ts · app/api/datos-sin-marcar-count/route.ts · lib/alta-cliente.ts · lib/graficos-detalle.ts',
+      'tests/dias-del-negocio.test.ts — seis roturas, cada una cae',
+      'docs/hallazgos-infra.md — «Las primitivas de fecha siguen ancladas a Tijuana»',
+    ],
+    revisar: '/crm',
+  },
 ];
