@@ -24,6 +24,29 @@ El diseño acordado, con las cinco decisiones del dueño, está en
 
 ---
 
+## Los bloques de General y el «Filtro» de la hoja: el funnel sí, el período todavía no (18/11/2026)
+
+- **Hecho:** «Tu funnel hoy» sin funnel propio mira el PRIMERO que filtra la hoja (antes mostraba el principal con la hoja
+  filtrada por otro). «A quién cobrarle» ya lo hacía desde el 22/10. Las dos reglas salieron de `ProveedorGeneral.tsx` (un
+  `'use client'` que trae los bloques y su CSS) a un módulo puro, app/general/funnels-de-la-hoja.ts, y un test las ejecuta;
+  el guard de tests/pagos-crm.test.ts que leía el fuente de la regla de cobranza ahora también la ejecuta.
+- **Sin hacer: el PERÍODO de la hoja.** `armarDatosGeneral()` (app/general/datos.ts) se arma UNA vez con la página, sin
+  parámetros, y cada bloque trae su tiempo adentro: el resumen del mes es el mes a la fecha (`compareMTD` +
+  `getResumenComparativo(ayer)`, lib/queries.ts, leído en `leerVistaGeneral`, lib/vista-general.ts, con sus desgloses
+  `getRevenueBreakdowns` / `getAgendasBreakdown` / `getSenalesRecon`), la cobranza mira lo que vence (`leerAQuienCobrar`,
+  lib/datos-comercial-server.ts), la meta y los OKR son del trimestre (`quarterActual`) y la agenda es de hoy. El plan:
+  1. Qué bloques siguen el período (como en Looker, los que tienen una fecha): «El mes» (lo vendido, cobrado y las agendas
+     del período, contra el anterior con `periodoAnterior`) y «A quién cobrarle» (lo que vence en el período). Los de «ahora»
+     (Tu funnel hoy, el Plan, Mi día, el semáforo, los pendientes) y los del trimestre (la meta, los OKR, los KPI con su
+     cadencia) no: su tiempo es parte de lo que dicen.
+  2. `armarDatosGeneral({ desde, hasta })` y `leerVistaGeneral({ desde, hasta })` que cambien sólo esas dos lecturas.
+  3. Una puerta para pedirlos de nuevo desde la pantalla (una acción de /api/graficos, como `datos`) que ProveedorGeneral
+     llame cuando el período de la hoja (`periodoDeHoja`, app/dashboard/exportar.ts) no es el de entrada, y que
+     `ElementoGeneral` (app/dashboard/ElementoGeneral.tsx) le pase el período al dibujo como hoy le pasa los funnels.
+  Son seis lecturas en cuatro módulos y una puerta nueva: no entró en esta tanda.
+- **Vive en:** app/general/funnels-de-la-hoja.ts · app/general/ProveedorGeneral.tsx (`dibujarBloque`). **Lo fija:**
+  tests/general-funnels-de-la-hoja.test.ts (2 roturas) · tests/pagos-crm.test.ts (1 rotura de la cobranza).
+
 ## Las dos metas de los reportes NO se unifican moviendo el call-site: la receta obvia empeora la mentira (6/11/2026)
 
 El síntoma es real y está medido: `lib/reportes.ts:67` y `:175` (el reporte diario y el semanal, los que
