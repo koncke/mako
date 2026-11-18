@@ -59,11 +59,12 @@ test('la landing sin visitas: los días y la fecha como datos, sin IA', () => {
   const datos = datosTrackingApagado({ horas: 80, ultima: '2026-10-14T20:00:00Z', tz: 'America/Mexico_City', link: LINK });
   assert.deepEqual(datos, { tracking_dias: '3 días', tracking_ultima: '14 de octubre', tracking_link: LINK });
   const sale = loQueSale('mako-tracking-apagado', 'tracking_apagado', datos)!;
-  assert.match(sale, /^🔴 \*Tu landing dejó de mandarme datos\*\n⏱️ Sin visitas hace 3 días\n🕐 La última: el 14 de octubre\n/);
-  assert.match(sale, new RegExp(`Revísalo aquí:\\n${LINK.replace(/[?.]/g, '\\$&')}\\n\\n— MaKo$`));
+  assert.match(sale, /^🔴 \*MaKo dejó de ver las visitas de tu página\*\n⏱️ Sin visitas hace 3 días\n🕐 La última: el 14 de octubre\n/);
+  assert.match(sale, /MaKo ya no sabe de qué anuncio viene cada uno/, 'no dice qué se pierde');
+  assert.match(sale, new RegExp(`revisa la dirección de tu página y el Pixel:\\n${LINK.replace(/[?.]/g, '\\$&')}\\n\\n— MaKo$`));
   // Sin la fecha (no se pudo leer), el renglón se va entero.
   const sinFecha = loQueSale('mako-tracking-apagado', 'tracking_apagado', datosTrackingApagado({ horas: 50, ultima: null, tz: 'America/Mexico_City', link: LINK }))!;
-  assert.match(sinFecha, /Sin visitas hace 2 días\nLos anuncios/);
+  assert.match(sinFecha, /Sin visitas hace 2 días\nTus anuncios/);
   assert.doesNotMatch(sinFecha, /La última/);
 });
 
