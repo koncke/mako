@@ -18,16 +18,20 @@ test('el día 1 se abre al empezar; los que siguen, al otro día a la hora del a
 });
 
 test('cada día: hecho, a medias, hoy o luego; y lo pendiente va primero', () => {
-  const e: EstadoReto = { ...base, adelantado: 2, hechas: { '1:funnel': 'x' } };
+  const e: EstadoReto = { ...base, adelantado: 2, hechas: { '1:offer': 'x', '1:funnel': 'x' } };
   const ahora = h('2026-11-18T23:00:00Z');
   const r = estadoDeLosDias(e, ahora);
   assert.equal(r.abierto, 2);
   assert.deepEqual(r.dias.slice(0, 3), ['hecho', 'hoy', 'luego']);
   assert.equal(r.hechos, 1);
   assert.equal(proximaTarea(e, ahora)?.tarea.id, 'app', 'el día 2 empieza por la app');
-  const sinFunnel: EstadoReto = { ...base, adelantado: 2 };
+  const sinFunnel: EstadoReto = { ...base, adelantado: 2, hechas: { '1:offer': 'x' } };
   assert.deepEqual(estadoDeLosDias(sinFunnel, ahora).dias.slice(0, 2), ['medias', 'hoy']);
   assert.equal(proximaTarea(sinFunnel, ahora)?.tarea.id, 'funnel', 'lo del día anterior, primero');
+  // Lo guardado antes de las dos tareas (sólo `1:funnel`): el día 1 queda a medias, con la oferta como lo que falta.
+  const deAntes: EstadoReto = { ...base, adelantado: 2, hechas: { '1:funnel': 'x' } };
+  assert.equal(estadoDeLosDias(deAntes, ahora).dias[0], 'medias');
+  assert.equal(proximaTarea(deAntes, ahora)?.tarea.id, 'offer');
   assert.equal(estadoDeLosDias(null, ahora).abierto, 0);
 });
 
@@ -49,6 +53,19 @@ test('las reglas de Martín (18/11): sin atajos, WhatsApp escribiendo ELLOS, nad
     for (const t of d.tareas) assert.ok(t.marcas.length > 0 && t.marcas.every((m) => m.sel && m.haz), `${d.n}:${t.id} se marca (sin botón de atajo)`);
     assert.equal(d.video, `reto-dia-${d.n}`, 'su video es el SUYO (nunca el de la landing)');
   }
+  // EL DÍA 1, EN DOS CHATS (Martín, 15/11: «Oferta y Funnel Coach en DOS chats separados»): primero la oferta con el Offer Coach y
+  // después el sistema para conseguir clientes con el Funnel Coach, y la marca lleva de la fila de uno a la del otro.
+  const d1 = DIAS_RETO[0];
+  assert.equal(d1.mensaje, 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta, con Offer Coach, y después tu sistema para conseguir clientes, con Funnel Coach.');
+  assert.deepEqual(d1.tareas.map((t) => [t.id, t.titulo]), [
+    ['offer', 'Tu oferta, con Offer Coach'],
+    ['funnel', 'Tu sistema para conseguir clientes, con Funnel Coach'],
+  ]);
+  assert.deepEqual(d1.tareas.map((t) => t.marcas.map((m) => m.sel)), [['[data-recorrido="sb-offer"]'], ['[data-recorrido="sb-funnel"]']]);
+  // Las dos marcas existen en la barra (las filas de los coaches, con la prop `marca` de FilaDeChat), sólo con los dos coaches.
+  const barra = readFileSync(new URL('../app/second-brain/ChatSecondBrain.tsx', import.meta.url), 'utf8');
+  assert.match(barra, /<FilaDeChat titulo=\{ORIGEN_OFFER_COACH\} marca="sb-offer"/);
+  assert.match(barra, /<FilaDeChat titulo=\{ORIGEN_FUNNEL_COACH\} marca="sb-funnel"/);
   const d3 = DIAS_RETO[2];
   assert.doesNotMatch(JSON.stringify(d3), /planilla|mándame/i, 'el día 3 no pide la lista de clientes');
   assert.ok(d3.whatsapp?.audio, 'el día 3 prueba un audio a MaKo');

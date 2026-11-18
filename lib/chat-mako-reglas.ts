@@ -256,7 +256,7 @@ export function seEscondeDeOffer(s: { id: number; updatedAt: string }, copiada: 
 /** Lo elegido en la barra: una conversación con MaKo, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»), una conversación de Offer, o un chat de Claude Code (su clave del Centro). */
 export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number }
-  | { automatizacion: number } | { editor: TipoEditor; clave: string } | { coach: 'funnel' };
+  | { automatizacion: number } | { editor: TipoEditor; clave: string } | { coach: CoachDelOps };
 
 /** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). El grupo del negocio no va acá: tiene el suyo (ChatDelGrupo.tsx). */
 export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'automations' | 'editor';
@@ -304,6 +304,7 @@ export function origenDeClave(clave: string | null | undefined): string | null {
   if (k.endsWith(`:${TAB_SECOND_BRAIN}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_SECOND_BRAIN;
   if (k.endsWith(`:${TAB_VIDEO_GENERATOR}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_VIDEO_GENERATOR;
   if (k.endsWith(`:${TAB_FUNNEL_COACH}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_FUNNEL_COACH;
+  if (k.endsWith(`:${TAB_OFFER_COACH}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_OFFER_COACH;
   // La de un gurú: su nombre es el origen («Julián Alborna › tema»). Sin esto, `claveDeTab` la rechaza y no se puede escribir.
   if (/^mako-movil:[^:]+:referente-[a-z-]+$/.test(k)) { const a = asesorPorId(referenteDeTab(k)); if (a) return a.nombre; }
   if (/^(dashboard:|comercial-|marketing-(?!ad-))/.test(k)) return 'Dashboard';
@@ -356,12 +357,26 @@ export const ORIGEN_VIDEO_GENERATOR = 'Video Generator';
 /**
  * El Funnel Coach (1/11/2026, docs/funnel-coach.md): su fila está fija debajo del Ops Center, así que no se repite en el resto. Es el
  * ÚNICO coach desde el 4/11/2026 (Martín: «Junta a "Offer coach" con "Funnel Coach", que se quede solo "Funnel coach"»): trabaja la
- * oferta y el funnel, y las conversaciones de oferta cuelgan de su fila. ⚠️ NO HAY OTRO ORIGEN DE COACH: un «Offer Coach» que vuelva a
- * aparecer en una pantalla es una segunda puerta a lo mismo (tests/coaches-ops-center.test.ts lo frena).
+ * oferta y el funnel, y las conversaciones de oferta cuelgan de su fila.
+ * ⚠️ SALVO DETRÁS DEL INTERRUPTOR DEL ONBOARDING V2 (18/11/2026, lib/onboarding-v2/revision.ts). Martín decidió el 15/11 —DESPUÉS de
+ *    juntarlos— que al terminar el onboarding «Oferta y Funnel Coach» van en DOS chats: el Offer Coach arma la oferta y le deja el
+ *    diagnóstico, y el Funnel Coach viene después, con la oferta hecha. Quien ve el V2 tiene los dos (`TAB_OFFER_COACH`, su fila fija
+ *    arriba del Funnel Coach); quien no, el coach único de siempre. Un «Offer Coach» FUERA del interruptor es una segunda puerta a lo
+ *    mismo (tests/coaches-ops-center.test.ts lo frena).
  */
 export const TAB_FUNNEL_COACH = 'funnel-coach';
 export const ORIGEN_FUNNEL_COACH = 'Funnel Coach';
-export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN, TAB_VIDEO_GENERATOR, TAB_FUNNEL_COACH];
+/** El Offer Coach (sólo con el onboarding V2): su conversación, una por persona y negocio (`mako-movil:<persona>:offer-coach`). */
+export const TAB_OFFER_COACH = 'offer-coach';
+export const ORIGEN_OFFER_COACH = 'Offer Coach';
+/** Qué coach del Ops Center: el Funnel Coach (el único, sin el V2) o el Offer Coach (con el V2). */
+export type CoachDelOps = 'funnel' | 'offer';
+export const esCoachDelOps = (v: unknown): v is CoachDelOps => v === 'funnel' || v === 'offer';
+/** Los orígenes con fila fija (no se repiten en el resto de la lista). */
+const ORIGENES_DE_COACH: readonly string[] = [ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH];
+// ⚠️ `offer-coach` se acepta para todos a propósito: crearla no da nada (el CONTEXTO lo elige el servidor con el interruptor,
+//    app/api/mako/chat/route.ts → `contextoDelChat`), y sacarla de la lista volvería «sin hilo» a quien la usó si el V2 se apaga.
+export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN, TAB_VIDEO_GENERATOR, TAB_FUNNEL_COACH, TAB_OFFER_COACH];
 
 // ── El chat con un GURÚ (3/11/2026, #16: «elegir un gurú desde Nuevo chat») ─────────────────────────────────────────
 // UNA conversación por persona, negocio y gurú (`mako-movil:<persona>:referente-<id>`), como la del Funnel Coach: elegir otra
@@ -566,7 +581,7 @@ export function listaDelCliente(p: {
       const titulo = base === TITULO_ONBOARDING || base === SECCION_OFFER ? base : conOrigen(SECCION_OFFER, base);
       return { clave: `o${o.id}`, elegido: { offer: o.id }, titulo, criatura: criaturaDeOffer(base), actividad: ms(o.updatedAt), origen: 'offer' };
     }),
-    ...p.antes.filter((a) => (a.origen ?? origenDeClave(a.clave)) !== ORIGEN_FUNNEL_COACH).map((a): FilaDelCliente => {
+    ...p.antes.filter((a) => !ORIGENES_DE_COACH.includes(a.origen ?? origenDeClave(a.clave) ?? '')).map((a): FilaDelCliente => {
       // La de un gurú es UNA por persona: se llama como él, sin «› tema», y no arma un grupo con una sola fila.
       const delGuru = asesorPorId(referenteDeTab(a.clave));
       if (delGuru) return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo: delGuru.nombre, criatura: delGuru.nombre, actividad: ms(a.updatedAt), origen: 'antes', guru: delGuru.id };

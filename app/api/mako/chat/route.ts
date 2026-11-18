@@ -50,8 +50,11 @@ import {
   urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
-import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, appDeEscritorio, referenteDeTab, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
-import { HERRAMIENTAS_DEL_COACH, contextoDeReferente, contextoDelFunnelCoach } from '@/lib/asesores/contexto';
+import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, appDeEscritorio, referenteDeTab, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
+import {
+  HERRAMIENTAS_DEL_COACH, HERRAMIENTAS_DEL_FUNNEL_COACH_V2, HERRAMIENTAS_DEL_OFFER_COACH, contextoDeReferente, contextoDelFunnelCoach, contextoDelFunnelCoachV2,
+  contextoDelOfferCoach,
+} from '@/lib/asesores/contexto';
 import { ORIGEN_COPILOTO } from '@/lib/media-buyer/copiloto';
 import { HERRAMIENTAS_DEL_COPILOTO } from '@/lib/media-buyer/copiloto-contexto';
 import { contextoDelCopilotoVigente } from '@/lib/media-buyer/copiloto-contexto-vigente';
@@ -63,7 +66,10 @@ import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 // Ya viene con el turno (lib/mako-turno-app.ts lo importa): estático, así la guarda de las rutas sin IA lo ve (tests/d6b-rutas.test.ts).
 import { cursoDe } from '@/lib/cerebro-para-chat';
 import { guardarReferente, leerPlanFunnel, leerReferente } from '@/lib/funnel-plan-db';
-import { ofertaDelCoach, ofertaParaElContexto, type OfertaDelCoach } from '@/lib/funnel-plan';
+import { ofertaDelCoach, ofertaParaElContexto, ofertaParaElContextoV2, type OfertaDelCoach } from '@/lib/funnel-plan';
+// Los dos coaches del onboarding V2 (18/11/2026): el mismo interruptor que la página (app/second-brain/page.tsx → `retoV2`).
+import { getUsuarioActual } from '@/lib/auth';
+import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 import { ofertaArmada } from '@/lib/offer-sesiones';
 import { listarOfertas } from '@/lib/ofertas';
 import { tipoDeDispositivo } from '@/lib/movil-dispositivo';
@@ -159,7 +165,8 @@ async function contextoDelChat(quien: PersonaChat, desde: Desde | null): Promise
     // Con los prompts editables vigentes (/configuraciones → Marketing CoPilot): lib/media-buyer/copiloto-contexto-vigente.ts.
     return { contexto: await contextoDelCopilotoVigente(perfil), referente: perfil.referente ?? null, propias: HERRAMIENTAS_DEL_COPILOTO };
   }
-  if (desde?.tab !== ORIGEN_FUNNEL_COACH) return { contexto: CONTEXTO_SECOND_BRAIN };
+  const tab = desde?.tab;
+  if (tab !== ORIGEN_FUNNEL_COACH && tab !== ORIGEN_OFFER_COACH) return { contexto: CONTEXTO_SECOND_BRAIN };
   // UN SOLO COACH (4/11/2026): el Funnel Coach también trabaja la oferta, con el referente que tenía cualquiera de los dos coaches.
   // Y con la oferta con la que abrió el chat (ticket #57): el saludo no se guarda en el hilo, y sin esto a «no, es la otra» el
   // coach no sabe de qué oferta le hablan. La misma lectura que el saludo (`laOfertaDelCoach`).
@@ -179,8 +186,29 @@ async function contextoDelChat(quien: PersonaChat, desde: Desde | null): Promise
   // es, para que el Second Brain pueda colgar su curso entero como capa y traer la clase que la
   // pregunta pida (lib/cerebro-para-chat.ts). Martín: «que el segundo cerebro de estos gurús tenga
   // todo el contexto».
+  // LOS DOS COACHES DEL ONBOARDING V2 (18/11/2026; Martín, 15/11: «Oferta y Funnel Coach en DOS chats separados»). Cada uno con SU
+  // contexto y SUS herramientas (lib/asesores/contexto.ts): el Offer Coach con el referente del coach (el de las conversaciones de
+  // oferta que cuelgan de él); el Funnel Coach, sin referente al frente (`referente: null`: el Second Brain no cuelga un curso).
+  // ⚠️ LO DECIDE EL INTERRUPTOR, NO LA PANTALLA: sin el V2, el coach único, venga de donde venga (una pestaña del Offer Coach abierta
+  //    mientras estaba prendido incluida). Así quien no lo ve sigue exactamente como hoy.
+  if (await veDosCoaches(quien.ws)) {
+    if (tab === ORIGEN_OFFER_COACH) {
+      return { contexto: `${contextoDelOfferCoach(referente, sinReferentes)}\n\n${ofertaParaElContextoV2(oferta, 'offer')}`, referente, propias: HERRAMIENTAS_DEL_OFFER_COACH };
+    }
+    return { contexto: `${contextoDelFunnelCoachV2(sinReferentes)}\n\n${ofertaParaElContextoV2(oferta, 'funnel')}`, referente: null, propias: HERRAMIENTAS_DEL_FUNNEL_COACH_V2 };
+  }
   // Sin pista desde el 4/11/2026: sus herramientas viajan fijas (`propias`), y la pista le quitaba el lugar a las demás (lib/asesores/contexto.ts).
   return { contexto: `${contextoDelFunnelCoach(referente, sinReferentes)}\n\n${ofertaParaElContexto(oferta)}`, referente, propias: HERRAMIENTAS_DEL_COACH };
+}
+
+/**
+ * ¿Esta persona, en este negocio, tiene los DOS coaches (el onboarding V2, lib/onboarding-v2/revision.ts)? La misma pregunta que la
+ * página (app/second-brain/page.tsx → `retoV2`): el email de la sesión y el negocio del chat (`persona.ws` es `getWorkspaceActual()`,
+ * lib/mako-turno-app.ts → personaDelRequest). Si no se pudo leer la sesión, el coach único: nunca se prende por un error.
+ */
+async function veDosCoaches(ws: number): Promise<boolean> {
+  const sesion = await getUsuarioActual().catch(() => null);
+  return !!sesion && veOnboardingV2({ email: sesion.email, ws });
 }
 
 /**
@@ -233,10 +261,13 @@ export async function GET(req: NextRequest) {
     }
     if (sp.has('gurusConCharla')) return json({ ok: true, gurus: await gurusConCharla(persona) });
     if (sp.has('coaches')) {
-      const [referente, oferta] = await runWithWorkspace(persona.ws, () => Promise.all([leerReferente(), laOfertaDelCoach()]));
+      const [[referente, oferta], dosCoaches] = await Promise.all([
+        runWithWorkspace(persona.ws, () => Promise.all([leerReferente(), laOfertaDelCoach()])), veDosCoaches(persona.ws),
+      ]);
       // Una oferta guardada o una armada en una conversación de oferta (lo que trabajaba el Offer Coach): quien la armó no vuelve a
       // empezar, y el saludo dice CUÁL (ticket #57). Si la base no contestó no se sabe, y no se afirma ni que hay ni que falta.
-      return json({ ok: true, referente, oferta, puedeElegir: persona.rol === 'admin' });
+      // `dosCoaches`: el onboarding V2 (18/11/2026), para el teléfono, que no recibe `retoV2` de la página.
+      return json({ ok: true, referente, oferta, puedeElegir: persona.rol === 'admin', dosCoaches });
     }
     if (sp.has('planFunnel')) return json({ ok: true, plan: await runWithWorkspace(persona.ws, () => leerPlanFunnel()) });
     // Y las cuentas que el «+» de la caja deja elegir para ESTE chat (8b, lib/chat-ia.ts): sin ellas, el selector no se dibuja.

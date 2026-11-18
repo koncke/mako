@@ -13,6 +13,10 @@
 //   · «VER EL PLAN» (docs/funnel-coach.md §3): deja de verse el chat y se ve lo GUARDADO. Sin plan guardado no hay botón.
 // ARRANCA SEGÚN LA OFERTA: con oferta (guardada o armada en una conversación de oferta), por el presupuesto; sin ella, por la oferta,
 // ahí mismo. Las conversaciones de oferta de antes cuelgan de su fila en la barra (ChatSecondBrain.tsx).
+//
+// CON EL ONBOARDING V2 (18/11/2026, `dosCoaches`; Martín, 15/11: «Oferta y Funnel Coach en DOS chats separados»): esta MISMA pantalla
+// es cualquiera de los dos (`cual`). El Offer Coach, con la cara de quien aconseja (se elige tocándola) y sin plan; el Funnel Coach,
+// con su propia criatura, sin elegir referente y con «Ver el plan». Los dos abren con su video la primera vez (./VideoDelCoach.tsx).
 
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Modal } from '@/app/_ui';
@@ -24,12 +28,13 @@ import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from './PiezasClient
 import { ElegirReferente } from './ElegirReferente';
 import { BotonSecondBrainDe, CerebroDelGuru } from './SuSecondBrain';
 import { useChatDelCoach } from './useChatDelCoach';
+import { useVideoDelCoach } from './VideoDelCoach';
 import { VistaDelPlan } from './VistaDelPlan';
-import { ORIGEN_FUNNEL_COACH, TAB_FUNNEL_COACH } from '@/lib/chat-mako-reglas';
+import type { CoachDelOps } from '@/lib/chat-mako-reglas';
 import { inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import type { OfertaDelCoach } from '@/lib/funnel-plan';
 
-export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver }: {
+export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver, cual = 'funnel', dosCoaches = false }: {
   referente: IdAsesor | null;
   /** Con qué oferta abre (lib/funnel-plan.ts → `ofertaDelCoach`); null = todavía no se sabe. */
   oferta: OfertaDelCoach | null;
@@ -37,12 +42,19 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   puedeElegir: boolean;
   onReferente: (id: IdAsesor | null) => void;
   onVolver: () => void;
+  /** Qué coach: sin el V2, siempre el Funnel Coach. */
+  cual?: CoachDelOps;
+  /** El onboarding V2: los dos coaches separados (lo decide el servidor, app/second-brain/page.tsx → `retoV2`). */
+  dosCoaches?: boolean;
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  const { k, r, aspecto, quien, vacio, saludo, plan } = useChatDelCoach({ referente, oferta, caja });
+  const { k, r, aspecto, quien, vacio, saludo, plan, titulo, tab } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
+  const portada = useVideoDelCoach(cual, dosCoaches, saludo);
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);
+  // Quién aconseja se elige en el coach único y, con el V2, en el Offer Coach: el Funnel Coach del V2 no tiene referente al frente.
+  const eligeReferente = puedeElegir && !(dosCoaches && cual === 'funnel');
 
   // El plan y el Second Brain del gurú van en el lugar de la conversación, de a uno: abrir uno cierra el otro.
   const [viendoPlan, setViendoPlan] = useState(false);
@@ -55,7 +67,7 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
     <>
       <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
         cabecera={{
-          clave: TAB_FUNNEL_COACH, titulo: ORIGEN_FUNNEL_COACH, aspecto, animo: k.enCurso ? 'trabajando' : 'despierto', onMuneco: puedeElegir ? () => setEligiendo(true) : undefined, onVolver,
+          clave: tab, titulo, aspecto, animo: k.enCurso ? 'trabajando' : 'despierto', onMuneco: eligeReferente ? () => setEligiendo(true) : undefined, onVolver,
           acciones: (
             <>
               {r && <span className="co-cab__inspirado">{inspiradoEn(r)}</span>}
@@ -65,7 +77,7 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
           ),
         }}
         reemplazo={mostrandoCerebro && r ? <CerebroDelGuru referente={r} /> : undefined}
-        arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={ORIGEN_FUNNEL_COACH} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
+        arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={titulo} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
         despues={<>
           <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} reportable={esRespuestaDeMaKo} />
           {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}
@@ -74,11 +86,11 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
         estado={estadoDelCliente(k)}>
         {mostrandoPlan ? <VistaDelPlan plan={plan} />
           : vacio ? (
-            <HiloMako items={saludo} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null}
+            <HiloMako items={portada.items} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null} enMensaje={portada.enMensaje}
               onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />
           ) : <HiloDelCliente k={k} />}
       </PanelDeChat>
-      {eligiendo && <ElegirReferente titulo={ORIGEN_FUNNEL_COACH} elegido={referente} onCerrar={() => setEligiendo(false)} onElegir={(id) => { setEligiendo(false); onReferente(id); }} />}
+      {eligiendo && <ElegirReferente titulo={titulo} elegido={referente} onCerrar={() => setEligiendo(false)} onElegir={(id) => { setEligiendo(false); onReferente(id); }} />}
       {k.conectando && (
         <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>
           <TusCuentasIA sinCabecera conectar />

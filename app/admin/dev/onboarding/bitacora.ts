@@ -918,4 +918,28 @@ export const BITACORA: Hito[] = [
       "app/onboarding/ChatArranque.tsx — «Continuar el onboarding desde la PC»",
     ],
   },
+  {
+    fecha: "18 nov", hora: "11:55", chat: "Offer Coach otra vez en su chat", sesion: "local_3c82c204-8262-460c-9fca-b164e2053c9a", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Offer Coach y Funnel Coach, otra vez en dos chats, sólo detrás del interruptor del onboarding V2",
+    pedido: "Al terminar el onboarding, Oferta y Funnel Coach en DOS chats separados (15/11). Y el 18/11 reclamó el paso de Offer Coach a Funnel Coach.",
+    puntos: [
+      "La app los había juntado el 4/11 (a7c0c050a), ANTES de esa decisión. Se separan sin deshacer lo del 4/11: quien no ve el V2 sigue con el coach único, con su contexto idéntico (medido con sha256).",
+      "Offer Coach arma la oferta y le deja el diagnóstico (nota de 0 a 100 con las dimensiones de la rúbrica de Offer), la guarda y lo manda a Funnel Coach, el chat de abajo. Funnel Coach no arma la oferta: si falta, manda al de arriba. Sin botones de atajo.",
+      "Quien aconseja (Hormozi de fábrica) es el del Offer Coach, con las conversaciones de oferta colgando de él; Funnel Coach tiene su propia criatura, como en la maqueta. Sin migraciones: lo guardado antes y después del 4/11 se lee igual.",
+      "El día 1 del reto, en dos tareas con su marca (sb-offer y después sb-funnel), y el video de cada coach arriba de su chat la primera vez.",
+      "Lo decide el servidor con el mismo interruptor en las tres puertas: la página del cliente, el Ops Center de Martín (que no lo recibía) y la ruta del chat. El teléfono lo sabe por la ruta.",
+      "Lo que mordió y lo que no cuadra con la maqueta: docs/hallazgos-ops-center.md, 18/11.",
+    ],
+    revisar: "/second-brain?coach=offer",
+    archivos: [
+      "lib/asesores/contexto.ts — el contexto y las herramientas de cada coach del V2 (contextoDelOfferCoach, contextoDelFunnelCoachV2)",
+      "app/api/mako/chat/route.ts — `veDosCoaches`: qué contexto corre, y `dosCoaches` en ?coaches",
+      "app/second-brain/ChatSecondBrain.tsx y ChatDelCoach.tsx — las dos filas y los dos chats (`cual`)",
+      "app/second-brain/VideoDelCoach.tsx — el video de cada coach la primera vez",
+      "app/m/second-brain/ChatClienteM.tsx, HojaDelCoach.tsx y app/m/operaciones/ChatsMovil.tsx — el teléfono",
+      "lib/reto/dias.ts — el día 1 en dos tareas",
+      "tests/coaches-ops-center.test.ts — de «Offer Coach prohibido» a «sólo con el interruptor» (17-21), probado rompiéndolo (7 roturas)",
+    ],
+  },
 ];

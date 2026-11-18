@@ -65,8 +65,9 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   const mapa: ReactNode = pMapa ? await pMapa : null;
 
   // El chat «Reto de 7 días» (18/11/2026): sólo la revisión de Martín (sus cuentas y el Cliente de Prueba) hasta que lo apruebe.
+  // Y los DOS coaches (Offer Coach y Funnel Coach, Martín 15/11), con el mismo interruptor: `dosCoaches` (ChatSecondBrain.tsx).
   const sesion = await getUsuarioActual().catch(() => null);
   const retoV2 = !!sesion && veOnboardingV2({ email: sesion.email, ws: await getWorkspaceActual().catch(() => null) });
   const nombrePersona = (sesion?.nombre ?? '').trim().split(/\s+/)[0] ?? '';
-  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" retoV2={retoV2} nombrePersona={nombrePersona} />;
+  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" retoV2={retoV2} dosCoaches={retoV2} nombrePersona={nombrePersona} />;
 }

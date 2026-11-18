@@ -18,15 +18,20 @@ export function useCoaches() {
   // null = todavía no contestó (el saludo espera); si el pedido falla, «no se sabe»: nunca se afirma una oferta sin leerla.
   const [oferta, setOferta] = useState<OfertaDelCoach | null>(null);
   const [puedeElegir, setPuedeElegir] = useState(false);
+  // LOS DOS COACHES DEL ONBOARDING V2 (18/11/2026): lo decide el servidor (app/api/mako/chat/route.ts → `veDosCoaches`). null =
+  // todavía no contestó: el teléfono sigue con el coach único hasta saberlo. La computadora no espera esto: le llega `retoV2` de la
+  // página, con el mismo interruptor.
+  const [dosCoaches, setDosCoaches] = useState<boolean | null>(null);
   useEffect(() => {
     let vivo = true;
     void fetch('/api/mako/chat?coaches=1', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
-      .then((j: { referente?: unknown; oferta?: unknown; puedeElegir?: boolean } | null) => {
+      .then((j: { referente?: unknown; oferta?: unknown; puedeElegir?: boolean; dosCoaches?: unknown } | null) => {
         if (!vivo) return;
         setOferta(sanearOfertaDelCoach(j?.oferta));
-        if (!j) return;
+        if (!j) { setDosCoaches(false); return; }
         if ('referente' in j) setReferente(referenteDe(j.referente));
         setPuedeElegir(!!j.puedeElegir);
+        setDosCoaches(j.dosCoaches === true);
       });
     return () => { vivo = false; };
   }, []);
@@ -51,7 +56,7 @@ export function useCoaches() {
   //    (`verCoach`, ./ChatSecondBrain.tsx). Apagarlo le sacaba el Funnel Coach entero a un Essential, que lo tiene en su plan.
   //    Lo que ve en su lugar es el candado al elegir quién aconseja (./ElegirReferente.tsx).
   const soloPro = useSoloPro('chat-referentes');
-  return { referente: soloPro ? null : referente, oferta, puedeElegir, elegirReferente };
+  return { referente: soloPro ? null : referente, oferta, puedeElegir, elegirReferente, dosCoaches };
 }
 
 /**
