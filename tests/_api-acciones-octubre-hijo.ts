@@ -111,10 +111,12 @@ const detallado = {
 const deUnFlujo = { ...detallado, canal: 'app', canalKey: 'app:flujo:secuencia:41', permisos: undefined, token: undefined };
 
 async function main() {
-  // El real con UNA función cambiada (como tests/_contrato-ruta-hijo.ts).
+  // El real con UNA función cambiada (como tests/_contrato-ruta-hijo.ts), por `namedExports`: Node 22 (el de la PC y del
+  // pre-push sin el PATH de scripts/node24.sh) ignora `exports` y deja el módulo vacío (medido: «perfilNegocioTexto is not a
+  // function» en el filtro del pre-push, verde con Node 24).
   const sinDefault = (m: Record<string, unknown>) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'default' && k !== 'module.exports'));
   const ia = await import(url('lib/ai-cheap.ts'));
-  mock.module(url('lib/ai-cheap.ts'), { exports: {
+  mock.module(url('lib/ai-cheap.ts'), { namedExports: {
     ...sinDefault(ia),
     chatCheapCascade: async (o: { feature?: string; validar?: (t: string) => boolean }) => {
       llamadasIA.push(String(o.feature));
@@ -123,7 +125,7 @@ async function main() {
     },
   } } as unknown as Parameters<typeof mock.module>[1]);
   const onb = await import(url('lib/onboarding.ts'));
-  mock.module(url('lib/onboarding.ts'), { exports: {
+  mock.module(url('lib/onboarding.ts'), { namedExports: {
     ...sinDefault(onb),
     perfilNegocioTexto: async () => 'Agencia de marketing que vende un programa de 3 meses para dueñas de agencias chicas.',
   } } as unknown as Parameters<typeof mock.module>[1]);
