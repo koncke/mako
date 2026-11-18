@@ -7994,12 +7994,12 @@ cambiados). La regla está en [hallazgos-infra.md](hallazgos-infra.md).
 
 ### Lo que quedó SIN hacer de Knowledge
 
-- **Los siete módulos están vacíos**: la curación —destilar los cursos en fichas— es trabajo
+- ~~**Los siete módulos están vacíos**~~ (18/11/2026: las fichas están escritas y versionadas en `lib/knowledge-siembra/`, 60 en total, y las carga `scripts/sembrar-knowledge.mts`; **falta correrlo en producción**, lo hace el Cerebro con el sí de Martín. Ver «La siembra de Knowledge», abajo): la curación —destilar los cursos en fichas— es trabajo
   de contenido y Martín decidió el 21/07 que se hace **afuera de la app**, por los créditos
   de IA. Hasta que se cargue, `metodoDeTab` cae al RAG general, igual que antes de que
   Knowledge existiera. Vive en `lib/knowledge-modulos.ts` (qué módulo) y en
   `app/classroom/methodology/` (dónde se ve lo que falta).
-- **Las cuatro áreas nuevas (`organico`, `oferta`, `paginas`, `piezas`) no tienen una sola
+- **Las cuatro áreas nuevas (`organico`, `oferta`, `paginas`, `piezas`) no tienen una sola** (18/11/2026: siguen sin filas hasta que corra la siembra)
   fila.** No hicieron falta migración ni cambio de tipos (`area` es texto libre en
   `mako_knowledge`), pero sí entrar al desplegable de la pantalla: un área que no se puede
   elegir no recibe nunca una ficha. El test lo frena.
@@ -8008,7 +8008,7 @@ cambiados). La regla está en [hallazgos-infra.md](hallazgos-infra.md).
   `lib/nutricion-plantillas.ts`, `lib/post-llamada.ts`, `lib/ig-writer.ts`,
   `lib/landing-writer.ts` y `lib/campaign-structurer.ts` no se tocaron: cambiarlos cambia lo
   que ve el modelo en siete prompts con tests propios, y se hace de a uno midiendo.
-- **La mitad «plantillas de influencers» del pedido del 30/10 no está** («guiones al estilo
+- ~~**La mitad «plantillas de influencers» del pedido del 30/10 no está**~~ (18/11/2026: cuatro plantillas de guion en `lib/knowledge-siembra/plantillas-guion.ts`, módulo `organico`; «Ramiro Curia» se leyó como Ramiro Cubria, ver abajo) («guiones al estilo
   de Ramiro Curia, Sofía Contreras»). No existe análisis de eso en ninguna parte —buscado en
   todas las ramas y tags—, los «links scrapeados» que Martín dice que mandó no están en el
   repo ni en la carpeta de feedback, y **Ramiro Curia no figura en el catálogo de cursos**
@@ -8043,3 +8043,32 @@ Al armar las catorce fichas de `lib/asesores/` se leyeron entre 12 y 18 clases d
 - **Se comprobaron contra la transcripción ocho cifras de las fichas, y salieron todas:** el 25 a 1 y el 80% de Hormozi, el 70%, el 25% diario, el tope del 20% y la frecuencia 5 de JADS, y el 80-20 y los niveles de Otálora. Sin eso, la palabra del agente que las destiló era lo único que las sostenía.
 - **Las reglas de un docente son suyas, no de la plataforma:** el 25% diario de JADS se lo atribuye él a una charla con alguien de Meta. La
   ficha lo dice «según Juan»; presentarlo como política de Meta sería inventar.
+
+## La siembra de Knowledge: el método de los cursos, por módulo (18/11/2026, C3)
+
+**Vive en:** `lib/knowledge-siembra/` (una lista por módulo y `plan.ts`) · `scripts/sembrar-knowledge.mts` · `tests/knowledge-siembra.test.ts`
+
+- **Qué quedó:** 60 fichas para los siete módulos de `lib/knowledge-modulos.ts` (anuncios 9, venta 9, organico 6 + 4 plantillas de
+  guion, oferta 8, paginas 9, piezas 7, app 8). Cada módulo suma ≤ 11.000 caracteres (`TOPE_MODULO`): con eso `metodologiaDeArea` lo
+  manda ENTERO al prompt de su tab en vez de caer a «las 3 primeras + top-k». Por eso el ORDEN de cada archivo importa: las tres
+  primeras son las bases del módulo.
+- **De dónde salen:** casi todo de las fichas de referentes de `lib/asesores/` (ya destiladas, en paráfrasis y sin las tácticas que
+  MaKo no aconseja) y de `docs/conocimiento/*.md`; las de páginas y piezas, del temario y las transcripciones de los cursos propios
+  (`vsl-landing`, «Avatares de IA que se parecen») y de las reglas de generación de AGENTS.md. El `de` de cada ficha lo dice y NO viaja
+  a la base: el método es de MaKo y no se atribuye a un referente que la persona no eligió (la regla del CoPilot del 9/11).
+- **Se siembra en la PLATAFORMA (ws 9), no en el ws1.** Los seeds de antes (`seed-copywriting-metodo.mjs`, `seed-curso-producto.mjs`)
+  escribían en `OWNER_WS`, que es un cliente. El RAG ya lee la plataforma (`wsParaRag`), así que no hizo falta tocar ningún lector.
+- **Se crea con `createKnowledge` adentro de `runWithWorkspace(plataforma)`**, no con un INSERT a mano: así embebe con la Gemini de la
+  plataforma (`deMako`) y marca el estado como cualquier ficha. Si el embedding falla, la ficha igual se lee (el módulo entra entero).
+- ⚠️ **El módulo `app` NO es el curso «Buenas prácticas para construir una App» (`lib/curso-producto.ts`).** Su primera lección enseña
+  «Toda tab tiene onboarding: Conectar → Contexto → Ensayo», la regla que Martín dio vuelta el 01/11 («nada debe tener onboarding»).
+  Sembrarlo le habría enseñado a MaKo lo contrario de lo decidido; las fichas de `app` salen de AGENTS.md de hoy. Ese curso sigue en el
+  repo y su seed escribe en el ws1: si alguien lo corre, enseña lo viejo.
+- **«Ramiro Curia» es, casi seguro, Ramiro Cubria** (`sell-your-knowledge`): no hay otro en el catálogo. Las plantillas describen la
+  FORMA del guion (autoridad con un caso, mito del sector, paso a paso para guardar, historia con enseñanza), no a la persona.
+- **El comando** (desde la PC del Cerebro; sin `--aplicar` sólo lee y muestra el plan):
+  `node --conditions=react-server --env-file=C:/dev/mako-api/.env.local --import tsx scripts/sembrar-knowledge.mts` y, con el sí de
+  Martín, lo mismo con `--aplicar`. Idempotente por curso + título; `--actualizar` reescribe las que cambiaron en el repo.
+- **Sin hacer:** correrlo; medir después en Classroom › Methodology que cada módulo diga sus fichas y que todas se presten
+  (`prestables` = `fichas`); y pasar los siete writers con su área cableada a `metodoDeTab` (sigue abierto, ver arriba).
+

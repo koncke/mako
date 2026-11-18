@@ -43,7 +43,7 @@ import { valoresVariablesLead } from '@/lib/template-vars';
 import { valoresDeVariables } from '@/lib/variables-resolver';
 import { textoConDatosParaEquipo } from '@/lib/variables-del-lead';
 import { prepararDisparadores, guardarDisparadores, publicarCrons } from '@/lib/disparadores-guardar';
-import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, conPalabras, conPublicacion, TRIGGER_SOLO_GRUPO, TRIGGER_FORMULARIO, textoDeFormulario, type Disparador } from '@/lib/disparadores';
+import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, conPalabras, conPublicacion, TRIGGER_SOLO_GRUPO, TRIGGER_FORMULARIO, textoDeFormulario, disparadorDeValorIA, valorIADeDisparador, type Disparador } from '@/lib/disparadores';
 import { textoDePalabras } from '@/lib/palabras-clave';
 import { buscarPublicacion, esLinkDePublicacion, textoDePublicacion } from '@/lib/publicacion-cron';
 import { textoCron } from '@/lib/cron-aviso';
@@ -68,11 +68,15 @@ import { landingsConPiezas } from '@/lib/piezas-web';
 import { piezaPorTexto } from '@/lib/editor-landing/piezas';
 import { esWsPlataforma } from './integraciones.helpers';
 import { listarEtiquetas } from '@/lib/etiquetas';
-import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@/lib/flujo-ia-crear';
+import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte, crearNuevas } from '@/lib/flujo-ia-crear';
+import { editarFlujoConIA } from '@/lib/flujo-ia-editar';
+import { firmaPublicado, leerBorradoresSecuencias, type DbBorrador } from '@/lib/secuencia-borrador';
+import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
+import { CIERRE_EDICION, ordenarAvisos } from '@/lib/flujo-ia-cliente';
 import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, conLimite, limitesDeFabrica, limitesParaGuardar, limitesVigentes, rangoDeLimite, type LimitesEnvio, type OpcionesRango } from '@/lib/limites-envio';
-import { horarioDeLaAutomatizacion, origenDelHorario, textoDeHorario, configParaGuardar, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
+import { horarioDeLaAutomatizacion, origenDelHorario, textoDeHorario, configParaGuardar, diasDeGoteoDelTexto, textoDeDiasGoteo, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
 import { crmDeLaAutomatizacion } from '@/lib/email-eventos-crm';
 import { etapasDeProducto } from '@/lib/lead-funnel';
 import { terminalEstadoFor } from '@/lib/pipeline';
@@ -81,7 +85,7 @@ import { cortarSinPartir } from '@/lib/unicode-seguro';
 import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
 import { TOPE_RONDAS, type RespuestaMako } from '@/lib/automatizacion-chat';
-import { falloDeIA } from '@/lib/flujo-ia';
+import { falloDeIA, conEtiquetasReales, refsSinResolver, disparadorReal } from '@/lib/flujo-ia';
 import { parseEstrategia, OBJETIVOS, type Estrategia, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import { huecosDeSecuencias, archivarSecuencias } from '@/lib/secuencias-huecos';
 import { handoffsPendientes, resolverHandoff } from '@/lib/chat-agent-handoff';
@@ -199,7 +203,7 @@ function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Paramete
   // todos los canales desde el 24/10/2026 (Martín, f21): hasta ese día había otro del email (goteoEmail…), que ya no existe.
   if (input.sinGoteo === true) { cambio.goteo = null; partes.push('sin goteo'); }
   else {
-    const g: { minutos?: number; dia?: number; arranque?: { dia: number; sube: number } | null } = {};
+    const g: { minutos?: number; dia?: number; arranque?: { dia: number; sube: number } | null; dias?: DiaSemana[] | null } = {};
     if (input.goteoMinutos != null) { g.minutos = num(input, 'goteoMinutos'); partes.push(`uno cada ${g.minutos} min`); }
     if (input.goteoPorDia != null) { g.dia = num(input, 'goteoPorDia'); partes.push(`hasta ${g.dia} por día en cada canal`); }
     if (input.sinArranque === true) { g.arranque = null; partes.push('sin arranque gradual'); }
@@ -208,9 +212,16 @@ function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Paramete
       g.arranque = { dia: num(input, 'goteoArranqueDia'), sube: num(input, 'goteoArranqueSube') };
       partes.push(`arranca con ${g.arranque.dia} y sube ${g.arranque.sube} por día`);
     }
+    // LOS DÍAS DEL GOTEO (18/11/2026, F79): lo mismo que la fila «Días» de la tuerca. «horario» los saca.
+    if (input.goteoDias != null) {
+      const d = diasDeGoteoDelTexto(str(input, 'goteoDias'));
+      if ('error' in d) return { error: d.error };
+      g.dias = d.dias;
+      partes.push(d.dias ? `sale sólo ${textoDeDiasGoteo(d.dias)}` : 'sale los días de su horario');
+    }
     if (Object.keys(g).length) cambio.goteo = g;
   }
-  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), el goteo (goteoMinutos, goteoPorDia) o las columnas del email (columnasEmail).' };
+  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), el goteo (goteoMinutos, goteoPorDia, goteoDias) o las columnas del email (columnasEmail).' };
   // Contra lo que tiene: el arranque sube hasta su tope, que puede estar puesto de antes (`configParaGuardar`).
   const prueba = configParaGuardar(previo, cambio, cuenta);
   if (!prueba.ok) return { error: prueba.error };
@@ -288,6 +299,14 @@ async function acomodarEnSegundoPlano(ws: number, secuenciaId: number): Promise<
 
 /** Lo que tiene el modelo para crear con IA por /api/v1, que corta a 60 s (`crear_automatizacion_con_ia`). */
 const PLAZO_CREAR_HTTP_MS = 40_000;
+/**
+ * Lo que tiene el modelo para EDITAR con IA (`editar_armada_con_ia`), que corre en `preparar`: por /api/v1 (corta a
+ * 60 s) 40; en el resto, 150 (el turno del doer corre en un `after()` de 300 s, y el chat de la app tiene 420).
+ */
+const PLAZO_EDITAR_HTTP_MS = 40_000;
+const PLAZO_EDITAR_MS = 150_000;
+/** Lo que se dice cuando la automatización cambió entre la propuesta y el «sí» (la propuesta es de lo que se leyó). */
+const EDITADA_EN_EL_MEDIO = 'Esa automatización cambió desde que te propuse esto (alguien la tocó en el lienzo o por otro lado): no apliqué nada. Pídemelo otra vez.';
 const noExiste = (id: number) => `No existe la secuencia #${id} vigente en este negocio (puede estar archivada). Pide el id con listar_secuencias_nutricion.`;
 
 /** Los pasos con el audio puesto (o sacado) en el paso `orden`: lo mismo en la propuesta y en el «sí». */
@@ -927,6 +946,15 @@ export const RUNNERS: Runners = {
       // y `linkApp` le pega el `?ws=`.
       const link = linkApp(`/automations?sec=${r.secuenciaId}&mako=1`, ctx.ws);
       const falta = r.disparador ? '' : ' Le falta elegir qué la dispara.';
+      // Con una nota de voz POR GRABAR (F80) quedó en el borrador: no se activa hasta grabarla y publicarla.
+      if (r.borrador) {
+        return {
+          ok: true,
+          resumen: `Automatización «${r.nombre}» creada (#${r.secuenciaId}), pausada y sin publicar: falta grabar la nota de voz.${falta}`,
+          datos: { secuenciaId: r.secuenciaId, borrador: true },
+          paraLaPersona: `🧩 «${r.nombre}» quedó sin publicar.${falta} Graba la nota de voz y publícala 👉 ${link}`,
+        };
+      }
       return {
         ok: true,
         resumen: `Automatización «${r.nombre}» creada (#${r.secuenciaId}), pausada.${falta}`,
@@ -1164,7 +1192,7 @@ export const RUNNERS: Runners = {
         secuencia: { id, nombre: s.nombre },
         // `de`: «fabrica» = el 9 a 21 que le puso MaKo; cede si el negocio pone el suyo (`configurar_horario_envio`).
         horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: origenDelHorario(config, delNegocio) },
-        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, arranque: config.goteo?.arranque ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
+        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, arranque: config.goteo?.arranque ?? null, dias: config.goteo?.dias?.length ? textoDeDiasGoteo(config.goteo.dias) : 'los de su horario', canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
         // Las columnas del email (4/11/2026): a cuál pasa la tarjeta en su CRM cuando el email sale, se abre o se cliquea.
         columnas_email: { enviado: config.columnasEmail?.enviado ?? null, abrio: config.columnasEmail?.abrio ?? null, clic: config.columnasEmail?.clic ?? null, rebote: config.columnasEmail?.rebote ?? null },
@@ -2204,6 +2232,115 @@ export const RUNNERS: Runners = {
         if (e instanceof SecuenciaNoExisteError) return { ok: false, resumen: noExiste(id) };
         throw e;
       }
+    },
+  },
+
+  // EDITAR CON IA UNA QUE YA EXISTE (pendiente O19, P0-7, 18/11/2026; la def dice el porqué de cada decisión). El motor es el
+  // del chat del lienzo (lib/flujo-ia-editar.ts) sobre lo PUBLICADO. `preparar` corre la IA y no escribe nada (las etiquetas
+  // nuevas viajan por nombre); `ejecutar` crea las etiquetas, publica y cambia el CRON, sólo si nadie la tocó.
+  editar_armada_con_ia: {
+    preparar: async (input, ctx) => {
+      if (desdeUnFlujo(ctx)) return { error: 'Una automatización no puede editar automatizaciones: pídeselo a MaKo por el grupo o en Automations.' };
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const pedido = str(input, 'pedido');
+      if (!pedido) return { error: 'Falta qué hay que cambiar, en palabras.', faltan: ['pedido'] };
+      const base = (Array.isArray(s.pasos) ? s.pasos : []) as unknown as PasoGrafo[];
+      if (!base.length) return { error: `«${s.nombre}» no tiene tarjetas todavía: ábrela en Automations y pídeselo a MaKo ahí, o crea una nueva con crear_automatizacion_con_ia.` };
+      // Lo que se sabe sin escribir falla acá (AGENTS.md): sin una IA que conteste, ni se intenta.
+      if (!(await hayIAParaCrear())) {
+        const f = falloDeIA([], false);
+        return { error: f.error, ...(f.link ? { paraLaPersona: `${f.error} Conéctala aquí 👉 ${linkApp(f.link, ctx.ws)}` } : {}) };
+      }
+      // El CRON que tiene, como lo lee el chat del lienzo (`cronGuardado` de la ruta): con él, el catálogo trae el anuncio o
+      // la mención, y un DM sabe si su CRON es de su canal. Sin poder leerlo, null (como la ruta).
+      const cron = await disparadoresDeSecuencia(id).then((l) => (l[0] ? valorIADeDisparador(l[0]) : null)).catch(() => null);
+      const e = await editarFlujoConIA({
+        ws: ctx.ws, base, pedido, disparadorActual: cron, intencion: 'editar',
+        hastaMs: Date.now() + (ctx.canal === 'http' ? PLAZO_EDITAR_HTTP_MS : PLAZO_EDITAR_MS),
+      });
+      if (e.t === 'error') return { error: e.error, ...(e.link ? { paraLaPersona: `${e.error} 👉 ${linkApp(e.link, ctx.ws)}` } : {}) };
+      // MaKo contestó en vez de cambiar (lo pedido ya está, una etapa que no existe, algo que MaKo no tiene): no hay nada que
+      // proponer, y eso es lo que se dice.
+      if (e.t === 'contesta') return { error: `${e.respuesta.trim()}${e.falta ? ` (Eso todavía no está en MaKo: ${e.falta}.)` : ''}` };
+      const r = e.r;
+      // «¿Cambio qué la dispara?» (un DM con un CRON que no es de su canal): sin la respuesta no se publica una mitad.
+      if (r.pregunta && !r.disparador) return { error: `${r.pregunta.texto} Cambia primero qué la dispara (cambiar_crons_secuencia) y vuelve a pedir esto.` };
+      // El CRON que pidió, entendido como lo guarda la pantalla (`disparadorDeValorIA`). Una etiqueta NUEVA (`etiqueta:-1`) se
+      // resuelve al confirmar, cuando ya existe.
+      if (r.disparador && !/^etiqueta:-\d+$/.test(r.disparador) && !disparadorDeValorIA(r.disparador).length) {
+        return { error: 'MaKo quiso cambiar qué la dispara y no se entiende a qué: pídelo con cambiar_crons_secuencia.' };
+      }
+      const avisos = ordenarAvisos(r.avisos).slice(0, 3);
+      const noHecho = r.noHecho ?? [];
+      // ⚠️ PUBLICAR UNA ACTIVA QUE LE ESCRIBE A LA MISMA GENTE QUE OTRA, se dice (como editar_pasos_secuencia_mensajes), y sólo
+      // entonces el «sí» lleva `aunqueDuplique`.
+      const otra = await duplicadaDeLaActivacion(id, { pasos: r.pasos, soloSiActiva: true });
+      // Un borrador sin publicar del lienzo deja de abrirse cuando se publica otra cosa (lib/secuencia-borrador.ts): se dice.
+      const borradores = await leerBorradoresSecuencias((await getTenantDb()) as unknown as DbBorrador).catch(() => null);
+      const conBorrador = borradores?.has(id) === true;
+      const detalle = r.resumen.replace(CIERRE_EDICION, '').trim().replace(/\n+/g, ' · ').replace(/[.\s]+$/, '');
+      const ojo = [
+        ...noHecho.map((x) => `no pude: ${x}`),
+        ...avisos,
+        ...(otra ? [avisoDuplicada(otra)] : []),
+        ...(conBorrador ? ['hay cambios sin publicar en el lienzo: se van a perder'] : []),
+      ];
+      return {
+        payload: {
+          secuenciaId: id, antes: firmaPublicado(s.pasos), pasos: r.pasos,
+          ...(r.etiquetasNuevas.length ? { etiquetasNuevas: r.etiquetasNuevas.map((x) => ({ ref: x.ref, nombre: x.nombre })) } : {}),
+          ...(r.disparador ? { disparador: r.disparador } : {}),
+          ...(otra ? { aunqueDuplique: true } : {}),
+        },
+        resumen: `Editar «${s.nombre}» y publicarla${s.activa ? ' (está prendida: a los leads les llega lo nuevo)' : ''}: ${detalle || 'sin tarjetas distintas'}`
+          + `${r.disparador ? '. Y cambia qué la dispara' : ''}`
+          + `${r.etiquetasNuevas.length ? `. Etiquetas nuevas: ${r.etiquetasNuevas.map((x) => `«${x.nombre}»`).join(', ')}` : ''}`
+          + `${ojo.length ? `. Ojo: ${ojo.join('; ')}` : ''}.`,
+      };
+    },
+    // Antes de reclamar la pendiente: si la automatización cambió, la propuesta ya no vale nunca (se cierra).
+    faltaParaConfirmar: async (payload) => {
+      const s = await secuenciaVigente(Number(payload.secuenciaId));
+      if (!s) return { yaNoVale: 'La automatización ya no existe o se archivó.' };
+      return firmaPublicado(s.pasos) === payload.antes ? null : { yaNoVale: EDITADA_EN_EL_MEDIO };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId);
+      const s = await secuenciaVigente(id);
+      if (!s) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
+      if (firmaPublicado(s.pasos) !== payload.antes) return { ok: false, resumen: EDITADA_EN_EL_MEDIO };
+      const nuevas = (Array.isArray(payload.etiquetasNuevas) ? payload.etiquetasNuevas : [])
+        .map((x) => x as { ref?: unknown; nombre?: unknown })
+        .filter((x) => typeof x.ref === 'number' && typeof x.nombre === 'string')
+        .map((x) => ({ ref: x.ref as number, nombre: x.nombre as string }));
+      const { ids } = await crearNuevas(nuevas);
+      const pasos = conEtiquetasReales(payload.pasos as PasoGrafo[], ids);
+      if (refsSinResolver(pasos).length) return { ok: false, resumen: 'No pude crear una de las etiquetas nuevas: no publiqué nada.' };
+      try {
+        await publicarPasos(id, pasos as unknown as PasoSecuencia[], { aunqueDuplique: payload.aunqueDuplique === true });
+      } catch (e) {
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No publiqué «${s.nombre}»: ${e.message}. Si es a propósito, pídemelo otra vez.` };
+        if (e instanceof PasosInvalidosError) return { ok: false, resumen: `No publiqué «${s.nombre}»: ${e.message}` };
+        throw e;
+      }
+      // El CRON, por la puerta de cambiar_crons_secuencia (`publicarCrons`), DESPUÉS de los pasos: si no se puede, los pasos ya
+      // quedaron y se dice la verdad.
+      const valor = typeof payload.disparador === 'string' ? disparadorReal(payload.disparador, ids) : null;
+      const lista = valor ? disparadorDeValorIA(valor) : [];
+      let cron = '';
+      if (valor) {
+        try {
+          if (!lista.length) throw new TriggerInvalidoError('no se entiende');
+          await publicarCrons(id, lista, { aunqueDuplique: payload.aunqueDuplique === true });
+          cron = ' y cambié qué la dispara';
+        } catch (e) {
+          if (!(e instanceof TriggerInvalidoError) && !(e instanceof DuplicadaError)) throw e;
+          cron = `, pero no pude cambiar qué la dispara (${e.message}): elígelo con cambiar_crons_secuencia`;
+        }
+      }
+      return { ok: true, resumen: `Listo: publiqué «${s.nombre}» con los cambios${cron}.`, datos: { secuenciaId: id } };
     },
   },
 

@@ -126,7 +126,6 @@ import { parseEntradas, parseEvento, etapasVisibles, pipelineStageOf, type Etapa
 import { canalEfectivo, type CanalId } from '@/lib/fase-diagnostico';
 import { getDiagnosticoFase } from '@/lib/fase-store';
 import { alinearEtapaVista } from '@/lib/etapa-historial';
-import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
 import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } from '@/lib/lead-insights';
 import { duracionDeReunionEnAgendaMin, moverEventoDeReunion, permisoCalendarioGoogle } from '@/lib/google-calendar';
@@ -190,6 +189,7 @@ import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente, 
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { urlGravatar } from '@/lib/gravatar';
+import { fotoDePersonaSegura } from '@/lib/foto-perfil';
 import { type VisitasMap } from './crm-map';
 import { TOPE_NOTA, BUCKET_NOTAS_LEAD, pathEsNotaDelLead } from './notas-reglas';
 import { esMimeNota, TOPE_NOTA_BYTES, nombreDeAdjunto } from '@/app/customer-success/curso/reglas';
@@ -413,7 +413,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const adIdCand = adIdDeLead(lead.meta_ad_id, utmC, adMap);
   const adNombre = resolverNombreAd(adIdCand, lead.meta_ad_name ?? utmC, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
-  const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
+  const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages, insumos.hoy);
   const { faltantes, datos } = sinMarcar;
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   // El NOMBRE DEL PRODUCTO, no el del embudo: «Funnel principal» es el que puso la migración
@@ -512,6 +512,12 @@ function valoresDeRequisitos(
   before: Lead | null,
   pagosExistentes: Pago[],
   stagesMove: Stage[],
+  /**
+   * HOY en la zona del NEGOCIO (18/11/2026, F125; el mismo #510 que ya cerró `setPipelineStage`). Decide si una reunión
+   * sin hora «ya pasó» y, con eso, si el wizard pide su asistencia. Era `hoyEnTijuana()` acá adentro: el wizard preguntaba
+   * con el día de Tijuana y el corte del server validaba con el del negocio. Obligatorio, sin default: lo pone quien llama.
+   */
+  hoyISO: string,
   d: StageMoveData = {},
   /** ¿Se espera grabación de este encuentro? De encuentroGrabable(). undefined = se exige, como siempre. */
   grabable?: boolean,
@@ -565,7 +571,7 @@ function valoresDeRequisitos(
     tienePlan: to === 'ganado'
       ? (!!d.plan || !!d.cuotas?.length || tienePagos(pagosExistentes) || (d.ventaTipo ?? before?.venta_tipo) === 'suscripcion')
       : undefined,
-    hoyISO: hoyEnTijuana(),
+    hoyISO,
     // Hora real de Calendly: una reunión de HOY que ya terminó sí exige su Fathom.
     // Sin esto el server y el worklist (que sí las mira) discrepaban por un día.
     atJ1: before?.junta_1_at ?? null,
@@ -598,11 +604,14 @@ export async function requisitosDeEtapaAction(id: number, to: string, d: StageMo
   const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
   // DEL LEAD: qué pide la etapa para ÉL. Sin lead legible cae al del negocio, que es
   // lo mismo que hacía antes — estas preguntas no deciden permisos.
-  const [stagesMove, grabable] = await Promise.all([
+  // El día con la lectura TOLERANTE a propósito: estas preguntas no deciden nada, y cuando la zona se puede leer da
+  // el mismo día que el corte estricto del server (`setPipelineStage`); cuando no, el server no deja mover igual.
+  const [stagesMove, grabable, hoy] = await Promise.all([
     (before ? getPipelineStagesDeLead(before) : getPipelineStagesDefault()).catch(() => DEFAULT_STAGES),
     encuentroGrabable(),
+    hoyEnWorkspace(),
   ]);
-  return stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove, d, grabable));
+  return stepsForStage(to, valoresDeRequisitos(to, before, pagosExistentes, stagesMove, hoy, d, grabable));
 }
 
 /**
@@ -895,7 +904,8 @@ export async function completeStageMoveAction(
   // Lo que todavía falta, medido sobre el lead guardado — en la etapa donde QUEDÓ.
   const etapaFinal = d.soloCompletar && after ? etapaReal(after) : to;
   const pagosDespues = etapaFinal === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const pendientes = await pendientesQueAvisan(after, after ? stepsForStage(etapaFinal, valoresDeRequisitos(etapaFinal, after, pagosDespues, stagesMove, {}, grabable)) : []);
+  // Tolerante: esto corre DESPUÉS de mover, y una zona ilegible no puede convertir un movimiento hecho en un error.
+  const pendientes = await pendientesQueAvisan(after, after ? stepsForStage(etapaFinal, valoresDeRequisitos(etapaFinal, after, pagosDespues, stagesMove, await hoyEnWorkspace(), {}, grabable)) : []);
   await registrarPendientes(id, pendientes, autor);
   // ⚠️ ANTES de firmar (revisión del 17/10/2026): escrita después por `resolverQueHacerAction`, la línea quedaba
   // afuera de las que borra el Deshacer y el historial contaba un movimiento que ya no existía.
@@ -1427,7 +1437,8 @@ export async function setLeadStageAction(
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, autor);
   const pagosDespues = stageKey === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
-  const pendientes = await pendientesQueAvisan(after, after ? stepsForStage(stageKey, valoresDeRequisitos(stageKey, after, pagosDespues, stagesMove, {}, grabable)) : []);
+  // Tolerante: esto corre DESPUÉS de mover (ver el de arriba).
+  const pendientes = await pendientesQueAvisan(after, after ? stepsForStage(stageKey, valoresDeRequisitos(stageKey, after, pagosDespues, stagesMove, await hoyEnWorkspace(), {}, grabable)) : []);
   await registrarPendientes(id, pendientes, autor);
   const deshacer = await cerrarDeshacer(id, foto, after, autor);
   bust(TAG.leads, TAG.pagos);
@@ -1852,7 +1863,7 @@ function ordenarLeads(filas: FilaLead[], orden: OrdenLeads, ordenEtapas: string[
  * El corazón del export: trae, deriva la etapa, filtra en memoria y ordena.
  * `columnasExtra` son las columnas de los grupos que el usuario eligió llevarse.
  */
-async function leadsFiltrados(f: FiltrosLeads, columnasExtra: string[]): Promise<{ filas: FilaLead[]; stages: Stage[]; ordenEtapas: string[] }> {
+async function leadsFiltrados(f: FiltrosLeads, columnasExtra: string[], hoyISO: string): Promise<{ filas: FilaLead[]; stages: Stage[]; ordenEtapas: string[] }> {
   // MIXTO: el ORDEN de las columnas es del negocio y la ETIQUETA es de cada lead.
   // Queda en el del negocio, que es lo que hace hoy; con dos funnels hay que
   // resolver `stageMeta` por lead o el export rotula con la etiqueta del otro.
@@ -1860,7 +1871,8 @@ async function leadsFiltrados(f: FiltrosLeads, columnasExtra: string[]): Promise
   const stages = (stagesRaw.length ? stagesRaw : DEFAULT_STAGES).map(withLayout);
   const validas = new Set(stages.map((s) => s.key));
   const ordenEtapas = stages.map((s) => s.key);
-  const rango = f.acotar.includes('fecha') ? rangoDePeriodo(f.periodo, hoyEnTijuana()) : null;
+  // «Este mes», «últimos 30 días»: los del NEGOCIO (F125, 18/11/2026), el mismo día que el encabezado del documento.
+  const rango = f.acotar.includes('fecha') ? rangoDePeriodo(f.periodo, hoyISO) : null;
 
   const todas = await traerLeads([...COLS_FILTRO, ...columnasExtra]);
   const filas: FilaLead[] = [];
@@ -1886,7 +1898,7 @@ async function leadsFiltrados(f: FiltrosLeads, columnasExtra: string[]): Promise
 /** Cuántos leads saldrían con estos filtros — el contador que muestra el wizard. */
 export async function contarLeadsExportAction(f: FiltrosLeads): Promise<number> {
   await exigirSesion();
-  const { filas } = await leadsFiltrados(f, []);
+  const { filas } = await leadsFiltrados(f, [], await hoyEnWorkspace());
   return filas.length;
 }
 
@@ -2050,7 +2062,9 @@ export async function exportLeadsAction(f: FiltrosLeads): Promise<string> {
   // por etapa y la línea de identidad son la columna vertebral del formato.
   const extraDoc = f.formato === 'md' ? ['empresa', 'monto_cierre_usd', 'total_cobrado_usd'] : [];
   const extraRespuestas = dondeVanRespuestas >= 0 ? COLS_RESPUESTAS : [];
-  const { filas, stages, ordenEtapas } = await leadsFiltrados(f, [...columnas.map(([k]) => k), ...extraDoc, ...extraRespuestas]);
+  // UN «hoy» para el período y el encabezado: con dos lecturas, un export a la medianoche decía un día y cortaba otro.
+  const hoy = await hoyEnWorkspace();
+  const { filas, stages, ordenEtapas } = await leadsFiltrados(f, [...columnas.map(([k]) => k), ...extraDoc, ...extraRespuestas], hoy);
   if (dondeVanRespuestas >= 0) await ponerRespuestas(filas, columnas, dondeVanRespuestas);
 
   if (f.formato === 'md') {
@@ -2062,7 +2076,7 @@ export async function exportLeadsAction(f: FiltrosLeads): Promise<string> {
         alcance: alcanceLegible(f, etapasRef),
         filtros: filtrosLegibles(f),
         incluye: incluyeLegible(f),
-        hoyISO: hoyEnTijuana(),
+        hoyISO: hoy,
       },
       ordenEtapas,
       comparadorDoc(f.orden),
@@ -2718,7 +2732,9 @@ export async function getEquipoAction(): Promise<MiembroEquipo[]> {
     // setterMaKoOption / la estrella en la ficha), pero no como opción a elegir.
     return ((data ?? []) as Array<{ nombre: string | null; email: string; foto_url: string | null; rol: string; workspace_id: number | null }>)
       .filter((u) => u.rol !== 'admin' && u.workspace_id === ws && (u.nombre?.trim() || u.email) && u.nombre?.trim() !== MAKO_SETTER)
-      .map((u) => ({ nombre: u.nombre?.trim() || u.email, email: u.email, foto_url: u.foto_url ?? null }));
+      // La foto pasa por el filtro de orígenes (lib/foto-perfil.ts, F173): la dibujan Chats y el CRM como avatar, y una de
+      // afuera que ya está en la base es un web bug que avisa quién abrió la pantalla.
+      .map((u) => ({ nombre: u.nombre?.trim() || u.email, email: u.email, foto_url: fotoDePersonaSegura(u.foto_url) }));
   } catch {
     return [];
   }
@@ -2947,7 +2963,8 @@ export async function getLeadAuditAction(id: number): Promise<LeadAuditRowFull[]
   const rows = await getLeadAudit(id);
   // Autores con pinta de email → resolver contra la tabla usuarios (global).
   const emails = [...new Set(rows.map((r) => r.autor).filter((a) => a.includes('@')))];
-  const porEmail = new Map<string, { nombre: string; foto_url: string | null }>();
+  // La foto del autor pasa por el filtro de orígenes (lib/foto-perfil.ts, F173): la dibuja el historial del lead.
+  const porEmail = new Map<string, { nombre: string; foto: string | null }>();
   if (emails.length) {
     try {
       const { data } = await getSupabaseServer()
@@ -2955,7 +2972,7 @@ export async function getLeadAuditAction(id: number): Promise<LeadAuditRowFull[]
         .select('email, nombre, foto_url')
         .in('email', emails);
       for (const u of (data ?? []) as Array<{ email: string; nombre: string | null; foto_url: string | null }>) {
-        porEmail.set(u.email, { nombre: u.nombre?.trim() || u.email, foto_url: u.foto_url ?? null });
+        porEmail.set(u.email, { nombre: u.nombre?.trim() || u.email, foto: fotoDePersonaSegura(u.foto_url) });
       }
     } catch { /* sin enriquecer: se muestra el email pelado */ }
   }
@@ -2964,7 +2981,7 @@ export async function getLeadAuditAction(id: number): Promise<LeadAuditRowFull[]
     return {
       ...r,
       autor_nombre: u?.nombre ?? (r.autor.includes('@') ? r.autor.split('@')[0] : r.autor),
-      autor_foto: u?.foto_url ?? null,
+      autor_foto: u?.foto ?? null,
       revertible: REVERTIBLES.has(r.campo),
     };
   });

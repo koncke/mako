@@ -49,6 +49,46 @@ uno, se vuelve a mirar el código que nombra.
 - **Punto 3 — El runbook del cifrado v2.** El código ya no lee el formato viejo: `descifrar` sólo acepta `gcm2` (lib/cripto-credenciales.ts:71-88), así que `CREDENCIALES_V1_OFF=1` quedó sin objeto, y ningún código lee `AUTH_COOKIE_VALUE` (sólo aparece en comentarios). Lo que queda es de Vercel: sacar `AUTH_COOKIE_VALUE` del entorno (producción) y poner al día docs/migracion-cifrado-credenciales.md, que sigue describiendo los pasos 4 y 5 como pendientes.
 - **Punto 8 — El entorno que no es de IA sigue saliendo del ws 1.** `wsDelEntorno` (lib/credenciales.ts:582) manda la IA (18/10) y el correo de MaKo (4/11) a la fila de la plataforma; Meta, Calendly y Fathom siguen con `OWNER_WS`, el negocio de Mauricio. El propio comentario lo deja como «otra decisión» (docs/relevo/ticketera.md). Es la fuga que se arma el día que alguien cargue en el ws 1 una de esas claves como si fuera de la plataforma.
 - **Punto 12 — El barrido de rutas que se abren por URL sin un botón, y MaKo en los grupos de WhatsApp con clientes** («en el grupo de PRUEBAS trae datos cruzados, falta ver el camino de entrada»). No hay un barrido escrito después del 25/08. El grupo cambió mucho desde entonces (`hayInvitado`, `quienPide`, el grupo de la app), así que el síntoma de agosto se vuelve a medir en el grupo de prueba antes de buscarle causa.
+## Toda server action de app/ corta sin sesión, la foto de una persona sale filtrada siempre, y borrar un cliente deja constancia (18/11/2026)
+
+**Vive en:** `tests/acciones-con-puerta.test.ts` + `tests/_puerta-acciones.ts` (F115) · `lib/foto-perfil.ts` (`conFotoSegura`),
+`lib/usuarios.ts`, `app/crm/actions.ts`, `lib/grupo-puerta.ts`, `app/api/admin/usuarios/route.ts` (F173) ·
+`lib/eliminar-workspace.ts`, `lib/reset-workspace.ts`, `supabase/migrations/0418_borrados_workspace.sql` (F126).
+
+- **F115 · El guard de la sesión ya no busca un NOMBRE: sigue la llamada hasta el fondo.** La entrada de abajo (6/11) midió
+  a mano que los 60 archivos 'use server' fuera del CRM tenían su puerta con 21 formas distintas, y dejó escrito que nada
+  frenaba al archivo 61. `tests/acciones-con-puerta.test.ts` barre los 98 archivos de app/ (585 acciones) con un analizador
+  que, para cada acción, mira si su PRIMERA espera es una puerta: sigue los helpers del mismo archivo y los importados,
+  entiende `if (!s) return`, `if (no) return { error: no }`, el ternario, el envoltorio `conSesion(fn)` y el `try` que
+  corta, y rechaza la condición al revés, la puerta ignorada, la tragada y la impostora (una función local que se llama
+  igual que `getUsuarioActual`). El fondo —`getUsuarioActual` y `exigirSesion`— y cinco acciones de verdad se EJECUTAN sin
+  sesión en un pedido de mentira. El analizador mismo se prueba con nueve agujeros y siete formas buenas.
+  - **Trampa: `getRolWsEfectivo`, `getSesionAdmin` y `adminDeWorkspaceActual` son puertas porque terminan en
+    `getUsuarioActual`**, no por su nombre: el analizador las acepta porque sigue su cuerpo, y por eso una función nueva
+    que se llame «getSesion…» y no corte no pasa.
+  - **Aparecieron dos acciones sin puerta**, y se arreglaron: `estadoPuenteAction` y `estadoPruebaAction`
+    (app/video-generator/puente-actions.ts) leían el puente a Flow y un trabajo de la cola sin preguntar por la sesión.
+    Sin sesión ahora contestan «sin conectar».
+  - **La entrada por URL se MIDIÓ y no hizo falta arreglar nada:** de 243 páginas privadas, 92 no nombran
+    `requireRolWs`/`requireCapa`/`getSesionAdmin`, y ninguna muestra datos sin una puerta. Son redirecciones de rutas viejas,
+    puertas propias de su tab (`exigirSuperAdmin`, `requireEditorVideo`, `puertaNewsletter`…), una carpeta privada de Next
+    (`_doory`) y dos páginas sin datos (instalar la extensión, la vuelta del login de Zernio). `/admin` además lo corta el
+    proxy (`SOLO_ADMIN`).
+- **F173 · La foto de una persona sale filtrada en TODO lector, no en los que se acordaron.** `fotoDePersonaSegura`
+  existía y la usaban algunos; el equipo del CRM, la pantalla de Equipo (computadora y teléfono), el historial de un lead,
+  los grupos de la app y la barra leían `usuarios.foto_url` crudo. El arreglo es el choke point: `lib/usuarios.ts` filtra en
+  la lectura (`conFotoSegura`) y en la escritura, y la acción `foto` de `/api/admin/usuarios` rechaza con un 400 lo que no
+  es seguro en vez de guardarlo. `tests/foto-perfil-lectores.test.ts` barre los lectores de la columna, con la única
+  excepción escrita (el recibo de lib/datos-mau.ts).
+- **F126 · Borrar un cliente deja constancia, y la constancia sobrevive al borrado.** `borrados_workspace` (mig 0418, SIN
+  APLICAR) no tiene FK a `workspaces`, a propósito: la fila queda cuando el negocio ya no existe. Se escribe ANTES de vaciar
+  nada; si la base dice que la tabla no está (`laCajaNoEsta`: la migración no se aplicó), se borra igual y se avisa; con
+  cualquier otro error al anotar, **no se borra nada**. Y el reset y el borrado se llevan ahora los dos buckets que no se
+  limpiaban por prefijo: `video-clips` (`video-generator/<planId>/`, los planes se leen ANTES de vaciar las tablas que los
+  nombran) y `ads-creatives` (`grupo/<ws>/`). Lo fija `tests/eliminar-workspace-auditoria.test.ts`.
+  - **Trampa: el orden.** Los planes de video del negocio salen de tablas que el propio borrado vacía: leídos después,
+    la lista vuelve vacía y los clips quedan huérfanos en el bucket, sin un error.
+  - **Para Martín:** la 0418 está sin aplicar; mientras tanto cada borrado sale con el aviso «no quedó anotado».
 
 ## Un `grep` del NOMBRE de un guard no mide si hay guard: mide si hay ESE guard (6/11/2026)
 

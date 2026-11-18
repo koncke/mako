@@ -51,8 +51,8 @@ test('sin ritmo no avisa; con ritmo, avisa si lo listo no cubre la semana que vi
   const cubierta = armarNevera([p('2026-11-25', 'reel')], HOY, { reel: 3 });
   assert.equal(cubierta.find((f) => f.formato === 'reel')!.faltan, 0, 'hasta el 25 alcanza para la semana');
   const avisos = avisosDeLaNevera(filas, 4);
-  assert.equal(avisos.find((a) => a.formato === 'reel')?.titulo, 'Graba 3 reels: te alcanzan hasta el domingo 15 (tienes 4 horas por semana)');
-  assert.equal(avisos.find((a) => a.formato === 'story')?.titulo, 'Graba 5 historias: no tienes ninguna lista (tienes 4 horas por semana)');
+  assert.equal(avisos.find((a) => a.formato === 'reel')?.titulo, 'Graba 3 reels: te alcanzan hasta el domingo 15 (dijiste que tienes 4 horas por semana para grabar)');
+  assert.equal(avisos.find((a) => a.formato === 'story')?.titulo, 'Graba 5 historias: no tienes ninguna lista (dijiste que tienes 4 horas por semana para grabar)');
 });
 
 test('la tarea de la nevera es una por formato y por semana', () => {

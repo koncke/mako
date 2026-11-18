@@ -19,6 +19,7 @@ import { marcasAlContestar, yaLaVio } from '@/lib/guia/primera-vez';
 import type { HechosGuia, RolGuia } from '@/lib/guia/tipos';
 import { marcarVistos, useVistos, vistosAhora } from '../useVisto';
 import { guiaAhora, hechosDeLaGuia, ofrecer, preguntarPrimeraVez, registrarGuia, sinPrimeraVez, soltarGuia } from './store';
+import { motorSeOcupa } from '../tutorial/store';
 
 export function useGuiaDeLaTab(key: string, o: { listo: boolean; hechos?: HechosGuia; rol?: RolGuia; onboardingPendiente?: boolean }): { ofrecer: (objetivo?: string) => void } {
   const guia = guiaDe(key);
@@ -43,6 +44,9 @@ export function useGuiaDeLaTab(key: string, o: { listo: boolean; hechos?: Hechos
     const vio = yaLaVio(vistos, guia.key);
     if (vio === true) { decidido.current = true; sinPrimeraVez(); return; }
     const mirar = () => {
+      // Donde el motor de los tutoriales se ocupa (el onboarding V2: la primera vez en una pestaña con tutorial), la guía no
+      // pregunta encima: una cosa por vez (app/_ui/tutorial/store.ts).
+      if (motorSeOcupa(window.location.pathname)) { decidido.current = true; return; }
       const e = guiaAhora();
       const angosta = typeof window !== 'undefined' && esAngosta(window.innerWidth);
       const si = debePreguntar({

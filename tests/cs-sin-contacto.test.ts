@@ -222,8 +222,9 @@ test('el texto: quién, cuántos días, qué hacer y el link; corto, de tú y si
   const t = textoSinContacto({ nombre: 'Ana Ruiz', dias: 23, link: 'https://x.test/customer-success?cliente=1&ws=4' });
   // «sin mensajes SUYOS»: lo que le mandamos no cuenta, así que «sin contacto» a secas sería falso
   // sobre un cliente al que el dueño le escribió ayer a mano.
-  assert.match(t, /\*Ana Ruiz\* lleva 23 días sin mensajes suyos ni sesión registrada, ni cambio de etapa\./);
-  assert.match(t, /Escríbele hoy o agenda una sesión\./);
+  assert.match(t, /^\*Ana Ruiz\* lleva 23 días sin escribirte ni avanzar de etapa, y sin sesión registrada\.\n/);
+  assert.match(t, /Escríbele hoy o agenda una sesión:\n/);
+  assert.match(textoSinContacto({ nombre: 'Ana', dias: 21, link: null }), /agenda una sesión\.$/, 'sin link, no queda un «:» colgando');
   assert.match(t, /\?cliente=1&ws=4$/);
   assert.deepEqual(marcasDeVoseo(t), [], 'el dueño es mexicano: nada de voseo');
   assert.ok(t.split('\n').slice(0, 2).join(' ').length <= 120, 'dos renglones cortos: es un WhatsApp');

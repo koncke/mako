@@ -12,7 +12,7 @@ import type { Runners, Preparado, Ejecutado } from '../tipos';
 import type { BloqueCreado } from '@/lib/chat-bloques';
 import { linkApp } from '@/lib/app-url';
 import { borrarDiseno, crearDiseno, duplicarDiseno, guardarDiseno, leerDiseno, listarDisenos } from '@/lib/image-editor/server';
-import { cambiarTextos, documentoEnBlanco, textosDe, uuidValido } from '@/lib/image-editor/reglas';
+import { PREFIJO_PLANTILLA_REAL, cambiarTextos, conPlantilla, documentoEnBlanco, textosDe, uuidValido } from '@/lib/image-editor/reglas';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { PLANTILLAS_IMAGEN, plantillaImagen } from '@/lib/image-editor/plantillas-reales';
 import { guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
@@ -63,7 +63,7 @@ async function docNuevo(input: Record<string, unknown>): Promise<{ doc: unknown;
   const real = plantilla ? plantillaImagen(plantilla) : null;
   if (real) {
     return {
-      doc: real.estructura(randomUUID), que: `con la estructura de la plantilla «${real.nombre}»`, ancho: real.ancho, alto: real.alto,
+      doc: conPlantilla(real.estructura(randomUUID), `${PREFIJO_PLANTILLA_REAL}${real.id}`), que: `con la estructura de la plantilla «${real.nombre}»`, ancho: real.ancho, alto: real.alto,
       nota: `Estructura de «${real.nombre}»: cambia sus textos con cambiar_textos_diseno_imagen`,
     };
   }

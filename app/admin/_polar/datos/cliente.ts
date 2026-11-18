@@ -370,6 +370,63 @@ export function usoDelNegocio(
   return { medidores, sinUso, serie, series }
 }
 
+/** Una persona con uso en el negocio (de `usuarios`, por su id: lo que dice `actividad_uso.usuario_id`). */
+export type PersonaDelUso = { id: number; nombre: string; email: string; cara: string | null }
+
+/** Lo que hizo UNA persona en el negocio en el rango (la tabla «Por persona» de Usage). */
+export type UsoDePersona = PersonaDelUso & {
+  pantallas: number
+  acciones: number
+  /** Cuántas tabs distintas abrió. */
+  tabs: number
+  /** La tab donde más trabajó (pantallas + acciones). */
+  masUsada: string | null
+  /** El último día con uso (YYYY-MM-DD). */
+  ultimo: string | null
+}
+
+/**
+ * Lo que hizo CADA persona del negocio entre `desde` y `hasta` (F169, 18/11/2026; docs/relevo/nube-admin.md: «Lo que hace cada
+ * persona en la ficha de su negocio»). Las mismas filas, el mismo rango y la misma junta de tabs que `usoDelNegocio`: la tabla de
+ * arriba suma por TAB y ésta por PERSONA, así que las dos cuentan las mismas pantallas. La IA no va: no se anota por persona.
+ * ⚠️ Una persona que `personas` no trae (no se pudieron leer, o es de otro negocio: alguien de su agencia) sale igual, con su
+ *    uso: se dice «Sin nombre» y no se esconde lo que hizo.
+ */
+export function usoPorPersona(
+  filas: ReadonlyArray<Pick<FilaUso, 'dia' | 'usuario' | 'tab' | 'pantallas' | 'acciones'>>,
+  tabs: ReadonlyArray<{ key: string; label: string; keys: readonly string[] }>,
+  personas: readonly PersonaDelUso[],
+  desde: string,
+  hasta: string,
+): UsoDePersona[] {
+  const tabDe = new Map<string, { key: string; label: string }>()
+  for (const t of tabs) for (const k of t.keys) tabDe.set(k, { key: t.key, label: t.label })
+  const quien = new Map(personas.map((p) => [p.id, p]))
+  const porPersona = new Map<number, { pantallas: number; acciones: number; porTab: Map<string, { label: string; peso: number }>; ultimo: string | null }>()
+  for (const f of filas) {
+    if (f.dia < desde || f.dia > hasta || (f.pantallas <= 0 && f.acciones <= 0)) continue
+    const t = tabDe.get(f.tab) ?? { key: f.tab, label: f.tab === 'otra' ? 'Otras pantallas' : f.tab }
+    const m = porPersona.get(f.usuario) ?? { pantallas: 0, acciones: 0, porTab: new Map(), ultimo: null }
+    m.pantallas += f.pantallas
+    m.acciones += f.acciones
+    const pt = m.porTab.get(t.key) ?? { label: t.label, peso: 0 }
+    pt.peso += f.pantallas + f.acciones
+    m.porTab.set(t.key, pt)
+    if (!m.ultimo || f.dia > m.ultimo) m.ultimo = f.dia
+    porPersona.set(f.usuario, m)
+  }
+  return [...porPersona.entries()]
+    .map(([id, m]): UsoDePersona => {
+      const p = quien.get(id)
+      const top = [...m.porTab.values()].sort((a, b) => b.peso - a.peso || a.label.localeCompare(b.label, 'es'))[0]
+      return {
+        id, nombre: p?.nombre || p?.email || 'Sin nombre', email: p?.nombre ? p.email : '', cara: p?.cara ?? null,
+        pantallas: m.pantallas, acciones: m.acciones, tabs: m.porTab.size, masUsada: top?.label ?? null, ultimo: m.ultimo,
+      }
+    })
+    .sort((a, b) => b.pantallas + b.acciones - (a.pantallas + a.acciones) || a.nombre.localeCompare(b.nombre, 'es'))
+}
+
 // ── Members (MembersSection, EditMemberModal) ──────────────────────────────────────────────────────────────────────
 
 export type MiembroNegocio = {

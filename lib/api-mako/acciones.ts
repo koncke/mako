@@ -56,6 +56,7 @@ import { esReglaUOpinion, lineaDelTicket } from '../no-pude';
 import { esFallaTragada } from '../no-pude-frases';
 import { ticketDeNoPude } from '../no-pude-server';
 import { invalidarGrafoChat } from '../cerebro-cache-chat';
+import { resultadoParaGuardar } from './resultado-propuesta';
 
 /** Cuánto vive un «sí». Dos horas: alcanza para que el dueño conteste y no para que
  *  un «dale» de la tarde ejecute lo que se propuso a la mañana. */
@@ -192,7 +193,8 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
     // El resultado final pisa el «en curso». Si falló, queda aplicada con el error
     // escrito: volver a `pendiente` sería invitar a un segundo click sobre algo que
     // pudo haber escrito a medias.
-    await marcarResultado(propuestaId, { resumen: r.resumen, ok: r.ok, por: ctx.actor ?? null, ...(r.datos ?? {}) });
+    // Quién confirmó va en su campo y lo del runner, en `datos` (lib/api-mako/resultado-propuesta.ts, F114): nada lo pisa.
+    await marcarResultado(propuestaId, resultadoParaGuardar(r, ctx.actor));
     // Lo que acaba de cambiar se lee en el turno siguiente: el grafo de los chats de este negocio se vuelve a armar (aun si
     // falló: pudo escribir a medias). lib/cerebro-cache-chat.ts.
     invalidarGrafoChat(ctx.ws);

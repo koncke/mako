@@ -27,6 +27,81 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## La nota de voz «por grabar»: el guardado la volvía texto y el motor la habría mandado escrita (18/11/2026, nube, `punta/nube-construir-automations-audio`)
+
+**Síntoma:** el F80 de la lista del 17/11. «Mándale un audio de bienvenida» en Crear con IA, con el negocio sin ese audio en la
+biblioteca, terminaba en «Ese audio no está en tu biblioteca: el mensaje va como texto»; y una tarjeta `tipo: 'audio'` sin
+`audio_id` no se podía ni guardar: `setSecuenciaPasos` la volvía texto (el comentario decía «si no, degrada a texto»), así que el
+texto de al lado pasaba a ser el mensaje y al lead le salía escrito lo que tenía que ser una nota de voz.
+
+**Causa:** «por grabar» no existía como estado: había audio con su archivo, o texto. El lienzo dibujaba un audio sin archivo como
+«audio (no disponible)» (que es otra cosa: un audio que se borró de la biblioteca) y el freno de Publicar decía «Falta completar».
+
+**La regla que queda (lib/flujo-grafo.ts, `audioPorGrabar`):**
+- Una nota de voz por grabar es `tipo: 'audio'` con `audio_id` vacío, y nada más: un audio con id que ya no está NO es esto.
+- Se GUARDA (`validarParaGuardar`) y NO se PUBLICA: `validarGrafo` la frena con «Graba el audio de «X» antes de publicar», el
+  mismo texto en el lienzo, en Probar y en el server. Lo que guarda con la vara de Publicar un BORRADOR le pasa
+  `{ audiosPorGrabar: true }`: Crear con IA y lo nuevo de «Editar con IA» (`erroresNuevos`). Nadie más.
+- Crear con IA, si el flujo la lleva, lo deja ENTERO en el borrador: `setSecuenciaPasos(…, { comoBorrador: true })` hace todo lo
+  de publicar (el saneo, las acciones, los datos, el candado del setter) y escribe `pasos_borrador` sobre lo publicado vacío
+  (lib/secuencia-borrador.ts). La pantalla recibe `borrador: true` y NO llama a `borrador.publicado` (lo borraría). El aviso
+  «Quedó sin publicar: graba la nota de voz y publícala» va primero (`ordenarAvisos`: «sin publicar»).
+- El motor no la manda NUNCA: corte en `procesarEnvios` (antes del canal: ni texto ni las partes de después) y en
+  `mandarMensajeDeRespuesta`; falla con «la nota de voz de la tarjeta está por grabar» y vuelve a mirar en 24 h. La ficha lo dice
+  (`porQueNoSale`, `audioPorGrabar` en la fila: «Audio por grabar»).
+- La tarjeta dice «Audio por grabar»: la MISMA línea de BurbujaHilo, con `rotuloSinAudio` que le pasa el lienzo (no se copió la
+  constante al chat: lib/flujo-grafo.ts es grande y BurbujaHilo la usa la bandeja de WhatsApp).
+- La IA la pide con `"audio": "grabar"` (`nodoDe`); una tarjeta NUEVA así va sin texto (lo dice la persona al grabar; queda el
+  link) y con aviso. Al editar se conserva (`parcheMensaje`, `aIA` la muestra como «grabar»).
+- ⚠️ **El prompt de Crear con IA quedó AL RAS del techo de Groq** (tests/crear-ia-tercera.test.ts: 4.000 de 4.000 en el caso
+  grande). La línea de «grabar» costó ~13 tokens y se pagó acortando tres frases que no cambian lo que pide («hasta ese tiempo
+  antes de su reunión», «sólo WhatsApp», el «por ejemplo» de los caminos a la vez). Lo próximo que se sume se paga sacando otra cosa.
+
+**Vive en:** lib/flujo-grafo.ts (`audioPorGrabar`, `AUDIO_POR_GRABAR`, `NOTA_AUDIO_POR_GRABAR`, `validarGrafo`) · lib/nutricion.ts
+(el mapeo de `tipo`, `comoBorrador`, el corte de `procesarEnvios` y de `mandarMensajeDeRespuesta`) · lib/por-que-no-sale.ts y
+-db.ts · lib/flujo-ia.ts (`nodoDe`, `validarIA`, `aIA`, `parcheMensaje`, `erroresNuevos`, `TARJETAS_Y_REGLAS`) ·
+lib/flujo-ia-crear-core.ts y lib/flujo-ia-crear.ts (`guardarBorrador`, `borradorDe`) · app/automations/SecuenciaPerfil.tsx
+(`alListoIA`) · app/whatsapp/_shared/BurbujaHilo.tsx (`rotuloSinAudio`) · test: tests/audio-por-grabar.test.ts (con el código real
+en tests/_email-campana-hijo.ts, escenario «audio-por-grabar»).
+
+**Lo que quedó sin hacer:**
+- **El editor del mensaje no dibuja la nota por grabar** (app/automations/EditorMensajeWhatsApp.tsx trabaja con `partesDe`, que no
+  la cuenta). Grabar ahí la reemplaza bien (agrega el audio con su id); pero cambiar SÓLO el texto la guarda como texto y la nota
+  se va, a la vista (la burbuja deja de decir «Audio por grabar»). Mostrarla en el editor es una pieza nueva: decide Martín si va.
+- **El corte de `mandarMensajeDeRespuesta` no tiene un test que lo ejecute**: llegar ahí pide el clasificador de los casos de
+  «Si responde». Lo cubre que no se pueda publicar.
+- «Discutir/Editar al crear» quedó afuera, como se decidió.
+
+## Los días del goteo: el motor los aplicaba y el guardado los tiraba sin decir nada (18/11/2026, nube, `punta/nube-construir-automations`)
+
+**Síntoma:** el F79 de la lista del 17/11. El 9/11 (5d3ca51f5) se enseñó al motor a gotear sólo algunos días (`goteo.dias`,
+`hoyGotea` adentro de `cerradasAhora`) y el commit se leyó como cerrado. Nadie podía guardarlos: `configParaGuardar` reconstruía
+el goteo campo por campo (minutos, día, arranque) y el `dias` que llegaba se perdía, con un `ok: true`. Ni la tuerca ni la API lo
+ofrecían.
+
+**Causa:** la misma familia que «un campo nuevo en un objeto que se guarda ENTERO se busca en TODOS los que lo escriben»
+(AGENTS.md), del lado del SANEO de lo que se guarda: la lectura (`goteoGuardado`) sí lo conocía y la escritura no. Un test sobre
+la lectura (tests/goteo-dias-propios.test.ts) daba verde sobre algo que no se podía usar.
+
+**La regla que queda:**
+- Un campo nuevo de una config entra por las TRES puertas en el mismo trabajo: el guardado (`configParaGuardar`), la pantalla y
+  la API. Si una falta, el campo existe sólo para el motor.
+- Al guardar, lo que no se entiende se RECHAZA con su motivo (`diasDelCambio`); al leer, se sanea (`diasDeGoteo`). Son dos
+  funciones a propósito: quien guarda tiene que saber que su «lunes» no se entendió, y lo guardado no puede romper el motor.
+- ⚠️ `configurar_automatizacion` va 6.ª, ANTES de `cambiar_crons_secuencia`, en el turno de «Hacé que la automatización … salga
+  todos los martes» (tests/ops-center-bateria, el 4: margen 310 con piso 300). Un parámetro nuevo ahí se paga acortando la
+  misma op: `goteoDias` costó 68 caracteres y la descripción, `sinGoteo` y `goteoArranqueDia` devolvieron 69 (2.202 → 2.201).
+
+**Vive en:** lib/config-automatizacion.ts · app/automations/ConfigAutomatizacionPanel.tsx (`FilaDias`) ·
+app/automations/FilasOpciones.tsx (`BotonesDias`) · lib/api-mako/areas/chatbot.def.ts y chatbot.run.ts · test:
+tests/goteo-dias-guardar.test.ts (con el runner real en tests/_email-campana-hijo.ts, escenario «goteo-dias»).
+
+**Lo que quedó sin hacer, del mismo lote:**
+- ~~**F80 (crear una tarjeta de audio «por grabar»):** no se construyó. Hoy `setSecuenciaPasos` (lib/nutricion.ts, el mapeo de `tipo`) convierte en texto todo audio sin `audio_id`, así que una tarjeta «por grabar» no se puede guardar; el lienzo dibuja un audio sin archivo como «audio (no disponible)» (app/whatsapp/_shared/BurbujaHilo.tsx), que miente sobre algo por grabar; el motor mandaría el `cuerpo` como texto (lib/nutricion.ts, `esAudio`), y la revisión de lo que arma la IA lo rechaza («un mensaje usa un audio que no está en la biblioteca», lib/flujo-ia.ts). Son cuatro piezas, y la del dibujo es nueva.~~ Hecho el 18/11/2026 en `punta/nube-construir-automations-audio`: ver «La nota de voz «por grabar»», arriba. El renglón decía bien las cuatro piezas; la del dibujo no fue nueva (es el rótulo de la misma línea).
+- **F138 (la entrada de TikTok):** no se construyó: no hay en el repo un cuerpo real ni un ejemplo de la doc de Zernio del
+  webhook de TikTok (nunca llegó un evento de Zernio a un negocio de prueba: docs/diseno-tiktok-linkedin.md §4, fase 0), y
+  `ig_conversaciones` sólo admite 'instagram' y 'facebook' (el CHECK de la 0242): hace falta una migración.
+
 ## El setter con IA NO es el AI Step entero: es lo que contesta SOLO (14/11/2026, al cerrarlo para Esencial)
 
 El diagnóstico obvio («el AI Step es el setter») era el equivocado: un AI Step en «Sólo te avisa» no le escribe a nadie y en «Para aprobar»

@@ -949,6 +949,12 @@ export type PedidoPublico =
 export type DepRespuesta = DepDocumento & {
   /** La lectura de la foto (`leerPublicado` / `leerVistaPrevia`). null = no existe o está apagado. Tira = la base falló. */
   leer: () => Promise<LecturaPublica | null>;
+  /**
+   * La prueba A/B de la landing (O18, ./prueba-landing-servir.ts), SÓLO en modo público y después de `leer`: qué rama se
+   * sirve, con sus cabeceras de caché y sus cookies. null = no hay prueba corriendo (la página sale como siempre). Si tira,
+   * se sirve A como siempre: una prueba nunca tumba la página.
+   */
+  probar?: () => Promise<{ lectura: LecturaPublica; cabeceras: Readonly<Record<string, string>>; setCookie: readonly string[] } | null>;
 };
 
 /** ETag fuerte: el hash del documento entero (ver la cabecera, punto 5). */
@@ -1024,6 +1030,17 @@ export async function responderPublico(req: Request, pedido: PedidoPublico, dep:
   }
   if (!lectura || typeof lectura.pagina?.html !== 'string' || !lectura.foto) return respuestaError(404, sinCuerpo);
 
+  // La prueba A/B (O18): la rama de este visitante, privada y con sus cookies. Sin prueba, nada cambia.
+  let prueba: Awaited<ReturnType<NonNullable<DepRespuesta['probar']>>> = null;
+  if (modo === 'publico' && dep.probar) {
+    try {
+      prueba = await dep.probar();
+    } catch (err) {
+      console.error(`[l] no pude decidir la prueba A/B de ${rotulo(pedido)}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    if (prueba) lectura = prueba.lectura;
+  }
+
   const config = configDeLectura(lectura);
   let doc: string;
   try {
@@ -1042,10 +1059,19 @@ export async function responderPublico(req: Request, pedido: PedidoPublico, dep:
 
   const etag = etagDe(doc);
   const comunes: Record<string, string> = { 'Cache-Control': modo === 'publico' ? CACHE_PUBLICO : CACHE_VISTA, ETag: etag };
-  if (modo === 'publico') comunes['Vercel-CDN-Cache-Control'] = CACHE_BORDE;
+  // Con prueba, nada en el borde: guardado allá, un visitante le daría su rama a todos durante 30 s.
+  if (modo === 'publico' && !prueba) comunes['Vercel-CDN-Cache-Control'] = CACHE_BORDE;
+  if (prueba) Object.assign(comunes, prueba.cabeceras);
   if (!esIndexable(modo, config)) comunes['X-Robots-Tag'] = modo === 'vista' ? 'noindex, nofollow, noarchive' : 'noindex, nofollow';
+  // Las cookies de la prueba van también en el 304: la cookie del servidor se renueva en cada respuesta.
+  const conCookies = (h: Record<string, string>): HeadersInit => {
+    if (!prueba?.setCookie.length) return h;
+    const out = new Headers(h);
+    for (const c of prueba.setCookie) out.append('Set-Cookie', c);
+    return out;
+  };
 
   // Un 304 no lleva cuerpo ni tipo: el navegador usa el que ya tiene.
-  if (coincideEtag(req.headers.get('if-none-match'), etag)) return new Response(null, { status: 304, headers: comunes });
-  return new Response(sinCuerpo ? null : doc, { status: 200, headers: { 'Content-Type': HTML, ...comunes } });
+  if (coincideEtag(req.headers.get('if-none-match'), etag)) return new Response(null, { status: 304, headers: conCookies(comunes) });
+  return new Response(sinCuerpo ? null : doc, { status: 200, headers: conCookies({ 'Content-Type': HTML, ...comunes }) });
 }

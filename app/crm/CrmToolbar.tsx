@@ -45,6 +45,8 @@ import { BANDAS_KANBAN } from './filtros-guardados';
 import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { PasarAPro } from './PasarAPro';
 import { ancla } from '@/app/_ui/guia/ancla';
+import { createPortal } from 'react-dom';
+import { CAMPOS_LEAD, CAMPOS_LEAD_TODOS, camposAchicados, resumenCamposLead, type CampoLead } from './buscar-leads';
 
 const SANS = "'Geist', sans-serif";
 
@@ -355,9 +357,58 @@ const VISTAS_CRM: readonly CrmVista[] = ['kanban', 'tabla'];
 // prueba escribir un # en un campo que dice «Buscar…».
 const BUSCAR_AYUDA = 'Buscar por nombre, empresa, email o teléfono. Para un lead puntual, su número: #412 (no distingue mayúsculas ni acentos).';
 
-export function Buscador({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+// ⚠️ Y SE ELIGE DÓNDE BUSCAR (F150, 18/11/2026): la flechita del Plan (app/plan/board/BuscadorTareas.tsx), con los
+// campos de un lead (app/crm/buscar-leads.ts). Sin tocar nada busca en todos, como siempre; la flechita achica, y el chip
+// de abajo lo dice. Sin `campos`, la barra de siempre.
+export function Buscador({ value, onChange, campos, onCampos }: {
+  value: string;
+  onChange: (v: string) => void;
+  campos?: CampoLead[];
+  onCampos?: (v: CampoLead[]) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const caja = useRef<HTMLDivElement>(null);
+  const conCampos = !!campos && !!onCampos;
+
+  // Cerrar al hacer clic afuera o con Escape. El panel vive en un PORTAL: un clic adentro de él no es «afuera».
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (caja.current?.contains(t)) return;
+      if ((t as Element)?.closest?.('[data-buscador-panel]')) return;
+      setAbierto(false);
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
+    document.addEventListener('mousedown', fuera);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc); };
+  }, [abierto]);
+
+  // Dónde se dibuja el panel, medido contra la ventana: se recalcula al abrir y en scroll/resize.
+  const [lugar, setLugar] = useState<{ top: number; left: number; alto: number } | null>(null);
+  useEffect(() => {
+    if (!abierto) { setLugar(null); return; }
+    const medir = () => {
+      const r = caja.current?.getBoundingClientRect();
+      if (!r) return;
+      setLugar({ top: r.bottom + 8, left: r.left, alto: Math.max(180, window.innerHeight - r.bottom - 24) });
+    };
+    medir();
+    window.addEventListener('scroll', medir, true);
+    window.addEventListener('resize', medir);
+    return () => { window.removeEventListener('scroll', medir, true); window.removeEventListener('resize', medir); };
+  }, [abierto]);
+
+  const achicada = conCampos && camposAchicados(campos!);
+  const toggle = (id: CampoLead) => {
+    if (!campos || !onCampos) return;
+    onCampos(campos.includes(id) ? campos.filter((c) => c !== id) : [...campos, id]);
+  };
+  const derecha = (value ? 30 : 0) + (conCampos ? 32 : 0);
+
   return (
-    <div className="crm-tb-buscar" {...ancla('crm-buscar')} style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: '0 1 260px', minWidth: 110 }}>
+    <div ref={caja} className="crm-tb-buscar" {...ancla('crm-buscar')} style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: '0 1 260px', minWidth: 110 }}>
       <LupaIcon />
       <input
         value={value}
@@ -365,17 +416,71 @@ export function Buscador({ value, onChange }: { value: string; onChange: (v: str
         placeholder="Buscar o #número de lead"
         aria-label={BUSCAR_AYUDA}
         title={BUSCAR_AYUDA}
-        style={{ width: '100%', height: CTRL_H, padding: value ? '0 34px 0 36px' : '0 14px 0 36px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' }}
+        style={{ width: '100%', height: CTRL_H, padding: `0 ${derecha ? derecha + 8 : 14}px 0 36px`, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' }}
       />
       {value && (
         <button type="button" onClick={() => onChange('')} aria-label="Limpiar la búsqueda" title="Limpiar la búsqueda"
-          style={{ position: 'absolute', right: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 999, border: 'none', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13, lineHeight: 1, cursor: 'pointer', fontFamily: SANS }}>
+          style={{ position: 'absolute', right: conCampos ? 38 : 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 999, border: 'none', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13, lineHeight: 1, cursor: 'pointer', fontFamily: SANS }}>
           ×
         </button>
+      )}
+      {conCampos && (
+        <button type="button" onClick={() => setAbierto((v) => !v)} title="Dónde buscar" aria-label="Dónde buscar" aria-expanded={abierto}
+          style={{ position: 'absolute', right: 7, width: 26, height: 26, borderRadius: 7, border: `1px solid ${achicada ? 'var(--primary)' : 'transparent'}`, background: 'transparent', color: achicada ? 'var(--primary)' : 'var(--faint)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SANS }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+            style={{ display: 'block', transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>
+            <path d="M5 9l7 7 7-7" />
+          </svg>
+        </button>
+      )}
+
+      {/* El chip dice DÓNDE se busca: sin él, achicar los campos hace desaparecer leads y parece que el buscador se rompió. */}
+      {achicada && (
+        <div style={{ position: 'absolute', top: '100%', left: 2, marginTop: 3, fontSize: 10.5, fontFamily: MONO, letterSpacing: '.04em', color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+          {resumenCamposLead(campos!)}
+        </div>
+      )}
+
+      {conCampos && abierto && lugar && createPortal(
+        <div data-buscador-panel style={{
+          position: 'fixed', top: lugar.top, left: lugar.left, zIndex: 2000, width: 280,
+          maxHeight: Math.min(lugar.alto, 460), overflowY: 'auto', overscrollBehavior: 'contain',
+          background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12,
+          boxShadow: '0 12px 32px rgba(0,0,0,.16)', padding: 12, fontFamily: SANS,
+        }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, marginBottom: 8 }}>
+            Dónde buscar
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {CAMPOS_LEAD.map((c) => {
+              const on = campos!.includes(c.id);
+              return (
+                <button key={c.id} type="button" onClick={() => toggle(c.id)}
+                  style={{ display: 'flex', alignItems: 'flex-start', gap: 9, width: '100%', textAlign: 'left', padding: '7px 8px', borderRadius: 8, border: 'none', background: on ? 'var(--primary-bg)' : 'transparent', cursor: 'pointer', fontFamily: SANS }}>
+                  <span style={{ width: 15, height: 15, marginTop: 1, flex: 'none', borderRadius: 4, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{on ? '✓' : ''}</span>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 13, fontWeight: on ? 650 : 500, color: on ? 'var(--primary)' : 'var(--ink)' }}>{c.label}</span>
+                    <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', marginTop: 1, lineHeight: 1.35 }}>{c.ayuda}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+            <button type="button" onClick={() => onCampos!(['nombre'])} style={ATAJO_BUSCAR}>Solo el nombre</button>
+            <button type="button" onClick={() => onCampos!(CAMPOS_LEAD_TODOS)} style={ATAJO_BUSCAR}>Todos</button>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
 }
+
+const ATAJO_BUSCAR: CSSProperties = {
+  flex: 1, padding: '6px 8px', borderRadius: 7, border: '1px solid var(--border-strong)',
+  background: 'var(--surface-2)', color: 'var(--dim)', cursor: 'pointer', fontSize: 12, fontFamily: SANS,
+};
 
 // ── Acá vivía `BandasToggle` ──────────────────────────────────────────────────
 // Los tres botones «Activo · Nutrición · Descartado» con su conteo, sueltos en la barra. Desde

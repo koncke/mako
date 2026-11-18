@@ -16,7 +16,7 @@
 // =============================================================================
 
 import type { CanalChat, ChatResumen } from '@/lib/chats-tipos';
-import { FILTRO_INICIAL, type FiltroChats, type MostrarChats, type OrdenChats, type VistaChats, type ConteosBandeja } from '@/lib/chats-reglas';
+import { FILTRO_INICIAL, claveCuenta, enCanal, type FiltroChats, type MostrarChats, type OpcionCanal, type OrdenChats, type VistaChats, type ConteosBandeja } from '@/lib/chats-reglas';
 import { previewDe, type LinkProfundo } from '@/app/chats/lista-reglas';
 
 /** Cuántas conversaciones viajan al teléfono (las más recientes). Lo demás, en la computadora. */
@@ -80,19 +80,66 @@ export function bandejasVisibles(c: ConteosBandeja): BandejaM[] {
   return BANDEJAS_M.filter((b) => b.siempre || conteoDeBandeja(c, b.id).n > 0);
 }
 
-/** «Abiertas, Más recientes»: el rótulo del botón del filtro dice las dos cosas, como escritorio. */
-export function rotuloFiltro(f: Pick<FiltroChats, 'mostrar' | 'orden' | 'canal'>): string {
+/**
+ * «Abiertas, Más recientes»: el rótulo del botón del filtro dice las dos cosas, como escritorio. Con un canal elegido, va
+ * adelante: el rótulo de SU renglón (`opcionesDeCanal`: «WhatsApp (MaKo)» si es una de varias líneas) o, sin él, el del canal.
+ */
+export function rotuloFiltro(f: Pick<FiltroChats, 'mostrar' | 'orden' | 'canal'>, rotuloCanal?: string | null): string {
   const m = MOSTRAR_M.find((x) => x.v === f.mostrar)?.label ?? 'Abiertas';
   const o = ORDEN_M.find((x) => x.v === f.orden)?.label ?? 'Más recientes';
-  const c = f.canal ? CANALES_M.find((x) => x.v === f.canal)?.label : null;
+  const c = f.canal ? (rotuloCanal || CANALES_M.find((x) => x.v === f.canal)?.label) : null;
   return c ? `${c} · ${m}, ${o}` : `${m}, ${o}`;
 }
 
-/** Los canales que aparecen en la lista (para no ofrecer en el filtro uno que no hay). */
-export function canalesPresentes(chats: readonly Pick<ChatResumen, 'canales'>[]): CanalChat[] {
-  const hay = new Set<CanalChat>();
-  for (const c of chats) for (const i of c.canales) hay.add(i.canal);
-  return CANALES_M.map((x) => x.v).filter((v) => hay.has(v));
+/** Lo de abajo de un renglón de canal, como el chip de escritorio: «Desconectado» o «2 sin leer»; sin nada, nada. */
+export function segundaDeCanal(o: OpcionCanal, c: Pick<ConteosBandeja, 'porCanal' | 'porCuenta'>): string | undefined {
+  if (o.desconectado) return 'Desconectado';
+  const n = (o.cuenta == null ? c.porCanal[o.canal] : c.porCuenta[claveCuenta(o.canal, o.cuenta)])?.nuevos ?? 0;
+  return n > 0 ? `${n > 99 ? '99+' : n} sin leer` : undefined;
+}
+
+/**
+ * LO QUE VIAJA AL TELÉFONO (18/11/2026, la revisión de O48): las `tope` conversaciones más recientes de TODAS y, además, las `tope`
+ * más recientes de CADA renglón del filtro de canal. Con sólo las 150 de todas, elegir una línea filtraba esas 150: si las más nuevas
+ * eran todas de su número, el super admin elegía la de MaKo y veía «Nada en esta bandeja» con «2 sin leer» al lado (el número cuenta
+ * todas las leídas). El corte se aplica DESPUÉS de filtrar por renglón, con lo que ya se leyó: no se lee nada de más.
+ * `enTope` marca las de las `tope` de todas: sin un renglón elegido, la lista es ésa, como antes. `chats` viene de la más nueva a la
+ * más vieja (`agruparPorContacto`), y lo que viaja conserva ese orden. `fueraPorCanal`: cuántas de cada renglón quedaron afuera.
+ */
+export function filasQueViajan<T extends Pick<ChatResumen, 'canales'>>(chats: readonly T[], opciones: readonly OpcionCanal[], tope = TOPE_FILAS_M): {
+  viajan: Array<{ chat: T; enTope: boolean }>;
+  fueraTodos: number;
+  fueraPorCanal: Record<string, number>;
+} {
+  const enTope = new Set(chats.slice(0, tope));
+  const incluidas = new Set<T>(enTope);
+  const fueraPorCanal: Record<string, number> = {};
+  for (const o of opciones) {
+    const deEste = chats.filter((c) => enCanal(c, o.canal, o.cuenta));
+    for (const c of deEste.slice(0, tope)) incluidas.add(c);
+    fueraPorCanal[claveCuenta(o.canal, o.cuenta)] = Math.max(0, deEste.length - tope);
+  }
+  return {
+    viajan: chats.filter((c) => incluidas.has(c)).map((chat) => ({ chat, enTope: enTope.has(chat) })),
+    fueraTodos: Math.max(0, chats.length - tope),
+    fueraPorCanal,
+  };
+}
+
+/** Las filas sobre las que filtra la lista: sin renglón de canal, las de todas (`enTope`); con uno, todas las que viajaron. */
+export function filasDelFiltro<F extends { enTope: boolean }>(filas: readonly F[], f: Pick<FiltroChats, 'canal'>): readonly F[] {
+  return f.canal == null ? filas.filter((x) => x.enTope) : filas;
+}
+
+/** Cuántas quedaron en la computadora para lo que se mira: las de todas, o las del renglón elegido. */
+export function fueraDelFiltro(f: Pick<FiltroChats, 'canal' | 'cuenta'>, fueraTodos: number, fueraPorCanal: Readonly<Record<string, number>>): number {
+  return f.canal == null ? fueraTodos : (fueraPorCanal[claveCuenta(f.canal, f.cuenta)] ?? 0);
+}
+
+/** El renglón del filtro que está elegido (el canal y la cuenta del filtro), o null con «Todos». */
+export function opcionElegida(opciones: readonly OpcionCanal[], f: Pick<FiltroChats, 'canal' | 'cuenta'>): OpcionCanal | null {
+  if (f.canal == null) return null;
+  return opciones.find((o) => o.canal === f.canal && o.cuenta === f.cuenta) ?? null;
 }
 
 /**

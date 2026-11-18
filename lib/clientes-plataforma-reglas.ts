@@ -26,6 +26,21 @@ import { capaDef } from './capas';
  * El plan como lo vende MaKo («MaKo Essential», «MaKo Pro») y no el nombre interno de su capa («Completo», «Agencia»): la
  * capa `agencia` ES el plan Pro (lib/planes-mako.ts). Una capa sin plan a la venta («Project Manager») dice el suyo.
  */
+/**
+ * La fila «Plata» de la ficha de un negocio en el Admin del TELÉFONO (P37, 18/11/2026). Decía «Plan a mano» a todo negocio sin MRR,
+ * fuera de prueba y sin un plan a mano guardado: la misma frase falsa que se sacó de la computadora el 5/11, ahora por cliente (un
+ * cliente cuyo pago no se le atribuye salía «Plan a mano»). Lo que no se sabe no se afirma: sin cobros ni plan a mano, «—», como la
+ * ficha de la computadora; y si hay pagos sin su valor en dólares, se dice eso.
+ */
+export function plataDeCliente(c: { mrrUsd: number; primerMesUsd: number | null; prueba: boolean; planAManoTxt: string | null; sinDolares: number }): string {
+  const usdTxt = (n: number) => `US$ ${n.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+  if (c.mrrUsd > 0) return `${usdTxt(c.mrrUsd)} por mes${c.primerMesUsd != null ? ` · primer mes a ${usdTxt(c.primerMesUsd)}` : ''}`;
+  if (c.prueba) return 'En prueba gratis';
+  if (c.planAManoTxt) return c.planAManoTxt;
+  if (c.sinDolares > 0) return c.sinDolares === 1 ? 'Un pago sin su valor en dólares' : `${c.sinDolares} pagos sin su valor en dólares`;
+  return '—';
+}
+
 export const nombreDePlan = (capa: string): string => PLANES_MAKO_DEFAULT.find((p) => p.capa === capa)?.nombre ?? capaDef(capa).nombre;
 
 export const SEGMENTOS = ['partner', 'agency', 'cliente', 'de-agencia'] as const;
@@ -245,6 +260,18 @@ export function cobradoPorMes(pagos: readonly PagoEntrado[], ahoraMs: number, me
     alguno = true;
   }
   return alguno ? claves.map((mes) => ({ mes, usd: Math.round((suma.get(mes) ?? 0) * 100) / 100 })) : null;
+}
+
+/**
+ * Separa los clientes de los negocios que no lo son (F21, 18/11/2026). La lista de quiénes no son clientes la pasa quien llama
+ * (`NO_SON_CLIENTES`, lib/clientes-plataforma.ts): vive con `WS_PRUEBAS`, que no puede entrar a este módulo (lo importa el
+ * navegador, y lib/auth-session.ts trae node:crypto). El orden se conserva.
+ */
+export function apartarLosQueNoSonClientes<T extends { ws: number }>(filas: readonly T[], noSonClientes: ReadonlySet<number>): { clientes: T[]; pruebas: T[] } {
+  const clientes: T[] = [];
+  const pruebas: T[] = [];
+  for (const f of filas) (noSonClientes.has(f.ws) ? pruebas : clientes).push(f);
+  return { clientes, pruebas };
 }
 
 /** Los números de arriba de la vista. `ahoraMs` se pasa para que el test no dependa del reloj. */

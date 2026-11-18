@@ -25,6 +25,40 @@ uno, se vuelve a mirar el código que nombra.
 
 - **Punto 20 — useapi y el experimento de US$5.** La ventana de reembolso de useapi (14 días, menos de 50 generaciones) y la promo de Google AI Pro (cortaba en octubre de 2026) ya pasaron. El experimento con `fal-ai/wan/animate/replace` (pasarle un anuncio ya producido) no se corrió: no aparece en ningún archivo fuera de estado-del-arte. Gasta plata: lo decide Martín.
 - **Punto 35 — Subtítulos y ElevenLabs.** Los subtítulos ya existen por otro camino (el Video Editor los genera con Whisper en el navegador, app/video-editor/_opencut/subtitles/generar.ts) y `lib/elevenlabs.ts` está escrito; `timestamp_granularities` en lib/transcribe.ts no hizo falta. Queda la decisión sobre el campo de ElevenLabs que pega el cliente (lib/metodo-catalogo.ts:568): el plan gratis de ElevenLabs es no comercial por contrato, y el campo no lo dice ni lo frena. Lo decide Martín.
+## El cupo por tipo estaba bien y el avatar igual tiraba un anuncio: se guardaba DOS veces, y la primera sin el tipo (18/11/2026, F168)
+
+**El síntoma.** Después del arreglo del 06/11 (abajo), un video de avatar todavía podía sacar un
+anuncio filmado del historial. El cupo por tipo funcionaba —un plan sellado `tipo: 'avatar'` no
+competía con los anuncios— y los tests de ese día estaban en verde.
+
+**La causa: el ORDEN de las escrituras, no la regla.** Las dos acciones de avatar
+(`app/ai-avatar/actions.ts` → `crearVideoAction`, `app/video-editor/avatar/actions.ts` →
+`crearAvatarAction`) llamaban a `generarPlanAction`, que armaba el plan y lo GUARDABA en el acto,
+sin `tipo`. En esa primera escritura el avatar entraba como ANUNCIO protegido: con 10 anuncios en
+el cupo, `recortarPorCupo` tiraba uno (uno PAGADO si los diez tenían clips) y eso quedaba escrito.
+Recién después `conAvatar` lo sellaba y se guardaba otra vez, ya en el cupo de los avatares, pero
+el anuncio tirado no volvía. Los tests del 06/11 guardaban planes ya sellados: probaban la regla y
+no el camino por el que llegan los avatares.
+
+**Y el mismo molde en otra acción:** `cambiarMuletillasAction` (`app/video-generator/video-action.ts`)
+rehace el guion con `generarPlanAction` y guarda el resultado con el id del anuncio. La primera
+escritura dejaba un FANTASMA: el plan nuevo con su id al azar, como otro anuncio más en la lista,
+que además empujaba a uno de verdad.
+
+**La cura.** `generarPlanAction` acepta `guardar: false`: arma y devuelve el plan sin escribirlo, y
+quien llama lo termina (lo sella, le pone su id) y lo guarda una sola vez. El sello sigue en un solo
+lugar (`conAvatar`). Lo fija `tests/video-avatar-no-saca-anuncios.test.ts`, que corre las tres
+acciones REALES (con `generarPlanAction` real adentro) contra 10 anuncios filmados en un
+`app_settings` en memoria. Sacando `guardar: false`, caen las tres.
+
+**Regla que queda:** una regla que decide qué se tira al GUARDAR se prueba con el camino que guarda,
+no con el dato ya terminado. Si una acción arma algo con otra función que también guarda, la primera
+escritura ve el objeto a medio hacer, y es la que decide. Antes de dar por cerrado un recorte, se
+cuenta cuántas veces se escribe el mismo objeto en una acción y con qué forma llega cada vez.
+
+**Vive en:** `app/video-generator/actions.ts` (`guardar`) · `app/ai-avatar/actions.ts` ·
+`app/video-editor/avatar/actions.ts` · `app/video-generator/video-action.ts` (`cambiarMuletillasAction`)
+· *2026-11-18 nube-construir-video*
 
 ## El diagnóstico obvio era el equivocado: el recorte del historial ya estaba bien, lo que faltaba era el TIPO (06/11/2026, item 558)
 

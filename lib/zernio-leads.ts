@@ -29,6 +29,8 @@ import { upsertLeadFromMeta, logLeadEvent } from './leads';
 import { sendMetaCAPIEvent } from './meta-capi';
 import { eventIdLeadCrudo } from './meta-capi-payload';
 import { alNacerLeadDeMeta } from './meta-lead-nuevo';
+import { reintentoSinAnunciar } from './meta-anuncio';
+import { getWorkspaceActual } from './workspace';
 import { queHacerConElLead, type LeadDeZernio } from './zernio-lead';
 
 export type LeadCargado = {
@@ -38,8 +40,16 @@ export type LeadCargado = {
   email: string | null;
   /** ¿Lo creó ESTA entrega? Un reintento de Zernio, o un lead que ya entró por Meta, no. */
   creado: boolean;
-  /** ¿Se anuncia? Sólo uno creado por ESTA entrega y reciente: lo único que justifica un primer mensaje (`queHacerConElLead`). */
+  /**
+   * ¿Se anuncia? Uno creado por ESTA entrega y reciente: lo único que justifica un primer mensaje (`queHacerConElLead`). Y
+   * también `reintento`.
+   */
   nuevo: boolean;
+  /**
+   * Una reentrega de un lead que ya estaba y cuyo anuncio se cayó (F117, 18/11/2026): la entrega anterior lo grabó y se cortó
+   * antes de anunciarlo. Lo decide lib/meta-anuncio.ts (sin la marca del anuncio, el mismo lead nuevo de hoy).
+   */
+  reintento: boolean;
   /** ¿Se manda la conversión `Lead` a Meta? También un lead que ya existía, mientras entre en la ventana de CAPI. */
   conversion: boolean;
 };
@@ -60,6 +70,10 @@ export async function cargarLeadDeZernio(l: LeadDeZernio, ahora: Date = new Date
     meta_created_at: l.creadoEn,
     meta_campos_no_reconocidos: l.noReconocidos,
   }, { noTocarExistente: opc.soloCrear === true });
+  // El barrido no reintenta: saltea lo que ya está (lib/zernio-leads-barrido.ts).
+  const ws = created || opc.soloCrear ? null : await getWorkspaceActual();
+  const reintento = ws != null
+    && (await reintentoSinAnunciar(ws, { id: lead.id, creadoAt: lead.created_at, formCreadoEn: l.creadoEn }, ahora.getTime()));
   return {
     leadId: lead.id,
     nombre: lead.nombre,
@@ -67,6 +81,8 @@ export async function cargarLeadDeZernio(l: LeadDeZernio, ahora: Date = new Date
     email: lead.email ?? null,
     creado: created,
     ...queHacerConElLead(created, l.creadoEn, ahora.getTime()),
+    ...(reintento ? { nuevo: true } : {}),
+    reintento,
   };
 }
 
@@ -81,7 +97,7 @@ export async function alNacerLeadDeZernio(ws: number, c: LeadCargado, l: LeadDeZ
   try {
     await alNacerLeadDeMeta(ws, { id: c.leadId, nombre: c.nombre, telefono: c.telefono }, {
       fieldData: l.fieldData.length ? l.fieldData : null, campana: null,
-    });
+    }, { esReintento: c.reintento });
   } catch (e) {
     // `alNacerLeadDeMeta` ya atrapa cada parte; esto es por si falla su carga.
     console.error(`[zernio-leads] lo inmediato (ws ${ws}, lead ${c.leadId}): ${e instanceof Error ? e.message : String(e)}`);

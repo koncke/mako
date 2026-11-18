@@ -20,6 +20,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import Link from './Link';
 import { IconoMenu, type NombreIconoMenu } from './iconos-menu';
 import type { GrupoSecciones, SeccionAjustes } from '@/lib/ajustes-secciones';
+import { marcaSettings } from '@/lib/tutoriales/marcas';
 
 /**
  * La pantalla: el índice de Settings y la sección activa. El índice va por `grupos` («Tu cuenta» y «Tu negocio»,
@@ -46,7 +47,7 @@ export function AjustesPagina({ lugar, secciones, grupos, activa, amplio, childr
           <div key={g.titulo || 'unico'} className="aj-indice-grupo" role="group" aria-label={g.titulo || undefined}>
             {g.titulo && <div className="aj-indice-grupo-titulo">{g.titulo}</div>}
             {g.secciones.map((s) => (
-              <Link key={s.key} href={s.href} data-activa={s.key === activa} aria-current={s.key === activa ? 'page' : undefined}>
+              <Link key={s.key} href={s.href} data-activa={s.key === activa} aria-current={s.key === activa ? 'page' : undefined} data-recorrido={marcaSettings(s.key)}>
                 <IconoMenu nombre={s.icono} size={17} />
                 {s.label}
               </Link>
@@ -90,14 +91,16 @@ export function TituloAjustes({ titulo, bajada, volver, accion }: {
  * and theme» en las preferencias de Linear. `descripcion` es UNA línea gris debajo del nombre, sólo si dice algo que la tarjeta
  * no dice (un estado, una cuenta); nunca un párrafo. `accion` va a la derecha del nombre («Cerrar todas», «Agregar»).
  */
-export function GrupoAjustes({ titulo, descripcion, children, pie, accion }: {
+export function GrupoAjustes({ titulo, descripcion, children, pie, accion, recorrido }: {
   titulo?: string; descripcion?: ReactNode; children?: ReactNode; pie?: ReactNode; accion?: ReactNode;
+  /** La marca del tutorial de la sección (`data-recorrido`, lib/tutoriales/marcas.ts). */
+  recorrido?: string;
   /** Ya no cambia nada (todas las secciones van a lo ancho de la columna); queda para no romper a quien lo pasa. */
   ancha?: boolean;
 }) {
   const cab = !!(titulo || descripcion || accion);
   return (
-    <section className="aj-grupo">
+    <section className="aj-grupo" data-recorrido={recorrido}>
       {cab && (
         <div className="aj-grupo-cab">
           <div className="aj-grupo-cab__texto">
@@ -168,7 +171,7 @@ export function PuntoEstado({ tono }: { tono: 'good' | 'off' | 'warn' }) {
  * Una fila de Linear: (ícono), el nombre y debajo una línea gris si suma; a la derecha, el control (`fin`) o el `valor` con la
  * flecha. La fila ENTERA es el botón si tiene `href` u `onClick`; sin ninguno de los dos es un dato quieto, sin flecha.
  */
-export function FilaAjustes({ icono, titulo, detalle, tono, estado, valor, href, onClick, fin, peligro, ancho }: {
+export function FilaAjustes({ icono, titulo, detalle, tono, estado, valor, href, onClick, fin, peligro, ancho, recorrido }: {
   icono?: NombreIconoMenu;
   titulo: ReactNode;
   /** La línea gris debajo del nombre. */
@@ -188,6 +191,8 @@ export function FilaAjustes({ icono, titulo, detalle, tono, estado, valor, href,
   peligro?: boolean;
   /** El control es ancho (un select de zona, las horas, los días): en el teléfono baja debajo del nombre, a lo ancho. */
   ancho?: boolean;
+  /** La marca del tutorial de la sección (`data-recorrido`, lib/tutoriales/marcas.ts). */
+  recorrido?: string;
 }) {
   const quieta = !href && !onClick;
   const contenido = (
@@ -210,7 +215,7 @@ export function FilaAjustes({ icono, titulo, detalle, tono, estado, valor, href,
       )}
     </>
   );
-  if (href) return <Link href={href} className="aj-fila">{contenido}</Link>;
-  if (onClick) return <button type="button" className="aj-fila" onClick={onClick}>{contenido}</button>;
-  return <div className="aj-fila" data-quieta="true" data-campo={ancho || undefined}>{contenido}</div>;
+  if (href) return <Link href={href} className="aj-fila" data-recorrido={recorrido}>{contenido}</Link>;
+  if (onClick) return <button type="button" className="aj-fila" onClick={onClick} data-recorrido={recorrido}>{contenido}</button>;
+  return <div className="aj-fila" data-quieta="true" data-campo={ancho || undefined} data-recorrido={recorrido}>{contenido}</div>;
 }

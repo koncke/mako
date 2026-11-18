@@ -46,6 +46,9 @@ import { RUTA_CREAR_VIDEO } from './vista';
 import { ejemploDeVideo, type EjemploVideo } from '@/lib/editor-video/plantillas-ejemplos';
 import { EjemploPlantillaVideo } from './EjemploPlantillaVideo';
 import { cargarMotor, useProyectosVideo } from './proyectos';
+// La miniatura dibujada de cada plantilla de anuncio en «Nuevo video» (F160). Estática a propósito: no trae el motor (lo dice
+// su cabecera y lo fija tests/video-editor-miniatura-nuevo.test.ts).
+import { miniaturaDeNuevoVideo } from './miniatura-nuevo-video';
 
 // ⚠️ Todo lo que se carga a pedido entra por UNA puerta (./editor-cargado.ts): un `import()` por cada pieza bajaba y
 // compilaba el núcleo del motor TRES veces (12/11/2026, «se me traba exageradamente todo»).
@@ -280,6 +283,7 @@ function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, sen
         actual={actual}
         plantillas={plantillas}
         onPlantilla={usarPlantilla}
+        miniatura={miniaturaDeNuevoVideo}
         onVerEjemplo={verEjemplo}
         ejemplos={EJEMPLOS_NUEVO_VIDEO}
         chat={editor ? (volver) => <PanelChat volver={volver} /> : undefined}

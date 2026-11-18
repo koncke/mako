@@ -421,6 +421,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/chatbot/secuencias/{secuenciaId}/copias', 'duplicar_automatizacion'],
   ['PATCH', '/chatbot/secuencias/{secuenciaId}', 'renombrar_automatizacion'],
   ['GET', '/chatbot/secuencias/{secuenciaId}/en-espera', 'espera_por_tarjeta'],
+  // Pendiente O19 (18/11/2026): editar con IA una que ya existe (el motor del chat del lienzo). Propone; publica al confirmar.
+  ['POST', '/chatbot/secuencias/{secuenciaId}/ediciones', 'editar_armada_con_ia'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/leads/{leadId}/nueva-prueba', 'volver_a_probar_lead_secuencia'],
   // ── metricas ──────────────────────────────────────────────────────────────
   ['GET', '/metricas/agendas/comparacion', 'comparar_agendas_meta_crm'],
@@ -648,6 +650,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/negocio/onboarding/tabs-pendientes', 'listar_tabs_por_configurar'],
   ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
   ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],
+  // O21 (18/11/2026): PATCH completa un hueco; PUT reemplaza el valor de un campo que ya lo tiene.
+  ['PUT', '/negocio/perfil/campos/{key}', 'corregir_campo_perfil'],
   ['DELETE', '/negocio/personalidad-voz', 'reiniciar_personalidad'],
   ['GET', '/negocio/knowledge/modulos', 'modulos_de_knowledge'],
   ['GET', '/negocio/knowledge/modulos/{modulo}', 'leer_modulo_knowledge'],
@@ -683,6 +687,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/contenido/rendimiento-redes', 'ver_rendimiento_redes'],
   ['GET', '/contenido/siguientes-pasos', 'opciones_siguiente_paso_guion'],
   ['GET', '/contenido/tabs/{tab}/onboarding', 'estado_onboarding_contenido'],
+  // Pendiente O19 (18/11/2026): cargar los guiones que trae la persona, y rehacer los anuncios planteados sin borrar guiones.
+  ['POST', '/contenido/guiones', 'cargar_guiones_anuncio'],
+  ['POST', '/contenido/anuncios', 'generar_anuncios_planteados'],
   // El Copywriter (28/10/2026): los documentos, con el juego del MCP de mila.gg. DELETE manda a la Papelera (no borra).
   ['GET', '/contenido/documentos', 'listar_documentos_copywriter'],
   ['POST', '/contenido/documentos', 'crear_documento_copywriter'],

@@ -211,7 +211,7 @@ test('6. la plantilla de la cuenta frenada corre entera: el techo, cada estado y
   assert.equal(t.problema, null);
   const sale = (d: Record<string, string>) => corre(t.pasos, H(d));
   assert.equal(sale({ anuncios_estado: 'Saldo impago', anuncios_vez: '1' }).length, 1);
-  assert.match(sale({ anuncios_estado: 'Deshabilitada', anuncios_vez: '3' })[0], /DESHABILITÓ/);
+  assert.match(sale({ anuncios_estado: 'Deshabilitada', anuncios_vez: '3' })[0], /Meta deshabilitó tu cuenta publicitaria/);
   assert.match(sale({ anuncios_estado: 'Cerrada (cualquiera)', anuncios_vez: '1' })[0], /tiene un problema/);
   assert.deepEqual(sale({ anuncios_estado: 'Saldo impago', anuncios_vez: '4' }), []);
   assert.deepEqual(sale({ anuncios_estado: 'Saldo impago' }), [], 'sin saber qué número de aviso es, no sale: «no sé» no es «sí»');

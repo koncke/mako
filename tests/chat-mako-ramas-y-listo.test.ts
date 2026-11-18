@@ -116,7 +116,8 @@ test('la ruta: la primera vez lo que falta es un error (reintento); después se 
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
   // Desde el merge con el AU2 (22/10/2026) el control vive en `revisarEdicion` (lib/flujo-ia-revision-editar.ts) y la ruta le
   // pasa UN `control` por turno. Ejecutado, con la respuesta REAL de Haiku que se olvidó la pregunta:
-  assert.match(ruta, /const control = \{ yaPidioLoQueFalta: false \};/);
+  // (18/11/2026: el `control` lo crea el motor, lib/flujo-ia-editar.ts, uno por llamada = uno por turno.)
+  assert.match(sinComentarios(leer('lib/flujo-ia-editar.ts')), /const control = \{ yaPidioLoQueFalta: false \};/);
   const control = { yaPidioLoQueFalta: false };
   const intento = () => revisarEdicion({ obj: HAIKU_SIN_PREGUNTA, base: BASE, ctx: CTX, pedido: PEDIDO, historial: [], intencion: 'editar', control });
   const falta = '¿Ya tienes un plan para tu proyecto este mes?';

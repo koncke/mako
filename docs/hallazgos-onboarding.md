@@ -14,6 +14,54 @@ renglón nombra su punto; allá queda la línea con «→ repartido a» este doc
 uno, se vuelve a mirar el código que nombra.
 
 - **Puntos 29, 30 y 31 — excluidos de la pasada del 18/11: el onboarding lo está rehaciendo otro chat ese día.** Lo medido, para ese chat: (29) lib/onboarding-state.ts ya no tiene `PASOS_ONBOARDING` y el onboarding es el chat de arranque desde el 16/10, así que «las cuatro listas paralelas» casi seguro vencieron; (30) el `case 'funnel'` de app/api/onboarding/route.ts:324 sigue sin un solo llamador (`templateId` no aparece en app/), y el CRM del arranque lo arma lib/onboarding-crm.ts; (31) el paso `gemini` ya no existe, y conectar una IA dejó de ser obligatorio con los MaKo Tokens (15/11).
+## El motor de los tutoriales y el chat del reto, en la app real (18/11/2026)
+
+Martín pasó el onboarding de la maqueta (C:/dev/artefactos-onboarding) a la app («despleguemos todo esto ya en la app, de verdad»).
+La maqueta queda como ESPECIFICACIÓN. Lo que mordió al construirlo:
+
+- **El contenedor del motor se comía los clics del hueco.** `.mk-rec` es `position: fixed; inset: 0`: aunque el hueco tenga
+  `pointer-events: none`, el clic lo recibe el contenedor y nunca llega a lo marcado. El paso con «Haz clic en…» no terminaba nunca.
+  El motor (app/_ui/tutorial/MotorTutorial.tsx) pone el contenedor en `pointer-events: none` y cuatro TAPAS transparentes alrededor
+  del hueco: sólo se toca lo marcado. El `Recorrido` de siempre no lo necesita porque no espera clics en la página.
+- **Una marca cuyo lugar no está tapaba la pantalla entera.** Sin hueco, se dibujaba el velo completo y la página quedaba bloqueada
+  para siempre (una marca espera sin plazo). Ahora el velo entero va sólo en la presentación; un paso que espera su lugar no tapa nada.
+- **El menú de la foto se cierra si el mouse sale de la foto y no llega al menú en 220 ms** (Sidebar.tsx, `scheduleCloseUser`). Con
+  las tapas, el mouse nunca llega: esas marcas van `libre` (sin tapas).
+- **El video chico tapaba los botones de la tarjeta en el teléfono.** Va antes de la tarjeta en el DOM y sube arriba si se cruzarían.
+- **Las marcas que el reto señala (la foto de la barra, las secciones de Settings) son las del chat de las pestañas** y se importan
+  de lib/tutoriales/marcas.ts, nunca escritas a mano: el 18/11 un merge de main cambió la foto de `tour-sidebar-perfil` a
+  `tour-barra-foto` (`MARCA.barraFoto`) y el reto quedaba marcando un elemento que ya no existía, sin ningún rojo.
+- **El diagnóstico obvio era el equivocado:** se pidió «renombrar el asunto de los correos del reto» y «sacar el "24 horas" de la
+  Ticketera». En la app NO había correos del reto (ni push, ni WhatsApp diario: MaKo nunca escribe primero) ni texto de 24 h (sólo en
+  docs/reto-7-dias/guiones-dia-1.md). Tampoco Offer Coach aparte (fusionado en Funnel Coach el 4/11): el día 1 es Funnel Coach.
+- **`node scripts/tsc-acotado.mjs` dio 99** (lo mata la RAM con varios chats): no es un verde. Los tipos los corre la punta en GitHub.
+- **Para MIRAR sin `next dev`:** el componente empaquetado con esbuild (el de node_modules, por `createRequire`; `nodePaths` al
+  node_modules del worktree y `next/navigation` cambiado por un archivo propio) y montado sobre las pestañas que dibuja el chat de las
+  pestañas (C:/dev/artefactos-pestanas/publicar). Esas páginas no tienen las marcas nuevas del repo (`tour-settings-*`): sus pasos se
+  saltean ahí y andan en la app.
+
+- **El video y la marca juntos (Martín, 18/11).** El manifiesto de los videos (public/tutoriales/manifiesto.json, del chat de los
+  videos) trae por video sus `frases` { id, t_inicio, t_fin, texto, sel?, espera_clic?, cierra_despues? }; lib/tutoriales/videos.ts
+  las valida (`frasesDe`: sin `espera_clic` vale verdadero si hay `sel`; sin `cierra_despues`, falso). Con frases con marca, el
+  video NO arranca solo: lo arranca «Empezar», y desde ahí los pasos los pone el video (`fraseParaMarcar` en cada `timeupdate`). El
+  texto y el lado salen del paso de lib/tutoriales que marca lo mismo (`mismoLugar`: un `sel` de paso puede ser una lista). Al
+  terminar, el cierre es el último paso del tutorial (el CTA con «Haz clic en…»), salvo que el video ya lo haya marcado y tocado.
+- **El Escape con el que el motor cierra un panel (`cierra_despues`) omitía el tutorial entero:** el manejador del motor oye el
+  Escape en captura. Sólo cuenta el de la persona (`if (!e.isTrusted) return;`).
+- **Las tapas del hueco tapaban el video chico** (los dos `position: fixed` sin z-index: gana el último del DOM): con una marca
+  puesta, el video no se podía pausar ni cerrar. El video lleva z-index 2 y la tarjeta 3.
+- **El Chromium de Playwright no reproduce mp4 (H.264):** para mirar el video hay que lanzar el Chrome instalado
+  (`chromium.launch({ channel: 'chrome' })`). Con el otro, el video «no carga» y parece un error del motor.
+
+Lo que quedó SIN hacer (para el día siguiente):
+- guardar la hora de WhatsApp desde el mensaje que la persona le manda a MaKo (hoy se guarda al tocarla en el chat del reto);
+- las integraciones según lo elegido en Funnel Coach;
+- el reto en el teléfono (MaKo Mobile);
+- los tutoriales con `estado` del chat de las pestañas (pantallas de adentro: la ficha del lead, la clase), que el motor no arranca;
+- la Ticketera, que el motor no arranca porque mira la ruta sin el `?`
+  (app/_ui/tutorial/MotorTutorial.tsx, `TutorialDeLaRuta`);
+- el video y la marca juntos con frases DE VERDAD: hoy (18/11) ningún video del manifiesto trae `frases`, así que el motor sigue
+  como antes (los pasos con «Siguiente»). Se probó con un manifiesto de prueba sobre la página del CRM dibujada.
 
 ## ⚠️ La maqueta del onboarding y la app real no tienen los mismos coaches (17/11/2026)
 

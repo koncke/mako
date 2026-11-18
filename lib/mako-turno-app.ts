@@ -63,7 +63,11 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
-import { esTabConChatPropio, previaDeMensaje } from '@/lib/chat-mako-reglas';
+import { NO_CAMBIA_LA_ESTRELLA, NO_RENOMBRA_EL_PRINCIPAL, arbolDelJefe, baseDeLaPersona, esTabConChatPropio, previaDeMensaje } from '@/lib/chat-mako-reglas';
+import { nombreValido } from '@/lib/centro-chats';
+import { sanearAspecto } from '@/lib/centro-munecos';
+import { munecosDeChats, ponerMunecoDeChat } from '@/lib/chat-munecos-db';
+import type { MunecosDeChats } from '@/lib/chat-munecos';
 import {
   createSession, getSession, listSessions, ultimosDeSesiones, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
   renameSession, tituloDesde, type ChartSession, type ChartMsg, type ChartMsgConBloques,
@@ -91,7 +95,7 @@ import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuard
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, pedidoConLecturas, placeholderDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
-  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
+  PREFIJO_CHART_MOVIL, chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
   historialParaModelo, bloquesDelMensaje, entraOtroDibujo, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA, porQueSinRespuesta,
@@ -170,6 +174,61 @@ export async function listarSesiones(persona: PersonaChat): Promise<SesionChat[]
     const ultimos = await ultimosDeSesiones(ss.map((s) => s.id)).catch(() => new Map<number, { role: string; content: string }>());
     return ss.map((s) => ({ ...aSesion(s), ultimo: previaDeMensaje(ultimos.get(s.id)) }));
   });
+}
+
+// ── El «⋯» de una fila del Ops Center del cliente (F96, 18/11/2026): Renombrar y Cambiar su criatura ─────────────────────
+// El menú es el del super admin (MenusCentro); lo que escribe pasa por acá, con la persona de `personaDelRequest` (su sesión y
+// su negocio). La conversación se busca entre las de ESTA persona en SU negocio (`listSessions(persona.chartKey)` adentro de
+// `runWithWorkspace(persona.ws)`): un id de otra persona o de otro negocio no existe, y se contesta igual (404). El jefe (la más
+// vieja, `arbolDelJefe`, la misma cuenta que la lista y que `renombrar_chat_mako` de la API) no se toca.
+
+type FalloDelMenu = { ok: false; error: string; status: 400 | 404 };
+const NO_ESTA: FalloDelMenu = { ok: false, error: 'No encuentro ese chat.', status: 404 };
+
+/** De quién son los muñecos (lib/chat-munecos-db.ts → `chats.munecos:<persona>`): la base `mako-movil:<persona>`, sin el prefijo. */
+function personaDeMunecos(persona: PersonaChat): string | null {
+  const base = baseDeLaPersona(persona.chartKey);
+  return base && base === persona.chartKey ? base.slice(PREFIJO_CHART_MOVIL.length) : null;
+}
+
+/** La conversación del «⋯», si es de esta persona, y si es su jefe. Adentro del workspace de la persona. */
+async function delMenuDeLaPersona(persona: PersonaChat, sessionId: number): Promise<{ sesion: ChartSession; esJefe: boolean } | null> {
+  if (!Number.isInteger(sessionId) || sessionId <= 0) return null;
+  const ss = await listSessions(persona.chartKey);
+  const sesion = ss.find((s) => s.id === sessionId);
+  if (!sesion) return null;
+  return { sesion, esJefe: arbolDelJefe(ss.map(aSesion)).jefe?.id === sesion.id };
+}
+
+/** Renombra UNO de sus chats (no el Cerebro). El nombre, con la regla del super admin (`nombreValido`: se rechaza, no se recorta). */
+export async function renombrarSesion(persona: PersonaChat, sessionId: number, texto: string): Promise<{ ok: true; sesion: SesionChat } | FalloDelMenu> {
+  const v = nombreValido(texto);
+  if (!v.ok) return { ok: false, error: v.error, status: 400 };
+  return runWithWorkspace(persona.ws, async () => {
+    const c = await delMenuDeLaPersona(persona, sessionId);
+    if (!c) return NO_ESTA;
+    if (c.esJefe) return { ok: false, error: NO_RENOMBRA_EL_PRINCIPAL, status: 400 };
+    await renameSession(c.sesion.id, v.nombre);
+    return { ok: true, sesion: { ...aSesion(c.sesion), titulo: v.nombre } };
+  });
+}
+
+/** Las criaturas elegidas de sus chats, por id. Tira si no se pudo leer (quien lista decide qué hacer con eso). */
+export async function munecosDeLaPersona(persona: PersonaChat): Promise<MunecosDeChats> {
+  const p = personaDeMunecos(persona);
+  return p ? munecosDeChats(persona.ws, p) : {};
+}
+
+/** Elige (o quita, con null: vuelve a la de su nombre) la criatura de UNO de sus chats, y devuelve cómo quedaron todas. */
+export async function ponerMunecoDeSesion(persona: PersonaChat, sessionId: number, aspecto: unknown): Promise<{ ok: true; munecos: MunecosDeChats } | FalloDelMenu> {
+  const p = personaDeMunecos(persona);
+  if (!p) return NO_ESTA;
+  const elegido = aspecto == null ? null : sanearAspecto(aspecto);
+  if (aspecto != null && !elegido) return { ok: false, error: 'Elige la criatura otra vez.', status: 400 };
+  const c = await runWithWorkspace(persona.ws, () => delMenuDeLaPersona(persona, sessionId));
+  if (!c) return NO_ESTA;
+  if (c.esJefe) return { ok: false, error: NO_CAMBIA_LA_ESTRELLA, status: 400 };
+  return { ok: true, munecos: await ponerMunecoDeChat(persona.ws, p, c.sesion.id, elegido) };
 }
 
 /** Una sesión vacía. Sin saludo del modelo: cada «Nuevo chat» costaba dos llamadas (el

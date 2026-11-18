@@ -42,7 +42,9 @@ const funcion = (src: string, nombre: string) => {
 const RUTA_SOLA = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
 const CREAR = sinComentarios(leer('lib/flujo-ia-crear.ts'));
 const CORE = sinComentarios(leer('lib/flujo-ia-crear-core.ts'));
-const RUTA = `${RUTA_SOLA}\n${CREAR}\n${CORE}`;
+// (18/11/2026: y el de EDITAR, lib/flujo-ia-editar.ts, que también lo llama la API de MaKo: `editar_armada_con_ia`.)
+const EDITAR = sinComentarios(leer('lib/flujo-ia-editar.ts'));
+const RUTA = `${RUTA_SOLA}\n${CREAR}\n${CORE}\n${EDITAR}`;
 
 // rotura 1 (chatClaude en vez de la cascada): 1 fallo. rotura 2 (CASCADA_GRATIS, sin Gemini): 1 fallo.
 // TERCERA TANDA (09/10/2026): la lista es `PROVS_CREAR_IA` (sin OpenAI, que cobra y estaba en

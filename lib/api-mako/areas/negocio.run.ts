@@ -76,8 +76,10 @@ import { borrarOferta, guardarOferta, listarOfertas, ofertasDeFunnels, productos
 import { planDeOferta, precioTexto, resolverOfertaPrincipal, urgenciaTexto, urgenciaVigente } from '@/lib/oferta-modelo';
 import { getSettingEstricto } from '@/lib/settings';
 import { ANSWERS_KEY } from '@/lib/onboarding';
+import { cortarSinPartir } from '@/lib/unicode-seguro';
 import {
   capaDelWs, camposPerfil, estadoArchivero, faltantesYConocido, campoOcupado, completarHuecoPerfil,
+  valorDelCampoPerfil, mismoValorPerfil, corregirCampoPerfil,
   borrarDocumentoArchivero, regenerarAvatares, editarAvatar, borrarAvatar, regenerarLeadMagnets, editarLeadMagnet,
   aplicarSugerenciasProductos, guardarDescripcionPersona, borrarFotoPersona, personalidadParaEscribir, glosarioPropio, tabsPorConfigurar,
   nodosDeDatos, faltaBrief, faltaBriefProductos, type PasoRespuesta, type PatchAvatar, type PatchLeadMagnet,
@@ -763,6 +765,51 @@ export const RUNNERS: Runners = {
       if (!esquema.includes(key)) return { ok: false, resumen: 'Ese campo ya no existe en el perfil.' };
       const r = await completarHuecoPerfil(key, String(payload.valor ?? ''));
       return r.ok ? { ok: true, resumen: 'Campo del perfil completado.' } : { ok: false, resumen: `No se guardó: ${r.motivo}.` };
+    }),
+  },
+
+  // O21 (18/11/2026): corregir un campo que YA tiene valor, por chat. Lo que la persona vio en la tarjeta («antes») VIAJA en el
+  // payload: el «sí» puede llegar horas después, y si el dato cambió en el medio (otra corrección, un documento, la pantalla)
+  // la propuesta ya no vale (`faltaParaConfirmar` la cierra; `ejecutar` lo vuelve a mirar al escribir). `campo_id` y no `key`:
+  // la tarjeta y la bandeja saltean los ids (`lineasDelPayload`), y «oferta_incluye» en pantalla es jerga.
+  corregir_campo_perfil: {
+    preparar: seguro(async (input, ctx) => {
+      const key = str(input, 'key');
+      const valor = str(input, 'valor');
+      const campos = await camposPerfil(ctx.ws);
+      const campo = campos.find((c) => c.key === key);
+      if (!campo) return { error: `«${key}» no es un campo del perfil de este negocio.`, disponibles: campos.map((c) => c.key) };
+      if (!valor) return { error: 'Falta el valor nuevo.', faltan: ['valor'] };
+      const antes = await valorDelCampoPerfil(key);
+      if (!antes) return { error: `«${campo.pregunta}» está vacío: eso no se corrige, se completa con guardar_campo_perfil.` };
+      if (mismoValorPerfil(antes, valor)) return { error: `«${campo.pregunta}» ya dice eso.`, yaEstaba: true };
+      return {
+        payload: { campo_id: key, dato: campo.pregunta, antes, valor },
+        resumen: `Corregir en el perfil «${campo.pregunta}»: hoy dice «${cortarSinPartir(antes, 200)}${antes.length > 200 ? '…' : ''}» y queda «${cortarSinPartir(valor, 200)}${valor.length > 200 ? '…' : ''}».`,
+      };
+    }),
+    faltaParaConfirmar: async (payload) => {
+      const key = String(payload.campo_id ?? '');
+      const esquema = (await getSchema()).flatMap((g) => g.fields.map((f) => f.key));
+      if (!esquema.includes(key)) return { yaNoVale: 'Ese dato ya no existe en el perfil: la corrección no se puede aplicar.' };
+      // «No pude leer» no cierra nada (un texto deja la pendiente viva): la lectura es estricta y acá no puede tirar.
+      let hoy: string;
+      try { hoy = await valorDelCampoPerfil(key); } catch { return 'No pude leer el perfil para revisar la corrección: prueba de nuevo en un momento.'; }
+      if (!mismoValorPerfil(hoy, String(payload.antes ?? ''))) {
+        return { yaNoVale: hoy ? `Ese dato cambió desde que lo propuse (ahora dice «${cortarSinPartir(hoy, 120)}»): pídemelo de nuevo si sigue haciendo falta.` : 'Ese dato quedó vacío desde que lo propuse: pídemelo de nuevo para completarlo.' };
+      }
+      return null;
+    },
+    ejecutar: sinLanzar(async (payload) => {
+      // La key se revalida contra el esquema: la pendiente guardó el payload y pudo pasar tiempo.
+      const key = String(payload.campo_id ?? '');
+      const esquema = (await getSchema()).flatMap((g) => g.fields.map((f) => f.key));
+      if (!esquema.includes(key)) return { ok: false, resumen: 'Ese dato ya no existe en el perfil.' };
+      const antes = String(payload.antes ?? '');
+      const r = await corregirCampoPerfil(key, String(payload.valor ?? ''), antes);
+      return r.ok
+        ? { ok: true, resumen: `Dato del perfil corregido. Antes decía «${cortarSinPartir(antes, 120)}${antes.length > 120 ? '…' : ''}»: si hace falta, se vuelve corrigiéndolo otra vez.` }
+        : { ok: false, resumen: `No se corrigió: ${r.motivo}.` };
     }),
   },
 

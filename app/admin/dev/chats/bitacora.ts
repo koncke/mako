@@ -143,6 +143,23 @@ export const BITACORA: Hito[] = [
     revisar: '/m/chats',
     tickets: [50],
   },
+  {
+    fecha: '18 nov', hora: '02:10', chat: 'Automations', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Chats y Web Generator: el «⋯» de cada fila abre el mismo menú que el clic derecho',
+    puntos: [
+      'En la lista de Chats, el «⋯» de una conversación abre el mismo menú que el clic derecho: Abrir, Abrir ficha o Agregar al CRM, y Asignar. Antes era otro desplegable con su propia lista.',
+      'En el Panel del Web Generator, lo mismo con el «⋯» de cada landing o página analizada.',
+      'Tocar el «⋯» con su menú abierto lo cierra, y el «⋯» se queda a la vista mientras su menú está abierto.',
+    ],
+    archivos: [
+      'app/chats/ListaChats.tsx — `MasAcciones` abre `itemsFilaChat` (app/chats/menu-contextual-chats.ts) · app/chats/chats.css',
+      'app/web-generator/Inicio.tsx — el «⋯» abre `itemsRenglonLanding`; se fue el `MenuFlotante` propio',
+      'tests/clic-derecho-listas.test.ts — se fue el cruce provisorio de las dos listas · tests/editor-landing-panel.test.ts · tests/crm-feedback-27-10.test.ts · tests/chats-mas-simple.test.ts',
+      'docs/hallazgos-ui.md — la entrada del 18/11',
+    ],
+    revisar: '/chats',
+  },
   // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
   // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
   {

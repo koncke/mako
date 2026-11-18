@@ -209,6 +209,10 @@
       "schedule": "23 9 * * *"
     },
     {
+      "path": "/api/cron/limpieza-colgados",
+      "schedule": "41 8 * * *"
+    },
+    {
       "path": "/api/cron/fotos-contacto",
       "schedule": "40 9 * * *"
     },

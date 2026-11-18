@@ -403,7 +403,8 @@ test('el autoguardado del editor escribe con compare-and-set y devuelve la versi
   assert.match(leer, /version: v\.version/);
   assert.doesNotMatch(leer, /getSettingEstricto/);
   const guardar = bloque('export async function guardarTableroVersion(');
-  assert.match(guardar, /return guardarTableroSi\(s\.sub, raw, version\)/);
+  // Desde el 18/11/2026 con sus opciones (`mirando`, lib/graficos-guardar-mirando.ts): el mismo compare-and-set.
+  assert.match(guardar, /return guardarTableroSi\(s\.sub, raw, version(, 'dashboard', opts)?\)/);
   assert.doesNotMatch(guardar, /setSetting|guardarTableroDe/, 'el autoguardado no es un upsert ciego');
   const si = bloque('export async function guardarTableroSi(');
   assert.match(si, /const nueva = versionDe\(valor\)/);

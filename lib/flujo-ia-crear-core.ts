@@ -28,7 +28,7 @@
 // =============================================================================
 
 import type { QuienContesto } from './quien-contesto';
-import { validarGrafo, type PasoGrafo } from './flujo-grafo';
+import { validarGrafo, audioPorGrabar, type PasoGrafo } from './flujo-grafo';
 import {
   deIA, validarIA, userDeCrear, leyendoDe, leyendoTexto, conEtiquetasReales, refsSinResolver, disparadorReal, ordenDeRevelado,
   ambitoDeValor,
@@ -78,8 +78,14 @@ export type CreadaConIA = {
   ok: true;
   secuenciaId: number;
   nombre: string;
-  /** Lo que quedó GUARDADO (`setSecuenciaPasos` normaliza): lo que va a leer el motor. */
+  /** Lo que quedó GUARDADO (`setSecuenciaPasos` normaliza): lo que va a leer el motor. Con `borrador`, lo del borrador. */
   pasos: PasoGrafo[];
+  /**
+   * Quedó como BORRADOR, sin publicar (18/11/2026, F80): lleva una nota de voz por grabar (`audioPorGrabar`), que no se
+   * publica. Lo publicado sigue vacío y `pasos` es lo que quedó en `pasos_borrador`: la pantalla lo abre como un cambio
+   * sin publicar, sobre la base de lo publicado vacío.
+   */
+  borrador?: true;
   orden: string[];
   /** Ordenados por lo que cambian en lo que sale (`ordenarAvisos`). */
   avisos: string[];
@@ -116,6 +122,13 @@ export type DepsCrearIA = {
   borrar: (id: number) => Promise<void>;
   pausar: (id: number) => Promise<unknown>;
   guardarPasos: (id: number, pasos: PasoGrafo[]) => Promise<void>;
+  /**
+   * Guarda los pasos como BORRADOR (F80: llevan una nota de voz por grabar). La misma vara que publicar salvo eso
+   * (`setSecuenciaPasos(…, { comoBorrador: true })`); tira con un `PasosInvalidosError` igual que `guardarPasos`.
+   */
+  guardarBorrador: (id: number, pasos: PasoGrafo[]) => Promise<void>;
+  /** El borrador vigente de una fila (`borradorVigente`), o null: lo que la pantalla va a abrir. */
+  borradorDe: (id: number) => Promise<PasoGrafo[] | null>;
   /** El motivo si el error de guardar es de los pasos (`PasosInvalidosError`); null = otra cosa. */
   motivoDePasos: (e: unknown) => string | null;
   /** Con `cron`, un Recurrente: el valor es A QUIÉN le llega (`recurrenteDeValorIA`, lib/disparadores.ts). */
@@ -143,6 +156,8 @@ const SIN_FLUJO: ResultadoIA = { pasos: [], etiquetasNuevas: [], avisos: [], nom
 
 /** El aviso del CRON sin elegir (la pantalla lo muestra al final: `ordenarAvisos`). */
 export const AVISO_SIN_CRON = 'Elige qué la dispara en el CRON';
+/** Lleva una nota de voz por grabar (F80): quedó en el borrador. Va primero entre los avisos (`ordenarAvisos`: «sin publicar»). */
+export const AVISO_AUDIO_POR_GRABAR = 'Quedó sin publicar: graba la nota de voz y publícala';
 
 /** El aviso cuando la «Reentrada» de un Recurrente nuevo no se pudo poner (le llegaría una sola vez a cada uno). */
 export const AVISO_SIN_REENTRADA = 'Para que le llegue cada vez, elige «Cada vez que vuelve a entrar» en el CRON';
@@ -212,7 +227,8 @@ export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<Res
     if (sa.sacados.length) {
       r = { ...r, pasos: sa.pasos, avisos: [...r.avisos, `Saqué «${sa.sacados.join('», «')}»: le llega a todos, va {{nombre}}`] };
     }
-    const errores = [...validarIA(r.pasos, ctxV, undefined, r.disparador), ...validarGrafo(r.pasos)];
+    // Con la vara de Publicar salvo la nota de voz POR GRABAR (F80): ésa va al borrador (abajo), no se publica.
+    const errores = [...validarIA(r.pasos, ctxV, undefined, r.disparador), ...validarGrafo(r.pasos, { audiosPorGrabar: true })];
     if (!r.pasos.some((x) => !x.nodo)) errores.unshift('el flujo quedó sin ningún mensaje ni acción');
     // Un Recurrente barre a una cohorte: un evento (un DM, un pago) no tiene a quién mandarle en cada vez.
     if (rec && r.disparador && !esValorDeCohorte(r.disparador)) errores.unshift(ERROR_RECURRENTE_SIN_COHORTE);
@@ -261,8 +277,12 @@ export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<Res
     nueva = true;
   }
 
+  // UNA NOTA DE VOZ POR GRABAR (F80) NO SE PUBLICA: el flujo entero queda en el BORRADOR, con la automatización pausada y
+  // lo publicado vacío. Lo pide el aviso; Publicar, después de grabarla, lo pasa a lo publicado.
+  const comoBorrador = pasos.some((p) => audioPorGrabar(p));
   try {
-    await deps.guardarPasos(id, pasos);
+    if (comoBorrador) await deps.guardarBorrador(id, pasos);
+    else await deps.guardarPasos(id, pasos);
   } catch (e) {
     // Una fila NUEVA sin sus tarjetas dice ser algo que no es: se borra (recién creada, no tiene nada adentro).
     if (nueva) await deps.borrar(id).catch(() => {});
@@ -302,8 +322,10 @@ export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<Res
     if (n) nombre = n;
   }
 
-  // Lo que quedó GUARDADO, no lo que se mandó: el lienzo tiene que dibujar lo mismo que va a leer el motor.
-  const guardado = (await deps.filaDe(id))?.pasos ?? pasos;
+  // Lo que quedó GUARDADO, no lo que se mandó: el lienzo tiene que dibujar lo mismo que va a leer el motor (o, como
+  // borrador, lo mismo que va a abrir).
+  const guardado = (comoBorrador ? await deps.borradorDe(id) : (await deps.filaDe(id))?.pasos) ?? pasos;
+  if (comoBorrador) avisos.push(AVISO_AUDIO_POR_GRABAR);
   const orden = ordenDeRevelado(guardado);
   // LO QUE DICE MaKo (20/10/2026, punto 4: decir qué hizo): cuándo sale o qué la dispara, a quién y qué manda.
   const texto = textoDeCreada(nombre, await detalleDeCreada({ puesto, cron: rec?.cron ?? null, ctx, guardado, orden, contar: deps.contar }));
@@ -327,7 +349,7 @@ export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<Res
   }
 
   return {
-    ok: true, secuenciaId: id, nombre, pasos: guardado, orden,
+    ok: true, secuenciaId: id, nombre, pasos: guardado, orden, ...(comoBorrador ? { borrador: true as const } : {}),
     avisos: ordenarAvisos(avisos), etiquetasNuevas: creadas, disparador: puesto, texto,
     ...(rec && puesto ? { cron: rec.cron } : {}),
     quien: g.quien ?? null,

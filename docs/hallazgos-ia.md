@@ -15,6 +15,29 @@ uno, se vuelve a mirar el código que nombra.
 
 - **Punto 27 — El gasto de IA, a medias.** Ya se atribuye al workspace (`recordUsage(…, wsForzado)`, lib/anthropic-usage.ts:179, :196) y está el índice `(workspace_id, created_at desc, provider)` (mig 0132). Siguen sin registrar su gasto lib/embeddings.ts y lib/transcribe.ts (cero llamadas a `recordUsage`). Las tres lecturas truncadas y los `recordUsage` sin `await` no se volvieron a medir.
 - **Punto 36 — La puerta de ingesta no extrae el audio.** lib/transcribe.ts sigue topeando en 25 MB (:25) y le pide a la persona «Sube solo el audio o recorta el video» (:176). Extraer el audio antes es lo único que falta para que una clase entera entre por esa puerta.
+## Los modelos de Gemini salen de un lugar, y escuchar una clase deja su fila en el gasto (18/11/2026, F74 y F85)
+
+**Vive en:** `lib/gemini-modelos.ts` + `tests/gemini-modelos.test.ts` (F74) · `lib/transcribe-plataforma.ts` (`anotarUso`,
+y la decisión en su cabecera) + `tests/transcribe-plataforma-uso.test.ts` (F85).
+
+- **F74 · `gemini-flash-latest` estaba escrito a mano en ocho archivos**, y cada uno leía el override del entorno
+  (`GEMINI_MODEL`, `GEMINI_STT_MODEL`, `GEMINI_VISION_MODEL`) a su manera. Ahora los dos nombres y el respaldo viven en
+  `lib/gemini-modelos.ts`, con una función por uso (texto, escucha, visión, video) que lee el entorno en el MISMO orden que
+  antes: el modelo que corre no cambió en ningún lado. El test barre el repo y frena un literal nuevo fuera del módulo.
+  - **Trampa:** dos tests fijaban el literal en el fuente (tests/stt-red.test.ts, tests/offer-mauricio-p1.test.ts). Se
+    pasaron a mirar el VALOR que devuelve la función y que el archivo la importe: un test que copia una línea con un regex
+    da rojo con el código bien y verde con el programa roto.
+- **F85 · Las clases de los cursos NO pasan por la puerta del audio, y ahora es una decisión escrita.** La verificación del
+  17/11 confundió dos funciones con el mismo nombre: el `transcribeMediaBuffer` de lib/transcribe.ts (los creativos de un
+  negocio) ya pasa por `transcribirAudio`; el de las clases vive en lib/transcribe-plataforma.ts. Se decidió dejarlo afuera
+  por cuatro razones: es de la plataforma y no de un negocio (D6b ya lo tiene como FUERA_DE_D6B y Claude no está en esa
+  cascada), entra hasta 25 MB y la puerta empieza por Gemini inline (14), necesita la duración y el idioma medidos, y lo
+  corren scripts. **Lo que faltaba era registrar el uso:** desde el 18/11 cada clase escuchada deja su fila
+  (`cursos-transcribir`, con el proveedor que escuchó; el whisper-1 con su costo por segundo). No descuenta MaKo Tokens:
+  ese cupo es de un cliente.
+  - **Trampa: el `catch` de anotar va ADENTRO de `anotarUso`.** Se llama dentro del `try` de cada proveedor: un error que se
+    escapa (en un script, `lib/anthropic-usage` es `server-only` y tira al importarse) se lee como «este proveedor falló», la
+    transcripción buena se tira y se le pide la misma clase al siguiente. Probado rompiéndolo.
 
 ## Un permiso de Claude con fecha vence y, al día siguiente, da rojo en cualquier rama (14/11/2026)
 
@@ -1180,7 +1203,15 @@ presupuesto de las clasificaciones.
 **Vive en:** lib/ai-cheap.ts (`chatCheapCascade`, `transcribirAudio` y las constantes de
 cascada) · *2026-07-14 research-free-ai-apis*
 
-### ⚠️ Pendiente: dos STT hardcodeados a `whisper-1` no pasan por el choke point
+### ~~⚠️ Pendiente: dos STT hardcodeados a `whisper-1` no pasan por el choke point~~ (cerrado el 18/11/2026, F85)
+
+> ~~Cerrado.~~ Medido el 18/11/2026 contra el árbol: `transcribeAd` (los anuncios) pasa por la puerta desde IA7 (22/10:
+> lib/transcribe.ts → `escuchar` → `transcribirAudio`). El `transcribeMediaBuffer` de las clases del portal ya no vive en
+> lib/transcribe.ts sino en **lib/transcribe-plataforma.ts**, y se DECIDIÓ que no pase por la puerta (las cuatro razones
+> están en su cabecera: es de la plataforma y no de un negocio, entran 25 MB contra 14, necesita duración e idioma, y lo
+> corren scripts); lo que le faltaba era registrar el uso, y desde el 18/11 lo registra (`anotarUso`,
+> tests/transcribe-plataforma-uso.test.ts). ⚠️ El «Vive en» de abajo quedó viejo: las dos funciones con el mismo nombre en
+> archivos distintos son la trampa que confundió la verificación del 17/11.
 
 `lib/ai-cheap.ts` ya elige proveedor por env (Groq `whisper-large-v3-turbo` si hay
 `GROQ_API_KEY`, si no OpenAI), así que casi todo el STT se abarata sin tocar código. Pero

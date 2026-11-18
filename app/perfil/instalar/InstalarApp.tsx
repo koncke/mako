@@ -15,6 +15,7 @@ import type { ReactNode } from 'react';
 import { FilaAjustes, GrupoAjustes, TituloAjustes } from '@/app/_ui/Ajustes';
 import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN } from '@/lib/ia-pc-reglas';
 import { SinConexion } from './SinConexion';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 /** La descarga del instalador de cada sistema: la misma ruta que usan el chat sin la app y «Tus cuentas de IA». */
 export const DESCARGA_DE = { windows: '/api/ia-pc/descargar?os=windows', mac: '/api/ia-pc/descargar?os=mac' } as const;
@@ -71,7 +72,7 @@ export function InstalarApp({ qr, url, extension, sinConexion }: {
     <>
       <TituloAjustes titulo="Instalar la app" />
 
-      <GrupoAjustes titulo="En tu computadora">
+      <GrupoAjustes titulo="En tu computadora" recorrido={MARCA.instalarComputadora}>
         {/* Corto, como Linear («macOS · Download»): lo que dice el sistema al abrirlo va en el `title` del botón. */}
         <FilaAjustes icono="computadora" titulo="Windows" detalle="Instalador .exe"
           fin={boton(DESCARGA_DE.windows, 'Descargar', { titulo: AVISO_SMARTSCREEN })} />
@@ -81,7 +82,7 @@ export function InstalarApp({ qr, url, extension, sinConexion }: {
         <FilaAjustes icono="pregunta" titulo="Para qué sirve" href={RUTA_PARA_QUE_SIRVE} />
       </GrupoAjustes>
 
-      <GrupoAjustes titulo="En tu teléfono">
+      <GrupoAjustes titulo="En tu teléfono" recorrido={MARCA.instalarTelefono}>
         <div className="aj-telefono">
           {/* eslint-disable-next-line @next/next/no-img-element -- data URL generado en el server */}
           {qr && <img className="aj-telefono__qr" src={qr} alt="Código QR para abrir MaKo en el celular" width={148} height={148} />}
@@ -93,7 +94,7 @@ export function InstalarApp({ qr, url, extension, sinConexion }: {
         </div>
       </GrupoAjustes>
 
-      <GrupoAjustes titulo="En tu navegador">
+      <GrupoAjustes titulo="En tu navegador" recorrido={MARCA.instalarNavegador}>
         <FilaAjustes icono="web" titulo="Extensión para Chrome" detalle={`Versión ${extension.version}`}
           fin={boton(extension.tienda, 'Agregar a Chrome', { afuera: true })} />
         <FilaAjustes icono="pregunta" titulo="Cómo instalarla" href="/extension/instalar" />

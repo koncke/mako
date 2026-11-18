@@ -14029,3 +14029,25 @@ consulta, donde se llama) · `lib/mako-doer-acciones.ts` (`listar_campanas_meta`
   `manejarEntranteDoer` (`grep -l api.anthropic.com tests/_*.ts | xargs grep -l mako-doer-in`).
 - **Lo que no se tocó, a propósito:** que el crédito vaya con Haiku aunque el router pida sonnet u opus es la regla del 22/10 (el crédito
   de MaKo va con el modelo barato, `evaluarClaveDelNegocio`, lib/anthropic.ts). Cambiarla es una decisión de Martín.
+
+## El dominio inventado salía por los avisos: la corrección vivía sólo en la respuesta del doer (18/11/2026, O40)
+
+**El síntoma (pendiente O40, de un link «hola-malo.com/crm/2761» en el grupo de un cliente):** la corrección de 28/10
+(`conElDominioDeMaKo`) corría sólo en la respuesta del doer (lib/mako-doer-in.ts, sobre `partes`). Por `enviarAlGrupoMaKo` y
+`enviarPartesAlGrupoMaKo` (lib/mako-grupo.ts) también sale texto que escribe la IA (`generarMensajeAviso`, lib/flujos.ts: el paso
+«insistir» y la tarjeta «Avisar al dueño» sin texto propio), y por ahí el dominio inventado salía tal cual.
+**Por qué no alcanzaba con ponerla en las dos salidas:** quien llama a `emitirAviso`, `recibos`, `agencia-mes`, `probar-grupo-envio`
+escribe primero la COPIA al hilo de la app (`copiarAlGrupo` → `filaDeParte`, lib/grupo-app.ts) con el texto crudo, y después manda a
+WhatsApp. Con la corrección sólo en lib/mako-grupo.ts, el hilo de la app (que hoy es EL canal) se quedaba con el link roto, y el eco de
+WhatsApp —que vuelve corregido— no emparejaba con su copia en `ponerIdALaCopia`: una burbuja doble.
+**Vive en:** lib/links-con-ws.ts (`linksConWs` llama ahora a `conElDominioDeMaKo` con `DOMINIOS_MAKO` antes de pegar el `?ws=`).
+`linksConWs` es la función por la que ya pasaba TODO lo que va al grupo de un negocio: las dos salidas de lib/mako-grupo.ts, la copia
+de lib/grupo-app.ts y los dos lados del cruce del eco. Una sola punta, y se corrigen todas. De rebote, un link inventado deja de
+escapársele al filtro del invitado (`sinLinksParaInvitado` reconoce sólo los hosts de MaKo).
+**La regla:** una corrección que vale para «todo lo que va al grupo» va en la función que normaliza ese texto en TODAS las puntas
+(la que escribe la copia de la app y la que compara el eco incluidas), no en una salida. Una punta corregida y otra no es peor que
+ninguna: deja dos verdades y el eco las cuenta como dos mensajes.
+**Lo que queda, y es a propósito:** un dominio inventado DEL TODO («tu-dashboard.com/integraciones», más arriba en este archivo) sale
+igual: no se distingue del sitio de un negocio. Tampoco se toca `enviarAGrupoJid` a WhatsApp ni el grupo de SuperAdmin (sus copias en
+la app sí pasan por `linksConWs`), y la memoria que guarda `emitirAviso` sigue con el texto crudo (la salida del doer lo corrige igual).
+Lo fija tests/grupo-dominio-real.test.ts (las salidas reales con el arnés de grupos-ops; dos roturas, cada una cae).

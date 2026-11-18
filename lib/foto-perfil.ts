@@ -133,3 +133,14 @@ export function fotoDePersonaSegura(url: string | null | undefined, opts?: { sto
   if (propio && host === propio) return v;
   return DOMINIOS.some((d) => deDominio(host, d)) ? v : null;
 }
+
+/**
+ * La misma fila con su `foto_url` pasada por el filtro (18/11/2026, F173). Es lo que usa todo el que LEE `usuarios.foto_url`
+ * para mandarla a una pantalla (lib/usuarios.ts, el equipo del CRM y de Chats, los miembros de un grupo): una fila vieja con una
+ * foto de afuera se sigue dibujando en el CRM, en Chats y en Equipo hasta que alguien la reescriba, y es un web bug que avisa
+ * quién abrió la pantalla. Idempotente: filtrar dos veces da lo mismo, así que un camino que ya venía filtrado no cambia.
+ */
+export function conFotoSegura<T extends { foto_url?: string | null }>(fila: T, opts?: { storage?: string | null }): T {
+  if (!('foto_url' in fila)) return fila;
+  return { ...fila, foto_url: fotoDePersonaSegura(fila.foto_url ?? null, opts) };
+}

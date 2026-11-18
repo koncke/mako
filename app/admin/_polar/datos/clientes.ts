@@ -356,7 +356,13 @@ function textoDeRiesgo(motivo: MotivoEnRiesgo, d: { diasAtraso?: number | null; 
  * ⚠️ Es LA cuenta de riesgo de Admin: la usan la página At Risk, su columna en Customers › Overview y la tarjeta de la portada
  *    (`riesgoDeOverview`, ./resumen.ts). Antes la tarjeta tenía la suya y escondía a los atrasados.
  */
-export function clientesEnRiesgo(filas: readonly FilaParaRiesgo[], ingresos: readonly IngresoParaRiesgo[], limite = 100): ClienteEnRiesgo[] {
+export function clientesEnRiesgo(
+  filas: readonly FilaParaRiesgo[],
+  ingresos: readonly IngresoParaRiesgo[],
+  limite = 100,
+  /** Los negocios que no son clientes (F21): ni por sus filas ni por sus ingresos. */
+  fuera: ReadonlySet<number> = new Set(),
+): ClienteEnRiesgo[] {
   const fila = new Map(filas.map((f) => [f.ws, f]))
   const out = new Map<string, ClienteEnRiesgo>()
   const poner = (c: ClienteEnRiesgo) => {
@@ -366,6 +372,7 @@ export function clientesEnRiesgo(filas: readonly FilaParaRiesgo[], ingresos: rea
   const leadDe = new Map<number, number>()
   for (const i of ingresos) if (i.ws != null && i.leadId != null && !leadDe.has(i.ws)) leadDe.set(i.ws, i.leadId)
   for (const i of ingresos) {
+    if (i.ws != null && fuera.has(i.ws)) continue
     const f = i.ws != null ? fila.get(i.ws) : undefined
     if (f && !esClienteDeMaKo(f)) continue
     const base = {
@@ -379,7 +386,7 @@ export function clientesEnRiesgo(filas: readonly FilaParaRiesgo[], ingresos: rea
     }
   }
   for (const f of filas) {
-    if (!f.motivoRiesgo || !esClienteDeMaKo(f)) continue
+    if (!f.motivoRiesgo || !esClienteDeMaKo(f) || fuera.has(f.ws)) continue
     poner({
       clave: `ws:${f.ws}`, ws: f.ws, leadId: leadDe.get(f.ws) ?? null, nombre: f.nombre, plan: nombreDePlan(f.capa),
       montoCentavos: aCentavos(f.mrrUsd), motivo: f.motivoRiesgo, texto: textoDeRiesgo(f.motivoRiesgo, f),
@@ -587,7 +594,15 @@ export function costosPorCliente(gasto: GastoParaRepartir, nombres: ReadonlyMap<
 
 // ── Las props de cada página (lo que arma el page.tsx con las lecturas de clientes-server.ts) ─────────────────────
 
-type LecturaClientes = Lectura<{ filas: ReadonlyArray<FilaParaRiesgo & Pick<FilaCliente, 'creado'>>; paraMirar?: readonly ItemParaMirar[] }>
+/**
+ * `pruebas`: los negocios que no son clientes (lib/clientes-plataforma.ts `NO_SON_CLIENTES`, F21). No están en `filas`; vienen para
+ * que At Risk no los meta por la otra puerta (un atrasado entra por los ingresos) y para que Cost Drivers diga su nombre.
+ */
+type LecturaClientes = Lectura<{
+  filas: ReadonlyArray<FilaParaRiesgo & Pick<FilaCliente, 'creado'>>
+  paraMirar?: readonly ItemParaMirar[]
+  pruebas?: ReadonlyArray<Pick<FilaCliente, 'ws' | 'nombre'>>
+}>
 /** Overview cuenta los negocios de la lista (sin los clientes de una agencia): necesita su segmento. */
 type LecturaClientesConSegmento = Lectura<{ filas: ReadonlyArray<FilaParaRiesgo & Pick<FilaCliente, 'creado' | 'segmentos'>> }>
 type LecturaIngresos = Lectura<Pick<Ingresos, 'entradas' | 'clientes'>>
@@ -643,7 +658,8 @@ export function vistaDeTop(ingresos: LecturaIngresos, ahoraMs: number, creados?:
  */
 export function vistaDeAtRisk(clientes: LecturaClientes, ingresos: LecturaIngresos, limite = 100): PropsAtRisk {
   if (!clientes.ok || !ingresos.ok) return { atRisk: null, error: errorDe(clientes) ?? errorDe(ingresos), avisos: [], paraMirar: null }
-  const atRisk = clientesEnRiesgo(clientes.datos.filas, ingresos.datos.clientes, limite)
+  const fuera = new Set((clientes.datos.pruebas ?? []).map((f) => f.ws))
+  const atRisk = clientesEnRiesgo(clientes.datos.filas, ingresos.datos.clientes, limite, fuera)
   const paraMirar = clientes.datos.paraMirar ? clientesParaMirar(clientes.datos.paraMirar, atRisk, clientes.datos.filas) : null
   return { atRisk, error: null, avisos: avisosDe(clientes, ingresos), paraMirar }
 }
@@ -653,7 +669,8 @@ export function vistaDeCostos(clientes: LecturaClientes, costos: LecturaCostos, 
   // `mesDeCostos` sólo se dice de un mes (el Overview); la página dice su rango con `ventanaDeCostos().rotulo`.
   const mesDeCostos = /^\d{4}-\d{2}$/.test(periodo) ? mesTxt(periodo) : ''
   if (!costos.ok) return { costos: null, error: costos.error, mesDeCostos }
-  const nombres = new Map(clientes.ok ? clientes.datos.filas.map((f) => [f.ws, f.nombre] as const) : [])
+  // Con los de prueba (F21): su gasto de IA es real y se dice de quién es; lo que no cuentan es como clientes.
+  const nombres = new Map(clientes.ok ? [...clientes.datos.filas, ...(clientes.datos.pruebas ?? [])].map((f) => [f.ws, f.nombre] as const) : [])
   return { costos: costosPorCliente(costos.datos, nombres, limite), error: null, mesDeCostos }
 }
 

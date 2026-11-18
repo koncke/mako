@@ -139,9 +139,9 @@ test('⚠️ si la caída SE AVISÓ, al volver sale el «volvió»; una desvincu
 
 test('el «volvió» nombra la línea y no manda a hacer nada', () => {
   const t = deLaFila('mako-whatsapp-volvio', datosVolvio({ linea: '+5215512345678' }));
-  assert.match(t, /Volvió tu WhatsApp\*\n📱 \+5215512345678/);
+  assert.match(t, /MaKo volvió a conectarse con tu WhatsApp\*\n📱 \+5215512345678/);
   assert.ok(!/https?:\/\/|escanear|reconect/i.test(t), `el «volvió» manda a hacer algo: «${t}»`);
-  assert.match(deLaFila('mako-whatsapp-volvio', datosVolvio({ linea: null })), /^🟢 \*Volvió tu WhatsApp\*\nPor ese número/);
+  assert.match(deLaFila('mako-whatsapp-volvio', datosVolvio({ linea: null })), /^🟢 \*MaKo volvió a conectarse con tu WhatsApp\*\nTus automatizaciones/);
 });
 
 test('⚠️ el vigilante limpia las marcas y DESPUÉS manda el «volvió», con su propia clave de dedup', () => {
@@ -188,7 +188,8 @@ test('⚠️ el texto manda a re-escanear SÓLO cuando WhatsApp cerró la sesió
     const h = { motivo, desde: '2026-10-05T18:00:00Z', linea: null, link, tz: 'America/Mexico_City' };
     assert.equal(avisoDeCaida(h), 'wa-desconectado');
     const corte = deLaFila('mako-whatsapp-caido', datosCaida(h));
-    assert.ok(!/escanear/i.test(corte), `un corte que puede volver solo manda a re-escanear: «${corte}»`);
+    // 18/11/2026: «escanéalo» y «código QR» pasaban este assert (sólo buscaba «escanear»): el primer borrador del texto nuevo lo hizo.
+    assert.ok(!/escane|esca[nñ]e|\bQR\b|vincular un dispositivo/i.test(corte), `un corte que puede volver solo manda a re-escanear: «${corte}»`);
     assert.match(corte, /Puede volver solo/);
     assert.match(corte, /Desde el 5 de octubre/, 'sin fecha de Evolution, el respaldo es el «desde» medido');
   }

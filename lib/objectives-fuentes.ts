@@ -31,6 +31,7 @@ import { FUENTES_KPI, fuentePorFunnel } from './objectives-modelo';
 import { VENTA_SIN_COBRO } from './venta-tipo';
 import { faltaColumnaFunnel, sumarEnFunnels, type Hecho } from './funnels-elegidos';
 import { ubicarLeads, idsDeLeads } from './funnels-elegidos-server';
+import { contarAltas, leerAltas, momentoDeAlta } from './leads-alta';
 
 /** Lo que devuelve toda fuente. `valor: null` = no se pudo leer, con el motivo al lado. */
 export type LecturaFuente = { valor: number | null; error?: string };
@@ -113,25 +114,39 @@ export async function inversionUsd(desde: string, hasta: string): Promise<Lectur
   }
 }
 
-/** Lo cobrado en el período. `pagos` tiene una fila por cuota: no llega al tope. */
+/**
+ * Lo cobrado en el período.
+ *
+ * ⚠️ PAGINA (P20, 18/11/2026). El comentario de antes decía «`pagos` tiene una fila por cuota: no llega al tope», y
+ * es falso: un negocio con planes en cuotas pasa las 1000 filas de `pagos` (lib/pagos.ts ya lee la cobranza con
+ * `leerTodo` desde el 17/10). Un `.select()` plano devolvía 1000 y se callaba: el cash del KPI salía de MENOS, que es la
+ * dirección que no hace sospechar. Se suma página por página (orden por `id`, PK); si falla, null con el motivo.
+ */
 async function cashUsd(desde: string, hasta: string): Promise<LecturaFuente> {
   try {
     const db = await getTenantDb();
-    const { data, error } = await db
-      .from('pagos')
-      .select('monto_usd')
-      .eq('pagado', true)
-      .gte('fecha_pago', desde)
-      .lte('fecha_pago', hasta);
-    if (error) return { valor: null, error: error.message };
-    const total = (data ?? []).reduce((s, r) => s + Number((r as { monto_usd: number | null }).monto_usd ?? 0), 0);
+    let total = 0;
+    await leerPorPaginas<{ monto_usd: number | null }>(
+      db, 'pagos', 'id, monto_usd',
+      (filas) => { for (const r of filas) total += Number(r.monto_usd ?? 0); },
+      { orden: 'id', eq: { pagado: true }, filtros: (q) => q.gte('fecha_pago', desde).lte('fecha_pago', hasta) },
+    );
     return { valor: total };
   } catch (e) {
     return fallo(e);
   }
 }
 
-/** Lo firmado en el período (Sold Revenue): la suma de los cierres. */
+/**
+ * Lo firmado en el período (Sold Revenue): la suma de los cierres.
+ *
+ * ⚠️ SIN PAGINAR TODAVÍA, A PROPÓSITO (P20, 18/11/2026). Corta en 1000 cierres del período sin error, igual que el cash
+ * antes del P20. No se pasó a `leerPorPaginas` porque tests/venta-sin-cobro.test.ts («toda lectura que suma
+ * `monto_cierre_usd` de ganados excluye los "sin cobro"») encuentra esta lectura buscando el `.select('…monto_cierre_usd…')`
+ * con su `.eq('cerro', true)` y su `.neq('venta_tipo', …)` en la misma sentencia, y necesita verla (su piso de 5 cuenta
+ * este KPI): con el helper la dejaba de ver y el test daba rojo con el código bien. Pasarla exige que esa guarda
+ * reconozca también la forma `leerTodo/leerPorPaginas(db, 'leads', '…monto_cierre_usd…', { eq: { cerro: true }, filtros })`.
+ */
 async function soldUsd(desde: string, hasta: string): Promise<LecturaFuente> {
   try {
     const db = await getTenantDb();
@@ -168,10 +183,15 @@ const LECTORES: Record<FuenteId, Lector> = {
     { col: 'fecha_junta_1', op: 'gte', val: desde },
     { col: 'fecha_junta_1', op: 'lte', val: hasta },
   ]),
-  leads_nuevos: (desde, hasta) => contar('leads', [
-    { col: 'created_at', op: 'gte', val: desde },
-    { col: 'created_at', op: 'lte', val: finDeDia(hasta) },
-  ]),
+  // F152 (18/11/2026): «nuevo» es por el día en que NACIÓ. Un lead migrado de otro CRM cuenta en su fecha de allá
+  // (`fecha_original`), no el día que se migró: migrar 5.000 contactos no son 5.000 leads nuevos (lib/leads-alta.ts).
+  leads_nuevos: async (desde, hasta) => {
+    try {
+      return { valor: await contarAltas(await getTenantDb(), desde, finDeDia(hasta)) };
+    } catch (e) {
+      return fallo(e);
+    }
+  },
   cierres: async (desde, hasta) => {
     const r = await contar('leads', [
       { col: 'cerro', op: 'eq', val: true },
@@ -230,7 +250,16 @@ async function hechosDelPeriodo(fuenteId: string, desde: string, hasta: string):
     return { hechos: [...deLaCasa.hechos, ...deCrms.map((v) => ({ lead: v.leadId, fecha: v.fecha, valor: monto ? v.monto : 1, funnel: v.funnelId }))], casas: deLaCasa.casas };
   }
   if (fuenteId === 'agendas') return deLeads('fecha_junta_1', (q) => q.not('fecha_junta_1', 'is', null), false);
-  if (fuenteId === 'leads_nuevos') return deLeads('created_at', (q) => q, false, finDeDia(hasta));
+  if (fuenteId === 'leads_nuevos') {
+    // Por el día en que NACIÓ cada lead (F152, lib/leads-alta.ts): la fecha del hecho es la de su alta.
+    const filas = await leerAltas<FilaDeLead & { created_at?: string | null; fecha_original?: string | null }>(db, 'id, funnel_id, created_at', desde, finDeDia(hasta), { orden: 'id' });
+    const casas = new Map<number, number | null>();
+    const hechos: Hecho[] = filas.map((f) => {
+      casas.set(Number(f.id), f.funnel_id == null ? null : Number(f.funnel_id));
+      return { lead: Number(f.id), fecha: momentoDeAlta(f), valor: 1 };
+    });
+    return { hechos, casas };
+  }
   if (fuenteId === 'cash_usd') {
     // Con el funnel que guardó cada pago (#897, mig 0310); sin la columna, la regla de siempre.
     type P = { id: number; lead_id: number | null; monto_usd: number | null; fecha_pago: string | null; funnel_id?: number | null };
