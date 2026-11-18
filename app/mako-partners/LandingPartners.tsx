@@ -39,6 +39,8 @@ import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
 import { gananciaPorMes, porcentaje, usd } from './numeros';
 import { MARCA } from '@/lib/tutoriales/marcas';
+import { INDUSTRIAS } from '@/app/vsl/_sitio/datos';
+import { CSS_REEMPLAZA } from '@/app/vsl/_sitio/estilos';
 
 const CSS = `
 .mp-root { --mp-ink: #12151B; --mp-dim: #4A5260; --mp-suave: #5B6472; --mp-borde: #E6EAF2; --mp-sup: #FFFFFF; --mp-gris: #F6F8FB;
@@ -141,21 +143,27 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-numero strong { color: var(--mp-ink); }
 .mp-numero .mp-numero-t { margin-bottom: 4px; font-size: 19px; line-height: 1.25; font-weight: 800; color: var(--mp-ink); }
 /* «Cuánto te llevas según cómo pagan»: dos tarjetas; la de transferencia, destacada sin gritar. */
-.mp-cobros { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; max-width: 860px; margin: 0 auto; }
+.mp-cobros { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
 /* El mismo relleno en las dos (el borde de 2 px de la destacada se descuenta del relleno): el 30 y el 25, a la misma altura. */
-.mp-cobro { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 26px 24px 22px; border-radius: 22px; background: var(--mp-sup);
+.mp-cobro { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 56px 32px 28px; border-radius: 24px; background: var(--mp-sup);
   border: 1px solid var(--mp-borde); }
-.mp-cobro-mejor { padding: 25px 23px 21px; border: 2px solid var(--mp-azul); box-shadow: 0 18px 40px color-mix(in srgb, var(--mp-azul) 14%, transparent); }
-.mp-cobro-etq { position: absolute; top: 14px; right: 14px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .06em;
+.mp-cobro-mejor { padding: 55px 31px 27px; border: 2px solid var(--mp-azul); box-shadow: 0 18px 40px color-mix(in srgb, var(--mp-azul) 14%, transparent); }
+.mp-cobro-etq { position: absolute; top: 18px; right: 18px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .06em;
   text-transform: uppercase; color: var(--mp-azul); background: var(--mp-azul-bg); }
-.mp-cobro-cab { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
-.mp-cobro-pct { font-size: 56px; line-height: 1; font-weight: 800; letter-spacing: -.04em; color: var(--mp-azul); }
-.mp-cobro h3 { margin: 0; font-size: 20px; font-weight: 700; color: var(--mp-ink); }
+/* El % enorme (como el número grande de la calculadora) y debajo su nombre. */
+.mp-cobro-pct { align-self: flex-start; font-size: 84px; line-height: .95; font-weight: 800; letter-spacing: -.045em; color: var(--mp-azul); }
+.mp-cobro h3 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--mp-ink); }
 .mp-cobro p { margin: 0; color: var(--mp-dim); }
 /* La línea chica de información, debajo de un divisor fino. */
-.mp-cobro .mp-cobro-info { padding-top: 12px; border-top: 1px solid var(--mp-borde); font-size: 14px; color: var(--mp-suave); }
-.mp-cobro-montos { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; color: var(--mp-ink); font-variant-numeric: tabular-nums; }
+.mp-cobro .mp-cobro-info { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--mp-borde); font-size: 15px; color: var(--mp-suave); }
+.mp-cobro-montos { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 18px; color: var(--mp-ink); font-variant-numeric: tabular-nums; }
 .mp-cobro-montos b { font-weight: 800; }
+/* El carrusel en Partners: la variante clara de la portada, sin su relleno de sección, con el ícono del rubro en un recuadro. */
+.mp-tira.s-reemplaza-claro { padding: 8px 0 24px; background: transparent; }
+.mp-tira .s-tira-r { color: var(--mp-suave); }
+.mp-tira .s-tira-i { color: var(--mp-ink); font-size: 22px; }
+.mp-tira-ic { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; color: var(--mp-azul);
+  background: var(--mp-azul-bg); }
 /* Aire entre el título de una sección y sus tarjetas (sin bajada en medio). */
 .mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-cobros { margin-top: 28px; }
 .mp-faq { max-width: 780px; margin: 0 auto; display: grid; gap: 10px; }
@@ -177,6 +185,11 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-pie a { color: #5B6472; }
 @media (max-width: 860px) {
   .mp-hero-grilla, .mp-numeros, .mp-cobros { grid-template-columns: 1fr; }
+  /* El relleno de arriba deja lugar al chip (el % nunca queda debajo de él); los montos, en un renglón. */
+  .mp-cobro { padding: 52px 22px 24px; }
+  .mp-cobro-mejor { padding: 51px 21px 23px; }
+  .mp-cobro-pct { font-size: 72px; }
+  .mp-cobro-montos { font-size: 16px; }
   .mp-hero h1, .mp-app .mp-hero h1 { font-size: 36px; }
   .mp-app .mp-hero { padding: 4px 16px 20px; border-radius: 18px; }
   .mp-hero-grilla { gap: 28px; padding-top: 24px; }
@@ -216,15 +229,15 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
   // Adentro de la app ya hay un <main> (el del shell): la landing es un bloque más.
   const Raiz = publica ? 'main' : 'div';
   const directo = porcentaje(COMISION_PARTNER_DIRECTO), pasarela = porcentaje(COMISION_PARTNER_PASARELA);
-  /** «MaKo Pro: US$ 29,10 por mes», un renglón por plan, según por dónde entra la plata. */
+  /** «US$ 29,10 por mes con MaKo Pro» / «US$ 14,10 con MaKo Essential», el monto en negrita, según por dónde entra la plata. */
   const montos = (canal: CanalDelPago) => (
     <ul className="mp-cobro-montos">
-      {planes.map((p) => <li key={p.id}>{p.nombre}: <b>{usd(comisionDelPago(p.precioUsd, canal))}</b> por mes</li>)}
+      {planes.map((p, i) => <li key={p.id}><b>{usd(comisionDelPago(p.precioUsd, canal))}</b>{i === 0 ? ' por mes' : ''} con {p.nombre}</li>)}
     </ul>
   );
   return (
     <Raiz className={`mp-root ${publica ? 'mp-publica' : 'mp-app'}`}>
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_REEMPLAZA + CSS }} />
       {rotulo}
       <div className="mp-hero">
         <div className="mp-wrap">
@@ -256,6 +269,33 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
           dice cuánto ganas; los números, por qué conviene; «Así de simple», los 3 pasos; «según cómo pagan», el 30% y el 25% con sus
           montos (Martín: «en otra sección deberíamos aclarar lo de la transferencia o pasarela de pago»); las preguntas, sólo dudas
           que no estén arriba; el cierre, una frase y el botón. Los números, de las constantes. */}
+      {/* EL CARRUSEL DE PARTNERS (18/11/2026, Martín: «utilices el divider tipo carrusel que tenemos… decídelo tú… si ponemos de los
+          otros, como las apps… no sé si va a confundir»): UNO, propio, entre el héroe y «Así de simple»: a quién le puedes recomendar
+          MaKo, con los rubros de Industrias tal cual están en el código (INDUSTRIAS, app/vsl/_sitio/datos.ts) y sus íconos. El MISMO
+          carrusel que la portada (las clases `s-tira` de CSS_REEMPLAZA, en su variante clara): velocidad, bordes fundidos y quieto
+          con «reducir movimiento». Son cuatro rubros: cada vuelta los repite para que la fila llene el ancho y no quede un hueco. */}
+      <section className="s-tira s-reemplaza-claro mp-tira" aria-label="A quién le puedes recomendar MaKo">
+        <p className="s-tira-r">A quién le puedes recomendar MaKo</p>
+        <div className="s-tira-v">
+          <div className="s-tira-p">
+            {[false, true].map((oculta) => (
+              <ul key={String(oculta)} className="s-tira-l" aria-hidden={oculta || undefined}>
+                {[0, 1, 2].flatMap((vuelta) => INDUSTRIAS.map((r) => (
+                  <li key={`${vuelta}-${r.avatar}`} className="s-tira-i" aria-hidden={vuelta > 0 || undefined}>
+                    <span className="mp-tira-ic">
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        {r.icono.map((d) => <path key={d} d={d} />)}
+                      </svg>
+                    </span>
+                    {r.nombre}
+                  </li>
+                )))}
+              </ul>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Martín, 18/11/2026: «Elimina "por qué conviene"… y simplemente pon "así de simple", pero con el diseño de las tarjetas de
           "por qué te conviene"… "tú eliges cómo cobrar…" debería estar arriba, en "así de simple", en el paso 3». Los pasos son una
           secuencia: el número grande arriba de cada tarjeta. */}
@@ -275,7 +315,8 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
 
       <section className="mp-seccion">
         <div className="mp-wrap">
-          <h2>Cuánto te llevas según cómo pagan</h2>
+          {/* Martín: «el título… está medio confuso». */}
+          <h2>¿{directo} o {pasarela}? Depende de cómo pague el negocio</h2>
           {/* Versión 66 (18/11/2026, Martín: «simplifica el texto… 30% por transferencia y 25% por pasarela de pago sin el paréntesis.
               Y que estén alineados… el chip de "la que más te deja"… a la derecha para que no interrumpa… un pequeño divider… y que
               ahí aclare… información simple, resumida»). Las dos tarjetas, con la misma estructura y el mismo relleno: el 30 y el 25
@@ -283,12 +324,14 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
           <div className="mp-cobros">
             <div className="mp-cobro mp-cobro-mejor">
               <span className="mp-cobro-etq">La que más te deja</span>
-              <div className="mp-cobro-cab"><b className="mp-cobro-pct">{directo}</b><h3>Transferencia</h3></div>
+              <b className="mp-cobro-pct">{directo}</b>
+              <h3>Transferencia</h3>
               {montos('directo')}
               <p className="mp-cobro-info">Pagan por transferencia a Mercado Pago o por Binance.</p>
             </div>
             <div className="mp-cobro">
-              <div className="mp-cobro-cab"><b className="mp-cobro-pct">{pasarela}</b><h3>Pasarela de pago</h3></div>
+              <b className="mp-cobro-pct">{pasarela}</b>
+              <h3>Pasarela de pago</h3>
               {montos('pasarela')}
               <p className="mp-cobro-info">Pagan con link de pago o con tarjeta de crédito o débito.</p>
             </div>
@@ -307,7 +350,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
             </details>
             <details>
               <summary>¿Por qué a veces es el {pasarela}?</summary>
-              <p>Porque la pasarela cobra su comisión. Lo ves arriba, en «Cuánto te llevas según cómo pagan».</p>
+              <p>Porque la pasarela cobra su comisión. Lo ves arriba, en «¿{directo} o {pasarela}? Depende de cómo pague el negocio».</p>
             </details>
             <details>
               <summary>¿Quién cuenta como mi referido?</summary>

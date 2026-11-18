@@ -69,8 +69,10 @@ test('así de simple (3 pasos en tarjetas) y según cómo pagan: cada idea UNA v
   assert.match(t, /Así de simple 1 Compartes tu link En tus redes, tus grupos de WhatsApp o tus anuncios\. Si no entran por el link, ponen tu código al pagar\. 2 El negocio se suma a MaKo Paga su plan con tu link o tu código, y desde su primer pago cada mes te deja tu parte\. 3 Cobras del 1 al 5 de cada mes Tú eliges cómo: dólares por Binance o pesos por transferencia\./);
   // Según cómo pagan: las dos tarjetas, con los montos de la regla.
   // Versión 66: el % con su nombre, los montos, un divisor y una línea chica; sin paréntesis ni el porqué (queda en su pregunta).
-  assert.ok(t.includes(`Cuánto te llevas según cómo pagan La que más te deja 30% Transferencia MaKo Pro: US$ 29,10 por mes MaKo Essential: US$ 14,10 por mes Pagan por transferencia a Mercado Pago o por Binance.`), 'la de transferencia');
-  assert.ok(t.includes(`${PASARELA} Pasarela de pago MaKo Pro: ${pasarelaPro} por mes MaKo Essential: ${pasarelaEssential} por mes Pagan con link de pago o con tarjeta de crédito o débito.`), 'la de pasarela');
+  // Versión 68 (Martín: «el título… está medio confuso… las tarjetas… muy chiquitito»): el título nuevo y los montos con el plan al final.
+  assert.ok(t.includes(`¿30% o ${PASARELA}? Depende de cómo pague el negocio La que más te deja 30% Transferencia US$ 29,10 por mes con MaKo Pro US$ 14,10 con MaKo Essential Pagan por transferencia a Mercado Pago o por Binance.`), 'la de transferencia');
+  assert.ok(t.includes(`${PASARELA} Pasarela de pago ${pasarelaPro} por mes con MaKo Pro ${pasarelaEssential} con MaKo Essential Pagan con link de pago o con tarjeta de crédito o débito.`), 'la de pasarela');
+  assert.doesNotMatch(t, /Cuánto te llevas según cómo pagan/);
   assert.doesNotMatch(t, /\(tarjeta, Mercado Pago\)|la compartimos|Cuando el negocio paga por/, 'sin paréntesis ni el porqué en las tarjetas');
   assert.equal((t.match(/dólares por Binance o pesos por transferencia/g) ?? []).length, 1, 'cómo cobras, UNA vez (en el paso 3)');
   // Martín: «elimina lo de "o cuando le cobras tú y nos mandas el resto"… no son agencias».
@@ -80,7 +82,7 @@ test('así de simple (3 pasos en tarjetas) y según cómo pagan: cada idea UNA v
 
 test('la CALCULADORA: dos botones que alternan (plan y cómo te pagan), el deslizador, el precio en una línea y el botón', async () => {
   const { html, t } = await landing();
-  const hero = html.slice(html.indexOf('class="mp-hero-grilla"'), html.indexOf('class="mp-seccion"'));
+  const hero = html.slice(html.indexOf('class="mp-hero-grilla"'), html.indexOf('class="s-tira'));
   assert.ok(hero.includes('class="mp-calc" id="calculadora"'), 'la calculadora está en el hero');
   assert.doesNotMatch(html, /Si se suscribe|mp-ficha/, 'la ficha «Si se suscribe» se fue');
   assert.ok(COMISION_PARTNER_DIRECTO === 0.3 && COMISION_PARTNER_PASARELA > 0 && COMISION_PARTNER_PASARELA < COMISION_PARTNER_DIRECTO,
@@ -131,13 +133,13 @@ test('la CALCULADORA: dos botones que alternan (plan y cómo te pagan), el desli
 });
 
 test('las PREGUNTAS: sólo las dudas que no están arriba, y «¿Cuándo cobro?» con el 1 al 5', async () => {
-  const { t } = await landing();
+  const { html, t } = await landing();
   const faq = t.slice(t.indexOf('Preguntas frecuentes'), t.indexOf('Empieza a ganar con tu link'));
-  const preguntas = [...faq.matchAll(/¿[^?]+\?/g)].map((m) => m[0]);
+  const preguntas = [...html.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((m) => texto(m[1]).trim());
   assert.deepEqual(preguntas, ['¿Cuándo cobro?', `¿Por qué a veces es el ${PASARELA}?`, '¿Quién cuenta como mi referido?', '¿Dónde veo lo que gané?', '¿Qué necesito para ser partner?']);
   // Martín: «¿cuándo cobro? No responde que se paga del 1 al 5».
   assert.match(faq, /¿Cuándo cobro\? Del 1 al 5 de cada mes, por todo lo que ganaste el mes anterior\./);
-  assert.match(faq, /Porque la pasarela cobra su comisión\. Lo ves arriba, en «Cuánto te llevas según cómo pagan»\./);
+  assert.match(faq, /Porque la pasarela cobra su comisión\. Lo ves arriba, en «¿30% o \d+%\? Depende de cómo pague el negocio»\./);
   assert.match(faq, /Cualquier negocio que todavía no usa MaKo y entra con tu link o pone tu código al pagar\. Tu propio negocio no cuenta\./);
   assert.match(faq, /En tu panel de MaKo Partners: cada negocio que trajiste, lo que te deja y lo que tienes a cobrar\./);
   // Ser partner pide tener el plan de MaKo pago (Martín, 18/11/2026: «de hecho no es gratis»): ningún «gratis» en la landing.
@@ -265,4 +267,16 @@ test('/mako-partners lleva la barra del sitio arriba y el pie abajo, como /plane
   const pagina = fuente('app/mako-partners/page.tsx');
   assert.match(pagina, /<BarraGlobal claro barraPropia=".mp-publica .mp-barra" \/>/, 'la barra del sitio, y la propia oculta');
   assert.match(pagina, /<PieGlobal claro \/>/, 'el pie del sitio');
+});
+
+test('el carrusel de Partners: entre el héroe y «Así de simple», con los rubros de Industrias y el mismo estilo que la portada', async () => {
+  const { html } = await landing();
+  const { INDUSTRIAS } = await import('../app/vsl/_sitio/datos');
+  const i = html.indexOf('class="s-tira s-reemplaza-claro mp-tira"');
+  assert.ok(i > html.indexOf('class="mp-hero-grilla"') && i < html.indexOf('<h2>Así de simple</h2>'), 'entre el héroe y «Así de simple»');
+  const tira = html.slice(html.indexOf('>', i) + 1, html.indexOf('</section>', i));
+  assert.match(texto(tira), /^\s*A quién le puedes recomendar MaKo/);
+  for (const r of INDUSTRIAS) assert.ok(tira.includes(`</svg></span>${r.nombre}</li>`), `el rubro ${r.nombre}, con su ícono`);
+  assert.equal((tira.match(/class="s-tira-l"/g) ?? []).length, 2, 'dos vueltas iguales, la segunda oculta para el lector, como la portada');
+  assert.ok(fuente('app/mako-partners/LandingPartners.tsx').includes('CSS_REEMPLAZA + CSS'), 'el mismo CSS del carrusel de la portada');
 });
