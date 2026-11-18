@@ -7465,5 +7465,17 @@ Martín: «Me gusta la misma… solamente calculado a esto». Era la misma landi
 - **No prometer lo que todavía no pasa.** «¿Cuándo cobro?» dice «cada vez que el negocio paga» y no da fecha: Cobros está pasando la
   acreditación a un crédito por pago, y `PAGOS_PARA_ACREDITAR` (esperar al 2º pago) deja de aplicar. El pago al partner sigue
   siendo una transferencia de MaKo (`PAGO_HOY`).
-- **PENDIENTE, fuera de la landing:** «Tu plan» (`app/configuraciones/plan/PlanPanel.tsx`) y /planes (`app/planes/Vitrina.tsx`)
-  siguen diciendo «el primer mes entero». `tests/mako-partners-landing.test.ts` las sigue como están, con un aviso.
+- **Un archivo `'use client'` no presta funciones al servidor.** Las cuentas (`usd`, `porcentaje`, lo del mes) vivían primero en
+  `Calculadora.tsx`. La landing es un componente del servidor y las llamaba: en Next eso falla (todo lo que exporta un archivo de
+  cliente es una referencia de cliente), y ni los tests ni el artefacto lo ven porque dibujan con `renderToStaticMarkup`, sin esa
+  frontera. Se pasaron a `app/mako-partners/numeros.ts`, puro, que usan la landing, la calculadora, «Tu plan», /planes y la API.
+- **Lo que lee MaKo también promete.** La API (`ver_mi_programa_partners`, lib/api-mako/areas/negocio.*) le decía «el 100% del primer
+  mes» a cualquier cliente, también en los grupos de WhatsApp. Ahora dice `REGLA_PARTNERS` y `CUANDO_SE_PAGA_PARTNERS` (del 1 al 5
+  de cada mes, como regla). La descripción entra en `docs/api-mako.md`, que es generado: cuando cambia una constante de
+  `lib/partners-reglas.ts`, hay que regenerarlo (`node --import tsx scripts/generar-api-doc.mjs`; el pre-push lo pide).
+- **La pasarela bajó del 27% al 25% el mismo día.** Por eso el test escribe lo directo (30%) y calcula la pasarela con la constante: un
+  cambio de Cobros no rompe el test, y la landing lo toma sola. Para que el artefacto lo mostrara antes de que llegara a main,
+  `PARTNERS_PASARELA=0.25 node armar.mjs partners` pisa la constante sólo en la copia del artefacto.
+- `tests/mako-partners-landing.test.ts` falla si «el primer mes entero» aparece en una pantalla nueva de app/ o lib/. Las que lo
+  dicen todavía y no son del Sitio están en una lista con su dueño: Cobros (app/partners/*, app/m/partners/*, lib/partners-*) y
+  los tutoriales (lib/tutoriales/partners.ts).

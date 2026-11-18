@@ -46,6 +46,7 @@ import { MODULOS_KNOWLEDGE } from '@/lib/knowledge-modulos';
 import { CIERRES_PASO, PASOS_ARRANQUE_POR_API, TABS_POR_API, PASOS_DE_TAB_POR_API } from '@/lib/onboarding-pasos-api';
 import { URGENCIAS } from '@/lib/oferta-modelo';
 import { COMO_PARTNERS, CUANTOS_PARTNERS, TOPE_COBRO } from '@/lib/partners-reglas';
+import { CUANDO_SE_PAGA_PARTNERS, REGLA_PARTNERS } from '@/app/mako-partners/numeros';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 /** Sin http: links firmados a documentos, fotos de una persona, y los generadores de
@@ -252,12 +253,14 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'externo', gating: { rolMinimo: 'admin' },
   },
   // MAKO PARTNERS (25/10/2026, Martín: «Todo, todo siempre tiene que ir a la API»): el programa de referidos del negocio, lo
-  // mismo que /partners (lib/partners-programa.ts). Partners paga en DINERO: el 100% del primer mes de cada negocio nuevo.
+  // mismo que /partners (lib/partners-programa.ts). Partners paga en DINERO. Desde el 18/11/2026, el 30% de cada pago de cada
+  // negocio nuevo, de por vida (menos si pagan por pasarela), del 1 al 5 de cada mes: la regla, dicha con los números de
+  // lib/partners-reglas.ts (`REGLA_PARTNERS`, app/mako-partners/numeros.ts). Antes decía «el 100% del primer mes».
   // El programa entero y «Marcar pagado» son de la plataforma (`soloPlataforma`), sin HTTP: son los libros de todos.
   {
     id: 'ver_mi_programa_partners', area: 'negocio', tipo: 'lectura',
     titulo: 'Mi panel de MaKo Partners',
-    descripcion: 'El panel de MaKo Partners de este negocio (lo mismo que la pantalla MaKo Partners). MaKo Partners paga en DINERO el 100% del primer mes de cada negocio nuevo que entra con el link o el código del partner (US$ 97 por cada MaKo Pro, US$ 47 por cada MaKo Essential), cuando ese negocio paga su segundo mes; MaKo se lo transfiere a la cuenta que el partner dejó. Si ya es partner: su link y su código para compartir, cuántas personas abrieron el link, lo ganado, lo que tiene a cobrar, lo que está en camino, lo ya transferido, a dónde se le transfiere, cada negocio que trajo con su estado y lo que le deja, y los mensajes listos para recomendar MaKo con su link (`mensajes_para_recomendar`). Si todavía no lo es: `es_partner: false` y cómo hacerse (hacerme_partner). Hacerse partner es de MaKo Pro.',
+    descripcion: `El panel de MaKo Partners de este negocio (lo mismo que la pantalla MaKo Partners). MaKo Partners paga en DINERO ${REGLA_PARTNERS}. Se le paga ${CUANDO_SE_PAGA_PARTNERS}. Si ya es partner: su link y su código para compartir, cuántas personas abrieron el link, lo ganado, lo que tiene a cobrar, lo que está en camino, lo ya transferido, a dónde se le transfiere, cada negocio que trajo con su estado y lo que le deja, y los mensajes listos para recomendar MaKo con su link (\`mensajes_para_recomendar\`). Si todavía no lo es: \`es_partner: false\` y cómo hacerse (hacerme_partner). Hacerse partner es de MaKo Pro.`,
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },

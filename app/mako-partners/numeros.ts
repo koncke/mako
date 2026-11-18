@@ -1,12 +1,14 @@
 // =============================================================================
 // Los números de MaKo Partners que se MUESTRAN (18/11/2026): el porcentaje, los US$, lo del mes y lo del año
 // =============================================================================
-// Puro y sin 'use client': lo usan la landing (componente del servidor), la calculadora (de cliente), «Tu plan» y /planes. Si
+// Puro y sin 'use client': lo usan la landing (componente del servidor), la calculadora (de cliente), «Tu plan», /planes y la API
+// de MaKo (lib/api-mako/areas/negocio.*: lo que lee MaKo para contestar). Si
 // viviera en Calculadora.tsx, el servidor no lo podría llamar (todo lo que exporta un archivo 'use client' es del cliente).
 // Los porcentajes y la cuenta por pago son de lib/partners-reglas.ts (del chat de Cobros): acá no se escribe ninguno.
 // =============================================================================
 
 import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, comisionDelPago, type CanalDelPago } from '@/lib/partners-reglas';
+import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 
 export const MESES_DEL_ANIO = 12;
 
@@ -36,3 +38,25 @@ export const gananciaPorMes = (n: number, precioUsd: number, canal: CanalDelPago
 /** Lo de 12 meses: 12 veces lo del mes. */
 export const gananciaEnUnAnio = (n: number, precioUsd: number, canal: CanalDelPago): number =>
   redondo(gananciaPorMes(n, precioUsd, canal) * MESES_DEL_ANIO);
+
+// ── La regla dicha en una frase, para la API de MaKo (lo que lee MaKo para contestar, también en los grupos de WhatsApp) ────────
+// El Cerebro, 18/11/2026: «Hoy le dice a cualquier cliente "el 100% del primer mes"… 30 % de cada pago, de por vida; 25 % si los
+// negocios pagan por pasarela; se paga del 1 al 5 de cada mes (eso lo está construyendo Cobros: dilo como regla, sin prometer la
+// pantalla)». Los montos, de los planes y de la regla.
+
+const planesDeLista = () => PLANES_MAKO_DEFAULT.filter((p) => p.activo).slice().sort((a, b) => b.precioUsd - a.precioUsd);
+
+/** «US$ 29,10 por mes por cada MaKo Pro y US$ 14,10 por mes por cada MaKo Essential», según por dónde entra la plata. */
+export const montosPorMes = (canal: CanalDelPago): string =>
+  planesDeLista().map((p) => `${usd(comisionDelPago(p.precioUsd, canal))} por mes por cada ${p.nombre}`).join(' y ');
+
+/** Lo que gana un partner, entero. */
+export const REGLA_PARTNERS = `el ${PORCENTAJE_DIRECTO} de cada pago de cada negocio nuevo que entra con su link o su código, todos los meses, de por vida, `
+  + `si esos negocios pagan por Binance o transferencia bancaria (${montosPorMes('directo')}); el ${PORCENTAJE_PASARELA} si pagan por una `
+  + `pasarela o un link de pago, como Mercado Pago, tarjeta o Whop (${montosPorMes('pasarela')})`;
+
+/** Lo mismo, corto (para el resumen de una propuesta). */
+export const REGLA_PARTNERS_CORTA = `el ${PORCENTAJE_DIRECTO} de cada pago de cada negocio que traiga, de por vida (el ${PORCENTAJE_PASARELA} si pagan por pasarela)`;
+
+/** Cuándo se le paga: la regla (la pantalla que lo hace la está construyendo Cobros). */
+export const CUANDO_SE_PAGA_PARTNERS = 'del 1 al 5 de cada mes, MaKo le transfiere lo que tiene a cobrar a la cuenta que dejó';

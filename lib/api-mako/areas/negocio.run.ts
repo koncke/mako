@@ -34,7 +34,8 @@ import { lineaDelPrimerMes } from '@/lib/primer-mes-reglas';
 import { empezarPlanAhora } from '@/lib/empezar-plan';
 import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { altaDePartner, cambiarCobroPartner, cambiarCodigoPartner, hacermePartner, registrarPagoAPartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
-import { COMO_PARTNERS, CUANTOS_PARTNERS, PAGOS_PARA_ACREDITAR, RUTA_PARTNERS, TEXTO_ESTADO_REFERIDO, altaLimpia, cobroLimpio, codigoNuevoValido } from '@/lib/partners-reglas';
+import { COMO_PARTNERS, CUANTOS_PARTNERS, RUTA_PARTNERS, TEXTO_ESTADO_REFERIDO, altaLimpia, cobroLimpio, codigoNuevoValido } from '@/lib/partners-reglas';
+import { CUANDO_SE_PAGA_PARTNERS, REGLA_PARTNERS, REGLA_PARTNERS_CORTA } from '@/app/mako-partners/numeros';
 import { mensajesParaCopiar } from '@/lib/partners-recursos';
 import { NOMBRE_COSA_PRUEBA } from '@/lib/topes-plan';
 import { MODULOS_KNOWLEDGE, moduloDeKey } from '@/lib/knowledge-modulos';
@@ -286,12 +287,13 @@ export const RUNNERS: Runners = {
     }),
   },
 
-  // MaKo Partners (25/10/2026): lo mismo que /partners (lib/partners-programa.ts).
+  // MaKo Partners (25/10/2026): lo mismo que /partners (lib/partners-programa.ts). Lo que gana y cuándo se le paga, con la regla
+  // del 18/11/2026 (`REGLA_PARTNERS`, de los números de lib/partners-reglas.ts): ya no el «100% del primer mes» ni el 2º pago.
   ver_mi_programa_partners: {
     leer: async (_input, ctx) => {
       const link = linkApp(RUTA_PARTNERS, ctx.ws);
       const t = await tableroDe(ctx.ws);
-      if (!t.alta) return json({ es_partner: false, gana: 'el 100% del primer mes de cada negocio nuevo que traiga, en dinero', para_hacerse: 'hacerme_partner', link });
+      if (!t.alta) return json({ es_partner: false, gana: `${REGLA_PARTNERS}, en dinero`, se_le_paga: CUANDO_SE_PAGA_PARTNERS, para_hacerse: 'hacerme_partner', link });
       return json({
         es_partner: true, desde: t.alta.at, link_para_compartir: t.link, codigo: t.codigo,
         visitas_al_link: t.visitas.total, visitas_este_mes: t.visitas.esteMes,
@@ -299,7 +301,7 @@ export const RUNNERS: Runners = {
         se_le_transfiere_a: t.alta.cobro ?? 'sin cargar (cambiar_cobro_partners)',
         negocios: t.referidos.map((r) => ({ nombre: r.nombre, plan: r.plan, desde: r.desde, estado: TEXTO_ESTADO_REFERIDO[r.estado], le_deja_usd: r.estado === 'se-fue' ? 0 : r.gananciaUsd })),
         pagos: t.pagos.map((p) => ({ fecha: p.fecha, monto_usd: p.montoUsd })),
-        cuando_se_gana: `cuando cada negocio paga su ${PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes`, link,
+        gana: REGLA_PARTNERS, cuando_se_gana: 'cada vez que uno de sus negocios paga: su parte de ese pago', se_le_paga: CUANDO_SE_PAGA_PARTNERS, link,
         // Los recursos para recomendar (27/10/2026, lib/partners-recursos.ts): los mismos mensajes del panel, con su link. El
         // PDF de venta se arma en el navegador (/partners, «Descargar el PDF de venta»).
         ...(t.link && t.codigo ? { mensajes_para_recomendar: mensajesParaCopiar({ link: t.link, codigo: t.codigo }).map((m) => ({ para: m.titulo, texto: m.texto })) } : {}),
@@ -314,7 +316,7 @@ export const RUNNERS: Runners = {
       const cuantos = CUANTOS_PARTNERS.find((c) => c.id === alta.cuantos)?.texto;
       const como = alta.como.map((c) => COMO_PARTNERS.find((x) => x.id === c)?.texto).filter(Boolean).join(', ');
       const partes = [cuantos && `a ${cuantos} negocios`, como && `por ${como.toLowerCase()}`, alta.cobro ? `cobra en ${alta.cobro}` : 'dónde cobra, después'].filter(Boolean);
-      return { payload: { cuantos: alta.cuantos, como: alta.como, cobro: alta.cobro }, resumen: `${ya ? 'Actualizar el alta de MaKo Partners' : 'Hacer partner de MaKo a este negocio'}: ${partes.join(' · ')}. Gana el 100% del primer mes de cada negocio que traiga.` };
+      return { payload: { cuantos: alta.cuantos, como: alta.como, cobro: alta.cobro }, resumen: `${ya ? 'Actualizar el alta de MaKo Partners' : 'Hacer partner de MaKo a este negocio'}: ${partes.join(' · ')}. Gana ${REGLA_PARTNERS_CORTA}.` };
     }),
     ejecutar: sinLanzar(async (payload, ctx) => {
       const r = await hacermePartner(ctx.ws, payload);

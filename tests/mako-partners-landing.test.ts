@@ -165,8 +165,6 @@ const DICEN_EL_PRIMER_MES_TODAVIA: Readonly<Record<string, string>> = {
   'app/m/partners/ReferidosM.tsx': 'Cobros',
   'lib/partners-programa.ts': 'Cobros',
   'lib/partners-reglas.ts': 'Cobros',
-  'lib/api-mako/areas/negocio.def.ts': 'la API de MaKo (sin dueño el 18/11)',
-  'lib/api-mako/areas/negocio.run.ts': 'la API de MaKo (sin dueño el 18/11)',
   'lib/tutoriales/partners.ts': 'los tutoriales',
 };
 
@@ -186,7 +184,8 @@ test('«el primer mes entero» / «el 100% del primer mes» no aparece en ningun
   const nuevos = dicen.filter((r) => !(r in DICEN_EL_PRIMER_MES_TODAVIA));
   assert.deepEqual(nuevos, [], `vuelve «el primer mes entero» en: ${nuevos.join(', ')}`);
   for (const mio of ['app/mako-partners/LandingPartners.tsx', 'app/mako-partners/Calculadora.tsx', 'app/mako-partners/numeros.ts',
-    'app/mako-partners/page.tsx', 'app/configuraciones/plan/PlanPanel.tsx', 'app/planes/Vitrina.tsx']) {
+    'app/mako-partners/page.tsx', 'app/configuraciones/plan/PlanPanel.tsx', 'app/planes/Vitrina.tsx',
+    'lib/api-mako/areas/negocio.def.ts', 'lib/api-mako/areas/negocio.run.ts']) {
     assert.ok(!(mio in DICEN_EL_PRIMER_MES_TODAVIA) && !dicen.includes(mio), mio);
   }
 });
@@ -199,3 +198,19 @@ test('«el primer mes entero» / «el 100% del primer mes» no aparece en ningun
 //   · un 30% escrito a mano en la landing                                       -> rojo
 //   · PlanPanel vuelve a «el primer mes entero»                                 -> rojo
 //   · una pantalla nueva dice «el 100% del primer mes»                          -> rojo
+
+test('la API de MaKo (lo que lee MaKo para contestar) dice la regla nueva: 30% de por vida, menos por pasarela, del 1 al 5', async () => {
+  const { REGLA_PARTNERS, REGLA_PARTNERS_CORTA, CUANDO_SE_PAGA_PARTNERS } = await import('../app/mako-partners/numeros');
+  assert.ok(REGLA_PARTNERS.startsWith('el 30% de cada pago de cada negocio nuevo que entra con su link o su código, todos los meses, de por vida'), REGLA_PARTNERS);
+  assert.ok(REGLA_PARTNERS.includes('(US$ 29,10 por mes por cada MaKo Pro y US$ 14,10 por mes por cada MaKo Essential)'), 'lo directo, escrito');
+  assert.ok(REGLA_PARTNERS.includes(`el ${PASARELA} si pagan por una pasarela o un link de pago, como Mercado Pago, tarjeta o Whop (${pasarelaPro} por mes por cada MaKo Pro`), 'la pasarela, de la constante');
+  assert.ok(REGLA_PARTNERS_CORTA.includes(`de por vida (el ${PASARELA} si pagan por pasarela)`));
+  assert.match(CUANDO_SE_PAGA_PARTNERS, /^del 1 al 5 de cada mes/);
+  const def = fuente('lib/api-mako/areas/negocio.def.ts');
+  assert.ok(def.includes('MaKo Partners paga en DINERO ${REGLA_PARTNERS}. Se le paga ${CUANDO_SE_PAGA_PARTNERS}.'), 'la descripción de ver_mi_programa_partners');
+  const run = fuente('lib/api-mako/areas/negocio.run.ts');
+  assert.ok(run.includes('gana: `${REGLA_PARTNERS}, en dinero`, se_le_paga: CUANDO_SE_PAGA_PARTNERS'), 'el que todavía no es partner');
+  assert.ok(run.includes("gana: REGLA_PARTNERS, cuando_se_gana: 'cada vez que uno de sus negocios paga: su parte de ese pago', se_le_paga: CUANDO_SE_PAGA_PARTNERS"), 'el partner');
+  assert.ok(run.includes('Gana ${REGLA_PARTNERS_CORTA}.'), 'el resumen de hacerme_partner');
+  assert.doesNotMatch(run, /PAGOS_PARA_ACREDITAR|gananciaDelReferido/, 'ya no se espera al 2º pago ni se cuenta el primer mes');
+});
