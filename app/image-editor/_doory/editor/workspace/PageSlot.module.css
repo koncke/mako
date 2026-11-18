@@ -29,6 +29,11 @@
   .header .meta {
     display: none;
   }
+  /* En sólo lectura (un enlace compartido) no hay íconos: el tamaño entra y no se esconde (MaKo, 18/11/2026, F46). Más
+     específico que la de arriba, así gana sin depender del orden. */
+  .header[data-readonly] .meta {
+    display: inline-flex;
+  }
 }
 
 .lead {

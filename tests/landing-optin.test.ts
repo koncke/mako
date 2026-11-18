@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { videosDeHtml, idNativo, analizarHtml } from '../lib/landing-analisis';
+import { refYaTomada } from '../lib/propuestas-ref';
 
 const leer = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const RUTA = () => leer('../app/api/track/optin/route.ts');
@@ -814,10 +815,20 @@ test('descartar una propuesta NO encadena a esa persona para siempre', () => {
   // fila con esa ref bloqueaba, incluida una DESCARTADA. Descartar no significa
   // «esta persona no existe»: significa «esto no era un lead» o «me equivoqué».
   // Si mañana vuelve a completar el formulario, eso es intención NUEVA.
-  const p = leer('../lib/propuestas.ts');
-  assert.ok(/estado !== 'descartada'/.test(p), 'una propuesta descartada no puede bloquear a esa persona');
-  // Las otras dos SÍ bloquean, y por razones distintas: 'pendiente' ya está
+  // ⚠️ Era un regex sobre la línea (`estado !== 'descartada'`) y el 18/11/2026 la regla se mudó, igual, a una función pura
+  // (lib/propuestas-ref.ts → refYaTomada: una ACCIÓN ya aplicada tampoco bloquea, F114). Ahora se CORRE la regla, y se mira que
+  // las DOS lecturas de crearPropuesta (la ref y la del día) la usen.
+  // PROBADO ROMPIÉNDOLO (18/11/2026, el archivo en 66 / 0): `refYaTomada` con «descartada» → true, 65 / 1; la lectura del día
+  // con su propia comparación en vez de la regla, 65 / 1.
+  for (const tipo of ['lead', 'accion'] as const) {
+    assert.equal(refYaTomada(tipo, 'descartada'), false, `una propuesta descartada (${tipo}) no puede bloquear a esa persona`);
+    assert.equal(refYaTomada(tipo, 'pendiente'), true, `una pendiente (${tipo}) ya está esperando: proponerla otra vez la duplica`);
+  }
+  // Las otras dos SÍ bloquean al LEAD, y por razones distintas: 'pendiente' ya está
   // esperando, y 'aplicada' significa que el lead YA está en el CRM.
+  assert.equal(refYaTomada('lead', 'aplicada'), true, 'un lead aplicado ya está en el CRM: re-proponerlo lo duplicaría');
+  const p = leer('../lib/propuestas.ts').replace(/^[ \t]*\/\/.*$/gm, '');
+  assert.equal((p.match(/refYaTomada\(input\.tipo, /g) ?? []).length, 2, 'las dos lecturas (la ref y la del día) deciden con la misma regla');
   assert.ok(/refFinal = `\$\{ref\}:\$\{new Date\(\)\.toISOString\(\)\.slice\(0, 10\)\}`/.test(p), 'la ref nueva necesita ser distinta de la vieja');
   // Y la llave del día se consulta también, o el segundo submit del mismo día
   // choca contra el unique de `ref`.

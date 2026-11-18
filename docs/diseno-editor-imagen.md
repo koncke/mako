@@ -83,8 +83,9 @@ eso: un adaptador nuevo (`mako/adaptadorNube.ts`), sin tocar el motor.
 **Extender el editor:** `_doory/editor/extensions.ts` (`registerPanel`, `registerToolbarSection`,
 `registerCommand`, `registerExportFormat`, `registerObjectKind`). Un panel con `rail: true` es una pestaña del
 riel izquierdo (`chrome/RielCanva.tsx`), en el orden de `order` (Diseño 10 · Elementos 20 · Texto 30 · Marca 40 ·
-Subidos 50 · Herramientas 60 · Proyectos 70 · Apps 80); sin `rail` (Animar, Audio, Capas, Comentarios) se abre
-desde la barra del objeto, «Apps», el menú del clic derecho o los comandos.
+Subidos 50 · Herramientas 60 · Apps 80; `builtins/panels.tsx`); sin `rail` (Animar, Audio, Capas, Comentarios) se abre
+desde la barra del objeto, «Apps», el menú del clic derecho o los comandos. «Proyectos» (70) se fue el 29/10/2026: los
+diseños son la lista de la tarjeta izquierda de la pantalla de Create (`app/_crear/PantallaCrear.tsx`).
 
 **El armazón de Canva (tanda 2)**, de arriba abajo: `TopBar.tsx` (degradado, Archivo, Redimensionar, título,
 Presentar, Compartir) · en fila sobre el gris del cromo: `RielCanva` (72 px), `SidebarHost` (la tarjeta de 350 px)
@@ -112,8 +113,11 @@ cuadrícula, pantalla completa). Debajo de 1024 px el riel pasa a la tira `Compa
 8. **Borrar** = el tacho de la casa (`BotonBorrar`).
 9. **Tamaños: UNA lista**, `_doory/editor/dialogs/resizeSizes.ts` (nombres en `strings.ts → dialog.resizeSizes`).
    De ahí salen Redimensionar y el popover de tamaño de la página (`engine/presets.ts`). ⚠️ **`inicio/tamanos.ts` ya
-   no existe**: la pantalla de arranque es `app/_crear/PantallaCrear.tsx` (la tab Create), y los 30 tamaños menos
-   usados y «Tamaño personalizado» viven SÓLO en Redimensionar — es un pendiente, no el diseño.
+   no existe**: la pantalla de arranque es `app/_crear/PantallaCrear.tsx` (la tab Create). Los 30 tamaños menos usados
+   están en Redimensionar y en el popover de tamaño de la página («Todos los tamaños»), y «Tamaño personalizado» también
+   en los dos (`workspace/SizePanel.tsx`, `t.canvasSize.customSize`). Lo que falta es en «Nuevo diseño»: ahí sólo están
+   los de `TAMANOS_API` (`app/image-editor/plantillas-crear.ts`) — es un pendiente, no el diseño (corregido el
+   18/11/2026: decía que «Tamaño personalizado» vivía SÓLO en Redimensionar).
 10. **Un módulo de `app/image-editor/` que importe un VALOR de `_doory/` lleva `'use client'`** (o entra en `PUERTA`
     del test 4 de `tests/image-editor-integracion.test.ts`).
 11. **La barra del objeto flota sobre el lienzo**: si cambia su alto, cambia `TOOLBAR_BAND` de `workspace/Workspace.tsx`.

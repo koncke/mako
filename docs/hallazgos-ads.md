@@ -28,6 +28,73 @@ registro completo de las corridas está en [corridas-multiagente.md](corridas-mu
 
 ---
 
+## Los guiones nuevos ya leen lo que le funcionó al negocio en sus anuncios, con un piso de agendas (18/11/2026)
+
+**Vive en:** `lib/ads-ganadores-reglas.ts` (`PISO_GANADOR`, `ganadoresConPiso`, `lineasDeGanadores`) · `lib/ads-ganadores.ts`
+(`ganadoresParaEscribir`) · `lib/ads-analyst.ts` (`guionesConSenal`, que comparte `vistasDeAnalizadas` con la vista) ·
+`lib/razones.ts` (`generarGuion`) · `lib/copywriter/ia.ts` (`discutir`, `editar`, `ganadoresDe`) · `tests/ads-ganadores.test.ts`.
+
+**Síntoma.** El escritor de guiones del Ads Writer y el Copywriter escribían sin mirar `script_analyses`: un guion nuevo no sabía
+qué ángulo y qué gancho ya le habían traído agendas a ESE negocio. Nada fuera de Ads Analyst y la API leía esa tabla.
+
+**Lo que se hizo.** `ganadoresParaEscribir` lee los guiones analizados con sus métricas vivas (del negocio en curso, con un tope de
+5 s: es un agregado, y sin él el guion sale igual) y deja pasar sólo los que trajeron **al menos 3 agendas** y se mostraron **al
+menos 8.000 veces** (el piso «confiable» de `buildAccountProfile`), los que más agendaron primero, hasta 3. Lo que entra es lo
+que se sabe de cada uno (el gancho dicho, su ángulo por nombre, el tipo de gancho, cuántas agendas y a cuánto), nunca una
+conclusión. Va al final del pedido de `generarGuion` y, en el Copywriter, pegado al bloque del negocio (el slot `negocio`: un slot
+nuevo no lo tendría un prompt guardado en /configuraciones) y sólo en las piezas con método (ad, reel, story, YouTube, VSL).
+
+**El diagnóstico obvio era el equivocado.** «Pasarle el perfil de la cuenta» (`buildAccountProfile`, el que usa Valorar) parecía lo
+directo, y trae `exemplares_top` ordenados por agendas SIN piso: un anuncio con una agenda puede salir primero, que es exactamente
+el «ángulo ganador» falso que el pendiente prohibía. Y la vista entera (`getScriptAnalystView`) recorre además todos los anuncios
+de Meta para contar los «sin analizar»: para escribir no hace falta.
+
+**Lo que queda.** Los umbrales son defaults razonados, NO medidos contra producción (están juntos en `PISO_GANADOR`). Si un negocio
+nunca llega a 3 agendas por anuncio, no le entra nada: es lo correcto, pero conviene medir en producción cuántos negocios tienen
+algún ganador antes de bajar el piso.
+
+**La regla.** Lo que se le cuenta a un modelo como «lo que funcionó» pasa un piso de muestra escrito en un módulo puro con su test;
+sin el piso, no entra nada (la misma regla que `nMinimo` de lib/recomendaciones-senales.ts).
+
+## Dos pedidos del 31/07 que se fueron con el Ads Manager viejo: transcribir un video una vez y la nomenclatura del anuncio nuevo (18/11/2026)
+
+**Vive en:** `lib/transcripcion-por-video.ts` y `lib/transcripcion-por-video-reglas.ts` (la caché por video) ·
+`lib/transcribe.ts` (`transcribeAd`, la opción `guardada`) · `app/api/cron/transcribe-ads/route.ts` · `lib/onboarding-extract.ts`
+(`jobTranscripts`) · `lib/media-buyer/creativos.ts` (`codigoDeConjunto`, `codigosDeAnunciosNuevos`, `nombreDeAnuncio`) ·
+`lib/media-buyer/subir.ts` · `tests/transcripcion-por-video.test.ts` · `tests/media-buyer-creativos.test.ts`.
+
+**Síntoma.** Martín había pedido el 31/07 «guardar la transcripción al cargar el anuncio, para no transcribir dos veces» y que
+la nomenclatura saliera sola «también al agregar un ad a una campaña existente». Las dos cosas se hicieron y se perdieron al
+borrar el Ads Manager viejo, sin que ningún test lo dijera:
+- `creative_transcripts` (mig 0106) la escribía `app/api/ads-manager/creative-upload`, que se borró el 27/10 (564801326). Desde
+  ahí sólo la LEÍA `adoptarTranscripcionDelCreativo`: un lector sin escritor que devolvía siempre «no hay» y no fallaba.
+- El código NNN.SS.x lo armaba `CampanasBrowser.tsx` (`codigoPadre`, `nextSuffix`), que se borró el 25/10 (0c9383b83). Un
+  anuncio subido a un conjunto `001.02 …` nacía «hook dolor v2 · MaKo».
+
+**Lo que se hizo (sin gastar IA de más).** Hoy un video se transcribe en un solo lugar: POR ANUNCIO, en el cron diario y en la
+extracción del historial, los dos con `transcribeAd`. El mismo video en dos anuncios se pagaba dos veces. Ahora los dos pasan por
+`transcribirAnuncio`: con el `video_id` en la mano, antes de bajar el video, pregunta por lo guardado en `creative_transcripts`
+(del MISMO negocio: `getTenantDb`) y, si está, la reusa; si no, la hace y la guarda. Se guardan `ok` y `muy_grande`, nunca
+`error` (transitorio). Con una instrucción («Re-generar») no se pregunta: rehacerla es el pedido. Y como la tabla vuelve a tener
+filas, `adoptarTranscripcionDelCreativo` vuelve a servir. El código del anuncio sale del nombre del conjunto y de la MAYOR letra
+que ya usan sus anuncios, no del conteo: borrar un anuncio no hace que el siguiente repita una letra.
+
+**El diagnóstico obvio era el equivocado.** «Que se transcriba al subir» parece la cura, y es un gasto NUEVO: el cron transcribe
+sólo los anuncios que entregaron en los últimos 45 días, y transcribir al subir pagaría también los que nunca salen. Lo que
+faltaba no era transcribir antes: era no transcribir dos veces.
+
+**Lo que queda, con su porqué:**
+- **Transcribir al subir** (lib/media-buyer/subir.ts): el archivo está en el staging y se podría escuchar ahí, pero cuesta una
+  escucha por cada creativo subido aunque nunca entregue. Es una decisión de gasto (MaKo Tokens), no se tomó.
+- **Lo que dice el nombre** (el objetivo y el ángulo después del código): salía del análisis con IA. Sin decidir el gasto, el
+  nombre lleva el código y el del archivo.
+- **Renombrar lo ya publicado**: es escribir en las campañas reales de cada cliente. La API renombra de a uno
+  (`proponer_renombrar_campana`, `proponer_renombrar_entidad_meta`); un renombrado en lote lo decide Martín.
+- La API (`proponer_agregar_anuncio`, `proponer_anuncio_desde_archivo`) recibe el nombre que dice la persona: no se le antepone
+  el código, para no pisar un nombre elegido.
+
+**La regla.** Al borrar una pantalla, se buscan los ESCRITORES que se van con ella, no sólo sus links: un lector que se queda
+sin escritor no falla, contesta «no hay» para siempre (`grep -rn "\.from('<tabla>')"` y mirar si queda algún `insert`/`upsert`).
 ## «Subir creativos» ya deja elegir un video de MaKo y probarlo contra el mejor anuncio (18/11/2026, nube, F100 punto 1)
 
 - **Lo que faltaba era sólo la PANTALLA.** Desde el 6/11 (97495f3b2) `subir_preparar` devolvía `generados` y `subir_creativos`
@@ -908,6 +975,10 @@ Campañas, conjuntos y anuncios toman su nombre del análisis/transcripción del
 también al agregar un ad a una campaña existente— y hay que renombrar todo lo que ya está
 publicado. **Por qué:** «Hoy solo se pone nomenclatura difícil de entender» *(2026-07-31)*.
 Cualquier generador nuevo choca de frente con los dos bugs de arriba: leelos antes.
+
+⚠️ *(18/11/2026)* ~~el anuncio nuevo en un conjunto existente sin código~~: desde ese día sale con su NNN.SS.x
+(`codigosDeAnunciosNuevos`, lib/media-buyer/creativos.ts). Siguen sin hacer lo que el nombre DICE por IA y renombrar lo ya
+publicado: ver «Dos pedidos del 31/07 que se fueron con el Ads Manager viejo», arriba de todo.
 
 ---
 

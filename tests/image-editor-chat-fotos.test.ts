@@ -244,7 +244,8 @@ test('9: el catálogo las ofrece al final, y ya no dice que no se puede lo que a
   for (const id of ids.slice(-4)) assert.match(prompt, new RegExp(`"op":"${id}"`));
   assert.match(prompt, /historia \(Historia de Instagram, 1080 × 1920\)/, 'los tamaños por nombre son los de la API');
   for (const ya of [/filtros y ajustes de foto/, /cambiar el tamaño del diseño \(Redimensionar\)/, /recortar una foto o cambiar su encuadre/]) assert.doesNotMatch(NO_SE_PUEDE_CHAT_IMAGEN, ya);
-  for (const sigue of [/quitar el fondo/, /agrupar o desagrupar/, /usar una plantilla/, /agrandar el recorte/]) assert.match(NO_SE_PUEDE_CHAT_IMAGEN, sigue, 'lo que sigue sin poder se sigue diciendo');
+  // «Quitar el fondo» salió de la lista el mismo 18/11/2026 (F135, `quitar_fondo`, lo fija tests/image-editor-chat.test.ts).
+  for (const sigue of [/agrupar o desagrupar/, /usar una plantilla/, /agrandar el recorte/]) assert.match(NO_SE_PUEDE_CHAT_IMAGEN, sigue, 'lo que sigue sin poder se sigue diciendo');
 });
 
 test('10: lo que depende de una operación nueva que se cayó no cae sobre lo de la persona', () => {

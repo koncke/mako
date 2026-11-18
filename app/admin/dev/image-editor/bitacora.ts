@@ -452,4 +452,37 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor',
   },
+  {
+    fecha: '18 nov', hora: '—', chat: 'Image Editor (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'Martín (llegó en el brief del Cerebro): «continúes con absolutamente todos los pendientes».',
+    puntos: [
+      'La hora del pedido no se sabe: llegó en el brief de la sesión de la nube.',
+      'Al Image Editor le tocaron catorce: F17, F18, F44, F46 a F50 y F131 a F136 de docs/pendientes-verificados-17-11.md.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '02:10', chat: 'Image Editor (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo pregunta por tu marca, te sugiere la plantilla del lugar y le quita el fondo a una foto desde el chat',
+    puntos: [
+      'Si tu negocio no tiene marca, el chat te pregunta «¿Tienes un manual de marca o un logo?» en vez de mostrar un link.',
+      'Al elegir «En una historia» o «En un anuncio», MaKo te ofrece la plantilla de ese lugar; el diseño recuerda de qué plantilla nació.',
+      'El chat entiende lo que no es del diseño abierto: otro diseño, uno nuevo o algo de otra pestaña vuelve con su link.',
+      '«Quítale el fondo a la foto» ya se puede pedir en el chat: se hace al aceptar, en tu navegador.',
+      '«No se aplica» ya no muestra códigos internos, y dos pedidos seguidos no duplican páginas.',
+      '«Cambiar nombre» y «Guardar búsqueda» abren un campo de MaKo en vez del cuadro del navegador.',
+      'Un menú abierto desde abajo se abre hacia arriba, y en sólo lectura la página sigue mostrando su tamaño.',
+      'Sin hacer, con su porqué en docs/hallazgos-editor-imagen.md: las fuentes propias (pesan 16,96 MB), el SVG vectorial, la marca del panel, lo que se copia de Canva y las operaciones del chat en la API.',
+    ],
+    archivos: [
+      'lib/aperturas/image.ts — la pregunta de la marca y la plantilla sugerida',
+      'app/image-editor/mako/plantilla-sugerida.ts y lib/image-editor/reglas.ts — usar la sugerida y recordar la plantilla',
+      'app/image-editor/mako/chat/pedidos.ts — lo que no es del diseño abierto',
+      'lib/image-editor/chat/catalogo.ts y aplicar.ts — quitar_fondo y los motivos con palabras',
+      'app/image-editor/mako/chat/acciones.ts y PanelMakoIA.tsx — el recorte al aceptar y la caja ocupada mientras se aplica',
+      'app/image-editor/NombreModal.tsx y nombre-reglas.ts — el campo del nombre',
+      'app/image-editor/_doory/editor/ui/menuPosicion.ts y workspace/PageSlot.* — el menú y el tamaño en sólo lectura',
+    ],
+    revisar: '/image-editor',
+  },
 ];

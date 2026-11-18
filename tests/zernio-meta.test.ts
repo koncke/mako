@@ -247,7 +247,9 @@ test('transcribir: con la clave de Zernio y sin token NUNCA cae al token del ent
   for (const f of ['../app/api/cron/transcribe-ads/route.ts', '../app/api/regenerate-transcript/route.ts', '../lib/onboarding-extract.ts']) {
     const src = leer(f);
     assert.match(src, /const acceso = await accesoDeMeta\(\);\s*if \(!acceso\)/, `${f}: sin acceso tiene que cortar`);
-    assert.match(src, /transcribeAd\(adId, \{[^}]*\.\.\.acceso \}\)/, `${f}: transcribeAd sin el acceso del negocio`);
+    // (18/11/2026, O9) El cron y el historial transcriben por `transcribirAnuncio` (lib/transcripcion-por-video.ts: transcribeAd
+    // con la caché por video, que le pasa las opciones tal cual): lo que se cuida es que el acceso del negocio viaje.
+    assert.match(src, /(?:transcribeAd\(adId|transcribirAnuncio\(supabase, adId), \{[^}]*\.\.\.acceso \}\)/, `${f}: transcribe sin el acceso del negocio`);
   }
 });
 

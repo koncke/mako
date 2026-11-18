@@ -20,6 +20,7 @@
 import { salidaDegenerada } from './stt-degenerado';
 import { zFetch } from './zernio';
 import { mediaDeAnuncio, type MediaDeAnuncio } from './zernio-meta-cuerpo';
+import type { TranscripcionGuardada } from './transcripcion-por-video-reglas';
 
 const GRAPH = 'https://graph.facebook.com';
 const MAX_BYTES = 25 * 1024 * 1024; // lo que escucha Whisper; Gemini topea antes (14 MB inline)
@@ -37,6 +38,8 @@ export type TranscribeResult = {
   duracion_s: number | null;
   model: string | null;
   error: string | null;
+  /** Salió de la transcripción ya guardada de ESE video (`opts.guardada`): no se bajó ni se escuchó nada. */
+  reusada?: boolean;
 };
 
 /** Lector del entorno, SÓLO para Meta (la versión de la API y el token del dueño para los scripts). Ninguna key de IA. */
@@ -230,6 +233,10 @@ export async function transcribeAd(
      *  video y la imagen salen de `GET /v1/ads/{adId}/media`; si Zernio falla, sigue por `metaToken` si lo hay. Con clave
      *  y sin token NUNCA cae al token del entorno: sería el de otro negocio. */
     zernioClave?: string;
+    /** La transcripción YA GUARDADA de un video (18/11/2026, O9; lib/transcripcion-por-video.ts): se pregunta con el `video_id`
+     *  apenas se sabe, ANTES de bajar y escuchar, y si contesta, el anuncio la reusa sin gastar la IA otra vez. Con una
+     *  `instruccion` no se pregunta: es un pedido de rehacerla. Si la pregunta falla, se transcribe como siempre. */
+    guardada?: (videoId: string) => Promise<TranscripcionGuardada | null>;
   },
 ): Promise<TranscribeResult> {
   const instruccion = opts?.instruccion?.trim() || undefined;
@@ -258,6 +265,13 @@ export async function transcribeAd(
 
     if (video) {
       base.video_id = video.video_id;
+      if (!instruccion && video.video_id && opts?.guardada) {
+        const g = await opts.guardada(video.video_id).catch((e: unknown) => {
+          console.warn(`[transcribe] no pude leer la transcripción guardada del video ${video.video_id}, la hago: ${e instanceof Error ? e.message : String(e)}`);
+          return null;
+        });
+        if (g) return { ...base, tipo: 'video', ...g, reusada: true };
+      }
       let size = 0;
       try { const h = await fetch(video.source, { method: 'HEAD' }); size = Number(h.headers.get('content-length') || 0); } catch { /* ignore */ }
       if (size > MAX_BYTES) return { ...base, tipo: 'video', status: 'muy_grande', error: `${(size / 1048576).toFixed(1)} MB > 25 MB` };
