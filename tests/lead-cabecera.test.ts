@@ -155,10 +155,10 @@ test('la cabecera: portada y foto con las piezas de la casa, y el nombre se edit
 // (Las seis, vueltas a correr el 14/10/2026 con un script que rompe y restaura: 9 pases, 1 fallo
 // cada una.)
 //
-// Lo que este test NO cubre, porque vive en CabeceraLead.tsx: `.cl-junto` es `flex:none`, así que
-// el `flexWrap` del grupo no se activa nunca y, en una pantalla angosta, una etiqueta larga (el chip
-// llega a 220 px) + «+N» + la píldora de 150 pasan el ancho y `.cd-txt` (overflow:hidden) recorta
-// la píldora.
+// Lo que este test NO cubre, porque vive en CabeceraLead.tsx y es layout: que en una pantalla angosta una
+// etiqueta larga (el chip llega a 220 px) + «+N» + la píldora de 150 entren. Hasta el 18/11/2026 `.cl-junto`
+// era `flex:none` y `.cd-txt` (overflow:hidden) recortaba la píldora; lo mide en Chrome
+// tests/lead-etiquetas-ceden.test.ts.
 test('las etiquetas al lado del nombre: la primera es el chip de siempre, el «+N» desde la segunda y la píldora «＋ Etiqueta»', () => {
   const src = codigo('app/crm/lead-view/EtiquetasDelLead.tsx');
   const iCompacto = src.indexOf('if (compacto) {');
