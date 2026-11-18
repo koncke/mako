@@ -1173,6 +1173,955 @@
    "dice_el_guion": true,
    "chequeo": "imich → image (ortografía del transcriptor)",
    "hecho": "2026-11-18T07:28:06.132Z"
+  },
+  {
+   "key": "chats",
+   "pestana": "Chats",
+   "ruta": "/chats",
+   "archivo": "/tutoriales/chats.mp4",
+   "poster": "/tutoriales/chats.jpg",
+   "duracion_s": 27.17,
+   "peso_kb": 1501,
+   "guion": "WhatsApp, Instagram, Messenger y email, en una sola bandeja. Chats junta los mensajes de tus clientes, escriban por donde escriban, y en WhatsApp MaKo te sugiere qué contestar. Toca aquí, en Todos, y filtra por Míos, Sin asignar o Atiende MaKo. Toca aquí, en Canal, y mira sólo lo que llega por uno de ellos. Para empezar, toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.",
+   "frases": [
+    {
+     "id": "chats-1",
+     "rol": "gancho",
+     "texto": "WhatsApp, Instagram, Messenger y email, en una sola bandeja.",
+     "t_inicio": 0.1,
+     "t_fin": 4.4
+    },
+    {
+     "id": "chats-2",
+     "rol": "que-es",
+     "texto": "Chats junta los mensajes de tus clientes, escriban por donde escriban, y en WhatsApp MaKo te sugiere qué contestar.",
+     "t_inicio": 4.92,
+     "t_fin": 11.42
+    },
+    {
+     "id": "chats-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Todos, y filtra por Míos, Sin asignar o Atiende MaKo.",
+     "t_inicio": 11.86,
+     "t_fin": 16.84,
+     "sel": "button[aria-label=\"Bandeja, mostrar y orden\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "chats-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Canal, y mira sólo lo que llega por uno de ellos.",
+     "t_inicio": 17.3,
+     "t_fin": 21.2,
+     "sel": "button[aria-label=\"Canal\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "chats-5",
+     "rol": "cierre",
+     "texto": "Para empezar, toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.",
+     "t_inicio": 21.66,
+     "t_fin": 26.46,
+     "sel": "[data-recorrido=\"tour-chats-whatsapp\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:32:36.748Z"
+  },
+  {
+   "key": "classroom-community",
+   "pestana": "Community",
+   "ruta": "/classroom/community",
+   "archivo": "/tutoriales/classroom-community.mp4",
+   "poster": "/tutoriales/classroom-community.jpg",
+   "duracion_s": 27.33,
+   "peso_kb": 1518,
+   "guion": "Tus alumnos avanzan más cuando se acompañan. Community, una de las pestañas de Classroom, es donde conversan entre ellos, contigo y con tu equipo. Toca aquí, en Categorías, para ordenar los temas de tu comunidad. Toca aquí, en el menú de un post, y elige Fijar arriba para lo que nadie se puede perder. Abre la conversación tú: toca aquí, en Escribe algo, y suma un video, una encuesta o un archivo.",
+   "frases": [
+    {
+     "id": "classroom-community-1",
+     "rol": "gancho",
+     "texto": "Tus alumnos avanzan más cuando se acompañan.",
+     "t_inicio": 0.04,
+     "t_fin": 2.66
+    },
+    {
+     "id": "classroom-community-2",
+     "rol": "que-es",
+     "texto": "Community, una de las pestañas de Classroom, es donde conversan entre ellos, contigo y con tu equipo.",
+     "t_inicio": 3.14,
+     "t_fin": 9.1
+    },
+    {
+     "id": "classroom-community-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Categorías, para ordenar los temas de tu comunidad.",
+     "t_inicio": 9.54,
+     "t_fin": 13.36,
+     "sel": "[data-recorrido=\"tour-classroom-community-categorias\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "classroom-community-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en el menú de un post, y elige Fijar arriba para lo que nadie se puede perder.",
+     "t_inicio": 13.78,
+     "t_fin": 19.32,
+     "sel": "[data-recorrido=\"tour-classroom-community-menu-post\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "classroom-community-5",
+     "rol": "cierre",
+     "texto": "Abre la conversación tú: toca aquí, en Escribe algo, y suma un video, una encuesta o un archivo.",
+     "t_inicio": 19.74,
+     "t_fin": 26.64,
+     "sel": "[data-recorrido=\"tour-classroom-community-escribir\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "solo_pro": true,
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:33:59.250Z"
+  },
+  {
+   "key": "classroom-clients",
+   "pestana": "Clients",
+   "ruta": "/classroom/clients",
+   "archivo": "/tutoriales/classroom-clients.mp4",
+   "poster": "/tutoriales/classroom-clients.jpg",
+   "duracion_s": 25.53,
+   "peso_kb": 1380,
+   "guion": "Vender es la mitad; la otra mitad es entregar bien. Clients, en Classroom, te muestra en qué etapa de tu servicio va cada lead que ganaste en el CRM. Cada cliente tiene su ficha, con sus tareas, sus pagos, su curso y sus llamadas. Y arriba cambias la vista: Kanban, Lista, Miembros o Avance. Para sumar a tus clientes de antes, toca aquí, en Cargar un cliente.",
+   "frases": [
+    {
+     "id": "classroom-clients-1",
+     "rol": "gancho",
+     "texto": "Vender es la mitad; la otra mitad es entregar bien.",
+     "t_inicio": 0.1,
+     "t_fin": 3.62
+    },
+    {
+     "id": "classroom-clients-2",
+     "rol": "que-es",
+     "texto": "Clients, en Classroom, te muestra en qué etapa de tu servicio va cada lead que ganaste en el CRM.",
+     "t_inicio": 4.1,
+     "t_fin": 9.84
+    },
+    {
+     "id": "classroom-clients-3",
+     "rol": "cosa",
+     "texto": "Cada cliente tiene su ficha, con sus tareas, sus pagos, su curso y sus llamadas.",
+     "t_inicio": 10.38,
+     "t_fin": 15.6
+    },
+    {
+     "id": "classroom-clients-4",
+     "rol": "cosa",
+     "texto": "Y arriba cambias la vista: Kanban, Lista, Miembros o Avance.",
+     "t_inicio": 16.08,
+     "t_fin": 20.6
+    },
+    {
+     "id": "classroom-clients-5",
+     "rol": "cierre",
+     "texto": "Para sumar a tus clientes de antes, toca aquí, en Cargar un cliente.",
+     "t_inicio": 21.2,
+     "t_fin": 24.84,
+     "sel": "[data-recorrido=\"tour-classroom-clients-cargar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "cargar → encargar (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:35:51.876Z"
+  },
+  {
+   "key": "classroom-calendar",
+   "pestana": "Calendar del curso",
+   "ruta": "/classroom/calendar",
+   "archivo": "/tutoriales/classroom-calendar.mp4",
+   "poster": "/tutoriales/classroom-calendar.jpg",
+   "duracion_s": 24.8,
+   "peso_kb": 1371,
+   "guion": "Una llamada en grupo cada semana le da ritmo a tu programa. El Calendar del curso arma esas citas con tus alumnos. Toca aquí, en Nuevo evento: cada uno puede repetirse solo. Toca aquí, en Quién entra, y elige si es para todos, desde un nivel o para quien tenga un módulo. Suma el link de Zoom o Meet, o la dirección si es en persona, y toca aquí, en Crear evento.",
+   "frases": [
+    {
+     "id": "classroom-calendar-1",
+     "rol": "gancho",
+     "texto": "Una llamada en grupo cada semana le da ritmo a tu programa.",
+     "t_inicio": 0.1,
+     "t_fin": 3.48
+    },
+    {
+     "id": "classroom-calendar-2",
+     "rol": "que-es",
+     "texto": "El Calendar del curso arma esas citas con tus alumnos.",
+     "t_inicio": 3.9,
+     "t_fin": 7
+    },
+    {
+     "id": "classroom-calendar-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Nuevo evento: cada uno puede repetirse solo.",
+     "t_inicio": 7.4,
+     "t_fin": 11.32,
+     "sel": "[data-recorrido=\"tour-classroom-calendar-nuevo\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "classroom-calendar-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Quién entra, y elige si es para todos, desde un nivel o para quien tenga un módulo.",
+     "t_inicio": 11.78,
+     "t_fin": 17.84,
+     "sel": "[data-recorrido=\"tour-classroom-calendar-quien-entra\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "classroom-calendar-5",
+     "rol": "cierre",
+     "texto": "Suma el link de Zoom o Meet, o la dirección si es en persona, y toca aquí, en Crear evento.",
+     "t_inicio": 18.34,
+     "t_fin": 24.12,
+     "sel": "[data-recorrido=\"tour-classroom-calendar-crear\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "solo_pro": true,
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:37:30.393Z"
+  },
+  {
+   "key": "classroom-leaderboards",
+   "pestana": "Leaderboards",
+   "ruta": "/classroom/leaderboards",
+   "archivo": "/tutoriales/classroom-leaderboards.mp4",
+   "poster": "/tutoriales/classroom-leaderboards.jpg",
+   "duracion_s": 24.57,
+   "peso_kb": 1322,
+   "guion": "Un alumno que suma puntos vuelve más seguido. Leaderboards, dentro de Classroom, es el ranking de tu comunidad. Mira aquí, los niveles: cada like le suma un punto al alumno, y con los puntos sube de nivel. Toca aquí, en Últimos 7 días, Últimos 30 días o Total, para ver quién más sumó. Ponle nombre propio a cada nivel: toca aquí, en Nombres de los niveles.",
+   "frases": [
+    {
+     "id": "classroom-leaderboards-1",
+     "rol": "gancho",
+     "texto": "Un alumno que suma puntos vuelve más seguido.",
+     "t_inicio": 0.1,
+     "t_fin": 2.56
+    },
+    {
+     "id": "classroom-leaderboards-2",
+     "rol": "que-es",
+     "texto": "Leaderboards, dentro de Classroom, es el ranking de tu comunidad.",
+     "t_inicio": 3.08,
+     "t_fin": 6.6
+    },
+    {
+     "id": "classroom-leaderboards-3",
+     "rol": "accion",
+     "texto": "Mira aquí, los niveles: cada like le suma un punto al alumno, y con los puntos sube de nivel.",
+     "t_inicio": 7.06,
+     "t_fin": 13,
+     "sel": "[data-recorrido=\"tour-classroom-leaderboards-niveles\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "classroom-leaderboards-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Últimos 7 días, Últimos 30 días o Total, para ver quién más sumó.",
+     "t_inicio": 13.6,
+     "t_fin": 19.3,
+     "sel": "[data-recorrido=\"tour-classroom-leaderboards-ranking\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "classroom-leaderboards-5",
+     "rol": "cierre",
+     "texto": "Ponle nombre propio a cada nivel: toca aquí, en Nombres de los niveles.",
+     "t_inicio": 19.86,
+     "t_fin": 23.86,
+     "sel": "[data-recorrido=\"tour-classroom-leaderboards-nombres\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "solo_pro": true,
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "7 → siete · 30 → treinta (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:39:18.017Z"
+  },
+  {
+   "key": "classroom-about",
+   "pestana": "About",
+   "ruta": "/classroom/about",
+   "archivo": "/tutoriales/classroom-about.mp4",
+   "poster": "/tutoriales/classroom-about.jpg",
+   "duracion_s": 29.2,
+   "peso_kb": 1362,
+   "guion": "¿Qué lee primero quien entra a tu comunidad? About, otra pestaña de Classroom, cuenta de qué se trata y qué se espera de cada miembro. Toca aquí, en Editar, y escribe el nombre y una descripción corta. Mira aquí, Reglas: deja claro qué se puede publicar. Mira aquí, Publican desde: elige quién escribe, todos o quienes llegaron a un nivel. Cuando termines, toca aquí, en Guardar About, y quien entre ya sabe a qué viene.",
+   "frases": [
+    {
+     "id": "classroom-about-1",
+     "rol": "gancho",
+     "texto": "¿Qué lee primero quien entra a tu comunidad?",
+     "t_inicio": 0,
+     "t_fin": 2.1
+    },
+    {
+     "id": "classroom-about-2",
+     "rol": "que-es",
+     "texto": "About, otra pestaña de Classroom, cuenta de qué se trata y qué se espera de cada miembro.",
+     "t_inicio": 2.62,
+     "t_fin": 7.9
+    },
+    {
+     "id": "classroom-about-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Editar, y escribe el nombre y una descripción corta.",
+     "t_inicio": 8.42,
+     "t_fin": 12.52,
+     "sel": "[data-recorrido=\"tour-classroom-about-editar\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "classroom-about-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Reglas: deja claro qué se puede publicar.",
+     "t_inicio": 13.12,
+     "t_fin": 16.88,
+     "sel": "[data-recorrido=\"tour-classroom-about-reglas\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "classroom-about-5",
+     "rol": "accion",
+     "texto": "Mira aquí, Publican desde: elige quién escribe, todos o quienes llegaron a un nivel.",
+     "t_inicio": 17.46,
+     "t_fin": 22.92,
+     "sel": "[data-recorrido=\"tour-classroom-about-publican\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "classroom-about-6",
+     "rol": "cierre",
+     "texto": "Cuando termines, toca aquí, en Guardar About, y quien entre ya sabe a qué viene.",
+     "t_inicio": 23.46,
+     "t_fin": 28.5,
+     "sel": "[data-recorrido=\"tour-classroom-about-guardar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "solo_pro": true,
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:41:26.206Z"
+  },
+  {
+   "key": "settings-seguridad",
+   "pestana": "Seguridad",
+   "ruta": "/perfil/seguridad",
+   "archivo": "/tutoriales/settings-seguridad.mp4",
+   "poster": "/tutoriales/settings-seguridad.jpg",
+   "duracion_s": 29.73,
+   "peso_kb": 1389,
+   "guion": "Si alguien consigue tu correo, no debería entrar a tu negocio. Seguridad, en Configuración, te muestra lo que le falta a tu cuenta para protegerla. Toca aquí, en Verificación en 2 pasos, para que entrar pida un código de tu celular. Mira aquí, en Configurar: escaneas el código con tu app de autenticación. Guarda tus diez códigos de recuperación: no se vuelven a mostrar. Desde ese momento, tu correo solo ya no alcanza para entrar a tu negocio.",
+   "frases": [
+    {
+     "id": "settings-seguridad-1",
+     "rol": "gancho",
+     "texto": "Si alguien consigue tu correo, no debería entrar a tu negocio.",
+     "t_inicio": 0.14,
+     "t_fin": 3.72
+    },
+    {
+     "id": "settings-seguridad-2",
+     "rol": "que-es",
+     "texto": "Seguridad, en Configuración, te muestra lo que le falta a tu cuenta para protegerla.",
+     "t_inicio": 4.2,
+     "t_fin": 9.18
+    },
+    {
+     "id": "settings-seguridad-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Verificación en 2 pasos, para que entrar pida un código de tu celular.",
+     "t_inicio": 9.62,
+     "t_fin": 14.74,
+     "sel": "[data-recorrido=\"tour-settings-seguridad-2-pasos\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "settings-seguridad-4",
+     "rol": "accion",
+     "texto": "Mira aquí, en Configurar: escaneas el código con tu app de autenticación.",
+     "t_inicio": 15.22,
+     "t_fin": 19.8,
+     "sel": "[data-recorrido=\"tour-settings-seguridad-configurar\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-seguridad-5",
+     "rol": "cosa",
+     "texto": "Guarda tus diez códigos de recuperación: no se vuelven a mostrar.",
+     "t_inicio": 20.26,
+     "t_fin": 24.12
+    },
+    {
+     "id": "settings-seguridad-6",
+     "rol": "cierre",
+     "texto": "Desde ese momento, tu correo solo ya no alcanza para entrar a tu negocio.",
+     "t_inicio": 24.58,
+     "t_fin": 29.04,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "2 → dos (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:43:33.900Z"
+  },
+  {
+   "key": "settings-notificaciones",
+   "pestana": "Notificaciones",
+   "ruta": "/perfil/notificaciones",
+   "archivo": "/tutoriales/settings-notificaciones.mp4",
+   "poster": "/tutoriales/settings-notificaciones.jpg",
+   "duracion_s": 26.9,
+   "peso_kb": 1475,
+   "guion": "Un mensaje sin responder no puede esperar a que abras MaKo. En Notificaciones, dentro de Configuración, eliges por dónde te avisa: En la app, Celular, WhatsApp o Email. Toca aquí, en Celular, para que los avisos te lleguen al teléfono. Mira aquí, Avisos al celular: préndelos y te llegan al teléfono. Así te enteras a tiempo de cada mensaje, y en No molestar eliges tus horas de silencio.",
+   "frases": [
+    {
+     "id": "settings-notificaciones-1",
+     "rol": "gancho",
+     "texto": "Un mensaje sin responder no puede esperar a que abras MaKo.",
+     "t_inicio": 0.08,
+     "t_fin": 3.48
+    },
+    {
+     "id": "settings-notificaciones-2",
+     "rol": "que-es",
+     "texto": "En Notificaciones, dentro de Configuración, eliges por dónde te avisa: En la app, Celular, WhatsApp o Email.",
+     "t_inicio": 3.98,
+     "t_fin": 11.52
+    },
+    {
+     "id": "settings-notificaciones-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Celular, para que los avisos te lleguen al teléfono.",
+     "t_inicio": 12.1,
+     "t_fin": 15.6,
+     "sel": "a[href=\"/perfil/notificaciones?canal=celular\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "settings-notificaciones-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Avisos al celular: préndelos y te llegan al teléfono.",
+     "t_inicio": 16.28,
+     "t_fin": 20.42,
+     "sel": "[data-recorrido=\"tour-settings-notificaciones-avisos-celular\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-notificaciones-5",
+     "rol": "cierre",
+     "texto": "Así te enteras a tiempo de cada mensaje, y en No molestar eliges tus horas de silencio.",
+     "t_inicio": 20.86,
+     "t_fin": 26.22,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:45:15.130Z"
+  },
+  {
+   "key": "settings-instalar",
+   "pestana": "Instalar la app",
+   "ruta": "/perfil/instalar",
+   "archivo": "/tutoriales/settings-instalar.mp4",
+   "poster": "/tutoriales/settings-instalar.jpg",
+   "duracion_s": 28.63,
+   "peso_kb": 1379,
+   "guion": "MaKo en tu computadora, en tu celular y en Chrome. Instalar la app, en Configuración, te guía en cada uno. Mira aquí, el QR: escanéalo con tu celular. En iPhone, Compartir y Agregar a inicio; en Android, Instalar app. Mira aquí, Extensión para Chrome: con ella, tus videos se hacen con tu cuenta de Google Flow. Empieza por la computadora: toca aquí, en Descargar, y tus chats con MaKo usan tu suscripción de Claude o ChatGPT.",
+   "frases": [
+    {
+     "id": "settings-instalar-1",
+     "rol": "gancho",
+     "texto": "MaKo en tu computadora, en tu celular y en Chrome.",
+     "t_inicio": 0.1,
+     "t_fin": 3.02
+    },
+    {
+     "id": "settings-instalar-2",
+     "rol": "que-es",
+     "texto": "Instalar la app, en Configuración, te guía en cada uno.",
+     "t_inicio": 3.44,
+     "t_fin": 6.64
+    },
+    {
+     "id": "settings-instalar-3",
+     "rol": "accion",
+     "texto": "Mira aquí, el QR: escanéalo con tu celular. En iPhone, Compartir y Agregar a inicio; en Android, Instalar app.",
+     "t_inicio": 7.06,
+     "t_fin": 14.9,
+     "sel": "img.aj-telefono__qr",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-instalar-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Extensión para Chrome: con ella, tus videos se hacen con tu cuenta de Google Flow.",
+     "t_inicio": 15.3,
+     "t_fin": 20.62,
+     "sel": "[data-recorrido=\"tour-settings-instalar-extension\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-instalar-5",
+     "rol": "cierre",
+     "texto": "Empieza por la computadora: toca aquí, en Descargar, y tus chats con MaKo usan tu suscripción de Claude o ChatGPT.",
+     "t_inicio": 20.98,
+     "t_fin": 27.94,
+     "sel": "a[href^=\"/api/ia-pc/descargar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "claude → cloud (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:48:25.778Z"
+  },
+  {
+   "key": "settings-equipo",
+   "pestana": "Equipo",
+   "ruta": "/equipo",
+   "archivo": "/tutoriales/settings-equipo.mp4",
+   "poster": "/tutoriales/settings-equipo.jpg",
+   "duracion_s": 27.7,
+   "peso_kb": 1524,
+   "guion": "Si vendes con más gente, que cada uno vea lo suyo, y nada más. Equipo, en Configuración, suma a quien trabaja contigo, con su rol. Mira aquí, el rol: elige Setter, Closer o Admin. El Admin ve todo, y los otros dos, lo que les toca. Toca aquí, en los tres puntos, para reenviarle el acceso, suspender o quitar a esa persona. Pruébalo ya: toca aquí, en Invitar, escribe su correo y elige su rol.",
+   "frases": [
+    {
+     "id": "settings-equipo-1",
+     "rol": "gancho",
+     "texto": "Si vendes con más gente, que cada uno vea lo suyo, y nada más.",
+     "t_inicio": 0.1,
+     "t_fin": 3.88
+    },
+    {
+     "id": "settings-equipo-2",
+     "rol": "que-es",
+     "texto": "Equipo, en Configuración, suma a quien trabaja contigo, con su rol.",
+     "t_inicio": 4.38,
+     "t_fin": 8.74
+    },
+    {
+     "id": "settings-equipo-3",
+     "rol": "accion",
+     "texto": "Mira aquí, el rol: elige Setter, Closer o Admin. El Admin ve todo, y los otros dos, lo que les toca.",
+     "t_inicio": 9.14,
+     "t_fin": 16.42,
+     "sel": "button[aria-label^=\"Rol de \"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-equipo-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en los tres puntos, para reenviarle el acceso, suspender o quitar a esa persona.",
+     "t_inicio": 16.74,
+     "t_fin": 22.18,
+     "sel": "button[aria-label^=\"Acciones sobre \"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "settings-equipo-5",
+     "rol": "cierre",
+     "texto": "Pruébalo ya: toca aquí, en Invitar, escribe su correo y elige su rol.",
+     "t_inicio": 22.5,
+     "t_fin": 27,
+     "sel": "[data-recorrido=\"tour-equipo-invitar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:51:11.641Z"
+  },
+  {
+   "key": "settings-fiscal",
+   "pestana": "Identidades fiscales",
+   "ruta": "/configuraciones/fiscal",
+   "archivo": "/tutoriales/settings-fiscal.mp4",
+   "poster": "/tutoriales/settings-fiscal.jpg",
+   "duracion_s": 30.27,
+   "peso_kb": 1391,
+   "guion": "Tus datos fiscales se cargan una vez y sirven en cada venta. Identidades fiscales, en Configuración, guarda tu moneda y cada empresa con la que facturas. Toca aquí, en Agregar, para sumar una empresa con su RFC, CUIT o NIT, su domicilio y su correo. Mira aquí, Llenar desde un PDF o una foto: MaKo completa los campos por ti. Después, en cada venta del CRM eliges cuál factura en Facturado por, sin volver a escribir nada.",
+   "frases": [
+    {
+     "id": "settings-fiscal-1",
+     "rol": "gancho",
+     "texto": "Tus datos fiscales se cargan una vez y sirven en cada venta.",
+     "t_inicio": 0.08,
+     "t_fin": 3.74
+    },
+    {
+     "id": "settings-fiscal-2",
+     "rol": "que-es",
+     "texto": "Identidades fiscales, en Configuración, guarda tu moneda y cada empresa con la que facturas.",
+     "t_inicio": 4.24,
+     "t_fin": 9.78
+    },
+    {
+     "id": "settings-fiscal-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Agregar, para sumar una empresa con su RFC, CUIT o NIT, su domicilio y su correo.",
+     "t_inicio": 10.32,
+     "t_fin": 17.06,
+     "sel": "[data-recorrido=\"tour-settings-fiscal-agregar\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "settings-fiscal-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Llenar desde un PDF o una foto: MaKo completa los campos por ti.",
+     "t_inicio": 17.64,
+     "t_fin": 22.7,
+     "sel": "[data-recorrido=\"tour-settings-fiscal-llenar\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-fiscal-5",
+     "rol": "cierre",
+     "texto": "Después, en cada venta del CRM eliges cuál factura en Facturado por, sin volver a escribir nada.",
+     "t_inicio": 23.3,
+     "t_fin": 29.58,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:52:50.996Z"
+  },
+  {
+   "key": "settings-plan",
+   "pestana": "Tu plan",
+   "ruta": "/configuraciones/plan",
+   "archivo": "/tutoriales/settings-plan.mp4",
+   "poster": "/tutoriales/settings-plan.jpg",
+   "duracion_s": 21.2,
+   "peso_kb": 1239,
+   "guion": "Cero sorpresas el día del cobro. Tu plan, en Configuración, te dice qué día termina tu prueba gratis y cuánto se cobra. Mira aquí, Pasar a MaKo Pro: si quieres más, pídelo y te lo cambiamos antes de que termine tu prueba. Si te convenció, toca aquí, en Empezar mi plan ya: pagas desde hoy y se van los topes de la prueba.",
+   "frases": [
+    {
+     "id": "settings-plan-1",
+     "rol": "gancho",
+     "texto": "Cero sorpresas el día del cobro.",
+     "t_inicio": 0.1,
+     "t_fin": 1.86
+    },
+    {
+     "id": "settings-plan-2",
+     "rol": "que-es",
+     "texto": "Tu plan, en Configuración, te dice qué día termina tu prueba gratis y cuánto se cobra.",
+     "t_inicio": 2.28,
+     "t_fin": 7.44
+    },
+    {
+     "id": "settings-plan-3",
+     "rol": "accion",
+     "texto": "Mira aquí, Pasar a MaKo Pro: si quieres más, pídelo y te lo cambiamos antes de que termine tu prueba.",
+     "t_inicio": 7.94,
+     "t_fin": 13.78,
+     "sel": "[data-recorrido=\"tour-settings-plan-pro\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-plan-4",
+     "rol": "cierre",
+     "texto": "Si te convenció, toca aquí, en Empezar mi plan ya: pagas desde hoy y se van los topes de la prueba.",
+     "t_inicio": 14.26,
+     "t_fin": 20.5,
+     "sel": "[data-recorrido=\"tour-settings-plan-empezar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:54:01.009Z"
+  },
+  {
+   "key": "partners",
+   "pestana": "MaKo Partners",
+   "ruta": "/partners",
+   "archivo": "/tutoriales/partners.mp4",
+   "poster": "/tutoriales/partners.jpg",
+   "duracion_s": 25.63,
+   "peso_kb": 1445,
+   "guion": "Cada negocio que traes a MaKo te deja su primer mes entero, en dinero. MaKo Partners, en el menú de tu foto, te paga por recomendar MaKo. Mira aquí, Hacerme partner: es gratis, son tres preguntas y tu link aparece al instante. Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes. Listo: comparte tu link, y si alguien no entra por él, que ponga tu código al pagar.",
+   "frases": [
+    {
+     "id": "partners-1",
+     "rol": "gancho",
+     "texto": "Cada negocio que traes a MaKo te deja su primer mes entero, en dinero.",
+     "t_inicio": 0.06,
+     "t_fin": 4.32
+    },
+    {
+     "id": "partners-2",
+     "rol": "que-es",
+     "texto": "MaKo Partners, en el menú de tu foto, te paga por recomendar MaKo.",
+     "t_inicio": 4.92,
+     "t_fin": 8.6
+    },
+    {
+     "id": "partners-3",
+     "rol": "accion",
+     "texto": "Mira aquí, Hacerme partner: es gratis, son tres preguntas y tu link aparece al instante.",
+     "t_inicio": 8.98,
+     "t_fin": 14.68,
+     "sel": "[data-recorrido=\"tour-partners-hacerme\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "partners-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes.",
+     "t_inicio": 15.16,
+     "t_fin": 19.78,
+     "sel": "[data-recorrido=\"tour-partners-a-cobrar\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "partners-5",
+     "rol": "cierre",
+     "texto": "Listo: comparte tu link, y si alguien no entra por él, que ponga tu código al pagar.",
+     "t_inicio": 20.26,
+     "t_fin": 24.94,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:55:17.037Z"
+  },
+  {
+   "key": "agency",
+   "pestana": "Agency Dashboard",
+   "ruta": "/agency",
+   "archivo": "/tutoriales/agency.mp4",
+   "poster": "/tutoriales/agency.jpg",
+   "duracion_s": 27.73,
+   "peso_kb": 1325,
+   "guion": "Si tienes una agencia, entra a la cuenta de cada cliente con un clic. Agency Dashboard, en las opciones de tu foto, junta las cuentas de tus clientes. Mira aquí, Así de simple: abres cada cuenta desde un lead, y la pagas tú o tu cliente. Mira aquí, ¿Partner o Agency?: ahí ves en qué se diferencian. Con MaKo Pro activo, toca aquí, en Sumarme como Agency: a tus clientes no les mandamos promociones ni otros planes.",
+   "frases": [
+    {
+     "id": "agency-1",
+     "rol": "gancho",
+     "texto": "Si tienes una agencia, entra a la cuenta de cada cliente con un clic.",
+     "t_inicio": 0.1,
+     "t_fin": 4.1
+    },
+    {
+     "id": "agency-2",
+     "rol": "que-es",
+     "texto": "Agency Dashboard, en las opciones de tu foto, junta las cuentas de tus clientes.",
+     "t_inicio": 4.62,
+     "t_fin": 9.1
+    },
+    {
+     "id": "agency-3",
+     "rol": "accion",
+     "texto": "Mira aquí, Así de simple: abres cada cuenta desde un lead, y la pagas tú o tu cliente.",
+     "t_inicio": 9.46,
+     "t_fin": 15.1,
+     "sel": "[data-recorrido=\"tour-agency-asi-de-simple\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "agency-4",
+     "rol": "accion",
+     "texto": "Mira aquí, ¿Partner o Agency?: ahí ves en qué se diferencian.",
+     "t_inicio": 15.46,
+     "t_fin": 19.38,
+     "sel": "[data-recorrido=\"tour-agency-partner-o-agency\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "agency-5",
+     "rol": "cierre",
+     "texto": "Con MaKo Pro activo, toca aquí, en Sumarme como Agency: a tus clientes no les mandamos promociones ni otros planes.",
+     "t_inicio": 19.7,
+     "t_fin": 27.04,
+     "sel": "[data-recorrido=\"tour-agency-sumarme\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:58:13.472Z"
+  },
+  {
+   "key": "api",
+   "pestana": "API",
+   "ruta": "/api-mako",
+   "archivo": "/tutoriales/api.mp4",
+   "poster": "/tutoriales/api.jpg",
+   "duracion_s": 31.1,
+   "peso_kb": 1384,
+   "guion": "Si usas n8n, Zapier o Make, ponlos a trabajar con tu negocio. Con la API, que sale al pasar el cursor por tu foto, esas herramientas leen y escriben en tu cuenta. Toca aquí, en Documentación, y encuentra lo que se puede pedir, con ejemplos. Toca aquí, en Tokens: cada uno es una llave con nombre, vencimiento y áreas. Toca aquí, en Generar nuevo token, y cópialo apenas aparece: con él, tus herramientas trabajan solas con tu negocio.",
+   "frases": [
+    {
+     "id": "api-1",
+     "rol": "gancho",
+     "texto": "Si usas n8n, Zapier o Make, ponlos a trabajar con tu negocio.",
+     "t_inicio": 0.1,
+     "t_fin": 4.94
+    },
+    {
+     "id": "api-2",
+     "rol": "que-es",
+     "texto": "Con la API, que sale al pasar el cursor por tu foto, esas herramientas leen y escriben en tu cuenta.",
+     "t_inicio": 5.42,
+     "t_fin": 11.24
+    },
+    {
+     "id": "api-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Documentación, y encuentra lo que se puede pedir, con ejemplos.",
+     "t_inicio": 11.78,
+     "t_fin": 16.36,
+     "sel": "[data-recorrido=\"tour-api-documentacion\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "api-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Tokens: cada uno es una llave con nombre, vencimiento y áreas.",
+     "t_inicio": 16.82,
+     "t_fin": 22.32,
+     "sel": "[data-recorrido=\"tour-api-tokens\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "api-5",
+     "rol": "cierre",
+     "texto": "Toca aquí, en Generar nuevo token, y cópialo apenas aparece: con él, tus herramientas trabajan solas con tu negocio.",
+     "t_inicio": 22.82,
+     "t_fin": 30.4,
+     "sel": "[data-recorrido=\"tour-api-generar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T08:01:11.920Z"
+  },
+  {
+   "key": "report-problem",
+   "pestana": "Report a problem",
+   "ruta": "/tickets",
+   "archivo": "/tutoriales/report-problem.mp4",
+   "poster": "/tutoriales/report-problem.jpg",
+   "duracion_s": 25.8,
+   "peso_kb": 1504,
+   "guion": "Si algo no anda o te falta una función, que el equipo lo sepa. Report a problem, al apoyar el cursor sobre tu foto, lleva tu pedido al equipo. Mira aquí, Cuéntale a MaKo qué pasó: escríbelo con tus palabras. Mira aquí, el ticket que arma MaKo: revisa que diga lo que pasó antes de mandarlo. Cuando esté claro, toca aquí, en Mandárselo al equipo: si te preguntan algo, verás Espera tu respuesta.",
+   "frases": [
+    {
+     "id": "report-problem-1",
+     "rol": "gancho",
+     "texto": "Si algo no anda o te falta una función, que el equipo lo sepa.",
+     "t_inicio": 0.14,
+     "t_fin": 3.96
+    },
+    {
+     "id": "report-problem-2",
+     "rol": "que-es",
+     "texto": "Report a problem, al apoyar el cursor sobre tu foto, lleva tu pedido al equipo.",
+     "t_inicio": 4.42,
+     "t_fin": 8.94
+    },
+    {
+     "id": "report-problem-3",
+     "rol": "accion",
+     "texto": "Mira aquí, Cuéntale a MaKo qué pasó: escríbelo con tus palabras.",
+     "t_inicio": 9.54,
+     "t_fin": 13.28,
+     "sel": "textarea[aria-label=\"Cuéntale a MaKo qué pasó\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "report-problem-4",
+     "rol": "accion",
+     "texto": "Mira aquí, el ticket que arma MaKo: revisa que diga lo que pasó antes de mandarlo.",
+     "t_inicio": 13.78,
+     "t_fin": 18.56,
+     "sel": "[data-tarjeta=\"ticket\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "report-problem-5",
+     "rol": "cierre",
+     "texto": "Cuando esté claro, toca aquí, en Mandárselo al equipo: si te preguntan algo, verás Espera tu respuesta.",
+     "t_inicio": 18.98,
+     "t_fin": 25.12,
+     "sel": "[data-tarjeta=\"ticket\"] button.co-chip--primario",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T08:03:17.729Z"
   }
  ]
 }
