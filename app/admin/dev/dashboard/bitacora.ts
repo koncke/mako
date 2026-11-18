@@ -1364,4 +1364,30 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '18 nov', hora: '05:02', chat: 'Dashboard (nube, octubre)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Restos del Dashboard: la venta en su funnel, mirar sin cambiar, General con el funnel de la hoja y MaKo armando',
+    puntos: [
+      '**Por fecha de cierre, la venta de un lead que se sumó a otro funnel va donde la pone el objetivo**, no a cero.',
+      '**Mirando una hoja ya no se puede cambiar su contenido**: se crean, archivan y ordenan hojas, se edita la cabecera y se suman filtros; lo demás pide «Editar».',
+      '**«Tu funnel hoy» y «A quién cobrarle» de General miran el funnel que filtra la hoja.** Que los bloques sigan el período quedó como plan.',
+      '**Lo que MaKo arma en una hoja aparece de a una tarjeta**, con «Ver todo» y sin animación para quien la tiene apagada.',
+      '«Publicar una hoja en Creaciones» ya lo había hecho «Guardar como plantilla» (1fe0232071): no se escribió otro.',
+    ],
+    commits: [
+      { sha: 'f71541db8', msg: 'Dashboard: por fecha de cierre, la venta de un lead agregado va al funnel donde la pone el OKR', lineas: 246, archivos: 8 },
+      { sha: '267e0d92f', msg: 'Dashboard: guardar mirando ya no puede cambiar el contenido de una hoja', lineas: 298, archivos: 10 },
+      { sha: '7c055bf9f', msg: 'General: «Tu funnel hoy» mira el funnel que filtra la hoja', lineas: 149, archivos: 6 },
+      { sha: '30b505807', msg: 'Dashboard: lo que MaKo arma en una hoja aparece de a una tarjeta', lineas: 205, archivos: 8 },
+      { sha: 'a2a43173e', msg: 'dashboard: guardar mirando compara sólo contra las hojas a la vista (O10 2, la archivada con el mismo id)', lineas: 20, archivos: 3 },
+    ],
+    archivos: [
+      'lib/graficos-funnel-fila.ts · lib/graficos-agregar.ts (`duenoDe`) — la venta en su funnel',
+      'lib/graficos-guardar-mirando.ts · lib/graficos-tablero.ts · app/api/graficos/route.ts — mirar sin cambiar',
+      'app/general/funnels-de-la-hoja.ts — General con el funnel de la hoja',
+      'app/dashboard/armado-hoja.ts · ArmadoDeHoja.tsx — MaKo armando',
+    ],
+    revisar: '/dashboard',
+  },
 ];

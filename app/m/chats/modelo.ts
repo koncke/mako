@@ -16,7 +16,7 @@
 // =============================================================================
 
 import type { CanalChat, ChatResumen } from '@/lib/chats-tipos';
-import { FILTRO_INICIAL, type FiltroChats, type MostrarChats, type OrdenChats, type VistaChats, type ConteosBandeja } from '@/lib/chats-reglas';
+import { FILTRO_INICIAL, claveCuenta, type FiltroChats, type MostrarChats, type OpcionCanal, type OrdenChats, type VistaChats, type ConteosBandeja } from '@/lib/chats-reglas';
 import { previewDe, type LinkProfundo } from '@/app/chats/lista-reglas';
 
 /** Cuántas conversaciones viajan al teléfono (las más recientes). Lo demás, en la computadora. */
@@ -80,19 +80,28 @@ export function bandejasVisibles(c: ConteosBandeja): BandejaM[] {
   return BANDEJAS_M.filter((b) => b.siempre || conteoDeBandeja(c, b.id).n > 0);
 }
 
-/** «Abiertas, Más recientes»: el rótulo del botón del filtro dice las dos cosas, como escritorio. */
-export function rotuloFiltro(f: Pick<FiltroChats, 'mostrar' | 'orden' | 'canal'>): string {
+/**
+ * «Abiertas, Más recientes»: el rótulo del botón del filtro dice las dos cosas, como escritorio. Con un canal elegido, va
+ * adelante: el rótulo de SU renglón (`opcionesDeCanal`: «WhatsApp (MaKo)» si es una de varias líneas) o, sin él, el del canal.
+ */
+export function rotuloFiltro(f: Pick<FiltroChats, 'mostrar' | 'orden' | 'canal'>, rotuloCanal?: string | null): string {
   const m = MOSTRAR_M.find((x) => x.v === f.mostrar)?.label ?? 'Abiertas';
   const o = ORDEN_M.find((x) => x.v === f.orden)?.label ?? 'Más recientes';
-  const c = f.canal ? CANALES_M.find((x) => x.v === f.canal)?.label : null;
+  const c = f.canal ? (rotuloCanal || CANALES_M.find((x) => x.v === f.canal)?.label) : null;
   return c ? `${c} · ${m}, ${o}` : `${m}, ${o}`;
 }
 
-/** Los canales que aparecen en la lista (para no ofrecer en el filtro uno que no hay). */
-export function canalesPresentes(chats: readonly Pick<ChatResumen, 'canales'>[]): CanalChat[] {
-  const hay = new Set<CanalChat>();
-  for (const c of chats) for (const i of c.canales) hay.add(i.canal);
-  return CANALES_M.map((x) => x.v).filter((v) => hay.has(v));
+/** Lo de abajo de un renglón de canal, como el chip de escritorio: «Desconectado» o «2 sin leer»; sin nada, nada. */
+export function segundaDeCanal(o: OpcionCanal, c: Pick<ConteosBandeja, 'porCanal' | 'porCuenta'>): string | undefined {
+  if (o.desconectado) return 'Desconectado';
+  const n = (o.cuenta == null ? c.porCanal[o.canal] : c.porCuenta[claveCuenta(o.canal, o.cuenta)])?.nuevos ?? 0;
+  return n > 0 ? `${n > 99 ? '99+' : n} sin leer` : undefined;
+}
+
+/** El renglón del filtro que está elegido (el canal y la cuenta del filtro), o null con «Todos». */
+export function opcionElegida(opciones: readonly OpcionCanal[], f: Pick<FiltroChats, 'canal' | 'cuenta'>): OpcionCanal | null {
+  if (f.canal == null) return null;
+  return opciones.find((o) => o.canal === f.canal && o.cuenta === f.cuenta) ?? null;
 }
 
 /**
