@@ -107,7 +107,7 @@ import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { useMenuContextual } from '@/app/_ui/useMenuContextual';
 import { itemsRenglonLanding } from './menu-contextual-landings';
 import {
-  CSS_GP, DialogoBorradores, DialogoGamma, Filtros, Ico, ItemMenu, MenuFlotante, MiniaturaLanding, MuestraTema, SeparadorMenu,
+  CSS_GP, DialogoBorradores, DialogoGamma, Filtros, Ico, MiniaturaLanding, MuestraTema,
   TileTema, URL_FUENTE_CHROME, haceCuanto, irDuro, pedirDocs, useAviso,
 } from './MiniaturaLanding';
 import {
@@ -204,7 +204,6 @@ export function Inicio(props: PropsInicio) {
   const [derecha, setDerecha] = useState<Derecha>(props.derechaInicial);
   const [q, setQ] = useState('');
   const [ahora, setAhora] = useState(props.ahora);
-  const [menu, setMenu] = useState<{ fila: FilaPanel; ancla: HTMLElement } | null>(null);
   const [renombrando, setRenombrandoEstado] = useState<{ id: number; texto: string } | null>(null);
   const [dialogo, setDialogo] = useState<Dialogo | null>(() => {
     const d = props.disenoInicial ? plantillasDe('landing').find((p) => p.id === props.disenoInicial) : null;
@@ -256,11 +255,20 @@ export function Inicio(props: PropsInicio) {
     campoNombre.current?.select();
   }, [idRenombrando]);
 
-  const cerrarMenu = useCallback(() => setMenu(null), []);
-  // El clic derecho (y mantener presionado) de un renglón: lo mismo que su «⋯» (menu-contextual-landings.ts), por `clave`.
+  // El clic derecho (y mantener presionado) de un renglón y su «⋯» abren el MISMO menú (menu-contextual-landings.ts), por
+  // `clave` (18/11/2026, F119: hasta ese día el «⋯» era un MenuFlotante con su propia lista).
   const menuCtx = useMenuContextual<string>();
-  // Un menú por vez: el clic derecho (o mantener presionado) cierra el «⋯» que estaba abierto.
-  useEffect(() => { if (menuCtx.abierto) setMenu(null); }, [menuCtx.abierto]);
+  /**
+   * Un toque en el «⋯» con su menú abierto lo CIERRA: el menú se cierra solo en el `pointerdown` (un toque afuera), y sin
+   * esto el `click` que sigue lo volvía a abrir. Se anota en el `pointerdown`, antes de que el cierre llegue a la pantalla.
+   */
+  const masEstabaAbierto = useRef(false);
+  /** El «⋯» de un renglón: el menú de su clic derecho, debajo del botón (la pieza lo corre si no entra). */
+  const abrirMenuDesde = (clave: string, boton: HTMLElement) => {
+    if (masEstabaAbierto.current) { masEstabaAbierto.current = false; return; }
+    const r = boton.getBoundingClientRect();
+    menuCtx.abrir(clave, r.left, r.bottom + 4);
+  };
   const cerrarDialogo = useCallback(() => setDialogo(null), []);
   const cerrarDiagnostico = useCallback(() => setDerecha({ tipo: 'crear' }), []);
   const cerrarBorradores = useCallback(() => setBorradores(null), []);
@@ -517,7 +525,7 @@ export function Inicio(props: PropsInicio) {
       );
     }
     const activo = esDiagnosticoDe(derecha, f);
-    const abierto = menu?.fila.clave === f.clave;
+    const abierto = menuCtx.abierto?.de === f.clave;
     const icono = <Ico n={ICONO_FILA[f.tipo]} t={16} />;
     const nombre = <span className="gp-doc-nombre">{f.nombre}</span>;
     return (
@@ -537,7 +545,8 @@ export function Inicio(props: PropsInicio) {
           aria-label={`Más opciones de ${f.nombre}`}
           aria-haspopup="menu"
           aria-expanded={abierto}
-          onClick={(e) => setMenu(abierto ? null : { fila: f, ancla: e.currentTarget })}
+          onPointerDown={() => { masEstabaAbierto.current = abierto; }}
+          onClick={(e) => abrirMenuDesde(f.clave, e.currentTarget)}
         >
           <Ico n="puntos" t={16} />
         </button>
@@ -641,9 +650,8 @@ export function Inicio(props: PropsInicio) {
     contenido = <CajaCrear onAccion={alAccion} />;
   }
 
-  const mf = menu?.fila;
   const filaCtx = menuCtx.abierto ? filas.find((x) => x.clave === menuCtx.abierto?.de) ?? null : null;
-  /** Lo que hace cada renglón del clic derecho: las MISMAS llamadas que el «⋯» de abajo. */
+  /** Lo que hace cada renglón del menú de un renglón (lo abren su «⋯» y su clic derecho). */
   const elegirEnRenglon = (f: FilaPanel, id: string) => {
     if (id === 'diagnostico') { abrirDiagnostico(f); return; }
     if (f.tipo === 'analizada') {
@@ -708,39 +716,13 @@ export function Inicio(props: PropsInicio) {
         {contenido}
       </div>
 
-      {/* ── El clic derecho de un renglón (lo mismo que el «⋯» de abajo) ── */}
+      {/* ── El menú de un renglón: lo abren su «⋯» y su clic derecho ── */}
       {menuCtx.abierto && filaCtx && (
         <MenuContextual key={menuCtx.abierto.n} punto={{ x: menuCtx.abierto.x, y: menuCtx.abierto.y }} porDedo={menuCtx.abierto.porDedo}
           items={itemsRenglonLanding(filaCtx)} etiqueta={`Opciones de ${filaCtx.nombre}`} onCerrar={menuCtx.cerrar}
           onElegir={(id) => elegirEnRenglon(filaCtx, id)} />
       )}
 
-      {/* ── El «⋯» de un renglón ── */}
-      {menu && mf && (
-        <MenuFlotante ancla={menu.ancla} onCerrar={cerrarMenu}>
-          {mf.tipo === 'analizada' ? (
-            <>
-              <ItemMenu icono="reporte" texto="Diagnóstico" onClick={() => { setMenu(null); abrirDiagnostico(mf); }} />
-              <ItemMenu icono="flecha-externa" texto="Abrir la página" onClick={() => { setMenu(null); window.open(mf.url, '_blank', 'noopener,noreferrer'); }} />
-              <SeparadorMenu />
-              <ItemMenu peligro texto="Eliminar" onClick={() => { setMenu(null); setDialogo({ tipo: 'eliminarAnalizada', url: mf.url, nombre: mf.nombre }); }} />
-            </>
-          ) : (
-            <>
-              <ItemMenu icono="flecha-externa" texto="Abrir" onClick={() => { setMenu(null); router.push(`/web-generator/${mf.doc.id}`); }} />
-              <ItemMenu icono="reporte" texto="Diagnóstico" onClick={() => { setMenu(null); abrirDiagnostico(mf); }} />
-              <ItemMenu icono="lapiz" texto="Cambiar nombre" onClick={() => { setMenu(null); setRenombrando({ id: mf.doc.id, texto: mf.doc.titulo }); }} />
-              <ItemMenu icono="duplicar" texto="Duplicar" onClick={() => { setMenu(null); void duplicar(mf.doc); }} />
-              {!!mf.doc.slug && !!mf.doc.publicadoAt && (
-                <ItemMenu icono="enlace" texto="Copiar enlace público" onClick={() => { setMenu(null); void copiarEnlace(mf.doc); }} />
-              )}
-              <SeparadorMenu />
-              <ItemMenu icono="archivo" texto="Archivar" onClick={() => { setMenu(null); void archivar(mf.doc); }} />
-              <ItemMenu peligro texto="Eliminar" onClick={() => { setMenu(null); setDialogo({ tipo: 'eliminarDoc', doc: mf.doc }); }} />
-            </>
-          )}
-        </MenuFlotante>
-      )}
 
       {/* ── Diálogos ── */}
       {dialogo?.tipo === 'eliminarDoc' && (

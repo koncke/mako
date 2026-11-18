@@ -228,10 +228,13 @@ export async function restaurar(id: string) {
  *     (llegó a la base, el pedido «falló»), borrar los documentos dejaba 6 de 7 páginas abriendo «No existe». El documento
  *     sin fila queda hasta el reintento, que lo adopta.
  * Las hijas van debajo de su padre (`padreId`); si el padre no está todavía, la hija espera al reintento (no va a la raíz).
- * Devuelve cuántas creó y cuántas FALTAN (un documento que no se pudo escribir, o una hija sin su padre): con alguna, quien
- * llama no da la tanda por terminada. Las que el árbol no acepta (el tope, un padre en la Papelera) no se reintentan.
+ * Devuelve cuántas creó, cuántas FALTAN (un documento que no se pudo escribir, o una hija sin su padre) y cuántas no
+ * entraron por el TOPE de páginas (`sinLugar`, B4): con alguna de las dos, quien llama no da la tanda por terminada. Las que
+ * el árbol no acepta por otra cosa (un padre en la Papelera) no se reintentan.
+ * `actualizado` es la fecha con la que nace la página (B3, 18/11/2026: la del origen, nunca «ahora», para que lo mudado no le
+ * gane a la última página del usuario: lib/copywriter/mudanza-reglas.ts → `fechasDeLoMudado`). Sin ella, ahora.
  */
-export async function crearVarias(ps: readonly (PedidoCrear & { id: string; padreId: string | null })[]): Promise<{ ok: true; creadas: number; faltan: number } | Falla> {
+export async function crearVarias(ps: readonly (PedidoCrear & { id: string; padreId: string | null; actualizado?: string })[]): Promise<{ ok: true; creadas: number; faltan: number; sinLugar: number } | Falla> {
   let yaEstan: Set<string>;
   try { yaEstan = new Set((await leerIndiceCrudo()).paginas.map((p) => p.id)); } catch (e) { return falla(500, e instanceof Error ? e.message : 'No pude leer la lista de guiones.'); }
   const listos: { p: (typeof ps)[number]; valor: string }[] = [];
@@ -255,19 +258,23 @@ export async function crearVarias(ps: readonly (PedidoCrear & { id: string; padr
   const ahora = new Date().toISOString();
   let agregadas = 0;
   let sinPadre = 0;
+  let sinLugar = 0;
   const r = await cambiarIndice((paginas) => {
     // Pura y repetible: cambiarIndice la vuelve a correr si otra pestaña escribió el índice en el medio.
     agregadas = 0;
     sinPadre = 0;
+    sinLugar = 0;
     let actual = [...paginas];
     for (const x of escritos) {
       if (actual.some((q) => q.id === x.p.id)) continue;
       const padre = x.p.padreId;
       if (padre && !actual.some((q) => q.id === padre)) { sinPadre += 1; continue; }
+      // El tope de páginas (la misma cuenta que `agregar`): ésta espera a que haya lugar, y se dice (B4).
+      if (actual.filter((q) => !q.papelera).length >= TOPES.paginas) { sinLugar += 1; continue; }
       const a = agregar(actual, {
         id: x.p.id, titulo: (x.p.titulo ?? '').replace(/\s+/g, ' ').trim().slice(0, TOPES.titulo) || SIN_TITULO,
         emoji: typeof x.p.emoji === 'string' && x.p.emoji.trim() && x.p.emoji.length <= 16 ? x.p.emoji : null,
-        tipo: x.p.tipo, padre, actualizado: ahora,
+        tipo: x.p.tipo, padre, actualizado: typeof x.p.actualizado === 'string' && Date.parse(x.p.actualizado) >= 0 ? x.p.actualizado : ahora,
       }, padre ? undefined : 0);
       if (!a.ok) continue;
       actual = a.paginas;
@@ -276,5 +283,5 @@ export async function crearVarias(ps: readonly (PedidoCrear & { id: string; padr
     return { ok: true, paginas: actual };
   });
   if (!r.ok) return r;
-  return { ok: true, creadas: agregadas, faltan: noEscritos + sinPadre };
+  return { ok: true, creadas: agregadas, faltan: noEscritos + sinPadre, sinLugar };
 }

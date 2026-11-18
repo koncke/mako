@@ -233,3 +233,24 @@ export const nombraAMaKoEnElTexto = (texto: string): boolean => /\bmako\b/.test(
 /** Lo que se le pasa a la cola del doer. */
 export const tieneMediaLaFila = (f: Pick<FilaGrupo, 'adjunto'>): boolean => f.adjunto?.tipo === 'imagen' || f.adjunto?.tipo === 'pdf';
 export const tieneAudioLaFila = (f: Pick<FilaGrupo, 'adjunto'>): boolean => f.adjunto?.tipo === 'audio';
+
+/**
+ * Qué fila del hilo de la app va con qué id de WhatsApp, cuando un aviso sale POR PARTES (18/11/2026).
+ *
+ * `porParte[k]` es la fila que dejó la parte k en el hilo (null si no dejó: un texto vacío, o un video o un documento que no es
+ * PDF sin su texto, que el hilo no guarda), y `idsWa[k]` el `key.id` con que salió la parte k por WhatsApp (sólo las que
+ * salieron, en orden: el envío corta en la primera que falla). Se empareja por PARTE.
+ *
+ * ⚠️ Hasta el 18/11 se emparejaba por posición en la lista de FILAS (`copia.ids[i]` con `ids[i]`): una parte sin fila corría
+ * todos los ids siguientes, y la fila 2 quedaba atada al id de la parte 3. El eco por texto lo tapaba casi siempre, y por eso
+ * no se veía (docs/hallazgos-ops-center.md, «Atar el id de WhatsApp a la copia va por posición»).
+ */
+export function paresFilaWa(porParte: readonly (number | null)[], idsWa: readonly (string | null | undefined)[]): Array<{ fila: number; waId: string }> {
+  const pares: Array<{ fila: number; waId: string }> = [];
+  for (const [k, fila] of porParte.entries()) {
+    const waId = idsWa[k];
+    if (fila == null || typeof waId !== 'string' || !waId) continue;
+    pares.push({ fila, waId });
+  }
+  return pares;
+}

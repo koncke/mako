@@ -8534,7 +8534,7 @@ curl -L \
 
 ### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/configuracion` — Configurar una automatización
 
-PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos y hasta M por día, adentro del tope de la línea; UNO SOLO para todos sus canales —WhatsApp, email, Instagram y Messenger—, y cada canal cuenta sus mensajes), lo mismo que su tuerca en Automations. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.
+PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos, hasta M por día y en qué días, adentro del tope de la línea; uno para todos sus canales), como su tuerca. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/configurar_automatizacion`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
@@ -8555,11 +8555,12 @@ PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minu
 | `hasta` | number | no | con horario propio: la hora en que cierra (21 = hasta las 20:59). |
 | `dias` | string | no | con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos. |
 | `goteoMinutos` | number | no | opcional: minutos entre dos mensajes por canal. |
-| `goteoArranqueDia` | number | no | opcional: WhatsApp arranca con estos por día (con tope). |
+| `goteoArranqueDia` | number | no | opcional: WhatsApp arranca con estos por día. |
 | `goteoArranqueSube` | number | no | opcional: y sube esto cada día que llega al suyo. |
 | `sinArranque` | boolean | no | opcional: true lo saca. |
 | `goteoPorDia` | number | no | opcional: tope de mensajes en 24 h por canal. |
-| `sinGoteo` | boolean | no | opcional: true para sacarle el goteo y el tope por día. |
+| `goteoDias` | string | no | opcional: días en que salen, como dias («horario» = los del horario). |
+| `sinGoteo` | boolean | no | opcional: true le saca el goteo entero. |
 | `columnasEmail` | string | no | opcional: "enviado=key,abrio=key,clic=key,rebote=key", columnas de su CRM que siguen al email («ninguna» saca). |
 
 ```bash
