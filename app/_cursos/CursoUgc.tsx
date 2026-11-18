@@ -387,6 +387,7 @@ export default function CursoUgc(props: CursoUgcProps) {
                       data-arr-modulo={m.key}
                       draggable={movible || undefined}
                       onPointerDownCapture={movible ? arr.marcarOrigen : undefined}
+                      onPointerDown={movible ? (e) => arr.tocar(e, { tipo: 'modulo', key: m.key }) : undefined}
                       onDragStart={movible ? (e) => arr.agarrar(e, { tipo: 'modulo', key: m.key }) : undefined}
                       onDragEnd={movible ? arr.terminar : undefined}>
                       <span className="ugc-nav-num">{m.n}</span>
@@ -569,6 +570,7 @@ function Indice({ portada, clases, modulos, t, edicion, onAbrir, onModulo, estru
                   data-arr={arrastra ? m.key : undefined} data-recorrido={iMov === 0 ? 'modulo' : undefined}
                   draggable={arrastra || undefined}
                   onPointerDownCapture={arrastra ? arr.marcarOrigen : undefined}
+                  onPointerDown={arrastra ? (e) => arr.tocar(e, { tipo: 'modulo', key: m.key }) : undefined}
                   onDragStart={arrastra ? (e) => arr.agarrar(e, { tipo: 'modulo', key: m.key }) : undefined}
                   onDragEnd={arrastra ? arr.terminar : undefined}
                   onContextMenu={clicDerechoAlMenu(estructura.conMenuModulo ? (a) => estructura.mostrarOpciones({ tipo: 'modulo', key: m.key }, a) : null)}>
@@ -761,6 +763,7 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
                 <div className={`ugc-editable${arrastra ? ' ugc-arrastrable' : ''}`} data-arr={arrastra ? String(c.id) : undefined}
                   draggable={arrastra || undefined}
                   onPointerDownCapture={arrastra ? arr.marcarOrigen : undefined}
+                  onPointerDown={arrastra ? (e) => arr.tocar(e, { tipo: 'clase', id: c.id, moduloKey: c.moduloKey }) : undefined}
                   onDragStart={arrastra ? (e) => arr.agarrar(e, { tipo: 'clase', id: c.id, moduloKey: c.moduloKey }) : undefined}
                   onDragEnd={arrastra ? arr.terminar : undefined}
                   onContextMenu={clicDerechoAlMenu(estructura.conMenuClase ? (a) => estructura.mostrarOpciones({ tipo: 'clase', id: c.id }, a) : null)}>

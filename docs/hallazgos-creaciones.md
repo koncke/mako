@@ -74,3 +74,66 @@ en AGENTS.md.
 - **Sin tab en la barra**: se entra por `/creaciones` y por los botones «Publicar». Se le preguntó a Martín.
 - **No se verificó en el navegador** el 14/10: con ~19 chats en la máquina no había RAM para un `next dev`. Se
   verificó con tests (los dos archivos se rompieron a propósito) y aplicando la migración en prod.
+- ~~**El botón «Publicar» en el Dashboard**~~ — hecho el 18/11/2026, ver «El Dashboard enchufado» abajo. El de
+  Automations ya estaba.
+
+## El Dashboard enchufado, y por qué su pantalla NO usa `usar` (18/11/2026)
+
+**Vive en:** `lib/creaciones-dashboard.ts` (lo puro), el enchufe `dashboard` de `lib/creaciones-enchufes.ts`,
+`tomarCreacion` en `lib/creaciones.ts`, `app/dashboard/PlantillasPropiasHoja.tsx` y el «Guardar como plantilla» del ⋮ de
+una hoja (`app/dashboard/Cabecera.tsx` → `EditorInforme.tsx`). Lo prueba `tests/creaciones-dashboard.test.ts`.
+
+- **La definición es UNA hoja del informe de quien mira** (el informe es por persona y por negocio,
+  `lib/graficos-tablero.ts`). Compartida, sale con lo mismo que ya hacía pegar un dashboard en otro negocio
+  (`hojaParaCopiar` + `hojaParaOtroNegocio`, reusados tal cual) más lo que la limpieza de textos NO ve porque no es un
+  texto del negocio sino un link o un id: la dirección de una imagen, un video, un «Insertar» o un enlace de afuera, un
+  experimento ya arrancado (`experimento.id` es una fila del negocio) y los funnels de un bloque de General.
+- **La trampa: el `usar` del contrato ESCRIBE por detrás, y el Dashboard tiene el informe ABIERTO.** El editor autoguarda
+  el informe entero con compare-and-set (`guardarTableroSi`): una hoja que el server sumara mientras la pestaña está
+  abierta haría que el próximo autoguardado choque («Cambió en otra pestaña»), y además el editor no la vería (se monta
+  con `key="dashboard"` y no se re-siembra al navegar). Por eso hay DOS puertas con UNA regla: la pantalla pide la
+  definición (`tomarCreacion`: las mismas comprobaciones que `usarCreacion` y el uso contado) y la agrega ella con
+  `hojaParaUsar` + `crearHoja`; la galería y la API usan el `usar` del enchufe, que lee con su versión, suma con
+  `informeConHoja` (la misma regla de `crearHoja`: al final, o la única si estaba en blanco, y el tope de hojas) y
+  reintenta una vez si alguien guardó en el medio. **Una tab nueva cuyo editor guarde un documento abierto con versión
+  va por `tomar`, no por `usar`.**
+- **«Guardar como plantilla» espera el autoguardado.** El enchufe exporta lo GUARDADO, no la pantalla: con el respiro del
+  autoguardado, una hoja recién creada daba «No existe esa hoja en tu Dashboard». El ⋮ manda lo pendiente y espera lo que
+  viaja (`colaRef.current.pedir(ultimoGuardado)` devuelve la promesa en vuelo) antes de abrir el modal.
+- **Sin sesión no hay de quién**: un turno de WhatsApp que pide publicar o usar una hoja recibe «Esto se hace desde el
+  Dashboard». El id de una hoja (`g…`) pasa `sanearOrigenId`.
+- **La galería de «Nueva hoja» necesita la definición** para dibujar la miniatura (`MiniaturaHoja` es la hoja de verdad
+  con datos de ejemplo): `plantillasDelTipo(…, { conDefinicion: true })` trae hasta 24 propias con su definición (una hoja
+  pesa decenas de KB; con 40, la galería pedía un par de MB al abrir).
+
+## La moderación de lo publicado: Admin › Products › Templates (18/11/2026)
+
+**Vive en:** `app/admin/(polar)/products/templates/`, `app/admin/_polar/datos/plantillas.ts` (con su test,
+`tests/admin-plantillas-moderar.test.ts`), `app/admin/plantillas/actions.ts` y `creacionesParaModerar` en
+`lib/creaciones.ts`.
+
+- `retirarCreacion` ya dejaba retirar a la plataforma desde el 13/10 (`puedeRetirar`); faltaba la PUERTA. Es la lista y los
+  filtros del Catalogue de Polar con el «Cortar la suscripción» de SubscriptionActionsMenu como molde del retiro.
+- **La acción retira con `wsSuperAdmin()`, nunca con el workspace de la cookie**: el super admin puede estar mirando a un
+  cliente con `?ws=`, y con ese ws `puedeRetirar` diría que no es suya.
+- **La lectura trae `workspace_origen` y el nombre del negocio**: por eso es otra función (`creacionesParaModerar`) con su
+  propio tipo (`CreacionModerada`), y no se suma al tipo `Creacion` que sale a los negocios (lo fija
+  `tests/creaciones.test.ts`). Las privadas no salen ni ahí.
+- **Sembrar las «de MaKo»** no necesita pantalla: es «Guardar como plantilla» → «Toda la comunidad» desde el workspace de la
+  plataforma (`de_mako` lo pone el server). La lista de Templates las marca «De MaKo». Qué sembrar lo decide Martín.
+
+## Lo que quedó sin hacer (18/11/2026)
+
+- **Web Generator sin enchufe:** una landing lleva imágenes del storage, formularios, embeds, el píxel, el dominio, bloques
+  de pago y HTML libre, y puede ser la RÉPLICA de la página de un tercero. Su `paraPublico` tiene que recorrer el esquema
+  entero del editor (`lib/editor-landing/doc.ts`), y compartir con la comunidad una réplica de otro sitio lo decide Martín.
+- **AI Avatar:** ¿se publica el look (`lib/ai-avatar/proyectos.ts`) o la escena? Lo decide Martín.
+- **Video Editor:** el proyecto vive en IndexedDB del navegador; el enchufe necesita que el editor arme la plantilla en el
+  cliente y suba la definición (sin los archivos). Sigue en `POR_ENCHUFAR`.
+- **Offer:** el enchufe, «Ver ejemplo» en la conversación y `OFFER_EXPERTO` tocan el turno y la propuesta de Offer, que
+  hoy usa también el chat del reto de 7 días: quedan para cuando ese chat termine. El precio «USD 1,200 al mes» se
+  arregló aparte (`montosDe`, `tests/offer-nivel-y-voz.test.ts`).
+- **El ítem /creaciones en la barra** lo pone el jefe «Sidebar» (`app/_components/nav.ts`).
+- **«Tus plantillas» en el teléfono** (Image: F17, otro chat; las demás de `app/m`, sin hacer).
+- **No se verificó en el navegador** el 18/11: la nube no tiene la base. Se verificó con tests que ejecutan el código
+  (rotos a propósito) y con el `tsc` acotado.
