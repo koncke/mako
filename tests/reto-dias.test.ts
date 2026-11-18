@@ -133,3 +133,14 @@ test('el paso a Funnel Coach espera a que la persona VEA su oferta: un gesto o ~
   assert.match(sb, /usePasoAlFunnel\(\{ activo: dosCoaches && seVeLaConversacion, entregadaEn: entregadaOffer,/);
   assert.match(sb, /dosCoaches visible=\{verOffer\} \/>/);
 });
+
+test('el día 3 es tu primera automatización, sin atarla a WhatsApp (Martín, 18/11)', () => {
+  const d3 = DIAS_RETO[2];
+  assert.doesNotMatch(JSON.stringify(d3), /difusi/i, 'sin «difusión»');
+  const t = d3.tareas.find((x) => x.id === 'automatizacion');
+  assert.ok(t, 'la tarea de la automatización');
+  assert.equal(t.donde, 'En Automations');
+  assert.match(t.detalle, /WhatsApp, Instagram o email/, 'el canal que usa la persona');
+  assert.ok(t.marcas.some((m) => /chb-nueva/.test(m.sel)), 'marca «Nueva automatización»');
+  assert.deepEqual(d3.tareas.map((x) => x.id), ['contactos', 'automatizacion', 'calendar']);
+});

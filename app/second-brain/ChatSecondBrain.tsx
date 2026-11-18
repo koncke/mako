@@ -658,14 +658,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             </button>
           )}
           {centro && (
-            <button type="button" className="co-acceso" aria-pressed={verMapa && !ticketera} onClick={irAlSecondBrain}>
+            <button type="button" className="co-acceso" aria-pressed={verMapa && !ticketera} onClick={irAlSecondBrain} data-recorrido="sb-second-brain">
               <Icon name="cerebro" size={17} />Second Brain
             </button>
           )}
           {/* El grafo del negocio (el botón del grafo de Obsidian). En Ops Center no está (17/10/2026: «la entrada "Mapa" se
               va»): el grafo lo abre «Second Brain». */}
           {veMapa && listaSB && (
-            <button type="button" className="co-acceso" aria-pressed={verMapa && !ticketera} onClick={irAlSecondBrain}>
+            <button type="button" className="co-acceso" aria-pressed={verMapa && !ticketera} onClick={irAlSecondBrain} data-recorrido="sb-second-brain">
               {/* «Second Brain», no «Mapa» (Martín, llamada con Florencia del 18/10 [00:50:28]: «no debería llamarse mapa,
                   debería llamarse second brain»). La TAB es «Ops Center»; lo que se llama «Second Brain» es el grafo. */}
               <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Second Brain

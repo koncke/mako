@@ -98,3 +98,12 @@ export function hazDeFrase(texto: string): string | null {
   if (!n) return null;
   return `Haz clic en ${/^(?:La|El|Los|Las|Un|Una|Tu|Tus) /.test(n) ? n[0].toLowerCase() + n.slice(1) : n}`;
 }
+
+/**
+ * ¿Las marcas del video son estos pasos, en su orden? (Martín, 18/11: «el video sigue al recorrido, nunca al revés».) Un video cuyas
+ * frases marcan otra cosa no reemplaza a los pasos aprobados: ese tutorial va sin él.
+ */
+export function sigueLosPasos(frases: readonly FraseVideo[], pasos: readonly { sel: string }[]): boolean {
+  const conMarca = frases.filter((f) => !!f.sel);
+  return conMarca.length === pasos.length && conMarca.every((f, i) => mismoLugar(pasos[i].sel, f.sel as string));
+}
