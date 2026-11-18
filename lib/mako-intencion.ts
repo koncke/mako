@@ -1033,6 +1033,31 @@ const AVATAR_DEL_NEGOCIO = /\b(?:redefin|defin)\w*|\b(?:cliente ideal|buyer pers
 const AVATAR_DE_VIDEO = /\b(?:videos?|clips?|reels?|ai avatar|voz|voces|escenas?|guion(?:es)?|anuncios?|diga|digan|dice|decir|habl\w*)\b/;
 const RELEVANCIA_PIDE_AVATAR = 'generar avatares afinar avatares listar avatares negocio';
 /**
+ * CORRIGE UN DATO DEL PERFIL, O LE PIDE A MaKo QUE LO RECUERDE (O21, 18/11/2026). Leila, en la llamada del 27/10: «¿cómo te hago
+ * recordar que LíderMente es de 7:30 a 9:30?». Medido con el turno real ese día: la pregunta caía en `consultar` (en una pregunta
+ * no viajan las que escriben) y «recordá que la garantía es de 30 días», «en realidad mi precio es 3000» o «corregí mi horario»
+ * caían al default (en WhatsApp, una idea para el Plan); ninguna traía `corregir_campo_perfil` ni `ver_perfil_negocio`. Es una
+ * ACCIÓN con el perfil del negocio: MaKo propone el cambio (con lo de antes y lo nuevo) y la persona dice «sí».
+ *
+ * Dos formas, sobre el texto normalizado (sin tildes):
+ *   · le pide a MaKo que RECUERDE algo («te hago recordar que», «quiero que recuerdes», «acordate que», «tené en cuenta que»).
+ *     Sin «recordame» ni «avisame»: eso es que MaKo le recuerde algo a la PERSONA (el Plan, `PEDIDO_ANOTAR`). Y sin lo que es
+ *     un pendiente («tengo que…», «hay que…») ni lo de un lead, una reunión o una tarea (`NO_ES_DEL_PERFIL`);
+ *   · CORRIGE un dato del negocio («en realidad», «corregí», «está mal», «me equivoqué») que nombra una pieza del perfil (mi
+ *     precio, mi oferta, el horario, mi cliente ideal…). «Corregí el teléfono de Juan» no nombra ninguna: es del lead.
+ */
+const RECORDAR_A_MAKO = /\bte (?:hago|haria|puedo hacer) (?:recordar|acordar|saber)\b|\bhago para que (?:te acuerdes|recuerdes|sepas|tengas en cuenta|lo recuerdes|lo sepas|lo tengas en cuenta)\b|\b(?:quiero|necesito|quisiera|me gustaria) que (?:recuerdes|sepas|te acuerdes|tengas en cuenta|lo recuerdes|lo sepas|lo tengas en cuenta)\b|(?:^|[\s,.;:!¡¿?])(?:recorda|recuerda|acordate|acuerdate|ten en cuenta|tene en cuenta|toma nota|tome nota) (?:de )?que\b/;
+const CORRIGE_DATO = /\ben realidad\b|\ben verdad\b|\bcorregi\w*|\bcorrij\w*|\bcorrige\w*|\b(?:esta|estan) mal\b|\bno es asi\b|\bme equivoque\b/;
+const OBJETO_PERFIL = /\b(?:mi|mis|el|la|los|las|nuestro|nuestra|tu)\s+(?:precios?|ticket|ofertas?|programas?|mentorias?|cursos?|servicios?|productos?|garantia|promesa|horarios?|cliente ideal|avatar|nicho|negocio|empresa|marca|objetivo|freno|tono|personaje de marca)\b|\bperfil\b|\bbrief\b/;
+const NO_ES_DEL_PERFIL = /\b(?:tengo|tenes|tienes|tenemos) que\b|\bhay que\b|\brecordame\b|\brecuerdame\b|\bavisame\b|\bleads?\b|\breunion(?:es)?\b|\btareas?\b/;
+/** ¿El mensaje corrige un dato del perfil del negocio, o le pide a MaKo que lo recuerde? Sobre el texto normalizado. Exportada para el test. */
+export function esDatoDelPerfil(n: string): boolean {
+  if (NO_ES_DEL_PERFIL.test(n)) return false;
+  return RECORDAR_A_MAKO.test(n) || (CORRIGE_DATO.test(n) && OBJETO_PERFIL.test(n));
+}
+/** Lo que trae un dato del perfil: corregirlo, completarlo si estaba vacío y leer las claves (las palabras de los ids). */
+export const RELEVANCIA_DATO_PERFIL = 'corregir campo perfil guardar campo perfil ver perfil negocio';
+/**
  * PIDE una recomendación (26/10/2026): «Mako, qué me recomendás hacer esta semana», «dame un consejo», «¿qué debería mejorar?».
  * Es una CONSULTA (`que_recomienda_mako`): sin signo de pregunta, en WhatsApp caía en `capturar` (una idea para el Plan), y en la
  * app, ante la duda, en `actuar` (con la escritura). En una consulta MaKo ofrece; la persona decide.
@@ -1225,6 +1250,17 @@ export function clasificarIntencion(
   // El avatar de un VIDEO (AI Avatar) o el de un guion de anuncios es otro: ésos siguen su camino.
   if (PIDE_AVATAR.test(nPersona) && AVATAR_DEL_NEGOCIO.test(nPersona) && !AVATAR_DE_VIDEO.test(nPersona)) {
     return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'pide armar o redefinir el avatar', areas: ['negocio'], relevancia: RELEVANCIA_PIDE_AVATAR };
+  }
+  // 3-bis-perfil) CORRIGE UN DATO DEL PERFIL O LE PIDE A MaKo QUE LO RECUERDE (O21, ver `esDatoDelPerfil`): una acción con el
+  //               perfil del negocio (`corregir_campo_perfil`, que deja la tarjeta con lo de antes y lo nuevo). Va antes de la
+  //               pregunta: «¿cómo te hago recordar que…?» termina en «?». Un pedido de agenda, de un lead o de una landing gana su
+  //               regla. En la app suma lo que traiga la familia del pedido («en realidad mi precio es…» trae también la oferta).
+  if (esDatoDelPerfil(nPersona) && !pedidoAgenda && !pedidoLead && !pedidoLanding) {
+    return {
+      intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'corrige o le pide a MaKo que recuerde un dato del perfil del negocio',
+      areas: [...new Set<Area>(['negocio', ...(fam?.areas ?? [])])],
+      relevancia: fam?.relevancia ? `${RELEVANCIA_DATO_PERFIL} ${fam.relevancia}` : RELEVANCIA_DATO_PERFIL,
+    };
   }
   // 3-bis-rec2) PIDE UNA RECOMENDACIÓN (ver `PIDE_RECOMENDACION`): una consulta, con las áreas que nombre además («¿qué me
   //             recomiendas para la landing?» trae también las de la landing). Un pedido concreto que viene con ella gana su regla.

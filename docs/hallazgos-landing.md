@@ -46,6 +46,26 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## El opt-in que se suma directo a una ficha que ya existía no le ataba la visita (18/11/2026, O44)
+
+- **El síntoma:** alguien que ya estaba en el CRM se vuelve a registrar en una landing; la ficha recibe sus respuestas y su
+  producto, y su grabación, sus visitas y lo que vio del video no aparecen nunca en esa ficha.
+- **La causa:** desde el 14/11/2026 (`d4d759ce5`) un opt-in cuyo email o teléfono coincide con UN solo lead se suma directo a esa
+  ficha, sin propuesta (app/api/track/optin/route.ts, la rama `exactos.length === 1`). Ese camino nunca escribió `visitor_id`, que
+  es la llave por la que la ficha se une con lo que grabó el Pixel. El camino de la propuesta («enriquecer», app/crm/revisar/[id]/
+  acciones.ts) sí la escribía desde el 17/10, con su propio update copiado a mano.
+- **Lo que quedó:** UNA función, `atarVisitaAlLead` (lib/lead-visita.ts), que usan los dos caminos: escribe la llave sólo si la
+  ficha no tenía una (`.is('visitor_id', null)`: un segundo dispositivo no le pisa la del primero), no toca la atribución, y
+  devuelve el error en vez de tragarlo (la ruta lo loguea; la propuesta lo suma a sus errores).
+- **La regla que queda:** un camino nuevo que SUMA algo a una ficha existente en lugar de crearla (un webhook, un opt-in, una
+  reserva) se pregunta qué llaves escribía el alta que reemplaza: la ficha nueva nacía con `visitor_id`, y la existente lo tiene
+  que recibir por el mismo lado. Cuando el mismo «sumar a una ficha» lo hacen dos caminos, va en una función: el que se escribió
+  segundo es el que se olvidó de la llave.
+- **Lo que quedó SIN hacer:** las fichas a las que ya les faltó la llave entre el 14/11 y hoy no se arreglan solas (habría que
+  cruzar `landing_events` por email del opt-in, en producción). No se midió cuántas son.
+- **Vive en:** `lib/lead-visita.ts` · `app/api/track/optin/route.ts` · `app/crm/revisar/[id]/acciones.ts` ·
+  `tests/optin-visita.test.ts` (corre la ruta de verdad contra un PostgREST de mentira).
+
 ## El sitio en todas sus rutas: un pie de un solo lugar, «Recursos», y lo que mide mal el medidor de círculos (15-16/11/2026)
 
 - **Los 2 px de más del teléfono NO eran el menú** (el diagnóstico que traía el pedido era el equivocado): con el menú cerrado

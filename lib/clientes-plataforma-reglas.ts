@@ -262,6 +262,18 @@ export function cobradoPorMes(pagos: readonly PagoEntrado[], ahoraMs: number, me
   return alguno ? claves.map((mes) => ({ mes, usd: Math.round((suma.get(mes) ?? 0) * 100) / 100 })) : null;
 }
 
+/**
+ * Separa los clientes de los negocios que no lo son (F21, 18/11/2026). La lista de quiénes no son clientes la pasa quien llama
+ * (`NO_SON_CLIENTES`, lib/clientes-plataforma.ts): vive con `WS_PRUEBAS`, que no puede entrar a este módulo (lo importa el
+ * navegador, y lib/auth-session.ts trae node:crypto). El orden se conserva.
+ */
+export function apartarLosQueNoSonClientes<T extends { ws: number }>(filas: readonly T[], noSonClientes: ReadonlySet<number>): { clientes: T[]; pruebas: T[] } {
+  const clientes: T[] = [];
+  const pruebas: T[] = [];
+  for (const f of filas) (noSonClientes.has(f.ws) ? pruebas : clientes).push(f);
+  return { clientes, pruebas };
+}
+
 /** Los números de arriba de la vista. `ahoraMs` se pasa para que el test no dependa del reloj. */
 export function kpisDeClientes(filas: ReadonlyArray<{ estado: string; creado: string; mrrUsd: number; sinDolares: number; riesgo: boolean; segmentos: readonly Segmento[] }>, ahoraMs: number) {
   const hace30 = ahoraMs - 30 * 86_400_000;

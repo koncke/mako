@@ -53,6 +53,24 @@ su mensaje que corre un comando de la PC, y lo ejecuta el Runner por el camino q
 a la sesión. Y un número de consumo dice de quién es (la cuenta) y no se calcula sin dos mediciones distintas de la misma ventana.
 
 ---
+
+## Lo subido que nunca se usó, borrado de noche (18/11/2026, F96)
+
+Dos carpetas guardaban lo que una pantalla sube ANTES de usarlo y nadie lo borraba si la pestaña se cerraba en el medio:
+`operaciones/<ref>` (un adjunto de la caja, antes de firmar el trabajo) y `<ws>/chat-leer/<uuid>` (lo que un chat sube para
+leer). El cron /api/cron/limpieza-colgados borra lo de más de un día.
+
+- ⚠️ **Un adjunto del Ops Center no se borra por la edad sola**: un trabajo firmado puede esperar días en la cola con su chat
+  cerrado, y su adjunto tiene que seguir ahí. Se borra sólo si ningún `operaciones_pedidos.firmado` lo nombra
+  (`barrerSubidasSinFirmar`, lib/operaciones-adjuntos.ts; la regla en lib/subidas-colgadas.ts). **Si no puede preguntar quién lo
+  nombra, no borra.**
+- La pregunta va de a 20 refs por consulta (un `or` de `like`): viaja en la URL de PostgREST.
+- Lo que sigue abierto de los cinco restos de F96, con su motivo: el «⋯» de cada chat del cliente (Renombrar y «Cambiar su
+  muñeco»), el riel «Lo que hizo», retirar /api/mako-doer y derivar `CARTERO_VIVO_MS` del cartero. Están en el informe del
+  18/11 al coordinador.
+
+**Vive en:** `lib/operaciones-adjuntos.ts` · `lib/chat-leer-purga.ts` · `lib/subidas-colgadas.ts` ·
+`app/api/cron/limpieza-colgados/route.ts` · *18/11/2026, nube (F96)*
 ## El cron del Runner vencía sin que nada lo dijera, y la guardia lo tapaba midiendo por él (pendiente T6, 18/11/2026)
 
 **Vive en:** `scripts/operaciones/runner-salud.mjs` (`latidoDelCron`, el comando `latido-del-cron`, `cronDelRunner`, `estado` →
