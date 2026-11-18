@@ -2,13 +2,15 @@
 // Plantillas de anuncio: el ejemplo de cada una («Ver ejemplo») y la plantilla dibujada con él
 // =============================================================================
 // Plan: docs/plantillas-reales/video.md (2.0–2.11 y la tanda 1, sección 5). El módulo: lib/editor-video/plantillas-ejemplos.ts.
-//   1  qué plantillas tienen ejemplo: las cinco de hoy que el doc conserva; las dos variantes retiradas, no.
+//   1  qué plantillas tienen ejemplo: TODAS las del catálogo (las cinco que el doc conservó y las seis que sumó el 18/11/2026);
+//      las dos variantes retiradas salieron del catálogo y no tienen.
 //   2  los textos son EXACTAMENTE los huecos de texto de su plantilla (huecosDe), ni uno de más ni de menos.
 //   3  cada texto entra en su tope, en ≤ 5 palabras (doc 2.0), y va en mayúsculas sí y sólo si su pieza las dibuja (la
 //      regla del test 9 de tests/video-editor-plantillas.test.ts, de los dos lados).
 //   4  plantillaConEjemplo: copia, sólo cambia `muestra` (todas las piezas de un hueco), no toca el catálogo.
 //   5  dibujada con el ejemplo, la plantilla sigue en la zona segura de Meta y sin textos que se pisen (cajaDeTexto).
-//   6  el guion: pegado desde 0 hasta el final del clip que se graba; sin voz, el anuncio lo cuenta.
+//   6  el guion: pegado desde 0 (o desde `vozDesde`, si antes hay tomas sin voz) hasta el final del clip que se graba; sin
+//      voz, el anuncio lo cuenta.
 //   7  ningún texto nombra a un real, ni tiene voseo ni regionalismos (problemasDelEjemplo).
 //   8  la insignia de la tarjeta, y el módulo puro (sólo tipos de ./plantillas, sin server-only ni el motor).
 //
@@ -26,16 +28,22 @@ import {
 import { problemasDelEjemplo } from './_reales';
 
 const porId = (id: string) => plantillaPorId(id) as Plantilla;
-const CON_EJEMPLO = ['gancho', 'testimonio', 'antes-despues', 'beneficios', 'oferta'];
+const CON_EJEMPLO = [
+  'gancho', 'testimonio', 'antes-despues', 'beneficios', 'oferta',
+  // Las seis del 18/11/2026 (F164, doc 2.2, 2.5–2.8 y 2.10).
+  'respuesta-comentario', 'caso-numeros', 'historia', 'tres-errores', 'clip-podcast', 'tour-propiedad',
+];
+/** Las dos variantes que el doc retiró (2.0): salieron del catálogo el 18/11/2026. */
 const RETIRADAS = ['gancho-escrito', 'oferta-glitch'];
 const conEjemplo = () => CON_EJEMPLO.map((id) => ({ p: porId(id), e: ejemploDeVideo(id) as EjemploVideo }));
 const textos = (p: Plantilla) => p.piezas.filter((x): x is PiezaTexto => x.tipo === 'texto');
 const piezasDe = (p: Plantilla, hueco: string) => textos(p).filter((x) => x.hueco?.nombre === hueco);
 
-test('1: tienen ejemplo las cinco de hoy que el doc conserva; las retiradas y lo que no es un id, no', () => {
+test('1: tienen ejemplo todas las del catálogo; las retiradas (fuera del catálogo) y lo que no es un id, no', () => {
   assert.deepEqual(Object.keys(EJEMPLOS_VIDEO).sort(), [...CON_EJEMPLO].sort());
-  // Todas las del catálogo están en una de las dos listas: una plantilla nueva tiene que decidir.
-  assert.deepEqual(PLANTILLAS.map((p) => p.id).sort(), [...CON_EJEMPLO, ...RETIRADAS].sort());
+  // Todas las del catálogo tienen su ejemplo: una plantilla nueva sin ejemplo no pasa.
+  assert.deepEqual(PLANTILLAS.map((p) => p.id).sort(), [...CON_EJEMPLO].sort());
+  for (const id of RETIRADAS) assert.equal(plantillaPorId(id), null, `${id} se retiró del catálogo (doc 2.0)`);
   for (const id of CON_EJEMPLO) {
     assert.ok(plantillaPorId(id), id);
     assert.equal(ejemploDeVideo(id), EJEMPLOS_VIDEO[id]);
@@ -46,6 +54,8 @@ test('1: tienen ejemplo las cinco de hoy que el doc conserva; las retiradas y lo
   assert.deepEqual(Object.fromEntries(CON_EJEMPLO.map((id) => [id, ejemploDeVideo(id)?.objetivo])), {
     gancho: 'Vender una llamada', testimonio: 'Prueba social', 'antes-despues': 'Propiedad',
     beneficios: 'Vender una llamada', oferta: 'Evento',
+    'respuesta-comentario': 'Vender una llamada', 'caso-numeros': 'Prueba social', historia: 'Prueba social',
+    'tres-errores': 'Educar', 'clip-podcast': 'Educar', 'tour-propiedad': 'Propiedad',
   });
 });
 
@@ -100,8 +110,7 @@ test('4: plantillaConEjemplo copia, cambia sólo `muestra` (todas las piezas del
   // Un hueco con dos piezas (los rótulos de «Antes y después») se cambia en las dos.
   const ad = plantillaConEjemplo(porId('antes-despues'));
   assert.deepEqual(piezasDe(ad, 'rotulo-despues').map((x) => x.muestra), ['HOY · 60 %', 'HOY · 60 %']);
-  // Las retiradas no tienen ejemplo: copia igual.
-  for (const id of RETIRADAS) assert.deepEqual(plantillaConEjemplo(porId(id)), porId(id));
+  // Las retiradas ya no están en el catálogo (y su ejemplo, tampoco: test 1).
   assert.equal(JSON.stringify(PLANTILLAS), antes, 'plantillaConEjemplo cambió el catálogo');
 });
 
@@ -147,7 +156,9 @@ test('6: el guion va pegado desde 0 hasta el fin del clip que se graba; sin voz,
       assert.ok(e.anuncio && e.anuncio.length > 0, `${p.id}: sin voz y sin anuncio, el ejemplo no cuenta nada`);
       continue;
     }
-    let corte = 0;
+    // Antes de `vozDesde` van las tomas sin voz (el tour: los espacios, y el asesor habla desde el 15).
+    let corte = e.vozDesde ?? 0;
+    assert.ok(corte >= 0 && corte < finVoz, `${p.id}: la voz empieza en ${corte} s y el clip termina en ${finVoz} s`);
     for (const parte of e.guion) {
       const { desde, hasta } = tramo(parte.segundos);
       assert.equal(desde, corte, `${p.id}: el guion salta en ${corte} s`);
@@ -199,3 +210,5 @@ test('8: la insignia de la tarjeta, y el módulo es puro', () => {
 // · 6: el guion de la oferta salta de 3 a 3.5 → 7/1 (6). · el de beneficios termina en 11 (el clip, en 12) → 7/1 (6).
 // · 7: «Escribime» en el anuncio del gancho → 7/1 (7). · «Mauricio» en una toma → 7/1 (7).
 // · 8: la insignia cuenta el fondo opcional del cierre → 7/1 (8). · `import { type … }` (un import de valor) → 7/1 (8).
+// 18/11/2026 (F164: once plantillas, todas con ejemplo; las dos variantes se retiraron del catálogo), base 8 de 8:
+// · el tour fuera del catálogo → 1/7 (1 a 7). · el tour sin `vozDesde` (su guion arranca en el 15) → 7/1 (6). Restaurado: 8/0.

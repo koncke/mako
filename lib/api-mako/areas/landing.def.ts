@@ -46,8 +46,6 @@ import { FORMATOS_REPLICAR } from '@/lib/editor-landing/replicar-reglas';
 import { PARTES_REPLICA } from '@/lib/editor-landing/replicar-partes';
 // Los estados de un comentario del Diagnóstico (tanda 6): la lista del CHECK de la migración 0264 (puro).
 import { ESTADOS_SUGERENCIA } from '@/lib/editor-landing/diagnostico';
-// Las plantillas de presentación (tanda 6): la MISMA lista que «Plantillas» de la pantalla (puro).
-import { PLANTILLAS_PRESENTACION } from '@/lib/editor-landing/plantillas-presentaciones';
 // Tanda 7: el resto del editor (crear y editar con IA, el contenido, el tema, el sitio, el dominio…).
 import { DEFS_EDITOR } from './landing-editor.def';
 
@@ -518,9 +516,13 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_presentacion_desde_plantilla', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Crear una presentación desde una plantilla',
-    descripcion: 'Crea una presentación nueva (diapositivas) en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo de la plantilla para adaptar. Úsala cuando pidan armar una presentación y la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones`). Devuelve el id y el link al editor. No corre en una automatización.',
+    descripcion: 'Crea una presentación (diapositivas) o un carrusel 4:5 en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo para adaptar. Úsala cuando la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones` y `carruseles`). Devuelve el id y el link al editor. No corre en una automatización.',
     parametros: [
-      { nombre: 'plantilla', rotulo: 'Plantilla', tipo: 'string', obligatorio: true, enum: PLANTILLAS_PRESENTACION.map((p) => p.id), descripcion: 'La plantilla (de listar_disenos_landing, `presentaciones`).' },
+      // SIN `enum`, a propósito (18/11/2026): con los 8 carruseles sumados, la lista de ids empujó a editar_landing_con_ia
+      // fuera de los 12.000 caracteres del turno («hacé la landing más corta y más directa» llegaba sin ella:
+      // tests/ops-center-bateria.test.ts, el rojo de punta/web-generator-45 del 7/11). Regla de AGENTS.md: una op que ya es
+      // grande no suma enums de ids; la lista se valida en `preparar` (pedidoDePresentacion) y vuelve en `disponibles`.
+      { nombre: 'plantilla', rotulo: 'Plantilla', tipo: 'string', obligatorio: true, descripcion: 'El id de una plantilla de listar_disenos_landing: de `presentaciones` (16:9) o de `carruseles` (4:5).' },
       { nombre: 'titulo', rotulo: 'Título', tipo: 'string', max: TOPES.titulo, descripcion: 'El nombre de la presentación en el Panel. Sin él, el de la plantilla.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,

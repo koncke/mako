@@ -39,6 +39,7 @@ import { Icon } from './icons';
 import { Criatura } from './Criatura';
 import { EstrellaDeLaApp } from '@/app/_chat/EstrellaDeLaApp';
 import { SaldoMaKo } from './SaldoMaKo';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 import { InterruptorModo } from './InterruptorModo';
 import { useMakoAbierto } from '@/app/_chat/mako-abierto';
@@ -948,10 +949,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
           {/* LA CAMPANITA (17/10/2026, app/_components/CampanitaAvisos.tsx) va en la fila de la identidad y no en una propia:
               la columna ya scrollea en 1024×768. Plegada, un punto sobre la foto. Sólo el admin: los avisos son del negocio. */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 2 }}>
-            <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}
-              // La foto, para el motor de los tutoriales (el día 2 del reto: Settings está en este menú). Va al final: el chat de las
-              // pestañas parcha el comienzo de esta etiqueta (C:/dev/artefactos-pestanas/barra.tsx).
-              data-recorrido="tour-sidebar-perfil"
+            <button ref={userBtnRef} type="button" data-recorrido={MARCA.barraFoto} onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser}
               style={{ ...identidadStyle(open, userOpen), flex: 1, minWidth: 0, width: 'auto' }}>
               <Identidad open={open} nombre={nombreVisible} avatar={avatarVisible} subrotulo={impersonando ? 'Cliente' : 'Cuenta'} />
             </button>

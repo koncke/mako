@@ -111,6 +111,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const probar = textoProbar(p.probar);
   // `?plantillas=1`: «Templates» desde Focus. Abre el Dashboard con la galería.
   const plantillas = p[PARAM_PLANTILLAS] != null;
+  // El plan del negocio (Essential o Pro) decide más abajo la hoja Closing y NO depende del informe: se ARRANCA ya, en paralelo con
+  // la lectura del informe, y se espera donde se usa (18/11/2026, O27: eran dos esperas en serie). Es el «preload» de Next
+  // (node_modules/next/dist/docs/01-app/02-guides/caching-without-cache-components.md): `esEsencialDeLaSesion` es un `cache()` de
+  // React y nunca tira, así que el `await` de abajo recibe la MISMA lectura. No cuando puede abrir Focus: ahí no se lee.
+  if (!(conFocus && !plantillas)) void esEsencialDeLaSesion();
 
   // Con Focus se leen los DOS informes (dos filas de app_settings, en paralelo): la tira muestra las hojas de los dos.
   const [lecturaDash, lecturaGeneral] = conFocus ? await Promise.all([leerTablero(), leerInformeGeneral()]) : [null, null];

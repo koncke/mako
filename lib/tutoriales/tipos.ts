@@ -53,6 +53,11 @@ export type TutorialPestana = {
   ruta: string;
   /** La ruta de MaKo Mobile donde corre (sin ella, el tutorial es sólo de computadora). */
   rutaMovil?: string;
+  /**
+   * En qué momento de la pestaña corre, si no es al entrar: «editando la ficha de un lead», «adentro de una clase». Sin él, es
+   * el tutorial de la pestaña (el que devuelve `tutorialDeRuta`); con él, lo pide el motor cuando la pantalla llega a ese estado.
+   */
+  estado?: string;
   /** La primera frase de Martín, antes del primer paso (sin marcar nada). */
   intro: string;
   pasos: PasoTutorial[];

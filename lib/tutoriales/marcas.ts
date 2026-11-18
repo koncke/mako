@@ -17,6 +17,19 @@ export const MARCA = {
   crmReuniones: 'tour-crm-reuniones',
   /** «Mostrar más integraciones»: la grilla de la computadora muestra doce sin conectar (app/integraciones/IntegracionesBoard.tsx). */
   integracionesMas: 'tour-int-mas',
+  avatarAntes: 'tour-avatar-antes',
+  avatarGenerar: 'tour-avatar-generar',
+  copywritingPegar: 'tour-copywriting-pegar',
+  /** «Mis landings» en la computadora (app/web-generator/OutliersLandings.tsx); en el teléfono es el link «Tus landings» (`?ver=lista`). */
+  webMisLandings: 'tour-web-mis-landings',
+  /** Prioridades · Tareas · Proyectos · Recurrentes del Plan de la computadora (en el teléfono: `.m-seg[aria-label="Vista"]`). */
+  planVistas: 'tour-plan-vistas',
+  /** «Invitar» de Settings › Equipo (app/equipo/EquipoView.tsx). */
+  equipoInvitar: 'tour-equipo-invitar',
+  /** La foto de la barra lateral, que abre el menú de Configuración (app/_components/Sidebar.tsx). Sólo computadora. */
+  barraFoto: 'tour-barra-foto',
+  /** «Mover a…» de la ficha rápida (app/_ui/TarjetaKanban.tsx → CuerpoFichaRapida), en la computadora y en el teléfono. */
+  crmMoverA: 'tour-crm-mover-a',
 } as const;
 
 /** Una sección de Settings (lib/ajustes-secciones.ts: `info`, `seguridad`, `instalar`, `equipo`, `integraciones`…). */

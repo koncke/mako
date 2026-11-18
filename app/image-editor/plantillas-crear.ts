@@ -29,6 +29,7 @@ import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { ALTO_CARRUSEL, ANCHO_CARRUSEL } from '@/lib/carruseles/documento';
 import { TIPOS_CARRUSEL, type IdTipoCarrusel } from '@/lib/carruseles/tipos';
 import { PLANTILLAS_IMAGEN } from '@/lib/image-editor/plantillas-reales';
+import { PREFIJO_PLANTILLA_REAL } from '@/lib/image-editor/reglas';
 
 /** Una tarjeta de «¿Qué vas a crear hoy?» con lo que hace falta para crear el diseño. */
 export type PlantillaNuevoDiseno = PlantillaCrear & {
@@ -67,8 +68,8 @@ const conCarrusel = (lista: PlantillaNuevoDiseno[]): PlantillaNuevoDiseno[] => {
   return i < 0 ? [CARRUSEL, ...lista] : [...lista.slice(0, i + 1), CARRUSEL, ...lista.slice(i + 1)];
 };
 
-/** El prefijo del id de la tarjeta de una plantilla real. */
-export const PREFIJO_REAL = 'real-';
+/** El prefijo del id de la tarjeta de una plantilla real (el mismo que guarda el diseño en `meta.plantilla`). */
+export const PREFIJO_REAL = PREFIJO_PLANTILLA_REAL;
 
 const REALES: PlantillaNuevoDiseno[] = PLANTILLAS_IMAGEN.map((p) => ({
   id: `${PREFIJO_REAL}${p.id}`,

@@ -24,6 +24,7 @@
 import { forwardRef, useEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@/app/_components/icons';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import { colorDeNombre, fotoQueNoCargo, inicialesDe, NOMBRE_PRIORIDAD, type ColorTarjeta, type InsigniaCanal, type PrioridadTarea } from '@/lib/tarjeta-kanban';
 
 // ⚠️ LAS VARIABLES VAN EN TODA PIEZA DEL KIT, no en unas raíces. Hasta el 18/10 vivían en `.tk-raiz, .tk, .tk-ptabs,
@@ -502,7 +503,7 @@ export function CuerpoFichaRapida({ nombre, foto, insignia, subtitulo, avance, f
         </div>
       ) : null}
       {onMoverA ? (
-        <div className="tk-acts"><button type="button" className="tk-pill tk-pill--grande tk-pill--suave" onClick={onMoverA}>Mover a…</button></div>
+        <div className="tk-acts"><button type="button" className="tk-pill tk-pill--grande tk-pill--suave" data-recorrido={MARCA.crmMoverA} onClick={onMoverA}>Mover a…</button></div>
       ) : null}
     </>
   );

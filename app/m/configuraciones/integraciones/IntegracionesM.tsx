@@ -55,11 +55,11 @@ export function IntegracionesM({ conectadas, sinConectar, historial, abrir, suel
         <SeccionM titulo="Conectadas">
           <ListaM>
             {conectadas.map((i) => (
-              <FilaM key={i.key} recorrido={marcaIntegracion(i.key)} titulo={i.nombre} segunda={i.problema ? i.categoria : i.soloServidor ? 'La configura el equipo de MaKo.' : i.categoria}
+              <FilaM key={i.key} titulo={i.nombre} segunda={i.problema ? i.categoria : i.soloServidor ? 'La configura el equipo de MaKo.' : i.categoria}
                 pill={i.problema
                   ? <PildoraM tono={i.problema.rojo ? 'bad' : 'warn'}>{i.problema.estado}</PildoraM>
                   : i.estado === 'conectada' ? <PildoraM tono="good">Conectada</PildoraM> : undefined}
-                onClick={() => setAbierta(i)} />
+                onClick={() => setAbierta(i)} recorrido={marcaIntegracion(i.key)} />
             ))}
           </ListaM>
         </SeccionM>
@@ -68,8 +68,8 @@ export function IntegracionesM({ conectadas, sinConectar, historial, abrir, suel
         <SeccionM titulo="Sin conectar">
           <ListaM>
             {sinConectar.map((i) => (
-              <FilaM key={i.key} recorrido={marcaIntegracion(i.key)} titulo={i.nombre} segunda={i.problema ? i.detalle : i.descripcion}
-                pill={i.problema ? <PildoraM tono="warn">{i.problema.estado}</PildoraM> : undefined} onClick={() => setAbierta(i)} />
+              <FilaM key={i.key} titulo={i.nombre} segunda={i.problema ? i.detalle : i.descripcion}
+                pill={i.problema ? <PildoraM tono="warn">{i.problema.estado}</PildoraM> : undefined} onClick={() => setAbierta(i)} recorrido={marcaIntegracion(i.key)} />
             ))}
           </ListaM>
         </SeccionM>

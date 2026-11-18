@@ -13,6 +13,10 @@
 //     persona en el CRM.
 // =============================================================================
 
+// Las marcas de la barra y de Settings son las del chat de las pestañas: importadas, para que un cambio de nombre no deje al reto
+// señalando algo que ya no existe (pasó el 18/11: la foto pasó de `tour-sidebar-perfil` a `tour-barra-foto`).
+import { MARCA, conMarca, marcaSettings } from '../tutoriales/marcas';
+
 /** Una marca del motor: dónde tocar, con su tarjeta. */
 export type MarcaReto = { sel: string; titulo: string; texto: string; haz: string; lado?: 'arriba' | 'abajo' | 'izquierda' | 'derecha'; libre?: boolean };
 
@@ -66,21 +70,21 @@ export const DIAS_RETO: readonly DiaReto[] = [
     tareas: [
       { id: 'app', titulo: 'MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR: los avisos de tu negocio, al instante.',
         marcas: [
-          { sel: '[data-recorrido="tour-sidebar-perfil"]', titulo: 'Tu cuenta', texto: 'Lo de tu cuenta está en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
+          { sel: conMarca(MARCA.barraFoto), titulo: 'Tu cuenta', texto: 'Lo de tu cuenta está en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
-          { sel: '[data-recorrido="tour-settings-instalar"]', titulo: 'Instalar la app', texto: 'Ahí está el QR para tu teléfono.', haz: 'Haz clic en Instalar la app', lado: 'derecha' },
+          { sel: conMarca(marcaSettings('instalar')), titulo: 'Instalar la app', texto: 'Ahí está el QR para tu teléfono.', haz: 'Haz clic en Instalar la app', lado: 'derecha' },
         ] },
       { id: 'extension', titulo: 'La extensión para Chrome', donde: en('Settings › Instalar la app'), detalle: 'MaKo a mano mientras navegas.',
-        marcas: [{ sel: '[data-recorrido="tour-settings-instalar"]', titulo: 'La extensión', texto: 'En la misma sección, la extensión para Chrome.', haz: 'Haz clic en Instalar la app', lado: 'derecha' }] },
+        marcas: [{ sel: conMarca(marcaSettings('instalar')), titulo: 'La extensión', texto: 'En la misma sección, la extensión para Chrome.', haz: 'Haz clic en Instalar la app', lado: 'derecha' }] },
       { id: 'integraciones', titulo: 'Las integraciones de lo que elegiste', donde: en('Settings › Integraciones'), detalle: 'Sólo las de tu funnel: no se conectan aquí.',
         marcas: [
-          { sel: '[data-recorrido="tour-sidebar-perfil"]', titulo: 'Tus integraciones', texto: 'Están en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
+          { sel: conMarca(MARCA.barraFoto), titulo: 'Tus integraciones', texto: 'Están en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
-          { sel: '[data-recorrido="tour-settings-integraciones"]', titulo: 'Integraciones', texto: 'Aquí conectas lo que necesita tu funnel.', haz: 'Haz clic en Integraciones', lado: 'derecha' },
+          { sel: conMarca(marcaSettings('integraciones')), titulo: 'Integraciones', texto: 'Aquí conectas lo que necesita tu funnel.', haz: 'Haz clic en Integraciones', lado: 'derecha' },
         ] },
       { id: 'perfil', titulo: 'Tu perfil y tu foto', donde: en('Settings › Perfil'), detalle: 'Lo que contaste en el chat ya está guardado.',
         marcas: [
-          { sel: '[data-recorrido="tour-sidebar-perfil"]', titulo: 'Tu perfil', texto: 'Está en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
+          { sel: conMarca(MARCA.barraFoto), titulo: 'Tu perfil', texto: 'Está en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'La primera sección es tu perfil.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
         ] },
     ],

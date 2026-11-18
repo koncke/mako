@@ -6,8 +6,9 @@
 // La ranura `miniatura` de PantallaCrear estaba reservada para Video desde el 29/10 (app/_crear/PantallaCrear.tsx) y
 // nadie la llenaba: las tarjetas de anuncio de «Nuevo video» se veían como el marco vacío con su rótulo, mientras la
 // Biblioteca del editor ya las dibujaba con `MiniaturaPlantilla`. Esto es esa misma miniatura, la de la Biblioteca: quieta
-// en su portada y en bucle con el mouse encima. Para lo que no es una plantilla de anuncio (los lienzos, las guiadas,
-// «Generar con IA»), null: la tarjeta sigue con lo suyo.
+// en su portada y en bucle con el mouse encima, con los textos del EJEMPLO de cada plantilla (`plantillaDeTarjeta`; la
+// «Miniatura» de cada una en docs/plantillas-reales/video.md). Para lo que no es una plantilla de anuncio (los lienzos, las
+// guiadas, «Generar con IA»), null: la tarjeta sigue con lo suyo.
 //
 // ⚠️ IMPORT ESTÁTICO, A PROPÓSITO, Y SIN EL MOTOR. `MiniaturaPlantilla` vive en `_opencut/` pero su grafo es liviano (el
 // dibujo en canvas 2D, la escena, las animaciones y la muestra de fuentes: ~21 módulos, ninguno del núcleo, del .wasm ni de

@@ -180,6 +180,37 @@ test('el candado: sin la tabla corre igual (y lo dice); lo que tira el trabajo s
   }
 });
 
+// P17 (18/11/2026): la pasarela no dejó abrir el pago. El comprador ve «no se pudo»; el dueño se entera en su historial Y en su campanita.
+test('⚠️ la pasarela no abre el pago: al historial Y al dueño (avisarFallo), con el motivo; si abre, no se avisa nada', async () => {
+  const avisos: Array<[number, string]> = [];
+  const historial: string[] = [];
+  const crm = crmFalso();
+  const { dep: candado } = candadoFalso();
+  const r = await ejecutarPago(PEDIDO, crm.dep(candado, {
+    crear: async () => ({ ok: false, error: 'Stripe no está conectado' }),
+    historial: async (_l, t) => { historial.push(t); },
+    avisarFallo: async (l, t) => { avisos.push([l, t]); },
+  }));
+  assert.deepEqual(r, { tipo: 'fallo' });
+  assert.equal(historial.length, 1);
+  assert.equal(avisos.length, 1, 'una vez, por el lead de quien quiso pagar');
+  assert.equal(avisos[0][0], 1);
+  assert.match(avisos[0][1], /Stripe no está conectado/);
+  // Una excepción de la pasarela también avisa; y que el aviso falle no cambia lo que ve el visitante.
+  const otra = crmFalso();
+  const r2 = await ejecutarPago(PEDIDO, otra.dep(candadoFalso().dep, {
+    crear: async () => { throw new Error('ECONNRESET'); },
+    avisarFallo: async (l, t) => { avisos.push([l, t]); throw new Error('la campanita no contesta'); },
+  }));
+  assert.deepEqual(r2, { tipo: 'fallo' });
+  assert.equal(avisos.length, 2);
+  assert.match(avisos[1][1], /falló la conexión con la pasarela/);
+  // Cuando la pasarela abre el pago, nada.
+  const bien = crmFalso();
+  await ejecutarPago(PEDIDO, bien.dep(candadoFalso().dep, { avisarFallo: async (l, t) => { avisos.push([l, t]); } }));
+  assert.equal(avisos.length, 2);
+});
+
 test('el POST traduce el techo a un 429 sin cobrar', async () => {
   const LANDING: LandingDelPaso = { ws: 7, docId: 40, slug: 'mi-landing', titulo: 'Mi landing', sitio: 'Mi sitio', temaId: 'pewter', fuentes: [], productos: [12] };
   const dep: DepPagoPost = {

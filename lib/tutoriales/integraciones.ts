@@ -1,48 +1,57 @@
-// El tutorial de Integraciones (/integraciones; en el teléfono /m/configuraciones/integraciones): día 2 del reto, después de
-// Settings. Cada integración lleva `tour-int-<key>` (su key de lib/integraciones-catalogo.ts): la tarjeta de
-// app/integraciones/IntegracionesBoard.tsx y la fila de app/m/configuraciones/integraciones/IntegracionesM.tsx. El onboarding puede
-// ir directo a la que le toca a cada negocio con `marcaIntegracion(key)`. Los textos salen de lo que hace cada una (su `descripcion`
-// del catálogo); Google Calendar no es una tarjeta (`oculto`), así que no tiene paso. La computadora muestra doce «Sin conectar»
-// y «Mostrar más integraciones»: Calendly, Stripe y Panda quedan detrás, y su paso toca ese botón antes (`antes`).
-import { MARCA, conMarca, marcaIntegracion } from './marcas';
+// El tutorial de Integraciones (/integraciones; en el teléfono /m/configuraciones/integraciones): día 2 del reto. Cuadra con el guion
+// de su video (public/tutoriales/manifiesto.json, key `settings-integraciones`: la pestaña se llama igual para que el motor encuentre
+// el video). Un paso por cosa nombrada, en su orden: la foto (abre Configuración), Integraciones en el índice, tus cuentas de IA y las
+// tarjetas que nombra (WhatsApp, Zernio, cobros y agenda). Cada integración lleva `tour-int-<key>` (su key del catálogo): la tarjeta de
+// app/integraciones/IntegracionesBoard.tsx y la fila de app/m/configuraciones/integraciones/IntegracionesM.tsx; el onboarding puede ir
+// directo a la que le toca con `marcaIntegracion(key)`. La computadora muestra doce «Sin conectar» y «Mostrar más integraciones»:
+// Stripe y Calendly quedan detrás, y su paso toca ese botón antes (`antes`). La foto y el índice no existen en el teléfono.
+import { MARCA, conMarca, marcaIntegracion, marcaSettings } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 const MAS = conMarca(MARCA.integracionesMas);
 
 export const TUTORIAL_INTEGRACIONES: TutorialPestana = {
-  pestana: 'integraciones',
+  pestana: 'settings-integraciones',
   nombre: 'Integraciones',
   ruta: '/integraciones',
   rutaMovil: '/m/configuraciones/integraciones',
-  intro: 'Aquí conectas lo que Máko necesita ver de tu negocio. Sin esto, trabaja a ciegas.',
+  intro: 'Sin tus cuentas conectadas, MaKo trabaja a ciegas. En Integraciones le das acceso a tu negocio.',
   pasos: [
+    {
+      sel: conMarca(MARCA.barraFoto),
+      titulo: 'Tu foto',
+      texto: 'Abre el menú de tu cuenta: Configuración está ahí.',
+      sub: 'Está en Configuración: toca tu foto, abajo a la izquierda,',
+      lado: 'derecha',
+      soloComputadora: true,
+    },
+    {
+      sel: conMarca(marcaSettings('integraciones')),
+      titulo: 'Integraciones',
+      texto: 'La sección de Configuración donde conectas tus cuentas.',
+      sub: 'y entra en Integraciones.',
+      lado: 'derecha',
+      soloComputadora: true,
+    },
+    {
+      sel: 'button.tci-destacada, a[href="/perfil/ia"]',
+      titulo: 'Tus cuentas de IA',
+      texto: 'El Claude, el GPT o el Gemini con el que trabaja MaKo.',
+      sub: 'Arriba están tus cuentas de IA: el Claude, el GPT o el Gemini con el que trabaja MaKo.',
+      lado: 'abajo',
+    },
     {
       sel: conMarca(marcaIntegracion('whatsapp')),
       titulo: 'WhatsApp',
       texto: 'Tus números, cada uno con su QR. Puedes sumar uno por setter.',
-      sub: 'WhatsApp ya está conectado: por ahí te escriben tus leads.',
-      lado: 'derecha',
-    },
-    {
-      sel: conMarca(marcaIntegracion('meta')),
-      titulo: 'Tus anuncios',
-      texto: 'Meta Ads: tus campañas, sus números y el estado de la cuenta.',
-      sub: 'Si haces anuncios, conecta Meta y Máko lee cada campaña.',
+      sub: 'Después, cada servicio en su tarjeta: tu WhatsApp con su QR,',
       lado: 'derecha',
     },
     {
       sel: conMarca(marcaIntegracion('zernio')),
       titulo: 'Instagram y Facebook',
       texto: 'Con Zernio conectas tu Instagram, tu Facebook y tus anuncios de Meta.',
-      sub: 'Instagram y Facebook entran con Zernio.',
-      lado: 'derecha',
-    },
-    {
-      sel: conMarca(marcaIntegracion('calendly')),
-      antes: MAS,
-      titulo: 'Tu agenda',
-      texto: 'Tus reuniones R1 y R2 y quién asistió.',
-      sub: 'Con Calendly, cada reunión que te reservan llega sola a Máko.',
+      sub: 'Instagram y Facebook por Zernio,',
       lado: 'derecha',
     },
     {
@@ -50,15 +59,15 @@ export const TUTORIAL_INTEGRACIONES: TutorialPestana = {
       antes: MAS,
       titulo: 'Tus cobros',
       texto: 'Cobra con un link de pago y cada pago entra solo a tu CRM. Mercado Pago, igual, en tu moneda.',
-      sub: 'Si cobras con Stripe o Mercado Pago, cada pago entra solo a tu CRM.',
+      sub: 'tus cobros',
       lado: 'derecha',
     },
     {
-      sel: conMarca(marcaIntegracion('panda')),
+      sel: conMarca(marcaIntegracion('calendly')),
       antes: MAS,
-      titulo: 'Tu video de ventas',
-      texto: 'Cuánto miran tu VSL. Si está en YouTube, Vimeo o Wistia, conecta ese.',
-      sub: 'Y si tu video de ventas está en Panda o en YouTube, conéctalo: Máko ve hasta dónde lo miran.',
+      titulo: 'Tu agenda',
+      texto: 'Tus reuniones R1 y R2 y quién asistió.',
+      sub: 'y tu agenda. Conecta sólo lo que usas: cada tarjeta te lleva paso a paso.',
       lado: 'derecha',
     },
   ],

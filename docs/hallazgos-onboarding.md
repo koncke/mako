@@ -18,8 +18,9 @@ La maqueta queda como ESPECIFICACIÓN. Lo que mordió al construirlo:
 - **El menú de la foto se cierra si el mouse sale de la foto y no llega al menú en 220 ms** (Sidebar.tsx, `scheduleCloseUser`). Con
   las tapas, el mouse nunca llega: esas marcas van `libre` (sin tapas).
 - **El video chico tapaba los botones de la tarjeta en el teléfono.** Va antes de la tarjeta en el DOM y sube arriba si se cruzarían.
-- **La foto de la barra lleva `data-recorrido="tour-sidebar-perfil"` AL FINAL de la etiqueta:** el chat de las pestañas parcha el
-  COMIENZO (`<button ref={userBtnRef} type="button"`, C:/dev/artefactos-pestanas/barra.tsx) y corta si no lo encuentra una vez.
+- **Las marcas que el reto señala (la foto de la barra, las secciones de Settings) son las del chat de las pestañas** y se importan
+  de lib/tutoriales/marcas.ts, nunca escritas a mano: el 18/11 un merge de main cambió la foto de `tour-sidebar-perfil` a
+  `tour-barra-foto` (`MARCA.barraFoto`) y el reto quedaba marcando un elemento que ya no existía, sin ningún rojo.
 - **El diagnóstico obvio era el equivocado:** se pidió «renombrar el asunto de los correos del reto» y «sacar el "24 horas" de la
   Ticketera». En la app NO había correos del reto (ni push, ni WhatsApp diario: MaKo nunca escribe primero) ni texto de 24 h (sólo en
   docs/reto-7-dias/guiones-dia-1.md). Tampoco Offer Coach aparte (fusionado en Funnel Coach el 4/11): el día 1 es Funnel Coach.
