@@ -3959,9 +3959,16 @@ gastado ÷ los clientes que entran, y se reemplaza ahí.
   · `esClienteDeAgencia` tiene una lista CERRADA de quién la llama (tests/agency-dos-duenos.test.ts): un uso nuevo da rojo
     hasta que se suma ahí, con su «no sé» resuelto con `!== false`. Acá el «no sé» cuenta como de agencia, igual que el resto
     de «Tu plan», que con «no sé» ya dice «Lo maneja tu agencia». El filtro del push lo cazó antes de GitHub.
-- *Sin hacer (otros textos que nombran la capa):*
-  · lib/api-mako/areas/negocio.run.ts:219, cuando MaKo le contesta al cliente qué plan tiene;
-  · lib/cobros.ts:492, el concepto de reserva de un cobro de alta sin concepto («MaKo · plan Agencia»);
-  · lib/cobros.ts:1124-1396 y lib/api-mako/areas/cobros.run.ts:1144, textos para quien vende (Martín o la agencia).
+- *Los otros dos textos que lee el cliente, con la misma regla (segunda tanda, el mismo día):*
+  · lo que MaKo le contesta cuando pregunta qué plan tiene (`ver_mi_plan`, lib/api-mako/areas/negocio.run.ts) usa
+    `nombreDelPlanDe`, con `import()`;
+  · el concepto de reserva de un cobro de alta sin concepto (`crearCobro`, lib/cobros.ts), que termina en el recibo del
+    cliente: `conceptoDeAlta` (lib/plan-visible-reglas.ts) da «MaKo Pro» o «MaKo Essential», nunca «MaKo · plan Agencia».
+    lib/cobros.ts no puede importar lib/plan-visible.ts (trae lib/compra-plan, que importa lib/cobros), así que los nombres
+    van con el catálogo: `nombresDeLosPlanes` (lib/planes-mako.ts). OJO: lib/ai-step-armar.ts tiene otra `nombresDelCatalogo`
+    que no tiene nada que ver.
+- *Quedan con la capa A PROPÓSITO (el Cerebro, 18/11):* los textos para quien vende, porque los lee Martín o una agencia,
+  que saben qué es la capa. Están en lib/cobros.ts:1124-1396 y lib/api-mako/areas/cobros.run.ts:1144.
 - *Vive en:* lib/plan-visible-reglas.ts · lib/plan-visible.ts · app/configuraciones/plan/page.tsx · app/m/configuraciones/plan/page.tsx ·
-  app/configuraciones/plan/actions.ts · lib/tickets-reglas.ts (`planDeLaFicha`) · tests/plan-visible.test.ts.
+  app/configuraciones/plan/actions.ts · lib/api-mako/areas/negocio.run.ts (`ver_mi_plan`) · lib/cobros.ts (`crearCobro`) ·
+  lib/planes-mako.ts (`nombresDeLosPlanes`) · lib/tickets-reglas.ts (`planDeLaFicha`) · tests/plan-visible.test.ts.

@@ -71,7 +71,8 @@ import {
   crearProductoCreem, leerCheckoutCreem, leerSuscripcionCreem, leerTransaccionCreem, modoDeClaveCreem, repararAvisoCreem,
 } from './creem-api';
 import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaCreem, huellaMp, huellaStripe, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa, transaccionQueCobra } from './prueba-plan-reglas';
-import { PRUEBA_DIAS } from './planes-mako';
+import { nombresDeLosPlanes, PRUEBA_DIAS } from './planes-mako';
+import { conceptoDeAlta } from './plan-visible-reglas';
 import { montoDelPrimerPago, pctDelPrimerMes, usdDelPrimerPago } from './primer-mes-reglas';
 import { volverAlPrecioLleno } from './primer-mes';
 import { productoDeMako } from './stripe-catalogo-reglas';
@@ -489,7 +490,7 @@ export async function crearCobro(ws: number, p: {
     // Sin valor en USD el pago no podría asentarse en el CRM (pagos.monto_usd es NOT NULL) y el CRON «Pagos»
     // saldría sin `fecha_primer_pago`: se pide antes de crear el link, no después de cobrar.
     if (montoUsd == null) return { ok: false, error: `¿Cuánto es en dólares? Hace falta para tus reportes (se cobra en ${d.moneda}).`, faltan: ['montoUsd'] };
-    const concepto = (p.concepto ?? '').trim() || (cuota ? (cuota.numero === 0 ? 'Cobro inicial' : `Cuota ${cuota.numero}`) : '') || producto?.nombre || (altaCapa ? `MaKo · plan ${capaDef(altaCapa).nombre}` : 'Pago');
+    const concepto = (p.concepto ?? '').trim() || (cuota ? (cuota.numero === 0 ? 'Cobro inicial' : `Cuota ${cuota.numero}`) : '') || producto?.nombre || (altaCapa ? conceptoDeAlta(altaCapa, nombresDeLosPlanes()) : 'Pago');
     // El MODO (real o prueba) va aparte de la tabla de arriba porque el de Mercado Pago sale de `cuentaMp`, que se lee
     // más abajo con una consulta a su API. Igual por pasarela, nunca `stripe ? … : mp`.
     const modoPorPasarela: Readonly<Record<Pasarela, 'real' | 'prueba' | null>> = {
