@@ -1927,4 +1927,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '18 nov', hora: '01:30', chat: 'De octubre', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que MaKo propone en el chat de una landing se ve armarse',
+    puntos: [
+      'Cuando le pides un cambio a MaKo en el chat de una landing, las secciones que cambian aparecen de a una, con un pequeño delay, en vez de todas de golpe.',
+      '«Aceptar» aparece con todo a la vista; mientras tanto, «Ver todo» lo muestra de una. Con «reducir movimiento» del sistema, se ve todo sin animación.',
+      'Aplicar sigue siendo un solo paso: se guarda la versión de antes y «Restaurar» lo deshace como siempre.',
+      '**Cómo se prueba:** abre una landing, pídele a MaKo «cambia el título de la portada»: las secciones de la tarjeta aparecen una tras otra.',
+    ],
+    archivos: [
+      'app/web-generator/editor/revelado-propuesta.ts — qué propuesta se arma y cuándo se puede aceptar',
+      'app/web-generator/editor/paneles/PanelAgente.tsx — la tarjeta «Original | Modificado» con useRevelado',
+      'tests/web-generator-propuesta-revelada.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/web-generator',
+  },
 ];

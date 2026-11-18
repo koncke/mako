@@ -6,6 +6,24 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## La propuesta del chat se ve armarse, sección por sección (18/11/2026)
+
+**Vive en:** `app/web-generator/editor/paneles/PanelAgente.tsx` (`RevisionPropuesta`, la usan el chat y el popover de una
+sección, `AskAgent.tsx`), `app/web-generator/editor/revelado-propuesta.ts`. **Lo fija:** `tests/web-generator-propuesta-revelada.test.ts`.
+
+- **El síntoma:** «Editar» devolvía la propuesta entera y la tarjeta «Original | Modificado» aparecía de golpe, contra la regla
+  «Lo que MaKo construye se ve CONSTRUYÉNDOSE» (O13 de docs/pendientes-verificados-17-11.md).
+- **Lo que se reveló es la TARJETA, no el documento.** Aplicar sección por sección en el editor rompía dos contratos: «Aceptar»
+  guarda la versión de respaldo y aplica en UN paso de deshacer, y «Restaurar» cuenta esos pasos (`deshacerPropuesta`). Así que
+  aplicar sigue igual y lo que se arma de a una son las filas de la revisión, con `useRevelado` (la cadencia y el «reducir
+  movimiento» son de la pieza compartida, no se copiaron).
+- **«Aceptar» sale con todo a la vista; mientras tanto, «Ver todo».** Lo que se aprueba se ve entero, y se puede saltear.
+- **El chat es un store de módulo que sobrevive al panel** (⇤ lo desmonta): sin una marca por propuesta (un `WeakSet`), cada vez
+  que se abría el panel todas las tarjetas pendientes se volvían a armar. La propuesta no se guarda en la base (`hilo-agente.ts`),
+  así que la marca vive lo mismo que ella.
+- **Sin hacer:** lo mismo en «Editar con MaKo» del Dashboard (`app/dashboard/EditorInforme.tsx`, `PanelEditarMako.tsx`), en Offer
+  y en el onboarding (este encargo era sólo la parte del editor de landing).
+
 ## Cerrar «Replicar» para Esencial: se busca por lo que hace, no por el nombre (14/11/2026)
 
 Al hacer de Pro copiar la landing de otro negocio (Martín, 14/11), apareció una CUARTA puerta del servidor que no estaba en la lista:
