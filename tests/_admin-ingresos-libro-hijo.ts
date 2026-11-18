@@ -16,7 +16,9 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = 'clave-de-prueba';
 process.env.SUPABASE_SERVICE_KEY = 'clave-de-prueba';
 
 const pg = crearPostgrest({
-  tablas: ['workspaces', 'pagos', 'leads', 'cobros', 'app_settings', 'recibo_pagos', 'lead_funnel', 'funnels', 'suscripcion_movimientos'],
+  // `agencias` y `agencia_clientes`: las lee `mensualidadDeAgencia` (lib/agencia-mes.ts), que «Por cobrar» consulta para una agencia con el
+  // libro prendido y sin meses pagados por él (P7, 18/11/2026).
+  tablas: ['workspaces', 'pagos', 'leads', 'cobros', 'app_settings', 'recibo_pagos', 'lead_funnel', 'funnels', 'suscripcion_movimientos', 'agencias', 'agencia_clientes', 'usuarios'],
 });
 const db = pg.db;
 const PLATAFORMA = 9;
@@ -28,6 +30,8 @@ db.workspaces = [
   { id: AGENCIA, nombre: 'Agencia Norte', capa: 'agencia', estado: 'activo' },
   { id: CLIENTE, nombre: 'Cliente Sur', capa: 'completo', estado: 'activo' },
 ];
+db.agencias = [{ ws: AGENCIA }];
+db.agencia_clientes = [{ agencia_ws: AGENCIA, cliente_ws: CLIENTE, estado: 'aprobado', decidido_at: '2026-11-09T14:00:00Z', created_at: '2026-11-09T13:00:00Z', cobra_desde: null }];
 // La ficha de la agencia en el CRM de la plataforma, y su mensualidad cargada a mano hasta noviembre (#115, #135, #136).
 db.leads = [{ id: 1, workspace_id: PLATAFORMA, nombre: 'Juan Ejemplo', empresa: null, email: null, cliente_ws: AGENCIA, venta_tipo: null, estado_lead: 'ganado', fecha_cierre: '2026-10-20', monto_cierre_usd: null, suscripcion_monto_usd: null, suscripcion_meses: null, suscripcion_cancelada_at: null, funnel_id: null }];
 const pagoCrm = (id: number, fecha: string, usd: number, mensualidad = true): Fila => ({
