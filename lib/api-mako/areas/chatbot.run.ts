@@ -946,6 +946,15 @@ export const RUNNERS: Runners = {
       // y `linkApp` le pega el `?ws=`.
       const link = linkApp(`/automations?sec=${r.secuenciaId}&mako=1`, ctx.ws);
       const falta = r.disparador ? '' : ' Le falta elegir qué la dispara.';
+      // Con una nota de voz POR GRABAR (F80) quedó en el borrador: no se activa hasta grabarla y publicarla.
+      if (r.borrador) {
+        return {
+          ok: true,
+          resumen: `Automatización «${r.nombre}» creada (#${r.secuenciaId}), pausada y sin publicar: falta grabar la nota de voz.${falta}`,
+          datos: { secuenciaId: r.secuenciaId, borrador: true },
+          paraLaPersona: `🧩 «${r.nombre}» quedó sin publicar.${falta} Graba la nota de voz y publícala 👉 ${link}`,
+        };
+      }
       return {
         ok: true,
         resumen: `Automatización «${r.nombre}» creada (#${r.secuenciaId}), pausada.${falta}`,

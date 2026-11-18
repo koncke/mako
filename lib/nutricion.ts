@@ -99,10 +99,11 @@ import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
-  juntarPasosIA, escuchaPor, contestaElDisparo, extrasDeCaso, MAX_RAMAS_AB, type MedioAIStep,
+  juntarPasosIA, escuchaPor, contestaElDisparo, extrasDeCaso, MAX_RAMAS_AB, audioPorGrabar, NOTA_AUDIO_POR_GRABAR, type MedioAIStep,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
+import { guardarBorradorSecuencia, firmaPublicado, type DbBorrador } from '@/lib/secuencia-borrador';
 import { botonesDe, botonesDeFlujo, botonPorTexto, esperaToque, leerPayloadDeBoton, leerMarcaToque, marcaToque, vueltaDeToque, TOPE_TOQUES_POR_VUELTA, type MarcaToque } from '@/lib/botones-social';
 import { esperaQueAbra } from '@/lib/mako-tarjeta';
 import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/equipo-contesto';
@@ -1042,7 +1043,13 @@ async function frenarSetterNuevo(antes: unknown, grafo: unknown, soloValidar: bo
   }
 }
 
-export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: { soloValidar?: boolean }): Promise<void> {
+/**
+ * `comoBorrador` (18/11/2026, F80): hace TODO lo de publicar (el saneo campo por campo, las acciones, los datos, el candado
+ * del setter) pero escribe el resultado en el BORRADOR (lib/secuencia-borrador.ts) y no en `pasos`: el
+ * motor no lo lee. Lo usa Crear con IA cuando el flujo lleva una nota de voz POR GRABAR (`audioPorGrabar`), que es la única
+ * cosa que deja pasar de más.
+ */
+export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: { soloValidar?: boolean; comoBorrador?: boolean }): Promise<void> {
   const supabase = (await getTenantDb());
 
   // Lo que ya está guardado, para MERGEAR los campos que ninguna pantalla edita.
@@ -1189,13 +1196,16 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
       if (a?.ok) return { ...comun, asunto: null, preheader: null, cuerpo: '', template_wa: null, accion: a.accion };
       return {
         ...comun,
-        // Paso de nota de voz: exige audio de la biblioteca (si no, degrada a texto).
+        // Paso de nota de voz: con el audio de la biblioteca, o POR GRABAR (18/11/2026, F80: `audioPorGrabar`, con
+        // `audio_id` null). Hasta ese día uno sin audio se degradaba a texto: el texto de al lado pasaba a ser el
+        // mensaje y salía al lead una nota de voz que nadie grabó, escrita. Ahora se conserva y `validarGrafo` no la
+        // deja publicar (se guarda sólo como borrador: `comoBorrador`).
         // Paso en modo IA: sólo por WhatsApp no oficial. Por la vía oficial sale una
         // plantilla que aprobó Meta, y reescribirla es mandar algo que nadie aprobó; por
         // email no hay ruta en el motor. En esos casos se guarda como texto, que es lo
         // que el motor iba a hacer igual — sin un `tipo` que prometa otra cosa.
-        ...(p.tipo === 'audio' && Number(p.audio_id)
-          ? { tipo: 'audio' as const, audio_id: Number(p.audio_id) }
+        ...(p.tipo === 'audio'
+          ? { tipo: 'audio' as const, audio_id: Number(p.audio_id) > 0 ? Number(p.audio_id) : null }
           : p.tipo === 'media'
             ? { tipo: 'media' as const, media_id: Number(p.media_id) }
             : p.tipo === 'ia' && p.canal !== 'email' && proveedorDelPaso(p) === 'no_oficial'
@@ -1232,7 +1242,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   // Ids y `siguiente` EXPLÍCITOS en cada guardado (insertar o borrar un elemento del array ya no
   // le cambia a nadie el paso siguiente), y lo que no es un flujo no se guarda.
   const grafo = grafoAGuardar(limpio);
-  const errores = validarGrafo(grafo);
+  const errores = validarGrafo(grafo, o?.comoBorrador ? { audiosPorGrabar: true } : undefined);
   if (errores.length) throw new PasosInvalidosError(`No se guardó: ${errores[0]}.`);
   // EL RECORDATORIO DE LA REUNIÓN (10/10/2026): con su CRON, sólo la fila que su emisor sabe mandar
   // (`toquesDeLaAutomatizacion`, lib/recordatorio-automatizacion.ts). Lo demás se publicaría y no saldría.
@@ -1258,6 +1268,13 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   await frenarSetterNuevo(antes, grafo, o?.soloValidar);
   // Activar valida lo mismo que Publicar, sin escribir (`setSecuenciaActiva`).
   if (o?.soloValidar) return;
+  // COMO BORRADOR (F80): sobre lo publicado de AHORA (la base que se acaba de leer), por la puerta de siempre del borrador.
+  if (o?.comoBorrador) {
+    const r = await guardarBorradorSecuencia(supabase as unknown as DbBorrador, id, grafo, firmaPublicado(antes));
+    if (r.ok) return;
+    if (r.motivo === 'invalido') throw new PasosInvalidosError(r.error ?? 'No se guardó el borrador.');
+    throw new Error(`setSecuenciaPasos (borrador): ${r.motivo === 'sin_columna' ? 'falta la columna del borrador (mig 0240)' : r.motivo === 'no_existe' ? 'la automatización ya no existe' : 'lo publicado cambió mientras tanto'}`);
+  }
   const { error } = await supabase
     .from('nutricion_secuencias')
     .update({ pasos: grafo, updated_at: ahoraISO() })
@@ -5777,6 +5794,11 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         // Queda un paso posterior enviable → este se omite y la cadencia sigue.
         estado = 'omitido';
         nota = `canal ${paso.canal} apagado`;
+      } else if (audioPorGrabar(paso)) {
+        // UNA NOTA DE VOZ POR GRABAR (18/11/2026, F80): no se publica (`validarGrafo`), pero si llega igual —una fila escrita
+        // por otro camino— NO sale: ni como texto (el texto de al lado no es el mensaje) ni sin el audio (las partes de
+        // después saldrían solas). Falla con el motivo y vuelve a mirar mañana: grabado y publicado, sale.
+        estado = 'fallo'; nota = NOTA_AUDIO_POR_GRABAR; backoffHoras = 24;
       } else if (esCanalSocial(paso.canal)) {
         // INSTAGRAM O MESSENGER, por Zernio (sexta tanda, CRON 4 y 7). Las partes en orden como el
         // WhatsApp no oficial, la ventana de 24 h de Meta y la respuesta privada a un comentario
@@ -7618,6 +7640,8 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
   if (!lead?.telefono) { await registrar('fallo', 'lead sin teléfono', null); return no('No le contesté: no tiene teléfono.'); }
   if (!(await envioWhatsappHabilitado().catch(() => false))) { await registrar('fallo', 'el envío de WhatsApp está apagado', null); return no('No le contesté: el envío de WhatsApp está apagado.'); }
   if (await estaBloqueado(lead.telefono).catch(() => true)) { await registrar('omitido', 'contacto bloqueado', null); return no('No le contesté: el contacto está bloqueado.'); }
+  // La nota de voz POR GRABAR (F80): de acá abajo saldría su texto solo, como si fuera el mensaje. No sale.
+  if (audioPorGrabar(p)) { await registrar('fallo', NOTA_AUDIO_POR_GRABAR, null); return no('No le contesté: la nota de voz de esa tarjeta está por grabar.'); }
   const negocio = await getWorkspace(ws ?? 0).then((w) => w?.nombre ?? '').catch(() => '');
   // Los datos del «{ }», como los mensajes de la salida (`datosParaElLead`).
   const pie = textoConDatos(textoDelPaso(p), await datosParaElLead(JSON.stringify(p), valoresVariablesLead(lead, { negocio, noSon: await noSonDelNegocio() }), { ws: ws ?? null, leadId }));

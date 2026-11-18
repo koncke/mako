@@ -199,6 +199,9 @@ function deps(ctx: CtxIA, o: { modelo?: Record<string, unknown>; chatTira?: bool
     borrar: async () => { ops.push('borrar'); },
     pausar: async () => { ops.push('pausar'); },
     guardarPasos: async (_id, pasos) => { ops.push('guardar'); guardados = pasos; },
+    // Sin nota de voz por grabar (F80) no se guarda como borrador: tests/audio-por-grabar.test.ts lo ejecuta.
+    guardarBorrador: async () => { throw new Error('este flujo no va al borrador'); },
+    borradorDe: async () => null,
     motivoDePasos: () => null,
     ponerDisparador: async (_id, valor) => { ops.push(`cron:${valor}`); },
     motivoDeDisparador: () => null,
