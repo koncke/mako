@@ -399,51 +399,100 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-2.mp4",
    "poster": "/tutoriales/reto-dia-2.jpg",
-   "duracion_s": 37.77,
-   "peso_kb": 1368,
-   "guion": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso. Primero, MaKo en tu teléfono: escaneas un QR, y los avisos de tu negocio te llegan al instante. Después, la extensión para Chrome, para tener a MaKo a mano mientras navegas. En Integraciones conectas sólo lo que necesita tu funnel, y al final, tu perfil y tu foto. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+   "duracion_s": 55.47,
+   "peso_kb": 1453,
+   "guion": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso. Primero, la app de MaKo en tu teléfono: te avisa al instante de lo que pasa en tu negocio, y abres MaKo desde el celular. No es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación. Toca aquí, en tu foto. Ahora toca aquí, en Settings. Y aquí, en Instalar la app. Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente. Mira aquí, la extensión para Chrome: con ella tienes a MaKo a mano mientras navegas. Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel. Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado. Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
    "frases": [
     {
      "id": "reto-dia-2-1",
      "rol": "gancho",
      "texto": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso.",
-     "t_inicio": 0.04,
-     "t_fin": 5.22
+     "t_inicio": 0.06,
+     "t_fin": 5.14
     },
     {
      "id": "reto-dia-2-2",
      "rol": "que-es",
-     "texto": "Primero, MaKo en tu teléfono: escaneas un QR, y los avisos de tu negocio te llegan al instante.",
+     "texto": "Primero, la app de MaKo en tu teléfono: te avisa al instante de lo que pasa en tu negocio, y abres MaKo desde el celular.",
      "t_inicio": 5.82,
-     "t_fin": 12
+     "t_fin": 12.52
     },
     {
      "id": "reto-dia-2-3",
      "rol": "cosa",
-     "texto": "Después, la extensión para Chrome, para tener a MaKo a mano mientras navegas.",
-     "t_inicio": 12.58,
-     "t_fin": 16.48
+     "texto": "No es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación.",
+     "t_inicio": 13,
+     "t_fin": 16.72
     },
     {
      "id": "reto-dia-2-4",
-     "rol": "cosa",
-     "texto": "En Integraciones conectas sólo lo que necesita tu funnel, y al final, tu perfil y tu foto.",
-     "t_inicio": 17,
-     "t_fin": 22.58
+     "rol": "accion",
+     "texto": "Toca aquí, en tu foto.",
+     "t_inicio": 17.3,
+     "t_fin": 18.58,
+     "sel": "[data-recorrido=\"tour-barra-foto\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-2-5",
-     "rol": "cosa",
-     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
-     "t_inicio": 23.28,
-     "t_fin": 28.16
+     "rol": "accion",
+     "texto": "Ahora toca aquí, en Settings.",
+     "t_inicio": 19.16,
+     "t_fin": 21.12,
+     "sel": "#user-menu a[href^=\"/perfil\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-2-6",
+     "rol": "accion",
+     "texto": "Y aquí, en Instalar la app.",
+     "t_inicio": 21.58,
+     "t_fin": 23.22,
+     "sel": "[data-recorrido=\"tour-settings-instalar\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "reto-dia-2-7",
+     "rol": "accion",
+     "texto": "Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente.",
+     "t_inicio": 23.88,
+     "t_fin": 29.38,
+     "sel": "[data-recorrido=\"tour-settings-instalar\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "reto-dia-2-8",
+     "rol": "accion",
+     "texto": "Mira aquí, la extensión para Chrome: con ella tienes a MaKo a mano mientras navegas.",
+     "t_inicio": 30.08,
+     "t_fin": 34.8,
+     "sel": "[data-recorrido=\"tour-settings-instalar\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-2-9",
+     "rol": "accion",
+     "texto": "Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel.",
+     "t_inicio": 35.32,
+     "t_fin": 40.14,
+     "sel": "[data-recorrido=\"tour-settings-integraciones\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "reto-dia-2-10",
+     "rol": "accion",
+     "texto": "Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado.",
+     "t_inicio": 40.72,
+     "t_fin": 46.16,
+     "sel": "[data-recorrido=\"tour-settings-info\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "reto-dia-2-11",
      "rol": "cierre",
      "texto": "Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
-     "t_inicio": 28.8,
-     "t_fin": 37.06,
+     "t_inicio": 46.84,
+     "t_fin": 54.78,
      "espera_clic": false
     }
    ],
@@ -452,7 +501,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "2 → dos (ortografía del transcriptor)",
-   "hecho": "2026-11-18T13:53:17.225Z"
+   "hecho": "2026-11-18T15:35:51.683Z"
   },
   {
    "key": "reto-dia-3",
@@ -460,51 +509,59 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-3.mp4",
    "poster": "/tutoriales/reto-dia-3.jpg",
-   "duracion_s": 34.33,
-   "peso_kb": 1432,
-   "guion": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda. Cargas tus clientes en el CRM, con un CSV o integrando el CRM que ya usas. Y armas tu primera automatización: MaKo contesta a tus clientes por donde te escriben, WhatsApp, Instagram o email. Después conectas tu calendario: las llamadas que agenden caen en tu agenda. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
+   "duracion_s": 40.03,
+   "peso_kb": 1384,
+   "guion": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda. Primero, toca aquí, en CRM, y carga tus clientes: con un CSV o, si ya usas otro CRM, lo integramos. Después, toca aquí, en Automations, para armar tu primera automatización. Mira aquí, Nueva automatización: pídele a MaKo que conteste a tus clientes por donde te escriben, WhatsApp, Instagram o email. Y toca aquí, en Calendar, y conecta tu calendario: las llamadas que agenden caen en tu agenda. Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
    "frases": [
     {
      "id": "reto-dia-3-1",
      "rol": "gancho",
      "texto": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda.",
      "t_inicio": 0.04,
-     "t_fin": 4.98
+     "t_fin": 5
     },
     {
      "id": "reto-dia-3-2",
-     "rol": "que-es",
-     "texto": "Cargas tus clientes en el CRM, con un CSV o integrando el CRM que ya usas.",
-     "t_inicio": 5.48,
-     "t_fin": 10.62
+     "rol": "accion",
+     "texto": "Primero, toca aquí, en CRM, y carga tus clientes: con un CSV o, si ya usas otro CRM, lo integramos.",
+     "t_inicio": 5.54,
+     "t_fin": 14.34,
+     "sel": "aside[data-sidebar] a[href^=\"/crm\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-3-3",
-     "rol": "cosa",
-     "texto": "Y armas tu primera automatización: MaKo contesta a tus clientes por donde te escriben, WhatsApp, Instagram o email.",
-     "t_inicio": 11.08,
-     "t_fin": 18.08
+     "rol": "accion",
+     "texto": "Después, toca aquí, en Automations, para armar tu primera automatización.",
+     "t_inicio": 14.82,
+     "t_fin": 19.46,
+     "sel": "aside[data-sidebar] a[href^=\"/automations\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-3-4",
-     "rol": "cosa",
-     "texto": "Después conectas tu calendario: las llamadas que agenden caen en tu agenda.",
-     "t_inicio": 18.6,
-     "t_fin": 22.72
+     "rol": "accion",
+     "texto": "Mira aquí, Nueva automatización: pídele a MaKo que conteste a tus clientes por donde te escriben, WhatsApp, Instagram o email.",
+     "t_inicio": 19.94,
+     "t_fin": 27.76,
+     "sel": "aside[aria-label=\"Tus automatizaciones\"] button.chb-nueva",
+     "espera_clic": false
     },
     {
      "id": "reto-dia-3-5",
-     "rol": "cosa",
-     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
-     "t_inicio": 23.28,
-     "t_fin": 28.12
+     "rol": "accion",
+     "texto": "Y toca aquí, en Calendar, y conecta tu calendario: las llamadas que agenden caen en tu agenda.",
+     "t_inicio": 28.26,
+     "t_fin": 33.84,
+     "sel": "aside[data-sidebar] a[href^=\"/calendario\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-3-6",
      "rol": "cierre",
      "texto": "Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
-     "t_inicio": 28.64,
-     "t_fin": 33.64,
+     "t_inicio": 34.26,
+     "t_fin": 39.34,
      "espera_clic": false
     }
    ],
@@ -513,7 +570,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "3 → tres (ortografía del transcriptor)",
-   "hecho": "2026-11-18T14:46:54.076Z"
+   "hecho": "2026-11-18T15:27:58.953Z"
   },
   {
    "key": "reto-dia-4",
@@ -521,44 +578,41 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-4.mp4",
    "poster": "/tutoriales/reto-dia-4.jpg",
-   "duracion_s": 28.9,
-   "peso_kb": 1395,
-   "guion": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia. En Competitor Spy agregas a tres competidores y miras lo que más tiempo llevan activo: si sigue activo, es porque vende. Después, en Web Generator pegas una página que ya vende, y la arma con tu oferta. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
+   "duracion_s": 25.9,
+   "peso_kb": 1456,
+   "guion": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia. Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende. Después, toca aquí, en Web Generator: pegas una página que ya vende, y la arma con tu oferta. Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
    "frases": [
     {
      "id": "reto-dia-4-1",
      "rol": "gancho",
      "texto": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia.",
-     "t_inicio": 0.06,
-     "t_fin": 5.48
+     "t_inicio": 0.04,
+     "t_fin": 5.44
     },
     {
      "id": "reto-dia-4-2",
-     "rol": "que-es",
-     "texto": "En Competitor Spy agregas a tres competidores y miras lo que más tiempo llevan activo: si sigue activo, es porque vende.",
-     "t_inicio": 6.1,
-     "t_fin": 13.22
+     "rol": "accion",
+     "texto": "Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende.",
+     "t_inicio": 5.92,
+     "t_fin": 14.72,
+     "sel": "aside[data-sidebar] a[href^=\"/competitor-spy\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-4-3",
-     "rol": "cosa",
-     "texto": "Después, en Web Generator pegas una página que ya vende, y la arma con tu oferta.",
-     "t_inicio": 13.78,
-     "t_fin": 18.7
+     "rol": "accion",
+     "texto": "Después, toca aquí, en Web Generator: pegas una página que ya vende, y la arma con tu oferta.",
+     "t_inicio": 15.2,
+     "t_fin": 21.3,
+     "sel": "aside[data-sidebar] a[href^=\"/web-generator\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-4-4",
-     "rol": "cosa",
-     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
-     "t_inicio": 19.32,
-     "t_fin": 24.12
-    },
-    {
-     "id": "reto-dia-4-5",
      "rol": "cierre",
      "texto": "Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
-     "t_inicio": 24.44,
-     "t_fin": 28.2,
+     "t_inicio": 21.72,
+     "t_fin": 25.22,
      "espera_clic": false
     }
    ],
@@ -567,7 +621,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "4 → cuatro (ortografía del transcriptor)",
-   "hecho": "2026-11-18T13:55:15.713Z"
+   "hecho": "2026-11-18T15:28:49.888Z"
   },
   {
    "key": "reto-dia-5",
@@ -575,44 +629,41 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-5.mp4",
    "poster": "/tutoriales/reto-dia-5.jpg",
-   "duracion_s": 24.8,
-   "peso_kb": 1363,
-   "guion": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco. En Ímich replicas un carrusel que ya funcionó, con tu oferta. Y en Copywriting escribes tu guion replicando a tu referente. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
+   "duracion_s": 22.33,
+   "peso_kb": 1216,
+   "guion": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco. Primero, toca aquí, en Ímich, y replica un carrusel que ya funcionó, con tu oferta. Después, toca aquí, en Copywriting, y escribe tu guion replicando a tu referente. Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
    "frases": [
     {
      "id": "reto-dia-5-1",
      "rol": "gancho",
      "texto": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco.",
-     "t_inicio": 0.04,
-     "t_fin": 6.02
+     "t_inicio": 0.06,
+     "t_fin": 5.86
     },
     {
      "id": "reto-dia-5-2",
-     "rol": "que-es",
-     "texto": "En Image replicas un carrusel que ya funcionó, con tu oferta.",
-     "t_inicio": 6.62,
-     "t_fin": 10.22
+     "rol": "accion",
+     "texto": "Primero, toca aquí, en Image, y replica un carrusel que ya funcionó, con tu oferta.",
+     "t_inicio": 6.34,
+     "t_fin": 11.74,
+     "sel": "aside[data-sidebar] a[href^=\"/image-editor\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-5-3",
-     "rol": "cosa",
-     "texto": "Y en Copywriting escribes tu guion replicando a tu referente.",
-     "t_inicio": 10.74,
-     "t_fin": 14.12
+     "rol": "accion",
+     "texto": "Después, toca aquí, en Copywriting, y escribe tu guion replicando a tu referente.",
+     "t_inicio": 12.26,
+     "t_fin": 17.2,
+     "sel": "aside[data-sidebar] a[href^=\"/copywriter\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-5-4",
-     "rol": "cosa",
-     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
-     "t_inicio": 14.74,
-     "t_fin": 19.4
-    },
-    {
-     "id": "reto-dia-5-5",
      "rol": "cierre",
      "texto": "Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
-     "t_inicio": 19.92,
-     "t_fin": 24.1,
+     "t_inicio": 17.62,
+     "t_fin": 21.64,
      "espera_clic": false
     }
    ],
@@ -620,8 +671,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "5 → cinco · imich → image · mako → maco (ortografía del transcriptor)",
-   "hecho": "2026-11-18T13:56:07.040Z"
+   "chequeo": "5 → cinco · imich → image (ortografía del transcriptor)",
+   "hecho": "2026-11-18T15:29:36.410Z"
   },
   {
    "key": "reto-dia-6",
@@ -629,44 +680,39 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-6.mp4",
    "poster": "/tutoriales/reto-dia-6.jpg",
-   "duracion_s": 26,
-   "peso_kb": 1488,
-   "guion": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte. En Video, dentro de AI Avatar, armas tu personaje con una foto tuya. Y el clip de 10 segundos va de regalo, con el gancho del guion que escribiste ayer. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
+   "duracion_s": 22.67,
+   "peso_kb": 1222,
+   "guion": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte. Toca aquí, en Video: en AI Avatar armas tu personaje con una foto tuya. Y con él haces tu clip de 10 segundos, de regalo, con el gancho del guion que escribiste ayer. Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
    "frases": [
     {
      "id": "reto-dia-6-1",
      "rol": "gancho",
      "texto": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte.",
-     "t_inicio": 0.04,
-     "t_fin": 5.52
+     "t_inicio": 0.08,
+     "t_fin": 5.44
     },
     {
      "id": "reto-dia-6-2",
-     "rol": "que-es",
-     "texto": "En Video, dentro de AI Avatar, armas tu personaje con una foto tuya.",
-     "t_inicio": 6.12,
-     "t_fin": 10.76
+     "rol": "accion",
+     "texto": "Toca aquí, en Video: en AI Avatar armas tu personaje con una foto tuya.",
+     "t_inicio": 5.96,
+     "t_fin": 11.42,
+     "sel": "aside[data-sidebar] a[href^=\"/video-editor\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-6-3",
      "rol": "cosa",
-     "texto": "Y el clip de 10 segundos va de regalo, con el gancho del guion que escribiste ayer.",
-     "t_inicio": 11.2,
-     "t_fin": 15.28
+     "texto": "Y con él haces tu clip de 10 segundos, de regalo, con el gancho del guion que escribiste ayer.",
+     "t_inicio": 11.86,
+     "t_fin": 17.02
     },
     {
      "id": "reto-dia-6-4",
-     "rol": "cosa",
-     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
-     "t_inicio": 16,
-     "t_fin": 20.62
-    },
-    {
-     "id": "reto-dia-6-5",
      "rol": "cierre",
      "texto": "Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
-     "t_inicio": 21.22,
-     "t_fin": 25.3,
+     "t_inicio": 17.72,
+     "t_fin": 21.96,
      "espera_clic": false
     }
    ],
@@ -675,7 +721,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "6 → seis · 10 → diez (ortografía del transcriptor)",
-   "hecho": "2026-11-18T13:57:01.183Z"
+   "hecho": "2026-11-18T15:30:29.426Z"
   },
   {
    "key": "reto-dia-7",
@@ -683,9 +729,9 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-7.mp4",
    "poster": "/tutoriales/reto-dia-7.jpg",
-   "duracion_s": 22.2,
-   "peso_kb": 1250,
-   "guion": "Te doy la bienvenida al día 7, el último del reto. Hoy tu Marketing CoPilot revisa todo lo que armaste: tu oferta, tu página y tu contenido. Y te deja las tareas de cada semana en tu Plan. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
+   "duracion_s": 19.57,
+   "peso_kb": 1069,
+   "guion": "Te doy la bienvenida al día 7, el último del reto. Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido. Después, toca aquí, en Plan: ahí te deja las tareas de cada semana. Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
    "frases": [
     {
      "id": "reto-dia-7-1",
@@ -696,31 +742,28 @@
     },
     {
      "id": "reto-dia-7-2",
-     "rol": "que-es",
-     "texto": "Hoy tu Marketing CoPilot revisa todo lo que armaste: tu oferta, tu página y tu contenido.",
-     "t_inicio": 4.2,
-     "t_fin": 9.94
+     "rol": "accion",
+     "texto": "Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido.",
+     "t_inicio": 4.18,
+     "t_fin": 10.06,
+     "sel": "aside[data-sidebar] a[href^=\"/ads-manager/copiloto\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-7-3",
-     "rol": "cosa",
-     "texto": "Y te deja las tareas de cada semana en tu Plan.",
-     "t_inicio": 10.44,
-     "t_fin": 12.6
+     "rol": "accion",
+     "texto": "Después, toca aquí, en Plan: ahí te deja las tareas de cada semana.",
+     "t_inicio": 10.58,
+     "t_fin": 15.22,
+     "sel": "aside[data-sidebar] a[href^=\"/plan\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-7-4",
-     "rol": "cosa",
-     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
-     "t_inicio": 13.16,
-     "t_fin": 17.94
-    },
-    {
-     "id": "reto-dia-7-5",
      "rol": "cierre",
      "texto": "Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
-     "t_inicio": 18.44,
-     "t_fin": 21.5,
+     "t_inicio": 15.7,
+     "t_fin": 18.88,
      "espera_clic": false
     }
    ],
@@ -728,8 +771,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "7 → siete (ortografía del transcriptor)",
-   "hecho": "2026-11-18T13:57:47.749Z"
+   "chequeo": "7 → siete · mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-18T15:31:19.671Z"
   },
   {
    "key": "ops-center",
@@ -2328,30 +2371,30 @@
    "ruta": "/perfil/instalar",
    "archivo": "/tutoriales/settings-instalar.mp4",
    "poster": "/tutoriales/settings-instalar.jpg",
-   "duracion_s": 29.47,
-   "peso_kb": 1410,
-   "guion": "MaKo en tu computadora, en tu celular y en Chrome. Te doy la bienvenida a Instalar la app, en Settings: aquí te guío en cada uno. Mira aquí, el QR: escanéalo con tu celular. En iPhone, Compartir y Agregar a inicio; en Android, Instalar app. Mira aquí, Extensión para Chrome: con ella, tus videos se hacen con tu cuenta de Google Flow. Empieza por la computadora: toca aquí, en Descargar, y tus chats con MaKo usan tu suscripción de Claude o ChatGPT.",
+   "duracion_s": 31.13,
+   "peso_kb": 1468,
+   "guion": "La app de MaKo en tu computadora, en tu celular y en Chrome. Te doy la bienvenida a Instalar la app, en Settings: aquí te guío en cada uno. Mira aquí, el QR: escanéalo con tu celular. En iPhone, Compartir y Agregar a inicio; en Android, Instalar app. Mira aquí, Extensión para Chrome: con ella, tus videos se hacen con tu cuenta de Google Flow. Empieza por la computadora: toca aquí, en Descargar, y tus chats con MaKo usan tu suscripción de Claude o ChatGPT.",
    "frases": [
     {
      "id": "settings-instalar-1",
      "rol": "gancho",
-     "texto": "MaKo en tu computadora, en tu celular y en Chrome.",
+     "texto": "La app de MaKo en tu computadora, en tu celular y en Chrome.",
      "t_inicio": 0.1,
-     "t_fin": 3.12
+     "t_fin": 3.58
     },
     {
      "id": "settings-instalar-2",
      "rol": "que-es",
      "texto": "Te doy la bienvenida a Instalar la app, en Settings: aquí te guío en cada uno.",
-     "t_inicio": 3.54,
-     "t_fin": 8.2
+     "t_inicio": 4.04,
+     "t_fin": 8.9
     },
     {
      "id": "settings-instalar-3",
      "rol": "accion",
      "texto": "Mira aquí, el QR: escanéalo con tu celular. En iPhone, Compartir y Agregar a inicio; en Android, Instalar app.",
-     "t_inicio": 8.58,
-     "t_fin": 16.24,
+     "t_inicio": 9.38,
+     "t_fin": 17.26,
      "sel": "img.aj-telefono__qr",
      "espera_clic": false
     },
@@ -2359,8 +2402,8 @@
      "id": "settings-instalar-4",
      "rol": "accion",
      "texto": "Mira aquí, Extensión para Chrome: con ella, tus videos se hacen con tu cuenta de Google Flow.",
-     "t_inicio": 16.56,
-     "t_fin": 21.64,
+     "t_inicio": 17.76,
+     "t_fin": 22.94,
      "sel": "[data-recorrido=\"tour-settings-instalar-extension\"]",
      "espera_clic": false
     },
@@ -2368,8 +2411,8 @@
      "id": "settings-instalar-5",
      "rol": "cierre",
      "texto": "Empieza por la computadora: toca aquí, en Descargar, y tus chats con MaKo usan tu suscripción de Claude o ChatGPT.",
-     "t_inicio": 21.94,
-     "t_fin": 28.76,
+     "t_inicio": 23.42,
+     "t_fin": 30.44,
      "sel": "a[href^=\"/api/ia-pc/descargar\"]",
      "espera_clic": false
     }
@@ -2379,7 +2422,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "claude → cloud (ortografía del transcriptor)",
-   "hecho": "2026-11-18T14:27:37.032Z"
+   "hecho": "2026-11-18T15:32:40.593Z"
   },
   {
    "key": "settings-equipo",
