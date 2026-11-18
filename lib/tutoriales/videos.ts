@@ -36,7 +36,9 @@ export function frasesDe(crudo: unknown): FraseVideo[] {
       t_inicio: t0, t_fin: Number.isFinite(t1) && t1 >= t0 ? t1 : t0,
       texto: typeof f.texto === 'string' ? f.texto : '',
       sel,
-      espera_clic: sel ? f.espera_clic !== false : false,
+      // `espera_siguiente` (el chat de los videos, 18/11): una «mira» que igual espera, como el QR del día 2 («escanéalo y toca
+      // Siguiente»). Para el motor es lo mismo que esperar el clic: pausa al final de la frase hasta el clic o «Siguiente».
+      espera_clic: sel ? f.espera_clic !== false || f.espera_siguiente === true : false,
       cierra_despues: f.cierra_despues === true,
     });
   });

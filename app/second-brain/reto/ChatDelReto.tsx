@@ -22,10 +22,11 @@ import {
   DIAS_RETO, HORAS_WA, RETO_HOLA, RETO_SUB, RETO_TITULO, mensajeEscrito, proximaTarea, tareaHecha,
   type DiaReto, type EstadoDia, type EstadoReto, type MarcaReto, type TareaReto,
 } from '@/lib/reto/dias';
-import { senalAhora, senalarDondeTocar } from '@/app/_ui/tutorial/store';
+import { mostrarTutorial, senalAhora, senalarDondeTocar } from '@/app/_ui/tutorial/store';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
+import { useVideoQueFlota } from '@/app/_ui/tutorial/useVideoQueFlota';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
-import { claveTarea, diaAbierto, estadoDeLosDias } from '@/lib/reto/dias';
+import { claveTarea, diaAbierto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null };
 
@@ -209,7 +210,20 @@ function Dia({ dia, e, linea, hora, onHora, onMarcar }: { dia: DiaReto; e: Estad
 /** El video del día: el del manifiesto (`reto-dia-<n>`), o en la revisión su lugar marcado. Nunca otro video. */
 function VideoDelDia({ dia }: { dia: DiaReto }) {
   const v = useVideoTutorial(dia.video);
-  if (v) return <video className="rt-video" src={v.archivo} poster={v.poster} controls playsInline preload="metadata" />;
+  const ref = useRef<HTMLVideoElement>(null);
+  // Si sale de la vista corriendo (o se navega), sigue abajo a la derecha (Martín, 18/11).
+  useVideoQueFlota(ref, v ? dia.video : null, `Día ${dia.n}`);
+  // Con frases que marcan lugares (el día 2: la foto, Settings, el QR…), el video lo pasa el motor: marca cada lugar cuando la voz
+  // lo nombra, pausa hasta el clic y sigue en el cuadrito de abajo a la derecha mientras la persona navega.
+  if (v && v.frases?.some((f) => f.sel)) {
+    return (
+      <button type="button" className="rt-video rt-video--pasos" onClick={() => mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true })}
+        style={v.poster ? { backgroundImage: `url(${v.poster})` } : undefined} aria-label={`Ver el video del día ${dia.n}: te marca dónde tocar`}>
+        <span className="rt-video__play" aria-hidden>▶</span><span className="rt-video__dice">Ver el video del día {dia.n}: te marco dónde tocar</span>
+      </button>
+    );
+  }
+  if (v) return <video ref={ref} className="rt-video" src={v.archivo} poster={v.poster} controls playsInline preload="metadata" />;
   if (PARA_TODOS) return null;
   return <div className="rt-video rt-video--lugar" role="note"><b>Tu video del día {dia.n}</b><span>Todavía no está grabado: va aquí.</span></div>;
 }
@@ -275,6 +289,10 @@ const CSS_RETO = `
 .rt-video { display: block; width: min(420px, 100%); aspect-ratio: 16 / 9; margin-top: 8px; border-radius: var(--r-md); background: #0E1219; }
 .rt-video--lugar { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #fff; border: 1.5px dashed rgba(255,255,255,.4); text-align: center; padding: 8px; box-sizing: border-box; }
 .rt-video--lugar span { font-size: var(--fs-meta); opacity: .75; }
+.rt-video--pasos { position: relative; border: 0; padding: 0; cursor: pointer; background-size: cover; background-position: center; color: #fff; overflow: hidden; }
+.rt-video--pasos::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(0,0,0,.65)); }
+.rt-video__play { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); width: 56px; height: 56px; border-radius: 999px; display: grid; place-items: center; background: rgba(0,0,0,.55); font-size: 20px; z-index: 1; }
+.rt-video__dice { position: absolute; left: 12px; right: 12px; bottom: 10px; font-size: var(--fs-meta); font-weight: 650; text-align: left; z-index: 1; }
 .rt-tarjeta { display: flex; flex-direction: column; gap: 8px; }
 .rt-tarjeta__t { margin: 0; font-weight: 650; font-size: var(--fs-sm); color: var(--ink); }
 .rt-tareas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }

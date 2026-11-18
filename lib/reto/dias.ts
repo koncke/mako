@@ -55,6 +55,18 @@ export const RETO_HOLA = (nombre: string) => `¡Hola${nombre ? `, ${nombre}` : '
 /** «En X › Y»: la ruta va aparte para que empiece por la tab de la barra (tests/mako-nombres-de-tabs.test.ts). */
 const en = (ruta: string): string => `En ${ruta}`;
 
+/**
+ * El video de un día del reto como TUTORIAL (Martín, 18/11: «que el video del día 2 pause en cada cosa que pide»): sus pasos son las
+ * marcas de sus tareas, en orden. Con frases con `sel` en el manifiesto, el motor marca cada lugar cuando la voz lo nombra y pausa
+ * hasta el clic (app/_ui/tutorial/MotorTutorial.tsx); el video corre en el cuadrito de abajo a la derecha, que sigue al navegar.
+ */
+export function tutorialDelDia(d: DiaReto): import('@/lib/tutoriales').TutorialPestana {
+  return {
+    pestana: d.video, nombre: `Día ${d.n}`, ruta: '/second-brain', intro: d.mensaje,
+    pasos: d.tareas.flatMap((t) => t.marcas.map((m) => ({ sel: m.sel, titulo: m.titulo, texto: m.texto, ...(m.lado ? { lado: m.lado } : {}) }))),
+  };
+}
+
 export const DIAS_RETO: readonly DiaReto[] = [
   {
     // DOS TAREAS, EN ORDEN (18/11/2026; Martín, 15/11: «al terminar el onboarding, Oferta y Funnel Coach en DOS chats separados»): la
@@ -72,9 +84,11 @@ export const DIAS_RETO: readonly DiaReto[] = [
   },
   {
     n: 2, titulo: 'Conecta todo: la app, la extensión y tus integraciones', video: 'reto-dia-2',
-    mensaje: 'Día 2: conectamos todo, de a un paso. Primero MaKo en tu teléfono; después la extensión para Chrome y tus integraciones.',
+    mensaje: 'Día 2: conectamos todo, de a un paso. Primero la app de MaKo en tu teléfono; después la extensión para Chrome y tus integraciones.',
     tareas: [
-      { id: 'app', titulo: 'MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR: los avisos de tu negocio, al instante.',
+      // Martín, 18/11: «MaKo con tu teléfono» no se entiende, «pareciera que está hablando de MaKo con WhatsApp otra vez… es la
+      // aplicación de MaKo en tu teléfono». Se nombra la APP, aparte de MaKo por WhatsApp.
+      { id: 'app', titulo: 'La app de MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR e instala la app de MaKo: los avisos de tu negocio, al instante. Es aparte de MaKo por WhatsApp.',
         marcas: [
           { sel: conMarca(MARCA.barraFoto), titulo: 'Tu cuenta', texto: 'Lo de tu cuenta está en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },

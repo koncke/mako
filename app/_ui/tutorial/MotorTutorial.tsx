@@ -123,7 +123,8 @@ export function MotorTutorial({ revision }: { revision: boolean }) {
         </div>
       )}
       <TutorialDeLaRuta />
-      {senal && <Capa key={senal.id} senal={senal} revision={revision} />}
+      {senal && senal.tipo === 'video' && <VideoFlotante key={senal.id} senal={senal} />}
+      {senal && senal.tipo !== 'video' && <Capa key={senal.id} senal={senal} revision={revision} />}
     </>
   );
 }
@@ -168,7 +169,34 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
 
 type Geo = { hueco: Caja | null; tarjeta: PosicionTarjeta | null };
 
-function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
+/** Un video que salió de su lugar: abajo a la derecha, desde donde iba, con su ✕. Termina solo al terminar el video. */
+function VideoFlotante({ senal }: { senal: Extract<Senal, { tipo: 'video' }> }) {
+  const v = useVideoTutorial(senal.clave);
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const arrancar = () => { try { el.currentTime = senal.desde; } catch { /* */ } el.play().catch(() => { el.muted = true; el.play().catch(() => {}); }); };
+    if (el.readyState >= 1) arrancar(); else el.addEventListener('loadedmetadata', arrancar, { once: true });
+  }, [v?.archivo, senal.desde]);
+  if (!v || typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="mk-tuto" style={{ zIndex: Z_PISO_RECORRIDO }}>
+      <style>{CSS_TUTORIAL}</style>
+      <aside className="mk-tuto__video" aria-label={`El video: ${senal.titulo}`}>
+        <header className="mk-tuto__vcab"><span className="mk-tuto__vfoto" aria-hidden>M</span><b>Martín · MaKo</b>
+          <button type="button" className="mk-tuto__vx" aria-label="Cerrar el video" onClick={() => terminar(senal.id, 'omitido')}>
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" /></svg>
+          </button></header>
+        <video ref={ref} className="mk-tuto__vid" src={v.archivo} poster={v.poster} controls playsInline preload="metadata" onEnded={() => terminar(senal.id, 'fin')} />
+      </aside>
+    </div>,
+    document.body,
+  );
+}
+
+type SenalConCapa = Exclude<Senal, { tipo: 'video' }>;
+function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   const telefono = typeof window !== 'undefined' && window.innerWidth < ANCHO_TELEFONO;
   const pasos: PasoTutorial[] = useMemo(() => (senal.tipo === 'tutorial' ? pasosPara(senal.tutorial, telefono) : [senal.paso]), [senal, telefono]);
   // -1 = la presentación de la pestaña (su `intro`), antes del primer paso. Una marca va directo a su lugar.
@@ -194,6 +222,8 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
   const [cierre, setCierre] = useState(false);
   const [cierreFrase, setCierreFrase] = useState<FraseVideo | null>(null);
   const hechas = useRef(new Set<string>());
+  /** La frase cuyo lugar todavía no está (se acaba de navegar): se la espera un poco, con el video quieto. */
+  const esperando = useRef<{ id: string; desde: number } | null>(null);
   // Las que la persona TOCÓ (no las que sólo se mostraron o pasó con «Siguiente»): el cierre no repite un CTA ya tocado.
   const tocadas = useRef(new Set<string>());
   const porCerrar = useRef(false);
@@ -249,6 +279,9 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
     if (i >= pasos.length - 1) { fin(senal.tipo === 'marca' ? 'hecho' : 'fin'); return; }
     setEl(null); setGeo({ hueco: null, tarjeta: null }); setI(i + 1);
   }, [modoVideo, cierre, seguirVideo, i, conFrases, pasos.length, fin, senal.tipo]);
+  // Directo (el «▶» del video del día): sin la presentación, apenas el video con sus frases está listo.
+  const directo = senal.tipo === 'tutorial' && !!senal.directo;
+  useEffect(() => { if (directo && conFrases && !modoVideo && i === -1 && vidRef.current) siguiente(); }, [directo, conFrases, modoVideo, i, siguiente]);
   /** La persona cerró el video mientras mandaba: sigue con las tarjetas, desde el primer paso. */
   const sinVideo = useCallback(() => {
     if (!modoVideo) return;
@@ -288,8 +321,19 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
       if (!f) return;
       // Lo que abrió la frase anterior se cierra primero; la próxima vuelta (≈250 ms) ya marca.
       if (porCerrar.current) { porCerrar.current = false; cerrarLoAbierto(); return; }
-      // Una marca que no está en la página no frena el video.
-      if (!lugarDe(pasoDeFrase(f, pasos).sel)) { hechas.current.add(f.id); return; }
+      // Una marca que no está en la página no frena el video; si se acaba de navegar, se la espera hasta 4 s (con el video quieto).
+      if (!lugarDe(pasoDeFrase(f, pasos).sel)) {
+        if (esperando.current?.id !== f.id) { esperando.current = { id: f.id, desde: Date.now() }; v.pause(); }
+        const w = esperando.current;
+        const reintentar = () => {
+          if (esperando.current !== w) return;
+          if (lugarDe(pasoDeFrase(f, pasos).sel)) { esperando.current = null; setFrase(f); void v.play().catch(() => {}); return; }
+          if (Date.now() - w.desde > 4000) { esperando.current = null; hechas.current.add(f.id); void v.play().catch(() => {}); return; }
+          window.setTimeout(reintentar, 250);
+        };
+        window.setTimeout(reintentar, 250);
+        return;
+      }
       setFrase(f);
     };
     // Terminó con una «Mira aquí» marcada: se suelta y va al cierre. Con una que espera el clic, espera (el clic lleva al cierre).
@@ -452,7 +496,7 @@ function Tapas({ h }: { h: Caja }) {
 }
 
 function Pie({ senal, paso, ultimo, esperaClic, hayAnterior, conVideo, siguiente, atras, fin }: {
-  senal: Senal; paso: PasoTutorial | null; ultimo: boolean; esperaClic: boolean; hayAnterior: boolean; conVideo: boolean;
+  senal: SenalConCapa; paso: PasoTutorial | null; ultimo: boolean; esperaClic: boolean; hayAnterior: boolean; conVideo: boolean;
   siguiente: () => void; atras: () => void; fin: (c: 'fin' | 'omitido' | 'hecho') => void;
 }) {
   if (senal.tipo === 'marca') {
