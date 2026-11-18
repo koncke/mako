@@ -25,6 +25,7 @@ import { PROMPTS_EXPERTO } from '../lib/copywriter/experto';
 import { OPERACIONES_IA } from '../lib/copywriter/operaciones';
 import { slotsDe } from '../lib/editor-landing/ia-reglas';
 import { REGISTRO } from '../lib/api-mako/registro';
+import { DEFS_AL_FINAL } from '../lib/api-mako/areas/contenido.def';
 
 const raiz = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(raiz, r), 'utf8').replace(/\r\n/g, '\n');
@@ -132,7 +133,11 @@ test('la API: las del Copywriter al FINAL de `contenido`, con sus palabras, y la
   // 15 desde el 11/11/2026: los outliers de copy (outliers_copywriter y replicar_outlier_copywriter, D18). 16 desde el 14/11/2026:
   // replicar lo que trae la persona (replicar_link_o_texto_copywriter, lib/copywriter/pegado.ts).
   assert.equal(copy.length, 16);
-  assert.deepEqual(contenido.slice(-16), copy, 'van al final del área');
+  // (18/11/2026: lo que el área declara DESPUÉS del Copywriter va detrás de él, en `DEFS_AL_FINAL` de contenido.def.ts: una
+  // operación nueva va al final de su área. Lo que esto cuida sigue igual: nada de lo de ANTES del Copywriter queda detrás.)
+  const despues = DEFS_AL_FINAL.map((d) => d.id);
+  assert.deepEqual(contenido.slice(contenido.length - despues.length), despues, 'lo declarado después del Copywriter va al final');
+  assert.deepEqual(contenido.slice(-16 - despues.length, contenido.length - despues.length), copy, 'van al final del área (antes sólo lo declarado después)');
   for (const d of REGISTRO.filter((x) => x.id.endsWith('_copywriter'))) {
     assert.ok(!/guion de anuncio/i.test(`${d.titulo} ${d.descripcion}`), `${d.id} usa las palabras del Ads Writer`);
     assert.equal(d.gating?.tab, 'copywriter');
