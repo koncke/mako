@@ -215,7 +215,7 @@ export function CompraPlan(p: {
     return (
       <div role="status" aria-live="polite" style={{ display: 'grid', gap: 10 }}>
         <p className="planes-sub" style={{ marginBottom: 0, color: '#121212', fontWeight: 600 }}>¡Listo! Recibimos tu pedido.</p>
-        <p className="planes-sub" style={{ marginBottom: 0 }}>Cuando veamos tu pago te damos de alta; ahí te llega tu acceso. Si todavía no mandaste el comprobante, mándalo por acá:</p>
+        <p className="planes-sub" style={{ marginBottom: 0 }}>Cuando veamos tu pago te damos de alta; ahí te llega tu acceso. Si todavía no mandaste el comprobante, mándalo por aquí:</p>
         <BotonesDeComprobante datos={p.directo.datos} texto={texto} plan={p.directo.nombrePlan} />
       </div>
     );

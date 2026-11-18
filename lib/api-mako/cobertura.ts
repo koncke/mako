@@ -93,6 +93,9 @@ export const EXCEPCIONES: Readonly<Record<string, string>> = {
   'app/api-mako/actions.ts#probarOperacion': 'la consola de la API: corre una operación que ya está en el registro',
   'app/api-mako/actions.ts#referenciaApi': 'devuelve la referencia de la API (docs/api-mako.md), que sale del registro',
   'app/api-mako/actions.ts#openApiApi': 'devuelve el OpenAPI de la API, que sale del registro',
+  // A dónde le paga el PÚBLICO (alias, CVU, Binance Pay ID y links del checkout, setting `planes.pago_directo`): si el chat o la API pudieran editarlo,
+  // un texto malicioso metido en una conversación cambiaría el alias de cobro de MaKo (fraude directo). Sólo lo cambia el super admin en Settings › Payments.
+  'app/admin/cobros/actions.ts#guardarPagoDirectoAction': 'cambia a dónde le paga el público (alias, CVU, Binance): por el chat o la API sería un vector de fraude; sólo el super admin, en pantalla',
 };
 
 /**
