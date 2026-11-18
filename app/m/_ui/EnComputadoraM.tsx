@@ -34,8 +34,10 @@ export function abrirEnComputadora(href: string, ws: number | null) {
   window.location.href = conWs(href, ws);
 }
 
-export function FilaEnComputadoraM({ titulo, href, motivo, icono, leading }: {
+export function FilaEnComputadoraM({ titulo, href, motivo, icono, leading, recorrido }: {
   titulo: string;
+  /** La marca del tutorial de la pestaña (`data-recorrido`, lib/tutoriales). */
+  recorrido?: string;
   /** La ruta de ESCRITORIO que abre («Abrir en la computadora»). */
   href: string;
   /** Por qué no está en el teléfono: lo que lee la persona en la hoja. */
@@ -51,7 +53,7 @@ export function FilaEnComputadoraM({ titulo, href, motivo, icono, leading }: {
   if (appIos) return null;
   return (
     <>
-      <FilaM navegacion icono={leading ? undefined : icono} leading={leading} titulo={titulo} segunda="En la computadora" onClick={() => setAbierta(true)} />
+      <FilaM navegacion icono={leading ? undefined : icono} leading={leading} titulo={titulo} segunda="En la computadora" onClick={() => setAbierta(true)} recorrido={recorrido} />
       <SheetM
         abierto={abierta}
         onCerrar={() => setAbierta(false)}
