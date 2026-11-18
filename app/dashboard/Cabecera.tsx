@@ -145,6 +145,11 @@ export type AccionesHoja = {
   onDuplicar: (id: string) => void;
   /** «Copiar dashboard»: el TOKEN de la hoja al portapapeles, para pegarla en «Nueva hoja» de otro informe o negocio. */
   onCopiar: (id: string) => void;
+  /**
+   * «Guardar como plantilla» (18/11/2026, las plantillas propias: lib/creaciones-dashboard.ts): sólo para el negocio o para
+   * la comunidad. Sólo en el informe del Dashboard (General y las Métricas de una automatización no se publican).
+   */
+  onPlantilla?: (id: string) => void;
   onMover: (id: string, delta: number) => void;
   onEliminar: (id: string) => void;
 };
@@ -220,6 +225,7 @@ export function MenuHojas({ hojas, otras = [], activa, puedeNueva, acciones, onI
           {op('Renombrar', 'renombrar', () => setRenombrando(deOpciones.id), deOpciones.deFocus)}
           {op('Duplicar', 'duplicar', () => acciones.onDuplicar(deOpciones.id), hojas.length >= MAX_HOJAS)}
           {op('Copiar dashboard', 'copiar', () => acciones.onCopiar(deOpciones.id))}
+          {acciones.onPlantilla && op('Guardar como plantilla', 'archivo', () => acciones.onPlantilla?.(deOpciones.id))}
           {op('Subir', 'arriba', () => acciones.onMover(deOpciones.id, -1), i <= 0)}
           {op('Bajar', 'abajo', () => acciones.onMover(deOpciones.id, 1), i >= hojas.length - 1)}
           <div className="lk-sep-h" />

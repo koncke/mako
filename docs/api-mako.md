@@ -8533,7 +8533,7 @@ curl -L \
 
 ### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/configuracion` — Configurar una automatización
 
-PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos y hasta M por día, adentro del tope de la línea; UNO SOLO para todos sus canales —WhatsApp, email, Instagram y Messenger—, y cada canal cuenta sus mensajes), lo mismo que su tuerca en Automations. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.
+PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos, hasta M por día y en qué días, adentro del tope de la línea; uno para todos sus canales), como su tuerca. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/configurar_automatizacion`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
@@ -8554,11 +8554,12 @@ PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minu
 | `hasta` | number | no | con horario propio: la hora en que cierra (21 = hasta las 20:59). |
 | `dias` | string | no | con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos. |
 | `goteoMinutos` | number | no | opcional: minutos entre dos mensajes por canal. |
-| `goteoArranqueDia` | number | no | opcional: WhatsApp arranca con estos por día (con tope). |
+| `goteoArranqueDia` | number | no | opcional: WhatsApp arranca con estos por día. |
 | `goteoArranqueSube` | number | no | opcional: y sube esto cada día que llega al suyo. |
 | `sinArranque` | boolean | no | opcional: true lo saca. |
 | `goteoPorDia` | number | no | opcional: tope de mensajes en 24 h por canal. |
-| `sinGoteo` | boolean | no | opcional: true para sacarle el goteo y el tope por día. |
+| `goteoDias` | string | no | opcional: días en que salen, como dias («horario» = los del horario). |
+| `sinGoteo` | boolean | no | opcional: true le saca el goteo entero. |
 | `columnasEmail` | string | no | opcional: "enviado=key,abrio=key,clic=key,rebote=key", columnas de su CRM que siguen al email («ninguna» saca). |
 
 ```bash
@@ -12261,7 +12262,7 @@ curl -L \
 
 ### `POST /api/v1/landing/presentaciones` — Crear una presentación desde una plantilla
 
-Crea una presentación nueva (diapositivas) en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo de la plantilla para adaptar. Úsala cuando pidan armar una presentación y la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones`). Devuelve el id y el link al editor. No corre en una automatización.
+Crea una presentación (diapositivas) o un carrusel 4:5 en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo para adaptar. Úsala cuando la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones` y `carruseles`). Devuelve el id y el link al editor. No corre en una automatización.
 
 - **Ruta por operación:** `POST /api/v1/landing/crear_presentacion_desde_plantilla`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -12276,7 +12277,7 @@ Crea una presentación nueva (diapositivas) en el editor del Web Generator desde
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `plantilla` | string (pres-pitch \\| pres-propuesta \\| pres-informe-mensual \\| pres-caso-exito \\| pres-onboarding \\| pres-plan-marketing \\| pres-webinar \\| pres-clase \\| pres-roadmap \\| pres-equipo \\| pres-ventas \\| pres-resultados) | sí | La plantilla (de listar_disenos_landing, `presentaciones`). |
+| `plantilla` | string | sí | El id de una plantilla de listar_disenos_landing: de `presentaciones` (16:9) o de `carruseles` (4:5). |
 | `titulo` | string | no | El nombre de la presentación en el Panel. Sin él, el de la plantilla. |
 
 ```bash
@@ -12287,7 +12288,7 @@ curl -L \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/landing/presentaciones" \
-  -d '{"plantilla":"pres-pitch"}'
+  -d '{"plantilla":"PLANTILLA"}'
 ```
 
 ### `PUT /api/v1/landing/comentarios/{comentario}/estado` — Marcar un comentario del diagnóstico
@@ -13053,7 +13054,7 @@ curl -L \
   -d '{"bloque":"titulo"}'
 ```
 
-### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos` — Mover o borrar un bloque
+### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos` — Mover, sacar o borrar un bloque
 
 Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar (quitar o sacar un botón, el formulario, un video, una imagen). El bloque se nombra por su posición en la sección (de ver_secciones_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
@@ -21548,7 +21549,7 @@ curl -L \
 
 ### `POST /api/v1/creaciones/creaciones` — Publicar una creación
 
-PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Hoy se publican: automatizacion, guion, formato_imagen (una automatización por su id de listar_secuencias_nutricion; un guion del Copywriter por su id de página; un diseño del Image Editor por su id). Se publica la DEFINICIÓN, sin los datos del negocio: en los textos, el nombre del negocio, su gente, emails, teléfonos, links, @ y precios pasan a [DATO: …]; las fotos pasan a marcos vacíos; sin audios propios, archivos, etiquetas ni líneas de WhatsApp. Si igual queda un dato, no se publica y lo dice. Volver a publicar la misma cosa la ACTUALIZA y conserva sus estrellas. Para guardarla sólo para el negocio, guardar_como_plantilla. Se retira con retirar_creacion.
+PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Hoy se publican: automatizacion, guion, formato_imagen, dashboard (una automatización por su id de listar_secuencias_nutricion; un guion del Copywriter por su id de página; un diseño del Image Editor por su id). Se publica la DEFINICIÓN, sin los datos del negocio: en los textos, el nombre del negocio, su gente, emails, teléfonos, links, @ y precios pasan a [DATO: …]; las fotos pasan a marcos vacíos; sin audios propios, archivos, etiquetas ni líneas de WhatsApp. Si igual queda un dato, no se publica y lo dice. Volver a publicar la misma cosa la ACTUALIZA y conserva sus estrellas. Para guardarla sólo para el negocio, guardar_como_plantilla. Se retira con retirar_creacion.
 
 - **Ruta por operación:** `POST /api/v1/creaciones/publicar_creacion`
 - **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
@@ -21562,8 +21563,8 @@ PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Ho
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se publica. Hoy se pueden: automatizacion, guion, formato_imagen. |
-| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"; un guion: su id de página «g…»; un diseño: su uuid). |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se publica. Hoy se pueden: automatizacion, guion, formato_imagen, dashboard. |
+| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"; un guion: su id de página «g…»; un diseño: su uuid; una hoja del Dashboard: su id de leer_hoja_dashboard). |
 | `titulo` | string | no | cómo se llama en la galería. Sin valor, el nombre de la automatización. |
 | `descripcion` | string | no | para qué sirve, en una o dos frases. |
 | `autorNombre` | string | no | el nombre con que firma (el del negocio, o el de una persona). Sin valor, «Un negocio de MaKo». |
@@ -21608,14 +21609,14 @@ curl -L \
 
 ### `POST /api/v1/creaciones/creaciones/{creacionId}/usos` — Usar una creación en este negocio
 
-PROPONE crear en este negocio una copia de una creación publicada o de una plantilla propia del negocio: una automatización nace APAGADA en Automations (si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice); un guion nace como página del Copywriter; un diseño, en el Image Editor. Cuenta un uso de la creación (uno por negocio; las propias no cuentan).
+PROPONE crear en este negocio una copia de una creación publicada o de una plantilla propia del negocio: una automatización nace APAGADA en Automations (si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice); un guion nace como página del Copywriter; un diseño, en el Image Editor; una hoja, al final del Dashboard de quien la usa. Cuenta un uso de la creación (uno por negocio; las propias no cuentan).
 
 - **Ruta por operación:** `POST /api/v1/creaciones/usar_creacion`
 - **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** crea la copia en su tab (`nutricion_secuencias` apagada, una página del Copywriter o un diseño de `image_disenos`) y anota el uso en `creacion_usos`
+- **Escribe:** crea la copia en su tab (`nutricion_secuencias` apagada, una página del Copywriter, un diseño de `image_disenos` o una hoja del informe del Dashboard) y anota el uso en `creacion_usos`
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -21635,7 +21636,7 @@ curl -L \
 
 ### `POST /api/v1/creaciones/plantillas` — Guardar como plantilla
 
-PROPONE guardar como plantilla algo de este negocio, para usarlo de nuevo: «privada» la ve y la usa sólo este negocio, tal cual (con sus precios y sus links); «publica» la ven todos, sin los datos del negocio (como publicar_creacion). Hoy se guardan: automatizacion, guion, formato_imagen. Aparece en «Nuevo …» de su tab, en «Tus plantillas». Volver a guardar la misma cosa con la misma visibilidad la actualiza. Una privada se comparte después con compartir_plantilla.
+PROPONE guardar como plantilla algo de este negocio, para usarlo de nuevo: «privada» la ve y la usa sólo este negocio, tal cual (con sus precios y sus links); «publica» la ven todos, sin los datos del negocio (como publicar_creacion). Hoy se guardan: automatizacion, guion, formato_imagen, dashboard. Aparece en «Nuevo …» de su tab, en «Tus plantillas». Volver a guardar la misma cosa con la misma visibilidad la actualiza. Una privada se comparte después con compartir_plantilla.
 
 - **Ruta por operación:** `POST /api/v1/creaciones/guardar_como_plantilla`
 - **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
@@ -21649,8 +21650,8 @@ PROPONE guardar como plantilla algo de este negocio, para usarlo de nuevo: «pri
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se guarda. Hoy se pueden: automatizacion, guion, formato_imagen. |
-| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número; un guion: su id de página «g…»; un diseño: su uuid). |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se guarda. Hoy se pueden: automatizacion, guion, formato_imagen, dashboard. |
+| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número; un guion: su id de página «g…»; un diseño: su uuid; una hoja del Dashboard: su id). |
 | `visibilidad` | string (privada \\| publica) | sí | privada (sólo este negocio, tal cual) o publica (toda la comunidad, sin los datos del negocio). |
 | `titulo` | string | no | cómo se llama la plantilla. Sin valor, el nombre de la cosa. |
 | `descripcion` | string | no | para qué sirve, en una o dos frases. |

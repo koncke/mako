@@ -28,6 +28,11 @@ test('las iniciales: dos letras, sin signos', () => {
   assert.equal(inicialesDe('(Sin nombre) #12'), 'S1');
   assert.equal(inicialesDe(''), '?');
   assert.equal(inicialesDe(null), '?');
+  // Nunca media letra (18/11/2026, O14): la «𝐀» en negrita de Unicode ocupa dos unidades UTF-16. Con `palabras[0][0]` y
+  // `slice(0, 2)` (lo de antes) daban un surrogate suelto: con la primera y la última palabra de vuelta a `palabras[0][0] + …`,
+  // este test da rojo (medido el 18/11/2026).
+  assert.equal(inicialesDe('𝐀𝐧𝐚 𝐁𝐞𝐥𝐥𝐨'), '𝐀𝐁');
+  assert.equal(inicialesDe('a𝐁c'), 'A𝐁');
 });
 
 test('el color de las iniciales es estable y siempre uno de los cinco', () => {

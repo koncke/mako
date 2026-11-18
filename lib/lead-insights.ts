@@ -103,8 +103,9 @@ const NO_INSIGHTS: ReadonlySet<Step['id']> = new Set<Step['id']>([
  * olvida, y no falla — contesta otra cosa. Ahora el que no lo tenga tiene que ir a
  * buscarlo, que es el trabajo que había que hacer.
  */
-export function faltantesParaInsights(lead: Lead, tienePlan: boolean, pipeline: import('./pipeline').Stage[]): Step[] {
-  return faltantesDeLead(lead, tienePlan, { pipeline }).filter((s) => !NO_INSIGHTS.has(s.id));
+export function faltantesParaInsights(lead: Lead, tienePlan: boolean, pipeline: import('./pipeline').Stage[], hoyISO: string): Step[] {
+  // `hoyISO`: el día del NEGOCIO (F125, 18/11/2026), igual que el resto de las pantallas del lead.
+  return faltantesDeLead(lead, tienePlan, { pipeline, hoyISO }).filter((s) => !NO_INSIGHTS.has(s.id));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -384,7 +385,7 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
     // ⚠️ CON EL PIPELINE DEL WORKSPACE. Sin él, este gate le pedía a la persona una
     // lista distinta de la que su propia pantalla le estaba mostrando.
     const stages = await getPipelineStagesDefault().catch(() => generateFunnel(DEFAULT_PIPELINE).stages);
-    const faltantes = faltantesParaInsights(lead, pagos.length > 0, stages);
+    const faltantes = faltantesParaInsights(lead, pagos.length > 0, stages, hoyEnTz(tz));
     if (faltantes.length) {
       return {
         ok: false,

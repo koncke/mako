@@ -383,7 +383,9 @@ test('el arrastre es el del PLAN: importa sus helpers y no los copia (item 7)', 
   assert.match(arr, /import \{[^}]*\bfotoVaciaDeArrastre\b[^}]*\buseArrastreCopia\b[^}]*\} from '@\/app\/plan\/board\/arrastre-copia';/);
   assert.match(arr, /fotoVaciaDeArrastre\(e\.dataTransfer\);/);
   // La copia se cuelga del `.ugc` (la hoja del curso viste todo bajo `.ahdoc .ugc`) y el molde lo acepta.
-  assert.match(arr, /montarCopia\(nodo, e\.clientX - r\.left, e\.clientY - r\.top, raiz\);/);
+  // Desde el 18/11/2026 la copia se cuelga en `levantar`, que llaman el `dragstart` del mouse y el dedo (`tocar`).
+  assert.match(arr, /montarCopia\(nodo, x - r\.left, y - r\.top, raiz\);/);
+  assert.match(arr, /const raiz = levantar\(nodo, m, e\.clientX, e\.clientY\);/);
   assert.match(sinComentarios(leer('app/plan/board/arrastre-copia.ts')), /\(dentroDe \?\? document\.body\)\.appendChild\(nodo\);/);
   // Un setState del hueco por `dragover` redibuja el curso sesenta veces por segundo: sólo si cambió.
   assert.match(arr, /if \(mismoDestino\(destinoRef\.current, d\)\) return;/);

@@ -278,7 +278,8 @@ test('la mudanza pone los Reels PRIMERO: con el tope lleno de guiones, los Reels
   const reels = paginasDeReels([{ id: 'r', pedido: 'p', pieza: { hook: {}, escenas: [] } }]);
   assert.ok(loQueSeMuda([reels, muchas], 10).some((p) => p.tipo === 'reel'));
   const mudanza = readFileSync(join(__dirname, '..', 'lib/copywriter/mudanza.ts'), 'utf8');
-  assert.match(mudanza, /const grupos = \[paginasDeReels\(parse\(reels\)\), paginasDeAdsWriter\(parse\(razones\), catalogo\)\];/);
+  // Desde el 18/11/2026 (B5) cada setting se lee con `leerLoDeAntes` (un JSON roto no es «no hay»); el orden sigue: Reels primero.
+  assert.match(mudanza, /const grupos = \[paginasDeReels\(deReels\.ok \? deReels\.valor : null\), paginasDeAdsWriter\(deRazones\.ok \? deRazones\.valor : null, catalogo\)\];/);
 });
 
 // Verificado rompiéndolo (29/10/2026, 7 tests): con `TITULO` fuera de CON_TILDE (doc.ts), 1 falla (el «Título»); con el

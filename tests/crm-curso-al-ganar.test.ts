@@ -74,7 +74,7 @@ test('el historial dice SIEMPRE qué pasó, corto, y un motivo nuevo no se calla
   // Un motivo que Customer Success agregue mañana sale con su clave, no en blanco.
   assert.equal(lineaDelCurso({ ok: true, enviado: false, motivo: 'otro-nuevo' }), 'No lo invité al curso: otro-nuevo');
   // Los cinco del contrato (docs/diseno-curso-skool.md) tienen su frase, y entran en una línea.
-  for (const m of ['ya-invitado', 'ya-entro', 'sin-email', 'sin-clases', 'cortado', 'no-ganado']) {
+  for (const m of ['ya-invitado', 'ya-entro', 'sin-email', 'sin-clases', 'cortado', 'no-ganado', 'sacado']) {
     const l = lineaDelCurso({ ok: true, enviado: false, motivo: m });
     assert.ok(l !== `No lo invité al curso: ${m}` && l.length <= 70, l);
   }

@@ -436,8 +436,9 @@ export const puedeModerar = (a: ActorRegla): boolean => a.equipo;
  * Sacar a alguien de la comunidad: el equipo, a un ALUMNO que no sea uno mismo.
  *
  * ⚠️ AL EQUIPO NO SE LO SACA DE ACÁ: es el equipo del workspace, y su lugar lo decide la cuenta de
- *    MaKo (suspenderla), no la comunidad. Y SACAR NO CORTA EL CURSO: el baneo vive en
- *    `comunidad_baneos`, aparte de `curso_accesos`; el alumno sigue con sus clases.
+ *    MaKo (suspenderla), no la comunidad. ⚠️ Desde el 24/10/2026 SACAR SÍ CORTA EL CURSO de ese programa (`sacarAlumno`,
+ *    lib/comunidad-moderacion.ts, con `sacarDelCurso`), y desde el 18/11/2026 volver a invitarlo a ese curso no se lo
+ *    reabre (`estaSacado` en `invitarAlCurso`): eso lo hace «Volver a admitir».
  */
 export const puedeSacar = (a: ActorRegla, objetivo: string): boolean =>
   a.equipo && leerClave(objetivo)?.tipo === 'alumno' && objetivo !== a.clave;

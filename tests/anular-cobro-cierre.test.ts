@@ -20,6 +20,8 @@ type Fila = Record<string, unknown>;
 let filas: Fila[] = [];
 const llamadas: string[] = [];
 const eventos: string[] = [];
+/** Lo que llegó a los errores de la app (`registrarError`): el link vivo de una cuota ya cobrada. */
+const errores: Array<{ nombre: string; mensaje: string }> = [];
 let stripeExpira: { ok: true } | { ok: false; status: number; error: string } = { ok: true };
 let mpVence: { ok: true } | { ok: false; status: number; error: string } = { ok: true };
 let mpCancela: { ok: true } | { ok: false; status: number; error: string } = { ok: true };
@@ -34,7 +36,13 @@ let credCreem: unknown = { pasarela: 'creem', key: 'ck_test', webhookId: 'w', se
 const db = {
   from(_t: string) {
     return {
-      select: () => ({ eq: (_c: string, id: number) => ({ maybeSingle: async () => ({ data: filas.find((f) => f.id === id) ?? null, error: null }) }) }),
+      select: () => ({
+        eq: (c: string, v: number) => ({
+          maybeSingle: async () => ({ data: filas.find((f) => f.id === v) ?? null, error: null }),
+          // Lo que lee `anularLinksDeCuota`: los links sin pagar de una cuota (`.eq('pago_id', n).in('estado', [...])`).
+          in: async (_c2: string, estados: string[]) => ({ data: filas.filter((f) => f[c] === v && estados.includes(String(f.estado))).map((f) => ({ id: f.id })), error: null }),
+        }),
+      }),
       update: (patch: Fila) => {
         if (reabrirFalla && patch.estado === 'pendiente') throw new Error('la base no contesta');
         let id = 0; let estados: string[] | null = null;
@@ -78,6 +86,7 @@ const falsos: Record<string, unknown> = {
   },
   './creem-api': { cancelarSuscripcionCreem: async () => { llamadas.push('creem.cancelar'); return { ok: true }; }, leerCheckoutCreem: async () => ({ ok: true, suscripcionId: null }) },
   './leads': { logLeadEvent: async (_id: number, titulo: string) => { eventos.push(titulo); } },
+  './errores-app': { registrarError: async (r: { nombre: string; mensaje: string }) => { errores.push(r); return { ok: true, huella: 'h', nuevo: true, ticketId: 1 }; } },
 };
 type Cargador = (pedido: string, padre: { filename?: string } | null, esMain: boolean) => unknown;
 const M = Module as unknown as { _load: Cargador };
@@ -95,7 +104,7 @@ function cobro(extra: Fila = {}): Fila {
   };
 }
 beforeEach(() => {
-  filas = [cobro()]; llamadas.length = 0; eventos.length = 0;
+  filas = [cobro()]; llamadas.length = 0; eventos.length = 0; errores.length = 0;
   stripeExpira = { ok: true }; mpVence = { ok: true }; mpCancela = { ok: true };
   credStripe = { pasarela: 'stripe', key: 'sk_test_x', acct: 'acct_1', cuenta: 'principal' }; credStripeTira = false;
   sesionStripe = { ok: true, estado: 'open' }; reabrirFalla = false;
@@ -207,6 +216,33 @@ test('lo que quien va a CREAR otro link usa: rehacerPrimerMes y la renovación d
   for (const rel of ['app/admin/cobros/actions.ts', 'app/crm/[id]/cobros-actions.ts', 'lib/api-mako/areas/cobros.run.ts']) {
     assert.match(readFileSync(join(raiz, rel), 'utf8'), /avisoLinkSigueAbierto\(r\.sigueAbierto\)/, rel);
   }
+});
+
+// P27, lo que quedaba (18/11/2026): `anularLinksDeCuota` (la cuota ya se cobró por otro lado) anula sus links sin pagar; si uno queda
+// ABIERTO en la pasarela se puede pagar otra vez, y eso sólo quedaba en un console.warn. Ahora va a los errores de la app (un ticket).
+const anularDeCuota = async (excepto?: number | null) => (await import('../lib/cobros')).anularLinksDeCuota(9, 77, 'test', excepto);
+
+test('⚠️ cuota cobrada con un link que la pasarela NO cerró: se anula igual y se REGISTRA para que alguien lo cierre a mano', async () => {
+  filas = [cobro({ id: 5, pago_id: 77 }), cobro({ id: 6, pago_id: 77, proveedor: 'creem', proveedor_ref: 'ch_9' })];
+  const n = await anularDeCuota();
+  assert.equal(n, 2, 'las dos filas quedan anuladas en MaKo');
+  assert.deepEqual(filas.map((f) => f.estado), ['anulado', 'anulado']);
+  assert.equal(errores.length, 1, 'un solo registro por cuota, aunque sean varios links');
+  assert.equal(errores[0].nombre, 'LinkVivoDeCuotaCobrada');
+  assert.match(errores[0].mensaje, /Creem no deja cerrar un pago único/, 'el motivo de la pasarela viaja en el registro');
+  assert.doesNotMatch(errores[0].mensaje, /\b77\b|cs_123|ch_9/, 'sin ids: la huella agrupa por el texto');
+});
+
+test('cuota cobrada y la pasarela cerró todos sus links: nada que registrar', async () => {
+  filas = [cobro({ id: 5, pago_id: 77 }), cobro({ id: 6, pago_id: 77, proveedor: 'mercadopago', proveedor_ref: 'pref_1' })];
+  assert.equal(await anularDeCuota(), 2);
+  assert.deepEqual(errores, []);
+});
+
+test('el cobro que saldó la cuota (exceptoCobroId) no se toca, y uno de otra cuota tampoco', async () => {
+  filas = [cobro({ id: 5, pago_id: 77 }), cobro({ id: 6, pago_id: 77, estado: 'pendiente' }), cobro({ id: 8, pago_id: 78 })];
+  assert.equal(await anularDeCuota(5), 1);
+  assert.deepEqual(filas.map((f) => f.estado), ['pendiente', 'anulado', 'pendiente']);
 });
 
 // Probado ROMPIENDO lib/cobros.ts (17/11/2026), una rotura por vez y restaurando de memoria. Con el código como está: 9 pases, 0 fallos.
