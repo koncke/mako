@@ -282,7 +282,9 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     keys: ['image-editor'],
     que: 'Un editor de diseño copiado de Canva: diseños de varias páginas con texto, formas, imágenes, marcos y capas, y descargas en PNG, JPG, PDF o SVG.',
     hace: [
-      'Arrancar de un tamaño o de una plantilla: post, historia, carrusel de Instagram de varias páginas, presentación', 'Diseños de varias páginas', 'Texto, formas, imágenes, marcos, QR y capas', 'Recortar, filtros y animaciones', 'Presentar y descargar en PNG, JPG, PDF o SVG', 'Pedirle cambios a MaKo',
+      'Arrancar de un tamaño o de una plantilla: post, historia, carrusel de Instagram de varias páginas, presentación', 'Diseños de varias páginas', 'Texto, formas, imágenes, marcos, QR y capas', 'Recortar, filtros y animaciones', 'Presentar y descargar en PNG, JPG, PDF o SVG',
+      // 18/11/2026 (O37): el chat también pone filtros y ajustes de foto, recorta a una proporción y cambia el tamaño del diseño.
+      'Pedirle a MaKo por chat que cambie textos, formas, fotos y páginas, que le ponga un filtro o un ajuste a una foto, que la recorte a una proporción o que cambie el tamaño del diseño; tú lo revisas y lo aceptas',
       // 4/11/2026: el explorador (app/image-editor/carruseles), con lo que Competitors Spy ya trajo.
       // 6/11/2026: el rediseño copiado de la interfaz de Top Carousels («Encuentra tu siguiente OUTLIER»): lo primero que se ve.
       'Carruseles que funcionan: los de las cuentas que sigues en Competitors Spy, con su outlier (cuántas veces la mediana de su cuenta), buscar por tema o @cuenta, filtrar (fecha, láminas, tipo, cuentas, CTA), ordenar, guardar y guardar búsquedas; las láminas se pasan dentro de la tarjeta',
