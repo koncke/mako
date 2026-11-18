@@ -27,6 +27,40 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Los días del goteo: el motor los aplicaba y el guardado los tiraba sin decir nada (18/11/2026, nube, `punta/nube-construir-automations`)
+
+**Síntoma:** el F79 de la lista del 17/11. El 9/11 (5d3ca51f5) se enseñó al motor a gotear sólo algunos días (`goteo.dias`,
+`hoyGotea` adentro de `cerradasAhora`) y el commit se leyó como cerrado. Nadie podía guardarlos: `configParaGuardar` reconstruía
+el goteo campo por campo (minutos, día, arranque) y el `dias` que llegaba se perdía, con un `ok: true`. Ni la tuerca ni la API lo
+ofrecían.
+
+**Causa:** la misma familia que «un campo nuevo en un objeto que se guarda ENTERO se busca en TODOS los que lo escriben»
+(AGENTS.md), del lado del SANEO de lo que se guarda: la lectura (`goteoGuardado`) sí lo conocía y la escritura no. Un test sobre
+la lectura (tests/goteo-dias-propios.test.ts) daba verde sobre algo que no se podía usar.
+
+**La regla que queda:**
+- Un campo nuevo de una config entra por las TRES puertas en el mismo trabajo: el guardado (`configParaGuardar`), la pantalla y
+  la API. Si una falta, el campo existe sólo para el motor.
+- Al guardar, lo que no se entiende se RECHAZA con su motivo (`diasDelCambio`); al leer, se sanea (`diasDeGoteo`). Son dos
+  funciones a propósito: quien guarda tiene que saber que su «lunes» no se entendió, y lo guardado no puede romper el motor.
+- ⚠️ `configurar_automatizacion` va 6.ª, ANTES de `cambiar_crons_secuencia`, en el turno de «Hacé que la automatización … salga
+  todos los martes» (tests/ops-center-bateria, el 4: margen 310 con piso 300). Un parámetro nuevo ahí se paga acortando la
+  misma op: `goteoDias` costó 68 caracteres y la descripción, `sinGoteo` y `goteoArranqueDia` devolvieron 69 (2.202 → 2.201).
+
+**Vive en:** lib/config-automatizacion.ts · app/automations/ConfigAutomatizacionPanel.tsx (`FilaDias`) ·
+app/automations/FilasOpciones.tsx (`BotonesDias`) · lib/api-mako/areas/chatbot.def.ts y chatbot.run.ts · test:
+tests/goteo-dias-guardar.test.ts (con el runner real en tests/_email-campana-hijo.ts, escenario «goteo-dias»).
+
+**Lo que quedó sin hacer, del mismo lote:**
+- **F80 (crear una tarjeta de audio «por grabar»):** no se construyó. Hoy `setSecuenciaPasos` (lib/nutricion.ts, el mapeo de
+  `tipo`) convierte en texto todo audio sin `audio_id`, así que una tarjeta «por grabar» no se puede guardar; el lienzo dibuja un
+  audio sin archivo como «audio (no disponible)» (app/whatsapp/_shared/BurbujaHilo.tsx), que miente sobre algo por grabar; el
+  motor mandaría el `cuerpo` como texto (lib/nutricion.ts, `esAudio`), y la revisión de lo que arma la IA lo rechaza («un mensaje
+  usa un audio que no está en la biblioteca», lib/flujo-ia.ts). Son cuatro piezas, y la del dibujo es nueva.
+- **F138 (la entrada de TikTok):** no se construyó: no hay en el repo un cuerpo real ni un ejemplo de la doc de Zernio del
+  webhook de TikTok (nunca llegó un evento de Zernio a un negocio de prueba: docs/diseno-tiktok-linkedin.md §4, fase 0), y
+  `ig_conversaciones` sólo admite 'instagram' y 'facebook' (el CHECK de la 0242): hace falta una migración.
+
 ## El setter con IA NO es el AI Step entero: es lo que contesta SOLO (14/11/2026, al cerrarlo para Esencial)
 
 El diagnóstico obvio («el AI Step es el setter») era el equivocado: un AI Step en «Sólo te avisa» no le escribe a nadie y en «Para aprobar»
