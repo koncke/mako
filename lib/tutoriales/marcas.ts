@@ -30,6 +30,13 @@ export const MARCA = {
   barraFoto: 'tour-barra-foto',
   /** «Mover a…» de la ficha rápida (app/_ui/TarjetaKanban.tsx → CuerpoFichaRapida), en la computadora y en el teléfono. */
   crmMoverA: 'tour-crm-mover-a',
+  /** Settings › Notificaciones (app/perfil/NotificacionesPanel.tsx): los canales y «Pausar los avisos al celular». */
+  notifCanales: 'tour-notif-canales',
+  notifNoMolestar: 'tour-notif-no-molestar',
+  /** Settings › Instalar la app (app/perfil/instalar/InstalarApp.tsx): sus tres grupos. */
+  instalarComputadora: 'tour-instalar-computadora',
+  instalarTelefono: 'tour-instalar-telefono',
+  instalarNavegador: 'tour-instalar-navegador',
 } as const;
 
 /** Una sección de Settings (lib/ajustes-secciones.ts: `info`, `seguridad`, `instalar`, `equipo`, `integraciones`…). */

@@ -178,7 +178,9 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   assert.equal([...ops.matchAll(/canales: \['app'\], costo: 'gratis', gating: TAB_ADMIN,/g)].length, 4, 'las cuatro (con completar_nombres_de_grupo y ver_completar_desde_whatsapp), sólo en la app');
   const run = leer('lib/api-mako/areas/crm.run.ts');
   assert.match(run, /telefonos: 'todos', autor: autorDe\(ctx\), hasta: Date\.now\(\) \+ 45_000,\n {8}etiqueta:/);
-  assert.match(run, /if \(!funnels\.some\(\(f\) => f\.id === funnelId\)\) return \{ error:/, 'la API, tampoco un funnel ajeno');
+  // «La API, tampoco un funnel ajeno»: desde el 18/11/2026 (O45) lo prueba tests/traer-grupo-funnel.test.ts (el 4) CORRIENDO el
+  // preparar() real con un `embudoId` que no es del negocio, no leyendo la línea (que pasó a `funnels.find(...)` para nombrar el
+  // funnel en la tarjeta: esta regex daba rojo con el código correcto).
 });
 
 test('7. el traído de un grupo QUEDA DONDE LO PUSIERON: ni el CRM automático ni los barridos que mandan solos', async () => {

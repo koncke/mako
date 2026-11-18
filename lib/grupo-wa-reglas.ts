@@ -188,7 +188,11 @@ export function etiquetaDeGrupo(nombre: string): string {
   return limpiarNombreEtiqueta(nombre) || 'Grupo de WhatsApp';
 }
 
-/** El funnel por defecto: el CRM «Prospección» si el negocio lo tiene (el de la base de venta); si no, el que se mira. */
+/**
+ * El funnel por defecto: el CRM «Prospección» si el negocio lo tiene (el de la base de venta); si no, el que se mira.
+ * ⚠️ Desde el 18/11/2026 (O45) `traer_contactos_de_grupo` ya NO lo usa: con más de un funnel, el destino lo dice la persona (la
+ * tarjeta lo nombra), y con uno solo es ése. La pantalla nunca lo usó (trae al CRM que se mira, cb24330c6).
+ */
 export function funnelPorDefecto(funnels: ReadonlyArray<{ id: number; nombre: string }>, activo: number | null): number | null {
   return funnels.find((f) => /prospecci[oó]n/i.test(f.nombre))?.id ?? activo;
 }

@@ -1281,7 +1281,7 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       { nombre: 'grupo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el grupo: su id (de grupos_whatsapp) o su nombre.' },
       { nombre: 'etapa', tipo: 'string', max: 80, descripcion: 'la etapa del funnel (su clave o su nombre); sin esto, «Tibio» si la hay, si no la primera sin automatización.' },
-      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el funnel del CRM (de productos_del_lead o ver_funnel); sin esto, «Prospección» si lo hay, si no el principal.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el funnel del CRM (de productos_del_lead o ver_funnel). Si el negocio tiene más de uno, pregúntale a la persona a cuál van: sin esto no se propone. Con uno solo, ése.' },
       { nombre: 'etiqueta', tipo: 'string', max: 40, descripcion: 'la etiqueta de origen («Formación de Jan»); sin esto, el nombre del grupo.' },
       { nombre: 'linea', tipo: 'string', max: 80, descripcion: 'la línea de WhatsApp del negocio; sin esto, la de por defecto.' },
     ],
