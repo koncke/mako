@@ -2278,6 +2278,11 @@ una tanda con su chequeo; `renders.mjs` renderiza y deja una hoja de cuadros por
   marcas: el «aquí» señalaría la nada. En el reto, las marcas las dispara cada tarea de la lista de debajo del video
   (`lib/reto/dias.ts`), así que el video manda a esa lista. Antes de escribir un «toca aquí» hay que preguntar si ESE lugar lee
   `frases[]`.
+- **⚠️ El video sigue al recorrido aprobado, nunca al revés.** El recorrido v4/v5 tenía sus propios pasos (Funnel Coach, Uso,
+  Ticketera). Al meterlo en la maqueta del onboarding, la maqueta pasó a seguir al video y se perdió el recorrido que Martín había
+  aprobado («Tu panel»). Ahora el guion es el `GUION` V2 de `C:/dev/artefactos-onboarding/cuerpo.html`: una frase por paso, en su
+  orden y con sus marcas (la fuente queda escrita en `guiones.json`, campo `fuente`). Antes de escribir el video de una pantalla que
+  ya tiene un recorrido, se busca ese recorrido.
 - **«Toca» a mitad de un recorrido puede abrir otro tutorial.** Si el recorrido se pausaba hasta tocar Funnel Coach, el coach se
   abría y arrancaba su propio video de la primera vez. Los dos coaches van con «mira»: se marcan sin pausar.
 - **El nombre de la app manda: «Settings», no «Configuración».** El menú de la foto dice «Settings» (app/_components/nav.ts) y
@@ -2294,8 +2299,11 @@ una tanda con su chequeo; `renders.mjs` renderiza y deja una hoja de cuadros por
 
 ### Lo que quedó SIN hacer (18/11, tarde)
 
-- `offer-coach` y el recorrido marcan Offer Coach con `button[title="Offer Coach"]`, que no está confirmado. La app todavía no
-  separó los coaches; la marca la confirma el chat del onboarding, y se cambia en el manifiesto sin tocar el video.
+- El recorrido marca `sb-second-brain`, `sb-grafo` y `sb-brain-volver`, que no existen en main. Además, el mapa del Second Brain
+  es sólo del admin (`veMapa` en `app/second-brain/ChatSecondBrain.tsx`): hoy un cliente no tiene dónde tocar. Las pone el chat del
+  onboarding, o pasa los pasos del recorrido de la app y se rehace el video.
+- `offer-coach` termina marcando la caja del chat (`sb-escribir`). La app todavía no separó los coaches: el chat del onboarding
+  confirma la key y las marcas, y se cambian en el manifiesto sin tocar el video.
 - `reto-dia-3` sale SIN la difusión: el Cerebro la está confirmando con Martín (nada invasivo, cuidar el baneo). Si dice que sí,
   se suma una frase y se rehace ese video.
 - Las keys `onboarding-*` y `offer-coach`/`funnel-coach` las crea en la app el chat del onboarding (con el deploy del 19/11, detrás
