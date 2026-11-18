@@ -34,6 +34,7 @@ import { descargarPdf, mensajeDeError } from '@/app/offer/offer-api';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { duracion } from '@/app/m/mako/chat-ui';
 import { ROTULOS, alternarMarcada, versionDelPdf, type OpcionRapida } from './modelo';
+import { marcaCrear } from '@/lib/tutoriales/marcas';
 
 export function HiloOfferM({
   sesionId, mensajes, pendiente, respondiendo, fuente, opciones, opcionesHabilitadas, onOpcion, onVarias, onReintentar, onError,
@@ -65,7 +66,7 @@ export function HiloOfferM({
     setMarcadas({ de: ultimoId, idxs: alternarMarcada(marcadasAhora, o.idx) });
   };
   return (
-    <ol className="m-offer-hilo" aria-label="Conversación con MaKo">
+    <ol className="m-offer-hilo" aria-label="Conversación con MaKo" data-recorrido={marcaCrear('Offer', 'charla')}>
       {mensajes.map((m) => <Mensaje key={m.id} m={m} sesionId={sesionId} ws={ws} onError={onError} />)}
       {pendiente && <Mensaje m={pendiente} sesionId={sesionId} ws={ws} onError={onError} enviando />}
       {respondiendo && (

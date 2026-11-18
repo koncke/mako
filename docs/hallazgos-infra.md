@@ -6,6 +6,56 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**La prueba de carga que se le prometió a Teo: `scripts/prueba-de-carga.mjs` (18/11/2026, O27).**
+
+**Vive en:** `scripts/prueba-de-carga.mjs` · `tests/prueba-de-carga.test.ts` · `app/plan/page.tsx` · `app/dashboard/page.tsx` ·
+`tests/plan-lecturas-juntas.test.ts` (con su hijo `tests/_plan-lecturas-juntas-hijo.ts`).
+
+- **Lo que no había:** «velocidad con mucha información» se le prometió a Teo y en el repo no existía ninguna prueba de carga
+  (buscar «load test», «autocannon» o «prueba de carga» daba sólo el pedido). Las cifras de abajo («Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO»)
+  son de UN pedido a la vez.
+- **Lo que hace:** N GET concurrentes a una lista de rutas, con la cookie de una sesión, y por ruta el p50/p95/p99 (rango más
+  cercano, sólo de los que contestaron 2xx), el primer byte, los KB y los errores por tipo (`sin-sesion` = un 307 a /login,
+  `http-4xx`/`http-5xx`, `tope`, `red`). Lee cada HTML hasta el último byte y no sigue redirecciones. Sin dependencias.
+  Uso: `node scripts/prueba-de-carga.mjs --base http://localhost:3000 --rutas /dashboard,/plan --pedidos 40 --concurrencia 4
+  --cookie-archivo <archivo>` (`--seco` sólo dice el plan).
+- **El destino se decide EN POSITIVO:** sin `--contra-produccion` sólo corre contra la máquina propia (localhost, 127.x, ::1,
+  *.localhost). hola-mako.com, una URL de Vercel (las previews leen la misma base) o cualquier otro host se rechazan. Topes duros
+  aunque se pida producción: 20 a la vez y 2.000 pedidos. Dice cuánto va a pedir y espera 3 s antes de arrancar. La cookie no se
+  imprime nunca, ni en el `--json`. ⚠️ localhost también lee la base de producción (.env.local): los topes valen ahí también.
+- **⚠️ La trampa de probar rompiéndolo un guard que protege producción:** el test del rechazo corría el script con `--ya`; con el
+  rechazo roto a propósito, el script intentó 20 GET a hola-mako.com. No salieron (acá el `fetch` de Node no resuelve hosts de
+  afuera: ENOTFOUND), pero en la PC sí habrían salido. Ahora ese test va con `--seco`. **Regla:** un test de un guard que protege
+  producción se escribe de forma que, con el guard roto, tampoco pueda tocarla.
+- **Las esperas en serie** de /plan y /dashboard: ver «Lo que quedó SIN hacer» de «Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO», más abajo.
+- **Lo que quedó SIN hacer, y necesita producción:** medir /dashboard y /plan DESPUÉS del cambio a pdx1 con los request-logs de
+  Vercel (`requestDurationMs`) — la cifra «el Dashboard tarda 4-6 s» (app/admin/dev/mako-ux-ui/bitacora.ts:281) es del 23/10, de
+  antes de pdx1 — y correr la carga contra producción con una sesión real, con el OK de Martín.
+
+**El respaldo de tipos del push seguía esperando RAM con el turno tomado: el arreglo del 29/10 era la mitad (18/11/2026, O26).**
+
+**Vive en:** `scripts/tipos-respaldo-push.mjs` (`tandasConTurno`, `turnoDeArchivo`) · `tests/tipos-respaldo-push.test.ts`.
+
+- **El síntoma (medido leyendo el código, no en la PC):** el respaldo del pre-push a `main` esperaba AFUERA del lock sólo la
+  RAM de la tanda 1 (dac670c09, 29/10). Después de tomar el lock, cada tanda volvía a esperar hasta 15 min CON el lock tomado
+  —la 1 también, si la RAM bajó en los hasta 10 min de fila— y no lo soltaba nunca. Con la PC en 2-3,5 GB eso es la fila de
+  tipos de toda la PC frenada sin correr ningún tsc: el mismo trabón del push de tren-y, servido por las tandas 2 y 3.
+- **El diagnóstico obvio era el equivocado:** el 17/11 se dio por cerrado porque «lo fija el test». El test comparaba el ORDEN
+  de dos cadenas del fuente (la espera de RAM antes del `tomarLock`), así que daba verde con el agujero adentro.
+- **El arreglo** (molde: `esperarRamSinRetener` de scripts/antes-de-subir.mjs, y con-turno): con el turno en la mano se MIRA
+  la RAM, nunca se espera; si no alcanza, se suelta, se espera afuera y se vuelve a hacer fila; el tope de 15 min cuenta sólo
+  lo esperado afuera, no la fila; y sin RAM sale con 99 SIN el turno. No mira la pausa del Cerebro, a propósito: la pausa
+  existe para el push, y si la esperara se esperaría a sí mismo.
+- **El test ahora corre `main` de verdad**, con el lock de verdad (un archivo con `wx` en una carpeta temporal), otros procesos
+  de verdad que piden ese turno y la pausa prendida; sólo la RAM y las tandas son de mentira. Mira lo que se ve desde afuera:
+  si otro proceso consigue el turno mientras el respaldo espera RAM. Probado rompiéndolo (las cuatro roturas, en su cabecera).
+- **La regla que queda:** un test de un candado mira lo que ve OTRO proceso, no el orden del fuente. Y un hijo que pide un lock
+  en un test lleva su propio tope de vida: con el respaldo roto (sin soltar el turno), el hijo que hacía fila mantenía vivo el
+  proceso de tests para siempre, y la tanda habría muerto por «no avanza» (un 99) en vez de dar ESTE rojo.
+- **Lo que quedó SIN hacer:** `scripts/typecheck-lock.mjs:117-220` (el tsc ENTERO del pre-push, que corre antes del respaldo)
+  espera la RAM con el lock tomado a propósito («soltarlo dejaría arrancar a otro en el mismo hueco», 11/10). Choca con la misma
+  regla y no se tocó: no era O26, y es el camino de la emergencia a `main`.
+
 **«Tests afectados» nombra como ROJO un archivo cuyo único «fallo» es un test `todo` (11/11/2026, chat Competitor Spy).**
 La punta `spy-pruebas` (corrida 941) salió con «Rojos: doer-recetas-video-imagen, knowledge-modulos», y el diagnóstico obvio
 («las recetas de MaKo todavía nombran AI Avatar y Lead Magnet») era el equivocado: las recetas no nombran a ninguno. El rojo de
@@ -847,7 +897,28 @@ Ahora `estado` trae `tarea`, y al abrir un chat se avisa **con el nombre de la t
 igual que cuando no existe.
 
 **Lo que sigue sin cubrirse, y es del Runner:** rearmar el cron antes del 11/11 sólo lo puede pedir Martín. Lo que esto arregla
-es que, cuando se caiga, **se diga**.
+es que, cuando se caiga, **se diga**. ⚠️ (18/11/2026) Esto arreglaba la guardia APAGADA, no el cron vencido: con el cron vencido
+el latido seguía fresco y nada lo decía. Eso se cerró aparte, con la marca de la vuelta del cron (docs/hallazgos-operaciones.md,
+«El cron del Runner vencía sin que nada lo dijera»).
+## En la nube, el `tsc` acotado muere sin memoria con su tope por defecto y dice «código undefined» (18/11/2026)
+
+**Vive en:** `scripts/tsc-acotado.mjs` (el `--heap=`, por defecto 2.560 MB).
+
+**Síntoma:** `node scripts/tsc-acotado.mjs lib/plan-tareas-del-doer.ts tests/plan-tareas-del-doer.test.ts` (dos archivos chicos que
+importan lib/plan-proyectos-catalogo.ts) contestó «NO SE PUDO CHEQUEAR (código undefined, 1464 bytes de salida): … Si fue el vigía de
+RAM, esperá o cerrá chats», con 15 GB libres y sin vigía (la nube no tiene). Corrido a mano, el `tsc` salió con 134: «Reached heap
+limit». El `undefined` es `status` en `null` porque el proceso murió por una señal.
+
+**La regla que queda:** en la nube, donde la RAM no la comparten otros chats, el acotado va con `--heap=9000` (dio 0 sobre 16
+archivos de lib/, app/ y tests/). En la PC el tope sigue en 2.560 a propósito (lo comparten los chats). Y un «código undefined» no es
+el vigía: es una señal, casi siempre la del heap.
+
+⚠️ **Y el pre-push de la nube también va con Node 24.** El hook corre el `node` que haya en el PATH, y el de la nube es el 22:
+el mismo día, `git push origin HEAD:punta/traba-1811` frenó con «FILTRO ROJO» sobre más de 40 tests de otras áreas («la tanda salió
+con 1») que el veredicto, minutos antes y con Node 24, había dado verdes (8.554 tests). Con `export PATH="$(sh scripts/node24.sh):$PATH"`
+en el MISMO comando del push, el filtro dio verde. Cada llamada de Bash arranca con el PATH de base: exportarlo en una llamada
+anterior no alcanza. **Una ráfaga de rojos ajenos en el filtro, con el veredicto verde, es el Node 22 antes que el código.**
+
 ## El índice de hallazgos se duplicaba solo: `merge=union` sobre una TABLA deja las dos filas (6/11/2026)
 
 **Vive en:** `.gitattributes` (los dos globs) · `scripts/unir-indice-hallazgos.mjs` (nuevo) ·
@@ -3044,6 +3115,11 @@ abierto lo mismo para `app_settings` y las credenciales (~90 consultas por turno
   autocompletado que ESCRIBE en el render), /dashboard (y la moneda de Meta en el render, `lib/moneda-meta.ts:81`),
   /second-brain (`page.tsx:41-59`), /m/operaciones sin loading.tsx. Medido: /plan p50 1,6 s, /dashboard 1,7 s,
   /second-brain 2,1 s, /crm 2,0 s (p90 5,2 s).
+  ~~/plan y /dashboard, en parte~~ (18/11/2026, O27): en /plan las tareas y los proyectos van juntos, y el workspace y los
+  clientes en la misma espera que las columnas (tests/plan-lecturas-juntas.test.ts); en /dashboard el plan Essential/Pro arranca
+  junto con el informe. SIGUEN en serie, a propósito o por decidir: en /plan, el perfil antes de la sesión, las dos puertas
+  (`requireCapa` → `guardOnboarding`: el orden importa) y el autocompletado que escribe en el render; en /dashboard, la moneda de
+  Meta adentro de `datosDeGraficos`. /second-brain y /m/operaciones, sin tocar. Las cifras de arriba son de ANTES de pdx1.
 - **Las server actions hacen COLA: Next corre UNA a la vez por cliente** (arreglado en el Ops Center el 23/10). En el
   Centro, `pushesCentroAction` esperaba a la API de Vercel hasta 8 s y el refresco salía cada 2,5-8 s: la Ticketera y el
   Uso de IA quedaban detrás, sin dibujar nada. Ahora esas LECTURAS van por GET (`app/api/operaciones/lectura`, con las
@@ -3591,16 +3667,26 @@ Los de la tabla vieja (los dos scripts con `.range()` a mano, `cerrar-por-commit
 | Qué | Dónde | Estado |
 |---|---|---|
 | **Regresión:** el patrón por nombre casi no filtra y `.limit(100)` corta | `lib/leads.ts:367` + `lib/leads-duplicados.ts` (`patronesDeNombre`) | trunca hoy para nombres cortos → [hallazgos-crm.md](hallazgos-crm.md) |
-| `closing_analyses` entera, sin paginar | `app/crm/insights-actions.ts:56` | 428 en ws9 |
-| `plan_tareas` sin paginar (el board del super-admin) | `lib/plan-board.ts:101, 180, 302, 405, 583, 656, 735, 906` · `lib/plan-proyecto-vacio.ts:53, 107` · `app/admin/dev/roadmap.ts:142` | 643/1000 en ws9 → [hallazgos-plan.md](hallazgos-plan.md) |
-| `experimento_tareas` sin paginar | `lib/todo.ts:184, 192, 373, 453` | 212 en ws1 |
-| `vsl_events` / `landing_visits` de UN visitante o un lote | `lib/leads.ts:1482, 2264, 2286` (`getVisitasLandingMap`) | 612 por visitante (ws13) |
+| ~~`closing_analyses` entera, sin paginar~~ | `app/crm/insights-actions.ts:56` | 428 en ws9 · ✅ 18/11 (P20): `leerPorPaginas` por `recording_id`, corta al encontrar |
+| ~~`plan_tareas` sin paginar (el board del super-admin)~~ | `lib/plan-board.ts:101, 180, 302, 405, 583, 656, 735, 906` · `lib/plan-proyecto-vacio.ts:53, 107` · `app/admin/dev/roadmap.ts:142` | 643/1000 en ws9 → [hallazgos-plan.md](hallazgos-plan.md) · ✅ 18/11 (P20): `leerTareasPlan` / `tareasDelPlan`, orden terminado en `id` | |
+| ~~`experimento_tareas` sin paginar~~ | `lib/todo.ts:184, 192, 373, 453` | 212 en ws1 · ✅ 18/11 (P20): `listTareasConTope` y `listTareasDeRetro` |
+| ~~`vsl_events` / `landing_visits` de UN visitante o un lote~~ | `lib/leads.ts:1482, 2264, 2286` (`getVisitasLandingMap`) | 612 por visitante (ws13) · ✅ 18/11 (P20), el lote en tandas de 200 |
 | Lecturas de `leads` y `pagos` del embudo y la cobranza | `lib/queries.ts` (`getFunnelEtapas`, `getSCL`, `getTendencias` :2989), `lib/pagos.ts:411, 503` | bajo el techo por columnas ralas → [hallazgos-crm.md](hallazgos-crm.md) |
-| `cashUsd` / `soldUsd` | `lib/objectives-fuentes.ts:109, 127` | 13 cierres; se rompen en un objetivo anual → [hallazgos-objectives.md](hallazgos-objectives.md) |
-| Bloqueados y ocultos del inbox | `lib/evolution-block.ts:36, 59` | 0 y 15 filas |
-| Leads de las conversaciones del inbox | `lib/evolution-mensajes.ts` (~:320) | 46 ids por workspace |
+| `cashUsd` / `soldUsd` | `lib/objectives-fuentes.ts:109, 127` | 13 cierres; se rompen en un objetivo anual → [hallazgos-objectives.md](hallazgos-objectives.md) · 🟠 18/11 (P20): `cashUsd` pagina; `soldUsd` NO, porque `tests/venta-sin-cobro.test.ts` sólo reconoce `.select('…monto_cierre_usd…')` y con el helper deja de verlo |
+| ~~Bloqueados y ocultos del inbox~~ | `lib/evolution-block.ts:36, 59` | 0 y 15 filas · ✅ 18/11 (P20) |
+| ~~Leads de las conversaciones del inbox~~ | `lib/evolution-mensajes.ts` (~:320) | 46 ids por workspace · ⚪ 18/11 (P20): es un TOPE a propósito (50 teléfonos, `.limit(300)`), no un corte: el porqué quedó escrito arriba de la lectura |
 | Tres lecturas que devuelven VACÍO cuando fallan | el `catch → []` de `videosDetectados` (`lib/landing-token.ts`), `getVslEngagementMap` (`lib/leads.ts`), el `warn` de `getUsageSummary` | no truncan: mienten «no hay» |
 | `anthropic_usage` con `getSupabaseServer()` y el `eq(workspace_id)` a mano | `lib/anthropic-usage.ts`, `lib/ia-cuotas.ts` | paginan, pero contra la regla de la casa |
+
+**18/11/2026 (P20, `punta/nube-plata-c3`), lo que la paginación destapó además del corte.** Tres lecturas leían «no
+pude» como «no hay», y con la lectura caída hacían lo destructivo: `limpiarDependenciasColgadas` (lib/plan-board.ts)
+daba TODAS las aristas por colgadas y las borraba; `proyectosSinTareas` (lib/plan-proyecto-vacio.ts) daba todos los
+proyectos por vacíos, y proponerles tareas paga IA por cada uno. Las dos ahora paran. Y el aviso «recortado» del Plan
+(lib/plan-hoy.ts, lib/api-mako/areas/plan.helpers.ts) medía `leidas >= 1000`: con las tareas paginadas ese número ya no
+mide un corte sino el TAMAÑO del tablero, y habría avisado de un corte con 1000 tarjetas leídas enteras. **Regla: al
+paginar una lectura, se busca quién compara su largo contra 1000** (`grep -n "1000\|TOPE_FILAS"`): ese aviso queda
+midiendo otra cosa. Lo fija tests/techo-1000-p20.test.ts, con un PostgREST de mentira que corta en 1000 y mezcla los
+empates en cada pedido (sin el `id` al final del orden, 1174 de 1500 distintas).
 
 ### Descartado a propósito (no volver a "arreglarlo")
 
@@ -11692,6 +11778,9 @@ el vigía (`~/.claude/guardia/vigia.ps1`) y `C:/dev/revisiones/subir-tren.mjs` (
   - **El vigía:** corta también los workers de `node --test` y el Chrome `--headless`, con la zona roja en 1,2 GB.
   - **`tipos-respaldo-push.mjs` (Integración, tren-aa):** espera la RAM de la tanda 1 ANTES de tomar el lock. Lo fija
     `tests/tipos-respaldo-push.test.ts`.
+    ⚠️ **18/11/2026 (O26): era la MITAD.** Las tandas 2 y 3 (y la 1, si la RAM bajó en la fila) seguían esperando con el lock
+    tomado, y el test sólo comparaba el orden de dos cadenas. Ahora nada espera con el turno en la mano; ver la entrada de arriba
+    de todo, «El respaldo de tipos del push seguía esperando RAM con el turno tomado».
 - **La regla:** nada espera RAM ni pausa con un lock tomado. Se espera afuera, se toma, y si ya no alcanza se suelta.
 - **⚠️ Un tren que suma dependencias necesita su propio node_modules.** Create sumó BlockNote 0.56 y Mantine 8.3. Los
   worktrees de C:/dev, y entre ellos `C:/dev/wt-push-q`, tienen `node_modules` como JUNCTION al del clon principal, que no las

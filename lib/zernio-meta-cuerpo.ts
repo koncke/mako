@@ -334,6 +334,26 @@ export function identidadesDeZernio(body: unknown): {
 }
 
 /**
+ * El Instagram con el que corre un anuncio de la página `pagina`, de las identidades de Zernio (`/ads/instagram-accounts`): el de
+ * esa página y, si no tiene, el primero de la cuenta publicitaria. Es la MISMA regla que por el token (`resolveInstagramActorId`,
+ * lib/meta-ads-create.ts: `{page}?fields=instagram_business_account` y si no `{act}/instagram_accounts`). null = no hay (O8, 18/11/2026).
+ */
+export function instagramDeLaPagina(i: NonNullable<ReturnType<typeof identidadesDeZernio>>, pagina: string | null): string | null {
+  const dePagina = pagina ? i.paginas.find((p) => p.id === pagina)?.instagram?.id ?? null : null;
+  return dePagina ?? i.instagramCuenta[0]?.id ?? null;
+}
+
+/**
+ * La página del post de un anuncio, de `GET /v1/ads/{adId}` (Zernio): el prefijo de su story id (`<página>_<post>`), el efectivo
+ * primero, como `paginasDeGanadores` por el token. null si no trae ninguno (O8, 18/11/2026).
+ */
+export function paginaDelAnuncioZernio(body: unknown): string | null {
+  const c = ((body ?? {}) as { ad?: { creative?: { effectiveObjectStoryId?: unknown; objectStoryId?: unknown } | null } | null }).ad?.creative ?? null;
+  const story = texto(c?.effectiveObjectStoryId) ?? texto(c?.objectStoryId) ?? '';
+  return story.includes('_') ? story.split('_')[0] : null;
+}
+
+/**
  * Un resultado de `GET /v1/ads/targeting/search?dimension=geo` (normalizado por Zernio: `id`, `name`, `type`, `countryCode`, `path`
  * del lugar padre al país) con la forma de un resultado de `adgeolocation` de Meta, para que lo lea el MISMO `lugarDesdeBusqueda`
  * (lib/meta-geo.ts). El `id` es la `key` de Meta (medido el 26/10/2026: «Ciudad de Córdoba» → 84740, la misma de siempre). La

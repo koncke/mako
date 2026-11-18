@@ -473,6 +473,13 @@ export async function appDelToken(): Promise<string | null> {
 export async function paginasDeGanadores(adIds: string[]): Promise<Record<string, { pagina: string | null; puede: boolean }>> {
   const ids = [...new Set(adIds.filter((x) => /^\d+$/.test(x)))].slice(0, 50);
   if (!ids.length) return {};
+  // Por Zernio (18/11/2026, O8): las páginas de la conexión (`/ads/instagram-accounts`, las mismas que ofrece `identidadesMeta`) y
+  // la página del post de cada anuncio (`/ads/{id}`). Con la MISMA regla: si las páginas no se pueden leer, no se descarta nada.
+  const z = await canalZernio();
+  if (z) {
+    const r = await ganadoresPorZernio(z, ids);
+    if (r) return r;
+  }
   const [apiVersion, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const cuentasUrl = new URL(`${GRAPH_BASE}/${apiVersion}/me/accounts`);
   cuentasUrl.searchParams.set('fields', 'id,tasks');
@@ -495,6 +502,42 @@ export async function paginasDeGanadores(adIds: string[]): Promise<Record<string
     const pagina = story.includes('_') ? story.split('_')[0] : null;
     out[id] = { pagina, puede: cuentas === null || !pagina ? true : anunciante.has(pagina) };
   }
+  return out;
+}
+
+/** De a cuántos se le pregunta a Zernio por anuncio (uno por pedido): sin esto, 50 pedidos de golpe topan su límite. */
+const TANDA_ZERNIO = 5;
+
+/** `fn` sobre cada id, de a `TANDA_ZERNIO` a la vez; lo que falla queda `null` (cada lectura dice lo suyo). */
+async function porTandasZernio<T>(ids: readonly string[], fn: (id: string) => Promise<T>): Promise<Array<T | null>> {
+  const out: Array<T | null> = [];
+  for (let i = 0; i < ids.length; i += TANDA_ZERNIO) {
+    const r = await Promise.allSettled(ids.slice(i, i + TANDA_ZERNIO).map(fn));
+    for (const x of r) out.push(x.status === 'fulfilled' ? x.value : null);
+  }
+  return out;
+}
+
+/**
+ * `paginasDeGanadores` por la Zernio del negocio, o null para seguir por el token de respaldo (Zernio no contestó nada y el
+ * negocio lo conserva). Sin respaldo, lo que no se pudo leer no descarta: `puede: true`, como cuando /me/accounts no contesta.
+ */
+async function ganadoresPorZernio(z: Extract<CanalMeta, { via: 'zernio' }>, ids: readonly string[]): Promise<Record<string, { pagina: string | null; puede: boolean }> | null> {
+  const { zernioGet } = await import('./meta-via');
+  const { identidadesDeZernio, paginaDelAnuncioZernio } = await import('./zernio-meta-cuerpo');
+  let paginas: Set<string> | null = null;
+  try {
+    const i = identidadesDeZernio(await zernioGet(z, `/ads/instagram-accounts?${new URLSearchParams({ accountId: z.accountId, adAccountId: z.adAccountId }).toString()}`));
+    if (i) paginas = new Set(i.paginas.map((p) => p.id));
+  } catch (e) {
+    if (z.respaldo) { console.warn(`[meta-ads-create] las páginas por Zernio fallaron, sigo por el token: ${e instanceof Error ? e.message : String(e)}`); return null; }
+  }
+  const leidos = await porTandasZernio(ids, async (id) => paginaDelAnuncioZernio(await zernioGet(z, `/ads/${encodeURIComponent(id)}?live=true`)));
+  const out: Record<string, { pagina: string | null; puede: boolean }> = {};
+  ids.forEach((id, k) => {
+    const pagina = leidos[k] ?? null;
+    out[id] = { pagina, puede: paginas === null || !pagina ? true : paginas.has(pagina) };
+  });
   return out;
 }
 
@@ -877,6 +920,22 @@ const _igActorId = new Map<string, string | null>(); // key `${page}:${acct}`; a
 export async function getInstagramActorId(identidad?: Identidad | null): Promise<string | null> {
   // Elegido en el wizard: manda, incluido `null` = «sólo Facebook».
   if (identidad) return identidad.instagramId;
+  // Por Zernio (18/11/2026, O8): el Instagram de la página en las identidades de la conexión (`/ads/instagram-accounts`), con la
+  // MISMA regla que por el token (`instagramDeLaPagina`). Si Zernio falla y el negocio conserva el token, se sigue por ahí; si no,
+  // sin IG y se sigue (esta función nunca tiró). Sin memo: la respuesta es de la conexión, no de la página del proceso.
+  const z = await canalZernio().catch(() => null);
+  if (z) {
+    try {
+      const { zernioGet } = await import('./meta-via');
+      const { identidadesDeZernio, instagramDeLaPagina } = await import('./zernio-meta-cuerpo');
+      const i = identidadesDeZernio(await zernioGet(z, `/ads/instagram-accounts?${new URLSearchParams({ accountId: z.accountId, adAccountId: z.adAccountId }).toString()}`));
+      if (!i) throw new Error('Zernio contestó sin las páginas de la conexión');
+      return instagramDeLaPagina(i, await pageId().catch(() => null));
+    } catch (e) {
+      console.warn(`[meta-ads] el Instagram por Zernio falló${z.respaldo ? ', sigo por el token' : ''}: ${e instanceof Error ? e.message : String(e)}`);
+      if (!z.respaldo) return null;
+    }
+  }
   let page: string, adAccountId: string;
   // Esta función nunca tiró y se preserva: sin credenciales, no hay IG y se sigue.
   try { [page, adAccountId] = await Promise.all([pageId(), cred('META_AD_ACCOUNT_ID')]); }
@@ -1848,16 +1907,11 @@ const ISSUE_APROBACION_PENDIENTE = 2446984;
 export async function getAdsAprobacionPendiente(adIds: string[]): Promise<{ pendientes: Array<{ id: string; name: string; mid: string | null }>; leidos: number }> {
   const ids = adIds.filter((id) => /^\d+$/.test(id)).slice(0, 50);
   if (ids.length === 0) return { pendientes: [], leidos: 0 };
-  try {
-    const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
-    const url = new URL(`${GRAPH_BASE}/${apiVersion}/`);
-    url.searchParams.set('ids', ids.join(','));
-    url.searchParams.set('fields', 'id,name,effective_status,issues_info');
-    url.searchParams.set('access_token', accessToken);
-    const data = await graphGet(url.toString());
+  // De los anuncios leídos (forma de la Graph API, la misma por los dos caminos), los que esperan la aprobación manual.
+  const contar = (anuncios: readonly unknown[]) => {
     const pendientes: Array<{ id: string; name: string; mid: string | null }> = [];
     let leidos = 0;
-    for (const raw of Object.values(data as Record<string, unknown>)) {
+    for (const raw of anuncios) {
       const ad = (raw ?? {}) as Record<string, unknown>;
       if (!ad.id) continue;
       leidos++;
@@ -1866,6 +1920,24 @@ export async function getAdsAprobacionPendiente(adIds: string[]): Promise<{ pend
       if (hit) pendientes.push({ id: String(ad.id), name: String(ad.name ?? ''), mid: hit.mid != null ? String(hit.mid) : null });
     }
     return { pendientes, leidos };
+  };
+  // Por Zernio (18/11/2026, O8): cada anuncio con `anuncioMetaPorZernio` (el anuncio en vivo, y su revisión `/ads/{id}/review` —el
+  // `issues_info`— si no entrega). Lo que no se pudo leer no cuenta en `leidos`, y la API lo dice. Si Zernio no leyó NINGUNO y el
+  // negocio conserva el token, se sigue por ahí.
+  const z = await canalZernio().catch(() => null);
+  if (z) {
+    const { anuncioMetaPorZernio } = await import('./meta-via');
+    const r = contar(await porTandasZernio(ids, (id) => anuncioMetaPorZernio(z, id)));
+    if (r.leidos > 0 || !z.respaldo) return r;
+  }
+  try {
+    const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+    const url = new URL(`${GRAPH_BASE}/${apiVersion}/`);
+    url.searchParams.set('ids', ids.join(','));
+    url.searchParams.set('fields', 'id,name,effective_status,issues_info');
+    url.searchParams.set('access_token', accessToken);
+    const data = await graphGet(url.toString());
+    return contar(Object.values(data as Record<string, unknown>));
   } catch (e) {
     console.error('[ads-manager] no se pudo leer el estado de aprobación', e);
     return { pendientes: [], leidos: 0 };

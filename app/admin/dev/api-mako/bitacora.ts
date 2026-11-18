@@ -670,6 +670,55 @@ export const BITACORA: Hito[] = [
     tickets: [74, 69],
   },
   {
+    fecha: '18 nov', hora: '09:00', chat: 'API de MaKo', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la tanda de la nube del 18/11 (docs/pendientes-verificados-17-11.md, «Lo que falta construir»).',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '12:10', chat: 'API de MaKo', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El núcleo de la API: cinco pendientes cerrados y dos descartados con su motivo',
+    puntos: [
+      'Una acción ya aplicada no le gana a la misma pedida otra vez (un lead aplicado sí): lib/propuestas-ref.ts.',
+      'Quién confirmó una propuesta va en su campo; lo que devuelve la acción no lo pisa: lib/api-mako/resultado-propuesta.ts.',
+      'Confirmar anota la hora del reclamo (mig 0420, sin aplicar: el código la tolera) y un cron nocturno cierra como «error» lo que se cortó.',
+      'reuniones_lead devuelve su falla como error, y las propuestas que no se guardan llevan noCorrio (dejan ticket).',
+      'El link a una conversación de WhatsApp lo escribe el código (conLinksDeAccion), no el modelo.',
+      'Descartados: «vacío o ausente» en /mako/revisar (la pantalla ya manda null; el contrato seguro es «no tocar») y mover listar_productos de área (rompe tokens detallados y la URL REST).',
+      'Esperan a Martín: /api/agente/consultar (rompe skills instaladas) y quién confirma en la bandeja.',
+    ],
+    commits: [{ sha: 'a31cad9e', msg: 'Admin y API de MaKo: sin clientes de prueba, uso por persona, y lo que quedaba colgado se cierra', lineas: 1040, archivos: 33 }],
+    archivos: [
+      'lib/propuestas-ref.ts · lib/propuestas.ts — la llave por tipo',
+      'lib/api-mako/resultado-propuesta.ts · lib/api-mako/acciones.ts — el actor',
+      'lib/pendientes-colgadas.ts · lib/mako-pendientes.ts · supabase/migrations/0420_pendientes_reclamada_at.sql — las colgadas',
+      'lib/respuesta-doer.ts · lib/mako-doer-in.ts — el link del chat',
+      'tests/api-mako-nucleo-1811.test.ts — 8/8, probado rompiéndolo',
+    ],
+    revisar: '/mako/pendientes',
+  },
+  {
+    fecha: '18 nov', hora: '02:16', chat: 'Nube › Octubre: CRM y perfil', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo corrige un dato ya cargado del perfil del negocio desde el chat: «¿cómo te hago recordar que…?» ya tiene herramienta',
+    puntos: [
+      '**Antes, MaKo sólo podía llenar un dato VACÍO del perfil** (`guardar_campo_perfil`: «ya tiene valor» se rechazaba), y las frases con que se pide corregir uno no le traían ninguna herramienta: medido con el turno real, caían en «consultar» o se anotaban como idea para el Plan.',
+      '**Operación nueva `corregir_campo_perfil`** (con un «sí» en el chat, sólo el admin del negocio, `PUT /api/v1/negocio/perfil/campos/{key}`): la tarjeta dice lo de antes y lo nuevo, y si el dato cambió antes de confirmar, la propuesta se cierra en vez de pisar lo nuevo.',
+      '**El clasificador la trae** con «recuerda / ten en cuenta que…» y con las correcciones de un dato del perfil («en realidad mi precio es…», «corrige mi horario»), en WhatsApp, en la app y en el grupo; «recordame llamar a Juan» sigue siendo una tarea.',
+      '**Para Martín:** la pantalla sólo deja pisar un dato ya cargado al super admin y no avisa el rechazo; por el chat, desde hoy, lo corrige el admin del negocio con su «sí».',
+    ],
+    commits: [{ sha: 'c2031b952', msg: 'MaKo corrige un dato ya cargado del perfil del negocio desde el chat (O21)', lineas: 584, archivos: 15 }],
+    archivos: [
+      'lib/api-mako/areas/negocio.def.ts · negocio.run.ts · negocio.helpers.ts — la operación y la escritura con compare-and-set',
+      'lib/mako-intencion.ts — `esDatoDelPerfil`, antes de la regla de la pregunta',
+      'lib/despacho-grupo.ts — entre las acciones simples del grupo',
+      'tests/corregir-campo-perfil.test.ts — 9/9; probado rompiéndolo (9 roturas, las 9 rojas)',
+      'docs/hallazgos-api-mako.md',
+    ],
+    revisar: '/second-brain',
+  },
+  {
     fecha: '18 nov', hora: '05:25', chat: 'API de MaKo', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
     titulo: 'La API ya edita con IA una automatización ya armada, carga guiones por WhatsApp y HTTP y rehace las motivaciones de compra sin borrar guiones',
     puntos: [

@@ -60,7 +60,29 @@ export type LibroEnRevenue = {
   atadas: number;
   /** Lo que no suma y hay que decir (los «No pude leer …» de Revenue). */
   avisos: string[];
+  /**
+   * Las agencias con la mensualidad PRENDIDA y sin un solo mes pagado por el libro (P7, 18/11/2026: Código, `desde` 2026-12). El libro
+   * no sabe cuánto deben (eso lo calcula `mensualidadDeAgencia` con su cartera): el lector se lo pregunta y arma su próximo cobro con
+   * `proximoDelLibroPrendido`. Sin esto, «Por cobrar» seguía con la mensualidad del CRM (el monto y el día del último mes cargado a mano).
+   */
+  prendidasSinHistoria: number[];
 };
+
+/** Un mes de la mensualidad como lo dice `mensualidadDeAgencia` (lib/agencia-mes.ts): lo que hace falta para su próximo cobro. */
+export type MesDelLibro = { mes: string; limite: string; debeUsd: number; pagado: boolean };
+
+/**
+ * El próximo cobro de una agencia con el libro prendido y ningún mes pagado por él: el PRIMER mes desde `desde` que no está pagado
+ * (de `actual` y `siguiente`, en ese orden), con su día límite y lo que debe. Atrasado si su límite ya pasó. Sin `mensualidad`, a
+ * propósito: el MRR sale de lo pagado y este mes no se pagó; esto sólo dice CUÁNDO y CUÁNTO para «Por cobrar». null = nada que cobrar.
+ */
+export function proximoDelLibroPrendido(desde: string, meses: ReadonlyArray<MesDelLibro | null | undefined>, hoy: string): ProximoDeSuscripcion | null {
+  if (!RE_MES.test(desde)) return null;
+  const m = meses.find((x): x is MesDelLibro => !!x && RE_MES.test(x.mes) && x.mes >= desde && !x.pagado && Number.isFinite(x.debeUsd) && x.debeUsd > 0 && RE_DIA.test(x.limite));
+  if (!m) return null;
+  const debe = { fecha: m.limite, usd: r2(m.debeUsd) };
+  return debe.fecha <= hoy ? { sinCobro: false, atrasado: debe, siguiente: null } : { sinCobro: false, atrasado: null, siguiente: debe };
+}
 
 const RE_ORDEN = /^agencia\.mensualidad\.([1-9]\d{0,11})\.orden\.(.+)$/;
 const RE_PAGO = /^agencia\.mensualidad\.([1-9]\d{0,11})\.pago\.(\d{4}-(?:0[1-9]|1[0-2]))$/;
@@ -180,5 +202,6 @@ export function pagosDelLibro(filas: readonly FilaLibro[], o: { atadas: Readonly
   const avisos: string[] = [];
   if (aMano) avisos.push(`lo que entró en ${aMano === 1 ? '1 pago de agencia marcado' : `${aMano} pagos de agencia marcados`} a mano sin su orden (no suma en Revenue: si entró plata, cárgala con «Cargar pago»)`);
   if (ilegibles) avisos.push(`${ilegibles === 1 ? '1 orden' : `${ilegibles} órdenes`} del libro de las agencias (no suman en Revenue)`);
-  return { pagos, proximos, agencias: [...agencias].sort((a, b) => a - b), atadas, avisos };
+  const prendidasSinHistoria = [...prendidas].filter((ag) => !porMes.has(ag)).sort((a, b) => a - b);
+  return { pagos, proximos, agencias: [...agencias].sort((a, b) => a - b), atadas, avisos, prendidasSinHistoria };
 }

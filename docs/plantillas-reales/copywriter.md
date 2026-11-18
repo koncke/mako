@@ -75,7 +75,7 @@ El extracto y los chips **salen del mismo ejemplo** (`extractoDe`, `chipsDe`): n
 - las tres estructuras siguen en el selector «Estructura» de toda página VSL, y MaKo las escribe con su guía;
 - sus ids siguen resolviendo en `plantillaPorId` (con `visible: false` y el esqueleto), así la API no rompe a quien ya los usa.
 
-Ejemplos para esas tres quedan en «Sin hacer».
+Ejemplos para esas tres quedan en «Sin hacer». (18/11/2026: ya los tienen, y las tres volvieron a la galería.)
 
 ---
 
@@ -883,8 +883,8 @@ Los tiempos son de un video de 12 minutos: en otro largo se escalan en proporci�
 
 ## Sin hacer (con dónde vive)
 
-- Ejemplos para `vsl-anti-solucion`, `vsl-diagnostico` y `vsl-historia-fundador` (`lib/copywriter/plantillas.ts`, quedan ocultas). Y para `reel-nicho`, `aida`, `bab` y `gancho-propuesta-cta`, que hoy no tienen tarjeta.
+- ~~Ejemplos para `vsl-anti-solucion`, `vsl-diagnostico` y `vsl-historia-fundador` (`lib/copywriter/plantillas.ts`, quedan ocultas).~~ (18/11/2026: tienen su ejemplo en `lib/copywriter/plantillas-ejemplos.ts` y volvieron a la galería, que pasó a 15; docs/hallazgos-copywriter.md, 18/11.) Siguen sin ejemplo `reel-nicho`, `aida`, `bab` y `gancho-propuesta-cta`, que hoy no tienen tarjeta.
 - El «Reel de historia (BAB)» de Voz de Líder de la investigación pasa a la tab Video.
-- Los `evals` del experto (un pedido, la salida esperada y las verificaciones, como marketingskills): `tests/copywriter-ia.test.ts` solo fija keys y slots. La calidad de la adaptación no tiene prueba automática.
+- ~~Los `evals` del experto (un pedido, la salida esperada y las verificaciones, como marketingskills): `tests/copywriter-ia.test.ts` solo fija keys y slots. La calidad de la adaptación no tiene prueba automática.~~ (18/11/2026: `tests/copywriter-experto-evals.test.ts`, con los casos en `tests/_copywriter-experto-evals.ts`. No llama a un modelo: prueba las verificaciones sobre salidas fijas buenas y malas, pasadas por el mismo saneo que «Editar». Que un modelo de verdad escriba bien sigue siendo del arnés de chats.)
 - Verificar la galería de Canva en el navegador (dio 403) y los anuncios de vivienda de Meta en México.
 - **Leer el negocio con `grafoParaChat`.** Hecho en la tanda 0 (29/10/2026): `contextoDelNegocio` vive en `lib/negocio-para-crear.ts` y lee `grafoParaChat`; `lib/copywriter/contexto.ts` quedó como re-exportación, así que los imports del Copywriter no cambian.

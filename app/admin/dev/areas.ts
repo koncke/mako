@@ -548,7 +548,7 @@ export const AREAS: AreaDev[] = [
     // este panel. Es la regla de AGENTS.md «Una ruta que apunta a la nada»: el `vive`
     // cubre dónde cae el trabajo de verdad, no solo el endpoint que le da nombre al área.
     vive: [
-      'app/api/track/vsl/route.ts', 'app/api/track/optin/route.ts',
+      'app/api/track/vsl/route.ts', 'app/api/track/optin/route.ts', 'lib/lead-visita.ts',
       'lib/landing-token.ts', 'lib/landing-paginas.ts', 'lib/landing-videos.ts',
       'lib/landing-analisis.ts', 'lib/landing-config.ts', 'lib/vsl-retencion.ts', 'lib/panda.ts',
       'app/integraciones/ProbarTracking.tsx', 'app/integraciones/NombrarVideos.tsx',

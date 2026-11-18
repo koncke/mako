@@ -29,6 +29,7 @@ import { getAvatares, avataresTexto, type Avatar } from './avatares';
 import { getEntregables, entregablesTexto } from './entregable';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, errorDeCascada } from './ai-cheap';
 import { fundirMatriz, type FusionMatriz } from './razones-fundir';
+import { ganadoresParaEscribir } from './ads-ganadores';
 
 // El shape del guion y su pipeline de producción viven en lib/guion-estado.ts
 // (sin 'server-only'): los componentes de cliente los necesitan igual, y una
@@ -538,8 +539,10 @@ export async function generarGuion(celdaId: string, opts: GenerarGuionOpts = {})
     const razones = await getRazones();
     const celda = razones.find((r) => r.id === celdaId);
     if (!celda) return { ok: false, error: 'Celda no encontrada.' };
-    const [avatares, entregables, tono, angulos, estructuras] = await Promise.all([
-      getAvatares(), getEntregables(), personalidadNegocioTexto(), getAngulosGuion(), getEstructurasGuion(),
+    // Lo que ya le funcionó al negocio en sus anuncios (Ads Analyst, con un piso de agendas: lib/ads-ganadores-reglas.ts). Sin
+    // datos que pasen el piso, '' y no entra nada (18/11/2026, O22).
+    const [avatares, entregables, tono, angulos, estructuras, ganadores] = await Promise.all([
+      getAvatares(), getEntregables(), personalidadNegocioTexto(), getAngulosGuion(), getEstructurasGuion(), ganadoresParaEscribir(),
     ]);
     const angulo = (opts.anguloId ? anguloGuionPorId(angulos, opts.anguloId) : undefined) ?? angulos.find((a) => a.activo) ?? angulos[0];
     if (!angulo) return { ok: false, error: 'No hay ángulos de guion en la biblioteca.' };
@@ -567,7 +570,7 @@ export async function generarGuion(celdaId: string, opts: GenerarGuionOpts = {})
 MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
 COPY/HOOK: ${celda.copy}
 SIGUIENTE PASO AL HACER CLIC: ${siguientePaso}
-${entregables.length ? `LEAD MAGNET: ${entregablesTexto(entregables)}\n` : ''}${opts.formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${opts.formatoVideoTexto}\n` : ''}${respAngulo.length ? `LO QUE EL DUEÑO PRECISÓ PARA ESTE ÁNGULO (úsalo, es el material concreto):\n${respAngulo.map((r) => `- ${r.pregunta} → ${r.respuesta.trim()}`).join('\n')}\n` : ''}${opts.nota?.trim() ? `NOTA DEL DUEÑO (qué quiere comunicar — respetala):\n${opts.nota.trim()}\n` : ''}
+${entregables.length ? `LEAD MAGNET: ${entregablesTexto(entregables)}\n` : ''}${opts.formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${opts.formatoVideoTexto}\n` : ''}${respAngulo.length ? `LO QUE EL DUEÑO PRECISÓ PARA ESTE ÁNGULO (úsalo, es el material concreto):\n${respAngulo.map((r) => `- ${r.pregunta} → ${r.respuesta.trim()}`).join('\n')}\n` : ''}${opts.nota?.trim() ? `NOTA DEL DUEÑO (qué quiere comunicar — respetala):\n${opts.nota.trim()}\n` : ''}${ganadores ? `${ganadores}\n` : ''}
 Escribe el guion del video con el ángulo "${angulo.nombre}" y la estructura "${estructura.nombre}".`;
     // Sin `erroresOut`, "no hay IA configurada" y "la IA falló" daban EXACTAMENTE
     // el mismo mensaje: a un cliente con su key puesta le decíamos que la conecte

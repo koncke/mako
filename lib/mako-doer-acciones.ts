@@ -13,7 +13,8 @@ import 'server-only';import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle
 
 
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
-import { REGLA_NOMBRE_PROYECTO, canonNombre } from '@/lib/plan-proyectos-catalogo';
+import { REGLA_NOMBRE_PROYECTO } from '@/lib/plan-proyectos-catalogo';
+import { tareasDelDoer } from '@/lib/plan-tareas-del-doer';
 import { wsEnContexto, runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes, reclamarPendiente } from '@/lib/mako-pendientes';
 import { porId } from '@/lib/api-mako/registro';
@@ -747,7 +748,8 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
               : 'Ya había una propuesta pendiente para esta persona: es el MISMO link, no se creó otra. Decíselo así y pasáselo.',
           });
         } catch (e) {
-          return JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) });
+          // `noCorrio` (F114, 18/11/2026): la propuesta del lead no se guardó por una falla nuestra (la base), no por una regla.
+          return JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e), noCorrio: true });
         }
       }
 
@@ -893,14 +895,9 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
       }
 
       case 'proponer_tareas_plan': {
-        const raw: unknown[] = Array.isArray((input as { tareas?: unknown }).tareas) ? (input as { tareas: unknown[] }).tareas : [];
-        const tareas = raw
-          .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-          .map((x) => ({ titulo: typeof x.titulo === 'string' ? x.titulo.trim().slice(0, 200) : '', prioridad: prioOk(x.prioridad), // `canonNombre`: si el modelo escribió «CRM», el proyecto se llama «Feature: CRM».
-            // El prefijo no puede depender de que se acuerde de escribirlo. Para un nombre
-            // que no está en el catálogo lo deja igual — ahí manda el Perro al aplicar.
-            proyecto: x.proyecto ? canonNombre(String(x.proyecto).trim()).slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 6000) : undefined }))
-          .filter((t) => t.titulo);
+        // El mapeo vive en lib/plan-tareas-del-doer.ts para que tenga test que lo CORRA: acá se
+        // perdía `recurrente` (pendiente T11) aunque el schema de la herramienta lo ofrece.
+        const tareas = tareasDelDoer((input as { tareas?: unknown }).tareas);
         if (!tareas.length) return JSON.stringify({ ok: false, guarda: true, error: 'No hay ninguna tarea con título. Resuelve lo deducible con ver_plan; si falta info, escríbela en el "detalle" — no preguntes por aquí.' });
         // CANDADO: el mensaje era un "sí" pelado y no una lista → las tareas no salen
         // de lo que el dueño acaba de decir, salen de la memoria del modelo. Cortarlo acá
@@ -921,7 +918,9 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         // BORRADOR + link a /plan/revisar para TODOS (dueño y clientes): nada de ida-y-vuelta
         // ni "sí" por WhatsApp. Sin preguntas: el alta no pregunta nada desde el 05/10/2026.
         try {
-          const id = await crearPropuesta({ tareas: tareas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), eliminar, resumen, origen: 'whatsapp' });
+          // Las tareas van TAL CUAL salieron de `tareasDelDoer`: un segundo `map` acá a mano era el
+          // otro lugar donde `recurrente` se caía. El desempate con la fecha lo hace `limpiarTarea`.
+          const id = await crearPropuesta({ tareas, eliminar, resumen, origen: 'whatsapp' });
           const link = linkApp(`/plan/revisar/${id}`, wsEnContexto());
           // Los números van SIEMPRE, incluido el cero. Antes `extras` quedaba vacío cuando
           // no había preguntas y el modelo rellenaba el hueco inventando: se midió en prod
@@ -935,7 +934,9 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
 // tiene la red: si el id no existe, ofrece los borradores pendientes que sí hay.
 instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}, ${extras}. Manda UNA línea corta + este link para que lo revisen y confirmen EN LA APP (NO pidas "sí" aquí, NO repitas la lista). ⛔⛔ EL LINK SE COPIA Y SE PEGA TAL CUAL, carácter por carácter — no lo reescribas de memoria ni lo acortes: un solo carácter cambiado lo manda a un borrador que no es, o a ninguno. ⛔ Si das un número, usa EXACTAMENTE estos — no inventes ninguno. ⛔ El proyecto de cada tarea lo decide el Perro Guardián al aplicar: NO lo menciones. Link: ${link}` });
         } catch (e) {
-          return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}` });
+          // `noCorrio` (F114, 18/11/2026): el borrador no se guardó por una falla nuestra, no por una regla. Así llega con isError
+          // (`comoFallaSiNoCorrio` en el doer, un 500 por el registro) y deja su ticket, como la pendiente que no entró.
+          return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}`, noCorrio: true });
         }
       }
 

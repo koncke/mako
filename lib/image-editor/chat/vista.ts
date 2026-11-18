@@ -16,6 +16,8 @@
 //   · UN GRUPO ES UN ELEMENTO: lo de adentro no se toca por separado (sus medidas son relativas al grupo).
 // =============================================================================
 
+import { ajustesDeVista, filtrosDe } from './fotos';
+
 type Obj = Record<string, unknown>;
 
 /** Lo que la vista dice de cada elemento, para revisar y aplicar. */
@@ -136,6 +138,11 @@ function elementoJson(o: Obj, ref: string, tipo: TipoElemento): Obj {
     e.grosor = r1(num(o.strokeWidth, 1));
   } else if (tipo === 'grupo') {
     e.contiene = Array.isArray(o.objects) ? o.objects.length : 0;
+  } else if (tipo === 'imagen') {
+    // Los filtros y ajustes que ya tiene, en las unidades de la pantalla (./fotos.ts): «más brillo» parte de ahí.
+    const ajustes = ajustesDeVista(filtrosDe(o));
+    if (Object.keys(ajustes).length) e.ajustes = ajustes;
+    if (o.slot) e.en_marco = true;
   }
   return e;
 }

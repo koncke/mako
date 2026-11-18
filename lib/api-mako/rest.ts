@@ -650,6 +650,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/negocio/onboarding/tabs-pendientes', 'listar_tabs_por_configurar'],
   ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
   ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],
+  // O21 (18/11/2026): PATCH completa un hueco; PUT reemplaza el valor de un campo que ya lo tiene.
+  ['PUT', '/negocio/perfil/campos/{key}', 'corregir_campo_perfil'],
   ['DELETE', '/negocio/personalidad-voz', 'reiniciar_personalidad'],
   ['GET', '/negocio/knowledge/modulos', 'modulos_de_knowledge'],
   ['GET', '/negocio/knowledge/modulos/{modulo}', 'leer_modulo_knowledge'],

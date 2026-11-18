@@ -170,6 +170,7 @@ contar_segmento_email
 contexto_etapa
 contexto_negocio
 copiloto_media_buyer
+corregir_campo_perfil
 cortar_acceso_curso
 cortar_frase_video
 cortar_recordatorio_cuota

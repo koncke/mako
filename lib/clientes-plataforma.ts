@@ -24,8 +24,10 @@ import { usdPrimerMesVigente } from './primer-mes-reglas';
 import { estadoDeLoGuardado } from './onboarding-contrato';
 import { ONBOARDING_KEY } from './onboarding-state';
 import { vistaDeIngresos } from './admin-ingresos';
+import { WS_PRUEBAS } from './auth-session';
+import { WS_REVISION } from './cuenta-revision-reglas';
 import {
-  cobradoPorMes, diasDesde, enPrueba, enRiesgo, kpisDeClientes, mrrDe, pagoPendiente, paraMirar, segmentosDe, sinUso,
+  apartarLosQueNoSonClientes, cobradoPorMes, diasDesde, enPrueba, enRiesgo, kpisDeClientes, mrrDe, pagoPendiente, paraMirar, segmentosDe, sinUso,
   type CobroMrr, type ItemParaMirar, type PagoEntrado, type Segmento,
 } from './clientes-plataforma-reglas';
 
@@ -79,7 +81,24 @@ export type VistaClientes = {
   actividadLeida: boolean;
   /** Alguna lectura falló: lo que se muestra puede quedarse corto, y se dice cuál. */
   avisos: string[];
+  /**
+   * Los negocios que existen y NO son clientes (`NO_SON_CLIENTES`): no están en `filas`, ni en los números, ni en «Para mirar».
+   * Van aparte para lo que BUSCA un negocio y no lo cuenta (la ficha, «Editar persona», el DEBUG de MaKo): encontrar no es
+   * contar (app/admin/_polar/datos/busqueda-tipos.ts).
+   */
+  pruebas: FilaCliente[];
 };
+
+/**
+ * Los negocios que no son clientes de MaKo aunque tengan workspace (F21, 18/11/2026; el recorrido visual del 30/10, CU1: «las
+ * cuentas de prueba cuentan como clientes»): los de prueba (`WS_PRUEBAS`, lib/auth-session.ts: el Cliente de Prueba y el de
+ * Diseño) y la cuenta de revisión de las tiendas (`WS_REVISION`), el mismo criterio que lib/baja-cuenta.ts. En positivo: un
+ * negocio nuevo no entra acá solo.
+ * ⚠️ «Prueba real», que nombra el recorrido, NO está en `WS_PRUEBAS` y no se agrega a ojo: su número no está en el código, y
+ *    sumarlo es decidir que un workspace de producción deja de contar. Si es de prueba, va a `WS_PRUEBAS` (con lo que eso implica:
+ *    el Reset lo puede vaciar) o a una lista propia, con su número medido.
+ */
+export const NO_SON_CLIENTES: ReadonlySet<number> = new Set<number>([...WS_PRUEBAS, WS_REVISION]);
 
 /** Quién tiene su link de Partners (el código nace al unirse). */
 async function partnersConLink(): Promise<Set<number>> {
@@ -195,7 +214,7 @@ export async function vistaDeClientes(ahoraMs: number = Date.now()): Promise<Vis
   }
   const actividadLeida = ingresos != null && hechos != null;
   const sets = { partners, agencias: new Set(agencias.map((a) => a.ws)), deAgencia };
-  const filas: FilaCliente[] = wss.map((w) => {
+  const todas: FilaCliente[] = wss.map((w) => {
     const cs = cobrosDe.get(w.id) ?? [];
     const mrr = revenue ? { usd: mrrPagado.get(w.id) ?? 0, sinDolares: 0 } : mrrDe(cs);
     const ag = deAgencia.get(w.id);
@@ -227,8 +246,12 @@ export async function vistaDeClientes(ahoraMs: number = Date.now()): Promise<Vis
       regaloPorTerminar: mano && mrr.usd === 0 && mrr.sinDolares === 0 && !enPrueba(cs) ? regaloParaMirar(mano, ahoraMs) : null,
     };
   });
+  // Los negocios de prueba se arman igual (su ficha y el DEBUG los buscan) y se apartan ANTES de contar: ni los números, ni la
+  // lista, ni «Para mirar», ni At Risk los ven (F21).
+  const { clientes: filas, pruebas } = apartarLosQueNoSonClientes(todas, NO_SON_CLIENTES);
   return {
     filas,
+    pruebas,
     kpis: kpisDeClientes(filas, ahoraMs),
     cobrado: cuotas ? cobradoPorMes(cuotas.entrados, ahoraMs) : null,
     vencido: cuotas?.vencido ?? null,

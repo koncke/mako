@@ -223,12 +223,33 @@ const LINK_ACCION = /(?:https?:\/\/[^\s<>()]*)?\/mako\/revisar\/[A-Za-z0-9_-]+/g
  */
 export function conLinksDeAccion(respuesta: string, links: readonly string[]): string {
   if (!links.length) return respuesta;
+  // Cada familia de link se mira por su lado, con SUS links reales: un link de chat de WhatsApp que el modelo copió del
+  // historial no se toca porque el turno haya propuesto algo en /mako/revisar, y al revés.
+  let r = respuesta;
+  for (const patron of [LINK_ACCION, LINK_CHAT_WHATSAPP]) {
+    const deEsta = links.filter((l) => new RegExp(patron.source).test(l));
+    if (deEsta.length) r = conLosReales(r, deEsta, patron);
+  }
+  return r;
+}
+
+/**
+ * Un link a UNA conversación del WhatsApp no oficial (`/whatsapp?canal=no-oficial&chat=<jid>&linea=…`), con o sin dominio
+ * (F114, 18/11/2026; docs/hallazgos-api-mako.md: «los links a `/whatsapp?chat=…` siguen pasando por el modelo»). El jid lo
+ * resuelve el código contra el espejo (lib/api-mako/areas/whatsapp.run.ts, `chatEmpresaPorUltimos10`), y uno copiado con un
+ * carácter de menos abre la conversación de OTRA persona: la bandeja abre la primera cuando no encuentra el `chat=`.
+ */
+// Sin el punto o la coma de la frase al final: «aquí: <link>.» es el link, no el link con un punto.
+const LINK_CHAT_WHATSAPP = /(?:https?:\/\/[^\s<>()]*)?\/whatsapp\?[^\s<>()]*chat=[^\s<>()]*[^\s<>().,;:!?]/g;
+
+/** Si el texto trae exactamente los links reales de ESTA familia, intacto; si no, se sacan todos los suyos y van los reales al final. */
+function conLosReales(respuesta: string, links: readonly string[], patron: RegExp): string {
   const suyo = (respuesta ?? '').trim();
-  const escritos: string[] = suyo.match(LINK_ACCION) ?? [];
+  const escritos: string[] = suyo.match(patron) ?? [];
   const reales = new Set(links);
   const intacta = escritos.every((l) => reales.has(l)) && links.every((l) => escritos.includes(l));
   if (intacta) return respuesta;
-  const limpio = suyo.replace(LINK_ACCION, '').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
+  const limpio = suyo.replace(patron, '').replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
   return [limpio, ...links.map((l) => `Revísalo y confírmalo aquí: ${l}`)].filter(Boolean).join('\n\n');
 }
 

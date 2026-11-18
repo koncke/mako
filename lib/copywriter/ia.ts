@@ -38,7 +38,8 @@ import type { Oferta } from '../oferta-modelo';
 import { bloqueDeOferta, ofertaDelPedido } from './oferta-elegida';
 import { alEspanol } from './al-espanol';
 import { sanearContenido } from './doc';
-import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
+import { sanearProps, SIN_TITULO, tieneMetodo, type JsonNodo } from './tipos';
+import { ganadoresParaEscribir } from '../ads-ganadores';
 import { catalogosDelCopywriter } from './catalogos-server';
 import { getAngulosGuion } from '../guion-angulos-store';
 import { getEstructurasTodas } from '../guion-estructuras-store';
@@ -155,7 +156,7 @@ export async function discutir(p: { pregunta: unknown; guion: GuionDelPedido; ch
   if (!pregunta) return invalido('Escribe qué quieres pensar.');
   const g = guionDe(p.guion);
   try {
-    const [acento, negocio, n, refs] = await Promise.all([acentoConId(), contextoDelNegocio(pregunta), nombres(g.props), leerReferencias(conElOriginal(p.referencias, g.props))]);
+    const [acento, negocio, n, refs, ganadores] = await Promise.all([acentoConId(), contextoDelNegocio(pregunta), nombres(g.props), leerReferencias(conElOriginal(p.referencias, g.props)), ganadoresDe(g.props.tipo)]);
     // La voz como en `editar`: la variedad sólo si el negocio la DECLARÓ (la de su zona horaria no cuenta).
     const declarado = acento?.seguro ? acento : null;
     const vosea = !!declarado && VOSEAN.has(declarado.id);
@@ -168,7 +169,7 @@ export async function discutir(p: { pregunta: unknown; guion: GuionDelPedido; ch
       guion: contenidoNoConfiable(guionParaIA(g.doc), 'guion'),
       charla: charla ? `LA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable(charla, 'charla')}\n\n` : '',
       referencias: bloqueReferencias(refs.textos),
-      negocio: bloqueNegocio(negocio),
+      negocio: bloqueNegocio(negocio, ganadores),
       adjuntos: bloqueAdjuntos(p.lecturas ?? []),
     });
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
@@ -191,7 +192,17 @@ export async function discutir(p: { pregunta: unknown; guion: GuionDelPedido; ch
 }
 
 /** El negocio del Second Brain, como datos (o que no hay). */
-const bloqueNegocio = (negocio: string) => `EL NEGOCIO (del Second Brain, sólo lo que hace falta):\n${negocio ? contenidoNoConfiable(negocio, 'negocio') : '(no hay datos del negocio cargados)'}`;
+/**
+ * El negocio del Second Brain, como datos (o que no hay). Con `ganadores` (lib/ads-ganadores.ts), lo que ya le funcionó en sus
+ * anuncios va pegado al negocio, en el mismo slot: un slot nuevo no lo tendría un prompt guardado en /configuraciones.
+ */
+const bloqueNegocio = (negocio: string, ganadores = '') => `EL NEGOCIO (del Second Brain, sólo lo que hace falta):\n${negocio ? contenidoNoConfiable(negocio, 'negocio') : '(no hay datos del negocio cargados)'}${ganadores ? `\n\n${ganadores}` : ''}`;
+
+/**
+ * Lo que ya le funcionó al negocio en sus anuncios (Ads Analyst, con su piso: lib/ads-ganadores-reglas.ts), sólo para las piezas
+ * que se graban o se pautan (`tieneMetodo`: ad, reel, story, YouTube, VSL). Un email, un post o una página no lo leen. O22, 18/11/2026.
+ */
+const ganadoresDe = (tipo: Parameters<typeof tieneMetodo>[0]): Promise<string> => (tieneMetodo(tipo) ? ganadoresParaEscribir() : Promise.resolve(''));
 
 /** El paso de reparación: UN pedido a la cascada barata que copia la salida como JSON válido (el de lib/editor-landing/ia.ts). */
 function reparador(hastaMs: number) {
@@ -239,12 +250,13 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
   if (!instruccion) return invalido('Escribe qué quieres que escriba o cambie.');
   const g = guionDe(p.guion);
   try {
-    const [acento, negocio, angulos, estructuras, refs, ofertas, productos] = await Promise.all([
+    const [acento, negocio, angulos, estructuras, refs, ofertas, productos, ganadores] = await Promise.all([
       acentoConId(), contextoDelNegocio(instruccion),
       getAngulosGuion().catch(() => ANGULOS_GUION_DEFAULT), getEstructurasTodas().catch(() => ESTRUCTURAS_GUION_DEFAULT).then(conVsl),
       leerReferencias(conElOriginal(p.referencias, g.props)),
       // Las ofertas y los productos, para pasar la elegida ENTERA (una lectura que falla deja escribir con el negocio).
       listarOfertas(true).catch((): Oferta[] => []), listProductos(true).catch((): Producto[] => []),
+      ganadoresDe(g.props.tipo),
     ]);
     const lite = catalogosLite(angulos, estructuras);
     const angulo = g.props.angulo ? angulos.find((a) => a.id === g.props.angulo && a.activo) ?? null : null;
@@ -272,7 +284,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const elegida = ofertaDelPedido(instruccion, ofertas, charla);
     const producto = elegida ? productos.find((x) => x.nombre.trim().toLowerCase() === elegida.nombre.trim().toLowerCase()) ?? null : null;
     const oferta = bloqueDeOferta(elegida, producto);
-    const conOferta = `${bloqueNegocio(negocio)}${oferta ? `\n\n${oferta}` : ''}`;
+    const conOferta = `${bloqueNegocio(negocio, ganadores)}${oferta ? `\n\n${oferta}` : ''}`;
     const pl = p.adaptar ? plantillaPorId(lite, g.props.plantilla) : null;
     const user = pl?.ejemplo ? await renderPrompt(PROMPTS_EXPERTO.adaptarUser.key, PROMPTS_EXPERTO.adaptarUser.tpl, {
       plantilla: pl.nombre,

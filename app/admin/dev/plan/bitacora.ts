@@ -392,4 +392,43 @@ export const BITACORA: Hito[] = [
       "tests/iniciativa-plan.test.ts — probado rompiéndolo (3 roturas)",
     ],
   },
+  {
+    fecha: '18 nov', hora: '02:05', chat: 'Nube · lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: ['**Del Plan**: F156, el filtro «Responsable» en el tablero del dueño.'],
+  },
+  {
+    fecha: '18 nov', hora: '02:05', chat: 'Nube · lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El filtro «Responsable» también en tu Plan',
+    puntos: [
+      '**Quién hace cada tarea**: las tareas que salen de una reunión llegan a tu Plan con quién las hace (tú, el cliente u otra persona), y el filtro «Responsable» del kanban aparece también ahí.',
+      '**Las de antes quedan «Sin asignar»**: nadie dijo de quién eran, y suponer que son tuyas sería mentir en el filtro.',
+      '**Falta aplicar la migración 0419** en la base (la nube no puede): hasta entonces las tareas se crean igual, sin el responsable.',
+    ],
+    archivos: [
+      'supabase/migrations/0419_plan_tareas_responsable_tipo.sql — la columna (sin aplicar)',
+      'lib/todo-estados.ts — `responsableDeLaFila` y `responsableParaGuardar`',
+      'lib/plan-board.ts — la lectura, el guardado y el alta desde una reunión',
+      'app/plan/board/repo-plan.ts — `responsables: true`',
+      'tests/plan-responsable-dueno.test.ts — probado rompiéndolo (4 roturas)',
+    ],
+    revisar: '/plan',
+  },
+  {
+    fecha: '18 nov', hora: '01:35', chat: 'Traba (nube)', sesion: 'cli_6ab6e94e-8cd3-5fa9-a736-713a1fc58542', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'Una tarea que se repite, pedida a MaKo, entra al Plan como recurrente',
+    revisar: '/plan',
+    puntos: [
+      'Si le pides a MaKo que sume «la junta de los miércoles» (por WhatsApp, en el chat de la app o por la API), el borrador la trae marcada «Se repite»: antes entraba como una tarea normal, con prioridad y fecha.',
+      'Si la tarea trae una fecha, gana la fecha (como en las reuniones).',
+    ],
+    commits: [{ sha: '0f0bf08a', msg: 'Pendientes «Traba otra cosa»: T6, T5, T11 y T12 cerrados con test; los otros nueve, con su estado de hoy', lineas: 985, archivos: 30 }],
+    archivos: [
+      'lib/plan-tareas-del-doer.ts — tareasDelDoer · lib/mako-doer-acciones.ts — el case proponer_tareas_plan · lib/api-mako/areas/plan.def.ts — el campo en el registro',
+      'tests/plan-tareas-del-doer.test.ts — 4 roturas, cada una en rojo',
+    ],
+  },
 ];
