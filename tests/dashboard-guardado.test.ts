@@ -199,7 +199,10 @@ test('la pantalla manda la versión que leyó, por la cola, y un 409 se dice con
   assert.ok(mandar.length < 1800, `el recorte mide ${mandar.length}: está mirando otra cosa`);
   assert.match(mandar, /if \(!guardable \|\| json === ultimoGuardado\.current\) return;/, 'el closer o un link guardarían');
   assert.match(mandar, /crearColaGuardado\(\{\s*version: versionLeida\.current,/);
-  assert.match(mandar, /body: `\{"accion":"guardar","version":\$\{JSON\.stringify\(v\)\},"tablero":\$\{j\}\}`/, 'el guardado salió sin la versión: vuelve el upsert ciego');
+  assert.match(mandar, /body: `\{"accion":"guardar","version":\$\{JSON\.stringify\(v\)\},"editando":\$\{[^}]+\},"tablero":\$\{j\}\}`/, 'el guardado salió sin la versión: vuelve el upsert ciego');
+  // Y dice si es de la edición (18/11/2026, lib/graficos-guardar-mirando.ts): lo que se cambió editando va como edición
+  // hasta quedar guardado (`huboEdicion`); lo ejecuta tests/graficos-guardar-mirando.test.ts (`edicionYaGuardada`).
+  assert.match(mandar, /"editando":\$\{editandoRef\.current \|\| huboEdicion\.current\}/, 'el guardado no dice si es de la edición: mirando, el server lo trataría como de la vista');
   assert.match(mandar, /await cola\.pedir\(json, keepalive\);/);
   assert.equal((EDITOR.match(/accion":"guardar"|accion: 'guardar'/g) ?? []).length, 1, 'un segundo camino de guardado se saltea la cola');
   assert.match(mandar, /alConflicto: \(\) => \{ setConflicto\(true\); show\('Cambió en otra pestaña'/);

@@ -131,7 +131,8 @@ test('13a · OKR, KPI, chats de Offer con tope, y los chats con MaKo colgados de
 });
 
 test('13a · un producto que una oferta incluye no lleva además la arista vieja al brief', () => {
-  const g = sinComentarios(leer('lib/cerebro-grafo.ts'));
+  // Desde el 18/11/2026 el armado del grafo vive en lib/cerebro-armado.ts (puro); lib/cerebro-grafo.ts sólo lee (F109).
+  const g = sinComentarios(leer('lib/cerebro-armado.ts'));
   assert.match(g, /if \(!conOferta\.has\(Number\(p\.id\)\)\) unir\(nodoOferta \?\? RAIZ, id,/);
   assert.match(g, /agregarLoVivo\(\{ nodos, aristas \}, vivo, \{/, 'lo vivo se suma en el constructor');
   const iVivo = g.indexOf('agregarLoVivo({ nodos, aristas }');
