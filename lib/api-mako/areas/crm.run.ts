@@ -773,8 +773,10 @@ export const RUNNERS: Runners = {
     }),
   },
   faltantes_del_lead: {
-    leer: (input) => conLead(input, async (lead) => {
-      const [{ faltan, avisan, apagados }, stages] = await Promise.all([datosSinMarcarDeUnLead(lead), etapasDelFunnelDeLead(lead)]);
+    leer: (input, ctx) => conLead(input, async (lead) => {
+      // El día del NEGOCIO, con el ws explícito (F125): el mismo que usa su ficha y su fila en «A revisar».
+      const { hoy } = await hoyDelWorkspace(ctx.ws);
+      const [{ faltan, avisan, apagados }, stages] = await Promise.all([datosSinMarcarDeUnLead(lead, hoy), etapasDelFunnelDeLead(lead)]);
       // `avisan` es lo que cuenta «N sin marcar» de su ficha y su fila en «A revisar» (la ficha de SU funnel):
       // si MaKo dijera otro número, contradiría la pantalla.
       const siAvisa = new Set(avisan.map((f) => f.id));

@@ -58,6 +58,13 @@ export type Fila = {
    * como en los pagos y los OKR (lib/funnels-elegidos.ts): sumar la venta del VSL a «Renovación» es plata de otro funnel.
    */
   soloCasa?: readonly string[];
+  /**
+   * De QUÉ VALOR de la dimensión son las métricas de `soloCasa`, cuando no es el de la fila (18/11/2026). Una venta cerrada
+   * después de agregar al lead a «Renovación» es de «Renovación», como en los OKR (`funnelDelMomento`,
+   * lib/graficos-funnel-fila.ts): filtrada por «Renovación» la venta cuenta, y filtrada por su casa va en 0. Ausente = la
+   * fila misma (`d`): por un funnel agregado, en 0, como siempre.
+   */
+  duenoDe?: Record<string, string>;
 };
 
 /** «X de Y»: el numerador y el denominador de una razón cuyo denominador no llegó al `minimo`. */
@@ -353,22 +360,26 @@ export function filtrarFilas(filas: Fila[], filtros: Filtro[]): Fila[] {
   const valoresDe = (fl: Fila, dim: string): string[] => [claveCategoria(fl.d[dim]), ...(fl.m?.[dim] ?? []).map((v) => claveCategoria(v))];
   // Cada prueba dice si la fila pasa por lo que ES (`d`) o sólo por dónde MÁS está (`m`).
   type Paso = 'no' | 'casa' | 'agregado';
-  const pruebas = activos.map((x): ((fl: Fila) => Paso) => {
+  const pruebas = activos.map((x) => {
     const pasa = (v: string): boolean => {
       if (x.valores && x.valores.length) return x.valores.some((w) => claveCategoria(w) === v);
       return plano(v).includes(plano(x.texto!.trim()));
     };
-    return (fl) => {
-      if (pasa(claveCategoria(fl.d[x.dimension]))) return 'casa';
-      return (fl.m?.[x.dimension] ?? []).some((v) => pasa(claveCategoria(v))) ? 'agregado' : 'no';
+    return {
+      paso: (fl: Fila): Paso => {
+        if (pasa(claveCategoria(fl.d[x.dimension]))) return 'casa';
+        return (fl.m?.[x.dimension] ?? []).some((v) => pasa(claveCategoria(v))) ? 'agregado' : 'no';
+      },
+      // ¿El dueño de lo de `soloCasa` (la venta) pasa este filtro? Sin `duenoDe`, el dueño es la fila misma.
+      dueno: (fl: Fila): boolean => pasa(claveCategoria(fl.duenoDe?.[x.dimension] ?? fl.d[x.dimension])),
     };
   });
   const out: Fila[] = [];
   for (const fl of filas) {
-    const pasos = pruebas.map((p) => p(fl));
-    if (pasos.includes('no')) continue;
-    // Entró sólo por un funnel al que se la agregó: lo que es de su casa (la venta, lo cobrado) no se suma ahí.
-    if (pasos.includes('agregado') && fl.soloCasa?.length) {
+    if (pruebas.some((p) => p.paso(fl) === 'no')) continue;
+    // Lo de su dueño (la venta, lo cobrado) se suma sólo si el dueño pasa TODOS los filtros: entró por un funnel al
+    // que se la agregó y la venta es de su casa, o entró por su casa y la venta es de un agregado → en 0.
+    if (fl.soloCasa?.length && !pruebas.every((p) => p.dueno(fl))) {
       out.push({ ...fl, v: { ...fl.v, ...Object.fromEntries(fl.soloCasa.map((k) => [k, 0])) } });
     } else out.push(fl);
   }

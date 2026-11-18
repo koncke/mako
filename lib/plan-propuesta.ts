@@ -601,7 +601,9 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     // reunión también entran a este tablero, marcadas con su responsable, en vez de
     // quedar en el borrador para repartirse. Sin criterio, todo sigue como siempre
     // (lib/plan-criterio.ts explica por qué es un solo interruptor). Solo el tablero del
-    // cliente: `plan_tareas` no tiene dónde guardar el responsable.
+    // cliente: `plan_tareas` no tiene dónde guardar el responsable. (Desde el 18/11/2026 lo tiene —mig 0419, F156— y la
+    // extracción lo escribe en las tareas que entran al tablero del dueño; abrir el tablero único para el dueño, o sea meter
+    // también las de otras personas, es otra decisión y no se tomó.)
     const tableroUnico = !usaPlanBoard && !!(await criterioDelWorkspace());
 
     const idsCreadas: string[] = [];
@@ -735,7 +737,9 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           // ⚠️ `clienteDeLaReunion: false` SIEMPRE en el tablero del dueño (#870): el cliente de la llamada no
           // abre un «Cliente: X» nuevo. Así nació «Cliente: Mauricio Bustos» al lado de «Cliente: Mauricio» el
           // 16/10. Lo que un cliente dice de MaKo va a su tab; un proyecto que no existe va a la bandeja.
-          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, recurrente: t.recurrente, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente, { sinIA: true, clienteDeLaReunion: false });
+          // QUIÉN (mig 0419, F156, 18/11/2026): la misma regla que el tablero del cliente (`tipoDeResponsable`). Sin eso, el
+          // filtro «Responsable» del dueño mete todo en «Sin asignar».
+          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, recurrente: t.recurrente, fuente: fuenteDe(t), responsableTipo: tipoDeResponsable(t, !!prop?.clienteNombre) })), { tipo: fuenteTipo } as Fuente, { sinIA: true, clienteDeLaReunion: false });
           idsCreadas.push(...r.ids);
           // Mismo orden que `base` (agregarTareasPlanOwner filtra solo los títulos
           // vacíos, y acá no hay ninguno): la tarea i quedó con el id i.
