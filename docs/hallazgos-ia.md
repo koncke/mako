@@ -4,6 +4,38 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## La voz de los coaches: medida antes de construirla (18/11/2026)
+
+**Vive en:** `lib/voz-coach-reglas.ts` (la voz, el texto, el tope; puro) · `lib/voz-coach.ts` (`audioDelCoach`) ·
+`app/api/voz-coach/route.ts` · `app/_ui/voz-coach/BotonVozCoach.tsx` · `tests/voz-coach.test.ts`.
+
+- **El pedido** (Martín, 18/11): voz en Offer Coach, «una voz que no sea la mía»; «Si tarda muchísimo, no. Si es rápido, sí».
+- **Medido** el 18/11 desde la PC, con streaming (`/v1/text-to-speech/{voz}/stream`, `optimize_streaming_latency=3`), 3 corridas por
+  caso. Flash v2.5: el primer audio de una pregunta de 121 caracteres en 0,35–0,42 s; el de una respuesta de 314 caracteres en
+  0,32–0,36 s, y el audio entero en 0,68–0,93 s. Turbo v2.5, lo mismo (0,35–0,36 s y 0,66–0,74 s). **La primera llamada en frío:
+  3,4 s.** Costo según la cabecera `character-cost`: 27 la pregunta, 69 la respuesta (~0,22 por carácter); un onboarding con ~10
+  respuestas ≈ 700. No se pudo leer el plan para confirmar que eso sean créditos: la key no tiene `user_read`.
+  → **Va también lo personalizado**, no sólo las preguntas fijas.
+- **La voz:** «Fernando Martínez», de la biblioteca (latino neutro). No es la de Martín ni imita a Hormozi. Una voz de la biblioteca
+  se usa por su id sin agregarla a la cuenta (medido: anduvo directo).
+- **Las preguntas FIJAS** se guardan la primera vez en `wa-media/voz-coach/<voz>/<modelo>/<sha256>.mp3` (la firma lleva la voz y el
+  modelo: cambiar de voz no reproduce el audio viejo) y después salen sin pagarlas. El tope (15.000 caracteres por negocio y por mes)
+  se RESERVA antes de pedir.
+- **Trampa: la key de la plataforma NO ESTÁ en producción.** El proyecto `mako` de Vercel no tiene NINGUNA env de ElevenLabs:
+  `MAKO_ELEVENLABS_API_KEY` nunca se cargó. Por eso la Voz de MaKo (el audio de una tarjeta «MaKo en WhatsApp», desde el 11-12/10)
+  nunca anduvo en producción: hay 0 audios con origen `voz_mako` en `setting_audios`. Sin esa env el botón de los coaches no se
+  muestra (`GET /api/voz-coach` → `disponible: false`). Cargar el secreto es de Martín.
+- **Trampa: con esta key, listar voces se cuelga.** `GET /v1/voices` y `/v1/shared-voices` no contestan ni en 90 s, y `/v1/models`
+  contesta en 0,9 s. La galería de lib/ai-avatar/voces-galeria.ts (una foto del 17/10) sirvió para elegir la voz.
+- **Trampa: la foto de la cuenta de revisión sólo ve lo COMMITEADO.** `MAKO_REGENERAR_SNAPSHOT=1` en
+  tests/cuenta-revision-escrituras.test.ts enumera las rutas que git ya sigue: regenerada con la ruta nueva sin commitear, la foto no
+  la incluye y la punta da rojo. Se regenera después del commit (la ruta quedó «cortada»: la cuenta de las tiendas no gasta voz).
+- **El botón:** debajo del mensaje (no tapa el texto); suena solo la primera vez si el mensaje lo pide (`autoplay`: el último del
+  coach) y la persona no lo apagó («Que suene solo», en el navegador). Detrás del interruptor del onboarding V2.
+- **Sin hacer:** (1) el botón lo monta el chat del onboarding en `ChatDelCoach` (punta/offer-coach-v2); (2) el navegador espera el
+  audio ENTERO (0,7–0,9 s medido): empezar a sonar con el primer pedazo pide MediaSource, que en iPhone es otra API; (3) la voz no
+  descuenta MaKo Tokens: si debe, es una decisión de producto.
+
 ## «Agendar llamar en dos semanas» se delegaba teniendo con qué hacerlo (ticket #110, 18/11/2026)
 
 **Vive en:** `lib/seguimiento-lead.ts` (qué es un seguimiento, la fecha y la instrucción) · `lib/doer-herramientas.ts`
