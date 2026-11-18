@@ -122,6 +122,7 @@ import { overrideDeFeature } from '@/lib/model-registry';
 import { encolar, reclamar, renovarCandado, soltar, pendientes, esperarSilencio, marcarProcesados, unirMensajes, huerfanosGlobal, VENTANA_MS, VENTANA_AUDIO_MS, type MsgBuffer } from '@/lib/mako-doer-buffer';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { pideSeguimiento } from '@/lib/seguimiento-lead';
+import { KEY_DESTINO_AGENDA, esDestinoGuardado, necesitaLaConexion, pideAgendarAlgo, pidePreferenciaDeAgenda } from '@/lib/agenda-destino';
 import { hoyEnTz } from '@/lib/date-utils';
 
 /**
@@ -2498,9 +2499,21 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const hoyDelSeguimiento = intencion.intencion === 'actuar' && pideSeguimiento([conHilo.hilo ?? '', sinPrefijoDeLote(texto)].join('\n'))
       ? hoyEnTz(await tzDeWorkspace(wsData).catch(() => TZ_DEFAULT))
       : null;
+    // DÓNDE SE AGENDA (ticket #112, lib/agenda-destino.ts): la preferencia guardada del negocio, y el estado de su Google Calendar sólo
+    // si el pedido (o la preferencia) apunta ahí: `permisoCalendarioGoogle` refresca el token contra Google, y nunca tira.
+    const textoDeAgenda = [conHilo.hilo ?? '', sinPrefijoDeLote(texto)].join('\n');
+    const agendaDelTurno = !hayInvitado && intencion.intencion === 'actuar' && (pideAgendarAlgo(textoDeAgenda) || pidePreferenciaDeAgenda(textoDeAgenda))
+      ? await (async () => {
+          const leido = await getSetting(KEY_DESTINO_AGENDA).catch(() => null);
+          const guardado = esDestinoGuardado(leido) ? leido : null;
+          const google = necesitaLaConexion({ texto: textoDeAgenda, guardado }) ? await permisoCalendarioGoogle() : null;
+          return { guardado, google, link: linkApp(conexion('google')?.ruta ?? '/integraciones?abrir=google', wsData) };
+        })()
+      : null;
     const turno = herramientasDelTurno({
       veredicto: intencion, texto, contextoDelSi, hilo: conHilo.hilo, agendaAbierta: !!agendaAbierta, deSiempre: toolsDeSiempre,
       vista: vistaDelTurno, hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly, hoy: hoyDelSeguimiento,
+      agenda: agendaDelTurno,
     });
     // ── UN REPORTE DE FALLA TRAE EL TICKET (27/10/2026, lib/doer-falla.ts) ─────────────────────────────────────────────
     // «no puede analizar la llamada de fathom tras 4 intentos» caía en charlar o en la duda, y `levantar_ticket` viaja sólo

@@ -10,6 +10,34 @@ trabajo" para crear guiones o lo que necesite el usuario... Se puede combinar co
 "OBJETIVOS", el Q, el PLAN... que sea simple de usar, que sirva para todos los casos, que tenga IA que te ayude o
 "templates" y que no sea restrictivo».
 
+## «Mi calendario» quedaba en el Calendario de MaKo con Google conectado (ticket #112, 18/11/2026)
+
+**Vive en:** `lib/agenda-destino.ts` (`destinoDeLaAgenda`, `pidePreferenciaDeAgenda`, `KEY_DESTINO_AGENDA`) · `lib/doer-herramientas.ts`
+(`herramientasDelTurno`, la entrada `agenda`) · `lib/mako-doer-in.ts` (lee la preferencia y la conexión) · la operación
+`elegir_google_o_mako` (lib/api-mako/areas/calendario.def.ts y .run.ts) · `tests/agenda-destino-112.test.ts`.
+
+- **Síntoma:** Joan (ws 13) pidió «agenda un evento en mi calendario hoy 18 a las 18hs…» y quedó sólo en el Calendario de MaKo; en
+  soporte: «NO me agenda el evento en mi google calendar… cada vez que quiera agendar algo tiene que agendarlo en mi google calendar de
+  una». El negocio tiene su Google conectado desde el 8/10 (`google.calendar.refresh_token` y `google.calendar.email` en app_settings).
+- **La causa, medida con el turno real:** la selección es por PALABRAS. «mi calendario» trae el área `calendario`, que sólo tiene el
+  Calendario de MaKo (`crear_evento_calendario`); «mi Google Calendar» trae `proponer_agendar_agenda` (sin lead, un evento del negocio
+  en Google) pero no `crear_evento_google`; sólo «el calendario de google» trae `crear_evento_google`. Ninguna miraba si el negocio
+  tiene Google conectado ni qué prefiere.
+- **Ahora:** con Google conectado y con permiso de escribir, «mi calendario», «mi agenda», «Google» o la preferencia guardada van a
+  Google: viaja `crear_evento_google` y no el Calendario de MaKo, porque lo de Google ya se ve ahí y copiarlo sería la segunda verdad.
+  «el calendario de MaKo» por su nombre va a MaKo. Sin Google (o conectado sólo para leer), si lo pidió por su nombre o lo tiene
+  elegido, MaKo lo dice con el link a Configuración › Integraciones, nunca en silencio. «mi calendario» a secas, sin Google, sigue
+  siendo el de MaKo.
+- **La preferencia** («cada vez que…», «siempre», «de ahora en adelante») se guarda con un «sí» (`elegir_google_o_mako`) en
+  `mako.agenda.destino`, por negocio. Con Google sin conectar, «google» no se propone: dice que hay que conectarlo.
+- **Trampa: la queja nombra el lugar equivocado.** «NO me agenda… solo en el calendario de Mako, cada vez que… en mi google calendar»
+  nombra los DOS. Vale lo que viene después del «cada vez», y nombrar Google y MaKo juntos va a Google salvo un «no en Google». Con
+  MaKo primero, la preferencia de Joan se leía como «mako».
+- **Trampa: la conexión cuesta un viaje a Google.** `permisoCalendarioGoogle` refresca el token en cada llamada (8 s de tope). Se mira
+  sólo si el pedido apunta a su agenda o a Google, o si la preferencia es Google (`necesitaLaConexion`).
+- **Sin hacer:** el chat de la app no lee la preferencia (no le pasa `agenda` al turno): ahí sigue como antes. Y el «Misa Fasta SAM»
+  de hoy quedó en el Calendario de MaKo (evmwm44u40aq4c8e); si se crea también en Google, se ve dos veces en la tab.
+
 ## Un evento del Calendario no se ata a un lead (ticket #110, 18/11/2026)
 
 **Vive en:** `supabase/migrations/0271_calendario_eventos.sql` (la tabla, sin columna de lead) · `lib/seguimiento-lead.ts`.

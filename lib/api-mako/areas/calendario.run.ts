@@ -28,6 +28,8 @@ import {
   FALTA_MIGRACION_PUBLICAR, listasParaProgramar, programarPublicaciones, revisarParaProgramar, type RevisionProgramar,
 } from '@/lib/calendario-publicar';
 import { ROTULO_RED } from '@/lib/calendario-publicar-reglas';
+import { setSetting } from '@/lib/settings';
+import { KEY_DESTINO_AGENDA, esDestinoGuardado } from '@/lib/agenda-destino';
 import {
   filaDeEntrada, sumarDias, horaDe, diaDe, esTipoEvento, esFormato, ROTULO_TIPO, ROTULO_FORMATO,
   type EntradaEvento,
@@ -155,6 +157,28 @@ export const RUNNERS: Runners = {
         nota: 'Proyecciones: la tarea de cada fecha la crea MaKo sola el día que toca. Sólo de hoy en adelante.',
         veces: veces.map((v) => ({ fecha: v.fecha, tarea: v.titulo, tarea_id: v.tareaId, ritmo: v.ritmo })),
       });
+    },
+  },
+
+  // 18/11/2026, ticket #112: dónde agenda MaKo de aquí en adelante (lib/agenda-destino.ts). Google sin conectar no se guarda.
+  elegir_google_o_mako: {
+    preparar: async (input): Promise<Preparado> => {
+      const destino = str(input, 'destino');
+      if (!esDestinoGuardado(destino)) return { error: 'El destino es «google» o «mako».', faltan: ['destino'] };
+      if (destino === 'google') {
+        const sinAgenda = await agendaParaEscribir();
+        if (sinAgenda) return { error: sinAgenda };
+      }
+      return {
+        payload: { destino },
+        resumen: destino === 'google' ? 'Agendar en tu Google Calendar todo lo que le pidas a MaKo de aquí en adelante.' : 'Agendar en el Calendario de MaKo lo que le pidas, no en Google.',
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const destino = String(payload.destino);
+      if (!esDestinoGuardado(destino)) return { ok: false, resumen: 'El destino es «google» o «mako».' };
+      await setSetting(KEY_DESTINO_AGENDA, destino);
+      return { ok: true, resumen: destino === 'google' ? 'Listo: lo que agendes con MaKo va a tu Google Calendar.' : 'Listo: lo que agendes con MaKo va al Calendario de MaKo.' };
     },
   },
 
