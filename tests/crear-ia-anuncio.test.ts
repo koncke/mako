@@ -57,10 +57,13 @@ test('«Otra cosa: … mi anuncio» trae el anuncio al contexto, y el CRON guard
   const crear = sinComentarios(leer('lib/flujo-ia-crear.ts'));
   assert.match(crear, /anuncio: o\.anuncio === true \|\| PIDE_ANUNCIO\.test\(o\.textos \? `\$\{pedido\}\\n\$\{o\.textos\}` : pedido\),/);
   assert.match(crear, /contexto: \(pedido, x\) => armarContexto\(ws, pedido, x\),/);
-  // La ruta de Editar / Discutir: con el CRON del anuncio guardado, el catálogo lo trae y su rótulo se encuentra.
+  // La ruta de Editar / Discutir: con el CRON del anuncio guardado, el catálogo lo trae y su rótulo se encuentra. Desde el
+  // 18/11/2026 el contexto lo arma el motor (lib/flujo-ia-editar.ts), con el CRON que le pasa la ruta (y la API de MaKo).
   const ruta = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+  const motor = sinComentarios(leer('lib/flujo-ia-editar.ts'));
+  assert.match(ruta, /const disparadorActual = await cronGuardado\(\);[\s\S]*?editarFlujoConIA\(\{ ws, base, pedido, disparadorActual, /);
   // Con la MENCIÓN igual (10/11/2026): con su CRON guardado, el catálogo la trae para explicar o editar.
-  assert.match(ruta, /const disparadorActual = await cronGuardado\(\);\s*const leido = await armarContexto\(ws, pedido, \{ anuncio: \/:anuncio\$\/\.test\(disparadorActual \?\? ''\), mencion: \/:mencion\$\/\.test\(disparadorActual \?\? ''\), textos: textosDeRespuestas\(respuestas\) \}\);/);
+  assert.match(motor, /const leido = await armarContexto\(ws, pedido, \{ anuncio: \/:anuncio\$\/\.test\(disparadorActual \?\? ''\), mencion: \/:mencion\$\/\.test\(disparadorActual \?\? ''\), textos: textosDeRespuestas\(respuestas\) \}\);/);
   assert.match(crear, /mencion: o\.mencion === true \|\| PIDE_MENCION\.test\(o\.textos \? `\$\{pedido\}\\n\$\{o\.textos\}` : pedido\),/);
   assert.ok(ctx({ instagram: true }, true).disparadores.some((d) => d.value === 'instagram:anuncio'));
 });

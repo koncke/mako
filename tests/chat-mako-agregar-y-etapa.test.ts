@@ -99,13 +99,14 @@ test('una etapa que no existe se dice con las que hay, sin tocar el CRON; una qu
   assert.ok(etapaQueNoExiste('la etapa «Respondió» del CRM «Negocio»', ctx), 'el CRM nombrado no la tiene');
 });
 
-// rotura (la ruta sin la etapa ANTES del modelo, o sin `revisarEdicion`) → 1 rojo de 7 (éste).
-test('la ruta: la etapa que no existe va ANTES del modelo, y cada intento pasa por `revisarEdicion`', () => {
-  const ruta = readFileSync(join(__dirname, '..', 'app/api/chat-agent/secuencias/ia/route.ts'), 'utf8').replace(/\r\n/g, '\n');
+// rotura (el motor sin la etapa ANTES del modelo, o sin `revisarEdicion`) → 1 rojo de 7 (éste).
+test('el motor de editar: la etapa que no existe va ANTES del modelo, y cada intento pasa por `revisarEdicion`', () => {
+  // Desde el 18/11/2026 el motor vive en lib/flujo-ia-editar.ts (lo llaman la ruta del lienzo y la API de MaKo).
+  const ruta = readFileSync(join(__dirname, '..', 'lib/flujo-ia-editar.ts'), 'utf8').replace(/\r\n/g, '\n');
   const etapa = ruta.indexOf('const sinEtapa = respuestas.length === 0 ? etapaQueNoExiste(pedido, ctx) : null;');
   const explicar = ruta.indexOf('if (vaAExplicar(');
   assert.ok(etapa > 0 && explicar > etapa, 'antes de explicar y de editar');
-  assert.match(ruta, /if \(sinEtapa\) \{ await contestar\(textoEtapaQueNoExiste\(sinEtapa\)\); return; \}/);
+  assert.match(ruta, /if \(sinEtapa\) return \{ t: 'contesta', respuesta: textoEtapaQueNoExiste\(sinEtapa\), ia: null \};/);
   // (Con el control de lo pedido del turno, `control`: uno por turno, no por intento.)
   assert.match(ruta, /const control = \{ yaPidioLoQueFalta: false \};\n\s+const traducir = [^\n]*\n\s+revisarEdicion\(\{ obj, base, ctx, pedido, historial, intencion, control \}\)/);
 });

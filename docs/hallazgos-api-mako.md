@@ -14,6 +14,75 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## Las tres acciones que faltaban: cargar guiones, rehacer las motivaciones y editar con IA (18/11/2026)
+
+Pendiente O19 (docs/pendientes-verificados-17-11.md; Martín, 25/10: «Todo MaKo se debe poder utilizar por API»). Tres cosas
+que la pantalla hace y la API no.
+
+**Síntoma → causa, una por una:**
+
+- **Editar con IA una automatización que ya existe, con ramas (P0-7).** La API sólo tenía `editar_pasos_secuencia_mensajes`,
+  que reescribe la lista por orden y rechaza un flujo con ramas. El «Editar» del chat del lienzo vivía ADENTRO de la ruta
+  (`app/api/chat-agent/secuencias/ia/route.ts`): no había función que llamar. Se mudó a `lib/flujo-ia-editar.ts`
+  (`editarFlujoConIA`), como pasó con crear en la décima tanda, y la ruta lo llama con su stream. La acción es
+  `editar_armada_con_ia`.
+- **Cargar los guiones que trae la persona (P0-10).** Estaba a MEDIAS: `cargar_guion_propio` (área video, 27/10) ya existía,
+  pero sólo por la app, porque llama a la server action del botón y ésta lee la sesión de la cookie. El orquestador se mudó a
+  `lib/guiones-cargar.ts`; la acción del botón y la nueva `cargar_guiones_anuncio` (WhatsApp y HTTP) llaman a la misma
+  función. Por la app sigue la de antes, para no tener dos operaciones de lo mismo en el mismo canal.
+- **Rehacer las motivaciones de compra (P0-11).** No estaba porque generar en la pantalla REEMPLAZA la matriz entera: los
+  guiones, los formatos y los `celdaId` de las celdas se pierden (`contenido.def.ts`, «NO entran»). La razón seguía en pie.
+  Lo que la cambia es fundir en vez de reemplazar (`lib/razones-fundir.ts`, puro y con test):
+  - lo que tiene trabajo (un guion, un formato, una imagen, o la celda de los guiones propios) se queda tal cual;
+  - lo que no tiene nada se reemplaza, hasta 3 por avatar;
+  - nunca entra un nombre que ese avatar ya tiene.
+
+**Lo que se encontró en el camino:**
+
+- **La carga de guiones podía borrar la matriz entera.** La acción del botón leía con `getRazones`, que convierte un 5xx en
+  `[]`, y después escribía la matriz ENTERA. Y la leía ANTES de ordenar los guiones con la IA, así que lo que otra pestaña
+  escribía en esos segundos se perdía. Ahora lee en estricto (`getRazonesEstricto`) y relee DESPUÉS de la IA, pegado a la
+  escritura. La fusión hace lo mismo.
+- **Editar va por `chat`, no por `pantalla`, aunque reescribe y publica.** La pantalla genérica (`/mako/revisar`) vuelve a
+  correr `preparar` al confirmar, y acá `preparar` corre el modelo: se confirmaría otra respuesta que la que la persona leyó.
+  Va como `editar_hoja_con_ia_dashboard`: la propuesta guarda los pasos, la firma de lo publicado que vio (`antes`), y
+  `faltaParaConfirmar` la cierra (`yaNoVale`) si alguien la tocó en el medio. Es `aTerceros`: a los leads les llega lo nuevo.
+- **Las otras dos son de pantalla**, porque `preparar` sólo lee y es determinista. La IA de rehacer las motivaciones corre
+  al confirmar, y el resumen dice antes qué se queda y qué se reemplaza.
+- **Por HTTP la IA tiene 40 s** (`/api/v1` corta a 60). Un guion que no se ordena a tiempo se guarda sin rótulos, como sin
+  IA. Una edición que no termina vuelve como error, sin proponer nada.
+- **El nombre del pendiente sacaba al CRON del chat.** El pendiente pedía «una acción para editar con IA una automatización»
+  y el primer id fue `editar_automatizacion_con_ia`: «automatización» pesa doble en el id, la operación nueva subió al 1.º
+  lugar en «Hacé que la automatización de reactivación salga todos los martes a las 15», y `cambiar_crons_secuencia` quedó con
+  -923 caracteres de margen. O sea que MaKo dejaba de poder cambiar qué dispara una automatización. Con `editar_armada_con_ia`
+  va 19.ª y el CRON vuelve a 310, lo mismo que sin ella (lo que va después del CRON no cuenta). El piso es 300: la próxima
+  operación del área que le gane al CRON lo cruza.
+- **«Al final de su área» no siempre es el final del archivo.** En `contenido` el Copywriter ocupa el final desde el 28/10
+  (`registro.ts`: `[...contenido, ...copywriter]`). Las nuevas van en `DEFS_AL_FINAL` de `contenido.def.ts`, después de él.
+- **El resumen de cargar nombraba también los guiones que ya estaban guardados.** Decía «Guardar un guion: A, B» con B ya
+  guardado. `previoCarga` ahora devuelve CUÁLES ya estaban (`yaGuardados`), y el resumen nombra sólo lo que va a quedar.
+- **Una fusión que sólo saca no escribe.** Si la IA trae sólo lo que ya estaba, no se escribe nada: sacar las celdas vacías
+  sin poner otras en su lugar no es rehacer.
+- **En el hijo del test, el módulo real importado primero gana al mock.** La primera versión importaba
+  `lib/flujo-ia-crear.ts` real para mockearlo encima, y eso ya cargaba `chatbot.run.ts` con el real: «No tienes una IA
+  conectada» con `hayIAParaCrear` mockeado a `true`. Lo que carga el registro se mockea con `namedExports` ANTES de importar
+  nada (tests/_api-acciones-octubre-hijo.ts).
+
+**Dónde vive:** `lib/flujo-ia-editar.ts`, `lib/guiones-cargar.ts`, `lib/razones-fundir.ts`, `lib/razones.ts`
+(`regenerarMatrizSinPerder`, `getRazonesEstricto`), `lib/api-mako/areas/contenido.run.ts` y `chatbot.run.ts`. Lo fijan
+tests/api-acciones-octubre.test.ts, que corre las tres por `ejecutarOperacion`, `aplicarEnElActo` y `confirmarPendiente` reales, y
+tests/razones-fundir.test.ts.
+
+**La regla que queda:** antes de declarar una acción, se pregunta si su `preparar` corre un modelo. Si lo corre, va por `chat`
+con lo propuesto guardado y una firma que la cierre. `pantalla` re-ejecuta `preparar`, y lo que se confirma deja de ser lo que se
+leyó.
+
+**Lo que quedó sin hacer:**
+
+- **«Generar» en la pantalla sigue reemplazando la matriz entera** (`app/api/onboarding/razones/route.ts`, sin `action`).
+  Llevarla a la fusión cambia lo que ve un cliente en su onboarding, y el onboarding no se toca desde acá: decide Martín.
+- **La revisión de un guion contra la oferta, el avatar y el funnel** sigue sin existir (P39, «Feature: Ideas»): la carga
+  sólo separa, ordena y guarda, por las dos puertas.
 ## Corregir un dato del perfil por el chat: `corregir_campo_perfil` y «¿cómo te hago recordar que…?» (18/11/2026, O21)
 
 - **El síntoma:** Leila, en la llamada del 27/10: «¿cómo te hago recordar que LíderMente es de 7:30 a 9:30?». MaKo no tenía
