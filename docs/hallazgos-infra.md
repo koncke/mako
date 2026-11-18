@@ -6,6 +6,30 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**El respaldo de tipos del push seguía esperando RAM con el turno tomado: el arreglo del 29/10 era la mitad (18/11/2026, O26).**
+
+**Vive en:** `scripts/tipos-respaldo-push.mjs` (`tandasConTurno`, `turnoDeArchivo`) · `tests/tipos-respaldo-push.test.ts`.
+
+- **El síntoma (medido leyendo el código, no en la PC):** el respaldo del pre-push a `main` esperaba AFUERA del lock sólo la
+  RAM de la tanda 1 (dac670c09, 29/10). Después de tomar el lock, cada tanda volvía a esperar hasta 15 min CON el lock tomado
+  —la 1 también, si la RAM bajó en los hasta 10 min de fila— y no lo soltaba nunca. Con la PC en 2-3,5 GB eso es la fila de
+  tipos de toda la PC frenada sin correr ningún tsc: el mismo trabón del push de tren-y, servido por las tandas 2 y 3.
+- **El diagnóstico obvio era el equivocado:** el 17/11 se dio por cerrado porque «lo fija el test». El test comparaba el ORDEN
+  de dos cadenas del fuente (la espera de RAM antes del `tomarLock`), así que daba verde con el agujero adentro.
+- **El arreglo** (molde: `esperarRamSinRetener` de scripts/antes-de-subir.mjs, y con-turno): con el turno en la mano se MIRA
+  la RAM, nunca se espera; si no alcanza, se suelta, se espera afuera y se vuelve a hacer fila; el tope de 15 min cuenta sólo
+  lo esperado afuera, no la fila; y sin RAM sale con 99 SIN el turno. No mira la pausa del Cerebro, a propósito: la pausa
+  existe para el push, y si la esperara se esperaría a sí mismo.
+- **El test ahora corre `main` de verdad**, con el lock de verdad (un archivo con `wx` en una carpeta temporal), otros procesos
+  de verdad que piden ese turno y la pausa prendida; sólo la RAM y las tandas son de mentira. Mira lo que se ve desde afuera:
+  si otro proceso consigue el turno mientras el respaldo espera RAM. Probado rompiéndolo (las cuatro roturas, en su cabecera).
+- **La regla que queda:** un test de un candado mira lo que ve OTRO proceso, no el orden del fuente. Y un hijo que pide un lock
+  en un test lleva su propio tope de vida: con el respaldo roto (sin soltar el turno), el hijo que hacía fila mantenía vivo el
+  proceso de tests para siempre, y la tanda habría muerto por «no avanza» (un 99) en vez de dar ESTE rojo.
+- **Lo que quedó SIN hacer:** `scripts/typecheck-lock.mjs:117-220` (el tsc ENTERO del pre-push, que corre antes del respaldo)
+  espera la RAM con el lock tomado a propósito («soltarlo dejaría arrancar a otro en el mismo hueco», 11/10). Choca con la misma
+  regla y no se tocó: no era O26, y es el camino de la emergencia a `main`.
+
 **«Tests afectados» nombra como ROJO un archivo cuyo único «fallo» es un test `todo` (11/11/2026, chat Competitor Spy).**
 La punta `spy-pruebas` (corrida 941) salió con «Rojos: doer-recetas-video-imagen, knowledge-modulos», y el diagnóstico obvio
 («las recetas de MaKo todavía nombran AI Avatar y Lead Magnet») era el equivocado: las recetas no nombran a ninguno. El rojo de
@@ -11618,6 +11642,9 @@ el vigía (`~/.claude/guardia/vigia.ps1`) y `C:/dev/revisiones/subir-tren.mjs` (
   - **El vigía:** corta también los workers de `node --test` y el Chrome `--headless`, con la zona roja en 1,2 GB.
   - **`tipos-respaldo-push.mjs` (Integración, tren-aa):** espera la RAM de la tanda 1 ANTES de tomar el lock. Lo fija
     `tests/tipos-respaldo-push.test.ts`.
+    ⚠️ **18/11/2026 (O26): era la MITAD.** Las tandas 2 y 3 (y la 1, si la RAM bajó en la fila) seguían esperando con el lock
+    tomado, y el test sólo comparaba el orden de dos cadenas. Ahora nada espera con el turno en la mano; ver la entrada de arriba
+    de todo, «El respaldo de tipos del push seguía esperando RAM con el turno tomado».
 - **La regla:** nada espera RAM ni pausa con un lock tomado. Se espera afuera, se toma, y si ya no alcanza se suelta.
 - **⚠️ Un tren que suma dependencias necesita su propio node_modules.** Create sumó BlockNote 0.56 y Mantine 8.3. Los
   worktrees de C:/dev, y entre ellos `C:/dev/wt-push-q`, tienen `node_modules` como JUNCTION al del clon principal, que no las

@@ -386,4 +386,19 @@ export const BITACORA: Hito[] = [
       'docs/relevo/nube-metodologia.md → «7» — lo medido',
     ],
   },
+  {
+    fecha: '18 nov', hora: '02:10', chat: 'De octubre (nube)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chequeo de tipos del push ya no frena a la PC entera esperando memoria',
+    puntos: [
+      'Cuando el chequeo completo no tiene memoria, el push revisa los tipos en tres partes. Entre una parte y otra se quedaba con el turno de la PC hasta 15 minutos, esperando memoria, y nadie más podía chequear nada.',
+      'El arreglo del 29/10 lo hacía sólo para la primera parte. Ahora, si no hay memoria, suelta el turno, espera sin frenar a nadie y vuelve a la fila.',
+      'El test de antes comparaba el orden de dos líneas del código y daba verde con el problema adentro. El nuevo corre el chequeo de verdad, con otros procesos pidiendo el mismo turno y la pausa del Cerebro prendida.',
+      'Queda igual, a propósito: el chequeo completo de la emergencia a main todavía espera la memoria con el turno tomado (scripts/typecheck-lock.mjs).',
+    ],
+    archivos: [
+      'scripts/tipos-respaldo-push.mjs — tandasConTurno: mira la memoria con el turno, lo suelta si no alcanza',
+      'tests/tipos-respaldo-push.test.ts — corre main con un lock de verdad y procesos que piden el turno',
+      'docs/hallazgos-infra.md → «El respaldo de tipos del push seguía esperando RAM con el turno tomado»',
+    ],
+  },
 ];
