@@ -194,9 +194,11 @@ test('los filtros nuevos están en el predicado de la vista y en el menú', () =
   assert.match(SHELL, /usePref<OrdenModo>\('orden\.kanban', 'manual', /);
 });
 
-test('el filtro Responsable sólo en el tablero que tiene el dato (el del cliente)', () => {
+test('el filtro Responsable sólo en el tablero que tiene el dato (los dos, desde la mig 0419)', () => {
   assert.match(sinComentarios(leer('app', 'plan', 'TodoBoard.tsx')), /responsables: true,/);
-  assert.doesNotMatch(sinComentarios(leer('app', 'plan', 'board', 'repo-plan.ts')), /responsables/);
+  // Hasta el 18/11/2026 el del dueño NO lo tenía (`plan_tareas` no tenía la columna). Desde la 0419 (F156) sí: la lectura
+  // y el guardado del dueño se prueban ejecutándolos en tests/plan-responsable-dueno.test.ts.
+  assert.match(sinComentarios(leer('app', 'plan', 'board', 'repo-plan.ts')), /responsables: true,/);
   // El dato entra por el mapper de lectura del cliente y NO sale en el guardado parcial.
   assert.match(sinComentarios(leer('app', 'plan', 'board', 'desde-todo.ts')), /responsableTipo: t\.responsable_tipo,/);
   assert.doesNotMatch(bloque(sinComentarios(leer('app', 'plan', 'TodoBoard.tsx')), 'const editPatch = ', '\n});'), /responsable/);

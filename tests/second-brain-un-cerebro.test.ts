@@ -94,8 +94,12 @@ test('el negocio: un racimo sin aristas laterales se engancha a la raíz por su 
   assert.equal(puente.length, 1, 'el área (no un audio suelto) cuelga de la raíz');
   assert.deepEqual(puentesARaiz(n.nodos, n.aristas), [], 'conectado, no agrega nada');
   // Y lo hace el armado de verdad, antes del layout (si no, el racimo se dibuja aparte aunque la arista llegue después).
+  // Desde el 18/11/2026 el enganche vive en el ARMADO (lib/cerebro-armado.ts, puro: F109), y construirCerebro arma ANTES de
+  // dibujar. Que el armado de verdad salga en una sola componente lo mide tests/cerebro-topologia.test.ts ejecutándolo.
+  const armado = sinComentarios(leer('lib/cerebro-armado.ts'));
+  assert.ok(armado.includes('aristas.push(...puentesARaiz(nodos, aristas, RAIZ));'), 'el armado no engancha los racimos sueltos');
   const g = sinComentarios(leer('lib/cerebro-grafo.ts'));
-  const i = g.indexOf('aristas.push(...puentesARaiz(nodos, aristas, RAIZ));');
+  const i = g.indexOf('const armado = armarCerebro(');
   // Desde el 28/10/2026 los chats lo piden sin física (`sinLayout`, lib/cerebro-para-chat.ts): el enganche va antes igual.
   assert.ok(i > 0 && i < g.indexOf('layoutCerebro(nodos, aristas);'), 'construirCerebro engancha todo antes del layout');
 });

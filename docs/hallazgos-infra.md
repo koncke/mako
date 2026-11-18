@@ -3606,16 +3606,26 @@ Los de la tabla vieja (los dos scripts con `.range()` a mano, `cerrar-por-commit
 | Qué | Dónde | Estado |
 |---|---|---|
 | **Regresión:** el patrón por nombre casi no filtra y `.limit(100)` corta | `lib/leads.ts:367` + `lib/leads-duplicados.ts` (`patronesDeNombre`) | trunca hoy para nombres cortos → [hallazgos-crm.md](hallazgos-crm.md) |
-| `closing_analyses` entera, sin paginar | `app/crm/insights-actions.ts:56` | 428 en ws9 |
-| `plan_tareas` sin paginar (el board del super-admin) | `lib/plan-board.ts:101, 180, 302, 405, 583, 656, 735, 906` · `lib/plan-proyecto-vacio.ts:53, 107` · `app/admin/dev/roadmap.ts:142` | 643/1000 en ws9 → [hallazgos-plan.md](hallazgos-plan.md) |
-| `experimento_tareas` sin paginar | `lib/todo.ts:184, 192, 373, 453` | 212 en ws1 |
-| `vsl_events` / `landing_visits` de UN visitante o un lote | `lib/leads.ts:1482, 2264, 2286` (`getVisitasLandingMap`) | 612 por visitante (ws13) |
+| ~~`closing_analyses` entera, sin paginar~~ | `app/crm/insights-actions.ts:56` | 428 en ws9 · ✅ 18/11 (P20): `leerPorPaginas` por `recording_id`, corta al encontrar |
+| ~~`plan_tareas` sin paginar (el board del super-admin)~~ | `lib/plan-board.ts:101, 180, 302, 405, 583, 656, 735, 906` · `lib/plan-proyecto-vacio.ts:53, 107` · `app/admin/dev/roadmap.ts:142` | 643/1000 en ws9 → [hallazgos-plan.md](hallazgos-plan.md) · ✅ 18/11 (P20): `leerTareasPlan` / `tareasDelPlan`, orden terminado en `id` | |
+| ~~`experimento_tareas` sin paginar~~ | `lib/todo.ts:184, 192, 373, 453` | 212 en ws1 · ✅ 18/11 (P20): `listTareasConTope` y `listTareasDeRetro` |
+| ~~`vsl_events` / `landing_visits` de UN visitante o un lote~~ | `lib/leads.ts:1482, 2264, 2286` (`getVisitasLandingMap`) | 612 por visitante (ws13) · ✅ 18/11 (P20), el lote en tandas de 200 |
 | Lecturas de `leads` y `pagos` del embudo y la cobranza | `lib/queries.ts` (`getFunnelEtapas`, `getSCL`, `getTendencias` :2989), `lib/pagos.ts:411, 503` | bajo el techo por columnas ralas → [hallazgos-crm.md](hallazgos-crm.md) |
-| `cashUsd` / `soldUsd` | `lib/objectives-fuentes.ts:109, 127` | 13 cierres; se rompen en un objetivo anual → [hallazgos-objectives.md](hallazgos-objectives.md) |
-| Bloqueados y ocultos del inbox | `lib/evolution-block.ts:36, 59` | 0 y 15 filas |
-| Leads de las conversaciones del inbox | `lib/evolution-mensajes.ts` (~:320) | 46 ids por workspace |
+| `cashUsd` / `soldUsd` | `lib/objectives-fuentes.ts:109, 127` | 13 cierres; se rompen en un objetivo anual → [hallazgos-objectives.md](hallazgos-objectives.md) · 🟠 18/11 (P20): `cashUsd` pagina; `soldUsd` NO, porque `tests/venta-sin-cobro.test.ts` sólo reconoce `.select('…monto_cierre_usd…')` y con el helper deja de verlo |
+| ~~Bloqueados y ocultos del inbox~~ | `lib/evolution-block.ts:36, 59` | 0 y 15 filas · ✅ 18/11 (P20) |
+| ~~Leads de las conversaciones del inbox~~ | `lib/evolution-mensajes.ts` (~:320) | 46 ids por workspace · ⚪ 18/11 (P20): es un TOPE a propósito (50 teléfonos, `.limit(300)`), no un corte: el porqué quedó escrito arriba de la lectura |
 | Tres lecturas que devuelven VACÍO cuando fallan | el `catch → []` de `videosDetectados` (`lib/landing-token.ts`), `getVslEngagementMap` (`lib/leads.ts`), el `warn` de `getUsageSummary` | no truncan: mienten «no hay» |
 | `anthropic_usage` con `getSupabaseServer()` y el `eq(workspace_id)` a mano | `lib/anthropic-usage.ts`, `lib/ia-cuotas.ts` | paginan, pero contra la regla de la casa |
+
+**18/11/2026 (P20, `punta/nube-plata-c3`), lo que la paginación destapó además del corte.** Tres lecturas leían «no
+pude» como «no hay», y con la lectura caída hacían lo destructivo: `limpiarDependenciasColgadas` (lib/plan-board.ts)
+daba TODAS las aristas por colgadas y las borraba; `proyectosSinTareas` (lib/plan-proyecto-vacio.ts) daba todos los
+proyectos por vacíos, y proponerles tareas paga IA por cada uno. Las dos ahora paran. Y el aviso «recortado» del Plan
+(lib/plan-hoy.ts, lib/api-mako/areas/plan.helpers.ts) medía `leidas >= 1000`: con las tareas paginadas ese número ya no
+mide un corte sino el TAMAÑO del tablero, y habría avisado de un corte con 1000 tarjetas leídas enteras. **Regla: al
+paginar una lectura, se busca quién compara su largo contra 1000** (`grep -n "1000\|TOPE_FILAS"`): ese aviso queda
+midiendo otra cosa. Lo fija tests/techo-1000-p20.test.ts, con un PostgREST de mentira que corta en 1000 y mezcla los
+empates en cada pedido (sin el `id` al final del orden, 1174 de 1500 distintas).
 
 ### Descartado a propósito (no volver a "arreglarlo")
 
@@ -5645,11 +5655,85 @@ lugar: el segundo literal es el que se queda viejo.
 
 ### ⚠️ Pendiente: las primitivas de fecha siguen ancladas a Tijuana
 
-`hoyEnTijuana`, `ayerEnTijuana`, `lunesActualEnTijuana`, `primerDiaDelMesEnTijuana` — **~60
+~~`hoyEnTijuana`, `ayerEnTijuana`, `lunesActualEnTijuana`, `primerDiaDelMesEnTijuana` — **~60
 call-sites**. No es display: son bordes de día que deciden cohortes y disparos, así que aplica la
-regla de arriba (escritura y lectura juntas).
+regla de arriba (escritura y lectura juntas).~~ **18/11/2026 (F125), parcial:** eran **87 llamadas en 50 archivos**, no
+~60, y 18 ya son del negocio (14 pasaron hoy, 4 ya lo eran). Lo que queda no es una lista de olvidos: son otros dos relojes, y
+el detalle está en la entrada de abajo, «Las ~85 fechas de Tijuana son TRES relojes».
 
 **Vive en:** lib/date-utils.ts, anotado en lib/timezone.ts:47
+
+### Las ~85 fechas de Tijuana son TRES relojes, y sólo uno se migra solo (18/11/2026, F125)
+
+**Síntoma:** el pendiente decía «~60 call-sites anclados a Tijuana»; la cuenta real dio 87 en 50 archivos. Leído como lista,
+pide cambiar `hoyEnTijuana()` por `hoyEnWorkspaceEstricto()` en las 87 y listo.
+
+**El diagnóstico obvio era el equivocado.** Abriendo cada una aparecen tres preguntas distintas, que la misma función
+contestaba con el mismo literal:
+
+1. **El día del NEGOCIO** («hoy» de una pantalla, una cuota vencida, si una reunión ya pasó, el período de un export, la
+   semana de un reporte). Ésta SÍ se migra, y se migró: es la que cambia para un cliente fuera de Tijuana.
+2. **El día de la INGESTA.** `marketing_metrics_daily` lo llenan `meta-daily`, `youtube-daily`, `panda-daily` y
+   `videos-daily` a las 13:00-13:45 UTC con el `ayer` de Tijuana (Meta interpreta esa fecha en la zona de la cuenta publicitaria;
+   YouTube Analytics, según su documentación y sin medirlo acá, cuenta en hora del Pacífico, que es la de Tijuana). Toda ventana «hasta ayer» sobre esos números (experimentos, la
+   retro, tendencias, el cuadrante de anuncios, el Media Buyer, el Copiloto, el estructurador de campañas, la página de un
+   anuncio) existe para no pedir un día que la ingesta todavía no cargó. Pasada a la zona del negocio, a un negocio al este le
+   pide, entre su medianoche y las 13:00 UTC, un día sin cargar: la «caída a cero» que esas ventanas vinieron a evitar. El Media
+   Buyer ya lo dice en su código (lib/media-buyer/corrida.ts: «el día del negocio … no el de Tijuana de las ventanas») y lleva
+   aparte el día del negocio (`hoyDelNegocio(ws)`) para lo que decide por fecha. **Se migra junto con la ingesta**: primero
+   que los crons sellen cada negocio con su día y corran después de su medianoche; después las ventanas.
+3. **La clave de cohorte.** `fecha_junta_1/2` y `fecha_agenda` las escriben los webhooks de agenda con `isoToFechaTijuana`, y
+   el CRM automático (lib/crm-auto.ts: T1, T3), la cancelación de una junta (los webhooks de Calendly y Cal.com) y el export
+   las comparan con un «hoy» de Tijuana. Es la regla de arriba: escritura y lectura juntas o nada.
+
+Y un cuarto grupo que no es ninguno de los tres pero tampoco se toca suelto: **el Dashboard** (Graphics). Su «hoy», su corte
+(`hastaDeFuente`, `cortarEnHoyDe`) y el día en que cae cada fila (`fechaTj` en lib/graficos-lectura.ts, 35 llamadas, y
+lib/landing-mapa-server.ts) son Tijuana en el server Y en el navegador (app/dashboard/BarraControles.tsx, MapaCalor.tsx,
+entidades/anuncio.tsx). Hoy es coherente consigo mismo; pasar sólo el «hoy» dejaría el período del negocio con las filas
+agrupadas por el día de Tijuana (el «hoy» de Buenos Aires a la madrugada saldría vacío). Va entero, en un cambio del área,
+con la zona por parámetro en `fechaTj` y `useTzWorkspace` en las tres piezas del navegador, y sus guardas
+(tests/graficos-con-datos.test.ts, tests/graficos-datos-corte.test.ts) fijan hoy la forma exacta de esas líneas.
+
+**Lo que se hizo (el reloj 1):**
+- **Las primitivas por negocio**, en lib/timezone.ts: `diasDelNegocio(ws)` / `diasDelNegocioEstricto(ws)` (ws explícito, para
+  un cron que recorre negocios), `diasEnWorkspace()` / `diasEnWorkspaceEstricto()` (el del contexto) y
+  `ayer/lunes/primerDiaDelMesEnWorkspaceEstricto()`. Las cuatro fechas salen de UNA lectura del reloj (`diasEnTz`,
+  lib/date-utils.ts, pura): con dos lecturas, una corrida a la medianoche podía tener un «hoy» y un «ayer» del mismo día. Las
+  `*EnTijuana` ahora son éstas con la zona puesta, no una segunda cuenta.
+- **El #510 que faltaba** (docs/hallazgos-crm.md): `faltantesDeLead`/`resueltosDeLead` (lib/leads.ts: la ficha, «A revisar», el
+  worklist, el teléfono, el gate del análisis y la API) y `valoresDeRequisitos` (app/crm/actions.ts: el asistente de mover)
+  piden `hoyISO` obligatorio, sin default, y cada llamador lo saca de su negocio. Desde el 6/11 el corte del server
+  (`setPipelineStage`) ya usaba el del negocio, así que el asistente preguntaba con un día y el server validaba con otro.
+- **El contador de «A revisar» de la barra** (app/api/datos-sin-marcar-count) llamaba a `getPendientesDeMarcar` con el día de
+  Tijuana y la lista del CRM con el del negocio: la lectura tiene caché por argumento, así que eran DOS lecturas.
+- **Los reportes** (lib/reportes.ts): el semanal corre adentro del `runWithWorkspace` de cada cliente y cortaba la semana, las
+  cuotas vencidas y el cash con Tijuana. El diario y el horario son del dueño y corren sin negocio: no cambian.
+- **El export de leads** (período y encabezado, con UN «hoy»), el `objetivo_desde` del alta de un cliente y la fecha de un cobro
+  marcado desde el Dashboard (lib/graficos-detalle.ts, que tenía dos caídas a Tijuana alrededor de una lectura que nunca tira).
+
+**Dos decisiones técnicas que conviene no deshacer:**
+- **Tolerante donde no decide.** El asistente de mover y los pendientes de después de mover usan `hoyEnWorkspace()`, no la
+  estricta: cuando la zona se lee, da el mismo día que el corte estricto del server; cuando no, el server no deja mover igual. Y
+  lo de DESPUÉS de mover no puede convertir un movimiento hecho en un error por una zona ilegible.
+- **En una función pura el día es un parámetro** (`faltantesDeLead`, `valoresDeRequisitos`): la regla de AGENTS.md. Por eso
+  la cadena entera (`leerInsumosDatosLead` → `hoy`, `faltantesParaInsights`, `faltantesDeUnLead`) lo lleva.
+
+**Lo que quedó sin hacer, con su archivo** (cada uno, en el reloj de arriba):
+- Reloj 2 (ingesta): app/api/cron/{meta,youtube,panda,videos}-daily, transcribe-ads, app/api/admin/meta-check,
+  lib/experimentos.ts (y experimentos.helpers/.run), lib/retro.ts, lib/queries.ts `_getTendencias`, metricas.run.ts,
+  lib/media-buyer/{datos,vista,corrida,vigia}.ts, lib/copiloto/comunicacion-ia.ts, lib/campaign-structurer.ts,
+  app/api/ads-analyst/quadrant, app/anuncio/[adId]/page.tsx.
+- Reloj 3 (cohorte): lib/crm-auto.ts (4; y ojo: su simulación por la API, `evaluar_crm_automatico`, ya usa el día del
+  negocio, así que la API y el cron pueden proponer distinto en el borde), app/api/webhooks/{calendly,calcom}.
+- Dashboard: app/dashboard/{page,BarraControles,MapaCalor,entidades/anuncio}, app/m/dashboard (2), app/api/graficos/{ia,plantilla},
+  app/compartido/[token]/informe-compartido.ts, lib/api-mako/areas/dashboard.{run,helpers}.ts, lib/graficos-{datos,datos-extra,
+  analisis-server,ia-elemento-server,lectura}.ts, lib/landing-mapa-server.ts, lib/automatizacion-metricas-server.ts,
+  app/api/automations/metricas.
+- Excluido (lo hace otro chat): lib/onboarding-extract.ts (2).
+
+**Vive en:** lib/date-utils.ts (`diasEnTz`) · lib/timezone.ts (`diasDelNegocio*`, `diasEnWorkspace*`) · lib/leads.ts
+(`ExtraRequisitos.hoyISO`) · app/crm/actions.ts (`valoresDeRequisitos`, `leadsFiltrados`) · lib/reportes.ts ·
+tests/dias-del-negocio.test.ts (base 5/0; seis roturas, cada una cae) · *2026-11-18 F125, nube*
 
 ### Una zona, un default, una lectura (11/10/2026, undécima tanda)
 
