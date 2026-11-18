@@ -97,12 +97,14 @@ test('Reuniones: sólo si el funnel del lead tiene una etapa de reunión, con la
 
 // ── 19 · MaKo Analyst ──────────────────────────────────────────────────────────
 
-test('MaKo Analyst: el chat atado al lead en las dos puertas, y el análisis de llamadas plegado y sólo si hay algo', () => {
+test('MaKo Analyst: el chat atado al lead en las dos puertas, y «Insights» plegado debajo', () => {
   const pieza = codigo('app/crm/lead-view/AnalystDelLead.tsx');
   assert.match(pieza, /import \{ MakoAnalystLead \} from '\.\/MakoAnalystLead';/);
   assert.match(pieza, /<MakoAnalystLead leadId=\{lead\.id\} nombre=\{lead\.nombre\} \/>/, 'el chat se monta con el lead');
-  assert.match(pieza, /const hayAnalisis = !!inicial \|\| llamadas\.length > 0;/);
-  assert.match(pieza, /\{hayAnalisis && \(\s*<details/, 'lo de antes va plegado (details) y sólo si hay algo');
+  // ⚠️ CAMBIADO A PROPÓSITO EL 18/11/2026: iba «sólo si hay algo» y a un lead sin llamada nunca le aparecía el aviso de qué
+  // falta («No es posible generar hasta que…», Martín, 03/07; tests/insights-aviso.test.ts lo ejecuta). Ahora va siempre.
+  assert.match(pieza, /<details[\s\S]*?\{TITULO_INSIGHTS\}[\s\S]*?<GeneratedInsightCard/, '«Insights» va plegado (details)');
+  assert.doesNotMatch(pieza, /hayAnalisis/, 'volvió a esconderse cuando no hay llamada: el lead nunca ve qué falta');
   // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026: el chat se monta una vez, en la ficha compartida; cada puerta
   // le dice cuánto alto le queda visible.
   // Desde el 16/10/2026 el chat vive en el panel «AI Analyst» (a la izquierda, alto completo), no en una pestaña.
