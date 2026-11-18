@@ -38,18 +38,18 @@ Martín: «para evitar fraude… te fijas… si realmente impactó y listo… au
   código, se activa. **Los datos de Martín NO se inventan:** buscarlos en la configuración / en lo que ya usa el cobro de agencia (el PDF de Código dice dónde pagar); alias y
   CVU se pueden leer de la cuenta de MP; si falta uno, pedírselo a Martín en el chat.
 
-### Cómo se calza BIEN cada pago (diseño del Cerebro, 18/11; Martín: «que no envíen de menos… si recibimos varios pagos al mismo tiempo, ¿cómo marchamos bien?»)
-1. **El número de orden del comprobante es la llave.** La captura de un pago de Binance trae su número de orden; el lector de comprobantes de agencia ya lo lee (`ordenLeida` en
-   `lib/agencia-mes-comprobante.ts`). Se busca ese número en `transactionId` de `GET /sapi/v1/pay/transactions` y calza EXACTO aunque entren diez pagos juntos. En Mercado Pago, el
-   «número de operación» del comprobante contra el id del pago.
-2. **Un monto único por compra, en Binance (el QR no trae monto: quien paga lo escribe).** Cada pedido abierto recibe unos centavos propios (97,03 o 97,17 USDT en vez de 97): el
-   checkout lo muestra grande y con «Copiar» («Envía exactamente 97,03 USDT»). Así, aunque no manden comprobante o lleguen dos a la vez, el monto apunta a UN pedido. Los centavos se liberan
-   cuando el pedido se paga o vence (48 h). En pesos por transferencia no hace falta: Mercado Pago trae el nombre y el CUIT de quien paga. ⚠️ Hoy el checkout muestra el precio de lista exacto
-   (97), sin centavos propios: esto es lo que falta para que el calce por monto sea unívoco.
-3. **El código de compra** (el del texto de WhatsApp) en la nota del pago, si la app lo permite: una ayuda, no la llave.
-4. **Si pagó de MENOS:** no se activa, y se le dice cuánto falta con el mismo dato para completar; dos pagos del mismo Binance ID dentro de la ventana se suman.
-5. **Si pagó de MÁS:** se activa, y la diferencia queda anotada para Martín.
-Con esto, Martín no revisa nada salvo los casos raros. (El `linkBinance` de Martín, confirmado el 18/11: `https://app.binance.com/uni-qr/68G3kuwL`.)
+### Cómo se calza BIEN cada pago (diseño del Cerebro con la corrección de Martín, 18/11; «que no envíen de menos… si recibimos varios pagos al mismo tiempo, ¿cómo marchamos bien?»)
+- **El monto es SIEMPRE el precio de lista, exacto** (97, 47, 970 o 470). Se descartó el «monto único con centavos propios por pedido» (Martín: «no tiene sentido. No le quiero
+  cobrar más ni menos y no deberían jamás no enviar el comprobante»).
+- **El comprobante es OBLIGATORIO.** El checkout lo pide como paso necesario, con los botones de WhatsApp o email; sin comprobante no hay activación. ⚠️ **Hoy NO está hecho así:** «Confirmar
+  mi pedido» se puede tocar sin haber mandado nada (el pedido entra, pero la activación espera a Martín). Falta que el paso del comprobante sea explícito en el checkout.
+- **El calce es por el número de orden u operación del comprobante.** La captura de un pago de Binance trae su número de orden (el lector de comprobantes de agencia ya lo lee: `ordenLeida`
+  en `lib/agencia-mes-comprobante.ts`): se busca en `transactionId` de `GET /sapi/v1/pay/transactions` y calza EXACTO aunque entren diez pagos juntos. En Mercado Pago, el «número de
+  operación» del comprobante contra el id del pago. **Si el comprobante no deja leer bien el número,** se usa el monto + el nombre o Binance ID de quien paga + la hora.
+- El código de compra (el del texto de WhatsApp) va en la nota del pago si la app lo permite: una ayuda, no la llave.
+- **Si pagó de MENOS:** no se activa, y se le dice cuánto falta con el mismo dato para completar; dos pagos del mismo Binance ID dentro de la ventana se suman.
+- **Si pagó de MÁS:** se activa, y la diferencia queda anotada para Martín.
+- Con esto, Martín no revisa nada salvo los casos raros. (El `linkBinance`, confirmado el 18/11: `https://app.binance.com/uni-qr/68G3kuwL`; es un QR sin monto: quien paga lo escribe.)
 
 ## 3. El panel del partner suma solo y se le paga del 1 al 5 (A), y elige por dónde cobra (D)
 Martín: «que ahí vaya sumándose todo lo que va a ganar y que el proceso de pago sea exactamente el mismo que… código inmobiliario de agencia, que me pagan del 1 al 5».
