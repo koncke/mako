@@ -37,6 +37,11 @@ export const CHIP_PAGO_DIRECTO = `${Math.round(DESCUENTO_PAGO_DIRECTO * 100)}% O
 export type DatosDePagoDirecto = {
   /** Binance: el Pay ID de MaKo. */
   binancePayId: string | null;
+  /**
+   * Binance: el «payment link» de Binance Pay EXIGE monto, así que hay uno por plan y período, en USDT y con el 5 % ya descontado
+   * (Pro mensual 92,15; Essential 44,65…). Clave `<idDelPlan>:<mensual|anual>`; sólo https. Sin link para el plan, se muestra el Pay ID.
+   */
+  linksBinance: Record<string, string>;
   /** Transferencia: el link «Transferime con Mercado Pago» de la cuenta de MaKo (abre la app para transferir; no trae monto). */
   linkTransferencia: string | null;
   /** Transferencia: alias y CVU de la Mercado Pago de MaKo. */
@@ -53,7 +58,7 @@ export type DatosDePagoDirecto = {
 export const CLAVE_PAGO_DIRECTO = 'planes.pago_directo';
 
 // ⚠️ SIN INVENTAR NADA (Cerebro, 18/11): los carga Martín. Mientras estén vacíos, la opción no aparece en el checkout.
-export const DATOS_VACIOS: DatosDePagoDirecto = { binancePayId: null, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null };
+export const DATOS_VACIOS: DatosDePagoDirecto = { binancePayId: null, linksBinance: {}, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null };
 
 const texto = (v: unknown, max: number): string | null => {
   const t = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '';
@@ -66,8 +71,16 @@ export function datosLimpios(v: unknown): DatosDePagoDirecto {
   const wa = String(o.whatsapp ?? '').replace(/\D/g, '');
   const email = texto(o.email, 200);
   const link = texto(o.linkTransferencia, 300);
+  // Los links de Binance por plan: clave `<plan>:<mensual|anual>`, valor https. Lo que no cumple se descarta (no se le muestra a un cliente).
+  const linksBinance: Record<string, string> = {};
+  const crudos = o.linksBinance && typeof o.linksBinance === 'object' && !Array.isArray(o.linksBinance) ? (o.linksBinance as Record<string, unknown>) : {};
+  for (const [k, v] of Object.entries(crudos).slice(0, 40)) {
+    const u = texto(v, 300);
+    if (/^[a-z0-9-]{1,32}:(mensual|anual)$/.test(k) && u && /^https:\/\/[^\s]+$/i.test(u)) linksBinance[k] = u;
+  }
   return {
     binancePayId: texto(o.binancePayId, 40),
+    linksBinance,
     // Sólo https (se dibuja como un enlace para un cliente: nunca `javascript:` ni nada raro).
     linkTransferencia: link && /^https:\/\/[^\s]+$/i.test(link) ? link : null,
     alias: texto(o.alias, 60),
@@ -87,10 +100,13 @@ export function datosDeSetting(crudo: string | null): DatosDePagoDirecto {
 /** Con qué se puede pagar HOY: Binance si hay Pay ID; transferencia si hay link, alias o CVU. Vacío = la opción no se muestra. */
 export function mediosDisponibles(d: DatosDePagoDirecto): MedioDirecto[] {
   const out: MedioDirecto[] = [];
-  if (d.binancePayId) out.push('binance');
+  if (d.binancePayId || Object.keys(d.linksBinance).length) out.push('binance');
   if (d.alias || d.cvu || d.linkTransferencia) out.push('transferencia');
   return out;
 }
+
+/** El link de Binance Pay del plan y período elegidos, o null (entonces el checkout muestra el Pay ID). */
+export const linkDeBinance = (d: DatosDePagoDirecto, plan: string, periodo: 'mensual' | 'anual' = 'mensual'): string | null => d.linksBinance[`${plan}:${periodo}`] ?? null;
 
 const centavos = (n: number) => Math.round(n * 100) / 100;
 

@@ -108,7 +108,7 @@ export default async function PlanPage({ params, searchParams }: {
   for (const m of MEDIOS_DIRECTOS) { const v = montoDelMedio(m, { precioUsd: plan.precioUsd, precioArs: precioEnPesos(plan) }); if (v) montosDirectos[m] = v; }
   const datosDirectos = await leerDatosDePagoDirecto();
   const mediosDirectos = mediosDisponibles(datosDirectos).filter((m: MedioDirecto) => montosDirectos[m]);
-  const directo: OpcionDirecta | undefined = mediosDirectos.length ? { medios: mediosDirectos, montos: montosDirectos, datos: datosDirectos, nombrePlan: plan.nombre } : undefined;
+  const directo: OpcionDirecta | undefined = mediosDirectos.length ? { medios: mediosDirectos, montos: montosDirectos, datos: datosDirectos, nombrePlan: plan.nombre, planId: plan.id } : undefined;
   return (
     <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumen} sinPrueba={conPrueba ? resumenSin : undefined}>
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la

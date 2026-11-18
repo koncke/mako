@@ -14,7 +14,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DESCUENTO_PAGO_DIRECTO, canalDelPago } from '../lib/partners-reglas';
 import {
-  CHIP_PAGO_DIRECTO, CLAVE_PAGO_DIRECTO, DATOS_VACIOS, datosDeSetting, datosLimpios, mediosDisponibles, montoDelMedio, pesosConDescuento, textoDelComprobante, urlDeEmail, urlDeWhatsApp, usdConDescuento,
+  CHIP_PAGO_DIRECTO, CLAVE_PAGO_DIRECTO, DATOS_VACIOS, linkDeBinance, datosDeSetting, datosLimpios, mediosDisponibles, montoDelMedio, pesosConDescuento, textoDelComprobante, urlDeEmail, urlDeWhatsApp, usdConDescuento,
   type DatosDePagoDirecto,
 } from '../lib/pago-directo-reglas';
 import { leerPedidoCompra } from '../lib/compra-plan-reglas';
@@ -22,7 +22,7 @@ import { CompraPlan } from '../app/planes/[plan]/CompraPlan';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
-const DATOS: DatosDePagoDirecto = { binancePayId: 'PAYID-DE-PRUEBA', linkTransferencia: 'https://mpago.la/ejemplo', alias: 'alias.de.prueba', cvu: null, titular: 'Titular de prueba', whatsapp: '5491100000000', email: 'cobros@ejemplo.com' };
+const DATOS: DatosDePagoDirecto = { binancePayId: 'PAYID-DE-PRUEBA', linksBinance: { 'pro:mensual': 'https://pay.binance.com/ejemplo' }, linkTransferencia: 'https://mpago.la/ejemplo', alias: 'alias.de.prueba', cvu: null, titular: 'Titular de prueba', whatsapp: '5491100000000', email: 'cobros@ejemplo.com' };
 
 test('el descuento es UNO para todos: 5 %, y sale en una constante junto a las de Partners', () => {
   assert.equal(DESCUENTO_PAGO_DIRECTO, 0.05);
@@ -43,19 +43,20 @@ test('los montos con el 5 %: Pro 92,15 y Essential 44,65 en USDT; los pesos al m
 
 test('los datos de MaKo NO se inventan: sin ninguno la opción no se ofrece, y cada medio pide su dato', () => {
   assert.deepEqual(mediosDisponibles(DATOS_VACIOS), [], 'el repo no trae ningún dato cargado');
-  assert.ok(Object.values(DATOS_VACIOS).every((v) => v === null));
+  assert.ok(Object.entries(DATOS_VACIOS).every(([k, v]) => (k === 'linksBinance' ? Object.keys(v as object).length === 0 : v === null)));
   assert.deepEqual(datosDeSetting(null), DATOS_VACIOS, 'sin setting, sin datos');
   assert.deepEqual(datosDeSetting('esto no es json'), DATOS_VACIOS, 'un setting roto no muestra nada');
   assert.deepEqual(mediosDisponibles({ ...DATOS, alias: null, cvu: null, linkTransferencia: null }), ['binance']);
-  assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null, alias: null, cvu: null }), ['transferencia'], 'con sólo el link de Mercado Pago alcanza');
-  assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null }), ['transferencia']);
-  assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null, alias: null, cvu: '0000003100000000000001' }), ['transferencia']);
+  assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null, alias: null, cvu: null, linkTransferencia: null }), ['binance'], 'con sólo un link de Binance Pay alcanza');
+  assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null, linksBinance: {}, alias: null, cvu: null }), ['transferencia'], 'con sólo el link de Mercado Pago alcanza');
+  assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null, linksBinance: {} }), ['transferencia']);
+  assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null, linksBinance: {}, linkTransferencia: null, alias: null, cvu: '0000003100000000000001' }), ['transferencia']);
 });
 
 test('los datos viven en un SETTING editable (no en una constante) y se limpian: lo que no se entiende no se muestra a un cliente', () => {
   assert.equal(CLAVE_PAGO_DIRECTO, 'planes.pago_directo');
-  const l = datosLimpios({ binancePayId: '  123 456  ', linkTransferencia: 'https://mpago.la/abc', alias: 'mako.cobros', cvu: '', titular: 'MaKo SRL', whatsapp: '+54 9 11 2233-4455', email: 'COBROS@Mako.com' });
-  assert.deepEqual(l, { binancePayId: '123 456', linkTransferencia: 'https://mpago.la/abc', alias: 'mako.cobros', cvu: null, titular: 'MaKo SRL', whatsapp: '5491122334455', email: 'cobros@mako.com' });
+  const l = datosLimpios({ binancePayId: '  123 456  ', linksBinance: { 'pro:mensual': 'https://pay.binance.com/x', 'pro:semanal': 'https://x.com', 'esencial:mensual': 'http://inseguro.com', 'MALO': 'https://x.com' }, linkTransferencia: 'https://mpago.la/abc', alias: 'mako.cobros', cvu: '', titular: 'MaKo SRL', whatsapp: '+54 9 11 2233-4455', email: 'COBROS@Mako.com' });
+  assert.deepEqual(l, { binancePayId: '123 456', linksBinance: { 'pro:mensual': 'https://pay.binance.com/x' }, linkTransferencia: 'https://mpago.la/abc', alias: 'mako.cobros', cvu: null, titular: 'MaKo SRL', whatsapp: '5491122334455', email: 'cobros@mako.com' });
   const m = datosLimpios({ whatsapp: '12345', email: 'no-es-email', alias: 42 });
   assert.equal(m.whatsapp, null, 'un WhatsApp con pocos dígitos');
   assert.equal(m.email, null);
@@ -68,7 +69,19 @@ test('los datos viven en un SETTING editable (no en una constante) y se limpian:
   const acc = fuente('app/admin/cobros/actions.ts');
   const a = acc.slice(acc.indexOf('export async function guardarPagoDirectoAction'));
   assert.match(a.slice(0, 220), /const admin = await getSesionAdmin\(\);\s+if \(!admin\) return/, 'getSesionAdmin en la primera línea');
-  assert.match(fuente('app/admin/_polar/web/Settings/OrganizationPaymentSettings.tsx'), /guardarPagoDirectoAction\(valores/);
+  assert.match(fuente('app/admin/_polar/web/Settings/OrganizationPaymentSettings.tsx'), /guardarPagoDirectoAction\(\{ \.\.\.valores, linksBinance: links \}/);
+});
+
+test('Binance: el link del plan y período elegidos («PAGAR CON BINANCE»); sin link para ese plan, el Pay ID', () => {
+  assert.equal(linkDeBinance(DATOS, 'pro'), 'https://pay.binance.com/ejemplo');
+  assert.equal(linkDeBinance(DATOS, 'pro', 'mensual'), 'https://pay.binance.com/ejemplo');
+  assert.equal(linkDeBinance(DATOS, 'pro', 'anual'), null);
+  assert.equal(linkDeBinance(DATOS, 'esencial'), null, 'otro plan: no se le muestra el link de Pro');
+  const f = fuente('app/planes/[plan]/CompraPlan.tsx');
+  assert.match(f, /PAGAR CON BINANCE/);
+  assert.match(f, /linkDeBinance\(p\.directo\.datos, p\.directo\.planId\)/);
+  assert.match(f, /<DatoCopiable etiqueta="Binance Pay ID"/, 'el Pay ID con «Copiar» queda siempre');
+  assert.match(fuente('app/planes/[plan]/page.tsx'), /planId: plan\.id/);
 });
 
 test('los botones del comprobante: wa.me y mailto con el texto armado, y sin el contacto no hay botón', () => {

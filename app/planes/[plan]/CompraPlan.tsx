@@ -33,7 +33,7 @@ import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared
 import type { Pasarela } from '@/lib/cobros-tipos';
 import { TEXTO_PRECIO_CAMBIO, type OrigenCompra } from '@/lib/compra-plan-reglas';
 import {
-  CHIP_PAGO_DIRECTO, NOMBRE_MEDIO_DIRECTO, formatoDelMonto, textoDelComprobante, urlDeEmail, urlDeWhatsApp,
+  CHIP_PAGO_DIRECTO, NOMBRE_MEDIO_DIRECTO, formatoDelMonto, linkDeBinance, textoDelComprobante, urlDeEmail, urlDeWhatsApp,
   type DatosDePagoDirecto, type MedioDirecto,
 } from '@/lib/pago-directo-reglas';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
@@ -74,6 +74,8 @@ export type OpcionDirecta = {
   montos: Partial<Record<MedioDirecto, { monto: number; moneda: 'USD' | 'ARS' }>>;
   datos: DatosDePagoDirecto;
   nombrePlan: string;
+  /** El id del plan: con él se busca su link de Binance Pay (`linksBinance`). */
+  planId: string;
 };
 
 const PANEL_DIRECTO: React.CSSProperties = { border: '1px solid rgba(17,17,17,.14)', borderRadius: 12, padding: '14px 14px 12px', background: '#fafafa', marginTop: 10, display: 'grid', gap: 10 };
@@ -285,6 +287,10 @@ export function CompraPlan(p: {
               {/* El botón principal de la transferencia: el «Transferime con Mercado Pago» de MaKo (abre la app; no trae monto, por eso el monto va grande arriba). */}
               {medioDirecto === 'transferencia' && p.directo.datos.linkTransferencia && (
                 <a className="planes-btn" href={p.directo.datos.linkTransferencia} target="_blank" rel="noopener noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>TRANSFERIR CON MERCADO PAGO</a>
+              )}
+              {/* Binance: el link del plan (trae el monto con el 5% ya descontado); sin link para este plan, el Pay ID con «Copiar». */}
+              {medioDirecto === 'binance' && linkDeBinance(p.directo.datos, p.directo.planId) && (
+                <a className="planes-btn" href={linkDeBinance(p.directo.datos, p.directo.planId)!} target="_blank" rel="noopener noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>PAGAR CON BINANCE</a>
               )}
               {medioDirecto === 'binance' && <DatoCopiable etiqueta="Binance Pay ID" valor={p.directo.datos.binancePayId} />}
               {medioDirecto === 'transferencia' && (
