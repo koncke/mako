@@ -5136,9 +5136,20 @@ dibuja las pestañas con estos componentes, sin las marcas de la maqueta, y mide
   escriben atributos distintos para la misma columna; con la coma, el mismo paso anda en los dos.
 - **Los pasos que arrancan FUERA de la pantalla**: la columna Ganado, la respuesta rápida de Offer en el teléfono, las integraciones de
   abajo y la grilla de Spy. El motor los tiene que llevar a la vista (`scrollIntoView`); el de la maqueta no lo hacía.
-- **Lo que falta**: los tutoriales de las pestañas que todavía no tienen uno, que son Chats, las sub-pestañas de Classroom, las
-  secciones de Settings, MaKo Partners, Agency, API y Report a problem (la lista entera está en C:/dev/artefactos-pestanas/archivos.json).
-  Falta también medir los de adentro (`estado`) con su pantalla dibujada, y medir en el teléfono el Ops Center, Calendar, Video, Image y la Ticketera.
+- **El video de cada pestaña es SÓLO texto con la voz de Martín** (decisión del 18/11): dónde tocar lo muestra el motor. Por eso
+  cada cosa que el guion nombra (public/tutoriales/manifiesto.json) tiene SU paso, en el mismo orden, y el `sub` es la frase del
+  guion. La pestaña del tutorial se llama como la `key` de su video (Integraciones es `settings-integraciones`), o el motor no lo
+  encuentra. Un tutorial sin guion todavía se arma de nuevo cuando llega el guion: conviene esperarlo.
+- **Lo que el guion nombra adentro de otra cosa necesita `antes`.** «Mover a…» vive en la ficha rápida: su paso la abre con «Ver
+  info» y el siguiente la cierra (la ✕ de la ficha, la del sheet en el teléfono). Un paso con `clic` sobre un botón apagado deja a
+  la persona trabada (el velo sólo deja tocar lo marcado): «Seguir» del CoPilot no lleva `clic`.
+- **No rebasear una punta sobre la que otro construye.** Rebasear le cambia el sha a lo que el otro chat ya tenía de base, y obliga
+  a un `--force-with-lease`. Si la punta local AVANZA desde la remota (`git merge-base --is-ancestor`), se sube tal cual: la punta
+  mezcla main sola en GitHub.
+- **Lo que falta**: las sub-pestañas de Classroom (Community, Clients, Calendar, Leaderboards, About), Seguridad (lee al montar:
+  sale «Cargando…» dibujada), Identidades fiscales, Tu plan, MaKo Partners, Agency y API (la lista entera está en
+  C:/dev/artefactos-pestanas/archivos.json); conviene hacerlas con sus guiones. Falta también medir los de adentro (`estado`) con su
+  pantalla dibujada, y medir en el teléfono el Ops Center, Calendar, Video, Image, la Ticketera, Chats, Equipo y las de Settings.
 
 ## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
 
