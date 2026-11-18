@@ -294,6 +294,7 @@ POST /api/video-editor/clips → cortada
 POST /api/video-editor/ia → cortada
 POST /api/video-editor/presets → cortada
 POST /api/video-editor/tts → cortada
+POST /api/voz-coach → cortada
 POST /api/webhooks/calcom → pública (no usa la sesión)
 POST /api/webhooks/calendly → pública (no usa la sesión)
 POST /api/webhooks/creem → pública (no usa la sesión)
