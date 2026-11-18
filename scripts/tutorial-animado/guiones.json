@@ -1,5 +1,86 @@
 [
  {
+  "id": "onboarding-bienvenida",
+  "pestana": "Onboarding · Bienvenida",
+  "ruta": "/onboarding",
+  "icono": "lucide:sparkles",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "¡Hola! Soy Martín, el creador de Máko. Bueno, mi versión en cubos.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a Máko: desde hoy tienes un equipo entero trabajando para tu negocio.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Ya activaste tu prueba gratuita de 7 días, y quiero que le saques el máximo provecho.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Primero, unas preguntas cortas para conocerte: contéstalas en el chat, debajo de este video.",
+    "rol": "cierre"
+   }
+  ]
+ },
+ {
+  "id": "onboarding-whatsapp",
+  "pestana": "Onboarding · Tu WhatsApp",
+  "ruta": "/onboarding",
+  "icono": "lucide:messages-square",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Tu WhatsApp es por donde Máko te manda avances sobre tu negocio.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Para confirmarlo, toca Abrir WhatsApp y manda el mensaje que ya va escrito, con tu código.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "En cuanto llega, tu número queda confirmado solo.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y guarda el contacto de Máko en tu teléfono: así esos avances siempre te llegan.",
+    "rol": "cierre"
+   }
+  ]
+ },
+ {
+  "id": "onboarding-seguir-pc",
+  "pestana": "Onboarding · Sigamos en tu computadora",
+  "ruta": "/onboarding (en el teléfono)",
+  "icono": "lucide:download",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Desde el teléfono, esto era todo por ahora.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Lo que sigue se ve mucho mejor en una pantalla grande: Máko por dentro y tu reto de 7 días.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Abre Máko en tu computadora con el link que te mandamos a tu correo, y entra con tu cuenta.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Lo que contestaste ya está guardado: sigues justo donde quedaste.",
+    "rol": "cierre"
+   }
+  ]
+ },
+ {
   "id": "recorrido",
   "pestana": "Recorrido general (onboarding)",
   "ruta": "/second-brain",
@@ -7,6 +88,10 @@
   "icono": "lucide:map",
   "tanda": 2,
   "pasos": [
+   {
+    "dice": "¡Hola de nuevo! Ya estás adentro de Máko.",
+    "rol": "gancho"
+   },
    {
     "dice": "Máko trae un equipo entero para tu negocio: te lo presento en un minuto.",
     "rol": "gancho"
@@ -16,10 +101,16 @@
     "rol": "que-es"
    },
    {
-    "dice": "Toca aquí, en Funnel Coach, que arma contigo tu oferta y tu sistema para conseguir clientes.",
+    "dice": "Mira aquí, Offer Coach: arma contigo tu oferta.",
     "rol": "accion",
-    "sel": "button[title=\"Funnel Coach\"]",
-    "tipo": "toca"
+    "tipo": "mira",
+    "sel": "button[title=\"Offer Coach\"]"
+   },
+   {
+    "dice": "Y aquí, Funnel Coach: tu sistema para conseguir clientes.",
+    "rol": "accion",
+    "tipo": "mira",
+    "sel": "button[title=\"Funnel Coach\"]"
    },
    {
     "dice": "A la izquierda, tu panel con todas las pestañas: toca aquí, en Uso, para ver cuánto lleva gastado tu IA.",
@@ -100,7 +191,302 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
+ },
+ {
+  "id": "offer-coach",
+  "pestana": "Offer Coach",
+  "ruta": "/second-brain",
+  "icono": "lucide:tag",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Si tu oferta no convence, ningún anuncio la salva.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a Offer Coach: aquí armas tu oferta, que es todo lo que prometes y entregas.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Te pregunta una cosa a la vez, y si algo no conviene, te frena.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Al final te deja el diagnóstico de tu oferta, con su nota.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Mira aquí, la caja del chat: contéstale la primera pregunta.",
+    "rol": "cierre",
+    "tipo": "mira",
+    "sel": "[data-recorrido=\"sb-escribir\"]"
+   }
+  ]
+ },
+ {
+  "id": "funnel-coach",
+  "pestana": "Funnel Coach",
+  "ruta": "/second-brain",
+  "icono": "lucide:workflow",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Una oferta que nadie ve, no vende.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Te doy la bienvenida a Funnel Coach: aquí armas tu sistema para conseguir clientes.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Tu funnel es un solo camino, desde que alguien te ve hasta que te paga, y se arma alrededor de tu oferta.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Conviene empezar por uno: con varios a la vez, no ves cuál te trae clientes.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Funnel Coach te pregunta una cosa a la vez, y lo que elijas queda en tu CRM, con sus etapas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Mira aquí, la caja del chat: contéstale la primera pregunta.",
+    "rol": "cierre",
+    "tipo": "mira",
+    "sel": "[data-recorrido=\"sb-escribir\"]"
+   }
+  ]
+ },
+ {
+  "id": "reto-dia-1",
+  "pestana": "Reto · Día 1: tu oferta y tu sistema de adquisición",
+  "ruta": "/second-brain?reto=1",
+  "icono": "lucide:trophy",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 1 del reto de 7 días.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Tu onboarding ya está. Hoy armas tu oferta con Offer Coach, y después tu sistema para conseguir clientes con Funnel Coach.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Los dos te preguntan como un coach, una cosa a la vez, y tu funnel queda armado en el CRM.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+    "rol": "cierre"
+   }
+  ]
+ },
+ {
+  "id": "reto-dia-2",
+  "pestana": "Reto · Día 2: conecta todo",
+  "ruta": "/second-brain?reto=1",
+  "icono": "lucide:trophy",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Primero, Máko en tu teléfono: escaneas un QR, y los avisos de tu negocio te llegan al instante.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Después, la extensión para Chrome, para tener a Máko a mano mientras navegas.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "En Integraciones conectas sólo lo que necesita tu funnel, y al final, tu perfil y tu foto.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Para cerrar el día, dile a Máko por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+    "rol": "cierre"
+   }
+  ]
+ },
+ {
+  "id": "reto-dia-3",
+  "pestana": "Reto · Día 3: tus contactos",
+  "ruta": "/second-brain?reto=1",
+  "icono": "lucide:trophy",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Cargas tus clientes en el CRM, con un CSV o integrando el CRM que ya usas.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Y conectas tu calendario: las llamadas que agenden caen en tu agenda.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y pruébalo por WhatsApp: mándale a Máko un audio pidiéndole que cargue un lead en tu CRM.",
+    "rol": "cierre"
+   }
+  ],
+  "nota": "Sin la difusión: el Cerebro la está confirmando con Martín (nada invasivo, cuidar el baneo). Si dice que sí, se suma."
+ },
+ {
+  "id": "reto-dia-4",
+  "pestana": "Reto · Día 4: copia lo que le funciona a tu competencia",
+  "ruta": "/second-brain?reto=1",
+  "icono": "lucide:trophy",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "En Competitor Spy agregas a tres competidores y miras lo que más tiempo llevan activo: si sigue activo, es porque vende.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Después, en Web Generator pegas una página que ya vende, y la arma con tu oferta.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y por WhatsApp, pregúntale a Máko qué le está funcionando a tu competencia.",
+    "rol": "cierre"
+   }
+  ]
+ },
+ {
+  "id": "reto-dia-5",
+  "pestana": "Reto · Día 5: tu carrusel y tu guion",
+  "ruta": "/second-brain?reto=1",
+  "icono": "lucide:trophy",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "En Ímich replicas un carrusel que ya funcionó, con tu oferta.",
+    "rol": "que-es",
+    "ver": {
+     "ímich": "Image"
+    }
+   },
+   {
+    "dice": "Y en Copywriting escribes tu guion replicando a tu referente.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y por WhatsApp, mándale a Máko un audio con la idea de tu guion: te lo escribe.",
+    "rol": "cierre"
+   }
+  ]
+ },
+ {
+  "id": "reto-dia-6",
+  "pestana": "Reto · Día 6: tu video con IA",
+  "ruta": "/second-brain?reto=1",
+  "icono": "lucide:trophy",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "En Video, dentro de Ei-Ai Avatar, armas tu personaje con una foto tuya.",
+    "rol": "que-es",
+    "ver": {
+     "ei-ai": "AI"
+    }
+   },
+   {
+    "dice": "Y el clip de 10 segundos va de regalo, con el gancho del guion que escribiste ayer.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
+    "rol": "cierre"
+   }
+  ]
+ },
+ {
+  "id": "reto-dia-7",
+  "pestana": "Reto · Día 7: tu Marketing CoPilot",
+  "ruta": "/second-brain?reto=1",
+  "icono": "lucide:trophy",
+  "soloTexto": true,
+  "v4": true,
+  "v5": true,
+  "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 7, el último del reto.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Hoy tu Marketing CoPilot revisa todo lo que armaste: tu oferta, tu página y tu contenido.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Y te deja las tareas de cada semana en tu Plan.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Y mándale a Máko un audio por WhatsApp con cómo te fue en el reto.",
+    "rol": "cierre"
+   }
+  ]
  },
  {
   "id": "ops-center",
@@ -119,7 +505,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Eso es el Ops Center: le pides a Máko lo que necesites, con tus palabras, y lo hace por ti.",
+    "dice": "Te doy la bienvenida al Ops Center: en esta pestaña vas a poder pedirle a Máko lo que necesites, con tus palabras, y lo hace por ti.",
     "rol": "que-es"
    },
    {
@@ -170,7 +556,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "offer",
@@ -185,7 +572,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Offer es tu oferta en un chat con Máko, atada a un funnel: de ahí salen tu landing y tus guiones.",
+    "dice": "Te doy la bienvenida a Offer: en esta pestaña vas a poder armar tu oferta en un chat con Máko, y de ahí salen tu landing y tus guiones.",
     "rol": "que-es"
    },
    {
@@ -253,7 +640,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "copilot",
@@ -268,7 +656,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "El CoPilot hace de tu equipo de marketing: mira lo que publicas y lo que inviertes, y te dice qué hacer.",
+    "dice": "Te doy la bienvenida al Marketing CoPilot: aquí tienes tu equipo de marketing, que mira lo que publicas y lo que inviertes, y te dice qué hacer.",
     "rol": "que-es"
    },
    {
@@ -335,7 +723,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "settings-integraciones",
@@ -350,7 +739,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Integraciones, en Configuración, es donde le das acceso a tu negocio.",
+    "dice": "Te doy la bienvenida a Integraciones, en Settings: aquí vas a poder darle a Máko acceso a tu negocio.",
     "rol": "que-es"
    },
    {
@@ -423,7 +812,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "settings",
@@ -438,7 +828,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Tu perfil, en Configuración, se guarda sin botón: escribes, sales del campo y queda.",
+    "dice": "Te doy la bienvenida a tu perfil, en Settings: lo que escribes se guarda solo, al salir del campo.",
     "rol": "que-es"
    },
    {
@@ -514,7 +904,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "crm",
@@ -529,7 +920,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "El CRM pone tu venta en columnas, y arriba de cada una ves cuánto podría entrar.",
+    "dice": "Te doy la bienvenida al CRM: en esta pestaña vas a poder ver tu venta en columnas, y arriba de cada una, cuánto podría entrar.",
     "rol": "que-es"
    },
    {
@@ -617,7 +1008,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "ticketera",
@@ -632,7 +1024,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Ticketera es el chat donde le avisas al equipo de un error o de una idea de mejora, y Máko arma el ticket contigo.",
+    "dice": "Te doy la bienvenida a la Ticketera: en este chat vas a poder avisarle al equipo de un error o de una idea, y Máko arma el ticket contigo.",
     "rol": "que-es"
    },
    {
@@ -706,7 +1098,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "calendar",
@@ -721,7 +1114,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Calendar junta todo lo que tienes agendado, y las reuniones del CRM aparecen solas, con el nombre del lead.",
+    "dice": "Te doy la bienvenida a Calendar: en esta pestaña vas a poder ver todo lo que tienes agendado, y las reuniones del CRM aparecen solas.",
     "rol": "que-es"
    },
    {
@@ -794,7 +1187,8 @@
     }
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "automations",
@@ -809,7 +1203,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Automations manda mensajes solos: cuando alguien agenda, no se presenta o le vence una cuota.",
+    "dice": "Te doy la bienvenida a Automations: en esta pestaña vas a poder mandar mensajes solos cuando alguien agenda, no se presenta o le vence una cuota.",
     "rol": "que-es"
    },
    {
@@ -878,7 +1272,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "spy",
@@ -893,7 +1288,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Competitor Spy sigue las cuentas que eliges y te marca las piezas que rindieron varias veces más de lo normal.",
+    "dice": "Te doy la bienvenida a Competitor Spy: aquí sigues las cuentas que eliges, y te marca las piezas que rindieron varias veces más de lo normal.",
     "rol": "que-es"
    },
    {
@@ -962,7 +1357,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "copywriting",
@@ -977,7 +1373,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Copywriting te muestra los anuncios, reels y videos de YouTube que mejor rindieron en las cuentas que sigues.",
+    "dice": "Te doy la bienvenida a Copywriting: en esta pestaña vas a ver los anuncios, reels y videos que mejor rindieron en las cuentas que sigues.",
     "rol": "que-es"
    },
    {
@@ -1047,7 +1443,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "web",
@@ -1062,7 +1459,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Web Generator te muestra páginas que venden, y cada una trae su botón Replicar.",
+    "dice": "Te doy la bienvenida a Web Generator: aquí vas a ver páginas que venden, y cada una trae su botón Replicar.",
     "rol": "que-es"
    },
    {
@@ -1135,7 +1532,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "plan",
@@ -1150,7 +1548,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "El Plan ordena tu negocio en un Objetivo Principal y cinco tareas para ahora; lo demás va en Tareas, Proyectos y Recurrentes.",
+    "dice": "Te doy la bienvenida al Plan: aquí tu negocio se ordena en un Objetivo Principal y cinco tareas para ahora.",
     "rol": "que-es"
    },
    {
@@ -1222,7 +1620,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "dashboard",
@@ -1237,7 +1636,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "El Dashboard arranca vacío a propósito: lo llenas con hojas de lo que quieres ver.",
+    "dice": "Te doy la bienvenida al Dashboard: arranca vacío a propósito, y aquí vas a poder llenarlo con hojas de lo que quieres ver.",
     "rol": "que-es"
    },
    {
@@ -1303,7 +1702,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "classroom",
@@ -1318,7 +1718,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Classroom es tu curso, y cada módulo es una etapa de tu entrega, del primer día hasta el final.",
+    "dice": "Te doy la bienvenida a Classroom: aquí vas a poder armar tu curso, y cada módulo es una etapa de tu entrega.",
     "rol": "que-es"
    },
    {
@@ -1389,7 +1789,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "avatar",
@@ -1404,7 +1805,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Ei-Ai Avatar te pone en esas escenas con IA, en cuatro pasos.",
+    "dice": "Te doy la bienvenida a Ei-Ai Avatar: aquí vas a poder ponerte en esas escenas con IA, en cuatro pasos.",
     "rol": "que-es",
     "ver": {
      "ei-ai": "AI"
@@ -1490,7 +1891,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "video",
@@ -1505,7 +1907,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "En Video, Máko arma tus videos a partir de una frase o de una plantilla.",
+    "dice": "Te doy la bienvenida a Video: aquí vas a poder armar tus videos con Máko, a partir de una frase o de una plantilla.",
     "rol": "que-es"
    },
    {
@@ -1576,7 +1978,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "image",
@@ -1591,7 +1994,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Ímich te arma esas piezas, y cada miniatura de YouTube viene en dos versiones para probar cuál se toca más.",
+    "dice": "Te doy la bienvenida a Ímich: aquí vas a poder armar esas piezas, y cada miniatura de YouTube viene en dos versiones para probar cuál se toca más.",
     "rol": "que-es",
     "ver": {
      "ímich": "Image"
@@ -1666,7 +2069,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "chats",
@@ -1681,7 +2085,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Chats junta los mensajes de tus clientes, escriban por donde escriban, y en WhatsApp Máko te sugiere qué contestar.",
+    "dice": "Te doy la bienvenida a Chats: aquí vas a leer los mensajes de tus clientes, escriban por donde escriban, y en WhatsApp Máko te sugiere qué contestar.",
     "rol": "que-es"
    },
    {
@@ -1753,7 +2157,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "classroom-community",
@@ -1768,7 +2173,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Community, una de las pestañas de Classroom, es donde conversan entre ellos, contigo y con tu equipo.",
+    "dice": "Te doy la bienvenida a Community, dentro de Classroom: aquí conversan tus alumnos entre ellos, contigo y con tu equipo.",
     "rol": "que-es"
    },
    {
@@ -1842,7 +2247,8 @@
    }
   ],
   "v4": true,
-  "soloPro": true
+  "soloPro": true,
+  "v5": true
  },
  {
   "id": "classroom-clients",
@@ -1857,7 +2263,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Clients, en Classroom, te muestra en qué etapa de tu servicio va cada lead que ganaste en el CRM.",
+    "dice": "Te doy la bienvenida a Clients, dentro de Classroom: aquí vas a ver en qué etapa de tu servicio va cada cliente que ganaste en el CRM.",
     "rol": "que-es"
    },
    {
@@ -1925,7 +2331,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "classroom-calendar",
@@ -1940,7 +2347,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "El Calendar del curso arma esas citas con tus alumnos.",
+    "dice": "Te doy la bienvenida al Calendar del curso: aquí vas a poder armar esas citas con tus alumnos.",
     "rol": "que-es"
    },
    {
@@ -2013,7 +2420,8 @@
    }
   ],
   "v4": true,
-  "soloPro": true
+  "soloPro": true,
+  "v5": true
  },
  {
   "id": "classroom-leaderboards",
@@ -2028,7 +2436,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Leaderboards, dentro de Classroom, es el ranking de tu comunidad.",
+    "dice": "Te doy la bienvenida a Leaderboards, dentro de Classroom: aquí vas a ver el ranking de tu comunidad.",
     "rol": "que-es"
    },
    {
@@ -2098,7 +2506,8 @@
    }
   ],
   "v4": true,
-  "soloPro": true
+  "soloPro": true,
+  "v5": true
  },
  {
   "id": "classroom-about",
@@ -2113,7 +2522,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "About, otra pestaña de Classroom, cuenta de qué se trata y qué se espera de cada miembro.",
+    "dice": "Te doy la bienvenida a About, dentro de Classroom: aquí cuentas de qué se trata tu comunidad y qué se espera de cada miembro.",
     "rol": "que-es"
    },
    {
@@ -2189,7 +2598,8 @@
    }
   ],
   "v4": true,
-  "soloPro": true
+  "soloPro": true,
+  "v5": true
  },
  {
   "id": "settings-seguridad",
@@ -2204,7 +2614,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Seguridad, en Configuración, te muestra lo que le falta a tu cuenta para protegerla.",
+    "dice": "Te doy la bienvenida a Seguridad, en Settings: aquí vas a ver lo que le falta a tu cuenta para protegerla.",
     "rol": "que-es"
    },
    {
@@ -2279,7 +2689,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "settings-notificaciones",
@@ -2294,7 +2705,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "En Notificaciones, dentro de Configuración, eliges por dónde te avisa: En la app, Celular, WhatsApp o Email.",
+    "dice": "Te doy la bienvenida a Notificaciones, en Settings: aquí eliges por dónde te avisa: En la app, Celular, WhatsApp o Email.",
     "rol": "que-es"
    },
    {
@@ -2362,7 +2773,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "settings-instalar",
@@ -2377,7 +2789,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Instalar la app, en Configuración, te guía en cada uno.",
+    "dice": "Te doy la bienvenida a Instalar la app, en Settings: aquí te guío en cada uno.",
     "rol": "que-es"
    },
    {
@@ -2450,7 +2862,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "settings-equipo",
@@ -2465,7 +2878,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Equipo, en Configuración, suma a quien trabaja contigo, con su rol.",
+    "dice": "Te doy la bienvenida a Equipo, en Settings: aquí vas a poder sumar a quien trabaja contigo, con su rol.",
     "rol": "que-es"
    },
    {
@@ -2535,7 +2948,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "settings-fiscal",
@@ -2550,7 +2964,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Identidades fiscales, en Configuración, guarda tu moneda y cada empresa con la que facturas.",
+    "dice": "Te doy la bienvenida a Identidades fiscales, en Settings: aquí guardas tu moneda y cada empresa con la que facturas.",
     "rol": "que-es"
    },
    {
@@ -2618,7 +3032,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "settings-plan",
@@ -2633,7 +3048,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Tu plan, en Configuración, te dice qué día termina tu prueba gratis y cuánto se cobra.",
+    "dice": "Te doy la bienvenida a Tu plan, en Settings: aquí vas a ver qué día termina tu prueba gratis y cuánto se cobra.",
     "rol": "que-es"
    },
    {
@@ -2693,7 +3108,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "partners",
@@ -2708,7 +3124,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Máko Partners, en el menú de tu foto, te paga por recomendar Máko.",
+    "dice": "Te doy la bienvenida a Máko Partners, en el menú de tu foto: aquí vas a poder ganar dinero por recomendar Máko.",
     "rol": "que-es"
    },
    {
@@ -2780,7 +3196,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "agency",
@@ -2795,7 +3212,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Agency Dashboard, en las opciones de tu foto, junta las cuentas de tus clientes.",
+    "dice": "Te doy la bienvenida a Agency Dashboard, en el menú de tu foto: aquí juntas las cuentas de tus clientes.",
     "rol": "que-es"
    },
    {
@@ -2865,7 +3282,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "api",
@@ -2880,7 +3298,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Con la API, que sale al pasar el cursor por tu foto, esas herramientas leen y escriben en tu cuenta.",
+    "dice": "Te doy la bienvenida a la API, en el menú de tu foto: aquí vas a poder hacer que esas herramientas lean y escriban en tu cuenta.",
     "rol": "que-es"
    },
    {
@@ -2953,7 +3371,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  },
  {
   "id": "report-problem",
@@ -2968,7 +3387,7 @@
     "rol": "gancho"
    },
    {
-    "dice": "Report a problem, al apoyar el cursor sobre tu foto, lleva tu pedido al equipo.",
+    "dice": "Te doy la bienvenida a Report a problem, en el menú de tu foto: aquí le llevas tu pedido al equipo.",
     "rol": "que-es"
    },
    {
@@ -3038,6 +3457,7 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "v5": true
  }
 ]
