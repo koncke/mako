@@ -32,6 +32,9 @@
 // que valga para todos los canales»; f20: «no está en Instagram». Desde ese día, UN bloque «Todos los canales» con Goteo y
 // Tope por día, que valen para WhatsApp, email, Instagram y Messenger (cada canal cuenta lo suyo, lib/goteo.ts). Si vuelve a
 // aparecer un interruptor por canal, es una regresión.
+//
+// 18/11/2026 (F79 de docs/pendientes-verificados-17-11.md): la fila «Días» del bloque, para gotear sólo algunos días sin
+// achicar el horario entero (el motor los aplicaba desde el 9/11, y nadie los podía guardar). `FilaDias`, abajo.
 // =============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -39,10 +42,12 @@ import { Spinner } from '@/app/_ui';
 import { HorarioEnvioPanel, Interruptor, type FuenteHorario } from '@/app/configuraciones/HorarioEnvioPanel';
 import { getConfigAutomatizacionAction, saveConfigAutomatizacionAction } from './config-automatizacion-actions';
 import { Numero } from './LimitesEnvioPanel';
-import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpciones';
-import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
+import { BotonesDias, FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpciones';
+import { HORARIO_SUGERIDO, type DiaSemana } from '@/lib/horario-envio';
 import { textoPrioridad } from '@/lib/nutricion-prioridad';
-import { RANGOS_GOTEO, horarioParaMostrar, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import {
+  ERROR_SIN_DIAS, RANGOS_GOTEO, alternarDiaDeGoteo, diasAlPrenderGoteo, horarioParaMostrar, type ConfigAutomatizacion,
+} from '@/lib/config-automatizacion';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
@@ -102,7 +107,7 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
 }
 
 /** Un cambio del goteo de esta automatización: los campos que cambian (`null` = se saca). */
-type CambioGoteo = Record<string, number | null | { dia: number; sube: number }>;
+type CambioGoteo = Record<string, number | null | { dia: number; sube: number } | DiaSemana[]>;
 
 /** El ⓘ del bloque: para qué canales vale, y cómo cuenta (lib/goteo.ts). */
 export const INFO_TODOS_LOS_CANALES = 'Valen para WhatsApp, email, Instagram y Messenger: cada canal cuenta sus mensajes.';
@@ -189,8 +194,36 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
       filaGoteo('dia', 'Tope por día', 'el tope por día', 'Hasta', 'por día', 'Cuántos mensajes de esta automatización salen como mucho por día.', Math.min(50, d.lineaWa.dia)),
       <FilaArranque key="arranque" tope={leido('dia')} arranque={('arranque' in local ? local.arranque as { dia: number; sube: number } | null : d.config.goteo?.arranque) ?? undefined}
         off={off} error={invalido.arranque} guardar={guardar} onInvalido={(e) => setInvalido((p) => ({ ...p, arranque: e ?? '' }))} rangoDia={rangos.dia} />,
+      <FilaDias key="dias" dias={('dias' in local ? local.dias as DiaSemana[] | null : d.config.goteo?.dias) ?? undefined}
+        alPrender={diasAlPrenderGoteo(horarioParaMostrar(d.config, d.horarioNegocio))}
+        off={off} error={invalido.dias} guardar={guardar} onInvalido={(e) => setInvalido((p) => ({ ...p, dias: e }))} />,
     ] : [],
   };
+}
+
+/**
+ * «DÍAS» DEL GOTEO (18/11/2026, F79): en qué días de la semana salen sus mensajes, aparte del horario (lo que el motor ya
+ * aplicaba desde el 9/11, `hoyGotea`). Como las filas de al lado: el interruptor en la fila y lo que se elige debajo, sólo
+ * prendida. Al prenderla arranca con los días del horario que vale (no cambia nada hasta sacar un día); apagada, los del
+ * horario (`dias: null`). Sacar el último día no se guarda: se dice, y lo de antes sigue mandando (como el horario).
+ */
+function FilaDias({ dias, alPrender, off, error, guardar, onInvalido }: {
+  dias: DiaSemana[] | undefined; alPrender: DiaSemana[]; off: boolean; error?: string;
+  guardar: (c: CambioGoteo) => void; onInvalido: (e: string) => void;
+}) {
+  const on = !!dias?.length;
+  return (
+    <FilaOpcion nombre="Días" info="En qué días salen sus mensajes. Apagado, los de su horario." error={error} datos={{ 'data-goteo-campo': 'dias' }}
+      interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? 'Apagar los días del goteo' : 'Prender los días del goteo'} onCambio={(x) => { onInvalido(''); guardar({ dias: x ? alPrender : null }); }} />}
+      debajo={on && dias ? (
+        <BotonesDias dias={dias} disabled={off} onAlternar={(dia) => {
+          const nuevo = alternarDiaDeGoteo(dias, dia);
+          if (!nuevo) { onInvalido(ERROR_SIN_DIAS); return; }
+          onInvalido('');
+          guardar({ dias: nuevo });
+        }} />
+      ) : undefined} />
+  );
 }
 
 /** EL ARRANQUE GRADUAL (lib/goteo.ts): sólo con tope por día, que es hasta dónde sube, y al apagar el tope se va con él (`configParaGuardar`). */

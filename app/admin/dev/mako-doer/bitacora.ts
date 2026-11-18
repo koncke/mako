@@ -949,4 +949,22 @@ export const BITACORA: Hito[] = [
       'tests/credito-modelo-router.test.ts · tests/credito-grupos.test.ts (10)',
     ],
   },
+  {
+    fecha: '18 nov', hora: '01:33', chat: 'De octubre: O40 y O12', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los avisos de MaKo al grupo salen con el dominio real de MaKo, también en el hilo de la app',
+    puntos: [
+      'Un link que la IA escribe con una letra cambiada («hola-malo.com/crm/…») se corregía sólo en la respuesta de MaKo. Ahora también en los avisos que redacta la IA y en las tarjetas por partes.',
+      'El hilo del grupo en la app queda con el mismo link que WhatsApp, y el eco ya no sale como una burbuja doble.',
+      'El sitio propio del negocio no se toca.',
+      '**Cómo se prueba:** un aviso de una automatización con un link a una ficha llega al grupo con hola-mako.com y su workspace.',
+    ],
+    commits: [
+      { sha: 'bbc434a1e', msg: 'Los avisos de MaKo al grupo salen con el dominio real de MaKo, también en el hilo de la app', lineas: 180, archivos: 5 },
+    ],
+    archivos: [
+      'lib/links-con-ws.ts — `linksConWs` corrige el dominio antes de pegar el workspace',
+      'tests/grupo-dominio-real.test.ts — las salidas reales al grupo, la copia y el eco; dos roturas, cada una cae',
+    ],
+  },
 ];

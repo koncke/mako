@@ -1,0 +1,181 @@
+{
+ "_": "Los tutoriales en video de cada pestaña de MaKo (texto al ritmo de la voz de Martín, su clon de ElevenLabs). Los arma scripts/tutorial-animado/hacer.mjs; key = id del guion en scripts/tutorial-animado/guiones.json.",
+ "videos": [
+  {
+   "key": "ops-center",
+   "pestana": "Ops Center",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/ops-center.mp4",
+   "poster": "/tutoriales/ops-center.jpg",
+   "duracion_s": 27.1,
+   "peso_kb": 898,
+   "guion": "Aquí no se busca nada: se pide. Un tema, un chat. Así MaKo no mezcla una conversación con otra. El reto tiene su propio chat, Reto de 7 días: ahí te espera el video de cada día. ¿Estás en la calle? Grábale una nota de voz. En Uso ves qué cuenta de IA trabaja para ti y cuánto lleva gastado. Y para arrancar, toca «¿Qué hago hoy?». MaKo mira tu negocio y te ordena el día.",
+   "pantallas": [
+    {
+     "paso": 1,
+     "sel": "[data-recorrido=\"sb-escribir\"]",
+     "marcado": true
+    },
+    {
+     "paso": 2,
+     "sel": "[data-recorrido=\"sb-nuevo\"]",
+     "marcado": true
+    },
+    {
+     "paso": 6,
+     "sel": "[data-recorrido=\"tour-ops-center-que-hago-hoy\"]",
+     "marcado": true
+    }
+   ],
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "7 → siete (ortografía del transcriptor)",
+   "hecho": "2026-11-18T04:50:50.273Z"
+  },
+  {
+   "key": "offer",
+   "pestana": "Offer",
+   "ruta": "/offer",
+   "archivo": "/tutoriales/offer.mp4",
+   "poster": "/tutoriales/offer.jpg",
+   "duracion_s": 25.3,
+   "peso_kb": 1488,
+   "guion": "Lo que le contaste a MaKo de tu oferta sigue aquí, en la misma conversación. A la derecha, tu oferta se arma sola con cada respuesta. De ahí salen tu landing y tus guiones. Con la flecha ves tus funnels, sus ofertas y cada análisis. Cuando quieras ir a fondo, toca Analicemos mi oferta. Te marca qué la hace fuerte, qué le falta para vender más y te arma la versión mejorada, en PDF.",
+   "pantallas": [
+    {
+     "paso": 1,
+     "sel": "section[aria-label=\"MaKo en Offer\"]",
+     "marcado": true
+    },
+    {
+     "paso": 2,
+     "sel": "[aria-label=\"Tu oferta\"]",
+     "marcado": true
+    },
+    {
+     "paso": 4,
+     "sel": "texto=Analicemos mi oferta",
+     "marcado": true
+    }
+   ],
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T04:45:52.906Z"
+  },
+  {
+   "key": "copilot",
+   "pestana": "Marketing CoPilot",
+   "ruta": "/ads-manager/copiloto",
+   "archivo": "/tutoriales/copilot.mp4",
+   "poster": "/tutoriales/copilot.jpg",
+   "duracion_s": 29.9,
+   "peso_kb": 1180,
+   "guion": "El CoPilot hace de tu equipo de marketing: mira lo que publicas y lo que inviertes, y te dice qué hacer. Antes, tres preguntas cortas, una por pantalla. Marca por dónde vendes. Puede ser más de uno. Con el tiempo que tengas para crear, MaKo calcula cuánto publicar en cada red. Después analiza tu oferta, tu web, tus anuncios, Instagram y YouTube. Lo que te toca va directo a tu Plan, y el piloto no lanza un anuncio sin tu OK. Toca Seguir y arranca.",
+   "pantallas": [
+    {
+     "paso": 3,
+     "sel": "[data-recorrido=\"tour-copilot-canales\"]",
+     "marcado": true
+    },
+    {
+     "paso": 6,
+     "sel": "[data-recorrido=\"tour-copilot-seguir\"]",
+     "marcado": true
+    }
+   ],
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "ok → okey (ortografía del transcriptor)",
+   "hecho": "2026-11-18T04:52:33.785Z"
+  },
+  {
+   "key": "settings-integraciones",
+   "pestana": "Integraciones",
+   "ruta": "/integraciones",
+   "archivo": "/tutoriales/settings-integraciones.mp4",
+   "poster": "/tutoriales/settings-integraciones.jpg",
+   "duracion_s": 30.67,
+   "peso_kb": 1158,
+   "guion": "Sin tus cuentas conectadas, MaKo trabaja a ciegas. En Integraciones le das acceso a tu negocio. Está en Configuración: toca tu foto, abajo a la izquierda, y entra en Integraciones. Arriba están tus cuentas de IA: el Claude, el GPT o el Gemini con el que trabaja MaKo. Después, cada servicio en su tarjeta: tu WhatsApp con su QR, Instagram y Facebook por Zernio, tus cobros y tu agenda. Conecta sólo lo que usas: cada tarjeta te lleva paso a paso.",
+   "pantallas": [
+    {
+     "paso": 2,
+     "sel": "a[href=\"/integraciones\"]",
+     "marcado": true
+    }
+   ],
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T04:49:22.405Z"
+  },
+  {
+   "key": "settings",
+   "pestana": "Configuración › Tu perfil",
+   "ruta": "/perfil",
+   "archivo": "/tutoriales/settings.mp4",
+   "poster": "/tutoriales/settings.jpg",
+   "duracion_s": 32.77,
+   "peso_kb": 1320,
+   "guion": "Tu perfil está en Configuración: se abre desde tu foto, abajo a la izquierda. Aquí no hay botón de guardar: escribes, sales del campo y queda. El nombre del negocio que pongas cambia en toda la app. Tu zona horaria decide en qué horario MaKo no te molesta. En Equipo sumas a quien vende contigo, con el rol que le toca. MaKo en el teléfono, la computadora y el navegador se instala desde aquí. Y lo más importante: en Integraciones conectas tus cuentas. Sin ellas, MaKo no ve tu negocio.",
+   "pantallas": [
+    {
+     "paso": 2,
+     "sel": "input[aria-label=\"Nombre\"]",
+     "marcado": true
+    },
+    {
+     "paso": 6,
+     "sel": "a[href=\"/perfil/instalar\"]",
+     "marcado": true
+    },
+    {
+     "paso": 7,
+     "sel": "a[href=\"/integraciones\"]",
+     "marcado": true
+    }
+   ],
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T04:54:08.802Z"
+  },
+  {
+   "key": "crm",
+   "pestana": "CRM",
+   "ruta": "/crm",
+   "archivo": "/tutoriales/crm.mp4",
+   "poster": "/tutoriales/crm.jpg",
+   "duracion_s": 28.37,
+   "peso_kb": 1358,
+   "guion": "Cada columna es un paso de tu venta. Tu trabajo es que cada lead llegue a Ganado. Arriba de cada etapa ves cuánto podría entrar. En Ganado, lo que ya vendiste. Para cambiar a alguien de etapa sin arrastrar, toca Ver info y Mover a. Las reuniones de los próximos días esperan en este número. ¿Buscas a alguien? Escribe su nombre, o su número con numeral adelante. Y si ya tienes una lista, impórtala entera desde Más acciones.",
+   "pantallas": [
+    {
+     "paso": 2,
+     "sel": "[data-colkey=\"ganado\"]",
+     "marcado": true
+    },
+    {
+     "paso": 3,
+     "sel": "[data-lead-id=\"101\"] button[title=\"La ficha rápida, con «Mover a…»\"]",
+     "marcado": true
+    },
+    {
+     "paso": 4,
+     "sel": "button[aria-label^=\"Ver las\"]",
+     "marcado": true
+    },
+    {
+     "paso": 6,
+     "sel": "[data-recorrido=\"crm-mas\"]",
+     "marcado": true
+    }
+   ],
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T04:43:51.269Z"
+  }
+ ]
+}
