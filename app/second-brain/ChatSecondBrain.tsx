@@ -248,7 +248,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const [eligiendoReferente, setEligiendoReferente] = useState(false);
   const gurusConCharla = useGurusConCharla(guru);
   const delCoach = asesorPorId(referente);
-  const k = useChatCliente({ elegido, setElegido, activo: !ops, entrarAlCerebro: !ops, chatInicial, opcionArmar, busca, caja, aspectoOffer: delCoach ? aspectoDeReferente(delCoach.id) : null });
+  // El aviso del «⋯» de una fila (F96): el Toast de la casa, como el del super admin (ConCentro). En Ops Center lo pone ConCentro.
+  const avisoMenu = useToast();
+  const k = useChatCliente({ elegido, setElegido, activo: !ops, entrarAlCerebro: !ops, chatInicial, opcionArmar, busca, caja, aspectoOffer: delCoach ? aspectoDeReferente(delCoach.id) : null,
+    avisar: (t, tono) => avisoMenu.show(t, undefined, tono) });
   const { idOffer, idAntes } = k;
   // El Second Brain del gurú de una conversación de Offer, en el lugar de la conversación (SuSecondBrain.tsx). Se guarda PARA QUÉ
   // conversación se abrió: cambiar de chat vuelve a la conversación sin un efecto que lo apague.
@@ -425,7 +428,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     return (
       <FilaDeChat key={f.clave} titulo={f.titulo} criatura={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} actual={actual}
         texto={sub ? partesDelNombre(f.titulo).sub ?? f.titulo : f.titulo} sub={sub}
-        hace={edadCorta(f.actividad, k.ahora)} previa={vivo ? <RenglonDeFila vivo /> : null} onElegir={() => elegir(f.elegido)} />
+        hace={edadCorta(f.actividad, k.ahora)} previa={vivo ? <RenglonDeFila vivo /> : null} onElegir={() => elegir(f.elegido)}
+        onMenu={k.menuDeFila(f)} />
     );
   };
 
@@ -672,6 +676,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         </div>
       )}
       {centro && <MenusCentro centro={centro} />}
+      {/* El «⋯» de las filas de SUS chats con MaKo (F96): el mismo menú, con el motor del cliente (useChatCliente). */}
+      <MenusCentro chats={k.menuDeChats} />
+      {!centro && <Toast state={avisoMenu.toast} onClose={avisoMenu.clear} />}
       {eligiendoReferente && <ElegirReferente titulo={ORIGEN_FUNNEL_COACH} elegido={referente} onCerrar={() => setEligiendoReferente(false)} onElegir={(id) => { setEligiendoReferente(false); elegirReferente(id); }} />}
       {/* «Tus cuentas de IA» ahí mismo (/perfil/ia): conectar su computadora con su Claude o, si es admin, la clave. */}
       {k.conectando && (

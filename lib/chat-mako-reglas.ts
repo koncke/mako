@@ -16,6 +16,7 @@ import type { MensajeChat, SesionChat } from './mako-turno-app-reglas';
 import { asesorPorId, type IdAsesor } from './asesores/catalogo';
 import type { MensajeChatMako } from './automatizacion-chat';
 import { sinDesde } from './chat-desde';
+import type { Aspecto } from './centro-munecos';
 
 /** El nombre del jefe del chat con MaKo: «Cerebro», con la estrella de MaKo (lib/centro-munecos.ts → esCriaturaDeMako), como el
  *  del Ops Center del super admin (21/10/2026, Martín: «El chat principal, al igual que SuperAdmin, debe ser "Cerebro" y tener la
@@ -600,3 +601,25 @@ export function listaDelCliente(p: {
 
 /** ¿Es la fila de lo elegido? (la de un chat nuevo no está en la lista). */
 export const esFilaDe = (f: Pick<FilaDelCliente, 'elegido'>, e: ElegidoChat | null): boolean => e != null && JSON.stringify(f.elegido) === JSON.stringify(e);
+
+// ── El «⋯» de una fila del Ops Center del cliente (F96, 18/11/2026) ─────────────────────────────────────────────────
+// El mismo menú del super admin (app/admin/operaciones/PiezasCentro.tsx → MenusCentro): Renombrar y Cambiar su criatura. Lo
+// tienen SÓLO las conversaciones con MaKo de la persona (`s<id>`): el Cerebro es la casa (no se renombra y lleva siempre la
+// estrella), la fila jefe de un grupo no es un chat, y lo de Offer, de antes, de Automations o de un editor se cambia en su tab.
+// La ruta lo vuelve a mirar (lib/mako-turno-app.ts → renombrarSesion, ponerMunecoDeSesion): esto sólo decide qué fila lo ofrece.
+
+/** La conversación del «⋯» de una fila, o null si esa fila no lo tiene. */
+export function idConMenu(f: Pick<FilaDelCliente, 'clave' | 'elegido' | 'origen' | 'jefeDeGrupo'>): number | null {
+  if (f.origen !== 'mako' || f.jefeDeGrupo || !('id' in f.elegido)) return null;
+  return f.clave === `s${f.elegido.id}` ? f.elegido.id : null;
+}
+/** La fila con la criatura que la persona eligió con el «⋯» (lib/chat-munecos.ts, por id): le gana a la de su nombre, y sólo en
+ *  una fila que tiene el «⋯» (nunca el Cerebro, que es la estrella). Sin elegida, la fila tal cual. */
+export function conCriaturaElegida<F extends Parameters<typeof idConMenu>[0] & { aspecto: Aspecto | null }>(f: F, munecos: Readonly<Record<string, Aspecto>>): F {
+  const id = idConMenu(f);
+  const suya = id != null ? munecos[String(id)] : undefined;
+  return suya ? { ...f, aspecto: suya } : f;
+}
+/** Lo que contesta la ruta si se le pide renombrar el Cerebro, o cambiarle la criatura. */
+export const NO_RENOMBRA_EL_PRINCIPAL = `«${NOMBRE_JEFE}» es tu chat principal: no se renombra.`;
+export const NO_CAMBIA_LA_ESTRELLA = `«${NOMBRE_JEFE}» lleva siempre la estrella de MaKo.`;

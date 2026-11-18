@@ -1,7 +1,8 @@
 // =============================================================================
 // /api/mako/chat — el chat con MaKo del Second Brain (la pieza única, en la computadora)
 // =============================================================================
-// GET  ?sesiones=1                                   → { ok, sesiones }             las de ESTA persona
+// GET  ?sesiones=1                                   → { ok, sesiones, munecos }    las de ESTA persona, con la criatura que
+//                                                      eligió para cada una (null = no se pudo leer: la de su nombre)
 // GET  ?trabajo=<llave>                              → { ok, texto, bloques }       cómo va un trabajo largo (1.11)
 // GET  ?sessionId=N                                  → { ok, sesion, mensajes, propuestas }
 // GET  ?antes=1                                      → { ok, antes }    los chats de «Pregúntale a MaKo»
@@ -19,6 +20,9 @@
 //                                                      ofrece «Conectar tu Claude» (21/10/2026)
 // POST { action:'marcar', chat, cambio }             → { ok, marcas }
 // POST { action:'new' }                              → { ok, sesion }               sin saludo del modelo
+// POST { action:'renombrar', sessionId, nombre }     → { ok, sesion }   el «⋯» de una fila (F96, 18/11/2026): uno de SUS chats,
+//                                                      nunca el Cerebro
+// POST { action:'criatura', sessionId, aspecto|null } → { ok, munecos } el mismo «⋯»: su criatura, o null para la de su nombre
 // POST { action:'send', sessionId, mensaje }         → RespuestaTurno
 // POST multipart: mensaje, sessionId, adjuntos[]     → RespuestaTurno               (fotos y PDF, como el teléfono)
 // POST multipart: sessionId, voz (MP3), vozSecs      → RespuestaTurno               la nota de voz, SOLA (OC7, 22/10/2026):
@@ -42,7 +46,7 @@
 import type { NextRequest } from 'next/server';
 import { TEXTO_SIN_PERMISO_IA, esSinPermisoIa } from '@/lib/ia-permiso-reglas';
 import {
-  personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, sesionDeTab, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
+  personaDelRequest, listarSesiones, munecosDeLaPersona, renombrarSesion, ponerMunecoDeSesion, abrirSesion, nuevaSesion, sesionDeTab, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
   urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
@@ -197,7 +201,11 @@ export async function GET(req: NextRequest) {
   if ('error' in persona) return json({ ok: false, error: persona.error }, persona.status);
   const sp = req.nextUrl.searchParams;
   try {
-    if (sp.get('sesiones')) return json({ ok: true, sesiones: await listarSesiones(persona) });
+    if (sp.get('sesiones')) {
+      // Las criaturas que eligió (F96): si no se pudieron leer, la lista sale igual y cada fila con la de su nombre.
+      const [sesiones, munecos] = await Promise.all([listarSesiones(persona), munecosDeLaPersona(persona).catch(() => null)]);
+      return json({ ok: true, sesiones, munecos });
+    }
     // La conversación de una tab con chat propio (el Second Brain, 23/10/2026), si ya existe: se lee, no se crea.
     if (sp.has('deTab')) {
       // SÓLO MaKo Pro el chat con un GURÚ (14/11/2026, lib/asesores/candado.ts): a un Essential no se le abre su conversación.
@@ -391,7 +399,7 @@ export async function POST(req: NextRequest) {
       return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
     }
   }
-  let body: { action?: unknown; tab?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown; ia?: unknown; referente?: unknown; referentes?: unknown };
+  let body: { action?: unknown; tab?: unknown; sessionId?: unknown; nombre?: unknown; aspecto?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown; ia?: unknown; referente?: unknown; referentes?: unknown };
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Pedido inválido.' }, 400); }
   try {
     if (body.action === 'new') {
@@ -419,6 +427,19 @@ export async function POST(req: NextRequest) {
       const cambio = sanearCambio(body.cambio);
       if (!esChatDeMarcas(body.chat) || !cambio) return json({ ok: false, error: 'Elige el mensaje otra vez.' }, 400);
       return json({ ok: true, marcas: await marcarEnElChat(persona, body.chat, cambio) });
+    }
+
+    // El «⋯» de una fila del Ops Center (F96, 18/11/2026: el menú del super admin, MenusCentro). Sólo sobre SUS conversaciones
+    // con MaKo (`persona.chartKey`, en `persona.ws`): ni un chat de antes ni el de otra persona, que contestan 404. Sin IA.
+    if (body.action === 'renombrar' || body.action === 'criatura') {
+      const id = enteroDe(body.sessionId);
+      if (id == null) return json({ ok: false, error: 'Falta el chat.' }, 400);
+      if (body.action === 'renombrar') {
+        const r = await renombrarSesion(persona, id, typeof body.nombre === 'string' ? body.nombre : '');
+        return r.ok ? json({ ok: true, sesion: r.sesion }) : json({ ok: false, error: r.error }, r.status);
+      }
+      const r = await ponerMunecoDeSesion(persona, id, body.aspecto ?? null);
+      return r.ok ? json({ ok: true, munecos: r.munecos }) : json({ ok: false, error: r.error }, r.status);
     }
 
     const sessionId = enteroDe(body.sessionId);

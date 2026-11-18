@@ -28,6 +28,45 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## El «⋯» del Ops Center del cliente: el MISMO menú del super admin, no una copia (18/11/2026, F96)
+
+**El pedido** (docs/relevo/centro-operaciones.md, tanda 9): cada chat del cliente con su «⋯», Renombrar y «Cambiar su
+muñeco», y la lista leyendo los muñecos. El relevo decía «el «⋯» de las filas de Claude Code ya existe (`MenusCentro`):
+copiarlo». **Copiarlo era el error**: dos menús del mismo gesto se desincronizan (AGENTS.md: el «⋯» y el clic derecho de lo
+mismo son UN menú). Lo que hubo que resolver para que sea UNO:
+
+- **`MenusCentro` estaba tipado contra `Centro`** (useCentro), y el cliente es otro motor: sus muñecos van por CONVERSACIÓN
+  (lib/chat-munecos.ts, `chats.munecos:<persona>`) y los del super admin por NOMBRE; renombrar allá es un trabajo firmado a cada
+  cuenta y acá una escritura en `chart_sessions`. La salida fue darle a la pieza una entrada ESTRUCTURAL (`MenuDeChats`, en
+  PiezasCentro.tsx) con lo que el JSX lee —qué ofrece, el texto, el ánimo, si ya hay una elegida— y dejar cada motor en su lado:
+  `menuDelCentro(k)` arma la del super admin (el comportamiento de antes, línea por línea) y useChatCliente la del cliente.
+- **Qué fila lo ofrece lo decide `idConMenu`** (lib/chat-mako-reglas.ts), por la CLAVE: sólo una conversación con MaKo
+  (`s<id>`). El Cerebro no (su clave es `jefe` y su `elegido` es `{ id }`: mirar sólo el `elegido` le colgaba el menú), la fila
+  jefe de un grupo tampoco (lleva el `elegido` de su primer chat y la clave `jefe:<nombre>`; la marca `jefeDeGrupo` es la segunda
+  guarda), y lo de Offer, de antes, de Automations o de un editor se cambia en su tab.
+- **El id de una fila de Offer puede coincidir con el de una conversación** (`o7` y `s7`): la criatura elegida se aplica por
+  `idConMenu`, nunca por `'id' in f.elegido`, o la de la conversación 7 le cambiaba la cara a la oferta 7 (`conCriaturaElegida`,
+  rotura R7 del test).
+- **La criatura elegida va en un `.map` APARTE**, después del que pone la de su nombre: tests/ops-center-lista-cliente.test.ts
+  fija la línea de la de su nombre, y lo nuevo va en líneas propias (AGENTS.md, «una guarda que fija el nombre de una línea»).
+- **La ruta busca la conversación entre las de ESA persona en SU negocio** (`listSessions(persona.chartKey)` adentro de
+  `runWithWorkspace(persona.ws)`), no con `getSession` por id: con `getSession` la de otra persona del mismo negocio se
+  renombraba (rotura R2). Un id ajeno contesta 404, igual que uno que no existe.
+- **La lista no se cae si las criaturas no se leen**: `munecos: null` y cada fila con la de su nombre. La escritura sí lee
+  estricto (lib/chat-munecos-db.ts): «no pude leer» no puede pisar las de los demás chats.
+
+**Lo que se probó corriendo:** tests/_ops-menu-cliente-hijo.ts corre la ruta REAL (GET y POST) con una cookie de sesión firmada,
+sobre un PostgREST de mentira: la sesión, el negocio y la capa salen de `personaDelRequest` de verdad. 9 roturas en rojo.
+
+**Lo que quedó sin hacer:** la operación de la API para la criatura (`muneco_chat_mako`, la que el relevo había sacado «hasta
+que la pantalla lea los muñecos»). La pantalla ya los lee; falta medir su enum de formas, colores y caras contra el presupuesto
+de 12.000 del chat de la app (tests/ops-center-bateria.test.ts) antes de declararla. Renombrar sí está: `renombrar_chat_mako`.
+
+**Vive en:** app/admin/operaciones/PiezasCentro.tsx · app/second-brain/useChatCliente.ts · app/second-brain/ChatSecondBrain.tsx ·
+app/api/mako/chat/route.ts · lib/mako-turno-app.ts · lib/chat-mako-reglas.ts · tests/ops-menu-cliente.test.ts
+
+---
+
 ## Un arreglo que entra con un `if` del modo en que se descubrió deja el otro modo roto, y en silencio (6/11/2026)
 
 El 4/11 el mapa de un CURSO cortaba el título de una sección pegado al borde («…HOP RECORDINGS»): el

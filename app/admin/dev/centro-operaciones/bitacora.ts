@@ -2520,4 +2520,20 @@ export const BITACORA: Hito[] = [
       'tests/grupos-ops-espejo.test.ts — la copia real contra la base de mentira; con el emparejamiento de antes, 13/1',
     ],
   },
+  {
+    fecha: '18 nov', hora: '06:30', chat: 'Construir pendientes (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ops Center del cliente: el «⋯» de cada chat, con Renombrar y Cambiar su criatura',
+    puntos: [
+      '**Cada chat con MaKo del cliente tiene su «⋯» y su clic derecho**, el mismo menú del Ops Center del super admin: Renombrar y Cambiar su criatura.',
+      '**La criatura elegida se queda**: viaja con la lista y se ve en la fila, en la cabecera y en el teléfono. «Volver al de siempre» la quita.',
+      '**El Cerebro no se toca**: no se renombra y sigue con la estrella de MaKo. Lo de Offer, de antes, de Automations y de los editores se cambia en su tab.',
+      '**Sólo sobre los chats de esa persona, en su negocio**: el de otra persona o de otro negocio contesta que no existe.',
+    ],
+    archivos: [
+      'app/admin/operaciones/PiezasCentro.tsx — MenusCentro recibe `MenuDeChats` (el del super admin, por menuDelCentro; el JSX, el mismo)',
+      'app/second-brain/useChatCliente.ts — el motor del menú del cliente y la criatura elegida en la lista · ChatSecondBrain.tsx — onMenu en la fila',
+      'app/api/mako/chat/route.ts — GET ?sesiones=1 con `munecos`; POST `renombrar` y `criatura` · lib/mako-turno-app.ts — renombrarSesion, ponerMunecoDeSesion',
+      'lib/chat-mako-reglas.ts — idConMenu, conCriaturaElegida · tests/ops-menu-cliente.test.ts (la ruta de verdad con una cookie firmada; 9 roturas en rojo)',
+    ],
+  },
 ];
