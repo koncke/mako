@@ -457,9 +457,8 @@
      "texto": "Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente.",
      "t_inicio": 23.88,
      "t_fin": 29.38,
-     "sel": "img.aj-telefono__qr",
-     "espera_clic": false,
-     "espera_siguiente": true
+     "sel": "[data-recorrido=\"tour-settings-instalar\"]",
+     "espera_clic": true
     },
     {
      "id": "reto-dia-2-8",
@@ -467,7 +466,7 @@
      "texto": "Mira aquí, la extensión para Chrome: con ella tienes a MaKo a mano mientras navegas.",
      "t_inicio": 30.08,
      "t_fin": 34.8,
-     "sel": "[data-recorrido=\"tour-settings-instalar-extension\"]",
+     "sel": "[data-recorrido=\"tour-settings-instalar\"]",
      "espera_clic": false
     },
     {
@@ -502,7 +501,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "2 → dos (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:26:20.937Z"
+   "hecho": "2026-11-18T15:35:51.683Z"
   },
   {
    "key": "reto-dia-3",

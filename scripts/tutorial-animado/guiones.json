@@ -380,15 +380,14 @@
    {
     "dice": "Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente.",
     "rol": "accion",
-    "tipo": "mira",
-    "sel": "img.aj-telefono__qr",
-    "espera": "siguiente"
+    "tipo": "toca",
+    "sel": "[data-recorrido=\"tour-settings-instalar\"]"
    },
    {
     "dice": "Mira aquí, la extensión para Chrome: con ella tienes a Máko a mano mientras navegas.",
     "rol": "accion",
     "tipo": "mira",
-    "sel": "[data-recorrido=\"tour-settings-instalar-extension\"]"
+    "sel": "[data-recorrido=\"tour-settings-instalar\"]"
    },
    {
     "dice": "Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel.",
