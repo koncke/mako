@@ -529,6 +529,23 @@ export async function webhookDeLeads(ws: number, cuentaAnuncios?: string | null)
 }
 
 /**
+ * ¿HAY UNA CLAVE DEL NEGOCIO SIN NUESTRO WEBHOOK? (18/11/2026, ticket #113). La pasada diaria del cron re-registraba el webhook sólo si
+ * faltaba en la clave 1 (`webhookDeLeads` mira `cfg(ws)`), así que una clave 2 pegada sin que nadie volviera a abrir la tarjeta quedaba
+ * sin webhook para siempre: medido en el ws10, @fiestamusic conectada en la clave 2 y Zernio sin dónde avisar. Mira CADA clave: la
+ * URL exacta del negocio, activa y escuchando los comentarios. Sin el secreto maestro no hay URL que armar: false (no hay qué hacer).
+ */
+export async function algunaClaveSinWebhook(ws: number): Promise<boolean> {
+  const maestro = await envCred('ZERNIO_WEBHOOK_SECRET');
+  if (!maestro) return false;
+  for (const k of await clavesZernio(ws, { fresca: true })) {
+    const { ruta } = webhookDeLaCuenta(maestro, ws, k.byok);
+    const r = await zFetch<{ webhooks?: ZernioWebhook[] }>(k.apiKey, '/webhooks/settings');
+    if (escuchaDelWebhook(r.webhooks ?? [], linkApp(ruta, null), 'comment.received') !== 'escucha') return true;
+  }
+  return false;
+}
+
+/**
  * ¿La API de Zernio le entrega a esta conexión los leads de sus formularios? El MISMO pedido que el barrido de cada 30 minutos
  * (lib/zernio-leads-barrido.ts), con uno solo y desde ahora: no trae leads, sólo contesta si puede. 403 = falta el complemento
  * de anuncios. Cualquier otra falla es «no se sabe».

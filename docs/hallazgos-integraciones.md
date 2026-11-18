@@ -2801,10 +2801,19 @@ pregunta: la frena `aceptaElWorkspace`. Test: tests/zernio-cuenta-reconectada.te
 **La regla:** un identificador de un tercero que puede cambiar (el id de una cuenta reconectada) no puede ser la única llave de un
 ruteo que descarta en silencio. Si hay otra prueba de pertenencia (la firma del negocio), se usa para reclamar.
 
+**Qué pasó el 14/11, medido en Zernio:** en la clave 1 hay dos webhooks de `hooks.tusemilla.app` y dos perfiles nuevos,
+«semilla-leandro-tejado» y «semilla-fiesta-music»: **otra app (Semilla) usa la misma key** y reconectó las cuentas en SUS perfiles.
+El perfil «Default», el único que mira `cuentasConectadas` con una key propia (`profileIdEfectivo`), quedó vacío. Por eso tampoco las
+reclamó abrir la tarjeta de MaKo: listaba cero cuentas.
+
+**La clave 2, sin webhook:** la pasada diaria del cron (`meta-leads-poll`) re-registra el webhook sólo si falta en la clave 1
+(`webhookDeLeads` mira `cfg(ws)`). Ahora pregunta también por cada clave (`algunaClaveSinWebhook`): una clave sin la URL del negocio,
+activa y escuchando `comment.received`, re-registra. El de la clave 2 del ws10 lo registró el Cerebro con el sí de Martín (18/11).
+
 **Lo que quedó SIN hacer:**
-- La **clave 2** del ws10 (donde @fiestamusic se volvió a conectar el 18/11, `6afdc582…`) **no tiene ningún webhook registrado en
-  Zernio**: lo que vea esa cuenta no le llega a MaKo. Se arregla corriendo `asegurarWebhook(10)` (escribe en Zernio: lo decide el
-  Cerebro). Por qué no quedó al conectar: no medido.
-- @fiestamusic está conectada en **las dos** claves (dos equipos de Zernio). No está medido por cuál de los dos entrega Zernio
-  cada comentario.
+- `cuentasConectadas` sigue filtrando por el perfil Default con una key propia: una cuenta en otro perfil de la misma key (lo que hace
+  Semilla) no se reclama al conectar. Ahora entra igual con su primer evento (`reclamarCuentaSinRuteo` no filtra por perfil). Sacarle el
+  filtro tiene un riesgo sin medir: una key de agencia compartida entre negocios.
+- @fiestamusic está conectada en **las dos** claves (dos equipos de Zernio). No está medido por cuál de los dos entrega Zernio cada
+  comentario.
 - Los comentarios del 14 al 18/11 no se recuperan: Zernio recibió un 200 por cada uno.

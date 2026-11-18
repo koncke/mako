@@ -14,12 +14,14 @@
 //
 // lib/zernio.ts y el route importan `server-only`: el cableado se fija sobre el FUENTE, como en ese test.
 //
-// PROBADO ROMPIÉNDOLO (18/11/2026), una rotura por vez con un arnés que restaura el archivo (base: 3 pass / 0 fail):
-//   · el route sin la pregunta (lo de antes del arreglo)                        → 2 / 1, «el webhook le pregunta…».
-//   · la pregunta también con el maestro (`typeof w === 'number'` → `true`)     → 2 / 1, «el webhook le pregunta…».
-//   · `reclamarCuentaSinRuteo` anotando sin preguntarle a Zernio                → 2 / 1, «la pregunta la contesta Zernio…».
-//   · `reclamarCuentaSinRuteo` con lo cacheado (sin relectura)                  → 2 / 1, «la pregunta la contesta Zernio…».
-// Restaurado: 3 / 0.
+// PROBADO ROMPIÉNDOLO (18/11/2026), una rotura por vez con un arnés que restaura el archivo (base: 4 pass / 0 fail):
+//   · el route sin la pregunta (lo de antes del arreglo)                        → 3 / 1, «el webhook le pregunta…».
+//   · la pregunta también con el maestro (`typeof w === 'number'` → `true`)     → 3 / 1, «el webhook le pregunta…».
+//   · `reclamarCuentaSinRuteo` anotando sin preguntarle a Zernio                → 3 / 1, «la pregunta la contesta Zernio…».
+//   · `reclamarCuentaSinRuteo` con lo cacheado (sin relectura)                  → 3 / 1, «la pregunta la contesta Zernio…».
+//   · `algunaClaveSinWebhook` mirando sólo la clave 1 (`.slice(0, 1)`)          → 3 / 1, «la pasada diaria…».
+//   · el cron sin preguntar por las demás claves (lo de antes del arreglo)      → 3 / 1, «la pasada diaria…».
+// Restaurado: 4 / 0.
 //
 // Correr: node --import tsx --test tests/zernio-cuenta-reconectada.test.ts
 import { test } from 'node:test';
@@ -56,6 +58,19 @@ test('la pregunta la contesta Zernio con las claves de ESE negocio, releyendo, y
   const iAnota = f.indexOf('await upsertRouting(RUTEO_CUENTA, accountId, ws);');
   assert.ok(iPregunta > 0 && iAnota > iPregunta, 'se anota la cuenta sólo si Zernio la lista en una clave del negocio');
   assert.match(f, /return false;\n\}/, 'si no es de ninguna clave, no se anota nada');
+});
+
+// LA CLAVE 2 SIN WEBHOOK (la segunda mitad del #113): la pasada diaria del cron re-registraba el webhook sólo si faltaba en la
+// clave 1. La del ws10 lo tenía; la 2 no, y nadie lo iba a registrar.
+test('la pasada diaria re-registra el webhook si falta en CUALQUIER clave del negocio, y escuchando los comentarios', () => {
+  const f = funcion(ZERNIO, 'export async function algunaClaveSinWebhook(');
+  assert.match(f, /for \(const k of await clavesZernio\(ws, \{ fresca: true \}\)\)/, 'mirando sólo la clave 1 quedaba la 2 sin webhook');
+  assert.match(f, /webhookDeLaCuenta\(maestro, ws, k\.byok\)/, 'la URL de ESE negocio en ESA clave');
+  assert.match(f, /escuchaDelWebhook\(r\.webhooks \?\? \[\], linkApp\(ruta, null\), 'comment\.received'\) !== 'escucha'\) return true;/);
+  const cron = sinComentarios(leer('../app/api/cron/meta-leads-poll/route.ts'));
+  assert.match(cron, /const falta = \(await leadsEnElWebhook\(ws\)\.catch\(\(\) => null\)\) !== true \|\| \(await algunaClaveSinWebhook\(ws\)\.catch\(\(\) => true\)\);/,
+    'si no se puede saber, se asegura igual: es idempotente');
+  assert.match(cron, /if \(falta\) await asegurarWebhook\(ws\)/);
 });
 
 test('el route no anota cuentas por su cuenta: la que dice el cuerpo nunca entra al ruteo sin la pregunta', () => {
