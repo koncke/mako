@@ -62,15 +62,23 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
   sobre la MISMA fecha de cierre, como los OKR. Sin `duenoDe`, el dueño es la fila: todo lo de antes sigue igual.
 - **Sólo por fecha de cierre.** Por alta o por agenda la fila es una cohorte de ese día y la venta sigue en la casa: darla al
   funnel del cierre la haría desaparecer de las dos hojas filtradas con un lead que se agregó DESPUÉS del alta (lo fija el test).
-- **Lo que no cambió:** agrupar por funnel (sin filtro) sigue poniendo la venta bajo la casa (el «Sin hacer» del 17/10), y
-  la fuente Leads sigue sin las ventas propias de un CRM agregado (CO2, `ventasDeCrms`): los OKR sí las suman. Sumarlas a
-  Leads cambia sus totales y su tasa de cierre, que es la decisión de producto anotada en docs/hallazgos-pagos.md («CO2 suma
-  las renovaciones a los cierres…»).
+- **Y AGRUPAR usa la misma regla** (la revisión independiente del mismo día): con el filtro arreglado y el agrupado sin
+  tocar, «Vendido por funnel» ponía la venta bajo la casa y la hoja filtrada por el agregado la contaba ahí: la misma venta,
+  dos números. Ahora `partesParaAgrupar` (lib/graficos-agregar.ts) parte la fila: la fila en su grupo con la venta en 0, y
+  SÓLO la venta (`soloCasa`) en el grupo de su dueño, también en las celdas del desglose. El lead se sigue contando UNA vez,
+  en su casa (`Fila.m`), y la suma de las barras es el total. ⚠️ Por eso una razón por funnel que mezcla las dos cosas (la
+  tasa de cierre: cierres ÷ asistencias) puede tener el cierre en un funnel y la asistencia en el otro; la hoja filtrada no,
+  porque trae al lead entero por el agregado. El detalle de una barra filtra por ese grupo, así que ya listaba lo mismo.
+- **Lo que no cambió:** la fuente Leads sigue sin las ventas propias de un CRM agregado (CO2, `ventasDeCrms`): los OKR sí
+  las suman. Sumarlas a Leads cambia sus totales y su tasa de cierre, que es la decisión de producto anotada en
+  docs/hallazgos-pagos.md («CO2 suma las renovaciones a los cierres…»).
 - **Ojo:** esa misma entrada de pagos dice que repartir la venta de la casa por el último CRM agregado es la regla de ANTES de
   CO2 (la 0324 la sacó de los pagos). Si se cambia, se cambia en `funnelsDeLaFilaDeLead` y en los OKR juntos.
-- **Vive en:** lib/graficos-funnel-fila.ts · lib/graficos-agregar.ts (`Fila.duenoDe`, `filtrarFilas`) · lib/graficos-datos.ts
-  (`filasLeads`) · lib/graficos-lectura.ts (`funnelsAgregados` trae el id y el día crudo). **Lo fija:**
-  tests/graficos-venta-en-su-funnel.test.ts (compara con `sumarEnFunnels`; 3 roturas) · tests/graficos-funnel-agregados.test.ts.
+- **Vive en:** lib/graficos-funnel-fila.ts · lib/graficos-agregar.ts (`Fila.duenoDe`, `filtrarFilas`, `partesParaAgrupar`) ·
+  lib/graficos-datos.ts (`filasLeads`) · lib/graficos-lectura.ts (`funnelsAgregados` trae el id y el día crudo). **Lo fija:**
+  tests/graficos-venta-en-su-funnel.test.ts (compara con `sumarEnFunnels`; 3 roturas) ·
+  tests/graficos-venta-agrupada-por-funnel.test.ts (la barra contra la hoja filtrada; 3 roturas) ·
+  tests/graficos-funnel-agregados.test.ts.
 
 ## MaKo toma la iniciativa en el Dashboard: la hoja en blanco, sin IA (5/11/2026, nube)
 
