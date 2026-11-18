@@ -31,6 +31,18 @@ Los tres corolarios, cada uno pagado por un caso real de abajo:
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `scripts/tutorial-animado/vsl-julio/assemble.sh` · `scripts/tutorial-animado/LEEME.md`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 18 — La receta del VSL, a medias.** Los scripts ya están en el repo (scripts/tutorial-animado/vsl-julio/, 4bc7bad1eb del 16/11), pero `assemble.sh` apunta a carpetas de la PC (el scratchpad de una sesión y `OneDrive/Escritorio/MaKo-VSL/`), y las reglas de la voz siguen afuera: `OneDrive/Escritorio/MaKo-VSL/_voz-martin.md` y `C:/dev/reel-mentores/voz/LA-CONFIG.json` (scripts/tutorial-animado/LEEME.md). Si se pierde esa carpeta se pierde la receta de la voz.
+- **Punto 42 — Los tres bloqueantes del pipeline de video de agosto**: si la salida de Flow por API trae marca de agua y dónde; la cuenta Gmail dedicada y su saldo; si `POST /characters` sostiene la identidad en tres generaciones. Y la foto de Mauricio en `mako.persona` del ws 1. El pipeline cambió mucho desde entonces (el puente a Flow, ApiMart): cuáles siguen siendo preguntas se mide en producción.
+
 ## ⚠️ El Omni de ApiMart son CINCO productos, y el código eligió uno que no es de Google (17/11/2026)
 
 **Síntoma:** `lib/apimart-reglas.ts` y `lib/mako-tokens-paquetes.ts` dan `kling-v3-omni` por «el único Omni». Con eso el minuto
@@ -1203,8 +1215,9 @@ reciben ese dato —acá el validador y el worker— antes de darlo por cerrado.
 - ~~**Pasarle al script `segundosPorToma` entero**~~ — cerrado el 6/11 por las dos rutas (§15).
   Lo que sigue abierto de este punto: `segundosAntes` es la SUMA NOMINAL de lo que se le pidió
   a Flow, no una medición del material que volvió (`worker/montar-cola.mjs`,
-  `lib/montaje/pipeline.ts`); la API ya lo rotula (`segundos_antes_estimados`) y la pantalla no
-  (`app/video-generator/PasoMontaje.tsx`).
+  `lib/montaje/pipeline.ts`); la API ya lo rotula (`segundos_antes_estimados`) ~~y la pantalla no
+  (`app/video-generator/PasoMontaje.tsx`)~~ — y desde el 18/11/2026 la pantalla también: «De 0:45
+  (estimado) a 0:38» (`app/video-generator/montaje-duraciones.tsx`, §17).
 - ~~**Deshacer.** No hay `Ctrl+Z`~~ — **HECHO** (y este renglón quedó afirmando lo
   contrario hasta el 6/11). La pila vive en un `useRef` con tope de 30, se apila una vez
   por GESTO, y el atajo está: `app/video-generator/EditorAnuncio.tsx`. El otro editor
@@ -1478,7 +1491,9 @@ avisa de eso. Ahora va entre comillas y el test prueba el caso con espacio.
   tope por toma saca la causa que se conocía, no la promesa.
 - **`segundosAntes` es nominal.** Es la suma de lo que se le PIDIÓ a Flow, no lo que midió el
   material que volvió (`worker/duraciones.mjs`, `lib/montaje/pipeline.ts`). La API lo rotula
-  `segundos_antes_estimados`; la pantalla dice «De X a Y» sin rótulo.
+  `segundos_antes_estimados`; ~~la pantalla dice «De X a Y» sin rótulo~~ — rotulado el 18/11/2026
+  («(estimado)», `app/video-generator/montaje-duraciones.tsx`, §17). Lo que sigue nominal es el
+  NÚMERO: medirlo sobre el material que volvió es otra cosa.
 - **El worker del contenedor sigue sin desplegarse** (§14): todo esto se midió eslabón por
   eslabón —la cuenta, el bash, el script—, nunca contra un contenedor corriendo.
 - **La cuenta está en dos lugares.** `worker/duraciones.mjs` y `lib/montaje/pipeline.ts:133`
@@ -1558,13 +1573,14 @@ es exactamente lo que ese módulo existe para evitar.
   montaje real, que hoy sale del cron del worker. Lo ejecutado son las operaciones puras y la
   secuencia del gesto simulada con ellas (`tests/editor-cortes.test.ts`); el cableado de la
   pantalla está fijado por fuente, que no es lo mismo.
-- **No hay reorden por TECLADO sobre el bloque enfocado.** Los dos botones «← Mover» /
-  «Mover →» son el camino accesible, y existen porque un arrastre no se anuncia solo; un
-  bloque con `tabIndex` y flechas sería mejor.
+- ~~**No hay reorden por TECLADO sobre el bloque enfocado.**~~ — **HECHO el 18/11/2026** (§17):
+  cada bloque es enfocable y ← / → lo corren un lugar, con el mismo tope que el arrastre.
 - **Nada avisa POR QUÉ un tramo no pasa a su hermano.** Se frena y se ve, que es la regla del
   módulo, pero alguien que insiste no tiene cómo saber que el tope es el otro pedazo de la
   misma toma.
-- ⚠️ **Con la pila de deshacer LLENA, un clic que sólo selecciona tira la entrada más vieja.**
+- ~~⚠️ **Con la pila de deshacer LLENA, un clic que sólo selecciona tira la entrada más vieja.**~~
+  — **HECHO el 18/11/2026** (§17), y no como decía abajo («apilar en el primer cambio real»): el
+  gesto apila AL SOLTAR, sólo si cambió algo. Lo de abajo queda como estaba escrito:
   Es de la mecánica que ya estaba, no del reorden: `apilar()` corre en el `pointerdown` y hace
   `[...pila.slice(-29), ahora]`, así que con 30 entradas la primera se cae; el `soltar` saca la
   del final con `mismoPlan` y la vieja ya no vuelve. Pasaba igual tocando un borde, y ahora
@@ -1574,6 +1590,41 @@ es exactamente lo que ese módulo existe para evitar.
   ref y empujarlo cuando el plan de verdad cambia), y eso toca el camino del borde, así que
   pide su propia vuelta de roturas. Vive en `app/video-generator/EditorAnuncio.tsx`
   (`apilar`, y el `soltar` del efecto del arrastre).
+## §17 — El teclado, el deshacer de un clic y el «antes» estimado (18/11/2026, F167 y F166 (c))
+
+`app/video-generator/EditorAnuncio.tsx` · `app/video-generator/editor-cortes.ts` ·
+`app/video-generator/montaje-duraciones.tsx` · `tests/editor-anuncio-gesto.test.ts` ·
+`tests/editor-cortes.test.ts` · `tests/video-montaje-duraciones.test.ts`
+
+**El deshacer apila AL SOLTAR, no al agarrar.** El arreglo que dejaba escrito §16 era «apilar en el
+primer cambio real del gesto». Tampoco alcanza: un arrastre que se mueve y VUELVE al mismo lugar
+también apila en su primer cambio, y con la pila llena se lleva la más vieja igual. Lo que no
+falla es decidir al final: el `pointerdown` guarda el plan de antes (`gestoRef`) y el `soltar`
+llama a `pilaTrasGesto(pila, antes, ahora)`, que devuelve la MISMA pila si no cambió nada. Con
+eso se fue también la limpieza de la «entrada muda»: ya no se crea. El borde, de paso, dejó de
+mover el plan con un `setPlan(updater)`: el `soltar` compara contra `planRef.current`, y un
+updater lo dejaba un cuadro atrás (el último paso del borde antes de soltar no contaba).
+
+**El teclado.** Cada bloque lleva `tabIndex`; enfocarlo lo selecciona, y ← / → llaman al mismo
+`moverTramo` que el arrastre y los botones (`pasoDeTecla`, puro). El foco tiene que SEGUIR al
+bloque: los bloques van con `key={i}`, así que después del cambio el elemento enfocado muestra
+otro tramo, y sin mover el foco la siguiente flecha movería al vecino equivocado.
+
+**Esta vez el gesto SÍ se probó dibujado** (`tests/editor-anuncio-gesto.test.ts`, jsdom, como
+`tests/carruseles-imagen-rota.test.ts`): la pantalla real, con un `clientWidth` de mentira para
+que haya escala. Llena la pila con 30 flechas, hace un clic, deshace las 30 y vuelve al plan de
+partida; y arrastra un borde de verdad. No es un navegador (no hay foto del arrastre ni scroll),
+pero sí el código de la pantalla con sus manejadores, que es lo que el regex del cableado no veía:
+el de antes fijaba `apilar()` en el `pointerdown`, o sea fijaba el bug.
+
+**El «antes» rotulado.** La pantalla dice «De 0:45 (estimado) a 0:38». El «después» va sin rótulo
+porque sale del archivo montado. «Se fue el silencio, no una palabra» sigue igual: medirlo es el
+verificador (la parte (b)), y lo decide Martín.
+
+**Regla que queda:** una entrada de deshacer por gesto se decide al TERMINAR el gesto, comparando
+el antes con el después. Decidirla al empezar obliga a limpiar después, y la limpieza no puede
+devolver lo que el tope ya tiró.
+
 ## Un reel NO son 60 segundos de video generado, y costearlo así da 100 veces de más (7/11/2026)
 
 **El síntoma.** Martín preguntó qué cobrar por planes de 2, 4 y 7 posteos de video por semana. Costeé un reel

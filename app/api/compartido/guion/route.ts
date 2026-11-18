@@ -17,8 +17,8 @@
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { leerJsonTopeado } from '@/lib/curso-portal';
 import { resolverToken } from '@/lib/shares';
-import { accesoDeGuion, enSuWorkspace } from '@/lib/copywriter/compartir';
-import { abrir, guardar, renombrar } from '@/lib/copywriter/server';
+import { accesoDeGuion, enSuWorkspace, guionALaVista } from '@/lib/copywriter/compartir';
+import { guardar, renombrar } from '@/lib/copywriter/server';
 import { autorDeVisita } from '@/lib/copywriter/editado';
 import { TOPES } from '@/lib/copywriter/tipos';
 
@@ -53,9 +53,8 @@ export async function POST(req: Request) {
 
   try {
     return await enSuWorkspace(a, async () => {
-      // Vivo y fuera de la Papelera: un guion borrado no se edita por el link.
-      const vivo = await abrir(a.id);
-      if (!vivo.ok || vivo.pagina.papelera) return NO();
+      // Vivo y a la vista: un guion en la Papelera, o que cuelga de una página que lo está, no se edita por el link (B6).
+      if (!(await guionALaVista(a.id))) return NO();
       switch (b.accion) {
         case 'guardar': {
           if (!Number.isInteger(b.version)) return falla(400, 'Falta la versión');

@@ -139,7 +139,7 @@ export const PageSlot = memo(function PageSlot({ page, index, total, width, heig
 
   return (
     <section className={styles.slot} data-page-id={page.id} data-active={active || undefined} data-multi={several || undefined} style={{ height: headerHeight + height, marginBottom: gap }} aria-label={label}>
-      <header className={styles.header} style={headerStyle(width, headerHeight)} hidden={headerHeight === 0}>
+      <header className={styles.header} style={headerStyle(width, headerHeight)} hidden={headerHeight === 0} data-readonly={readOnly || undefined}>
         <div className={styles.lead}>
           <span className={styles.number}>{number}</span>
           {showDash ? (

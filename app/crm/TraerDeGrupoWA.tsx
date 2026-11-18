@@ -40,7 +40,7 @@ import {
 } from './grupo-wa-actions';
 import type { LineaGrupos } from './grupo-wa-server';
 import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
-import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';
+import { CtaPasarAPro, TextoDelTope } from '@/app/_components/CtaPasarAPro';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -343,7 +343,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos, onCerrar }: {
   if (lineas !== null && !lineas.length) {
     return (
       <div>
-        <p style={{ ...nota, padding: 0 }}>{err ?? 'Conecta una línea de WhatsApp para extraer los contactos de un grupo.'}</p>
+        <p style={{ ...nota, padding: 0 }}><TextoDelTope texto={err ?? 'Conecta una línea de WhatsApp para extraer los contactos de un grupo.'} /></p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={onAtras} style={btnAtras}>← Atrás</button>
           {/* El candado de Pro (27/10/2026, ./grupo-wa-actions.ts): un Essential lo ve con «Pasar a Pro», que lleva a «Tu plan».

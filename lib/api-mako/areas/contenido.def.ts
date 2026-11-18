@@ -29,12 +29,18 @@
 //     negocio que ningún generador leía; medido en prod, 0 negocios la tenían y 0 llamadas.
 //   · Editar el texto y BORRAR un guion son `pantalla` + admin: texto libre largo que
 //     pisa la versión anterior (no hay historial), y borrar no tiene papelera.
-//   · NO entran (ver omitidas en la cosecha): regenerar o guardar la matriz entera
-//     (reemplazo total que borra guiones), generar reels/carruseles/stories (el motor
+//   · NO entran (ver omitidas en la cosecha): GUARDAR la matriz entera (reemplazo total
+//     que pisa lo que otra pestaña escribió), generar reels/carruseles/stories (el motor
 //     es lib pero la persistencia y el envío viven en app/reels y app/stories, y las
-//     piezas de carrusel/story no se guardan), cargar guiones propios (orquestador en
-//     app/video-generator), el copywriting del dueño (plataforma, owner-only), marcar
-//     pasos de onboarding a mano, YouTube y el anuncio de Meta (otras áreas).
+//     piezas de carrusel/story no se guardan), el copywriting del dueño (plataforma,
+//     owner-only), marcar pasos de onboarding a mano, YouTube y el anuncio de Meta (otras áreas).
+//   · SÍ entran desde el 18/11/2026 (pendiente O19, P0-10 y P0-11): REGENERAR la matriz, pero
+//     FUNDIENDO (`generar_anuncios_planteados`, lib/razones-fundir.ts: lo que tiene guiones,
+//     formato o imagen se queda con su celdaId; sólo se reemplaza lo que no tiene nada), y
+//     CARGAR guiones propios (`cargar_guiones_anuncio`), con el orquestador mudado de
+//     app/video-generator a lib/guiones-cargar.ts. Ésa sale por WhatsApp y HTTP, NO por la app:
+//     en la app ya está `cargar_guion_propio` (área video, el botón del estudio), que llama a la
+//     MISMA función de lib; con las dos en la app, el chat tendría dos para lo mismo.
 //   · Sin `http`: lo que invoca un modelo AL LEER (sugerir_guion_anuncio); lo que al
 //     confirmar encadena tres modelos (escribir_guion_anuncio_auto: /api/v1 corta a 60 s);
 //     y las lecturas que reciben un guion entero (por HTTP van por GET y el texto no
@@ -161,7 +167,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'separar_guiones_pegados', area: 'contenido', tipo: 'lectura',
     titulo: 'Separar guiones de un texto',
-    descripcion: 'Parte un texto pegado (un documento con «Guion 1: …», encabezados o separadores ---) en guiones sueltos, limpia el formato de archivo sin cambiar palabras y marca cuáles están repetidos dentro del texto y cuáles ya estaban guardados en el negocio. Determinista, sin IA, no guarda nada. Úsalo para decirle a la persona «encontré 5, dos repetidos» antes de cargarlos desde la tab. Un texto sin marcas es UN guion; menos de 25 palabras no cuenta como guion.',
+    descripcion: 'Parte un texto pegado (un documento con «Guion 1: …», encabezados o separadores ---) en guiones sueltos, limpia el formato de archivo sin cambiar palabras y marca cuáles están repetidos dentro del texto y cuáles ya estaban guardados en el negocio. Determinista, sin IA, no guarda nada. Úsalo para decirle a la persona «encontré 5, dos repetidos» antes de cargarlos. Un texto sin marcas es UN guion; menos de 25 palabras no cuenta como guion.',
     parametros: [
       { nombre: 'texto', tipo: 'string', obligatorio: true, max: 60000, descripcion: 'El texto crudo pegado, tal cual.' },
     ],
@@ -295,5 +301,45 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 20, descripcion: 'Cuántas publicaciones traer, de la más nueva a la más vieja. Si se omite, 10.' },
     ],
     salida: 'json', canales: TODOS, costo: 'externo', gating: { rolMinimo: 'admin' },
+  },
+];
+
+/**
+ * Las del área que se declararon DESPUÉS del Copywriter (lib/api-mako/registro.ts las pone detrás de él): una operación nueva
+ * va AL FINAL de su área (AGENTS.md: a igual relevancia gana la declarada antes, y la nueva no le saca el lugar a las que ya
+ * estaban), y el Copywriter ya ocupa el final de `contenido` desde el 28/10/2026.
+ */
+export const DEFS_AL_FINAL: readonly OperacionDef[] = [
+  // ── Pendiente O19 (18/11/2026): cargar los guiones que trae la persona y rehacer las motivaciones sin perder nada ──
+  // CARGAR (P0-10): la MISMA carga que el botón «Cargar guiones» del Video Generator (lib/guiones-cargar.ts: separa, ordena
+  // con la IA sin cambiar palabras y no repite lo guardado). De PANTALLA: es texto libre largo, y la pantalla genérica deja
+  // corregirlo antes de guardar. SIN 'app': ahí ya está `cargar_guion_propio` (área video), que llama a la misma función por
+  // la acción del botón. Por HTTP, la IA tiene 40 s (la ruta corta a 60): lo que no se ordena a tiempo entra sin rótulos.
+  {
+    id: 'cargar_guiones_anuncio', area: 'contenido', tipo: 'accion',
+    titulo: 'Cargar guiones que trae la persona',
+    descripcion: 'Guarda en «Guiones propios», en borrador, los guiones que la persona pegó o dictó (uno o varios: se separan solos y MaKo les marca gancho, historia y cierre sin cambiar una palabra), o el texto que hay detrás de un link público (un Google Docs). No repite los que ya estaban guardados ni los repetidos dentro del texto. Deja un link para revisar el texto y confirmar.',
+    parametros: [
+      { nombre: 'texto', tipo: 'string', max: 60000, descripcion: 'El texto tal como lo pegó la persona (puede traer varios guiones). Esto o el link.' },
+      { nombre: 'link', tipo: 'string', max: 600, descripcion: 'Un link público al guion (Google Docs, una página). Esto o el texto.' },
+    ],
+    confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
+    escribe: 'agrega guiones en borrador a la celda «Guiones propios» de app_settings mako.razones (relee antes de escribir; los que ya estaban no se repiten)',
+    canales: ['whatsapp', 'http'], costo: 'ia', gating: G_ADS, lenta: true,
+  },
+  // REHACER LAS MOTIVACIONES (P0-11): `regenerarMatrizSinPerder` (lib/razones.ts + lib/razones-fundir.ts). De PANTALLA y
+  // admin: saca los anuncios que todavía no tienen nada (su copy no tiene historial). El resumen dice qué se queda y qué se
+  // reemplaza ANTES de llamar a la IA (`preparar` sólo lee: la pantalla genérica lo vuelve a correr al confirmar); la IA corre
+  // al confirmar. Con HTTP, 40 s.
+  {
+    id: 'generar_anuncios_planteados', area: 'contenido', tipo: 'accion',
+    titulo: 'Rehacer las motivaciones de compra',
+    descripcion: 'MaKo arma de nuevo las motivaciones de compra de cada avatar (hasta 3 por avatar, con su copy) sin borrar nada con trabajo: los anuncios planteados con guiones, formato o imagen se quedan tal cual, con su celdaId, y sólo se reemplazan los que todavía no tienen nada. Úsalo para «arma de nuevo mis anuncios» o «dame otras motivaciones para tal avatar». Necesita los avatares y el negocio cargados. Deja un link para revisar qué se queda y qué se reemplaza; al confirmar invoca un modelo.',
+    parametros: [
+      { nombre: 'avatarId', tipo: 'string', max: 80, descripcion: 'Sólo las motivaciones de este avatar (su id, de listar_anuncios_planteados). Sin esto, las de todos.' },
+    ],
+    confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    escribe: 'agrega anuncios planteados y saca los que no tenían nada en app_settings mako.razones (los que tienen guiones, formato o imagen no se tocan)',
+    canales: TODOS, costo: 'ia', gating: G_ADS, lenta: true,
   },
 ];

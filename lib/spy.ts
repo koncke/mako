@@ -70,7 +70,7 @@ import { leerPorPaginas } from './supabase-paginado';
 import { borrarSetting, borrarSettingsConPrefijo, getSetting } from './settings';
 import { claveOfertaSpy } from './spy-oferta';
 import { prefijoTranscripciones } from './spy-transcripcion';
-import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
+import { ANALISIS_SIN_DATOS, FILTRO_SIN_LA_VERSION_DE_HOY, cierreDeLasQueNoVolvieron, hayAlgoQueLeer, ofertaQueQueda, pendientesDeAnalisis, type PiezaParaAnalisis } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
 import { claveLectura, leeCanal, type PasoLectura } from './spy-lectura-pasos';
 import { topeDeCompetidores } from './spy-tope';
@@ -1044,7 +1044,9 @@ export async function analizarCompetidor(
   if (!c) return { ok: false, error: 'No encontré ese competidor.' };
   const todas = await listarPiezas(competidorId);
   if (!todas.length) return { ok: false, error: 'Todavía no hay nada leído de ese competidor. Míralo primero.' };
-  const piezas = opts.soloPendientes ? pendientesDeAnalisis(todas) : todas.slice(0, 40);
+  // ⚠️ Lo de texto vencido no va por ningún camino (`hayAlgoQueLeer`): por la API también pisaba el análisis bueno y le renovaba
+  // el reloj del texto (la revisión del 18/11).
+  const piezas = opts.soloPendientes ? pendientesDeAnalisis(todas) : todas.filter((p) => hayAlgoQueLeer(p)).slice(0, 40);
   if (!piezas.length) return { ok: true, analisis: { oferta: c.oferta ?? { promete: '', aQuien: '', precio: null, objecion: '', huecos: [] }, piezas: [] }, leidas: 0 };
   const comoTexto = piezas.map((p) => {
     const etapa = etapaDePieza(p);
@@ -1088,7 +1090,7 @@ export async function analizarCompetidor(
         : { ok: false, error: 'Conecta tu Claude, tu GPT o tu Gemini para que MaKo analice sus piezas.', sinIA: true };
     }
     const analisis = leerAnalisis(objetoJson(texto));
-    await guardarAnalisis(competidorId, analisis, piezas.map((p) => p.ref), c.oferta);
+    await guardarAnalisis(competidorId, analisis, piezas, c.oferta);
     return { ok: true, analisis, leidas: piezas.length };
   } catch (e) {
     return { ok: false, error: `No pude analizar al competidor: ${msg(e)}`, falla: true };
@@ -1096,13 +1098,20 @@ export async function analizarCompetidor(
 }
 
 /**
- * Guarda la oferta en el competidor y el análisis en cada pieza, con el reloj del TEXTO.
+ * Guarda la oferta en el competidor y el análisis en cada pieza, con el reloj del TEXTO: el de cuando se LEYÓ, que es el de la
+ * lectura (`texto_leido_en`). ⚠️ El análisis NO renueva el de las PIEZAS (18/11/2026, la revisión del pendiente T12; el que
+ * poda es el de la pieza: `podarVencido`, lib/spy-reglas.ts, y el del competidor no tacha nada): hasta ahí cada pieza
+ * analizada quedaba con `texto_leido_en: ahora`, así que un texto leído hace 29 días quedaba a la vista 30 días más (la
+ * retención de YouTube, mig 0359) sin haberse vuelto a bajar. Con la relectura de los formatos viejos, eso pasaba de a tandas.
  *
  * ⚠️ El ref que devuelve la IA se busca entre los ENVIADOS sin mayúsculas: un modelo que lo reescribe en minúsculas no
  * encuentra la fila con `.eq('ref', …)` y la pieza queda pendiente para siempre. Lo que se mandó y no volvió se marca
- * leído sin datos (`ANALISIS_SIN_DATOS`), por la misma razón.
+ * leído sin datos (`ANALISIS_SIN_DATOS`), por la misma razón. Y lo que tenía un análisis VIEJO y no volvió se cierra
+ * con ese mismo análisis y `formatosV` al día (`cierreDeLasQueNoVolvieron`): sin eso quedaba pidiendo lectura para
+ * siempre (pendiente T12, 17/11/2026).
  */
-async function guardarAnalisis(competidorId: number, a: Analisis, enviadas: readonly string[], ofertaAnterior: OfertaLeida | null): Promise<void> {
+async function guardarAnalisis(competidorId: number, a: Analisis, piezasEnviadas: readonly PiezaParaAnalisis[], ofertaAnterior: OfertaLeida | null): Promise<void> {
+  const enviadas = piezasEnviadas.map((p) => p.ref);
   const db = await getTenantDb();
   const ahora = new Date().toISOString();
   const oferta = ofertaQueQueda(a.oferta, ofertaAnterior);
@@ -1115,13 +1124,19 @@ async function guardarAnalisis(competidorId: number, a: Analisis, enviadas: read
       // `formatosV`: con qué catálogo de formatos se clasificó (lib/spy-detalle.ts). Sin esta marca, lo analizado con los
       // once formatos viejos y dejado en `otro` no se puede distinguir de lo analizado hoy, y los dos criterios conviven
       // sin que nada lo avise.
-      .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas, formato: p.formato || 'otro', formatosV: VERSION_FORMATOS }, texto_leido_en: ahora, updated_at: ahora })
+      .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas, formato: p.formato || 'otro', formatosV: VERSION_FORMATOS }, updated_at: ahora })
       .eq('competidor_id', competidorId).eq('ref', ref);
   }
-  const faltan = refsSinRespuesta(enviadas, a.piezas.map((p) => p.ref));
-  if (faltan.length) {
-    await db.from('spy_piezas').update({ analisis: ANALISIS_SIN_DATOS, texto_leido_en: ahora, updated_at: ahora })
-      .eq('competidor_id', competidorId).in('ref', faltan).is('analisis', null);
+  const { sinDatos, yaRevisadas } = cierreDeLasQueNoVolvieron(piezasEnviadas, a.piezas.map((p) => p.ref));
+  if (sinDatos.length) {
+    await db.from('spy_piezas').update({ analisis: ANALISIS_SIN_DATOS, updated_at: ahora })
+      .eq('competidor_id', competidorId).in('ref', sinDatos).is('analisis', null);
+  }
+  // ⚠️ Sin tocar `texto_leido_en`: el texto no se volvió a leer, sólo se cerró la relectura del formato. Y sólo si todavía
+  // no tiene el catálogo de hoy (`FILTRO_SIN_LA_VERSION_DE_HOY`): otra tanda que corrió en el medio pudo haberla clasificado.
+  for (const r of yaRevisadas) {
+    await db.from('spy_piezas').update({ analisis: r.analisis, updated_at: ahora })
+      .eq('competidor_id', competidorId).eq('ref', r.ref).or(FILTRO_SIN_LA_VERSION_DE_HOY);
   }
 }
 

@@ -28,6 +28,141 @@ Tres cosas que esto deja, y la tercera es la que no se ve:
 
 ---
 
+## Los catorce pendientes del Image Editor del 17/11: lo que se hizo, lo que no y por qué (18/11/2026)
+
+El lote F17, F18, F44, F46-F50 y F131-F136 de `docs/pendientes-verificados-17-11.md`, trabajado en la nube
+(`punta/nube-construir-image`). Primero lo que enseñó, después el estado de cada uno.
+
+### Lo que enseñó
+
+- **Un test de lo que lee la persona pasa por la función que ESCRIBE el texto, no por la de al lado (F48).** La red de
+  «No se aplica» recorría `validarOperacion` (lib/image-editor/chat/catalogo.ts) y daba verde, mientras
+  `aplicarOperaciones` (lib/image-editor/chat/aplicar.ts) seguía armando «la página «p3» no está» y ««n1» no se pudo
+  agregar». Los motivos de aplicar.ts ya dicen qué falta con palabras, y el test nuevo de tests/image-editor-chat.test.ts
+  pasa por `aplicarOperaciones` con refs que no existen.
+- **«Cerrar las pendientes al pedir» no alcanzaba para que no se dupliquen las páginas (F49).** Dos agujeros que la regla
+  no veía: (1) «Aceptar» aplicaba el mensaje que le pasaba la PANTALLA, una foto de cuando se dibujó, así que la vieja se
+  podía aceptar aunque el store ya la hubiera descartado; ahora `aceptarPropuesta` relee el mensaje del store por su id.
+  (2) Mientras una propuesta espera sus fuentes queda en «aplicando», y la caja sólo miraba `hilo.corriendo`: se podía
+  pedir otra. Ahora la caja, la nota de voz, los adjuntos y las sugerencias miran `ocupado` (`hilo.corriendo ||
+  aplicando`) y `pedirEdicion` no sale con una en «aplicando» (`hayAplicando`). El test pide dos veces y acepta las dos.
+- **Una apertura con botón `hacer` no se recuerda: la que sigue la arma el HECHO nuevo (F18).** «En una historia» achica la
+  página y deja `familia` en la pantalla; con eso `aperturaImage` (lib/aperturas/image.ts) ofrece la primera plantilla
+  real de ese grupo («Usar la plantilla», `image:sugerida`). El carrusel no tiene plantilla real y no ofrece nada.
+- **Lo que un diseño tiene que recordar, si es suyo, va en el documento (F18 b).** `doc.meta.plantilla` (con el prefijo
+  `PREFIJO_PLANTILLA_REAL`, `conPlantilla` en lib/image-editor/reglas.ts) no pide migración: `migrateDocument` conserva
+  `meta`. Lo escriben los tres caminos que crean desde una plantilla real: «Nuevo diseño», `crear_diseno_imagen` de la API
+  y la sugerida del chat.
+- **Un pedido sugerido por NOSOTROS no se interpreta (F136).** El chat le pregunta a `/api/mako/pedidos` (`tab: 'imagen'`,
+  sin `objetos`: los diseños los lista el servidor) antes de la IA, y lo que no es del diseño abierto vuelve como burbuja
+  con su link (`app/image-editor/mako/chat/pedidos.ts`, copia del Video Editor). Las sugerencias del chat y «Discutir»
+  van enteras a la IA (`interpretar: false`): son textos nuestros, y partirlos no tiene sentido.
+- **Una operación del chat que corre en el navegador se muestra en la copia y se hace al ACEPTAR (F135).** `quitar_fondo`
+  en la vista previa sólo dice «Fondo de <foto>: con fondo → sin fondo»; el recorte real (MODNet, `removeBackground`)
+  corre al aceptar, sube la foto recortada a «Subidos» y la pone en la misma caja (`ponerRecorte`). Si el recorte falla,
+  la propuesta vuelve a «pendiente» con el motivo («no pude quitarle el fondo a …»): nunca se aplica a medias en silencio.
+  No va a la API de MaKo: corre en el navegador de la persona, como las operaciones del Video Editor.
+- **Un menú que se encaja en la ventana tapa su propio botón (F46 a).** `ui/Menu` abierto desde abajo quedaba encima del
+  botón que lo abrió; `posicionMenu` (`_doory/editor/ui/menuPosicion.ts`) lo da vuelta hacia arriba cuando abajo no entra
+  y arriba sí, como `Popover`. Y ganó `overModal`.
+- **Una regla que esconde algo «para hacer lugar» se apaga donde no hay nada que hacerle lugar (F46 b).** El tamaño de la
+  página se escondía debajo de 440 px para que entren los íconos; en sólo lectura no hay íconos. `data-readonly` en el
+  encabezado y una regla con MÁS especificidad (no por orden): el test mide la especificidad con postcss.
+- **jsDelivr no se puede medir desde la nube**: el proxy contesta 403. Los tamaños de las fuentes se midieron bajando los
+  paquetes de `@fontsource` del registro de npm, que sí se alcanza.
+
+### El estado de cada uno
+
+- **F17** (teléfono): «Tus plantillas» y «De la comunidad» en «Nuevo diseño» los hicieron DOS chats el mismo día: éste y
+  el del teléfono (`03ac655cfb`, O35 parte 2). Al mezclar con main quedó la de ellos (con `SeccionM` y un test que monta la
+  pantalla de verdad, tests/image-movil-propias.test.ts) y se sacó la copia de acá con su test de fuente. El mismo pendiente
+  estaba en dos listas (F17 y O35) con dos dueños: antes de construir algo del teléfono, `git log origin/main` del archivo.
+  «Hacer el mío» ya no existe ni en la computadora (se fue el 6/11): ese pedazo del pendiente era viejo. **Queda «Ver
+  ejemplo» en el teléfono**: el de la computadora es un diálogo (`carruseles/DialogosCarrusel.tsx`), y en /m va en una hoja.
+- **F44**: la marca que falta es la apertura `image:marca` («¿Tienes un manual de marca o un logo?»), con algo en la
+  página, la charla vacía y el negocio sin kit. Con la página en blanco va primero la medida. Se fue el link del saludo.
+- **F46 c**: «Tamaño personalizado» y los 30 tamaños en «Nuevo diseño» viven en la tarjeta de
+  `app/_crear/PantallaCrear.tsx`, que otro chat estaba editando ese día. **Sin hacer.**
+- **F47**: el plano ya no nombra «Proyectos 70» en el riel y la regla 9 dice dónde está de verdad el tamaño personalizado.
+- **F50**: «Cambiar nombre» y «Guardar búsqueda» abren el campo de la casa (`app/image-editor/NombreModal.tsx`, con
+  `nombreValido`). El campo DENTRO de la tarjeta (como el Web Generator) también pide `PantallaCrear.tsx`.
+- **F131**: alojar las fuentes nosotros son **69 familias, 996 archivos woff2 (latin y latin-ext), 17.784.668 bytes
+  (16,96 MB)**, medido el 18/11 sobre `app/image-editor/mako/fuentes.ts`. Es el doble del techo que se puso para `public/`
+  (~8 MB): no se subió. Las salidas son un bucket público de Storage (infraestructura y plata) o achicar la lista de
+  familias; las dos las decide Martín.
+- **F132**: **Stock**, descartado: un banco de fotos es un proveedor con sus términos de reventa, que se leen antes de
+  mostrarle una foto a un cliente que paga (la regla de las licencias); no hay ninguno elegido. **Versiones**, descartado:
+  el diseño se guarda solo y tiene deshacer, y una historia de versiones pide su tabla sin que nadie la haya pedido.
+  **Compartir**, descartado acá: un link a un diseño es un acceso de personas, y eso lo decide Martín. **Comentarios**,
+  descartado: la co-edición ya se borró (`_doory/editor/collab/` no existe) y un diseño lo edita una persona. **Marca**:
+  el camino es leer y guardar los kits de `lib/marca/kits.ts` (los que ya usa el chat) desde `brand`; no se hizo porque un
+  kit y el `BrandKit` de Doory no son la misma forma (un kit tiene un logo y colores con su uso, Doory varios logos y una
+  paleta suelta) y guardar desde el panel podía perder lo que el editor no conoce.
+- **F133**: «Editando ▾» con el avatar, **descartado**: no hay modos ni co-edición. «Carpetas» en Proyectos,
+  **descartado**: el panel Proyectos se fue el 29/10 y los diseños son la lista de la pantalla de Create. **Quedan** la vista
+  rápida y «Estilos» del riel, la mini-barra de la selección, las marcas de la regla y el «⋯» por mosaico: se copian de
+  Canva mirándolo, y desde la nube no se abre.
+- **F134**: conservar el SVG pide sumarlo al bucket (una migración sobre la 0278) y servirlo desde un origen sin cookies:
+  infraestructura y producción. **Sin hacer.**
+- **F135**: hecho `quitar_fondo`. El mismo día otro chat sumó filtros, ajustes, recortar a una proporción y redimensionar
+  (`6783b47002`, la entrada de abajo); al mezclar quedaron las cinco operaciones juntas en el catálogo. Siguen sin poder desde
+  el chat: íconos de la biblioteca, generar imágenes, agrandar o soltar un recorte, filtros de una foto en un marco,
+  degradados, animaciones, agrupar, el tamaño de una sola página, usar una plantilla, tablas, gráficos y QR
+  (`NO_SE_PUEDE_CHAT_IMAGEN`).
+- **F136**: hecha la tanda 3. **La tanda 2** (las operaciones del chat que proponen, en `lib/api-mako/areas/imagen.*`, con
+  su tabla de propuestas; la migración 0421 quedó reservada y sin usar) **sigue sin hacer**.
+
+Tests nuevos o extendidos, cada uno probado rompiéndolo: tests/image-editor-chat.test.ts, tests/iniciativa-image.test.ts,
+tests/image-editor-pedidos-chat.test.ts, tests/image-editor-nombre.test.ts y tests/image-editor-menu-y-pagina.test.ts.
+## El chat pone filtros, recorta y cambia el tamaño del diseño; el ZIP de varias páginas, probado (18/11/2026)
+
+**Vive en:** `lib/image-editor/chat/fotos.ts` · `lib/image-editor/chat/catalogo.ts` · `lib/image-editor/chat/aplicar.ts` ·
+`lib/image-editor/chat/vista.ts` · `app/image-editor/mako/chat/acciones.ts` · `app/image-editor/_doory/editor/engine/export/zip.ts`
+· `app/image-editor/mako/fuentes.ts`
+
+**Síntoma (O37, el pedido del 27/10: «si una persona quiere editar lo que sea debería poder, con prompts»).** El chat «MaKo IA»
+decía, por `NO_SE_PUEDE_CHAT_IMAGEN`, que no podía poner filtros ni ajustes a una foto, recortarla ni Redimensionar el diseño,
+y el panel de la foto y «Redimensionar» sí lo hacen con la mano.
+
+**Causa.** El catálogo sólo tenía lo que se escribe en el JSON del documento sin el motor, y se creía que el resto necesitaba
+el motor. No hacía falta: el motor guarda los filtros en el JSON de la foto (`filters: [{ type, value }]`, el `filterSpecs`
+deshidratado por `serialization.ts`) y el recorte en `cropX/cropY/width/height`, y `resizeDocument`
+(`engine/magicResize.ts`) es una función pura sobre el documento.
+
+**Lo que quedó.** Cuatro operaciones al final del catálogo: `filtro_foto` (los nueve del panel, «original» los saca),
+`ajustar_foto` (los deslizadores en las unidades de la pantalla: brillo −100 a 100, tono −180 a 180…, y blanco y negro o sepia),
+`recortar_foto` (las proporciones de la barra de recorte) y `redimensionar` (todo el diseño, por nombre de `TAMANOS_API` o con
+ancho y alto; escalar, reubicar o igual, las tres de «Redimensionar»). Proponer, no aplicar: van a la COPIA y se aceptan en un
+paso, como las demás.
+
+- **Lo que el motor hace sobre el JSON, el chat lo hace con una COPIA DE LOS DATOS y un test que corre los dos lados**
+  (`fotos.ts` contra `FILTER_PRESETS`, `FILTER_RANGES`, `normalizeSpecs`, `withSpec` y `fitAspect`:
+  `tests/image-editor-chat-fotos.test.ts`, tests 1 a 3), **o con la FUNCIÓN del motor que le pasa el panel**
+  (`redimensionarComoElEditor` en `acciones.ts` → `aplicarOperaciones({ redimensionar })`). Nunca importándola desde `lib/`:
+  lo prohíbe el test 4 de `tests/image-editor-integracion.test.ts`, porque el server lee estos módulos. Sin la función, la
+  operación se descarta con su motivo, como una fuente que el editor no tiene.
+- **Recortar desde el JSON sólo ACHICA.** El tamaño original de la foto sale del elemento cargado (`getOriginalSize()` en
+  `crop.ts`) y el documento no lo guarda: agrandar un recorte o volver a la foto entera queda en el editor, y el catálogo lo
+  dice. Una foto en un marco (`slot`) no se recorta, como en el motor (`api/crop.ts`), y un QR no lleva filtros.
+- **Lo escrito en el JSON llega al lienzo sin tocar el motor:** `syncTo` → `applyObjects` (`engine/pageCanvas.ts`)
+  reconstruye todo objeto cuya referencia cambió, y al reconstruirlo `prepareImage` mueve `filters` a `filterSpecs` y
+  `hydrateImage` los aplica.
+- **Un cambio de tamaño aceptado re-encuadra el lienzo** (`editor.view.fit`, como `pages.resize`), y saca el `presetId` del
+  diseño si el tamaño cambió. Sin eso queda el zoom de antes.
+- **El ZIP de «Descargar todas las páginas» se probó, en node:** `zipFiles` arma el .zip con fflate 0.8.3 y se vuelve a abrir
+  con los mismos nombres y bytes (`tests/image-editor-zip-paginas.test.ts`). Falta bajarlo en producción: el `<a download>`
+  y el `esm/browser.js` de fflate, que es el que empaqueta Next.
+- **Las fuentes del editor, medidas (O32):** `fuentes.ts` pide al CDN 70 familias, 499 variantes y 997 archivos `.woff2`
+  (latin y latin-ext). Alojadas en MaKo pesarían **17 MB**. Los paquetes `@fontsource/*` **no están en `node_modules`** (0 de
+  70): habría que sumarlos (60 MB de tarballs, 65 MB desempacados con todos los alfabetos) o copiar sólo esos 997 archivos.
+  ⚠️ jsDelivr está bloqueado por el proxy de la nube (403): se midió bajando los tarballs del registro de npm.
+- **Lo que sigue sin hacerse por chat:** agrupar y desagrupar (Fabric guarda los hijos de un grupo relativos a su centro:
+  armarlo a mano sin el motor es riesgoso), degradados, animaciones, quitar el fondo (IA de imagen), usar una plantilla y
+  cambiar el tamaño de UNA página. Y la API de MaKo sigue cambiando sólo los textos de un diseño (`imagen.def.ts`): las
+  propuestas del Image Editor con tabla propia (`image_editor_propuestas`) no están en main.
+
+---
+
 ## Qué operaciones de Image usan IA de verdad (14/11/2026, al cerrar la IA para Esencial)
 
 `crear_carrusel_desde_referencia` NO usa IA (lib/carruseles/crear-servidor.ts arma la estructura con guías) y `cambiar_textos_diseno_imagen`
@@ -203,9 +338,9 @@ a la lista**, porque una lista vieja hace trabajar de más:
   cuales se rompen a propósito** (el 1 de `plantillas-crear`, «primero lo en blanco», y el 5, la lista literal
   `PLANTILLAS_NUEVO_DISENO`). Se reescriben, no se fuerzan — y eso pide correr los tests, que es justo lo que no se pudo.
   `app/image-editor/mako/plantillas/`.
-- **El `window.prompt` para renombrar un diseño** (encargo 153): `ImageEditorCliente.tsx:115` y
+- ~~**El `window.prompt` para renombrar un diseño** (encargo 153): `ImageEditorCliente.tsx:115` y
   `carruseles/ExplorarCarruseles.tsx:213`. La referencia está en el repo (el Web Generator ya edita en el lugar), así que
-  acá no hace falta ir a buscar una app de afuera.
+  acá no hace falta ir a buscar una app de afuera.~~ **Hecho el 18/11/2026** (F50): los dos abren `NombreModal.tsx`; ver la entrada de esa fecha.
 - **Las fuentes del editor se bajan de jsDelivr** (encargo 148): 499 variantes de afuera, un archivo frío tardó 12,6 s y el
   motor corta a los 8 (`LOAD_TIMEOUT_MS`), así que el texto cae a la fuente del sistema **sin un solo error**. La regla que
   ya está pagada: **nada de `next/font/google`** (rompió el build de producción de todos los chats el 15/10, porque baja la
@@ -297,7 +432,8 @@ el `package.json`/lock se actualizó con `npm install --package-lock-only`, que 
 
 - Antes de instalar algo en el clon: `npm ls --depth=0 | grep extraneous`. Si hay, no se corre `npm install`.
 - ⚠️ **`fflate` local quedó en 0.4.9** (la de `rrweb`) y el `package.json` pide ^0.8.3: en Vercel se
-  instala la 0.8 arriba. El ZIP de varias páginas de Doory usa `zipSync`, que la 0.4.9 ya tiene; sin probar.
+  instala la 0.8 arriba. El ZIP de varias páginas de Doory usa `zipSync`, que la 0.4.9 ya tiene; ~~sin probar~~
+  (18/11/2026: probado en node con la 0.8.3 que resuelve el lock, `tests/image-editor-zip-paginas.test.ts`; falta bajarlo en producción).
 
 ## jsPDF importa en caliente tres opcionales, y Turbopack las exige igual
 
@@ -664,11 +800,13 @@ cazadas). Lo que costó:
 - **El chat «MaKo IA», sin mirar en el navegador** (ws9): abrirlo del riel y de la tira, pedir, aceptar con una fuente
   nueva, «Restaurar», y que el hilo vuelva al recargar (`app/image-editor/mako/chat/PanelMakoIA.tsx`). La migración
   0303 la aplica el Cerebro; sin ella el chat anda y no guarda.
-- **El chat en la API de MaKo** (tanda 2: sus operaciones que PROPONEN, con su tabla de propuestas) y **«entender el
-  pedido»** (tanda 3: `/api/mako/pedidos` con `tab: 'imagen'` antes de la IA, como `app/video-editor/_opencut/chat/pedidos.ts`):
+- **El chat en la API de MaKo** (tanda 2: sus operaciones que PROPONEN, con su tabla de propuestas) y ~~**«entender el
+  pedido»** (tanda 3: `/api/mako/pedidos` con `tab: 'imagen'` antes de la IA, como `app/video-editor/_opencut/chat/pedidos.ts`)~~:
   sin hacer, quedaron para después del 90 % semanal de claude3. Los objetos del área `imagen` ya están en el server.
+  **La tanda 3 quedó hecha el 18/11/2026** (`app/image-editor/mako/chat/pedidos.ts`); la tanda 2 sigue sin hacer.
 - **Lo que el chat todavía no hace** (`NO_SE_PUEDE_CHAT_IMAGEN` de `lib/image-editor/chat/catalogo.ts`): fotos e íconos,
-  imágenes con IA, quitar fondo, recortar, degradados, animar, agrupar, redimensionar, plantillas.
+  imágenes con IA, ~~quitar fondo~~ (hecho el 18/11/2026: `quitar_fondo`), ~~recortar~~, degradados, animar, agrupar,
+  ~~redimensionar~~ (recortar y redimensionar, `6783b47002` del 18/11/2026), plantillas.
 - **«Sugerido» en el panel de plantillas, sin mirar en el navegador** (ws9, con un funnel declarado): el orden, el
   texto al lado del nombre y el `title` con el porqué (`_doory/editor/panels/TemplatesPanel.tsx`).
 

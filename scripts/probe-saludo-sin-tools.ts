@@ -20,6 +20,7 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import { readFileSync } from 'node:fs';
+import { modeloGeminiTexto } from '../lib/gemini-modelos';
 
 const SRC = readFileSync(resolve(process.cwd(), 'lib/mako-doer-in.ts'), 'utf8');
 
@@ -53,7 +54,7 @@ const CASOS: Caso[] = [
 
 const PROVEEDORES = [
   { nombre: 'groq', base: 'https://api.groq.com/openai/v1', model: process.env.CHEAP_MODEL || 'openai/gpt-oss-20b', key: process.env.GROQ_API_KEY },
-  { nombre: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta/openai', model: process.env.GEMINI_MODEL || 'gemini-flash-latest', key: process.env.GEMINI_API_KEY },
+  { nombre: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta/openai', model: modeloGeminiTexto(), key: process.env.GEMINI_API_KEY },
 ];
 
 async function main() {

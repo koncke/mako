@@ -36,6 +36,7 @@ const leer = (...ruta: string[]) => sinComentarios(readFileSync(join(RAIZ, ...ru
 
 const NADA: SenalesNegocio = { canales: [], entradas: [], cobros: [], cuello: null };
 const CHECKOUT: SenalesNegocio = { ...NADA, canales: ['carrito'], entradas: ['carrito'] };
+const WEBINAR: SenalesNegocio = { ...NADA, canales: ['webinar'] };
 const EN_PERSONA: SenalesNegocio = { ...NADA, canales: ['presencial'] };
 const TODO: SenalesNegocio = {
   canales: CANALES.map((c) => c.id), entradas: Object.keys(ENTRADAS) as SenalesNegocio['entradas'], cobros: ['unico', 'suscripcion'], cuello: 'oferta',
@@ -79,17 +80,21 @@ test('sin señales: la galería de Video, la API y el chat en el orden de siempr
 
 // ── Qué se sugiere a quién: Video Editor ─────────────────────────────────────────────────────
 
-test('video · cobra en un checkout: primero «Oferta con cuenta regresiva», y su variante con glitch no', () => {
-  const r = plantillasEnOrden(CHECKOUT);
-  assert.deepEqual(sugeridasVideo(CHECKOUT), ['oferta']);
+// `oferta` es la invitación a una clase en vivo desde el 18/11/2026 (doc 2.9): la de quien vende en webinars. La de
+// quien cobra en un checkout era el anuncio de e-commerce con cuenta regresiva, y el doc saca esa fila.
+test('video · vende en webinars: primero «Invitación a clase en vivo», sola; a quien cobra en un checkout, ninguna', () => {
+  const r = plantillasEnOrden(WEBINAR);
+  assert.deepEqual(sugeridasVideo(WEBINAR), ['oferta']);
+  assert.deepEqual(sugeridasVideo(CHECKOUT), [], 'ninguna plantilla de video es de checkout');
   assert.equal(r[0].plantilla.id, 'oferta', 'la sugerida va primero');
-  assert.equal(r[0].porque, 'Vendes con checkout', 'el porqué es el del eje más pesado');
+  assert.equal(r[0].porque, 'Vendes en webinars', 'el porqué es el del eje más pesado');
   assert.deepEqual(r.slice(1).map((x) => x.plantilla.id), PLANTILLAS.map((p) => p.id).filter((id) => id !== 'oferta'), 'y las demás, en el orden de siempre');
 });
 
-test('video · vende por llamada, los leads vienen de anuncios y el cuello es la conversión: Testimonio y el gancho', () => {
+test('video · vende por llamada, los leads vienen de anuncios y el cuello es la conversión: Testimonio, el caso y el gancho', () => {
   const s: SenalesNegocio = { ...NADA, canales: ['llamadas'], entradas: ['formulario_anuncio'], cuello: 'conversion' };
-  assert.deepEqual(sugeridasVideo(s), ['testimonio', 'gancho']);
+  // El caso con números es de quien vende por llamada (18/11/2026, docs/plantillas-reales/video.md 2.5).
+  assert.deepEqual(sugeridasVideo(s), ['testimonio', 'caso-numeros', 'gancho']);
   assert.ok(!sugeridasVideo(s).includes('oferta'), 'la oferta es de UN modo de vender: no se sugiere por un cuello genérico');
 });
 
@@ -97,13 +102,13 @@ test('video · el cuello en la oferta y le compran desde su página: Beneficios,
   assert.deepEqual(sugeridasVideo({ ...NADA, entradas: ['landing'], cuello: 'oferta' }), ['beneficios', 'gancho', 'antes-despues']);
 });
 
-test('video · las variantes no se sugieren nunca, y nunca más de tres', () => {
+test('video · el clip de podcast no se sugiere nunca, y nunca más de tres', () => {
+  // Las variantes (gancho escrito, oferta con glitch) se retiraron el 18/11/2026. La que va `{}` ahora es el clip de
+  // podcast: es para recortar un video largo, y ninguna señal del negocio lo distingue.
   const r = sugeridasVideo(TODO);
   assert.equal(r.length, 3);
-  for (const variante of ['gancho-escrito', 'oferta-glitch']) {
-    assert.deepEqual(ETIQUETAS_VIDEO[variante], {}, `${variante} es una variante: \`{}\``);
-    assert.ok(!r.includes(variante));
-  }
+  assert.deepEqual(ETIQUETAS_VIDEO['clip-podcast'], {}, 'el clip de podcast va `{}`');
+  assert.ok(!r.includes('clip-podcast'));
 });
 
 // ── Qué se sugiere a quién: Image Editor ─────────────────────────────────────────────────────
@@ -150,16 +155,16 @@ test('imagen · la page lee las señales y bajan hasta el servicio de plantillas
 });
 
 test('la API de MaKo da el mismo orden, con la sugerida marcada', () => {
-  const v = plantillasParaApi(CHECKOUT).plantillas;
+  const v = plantillasParaApi(WEBINAR).plantillas;
   assert.equal(v[0].id, 'oferta');
-  assert.equal((v[0] as { sugerida?: string }).sugerida, 'Vendes con checkout');
+  assert.equal((v[0] as { sugerida?: string }).sugerida, 'Vendes en webinars');
   assert.match(leer('lib', 'api-mako', 'areas', 'video.run.ts'), /plantillasParaApi\(await senalesDelNegocio\(\)\.catch\(\(\) => null\)\)/);
   // Imagen ya no: su área no tiene plantillas que ordenar (las 10 de Doory se borraron el 6/11/2026).
 });
 
 test('el chat «Editar con IA» lee las plantillas en el mismo orden, con la sugerida marcada', () => {
-  const p = catalogoParaPrompt(CHECKOUT);
-  assert.match(p, /· "oferta" «Oferta con cuenta regresiva» \(SUGERIDA para este negocio: Vendes con checkout\), /);
+  const p = catalogoParaPrompt(WEBINAR);
+  assert.match(p, /· "oferta" «Invitación a clase en vivo» \(SUGERIDA para este negocio: Vendes en webinars\), /);
   assert.ok(p.indexOf('· "oferta" ') < p.indexOf('· "gancho" '), 'la sugerida va primero');
   assert.match(p, /Si la persona no dice cuál, elige una SUGERIDA para este negocio\./);
   const ia = leer('lib', 'editor-video', 'ia.ts');
@@ -171,6 +176,7 @@ test('el chat «Editar con IA» lee las plantillas en el mismo orden, con la sug
 //   · la pestaña ordena sin las señales / no lee el contexto / no dice «Sugerido»      -> 14/1 cada una
 //   · la page del video no pasa las señales / el cliente no las pone en el contexto  -> 14/1 cada una
 //   · la variante con glitch con la fila de la original                               -> 13/2
+//     (18/11/2026: las variantes se retiraron; la rotura es ahora el clip de podcast con una fila, medida abajo)
 //   · la oferta con un cuello genérico                                                -> 14/1
 //   · una plantilla de video sin su fila                                              -> 13/2
 //   · una etiqueta con un canal que no existe                                         -> 14/1
@@ -184,3 +190,8 @@ test('el chat «Editar con IA» lee las plantillas en el mismo orden, con la sug
 // imagen sin las señales, la tarjeta de presentación con un cuello genérico) se fueron el 6/11/2026 con las plantillas
 // que ordenaban. Medido el 6/11/2026: la base es 12/0, y el panel sugiriendo algo (su `list` devolviendo una fila) da
 // 11/1 en «imagen · sin plantillas, el panel no sugiere nada».
+// 18/11/2026 (F164, las seis plantillas nuevas): el clip de podcast con una fila → 1 rojo («el clip de podcast no se
+// sugiere nunca»). · el caso con números sin «llamadas» → 1 rojo («vende por llamada…»). · el tour fuera del catálogo con
+// su fila puesta → 1 rojo («cada plantilla … tiene su fila»). Restaurado: en verde.
+// 18/11/2026 (la oferta pasó a la invitación a clase): la fila de la oferta otra vez con el checkout → 1 rojo («vende en
+// webinars…»). Restaurado: en verde.

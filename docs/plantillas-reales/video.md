@@ -89,7 +89,7 @@ Las tablas de piezas usan los ids del motor: efectos de `text/estilos-predefinid
 | 6–9.5 | video-1 | hueco `broll` («Toma de apoyo», opcional, silenciado) | — | entra `aparecer-gradualmente` 0.3 · sale `desaparecer-gradualmente` 0.3 |
 | 0–2.5 | texto-1 | `gancho` (28): «¿CIERRAS MENOS DEL 20 %?» | `amarillo-trazo-negro`, Anton 104, mayúsculas, arriba 300 | `rebote` 0.5 · sale 0.3 |
 | 14–19 | texto-2 | `dato` (24): «2/10 → 4/10 CIERRES» | `recuadro-amarillo`, Montserrat 88 negrita, mayúsculas, centro 700 | `acercar` 0.4 · bucle `pulso` 1 · sale 0.3 |
-| 14–19 | texto-1 | `aviso` (32): «Mediana de 52 alumnas» | `sombra-suave`, Montserrat 36, 80 % de opacidad, arriba 800 (el dato, en un renglón, termina cerca de 770) | `aparecer-gradualmente` 0.3 |
+| 14–19 | texto-1 | `aviso` (32): «Mediana de 52 alumnas» | `sombra-suave`, Montserrat 36, 80 % de opacidad, arriba 800 (el dato, en un renglón, termina cerca de 770). **Medido el 18/11/2026: el dato no entra en un renglón** (19 caracteres de Montserrat 88 en negrita pasan los 842 px): se parte en dos, de 568 a 832 con la tarjeta, y el aviso va en **840**, 34 px debajo de la letra como el del testimonio | `aparecer-gradualmente` 0.3 |
 | 21–24 | principal + texto-1/2 | `cierre()`: título (32) «¿Vendes programas de +USD 1,000?» · botón (20) «Escribe LLAMADA» | los de `cierre()` | los de `cierre()` |
 
 **Ejemplo completo: Cierre Consultivo** (Andrea Salcedo, coach de ventas para coaches, CDMX; programa de 90 días, USD 1,500). Negocio ficticio.
@@ -655,6 +655,13 @@ Las hace sólo si el dato no está en Offer, en el Second Brain, en el material 
 | `app/video-editor/_opencut/chat/linea.ts` | Marca `ejemplo: true` en el texto de hueco que sigue igual al ejemplo, para que el Editor sepa qué falta adaptar. |
 | Tests | `tests/video-editor-plantillas.test.ts`: las claves de `MUESTRAS` pasan a rótulo + archivo, y casos nuevos: cada `muestra` existe en `public/`, cada archivo tiene su crédito, el guion cubre la pieza principal, ningún ejemplo tiene voseo (`marcasDeVoseo`). `tests/video-editor-nuevo-video.test.ts`: la regex «Sugerida · 15 s» pasa a la `insignia`. `tests/plantillas-sugeridas-editores.test.ts`: las filas. `tests/video-editor-plantillas-uso.test.ts`: el dibujo con imagen. `tests/crear-pantalla.test.ts`: la insignia. |
 
+**Hecho el 18/11/2026 (F164):** las seis nuevas con su ejemplo y su fila, el retiro de las dos variantes y el orden de 2.0
+(`docs/hallazgos-video-editor.md`, «Las seis plantillas nuevas»). Y en la misma fecha, las cinco que se conservan en su versión
+completa (2.1, 2.3, 2.4 y 2.11), `oferta` como la invitación a clase (2.9) y `plantillasParaApi` con `objetivo` y `cuando`
+(«Las cinco del doc, enteras»). **Falta de esta tanda:** los WebP de muestra con sus créditos (y todo lo que cuelga de ellos:
+`muestrasDe`, el dibujo con imagen, `prepararMuestras`), `textosDeEjemplo` en el diálogo de exportar y la marca `ejemplo: true`
+en `chat/linea.ts`.
+
 ### Tanda 2: el Editor de MaKo
 
 | Archivo | Cambio |
@@ -718,7 +725,7 @@ Las hace sólo si el dato no está en Offer, en el Second Brain, en el material 
 
 - **Elegir los clips de Pexels** (unos 30): bajarlos, recortarlos a 1080×1920, exportar el fotograma WebP y anotar autor y URL en `ejemplo.creditos` de `lib/editor-video/plantillas.ts`. Ningún clip está elegido.
 - **Hacer la captura de `caso-numeros`** (propia, con los números del ejemplo).
-- **Medir el peso de `MiniaturaPlantilla` fuera del editor** (`VideoEditorCliente.tsx`). Si arrastra el WASM, ir por el póster WebP.
+- ~~**Medir el peso de `MiniaturaPlantilla` fuera del editor** (`VideoEditorCliente.tsx`). Si arrastra el WASM, ir por el póster WebP.~~ — medido el 18/11/2026: no arrastra el WASM (~21 módulos chicos, ninguno del motor), y la miniatura ya se dibuja en «Nuevo video» (`app/video-editor/miniatura-nuevo-video.tsx`; lo fija `tests/video-editor-miniatura-nuevo.test.ts`).
 - **Buscar en la web los nombres del elenco** (Torre Alameda, Clínica Dental Altamira, «Ventas sin presión») antes de publicar.
 - **Releer el LICENSE** de digitalsamba/claude-code-video-toolkit y de agency-agents si se va a copiar algo de ellos (hoy son sólo idea).
 - **La música:** Epidemic Sound sigue «pendiente de alta» en `lib/musica-catalogo.ts`, y no está resuelto quién paga la licencia comercial de cada cliente.

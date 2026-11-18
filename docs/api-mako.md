@@ -33,13 +33,13 @@
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `lanzar_decision_media_buyer` · `deshacer_decision_media_buyer` · `descartar_decision_media_buyer` · `reabrir_decision_media_buyer` · `calificar_decision_media_buyer` · `hooks_al_video_media_buyer` · `analizar_cuenta_media_buyer` · `modo_media_buyer` · `topes_media_buyer` · `metas_media_buyer` · `cuenta_media_buyer` · `ver_automatizaciones_media_buyer` · `ver_campanas_media_buyer` · `automatizacion_media_buyer` · `modo_agente_media_buyer` · `agente_media_buyer` · `borrar_agente_media_buyer` · `ver_copiloto_media_buyer` · `copiloto_media_buyer` · `ver_comunicacion_copiloto` · `guardar_comunicacion_copiloto` · `metodo_campanas_copiloto` · `ver_biblioteca_media_buyer` · `zona_media_buyer` · `hasta_media_buyer` · `proponer_crear_campana` · `preparar_subida_media_buyer` · `subir_creativos_media_buyer`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `ver_newsletter` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `configurar_newsletter` · `crear_edicion_newsletter` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email` · `conectar_dominio_email` · `fijar_remitente_email` · `conectar_seguimiento_email`
-- **Automations** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_plantillas_automatizaciones` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `crear_automatizacion_desde_plantilla` · `duplicar_automatizacion` · `cambiar_espera_paso` · `configuracion_automatizacion` · `configurar_automatizacion` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `volver_a_probar_lead_secuencia` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `cambiar_crons_secuencia` · `agregar_escenario_secuencia` · `archivar_secuencia` · `probar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje` · `quienes_de_automatizacion` · `ver_limites_envio` · `cambiar_limites_envio` · `renombrar_automatizacion` · `espera_por_tarjeta` · `arrancar_con_formulario`
+- **Automations** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_plantillas_automatizaciones` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `crear_automatizacion_desde_plantilla` · `duplicar_automatizacion` · `cambiar_espera_paso` · `configuracion_automatizacion` · `configurar_automatizacion` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `volver_a_probar_lead_secuencia` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `cambiar_crons_secuencia` · `agregar_escenario_secuencia` · `archivar_secuencia` · `probar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje` · `quienes_de_automatizacion` · `ver_limites_envio` · `cambiar_limites_envio` · `renombrar_automatizacion` · `espera_por_tarjeta` · `arrancar_con_formulario` · `editar_armada_con_ia`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `metricas_automatizacion` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_con_ia_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `mover_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `listar_clics_landing` · `ver_retencion_video_landing` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `listar_videos_alojados` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_iconos_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `dar_formato_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `cambiar_imagen_landing` · `cambiar_icono_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing` · `configurar_bloque_venta_landing` · `configurar_quiz_landing` · `asignar_formulario_a_funnel`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
-- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain` · `ver_kits_marca` · `guardar_kit_marca` · `elegir_kit_marca` · `borrar_kit_marca` · `ver_plantillas_oferta`
-- **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter` · `outliers_copywriter` · `replicar_outlier_copywriter` · `replicar_link_o_texto_copywriter`
+- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain` · `ver_kits_marca` · `guardar_kit_marca` · `elegir_kit_marca` · `borrar_kit_marca` · `ver_plantillas_oferta` · `corregir_campo_perfil`
+- **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter` · `outliers_copywriter` · `replicar_outlier_copywriter` · `replicar_link_o_texto_copywriter` · `cargar_guiones_anuncio` · `generar_anuncios_planteados`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `animar_palabras_video` · `usar_preset_subtitulos` · `proponer_broll_video` · `buscar_clips_video` · `editar_video_automatico` · `poner_emojis_subtitulos` · `agregar_motion_video` · `editar_motion_video` · `duplicar_elemento_video` · `cambiar_fondo_lienzo` · `poner_efecto_texto_video` · `agregar_emoji_video` · `encuadrar_clip_video` · `otra_imagen_broll` · `poner_medios_linea_tiempo` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos` · `ver_plantillas_avatar`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
@@ -681,7 +681,7 @@ Propone agregar UN bloque de General (el objetivo y la acción del día, los OKR
 | `opciones.vencidos` | string | no | deadlines (Los vencidos): si, no |
 | `opciones.cuantos` | string | no | proyectos (Cuántos): 2, 3, 4, 6 |
 | `opciones.orden` | string | no | proyectos (Cuáles): prioridad, deadline |
-| `opciones.comparar` | string | no | mes (El mes anterior): si, no |
+| `opciones.comparar` | string | no | mes (El período anterior): si, no |
 
 ```bash
 curl -L \
@@ -732,7 +732,7 @@ Propone cambiar las opciones de UN bloque que ya está en una hoja de General (c
 | `opciones.vencidos` | string | no | deadlines (Los vencidos): si, no |
 | `opciones.cuantos` | string | no | proyectos (Cuántos): 2, 3, 4, 6 |
 | `opciones.orden` | string | no | proyectos (Cuáles): prioridad, deadline |
-| `opciones.comparar` | string | no | mes (El mes anterior): si, no |
+| `opciones.comparar` | string | no | mes (El período anterior): si, no |
 | `titulo` | string | no | Un título propio (texto vacío = el de siempre). Sin esto, no se toca. |
 | `funnel` | string | no | Sólo para el funnel de hoy (UNO) y a quién cobrarle (uno o VARIOS, separados por coma): el funnel o los funnels (id o nombre), o «ninguno» para volver al principal o a todo el negocio. |
 
@@ -1386,6 +1386,7 @@ PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando p
 | `tareas.proyecto` | string | no | NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó. |
 | `tareas.deadline` | string | no | fecha límite AAAA-MM-DD, solo si la dijeron. |
 | `tareas.prioridad` | string (alta \\| media \\| baja \\| futuro) | no | se ignora al aplicar: la tarea entra sin prioridad. |
+| `tareas.recurrente` | boolean | no | true SOLO si se repite para siempre (la junta de los miércoles); va sin deadline. |
 
 ```bash
 curl -L \
@@ -5371,7 +5372,7 @@ PROPONE crear un anuncio EN PAUSA dentro de un conjunto existente: reusando el p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `adsetId` | string | sí | id numérico del conjunto de anuncios en Meta (de listar_conjuntos_meta). |
-| `nombre` | string | sí | nombre del anuncio. |
+| `nombre` | string | sí | nombre del anuncio: lo que lo describe. Si el conjunto tiene su código (001.02 …), MaKo le pone adelante el del anuncio (001.02.c). |
 | `fuente` | string (existing \\| upload) | sí | existing = reusar el post de un anuncio existente; upload = imagen o video ya subido a la cuenta. |
 | `source_ad_id` | string | no | solo existing: id numérico del anuncio cuyo post se reusa. |
 | `media_type` | string (image \\| video) | no | solo upload: tipo de media. |
@@ -6889,7 +6890,7 @@ curl -L \
 
 ### `GET /api/v1/whatsapp/leads/{leadId}/etapa-inbox` — Etapa del inbox de un lead
 
-La etapa con la que las dos bandejas de WhatsApp muestran y filtran a un lead (cliente, por-cobrar, no-show, j2, post-j1, agendo, vio-vsl, form, abierto), derivada de sus fechas y asistencias. NO es la etapa del funnel configurable (pipeline_stage): la respuesta trae las dos para que digas cuál es cuál.
+La etapa del CRM de un lead: la columna donde lo dibuja su tablero, con el funnel de su casa, la misma que muestra Chats. Trae también la derivación fija que decide la etiqueta del celular (cliente, por-cobrar, no-show, j2, post-j1, agendo, vio-vsl, form, abierto), con su nombre aparte.
 
 - **Ruta por operación:** `GET /api/v1/whatsapp/etapa_inbox_de_lead`
 - **Token detallado:** permiso `whatsapp=read` (Solo lectura en «WhatsApp»)
@@ -7995,7 +7996,7 @@ curl -L \
 
 ## Automations — `chatbot`
 
-Tab **Automations** (`/automations`). 21 lecturas · 27 acciones.
+Tab **Automations** (`/automations`). 21 lecturas · 28 acciones.
 
 ### `GET /api/v1/chatbot/secuencias` — Listar las secuencias de mensajes
 
@@ -8533,7 +8534,7 @@ curl -L \
 
 ### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/configuracion` — Configurar una automatización
 
-PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos y hasta M por día, adentro del tope de la línea; UNO SOLO para todos sus canales —WhatsApp, email, Instagram y Messenger—, y cada canal cuenta sus mensajes), lo mismo que su tuerca en Automations. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.
+PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos, hasta M por día y en qué días, adentro del tope de la línea; uno para todos sus canales), como su tuerca. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/configurar_automatizacion`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
@@ -8554,11 +8555,12 @@ PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minu
 | `hasta` | number | no | con horario propio: la hora en que cierra (21 = hasta las 20:59). |
 | `dias` | string | no | con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos. |
 | `goteoMinutos` | number | no | opcional: minutos entre dos mensajes por canal. |
-| `goteoArranqueDia` | number | no | opcional: WhatsApp arranca con estos por día (con tope). |
+| `goteoArranqueDia` | number | no | opcional: WhatsApp arranca con estos por día. |
 | `goteoArranqueSube` | number | no | opcional: y sube esto cada día que llega al suyo. |
 | `sinArranque` | boolean | no | opcional: true lo saca. |
 | `goteoPorDia` | number | no | opcional: tope de mensajes en 24 h por canal. |
-| `sinGoteo` | boolean | no | opcional: true para sacarle el goteo y el tope por día. |
+| `goteoDias` | string | no | opcional: días en que salen, como dias («horario» = los del horario). |
+| `sinGoteo` | boolean | no | opcional: true le saca el goteo entero. |
 | `columnasEmail` | string | no | opcional: "enviado=key,abrio=key,clic=key,rebote=key", columnas de su CRM que siguen al email («ninguna» saca). |
 
 ```bash
@@ -9361,6 +9363,37 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/chatbot/plantillas/PLANTILLA/arranques-por-formulario" \
   -d '{"formulario":"FORMULARIO"}'
+```
+
+### `POST /api/v1/chatbot/secuencias/{secuenciaId}/ediciones` — Editar con IA una ya armada
+
+PROPONE editar con IA una secuencia que ya existe, aunque tenga ramas (condiciones, «Si responde», AI Step, botones): MaKo quita, agrega o reescribe tarjetas según el pedido en palabras, deja el resto como está, y el resumen dice qué queda distinto. No escribe nada hasta que alguien confirme; al confirmar la publica (si está prendida, a los leads les llega lo nuevo), crea las etiquetas nuevas que nombre y, si el pedido lo pide, también qué la dispara. Si alguien la toca antes de confirmar, no se aplica. Para preguntar qué hace, ficha_secuencia_mensajes. Pide antes el secuenciaId con listar_secuencias_nutricion. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin proponer nada.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/editar_armada_con_ia`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** reescribe nutricion_secuencias.pasos (publica, sin historial de versiones), crea las etiquetas nuevas que nombre y, si el pedido lo pide, cambia sus CRON
+- **Reversible:** no
+- **Costo:** ia · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+| `pedido` | string | sí | qué hay que cambiar en la automatización, con las palabras de la persona (si mandó un audio, la transcripción). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/ediciones" \
+  -d '{"pedido":"PEDIDO"}'
 ```
 
 ## Dashboard y análisis — `metricas`
@@ -12261,7 +12294,7 @@ curl -L \
 
 ### `POST /api/v1/landing/presentaciones` — Crear una presentación desde una plantilla
 
-Crea una presentación nueva (diapositivas) en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo de la plantilla para adaptar. Úsala cuando pidan armar una presentación y la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones`). Devuelve el id y el link al editor. No corre en una automatización.
+Crea una presentación (diapositivas) o un carrusel 4:5 en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo para adaptar. Úsala cuando la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones` y `carruseles`). Devuelve el id y el link al editor. No corre en una automatización.
 
 - **Ruta por operación:** `POST /api/v1/landing/crear_presentacion_desde_plantilla`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -12276,7 +12309,7 @@ Crea una presentación nueva (diapositivas) en el editor del Web Generator desde
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `plantilla` | string (pres-pitch \\| pres-propuesta \\| pres-informe-mensual \\| pres-caso-exito \\| pres-onboarding \\| pres-plan-marketing \\| pres-webinar \\| pres-clase \\| pres-roadmap \\| pres-equipo \\| pres-ventas \\| pres-resultados) | sí | La plantilla (de listar_disenos_landing, `presentaciones`). |
+| `plantilla` | string | sí | El id de una plantilla de listar_disenos_landing: de `presentaciones` (16:9) o de `carruseles` (4:5). |
 | `titulo` | string | no | El nombre de la presentación en el Panel. Sin él, el de la plantilla. |
 
 ```bash
@@ -12287,7 +12320,7 @@ curl -L \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/landing/presentaciones" \
-  -d '{"plantilla":"pres-pitch"}'
+  -d '{"plantilla":"PLANTILLA"}'
 ```
 
 ### `PUT /api/v1/landing/comentarios/{comentario}/estado` — Marcar un comentario del diagnóstico
@@ -13053,7 +13086,7 @@ curl -L \
   -d '{"bloque":"titulo"}'
 ```
 
-### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos` — Mover o borrar un bloque
+### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos` — Mover, sacar o borrar un bloque
 
 Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar (quitar o sacar un botón, el formulario, un video, una imagen). El bloque se nombra por su posición en la sección (de ver_secciones_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
@@ -14073,7 +14106,7 @@ curl -L \
 
 ## El negocio (onboarding, Second Brain, conocimiento) — `negocio`
 
-Tab **Second Brain** (`/second-brain`). 24 lecturas · 25 acciones.
+Tab **Second Brain** (`/second-brain`). 24 lecturas · 26 acciones.
 
 ### `GET /api/v1/negocio/contexto` — Contexto del negocio
 
@@ -15335,9 +15368,39 @@ curl -L \
   "https://hola-mako.com/api/v1/negocio/plantillas-oferta"
 ```
 
+### `PUT /api/v1/negocio/perfil/campos/{key}` — Corregir un dato ya cargado
+
+PROPONE corregir UN campo del perfil del negocio que YA tiene valor (clave de ver_perfil_negocio), con lo que dijo la persona: «en realidad el precio es…», «recuerda que el programa dura…». El valor va ENTERO, como tiene que quedar: si el campo dice más cosas, se conservan en el texto. La persona ve lo de antes y lo nuevo antes del «sí». Si el campo está vacío, es guardar_campo_perfil. Gana sobre lo que MaKo saque después de los documentos, como una edición a mano. Se deshace corrigiéndolo otra vez con lo de antes.
+
+- **Ruta por operación:** `POST /api/v1/negocio/corregir_campo_perfil`
+- **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** una edición manual del perfil (mako.archivero.manual) o la respuesta del wizard (mako.onboarding.answers), y recalcula el brief sin pisar lo que no vino del Archivero
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `key` | string | sí | Clave del campo (de ver_perfil_negocio), por ejemplo «oferta_incluye». |
+| `valor` | string | sí | El valor nuevo entero, en palabras de la persona. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/negocio/perfil/campos/KEY" \
+  -d '{"valor":"VALOR"}'
+```
+
 ## Content Machine — `contenido`
 
-Tab **Ads Writer** (`/ads-writer`). 18 lecturas · 16 acciones.
+Tab **Ads Writer** (`/ads-writer`). 18 lecturas · 18 acciones.
 
 ### `GET /api/v1/contenido/anuncios` — Anuncios planteados del negocio
 
@@ -16263,6 +16326,63 @@ curl -L \
   -d '{"tipo":"reel","texto":"https://www.youtube.com/watch?v=t7-__IAeEu8"}'
 ```
 
+### `POST /api/v1/contenido/guiones` — Cargar guiones que trae la persona
+
+Guarda en «Guiones propios», en borrador, los guiones que la persona pegó o dictó (uno o varios: se separan solos y MaKo les marca gancho, historia y cierre sin cambiar una palabra), o el texto que hay detrás de un link público (un Google Docs). No repite los que ya estaban guardados ni los repetidos dentro del texto. Deja un link para revisar el texto y confirmar.
+
+- **Ruta por operación:** `POST /api/v1/contenido/cargar_guiones_anuncio`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** agrega guiones en borrador a la celda «Guiones propios» de app_settings mako.razones (relee antes de escribir; los que ya estaban no se repiten)
+- **Reversible:** sí
+- **Costo:** ia · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `texto` | string | no | El texto tal como lo pegó la persona (puede traer varios guiones). Esto o el link. |
+| `link` | string | no | Un link público al guion (Google Docs, una página). Esto o el texto. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/guiones"
+```
+
+### `POST /api/v1/contenido/anuncios` — Rehacer las motivaciones de compra
+
+MaKo arma de nuevo las motivaciones de compra de cada avatar (hasta 3 por avatar, con su copy) sin borrar nada con trabajo: los anuncios planteados con guiones, formato o imagen se quedan tal cual, con su celdaId, y sólo se reemplazan los que todavía no tienen nada. Úsalo para «arma de nuevo mis anuncios» o «dame otras motivaciones para tal avatar». Necesita los avatares y el negocio cargados. Deja un link para revisar qué se queda y qué se reemplaza; al confirmar invoca un modelo.
+
+- **Ruta por operación:** `POST /api/v1/contenido/generar_anuncios_planteados`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** agrega anuncios planteados y saca los que no tenían nada en app_settings mako.razones (los que tienen guiones, formato o imagen no se tocan)
+- **Reversible:** no
+- **Costo:** ia · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-writer
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `avatarId` | string | no | Sólo las motivaciones de este avatar (su id, de listar_anuncios_planteados). Sin esto, las de todos. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/anuncios"
+```
+
 ## Video Generator — `video`
 
 Tab **Video Generator** (`/video-generator`). 18 lecturas · 53 acciones.
@@ -16480,7 +16600,7 @@ curl -L \
 
 ### `GET /api/v1/video/plantillas` — Plantillas de anuncio del editor
 
-El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, cuánto dura y sus huecos, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».
+El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, su objetivo y cuándo usarla, cuánto dura y sus huecos, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».
 
 - **Ruta por operación:** `GET /api/v1/video/listar_plantillas_video`
 - **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
@@ -17715,7 +17835,7 @@ PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el na
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
-| `id` | string (gancho \\| gancho-escrito \\| testimonio \\| antes-despues \\| beneficios \\| oferta \\| oferta-glitch) | sí | La plantilla (listar_plantillas_video). |
+| `id` | string (gancho \\| respuesta-comentario \\| beneficios \\| testimonio \\| caso-numeros \\| historia \\| tres-errores \\| clip-podcast \\| oferta \\| tour-propiedad \\| antes-despues) | sí | La plantilla (listar_plantillas_video). |
 | `textos` | object[] | no | Opcional: lo que dicta la persona para cada hueco de texto. |
 | `textos.hueco` | string | sí | El nombre del hueco de texto. |
 | `textos.texto` | string | sí | Lo que dice, hasta el máximo del hueco. |
@@ -21548,7 +21668,7 @@ curl -L \
 
 ### `POST /api/v1/creaciones/creaciones` — Publicar una creación
 
-PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Hoy se publican: automatizacion, guion, formato_imagen (una automatización por su id de listar_secuencias_nutricion; un guion del Copywriter por su id de página; un diseño del Image Editor por su id). Se publica la DEFINICIÓN, sin los datos del negocio: en los textos, el nombre del negocio, su gente, emails, teléfonos, links, @ y precios pasan a [DATO: …]; las fotos pasan a marcos vacíos; sin audios propios, archivos, etiquetas ni líneas de WhatsApp. Si igual queda un dato, no se publica y lo dice. Volver a publicar la misma cosa la ACTUALIZA y conserva sus estrellas. Para guardarla sólo para el negocio, guardar_como_plantilla. Se retira con retirar_creacion.
+PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Hoy se publican: automatizacion, guion, formato_imagen, dashboard (una automatización por su id de listar_secuencias_nutricion; un guion del Copywriter por su id de página; un diseño del Image Editor por su id). Se publica la DEFINICIÓN, sin los datos del negocio: en los textos, el nombre del negocio, su gente, emails, teléfonos, links, @ y precios pasan a [DATO: …]; las fotos pasan a marcos vacíos; sin audios propios, archivos, etiquetas ni líneas de WhatsApp. Si igual queda un dato, no se publica y lo dice. Volver a publicar la misma cosa la ACTUALIZA y conserva sus estrellas. Para guardarla sólo para el negocio, guardar_como_plantilla. Se retira con retirar_creacion.
 
 - **Ruta por operación:** `POST /api/v1/creaciones/publicar_creacion`
 - **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
@@ -21562,8 +21682,8 @@ PROPONE publicar para todos los negocios de MaKo algo que creó este negocio. Ho
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se publica. Hoy se pueden: automatizacion, guion, formato_imagen. |
-| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"; un guion: su id de página «g…»; un diseño: su uuid). |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se publica. Hoy se pueden: automatizacion, guion, formato_imagen, dashboard. |
+| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"; un guion: su id de página «g…»; un diseño: su uuid; una hoja del Dashboard: su id de leer_hoja_dashboard). |
 | `titulo` | string | no | cómo se llama en la galería. Sin valor, el nombre de la automatización. |
 | `descripcion` | string | no | para qué sirve, en una o dos frases. |
 | `autorNombre` | string | no | el nombre con que firma (el del negocio, o el de una persona). Sin valor, «Un negocio de MaKo». |
@@ -21608,14 +21728,14 @@ curl -L \
 
 ### `POST /api/v1/creaciones/creaciones/{creacionId}/usos` — Usar una creación en este negocio
 
-PROPONE crear en este negocio una copia de una creación publicada o de una plantilla propia del negocio: una automatización nace APAGADA en Automations (si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice); un guion nace como página del Copywriter; un diseño, en el Image Editor. Cuenta un uso de la creación (uno por negocio; las propias no cuentan).
+PROPONE crear en este negocio una copia de una creación publicada o de una plantilla propia del negocio: una automatización nace APAGADA en Automations (si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice); un guion nace como página del Copywriter; un diseño, en el Image Editor; una hoja, al final del Dashboard de quien la usa. Cuenta un uso de la creación (uno por negocio; las propias no cuentan).
 
 - **Ruta por operación:** `POST /api/v1/creaciones/usar_creacion`
 - **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** crea la copia en su tab (`nutricion_secuencias` apagada, una página del Copywriter o un diseño de `image_disenos`) y anota el uso en `creacion_usos`
+- **Escribe:** crea la copia en su tab (`nutricion_secuencias` apagada, una página del Copywriter, un diseño de `image_disenos` o una hoja del informe del Dashboard) y anota el uso en `creacion_usos`
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -21635,7 +21755,7 @@ curl -L \
 
 ### `POST /api/v1/creaciones/plantillas` — Guardar como plantilla
 
-PROPONE guardar como plantilla algo de este negocio, para usarlo de nuevo: «privada» la ve y la usa sólo este negocio, tal cual (con sus precios y sus links); «publica» la ven todos, sin los datos del negocio (como publicar_creacion). Hoy se guardan: automatizacion, guion, formato_imagen. Aparece en «Nuevo …» de su tab, en «Tus plantillas». Volver a guardar la misma cosa con la misma visibilidad la actualiza. Una privada se comparte después con compartir_plantilla.
+PROPONE guardar como plantilla algo de este negocio, para usarlo de nuevo: «privada» la ve y la usa sólo este negocio, tal cual (con sus precios y sus links); «publica» la ven todos, sin los datos del negocio (como publicar_creacion). Hoy se guardan: automatizacion, guion, formato_imagen, dashboard. Aparece en «Nuevo …» de su tab, en «Tus plantillas». Volver a guardar la misma cosa con la misma visibilidad la actualiza. Una privada se comparte después con compartir_plantilla.
 
 - **Ruta por operación:** `POST /api/v1/creaciones/guardar_como_plantilla`
 - **Token detallado:** permiso `creaciones=write` (Lectura y escritura en «Creaciones de la comunidad (estrellas)»)
@@ -21649,8 +21769,8 @@ PROPONE guardar como plantilla algo de este negocio, para usarlo de nuevo: «pri
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se guarda. Hoy se pueden: automatizacion, guion, formato_imagen. |
-| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número; un guion: su id de página «g…»; un diseño: su uuid). |
+| `tipo` | string (automatizacion \\| dashboard \\| formato_video \\| formato_imagen \\| guion) | sí | qué se guarda. Hoy se pueden: automatizacion, guion, formato_imagen, dashboard. |
+| `origenId` | string | sí | el id de la cosa en este negocio, como texto (una automatización: su número; un guion: su id de página «g…»; un diseño: su uuid; una hoja del Dashboard: su id). |
 | `visibilidad` | string (privada \\| publica) | sí | privada (sólo este negocio, tal cual) o publica (toda la comunidad, sin los datos del negocio). |
 | `titulo` | string | no | cómo se llama la plantilla. Sin valor, el nombre de la cosa. |
 | `descripcion` | string | no | para qué sirve, en una o dos frases. |

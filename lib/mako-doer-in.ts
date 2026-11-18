@@ -2814,10 +2814,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // link a /plan/revisar/ (ver el estado de un borrador viejo) y, sin esta guarda,
       // el código pisaba la respuesta con «te armé el borrador» sobre uno que ya existía.
       const esLectura = porId(name)?.tipo === 'lectura';
-      if (!esLectura && typeof out === 'string' && out.includes('/mako/revisar/')) {
+      if (!esLectura && typeof out === 'string' && (out.includes('/mako/revisar/') || out.includes('/whatsapp?'))) {
         try {
           const j = JSON.parse(out) as { url?: unknown };
           if (typeof j.url === 'string' && j.url.includes('/mako/revisar/')) linksAccion.add(j.url);
+          // El link a UNA conversación de WhatsApp (el borrador del número de empresa) lo arma el código con el jid del
+          // espejo: tampoco lo transporta el modelo (F114, 18/11/2026; conLinksDeAccion, lib/respuesta-doer.ts).
+          if (typeof j.url === 'string' && /\/whatsapp\?[^\s]*chat=/.test(j.url)) linksAccion.add(j.url);
         } catch { /* no era JSON */ }
       }
       if (!esLectura && typeof out === 'string' && out.includes('/plan/revisar/')) {

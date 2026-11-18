@@ -42,6 +42,7 @@ import { claveDeFormulario, claveDeLanding, idDeFormularioPixel, paginaDePixel }
 import { conAtribucion, hayAtribucion } from '@/lib/atribucion-url';
 import { getFunnelDefault, idDelFunnelDefault } from '@/lib/funnels';
 import { agregarAProducto } from '@/lib/lead-funnel';
+import { atarVisitaAlLead } from '@/lib/lead-visita';
 import { casaParaEscribir, casaReal } from '@/lib/lead-funnel-reglas';
 import { AUTOR_SISTEMA } from '@/lib/etapa-historial';
 import { normalizarUrl } from '@/lib/landing-paginas';
@@ -430,6 +431,10 @@ export async function POST(req: NextRequest) {
           console.error(`[track:optin] ws=${ws} lead=${leadId} (ya existía) no pudo entrar al CRM ${real}:`, e instanceof Error ? e.message : e);
         }
       }
+      // ⚠️ LA LLAVE DE LA VISITA (O44, 18/11/2026). Este camino nació el 14/11 sin ella: la persona que se volvía a registrar
+      // quedaba sin la grabación ni el tracking de esa visita. Sólo si la ficha no tenía una (lib/lead-visita.ts).
+      const visita = await runWithWorkspace(ws, () => atarVisitaAlLead(leadId, txt(body.visitor_id)));
+      if (visita.error) console.error(`[track:optin] ws=${ws} lead=${leadId} no se ató la visita: ${visita.error}`);
       if (respuestasOptin.length) {
         await runWithWorkspace(ws, async () => {
           const db = await getTenantDb();

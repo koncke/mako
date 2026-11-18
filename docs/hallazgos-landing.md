@@ -46,6 +46,26 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## El opt-in que se suma directo a una ficha que ya existía no le ataba la visita (18/11/2026, O44)
+
+- **El síntoma:** alguien que ya estaba en el CRM se vuelve a registrar en una landing; la ficha recibe sus respuestas y su
+  producto, y su grabación, sus visitas y lo que vio del video no aparecen nunca en esa ficha.
+- **La causa:** desde el 14/11/2026 (`d4d759ce5`) un opt-in cuyo email o teléfono coincide con UN solo lead se suma directo a esa
+  ficha, sin propuesta (app/api/track/optin/route.ts, la rama `exactos.length === 1`). Ese camino nunca escribió `visitor_id`, que
+  es la llave por la que la ficha se une con lo que grabó el Pixel. El camino de la propuesta («enriquecer», app/crm/revisar/[id]/
+  acciones.ts) sí la escribía desde el 17/10, con su propio update copiado a mano.
+- **Lo que quedó:** UNA función, `atarVisitaAlLead` (lib/lead-visita.ts), que usan los dos caminos: escribe la llave sólo si la
+  ficha no tenía una (`.is('visitor_id', null)`: un segundo dispositivo no le pisa la del primero), no toca la atribución, y
+  devuelve el error en vez de tragarlo (la ruta lo loguea; la propuesta lo suma a sus errores).
+- **La regla que queda:** un camino nuevo que SUMA algo a una ficha existente en lugar de crearla (un webhook, un opt-in, una
+  reserva) se pregunta qué llaves escribía el alta que reemplaza: la ficha nueva nacía con `visitor_id`, y la existente lo tiene
+  que recibir por el mismo lado. Cuando el mismo «sumar a una ficha» lo hacen dos caminos, va en una función: el que se escribió
+  segundo es el que se olvidó de la llave.
+- **Lo que quedó SIN hacer:** las fichas a las que ya les faltó la llave entre el 14/11 y hoy no se arreglan solas (habría que
+  cruzar `landing_events` por email del opt-in, en producción). No se midió cuántas son.
+- **Vive en:** `lib/lead-visita.ts` · `app/api/track/optin/route.ts` · `app/crm/revisar/[id]/acciones.ts` ·
+  `tests/optin-visita.test.ts` (corre la ruta de verdad contra un PostgREST de mentira).
+
 ## El sitio en todas sus rutas: un pie de un solo lugar, «Recursos», y lo que mide mal el medidor de círculos (15-16/11/2026)
 
 - **Los 2 px de más del teléfono NO eran el menú** (el diagnóstico que traía el pedido era el equivocado): con el menú cerrado
@@ -7395,3 +7415,25 @@ Las transcripciones: `C:/dev/artefactos-mako/feedback-16-11/` (fuera del repo).
   `/inicio`, que sin sesión termina en el login. En el artefacto único ahora está el Login de verdad (`login.html`); el botón de la
   maqueta lo tiene que apuntar ahí su chat.
 
+
+## En el teléfono, el VSL antes del botón; y la portada con UN botón (18/11/2026)
+
+Martín: «jamás debería salir el botón previo al VSL… siempre es el VSL y debajo del VSL el botón», y sin «Ver planes» debajo de
+la prueba gratis del héroe de la portada. Lo que sirve para la próxima:
+
+- **El diagnóstico obvio estaba mal en crm y funnel.** Como su `FEATURES[…].videoEmbed` tiene video de Panda, parecían tener el
+  VSL arriba con el botón antes. Pero las 25 landings de `LANDINGS_COMPETENCIA` se dibujan con su diseño propio
+  (`app/vsl/_competencia/disenos/<slug>.tsx`), y arriba llevan una GRABACIÓN de la app (`<video>`), no el VSL. Lo que dice si una
+  página tiene el problema es medirla, no leer los datos: se dibujaron todas y se midió a 375 dónde quedan el título, el primer
+  video y el primer botón. El botón salía antes del VSL sólo en la portada y en /vsl/semaforo. El Accelerator ya iba bien.
+- **El orden lo pone el CSS y el botón sigue siendo uno.** La caja del texto se abre (`display:contents`) y el video va antes del
+  botón (`order`): `.s-hero-tx` en `app/vsl/_sitio/estilos.ts` (≤889) y `.mk-hero-v .mk-hero-text` en
+  `app/vsl/_detalle/FeatureDetail.tsx` (≤860). Dos trampas: una caja con `display:contents` deja de ser el contenedor de `cqi`
+  (la letra del título de la portada), así que el contenedor pasa a la fila. Y la fila de la portada tenía `align-items:center`
+  de cuando era grilla: en flex en columna eso achica a los hijos, por eso lleva `stretch`.
+- **`flex-basis` en px se vuelve ALTO cuando la fila pasa a columna.** El video del detalle tenía `flex: 1.25 1 540px` (el ancho en
+  la fila). En el teléfono eran 540 px de alto para un video de 255, con ~300 px vacíos debajo. Va `flex: none` en la columna.
+- **PENDIENTE, en producción desde antes:** las páginas de detalle viejas (FeatureDetail: /vsl/semaforo y las otras que lo
+  siguen usando) miden 494 px en un teléfono de 375, y el texto queda cortado a la derecha. No lo causa el héroe sino las filas de
+  «Cómo funciona» (`.mk-row-text` a 454 dentro de `.mk-row` en columna). Medido en hola-mako.com/vsl/semaforo el 18/11/2026.
+  Test: `tests/heroe-vsl-antes-del-boton.test.ts`.

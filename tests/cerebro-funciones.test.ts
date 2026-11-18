@@ -222,11 +222,13 @@ test('11. lo que lo borra y lo que avisa: cada acción ejecutada, y cada lectura
   const pendiente = acc.slice(acc.indexOf('export async function confirmarPendiente('));
   assert.match(pendiente, /await resolverPendiente\([^\n]*\);\n\s*invalidarGrafoChat\(ctx\.ws\);/, 'confirmar una acción no borra la caché del grafo');
   const grafo = fuente('lib/cerebro-grafo.ts');
-  for (const [desde, hasta] of [['async function leerLoVivo(', ']);'], ['  const [schema, diag, files, manual,', ']);']] as const) {
+  // El piso es lo que hay hoy en cada bloque. El del constructor bajó de 10 a 8 el 18/11/2026 (F82): los dos settings viejos
+  // del objetivo (`objetivo_cierres`, `objetivo_cash_usd`) dejaron de leerse, porque la meta sale de `objectives` (leerLoVivo).
+  for (const [desde, hasta, piso] of [['async function leerLoVivo(', ']);', 12], ['  const [schema, diag, files, manual,', ']);', 8]] as const) {
     const i = grafo.indexOf(desde);
     const bloque = grafo.slice(i, grafo.indexOf(hasta, i));
     assert.doesNotMatch(bloque, /\.catch\(\(\) =>/, `una lectura de ${desde.trim()} se cae callada: el chat guardaría el grafo incompleto`);
-    assert.ok((bloque.match(/vacioAvisando\(/g) ?? []).length >= 9, `${desde.trim()}: faltan lecturas que avisen`);
+    assert.ok((bloque.match(/vacioAvisando\(/g) ?? []).length >= piso, `${desde.trim()}: faltan lecturas que avisen`);
   }
 });
 

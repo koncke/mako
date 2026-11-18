@@ -49,7 +49,8 @@ export type Fila = {
   /**
    * DÓNDE MÁS ESTÁ esta fila, por dimensión (17/10/2026): un lead AGREGADO a otros funnels además del de su casa. Lo mira
    * SÓLO el filtro (`filtrarFilas`), nunca el agrupado: filtrar por «Renovación» trae a los que están ahí aunque su casa
-   * sea otra, y sin filtro el lead se cuenta UNA vez, en su casa. Contarlo en cada funnel duplicaba los totales.
+   * sea otra, y sin filtro el lead se cuenta UNA vez, en su casa. Contarlo en cada funnel duplicaba los totales. (La VENTA
+   * sí se mueve al agrupar: va a su dueño, `duenoDe` y `partesParaAgrupar`.)
    */
   m?: Record<string, readonly string[]>;
   /**
@@ -58,6 +59,14 @@ export type Fila = {
    * como en los pagos y los OKR (lib/funnels-elegidos.ts): sumar la venta del VSL a «Renovación» es plata de otro funnel.
    */
   soloCasa?: readonly string[];
+  /**
+   * De QUÉ VALOR de la dimensión son las métricas de `soloCasa`, cuando no es el de la fila (18/11/2026). Una venta cerrada
+   * después de agregar al lead a «Renovación» es de «Renovación», como en los OKR (`funnelDelMomento`,
+   * lib/graficos-funnel-fila.ts): filtrada por «Renovación» la venta cuenta, y filtrada por su casa va en 0. Ausente = la
+   * fila misma (`d`): por un funnel agregado, en 0, como siempre. Agrupado por esa dimensión, la venta va al grupo del dueño
+   * con la MISMA regla (`partesParaAgrupar`): «Vendido por funnel» y la hoja filtrada por ese funnel dan lo mismo.
+   */
+  duenoDe?: Record<string, string>;
 };
 
 /** «X de Y»: el numerador y el denominador de una razón cuyo denominador no llegó al `minimo`. */
@@ -335,6 +344,31 @@ function claveDe(dimId: string, clase: 'tiempo' | 'categoria', f: Fila): string 
   return claveCategoria(f.d[dimId]);
 }
 
+/**
+ * Las PARTES con que una fila entra al agrupado por `dims` (18/11/2026, la revisión de O10 1). El filtro ya pone la venta de
+ * un lead agregado donde la pone el OKR (`duenoDe`, `filtrarFilas`); agrupado por «Funnel», la fila entera iba a su CASA, y
+ * «Vendido por funnel» y la hoja filtrada por ese funnel daban dos números para la misma venta. Una fila cuya venta es de
+ * OTRO valor de una de esas dimensiones se parte en dos:
+ *   · la fila, en su grupo, con lo de `soloCasa` en 0 (lo mismo que la filtrada por su casa);
+ *   · SÓLO lo de `soloCasa` (la venta, lo cobrado, el ciclo), en el grupo de su dueño (lo mismo que la filtrada por él).
+ * La suma de los grupos sigue siendo el total: el lead se cuenta UNA vez (en su casa, como dice `Fila.m`) y la venta una vez
+ * (en su dueño). La parte de la venta no lleva los distintos, la referencia ni las propiedades de la fila (la miniatura, el
+ * lugar, las columnas extra): ésas ya entraron con la fila (`venta: true` lo dice).
+ */
+export function partesParaAgrupar(f: Fila, dims: readonly string[]): Array<{ fila: Fila; venta: boolean }> {
+  const dueno = f.duenoDe;
+  if (!f.soloCasa?.length || !dueno) return [{ fila: f, venta: false }];
+  const cambian = dims.filter((d) => dueno[d] != null && claveCategoria(dueno[d]) !== claveCategoria(f.d[d]));
+  if (!cambian.length) return [{ fila: f, venta: false }];
+  const casa: Fila = { ...f, v: { ...f.v, ...Object.fromEntries(f.soloCasa.map((k) => [k, 0])) } };
+  const venta: Fila = {
+    f: f.f,
+    d: { ...f.d, ...Object.fromEntries(cambian.map((d) => [d, dueno[d]])) },
+    v: Object.fromEntries(f.soloCasa.filter((k) => Object.prototype.hasOwnProperty.call(f.v, k)).map((k) => [k, f.v[k]])),
+  };
+  return [{ fila: casa, venta: false }, { fila: venta, venta: true }];
+}
+
 /** Un filtro de un control, ya traducido a la dimensión del conjunto (lib/graficos-catalogo.ts, efectivoDe). */
 export type Filtro = { dimension: string; valores?: string[]; texto?: string };
 
@@ -353,22 +387,26 @@ export function filtrarFilas(filas: Fila[], filtros: Filtro[]): Fila[] {
   const valoresDe = (fl: Fila, dim: string): string[] => [claveCategoria(fl.d[dim]), ...(fl.m?.[dim] ?? []).map((v) => claveCategoria(v))];
   // Cada prueba dice si la fila pasa por lo que ES (`d`) o sólo por dónde MÁS está (`m`).
   type Paso = 'no' | 'casa' | 'agregado';
-  const pruebas = activos.map((x): ((fl: Fila) => Paso) => {
+  const pruebas = activos.map((x) => {
     const pasa = (v: string): boolean => {
       if (x.valores && x.valores.length) return x.valores.some((w) => claveCategoria(w) === v);
       return plano(v).includes(plano(x.texto!.trim()));
     };
-    return (fl) => {
-      if (pasa(claveCategoria(fl.d[x.dimension]))) return 'casa';
-      return (fl.m?.[x.dimension] ?? []).some((v) => pasa(claveCategoria(v))) ? 'agregado' : 'no';
+    return {
+      paso: (fl: Fila): Paso => {
+        if (pasa(claveCategoria(fl.d[x.dimension]))) return 'casa';
+        return (fl.m?.[x.dimension] ?? []).some((v) => pasa(claveCategoria(v))) ? 'agregado' : 'no';
+      },
+      // ¿El dueño de lo de `soloCasa` (la venta) pasa este filtro? Sin `duenoDe`, el dueño es la fila misma.
+      dueno: (fl: Fila): boolean => pasa(claveCategoria(fl.duenoDe?.[x.dimension] ?? fl.d[x.dimension])),
     };
   });
   const out: Fila[] = [];
   for (const fl of filas) {
-    const pasos = pruebas.map((p) => p(fl));
-    if (pasos.includes('no')) continue;
-    // Entró sólo por un funnel al que se la agregó: lo que es de su casa (la venta, lo cobrado) no se suma ahí.
-    if (pasos.includes('agregado') && fl.soloCasa?.length) {
+    if (pruebas.some((p) => p.paso(fl) === 'no')) continue;
+    // Lo de su dueño (la venta, lo cobrado) se suma sólo si el dueño pasa TODOS los filtros: entró por un funnel al
+    // que se la agregó y la venta es de su casa, o entró por su casa y la venta es de un agregado → en 0.
+    if (fl.soloCasa?.length && !pruebas.every((p) => p.dueno(fl))) {
       out.push({ ...fl, v: { ...fl.v, ...Object.fromEntries(fl.soloCasa.map((k) => [k, 0])) } });
     } else out.push(fl);
   }
@@ -447,16 +485,20 @@ export function agregar(g: Grafico, filas: Fila[], desde: string, hasta: string)
     .map((id): Dimension | undefined => (id === 'fecha' ? { id: 'fecha', nombre: 'Fecha', clase: 'tiempo' } : dimensionDe(fuente, id)))
     .filter((x): x is Dimension => !!x);
 
+  // Por una categoría, la venta de un lead agregado va al grupo de su dueño, como en el filtro (`partesParaAgrupar`).
+  const partes = (f: Fila, dims: readonly string[]) => (dim.clase === 'categoria' ? partesParaAgrupar(f, dims) : [{ fila: f, venta: false }]);
   const grupos = new Map<string, Acum>();
-  for (const f of filas) {
-    const k = claveDe(dim.id, dim.clase, f);
-    if (k == null) continue;
-    const a = grupos.get(k) ?? nuevo();
-    sumar(a, f, b);
-    // Un día no es una cosa con id: la referencia es sólo de las categorías.
-    if (dim.clase === 'categoria') anotarRef(a, f.r?.[dim.id]);
-    anotarExtras(a, f, extras);
-    grupos.set(k, a);
+  for (const f0 of filas) {
+    for (const { fila: f, venta } of partes(f0, [dim.id])) {
+      const k = claveDe(dim.id, dim.clase, f);
+      if (k == null) continue;
+      const a = grupos.get(k) ?? nuevo();
+      sumar(a, f, b);
+      // Un día no es una cosa con id: la referencia es sólo de las categorías.
+      if (dim.clase === 'categoria' && !venta) anotarRef(a, f.r?.[dim.id]);
+      if (!venta) anotarExtras(a, f, extras);
+      grupos.set(k, a);
+    }
   }
 
   // ── el orden y el recorte ──
@@ -535,19 +577,23 @@ export function agregar(g: Grafico, filas: Fila[], desde: string, hasta: string)
     const visibles = new Set(lista.map((x) => x.clave));
     const celdas = new Map<string, Map<string, Acum>>();
     const porColumna = new Map<string, Acum>();
-    for (const f of filas) {
-      let kf = claveDe(dim.id, dim.clase, f);
-      if (kf == null) continue;
-      if (!visibles.has(kf)) { if (visibles.has(OTROS)) kf = OTROS; else continue; }
-      const kc = claveDe(desg.id, 'categoria', f)!;
-      const fila = celdas.get(kf) ?? new Map<string, Acum>();
-      const a = fila.get(kc) ?? nuevo();
-      sumar(a, f, b);
-      fila.set(kc, a);
-      celdas.set(kf, fila);
-      const c = porColumna.get(kc) ?? nuevo();
-      sumar(c, f, b);
-      porColumna.set(kc, c);
+    // El desglose también es una categoría: la venta va a la celda de su dueño, mirando las dos dimensiones.
+    const dimsCruce = dim.clase === 'categoria' ? [dim.id, desg.id] : [desg.id];
+    for (const f0 of filas) {
+      for (const { fila: f } of partesParaAgrupar(f0, dimsCruce)) {
+        let kf = claveDe(dim.id, dim.clase, f);
+        if (kf == null) continue;
+        if (!visibles.has(kf)) { if (visibles.has(OTROS)) kf = OTROS; else continue; }
+        const kc = claveDe(desg.id, 'categoria', f)!;
+        const fila = celdas.get(kf) ?? new Map<string, Acum>();
+        const a = fila.get(kc) ?? nuevo();
+        sumar(a, f, b);
+        fila.set(kc, a);
+        celdas.set(kf, fila);
+        const c = porColumna.get(kc) ?? nuevo();
+        sumar(c, f, b);
+        porColumna.set(kc, c);
+      }
     }
     // Las columnas que más pesan primero; el resto, juntas en «Otros». Un desglose con valores FIJOS
     // (Ganada / Perdida, las bandas de prioridad) va en su orden, con sus vacíos, antes que lo demás.

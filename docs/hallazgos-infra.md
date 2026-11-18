@@ -6,6 +6,56 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**La prueba de carga que se le prometió a Teo: `scripts/prueba-de-carga.mjs` (18/11/2026, O27).**
+
+**Vive en:** `scripts/prueba-de-carga.mjs` · `tests/prueba-de-carga.test.ts` · `app/plan/page.tsx` · `app/dashboard/page.tsx` ·
+`tests/plan-lecturas-juntas.test.ts` (con su hijo `tests/_plan-lecturas-juntas-hijo.ts`).
+
+- **Lo que no había:** «velocidad con mucha información» se le prometió a Teo y en el repo no existía ninguna prueba de carga
+  (buscar «load test», «autocannon» o «prueba de carga» daba sólo el pedido). Las cifras de abajo («Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO»)
+  son de UN pedido a la vez.
+- **Lo que hace:** N GET concurrentes a una lista de rutas, con la cookie de una sesión, y por ruta el p50/p95/p99 (rango más
+  cercano, sólo de los que contestaron 2xx), el primer byte, los KB y los errores por tipo (`sin-sesion` = un 307 a /login,
+  `http-4xx`/`http-5xx`, `tope`, `red`). Lee cada HTML hasta el último byte y no sigue redirecciones. Sin dependencias.
+  Uso: `node scripts/prueba-de-carga.mjs --base http://localhost:3000 --rutas /dashboard,/plan --pedidos 40 --concurrencia 4
+  --cookie-archivo <archivo>` (`--seco` sólo dice el plan).
+- **El destino se decide EN POSITIVO:** sin `--contra-produccion` sólo corre contra la máquina propia (localhost, 127.x, ::1,
+  *.localhost). hola-mako.com, una URL de Vercel (las previews leen la misma base) o cualquier otro host se rechazan. Topes duros
+  aunque se pida producción: 20 a la vez y 2.000 pedidos. Dice cuánto va a pedir y espera 3 s antes de arrancar. La cookie no se
+  imprime nunca, ni en el `--json`. ⚠️ localhost también lee la base de producción (.env.local): los topes valen ahí también.
+- **⚠️ La trampa de probar rompiéndolo un guard que protege producción:** el test del rechazo corría el script con `--ya`; con el
+  rechazo roto a propósito, el script intentó 20 GET a hola-mako.com. No salieron (acá el `fetch` de Node no resuelve hosts de
+  afuera: ENOTFOUND), pero en la PC sí habrían salido. Ahora ese test va con `--seco`. **Regla:** un test de un guard que protege
+  producción se escribe de forma que, con el guard roto, tampoco pueda tocarla.
+- **Las esperas en serie** de /plan y /dashboard: ver «Lo que quedó SIN hacer» de «Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO», más abajo.
+- **Lo que quedó SIN hacer, y necesita producción:** medir /dashboard y /plan DESPUÉS del cambio a pdx1 con los request-logs de
+  Vercel (`requestDurationMs`) — la cifra «el Dashboard tarda 4-6 s» (app/admin/dev/mako-ux-ui/bitacora.ts:281) es del 23/10, de
+  antes de pdx1 — y correr la carga contra producción con una sesión real, con el OK de Martín.
+
+**El respaldo de tipos del push seguía esperando RAM con el turno tomado: el arreglo del 29/10 era la mitad (18/11/2026, O26).**
+
+**Vive en:** `scripts/tipos-respaldo-push.mjs` (`tandasConTurno`, `turnoDeArchivo`) · `tests/tipos-respaldo-push.test.ts`.
+
+- **El síntoma (medido leyendo el código, no en la PC):** el respaldo del pre-push a `main` esperaba AFUERA del lock sólo la
+  RAM de la tanda 1 (dac670c09, 29/10). Después de tomar el lock, cada tanda volvía a esperar hasta 15 min CON el lock tomado
+  —la 1 también, si la RAM bajó en los hasta 10 min de fila— y no lo soltaba nunca. Con la PC en 2-3,5 GB eso es la fila de
+  tipos de toda la PC frenada sin correr ningún tsc: el mismo trabón del push de tren-y, servido por las tandas 2 y 3.
+- **El diagnóstico obvio era el equivocado:** el 17/11 se dio por cerrado porque «lo fija el test». El test comparaba el ORDEN
+  de dos cadenas del fuente (la espera de RAM antes del `tomarLock`), así que daba verde con el agujero adentro.
+- **El arreglo** (molde: `esperarRamSinRetener` de scripts/antes-de-subir.mjs, y con-turno): con el turno en la mano se MIRA
+  la RAM, nunca se espera; si no alcanza, se suelta, se espera afuera y se vuelve a hacer fila; el tope de 15 min cuenta sólo
+  lo esperado afuera, no la fila; y sin RAM sale con 99 SIN el turno. No mira la pausa del Cerebro, a propósito: la pausa
+  existe para el push, y si la esperara se esperaría a sí mismo.
+- **El test ahora corre `main` de verdad**, con el lock de verdad (un archivo con `wx` en una carpeta temporal), otros procesos
+  de verdad que piden ese turno y la pausa prendida; sólo la RAM y las tandas son de mentira. Mira lo que se ve desde afuera:
+  si otro proceso consigue el turno mientras el respaldo espera RAM. Probado rompiéndolo (las cuatro roturas, en su cabecera).
+- **La regla que queda:** un test de un candado mira lo que ve OTRO proceso, no el orden del fuente. Y un hijo que pide un lock
+  en un test lleva su propio tope de vida: con el respaldo roto (sin soltar el turno), el hijo que hacía fila mantenía vivo el
+  proceso de tests para siempre, y la tanda habría muerto por «no avanza» (un 99) en vez de dar ESTE rojo.
+- **Lo que quedó SIN hacer:** `scripts/typecheck-lock.mjs:117-220` (el tsc ENTERO del pre-push, que corre antes del respaldo)
+  espera la RAM con el lock tomado a propósito («soltarlo dejaría arrancar a otro en el mismo hueco», 11/10). Choca con la misma
+  regla y no se tocó: no era O26, y es el camino de la emergencia a `main`.
+
 **«Tests afectados» nombra como ROJO un archivo cuyo único «fallo» es un test `todo` (11/11/2026, chat Competitor Spy).**
 La punta `spy-pruebas` (corrida 941) salió con «Rojos: doer-recetas-video-imagen, knowledge-modulos», y el diagnóstico obvio
 («las recetas de MaKo todavía nombran AI Avatar y Lead Magnet») era el equivocado: las recetas no nombran a ninguno. El rojo de
@@ -271,6 +321,40 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `lib/reset-workspace.ts:408` · `lib/evolution-mensajes.ts` · `lib/timezone.ts` · `lib/api-mako/areas/dashboard.run.ts`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 6 — La renovación de `multiplicatusresultados.com`** (vencía el 21/10/2026, con el registrante detrás de Domains By Proxy y los avisos sólo al mail de la cuenta). La fecha ya pasó y en el repo no hay nada que diga si se renovó: se mira en el registrador (Martín).
+- **Punto 13 — Lo que quedó del arreglo de `notificaciones` y `meta_campaign_drafts`.** Las dos tienen `workspace_id` (migs 0250 y 0157) y están en `TENANT_TABLES` y en `TABLAS_DE_INQUILINO`, así que el reset las vacía. Pero **el reset dice lo contrario**: `lib/reset-workspace.ts:408` agrega a sus avisos «Las notificaciones y los borradores de campañas de Meta no registran a qué workspace pertenecen, así que se conservan sin cambios», que ya es falso (se borra la línea). Y falta medir en producción que las dos migraciones estén aplicadas (`scripts/verificar-migraciones-aplicadas.mjs`).
+- **Punto 14 — El TOAST de `wa_mensajes.raw`** (292 de 374 MB y +200 MB por mes, medido en agosto). Ningún código recorta el `raw` viejo. Se mide y se decide en producción; también es el encargo 630 de docs/encargos-6-11/verificar-7.json.
+- **Punto 28 — La zona horaria por negocio, a medias.** Ya se lee por negocio (`zonaDelNegocio`, `hoyEnWorkspace`, lib/timezone.ts), y los reportes ya usan el día del negocio (6040e45bb0, F125, el mismo 18/11), pero quedan ~60 llamadas a `hoyEnTijuana()` en lib/ y app/ (grep del 18/11, después de F125), entre ellas las lecturas del Dashboard por la API (lib/api-mako/areas/dashboard.run.ts:332, :469, :583, :635) y lib/graficos-ia-elemento-server.ts:161. AGENTS.md ya nombra `faltantesDeLead` y `valoresDeRequisitos`.
+- ⚠️ **Para la pasada misma: el clon de la nube es SUPERFICIAL, y `git log -- <archivo>` miente en la dirección tranquilizadora.** Con 112 commits, `git log -5 -- docs/estado-del-arte.md` devolvía UN commit, el del borde del clon (03aa9b9f3, 16/11, que no tocó ese archivo), en vez del de verdad (40f3d1c57, 6/11), y lo mismo con todo archivo que no se tocó en esos 112. «Refutá con `git log -5 -- <archivo>`» (AGENTS.md) necesita historia: `git fetch --shallow-since=<fecha> origin main` antes de medir. Es la trampa de «Rearmar etiquetas `rescate/*` desde la nube» (4/11/2026, más abajo, con `merge-base`), vista desde el comando que se usa para refutar.
+## La limpieza semanal de %TEMP% está construida y la instala Martín (18/11/2026, F69)
+
+**Vive en:** `scripts/limpiar-temporales-instalar.cmd` (registra la tarea) · `scripts/limpiar-temporales-semanal.cmd` (lo que la
+tarea corre) · `tests/limpiar-temporales-instalar.test.ts`.
+
+- **Lo que faltaba:** `scripts/limpiar-temporales.mjs` sabía vaciar `tsx-<usuario>` desde el 6/11 (ver «Los scripts llenaban
+  %TEMP%…» más abajo), pero nadie lo corría: 216.852 entradas ese día. Ahora hay un instalador que registra la tarea
+  programada `mako-limpiar-temporales` (los lunes a las 13:17, como el usuario que la instala, y si la PC estaba apagada,
+  apenas se prende) y la tarea, que corre el limpiador con `--aplicar` y suma cada corrida a
+  `%LOCALAPPDATA%\mako\limpiar-temporales.log`.
+- **Trampa: la tarea no hereda el PATH de la terminal.** El instalador busca el node de esa máquina con `where node` y se
+  lo pasa a la tarea con su ruta entera; las rutas de los scripts salen de `%~dp0`, nunca de `C:\Users\…` (los instaladores
+  de los cursos tienen la ruta de OneDrive escrita a mano y ya no es donde vive el clon).
+- **Un .cmd no corre en Linux**, así que el test fija lo que se rompe en silencio entre los tres archivos (que los nombres
+  que se llaman existan, que no haya rutas fijas ni caracteres fuera de ASCII, que instalar no borre nada) y corre DE VERDAD
+  la parte que se puede: el limpiador con las banderas exactas de la tarea, sobre un %TEMP% de mentira.
+- **Para Martín:** construido, falta instalarlo. Se corre una sola vez, en una terminal de su PC:
+  `scripts\limpiar-temporales-instalar.cmd`. Antes, `node scripts\limpiar-temporales.mjs` dice qué borraría sin borrar nada.
+  Ninguna sesión lo instala: borra cientos de miles de archivos en su máquina.
 
 ## /api-mako sin sesión: ni `PUBLICOS` ni `esPublica` (16/11/2026)
 
@@ -824,8 +908,9 @@ no haber podido limpiar.
 chat que corra un test en este momento, y sacarle una entrada a un proceso vivo lo hace fallar con un error que no tiene nada
 que ver con su código.
 
-**Sin hacer, y lo decide Martín:** correr `node scripts/limpiar-temporales.mjs --aplicar`. No lo corrí: borra 207.092
-entradas en su máquina con diez chats trabajando. Sin `--aplicar` el script sólo cuenta.
+~~**Sin hacer, y lo decide Martín:** correr `node scripts/limpiar-temporales.mjs --aplicar`.~~ (18/11/2026, F69: quedó el
+instalador de la tarea semanal, `scripts/limpiar-temporales-instalar.cmd`, ver la entrada de arriba; **falta que Martín lo
+instale**.) No lo corrí: borra 207.092 entradas en su máquina con diez chats trabajando. Sin `--aplicar` el script sólo cuenta.
 ## Un dato que se calcula y nadie lee es un dato que miente: la guardia del Runner apagada (6/11/2026)
 
 **Vive en:** `scripts/operaciones/runner-salud.mjs` (`estado`, `alAbrir`, `tareaDeLaCuenta`). Lo fija
@@ -847,7 +932,28 @@ Ahora `estado` trae `tarea`, y al abrir un chat se avisa **con el nombre de la t
 igual que cuando no existe.
 
 **Lo que sigue sin cubrirse, y es del Runner:** rearmar el cron antes del 11/11 sólo lo puede pedir Martín. Lo que esto arregla
-es que, cuando se caiga, **se diga**.
+es que, cuando se caiga, **se diga**. ⚠️ (18/11/2026) Esto arreglaba la guardia APAGADA, no el cron vencido: con el cron vencido
+el latido seguía fresco y nada lo decía. Eso se cerró aparte, con la marca de la vuelta del cron (docs/hallazgos-operaciones.md,
+«El cron del Runner vencía sin que nada lo dijera»).
+## En la nube, el `tsc` acotado muere sin memoria con su tope por defecto y dice «código undefined» (18/11/2026)
+
+**Vive en:** `scripts/tsc-acotado.mjs` (el `--heap=`, por defecto 2.560 MB).
+
+**Síntoma:** `node scripts/tsc-acotado.mjs lib/plan-tareas-del-doer.ts tests/plan-tareas-del-doer.test.ts` (dos archivos chicos que
+importan lib/plan-proyectos-catalogo.ts) contestó «NO SE PUDO CHEQUEAR (código undefined, 1464 bytes de salida): … Si fue el vigía de
+RAM, esperá o cerrá chats», con 15 GB libres y sin vigía (la nube no tiene). Corrido a mano, el `tsc` salió con 134: «Reached heap
+limit». El `undefined` es `status` en `null` porque el proceso murió por una señal.
+
+**La regla que queda:** en la nube, donde la RAM no la comparten otros chats, el acotado va con `--heap=9000` (dio 0 sobre 16
+archivos de lib/, app/ y tests/). En la PC el tope sigue en 2.560 a propósito (lo comparten los chats). Y un «código undefined» no es
+el vigía: es una señal, casi siempre la del heap.
+
+⚠️ **Y el pre-push de la nube también va con Node 24.** El hook corre el `node` que haya en el PATH, y el de la nube es el 22:
+el mismo día, `git push origin HEAD:punta/traba-1811` frenó con «FILTRO ROJO» sobre más de 40 tests de otras áreas («la tanda salió
+con 1») que el veredicto, minutos antes y con Node 24, había dado verdes (8.554 tests). Con `export PATH="$(sh scripts/node24.sh):$PATH"`
+en el MISMO comando del push, el filtro dio verde. Cada llamada de Bash arranca con el PATH de base: exportarlo en una llamada
+anterior no alcanza. **Una ráfaga de rojos ajenos en el filtro, con el veredicto verde, es el Node 22 antes que el código.**
+
 ## El índice de hallazgos se duplicaba solo: `merge=union` sobre una TABLA deja las dos filas (6/11/2026)
 
 **Vive en:** `.gitattributes` (los dos globs) · `scripts/unir-indice-hallazgos.mjs` (nuevo) ·
@@ -3044,6 +3150,11 @@ abierto lo mismo para `app_settings` y las credenciales (~90 consultas por turno
   autocompletado que ESCRIBE en el render), /dashboard (y la moneda de Meta en el render, `lib/moneda-meta.ts:81`),
   /second-brain (`page.tsx:41-59`), /m/operaciones sin loading.tsx. Medido: /plan p50 1,6 s, /dashboard 1,7 s,
   /second-brain 2,1 s, /crm 2,0 s (p90 5,2 s).
+  ~~/plan y /dashboard, en parte~~ (18/11/2026, O27): en /plan las tareas y los proyectos van juntos, y el workspace y los
+  clientes en la misma espera que las columnas (tests/plan-lecturas-juntas.test.ts); en /dashboard el plan Essential/Pro arranca
+  junto con el informe. SIGUEN en serie, a propósito o por decidir: en /plan, el perfil antes de la sesión, las dos puertas
+  (`requireCapa` → `guardOnboarding`: el orden importa) y el autocompletado que escribe en el render; en /dashboard, la moneda de
+  Meta adentro de `datosDeGraficos`. /second-brain y /m/operaciones, sin tocar. Las cifras de arriba son de ANTES de pdx1.
 - **Las server actions hacen COLA: Next corre UNA a la vez por cliente** (arreglado en el Ops Center el 23/10). En el
   Centro, `pushesCentroAction` esperaba a la API de Vercel hasta 8 s y el refresco salía cada 2,5-8 s: la Ticketera y el
   Uso de IA quedaban detrás, sin dibujar nada. Ahora esas LECTURAS van por GET (`app/api/operaciones/lectura`, con las
@@ -3591,16 +3702,26 @@ Los de la tabla vieja (los dos scripts con `.range()` a mano, `cerrar-por-commit
 | Qué | Dónde | Estado |
 |---|---|---|
 | **Regresión:** el patrón por nombre casi no filtra y `.limit(100)` corta | `lib/leads.ts:367` + `lib/leads-duplicados.ts` (`patronesDeNombre`) | trunca hoy para nombres cortos → [hallazgos-crm.md](hallazgos-crm.md) |
-| `closing_analyses` entera, sin paginar | `app/crm/insights-actions.ts:56` | 428 en ws9 |
-| `plan_tareas` sin paginar (el board del super-admin) | `lib/plan-board.ts:101, 180, 302, 405, 583, 656, 735, 906` · `lib/plan-proyecto-vacio.ts:53, 107` · `app/admin/dev/roadmap.ts:142` | 643/1000 en ws9 → [hallazgos-plan.md](hallazgos-plan.md) |
-| `experimento_tareas` sin paginar | `lib/todo.ts:184, 192, 373, 453` | 212 en ws1 |
-| `vsl_events` / `landing_visits` de UN visitante o un lote | `lib/leads.ts:1482, 2264, 2286` (`getVisitasLandingMap`) | 612 por visitante (ws13) |
+| ~~`closing_analyses` entera, sin paginar~~ | `app/crm/insights-actions.ts:56` | 428 en ws9 · ✅ 18/11 (P20): `leerPorPaginas` por `recording_id`, corta al encontrar |
+| ~~`plan_tareas` sin paginar (el board del super-admin)~~ | `lib/plan-board.ts:101, 180, 302, 405, 583, 656, 735, 906` · `lib/plan-proyecto-vacio.ts:53, 107` · `app/admin/dev/roadmap.ts:142` | 643/1000 en ws9 → [hallazgos-plan.md](hallazgos-plan.md) · ✅ 18/11 (P20): `leerTareasPlan` / `tareasDelPlan`, orden terminado en `id` | |
+| ~~`experimento_tareas` sin paginar~~ | `lib/todo.ts:184, 192, 373, 453` | 212 en ws1 · ✅ 18/11 (P20): `listTareasConTope` y `listTareasDeRetro` |
+| ~~`vsl_events` / `landing_visits` de UN visitante o un lote~~ | `lib/leads.ts:1482, 2264, 2286` (`getVisitasLandingMap`) | 612 por visitante (ws13) · ✅ 18/11 (P20), el lote en tandas de 200 |
 | Lecturas de `leads` y `pagos` del embudo y la cobranza | `lib/queries.ts` (`getFunnelEtapas`, `getSCL`, `getTendencias` :2989), `lib/pagos.ts:411, 503` | bajo el techo por columnas ralas → [hallazgos-crm.md](hallazgos-crm.md) |
-| `cashUsd` / `soldUsd` | `lib/objectives-fuentes.ts:109, 127` | 13 cierres; se rompen en un objetivo anual → [hallazgos-objectives.md](hallazgos-objectives.md) |
-| Bloqueados y ocultos del inbox | `lib/evolution-block.ts:36, 59` | 0 y 15 filas |
-| Leads de las conversaciones del inbox | `lib/evolution-mensajes.ts` (~:320) | 46 ids por workspace |
+| `cashUsd` / `soldUsd` | `lib/objectives-fuentes.ts:109, 127` | 13 cierres; se rompen en un objetivo anual → [hallazgos-objectives.md](hallazgos-objectives.md) · 🟠 18/11 (P20): `cashUsd` pagina; `soldUsd` NO, porque `tests/venta-sin-cobro.test.ts` sólo reconoce `.select('…monto_cierre_usd…')` y con el helper deja de verlo |
+| ~~Bloqueados y ocultos del inbox~~ | `lib/evolution-block.ts:36, 59` | 0 y 15 filas · ✅ 18/11 (P20) |
+| ~~Leads de las conversaciones del inbox~~ | `lib/evolution-mensajes.ts` (~:320) | 46 ids por workspace · ⚪ 18/11 (P20): es un TOPE a propósito (50 teléfonos, `.limit(300)`), no un corte: el porqué quedó escrito arriba de la lectura |
 | Tres lecturas que devuelven VACÍO cuando fallan | el `catch → []` de `videosDetectados` (`lib/landing-token.ts`), `getVslEngagementMap` (`lib/leads.ts`), el `warn` de `getUsageSummary` | no truncan: mienten «no hay» |
 | `anthropic_usage` con `getSupabaseServer()` y el `eq(workspace_id)` a mano | `lib/anthropic-usage.ts`, `lib/ia-cuotas.ts` | paginan, pero contra la regla de la casa |
+
+**18/11/2026 (P20, `punta/nube-plata-c3`), lo que la paginación destapó además del corte.** Tres lecturas leían «no
+pude» como «no hay», y con la lectura caída hacían lo destructivo: `limpiarDependenciasColgadas` (lib/plan-board.ts)
+daba TODAS las aristas por colgadas y las borraba; `proyectosSinTareas` (lib/plan-proyecto-vacio.ts) daba todos los
+proyectos por vacíos, y proponerles tareas paga IA por cada uno. Las dos ahora paran. Y el aviso «recortado» del Plan
+(lib/plan-hoy.ts, lib/api-mako/areas/plan.helpers.ts) medía `leidas >= 1000`: con las tareas paginadas ese número ya no
+mide un corte sino el TAMAÑO del tablero, y habría avisado de un corte con 1000 tarjetas leídas enteras. **Regla: al
+paginar una lectura, se busca quién compara su largo contra 1000** (`grep -n "1000\|TOPE_FILAS"`): ese aviso queda
+midiendo otra cosa. Lo fija tests/techo-1000-p20.test.ts, con un PostgREST de mentira que corta en 1000 y mezcla los
+empates en cada pedido (sin el `id` al final del orden, 1174 de 1500 distintas).
 
 ### Descartado a propósito (no volver a "arreglarlo")
 
@@ -5630,11 +5751,85 @@ lugar: el segundo literal es el que se queda viejo.
 
 ### ⚠️ Pendiente: las primitivas de fecha siguen ancladas a Tijuana
 
-`hoyEnTijuana`, `ayerEnTijuana`, `lunesActualEnTijuana`, `primerDiaDelMesEnTijuana` — **~60
+~~`hoyEnTijuana`, `ayerEnTijuana`, `lunesActualEnTijuana`, `primerDiaDelMesEnTijuana` — **~60
 call-sites**. No es display: son bordes de día que deciden cohortes y disparos, así que aplica la
-regla de arriba (escritura y lectura juntas).
+regla de arriba (escritura y lectura juntas).~~ **18/11/2026 (F125), parcial:** eran **87 llamadas en 50 archivos**, no
+~60, y 18 ya son del negocio (14 pasaron hoy, 4 ya lo eran). Lo que queda no es una lista de olvidos: son otros dos relojes, y
+el detalle está en la entrada de abajo, «Las ~85 fechas de Tijuana son TRES relojes».
 
 **Vive en:** lib/date-utils.ts, anotado en lib/timezone.ts:47
+
+### Las ~85 fechas de Tijuana son TRES relojes, y sólo uno se migra solo (18/11/2026, F125)
+
+**Síntoma:** el pendiente decía «~60 call-sites anclados a Tijuana»; la cuenta real dio 87 en 50 archivos. Leído como lista,
+pide cambiar `hoyEnTijuana()` por `hoyEnWorkspaceEstricto()` en las 87 y listo.
+
+**El diagnóstico obvio era el equivocado.** Abriendo cada una aparecen tres preguntas distintas, que la misma función
+contestaba con el mismo literal:
+
+1. **El día del NEGOCIO** («hoy» de una pantalla, una cuota vencida, si una reunión ya pasó, el período de un export, la
+   semana de un reporte). Ésta SÍ se migra, y se migró: es la que cambia para un cliente fuera de Tijuana.
+2. **El día de la INGESTA.** `marketing_metrics_daily` lo llenan `meta-daily`, `youtube-daily`, `panda-daily` y
+   `videos-daily` a las 13:00-13:45 UTC con el `ayer` de Tijuana (Meta interpreta esa fecha en la zona de la cuenta publicitaria;
+   YouTube Analytics, según su documentación y sin medirlo acá, cuenta en hora del Pacífico, que es la de Tijuana). Toda ventana «hasta ayer» sobre esos números (experimentos, la
+   retro, tendencias, el cuadrante de anuncios, el Media Buyer, el Copiloto, el estructurador de campañas, la página de un
+   anuncio) existe para no pedir un día que la ingesta todavía no cargó. Pasada a la zona del negocio, a un negocio al este le
+   pide, entre su medianoche y las 13:00 UTC, un día sin cargar: la «caída a cero» que esas ventanas vinieron a evitar. El Media
+   Buyer ya lo dice en su código (lib/media-buyer/corrida.ts: «el día del negocio … no el de Tijuana de las ventanas») y lleva
+   aparte el día del negocio (`hoyDelNegocio(ws)`) para lo que decide por fecha. **Se migra junto con la ingesta**: primero
+   que los crons sellen cada negocio con su día y corran después de su medianoche; después las ventanas.
+3. **La clave de cohorte.** `fecha_junta_1/2` y `fecha_agenda` las escriben los webhooks de agenda con `isoToFechaTijuana`, y
+   el CRM automático (lib/crm-auto.ts: T1, T3), la cancelación de una junta (los webhooks de Calendly y Cal.com) y el export
+   las comparan con un «hoy» de Tijuana. Es la regla de arriba: escritura y lectura juntas o nada.
+
+Y un cuarto grupo que no es ninguno de los tres pero tampoco se toca suelto: **el Dashboard** (Graphics). Su «hoy», su corte
+(`hastaDeFuente`, `cortarEnHoyDe`) y el día en que cae cada fila (`fechaTj` en lib/graficos-lectura.ts, 35 llamadas, y
+lib/landing-mapa-server.ts) son Tijuana en el server Y en el navegador (app/dashboard/BarraControles.tsx, MapaCalor.tsx,
+entidades/anuncio.tsx). Hoy es coherente consigo mismo; pasar sólo el «hoy» dejaría el período del negocio con las filas
+agrupadas por el día de Tijuana (el «hoy» de Buenos Aires a la madrugada saldría vacío). Va entero, en un cambio del área,
+con la zona por parámetro en `fechaTj` y `useTzWorkspace` en las tres piezas del navegador, y sus guardas
+(tests/graficos-con-datos.test.ts, tests/graficos-datos-corte.test.ts) fijan hoy la forma exacta de esas líneas.
+
+**Lo que se hizo (el reloj 1):**
+- **Las primitivas por negocio**, en lib/timezone.ts: `diasDelNegocio(ws)` / `diasDelNegocioEstricto(ws)` (ws explícito, para
+  un cron que recorre negocios), `diasEnWorkspace()` / `diasEnWorkspaceEstricto()` (el del contexto) y
+  `ayer/lunes/primerDiaDelMesEnWorkspaceEstricto()`. Las cuatro fechas salen de UNA lectura del reloj (`diasEnTz`,
+  lib/date-utils.ts, pura): con dos lecturas, una corrida a la medianoche podía tener un «hoy» y un «ayer» del mismo día. Las
+  `*EnTijuana` ahora son éstas con la zona puesta, no una segunda cuenta.
+- **El #510 que faltaba** (docs/hallazgos-crm.md): `faltantesDeLead`/`resueltosDeLead` (lib/leads.ts: la ficha, «A revisar», el
+  worklist, el teléfono, el gate del análisis y la API) y `valoresDeRequisitos` (app/crm/actions.ts: el asistente de mover)
+  piden `hoyISO` obligatorio, sin default, y cada llamador lo saca de su negocio. Desde el 6/11 el corte del server
+  (`setPipelineStage`) ya usaba el del negocio, así que el asistente preguntaba con un día y el server validaba con otro.
+- **El contador de «A revisar» de la barra** (app/api/datos-sin-marcar-count) llamaba a `getPendientesDeMarcar` con el día de
+  Tijuana y la lista del CRM con el del negocio: la lectura tiene caché por argumento, así que eran DOS lecturas.
+- **Los reportes** (lib/reportes.ts): el semanal corre adentro del `runWithWorkspace` de cada cliente y cortaba la semana, las
+  cuotas vencidas y el cash con Tijuana. El diario y el horario son del dueño y corren sin negocio: no cambian.
+- **El export de leads** (período y encabezado, con UN «hoy»), el `objetivo_desde` del alta de un cliente y la fecha de un cobro
+  marcado desde el Dashboard (lib/graficos-detalle.ts, que tenía dos caídas a Tijuana alrededor de una lectura que nunca tira).
+
+**Dos decisiones técnicas que conviene no deshacer:**
+- **Tolerante donde no decide.** El asistente de mover y los pendientes de después de mover usan `hoyEnWorkspace()`, no la
+  estricta: cuando la zona se lee, da el mismo día que el corte estricto del server; cuando no, el server no deja mover igual. Y
+  lo de DESPUÉS de mover no puede convertir un movimiento hecho en un error por una zona ilegible.
+- **En una función pura el día es un parámetro** (`faltantesDeLead`, `valoresDeRequisitos`): la regla de AGENTS.md. Por eso
+  la cadena entera (`leerInsumosDatosLead` → `hoy`, `faltantesParaInsights`, `faltantesDeUnLead`) lo lleva.
+
+**Lo que quedó sin hacer, con su archivo** (cada uno, en el reloj de arriba):
+- Reloj 2 (ingesta): app/api/cron/{meta,youtube,panda,videos}-daily, transcribe-ads, app/api/admin/meta-check,
+  lib/experimentos.ts (y experimentos.helpers/.run), lib/retro.ts, lib/queries.ts `_getTendencias`, metricas.run.ts,
+  lib/media-buyer/{datos,vista,corrida,vigia}.ts, lib/copiloto/comunicacion-ia.ts, lib/campaign-structurer.ts,
+  app/api/ads-analyst/quadrant, app/anuncio/[adId]/page.tsx.
+- Reloj 3 (cohorte): lib/crm-auto.ts (4; y ojo: su simulación por la API, `evaluar_crm_automatico`, ya usa el día del
+  negocio, así que la API y el cron pueden proponer distinto en el borde), app/api/webhooks/{calendly,calcom}.
+- Dashboard: app/dashboard/{page,BarraControles,MapaCalor,entidades/anuncio}, app/m/dashboard (2), app/api/graficos/{ia,plantilla},
+  app/compartido/[token]/informe-compartido.ts, lib/api-mako/areas/dashboard.{run,helpers}.ts, lib/graficos-{datos,datos-extra,
+  analisis-server,ia-elemento-server,lectura}.ts, lib/landing-mapa-server.ts, lib/automatizacion-metricas-server.ts,
+  app/api/automations/metricas.
+- Excluido (lo hace otro chat): lib/onboarding-extract.ts (2).
+
+**Vive en:** lib/date-utils.ts (`diasEnTz`) · lib/timezone.ts (`diasDelNegocio*`, `diasEnWorkspace*`) · lib/leads.ts
+(`ExtraRequisitos.hoyISO`) · app/crm/actions.ts (`valoresDeRequisitos`, `leadsFiltrados`) · lib/reportes.ts ·
+tests/dias-del-negocio.test.ts (base 5/0; seis roturas, cada una cae) · *2026-11-18 F125, nube*
 
 ### Una zona, un default, una lectura (11/10/2026, undécima tanda)
 
@@ -11618,6 +11813,9 @@ el vigía (`~/.claude/guardia/vigia.ps1`) y `C:/dev/revisiones/subir-tren.mjs` (
   - **El vigía:** corta también los workers de `node --test` y el Chrome `--headless`, con la zona roja en 1,2 GB.
   - **`tipos-respaldo-push.mjs` (Integración, tren-aa):** espera la RAM de la tanda 1 ANTES de tomar el lock. Lo fija
     `tests/tipos-respaldo-push.test.ts`.
+    ⚠️ **18/11/2026 (O26): era la MITAD.** Las tandas 2 y 3 (y la 1, si la RAM bajó en la fila) seguían esperando con el lock
+    tomado, y el test sólo comparaba el orden de dos cadenas. Ahora nada espera con el turno en la mano; ver la entrada de arriba
+    de todo, «El respaldo de tipos del push seguía esperando RAM con el turno tomado».
 - **La regla:** nada espera RAM ni pausa con un lock tomado. Se espera afuera, se toma, y si ya no alcanza se suelta.
 - **⚠️ Un tren que suma dependencias necesita su propio node_modules.** Create sumó BlockNote 0.56 y Mantine 8.3. Los
   worktrees de C:/dev, y entre ellos `C:/dev/wt-push-q`, tienen `node_modules` como JUNCTION al del clon principal, que no las

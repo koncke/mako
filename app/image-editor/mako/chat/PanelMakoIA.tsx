@@ -28,6 +28,7 @@ import { Check, Sparkles } from 'lucide-react';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
 import { MEDIDA_DE, SUPERFICIE_IMAGE, type AccionImage } from '@/lib/aperturas/image';
+import { usarPlantillaSugerida } from '../plantilla-sugerida';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
@@ -50,7 +51,6 @@ import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
 import { useKitsDeMarca } from '@/app/_chat/kits-de-marca';
 import { kitElegido } from '@/lib/marca/kits';
 import { Dropdown } from '@/app/components/Dropdown';
-import { rutaSeccion } from '@/lib/secciones-negocio';
 import { RecortarAlAbrir } from '../quitar-fondo';
 import { useSoloPro } from '@/app/_components/solo-pro';
 import { usePlanEsencial } from '@/app/_components/useClienteDeAgencia';
@@ -162,31 +162,42 @@ export function PanelMakoIA() {
   /** En blanco: una sola página y sin nada adentro (lib/aperturas/image.ts). */
   const enBlanco = useEditorState((s) => s.doc.pages.length === 1 && s.doc.pages[0].objects.length === 0);
   const hilo = useHilo(disenoId);
+  // Con una propuesta a mitad de aplicarse no se pide otra (F49, 18/11/2026): la misma pregunta que `pedirEdicion` (./acciones.ts).
+  const aplicando = hilo.mensajes.some((m) => m.de === 'mako' && m.estado === 'aplicando');
+  const ocupado = hilo.corriendo || aplicando;
   // EDITAR CON IA ES SÓLO DE MaKo PRO (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes; a un Essential, en vez
   // del chat, el candado con «Pasar a Pro» (abajo). `plan`: `null` mientras no se sabe (lo espera «Usar plantilla», que escribe solo).
   const soloPro = useSoloPro('ia-editores');
   const plan = usePlanEsencial();
+  // La marca del negocio (5/11/2026, lib/marca/kits.ts): el kit de por defecto, o el que elija la persona si tiene varios.
+  const marca = useKitsDeMarca();
   // MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T12): con el diseño en blanco y la charla vacía pregunta
   // «¿Dónde lo vas a publicar?» y la respuesta pone el lienzo a esa medida, sin IA (el mismo resize del panel de tamaño, y anda
   // sin la app de escritorio). Mientras habla, el saludo y las píldoras se esconden: un paso por pantalla.
+  // 18/11/2026 (lib/aperturas/image.ts): después del lugar, la plantilla sugerida de esa familia; y con algo en la página y el
+  // negocio sin marca, la pregunta por la marca (antes era un link en el saludo). Mientras los kits cargan, no decide nada.
+  const [familia, setFamilia] = useState<AccionImage | null>(null);
+  // Sin marca de verdad (no «no pude leer»): ahí MaKo pregunta por el manual.
+  const sinMarca = !!marca.kits && marca.kits.kits.length === 0 && !marca.error;
   const estadoApertura = useApertura({
     superficie: SUPERFICIE_IMAGE,
-    hechos: { diseno: disenoId ?? null, enBlanco, charlaVacia: hilo.mensajes.length === 0 },
+    hechos: marca.kits ? { diseno: disenoId ?? null, enBlanco, charlaVacia: hilo.mensajes.length === 0, sinMarca, familia } : null,
     libre: !hilo.corriendo,
   });
-  const aLaMedida = (a: AccionImage) => () => { const m = MEDIDA_DE[a]; editor.pages.resize(m.ancho, m.alto, 'keep'); };
+  const aLaMedida = (a: AccionImage) => () => { const m = MEDIDA_DE[a]; editor.pages.resize(m.ancho, m.alto, 'keep'); setFamilia(a); };
+  // «Usar la plantilla»: la sugerida de ese lugar entra en la página (../plantilla-sugerida.ts).
+  const accionesApertura = {
+    historia: aLaMedida('historia'), carrusel: aLaMedida('carrusel'), anuncio: aLaMedida('anuncio'),
+    'usar-sugerida': () => { usarPlantillaSugerida(editor, familia); },
+  };
   const [texto, setTexto] = useState('');
   // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
   const appEscritorio = useAppDeEscritorio();
   const [alcance, setAlcance] = useState<AlcanceChat>('diseno');
   // «Discutir | Editar» (app/_chat/SelectorIntencion.tsx): la misma preferencia que los otros chats de MaKo.
   const [intencion, elegirIntencion] = useIntencion();
-  // La marca del negocio (5/11/2026, lib/marca/kits.ts): el kit de por defecto, o el que elija la persona si tiene varios.
-  const marca = useKitsDeMarca();
   const [kitId, setKitId] = useState<string | null>(null);
   const kit = marca.kits ? kitElegido(marca.kits, kitId) : null;
-  // Sin marca de verdad (no «no pude leer»): ahí el saludo invita a subir el manual.
-  const sinMarca = !!marca.kits && marca.kits.kits.length === 0 && !marca.error;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hiloRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorEngine>(editor);
@@ -210,19 +221,20 @@ export function PanelMakoIA() {
   // Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): la ruta los lee y van aparte de la instrucción. Sólo los de la caja.
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
   // Acá un SVG o un AVIF también es una imagen para poner (se sube a «Subidos», que los pasa a PNG). La IA lee los demás: ./acciones.ts.
-  const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!disenoId, onError: setErrorAdjunto, aceptaDeMas: 'image/svg+xml,image/avif' });
+  const adj = useAdjuntosDelChat({ puede: !ocupado && !!disenoId, onError: setErrorAdjunto, aceptaDeMas: 'image/svg+xml,image/avif' });
   const cita = useCitaDelChat(disenoId);
-  const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[] } = {}) => {
-    if (hilo.corriendo || (!instruccion.trim() && !archivos.length) || !disenoId || appEscritorio.bloqueada) return;
+  const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[], interpretar = true } = {}) => {
+    if (ocupado || (!instruccion.trim() && !archivos.length) || !disenoId || appEscritorio.bloqueada) return;
     // Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
     if (!dejarCaja) instruccion = cita.con(instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion - cita.reserva), archivos.length > 0);
-    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, archivos, { intencion, kit });
+    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, archivos, { intencion, kit, interpretar });
     if (!dejarCaja) { setTexto(''); cita.soltar(); }
   };
 
   const sugerir = (s: Sugerencia) => {
     if (s.instruccion) {
-      enviar(s.instruccion, s.necesitaSeleccion ? 'seleccion' : alcanceReal);
+      // Una sugerencia es NUESTRA y del diseño abierto: no pasa por /api/mako/pedidos (como en el Video Editor).
+      enviar(s.instruccion, s.necesitaSeleccion ? 'seleccion' : alcanceReal, { interpretar: false });
       return;
     }
     if (s.rellenar) setTexto(s.rellenar);
@@ -238,7 +250,7 @@ export function PanelMakoIA() {
     : [...(kit ? [APLICAR_MARCA] : []), ...SUGERENCIAS].filter((s) => !s.necesitaSeleccion || elegidos > 0);
   // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale por
   // `enviar`, como lo escrito.
-  const nota = useNotaEnElActo({ clave: `imagen:${disenoId ?? ''}`, puede: !hilo.corriendo && !!disenoId && !appEscritorio.bloqueada, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
+  const nota = useNotaEnElActo({ clave: `imagen:${disenoId ?? ''}`, puede: !ocupado && !!disenoId && !appEscritorio.bloqueada, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
 
   // «USAR PLANTILLA» ESCRIBE LA PIEZA ENTERA (12/11/2026, memoria `replicar-deja-todo-escrito`; el Cerebro lo marcó en la prueba de
   // Image): abierta con `?escribir=1` (../../ruta.ts), MaKo escribe cada texto de guía para el negocio y su oferta principal, con
@@ -305,7 +317,7 @@ export function PanelMakoIA() {
         <div className={`co-hilo ${styles.hilo}`} style={{ padding: '8px 4px' }}>
           <div className="co-hilo__col">
             {estadoApertura.apertura
-              ? <AperturaMako estado={estadoApertura} quien={QUIEN} acciones={{ historia: aLaMedida('historia'), carrusel: aLaMedida('carrusel'), anuncio: aLaMedida('anuncio') }} />
+              ? <AperturaMako estado={estadoApertura} quien={QUIEN} acciones={accionesApertura} />
               : <CandadoSoloPro funcion="ia-editores" style={{ padding: '12px 8px' }} />}
           </div>
         </div>
@@ -323,19 +335,13 @@ export function PanelMakoIA() {
       <div ref={hiloRef} className={`co-hilo ${styles.hilo}`} style={{ padding: '8px 4px' }} aria-live="polite">
         <div className="co-hilo__col">
           {hilo.mensajes.length === 0 && estadoApertura.apertura && (
-            <AperturaMako estado={estadoApertura} quien={QUIEN}
-              acciones={{ historia: aLaMedida('historia'), carrusel: aLaMedida('carrusel'), anuncio: aLaMedida('anuncio') }} />
+            <AperturaMako estado={estadoApertura} quien={QUIEN} acciones={accionesApertura} />
           )}
           {hilo.mensajes.length === 0 && !estadoApertura.apertura && (
             <div className={styles.saludo}>
               <span className={styles.chispa} aria-hidden="true"><Sparkles size={20} /></span>
               <p className={styles.saludoTitulo}>{intencion === 'discutir' ? '¿Qué quieres pensar?' : '¿Qué cambiamos?'}</p>
-              {/* Sin marca, MaKo la pide (5/11/2026): un link, nunca un paso que trabe el chat. */}
-              {sinMarca && (
-                <p className={styles.saludoTexto}>
-                  Todavía no tengo tu marca. <Link href={rutaSeccion('marca')} className={styles.link}>Sube tu manual de marca</Link> y la uso en tus diseños.
-                </p>
-              )}
+              {/* Sin marca, la pide la APERTURA (18/11/2026, lib/aperturas/image.ts → `image:marca`): el link de acá se fue. */}
             </div>
           )}
           <HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
@@ -343,7 +349,7 @@ export function PanelMakoIA() {
           {hilo.corriendo && (
             <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
           )}
-          {!hilo.corriendo && !estadoApertura.apertura && (
+          {!ocupado && !estadoApertura.apertura && (
             <div className={styles.sugerencias}>
               {(hilo.mensajes.length ? visibles.slice(0, 4) : visibles).map((s) => (
                 <button key={s.rotulo} type="button" className={styles.pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>
@@ -370,7 +376,7 @@ export function PanelMakoIA() {
         {/* La caja única (app/_chat/CajaChat.tsx). Los atajos del editor no miran lo que se escribe en un campo
             (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
         <div className="co-caja">
-          <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
+          <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={ocupado || nota.pendientes}
             apagado={!disenoId} placeholder={intencion === 'discutir' ? 'Pregúntame lo que quieras…' : 'Describe el cambio…'} tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
             arriba={cita.arriba} adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion - cita.reserva} />
         </div>

@@ -72,7 +72,7 @@ export function diaCorto(dia: string): string {
 export function avisosDeLaNevera(filas: readonly FilaNevera[], horas: number | null): Array<{ formato: FormatoNevera; titulo: string }> {
   return filas.filter((f) => f.faltan > 0).map((f) => ({
     formato: f.formato,
-    titulo: `Graba ${f.faltan} ${nombreFormato(f.formato, f.faltan)}: ${f.hasta ? `te alcanzan hasta ${diaCorto(f.hasta)}` : f.formato === 'story' ? 'no tienes ninguna lista' : 'no tienes ninguno listo'}${horas ? ` (tienes ${horas} horas por semana)` : ''}`,
+    titulo: `Graba ${f.faltan} ${nombreFormato(f.formato, f.faltan)}: ${f.hasta ? `te alcanzan hasta ${diaCorto(f.hasta)}` : f.formato === 'story' ? 'no tienes ninguna lista' : 'no tienes ninguno listo'}${horas ? ` (dijiste que tienes ${horas} horas por semana para grabar)` : ''}`,
   }));
 }
 

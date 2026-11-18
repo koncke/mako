@@ -47,7 +47,13 @@ const medir: Medir = ({ params }) => ({ content: params.content, 'transform.posi
 test('1: cada plantilla pide UNA muestra por rótulo, y con ésas se arma entera', () => {
   assert.deepEqual(rotulosDe(porId('gancho')), ['Tu clip', '']);
   assert.deepEqual(rotulosDe(porId('antes-despues')), ['Antes', 'Después', '']);
-  assert.deepEqual(rotulosDe(porId('oferta-glitch')), ['Tu producto', '']);
+  // La invitación a clase (doc 2.9, desde el 18/11/2026) pide «Tu clip», ya no «Tu producto».
+  assert.deepEqual(rotulosDe(porId('oferta')), ['Tu clip', '']);
+  // Las del 18/11/2026: el caso pide su captura aparte del clip, el tour sus seis espacios (sin cierre: termina en el asesor)
+  // y el clip de podcast, sólo el clip (tampoco cierra con un fondo liso).
+  assert.deepEqual(rotulosDe(porId('caso-numeros')), ['Tu clip', 'Captura del panel', '']);
+  assert.deepEqual(rotulosDe(porId('tour-propiedad')), ['Fachada u obra', 'Sala', 'Cocina', 'Recámara', 'Amenidad', 'Asesor a cámara']);
+  assert.deepEqual(rotulosDe(porId('clip-podcast')), ['Tu clip']);
   assert.equal(nombreMuestra(''), 'Muestra · Cierre.png');
   assert.equal(nombreMuestra('Tu clip'), 'Muestra · Tu clip.png');
   for (const p of PLANTILLAS) {
@@ -93,7 +99,7 @@ test('3: se cargan ENTERAS sólo las familias de la plantilla; la miniatura pide
   const testimonio = muestrasDeFuente(porId('testimonio'));
   assert.deepEqual(testimonio.map((m) => `${m.familia} ${m.peso}`), ['Montserrat 700', 'Playfair Display 400', 'Montserrat 400']);
   // Con «Mayúsculas», lo que se dibuja (y se pide) es la mayúscula, aunque el texto venga en minúscula.
-  assert.ok(muestrasDeFuente(porId('gancho')).find((m) => m.familia === 'Anton')?.texto.includes('ESTO LO CAMBIA TODO'));
+  assert.ok(muestrasDeFuente(porId('gancho')).find((m) => m.familia === 'Anton')?.texto.includes('¿CIERRAS MENOS DEL 20 %?'));
   assert.equal(muestrasDeFuente(enMinuscula).find((m) => m.familia === 'Anton')?.texto, 'ESTO SÍ');
   // Cada letra que dibuja una tarjeta está en el pedido de su fuente y su peso.
   for (const p of PLANTILLAS) {
@@ -168,22 +174,25 @@ test('5: la muestra de un clip es el rótulo al centro; la del cierre, lisa y si
 test('6: la miniatura dibuja lo que se ve en el segundo t, con la fuente de su muestra y la máquina de escribir', () => {
   // En la portada del gancho (1 s): la muestra «Tu clip» y el gancho entero, en Anton (la muestra).
   const portada = dibujar('gancho', 1);
-  assert.deepEqual(portada.textos.map((x) => x.texto), ['Tu clip', 'ESTO LO CAMBIA', 'TODO']);
+  assert.deepEqual(portada.textos.map((x) => x.texto), ['Tu clip', '¿CIERRAS MENOS', 'DEL 20 %?']);
   assert.ok(portada.textos[1].font.includes('"Anton · muestra 400"'), portada.textos[1].font);
   const minuscula = canvasDeMentira();
   dibujarMiniatura(minuscula.ctx, { plantilla: enMinuscula, t: 1, ancho: 216, familia });
   assert.deepEqual(minuscula.textos.map((x) => x.texto), ['Tu clip', 'ESTO SÍ'], '«Mayúsculas» también en la miniatura');
   // En t = 0 el «Rebote» arranca transparente: no se escribe nada encima del clip.
   assert.deepEqual(dibujar('gancho', 0).textos.map((x) => x.texto), ['Tu clip']);
-  // El cierre (13 s): fondo liso sin rótulo, el título y el botón (negrita: la muestra de 700).
-  const cierre = dibujar('gancho', 13);
-  assert.deepEqual(cierre.textos.map((x) => x.texto).sort(), ['Escríbenos hoy', '¿Listo para empezar?'].sort());
+  // La toma de apoyo opcional (6–9,5 s) va sin rótulo (doc §6, trampa 7): encima del clip no se escribe nada.
+  assert.deepEqual(dibujar('gancho', 7).textos.map((x) => x.texto), ['Tu clip']);
+  // El cierre (21–24 s desde el 18/11/2026): fondo liso sin rótulo, el título y el botón (negrita: la muestra de 700).
+  const cierre = dibujar('gancho', 22);
+  assert.deepEqual(cierre.textos.map((x) => x.texto).sort(), ['Escribe LLAMADA', '¿Vendes programas de', '+USD 1,000?'].sort());
   assert.ok(cierre.textos.every((x) => x.font.startsWith('700 ') && x.font.includes('Montserrat · muestra 700')));
-  // «Gancho escrito»: a la mitad de su 1,5 s se ve la mitad de las letras (9 de 18).
-  assert.deepEqual(dibujar('gancho-escrito', 0.75).textos.map((x) => x.texto), ['Tu clip', 'ESTO LO C']);
-  assert.deepEqual(dibujar('gancho-escrito', 1.6).textos.map((x) => x.texto), ['Tu clip', 'ESTO LO CAMBIA', 'TODO']);
+  // El quiebre de la historia (la máquina de escribir de la variante retirada `gancho-escrito`, 18/11/2026): a la mitad
+  // de su 1 s se ve la mitad de las letras (12 de 25), y al terminar, la frase entera.
+  assert.deepEqual(dibujar('historia', 9.5).textos.map((x) => x.texto), ['Tu clip', '14 mensajes,']);
+  assert.deepEqual(dibujar('historia', 10).textos.map((x) => x.texto), ['Tu clip', '14 mensajes, 5 respuestas']);
   // La opacidad de la plantilla (el detalle del testimonio, 0,8) llega al dibujo.
-  const detalle = dibujar('testimonio', 3).textos.find((x) => x.texto.startsWith('Clienta'));
+  const detalle = dibujar('testimonio', 3).textos.find((x) => x.texto.startsWith('Nutrióloga'));
   assert.equal(detalle?.alfa, 0.8);
 });
 
@@ -283,3 +292,5 @@ test('11: Exportar avisa «Quedan clips de muestra» y no bloquea', () => {
 //   esperar la «salida» del editor de antes → 10/1. · la page no valida el id → 10/1
 //   (y 7/1 en tests/video-editor-integracion.test.ts, 2b).
 // · 11: Exportar bloquea con muestras → 10/1.
+// 18/11/2026 (F164), base 11 de 11: el tour fuera del catálogo → 10/1 (1). · el quiebre de la historia sin la máquina
+// de escribir → 10/1 (6). Restaurado: 11/0.

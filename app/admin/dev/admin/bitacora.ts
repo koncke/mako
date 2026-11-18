@@ -669,6 +669,57 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/analytics/costs',
   },
+  {
+    fecha: '18 nov', hora: '01:30', chat: 'Lo que falta construir (nube)', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes: moderar lo que publica la comunidad',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: ['Llegó por el coordinador de la nube, con la lista verificada del 17/11 (F103: moderar lo publicado desde el super admin).'],
+  },
+  {
+    fecha: '18 nov', hora: '01:49', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Admin › Products › Templates: lo que los negocios compartieron, y «Retirar de la galería»',
+    puntos: [
+      '**La lista de las plantillas compartidas**, con el negocio, sus estrellas, sus usos y si es de MaKo.',
+      '**El buscador y los filtros del Catalogue**: en la galería, retiradas o todas; por estrellas, usos, fecha o nombre.',
+      '**«Retirar de la galería»** con su confirmación: quien ya la usó conserva su copia.',
+    ],
+    commits: [{ sha: '1fe0232071', msg: 'Plantillas propias del Dashboard, la moderación de lo publicado en Admin y el precio «USD 1,200 al mes» de Offer', lineas: 1131, archivos: 25 }],
+    archivos: [
+      'app/admin/(polar)/products/templates/ — la pantalla (la copia del Catalogue de Polar)',
+      'app/admin/_polar/datos/plantillas.ts — los filtros y el orden, con su test',
+      'app/admin/plantillas/actions.ts — retirar, con el workspace de la plataforma',
+      'lib/creaciones.ts — creacionesParaModerar',
+    ],
+    revisar: '/admin/products/templates',
+  },
+  {
+    fecha: '18 nov', hora: '09:00', chat: 'Admin', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la tanda de la nube del 18/11 (docs/pendientes-verificados-17-11.md, «Lo que falta construir»).',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '12:00', chat: 'Admin', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Customers sin los negocios de prueba, y «Por persona» en Usage',
+    puntos: [
+      'F21: el Cliente de Prueba, el de Diseño y la cuenta de revisión de las tiendas ya no cuentan como clientes (ni en la lista, ni en los números, ni en «Para mirar» ni en At Risk); su ficha se sigue abriendo, se puede mudar a alguien ahí y el DEBUG de MaKo los encuentra.',
+      'F21 (CU2): la API dice que «nuevos en 30 días» y «activos» no cuentan a los clientes de una agencia. No se unificó con «Para mirar»: su pago pendiente es plata que le debe a MaKo su agencia.',
+      'F169: la ficha › Usage tiene la tabla «Por persona» (pantallas, acciones, la tab más usada y su último día), con las mismas filas y el mismo rango que la de las tabs.',
+      '«Prueba real», que nombraba el recorrido, no está en WS_PRUEBAS y no se agregó: decide Martín.',
+    ],
+    commits: [{ sha: 'a31cad9e', msg: 'Admin y API de MaKo: sin clientes de prueba, uso por persona, y lo que quedaba colgado se cierra', lineas: 1040, archivos: 33 }],
+    archivos: [
+      'lib/clientes-plataforma.ts — NO_SON_CLIENTES y `pruebas` aparte',
+      'lib/clientes-plataforma-reglas.ts — apartarLosQueNoSonClientes',
+      'app/admin/_polar/datos/clientes.ts — clientesEnRiesgo con `fuera`',
+      'app/admin/_polar/datos/cliente.ts — usoPorPersona',
+      'app/admin/_polar/web/Customer/CustomerPage/CustomerUsageView.tsx — la tabla «Por persona»',
+    ],
+    revisar: '/admin/customers',
+  },
 ];
 
 export const PARTES: Parte[] = [

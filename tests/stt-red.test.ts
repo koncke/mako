@@ -27,6 +27,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { causaDelFallo } from '../lib/fallo-ia-texto';
+import { GEMINI_FLASH, RESPALDOS_GEMINI } from '../lib/gemini-modelos';
 
 const leer = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas de comentario PRIMERO y los bloques después (ver AGENTS.md).
@@ -46,7 +47,10 @@ const bloque = (firma: string) => {
 test('Gemini saturado: se prueba OTRO modelo con la misma key, sólo si está saturado', () => {
   // La MISMA lista de respaldo que el chat, y con al menos un modelo detrás del de siempre.
   assert.match(bloque('function modelosSttGemini('), /modelosAProbar\('gemini', base\)/, 'el audio volvió a tener su propia lista de modelos');
-  assert.match(AI, /gemini: \['gemini-flash-lite-latest'\]/, 'sin un segundo modelo, un Google saturado es una nota de voz perdida');
+  // ⚠️ CAMBIADO A PROPÓSITO el 18/11/2026 (F74): los respaldos viven en lib/gemini-modelos.ts. Lo que se fija es el VALOR (al
+  // menos un modelo distinto del de siempre, ejecutado) y que la cascada los tome de ahí.
+  assert.ok(RESPALDOS_GEMINI.some((m) => m !== GEMINI_FLASH), 'sin un segundo modelo, un Google saturado es una nota de voz perdida');
+  assert.match(AI, /gemini: \[\.\.\.RESPALDOS_GEMINI\]/, 'la cascada dejó de tomar los respaldos de lib/gemini-modelos.ts');
   const escuchar = bloque('async function escucharCon(');
   assert.match(escuchar, /for \(const modelo of modelosSttGemini\(\)\)/);
   assert.match(escuchar, /sttGemini\(p, base64, buf, mime, o, modelo\)/, 'el modelo elegido no le llega a la llamada');

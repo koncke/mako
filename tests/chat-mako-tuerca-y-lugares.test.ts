@@ -34,8 +34,8 @@ test('f22: un lugar de Configuraciones que no existe es un error, en Editar y en
   ]) assert.equal(lugarInventado(r), null, r);
   // Editar la usa (lo de antes sigue: «Configuraciones › Acciones»).
   assert.match(String(errorDeRespuestaEnEditar('que lo llame', 'Va en Configuraciones › Acciones.', { esPregunta: false, charlaConTextos: false })), /«Configuraciones › Acciones» no existe/);
-  // Y la ruta de explicar también: un lugar inventado vuelve al modelo como error.
-  const ruta = leer('app/api/chat-agent/secuencias/ia/route.ts');
+  // Y el motor de explicar también (lib/flujo-ia-editar.ts desde el 18/11/2026): un lugar inventado vuelve al modelo como error.
+  const ruta = leer('lib/flujo-ia-editar.ts');
   assert.match(ruta, /const falso = x\.r\.respuesta \? lugarInventado\(x\.r\.respuesta\) : null;\s+return falso \? \{ \.\.\.x, errores: \[\.\.\.x\.errores, falso\] \} : x;/);
   assert.match(ruta, /traducir: traducirRespuesta, motivo: 'Contestar una pregunta sobre una automatización'/);
 });

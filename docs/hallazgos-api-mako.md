@@ -14,6 +14,130 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## «Todo MaKo por API» tiene guarda: cada server action de app/ está cubierta, exceptuada o en una deuda que sólo baja (18/11/2026, F127)
+
+**Vive en:** `lib/api-mako/cobertura.ts` (las tres listas) · `tests/api-mako-cobertura.test.ts` (la guarda, con el analizador de
+`tests/_puerta-acciones.ts`).
+
+- **Síntoma:** la regla de Martín del 25/10 («todo MaKo se debe poder utilizar por API») no tenía quién la hiciera cumplir.
+  La guarda que la hacía (`b85971b9b`, rama wip/api-acciones-1410) nunca llegó a main, y `tests/api-mako-registro.test.ts`
+  sólo mira las operaciones que EXISTEN: una acción de pantalla que nadie declaró no está en ningún lugar que mire.
+- **El inventario se armó de cero:** 585 acciones en los 'use server' de app/ (586 después de mezclar el main del 18/11). **54 CUBIERTAS** —la acción y la operación
+  dicen lo mismo con las mismas palabras, revisadas una por una contra la descripción de la operación; las cuatro bandejas
+  que confirman o descartan una pendiente van a `confirmar_accion` / `cancelar_accion`—, **7 EXCEPCIONES** (los tokens de
+  la API: el registro no administra credenciales, y la consola de la tab API) y **524 en la DEUDA**, por archivo (525 con el main del 18/11: sumó dos acciones de plantillas y se llevó una del limbo).
+- **La deuda sólo baja:** el test fija el número (`TOPE_DEUDA`). Una acción nueva sin clasificar es rojo, sumarla a
+  la deuda también; cubrir una pide bajar el número en el mismo commit. Una entrada vieja (renombrada, mudada, borrada) y
+  una operación de CUBIERTAS que el registro no tiene, también rojo.
+- **Trampa:** emparejar por NOMBRE falla para los dos lados. Un nombre igual no garantiza la misma capacidad (por eso cada
+  una de las 54 se leyó contra la descripción de su operación), y una operación que hace lo de una acción con OTRO nombre
+  no aparece: esa acción quedó en la DEUDA. **El número de la deuda es un techo honesto, no la cantidad exacta de huecos**: una acción de
+  la deuda que ya tiene su operación con otro nombre se pasa a CUBIERTAS cuando alguien lo mide.
+- **Sin hacer:** recorrer la DEUDA por área (los archivos con más acciones: app/crm/actions.ts, app/customer-success/,
+  app/admin/operaciones/) y cubrir o exceptuar cada una.
+## Las tres acciones que faltaban: cargar guiones, rehacer las motivaciones y editar con IA (18/11/2026)
+
+Pendiente O19 (docs/pendientes-verificados-17-11.md; Martín, 25/10: «Todo MaKo se debe poder utilizar por API»). Tres cosas
+que la pantalla hace y la API no.
+
+**Síntoma → causa, una por una:**
+
+- **Editar con IA una automatización que ya existe, con ramas (P0-7).** La API sólo tenía `editar_pasos_secuencia_mensajes`,
+  que reescribe la lista por orden y rechaza un flujo con ramas. El «Editar» del chat del lienzo vivía ADENTRO de la ruta
+  (`app/api/chat-agent/secuencias/ia/route.ts`): no había función que llamar. Se mudó a `lib/flujo-ia-editar.ts`
+  (`editarFlujoConIA`), como pasó con crear en la décima tanda, y la ruta lo llama con su stream. La acción es
+  `editar_armada_con_ia`.
+- **Cargar los guiones que trae la persona (P0-10).** Estaba a MEDIAS: `cargar_guion_propio` (área video, 27/10) ya existía,
+  pero sólo por la app, porque llama a la server action del botón y ésta lee la sesión de la cookie. El orquestador se mudó a
+  `lib/guiones-cargar.ts`; la acción del botón y la nueva `cargar_guiones_anuncio` (WhatsApp y HTTP) llaman a la misma
+  función. Por la app sigue la de antes, para no tener dos operaciones de lo mismo en el mismo canal.
+- **Rehacer las motivaciones de compra (P0-11).** No estaba porque generar en la pantalla REEMPLAZA la matriz entera: los
+  guiones, los formatos y los `celdaId` de las celdas se pierden (`contenido.def.ts`, «NO entran»). La razón seguía en pie.
+  Lo que la cambia es fundir en vez de reemplazar (`lib/razones-fundir.ts`, puro y con test):
+  - lo que tiene trabajo (un guion, un formato, una imagen, o la celda de los guiones propios) se queda tal cual;
+  - lo que no tiene nada se reemplaza, hasta 3 por avatar;
+  - nunca entra un nombre que ese avatar ya tiene.
+
+**Lo que se encontró en el camino:**
+
+- **La carga de guiones podía borrar la matriz entera.** La acción del botón leía con `getRazones`, que convierte un 5xx en
+  `[]`, y después escribía la matriz ENTERA. Y la leía ANTES de ordenar los guiones con la IA, así que lo que otra pestaña
+  escribía en esos segundos se perdía. Ahora lee en estricto (`getRazonesEstricto`) y relee DESPUÉS de la IA, pegado a la
+  escritura. La fusión hace lo mismo.
+- **Editar va por `chat`, no por `pantalla`, aunque reescribe y publica.** La pantalla genérica (`/mako/revisar`) vuelve a
+  correr `preparar` al confirmar, y acá `preparar` corre el modelo: se confirmaría otra respuesta que la que la persona leyó.
+  Va como `editar_hoja_con_ia_dashboard`: la propuesta guarda los pasos, la firma de lo publicado que vio (`antes`), y
+  `faltaParaConfirmar` la cierra (`yaNoVale`) si alguien la tocó en el medio. Es `aTerceros`: a los leads les llega lo nuevo.
+- **Las otras dos son de pantalla**, porque `preparar` sólo lee y es determinista. La IA de rehacer las motivaciones corre
+  al confirmar, y el resumen dice antes qué se queda y qué se reemplaza.
+- **Por HTTP la IA tiene 40 s** (`/api/v1` corta a 60). Un guion que no se ordena a tiempo se guarda sin rótulos, como sin
+  IA. Una edición que no termina vuelve como error, sin proponer nada.
+- **El nombre del pendiente sacaba al CRON del chat.** El pendiente pedía «una acción para editar con IA una automatización»
+  y el primer id fue `editar_automatizacion_con_ia`: «automatización» pesa doble en el id, la operación nueva subió al 1.º
+  lugar en «Hacé que la automatización de reactivación salga todos los martes a las 15», y `cambiar_crons_secuencia` quedó con
+  -923 caracteres de margen. O sea que MaKo dejaba de poder cambiar qué dispara una automatización. Con `editar_armada_con_ia`
+  va 19.ª y el CRON vuelve a 310, lo mismo que sin ella (lo que va después del CRON no cuenta). El piso es 300: la próxima
+  operación del área que le gane al CRON lo cruza.
+- **«Al final de su área» no siempre es el final del archivo.** En `contenido` el Copywriter ocupa el final desde el 28/10
+  (`registro.ts`: `[...contenido, ...copywriter]`). Las nuevas van en `DEFS_AL_FINAL` de `contenido.def.ts`, después de él.
+- **El resumen de cargar nombraba también los guiones que ya estaban guardados.** Decía «Guardar un guion: A, B» con B ya
+  guardado. `previoCarga` ahora devuelve CUÁLES ya estaban (`yaGuardados`), y el resumen nombra sólo lo que va a quedar.
+- **Una fusión que sólo saca no escribe.** Si la IA trae sólo lo que ya estaba, no se escribe nada: sacar las celdas vacías
+  sin poner otras en su lugar no es rehacer.
+- **En el hijo del test, el módulo real importado primero gana al mock.** La primera versión importaba
+  `lib/flujo-ia-crear.ts` real para mockearlo encima, y eso ya cargaba `chatbot.run.ts` con el real: «No tienes una IA
+  conectada» con `hayIAParaCrear` mockeado a `true`. Lo que carga el registro se mockea con `namedExports` ANTES de importar
+  nada (tests/_api-acciones-octubre-hijo.ts).
+
+**Dónde vive:** `lib/flujo-ia-editar.ts`, `lib/guiones-cargar.ts`, `lib/razones-fundir.ts`, `lib/razones.ts`
+(`regenerarMatrizSinPerder`, `getRazonesEstricto`), `lib/api-mako/areas/contenido.run.ts` y `chatbot.run.ts`. Lo fijan
+tests/api-acciones-octubre.test.ts, que corre las tres por `ejecutarOperacion`, `aplicarEnElActo` y `confirmarPendiente` reales, y
+tests/razones-fundir.test.ts.
+
+**La regla que queda:** antes de declarar una acción, se pregunta si su `preparar` corre un modelo. Si lo corre, va por `chat`
+con lo propuesto guardado y una firma que la cierre. `pantalla` re-ejecuta `preparar`, y lo que se confirma deja de ser lo que se
+leyó.
+
+**Lo que quedó sin hacer:**
+
+- **«Generar» en la pantalla sigue reemplazando la matriz entera** (`app/api/onboarding/razones/route.ts`, sin `action`).
+  Llevarla a la fusión cambia lo que ve un cliente en su onboarding, y el onboarding no se toca desde acá: decide Martín.
+- **La revisión de un guion contra la oferta, el avatar y el funnel** sigue sin existir (P39, «Feature: Ideas»): la carga
+  sólo separa, ordena y guarda, por las dos puertas.
+## Corregir un dato del perfil por el chat: `corregir_campo_perfil` y «¿cómo te hago recordar que…?» (18/11/2026, O21)
+
+- **El síntoma:** Leila, en la llamada del 27/10: «¿cómo te hago recordar que LíderMente es de 7:30 a 9:30?». MaKo no tenía
+  cómo: `guardar_campo_perfil` sólo llena HUECOS («ya tiene valor» se rechaza) y, medido con el turno real
+  (`clasificarIntencion` + `herramientasDelTurno` / `herramientasDelChat`), la pregunta caía en `consultar` (en una pregunta no
+  viajan las que escriben) y «recordá que la garantía es de 30 días», «en realidad mi precio es…» o «corregí mi horario» caían al
+  default (en WhatsApp, una idea para el Plan). Ninguna de 12 frases traía la herramienta.
+- **Lo que quedó:** `corregir_campo_perfil` (chat, admin, al final del área, `PUT /negocio/perfil/campos/{key}`; el `PATCH`
+  sigue siendo completar un hueco). El resumen dice lo de antes y lo nuevo, y **lo de antes VIAJA en el payload**: si el dato
+  cambió antes del «sí» (otra corrección, un documento, la pantalla), `faltaParaConfirmar` cierra la propuesta (`yaNoVale`) y
+  `corregirCampoPerfil` (negocio.helpers) vuelve a comparar al escribir. Va por la MISMA puerta que `completarHuecoPerfil`: un
+  campo del Archivero a lo manual (gana sobre lo que saque después un documento), uno del wizard a las answers. En el clasificador,
+  `esDatoDelPerfil` (lib/mako-intencion.ts) antes de la pregunta, y la operación entre las simples del grupo
+  (`ACCIONES_SIMPLES`, lib/despacho-grupo.ts): sin eso el grupo la delegaba al equipo.
+- **Tres trampas que no se ven:**
+  - `faltaParaConfirmar` **no está envuelto en un try** en `confirmarPendiente` (lib/api-mako/acciones.ts): una lectura estricta
+    que tira revienta el «sí». Se envuelve en el runner y «no pude leer» vuelve como TEXTO (la pendiente sigue viva), nunca como
+    `yaNoVale` (que la cerraría por un 5xx).
+  - El payload lleva `campo_id`, no `key`: la tarjeta y la bandeja (`lineasDelPayload`) saltean los ids, y «oferta_incluye» en
+    pantalla es jerga.
+  - **Las palabras de la relevancia de una regla nueva DESPLAZAN a otras del área.** Con «corregir campo perfil…» delante, «en
+    realidad mi precio es 3000 dólares» en la app trae la corrección del perfil y ya no `guardar_oferta` (el 75 % del presupuesto se
+    llena con las del perfil; por WhatsApp viajan las dos). Para el precio hay dos lugares (el perfil y el catálogo de ofertas) y la
+    frase es ambigua: quedó así, anotado.
+- ⚠️ **Lo que quedó SIN hacer (decisión de Martín):** la pantalla (`app/api/onboarding/archivero/manual/route.ts`) sólo deja PISAR
+  un dato ya cargado al super admin («Ocupado → solo super-admin»), y `CamposNegocio` no dibuja los `rechazados`: un cliente que
+  corrige un dato ocupado en «El brief» lo ve volver al valor viejo sin aviso. Por el chat, desde hoy, un admin del negocio sí lo
+  corrige (con su «sí»). Si sólo el super admin tiene que poder pisar, es `faltaParaConfirmar` + el mismo chequeo en `ejecutar`;
+  si no, la pantalla tiene un bug. Y `guardar_campo_perfil` (por pantalla) no viaja en la ACCIÓN del grupo: un hueco pedido por el
+  grupo se sigue delegando.
+- **Vive en:** `lib/api-mako/areas/negocio.def.ts` · `lib/api-mako/areas/negocio.run.ts` (`corregir_campo_perfil`) ·
+  `lib/api-mako/areas/negocio.helpers.ts` (`valorDelCampoPerfil`, `corregirCampoPerfil`) · `lib/mako-intencion.ts`
+  (`esDatoDelPerfil`) · `lib/despacho-grupo.ts` · `tests/corregir-campo-perfil.test.ts` · `tests/clase-del-grupo.test.ts` (el 12).
+
 ## La referencia pública de /api-mako (16/11/2026)
 
 - **Un `page.tsx` de Next no puede exportar otra cosa que lo de una página**: la vista sin sesión vive en
@@ -819,9 +943,10 @@ del registro devolvían su link a `/mako/revisar/<id>` y el modelo lo pasaba a m
 devolvieron las tools; si no, saca todo `/mako/revisar/` del texto y agrega los
 verdaderos. Tiene test con el caso del carácter de menos.
 
-**Sin hacer:** los links a `/whatsapp?chat=…` que arman las áreas de WhatsApp y CS siguen
+~~**Sin hacer:** los links a `/whatsapp?chat=…` que arman las áreas de WhatsApp y CS siguen
 pasando por el modelo, y un `?chat=` que no matchea abre la conversación de otra persona
-(ver [hallazgos-comunicacion.md](hallazgos-comunicacion.md)).
+(ver [hallazgos-comunicacion.md](hallazgos-comunicacion.md)).~~ **Hecho el 18/11/2026** (F114): ver «El núcleo, cerrado
+renglón por renglón», abajo.
 
 **Vive en:** `lib/respuesta-doer.ts` · `lib/mako-doer-in.ts` · *2026-09-16 api-mako-areas*
 
@@ -851,8 +976,9 @@ analizan llamadas, mandan broadcasts o corren varios modelos.
   Un candado en `ejecutar()` («solo lo confirma quien lo propuso») consume la pendiente
   aunque rechace: queda en `error` y el dueño legítimo ya no la puede confirmar.
 
-**Sin hacer:** `mako_acciones_pendientes` no tiene `reclamada_at`, así que no hay forma de
-saber cuándo se reclamó ni un barrido que pase a `error` las `confirmada` viejas. Las
+~~**Sin hacer:** `mako_acciones_pendientes` no tiene `reclamada_at`, así que no hay forma de
+saber cuándo se reclamó ni un barrido que pase a `error` las `confirmada` viejas.~~ **Hecho el 18/11/2026** (F114, mig 0420
+sin aplicar): ver «El núcleo, cerrado renglón por renglón», abajo. Las
 lecturas del área mako (`ver_pendiente`, `ver_propuesta_accion`) informan
 `sin_resultado` pasados 5 minutos, que es una inferencia.
 
@@ -1410,20 +1536,63 @@ Ningún volcado de ideas cambia.
 *08/10/2026 — sin subagentes para el arreglo; diagnóstico leyendo `mako_doer_conv`,
 `anthropic_usage` y `plan_propuestas` de ws15.*
 
+## El núcleo, cerrado renglón por renglón (18/11/2026, F114)
+
+La tabla de abajo («Lo que quedó sin hacer en el núcleo», del 16/09) tenía nueve renglones y ninguno cerrado. Se cerraron
+cinco, se descartaron dos con su motivo y dos esperan una decisión de Martín. Lo que no se ve en el código:
+
+- **La idempotencia de una propuesta genérica era un camino LATENTE.** `ejecutar.ts` pasa `v.input.ref` como llave, pero el
+  validador deja sólo lo declarado y ninguna acción de pantalla declara un parámetro `ref` (el único `ref` de primer nivel es
+  el de `proponer_leads`, que es tipo `lead`; el de `subir_creativos_media_buyer` está adentro de `archivos`). Hoy ninguna
+  propuesta genérica tiene llave. Se arregló la regla igual (`refYaTomada`, lib/propuestas-ref.ts: por tipo) para que el
+  primer `ref` que se declare no herede el bloqueo contra lo aplicado. **Antes de arreglar una idempotencia, mirá si la llave
+  llega:** un `ref` que el validador tira es una llave que no existe.
+- **Lo del runner pisaba al que confirmó.** `{ resumen, ok, por, ...datos }`: el spread al final dejaba que un dato llamado
+  `por`, `ok` o `resumen` reescribiera la persona, el «salió bien» o el texto. Va `resultadoParaGuardar`
+  (lib/api-mako/resultado-propuesta.ts): lo del runner en `datos`. Nadie leía las claves de `datos` del resultado guardado
+  (la pantalla lee `resumen`, `ok` y `en_curso`; `ver_propuesta_accion`, en lista blanca).
+- **Una 'confirmada' colgada se cierra por DOS cortes**, porque la migración puede no estar: por la hora del reclamo (0420) o,
+  sin ella, por el vencimiento más 30 minutos (la inferencia que ya hacía `ver_pendiente`). El margen es 30 minutos y no 5
+  porque una confirmación puede seguir viva hasta 800 s en un trabajo de fondo; si termina después, gana su resultado
+  (`resolverPendiente` escribe el final sin mirar el estado). Reclamar con la columna que falta repite sin ella
+  (`conColumnaNueva`). ⚠️ El `.is('resuelto_at', null)` del barrido es defensivo: `resolverPendiente` escribe estado y
+  `resuelto_at` juntos, así que una 'confirmada' resuelta no existe y romperlo no lo caza ningún caso real.
+- **Una tool vieja que falla por nosotros, como falla.** `reuniones_lead` contestaba «No pude buscar reuniones» como texto: el
+  modelo lo leía como «no tiene reuniones» y por HTTP salía en un 200. Va con `isError` (el registro lo devuelve como error;
+  ningún test lo ejecuta: forzar que `buscarReunionesAutomatico` tire pide simular su lectura de Calendly). Las dos propuestas
+  que no se guardan por la base (lead y borrador del plan) llevan `noCorrio`, el mismo molde que la pendiente que no entró.
+  ⚠️ El guard `tests/doer-falla.test.ts` (13) cuenta los `catch` que no son guarda: se ajustó para contar también los que
+  llevan `noCorrio` (siguen siendo 3) y exigir uno.
+- **El link a una conversación, como el de /mako/revisar.** `conLinksDeAccion` mira cada FAMILIA por su lado: un link de chat
+  que el modelo trae del historial no se toca porque el turno propuso algo en /mako/revisar. La regex del chat no se come el
+  punto de la frase («aquí: <link>.»), o reescribiría un link bien copiado.
+- **Mover una operación de área NO es reordenar el registro**: el área es el permiso de un token detallado y la URL REST. Por
+  eso se descartó mover `listar_productos`.
+
+Lo que espera a Martín (las dos, en palabras de producto, en el informe del 18/11 al coordinador):
+- `/api/agente/consultar` sigue sirviendo `historial_whatsapp` y `reuniones_lead` a la skill que cada cliente instaló;
+  sacarlas rompe esas skills.
+- La bandeja `/mako/pendientes` sólo deja confirmar al admin del negocio (`app/mako/ctx-bandeja.ts`); abrirla a un closer o
+  setter para lo que no lleva `rolMinimo` cambia quién puede confirmar acciones.
+
+**Vive en:** `lib/propuestas-ref.ts` · `lib/api-mako/resultado-propuesta.ts` · `lib/pendientes-colgadas.ts` ·
+`lib/mako-pendientes.ts` · `app/api/cron/limpieza-colgados/route.ts` · `lib/respuesta-doer.ts` · `lib/mako-doer-in.ts` ·
+`lib/mako-tools.ts` · `lib/mako-doer-acciones.ts` · `tests/api-mako-nucleo-1811.test.ts` · *18/11/2026, nube (F114)*
+
 ## Lo que quedó sin hacer en el núcleo
 
 | Qué | Dónde | Por qué no se hizo |
 |---|---|---|
-| Idempotencia de las propuestas genéricas (ref que bloquee solo contra una pendiente) | `lib/api-mako/ejecutar.ts`, `lib/propuestas.ts` | La ref por contenido bloquea repetir una acción ya aplicada |
-| Distinguir «vacío» de «ausente» en la pantalla genérica | `app/mako/revisar/[id]/acciones.ts`, `lib/api-mako/validar.ts` | Cambia el contrato de todas las acciones con opcionales |
+| ~~Idempotencia de las propuestas genéricas (ref que bloquee solo contra una pendiente)~~ | `lib/api-mako/ejecutar.ts`, `lib/propuestas.ts` | ~~La ref por contenido bloquea repetir una acción ya aplicada~~ **Hecho el 18/11/2026** (a31cad9e42): `refYaTomada` (lib/propuestas-ref.ts) — una acción aplicada ya no bloquea, un lead aplicado sí. Ojo: hoy ninguna acción genérica declara `ref`, así que el camino estaba latente |
+| ~~Distinguir «vacío» de «ausente» en la pantalla genérica~~ | `app/mako/revisar/[id]/acciones.ts`, `lib/api-mako/validar.ts` | **Descartado el 18/11/2026**: la pantalla ya manda `null` por un campo vaciado (no vuelve el valor viejo) y el runner lo recibe como «no tocar», que es el contrato seguro. «Vaciar un dato» desde la pantalla no lo pidió nadie; si un área lo necesita, va un flag opt-in en ESE parámetro (como `vaciaEsValor` de las listas), nunca un cambio para todas |
 | Título de `/mako/revisar` que siga al formulario; `object[]` como sub-formulario | `app/mako/revisar/[id]/RevisarAccion.tsx` | UI, no bloquea |
-| `reclamada_at` y barrido de pendientes `confirmada` colgadas | `lib/mako-pendientes.ts` + migración | Necesita columna nueva |
-| Actor fuera de `resultado` | `lib/api-mako/acciones.ts` | Las lecturas lo sanean mientras tanto |
+| ~~`reclamada_at` y barrido de pendientes `confirmada` colgadas~~ | `lib/mako-pendientes.ts` + migración | **Hecho el 18/11/2026** (a31cad9e42): mig 0420 (SIN APLICAR, el código la tolera), `cerrarConfirmadasColgadas` y el cron /api/cron/limpieza-colgados |
+| ~~Actor fuera de `resultado`~~ | `lib/api-mako/acciones.ts` | **Hecho el 18/11/2026** (a31cad9e42): `resultadoParaGuardar` (lib/api-mako/resultado-propuesta.ts) — lo del runner va en `datos` y no pisa `por`, `ok` ni `resumen`. Sin columna nueva: el «campo propio» es la clave `por`, que ya nadie puede pisar |
 | `historial_whatsapp` y `reuniones_lead` por `/api/agente/consultar` | `lib/agente-consultas.ts` | Decisión de producto: rompe skills instaladas |
-| Tools viejas que devuelven el error en un 200 | `lib/mako-tools.ts`, `lib/mako-doer-acciones.ts` | Se resuelve al mudar los cuerpos (F4) |
+| ~~Tools viejas que devuelven el error en un 200~~ | `lib/mako-tools.ts`, `lib/mako-doer-acciones.ts` | **Hecho el 18/11/2026** (a31cad9e42): `reuniones_lead` devuelve `isError`, y las dos propuestas que no se guardan por la base llevan `noCorrio` (500 por el registro, isError en el doer). Los errores de Calendly siguen como texto a propósito: son configuración, no una falla nuestra |
 | Que la bandeja deje confirmar a un no-admin lo que no lleva `rolMinimo` | `app/mako/ctx-bandeja.ts` | Por eso `editar_perfil` y `configurar_notificaciones_inapp` salieron del registro |
-| Mover `listar_productos`/`guardar_producto` a negocio y `adjuntar_grabaciones_fathom` a crm | `lib/api-mako/areas/*` | Decisión de registro, sin urgencia |
-| `/whatsapp?chat=` escrito por código | `lib/mako-doer-in.ts` | Falta resolver el jid contra el espejo en cada área |
+| ~~Mover `listar_productos`/`guardar_producto` a negocio y `adjuntar_grabaciones_fathom` a crm~~ | `lib/api-mako/areas/*` | **Descartado el 18/11/2026**: el área de una operación es el permiso de un token detallado (`mako_pat_` con «lectura» en crm) y su URL REST (`/api/v1/crm/productos`). Moverla deja sin acceso a los tokens que ya existen y rompe la URL publicada, sin ganar nada. `adjuntar_grabaciones_fathom` ya vive en `closing` |
+| ~~`/whatsapp?chat=` escrito por código~~ | `lib/mako-doer-in.ts` | **Hecho el 18/11/2026** (a31cad9e42): el único que arma un `?chat=` es `crear_borrador_whatsapp_empresa` (con el jid del espejo); el doer lo captura y `conLinksDeAccion` lo reescribe si el modelo lo copió mal. El área CS ya no arma links a una conversación |
 
 ## La API existe, pero los que más la usan todavía no pasan por ella (08/10/2026)
 

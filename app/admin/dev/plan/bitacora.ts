@@ -392,4 +392,60 @@ export const BITACORA: Hito[] = [
       "tests/iniciativa-plan.test.ts — probado rompiéndolo (3 roturas)",
     ],
   },
+  {
+    fecha: '18 nov', hora: '02:05', chat: 'Nube · lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: ['**Del Plan**: F156, el filtro «Responsable» en el tablero del dueño.'],
+  },
+  {
+    fecha: '18 nov', hora: '02:05', chat: 'Nube · lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El filtro «Responsable» también en tu Plan',
+    puntos: [
+      '**Quién hace cada tarea**: las tareas que salen de una reunión llegan a tu Plan con quién las hace (tú, el cliente u otra persona), y el filtro «Responsable» del kanban aparece también ahí.',
+      '**Las de antes quedan «Sin asignar»**: nadie dijo de quién eran, y suponer que son tuyas sería mentir en el filtro.',
+      '**Falta aplicar la migración 0419** en la base (la nube no puede): hasta entonces las tareas se crean igual, sin el responsable.',
+    ],
+    archivos: [
+      'supabase/migrations/0419_plan_tareas_responsable_tipo.sql — la columna (sin aplicar)',
+      'lib/todo-estados.ts — `responsableDeLaFila` y `responsableParaGuardar`',
+      'lib/plan-board.ts — la lectura, el guardado y el alta desde una reunión',
+      'app/plan/board/repo-plan.ts — `responsables: true`',
+      'tests/plan-responsable-dueno.test.ts — probado rompiéndolo (4 roturas)',
+    ],
+    revisar: '/plan',
+  },
+  {
+    fecha: '18 nov', hora: '01:35', chat: 'Traba (nube)', sesion: 'cli_6ab6e94e-8cd3-5fa9-a736-713a1fc58542', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'Una tarea que se repite, pedida a MaKo, entra al Plan como recurrente',
+    revisar: '/plan',
+    puntos: [
+      'Si le pides a MaKo que sume «la junta de los miércoles» (por WhatsApp, en el chat de la app o por la API), el borrador la trae marcada «Se repite»: antes entraba como una tarea normal, con prioridad y fecha.',
+      'Si la tarea trae una fecha, gana la fecha (como en las reuniones).',
+    ],
+    commits: [{ sha: '0f0bf08a', msg: 'Pendientes «Traba otra cosa»: T6, T5, T11 y T12 cerrados con test; los otros nueve, con su estado de hoy', lineas: 985, archivos: 30 }],
+    archivos: [
+      'lib/plan-tareas-del-doer.ts — tareasDelDoer · lib/mako-doer-acciones.ts — el case proponer_tareas_plan · lib/api-mako/areas/plan.def.ts — el campo en el registro',
+      'tests/plan-tareas-del-doer.test.ts — 4 roturas, cada una en rojo',
+    ],
+  },
+  // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
+  // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
+  {
+    fecha: '6 nov', hora: '05:30', chat: 'Recorrido visual (nube)', sesion: 'cli_11df35a4-d789-5260-a695-cc3c7b859c4e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tarjeta del Objetivo Principal dice por qué es el norte',
+    puntos: [
+      '**En Prioridades**, la tarjeta del Objetivo Principal muestra la razón del Perro (cinco renglones como mucho) en el espacio que quedaba vacío. En la grilla de Proyectos no cambia.',
+      'Llegó por el encargo del 6/11 para la nube: lo que seguía abierto del recorrido visual del 30/10 y la llamada con Leila del 5/11.',
+    ],
+    commits: [{ sha: '7132bc7f2', msg: 'Automations, Chats, Plan y la API: lo que quedó abierto del recorrido visual (A3, CH2, P2, AP1)', lineas: 264, archivos: 15 }],
+    archivos: [
+      'app/plan/board/RazonObjetivo.tsx · app/plan/board/BoardShell.tsx',
+      'tests/recorrido-plan-api.test.ts — probado rompiéndolo (4/0)',
+    ],
+    revisar: '/plan',
+  },
 ];

@@ -1,5 +1,16 @@
 # Hallazgos — avisos
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `lib/espaciado.ts:40-44` · `lib/avisos.ts` · `app/api/webhooks/calendly/route.ts:712-716` · `lib/meta-lead-nuevo.ts`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 15 — Las marcas de dedup de los avisos se acumulan sin barrido.** Viven en `app_settings` como `mako.aviso.last.<tipo>:<hash>` (lib/espaciado.ts:40-44) y ninguna línea de lib/ ni de app/api/cron las borra. Lo de los avisos por entidad sin `dedupKey` se cerró en parte: «reunión cancelada» lleva su clave (app/api/webhooks/calendly/route.ts:712-716) y el de un formulario de Meta sale sólo con un lead creado por esa entrega (lib/meta-lead-nuevo.ts), así que una reentrega no lo repite. Es también el encargo 633 de docs/encargos-6-11/verificar-7.json.
+
 ## Avisos: lo que dejó `punta/nada-por-detras` (revisada el 8/11/2026)
 
 Las dos puntas entraron a `main` **sin que nadie las mirara**. La revisión las leyó con tres lentes
@@ -44,3 +55,44 @@ Step cuando la charla pasa a una persona, «Contéstale tú» de la charla cerra
 **Sin hacer (del relevo de la llamada):** que `asignar_closer_setter` le avise a la persona asignada; «A quién avisar: grupo /
 setter del lead / una persona» en la tarjeta del AI Step; el aviso de «Para aprobar» (el borrador que deja MaKo) tampoco le llega al
 setter.
+
+## Los avisos que el cliente no entendía (18/11/2026, `punta/aut-textos-avisos`)
+
+**Síntoma:** Joan (ws13, agencia) le preguntó a MaKo «¿qué significa que está en período de gracia?» después de
+«🚨 La cuenta publicitaria de *Natalia* está *EN PERÍODO DE GRACIA*: Meta la frena en cualquier momento · 📉 Anuncios: sin
+entregar». Martín: «el aviso debería ser que no habían pagado su cuenta publicitaria», y pidió revisar todos.
+
+**Lo que se encontró, y dónde vive:**
+- **El texto que sale NO es el del código.** Los avisos con evento de la plataforma salen con el texto de SU fila en el ws9
+  (`nutricion_secuencias`: #261, #715, #262, #716, #253, #254, #259, #273…). La plantilla de
+  `lib/plantillas-automatizaciones.ts` sólo la crea: cambiar la plantilla no cambia lo que llega. Hay que aplicar las dos
+  cosas, y la fila de producción por `setSecuenciaPasos` con respaldo y relectura.
+- **«Período de gracia» con «sin entregar» se contradecía, y el «sin entregar» era deducido.** El estado 9 de Meta es ámbar:
+  Meta no pudo cobrar y da unos días, los anuncios siguen. `lib/meta-health.ts` lo sube a rojo si además hay saldo
+  (`saldoProblema`) y pone `entregaFrenada: severidad === 'rojo'`: **la entrega frenada NO la confirma Meta, la infiere el
+  código.** Natalia (ws19) tuvo tres incidentes así (2, 15 y 17/11), con saldos de 40 a 140 y cerrados solos en horas. Los
+  textos nuevos no llevan el renglón «Anuncios: …»: lo que pasa con los anuncios lo dice cada estado.
+- **«Por ese número no entran ni salen mensajes» (la #253, línea cortada) era falso**, igual que la #259: el teléfono anda, lo
+  que se cortó es MaKo.
+- **«Hace 0 min que está así»** salió en el ws1 el 14/11: `horasYMinutos(0)`. Con menos de un minuto el renglón se va.
+- **El email apagado** decía «revisa la lista y vuelve a prenderlo desde Email»: ni qué lista ni qué botón. El freno
+  (`setEnvioEmail(false)`) apaga el mismo interruptor que el botón «Envío real» de /email.
+
+**⚠️ La trampa del test (el diagnóstico obvio era el equivocado):** el primer borrador de la #253 decía «si aparece un código QR,
+escanéalo». `tests/linea-vigilancia.test.ts` protege justo eso (pedir un QR sobre una línea que sólo se cortó la tumba) con
+`!/escanear/i` y **pasaba igual**: «escanéalo» no contiene «escanear». Ahora mira `escane|QR|vincular un dispositivo`. Y la
+corrección «no escanees nada todavía» también la atrapa: el aviso de corte no nombra el escaneo.
+
+**La regla que queda** (AGENTS.md, «Un mensaje que sale solo no puede AFIRMAR lo que no verificó»): un aviso al cliente dice en
+sus palabras QUÉ pasó, QUÉ le pasa si no hace nada y QUÉ hacer, en pasos con el botón o el link exacto. Sin jerga («período de
+gracia», «sesión del dispositivo vinculado»), sin mayúsculas gritadas, con «tú» y neutro.
+
+**Lo que quedó SIN hacer:**
+- `lib/meta-health.ts`: `entregaFrenada` para los estados 7, 8 y 9 sigue saliendo de la severidad. La pantalla de Salud y el
+  incidente (`detalle: 'Entrega frenada'`) lo siguen diciendo en el período de gracia. Cambiarlo toca la severidad y el semáforo:
+  va aparte, con su test.
+- `chatbot-aviso-equipo` (158 en 30 días) lo escribe cada negocio en sus automatizaciones; no es texto de MaKo. `recibo` (11) son
+  mensajes de Cobros escritos a mano. No se tocaron.
+- Los reportes (`reporte-diario`, `-horario`, `-semanal`) usan «CPL» y «fatiga» sin explicar: son para quien maneja anuncios, pero
+  un dueño no técnico no lo entiende. Los avisos de anuncios sin implementar (`ad-cpl-disparado`, `ad-aprendizaje-limitado`,
+  `capi-cierres-no-reportados`…) tienen la misma jerga en su ejemplo: se reescriben cuando se implementen.

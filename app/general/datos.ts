@@ -21,7 +21,7 @@ import {
   type SenalRecon,
 } from '@/lib/queries';
 import { fmtUSD } from '@/lib/format';
-import { getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
+import { getRevenueBreakdowns, type RevenueBreakdowns } from '@/lib/pagos';
 import { leerFunnelsDeGeneral, funnelsDeLeads, conteoDelFunnel, type ConteoFunnel, type FunnelDeGeneral } from '@/lib/general-alcance';
 import { leerPlanHoyConTablero } from '@/lib/plan-hoy';
 import { METRICA_LABEL } from '@/lib/objectives-modelo';
@@ -40,22 +40,8 @@ import { cobroDeFila, type CobroM } from '@/app/m/dashboard/modelo';
 import type { BoardTask, Label } from '@/app/plan/board/types';
 import type { DesgloseItem, DesgloseData } from '../_components/Desglose';
 import type { AlertaVista, DatosGeneral, Leido, OkrVista } from './datos-tipos';
-
-function fmtDMY(iso: string | null): string {
-  if (!iso) return '—';
-  const [y, m, d] = iso.split('-').map(Number);
-  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-}
-
-function revItemsToDesglose(items: RevItem[], fechaLabel: string, focus = 'plan-pagos'): DesgloseItem[] {
-  return items.map((it) => ({
-    nombre: it.nombre,
-    valor: fmtUSD(it.monto),
-    detalle: `${it.detalle ? `${it.detalle} · ` : ''}${fechaLabel} ${fmtDMY(it.fecha)}`,
-    leadId: it.leadId,
-    focus,
-  }));
-}
+import { desglosesDelMes, fmtDMY, revItemsToDesglose } from './mes-del-periodo';
+import { leerMesDelPeriodo } from './mes-del-periodo-server';
 
 function cuotaItems(arr: CuotaDeAlerta[]): DesgloseItem[] {
   return arr.map((c) => ({
@@ -83,47 +69,6 @@ function alertaDeEscritorio(a: AlertaGeneral): AlertaVista {
       color: vencidas ? 'var(--bad)' : 'var(--warn-fill)',
       items: cuotaItems(a.cuotas),
       emptyText: vencidas ? 'Sin cuotas vencidas.' : 'Sin cuotas por vencer.',
-    },
-  };
-}
-
-/** Los desgloses de las cuatro tarjetas del mes. */
-function desglosesDelMes(mtdBreak: RevenueBreakdowns, agendasMTD: AgendaItem[], senalesMTD: SenalRecon[]): Record<string, DesgloseData> {
-  return {
-    'Ad Spend': {
-      label: 'Ad Spend del mes · por anuncio',
-      value: fmtUSD(senalesMTD.reduce((s, a) => s + a.spend_usd, 0)),
-      color: 'var(--ink)',
-      items: senalesMTD.filter((s) => s.spend_usd > 0).sort((a, b) => b.spend_usd - a.spend_usd).map((s) => ({
-        nombre: s.ad_name,
-        valor: fmtUSD(s.spend_usd),
-        detalle: [s.campana, s.adset_name].filter(Boolean).join(' · ') || undefined,
-      })),
-      emptyText: 'Sin gasto a nivel anuncio este mes.',
-    },
-    Cierres: {
-      label: 'Cierres del mes',
-      value: String(mtdBreak.sold.length),
-      color: 'var(--ink)',
-      items: revItemsToDesglose(mtdBreak.sold, 'cierre', 'plan-pagos'),
-      emptyText: 'Sin cierres este mes.',
-    },
-    'Cash Collected': {
-      label: 'Cash Collected del mes',
-      value: fmtUSD(mtdBreak.cash.reduce((s, i) => s + i.monto, 0)),
-      color: 'var(--good)',
-      items: revItemsToDesglose(mtdBreak.cash, 'pago', 'plan-pagos'),
-      emptyText: 'Sin cobros este mes.',
-    },
-    Agendas: {
-      label: 'Agendas del mes · R1 en el período (CRM)',
-      value: String(agendasMTD.length),
-      color: 'var(--ink)',
-      items: agendasMTD.map((a) => ({
-        nombre: a.nombre, valor: fmtDMY(a.fecha), detalle: a.empresa ?? undefined,
-        leadId: a.leadId, focus: 'datos-comerciales',
-      })),
-      emptyText: 'Sin agendas este mes.',
     },
   };
 }
@@ -270,15 +215,23 @@ const TOPE_FUNNELS = 8;
 const fallo = (que: string): { ok: false; error: string } => ({ ok: false, error: `No pude leer ${que}.` });
 const deVista = <T,>(v: Vista | null, que: string, f: (v: Vista) => Leido<T>): Leido<T> => (v ? f(v) : fallo(que));
 
-/** Los datos de TODOS los bloques (no sólo los de la hoja abierta): se puede insertar cualquiera mientras se edita. */
-export async function armarDatosGeneral(): Promise<DatosGeneral> {
+/**
+ * Los datos de TODOS los bloques (no sólo los de la hoja abierta): se puede insertar cualquiera mientras se edita.
+ * `periodo`: el que eligió la hoja con que se abre la página (./periodo-de-la-hoja.ts, `periodoDeLosBloques`). Con él,
+ * «El mes» de ESE período viaja además en `mesDelPeriodo`, así la hoja abre con su número sin un segundo pedido; los demás
+ * períodos los pide el navegador (la acción `mes-general` de /api/graficos). `mes` sigue siendo el mes a la fecha: lo leen
+ * los diseños de hoja («Cobrado este mes») y el teléfono, que no tienen período.
+ */
+export async function armarDatosGeneral(opciones: { periodo?: { desde: string; hasta: string } | null } = {}): Promise<DatosGeneral> {
   const cobranzaLeida = leerAQuienCobrar();
-  const [v, plan, cobranza, funnels, calendario] = await Promise.all([
+  const pedido = opciones.periodo ?? null;
+  const [v, plan, cobranza, funnels, calendario, mesPedido] = await Promise.all([
     leerVistaGeneral().catch((e) => { console.error('[general] vista:', e instanceof Error ? e.message : e); return null; }),
     datosDelPlan().catch((e): DatosGeneral['plan'] => { console.error('[general] plan:', e instanceof Error ? e.message : e); return fallo('el Plan'); }),
     cobranzaLeida,
     leerFunnelsDeGeneral(),
     leerCalendarioDeGeneral().catch((e) => { console.error('[general] calendario:', e instanceof Error ? e.message : e); return null; }),
+    pedido ? leerMesDelPeriodo(pedido) : Promise.resolve(null),
   ]);
 
   // El mes: sus desgloses, sólo si la vista se leyó. Sin desgloses, las tarjetas muestran los números solos.
@@ -336,6 +289,8 @@ export async function armarDatosGeneral(): Promise<DatosGeneral> {
     semaforo: deVista(v, 'el semáforo', (x) => ({ ok: true, d: { alertas: x.alertas.map(alertaDeEscritorio), fuentes: x.fuentes, lampara: x.lampara.estado, objetivoAtrasado: x.objetivoAtrasado } })),
     pendientes: deVista(v, 'los pendientes del CRM', (x) => ({ ok: true, d: { total: x.pendientes.total, porTipo: x.pendientes.porTipo, aviso: x.pendientes.aviso } })),
     mes,
+    // Sin el resumen leído, el período no viaja: el bloque lo vuelve a pedir y dice lo que pase.
+    mesDelPeriodo: pedido && mesPedido?.ok ? { desde: pedido.desde, hasta: pedido.hasta, mes: mesPedido.d } : null,
     plan,
     calendario: calendario ? { ok: true, d: calendario } : fallo('el Calendario'),
     funnels: funnels == null ? fallo('el CRM') : {

@@ -20,14 +20,13 @@ import { useMemo, useState } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { IconoCanal } from '@/app/chats/iconos-canal';
 import { AvatarM, FilaM, ListaM, PildoraM, SeccionM, SheetM, VacioM } from '@/app/m/_ui';
-import { coincideBusqueda, filtrarChats, type FiltroChats } from '@/lib/chats-reglas';
+import { claveCuenta, coincideBusqueda, filtrarChats, type FiltroChats, type OpcionCanal } from '@/lib/chats-reglas';
 import type { ConteosBandeja } from '@/lib/chats-reglas';
-import type { CanalChat } from '@/lib/chats-tipos';
 import type { YoChats } from '@/lib/chats';
 import type { FilaChatM } from './datos';
 import {
-  CANALES_M, FILAS_POR_TANDA, FILTRO_INICIAL_M, MOSTRAR_M, ORDEN_M,
-  bandejasVisibles, conteoDeBandeja, rotuloFiltro, rutaHiloM,
+  FILAS_POR_TANDA, FILTRO_INICIAL_M, MOSTRAR_M, ORDEN_M,
+  bandejasVisibles, conteoDeBandeja, filasDelFiltro, fueraDelFiltro, opcionElegida, rotuloFiltro, rutaHiloM, segundaDeCanal,
 } from './modelo';
 
 /** Las fuentes que lib/chats.ts nombra en `fallas`, en palabras (las mismas de escritorio). */
@@ -43,13 +42,16 @@ function textoFallasLista(fallas: readonly string[]): string | null {
 
 const ESTADO: Record<string, string> = { cerrada: 'Cerrada', pospuesta: 'Pospuesta' };
 
-export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, sinResponderInicial }: {
+export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, fueraPorCanal, sinResponderInicial }: {
   filas: FilaChatM[];
   conteos: ConteosBandeja;
   yo: YoChats;
-  canales: CanalChat[];
+  /** Los renglones del filtro de canal (`opcionesDeCanal`): cada número de WhatsApp, cada cuenta y el Email. */
+  canales: OpcionCanal[];
   fallas: string[];
   fuera: number;
+  /** Las de cada renglón de canal que quedaron en la computadora (por `claveCuenta`). */
+  fueraPorCanal: Record<string, number>;
   sinResponderInicial: boolean;
 }) {
   const [filtro, setFiltro] = useState<FiltroChats>(() => ({ ...FILTRO_INICIAL_M, sinResponder: sinResponderInicial }));
@@ -70,12 +72,15 @@ export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, sinResp
   };
 
   const visibles = useMemo(() => {
-    const porClave = new Map(filas.map((f) => [f.chat.clave, f]));
-    const chats = filtrarChats(filas.map((f) => f.chat), filtro, yo).filter((c) => coincideBusqueda(c, q));
+    // Sin canal elegido, las 150 más nuevas de todas; con una línea, las que viajaron por ella (`filasQueViajan`).
+    const base = filasDelFiltro(filas, filtro);
+    const porClave = new Map(base.map((f) => [f.chat.clave, f]));
+    const chats = filtrarChats(base.map((f) => f.chat), filtro, yo).filter((c) => coincideBusqueda(c, q));
     return chats.map((c) => porClave.get(c.clave)).filter((f): f is FilaChatM => !!f);
   }, [filas, filtro, yo, q]);
 
   const bandejas = bandejasVisibles(conteos);
+  const fueraAhora = fueraDelFiltro(filtro, fuera, fueraPorCanal);
   const aviso = textoFallasLista(fallas);
   const hayFiltro = filtro.mostrar !== FILTRO_INICIAL_M.mostrar || filtro.orden !== FILTRO_INICIAL_M.orden || filtro.canal != null;
 
@@ -110,7 +115,7 @@ export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, sinResp
 
       <div className="m-chats-filtro">
         <button type="button" className="m-chats-filtro__boton" aria-pressed={hayFiltro} onClick={() => setFiltros(true)}>
-          {rotuloFiltro(filtro)}
+          {rotuloFiltro(filtro, opcionElegida(canales, filtro)?.label)}
           <Icon name="chevron" size={14} />
         </button>
         <button type="button" className="m-chats-filtro__sin" aria-pressed={filtro.sinResponder} onClick={() => poner({ sinResponder: !filtro.sinResponder })}>
@@ -157,7 +162,7 @@ export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, sinResp
         ) : (
           <VacioM frase={q ? 'Nadie con ese nombre.' : filtro.sinResponder ? 'Nadie espera respuesta.' : filas.length ? 'Nada en esta bandeja.' : 'Todavía no hay chats.'} />
         )}
-        {fuera > 0 && <p className="m-chats-aviso">Las {fuera} más viejas, en la computadora.</p>}
+        {fueraAhora > 0 && <p className="m-chats-aviso">Las {fueraAhora} más viejas, en la computadora.</p>}
       </div>
 
       <SheetM id="filtros" abierto={filtros} onCerrar={() => setFiltros(false)} titulo="Filtrar">
@@ -177,15 +182,18 @@ export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, sinResp
             ))}
           </ListaM>
         </SeccionM>
+        {/* Un renglón por número de WhatsApp y por cuenta (el chip «Canales» de escritorio, `opcionesDeCanal`): con su
+            número y el de MaKo, el super admin pasa de uno al otro (O48, 18/11/2026). */}
         {canales.length > 1 && (
           <SeccionM titulo="Canal">
             <ListaM>
               <FilaM titulo="Todos" chevron={false} onClick={() => poner({ canal: null, cuenta: null })}
                 riel={filtro.canal == null ? <span className="m-chats-check"><Icon name="check" size={18} /></span> : undefined} />
-              {CANALES_M.filter((x) => canales.includes(x.v)).map((x) => (
-                <FilaM key={x.v} titulo={x.label} chevron={false} leading={<IconoCanal canal={x.v} size={24} />}
-                  onClick={() => poner({ canal: x.v, cuenta: null })}
-                  riel={filtro.canal === x.v ? <span className="m-chats-check"><Icon name="check" size={18} /></span> : undefined} />
+              {canales.map((o) => (
+                <FilaM key={claveCuenta(o.canal, o.cuenta)} titulo={o.label} segunda={segundaDeCanal(o, conteos)} chevron={false}
+                  leading={<IconoCanal canal={o.canal} size={24} />}
+                  onClick={() => poner({ canal: o.canal, cuenta: o.cuenta })}
+                  riel={filtro.canal === o.canal && filtro.cuenta === o.cuenta ? <span className="m-chats-check"><Icon name="check" size={18} /></span> : undefined} />
               ))}
             </ListaM>
           </SeccionM>

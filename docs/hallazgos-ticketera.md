@@ -4,6 +4,42 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## Cuánto tarda cada ticket, y la alerta a Martín a las 24 h (18/11/2026, claude2)
+
+**El pedido:** Martín le prometió a Teo «medir el tiempo de cada ticket, con alerta a las 24 h»
+(docs/relevo/pedidos-perdidos-2810.md). No había nada: un ticket podía quedar días abierto sin que nadie se enterara, y la bandeja
+decía «ayer» o «hace 2 días», que no dice si pasó las 24 h (`Intl.RelativeTimeFormat` con `numeric: 'auto'` dice «ayer» a las 26 h).
+
+**El diagnóstico obvio era el equivocado: «copiar el canal de `avisarDelegadosSinTomar`».** Ése es el molde para no repetir (un
+renglón de `ticket_eventos` por ticket, la lectura que tira si no puede leer el historial), pero su aviso va al grupo DEL CLIENTE, no
+a Martín. El canal a Martín es el de `mandar` (lib/credito-vigia.ts): el grupo de SuperAdmin (`enviarAlGrupoSuperAdmin`, que sin
+WhatsApp queda en el grupo de la app) y la campanita de la plataforma.
+
+**Lo que no se ve en el código:**
+- **«Esperando al cliente» no es nuestra demora.** Cuentan «nuevo», «esperando la decisión», «en curso» y «arreglado» (arreglado y sin
+  publicar: para el cliente sigue roto). Los cerrados no alertan: de ésos se dice cuánto TARDARON (`created_at` → `resuelto_at`, o
+  `decidido_at`; sin fecha, nada). El tiempo es el total desde que se levantó: lo que esperó al cliente no se descuenta.
+- **La lectura va de los más NUEVOS a los más viejos.** Los ya avisados que siguen abiertos se acumulan; con el orden al revés y el
+  tope de 50 filas, tapaban justo al que acababa de cruzar (lo fija el caso de 55 abiertos del test).
+- **Una fecha fija y no una ventana de edad** (`ALERTA_24H_DESDE`) para que el primer deploy no mande la tanda de viejos: con una
+  ventana, un ticket que pasó días esperando al cliente y vuelve a la cancha nunca avisaba, y un cron caído se comía los avisos.
+- **UN mensaje por vuelta del cron**, con todos los que cruzaron (ocho renglones y «y N más»), nombrados por quién y de qué trata
+  (`quePaso`), nunca por número.
+- **En la bandeja** el rótulo va al lado de «hace X»: «tardó 5 h» de un cerrado (ámbar si pasó las 24 h) y «lleva 26 h» en rojo del
+  abierto que pasó las 24 h en nuestra cancha. Debajo de las 24 h, nada: «hace X» ya lo dice.
+
+**Vive en:** `lib/tickets-demora.ts` (`tiempoDelTicket`, `paraLaAlerta24h`, `textoAlerta24h`) · `lib/tickets-cierre.ts`
+(`avisarTicketsDeMasDe24h`) · `app/api/cron/tickets/route.ts` (el 3b) · `app/tickets/bandeja/TablaTickets.tsx`, `TarjetaTicket.tsx`
+y `bandeja.css` · tests/tickets-24h.test.ts (con su hijo), probado con siete roturas.
+
+**La regla:** un aviso a Martín sale por el grupo de SuperAdmin y la campanita, nunca por el grupo de un cliente; y lo que se acumula
+abierto se lee de lo más nuevo a lo más viejo cuando hay tope de filas.
+
+**Lo que quedó sin hacer:** los tickets levantados antes del 18/11 no alertan (se ven en rojo en la bandeja); el tiempo no descuenta
+lo que esperó al cliente; no hay un promedio ni un informe de tiempos (sólo el rótulo por ticket).
+
+---
+
 ## WhatsApp y la Ticketera decían cosas distintas (16/11/2026, claude2)
 
 **El síntoma:** un cliente, en un audio a Martín: «no existe una constante entre lo que se dice por WhatsApp y lo que dice la

@@ -198,7 +198,8 @@ test('A8 · la pantalla: el AI Step con el candado y «Sola» deshabilitada; Pub
   // 14/11/2026 (los rojos de lienzo-sexta-tanda y reportar-a-soporte): el candado es un aviso aparte, role="status" y fuera del pie,
   // y el error del pie (`errPie`) es cualquier otro, con su «Reportar a soporte».
   assert.match(perfil, /const errPie = err !== TEXTO_SETTER_SOLO_PRO \? err : null;/);
-  assert.match(perfil, /const avisoSetter = rolAdmin && err === TEXTO_SETTER_SOLO_PRO && \(\s*<span role="status"[^>]*>\s*\{err\} <CtaPasarAPro><Link href=\{RUTA_CAMBIAR_PLAN\}[^>]*>\{ROTULO_PASAR_A_PRO\}<\/Link><\/CtaPasarAPro>/);
+  // (18/11/2026, F148: el texto pasa por `TextoDelTope`, que al cliente de una agencia le saca el «Pasa a Pro».)
+  assert.match(perfil, /const avisoSetter = rolAdmin && err === TEXTO_SETTER_SOLO_PRO && \(\s*<span role="status"[^>]*>\s*<TextoDelTope texto=\{err\} \/> <CtaPasarAPro><Link href=\{RUTA_CAMBIAR_PLAN\}[^>]*>\{ROTULO_PASAR_A_PRO\}<\/Link><\/CtaPasarAPro>/);
   // MaKo en WhatsApp para el DUEÑO (el bot 1 a 1 y los grupos) no es el setter: no mira este candado.
   for (const f of ['lib/mako-bot.ts', 'lib/mako-bot-reglas.ts']) assert.doesNotMatch(codigo(f), /setter-ia|TEXTO_SETTER_SOLO_PRO|tieneSetterIA/, f);
 });
@@ -268,7 +269,7 @@ test('C2 · la pestaña «Dominios» y la API: el candado con «Pasar a Pro», y
   const dialogo = codigo('app/web-generator/editor/dialogos/DialogoPublicar.tsx');
   assert.match(dialogo, /if \(!pidePasarAPro\(error\)\) return null;/);
   assert.match(dialogo, /const esencial = usePlanEsencial\(\);/);
-  assert.match(dialogo, /\) : esencial === true \? \(\n\s+<p className="gmp-ayuda" role="status" data-solo-pro="dominio">\{TEXTO_DOMINIO_SOLO_PRO\}<PasarAPro error=\{TEXTO_DOMINIO_SOLO_PRO\} \/><\/p>\n\s+\) : \(\n\s+<Campo etiqueta="Añadir un dominio"/);
+  assert.match(dialogo, /\) : esencial === true \? \(\n\s+<p className="gmp-ayuda" role="status" data-solo-pro="dominio"><TextoDelTope texto=\{TEXTO_DOMINIO_SOLO_PRO\} \/><PasarAPro error=\{TEXTO_DOMINIO_SOLO_PRO\} \/><\/p>\n\s+\) : \(\n\s+<Campo etiqueta="Añadir un dominio"/);
   const run = codigo('lib/api-mako/areas/landing-editor.run.ts');
   const conectar = run.slice(run.indexOf('  conectar_dominio_landing: {'), run.indexOf('  verificar_dominio_landing: {'));
   const iFreno = conectar.indexOf("const freno = await frenoDeTope(ctx.ws, 'dominio', !!actual);");

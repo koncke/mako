@@ -435,4 +435,22 @@ export const BITACORA: Hito[] = [
       'tests/conocimiento-sin-gemini.test.ts y tests/ia16-cada-uno-su-ia.test.ts — 18 roturas, todas caen',
     ],
   },
+  {
+    fecha: '18 nov', hora: '05:40', chat: 'Construir: seguridad e infraestructura', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los modelos de Gemini en un lugar, y escuchar una clase deja su fila en el gasto',
+    puntos: [
+      '**F74:** `gemini-flash-latest` y `gemini-flash-lite-latest` salen de lib/gemini-modelos.ts, con el override del entorno leído en el mismo orden: no cambió qué modelo corre. Un test frena un literal nuevo.',
+      '**F85:** las clases de los cursos quedan afuera de la puerta del audio por decisión escrita (es de la plataforma, entran 25 MB, necesita duración e idioma, lo corren scripts) y ahora registran su uso (`cursos-transcribir`). No descuenta MaKo Tokens.',
+    ],
+    archivos: [
+      'lib/gemini-modelos.ts, tests/gemini-modelos.test.ts — F74',
+      'lib/transcribe-plataforma.ts (`anotarUso` y la decisión), tests/transcribe-plataforma-uso.test.ts, tests/_transcribe-plataforma-hijo.ts — F85',
+      'docs/hallazgos-ia.md → «Los modelos de Gemini salen de un lugar…» (18/11/2026)',
+    ],
+    commits: [
+      { sha: 'd33a851b0', msg: 'IA: los modelos de Gemini salen de un solo lugar, lib/gemini-modelos.ts (F74)', lineas: 166, archivos: 12 },
+      { sha: '57a275a1e', msg: 'IA: escuchar una clase de un curso deja su fila en el gasto, y queda escrito por qué no pasa por la puerta del audio (F85)', lineas: 231, archivos: 7 },
+    ],
+    revisar: '/classroom/methodology',
+  },
 ];

@@ -346,6 +346,9 @@ export async function crearVideoAction(input: { avatarId: string; guion: string 
     adaptarVoz: false,
     // Un avatar que dice una frase no es un anuncio de siete tomas.
     clipsMinimos: 1,
+    // Lo guarda ESTA acción, ya sellado como avatar (`conAvatar`): guardado antes, entraba como anuncio y podía tirar uno
+    // de los 10 del cupo de los anuncios (F168, app/video-generator/actions.ts → `guardar`).
+    guardar: false,
   });
   if (!plan.ok) return plan;
   const item = conAvatar(plan.item, avatar);

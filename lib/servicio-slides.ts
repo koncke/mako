@@ -5,6 +5,8 @@
 // onboarding y el panel de activación de cada tab.
 // =============================================================================
 
+import { TOPE_LECTURAS_SPY_POR_DIA } from './instagram-perfil';
+
 export type Slide = { t: string; d: string };
 export const SLIDES: Record<string, Slide[]> = {
   meta: [
@@ -130,7 +132,13 @@ export const SLIDES: Record<string, Slide[]> = {
   ],
   'apify-instagram': [
     { t: 'Lee a tus competidores', d: 'El perfil y las publicaciones públicas de Instagram, con sus números, en Competitors Spy.' },
-    { t: 'Corre con tu cuenta', d: 'Apify cobra por perfil leído, y MaKo no pasa de 40 lecturas por día.' },
+    // ⚠️ EL TOPE SALE DE LA CONSTANTE (18/11/2026). Decía «MaKo no pasa de 40 lecturas por día» escrito a mano: el 40 era el
+    // tope de Spy hasta el 4/11/2026, cuando `TOPE_LECTURAS_SPY_POR_DIA` subió a 150, y esta slide (que dibuja el modal de
+    // /integraciones) siguió prometiendo cuatro veces menos. El arreglo del 6/11 (0a6476a1d) corrigió la NOTA del campo en
+    // lib/metodo-catalogo.ts y no vio esta. Dice «Competitors Spy» y no «MaKo» a propósito: la misma clave la usa también el
+    // buscador de @ del alta del CRM, con su propio tope (`APIFY_TOPE_POR_DIA`), así que «MaKo no pasa de N» sería falso.
+    // Lo fija tests/apify-slide-tope.test.ts.
+    { t: 'Corre con tu cuenta', d: `Apify cobra por perfil leído, y Competitors Spy lee hasta ${TOPE_LECTURAS_SPY_POR_DIA} perfiles por día.` },
   ],
   youtube: [
     // lib/queries.ts: "YouTube aporta la historia, Panda el presente"

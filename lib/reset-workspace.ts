@@ -29,6 +29,8 @@ import { getSupabaseServer } from './supabase';
 import { exigirClienteDePrueba } from './auth-session';
 import { TABLAS_DE_INQUILINO } from './tablas-de-inquilino';
 import { PERFIL_EXTRA } from './datos-mau';
+import { leerTodo } from './supabase-paginado';
+import { laCajaNoEsta as migracionSinAplicar } from './mako-tokens-caja';
 
 /**
  * Qué se vacía: TODAS las tablas de inquilino.
@@ -56,8 +58,84 @@ export const NOMBRE_WS_PRUEBA = 'Cliente de Prueba';
 const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips', 'curso-notas', 'curso-adjuntos', 'curso-entregas', 'comunidad-adjuntos', 'landing-imagenes', 'image-editor', 'chats-email', 'lead-notas'] as const;
 
 /** Los que no van por `<ws>/`: las portadas de los informes (`ws<N>/`) y las fotos de los contactos (`leads/<ws>/`, público). Lo encontró la revisión del 3/11/2026.
- *  Y lo que se sube al grupo de la app (`archivero/grupos/<ws>/`, lib/grupo-app.ts), 4/11/2026. */
-const CARPETAS_APARTE = (ws: number): Array<[string, string]> => [['portadas', `ws${ws}`], ['avatars', `leads/${ws}`], ['archivero', `grupos/${ws}`]];
+ *  Y lo que se sube al grupo de la app (`archivero/grupos/<ws>/`, lib/grupo-app.ts), 4/11/2026.
+ *  Y los creativos que llegan por el grupo de WhatsApp (`ads-creatives/grupo/<ws>/`, lib/anuncio-desde-archivo.ts, desde el 29/10), 18/11/2026 (F126). */
+const CARPETAS_APARTE = (ws: number): Array<[string, string]> => [['portadas', `ws${ws}`], ['avatars', `leads/${ws}`], ['archivero', `grupos/${ws}`], ['ads-creatives', `grupo/${ws}`]];
+
+/** El bucket de las tomas y los montajes del Video Generator. Las guarda `video-generator/<planId>/`, SIN el negocio adelante. */
+const BUCKET_CLIPS_VIDEO = 'video-clips';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PLAN_EN_RUTA = /video-generator\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//gi;
+
+/**
+ * Puro: los planes de video que NOMBRA lo guardado de un negocio, menos los que nombra lo de OTRO (18/11/2026, F126).
+ *
+ * ⚠️ `video-clips` guarda `video-generator/<planId>/` SIN el negocio adelante (app/video-generator/video-action.ts,
+ * lib/creativo-mako.ts, lib/flow-interfaz.ts), así que el barrido por `<ws>/` de `borrarArchivos` no lo veía: las tomas pagadas
+ * de un negocio borrado quedaban en Storage sin nadie que supiera de quién eran. Se borra por plan, y el guard va EN POSITIVO:
+ * - sólo un id con forma de UUID (el plan lo acuña `crypto.randomUUID()`). `video-generator/ai-avatar/` es de TODOS los negocios
+ *   (app/ai-avatar/actions.ts) y no tiene forma de UUID: no se toca nunca;
+ * - y sólo si ningún OTRO negocio nombra ese plan (`ajenos`): una copia del historial en otro negocio haría que borrar éste se
+ *   lleve las tomas del otro.
+ */
+export function planesDeVideo(p: { historial: string | null; planIds: readonly unknown[]; rutas: readonly unknown[]; ajenos: ReadonlySet<string> }): string[] {
+  const s = new Set<string>();
+  try {
+    const arr: unknown = JSON.parse(p.historial ?? '[]');
+    if (Array.isArray(arr)) for (const e of arr) {
+      const id = (e as { id?: unknown } | null)?.id;
+      if (typeof id === 'string' && UUID.test(id)) s.add(id);
+    }
+  } catch { /* un historial ilegible no nombra ningún plan */ }
+  for (const id of p.planIds) if (typeof id === 'string' && UUID.test(id)) s.add(id);
+  for (const r of p.rutas) if (typeof r === 'string') for (const m of r.matchAll(PLAN_EN_RUTA)) s.add(m[1]);
+  return [...s].filter((id) => !p.ajenos.has(id)).sort();
+}
+
+/**
+ * Los planes de video del negocio, leídos ANTES de vaciar sus tablas: el historial (`video-generator.historial`), los montajes
+ * (`montaje_trabajos`) y la cola de Flow (`flow_trabajos`, la `ruta` de lo que subió). Si algo no se pudo leer, no se borra
+ * ninguna carpeta de plan y se avisa: un plan que no se pudo atribuir no se borra.
+ */
+export async function planesDeVideoDelNegocio(ws: number): Promise<{ planes: string[]; avisos: string[] }> {
+  const sb = getSupabaseServer();
+  try {
+    const { KEY_HISTORIAL_VIDEO } = await import('../app/video-generator/video-datos');
+    const h = await sb.from('app_settings').select('workspace_id, value').eq('key', KEY_HISTORIAL_VIDEO);
+    if (h.error) throw new Error(`el historial de videos: ${h.error.message}`);
+    const historiales = (h.data ?? []) as Array<{ workspace_id: number; value: string | null }>;
+    const propio = historiales.find((f) => Number(f.workspace_id) === ws)?.value ?? null;
+    /** Una tabla de una migración sin aplicar no nombra ningún plan; cualquier otro error, sí corta. */
+    const leer = async <T>(tabla: string, cols: string): Promise<T[]> => {
+      try { return await leerTodo<T>(sb, tabla, cols, { eq: { workspace_id: ws } }); } catch (e) {
+        if (migracionSinAplicar({ message: msg(e) })) return [];
+        throw e;
+      }
+    };
+    const montajes = await leer<{ plan_id: unknown }>('montaje_trabajos', 'id, plan_id');
+    // Sólo la ruta: `pedido` puede traer una foto entera en base64 (`pedidoSubidaInterfaz`).
+    const trabajos = await leer<{ ruta?: unknown; pedido?: { ruta?: unknown } }>('flow_trabajos', 'id, ruta:pedido->>ruta');
+    const candidatos = planesDeVideo({
+      historial: propio,
+      planIds: montajes.map((m) => m.plan_id),
+      rutas: trabajos.map((t) => t.ruta ?? t.pedido?.ruta),
+      ajenos: new Set(),
+    });
+    if (!candidatos.length) return { planes: [], avisos: [] };
+    // Lo que nombra OTRO negocio: su historial y sus montajes.
+    const ajenos = new Set<string>();
+    for (const f of historiales) {
+      if (Number(f.workspace_id) === ws) continue;
+      for (const id of planesDeVideo({ historial: f.value, planIds: [], rutas: [], ajenos: new Set() })) ajenos.add(id);
+    }
+    const otros = await sb.from('montaje_trabajos').select('plan_id').in('plan_id', candidatos).neq('workspace_id', ws);
+    if (otros.error && !migracionSinAplicar(otros.error)) throw new Error(`los montajes de otros negocios: ${otros.error.message}`);
+    for (const f of (otros.data ?? []) as Array<{ plan_id: unknown }>) if (typeof f.plan_id === 'string') ajenos.add(f.plan_id);
+    return { planes: candidatos.filter((id) => !ajenos.has(id)), avisos: [] };
+  } catch (e) {
+    return { planes: [], avisos: [`video-clips: no pude leer los planes de video del negocio (${msg(e)}). Sus tomas quedan en Storage: bórralas a mano.`] };
+  }
+}
 
 export type ResultadoReset = {
   borrado: Record<string, number>;
@@ -228,11 +306,14 @@ export async function cerrarLoDeAfuera(ws: number): Promise<string[]> {
  * iban y los archivos quedaban en Storage, sin nadie que supiera de quién eran. Con «Eliminar mi cuenta» eso era prometerle
  * a Apple y a Play un borrado que no pasaba.
  */
-export async function borrarArchivos(ws: number): Promise<{ archivos: number; avisos: string[] }> {
+export async function borrarArchivos(ws: number, o: { planesDeVideo?: readonly string[] } = {}): Promise<{ archivos: number; avisos: string[] }> {
   const sb = getSupabaseServer();
   const avisos: string[] = [];
   let archivos = 0;
-  const lugares: Array<[string, string]> = [...BUCKETS.map((b): [string, string] => [b, String(ws)]), ...CARPETAS_APARTE(ws)];
+  // Las carpetas de los planes de video (`planesDeVideoDelNegocio`, leídas ANTES de vaciar): otra vez el guard en positivo, por si
+  // quien llama pasa algo que no es un plan.
+  const planes = (o.planesDeVideo ?? []).filter((id) => UUID.test(id)).map((id): [string, string] => [BUCKET_CLIPS_VIDEO, `video-generator/${id}`]);
+  const lugares: Array<[string, string]> = [...BUCKETS.map((b): [string, string] => [b, String(ws)]), ...CARPETAS_APARTE(ws), ...planes];
   for (const [bucket, prefijo] of lugares) {
     try {
       const rutas = await listarRecursivo(bucket, prefijo, avisos);
@@ -268,6 +349,9 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
   const sb = getSupabaseServer();
   const borrado: Record<string, number> = {};
   const avisos: string[] = await cerrarLoDeAfuera(ws);
+  // Los planes de video se leen ANTES de vaciar: viven en las tablas que el paso siguiente borra.
+  const video = await planesDeVideoDelNegocio(ws);
+  avisos.push(...video.avisos);
 
   // ── 2. Tablas ──
   const vaciado = await vaciarTablas(ws);
@@ -291,7 +375,7 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
   }
 
   // ── 3. Binarios ──
-  const binarios = await borrarArchivos(ws);
+  const binarios = await borrarArchivos(ws, { planesDeVideo: video.planes });
   const archivos = binarios.archivos;
   avisos.push(...binarios.avisos);
 
