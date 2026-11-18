@@ -7,6 +7,49 @@ del código.
 
 ---
 
+## «Automático» por fase: un chat no se cambia el modelo solo, y el consumo es de la CUENTA (18/11/2026)
+
+**Vive en:** `lib/centro-cuentas.ts` (`vaPorFase`, `comoCorreDelEnvio`: la regla) · `lib/operaciones-reglas.ts` (`porFase`
+firmado, `sanearConsumo`) · `lib/centro-uso.ts` (`gastoPorFase`, `compararConsumo`) · `scripts/operaciones/cartero.mjs` 1.28.0
+(`comoCorre`, `lineasDeFase`, `fase <id> ejecutar` → `pasarAEjecutar`, `anotarConsumo`, `cierre`) · `ver_pedidos_operaciones`
+(`consumo` y `comparacion`) · tests/ops-center-por-fase.test.ts y el diferencial de tests/operaciones.test.ts.
+
+**El pedido** (Aaron por Martín, ticket 876825880-11, 28/10/2026): «Sonnet para explorar, Opus para ejecutar, midiendo el
+consumo antes y después». Hasta hoy «Automático» no tocaba el modelo (17/10).
+
+**Lo que no se deduce del código:**
+
+- **Un pedido no dice en qué fase está, así que la regla es la más simple que se puede escribir:** todo «Automático» a un chat
+  de la app arranca explorando con Sonnet (leer, buscar, medir, armar el plan, sin cambiar archivos); EJECUTAR lo declara el
+  CHAT, corriendo `cartero.mjs fase <id> ejecutar` antes de su primer cambio. Lo que se contesta leyendo termina en Sonnet.
+  Si Martín quiere otra frontera (por ejemplo «un pedido corto no pasa nunca a Opus»), se cambia en `lineasDeFase`.
+- **El chat NO se puede cambiar el modelo él mismo** (la app no deja que una sesión «re-precie» su propio turno, medido el
+  17/10): por eso `fase` deja en el buzón un texto FIJO con `modelo: opus` y lo aplica el Runner con su paso b de siempre. El
+  texto del Runner (lib/runner.ts) no cambió: un Runner pegado antes lo hace igual.
+- **El aviso de ejecutar lleva su PROPIO id** (`idDelAvisoDeFase`), nunca el del pedido: un acuse con el id del pedido le
+  pisaría el estado (la misma trampa que el aviso del limbo). Y `fase` lo corre sólo el chat que recibió el trabajo: si la
+  sesión que lo corre se sabe y es otra, se niega (un chat no le pasa a otro a Opus).
+- **No va al Cerebro, ni a un chat de terminal, ni con un Runner de antes de la 1.28.0.** El Cerebro reparte y elige el modelo
+  de los jefes (AGENTS.md, 17/10: «Opus para diseñar… juzgar»); a uno de terminal no se le cambia desde afuera; y uno de antes
+  ignoraría `porFase` mientras el selector dice «Automático · Sonnet → Opus».
+- **El consumo es el de la CUENTA, no el del chat.** Ni la barra de estado ni `get_usage` lo dan por chat. Se guarda la cuota
+  de la cuenta al entregar, al pasar a ejecutar y al cerrar; con otros chats trabajando en la misma cuenta, la diferencia
+  incluye lo de ellos (`NOTA_CONSUMO` lo dice al lado de cada número). Una diferencia sin una medición nueva en el medio, o a
+  través de un reinicio de la ventana de 5 horas, no tiene número: un 0 o un negativo serían inventados.
+- **«Antes y después» se lee comparando modos:** cada trabajo entregado anota su consumo (por fase, con modelo elegido o sin
+  tocar), así hay contra qué comparar. La comparación sale en `ver_pedidos_operaciones` (`comparacion`).
+
+**Sin medir:** si la app le pide permiso a Martín cada vez que el Runner cambia el modelo de OTRA sesión (ya figuraba sin medir
+el 17/10, más abajo). Con «por fase» pasa hasta dos veces por trabajo: si pregunta siempre, el Runner se frena esperando. Y el
+costo de la caché: cambiar de modelo relee el contexto sin caché (diseno-centro-de-operaciones.md §5); justo eso es lo que
+la comparación va a mostrar.
+
+**La regla que queda:** lo que se le pide a un chat que cambie de sí mismo y la app no lo deja, se le pide como una línea de
+su mensaje que corre un comando de la PC, y lo ejecuta el Runner por el camino que ya existe; nunca un camino nuevo de la PC
+a la sesión. Y un número de consumo dice de quién es (la cuenta) y no se calcula sin dos mediciones distintas de la misma ventana.
+
+---
+
 ## Los pendientes se fabrican solos: 73 de 285 ya estaban cerrados, y un «ya está» de una lectura falla un tercio (17/11/2026)
 
 **Vive en:** las listas de pendientes (`docs/pendientes-*.md`, `docs/encargos-*/`, `docs/relevo/*.md`) y las secciones «Sin
