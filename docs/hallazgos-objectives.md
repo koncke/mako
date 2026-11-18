@@ -24,6 +24,73 @@ El diseño acordado, con las cinco decisiones del dueño, está en
 
 ---
 
+## «El mes» de General sigue el período de la hoja; los demás bloques no, a propósito (18/11/2026)
+
+- **Síntoma:** con una hoja de General (Focus) en «Últimos 30 días», sus gráficos decían esos 30 días y el bloque «El mes»
+  seguía en el mes a la fecha: el mismo dato, de dos períodos, en la misma pantalla.
+- **Causa:** `armarDatosGeneral()` (app/general/datos.ts) se arma UNA vez con la página y sin parámetros. El período de la
+  hoja (su control de arriba, con lo elegido mirando) cambia en el navegador y sólo le llegaba a los gráficos (`efectivoDe`).
+- **Hecho (pendiente O10 (3), la mitad del período):**
+  - **Qué período eligió la hoja:** `periodoDeLosBloques` (app/general/periodo-de-la-hoja.ts, puro), con el «hoy» del editor,
+    que ahora viaja en el contexto de General (`ProveedorGeneral hoy`). ElementoGeneral lo pasa al dibujo como a los funnels
+    (`dibujar(e, { funnels, periodo })`). Sin control de período en la hoja, o en el teléfono, el mes a la fecha de siempre.
+  - **Qué se lee:** la regla de un gráfico de la MISMA hoja (`rangoDelResumen`): cortado en el hoy del negocio y comparado
+    con `periodoAnterior`; «Todo» no se compara. Las lecturas son las de siempre, inyectadas (`armarMesDelPeriodo`,
+    app/general/mes-del-periodo.ts); las de verdad viven en mes-del-periodo-server.ts.
+  - **De dónde llega:**
+    - la hoja con que se abre la página: `armarDatosGeneral({ periodo })` → `mesDelPeriodo`. FocusDeGeneral lo pide sólo
+      si la hoja tiene «El mes» (`hojaLeePeriodo`);
+    - otro período: el navegador lo pide a la acción `mes-general` de /api/graficos (el admin, con General en la capa) y lo
+      guarda por período (app/general/MesDelPeriodo.tsx). Un `router.refresh()` tira lo guardado.
+  - **Lo que se ve:** el título dice el período («Últimos 30 días»; «El mes» si mira el mes) y al lado «vs. 20/09 – 19/10».
+- **Lo que NO sigue el período, y por qué.** El plan de abajo proponía también la cobranza; se decidió que no.
+  - **«A quién cobrarle»** es la lista OPERATIVA de todo lo pendiente (reunión con Mauricio del 12/10; lo fija
+    tests/general-cobranza.test.ts). Cortada por el período escondería las cuotas vencidas de antes de su primer día.
+  - **Tu funnel hoy, el Plan, Mi día, las llamadas, las publicaciones, el semáforo y los pendientes** dicen lo de ahora.
+  - **La meta, los OKRs y los KPIs** son del trimestre y de su cadencia.
+  - **Los DISEÑOS de hoja** (General, Focus, Mi día, Operación) siguen leyendo `mes`, el mes a la fecha: su copia dice
+    «Cobrado este mes».
+- **El diagnóstico obvio que no era:** pasarle el período a `leerVistaGeneral` (lib/vista-general.ts), como decía el plan.
+  Esa lectura ESCRIBE (migra settings, adjunta grabaciones), y no se llama desde un pedido que se repite cada vez que alguien
+  toca el período. «El mes» no necesita nada de ella: va con su propia lectura.
+- **Trampas:**
+  - **Dos «hoy» distintos.** El `hoy` del Dashboard es `hoyEnTijuana()` (app/dashboard/page.tsx) y el corte de los gráficos
+    también (`hastaDeFuente`). El período se resuelve con ése, para que coincida con los gráficos, y el bloque corta en el
+    hoy del negocio (`hoyEnWorkspace`). No se tocó: es de todo el Dashboard.
+  - **Con «Este mes», el anterior cambió.** Ya no es «mismo período de octubre» (1–18/10) sino los 18 días de antes
+    (14/10–31/10): la regla de los números con «comparar» de la misma hoja. Sin control de período sigue la de siempre.
+  - **Tres guards citaban una LÍNEA literal** (`case 'x': return <Bloque`, `dibujar(e, { funnels })`, `[datos, variables]`) y
+    se pusieron rojos con el código bien. Se reescribieron para afirmar lo que cuidan, y cada uno volvió a caer con su rotura.
+- **Vive en:** app/general/periodo-de-la-hoja.ts · app/general/mes-del-periodo.ts · app/general/mes-del-periodo-server.ts ·
+  app/general/MesDelPeriodo.tsx · app/general/ProveedorGeneral.tsx (`dibujarBloque`) · app/dashboard/ElementoGeneral.tsx ·
+  app/dashboard/FocusDeGeneral.tsx · app/api/graficos/route.ts (`mes-general`). **Lo fija:** tests/general-periodo-de-la-hoja.test.ts
+  (6 roturas), que dibuja el bloque de verdad en una hoja con tests/_general-periodo-hijo.ts. **Nadie lo miró en pantalla**
+  (la nube no lee la base): el dibujo se midió con `renderToStaticMarkup`.
+
+## Los bloques de General y el «Filtro» de la hoja: el funnel sí, el período todavía no (18/11/2026)
+
+- **Hecho:** «Tu funnel hoy» sin funnel propio mira el PRIMERO que filtra la hoja (antes mostraba el principal con la hoja
+  filtrada por otro). «A quién cobrarle» ya lo hacía desde el 22/10. Las dos reglas salieron de `ProveedorGeneral.tsx` (un
+  `'use client'` que trae los bloques y su CSS) a un módulo puro, app/general/funnels-de-la-hoja.ts, y un test las ejecuta;
+  el guard de tests/pagos-crm.test.ts que leía el fuente de la regla de cobranza ahora también la ejecuta.
+- ~~**Sin hacer: el PERÍODO de la hoja.**~~ **Hecho el 18/11/2026 para «El mes»** (la entrada de arriba). Del plan de abajo quedaron
+  afuera dos cosas, a propósito: «A quién cobrarle» no sigue el período y `leerVistaGeneral` no lo recibe. `armarDatosGeneral()` (app/general/datos.ts) se arma UNA vez con la página, sin
+  parámetros, y cada bloque trae su tiempo adentro: el resumen del mes es el mes a la fecha (`compareMTD` +
+  `getResumenComparativo(ayer)`, lib/queries.ts, leído en `leerVistaGeneral`, lib/vista-general.ts, con sus desgloses
+  `getRevenueBreakdowns` / `getAgendasBreakdown` / `getSenalesRecon`), la cobranza mira lo que vence (`leerAQuienCobrar`,
+  lib/datos-comercial-server.ts), la meta y los OKR son del trimestre (`quarterActual`) y la agenda es de hoy. El plan:
+  1. Qué bloques siguen el período (como en Looker, los que tienen una fecha): «El mes» (lo vendido, cobrado y las agendas
+     del período, contra el anterior con `periodoAnterior`) y «A quién cobrarle» (lo que vence en el período). Los de «ahora»
+     (Tu funnel hoy, el Plan, Mi día, el semáforo, los pendientes) y los del trimestre (la meta, los OKR, los KPI con su
+     cadencia) no: su tiempo es parte de lo que dicen.
+  2. `armarDatosGeneral({ desde, hasta })` y `leerVistaGeneral({ desde, hasta })` que cambien sólo esas dos lecturas.
+  3. Una puerta para pedirlos de nuevo desde la pantalla (una acción de /api/graficos, como `datos`) que ProveedorGeneral
+     llame cuando el período de la hoja (`periodoDeHoja`, app/dashboard/exportar.ts) no es el de entrada, y que
+     `ElementoGeneral` (app/dashboard/ElementoGeneral.tsx) le pase el período al dibujo como hoy le pasa los funnels.
+  Son seis lecturas en cuatro módulos y una puerta nueva: no entró en esta tanda.
+- **Vive en:** app/general/funnels-de-la-hoja.ts · app/general/ProveedorGeneral.tsx (`dibujarBloque`). **Lo fija:**
+  tests/general-funnels-de-la-hoja.test.ts (2 roturas) · tests/pagos-crm.test.ts (1 rotura de la cobranza).
+
 ## Las dos metas de los reportes NO se unifican moviendo el call-site: la receta obvia empeora la mentira (6/11/2026)
 
 El síntoma es real y está medido: `lib/reportes.ts:67` y `:175` (el reporte diario y el semanal, los que
@@ -229,9 +296,11 @@ que eso no se rompa:
   corrí» de que existan objetivos: eso es indistinguible de «alguien los creó a mano», y una
   migración que decide si le toca mirando un estado que otro puede cambiar es un bucle. Pasó
   exactamente eso con el onboarding de las tabs (03/09/2026).
-- **NO borra los settings.** Siguen ahí, y encima siguen VIVOS: `lib/reportes.ts` los lee por
-  `getObjetivoProgreso` para el reporte diario y el semanal. Borrar el origen el mismo día
-  que se migra deja sin red al que descubra un error mañana.
+- **NO borra los settings.** Siguen ahí ~~, y encima siguen VIVOS: `lib/reportes.ts` los lee por
+  `getObjetivoProgreso` para el reporte diario y el semanal~~ (desde el 18/11/2026 ya no los lee
+  nadie más que la migración: los reportes leen `objectives` desde el 8/11 y el grafo desde el 18/11,
+  y `getObjetivoProgreso` se borró). Borrar el origen el mismo día que se migra deja sin red al que
+  descubra un error mañana.
 
 ## Restaurar un diseño no es restaurar el código: la forma vuelve, los bugs no
 
@@ -1016,10 +1085,17 @@ la portada entera del teléfono.
 - **Una «Prioridades del Plan» por funnel no existe**: las tareas del tablero no tienen funnel, tienen proyecto.
 - **«A quién cobrarle» sigue TAMBIÉN en el Dashboard** (la sección de la hoja Comercial): Martín pidió ponerla en General y no
   dijo si se saca de allá. Se le preguntó el 13/10.
-- **`getObjetivoProgreso` y los tres settings siguen alimentando los reportes**
+- ~~**`getObjetivoProgreso` y los tres settings siguen alimentando los reportes**
   (`lib/reportes.ts:66` y `:174`). Mientras existan, hay dos fuentes para «cuál es la meta»:
   la vieja manda en los reportes por WhatsApp y la nueva en la pantalla. Unificarlo es
-  mover esos dos call-sites a `objetivosContextoTexto()`.
+  mover esos dos call-sites a `objetivosContextoTexto()`.~~ Cerrado en dos tandas, y **la receta
+  de este renglón era la equivocada**: `objetivosContextoTexto()` devuelve prosa para un prompt, no
+  números para una línea de reporte. Los reportes pasaron a `metasDelQuarter` + `lineasDeMetas`
+  (71d97602f, 8/11/2026; el porqué, arriba de todo en este documento). El 18/11/2026 (F82) el grafo
+  del Second Brain dejó de leer `objetivo_cierres` y `objetivo_cash_usd`: su nodo `objetivo` se
+  borró y la meta son los nodos `okr:` de `objectives` (lib/cerebro-armado.ts, «D1»), y
+  `getObjetivoProgreso` se borró de `lib/queries.ts` porque ya no lo llamaba nadie. Los tres settings
+  siguen escritos sólo como ORIGEN de `migrarSettingsAObjectives`.
 - **Quitar el cupo de capacidad no se puede desde MaKo, y no es de una línea.** Guardar el cupo
   vacío (`setCapacidad('')`) se relee como **0**: `getSettingNum` hace `Number('')`, que vale 0
   (lib/settings.ts:88-97). El camino normal lo tolera porque pasa por `capacidadDe`, que trata

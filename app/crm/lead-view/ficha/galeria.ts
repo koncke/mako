@@ -8,11 +8,16 @@
 // ⚠️ MIRAR NO GUARDA NADA; ELEGIR SÍ. Lo que se mira es un CAMBIO (`VistaGaleria`) que todavía no se mandó: la tab de
 //    abajo se dibuja con la ficha que QUEDARÍA (`fichaConVista`: el mismo `aplicarCambio` y `fichaEfectiva` que corren al
 //    guardar), así lo que se ve es exactamente lo que se guarda. «Usar» manda ese mismo cambio.
-// ⚠️ SE ABRE SOLA sólo para quien personaliza (el admin con la ficha del funnel leída), en una tab que nadie configuró
-//    en ese funnel (`configuradas`, lib/ficha/config.ts), que no cerró en este navegador («Ahora no») y fuera de
-//    «Personalizar» (ahí se abre con «Plantillas»). Un no-admin nunca la ve: ve la sugerida, que es lo que ya se dibuja.
-// ⚠️ «AHORA NO» SE RECUERDA EN EL NAVEGADOR (por funnel y tab), no en el funnel: cerrar no es elegir, y escribirlo en
-//    la ficha le cambiaría la ficha a todos. La tab se queda con la sugerida.
+// ⚠️ SE ABRE SOLA (`abreSola`) SÓLO EN UN NEGOCIO NUEVO. Del 16/10 al 18/11/2026 no se abría sola en ninguno: Martín
+//    había exceptuado a los que ya tenían leads («en los casos de los workspace que ya tienen leads, simplemente ponles las
+//    plantillas sugeridas, es decir que no aparezca el "¿Qué vas a crear hoy?"») y se apagó para todos. «Ya tiene leads»
+//    se mide en el server (`negocioNuevo`, lib/ficha/config-server.ts): tenía leads antes del día en que salió la ficha
+//    por bloques. Además: quien personaliza (el admin con la ficha del funnel leída), en una tab que nadie configuró en
+//    ese funnel (`configuradas`, lib/ficha/config.ts), que no cerró en este navegador, fuera de «Personalizar» (ahí se
+//    abre con «Templates») y en una pantalla de computadora. Un no-admin nunca la ve: ve la sugerida.
+// ⚠️ «CERRAR» SE RECUERDA EN EL NAVEGADOR (por funnel y tab), no en el funnel: cerrar no es elegir, y escribirlo en la
+//    ficha le cambiaría la ficha a todos. La tab se queda con la sugerida. Es una PREFERENCIA de quien mira: lo que
+//    DECIDE (una tab configurada) gana siempre, y sin la clave (un navegador nuevo, un cliente nuevo) la galería se abre.
 // ⚠️ UNA HOJA PROPIA (17/10/2026) TAMBIÉN TIENE GALERÍA: «En blanco» y las plantillas de TODAS las tabs (en una hoja
 //    propia va cualquier bloque), sin «Sugerido» (una hoja nueva no tiene un tipo que la sugiera). Elegir una COPIA sus
 //    bloques una vez: la hoja no la sigue después (lib/ficha/config.ts). «Nueva hoja» es esta misma galería antes de
@@ -31,6 +36,39 @@ import { spansPorDispositivo } from './armar';
 export type VistaGaleria =
   | { tipo: 'plantilla'; id: string }
   | { tipo: 'mako'; bloques: BloquePuesto[]; epica: boolean };
+
+/**
+ * ¿La galería de esta tab se abre SOLA? (18/11/2026; las reglas, arriba). `configurada` es la DECISIÓN del funnel y gana
+ * siempre; `cerrada` es la preferencia de este navegador. `escritorio`: a lo ancho de un teléfono la galería no se dibuja
+ * (./ficha-css.ts), y abierta sola dejaría la tab en blanco.
+ */
+export function abreSola(o: {
+  puede: boolean; montado: boolean; escritorio: boolean; editando: boolean;
+  negocioNuevo: boolean; configurada: boolean; cerrada: boolean;
+}): boolean {
+  return o.puede && o.montado && o.escritorio && !o.editando && o.negocioNuevo && !o.configurada && !o.cerrada;
+}
+
+/**
+ * La clave de «la cerró en este navegador». El id de un funnel es único en toda la base (no se repite entre negocios),
+ * así que la clave ya es de UN negocio aunque no lleve el workspace: dos pestañas de dos clientes no se la comparten.
+ */
+export const claveCerrada = (funnelId: number, tab: TabFicha): string => `mako.ficha.galeria-cerrada.${funnelId}.${tab}`;
+
+/** Las tabs de ese funnel que se cerraron en este navegador. Sin almacenamiento (un modo privado, una vista previa), ninguna. */
+export function cerradasDe(s: Pick<Storage, 'getItem'> | null | undefined, funnelId: number): Set<string> {
+  const out = new Set<string>();
+  for (const tab of TABS_FICHA) {
+    const k = claveCerrada(funnelId, tab);
+    try { if (s?.getItem(k)) out.add(k); } catch { /* sin almacenamiento: nada cerrado */ }
+  }
+  return out;
+}
+
+/** Anota que se cerró. Si el navegador no deja, la galería se vuelve a abrir la próxima vez: no se pierde nada. */
+export function anotarCerrada(s: Pick<Storage, 'setItem'> | null | undefined, clave: string): void {
+  try { s?.setItem(clave, '1'); } catch { /* sin almacenamiento */ }
+}
 
 /** «En blanco» de una hoja propia: no es una plantilla de ninguna tab (no trae el contacto del Resumen). */
 export const EN_BLANCO_HOJA: PlantillaTab = { id: 'hoja-en-blanco', tab: 'resumen', nombre: 'En blanco', bajada: 'Arma la hoja desde cero.', bloques: [] };

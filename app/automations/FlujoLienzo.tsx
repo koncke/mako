@@ -83,7 +83,7 @@ import { datosOfrecidos, type ContextoDatos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
   claseDe, idDe, indicePorId, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS, OPCIONES_SI_AGENDA_CERCA, textoSiAgendaCerca,
-  type Espera, type NombresParaTexto, type MedioAIStep,
+  audioPorGrabar, AUDIO_POR_GRABAR, type Espera, type NombresParaTexto, type MedioAIStep,
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, opcionesSueltas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
@@ -987,7 +987,8 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
     // diseño»): los renglones salen del MISMO alto que estima el árbol.
     <BurbujaHilo compacta saliente autor={negocio} {...pie} lineas={renglonesDeTarjeta(paso, 0)} contenido={{
       texto,
-      audio: paso.tipo === 'audio' ? { url: a?.url ?? null, titulo: a?.titulo, transcript: null, duracion_s: a?.duracion_s ?? null } : null,
+      // La nota de voz POR GRABAR (F80) dice eso, no «audio (no disponible)»: no falta un archivo, falta grabarlo.
+      audio: paso.tipo === 'audio' ? { url: a?.url ?? null, titulo: a?.titulo, transcript: null, duracion_s: a?.duracion_s ?? null, ...(audioPorGrabar(paso) ? { rotuloSinAudio: AUDIO_POR_GRABAR } : {}) } : null,
       ia: paso.tipo === 'ia',
     }} />
   );

@@ -2162,8 +2162,8 @@ código nuevo:
   que toque marcas de turnos o acuses en una vuelta nueva pasa por ahí. ⚠️ El servidor y la migración 0355 van ANTES de instalarlo
   (docs/diseno-cartero-servicio.md §2.6). `instalar-servicio` lo comprueba, y ni él ni `quitar-servicio` corren desde un chat.
 - **PARA SABER CÓMO ESTÁ UN CHAT, `comoEstaElDestino`; PARA OFRECERLO, `chatRecibe`** (30/10/2026; docs/hallazgos-operaciones.md, «La revisión del servicio»). `vivo` es de la última vuelta: una foto vieja no dice ni
-  abierto ni cerrado. Y `envio.puede` con `espera !== 'chat_cerrado'` no dice que esté abierto: sin Runner, `comoSale` da `'cartero'` antes de mirar el estado. Volver a firmar un mensaje de la cola pasa por
-  `originalParaReenviar`: la columna `texto` no está firmada. Lo que no sale va al cartel del limbo con su causa (`mensajesEnLimbo`): una causa nueva, con su texto y su remedio.
+  abierto ni cerrado. Y `envio.puede` con `espera !== 'chat_cerrado'` no dice que esté abierto: sin Runner, `comoSale` da `'cartero'` antes de mirar el estado. Volver a firmar un mensaje de la cola firma lo que
+  Martín firmó (`firmado`), nunca la columna `texto`, que no está firmada. Lo que espera un chat cerrado se lo dice el Runner al Cerebro (lib/limbo-al-cerebro.ts): el cartel y su lógica se borraron (18/11/2026).
 - **EN LA BASE, `visto_at` ES «LLEGÓ ALGO» Y `runner_visto_at` ES «HAY UN RUNNER». EN EL CÓDIGO, `vistoAt` ES EL RUNNER** (30/10/2026). Quien pregunte
   «¿hay quien entregue?» usa `carteroVivo`; quien pregunte «¿la PC está?» o «¿de cuándo es esta foto?», `noticiasAt` (`sinNoticiasDesde`). Una vuelta con `servicio` no escribe ni
   `runner_visto_at` ni `version`, y no reclama nada (`filaDeLaVuelta`). El estado de la PC sale de una sola regla, `estadoDeLaPc`, se muestra en el Uso y no en un cartel (Martín, 31/10), y cualquier
@@ -2632,7 +2632,7 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   `hoyEnTz(await tzDeWorkspace(ws))`); nunca se le mete un `await` de base a una función de decisión. Y donde el día DECIDE
   va `hoyEnWorkspaceEstricto()` (lib/timezone.ts) y no `hoyEnWorkspace()`: éste nunca tira y cae a Tijuana, y en un corte
   eso falla ABIERTO. Fuera de `runWithWorkspace` (el `proponer_` del doer) el ws va EXPLÍCITO: ahí `getWorkspaceActual()`
-  no es el del grupo. Sigue pendiente en `faltantesDeLead` (lib/leads.ts) y `valoresDeRequisitos` (app/crm/actions.ts).
+  no es el del grupo. ~~Sigue pendiente en `faltantesDeLead` (lib/leads.ts) y `valoresDeRequisitos` (app/crm/actions.ts).~~ Hecho el 18/11/2026 (F125): los dos piden `hoyISO`. Y no todo `ayerEnTijuana()` es del negocio: las ventanas sobre la ingesta diaria y las fechas de los webhooks de agenda son otro reloj (docs/hallazgos-infra.md → «Las ~85 fechas de Tijuana son TRES relojes»).
 - **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
   devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
   **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
@@ -3520,6 +3520,10 @@ distinguir un iPad (manda UA de Macintosh, lib/movil-dispositivo.ts), y lo que v
 - **Automations arranca con la sidebar plegada** (23/10): `/automations` está en `RUTAS_QUE_PLIEGAN`
   (app/_components/Sidebar.tsx), como el Ops Center; la flecha la abre. Su panel flotante (lista y chat con MaKo) mide
   `MUELLE.listaAncho` (400, lib/lienzo-grafo.ts) y de ese número cuelgan los insets del lienzo.
+- **Admin también arranca con la sidebar plegada** (6/11, c2b284487): `/admin` exacto y `/admin/<sección>` de
+  `SECCIONES_ADMIN` (app/_components/nav.ts) la pliegan por `pliegaLaBarra` (Sidebar.tsx), porque la copia de Polar trae su
+  propia barra. Las otras tabs bajo /admin (/admin/dev, /admin/ui, /admin/approvals…) NO pliegan. Una sección nueva de Admin
+  va a `SECCIONES_ADMIN`, no a `RUTAS_QUE_PLIEGAN` (docs/diseno-sidebar.md).
 - **Lo táctil se decide por capacidad, no por dispositivo**: `@media (pointer: coarse)` para los 44 px de toque, y
   toda interacción que se abre al pasar el cursor (los desplegables de la sidebar) tiene su equivalente al tocar.
 - **Se mira en el ancho y el alto reales de una tablet** (1024×768 y 820×1180), no sólo en un monitor y en 390 px.
@@ -5332,6 +5336,14 @@ Corolario operativo: **buscá también los renders, no solo los crons.** Ese inc
 lo abrió el cron, lo abrió `app/integraciones/page.tsx` al dibujarse. Un cron corre
 siempre y deja log; una escritura colgada de un render depende de que alguien haya
 mirado, así que no queda ningún rastro de por qué empezó ese día y no otro.
+
+## Y un aviso al cliente dice qué pasó, qué le pasa y qué hacer, en sus palabras (18/11/2026)
+
+La vara: un dueño de inmobiliaria que no es técnico lo entiende en la primera lectura. Tres cosas, en este orden: **qué pasó**
+(«Meta no pudo cobrar tu cuenta publicitaria», no «período de gracia»; «MaKo perdió acceso a tu WhatsApp», no «se cerró la
+sesión del dispositivo vinculado»), **qué le pasa si no hace nada** («si no se paga, Meta frena tus anuncios») y **qué hacer**, en
+pasos numerados con el botón o el link exacto. Corto, con «tú», neutro y sin mayúsculas gritadas. Y el texto de un aviso con
+evento de la plataforma vive en SU fila del ws9: cambiar la plantilla no cambia lo que llega (docs/hallazgos-avisos.md, 18/11).
 
 # Un mensaje que habla de un MOMENTO se re-pregunta al salir, no al programarse
 

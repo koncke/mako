@@ -3429,6 +3429,23 @@ FEEDBACK PROBAR:
     revisar: "/automations?ws=10",
     tickets: [67],
   },
+  // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
+  // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
+  {
+    fecha: '6 nov', hora: '05:30', chat: 'Recorrido visual (nube)', sesion: 'cli_11df35a4-d789-5260-a695-cc3c7b859c4e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El interruptor de una automatización dice «Activa» cuando está prendida',
+    puntos: [
+      '**Decía «Activar» siempre**, y con el interruptor verde no se sabía si estaba activa o había que activarla.',
+      'Llegó por el encargo del 6/11 para la nube: lo que seguía abierto del recorrido visual del 30/10 y la llamada con Leila del 5/11.',
+    ],
+    commits: [{ sha: '7132bc7f2', msg: 'Automations, Chats, Plan y la API: lo que quedó abierto del recorrido visual (A3, CH2, P2, AP1)', lineas: 264, archivos: 15 }],
+    archivos: [
+      'app/automations/SecuenciaPerfil.tsx — el rótulo del interruptor',
+      'tests/recorrido-chats.test.ts — probado rompiéndolo (3/0)',
+    ],
+    revisar: '/automations',
+  },
   {
     fecha: '9 nov', hora: '23:30', chat: 'Automations › ManyChat', sesion: 'cli_958a4140-0df2-5490-98d6-ce01093ca639', cuenta: 'nube',
     actor: 'martin', tipo: 'prompt',
@@ -3502,5 +3519,55 @@ FEEDBACK PROBAR:
     ],
     revisar: '/automations',
     tickets: [90],
+  },
+  {
+    fecha: '18 nov', hora: '01:00', chat: 'Automations', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'El lote de Automations de la lista del 17/11 (docs/pendientes-verificados-17-11.md): F79, F80, F119 y F138.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '01:40', chat: 'Automations', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Automations: el goteo puede salir sólo algunos días, sin achicar el horario',
+    puntos: [
+      'En Configuraciones de cada automatización, «Todos los canales» tiene una fila nueva, «Días»: se prende y se eligen los días en que salen sus mensajes. Apagada, los de su horario.',
+      'Al prenderla arranca con los días del horario que ya tiene, así que no cambia nada hasta sacar un día. El último día no se puede sacar: lo dice y sigue como estaba.',
+      'Lo mismo por la API de MaKo: `configurar_automatizacion` con `goteoDias` («1,2,3,4», o «horario» para volver), y `configuracion_automatizacion` lo dice.',
+      'El motor ya lo aplicaba desde el 9/11; lo que faltaba era poder guardarlo: lo que llegaba se descartaba sin aviso.',
+    ],
+    archivos: [
+      'lib/config-automatizacion.ts — `configParaGuardar` con `goteo.dias`, `diasDelCambio`, `diasDeGoteoDelTexto`, `alternarDiaDeGoteo`, `diasAlPrenderGoteo`',
+      'app/automations/ConfigAutomatizacionPanel.tsx — `FilaDias` · app/automations/FilasOpciones.tsx — `BotonesDias`',
+      'lib/api-mako/areas/chatbot.def.ts · chatbot.run.ts — `goteoDias` (la op pagó el parámetro acortando su descripción: el margen del CRON en el turno no se movió)',
+      'tests/goteo-dias-guardar.test.ts — la regla, la tuerca y el runner real sobre una base en memoria; probado rompiéndolo',
+      'docs/hallazgos-chatbot.md — la entrada del 18/11',
+    ],
+    revisar: '/automations',
+  },
+  {
+    fecha: '18 nov', hora: '02:45', chat: 'Automations', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Automations: una nota de voz «por grabar» queda en el borrador y nunca sale como texto',
+    puntos: [
+      'Si pides «mándale un audio» en Crear con IA y todavía no lo grabaste, MaKo arma la tarjeta de la nota de voz vacía: la automatización queda como borrador, sin publicar, y te dice «Quedó sin publicar: graba la nota de voz y publícala».',
+      'En el lienzo la tarjeta dice «Audio por grabar» (antes «audio (no disponible)»), y Publicar y Probar dicen «Graba el audio de «X» antes de publicar».',
+      'El motor no la manda nunca, ni como texto: antes una tarjeta de audio sin el audio se guardaba como texto y al lead le salía escrito lo que tenía que ser una nota de voz. La ficha del lead dice por qué no sale.',
+      'Por la API de MaKo, crear una automatización así contesta que quedó sin publicar y que falta grabar la nota de voz.',
+    ],
+    archivos: [
+      'lib/flujo-grafo.ts — `audioPorGrabar`, `AUDIO_POR_GRABAR`, `NOTA_AUDIO_POR_GRABAR` y `validarGrafo(…, { audiosPorGrabar })`',
+      'lib/nutricion.ts — el mapeo de `tipo` (no la degrada a texto), `comoBorrador` al guardar los pasos y el corte del motor',
+      'lib/por-que-no-sale.ts · -db.ts — la línea «Audio por grabar»',
+      'lib/flujo-ia.ts — `"audio": "grabar"` en `nodoDe` y el prompt; la revisión la acepta; el prompt de crear quedó al ras del techo de Groq',
+      'lib/flujo-ia-crear-core.ts · lib/flujo-ia-crear.ts — crear la guarda como borrador · app/automations/SecuenciaPerfil.tsx — la pantalla no la da por publicada',
+      'app/whatsapp/_shared/BurbujaHilo.tsx — `rotuloSinAudio` · app/automations/FlujoLienzo.tsx',
+      'tests/audio-por-grabar.test.ts — cada puerta ejecutada (la base con el código real); probado rompiéndolo',
+      'docs/hallazgos-chatbot.md — la entrada del 18/11 y el renglón del F80 tachado',
+    ],
+    revisar: '/automations',
   },
 ];

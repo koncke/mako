@@ -817,4 +817,20 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: 'offer', rolMinimo: 'admin' },
   },
+  // O21 (18/11/2026): Leila, en la llamada del 27/10 («LíderMente es de 7:30 a 9:30»), quería que MaKo corrigiera o
+  // recordara un dato del perfil desde el chat, y guardar_campo_perfil sólo llena huecos. Ésta corrige uno que YA tiene
+  // valor, con la tarjeta (o el «sí») que muestra lo de antes y lo nuevo. Va AL FINAL del área, y su título no repite
+  // «perfil» ni «Archivero» (las palabras del área): las lleva la descripción. Lo que cambia es un dato del negocio que
+  // ya sale por HTTP (guardar_campo_perfil lo completa): por eso también `http`.
+  {
+    id: 'corregir_campo_perfil', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Corregir un dato ya cargado',
+    descripcion: 'PROPONE corregir UN campo del perfil del negocio que YA tiene valor (clave de ver_perfil_negocio), con lo que dijo la persona: «en realidad el precio es…», «recuerda que el programa dura…». El valor va ENTERO, como tiene que quedar: si el campo dice más cosas, se conservan en el texto. La persona ve lo de antes y lo nuevo antes del «sí». Si el campo está vacío, es guardar_campo_perfil. Gana sobre lo que MaKo saque después de los documentos, como una edición a mano. Se deshace corrigiéndolo otra vez con lo de antes.',
+    parametros: [
+      { nombre: 'key', rotulo: 'Dato', tipo: 'string', obligatorio: true, max: 80, descripcion: 'Clave del campo (de ver_perfil_negocio), por ejemplo «oferta_incluye».' },
+      { nombre: 'valor', rotulo: 'Queda', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'El valor nuevo entero, en palabras de la persona.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+    escribe: 'una edición manual del perfil (mako.archivero.manual) o la respuesta del wizard (mako.onboarding.answers), y recalcula el brief sin pisar lo que no vino del Archivero',
+  },
 ];

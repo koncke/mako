@@ -106,7 +106,7 @@ export async function leerResumenDeAdmin(ahora: Date = new Date()): Promise<Resu
     // Las dos lecturas que pide At Risk, sin sus avisos (ya están arriba) ni «Para mirar» (no suma al riesgo).
     riesgo: riesgoDeOverview(
       vistaDeAtRisk(
-        clientes.ok ? { ok: true, datos: { filas: clientes.datos.filas }, avisos: [] } : clientes,
+        clientes.ok ? { ok: true, datos: { filas: clientes.datos.filas, pruebas: clientes.datos.pruebas }, avisos: [] } : clientes,
         ingresos.ok ? { ok: true, datos: ingresos.datos, avisos: [] } : ingresos,
       ),
       plataforma,

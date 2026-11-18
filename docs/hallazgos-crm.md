@@ -20,6 +20,149 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Seis pedidos chicos de la ficha y el tablero, cerrados (18/11/2026, `punta/crm-pedidos-chicos`)
+
+Los seis «chicos» que dejó la re-medición de los 61 pedidos de diseño (la entrada de abajo, O47). Cada uno con su test que
+ejecuta la lógica, probado rompiéndolo.
+
+- **«Anuncio de origen» en las plantillas, sin componente.** Cinco plantillas (Llamada con R1 y R2, Una llamada, Formulario de
+  Meta, Landing con opt-in, Venta Directa) lo ponían en Tracking y la ficha lo salteaba callada. *El diagnóstico obvio era
+  «enchufarle `Origen`»*, y no: `Origen` dibuja la campaña y el nombre del anuncio (y ya está en el Resumen), y este bloque es lo
+  que DICE el video (sus diseños son «tres líneas / texto completo»), que sale de `ad_transcripts` y la ficha no lo lee. Salió de
+  las plantillas y **se quedó en el catálogo**: sin él, `sanearFicha` tiraría el id de una ficha guardada. Una ficha guardada que
+  lo nombra sigue cargando sin él, y «Agregar bloque» no lo ofrece. Vive en `lib/ficha/plantillas.ts`;
+  `tests/ficha-anuncio-de-origen.test.ts`.
+- **Las etiquetas junto al nombre, en el teléfono.** `.cl-junto` era `flex:none`: el grupo medía su contenido en UN renglón y el
+  `flex-wrap` de adentro no se activaba nunca; la píldora «＋ Etiqueta» quedaba a 514 px con la caja terminando en 306 (360 px).
+  Con el grupo cediendo (`flex:0 1 auto; min-width:0; max-width:100%`) basta en Chrome; el `min-width:0` de cada pieza va por
+  WebKit (el iPhone), que no se midió. *Para medir layout en la nube:* Chrome sin ventana tiene un ancho mínimo de 500 px, así
+  que `--window-size=360` mide 500; se mide adentro de un contenedor de 360 de ancho. Vive en
+  `app/crm/lead-view/CabeceraLead.tsx`; `tests/lead-etiquetas-ceden.test.ts` (Chrome si lo hay, más la cascada en jsdom).
+- **La galería de una tab no se abría sola en un negocio nuevo.** Martín había pedido que una tab sin configurar mostrara los
+  templates y el «¿Qué vas a crear hoy?», con UNA excepción («los workspace que ya tienen leads»), y la excepción se volvió la regla
+  para todos (5863e9734). «Ya tienen leads» se tradujo a un hecho medible: **el negocio no tiene ningún lead anterior al
+  16/10/2026**, el día de la decisión (`negocioNuevoParaLaFicha`, una fila con LIMIT 1, y con la lectura caída `false`: el error
+  caro es abrírsela a un cliente de antes). Dos trampas: (1) a lo ancho de un teléfono la galería se esconde por CSS y, abierta, la
+  tab de abajo no se dibuja (`sinVistaPrevia`), así que abierta sola dejaba la tab EN BLANCO: `abreSola` mira `escritorio`; (2)
+  «Cerrar» es una PREFERENCIA del navegador (por funnel y tab) y nunca le gana a la DECISIÓN (una tab configurada). Vive en
+  `app/crm/lead-view/ficha/galeria.ts` (`abreSola`) y `lib/ficha/config-server.ts`; `tests/ficha-galeria-sola.test.ts`.
+- **«Insights» sin el aviso de qué falta.** El texto que pidió Martín el 03/07 («No es posible generar hasta que…») no existía, y
+  a un lead sin llamada la sección ni se dibujaba: `AnalystDelLead` la escondía «si no hay nada», que era exactamente el caso donde
+  vivía el aviso. Ahora va siempre, plegada, y el aviso sale de `avisoDeInsights` (primero los datos que faltan, después la llamada).
+  Vive en `app/crm/lead-view/insights-aviso.ts`; `tests/insights-aviso.test.ts`.
+- **El teléfono escribía lo que no hay.** Lo que en escritorio es un «—» editable, en el teléfono (que no edita) se había traducido a
+  «Sin setter», «Sin marcar», «Sin teléfono», más Llamar y WhatsApp grises con un toast. Martín, 22/10: «si no tiene ese dato, que no
+  lo muestre». La regla para el teléfono: **lo vacío no es una fila**. Y «Redes» repetía el @ que ya iba en el Contacto. Vive en
+  `app/m/crm/ficha-bloques.ts` (`filasDeContacto`, `accionesDeContacto`, `resumenDelTelefono`); `tests/m-ficha-bloques.test.ts` y
+  `tests/movil-crm-instagram.test.ts`.
+- **«Asignar fuentes» en un funnel de Prospección.** Martín, 12/10: «Prospección no tiene Meta por ningún lado». Desde el 14/11 las
+  fuentes son también los formularios de Web Generator, y en Prospección (el negocio escribe primero) tampoco van. Se esconde sólo
+  cuando el funnel está DECLARADO de Prospección (`ofreceAsignarFuentes`); sin tipo, o con la lectura caída, sigue. Vive en
+  `app/crm/menu-contextual-crm.ts` y `app/crm/page.tsx`; `tests/crm-fuentes-prospeccion.test.ts`.
+
+**La regla que queda:** una EXCEPCIÓN de Martín se escribe como una condición con su dato, nunca apagando la regla para todos; y
+lo que se esconde «si no hay nada» se mira antes de esconderlo: puede ser el único lugar donde vive el aviso de qué falta.
+
+**Lo que quedó SIN hacer:** el componente de «Anuncio de origen» (leer `ad_transcripts` por `adIdDeLead` en `getLeadFullAction`
+y dibujarlo: es una lectura y una pieza nuevas, no un chico); medir las etiquetas en un iPhone real; ver la ficha del teléfono a
+390 px en un aparato; y si «negocio nuevo» no es lo que Martín quiso decir con «los que ya tienen leads», es una constante
+(`FICHA_POR_BLOQUES_DESDE`).
+
+## Siete pendientes del CRM en una tanda: lo que no se ve en el código (18/11/2026, nube)
+
+Lo pedido: «continúes con absolutamente todos los pendientes». Al CRM le tocaron F152, F154, F158, F148, F157, F117 y F150 de
+`docs/pendientes-verificados-17-11.md`.
+
+**1. F152: un lead nuevo se cuenta por `coalesce(fecha_original, created_at)`, y PostgREST no sabe hacer un coalesce en un
+filtro.** La salida son dos conjuntos que no se pisan: `fecha_original IS NULL` con `created_at` en el rango, más
+`fecha_original` en el rango. Se suman los conteos y se juntan las filas (`contarAltas`, `leerAltas`, `momentoDeAlta`,
+lib/leads-alta.ts). La migración de `fecha_original` (0405) se aplicó a mano, así que el código tiene que funcionar sin ella:
+- ⚠️ **Un conteo HEAD sobre una columna que falta devuelve `{ message: '' }`**: postgrest-js no lee el cuerpo de un HEAD. Por
+  eso no se puede reconocer el 42703 en el conteo mismo.
+- Se pregunta antes con un GET `select('fecha_original').limit(1)` (`hayFechaOriginal`), recordado por proceso. Un «sí» queda
+  para siempre; un «no» se vuelve a preguntar a los 10 minutos.
+- Cubre el embudo (`getFunnelEtapas`, `getFunnelSeries`), Objectives (`leads_nuevos`), `metricas-negocio` y `graficos-datos`.
+- Lo que NO toca: `getFormulariosSinAgenda` (los formularios de Meta, que no se migran), el listado por fecha de la API
+  (`campo_fecha`) y las vistas de cohortes, que cuentan por `fecha_junta_1`.
+
+**2. F154: lo que viajó a Meta ANTES de la marca tiene su prueba en el historial, en una ventana.** La marca de «Meta ya
+recibió que está calificado» existe desde el 17/10 (72d0eed6c). La calificación viajaba con estos nombres desde el 05/10
+(989b942f8). Un «Calificado: Sí» del historial en esa ventana cuenta como mandado (`calificacionYaEnMeta`,
+`CALIFICADO_SIN_MARCA`). Antes del 05/10 viajaba como `Lead`, y la primera calificación de esos leads todavía no llegó.
+
+**3. F158: «N de M no avanzaron» se mide con la ÚLTIMA salida de cada lead.**
+- Volver a un paso anterior (reagendar) no es caerse, y no suma al total.
+- Salir de Ganado no es una caída: no es un paso del recorrido.
+- Las dos lecturas del historial (90 días, `perdidosConFecha` y `salidasDeEtapa`) son opcionales en la entrada. Sin ellas
+  (un llamador viejo, o una lectura que falló) no se sugiere nada.
+- Queda sin hacer «No show acumulados sin ningún mensaje después» (docs/sugerencias-mako-crm.md).
+
+**4. F148: el texto del tope se corrige en DOS lados, porque el link y el texto viajan separados.**
+- El link ya se cambiaba para el cliente de una agencia (`ctaDeTope`). El texto de al lado seguía diciendo «Pasa a MaKo Pro».
+- En pantalla lo resuelve `TextoDelTope`, con la misma `ctaDeTope` que el link.
+- Por el server, la puerta de TODA la API de MaKo: `ejecutarOperacion` pasa cada error por `errorDelPlanParaElNegocio`
+  (lib/tope-texto-agencia.ts). Un error sin la frase no lee nada.
+- Vive aparte de lib/topes-plan-server.ts a propósito: ése importa los cobros, y la puerta de la API no tiene por qué cargarlos.
+- ⚠️ **No cubre un texto con la frase adentro de una respuesta CORRECTA de la API** (`cerrado_por_su_plan` de video.run.ts),
+  ni los carteles del teléfono, que no venden.
+
+**5. F157: «etapa del inbox» era la derivación fija de las bandejas viejas de WhatsApp** (`derivarEtapa`), ciega a las etapas
+de cada negocio. Las dos operaciones que la nombran (`etapa_inbox_de_lead`, `listar_conversaciones_whatsapp_oficial`) leen
+ahora la etapa del CRM con el funnel de la casa de cada lead, como Chats (`etapasDelCrmPorId`, lib/chats.ts).
+- La derivación sigue aparte como `etapa_etiqueta_whatsapp`: es la que mapea las etiquetas de WhatsApp.
+- ⚠️ Quedan con la derivación fija `listar_conversaciones_whatsapp_empresa` y `buscar_lead_para_whatsapp_empresa`: su filtro
+  `etapa` es un enum de `ETAPAS_INBOX`, y cambiarlo es cambiar lo que la API acepta.
+
+**6. F117: un reintento anuncia sólo si falta la marca del anuncio, y la marca se escribe ANTES de anunciar.**
+- La marca es una línea del historial (lib/meta-anuncio.ts) que `alNacerLeadDeMeta` escribe antes de mandar nada.
+- Dos puertas a la vez (el webhook de Meta y un reintento de Zernio): gana la marca de id más chico, y la otra se borra.
+- Cuatro cosas que hicieron falta y no estaban en el pedido:
+  - **«Desde cuándo marca este negocio»** (una fila de `app_settings`, la escribe el primer reclamo). Sin eso, el primer poll
+    después del despliegue volvía a anunciar todos los leads del día: no tenían marca porque la marca no existía.
+  - **El lead tiene que haber nacido del formulario** (su alta, después de la hora del formulario). Si no, es la persona que ya
+    estaba (vino por WhatsApp y después llenó el formulario), y ésa no se anuncia, a propósito (`queHacerConElLead`).
+  - **El poll lee las marcas de todos los que ya estaban de una vez, al final de la corrida.** Corre cada 10 minutos y cada
+    lead del día pasa por ahí: con una lectura por lead eran miles por día.
+  - **En el webhook de Meta, la conversión va en su propio `try`.** Si tiraba, el anuncio no corría, el webhook contestaba 200
+    y el poll encontraba el lead ya creado.
+- Un reintento que no pudo marcar no anuncia. La puerta que crea el lead, sí, como antes de la marca, y lo intenta marcar
+  después. Los flujos llevan su `dedupKey` (`meta-lead:<id>`). El aviso no: con una `dedupKey`, la frecuencia que eligió el
+  negocio pasaría a contarse por lead.
+- ⚠️ Lo que queda abierto: dos reclamos cuyo orden de id no es el de llegada (microsegundos entre el `nextval` y el commit), y
+  la puerta que creó el lead y no pudo marcarlo ni antes ni después de anunciar (dos fallas seguidas de `lead_audit`): ahí un
+  reintento lo anuncia otra vez.
+
+**7. F150: la flechita del Plan, sin la búsqueda con MaKo.**
+- En el Plan, buscar en todo era el problema, y por eso su default es el título. En el CRM, buscar en todos los campos es lo de
+  siempre y sigue siendo el default: la flechita ACHICA. El `#número` se busca siempre.
+- La búsqueda con IA no va: pide un prompt propio (`/api/plan-buscar` es de tareas) y le mandaría los leads a una IA.
+
+**Vive en:** `lib/leads-alta.ts` · `lib/meta-capi-payload.ts` · `lib/sugerencias-crm.ts` · `lib/sugerencias-crm-server.ts` ·
+`lib/tope-texto-agencia.ts` · `lib/api-mako/ejecutar.ts` · `app/_components/CtaPasarAPro.tsx` · `lib/chats.ts` ·
+`lib/api-mako/areas/whatsapp.run.ts` · `lib/meta-anuncio-reglas.ts` · `lib/meta-anuncio.ts` · `lib/meta-lead-nuevo.ts` ·
+`app/crm/buscar-leads.ts` · `app/crm/CrmToolbar.tsx`.
+## Traer los contactos de un grupo por el chat: con más de un funnel, el destino lo dice la persona (18/11/2026, O45)
+
+- **El síntoma:** por el chat de MaKo, «traé los contactos del grupo X» caía en «Prospección» o en el funnel principal sin preguntar,
+  y la tarjeta que se confirma nombraba la etapa («a «Tibio»») y no el CRM. El pendiente lo ata al caso de Leila (llamada del 30/10);
+  la nota original de esa llamada (`docs/pendientes-30-10.md`) ya no está en el repo, así que no se sabe si ella lo hizo por la
+  pantalla o por el chat: lo medido es el camino del chat.
+- **La causa:** `traer_contactos_de_grupo` (lib/api-mako/areas/crm.run.ts) resolvía el destino con `funnelPorDefecto`
+  («Prospección» si lo hay, si no el principal), una regla pensada para la pantalla. La pantalla ya no la usa (cb24330c6: trae al
+  CRM que se está mirando); por el chat no hay CRM «que se mira», así que la regla elegía por la persona, y el resumen no lo nombraba.
+- **Lo que quedó:** sin `embudoId` y con dos o más funnels, `preparar` no elige: devuelve el error con los funnels del negocio
+  (`faltan: ['embudoId']`, `disponibles` con id y nombre) y MaKo pregunta. Con uno solo, ése, como antes. El resumen nombra el
+  funnel («al funnel «Ventas», en «Tibio»»). Y lee con `leerFunnels`, no con `listarFunnels`: con la base caída `listarFunnels`
+  devuelve `[]`, que con esta regla se leería como «no hay ninguno» (o, sin pregunta, como «hay uno»); ahora es «no pude leer» con
+  `falla: true`.
+- **La regla que queda:** un default que se escribió para una PANTALLA (donde se ve dónde está parada la persona) no se reusa en una
+  operación de la API: ahí elegir por la persona es escribir en un lugar que nadie confirmó. Con más de una opción, se pregunta, y lo
+  que la tarjeta confirma nombra el destino entero (el CRM y la etapa), no sólo la etapa.
+- **Lo que quedó SIN hacer:** `funnelPorDefecto` (lib/grupo-wa-reglas.ts) queda sin llamadores en la API; se dejó con un comentario
+  por si la pantalla vuelve a necesitarlo. Lo que Leila ya trajo al funnel equivocado no se movió (es producción).
+- **Vive en:** `lib/api-mako/areas/crm.run.ts` (`traer_contactos_de_grupo`) · `lib/api-mako/areas/crm.def.ts` (`embudoId`) ·
+  `tests/traer-grupo-funnel.test.ts` (corre `preparar` con uno y con dos funnels).
+
 ## Sacar un funnel del catálogo sin romper a quien ya lo tiene (16/11/2026)
 
 Martín, mirando el catálogo de funnels del CRM en el Funnel Coach de la maqueta del onboarding: sacar LinkedIn («Nosotros no
@@ -222,10 +365,15 @@ tira: un 5xx de Supabase le da `ZONA_POR_DEFECTO` (Tijuana). En ESTE corte, caer
 va atrás, la reunión parece futura y no se pide nada. Es la misma regla que la línea de arriba en `setPipelineStage` («sin
 poder leer el lead no hay nada contra qué validar: cortamos»): validar con un dato que no se pudo leer es mover a ciegas.
 
-**Sin hacer, y es el MISMO defecto en otros dos lugares** (se dejaron fuera a propósito: tocan el camino que usa toda la UI):
+~~**Sin hacer, y es el MISMO defecto en otros dos lugares** (se dejaron fuera a propósito: tocan el camino que usa toda la UI):
 `faltantesDeLead` (lib/leads.ts, el «Datos sin marcar» / «A revisar») y `valoresDeRequisitos` (app/crm/actions.ts, el wizard)
 siguen con `hoyISO: hoyEnTijuana()`. Hasta que se arreglen, para un negocio fuera de Tijuana el wizard y el corte del server
-pueden discrepar unas horas por día.
+pueden discrepar unas horas por día.~~ **Hecho el 18/11/2026 (F125, nube):** los dos piden `hoyISO` obligatorio y sin default
+(en `faltantesDeLead`/`resueltosDeLead` va en `ExtraRequisitos`; en `valoresDeRequisitos`, como parámetro), y cada llamador
+lo saca de su negocio: `leerInsumosDatosLead` trae `hoy`, el teléfono usa el suyo, el worklist el `hoy` que ya recibe, la API
+`hoyDelWorkspace(ctx.ws)`. Con la lectura TOLERANTE (`hoyEnWorkspace`), a propósito: cuando la zona se lee da el mismo día que
+el corte estricto, y cuando no, el server no deja mover igual. Lo fija tests/dias-del-negocio.test.ts («A revisar cuenta…»). El
+porqué de las otras ~70 fechas de Tijuana, en docs/hallazgos-infra.md → «Las ~85 fechas de Tijuana son TRES relojes».
 
 **Vive en:** lib/leads.ts (`AportadoAlMover`, `faltantesParaMover`, `setPipelineStage`) · lib/timezone.ts
 (`hoyEnWorkspaceEstricto`) · lib/api-mako/areas/crm.run.ts · lib/mako-doer-acciones.ts ·
@@ -1552,9 +1700,10 @@ afuera y no se puede agregar una etiqueta. Regla: el contenedor de algo que envu
   el equipo. Se cambia en `app/api/crm/mako/route.ts` (rol) y en `app/crm/mako-crm/PanelMakoCrm.tsx` (`callar`).
 - **Chat de MaKo.** Mover `BotonLogoMako` de `app/automations/SecuenciaPerfil.tsx` a `app/_ui`. Hoy
   `PanelMakoCrm.tsx` copia su aspecto (`CARA_BOTON`) para no meter el lienzo entero en el bundle de `/crm`.
-- **Chat de MaKo.** No se hicieron las clases 2 (gestos repetidos) y 4 (llega algo nuevo) del mapa, ni
+- ~~**Chat de MaKo.** No se hicieron las clases 2 (gestos repetidos) y 4 (llega algo nuevo) del mapa, ni
   «Perdidos hace 60 a 90 días» ni «la etapa donde se cae la mitad». `docs/sugerencias-mako-crm.md:4` todavía
-  dice «Nada de esto existe todavía».
+  dice «Nada de esto existe todavía».~~ Las clases 2 y 4 están desde el 20/10 (`gestosAMano`, `dmsNuevos`,
+  tests/sugerencias-crm-gestos.test.ts); las dos de la clase 3, desde el 18/11/2026 (F158), y el documento quedó corregido.
 - **Chat de MaKo.** `sugerencias_crm` corre en cada mensaje del chat y, con la caché vencida, lee el CRM entero
   y todas las cuotas sin pagar: en una cartera grande puede tardar varios segundos.
 - **Etiquetas.** `.cl-junto` tendría que ser `flex:0 1 auto; min-width:0; max-width:100%`
@@ -11310,8 +11459,9 @@ es de acá, nace en el del negocio con su log: un alta no se pierde por un id ma
 **7. #856: el «Calificado» espera el «Deshacer» y se re-pregunta al salir; la marca de «ya se mandó» es el historial.**
 `after()` + 8 s (el toast dura 5), relee el lead y manda sólo si sigue calificado y no hay una línea «Meta ya recibió que
 está calificado» (`LINEA_CALIFICADO_EN_META`). Sin columna nueva: es un hecho del lead y se lee en su historial. Sin poder
-releer, no sale (una señal a Meta no se deshace). Lo mandado antes del 17/10 no tiene la línea: volver a marcarlo pasadas
-las 48 h del dedup de Meta todavía puede contar dos veces, una sola vez.
+releer, no sale (una señal a Meta no se deshace). ~~Lo mandado antes del 17/10 no tiene la línea: volver a marcarlo pasadas
+las 48 h del dedup de Meta todavía puede contar dos veces, una sola vez.~~ Cerrado el 18/11/2026 (F154): un «Calificado: Sí»
+del historial entre el 05/10 y el 17/10 cuenta como mandado (`calificacionYaEnMeta`, lib/meta-capi-payload.ts).
 
 **8. #893, la otra mitad: el lead que vuelve por una campaña de otro funnel se SUMA a ése** (`funnelsDeCampanaParaSumar`):
 agregar, nunca mover (la decisión del 06/10), como el lead nuevo de la campaña.
@@ -12266,17 +12416,17 @@ y `lib/ficha` en el medio.
   no mueve la etapa (`resumen/reunion.tsx:65`); «Traer de otro funnel» sin etiquetas ni orden (`TraerDeOtroProducto.tsx:210`);
   nutrición sin «de qué etapa sale» (`EtapasModal.tsx:731`, `lib/etapas-crm-server.ts:408`); lote traído de un grupo sin «Deshacer»
   ni tope (`TraerDeGrupoWA.tsx`, `CrmBoard.tsx:3770`); `UnificarFichas` y `PersonalizarTarjetas` sin pie fijo.
-- *Menús y editor de funnel:* «Asignar fuentes» en la columna de entrada de un funnel de Prospección (`CrmBoard.tsx:2650`);
+- *Menús y editor de funnel:* ~~«Asignar fuentes» en la columna de entrada de un funnel de Prospección (`CrmBoard.tsx:2650`)~~ (hecho 18/11, `punta/crm-pedidos-chicos`);
   `EditorEtiquetas.tsx` sin montar; sin «Sugerido» en `PersonalizarTarjetas.tsx` y en los tipos de «Nuevo CRM»; clic derecho sin
   bloque en la ficha y sin nada en `/crm/revisar`.
-- *Ficha:* «Insights del lead» sin el aviso de qué falta (`GeneratedInsightCard.tsx:138`, `AnalystDelLead.tsx:42`); Notas sin la caja
-  de los chats (`NotasCard.tsx:257`); sin responder el DM (`resumen/charla.tsx:87`); «anuncio-de-origen» sin componente
-  (`lib/ficha/plantillas.ts:54`); video sin identificar (`ComportamientoCard.tsx:90`); etiquetas junto al nombre rotas en el teléfono
-  (`CabeceraLead.tsx:292`); galería que no se abre sola en un workspace nuevo (`FichaPorBloques.tsx:281`); datos elegibles en 7 bloques
+- *Ficha:* ~~«Insights del lead» sin el aviso de qué falta (`GeneratedInsightCard.tsx:138`, `AnalystDelLead.tsx:42`)~~ (hecho 18/11, `punta/crm-pedidos-chicos`); Notas sin la caja
+  de los chats (`NotasCard.tsx:257`); sin responder el DM (`resumen/charla.tsx:87`); ~~«anuncio-de-origen» sin componente
+  (`lib/ficha/plantillas.ts:54`)~~ (fuera de las plantillas el 18/11; su componente sigue por hacer); video sin identificar (`ComportamientoCard.tsx:90`); ~~etiquetas junto al nombre rotas en el teléfono
+  (`CabeceraLead.tsx:292`); galería que no se abre sola en un workspace nuevo (`FichaPorBloques.tsx:281`)~~ (hecho 18/11, `punta/crm-pedidos-chicos`); datos elegibles en 7 bloques
   de Pagos y Reuniones (`lib/ficha/catalogo.ts:232-343`); historial con tarjetas propias (`AuditHistory.tsx`); sin «Comentarios»
   (los comentarios van a Notas); sin «Unificar» en la API de MaKo.
 - *Teléfono:* hojas propias sin mostrar (`app/m/crm/ficha-bloques.ts:74`); la tarjeta no sigue la plantilla (`TableroCrm.tsx:240`);
-  «Sin teléfono», «Sin agendar», «Sin setter» (`app/m/crm/[id]/FichaLead.tsx:182-186`).
+  ~~«Sin teléfono», «Sin agendar», «Sin setter» (`app/m/crm/[id]/FichaLead.tsx:182-186`)~~ (hecho 18/11, `punta/crm-pedidos-chicos`).
 - *Necesitan a Martín, producción o un aparato:* Google Calendar en «Vincular evento» (`lib/agenda-evento-etapa.ts:36`); plantillas de
   Pagos más cortas (`lib/ficha/plantillas-pagos.ts:59`); «vino de otro funnel» y atribución por funnel (necesita migración);
   velocidad de «Vincular evento» (`agenda-evento-actions.ts:84`); arrastrar en un teléfono real; la cobertura de la extensión sobre
@@ -12286,7 +12436,8 @@ y `lib/ficha` en el medio.
 encabezado con los totales se reescribe en el mismo commit que cambia sus filas, o el número queda de decoración. Las filas de
 esta tabla ya traen la medición con fecha: la que se cierre desde acá se tacha en su celda, con el commit.
 
-**Chicas** (un archivo, sin pantalla nueva, para hacer después): `lib/ficha/plantillas.ts` (sacar o dibujar «anuncio-de-origen»),
+~~**Chicas** (un archivo, sin pantalla nueva, para hacer después): `lib/ficha/plantillas.ts` (sacar o dibujar «anuncio-de-origen»),
 `CabeceraLead.tsx:292` (`flex:none`), `FichaPorBloques.tsx:281` y `galeria.ts:11-15` (galería en un workspace nuevo),
 `GeneratedInsightCard.tsx`/`AnalystDelLead.tsx` (el aviso de qué falta), `app/m/crm/[id]/FichaLead.tsx` y `ficha-bloques.ts` (los
-rótulos de «Sin…»), `menu-contextual-crm.ts` + `CrmBoard.tsx:2650` (sin «Asignar fuentes» en Prospección).
+rótulos de «Sin…»), `menu-contextual-crm.ts` + `CrmBoard.tsx:2650` (sin «Asignar fuentes» en Prospección).~~ **Hechas las seis el 18/11/2026**
+(`punta/crm-pedidos-chicos`): ver «Seis pedidos chicos de la ficha y el tablero», arriba de todo.

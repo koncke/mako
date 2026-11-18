@@ -13,6 +13,29 @@ corrida y fecha viene; antes de actuar sobre una, verificá contra el código: v
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
 
+## El «⋯» de Chats y del Web Generator abren el menú del clic derecho, y el «⋯» se lo traga al cerrarlo (18/11/2026, nube)
+
+**Síntoma:** el F119 de la lista del 17/11. Desde el 27/10 el clic derecho de una fila de Chats y de un renglón del Panel del
+Web Generator abría `MenuContextual`, pero su «⋯» seguía con su propio menú (un `Dropdown` y un `MenuFlotante`), y
+tests/clic-derecho-listas cruzaba las dos listas rótulo por rótulo para que no se separaran. AGENTS.md ya decía «el "⋯" y el
+clic derecho de lo mismo son un menú».
+
+**Cómo se abre desde un botón:** `useMenuContextual` ya expone `abrir(de, x, y)`; el «⋯» lo llama con el borde de abajo del
+botón (`r.left, r.bottom + 4`), igual que el «⋯» de una columna del CRM. No hace falta otra pieza.
+
+**La trampa que apareció al hacerlo:** `MenuContextual` se cierra en el `pointerdown` de un toque afuera (en captura, en
+`document`), y el «⋯» queda afuera. Tocar el «⋯» con su menú abierto lo cerraba en el `pointerdown` y lo volvía a ABRIR en el
+`click`. El arreglo es anotar en el `onPointerDown` del botón si su menú estaba abierto (todavía lo está: el cierre recién llega
+a la pantalla después) y, si lo estaba, no abrir en el `click`. El «⋯» del CRM (`abrirMenuDeColumna`) tiene el mismo
+comportamiento de reabrir y no se tocó.
+
+**Y el CSS:** el «⋯» de Chats aparecía sólo con `:hover`/`:focus-within`; con el Dropdown el foco quedaba adentro de la fila,
+con el menú en un portal no. Va `data-abierto` en el «⋯» mientras su menú está abierto.
+
+**Vive en:** app/chats/ListaChats.tsx (`MasAcciones`, `abrirMenuDesde`) · app/chats/chats.css · app/web-generator/Inicio.tsx
+(`abrirMenuDesde`, `masEstabaAbierto`) · tests: tests/clic-derecho-listas.test.ts, tests/editor-landing-panel.test.ts,
+tests/crm-feedback-27-10.test.ts, tests/chats-mas-simple.test.ts.
+
 ## Marcar pasos de un tutorial sobre las pestañas en HTML: los selectores que mienten (17/11/2026)
 
 Lo encontró el agente que escribió los 17 tutoriales (`docs/reto-7-dias/tutoriales-por-pestana.md`).
@@ -156,10 +179,10 @@ dibujan cosas distintas, y React tira #418. Automations ya usa `iniciales` (lib/
 tests/automations-iniciales.test.ts barre app/automations).
 
 **Quedan, sin tocar** (cada uno es de su chat):
-- app/_components/ServicioVisual.tsx:106
+- ~~app/_components/ServicioVisual.tsx:106~~ (18/11/2026: `iniciales(k, 1, '?')`, O14)
 - app/calendario/ListaLlamadas.tsx:187
 - app/classroom/ClientsShell.tsx:335
-- app/m/_ui/formato.ts:29
+- ~~app/m/_ui/formato.ts:29~~ (18/11/2026: `inicialesM` con `iniciales` y `Array.from`, O14; docs/hallazgos-mobile.md)
 - app/video-editor/_opencut/subtitles/components/texto-a-voz.tsx:72
 - app/web-generator/editor/paneles/PanelComentarios.tsx:46
 
@@ -348,10 +371,12 @@ cuadros un poco redondeados... Unifica ese diseño».
   - app/automations/social-ui.tsx:108
   - app/calendario/ListaLlamadas.tsx:187 (`charAt(0)`)
   - app/classroom/ClientsShell.tsx:335
-  - app/m/_ui/formato.ts:29 (el email)
-  - app/_components/ServicioVisual.tsx:106
+  - ~~app/m/_ui/formato.ts:29 (el email)~~ (18/11/2026, O14)
+  - ~~app/_components/ServicioVisual.tsx:106~~ (18/11/2026, O14)
 
-  Cuando estén, la forma `.trim()[0]` / `.charAt(0)` va a la guarda de `app/`.
+  ~~Cuando estén, la forma `.trim()[0]` / `.charAt(0)` va a la guarda de `app/`.~~ (18/11/2026: la guarda la tiene, caso 4 de
+  tests/iniciales-con-emoji.test.ts, que mira app/ —con app/m— y lib/; encontró además lib/tarjeta-kanban.ts y
+  app/conocimientos/Compartir.tsx, arreglados. PanelProbar, social-ui, ListaLlamadas y ClientsShell ya usaban `iniciales`.)
 
 **Vive en:** `lib/unicode-seguro.ts` (`iniciales`) · `lib/iniciales.ts` (`inicialesPorLetra`, la llama) · `tests/iniciales-con-emoji.test.ts` · `tests/iniciales-hidratacion.test.ts`
 

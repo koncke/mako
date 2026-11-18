@@ -65,6 +65,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Recibos de pago por correo y WhatsApp, con registro en SuperAdmin (en main desde el 5/11, la 0397 aplicada: falta cargar el 0001 y el 0002) | `Lee docs/relevo/nube-recibos.md y seguimos desde ahí.` |
 | Varias claves de Apify (Spy y la biblioteca de carruseles, 5/11) | `Lee docs/relevo/nube-apify.md y seguimos desde ahí.` |
 | Admin › Costs: a dónde va una suscripción del 47 y del 97, el primer mes, el techo del CAC y los cupos (11/11, en `punta/costs-suscripcion`; dos decisiones para Martín adentro) | `Lee docs/relevo/nube-costs-suscripcion.md y seguimos desde ahí.` |
+| Los 13 pendientes de «Traba otra cosa» (18/11, en `punta/traba-1811`): tres cerrados con test, uno a medias, y qué traba a los otros nueve (copias a la PC para el Cerebro adentro) | `Lee docs/relevo/nube-traba.md y seguimos desde ahí.` |
 | Lo prometido a Thiago: «Usar en un anuncio», «Guardar en MaKo» en la extensión 0.77.0 y el relevo del original en el Media Buyer (6/11, en `punta/thiago-anuncios`) | `Lee docs/relevo/nube-thiago-anuncios.md y seguimos desde ahí.` |
 | Vigía de aprobaciones (App Store, Google Play, la extensión, Meta, Google y Resend) | `Lee docs/relevo/nube-aprobaciones.md y seguimos desde ahí.` |
 | Admin › Revenue y Customers leen el libro de la mensualidad de las agencias (10/11, en `punta/ingresos-agencia`) | `Lee docs/relevo/nube-ingresos-agencia.md y seguimos desde ahí.` |
@@ -74,6 +75,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Approvals (la pestaña, los paneles sin API y la extensión que se publica sola, 5/11) | `Lee docs/relevo/nube-approvals.md y seguimos desde ahí.` |
 | Ops Center: la fecha y el «Ignorar» de lo que espera a Martín (migración 0394 sin aplicar) | `Lee docs/relevo/nube-ops-ignorar.md y seguimos desde ahí.` |
 | Black November de Leila (la rampa del número, el horario de las prendidas y los bloques de venta de las landings, 5/11) | `Lee docs/relevo/nube-black-november.md y seguimos desde ahí.` |
+| Los 46 pendientes «De octubre» (18/11): 13 cerrados, lo que espera una decisión de Martín, lo de producción y lo grande | `Lee docs/relevo/nube-octubre.md y seguimos desde ahí.` |
 | Creem fuera: rechazó la tienda (5/11, definitivo); las legales, la moderación sin proveedor y LatAm sin Creem | `Lee docs/relevo/nube-creem-fuera.md y seguimos desde ahí.` |
 | La revisión de Creem: /aup, Creem en las legales, la moderación antes de generar y AI Avatar (5/11; superado por el rechazo) | `Lee docs/relevo/nube-creem-revision.md y seguimos desde ahí.` |
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |

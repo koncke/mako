@@ -7,7 +7,7 @@
 // la red real: lo que no es la base ni Resend se anota en `otros` y tiene que dar vacío.
 //
 // Corre con: node --conditions=react-server --import tsx tests/_email-campana-hijo.ts <escenario>
-// Escenarios: 'dominio' (puntos 1 y 2: conectar el dominio, el seguimiento, el remitente y el reply_to); 'claves' (la key
+// Escenarios: 'audio-por-grabar' (F80, tests/audio-por-grabar.test.ts); 'dominio' (puntos 1 y 2: conectar el dominio, el seguimiento, el remitente y el reply_to); 'claves' (la key
 // que administra dominios y la que manda, separadas: tests/resend-clave-admin.test.ts).
 // Imprime el resultado después de la marca @@RESULTADO@@.
 // =============================================================================
@@ -925,8 +925,100 @@ async function escenarioAcomodo(): Promise<Record<string, unknown>> {
   return out;
 }
 
+/**
+ * LOS DÍAS DEL GOTEO POR LA API (18/11/2026, F79; tests/goteo-dias-guardar.test.ts). `configurar_automatizacion` con
+ * `goteoDias`: lo que propone, lo que guarda en `app_settings` (la clave de la automatización) y lo que dice
+ * `configuracion_automatizacion` después. Con los rechazos: un día que no existe, la lista vacía, y «horario» que los saca.
+ */
+async function escenarioGoteoDias(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const configurar = runnerDe('configurar_automatizacion') as unknown as Runner;
+  const configuracion = runnerDe('configuracion_automatizacion') as unknown as Runner;
+  const en = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const ID = 81;
+  db.nutricion_secuencias.push({ id: ID, workspace_id: NEGOCIO, clave: 'goteo-dias', nombre: 'Reactivación', activa: false, archivada_at: null, trigger_tipo: 'etapa_actual', etapa: 'lead', funnel_id: null, pasos: [] });
+  const out: Record<string, unknown> = {};
+  const leer = async () => {
+    const x = await en(() => configuracion.leer!({ secuenciaId: ID }, ctx(NEGOCIO)));
+    return (JSON.parse(typeof x === 'string' ? x : x.content) as { goteo: Record<string, unknown> }).goteo;
+  };
+  out.diaQueNoExiste = await en(() => configurar.preparar!({ secuenciaId: ID, goteoDias: '1,9' }, ctx(NEGOCIO)));
+  out.palabra = await en(() => configurar.preparar!({ secuenciaId: ID, goteoDias: 'lunes' }, ctx(NEGOCIO)));
+  out.vacia = await en(() => configurar.preparar!({ secuenciaId: ID, goteoDias: ' , ' }, ctx(NEGOCIO)));
+  const p = await en(() => configurar.preparar!({ secuenciaId: ID, goteoDias: '4, 1,2,3,1' }, ctx(NEGOCIO)));
+  out.preparar = p;
+  out.ejecutar = await en(() => configurar.ejecutar!(p.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.guardado = setting(NEGOCIO, `automatizacion.config:${ID}`);
+  out.leido = await leer();
+  // Los minutos después: los días se quedan (el cambio del goteo es campo por campo).
+  const p2 = await en(() => configurar.preparar!({ secuenciaId: ID, goteoMinutos: 5 }, ctx(NEGOCIO)));
+  await en(() => configurar.ejecutar!(p2.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.trasMinutos = setting(NEGOCIO, `automatizacion.config:${ID}`);
+  const p3 = await en(() => configurar.preparar!({ secuenciaId: ID, goteoDias: 'horario' }, ctx(NEGOCIO)));
+  out.prepararHorario = p3;
+  await en(() => configurar.ejecutar!(p3.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.trasHorario = setting(NEGOCIO, `automatizacion.config:${ID}`);
+  out.leidoTrasHorario = await leer();
+  return out;
+}
+
+/**
+ * LA NOTA DE VOZ POR GRABAR (18/11/2026, F80; tests/audio-por-grabar.test.ts). Tres puertas con el código real:
+ *   · publicarla (`setSecuenciaPasos`) tira y no escribe `pasos`;
+ *   · como borrador (`comoBorrador`, lo que usa Crear con IA) queda en `pasos_borrador` sobre lo publicado vacío, con la
+ *     tarjeta `tipo: 'audio'` y sin audio (antes se volvía texto);
+ *   · el motor (`procesarEnvios`) con una fila escrita por otro camino: falla con su motivo y no le pide nada a WhatsApp.
+ */
+async function escenarioAudioPorGrabar(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { setSecuenciaPasos, procesarEnvios, PasosInvalidosError } = await import('../lib/nutricion');
+  const { borradorVigente, firmaPublicado } = await import('../lib/secuencia-borrador');
+  const en = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const out: Record<string, unknown> = {};
+  sembrarCrm(NEGOCIO);
+  const tarjetas = () => [
+    { id: 't1', orden: 1, canal: 'whatsapp', tipo: 'audio', audio_id: null, cuerpo: 'Te dejo el link de la agenda', delay_horas: 0, siguiente: null },
+  ];
+  const ID = 82;
+  db.nutricion_secuencias.push({ id: ID, workspace_id: NEGOCIO, clave: 'por-grabar', nombre: 'Bienvenida con audio', activa: false, archivada_at: null, trigger_tipo: 'etapa_actual', etapa: 'lead', funnel_id: null, pasos: [], pasos_borrador: null });
+  const fila = () => db.nutricion_secuencias.find((x) => Number(x.id) === ID)!;
+  try {
+    await en(() => setSecuenciaPasos(ID, tarjetas() as never));
+    out.publicar = 'guardó';
+  } catch (e) {
+    out.publicar = { invalido: e instanceof PasosInvalidosError, mensaje: (e as Error).message };
+  }
+  out.pasosTrasPublicar = fila().pasos;
+  await en(() => setSecuenciaPasos(ID, tarjetas() as never, { comoBorrador: true }));
+  out.pasosTrasBorrador = fila().pasos;
+  const b = fila().pasos_borrador as { base?: string; pasos?: Array<Record<string, unknown>> } | null;
+  out.baseEsLaDeVacio = b?.base === firmaPublicado([]);
+  out.tarjetaDelBorrador = b?.pasos?.map((x) => ({ tipo: x.tipo, audio_id: x.audio_id ?? null, cuerpo: x.cuerpo })) ?? null;
+  out.seAbre = (borradorVigente(fila().pasos_borrador, fila().pasos)?.pasos.length ?? 0) > 0;
+
+  // EL MOTOR: una fila PUBLICADA con la tarjeta por grabar (la escribió otro camino), WhatsApp prendido y un lead con teléfono.
+  db.app_settings.push({ workspace_id: NEGOCIO, key: 'envio_whatsapp_enabled', value: 'true' });
+  const MOTOR = 83, LEAD = 701;
+  db.leads.push({ id: LEAD, workspace_id: NEGOCIO, nombre: 'Ana', email: null, telefono: '5215512345678', estado_lead: 'abierto', funnel_id: null, pipeline_stage: 'lead', created_at: '2026-06-01T10:00:00Z' });
+  db.nutricion_secuencias.push({ id: MOTOR, workspace_id: NEGOCIO, clave: 'por-grabar-pub', nombre: 'Publicada a mano', activa: true, archivada_at: null, trigger_tipo: 'etapa_actual', etapa: 'lead', funnel_id: null, pasos: [{ ...tarjetas()[0], proveedor: 'no_oficial' }] });
+  const pasado = new Date(Date.now() - 60_000).toISOString();
+  db.nutricion_inscripciones.push({
+    id: siguienteId++, workspace_id: NEGOCIO, lead_id: LEAD, secuencia_id: MOTOR, estado: 'activa', paso_actual: 0, proximo_envio_at: pasado,
+    inscripto_at: pasado, ultimo_paso_at: null, desenlace: null, desenlace_at: null, hilos: null, hilos_rev: 0, nodo_actual: null,
+    conversacion_ultima_at: null, conversacion_cerrada_at: null, conversacion_cierre: null, reunion_at: null, created_at: pasado, updated_at: pasado,
+  });
+  const r = await en(() => procesarEnvios({ ignorarVentana: true }));
+  out.detalle = r.detalle.filter((d) => Number(d.lead_id) === LEAD).map((d) => ({ estado: d.estado, nota: d.nota ?? null }));
+  out.envios = db.nutricion_envios.filter((e) => Number(e.lead_id) === LEAD).map((e) => ({ estado: e.estado, error: e.error ?? null }));
+  out.proximo = db.nutricion_inscripciones.find((i) => Number(i.lead_id) === LEAD)?.proximo_envio_at ?? null;
+  return out;
+}
+
 async function main() {
   const escenarios: Record<string, () => Promise<Record<string, unknown>>> = {
+    'goteo-dias': escenarioGoteoDias,
+    'audio-por-grabar': escenarioAudioPorGrabar,
     dominio: escenarioDominio, claves: escenarioClaves, lote: escenarioLote, secuencia: escenarioSecuencia, columnas: escenarioColumnas, topes: escenarioTopes, prioridad: escenarioPrioridad, acomodo: escenarioAcomodo,
     cuenta: escenarioCuenta, vacia: escenarioVacia, 'ws1-antes': () => escenarioWs1('antes'), 'ws1-despues': () => escenarioWs1('despues'), 'ws1-caida': () => escenarioWs1('caida'),
   };

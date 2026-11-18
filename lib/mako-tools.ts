@@ -291,7 +291,9 @@ export const runMakoTool = async (name: string, input: Record<string, unknown>, 
           .eq('lead_id', lead.id).eq('category', 'venta').order('started_at', { ascending: true });
         analisis = (q.data ?? []) as Array<Record<string, unknown>>;
       } catch { /* noop */ }
-      if (!r && !analisis.length) return `No pude buscar reuniones para ${lead.nombre} en este momento.`;
+      // ⚠️ Es una FALLA nuestra (las dos lecturas se cayeron), no un dato: va con isError (F114, 18/11/2026). Como texto, el modelo
+      // lo leía como «no tiene reuniones» y por HTTP salía en un 200; con isError el registro lo devuelve como error.
+      if (!r && !analisis.length) return { content: `No pude buscar reuniones para ${lead.nombre} en este momento.`, isError: true };
       return JSON.stringify({ ...(r ?? {}), analisis_llamadas: analisis });
     }
 

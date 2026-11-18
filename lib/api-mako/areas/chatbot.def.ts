@@ -339,7 +339,10 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'configurar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Configurar una automatización',
-    descripcion: 'PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos y hasta M por día, adentro del tope de la línea; UNO SOLO para todos sus canales —WhatsApp, email, Instagram y Messenger—, y cada canal cuenta sus mensajes), lo mismo que su tuerca en Automations. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    // ⚠️ VA ANTES que `cambiar_crons_secuencia` en el orden del turno (tests/ops-center-bateria, el 4): un parámetro nuevo
+    // se paga acortando la op, nunca con el margen (18/11/2026: `goteoDias` entró así, con la descripción, `sinGoteo` y
+    // `goteoArranqueDia` más cortos; la op quedó en 2.201 caracteres, uno menos que antes).
+    descripcion: 'PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos, hasta M por día y en qué días, adentro del tope de la línea; uno para todos sus canales), como su tuerca. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [
       pSecuenciaId,
       { nombre: 'horario', tipo: 'string', enum: ['propio', 'negocio', 'sin_horario'], descripcion: 'opcional: «propio» (con desde, hasta y dias), «negocio» para volver al del negocio, o «sin_horario» para que mande a cualquier hora.' },
@@ -347,11 +350,12 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'con horario propio: la hora en que cierra (21 = hasta las 20:59).' },
       { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
       { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: minutos entre dos mensajes por canal.' },
-      { nombre: 'goteoArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: WhatsApp arranca con estos por día (con tope).' },
+      { nombre: 'goteoArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: WhatsApp arranca con estos por día.' },
       { nombre: 'goteoArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y sube esto cada día que llega al suyo.' },
       { nombre: 'sinArranque', tipo: 'boolean', descripcion: 'opcional: true lo saca.' },
       { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: tope de mensajes en 24 h por canal.' },
-      { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo y el tope por día.' },
+      { nombre: 'goteoDias', tipo: 'string', max: 40, descripcion: 'opcional: días en que salen, como dias («horario» = los del horario).' },
+      { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true le saca el goteo entero.' },
       // Las columnas del email (4/11/2026, lib/email-eventos-crm.ts): UN parámetro y corto, a propósito. Con cuatro, la op
       // creció 600 caracteres y dejó a `cambiar_crons_secuencia` fuera del presupuesto del turno (tests/ops-center-bateria).
       { nombre: 'columnasEmail', tipo: 'string', descripcion: 'opcional: "enviado=key,abrio=key,clic=key,rebote=key", columnas de su CRM que siguen al email («ninguna» saca).' },
@@ -942,5 +946,32 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla, y que la dispara «Envió el formulario»',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // EDITAR CON IA UNA QUE YA EXISTE, CON RAMAS (pendiente O19, P0-7, 18/11/2026). `editar_pasos_secuencia_mensajes` reescribe la
+  // lista por orden y rechaza todo lo que tiene ramas; ésta usa el MISMO motor que el chat del lienzo («Editar»:
+  // lib/flujo-ia-editar.ts), que cambia, quita o agrega tarjetas por id. Copiada de `editar_hoja_con_ia_dashboard`:
+  //   · MaKo arma el cambio en `preparar` (la IA del negocio, nunca Claude ni nada que cobre) y lo PROPONE: lo que la persona
+  //     confirma son los pasos que se van a publicar, y sólo si nadie la tocó en el medio (`firmaPublicado`, el compare-and-set).
+  //   · `chat` y no `pantalla`: la pantalla genérica vuelve a correr `preparar` al confirmar, y con la IA adentro confirmaría
+  //     OTRO resultado que el que leyó. El «sí» por WhatsApp va sin nada más (`aTerceros`): si está activa, a los leads les
+  //     llega lo nuevo.
+  //   · Al confirmar crea las etiquetas nuevas y PUBLICA por `publicarPasos` (`validarGrafo`), y el CRON por `publicarCrons`.
+  //   · Por HTTP la IA tiene 40 s (la ruta corta a 60): si no termina, error sin proponer nada. Un flujo no la corre.
+  //   · ⚠️ AL FINAL DEL ÁREA y sin «automatización», «flujo» ni «WhatsApp» en el id, el título ni la descripción, y sin
+  //     «cambiar» en el id ni en el título (tests/ops-center-bateria.test.ts: a igual puntaje gana la declarada antes, y
+  //     «Cambiá…» es cómo empiezan los pedidos de editar_pasos, cambiar_espera_paso y cambiar_crons_secuencia). Medido: con el
+  //     id `editar_automatizacion_con_ia` (el nombre del pendiente) el CRON quedaba con -923 caracteres de margen y MaKo dejaba
+  //     de poder cambiar qué dispara una automatización. Por eso se llama `editar_armada_con_ia`.
+  {
+    id: 'editar_armada_con_ia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat', aTerceros: true,
+    titulo: 'Editar con IA una ya armada',
+    descripcion: 'PROPONE editar con IA una secuencia que ya existe, aunque tenga ramas (condiciones, «Si responde», AI Step, botones): MaKo quita, agrega o reescribe tarjetas según el pedido en palabras, deja el resto como está, y el resumen dice qué queda distinto. No escribe nada hasta que alguien confirme; al confirmar la publica (si está prendida, a los leads les llega lo nuevo), crea las etiquetas nuevas que nombre y, si el pedido lo pide, también qué la dispara. Si alguien la toca antes de confirmar, no se aplica. Para preguntar qué hace, ficha_secuencia_mensajes. Pide antes el secuenciaId con listar_secuencias_nutricion. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin proponer nada.',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'qué hay que cambiar en la automatización, con las palabras de la persona (si mandó un audio, la transcripción).' },
+    ],
+    reversible: false,
+    escribe: 'reescribe nutricion_secuencias.pasos (publica, sin historial de versiones), crea las etiquetas nuevas que nombre y, si el pedido lo pide, cambia sus CRON',
+    canales: TODOS, costo: 'ia', lenta: true, gating: { tab: TAB, rolMinimo: 'admin' },
   },
 ];

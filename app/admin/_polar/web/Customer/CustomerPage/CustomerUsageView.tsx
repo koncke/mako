@@ -14,13 +14,17 @@
 //    ficha con 30 días eran 30 días, y entrando directo, toda la vida del negocio.
 // Los encabezados de la tabla son «Dónde» y «Uso» (punto 27): la tabla mezcla tabs con la fila de la IA, y «Medidor» y
 // «Consumido» de Polar no dicen nada en MaKo.
+// «Por persona» (F169, 18/11/2026; docs/relevo/nube-admin.md: «lo que hace cada persona en la ficha de su negocio»): la misma
+// tabla de Polar, con las mismas filas sumadas por quién las abrió (`usoPorPersona`) y la persona dibujada como en Members. Polar
+// no la tiene: sus medidores no son de personas. Sin la IA, que no se anota por persona.
 
-import { usoDelNegocio, type IaDelDia } from '@/app/admin/_polar/datos/cliente'
+import { usoDelNegocio, usoPorPersona, type IaDelDia, type PersonaDelUso } from '@/app/admin/_polar/datos/cliente'
 import type { FilaUso } from '@/lib/actividad-reglas'
 import { formatCurrency } from '@/app/admin/_polar/lib/currency'
 import ShadowBox from '@/app/admin/_polar/atoms/ShadowBox'
 import FormattedDateTime from '@/app/admin/_polar/atoms/FormattedDateTime'
 import {
+  Avatar,
   DataTable,
   DataTableColumnHeader,
   type DataTableSortingState,
@@ -45,6 +49,8 @@ export interface CustomerUsageViewProps {
   filas: Array<Pick<FilaUso, 'dia' | 'usuario' | 'tab' | 'pantallas' | 'acciones'>>
   tabs: Array<{ key: string; label: string; keys: string[] }>
   ia: IaDelDia[]
+  /** Quién es cada persona de `filas` (la tabla «Por persona»). */
+  personas: PersonaDelUso[]
   /** El principio de la actividad del negocio (el «All Time» del rango). */
   inicio: string
 }
@@ -60,6 +66,7 @@ export const CustomerUsageView = ({
   filas,
   tabs,
   ia,
+  personas,
   inicio,
 }: CustomerUsageViewProps) => {
   const { interval, desde, hasta } = useCustomerMetricsParams(inicio)
@@ -68,6 +75,12 @@ export const CustomerUsageView = ({
   const uso = useMemo(
     () => usoDelNegocio(filas, tabs, ia, desde, hasta, interval),
     [filas, tabs, ia, desde, hasta, interval],
+  )
+
+  // «Por persona» (F169, 18/11/2026): las mismas filas y el mismo rango que la tabla de las tabs, sumadas por quién las abrió.
+  const porPersona = useMemo(
+    () => usoPorPersona(filas, tabs, personas, desde, hasta),
+    [filas, tabs, personas, desde, hasta],
   )
 
   const tableRows = useMemo(() => {
@@ -211,6 +224,72 @@ export const CustomerUsageView = ({
               },
             ]}
           />
+          {porPersona.length > 0 && (
+            <Box flexDirection="column" rowGap="m">
+              <Text variant="heading-xxs" as="h3">
+                Por persona
+              </Text>
+              {/* Las columnas son las de la tabla de arriba, con la persona como la dibuja Members (MembersSection.tsx). */}
+              <DataTable
+                isLoading={false}
+                data={porPersona}
+                columns={[
+                  {
+                    header: 'Persona',
+                    accessorKey: 'nombre',
+                    size: 240,
+                    cell: ({ row: { original } }) => (
+                      <Box alignItems="center" gap="m">
+                        <Avatar className="h-8 w-8" name={original.nombre} avatar_url={original.cara} />
+                        <Box flexDirection="column" minWidth={0}>
+                          <Text truncate>{original.nombre}</Text>
+                          {original.email && (
+                            <Text color="muted" truncate>
+                              {original.email}
+                            </Text>
+                          )}
+                        </Box>
+                      </Box>
+                    ),
+                  },
+                  {
+                    header: 'Uso',
+                    accessorKey: 'pantallas',
+                    size: 130,
+                    cell: ({ row }) => <span>{unidadTxt(row.original.pantallas, 'pantallas')}</span>,
+                  },
+                  {
+                    header: 'Acciones',
+                    accessorKey: 'acciones',
+                    size: 100,
+                    cell: ({ row }) => <span>{row.original.acciones.toLocaleString('es-AR')}</span>,
+                  },
+                  {
+                    header: 'Más usada',
+                    accessorKey: 'masUsada',
+                    size: 160,
+                    cell: ({ row }) =>
+                      row.original.masUsada ? (
+                        <span>{row.original.masUsada}</span>
+                      ) : (
+                        <span className="dark:text-polar-500 text-gray-500">—</span>
+                      ),
+                  },
+                  {
+                    header: 'Último uso',
+                    accessorKey: 'ultimo',
+                    size: 120,
+                    cell: ({ row }) =>
+                      row.original.ultimo ? (
+                        <FormattedDateTime datetime={`${row.original.ultimo}T12:00:00`} />
+                      ) : (
+                        <span className="dark:text-polar-500 text-gray-500">—</span>
+                      ),
+                  },
+                ]}
+              />
+            </Box>
+          )}
         </>
       )}
       {medido && (

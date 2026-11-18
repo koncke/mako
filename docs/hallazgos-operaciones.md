@@ -7,6 +7,138 @@ del código.
 
 ---
 
+## «Automático» por fase: un chat no se cambia el modelo solo, y el consumo es de la CUENTA (18/11/2026)
+
+**Vive en:** `lib/centro-cuentas.ts` (`vaPorFase`, `comoCorreDelEnvio`: la regla) · `lib/operaciones-reglas.ts` (`porFase`
+firmado, `sanearConsumo`) · `lib/centro-uso.ts` (`gastoPorFase`, `compararConsumo`) · `scripts/operaciones/cartero.mjs` 1.28.0
+(`comoCorre`, `lineasDeFase`, `fase <id> ejecutar` → `pasarAEjecutar`, `anotarConsumo`, `cierre`) · `ver_pedidos_operaciones`
+(`consumo` y `comparacion`) · tests/ops-center-por-fase.test.ts y el diferencial de tests/operaciones.test.ts.
+
+**El pedido** (Aaron por Martín, ticket 876825880-11, 28/10/2026): «Sonnet para explorar, Opus para ejecutar, midiendo el
+consumo antes y después». Hasta hoy «Automático» no tocaba el modelo (17/10).
+
+**Lo que no se deduce del código:**
+
+- **Un pedido no dice en qué fase está, así que la regla es la más simple que se puede escribir:** todo «Automático» a un chat
+  de la app arranca explorando con Sonnet (leer, buscar, medir, armar el plan, sin cambiar archivos); EJECUTAR lo declara el
+  CHAT, corriendo `cartero.mjs fase <id> ejecutar` antes de su primer cambio. Lo que se contesta leyendo termina en Sonnet.
+  Si Martín quiere otra frontera (por ejemplo «un pedido corto no pasa nunca a Opus»), se cambia en `lineasDeFase`.
+- **El chat NO se puede cambiar el modelo él mismo** (la app no deja que una sesión «re-precie» su propio turno, medido el
+  17/10): por eso `fase` deja en el buzón un texto FIJO con `modelo: opus` y lo aplica el Runner con su paso b de siempre. El
+  texto del Runner (lib/runner.ts) no cambió: un Runner pegado antes lo hace igual.
+- **El aviso de ejecutar lleva su PROPIO id** (`idDelAvisoDeFase`), nunca el del pedido: un acuse con el id del pedido le
+  pisaría el estado (la misma trampa que el aviso del limbo). Y `fase` lo corre sólo el chat que recibió el trabajo: si la
+  sesión que lo corre se sabe y es otra, se niega (un chat no le pasa a otro a Opus).
+- **No va al Cerebro, ni a un chat de terminal, ni con un Runner de antes de la 1.28.0.** El Cerebro reparte y elige el modelo
+  de los jefes (AGENTS.md, 17/10: «Opus para diseñar… juzgar»); a uno de terminal no se le cambia desde afuera; y uno de antes
+  ignoraría `porFase` mientras el selector dice «Automático · Sonnet → Opus».
+- **El consumo es el de la CUENTA, no el del chat.** Ni la barra de estado ni `get_usage` lo dan por chat. Se guarda la cuota
+  de la cuenta al entregar, al pasar a ejecutar y al cerrar; con otros chats trabajando en la misma cuenta, la diferencia
+  incluye lo de ellos (`NOTA_CONSUMO` lo dice al lado de cada número). Una diferencia sin una medición nueva en el medio, o a
+  través de un reinicio de la ventana de 5 horas, no tiene número: un 0 o un negativo serían inventados.
+- **Un campo nuevo del trabajo firmado se pierde en `mandar.ts` sin un error.** Copiaba el modelo y el esfuerzo campo por
+  campo al `nuevoPayload`, así que el `porFase` que decidía la caja no llegaba a la firma: el selector decía «Sonnet → Opus» y
+  el trabajo salía sin fases, con todos los tests en verde (ninguno pasaba por ahí). Ahora va el `como` entero, y
+  tests/ops-center-por-fase.test.ts («de la caja a la PC») lo fija. El próximo campo: mirar quién arma el payload.
+- **«Antes y después» se lee comparando modos:** cada trabajo entregado anota su consumo (por fase, con modelo elegido o sin
+  tocar), así hay contra qué comparar. La comparación sale en `ver_pedidos_operaciones` (`comparacion`).
+
+**Sin medir:** si la app le pide permiso a Martín cada vez que el Runner cambia el modelo de OTRA sesión (ya figuraba sin medir
+el 17/10, más abajo). Con «por fase» pasa hasta dos veces por trabajo: si pregunta siempre, el Runner se frena esperando. Y el
+costo de la caché: cambiar de modelo relee el contexto sin caché (diseno-centro-de-operaciones.md §5); justo eso es lo que
+la comparación va a mostrar.
+
+**La regla que queda:** lo que se le pide a un chat que cambie de sí mismo y la app no lo deja, se le pide como una línea de
+su mensaje que corre un comando de la PC, y lo ejecuta el Runner por el camino que ya existe; nunca un camino nuevo de la PC
+a la sesión. Y un número de consumo dice de quién es (la cuenta) y no se calcula sin dos mediciones distintas de la misma ventana.
+
+---
+
+## Lo subido que nunca se usó, borrado de noche (18/11/2026, F96)
+
+Dos carpetas guardaban lo que una pantalla sube ANTES de usarlo y nadie lo borraba si la pestaña se cerraba en el medio:
+`operaciones/<ref>` (un adjunto de la caja, antes de firmar el trabajo) y `<ws>/chat-leer/<uuid>` (lo que un chat sube para
+leer). El cron /api/cron/limpieza-colgados borra lo de más de un día.
+
+- ⚠️ **Un adjunto del Ops Center no se borra por la edad sola**: un trabajo firmado puede esperar días en la cola con su chat
+  cerrado, y su adjunto tiene que seguir ahí. Se borra sólo si ningún `operaciones_pedidos.firmado` lo nombra
+  (`barrerSubidasSinFirmar`, lib/operaciones-adjuntos.ts; la regla en lib/subidas-colgadas.ts). **Si no puede preguntar quién lo
+  nombra, no borra.**
+- La pregunta va de a 20 refs por consulta (un `or` de `like`): viaja en la URL de PostgREST.
+- Lo que sigue abierto de los cinco restos de F96, con su motivo: el «⋯» de cada chat del cliente (Renombrar y «Cambiar su
+  muñeco»), el riel «Lo que hizo», retirar /api/mako-doer y derivar `CARTERO_VIVO_MS` del cartero. Están en el informe del
+  18/11 al coordinador.
+
+**Vive en:** `lib/operaciones-adjuntos.ts` · `lib/chat-leer-purga.ts` · `lib/subidas-colgadas.ts` ·
+`app/api/cron/limpieza-colgados/route.ts` · *18/11/2026, nube (F96)*
+## El cron del Runner vencía sin que nada lo dijera, y la guardia lo tapaba midiendo por él (pendiente T6, 18/11/2026)
+
+**Vive en:** `scripts/operaciones/runner-salud.mjs` (`latidoDelCron`, el comando `latido-del-cron`, `cronDelRunner`, `estado` →
+`cron` y `cronVencido`, `alTurno`) · `scripts/operaciones/guardia-runner.md` (el prompt de la guardia). Lo fija
+`tests/runner-salud.test.ts`, probado rompiéndolo (nueve roturas, en dos tandas).
+
+**Síntoma:** el cron de sesión del Runner vence a los 7 días (el del 4/11 vencía el 11/11). Sin cron, el vigía (que corre sólo
+desde el cron) y la medición del Runner se apagan, y **nada lo dice**.
+
+**Por qué el latido no lo cazaba:** el Runner rearma su Monitor cada vez que vence, así que `continuo.latido` sigue fresco y
+`runner.vivo` dice que sí. Y la guardia, al ver `medirYa`, medía por él: el único síntoma (la cuota sin medir) desaparecía.
+
+**El diagnóstico equivocado que circulaba:** 9a949bb07 (6/11) y docs/hallazgos-infra.md dicen resolver «el cron del Runner», y
+arreglaron otra cosa (la guardia apagada se leía como sana). El comentario de `estado` nombraba el cron sin un chequeo.
+
+**Qué quedó:** un script no puede llamar a CronList, así que la vuelta del cron deja una marca. Su PRIMER paso (en el prompt del
+cron de `LEEME-cartero.md`) es `node ~/.claude/operaciones/runner-salud.mjs latido-del-cron`, que escribe
+`~/.claude/operaciones/runner-cron.<cuenta>` sólo si lo corre el chat Runner. `estado` trae `cron` (`al_dia` / `vencido` /
+`sin_dato`) y `cronVencido` (Runner vivo + sin marca en una hora). La guardia lo mira PRIMERO y le avisa al Cerebro una vez cada 2
+horas; el Cerebro recibe en cada turno la línea «EL CRON DEL RUNNER … NO DA UNA VUELTA» con el id del Runner, para pedirle que lo
+rearme (no se abre otro).
+
+⚠️ **La primera versión colgaba la marca de `cartero.mjs medir`, y la revisión adversarial la tumbó:**
+- `medir` falla con la huella de la semana (la app en otra cuenta) y cuando falla `get_usage`: alarmaba con el cron sano.
+- `medir` lo corre también cualquier chat al que el hook le pide medir, el Runner incluido: con el cron muerto, un turno suelto
+  del Runner apagaba la alarma media hora.
+- La cuenta salía del marcador (`cuenta-activa.txt`), que puede decir otra. Ahora sale del entorno del chat (`cuentaDelEntorno`).
+- Media hora era poco: con el Runner ocupado (las caricaturas de Spy) la vuelta se corre. Es una hora.
+
+⚠️ **Sin marca nunca, depende del LEEME:** si `LEEME-cartero.md` no nombra `latido-del-cron`, es un cartero de antes y se calla
+(`sin_dato`); si lo nombra hace más de una hora y no hubo ninguna marca, el cron murió antes de dejarla (`nunca: true`), que es
+justo el caso del título del pendiente.
+
+⚠️ **La segunda revisión adversarial: un Runner recién abierto alarmaba en el acto.** Cuando el Runner anterior murió hace horas,
+el nuevo heredaba su marca vieja (o la falta de marca con el LEEME de días), y el Cerebro recibía «rearmá el cron» mientras lo estaba
+armando. Ahora la marca lleva el chat que la dejó (`{ hora, chat }`; la de antes, la hora sola, se cree por la hora), y la de otro
+chat no le cuenta al Runner de hoy: su reloj arranca la primera vez que se lo ve (`runner-visto.<cuenta>`, estado `nuevo`) y tiene
+la misma hora que cualquier vuelta. **La regla que generaliza: una marca que dice «X corrió» nombra a QUIÉN la dejó, o el
+reemplazo de X hereda el estado del que reemplaza.** Y `latido-del-cron` va SÓLO en el prompt del cron: la vuelta que dispara el
+Monitor sigue viva con el cron muerto, y si marcara, taparía lo que esto mira (lo dice `guardia-runner.md`).
+
+⚠️ **Para que ande en la PC (eso lo hace el Cerebro, no la nube):** copiar `runner-salud.mjs` a `~/.claude/operaciones/`, sumar la
+línea `latido-del-cron` como primer paso del prompt del cron en `LEEME-cartero.md` y rearmar el cron del Runner en el mismo paso, y
+poner el bloque nuevo de `guardia-runner.md` en la tarea `runner-guardia-<cuenta>` de cada cuenta.
+
+## Las funciones del cartel del limbo, sin pantalla: se borraron, y el aviso al Cerebro mandaba a un cartel que no existe (pendiente T5, 18/11/2026)
+
+**Vive en:** `lib/centro-limbo.ts` (quedan las constantes del vencimiento y `haceCuanto`) · `lib/limbo-al-cerebro.ts` y su copia en
+`scripts/operaciones/cartero.mjs` (`mensajeLimbo`) · `scripts/tickets.ts` (`mensaje`). Lo fijan `tests/centro-limbo.test.ts` y
+`tests/limbo-al-cerebro.test.ts`.
+
+- **Lo que había:** `mensajesEnLimbo`, `queHacer`, `textoDelCartel`, `textoDeVence`, `originalParaReenviar` y `chatsParaMandarle`,
+  más `descartarDelLimboAction` y `descartarDelLimbo`, con cero call sites fuera de los tests desde que Martín sacó el cartel rojo
+  (31/10). Su propio encabezado decía «queda la regla y sus textos, sin pantalla».
+- **El camino elegido fue borrarlas**, no ponerlas en el Uso: Martín vetó el cartel, lo que espera un chat cerrado ya se lo dice
+  el Runner al Cerebro, y una pieza nueva en el Uso es una pantalla que él tiene que ver antes. Lo que se probaba con ellas sobre
+  código vivo (`pedidosSinChatVivo`, `comoEstaElDestino`, `avisosDeLimbo`, `chatRecibe`) se quedó en el test.
+- ⚠️ **El defecto que sí se veía:** el aviso al Cerebro (`mensajeLimbo`) y `tickets.ts mensaje` terminaban en «dile a Martín que te lo
+  mande desde el cartel rojo del Ops Center». El cartel no existe desde el 31/10: el Cerebro mandaba a Martín a buscar un botón
+  que no está (AGENTS.md, «un mensaje honesto también puede afirmar de más»). Ahora dice «para que lo vuelva a escribir en un chat
+  abierto del Ops Center».
+- ⚠️ **Y no «Reenviar», aunque existe (la revisión adversarial):** el «Reenviar» del menú del mensaje (`useCentro.ts`, `reenviar`)
+  firma de nuevo el texto que se ve, y ese texto sale de la columna `texto` de la cola (`listarPedidos` no trae `firmado`). Es lo
+  que la regla de AGENTS.md prohíbe para un mensaje de la cola. **SIN HACER:** que el «Reenviar» de un mensaje propio firme el
+  `firmado` (la guarda `originalParaReenviar` se borró con lo demás: si se arregla, se vuelve a escribir donde corre).
+- **De paso, una guarda ciega:** el test de voseo de ese archivo buscaba `\b(abrí|acá)\b`, que en JavaScript no calza nunca (la
+  tilde final no es letra para `\b`). Ahora usa `marcasDeVoseo`, con una frase voseada que tiene que cazar.
+
 ## Los pendientes se fabrican solos: 73 de 285 ya estaban cerrados, y un «ya está» de una lectura falla un tercio (17/11/2026)
 
 **Vive en:** las listas de pendientes (`docs/pendientes-*.md`, `docs/encargos-*/`, `docs/relevo/*.md`) y las secciones «Sin
@@ -182,7 +314,7 @@ Sin título no se nombra a nadie: va **«Escribe lo que necesitas»**, el mismo 
 - **Un `tsc` acotado en un worktree no ve `NODE_ENV`:** `next-env.d.ts` no se versiona, y sin `node_modules/next/types/global.d.ts` en el `include` da 0 errores donde GitHub da TS2769. Mi primer intento de reproducir el rojo dio verde por eso.
 - **Una mezcla vieja deja JSX huérfano sin chocar:** `PiezasCentro.tsx` había perdido `sinNoticias` y `horaAR` en la rama, y conservaba el renglón que los usaba. Lo vio sólo el `tsc` entero.
 
-**SIN HACER / sin medir:** una entrega real de la guardia con `send_message`; el cambio real de una cuenta a otra; que un chat obedezca el encargo de crear la guardia (las otras cuatro cuentas no la tienen); si la guardia debe mirar también el cron vencido. Detalle en `docs/relevo/runner.md`.
+**SIN HACER / sin medir:** una entrega real de la guardia con `send_message`; el cambio real de una cuenta a otra; que un chat obedezca el encargo de crear la guardia (las otras cuatro cuentas no la tienen); ~~si la guardia debe mirar también el cron vencido~~ (hecho el 18/11/2026: «El cron del Runner vencía sin que nada lo dijera», arriba). Detalle en `docs/relevo/runner.md`.
 
 ---
 

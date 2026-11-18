@@ -10,6 +10,17 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `docs/costos-ia-y-planes.md:725,935` · `app/admin/dev/pricing/modelo.ts:661-705`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 21 — El email de grandfathering a los clientes que ya estaban** (precio y alcance congelados al 09/08/2026, sin decir «ilimitado» nunca). No se mandó: «No hay una línea de grandfathering en ningún lado» (docs/costos-ia-y-planes.md:935; app/admin/dev/pricing/modelo.ts:705). Desde entonces cambiaron los planes (Esencial y Pro) y entraron los MaKo Tokens (15/11). Es lo que se le manda a un cliente real: lo decide Martín.
+
 ## El precio en pesos al dólar blue, una prueba por persona y el monto que se mostró (16/11/2026)
 
 - **El blue NO existía** (la memoria decía «lo hace un cron diario»; medido el 16/11: ni el cron ni la consulta). Ahora:
@@ -3827,8 +3838,11 @@ Dos pendientes de plata del barrido del 7/11 que seguían abiertos. Cada uno, co
   frena de más. Medirlo con claves de prueba (P29).
 - *Las pantallas:* un `sigueAbierto` es un aviso (`ok: false` con el texto) salvo lo `imposible` (Creem), que es siempre y no se muestra
   como error; el chat de MaKo sí lo dice. Si la fila no se pudo volver a abrir, el mensaje no dice «lo dejé como estaba».
-- *Sin hacer:* `anularLinksDeCuota` (la cuota cobrada por otro lado) sólo loguea `sigueAbierto`; `agencia-baja` y los compensadores
-  (`.catch(() => {})`) siguen sin mirar el resultado. Una cuota ya cobrada con su link vivo en Creem sigue pudiéndose pagar dos veces.
+- *Sin hacer:* ~~`anularLinksDeCuota` (la cuota cobrada por otro lado) sólo loguea `sigueAbierto`~~ (18/11/2026: lo manda a los errores
+  de la app, `LinkVivoDeCuotaCobrada`, un ticket por huella para que alguien lo cierre a mano o devuelva el pago; tests en
+  tests/anular-cobro-cierre.test.ts); `agencia-baja` y los compensadores (`.catch(() => {})`) siguen sin mirar el resultado. Los
+  compensadores anulan un link que nunca se le dio a nadie, y `cerrarLinkEnLaPasarela` ya deja su `console.warn`: queda así a propósito.
+  Una cuota ya cobrada con su link vivo en Creem se puede seguir pagando dos veces, pero ahora se ve.
 - *Vive en:* lib/cobros.ts (`anularCobro`, `cerrarLinkEnLaPasarela`) · lib/agencia-cobro.ts · lib/agencia-plan.ts · tests/anular-cobro-cierre.test.ts
   (9 tests, ejecutados contra `lib/cobros.ts` con las pasarelas y la base reemplazadas; probado rompiéndolo).
 
@@ -3873,7 +3887,7 @@ Dos pendientes de plata del barrido del 7/11 que seguían abiertos. Cada uno, co
   ya pagado por el libro (`porMes`), y Código, con `config.desde = 2026-12`, no tiene ninguno; la mensualidad del CRM (238) sigue mandando. La salida: en
   `vistaDeIngresos` (lib/admin-ingresos.ts) pedirle `mensualidadDeAgencia(ag)` a cada agencia **prendida** (`prendidas`) sin mes pagado y armar su
   `ProximoDeSuscripcion` (`siguiente: { fecha: diaLimite(config.desde), usd: actual.totalUsd }`), y que `conElLibro` reemplace la suscripción del CRM desde
-  que se prende el libro. **No lo hice**: toca la lectura de Admin › Overview, es una vista y no mueve plata, y necesita mirarse en pantalla con datos reales.
+  que se prende el libro. ~~**No lo hice**~~ (18/11/2026, hecho: ver «P7: el libro manda en "Por cobrar" desde que se prende», abajo): toca la lectura de Admin › Overview, es una vista y no mueve plata, y necesita mirarse en pantalla con datos reales.
 - **P29 (claves de PRUEBA de Stripe y Mercado Pago), sin medir:** este chat no tiene claves de prueba. Siguen sin medirse los siete puntos de
   hallazgos-planes-y-cobro.md (la `rk_` restringida con `GET /v1/account`, la firma de la `notification_url` de MP, el vencimiento de una preferencia anulada
   con el checkout abierto, el estado de un preapproval al llegar su `end_date`, el PUT del monto, `hosted_invoice_url` en `past_due` y la factura de $0).
@@ -3901,3 +3915,21 @@ reciben el precio. El selector de Costs arranca en «CAC = el precio del plan» 
 **SIN HACER, a propósito:** proyectar que el cliente del Essential se pasa al Pro («el de 47 lo tenemos para que lo prueben»).
 No hay una tasa de paso medida y no se inventa. Está anotado en el comentario de `cacDelPlan`. Cuando haya pauta, el CAC sale de lo
 gastado ÷ los clientes que entran, y se reemplaza ahí.
+
+### P7: el libro manda en «Por cobrar» desde que se prende, no desde su primer pago (18/11/2026)
+
+- *Lo que pasaba:* `conElLibro` reemplaza la mensualidad del CRM con los TRAMOS del libro, y un libro prendido que todavía no cobró ningún
+  mes no tiene tramos. Código (`desde` 2026-12, ningún mes pagado por el libro) seguía en Admin › Overview › «Por cobrar» con lo del CRM:
+  «4/12 US$238», el pago de noviembre cargado a mano más un mes, cuando lo que va a pagar es «5/12 US$426».
+- *Ahora:* `pagosDelLibro` devuelve `prendidasSinHistoria`; el lector (`vistaDeIngresos`) le pregunta a `mensualidadDeAgencia` por cada
+  una (con import dinámico: lib/agencia-mes.ts arrastra el grupo de WhatsApp y el PDF) y arma su próximo cobro con
+  `proximoDelLibroPrendido` (el primer mes desde `desde` sin pagar, con su día límite). `libroSinTramos` (lib/admin-ingresos-reglas.ts) lo
+  pone en «Por cobrar» y saca de ahí la mensualidad del CRM de esa agencia (sólo la que está registrada como su mensualidad: otra cosa
+  que la agencia compró no se toca). El MRR NO cambia: sale de lo pagado. Si la mensualidad no se puede leer, un aviso en Revenue y queda
+  lo de antes (no se inventa nada).
+- ⚠️ *La trampa de la prueba:* el lector REAL del test (`tests/_admin-ingresos-libro-hijo.ts`) ahora corre `mensualidadDeAgencia` sobre el
+  PostgREST de mentira, que no tenía `agencias` ni `agencia_clientes`: daba «Este negocio no es Agency» como aviso. Se sumaron las tablas.
+- *Sin mirar:* Admin › Overview en producción después del deploy (tiene que decir 5/12 US$426 para Código, no 4/12 US$238).
+- *Vive en:* lib/admin-ingresos-libro.ts · lib/admin-ingresos-reglas.ts (`libroSinTramos`, `porCobrarDe`) · lib/admin-ingresos.ts ·
+  tests/admin-ingresos-libro.test.ts (10a-10e, probado rompiéndolo).
+

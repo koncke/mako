@@ -43,9 +43,11 @@ test('2. la cascada avisa al arrancar cada pedido a un proveedor, y Crear lo pas
   assert.match(crear, /const dos = await pasada\(\{[^\n]*alIntentar \}\);/);
 });
 
-test('3. la ruta de editar y la caja: «intento N» desde el segundo, sólo mientras escribe', () => {
-  const ruta = leer('app/api/chat-agent/secuencias/ia/route.ts');
+test('3. el motor de editar y la caja: «intento N» desde el segundo, sólo mientras escribe', () => {
+  // (18/11/2026: el motor vive en lib/flujo-ia-editar.ts; la ruta le pasa su `send` como `alFase`.)
+  const ruta = leer('lib/flujo-ia-editar.ts');
   assert.match(ruta, /alIntento: \(n\) => \{ if \(n > 1\) send\(\{ t: 'fase', fase: 'modelo', intento: n \}\); \}/);
+  assert.match(leer('app/api/chat-agent/secuencias/ia/route.ts'), /editarFlujoConIA\(\{[^\n]*alFase: send \}\);/);
   const stream = leer('app/automations/stream-ia.ts');
   assert.match(stream, /intento: ev\.fase === 'modelo' \? \(ev\.intento \?\? s\.intento \?\? null\) : null,/, 'el intento se queda pegado en la revisión');
   const caja = leer('app/automations/ChatMako.tsx');

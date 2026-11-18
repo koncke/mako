@@ -2500,4 +2500,110 @@ export const BITACORA: Hito[] = [
       'tests/pregunta-para-martin.test.ts (8) y tests/ops-center-por-tab.test.ts (6) — 28 roturas en rojo y una neutra en verde',
     ],
   },
+  {
+    fecha: '18 nov', hora: '12:00', chat: 'Construir pendientes (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por la sesión de la nube que trabaja «Lo que falta construir» de docs/pendientes-verificados-17-11.md, en una punta por área.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '12:30', chat: 'Construir pendientes (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'Grupo de la app: cada parte de un aviso queda atada a su mensaje de WhatsApp',
+    puntos: [
+      '**Un aviso en varias partes ya no mezcla los mensajes:** si una parte no dejaba burbuja en el hilo de la app (un texto vacío), el id de WhatsApp de la parte siguiente se ataba a la burbuja equivocada, y una cita o una reacción de WhatsApp caía en otra burbuja.',
+      '**Vale para los cinco envíos por partes:** los avisos, «Probar en el grupo», los recibos, el PDF de la mensualidad de la agencia y el grupo de SuperAdmin.',
+    ],
+    archivos: [
+      'lib/grupo-reglas.ts — paresFilaWa (empareja por parte) · lib/grupo-app.ts — Copia.porParte y atarIdsDeWhatsApp',
+      'tests/grupos-ops-espejo.test.ts — la copia real contra la base de mentira; con el emparejamiento de antes, 13/1',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '01:00', chat: 'Traba (nube)', sesion: 'cli_6ab6e94e-8cd3-5fa9-a736-713a1fc58542', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes: la sección «Traba otra cosa»',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó con el encargo de la sesión: los 13 de «Traba otra cosa» de docs/pendientes-verificados-17-11.md, en su orden, refutando cada uno contra main antes de tocarlo, y lo que no esté hecho, con un test que lo reproduzca.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '01:35', chat: 'Traba (nube)', sesion: 'cli_6ab6e94e-8cd3-5fa9-a736-713a1fc58542', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'El Runner avisa cuando su cron dejó de correr, y el aviso al Cerebro ya no manda a un cartel que no existe',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El cron del Runner que vence ya no pasa en silencio:** cuando el Runner sigue latiendo pero su cron no corre (no mide la cuota ni corre el vigía), el Cerebro lo recibe en cada turno con el pedido de rearmarlo, y la guardia se lo avisa.',
+      '**Un Runner recién abierto tiene su hora para armar el cron:** no hereda la marca vieja del Runner anterior, así que no salta la alarma mientras se está armando.',
+      '**Lo que espera un chat cerrado:** el aviso al Cerebro le decía que te pidiera reenviarlo «desde el cartel rojo», que sacaste el 31/10. Ahora le dice que te pida volver a escribirlo en un chat abierto.',
+      '**Limpieza:** se borraron las funciones del cartel que ninguna pantalla usaba.',
+      'Para que corra en la PC faltan las copias del cartero, de runner-salud, la línea del latido en el cron del Runner y el prompt de la guardia: las hace el Cerebro.',
+    ],
+    commits: [{ sha: '0f0bf08a', msg: 'Pendientes «Traba otra cosa»: T6, T5, T11 y T12 cerrados con test; los otros nueve, con su estado de hoy', lineas: 985, archivos: 30 }],
+    archivos: [
+      'scripts/operaciones/runner-salud.mjs — latido-del-cron, cronDelRunner, estado (cron, cronVencido), alTurno · scripts/operaciones/cartero.mjs — mensajeLimbo',
+      'scripts/operaciones/guardia-runner.md — el prompt de la guardia con cronVencido',
+      'lib/centro-limbo.ts, app/admin/operaciones/acciones.ts, lib/operaciones.ts — lo del cartel, borrado · lib/limbo-al-cerebro.ts, scripts/tickets.ts — el texto nuevo',
+      'tests/runner-salud.test.ts (9 roturas) · tests/centro-limbo.test.ts · tests/centro-estado-pc.test.ts',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '09:00', chat: 'Ops Center', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la tanda de la nube del 18/11 (docs/pendientes-verificados-17-11.md, «Lo que falta construir»).',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '12:20', chat: 'Ops Center', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que la caja subió y nunca se firmó, y lo subido para leer, se borran de noche',
+    puntos: [
+      'F96: el cron /api/cron/limpieza-colgados borra lo de más de un día que nadie usó. Un adjunto de la caja, sólo si ningún trabajo firmado lo nombra (uno que espera en la cola con su chat cerrado queda).',
+      'Siguen abiertos, con su motivo en el informe al coordinador: el «⋯» de cada chat del cliente, el riel «Lo que hizo», retirar /api/mako-doer y derivar CARTERO_VIVO_MS.',
+    ],
+    commits: [{ sha: 'a31cad9e', msg: 'Admin y API de MaKo: sin clientes de prueba, uso por persona, y lo que quedaba colgado se cierra', lineas: 1040, archivos: 33 }],
+    archivos: [
+      'lib/operaciones-adjuntos.ts — barrerSubidasSinFirmar',
+      'lib/chat-leer-purga.ts — barrerLecturasSinLeer',
+      'lib/subidas-colgadas.ts — la regla, pura',
+      'app/api/cron/limpieza-colgados/route.ts — el cron (vercel.json)',
+    ],
+    revisar: '/admin/operaciones',
+  },
+  {
+    fecha: '18 nov', hora: '02:01', chat: 'Ops Center', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ops Center: «Automático» explora con Sonnet, ejecuta con Opus, y mide lo que gasta cada fase',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Automático ahora elige por fase:** a un chat de la app le llega el trabajo con Sonnet para leer y armar el plan; cuando va a cambiar algo, el Runner lo pasa a Opus. El selector lo dice: «Automático · Sonnet → Opus».',
+      '**Si eliges un modelo, manda el tuyo:** no hay fases. El esfuerzo que elijas vale para las dos.',
+      '**El Cerebro no cambia de modelo,** ni un chat de la terminal: a ésos se les entrega como siempre.',
+      '**El gasto queda medido:** cada trabajo guarda cuánto subió el uso de la cuenta al explorar y al ejecutar, y se puede comparar contra los que corren sin fases.',
+    ],
+    commits: [{ sha: 'b75c83f0b', msg: 'Ops Center: «Automático» explora con Sonnet, ejecuta con Opus, y mide el consumo de cada fase', lineas: 613, archivos: 16 }],
+    archivos: [
+      'lib/centro-cuentas.ts — vaPorFase, comoCorreDelEnvio, rotuloAutomaticoModelo · lib/operaciones-reglas.ts — porFase firmado, sanearConsumo',
+      'lib/centro-uso.ts — gastoPorFase, compararConsumo · lib/api-mako/areas/operaciones.run.ts — consumo y comparacion en ver_pedidos_operaciones',
+      'scripts/operaciones/cartero.mjs 1.28.0 — comoCorre, lineasDeFase, fase <id> ejecutar, anotarConsumo, el cierre con el consumo',
+      'app/admin/operaciones/mandar.ts — el `como` entero al payload (copiado campo por campo, el «por fase» se perdía)',
+      'tests/ops-center-por-fase.test.ts (6, 6 roturas en rojo) y el diferencial de tests/operaciones.test.ts',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '06:30', chat: 'Construir pendientes (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ops Center del cliente: el «⋯» de cada chat, con Renombrar y Cambiar su criatura',
+    puntos: [
+      '**Cada chat con MaKo del cliente tiene su «⋯» y su clic derecho**, el mismo menú del Ops Center del super admin: Renombrar y Cambiar su criatura.',
+      '**La criatura elegida se queda**: viaja con la lista y se ve en la fila, en la cabecera y en el teléfono. «Volver al de siempre» la quita.',
+      '**El Cerebro no se toca**: no se renombra y sigue con la estrella de MaKo. Lo de Offer, de antes, de Automations y de los editores se cambia en su tab.',
+      '**Sólo sobre los chats de esa persona, en su negocio**: el de otra persona o de otro negocio contesta que no existe.',
+    ],
+    archivos: [
+      'app/admin/operaciones/PiezasCentro.tsx — MenusCentro recibe `MenuDeChats` (el del super admin, por menuDelCentro; el JSX, el mismo)',
+      'app/second-brain/useChatCliente.ts — el motor del menú del cliente y la criatura elegida en la lista · ChatSecondBrain.tsx — onMenu en la fila',
+      'app/api/mako/chat/route.ts — GET ?sesiones=1 con `munecos`; POST `renombrar` y `criatura` · lib/mako-turno-app.ts — renombrarSesion, ponerMunecoDeSesion',
+      'lib/chat-mako-reglas.ts — idConMenu, conCriaturaElegida · tests/ops-menu-cliente.test.ts (la ruta de verdad con una cookie firmada; 9 roturas en rojo)',
+    ],
+  },
 ];

@@ -28,7 +28,7 @@
 // =============================================================================
 
 import { useState, type ReactNode } from 'react';
-import { ctaDeTope } from '@/lib/plan-esencial-reglas';
+import { ctaDeTope, textoDelTopeSegun } from '@/lib/plan-esencial-reglas';
 import { WS_PARAM } from '@/lib/ws-tab';
 import { useAgenciaAdentro, useClienteDeAgencia, useSuperAdminMira } from './useClienteDeAgencia';
 
@@ -66,4 +66,21 @@ export function CtaPasarAPro({ children }: { children: ReactNode }) {
   }
   // Sin link y sin color de acción: no hay nada que toque él. Dim porque no es un error, es a quién pedírselo.
   return <span style={{ fontWeight: 600, color: 'var(--dim)' }}>{cta.texto}</span>;
+}
+
+/**
+ * EL TEXTO DEL CARTEL, CON LA MISMA DECISIÓN QUE SU LINK (F148, 18/11/2026). El cliente de una agencia leía «Llegaste al tope
+ * de tu plan (1). Pasa a MaKo Pro para tener más.» y al lado «Pídele a tu agencia que te pase a Pro.»: dos cosas distintas.
+ * Todo cartel que dibuja el texto de un tope o de un candado (`textoTope`, `textoSoloPro`, o el `error` que el server armó con
+ * ellos) lo pasa por acá; a él le sale sin la frase de pasar a Pro (`textoDelTopeSegun`, lib/plan-esencial-reglas.ts). Un
+ * texto sin esa frase sale tal cual.
+ */
+export function useTextoDelTope(texto: string): string {
+  const cta = ctaDeTope({ clienteDeAgencia: useClienteDeAgencia(), agenciaAdentroDe: useAgenciaAdentro(), superAdminMira: useSuperAdminMira() });
+  return textoDelTopeSegun(texto, cta);
+}
+
+/** `useTextoDelTope` para dibujar en línea: `<TextoDelTope texto={textoTope(n)} />`. */
+export function TextoDelTope({ texto }: { texto: string }) {
+  return <>{useTextoDelTope(texto)}</>;
 }

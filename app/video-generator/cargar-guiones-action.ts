@@ -21,25 +21,19 @@
 // cargar algo así de desordenado, MaKo lo tiene que ordenar y separar los
 // guiones.»
 
-import { randomUUID } from 'node:crypto';
+// ⚠️ EL ORQUESTADOR VIVE EN lib/guiones-cargar.ts desde el 18/11/2026 (pendiente O19, P0-10): estas acciones miran la
+// sesión de la cookie (`ctx()`) y llaman a lib, la MISMA implementación que usa la API de MaKo por WhatsApp y por HTTP
+// (`cargar_guiones_anuncio`, lib/api-mako/areas/contenido.run.ts). Lo que hace cada una es lo de siempre.
+
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
-import { getRazones, setRazones, type RazonCelda } from '@/lib/razones';
-import { separarGuiones, type GuionSeparado } from '@/lib/guiones-separar';
-import { huellaGuion } from '@/lib/guiones-normalizar';
-import { estructurarGuion } from '@/lib/guion-estructurar';
+import { getRazones, setRazones } from '@/lib/razones';
 import { archivoATexto, puedeLeerse, porQueNoPuedo, MAX_ARCHIVO_BYTES } from '@/lib/archivo-a-texto';
-import { resolverLink, htmlATexto, pareceLogin } from '@/lib/texto-de-link';
-import { validarDestino } from '@/lib/landing-fetch';
-import { fetchSeguro } from '@/lib/fetch-seguro';
+import {
+  previoCarga, cargarGuiones, textoDeLink,
+  type PrevioCarga as PrevioCargaLib,
+} from '@/lib/guiones-cargar';
 
-/** La celda donde caen los guiones que el cliente trajo. */
-const CELDA_PROPIOS = 'guiones-propios';
-
-export type PrevioCarga = {
-  guiones: GuionSeparado[];
-  /** Cuántos ya estaban guardados, comparando el texto con lo que hay. */
-  yaEstaban: number;
-};
+export type PrevioCarga = PrevioCargaLib;
 
 export type CargarOut =
   | { ok: true; cargados: number; salteados: number }
@@ -54,120 +48,27 @@ async function ctx(): Promise<{ ok: true } | { ok: false; error: string }> {
 }
 
 /**
- * Normaliza para COMPARAR con lo ya guardado. Nunca para escribir.
- *
- * Es la MISMA huella que usa el resto del flujo (`huellaGuion`), y eso importa:
- * ignora los rótulos de sección. Cuando MaKo ordena un guion le agrega GANCHO /
- * HISTORIA / CTA, así que con una huella que los contara, volver a cargar el
- * mismo archivo lo guardaría de nuevo como si fuera otro — y el banco de guiones
- * se llenaría de copias del mismo texto con distinto formato.
- */
-const huella = huellaGuion;
-
-/**
- * Qué se va a cargar, ANTES de cargarlo.
- *
- * Se mira primero y se confirma después a propósito: pegar un archivo entero y
- * que aparezcan siete guiones sin haberlos visto es cómo se llena el banco de
- * basura que después nadie borra. El momento de mirarlo es antes de que valga.
+ * Qué se va a cargar, ANTES de cargarlo (lib/guiones-cargar.ts → `previoCarga`). Se mira primero y se confirma después a
+ * propósito: pegar un archivo entero y que aparezcan siete guiones sin haberlos visto es cómo se llena el banco de basura.
  */
 export async function previoCargaAction(crudo: string): Promise<{ ok: true; previo: PrevioCarga } | { ok: false; error: string }> {
   const c = await ctx();
   if (!c.ok) return c;
-
-  const guiones = separarGuiones(crudo);
-  if (guiones.length === 0) {
-    return { ok: false, error: 'No encontré ningún guion en ese texto. ¿Está muy corto?' };
-  }
-
-  const celdas = await getRazones();
-  const existentes = new Set(
-    celdas.flatMap((c2) => c2.guiones ?? []).map((g) => huella(g.texto)),
-  );
-
-  return {
-    ok: true,
-    previo: { guiones, yaEstaban: guiones.filter((g) => existentes.has(huella(g.texto))).length },
-  };
+  return previoCarga(crudo);
 }
 
 /**
- * Guarda los guiones elegidos.
+ * Guarda los guiones elegidos (lib/guiones-cargar.ts → `cargarGuiones`: los ordena con la IA y los guarda en «Guiones
+ * propios», sin repetir los que ya estaban).
  *
- * @param indices cuáles de los que devolvió el previo se cargan. Se pasan por
- *   índice y no por texto: el texto puede tener miles de caracteres y viajaría dos
- *   veces por la red para nada.
+ * @param indices cuáles de los que devolvió el previo se cargan. Se pasan por índice y no por texto: el texto puede tener
+ *   miles de caracteres y viajaría dos veces por la red para nada.
  */
 export async function cargarGuionesAction(crudo: string, indices: number[]): Promise<CargarOut> {
   const c = await ctx();
   if (!c.ok) return c;
-
-  const encontrados = separarGuiones(crudo);
-  const elegidos = indices
-    .map((i) => encontrados[i])
-    .filter((g): g is GuionSeparado => !!g);
-
-  if (elegidos.length === 0) return { ok: false, error: 'No elegiste ningún guion.' };
-
-  const celdas = await getRazones();
-  const existentes = new Set(celdas.flatMap((x) => x.guiones ?? []).map((g) => huella(g.texto)));
-
-  // Los que ya estaban NO se vuelven a guardar. Es la última red: el previo ya los
-  // marcó, pero entre que se miró y se confirmó pudo entrar otro por otro lado.
-  const nuevos = elegidos.filter((g) => !existentes.has(huella(g.texto)));
-  const ahora = Date.now();
-
-  // ── MaKo los ORDENA antes de guardarlos ───────────────────────────────────
-  // El texto ya viene limpio de `separarGuiones` (sin markdown, sin líneas en
-  // blanco de más). Lo que falta es la estructura: los rótulos GANCHO / HISTORIA
-  // / CTA en su propia línea, que es el contrato con el que el resto de la app
-  // lee un guion — la UI lo corta en tarjetas por esas líneas y el planificador
-  // de tomas las usa para saber qué parte es el gancho.
-  //
-  // Va en PARALELO porque son llamadas independientes y un archivo con cinco
-  // guiones esperaría cinco veces de más si fueran en fila.
-  //
-  // Y si el modelo no contesta, o contesta algo que no pasa la validación, el
-  // guion se guarda igual sin rótulos: `estructurarGuion` devuelve null y no
-  // lanza. Cargar los guiones propios no puede depender de que haya IA
-  // disponible — sería cambiar «entran sin revisión» por «entran si hay cuota».
-  const ordenados = await Promise.all(
-    nuevos.map(async (g) => ({ g, orden: await estructurarGuion(g.texto).catch(() => null) })),
-  );
-
-  const items = ordenados.map(({ g, orden }) => ({
-    id: randomUUID(),
-    anguloId: '',
-    // El título que traía el archivo. Es lo que después distingue un guion de otro
-    // en la lista, así que si no traía uno se dice — no se inventa.
-    anguloNombre: g.titulo || 'Cargado por mí',
-    texto: orden?.texto ?? g.texto,
-    creadoEn: ahora,
-    estado: 'borrador' as const,
-    estructuraId: orden?.estructuraId ?? '',
-    estructuraNombre: orden?.estructuraNombre ?? '',
-  }));
-
-  const iCelda = celdas.findIndex((x) => x.id === CELDA_PROPIOS);
-  if (iCelda >= 0) {
-    celdas[iCelda] = { ...celdas[iCelda], guiones: [...(celdas[iCelda].guiones ?? []), ...items] };
-  } else {
-    const celda: RazonCelda = {
-      id: CELDA_PROPIOS,
-      avatarId: '',
-      nombre: 'Guiones propios',
-      descripcion: 'Los que cargaste tú, sin pasar por la revisión de MaKo.',
-      copy: '',
-      guiones: items,
-      imagenUrl: '',
-      anguloImagen: '',
-      anguloVideo: '',
-    };
-    celdas.push(celda);
-  }
-
-  await setRazones(celdas);
-  return { ok: true, cargados: items.length, salteados: elegidos.length - items.length };
+  const r = await cargarGuiones(crudo, indices);
+  return r.ok ? { ok: true, cargados: r.cargados, salteados: r.salteados } : r;
 }
 
 // ── Las otras dos puertas: un archivo y un link ─────────────────────────────
@@ -209,62 +110,14 @@ export async function textoDeArchivoAction(form: FormData): Promise<{ ok: true; 
 }
 
 /**
- * Baja el texto que hay detrás de un link.
- *
- * ⚠️ La URL la escribe el USUARIO, así que pasa sí o sí por `validarDestino`
- * (lib/landing-fetch.ts): bloquea loopback, redes privadas, link-local y CGNAT.
- * Sin eso, pegar `http://169.254.169.254/…` convierte esta acción en la puerta al
- * metadata service de la nube.
+ * Baja el texto que hay detrás de un link (lib/guiones-cargar.ts → `textoDeLink`, que pasa la URL por `validarDestino` y
+ * `fetchSeguro`: la escribe el usuario).
  */
 export async function textoDeLinkAction(crudo: string): Promise<{ ok: true; texto: string; nota?: string } | { ok: false; error: string }> {
   const c = await ctx();
   if (!c.ok) return c;
-
-  const link = (crudo || '').trim();
-  if (!link) return { ok: false, error: 'Pega el link primero.' };
-
-  const { url, tipo, nota } = resolverLink(link);
-
-  const chequeo = await validarDestino(url);
-  if (!chequeo.ok) return { ok: false, error: chequeo.error };
-
-  try {
-    // `fetchSeguro` (lib/fetch-seguro.ts) y no `fetch` + `redirect: 'follow'`: `validarDestino`
-    // de arriba miraba SÓLO el primer salto, y un link que redirige a una IP interna se leía.
-    const res = await fetchSeguro(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MaKoBot/1.0)', Accept: 'text/plain,text/html,*/*' },
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!res.ok) {
-      return { ok: false, error: `El link respondió ${res.status}. ${nota ?? ''}`.trim() };
-    }
-
-    // Tope de 3 MB: un guion no pesa más, y sin tope una página cualquiera puede
-    // traer decenas de megas a la memoria del server.
-    const crudoTexto = Buffer.from((await res.arrayBuffer()).slice(0, 3 * 1024 * 1024)).toString('utf8');
-
-    const esHtml = /^\s*<(?:!doctype|html)/i.test(crudoTexto) || /<body[\s>]/i.test(crudoTexto);
-    const texto = tipo === 'texto-plano' && !esHtml ? crudoTexto : (esHtml ? htmlATexto(crudoTexto) : crudoTexto);
-
-    // Un Doc privado NO devuelve 403: devuelve 200 con la pantalla de acceso. Sin
-    // esto, el usuario vería «lo cargué» sobre el HTML de un login.
-    if (pareceLogin(texto, tipo)) {
-      return {
-        ok: false,
-        error: 'Ese documento pide permiso para abrirse. Compártelo como «cualquiera con el enlace» y vuelve a pegarlo.',
-      };
-    }
-
-    if (texto.trim().length < 40) {
-      return { ok: false, error: 'El link no trajo texto suficiente. ¿Es la dirección correcta?' };
-    }
-
-    return { ok: true, texto, nota };
-  } catch (e) {
-    return { ok: false, error: `No pude abrir el link: ${e instanceof Error ? e.message : 'falló la conexión'}` };
-  }
+  return textoDeLink(crudo);
 }
-
 
 /**
  * Reescribe el texto de un guion.

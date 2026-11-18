@@ -7,6 +7,43 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Cuatro pendientes del teléfono de octubre: las líneas de Chats, las iniciales, las plantillas propias y las hojas (18/11/2026)
+
+**Vive en:** lib/chats-reglas.ts (`opcionesDeCanal`), app/m/chats/ListaChats.tsx, app/m/chats/modelo.ts, app/m/chats/datos.ts,
+app/m/_ui/formato.ts, lib/tarjeta-kanban.ts, app/conocimientos/Compartir.tsx, app/m/image-editor/InicioImagenM.tsx,
+app/m/crm/ficha-bloques.ts, lib/movil-rutas.ts. Los ítems O48, O14, O35 y O2 de docs/pendientes-verificados-17-11.md.
+
+- **Chats: el super admin no podía pasar de su número al de MaKo en el teléfono (O48).** La computadora tiene un renglón por LÍNEA desde
+  el 24/10 (el chip «Canales» fija `canal` y `cuenta`); el teléfono armaba su propia lista con un renglón por CANAL y `cuenta: null`, así
+  que sus dos WhatsApp eran «WhatsApp». **La causa no era el teléfono, era la copia:** las dos listas se escribieron por separado. Ahora
+  las arma una sola función pura, `opcionesDeCanal`, y el server del teléfono manda los renglones ya armados (con TODAS las
+  conversaciones leídas, no sólo las 150 que viajan). Lo fija tests/m-chats-lineas.test.ts.
+  ⚠️ **Y el corte de 150 va DESPUÉS de filtrar por línea** (la revisión de ese mismo día): la lista filtraba sólo las 150 más nuevas que
+  viajan, y el número del renglón cuenta todas las leídas; con las 150 más nuevas de su número, la línea de MaKo decía «3 sin leer» y la
+  lista «Nada en esta bandeja». Ahora viajan las 150 de todas Y las 150 de cada renglón (`filasQueViajan`, app/m/chats/modelo.ts), con
+  lo ya leído; sin un renglón elegido la lista sigue siendo las 150 de todas (`enTope`, `filasDelFiltro`). **Regla:** un número que
+  se dibuja al lado de un filtro y la lista que ese filtro deja tienen que contar sobre el mismo universo.
+- **Las iniciales (O14): la guarda no veía tres formas, y había TRES casos vivos, no uno.** El pendiente nombraba el avatar del teléfono
+  (`inicialesM`: `partes[0][0]`, `slice(0, 2)` y la del email con `trim()[0]`); la guarda nueva (caso 4 de
+  tests/iniciales-con-emoji.test.ts, que barre app/ —con app/m— y lib/) encontró además la tarjeta del kanban de CRM, Clients y Plan
+  (`inicialesDe` de lib/tarjeta-kanban.ts, la misma forma) y la lista de quién ve un curso compartido. ⚠️ **Una letra fuera del plano
+  básico es una LETRA**: «𝐀» (U+1D400) pasa `\p{L}`, así que «sacar lo que no es letra» no protege; ocupa dos unidades. ⚠️ **Lo que NO se
+  marca a propósito**: `[...x][0]` y `Array.from(x)` (cortan por punto de código), `.match(…)?.[0]` y las coordenadas de un gráfico
+  (`pts[0][0]`); un barrido de «todo `[0]` cerca de una mayúscula» daba esos falsos positivos. ServicioVisual (`k.trim()[0]`, una clave
+  ASCII) se arregló en vez de excluirse: da la misma letra y la guarda queda sin lista de excepciones.
+- **Image en el teléfono no mostraba «Tus plantillas» ni «De la comunidad» (O35, parte 2).** Se montó el MISMO hook
+  (`usePlantillasPropias('formato_imagen')`) y la MISMA regla de grupos (`seccionesDeCrear`); la tarjeta es el marco con su rótulo, la
+  pieza que el teléfono ya tenía para una plantilla en blanco. El test MONTA la pantalla en jsdom (tests/_image-movil-propias-hijo.ts).
+  ⚠️ **Para mockear un módulo con `default` y nombrados en un test que carga tsx (CommonJS)**, `mock.module` no deja colgarle nombrados a
+  un `defaultExport` que es una FUNCIÓN («named exports cannot be applied»): el `default` va adentro de un objeto con `__esModule: true`,
+  pasado como `defaultExport` y como `namedExports`. La parte 1 (Video) sigue trabada: el proyecto vive en el navegador.
+- **«En la computadora» (O2): dos cosas eran chicas y se hicieron; cinco no.** (5) Las hojas propias de la ficha se suman al final de las
+  piezas del teléfono (`piezasDelTelefono(…, efectiva.hojas)`): la computadora las dibuja en todo lead del funnel. (6) Strategy y Offer
+  Playbook pasan de `EN_CAMINO` «sin dueño» a `SOLO_ESCRITORIO`: **«en camino» es sólo mientras un chat la escribe**, y nadie lo hacía.
+  Quedan: (1) conectar una integración (el modal de escritorio en una hoja: pegar una clave y el OAuth de Meta), (2) las pistas del
+  Video Editor (texto, efectos, audio, subtítulos, «Editar con IA»: los paneles de la línea de tiempo de OpenCut), (3) crear y analizar
+  una landing (el editor del Web Generator), (4) cobrar con link desde la ficha (la pasarela; plata: va con su revisión).
+
 ## El Ops Center del teléfono como WhatsApp: cada chat a pantalla completa y el grupo arriba (13/11/2026)
 
 **Síntoma (medido en producción el 3/11, ws3, 390×844):** la conversación con MaKo era una hoja con asa y ✕ que dejaba ver la página

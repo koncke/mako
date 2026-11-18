@@ -43,18 +43,18 @@ const tarjetas = (id: string): string[] => (pasosDePlantilla(plantillaPorId(id)!
 test('La alerta de Meta del cliente de una agencia llega al grupo de la agencia, con su nombre, y nunca al suyo', () => {
   assert.deepEqual(R.natalia.grupos, [AGENCIA], 'es el pedido entero');
   assert.equal(R.natalia.llegaron, 1, 'el techo cuenta los que llegaron: sin esto vuelve a avisar cada hora');
-  assert.match(R.natalia.texto, /La cuenta publicitaria de \*Natalia\* está \*EN PERÍODO DE GRACIA\*/, 'sin el nombre, la agencia recibe una alarma que no puede accionar');
+  assert.match(R.natalia.texto, /Meta no pudo cobrar la cuenta publicitaria de Natalia\*/, 'sin el nombre, la agencia recibe una alarma que no puede accionar');
   assert.match(R.natalia.texto, /https:\/\/mako\.test\/partners/);
   assert.doesNotMatch(R.natalia.texto, /\{\{|integraciones/, 'el link de integraciones sería el de la propia agencia');
   assert.equal(R.nataliaFeed, 0, 'tampoco en la campanita ni en el push de la cliente');
   assert.deepEqual(R.agenciaFeed, ['meta-cuenta-frenada-agencia']);
   assert.deepEqual(R.nataliaVolvio.grupos, [AGENCIA], 'el «ya está» tiene que seguir a la alerta');
-  assert.match(R.nataliaVolvio.texto, /\*Natalia\* volvió a la normalidad/);
+  assert.match(R.nataliaVolvio.texto, /La cuenta publicitaria de Natalia volvió a estar en orden\*/);
 });
 
 test('Quien no es cliente de una agencia aprobada lo sigue recibiendo en su grupo', () => {
   assert.deepEqual(R.directo.grupos, ['30@g.us']);
-  assert.match(R.directo.texto, /Tu cuenta publicitaria está \*EN PERÍODO DE GRACIA\*/);
+  assert.match(R.directo.texto, /Meta no pudo cobrar tu cuenta publicitaria\*/);
   assert.deepEqual(R.directoVolvio.grupos, ['30@g.us']);
   assert.deepEqual(R.revocado.grupos, ['32@g.us'], 'una agencia que ya no lo lleva no tiene por qué enterarse');
   assert.deepEqual(R.pendiente.grupos, ['33@g.us'], 'una pendiente todavía no entra a su cuenta');

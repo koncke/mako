@@ -386,4 +386,77 @@ export const BITACORA: Hito[] = [
       'docs/relevo/nube-metodologia.md → «7» — lo medido',
     ],
   },
+  {
+    fecha: '18 nov', hora: '02:10', chat: 'De octubre (nube)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chequeo de tipos del push ya no frena a la PC entera esperando memoria',
+    puntos: [
+      'Cuando el chequeo completo no tiene memoria, el push revisa los tipos en tres partes. Entre una parte y otra se quedaba con el turno de la PC hasta 15 minutos, esperando memoria, y nadie más podía chequear nada.',
+      'El arreglo del 29/10 lo hacía sólo para la primera parte. Ahora, si no hay memoria, suelta el turno, espera sin frenar a nadie y vuelve a la fila.',
+      'El test de antes comparaba el orden de dos líneas del código y daba verde con el problema adentro. El nuevo corre el chequeo de verdad, con otros procesos pidiendo el mismo turno y la pausa del Cerebro prendida.',
+      'Queda igual, a propósito: el chequeo completo de la emergencia a main todavía espera la memoria con el turno tomado (scripts/typecheck-lock.mjs).',
+    ],
+    commits: [
+      { sha: 'ad892bf9d', msg: 'El chequeo de tipos del push ya no se queda con el turno de la PC esperando memoria (O26)', lineas: 381, archivos: 5 },
+    ],
+    archivos: [
+      'scripts/tipos-respaldo-push.mjs — tandasConTurno: mira la memoria con el turno, lo suelta si no alcanza',
+      'tests/tipos-respaldo-push.test.ts — corre main con un lock de verdad y procesos que piden el turno',
+      'docs/hallazgos-infra.md → «El respaldo de tipos del push seguía esperando RAM con el turno tomado»',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '02:25', chat: 'De octubre (nube)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La prueba de carga que se le prometió a Teo: cuánto tardan las pantallas con mucha gente a la vez',
+    puntos: [
+      'Un comando pide la misma pantalla muchas veces a la vez y dice cuánto tardó la mitad, el 95 y el 99 de cada cien, y cuántas fallaron y por qué.',
+      'Sólo corre contra la máquina propia. Para la app de verdad hay que pedirlo con una bandera explícita, y tiene topes: 20 a la vez y 2.000 en total.',
+      'Antes de arrancar dice cuánto va a pedir, y la sesión que se le pasa no se muestra nunca.',
+      'El Plan y el Dashboard leían de a una cosas que no dependen una de la otra: ahora van juntas, y se lee lo mismo que antes.',
+      'Falta medirlo en producción, con el visto bueno de Martín: la cifra de «el Dashboard tarda 4-6 s» es de antes del cambio de región.',
+    ],
+    archivos: [
+      'scripts/prueba-de-carga.mjs — la carga, el plan y el rechazo a producción',
+      'tests/prueba-de-carga.test.ts — lo puro y la carga de verdad contra un servidor local',
+      'app/plan/page.tsx y app/dashboard/page.tsx — las lecturas independientes, juntas',
+      'tests/plan-lecturas-juntas.test.ts — corre la página del Plan y mira qué lectura espera a cuál',
+      'docs/hallazgos-infra.md → «La prueba de carga que se le prometió a Teo»',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '—', chat: 'Lo que falta construir (nube)', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes verificados del 17/11',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: ['Llegó por el coordinador de la nube, repartido en lotes. Éste es el de documentación y del registro de /admin/dev: F128, F20, F22 y F99 de docs/pendientes-verificados-17-11.md.'],
+  },
+  {
+    fecha: '18 nov', hora: '03:50', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La prueba haciendo de usuario se puede repetir: la skill «qa-usuarios»',
+    puntos: [
+      '**El método de los informes del 10 al 13/11** (AI Avatar, Spy, Dashboard, Image, Marketing CoPilot, Video Editor, Web Generator) quedó escrito para repetirlo: las personas, dónde se escribe y dónde sólo se mira, cómo se captura a 1440 y a 375 y el formato del informe.',
+      '**Mirar, no leer:** cada pantalla con su captura, al lado de su referencia; una pantalla vacía en producción es una falla.',
+      '**Lo que no se hace en producción**, en una lista: escribir fuera del negocio de prueba, compartir, cambiar el plan, gastar plata, mandarle algo a una persona real, el Chrome con la sesión de un cliente.',
+      '**Faltan recorrer así** CRM, Automations, Plan, Ads Manager, Copywriting, Offer, Classroom, Ops Center, Calendario, Email y Cobranza: se hace con el navegador de la app y la sesión de Martín, no desde la nube.',
+    ],
+    archivos: [
+      '.claude/skills/qa-usuarios/SKILL.md — el método',
+      'docs/pruebas/dashboard-10-11.md — el informe que sirve de molde · docs/hallazgos-pruebas.md — las trampas del navegador',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '03:50', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Los pendientes del estado del arte de agosto, medidos: 14 ya estaban cerrados y 28 se repartieron a su área',
+    puntos: [
+      '**De los 42 pendientes sin tachar**, 14 estaban cerrados o ya no aplicaban (las vistas de cohortes, el WhatsApp oficial que ya se borró, la purga del agente, el contrato de las tablas, la guarda de wpm…) y se tacharon con dónde quedaron.',
+      '**Los otros 28 se repartieron** al documento de hallazgos de cada área, con lo que falta y quién lo decide.',
+      '**Una falsedad que quedó a la vista:** el reset del negocio de prueba avisa que no puede vaciar las notificaciones ni los borradores de campañas, y ya las vacía.',
+      'Además quedaron anotados los hitos que faltaban del Dashboard (6/11) y del recorrido visual, y que Admin también pliega la barra.',
+    ],
+    archivos: [
+      'docs/estado-del-arte.md — la lista, tachada y repartida',
+      'docs/hallazgos-<área>.md — «Pendientes que venían de docs/estado-del-arte.md (18/11/2026)», en 15 documentos',
+      'docs/diseno-sidebar.md · AGENTS.md · docs/relevo/sidebar.md — Admin pliega la barra',
+    ],
+  },
 ];

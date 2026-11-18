@@ -1,5 +1,14 @@
 # La sidebar nueva (17/10/2026)
 
+> **6/11/2026 (escrito el 18/11): Admin también pliega la barra.** Las pantallas que pliegan la barra de MaKo al entrar son
+> tres familias, y lo decide UNA función, `pliegaLaBarra` (app/_components/Sidebar.tsx): el **Ops Center** (/second-brain y
+> /admin/operaciones, 20/10), **Automations** (/automations, 23/10) —las dos en `RUTAS_QUE_PLIEGAN`— y **Admin** (/admin
+> exacto y /admin/<sección> de `SECCIONES_ADMIN`, nav.ts: customers, analytics, sales, products, finance y settings; commit
+> c2b284487, punto 37 de docs/admin/revision-cerebro-6-11.md), porque la copia de Polar trae su propia barra y con las dos
+> fijas a 1440 se comían 468 px. Las otras tabs del super admin bajo /admin (/admin/dev, /admin/ui, /admin/approvals…) **no**
+> pliegan. Una sección nueva de Admin se suma a `SECCIONES_ADMIN` (y pliega sola); una pantalla nueva que necesite el ancho,
+> a `RUTAS_QUE_PLIEGAN`. Como en el Ops Center, la flecha la abre ahí sin tocar lo elegido para las demás tabs.
+
 > **21/10/2026: la ventana chica.** Por debajo de 1200 px de ancho la barra arranca plegada a íconos (se abre encima al
 > pasar el cursor; la flecha la fija ahí sin tocar la preferencia guardada), igual que al entrar al Ops Center. El
 > molde de ajustes y el modal de un servicio se angostan en el mismo corte. Medido contando en docs/hallazgos-ui.md.

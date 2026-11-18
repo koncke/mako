@@ -43,6 +43,7 @@ import {
   type Stage,
   type StageBand,
   type FunnelTransition,
+  type EntradaId,
   esTerminal,
   etapasVisibles,
   MAX_LABEL_ETAPA,
@@ -105,7 +106,8 @@ import { senalesAOfrecer, hayAlgoQueOfrecer, asistenciaImplicita } from './senal
 // La misma pieza que usan las fichas: los dos toques de Meta viven en UN lugar.
 import { SenalesMetaChips } from './MoverEtapaConfirm';
 import { coincideBusqueda } from '@/lib/buscar-texto';
-import { arrobaInstagram, linksDeInstagramComoArroba } from './campo-inline';
+import { linksDeInstagramComoArroba } from './campo-inline';
+import { CAMPOS_LEAD_POR_DEFECTO, camposDelLead, type CampoLead } from './buscar-leads';
 import type { FunnelResumen } from '@/lib/funnel-fila';
 import { LogoMeta } from '@/app/_components/ServicioVisual';
 import { openCalendlyEn } from './calendly-widget';
@@ -141,7 +143,7 @@ import { ReunionesParaPreparar, type ReunionParaPreparar } from './TarjetaReunio
 import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLoteLeads';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
-import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
+import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, ofreceAsignarFuentes, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
 import { cuantasDibujar, TANDA_COLUMNA } from './columna-por-tandas';
 import { publicarLeadAbierto } from './lead-abierto';
@@ -493,6 +495,7 @@ export function CrmBoard({
   abrirEmbudo = null,
   abrirImportar = false,
   funnelActivo = null,
+  entradasFunnel = null,
   ordenManual = {},
   cursoAlGanar = null,
   partners = false,
@@ -542,6 +545,8 @@ export function CrmBoard({
   abrirImportar?: boolean;
   /** null = el funnel del negocio (sin `?funnel=` en la URL). */
   funnelActivo?: number | null;
+  /** Cómo entra la gente a ESTE funnel (su tipo, `tipoDeFunnel`): en uno de Prospección no se ofrece «Asignar fuentes». */
+  entradasFunnel?: EntradaId[] | null;
   /** El orden que se armó arrastrando tarjetas en este embudo: etapa → leads (mig 0200). */
   ordenManual?: Record<string, number[]>;
   /**
@@ -578,6 +583,8 @@ export function CrmBoard({
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
   const [activeBands, setActiveBands] = useState<Set<StageBand>>(() => new Set<StageBand>(KANBAN_BANDS));
   const [search, setSearch] = useState('');
+  // Dónde busca la barra (F150): todos los campos, como siempre; la flechita achica (app/crm/buscar-leads.ts).
+  const [camposBusqueda, setCamposBusqueda] = useState<CampoLead[]>(CAMPOS_LEAD_POR_DEFECTO);
   // Multi-selección: el set VACÍO significa "todas" (no hay valor centinela 'todos').
   const [stageFilter, setStageFilter] = useState<Set<string>>(() => new Set());
   const [originFilter, setOriginFilter] = useState<Set<string>>(() => new Set());
@@ -1727,7 +1734,7 @@ export function CrmBoard({
   const matches = (l: CrmLead, salvo?: 'ads') => {
     // Buscar como busca una persona (sin acentos, por palabras sueltas, por #id):
     // la regla vive en lib/buscar-texto, no acá — ver «Una cosa, un lugar».
-    if (!coincideBusqueda([l.id, l.name, l.company, l.email, l.phone, arrobaInstagram(l.instagram)], linksDeInstagramComoArroba(search))) return false;
+    if (!coincideBusqueda(camposDelLead(l, camposBusqueda), linksDeInstagramComoArroba(search))) return false;
     if (stageFilter.size > 0 && !stageFilter.has(effStage(l))) return false;
     if (originFilter.size > 0 && !originFilter.has(l.canal)) return false;
     // El filtro «Anuncio» es UN árbol (campaña › anuncio): pasa la campaña elegida entera O
@@ -2648,7 +2655,7 @@ export function CrmBoard({
       return {
         leadId: null, colKey: c.key,
         ctx: {
-          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', reunion: c.kind === 'reunion', ganado: c.key === 'ganado', tipo: columnaConTipo(c),
+          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', fuentes: ofreceAsignarFuentes(entradasFunnel), reunion: c.kind === 'reunion', ganado: c.key === 'ganado', tipo: columnaConTipo(c),
           // La MISMA condición que el renglón del «⋯» (y su test, tests/crm-curso-al-ganar.test.ts).
           curso: cursoAlGanar && terminalEstadoFor(c.key) === 'ganado' ? cursoPrendido : null,
           borrable: colsBorrables.has(c.key),
@@ -3288,7 +3295,7 @@ export function CrmBoard({
         <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} puedeCrear={!!puedeCrearCrm} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />
         <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
         <>
-          <Buscador value={search} onChange={setSearch} />
+          <Buscador value={search} onChange={setSearch} campos={camposBusqueda} onCampos={setCamposBusqueda} />
           <CrmFilterMenu
             stages={stages}
             etapas={stageFilter} setEtapas={setStageFilter}

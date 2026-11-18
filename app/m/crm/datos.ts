@@ -137,7 +137,8 @@ async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[
   const saldosCrm = await saldosDeCrms(lead);
   // Con una renovación con plata, la pieza del estado de cuenta se ve aunque la casa no tenga nada.
   const verPagos = saldosCrm.length > 0 || tieneDeal({ estado: lead.estado_lead, etapa: pipelineStageOf(lead), cuotas: insumos.pagos.length, planEnLead: planEnLead(lead) });
-  const piezas = piezasDelTelefono(efectiva.tabs, tabsQueVe({ verTracking, verReuniones: tieneEtapaDeReunion(insumos.stages), verPagos }));
+  // Las hojas propias del funnel van después de las tabs (O2, 18/11/2026): en la computadora se ven en todo lead del funnel.
+  const piezas = piezasDelTelefono(efectiva.tabs, tabsQueVe({ verTracking, verReuniones: tieneEtapaDeReunion(insumos.stages), verPagos }), efectiva.hojas);
   let sinMarcar: number | null = null;
   try {
     sinMarcar = (await datosSinMarcarDeLead(lead, insumos)).datos.avisar.length;
@@ -257,6 +258,8 @@ export async function fichaV2(leadId: number): Promise<FichaV2 | null> {
       etapa: casa?.etapa ?? null, hoy: f.hoy, ahoraMs: ahora,
       siguiente: f.siguiente, enEtapa,
       automatizaciones: vistaAuts ? filaDeAutomatizaciones(vistaAuts, (iso) => fechaCorta(iso, f.tz, ahora)) : null,
+      // Con el @ como único canal, el Contacto ya lo dice: «Redes» no lo repite (Martín, 22/10: «si no tiene ese dato…»).
+      instagramEnContacto: !!soloInstagram({ email: lead.email, telefonoNorm: lead.telefono_normalizado, instagram: lead.instagram }),
     }) : null,
     autTono: vistaAuts ? tonoDeAutomatizaciones(vistaAuts) : null,
     // ⚠️ Con el lead ENTERO (`getLead`, select *) y su `telefono_normalizado`, NO con `f.telefono`: ése es `numeroCanonico` y da

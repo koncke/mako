@@ -5,6 +5,51 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `app/api/webhooks/calendly/route.ts` · `lib/metodo-catalogo.ts` (la signing key de Calendly) · `scripts/arreglar-webhook-calendly.ts`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 4 — Calendly, en orden estricto.** La clave única del ws 1 está desde el 19/09. Falta, en este orden y todo en producción: ver entrar una reserva real, borrar la `CALENDLY_WEBHOOK_SIGNING_KEY` del entorno de Vercel, reescribir el paso del catálogo (el campo de la signing key, lib/metodo-catalogo.ts) y borrar la fila que `datos-mau` copió al ws 4 el 16/08. Desde la nube no se mide ninguno.
+## Zernio, tanda C: el video, el Instagram, los ganadores y la aprobación ya no piden el token de Meta (18/11/2026)
+
+**Vive en:** `lib/anuncio-video-leer.ts` (`videoDeAnuncio`) · `app/api/anuncios/video/route.ts` ·
+`app/dashboard/graficos/ReproductorAnuncio.tsx` · `lib/meta-ads-create.ts` (`getInstagramActorId`, `paginasDeGanadores` →
+`ganadoresPorZernio`, `getAdsAprobacionPendiente`, `porTandasZernio`) · `lib/zernio-meta-cuerpo.ts` (`instagramDeLaPagina`,
+`paginaDelAnuncioZernio`) · `tests/meta-zernio-tanda-c.test.ts` (con su hijo).
+
+**Síntoma.** Un negocio que conectó Meta por Zernio (el camino principal desde el 25/10) y no tiene el token de antes no podía ver
+el video de un anuncio en la hoja (el ▶ contestaba «Meta no configurado»), ni saber por la API si un ganador era reusable
+(`verificar_ganadores_reusables`) ni si un anuncio esperaba la aprobación manual (`verificar_aprobacion_meta`): las tres leían
+con el token. `getInstagramActorId` tampoco tenía camino por Zernio.
+
+**Lo que se hizo, SÓLO con endpoints que el repo ya usaba:** el ▶ pide `GET /ads/{id}/media` (el mismo que transcribe) y la
+pantalla dibuja el `.mp4` en un `<video>` en el mismo marco; el Instagram sale de `/ads/instagram-accounts` (el de identidades),
+con la misma regla que por el token (el de SU página, si no el de la cuenta publicitaria); los ganadores, de las páginas de esa
+misma lectura y del post de cada anuncio (`/ads/{id}`); la aprobación, de `anuncioMetaPorZernio` (el anuncio en vivo y su
+`/ads/{id}/review`). Todo pasa por `canalMeta`: si Zernio falla y el negocio conserva el token, se lee por el token de respaldo; un
+negocio sólo con token sigue por la Graph API. Lo que va de a un anuncio por pedido va de a 5 (`porTandasZernio`).
+
+**Lo que NO se hizo, porque el repo no tiene el endpoint con su forma (y no se inventa):**
+- **Crear públicos de interacción** (`createCustomAudience`: página, Instagram, video, píxel). `POST /ads/audiences` está usado
+  sólo para una lista de clientes (`type: customer_list`, lib/retargeting-meta-pedidos.ts); la forma de una regla de interacción
+  o de píxel no está en ningún lado. Sigue por el token.
+- **El alcance** (`alcanceGeo`, `reachestimate`): `docs/relevo/zernio-capi.md` nombra `/ads/targeting/reach-estimate` sin su
+  forma, y además **`alcanceGeo` no tiene ningún llamador** (código muerto desde que se borró el Ads Manager viejo).
+- **Los eventos del píxel** (`listPixelEvents`): la entrada de «CAPI por Zernio, PROBADO el 25/10» (más abajo) nombra
+  `tracking-tags/{id}/stats` (lo usó una medición a mano), sin ruta completa ni forma de la respuesta en el código.
+
+**El diagnóstico obvio era el equivocado.** «El ▶ por Zernio es `/ads/{id}/preview`» (el relevo lo daba como opción) devuelve un
+`<iframe>` por ubicación de Meta, y lib/anuncio-video.ts ya midió que el iframe de vista previa de business.facebook.com contesta
+400 y `X-Frame-Options: DENY` sin sesión. El `.mp4` de `/media` no tiene ese problema: es un archivo, no una página.
+
+**La regla.** Pasar una lectura a Zernio es usar un endpoint cuya forma ya está leída en el repo (un parser con test); si sólo
+está su NOMBRE en un documento, se reporta y se deja por el token.
+
 ## `BotonIntegracion` le pisa la clase al botón: sus estilos «como texto» van EN LÍNEA (11/11/2026)
 
 **Vive en:** `app/_components/ConectarIntegracion.tsx` (`COMO_TEXTO`, `CON_SU_CLASE`). Lo fija `tests/mirada-prod-11-11.test.ts` (caso 8).
@@ -20,6 +65,21 @@ para un link dentro de una frase («Falta conectar ElevenLabs»), y nadie lo vio
 React no escribe esas propiedades). **SIN hacer:** `apr-cargar` (app/admin/approvals/ListaApprovals.tsx), `lk-aviso-hoja__accion`
 (app/dashboard/EditorInforme.tsx) y `tci-api` (app/integraciones/TusCuentasIA.tsx) traen clase y no se miraron: si su CSS dice
 padding o fondo, están igual de pisados. No se cambió el componente porque tiene llamadores que cuentan con el «como texto».
+
+## El 40 siguió en la OTRA cara de la misma tarjeta: la slide del modal (18/11/2026)
+
+**Vive en:** `lib/servicio-slides.ts` (`SLIDES['apify-instagram']`, la slide «Corre con tu cuenta») · la dibuja el carrusel del
+modal de /integraciones (`app/integraciones/IntegracionesBoard.tsx`, `SLIDES[i.key]`). Lo fija `tests/apify-slide-tope.test.ts`.
+
+**Síntoma:** el arreglo del 6/11 (abajo) corrigió la NOTA del campo y la tarjeta seguía diciendo «MaKo no pasa de 40 lecturas por
+día» en su slide: el pendiente F78 de la lista verificada del 17/11. **La causa:** el mismo número vivía escrito a mano en DOS
+archivos, y el arreglo buscó por la clave (`APIFY_INSTAGRAM_TOKEN`), no por el número ni por la tarjeta. Ahora la slide
+interpola `TOPE_LECTURAS_SPY_POR_DIA` y dice «Competitors Spy», no «MaKo»: la misma clave la usa el buscador del alta del CRM con
+su propio tope, así que «MaKo no pasa de N» sería falso con cualquier N.
+
+⚠️ **La regla: al arreglar un número que se le promete al cliente, se busca el NÚMERO en todo lo que dibuja esa tarjeta**
+(`grep -rn "<n> lecturas\|<n> por día" lib app`), no sólo el campo que lo reportó. Una tarjeta de /integraciones tiene al menos
+tres caras: la nota de cada campo (`lib/metodo-catalogo.ts`), su tutorial y sus slides (`lib/servicio-slides.ts`).
 
 ## La tarjeta de Apify le prometía al cliente el tope de OTRA lectura: 40 en vez de 150 (6/11/2026)
 
@@ -1770,8 +1830,10 @@ reconectar.
   propio del negocio y un negocio que sólo conectó por Zernio no lo tiene. Existe `GET /v1/ads/leads?accountId&since=<segundos>` (más nuevo primero, cursor por
   `pagination.cursor`) para un barrido, que además traería `fieldData`, y la regla de lo inmediato (24 h) ya está en `cargarLeadDeZernio`.
 - **Los nombres de campaña, conjunto y anuncio** (punto 4): se pueden resolver por id contra `marketing_metrics_daily`, o desde la API de anuncios de Zernio.
-- **Un fallo DESPUÉS del insert deja el lead sin anunciar:** si `upsertLeadFromMeta` tira al dejar el rastro o al sumarlo a otro funnel, el reintento de Zernio
-  encuentra el lead (`created: false`) y nadie dispara el aviso ni las automatizaciones. Es de la puerta compartida (el webhook de Meta tiene el mismo hueco).
+- ~~**Un fallo DESPUÉS del insert deja el lead sin anunciar:** si `upsertLeadFromMeta` tira al dejar el rastro o al sumarlo a otro funnel, el reintento de Zernio
+  encuentra el lead (`created: false`) y nadie dispara el aviso ni las automatizaciones. Es de la puerta compartida (el webhook de Meta tiene el mismo hueco).~~
+  Cerrado el 18/11/2026 (F117): el anuncio deja su marca en el historial antes de salir, y un reintento sin marca lo anuncia, en las tres puertas
+  (lib/meta-anuncio.ts; docs/hallazgos-crm.md, «Siete pendientes del CRM»).
 - **Sin prueba de punta a punta** (un evento firmado contra un negocio de prueba): ws3 no tiene key de Zernio y no se la pone con código.
 - Tipos: salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
 

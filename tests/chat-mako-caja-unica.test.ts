@@ -101,7 +101,9 @@ test('lo adjuntado viaja LEÍDO y aparte del pedido; queda su nombre en el mensa
   // La ruta: el bloque al modelo (editar y explicar como un extra; crear al final del pedido) y el nombre en el turno.
   const ruta = leer('app/api/chat-agent/secuencias/ia/route.ts');
   assert.match(ruta, /const adjuntos = sanearAdjuntos\(body\.adjuntos\);/);
-  assert.match(ruta, /const extras = \[\.\.\.extrasDelUser\(intencion, historial\), \.\.\.\(adjuntos\.length \? \[bloqueDeAdjuntos\(adjuntos\)\] : \[\]\)\];/);
+  // (Desde el 18/11/2026 el bloque de editar y explicar lo arma el motor, lib/flujo-ia-editar.ts: la ruta le pasa lo adjuntado.)
+  assert.match(leer('lib/flujo-ia-editar.ts'), /const extras = \[\.\.\.extrasDelUser\(intencion, historial\), \.\.\.\(adjuntos\.length \? \[bloqueDeAdjuntos\(adjuntos\)\] : \[\]\)\];/);
+  assert.match(ruta, /editarFlujoConIA\(\{ ws, base, pedido, disparadorActual, respuestas, historial, intencion, adjuntos, /);
   assert.match(ruta, /crearFlujoConIA\(\{ ws, pedido: conAdjuntos\(pedido\),/);
   assert.match(ruta, /await anotar\(\[yo && adjuntos\.length \? \{ \.\.\.yo, adjuntos: adjuntos\.map\(\(a\) => a\.nombre\) \} : yo\]\);/);
   // El control de lo pedido sigue con `pedido` (lo escrito), no con lo adjuntado.

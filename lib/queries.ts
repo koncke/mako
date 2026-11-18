@@ -15,7 +15,6 @@ import { conversorGastoMeta } from './moneda-meta';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
 import { firmadoEnCrms, ventasDeCrms } from './ventas-crm';
 import { listReviewPendientes } from './review-queue';
-import { getSettingNum, getSetting } from './settings';
 import { lunesDeFecha, diasAntes, ayerEnTijuana } from './date-utils';
 import {
   getVslEngagementMap,
@@ -46,6 +45,7 @@ import {
   type RolesComerciales,
 } from './funnel-comercial';
 import { leerTodo, leerPorPaginas, type OrdenPaginado, type ConsultaPaginada } from './supabase-paginado';
+import { contarAltas, leerAltas, diaDeAltaUtc } from './leads-alta';
 import { faltaComprobante } from './pago-comprobante';
 import { mrrDeLaPasarela } from './cobros-reglas';
 import { leerCambiosDeSuscripcion } from './suscripcion-movimientos';
@@ -666,15 +666,16 @@ export type SCLLeadItem = {
  */
 export async function getSCLLeads(): Promise<SCLLeadItem[]> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('leads')
-    .select('id, nombre, fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago')
-    .not('fecha_agenda', 'is', null)
-    .not('fecha_primer_pago', 'is', null);
-  if (error) throw new Error(`getSCLLeads falló: ${error.message}`);
+  type FilaSCL = { id: number; nombre: string | null; fecha_agenda: string; fecha_junta_1: string | null; fecha_junta_2: string | null; fecha_confirmacion: string | null; fecha_primer_pago: string };
+  // Paginado (P20, 18/11/2026): un `.select()` plano cortaba en 1000 leads sin error y el desglose de SCL perdía a los
+  // del final. Orden por `id` (PK); el orden que se muestra (por días, abajo) se aplica en memoria DESPUÉS de leer.
+  const data = await leerTodo<FilaSCL>(
+    supabase, 'leads', 'id, nombre, fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago',
+    { orden: 'id', filtros: (q) => q.not('fecha_agenda', 'is', null).not('fecha_primer_pago', 'is', null) },
+  ).catch((e: unknown) => { throw new Error(`getSCLLeads falló: ${e instanceof Error ? e.message : String(e)}`); });
 
   const out: SCLLeadItem[] = [];
-  for (const r of (data ?? []) as Array<{ id: number; nombre: string | null; fecha_agenda: string; fecha_junta_1: string | null; fecha_junta_2: string | null; fecha_confirmacion: string | null; fecha_primer_pago: string }>) {
+  for (const r of data) {
     const [ay, am, ad] = r.fecha_agenda.split('-').map(Number);
     const [py, pm, pd] = r.fecha_primer_pago.split('-').map(Number);
     const dias = Math.floor((Date.UTC(py, pm - 1, pd) - Date.UTC(ay, am - 1, ad)) / 86400000);
@@ -1349,10 +1350,12 @@ async function enLosFunnels<T extends { id: number }>(filas: readonly T[], funne
  * cada una): van como filas PAGINADAS (el tope de 1000 de PostgREST) y se reparten con `enLosFunnels`.
  */
 async function altasEnFunnels(supabase: Awaited<ReturnType<typeof getTenantDb>>, desde: string, hasta: string, funnels: readonly number[]): Promise<{ entradas: number; ganadas: number }> {
-  const filas = await leerTodo<{ id: number; estado_lead: string | null; created_at: string }>(supabase, 'leads', 'id, estado_lead, created_at', {
-    orden: 'id', filtros: (q) => q.gte('created_at', desde).lte('created_at', hasta),
-  });
-  const en = await enLosFunnels(filas, funnels, (x) => x.created_at.slice(0, 10));
+  // F152 (18/11/2026): por el día en que NACIÓ (un migrado, por su fecha del CRM anterior: lib/leads-alta.ts), no por
+  // el día en que entró a MaKo.
+  const filas = await leerAltas<{ id: number; estado_lead: string | null; created_at: string; fecha_original?: string | null }>(
+    supabase, 'id, estado_lead, created_at', desde, hasta, { orden: 'id' },
+  );
+  const en = await enLosFunnels(filas, funnels, (x) => diaDeAltaUtc(x));
   return { entradas: en.length, ganadas: en.filter((x) => x.estado_lead === 'ganado').length };
 }
 
@@ -1396,14 +1399,14 @@ export async function getFunnelEtapas(
       .select('id, asistio_j1, calificado, estado_lead, fecha_junta_1')
       .gte('fecha_junta_1', start)
       .lte('fecha_junta_1', end),
+    // F152: las altas por el día en que NACIERON (`contarAltas`, lib/leads-alta.ts: un migrado cuenta en su fecha del CRM
+    // anterior, no el día que se migró). Tira si la base no contesta: el `catch` de abajo lo vuelve el mismo error de siempre.
     necesitaEntradas && !conFunnels
-      ? supabase.from('leads').select('id', { count: 'exact', head: true })
-          .gte('created_at', altaDesde).lte('created_at', altaHasta)
+      ? contarAltas(supabase, altaDesde, altaHasta).then((count) => ({ count, error: null }), (e: unknown) => ({ count: null, error: { message: e instanceof Error ? e.message : String(e) } }))
       : Promise.resolve(null),
     necesitaEntradas && !conFunnels
-      ? supabase.from('leads').select('id', { count: 'exact', head: true })
-          .eq('estado_lead', 'ganado')
-          .gte('created_at', altaDesde).lte('created_at', altaHasta)
+      ? contarAltas(supabase, altaDesde, altaHasta, (q) => q.eq('estado_lead', 'ganado') as ConsultaPaginada)
+          .then((count) => ({ count, error: null }), (e: unknown) => ({ count: null, error: { message: e instanceof Error ? e.message : String(e) } }))
       : Promise.resolve(null),
     necesitaEntradas && conFunnels ? altasEnFunnels(supabase, altaDesde, altaHasta, funnels) : Promise.resolve(null),
   ]);
@@ -1619,10 +1622,10 @@ async function _getFunnelSeries(
     // ⚠️ PAGINADA. Acá hacen falta las FILAS (hay que repartirlas por semana), así
     // que no se puede resolver con un count — y un `.select()` suelto topea en las
     // 1000 de PostgREST sin dar error: las semanas viejas quedarían vacías.
+    // F152: por el día en que NACIÓ cada lead (lib/leads-alta.ts), no por el día en que entró a MaKo.
     necesitaEntradas
-      ? leerTodo<{ id: number; created_at: string | null; estado_lead: string }>(
-          supabase, 'leads', 'id, created_at, estado_lead',
-          { orden: 'id', filtros: (q) => q.gte('created_at', `${rangoInicio}T00:00:00Z`).lte('created_at', `${rangoFin}T23:59:59Z`) },
+      ? leerAltas<{ id: number; created_at: string | null; fecha_original?: string | null; estado_lead: string }>(
+          supabase, 'id, created_at, estado_lead', `${rangoInicio}T00:00:00Z`, `${rangoFin}T23:59:59Z`, { orden: 'id' },
         )
       : Promise.resolve([]),
   ]);
@@ -1635,7 +1638,7 @@ async function _getFunnelSeries(
   const j1Crudas: Array<{ id: number; fecha_junta_1: string | null; asistio_j1: boolean | null; calificado: boolean | null; estado_lead: string }> = j1Res.data ?? [];
   const agendas = await enLosFunnels(agendasCrudas, funnels, (r) => r.fecha_junta_1);
   const j1s = await enLosFunnels(j1Crudas, funnels, (r) => r.fecha_junta_1);
-  const altasRes = await enLosFunnels(altasTodas, funnels, (r) => (r.created_at ? r.created_at.slice(0, 10) : null));
+  const altasRes = await enLosFunnels(altasTodas, funnels, (r) => diaDeAltaUtc(r));
 
   // Índice de semana de una fecha = lunes de esa fecha
   const semanaDe = (fecha: string): string => lunesDeFecha(fecha);
@@ -1668,8 +1671,9 @@ async function _getFunnelSeries(
     });
   }
   for (const r of altasRes) {
-    if (!r.created_at) continue;
-    add(semanaDe(r.created_at.slice(0, 10)), (a) => {
+    const alta = diaDeAltaUtc(r);
+    if (!alta) continue;
+    add(semanaDe(alta), (a) => {
       a.alta += 1;
       if (r.estado_lead === 'ganado') a.altaCie += 1;
     });
@@ -2546,7 +2550,7 @@ async function _getPendientesDeMarcar(
     // los que más lo necesitan) y de su propio detalle en la fila, que pasaba de
     // "Faltan: Setter · Empresa" a una frase que no dice qué cargar. Con la etapa
     // efectiva, esa población dejó de ser marginal.
-    const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline, grabable });
+    const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline, grabable, hoyISO: hoy });
     // "Empresa" ignorada (empresa_omitido) NO notifica en el worklist del CRM general
     // (sigue visible como recordatorio suave en la ficha, que usa faltantesDeLead directo).
     const faltanSinEmpresa = l.empresa_omitido ? faltanRaw.filter((f) => f.id !== 'empresa') : faltanRaw;
@@ -2958,93 +2962,6 @@ export async function getPendientesBadge(
 ): Promise<number> {
   const [cola, forms] = await Promise.all([getColaDeAccion(hoy), getFormulariosSinAgenda(hoy)]);
   return cola.length + forms.length;
-}
-
-// =============================================================================
-// OBJETIVO GLOBAL — progreso acumulado (Fase 14)
-// =============================================================================
-// NO se ata al filtro de rango global: el objetivo es acumulado desde
-// objetivo_desde, siempre. Sirve también de auditoría — si el contador de
-// cierres no cuadra, faltan leads históricos o resoluciones sin marcar.
-// =============================================================================
-
-export type ObjetivoProgreso = {
-  desde: string;
-  cierres_actual: number;
-  cierres_meta: number | null;
-  cash_actual: number;
-  cash_meta: number | null;
-  // Sold = lo FIRMADO (Σ monto_cierre_usd de los ganados) — referencia, no es
-  // cash cobrado (v3 Fase H).
-  sold_actual: number;
-  // Ritmo: cierres en los últimos 30 días → semanas estimadas para la meta
-  cierres_30d: number;
-  semanas_estimadas: number | null;
-  cumplido: boolean;
-};
-
-const OBJETIVO_DESDE_DEFAULT = '2025-12-08';
-
-export const getObjetivoProgreso = cachedRead('getObjetivoProgreso', _getObjetivoProgreso, { tags: [TAG.leads, TAG.pagos, TAG.settings], revalidate: TTL.user });
-async function _getObjetivoProgreso(
-  hoy: string = new Date().toISOString().slice(0, 10),
-): Promise<ObjetivoProgreso> {
-  const supabase = (await getTenantDb());
-
-  const [cierresMeta, cashMeta, desdeRaw] = await Promise.all([
-    getSettingNum('objetivo_cierres'),
-    getSettingNum('objetivo_cash_usd'),
-    getSetting('objetivo_desde'),
-  ]);
-  const desde = desdeRaw && /^\d{4}-\d{2}-\d{2}$/.test(desdeRaw) ? desdeRaw : OBJETIVO_DESDE_DEFAULT;
-
-  // Cierres ganados desde `desde` (incluye ganados sin fecha_cierre cargada). Un becado
-  // («sin cobro», #747) no es una venta: no suma al objetivo de cierres ni al Sold.
-  const { data: ganados, error: gErr } = await supabase
-    .from('leads')
-    .select('fecha_cierre, monto_cierre_usd')
-    .eq('estado_lead', 'ganado')
-    .neq('venta_tipo', VENTA_SIN_COBRO);
-  if (gErr) throw new Error(`Query objetivo cierres falló: ${gErr.message}`);
-  const ganadosRows = (ganados ?? []) as Array<{ fecha_cierre: string | null; monto_cierre_usd: number | null }>;
-  const cuentan = ganadosRows.filter((g) => g.fecha_cierre === null || g.fecha_cierre >= desde);
-  // Y las ventas cerradas en un CRM agregado desde `desde` (una renovación, CO2).
-  const enCrms = await firmadoEnCrms(desde, null);
-  const cierres_actual = cuentan.length + enCrms.cierres;
-  // Sold = total firmado de esos cierres (lo vendido, no lo cobrado).
-  const sold_actual = cuentan.reduce((s, g) => s + Number(g.monto_cierre_usd ?? 0), 0) + enCrms.usd;
-
-  // Cash: Σ pagos pagado=true con fecha_pago en [desde, hoy].
-  const cash_actual = await getCashCollectedPeriodo(desde, hoy);
-
-  // Ritmo: cierres con fecha_cierre en los últimos 30 días.
-  const hace30 = restarDiasISO(hoy, 30);
-  const cierres_30d = ganadosRows.filter(
-    (g) => g.fecha_cierre !== null && g.fecha_cierre >= hace30 && g.fecha_cierre <= hoy,
-  ).length;
-
-  const faltanCierres = cierresMeta !== null ? Math.max(cierresMeta - cierres_actual, 0) : 0;
-  const cierresPorSemana = cierres_30d / (30 / 7);
-  const semanas_estimadas =
-    cierresPorSemana > 0 && faltanCierres > 0 ? Math.ceil(faltanCierres / cierresPorSemana) : null;
-
-  const cumplido =
-    cierresMeta !== null &&
-    cashMeta !== null &&
-    cierres_actual >= cierresMeta &&
-    cash_actual >= cashMeta;
-
-  return {
-    desde,
-    cierres_actual,
-    cierres_meta: cierresMeta,
-    cash_actual,
-    cash_meta: cashMeta,
-    sold_actual,
-    cierres_30d,
-    semanas_estimadas,
-    cumplido,
-  };
 }
 
 // =============================================================================

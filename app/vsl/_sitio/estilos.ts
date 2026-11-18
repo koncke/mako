@@ -808,7 +808,14 @@ html[data-sitio-modo="oscuro"] .s-precios .tk-extra b,html[data-sitio-modo="oscu
 }
 /* Como su hero, que pasa a una columna debajo de 890 px. */
 @media (max-width:889px){
-  .s-hero-in{grid-template-columns:minmax(0,1fr)}
+  /* En una columna: título → bajada → VSL → botón. Martín, 18/11/2026: «cuando se hace versión mobile, jamás debería salir el
+     botón previo al VSL. O sea, siempre es el VSL y debajo del VSL el botón». La caja del texto se abre (display:contents) y la
+     fila pasa a flex en columna, con el video ANTES del botón (order). La letra del título se mide con su contenedor (cqi): como
+     la caja abierta ya no lo es, el contenedor pasa a ser la fila, que en una columna tiene el mismo ancho. */
+  .s-hero-in{display:flex;flex-direction:column;align-items:stretch;gap:0;container-type:inline-size}
+  .s-hero-tx{display:contents}
+  .s-hero-vsl{order:1}
+  .s-hero-btns{order:2}
   .s-hero-vsl{margin-top:32px}
   .s-hero-vis{width:576px;max-width:none;margin:40px auto 0}
   .s-fila{flex-direction:column}

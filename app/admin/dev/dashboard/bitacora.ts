@@ -1339,4 +1339,101 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '18 nov', hora: '01:30', chat: 'Lo que falta construir (nube)', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes: las plantillas propias del Dashboard',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: ['Llegó por el coordinador de la nube, con la lista verificada del 17/11 (F122, F123: el Dashboard sin enchufe de creaciones).'],
+  },
+  {
+    fecha: '18 nov', hora: '01:49', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una hoja se guarda como plantilla y aparece en «Nueva hoja», para tu negocio o para la comunidad',
+    puntos: [
+      '**«Guardar como plantilla» en el ⋮ de cada hoja**: sólo para tu negocio, o para toda la comunidad.',
+      '**«Nueva hoja» las muestra primero**, con la miniatura de la hoja: las tuyas y las mejores de la comunidad.',
+      '**Compartida, sale sin tus datos**: sin los filtros que nombran a tu gente o tus campañas, sin tus fotos ni enlaces, y con los textos limpios.',
+      '**Usarla la agrega al final de tu Dashboard**, con todo nuevo; desde la galería o desde MaKo, también.',
+    ],
+    commits: [{ sha: '1fe0232071', msg: 'Plantillas propias del Dashboard, la moderación de lo publicado en Admin y el precio «USD 1,200 al mes» de Offer', lineas: 1131, archivos: 25 }],
+    archivos: [
+      'lib/creaciones-dashboard.ts — qué es la plantilla, qué sale al compartirla y cómo entra al informe',
+      'lib/creaciones-enchufes.ts — el enchufe `dashboard` (lo usan la galería y la API)',
+      'app/dashboard/PlantillasPropiasHoja.tsx — «Tus plantillas» en «Nueva hoja»',
+      'app/dashboard/Cabecera.tsx · EditorInforme.tsx — el «Guardar como plantilla» del ⋮',
+    ],
+    revisar: '/dashboard',
+  },
+  {
+    fecha: '18 nov', hora: '05:02', chat: 'Dashboard (nube, octubre)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Restos del Dashboard: la venta en su funnel, mirar sin cambiar, General con el funnel de la hoja y MaKo armando',
+    puntos: [
+      '**Por fecha de cierre, la venta de un lead que se sumó a otro funnel va donde la pone el objetivo**, no a cero.',
+      '**Mirando una hoja ya no se puede cambiar su contenido**: se crean, archivan y ordenan hojas, se edita la cabecera y se suman filtros; lo demás pide «Editar».',
+      '**«Tu funnel hoy» y «A quién cobrarle» de General miran el funnel que filtra la hoja.** Que los bloques sigan el período quedó como plan.',
+      '**Lo que MaKo arma en una hoja aparece de a una tarjeta**, con «Ver todo» y sin animación para quien la tiene apagada.',
+      '«Publicar una hoja en Creaciones» ya lo había hecho «Guardar como plantilla» (1fe0232071): no se escribió otro.',
+    ],
+    commits: [
+      { sha: 'f71541db8', msg: 'Dashboard: por fecha de cierre, la venta de un lead agregado va al funnel donde la pone el OKR', lineas: 246, archivos: 8 },
+      { sha: '267e0d92f', msg: 'Dashboard: guardar mirando ya no puede cambiar el contenido de una hoja', lineas: 298, archivos: 10 },
+      { sha: '7c055bf9f', msg: 'General: «Tu funnel hoy» mira el funnel que filtra la hoja', lineas: 149, archivos: 6 },
+      { sha: '30b505807', msg: 'Dashboard: lo que MaKo arma en una hoja aparece de a una tarjeta', lineas: 205, archivos: 8 },
+      { sha: 'a2a43173e', msg: 'dashboard: guardar mirando compara sólo contra las hojas a la vista (O10 2, la archivada con el mismo id)', lineas: 20, archivos: 3 },
+    ],
+    archivos: [
+      'lib/graficos-funnel-fila.ts · lib/graficos-agregar.ts (`duenoDe`) — la venta en su funnel',
+      'lib/graficos-guardar-mirando.ts · lib/graficos-tablero.ts · app/api/graficos/route.ts — mirar sin cambiar',
+      'app/general/funnels-de-la-hoja.ts — General con el funnel de la hoja',
+      'app/dashboard/armado-hoja.ts · ArmadoDeHoja.tsx — MaKo armando',
+    ],
+    revisar: '/dashboard',
+  },
+  {
+    fecha: '18 nov', hora: '05:40', chat: 'Dashboard (nube, octubre)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«Vendido por funnel» y la hoja filtrada por ese funnel ya dan lo mismo',
+    puntos: [
+      '**Agrupado por funnel, la venta de un lead que se sumó a otro funnel va donde la pone el objetivo**, igual que cuando se filtra la hoja: antes la barra y la hoja filtrada daban dos números para la misma venta.',
+      '**El lead se sigue contando una vez**, en su funnel de origen; lo que se mueve es sólo la venta. También en las tablas con columnas por funnel.',
+    ],
+    archivos: [
+      'lib/graficos-agregar.ts (`partesParaAgrupar`) — la venta al grupo de su dueño',
+      'tests/graficos-venta-agrupada-por-funnel.test.ts — la barra contra la hoja filtrada',
+    ],
+    revisar: '/dashboard',
+  },
+  // ⚠️ Los dos de abajo se anotaron el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había
+  // dejado hito. El pedido es el que copió el relevo (docs/relevo/nube-dashboards.md:5-7, con sus «…»), no el mensaje entero: la
+  // hora del pedido no se sabe y va «—». La fecha y la hora del hito de trabajo son las del commit (+0000, como los de arriba).
+  // El trabajo lo hizo la sesión de la nube claude.ai/code/session_015PX68rWnc7TkWaRKJ5MZAR, que no dejó su id de terminal:
+  // el `sesion` es el de la que lo ANOTÓ (el campo dice «la sesión que lo anotó», _registro/tipos.ts).
+  {
+    fecha: '6 nov', hora: '—', chat: 'Dashboards (nube)', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que las hojas copiadas no se rompan al editarlas, con claro y oscuro, la entrada configurable y la hoja de Código Inmobiliario',
+    pedido: 'Los dashboard puede que estén, pero se rompen todos en la vista de EDICIÓN y hay algunos que los botones no son funcionales. Haz que todo sea funcional y editable… Y los que vienen en dark mode, deben acompañar siempre el white mode… armes un dashboard especial para [Código Inmobiliario]… todos los bloques nuevos se conviertan en bloques utilizables… las animaciones de entrada sean configurables en "Personalización"',
+    puntos: ['Llegó como encargo para la nube. Está copiado del relevo (docs/relevo/nube-dashboards.md), con sus cortes: el texto entero no quedó en el repo.'],
+  },
+  {
+    fecha: '6 nov', hora: '15:26', chat: 'Dashboards (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada tarjeta de un diseño es un bloque: se ve igual mirando y editando, con claro y oscuro y la entrada en «Personalización»',
+    puntos: [
+      '**Mirando y editando se ve igual:** cada tarjeta de los 22 diseños es un bloque de la hoja, y se elige, se mueve, se agranda, se duplica y se borra como cualquier pieza.',
+      '**Las hojas guardadas no se rompen:** al abrirse pasan a bloques y no se borra nada; sus piezas de antes quedan plegadas en «Todas las piezas».',
+      '**«Bloques»** en la barra de edición pone cualquier tarjeta del informe en cualquier hoja, y el panel de un bloque dice de qué piezas lee.',
+      '**Los 22 diseños siguen el modo de MaKo**, claro u oscuro, con el contraste medido; la animación de entrada se elige en «Personalización» (antes «Estilo de la hoja»).',
+      '**La pastilla del período** de Marketing, Chat y Landing abre el Filtro de la hoja: parecía un botón y no hacía nada.',
+      '**«Velocidad de llamada»**, la hoja para Código Inmobiliario. El 10/11 Martín la rechazó por armada con tarjetas de tres diseños («se inventó cosas», AGENTS.md → «PROHIBIDO INVENTAR») y se rehízo como la copia de Tend (54b01f8d4, docs/diseno/mockups-dashboard/velocidad-tend/).',
+    ],
+    commits: [{ sha: '6d21693eb', msg: 'Dashboard: cada tarjeta de un diseño es un bloque editable; claro/oscuro, entrada y la hoja de velocidad de llamada', lineas: 4216, archivos: 106 }],
+    archivos: [
+      'lib/disenos-partes.ts — el catálogo de las 204 tarjetas · app/dashboard/disenos/BloqueDeDiseno.tsx · DisenoVivo.tsx — el bloque y el despachador',
+      'lib/graficos-entradas.ts — las 13 entradas de «Personalización»',
+      'tests/dashboard-bloques-diseno.test.ts — 12 casos · tests/_diseno-cableado.ts — las guardas viejas, al modelo de bloques',
+      'docs/relevo/nube-dashboards.md → «Para el Cerebro (6/11/2026, noche)» — qué quedó y qué no',
+    ],
+    revisar: '/dashboard',
+  },
 ];

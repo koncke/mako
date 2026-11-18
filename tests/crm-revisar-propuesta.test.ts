@@ -124,7 +124,10 @@ test('la propuesta de la landing copia la página de registro, normalizada', () 
 });
 
 test('confirmar le ata la visita a la ficha que YA existía, sin pisar la que tenía', () => {
+  // Desde el 18/11/2026 (O44) el update vive en lib/lead-visita.ts, que también usa el opt-in que se suma directo a la ficha.
+  // El «sin pisar la que tenía» (`.is('visitor_id', null)`) ya no se fija leyendo una línea: lo prueba tests/optin-visita.test.ts
+  // corriendo la función por la ruta real (rota sin el `.is` → su 2 cae). Acá queda que la confirmación pase por ella.
   const src = sinComentarios(leer('../app/crm/revisar/[id]/acciones.ts'));
   assert.match(src, /const enriquecidos = \(r\.ids \?\? \[\]\)\.filter\(\(x\) => x\.destino === 'enriquecer'\);/);
-  assert.match(src, /\.update\(\{ visitor_id: visitor \}\)\.eq\('id', x\.leadId\)\.is\('visitor_id', null\)/);
+  assert.match(src, /await atarVisitaAlLead\(x\.leadId, visitor\)/);
 });

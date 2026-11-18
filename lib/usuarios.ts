@@ -10,6 +10,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { atarInvitacionesAlEntrar } from './grupo-invitaciones';
 import type { Rol, RolWorkspace } from './auth-session';
+import { conFotoSegura, fotoDePersonaSegura } from './foto-perfil';
 
 export type EstadoUsuario = 'invitado' | 'activo' | 'suspendido';
 
@@ -55,11 +56,19 @@ export type Usuario = {
 
 const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at, workspace_id, rol_ws, perfil, invitacion_enviada_at, mfa_activo';
 
+/**
+ * LA FOTO SALE FILTRADA DE ACÁ (18/11/2026, F173). Lo que este módulo devuelve lo dibujan el equipo (/api/equipo, el teléfono),
+ * el panel del super admin y los grupos: una foto de afuera que ya está en la base (de antes del filtro de lib/foto-perfil.ts, o
+ * escrita por un camino viejo) se dibujaría como un `<img>` que avisa quién abrió la pantalla. El filtro al LEER es la segunda
+ * capa del de al guardar (`actualizarUsuario`, `registrarLogin`, `setPerfil`): las filas que ya están no se reescriben solas.
+ */
+const fila = (u: Usuario): Usuario => conFotoSegura(u);
+
 export async function listarUsuarios(): Promise<Usuario[]> {
   const { data, error } = await getSupabaseServer()
     .from('usuarios').select(COLS).order('created_at', { ascending: true });
   if (error) throw new Error(`usuarios: ${error.message}`);
-  return (data ?? []) as Usuario[];
+  return ((data ?? []) as Usuario[]).map(fila);
 }
 
 /**
@@ -76,7 +85,7 @@ export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | nu
   const { data, error } = await getSupabaseServer()
     .from('usuarios').select(COLS).eq('email', email.trim().toLowerCase()).maybeSingle();
   if (error) throw new Error(`usuarios: ${error.message}`);
-  return (data as Usuario | null) ?? null;
+  return data ? fila(data as Usuario) : null;
 }
 
 /**
@@ -108,7 +117,7 @@ export async function buscarUsuarioPorNombre(nombre: string): Promise<Usuario | 
   if (n.length < 3) return null;
   const { data, error } = await getSupabaseServer().from('usuarios').select(COLS);
   if (error) throw new Error(`usuarios: ${error.message}`);
-  const todos = (data ?? []) as Usuario[];
+  const todos = ((data ?? []) as Usuario[]).map(fila);
 
   /** Las palabras del nombre buscado tienen que estar TODAS en el de la cuenta. */
   const matchea = (u: Usuario): boolean => {
@@ -161,20 +170,23 @@ export async function crearUsuario(u: {
     })
     .select(COLS).single();
   if (error) throw new Error(`usuarios: ${error.message}`);
-  return data as Usuario;
+  return fila(data as Usuario);
 }
 
 export async function actualizarUsuario(
   id: number,
   patch: Partial<Pick<Usuario, 'nombre' | 'rol' | 'estado' | 'foto_url' | 'workspace_id' | 'rol_ws'>>,
 ): Promise<Usuario> {
+  // La foto entra filtrada: una que no es de un origen nuestro se guarda vacía (quien la manda, como /api/admin/usuarios,
+  // la rechaza antes con un motivo; esto es la red por si otro camino se olvida).
+  const limpio = 'foto_url' in patch ? { ...patch, foto_url: fotoDePersonaSegura(patch.foto_url ?? null) } : patch;
   const { data, error } = await getSupabaseServer()
     .from('usuarios')
-    .update({ ...patch, updated_at: new Date().toISOString() })
+    .update({ ...limpio, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select(COLS).single();
   if (error) throw new Error(`usuarios: ${error.message}`);
-  return data as Usuario;
+  return fila(data as Usuario);
 }
 
 export async function eliminarUsuario(id: number): Promise<void> {
@@ -200,7 +212,10 @@ export async function registrarLogin(
     ultimo_login: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
-  if (datos.foto_url?.trim()) patch.foto_url = datos.foto_url.trim();
+  // La foto de Google es de googleusercontent.com; la de otro camino (la del preauth del 2FA, la que ya estaba) pasa por el
+  // mismo filtro: una de afuera no se escribe, y se queda la que había.
+  const foto = fotoDePersonaSegura(datos.foto_url);
+  if (foto) patch.foto_url = foto;
   const db = getSupabaseServer();
   const { data: entro, error } = await db.from('usuarios').update(patch).eq('email', correo).neq('estado', 'suspendido').select('id');
   if (error) console.error(`[usuarios] registrarLogin(${email}): ${error.message}`);

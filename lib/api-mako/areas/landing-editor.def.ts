@@ -324,7 +324,10 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
     // «quita» empujaba primero a quitar_dominio_landing y quitar_cobro_landing. En la DESCRIPCIÓN y no en el título: en el
     // título (peso doble) le sacaba la lista a «quítale la animación a la sección 2». Lo fija
     // tests/mako-intencion-landing.test.ts.
-    titulo: 'Mover o borrar un bloque',
+    // «Sacar» SÍ va en el título (18/11/2026, F112): con la raíz sólo en la descripción, «sacá el video de la web» la dejaba
+    // a 560 caracteres afuera de los 12.000 (empataba en 4 puntos con una docena declarada antes). «Sacar» no suma en
+    // «quítale la animación…» (otra raíz), y el turno de esa frase sigue igual.
+    titulo: 'Mover, sacar o borrar un bloque',
     descripcion: `Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar (quitar o sacar un botón, el formulario, un video, una imagen). El bloque se nombra por su posición en la sección (de ver_secciones_landing). ${VERSION}`,
     parametros: [
       P_ID, P_SECCION,

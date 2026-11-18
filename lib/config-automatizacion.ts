@@ -16,7 +16,8 @@
 //   · EL GOTEO SÍ (22/10/2026, la llamada con Mauricio: «que no salgan juntos: uno, esperar 4-5 min, el siguiente»;
 //     configurable por automatización: minutos entre envíos y tope por día). Es un SUB-TOPE adentro del de la línea
 //     (decisión del Cerebro): nunca deja mandar más que la línea; sólo frena a ESTA automatización. Los días de la
-//     semana son los del horario propio. La regla vive en lib/goteo.ts.
+//     semana son los del horario, salvo que elija otros (`goteo.dias`: el motor desde el 9/11/2026; la tuerca y la API,
+//     desde el 18/11). La regla vive en lib/goteo.ts.
 //   · Y ES UNO SOLO PARA TODOS LOS CANALES (24/10/2026 23:00, Martín, f21 de la llamada con Leandro: «Uno solo: un solo
 //     interruptor de goteo (y uno de tope por día) que valga para todos los canales»): WhatsApp, email, Instagram y
 //     Messenger. Cada canal cuenta lo suyo (lib/goteo.ts). Hasta ese día había uno de WhatsApp (`goteo`) y otro de email
@@ -165,6 +166,62 @@ export function hoyGotea(c: ConfigAutomatizacion, ahoraMs: number, tz: string | 
   return dias.includes(relojEnZona(ahoraMs, tz).dia);
 }
 
+/** El error de una lista de días que no se puede guardar (lo dice la pantalla y la API). */
+export const ERROR_SIN_DIAS = 'Elige al menos un día.';
+
+/**
+ * LOS DÍAS DEL GOTEO DE UN CAMBIO (`configParaGuardar`): `null` = sacarlos (vuelven los del horario); una lista con TODOS
+ * sus días válidos (0 = domingo … 6 = sábado), sin repetidos y ordenada; o el error. A diferencia del saneo de lo
+ * guardado (`diasDeGoteo`), acá no se descarta nada: quien guarda tiene que saber que lo que mandó no se entendió.
+ */
+export function diasDelCambio(raw: unknown): null | { dias: DiaSemana[] } | { error: string } {
+  if (raw === null) return null;
+  if (!Array.isArray(raw)) return { error: 'Los días del goteo no se entienden.' };
+  if (!raw.length) return { error: ERROR_SIN_DIAS };
+  if (!raw.every((d) => typeof d === 'number' && Number.isInteger(d) && d >= 0 && d <= 6)) return { error: 'Los días van de 0 (domingo) a 6 (sábado).' };
+  return { dias: diasDeGoteo(raw) as DiaSemana[] };
+}
+
+/** Todos los días de la semana, en el orden de lo guardado (0 = domingo). */
+const TODA_LA_SEMANA: DiaSemana[] = [0, 1, 2, 3, 4, 5, 6];
+
+/**
+ * CON QUÉ DÍAS ARRANCA «Días» AL PRENDERLO: los del horario que hoy vale para la automatización (los días en que ya
+ * salía), o toda la semana si no tiene horario. Así prenderlo no cambia nada hasta que se saca un día.
+ */
+export function diasAlPrenderGoteo(horario: HorarioEnvio | null | undefined): DiaSemana[] {
+  return horario && horario.activo && horario.dias.length ? [...diasDeGoteo(horario.dias) ?? TODA_LA_SEMANA] : [...TODA_LA_SEMANA];
+}
+
+/**
+ * PRENDER O APAGAR UN DÍA del goteo (la pantalla). null = quedaría sin ningún día, que no se guarda (`ERROR_SIN_DIAS`):
+ * lo de antes sigue mandando, como en el horario.
+ */
+export function alternarDiaDeGoteo(dias: readonly DiaSemana[], d: DiaSemana): DiaSemana[] | null {
+  const nuevo = dias.includes(d) ? dias.filter((x) => x !== d) : [...dias, d];
+  return nuevo.length ? [...nuevo].sort((a, b) => a - b) : null;
+}
+
+/**
+ * LOS DÍAS DEL GOTEO COMO LOS PIDE LA API DE MaKo (`configurar_automatizacion`, `goteoDias`): «1,2,3,4» (0 = domingo, como
+ * los `dias` del horario) o «horario» para volver a los de su horario (`dias: null`). Con la MISMA validación que la
+ * pantalla (`diasDelCambio`): un día que no se entiende es un error, nunca se descarta.
+ */
+export function diasDeGoteoDelTexto(texto: string): { dias: DiaSemana[] | null } | { error: string } {
+  const t = texto.trim().toLowerCase();
+  if (t === 'horario') return { dias: null };
+  const r = diasDelCambio(t.split(',').map((x) => x.trim()).filter(Boolean).map(Number));
+  if (r === null) return { dias: null };
+  return 'error' in r ? r : { dias: r.dias };
+}
+
+/** «lunes, martes y jueves» / «todos los días»: cómo se dicen los días del goteo (la API de MaKo). */
+export function textoDeDiasGoteo(dias: readonly DiaSemana[]): string {
+  if (dias.length === 7) return 'todos los días';
+  const nombres = DIAS_PANTALLA.filter((d) => dias.includes(d.dia)).map((d) => d.nombre);
+  return nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} y ${nombres[nombres.length - 1]}` : (nombres[0] ?? '');
+}
+
 function goteoGuardado(raw: unknown): ConfigAutomatizacion['goteo'] {
   const g = raw && typeof raw === 'object' ? raw as Record<string, unknown> : null;
   if (!g) return undefined;
@@ -300,6 +357,16 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown,
         else if (!a || !enRango(a.dia, rg.dia) || !enRango(a.sube, rg.dia)) return { ok: false, error: `El arranque y lo que sube por día van de ${rg.dia[0]} a ${rg.dia[1]}.` };
         else if (nuevo.dia === undefined) return { ok: false, error: 'El arranque gradual sube hasta el tope por día: pon primero el tope.' };
         else nuevo.arranque = { dia: a.dia, sube: a.sube };
+      }
+      // LOS DÍAS DEL GOTEO (18/11/2026, F79 de docs/pendientes-verificados-17-11.md). El motor los aplicaba desde el 9/11
+      // (`hoyGotea` adentro de `cerradasAhora`) y nadie los podía guardar: este bloque los descartaba. `null` los saca (vuelven
+      // los del horario). Una lista se valida ENTERA, no se sanea: un día que no se entiende es un error, nunca una lista a
+      // medias que manda los días equivocados sin decirlo. Vacía tampoco: sería «no goteés nunca» (el mismo criterio del horario).
+      if ('dias' in g) {
+        const r = diasDelCambio(g.dias);
+        if (r === null) delete nuevo.dias;
+        else if ('error' in r) return { ok: false, error: r.error };
+        else nuevo.dias = r.dias;
       }
       if (nuevo.dia === undefined) delete nuevo.arranque;
       if (nuevo.arranque && nuevo.dia !== undefined && !arranqueLlega(nuevo.dia, nuevo.arranque)) return { ok: false, error: `Con ese arranque tarda más de ${ARRANQUE_MAX_DIAS} días en llegar al tope: que suba más por día.` };

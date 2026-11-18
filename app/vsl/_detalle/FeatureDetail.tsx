@@ -195,13 +195,20 @@ export default function FeatureDetail({ slug }: { slug: string }) {
         {/* ── Hero: texto + CTA · video (o gráfico) ─────────────────────────── */}
         {f.videoEmbed ? (
           <div className="mk-hero-row mk-hero-v">
+            {/* Dos cajas, lo que dice y el botón: en el teléfono el video va ENTRE las dos (Martín, 18/11/2026: «jamás debería
+                salir el botón previo al VSL… siempre es el VSL y debajo del VSL el botón»). Lo hace el CSS (`.mk-hero-v`, debajo
+                de 860 px): en la computadora la columna del texto queda igual. */}
             <div className="mk-hero-text">
-              <h1 className="mk-h1">{f.headline}</h1>
-              <p className="mk-lead mk-lead-punch" dangerouslySetInnerHTML={{ __html: f.lead }} />
-              <a href={RUTA_CTA} className="mk-btn-hero">{TEXTO_CTA}</a>
-              {/* La nota de abajo del botón decía «Diagnóstico gratuito de tu venta High Ticket»: era la bajada de la
-                  llamada. Ahora dice lo de la prueba (`TEXTO_CIERRE`), que es lo que el botón abre de verdad. */}
-              <p className="mk-hero-nota">{TEXTO_CIERRE}</p>
+              <div className="mk-hero-dice">
+                <h1 className="mk-h1">{f.headline}</h1>
+                <p className="mk-lead mk-lead-punch" dangerouslySetInnerHTML={{ __html: f.lead }} />
+              </div>
+              <div className="mk-hero-cta">
+                <a href={RUTA_CTA} className="mk-btn-hero">{TEXTO_CTA}</a>
+                {/* La nota de abajo del botón decía «Diagnóstico gratuito de tu venta High Ticket»: era la bajada de la
+                    llamada. Ahora dice lo de la prueba (`TEXTO_CIERRE`), que es lo que el botón abre de verdad. */}
+                <p className="mk-hero-nota">{TEXTO_CIERRE}</p>
+              </div>
             </div>
             <div className="mk-hero-media">
               {/* El recuadro (.mk-vsl), las esquinas y el flotante con su botón
@@ -582,6 +589,14 @@ ${CSS_CASO}
 @media (max-width: 860px) {
   .mk-hero-row, .mk-row, .mk-row-rev, .mk-hist-row, .mk-hist-row2 { flex-direction: column; gap: 24px; align-items: stretch; }
   .mk-hero-text { order: 0; }
+  /* El héroe con video en una columna: título → bajada → VIDEO → botón (Martín, 18/11/2026: «jamás debería salir el botón
+     previo al VSL»). La caja del texto se abre (display:contents) y el video pasa antes del botón. Y el video mide su alto: su
+     base de 540 px, que en fila es el ancho, en columna era el ALTO (dejaba ~300 px vacíos debajo del video), y los mínimos
+     de 280 y 340 px de ancho cortaban el texto a la derecha en un teléfono de 375. */
+  .mk-hero-v .mk-hero-text { display: contents; }
+  .mk-hero-v .mk-hero-media { order: 1; flex: none; min-width: 0; }
+  .mk-hero-v .mk-hero-cta { order: 2; }
+  .mk-hero-v .mk-lead { margin-bottom: 0; }
   .mk-hist-vidcol { max-width: 320px; margin: 0 auto; }
 }
 @media (max-width: 768px) {

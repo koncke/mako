@@ -222,13 +222,15 @@ test('(5) setSecuenciaPasos normaliza, VALIDA y rechaza con PasosInvalidosError;
   const g = fn(NUTRI, 'export async function setSecuenciaPasos(');
   assert.match(g, /if \(esNodoDeControl\(flujo\)\) return \{ orden: i \+ 1, \.\.\.RELLENO_CONTROL, \.\.\.flujo \}/);
   assert.match(g, /\.\.\.flujo,\n/, 'los campos del flujo de un mensaje se pierden en el saneo');
-  const valida = g.indexOf('const errores = validarGrafo(grafo);');
+  // 18/11/2026 (F80): con la opción del borrador de Crear con IA (`comoBorrador` deja pasar sólo la nota por grabar).
+  const valida = g.indexOf('const errores = validarGrafo(grafo, o?.comoBorrador ? { audiosPorGrabar: true } : undefined);');
   // AI Step v2 (décima tanda): entre normalizar y validar, la puerta para lo viejo. UNDÉCIMA: `juntarPasosIA` (UN AI
   // Step por medio); el alias `separarPasosIA` se borró en la ola 4.
   assert.ok(g.indexOf('const grafo = grafoAGuardar(limpio);') >= 0 && valida > 0, 'se guarda sin validar el flujo');
   assert.match(fn(NUTRI, 'function grafoAGuardar('), /const junto = juntarPasosIA\(normalizar\(limpio\)\);\n\s+return normalizar\(/);
   assert.match(g, /if \(errores\.length\) throw new PasosInvalidosError\(/);
   assert.ok(valida < g.indexOf('.update({ pasos: grafo,'), 'la validación va ANTES de escribir');
+  assert.ok(valida < g.indexOf('await guardarBorradorSecuencia('), 'el borrador de Crear con IA se escribe sin validar');
   assert.match(NUTRI, /export class PasosInvalidosError extends Error/);
   const ruta = sinComentarios(leer('../app/api/whatsapp/secuencias/route.ts'));
   // Undécima tanda: con la tarjeta culpable cuando el error es de una (el lienzo la abre).

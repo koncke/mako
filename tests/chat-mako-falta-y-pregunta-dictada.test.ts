@@ -91,7 +91,9 @@ test('f23: la ruta del chat guarda la falta, y la del ticket es del mismo origen
   const ruta = leer('app/api/chat-agent/secuencias/ia/route.ts');
   // Desde el 27/10/2026 también con qué IA contestó (`ia`, tests/automations-quien-contesto.test.ts): la falta sigue igual.
   assert.match(ruta, /await anotar\(\[mensajeChat\('mako', respuesta, 'app', \{ \.\.\.\(falta \? \{ falta \} : \{\}\), \.\.\.\(ia \? \{ ia \} : \{\}\) \}\)\]\);/);
-  assert.match(ruta, /await contestar\(g\.r\.respuesta, g\.r\.falta, textoDeQuienContesto\(g\.quien\)\);/);
+  // (18/11/2026: el motor de explicar vive en lib/flujo-ia-editar.ts; devuelve la falta y la ruta la pasa a `contestar`.)
+  assert.match(leer('lib/flujo-ia-editar.ts'), /return \{ t: 'contesta', respuesta: g\.r\.respuesta, \.\.\.\(g\.r\.falta \? \{ falta: g\.r\.falta \} : \{\}\), ia: textoDeQuienContesto\(g\.quien\) \};/);
+  assert.match(ruta, /if \(g\.t === 'contesta'\) \{ await contestar\(g\.respuesta, g\.falta, g\.ia\); return; \}/);
   const t = leer('app/api/chat-agent/secuencias/ia/falta/route.ts');
   assert.match(t, /if \(!mismo\) return json\(\{ ok: false, error: 'No salió de MaKo' \}, 403\);/);
   assert.match(t, /rol !== 'admin'\) return json\(/);

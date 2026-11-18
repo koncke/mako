@@ -59,7 +59,8 @@
 // ⚠️ LOS CAMINOS QUE **NO** PASAN POR ACÁ (la regla de AGENTS.md: ponerlo en el choke point no cierra el trabajo, hay que
 // enumerar lo que queda afuera). Medido con `grep` el 15/11/2026, están en docs/hallazgos-mako-tokens.md:
 //   · `lib/embeddings.ts` — corre en CADA búsqueda del RAG, no llama a `recordUsage` y no pasa por la capa de IA.
-//   · `lib/transcribe-plataforma.ts` — el audio de las clases de los cursos, con `envCred` (la clave del dueño).
+//   · `lib/transcribe-plataforma.ts` — el audio de las clases de los cursos, con las claves de la plataforma. Decidido el
+//     18/11/2026 (F85): no descuenta, porque no es de ningún cliente; registra su uso (`cursos-transcribir`).
 //   · los MEDIOS (video, imagen, locución). Tienen precio fijo por unidad y se cobran con `cobrarMediosMt`, que es
 //     explícito y no liquida nada. ⚠️ Hoy NINGUNO lo paga MaKo, así que no hay dónde engancharlo todavía: el video y
 //     las imágenes salen por el Google Flow DEL CLIENTE, la locución por su ElevenLabs (`credDelCliente`), y ApiMart

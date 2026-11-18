@@ -34,6 +34,7 @@ export default async function Page(props: {
         filas={uso.filas}
         tabs={uso.tabs}
         ia={uso.ia}
+        personas={uso.personas}
         inicio={inicio}
       />
     </CustomerPageShell>

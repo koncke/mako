@@ -25,6 +25,9 @@
 //   · la rápida sin «Instagram» / con el link armado a mano                      → 12 / 1 y 11 / 2
 //   · la ficha con un `aria-disabled` o un WhatsApp apagado en la rama del @     → 12 / 1 cada una
 //   · la ficha sin repartir la fila / con «Sin teléfono» en el contacto          → 12 / 1 cada una
+//   (18/11/2026: las dos de la ficha se rehicieron sobre `accionesDeContacto` y `filasDeContacto`, que se EJECUTAN; con
+//    `accionesDeContacto` devolviendo Llamar sin número → 12 / 1 «ningún botón apagado»; con «Sin teléfono» de vuelta en
+//    `filasDeContacto` → 12 / 1 «sin rótulo de falta».)
 //   · la ficha con el link a mano (también lo ve «a mano») / sin la clase del CSS → 11 / 2 y 12 / 1
 //   · la página sin pasarle el @ a la ficha                                      → 12 / 1
 // La condición del ESCRITORIO es de otro chat y no se toca desde acá: se rompe EN MEMORIA dentro del test («la guardia no es
@@ -37,6 +40,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
 import { buscarEnCartera, soloInstagram, type CanalesDeLead } from '../app/m/crm/reglas';
+import { accionesDeContacto, filasDeContacto } from '../app/m/crm/ficha-bloques';
 import { linkInstagram } from '../app/crm/campo-inline';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -194,9 +198,15 @@ test('sin rótulo de «falta» (Martín, 22/10/2026: «si no tiene ese dato, que
   const i = TABLERO.indexOf('data-solo-instagram');
   assert.ok(i > 0, 'no encontré el chip del @');
   assert.ok(!/[Ff]alta|[Ss]in (contacto|email|tel[eé]fono|n[uú]mero)/.test(TABLERO.slice(i - 200, i + 120)), 'el @ se dibuja como canal, no como un faltante');
-  // La fila del contacto en la ficha dice el @ en vez de «Sin teléfono».
+  // La fila del contacto en la ficha dice el @ en vez de «Sin teléfono». ⚠️ Desde el 18/11/2026 lo arma `filasDeContacto`
+  // (app/m/crm/ficha-bloques.ts), que se EJECUTA: sin teléfono y sin el @, ni la fila (antes decía «Sin teléfono»).
+  const solo = { soloInstagram: 'perez', telefono: null, email: null, empresa: null };
+  assert.deepEqual(filasDeContacto(solo), [{ k: 'Instagram', v: '@perez' }]);
+  assert.deepEqual(filasDeContacto({ ...solo, soloInstagram: null, email: 'a@b.com' }), [{ k: 'Email', v: 'a@b.com' }], 'sólo con email: ni «Sin teléfono»');
+  assert.deepEqual(filasDeContacto({ soloInstagram: null, telefono: '+52 55 1234 5678', email: null, empresa: 'Acme' }), [{ k: 'Teléfono', v: '+52 55 1234 5678' }, { k: 'Empresa', v: 'Acme' }]);
   const ficha = sinComentarios(leer('app/m/crm/[id]/FichaLead.tsx'));
-  assert.match(ficha, /\{p\.soloInstagram \? <FilaDatoM k="Instagram" v=\{`@\$\{p\.soloInstagram\}`\} \/> : <FilaDatoM k="Teléfono" v=\{p\.telefono \?\? 'Sin teléfono'\} \/>\}/);
+  assert.match(ficha, /\{filasDeContacto\(\{ soloInstagram: p\.soloInstagram \?\? null, telefono: p\.telefono, email: p\.email, empresa: p\.empresa \}\)/);
+  assert.doesNotMatch(ficha, /'Sin teléfono'|'Sin agendar'/, 'volvió un rótulo de dato faltante');
 });
 
 test('la búsqueda del teléfono dice el @ donde no hay empresa ni email, y sólo si es su único canal', () => {
@@ -229,25 +239,26 @@ test('la ficha rápida: «Instagram» donde las demás ofrecen Llamar y WhatsApp
   assert.match(TABLERO, /\.\.\.\(r\.soloInstagram \? \[\{ k: 'Instagram', v: `@\$\{r\.soloInstagram\}` \}\] : \[\]\),/);
 });
 
-test('la ficha: con el @ como único canal no hay Llamar ni WhatsApp apagados, hay «Instagram»', () => {
+test('la ficha: ningún botón apagado; con el @ como único canal, «Instagram» (18/11/2026: sin número, ni Llamar ni WhatsApp)', () => {
+  // Lo que decide qué botones de contacto van, EJECUTADO (app/m/crm/ficha-bloques.ts → `accionesDeContacto`).
+  const tel = 'tel:+525512345678';
+  assert.deepEqual(accionesDeContacto({ soloInstagram: 'perez', igHref: 'https://instagram.com/perez', tel: null, puedeWa: false }), ['instagram']);
+  assert.deepEqual(accionesDeContacto({ soloInstagram: 'mal usuario', igHref: null, tel: null, puedeWa: false }), [], 'un @ sin link: ningún botón');
+  assert.deepEqual(accionesDeContacto({ soloInstagram: null, igHref: null, tel, puedeWa: true }), ['llamar', 'whatsapp']);
+  assert.deepEqual(accionesDeContacto({ soloInstagram: null, igHref: null, tel: null, puedeWa: false }), [], 'sin canal (o sólo email): ni Llamar ni WhatsApp apagados');
+  assert.deepEqual(accionesDeContacto({ soloInstagram: null, igHref: null, tel: null, puedeWa: true }), ['whatsapp'], 'un chat sin número para llamar');
+  // El cableado: la fila se reparte entre los que van, y ningún botón apagado ni toast de «sin número».
   const ficha = sinComentarios(leer('app/m/crm/[id]/FichaLead.tsx'));
   const acciones = entre(ficha, '<div className="m-crm-acciones"', "onClick={() => setSheet('agendar')}");
-  const solo = acciones.slice(acciones.indexOf('{p.soloInstagram ? ('), acciones.indexOf('<>'));
-  assert.ok(solo.length > 20, 'no encontré la rama del @ como único canal');
-  assert.match(solo, /igHref && \(/, 'sin link no se dibuja el botón');
-  assert.match(solo, /href=\{igHref\} target="_blank" rel="noopener noreferrer"/);
-  assert.match(solo, /<Icon name="instagram" size=\{22\} \/>/);
-  // Lo que NO puede haber en esa rama: un botón apagado, un toast de «sin número», el Llamar o el WhatsApp.
-  assert.doesNotMatch(solo, /aria-disabled|toast\(|Llamar|WhatsApp|p\.tel\b|rutaChatsDeLead/);
-  // La otra rama (un lead con otros canales) sigue como estaba, con su Llamar y su WhatsApp.
-  const resto = acciones.slice(acciones.indexOf('<>'));
-  assert.match(resto, /href=\{p\.tel\} aria-label=\{`Llamar a \$\{p\.nombre\}`\}/);
-  assert.match(resto, /href=\{rutaChatsDeLead\(p\.id\)\} aria-label=\{`WhatsApp con \$\{p\.nombre\}`\}/);
-  // La fila se reparte entre los botones que quedan, y el link se arma con campo-inline. Desde el 04/11/2026 la fila tiene
-  // además «Grabar» (siempre), así que se reparte en todos los casos: Agendar, Nota y Grabar, más Llamar y WhatsApp o Instagram.
+  assert.match(ficha, /const contactar = accionesDeContacto\(\{ soloInstagram: p\.soloInstagram \?\? null, igHref, tel: p\.tel, puedeWa \}\);/);
+  assert.match(ficha, /const nAcciones = 3 \+ contactar\.length;/);
   assert.match(acciones, /style=\{\{ gridTemplateColumns: `repeat\(\$\{nAcciones\}, minmax\(0, 1fr\)\)` \}\}/);
+  assert.doesNotMatch(acciones, /aria-disabled|toast\(/, 'un botón apagado o un toast de «sin número»');
+  assert.match(acciones, /href=\{igHref\} target="_blank" rel="noopener noreferrer"/);
+  assert.match(acciones, /<Icon name="instagram" size=\{22\} \/>/);
+  assert.match(acciones, /href=\{p\.tel\} aria-label=\{`Llamar a \$\{p\.nombre\}`\}/);
+  assert.match(acciones, /href=\{rutaChatsDeLead\(p\.id\)\} aria-label=\{`WhatsApp con \$\{p\.nombre\}`\}/);
   assert.match(ficha, /const igHref = p\.soloInstagram \? linkInstagram\(p\.soloInstagram\) : null;/);
-  assert.match(ficha, /const nAcciones = 3 \+ \(p\.soloInstagram \? \(igHref \? 1 : 0\) : 2\);/);
   assert.match(sinComentarios(leer('app/m/crm/[id]/page.tsx')), /soloInstagram=\{d\.soloInstagram\}/, 'la página no le pasa el @ a la ficha');
 });
 

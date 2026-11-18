@@ -60,7 +60,8 @@ test('2. con señales del negocio, las sugeridas primero y con «Sugerida» en e
   const sin = plantillasNuevoVideo(null).slice(ANTES_DE_LOS_LIENZOS + 5);
   assert.equal(con.length, sin.length, 'ordenar no saca ni agrega plantillas');
   assert.equal(con[0].id, 'plantilla:testimonio', 'la sugerida va primera');
-  assert.match(con[0].rotulo ?? '', /^Sugerida · 15 s$/);
+  // El testimonio dura 33 s desde el 18/11/2026 (doc 2.4).
+  assert.match(con[0].rotulo ?? '', /^Sugerida · 33 s$/);
   const sugeridas = con.filter((p) => p.rotulo?.startsWith('Sugerida'));
   assert.deepEqual(con.slice(0, sugeridas.length).map((p) => p.id), sugeridas.map((p) => p.id), 'las sugeridas, todas arriba');
   for (const p of sin) assert.match(p.rotulo ?? '', /^\d+ s$/, 'sin señales, el rótulo es la duración');
