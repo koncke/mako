@@ -59,7 +59,7 @@ import { ORIGEN_COPILOTO } from '@/lib/media-buyer/copiloto';
 import { HERRAMIENTAS_DEL_COPILOTO } from '@/lib/media-buyer/copiloto-contexto';
 import { contextoDelCopilotoVigente } from '@/lib/media-buyer/copiloto-contexto-vigente';
 import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
-import { asesorPorId, referentePedido } from '@/lib/asesores/catalogo';
+import { asesorPorId, referenteDelFunnelCoachV2, referenteDelOfferCoachV2, referentePedido } from '@/lib/asesores/catalogo';
 // El candado de los referentes (14/11/2026): hablar con un gurú es de MaKo Pro (`FUNCIONES_SOLO_PRO`, 'chat-referentes').
 import { candadoDeReferente, candadoDeReferentesDe } from '@/lib/asesores/candado';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
@@ -192,10 +192,13 @@ async function contextoDelChat(quien: PersonaChat, desde: Desde | null): Promise
   // ⚠️ LO DECIDE EL INTERRUPTOR, NO LA PANTALLA: sin el V2, el coach único, venga de donde venga (una pestaña del Offer Coach abierta
   //    mientras estaba prendido incluida). Así quien no lo ve sigue exactamente como hoy.
   if (await veDosCoaches(quien.ws)) {
+    // Cada uno con el referente de SU área (el Cerebro, 18/11): el de oferta al Offer Coach, el de adquisición al Funnel Coach.
     if (tab === ORIGEN_OFFER_COACH) {
-      return { contexto: `${contextoDelOfferCoach(referente, sinReferentes)}\n\n${ofertaParaElContextoV2(oferta, 'offer')}`, referente, propias: HERRAMIENTAS_DEL_OFFER_COACH };
+      const delOffer = referenteDelOfferCoachV2(referente);
+      return { contexto: `${contextoDelOfferCoach(delOffer, sinReferentes)}\n\n${ofertaParaElContextoV2(oferta, 'offer')}`, referente: delOffer, propias: HERRAMIENTAS_DEL_OFFER_COACH };
     }
-    return { contexto: `${contextoDelFunnelCoachV2(sinReferentes)}\n\n${ofertaParaElContextoV2(oferta, 'funnel')}`, referente: null, propias: HERRAMIENTAS_DEL_FUNNEL_COACH_V2 };
+    const delFunnel = referenteDelFunnelCoachV2(referente);
+    return { contexto: `${contextoDelFunnelCoachV2(sinReferentes, delFunnel)}\n\n${ofertaParaElContextoV2(oferta, 'funnel')}`, referente: delFunnel, propias: HERRAMIENTAS_DEL_FUNNEL_COACH_V2 };
   }
   // Sin pista desde el 4/11/2026: sus herramientas viajan fijas (`propias`), y la pista le quitaba el lugar a las demás (lib/asesores/contexto.ts).
   return { contexto: `${contextoDelFunnelCoach(referente, sinReferentes)}\n\n${ofertaParaElContexto(oferta)}`, referente, propias: HERRAMIENTAS_DEL_COACH };
