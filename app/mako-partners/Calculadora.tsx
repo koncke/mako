@@ -9,15 +9,14 @@
 // cuántos negocios traes y el resultado, todo adentro del azul, a la derecha del título.
 //
 // EL PROGRAMA NUEVO (18/11/2026, Martín por el Cerebro: «Me gusta la misma… solamente calculado a esto»): el partner se lleva
-// un porcentaje de CADA pago de cada negocio que trae, todos los meses, para siempre. El porcentaje depende de por dónde entra
-// la plata (`COMISION_PARTNER_DIRECTO`: Binance o transferencia; `COMISION_PARTNER_PASARELA`: pasarela o link de pago), y la
-// cuenta la hace `comisionDelPago` (lib/partners-reglas.ts, del chat de Cobros): acá no se escribe ningún número a mano. El
-// resultado grande es lo que le deja CADA MES; abajo, lo de 12 meses. Ni una tasa de conversión inventada. Sin JavaScript se
-// lee con el valor de arranque (5 negocios en el plan más caro, cobrando directo).
+// el 30% de CADA pago de cada negocio que trae, todos los meses. Desde las ~18:50 UTC del 18/11 es SIEMPRE el 30%, pague como
+// pague el negocio (si paga por pasarela, el recargo se le suma a él en el checkout): sale el botón de la forma de pago, y la cuenta
+// es `gananciaPorMes` (./numeros.ts, con `COMISION_PARTNER_DIRECTO`): acá no se escribe ningún número a mano. El resultado grande
+// es lo que le deja CADA MES; abajo, lo de 12 meses. Ni una tasa de conversión inventada. Sin JavaScript se lee con el valor de
+// arranque (5 negocios en el plan más caro).
 // =============================================================================
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { CanalDelPago } from '@/lib/partners-reglas';
 import { gananciaEnUnAnio, gananciaPorMes, usd } from './numeros';
 
 export type PlanCalculadora = { id: string; nombre: string; precioUsd: number };
@@ -53,11 +52,6 @@ export const NEGOCIOS_DE_ARRANQUE = 5;
  *  largo»), pero el lector de pantalla oye «MaKo Pro, US$ 97». */
 type Opcion<T extends string> = { id: T; texto: string; corto: string; completo?: string };
 
-/** Cómo te pagan: el texto simple, sin el porcentaje (Martín: «transferencia o pasarela de pago. Simple»). */
-const CANALES: readonly [Opcion<CanalDelPago>, Opcion<CanalDelPago>] = [
-  { id: 'directo', texto: 'Transferencia', corto: 'Transferencia' },
-  { id: 'pasarela', texto: 'Pasarela de pago', corto: 'Pasarela' },
-];
 
 
 /** UN botón que muestra la opción de ahora y, al tocarlo, pasa a la otra. */
@@ -111,9 +105,8 @@ export function Calculadora({ planes, children }: {
   const [n, setN] = useState(NEGOCIOS_DE_ARRANQUE);
   const arrastrando = useRef(false);
   const [planId, setPlanId] = useState(planes[0]?.id ?? '');
-  const [canal, setCanal] = useState<CanalDelPago>(CANALES[0].id);
   const plan = planes.find((p) => p.id === planId) ?? planes[0];
-  const porMes = useCorre(plan ? gananciaPorMes(n, plan.precioUsd, canal) : 0);
+  const porMes = useCorre(plan ? gananciaPorMes(n, plan.precioUsd) : 0);
   if (!plan) return null;
   const opcionesPlan = planes.slice(0, 2).map((p) => ({
     id: p.id, texto: `MaKo: ${usd(p.precioUsd)}`, corto: `MaKo: ${usd(p.precioUsd)}`, completo: `${p.nombre}, ${usd(p.precioUsd)}`,
@@ -124,7 +117,6 @@ export function Calculadora({ planes, children }: {
         {opcionesPlan.length === 2 && (
           <Alternar etiqueta="Plan" opciones={[opcionesPlan[0], opcionesPlan[1]]} valor={plan.id} cambiar={setPlanId} />
         )}
-        <Alternar etiqueta="Cómo te pagan" opciones={CANALES} valor={canal} cambiar={setCanal} />
       </div>
       <div className="mp-calc-fila">
         <label htmlFor="mp-calc-n">¿Cuántos negocios traes?</label>
@@ -136,7 +128,7 @@ export function Calculadora({ planes, children }: {
         style={{ ['--mp-lleno' as string]: posicion(n) }} />
       <div className="mp-calc-res" aria-live="polite">
         <div className="mp-calc-monto">{usd(porMes)} <span>al mes</span></div>
-        <div className="mp-calc-anio">{usd(gananciaEnUnAnio(n, plan.precioUsd, canal))} en un año</div>
+        <div className="mp-calc-anio">{usd(gananciaEnUnAnio(n, plan.precioUsd))} en un año</div>
       </div>
       {children}
     </div>

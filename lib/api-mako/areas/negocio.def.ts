@@ -254,7 +254,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   // MAKO PARTNERS (25/10/2026, Martín: «Todo, todo siempre tiene que ir a la API»): el programa de referidos del negocio, lo
   // mismo que /partners (lib/partners-programa.ts). Partners paga en DINERO. Desde el 18/11/2026, el 30% de cada pago de cada
-  // negocio nuevo, todos los meses, mientras siga en MaKo (menos si pagan por pasarela), del 1 al 5 de cada mes: la regla, dicha con los números de
+  // negocio nuevo, todos los meses, mientras siga en MaKo, del 1 al 5 de cada mes: la regla, dicha con los números de
   // lib/partners-reglas.ts (`REGLA_PARTNERS`, app/mako-partners/numeros.ts). Antes decía «el 100% del primer mes».
   // El programa entero y «Marcar pagado» son de la plataforma (`soloPlataforma`), sin HTTP: son los libros de todos.
   {

@@ -4,10 +4,9 @@
 // =============================================================================
 // EL PROGRAMA NUEVO (18/11/2026, Martín por el Cerebro: «Me gusta la misma… solamente calculado a esto»): MISMA página, mismo
 // diseño y mismo orden, recalculada. Se acabó el «100% del primer mes»: el partner se lleva un porcentaje de CADA pago de cada
-// negocio que trae, todos los meses, para siempre. El 30% si la plata entra por Binance o transferencia (también si el partner
-// cobra él y manda el resto por ahí) y el 27% si entra por una pasarela o un link de pago (Mercado Pago, tarjeta, Whop). Los
-// porcentajes y la cuenta son del chat de Cobros (lib/partners-reglas.ts: `COMISION_PARTNER_DIRECTO`, `COMISION_PARTNER_PASARELA`,
-// `comisionDelPago`); acá no se escribe ninguno. «¿Cuándo cobro?» dice «cada pago» y no promete fecha: la acreditación por pago
+// negocio que trae, todos los meses: SIEMPRE el 30% (desde las ~18:50 UTC del 18/11, pague como pague el negocio; si paga por
+// pasarela, el recargo se le suma a él en el checkout). El porcentaje es del chat de Cobros (`COMISION_PARTNER_DIRECTO`,
+// lib/partners-reglas.ts) y la cuenta, ./numeros.ts; acá no se escribe ninguno. «¿Cuándo cobro?» dice «cada pago» y no promete fecha: la acreditación por pago
 // la está haciendo Cobros. Se paga del 1 al 5 del mes siguiente, en dólares por Binance o en pesos por transferencia.
 //
 // LO DE ANTES (25/10/2026):
@@ -34,7 +33,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, RUTA_ALTA_PARTNERS, comisionDelPago, type CanalDelPago } from '@/lib/partners-reglas';
+import { COMISION_PARTNER_DIRECTO, RUTA_ALTA_PARTNERS } from '@/lib/partners-reglas';
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
 import { gananciaPorMes, porcentaje, usd } from './numeros';
@@ -77,7 +76,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
   background: radial-gradient(420px 220px at 100% 0%, rgba(255,255,255,.16), transparent 70%), linear-gradient(140deg, var(--mp-azul) 0%, var(--mp-azul-osc) 100%);
   box-shadow: 0 26px 60px color-mix(in srgb, var(--mp-azul) 34%, transparent); }
 /* La calculadora (18/11/2026, Martín: «que sea mucho más claro… siento que hay como muchos botones»): UN control (cuántos negocios),
-   el resultado como lo que más se ve, una línea chica para la pasarela y el botón. Nada más. */
+   el resultado como lo que más se ve y el botón. Nada más. */
 .mp-calc-fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 22px; }
 .mp-calc-fila label { font-weight: 700; font-size: 18px; }
 .mp-calc-n { font-size: 40px; line-height: 1; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
@@ -90,7 +89,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 /* Los dos botones que alternan (18/11/2026): uno al lado del otro, cada uno con la opción de ahora en UNA línea y un mini interruptor
    (pista y bolita) que se desliza al otro lado al tocar, y late cada ~2 s hasta que tocan ese botón. Borde, fondo y sombra de botón;
    se levanta al pasar el mouse y se hunde al tocarlo. */
-.mp-calc-alts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mp-calc-alts { display: grid; grid-template-columns: 1fr; gap: 10px; }
 .mp-calc-alt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 56px; padding: 8px 10px 8px 12px;
   border-radius: 14px; cursor: pointer; font: inherit; text-align: left; color: var(--mp-sobre-azul); background: rgba(255,255,255,.14);
   border: 1px solid rgba(255,255,255,.4); box-shadow: 0 6px 16px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.2);
@@ -101,7 +100,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-calc-alt-tx { display: flex; min-width: 0; }
 .mp-calc-alt-tx.entra { animation: mp-cambia .22s ease; }
 /* Una línea, grande y en semibold (Martín: «deben ser más grandes porque no se ven»): 17–18 px en la computadora, siguiendo el ancho
-   del botón para que «Pasarela de pago» entre al lado del mini interruptor. */
+   del botón. */
 .mp-calc-alt-largo, .mp-calc-alt-corto { font-size: clamp(15px, calc((100cqi - 36px) / 8.2), 18px); font-weight: 600; line-height: 1.2; white-space: nowrap; }
 .mp-calc-alt-corto { display: none; }
 /* El mini interruptor: una pista de 28 × 16 con su bolita; a la derecha cuando está la segunda opción. */
@@ -114,12 +113,8 @@ body:has(.mp-publica) { background: #FFFFFF; }
   25% { transform: scale(1.15); box-shadow: inset 0 0 0 1px rgba(255,255,255,.6), 0 0 0 6px rgba(255,255,255,0); } }
 .mp-calc-alt:not(.tocado) .mp-calc-mini { animation: mp-late 2s ease-in-out .6s infinite; }
 @media (prefers-reduced-motion: reduce) { .mp-calc-alt, .mp-calc-alt-tx.entra, .mp-calc-mini, .mp-calc-mini-bola { transition: none; animation: none !important; } }
-/* En el teléfono, 15–16 px. «Transferencia» a 15 px no entra al lado del mini interruptor en medio recuadro de 375: el mini
-   interruptor va arriba a la derecha y el texto abajo, a todo el ancho del botón. */
+/* En el teléfono, 15–16 px; con un solo botón a todo el ancho, el mini interruptor entra al lado del texto. */
 @media (max-width: 479px) {
-  .mp-calc-alts { gap: 8px; }
-  .mp-calc-alt { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 8px 10px; }
-  .mp-calc-mini { order: -1; justify-self: end; }
   .mp-calc-alt-largo { display: none; }
   .mp-calc-alt-corto { display: inline; font-size: clamp(15px, calc(100cqi / 8), 16px); }
 }
@@ -143,21 +138,6 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-numero strong { color: var(--mp-ink); }
 .mp-numero .mp-numero-t { margin-bottom: 4px; font-size: 19px; line-height: 1.25; font-weight: 800; color: var(--mp-ink); }
 /* «Cuánto te llevas según cómo pagan»: dos tarjetas; la de transferencia, destacada sin gritar. */
-.mp-cobros { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
-/* El mismo relleno en las dos (el borde de 2 px de la destacada se descuenta del relleno): el 30 y el 25, a la misma altura. */
-.mp-cobro { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 56px 32px 28px; border-radius: 24px; background: var(--mp-sup);
-  border: 1px solid var(--mp-borde); }
-.mp-cobro-mejor { padding: 55px 31px 27px; border: 2px solid var(--mp-azul); box-shadow: 0 18px 40px color-mix(in srgb, var(--mp-azul) 14%, transparent); }
-.mp-cobro-etq { position: absolute; top: 18px; right: 18px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--mp-azul); background: var(--mp-azul-bg); }
-/* El % enorme (como el número grande de la calculadora) y debajo su nombre. */
-.mp-cobro-pct { align-self: flex-start; font-size: 84px; line-height: .95; font-weight: 800; letter-spacing: -.045em; color: var(--mp-azul); }
-.mp-cobro h3 { margin: 0 0 6px; font-size: 24px; font-weight: 800; color: var(--mp-ink); }
-.mp-cobro p { margin: 0; color: var(--mp-dim); }
-/* La línea chica de información, debajo de un divisor fino. */
-.mp-cobro .mp-cobro-info { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--mp-borde); font-size: 15px; color: var(--mp-suave); }
-.mp-cobro-montos { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 18px; color: var(--mp-ink); font-variant-numeric: tabular-nums; }
-.mp-cobro-montos b { font-weight: 800; }
 /* El carrusel en Partners: la variante clara de la portada, sin su relleno de sección, con el ícono del rubro en un recuadro. */
 .mp-tira.s-reemplaza-claro { padding: 8px 0 24px; background: transparent; }
 .mp-tira .s-tira-r { color: var(--mp-suave); }
@@ -165,7 +145,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-tira-ic { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; color: var(--mp-azul);
   background: var(--mp-azul-bg); }
 /* Aire entre el título de una sección y sus tarjetas (sin bajada en medio). */
-.mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-pasos, .mp-seccion h2 + .mp-cobros { margin-top: 28px; }
+.mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-pasos { margin-top: 28px; }
 /* «Así de simple»: profundidad suave (borde fino, sombra y un degradé muy leve de la marca), el número en un círculo, un ícono, y en
    la computadora la línea punteada que une los pasos (en el hueco entre tarjetas). */
 .mp-pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; grid-template-columns: repeat(3, 1fr); }
@@ -198,14 +178,9 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-pie { text-align: center; color: #8A93A2; font-size: 13.5px; padding: 28px 0 40px; }
 .mp-pie a { color: #5B6472; }
 @media (max-width: 860px) {
-  .mp-hero-grilla, .mp-numeros, .mp-cobros, .mp-pasos { grid-template-columns: 1fr; }
+  .mp-hero-grilla, .mp-numeros, .mp-pasos { grid-template-columns: 1fr; }
   .mp-pasos { gap: 14px; }
   .mp-paso:not(:last-child)::after { display: none; }
-  /* El relleno de arriba deja lugar al chip (el % nunca queda debajo de él); los montos, en un renglón. */
-  .mp-cobro { padding: 52px 22px 24px; }
-  .mp-cobro-mejor { padding: 51px 21px 23px; }
-  .mp-cobro-pct { font-size: 72px; }
-  .mp-cobro-montos { font-size: 16px; }
   .mp-hero h1, .mp-app .mp-hero h1 { font-size: 36px; }
   .mp-app .mp-hero { padding: 4px 16px 20px; border-radius: 18px; }
   .mp-hero-grilla { gap: 28px; padding-top: 24px; }
@@ -254,13 +229,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
   const boton = accion === undefined ? { href: RUTA_ALTA_PARTNERS, texto: 'Hacerme partner' } : accion;
   // Adentro de la app ya hay un <main> (el del shell): la landing es un bloque más.
   const Raiz = publica ? 'main' : 'div';
-  const directo = porcentaje(COMISION_PARTNER_DIRECTO), pasarela = porcentaje(COMISION_PARTNER_PASARELA);
-  /** «US$ 29,10 por mes con MaKo Pro» / «US$ 14,10 con MaKo Essential», el monto en negrita, según por dónde entra la plata. */
-  const montos = (canal: CanalDelPago) => (
-    <ul className="mp-cobro-montos">
-      {planes.map((p, i) => <li key={p.id}><b>{usd(comisionDelPago(p.precioUsd, canal))}</b>{i === 0 ? ' por mes' : ''} con {p.nombre}</li>)}
-    </ul>
-  );
+  const directo = porcentaje(COMISION_PARTNER_DIRECTO);
   return (
     <Raiz className={`mp-root ${publica ? 'mp-publica' : 'mp-app'}`}>
       <style dangerouslySetInnerHTML={{ __html: CSS_REEMPLAZA + CSS }} />
@@ -281,7 +250,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
               <h1>Recomienda MaKo y llévate el <em>{directo}</em></h1>
               <p className="mp-bajada">
                 Cada negocio que traes te deja <b>el {directo}</b> de lo que paga, todos los meses.
-                {tope && <> Trae {NEGOCIOS_DEL_EJEMPLO} y son <b className="mp-junto">{usd(gananciaPorMes(NEGOCIOS_DEL_EJEMPLO, tope.precioUsd, 'directo'))} extra por mes</b>.</>}
+                {tope && <> Trae {NEGOCIOS_DEL_EJEMPLO} y son <b className="mp-junto">{usd(gananciaPorMes(NEGOCIOS_DEL_EJEMPLO, tope.precioUsd))} extra por mes</b>.</>}
               </p>
               <div className="mp-acciones"><Boton boton={boton} marca={!publica && boton?.href === RUTA_ALTA_PARTNERS ? MARCA.partnersHacerme : undefined} /></div>
             </div>
@@ -292,8 +261,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
 
       {/* PASADA DE COPY (18/11/2026, Martín: «no pongas "no es un pago único"… se entiende. Mejora bien los copies… que sea
           marketinero, para que se entienda, no sea redundante»; aprobada por el Cerebro). Cada idea, UNA vez en la página: el héroe
-          dice cuánto ganas; los números, por qué conviene; «Así de simple», los 3 pasos; «según cómo pagan», el 30% y el 25% con sus
-          montos (Martín: «en otra sección deberíamos aclarar lo de la transferencia o pasarela de pago»); las preguntas, sólo dudas
+          dice cuánto ganas; «Así de simple», los 3 pasos; las preguntas, sólo dudas
           que no estén arriba; el cierre, una frase y el botón. Los números, de las constantes. */}
       {/* EL CARRUSEL DE PARTNERS (18/11/2026, Martín: «utilices el divider tipo carrusel que tenemos… decídelo tú… si ponemos de los
           otros, como las apps… no sé si va a confundir»): UNO, propio, entre el héroe y «Así de simple»: a quién le puedes recomendar
@@ -350,42 +318,12 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
 
       <section className="mp-seccion">
         <div className="mp-wrap">
-          {/* Martín: «el título… está medio confuso». */}
-          <h2>¿{directo} o {pasarela}? Depende de cómo pague el negocio</h2>
-          {/* Versión 66 (18/11/2026, Martín: «simplifica el texto… 30% por transferencia y 25% por pasarela de pago sin el paréntesis.
-              Y que estén alineados… el chip de "la que más te deja"… a la derecha para que no interrumpa… un pequeño divider… y que
-              ahí aclare… información simple, resumida»). Las dos tarjetas, con la misma estructura y el mismo relleno: el 30 y el 25
-              quedan a la misma altura; el chip va en posición absoluta y no empuja nada. El porqué del 25% queda en su pregunta. */}
-          <div className="mp-cobros">
-            <div className="mp-cobro mp-cobro-mejor">
-              <span className="mp-cobro-etq">La que más te deja</span>
-              <b className="mp-cobro-pct">{directo}</b>
-              <h3>Transferencia</h3>
-              {montos('directo')}
-              <p className="mp-cobro-info">Pagan por transferencia a Mercado Pago o por Binance.</p>
-            </div>
-            <div className="mp-cobro">
-              <b className="mp-cobro-pct">{pasarela}</b>
-              <h3>Pasarela de pago</h3>
-              {montos('pasarela')}
-              <p className="mp-cobro-info">Pagan con link de pago o con tarjeta de crédito o débito.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="mp-seccion">
-        <div className="mp-wrap">
           <h2>Preguntas frecuentes</h2>
           <p className="mp-sub">Todo lo que necesitas saber para empezar hoy.</p>
           <div className="mp-faq">
             <details open>
               <summary>¿Cuándo cobro?</summary>
               <p>Del 1 al 5 de cada mes, por todo lo que ganaste el mes anterior.</p>
-            </details>
-            <details>
-              <summary>¿Por qué a veces es el {pasarela}?</summary>
-              <p>Porque la pasarela cobra su comisión. Lo ves arriba, en «¿{directo} o {pasarela}? Depende de cómo pague el negocio».</p>
             </details>
             <details>
               <summary>¿Quién cuenta como mi referido?</summary>
