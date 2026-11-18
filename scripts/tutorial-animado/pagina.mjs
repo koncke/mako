@@ -4,6 +4,8 @@
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
 const RAIZ = 'C:/dev/tutoriales-video';
 const MAN = JSON.parse(readFileSync(`${RAIZ}/public-tutoriales/manifiesto.json`, 'utf8'));
+const SOLO = process.argv.slice(2);                                      // only these keys (the ones already in the new form)
+if (SOLO.length) MAN.videos = MAN.videos.filter((v) => SOLO.includes(v.key));
 const G = JSON.parse(readFileSync(`${RAIZ}/guiones.json`, 'utf8'));
 const PUB = 'C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/d2ccfb79-8556-4d00-a688-f5e3244f614b/scratchpad/pub-tutoriales';
 mkdirSync(`${PUB}/videos`, { recursive: true });

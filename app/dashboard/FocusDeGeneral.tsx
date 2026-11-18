@@ -26,6 +26,7 @@ import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import type { HojaCorta } from '@/lib/dashboard-focus';
 import { armarDatosGeneral, variablesDeQuienMira } from '../general/datos';
+import { hojaLeePeriodo, periodoDeLosBloques } from '../general/periodo-de-la-hoja';
 import { ProveedorGeneral } from '../general/ProveedorGeneral';
 import { EditorInforme } from './EditorInforme';
 import { pedidosDeHoja } from './exportar';
@@ -63,16 +64,19 @@ export async function FocusDeGeneral({ lectura, hojaPedida, plantillaPedida, hoy
   const pedidos0 = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
   // En blanco no se dibuja ningún gráfico: no se lee nada. Los bloques se arman igual: la plantilla que se elija los usa.
   const graficos = sinPaginas ? [] : pedidos0.graficos;
+  // El período de la hoja con que se abre (con la vista vacía, como sus gráficos), si tiene un bloque que lo sigue: «El
+  // mes» abre con su número (app/general/periodo-de-la-hoja.ts). Otro período lo pide el navegador.
+  const periodo = !sinPaginas && hojaLeePeriodo(hoja) ? periodoDeLosBloques(hoja, {}, hoy) : null;
   const [datos, bloques, variables, senales] = await Promise.all([
     datosDeGraficos(graficos.map(({ pedido }) => pedido)),
-    armarDatosGeneral(),
+    armarDatosGeneral({ periodo }),
     variablesDeQuienMira(),
     // Para que la galería ponga primero sus sugeridas (lib/plantillas-sugeridas.ts). Sin IA: lo guardado.
     senalesYa ?? senalesDelNegocio().catch(() => null),
   ]);
 
   return (
-    <ProveedorGeneral datos={bloques} variables={variables}>
+    <ProveedorGeneral datos={bloques} variables={variables} hoy={hoy}>
       <EditorInforme
         key="general"
         inicial={tablero}
