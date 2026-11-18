@@ -5081,6 +5081,14 @@ compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo 
   «Tu cuenta» (/m/cuenta) y su tutorial perdió 4 de 6 pasos de golpe; tres de ellos (Nombre, Nombre del negocio, Zona horaria)
   viven adentro de la hoja «Perfil» en el teléfono. Después de sumar una versión de teléfono se miden los recorridos
   (`medir-recorridos.cjs`), no sólo la captura.
+- **«Faltan muchísimas pestañas» no son filas de la barra** (18/11). Para el admin de un negocio la barra tiene 14 filas y el menú
+  de la foto 5 (`FAMILIAS` y `USER_NAV` de nav.ts, con el filtro del Sidebar); de esas faltaba sólo Chats. Las que faltan están ADENTRO:
+  las sub-pestañas de Classroom (`seccionesDe`, lib/clients-rutas.ts: Community, Clients, Calendar, Leaderboards, About), el índice
+  de Settings (lib/ajustes-secciones.ts: siete secciones) y cuatro destinos del menú de la foto. Y Offer y AI Avatar no están en la
+  barra (`fueraDeLaBarra`: se llega desde el Ops Center). Una lista «de memoria» se pierde las de adentro; la saca `leer-nav.tsx`.
+- **«Pusiste el video de la landing» no venía de las pestañas** (18/11): ninguna app-*.html tiene un `<video>` ni un `<iframe>`; «wistia»
+  aparece sólo como logo en una lista de íconos. El video estaba en la maqueta del onboarding, que arma otro chat. Antes de cambiar
+  una página por una queja, se busca en el HTML publicado si lo que se describe está ahí.
 
 ## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
 
