@@ -13,6 +13,8 @@ import { useMemo, type ReactNode } from 'react';
 import type { Elemento } from '@/lib/graficos-catalogo';
 import { type OpcionesElegidas, type PiezaGeneral, type ValoresVariables } from '@/lib/general-piezas';
 import { funnelDeFunnelHoy, funnelsDeCobranza, type HojaDeBloque } from './funnels-de-la-hoja';
+import type { PeriodoDeBloques } from './periodo-de-la-hoja';
+import { BloqueMesDelPeriodo, ProveedorMesDelPeriodo } from './MesDelPeriodo';
 import { ContextoGeneral, type ContextoDeGeneral } from '../dashboard/ElementoGeneral';
 import { EditarObjetivo } from './EditarObjetivo';
 import type { DatosGeneral } from './datos-tipos';
@@ -27,8 +29,10 @@ import { BloquePendientes, BloqueFunnel, BloqueCobranza, BloqueMes, MuestraFunne
  * Un bloque con sus datos y sus opciones. `hoja`: lo que la HOJA filtra y el bloque puede tomar: los funnels elegidos en su
  * «Filtro» (el control «Funnel» de arriba, por nombre). «A quién cobrarle» y «Tu funnel hoy» sin funnels propios leen esos
  * (./funnels-de-la-hoja.ts), así la hoja entera mira el mismo CRM o CRMs. Los propios del bloque (su panel) mandan.
+ * Y su PERÍODO (18/11/2026, ./periodo-de-la-hoja.ts): con uno, «El mes» lee ese período (./MesDelPeriodo.tsx); sin él, el
+ * mes a la fecha de siempre. Los demás bloques dicen lo de ahora o lo del trimestre: el período no los toca.
  */
-export function dibujarBloque(e: Elemento, d: DatosGeneral, hoja?: HojaDeBloque): ReactNode {
+export function dibujarBloque(e: Elemento, d: DatosGeneral, hoja?: HojaDeBloque & { periodo?: PeriodoDeBloques | null }): ReactNode {
   const g = e.general;
   if (!g) return null;
   const op = g.opciones;
@@ -48,7 +52,7 @@ export function dibujarBloque(e: Elemento, d: DatosGeneral, hoja?: HojaDeBloque)
     case 'pendientes': return <BloquePendientes d={d.pendientes} />;
     case 'funnel': return <BloqueFunnel d={d.funnels} funnel={funnel} op={op} />;
     case 'cobranza': return <BloqueCobranza d={d.cobranza} elegidos={funnelsDeCobranza(g, d, hoja)} funnels={d.funnels} op={op} />;
-    case 'mes': return <BloqueMes d={d.mes} op={op} />;
+    case 'mes': return hoja?.periodo ? <BloqueMesDelPeriodo periodo={hoja.periodo} op={op} /> : <BloqueMes d={d.mes} op={op} />;
     case 'publicaciones': return <BloquePublicaciones d={d.calendario} op={op} />;
   }
 }
@@ -110,7 +114,11 @@ export function configurarBloque(e: Elemento, d: DatosGeneral): ReactNode {
   );
 }
 
-export function ProveedorGeneral({ datos, variables, children }: { datos: DatosGeneral; variables: ValoresVariables; children: ReactNode }) {
+/**
+ * `hoy`: el del editor (el mismo con que se resuelve el período de los gráficos de la hoja). Sin él (el teléfono, que no
+ * tiene hoja con período), ningún bloque sigue un período.
+ */
+export function ProveedorGeneral({ datos, variables, hoy, children }: { datos: DatosGeneral; variables: ValoresVariables; hoy?: string; children: ReactNode }) {
   const valor = useMemo<ContextoDeGeneral>(() => ({
     dibujar: (e, hoja) => dibujarBloque(e, datos, hoja),
     configurar: (e) => configurarBloque(e, datos),
@@ -118,11 +126,14 @@ export function ProveedorGeneral({ datos, variables, children }: { datos: DatosG
     variables,
     funnels: datos.funnels.ok ? datos.funnels.d.map((f) => ({ id: f.id, nombre: f.nombre })) : null,
     datos,
-  }), [datos, variables]);
+    hoy: hoy ?? null,
+  }), [datos, variables, hoy]);
   return (
     <ContextoGeneral valor={valor}>
-      <style>{CSS_BLOQUES}</style>
-      {children}
+      <ProveedorMesDelPeriodo inicial={datos.mesDelPeriodo}>
+        <style>{CSS_BLOQUES}</style>
+        {children}
+      </ProveedorMesDelPeriodo>
     </ContextoGeneral>
   );
 }

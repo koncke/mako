@@ -1468,6 +1468,7 @@ aparecer por defecto», y editando falta cómo agregarlos. Revierte el 14/10, cu
 - ⚠️ **El período mueve los GRÁFICOS de la hoja, no los bloques de General**: los bloques leen `armarDatosGeneral` con su
   propio rango («del mes», «hoy», el trimestre del OKR). Por eso el 14/10 «no servía»: en una General hecha sólo de
   bloques, el filtro no cambia nada. Si Martín lo quiere en los bloques, es otro trabajo (cada bloque con su período).
+  (18/11/2026: «El mes» ya lo sigue; los demás bloques no, a propósito: hallazgos-objectives.md, la entrada de ese día.)
 
 Test: tests/general-filtros-por-defecto.test.ts (probado rompiéndolo). **Nadie lo miró en pantalla.**
 *17/10/2026, claude4 (chat Dashboard).*
