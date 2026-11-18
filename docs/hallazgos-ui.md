@@ -156,10 +156,10 @@ dibujan cosas distintas, y React tira #418. Automations ya usa `iniciales` (lib/
 tests/automations-iniciales.test.ts barre app/automations).
 
 **Quedan, sin tocar** (cada uno es de su chat):
-- app/_components/ServicioVisual.tsx:106
+- ~~app/_components/ServicioVisual.tsx:106~~ (18/11/2026: `iniciales(k, 1, '?')`, O14)
 - app/calendario/ListaLlamadas.tsx:187
 - app/classroom/ClientsShell.tsx:335
-- app/m/_ui/formato.ts:29
+- ~~app/m/_ui/formato.ts:29~~ (18/11/2026: `inicialesM` con `iniciales` y `Array.from`, O14; docs/hallazgos-mobile.md)
 - app/video-editor/_opencut/subtitles/components/texto-a-voz.tsx:72
 - app/web-generator/editor/paneles/PanelComentarios.tsx:46
 
@@ -348,10 +348,12 @@ cuadros un poco redondeados... Unifica ese diseño».
   - app/automations/social-ui.tsx:108
   - app/calendario/ListaLlamadas.tsx:187 (`charAt(0)`)
   - app/classroom/ClientsShell.tsx:335
-  - app/m/_ui/formato.ts:29 (el email)
-  - app/_components/ServicioVisual.tsx:106
+  - ~~app/m/_ui/formato.ts:29 (el email)~~ (18/11/2026, O14)
+  - ~~app/_components/ServicioVisual.tsx:106~~ (18/11/2026, O14)
 
-  Cuando estén, la forma `.trim()[0]` / `.charAt(0)` va a la guarda de `app/`.
+  ~~Cuando estén, la forma `.trim()[0]` / `.charAt(0)` va a la guarda de `app/`.~~ (18/11/2026: la guarda la tiene, caso 4 de
+  tests/iniciales-con-emoji.test.ts, que mira app/ —con app/m— y lib/; encontró además lib/tarjeta-kanban.ts y
+  app/conocimientos/Compartir.tsx, arreglados. PanelProbar, social-ui, ListaLlamadas y ClientsShell ya usaban `iniciales`.)
 
 **Vive en:** `lib/unicode-seguro.ts` (`iniciales`) · `lib/iniciales.ts` (`inicialesPorLetra`, la llama) · `tests/iniciales-con-emoji.test.ts` · `tests/iniciales-hidratacion.test.ts`
 
