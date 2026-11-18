@@ -9,13 +9,14 @@
 //   · un número de consumo inventado: un 0 cuando nadie midió en el medio, o una resta a través de un reinicio de la ventana.
 // El último caso corre el cartero de verdad (procesos aparte) contra un servidor falso, con un chat de la APP armado en disco.
 //
-// ⚠️ Probado ROMPIÉNDOLO (18/11/2026), una rotura por vez contra la base en verde de 5 pases:
+// ⚠️ Probado ROMPIÉNDOLO (18/11/2026), una rotura por vez contra la base en verde de 5 pases (6 desde «de la caja a la PC»):
+//   · mandar.ts copiando el `como` campo por campo (sin `porFase`) → 1 fallo («de la caja a la PC»): así estaba al escribirlo;
 //   · `vaPorFase` sin mirar el Cerebro → 1 fallo («la caja firma por fase sólo…»);
 //   · `comoCorre` sin la rama por fase (entrega con el modelo del chat) → 2 fallos («la PC entrega…» y el de punta a punta);
 //   · `diferencia` sin mirar si alguien midió en el medio → 1 fallo («lo que gastó cada fase…»: un 0 inventado);
 //   · `pasarAEjecutar` sin mirar qué sesión lo corre → 1 fallo (el de punta a punta: otro chat pasaba a éste a Opus);
 //   · `cierre` sin el consumo → 1 fallo (el de punta a punta).
-//   Restaurado de memoria (no con git checkout): 5 pases.
+//   Restaurado de memoria (no con git checkout): 6 pases.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -73,6 +74,20 @@ test('la PC entrega un trabajo por fase con Sonnet y le dice al chat cómo pasar
   assert.notEqual(c.idDelAvisoDeFase(ID), ID);
   assert.match(c.idDelAvisoDeFase(ID), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.throws(() => c.mensajeFase('no-es-un-id'));
+});
+
+test('de la caja a la PC: lo que decide la caja llega firmado y la PC lo lee igual', async () => {
+  const c = await import('../scripts/operaciones/cartero.mjs');
+  const como = comoCorreDelEnvio(APP, 'CRM', null, 'high', true);
+  // Como lo arma app/admin/operaciones/mandar.ts (useFirma → mandar): el `como` entero adentro del payload.
+  const firmado = armarFirmable(nuevoPayload({ id: ID, texto: 'Arregla el CRM', destino: APP, cuenta: 'claude4', titulo: 'CRM', alcance: 'solo_esto', ...como }, Date.now()));
+  const l = c.leerFirmable(firmado, Date.now()) as { ok: true; p: Record<string, unknown> };
+  assert.equal(l.ok, true);
+  assert.deepEqual(c.comoCorre(l.p), { sesion: APP, modelo: 'sonnet', esfuerzo: 'high' });
+  // mandar.ts no puede importarse en node (trae la acción del servidor): se mira que pase el `como` ENTERO. Copiado campo por
+  // campo, el `porFase` se perdía sin un error (pasó al escribir esto, 18/11/2026).
+  const mandar = readFileSync(join(RAIZ, 'app/admin/operaciones/mandar.ts'), 'utf8').replace(/\r\n/g, '\n').replace(/^\s*\/\/.*$/gm, '');
+  assert.match(mandar, /nuevoPayload\(\{[^}]*\.\.\.como,[^}]*\}, Date\.now\(\)\)/, 'el payload lleva lo que decidió la caja');
 });
 
 const cuota = (cinco: number, semana: number, medido: string, reinicia5 = '2026-11-18T15:00:00.000Z'): Cuota => ({
