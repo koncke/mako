@@ -1250,7 +1250,8 @@ export const RUNNERS: Runners = {
     proponer: async (input, ctx) => {
       if (!(await usaPlanBoard(ctx.ws))) return { error: 'Esta acción solo existe en el tablero del super-admin.' };
       const r = await proponerTareasParaProyecto(str(input, 'projId'));
-      if ('error' in r) return { error: r.error };
+      // Una lectura caída es una falla NUESTRA (abre ticket); «ya tiene tareas» o «no existe» son reglas.
+      if ('error' in r) return { error: r.error, ...('falla' in r && r.falla ? { falla: true as const } : {}) };
       return { id: r.id, url: linkBorrador(r.id), nueva: true, extra: { tareas: r.n } };
     },
     ejecutar: async () => ({ ok: false, resumen: 'Este borrador se confirma en su pantalla de revisión (/plan/revisar), no por aquí.' }),

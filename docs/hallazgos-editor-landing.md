@@ -4743,3 +4743,15 @@ lleva esa extensión, y `registrar` comparaba con los bytes y rechazaba cualquie
   (`caminoDe`): lo elegido en una pregunta que un salto dejó afuera no cuenta. El script de la página (`hist`) y el server
   (`puntajeDe`) siguen la misma regla. Una múltiple suma todas las marcadas y no salta.
 
+
+## Si la pasarela no deja abrir el pago de una landing, el dueño se entera en su campanita (18/11/2026, P17)
+
+**Vive en:** `lib/editor-landing/pago-pedido.ts` (`avisarFallo` de `DepPago`) · `lib/editor-landing/pago-landing-server.ts` · `tests/editor-landing-pago-candado.test.ts`
+
+- *Lo que pasaba:* cuando `crearCobro` fallaba en `ejecutarPago` (la cuenta desconectada, una clave vencida, la pasarela caída), el
+  comprador veía «no se pudo» y el motivo quedaba sólo en el historial del lead, que nadie abre si no sabe que pasó algo.
+- *Ahora:* además del historial, sale una notificación urgente en la campanita del negocio (`pago-landing-fallo`), con el link a la ficha
+  de quien quiso pagar (`linkDelLeadDelAviso`). Es opcional en `DepPago` y best effort: si falla, el visitante ve lo mismo.
+- *Sin hacer (hay que MEDIR):* si una tarjeta rechazada DENTRO del Checkout de Stripe de un pago único dispara algo que MaKo traduzca.
+  Mapear `payment_intent.payment_failed` en lib/cobros-eventos.ts a ciegas sería avisar «le rechazaron el pago» en cada intento fallido
+  aunque la persona reintente y pague en el mismo checkout. Se mide con un cobro de prueba (P29) antes de decidir.

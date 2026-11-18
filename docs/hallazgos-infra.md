@@ -3591,16 +3591,26 @@ Los de la tabla vieja (los dos scripts con `.range()` a mano, `cerrar-por-commit
 | Qué | Dónde | Estado |
 |---|---|---|
 | **Regresión:** el patrón por nombre casi no filtra y `.limit(100)` corta | `lib/leads.ts:367` + `lib/leads-duplicados.ts` (`patronesDeNombre`) | trunca hoy para nombres cortos → [hallazgos-crm.md](hallazgos-crm.md) |
-| `closing_analyses` entera, sin paginar | `app/crm/insights-actions.ts:56` | 428 en ws9 |
-| `plan_tareas` sin paginar (el board del super-admin) | `lib/plan-board.ts:101, 180, 302, 405, 583, 656, 735, 906` · `lib/plan-proyecto-vacio.ts:53, 107` · `app/admin/dev/roadmap.ts:142` | 643/1000 en ws9 → [hallazgos-plan.md](hallazgos-plan.md) |
-| `experimento_tareas` sin paginar | `lib/todo.ts:184, 192, 373, 453` | 212 en ws1 |
-| `vsl_events` / `landing_visits` de UN visitante o un lote | `lib/leads.ts:1482, 2264, 2286` (`getVisitasLandingMap`) | 612 por visitante (ws13) |
+| ~~`closing_analyses` entera, sin paginar~~ | `app/crm/insights-actions.ts:56` | 428 en ws9 · ✅ 18/11 (P20): `leerPorPaginas` por `recording_id`, corta al encontrar |
+| ~~`plan_tareas` sin paginar (el board del super-admin)~~ | `lib/plan-board.ts:101, 180, 302, 405, 583, 656, 735, 906` · `lib/plan-proyecto-vacio.ts:53, 107` · `app/admin/dev/roadmap.ts:142` | 643/1000 en ws9 → [hallazgos-plan.md](hallazgos-plan.md) · ✅ 18/11 (P20): `leerTareasPlan` / `tareasDelPlan`, orden terminado en `id` | |
+| ~~`experimento_tareas` sin paginar~~ | `lib/todo.ts:184, 192, 373, 453` | 212 en ws1 · ✅ 18/11 (P20): `listTareasConTope` y `listTareasDeRetro` |
+| ~~`vsl_events` / `landing_visits` de UN visitante o un lote~~ | `lib/leads.ts:1482, 2264, 2286` (`getVisitasLandingMap`) | 612 por visitante (ws13) · ✅ 18/11 (P20), el lote en tandas de 200 |
 | Lecturas de `leads` y `pagos` del embudo y la cobranza | `lib/queries.ts` (`getFunnelEtapas`, `getSCL`, `getTendencias` :2989), `lib/pagos.ts:411, 503` | bajo el techo por columnas ralas → [hallazgos-crm.md](hallazgos-crm.md) |
-| `cashUsd` / `soldUsd` | `lib/objectives-fuentes.ts:109, 127` | 13 cierres; se rompen en un objetivo anual → [hallazgos-objectives.md](hallazgos-objectives.md) |
-| Bloqueados y ocultos del inbox | `lib/evolution-block.ts:36, 59` | 0 y 15 filas |
-| Leads de las conversaciones del inbox | `lib/evolution-mensajes.ts` (~:320) | 46 ids por workspace |
+| `cashUsd` / `soldUsd` | `lib/objectives-fuentes.ts:109, 127` | 13 cierres; se rompen en un objetivo anual → [hallazgos-objectives.md](hallazgos-objectives.md) · 🟠 18/11 (P20): `cashUsd` pagina; `soldUsd` NO, porque `tests/venta-sin-cobro.test.ts` sólo reconoce `.select('…monto_cierre_usd…')` y con el helper deja de verlo |
+| ~~Bloqueados y ocultos del inbox~~ | `lib/evolution-block.ts:36, 59` | 0 y 15 filas · ✅ 18/11 (P20) |
+| ~~Leads de las conversaciones del inbox~~ | `lib/evolution-mensajes.ts` (~:320) | 46 ids por workspace · ⚪ 18/11 (P20): es un TOPE a propósito (50 teléfonos, `.limit(300)`), no un corte: el porqué quedó escrito arriba de la lectura |
 | Tres lecturas que devuelven VACÍO cuando fallan | el `catch → []` de `videosDetectados` (`lib/landing-token.ts`), `getVslEngagementMap` (`lib/leads.ts`), el `warn` de `getUsageSummary` | no truncan: mienten «no hay» |
 | `anthropic_usage` con `getSupabaseServer()` y el `eq(workspace_id)` a mano | `lib/anthropic-usage.ts`, `lib/ia-cuotas.ts` | paginan, pero contra la regla de la casa |
+
+**18/11/2026 (P20, `punta/nube-plata-c3`), lo que la paginación destapó además del corte.** Tres lecturas leían «no
+pude» como «no hay», y con la lectura caída hacían lo destructivo: `limpiarDependenciasColgadas` (lib/plan-board.ts)
+daba TODAS las aristas por colgadas y las borraba; `proyectosSinTareas` (lib/plan-proyecto-vacio.ts) daba todos los
+proyectos por vacíos, y proponerles tareas paga IA por cada uno. Las dos ahora paran. Y el aviso «recortado» del Plan
+(lib/plan-hoy.ts, lib/api-mako/areas/plan.helpers.ts) medía `leidas >= 1000`: con las tareas paginadas ese número ya no
+mide un corte sino el TAMAÑO del tablero, y habría avisado de un corte con 1000 tarjetas leídas enteras. **Regla: al
+paginar una lectura, se busca quién compara su largo contra 1000** (`grep -n "1000\|TOPE_FILAS"`): ese aviso queda
+midiendo otra cosa. Lo fija tests/techo-1000-p20.test.ts, con un PostgREST de mentira que corta en 1000 y mezcla los
+empates en cada pedido (sin el `id` al final del orden, 1174 de 1500 distintas).
 
 ### Descartado a propósito (no volver a "arreglarlo")
 
