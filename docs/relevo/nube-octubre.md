@@ -10,7 +10,8 @@
 > El estado de cada ítem, con su evidencia, quedó también en el propio `docs/pendientes-verificados-17-11.md` (sección «De
 > octubre»): lo cerrado va tachado con la fecha y el sha. Acá va lo que hace falta para seguir.
 
-<!-- ESTADO: se completa con las puntas que faltan y el revisor -->
+**En corto:** de los 46, 13 quedaron cerrados (tachados), 13 a medias con lo hecho y lo que falta, y 20 esperan una decisión de
+Martín (§2), producción (§3) o son trabajo grande (§4). O11 quedó afuera por el encargo (§5). Se subieron 19 puntas (§7).
 
 ## 1. Cómo se trabajó
 
@@ -19,10 +20,11 @@
 - 27 ítems se construyeron en 13 puntas, cada una con su agente en un worktree, su test que ejecuta el código y probado
   rompiéndolo. Después, dos puntas más con lo que salió de la tanda (el período de General y seis arreglos chicos del CRM).
 - Un revisor independiente contrastó contra `origin/main` todo lo que se dio por hecho antes de tacharlo.
-- **Para la próxima sesión de la nube:** el pre-push corre con el Node 22 de la máquina (los hooks no heredan el `PATH` de la
-  sesión) y su filtro da rojos de mentira (`invitarAlCurso is not a function`, `mock.module`). Si el mismo filtro corrido a
-  mano con Node 24 da verde, se sube con `MAKO_SIN_FILTRO=1 git push …`, el escape que documenta el propio hook; nunca con
-  `--no-verify`. Y `tsc-acotado` necesita `--heap=5120` para los archivos grandes (con el tope de 2560 sale 99: no chequeó).
+- **Para la próxima sesión de la nube:** el pre-push corre con el Node 22 de la máquina y su filtro da rojos de mentira
+  (`invitarAlCurso is not a function`, `mock.module`; ya cosechado en docs/hallazgos-infra.md). Lo correcto es
+  `export PATH="$(sh scripts/node24.sh):$PATH"` en el MISMO comando del `git push`. Los agentes no pudieron ponerlo (el
+  permiso del entorno no dejó un `PATH` delante de git): con el filtro corrido a mano con Node 24 en verde, subieron con
+  `MAKO_SIN_FILTRO=1 git push …`, el escape que documenta el propio hook; nunca con `--no-verify`. Y `tsc-acotado` necesita `--heap=5120` para los archivos grandes (con el tope de 2560 sale 99: no chequeó).
 - No se sacó el veredicto de la nube (`scripts/veredicto.mjs sacar`): pide el tsc entero con 12 GB y había 13 agentes en una
   máquina de 15 GB. GitHub corrió todo en cada punta.
 
@@ -70,7 +72,8 @@ Cada una con qué es, para qué y qué pasa con cada respuesta.
    - **Si sólo el super admin:** se le pone el mismo candado al chat.
    - **Si el admin del negocio:** la pantalla tiene un bug y se arregla para que lo deje.
 9. **O10 · Las ventas de los CRM extra (renovaciones) en la fuente Leads del Dashboard.** Sumarlas metería las renovaciones en
-   los totales y en la tasa de cierre. Hoy no se suman.
+   los totales y en la tasa de cierre. Hoy no se suman. Y «A quién cobrarle» de General sigue mostrando todo lo pendiente aunque
+   la hoja tenga período (lo decidido con Mauricio el 12/10): cortarlo por el período escondería las cuotas vencidas de antes.
 10. **O18 · La primera prueba A/B en una landing pública.** La landing ya sabe servir y contar una prueba; nadie la puede crear
     todavía (ni pantalla ni API) y la primera espera tu sí.
 11. **O32 · Dónde alojar las fuentes del Image Editor.** Hoy salen de jsDelivr (un CDN ajeno): 70 familias, 997 archivos,
@@ -139,6 +142,54 @@ Desde la nube no se lee ni se escribe producción. Lo hace el Cerebro desde la P
 - **O11 · Tutoriales y recorridos por tab:** no se tocó («No toques el onboarding, el reto ni los tutoriales»). La lista viva de
   las pestañas sin guía es `SIN_GUIA_TODAVIA` en `tests/guia-catalogo.test.ts`.
 
-## 6. Las puntas
+## 6. Lo que salió de la tanda y no era de los 46
 
-<!-- se completa al final -->
+- **El «hoy» de todo el Dashboard sale de Tijuana** (`app/dashboard/page.tsx:106` y el corte de los gráficos), no del día del
+  negocio: contradice la regla de AGENTS.md («"Hoy" es el día del NEGOCIO»). Arreglarlo cambia todo el Dashboard; no se tocó.
+- **Agrupar por funnel en el Dashboard** (O10, b3980c1f5): una tasa por funnel que mezcla la venta con otra cosa (cierres ÷
+  asistencias) puede dejar el cierre en un funnel y la asistencia en el otro cuando el lead se vendió en un funnel agregado.
+- **La galería de la ficha abre sola en un negocio nuevo** (crm-pedidos-chicos, 21dcec74b): «nuevo» quedó como «sin ningún lead
+  anterior al 16/10/2026». Es una interpretación de «los workspace que ya tienen leads»; si Martín lo quería de otra forma, es un
+  cambio de una función (`negocioNuevoParaLaFicha`, lib/ficha/config-server.ts).
+- **Las seis chicas de O47** ya están hechas (`punta/crm-pedidos-chicos`): el «anuncio de origen» sale de las plantillas (no hay
+  pieza que lo dibuje), las etiquetas junto al nombre ceden en el teléfono (falta mirarlo en un iPhone), el aviso de qué le falta
+  a «Insights», los rótulos «Sin…» del teléfono y «Asignar fuentes» fuera de Prospección. Quedan 32 abiertas.
+- **En los anuncios** (ads-nomenclatura): «Usar en un anuncio» y `proponer_crear_campana` todavía no proponen el código de
+  campaña; una letra de un anuncio borrado puede volver (Graph no lista los borrados); y `proponer_anuncio_desde_archivo` con
+  origen «mensaje» no se puede confirmar en /mako/revisar (está apagado).
+- **En el Copywriter** (anotado en su cosecha): `cifrasSinFuente` no mira precios ni «quedan N lugares», `alTuteo` no corrige
+  «andá», «vení», «pedime», «ponete» ni «sentite», y `primerMensajeDeEjemplo` es código muerto (se borra con T15).
+- **En infra:** `scripts/typecheck-lock.mjs:117-220` (el tsc entero antes del respaldo) todavía espera RAM con el lock tomado, a
+  propósito según su comentario del 11/10, pero contra la misma regla de O26.
+- **En Ops Center:** el margen del CRON en la batería de la API quedó en 310-311 (el piso es 300): la próxima operación de
+  Automations que puntúe por encima del CRON lo cruza.
+
+## 7. Las puntas
+
+Todas con su test que ejecuta el código y probadas rompiéndolas. «En main» = la corrida de `punta.yml` dio verde y la llevó; en
+producción es recién con el despliegue diario de Vercel en «Ready», que esta sesión no ve.
+
+| Punta | Ítems | Último sha | Estado |
+|---|---|---|---|
+| `punta/crm-diseno-remedido` | O47 | a30c5b905 | en main |
+| `punta/curso-sacado` | O12 (a) | 7556c1c1e | en main |
+| `punta/grupo-dominio-real` | O40 (2) | b9162f72b | en main |
+| `punta/movil-octubre` | O48, O14, O35 (2), O2 (5)(6) | 7c086f0a8 | en main |
+| `punta/movil-chats-linea` | O48 (las 150 por línea) | c026f4223 | en main |
+| `punta/dashboard-octubre` | O10 (1)(2)(3 funnel), O13 Dashboard | 0e8e3a6d5 | en main |
+| `punta/dashboard-funnel-agrupado` | O10 (1) al agrupar | b3980c1f5 | en main |
+| `punta/general-periodo` | O10 (3) período | 629531ccc | <!-- estado --> |
+| `punta/tickets-24h` | O59 | d21bcb74a | en main |
+| `punta/imagen-octubre` | O34, O33, O37 (a), O32 medido | d908f010d | en main |
+| `punta/ops-modelo-por-fase` | O20 | ed9a8bcca | en main (primero rojo por un test que copiaba una línea; se hizo prueba real) |
+| `punta/landing-octubre` | O13 landing, O18 L2 | bcf7b54fe | en main |
+| `punta/copywriter-octubre` | O23 | 0a6fac1e6 | en main |
+| `punta/infra-octubre` | O26, O27 | f1587b2e3 | en main |
+| `punta/ads-octubre` | O9, O22, O8 | 1a471006c | en main |
+| `punta/ads-nomenclatura` | O9 (el código en la API y en «Nueva campaña») | 2ab404cbf | <!-- estado --> |
+| `punta/api-acciones-octubre` | O19 | 50dd5728c | en main (primero choque de mezcla con main, unido) |
+| `punta/octubre-crm-perfil` | O21, O44, O45 | c06b5d14a | en main |
+| `punta/crm-pedidos-chicos` | seis de O47 | 0a64e2439 | <!-- estado --> |
+
+Un revisor independiente contrastó contra `origin/main` todo lo que se dio por hecho; tres faltas que encontró se arreglaron en
+las puntas de segunda vuelta (`movil-chats-linea`, `dashboard-funnel-agrupado`, `ads-nomenclatura`).
