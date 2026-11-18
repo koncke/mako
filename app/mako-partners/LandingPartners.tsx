@@ -78,7 +78,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
   box-shadow: 0 26px 60px color-mix(in srgb, var(--mp-azul) 34%, transparent); }
 /* La calculadora (18/11/2026, Martín: «que sea mucho más claro… siento que hay como muchos botones»): UN control (cuántos negocios),
    el resultado como lo que más se ve, una línea chica para la pasarela y el botón. Nada más. */
-.mp-calc-fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.mp-calc-fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 22px; }
 .mp-calc-fila label { font-weight: 700; font-size: 18px; }
 .mp-calc-n { font-size: 40px; line-height: 1; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .mp-calc-barra { --mp-lleno: 8%; width: 100%; margin: 16px 0 0; height: 8px; border-radius: 999px; appearance: none; -webkit-appearance: none; cursor: pointer;
@@ -87,22 +87,26 @@ body:has(.mp-publica) { background: #FFFFFF; }
   border: 3px solid var(--mp-azul-osc); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
 .mp-calc-barra::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--mp-sobre-azul); border: 3px solid var(--mp-azul-osc); }
 .mp-calc-barra:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 6px; }
-/* Los dos selectores (el plan y cómo te pagan), iguales: dos píldoras del mismo ancho y el mismo alto, la elegida en blanco. */
-.mp-calc-seg { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px;
-  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); }
-.mp-calc-sub + .mp-calc-seg { margin-top: 8px; }
-.mp-calc-op { font: inherit; font-size: 14px; font-weight: 700; line-height: 1.25; min-height: 52px; padding: 8px 10px; border: 0; border-radius: 10px;
-  cursor: pointer; color: var(--mp-sobre-azul); background: transparent; transition: background .15s ease, color .15s ease; }
-.mp-calc-op:hover { background: rgba(255,255,255,.10); }
-.mp-calc-op.activo { background: var(--mp-sobre-azul); color: var(--mp-azul-osc); box-shadow: 0 2px 10px rgba(0,0,0,.15); }
-.mp-calc-op:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 2px; }
-/* En el teléfono, las dos opciones de cada selector una debajo de la otra, a todo el ancho: «Binance o transferencia · 30%» no entra en
-   media columna y quedaba en tres renglones, más alto que el otro selector. Así los dos miden lo mismo. */
-@media (max-width: 480px) { .mp-calc-seg { grid-template-columns: 1fr; } .mp-calc-op { min-height: 44px; } }
-.mp-calc-sub { margin-top: 18px; font-weight: 700; font-size: 15px; }
-.mp-calc-res { margin: 24px 0 22px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.22); }
-.mp-calc-monto { font-size: 72px; line-height: .95; font-weight: 800; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
-.mp-calc-monto span { display: block; margin-top: 8px; font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: 0; opacity: .9; }
+/* Los dos interruptores (el plan y cómo te pagan), arriba e iguales: UNA píldora con el fondo blanco que se desliza a la opción
+   activa (18/11/2026, versión 57). La letra se achica con el ancho de la píldora (cqi) antes que partirse en dos renglones. */
+.mp-calc-sw { position: relative; display: grid; grid-template-columns: 1fr 1fr; width: 100%; padding: 4px; border-radius: 999px; cursor: pointer;
+  font: inherit; color: var(--mp-sobre-azul); background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); container-type: inline-size; }
+.mp-calc-sw + .mp-calc-sw { margin-top: 10px; }
+.mp-calc-sw:hover { background: rgba(255,255,255,.17); }
+.mp-calc-sw:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 3px; }
+.mp-calc-sw-fondo { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 999px; background: var(--mp-sobre-azul);
+  box-shadow: 0 2px 10px rgba(0,0,0,.18); transition: transform .2s ease; }
+.mp-calc-sw.der .mp-calc-sw-fondo { transform: translateX(100%); }
+.mp-calc-sw-op { position: relative; padding: 12px 4px; font-size: min(14px, calc((50cqi - 12px) / 11.5)); font-weight: 700; line-height: 1.2;
+  white-space: nowrap; text-align: center; opacity: .85; transition: color .2s ease, opacity .2s ease; }
+.mp-calc-sw-op.activo { color: var(--mp-azul-osc); opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .mp-calc-sw-fondo, .mp-calc-sw-op { transition: none; } }
+.mp-calc-res { margin: 18px 0 22px; container-type: inline-size; }
+/* El precio en UNA línea con «al mes» al final, más chico; la letra sigue el ancho del recuadro (cqi) para que el monto más largo
+   («US$ 1.367,70 al mes») entre sin partirse. */
+.mp-calc-monto { font-size: min(64px, calc(100cqi / 7.6)); line-height: 1; font-weight: 800; letter-spacing: -.045em; font-variant-numeric: tabular-nums;
+  white-space: nowrap; }
+.mp-calc-monto span { font-size: .34em; font-weight: 700; letter-spacing: 0; opacity: .9; }
 .mp-calc-anio { margin-top: 10px; font-size: 17px; font-weight: 600; opacity: .9; font-variant-numeric: tabular-nums; }
 .mp-calc .mp-btn { background: var(--mp-sobre-azul); color: var(--mp-azul-osc) !important; box-shadow: none; width: 100%; text-align: center; box-sizing: border-box; }
 .mp-seccion { padding: 72px 0; }
@@ -138,8 +142,6 @@ body:has(.mp-publica) { background: #FFFFFF; }
   .mp-app .mp-hero { padding: 4px 16px 20px; border-radius: 18px; }
   .mp-hero-grilla { gap: 28px; padding-top: 24px; }
   .mp-calc { padding: 22px 18px 20px; border-radius: 20px; }
-  .mp-calc-monto { font-size: 52px; }
-  .mp-calc-monto span { font-size: 17px; }
   .mp-numero b { font-size: 44px; }
   .mp-seccion { padding: 52px 0; }
   .mp-seccion h2, .mp-app .mp-seccion h2 { font-size: 27px; }

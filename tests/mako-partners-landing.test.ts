@@ -69,7 +69,7 @@ test('los TRES NÚMEROS grandes: el 30%, lo del mes con Pro, ilimitado', async (
   assert.match(texto(html), /El 30% es tuyo todos los meses/);
 });
 
-test('la CALCULADORA: el deslizador, dos selectores segmentados (plan y cómo te pagan), el resultado enorme y el botón', async () => {
+test('la CALCULADORA: dos interruptores arriba (plan y cómo te pagan), el deslizador, el precio en una línea y el botón', async () => {
   const { html, t } = await landing();
   const hero = html.slice(html.indexOf('class="mp-hero-grilla"'), html.indexOf('class="mp-seccion"'));
   assert.ok(hero.includes('class="mp-calc" id="calculadora"'), 'la calculadora está en el hero');
@@ -81,12 +81,15 @@ test('la CALCULADORA: el deslizador, dos selectores segmentados (plan y cómo te
   const calc = hero.slice(hero.indexOf('class="mp-calc"'));
   const calcT = texto(calc.slice(calc.indexOf('>') + 1, calc.lastIndexOf('</a>') + 4));
   assert.equal(calcT.trim(),
-    `¿Cuántos negocios traes? 5 MaKo Pro MaKo Essential ¿Cómo te pagan? Binance o transferencia · 30% Pasarela de pago · ${PASARELA} US$ 145,50 al mes US$ 1.746 en un año Hacerme partner`,
+    'MaKo Pro · US$ 97 MaKo Essential · US$ 47 Transferencia Pasarela de pago ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
     'sin JavaScript: 5 negocios con el plan más caro, cobrando directo; y NADA más');
   assert.equal((calc.match(/<input/g) ?? []).length, 1, 'un solo deslizador');
-  assert.equal((calc.match(/role="radiogroup"/g) ?? []).length, 2, 'dos selectores: el plan y cómo te pagan');
-  assert.equal((calc.match(/role="radio"/g) ?? []).length, 4, 'dos opciones cada uno');
-  assert.equal((calc.match(/aria-checked="true"/g) ?? []).length, 2, 'una elegida en cada uno');
+  // Martín, versión 57: «que sea uno, que vos le apretes y cambia la otra opción, porque es un botón de dos opciones».
+  assert.equal((calc.match(/role="switch"/g) ?? []).length, 2, 'dos interruptores: el plan y cómo te pagan');
+  assert.equal((calc.match(/<button/g) ?? []).length, 2, 'cada uno es UN botón, no dos');
+  assert.equal((calc.match(/aria-checked="false"/g) ?? []).length, 2, 'los dos arrancan en la primera opción');
+  assert.doesNotMatch(calcT, /Binance|%/, 'sin «Binance» ni el porcentaje en los interruptores');
+  assert.ok(calcT.indexOf('Pasarela de pago') < calcT.indexOf('¿Cuántos negocios traes?'), 'los interruptores, arriba del deslizador');
   assert.doesNotMatch(calcT, /Si pagan por pasarela|negocios ×/, 'ni la línea de la pasarela ni la cuenta');
   assert.equal((calc.match(/<a /g) ?? []).length, 1, 'una sola llamada a la acción');
   const { gananciaPorMes, gananciaEnUnAnio } = await import('../app/mako-partners/numeros');

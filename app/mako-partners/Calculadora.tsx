@@ -18,37 +18,41 @@
 
 import { useState, type ReactNode } from 'react';
 import type { CanalDelPago } from '@/lib/partners-reglas';
-import { PORCENTAJE_DIRECTO, PORCENTAJE_PASARELA, gananciaEnUnAnio, gananciaPorMes, usd } from './numeros';
+import { gananciaEnUnAnio, gananciaPorMes, usd } from './numeros';
 
 export type PlanCalculadora = { id: string; nombre: string; precioUsd: number };
 
 export const MAX_NEGOCIOS = 50;
 export const NEGOCIOS_DE_ARRANQUE = 5;
 
-/** Las dos formas de pago, con su porcentaje (de la regla). La primera es la de arranque. */
-const CANALES: ReadonlyArray<{ id: CanalDelPago; texto: string }> = [
-  { id: 'directo', texto: `Binance o transferencia · ${PORCENTAJE_DIRECTO}` },
-  { id: 'pasarela', texto: `Pasarela de pago · ${PORCENTAJE_PASARELA}` },
+type Opcion<T extends string> = { id: T; texto: string };
+
+/** Cómo te pagan: el texto simple, sin el porcentaje (Martín: «transferencia o pasarela de pago. Simple»). */
+const CANALES: readonly [Opcion<CanalDelPago>, Opcion<CanalDelPago>] = [
+  { id: 'directo', texto: 'Transferencia' },
+  { id: 'pasarela', texto: 'Pasarela de pago' },
 ];
 
-/** Un selector segmentado: dos opciones del mismo ancho, la elegida marcada. */
-function Segmentado<T extends string>({ opciones, valor, elegir, ...aria }: {
-  opciones: ReadonlyArray<{ id: T; texto: string }>; valor: T; elegir: (v: T) => void; 'aria-label'?: string; 'aria-labelledby'?: string;
+/**
+ * UN interruptor de dos posiciones: una píldora con el fondo que se desliza a la opción activa. Tocarla en cualquier parte pasa a la
+ * otra. Para un lector de pantalla es un `switch` que dice cuál está elegida.
+ */
+function Interruptor<T extends string>({ opciones: [a, b], valor, cambiar, etiqueta }: {
+  opciones: readonly [Opcion<T>, Opcion<T>]; valor: T; cambiar: (v: T) => void; etiqueta: string;
 }) {
+  const segunda = valor === b.id;
   return (
-    <div className="mp-calc-seg" role="radiogroup" {...aria}>
-      {opciones.map((o) => (
-        <button key={o.id} type="button" role="radio" aria-checked={o.id === valor}
-          className={`mp-calc-op${o.id === valor ? ' activo' : ''}`} onClick={() => elegir(o.id)}>
-          {o.texto}
-        </button>
-      ))}
-    </div>
+    <button type="button" role="switch" aria-checked={segunda} aria-label={`${etiqueta}: ${segunda ? b.texto : a.texto}`}
+      className={`mp-calc-sw${segunda ? ' der' : ''}`} onClick={() => cambiar(segunda ? a.id : b.id)}>
+      <span className="mp-calc-sw-fondo" aria-hidden="true" />
+      <span className={`mp-calc-sw-op${segunda ? '' : ' activo'}`}>{a.texto}</span>
+      <span className={`mp-calc-sw-op${segunda ? ' activo' : ''}`}>{b.texto}</span>
+    </button>
   );
 }
 
 export function Calculadora({ planes, children }: {
-  /** Los planes que puede elegir un referido, del más caro al más barato (el primero es el de arranque). */
+  /** Los planes que puede elegir un referido, del más caro al más barato (el primero es el de arranque; el interruptor usa dos). */
   planes: readonly PlanCalculadora[];
   /** La acción de abajo del resultado (hacerse partner), que la arma la página. */
   children?: ReactNode;
@@ -58,8 +62,13 @@ export function Calculadora({ planes, children }: {
   const [canal, setCanal] = useState<CanalDelPago>(CANALES[0].id);
   const plan = planes.find((p) => p.id === planId) ?? planes[0];
   if (!plan) return null;
+  const opcionesPlan = planes.slice(0, 2).map((p) => ({ id: p.id, texto: `${p.nombre} · ${usd(p.precioUsd)}` }));
   return (
     <div className="mp-calc" id="calculadora" aria-label="Calculadora de lo que ganas">
+      {opcionesPlan.length === 2 && (
+        <Interruptor etiqueta="El plan que eligen" opciones={[opcionesPlan[0], opcionesPlan[1]]} valor={plan.id} cambiar={setPlanId} />
+      )}
+      <Interruptor etiqueta="Cómo te pagan" opciones={CANALES} valor={canal} cambiar={setCanal} />
       <div className="mp-calc-fila">
         <label htmlFor="mp-calc-n">¿Cuántos negocios traes?</label>
         <output htmlFor="mp-calc-n" className="mp-calc-n">{n}</output>
@@ -67,9 +76,6 @@ export function Calculadora({ planes, children }: {
       <input id="mp-calc-n" className="mp-calc-barra" type="range" min={1} max={MAX_NEGOCIOS} step={1} value={n}
         onChange={(e) => setN(Number(e.currentTarget.value))}
         style={{ ['--mp-lleno' as string]: `${((n - 1) / (MAX_NEGOCIOS - 1)) * 100}%` }} />
-      <Segmentado aria-label="El plan que eligen" opciones={planes.map((p) => ({ id: p.id, texto: p.nombre }))} valor={plan.id} elegir={setPlanId} />
-      <div className="mp-calc-sub" id="mp-calc-canal">¿Cómo te pagan?</div>
-      <Segmentado aria-labelledby="mp-calc-canal" opciones={CANALES} valor={canal} elegir={setCanal} />
       <div className="mp-calc-res" aria-live="polite">
         <div className="mp-calc-monto">{usd(gananciaPorMes(n, plan.precioUsd, canal))} <span>al mes</span></div>
         <div className="mp-calc-anio">{usd(gananciaEnUnAnio(n, plan.precioUsd, canal))} en un año</div>
