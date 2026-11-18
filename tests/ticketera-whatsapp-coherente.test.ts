@@ -125,7 +125,8 @@ test('8. el cierre: SU grupo primero, sin el tope del aviso de arreglo, y sin ma
   // El de SU ticket nunca por el aviso de arreglo (el tope de 3 por día): sólo los OTROS negocios de un error del sistema.
   assert.doesNotMatch(fn, /avisarArregloAlGrupo\(\{ ws, /, 'el aviso de SU ticket va por el aviso de arreglo, con su tope');
   assert.match(fn, /const negocios = new Set\(await negociosAfectados\(f\.id\)\);\s*negocios\.delete\(ws\);/, 'su negocio recibe además el «Arreglamos…»');
-  assert.match(c, /select\('id, titulo, estado, respuesta, duplicado_de, workspace_id, usuario_id, canal, contexto, updated_at'\)/, 'sin `updated_at` no se sabe cuánto se reintentó');
+  // Y `decision` (18/11/2026, el #107): sin ella, un pedido delegado que Martín CONTESTÓ sale como «Listo: ya quedó».
+  assert.match(c, /select\('id, titulo, estado, respuesta, duplicado_de, workspace_id, usuario_id, canal, contexto, updated_at, decision'\)/, 'sin `updated_at` no se sabe cuánto se reintentó');
 });
 
 test('9. las puertas del «ya quedó»: el aviso de arreglo, el mensaje libre del equipo y el script de los chats', () => {
