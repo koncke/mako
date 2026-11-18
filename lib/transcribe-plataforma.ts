@@ -11,6 +11,7 @@
 // =============================================================================
 
 import { salidaDegenerada } from './stt-degenerado';
+import { modeloGeminiStt } from './gemini-modelos';
 
 const OAI = 'https://api.openai.com/v1';
 const MAX_BYTES = 25 * 1024 * 1024; // límite de OpenAI audio
@@ -110,7 +111,7 @@ const MAX_INLINE_GEMINI = 14 * 1024 * 1024;   // va dentro del request: hay tech
 
 async function sttGemini(buf: Buffer, mime: string, key: string, hint?: string): Promise<{ texto: string; modelo: string }> {
   if (buf.length > MAX_INLINE_GEMINI) throw new Error(`${(buf.length / 1048576).toFixed(1)} MB: no entra inline (tope 14 MB)`);
-  const modelo = process.env.GEMINI_STT_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  const modelo = modeloGeminiStt();
   // ⚠️ «EN SU IDIOMA ORIGINAL» NO ES UNA PREFERENCIA: ACÁ DECÍA «en español» Y ESO ES UNA
   // ORDEN DE TRADUCIR.
   //
