@@ -278,6 +278,7 @@ POST /api/push/prueba → PERMITIDA
 POST /api/push/suscripcion → PERMITIDA
 POST /api/recorridos → PERMITIDA
 POST /api/regenerate-transcript → cortada
+POST /api/reto → cortada
 POST /api/second-brain/buscar → cortada
 POST /api/second-brain/exportar → cortada
 POST /api/soporte/reportar → PERMITIDA

@@ -272,3 +272,14 @@ test('10. «súbeme este anuncio» con un video: el doer lo acepta, el turno pid
   assert.deepEqual(e.salio, ['Todavía no puedo subir un anuncio desde un archivo: falta la prueba de anuncios por Zernio. Mientras, súbelo desde el Media Buyer.']);
   assert.equal(e.tickets.length, 0, 'se delegó un pedido que la regla ya contesta');
 });
+
+test('12. O21: corregir un dato del perfil desde el grupo viaja en la ACCIÓN, con la lectura de las claves, y no se delega', () => {
+  // Leila (llamada del 27/10/2026): «¿cómo te hago recordar que LíderMente es de 7:30 a 9:30?». Rota (18/11/2026): sacar
+  // `corregir_campo_perfil` de ACCIONES_SIMPLES (lib/despacho-grupo.ts) → no viaja en la ACCIÓN; sacar la rama `esDatoDelPerfil`
+  // de clasificarIntencion → las reglas no traen el área `negocio` y tampoco viaja.
+  const c = escena('corregirPerfil');
+  assert.ok(c.turno[0]?.tools.includes('corregir_campo_perfil'), `corregir_campo_perfil no viajó en la ACCIÓN: ${c.turno[0]?.tools.join(', ')}`);
+  assert.ok(c.turno[0]?.tools.includes('ver_perfil_negocio'), 'no viajó la lectura que da las claves del perfil');
+  assert.equal(c.tickets.length, 0, 'se delegó al equipo lo que MaKo propone con un «sí»');
+  assert.deepEqual(c.salio, ['¿Lo guardo en lo que incluye tu programa o en la garantía?']);
+});
