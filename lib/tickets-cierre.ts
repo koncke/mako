@@ -186,8 +186,16 @@ export async function cerrarLosDesplegados(desplegados = ticketsDesplegados()): 
     await anotarDelCerebro(id, `En producción: ${hito.titulo}`, 'sistema');
     // Los duplicados se resuelven con él: Linear mueve al que lo pidió al original; acá se le avisa a cada uno.
     const { data: dups } = await db.from(T).update({ estado: 'resuelto', resuelto_at: ahora, respuesta: `Se resolvió junto con el ticket #${id}: ${hito.titulo}.`, avisado_at: null, updated_at: ahora })
-      .eq('duplicado_de', id).neq('estado', 'resuelto').select('id');
-    for (const d of dups ?? []) await anotarDelCerebro(Number(d.id), `Resuelto con #${id}`, 'sistema');
+      .eq('duplicado_de', id).neq('estado', 'resuelto').select('id, contexto');
+    for (const d of dups ?? []) {
+      // Un duplicado que es un PEDIDO DELEGADO lleva la misma marca que el original: a él también le llegó la capacidad, no lo que pidió.
+      const suyo = conCierreDelDeploy(d.contexto);
+      if (suyo) {
+        const { error: eMarca } = await db.from(T).update({ contexto: suyo }).eq('id', Number(d.id));
+        if (eMarca) console.error(`[tickets] no pude marcar el duplicado #${String(d.id)} como cerrado por el deploy: ${eMarca.message}`);
+      }
+      await anotarDelCerebro(Number(d.id), `Resuelto con #${id}`, 'sistema');
+    }
   }
   return cerrados;
 }

@@ -45,6 +45,10 @@ async function main() {
     ticket(111, 'esperando_decision', { contexto: { ...DELEGADO }, decision: 'responder', respuesta: 'Ya está: MaKo agenda la llamada en tu Calendario. Pídeselo de nuevo aquí en el grupo.' }),
     // Un ticket que NO es un pedido delegado: su aviso y su contexto, como siempre.
     ticket(112, 'en_curso', { canal: 'formulario', titulo: 'La etapa no se guardaba', contexto: { pagina: '/crm' } }),
+    // Un DUPLICADO del #110 que también es un pedido delegado: se cierra en bloque con él y lleva la misma marca.
+    ticket(113, 'nuevo', { contexto: { ...DELEGADO }, duplicado_de: 110, titulo: 'Lo que faltó de: agendar la llamada a Valery (otra vez)' }),
+    // Y un duplicado que no es delegado (del #112): como siempre.
+    ticket(114, 'nuevo', { canal: 'formulario', titulo: 'La etapa no se guarda', contexto: { pagina: '/crm' }, duplicado_de: 112 }),
   );
   const desplegados = new Map([
     [110, { area: 'mako-doer', titulo: 'MaKo te agenda la llamada a un lead en el Calendario, además de dejarle la nota' }],
@@ -54,8 +58,8 @@ async function main() {
   const cerrados = await cerrarLosDesplegados(desplegados);
   const out = {
     cerrados,
-    filas: Object.fromEntries([110, 111, 112].map((id) => [id, { estado: fila(id).estado, decision: fila(id).decision, contexto: fila(id).contexto, respuesta: fila(id).respuesta }])),
-    avisos: Object.fromEntries([110, 111, 112].map((id) => [id, aviso(id)])),
+    filas: Object.fromEntries([110, 111, 112, 113, 114].map((id) => [id, { estado: fila(id).estado, decision: fila(id).decision, contexto: fila(id).contexto, respuesta: fila(id).respuesta }])),
+    avisos: Object.fromEntries([110, 111, 112, 113, 114].map((id) => [id, aviso(id)])),
     // Y el cron que avisa no se cae con la marca (lee la misma fila).
     avisar: await avisarPendientes(),
     sinMock: [...pg.sinMock],

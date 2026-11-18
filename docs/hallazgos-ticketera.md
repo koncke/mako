@@ -25,8 +25,9 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 - **Trampa: «lo cerró el deploy» no se puede deducir después.** El hito en el build (`ticketsDesplegados()`) también existe para un
   pedido que el equipo hizo Y además arregló en código, y `decision = null` también lo tiene uno cerrado por el script de
   resueltos. La marca se pone en el momento del cierre, que es el único lugar que sabe por qué cerró.
-- **Sin hacer:** los DUPLICADOS de un pedido delegado se cierran en bloque (`.eq('duplicado_de', id)`) sin la marca: si alguno es
-  también delegado, todavía le llega «Listo: ya quedó».
+- **Y los DUPLICADOS:** se cierran en bloque con el original (`.eq('duplicado_de', id)`), y un update en bloque no puede poner un
+  contexto distinto en cada fila. El bloque devuelve el contexto de cada uno, y al que es un pedido delegado se le pone la misma marca
+  con su propio update. Si esa escritura falla, queda en el log y a ése le llega «Listo: ya quedó».
 
 ## Cuánto tarda cada ticket, y la alerta a Martín a las 24 h (18/11/2026, claude2)
 

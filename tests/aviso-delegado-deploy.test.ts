@@ -9,7 +9,9 @@
 //      (sin la marca) sigue diciendo «ya quedó»; un ticket que no es delegado, como siempre;
 //   2. el cierre REAL del cron (tests/_aviso-delegado-deploy-hijo.ts): marca al delegado en su contexto, no toca a los demás, y el
 //      aviso que sale de esa fila es el nuevo; /tickets dice lo mismo (`paraElCliente` usa el mismo texto).
-// Probado rompiéndolo (18/11/2026): sin la marca en `cerrarLosDesplegados` → falla 2; sin la línea en `textoDelAviso` → fallan 1 y 2.
+//   3. un DUPLICADO que también es un pedido delegado se cierra en bloque con el original y lleva la misma marca y el mismo aviso.
+// Probado rompiéndolo (18/11/2026), una rotura por vez: sin la marca del original en `cerrarLosDesplegados` → falla 2; sin la de los
+// duplicados → falla 3; sin la línea en `textoDelAviso` → fallan 1, 2 y 3.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -46,17 +48,26 @@ test('1. el aviso: cerrado por el deploy, que lo pida de nuevo; «responder» ga
   assert.equal(paraElCliente(fila).respuesta, porDeploy);
 });
 
-test('2. el cierre REAL del cron marca al delegado y su aviso es el nuevo (base de mentira)', () => {
+type DelHijo = {
+  error?: string; cerrados: number[]; sinMock: string[];
+  filas: Record<string, { estado: string; decision: string | null; contexto: Record<string, unknown> | null; respuesta: string | null }>;
+  avisos: Record<string, string>; avisar: { avisados: number; fallidos: number };
+};
+let salida: DelHijo | null = null;
+/** El cierre real, una sola vez para los dos tests que lo miran. */
+function delHijo(): DelHijo {
+  if (salida) return salida;
   const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', join(RAIZ, 'tests/_aviso-delegado-deploy-hijo.ts')], {
     cwd: RAIZ, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 240_000,
   });
   const linea = (r.stdout || '').split('\n').find((l) => l.startsWith('@@DEPLOY@@'));
   assert.ok(linea, `el hijo no escribió su salida: ${(r.stderr || '').slice(-2000)}`);
-  const o = JSON.parse(linea.slice(10)) as {
-    error?: string; cerrados: number[]; sinMock: string[];
-    filas: Record<string, { estado: string; decision: string | null; contexto: Record<string, unknown> | null; respuesta: string | null }>;
-    avisos: Record<string, string>; avisar: { avisados: number; fallidos: number };
-  };
+  salida = JSON.parse(linea.slice(10)) as DelHijo;
+  return salida;
+}
+
+test('2. el cierre REAL del cron marca al delegado y su aviso es el nuevo (base de mentira)', () => {
+  const o = delHijo();
   assert.equal(o.error, undefined, o.error);
   assert.deepEqual(o.cerrados.sort((a, b) => a - b), [110, 111, 112]);
   assert.equal(o.filas['110'].contexto?.[CERRADO_POR_EL_DEPLOY], true, 'el delegado queda marcado');
@@ -68,5 +79,18 @@ test('2. el cierre REAL del cron marca al delegado y su aviso es el nuevo (base 
   assert.match(o.avisos['111'], /^Sobre tu pedido #111/, 'la respuesta del Cerebro se conserva');
   assert.match(o.avisos['112'], /^Listo: tu ticket #112/);
   assert.equal(o.avisar.fallidos, 0);
+});
+
+test('3. un DUPLICADO delegado se cierra con el original y lleva la misma marca y el mismo aviso', () => {
+  const o = delHijo();
+  assert.equal(o.filas['113'].estado, 'resuelto', 'el duplicado se cierra en bloque con el #110');
+  assert.equal(o.filas['113'].contexto?.[CERRADO_POR_EL_DEPLOY], true, 'el duplicado delegado queda marcado');
+  assert.equal(o.filas['113'].contexto?.delegado, true, 'sin perder lo que ya tenía');
+  assert.match(o.avisos['113'], /^Ya está: MaKo ahora puede hacer tu pedido #113 .*Pídeselo de nuevo aquí en el grupo\.$/);
+  assert.doesNotMatch(o.avisos['113'], /ya quedó/i);
+  // Un duplicado que no es delegado: sin marca, y su aviso de siempre.
+  assert.equal(o.filas['114'].estado, 'resuelto');
+  assert.equal(o.filas['114'].contexto?.[CERRADO_POR_EL_DEPLOY], undefined);
+  assert.match(o.avisos['114'], /^Listo: tu ticket #114 \(«La etapa no se guarda»\) está resuelto\. Se resolvió junto con el ticket #112/);
   assert.deepEqual(o.sinMock, []);
 });
