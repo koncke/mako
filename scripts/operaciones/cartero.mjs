@@ -1456,8 +1456,9 @@ const consumoDe = (id) => path.join(CONSUMO, `${id}.json`);
 export function anotarConsumo(id, cuenta, p, entrega, cuota, ahora = Date.now()) {
   if (!UUID_RE.test(id ?? '')) return;
   const porFase = vaPorFase(p);
-  const modo = porFase ? 'por_fase' : p.modelo ? 'elegido' : 'sin_tocar';
+  // A uno de terminal no se le aplica el modelo (`comoCorre`): ahí corre «sin tocar» aunque el trabajo lo traiga.
   const modelo = porFase ? MODELO_EXPLORAR : String(p?.destino ?? '').startsWith('local_') ? (p.modelo ?? null) : null;
+  const modo = porFase ? 'por_fase' : modelo ? 'elegido' : 'sin_tocar';
   escribirJson(consumoDe(id), {
     id, cuenta, modo,
     fases: [{ fase: porFase ? 'explorar' : 'todo', modelo, desde: new Date(ahora).toISOString(), cuota: cuota ?? null }],
