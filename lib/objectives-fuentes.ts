@@ -113,25 +113,39 @@ export async function inversionUsd(desde: string, hasta: string): Promise<Lectur
   }
 }
 
-/** Lo cobrado en el período. `pagos` tiene una fila por cuota: no llega al tope. */
+/**
+ * Lo cobrado en el período.
+ *
+ * ⚠️ PAGINA (P20, 18/11/2026). El comentario de antes decía «`pagos` tiene una fila por cuota: no llega al tope», y
+ * es falso: un negocio con planes en cuotas pasa las 1000 filas de `pagos` (lib/pagos.ts ya lee la cobranza con
+ * `leerTodo` desde el 17/10). Un `.select()` plano devolvía 1000 y se callaba: el cash del KPI salía de MENOS, que es la
+ * dirección que no hace sospechar. Se suma página por página (orden por `id`, PK); si falla, null con el motivo.
+ */
 async function cashUsd(desde: string, hasta: string): Promise<LecturaFuente> {
   try {
     const db = await getTenantDb();
-    const { data, error } = await db
-      .from('pagos')
-      .select('monto_usd')
-      .eq('pagado', true)
-      .gte('fecha_pago', desde)
-      .lte('fecha_pago', hasta);
-    if (error) return { valor: null, error: error.message };
-    const total = (data ?? []).reduce((s, r) => s + Number((r as { monto_usd: number | null }).monto_usd ?? 0), 0);
+    let total = 0;
+    await leerPorPaginas<{ monto_usd: number | null }>(
+      db, 'pagos', 'id, monto_usd',
+      (filas) => { for (const r of filas) total += Number(r.monto_usd ?? 0); },
+      { orden: 'id', eq: { pagado: true }, filtros: (q) => q.gte('fecha_pago', desde).lte('fecha_pago', hasta) },
+    );
     return { valor: total };
   } catch (e) {
     return fallo(e);
   }
 }
 
-/** Lo firmado en el período (Sold Revenue): la suma de los cierres. */
+/**
+ * Lo firmado en el período (Sold Revenue): la suma de los cierres.
+ *
+ * ⚠️ SIN PAGINAR TODAVÍA, A PROPÓSITO (P20, 18/11/2026). Corta en 1000 cierres del período sin error, igual que el cash
+ * antes del P20. No se pasó a `leerPorPaginas` porque tests/venta-sin-cobro.test.ts («toda lectura que suma
+ * `monto_cierre_usd` de ganados excluye los "sin cobro"») encuentra esta lectura buscando el `.select('…monto_cierre_usd…')`
+ * con su `.eq('cerro', true)` y su `.neq('venta_tipo', …)` en la misma sentencia, y necesita verla (su piso de 5 cuenta
+ * este KPI): con el helper la dejaba de ver y el test daba rojo con el código bien. Pasarla exige que esa guarda
+ * reconozca también la forma `leerTodo/leerPorPaginas(db, 'leads', '…monto_cierre_usd…', { eq: { cerro: true }, filtros })`.
+ */
 async function soldUsd(desde: string, hasta: string): Promise<LecturaFuente> {
   try {
     const db = await getTenantDb();

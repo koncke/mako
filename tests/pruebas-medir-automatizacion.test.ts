@@ -54,7 +54,8 @@ test('los medidores de Automations: en el cron por superficie, con el ws explíc
   assert.match(leer('lib/pruebas/store.ts'), /update\(\{ resultados: \{ \.\.\.previos, \[metrica\]: \{ at \} \} \}\)/, 'congelar una métrica pisa las otras');
   assert.match(m, /export const MEDIDORES_AUTOMATIZACION: Readonly<Record<string, Medidor>> = \{\n\s+respondio: medirRespondio,\n\s+agendo: medirAgendo,\n\s+pago: medirPago,\n\};/);
   const cron = leer('app/api/cron/pruebas/route.ts');
-  assert.match(cron, /const MEDIDORES: Medidores = \{\n\s+automatizacion: MEDIDORES_AUTOMATIZACION,\n\};/);
+  // Desde el 18/11/2026 (O18) el cron también lleva los de la landing (tests/pruebas-landing.test.ts mide sus reglas).
+  assert.match(cron, /const MEDIDORES: Medidores = \{\n\s+automatizacion: MEDIDORES_AUTOMATIZACION,\n\s+landing: MEDIDORES_LANDING,\n\};/);
   const corrida = leer('lib/pruebas/corrida.ts');
   assert.match(corrida, /const medidor = medidores\[p\.superficie\]\?\.\[metrica\];/, '«agendó» de una landing no se mide como el de una automatización');
   assert.match(corrida, /lugar: p\.lugar, asignaciones, hasta \}\);/, 'al medidor van TODAS las asignaciones (congela el primer resultado el día que pasa)');

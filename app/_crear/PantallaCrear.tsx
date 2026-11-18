@@ -45,6 +45,7 @@ import {
   type AccionProyecto, type CaraTarjeta, type PlantillaCrear, type ProyectoCrear, type VistaMovil,
 } from './reglas';
 import { TarjetaPlantilla } from './TarjetaPlantilla';
+import { marcaCrear } from '@/lib/tutoriales/marcas';
 
 export type { AccionProyecto, PlantillaCrear, ProyectoCrear } from './reglas';
 // ⚠️ `ESTILO_PAGINA_CREAR` NO se re-exporta desde acá: lo usan las <Pagina> de los server components, y un VALOR de un módulo
@@ -227,7 +228,8 @@ export function PantallaCrear(p: PropsPantallaCrear) {
   const plegar = useCallback(() => guardarPlegada(tab, true), [tab]);
 
   const volver = (
-    <button type="button" className="cr-volver" onClick={() => setCara('lista')} title={`Ver tus proyectos de ${tab}`} aria-label={`Ver tus proyectos de ${tab}`}>←</button>
+    <button type="button" className="cr-volver" onClick={() => setCara('lista')} title={`Ver tus proyectos de ${tab}`} aria-label={`Ver tus proyectos de ${tab}`}
+      data-recorrido={marcaCrear(tab, 'proyectos')}>←</button>
   );
 
   // La PORTADA de outliers va sin chat (`portada`): a la izquierda no hay nada, salvo la lista de proyectos cuando la piden
@@ -272,7 +274,8 @@ export function PantallaCrear(p: PropsPantallaCrear) {
           <span className="cr-riel__rotulo">MaKo</span>
         </button>
       )}
-      <section role="complementary" className="cr-tarjeta" hidden={plegada} aria-label={cara === 'chat' ? `MaKo en ${tab}` : `Tus proyectos de ${tab}`}>
+      <section role="complementary" className="cr-tarjeta" hidden={plegada} aria-label={cara === 'chat' ? `MaKo en ${tab}` : `Tus proyectos de ${tab}`}
+        data-recorrido={cara === 'chat' ? marcaCrear(tab, 'charla') : undefined}>
         <PlegarChatCtx.Provider value={sePliega ? plegar : null}>
         {cara === 'lista' ? (
           <ListaDeProyectos {...p} creando={centro === 'nueva'} onNuevo={alNuevo} onChat={alChat}

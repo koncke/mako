@@ -40,12 +40,13 @@ import { leerTodo } from './supabase-paginado';
 import { listarWorkspaces, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { zonaDelNegocio } from './timezone';
 import { hoyEnTz } from './date-utils';
-import { calcularIngresos, diaEnLaZona, esLeadDeSuscripcion, proximoDeHistoria, type ClienteIngreso, type Ingresos, type PagoIngreso, type ProximoDeSuscripcion } from './admin-ingresos-reglas';
+import { calcularIngresos, diaEnLaZona, esLeadDeSuscripcion, proximoDeHistoria, suscripcionDelLibro, type ClienteIngreso, type Ingresos, type PagoIngreso, type ProximoDeSuscripcion } from './admin-ingresos-reglas';
 import { cobradoDelLead, type Cobrado, type CobroParaCobrado } from './cobrado-lead';
 import { esDelTrato } from './pagos-crm';
 import { leerCambiosDeSuscripcion } from './suscripcion-movimientos';
 import type { PagoDeSuscripcion } from './suscripcion-meses';
-import { ordenesAtadas, pagosDelLibro, PREFIJO_LIBRO, type CobroDeRecibo, type FilaLibro } from './admin-ingresos-libro';
+import { ordenesAtadas, pagosDelLibro, proximoDelLibroPrendido, PREFIJO_LIBRO, type CobroDeRecibo, type FilaLibro } from './admin-ingresos-libro';
+import type { MesDeMensualidad } from './agencia-mes';
 import { leadDeLaCuenta } from './recibos-reglas';
 
 type FilaPago = {
@@ -240,7 +241,21 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
     const libro = pagosDelLibro(libroLeido.filas, { atadas: libroLeido.atadas, nombreWs, hoy });
     for (const [k, h] of libro.proximos) historiasDelLibro.set(k, h);
     avisos.push(...libro.avisos);
-    const sinRenglon = libro.agencias.filter((ag) => !quien.has(`ws:${ag}`));
+    // P7 (18/11/2026): el libro prendido de una agencia que todavía no pagó ningún mes por él no sabe cuánto debe ni cuándo: se lo
+    // pregunta a la mensualidad (la misma cuenta que su pantalla y el aviso del grupo). Sin esto «Por cobrar» seguía con lo del CRM.
+    // Se carga sólo si hace falta: lib/agencia-mes.ts arrastra el grupo de WhatsApp, el PDF y la compra de planes.
+    if (libro.prendidasSinHistoria.length) {
+      const { mensualidadDeAgencia } = await import('./agencia-mes');
+      const delMes = (x: MesDeMensualidad | null) => (x ? { mes: x.mes, limite: x.cuenta.limite, debeUsd: x.debeUsd, pagado: x.pagado } : null);
+      for (const ag of libro.prendidasSinHistoria) {
+        const m = await mensualidadDeAgencia(ag, ahora).catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+        if (!m.ok) { avisos.push(`lo próximo de la mensualidad de ${nombreWs.get(ag) ?? `la cuenta ${ag}`}: ${m.error}`); continue; }
+        if (!m.config) continue;
+        const p = proximoDelLibroPrendido(m.config.desde, [delMes(m.actual), delMes(m.siguiente)], hoy);
+        if (p) historiasDelLibro.set(suscripcionDelLibro(ag), p);
+      }
+    }
+    const sinRenglon = [...new Set([...libro.agencias, ...libro.prendidasSinHistoria])].filter((ag) => !quien.has(`ws:${ag}`));
     const fichas = await fichasDeAgencias(plataforma, sinRenglon)
       .catch((e) => { avisos.push(`la ficha en el CRM de las agencias: ${e instanceof Error ? e.message : String(e)}`); return new Map<number, number>(); });
     for (const ag of sinRenglon) quien.set(`ws:${ag}`, { clave: `ws:${ag}`, nombre: nombreWs.get(ag) ?? `Workspace ${ag}`, ws: ag, leadId: fichas.get(ag) ?? null });

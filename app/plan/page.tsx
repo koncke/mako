@@ -60,8 +60,11 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   let dbDown = false;
   // SÓLO LAS DEL PLAN (6/11/2026, #507): `experimento_tareas` también guarda lo que propuso una Retro
   // y los pasos de un experimento, que tienen su propia pantalla. El cliente veía las tres mezcladas.
-  try { tareas = await listTareas({ soloDelPlan: true }); } catch { dbDown = true; }
-  try { categorias = await listCategorias(); } catch { /* categorías arrancan vacías */ }
+  // Las tareas y los proyectos no dependen una lectura de la otra: van JUNTAS (18/11/2026, O27: eran dos esperas en serie al dibujar).
+  // Cada una cae como antes: sin tareas, «la base no contesta» (dbDown); sin categorías, arrancan vacías.
+  const [deTareas, deCategorias] = await Promise.allSettled([listTareas({ soloDelPlan: true }), listCategorias()]);
+  if (deTareas.status === 'fulfilled') tareas = deTareas.value; else dbDown = true;
+  if (deCategorias.status === 'fulfilled') categorias = deCategorias.value;
 
   // G4: cliente nuevo con el board en blanco → sembrarle su plan de arranque
   // (idempotente). Solo cuando NO hay ni tareas ni proyectos, para no re-sembrar si
@@ -87,10 +90,6 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
     demo = true;
   }
 
-  // Workspace actual (para scopear el opt-in de auto-load de reuniones por cliente,
-  // así la preferencia no se comparte entre impersonaciones en el mismo browser).
-  const wsActual = await getWorkspaceActual().catch(() => null);
-
   // El BoardShell ya trae su propio header "Plan"; no envolvemos con subtítulo.
   // La vista viaja en `?vista=` y se lee ACÁ, en el server: si el board la corrigiera
   // después de hidratar, cada refresh sería un parpadeo de Prioridades. Mismo trato que el
@@ -103,12 +102,15 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   // `clientesGanados` a secas: si la consulta de leads falla, el tablero se tiene que
   // dibujar igual con el picker vacío. Que un error leyendo el CRM deje a alguien sin su
   // tablero entero es el peor intercambio posible.
-  const clientes = await clientesGanadosOVacio();
   // Los nombres de las columnas de ESTE negocio (lib/plan-columnas.ts) y si quien mira los puede cambiar: el admin,
   // como el funnel del CRM. Leídos acá para que el primer HTML ya diga el nombre del negocio, sin parpadeo.
   // La tarjeta de quien mira («Personalizar tarjetas», 21/10/2026): de SU fila, con el HTML, por el mismo camino que las
   // columnas. `getTarjetaPlan` nunca tira (sin fila propia, la de siempre y sin guardar).
-  const [configColumnas, rol, tarjeta, borrador] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null), getTarjetaPlan(), borradorPendiente()]);
+  // El workspace actual, para scopear el opt-in de auto-load de reuniones por cliente (así la preferencia no se comparte entre
+  // impersonaciones en el mismo browser).
+  // ⚠️ Todo esto va en UNA espera (18/11/2026, O27): el workspace y los clientes eran dos `await` sueltos antes de ésta. Se leen
+  //    DESPUÉS del sembrado de arriba, como antes: ninguna de estas lecturas depende de lo que siembra, pero así no cambia qué se lee.
+  const [configColumnas, rol, tarjeta, borrador, wsActual, clientes] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null), getTarjetaPlan(), borradorPendiente(), getWorkspaceActual().catch(() => null), clientesGanadosOVacio()]);
 
   return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} clientes={clientes} clienteInicial={leerClienteDeUrl(cliente)}
     columnas={demo ? null : { config: configColumnas, editables: rol === 'admin' }} tarjeta={demo ? null : tarjeta}
