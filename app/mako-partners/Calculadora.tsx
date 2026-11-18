@@ -22,7 +22,8 @@ import { gananciaEnUnAnio, gananciaPorMes, usd } from './numeros';
 
 export type PlanCalculadora = { id: string; nombre: string; precioUsd: number };
 
-export const MAX_NEGOCIOS = 50;
+/** Hasta 100 negocios (Martín, 18/11/2026: «que el deslizable sea hasta 100»). */
+export const MAX_NEGOCIOS = 100;
 export const NEGOCIOS_DE_ARRANQUE = 5;
 
 // LOS DOS BOTONES QUE ALTERNAN (18/11/2026, Martín sobre los interruptores dobles: «Yo no quiero que sea un botón doble donde se vea
@@ -58,9 +59,12 @@ function Alternar<T extends string>({ opciones: [a, b], valor, cambiar, etiqueta
 }) {
   const actual = valor === b.id ? b : a;
   const otra = actual === a ? b : a;
+  // La transición del texto, sólo cuando lo tocan: al cargar, el texto está quieto (una animación que arranca en opacidad 0 deja
+  // el botón vacío si el navegador la frena, por ejemplo en una pestaña de fondo).
+  const [tocado, setTocado] = useState(false);
   return (
-    <button type="button" className="mp-calc-alt" onClick={() => cambiar(otra.id)} aria-label={`${etiqueta}: ${actual.texto}. Cambiar a ${otra.texto}`}>
-      <span className="mp-calc-alt-tx" key={actual.id}>
+    <button type="button" className="mp-calc-alt" onClick={() => { setTocado(true); cambiar(otra.id); }} aria-label={`${etiqueta}: ${actual.texto}. Cambiar a ${otra.texto}`}>
+      <span className={`mp-calc-alt-tx${tocado ? ' entra' : ''}`} key={actual.id}>
         <span className="mp-calc-alt-largo">{actual.texto}</span><span className="mp-calc-alt-corto">{actual.corto}</span>
         {actual.sub && <span className="mp-calc-alt-sub">{actual.sub}</span>}
       </span>

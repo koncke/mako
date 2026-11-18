@@ -8,7 +8,7 @@
 // cobra él y manda el resto por ahí) y el 27% si entra por una pasarela o un link de pago (Mercado Pago, tarjeta, Whop). Los
 // porcentajes y la cuenta son del chat de Cobros (lib/partners-reglas.ts: `COMISION_PARTNER_DIRECTO`, `COMISION_PARTNER_PASARELA`,
 // `comisionDelPago`); acá no se escribe ninguno. «¿Cuándo cobro?» dice «cada pago» y no promete fecha: la acreditación por pago
-// la está haciendo Cobros, y el pago al partner sigue siendo una transferencia de MaKo (`PAGO_HOY`).
+// la está haciendo Cobros. Se paga del 1 al 5 del mes siguiente, en dólares por Binance o en pesos por transferencia.
 //
 // LO DE ANTES (25/10/2026):
 // La dibujan la página pública (app/mako-partners/page.tsx) y, adentro de la app, /partners mientras el negocio NO se hizo
@@ -25,7 +25,7 @@
 // cortas. Lo que NO se tomó: los testimonios (hoy no hay partners que hayan cobrado, y uno inventado no se publica).
 //
 // ⚠️ SÓLO LO QUE PASA (24/10, el Cerebro: «la página de Partners no promete nada que no vayamos a cumplir»): lo transfiere
-// MaKo (`PAGO_HOY`). Los números salen de los planes y de las reglas, nunca escritos a mano.
+// MaKo. Los números salen de los planes y de las reglas, nunca escritos a mano.
 //
 // LOS DOS MODOS: `publica` (colores fijos de la página de venta, la barra de la app escondida) y `app` (los tokens de la
 // app: cambia con el tema oscuro y el Nord; la barra queda). La acción es UNA y es un link: hacerse partner (el onboarding
@@ -34,7 +34,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, DIAS_COOKIE_REF, PAGO_HOY, RUTA_ALTA_PARTNERS, comisionDelPago, type CanalDelPago } from '@/lib/partners-reglas';
+import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, DIAS_COOKIE_REF, RUTA_ALTA_PARTNERS, comisionDelPago, type CanalDelPago } from '@/lib/partners-reglas';
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
 import { gananciaPorMes, porcentaje, usd } from './numeros';
@@ -97,7 +97,8 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-calc-alt:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.25); }
 .mp-calc-alt:active { transform: translateY(1px) scale(.98); box-shadow: 0 2px 6px rgba(0,0,0,.18); }
 .mp-calc-alt:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 3px; }
-.mp-calc-alt-tx { display: flex; flex-direction: column; min-width: 0; animation: mp-cambia .22s ease; }
+.mp-calc-alt-tx { display: flex; flex-direction: column; min-width: 0; }
+.mp-calc-alt-tx.entra { animation: mp-cambia .22s ease; }
 .mp-calc-alt-largo, .mp-calc-alt-corto { font-size: 15px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
 .mp-calc-alt-corto { display: none; }
 .mp-calc-alt-sub { margin-top: 2px; font-size: 13px; font-weight: 600; opacity: .85; font-variant-numeric: tabular-nums; }
@@ -105,7 +106,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 @keyframes mp-cambia { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 @keyframes mp-pulso { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,.55); } 50% { transform: scale(1.18); box-shadow: 0 0 0 8px rgba(255,255,255,0); } }
 .mp-invita .mp-calc-alt-ic { animation: mp-pulso 1.1s ease .4s 1; }
-@media (prefers-reduced-motion: reduce) { .mp-calc-alt, .mp-calc-alt-tx, .mp-invita .mp-calc-alt-ic { transition: none; animation: none; } }
+@media (prefers-reduced-motion: reduce) { .mp-calc-alt, .mp-calc-alt-tx.entra, .mp-invita .mp-calc-alt-ic { transition: none; animation: none; } }
 /* En el teléfono, los nombres cortos, 13 px o más, y el ícono un poco más chico para que todo entre en media fila. */
 @media (max-width: 479px) {
   .mp-calc-alts { gap: 8px; }
@@ -162,7 +163,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 }
 `;
 
-/** El ejemplo del subtítulo: cuántos negocios (Martín, 18/11/2026: «Con 10 negocios en MaKo Pro, son US$ 291 al mes para ti»). */
+/** El ejemplo del subtítulo, con el plan más caro (18/11/2026, decidido: «Trae 10 y son US$ 291 extra por mes»). */
 const NEGOCIOS_DEL_EJEMPLO = 10;
 
 /** La acción de la landing: hacerse partner, o volver al panel. Siempre un link (sin JavaScript también lleva). */
@@ -212,8 +213,8 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
                   marketinero». El ejemplo de 10 negocios en el plan más caro sale de la regla (`gananciaPorMes`), no escrito. */}
               <h1>Recomienda MaKo y llévate el <em>{directo}</em></h1>
               <p className="mp-bajada">
-                Por cada negocio que entra con tu link, te llevas <b>el {directo} de lo que paga, todos los meses</b>.
-                {tope && <> Con {NEGOCIOS_DEL_EJEMPLO} negocios en {tope.nombre}, son <b className="mp-junto">{usd(gananciaPorMes(NEGOCIOS_DEL_EJEMPLO, tope.precioUsd, 'directo'))} al mes</b> para ti.</>}
+                Cada negocio que traes te deja <b>el {directo}</b> de lo que paga, todos los meses.
+                {tope && <> Trae {NEGOCIOS_DEL_EJEMPLO} y son <b className="mp-junto">{usd(gananciaPorMes(NEGOCIOS_DEL_EJEMPLO, tope.precioUsd, 'directo'))} extra por mes</b>.</>}
               </p>
               <div className="mp-acciones"><Boton boton={boton} marca={!publica && boton?.href === RUTA_ALTA_PARTNERS ? MARCA.partnersHacerme : undefined} /></div>
               <ul className="mp-chips">
@@ -244,28 +245,27 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
           <h2>Preguntas frecuentes</h2>
           <p className="mp-sub">Todo lo que necesitas saber para empezar hoy.</p>
           <div className="mp-faq">
+            {/* Revisadas una por una contra la regla vigente (Martín, 18/11/2026: «revisa bien las preguntas, porque, por ejemplo,
+                ¿cuándo cobro? No responde que se paga del 1 al 5»). Ninguna promete algo distinto. */}
             <details open>
               <summary>¿Cuánto gano?</summary>
               <p>
-                El <b>{directo} de cada pago</b> de cada negocio que entra con tu link, todos los meses, mientras el negocio siga en MaKo: {precios('directo')}.
-                Es dinero, no crédito ni descuentos.
-              </p>
-            </details>
-            <details>
-              <summary>¿Siempre es el {directo}?</summary>
-              <p>
-                Depende de por dónde entra la plata. Si el negocio paga por <b>Binance o transferencia bancaria</b>, o si le cobras tú y
-                nos mandas el {porcentaje(1 - COMISION_PARTNER_DIRECTO)} por Binance o transferencia, te llevas el <b>{directo}</b>. Si paga
-                por una <b>pasarela o un link de pago</b> (Mercado Pago, tarjeta, Whop), el <b>{pasarela}</b>: {precios('pasarela')}.
+                El <b>{directo} de cada pago</b> de cada negocio que entra con tu link, todos los meses, mientras siga en MaKo: {precios('directo')}.
+                Si ese negocio paga por pasarela de pago (tarjeta, Mercado Pago), el <b>{pasarela}</b>: {precios('pasarela')}. Es dinero, no
+                crédito ni descuentos.
               </p>
             </details>
             <details>
               <summary>¿Cuándo cobro?</summary>
-              <p>Cada vez que el negocio paga, tu parte de ese pago pasa a <b>«A cobrar»</b> en tu panel. {PAGO_HOY}</p>
+              <p>Todo lo que ganas en el mes se suma en tu panel, y se te paga <b>del 1 al 5 del mes siguiente</b>.</p>
+            </details>
+            <details>
+              <summary>¿Cómo cobro?</summary>
+              <p>Eliges en tu panel: <b>dólares por Binance</b>, o <b>pesos por transferencia</b> al dólar cripto del día del pago.</p>
             </details>
             <details>
               <summary>¿Hay un límite?</summary>
-              <p>Ninguno. Traes 10 negocios, cobras 10 veces cada mes. Traes 100, cobras 100.</p>
+              <p>No: negocios ilimitados.</p>
             </details>
             <details>
               <summary>¿Quién cuenta como mi referido?</summary>
@@ -285,7 +285,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
             </details>
             <details>
               <summary>¿Qué necesito para ser partner?</summary>
-              <p>Tener tu plan de MaKo activo. Con tu cuenta te haces partner en un minuto y tu link aparece en el acto.</p>
+              <p>Tener tu plan de MaKo activo. Si tu plan se corta, lo que ganaste no se pierde: se te paga cuando lo reactivas.</p>
             </details>
           </div>
         </div>

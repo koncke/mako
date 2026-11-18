@@ -23,7 +23,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, DIAS_COOKIE_REF, PAGO_HOY, RUTA_ALTA_PARTNERS, comisionDelPago } from '../lib/partners-reglas';
+import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, DIAS_COOKIE_REF, RUTA_ALTA_PARTNERS, comisionDelPago } from '../lib/partners-reglas';
 import { porcentaje, usd } from '../app/mako-partners/numeros';
 import { PROGRAMA_ACELERADOR } from '../lib/planes-mako';
 
@@ -51,7 +51,8 @@ test('el TÍTULO dice el 30% (sin «de por vida»), y el subtítulo el ejemplo d
   assert.match(html, /<h1>Recomienda MaKo y llévate el <em>30%<\/em><\/h1>/);
   // Martín, 18/11/2026: «Elimina esto del título: de por vida. Y mejora el copy del subtítulo». El subtítulo decidido, con los US$ 291
   // de la regla (10 × US$ 97 × 30%).
-  assert.ok(t.includes('Por cada negocio que entra con tu link, te llevas el 30% de lo que paga, todos los meses . Con 10 negocios en MaKo Pro, son US$ 291 al mes para ti.'), 'el subtítulo');
+  assert.ok(t.includes('Cada negocio que traes te deja el 30% de lo que paga, todos los meses. Trae 10 y son US$ 291 extra por mes .'), 'el subtítulo');
+  assert.match(html, /te deja <b>el 30%<\/b> de lo que paga[\s\S]*?<b class="mp-junto">US\$ 291 extra por mes<\/b>/, 'en negrita, y el monto en un renglón');
   assert.doesNotMatch(t, /de por vida|para siempre/, 'ni «de por vida» ni «para siempre» en la página');
   assert.match(t, /Todos los meses/);
   assert.match(t, /Cobras en dinero/);
@@ -86,6 +87,7 @@ test('la CALCULADORA: dos botones que alternan (plan y cómo te pagan), el desli
     'MaKo Pro Pro US$ 97 Transferencia Transferencia ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
     'sin JavaScript: 5 negocios con el plan más caro, cobrando directo; y NADA más');
   assert.equal((calc.match(/<input/g) ?? []).length, 1, 'un solo deslizador');
+  assert.match(calc, /<input id="mp-calc-n" class="mp-calc-barra" type="range" min="1" max="100"/, 'hasta 100 negocios');
   // Martín: «un único botón que si lo cliqueas cambia a la otra opción y que esté un botón al lado del otro».
   assert.equal((calc.match(/<button/g) ?? []).length, 2, 'dos botones: el plan y cómo te pagan');
   assert.ok(calc.includes('aria-label="Plan: MaKo Pro. Cambiar a MaKo Essential"'), 'dice cuál es y a cuál cambia');
@@ -119,20 +121,20 @@ test('la CALCULADORA: dos botones que alternan (plan y cómo te pagan), el desli
 
 test('las PREGUNTAS: cuánto, por qué 30% o 27%, cada pago, y lo de siempre', async () => {
   const { t } = await landing();
-  const preguntas = ['¿Cuánto gano?', '¿Siempre es el 30%?', '¿Cuándo cobro?', '¿Hay un límite?', '¿Quién cuenta como mi referido?', '¿Y si no entra con mi link?',
+  const preguntas = ['¿Cuánto gano?', '¿Cuándo cobro?', '¿Cómo cobro?', '¿Hay un límite?', '¿Quién cuenta como mi referido?', '¿Y si no entra con mi link?',
     '¿Cuánto dura mi link?', '¿Puedo hacer anuncios con mi link?', '¿Qué necesito para ser partner?'];
   // Ser partner pide tener el plan de MaKo pago (Martín, 18/11/2026: «de hecho no es gratis»): ningún «gratis» en la landing.
-  assert.match(t, /Tener tu plan de MaKo activo\. Con tu cuenta te haces partner en un minuto y tu link aparece en el acto\./);
+  assert.match(t, /Tener tu plan de MaKo activo\. Si tu plan se corta, lo que ganaste no se pierde: se te paga cuando lo reactivas\./);
   assert.doesNotMatch(t, /gratis/i, 'ningún «gratis» sobre ser partner');
   for (const q of preguntas) assert.ok(t.includes(q), q);
-  assert.match(t, /El 30% de cada pago de cada negocio que entra con tu link, todos los meses, mientras el negocio siga en MaKo: US\$ 29,10 al mes por cada MaKo Pro y US\$ 14,10 por cada MaKo Essential\. Es dinero, no crédito ni descuentos\./);
-  assert.match(t, /Binance o transferencia bancaria , o si le cobras tú y nos mandas el 70% por Binance o transferencia, te llevas el 30% \./);
-  assert.ok(t.includes(`pasarela o un link de pago (Mercado Pago, tarjeta, Whop), el ${PASARELA} : ${pasarelaPro} al mes por cada MaKo Pro y ${pasarelaEssential} por cada MaKo Essential.`),
+  // Revisadas contra la regla vigente (Martín, 18/11: «¿cuándo cobro? No responde que se paga del 1 al 5»).
+  assert.match(t, /El 30% de cada pago de cada negocio que entra con tu link, todos los meses, mientras siga en MaKo: US\$ 29,10 al mes por cada MaKo Pro y US\$ 14,10 por cada MaKo Essential\./);
+  assert.ok(t.includes(`Si ese negocio paga por pasarela de pago (tarjeta, Mercado Pago), el ${PASARELA} : ${pasarelaPro} al mes por cada MaKo Pro y ${pasarelaEssential} por cada MaKo Essential. Es dinero, no crédito ni descuentos.`),
     'la pasarela, con su porcentaje y sus montos');
-  // Cobros, 18/11: la acreditación es por cada pago; no se promete fecha, y el pago sigue siendo una transferencia de MaKo.
-  assert.ok(t.includes(`Cada vez que el negocio paga, tu parte de ese pago pasa a «A cobrar» en tu panel. ${PAGO_HOY}`), 'cuándo cobro: cada pago');
-  assert.doesNotMatch(t, /segundo mes|2º pago|segundo pago/, 'ya no se espera al 2º pago');
-  assert.match(t, /Ninguno\. Traes 10 negocios, cobras 10 veces cada mes\. Traes 100, cobras 100\./);
+  assert.match(t, /Todo lo que ganas en el mes se suma en tu panel, y se te paga del 1 al 5 del mes siguiente \./, 'cuándo cobro: del 1 al 5');
+  assert.match(t, /Eliges en tu panel: dólares por Binance , o pesos por transferencia al dólar cripto del día del pago\./, 'cómo cobro');
+  assert.doesNotMatch(t, /segundo mes|2º pago|segundo pago|¿Siempre es el/, 'ya no se espera al 2º pago, y la pregunta de la pasarela entró en «¿Cuánto gano?»');
+  assert.match(t, /¿Hay un límite\? No: negocios ilimitados\./);
   assert.match(t, /Sí\. Compártelo donde quieras: tus redes, tus grupos de WhatsApp, tu newsletter o tus anuncios\./);
   assert.ok(t.includes(`${DIAS_COOKIE_REF} días. Si alguien lo abre hoy`), 'cuánto dura, sin «vale el primero»');
   assert.match(t, /pone tu código al pagar/, 'el código del carrito');
