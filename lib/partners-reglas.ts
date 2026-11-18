@@ -54,8 +54,8 @@ export const gananciaDelReferido = (precioListaUsd: number): number => Math.roun
  * LA REGLA DEL PROGRAMA (18/11/2026, Martín: «Olvidémonos por ahora de pagar el 100% del primer mes»): el partner se lleva una parte
  * de CADA PAGO de cada negocio que trae, todos los meses, mientras ese negocio pague. Mensual o anual: la parte de lo que paga.
  * Cuánto, según por dónde entra la plata:
- *  - `directo`: Binance (USDT/USDC) o transferencia bancaria / CBU → 30 % redondo. También cuando el partner le cobra al negocio él
- *    mismo y le manda a MaKo el 70 % por Binance o transferencia: se queda con el 30 %.
+ *  - `directo`: Binance (USDT/USDC) o transferencia bancaria / CBU → 30 % redondo. Cada negocio referido le paga a MaKo DIRECTO, con el
+ *    link de pago o el código del partner (Martín, 18/11: «no son agencias»): el partner no le cobra al negocio ni le manda a MaKo un 70 %.
  *  - `pasarela`: link de pago o pasarela (Mercado Pago, Whop, tarjeta) → 25 %. ES UNA DECISIÓN DE MARTÍN (18/11/2026), no la cuenta del
  *    costo: el mismo día empezó en 27 % y bajó a 25 %. Referencia (la del Cerebro, 18/11; NO se pudo medir con cobros reales: todavía no
  *    hay ningún cobro de un plan por Mercado Pago): Mercado Pago cobra 6,29 % + IVA al instante (7,61 %) y 0,6 % más de débitos y

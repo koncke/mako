@@ -458,8 +458,8 @@ lectura sólo evita insertar de más. Si algún día se saca el índice, esa gua
 - **Medido en producción el 18/11/2026 (sólo lectura):** 2 códigos de partner, **0 compras con código y 0 renglones en el libro**. No hay ningún referido real
   todavía: el primer corrimiento de la 0421 no acredita nada ni manda ningún aviso. Queda una decisión para cuando haya referidos: quien no tenía el crédito
   viejo gana por TODOS sus pagos, también los anteriores a la regla; si Martín no lo quiere, poner una fecha de corte en `creditosDeUnReferido`.
-- **«El partner cobra él y le manda a MaKo el 70 %»** (el 30 % «redondo» aunque cobre él): no hay nada que lo automatice, el pago que entra a MaKo es el del
-  partner, no el del negocio. Hoy se anota a mano con un `ajuste`.
+- **Descartado por Martín (18/11): «el partner cobra él y le manda a MaKo el 70 %».** «No son agencias»: cada negocio referido le paga a MaKo directo, con el link
+  de pago o el código del partner. No se construye ni se escribe en ninguna pantalla.
 - **Lo que Martín pidió después y NO está hecho** (el brief completo está en docs/pendientes-partners-pagos-1811.md): el panel que suma solo y se paga del 1 al 5
   (A, D); verificar que la plata entró con las APIs de Mercado Pago y Binance (B, C); la cotización de Mercado Pago al momento; y «ser partner no es gratis»
   (el alta exige el plan pago y activo; hoy `hacermePartner` no lo mira).

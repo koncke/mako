@@ -48,17 +48,18 @@ Martín: «que ahí vaya sumándose todo lo que va a ganar y que el proceso de p
 - **D:** en el panel, «¿Cómo quieres cobrar?»: **Dólares por Binance** (pide su Binance Pay ID) o **Pesos por Mercado Pago o transferencia** (alias o CVU/CBU y titular; se paga al
   dólar cripto del día del pago). La lista de Martín muestra por partner el total en dólares, el medio y su dato con botón de copiar y, si cobra en pesos, el monto en pesos al
   dólar cripto EN VIVO al abrir la lista. Martín paga y lo marca: se guarda la cotización usada y sale el recibo. Sin datos: «esperando tus datos» (no se pierde) y se le recuerda.
-- Si el partner cobra él y manda el 70 %: su 30 % ya lo tiene; se registra igual en el panel pero no se le paga nada.
+- (Descartado por Martín, 18/11: el caso «el partner cobra él y manda el 70 %». «No son agencias»: cada negocio referido le paga a MaKo directo, con el link o el código del partner.)
 - Hoy `app/partners/PanelPartner.tsx` sólo tiene el campo `cobro` de texto libre (`cambiarCobroPartner`, lib/partners-programa.ts) y «Marcar pagado» manual del super admin
   (`registrarPagoAPartner`). El pago es una transferencia que hace MaKo; falta el cierre mensual, la lista y el aviso.
 
-## 4. «Ser partner NO es gratis» (Martín, 18/11)
-«no es gratis, deben estar pagando su suscripción». El alta (`hacermePartner`, `hacerme_partner` de la API) debe exigir plan de MaKo PAGO y ACTIVO; si no, no corre y dice que
-primero active su plan, con el link. **Hoy no lo exige** (desde el 29/10 «cualquier plan es partner», docs/hallazgos-partners.md; sólo rechaza al cliente de una agencia).
-Si al partner se le corta el plan, lo ganado NO se pierde: su pago del 1 al 5 queda «en pausa hasta que reactives tu plan» y se libera al reactivar (decisión por defecto del
-Cerebro). Sacar todo «gratis» sobre ser partner de app/partners/* y de los avisos. ⚠️ Definir «plan pago y activo» con cuidado antes de codearlo: `vigenciaDe(ws)`
-(lib/plan-acceso.ts) da null para una cuenta sin cobros por pasarela (planes cobrados a mano, agencias, Leila con su mensualidad propia): un criterio mal puesto deja afuera a
-partners que sí pagan.
+## 4. «Ser partner NO es gratis»: exige MaKo PRO activo (Martín, 18/11)
+«no es gratis, deben estar pagando su suscripción» y después: «sí o sí necesitan el plan de 97, el de MaKo Pro». El alta (`hacermePartner`, `hacerme_partner` de la API) corre
+SÓLO con MaKo Pro activo (no cualquier plan pago); si no, no corre y le dice que pase a Pro, con el link. **Hoy no lo exige** (desde el 29/10 «cualquier plan es partner»,
+docs/hallazgos-partners.md; sólo rechaza al cliente de una agencia; ya hubo un candado «sólo Pro» del 27 al 29/10: `FUNCIONES_SOLO_PRO`). Si se le corta el plan o baja de Pro, lo
+ganado NO se pierde: su pago del 1 al 5 queda «en pausa hasta que reactives tu plan» y se libera al volver (decisión por defecto del Cerebro). Sacar todo «gratis» sobre ser
+partner de app/partners/* y de los avisos. ⚠️ Definir «MaKo Pro activo» con cuidado antes de codearlo: `vigenciaDe(ws)` (lib/plan-acceso.ts) da null para una cuenta sin
+cobros por pasarela (planes cobrados a mano, agencias, Leila con su mensualidad propia), y el plan de un negocio sale de `cobros.plan_mako`/`alta_capa`; un criterio mal puesto
+deja afuera a partners que sí pagan Pro. Quien ya es partner con otro plan: decidir qué pasa (no se le quita lo ganado).
 
 ## Dependencias entre estos puntos
 1 → C (los pesos del checkout usan la misma lectura en vivo) y D (el monto en pesos de la lista). B y C van juntos. A y D van juntos y usan la migración 0421 (ya preparada).
