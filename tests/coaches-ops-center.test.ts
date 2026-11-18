@@ -617,5 +617,5 @@ test('hasta 3 funnels en el Funnel Coach del V2 (el Cerebro, 18/11): el principa
   assert.equal(lineasDelPlan(p!)[1].valor, 'Orgánico, YouTube');
   assert.match(contextoDelFunnelCoachV2(), /HASTA TRES: puede elegir hasta 3 funnels/);
   assert.match(contextoDelFunnelCoachV2(), /en otros \(hasta 2\)/);
-  assert.doesNotMatch(contextoDelFunnelCoach(), /HASTA TRES/, 'el coach único sigue con uno');
+  assert.doesNotMatch(contextoDelFunnelCoach(null), /HASTA TRES/, 'el coach único sigue con uno');
 });
