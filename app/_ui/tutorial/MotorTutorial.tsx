@@ -49,6 +49,26 @@ function lugarDe(sel: string): HTMLElement | null {
   return null;
 }
 
+/**
+ * El z-index que necesita el motor para quedar ENCIMA de la capa de lo marcado. La ficha rápida del CRM (app/_ui/TarjetaKanban.tsx)
+ * tiene su velo en 1200: con el motor en 400, «Mover a…» quedaba marcado DEBAJO (sin anillo, sin tarjeta, con el video pausado).
+ */
+function zParaMarcar(el: HTMLElement | null): number {
+  const zDe = (desde: Element | null) => {
+    let z = Z_PISO_RECORRIDO;
+    for (let x: Element | null = desde; x && x !== document.body; x = x.parentElement) {
+      const cs = getComputedStyle(x);
+      const n = parseInt(cs.zIndex, 10);
+      if (cs.position !== 'static' && Number.isFinite(n)) z = Math.max(z, n + 1);
+    }
+    return z;
+  };
+  // También encima de un panel modal abierto (la ficha que abrió «Ver info»): si no, el video chico queda bajo su velo.
+  let z = zDe(el);
+  for (const d of Array.from(document.querySelectorAll('[aria-modal="true"]'))) if (!d.closest('.mk-tuto') && d.getClientRects().length) z = Math.max(z, zDe(d));
+  return z;
+}
+
 /** El paso que marca una frase del video: el de lib/tutoriales que marca lo mismo (su título, su texto y su lado) o, si no hay, la frase. */
 function pasoDeFrase(f: FraseVideo, pasos: readonly PasoTutorial[]): PasoTutorial {
   const sel = f.sel ?? '';
@@ -156,6 +176,8 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
   const [frase, setFrase] = useState<FraseVideo | null>(null);
   const [cierre, setCierre] = useState(false);
   const hechas = useRef(new Set<string>());
+  // Las que la persona TOCÓ (no las que sólo se mostraron o pasó con «Siguiente»): el cierre no repite un CTA ya tocado.
+  const tocadas = useRef(new Set<string>());
   const porCerrar = useRef(false);
   const pasoFrase = useMemo(() => (frase ? pasoDeFrase(frase, pasos) : null), [frase, pasos]);
   const ultimoPaso = pasos[pasos.length - 1] ?? null;
@@ -171,15 +193,15 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
   const irAlCierre = useCallback(() => {
     const decidir = () => {
       const u = pasos[pasos.length - 1];
-      const yaTocado = !!u && frases.some((f) => !!f.sel && hechas.current.has(f.id) && mismoLugar(u.sel, f.sel));
+      const yaTocado = !!u && frases.some((f) => !!f.sel && tocadas.current.has(f.id) && mismoLugar(u.sel, f.sel));
       if (u?.clic && !yaTocado && lugarDe(u.sel)) setCierre(true);
       else fin('fin');
     };
     if (porCerrar.current) { porCerrar.current = false; cerrarLoAbierto(); window.setTimeout(decidir, 300); } else decidir();
   }, [pasos, frases, fin]);
   /** La frase marcada ya está (la tocaron, «Siguiente», o pasó su tiempo): el video sigue. */
-  const seguirVideo = useCallback(() => {
-    if (frase) { hechas.current.add(frase.id); if (frase.cierra_despues) porCerrar.current = true; }
+  const seguirVideo = useCallback((porClic = false) => {
+    if (frase) { hechas.current.add(frase.id); if (porClic) tocadas.current.add(frase.id); if (frase.cierra_despues) porCerrar.current = true; }
     setFrase(null); setEl(null); setGeo({ hueco: null, tarjeta: null });
     const v = vidRef.current;
     if (!v || v.ended) irAlCierre(); else void v.play().catch(() => {});
@@ -202,6 +224,15 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
     if (!modoVideo) return;
     setModoVideo(false); setFrase(null); setCierre(false); setEl(null); setGeo({ hueco: null, tarjeta: null }); setI(0);
   }, [modoVideo]);
+
+  // 0b. Lo marcado por una frase desapareció (cerraron el panel tocando afuera, cambió la vista): el video sigue, nunca queda
+  // pausado sin salida.
+  useEffect(() => {
+    if (!modoVideo || !frase || el) return;
+    const sel = pasoFrase?.sel;
+    const id = window.setTimeout(() => { if (!sel || !lugarDe(sel)) seguirVideo(); }, ESPERA_PASO_MS);
+    return () => window.clearTimeout(id);
+  }, [modoVideo, frase, el, pasoFrase, seguirVideo]);
 
   // 0. El video manda: con cada avance, ¿llegó una frase con marca? La marca, y la pausa si espera el clic.
   useEffect(() => {
@@ -299,7 +330,7 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
     const alTocar = (e: Event) => {
       if (tocado || !(e.target instanceof Node) || !el.contains(e.target)) return;
       tocado = true;
-      window.setTimeout(() => (modoVideo && !cierre ? seguirVideo() : fin(senal.tipo === 'marca' ? 'hecho' : 'fin')), 0);
+      window.setTimeout(() => (modoVideo && !cierre ? seguirVideo(true) : fin(senal.tipo === 'marca' ? 'hecho' : 'fin')), 0);
     };
     window.addEventListener('pointerdown', alTocar, true);
     window.addEventListener('click', alTocar, true);
@@ -322,6 +353,7 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
   if (typeof document === 'undefined') return null;
   const t = geo.tarjeta;
   const visible = !!t && (!paso || !!geo.hueco);
+  const z = zParaMarcar(el);
   const estiloFlecha: CSSProperties | null = paso && t && t.flecha != null ? (t.lado === 'abajo' || t.lado === 'arriba' ? { left: t.flecha - 6 } : { top: t.flecha - 6 }) : null;
   const titulo = paso ? paso.titulo : senal.tipo === 'tutorial' ? `Cómo funciona ${senal.tutorial.nombre}` : '';
   const texto = paso ? paso.texto : senal.tipo === 'tutorial' ? senal.tutorial.intro : '';
@@ -329,7 +361,7 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
   const total = senal.tipo === 'tutorial' ? pasos.length : 1;
 
   return createPortal(
-    <div className="mk-rec mk-tuto" data-tutorial={senal.tipo === 'tutorial' ? senal.tutorial.pestana : 'marca'} style={{ zIndex: Z_PISO_RECORRIDO }}>
+    <div className="mk-rec mk-tuto" data-tutorial={senal.tipo === 'tutorial' ? senal.tutorial.pestana : 'marca'} style={{ zIndex: z }}>
       <style>{cssRecorrido() + CSS_TUTORIAL}</style>
       {senal.tipo === 'tutorial' && (
         <VideoChico tutorial={senal.tutorial} video={video} vidRef={vidRef} autoplay={!conFrases} manda={soloVideo}

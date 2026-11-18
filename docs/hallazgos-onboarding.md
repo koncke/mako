@@ -40,6 +40,14 @@ La maqueta queda como ESPECIFICACIÓN. Lo que mordió al construirlo:
   Escape en captura. Sólo cuenta el de la persona (`if (!e.isTrusted) return;`).
 - **Las tapas del hueco tapaban el video chico** (los dos `position: fixed` sin z-index: gana el último del DOM): con una marca
   puesta, el video no se podía pausar ni cerrar. El video lleva z-index 2 y la tarjeta 3.
+- **Lo marcado adentro de un panel con su propio velo quedaba DEBAJO del motor.** La ficha rápida del CRM (FichaRapida,
+  app/_ui/TarjetaKanban.tsx) pone su velo en z-index 1200 y el motor vive en 400 (`Z_PISO_RECORRIDO`): al marcar «Mover a…»
+  el video se pausaba y no se veía ni el anillo ni la tarjeta; si la persona cerraba la ficha tocando afuera, el video quedaba
+  pausado para siempre. El motor sube por encima de la capa de lo marcado y de cualquier `aria-modal` abierto (`zParaMarcar`), y
+  si lo marcado por una frase desaparece, el video sigue a los 3 s. El CRM dibujado de las pestañas NO tiene la ficha ni la
+  marca de «Mover a»: se probó imitándola (velo 1200, Escape en captura de la ventana).
+- **«Mostrada» no es «tocada».** La última frase del CRM («Más acciones», `espera_clic: false`) se marca sin pausar; contarla como
+  tocada hacía que al terminar el video se saltara el CTA. El cierre mira sólo las que la persona tocó (`tocadas`).
 - **El Chromium de Playwright no reproduce mp4 (H.264):** para mirar el video hay que lanzar el Chrome instalado
   (`chromium.launch({ channel: 'chrome' })`). Con el otro, el video «no carga» y parece un error del motor.
 
@@ -50,8 +58,9 @@ Lo que quedó SIN hacer (para el día siguiente):
 - los tutoriales con `estado` del chat de las pestañas (pantallas de adentro: la ficha del lead, la clase), que el motor no arranca;
 - la Ticketera, que el motor no arranca porque mira la ruta sin el `?`
   (app/_ui/tutorial/MotorTutorial.tsx, `TutorialDeLaRuta`);
-- el video y la marca juntos con frases DE VERDAD: hoy (18/11) ningún video del manifiesto trae `frases`, así que el motor sigue
-  como antes (los pasos con «Siguiente»). Se probó con un manifiesto de prueba sobre la página del CRM dibujada.
+- el video y la marca juntos, en la app de verdad: las frases llegan con punta/tutoriales-videos (922d59222). Se miró con ese
+  manifiesto y su crm.mp4 sobre el CRM dibujado (pausa en «Ver info» a los 9,3 s; «Mover a…» adentro de la ficha imitada; el
+  CTA de «Más acciones» al final), no en la app.
 
 ## ⚠️ La maqueta del onboarding y la app real no tienen los mismos coaches (17/11/2026)
 
