@@ -427,7 +427,7 @@
      "texto": "Toca aquí, en el botón del calendario, junto a Filtrar, para ver tus próximas reuniones.",
      "t_inicio": 17.74,
      "t_fin": 22.64,
-     "sel": "[data-recorrido=\"tour-crm-reuniones\"]",
+     "sel": "[data-recorrido=\"tour-crm-reuniones\"], .m-crm-arriba .crm-reus",
      "espera_clic": true,
      "cierra_despues": true
     },

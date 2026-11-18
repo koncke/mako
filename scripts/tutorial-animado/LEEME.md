@@ -32,6 +32,12 @@ node motor/subir.mjs "<mensaje>" crm plan   # commit por ruta en C:/dev/wt-tutor
   la pestaña entera. El resto es texto.
 - **Requisitos:** ffmpeg en el PATH, el Chromium de `C:/dev/playwright-medidor`, `ELEVENLABS_API_KEY` en el `.env.local` del repo,
   `C:/dev/reel-mentores/voz/LA-CONFIG.json` y `chequear-guion.mjs`, y la música `C:/dev/reel-mentores/montaje/musica-eleven.mp3`.
+- **El nombre de un botón va entero y en una línea** (el Cerebro, 18/11: «A cobrar» quedaba con la «A» azul al final de una
+  línea). `hacer.mjs` resalta el nombre completo que sigue a «aquí, (en)» (`nombreDeAccion`), y `engine3.js` une con espacio
+  duro las palabras resaltadas seguidas (`unido`). Una coma o un punto cortan la unión: «Publicaciones, Plan, Ventas» son tres
+  nombres y pueden partirse entre ellos. Una cita («lo que tengo…») y más de 5 palabras no se unen. El costo: en la columna del
+  costado, un nombre largo («Verificación en 2 pasos», «Cuéntale a MaKo qué pasó») baja la letra para entrar en el ancho, y en el
+  centro el texto puede ocupar una línea más con la letra del mismo tamaño.
 - **De a uno:** cada render abre un Chromium. La PC tiene 16 GB y suele haber otros chats construyendo.
 
 ## `vsl-julio/`
