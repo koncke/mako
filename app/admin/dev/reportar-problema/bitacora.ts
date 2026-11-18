@@ -299,4 +299,19 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/tickets/bandeja',
   },
+  {
+    fecha: '18 nov', hora: '00:25', chat: 'Tickets de Sellers: el filtro de números', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Cuando el equipo te contesta un pedido sin hacerlo, ya no te llega «Listo: ya quedó»',
+    puntos: [
+      'Si el equipo te responde un pedido que le hiciste a MaKo en el grupo sin hacerlo (por ejemplo, para pedirte que lo vuelvas a pedir), ahora te llega su respuesta, no «Listo: ya quedó».',
+      'El «Listo: ya quedó» sale sólo cuando el pedido se hizo de verdad, y en tus tickets se ve lo mismo.',
+    ],
+    archivos: [
+      'lib/tickets-reglas.ts — `textoDelAviso`: el «listo» sólo si no fue `responder`',
+      'lib/tickets-cierre.ts — el aviso lee la decisión',
+      'tests/despacho-grupo.test.ts (18)',
+    ],
+    revisar: '/tickets/bandeja',
+  },
 ];

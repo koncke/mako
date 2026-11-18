@@ -163,7 +163,7 @@ const plataformaONull = (): Promise<number | null> => wsSuperAdmin().catch(() =>
 /** Lo que falta avisarle a algún cliente: cerrados, resueltos o con una pregunta del equipo, sin `avisado_at`. */
 export async function avisarPendientes(tope = 30): Promise<{ avisados: number; fallidos: number }> {
   const { data, error } = await getSupabaseServer().from(T)
-    .select('id, titulo, estado, respuesta, duplicado_de, workspace_id, usuario_id, canal, contexto, updated_at')
+    .select('id, titulo, estado, respuesta, duplicado_de, workspace_id, usuario_id, canal, contexto, updated_at, decision')
     .is('avisado_at', null).in('estado', ['resuelto', 'rechazado', 'duplicado', 'esperando_cliente'])
     .order('updated_at').limit(tope);
   if (error) throw new Error(`no pude leer los avisos: ${error.message}`);
@@ -181,7 +181,7 @@ export async function avisarPendientes(tope = 30): Promise<{ avisados: number; f
 /** Avisa UN ticket por id (lo llama la decisión de Martín, para no esperar al cron). */
 export async function avisarTicket(id: number): Promise<boolean> {
   const { data } = await getSupabaseServer().from(T)
-    .select('id, titulo, estado, respuesta, duplicado_de, workspace_id, usuario_id, canal, contexto, updated_at, avisado_at')
+    .select('id, titulo, estado, respuesta, duplicado_de, workspace_id, usuario_id, canal, contexto, updated_at, avisado_at, decision')
     .eq('id', id).maybeSingle();
   if (!data || data.avisado_at) return false;
   if (!['resuelto', 'rechazado', 'duplicado', 'esperando_cliente'].includes(data.estado as string)) return false;

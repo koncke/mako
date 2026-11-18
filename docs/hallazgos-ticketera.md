@@ -1431,3 +1431,20 @@ el plan, `lib/plan-esencial.ts`, que lee la suscripción con los mismos filtros 
   postgrest-js reintenta solo los 503 y 520 de un GET (docs/hallazgos-planes-y-cobro.md, 13/11).
 - **Sin hacer:** el #93 ya está cerrado y avisado; esto no lo reabre. Lo que se le diga a Mauricio cuando su email esté
   prendido lo decide el Cerebro.
+
+## «Listo: ya quedó» de un pedido que nadie hizo: `responder` cierra en `resuelto` (18/11/2026, el #107 de Marcela, ws 23)
+
+**Vive en:** `lib/tickets-reglas.ts` (`textoDelAviso`, `estadoDeDecision`) · `lib/tickets-cierre.ts` (los dos `select` del aviso) ·
+`lib/tickets-db.ts` (`COLS`, que lee la vista del cliente)
+
+- **El síntoma:** Martín, desde el Centro, contestó un pedido delegado del grupo sin hacerlo («no agendes nada, solo dile que lo vuelva
+  a hacer»). A Marcela le llegó al grupo «Listo: ya quedó tu pedido #107 («Pide agendar una llamada con Valery en dos semanas»)». Era
+  falso: la llamada no se agendó.
+- **La causa:** `estadoDeDecision('responder')` es `resuelto`, el mismo estado de un pedido HECHO. `textoDelAviso` decidía el «listo»
+  de un pedido delegado sólo por el estado, y el «listo» es fijo (no lee la respuesta, a propósito: lo que escribe el Cerebro no va al
+  grupo tal cual). Así, cada vez que Martín CONTESTA un pedido delegado, el cliente lee que quedó hecho.
+- **La regla:** «hecho» lo dice la DECISIÓN, no el estado. «Listo: ya quedó» sale sólo si no fue `responder` (`hacer`, o el cierre por
+  arreglo, que no trae decisión); con `responder` va «Sobre tu pedido #n: <su respuesta>», pasada por `sinLoInterno`. La decisión
+  tiene que viajar: los dos `select` del aviso (el cron y la decisión de Martín) la leían sin `decision`, y el ticket llegaba sin ella.
+  La vista del cliente (/tickets y /m/tickets) la lee de `COLS` y dice lo mismo que el aviso.
+- **Test:** tests/despacho-grupo.test.ts, el 18 (el caso del #107; cuatro roturas, cada una roja).

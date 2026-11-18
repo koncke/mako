@@ -452,3 +452,34 @@ test('17. un costo por lead o un redondeo sale de los datos y pasa; una tasa de 
   assert.equal(sinOracionesConNumeros('Gracias a ti. Quedó así: Captación en 1.558 por lead. Cualquier cosa me dices.', ['1.558']), 'Gracias a ti. Cualquier cosa me dices.');
   assert.equal(sinOracionesConNumeros('Captación en 1.558 por lead.', ['1.558']), null);
 });
+
+// ── El #107 de Marcela (18/11/2026): un pedido delegado que Martín CONTESTÓ sin hacerlo no le dice al cliente «ya quedó» ──
+test('18. «Listo: ya quedó» sólo si el pedido se hizo; si Martín lo contestó, va su respuesta, en el aviso y en /tickets', () => {
+  // Paráfrasis del #107: Martín, desde el Centro, «no agendes nada, solo dile que lo vuelva a hacer» → `responder`, que cierra en `resuelto`.
+  const base = { id: 107, titulo: 'Pide agendar una llamada con Valery en dos semanas', estado: 'resuelto', duplicado_de: null, workspace_id: 23, contexto: { delegado: true } };
+  const respuesta = 'No pudimos agendarla desde acá: vuelve a pedirle a MaKo la llamada con Valery y te la agenda.';
+  // Rota: el «listo» fijo para todo pedido delegado resuelto (el código de antes) → «Listo: ya quedó tu pedido #107…», y no se agendó.
+  const contestado = textoDelAviso({ ...base, respuesta, decision: 'responder' });
+  assert.equal(contestado, `Sobre tu pedido #107 («Pide agendar una llamada con Valery en dos semanas»): ${respuesta}`);
+  assert.doesNotMatch(contestado, /Listo|ya quedó/);
+  // Lo que escribió Martín pasa por `sinLoInterno`; si no queda nada, igual no dice que se hizo.
+  assert.equal(textoDelAviso({ ...base, respuesta: 'Lo vi en la base del ws23.', decision: 'responder' }), 'Cerramos tu pedido #107 («Pide agendar una llamada con Valery en dos semanas»).');
+  // Hecho (lo tomó el Cerebro: `hacer`, o el cierre por arreglo sin decisión): el «listo» de siempre.
+  // Rota: «listo» sólo con `hacer` → el cierre por arreglo (sin decisión) deja de decir que quedó.
+  for (const decision of ['hacer', null, undefined]) {
+    assert.equal(textoDelAviso({ ...base, respuesta: 'Agendada para el 2/12.', decision }), 'Listo: ya quedó tu pedido #107 («Pide agendar una llamada con Valery en dos semanas»).');
+  }
+  // /tickets y /m/tickets dicen lo mismo que el aviso.
+  // Rota: sacar `decision` de las columnas que lee la vista (`COLS`, lib/tickets-db.ts) → /tickets vuelve a decir «ya quedó».
+  assert.match(leer('lib/tickets-db.ts'), /const COLS = '[^']*\bdecision\b[^']*'/, 'la vista del cliente no lee la decisión');
+  const fila = {
+    id: 107, titulo: base.titulo, descripcion: 'ACCIÓN DELEGADA', tipo: 'pedido' as const, estado: 'resuelto' as const, created_at: '2026-11-17T23:50:00Z',
+    updated_at: '2026-11-18T01:00:00Z', respuesta, despacho: null, decidido_at: '2026-11-18T01:00:00Z', resuelto_at: '2026-11-18T01:00:00Z',
+    duplicado_de: null, contexto: { delegado: true }, workspace_id: 23, decision: 'responder',
+  };
+  assert.equal(paraElCliente(fila).respuesta, contestado);
+  // Y el aviso lee la decisión de la base: sin `decision` en los dos `select`, el ticket llega sin ella y vuelve el «ya quedó».
+  const cierre = sinComentarios(leer('lib/tickets-cierre.ts'));
+  assert.equal((cierre.match(/\.select\('id, titulo, estado, respuesta, duplicado_de, workspace_id, usuario_id, canal, contexto, updated_at[^']*\bdecision\b[^']*'\)/g) ?? []).length, 2,
+    'el aviso no lee la decisión en los dos caminos (el cron y la decisión de Martín)');
+});

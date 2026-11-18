@@ -645,6 +645,8 @@ type FilaParaCliente = {
   despachado_at?: string | null; arreglado_at?: string | null; canal?: string | null;
   /** Para saber si es un PEDIDO DELEGADO (lo del Cerebro no va tal cual, M1) y de qué negocio son sus links. */
   contexto?: unknown; workspace_id?: number;
+  /** Lo que decidió Martín: un pedido delegado que se CONTESTÓ no dice «ya quedó» (`textoDelAviso`, el #107). */
+  decision?: string | null;
 };
 
 /** Por dónde se levantó, como lo dice el cliente. */
@@ -887,7 +889,8 @@ export function pruebaDeProduccion(p: { ticket: number; hito: string; area: stri
   return `ticket #${p.ticket} cerrado porque el deploy ${p.deploy ? `https://${p.deploy}` : '(sin url)'} (commit ${p.commit ? p.commit.slice(0, 9) : '?'}) trae el hito «${p.hito}» del área ${p.area}`.slice(0, 300);
 }
 
-export type AvisoCliente = { id: number; titulo: string; estado: string; respuesta: string | null; duplicado_de: number | null; contexto?: unknown; workspace_id?: number };
+/** `decision`: lo que decidió Martín (`DecisionTicket`). En un pedido delegado separa «lo hicimos» de «te contestamos» (el #107). */
+export type AvisoCliente = { id: number; titulo: string; estado: string; respuesta: string | null; duplicado_de: number | null; contexto?: unknown; workspace_id?: number; decision?: string | null };
 
 /** Un link a una pantalla de MaKo (el dominio de la app): de lo que escribe el Cerebro, al grupo sólo pasan éstos. */
 const LINK_DE_MAKO = /https:\/\/(?:[\w-]+\.)?hola-mako\.com(?:\/[^\s<>«»"')]*)?/gi;
@@ -957,11 +960,15 @@ export function textoDelAviso(t: AvisoCliente): string {
   // de MaKo si el Cerebro lo dejó— y lo demás del Cerebro pasa por `sinLoInterno`.
   if (esPedidoDelegado(t.contexto)) {
     const suyo = `tu pedido #${t.id} («${t.titulo}»)`;
+    const limpio = sinLoInterno(r, { id: t.id, ws: t.workspace_id });
+    // ⚠️ «LISTO: YA QUEDÓ» SÓLO SI SE HIZO (18/11/2026, el #107 de Marcela). Martín CONTESTÓ el pedido desde el Centro sin hacerlo
+    // («no agendes nada, solo dile que lo vuelva a hacer») y `responder` lleva a `resuelto` (`estadoDeDecision`): al grupo le llegó
+    // «Listo: ya quedó tu pedido #107 («Pide agendar una llamada…»)», y la llamada no se agendó. Con `responder` va su respuesta.
+    if (t.estado === 'resuelto' && t.decision === 'responder') return limpio ? `Sobre ${suyo}: ${limpio}` : `Cerramos ${suyo}.`;
     if (t.estado === 'resuelto') {
       const link = linkDelNegocio(r, t.workspace_id);
       return `Listo: ya quedó ${suyo}.${link ? ` Lo ves aquí: ${link}` : ''}`;
     }
-    const limpio = sinLoInterno(r, { id: t.id, ws: t.workspace_id });
     if (t.estado === 'esperando_cliente') return limpio ? `Sobre ${suyo}, el equipo te pregunta: ${limpio}` : `Sobre ${suyo}, el equipo necesita un dato más: escríbelo aquí.`;
     if (t.estado === 'duplicado') return `Sobre ${suyo}: ya lo teníamos en el #${t.duplicado_de}. Te avisamos cuando esté.`;
     return `Cerramos ${suyo}.${limpio ? ` ${limpio}` : ''}`;
