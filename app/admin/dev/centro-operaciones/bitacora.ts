@@ -2535,7 +2535,8 @@ export const BITACORA: Hito[] = [
       'lib/centro-cuentas.ts — vaPorFase, comoCorreDelEnvio, rotuloAutomaticoModelo · lib/operaciones-reglas.ts — porFase firmado, sanearConsumo',
       'lib/centro-uso.ts — gastoPorFase, compararConsumo · lib/api-mako/areas/operaciones.run.ts — consumo y comparacion en ver_pedidos_operaciones',
       'scripts/operaciones/cartero.mjs 1.28.0 — comoCorre, lineasDeFase, fase <id> ejecutar, anotarConsumo, el cierre con el consumo',
-      'tests/ops-center-por-fase.test.ts (5, 5 roturas en rojo) y el diferencial de tests/operaciones.test.ts',
+      'app/admin/operaciones/mandar.ts — el `como` entero al payload (copiado campo por campo, el «por fase» se perdía)',
+      'tests/ops-center-por-fase.test.ts (6, 6 roturas en rojo) y el diferencial de tests/operaciones.test.ts',
     ],
   },
 ];

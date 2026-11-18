@@ -36,6 +36,10 @@ consumo antes y después». Hasta hoy «Automático» no tocaba el modelo (17/10
   de la cuenta al entregar, al pasar a ejecutar y al cerrar; con otros chats trabajando en la misma cuenta, la diferencia
   incluye lo de ellos (`NOTA_CONSUMO` lo dice al lado de cada número). Una diferencia sin una medición nueva en el medio, o a
   través de un reinicio de la ventana de 5 horas, no tiene número: un 0 o un negativo serían inventados.
+- **Un campo nuevo del trabajo firmado se pierde en `mandar.ts` sin un error.** Copiaba el modelo y el esfuerzo campo por
+  campo al `nuevoPayload`, así que el `porFase` que decidía la caja no llegaba a la firma: el selector decía «Sonnet → Opus» y
+  el trabajo salía sin fases, con todos los tests en verde (ninguno pasaba por ahí). Ahora va el `como` entero, y
+  tests/ops-center-por-fase.test.ts («de la caja a la PC») lo fija. El próximo campo: mirar quién arma el payload.
 - **«Antes y después» se lee comparando modos:** cada trabajo entregado anota su consumo (por fase, con modelo elegido o sin
   tocar), así hay contra qué comparar. La comparación sale en `ver_pedidos_operaciones` (`comparacion`).
 
