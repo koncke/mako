@@ -27,6 +27,9 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
   muestra (`GET /api/voz-coach` → `disponible: false`). Cargar el secreto es de Martín.
 - **Trampa: con esta key, listar voces se cuelga.** `GET /v1/voices` y `/v1/shared-voices` no contestan ni en 90 s, y `/v1/models`
   contesta en 0,9 s. La galería de lib/ai-avatar/voces-galeria.ts (una foto del 17/10) sirvió para elegir la voz.
+- **Trampa: la foto de la cuenta de revisión sólo ve lo COMMITEADO.** `MAKO_REGENERAR_SNAPSHOT=1` en
+  tests/cuenta-revision-escrituras.test.ts enumera las rutas que git ya sigue: regenerada con la ruta nueva sin commitear, la foto no
+  la incluye y la punta da rojo. Se regenera después del commit (la ruta quedó «cortada»: la cuenta de las tiendas no gasta voz).
 - **El botón:** debajo del mensaje (no tapa el texto); suena solo la primera vez si el mensaje lo pide (`autoplay`: el último del
   coach) y la persona no lo apagó («Que suene solo», en el navegador). Detrás del interruptor del onboarding V2.
 - **Sin hacer:** (1) el botón lo monta el chat del onboarding en `ChatDelCoach` (punta/offer-coach-v2); (2) el navegador espera el
