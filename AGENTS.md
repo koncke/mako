@@ -2837,6 +2837,11 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - **«No puedo» casi nunca es que no puede: es que el turno llegó sin la herramienta.** Antes de
   culpar a la integración, armá el turno con la frase real (`clasificarIntencion` +
   `herramientasDelTurno`) y mirá qué viajó.
+  **Y lo mismo con lo que DELEGA** (ticket #110, 18/11/2026: «agendar llamar en dos semanas» se fue al equipo como «Lo que faltó
+  de…»): no fue el modelo, `crear_evento_calendario` no viajó. Un pedido que nombra la capacidad con palabras de OTRA área (agendar
+  una llamada suena a `crm`; la herramienta es de `calendario`) entra por un detector propio y con sus operaciones FORZADAS
+  (`lib/seguimiento-lead.ts` en `herramientasDelTurno`): sumar palabras al área no alcanza, porque `crm` sola ya llena el
+  presupuesto de 12.000 caracteres.
 - La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
   promete sin haber hecho nada, y la grosería. Detalle en
   [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».

@@ -540,7 +540,7 @@ Lo que no escribas aca SE PERDIO: nadie vuelve a leer el WhatsApp, y el Perro de
   },
   {
     name: 'confirmar_accion',
-    description: 'EJECUTA una acción que estaba pendiente de confirmación, cuando el dueño te dio el OK ("sí", "dale", "confirmo"). Si hay una sola pendiente vigente puedes omitir el id; si hay varias, pasa el id exacto (de listar_pendientes).',
+    description: 'EJECUTA una acción que estaba pendiente de confirmación, cuando el dueño te dio el OK ("sí", "dale", "confirmo"). Si hay una sola pendiente vigente puedes omitir el id. Si hay varias y las propusiste JUNTAS en tu último mensaje, sin el id se confirman todas; si son de mensajes distintos, pasa el id exacto (de listar_pendientes).',
     input_schema: {
       type: 'object',
       properties: { id: { type: 'number', description: 'id de la acción pendiente a ejecutar (opcional si hay una sola).' } },

@@ -121,6 +121,8 @@ import { taparClaves } from '@/lib/claves-en-el-chat';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { encolar, reclamar, renovarCandado, soltar, pendientes, esperarSilencio, marcarProcesados, unirMensajes, huerfanosGlobal, VENTANA_MS, VENTANA_AUDIO_MS, type MsgBuffer } from '@/lib/mako-doer-buffer';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+import { pideSeguimiento } from '@/lib/seguimiento-lead';
+import { hoyEnTz } from '@/lib/date-utils';
 
 /**
  * LOS ARCHIVOS, DE DONDE ESTÉN (3/11/2026, el grupo de la app). Un mensaje de la app (`app:<fila>`) o una cita a uno espejado sin línea que lo baje se leen del bucket, y siempre del negocio de ESTE turno
@@ -2338,7 +2340,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const ctxMostrado = bloqueLoQueMostraste(refsGuardadas, Date.now());
     const refsDelTurno: RefDelTurno[] = [];
     const ctxPend = vigentes.length
-      ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usa confirmar_accion con el id que corresponda.`
+      ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usa confirmar_accion con el id que corresponda; si las propusiste juntas en tu último mensaje y dice «sí» sin elegir, confirmar_accion SIN id las confirma todas.`
       : '';
     // CUÁNTAS COSAS PIDIÓ, contadas por CÓDIGO. El preámbulo explica muy bien cómo
     // agrupar tareas en PROYECTOS por tema, y no dice una palabra sobre cuántas TAREAS
@@ -2491,9 +2493,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       ? [typeof ultimoPedido === 'string' ? ultimoPedido : '', typeof ultimoDeMako === 'string' ? ultimoDeMako : ''].filter(Boolean).join('\n')
       : null;
     const vistaDelTurno = await vistaDe(ctxApi);
+    // «agendar llamar a Valery en dos semanas» (ticket #110): el día lo calcula el código desde hoy en la zona del negocio. Sólo se lee
+    // la zona si el pedido es un seguimiento.
+    const hoyDelSeguimiento = intencion.intencion === 'actuar' && pideSeguimiento([conHilo.hilo ?? '', sinPrefijoDeLote(texto)].join('\n'))
+      ? hoyEnTz(await tzDeWorkspace(wsData).catch(() => TZ_DEFAULT))
+      : null;
     const turno = herramientasDelTurno({
       veredicto: intencion, texto, contextoDelSi, hilo: conHilo.hilo, agendaAbierta: !!agendaAbierta, deSiempre: toolsDeSiempre,
-      vista: vistaDelTurno, hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
+      vista: vistaDelTurno, hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly, hoy: hoyDelSeguimiento,
     });
     // ── UN REPORTE DE FALLA TRAE EL TICKET (27/10/2026, lib/doer-falla.ts) ─────────────────────────────────────────────
     // «no puede analizar la llamada de fathom tras 4 intentos» caía en charlar o en la duda, y `levantar_ticket` viaja sólo
@@ -2623,7 +2630,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para
     // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
     // dueño es "sí, dale" (ver pareceConfirmacion en mako-doer-acciones).
-    const runnerAcciones = crearRunnerAcciones(wsData, jid, Date.now(), texto, enElGrupo);
+    // El MISMO arranque que el del registro (`ctxApi.turnStart`): las propuestas de un turno llevan una sola marca de turno, y un
+    // «sí» las confirma juntas (ticket #110, `tandaDeUnSi`).
+    const runnerAcciones = crearRunnerAcciones(wsData, jid, ctxApi.turnStart ?? Date.now(), texto, enElGrupo);
     // EL LINK DEL BORRADOR NO LO ESCRIBE EL MODELO.
     //
     // La tool devuelve el link con el id REAL; acá se lo guarda para corregir la

@@ -22630,7 +22630,7 @@ curl -L \
 
 ### `POST /api/v1/mako/pendientes/{id}/confirmacion` — Confirmar una acción pendiente
 
-EJECUTA una acción que estaba pendiente de confirmación, cuando la persona dio el OK («sí», «dale», «confirmo»). En WhatsApp, si hay una sola pendiente vigente puedes omitir el id; en cualquier otro canal el id es obligatorio (de listar_pendientes). Por la API solo funciona con un token de alcance «ejecutar».
+EJECUTA una acción que estaba pendiente de confirmación, cuando la persona dio el OK («sí», «dale», «confirmo»). En WhatsApp, si hay una sola pendiente vigente puedes omitir el id, y si las vigentes las propusiste juntas en un mismo mensaje, sin el id se confirman todas; en cualquier otro canal el id es obligatorio (de listar_pendientes). Por la API solo funciona con un token de alcance «ejecutar».
 
 - **Ruta por operación:** `POST /api/v1/mako/confirmar_accion`
 - **Token detallado:** permiso `mako=write` (Lectura y escritura en «MaKo (pendientes, propuestas, chats)»)

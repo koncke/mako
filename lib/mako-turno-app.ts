@@ -61,6 +61,8 @@ import { sanearSalida } from '@/lib/doer-salida';
 import { credDelCliente, credWs, esNegocioDelEntorno } from '@/lib/credenciales';
 import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+import { hoyEnTz } from '@/lib/date-utils';
+import { pideSeguimiento } from '@/lib/seguimiento-lead';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { NO_CAMBIA_LA_ESTRELLA, NO_RENOMBRA_EL_PRINCIPAL, arbolDelJefe, baseDeLaPersona, esTabConChatPropio, previaDeMensaje } from '@/lib/chat-mako-reglas';
@@ -749,10 +751,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       : false;
     const ultimoPedido = previos.slice().reverse().find((r) => r.role === 'user')?.content;
     const contextoDelSi = intencion.sigueOfrecimiento ? [ultimoPedido ?? '', ultimoDeMako ?? ''].filter(Boolean).join('\n') : null;
+    // «agendar llamar a Valery en dos semanas» (ticket #110, lib/seguimiento-lead.ts): el día lo calcula el código, como en el grupo.
+    const hoy = intencion.intencion === 'actuar' && pideSeguimiento(textoClasificar) ? hoyEnTz(await tzDeWorkspace(ws).catch(() => TZ_DEFAULT)) : null;
     const turno = herramientasDelChat<ToolDef>({
       veredicto: intencion, texto: textoClasificar, contextoDelSi, agendaAbierta: !!agendaAbierta,
       deSiempre: [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS], vista,
-      hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly, propias: entrada.propias,
+      hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly, propias: entrada.propias, hoy,
     });
     // Lo que ESCRIBE (una acción o un control; no una lectura): el memo, la guardia de la pregunta y el modo «analizar».
     const escribe = (n: string) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); };

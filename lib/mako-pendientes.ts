@@ -12,7 +12,7 @@ import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { pendienteRepetida, MARGEN_RELOJ_MS } from './turno-sin-duplicar';
 import { datosSinMediosEmojis } from './unicode-seguro';
-import { conQuienPidio, sinQuienPidio } from './confirmacion-pura';
+import { conQuienPidio, sinQuienPidio, conSuTurno, sinSuTurno } from './confirmacion-pura';
 import { salidaDelGrupo } from './grupo-salida';
 import { conColumnaNueva, cortesDeColgadas, faltaLaColumna, RESULTADO_COLGADA } from './pendientes-colgadas';
 
@@ -24,6 +24,8 @@ export type Pendiente = {
   pidio?: string | null;
   /** Nació en un turno sólo de la app: un «sí» por WhatsApp no la confirma (`rechazoSiNoEsConfirmacionPura`). */
   soloApp?: boolean;
+  /** El `turnStart` del turno que la propuso (lib/confirmacion-pura.ts, `TURNO`): las de un mismo turno se confirman con un «sí». */
+  turno?: number;
 };
 
 type Row = {
@@ -31,11 +33,13 @@ type Row = {
   estado: string; vence_at: string; origen: string | null; created_at: string;
 };
 const toP = (r: Row): Pendiente => {
-  // Quién la pidió viaja en el payload y sale acá: ni la bandeja lo muestra ni la acción lo recibe.
-  const { payload, pidio, soloApp } = sinQuienPidio((r.payload && typeof r.payload === 'object' ? r.payload : {}) as Record<string, unknown>);
+  // Quién la pidió y en qué turno nació viajan en el payload y salen acá: ni la bandeja los muestra ni la acción los recibe.
+  const { payload: sinTurno, turno } = sinSuTurno((r.payload && typeof r.payload === 'object' ? r.payload : {}) as Record<string, unknown>);
+  const { payload, pidio, soloApp } = sinQuienPidio(sinTurno);
   return {
     id: r.id, grupoJid: r.grupo_jid, tipo: r.tipo, payload,
     resumen: r.resumen, estado: r.estado as EstadoPendiente, venceAt: r.vence_at, origen: r.origen, createdAt: r.created_at, pidio, ...(soloApp ? { soloApp } : {}),
+    ...(turno ? { turno } : {}),
   };
 };
 
@@ -65,7 +69,9 @@ export async function crearPendiente(
   },
 ): Promise<PendienteCreada> {
   const payloadCrudo = conQuienPidio(dataCruda.payload ?? {}, dataCruda.pidio, salidaDelGrupo()?.soloApp);
-  const data = { ...dataCruda, ...datosSinMediosEmojis({ grupoJid: dataCruda.grupoJid, tipo: dataCruda.tipo, payload: payloadCrudo, resumen: dataCruda.resumen, origen: dataCruda.origen }) };
+  // Y el turno en que nace (ticket #110): un «sí» confirma juntas las que se propusieron juntas (`tandaDeUnSi`).
+  const conTurno = conSuTurno(payloadCrudo, dataCruda.mismoTurnoDesde);
+  const data = { ...dataCruda, ...datosSinMediosEmojis({ grupoJid: dataCruda.grupoJid, tipo: dataCruda.tipo, payload: conTurno, resumen: dataCruda.resumen, origen: dataCruda.origen }) };
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
     if (data.mismoTurnoDesde && data.mismoTurnoDesde > 0) {

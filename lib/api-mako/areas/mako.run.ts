@@ -8,7 +8,7 @@
 import { wsEnContexto, getWorkspaceActual } from '@/lib/workspace';
 import 'server-only';
 import type { Ctx, Runners } from '../tipos';
-import { listarPendientes, confirmarPendiente, cancelarPendiente, RUTA_BANDEJA } from '../acciones';
+import { listarPendientes, confirmarPendiente, cancelarPendiente, tandaDelSi, RUTA_BANDEJA } from '../acciones';
 import { esFallaTragada } from '@/lib/no-pude-frases';
 import { canalKeyDe, canalDeClave, etiquetaDeCanal } from '../canal';
 import { porId } from '../registro';
@@ -105,7 +105,23 @@ export const RUNNERS: Runners = {
   // Un control que «salió bien» nunca pasaba por la marca de lib/api-mako/ejecutar.ts, y el «no pude» del modelo abría ticket.
   confirmar_accion: {
     correr: async (input, ctx) => {
-      const r = await confirmarPendiente(ctx, num(input, 'id'));
+      const id = num(input, 'id');
+      // Un «sí» sin id a lo que MaKo propuso JUNTO en un turno (ticket #110, `tandaDelSi`): todas, cada una por su id y con sus guardas.
+      const tanda = id == null ? await tandaDelSi(ctx) : null;
+      if (tanda) {
+        const hechas: string[] = [];
+        const fallas: string[] = [];
+        for (const p of tanda) {
+          const r = await confirmarPendiente(ctx, p.id);
+          if ('error' in r) fallas.push(String(r.error));
+          else if (r.ok) hechas.push(r.resumen);
+          else fallas.push(`No se pudo: ${r.resumen}`);
+        }
+        if (!fallas.length) return `✅ Hecho: ${hechas.join(' · ')}`;
+        // Lo que falló ya dejó su ticket o es una guarda (abajo, el caso de una): el «no pude» que lo sigue no abre otro.
+        return JSON.stringify({ ok: false, ...(hechas.length ? { hecho: hechas.join(' · ') } : {}), error: [...new Set(fallas)].join(' · '), guarda: true });
+      }
+      const r = await confirmarPendiente(ctx, id);
       if ('error' in r) return JSON.stringify({ ok: false, error: r.error, ...(r.vigentes ? { vigentes: r.vigentes } : {}), guarda: true });
       if (r.ok) return `✅ Hecho: ${r.resumen}`;
       // Lo que falló al ejecutarse ya dejó SU ticket (`ticket`, con su línea en el resumen), o es una negativa del runner: el

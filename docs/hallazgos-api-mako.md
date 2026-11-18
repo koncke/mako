@@ -14,6 +14,24 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## Un «sí» confirma lo que se propuso junto (ticket #110, 18/11/2026)
+
+**Vive en:** `lib/confirmacion-pura.ts` (`TURNO`, `tandaDeUnSi`) · `lib/mako-pendientes.ts` (`crearPendiente` pone la marca,
+`toP` la saca) · `lib/api-mako/acciones.ts` (`tandaDelSi`) · `lib/api-mako/areas/mako.run.ts` (`confirmar_accion`: cada una por su id) · `tests/_seguimiento-lead-110-hijo.ts`.
+
+- **Síntoma:** con dos pendientes vigentes y un «sí» sin id, `confirmar_accion` contestaba «aclara cuál», aunque MaKo las
+  hubiera propuesto juntas y preguntado una sola vez (la nota y el evento de «llamarla en dos semanas»).
+- **Ahora** cada pendiente lleva en el payload `__turno`, el `turnStart` del turno que la propuso (como `__pidio`: jsonb, sin
+  migración). Un «sí» sin id por WhatsApp confirma TODAS si todas son de ese turno, una por una y con todas sus guardas. Con
+  una de otro turno sigue «aclara cuál», en el mismo turno siguen sin confirmarse solas, y con un id se confirma ésa sola.
+- **Trampa: en el grupo el «sí» lo ejecuta el REGISTRO, y el esquema que ve el modelo es el VIEJO.** `confirmar_accion` corre
+  por `PENDIENTES_POR_REGISTRO` (lib/mako-doer-in.ts), pero la descripción que le llega al modelo es la de `MAKO_ACCION_TOOLS`
+  (lib/mako-doer-acciones.ts): un cambio de comportamiento se escribe en las dos.
+- **Trampa: el runner viejo nacía con su propio reloj.** `crearRunnerAcciones(…, Date.now(), …)` no era el `ctxApi.turnStart`
+  del registro, así que una propuesta vieja y una del registro de un mismo turno tenían marcas distintas. Ahora comparten la del
+  registro.
+- Las pendientes anteriores a este cambio no tienen la marca: para ellas, un «sí» sin id sigue preguntando cuál.
+
 ## «Todo MaKo por API» tiene guarda: cada server action de app/ está cubierta, exceptuada o en una deuda que sólo baja (18/11/2026, F127)
 
 **Vive en:** `lib/api-mako/cobertura.ts` (las tres listas) · `tests/api-mako-cobertura.test.ts` (la guarda, con el analizador de

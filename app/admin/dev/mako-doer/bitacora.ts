@@ -967,4 +967,24 @@ export const BITACORA: Hito[] = [
       'tests/grupo-dominio-real.test.ts — las salidas reales al grupo, la copia y el eco; dos roturas, cada una cae',
     ],
   },
+  {
+    fecha: '18 nov', hora: '05:15', chat: 'Tickets de Sellers: el filtro de números', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo te agenda la llamada a un lead en el Calendario, además de dejarle la nota',
+    puntos: [
+      'Pediste dejarle una nota a un lead para llamarlo en dos semanas, y MaKo dejó la nota y le pasó al equipo la parte de agendarla, cuando podía hacerla. Ahora te propone las dos cosas juntas: la nota en su ficha y una llamada en el Calendario («Llamar a …») en la fecha que corresponde.',
+      'La fecha la calcula MaKo desde hoy («en dos semanas» es dentro de 14 días). Si no dices la hora, la agenda a las 10 y te lo dice para que la cambies.',
+      'Con un solo «sí» se confirman las dos.',
+      'La llamada no queda atada a la ficha del lead: por eso lleva su nombre en el título y en las notas.',
+      '**Cómo se prueba:** en el grupo de MaKo, «agrega una nota al lead Valery: agendar llamarla en dos semanas para coordinar la reunión», y después «sí».',
+    ],
+    archivos: [
+      'lib/seguimiento-lead.ts — qué es un seguimiento, la fecha y la instrucción (puro)',
+      'lib/doer-herramientas.ts — `herramientasDelTurno` trae el área `calendario` y la nota y el evento forzados',
+      'lib/confirmacion-pura.ts — `tandaDeUnSi` · lib/mako-pendientes.ts — la marca del turno · lib/api-mako/acciones.ts — `tandaDelSi` · lib/api-mako/areas/mako.run.ts — `confirmar_accion`',
+      'tests/seguimiento-lead-110.test.ts — el pedido tal cual y el «sí» real sobre una base de mentira; cuatro roturas, cada una cae',
+      'docs/hallazgos-ia.md · docs/hallazgos-api-mako.md · docs/hallazgos-calendario.md',
+    ],
+    tickets: [110],
+  },
 ];

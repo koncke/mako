@@ -52,7 +52,9 @@ test('la fuente y el choke point: el aviso corta sin partir, y la pendiente entr
   const cuerpo = pend.slice(pend.indexOf('export async function crearPendiente'), pend.indexOf('async function avisarPendiente'));
   // El payload entra saneado CON quién la pidió en el grupo (28/10/2026, lib/confirmacion-pura.ts `conQuienPidio`).
   assert.match(cuerpo, /const payloadCrudo = conQuienPidio\(dataCruda\.payload \?\? \{\}, dataCruda\.pidio, salidaDelGrupo\(\)\?\.soloApp\);/);
-  assert.match(cuerpo, /datosSinMediosEmojis\(\{ grupoJid: dataCruda\.grupoJid, tipo: dataCruda\.tipo, payload: payloadCrudo, resumen: dataCruda\.resumen, origen: dataCruda\.origen \}\)/);
+  // Y con el turno en que nació (ticket #110, `conSuTurno`): un «sí» confirma juntas las de un mismo turno.
+  assert.match(cuerpo, /const conTurno = conSuTurno\(payloadCrudo, dataCruda\.mismoTurnoDesde\);/);
+  assert.match(cuerpo, /datosSinMediosEmojis\(\{ grupoJid: dataCruda\.grupoJid, tipo: dataCruda\.tipo, payload: conTurno, resumen: dataCruda\.resumen, origen: dataCruda\.origen \}\)/);
   assert.match(cuerpo, /if \(error\) \{\n\s+console\.error\('\[pendientes\] crear:', error\.message\);\n\s+return \{ error: /);
   assert.doesNotMatch(cuerpo, /return null/);
   // El motivo viaja hasta la fila de la automatización, y nunca a una persona ni por HTTP.

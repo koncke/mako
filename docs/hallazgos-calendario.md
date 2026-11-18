@@ -10,6 +10,16 @@ trabajo" para crear guiones o lo que necesite el usuario... Se puede combinar co
 "OBJETIVOS", el Q, el PLAN... que sea simple de usar, que sirva para todos los casos, que tenga IA que te ayude o
 "templates" y que no sea restrictivo».
 
+## Un evento del Calendario no se ata a un lead (ticket #110, 18/11/2026)
+
+**Vive en:** `supabase/migrations/0271_calendario_eventos.sql` (la tabla, sin columna de lead) · `lib/seguimiento-lead.ts`.
+
+- «Llamar a Valery en dos semanas» deja una llamada de venta en el Calendario, pero `calendario_eventos` no tiene `lead_id`:
+  el evento no aparece en la ficha del lead ni se abre desde ella. Por eso el nombre del lead va en el título («Llamar a
+  Valery…») y en las notas, y la instrucción del turno lo dice.
+- **Sin hacer:** atarlo de verdad pide una migración (`lead_id` en `calendario_eventos`) y un `leadId` en
+  `crear_evento_calendario` (lib/api-mako/areas/calendario.def.ts). Con eso, la ficha podría listar sus llamadas pendientes.
+
 ## MaKo dice «te mostré arriba tu agenda» y la agenda llega ABAJO (13/11/2026, claude5)
 
 **El síntoma:** probando el grupo de la app del ws9, a «¿qué reuniones tengo mañana?» MaKo contestó «Te mostré arriba lo que tienes

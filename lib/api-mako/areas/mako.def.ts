@@ -35,7 +35,7 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'confirmar_accion', area: 'mako', tipo: 'control', alcanceMinimo: 'ejecutar',
     datosDeClientes: false,
     titulo: 'Confirmar una acción pendiente',
-    descripcion: 'EJECUTA una acción que estaba pendiente de confirmación, cuando la persona dio el OK («sí», «dale», «confirmo»). En WhatsApp, si hay una sola pendiente vigente puedes omitir el id; en cualquier otro canal el id es obligatorio (de listar_pendientes). Por la API solo funciona con un token de alcance «ejecutar».',
+    descripcion: 'EJECUTA una acción que estaba pendiente de confirmación, cuando la persona dio el OK («sí», «dale», «confirmo»). En WhatsApp, si hay una sola pendiente vigente puedes omitir el id, y si las vigentes las propusiste juntas en un mismo mensaje, sin el id se confirman todas; en cualquier otro canal el id es obligatorio (de listar_pendientes). Por la API solo funciona con un token de alcance «ejecutar».',
     parametros: [{ nombre: 'id', tipo: 'number', descripcion: 'id de la acción pendiente a ejecutar (de listar_pendientes).' }],
     canales: ['whatsapp', 'app', 'http'], costo: 'gratis',
   },

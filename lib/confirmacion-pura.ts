@@ -132,6 +132,34 @@ export const lineaSeConfirmaEnLaApp = (titulo: string): string =>
 export function conQuienPidio(payload: Record<string, unknown>, pidio: string | null | undefined, soloApp?: boolean): Record<string, unknown> {
   return { ...payload, ...(pidio ? { [PIDIO]: pidio } : {}), ...(soloApp ? { [SOLO_APP]: true } : {}) };
 }
+/**
+ * EL TURNO EN QUE NACIÓ (ticket #110, 18/11/2026): «agendar llamar a Valery en dos semanas» deja DOS propuestas en el mismo turno (la
+ * nota y el evento del Calendario), y el «sí» que sigue tenía que confirmar las dos. Con dos vigentes y un «sí» sin número,
+ * `confirmar_accion` contestaba «aclara cuál». Como `__pidio`: va en el payload (jsonb, sin migración), lo pone `crearPendiente` con el
+ * `turnStart` del doer y se saca al leerla (`toP`). No es un parámetro de la acción.
+ */
+export const TURNO = '__turno';
+export function conSuTurno(payload: Record<string, unknown>, turno: number | null | undefined): Record<string, unknown> {
+  return turno && turno > 0 ? { ...payload, [TURNO]: turno } : payload;
+}
+export function sinSuTurno(payload: Record<string, unknown>): { payload: Record<string, unknown>; turno: number | null } {
+  if (!(TURNO in payload)) return { payload, turno: null };
+  const { [TURNO]: turno, ...resto } = payload;
+  return { payload: resto, turno: typeof turno === 'number' && turno > 0 ? turno : null };
+}
+
+/**
+ * Lo que confirma un «sí» SIN número cuando hay varias vigentes: TODAS, si nacieron en el MISMO turno (MaKo las propuso juntas y
+ * preguntó una vez). Si alguna es de otro turno, o no se sabe de cuál, null: el «sí» es ambiguo y se pregunta cuál, como siempre.
+ * En el orden en que se propusieron (la nota antes que el evento).
+ */
+export function tandaDeUnSi<P extends { turno?: number | null; createdAt: string }>(vigentes: readonly P[]): P[] | null {
+  if (vigentes.length < 2) return null;
+  const turno = vigentes[0].turno;
+  if (!turno || !vigentes.every((p) => p.turno === turno)) return null;
+  return [...vigentes].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+}
+
 export function sinQuienPidio(payload: Record<string, unknown>): { payload: Record<string, unknown>; pidio: string | null; soloApp?: boolean } {
   if (!(PIDIO in payload) && !(SOLO_APP in payload)) return { payload, pidio: null };
   const { [PIDIO]: pidio, [SOLO_APP]: soloApp, ...resto } = payload;

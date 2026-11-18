@@ -4,6 +4,31 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## «Agendar llamar en dos semanas» se delegaba teniendo con qué hacerlo (ticket #110, 18/11/2026)
+
+**Vive en:** `lib/seguimiento-lead.ts` (qué es un seguimiento, la fecha y la instrucción) · `lib/doer-herramientas.ts`
+(`herramientasDelTurno`: el área `calendario` y las dos operaciones forzadas) · `tests/seguimiento-lead-110.test.ts`.
+
+- **Síntoma:** Marcela (ws 23) pidió «agrega una nota al lead valery… la nota dice: agendar llamar en dos semanas para
+  coordinar reunión». MaKo propuso la nota y la parte de «agendar» la delegó al equipo como pedido #110 («Lo que faltó de…»,
+  `faltaAlgunaParte`), cuando `crear_evento_calendario` agenda una llamada de venta en el Calendario de MaKo.
+- **El diagnóstico obvio era el equivocado: no fue Haiku** (el modelo del router todavía no estaba desplegado). Medido con
+  `herramientasDelTurno` sobre el texto tal cual: el pedido sólo nombraba el área `crm`, y la de `calendario` (AREA_KEYWORDS,
+  lib/mako-intencion.ts) pide «calendario» o agendar UNA PUBLICACIÓN o un bloque. `crear_evento_calendario` no viajó, y
+  ningún modelo propone lo que no tiene.
+  - **Trampa: sumar el área no alcanza.** `crm` sola ya llena los 12.000 caracteres del presupuesto (en este pedido dejó
+    afuera más de 80 operaciones). Las dos del seguimiento entran FORZADAS, después del presupuesto y sólo si la vista las ve.
+- **La fecha la calcula el código** («en dos semanas» = hoy + 14 en la zona del negocio, `fechaDelSeguimiento`) y va
+  escrita en la instrucción con su día de la semana: una suma de cabeza es una llamada en el día equivocado. Sin hora, las 10,
+  y MaKo lo dice en la propuesta.
+- **Trampa: «agéndame una reunión / una llamada con Juan» NO es un seguimiento.** Es una reunión con el lead, con su
+  invitación (`proponer_agendar_agenda`), y sigue como estaba. El detector pide el VERBO (llamar, contactar, escribirle) y un
+  cuándo futuro; con escribir o contactar, además agendar o recordar delante («escríbele en dos días» puede ser un WhatsApp
+  programado). Y lo que nombra el Plan («agrega una tarea: llamar a Juan el lunes») sigue siendo una tarea: las reglas lo leen
+  como `capturar`, pero la clase ACCION de la IA sobre un `capturar` dudoso lo vuelve `actuar`, y sin la exclusión le ganaba al Plan.
+- **Sin hacer:** el pedido compuesto cuenta las partes por CANTIDAD (`faltaAlgunaParte`, lib/despacho-grupo.ts). Si la IA lista
+  tres partes para este mismo pedido, la tercera se delega aunque la nota y el evento estén propuestos.
+
 ## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
 
 **Vive en:** `lib/anthropic-usage.ts:179,196` · `lib/embeddings.ts` · `lib/transcribe.ts:26,179`

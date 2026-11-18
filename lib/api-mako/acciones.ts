@@ -48,7 +48,7 @@ import { distintoAlRevisar, validarInput } from './validar';
 import { vistaDe } from './vista';
 import { canalKeyDe, canalDeClave, etiquetaDeCanal, puedeConfirmar, PREFIJO_APP, PREFIJO_FLUJO } from './canal';
 import { esAccion, type AccionDef, type AccionRun, type Ctx, type Ejecutado } from './tipos';
-import { rechazoSiNoEsConfirmacionPura } from '@/lib/confirmacion-pura';
+import { rechazoSiNoEsConfirmacionPura, tandaDeUnSi } from '@/lib/confirmacion-pura';
 import { salidaDelGrupo } from '@/lib/grupo-salida';
 import { anotarEnHiloDeOrigen } from '@/lib/chat-hilo-origen';
 import { bloqueDeResultado } from '@/lib/chat-bloques';
@@ -245,6 +245,17 @@ export async function listarPendientes(ctx: Ctx) {
     origen: etiquetaDeCanal(p.grupoJid), canal: canalDeClave(p.grupoJid),
     vence: fmtFecha(p.venceAt, tz), venceAt: p.venceAt, creada: p.createdAt,
   }));
+}
+
+/**
+ * LO QUE UN «SÍ» SIN ID CONFIRMA JUNTO (ticket #110, 18/11/2026): «agendar llamar a Valery en dos semanas» deja la nota y el evento del
+ * Calendario en el MISMO turno, y MaKo pregunta una vez. Por WhatsApp, si TODAS las vigentes nacieron en ese turno (`tandaDeUnSi`), son
+ * ésas, en el orden en que se propusieron; si no, null y el «sí» sigue por `confirmarPendiente`, que pregunta cuál. Quien llama confirma
+ * cada una por SU id (`confirmar_accion`, lib/api-mako/areas/mako.run.ts): pasan todas las guardas de siempre, una por una.
+ */
+export async function tandaDelSi(ctx: Ctx): Promise<Pendiente[] | null> {
+  if (ctx.canal !== 'whatsapp' || ctx.bandeja || !puedeConfirmar(ctx.canal, ctx.alcance, ctx.bandeja)) return null;
+  return tandaDeUnSi(await vigentesPara(ctx));
 }
 
 type Elegida = { pendiente: Pendiente } | { error: string; vigentes?: Array<{ id: number; resumen: string }> };
