@@ -12,7 +12,7 @@ import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
 import { getCapaActual, getWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { RUTA_CONFIG_M } from '@/lib/movil-rutas';
-import { capaDef } from '@/lib/capas';
+import { nombreDelPlanDe } from '@/lib/plan-visible';
 import { inicioDeLaPrueba, suscripcionDeMakoDe } from '@/lib/cobros';
 import { diaDelCobro, esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { gratisHastaDe } from '@/lib/plan-a-mano';
@@ -46,7 +46,8 @@ export default async function PlanMovil() {
   return (
     <PantallaM>
       <CabeceraM titulo="Tu plan" />
-      <PlanM plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} gratisHasta={gratisHasta} />
+      {/* El plan que se vende, no la capa (18/11/2026): lo mismo que la computadora (lib/plan-visible.ts). */}
+      <PlanM plan={await nombreDelPlanDe(ws, capa)} suscripcion={suscripcion} emailMako={EMAIL_MAKO} gratisHasta={gratisHasta} />
     </PantallaM>
   );
 }

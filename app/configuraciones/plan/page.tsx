@@ -10,7 +10,6 @@ import { requireRolWs } from '@/lib/tab-access';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
 import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
-import { capaDef } from '@/lib/capas';
 import { inicioDeLaPrueba, suscripcionDeMakoDe } from '@/lib/cobros';
 import { diaDelCobro, esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { gratisHastaDe } from '@/lib/plan-a-mano';
@@ -25,6 +24,7 @@ import { precioEn } from '@/lib/planes-mako';
 import { PLAN_PRO, proPorLlamada } from '@/lib/subir-plan-reglas';
 import { estadoDeRetencion, ofertaDeRetencion } from '@/lib/retencion-plan';
 import { esClienteDeAgencia } from '@/lib/agencia';
+import { nombreDelPlanDe } from '@/lib/plan-visible';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -111,7 +111,9 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'plan')} activa="plan">
       {/* Sin bajada (25/10/2026, el molde nuevo de Settings: Martín, «textos previo a la configuración que están muy de sobra»). */}
       <TituloAjustes titulo="Tu plan" />
-      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} gratisHasta={gratisHasta} emailMako={EMAIL_MAKO} oferta={enPrueba ? null : oferta} retencion={retencion}
+      {/* EL PLAN QUE SE VENDE, NO LA CAPA (18/11/2026): el nombre de la capa (`capaDef`, lib/capas.ts) le decía «Agencia» a quien paga MaKo Pro y
+          «Completo» a quien paga Essential. La regla, la de la ficha de los tickets: lib/plan-visible-reglas.ts. */}
+      <PlanPanel plan={await nombreDelPlanDe(ws, capa)} suscripcion={suscripcion} gratisHasta={gratisHasta} emailMako={EMAIL_MAKO} oferta={enPrueba ? null : oferta} retencion={retencion}
         // El cliente de una AGENCIA (29/10/2026, Thiago: «yo no me meto con ese cliente»): su plan lo maneja su agencia. No ve
         // «Pasar a Pro» ni «Recomienda MaKo». Las dos filas ya son null para él (cuelgan de `pro`, que arriba lo mira): este
         // `deAgencia ? null :` es la red de seguridad, y es lo que lee tests/cliente-de-agencia-y-partners-2910.test.ts.
