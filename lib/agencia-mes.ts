@@ -32,7 +32,7 @@ import { planesMako } from './compra-plan';
 import { esAgencia } from './agencia';
 import { crearNotificacion } from './notificaciones';
 import { anotarLoDelEquipo, enviarAlGrupoMaKo, enviarAlGrupoSuperAdmin, enviarPartesAlGrupoMaKo, type ArchivoDelAviso } from './mako-grupo';
-import { atarIdDeWhatsApp, copiarAlGrupo } from './grupo-app';
+import { atarIdsDeWhatsApp, copiarAlGrupo } from './grupo-app';
 import type { PartePreparada } from './mako-tarjeta';
 import { KEY_PLAN_CAMBIADO, leerCambioDePlan, planDeCapa, type PlanCuenta } from './agencia-cobro-reglas';
 import { ESTADOS_CARTERA, type EstadoCartera } from './agencia-cartera';
@@ -682,7 +682,7 @@ export async function mandarPdfAlGrupoDeLaAgencia(agenciaWs: number, p: { texto:
   const partes: PartePreparada[] = [{ tipo: 'media', base64: Buffer.from(p.pdf).toString('base64'), media: { tipo: 'document', mimetype: 'application/pdf', fileName: p.nombrePdf }, caption: p.texto }];
   const copia = await copiarAlGrupo(agenciaWs, { texto: p.texto, de: 'equipo', avisoTipo: AVISO_TIPO_MENSUALIDAD, partes }).catch(() => null);
   const s = await enviarPartesAlGrupoMaKo(agenciaWs, partes);
-  if (copia) await Promise.all(copia.ids.map((f, i) => (s.ids[i] ? atarIdDeWhatsApp(agenciaWs, f, s.ids[i]) : Promise.resolve()))).catch(() => {});
+  await atarIdsDeWhatsApp(agenciaWs, copia, s.ids);
   if (s.ok && s.ids[0]) await anotarLoDelEquipo(agenciaWs, p.texto, s.ids[0]).catch((e) => console.warn(`[agencia-mes] agencia ${agenciaWs}: no lo pude anotar en el grupo: ${msg(e)}`));
   if (s.ok) return { ok: true, canal: 'whatsapp' };
   if (copia) return { ok: true, canal: 'app', error: s.error };

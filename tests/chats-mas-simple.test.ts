@@ -93,7 +93,8 @@ test('3. el BOTÓN «Agregar al CRM» está en UN lugar (la cabecera); los «⋯
   // Martín (27/10/2026): en el «⋯» «deberían haber otras opciones, entre esas, la de agregar al CRM». El de la cabecera y el
   // de cada fila de la lista, por el MISMO alta (app/chats/agregar-al-crm.ts).
   assert.match(v, /'Agregar al CRM'\}/, 'el «⋯» de la cabecera no ofrece el alta');
-  const lista = fuente('app/chats/ListaChats.tsx');
+  // Desde el 18/11/2026 (F119) el «⋯» de la fila abre el menú de su clic derecho: lo que ofrece vive en menu-contextual-chats.ts.
+  const lista = fuente('app/chats/ListaChats.tsx') + fuente('app/chats/menu-contextual-chats.ts');
   assert.match(lista, /label: 'Agregar al CRM'/, 'el «⋯» de la fila no ofrece el alta');
   assert.doesNotMatch(lista, /tipo: 'cerrar'|tipo: 'posponer'|opcionesPosponer/, 'el «⋯» de la fila volvió a cerrar o posponer');
   assert.match(fuente('app/chats/ChatsApp.tsx'), /await agregarChatAlCrm\(c, a\.funnelId\)/, 'la fila no usa el alta compartida');

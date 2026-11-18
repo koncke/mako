@@ -128,6 +128,19 @@ export function ArmadoEnVivo({ titulo, fases, piezas, total, unidad, terminado =
   );
 }
 
+/**
+ * «Ver todo» suelto, con el MISMO estilo que el de la pieza: para quien revela lo armado en su propio lugar (las tarjetas de
+ * una hoja del Dashboard, app/dashboard/ArmadoDeHoja.tsx) y no muestra la lista.
+ */
+export function VerTodoArmado({ onClick }: { onClick: () => void }) {
+  return (
+    <>
+      <style href="ae-armado" precedence="medium">{CSS_ARMADO}</style>
+      <button type="button" className="ae-saltear" style={{ marginTop: 0 }} onClick={onClick}>Ver todo</button>
+    </>
+  );
+}
+
 /** Con los tokens de la app y respaldos, para que entre en cualquier pantalla (clara u oscura). */
 const CSS_ARMADO = `
 .ae-armado { --ae-mako: var(--mako, #F2B01E); --ae-listo: var(--good, #1f9d55); --ae-linea: color-mix(in srgb, currentColor 16%, transparent); --ae-tenue: color-mix(in srgb, currentColor 62%, transparent); margin-top: 16px; padding: 14px 16px; border: 1px solid var(--ae-linea); border-radius: 12px; }

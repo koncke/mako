@@ -7,6 +7,8 @@
 // Dispatcher <Visual spec={{type,...params}} />. Specs en ./feature-visuals.ts.
 
 import { FaltaAnimacion } from '../_competencia/FaltaAnimacion';
+// La inicial del avatar de una fila, por LETRA y no por unidad UTF-16 (O14, 18/11/2026; tests/iniciales-con-emoji.test.ts, caso 4).
+import { iniciales } from '@/lib/unicode-seguro';
 import { VisualChart, CHART_TYPES } from './VisualCharts';
 import { VisualCanvas, CANVAS_TYPES } from './VisualCanvas';
 
@@ -571,7 +573,7 @@ function WaInbox(s: VisualSpec) {
         return (
           <g key={i} fontFamily={SANS}>
             <rect x="24" y={y} width="352" height="48" rx="10" fill="#fff" stroke={LINE} />
-            <circle cx="50" cy={y + 24} r="15" fill={TILE} /><text x="50" y={y + 29} textAnchor="middle" fontSize="13" fontWeight="700" fill={BLUE}>{(nm[0] || '·').toUpperCase()}</text>
+            <circle cx="50" cy={y + 24} r="15" fill={TILE} /><text x="50" y={y + 29} textAnchor="middle" fontSize="13" fontWeight="700" fill={BLUE}>{iniciales(nm, 1, '·')}</text>
             <text x="78" y={y + 21} fontSize="12" fontWeight="600" fill={INK}>{nm}</text>
             <rect x="78" y={y + 29} width={st.length * 6.2 + 12} height="16" rx="8" fill={TILE} /><text x="85" y={y + 41} fontSize="9.5" fill={BLUE}>{st}</text>
             <text x="366" y={y + 22} textAnchor="end" fontSize="10.5" fontWeight="700" fill={c}>{r.win > 0 ? `${r.win}h` : 'cerrada'}</text>

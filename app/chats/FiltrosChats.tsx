@@ -25,7 +25,7 @@ import { Mail } from 'lucide-react';
 import { Dropdown, type DropdownGroup, type DropdownOption } from '@/app/components/Dropdown';
 import type { CanalChat, ChatResumen, CuentaSocial, EtapaChat, FunnelChat, LineaChat } from '@/lib/chats-tipos';
 import {
-  claveCuenta, claveEtapaEnFunnel, rotuloWhatsapp, type Conteo, type ConteosBandeja, type FiltroChats, type MostrarChats, type OrdenChats, type VistaChats,
+  claveCuenta, claveEtapaEnFunnel, opcionesDeCanal, rotuloWhatsapp, type Conteo, type ConteosBandeja, type FiltroChats, type MostrarChats, type OrdenChats, type VistaChats,
 } from '@/lib/chats-reglas';
 import type { VerNombreChats } from '@/lib/chats-reglas';
 import { IconoCanal } from './iconos-canal';
@@ -134,18 +134,11 @@ export function FiltrosChats({
     value: `${canal}:${cuenta ?? ''}`, label, canal, cuenta, icono: canal === 'email' ? <Mail size={18} strokeWidth={1.75} /> : <IconoCanal canal={canal} size={18} />,
     sub: sub ?? sinLeer(cuenta == null ? conteos.porCanal[canal] : conteos.porCuenta[claveCuenta(canal, cuenta)]),
   });
-  for (const l of lineas) {
-    canales.push(conCanal('whatsapp', l.linea, rotuloWhatsapp(l.rotulo, lineas.length > 1), l.estado === 'conectado' ? undefined : 'Desconectado'));
+  // Cada número, cada cuenta de Instagram y Messenger, y el Email: `opcionesDeCanal` (lib/chats-reglas.ts), la MISMA lista del
+  // filtro del teléfono (app/m/chats/ListaChats.tsx).
+  for (const o of opcionesDeCanal(lineas, cuentasSociales, chats)) {
+    canales.push(conCanal(o.canal, o.cuenta, o.label, o.desconectado ? 'Desconectado' : undefined));
   }
-  for (const canal of ['instagram', 'messenger'] as const) {
-    const suyas = cuentasSociales.filter((c) => c.canal === canal);
-    const nombre = canal === 'instagram' ? 'Instagram' : 'Messenger';
-    if (suyas.length) for (const c of suyas) canales.push(conCanal(canal, c.cuenta, suyas.length > 1 ? c.rotulo : nombre));
-    // Hay conversaciones de ese canal y su cuenta no se pudo leer: el canal entero, sin cuenta.
-    else if (chats.some((c) => c.canales.some((i) => i.canal === canal))) canales.push(conCanal(canal, null, nombre));
-  }
-  // El email: un renglón, el canal entero (el negocio tiene un solo dominio), en cuanto haya una conversación.
-  if (chats.some((c) => c.canales.some((i) => i.canal === 'email'))) canales.push(conCanal('email', null, 'Email'));
   // «Conectar un canal» va ARRIBA, después de «Todos los canales» (27/10/2026, Leandro: «¿cómo conecto otro número de
   // teléfono?»): al final de la lista quedaba debajo de cada línea, red y email, y no se veía.
   const opcionesCanal: DropdownOption[] = esAdmin

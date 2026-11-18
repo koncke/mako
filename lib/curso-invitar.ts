@@ -9,7 +9,7 @@ import 'server-only';
 // docs/diseno-curso-skool.md:
 //
 //   invitarAlCursoSinSesion({ ws, leadId, email?, autor }): Promise<
-//     { ok: true; enviado: boolean; motivo?: 'ya-invitado' | 'ya-entro' | 'sin-email' | 'sin-clases' | 'cortado' | 'no-ganado' }
+//     { ok: true; enviado: boolean; motivo?: 'ya-invitado' | 'ya-entro' | 'sin-email' | 'sin-clases' | 'cortado' | 'no-ganado' | 'sacado' }
 //     | { ok: false; error: string }>
 //
 // ⚠️ ES UNA SOLA INVITACIÓN Y TIENE DOS PUERTAS. La lógica vivía adentro de `invitarAlCursoAction`
@@ -92,7 +92,10 @@ import { invitadoAlProducto, entroAlProducto, aManoVigente, necesitaPermiso, typ
 // `ya-entro` (08/10/2026, lo señaló el chat del CRM): tiene acceso, nunca se le mandó el mail y ya
 // ENTRÓ (con un link copiado o mandado por WhatsApp). Mandarle «te invitamos» a alguien que ya usa el
 // curso es ruido; sin sesión no se manda. Con sesión («Reenviar») sí: lo pide una persona.
-export type MotivoNoInvita = 'ya-invitado' | 'ya-entro' | 'sin-email' | 'sin-clases' | 'cortado' | 'no-ganado';
+// `sacado` (O12, 18/11/2026): está fuera de ESE programa (lo sacaron en Members, `comunidad_baneos` vigente). «Sacar» le
+// achica la lista de cursos a su acceso (`sacarDelCurso`), y una invitación a ese curso se la volvía a agrandar: el
+// programa se reabría sin pasar por «Volver a admitir». Corta como `cortado`: ni reenviando ni desde el buscador.
+export type MotivoNoInvita = 'ya-invitado' | 'ya-entro' | 'sin-email' | 'sin-clases' | 'cortado' | 'no-ganado' | 'sacado';
 
 /** El contrato de docs/diseno-curso-skool.md, letra por letra. */
 export type ResultadoInvitarSinSesion =
@@ -139,6 +142,7 @@ export const TEXTO_NO_INVITA: Record<MotivoNoInvita, string> = {
   'sin-clases': 'El curso todavía no tiene clases.',
   cortado: 'Su acceso está cortado. Primero vuelve a habilitarlo.',
   'no-ganado': 'Ya no figura como cliente.',
+  sacado: 'Está fuera de este programa. Para invitar a esta persona, vuelve a admitirla en Members.',
 };
 
 /** Lo que la invitación necesita del mundo. Las reales salen de `depsReales`; el test pasa las suyas. */
@@ -155,6 +159,11 @@ export type DepsInvitar = {
    * buscador (ausente = nada).
    */
   acceso(leadId: number): Promise<{ revocado: boolean; invitacionEnviadaAt: string | null; ingresos?: number; productos?: ProductosDelAcceso; aMano?: readonly number[] } | null>;
+  /**
+   * ¿Lo sacaron de ESE programa en Members (baneo vigente)? `estaSacado`, lib/comunidad-moderacion.ts. Sólo se pregunta con
+   * `productoId`. TIRA si no pudo leer: la invitación vuelve como error y no sale nada.
+   */
+  sacado(ws: number, leadId: number, productoId: number): Promise<boolean>;
   /** ¿Es cliente de ESE producto? (la regla del kanban, `productosDelCliente`). Sólo se pregunta por un ganado. */
   esCliente(leadId: number, productoId: number): Promise<boolean>;
   /**
@@ -255,6 +264,11 @@ export async function invitarAlCurso(
       if (!lead) return { tipo: 'error', error: 'Ese cliente no existe.' };
       // Con el permiso puesto, la etapa del embudo no decide: una persona eligió a este lead.
       if (!lead.ganado && !cualquierEtapa) return { tipo: 'no', motivo: 'no-ganado' };
+
+      // ⚠️ SACADO DE ESTE PROGRAMA (O12, 18/11/2026): no se lo invita a ese curso, ni reenviando ni desde el buscador. Va
+      // ANTES de `cortado`: si era su único curso, «Sacar» también le cortó el acceso, y lo que lo arregla es «Volver a
+      // admitir» en Members (que levanta el baneo y reabre el corte que hizo ese «Sacar»), no habilitarlo desde su ficha.
+      if (productoId != null && (await d.sacado(p.ws, p.leadId, productoId))) return { tipo: 'no', motivo: 'sacado' };
 
       const previo = await d.acceso(p.leadId);
       if (previo?.revocado) return { tipo: 'no', motivo: 'cortado' };
@@ -396,6 +410,7 @@ async function depsReales(): Promise<DepsInvitar> {
       const [a, permiso] = await Promise.all([datos.accesoDe(leadId), datos.permisoAManoDe(leadId)]);
       return a ? { revocado: a.revocado, invitacionEnviadaAt: a.invitacionEnviadaAt, ingresos: a.ingresos, productos: a.productos, aMano: permiso?.aMano ?? [] } : null;
     },
+    sacado: async (ws, leadId, productoId) => (await import('./comunidad-moderacion')).estaSacado(ws, leadId, productoId),
     esCliente: async (leadId, productoId) => (await entrega.productosDelCliente(leadId)).productos.includes(productoId),
     cursos: async (leadId, productoId, cualquierEtapa) => {
       // Con producto: ¿es cliente de ése? (la regla del KANBAN, `productosDelCliente`: todavía no lo

@@ -7,6 +7,71 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## Lo que MaKo arma en una hoja se ve armándose, de a una tarjeta (18/11/2026)
+
+- **Pedido:** «Lo que MaKo construye se ve CONSTRUYÉNDOSE» (AGENTS.md, 28/10). «Editar con MaKo» y el ajuste de una
+  plantilla a los datos del negocio (`rellenarHoja`) ponían la hoja nueva de golpe (pendiente O13).
+- **Cómo:** el cambio entra entero al informe (y lo guarda el autoguardado de siempre); lo que cambia es cómo se MUESTRA.
+  `tarjetasPorArmar` (app/dashboard/armado-hoja.ts) da las tarjetas que MaKo agregó o cambió, en el orden en que se leen,
+  y `ArmadoDeHoja` las revela con la cadencia de la pieza compartida (`useRevelado`) y su «Ver todo» (`VerTodoArmado`,
+  exportado de app/_ui/ArmadoEnVivo.tsx con el mismo estilo). El Deshacer de MaKo va de una.
+- **Trampa:** la grilla ubica cada tarjeta con `transform`: esconderla con `transform` la movería de lugar. Va `opacity` y
+  la propiedad suelta `translate`, que no pisa a `transform` (y la transición conserva la de `transform` de la grilla).
+- **Con «reducir movimiento»:** `useRevelado` muestra todo de una y la hoja de estilo apaga la transición.
+- **Sin hacer:** «Nueva hoja» armada con «Pídeselo a MaKo» entra con la animación de entrada de la hoja, no tarjeta por
+  tarjeta; y el editor de landing (app/web-generator/editor/paneles/PanelAgente.tsx), Offer y el onboarding siguen
+  aplicando de golpe (el resto de O13, de otros chats). **No se miró en un navegador.**
+- **Vive en:** app/dashboard/armado-hoja.ts · app/dashboard/ArmadoDeHoja.tsx · app/dashboard/EditorInforme.tsx
+  (`aplicarDeMako`, `rellenarHoja`) · app/_ui/ArmadoEnVivo.tsx (`VerTodoArmado`). **Lo fija:**
+  tests/dashboard-armado-hoja.test.ts (3 roturas).
+
+## Guardar mirando: la puerta va en el server, y lo editado sigue siendo edición hasta guardarse (18/11/2026)
+
+- **Síntoma:** `guardar` de /api/graficos escribía el informe entero sin saber si la pantalla estaba editando. Las dos veces
+  que se escribió el informe de alguien que sólo miraba (la grilla al montar, 11/10; MaKo cambiando la hoja mirada, 16/10)
+  se cerraron en la pantalla o en otra ruta: la escritura no tenía puerta.
+- **La puerta:** cada guardado manda `editando`; con `false`, `guardarTableroSi` compara contra lo GUARDADO con
+  `escrituraMirando` (lib/graficos-guardar-mirando.ts) y deja pasar sólo lo de las hojas: crear (también la que trae
+  `?hoja=` o la de una plantilla), archivar, restaurar, borrar de Archivados, ordenar, la cabecera (nombre, emoji y subtítulo
+  se editan en el lugar también mirando) y SUMAR un filtro («Filtrar la página por esto» desde el detalle). Lo demás de una
+  hoja que ya estaba vuelve 403 `{ mirando: true }` y no se escribe nada. Vale para los tres informes (Dashboard, General y
+  las Métricas de una automatización). Sin el campo (una pestaña de antes) se guarda como siempre.
+- **La trampa que casi rompe lo editado:** un texto escrito en el lugar se guarda AL SALIR de la edición (`useEnLugar`,
+  app/dashboard/Elemento.tsx), DESPUÉS de que la pantalla ya está en «Ver»; un guardado que falló sale más tarde; y la
+  plantilla ajustada (`rellenarHoja`) pisa una hoja que quizá ya se guardó. Mandar `editando` con el estado de ese momento
+  hacía que el server rechazara lo editado. Por eso la pantalla lleva `huboEdicion`: queda prendido hasta que lo de la
+  pantalla quedó confirmado, fuera de la edición y pasada una gracia de 5 s (`edicionYaGuardada`, app/dashboard/guardado.ts).
+- **Compara después del saneo de los dos lados**: el saneo es idempotente con todas las plantillas (lo mide el test); si un
+  día deja de serlo, mirando no se podría crear una hoja y lo diría ese test.
+- **Y compara sólo contra lo que estaba A LA VISTA, no contra las archivadas.** El `?hoja=` de una plantilla entra con su id
+  FIJO (`paraAgregar`, lib/graficos-plantillas.ts) y `hojaDestino` mira sólo las hojas a la vista: si hay una ARCHIVADA con
+  ese id, el saneo le cambia el id a la archivada y la hoja nueva llega con el id viejo. Comparada contra la archivada, la
+  puerta la tomaba por un cambio de contenido y no dejaba abrir la plantilla mirando.
+- **Vive en:** lib/graficos-guardar-mirando.ts · lib/graficos-tablero.ts (`guardarTableroSi`, `OpcionesGuardar`) ·
+  app/api/graficos/route.ts · app/dashboard/EditorInforme.tsx · app/dashboard/guardado.ts. **Lo fija:**
+  tests/graficos-guardar-mirando.test.ts (5 roturas) · tests/dashboard-guardado.test.ts · tests/graficos-modelo-v5.test.ts.
+
+## La venta de un lead agregado, por fecha de cierre: donde la pone el OKR (18/11/2026)
+
+- **Síntoma:** una hoja de Leads por fecha de **cierre**, filtrada por un funnel AGREGADO («Renovación»), ponía en 0 la venta
+  de un lead que se agregó ahí y después cerró, y la del funnel de su casa la contaba entera. El OKR de Renovación, con la
+  misma venta, la contaba en Renovación (`funnelDelMomento`): el número y la hoja decían dos cosas.
+- **Causa:** `Fila.soloCasa` decía «la venta es de la casa» siempre, y por un funnel agregado la ponía en 0.
+- **Arreglo:** la fila lleva de qué funnel es su venta (`Fila.duenoDe`) y `filtrarFilas` suma lo de `soloCasa` sólo si ese
+  dueño pasa los filtros. El dueño lo decide `funnelsDeLaFilaDeLead` (lib/graficos-funnel-fila.ts) con `funnelDelMomento`
+  sobre la MISMA fecha de cierre, como los OKR. Sin `duenoDe`, el dueño es la fila: todo lo de antes sigue igual.
+- **Sólo por fecha de cierre.** Por alta o por agenda la fila es una cohorte de ese día y la venta sigue en la casa: darla al
+  funnel del cierre la haría desaparecer de las dos hojas filtradas con un lead que se agregó DESPUÉS del alta (lo fija el test).
+- **Lo que no cambió:** agrupar por funnel (sin filtro) sigue poniendo la venta bajo la casa (el «Sin hacer» del 17/10), y
+  la fuente Leads sigue sin las ventas propias de un CRM agregado (CO2, `ventasDeCrms`): los OKR sí las suman. Sumarlas a
+  Leads cambia sus totales y su tasa de cierre, que es la decisión de producto anotada en docs/hallazgos-pagos.md («CO2 suma
+  las renovaciones a los cierres…»).
+- **Ojo:** esa misma entrada de pagos dice que repartir la venta de la casa por el último CRM agregado es la regla de ANTES de
+  CO2 (la 0324 la sacó de los pagos). Si se cambia, se cambia en `funnelsDeLaFilaDeLead` y en los OKR juntos.
+- **Vive en:** lib/graficos-funnel-fila.ts · lib/graficos-agregar.ts (`Fila.duenoDe`, `filtrarFilas`) · lib/graficos-datos.ts
+  (`filasLeads`) · lib/graficos-lectura.ts (`funnelsAgregados` trae el id y el día crudo). **Lo fija:**
+  tests/graficos-venta-en-su-funnel.test.ts (compara con `sumarEnFunnels`; 3 roturas) · tests/graficos-funnel-agregados.test.ts.
+
 ## MaKo toma la iniciativa en el Dashboard: la hoja en blanco, sin IA (5/11/2026, nube)
 
 - **Qué hace:** con el informe en blanco, la estrella pregunta «¿Qué número miras primero cada lunes?»; «Lo cobrado» crea

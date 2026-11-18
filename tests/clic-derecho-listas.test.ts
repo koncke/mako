@@ -109,9 +109,9 @@ test('MenuContextual abierto por dedo: el eco de Android no lo cierra y el clic 
 
 // ── 2. Cada lista: lo de su «⋯» (o lo que el elemento ya hace), y cada opción hace lo mismo ─────────────────────
 
-// Roturas: Asignar sin lead → 1 fallo. «Agregar al CRM» con lead → 1 fallo. Volver a ofrecer Cerrar → 1 fallo (el cruce). Un
-// `alta:` que no lleva el funnel elegido → 1 fallo.
-test('Chats: lo del «⋯» de la fila, en el mismo orden, y cada opción manda la MISMA acción', () => {
+// Roturas: Asignar sin lead → 1 fallo. «Agregar al CRM» con lead → 1 fallo. Un `alta:` que no lleva el funnel elegido → 1
+// fallo. (18/11/2026, F119) El «⋯» con su propia lista otra vez, o sin abrir el menú de la fila → 1 fallo.
+test('Chats: el «⋯» y el clic derecho de la fila abren el MISMO menú, y cada opción manda la acción de la fila', () => {
   const equipo = [{ nombre: 'Ana', foto_url: null }, { nombre: 'MaKo', foto_url: null }];
   const conLead = { leadId: 7, asignado: 'Ana', canales: [] };
   const sinLead = { leadId: null, asignado: null, canales: [{ canal: 'whatsapp', telefono: '1' }] } as never;
@@ -122,16 +122,17 @@ test('Chats: lo del «⋯» de la fila, en el mismo orden, y cada opción manda 
   assert.deepEqual(ids(itemsFilaChat(sinLead, equipo, null)), ['abrir', 'alta:'], 'sin lead: agregarlo, sin Asignar');
   assert.deepEqual(ids(itemsFilaChat(sinLead, equipo, dos)), ['abrir', 'agregar'], 'con 2+ funnels: en cuál');
   assert.deepEqual(ids(itemsFilaChat(grupo, equipo, null)), ['abrir'], 'un grupo no ofrece nada del CRM');
-  // Los rótulos fijos del «⋯» (sus `label` y los títulos de sus grupos) están TODOS acá, y al revés.
-  const mas = sinComentarios(entre(leer('app/chats/ListaChats.tsx'), 'function MasAcciones(', '\n}\n'));
-  const delMas = new Set([...mas.matchAll(/(?:label|title): '([^']+)'/g)].map((m) => m[1]).filter(Boolean));
-  const todos = new Set([...rotulos(items), ...rotulos(itemsFilaChat(sinLead, equipo, null)), ...rotulos(itemsFilaChat(sinLead, equipo, dos))]);
-  for (const r of delMas) assert.ok(todos.has(r), `el «⋯» tiene «${r}» y el clic derecho no`);
-  const propios = [...todos].filter((r) => !['Abrir', 'MaKo', 'Ana', 'Uno', 'Dos'].includes(r));
-  for (const r of propios) assert.ok(delMas.has(r), `el clic derecho tiene «${r}» y el «⋯» no`);
-  // Mismos valores que el «⋯» (`alta:<id>`, `asig:<nombre>`), y las mismas acciones.
-  assert.match(mas, /value: `alta:\$\{p\.id\}`/);
-  assert.match(mas, /value: `asig:\$\{m\.nombre\}`/);
+  // (18/11/2026, F119) El «⋯» ya no tiene lista propia: abre el MISMO menú de la fila, debajo del botón. Hasta ese día era un
+  // Dropdown y este test cruzaba sus rótulos con `itemsFilaChat` (el cruce provisorio): con una lista sola no hay qué cruzar.
+  const src = sinComentarios(leer('app/chats/ListaChats.tsx'));
+  const mas = entre(src, 'function MasAcciones(', '\n}\n');
+  assert.doesNotMatch(mas, /<Dropdown|label: '|value: /, 'el «⋯» volvió a tener su propia lista');
+  assert.match(mas, /if \(itemsFilaChat\(c, equipo, productos\)\.length <= 1\) return null;/, 'un grupo (sólo «Abrir») no dibuja el «⋯»');
+  assert.match(mas, /onClick=\{\(e\) => \{ if \(estabaAbierto\.current\) \{ estabaAbierto\.current = false; return; \} onAbrir\(e\.currentTarget\); \}\}/);
+  assert.match(src, /onAbrirMenu=\{\(b\) => abrirMenuDesde\(c, b\)\}/);
+  assert.match(entre(src, 'const abrirMenuDesde = ', '\n  };\n'), /menu\.abrir\(c, r\.left, r\.bottom \+ 4\);/, 'el «⋯» no abre el menú de la fila');
+  assert.equal((src.match(/<MenuContextual /g) ?? []).length, 1, 'un solo menú para la fila');
+  // Las mismas acciones que mandaba el «⋯» (`alta:<id>`, `asig:<nombre>`).
   assert.deepEqual(accionDeMenuChat('ficha', conLead), { tipo: 'ficha' });
   assert.deepEqual(accionDeMenuChat('alta:', conLead), { tipo: 'agregar', funnelId: null });
   assert.deepEqual(accionDeMenuChat('alta:6', conLead), { tipo: 'agregar', funnelId: 6 });
@@ -164,42 +165,50 @@ test('Automations: las opciones del «⋯» son las de `opcionesDeFila`, con «A
 });
 
 // Roturas: el menú sin «Copiar enlace público» → 1 fallo. `elegirEnRenglon` con «Duplicar» que no duplica (llama a
-// `archivar`) → 1 fallo. El enlace también sin publicar → 1 fallo.
-test('Web Generator: cada renglón del «⋯» está en el clic derecho, en el mismo orden, y hace la MISMA llamada', () => {
+// `archivar`) → 1 fallo. El enlace también sin publicar → 1 fallo. (18/11/2026, F119) El «⋯» con su `MenuFlotante` otra vez,
+// o sin abrir el menú del renglón → 1 fallo.
+test('Web Generator: el «⋯» y el clic derecho de un renglón abren el MISMO menú, y cada opción hace su llamada', () => {
   const src = sinComentarios(leer('app/web-generator/Inicio.tsx'));
-  const mas = entre(src, '<MenuFlotante ancla={menu.ancla}', '</MenuFlotante>');
-  const [analizada, doc] = mas.split(') : (');
-  /** Los renglones del «⋯»: rótulo y lo que llama (con `mf` → `f`, el nombre del clic derecho). */
-  const delMas = (trozo: string) => [...trozo.matchAll(/texto="([^"]+)" onClick=\{\(\) => \{ setMenu\(null\); (.+?); \}\}/g)]
-    .map((m) => ({ rotulo: m[1], llama: m[2].replace(/\bmf\b/g, 'f') }));
+  // (18/11/2026, F119) Hasta ese día el «⋯» era un MenuFlotante con su propia lista y este test la cruzaba con
+  // `itemsRenglonLanding` (el cruce provisorio). Ahora el «⋯» abre el menú del renglón: la lista es una sola.
+  assert.doesNotMatch(src, /<MenuFlotante ancla=\{menu\.ancla\}|setMenu\(/, 'el «⋯» volvió a tener su propio menú');
+  assert.match(src, /onClick=\{\(e\) => abrirMenuDesde\(f\.clave, e\.currentTarget\)\}/);
+  assert.match(entre(src, 'const abrirMenuDesde = ', '\n  };\n'), /menuCtx\.abrir\(clave, r\.left, r\.bottom \+ 4\);/, 'el «⋯» no abre el menú del renglón');
+  assert.match(src, /const abierto = menuCtx\.abierto\?\.de === f\.clave;/, 'el «⋯» dice que su menú está abierto');
+  assert.equal((src.match(/<MenuContextual /g) ?? []).length, 1, 'un solo menú para el renglón');
   const elegir = entre(src, 'const elegirEnRenglon = ', '\n  };\n');
-  // Diagnóstico va antes de las dos ramas; después, la de una analizada y la de una landing.
   const iAnalizada = elegir.indexOf("if (f.tipo === 'analizada')");
   const iDoc = elegir.indexOf("if (id === 'abrir')");
   assert.ok(iAnalizada > 0 && iDoc > iAnalizada, 'leí las ramas de elegirEnRenglon');
   const ramaAnalizada = elegir.slice(0, iDoc);
   const ramaDoc = elegir.slice(0, iAnalizada) + elegir.slice(iDoc);
   const docConEnlace = { id: 1, titulo: 'Mi landing', slug: 'mi', publicadoAt: '2026-10-01' } as unknown as Extract<FilaPanel, { doc: unknown }>['doc'];
-  const casos: Array<[FilaPanel, string, string]> = [
-    [{ tipo: 'analizada', clave: 'a', nombre: 'x.com', url: 'https://x.com' }, analizada, ramaAnalizada],
-    [{ tipo: 'landing', clave: 'b', nombre: 'Mi landing', doc: docConEnlace }, doc, ramaDoc],
+  // Lo que hace cada renglón: la misma llamada que hacía el «⋯» (que ya no tiene la suya).
+  const casos: Array<[FilaPanel, Array<[string, string]>, string]> = [
+    [{ tipo: 'analizada', clave: 'a', nombre: 'x.com', url: 'https://x.com' }, [
+      ['Diagnóstico', 'abrirDiagnostico(f)'], ['Abrir la página', "window.open(f.url, '_blank', 'noopener,noreferrer')"],
+      ['Eliminar', "setDialogo({ tipo: 'eliminarAnalizada', url: f.url, nombre: f.nombre })"],
+    ], ramaAnalizada],
+    [{ tipo: 'landing', clave: 'b', nombre: 'Mi landing', doc: docConEnlace }, [
+      ['Abrir', 'router.push(`/web-generator/${f.doc.id}`)'], ['Diagnóstico', 'abrirDiagnostico(f)'],
+      ['Cambiar nombre', 'setRenombrando({ id: f.doc.id, texto: f.doc.titulo })'], ['Duplicar', 'void duplicar(f.doc)'],
+      ['Copiar enlace público', 'void copiarEnlace(f.doc)'], ['Archivar', 'void archivar(f.doc)'],
+      ['Eliminar', "setDialogo({ tipo: 'eliminarDoc', doc: f.doc })"],
+    ], ramaDoc],
   ];
-  for (const [fila, trozo, rama] of casos) {
+  for (const [fila, esperados, rama] of casos) {
     const items = itemsRenglonLanding(fila);
-    const esperados = delMas(trozo);
-    assert.ok(esperados.length >= 3, `leí el «⋯» de ${fila.tipo}`);
-    assert.deepEqual(rotulos(items), esperados.map((e) => e.rotulo), `${fila.tipo}: los mismos renglones, en el mismo orden`);
-    for (const e of esperados) {
-      const it = renglones(items).find((x) => x.label === e.rotulo);
-      assert.ok(it, e.rotulo);
-      assert.ok(rama.includes(`id === '${it.id}'`), `«${e.rotulo}» no tiene su rama en elegirEnRenglon`);
+    assert.deepEqual(rotulos(items), esperados.map((e) => e[0]), `${fila.tipo}: los renglones, en orden`);
+    for (const [rotulo, llama] of esperados) {
+      const it = renglones(items).find((x) => x.label === rotulo);
+      assert.ok(it, rotulo);
+      assert.ok(rama.includes(`id === '${it.id}'`), `«${rotulo}» no tiene su rama en elegirEnRenglon`);
       const suRama = rama.slice(rama.indexOf(`id === '${it.id}'`)).split('\n')[0];
-      assert.ok(suRama.includes(e.llama), `«${e.rotulo}»: el «⋯» llama ${e.llama} y el clic derecho no`);
+      assert.ok(suRama.includes(llama), `«${rotulo}»: no llama ${llama}`);
     }
     assert.equal(items[items.length - 1]?.peligro, true, 'Eliminar al final, en rojo');
   }
-  // El enlace público, con la MISMA condición que el «⋯».
-  assert.match(doc, /\{!!mf\.doc\.slug && !!mf\.doc\.publicadoAt && \(/);
+  // El enlace público, sólo publicada.
   const sinPublicar = { ...docConEnlace, publicadoAt: null };
   assert.ok(!rotulos(itemsRenglonLanding({ tipo: 'landing', clave: 'c', nombre: 'n', doc: sinPublicar })).includes('Copiar enlace público'));
 });

@@ -21,6 +21,21 @@ React no escribe esas propiedades). **SIN hacer:** `apr-cargar` (app/admin/appro
 (app/dashboard/EditorInforme.tsx) y `tci-api` (app/integraciones/TusCuentasIA.tsx) traen clase y no se miraron: si su CSS dice
 padding o fondo, están igual de pisados. No se cambió el componente porque tiene llamadores que cuentan con el «como texto».
 
+## El 40 siguió en la OTRA cara de la misma tarjeta: la slide del modal (18/11/2026)
+
+**Vive en:** `lib/servicio-slides.ts` (`SLIDES['apify-instagram']`, la slide «Corre con tu cuenta») · la dibuja el carrusel del
+modal de /integraciones (`app/integraciones/IntegracionesBoard.tsx`, `SLIDES[i.key]`). Lo fija `tests/apify-slide-tope.test.ts`.
+
+**Síntoma:** el arreglo del 6/11 (abajo) corrigió la NOTA del campo y la tarjeta seguía diciendo «MaKo no pasa de 40 lecturas por
+día» en su slide: el pendiente F78 de la lista verificada del 17/11. **La causa:** el mismo número vivía escrito a mano en DOS
+archivos, y el arreglo buscó por la clave (`APIFY_INSTAGRAM_TOKEN`), no por el número ni por la tarjeta. Ahora la slide
+interpola `TOPE_LECTURAS_SPY_POR_DIA` y dice «Competitors Spy», no «MaKo»: la misma clave la usa el buscador del alta del CRM con
+su propio tope, así que «MaKo no pasa de N» sería falso con cualquier N.
+
+⚠️ **La regla: al arreglar un número que se le promete al cliente, se busca el NÚMERO en todo lo que dibuja esa tarjeta**
+(`grep -rn "<n> lecturas\|<n> por día" lib app`), no sólo el campo que lo reportó. Una tarjeta de /integraciones tiene al menos
+tres caras: la nota de cada campo (`lib/metodo-catalogo.ts`), su tutorial y sus slides (`lib/servicio-slides.ts`).
+
 ## La tarjeta de Apify le prometía al cliente el tope de OTRA lectura: 40 en vez de 150 (6/11/2026)
 
 **Vive en:** `lib/metodo-catalogo.ts` (la nota de `APIFY_INSTAGRAM_TOKEN`) · `lib/instagram-perfil.ts`
