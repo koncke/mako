@@ -29,7 +29,7 @@ export type ConexionGoogle = { conectado: boolean; puedeMover: boolean };
 const sinTildes = (s: string): string => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /** Pide agendar ALGO: un evento, una reunión, ponerlo en el calendario. */
-const RX_AGENDAR = /\b(?:agend(?:a|ar|ame|alo|ala|ale|arlo|arla|arle|en|es)|crea(?:r|me|lo)?\s+(?:un\s+|el\s+)?evento|eventos?|(?:pon|ponlo|ponme|ponelo|anota|anotalo|anotame|mete|metelo|carga|cargalo)\s+(?:\S+\s+){0,3}en\s+(?:mi|el|tu)\s+(?:calendario|agenda|calendar))\b/;
+const RX_AGENDAR = /\b(?:agend(?:a|ar|ame|alo|ala|ale|arlo|arla|arle|en|es)|crea(?:r|me|lo)?\s+(?:un\s+|el\s+)?evento|eventos?|(?:pon(?:me|lo|la)?|anota(?:me|lo|la)?|mete(?:lo|la)?|carga(?:lo|la)?)\s+(?:\S+\s+){0,3}en\s+(?:mi|el|tu)\s+(?:calendario|agenda|calendar))\b/;
 /** «mi calendario», «mi agenda»: la SUYA (el Calendario de MaKo a secas es «el calendario»). */
 const RX_SU_AGENDA = /\b(?:mis?|nuestr[oa]s?)\s+(?:calendarios?|agendas?)\b/;
 /** «en Google», «a mi Google» (además de lo que reconoce `nombraGoogleCalendar`). */
@@ -105,7 +105,7 @@ export function instruccionDelDestino(destino: DestinoDeLaAgenda, p: { google: C
     const falta = p.google?.conectado ? 'está conectado sólo para leer: hay que reconectarlo con permiso para crear eventos' : 'no tiene su Google Calendar conectado';
     return [
       `DÓNDE SE AGENDA: pide su Google Calendar${p.guardado === 'google' ? ' (lo eligió para todo lo que agenda)' : ''}, pero este negocio ${falta}.`,
-      `Dilo en una línea, con el link para conectarlo en Configuración › Integraciones: ${p.link}`,
+      `Dilo en una línea, con el link para conectarlo en Settings › Integrations: ${p.link}`,
       '⛔ No lo agendes sólo en el Calendario de MaKo sin decirlo. Si quiere, ofrécele dejarlo ahí mientras tanto.',
     ].join(' ');
   }

@@ -26,7 +26,7 @@ trabajo" para crear guiones o lo que necesite el usuario... Se puede combinar co
 - **Ahora:** con Google conectado y con permiso de escribir, «mi calendario», «mi agenda», «Google» o la preferencia guardada van a
   Google: viaja `crear_evento_google` y no el Calendario de MaKo, porque lo de Google ya se ve ahí y copiarlo sería la segunda verdad.
   «el calendario de MaKo» por su nombre va a MaKo. Sin Google (o conectado sólo para leer), si lo pidió por su nombre o lo tiene
-  elegido, MaKo lo dice con el link a Configuración › Integraciones, nunca en silencio. «mi calendario» a secas, sin Google, sigue
+  elegido, MaKo lo dice con el link a Settings › Integrations, nunca en silencio. «mi calendario» a secas, sin Google, sigue
   siendo el de MaKo.
 - **La preferencia** («cada vez que…», «siempre», «de ahora en adelante») se guarda con un «sí» (`elegir_google_o_mako`) en
   `mako.agenda.destino`, por negocio. Con Google sin conectar, «google» no se propone: dice que hay que conectarlo.

@@ -105,7 +105,7 @@ test('2. la preferencia de Joan TAL CUAL se guarda con un «sí», y lo guardado
 test('3. sin Google conectado (o sólo para leer): lo dice con el link, nunca en silencio; «mi calendario» a secas, como siempre', () => {
   const t = turno('agenda en mi google calendar hoy a las 18 la Misa Fasta SAM', { google: SIN_GOOGLE });
   assert.match(t.instruccion ?? '', /no tiene su Google Calendar conectado/);
-  assert.ok((t.instruccion ?? '').includes(`Configuración › Integraciones: ${LINK}`));
+  assert.ok((t.instruccion ?? '').includes(`Settings › Integrations: ${LINK}`));
   assert.match(t.instruccion ?? '', /No lo agendes sólo en el Calendario de MaKo sin decirlo/);
   assert.match(turno('agenda en mi google calendar hoy a las 18', { google: SOLO_LEER }).instruccion ?? '', /conectado sólo para leer/);
   assert.equal(destinoDeLaAgenda({ texto: 'agenda una reunión el jueves a las 10', guardado: 'google', google: SIN_GOOGLE }), 'sin-conexion', 'lo eligió y se desconectó: se dice');
