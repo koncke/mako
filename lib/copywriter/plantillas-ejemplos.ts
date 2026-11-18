@@ -315,6 +315,117 @@ CTA
 (39-42 min)
 «El enlace está en el chat. Al inscribirte te llega un correo con el acceso y la fecha de tu revisión uno a uno. Mientras se inscriben, respondo preguntas.»`,
 
+  // ── Las tres VSL que faltaban (18/11/2026): el molde de la de agendar (10 minutos, lo que se dice entre «», los minutos de
+  // cada bloque en proporción a su guía de lib/vsl-estructuras.ts) y las cifras de la tabla del elenco (README, 2.2). ⚠️ Ninguna
+  // tiene un contraste «no es X, es Y» ni un «no… sino» (tests/copywriter-plantillas.test.ts: sólo cabe uno, en el GANCHO o en
+  // el TEXTO PRINCIPAL, y una VSL abre con el LEAD).
+
+  // ── VSL para quien ya probó todo · Cierre Consultivo ──────────────────────
+  'vsl-anti-solucion': `!🧪 Ejemplo ficticio: Cierre Consultivo, mentoría de ventas para coaches (USD 1,500, 90 días). Versión de 10 minutos para quien ya vio el anuncio y no agendó. Se mide en diagnósticos agendados.
+LEAD
+(0:00-0:45)
+«Si ya compraste un curso de cierre, aprendiste respuestas para cada objeción y todavía escuchas "lo voy a pensar" en la mitad de tus llamadas, quédate diez minutos. Te voy a mostrar por qué esas técnicas no podían funcionar con un programa de más de 800 dólares, y qué hacen distinto los coaches que hoy cierran cuatro de cada diez.»
+ENEMIGO
+(0:45-2:15)
+«Seguramente probaste alguna de estas tres cosas. Un guion de cierre que repites palabra por palabra. Una lista de respuestas para "es caro", "no tengo tiempo" y "lo tengo que hablar en casa". Y la urgencia: el bono que vence hoy o el precio que sube mañana. Las tres se enseñan en casi todos los cursos de ventas, y tiene sentido que las hayas probado. Las tres tienen algo en común: empiezan a trabajar cuando la persona ya te dijo que no.»
+POR QUE FALLA
+(2:15-4:00)
+«Quien va a invertir mil dólares en tu programa decide en los primeros diez minutos de la llamada, cuando siente que lo entendiste o que le estás vendiendo. Si en esos diez minutos hablaste más tú, ninguna respuesta lo va a convencer al final, porque la objeción llega con la decisión ya tomada. Por eso el guion de cierre falla justo con los clientes que más pagan: cuanto más grande es la inversión, más necesita la persona llegar sola a la conclusión de que necesita ayuda. Y la urgencia inventada empeora todo, porque le confirma que la estabas presionando.»
+CATEGORIA NUEVA
+(4:00-5:30)
+«Lo que funciona con programas caros se llama venta consultiva. La llamada sirve para diagnosticar, como lo haría un médico: preguntas, escuchas y recién al final dices si puedes ayudar. Quien llega a ese momento ya sabe cuál es su problema, cuánto le cuesta seguir igual y qué tendría que cambiar. Ahí la oferta deja de sonar a presión, porque la pidió la persona.»
+MECANISMO
+(5:30-7:00)
+«En Cierre Consultivo lo enseño con seis preguntas, siempre en el mismo orden.
+Uno: qué te llevó a agendar esta llamada hoy.
+Dos: qué intentaste antes y qué pasó.
+Tres: cuánto te cuesta seguir igual, en dinero y en tiempo.
+Cuatro: qué tendría que pasar en 90 días para que valga la pena.
+Cinco: qué te frenaría a empezar.
+Seis: si te cuento cómo lo hacemos, ¿quieres verlo?
+Con la sexta, la persona te pide la oferta. Ya no tienes que cerrar: acompañas una decisión que tomó ella.»
+PRUEBA
+(7:00-8:15)
+«Desde 2025 pasaron 52 coaches por cuatro cohortes. Al empezar, la mediana cerraba dos de cada diez llamadas. Al terminar, cuatro de cada diez, y 35 de ellos llegaron a tres de cada diez o más. Son sus números, medidos en sus propias llamadas. Dependen de su oferta y de cuánta gente agenda, así que tómalos como casos y no como una promesa.»
+- **En pantalla:** la tabla de antes y después, sin nombres y con el permiso de cada coach.
+OFERTA
+(8:15-9:15)
+«Cierre Consultivo dura 90 días: ocho semanas en vivo, donde practicamos las seis preguntas, y cinco semanas en las que reviso tus llamadas reales. Cuesta 1,500 dólares de contado, o dos pagos de 800. Somos 15 por cohorte, porque escucho cada grabación. Si prefieres empezar por algo más chico, la Revisión de 3 llamadas cuesta 150 dólares, te la entrego en cinco días hábiles y se descuenta del programa si después entras.»
+CTA
+(9:15-10:00)
+«Debajo de este video puedes agendar un diagnóstico gratis de 30 minutos conmigo. Me cuentas cómo llevas hoy tus llamadas y te digo en qué pregunta se te escapa la venta. Si todavía no haces llamadas de venta, este programa no es para ti.»`,
+
+  // ── VSL de diagnóstico · Voz de Líder ──────────────────────────────────────
+  'vsl-diagnostico': `!🧪 Ejemplo ficticio: Voz de Líder, programa de oratoria para gerentes (USD 2,000, 90 días). Versión de 10 minutos para gerentes y equipos que presentan seguido. Se mide en llamadas de admisión agendadas.
+LEAD
+(0:00-0:45)
+«Si preparas cada presentación con cuidado, conoces tus números mejor que nadie y aun así sales de las juntas con la sensación de que no te escucharon, este video es para ti. En diez minutos vamos a encontrar la causa, y casi nunca es la que imaginas.»
+SINTOMAS
+(0:45-2:00)
+«Fíjate si te reconoces en alguna de estas señales.»
+- «Te interrumpen antes de la tercera diapositiva, y ya no retomas el hilo.»
+- «Llevas el texto escrito y terminas leyéndolo.»
+- «Una pregunta del director te deja en blanco, aunque sabías la respuesta.»
+- «Tu propuesta era buena y la aprobaron recién cuando la presentó otra persona.»
+«Si marcaste dos o más, sigue mirando.»
+DIAGNOSTICO
+(2:00-3:15)
+«Estas cuatro señales parecen problemas distintos, y tienen algo en común: todas pasan en momentos que no ensayaste. Preparas el contenido, las cifras y las diapositivas. Lo que pasa cuando arrancas, y lo que pasa cuando alguien te pregunta algo difícil, queda a la suerte de cómo te sientas ese día.»
+CAUSA RAIZ
+(3:15-5:00)
+«La causa es una sola: nadie te enseñó a preparar los primeros 20 segundos ni las tres preguntas difíciles que te van a hacer. En esos 20 segundos la sala decide si te va a escuchar o si va a revisar el teléfono. Y las preguntas difíciles casi siempre se pueden prever: cuánto cuesta, qué pasa si sale mal y por qué ahora. Si no las ensayaste, te toman por sorpresa, y una respuesta insegura le quita peso a todo lo que presentaste antes.»
+TRATAMIENTO
+(5:00-6:30)
+«El tratamiento tiene tres pasos, en este orden.
+Primero: escribes y ensayas en voz alta tu apertura de 20 segundos, con el problema, lo que propones y lo que le pides a la sala.
+Segundo: haces la lista de las tres preguntas que más miedo te dan y preparas una respuesta corta para cada una.
+Tercero: practicas frente a gente que te interrumpe a propósito, hasta que retomar el hilo te salga solo.
+Los pasos son simples. Lo difícil es practicarlos seguido, con alguien que te diga qué corregir.»
+CASO
+(6:30-7:45)
+«Carla es gerente de operaciones. Cada año presentaba el presupuesto anual con el texto en la mano, y cada año la interrumpían en la segunda diapositiva. En la cohorte preparó su apertura y sus tres preguntas, y las practicó con el grupo cada martes. Este año presentó el presupuesto anual completo y nadie la interrumpió. A Gabriel, de la misma cohorte, le aprobaron su proyecto en el primer comité.»
+- **En pantalla:** el mensaje de Carla, con su permiso y sin su número.
+OFERTA
+(7:45-8:45)
+«Voz de Líder dura 90 días: diez semanas en vivo, todos los martes, y tres semanas de práctica con tu presentación real. Haces tres simulacros grabados con preguntas difíciles, y cada semana presentas frente a once colegas. La inversión es de 2,000 dólares de contado, o dos pagos de 1,050. Si tu empresa quiere inscribir a un equipo de cinco personas, son 8,500 dólares con factura. Abrimos doce lugares por cohorte.»
+GARANTIA
+(8:45-9:30)
+«Si vas a ocho de las diez sesiones, haces los tres simulacros y en el tercero todavía no sostienes diez minutos sin leer, te acompaño uno a uno, sin costo, hasta tu presentación real.»
+CTA
+(9:30-10:00)
+«Debajo de este video puedes agendar una llamada de admisión conmigo. Me cuentas cuándo es tu próxima presentación importante y te digo si este programa es para ti. Las inscripciones de esta cohorte cierran el viernes a las 11:59 p. m., hora de Lima.»`,
+
+  // ── VSL con tu historia · Consulta Rentable ────────────────────────────────
+  'vsl-historia-fundador': `!🧪 Ejemplo ficticio: Consulta Rentable, programa para nutriólogas (USD 1,200, 90 días). La historia de su fundadora en 10 minutos, para quien ya la sigue. Se mide en llamadas agendadas.
+LEAD
+(0:00-0:50)
+«Marzo de 2022. Llevaba seis años como nutrióloga clínica, publicaba una receta cada día y ese mes tuve tres pacientes nuevos. Tres. Esa noche hice la cuenta y entendí que, si seguía así, a fin de año iba a cerrar mi consulta. Hoy atiendo 40 pacientes al mes, y te cuento qué cambié, porque te sirve aunque nunca trabajes conmigo.»
+ORIGEN
+(0:50-2:10)
+«Empecé como muchas de ustedes. Terminé la carrera, trabajé unos años en una clínica y abrí mi consulta en línea. Hice lo que me dijeron: un perfil profesional, recetas, consejos y una historia por día. Tenía seguidoras, me escribían para preguntarme cosas y me decían que les encantaba mi contenido. La agenda seguía vacía.»
+FONDO
+(2:10-3:50)
+«Ese año probé de todo. Pagué un curso de redes, contraté a una diseñadora para el perfil y llegué a publicar dos veces al día. Cuando alguien me preguntaba el precio, le mandaba la lista de lo que incluía la consulta, y casi nunca me volvían a contestar. Empecé a bajar el precio para que me dijeran que sí. En marzo de 2022 cobraba menos que cuando empecé, y tenía tres pacientes nuevos. Lo más difícil fue aceptar que el problema estaba en otro lado, porque el contenido era lo único que sabía mejorar.»
+DESCUBRIMIENTO
+(3:50-5:10)
+«El cambio llegó con una paciente que casi pierdo. Me escribió "¿precio?" y, en lugar de mandarle la lista, le pregunté qué quería lograr. Me contó que quería dejar el picoteo nocturno antes de su boda. Le ofrecí una valoración de 20 minutos para ver si podía ayudarla, y en la valoración ella misma me pidió el plan. Ahí entendí que la gente compraba un resultado con nombre, y que necesitaba un paso chico antes de pagar.»
+TRANSFORMACION
+(5:10-6:30)
+«Al mes siguiente cambié dos cosas. Empecé a ofrecer un plan de 3 meses con nombre y resultado, y a cada pregunta de precio le respondí primero con una pregunta sobre su objetivo. En junio de 2022 tuve 17 pacientes nuevos, publicando lo mismo que antes. Hoy atiendo 40 pacientes al mes en línea, y desde 2023 acompañé a 140 nutriólogas de México, Colombia y Chile.»
+MECANISMO
+(6:30-7:50)
+«Con el tiempo lo ordené en tres pasos, y es lo que enseño.
+Uno: una oferta de entrada con nombre y resultado, en lugar de "una consulta".
+Dos: una valoración de 20 minutos entre "me interesa" y "pago".
+Tres: el mensaje del precio, que empieza con una pregunta sobre su objetivo.
+Mi historia es una sola. Lo que la vuelve un método es que funciona en consultas que no se parecen a la mía: una alumna, en un mes, tuvo 60 mensajes, 18 valoraciones y 11 pacientes.»
+OFERTA
+(7:50-9:10)
+«En Consulta Rentable armamos esos tres pasos contigo en 90 días: doce sesiones semanales en vivo y una semana de cierre, con la revisión de tu oferta y de tus mensajes. Es para nutriólogas con cédula que ya dan consulta. La inversión es de 1,200 dólares de contado, o dos pagos de 650. Abrimos 20 lugares por generación.»
+CTA
+(9:10-10:00)
+«Debajo de este video puedes agendar 20 minutos conmigo. Me cuentas cómo está hoy tu agenda y te digo cuál de los tres pasos te conviene arreglar primero. Si todavía no das consulta, guarda este video para cuando empieces.»`,
+
   // ── 12 · YouTube de 12 minutos · Pulso Dental ──────────────────────────────
   youtube: `!🧪 Ejemplo ficticio: el canal de Diego Ferrer, fundador de Pulso Dental. Video de 12 minutos. Se mide en clics a la miniatura, retención al minuto 1 y auditorías agendadas.
 !🖼️ Título: «Revisé 50 anuncios de clínicas dentales: por qué 43 no traen pacientes». Miniatura (la plantilla 2 de Image): una cuadrícula de 50 anuncios con 43 tachados en rojo, uno señalado con un círculo, y el texto «¿EL TUYO?»; la versión B suma a Diego señalándola. El número vive en la cuadrícula: el texto no repite el título. El primer minuto tiene que mostrar esa cuadrícula.
