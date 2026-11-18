@@ -43,6 +43,11 @@ export type ResultadoAplicar = {
   fuentes: string[];
   /** La página que conviene mostrar después (una nueva, o la de al lado de una borrada). */
   pagina: string | null;
+  /**
+   * Las fotos (ids) a las que hay que quitarles el fondo (`quitar_fondo`, 18/11/2026). Acá NO se recortan: el recorte corre en
+   * el navegador, con el modelo (app/image-editor/mako/chat/acciones.ts → `aceptarPropuesta`), y el documento sólo cambia ahí.
+   */
+  sinFondo: string[];
 };
 
 /** Los de factories.ts del motor (no se puede importar: el server lee este módulo). */
@@ -197,6 +202,7 @@ export function aplicarOperaciones(p: {
   const cambios: CambioImagen[] = [];
   const descartes: string[] = [];
   const fuentes = new Set<string>();
+  const sinFondo: string[] = [];
   const nuevas = new Map<string, string>();
   const paginasNuevas = new Map<string, string>();
   // Lo que una operación anunció que iba a agregar. La IA puede llamar a lo nuevo como a algo que ya está: si lo nuevo no se
@@ -524,9 +530,19 @@ export function aplicarOperaciones(p: {
         hecho({ tipo: 'cambia', titulo: `Fondo de la página ${doc.pages.indexOf(pg) + 1}`, antes, despues: f.nombre });
         break;
       }
+      case 'quitar_fondo': {
+        const e = elemento(op.ref);
+        if (typeof e === 'string') { descartes.push(e); break; }
+        if (tipoDe(e.o) !== 'imagen' || typeof e.o.src !== 'string') { descartes.push(`${e.titulo} no es una foto`); break; }
+        const id = String(e.o.id);
+        if (sinFondo.includes(id)) break;
+        sinFondo.push(id);
+        hecho({ tipo: 'cambia', titulo: `Fondo de ${e.titulo}`, antes: 'con fondo', despues: 'sin fondo' });
+        break;
+      }
     }
   }
-  return { doc, cambios, descartes, aplicadas, fuentes: [...fuentes], pagina };
+  return { doc, cambios, descartes, aplicadas, fuentes: [...fuentes], pagina, sinFondo };
 }
 
 /** «3 nuevos · 2 cambian · 1 se quita». */
@@ -538,4 +554,34 @@ export function resumenDeCambios(cambios: readonly CambioImagen[]): string {
     n.cambia ? `${n.cambia} ${n.cambia === 1 ? 'cambia' : 'cambian'}` : '',
     n.quita ? `${n.quita} ${n.quita === 1 ? 'se quita' : 'se quitan'}` : '',
   ].filter(Boolean).join(' · ');
+}
+
+/**
+ * La foto recortada en su lugar (18/11/2026, `quitar_fondo`): la dirección y el id de «Subidos» nuevos, y la misma caja que tenía
+ * (como `replaceSelectedImage` + `coverFrame` del motor, _doory/editor/engine/api/insert.ts), sobre el DOCUMENTO: así entra en el
+ * mismo paso de deshacer que el resto de la propuesta. Devuelve false si el objeto ya no está o no es una foto.
+ */
+export function ponerRecorte(doc: unknown, id: string, r: { url: string; assetId: string; ancho: number; alto: number }): boolean {
+  const pages = (doc as { pages?: Array<{ objects?: Obj[] }> })?.pages ?? [];
+  const o = pages.flatMap((p) => p.objects ?? []).find((x) => x.id === id);
+  if (!o || tipoDe(o) !== 'imagen') return false;
+  const sx = num(o.scaleX, 1);
+  const sy = num(o.scaleY, 1);
+  const frameW = Math.abs(num(o.width, 1) * sx);
+  const frameH = Math.abs(num(o.height, 1) * sy);
+  const natW = Math.max(1, r.ancho);
+  const natH = Math.max(1, r.alto);
+  const escala = Math.max(frameW / natW, frameH / natH);
+  const visW = frameW / escala;
+  const visH = frameH / escala;
+  o.src = r.url;
+  o.assetId = r.assetId;
+  o.crossOrigin = 'anonymous';
+  o.cropX = Math.max(0, (natW - visW) / 2);
+  o.cropY = Math.max(0, (natH - visH) / 2);
+  o.width = Math.min(natW, visW);
+  o.height = Math.min(natH, visH);
+  o.scaleX = escala * (sx < 0 ? -1 : 1);
+  o.scaleY = escala * (sy < 0 ? -1 : 1);
+  return true;
 }

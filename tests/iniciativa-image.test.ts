@@ -92,9 +92,10 @@ test('3. elegido el lugar, la plantilla real de ese grupo; «Usar la plantilla»
   // El montaje: la acción de crear, la API y el panel escriben el slug con `conPlantilla`.
   assert.match(sinComentarios(leer('app/image-editor/actions.ts')), /doc: conPlantilla\(doc, real \|\| tipo \? pl\.id : null\)/);
   assert.match(sinComentarios(leer('lib/api-mako/areas/imagen.run.ts')), /conPlantilla\(real\.estructura\(randomUUID\), `\$\{PREFIJO_PLANTILLA_REAL\}\$\{real\.id\}`\)/);
-  const panel = sinComentarios(leer('app/image-editor/mako/chat/PanelMakoIA.tsx'));
-  assert.match(panel, /applyTemplate\(editor\.getDocument\(\), editor\.state\.activePageId, migrateDocument\(s\.estructura\(\)\), 'replace'\)/);
-  assert.match(panel, /editor\.applyDocument\(conPlantilla\(aplicada\.doc,/);
+  const sugerida = sinComentarios(leer('app/image-editor/mako/plantilla-sugerida.ts'));
+  assert.match(sugerida, /applyTemplate\(editor\.getDocument\(\), editor\.state\.activePageId, migrateDocument\(s\.estructura\(\)\), 'replace'\)/);
+  assert.match(sugerida, /editor\.applyDocument\(conPlantilla\(aplicada\.doc,/);
+  assert.match(sinComentarios(leer('app/image-editor/mako/chat/PanelMakoIA.tsx')), /'usar-sugerida': \(\) => \{ usarPlantillaSugerida\(editor, familia\); \}/);
 });
 
 test('4. sin marca, con algo en la página y la charla vacía, MaKo pregunta por la marca; el link del saludo se fue', () => {

@@ -16,9 +16,10 @@ import { Icon } from '@/app/_components/icons';
 import type { ResumenDiseno } from '@/lib/image-editor/tipos';
 import { PieM, SeccionM, SheetM, VacioM, useConexion, useToastM } from '@/app/m/_ui';
 import { BotonFlotanteM, HuecoFlotanteM } from '@/app/m/_ui/BotonFlotanteM';
-import { marcoDe } from '@/app/_crear/reglas';
+import { marcoDe, seccionesDeCrear, type PlantillaCrear } from '@/app/_crear/reglas';
+import { usePlantillasPropias } from '@/app/creaciones/usePlantillasPropias';
 import { crearDisenoNuevoAction } from '@/app/image-editor/actions';
-import { PLANTILLAS_NUEVO_DISENO, type PlantillaNuevoDiseno } from '@/app/image-editor/plantillas-crear';
+import { PLANTILLAS_NUEVO_DISENO } from '@/app/image-editor/plantillas-crear';
 import { MiniaturaCarrusel } from '@/app/image-editor/carruseles/MiniaturaCarrusel';
 import { MiniaturaTarjetaDiseno } from '@/app/image-editor/MiniaturaDiseno';
 import { plantillaImagen, type DocumentoDoory } from '@/lib/image-editor/plantillas-reales';
@@ -69,15 +70,24 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
     return out;
   }, []);
 
+  // «Tus plantillas» y «De la comunidad» (18/11/2026, F17): las mismas que la computadora (../../image-editor/ImageEditorCliente.tsx),
+  // primero, y la hoja se parte en las MISMAS secciones que «¿Qué vas a crear hoy?» de escritorio (`seccionesDeCrear`).
+  const propias = usePlantillasPropias('formato_imagen');
+  const secciones = useMemo(() => seccionesDeCrear([...propias.plantillas, ...PLANTILLAS_NUEVO_DISENO]), [propias.plantillas]);
+
   const visibles = useMemo(() => {
     const aguja = buscar.trim().toLocaleLowerCase('es');
     return aguja ? disenos.filter((d) => d.titulo.toLocaleLowerCase('es').includes(aguja)) : disenos;
   }, [disenos, buscar]);
 
-  const crear = async (p: PlantillaNuevoDiseno) => {
+  const crear = async (p: PlantillaCrear) => {
     if (trabajando) return;
     setTrabajando(p.id); setError('');
     try {
+      // Una plantilla guardada (la del negocio o de la comunidad) la crea su enchufe y navega; si no es una de ésas, `false`.
+      const propia = await propias.usar(p);
+      if (typeof propia === 'string') { setError(propia); setTrabajando(null); return; }
+      if (propia === null) return;
       const r = await crearDisenoNuevoAction(p.id);
       if (!r.ok) { setError(r.error); setTrabajando(null); return; }
       // `trabajando` queda prendido: la pantalla se va, y un segundo toque no crea otro (como escritorio).
@@ -162,8 +172,11 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
         ocupado={trabajando != null}
         rotuloCerrar="Cerrar"
       >
-        <div className="m-image-editor-plantillas" role="list" aria-label="Plantillas">
-          {PLANTILLAS_NUEVO_DISENO.map((p) => (
+        {secciones.map((sec) => (
+        <div key={sec.titulo ?? ''} className="m-image-editor-seccion">
+        <h3 className="m-image-editor-seccion__titulo">{sec.titulo ?? 'Plantillas'}</h3>
+        <div className="m-image-editor-plantillas" role="list" aria-label={sec.titulo ?? 'Plantillas'}>
+          {sec.plantillas.map((p) => (
             <div key={p.id} role="listitem">
               <button type="button" className="m-image-editor-plantilla" aria-label={`Usar la plantilla ${p.nombre}`}
                 aria-busy={trabajando === p.id || undefined} disabled={!enLinea || (trabajando != null && trabajando !== p.id)}
@@ -185,6 +198,8 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
             </div>
           ))}
         </div>
+        </div>
+        ))}
         {error && hoja === 'nuevo' && <ErrorLineaM>{error}</ErrorLineaM>}
       </SheetM>
 

@@ -48,6 +48,10 @@
 /* «¿Qué vas a crear hoy?» (la hoja de «Nuevo diseño»): las plantillas de la computadora en dos columnas, la miniatura
    en 4:3 como las tarjetas de app/_crear/crear.css (`.cr-plantilla`). Sin imagen, el marco del formato con su medida. */
 .m-image-editor-plantillas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; padding: 4px 0 8px; }
+/* Las secciones de la hoja (18/11/2026): las mismas de «¿Qué vas a crear hoy?» de escritorio (`seccionesDeCrear`), con «Tus
+   plantillas» y «De la comunidad» primero. */
+.m-image-editor-seccion + .m-image-editor-seccion { margin-top: 8px; }
+.m-image-editor-seccion__titulo { margin: 8px 0 6px; font-size: var(--fs-sm); font-weight: 700; color: var(--dim); }
 .m-image-editor-plantilla {
   display: flex; flex-direction: column; gap: 6px; width: 100%; min-width: 0; padding: 0; border: 0; background: none;
   color: var(--ink); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;

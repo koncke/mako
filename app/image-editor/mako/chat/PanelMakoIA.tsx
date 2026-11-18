@@ -27,10 +27,8 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { Check, Sparkles } from 'lucide-react';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
-import { MEDIDA_DE, SUPERFICIE_IMAGE, sugeridaDe, type AccionImage } from '@/lib/aperturas/image';
-import { PREFIJO_PLANTILLA_REAL, conPlantilla } from '@/lib/image-editor/reglas';
-import { applyTemplate } from '../../_doory/editor/panels/templateOps';
-import { migrateDocument } from '../../_doory/editor/engine/migrations';
+import { MEDIDA_DE, SUPERFICIE_IMAGE, type AccionImage } from '@/lib/aperturas/image';
+import { usarPlantillaSugerida } from '../plantilla-sugerida';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
@@ -187,16 +185,11 @@ export function PanelMakoIA() {
     libre: !hilo.corriendo,
   });
   const aLaMedida = (a: AccionImage) => () => { const m = MEDIDA_DE[a]; editor.pages.resize(m.ancho, m.alto, 'keep'); setFamilia(a); };
-  // «Usar la plantilla»: la sugerida de ese lugar entra en la página como desde el panel «Diseño» (`applyTemplate`, sin IA), en
-  // un paso de deshacer, y el diseño recuerda de qué plantilla nació (`conPlantilla`).
-  const usarSugerida = () => {
-    const s = familia ? sugeridaDe(familia) : null;
-    if (!s) return;
-    const aplicada = applyTemplate(editor.getDocument(), editor.state.activePageId, migrateDocument(s.estructura()), 'replace');
-    if (!aplicada) return;
-    editor.applyDocument(conPlantilla(aplicada.doc, `${PREFIJO_PLANTILLA_REAL}${s.id}`), { label: 'Aplicar plantilla', activePageId: aplicada.activePageId });
+  // «Usar la plantilla»: la sugerida de ese lugar entra en la página (../plantilla-sugerida.ts).
+  const accionesApertura = {
+    historia: aLaMedida('historia'), carrusel: aLaMedida('carrusel'), anuncio: aLaMedida('anuncio'),
+    'usar-sugerida': () => { usarPlantillaSugerida(editor, familia); },
   };
-  const accionesApertura = { historia: aLaMedida('historia'), carrusel: aLaMedida('carrusel'), anuncio: aLaMedida('anuncio'), 'usar-sugerida': usarSugerida };
   const [texto, setTexto] = useState('');
   // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
   const appEscritorio = useAppDeEscritorio();
@@ -230,17 +223,18 @@ export function PanelMakoIA() {
   // Acá un SVG o un AVIF también es una imagen para poner (se sube a «Subidos», que los pasa a PNG). La IA lee los demás: ./acciones.ts.
   const adj = useAdjuntosDelChat({ puede: !ocupado && !!disenoId, onError: setErrorAdjunto, aceptaDeMas: 'image/svg+xml,image/avif' });
   const cita = useCitaDelChat(disenoId);
-  const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[] } = {}) => {
+  const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[], interpretar = true } = {}) => {
     if (ocupado || (!instruccion.trim() && !archivos.length) || !disenoId || appEscritorio.bloqueada) return;
     // Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
     if (!dejarCaja) instruccion = cita.con(instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion - cita.reserva), archivos.length > 0);
-    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, archivos, { intencion, kit });
+    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, archivos, { intencion, kit, interpretar });
     if (!dejarCaja) { setTexto(''); cita.soltar(); }
   };
 
   const sugerir = (s: Sugerencia) => {
     if (s.instruccion) {
-      enviar(s.instruccion, s.necesitaSeleccion ? 'seleccion' : alcanceReal);
+      // Una sugerencia es NUESTRA y del diseño abierto: no pasa por /api/mako/pedidos (como en el Video Editor).
+      enviar(s.instruccion, s.necesitaSeleccion ? 'seleccion' : alcanceReal, { interpretar: false });
       return;
     }
     if (s.rellenar) setTexto(s.rellenar);

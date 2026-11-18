@@ -21,7 +21,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cajaDe, refsDeIds, vistaDeDiseno } from '../lib/image-editor/chat/vista';
 import { NO_SE_PUEDE_CHAT_IMAGEN, TOPES_CHAT_IMAGEN, catalogoParaPrompt, OPERACIONES_CHAT_IMAGEN, validarOperacion, validarOperaciones, type OperacionImagen } from '../lib/image-editor/chat/catalogo';
-import { aplicarOperaciones, conCaso, resumenDeCambios } from '../lib/image-editor/chat/aplicar';
+import { aplicarOperaciones, conCaso, ponerRecorte, resumenDeCambios } from '../lib/image-editor/chat/aplicar';
+import { registerBackgroundRemover } from '../app/image-editor/_doory/editor/engine/bgRemoval';
 import { AVISO_CORTADA, TOPES_HILO, TOPES_MEMORIA, hiloAlAbrir, hiloParaGuardar, memoriaDelHilo, memoriaParaIA, sanearMemoria, type MensajeGuardado } from '../lib/image-editor/chat/hilo';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from '../lib/image-editor/chat/prompts';
 import { cambiarHilo, cargarHilo, conId, leerHilo, type MensajeMako } from '../app/image-editor/mako/chat/hilo';
@@ -1067,4 +1068,70 @@ test('dos pedidos seguidos y aceptar los dos: entra uno solo, y mientras uno se 
   assert.match(panel, /const ocupado = hilo\.corriendo \|\| aplicando;/);
   assert.match(panel, /if \(ocupado \|\|/);
   assert.match(panel, /ocupado=\{ocupado \|\| nota\.pendientes\}/);
+});
+
+// 18/11/2026 (F135 de docs/pendientes-verificados-17-11.md): «quitar el fondo» desde el chat. La operación se propone como las
+// demás (sin tocar el diseño), y al ACEPTAR corre el mismo motor del botón del editor (MODNet en el navegador); la foto recortada
+// entra en el MISMO paso de deshacer que el resto, con su caja de antes.
+// PROBADO ROMPIÉNDOLO: sin `ponerRecorte` en `aceptarPropuesta`, base 1/0 → 0/1 (la foto queda con su `src` de antes); con el
+// recorte puesto aunque falle el motor, 0/1 (se aplicaba «Aceptar» sin nada que cambiar).
+test('quitar el fondo: se propone sin tocar nada, y al aceptar la foto sin fondo entra en un paso con su misma caja', async () => {
+  const conFoto = () => {
+    const d = diseno();
+    d.pages[0].objects.push({ type: 'image', id: 'obj-retrato', name: 'Retrato', src: 'https://x.test/retrato.jpg', assetId: 'a-1', originX: 'left', originY: 'top', left: 100, top: 200, width: 800, height: 600, cropX: 0, cropY: 0, scaleX: 0.5, scaleY: 0.5 });
+    return d;
+  };
+  assert.ok(validarOperacion({ op: 'quitar_fondo', ref: 'i7q' }).ok);
+  assert.equal(validarOperacion({ op: 'quitar_fondo' }).ok, false);
+  assert.doesNotMatch(NO_SE_PUEDE_CHAT_IMAGEN, /quitar el fondo/, 'ya no dice que no puede');
+  const vista = vistaDeDiseno(conFoto(), { activePageId: 'pag-1' });
+  const rf = [...vista.elementos.values()].find((e) => e.id === 'obj-retrato')!.ref;
+  const rt = [...vista.elementos.values()].find((e) => e.id === 'obj-titulo')!.ref;
+  // Lo puro: no toca el documento, anota la foto y dice por qué no a lo que no es una foto.
+  const pura = aplicarOperaciones({ doc: conFoto(), operaciones: [op({ op: 'quitar_fondo', ref: rf }), op({ op: 'quitar_fondo', ref: rt })], vista, nuevoId, activePageId: 'pag-1' });
+  assert.deepEqual([pura.sinFondo, pura.aplicadas, pura.descartes], [['obj-retrato'], 1, ['«Hola mundo» no es una foto']]);
+  assert.equal(objDe(pura.doc, 'obj-retrato').src, 'https://x.test/retrato.jpg');
+  // `ponerRecorte`: la foto nueva cubre la MISMA caja (400 × 300), aunque llegue de otro tamaño.
+  const d = conFoto();
+  assert.ok(ponerRecorte(d, 'obj-retrato', { url: 'https://x.test/sin-fondo.png', assetId: 'a-2', ancho: 1600, alto: 1200 }));
+  const o = objDe(d, 'obj-retrato') as Record<string, number | string>;
+  assert.deepEqual([o.src, o.assetId, Number(o.width) * Number(o.scaleX), Number(o.height) * Number(o.scaleY), o.left, o.top], ['https://x.test/sin-fondo.png', 'a-2', 400, 300, 100, 200]);
+  assert.equal(ponerRecorte(d, 'obj-titulo', { url: 'u', assetId: 'x', ancho: 1, alto: 1 }), false, 'a un texto no');
+
+  // De punta a punta, con el editor de mentira: el motor del navegador y «Subidos» de mentira.
+  const correr = async (motor: () => Promise<Blob>) => {
+    const { editor, log, doc } = editorDeMentira();
+    let documento: unknown = conFoto();
+    editor.getDocument = () => documento;
+    editor.applyDocument = (x: unknown, info: { label: string }) => { log.push(`aplicar:${info.label}`); documento = x; editor.state.docVersion++; };
+    Object.assign(editor, {
+      assets: { upload: async (_b: Blob, nombre: string) => ({ id: 'a-2', url: `https://x.test/${nombre}`, thumbUrl: '', width: 800, height: 600, name: nombre, kind: 'image' as const }) },
+      store: { setState: () => log.push('subidos') },
+    });
+    registerBackgroundRemover({ remove: motor });
+    globalThis.fetch = (async (url: string) => (String(url).startsWith('/api/image-editor/ia')
+      ? { json: async () => ({ ok: true, resumen: 'Le quito el fondo.', operaciones: [{ op: 'quitar_fondo', ref: rf }] }) }
+      : String(url).startsWith('https://x.test/') ? { blob: async () => new Blob(['foto']) } : { json: async () => ({ ok: false }) })) as unknown as typeof fetch;
+    await pedirEdicion(editor as never, 'quítale el fondo al retrato', 'diseno');
+    const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+    assert.equal(m.estado, 'pendiente', m.texto);
+    assert.equal(log.filter((l) => l.startsWith('aplicar')).length, 0, 'pedir no toca nada');
+    await aceptarPropuesta(editor as never, m);
+    void doc;
+    return { log, documento, m: leerHilo(editor.designId).mensajes.at(-1) as MensajeMako };
+  };
+  try {
+    const bien = await correr(async () => new Blob(['png']));
+    assert.equal(bien.log.filter((l) => l.startsWith('aplicar')).length, 1, 'un solo paso de deshacer');
+    assert.equal(objDe(bien.documento, 'obj-retrato').src, 'https://x.test/sin-fondo.png');
+    assert.equal(objDe(bien.documento, 'obj-retrato').assetId, 'a-2');
+    assert.equal(bien.m.estado, 'aplicada');
+    assert.ok(bien.log.includes('subidos'), 'la foto recortada queda en «Subidos»');
+    const mal = await correr(async () => { throw new Error('el modelo no bajó'); });
+    assert.equal(mal.log.filter((l) => l.startsWith('aplicar')).length, 0, 'sin recorte no hay nada que aplicar');
+    assert.equal(mal.m.estado, 'pendiente');
+    assert.match(String(mal.m.aviso), /no pude quitarle el fondo a Retrato/);
+  } finally {
+    registerBackgroundRemover(null);
+  }
 });

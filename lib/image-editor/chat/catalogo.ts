@@ -57,7 +57,8 @@ export type OperacionImagen =
   | { op: 'borrar_pagina'; pagina: string }
   | { op: 'agregar_forma'; forma: FormaNueva; pagina?: string; x: number; y: number; ancho: number; alto: number; color?: string; ref?: string }
   | { op: 'agregar_foto'; foto: string; pagina?: string; x?: number; y?: number; ancho?: number; alto?: number; cubrir?: boolean; ref?: string }
-  | { op: 'fondo_foto'; foto: string; pagina?: string };
+  | { op: 'fondo_foto'; foto: string; pagina?: string }
+  | { op: 'quitar_fondo'; ref: string };
 
 export type IdOperacionImagen = OperacionImagen['op'];
 
@@ -87,6 +88,8 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
   { op: 'agregar_forma', forma: '{"op":"agregar_forma","forma":"rectangulo","x":0,"y":900,"ancho":1080,"alto":180,"color":"#141414","ref":"n2"}', para: `Agrega una forma: "forma" es rectangulo o circulo. ${MEDIDAS}. "color" de relleno (#RRGGBB). ${PAGINA}. "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido.` },
   { op: 'agregar_foto', forma: '{"op":"agregar_foto","foto":"o1","x":0,"y":0,"ancho":1080,"alto":720,"cubrir":true,"ref":"n3"}', para: `Pone una foto de la lista "fotos" del DISEÑO: "foto" es su ref. Sin "cubrir" entra entera en la caja (ancho y alto), sin deformarse; con "cubrir": true llena la caja y corta lo que sobra. ${MEDIDAS} (sin medidas va centrada). ${PAGINA}. "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido, por ejemplo mandarla atrás de los textos con "capa". Sólo las de "fotos": una dirección de internet no sirve.` },
   { op: 'fondo_foto', forma: '{"op":"fondo_foto","foto":"o1","pagina":"pa3"}', para: `Pone una foto de la lista "fotos" como fondo de UNA página, llenándola. ${PAGINA}.` },
+  // 18/11/2026 (F135): el «Quitar fondo» del editor (MODNet en el navegador, ../../app/image-editor/mako/quitar-fondo.ts), al aceptar.
+  { op: 'quitar_fondo', forma: '{"op":"quitar_fondo","ref":"i7q"}', para: `Le quita el fondo a una FOTO del diseño (una "imagen" de la vista): queda la persona o el objeto, sin lo de atrás, en el mismo lugar y del mismo tamaño. Corre al aceptar, en el navegador de la persona. ${REF}.` },
 ];
 
 /**
@@ -94,7 +97,7 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
  * en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT_IMAGEN =
-  'agregar íconos o gráficos de la biblioteca; poner una foto que no esté en "fotos" (si la persona no subió ninguna, pídele que la adjunte en el chat); generar imágenes con IA; quitar el fondo de una foto; recortar una foto o cambiar su encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño del diseño (Redimensionar); usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
+  'agregar íconos o gráficos de la biblioteca; poner una foto que no esté en "fotos" (si la persona no subió ninguna, pídele que la adjunte en el chat); generar imágenes con IA; recortar una foto o cambiar su encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño del diseño (Redimensionar); usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
 
 const IDS = new Set<string>(OPERACIONES_CHAT_IMAGEN.map((o) => o.op));
 
@@ -204,6 +207,7 @@ const VALIDAS: Record<IdOperacionImagen, readonly string[]> = {
   agregar_forma: ['forma', 'pagina', 'x', 'y', 'ancho', 'alto', 'color', 'ref'],
   agregar_foto: ['foto', 'pagina', 'x', 'y', 'ancho', 'alto', 'cubrir', 'ref'],
   fondo_foto: ['foto', 'pagina'],
+  quitar_fondo: ['ref'],
 };
 
 const textoValido = (x: unknown): string | null => {
@@ -385,6 +389,10 @@ export function validarOperacion(crudo: unknown): Validada {
       if (!esRef(raw.foto)) return { ok: false, motivo: 'una foto que no es de la lista' };
       if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'un fondo de una página que ya no está' };
       return { ok: true, op: { op, foto: raw.foto, ...(raw.pagina !== undefined ? { pagina: raw.pagina as string } : {}) } };
+    }
+    case 'quitar_fondo': {
+      if (!esRef(ref)) return sinRef('quitar el fondo');
+      return { ok: true, op: { op, ref } };
     }
   }
 }
