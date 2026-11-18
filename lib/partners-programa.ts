@@ -272,6 +272,8 @@ type Referido = {
   ws: number; nombre: string; desde: string; mesesPagados: number; estado: EstadoReferido;
   /** Lo que le deja al partner CADA MES: su parte (30 % / 25 %) del precio de lista, con el canal de su último pago. null = no se sabe el precio. */
   mensualUsd: number | null;
+  /** @deprecated Alias de `mensualUsd`: la API (lib/api-mako/areas/negocio.run.ts) todavía lo lee con el nombre de la regla vieja; se borra cuando ese archivo se rehaga. */
+  gananciaUsd: number | null;
   /** Lo que ya le dejó en total (los renglones `referido` de este negocio en el libro). */
   ganadoUsd: number;
   plan: string | null;
@@ -282,7 +284,7 @@ export type Tablero = {
   link: string | null;
   alta: AltaPartner | null;
   referidos: Referido[];
-  resumen: Resumen & { cadaMesUsd: number };
+  resumen: Resumen & { cadaMesUsd: number; /** @deprecated Alias de `cadaMesUsd` (ver `gananciaUsd`). */ porGanarUsd: number };
   /** Quienes abrieron el link (la primera vez de cada navegador): el total y este mes. */
   visitas: { total: number; esteMes: number };
   /** Negocios que entraron este mes. */
@@ -383,9 +385,10 @@ export async function tableroDe(ws: number): Promise<Tablero> {
       const precio = precioDeListaPorMes(conPlanDeLista(c), listaDe);
       // El canal de su ÚLTIMO pago decide qué porcentaje deja cada mes; sin pagos, el menor (no se promete de más).
       const ultimo = [...pagos].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id - a.id)[0];
+      const mensual = precio != null ? comisionDelPago(precio, ultimo ? canalDelPago(ultimo) : 'pasarela') : null;
       return {
         ws: rws, nombre: w?.nombre ?? 'Un negocio', desde: c.created_at, mesesPagados: m, plan: nombreDelPlan(c.plan_mako),
-        mensualUsd: precio != null ? comisionDelPago(precio, ultimo ? canalDelPago(ultimo) : 'pasarela') : null,
+        mensualUsd: mensual, gananciaUsd: mensual,
         ganadoUsd: Math.round((ganadoDe.get(rws) ?? 0) * 100) / 100,
         // Vigente: su negocio sin pausar Y sus cobros vivos (`idos`): con el corte apagado, nadie pausa al que se fue sin pagar.
         estado: estadoDelReferido({ mesesPagados: m, vigente: w?.estado === 'activo' && !idos.has(rws) }),
@@ -396,7 +399,7 @@ export async function tableroDe(ws: number): Promise<Tablero> {
   const esteMes = mesDe(Date.now());
   return {
     codigo, link: codigo ? linkDePartner(APP_BASE_URL, codigo) : null, alta, referidos,
-    resumen: { ...resumenDelLibro(renglones), cadaMesUsd: cadaMes(referidos) },
+    resumen: { ...resumenDelLibro(renglones), cadaMesUsd: cadaMes(referidos), porGanarUsd: cadaMes(referidos) },
     visitas: { total: v.total, esteMes: v.meses[esteMes] ?? 0 },
     nuevosEsteMes: referidos.filter((r) => r.desde.slice(0, 7) === esteMes).length,
     porMes: ganadoPorMes(renglones, esteMes),
