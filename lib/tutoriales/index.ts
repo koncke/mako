@@ -18,10 +18,13 @@ import { TUTORIAL_CRM } from './crm';
 import { TUTORIAL_DASHBOARD } from './dashboard';
 import { TUTORIAL_EQUIPO } from './equipo';
 import { TUTORIAL_IMAGE } from './image';
+import { TUTORIAL_INSTALAR } from './instalar';
 import { TUTORIAL_INTEGRACIONES } from './integraciones';
+import { TUTORIAL_NOTIFICACIONES } from './notificaciones';
 import { TUTORIAL_OFFER } from './offer';
 import { TUTORIAL_OPS_CENTER } from './ops-center';
 import { TUTORIAL_PLAN } from './plan';
+import { TUTORIAL_REPORTAR } from './reportar';
 import { TUTORIAL_SETTINGS } from './settings';
 import { TUTORIAL_SPY } from './spy';
 import { TUTORIAL_TICKETERA } from './ticketera';
@@ -54,6 +57,9 @@ export const TUTORIALES: readonly TutorialPestana[] = [
   TUTORIAL_AVATAR,
   TUTORIAL_VIDEO,
   TUTORIAL_IMAGE,
+  TUTORIAL_REPORTAR,
+  TUTORIAL_NOTIFICACIONES,
+  TUTORIAL_INSTALAR,
   // Los de las pantallas de adentro (con `estado`): los que la app ya tenía, en el formato nuevo (./de-siempre.ts).
   ...TUTORIALES_DE_ADENTRO,
 ];
