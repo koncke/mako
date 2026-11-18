@@ -698,6 +698,32 @@ export const BITACORA: Hito[] = [
     revisar: '/ads-manager?estrategia=1',
   },
   {
+    fecha: '18 nov', hora: '05:10', chat: 'Nube › Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Continuar con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la nube con la lista «Lo que falta construir» (docs/pendientes-verificados-17-11.md): acá, F100, lo que faltaba repartir de lo prometido a la agencia de Thiago.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '05:50', chat: 'Nube › Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Subir creativos» deja elegir un video que MaKo ya generó',
+    puntos: [
+      '**En «Subir creativos» del Media Buyer, «Mis creativos» muestra los videos que MaKo ya hizo** (los anuncios montados y las tomas del Video Generator) y se suman con un clic, sin bajarlos ni volverlos a subir.',
+      '**Y se pueden probar contra el mejor anuncio del conjunto**: si uno le gana, MaKo propone pausar el original. Viene apagado.',
+      'La lista es la de «Mis creativos» del Ads Manager de antes. Por la API ya se podía desde el 6/11: faltaba la pantalla.',
+      'Lo que queda de F100 lo decide Martín: prender un anuncio programado a la hora del Calendario (gasta plata) y si una reserva de Google Calendar mueve la etapa del CRM (la agenda no pasa por la IA).',
+    ],
+    archivos: [
+      'app/ads-manager/MediaBuyer.tsx — SubirCreativosModal: «Mis creativos» y «Probarlos contra…»',
+      'app/ads-manager/MisCreativos.tsx — la lista, copiada de MisCreativosMako.tsx',
+      'app/ads-manager/subir-generados.ts — qué entra a la lista y qué viaja al servidor',
+      'lib/media-buyer/subir.ts y lib/api-mako/areas/ads.run.ts — el id del mejor anuncio (`deAnuncioId`)',
+      'tests/media-buyer-subir-pantalla.test.ts — contra el lector real del servidor, probado rompiéndolo',
+    ],
+    revisar: '/ads-manager',
+  },
+  {
     fecha: '18 nov', hora: '01:50', chat: 'De octubre (nube)', cuenta: 'claude2',
     sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f',
     actor: 'claude', tipo: 'implementacion',

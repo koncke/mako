@@ -417,4 +417,18 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/plan',
   },
+  {
+    fecha: '18 nov', hora: '01:35', chat: 'Traba (nube)', sesion: 'cli_6ab6e94e-8cd3-5fa9-a736-713a1fc58542', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'Una tarea que se repite, pedida a MaKo, entra al Plan como recurrente',
+    revisar: '/plan',
+    puntos: [
+      'Si le pides a MaKo que sume «la junta de los miércoles» (por WhatsApp, en el chat de la app o por la API), el borrador la trae marcada «Se repite»: antes entraba como una tarea normal, con prioridad y fecha.',
+      'Si la tarea trae una fecha, gana la fecha (como en las reuniones).',
+    ],
+    commits: [{ sha: '0f0bf08a', msg: 'Pendientes «Traba otra cosa»: T6, T5, T11 y T12 cerrados con test; los otros nueve, con su estado de hoy', lineas: 985, archivos: 30 }],
+    archivos: [
+      'lib/plan-tareas-del-doer.ts — tareasDelDoer · lib/mako-doer-acciones.ts — el case proponer_tareas_plan · lib/api-mako/areas/plan.def.ts — el campo en el registro',
+      'tests/plan-tareas-del-doer.test.ts — 4 roturas, cada una en rojo',
+    ],
+  },
 ];

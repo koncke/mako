@@ -655,6 +655,11 @@ Las hace sólo si el dato no está en Offer, en el Second Brain, en el material 
 | `app/video-editor/_opencut/chat/linea.ts` | Marca `ejemplo: true` en el texto de hueco que sigue igual al ejemplo, para que el Editor sepa qué falta adaptar. |
 | Tests | `tests/video-editor-plantillas.test.ts`: las claves de `MUESTRAS` pasan a rótulo + archivo, y casos nuevos: cada `muestra` existe en `public/`, cada archivo tiene su crédito, el guion cubre la pieza principal, ningún ejemplo tiene voseo (`marcasDeVoseo`). `tests/video-editor-nuevo-video.test.ts`: la regex «Sugerida · 15 s» pasa a la `insignia`. `tests/plantillas-sugeridas-editores.test.ts`: las filas. `tests/video-editor-plantillas-uso.test.ts`: el dibujo con imagen. `tests/crear-pantalla.test.ts`: la insignia. |
 
+**Hecho el 18/11/2026 (F164):** las seis nuevas con su ejemplo y su fila, el retiro de las dos variantes y el orden de 2.0
+(`docs/hallazgos-video-editor.md`, «Las seis plantillas nuevas»). **Falta de esta tanda:** los WebP de muestra con sus créditos,
+reescribir `gancho`, `testimonio`, `beneficios` y `antes-despues`, `oferta` como invitación a clase y `plantillasParaApi` con
+`objetivo` y `cuando`.
+
 ### Tanda 2: el Editor de MaKo
 
 | Archivo | Cambio |

@@ -95,6 +95,25 @@ faltaba no era transcribir antes: era no transcribir dos veces.
 
 **La regla.** Al borrar una pantalla, se buscan los ESCRITORES que se van con ella, no sólo sus links: un lector que se queda
 sin escritor no falla, contesta «no hay» para siempre (`grep -rn "\.from('<tabla>')"` y mirar si queda algún `insert`/`upsert`).
+## «Subir creativos» ya deja elegir un video de MaKo y probarlo contra el mejor anuncio (18/11/2026, nube, F100 punto 1)
+
+- **Lo que faltaba era sólo la PANTALLA.** Desde el 6/11 (97495f3b2) `subir_preparar` devolvía `generados` y `subir_creativos`
+  publicaba un video por su `ref` y con `original`; `SubirCreativosModal` ignoraba los dos y sólo aceptaba archivos del disco.
+  La lista se COPIÓ de «Mis creativos» del Ads Manager de antes (`MisCreativosMako.tsx`, tarea #797, borrado con la réplica el
+  27/10 en 0c9383b83): la misma puerta, los dos grupos (montados, tomas por anuncio), la tarjeta con un cuadro del video y el
+  mismo vacío. Ahora es `app/ads-manager/MisCreativos.tsx` y no pide nada: los videos llegan con `subir_preparar`.
+- **Un video de MaKo es una fila más de «Archivos»**, lista desde el primer momento (`ref`, sin `path`): «Listo», se quita con
+  la ✕ y no entra dos veces (`sumarGenerado`). Lo que decide qué viaja vive en `app/ads-manager/subir-generados.ts` (puro) y el
+  test lo pasa por el lector REAL del servidor (`leerPedidoDeSubida`): las dos puntas no se pueden separar sin un rojo.
+- **`original` necesitaba un id que la pantalla no tenía**: `plantillaDelConjunto` devolvía el NOMBRE del mejor anuncio
+  (`deAnuncio`) y no su id. Ahora devuelve también `deAnuncioId`, la pantalla ofrece «Probarlos contra «X»» (apagado por
+  defecto) y la API de MaKo lo da en `textosDePartida.deAnuncioId` de preparar_subida_media_buyer.
+- **No medido:** nada se publicó en Meta desde la nube. Falta mirarlo en el navegador con videos reales y una cuenta por Zernio
+  (`ZERNIO_ANUNCIOS_PROBADO` sigue en false), y que el primer relevo pause el original correcto.
+
+**Vive en:** app/ads-manager/MediaBuyer.tsx (`SubirCreativosModal`) · app/ads-manager/MisCreativos.tsx ·
+app/ads-manager/subir-generados.ts · lib/media-buyer/subir.ts (`plantillaDelConjunto`) · lib/api-mako/areas/ads.run.ts ·
+tests/media-buyer-subir-pantalla.test.ts · tests/media-buyer-subir-generado.test.ts (el servidor)
 
 ## Desde MaKo no se puede lanzar un anuncio que abra WhatsApp, y el de formulario pide uno ya creado en Meta (15/11/2026, lectura del código para el reto)
 

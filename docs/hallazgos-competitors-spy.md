@@ -13,6 +13,46 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## La relectura de los formatos no era «una vez»: lo que la IA no devolvía quedaba pidiendo para siempre (18/11/2026)
+
+- **Pendiente T12** (docs/pendientes-verificados-17-11.md), refutado el 17/11 y medido en el código de `main`.
+- **Síntoma:** un competidor con piezas analizadas antes del 4/11 volvía a mandar a la IA del negocio las mismas piezas cada
+  vez que alguien abría su ficha, hasta tres tandas por pedido, y la tarjeta decía «Analizando…» sin terminar nunca.
+- **Causa:** `guardarAnalisis` (lib/spy.ts) cerraba lo que la IA no devolvía sólo con `.is('analisis', null)`. Una pieza que
+  ya tenía un análisis viejo (sin formato, o en `otro` con el catálogo de once) no está en `null`: no se escribía, quedaba sin
+  `formatosV`, `faltaAnalisis` la seguía pidiendo, y como lo nunca leído va primero en la tanda, se pagaba primera. El
+  comentario de `faltaAnalisis` decía «Es UNA vez» y la escritura no lo cumplía.
+- **El mismo agujero por otra puerta:** `podarVencido` (lib/spy-reglas.ts) le tacha título, texto y análisis a la pieza al
+  LEERLA a los 30 días, así que llega con `analisis: null` aunque en la base tenga uno. Se mandaba a la IA sin nada que leer,
+  el cierre en `null` no la tocaba (en la base no estaba en `null`), y si la IA contestaba algo pisaba el análisis bueno y le
+  renovaba `texto_leido_en`, que es el reloj de la retención de YouTube.
+- **Qué quedó:** `cierreDeLasQueNoVolvieron` (lib/spy-analisis-reglas.ts) parte lo que no volvió en `sinDatos` (sin análisis →
+  `ANALISIS_SIN_DATOS`, como antes) y `yaRevisadas` (con análisis viejo → ese mismo análisis con `formatosV` al día, sin tocar
+  `texto_leido_en`). `hayAlgoQueLeer` deja afuera lo de texto vencido en los DOS caminos que mandan piezas a la IA (el automático
+  y el de la API, `analizarCompetidor`).
+- ⚠️ **Lo que corrigió la revisión adversarial, y vale para código nuevo:**
+  - El compare-and-set de `yaRevisadas` es «sin el catálogo de hoy» (`FILTRO_SIN_LA_VERSION_DE_HOY`: `formatosV` nulo o distinto
+    de `VERSION_FORMATOS`), no «sin marca». Con `formatosV is null`, el día que la versión suba, lo de la versión anterior que la IA
+    no devuelve vuelve al bucle pagado. **Un CAS sobre una versión compara contra la de hoy, nunca contra «no tiene».**
+  - «Nada que leer» es «el texto venció» (`texto_leido_en` + `textoVencido`), no «sin título ni texto»: un post sano sin
+    descripción se manda igual y se cierra con `ANALISIS_SIN_DATOS`, como siempre. Los anuncios no se podan: nunca vencen acá.
+  - El camino de la API (`spy.run.ts` → `analizarCompetidor` sin `soloPendientes`, las primeras 40) también mandaba lo vencido.
+  - **La segunda revisión:** analizar renovaba el reloj del texto. Cada pieza que la IA devolvía, y cada una que se cerraba como
+    «sin datos», se guardaba con `texto_leido_en: ahora`, así que un texto bajado hace 29 días quedaba a la vista 30 días más sin
+    haberse vuelto a leer; con la relectura de los formatos viejos, eso pasaba de a tandas. Las tres escrituras de piezas de
+    `guardarAnalisis` ya no lo tocan: **el reloj de una retención lo mueve sólo lo que vuelve a bajar el dato, nunca lo que lo
+    procesa.** (El del competidor sigue moviéndose con la oferta: `podarVencido` no tacha nada del competidor.)
+  - Y el test del filtro comparaba la constante con su propio texto. Ahora un evaluador chico del `.or()` con la semántica de SQL
+    (`->>` es texto, `neq` contra NULL no cumple) la corre sobre filas sin marca, en null, en la versión de ayer y en la de hoy, y
+    la tanda simulada del test 8 usa el mismo evaluador.
+- **Lo que se relee, decidido por criterio:** además de `otro`, los cuatro formatos viejos donde pudo caer a la fuerza uno de
+  los ocho nuevos (`testimonio`, `opinion`, `detras`, `entrevista`: `PUEDEN_SER_UNO_NUEVO`). La revisión propone más parejas
+  (`pov` → `tendencia`, `resena` → `promo`, `lista` → `preguntas`/`frase`), o releer todo lo del catálogo de once una vez, o una
+  pasada sobre todos los competidores. **Las tres gastan la IA de cada negocio y las decide Martín:** quedan como el resto abierto
+  del pendiente.
+- **Vive en:** lib/spy-analisis-reglas.ts · lib/spy.ts (`analizarCompetidor`, `guardarAnalisis`) · lib/spy-detalle.ts (el
+  comentario de `VERSION_FORMATOS`) · tests/spy-analisis.test.ts (8 a 12) · *2026-11-18*
+
 ## El tope del plan (Esencial suma UN competidor) va DESPUÉS de `yaEsta`, no arriba de todo (14/11/2026)
 
 - **Pedido:** Martín, «Tu competencia solamente debería poder scrapear a una persona de la competencia, el de 97 ilimitado»

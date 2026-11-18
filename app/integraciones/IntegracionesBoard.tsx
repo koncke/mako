@@ -79,6 +79,7 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { useMenuContextual } from '@/app/_ui/useMenuContextual';
 import { itemsIntegracion } from './menu-contextual-integraciones';
+import { MARCA, marcaIntegracion } from '@/lib/tutoriales/marcas';
 // Incidente con período: startedAt → resolvedAt (null = en curso). Viene del server.
 type Incidente = { id: number; service: string; severidad: string; statusLabel: string; disableReason: string | null; entregaFrenada: boolean; detalle: string | null; startedAt: string; resolvedAt: string | null };
 
@@ -562,6 +563,7 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
     return (
       // Sin conectar, más apagada (25/10/2026, Martín: «para que se diferencien»): app/globals.css, `[data-sin-conectar]`.
       <button key={i.key} id={`svc-${i.key}`} type="button" className="int-tarjeta" data-sin-conectar={conectada || motivo ? undefined : ''}
+        data-recorrido={marcaIntegracion(i.key)}
         onClick={() => abrirTarjeta(i)} {...menuTarjeta.propsDe({ key: i.key, nombre: i.nombre, conectada })}>
         <span style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <SvcIcon k={i.key} box={36} radius={10} size={21} />
@@ -637,7 +639,7 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
           {grilla(catalogo)}
           {ocultas > 0 && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-              <button type="button" className="int-mas" onClick={() => setVerTodas(true)}>Mostrar más integraciones</button>
+              <button type="button" className="int-mas" onClick={() => setVerTodas(true)} data-recorrido={MARCA.integracionesMas}>Mostrar más integraciones</button>
             </div>
           )}
         </section>
