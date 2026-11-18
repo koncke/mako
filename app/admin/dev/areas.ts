@@ -633,12 +633,13 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'vsl-generator', titulo: 'VSL Generator', familia: 'Sales Machine',
-    estado: 'por-construir', verEnApp: '/vsl-generator',
-    alcance: 'Escribir el guion de un VSL. La pantalla es un ComingSoon y no hay lib propia ni API, pero el cimiento SÍ existe: lib/vsl-estructuras.ts (5 estructuras de VSL largo) se escribió para esta tab —el commit que lo creó dice «arrancando el VSL Writer»— y hoy además lo consume el Landing Analyst.',
+    estado: 'parcial', verEnApp: '/vsl-generator',
+    alcance: 'Escribir el guion de un VSL. Desde el 28-29/10/2026 lo hace el Copywriter: sus plantillas VSL salen de lib/vsl-estructuras.ts (5 estructuras de VSL largo) y MaKo las escribe desde el chat de la página y por la API. Desde el 18/11 /vsl-generator lleva ahí (app/vsl-generator/destino.ts) y no tiene motor propio. Falta que un VSL de más de ~13 minutos salga entero (el Copywriter topea en 2.000 palabras por pedido), el loop con el VSL Analyst y la fila del menú.',
     // ⚠️ Este `vive` eran tres archivos (page, redirect y nav) y dejaba afuera lo único
     // que el área tiene construido, así que su historial derivado de git no veía nada.
-    vive: ['app/vsl-generator/page.tsx', 'app/vsl-writer/page.tsx', 'app/_components/nav.ts', 'lib/vsl-estructuras.ts', 'tests/vsl-estructuras.test.ts'],
+    vive: ['app/vsl-generator/page.tsx', 'app/vsl-generator/destino.ts', 'app/vsl-writer/page.tsx', 'app/_components/nav.ts', 'lib/vsl-estructuras.ts', 'tests/vsl-estructuras.test.ts', 'tests/vsl-generator-destino.test.ts'],
     proyectos: ['Feature: VSL Generator'],
+    hallazgos: 'hallazgos-copywriter',
   },
   {
     slug: 'lead-magnet-generator', titulo: 'Lead Magnet Generator', familia: 'Sales Machine',
