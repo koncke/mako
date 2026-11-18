@@ -2632,7 +2632,7 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   `hoyEnTz(await tzDeWorkspace(ws))`); nunca se le mete un `await` de base a una función de decisión. Y donde el día DECIDE
   va `hoyEnWorkspaceEstricto()` (lib/timezone.ts) y no `hoyEnWorkspace()`: éste nunca tira y cae a Tijuana, y en un corte
   eso falla ABIERTO. Fuera de `runWithWorkspace` (el `proponer_` del doer) el ws va EXPLÍCITO: ahí `getWorkspaceActual()`
-  no es el del grupo. Sigue pendiente en `faltantesDeLead` (lib/leads.ts) y `valoresDeRequisitos` (app/crm/actions.ts).
+  no es el del grupo. ~~Sigue pendiente en `faltantesDeLead` (lib/leads.ts) y `valoresDeRequisitos` (app/crm/actions.ts).~~ Hecho el 18/11/2026 (F125): los dos piden `hoyISO`. Y no todo `ayerEnTijuana()` es del negocio: las ventanas sobre la ingesta diaria y las fechas de los webhooks de agenda son otro reloj (docs/hallazgos-infra.md → «Las ~85 fechas de Tijuana son TRES relojes»).
 - **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
   devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
   **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
