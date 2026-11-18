@@ -39,6 +39,7 @@ import { listBorradores, contarBorradores, crearBorrador, descartarBorrador } fr
 import { bloquearContacto, desbloquearContacto, ocultarContacto, mostrarContacto } from '@/lib/evolution-block';
 import { getCatalogoLabels, getMapeoEtapaLabels, setMapeoEtapaLabel, sincronizarCatalogoEstricto, actualizarEtiquetaLead } from '@/lib/evolution-labels';
 import { ETAPAS_FUNNEL } from '@/lib/wa-etapas';
+import { etapasDelCrmPorId } from '@/lib/chats';
 import { insisteConLoMismo } from '@/lib/conversacion-repeticion';
 import { listSessions, getSessionMessages } from '@/lib/chart-chats';
 import { recomendarMensajes, redactarTemplate } from '@/lib/whatsapp-advisor';
@@ -175,11 +176,15 @@ export const RUNNERS: Runners = {
       if (input.soloSinResponder === true) lista = lista.filter((g) => g.ultimoEntrante);
       if (input.soloVentanaAbierta === true) lista = lista.filter((g) => g.ventanaAbierta);
       const ahora = Date.now() / 1000;
-      const personas = lista.slice(0, limite).map((g) => {
+      const visibles = lista.slice(0, limite);
+      // F157 (18/11/2026): la etapa del CRM de cada lead (la de su tablero, con el funnel de su casa: `etapasDelCrmPorId`,
+      // lib/chats.ts), no la derivación fija de las bandejas viejas. Sin poder leerla, null: no se inventa.
+      const etapas = await etapasDelCrmPorId(visibles.flatMap((g) => (g.lead ? [Number(g.lead.id)] : []))).catch(() => null);
+      const personas = visibles.map((g) => {
         // La ventana vence 24 h después del último mensaje DEL LEAD. Si el último es
         // nuestro, Chatwoot no da ese momento en el listado: null, no «vence ya».
         const vence = g.ventanaAbierta && g.ultimoEntrante ? g.ultimaActividad + 86400 : null;
-        const etapa = g.lead ? derivarEtapa(g.lead) : null;
+        const etapa = g.lead ? etapas?.get(Number(g.lead.id)) ?? null : null;
         return {
           contactId: g.contactId, contacto: g.contacto, telefono: g.telefono,
           lead_id: g.lead?.id ?? null, lead_nombre: g.lead?.nombre ?? null, empresa: g.lead?.empresa ?? null,
@@ -194,7 +199,7 @@ export const RUNNERS: Runners = {
       return json({
         leido: { paginas_chatwoot: paginas, conversaciones: conversacionesLeidas, personas: grupos.length },
         devueltas: personas.length, quedaron_afuera_por_limite: Math.max(0, lista.length - personas.length),
-        nota: 'Solo las páginas más recientes de Chatwoot: una persona sin actividad reciente puede no estar. ventana_vence null con ventana abierta = el último mensaje es del negocio y no se sabe cuándo escribió el lead. etapa_inbox no es la etapa del funnel. No hay contador de no leídos: el de Chatwoot viene siempre en 0 en este canal y no significa nada; lo que dice si falta contestar es ultimo_es_del_lead.',
+        nota: `Solo las páginas más recientes de Chatwoot: una persona sin actividad reciente puede no estar. ventana_vence null con ventana abierta = el último mensaje es del negocio y no se sabe cuándo escribió el lead. etapa_inbox es la etapa del CRM del lead (la de su tablero)${etapas ? '' : ', y esta vez no se pudo leer'}. No hay contador de no leídos: el de Chatwoot viene siempre en 0 en este canal y no significa nada; lo que dice si falta contestar es ultimo_es_del_lead.`,
         personas,
       });
     },
@@ -453,8 +458,12 @@ export const RUNNERS: Runners = {
     leer: async (input) => {
       const lead = await leadDeEsteWs(num(input, 'leadId'));
       if (!lead) return fallo(`El lead #${String(input.leadId)} no existe en este negocio.`);
-      const et = lead.pipeline_stage === 'manual' ? { key: 'manual', label: 'Nutrición - Manual' } : derivarEtapa(lead);
-      return json({ lead_id: lead.id, nombre: lead.nombre, etapa_inbox: et, etapa_funnel_pipeline_stage: lead.pipeline_stage ?? null, estado_lead: lead.estado_lead, nota: 'etapa_inbox es la derivación fija que muestran las bandejas de WhatsApp; la etapa del funnel es pipeline_stage (o la que calcula el CRM). Pueden no coincidir.' });
+      // F157 (18/11/2026): la etapa del CRM (la de su tablero, con el funnel de su casa, la que muestra Chats). La derivación
+      // fija de antes queda aparte con su nombre: es la que decide la etiqueta del celular (`evolution_stage_labels`).
+      const crm = (await etapasDelCrmPorId([lead.id]).catch(() => null))?.get(Number(lead.id)) ?? null;
+      if (!crm) return fallo(`No pude leer la etapa del lead #${lead.id}.`);
+      const etiqueta = lead.pipeline_stage === 'manual' ? { key: 'manual', label: 'Nutrición - Manual' } : derivarEtapa(lead);
+      return json({ lead_id: lead.id, nombre: lead.nombre, etapa_inbox: crm, etapa_funnel_pipeline_stage: lead.pipeline_stage ?? null, estado_lead: lead.estado_lead, etapa_etiqueta_whatsapp: etiqueta, nota: 'etapa_inbox es la etapa del CRM del lead (la columna de su tablero, la que muestra Chats). etapa_etiqueta_whatsapp es la derivación fija que decide la etiqueta del celular (listar_etiquetas_whatsapp).' });
     },
   },
 

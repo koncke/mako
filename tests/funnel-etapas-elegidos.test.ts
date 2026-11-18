@@ -33,8 +33,10 @@ test('cada lead cuenta en el funnel donde estaba ESE día (la regla del OKR), ta
   const en = entre(q, 'async function enLosFunnels<', 'async function altasEnFunnels(');
   assert.match(en, /return funnels\.length \? filtrarPorFunnels\(filas\.map\(\(x\) => \(\{ \.\.\.x, leadId: Number\(x\.id\), fecha: fecha\(x\) \}\)\), funnels\) : \[\.\.\.filas\];/);
   const altas = entre(q, 'async function altasEnFunnels(', 'export const MIN_MUESTRA');
-  assert.match(altas, /leerTodo<[^>]+>\(supabase, 'leads', 'id, estado_lead, created_at'/, 'las altas de un funnel se leen paginadas (un COUNT no dice de qué funnel es cada una)');
-  assert.match(altas, /enLosFunnels\(filas, funnels, \(x\) => x\.created_at\.slice\(0, 10\)\)/);
+  // (18/11/2026, F152: `leerAltas` pagina las dos mitades —sin `fecha_original` por `created_at`, y con ella por ésa— y el
+  // día del alta lo dice `diaDeAltaUtc`: lib/leads-alta.ts, con su test.)
+  assert.match(altas, /leerAltas<[^>]+>\(\s*supabase, 'id, estado_lead, created_at'/, 'las altas de un funnel se leen paginadas (un COUNT no dice de qué funnel es cada una)');
+  assert.match(altas, /enLosFunnels\(filas, funnels, \(x\) => diaDeAltaUtc\(x\)\)/);
 });
 
 test('varios funnels se miden juntos SÓLO si comparten sus pasos comerciales', () => {

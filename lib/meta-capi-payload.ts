@@ -191,6 +191,40 @@ export const eventIdCalificado = (leadId: number) => `calif:${leadId}`;
  */
 export const LINEA_CALIFICADO_EN_META = 'Meta ya recibió que está calificado';
 
+/** La etiqueta del historial del campo `calificado` (AUDIT_FIELDS, lib/leads.ts la importa de acá) y su «sí». */
+export const CAMPO_CALIFICADO = 'Calificado';
+export const SI_EN_EL_HISTORIAL = 'Sí';
+
+/**
+ * F154 (18/11/2026): LO QUE VIAJÓ A META ANTES DE QUE EXISTIERA LA MARCA. La línea `LINEA_CALIFICADO_EN_META` se escribe
+ * desde 72d0eed6c (17/10/2026 15:22 -03); una calificación anterior viajó igual y no la dejó, así que volver a marcarla
+ * pasadas las 48 h del dedup de Meta contaba una SEGUNDA conversión. La prueba de que viajó es su línea «Calificado: Sí»
+ * del historial, pero SÓLO dentro de esta ventana:
+ *   · `desde`: 989b942f8 (05/10/2026 04:20 -03), cuando la calificación pasó a viajar con los nombres de hoy
+ *     (`EVENTOS_CALIFICADO`). Antes viajaba como `Lead`, el evento del lead crudo: un «Calificado» de septiembre no mandó
+ *     ningún `SubmitApplication`, y tomarlo por mandado perdería su primera conversión de verdad.
+ *   · `hasta`: la hora de 72d0eed6c. Lo de después deja su marca (si entró) o no entró: tomar su «Calificado» por mandado
+ *     callaría una conversión que Meta nunca recibió. Las dos puntas son la hora del COMMIT, no la del deploy (que no
+ *     está en el repo): un margen de horas hacia el lado de mandar, que es el que el código prefiere (`calificadoYaEnMeta`).
+ * Sin el píxel configurado no se mandó nada entonces, pero tampoco sale nada ahora (`sendMetaCAPIEvent` contesta
+ * `sin_pixel`): no hace falta preguntarlo acá.
+ */
+export const CALIFICADO_SIN_MARCA = { desde: '2026-10-05T07:20:36Z', hasta: '2026-10-17T18:22:38Z' } as const;
+
+export type LineaDeHistorial = { campo: string | null; valor_nuevo: string | null; created_at?: string | null };
+
+/** ¿La calificación de este lead ya viajó a Meta? La marca de hoy, o un «Calificado: Sí» de la ventana sin marca. */
+export function calificacionYaEnMeta(lineas: readonly LineaDeHistorial[]): boolean {
+  const desde = Date.parse(CALIFICADO_SIN_MARCA.desde);
+  const hasta = Date.parse(CALIFICADO_SIN_MARCA.hasta);
+  return lineas.some((l) => {
+    if (l.campo === 'Meta' && l.valor_nuevo === LINEA_CALIFICADO_EN_META) return true;
+    if (l.campo !== CAMPO_CALIFICADO || l.valor_nuevo !== SI_EN_EL_HISTORIAL) return false;
+    const t = Date.parse(String(l.created_at ?? ''));
+    return Number.isFinite(t) && t >= desde && t < hasta;
+  });
+}
+
 /**
  * Cuánto espera el aviso antes de salir: la ventana del «Deshacer» del toast (5 s, `useToast` en app/_ui/Toast.tsx)
  * y un margen. Hasta el 17/10/2026 salía en el acto (de fondo desde #854), así que un «Calificado» tocado por error y
