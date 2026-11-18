@@ -173,14 +173,16 @@ export const RUNNERS: Runners = {
       const { buscarNegocio } = await import('@/lib/diagnostico-negocio');
       const v = await vistaDeClientes();
       const pedido = typeof input.negocio === 'string' ? input.negocio.trim() : '';
-      const cand = buscarNegocio(pedido, v.filas.map((f) => ({ ws: f.ws, nombre: f.nombre })));
+      // Con los de prueba (F21): no cuentan como clientes, y el DEBUG del Cliente de Prueba sigue andando.
+      const todas = [...v.filas, ...v.pruebas];
+      const cand = buscarNegocio(pedido, todas.map((f) => ({ ws: f.ws, nombre: f.nombre })));
       if (cand.length !== 1) {
         return json(cand.length
           ? { encontrado: false, candidatos: cand, nota: `«${pedido}» calza con más de un negocio: pregunta cuál.` }
-          : { encontrado: false, nota: `No hay un negocio que se llame «${pedido}». Pregunta de cuál es.`, negocios: v.filas.slice(0, 40).map((f) => ({ ws: f.ws, nombre: f.nombre })) });
+          : { encontrado: false, nota: `No hay un negocio que se llame «${pedido}». Pregunta de cuál es.`, negocios: todas.slice(0, 40).map((f) => ({ ws: f.ws, nombre: f.nombre })) });
       }
       const ws = cand[0].ws;
-      const fila = v.filas.find((f) => f.ws === ws)!;
+      const fila = todas.find((f) => f.ws === ws)!;
       const ctxDelNegocio = { ...ctx, ws };
       const { RUNNERS: INTEG } = await import('./integraciones.run');
       const deSuLectura = async (id: 'ver_integraciones' | 'ver_ia_del_negocio' | 'ver_conexion_meta'): Promise<unknown> => {

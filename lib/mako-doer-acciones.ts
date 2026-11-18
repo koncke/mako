@@ -747,7 +747,8 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
               : 'Ya había una propuesta pendiente para esta persona: es el MISMO link, no se creó otra. Decíselo así y pasáselo.',
           });
         } catch (e) {
-          return JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) });
+          // `noCorrio` (F114, 18/11/2026): la propuesta del lead no se guardó por una falla nuestra (la base), no por una regla.
+          return JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e), noCorrio: true });
         }
       }
 
@@ -935,7 +936,9 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
 // tiene la red: si el id no existe, ofrece los borradores pendientes que sí hay.
 instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}, ${extras}. Manda UNA línea corta + este link para que lo revisen y confirmen EN LA APP (NO pidas "sí" aquí, NO repitas la lista). ⛔⛔ EL LINK SE COPIA Y SE PEGA TAL CUAL, carácter por carácter — no lo reescribas de memoria ni lo acortes: un solo carácter cambiado lo manda a un borrador que no es, o a ninguno. ⛔ Si das un número, usa EXACTAMENTE estos — no inventes ninguno. ⛔ El proyecto de cada tarea lo decide el Perro Guardián al aplicar: NO lo menciones. Link: ${link}` });
         } catch (e) {
-          return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}` });
+          // `noCorrio` (F114, 18/11/2026): el borrador no se guardó por una falla nuestra, no por una regla. Así llega con isError
+          // (`comoFallaSiNoCorrio` en el doer, un 500 por el registro) y deja su ticket, como la pendiente que no entró.
+          return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}`, noCorrio: true });
         }
       }
 
