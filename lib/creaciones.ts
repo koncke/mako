@@ -278,21 +278,34 @@ export async function compartirCreacion(ws: number, id: number, quien: string, a
  * Las plantillas de UN tipo para «Nuevo …» de su tab: las de este negocio (privadas y compartidas) y las más valoradas
  * de la comunidad. Sin la 0273, vacío: la tab se dibuja con las suyas de siempre.
  */
-export async function plantillasDelTipo(ws: number, tipo: TipoCreacion, comunidad = 6): Promise<{ mias: Creacion[]; comunidad: Creacion[] }> {
+export async function plantillasDelTipo(ws: number, tipo: TipoCreacion, comunidad = 6, opts: { conDefinicion?: boolean } = {}):
+  Promise<{ mias: CreacionConDefinicion[]; comunidad: CreacionConDefinicion[] }> {
   const db = getSupabaseServer();
+  // Con la definición (18/11/2026, el Dashboard dibuja la miniatura de cada hoja), menos de las propias: una hoja pesa
+  // decenas de KB, y 40 son un par de MB por apertura de «Nueva hoja».
+  const cols = opts.conDefinicion ? `${COLS}, definicion` : COLS;
   const [m, c] = await Promise.all([
-    db.from('creaciones').select(COLS).eq('workspace_origen', ws).eq('tipo', tipo).in('estado', ['privada', 'publicada'])
-      .order('updated_at', { ascending: false }).order('id', { ascending: false }).limit(40),
-    db.from('creaciones').select(COLS).eq('tipo', tipo).eq('estado', 'publicada').neq('workspace_origen', ws)
+    db.from('creaciones').select(cols).eq('workspace_origen', ws).eq('tipo', tipo).in('estado', ['privada', 'publicada'])
+      .order('updated_at', { ascending: false }).order('id', { ascending: false }).limit(opts.conDefinicion ? TOPE_PROPIAS_CON_DEFINICION : 40),
+    db.from('creaciones').select(cols).eq('tipo', tipo).eq('estado', 'publicada').neq('workspace_origen', ws)
       .order('estrellas', { ascending: false }).order('usos', { ascending: false }).order('id', { ascending: false }).limit(Math.max(0, comunidad)),
   ]);
   if (m.error) { if (faltaLaTabla(m.error)) return { mias: [], comunidad: [] }; tirar('tus plantillas', m.error); }
   if (c.error) tirar('las plantillas de la comunidad', c.error);
-  const mias = (m.data ?? []) as Fila[];
-  const otras = (c.data ?? []) as Fila[];
+  const mias = (m.data ?? []) as unknown as Fila[];
+  const otras = (c.data ?? []) as unknown as Fila[];
   const con = await estrellasDe(ws, otras.map((x) => x.id));
-  return { mias: mias.map((x) => vista(x, ws, false)), comunidad: otras.map((x) => vista(x, ws, con.has(x.id))) };
+  const conDef = (x: Fila, v: Creacion): CreacionConDefinicion => (opts.conDefinicion ? { ...v, definicion: x.definicion ?? null } : v);
+  return {
+    mias: mias.map((x) => conDef(x, vista(x, ws, false))),
+    comunidad: otras.map((x) => conDef(x, vista(x, ws, con.has(x.id)))),
+  };
 }
+
+/** Cuántas plantillas propias trae «Nuevo …» cuando viajan con su definición. */
+export const TOPE_PROPIAS_CON_DEFINICION = 24;
+/** Una creación con su definición: sólo la de este negocio o una publicada (lo que `plantillasDelTipo` ya filtró). */
+export type CreacionConDefinicion = Creacion & { definicion?: unknown };
 
 export type CreacionRankeada = Rankeada<Creacion>;
 
@@ -336,6 +349,44 @@ export async function rankingCreaciones(ws: number, f: { periodo: PeriodoRanking
   return top.map((x) => ({ ...vista(x, ws, con.has(x.id)), puesto: x.puesto, delPeriodo: x.delPeriodo }));
 }
 
+// ── La moderación (18/11/2026): lo que ve SÓLO la plataforma ────────────────
+
+/** Una creación con el negocio que la publicó. ⚠️ No sale nunca a otro negocio: es de la pantalla de moderación de Admin. */
+export type CreacionModerada = Creacion & { negocio: { id: number; nombre: string } };
+
+/** Hasta cuántas trae la moderación (de a páginas; el tope se dice en la pantalla si se alcanza). */
+export const TOPE_MODERAR = 2000;
+
+/**
+ * Lo publicado y lo retirado de TODOS los negocios, con el nombre del negocio que lo publicó, para Admin › Products ›
+ * Templates. ⚠️ Trae `workspace_origen`: lo llama SÓLO una página que ya pasó `exigirSuperAdmin`
+ * (app/admin/_polar/datos/plantillas-server.ts). Las privadas no salen: no las ve nadie más, tampoco la plataforma (como en
+ * `retirarCreacion`). De a páginas: el techo de 1000 filas de PostgREST no da error (AGENTS.md).
+ */
+export async function creacionesParaModerar(): Promise<{ creaciones: CreacionModerada[]; recortado: boolean }> {
+  const db = getSupabaseServer();
+  const plataforma = await wsSuperAdmin();
+  const filas: Fila[] = [];
+  await leerPorPaginas<Fila>(db, 'creaciones', COLS, (pagina) => {
+    filas.push(...pagina);
+    return filas.length < TOPE_MODERAR;
+  }, { orden: ['id'], filtros: (q) => q.in('estado', ['publicada', 'retirada']) });
+  const ids = [...new Set(filas.map((f) => f.workspace_origen))];
+  const nombres = new Map<number, string>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from('workspaces').select('id, nombre').in('id', ids.slice(i, i + 200));
+    if (error) throw new Error(`los negocios de las creaciones: ${error.message}`);
+    for (const w of (data ?? []) as Array<{ id: number; nombre: string | null }>) nombres.set(w.id, w.nombre?.trim() || `Negocio #${w.id}`);
+  }
+  return {
+    creaciones: filas.slice(0, TOPE_MODERAR).map((f) => ({
+      ...vista(f, plataforma, false),
+      negocio: { id: f.workspace_origen, nombre: nombres.get(f.workspace_origen) ?? `Negocio #${f.workspace_origen}` },
+    })),
+    recortado: filas.length >= TOPE_MODERAR,
+  };
+}
+
 /** Retira una creación de la galería (su autor, o la plataforma). No la borra: quien la usó tiene su copia. */
 export async function retirarCreacion(ws: number, id: number): Promise<{ yaEstaba: boolean; titulo: string }> {
   const f = await filaDe(id);
@@ -370,18 +421,42 @@ export async function quitarEstrella(ws: number, id: number): Promise<{ yaEstaba
   return { yaEstaba: !(data ?? []).length, estrellas: despues?.estrellas ?? f.estrellas, titulo: f.titulo };
 }
 
-/** Usa una creación: la crea en ESTE negocio (apagada) con el enchufe de su tipo, y cuenta el uso. */
-export async function usarCreacion(ws: number, id: number): Promise<Usada & { titulo: string }> {
+/** Lo que se comprueba antes de usar una creación: que exista para este negocio, que su tipo se use y que el plan tenga la tab. */
+async function paraUsar(ws: number, id: number): Promise<{ f: Fila; t: TipoEnchufado }> {
   const f = await filaDe(id, true);
   if (!f || !puedeUsar({ workspaceOrigen: f.workspace_origen, estado: f.estado }, ws)) throw new CreacionError(`No existe la creación #${id}, o ya no está publicada.`, 404);
   const t = f.tipo as TipoCreacion;
   if (!estaEnchufado(t)) throw new CreacionError(porQueNoSePublica(t)?.replace('publicar', 'usar') ?? 'Todavía no se puede usar.');
   // Un negocio cuyo plan no tiene la tab no recibe la cosa: nacería donde no la puede abrir.
   if (!tabEnCapa(INFO_TIPO[t].nav, await getCapaActual())) throw new CreacionError(`Tu plan no tiene ${INFO_TIPO[t].feature}.`, 403);
+  return { f, t };
+}
+
+/** El uso se cuenta DESPUÉS de crear (un uso que falló no es un uso), y su autor no se cuenta a sí mismo. */
+async function contarSiEsDeOtro(f: Fila, ws: number): Promise<void> {
+  if (f.workspace_origen !== ws) await contarUso(f.id, ws).catch((e) => console.error('[creaciones] contar el uso:', e instanceof Error ? e.message : e));
+}
+
+/** Usa una creación: la crea en ESTE negocio (apagada) con el enchufe de su tipo, y cuenta el uso. */
+export async function usarCreacion(ws: number, id: number): Promise<Usada & { titulo: string }> {
+  const { f, t } = await paraUsar(ws, id);
   const r = await ENCHUFES[t].usar(f.definicion);
-  // El uso se cuenta DESPUÉS de crear (un uso que falló no es un uso), y su autor no se cuenta a sí mismo.
-  if (f.workspace_origen !== ws) await contarUso(id, ws).catch((e) => console.error('[creaciones] contar el uso:', e instanceof Error ? e.message : e));
+  await contarSiEsDeOtro(f, ws);
   return { ...r, titulo: f.titulo };
+}
+
+/**
+ * La DEFINICIÓN de una creación para que la PANTALLA la cree ella, con las mismas comprobaciones que `usarCreacion` y el
+ * uso contado (18/11/2026). Es la del Dashboard: su editor tiene el informe abierto y lo autoguarda con su versión, así que
+ * una hoja escrita por detrás (el `usar` del enchufe) le haría chocar el próximo guardado; la agrega él, con `hojaParaUsar`.
+ * `tipo`: el que espera esa pantalla (una plantilla de otro tipo no entra).
+ */
+export async function tomarCreacion(ws: number, id: number, tipo: TipoCreacion): Promise<{ definicion: unknown; titulo: string }> {
+  const { f, t } = await paraUsar(ws, id);
+  if (t !== tipo) throw new CreacionError(`Esa plantilla no es de ${INFO_TIPO[tipo].feature}.`);
+  if (!ENCHUFES[t].resumir(f.definicion)) throw new CreacionError('Esa plantilla no se pudo leer.', 422);
+  await contarSiEsDeOtro(f, ws);
+  return { definicion: f.definicion, titulo: f.titulo };
 }
 
 /** Un negocio nuevo suma 1 a `usos` (el trigger); uno que repite sólo actualiza su fila. */

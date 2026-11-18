@@ -172,6 +172,9 @@ export const CSS_UGC = `
 .ahdoc.ahdoc--ugc .ugc .ugc-arrastrable .ugc-modcard,
 .ahdoc.ahdoc--ugc .ugc .ugc-arrastrable .ugc-modcard-abrir { cursor: grab; }
 .ahdoc.ahdoc--ugc .ugc .ugc-nav-item.ugc-arrastrable { cursor: grab; }
+/* Con el dedo se arrastra manteniendo apretado (app/_cursos/arrastre-curso.ts, «tocar»): sin esto, iOS abre su globo de
+ * copiar sobre la tarjeta en medio del gesto. */
+.ahdoc.ahdoc--ugc .ugc .ugc-arrastrable { -webkit-touch-callout: none; }
 /* EL HUECO: del alto de la tarjeta que se agarro (va en el style), punteado y con el acento. Es lo
  * que dice DONDE cae; la tarjeta de origen no cambia nada mientras viaja (AGENTS.md). */
 .ahdoc.ahdoc--ugc .ugc .ugc-hueco {
