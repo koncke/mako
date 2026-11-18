@@ -56,15 +56,18 @@ export const gananciaDelReferido = (precioListaUsd: number): number => Math.roun
  * Cuánto, según por dónde entra la plata:
  *  - `directo`: Binance (USDT/USDC) o transferencia bancaria / CBU → 30 % redondo. También cuando el partner le cobra al negocio él
  *    mismo y le manda a MaKo el 70 % por Binance o transferencia: se queda con el 30 %.
- *  - `pasarela`: link de pago o pasarela (Mercado Pago, Whop, tarjeta) → 27 %: el partner asume parte del costo de la pasarela.
+ *  - `pasarela`: link de pago o pasarela (Mercado Pago, Whop, tarjeta) → 25 %. ES UNA DECISIÓN DE MARTÍN (18/11/2026), no la cuenta del
+ *    costo: el mismo día empezó en 27 % y bajó a 25 %. Referencia (la del Cerebro, 18/11; NO se pudo medir con cobros reales: todavía no
+ *    hay ningún cobro de un plan por Mercado Pago): Mercado Pago cobra 6,29 % + IVA al instante (7,61 %) y 0,6 % más de débitos y
+ *    créditos, ~8,2 %; Whop, ~10,5 % (2,7 % + US$ 0,30, 1,5 % tarjeta internacional, 1 % de conversión y un retiro a cripto de 5 %).
  * La landing pública de Partners importa estos nombres: no los renombres sin avisar.
  */
 export const COMISION_PARTNER_DIRECTO = 0.3;
-export const COMISION_PARTNER_PASARELA = 0.27;
+export const COMISION_PARTNER_PASARELA = 0.25;
 
 export type CanalDelPago = 'directo' | 'pasarela';
 
-/** Lo que le toca al partner de UN pago de `montoUsd`, en dólares con centavos (Pro 97 → 29,10 directo, 26,19 por pasarela). */
+/** Lo que le toca al partner de UN pago de `montoUsd`, en dólares con centavos (Pro 97 → 29,10 directo, 24,25 por pasarela). */
 export function comisionDelPago(montoUsd: number, canal: CanalDelPago): number {
   const centavos = Math.round(Math.max(0, Number(montoUsd) || 0) * 100);
   const parte = canal === 'directo' ? COMISION_PARTNER_DIRECTO : COMISION_PARTNER_PASARELA;
@@ -145,7 +148,7 @@ export const TEXTO_ESTADO_REFERIDO: Readonly<Record<EstadoReferido, string>> = {
 
 /**
  * Por dónde entró un pago (18/11/2026): una pasarela (el `proveedor` del pago: Stripe, Mercado Pago, Creem; o un método `tarjeta`)
- * es 'pasarela' (27 %); una transferencia, Binance/cripto o efectivo, 'directo' (30 %). Lo que no se sabe (sin proveedor y con un
+ * es 'pasarela' (25 %); una transferencia, Binance/cripto o efectivo, 'directo' (30 %). Lo que no se sabe (sin proveedor y con un
  * método `otro` o vacío) va por la tasa MENOR: nunca se acredita de más; si era directo, el super admin lo corrige con un `ajuste`.
  */
 export function canalDelPago(p: { proveedor?: string | null; metodo?: string | null }): CanalDelPago {

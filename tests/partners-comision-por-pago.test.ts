@@ -5,19 +5,25 @@ import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, comisionDelPago } 
 // La regla del 18/11/2026: 30 % por Binance/transferencia, 27 % por pasarela. La landing de Partners importa estos nombres.
 test('las dos tasas son las que dijo Martín', () => {
   assert.equal(COMISION_PARTNER_DIRECTO, 0.3);
-  assert.equal(COMISION_PARTNER_PASARELA, 0.27);
+  assert.equal(COMISION_PARTNER_PASARELA, 0.25);
 });
 
 test('comisionDelPago: los números del brief, al centavo', () => {
   assert.equal(comisionDelPago(97, 'directo'), 29.1);
-  assert.equal(comisionDelPago(97, 'pasarela'), 26.19);
+  assert.equal(comisionDelPago(97, 'pasarela'), 24.25);
   assert.equal(comisionDelPago(47, 'directo'), 14.1);
-  assert.equal(comisionDelPago(47, 'pasarela'), 12.69);
+  assert.equal(comisionDelPago(47, 'pasarela'), 11.75);
 });
 
 test('comisionDelPago: un pago anual es el 30 % de lo que paga, no de un mes', () => {
   assert.equal(comisionDelPago(970, 'directo'), 291);
-  assert.equal(comisionDelPago(970, 'pasarela'), 261.9);
+  assert.equal(comisionDelPago(970, 'pasarela'), 242.5);
+});
+
+test('comisionDelPago: redondea a CENTAVOS (la mitad de un centavo sube), no deja decimales sueltos', () => {
+  assert.equal(comisionDelPago(1.55, 'directo'), 0.47, '0,465 → 0,47');
+  assert.equal(comisionDelPago(33.33, 'directo'), 10, '9,999 → 10,00');
+  assert.equal(comisionDelPago(10.1, 'pasarela'), 2.53, '2,525 → 2,53');
 });
 
 test('comisionDelPago: sin plata o con basura no inventa nada', () => {
@@ -36,6 +42,7 @@ test('canalDelPago: pasarela si tiene proveedor o es tarjeta; Binance, transfere
   assert.equal(canalDelPago({ proveedor: null, metodo: 'cripto' }), 'directo', 'Binance (USDT/USDC) entra como cripto');
   assert.equal(canalDelPago({ proveedor: null, metodo: 'transferencia' }), 'directo');
   assert.equal(canalDelPago({ proveedor: null, metodo: 'efectivo' }), 'directo');
+  assert.equal(canalDelPago({ proveedor: 'mercadopago', metodo: 'transferencia' }), 'pasarela', 'si pasó por una pasarela, el proveedor manda sobre el método anotado');
   assert.equal(canalDelPago({ proveedor: null, metodo: 'tarjeta' }), 'pasarela');
   assert.equal(canalDelPago({ proveedor: null, metodo: 'otro' }), 'pasarela', 'no se sabe: nunca se acredita de más');
   assert.equal(canalDelPago({}), 'pasarela');
@@ -48,7 +55,7 @@ test('creditosDeUnReferido: uno por cada pago, en orden, cada uno con su canal',
     pagos: [pago(3, '2026-12-25', 97, { metodo: 'transferencia' }), pago(1, '2026-10-25', 97, { proveedor: 'mercadopago' }), pago(2, '2026-11-25', 97, { metodo: 'cripto' })],
     yaAcreditados: new Set(), teniaCreditoViejo: false,
   });
-  assert.deepEqual(r.acreditar.map((c) => [c.pagoId, c.canal, c.comisionUsd]), [[1, 'pasarela', 26.19], [2, 'directo', 29.1], [3, 'directo', 29.1]]);
+  assert.deepEqual(r.acreditar.map((c) => [c.pagoId, c.canal, c.comisionUsd]), [[1, 'pasarela', 24.25], [2, 'directo', 29.1], [3, 'directo', 29.1]]);
   assert.deepEqual(r.sinMonto, []);
 });
 

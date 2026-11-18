@@ -11,7 +11,7 @@
 // mails, simulados. Nada toca la base de producción ni manda un mail.
 //   1. «Empezar mi plan ya» hereda el código de la prueba, sin marcar el alta 'hecha' (le abriría el cambio de email);
 //   2. pagado el 1º mes del cobro nuevo (la prueba, anulada): quedan atados y salen las bienvenidas;
-//   3. pagado el 1º y el 2º (18/11: un crédito por cada pago, 27 % por pasarela): el partner gana por cada uno, y el tablero y el
+//   3. pagado el 1º y el 2º (18/11: un crédito por cada pago, 25 % por pasarela): el partner gana por cada uno, y el tablero y el
 //      panel del super admin lo cuentan;
 //   4. una prueba que NO creó la cuenta no pasa su código (el programa es para clientes nuevos);
 //   5. el que canceló la prueba sin pagar nada figura «se fue», no «en camino», AUNQUE su negocio siga 'activo' (con el corte
@@ -220,7 +220,7 @@ test('«Empezar mi plan ya» hereda el código del partner de la prueba, sin mar
   assert.equal(s.nuevo20.alta_estado, null, "nunca 'hecha': le abriría el cambio de email del acceso (/api/pagar/email)");
 });
 
-test('pagado el 1º mes del cobro nuevo (la prueba, anulada): quedan atados, salen las bienvenidas y ya gana el 27 % de ese pago', () => {
+test('pagado el 1º mes del cobro nuevo (la prueba, anulada): quedan atados, salen las bienvenidas y ya gana el 25 % de ese pago', () => {
   const s = correr();
   assert.equal(s.atado20, 10, 'el Parque quedó como referido de Estudio Sol');
   assert.equal(s.r1.atados, 1);
@@ -228,15 +228,15 @@ test('pagado el 1º mes del cobro nuevo (la prueba, anulada): quedan atados, sal
   assert.deepEqual(s.mails.slice(0, s.mails1).map((m) => `${m.tag}→${m.to}`).sort(), ['partners-bienvenida→parque@ejemplo.com', 'partners-credito→sol@ejemplo.com', 'partners-nuevo-referido→sol@ejemplo.com']);
 });
 
-test('pagado el 2º mes: otro 27 %, y el tablero y el panel del super admin lo cuentan', () => {
+test('pagado el 2º mes: otro 25 %, y el tablero y el panel del super admin lo cuentan', () => {
   const s = correr();
   assert.equal(s.r2.acreditados, 1);
-  assert.deepEqual(s.creditos.map((c) => [c.referidor_ws, c.referido_ws, c.tipo, c.monto_usd, c.canal]), [[10, 20, 'referido', 26.19, 'pasarela'], [10, 20, 'referido', 26.19, 'pasarela']]);
+  assert.deepEqual(s.creditos.map((c) => [c.referidor_ws, c.referido_ws, c.tipo, c.monto_usd, c.canal]), [[10, 20, 'referido', 24.25, 'pasarela'], [10, 20, 'referido', 24.25, 'pasarela']]);
   const parque = s.tablero.referidos.find((r) => r.ws === 20);
   assert.deepEqual(parque && [parque.estado, parque.mesesPagados], ['pagando', 2], 'paga cada mes');
-  assert.equal(s.tablero.resumen.aCobrarUsd, 52.38);
+  assert.equal(s.tablero.resumen.aCobrarUsd, 48.5);
   assert.equal(s.programa.referidos, 1, 'el panel del super admin lo cuenta (con el mismo filtro que el cron)');
-  assert.equal(s.programa.aPagarUsd, 52.38);
+  assert.equal(s.programa.aPagarUsd, 48.5);
 });
 
 test('una prueba que NO creó la cuenta no pasa su código: el programa es para clientes nuevos', () => {
@@ -254,7 +254,7 @@ test('el que canceló la prueba sin pagar nada figura «se fue» aunque su negoc
   assert.deepEqual(gimnasio && [gimnasio.estado, gimnasio.mesesPagados], ['se-fue', 0], "su negocio sigue 'activo': lo dicen sus cobros");
   const luna = s.tablero.referidos.find((r) => r.ws === 60);
   assert.deepEqual(luna && [luna.estado, luna.mesesPagados], ['registrado', 0], 'sigue en su prueba');
-  assert.equal(s.tablero.resumen.cadaMesUsd, 26.19, 'lo que deja cada mes: sólo el Parque, que paga; ni Estudio Luna (todavía no pagó) ni el gimnasio (se fue)');
+  assert.equal(s.tablero.resumen.cadaMesUsd, 24.25, 'lo que deja cada mes: sólo el Parque, que paga; ni Estudio Luna (todavía no pagó) ni el gimnasio (se fue)');
   // Con la prueba ANULADA por «Empezar mi plan ya» y el cobro nuevo pagado, el Parque sigue: no «se fue».
   const parque1 = s.tablero1.referidos.find((r) => r.ws === 20);
   assert.deepEqual(parque1 && [parque1.estado, parque1.mesesPagados], ['pagando', 1]);

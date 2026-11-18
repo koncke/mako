@@ -4,7 +4,7 @@
 // Pedido de Martín (22/10/2026): «el sistema de referidos con la página de MaKo Partners... que se gestione de manera
 // automática... las bienvenidas de las personas que vos referiste con el dashboard de cuánto dinero tenés acumulado». Desde
 // el 25/10/2026 Partners paga SÓLO PLATA y, desde el 18/11/2026, una PARTE DE CADA PAGO de cada negocio que trae, todos los meses
-// (30 % por Binance o transferencia, 27 % por pasarela: lib/partners-reglas.ts). Acá lo que lee y escribe:
+// (30 % por Binance o transferencia, 25 % por pasarela: lib/partners-reglas.ts). Acá lo que lee y escribe:
 //
 //   · `altaDePartner` / `hacermePartner`: hacerse partner es terminar el alta (el setting `partners.alta`, con lo que
 //     contestó: a cuántos quiere referir, cómo, y dónde se le transfiere). Ahí nace (o se reusa) su código.
@@ -270,7 +270,7 @@ export async function sumarVisitaAlLink(codigo: string, userAgent: string | null
 
 type Referido = {
   ws: number; nombre: string; desde: string; mesesPagados: number; estado: EstadoReferido;
-  /** Lo que le deja al partner CADA MES: su parte (30 % / 27 %) del precio de lista, con el canal de su último pago. null = no se sabe el precio. */
+  /** Lo que le deja al partner CADA MES: su parte (30 % / 25 %) del precio de lista, con el canal de su último pago. null = no se sabe el precio. */
   mensualUsd: number | null;
   /** Lo que ya le dejó en total (los renglones `referido` de este negocio en el libro). */
   ganadoUsd: number;

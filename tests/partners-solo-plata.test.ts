@@ -113,7 +113,7 @@ test('el CÓDIGO en el carrito: escrito gana; si no, el primer link (cookie) y d
 
 test('el PANEL del partner (Tolt): visitas, negocios, lo ganado y lo que tiene a cobrar; el link y el código; sus cobros', () => {
   const p = fuente('app/partners/PanelPartner.tsx');
-  const kpis = ['Visitas a tu link', 'Negocios que trajiste', 'Ganaste', 'A cobrar'];
+  const kpis = ['Visitas a tu link', 'Negocios que trajiste', 'Te deja cada mes', 'A cobrar'];
   let ultimo = -1;
   for (const k of kpis) { const i = p.indexOf(`<span className="pp-kpi-etq">${k}</span>`); assert.ok(i > ultimo, k); ultimo = i; }
   assert.match(p, /<div className="pp-kpi destacado"><span className="pp-kpi-etq">A cobrar<\/span>/, 'lo que tiene a cobrar, destacado');
