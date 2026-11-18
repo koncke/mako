@@ -2500,4 +2500,28 @@ export const BITACORA: Hito[] = [
       'tests/pregunta-para-martin.test.ts (8) y tests/ops-center-por-tab.test.ts (6) — 28 roturas en rojo y una neutra en verde',
     ],
   },
+  {
+    fecha: '18 nov', hora: '09:00', chat: 'Ops Center', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la tanda de la nube del 18/11 (docs/pendientes-verificados-17-11.md, «Lo que falta construir»).',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '12:20', chat: 'Ops Center', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que la caja subió y nunca se firmó, y lo subido para leer, se borran de noche',
+    puntos: [
+      'F96: el cron /api/cron/limpieza-colgados borra lo de más de un día que nadie usó. Un adjunto de la caja, sólo si ningún trabajo firmado lo nombra (uno que espera en la cola con su chat cerrado queda).',
+      'Siguen abiertos, con su motivo en el informe al coordinador: el «⋯» de cada chat del cliente, el riel «Lo que hizo», retirar /api/mako-doer y derivar CARTERO_VIVO_MS.',
+    ],
+    commits: [{ sha: 'a31cad9e', msg: 'Admin y API de MaKo: sin clientes de prueba, uso por persona, y lo que quedaba colgado se cierra', lineas: 1040, archivos: 33 }],
+    archivos: [
+      'lib/operaciones-adjuntos.ts — barrerSubidasSinFirmar',
+      'lib/chat-leer-purga.ts — barrerLecturasSinLeer',
+      'lib/subidas-colgadas.ts — la regla, pura',
+      'app/api/cron/limpieza-colgados/route.ts — el cron (vercel.json)',
+    ],
+    revisar: '/admin/operaciones',
+  },
 ];

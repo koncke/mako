@@ -2888,7 +2888,8 @@ leer-archivo mira el tamaño y el tipo de lo que BAJÓ (en «subir-url» los dec
 (`feature: 'mako-chat'`, no «Importar al plan»). El cartel «Suelta para adjuntar» quedaba pegado si se soltaba sobre la caja (que
 corta la propagación): el panel lo apaga en `onDropCapture`. tests/chat-adjuntos-revision.test.ts.
 
-**Sin hacer:** lo subido para leer que nunca se lee (pestaña cerrada) queda en archivero/<ws>/chat-leer: no hay purga. La visión
+**Sin hacer:** ~~lo subido para leer que nunca se lee (pestaña cerrada) queda en archivero/<ws>/chat-leer: no hay purga.~~
+**Hecho el 18/11/2026** (F96): lo borra el cron /api/cron/limpieza-colgados a las 24 horas (lib/chat-leer-purga.ts). La visión
 de una foto va a la Gemini del negocio antes que a su GPT (lib/ai-cheap.ts, `VISION_CASCADE`): ya pasaba en producción con el
 chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `PROVS_SU_IA`.
 
