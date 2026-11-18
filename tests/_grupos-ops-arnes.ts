@@ -166,6 +166,11 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.pathname.endsWith('/audio/transcriptions')) return escena.escucha ? json(200, { text: escena.transcripcion, duration: 5 }) : json(500, { error: { message: 'se cayó' } });
   if (u.host === 'api.anthropic.com') {
     if (escena.clase == null) return json(500, { type: 'error', error: { type: 'api_error', message: 'Overloaded' } });
+    // El clasificador se reconoce por su system (`SYSTEM_DE_CLASE`); el TURNO con el crédito de los grupos da 400 y lo contesta la IA
+    // del negocio (su GPT), que es lo que miden estas escenas. Por el system y no por las herramientas: el turno con un invitado va
+    // sin ninguna. Hasta el 17/11/2026 el turno salía con el JSON de la clase y su GPT lo pisaba: ése era el bug de los tickets #108
+    // y #109 (lib/mako-doer-in.ts, el bucle de su IA ahora corta si Claude contestó).
+    if (!String(init.body ?? '').includes('Clasificas UN mensaje')) return json(400, { type: 'error', error: { type: 'invalid_request_error', message: 'en estas escenas el turno no lo contesta Claude' } });
     return json(200, { id: 'msg_1', type: 'message', role: 'assistant', model: 'claude', stop_reason: 'end_turn', content: [{ type: 'text', text: escena.clase }], usage: { input_tokens: 9, output_tokens: 9 } });
   }
   if (u.host === 'api.openai.com' && u.pathname.endsWith('/chat/completions')) {

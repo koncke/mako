@@ -137,3 +137,45 @@ export function campanasConocidas(
   }
   return ordenadas([...m.values()]);
 }
+
+// ── El costo por lead de cada campaña, con los leads de la MISMA ventana que el gasto (tickets #108 y #109, 17/11/2026) ──
+// «Decime el costo promedio de cada campaña» (Sellers, ws 24): la herramienta de campañas daba el gasto y los leads salían de otra
+// herramienta, con TODO el historial. El modelo dividía gasto de 30 días por leads de siempre, y la cuenta no la podía chequear
+// nadie. Ahora la herramienta trae los leads que entraron en esa ventana y el costo por lead ya hecho, en la moneda de la cuenta.
+// Y una campaña con leads y sin gasto (Rio Dulce X Mako: 10 leads, ningún gasto con ese id ni ese nombre) sale aparte, para que
+// MaKo diga «no hay gasto registrado» en vez de inventarle un costo.
+
+/** Un lead con la campaña que le resolvió el tablero (`origenAds`): `key` es el id de Meta, o `n:<nombre>` si sólo hay nombre. */
+export type LeadConCampana = { key: string | null; campana: string; entro: string | null };
+
+export type CostoPorLead = {
+  /** Los leads de la ventana de cada campaña con gasto, por su id de Meta. */
+  leadsPorId: Map<string, number>;
+  /** Las campañas con leads en la ventana y sin ningún gasto registrado, la que más trajo primero. */
+  sinGasto: Array<{ nombre: string; leads: number }>;
+};
+
+/**
+ * Cuántos leads de la ventana [desde, hasta] (AAAA-MM-DD, las dos incluidas) trajo cada campaña con gasto, y cuáles trajeron leads
+ * sin tener gasto. Un lead cuenta para una campaña por su id, o por el nombre si sólo quedó el nombre (`n:…`).
+ */
+export function costoPorLeadDeCampanas(
+  conGasto: ReadonlyArray<{ id: string; nombre: string }>,
+  leads: readonly LeadConCampana[],
+  desde: string,
+  hasta: string,
+): CostoPorLead {
+  const porNombre = new Map(conGasto.map((c) => [normCampana(c.nombre), c.id]));
+  const ids = new Set(conGasto.map((c) => c.id));
+  const leadsPorId = new Map<string, number>();
+  const sin = new Map<string, { nombre: string; leads: number }>();
+  for (const l of leads) {
+    if (!l.key || !l.entro || l.entro < desde || l.entro > hasta) continue;
+    const id = ids.has(l.key) ? l.key : l.key.startsWith('n:') ? porNombre.get(normCampana(l.key.slice(2))) : undefined;
+    if (id) { leadsPorId.set(id, (leadsPorId.get(id) ?? 0) + 1); continue; }
+    const nombre = l.campana.trim() || (l.key.startsWith('n:') ? l.key.slice(2) : `Campaña ${l.key}`);
+    const k = normCampana(nombre);
+    sin.set(k, { nombre: sin.get(k)?.nombre ?? nombre, leads: (sin.get(k)?.leads ?? 0) + 1 });
+  }
+  return { leadsPorId, sinGasto: [...sin.values()].sort((a, b) => b.leads - a.leads || a.nombre.localeCompare(b.nombre)) };
+}

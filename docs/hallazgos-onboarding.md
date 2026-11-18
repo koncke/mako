@@ -3,6 +3,21 @@
 El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-state.ts`) y
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
+
+## ⚠️ La maqueta del onboarding y la app real no tienen los mismos coaches (17/11/2026)
+
+Lo encontró el agente que reescribió los guiones de Offer Coach y Funnel Coach del reto (`docs/reto-7-dias/guiones-coaches-v2.md`).
+
+**La maqueta y los guiones** (decisiones del 16/11) tienen DOS coaches: Offer Coach y Funnel Coach, cada uno «inspirado en Alex Hormozi y
+otros referentes».
+
+**La app real** (origin/main del 17/11) es otra cosa:
+- Desde el 4/11 hay UN solo coach: Funnel Coach, que arma la oferta y el funnel (`lib/asesores/catalogo.ts:88-93`).
+- El «Inspirado en…» sale sólo en MaKo Pro (`useSoloPro(chat-referentes)`, `app/second-brain/useCoaches.ts:54-55`). Una persona en la prueba
+  gratis NO ve a Hormozi.
+
+**La regla:** antes de grabar un video del reto, se compara lo que muestra con la app real, no con la maqueta. Si no coinciden, decide
+Martín si cambia la app o cambia el video. Está pendiente, en el punto 2 de «Para que decida Martín» de ese documento.
 ## Lo que más muerde acá
 
 1. **El paso `productos` no existe en el estado y revienta en silencio** — el cliente que

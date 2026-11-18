@@ -31,6 +31,8 @@ import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
 import { monedaCuentaMeta } from '@/lib/moneda-meta';
 import { conversorDeGasto } from '@/lib/presupuesto-cambio';
+import { leadsConSuCampana } from '@/lib/leads-por-campana-server';
+import { costoPorLeadDeCampanas, type LeadConCampana } from '@/lib/leads-por-campana';
 import { getSecuenciasConStats, setSecuenciaActiva, validarActivacion, duplicadaDeLaActivacion, ritmoAlActivar, DuplicadaError, PasosInvalidosError, TopeDelPlanError } from '@/lib/nutricion';
 import { avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
@@ -372,7 +374,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
   },
   {
     name: 'listar_campanas_meta',
-    description: 'Lista las campañas de Meta Ads con datos sincronizados en los ÚLTIMOS 30 DÍAS: id, nombre y gasto de ESE período en la moneda de la cuenta publicitaria (el campo lleva su nombre: `gasto_usd`, `gasto_mxn`…) y, si la cuenta no cobra en dólares y hay tasa, su equivalente en USD a un tipo de cambio fijo del código. La respuesta trae la ventana de fechas exacta que cubre: no es el gasto histórico de la campaña. Úsala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
+    description: 'Lista las campañas de Meta Ads con datos sincronizados en los ÚLTIMOS 30 DÍAS: id, nombre y gasto de ESE período en la moneda de la cuenta publicitaria (el campo lleva su nombre: `gasto_usd`, `gasto_mxn`…) y, si la cuenta no cobra en dólares y hay tasa, su equivalente en USD a un tipo de cambio fijo del código. La respuesta trae la ventana de fechas exacta que cubre: no es el gasto histórico de la campaña. Trae también, por campaña, los leads del CRM que entraron en esa ventana y el COSTO POR LEAD ya calculado en la moneda de la cuenta (úsala para «cuánto me costó cada lead» o «el costo promedio de cada campaña»), y aparte las campañas con leads y sin gasto registrado. Úsala para conseguir el id de una campaña antes de proponer renombrarla, cambiar su presupuesto o pausarla/activarla.',
     input_schema: { type: 'object', properties: {} },
   },
   {
@@ -635,7 +637,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         const conv = conversorDeGasto(moneda);
         const campoGasto = moneda ? `gasto_${moneda.toLowerCase()}` : 'gasto_moneda_cuenta';
         const conUsd = moneda !== 'USD';
-        const { campanas, omitidas } = await runWithWorkspace(ws, async () => {
+        const { campanas, omitidas, sinGasto, avisoLeads } = await runWithWorkspace(ws, async () => {
           const db = await getTenantDb();
           const map = new Map<string, { id: string; nombre: string; gasto: number }>();
           await leerPorPaginas<{ campaign_id: string | null; campaign_name: string | null; spend: number | null }>(
@@ -652,20 +654,37 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
             { filtros: (q) => q.not('campaign_id', 'is', null).gte('fecha', desde).lte('fecha', hasta) },
           );
           const todas = [...map.values()].sort((a, b) => b.gasto - a.gasto);
+          // EL COSTO POR LEAD, YA HECHO Y CON LOS LEADS DE ESTA VENTANA (17/11/2026, tickets #108 y #109 de Sellers): el modelo
+          // dividía el gasto de 30 días por los leads de siempre, que salían de otra herramienta. Sin poder leer los leads, la
+          // herramienta sigue con el gasto y lo dice (`aviso_leads`).
+          const deLeads = await leadsConSuCampana().catch((e: unknown): { leads: LeadConCampana[]; aviso: string | null } => ({ leads: [], aviso: `los leads: ${e instanceof Error ? e.message : String(e)}` }));
+          const { leadsPorId, sinGasto } = costoPorLeadDeCampanas(todas, deLeads.leads, desde, hasta);
+          const campoCpl = moneda ? `costo_por_lead_${moneda.toLowerCase()}` : 'costo_por_lead_moneda_cuenta';
+          const enMoneda = (v: number, usd: boolean): number => (usd ? Math.round(v * 100) / 100 : Math.round(v));
           return {
             campanas: todas.slice(0, 40).map((c) => {
               const usd = conUsd ? conv.aUsd(c.gasto) : null;
+              const leads = deLeads.aviso && !deLeads.leads.length ? null : leadsPorId.get(c.id) ?? 0;
               return {
                 id: c.id,
                 nombre: c.nombre,
                 [campoGasto]: Math.round(c.gasto),
                 ...(usd != null ? { gasto_usd: Math.round(usd) } : {}),
+                ...(leads != null ? { leads } : {}),
+                ...(leads ? { [campoCpl]: enMoneda(c.gasto / leads, moneda === 'USD'), ...(usd != null ? { costo_por_lead_usd: enMoneda(usd / leads, true) } : {}) } : {}),
               };
             }),
             omitidas: Math.max(0, todas.length - 40),
+            sinGasto,
+            avisoLeads: deLeads.aviso,
           };
         });
         const ventana = { desde, hasta, dias: DIAS };
+        // Una campaña con leads y SIN gasto (Rio Dulce X Mako en el ws24): sin gasto no hay costo, y eso es lo que se dice.
+        const conLeadsSinGasto = sinGasto.length ? {
+          campanas_con_leads_sin_gasto: sinGasto.slice(0, 20),
+          nota_sin_gasto: `Estas campañas trajeron leads entre el ${desde} y el ${hasta}, pero no tienen gasto de Meta registrado con su id ni con su nombre en esa ventana. Para ellas di que no hay gasto registrado: no les calcules un costo por lead.`,
+        } : {};
         // Vacío NO es cero (misma regla que las `advertencias` del reporte de
         // métricas): con la ventana puesta, "no hay filas" puede ser "no corrió
         // nada" o "la sincronización está parada", y decir "no invirtió" es
@@ -675,6 +694,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
             ventana,
             campanas: [],
             nota: `No hay campañas de Meta con datos sincronizados entre el ${desde} y el ${hasta}. Eso NO significa que el negocio no haya invertido: puede que no haya corrido nada en estos ${DIAS} días, o que la sincronización esté parada. Dilo así y no des un cero por gasto.`,
+            ...conLeadsSinGasto,
           });
         }
         return JSON.stringify({
@@ -687,9 +707,11 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
                   tipo_cambio_usd_mxn: TIPO_DE_CAMBIO_USD_MXN,
                   nota: '`gasto_usd` es un DERIVADO con un tipo de cambio FIJO del código, no lo que cobró Meta. Si el monto en dólares importa de verdad, que lo verifiquen contra el resumen de facturación de Meta.',
                 }
-              : { gasto: moneda ? `${moneda} — la moneda de la cuenta publicitaria de Meta` : 'la moneda de la cuenta publicitaria (no se pudo saber cuál)', nota: 'No hay tipo de cambio para esta moneda: no conviertas el gasto por tu cuenta.' },
+              : { gasto: moneda ? `${moneda} — la moneda de la cuenta publicitaria de Meta` : 'la moneda de la cuenta publicitaria (no se pudo saber cuál)', nota: 'No hay tipo de cambio para esta moneda: no conviertas el gasto por tu cuenta. Un costo por lead o por resultado va en ESTA moneda (el gasto dividido por los leads); en dólares, no.' },
           campanas,
           ...(omitidas ? { campanas_omitidas: omitidas } : {}),
+          ...(avisoLeads ? { aviso_leads: `No pude leer todo lo de los leads (${avisoLeads}): un costo por lead puede faltar.` } : { nota_leads: '`leads` son los del CRM que entraron en la MISMA ventana desde esa campaña (por su id o su nombre), y el costo por lead es el gasto dividido por ellos, ya hecho y en la moneda de la cuenta: dalo tal cual. Con `leads: 0` no hay costo por lead.' }),
+          ...conLeadsSinGasto,
           instruccion: `Cuando digas un gasto, di SIEMPRE la moneda y el período ("X ${moneda ?? '(la moneda de la cuenta)'} entre el ${desde} y el ${hasta}"). Es el gasto de ESA ventana, no el histórico de la campaña.`,
         });
       }

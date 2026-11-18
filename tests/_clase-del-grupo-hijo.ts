@@ -53,7 +53,10 @@ const pg = crearPostgrest({
 /** Lo que hace la red en cada escena: la clase que contesta el clasificador (o que se cae), y lo que contesta el turno. */
 /** `herramienta` (29/10/2026, la llamada con Thiago): la PRIMERA llamada del turno pide esa herramienta (un `tool_call` de OpenAI) y la
  *  segunda contesta `respuesta`; así el turno real corre la herramienta del registro. */
-const escena: { clase: string; claseCaida: boolean; respuesta: string; herramienta?: { nombre: string; args: Record<string, unknown> } } = { clase: '', claseCaida: false, respuesta: '' };
+/** `turnoConClaude` (17/11/2026, tickets #108 y #109): el TURNO también lo contesta Claude con el crédito de los grupos, con
+ *  `respuesta`. Sin esto, el pedido del turno a Anthropic da un 400 y contesta la IA del negocio, su respaldo: es lo que miden las
+ *  escenas de siempre. Antes de este día el crédito contestaba el turno con el JSON de la clase y su GPT lo pisaba (el bug). */
+const escena: { clase: string; claseCaida: boolean; respuesta: string; herramienta?: { nombre: string; args: Record<string, unknown> }; turnoConClaude?: boolean } = { clase: '', claseCaida: false, respuesta: '' };
 let llamadasAlTurno = 0;
 const red: Array<{ host: string; camino: string; cuerpo: string; clave?: string }> = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
@@ -65,9 +68,12 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   // El clasificador: Claude con el crédito de los grupos.
   if (u.host === 'api.anthropic.com') {
     if (escena.claseCaida || new Headers(init.headers).get('x-api-key') !== CREDITO2) return r(500, { type: 'error', error: { type: 'api_error', message: 'Overloaded' } });
-    let modelo = '';
-    try { modelo = String(JSON.parse(String(init.body ?? '{}')).model ?? ''); } catch { /* sin cuerpo */ }
-    return r(200, { id: 'msg_1', type: 'message', role: 'assistant', model: modelo, stop_reason: 'end_turn', content: [{ type: 'text', text: escena.clase }], usage: { input_tokens: 900, output_tokens: 40 } });
+    let cuerpo: { model?: string } = {};
+    try { cuerpo = JSON.parse(String(init.body ?? '{}')) as typeof cuerpo; } catch { /* sin cuerpo */ }
+    // El clasificador se reconoce por su system (`SYSTEM_DE_CLASE`): lo demás es el turno (con un invitado, sin herramientas).
+    const esTurno = !String(init.body ?? '').includes('Clasificas UN mensaje');
+    if (esTurno && !escena.turnoConClaude) return r(400, { type: 'error', error: { type: 'invalid_request_error', message: 'en esta escena el turno no lo contesta Claude' } });
+    return r(200, { id: 'msg_1', type: 'message', role: 'assistant', model: String(cuerpo.model ?? ''), stop_reason: 'end_turn', content: [{ type: 'text', text: esTurno ? escena.respuesta : escena.clase }], usage: { input_tokens: 900, output_tokens: 40 } });
   }
   // El turno: la IA del negocio (su GPT).
   if (u.host === 'api.openai.com' && u.pathname.endsWith('/chat/completions')) {
@@ -122,7 +128,7 @@ async function main() {
   // Una hora reciente: lo que llega con más de 6 h de atraso no lo atiende MaKo sola (lib/linea-demora.ts, 10/11/2026).
   let ts = Math.floor(Date.now() / 1000) - 3600;
   const correr = async (k: string, e: Partial<typeof escena>, texto: string, { limpiar = true, jid = JID, antes, video = false, alt = ALT }: { limpiar?: boolean; jid?: string; antes?: () => void; video?: boolean; alt?: string } = {}) => {
-    Object.assign(escena, { clase: '', claseCaida: false, respuesta: '', herramienta: undefined }, e);
+    Object.assign(escena, { clase: '', claseCaida: false, respuesta: '', herramienta: undefined, turnoConClaude: false }, e);
     llamadasAlTurno = 0;
     red.splice(0);
     if (limpiar) { pg.db.mako_doer_conv.splice(0); pg.db.tickets.splice(0); }
@@ -163,6 +169,15 @@ async function main() {
     '¿cuántos leads entraron hoy? y el botón de pagar no anda');
   // Una PREGUNTA que afirma un número que no vio (ninguna herramienta lo devolvió): no sale.
   await correr('inventado', { clase: '{"clase":"PREGUNTA","resumen":"cuántos leads entraron hoy","reenviado":false}', respuesta: 'Hoy entraron 137 leads, 12 más que ayer.' },
+    '¿cuántos leads entraron hoy?');
+  // Los tickets #108 y #109 de Sellers (17/11/2026): una cuenta sobre los datos que vio SÍ sale (el costo por lead del #108)…
+  await correr('derivado', { clase: '{"clase":"PREGUNTA","resumen":"el costo por lead de la campaña","reenviado":false}', respuesta: 'Te costó ARS 5.059 cada lead.' },
+    '¿cuánto me costó cada lead si gasté 106249 pesos y entraron 21?');
+  // …y un ACUSE que vuelve a dar números sin respaldo pierde esas oraciones, sin «no lo vi» ni ticket (el «Bien hecho» del #109).
+  await correr('acuse', { clase: '{"clase":"CHARLA","resumen":"elogia la respuesta","reenviado":false}', respuesta: 'Gracias a ti. Captación quedó en 1.558 por lead. Cualquier cosa me dices.' },
+    'Bien hecho');
+  // Claude (el crédito de los grupos) contesta el turno: su IA, que es el respaldo, NO corre (la caída a flash-lite del ws24).
+  await correr('claudeContesta', { clase: '{"clase":"PREGUNTA","resumen":"cuántos leads entraron hoy","reenviado":false}', respuesta: 'Hoy no entró ningún lead nuevo.', turnoConClaude: true },
     '¿cuántos leads entraron hoy?');
   // ACCIÓN: el turno corre con las lecturas y las escrituras SIMPLES; si pregunta un dato que falta, sale su pregunta.
   await correr('accionPregunta', { clase: '{"clase":"ACCION","resumen":"Agendar una reunión con Juan el viernes","reenviado":false}', respuesta: '¿A qué hora la agendo?' },
