@@ -20,6 +20,54 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Seis pedidos chicos de la ficha y el tablero, cerrados (18/11/2026, `punta/crm-pedidos-chicos`)
+
+Los seis «chicos» que dejó la re-medición de los 61 pedidos de diseño (la entrada de abajo, O47). Cada uno con su test que
+ejecuta la lógica, probado rompiéndolo.
+
+- **«Anuncio de origen» en las plantillas, sin componente.** Cinco plantillas (Llamada con R1 y R2, Una llamada, Formulario de
+  Meta, Landing con opt-in, Venta Directa) lo ponían en Tracking y la ficha lo salteaba callada. *El diagnóstico obvio era
+  «enchufarle `Origen`»*, y no: `Origen` dibuja la campaña y el nombre del anuncio (y ya está en el Resumen), y este bloque es lo
+  que DICE el video (sus diseños son «tres líneas / texto completo»), que sale de `ad_transcripts` y la ficha no lo lee. Salió de
+  las plantillas y **se quedó en el catálogo**: sin él, `sanearFicha` tiraría el id de una ficha guardada. Una ficha guardada que
+  lo nombra sigue cargando sin él, y «Agregar bloque» no lo ofrece. Vive en `lib/ficha/plantillas.ts`;
+  `tests/ficha-anuncio-de-origen.test.ts`.
+- **Las etiquetas junto al nombre, en el teléfono.** `.cl-junto` era `flex:none`: el grupo medía su contenido en UN renglón y el
+  `flex-wrap` de adentro no se activaba nunca; la píldora «＋ Etiqueta» quedaba a 514 px con la caja terminando en 306 (360 px).
+  Con el grupo cediendo (`flex:0 1 auto; min-width:0; max-width:100%`) basta en Chrome; el `min-width:0` de cada pieza va por
+  WebKit (el iPhone), que no se midió. *Para medir layout en la nube:* Chrome sin ventana tiene un ancho mínimo de 500 px, así
+  que `--window-size=360` mide 500; se mide adentro de un contenedor de 360 de ancho. Vive en
+  `app/crm/lead-view/CabeceraLead.tsx`; `tests/lead-etiquetas-ceden.test.ts` (Chrome si lo hay, más la cascada en jsdom).
+- **La galería de una tab no se abría sola en un negocio nuevo.** Martín había pedido que una tab sin configurar mostrara los
+  templates y el «¿Qué vas a crear hoy?», con UNA excepción («los workspace que ya tienen leads»), y la excepción se volvió la regla
+  para todos (5863e9734). «Ya tienen leads» se tradujo a un hecho medible: **el negocio no tiene ningún lead anterior al
+  16/10/2026**, el día de la decisión (`negocioNuevoParaLaFicha`, una fila con LIMIT 1, y con la lectura caída `false`: el error
+  caro es abrírsela a un cliente de antes). Dos trampas: (1) a lo ancho de un teléfono la galería se esconde por CSS y, abierta, la
+  tab de abajo no se dibuja (`sinVistaPrevia`), así que abierta sola dejaba la tab EN BLANCO: `abreSola` mira `escritorio`; (2)
+  «Cerrar» es una PREFERENCIA del navegador (por funnel y tab) y nunca le gana a la DECISIÓN (una tab configurada). Vive en
+  `app/crm/lead-view/ficha/galeria.ts` (`abreSola`) y `lib/ficha/config-server.ts`; `tests/ficha-galeria-sola.test.ts`.
+- **«Insights» sin el aviso de qué falta.** El texto que pidió Martín el 03/07 («No es posible generar hasta que…») no existía, y
+  a un lead sin llamada la sección ni se dibujaba: `AnalystDelLead` la escondía «si no hay nada», que era exactamente el caso donde
+  vivía el aviso. Ahora va siempre, plegada, y el aviso sale de `avisoDeInsights` (primero los datos que faltan, después la llamada).
+  Vive en `app/crm/lead-view/insights-aviso.ts`; `tests/insights-aviso.test.ts`.
+- **El teléfono escribía lo que no hay.** Lo que en escritorio es un «—» editable, en el teléfono (que no edita) se había traducido a
+  «Sin setter», «Sin marcar», «Sin teléfono», más Llamar y WhatsApp grises con un toast. Martín, 22/10: «si no tiene ese dato, que no
+  lo muestre». La regla para el teléfono: **lo vacío no es una fila**. Y «Redes» repetía el @ que ya iba en el Contacto. Vive en
+  `app/m/crm/ficha-bloques.ts` (`filasDeContacto`, `accionesDeContacto`, `resumenDelTelefono`); `tests/m-ficha-bloques.test.ts` y
+  `tests/movil-crm-instagram.test.ts`.
+- **«Asignar fuentes» en un funnel de Prospección.** Martín, 12/10: «Prospección no tiene Meta por ningún lado». Desde el 14/11 las
+  fuentes son también los formularios de Web Generator, y en Prospección (el negocio escribe primero) tampoco van. Se esconde sólo
+  cuando el funnel está DECLARADO de Prospección (`ofreceAsignarFuentes`); sin tipo, o con la lectura caída, sigue. Vive en
+  `app/crm/menu-contextual-crm.ts` y `app/crm/page.tsx`; `tests/crm-fuentes-prospeccion.test.ts`.
+
+**La regla que queda:** una EXCEPCIÓN de Martín se escribe como una condición con su dato, nunca apagando la regla para todos; y
+lo que se esconde «si no hay nada» se mira antes de esconderlo: puede ser el único lugar donde vive el aviso de qué falta.
+
+**Lo que quedó SIN hacer:** el componente de «Anuncio de origen» (leer `ad_transcripts` por `adIdDeLead` en `getLeadFullAction`
+y dibujarlo: es una lectura y una pieza nuevas, no un chico); medir las etiquetas en un iPhone real; ver la ficha del teléfono a
+390 px en un aparato; y si «negocio nuevo» no es lo que Martín quiso decir con «los que ya tienen leads», es una constante
+(`FICHA_POR_BLOQUES_DESDE`).
+
 ## Traer los contactos de un grupo por el chat: con más de un funnel, el destino lo dice la persona (18/11/2026, O45)
 
 - **El síntoma:** por el chat de MaKo, «traé los contactos del grupo X» caía en «Prospección» o en el funnel principal sin preguntar,
@@ -12293,17 +12341,17 @@ y `lib/ficha` en el medio.
   no mueve la etapa (`resumen/reunion.tsx:65`); «Traer de otro funnel» sin etiquetas ni orden (`TraerDeOtroProducto.tsx:210`);
   nutrición sin «de qué etapa sale» (`EtapasModal.tsx:731`, `lib/etapas-crm-server.ts:408`); lote traído de un grupo sin «Deshacer»
   ni tope (`TraerDeGrupoWA.tsx`, `CrmBoard.tsx:3770`); `UnificarFichas` y `PersonalizarTarjetas` sin pie fijo.
-- *Menús y editor de funnel:* «Asignar fuentes» en la columna de entrada de un funnel de Prospección (`CrmBoard.tsx:2650`);
+- *Menús y editor de funnel:* ~~«Asignar fuentes» en la columna de entrada de un funnel de Prospección (`CrmBoard.tsx:2650`)~~ (hecho 18/11, `punta/crm-pedidos-chicos`);
   `EditorEtiquetas.tsx` sin montar; sin «Sugerido» en `PersonalizarTarjetas.tsx` y en los tipos de «Nuevo CRM»; clic derecho sin
   bloque en la ficha y sin nada en `/crm/revisar`.
-- *Ficha:* «Insights del lead» sin el aviso de qué falta (`GeneratedInsightCard.tsx:138`, `AnalystDelLead.tsx:42`); Notas sin la caja
-  de los chats (`NotasCard.tsx:257`); sin responder el DM (`resumen/charla.tsx:87`); «anuncio-de-origen» sin componente
-  (`lib/ficha/plantillas.ts:54`); video sin identificar (`ComportamientoCard.tsx:90`); etiquetas junto al nombre rotas en el teléfono
-  (`CabeceraLead.tsx:292`); galería que no se abre sola en un workspace nuevo (`FichaPorBloques.tsx:281`); datos elegibles en 7 bloques
+- *Ficha:* ~~«Insights del lead» sin el aviso de qué falta (`GeneratedInsightCard.tsx:138`, `AnalystDelLead.tsx:42`)~~ (hecho 18/11, `punta/crm-pedidos-chicos`); Notas sin la caja
+  de los chats (`NotasCard.tsx:257`); sin responder el DM (`resumen/charla.tsx:87`); ~~«anuncio-de-origen» sin componente
+  (`lib/ficha/plantillas.ts:54`)~~ (fuera de las plantillas el 18/11; su componente sigue por hacer); video sin identificar (`ComportamientoCard.tsx:90`); ~~etiquetas junto al nombre rotas en el teléfono
+  (`CabeceraLead.tsx:292`); galería que no se abre sola en un workspace nuevo (`FichaPorBloques.tsx:281`)~~ (hecho 18/11, `punta/crm-pedidos-chicos`); datos elegibles en 7 bloques
   de Pagos y Reuniones (`lib/ficha/catalogo.ts:232-343`); historial con tarjetas propias (`AuditHistory.tsx`); sin «Comentarios»
   (los comentarios van a Notas); sin «Unificar» en la API de MaKo.
 - *Teléfono:* hojas propias sin mostrar (`app/m/crm/ficha-bloques.ts:74`); la tarjeta no sigue la plantilla (`TableroCrm.tsx:240`);
-  «Sin teléfono», «Sin agendar», «Sin setter» (`app/m/crm/[id]/FichaLead.tsx:182-186`).
+  ~~«Sin teléfono», «Sin agendar», «Sin setter» (`app/m/crm/[id]/FichaLead.tsx:182-186`)~~ (hecho 18/11, `punta/crm-pedidos-chicos`).
 - *Necesitan a Martín, producción o un aparato:* Google Calendar en «Vincular evento» (`lib/agenda-evento-etapa.ts:36`); plantillas de
   Pagos más cortas (`lib/ficha/plantillas-pagos.ts:59`); «vino de otro funnel» y atribución por funnel (necesita migración);
   velocidad de «Vincular evento» (`agenda-evento-actions.ts:84`); arrastrar en un teléfono real; la cobertura de la extensión sobre
@@ -12313,7 +12361,8 @@ y `lib/ficha` en el medio.
 encabezado con los totales se reescribe en el mismo commit que cambia sus filas, o el número queda de decoración. Las filas de
 esta tabla ya traen la medición con fecha: la que se cierre desde acá se tacha en su celda, con el commit.
 
-**Chicas** (un archivo, sin pantalla nueva, para hacer después): `lib/ficha/plantillas.ts` (sacar o dibujar «anuncio-de-origen»),
+~~**Chicas** (un archivo, sin pantalla nueva, para hacer después): `lib/ficha/plantillas.ts` (sacar o dibujar «anuncio-de-origen»),
 `CabeceraLead.tsx:292` (`flex:none`), `FichaPorBloques.tsx:281` y `galeria.ts:11-15` (galería en un workspace nuevo),
 `GeneratedInsightCard.tsx`/`AnalystDelLead.tsx` (el aviso de qué falta), `app/m/crm/[id]/FichaLead.tsx` y `ficha-bloques.ts` (los
-rótulos de «Sin…»), `menu-contextual-crm.ts` + `CrmBoard.tsx:2650` (sin «Asignar fuentes» en Prospección).
+rótulos de «Sin…»), `menu-contextual-crm.ts` + `CrmBoard.tsx:2650` (sin «Asignar fuentes» en Prospección).~~ **Hechas las seis el 18/11/2026**
+(`punta/crm-pedidos-chicos`): ver «Seis pedidos chicos de la ficha y el tablero», arriba de todo.
