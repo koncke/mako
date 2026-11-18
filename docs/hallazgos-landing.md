@@ -7479,3 +7479,17 @@ Martín: «Me gusta la misma… solamente calculado a esto». Era la misma landi
 - `tests/mako-partners-landing.test.ts` falla si «el primer mes entero» aparece en una pantalla nueva de app/ o lib/. Las que lo
   dicen todavía y no son del Sitio están en una lista con su dueño: Cobros (app/partners/*, app/m/partners/*, lib/partners-*) y
   los tutoriales (lib/tutoriales/partners.ts).
+
+## La calculadora de Partners, ronda tras ronda (18/11/2026): lo que conviene saber antes de tocarla
+
+- **Una animación de entrada que arranca en opacidad 0 puede dejar el botón vacío.** El texto de los botones que alternan entraba con
+  `opacity: 0 → 1`. Si el navegador frena la animación (una pestaña de fondo, una captura justo al montar), el botón se ve vacío.
+  Ahora la transición corre sólo al tocar (`.mp-calc-alt-tx.entra`): al cargar, el texto está quieto.
+- **Medir si el texto entra ANTES de diseñar.** En medio recuadro (205 px en la PC, 146 px a 375) con el mini interruptor al lado
+  quedan unos 145 y 90 px. «MaKo Essential · US$ 47» no entraba en ningún ancho y «Transferencia» a 15 px no entra a 375: por
+  eso el plan dice «MaKo: US$ 97» y, en el teléfono, el mini interruptor va arriba. La letra sigue el ancho del botón
+  (`container-type: inline-size` + `cqi`), con un piso: 15 px.
+- **Medir todas las combinaciones, no el arranque.** El monto más largo no es el de arranque («US$ 1.367,70 al mes» con 47
+  negocios): la prueba recorre de 1 a 100 negocios × plan × forma de pago y mira que nada se salga.
+- **Un `str.replace` que no encuentra el texto no avisa.** Un comentario de la versión 57 no entró porque el script usó
+  `replace` sin verificar: en los scripts de edición, cada reemplazo con `assert s.count(a) == 1`, y convirtiendo CRLF antes.

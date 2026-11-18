@@ -38,8 +38,10 @@ export const NEGOCIOS_DE_ARRANQUE = 5;
 // ~2 s hasta que tocan ESE botón; y el plan en una línea, «MaKo Pro: US$ 97». En el teléfono «Pro: US$ 97» no entra al lado del mini
 // interruptor con letra de 13 px en medio recuadro: ahí el mini interruptor va arriba a la derecha y el texto, en una línea, abajo.
 
-/** Una opción de un botón que alterna: lo que dice en la computadora y en el teléfono. */
-type Opcion<T extends string> = { id: T; texto: string; corto: string };
+/** Una opción de un botón que alterna: lo que dice en la computadora y en el teléfono, y (si hace falta) el nombre completo para el
+ *  lector de pantalla. El plan dice «MaKo: US$ 97» (Martín, 18/11/2026: «simplemente MaKo US$ 97 o MaKo US$ 47 porque se queda muy
+ *  largo»), pero el lector de pantalla oye «MaKo Pro, US$ 97». */
+type Opcion<T extends string> = { id: T; texto: string; corto: string; completo?: string };
 
 /** Cómo te pagan: el texto simple, sin el porcentaje (Martín: «transferencia o pasarela de pago. Simple»). */
 const CANALES: readonly [Opcion<CanalDelPago>, Opcion<CanalDelPago>] = [
@@ -60,7 +62,8 @@ function Alternar<T extends string>({ opciones: [a, b], valor, cambiar, etiqueta
   const [tocado, setTocado] = useState(false);
   return (
     <button type="button" className={`mp-calc-alt${tocado ? ' tocado' : ''}${actual === b ? ' der' : ''}`}
-      onClick={() => { setTocado(true); cambiar(otra.id); }} aria-label={`${etiqueta}: ${actual.texto}. Cambiar a ${otra.texto}`}>
+      onClick={() => { setTocado(true); cambiar(otra.id); }}
+      aria-label={`${etiqueta}: ${actual.completo ?? actual.texto}. Cambiar a ${otra.completo ?? otra.texto}`}>
       <span className={`mp-calc-alt-tx${tocado ? ' entra' : ''}`} key={actual.id}>
         <span className="mp-calc-alt-largo">{actual.texto}</span><span className="mp-calc-alt-corto">{actual.corto}</span>
       </span>
@@ -102,7 +105,7 @@ export function Calculadora({ planes, children }: {
   const porMes = useCorre(plan ? gananciaPorMes(n, plan.precioUsd, canal) : 0);
   if (!plan) return null;
   const opcionesPlan = planes.slice(0, 2).map((p) => ({
-    id: p.id, texto: `${p.nombre}: ${usd(p.precioUsd)}`, corto: `${p.nombre.replace(/^MaKo\s+/, '')}: ${usd(p.precioUsd)}`,
+    id: p.id, texto: `MaKo: ${usd(p.precioUsd)}`, corto: `MaKo: ${usd(p.precioUsd)}`, completo: `${p.nombre}, ${usd(p.precioUsd)}`,
   }));
   return (
     <div className="mp-calc" id="calculadora" aria-label="Calculadora de lo que ganas">

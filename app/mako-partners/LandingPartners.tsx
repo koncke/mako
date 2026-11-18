@@ -98,8 +98,9 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-calc-alt:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 3px; }
 .mp-calc-alt-tx { display: flex; min-width: 0; }
 .mp-calc-alt-tx.entra { animation: mp-cambia .22s ease; }
-/* Una línea: la letra sigue el ancho del botón y nunca baja de 13 px. */
-.mp-calc-alt-largo, .mp-calc-alt-corto { font-size: clamp(13px, calc((100cqi - 44px) / 11.2), 15px); font-weight: 800; line-height: 1.2; white-space: nowrap; }
+/* Una línea, grande y en semibold (Martín: «deben ser más grandes porque no se ven»): 17–18 px en la computadora, siguiendo el ancho
+   del botón para que «Pasarela de pago» entre al lado del mini interruptor. */
+.mp-calc-alt-largo, .mp-calc-alt-corto { font-size: clamp(15px, calc((100cqi - 36px) / 8.2), 18px); font-weight: 600; line-height: 1.2; white-space: nowrap; }
 .mp-calc-alt-corto { display: none; }
 /* El mini interruptor: una pista de 28 × 16 con su bolita; a la derecha cuando está la segunda opción. */
 .mp-calc-mini { position: relative; flex: none; width: 28px; height: 16px; border-radius: 999px; background: rgba(255,255,255,.3); box-shadow: inset 0 0 0 1px rgba(255,255,255,.45); }
@@ -111,14 +112,14 @@ body:has(.mp-publica) { background: #FFFFFF; }
   25% { transform: scale(1.15); box-shadow: inset 0 0 0 1px rgba(255,255,255,.6), 0 0 0 6px rgba(255,255,255,0); } }
 .mp-calc-alt:not(.tocado) .mp-calc-mini { animation: mp-late 2s ease-in-out .6s infinite; }
 @media (prefers-reduced-motion: reduce) { .mp-calc-alt, .mp-calc-alt-tx.entra, .mp-calc-mini, .mp-calc-mini-bola { transition: none; animation: none !important; } }
-/* En el teléfono, los nombres cortos («Pro: US$ 97») en una línea de 13 px o más; para que entren, el mini interruptor va arriba a la
-   derecha y el texto abajo, a todo el ancho del botón. */
+/* En el teléfono, 15–16 px. «Transferencia» a 15 px no entra al lado del mini interruptor en medio recuadro de 375: el mini
+   interruptor va arriba a la derecha y el texto abajo, a todo el ancho del botón. */
 @media (max-width: 479px) {
   .mp-calc-alts { gap: 8px; }
   .mp-calc-alt { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 8px 10px; }
   .mp-calc-mini { order: -1; justify-self: end; }
   .mp-calc-alt-largo { display: none; }
-  .mp-calc-alt-corto { display: inline; font-size: clamp(13px, calc(100cqi / 8.6), 15px); }
+  .mp-calc-alt-corto { display: inline; font-size: clamp(15px, calc(100cqi / 8), 16px); }
 }
 .mp-calc-res { margin: 18px 0 22px; container-type: inline-size; }
 /* El precio en UNA línea con «al mes» al final, más chico; la letra sigue el ancho del recuadro (cqi) para que el monto más largo
