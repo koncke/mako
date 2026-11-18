@@ -392,6 +392,337 @@
    "hecho": "2026-11-18T13:46:34.689Z"
   },
   {
+   "key": "reto-dia-2",
+   "pestana": "Reto · Día 2: conecta todo",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-2.mp4",
+   "poster": "/tutoriales/reto-dia-2.jpg",
+   "duracion_s": 37.77,
+   "peso_kb": 1368,
+   "guion": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso. Primero, MaKo en tu teléfono: escaneas un QR, y los avisos de tu negocio te llegan al instante. Después, la extensión para Chrome, para tener a MaKo a mano mientras navegas. En Integraciones conectas sólo lo que necesita tu funnel, y al final, tu perfil y tu foto. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+   "frases": [
+    {
+     "id": "reto-dia-2-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso.",
+     "t_inicio": 0.04,
+     "t_fin": 5.22
+    },
+    {
+     "id": "reto-dia-2-2",
+     "rol": "que-es",
+     "texto": "Primero, MaKo en tu teléfono: escaneas un QR, y los avisos de tu negocio te llegan al instante.",
+     "t_inicio": 5.82,
+     "t_fin": 12
+    },
+    {
+     "id": "reto-dia-2-3",
+     "rol": "cosa",
+     "texto": "Después, la extensión para Chrome, para tener a MaKo a mano mientras navegas.",
+     "t_inicio": 12.58,
+     "t_fin": 16.48
+    },
+    {
+     "id": "reto-dia-2-4",
+     "rol": "cosa",
+     "texto": "En Integraciones conectas sólo lo que necesita tu funnel, y al final, tu perfil y tu foto.",
+     "t_inicio": 17,
+     "t_fin": 22.58
+    },
+    {
+     "id": "reto-dia-2-5",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 23.28,
+     "t_fin": 28.16
+    },
+    {
+     "id": "reto-dia-2-6",
+     "rol": "cierre",
+     "texto": "Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+     "t_inicio": 28.8,
+     "t_fin": 37.06,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "2 → dos (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:53:17.225Z"
+  },
+  {
+   "key": "reto-dia-3",
+   "pestana": "Reto · Día 3: tus contactos",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-3.mp4",
+   "poster": "/tutoriales/reto-dia-3.jpg",
+   "duracion_s": 27.13,
+   "peso_kb": 1522,
+   "guion": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda. Cargas tus clientes en el CRM, con un CSV o integrando el CRM que ya usas. Y conectas tu calendario: las llamadas que agenden caen en tu agenda. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
+   "frases": [
+    {
+     "id": "reto-dia-3-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda.",
+     "t_inicio": 0.04,
+     "t_fin": 4.92
+    },
+    {
+     "id": "reto-dia-3-2",
+     "rol": "que-es",
+     "texto": "Cargas tus clientes en el CRM, con un CSV o integrando el CRM que ya usas.",
+     "t_inicio": 5.48,
+     "t_fin": 10.72
+    },
+    {
+     "id": "reto-dia-3-3",
+     "rol": "cosa",
+     "texto": "Y conectas tu calendario: las llamadas que agenden caen en tu agenda.",
+     "t_inicio": 11.26,
+     "t_fin": 15.28
+    },
+    {
+     "id": "reto-dia-3-4",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 15.94,
+     "t_fin": 20.78
+    },
+    {
+     "id": "reto-dia-3-5",
+     "rol": "cierre",
+     "texto": "Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
+     "t_inicio": 21.32,
+     "t_fin": 26.44,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "3 → tres · mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:54:13.163Z"
+  },
+  {
+   "key": "reto-dia-4",
+   "pestana": "Reto · Día 4: copia lo que le funciona a tu competencia",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-4.mp4",
+   "poster": "/tutoriales/reto-dia-4.jpg",
+   "duracion_s": 28.9,
+   "peso_kb": 1395,
+   "guion": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia. En Competitor Spy agregas a tres competidores y miras lo que más tiempo llevan activo: si sigue activo, es porque vende. Después, en Web Generator pegas una página que ya vende, y la arma con tu oferta. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
+   "frases": [
+    {
+     "id": "reto-dia-4-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia.",
+     "t_inicio": 0.06,
+     "t_fin": 5.48
+    },
+    {
+     "id": "reto-dia-4-2",
+     "rol": "que-es",
+     "texto": "En Competitor Spy agregas a tres competidores y miras lo que más tiempo llevan activo: si sigue activo, es porque vende.",
+     "t_inicio": 6.1,
+     "t_fin": 13.22
+    },
+    {
+     "id": "reto-dia-4-3",
+     "rol": "cosa",
+     "texto": "Después, en Web Generator pegas una página que ya vende, y la arma con tu oferta.",
+     "t_inicio": 13.78,
+     "t_fin": 18.7
+    },
+    {
+     "id": "reto-dia-4-4",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 19.32,
+     "t_fin": 24.12
+    },
+    {
+     "id": "reto-dia-4-5",
+     "rol": "cierre",
+     "texto": "Y por WhatsApp, pregúntale a MaKo qué le está funcionando a tu competencia.",
+     "t_inicio": 24.44,
+     "t_fin": 28.2,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "4 → cuatro (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:55:15.713Z"
+  },
+  {
+   "key": "reto-dia-5",
+   "pestana": "Reto · Día 5: tu carrusel y tu guion",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-5.mp4",
+   "poster": "/tutoriales/reto-dia-5.jpg",
+   "duracion_s": 24.8,
+   "peso_kb": 1363,
+   "guion": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco. En Ímich replicas un carrusel que ya funcionó, con tu oferta. Y en Copywriting escribes tu guion replicando a tu referente. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
+   "frases": [
+    {
+     "id": "reto-dia-5-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco.",
+     "t_inicio": 0.04,
+     "t_fin": 6.02
+    },
+    {
+     "id": "reto-dia-5-2",
+     "rol": "que-es",
+     "texto": "En Image replicas un carrusel que ya funcionó, con tu oferta.",
+     "t_inicio": 6.62,
+     "t_fin": 10.22
+    },
+    {
+     "id": "reto-dia-5-3",
+     "rol": "cosa",
+     "texto": "Y en Copywriting escribes tu guion replicando a tu referente.",
+     "t_inicio": 10.74,
+     "t_fin": 14.12
+    },
+    {
+     "id": "reto-dia-5-4",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 14.74,
+     "t_fin": 19.4
+    },
+    {
+     "id": "reto-dia-5-5",
+     "rol": "cierre",
+     "texto": "Y por WhatsApp, mándale a MaKo un audio con la idea de tu guion: te lo escribe.",
+     "t_inicio": 19.92,
+     "t_fin": 24.1,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "5 → cinco · imich → image · mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:56:07.040Z"
+  },
+  {
+   "key": "reto-dia-6",
+   "pestana": "Reto · Día 6: tu video con IA",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-6.mp4",
+   "poster": "/tutoriales/reto-dia-6.jpg",
+   "duracion_s": 26,
+   "peso_kb": 1488,
+   "guion": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte. En Video, dentro de AI Avatar, armas tu personaje con una foto tuya. Y el clip de 10 segundos va de regalo, con el gancho del guion que escribiste ayer. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
+   "frases": [
+    {
+     "id": "reto-dia-6-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte.",
+     "t_inicio": 0.04,
+     "t_fin": 5.52
+    },
+    {
+     "id": "reto-dia-6-2",
+     "rol": "que-es",
+     "texto": "En Video, dentro de AI Avatar, armas tu personaje con una foto tuya.",
+     "t_inicio": 6.12,
+     "t_fin": 10.76
+    },
+    {
+     "id": "reto-dia-6-3",
+     "rol": "cosa",
+     "texto": "Y el clip de 10 segundos va de regalo, con el gancho del guion que escribiste ayer.",
+     "t_inicio": 11.2,
+     "t_fin": 15.28
+    },
+    {
+     "id": "reto-dia-6-4",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 16,
+     "t_fin": 20.62
+    },
+    {
+     "id": "reto-dia-6-5",
+     "rol": "cierre",
+     "texto": "Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
+     "t_inicio": 21.22,
+     "t_fin": 25.3,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "6 → seis · 10 → diez (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:57:01.183Z"
+  },
+  {
+   "key": "reto-dia-7",
+   "pestana": "Reto · Día 7: tu Marketing CoPilot",
+   "ruta": "/second-brain?reto=1",
+   "archivo": "/tutoriales/reto-dia-7.mp4",
+   "poster": "/tutoriales/reto-dia-7.jpg",
+   "duracion_s": 22.2,
+   "peso_kb": 1250,
+   "guion": "Te doy la bienvenida al día 7, el último del reto. Hoy tu Marketing CoPilot revisa todo lo que armaste: tu oferta, tu página y tu contenido. Y te deja las tareas de cada semana en tu Plan. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
+   "frases": [
+    {
+     "id": "reto-dia-7-1",
+     "rol": "gancho",
+     "texto": "Te doy la bienvenida al día 7, el último del reto.",
+     "t_inicio": 0.04,
+     "t_fin": 3.68
+    },
+    {
+     "id": "reto-dia-7-2",
+     "rol": "que-es",
+     "texto": "Hoy tu Marketing CoPilot revisa todo lo que armaste: tu oferta, tu página y tu contenido.",
+     "t_inicio": 4.2,
+     "t_fin": 9.94
+    },
+    {
+     "id": "reto-dia-7-3",
+     "rol": "cosa",
+     "texto": "Y te deja las tareas de cada semana en tu Plan.",
+     "t_inicio": 10.44,
+     "t_fin": 12.6
+    },
+    {
+     "id": "reto-dia-7-4",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 13.16,
+     "t_fin": 17.94
+    },
+    {
+     "id": "reto-dia-7-5",
+     "rol": "cierre",
+     "texto": "Y mándale a MaKo un audio por WhatsApp con cómo te fue en el reto.",
+     "t_inicio": 18.44,
+     "t_fin": 21.5,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "7 → siete (ortografía del transcriptor)",
+   "hecho": "2026-11-18T13:57:47.749Z"
+  },
+  {
    "key": "ops-center",
    "pestana": "Ops Center",
    "ruta": "/second-brain",
