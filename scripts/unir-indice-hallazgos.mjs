@@ -46,14 +46,27 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-/** Una fila de la tabla del índice: `| Área | [doc](doc.md) | lo que cubre |`. La clave son las DOS primeras celdas. */
+// =============================================================================
+// La clave de una fila es su DOCUMENTO, no «Área + documento» (18/11/2026, F53)
+// =============================================================================
+// Hasta el 18/11 la clave eran las dos primeras celdas. Ese día, a las 04:53, P21 (9a813a3d25) dejó la tabla en 64 filas
+// para 64 documentos renombrando las áreas («Image Editor» ×3 → «Editor de imagen», «Carruseles (la biblioteca de
+// ejemplos)» → dentro de «Carruseles»). Dos horas después main tenía **89 filas para 64 documentos**: cada punta cortada
+// antes de P21 traía las filas con el rótulo VIEJO, y para el driver «Image Editor|hallazgos-editor-imagen.md» era otra
+// área que la de main, así que la conservaba. La consolidación de P21 se deshacía sola con cada mezcla.
+// Con la clave en el documento, la fila del rótulo viejo y la de main son la MISMA: se unen por entrada y queda el rótulo
+// de main. Lo fija tests/unir-indice-hallazgos.test.ts («el rótulo viejo de una punta…» y el índice en disco).
+/** El documento al que manda la 2.ª celda (`[x.md](x.md)`), sin espacios: es la clave de la fila. */
+const claveDeDocumento = (celda) => celda.trim();
+
+/** Una fila de la tabla del índice: `| Área | [doc](doc.md) | lo que cubre |`. La clave es el DOCUMENTO (2.ª celda). */
 export function filaDelIndice(linea) {
   if (!linea.startsWith('|')) return null;
   const celdas = linea.split('|');
   // `| a | b | c |` parte en ['', ' a ', ' b ', ' c ', '']: hacen falta al menos tres celdas de contenido.
   if (celdas.length < 5) return null;
   if (!/\]\(hallazgos[-.]/.test(celdas[2] ?? '')) return null; // la 2.ª celda es el link al documento del área
-  const clave = `${celdas[1].trim()}|${celdas[2].trim()}`;
+  const clave = claveDeDocumento(celdas[2]);
   return { clave, celda: celdas.slice(3, -1).join('|'), cola: celdas[celdas.length - 1] };
 }
 
@@ -163,38 +176,83 @@ export function unirCeldas(celdas) {
 }
 
 /**
- * Deja UNA fila por área, uniendo las celdas. La fila queda donde estaba la primera.
+ * Deja UNA fila por documento, uniendo las celdas. La fila queda donde estaba la primera.
  * @param {string[]} lineas
+ * @param {Map<string, string> | null} [rotulos]
  * @returns {{ lineas: string[], juntadas: number }}
  */
-export function unaFilaPorClave(lineas) {
+export function unaFilaPorClave(lineas, rotulos = null) {
+  // `rotulos` (documento → la 1.ª celda tal cual): el rótulo que tiene MAIN para ese documento. En una mezcla limpia las
+  // filas viejas vuelven en su lugar de antes, a veces ARRIBA de la de main, y «el rótulo de la primera» elegía el viejo
+  // (medido el 18/11: 12 de los 25 documentos juntados quedaban con el rótulo que P21 había sacado).
+  // ⚠️ Dentro de la tabla principal cuenta TODA fila, también la que manda a un documento que no es `hallazgos-*.md`
+  // (`recorrido-visual-30-10.md`, `proveedores-de-cobro.md`…): el 18/11 cuatro de esos también tenían dos filas, y
+  // `filaDelIndice` no las veía. Fuera de esa tabla no se toca nada. Sin encabezado (un pedazo suelto), la regla de antes.
+  const enTabla = filasDeLaTablaPrincipal(lineas);
+  const fila = (l, i) => (enTabla ? (enTabla.has(i) ? filaDeLaTabla(l) : null) : filaDelIndice(l));
   const porClave = new Map();
-  for (const l of lineas) {
-    const f = filaDelIndice(l);
-    if (!f) continue;
+  lineas.forEach((l, i) => {
+    const f = fila(l, i);
+    if (!f) return;
     if (!porClave.has(f.clave)) porClave.set(f.clave, []);
-    porClave.get(f.clave).push(l);
-  }
+    porClave.get(f.clave).push({ l, f });
+  });
   const unido = new Map();
   for (const [clave, filas] of porClave) {
     if (filas.length < 2) continue;
-    const texto = unirCeldas(filas.map((l) => filaDelIndice(l).celda));
+    const texto = unirCeldas(filas.map((x) => x.f.celda));
     if (texto == null) continue; // no se pudo verificar: quedan las dos y lo mira una persona
-    const c = filas[0].split('|');
-    unido.set(clave, `|${c[1]}|${c[2]}| ${texto} |`);
+    const c = filas[0].l.split('|');
+    unido.set(clave, `|${rotulos?.get(clave) ?? c[1]}|${c[2]}| ${texto} |`); // sin el de main, el de la primera
   }
   if (!unido.size) return { lineas, juntadas: 0 };
   const hechas = new Set();
   const out = [];
   let juntadas = 0;
-  for (const l of lineas) {
-    const f = filaDelIndice(l);
-    if (!f || !unido.has(f.clave)) { out.push(l); continue; }
-    if (hechas.has(f.clave)) { juntadas++; continue; }
+  lineas.forEach((l, i) => {
+    const f = fila(l, i);
+    if (!f || !unido.has(f.clave)) { out.push(l); return; }
+    if (hechas.has(f.clave)) { juntadas++; return; }
     hechas.add(f.clave);
     out.push(unido.get(f.clave));
-  }
+  });
   return { lineas: out, juntadas };
+}
+
+/**
+ * El rótulo de cada documento en un índice (el de MAIN, en el driver): documento → la 1.ª celda tal cual.
+ * @param {string} texto
+ * @returns {Map<string, string>}
+ */
+export function rotulosDelIndice(texto) {
+  const lineas = texto.replace(/\r\n/g, '\n').split('\n');
+  const enTabla = filasDeLaTablaPrincipal(lineas);
+  const out = new Map();
+  if (!enTabla) return out;
+  for (const i of enTabla) {
+    const f = filaDeLaTabla(lineas[i]);
+    if (f && !out.has(f.clave)) out.set(f.clave, f.c1);
+  }
+  return out;
+}
+
+/**
+ * Los renglones de la tabla principal (`| Área | Documento | Qué cubre |`), o null si el texto no la tiene.
+ * @param {string[]} lineas
+ * @returns {Set<number> | null}
+ */
+function filasDeLaTablaPrincipal(lineas) {
+  const enc = lineas.findIndex((l) => PARTIR_ENCABEZADO.test(l));
+  if (enc < 0) return null;
+  const out = new Set();
+  let i = enc + 1;
+  if (ES_SEPARADOR(lineas[i] ?? '')) i++;
+  for (; i < lineas.length; i++) {
+    if (filaDeLaTabla(lineas[i])) { out.add(i); continue; }
+    if (lineas[i].trim() === '') continue; // la línea en blanco suelta era daño del `union`: el tramo sigue
+    break;
+  }
+  return out;
 }
 
 // =============================================================================
@@ -227,7 +285,7 @@ function filaDeLaTabla(linea) {
   const celdas = linea.split('|');
   if (celdas.length < 4) return null;
   const cuerpo = celdas.slice(3).join('|').replace(/\s*\|\s*$/, '');
-  return { clave: `${celdas[1].trim()}|${celdas[2].trim()}`, c1: celdas[1], c2: celdas[2], celda: cuerpo };
+  return { clave: claveDeDocumento(celdas[2]), c1: celdas[1], c2: celdas[2], celda: cuerpo };
 }
 
 /** Parte el índice en lo de antes de la tabla, sus FILAS y lo de después. null si no se reconoce la forma. */
@@ -342,7 +400,7 @@ export function unirPorCelda(base, ours, theirs) {
     const celda = `${pt}${pa}${fb.celda}`; // primero lo que ya llegó a main, después lo de la punta
     out.push(`|${B[i].split('|')[1]}|${B[i].split('|')[2]}|${celda}|${fb.cola}`);
   }
-  return unaFilaPorClave(out).lineas.join(eol);
+  return unaFilaPorClave(out, rotulosDelIndice(theirs)).lineas.join(eol);
 }
 
 /** `--consolidar <archivo> [--aplicar]`: deja UNA fila por área, uniendo las celdas sin perder una entrada. */
@@ -352,18 +410,20 @@ function consolidar(args) {
   const texto = readFileSync(archivo, 'utf8');
   const eol = texto.includes('\r\n') ? '\r\n' : '\n';
   const { lineas, juntadas } = unaFilaPorClave(texto.replace(/\r\n/g, '\n').split('\n'));
-  const filas = lineas.filter((l) => filaDelIndice(l)).length;
-  const claves = new Set(lineas.map((l) => filaDelIndice(l)?.clave).filter(Boolean)).size;
+  const enTabla = filasDeLaTablaPrincipal(lineas);
+  const deLaTabla = enTabla ? [...enTabla].map((i) => filaDeLaTabla(lineas[i])) : lineas.map((l) => filaDelIndice(l)).filter(Boolean);
+  const filas = deLaTabla.length;
+  const claves = new Set(deLaTabla.map((f) => f.clave)).size;
   const quedan = filas - claves;
   const aviso = quedan ? ` ⚠️ Quedan ${quedan} fila(s) de más que NO se pudieron verificar: se juntan a mano.` : '';
-  if (!juntadas) { console.log(`${archivo}: ${filas} filas para ${claves} área(s), nada que juntar.${aviso}`); return 0; }
+  if (!juntadas) { console.log(`${archivo}: ${filas} filas para ${claves} documento(s), nada que juntar.${aviso}`); return 0; }
   if (!args.includes('--aplicar')) {
     // `filas` ya es la cuenta de DESPUÉS: `lineas` viene unido. Restarle `juntadas` contaría dos veces.
     console.log(`${archivo}: juntaría ${juntadas} fila(s) y quedarían ${filas}. Con --aplicar se escribe.${aviso}`);
     return 0;
   }
   writeFileSync(archivo, lineas.join(eol));
-  console.log(`${archivo}: junté ${juntadas} fila(s); quedaron ${filas} para ${claves} área(s).${aviso}`);
+  console.log(`${archivo}: junté ${juntadas} fila(s); quedaron ${filas} para ${claves} documento(s).${aviso}`);
   return 0;
 }
 
@@ -375,7 +435,7 @@ function driver([base, ours, theirs, ruta = ours]) {
     const eol = m.stdout.includes('\r\n') ? '\r\n' : '\n';
     // ⚠️ Una mezcla LIMPIA puede dejar filas de más: una punta cortada antes de que main tuviera una fila por área trae
     // las viejas, y «un lado borró, el otro conservó» se resuelve conservando. Así que acá también se junta por área.
-    const { lineas, juntadas } = unaFilaPorClave(m.stdout.replace(/\r\n/g, '\n').split('\n'));
+    const { lineas, juntadas } = unaFilaPorClave(m.stdout.replace(/\r\n/g, '\n').split('\n'), rotulosDelIndice(texto(theirs)));
     writeFileSync(ours, lineas.join(eol));
     if (juntadas) console.error(`[unir-indice-hallazgos] ${ruta}: mezcla limpia, y junté ${juntadas} fila(s) de la misma área.`);
     return 0;

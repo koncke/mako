@@ -32,6 +32,12 @@
 //   ⚠️ La red de `unirCeldas` (si una entrada no sobrevive textual, no se junta) NO la mueve ningún test: con el corte
 //   en `**Título (fecha)**:` cada entrada se emite entera, así que no se la pudo hacer fallar. Queda como seguro de un
 //   cambio futuro del corte, no como algo probado.
+// Y la clave por DOCUMENTO (18/11/2026, F53): P21 dejó 64 filas para 64 documentos y en dos horas las mezclas lo
+// devolvieron a 89, porque una punta cortada antes traía las filas con el rótulo viejo y la clave era «Área + documento».
+// PROBADO ROMPIÉNDOLO (base 17 / 0). Pasan / fallan:
+//   · la clave otra vez «Área|documento» en filaDelIndice y filaDeLaTabla     → 12 / 5
+//   · `unaFilaPorClave` sin los rótulos de main (gana el de la primera fila)  → 16 / 1
+//   · `unaFilaPorClave` mirando sólo `filaDelIndice` (no toda la tabla)      → 16 / 1
 // Correr: node --import tsx --test tests/unir-indice-hallazgos.test.ts
 // =============================================================================
 
@@ -42,7 +48,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { entradasDeCelda, filaDelIndice, sinFilasRepetidas, unaFilaPorClave, unirCeldas, unirPorCelda, unirPorFilas } from '../scripts/unir-indice-hallazgos.mjs';
+import { entradasDeCelda, filaDelIndice, rotulosDelIndice, sinFilasRepetidas, unaFilaPorClave, unirCeldas, unirPorCelda, unirPorFilas } from '../scripts/unir-indice-hallazgos.mjs';
 import { leerWorkflow } from './_workflow';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -132,7 +138,7 @@ test('tablas distintas: se mezcla por ÁREA, no por renglón', () => {
 
   const unido = unirPorFilas(base, ours, theirs);
   assert.ok(unido, 'el choque «la tabla entera contra la tabla entera» se resuelve: es por área');
-  const deInfra = unido!.split('\n').filter((l) => filaDelIndice(l)?.clave.startsWith('Infraestructura|'));
+  const deInfra = unido!.split('\n').filter((l) => filaDelIndice(l)?.clave === '[hallazgos-infra.md](hallazgos-infra.md)');
   assert.equal(deInfra.length, 1, `UNA fila de infra (quedaron ${deInfra.length})`);
   for (const t of ['**De main (6/11)**', '**De la punta (6/11)**', '**Vieja (1/11)**', '**Otra vieja (2/11)**']) {
     assert.ok(unido!.includes(t), `se perdió ${t}`);
@@ -154,9 +160,11 @@ test('tablas distintas: se mezcla por ÁREA, no por renglón', () => {
     'ninguna fila con columnas de más');
 });
 
-test('una fila del índice se reconoce por sus dos primeras celdas; una línea cualquiera no', () => {
+test('una fila del índice se reconoce por su DOCUMENTO (la 2.ª celda); una línea cualquiera no', () => {
+  // La clave es el documento, no «Área + documento» (18/11/2026, F53): el rótulo cambia y la fila es la misma.
   const f = filaDelIndice('| Infraestructura | [hallazgos-infra.md](hallazgos-infra.md) | lo que cubre |');
-  assert.equal(f?.clave, 'Infraestructura|[hallazgos-infra.md](hallazgos-infra.md)');
+  assert.equal(f?.clave, '[hallazgos-infra.md](hallazgos-infra.md)');
+  assert.equal(filaDelIndice('| Infra (otro rótulo) | [hallazgos-infra.md](hallazgos-infra.md) | x |')?.clave, f?.clave, 'otro rótulo, el mismo documento');
   assert.equal(f?.celda, ' lo que cubre ');
   assert.equal(filaDelIndice('|---|---|---|'), null, 'el separador no es una fila');
   assert.equal(filaDelIndice('| Área | Documento | Qué cubre |'), null, 'el encabezado tampoco');
@@ -302,17 +310,71 @@ test('el índice en disco: una fila por área, tres columnas y ningún link muer
     // los `|` del texto van escapados, o markdown le da columnas de más a la fila
     const trozos = l.split('\\|').join('\u0001').split('|');
     assert.equal(trozos.length, 5, `esta fila no tiene tres columnas (un \`|\` sin escapar en el texto): ${l.slice(0, 90)}`);
-    const [, rotulo, doc] = trozos;
-    const clave = `${rotulo.trim()}|${doc.trim()}`;
+    const [, , doc] = trozos;
+    const clave = doc.trim(); // una fila por DOCUMENTO (P21, 18/11/2026): dos rótulos para el mismo documento son dos filas de más
     claves.set(clave, (claves.get(clave) ?? 0) + 1);
     const ruta = /\]\(([^)#]+)/.exec(doc)?.[1];
     assert.ok(ruta, `la 2.ª celda lleva el link al documento del área: ${l.slice(0, 90)}`);
     assert.ok(existsSync(join(RAIZ, 'docs', ruta!)), `el índice manda a \`docs/${ruta}\`, que no existe: la cosecha va al documento del área, y si se borró, se repunta`);
   }
   const repetidas = [...claves.entries()].filter(([, v]) => v > 1);
-  assert.deepEqual(repetidas, [], `hay ${repetidas.length} área(s) con más de una fila: ${repetidas.map(([k, v]) => `${k} x${v}`).join(', ')}.
-Si cosechaste: la entrada nueva va ADELANTE en la celda de tu área, no en una fila nueva.
+  assert.deepEqual(repetidas, [], `hay ${repetidas.length} documento(s) con más de una fila: ${repetidas.map(([k, v]) => `${k} x${v}`).join(', ')}.
+Si cosechaste: la entrada nueva va ADELANTE en la celda de tu documento, no en una fila nueva (ni con otro rótulo).
 Si NO cosechaste en el índice, es la mezcla: una punta cortada antes del 6/11/2026 trae las filas viejas y git las devuelve
 al mezclar main (un lado borró, el otro conservó). Se arregla con:
   node scripts/unir-indice-hallazgos.mjs --consolidar docs/hallazgos.md --aplicar`);
+});
+
+// =============================================================================
+// La clave es el DOCUMENTO: el rótulo viejo de una punta no vuelve como otra fila (18/11/2026, F53)
+// =============================================================================
+const conRotulo = (rotulo: string, doc: string, celda: string) => `| ${rotulo} | [${doc}](${doc}) | ${celda} |`;
+const tablaDe = (...filas: string[]) => ['# x', '', '| Área | Documento | Qué cubre |', '|---|---|---|', ...filas, '', 'prosa de abajo', ''].join('\n');
+
+test('el rótulo viejo de una punta se une a la fila de main del mismo documento, y queda el rótulo de main', () => {
+  // la base tenía el documento con DOS rótulos; main los juntó en uno nuevo («Editor de imagen») y la punta, cortada
+  // antes, cosechó en la fila del rótulo viejo («Image Editor»).
+  const doc = 'hallazgos-editor-imagen.md';
+  const base = tablaDe(conRotulo('Image Editor', doc, '**Vieja A (1/11)**: a.'), conRotulo('Image Editor (Canva)', doc, '**Vieja B (2/11)**: b.'));
+  const ours = tablaDe(conRotulo('Image Editor', doc, '**De la punta (18/11)**: nuevo. **Vieja A (1/11)**: a.'), conRotulo('Image Editor (Canva)', doc, '**Vieja B (2/11)**: b.'));
+  const theirs = tablaDe(conRotulo('Editor de imagen', doc, '**De main (18/11)**: otro. **Vieja A (1/11)**: a. **Vieja B (2/11)**: b.'));
+  const unido = unirPorFilas(base, ours, theirs);
+  assert.ok(unido, 'se resuelve: es el mismo documento, no «main borró y la punta cosechó»');
+  const filas = unido!.split('\n').filter((l) => l.includes(`](${doc})`));
+  assert.equal(filas.length, 1, `UNA fila para el documento (quedaron ${filas.length})`);
+  assert.match(filas[0], /^\| Editor de imagen \|/, 'con el rótulo de main');
+  for (const t of ['**De main (18/11)**', '**De la punta (18/11)**', '**Vieja A (1/11)**', '**Vieja B (2/11)**']) assert.ok(filas[0].includes(t), `se perdió ${t}`);
+});
+
+test('una mezcla limpia que devuelve la fila vieja ARRIBA: se junta con el rótulo de main, no el de la primera', () => {
+  const doc = 'hallazgos-carruseles.md';
+  const lineas = tablaDe(
+    conRotulo('Carruseles (la biblioteca de ejemplos)', doc, '**Vieja (11/11)**: a.'),
+    conRotulo('CRM', 'hallazgos-crm.md', '**Del CRM (1/11)**: c.'),
+    conRotulo('Carruseles', doc, '**De main (18/11)**: b.'),
+  ).split('\n');
+  const main = tablaDe(conRotulo('CRM', 'hallazgos-crm.md', '**Del CRM (1/11)**: c.'), conRotulo('Carruseles', doc, '**De main (18/11)**: b.'));
+  const r: { lineas: string[]; juntadas: number } = unaFilaPorClave(lineas, rotulosDelIndice(main));
+  assert.equal(r.juntadas, 1);
+  const filas = r.lineas.filter((l: string) => l.includes(`](${doc})`));
+  assert.equal(filas.length, 1);
+  assert.match(filas[0], /^\| Carruseles \|/, `el rótulo de main, no el viejo: ${filas[0].slice(0, 60)}`);
+  assert.ok(filas[0].includes('**Vieja (11/11)**') && filas[0].includes('**De main (18/11)**'), 'las dos entradas');
+});
+
+test('en la tabla principal se juntan también las filas de un documento que no es hallazgos-*; las otras tablas no se tocan', () => {
+  const doc = 'recorrido-visual-30-10.md';
+  const texto = [
+    '| Área | Documento | Qué cubre |', '|---|---|---|',
+    conRotulo('Recorrido visual (30/10)', doc, '**Nueva (6/11)**: a.'),
+    conRotulo('UI compartida', doc, '**Vieja (30/10)**: b.'),
+    '', 'prosa entre tablas', '',
+    '| Documento | Para qué |', '|---|---|',
+    '| [relevo.md](relevo.md) | el traspaso |',
+    '| [relevo.md](relevo.md) | el traspaso |',
+  ];
+  const r: { lineas: string[]; juntadas: number } = unaFilaPorClave(texto);
+  assert.equal(r.juntadas, 1, 'las dos filas del recorrido visual quedan en una');
+  assert.equal(r.lineas.filter((l: string) => l.includes(`](${doc})`)).length, 1);
+  assert.equal(r.lineas.filter((l: string) => l === '| [relevo.md](relevo.md) | el traspaso |').length, 2, 'la otra tabla sigue igual');
 });
