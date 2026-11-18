@@ -7,6 +7,27 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## La venta de un lead agregado, por fecha de cierre: donde la pone el OKR (18/11/2026)
+
+- **Síntoma:** una hoja de Leads por fecha de **cierre**, filtrada por un funnel AGREGADO («Renovación»), ponía en 0 la venta
+  de un lead que se agregó ahí y después cerró, y la del funnel de su casa la contaba entera. El OKR de Renovación, con la
+  misma venta, la contaba en Renovación (`funnelDelMomento`): el número y la hoja decían dos cosas.
+- **Causa:** `Fila.soloCasa` decía «la venta es de la casa» siempre, y por un funnel agregado la ponía en 0.
+- **Arreglo:** la fila lleva de qué funnel es su venta (`Fila.duenoDe`) y `filtrarFilas` suma lo de `soloCasa` sólo si ese
+  dueño pasa los filtros. El dueño lo decide `funnelsDeLaFilaDeLead` (lib/graficos-funnel-fila.ts) con `funnelDelMomento`
+  sobre la MISMA fecha de cierre, como los OKR. Sin `duenoDe`, el dueño es la fila: todo lo de antes sigue igual.
+- **Sólo por fecha de cierre.** Por alta o por agenda la fila es una cohorte de ese día y la venta sigue en la casa: darla al
+  funnel del cierre la haría desaparecer de las dos hojas filtradas con un lead que se agregó DESPUÉS del alta (lo fija el test).
+- **Lo que no cambió:** agrupar por funnel (sin filtro) sigue poniendo la venta bajo la casa (el «Sin hacer» del 17/10), y
+  la fuente Leads sigue sin las ventas propias de un CRM agregado (CO2, `ventasDeCrms`): los OKR sí las suman. Sumarlas a
+  Leads cambia sus totales y su tasa de cierre, que es la decisión de producto anotada en docs/hallazgos-pagos.md («CO2 suma
+  las renovaciones a los cierres…»).
+- **Ojo:** esa misma entrada de pagos dice que repartir la venta de la casa por el último CRM agregado es la regla de ANTES de
+  CO2 (la 0324 la sacó de los pagos). Si se cambia, se cambia en `funnelsDeLaFilaDeLead` y en los OKR juntos.
+- **Vive en:** lib/graficos-funnel-fila.ts · lib/graficos-agregar.ts (`Fila.duenoDe`, `filtrarFilas`) · lib/graficos-datos.ts
+  (`filasLeads`) · lib/graficos-lectura.ts (`funnelsAgregados` trae el id y el día crudo). **Lo fija:**
+  tests/graficos-venta-en-su-funnel.test.ts (compara con `sumarEnFunnels`; 3 roturas) · tests/graficos-funnel-agregados.test.ts.
+
 ## MaKo toma la iniciativa en el Dashboard: la hoja en blanco, sin IA (5/11/2026, nube)
 
 - **Qué hace:** con el informe en blanco, la estrella pregunta «¿Qué número miras primero cada lunes?»; «Lo cobrado» crea
