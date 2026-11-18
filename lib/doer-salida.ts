@@ -597,8 +597,12 @@ const TELEFONO = /\+?\d[\d\s().-]{6,}\d/g;
 /** El mismo número largo: uno contiene al otro, o terminan en los mismos 8 dígitos (el 9 que agrega WhatsApp en Argentina). */
 const mismoNumeroLargo = (a: string, b: string): boolean => a.includes(b) || b.includes(a) || (a.length >= 8 && b.length >= 8 && a.slice(-8) === b.slice(-8));
 
-/** Los números de la respuesta que no aparecen en ninguna de las fuentes. */
-export function numerosSinFuente(respuesta: string, fuentes: readonly string[]): string[] {
+/**
+ * Los números de la respuesta que no aparecen en ninguna de las fuentes, ni salen de los `datos` del turno redondeados o con una
+ * cuenta acotada (`esDerivado`). `datos` son las fuentes SIN el system: el catálogo y la memoria traen cientos de números, y con
+ * todos ellos casi cualquier número saldría de alguna cuenta. Sin `datos`, los derivados se prueban contra todas las fuentes.
+ */
+export function numerosSinFuente(respuesta: string, fuentes: readonly string[], datos: readonly string[] = fuentes): string[] {
   const conocidos = new Set<string>();
   const sueltos = new Set<string>();
   const largos: string[] = [];
@@ -618,6 +622,7 @@ export function numerosSinFuente(respuesta: string, fuentes: readonly string[]):
     .replace(/(^|\n)\s*\d+[.)]\s/g, '$1')           // la numeración de una lista
     .replace(TELEFONO, (t) => { const d = digitos(t); return d.length >= 7 && largos.some((k) => mismoNumeroLargo(k, d)) ? ' ' : t; });
   const fuera: string[] = [];
+  let valores: number[] | null = null;
   for (const m of propio.matchAll(NUMERO)) {
     const n = m[0];
     if (HORA.test(n)) continue;
@@ -625,9 +630,81 @@ export function numerosSinFuente(respuesta: string, fuentes: readonly string[]):
     if (!d || conocidos.has(d)) continue;
     // Suelto («el 09 de noviembre»), o una fecha corta: vale si sus partes están en alguna fuente («9/11», «2026-11-09»).
     if ((/^\d+$/.test(n) || FECHA.test(n)) && partes(n).every((p) => sueltos.has(p))) continue;
+    valores ??= valoresDeLosDatos(datos);
+    if (esDerivado(n, valores, ES_PORCENTAJE.test(propio.slice((m.index ?? 0) + n.length)))) continue;
     if (!fuera.includes(n)) fuera.push(n);
   }
   return fuera;
+}
+
+// ── UN DERIVADO NO ES UN INVENTO (tickets #108 y #109 de Sellers, 17/11/2026) ──────────────────────────────────────────────────
+// «Decime el costo promedio de cada campaña»: ARS 106.249 de gasto ÷ 21 leads = ARS 5.059 por lead. La cuenta está bien, pero el
+// número no está LITERAL en ninguna fuente, y la respuesta ENTERA salía como «no lo vi» con un ticket. Lo mismo con un redondeo: la
+// herramienta da 10664.83 y el modelo escribe «10.665». Ahora vale un número que sale de los DATOS del turno redondeado como se
+// muestra, o de DOS de ellos con una cuenta acotada: a ÷ b (b un entero, una cantidad: leads, clics, días) y, sólo si va con «%», el
+// porcentaje (a ÷ b × 100) y la variación ((a − b) ÷ b × 100). Sumas y restas NO: con 300 valores cubren casi todos los números de
+// tres cifras (medido con los datos del ws24: 539 salía de 505 + 34 y de 1726 − 1187). Lo que pide un TERCER número que no está —una
+// tasa de cambio que puso el modelo, 106.249 ÷ 21 ÷ 1.210 = US$ 4,18, cuando la herramienta dice «no conviertas»— sigue sin salir.
+
+/** Lo que viene después del número y lo vuelve un porcentaje. */
+const ES_PORCENTAJE = /^\s*(?:%|por\s*ciento)/i;
+/** Con más valores son demasiadas cuentas, y demasiadas coincidencias de casualidad. Van primero los de las herramientas. */
+const TOPE_VALORES = 300;
+
+/** Las lecturas posibles de un número como se escribe: «5.059» es 5059 o 5,059; «4,18» es 4,18; «1.558.000» es 1558000. */
+export function lecturasDeNumero(s: string): { v: number; dec: number }[] {
+  if (!/^\d+(?:[.,]\d+)*$/.test(s)) return [];
+  const seps = s.match(/[.,]/g) ?? [];
+  if (!seps.length) return [{ v: Number(s), dec: 0 }];
+  const corte = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
+  const frac = s.slice(corte + 1);
+  const comoMiles = { v: Number(s.replace(/[.,]/g, '')), dec: 0 };
+  const comoDecimal = { v: Number(`${s.slice(0, corte).replace(/[.,]/g, '')}.${frac}`), dec: frac.length };
+  if (new Set(seps).size > 1) return [comoDecimal];   // «10,665.50» y «1.558,50»: el último separador es el decimal
+  if (seps.length > 1) return [comoMiles];             // «1.558.000»
+  return frac.length === 3 && !/^0[.,]/.test(s) ? [comoMiles, comoDecimal] : [comoDecimal];
+}
+
+/** Los valores de los datos del turno, en el orden en que llegan y sin repetir. */
+export function valoresDeLosDatos(datos: readonly string[]): number[] {
+  const vs = new Set<number>();
+  for (const f of datos) for (const m of (f || '').matchAll(NUMERO)) for (const l of lecturasDeNumero(m[0])) if (l.v > 0 && vs.size < TOPE_VALORES) vs.add(l.v);
+  return [...vs];
+}
+
+/** Las cifras que importan de un número escrito («5.059» → 4, «4,18» → 3, «0,05» → 1): con menos de 3, el cociente no se prueba. */
+const cifras = (s: string): number => s.replace(/\D/g, '').replace(/^0+/, '').length;
+const redondear = (v: number, dec: number): number => { const f = 10 ** dec; return Math.round(v * f) / f; };
+
+/** ¿El número mostrado sale de los datos redondeado, o de dos de ellos con una cuenta acotada? */
+export function esDerivado(mostrado: string, valores: readonly number[], porcentaje = false): boolean {
+  const lecturas = lecturasDeNumero(mostrado);
+  if (!lecturas.length) return false;
+  const coincide = (x: number): boolean => Number.isFinite(x) && lecturas.some((l) => Math.abs(redondear(x, l.dec) - l.v) < 1e-9 * Math.max(1, l.v));
+  if (valores.some(coincide)) return true;
+  const cociente = cifras(mostrado) >= 3;
+  if (!cociente && !porcentaje) return false;
+  for (const a of valores) {
+    for (const b of valores) {
+      if (a === b) continue;
+      if (porcentaje && (coincide((a / b) * 100) || coincide(((a - b) / b) * 100))) return true;
+      if (cociente && b >= 2 && Number.isInteger(b) && a > b && coincide(a / b)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * La respuesta sin las oraciones que dicen esos números, o null si no queda casi nada (menos de 15 letras). Es para un ACUSE
+ * («Bien hecho», el #109): no pidió un dato, así que lo que no tiene respaldo se saca y no se abre un ticket.
+ */
+export function sinOracionesConNumeros(texto: string, numeros: readonly string[]): string | null {
+  const malos = new Set(numeros);
+  const lineas = (texto || '').split('\n').map((l) => l.split(/(?<=[.!?])\s+/)
+    .filter((o) => ![...o.matchAll(NUMERO)].some((m) => malos.has(m[0])))
+    .join(' ').trimEnd());
+  const queda = lineas.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return (queda.match(/\p{L}/gu) ?? []).length >= 15 ? queda : null;
 }
 
 /** Lo que dice MaKo en vez de un dato que no vio. El ticket lo abre el código (la marca). */

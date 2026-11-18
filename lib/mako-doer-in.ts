@@ -83,7 +83,7 @@ import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, aviso
 import { permisoCalendarioGoogle } from '@/lib/google-calendar';
 import { pideBuscarEnElGrupo } from '@/lib/doer-hilo';
 import { areasDeLaPlataforma, bloqueDeLaPlataforma, leerLaPlataforma } from '@/lib/doer-plataforma';
-import { aFormatoWhatsapp, conMarcaDeTicket, numerosSinFuente, queNoSupo, sanearSalida, sinLoQueMaKoNoDice, sinMuletillas, promesasDe, SANEO_HECHO, SIN_EL_DATO } from '@/lib/doer-salida';
+import { aFormatoWhatsapp, conMarcaDeTicket, numerosSinFuente, queNoSupo, sanearSalida, sinLoQueMaKoNoDice, sinMuletillas, sinOracionesConNumeros, promesasDe, SANEO_HECHO, SIN_EL_DATO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje as reaccionarEnElGrupo, enviarAGrupoJid as enviarAlGrupoPorJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN, idsEnviadosAlGrupo, anotarEnviadosConTope, instanciaVoz, type EnvioGrupo } from '@/lib/mako-grupo';
@@ -447,7 +447,7 @@ CÓMO CONTESTAS:
 - ⛔ No indiques borrar datos, ni afirmes cómo funciona algo de MaKo que no leíste, ni el estado de una integración que no miraste.`;
 
 /** La charla con algo adentro (12/11/2026, `laCharlaConAlgo`, lib/doer-hilo.ts): no pide nada, le contesta a lo último que se habló. */
-const NOTA_CHARLA_CON_ALGO = `ES UNA RESPUESTA, NO UN PEDIDO: lo que te escribieron le contesta a lo último del chat (lo tuyo, lo del equipo de MaKo o un aviso): cuenta algo, aclara o no está de acuerdo. Contéstale a ESO en una o dos líneas, con lo que se habló antes en el historial. Si corrige o contradice lo que le dijeron, reconócelo y di qué sigue. Sin saludo, sin agradecer y sin repetir lo que ya se dijo.`;
+const NOTA_CHARLA_CON_ALGO = `ES UNA RESPUESTA, NO UN PEDIDO: lo que te escribieron le contesta a lo último del chat (lo tuyo, lo del equipo de MaKo o un aviso): cuenta algo, aclara o no está de acuerdo. Contéstale a ESO en una o dos líneas, con lo que se habló antes en el historial. Si corrige o contradice lo que le dijeron, reconócelo y di qué sigue. Sin saludo, sin agradecer y sin repetir lo que ya se dijo. Si es un elogio o un acuse («bien hecho», «perfecto», «buenísimo»), una línea y sin números: los datos ya los tiene.`;
 
 const DOER_WA_VOZ = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a ti. Ves el HISTORIAL de la conversación: úsalo, no arranques de cero ni pidas datos que ya te dieron antes. Responde como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
 
@@ -3160,6 +3160,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
              */
             const plazoDe = new Map<string, number>();
             for (const [nInst, { prov, inst }] of instancias.entries()) {
+              // ⚠️ SI CLAUDE YA CONTESTÓ, SU IA NO CORRE (17/11/2026, tickets #108 y #109 de Sellers). Su IA es el RESPALDO de Claude
+              // (`hayRespaldoDespuesDeClaude`), pero este bucle corría igual: el turno entero otra vez con su Gemini, que pisaba la
+              // respuesta de Claude. Medido en el ws24: Claude contestó a los 9 s, Gemini se colgó 45 s, rotó a flash-lite y salió
+              // ésa, al minuto y con el modelo más débil. Y otra corrida de las herramientas por un turno que ya terminó.
+              if (respuesta) break;
               const plazoCorriendo = plazoDe.get(prov);
               if (plazoCorriendo != null && !hayTiempoParaOtroIntento(plazoCorriendo)) {
                 console.warn(`[mako-doer-in] ws=${wsData} ${rotulo(inst)} sin probar: ${prov} ya se tomó su plazo en este turno`);
@@ -3686,12 +3691,23 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // UN NÚMERO QUE NO VIO (29/10/2026; lib/doer-salida.ts, `numerosSinFuente`): una consulta no afirma una cantidad, un monto ni una
       // fecha que no esté en lo que recibió (el system, el mensaje, el historial, lo que devolvieron sus herramientas). Con una imagen
       // que el modelo leyó directo no se chequea: sus números no están en ningún texto.
+      // Un número que SALE de los datos (un costo por lead, un redondeo) no es inventado: se prueba contra los datos del turno, sin
+      // el system, con las salidas de las herramientas primero (tickets #108 y #109, 17/11/2026; `esDerivado`).
       if (soloLeer && !mediaBlocks) {
-        const fuentes = [system, texto, leidoDelAdjunto, ...historial.map((r) => (typeof r.content === 'string' ? r.content : '')), ...salidasDelTurno, ...paraLaPersona];
-        const inventados = numerosSinFuente(respuesta, fuentes);
+        const datos = [...salidasDelTurno, texto, leidoDelAdjunto, ...paraLaPersona, ...historial.map((r) => (typeof r.content === 'string' ? r.content : ''))];
+        const inventados = numerosSinFuente(respuesta, [system, ...datos], datos);
         if (inventados.length) {
-          void recordUsage('saneo-doer', 'saneo:inventado', {}, `ws${wsData} · ${intencion.intencion} · ${inventados.slice(0, 6).join(', ')}`.slice(0, 200), 'mako', 1).catch(() => {});
-          respuesta = `${SIN_EL_DATO}\n[[no-pude: ${queNoSupo(pedidoDelTicket, 'el dato que pidió')}]]`;
+          const acuse = esCharlaConAlgo(intencion);
+          void recordUsage('saneo-doer', 'saneo:inventado', {}, `ws${wsData} · ${intencion.intencion}${acuse ? ' · acuse' : ''} · ${inventados.slice(0, 6).join(', ')}`.slice(0, 200), 'mako', 1).catch(() => {});
+          // UN ACUSE NO TRAE DATOS NI ABRE UN TICKET (#109: «Bien hecho» y MaKo volvió a dar números, que salieron como «no lo vi» y un
+          // ticket). No pidió un dato: se sacan las oraciones sin respaldo, y si no queda nada, la reacción alcanza.
+          if (acuse) {
+            const queda = sinOracionesConNumeros(respuesta, inventados);
+            if (!queda) return { engaged: true, skip: 'acuse con números sin respaldo: la reacción alcanza' };
+            respuesta = queda;
+          } else {
+            respuesta = `${SIN_EL_DATO}\n[[no-pude: ${queNoSupo(pedidoDelTicket, 'el dato que pidió')}]]`;
+          }
         }
       }
     }

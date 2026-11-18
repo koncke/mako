@@ -1,5 +1,30 @@
 # Relevo del Cerebro
 
+
+## 17/11/2026 ~20:30 UTC — PLAN DEL REINICIO DE LAS 18:00 (21:00 UTC). Martín lo pidió antes del corte; si el recordatorio se perdió, despachar esto
+
+Martín, textual: «pon un recordatorio para que todos los chats continúen con todos sus trabajos». Hay un CronCreate en la sesión del
+Cerebro a las 18:03 hora local, pero vive sólo en esa sesión. Si no se disparó, se despacha a mano:
+
+1. **galeria-animaciones** (local_fc7cc6c7-a902-4922-82af-3cf90eaaadac). Un relevo de INVESTIGACIÓN a fondo de los formatos: YouTube, la web y skills
+   de motion graphics para Claude. Martín: «no me gustaron tanto los formatos que están acá… ya nos vamos acercando, pero todavía no… que
+   se tomen el trabajo de hacerlo muy bien».
+   - Lo pendiente: que la letra se lea en el teléfono, su voz de ElevenLabs (LA-CONFIG), el personaje de Morrow igual a Martín y su
+     caricatura hecha con IA desde su personaje, con su OK antes de usarla.
+   - El artefacto es https://claude.ai/artifact/CXe1Ana7MvnJ44gzaXc7hF y la fuente, C:/dev/artefactos-animaciones/.
+2. **pestanas-artefacto** (local_c430f027-c8f5-4682-b795-2f9d05298b18): ya están 17 pestañas en el artefacto único. Falta la versión del teléfono
+   (C:/dev/artefactos-pestanas/LEEME.md).
+3. **onboarding-reto** (local_a9a5a9e9-220c-4884-9a60-56376fe2cdaa): la maqueta, y llevar los tutoriales a las pestañas reales.
+4. **Los guiones de Offer Coach y Funnel Coach (V3 y V4).** Martín: «ya no solamente quiero que sea meramente explicativo de qué tienen
+   que hacer dentro de MaKo, sino un pequeño resumen de la importancia de la oferta, de por qué la estamos haciendo… tenemos una
+   cantidad de cursos impresionante donde sacar justamente los guiones». Se hacen con un workflow desde el Cerebro, sacados de
+   app/conocimientos, y van a docs/reto-7-dias/.
+5. **UN TUTORIAL POR PESTAÑA.** Martín: «ya conoces todo el código… que se haga un tutorial por pestaña». Son las 17 dibujadas. Los guiones y
+   los pasos marcados se escriben con un workflow desde el Cerebro y se le pasan a onboarding-reto para que los monte.
+6. **Los demás chats con trabajo abierto:**
+   - cobros: el ciclo de Leila, con sus tests y el deploy;
+   - sitio-artefactos.
+7. **A Martín, recordarle** que pegue en el chat Automations su sí a la #259, el texto nuevo del aviso de WhatsApp caído.
 ## 17/11/2026 ~19:00 UTC — LEER PRIMERO (claude2 al 90 % semanal; se reinicia el 17/11 a las 21:00 UTC)
 
 **Decidido hoy por Martín** (memorias: video-en-planes-opcion-b, rentabilidad-por-cliente-sin-fijos y preguntas-con-explicacion):

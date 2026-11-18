@@ -13960,3 +13960,57 @@ la fila #259 del ws9, que es la que se manda (dato de producción: se cambia con
 **Vive en:** lib/lineas-vigilante.ts · lib/aviso-evento.ts (`emitirPorEvento`) · lib/mako-grupo.ts (`enviarAlGrupoMaKo`) ·
 lib/grupo-app.ts (`grupo_mensajes`) · lib/mako-tarjeta.ts (`salioLaTarjeta`) · lib/flujos.ts (`ejecutarPasos`).
 *17/11/2026, chat «Automations» (claude2).*
+
+## El filtro de números tiraba las cuentas bien hechas, y un «Bien hecho» abría un ticket (17/11/2026, tickets #108 y #109 de Sellers)
+
+**Vive en:** `lib/doer-salida.ts` (`numerosSinFuente`, `esDerivado`, `sinOracionesConNumeros`) · `lib/mako-doer-in.ts` (el saneo de una
+consulta, donde se llama) · `lib/mako-doer-acciones.ts` (`listar_campanas_meta`)
+
+- **El síntoma:** Sellers (ws 24) pidió por el grupo «el costo promedio de cada campaña» y le llegó «Ese dato no lo vi en lo que tengo a
+  mano», con un ticket. Contestó «Bien hecho» y le volvió a llegar lo mismo, con otro ticket.
+- ⚠️ **El diagnóstico obvio («MaKo no tiene el gasto») era el equivocado.** El gasto estaba en la herramienta de campañas. El filtro
+  (`numerosSinFuente`) sólo acepta números LITERALES de las fuentes: un costo por lead es una división (gasto ÷ leads) y un redondeo
+  («10664.83» → «10.665») cambia los dígitos. Ninguno de los dos está nunca escrito, y el filtro tiraba la respuesta ENTERA.
+- ⚠️ **Y no todo lo que bloqueó estaba bien.** La cuenta del ws24 cobra en ARS y la herramienta dice «no conviertas»: el «US$ 4,18» del
+  #108 pide una tasa (106.249 ÷ 21 ÷ ~1.210) que no está en ningún dato, o sea que la puso el modelo. Ese número sigue sin salir.
+- **La regla:** un número vale si está literal en las fuentes, o si sale de los DATOS del turno (las herramientas, el mensaje, el
+  historial; NO el system, que trae cientos de números) redondeado como se muestra, o de DOS de ellos con una cuenta acotada: a ÷ b
+  (b un entero ≥ 2, con 3 cifras o más en lo mostrado) y, sólo si va con «%», el porcentaje y la variación. Sumas y restas NO.
+- ⚠️ **La trampa de los derivados: cuantas más cuentas se aceptan, más números inventados pasan de casualidad.** Medido con los 124
+  valores de las herramientas del ws24: con sumas y restas, 539 salía de 505 + 34 y de 1726 − 1187. Con la regla de arriba, un entero
+  al azar entre 100 y 20.000 pasa el 6 % de las veces, y entre 1.000 y 200.000 el 0,3 %. Ése es el precio: un cociente de casualidad
+  pasa, pero una respuesta correcta ya no se tira.
+- **Un acuse no trae datos ni abre un ticket:** «Bien hecho» corre como charla que se contesta (`esCharlaConAlgo`) y el modelo volvió a
+  dar números. En ese camino se sacan sólo las oraciones sin respaldo (`sinOracionesConNumeros`); si no queda nada, alcanza la reacción.
+  La nota de la charla ahora dice «un elogio o un acuse: una línea y sin números».
+- **El costo por lead, ya hecho (17/11, la segunda tanda):** `listar_campanas_meta` trae por campaña los leads del CRM que entraron en
+  la MISMA ventana de 30 días que el gasto y `costo_por_lead_<moneda>` (`costoPorLeadDeCampanas`, lib/leads-por-campana.ts). Antes el
+  modelo dividía el gasto de 30 días por los leads de TODO el historial, que salían de otra herramienta. Una campaña con leads y sin
+  gasto (Rio Dulce X Mako; la que gastó es «Río Dulce 1146…», otra) sale en `campanas_con_leads_sin_gasto`: se cruza por id, o por el
+  nombre EXACTO si sólo quedó el nombre, nunca por uno parecido. Medido en el ws24 el 17/11: Captacion Mako Forms, 28 leads en la
+  ventana y ARS 3.795 por lead (esa noche eran 21).
+  - ⚠️ **Fuera de Next la lectura de leads no corre** (`unstable_cache` y el AsyncLocalStorage de Next): una sonda con un script da
+    `aviso_leads`, no el cruce. Para medir con los datos reales se leen las tablas directo y se aplica la función pura.
+
+## «Gemini lento» no era la causa: la IA del negocio pisaba lo que ya había contestado Claude (17/11/2026, tickets #108 y #109)
+
+**Vive en:** `lib/mako-doer-in.ts` (el bucle de las cuentas de su IA, después de `claudeDelGrupo`) · tests/_clase-del-grupo-hijo.ts
+
+- **El síntoma:** Sellers esperó ~1 min por cada respuesta en el grupo, y le contestó gemini-flash-lite: el modelo más débil, después de
+  un timeout de 45 s de gemini-flash. El router pedía sonnet u opus.
+- ⚠️ **El diagnóstico obvio (Gemini es lento, subirle el plazo o sacarlo) era el equivocado.** En `anthropic_usage` de esa charla, Claude
+  con el crédito de los grupos YA había contestado a los 9 s (dos pasos). El bucle de las cuentas de SU IA —el RESPALDO de Claude según
+  `hayRespaldoDespuesDeClaude`— no preguntaba si ya había respuesta: corría el turno entero otra vez con su Gemini, y esa respuesta
+  pisaba la de Claude. Con un Gemini sano igual pasaba, sólo que no se notaba: el negocio recibía lo de su IA, nunca lo de Claude, y las
+  herramientas corrían dos veces.
+- **La regla:** en una cascada, cada escalón pregunta si el anterior ya contestó. Ahora el bucle corta con `if (respuesta) break`.
+- ⚠️ **El test del grupo DEPENDÍA del bug:** su Anthropic de mentira contestaba el turno con el JSON de la clase, y la IA del negocio lo
+  pisaba con la respuesta esperada. Un harness que da verde con el bug adentro no mide lo que dice. Ahora el clasificador contesta su
+  clase, el turno con el crédito da 400 salvo con `turnoConClaude`, y la escena `claudeContesta` fija que su IA no corre (el 5-ter).
+  **El mismo molde estaba en dos arneses más** (tests/_grupos-ops-arnes.ts, el de grupos-ops-turno y -espejo, y tests/_mako-bot-hijo.ts,
+  que reconoce el turno del doer por su system: «chat de WhatsApp de a dos» o «estás en un grupo de WhatsApp»), y sólo lo mostró el rojo
+  de GitHub. El clasificador se reconoce por su system (`SYSTEM_DE_CLASE`, «Clasificas UN mensaje»), no por ir sin herramientas: el
+  turno con un invitado tampoco lleva. Los arneses que pueden tener el molde: los que simulan `api.anthropic.com` y corren
+  `manejarEntranteDoer` (`grep -l api.anthropic.com tests/_*.ts | xargs grep -l mako-doer-in`).
+- **Lo que no se tocó, a propósito:** que el crédito vaya con Haiku aunque el router pida sonnet u opus es la regla del 22/10 (el crédito
+  de MaKo va con el modelo barato, `evaluarClaveDelNegocio`, lib/anthropic.ts). Cambiarla es una decisión de Martín.
