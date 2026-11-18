@@ -2501,6 +2501,26 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '18 nov', hora: '12:00', chat: 'Construir pendientes (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por la sesión de la nube que trabaja «Lo que falta construir» de docs/pendientes-verificados-17-11.md, en una punta por área.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '12:30', chat: 'Construir pendientes (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'Grupo de la app: cada parte de un aviso queda atada a su mensaje de WhatsApp',
+    puntos: [
+      '**Un aviso en varias partes ya no mezcla los mensajes:** si una parte no dejaba burbuja en el hilo de la app (un texto vacío), el id de WhatsApp de la parte siguiente se ataba a la burbuja equivocada, y una cita o una reacción de WhatsApp caía en otra burbuja.',
+      '**Vale para los cinco envíos por partes:** los avisos, «Probar en el grupo», los recibos, el PDF de la mensualidad de la agencia y el grupo de SuperAdmin.',
+    ],
+    archivos: [
+      'lib/grupo-reglas.ts — paresFilaWa (empareja por parte) · lib/grupo-app.ts — Copia.porParte y atarIdsDeWhatsApp',
+      'tests/grupos-ops-espejo.test.ts — la copia real contra la base de mentira; con el emparejamiento de antes, 13/1',
+    ],
+  },
+  {
     fecha: '18 nov', hora: '09:00', chat: 'Ops Center', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
     titulo: 'Seguir con todos los pendientes',
     pedido: 'continúes con absolutamente todos los pendientes',

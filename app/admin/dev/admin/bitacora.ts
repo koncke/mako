@@ -670,6 +670,30 @@ export const BITACORA: Hito[] = [
     revisar: '/admin/analytics/costs',
   },
   {
+    fecha: '18 nov', hora: '01:30', chat: 'Lo que falta construir (nube)', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes: moderar lo que publica la comunidad',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: ['Llegó por el coordinador de la nube, con la lista verificada del 17/11 (F103: moderar lo publicado desde el super admin).'],
+  },
+  {
+    fecha: '18 nov', hora: '01:49', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Admin › Products › Templates: lo que los negocios compartieron, y «Retirar de la galería»',
+    puntos: [
+      '**La lista de las plantillas compartidas**, con el negocio, sus estrellas, sus usos y si es de MaKo.',
+      '**El buscador y los filtros del Catalogue**: en la galería, retiradas o todas; por estrellas, usos, fecha o nombre.',
+      '**«Retirar de la galería»** con su confirmación: quien ya la usó conserva su copia.',
+    ],
+    commits: [{ sha: '1fe0232071', msg: 'Plantillas propias del Dashboard, la moderación de lo publicado en Admin y el precio «USD 1,200 al mes» de Offer', lineas: 1131, archivos: 25 }],
+    archivos: [
+      'app/admin/(polar)/products/templates/ — la pantalla (la copia del Catalogue de Polar)',
+      'app/admin/_polar/datos/plantillas.ts — los filtros y el orden, con su test',
+      'app/admin/plantillas/actions.ts — retirar, con el workspace de la plataforma',
+      'lib/creaciones.ts — creacionesParaModerar',
+    ],
+    revisar: '/admin/products/templates',
+  },
+  {
     fecha: '18 nov', hora: '09:00', chat: 'Admin', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
     titulo: 'Seguir con todos los pendientes',
     pedido: 'continúes con absolutamente todos los pendientes',
