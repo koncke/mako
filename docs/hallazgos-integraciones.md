@@ -5,6 +5,41 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## Zernio, tanda C: el video, el Instagram, los ganadores y la aprobación ya no piden el token de Meta (18/11/2026)
+
+**Vive en:** `lib/anuncio-video-leer.ts` (`videoDeAnuncio`) · `app/api/anuncios/video/route.ts` ·
+`app/dashboard/graficos/ReproductorAnuncio.tsx` · `lib/meta-ads-create.ts` (`getInstagramActorId`, `paginasDeGanadores` →
+`ganadoresPorZernio`, `getAdsAprobacionPendiente`, `porTandasZernio`) · `lib/zernio-meta-cuerpo.ts` (`instagramDeLaPagina`,
+`paginaDelAnuncioZernio`) · `tests/meta-zernio-tanda-c.test.ts` (con su hijo).
+
+**Síntoma.** Un negocio que conectó Meta por Zernio (el camino principal desde el 25/10) y no tiene el token de antes no podía ver
+el video de un anuncio en la hoja (el ▶ contestaba «Meta no configurado»), ni saber por la API si un ganador era reusable
+(`verificar_ganadores_reusables`) ni si un anuncio esperaba la aprobación manual (`verificar_aprobacion_meta`): las tres leían
+con el token. `getInstagramActorId` tampoco tenía camino por Zernio.
+
+**Lo que se hizo, SÓLO con endpoints que el repo ya usaba:** el ▶ pide `GET /ads/{id}/media` (el mismo que transcribe) y la
+pantalla dibuja el `.mp4` en un `<video>` en el mismo marco; el Instagram sale de `/ads/instagram-accounts` (el de identidades),
+con la misma regla que por el token (el de SU página, si no el de la cuenta publicitaria); los ganadores, de las páginas de esa
+misma lectura y del post de cada anuncio (`/ads/{id}`); la aprobación, de `anuncioMetaPorZernio` (el anuncio en vivo y su
+`/ads/{id}/review`). Todo pasa por `canalMeta`: si Zernio falla y el negocio conserva el token, se lee por el token de respaldo; un
+negocio sólo con token sigue por la Graph API. Lo que va de a un anuncio por pedido va de a 5 (`porTandasZernio`).
+
+**Lo que NO se hizo, porque el repo no tiene el endpoint con su forma (y no se inventa):**
+- **Crear públicos de interacción** (`createCustomAudience`: página, Instagram, video, píxel). `POST /ads/audiences` está usado
+  sólo para una lista de clientes (`type: customer_list`, lib/retargeting-meta-pedidos.ts); la forma de una regla de interacción
+  o de píxel no está en ningún lado. Sigue por el token.
+- **El alcance** (`alcanceGeo`, `reachestimate`): `docs/relevo/zernio-capi.md` nombra `/ads/targeting/reach-estimate` sin su
+  forma, y además **`alcanceGeo` no tiene ningún llamador** (código muerto desde que se borró el Ads Manager viejo).
+- **Los eventos del píxel** (`listPixelEvents`): la entrada de «CAPI por Zernio, PROBADO el 25/10» (más abajo) nombra
+  `tracking-tags/{id}/stats` (lo usó una medición a mano), sin ruta completa ni forma de la respuesta en el código.
+
+**El diagnóstico obvio era el equivocado.** «El ▶ por Zernio es `/ads/{id}/preview`» (el relevo lo daba como opción) devuelve un
+`<iframe>` por ubicación de Meta, y lib/anuncio-video.ts ya midió que el iframe de vista previa de business.facebook.com contesta
+400 y `X-Frame-Options: DENY` sin sesión. El `.mp4` de `/media` no tiene ese problema: es un archivo, no una página.
+
+**La regla.** Pasar una lectura a Zernio es usar un endpoint cuya forma ya está leída en el repo (un parser con test); si sólo
+está su NOMBRE en un documento, se reporta y se deja por el token.
+
 ## `BotonIntegracion` le pisa la clase al botón: sus estilos «como texto» van EN LÍNEA (11/11/2026)
 
 **Vive en:** `app/_components/ConectarIntegracion.tsx` (`COMO_TEXTO`, `CON_SU_CLASE`). Lo fija `tests/mirada-prod-11-11.test.ts` (caso 8).

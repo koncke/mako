@@ -717,4 +717,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/ads-manager',
   },
+  {
+    fecha: '18 nov', hora: '02:15', chat: 'De octubre (nube)', cuenta: 'claude2',
+    sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Meta por Zernio, tanda C: el video del anuncio, el Instagram, los ganadores y la aprobación ya no piden el token',
+    puntos: [
+      '**El video en la hoja:** un negocio conectado por Zernio y sin el token de antes ve el video del anuncio (el ▶ de las tarjetas) en el mismo marco, en vez de «Meta no configurado».',
+      '**Por la API:** «¿este ganador se puede reusar?» y «¿este anuncio espera la aprobación de Meta?» contestan por Zernio, y el Instagram de la página sale de la conexión. Si Zernio falla y el negocio conserva el token, se lee por ahí.',
+      'Siguen por el token, porque no hay cómo hacerlo por Zernio sin inventar: crear públicos de interacción, el alcance (que además no usa nadie) y los eventos del píxel.',
+    ],
+    archivos: [
+      'lib/anuncio-video-leer.ts · app/api/anuncios/video/route.ts · app/dashboard/graficos/ReproductorAnuncio.tsx — el video',
+      'lib/meta-ads-create.ts — `getInstagramActorId`, `paginasDeGanadores`, `getAdsAprobacionPendiente` por Zernio',
+      'lib/zernio-meta-cuerpo.ts — `instagramDeLaPagina`, `paginaDelAnuncioZernio`',
+      'tests/meta-zernio-tanda-c.test.ts (y su hijo) · tests/anuncio-video.test.ts — con sus roturas',
+      'docs/hallazgos-integraciones.md — «Zernio, tanda C»',
+    ],
+    revisar: '/dashboard',
+  },
 ];
