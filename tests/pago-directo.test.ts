@@ -14,7 +14,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { RECARGO_PASARELA, canalDelPago } from '../lib/partners-reglas';
 import {
-  CLAVE_PAGO_DIRECTO, conRecargoDePasarela, DATOS_VACIOS, datosDeSetting, datosLimpios, mediosDisponibles, montoDelMedio, textoDelComprobante, urlDeEmail, urlDeWhatsApp, usdConDescuento,
+  CLAVE_PAGO_DIRECTO, conRecargoDePasarela, DATOS_VACIOS, datosDeSetting, datosLimpios, mediosDisponibles, montoDelMedio, textoDelComprobante, urlDeEmail, urlDeWhatsApp,
   type DatosDePagoDirecto,
 } from '../lib/pago-directo-reglas';
 import { leerPedidoCompra } from '../lib/compra-plan-reglas';
@@ -142,7 +142,7 @@ test('la pantalla: la fila «Transferencia o Binance» (sin chip de descuento) s
   const sin = renderToStaticMarkup(createElement(CompraPlan, props));
   assert.doesNotMatch(sin, /Transferencia o Binance/, 'sin datos de MaKo, no hay fila');
   const con = renderToStaticMarkup(createElement(CompraPlan, {
-    ...props, directo: { medios: ['binance', 'transferencia'], montos: { binance: { monto: 97, moneda: 'USD' }, transferencia: { monto: 166000, moneda: 'ARS' } }, datos: DATOS, nombrePlan: 'MaKo Pro' },
+    ...props, directo: { medios: ['binance', 'transferencia'], montos: { binance: { monto: 97, moneda: 'USD' }, transferencia: { monto: 166000, moneda: 'ARS' } }, datos: DATOS, nombrePlan: 'MaKo Pro', qrBinance: null },
   }));
   assert.match(con, /Transferencia o Binance/);
   assert.doesNotMatch(con, /OFF|descuento/, 'sin chip ni texto de descuento');
