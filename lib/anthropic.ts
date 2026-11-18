@@ -230,8 +230,8 @@ export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { model
   try {
     const { getSetting } = await import('@/lib/settings');
     // El que eligió la persona para ESTE chat (8b, `opts.modelo`, sólo «haiku» o «sonnet»: `modeloDeSuClaude`), si no, el del
-    // negocio. Con el crédito de MaKo, el del router (`modeloDelCredito`), si no el que eligió la persona para ESTE chat, si no el
-    // barato: la elección del negocio para SU Claude es de su clave, no del crédito.
+    // negocio. Con el crédito de MaKo, ninguno de los dos: el del router (`modeloDelCredito`), o el barato. La elección es de SU
+    // clave, no del crédito.
     modelo = modeloDeSuClaude(opts.modelo ?? await getSetting(CLAVE_MODELO_SU_CLAUDE));
   } catch { modelo = modeloDeSuClaude(opts.modelo ?? null); }
   let creditosPlataforma: Array<string | null> | null;
@@ -262,9 +262,9 @@ export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { model
     // anotaba como del negocio; la marca SÍ sabe).
     if (esElCreditoMarcado(clave, await leerMarcaDeCredito())) creditosPlataforma = [...(creditosPlataforma ?? []), clave];
   } catch { creditosPlataforma = null; }
-  // Con el crédito, el modelo del router (`modeloDelCredito`, 18/11/2026) o el que eligió la persona para este chat.
-  const modeloConCredito = opts.modeloDelCredito ?? (opts.modelo ? modeloDeSuClaude(opts.modelo) : undefined);
-  const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma, modeloConCredito });
+  // Con el crédito, el modelo del ROUTER (`modeloDelCredito`, 18/11/2026). Lo que eligió la persona para su chat no: con el crédito
+  // de MaKo sigue el barato (tests/chat-ia.test.ts, el 3); el «sí» de Martín fue para el router.
+  const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma, modeloConCredito: opts.modeloDelCredito });
   if (!v.ok) return pausa ? { pausa: true } : null;
   // La cuenta del crédito de los grupos que paga (ANTHROPIC_CREDITO_CUENTA3 → 3): sin ella, el Uso se lo anotaba a la cuenta 1.
   const n = delGrupo ? Number(/(\d+)$/.exec(delGrupo)?.[1]) : NaN;
