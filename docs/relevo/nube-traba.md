@@ -14,15 +14,17 @@ reproduzca; y tacharlo en el documento.
 
 | Ítem | Qué quedó | Test |
 |---|---|---|
-| **T6** el cron del Runner | El primer paso de la vuelta del cron es `runner-salud.mjs latido-del-cron`: deja `runner-cron.<cuenta>` sólo si lo corre el chat Runner, con la cuenta del entorno. `estado` trae `cron` y `cronVencido` (una hora sin marca; o ninguna marca con el LEEME que ya la pide). La guardia lo mira primero y el Cerebro lo recibe en cada turno. | tests/runner-salud.test.ts (5 roturas) |
+| **T6** el cron del Runner | El primer paso de la vuelta del cron es `runner-salud.mjs latido-del-cron`: deja `runner-cron.<cuenta>` (hora y chat) sólo si lo corre el chat Runner, con la cuenta del entorno. `estado` trae `cron` y `cronVencido` (una hora sin marca de ESE Runner). Un Runner recién abierto tiene su hora desde que se lo ve (`runner-visto.<cuenta>`, estado `nuevo`). La guardia lo mira primero y el Cerebro lo recibe en cada turno. | tests/runner-salud.test.ts (9 roturas) |
 | **T5** el limbo sin pantalla | Borradas las seis funciones del cartel, la acción y `descartarDelLimbo`. El aviso al Cerebro y `tickets.ts mensaje` ya no mandan a Martín al cartel rojo (que no existe): dicen que lo vuelva a escribir en un chat abierto. | tests/centro-limbo.test.ts, tests/centro-estado-pc.test.ts, tests/limbo-al-cerebro.test.ts |
 | **T11** `recurrente` | `tareasDelDoer` (lib/plan-tareas-del-doer.ts), el `case` del doer sin un segundo `map`, y la def del registro declara el campo (si no, `validarInput` lo borraba para la app, `/api/v1` y los flujos). | tests/plan-tareas-del-doer.test.ts (4 roturas) |
-| **T12** la relectura de Spy (a medias) | `cierreDeLasQueNoVolvieron` con un CAS contra la versión de hoy, `PUEDEN_SER_UNO_NUEVO` (se relee también testimonio, opinión, detrás de escena y entrevista) y `hayAlgoQueLeer` (lo de texto vencido no va a la IA por ningún camino). Falta una decisión de gasto de Martín. | tests/spy-analisis.test.ts 8-11 (5 roturas) |
+| **T12** la relectura de Spy (a medias) | `cierreDeLasQueNoVolvieron` con un CAS contra la versión de hoy, `PUEDEN_SER_UNO_NUEVO` (se relee también testimonio, opinión, detrás de escena y entrevista) y `hayAlgoQueLeer` (lo de texto vencido no va a la IA por ningún camino); analizar ya no renueva el reloj del texto. Falta una decisión de gasto de Martín. | tests/spy-analisis.test.ts 8-12 (9 roturas) |
 
 **La revisión adversarial** (un agente que no escribió el código, con la consigna de refutar) tumbó la primera versión de los cuatro:
 T6 colgaba la marca de `medir`, T11 no pasaba por el registro, T5 mandaba a «Reenviar» (que firma la columna `texto`) y T12 tenía
 un CAS que se trababa al subir la versión, dejaba sin analizar los posts sanos sin descripción y no cubría el camino de la API. Todo
-se corrigió antes de subir; el detalle está en cada hallazgo.
+se corrigió antes de subir; el detalle está en cada hallazgo. **Una segunda revisión** dio por buenos T5 y T11 y encontró dos más:
+el Runner recién abierto alarmaba en el acto (heredaba la marca vieja) y en Spy el análisis seguía renovando el reloj del texto de
+las piezas, con un test del filtro que comparaba la constante consigo misma. Las dos se arreglaron con su test.
 
 Tipos: `node scripts/tsc-acotado.mjs --heap=9000` sobre los archivos tocados, código 0. Con el tope por defecto muere sin memoria en
 la nube (docs/hallazgos-infra.md, «En la nube, el `tsc` acotado…»). El veredicto de la nube corrió antes de la revisión (8.285
@@ -52,6 +54,9 @@ tests y el tsc entero, verde) y se volvió a sacar después.
 
 ## Lo que no se midió
 
+- La gracia del Runner nuevo cuenta desde que `estado` o `al-turno` lo ven por primera vez, no desde que se abrió: si nadie
+  pregunta en un rato, la alarma llega más tarde (nunca antes). No hay en la PC un dato fiable de cuándo abrió un chat que un
+  script pueda leer, y no lo medí.
 - Nada de esto corrió contra producción ni en la PC: el latido del cron, el texto nuevo al Cerebro y la relectura de Spy se
   probaron con los tests, no con un Runner ni con un competidor reales. La escritura de `yaRevisadas` con el filtro `or` sobre una
   ruta de JSON (`analisis->>formatosV`) sigue el molde de otras del repo (`ctx->>cuotaId`, `pedido->>mediaId`), pero no se corrió
@@ -61,7 +66,7 @@ tests y el tsc entero, verde) y se volvió a sacar después.
 
 ## Autocrítica
 
-- **Cambié por la revisión adversarial:** los cuatro. La lección que generaliza está en cada hallazgo; la más útil para otros: un
+- **Cambié por la revisión adversarial:** los cuatro en la primera; T6 y T12 otra vez en la segunda. La lección que generaliza está en cada hallazgo; la más útil para otros: un
   campo nuevo de una operación de la API va en su def (si no, `validarInput` lo borra), y un compare-and-set sobre una versión se
   compara contra la de hoy, no contra «no tiene».
 - **Cambié antes de la revisión:** en T12 sumé el texto vencido, que la refutación no nombraba; en T5, el aviso que mandaba a un

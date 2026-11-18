@@ -22,6 +22,11 @@
 //   - `cronDelRunner` sin mirar el LEEME (el cron que murió antes de dejar marca) → «el cron que murió antes»;
 //   - al-turno sin mirar el cron con el Runner vivo → «al-turno: el cron vencido»;
 //   - `latidoDelCron` que también marca a la guardia → «la marca la deja sólo el Runner».
+// Y la segunda revisión del 18/11 (un Runner recién abierto alarmaba en el acto), cada una cae sola:
+//   - `cronDelRunner` que no mira de qué chat es la marca → «un Runner nuevo no hereda la marca vieja»;
+//   - `cronDelRunner` sin la hora de gracia desde que se lo ve → «un Runner nuevo…» y «el cron que murió antes»;
+//   - `desdeQueSeVe` que reinicia el reloj en cada llamada → «el cron que murió antes» (nunca llega a vencido);
+//   - `latidoDelCron` sin el chat en la marca → «un Runner nuevo no hereda la marca vieja».
 // Y un cambio sin efecto (renombrar una variable local) lo deja verde.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -340,8 +345,14 @@ test('al-turno: sólo el Cerebro recibe el aviso, y con el Runner vivo nadie', (
 // El cron de sesión vence a los 7 días y el Runner rearma su Monitor igual: el latido sigue fresco y «vivo» decía que sí con el vigía
 // y la medición apagados. La vuelta del cron corre `latido-del-cron` primero, y deja `runner-cron.<cuenta>`; sin una en una hora,
 // el cron no da vueltas. No se cuelga de `medir`: falla por la huella de la semana y lo corren otros chats (la revisión adversarial).
-const marcarCron = (p: ReturnType<typeof pc>, hace: number, cuenta = 'claude5') =>
-  writeFileSync(join(p.dir, `runner-cron.${cuenta}`), new Date(Date.now() - hace).toISOString());
+/** Sin `chat`, la marca de antes (la hora sola), que se cree por la hora; con `chat`, la de hoy. */
+const marcarCron = (p: ReturnType<typeof pc>, hace: number, cuenta = 'claude5', chat?: string) => {
+  const hora = new Date(Date.now() - hace).toISOString();
+  writeFileSync(join(p.dir, `runner-cron.${cuenta}`), chat ? JSON.stringify({ hora, chat }) : hora);
+};
+/** Desde cuándo se ve a un chat Runner: lo que `cronDelRunner` anota la primera vez que lo ve. */
+const vistoDesde = (p: ReturnType<typeof pc>, chat: string, hace: number, cuenta = 'claude5') =>
+  writeFileSync(join(p.dir, `runner-visto.${cuenta}`), JSON.stringify({ chat, desde: new Date(Date.now() - hace).toISOString() }));
 const leemeConLatido = (p: ReturnType<typeof pc>, hace: number) => {
   const f = join(p.dir, 'LEEME-cartero.md');
   writeFileSync(f, '## El cron\n1. node ~/.claude/operaciones/runner-salud.mjs latido-del-cron\n');
@@ -369,13 +380,38 @@ test('estado: el cron del Runner al día, vencido, o sin marca (un cartero de an
 
 test('el cron que murió antes de dejar ninguna marca: con el LEEME que pide el latido hace más de una hora, cuenta como vencido', () => {
   const p = pc();
-  p.guardia(); p.chatVivo(1, 'Runner'); p.latido(0);
+  p.guardia(); const runner = p.chatVivo(1, 'Runner'); p.latido(0);
   leemeConLatido(p, 5 * MIN);
   assert.equal(JSON.parse(p.correr('estado')).cron.estado, 'sin_dato', 'recién instalado: la primera vuelta todavía no llegó');
   leemeConLatido(p, 2 * 60 * MIN);
+  // La primera vez que se lo ve, el reloj arranca: todavía está armando el cron.
+  assert.equal(JSON.parse(p.correr('estado')).cron.estado, 'nuevo');
+  assert.equal(JSON.parse(p.correr('estado')).cron.estado, 'nuevo', 'la segunda llamada no reinicia el reloj ni lo da por vencido');
+  // Se lo ve desde hace más de una hora y sigue sin marcar: el cron no corre.
+  vistoDesde(p, runner, 70 * MIN);
   const e = JSON.parse(p.correr('estado'));
   assert.deepEqual(e.cron, { estado: 'vencido', min: null, nunca: true });
   assert.equal(e.cronVencido, true);
+});
+
+test('un Runner nuevo no hereda la marca vieja del Runner anterior: tiene su hora para armar el cron', () => {
+  const p = pc();
+  p.chatVivo(1, 'Cerebro');
+  const nuevo = p.chatVivo(2, 'Runner');
+  p.latido(0);
+  leemeConLatido(p, 3 * 24 * 60 * MIN);
+  // El Runner de antes murió hace horas: su última marca tiene 5 horas.
+  marcarCron(p, 5 * 60 * MIN, 'claude5', 'local_00000000-0000-4000-8000-00000000000a');
+  assert.equal(JSON.parse(p.correr('estado')).cron.estado, 'nuevo', 'la marca es de otro chat: no le cuenta al de hoy');
+  assert.equal(JSON.parse(p.correr('estado')).cronVencido, false);
+  assert.equal(p.correr('al-turno', { CLAUDE_PID: '1' }), '', 'al Cerebro no le llega «rearmá el cron» mientras lo está armando');
+  // Su primera vuelta marca con su chat, y desde ahí vale como siempre.
+  assert.equal(p.correr('latido-del-cron', { CLAUDE_PID: '2' }), 'MARCADO');
+  assert.equal(JSON.parse(readFileSync(join(p.dir, 'runner-cron.claude5'), 'utf8')).chat, nuevo);
+  assert.equal(JSON.parse(p.correr('estado')).cron.estado, 'al_dia');
+  marcarCron(p, 80 * MIN, 'claude5', nuevo);
+  assert.equal(JSON.parse(p.correr('estado')).cronVencido, true, 'su propia marca vieja sí cuenta');
+  assert.match(p.correr('al-turno', { CLAUDE_PID: '1' }), /^EL CRON DEL RUNNER DE claude5 NO DA UNA VUELTA HACE 80 MIN/);
 });
 
 test('al-turno: el cron vencido con el Runner vivo se le dice al Cerebro, sin abrir otro', () => {
@@ -406,7 +442,9 @@ test('la marca la deja sólo el Runner, con la cuenta del chat y no la del marca
   assert.throws(() => readFileSync(marca, 'utf8'));
   // El marcador dice claude1 (lo pone pc()); la app corre con la 5: la marca es de la 5.
   assert.equal(p.correr('latido-del-cron', { CLAUDE_PID: '3' }), 'MARCADO');
-  assert.ok(Date.now() - Date.parse(readFileSync(marca, 'utf8')) < 60_000);
+  const dejada = JSON.parse(readFileSync(marca, 'utf8')) as { hora: string; chat: string };
+  assert.ok(Date.now() - Date.parse(dejada.hora) < 60_000);
+  assert.equal(dejada.chat, 'local_00000000-0000-4000-8000-000000000003', 'con el chat del Runner que la deja');
   assert.equal(JSON.parse(p.correr('estado')).cron.estado, 'al_dia');
   assert.throws(() => readFileSync(join(p.dir, 'runner-cron.claude1'), 'utf8'), 'nada a nombre del marcador');
 });

@@ -1098,7 +1098,11 @@ export async function analizarCompetidor(
 }
 
 /**
- * Guarda la oferta en el competidor y el análisis en cada pieza, con el reloj del TEXTO.
+ * Guarda la oferta en el competidor y el análisis en cada pieza, con el reloj del TEXTO: el de cuando se LEYÓ, que es el de la
+ * lectura (`texto_leido_en`). ⚠️ El análisis NO renueva el de las PIEZAS (18/11/2026, la revisión del pendiente T12; el que
+ * poda es el de la pieza: `podarVencido`, lib/spy-reglas.ts, y el del competidor no tacha nada): hasta ahí cada pieza
+ * analizada quedaba con `texto_leido_en: ahora`, así que un texto leído hace 29 días quedaba a la vista 30 días más (la
+ * retención de YouTube, mig 0359) sin haberse vuelto a bajar. Con la relectura de los formatos viejos, eso pasaba de a tandas.
  *
  * ⚠️ El ref que devuelve la IA se busca entre los ENVIADOS sin mayúsculas: un modelo que lo reescribe en minúsculas no
  * encuentra la fila con `.eq('ref', …)` y la pieza queda pendiente para siempre. Lo que se mandó y no volvió se marca
@@ -1120,12 +1124,12 @@ async function guardarAnalisis(competidorId: number, a: Analisis, piezasEnviadas
       // `formatosV`: con qué catálogo de formatos se clasificó (lib/spy-detalle.ts). Sin esta marca, lo analizado con los
       // once formatos viejos y dejado en `otro` no se puede distinguir de lo analizado hoy, y los dos criterios conviven
       // sin que nada lo avise.
-      .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas, formato: p.formato || 'otro', formatosV: VERSION_FORMATOS }, texto_leido_en: ahora, updated_at: ahora })
+      .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas, formato: p.formato || 'otro', formatosV: VERSION_FORMATOS }, updated_at: ahora })
       .eq('competidor_id', competidorId).eq('ref', ref);
   }
   const { sinDatos, yaRevisadas } = cierreDeLasQueNoVolvieron(piezasEnviadas, a.piezas.map((p) => p.ref));
   if (sinDatos.length) {
-    await db.from('spy_piezas').update({ analisis: ANALISIS_SIN_DATOS, texto_leido_en: ahora, updated_at: ahora })
+    await db.from('spy_piezas').update({ analisis: ANALISIS_SIN_DATOS, updated_at: ahora })
       .eq('competidor_id', competidorId).in('ref', sinDatos).is('analisis', null);
   }
   // ⚠️ Sin tocar `texto_leido_en`: el texto no se volvió a leer, sólo se cerró la relectura del formato. Y sólo si todavía

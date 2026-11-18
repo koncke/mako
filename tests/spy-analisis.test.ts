@@ -20,6 +20,11 @@
 //   · el filtro de la escritura como `formatosV is null` (la revisión)      → 11
 //   · `hayAlgoQueLeer` que poda también los anuncios                       → 10
 //   Cada una sola: 10 pasan, 1 falla (base: 11 pasan).
+// Y la segunda revisión del 18/11 (base 12 pasan; el 11 de antes comparaba la constante con su propio texto):
+//   · `texto_leido_en: ahora` de vuelta en lo que la IA devolvió            → 12
+//   · `texto_leido_en: ahora` de vuelta en `sinDatos`                       → 12
+//   · el filtro como `formatosV.is.null` solo                               → 8 y 11
+//   · el filtro como `formatosV.neq.N` solo (sin el `is.null`)              → 8 y 11
 // Correr: node --import tsx --test tests/spy-analisis.test.ts
 // =============================================================================
 
@@ -124,10 +129,25 @@ test('7. el desplegable de tipos: sólo los que tiene, con cuántas, y la red qu
 const DIA = 86_400_000;
 const hace = (ms: number) => new Date(Date.now() - ms).toISOString();
 
+/** Evalúa un filtro `.or()` de PostgREST sobre UNA fila, con la semántica de SQL: `col->>clave` es TEXTO (o NULL si la clave
+ *  falta o vale null), `is.null` pregunta por NULL, y `neq.N` contra un NULL da NULL, o sea NO cumple. Cubre sólo la forma que
+ *  usa `FILTRO_SIN_LA_VERSION_DE_HOY`; otra forma TIRA, para que un filtro reescrito no pase por un evaluador que no lo entiende. */
+function cumpleOr(filtro: string, fila: { analisis: unknown }): boolean {
+  return filtro.split(',').some((cond) => {
+    const m = /^analisis->>(\w+)\.(is\.null|neq\.(.+))$/.exec(cond);
+    if (!m) throw new Error(`el evaluador del test no entiende «${cond}»`);
+    const a = fila.analisis;
+    const v = a && typeof a === 'object' ? (a as Record<string, unknown>)[m[1]!] : undefined;
+    const texto = v == null ? null : String(v);
+    if (m[2] === 'is.null') return texto === null;
+    return texto !== null && texto !== m[3];
+  });
+}
+
 /** Una tanda como la corre `analizarCompetidor` + `guardarAnalisis`, sobre las piezas en memoria: manda lo pendiente, la
  *  «IA» devuelve sólo `devuelve`, y lo demás se cierra con `cierreDeLasQueNoVolvieron`. La escritura en la base filtra
- *  `analisis is null` para `sinDatos` y «sin el catálogo de hoy» para `yaRevisadas` (`FILTRO_SIN_LA_VERSION_DE_HOY`): acá se
- *  aplica la misma condición. */
+ *  `analisis is null` para `sinDatos` y `FILTRO_SIN_LA_VERSION_DE_HOY` para `yaRevisadas`: acá se aplica ESE filtro, con
+ *  `cumpleOr`, así que el test 8 también cae si el filtro deja afuera una versión vieja. */
 function tanda(piezas: PiezaParaAnalisis[], devuelve: ReadonlySet<string>): string[] {
   const enviadas = pendientesDeAnalisis(piezas);
   for (const p of enviadas) {
@@ -137,8 +157,7 @@ function tanda(piezas: PiezaParaAnalisis[], devuelve: ReadonlySet<string>): stri
   for (const p of piezas) {
     if (sinDatos.includes(p.ref) && p.analisis == null) p.analisis = { ...ANALISIS_SIN_DATOS };
     const r = yaRevisadas.find((x) => x.ref === p.ref);
-    const sinLaDeHoy = !!p.analisis && typeof p.analisis === 'object' && (p.analisis as { formatosV?: unknown }).formatosV !== VERSION_FORMATOS;
-    if (r && sinLaDeHoy) p.analisis = r.analisis;
+    if (r && cumpleOr(FILTRO_SIN_LA_VERSION_DE_HOY, p)) p.analisis = r.analisis;
   }
   return enviadas.map((p) => p.ref);
 }
@@ -184,12 +203,32 @@ test('10. una pieza de texto vencido no se manda a la IA; una sana sin texto sí
   assert.equal(faltaAnalisis(pieza('sin-fecha', 5000)), true, 'quien no pasa la fecha sigue como antes');
 });
 
-test('11. la escritura que cierra lo viejo filtra «sin el catálogo de hoy», no «sin marca»', () => {
-  // Con `formatosV is null`, el día que VERSION_FORMATOS suba, una pieza con la versión anterior que la IA no devuelve no se cierra.
-  assert.equal(FILTRO_SIN_LA_VERSION_DE_HOY, `analisis->>formatosV.is.null,analisis->>formatosV.neq.${VERSION_FORMATOS}`);
+test('11. la escritura que cierra lo viejo agarra toda versión que no es la de hoy, y nunca la de hoy', () => {
+  // La revisión del 18/11: con `formatosV is null`, el día que VERSION_FORMATOS suba, una pieza con la versión anterior que la
+  // IA no devuelve no se cierra y se vuelve a pagar en cada tanda. Se juzga lo que el filtro HACE sobre filas, no su texto.
+  const fila = (formatosV: unknown) => ({ analisis: formatosV === 'falta' ? { gancho: 'x' } : { gancho: 'x', formatosV } });
+  assert.equal(cumpleOr(FILTRO_SIN_LA_VERSION_DE_HOY, fila('falta')), true, 'sin la marca (el catálogo de once): se cierra');
+  assert.equal(cumpleOr(FILTRO_SIN_LA_VERSION_DE_HOY, fila(null)), true, 'con la marca en null: se cierra');
+  assert.equal(cumpleOr(FILTRO_SIN_LA_VERSION_DE_HOY, fila(VERSION_FORMATOS - 1)), true, 'la versión de ayer: se cierra (lo que se trababa)');
+  assert.equal(cumpleOr(FILTRO_SIN_LA_VERSION_DE_HOY, fila(1)), true);
+  assert.equal(cumpleOr(FILTRO_SIN_LA_VERSION_DE_HOY, fila(VERSION_FORMATOS)), false, 'otra tanda ya la clasificó con el catálogo de hoy: no se pisa');
+  assert.equal(cumpleOr(FILTRO_SIN_LA_VERSION_DE_HOY, { analisis: null }), true, 'NULL entero: la cubre el `is.null`');
+  // Y el filtro de antes, por el mismo evaluador, cae justo en la versión de ayer: la medida de que el evaluador distingue.
+  assert.equal(cumpleOr('analisis->>formatosV.is.null', fila(VERSION_FORMATOS - 1)), false);
+  // Cableado: la escritura de yaRevisadas usa ESE filtro.
   const src = sinComentarios(readFileSync(resolve(RAIZ, 'lib', 'spy.ts'), 'utf8'));
   const g = src.slice(src.indexOf('async function guardarAnalisis('), src.indexOf('export const leerSystemDelSpy'));
+  assert.ok(g.length > 500, 'encontré guardarAnalisis');
   assert.match(g, /for \(const r of yaRevisadas\)[\s\S]{0,300}\.or\(FILTRO_SIN_LA_VERSION_DE_HOY\)/, 'la escritura de yaRevisadas no usa el filtro');
-  assert.doesNotMatch(g, /analisis->>formatosV', null/, 'volvió el filtro que se traba al subir la versión');
 });
 
+test('12. analizar NO renueva el reloj del texto de una pieza: sólo leer el texto lo renueva', () => {
+  // La revisión del 18/11: cada pieza analizada quedaba con `texto_leido_en: ahora`, y un texto bajado hace 29 días quedaba a
+  // la vista 30 días más sin haberse vuelto a leer (la retención de YouTube, `podarVencido`). Con la relectura de los
+  // formatos viejos, eso pasaba a tandas. Lo que se mira: cada escritura a `spy_piezas` adentro de guardarAnalisis.
+  const src = sinComentarios(readFileSync(resolve(RAIZ, 'lib', 'spy.ts'), 'utf8'));
+  const g = src.slice(src.indexOf('async function guardarAnalisis('), src.indexOf('export const leerSystemDelSpy'));
+  const escrituras = [...g.matchAll(/from\('spy_piezas'\)[\s\S]*?;/g)].map((m) => m[0]);
+  assert.equal(escrituras.length, 3, `las tres escrituras de piezas (lo devuelto, sinDatos, yaRevisadas); encontré ${escrituras.length}`);
+  for (const e of escrituras) assert.doesNotMatch(e, /texto_leido_en/, `una escritura del análisis renueva el reloj del texto:\n${e.slice(0, 200)}`);
+});

@@ -2534,6 +2534,7 @@ export const BITACORA: Hito[] = [
     revisar: '/admin/operaciones',
     puntos: [
       '**El cron del Runner que vence ya no pasa en silencio:** cuando el Runner sigue latiendo pero su cron no corre (no mide la cuota ni corre el vigía), el Cerebro lo recibe en cada turno con el pedido de rearmarlo, y la guardia se lo avisa.',
+      '**Un Runner recién abierto tiene su hora para armar el cron:** no hereda la marca vieja del Runner anterior, así que no salta la alarma mientras se está armando.',
       '**Lo que espera un chat cerrado:** el aviso al Cerebro le decía que te pidiera reenviarlo «desde el cartel rojo», que sacaste el 31/10. Ahora le dice que te pida volver a escribirlo en un chat abierto.',
       '**Limpieza:** se borraron las funciones del cartel que ninguna pantalla usaba.',
       'Para que corra en la PC faltan las copias del cartero, de runner-salud, la línea del latido en el cron del Runner y el prompt de la guardia: las hace el Cerebro.',
@@ -2543,7 +2544,7 @@ export const BITACORA: Hito[] = [
       'scripts/operaciones/runner-salud.mjs — latido-del-cron, cronDelRunner, estado (cron, cronVencido), alTurno · scripts/operaciones/cartero.mjs — mensajeLimbo',
       'scripts/operaciones/guardia-runner.md — el prompt de la guardia con cronVencido',
       'lib/centro-limbo.ts, app/admin/operaciones/acciones.ts, lib/operaciones.ts — lo del cartel, borrado · lib/limbo-al-cerebro.ts, scripts/tickets.ts — el texto nuevo',
-      'tests/runner-salud.test.ts (5 roturas) · tests/centro-limbo.test.ts · tests/centro-estado-pc.test.ts',
+      'tests/runner-salud.test.ts (9 roturas) · tests/centro-limbo.test.ts · tests/centro-estado-pc.test.ts',
     ],
   },
 ];

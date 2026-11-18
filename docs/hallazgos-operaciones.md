@@ -11,7 +11,7 @@ del código.
 
 **Vive en:** `scripts/operaciones/runner-salud.mjs` (`latidoDelCron`, el comando `latido-del-cron`, `cronDelRunner`, `estado` →
 `cron` y `cronVencido`, `alTurno`) · `scripts/operaciones/guardia-runner.md` (el prompt de la guardia). Lo fija
-`tests/runner-salud.test.ts`, probado rompiéndolo (cinco roturas).
+`tests/runner-salud.test.ts`, probado rompiéndolo (nueve roturas, en dos tandas).
 
 **Síntoma:** el cron de sesión del Runner vence a los 7 días (el del 4/11 vencía el 11/11). Sin cron, el vigía (que corre sólo
 desde el cron) y la medición del Runner se apagan, y **nada lo dice**.
@@ -39,6 +39,14 @@ rearme (no se abre otro).
 ⚠️ **Sin marca nunca, depende del LEEME:** si `LEEME-cartero.md` no nombra `latido-del-cron`, es un cartero de antes y se calla
 (`sin_dato`); si lo nombra hace más de una hora y no hubo ninguna marca, el cron murió antes de dejarla (`nunca: true`), que es
 justo el caso del título del pendiente.
+
+⚠️ **La segunda revisión adversarial: un Runner recién abierto alarmaba en el acto.** Cuando el Runner anterior murió hace horas,
+el nuevo heredaba su marca vieja (o la falta de marca con el LEEME de días), y el Cerebro recibía «rearmá el cron» mientras lo estaba
+armando. Ahora la marca lleva el chat que la dejó (`{ hora, chat }`; la de antes, la hora sola, se cree por la hora), y la de otro
+chat no le cuenta al Runner de hoy: su reloj arranca la primera vez que se lo ve (`runner-visto.<cuenta>`, estado `nuevo`) y tiene
+la misma hora que cualquier vuelta. **La regla que generaliza: una marca que dice «X corrió» nombra a QUIÉN la dejó, o el
+reemplazo de X hereda el estado del que reemplaza.** Y `latido-del-cron` va SÓLO en el prompt del cron: la vuelta que dispara el
+Monitor sigue viva con el cron muerto, y si marcara, taparía lo que esto mira (lo dice `guardia-runner.md`).
 
 ⚠️ **Para que ande en la PC (eso lo hace el Cerebro, no la nube):** copiar `runner-salud.mjs` a `~/.claude/operaciones/`, sumar la
 línea `latido-del-cron` como primer paso del prompt del cron en `LEEME-cartero.md` y rearmar el cron del Runner en el mismo paso, y
