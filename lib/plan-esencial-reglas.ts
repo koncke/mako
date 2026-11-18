@@ -14,6 +14,7 @@
 // ⚠️ PURO: lo leen el servidor, la barra (vía /api/auth/me) y los tests.
 
 import { WS_PARAM } from './ws-tab';
+import { sinPasarAPro, textoTope } from './topes-plan';
 
 /** Las claves de la barra (app/_components/nav.ts) de las tabs de Pro. AI Avatar salió el 29/10/2026: es de los tres planes. */
 // 25/10/2026: el Media Buyer (/ads-manager) ya NO es sólo de Pro: Essential lo tiene en «propone», 2 recomendaciones por día y sin
@@ -73,6 +74,24 @@ export const ROTULO_PASAR_A_PRO = 'Pasar a Pro';
  * El mismo tono que «Tu plan» ya usa para él (app/configuraciones/plan/PlanPanel.tsx: «Lo maneja tu agencia»).
  */
 export const TEXTO_PEDIR_PRO_A_LA_AGENCIA = 'Pídele a tu agencia que te pase a Pro.';
+
+/**
+ * EL TEXTO DEL CARTEL, NO SÓLO SU LINK (F148, 18/11/2026). El arreglo de #494 cambió el link por `TEXTO_PEDIR_PRO_A_LA_AGENCIA`
+ * y dejó el texto del tope («… Pasa a MaKo Pro para tener más.»), así que el cliente de una agencia leía las dos cosas
+ * juntas. Con el CTA de «pedir» (`ctaDeTope`), el texto va sin su frase de pasar a Pro (`sinPasarAPro`); con cualquier otro
+ * CTA (el link, o la agencia adentro de su cliente que sí puede pasarlo a Pro), tal cual.
+ */
+export function textoDelTopeSegun(texto: string, cta: CtaDeTope): string {
+  return cta.tipo === 'pedir' ? sinPasarAPro(texto) : texto;
+}
+
+/**
+ * Lo que se le CONTESTA por el server (la API de MaKo, que no dibuja un cartel) al cliente de una agencia que llegó al tope: el
+ * tope, sin la frase de pasar a Pro, y a quién pedírselo (F148). Lo arma `textoTopeDelNegocio` (lib/topes-plan-server.ts).
+ */
+export function textoTopeParaClienteDeAgencia(t: number): string {
+  return `${sinPasarAPro(textoTope(t))} ${TEXTO_PEDIR_PRO_A_LA_AGENCIA}`;
+}
 
 /**
  * LA AGENCIA ADENTRO DE SU CLIENTE NO SE PIDE EL PLAN A SÍ MISMA (12/11/2026, ticket #89). Código Inmobiliario (ws13), operando

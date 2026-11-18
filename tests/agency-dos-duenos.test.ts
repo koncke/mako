@@ -190,6 +190,8 @@ test('LOS NUEVE USOS de `esClienteDeAgencia` resuelven el «no sé» por el lado
     // Upsells: con «no sé», no se ofrece.
     ['app/configuraciones/plan/page.tsx', '«Pasar a Pro» en «Tu plan»'],
     ['app/no-esta-en-tu-plan/page.tsx', '«Pasar a Pro» en el cartel del candado'],
+    // (18/11/2026, F148) El texto del tope que contesta la API de MaKo: con «no sé», sin «Pasa a MaKo Pro» ni los planes.
+    ['lib/tope-texto-agencia.ts', 'el «Pasa a … Pro» de los topes y candados que contesta la API'],
     // La frontera que alimenta a la barra: resuelve el «no sé» y devuelve boolean.
     ['lib/vista-de-otro.ts', 'lo que la barra le esconde, vía /api/auth/me'],
   ];

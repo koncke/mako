@@ -108,6 +108,8 @@ const log = [];
 mock.module(${url('lib/avisos.ts')}, { exports: { ...real(await import(${url('lib/avisos.ts')})), emitirDelCatalogo: async (id, o) => { log.push(['aviso', id, o.ws, o.lead.id, o.datos]); throw new Error('Supabase caído'); } } });
 mock.module(${url('lib/flujos.ts')}, { exports: { ...real(await import(${url('lib/flujos.ts')})), dispararEvento: async (ev, c) => { log.push(['flujos', ev, c.ws, c.leadId]); } } });
 mock.module(${url('lib/nutricion.ts')}, { exports: { ...real(await import(${url('lib/nutricion.ts')})), enrolarPorEvento: async (id, ev) => { log.push(['automatizaciones', id, ev]); return 1; } } });
+// La marca del anuncio (F117) se reclama de mentira: lo que mide este test son las partes (tests/meta-anuncio-reintento.test.ts mide la marca).
+mock.module(${url('lib/meta-anuncio.ts')}, { exports: { reclamarAnuncio: async () => true, marcarAnunciado: async () => {}, sinAnunciarDe: async () => new Set(), reintentoSinAnunciar: async () => false } });
 const { alNacerLeadDeMeta } = await import(${url('lib/meta-lead-nuevo.ts')});
 await alNacerLeadDeMeta(15, { id: 2731, nombre: 'Silvana', telefono: null }, { fieldData: [{ name: 'tipo_de_propiedad', values: ['Casa'] }], campana: null });
 console.log(JSON.stringify(log));

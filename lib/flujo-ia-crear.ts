@@ -59,6 +59,7 @@ import {
 } from '@/lib/flujo-ia';
 import { crearConIA, type OptsCrearIA, type ResultadoCrearIA, type DepsCrearIA } from '@/lib/flujo-ia-crear-core';
 import { agregarAlChat } from '@/lib/automatizacion-chat-db';
+import { borradorVigente } from '@/lib/secuencia-borrador';
 
 /** Lo mínimo que tiene que quedar para intentar un escalón más (reparar o corregir). */
 const MIN_PARA_OTRO_MS = 45_000;
@@ -456,6 +457,15 @@ function depsReales(ws: number): DepsCrearIA {
     // Con MaKo Essential, lo que arma la IA nace SIN el setter con IA si la puerta lo frena (14/11/2026, lib/setter-ia-reglas.ts):
     // cada «Sola» en «Para aprobar», y la automatización se crea igual.
     guardarPasos: (id, pasos) => guardarSinSetterSiFrena(pasos, (ps) => setSecuenciaPasos(id, ps as unknown as PasoSecuencia[])),
+    // La nota de voz POR GRABAR (F80): todo lo de publicar, escrito en el borrador. El setter, igual que arriba.
+    guardarBorrador: (id, pasos) => guardarSinSetterSiFrena(pasos, (ps) => setSecuenciaPasos(id, ps as unknown as PasoSecuencia[], { comoBorrador: true })),
+    borradorDe: async (id) => {
+      const db = await getTenantDb();
+      const { data, error } = await db.from('nutricion_secuencias').select('pasos, pasos_borrador').eq('id', id).maybeSingle();
+      if (error) throw new Error(`No pude leer el borrador: ${error.message}`);
+      const d = data as { pasos?: unknown; pasos_borrador?: unknown } | null;
+      return d ? borradorVigente(d.pasos_borrador, d.pasos)?.pasos ?? null : null;
+    },
     motivoDePasos: (e) => (e instanceof PasosInvalidosError ? e.message : null),
     // ⚠️ POR LA PUERTA DE LA PANTALLA (duodécima tanda, §1.4): `guardarDisparadores` escribe las COLUMNAS (el 409 de
     // la ruta y los quince lectores de siempre) Y la lista de la 0241, y valida contra el negocio. Con

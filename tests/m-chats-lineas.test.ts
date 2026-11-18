@@ -15,6 +15,12 @@
 //   · `opcionesDeCanal` con `cuenta: null` en las líneas (lo del teléfono de antes)  → 1 / 3 (1, 2 y 3: las dos líneas se funden)
 //   · `rotuloFiltro` sin el rótulo del renglón (vuelve a «WhatsApp · …»)              → 3 / 1 (3)
 //   · app/m/chats/datos.ts de vuelta a `canalesPresentes`                            → 3 / 1 (4)
+//
+// 5 (18/11/2026, la revisión de O48): elegir una línea filtraba sólo las 150 más nuevas que viajan al teléfono, y el número del renglón
+// cuenta todas: con las 150 más nuevas de su número, la de MaKo decía «3 sin leer» y la lista «Nada en esta bandeja». Ahora viajan
+// además las 150 más nuevas de cada renglón (`filasQueViajan`). PROBADO ROMPIÉNDOLO (base 6/0), de a una: `filasQueViajan` sin sumar
+// las de cada renglón → 5 / 1 (5); `filasDelFiltro` sin quedarse con las 150 de todas en «Todos» → 5 / 1 (5); el server cortando
+// antes (`lista.chats.slice(0, 150)`) → 5 / 1 (6); la lista sin `filasDelFiltro` → 5 / 1 (6).
 // =============================================================================
 
 import test from 'node:test';
@@ -23,7 +29,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { contarBandejas, filtrarChats, FILTRO_INICIAL, LINEA_CANAL_MAKO, opcionesDeCanal, type FiltroChats } from '../lib/chats-reglas';
 import type { CanalChat, ChatResumen, CuentaSocial, IdentidadCanal, LineaChat } from '../lib/chats-tipos';
-import { opcionElegida, rotuloFiltro, segundaDeCanal } from '../app/m/chats/modelo';
+import { filasDelFiltro, filasQueViajan, fueraDelFiltro, opcionElegida, rotuloFiltro, segundaDeCanal } from '../app/m/chats/modelo';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -99,8 +105,48 @@ test('3. lo que dice el renglón y el botón del filtro', () => {
 test('4. el cableado: escritorio y teléfono arman los renglones con la MISMA función', () => {
   assert.match(sinComentarios(leer('app/chats/FiltrosChats.tsx')), /opcionesDeCanal\(lineas, cuentasSociales, chats\)/, 'el chip «Canales» de escritorio');
   const datos = sinComentarios(leer('app/m/chats/datos.ts'));
-  assert.match(datos, /canales: opcionesDeCanal\(lista\.lineas, lista\.cuentasSociales, lista\.chats\)/, 'el server del teléfono arma los renglones con TODAS las conversaciones leídas');
+  assert.match(datos, /const canales = opcionesDeCanal\(lista\.lineas, lista\.cuentasSociales, lista\.chats\);/, 'el server del teléfono arma los renglones con TODAS las conversaciones leídas');
+  assert.match(datos, /^\s*canales,$/m, 'y son los que viajan');
   const lista = sinComentarios(leer('app/m/chats/ListaChats.tsx'));
   assert.match(lista, /onClick=\{\(\) => poner\(\{ canal: o\.canal, cuenta: o\.cuenta \}\)\}/, 'tocar un renglón fija el canal Y la cuenta');
   assert.doesNotMatch(lista, /CANALES_M/, 'la lista de canales sueltos del teléfono no vuelve');
+});
+
+test('5. 150 conversaciones de un número y 3 de la otra línea: elegir la otra trae sus 3, y el corte va después de filtrar', () => {
+  const hace = (min: number) => new Date(Date.parse('2026-11-18T12:00:00Z') - min * 60_000).toISOString();
+  const suyas = Array.from({ length: 150 }, (_, i) => chat(`wa:mako_ws9:${i}`, [identidad('whatsapp', 'mako_ws9', `${i}@s.whatsapp.net`)], { ultimaFecha: hace(i) }));
+  // Las de MaKo, MÁS VIEJAS que las 150: con el corte de antes no viajaban.
+  const deMako = Array.from({ length: 3 }, (_, i) => chat(`wa:canal_mako:g${i}`, [identidad('whatsapp', LINEA_CANAL_MAKO, `g${i}@g.us`)], { ultimaFecha: hace(500 + i), sinLeer: true }));
+  const todas = [...suyas, ...deMako];
+  const ops = opcionesDeCanal(LINEAS, [], todas);
+  const mako = ops.find((o) => o.cuenta === LINEA_CANAL_MAKO);
+  assert.ok(mako);
+  const viaje = filasQueViajan(todas, ops, 150);
+  assert.equal(viaje.viajan.length, 153, 'las 150 de todas y las 3 de MaKo');
+  const yo = { nombre: 'Martín' };
+  const lista = (f: FiltroChats) => filtrarChats(filasDelFiltro(viaje.viajan, f).map((x) => x.chat), f, yo).map((c) => c.clave);
+  const conMako: FiltroChats = { ...FILTRO_INICIAL, canal: mako.canal, cuenta: mako.cuenta };
+  assert.deepEqual(lista(conMako), ['wa:canal_mako:g0', 'wa:canal_mako:g1', 'wa:canal_mako:g2'], 'elegir la línea de MaKo trae SUS conversaciones');
+  // El número del renglón y la lista cuentan lo mismo.
+  assert.equal(segundaDeCanal(mako, contarBandejas(todas, yo)), '3 sin leer');
+  assert.equal(fueraDelFiltro(conMako, viaje.fueraTodos, viaje.fueraPorCanal), 0, 'de MaKo no quedó ninguna afuera');
+  // Sin canal elegido, la lista es la de siempre: las 150 más nuevas de todas, y las 3 de MaKo quedan en la computadora.
+  const todos = lista(FILTRO_INICIAL);
+  assert.equal(todos.length, 150);
+  assert.ok(!todos.some((k) => k.startsWith('wa:canal_mako:')), 'en «Todos» no se cuelan las de más atrás');
+  assert.equal(fueraDelFiltro(FILTRO_INICIAL, viaje.fueraTodos, viaje.fueraPorCanal), 3);
+  // El corte por renglón: con 160 de su número, viajan sus 150 más nuevas y 10 quedan afuera.
+  const muchas = [...Array.from({ length: 160 }, (_, i) => chat(`wa:mako_ws9:m${i}`, [identidad('whatsapp', 'mako_ws9', `m${i}@s.whatsapp.net`)], { ultimaFecha: hace(i) })), ...deMako];
+  const v2 = filasQueViajan(muchas, opcionesDeCanal(LINEAS, [], muchas), 150);
+  assert.equal(v2.fueraPorCanal['whatsapp:mako_ws9'], 10);
+  assert.equal(v2.viajan.length, 153);
+});
+
+test('6. el cableado del corte: el server manda lo de cada línea y la lista filtra sobre lo que corresponde', () => {
+  const datos = sinComentarios(leer('app/m/chats/datos.ts'));
+  assert.match(datos, /filasQueViajan\(lista\.chats, canales, TOPE_FILAS_M\)/, 'lo que viaja sale de `filasQueViajan`, no de un slice');
+  assert.doesNotMatch(datos, /lista\.chats\.slice\(0, TOPE_FILAS_M\)/, 'el corte de antes (las 150 de todas, y nada más)');
+  const lista = sinComentarios(leer('app/m/chats/ListaChats.tsx'));
+  assert.match(lista, /const base = filasDelFiltro\(filas, filtro\);/);
+  assert.match(lista, /fueraDelFiltro\(filtro, fuera, fueraPorCanal\)/);
 });

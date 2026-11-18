@@ -1,8 +1,9 @@
 # Sugerencias de MaKo en el CRM: qué propone y qué la dispara
 
 Lo pediste el 13/10/2026: «mapees todas las que se te ocurran y me las digas… ¿Qué dispara la
-sugerencia?». Esto es el mapa para que lo valides **antes** de construirlo. Nada de esto existe
-todavía.
+sugerencia?». Esto es el mapa que se validó **antes** de construirlo. ~~Nada de esto existe
+todavía.~~ (13/10/2026; vive en `lib/sugerencias-crm.ts` desde el 14/10: qué está andando y qué falta,
+en «Qué está andando», abajo.)
 
 ## Cómo se ve
 
@@ -87,8 +88,14 @@ todavía.
   noche, también **el lead de un formulario o una landing que no entra a ningún CRM** (conectarlo, por el chat) y **el
   lead que vuelve a la landing o mira el VSL dos veces** (uno: su ficha; varios: la lista para el closer, por el chat;
   no hay disparador «volvió», así que no se arma una automatización).
-- **Faltan:** nada del mapa. Lo que no tiene plantilla (los tres de arriba) va por el chat de MaKo en vez de crear una
-  automatización pausada.
+- **Clase 3, desde el 18/11/2026 (F158):** **«Perdidos hace 60 a 90 días»** (5 o más que se perdieron en esa ventana,
+  por la última línea «Estado: perdido» del historial: sin esa línea no se sabe cuándo se perdió y no cuenta) y **«la
+  etapa donde la mitad o más no avanza»** (de lo que salió de cada paso en 90 días, cuánto fue a nutrición o a una
+  salida en vez de avanzar; volver a un paso anterior no cuenta; con 10 salidas como piso; una sola, la que más pierde).
+  Las dos van por el chat de MaKo: no hay plantilla para «este mensaje a estos leads».
+- ~~**Faltan:** nada del mapa.~~ (20/10/2026; era falso: faltaban las dos de arriba, hechas el 18/11.) **Falta:** «No show
+  acumulados sin ningún mensaje después» (clase 3): pide leer los mensajes de cada No show después de su reunión, y no se
+  hizo en esta tanda. Lo que no tiene plantilla va por el chat de MaKo en vez de crear una automatización pausada.
 
 ## Lo que necesito que decidas
 

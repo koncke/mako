@@ -114,7 +114,8 @@ test('la pantalla: el cartel en el tablero y «Pasar a Pro» al lado del error, 
   const b = sinComentarios(leer('app/crm/CrmBoard.tsx'));
   assert.match(b, /\{topeLeads != null && <div style=\{\{ flex: 'none' \}\}><CartelTope tope=\{topeLeads\} \/><\/div>\}/);
   const v = sinComentarios(leer('app/crm/PasarAPro.tsx'));
-  assert.match(v, /<span style=\{\{ flex: '1 1 260px' \}\}>\{textoTope\(tope\)\}<\/span>\s*<PasarAPro \/>/);
+  // (18/11/2026, F148: el texto pasa por `TextoDelTope`, que al cliente de una agencia le saca el «Pasa a MaKo Pro».)
+  assert.match(v, /<span style=\{\{ flex: '1 1 260px' \}\}><TextoDelTope texto=\{textoTope\(tope\)\} \/><\/span>\s*<PasarAPro \/>/);
   // La ruta de «Pasar a Pro» es UNA, la de lib/topes-plan.ts (Planes, 23/10/2026): el panel del plan, no `/planes`.
   assert.match(v, /<Link href=\{RUTA_CAMBIAR_PLAN\} /);
   assert.doesNotMatch(v, /href=['"]\//, 'una ruta escrita a mano');
