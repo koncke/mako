@@ -5082,6 +5082,29 @@ compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo 
 - **Reescribir el `href` de un link para que navegue rompe a quien lo busca por su ruta**: `a[href="/perfil/instalar"]` dejaba de
   existir al cargar (pasaba a `app-settings.html#…`) y esos pasos se salteaban sin error. La ruta de la app queda en el `href`; adónde
   va se decide al hacer clic.
+- **El menú de la foto no sale en un render estático: va por `createPortal(…, document.body)`** (18/11). Martín vio en la maqueta un
+  «Tu perfil» de pop-up inventado («tienes el código, no es necesario que inventes»). `renderToStaticMarkup` no acepta portales y en
+  Node `document.body` ni existe: en la copia parcheada, `createPortal` devuelve el elemento ahí mismo (adentro del `<aside>`), se
+  dibuja la barra con `userOpen` en true y se recorta `#user-menu`. Las opciones salen solas del componente (`USER_NAV` filtrado por
+  rol y capa); inventarlas a mano es lo que dio el pop-up. Y «Settings» es una PÁGINA (/perfil, su primera sección es Perfil).
+- **El saldo de IA de ese menú no es un número para un negocio sin key propia**: `/api/anthropic-usage` le devuelve
+  `restanteUsd: null` (`sinSaldoAjeno`) y el chip dice «cargar». Ponerle un monto «verosímil» habría sido inventar lo que la app no
+  muestra.
+- **El claro/oscuro se guarda en `mako.modo`, la misma llave en todas las páginas del artefacto** (mismo origen): si en cualquier
+  página alguien pasa a oscuro, todas abren oscuras en ese navegador. Una pestaña «en oscuro que no debería» puede ser eso, no el
+  dibujo. Sin `#tema=` ni la llave, abre en claro, como la app.
+- **Darle versión de teléfono a una pestaña cambia sus recorridos a 390**: Settings pasó de la página de computadora apretada a
+  «Tu cuenta» (/m/cuenta) y su tutorial perdió 4 de 6 pasos de golpe; tres de ellos (Nombre, Nombre del negocio, Zona horaria)
+  viven adentro de la hoja «Perfil» en el teléfono. Después de sumar una versión de teléfono se miden los recorridos
+  (`medir-recorridos.cjs`), no sólo la captura.
+- **«Faltan muchísimas pestañas» no son filas de la barra** (18/11). Para el admin de un negocio la barra tiene 14 filas y el menú
+  de la foto 5 (`FAMILIAS` y `USER_NAV` de nav.ts, con el filtro del Sidebar); de esas faltaba sólo Chats. Las que faltan están ADENTRO:
+  las sub-pestañas de Classroom (`seccionesDe`, lib/clients-rutas.ts: Community, Clients, Calendar, Leaderboards, About), el índice
+  de Settings (lib/ajustes-secciones.ts: siete secciones) y cuatro destinos del menú de la foto. Y Offer y AI Avatar no están en la
+  barra (`fueraDeLaBarra`: se llega desde el Ops Center). Una lista «de memoria» se pierde las de adentro; la saca `leer-nav.tsx`.
+- **«Pusiste el video de la landing» no venía de las pestañas** (18/11): ninguna app-*.html tiene un `<video>` ni un `<iframe>`; «wistia»
+  aparece sólo como logo en una lista de íconos. El video estaba en la maqueta del onboarding, que arma otro chat. Antes de cambiar
+  una página por una queja, se busca en el HTML publicado si lo que se describe está ahí.
 
 ## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
 
