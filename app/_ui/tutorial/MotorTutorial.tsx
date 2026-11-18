@@ -32,8 +32,12 @@ import { useVideoTutorial } from './useVideoTutorial';
 import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
 
-/** El video de la primera vez en el Ops Center: el recorrido (public/tutoriales/recorrido.mp4). */
-const VIDEO_PRIMERA_VEZ_OPS = 'recorrido';
+/**
+ * Otro video para la primera vez en el Ops Center: NINGUNO por ahora. El «recorrido» del chat de los videos marcaba Funnel Coach, Uso,
+ * la Ticketera y el reto, y no el recorrido que Martín aprobó (18/11: «antes era mucho mejor, le mostrábamos la sidebar»). Vuelve
+ * cuando ese video siga los pasos aprobados, uno por frase.
+ */
+const VIDEO_PRIMERA_VEZ_OPS: string | null = null;
 /** Cuánto se espera a que aparezca lo de un paso antes de saltearlo. */
 const ESPERA_PASO_MS = 3000;
 /** MaKo Mobile: por debajo de esto la pestaña es la del teléfono (los pasos `soloComputadora` no van). */
@@ -150,7 +154,7 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
       if (!vivo || pedido.current || senalAhora()) return;
       // La PRIMERA vez en el Ops Center (recién salida del onboarding), el video del recorrido en lugar del de la pestaña: presenta
       // a los coaches, Uso, la Ticketera y termina mandando al chat del reto (acordado con el chat de los videos, 18/11).
-      if (lugarDe(pasos[0].sel) || Date.now() - desde > 6000) { pedido.current = true; mostrarTutorial(t, { alTerminar: onCerrar, ...(t.pestana === 'ops-center' ? { video: VIDEO_PRIMERA_VEZ_OPS } : {}) }); return; }
+      if (lugarDe(pasos[0].sel) || Date.now() - desde > 6000) { pedido.current = true; mostrarTutorial(t, { alTerminar: onCerrar, ...(t.pestana === 'ops-center' && VIDEO_PRIMERA_VEZ_OPS ? { video: VIDEO_PRIMERA_VEZ_OPS } : {}) }); return; }
       window.setTimeout(mirar, 250);
     };
     const id = window.setTimeout(mirar, 600);
@@ -256,20 +260,32 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
     return () => window.clearTimeout(id);
   }, [modoVideo, frase, el, pasoFrase, seguirVideo]);
 
+  // 0c. La pausa al final de la frase, justa: `timeupdate` llega cada ~250 ms y la pausa caería en la frase siguiente.
+  useEffect(() => {
+    const v = vidRef.current;
+    if (!modoVideo || !frase || !frase.espera_clic || !v) return;
+    const fin = frase.t_fin;
+    let id = 0;
+    const mirar = () => { if (!v.paused && v.currentTime >= fin - 0.05) { v.pause(); return; } id = requestAnimationFrame(mirar); };
+    id = requestAnimationFrame(mirar);
+    return () => cancelAnimationFrame(id);
+  }, [modoVideo, frase]);
+
   // 0. El video manda: con cada avance, ¿llegó una frase con marca? La marca, y la pausa si espera el clic.
   useEffect(() => {
     const v = vidRef.current;
     if (!modoVideo || cierre || !v) return;
     const alAvanzar = () => {
       const t = v.currentTime;
-      if (frase) { if (!frase.espera_clic && t >= frase.t_fin) seguirVideo(); return; }
+      // Martín, 18/11: «pausás el video previo a lo que deberías pausar… está narrando todavía lo de Funnel Coach». La marca sale en
+      // el t_inicio de su frase y se QUEDA mientras la voz la narra; la pausa (espera_clic) va en su t_fin, en el silencio del final.
+      if (frase) { if (t >= frase.t_fin - 0.05) { if (frase.espera_clic) { if (!v.paused) v.pause(); } else seguirVideo(); } return; }
       const f = fraseParaMarcar(frases, t, hechas.current);
       if (!f) return;
       // Lo que abrió la frase anterior se cierra primero; la próxima vuelta (≈250 ms) ya marca.
       if (porCerrar.current) { porCerrar.current = false; cerrarLoAbierto(); return; }
       // Una marca que no está en la página no frena el video.
       if (!lugarDe(pasoDeFrase(f, pasos).sel)) { hechas.current.add(f.id); return; }
-      if (f.espera_clic) v.pause();
       setFrase(f);
     };
     // Terminó con una «Mira aquí» marcada: se suelta y va al cierre. Con una que espera el clic, espera (el clic lleva al cierre).

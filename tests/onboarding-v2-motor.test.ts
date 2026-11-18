@@ -81,8 +81,11 @@ test('los videos de los momentos del onboarding: sus keys, el recorrido la prime
   assert.equal(nombreDeFrase('Imagina un equipo que trabaja para tu negocio.'), null, 'una frase sin «aquí» no nombra nada');
   const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
   const motor = leer('app/_ui/tutorial/MotorTutorial.tsx');
-  assert.match(motor, /const VIDEO_PRIMERA_VEZ_OPS = 'recorrido';/, 'la primera vez en el Ops Center, el video del recorrido');
-  assert.match(motor, /t\.pestana === 'ops-center' \? \{ video: VIDEO_PRIMERA_VEZ_OPS \}/);
+  // 18/11, Martín: el video «recorrido» no seguía el recorrido aprobado. Hasta que se rehaga, ninguno en su lugar.
+  assert.match(motor, /const VIDEO_PRIMERA_VEZ_OPS: string \| null = null;/, 'la primera vez en el Ops Center, sin el video del recorrido');
+  // La pausa al FINAL de la frase, no al empezar (la voz terminaba la frase con la marca ya en la siguiente).
+  assert.match(motor, /if \(t >= frase\.t_fin - 0\.05\) \{ if \(frase\.espera_clic\)/, 'la pausa en el t_fin');
+  assert.doesNotMatch(motor, /if \(f\.espera_clic\) v\.pause\(\);/, 'nunca la pausa en el t_inicio');
   const chat = leer('app/onboarding/ChatArranque.tsx');
   for (const k of ['onboarding-bienvenida', 'onboarding-whatsapp', 'onboarding-seguir-pc']) assert.match(chat, new RegExp(`clave[=:] ?["']${k}["']`), `el lugar de ${k}`);
   assert.match(leer('app/onboarding/page.tsx'), /videos=\{v2 \? \{ revision: esRevision\(v2\) \} : null\}/, 'sólo el onboarding V2 tiene los videos');
