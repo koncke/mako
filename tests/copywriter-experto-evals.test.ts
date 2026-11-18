@@ -387,16 +387,21 @@ test('4. la batería cubre cada verificación: alguna buena la pasa y alguna mal
 // ── 5 · El saneo de acá es el de «Editar» ───────────────────────────────────────────────────────────────────────────
 
 test('5. los pasos del saneo de acá son los de `editar` (lib/copywriter/ia.ts), en el mismo orden', () => {
-  // Sólo los NOMBRES de los pasos, en el cuerpo de `medir` (renombrar una variable no cambia el saneo).
+  // Sólo los NOMBRES de los pasos, de la primera a la última (renombrar una variable no cambia el saneo, y partir `medir` en
+  // dos funciones tampoco: el 18/11/2026 quedó `procesar` + `medirS`, por las piezas largas de ./por-secciones.ts).
   const ia = leer('lib/copywriter/ia.ts');
-  const ini = ia.indexOf('const medir = ');
-  assert.ok(ini >= 0, 'ia.ts ya no tiene `medir`: el saneo de este test mide otra cosa');
-  const medir = ia.slice(ini, ia.indexOf('\n    };', ini));
-  assert.ok(medir.length > 200 && medir.length < 3_000, `el cuerpo de \`medir\` mide ${medir.length}: el recorte mira otra cosa`);
+  const veces = (paso: string) => ia.split(paso).length - 1;
+  // UN solo saneo y UN solo «aplicar»: si «Editar» suma otro camino, este test tiene que mirarlo.
+  assert.equal(veces('sanearOperaciones('), 1, 'ia.ts sanea en más (o en ningún) lugar: el saneo de este test mide otra cosa');
+  assert.equal(veces('aplicarTodo('), 1, 'ia.ts aplica en más (o en ningún) lugar: el saneo de este test mide otra cosa');
+  const ini = ia.indexOf('sanearOperaciones(');
+  const fin = ia.indexOf('aplicarTodo(', ini);
+  assert.ok(fin > ini && fin - ini < 2_500, `del saneo al «aplicar» hay ${fin - ini} caracteres: el recorte mira otra cosa`);
+  const saneo = ia.slice(ini, fin + 'aplicarTodo('.length);
   let desde = 0;
   for (const paso of ['sanearOperaciones(', 'operacionesAlTuteo(', 'operacionesAlEspanol(', 'sinExtrasNoPedidos(', 'aplicarTodo(']) {
-    const i = medir.indexOf(paso, desde);
-    assert.ok(i >= 0, `«${paso}» ya no está en \`medir\`, o cambió de lugar: el saneo de este test mide otra cosa`);
+    const i = saneo.indexOf(paso, desde);
+    assert.ok(i >= 0, `«${paso}» ya no está entre el saneo y el «aplicar» de ia.ts, o cambió de lugar: el saneo de este test mide otra cosa`);
     desde = i;
   }
 });
@@ -407,6 +412,9 @@ test('5. los pasos del saneo de acá son los de `editar` (lib/copywriter/ia.ts),
 //   · `sinExtrasNoPedidos` (lib/copywriter/ia-reglas.ts) devolviendo las ops   → 1 fallo (el 3c: las notas de producción)
 //   · `pideParaIA` (lib/copywriter/experto.ts) con las preguntas al revés      → 2 fallos (el 1b y el 2)
 //   · la regla de la palabra clave cambiada en EXPERTO_COPY                    → 1 fallo (el 1)
+//   · ia.ts sin el paso del «tú» (`operacionesAlTuteo`)                         → 1 fallo (el 5)
+// El 5 ya sirvió: al mezclar main el mismo día, `medir` se partió en `procesar` + `medirS` (lib/copywriter/por-secciones.ts) y el 5
+// dio rojo. El saneo seguía igual; se reescribió para mirar del saneo al «aplicar», sin depender del nombre de la función.
 // Y una rotura de verdad que salió escribiendo los casos: con «Hola, {nombre}:» y «Agenda tu llamada de admisión» en la buena
 // del email, `nada-del-ejemplo` dio rojo (2 bloques iguales al ejemplo de Voz de Líder), igual que lo diría la página.
 // Y otra del producto, que salió corriendo esto: daba rojo UNA vez cada tantas corridas («el 73 %» pasaba sin aviso) porque el
