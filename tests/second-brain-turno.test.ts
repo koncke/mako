@@ -25,7 +25,7 @@ import { join } from 'node:path';
 import { bloqueDelSecondBrain, conCapa, LARGO_PREGUNTA_TURNO, preguntaDelTurno, PRESUPUESTO_TURNO, sinLaPlata } from '../lib/cerebro-union';
 import { CAPA_FUNCIONES, esPreguntaDeProducto, funcionesDeMako, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES, sinFunciones } from '../lib/cerebro-funciones';
 import { recuperar, tokensDe } from '../lib/cerebro-recuperar';
-import { nodoDelObjetivo } from '../lib/cerebro-vivo';
+import { agregarLoVivo, LECTURAS_VACIAS } from '../lib/cerebro-vivo';
 import type { Cerebro, NodoCerebro } from '../lib/cerebro-modelo';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -62,15 +62,19 @@ test('1. un closer o un setter no recibe la plata del negocio: se saca del grafo
   assert.doesNotMatch(delCloser, /USD|Ana Pérez|12 clientes/, 'un closer recibió la plata del negocio');
   assert.match(delCloser, /Mentoría \[prod:1\]/);
 
-  // EN POSITIVO: el objetivo de los settings TAL COMO LOS GUARDA el onboarding (strings), y los demás tipos que no son de un
-  // closer, uno nuevo incluido. Quedan sólo los que un closer SÍ ve.
-  const objetivo = nodoDelObjetivo('12', '30000');
-  assert.ok(objetivo, 'con los settings como strings no sale el nodo del objetivo');
-  assert.equal(nodoDelObjetivo('', '30000'), null);
+  // EN POSITIVO: el objetivo de cierres TAL COMO LO ARMA el grafo, y los demás tipos que no son de un closer, uno nuevo
+  // incluido. Quedan sólo los que un closer SÍ ve. Desde el 18/11/2026 (F82) la meta sale de `objectives`: el nodo es el `okr:`
+  // que arma lo vivo (con su arista a la etapa de cierre), y el de los settings viejos (`nodoDelObjetivo`) ya no existe.
+  const conObjetivo = { nodos: [nodo('etapa:cierre', 'funnel', 'Cierre', 'El lead pagó.')], aristas: [] as Cerebro<string>['aristas'] };
+  agregarLoVivo(conObjetivo, {
+    ...LECTURAS_VACIAS,
+    objetivos: [{ id: 'q4', titulo: '12 cierres en el trimestre', metrica: 'cierres', metaValor: 12, unidad: 'cantidad', quarter: 4, anio: 2026, funnelIds: [] }],
+  }, { raiz: 'raiz', primeraEtapa: null, etapasEnMapa: new Set(['etapa:cierre']), etapaCierre: 'etapa:cierre' });
+  assert.ok(conObjetivo.nodos.some((n) => n.id === 'okr:q4'), 'el objetivo de objectives no salió');
+  assert.ok(conObjetivo.aristas.some((a) => a.de === 'okr:q4' && a.a === 'etapa:cierre'), 'el objetivo de cierres no cuelga de la etapa de cierre');
   const todo: Cerebro<string> = {
     ...negocio,
-    nodos: [...negocio.nodos, objetivo!,
-      nodo('etapa:cierre', 'funnel', 'Cierre', 'El lead pagó.'),
+    nodos: [...negocio.nodos, ...conObjetivo.nodos,
       nodo('fase', 'norte', 'Fase 2 · Tracción', 'Cuánto invertir: USD 1.500 por mes en anuncios.'),
       nodo('reunion:5', 'funnel', 'Ana Pérez', 'Resultado: cierre ganado por USD 3.000.'),
       nodo('doc:7', 'documentos', 'Balance 2026', 'Facturación de USD 90.000.'),
@@ -80,7 +84,7 @@ test('1. un closer o un setter no recibe la plata del negocio: se saca del grafo
       nodo('campo:oferta_ticket', 'oferta', 'Precio', 'Mil quinientos dólares.'),
       nodo('nuevo:1', 'panorama', 'Ventas del mes', 'USD 30.000 cobrados en cierres.'),
     ],
-    aristas: [...negocio.aristas, { de: 'objetivo', a: 'etapa:cierre', motivo: 'Un cierre se cuenta cuando un lead llega aquí' },
+    aristas: [...negocio.aristas, ...conObjetivo.aristas,
       { de: 'reunion:5', a: 'etapa:cierre', motivo: 'Una reunión de venta' }, { de: 'raiz', a: 'etapa:cierre', motivo: 'El funnel' }],
   };
   assert.deepEqual(sinLaPlata(todo).nodos.map((n) => n.id).sort(), ['campo:oferta_ticket', 'etapa:cierre', 'pan:OFERTA Y PRECIOS', 'prod:1', 'raiz']);
@@ -89,7 +93,7 @@ test('1. un closer o un setter no recibe la plata del negocio: se saca del grafo
     assert.doesNotMatch(bloqueDelSecondBrain(recuperar(sinLaPlata(todo), { pregunta: q, presupuesto: PRESUPUESTO_TURNO })), /USD|30\.000|invertir|Ana Pérez/, `«${q}»: un closer recibió la plata`);
   }
   assert.match(bloqueDelSecondBrain(recuperar(todo, { pregunta: '¿Cuál es el objetivo de cierres?', presupuesto: PRESUPUESTO_TURNO })),
-    /12 cierres en 90 días \[objetivo\] — Y USD 30\.000 de facturación/, 'el dueño no ve su objetivo');
+    /12 cierres en el trimestre \[okr:q4\] — Meta: 12 en el Q4 2026/, 'el dueño no ve su objetivo');
 });
 
 test('2. el bloque va sólo con una vista local: una pregunta que no nombra nada no suma nada, ni el índice', () => {
@@ -207,6 +211,8 @@ function nodo(id: string, area: NodoCerebro['area'], etiqueta: string, detalle: 
 //   T7. volver a la lista de lo que se saca, T8. el objetivo entre lo que ve un closer, T9. los documentos y las reuniones,
 //   T10. cualquier plano del panorama, T11. los campos del Norte, T12. el objetivo sólo con números (no como lo guarda el
 //   onboarding)                                                               → rojo el 1.
+//   (18/11/2026, F82: T12 ya no aplica —el nodo de los settings viejos se borró—; el caso 1 arma el objetivo con
+//   `agregarLoVivo`, como el grafo de verdad, y lo verifica sacando la arista a la etapa de cierre en lib/cerebro-vivo.ts.)
 //   T14. recuperar sin el tope del turno, T15. la espera en 60 s, T16. buscar con el mensaje entero → rojo el 3.
 //   T13. el tope en 6.000, T17. el corte en 32.000 letras, T18. cortar en el medio de una palabra → rojo el 5 (T18 quedó
 //   verde con el texto pegado: el corte caía justo en un espacio; por eso el caso de «cierre »).

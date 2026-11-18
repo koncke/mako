@@ -45,7 +45,9 @@ test('«Firmado» suma las ventas de los CRMs agregados en todos sus lectores', 
   assert.match(q, /const sold_revenue_usd = \(soldRes\.data \?\? \[\]\)\.reduce\([\s\S]{0,120}?\) \+ enCrms\.usd;/, 'el Revenue del período');
   assert.match(q, /const cierres_en_periodo = \(soldRes\.data \?\? \[\]\)\.length \+ enCrms\.cierres;/);
   assert.match(q, /for \(const v of enCrms\) \{\s*const ym = v\.fecha\.slice\(0, 7\);/, 'la serie por mes');
-  assert.match(q, /const sold_actual = cuentan\.reduce\([^\n]*\) \+ enCrms\.usd;/, 'el objetivo');
+  // «El objetivo» era `getObjetivoProgreso` (lib/queries.ts), que leía los settings viejos y se borró el 18/11/2026 sin
+  // llamadores (F82). Su reemplazo es la meta de `objectives`, que suma con el KPI «Firmado» y los cierres de arriba.
+  assert.doesNotMatch(q, /getObjetivoProgreso/, 'volvió el lector viejo del objetivo: dos fuentes para la misma meta');
   assert.match(sinComentarios(leer('lib/pagos.ts')), /\.\.\.enCrms\.map\(\(v\) => \(\{ nombre: v\.nombre \?\? '—', monto: v\.monto, fecha: v\.fecha, leadId: v\.leadId, funnel: v\.funnelId \}\)\)/, 'el desglose');
   assert.match(sinComentarios(leer('lib/graficos-datos.ts')), /for \(const v of enCrms\) out\.push\(\{ f: v\.fecha, d: \{\}, v: \{ cierres: 1, vendido: v\.monto \} \}\);/, 'el conjunto «Negocio»');
   assert.match(sinComentarios(leer('lib/graficos-datos-extra.ts')), /for \(const v of enCrms\) out\.push\(\{ f: v\.fecha, d: \{\}, v: \{ cierres: 1, vendido: v\.monto \}, r: \{ lead: String\(v\.leadId\) \} \}\);/, 'el conjunto «Revenue»');

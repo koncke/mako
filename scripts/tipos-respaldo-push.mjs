@@ -80,19 +80,151 @@ function vivo(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
-const duenoDelLock = () => { try { return Number.parseInt(readFileSync(LOCK, 'utf8').trim(), 10); } catch { return NaN; } };
-const tomarLock = () => { try { writeFileSync(LOCK, String(process.pid), { flag: 'wx' }); return true; } catch { return false; } };
-const soltarLock = () => { try { if (duenoDelLock() === process.pid) unlinkSync(LOCK); } catch { /* ya no es mío */ } };
 
-async function esperar(cond, maxMs, pausaMs, aviso) {
-  const hasta = Date.now() + maxMs;
+/**
+ * El turno de tipos de la PC: un ARCHIVO tomado con `wx` (el test-and-set), con el pid del dueño adentro. Es el mismo lock que
+ * scripts/typecheck-lock.mjs y tsc-acotado. `lock` y `pid` son parámetros para que el test arme el suyo en una carpeta temporal.
+ * @param {string} lock
+ * @param {number} [pid]
+ */
+export function turnoDeArchivo(lock, pid = process.pid) {
+  const dueno = () => { try { return Number.parseInt(readFileSync(lock, 'utf8').trim(), 10); } catch { return NaN; } };
+  return {
+    dueno,
+    tomar: () => { try { writeFileSync(lock, String(pid), { flag: 'wx' }); return true; } catch { return false; } },
+    // Sólo si sigue siendo MÍO: si se declaró huérfano y lo tomó otro, borrarlo le sacaría el turno al que trabaja.
+    soltar: () => { try { if (dueno() === pid) unlinkSync(lock); } catch { /* ya no es mío */ } },
+    // Un lock cuyo dueño murió no puede frenar a nadie para siempre.
+    sacarHuerfano: () => { if (!vivo(dueno())) { try { unlinkSync(lock); } catch { /* lo sacó otro */ } } },
+  };
+}
+const soltarLock = () => turnoDeArchivo(LOCK).soltar();
+
+const dormirDeVerdad = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Espera a que `cond()` dé true, hasta `maxMs`. Con `dormir` y `ahora` inyectables: el test corre en milisegundos. */
+async function esperarHasta(cond, maxMs, pausaMs, { dormir, ahora, aviso }) {
+  const hasta = ahora() + maxMs;
   let dicho = false;
-  while (Date.now() < hasta) {
+  while (ahora() < hasta) {
     if (cond()) return true;
-    if (!dicho && aviso) { process.stderr.write(aviso()); dicho = true; }
-    await new Promise((r) => setTimeout(r, pausaMs));
+    if (!dicho && aviso) { aviso(); dicho = true; }
+    await dormir(pausaMs);
   }
   return cond();
+}
+
+const gb = (n) => n.toFixed(1);
+
+/**
+ * Las TANDAS con el turno de tipos de la PC, SIN ESPERAR NADA CON EL TURNO EN LA MANO (18/11/2026, O26).
+ *
+ * El arreglo del 29/10 (dac670c09) esperaba afuera sólo la RAM de la tanda 1: después de tomar el turno, el bucle volvía a
+ * esperar hasta 15 min por tanda CON el turno tomado (la tanda 1 también, si la RAM bajó durante los 10 min de fila), y no lo
+ * soltaba nunca. Con la PC en 2-3,5 GB eso es la fila de tipos de TODA la PC frenada sin que corra ningún tsc, que es justo lo
+ * que la regla de docs/hallazgos-infra.md prohíbe («nada espera RAM ni pausa con un lock tomado… y si ya no alcanza se suelta»).
+ *
+ * Lo que hace ahora, por tanda (el molde es `esperarRamSinRetener`, scripts/antes-de-subir.mjs, y con-turno):
+ *   1. con el turno en la mano, MIRA la RAM (sin esperar): si alcanza, corre;
+ *   2. si no alcanza, SUELTA el turno y espera la RAM afuera, donde no frena a nadie;
+ *   3. con RAM, vuelve a hacer fila por el turno, y al tomarlo vuelve al paso 1 (se pudo ir en la fila);
+ *   4. si la RAM no aparece en `esperaRamMs` (sólo cuenta lo esperado afuera, no la fila), sale con 99 SIN el turno.
+ *
+ * ⚠️ NO MIRA LA PAUSA DEL CEREBRO, a propósito: la pausa (scripts/pausa-cerebro.mjs) existe PARA el push — mientras está prendida,
+ *    lo pesado de los chats espera y con-turno no le da el turno a nadie que no sea el push. Si el push la esperara, se esperaría
+ *    a sí mismo. Lo fija tests/tipos-respaldo-push.test.ts con la pausa prendida.
+ *
+ * @param {{
+ *   tandas?: number,
+ *   hayRam: () => boolean,
+ *   libreGb?: () => number,
+ *   pisoGb?: number,
+ *   turno: { tomar: () => boolean, soltar: () => void, dueno: () => number, sacarHuerfano: () => void },
+ *   correr: (i: number) => Promise<{ code: number | null, signal?: string | null, salida: string }>,
+ *   dormir?: (ms: number) => Promise<unknown>,
+ *   ahora?: () => number,
+ *   esperaRamMs?: number,
+ *   esperaTurnoMs?: number,
+ *   sondeoRamMs?: number,
+ *   sondeoTurnoMs?: number,
+ *   out?: (t: string) => void,
+ *   err?: (t: string) => void,
+ * }} d
+ * @returns {Promise<{ codigo: number, resultados: ReturnType<typeof clasificarTanda>[] }>}
+ */
+export async function tandasConTurno(d) {
+  const tandas = d.tandas ?? TANDAS;
+  const dormir = d.dormir ?? dormirDeVerdad;
+  const ahora = d.ahora ?? Date.now;
+  const esperaRamMs = d.esperaRamMs ?? RAM_ESPERA_MAX_MS;
+  const esperaTurnoMs = d.esperaTurnoMs ?? LOCK_ESPERA_MAX_MS;
+  const sondeoRamMs = d.sondeoRamMs ?? 2000;
+  const sondeoTurnoMs = d.sondeoTurnoMs ?? 400;
+  const out = d.out ?? ((t) => process.stdout.write(t));
+  const err = d.err ?? ((t) => process.stderr.write(t));
+  const libre = () => (d.libreGb ? gb(d.libreGb()) : '?');
+  const piso = gb(d.pisoGb ?? RAM_MIN_GB);
+  const min = Math.round(esperaRamMs / 60000);
+  const { turno } = d;
+  /** @type {ReturnType<typeof clasificarTanda>[]} */
+  const resultados = [];
+  let tengo = false;
+  const cierre = () => ({ codigo: veredictoRespaldo(resultados, tandas), resultados });
+  try {
+    for (let i = 1; i <= tandas; i++) {
+      // El tope de RAM cuenta SÓLO lo esperado afuera, no la fila (la revisión de esperarRamSinRetener: tras una fila larga, un
+      // bajón momentáneo de RAM no puede dar 99 en el acto).
+      let gastado = 0;
+      for (;;) {
+        if (tengo) {
+          if (d.hayRam()) break;            // con el turno se MIRA, nunca se espera
+          turno.soltar();
+          tengo = false;
+          err(`  [tipos por tandas] tanda ${i}/${tandas}: quedan ${libre()} GB y pide ${piso}; suelto el turno y espero afuera (no frena a nadie)…\n`);
+          const t0 = ahora();
+          await dormir(sondeoRamMs);        // un respiro antes de volver a mirar: si la RAM titila, no se gira en vacío
+          gastado += ahora() - t0;
+        }
+        const desde = ahora();
+        const hay = await esperarHasta(() => d.hayRam(), Math.max(0, esperaRamMs - gastado), sondeoRamMs, {
+          dormir, ahora,
+          aviso: () => err(`  [tipos por tandas] tanda ${i}/${tandas}: quedan ${libre()} GB y pide ${piso}; espero hasta ${min} min SIN tomar el turno…\n`),
+        });
+        gastado += ahora() - desde;
+        if (!hay) {
+          err(`  ✖ tanda ${i}/${tandas}: no hubo RAM en ${min} min. NO es un error de tipos: no se chequeó.\n`);
+          resultados.push({ estado: 'sin-chequear', errores: [], porque: 'no hubo RAM' });
+          return cierre();
+        }
+        const tomado = await esperarHasta(() => {
+          if (turno.tomar()) return true;
+          turno.sacarHuerfano();
+          return false;
+        }, esperaTurnoMs, sondeoTurnoMs, {
+          dormir, ahora,
+          aviso: () => err(`  [tipos por tandas] otro typecheck tiene el turno (pid ${turno.dueno()}); espero mi lugar…\n`),
+        });
+        if (!tomado) {
+          err(`  ✖ el turno del typecheck no se liberó en ${Math.round(esperaTurnoMs / 60000)} min: no chequeo (NO es un error de tipos).\n`);
+          resultados.push({ estado: 'sin-chequear', errores: [], porque: 'no se liberó el turno' });
+          return cierre();
+        }
+        tengo = true;                       // y vuelve arriba: se MIRA la RAM con el turno en la mano
+      }
+      const t0 = ahora();
+      const r = clasificarTanda(await d.correr(i));
+      resultados.push(r);
+      const s = Math.round((ahora() - t0) / 1000);
+      if (r.estado === 'ok') out(`  ✔ tanda ${i}/${tandas}: 0 errores · ${s} s\n`);
+      else if (r.estado === 'errores') out(`  ✖ tanda ${i}/${tandas}: ${r.errores.length} error(es) de tipos · ${s} s\n${r.errores.map((e) => `      ${e}`).join('\n')}\n`);
+      else { out(`  ✖ tanda ${i}/${tandas}: no terminó (${r.porque}) · ${s} s\n`); break; }
+    }
+  } finally {
+    if (tengo) turno.soltar();
+  }
+  const fin = cierre();
+  if (fin.codigo === 0) out(`  ✔ tipos por tandas: las ${tandas} en 0 (OK por tandas, no el tsc entero)\n`);
+  return fin;
 }
 
 function correrTanda(i, guion) {
@@ -105,45 +237,26 @@ function correrTanda(i, guion) {
   });
 }
 
-async function main() {
+/**
+ * El respaldo de verdad: la RAM libre de la PC, el lock de la PC y las tandas de scripts/tipos-por-tandas.mjs. `over` reemplaza
+ * cualquiera de esas piezas (lo usa el test, con una RAM y unas tandas de mentira y un lock en una carpeta temporal).
+ * @param {Partial<Parameters<typeof tandasConTurno>[0]>} [over]
+ */
+export async function main(over = {}) {
   // Las tandas chequean el árbol del cwd (el worktree que empuja), con su tsconfig.
   const guion = existsSync(join(process.cwd(), 'scripts', 'tipos-por-tandas.mjs'))
     ? join(process.cwd(), 'scripts', 'tipos-por-tandas.mjs')
     : join(dirname(fileURLToPath(import.meta.url)), 'tipos-por-tandas.mjs');
-  // ⚠️ LA RAM DE LA PRIMERA TANDA SE ESPERA ANTES DE TOMAR EL LOCK (29/10/2026, el push de tren-y): con el lock tomado y la PC en
-  // 2-3,5 GB, el respaldo esperaba 15 min sin correr ningún tsc y la fila de tipos de TODA la PC quedaba frenada (un chat salió
-  // con 99 sin correr). Afuera del lock no frena a nadie; las tandas 2 y 3 miran la RAM de nuevo, ya con el lock.
-  const ramAntes = await esperar(() => freemem() / 1024 ** 3 >= RAM_MIN_GB, RAM_ESPERA_MAX_MS, 2000,
-    () => `  [tipos por tandas] quedan ${(freemem() / 1024 ** 3).toFixed(1)} GB y pide ${RAM_MIN_GB.toFixed(1)}; espero hasta 15 min SIN tomar el turno…\n`);
-  if (!ramAntes) { process.stderr.write(`  ✖ tanda 1/${TANDAS}: no hubo RAM en 15 min. NO es un error de tipos: no se chequeó.\n`); return SALIDA_SIN_CHEQUEAR; }
-  const turno = await esperar(() => {
-    if (tomarLock()) return true;
-    if (!vivo(duenoDelLock())) { try { unlinkSync(LOCK); } catch { /* lo sacó otro */ } }
-    return false;
-  }, LOCK_ESPERA_MAX_MS, 400, () => `  [tipos por tandas] otro typecheck tiene el lock (pid ${duenoDelLock()}); espero mi turno…\n`);
-  if (!turno) { process.stderr.write('  ✖ el lock del typecheck no se liberó en 10 min: no chequeo (NO es un error de tipos).\n'); return SALIDA_SIN_CHEQUEAR; }
-  const resultados = [];
-  try {
-    for (let i = 1; i <= TANDAS; i++) {
-      const hayRam = await esperar(() => freemem() / 1024 ** 3 >= RAM_MIN_GB, RAM_ESPERA_MAX_MS, 2000,
-        () => `  [tipos por tandas] tanda ${i}/${TANDAS}: quedan ${(freemem() / 1024 ** 3).toFixed(1)} GB y pide ${RAM_MIN_GB.toFixed(1)}; espero hasta 15 min…\n`);
-      if (!hayRam) {
-        process.stderr.write(`  ✖ tanda ${i}/${TANDAS}: no hubo RAM en 15 min. NO es un error de tipos: no se chequeó.\n`);
-        resultados.push({ estado: 'sin-chequear', errores: [], porque: 'no hubo RAM' });
-        break;
-      }
-      const t0 = Date.now();
-      const r = clasificarTanda(await correrTanda(i, guion));
-      resultados.push(r);
-      const s = Math.round((Date.now() - t0) / 1000);
-      if (r.estado === 'ok') process.stdout.write(`  ✔ tanda ${i}/${TANDAS}: 0 errores · ${s} s\n`);
-      else if (r.estado === 'errores') process.stdout.write(`  ✖ tanda ${i}/${TANDAS}: ${r.errores.length} error(es) de tipos · ${s} s\n${r.errores.map((e) => `      ${e}`).join('\n')}\n`);
-      else { process.stdout.write(`  ✖ tanda ${i}/${TANDAS}: no terminó (${r.porque}) · ${s} s\n`); break; }
-    }
-  } finally { soltarLock(); }
-  const v = veredictoRespaldo(resultados);
-  if (v === 0) process.stdout.write(`  ✔ tipos por tandas: las ${TANDAS} en 0 (OK por tandas, no el tsc entero)\n`);
-  return v;
+  const { codigo } = await tandasConTurno({
+    tandas: TANDAS,
+    pisoGb: RAM_MIN_GB,
+    hayRam: () => freemem() / 1024 ** 3 >= RAM_MIN_GB,
+    libreGb: () => freemem() / 1024 ** 3,
+    turno: turnoDeArchivo(LOCK),
+    correr: (i) => correrTanda(i, guion),
+    ...over,
+  });
+  return codigo;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

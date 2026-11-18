@@ -29,7 +29,7 @@ import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { calcularIngresos, conElLibro, suscripcionDelLibro, type ClienteIngreso, type Entrada, type PagoIngreso, type ProximoDeSuscripcion, type Tramo } from '../lib/admin-ingresos-reglas';
-import { ordenesAtadas, pagosDelLibro, type FilaLibro } from '../lib/admin-ingresos-libro';
+import { ordenesAtadas, pagosDelLibro, proximoDelLibroPrendido, type FilaLibro } from '../lib/admin-ingresos-libro';
 import { datosDeTop, topClientes } from '../app/admin/_polar/datos/clientes';
 import { pedidosDe, type ReciboVenta } from '../app/admin/_polar/datos/ventas';
 
@@ -247,7 +247,7 @@ test('8 · Sales › Orders: el recibo de una orden del libro suma (Revenue ya l
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_admin-ingresos-libro-hijo.ts')], {
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'], timeout: 120_000,
 });
-type Escena = { mrr: number; cobradoEsteMes: number; cobradoTotal: number; avisos: string[]; clientes: Array<{ clave: string; total: number; mrr: number; leadId: number | null; estado: string }>; entradas: Entrada[]; movimientos: Array<{ fecha: string; tipo: string; delta: number }>; porCobrar: Array<{ atrasado: boolean }> };
+type Escena = { mrr: number; cobradoEsteMes: number; cobradoTotal: number; avisos: string[]; clientes: Array<{ clave: string; total: number; mrr: number; leadId: number | null; estado: string }>; entradas: Entrada[]; movimientos: Array<{ fecha: string; tipo: string; delta: number }>; porCobrar: Array<{ cliente: string; fecha: string; usd: number; atrasado: boolean }> };
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, Escena> & { noEscribio: { pagos: number; libroIgual: boolean } };
 const deLaAgencia = (e: Escena) => e.clientes.find((c) => c.clave === 'ws:13')!;
 
@@ -300,6 +300,67 @@ test('9f · el lector, en diciembre pagado en dos partes: el MRR es el del mes (
   assert.equal(e.porCobrar.filter((p) => p.atrasado).length, 0);
 });
 
+// ── P7 (18/11/2026): el libro manda en «Por cobrar» desde que se PRENDE, no desde su primer pago ─────────────────────────────
+// Código tenía el libro prendido desde diciembre y ningún mes pagado por él: «Por cobrar» seguía con la mensualidad del CRM (el pago de
+// noviembre cargado a mano más un mes: 4/12, US$238), cuando lo que va a pagar es lo que el libro calcula con su cartera (5/12, US$426,
+// medido el 17/11 con `mensualidadDeAgencia(13)`, docs/hallazgos-planes-y-cobro.md). Los montos y fechas son esos; los nombres, de mentira.
+const HOY_P7 = '2026-11-18';
+/** Lo que la historia del CRM dice el 18/11: el próximo, el 4/12 por US$238 (lo de noviembre). */
+const HISTORIA_CRM_NOV: ProximoDeSuscripcion = { sinCobro: false, atrasado: null, siguiente: { fecha: '2026-12-04', usd: 238 } };
+/** Lo que `mensualidadDeAgencia` dice el 18/11: noviembre no es del libro (se cobró a mano) y diciembre debe 426 hasta el 5. */
+const NOV = { mes: '2026-11', limite: '2026-11-05', debeUsd: 238, pagado: false };
+const DIC = { mes: '2026-12', limite: '2026-12-05', debeUsd: 426, pagado: false };
+
+test('10a · pagosDelLibro dice qué agencias tienen el libro prendido sin un solo mes pagado por él', () => {
+  assert.deepEqual(libroDe([CONFIG], HOY_P7).prendidasSinHistoria, [13]);
+  assert.deepEqual(libroDe([CONFIG, ordenDic('555555555555555555', 300, '2026-12-03T10:00:00')], '2026-12-10').prendidasSinHistoria, [], 'ya pagó diciembre: tiene historia');
+  assert.deepEqual(libroDe([], HOY_P7).prendidasSinHistoria, [], 'sin config, apagada');
+});
+
+test('10b · proximoDelLibroPrendido: el primer mes desde `desde` sin pagar, con su límite; atrasado si ya pasó', () => {
+  assert.deepEqual(proximoDelLibroPrendido('2026-12', [NOV, DIC], HOY_P7), { sinCobro: false, atrasado: null, siguiente: { fecha: '2026-12-05', usd: 426 } }, 'noviembre es de antes del libro');
+  assert.deepEqual(proximoDelLibroPrendido('2026-12', [DIC], '2026-12-06'), { sinCobro: false, atrasado: { fecha: '2026-12-05', usd: 426 }, siguiente: null });
+  assert.equal(proximoDelLibroPrendido('2026-12', [NOV, { ...DIC, pagado: true }], HOY_P7), null, 'diciembre pagado: nada que cobrar');
+  assert.equal(proximoDelLibroPrendido('2026-12', [NOV, { ...DIC, debeUsd: 0 }], HOY_P7), null);
+  assert.equal(proximoDelLibroPrendido('2026-12', [null, undefined], HOY_P7), null);
+  assert.equal(proximoDelLibroPrendido('diciembre', [DIC], HOY_P7), null, 'un `desde` ilegible no inventa un mes');
+});
+
+test('⚠️ 10c · «Por cobrar» de una agencia con el libro prendido y sin pagos por él: 5/12 US$426 del libro, no 4/12 US$238 del CRM', () => {
+  const libro = proximoDelLibroPrendido('2026-12', [NOV, DIC], HOY_P7)!;
+  const crm = new Map([['lead:1:casa', HISTORIA_CRM_NOV]]);
+  const conLibro = revenue(CRM, [CONFIG], HOY_P7, new Map([...crm, [suscripcionDelLibro(13), libro]]));
+  assert.deepEqual(conLibro.porCobrar, [{ cliente: 'ws:13', fecha: '2026-12-05', usd: 426, atrasado: false }]);
+  // Sin la historia del libro (el lector no pudo preguntarle a la mensualidad), queda lo de antes: no se inventa nada.
+  const sinLibro = revenue(CRM, [CONFIG], HOY_P7, crm);
+  assert.deepEqual(sinLibro.porCobrar, [{ cliente: 'ws:13', fecha: '2026-12-04', usd: 238, atrasado: false }]);
+  // El MRR sale de lo pagado: lo próximo del libro no lo toca.
+  assert.equal(conLibro.mrr, sinLibro.mrr);
+});
+
+test('10d · lo próximo del libro sin tramo no tapa otra suscripción que la agencia compró, ni a otra agencia', () => {
+  const libro = proximoDelLibroPrendido('2026-12', [DIC], HOY_P7)!;
+  const otra: PagoIngreso = { id: 'p:300', cliente: 'ws:13', suscripcion: 'lead:5:9', fecha: '2026-11-15', usd: 50, medio: 'cripto', concepto: 'Otra cosa', mensualidad: false };
+  const ajena: PagoIngreso = { id: 'p:400', cliente: 'ws:30', suscripcion: 'lead:9:casa', fecha: '2026-11-10', usd: 97, medio: 'cripto', concepto: null, mensualidad: true };
+  const r = revenue([...CRM, otra, ajena], [CONFIG], HOY_P7, new Map([['lead:1:casa', HISTORIA_CRM_NOV], [suscripcionDelLibro(13), libro]]));
+  assert.deepEqual(r.porCobrar.map((p) => [p.cliente, p.fecha, p.usd]), [
+    ['ws:13', '2026-12-05', 426],
+    ['ws:30', '2026-12-10', 97],
+    ['ws:13', '2026-12-15', 50],
+  ], 'la mensualidad del CRM de la agencia sale; la otra suscripción suya y la de otra agencia, no');
+});
+
+test('⚠️ 10e · el lector REAL: con el libro prendido y sin meses pagados, «Por cobrar» le pregunta a la mensualidad (5/12), sin avisos', () => {
+  const nov = R.noviembre;
+  assert.equal(nov.porCobrar.length, 1, JSON.stringify(nov.porCobrar));
+  const [p] = nov.porCobrar;
+  assert.deepEqual([p.cliente, p.fecha, p.atrasado], ['ws:13', '2026-12-05', false], 'el día límite del libro (el 5), no el del CRM');
+  assert.ok(p.usd > 0, 'lo que calcula la mensualidad con su cartera');
+  assert.deepEqual(nov.avisos, []);
+  // Con diciembre pagado por el libro, ya tiene historia: lo próximo sale de ahí (enero), no de preguntarle otra vez.
+  assert.deepEqual(R.diciembre.porCobrar.map((x) => x.fecha), ['2027-01-05']);
+});
+
 // Probado rompiéndolo (10/11/2026, después de la revisión; el arnés restaura de memoria; con todo puesto, 0 fallos de 20). Cada
 // rotura, sola:
 //   · cuenta lo que se debía (`aplicado`, 40,73) en vez de lo recibido                       → 6 fallos (1, 2, 7, 9a, 9c, 9f)
@@ -318,3 +379,8 @@ test('9f · el lector, en diciembre pagado en dos partes: el MRR es el del mes (
 //   · Orders no suma el recibo del libro                                                      → 1 fallo (8)
 //   · el lector no suma los pagos del libro / no pasa su historia / no marca la mensualidad    → 3 (9a, 9c, 9f) / 1 (9f) / 1 (9f)
 //   · el lector se traga el error del libro / cuenta el libro sin los recibos                 → 2 (9d, 9e) / 1 (9e)
+
+// P7 (18/11/2026), probado rompiéndolo; con todo puesto, 0 fallos de 25:
+//   · sin `libroSinTramos` (lo próximo del libro prendido no entra y la del CRM sigue)        → 3 fallos (10c, 10d, 10e)
+//   · el lector no le pregunta a la mensualidad                                                 → 1 fallo (10e)
+//   · reemplaza cualquier suscripción de la agencia, no sólo su mensualidad                    → 1 fallo (10d)

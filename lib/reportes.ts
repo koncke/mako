@@ -13,10 +13,8 @@ import { getMarketingWindow, getPendientesDeMarcar, getFatigaAdsets } from './qu
 import { metasDelQuarter } from './objectives';
 import { lineasDeMetas } from './objetivos-reporte';
 import { getCashCollectedPeriodo, getCuotasPendientes } from './pagos';
-import {
-  hoyEnTijuana, ayerEnTijuana, diasAntes, lunesActualEnTijuana,
-  primerDiaDelMesEnTijuana, fmtDDMMYYYY,
-} from './date-utils';
+import { diasAntes, fmtDDMMYYYY } from './date-utils';
+import { diasEnWorkspace } from './timezone';
 import type { NotifPrefs } from './perfil';
 import type { NotifSeveridad } from './notificaciones';
 
@@ -36,10 +34,23 @@ function subir(sev: NotifSeveridad, a: NotifSeveridad): NotifSeveridad {
   return orden.indexOf(a) > orden.indexOf(sev) ? a : sev;
 }
 
+// ⚠️ LOS DÍAS SON LOS DEL NEGOCIO DEL CONTEXTO (18/11/2026, F125), de UNA lectura del reloj (`diasEnWorkspace`). Hasta acá
+// eran los de Tijuana para todos: el semanal de cada cliente (app/api/cron/reporte-semanal corre adentro de su
+// `runWithWorkspace`) cortaba la semana, las cuotas vencidas y los «datos sin marcar» con el día de Tijuana, y esas dos
+// últimas lecturas no daban lo mismo que su CRM, que ya usa el suyo. El diario y el horario son sólo del dueño y corren
+// sin negocio en contexto: ahí `diasEnWorkspace` da el ws que resuelve el pedido, como todas las lecturas del reporte.
+// Es la lectura tolerante: un reporte no decide nada, y sin zona legible sale con el default de siempre.
+//
+// ⚠️ Y el «ayer» de los anuncios es el del negocio: los crons del diario y del semanal salen a las 14:10 y 14:20 UTC
+// (vercel.json), después de la ingesta de Meta de las 13:00 (app/api/cron/meta-daily), así que ese día ya está cargado. Una
+// vista previa pedida por la API (`equipo.run.ts`) de madrugada, para un negocio al este, todavía no lo tiene: diría gasto 0,
+// como ya pasaba para Tijuana entre su medianoche y la ingesta.
+
 // ── Diario (rutinario) ────────────────────────────────────────────────────────
 export async function buildReporteDiario(prefs: NotifPrefs): Promise<Reporte> {
-  const hoy = hoyEnTijuana();
-  const ayer = ayerEnTijuana();
+  const dias = await diasEnWorkspace();
+  const hoy = dias.hoy;
+  const ayer = dias.ayer;
   const L: string[] = [`📊 *Reporte del día* — ${fmtDDMMYYYY(hoy)}`];
   let sev: NotifSeveridad = 'info';
 
@@ -70,7 +81,7 @@ export async function buildReporteDiario(prefs: NotifPrefs): Promise<Reporte> {
       // Hasta acá el cliente podía cambiar su meta en la pantalla y seguir recibiendo la vieja por
       // WhatsApp, con las dos pantallas sanas y sin un error en ningún lado.
       const metas = await metasDelQuarter(hoy);
-      const cashMes = await getCashCollectedPeriodo(primerDiaDelMesEnTijuana(), hoy);
+      const cashMes = await getCashCollectedPeriodo(dias.primerDiaDelMes, hoy);
       L.push('', '*Wins*');
       L.push(...lineasDeMetas(metas, fmtUsd));
       L.push(`   Cash del mes: ${fmtUsd(cashMes)}`);
@@ -99,7 +110,7 @@ export async function buildReporteDiario(prefs: NotifPrefs): Promise<Reporte> {
 
 // ── Horario (lo urgente) ──────────────────────────────────────────────────────
 export async function buildReporteHorario(prefs: NotifPrefs): Promise<Reporte> {
-  const hoy = hoyEnTijuana();
+  const { hoy } = await diasEnWorkspace();
   const alertas: string[] = [];
   let sev: NotifSeveridad = 'ok';
 
@@ -159,8 +170,7 @@ export async function buildReporteHorario(prefs: NotifPrefs): Promise<Reporte> {
 
 // ── Semanal ───────────────────────────────────────────────────────────────────
 export async function buildReporteSemanal(prefs: NotifPrefs): Promise<Reporte> {
-  const hoy = hoyEnTijuana();
-  const lunes = lunesActualEnTijuana();
+  const { hoy, lunes } = await diasEnWorkspace();
   const start = diasAntes(lunes, 7); // lunes de la semana pasada
   const end = diasAntes(lunes, 1);   // domingo pasado
   const L: string[] = [`🗓️ *Reporte semanal* — ${fmtDDMMYYYY(start)} a ${fmtDDMMYYYY(end)}`];

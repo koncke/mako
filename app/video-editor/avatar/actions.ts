@@ -113,6 +113,9 @@ export async function crearAvatarAction(input: {
     // Un avatar que dice una frase no es un anuncio de 7 tomas: tantas como el
     // texto necesite, desde una.
     clipsMinimos: 1,
+    // Lo guarda ESTA acción, ya sellado como avatar (`conAvatar`): guardado antes, entraba como anuncio y podía tirar uno
+    // de los 10 del cupo de los anuncios (F168, app/video-generator/actions.ts → `guardar`).
+    guardar: false,
   });
   if (!plan.ok) return plan;
 

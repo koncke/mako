@@ -244,10 +244,15 @@ tira: un 5xx de Supabase le da `ZONA_POR_DEFECTO` (Tijuana). En ESTE corte, caer
 va atrás, la reunión parece futura y no se pide nada. Es la misma regla que la línea de arriba en `setPipelineStage` («sin
 poder leer el lead no hay nada contra qué validar: cortamos»): validar con un dato que no se pudo leer es mover a ciegas.
 
-**Sin hacer, y es el MISMO defecto en otros dos lugares** (se dejaron fuera a propósito: tocan el camino que usa toda la UI):
+~~**Sin hacer, y es el MISMO defecto en otros dos lugares** (se dejaron fuera a propósito: tocan el camino que usa toda la UI):
 `faltantesDeLead` (lib/leads.ts, el «Datos sin marcar» / «A revisar») y `valoresDeRequisitos` (app/crm/actions.ts, el wizard)
 siguen con `hoyISO: hoyEnTijuana()`. Hasta que se arreglen, para un negocio fuera de Tijuana el wizard y el corte del server
-pueden discrepar unas horas por día.
+pueden discrepar unas horas por día.~~ **Hecho el 18/11/2026 (F125, nube):** los dos piden `hoyISO` obligatorio y sin default
+(en `faltantesDeLead`/`resueltosDeLead` va en `ExtraRequisitos`; en `valoresDeRequisitos`, como parámetro), y cada llamador
+lo saca de su negocio: `leerInsumosDatosLead` trae `hoy`, el teléfono usa el suyo, el worklist el `hoy` que ya recibe, la API
+`hoyDelWorkspace(ctx.ws)`. Con la lectura TOLERANTE (`hoyEnWorkspace`), a propósito: cuando la zona se lee da el mismo día que
+el corte estricto, y cuando no, el server no deja mover igual. Lo fija tests/dias-del-negocio.test.ts («A revisar cuenta…»). El
+porqué de las otras ~70 fechas de Tijuana, en docs/hallazgos-infra.md → «Las ~85 fechas de Tijuana son TRES relojes».
 
 **Vive en:** lib/leads.ts (`AportadoAlMover`, `faltantesParaMover`, `setPipelineStage`) · lib/timezone.ts
 (`hoyEnWorkspaceEstricto`) · lib/api-mako/areas/crm.run.ts · lib/mako-doer-acciones.ts ·
