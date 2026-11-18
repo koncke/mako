@@ -407,4 +407,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor',
   },
+  {
+    fecha: '18 nov', hora: '04:40', chat: 'De octubre: Image (nube)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat de MaKo pone filtros, recorta y cambia el tamaño del diseño; el ZIP de varias páginas, probado',
+    puntos: [
+      'Por chat se le puede pedir a MaKo un filtro del editor para una foto (Vívido, Noir, Vintage…) o un ajuste (brillo, contraste, saturación, tono, desenfoque, viñeta, blanco y negro, sepia), recortarla a 1:1, 4:3, 3:4, 16:9 o 9:16, y cambiar el tamaño de todo el diseño. Propone, y se acepta en un paso de deshacer.',
+      'Con otro tamaño, el lienzo se vuelve a encuadrar, como con «Redimensionar».',
+      'Lo que todavía no se puede por chat lo dice: agrandar un recorte o volver a la foto entera, agrupar, degradados, animaciones, quitar el fondo, usar una plantilla y el tamaño de una sola página.',
+      '«Descargar todas las páginas» en un ZIP quedó probado (se arma y se vuelve a abrir igual); falta bajarlo en producción.',
+      'Medido: alojar las fuentes del editor serían 997 archivos y 17 MB, y no están en el proyecto. No se movieron.',
+    ],
+    commits: ['6783b4700'],
+    archivos: [
+      'lib/image-editor/chat/fotos.ts — los filtros, los ajustes y el recorte como los guarda el editor (copia con su test)',
+      'lib/image-editor/chat/catalogo.ts y aplicar.ts — las cuatro operaciones nuevas',
+      'app/image-editor/mako/chat/acciones.ts — el tamaño del diseño con la función del editor y el re-encuadre',
+      'tests/image-editor-chat-fotos.test.ts y tests/image-editor-zip-paginas.test.ts',
+    ],
+    revisar: '/image-editor',
+  },
 ];
