@@ -106,7 +106,9 @@ for (const [archivo, abre, cierra] of [
     // ~6.520 el 17/10/2026 (#869): la vista previa de los links se guarda como la línea (`vistaPreviaAlGuardar`).
     // ~6.880 el 25/10/2026 (aut-2510): un `[]` explícito de variantes las borra, y Publicar revisa la prueba A/B
     // de la tarjeta (`revisarLaPruebaAlGuardar`). Sigue siendo el mismo bloque: `limpio` → el `update`.
-    assert.ok(bloque.length < 7_400, `el recorte mide ${bloque.length}: está mirando otra cosa`);
+    // ~8.000 el 18/11/2026 (F80): la nota de voz por grabar ya no se degrada a texto, y Crear con IA la guarda en el
+    // borrador (`comoBorrador`, entre la validación y el `update`). Mismo bloque.
+    assert.ok(bloque.length < 8_600, `el recorte mide ${bloque.length}: está mirando otra cosa`);
     const linea = bloque.split('\n').find((l) => /\bproveedor:/.test(l)) ?? '';
     assert.match(linea, /proveedorDelPaso\(/, `${archivo} decide el proveedor por su cuenta: ${linea.trim()}`);
   });

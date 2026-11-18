@@ -25,7 +25,12 @@ import { IconClip, IconDoc } from './composer-icons';
 export type ContenidoBurbuja = {
   /** El texto, el pie del audio o el caption del archivo. */
   texto?: string;
-  audio?: { url: string | null; titulo?: string; transcript?: string | null; duracion_s?: number | null } | null;
+  /**
+   * `rotuloSinAudio` (18/11/2026, F80): lo que dice la línea de un audio sin url. Sin él, «audio (no disponible)» (un audio
+   * que ya no está); el lienzo de Automations pasa «Audio por grabar» (`AUDIO_POR_GRABAR`, lib/flujo-grafo.ts) para una
+   * nota de voz que todavía no se grabó. La MISMA línea, otro rótulo.
+   */
+  audio?: { url: string | null; titulo?: string; transcript?: string | null; duracion_s?: number | null; rotuloSinAudio?: string } | null;
   media?: {
     url: string | null; mime: string; nombre?: string | null;
     /** Qué es, si se sabe (el espejo lo trae). Sin esto, sale del `mime`. */
@@ -150,7 +155,7 @@ export function BurbujaHilo({ contenido, saliente = true, compacta = false, auto
       {audio && (audio.url
         ? <AudioPlay src={audio.url} compacto={compacta} duracion={audio.duracion_s ?? null}
             style={{ width: compacta ? '100%' : ANCHO_AUDIO, maxWidth: '100%', marginBottom: sep(conTexto || !!audio.transcript) }} />
-        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', marginBottom: sep(conTexto) }}><IconClip /> {audio.titulo || 'audio'} (no disponible)</span>)}
+        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', marginBottom: sep(conTexto) }}><IconClip /> {audio.rotuloSinAudio ?? `${audio.titulo || 'audio'} (no disponible)`}</span>)}
       {audio?.titulo && audio.url && compacta && (
         <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: sep(conTexto || !!audio.transcript) }}>{audio.titulo}{audio.duracion_s ? ` · ${fmtDur(audio.duracion_s)}` : ''}</div>
       )}
