@@ -16,10 +16,9 @@
 //     frena si alguien le suma un `lib/ai-*`.
 
 import 'server-only';
-import { getCapaActual, getWorkspaceActual } from './workspace';
+import { getCapaActual } from './workspace';
 import { tabEnCapa } from './capas';
-import { hoyEnTijuana } from './date-utils';
-import { hoyDelWorkspace } from './api-mako/areas/crm.helpers';
+import { hoyEnWorkspace } from './timezone';
 import { ENTIDADES, destinoDetalle, fuenteDe, metricaDe, sanearGrafico } from './graficos-catalogo';
 import { agregarPorRef, filtrarFilas, SinConexionError } from './graficos-agregar';
 import { LECTORES, hastaDeFuente, sanearFiltros } from './graficos-datos';
@@ -36,11 +35,13 @@ async function capacidades(): Promise<Capacidades> {
   return { crm: tabEnCapa('crm', capa), ads: tabEnCapa('ads-manager', capa), closing: tabEnCapa('closing', capa), plan: tabEnCapa('todo', capa) };
 }
 
-/** El hoy del negocio (su zona), para la fecha de un cobro marcado. Si no se puede leer, el de la app. */
+/**
+ * El hoy del negocio (su zona), para la fecha de un cobro marcado. Si no se puede leer, el default: la misma lectura
+ * tolerante con que lib/pagos.ts fecha un cobro (`hoyEnWorkspace`). Hasta el 18/11/2026 (F125) eran dos caídas a
+ * Tijuana escritas a mano alrededor de `hoyDelWorkspace`, que nunca tira: la del `catch` no corría nunca.
+ */
 async function hoyDelNegocio(): Promise<string> {
-  const ws = await getWorkspaceActual();
-  if (ws == null) return hoyEnTijuana();
-  try { return (await hoyDelWorkspace(ws)).hoy; } catch { return hoyEnTijuana(); }
+  return hoyEnWorkspace();
 }
 
 /** Lo que llega del navegador no vale nada: la dimensión tiene que ser del conjunto y la métrica también. */

@@ -34,7 +34,7 @@ import {
 import { getDefaultReactSlashMenuItems } from '@blocknote/react';
 import { BlockNoteView, type Theme } from '@blocknote/mantine';
 import { nombreDeSeccion } from '@/lib/copywriter/doc';
-import { seccionDe, type BloqueArrastre } from '@/lib/copywriter/seccion-arrastre';
+import { llevarCola, seccionDe, type BloqueArrastre, type EditorCola } from '@/lib/copywriter/seccion-arrastre';
 import { aBloques, deBloques, TIPOS_BN, type BloqueBN, type Secciones } from '@/lib/copywriter/notion-bloques';
 import type { JsonNodo } from '@/lib/copywriter/tipos';
 import { buscarBloquesCopy, catalogoCopy, type DefBloqueCopy } from './bloques';
@@ -239,7 +239,8 @@ function BarraSeleccion({ conMako, onMako }: { conMako: boolean; onMako: (selecc
  * El menú lateral (el «+» y el asa ⋮⋮), con UNA diferencia: arrastrar un TÍTULO se lleva su sección, lo que tiene debajo
  * hasta el próximo título de su nivel (llamada con Leila del 5/11: «arrastrar un bloque deja su contenido atrás»). Antes
  * del arrastre de BlockNote (en captura, así corre primero) se selecciona la sección; BlockNote mueve la selección entera
- * cuando abarca varios bloques. La regla es pura: lib/copywriter/seccion-arrastre.ts.
+ * cuando abarca varios bloques. Lo que queda al final sin texto (una tabla, un divisor: la selección no puede terminar ahí)
+ * va detrás cuando termina de soltar (18/11/2026). La regla es pura: lib/copywriter/seccion-arrastre.ts.
  */
 function MenuLateral(p: SideMenuProps) {
   const editor = useBlockNoteEditor(esquemaCopy);
@@ -247,10 +248,30 @@ function MenuLateral(p: SideMenuProps) {
   const alEmpezar = () => {
     if (!elegido) return;
     const tramo = seccionDe(editor.document as unknown as BloqueArrastre[], elegido.id);
+    if (!tramo) return;
     // Si la selección no se puede armar, el arrastre sigue como siempre (el título solo): nunca se corta el gesto.
-    if (tramo) { try { editor.setSelection(tramo.desde, tramo.hasta); } catch { /* el título solo */ } }
+    if (tramo.hasta) { try { editor.setSelection(tramo.desde, tramo.hasta); } catch { /* el título solo */ } }
+    if (tramo.cola.length) despuesDeSoltar(() => { llevarCola(editor as unknown as EditorCola, tramo); });
   };
   return <div style={{ display: 'contents' }} onDragStartCapture={alEmpezar}><SideMenu {...p} /></div>;
+}
+
+/**
+ * Corre `fn` cuando ProseMirror ya procesó el soltar: en el `drop` (en captura, y con un `setTimeout` para quedar DESPUÉS del
+ * handler del editor) y otra vez en el `dragend`, que llega aunque el bloque se suelte afuera. `llevarCola` no hace nada si la
+ * cola ya está en su lugar, así que correr dos veces no mueve dos veces. Los listeners se van con el `dragend` (o al minuto).
+ */
+function despuesDeSoltar(fn: () => void) {
+  const alSoltar = () => { setTimeout(fn, 0); };
+  const alTerminar = () => { limpiar(); setTimeout(fn, 0); };
+  const vence = setTimeout(() => limpiar(), 60_000);
+  function limpiar() {
+    clearTimeout(vence);
+    document.removeEventListener('drop', alSoltar, true);
+    document.removeEventListener('dragend', alTerminar, true);
+  }
+  document.addEventListener('drop', alSoltar, true);
+  document.addEventListener('dragend', alTerminar, true);
 }
 
 /** El menú del asa ⋮⋮ (Notion): Eliminar · Duplicar, y en una tabla la fila de encabezado. */

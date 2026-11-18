@@ -19,7 +19,7 @@ import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist, HIST_CAP } f
 // Las COLUMNAS del kanban (mig 0294): las mismas reglas que la mitad del cliente (lib/todo.ts).
 import {
   esEstado, estadoDeAvance, estadoAlGuardar, trasMover, alCrear, motivoAtoradaOk, motivoParaNoMover, estaPendiente,
-  type EstadoTarea,
+  esResponsableTipo, responsableDeLaFila, responsableParaGuardar, type EstadoTarea, type ResponsableTipo,
 } from '@/lib/todo-estados';
 import { sanearDep, puedeDepender, resolverDeps, estaBloqueada, type Dep, type EntidadDep, type ClaseDep } from '@/app/plan/board/dependencias';
 import { diasQuieta, diasAlDeadline, ajusteTemporal, empujeDeadline, castigoQuietud } from '@/app/plan/board/envejecer';
@@ -120,6 +120,8 @@ export function rowToTask(r: Row): BoardTask {
     clienteLeadId: optInt(r.cliente_lead_id) ?? null,
     clienteNombre: r.cliente_nombre ? str(r.cliente_nombre) : null,
     recurrencia: recurrenciaDe({ recurrente: !!r.recurrente, recurrencia: r.recurrencia }),
+    // QUIÉN la hace (mig 0419, F156): sólo si la fila trae la columna (ver `responsableDeLaFila`, lib/todo-estados.ts).
+    ...responsableDeLaFila(r),
     // LA COLUMNA DEL KANBAN, su motivo y el lugar (mig 0294). Van en el mapper de LECTURA por la
     // razón destructiva de siempre — y además porque el alta y `guardarPlanBulk` mandan la fila
     // ENTERA: un estado que no se lee vuelve como `undefined`. Si la fila no trae estado (una
@@ -180,6 +182,8 @@ function taskToRow(t: BoardTask): Row {
     // mismo. Y además CANONIZA la RRULE, así que la misma repetición se guarda con el mismo
     // string venga del desplegable, del diálogo personalizado, de un modelo o de un lote.
     recurrencia: recurrenciaDe(t),
+    // QUIÉN la hace (mig 0419): sólo si la tarjeta lo trae (ver `responsableParaGuardar`, lib/todo-estados.ts).
+    ...responsableParaGuardar(t),
     // LA COLUMNA, SU MOTIVO Y EL LUGAR (mig 0294). Acá se escriben para las ALTAS (el «＋» de
     // una columna, restaurar un borrado, `guardarPlanBulk`); en el guardado de una tarjeta que
     // ya existe `guardarPlanTarea` los saca del payload — los escribe `moverPlanTarea`.
@@ -664,7 +668,11 @@ export async function cerrarPlanTareaOwner(id: string, evidencia: string, parcia
  * después: si el deadline llega hasta el objeto en memoria, el Perro lo ve en la misma
  * corrida y razona con él. Se corta en el alta, que es donde entra.
  */
-export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string; fuente?: Fuente; recurrente?: boolean };
+export type NuevaTareaPlan = {
+  titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string; fuente?: Fuente; recurrente?: boolean;
+  /** QUIÉN la hace (mig 0419): lo dice la extracción de una reunión. Sin esto, null = nadie lo dijo (no es «mío»). */
+  responsableTipo?: ResponsableTipo | null;
+};
 
 /** MaKo agrega tareas al board del dueño DIRECTO a la DB (antes iban a la bandeja
  *  localStorage, que el server no podía tocar). Resuelve/crea el proyecto por nombre,
@@ -900,9 +908,18 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
         ],
         origen: actor, fuente: it.fuente ?? fu, enPrioridad: false,
         recurrente: !!it.recurrente,
+        // Sólo si quien carga lo sabe (la extracción de una reunión): sin la clave, `taskToRow` no manda la columna.
+        ...(it.responsableTipo !== undefined ? { responsableTipo: esResponsableTipo(it.responsableTipo) ? it.responsableTipo : null } : {}),
       };
     });
-    const { error } = await db.from('plan_tareas').insert(tareas.map(taskToRow));
+    const filas = tareas.map(taskToRow);
+    let { error } = await db.from('plan_tareas').insert(filas);
+    // ⚠️ SIN LA MIG 0419 la base contesta 42703/PGRST204 por `responsable_tipo`: la tarea se crea igual, sin el responsable.
+    // Perderlo es recuperable (el filtro la muestra «sin asignar»); perder la tarea, no.
+    if (error && esColumnaInexistente(error) && filas.some((f) => 'responsable_tipo' in f)) {
+      console.warn('[plan-board] plan_tareas.responsable_tipo no existe (falta la mig 0419): las tareas entran sin responsable');
+      ({ error } = await db.from('plan_tareas').insert(filas.map(({ responsable_tipo: _sin, ...resto }) => resto)));
+    }
     if (error) throw new Error(`agregarTareasPlanOwner tareas: ${error.message}`);
 
     /**

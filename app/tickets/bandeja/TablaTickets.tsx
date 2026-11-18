@@ -12,11 +12,14 @@
 // ⚠️ EL TELÉFONO DESTILA ESTO, no lo achica: debajo de 720 px de ANCHO DEL PANEL (container query, no la ventana: en la
 //    compu el Ops Center también puede quedar angosto) cada fila es un renglón doble —la cara, el número y el título; abajo
 //    quién, el negocio y cuándo— y el orden se elige con un selector, porque no hay títulos de columna que tocar.
+// ⚠️ «CUÁNDO» TAMBIÉN DICE CUÁNTO TARDÓ (18/11/2026, la promesa de Martín a Teo): debajo de «hace X», «tardó 5 h» de un cerrado y,
+//    en rojo, «lleva 26 h» del que pasó las 24 h en nuestra cancha (`tiempoDelTicket`, lib/tickets-demora.ts).
 
 import { useMemo, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { PestanasPildora } from '@/app/_ui/TarjetaKanban';
 import { avisoAlCliente } from '@/lib/tickets-aviso';
+import { tiempoDelTicket } from '@/lib/tickets-demora';
 import type { FilaTicket } from '@/lib/tickets-db';
 import { CaraTicket, ChipOrigen } from './TarjetaTicket';
 import {
@@ -107,6 +110,11 @@ export function TablaTickets({ tickets, ahoraLista, grupo, onGrupo, orden, setOr
                     </td>
                     <td className="tickets-bandeja__col--cuando">
                       <time dateTime={t.created_at} title={new Date(t.created_at).toLocaleString('es')}>{haceCuanto(t.created_at, ahoraLista)}</time>
+                      {/* Cuánto tardó, o cuánto lleva si ya pasó las 24 h en nuestra cancha (lib/tickets-demora.ts, 18/11/2026). */}
+                      {(() => {
+                        const d = tiempoDelTicket(t, ahoraLista);
+                        return d ? <span className={`tickets-bandeja__demora tickets-bandeja__demora--${d.tono}`}>{d.texto}</span> : null;
+                      })()}
                     </td>
                     <td className="tickets-bandeja__col--abrir" aria-hidden><Icon name="chevron" size={16} /></td>
                   </tr>

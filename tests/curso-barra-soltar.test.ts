@@ -52,17 +52,20 @@ test('lejos de la lista (la cabecera, el pie) no cae en ninguno, y sin renglones
 test('el arrastre decide el módulo con la ALTURA, no con el elemento bajo el cursor', () => {
   const ini = ARR.indexOf("if (z === 'barra' && m.tipo === 'clase') {");
   assert.ok(ini > 0, 'desapareció la rama de una clase sobre la barra');
-  const rama = ARR.slice(ini, ARR.indexOf('const med = medir(z, e.currentTarget);', ini));
+  // Desde el 18/11/2026 la rama vive en `destinoEn`, la MISMA para el `dragover` del mouse y para el dedo.
+  const rama = ARR.slice(ini, ARR.indexOf('const med = medir(z, el);', ini));
   assert.ok(rama.length > 300 && rama.length < 1500, `el recorte mide ${rama.length}`);
-  assert.match(rama, /const k = filaEnBarra\(filas, e\.clientY \+ desplazamiento\(sc\)\);/);
-  assert.match(rama, /ponerDestino\(k && k !== m\.moduloKey \? \{ zona: 'barra-clase', key: k \} : null\);/);
+  assert.match(rama, /const k = filaEnBarra\(filas, clientY \+ desplazamiento\(sc\)\);/);
+  assert.match(rama, /return k && k !== m\.moduloKey \? \{ zona: 'barra-clase', key: k \} : null;/);
   assert.doesNotMatch(rama, /closest/, 'el destino no sale del elemento bajo el cursor (entre dos renglones es la lista)');
   // Sólo los módulos que reciben clases (no «Sin módulo»).
   assert.match(rama, /\.filter\(\(n\) => datos\.current\.recibeClases\(n\.dataset\.arrModulo \?\? ''\)\)/);
 });
 
 test('soltar una CLASE en la barra la LLEVA a ese módulo: nunca toca el orden de los módulos', () => {
-  const drop = ARR.slice(ARR.indexOf('onDrop: (e: ReactDragEvent<HTMLElement>) => {'), ARR.indexOf('return {\n    /** Lo que va en la mano'));
+  // Desde el 18/11/2026 lo que pasa al soltar vive en `soltarEn` (el `drop` del mouse y el dedo); el `drop` la llama.
+  assert.match(ARR, /onDrop: \(e: ReactDragEvent<HTMLElement>\) => \{[\s\S]{0,200}?soltarEn\(z, m\);/);
+  const drop = ARR.slice(ARR.indexOf('const soltarEn = (z: ZonaCurso, m: ManoCurso) => {'), ARR.indexOf('/** Los handlers de una zona'));
   const clase = drop.slice(drop.indexOf("if (m.tipo === 'clase' && z === 'barra') {"), drop.indexOf("if (!d || d.zona !== z || !('indice' in d)) return;"));
   assert.ok(clase.length > 60, 'desapareció la salida de una clase soltada en la barra');
   assert.match(clase, /if \(d && d\.zona === 'barra-clase'\) onLlevarClase\?\.\(m\.id, d\.key, null\);\s*return;/);
@@ -74,9 +77,11 @@ test('soltar una CLASE en la barra la LLEVA a ese módulo: nunca toca el orden d
 test('sobre la barra la clase se ve como una PASTILLA, no como la tarjeta de un módulo', () => {
   assert.match(ARR, /copiaGrande\.current = raiz\.lastElementChild as HTMLElement \| null;/, 'la tarjeta que cuelga montarCopia es la que se esconde');
   const empuje = ARR.slice(ARR.indexOf('const empuje = (e: DragEvent) => {'), ARR.indexOf('const fin = () => {'));
-  assert.match(empuje, /const enBarra = z === 'barra';/);
-  assert.match(empuje, /p\.style\.display = enBarra \? 'block' : 'none';/);
-  assert.match(empuje, /copiaGrande\.current\.style\.opacity = enBarra \? '0' : '1';/);
+  // Desde el 18/11/2026 la pastilla la mueve `pastillaEn`, que llaman el `dragover` y el dedo.
+  assert.match(empuje, /pastillaEn\(z === 'barra', e\.clientX, e\.clientY\);/);
+  const pastilla = ARR.slice(ARR.indexOf('const pastillaEn = (enBarra: boolean, x: number, y: number) => {'), ARR.indexOf('const montarEmpuje = '));
+  assert.match(pastilla, /p\.style\.display = enBarra \? 'block' : 'none';/);
+  assert.match(pastilla, /copiaGrande\.current\.style\.opacity = enBarra \? '0' : '1';/);
   // Y se va con el gesto, por las dos salidas (si el origen se desmontó, su `dragend` no llega).
   assert.match(ARR.slice(ARR.indexOf('const terminar = useCallback('), ARR.indexOf('/** ¿Esta zona recibe')), /quitarPildora\(\);/);
   assert.match(ARR.slice(ARR.indexOf('const fin = () => {'), ARR.indexOf('document.addEventListener(\'dragover\', empuje, true);')), /quitarPildora\(\);/);

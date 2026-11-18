@@ -295,6 +295,8 @@ function correrNucleo(): Corrida {
         reclamar: async (l, p, aMano) => { log.push('reclamar'); if (p != null) log.push('reclamarDe:' + p); if (aMano === true) log.push('reclamarAMano:' + p); return o.reclamar !== false; },
         // El permiso a mano (mig 0331): ¿es cliente de ese producto? Sólo se pregunta por un ganado.
         esCliente: async (l, p) => { log.push('esCliente:' + p); return o.esCliente === true; },
+        // Sacado de ese programa en Members (O12, 18/11/2026): lo prueba tests/curso-invitar-sacado.test.ts con la base de mentira.
+        sacado: async (ws, l, p) => { log.push('sacado:' + p); return o.sacado === true; },
         soltar: async () => { log.push('soltar'); },
         negocio: async () => 'Mauricio Ejemplo',
         entrarConGoogle: () => 'https://x/login',
@@ -425,7 +427,7 @@ test('cada motivo se le dice a una persona sin afirmar de más, y en neutro', { 
   // que SÍ es de este workspace y dejó de estar en Ganado (lo de otro workspace ni llega: es un
   // error). Mandaba a buscarlo en otra cuenta. Lo ejecuta el hijo: el módulo es `server-only`.
   const t = corrida().textos;
-  assert.deepEqual(Object.keys(t).sort(), ['cortado', 'no-ganado', 'sin-clases', 'sin-email', 'ya-entro', 'ya-invitado']);
+  assert.deepEqual(Object.keys(t).sort(), ['cortado', 'no-ganado', 'sacado', 'sin-clases', 'sin-email', 'ya-entro', 'ya-invitado']);
   assert.doesNotMatch(t['no-ganado'], /workspace|cuenta/i, 'afirma que es de otro workspace');
   assert.deepEqual(marcasDeVoseo(Object.values(t).join('\n')), [], 'un motivo vosea');
 });

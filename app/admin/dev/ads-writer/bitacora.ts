@@ -258,6 +258,32 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '18 nov', hora: '01:00', chat: 'Nube › Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Continuar con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la nube con la lista «Lo que falta construir» (docs/pendientes-verificados-17-11.md): acá, del Copywriter, F118 (las cuatro bajas que quedaban de la verificación de la mudanza) y F98 (arrastrar un título con una tabla debajo).',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '01:40', chat: 'Nube › Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Copywriter: el link de una subpágina borrada no edita, la mudanza no le gana a lo último y arrastrar un título se lleva su tabla',
+    puntos: [
+      '**El link compartido de una página que cuelga de otra en la Papelera ya no abre ni guarda** (B6): las tres puertas (la página pública, la ruta que guarda y la que acuña el link) preguntan `guionALaVista`, la misma pregunta que la tab.',
+      '**Lo que se mudó del Ads Writer y de Reels nace con su fecha** (B3): /copywriter sigue abriendo la última página del usuario, no un Reel viejo.',
+      '**La mudanza no se da por hecha si algo no entró por el tope o no se pudo leer** (B4 y B5): lo que se puede leer se muda igual, y cuando hay lugar o el historial se arregla, la próxima apertura trae lo que faltó.',
+      '**Arrastrar un título con una tabla debajo ya no la deja atrás** (F98): la tabla (o un divisor) al final de la sección sigue al título cuando termina de soltar. Pasa en cuatro plantillas de fábrica (ganchos, historia del Reel, contexto de Stories, slides del Carrusel). Probado contra un BlockNote de verdad sin navegador; falta mirarlo arrastrando.',
+    ],
+    archivos: [
+      'lib/copywriter/compartir.ts — `guionALaVista`: vivo y a la vista (B6)',
+      'lib/copywriter/mudanza-reglas.ts — `fechasDeLoMudado`, `leerLoDeAntes`, `quedanAfuera` (B3, B4, B5)',
+      'lib/copywriter/mudanza.ts y lib/copywriter/server.ts (`crearVarias`: fecha del origen y `sinLugar`)',
+      'lib/copywriter/seccion-arrastre.ts — la `cola` de una sección y `llevarCola`; app/copywriter/editor/CuerpoNotion.tsx la llama al soltar',
+      'tests/copywriter-mudanza.test.ts (con su hijo) y tests/copywriter-arrastrar-seccion.test.ts — los casos, ejecutados y probados rompiéndolos',
+    ],
+    revisar: '/copywriter',
+  },
+  {
     fecha: "18 nov", hora: "02:05", chat: "De octubre (nube)", cuenta: "claude2",
     sesion: "cli_220069ef-c004-5c47-ae62-3770ea6e643f",
     actor: "claude", tipo: "implementacion",

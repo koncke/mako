@@ -183,9 +183,21 @@ const TUTEO = new Set([
   // Y el reel del teléfono: «WhatsApp vende. Sólo que sin ti.» junto a «Mientras vos estás…».
   'ti',
 ]);
-/** Las palabras que pide una duración (150 por minuto, con el tope de 2.000 que entra en un pedido); null = sin duración o menos de 2 minutos. */
+/**
+ * Las palabras que entran en UN pedido a la IA de «Editar»: lo que cabe en una respuesta (`maxTokens: 6_000` con el JSON de las
+ * operaciones alrededor) y en su plazo (110 s). Es un tope POR PEDIDO, no por pieza, y no se sube: es también lo que cuesta una
+ * llamada (lib/mako-tokens-costos.ts, la unidad es «una llamada»).
+ *
+ * ⚠️ DESDE EL 18/11/2026 UNA PIEZA LARGA NO SE QUEDA EN ESTE TOPE: se escribe POR SECCIONES (./por-secciones.ts), en varias
+ * llamadas de hasta esto cada una. Antes, una VSL de 42 minutos (6.300 palabras) salía con 2.000 como mucho —~13 minutos— y se
+ * daba por buena desde 1.500 sin un aviso. Este número sigue siendo el tope de cada llamada; lo que cambió es que una pieza
+ * puede ser varias.
+ */
+export const PALABRAS_POR_PEDIDO = 2_000;
+
+/** Las palabras que pide una duración (150 por minuto, con el tope de lo que entra en un pedido); null = sin duración o menos de 2 minutos. */
 export function objetivoDeDuracion(segundos: number | null | undefined): number | null {
-  return segundos && segundos >= 120 ? Math.min(2_000, Math.round(segundos * 2.5)) : null;
+  return segundos && segundos >= 120 ? Math.min(PALABRAS_POR_PEDIDO, Math.round(segundos * 2.5)) : null;
 }
 /** ¿Corta para su duración? (la SEGUNDA PASADA de una plantilla: por debajo del 75 % de lo que pide; el aviso, del 60 %). */
 export const cortaParaSuDuracion = (palabras: number, segundos: number | null | undefined): boolean => {
