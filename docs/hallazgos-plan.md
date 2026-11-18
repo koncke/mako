@@ -12,6 +12,22 @@ verificá contra el código.** Las marcadas ⚠️ estaban vivas la última vez 
 
 La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
+## El filtro «Responsable» en el tablero del dueño: una columna nueva que no puede romper los guardados (F156, 18/11/2026)
+
+**Vive en:** `supabase/migrations/0419_plan_tareas_responsable_tipo.sql` (SIN APLICAR) · `lib/todo-estados.ts`
+(`responsableDeLaFila`, `responsableParaGuardar`) · `lib/plan-board.ts` · `lib/plan-propuesta.ts` · `app/plan/board/repo-plan.ts`
+
+- **Síntoma:** el filtro «Responsable» existía desde el 16/10 sólo en el tablero del cliente; `plan_tareas` no tenía la columna.
+- **La trampa de agregar una columna al tablero del DUEÑO:** el guardado es un `upsert` de la fila ENTERA (`taskToRow`). Si el
+  mapper de escritura manda `responsable_tipo` y la migración todavía no está aplicada, PostgREST rechaza el guardado de
+  CUALQUIER tarjeta, no sólo de las que tienen responsable. Y si el de lectura no la trae, el próximo guardado la borra.
+  **Regla:** la tarjeta trae la clave SÓLO si la fila trajo la columna (`'responsable_tipo' in fila`), y el guardado la manda
+  sólo si la tarjeta la trae: `undefined` ≠ `null`, y esa diferencia es la que deja convivir el código con la migración sin
+  aplicar. El alta desde una reunión la manda siempre y, con 42703/PGRST204, reintenta sin ella (perder el responsable es
+  recuperable; perder la tarea, no).
+- **Lo que no se hizo:** las tareas de antes quedan «Sin asignar» (null = nadie lo dijo, no «mío»; sin backfill). El tablero
+  único para el dueño (meter también las tareas de otras personas de la reunión) sigue siendo sólo del cliente: es otra decisión.
+
 ## El Plan del cliente no deja asignarle una tarea a una persona de su equipo (16/11/2026, SIN HACER)
 
 - Lo encontró el repaso de los entregables del Accelerator («Delegation Framework: cada persona con sus tareas en tu plan»): el

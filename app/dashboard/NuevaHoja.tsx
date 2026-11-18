@@ -79,6 +79,7 @@ import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { dashPegado, hojaConIdsNuevos, rotuloDashPegado } from '@/lib/graficos-copia';
 import { leerDashPegado } from './copia-dash-cliente';
 import { CSS_MINIATURA, MiniaturaHoja, hojaDeMuestra } from './MiniaturaHoja';
+import { PlantillasPropiasHoja } from './PlantillasPropiasHoja';
 import { CSS_CORBEL } from '@/lib/graficos-corbel';
 import { ContextoGeneral, type ContextoDeGeneral } from './ElementoGeneral';
 import { muestraDeBloque } from '../general/ProveedorGeneral';
@@ -490,6 +491,11 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
               <span className="nh-mini nh-mini--vacia"><IconoMenu nombre="copiar" size={30} /></span>
               <span className="nh-nombre" title={copiado.nombre}>Pegar «{copiado.nombre}»</span>
             </button>
+          )}
+          {/* Las plantillas guardadas (las del negocio y las de la comunidad), antes de las de MaKo (./PlantillasPropiasHoja.tsx). */}
+          {(informe === 'dashboard' || (conTodas && informe === 'general')) && (
+            <PlantillasPropiasHoja busca={busca} deshabilitado={pensando} enElDashboard={informe === 'dashboard'}
+              onCrear={(h) => crear(h)} onError={(texto) => setError({ texto })} />
           )}
           {conMuestras(plantillas.map((p) => {
             // «Sugerido», chico y gris (Martín: «un texto sutil»); el porqué va en el title y en lo que lee un lector.

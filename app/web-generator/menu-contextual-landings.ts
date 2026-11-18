@@ -2,15 +2,15 @@
 // menu-contextual-landings — QUÉ ofrece el clic derecho de un renglón de la lista del Panel del Web Generator (puro)
 // =============================================================================
 // Pedido de Leandro (24/10/2026, f26): el clic derecho «casi que en toda la app». El clic derecho de un renglón (y
-// mantenerlo presionado) ofrece LO MISMO que su «⋯» (Inicio.tsx, «El «⋯» de un renglón»), en el mismo orden:
+// mantenerlo presionado) y su «⋯» abren ESTE menú (Inicio.tsx, «El menú de un renglón»):
 //   · una página analizada: Diagnóstico, Abrir la página, y Eliminar al final;
 //   · una landing o una presentación: Abrir, Diagnóstico, Cambiar nombre, Duplicar, Copiar enlace público (si está
 //     publicada), y Archivar y Eliminar al final.
 //
-// ⚠️ EL «⋯» SIGUE CON SU `MenuFlotante`, A PROPÓSITO (27/10/2026): la tab la está tocando otro chat y el pedido era sólo
-//    sumar el clic derecho. Las dos listas dicen lo mismo y tests/clic-derecho-listas.test.ts las cruza rótulo por rótulo.
-//    El paso que falta, del chat del Web Generator: que el «⋯» abra ESTE menú (AGENTS.md, «El "⋯" y el clic derecho de lo
-//    mismo son un menú»). La lista de la tarjeta del editor (editor/paneles/PanelLandings.tsx) no tiene «⋯»: sin menú.
+// ⚠️ DESDE EL 18/11/2026 EL «⋯» ABRE ESTE MENÚ (AGENTS.md, «El "⋯" y el clic derecho de lo mismo son un menú»; el F119 de
+//    docs/pendientes-verificados-17-11.md). Del 27/10 a ese día el «⋯» era un `MenuFlotante` con su propia lista, que
+//    tests/clic-derecho-listas cruzaba con ésta rótulo por rótulo: ahora hay una sola. La lista de la tarjeta del editor
+//    (editor/paneles/PanelLandings.tsx) no tiene «⋯»: sin menú.
 // =============================================================================
 import type { EntradaMenuContextual } from '@/app/_ui/MenuContextual';
 import type { FilaPanel } from './panel-reglas';

@@ -88,7 +88,8 @@ test('nada del producto llama ni nombra la recomendación que se sacó', () => {
 });
 
 test('el grafo de Second Brain dibuja sólo los formatos que usa la matriz, con la misma cuenta', () => {
-  const grafo = sinComentarios(leer('lib/cerebro-grafo.ts'));
+  // Desde el 18/11/2026 el armado del grafo vive en lib/cerebro-armado.ts (puro); lib/cerebro-grafo.ts sólo lee (F109).
+  const grafo = sinComentarios(leer('lib/cerebro-armado.ts'));
   assert.match(grafo, /const usos = usosPorFormato\(razones\);/);
   assert.doesNotMatch(grafo, /unir\(RAIZ, id, 'Un formato que MaKo eligió para este negocio'\)/, 'un formato colgado de la raíz es uno que no usa ningún anuncio');
   assert.match(grafo, /if \(r\.id !== CELDA_GUIONES_PROPIOS\) for \(const f of usados\) razonAFormatos\.push/, 'la celda de guiones propios dibuja un formato que la cuenta no cuenta (n = 0)');

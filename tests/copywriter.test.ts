@@ -618,5 +618,7 @@ test('las plantillas largas: el largo lo da la duración, no el ejemplo resumido
   assert.match(avisoDeDuracion(600, 2_520) ?? '', /unas 2000 palabras/, 'la clase de 42 minutos topa en lo que entra en un pedido');
   assert.equal(avisoDeDuracion(80, 45), null, 'un anuncio de 45 s: manda el ejemplo');
   assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /EL LARGO lo da la DURACIÓN de la pieza, no el ejemplo \(que puede estar resumido\): unas 150 palabras dichas por minuto, hasta 2\.000 palabras/);
-  assert.ok(leer('lib/copywriter/ia.ts').includes('const duracion = avisoDeDuracion(m.escritas, r.props.duracion ?? g.props.duracion);'));
+  // Desde el 18/11/2026 la pieza escrita POR SECCIONES (lib/copywriter/por-secciones.ts) se avisa contra su largo real; la que entra
+  // en un pedido, como antes (tests/copywriter-por-secciones.test.ts ejecuta la otra rama).
+  assert.ok(leer('lib/copywriter/ia.ts').includes(': avisoDeDuracion(m.escritas, r.props.duracion ?? g.props.duracion);'));
 });
