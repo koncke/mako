@@ -93,6 +93,17 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** Fuera del repo: Drive y la plataforma de origen de los cursos
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 17 — Las clases con la transcripción cortada o sin bajar**: los 4 videos de ATV Advantage ya liberados a Drive (no alcanza re-extraer el audio: hay que volver a bajarlos de la fuente), los 154 de MasteryHaus con 401 y las 194 clases publicadas que la cuenta actual ya no alcanza. Es trabajo con la fuente y con Drive; desde la nube no se mide nada, y depende de que la fuente siga.
+
 ## Los cursos no se llaman como su docente, y THE NET LAB no está en `cono-tx` (11/11/2026)
 
 Lo encontró el relevo de estrategia para Marketing CoPilot (`docs/marketing-copilot/analisis/estrategia.md` §6). Buscando a Fran Doglio, Juan Carrizo y Ramiro Cubría por nombre, no aparecen:

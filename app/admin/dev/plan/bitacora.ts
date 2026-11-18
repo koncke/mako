@@ -392,4 +392,21 @@ export const BITACORA: Hito[] = [
       "tests/iniciativa-plan.test.ts — probado rompiéndolo (3 roturas)",
     ],
   },
+  // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
+  // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
+  {
+    fecha: '6 nov', hora: '05:30', chat: 'Recorrido visual (nube)', sesion: 'cli_11df35a4-d789-5260-a695-cc3c7b859c4e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tarjeta del Objetivo Principal dice por qué es el norte',
+    puntos: [
+      '**En Prioridades**, la tarjeta del Objetivo Principal muestra la razón del Perro (cinco renglones como mucho) en el espacio que quedaba vacío. En la grilla de Proyectos no cambia.',
+      'Llegó por el encargo del 6/11 para la nube: lo que seguía abierto del recorrido visual del 30/10 y la llamada con Leila del 5/11.',
+    ],
+    commits: [{ sha: '7132bc7f2', msg: 'Automations, Chats, Plan y la API: lo que quedó abierto del recorrido visual (A3, CH2, P2, AP1)', lineas: 264, archivos: 15 }],
+    archivos: [
+      'app/plan/board/RazonObjetivo.tsx · app/plan/board/BoardShell.tsx',
+      'tests/recorrido-plan-api.test.ts — probado rompiéndolo (4/0)',
+    ],
+    revisar: '/plan',
+  },
 ];

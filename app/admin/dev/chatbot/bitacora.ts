@@ -3429,6 +3429,23 @@ FEEDBACK PROBAR:
     revisar: "/automations?ws=10",
     tickets: [67],
   },
+  // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
+  // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
+  {
+    fecha: '6 nov', hora: '05:30', chat: 'Recorrido visual (nube)', sesion: 'cli_11df35a4-d789-5260-a695-cc3c7b859c4e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El interruptor de una automatización dice «Activa» cuando está prendida',
+    puntos: [
+      '**Decía «Activar» siempre**, y con el interruptor verde no se sabía si estaba activa o había que activarla.',
+      'Llegó por el encargo del 6/11 para la nube: lo que seguía abierto del recorrido visual del 30/10 y la llamada con Leila del 5/11.',
+    ],
+    commits: [{ sha: '7132bc7f2', msg: 'Automations, Chats, Plan y la API: lo que quedó abierto del recorrido visual (A3, CH2, P2, AP1)', lineas: 264, archivos: 15 }],
+    archivos: [
+      'app/automations/SecuenciaPerfil.tsx — el rótulo del interruptor',
+      'tests/recorrido-chats.test.ts — probado rompiéndolo (3/0)',
+    ],
+    revisar: '/automations',
+  },
   {
     fecha: '9 nov', hora: '23:30', chat: 'Automations › ManyChat', sesion: 'cli_958a4140-0df2-5490-98d6-ce01093ca639', cuenta: 'nube',
     actor: 'martin', tipo: 'prompt',

@@ -4072,6 +4072,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/api-mako?tab=docs&art=migrar-crm',
   },
+  // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
+  // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
+  {
+    fecha: '6 nov', hora: '05:21', chat: 'Recorrido visual (nube)', sesion: 'cli_11df35a4-d789-5260-a695-cc3c7b859c4e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tarjeta del lead: la foto que no carga muestra las iniciales, el nombre entero y las flechas dicen qué mueven',
+    puntos: [
+      '**Una foto que no cargaba** quedaba como imagen rota (16 de 42 caras en el tablero): ahora se ven las iniciales.',
+      '**El nombre baja a dos renglones** antes de cortarse, y entero queda al pasar el mouse.',
+      '**Las flechas del «⋯» de una columna dicen «Mover la etapa»**, y en la ficha «Mover la hoja».',
+      'Llegó por el encargo del 6/11 para la nube: lo que seguía abierto del recorrido visual del 30/10 y la llamada con Leila del 5/11.',
+    ],
+    commits: [{ sha: '968eea8ee', msg: 'CRM: la cara que no carga cae a las iniciales, el nombre no se corta y las flechas dicen qué mueven', lineas: 141, archivos: 9 }],
+    archivos: [
+      'lib/tarjeta-kanban.ts — fotoQueNoCargo · app/_ui/TarjetaKanban.tsx — la tarjeta compartida de CRM, Clients y el teléfono',
+      'app/_ui/MenuContextual.tsx · app/crm/menu-contextual-crm.ts — el rótulo de las flechas',
+      'tests/recorrido-crm-tarjeta.test.ts — probado rompiéndolo (6/0)',
+    ],
+    revisar: '/crm',
+  },
   {
     fecha: '6 nov', hora: '09:30', chat: 'Barrido de pendientes (nube)', sesion: 'cli_908aa36b-adb2-556c-b042-b48962ca685a', cuenta: 'nube',
     actor: 'claude', tipo: 'correccion',

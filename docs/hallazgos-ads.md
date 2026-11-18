@@ -28,6 +28,17 @@ registro completo de las corridas está en [corridas-multiagente.md](corridas-mu
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `app/api/cron/ads-analyst-sync/route.ts:18` · `lib/cron-workspaces.ts` (`correrRonda`)
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 26 — `ads-analyst-sync` sin techo.** `fathom-plan` ya corre con `correrRonda` (techo, mínimo y rotación propia, app/api/cron/fathom-plan/route.ts:48-67). `ads-analyst-sync` sigue con `correrPorWorkspace` pelado (app/api/cron/ads-analyst-sync/route.ts:18): el primer negocio con mucho para analizar se come la corrida de los demás.
+
 ## Desde MaKo no se puede lanzar un anuncio que abra WhatsApp, y el de formulario pide uno ya creado en Meta (15/11/2026, lectura del código para el reto)
 
 **Vive en:** `lib/media-buyer/campana-reglas.ts` (`OBJETIVOS_CAMPANA` y la validación de `formularioId`).

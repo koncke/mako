@@ -10,6 +10,17 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `docs/costos-ia-y-planes.md:725,935` · `app/admin/dev/pricing/modelo.ts:661-705`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 21 — El email de grandfathering a los clientes que ya estaban** (precio y alcance congelados al 09/08/2026, sin decir «ilimitado» nunca). No se mandó: «No hay una línea de grandfathering en ningún lado» (docs/costos-ia-y-planes.md:935; app/admin/dev/pricing/modelo.ts:705). Desde entonces cambiaron los planes (Esencial y Pro) y entraron los MaKo Tokens (15/11). Es lo que se le manda a un cliente real: lo decide Martín.
+
 ## El precio en pesos al dólar blue, una prueba por persona y el monto que se mostró (16/11/2026)
 
 - **El blue NO existía** (la memoria decía «lo hace un cron diario»; medido el 16/11: ni el cron ni la consulta). Ahora:

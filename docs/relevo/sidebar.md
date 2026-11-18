@@ -17,6 +17,9 @@ barra de abajo), `app/m/mas`. El diseño y por qué: `docs/diseno-sidebar.md`. E
   foto real, barra de abajo CRM · Chats · Dashboard · Plan · More) está en main.
 - **18/10: «Ops Center» en todos los negocios** (la fila de /second-brain con ese nombre y la estrella): rama
   `ops-center-clientes` en `C:/dev/wt-sidebar-email`, salida de origin/main. Commit hecho, **sin pushear** (pushea el Cerebro).
+- **6/11 (anotado el 18/11 por la nube, que no tocó tus archivos): Admin pliega la barra.** /admin y /admin/<sección> de
+  `SECCIONES_ADMIN` (nav.ts:226) la pliegan por `pliegaLaBarra` (Sidebar.tsx:132), en main desde c2b284487. Va junto al Ops
+  Center y Automations en docs/diseno-sidebar.md (arriba) y en AGENTS.md.
 
 ## Lo que falta (con el archivo donde vive)
 

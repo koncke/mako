@@ -1683,6 +1683,27 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
+  // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
+  {
+    fecha: '6 nov', hora: '05:14', chat: 'Recorrido visual (nube)', sesion: 'cli_11df35a4-d789-5260-a695-cc3c7b859c4e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una presentación puede ser 4:5, el carrusel de Instagram',
+    puntos: [
+      '**«Relación de aspecto»** ofrece 16:9, 4:3, 4:5 y Fluido: la diapositiva de 4:5 es vertical en el editor, en Presentar y en las miniaturas, y en el celular vuelve a ser fluida.',
+      '**Se exporta** en 8 × 10 pulgadas en PDF y en 10 × 12,5 en PowerPoint.',
+      '**MaKo también la elige:** la API la acepta al configurar una presentación.',
+      'Llegó por el encargo del 6/11 para la nube: lo que seguía abierto del recorrido visual del 30/10 y la llamada con Leila del 5/11.',
+    ],
+    commits: [{ sha: 'cd0f4811e', msg: 'Web Generator: una presentación puede ser 4:5, un carrusel de Instagram', lineas: 230, archivos: 18 }],
+    archivos: [
+      'lib/editor-landing/api-tipos.ts — FORMA_DE, ANCHO_DIAPO_EM y formaFija: un solo lugar para las formas',
+      'lib/editor-landing/exportar-pptx.ts · exportar-html.ts — el PDF y el PowerPoint de 4:5',
+      'tests/editor-landing-carrusel-45.test.ts — probado rompiéndolo (8/0)',
+      'docs/recorrido-visual/w45-*.png — antes y después a 1440 y 390',
+    ],
+    revisar: '/web-generator',
+  },
   {
     fecha: '9 nov', hora: '08:45', chat: 'Web Replicate (nube)', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
     titulo: 'Web Replicate: copiar el reel, sobre todo los varios mouse',

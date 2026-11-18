@@ -12,6 +12,19 @@ verificá contra el código.** Las marcadas ⚠️ estaban vivas la última vez 
 
 La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `app/api/plan-reunion/route.ts:109-132` · `lib/reunion-destinatarios.ts:248` · `lib/todo-seeds.ts:106` · `app/api/cron/tareas-verificar/route.ts` · `lib/cerrar-por-commits.ts`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 11 — `manual` vale también para «cargar».** `/api/plan-reunion` resuelve el `manual` ANTES de ramificar (app/api/plan-reunion/route.ts:109-118), así que la rama `'cargar'` (:132) también lo toma: quien escriba a mano el email de una persona de OTRO negocio le deja un borrador pendiente en su Plan (`cargarTareasEnPlanDe`, lib/reunion-destinatarios.ts:248, escribe en el workspace del destinatario). Lo que pedía el punto: que `manual` sólo valga dentro de `'enviar'`. Sigue igual.
+- **Punto 32 — El auto-cierre y el tablero del dueño.** El filtro por origen ya está: el auto-cierre sólo mira tareas con `origen === 'mako'` (lib/todo-seeds.ts:106). Pero el cron `tareas-verificar` lee `listTareas`, o sea las tareas del CLIENTE: `plan_tareas` (el tablero del dueño) no entra. Lo de desarrollo del dueño lo propone cerrar el bot de commits (abajo); falta decidir si ese tablero necesita además el cierre por señales.
+- **Punto 41 — El bot que revisa commits ya existe**: app/api/cron/cerrar-por-commits/route.ts (todos los días, vercel.json:176) y lib/cerrar-por-commits.ts, que PROPONE cerrar en /plan/revisar, nunca cierra solo. La premisa del punto («no existe») venció. Lo que no se sabe desde el repo es si las 62 tareas del barrido del 6/8 se cerraron: es una lectura de producción, y el bot mira los commits desde su última corrida, no los de agosto.
+
 ## El Plan del cliente no deja asignarle una tarea a una persona de su equipo (16/11/2026, SIN HACER)
 
 - Lo encontró el repaso de los entregables del Accelerator («Delegation Framework: cada persona con sus tareas en tu plan»): el

@@ -5,6 +5,17 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `app/api/webhooks/calendly/route.ts` · `lib/metodo-catalogo.ts` (la signing key de Calendly) · `scripts/arreglar-webhook-calendly.ts`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 4 — Calendly, en orden estricto.** La clave única del ws 1 está desde el 19/09. Falta, en este orden y todo en producción: ver entrar una reserva real, borrar la `CALENDLY_WEBHOOK_SIGNING_KEY` del entorno de Vercel, reescribir el paso del catálogo (el campo de la signing key, lib/metodo-catalogo.ts) y borrar la fila que `datos-mau` copió al ws 4 el 16/08. Desde la nube no se mide ninguno.
+
 ## `BotonIntegracion` le pisa la clase al botón: sus estilos «como texto» van EN LÍNEA (11/11/2026)
 
 **Vive en:** `app/_components/ConectarIntegracion.tsx` (`COMO_TEXTO`, `CON_SU_CLASE`). Lo fija `tests/mirada-prod-11-11.test.ts` (caso 8).

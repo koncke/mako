@@ -4,6 +4,17 @@ El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `lib/onboarding-state.ts` · `app/api/onboarding/route.ts:324` · `lib/onboarding-crm.ts`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Puntos 29, 30 y 31 — excluidos de la pasada del 18/11: el onboarding lo está rehaciendo otro chat ese día.** Lo medido, para ese chat: (29) lib/onboarding-state.ts ya no tiene `PASOS_ONBOARDING` y el onboarding es el chat de arranque desde el 16/10, así que «las cuatro listas paralelas» casi seguro vencieron; (30) el `case 'funnel'` de app/api/onboarding/route.ts:324 sigue sin un solo llamador (`templateId` no aparece en app/), y el CRM del arranque lo arma lib/onboarding-crm.ts; (31) el paso `gemini` ya no existe, y conectar una IA dejó de ser obligatorio con los MaKo Tokens (15/11).
+
 ## ⚠️ La maqueta del onboarding y la app real no tienen los mismos coaches (17/11/2026)
 
 Lo encontró el agente que reescribió los guiones de Offer Coach y Funnel Coach del reto (`docs/reto-7-dias/guiones-coaches-v2.md`).
