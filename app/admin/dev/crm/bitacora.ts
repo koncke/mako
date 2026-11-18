@@ -4153,4 +4153,22 @@ export const BITACORA: Hito[] = [
     revisar: '/crm?ws=13',
     tickets: [106],
   },
+  {
+    fecha: '18 nov', hora: '02:16', chat: 'Nube › Octubre: CRM y perfil', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Traer los contactos de un grupo por el chat: con más de un funnel, MaKo pregunta a cuál van',
+    puntos: [
+      '**Antes:** por el chat, «trae los contactos del grupo X» caía en «Prospección» o en el funnel principal sin preguntar, y la tarjeta nombraba la etapa y no el CRM.',
+      '**Ahora:** sin funnel elegido y con dos o más, MaKo pregunta con la lista de funnels del negocio; con uno solo, ése. La tarjeta dice el funnel y la etapa.',
+      '«No pude leer los funnels» ya no se lee como «hay uno».',
+    ],
+    commits: [{ sha: '21db6ff7c', msg: 'Traer los contactos de un grupo por el chat: con más de un funnel, MaKo pregunta a cuál (O45)', lineas: 223, archivos: 8 }],
+    archivos: [
+      'lib/api-mako/areas/crm.run.ts — `traer_contactos_de_grupo`',
+      'lib/api-mako/areas/crm.def.ts — la descripción de `embudoId`',
+      'tests/traer-grupo-funnel.test.ts — 5/5 con uno y con dos funnels; probado rompiéndolo (4 roturas, las 4 rojas)',
+      'docs/hallazgos-crm.md',
+    ],
+    revisar: '/crm',
+  },
 ];

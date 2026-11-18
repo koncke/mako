@@ -669,4 +669,23 @@ export const BITACORA: Hito[] = [
     revisar: '/api-mako?tab=docs',
     tickets: [74, 69],
   },
+  {
+    fecha: '18 nov', hora: '02:16', chat: 'Nube › Octubre: CRM y perfil', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo corrige un dato ya cargado del perfil del negocio desde el chat: «¿cómo te hago recordar que…?» ya tiene herramienta',
+    puntos: [
+      '**Antes, MaKo sólo podía llenar un dato VACÍO del perfil** (`guardar_campo_perfil`: «ya tiene valor» se rechazaba), y las frases con que se pide corregir uno no le traían ninguna herramienta: medido con el turno real, caían en «consultar» o se anotaban como idea para el Plan.',
+      '**Operación nueva `corregir_campo_perfil`** (con un «sí» en el chat, sólo el admin del negocio, `PUT /api/v1/negocio/perfil/campos/{key}`): la tarjeta dice lo de antes y lo nuevo, y si el dato cambió antes de confirmar, la propuesta se cierra en vez de pisar lo nuevo.',
+      '**El clasificador la trae** con «recuerda / ten en cuenta que…» y con las correcciones de un dato del perfil («en realidad mi precio es…», «corrige mi horario»), en WhatsApp, en la app y en el grupo; «recordame llamar a Juan» sigue siendo una tarea.',
+      '**Para Martín:** la pantalla sólo deja pisar un dato ya cargado al super admin y no avisa el rechazo; por el chat, desde hoy, lo corrige el admin del negocio con su «sí».',
+    ],
+    commits: [{ sha: 'c2031b952', msg: 'MaKo corrige un dato ya cargado del perfil del negocio desde el chat (O21)', lineas: 584, archivos: 15 }],
+    archivos: [
+      'lib/api-mako/areas/negocio.def.ts · negocio.run.ts · negocio.helpers.ts — la operación y la escritura con compare-and-set',
+      'lib/mako-intencion.ts — `esDatoDelPerfil`, antes de la regla de la pregunta',
+      'lib/despacho-grupo.ts — entre las acciones simples del grupo',
+      'tests/corregir-campo-perfil.test.ts — 9/9; probado rompiéndolo (9 roturas, las 9 rojas)',
+      'docs/hallazgos-api-mako.md',
+    ],
+    revisar: '/second-brain',
+  },
 ];
