@@ -2220,3 +2220,52 @@ porque dijo "No es mi voz"»; los reels de la galería usan su clon de ElevenLab
 - Pedir subtítulos `es.*,en.*` pide también las traducciones y YouTube corta con 429; `--sub-langs en-orig --sleep-subtitles 8` anduvo.
 - yt-dlp no lista perfiles ni hashtags de TikTok o Instagram sin sesión; el video suelto por URL sí baja.
 - Las skills de Remotion no traen licencia propia (caen bajo la Remotion License): no van a un repositorio público.
+
+### Los 35 tutoriales del 18/11: lo que quedó y lo que costó encontrarlo
+
+Martín (18/11): los tutoriales de todas las pestañas, «texto y alguna que otra transición», con su voz y música, y el Martín
+en cubos acompañando todo el video. Se sirven desde `public/tutoriales/<key>.mp4` + `<key>.jpg` + `manifiesto.json` (720p, ≤ 1,5
+MB); la copia en 1080p está en `OneDrive/Escritorio/MaKo-VSL/tutoriales/videos/`. Motor: `scripts/tutorial-animado/` (`hacer.mjs`,
+`engine3.js`, `voxel-martin.mjs`); guiones: `scripts/tutorial-animado/guiones.json`.
+
+- **⚠️ El diagnóstico obvio era el equivocado: el video NO debe mostrar la app.** La primera versión fotografiaba las pestañas
+  dibujadas y marcaba el botón con la cámara encima. Martín: «la persona lo está viendo el tutorial dentro de la misma app… No
+  tiene sentido eso». Dónde tocar lo marca la app (su motor de tutorial pone lo opaco y señala el botón real); el video es sólo
+  texto con la voz. Por eso el guion dice «Toca aquí, en X», y cada frase de acción viaja en el manifiesto con su `sel`.
+- **Dos tipos de paso.** «Toca aquí» pausa el video hasta el toque (`espera_clic: true`): sólo lo seguro, navegar, abrir un panel,
+  filtrar, cambiar de vista. «Mira aquí» marca sin pausar: lo que escribe, crea, paga, sube un archivo o no es un botón (tocar el
+  micrófono grabaría el audio del propio video; «Nuevo módulo» crea uno de verdad). Lo que abre un panel que tapa la marca
+  siguiente lleva `cierra_despues`. El manifiesto trae `frases[]` con `id`, `rol`, `texto`, `t_inicio`/`t_fin` (de la alineación),
+  `sel`, `espera_clic` y `cierra_despues`: sin eso el motor de la app no puede pausar.
+- **El personaje es WebGL dentro del render.** El `makeBoy` de la galería (`C:/dev/artefactos-animaciones/reels/morrow.html`)
+  se dibuja en un `<canvas id="vox">` y `engine3.js` lo copia al cuadro. En Chromium headless por software (SwiftShader) tarda 210
+  ms por cuadro; con `--use-angle=d3d11 --enable-gpu --ignore-gpu-blocklist` usa la Intel UHD y baja a 35 ms. Sin eso, 35 videos
+  eran más de dos horas de render.
+- **«Las letras detrás de la persona» se MIDE, no se mira.** Con la cabeza a ojo, tapaba «ordena el» casi entero en un cierre.
+  La regla (el Cerebro): cada palabra visible ≥ 70 % y la cabeza sólo sobre el tercio de abajo de las letras. `medirTapado`
+  (engine3.js) dibuja al personaje aparte y cuenta, palabra por palabra, los píxeles tapados de su caja; `hacer.mjs … cuadros` lo
+  imprime. Con la punta del pelo al 12 % del tamaño de letra bajo el centro de la línea daba 62 %: la cabeza se inclina al
+  hablar. Al 16 %, todo ≥ 68 %. La cabeza va sobre la palabra más larga que NO está resaltada (nunca sobre MaKo ni un nombre en
+  azul), y el cierre nunca va tapado.
+- **El chequeo de la voz marca diferencias que no son de la voz.** `scribe_v1` escribe «maco», «siete», «okey», «Sernio»,
+  «webgenerator» (pega dos palabras) y se come la «s» final cuando la siguiente empieza con s o c («tienes sus» → «tiene»,
+  «toca Celular» → «tocas»). `hacer.mjs` las separa; una diferencia de verdad («eliges» → «elige») se regenera. Hay que leer la
+  diferencia antes de gastar otra voz.
+- **Lo que la voz lee mal se escribe como suena** y `ver` lo muestra bien: «Máko» (en pantalla MaKo), «Ei-Ai Avatar» (AI),
+  «Ímich» (Image), y «numeral» se muestra «#». «hace tus videos» sonó como una orden («haz»): se reformuló.
+- **Las marcas del chat de las pestañas no son todas de la app:** cinco de `archivos.json` las pone sólo `armar.mjs` en la página
+  dibujada. Antes de usar una, confirmar que la tiene el componente real; varias se reemplazaron por atributos estables que ya
+  existían (`button.chb-nueva`, `.cop-ent__ops`, `img.aj-telefono__qr`). Y `tour-avatar-proyectos` (maqueta) ≠
+  `tour-ai-avatar-proyectos` (código).
+- **El ffmpeg de esta PC no tiene fontconfig:** `drawtext` lo hace caer (0xC0000005) sin error legible. Las hojas de control van
+  sin rótulos.
+- **Medido:** la voz v4 cobra ~0,44 créditos por carácter (~170 por tutorial); cada video, 1,5 a 2,5 min de render con UN
+  Chromium por vez (la PC tiene 16 GB y otros chats); en 720p entran en 1,5 MB con CRF 25 (el recorrido, de 37 s, con 29).
+
+### Lo que quedó SIN hacer (18/11)
+
+- 34 marcas `FALTA` (classroom-*, settings-*, partners, agency, api, chats): las está poniendo el chat de las pestañas con esos
+  ids. Mientras no estén en main, el motor de la app no encuentra qué marcar en esas frases.
+- Las 16 pestañas que no tenían guion aprobado se escribieron desde el código; las de Classroom y Equipo describen la pantalla de
+  Pro (en Essential, según el código, muestran un candado o son de una sola persona). No verificado en la app.
+- Offer Coach está dentro de Funnel Coach desde el 4/11; si Martín los vuelve a separar, cambian el recorrido y el video de Offer.

@@ -90,7 +90,7 @@ function layoutDetras(ctx, W, H, c) {
   // The Cerebro's rule (18/11), measured: his hair top (canvas y 134, a dome that widens downwards) sits 12 % of the font size
   // below the centre of the last line, so it can only cover the LOWER THIRD of those letters — every word stays ≥ 70 % visible.
   var s = 1.2, cx = clamp(mejor.c, 700, 1220);
-  return (_detras[k] = { lines: f.lines, size: f.size, lh: lh, y0: y0, lugar: { s: s, cx: cx, top: yLast + 0.16 * f.size - (PELO - 100) * s, a: 1 } });   // 0.16, not 0.12: his head tilts while he talks (measured: 62 % → it must be ≥ 66 %)
+  return (_detras[k] = { lines: f.lines, size: f.size, lh: lh, y0: y0, lugar: { s: s, cx: cx, top: yLast + 0.19 * f.size - (PELO - 100) * s, a: 1 } });   // 0.19, not 0.12: his head tilts while he talks; measured in every frame (0.12 → 62 %, 0.16 → 65.5 % at the end of a long hook)
 }
 var PELO = 134;   // the top of his hair in the #vox canvas (measured: prueba-vox/medir.cjs); raised hands never go above it
 // big and centered with the text ABOVE him (the close and the rest): nothing covered, his hair 40 px under the text
