@@ -18,8 +18,9 @@
 // =============================================================================
 
 import type { EditorEngine } from '../../_doory/editor/extensions';
+import { resizeDocument } from '../../_doory/editor/engine/magicResize';
 import { TOPES_CHAT_IMAGEN, validarOperaciones } from '@/lib/image-editor/chat/catalogo';
-import { aplicarOperaciones, ponerRecorte, type FotoDelChat, type RefsDeVista } from '@/lib/image-editor/chat/aplicar';
+import { aplicarOperaciones, ponerRecorte, type FotoDelChat, type Redimensionar, type RefsDeVista } from '@/lib/image-editor/chat/aplicar';
 import { removeBackground } from '../../_doory/editor/engine/bgRemoval';
 import { familiaDe, tipoDe, vistaDeDiseno } from '@/lib/image-editor/chat/vista';
 import { memoriaDelHilo } from '@/lib/image-editor/chat/hilo';
@@ -59,6 +60,24 @@ export const hayAplicando = (disenoId: string): boolean => leerHilo(disenoId).me
 
 const cortes = new Map<string, AbortController>();
 export const detener = (disenoId: string) => cortes.get(disenoId)?.abort();
+
+/**
+ * «Redimensionar» del editor (`pages.resize` del motor, alcance «todo el diseño»): la misma función y el mismo paso
+ * para sacar el tamaño elegido de la lista si el tamaño cambió. El chat la recibe por acá porque lib/ no puede importar
+ * el motor (O37, 18/11/2026).
+ */
+export const redimensionarComoElEditor: Redimensionar = (doc, ancho, alto, modo) => {
+  const d = doc as Parameters<typeof resizeDocument>[0];
+  const r = resizeDocument(d, ancho, alto, modo);
+  return r.meta?.presetId !== undefined && (r.width !== d.width || r.height !== d.height) ? { ...r, meta: { ...r.meta, presetId: undefined } } : r;
+};
+
+/** El tamaño de la primera página (el del diseño): si cambió al aceptar, el editor vuelve a encuadrar, como «Redimensionar». */
+const tamanoDe = (doc: unknown): string => {
+  const d = (doc ?? {}) as { width?: unknown; height?: unknown; pages?: Array<{ width?: unknown; height?: unknown }> };
+  const p = d.pages?.[0];
+  return `${p?.width ?? d.width}x${p?.height ?? d.height}`;
+};
 
 const nuevoIdObjeto = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `o${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
@@ -321,6 +340,7 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   const prueba = aplicarOperaciones({
     doc, operaciones, vista: refsDe(propuesta), nuevoId: nuevoIdObjeto, activePageId,
     soloRefs: alcanceReal === 'seleccion' ? new Set(elegidos) : null, fuente: fuenteDelEditor(doc), fotos: fotoDeRef,
+    redimensionar: redimensionarComoElEditor,
   });
   // `deForma` es casi siempre vacío: la ruta ya filtró, y lo que tiró viene en `r.descartes`.
   const descartes = [...fallas, ...(r.descartes ?? []), ...deForma, ...prueba.descartes];
@@ -379,6 +399,7 @@ export async function aceptarPropuesta(editor: EditorEngine, visto: MensajeMako)
       r: aplicarOperaciones({
         doc, operaciones: p.operaciones, vista: refsDe(p), nuevoId: nuevoIdObjeto, activePageId: p.paginaId ?? editor.state.activePageId,
         soloRefs: p.alcance === 'seleccion' ? new Set(p.elegidos) : null, fuente: fuenteDelEditor(doc), fotos: new Map(p.fotos ?? []),
+        redimensionar: redimensionarComoElEditor,
       }),
     };
   };
@@ -412,7 +433,10 @@ export async function aceptarPropuesta(editor: EditorEngine, visto: MensajeMako)
     return;
   }
   editor.stopEditingText();
+  const otroTamano = tamanoDe(r.doc) !== tamanoDe(doc);
   editor.applyDocument(r.doc as unknown as Parameters<EditorEngine['applyDocument']>[0], { label: 'MaKo IA', ...(r.pagina ? { activePageId: r.pagina } : {}) });
+  // Como `pages.resize` del motor: con otro tamaño, el lienzo se vuelve a encuadrar (si no, queda con el zoom de antes).
+  if (otroTamano) editor.view.fit(editor.state.zoomMode === 'fit-width' ? 'fit-width' : 'fit-page');
   const descartes = [...r.descartes, ...fallas];
   cambiarMensaje(disenoId, m.id, {
     estado: 'aplicada',

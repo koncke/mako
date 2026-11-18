@@ -177,6 +177,8 @@ export const generalRoutesList = (): Route[] => [
     subs: [
       { title: 'Catalogue', link: `${BASE}/products`, icon: <HiveOutlined fontSize="inherit" /> },
       { title: 'Checkout Links', link: `${BASE}/products/checkout-links`, icon: <LinkOutlined fontSize="inherit" /> },
+      // MaKo (18/11/2026): las plantillas que los negocios compartieron con la comunidad, para moderarlas (app/admin/_polar/datos/plantillas.ts).
+      { title: 'Templates', link: `${BASE}/products/templates`, icon: <HiveOutlined fontSize="inherit" /> },
     ],
   },
 ]

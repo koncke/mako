@@ -7,6 +7,12 @@
 // (el «Eliminar» de escritorio pide confirmar: acá la confirmación es la hoja misma). El «+» es «Nuevo diseño»: abre
 // «¿Qué vas a crear hoy?» con las MISMAS plantillas que la computadora (app/image-editor/plantillas-crear.ts); tocar una
 // crea el diseño por la MISMA acción (app/image-editor/actions.ts) y abre el editor.
+// Arriba de ésas, como en la computadora, «Tus plantillas» y «De la comunidad» (18/11/2026, O35 de
+// docs/pendientes-verificados-17-11.md): las MISMAS tarjetas y la MISMA acción (`usePlantillasPropias('formato_imagen')`,
+// app/creaciones/usePlantillasPropias.ts), cada grupo con su título (`seccionesDeCrear`, la regla de app/_crear/PantallaCrear.tsx).
+// Hasta ese día el teléfono no las mostraba: una plantilla guardada en la computadora no se podía usar desde el celular. La
+// tarjeta es el marco con su rótulo (🔒 o las estrellas), lo mismo que una plantilla en blanco de MaKo: el teléfono no dibuja la
+// hoja de texto de la computadora. «Guardar como plantilla» sigue en la computadora (el «⋯» de un diseño).
 // =============================================================================
 
 import { useMemo, useState } from 'react';
@@ -19,7 +25,7 @@ import { BotonFlotanteM, HuecoFlotanteM } from '@/app/m/_ui/BotonFlotanteM';
 import { marcoDe, seccionesDeCrear, type PlantillaCrear } from '@/app/_crear/reglas';
 import { usePlantillasPropias } from '@/app/creaciones/usePlantillasPropias';
 import { crearDisenoNuevoAction } from '@/app/image-editor/actions';
-import { PLANTILLAS_NUEVO_DISENO } from '@/app/image-editor/plantillas-crear';
+import { PLANTILLAS_NUEVO_DISENO, type PlantillaNuevoDiseno } from '@/app/image-editor/plantillas-crear';
 import { MiniaturaCarrusel } from '@/app/image-editor/carruseles/MiniaturaCarrusel';
 import { MiniaturaTarjetaDiseno } from '@/app/image-editor/MiniaturaDiseno';
 import { plantillaImagen, type DocumentoDoory } from '@/lib/image-editor/plantillas-reales';
@@ -48,6 +54,9 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
   const [elegido, setElegido] = useState<ResumenDiseno | null>(null);
   const [trabajando, setTrabajando] = useState<string | null>(null);
   const [error, setError] = useState('');
+  // Las del negocio y las de la comunidad, en su grupo («Tus plantillas», «De la comunidad»); sin ninguna, nada nuevo.
+  const propias = usePlantillasPropias('formato_imagen');
+  const seccionesPropias = useMemo(() => seccionesDeCrear(propias.plantillas), [propias.plantillas]);
 
   // Los carruseles por tipo se ven como lo que se va a crear (el mismo documento de la acción), no como un marco vacío.
   const docsCarrusel = useMemo(() => {
@@ -70,24 +79,15 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
     return out;
   }, []);
 
-  // «Tus plantillas» y «De la comunidad» (18/11/2026, F17): las mismas que la computadora (../../image-editor/ImageEditorCliente.tsx),
-  // primero, y la hoja se parte en las MISMAS secciones que «¿Qué vas a crear hoy?» de escritorio (`seccionesDeCrear`).
-  const propias = usePlantillasPropias('formato_imagen');
-  const secciones = useMemo(() => seccionesDeCrear([...propias.plantillas, ...PLANTILLAS_NUEVO_DISENO]), [propias.plantillas]);
-
   const visibles = useMemo(() => {
     const aguja = buscar.trim().toLocaleLowerCase('es');
     return aguja ? disenos.filter((d) => d.titulo.toLocaleLowerCase('es').includes(aguja)) : disenos;
   }, [disenos, buscar]);
 
-  const crear = async (p: PlantillaCrear) => {
+  const crear = async (p: PlantillaNuevoDiseno) => {
     if (trabajando) return;
     setTrabajando(p.id); setError('');
     try {
-      // Una plantilla guardada (la del negocio o de la comunidad) la crea su enchufe y navega; si no es una de ésas, `false`.
-      const propia = await propias.usar(p);
-      if (typeof propia === 'string') { setError(propia); setTrabajando(null); return; }
-      if (propia === null) return;
       const r = await crearDisenoNuevoAction(p.id);
       if (!r.ok) { setError(r.error); setTrabajando(null); return; }
       // `trabajando` queda prendido: la pantalla se va, y un segundo toque no crea otro (como escritorio).
@@ -96,6 +96,17 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
       setError('No se pudo crear el diseño. Revisa tu conexión y vuelve a intentar.');
       setTrabajando(null);
     }
+  };
+
+  // Una plantilla guardada: la crea en el negocio con su enchufe y navega (lo hace `usar`). Como `crear`, `trabajando` queda
+  // prendido mientras la pantalla se va; con un error, se dice y se suelta.
+  const usarPropia = async (p: PlantillaCrear) => {
+    if (trabajando) return;
+    setTrabajando(p.id); setError('');
+    const r = await propias.usar(p);
+    if (r === null) return;
+    if (typeof r === 'string') setError(r);
+    setTrabajando(null);
   };
 
   const borrar = async (d: ResumenDiseno) => {
@@ -113,6 +124,33 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
       setTrabajando(null);
     }
   };
+
+  // Las de MaKo, en la grilla de siempre.
+  const grillaMako = (
+    <div className="m-image-editor-plantillas" role="list" aria-label="Plantillas">
+      {PLANTILLAS_NUEVO_DISENO.map((p) => (
+        <div key={p.id} role="listitem">
+          <button type="button" className="m-image-editor-plantilla" aria-label={`Usar la plantilla ${p.nombre}`}
+            aria-busy={trabajando === p.id || undefined} disabled={!enLinea || (trabajando != null && trabajando !== p.id)}
+            onClick={() => void crear(p)}>
+            <span className="m-image-editor-plantilla__mini">
+              {docsCarrusel.has(p.id)
+                ? <MiniaturaCarrusel doc={docsCarrusel.get(p.id)!} nombre={p.nombre} />
+                : docsReales.has(p.id)
+                ? <MiniaturaTarjetaDiseno doc={docsReales.get(p.id)!} nombre={p.nombre} />
+                : p.imagen
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={p.imagen} alt="" loading="lazy" />
+                : <span className="m-image-editor-plantilla__marco" style={marcoDe(p.formato)} />}
+              {!p.imagen && !docsCarrusel.has(p.id) && !docsReales.has(p.id) && p.rotulo ? <span className="m-image-editor-plantilla__rotulo">{p.rotulo}</span> : null}
+              {trabajando === p.id ? <span className="m-image-editor-plantilla__creando">Creando…</span> : null}
+            </span>
+            <span className="m-image-editor-plantilla__nombre">{p.nombre}</span>
+          </button>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <>
@@ -172,34 +210,28 @@ export function InicioImagenM({ disenos: iniciales, negocio = null }: { disenos:
         ocupado={trabajando != null}
         rotuloCerrar="Cerrar"
       >
-        {secciones.map((sec) => (
-        <div key={sec.titulo ?? ''} className="m-image-editor-seccion">
-        <h3 className="m-image-editor-seccion__titulo">{sec.titulo ?? 'Plantillas'}</h3>
-        <div className="m-image-editor-plantillas" role="list" aria-label={sec.titulo ?? 'Plantillas'}>
-          {sec.plantillas.map((p) => (
-            <div key={p.id} role="listitem">
-              <button type="button" className="m-image-editor-plantilla" aria-label={`Usar la plantilla ${p.nombre}`}
-                aria-busy={trabajando === p.id || undefined} disabled={!enLinea || (trabajando != null && trabajando !== p.id)}
-                onClick={() => void crear(p)}>
-                <span className="m-image-editor-plantilla__mini">
-                  {docsCarrusel.has(p.id)
-                    ? <MiniaturaCarrusel doc={docsCarrusel.get(p.id)!} nombre={p.nombre} />
-                    : docsReales.has(p.id)
-                    ? <MiniaturaTarjetaDiseno doc={docsReales.get(p.id)!} nombre={p.nombre} />
-                    : p.imagen
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={p.imagen} alt="" loading="lazy" />
-                    : <span className="m-image-editor-plantilla__marco" style={marcoDe(p.formato)} />}
-                  {!p.imagen && !docsCarrusel.has(p.id) && !docsReales.has(p.id) && p.rotulo ? <span className="m-image-editor-plantilla__rotulo">{p.rotulo}</span> : null}
-                  {trabajando === p.id ? <span className="m-image-editor-plantilla__creando">Creando…</span> : null}
-                </span>
-                <span className="m-image-editor-plantilla__nombre">{p.nombre}</span>
-              </button>
+        {seccionesPropias.map((sec) => (
+          <SeccionM key={sec.titulo ?? ''} titulo={sec.titulo}>
+            <div className="m-image-editor-plantillas" role="list" aria-label={sec.titulo ?? 'Plantillas'}>
+              {sec.plantillas.map((p) => (
+                <div key={p.id} role="listitem">
+                  <button type="button" className="m-image-editor-plantilla" aria-label={`Usar la plantilla ${p.nombre}`}
+                    aria-busy={trabajando === p.id || undefined} disabled={!enLinea || (trabajando != null && trabajando !== p.id)}
+                    onClick={() => void usarPropia(p)}>
+                    <span className="m-image-editor-plantilla__mini">
+                      <span className="m-image-editor-plantilla__marco" style={marcoDe(p.formato)} />
+                      {p.rotulo ? <span className="m-image-editor-plantilla__rotulo">{p.rotulo}</span> : null}
+                      {trabajando === p.id ? <span className="m-image-editor-plantilla__creando">Creando…</span> : null}
+                    </span>
+                    <span className="m-image-editor-plantilla__nombre">{p.nombre}</span>
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        </div>
+          </SeccionM>
         ))}
+        {/* Con las propias arriba, las de MaKo llevan el título de la grilla de la computadora (`titulo` de NuevaCrear). */}
+        {seccionesPropias.length > 0 ? <SeccionM titulo="Plantillas">{grillaMako}</SeccionM> : grillaMako}
         {error && hoja === 'nuevo' && <ErrorLineaM>{error}</ErrorLineaM>}
       </SheetM>
 

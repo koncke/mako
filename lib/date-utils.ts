@@ -109,7 +109,7 @@ export function fmtDDMMYYYY(iso: string | null | undefined): string {
  * Bulletproof contra DST: trabaja en calendar-day, no en deltas de horas.
  */
 export function ayerEnTijuana(date: Date = new Date()): string {
-  return diasAntes(hoyEnTijuana(date), 1);
+  return ayerEnTz(TIJUANA, date);
 }
 
 /**
@@ -181,12 +181,43 @@ export function finDeMesDeFecha(fecha: string): string {
  * Si hoy es lunes, devuelve hoy.
  */
 export function lunesActualEnTijuana(date: Date = new Date()): string {
-  return lunesDeFecha(hoyEnTijuana(date));
+  return lunesEnTz(TIJUANA, date);
 }
 
 /**
  * Devuelve el primer día del mes actual en zona Tijuana, formato 'YYYY-MM-DD'.
  */
 export function primerDiaDelMesEnTijuana(date: Date = new Date()): string {
-  return primerDiaDelMesDeFecha(hoyEnTijuana(date));
+  return primerDiaDelMesEnTz(TIJUANA, date);
+}
+
+// ── Los bordes del día en una zona arbitraria (18/11/2026, F125) ──────────────────────────────────
+// Las versiones *EnTijuana de arriba son estas cuatro con la zona clavada. Las que miran la zona del NEGOCIO viven en
+// lib/timezone.ts (`diasDelNegocio(ws)`, `diasEnWorkspaceEstricto()`…), que es `server-only` y las arma con éstas: acá
+// quedan las PURAS, para que un test las pueda correr sin base y un componente de cliente con su `useTzWorkspace()`.
+//
+// ⚠️ Todas salen del MISMO `hoyEnTz` y se calculan en el calendario (no restando horas): así «ayer», «el lunes» y «el
+// primero del mes» nunca se contradicen con «hoy», tampoco el día del cambio de horario.
+
+/** «Ayer» en esa zona, 'YYYY-MM-DD'. */
+export function ayerEnTz(tz: string, date: Date = new Date()): string {
+  return diasAntes(hoyEnTz(tz, date), 1);
+}
+
+/** El LUNES de la semana en curso en esa zona (si hoy es lunes, hoy). */
+export function lunesEnTz(tz: string, date: Date = new Date()): string {
+  return lunesDeFecha(hoyEnTz(tz, date));
+}
+
+/** El primer día del mes en curso en esa zona. */
+export function primerDiaDelMesEnTz(tz: string, date: Date = new Date()): string {
+  return primerDiaDelMesDeFecha(hoyEnTz(tz, date));
+}
+
+/** Los cuatro bordes del día de un negocio, de UNA lectura del reloj (para que no caigan en dos días distintos). */
+export type DiasEnTz = { tz: string; hoy: string; ayer: string; lunes: string; primerDiaDelMes: string };
+
+export function diasEnTz(tz: string, date: Date = new Date()): DiasEnTz {
+  const hoy = hoyEnTz(tz, date);
+  return { tz, hoy, ayer: diasAntes(hoy, 1), lunes: lunesDeFecha(hoy), primerDiaDelMes: primerDiaDelMesDeFecha(hoy) };
 }

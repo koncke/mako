@@ -514,6 +514,12 @@ export const SOLO_ESCRITORIO: Readonly<Record<string, string>> = {
   // /email es la CONFIGURACIÓN del canal desde el 17/10/2026 (los emails se leen en Chats): el dominio son registros DNS y
   // las secuencias, un editor por etapa. Chats del teléfono ya dice «Conectar canales · En la computadora».
   email: 'Conectar el dominio y armar las secuencias se hace en la computadora. Los emails se leen y contestan en Chats.',
+  // Strategy y Offer Playbook (18/11/2026, O2 de docs/pendientes-verificados-17-11.md): estuvieron en EN_CAMINO «sin dueño»
+  // desde el 17/10, y nadie las escribe. Son herramientas del super admin para PLANEAR MaKo (las cuentas de la estrategia y el
+  // criterio con que se arman las ofertas) que la computadora tampoco pone en la barra desde el 29/10/2026: viven al pie de la
+  // lista de Offer (app/offer/OfferApp.tsx). Se leen enteras, con tablas y tortas: son de la computadora a propósito.
+  'admin-estrategia': 'La estrategia de MaKo (precios, a dónde va cada dólar y la proyección) se arma y se lee en la computadora, desde Offer.',
+  'admin-offer-playbook': 'El criterio con el que MaKo arma las ofertas se lee y se ajusta en la computadora, desde Offer.',
 };
 
 /**
@@ -524,9 +530,9 @@ export const SOLO_ESCRITORIO: Readonly<Record<string, string>> = {
 export const EN_CAMINO: Readonly<Record<string, string>> = {
   // «Mobile 1» y «Mobile 2» (17/10/2026): las tabs de creación (lib/movil-creacion.ts), la API de MaKo y Knowledge ya
   // tienen su pantalla.
-  // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
   // «agencia» salió el 24/10/2026: ya no es una sección (el número de MaKo es una línea de Chats, docs/diseno-chats.md §8.5).
-  'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño',
+  // Strategy y Offer Playbook salieron el 18/11/2026: nadie las escribía («sin dueño») y son de la computadora a propósito
+  // (SOLO_ESCRITORIO, arriba).
   // («market-an», Competitor Spy, salió de acá el 6/11/2026: su pantalla es app/m/competitor-spy,
   // y su fila, la de la sección `competitor-spy` de SECCIONES_MAS.)
 };

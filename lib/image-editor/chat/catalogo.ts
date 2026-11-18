@@ -13,6 +13,9 @@
 // Puro y sin `server-only`: lo leen el panel, la ruta de la IA, la API y los tests.
 // =============================================================================
 
+import { AJUSTES_FOTO, AJUSTES_SI_NO, CAMPOS_AJUSTE, FILTROS_FOTO, PROPORCIONES_RECORTE, type AjustesFoto, type FiltroFoto, type ProporcionRecorte } from './fotos';
+import { TAMANOS_API } from '../tamanos';
+
 export const TOPES_CHAT_IMAGEN = {
   operaciones: 80,
   texto: 1000,
@@ -36,6 +39,9 @@ export type EstiloTexto = {
 export type AlinearA = 'izquierda' | 'centro' | 'derecha' | 'arriba' | 'medio' | 'abajo';
 export type CapaA = 'frente' | 'atras' | 'subir' | 'bajar';
 export type FormaNueva = 'rectangulo' | 'circulo';
+/** Qué pasa con lo que hay al cambiar el tamaño del diseño: las tres de «Redimensionar» del editor. */
+export type ContenidoAlRedimensionar = 'escalar' | 'reubicar' | 'igual';
+const CONTENIDOS: readonly ContenidoAlRedimensionar[] = ['escalar', 'reubicar', 'igual'];
 
 export type OperacionImagen =
   | { op: 'cambiar_texto'; ref: string; texto: string }
@@ -58,6 +64,10 @@ export type OperacionImagen =
   | { op: 'agregar_forma'; forma: FormaNueva; pagina?: string; x: number; y: number; ancho: number; alto: number; color?: string; ref?: string }
   | { op: 'agregar_foto'; foto: string; pagina?: string; x?: number; y?: number; ancho?: number; alto?: number; cubrir?: boolean; ref?: string }
   | { op: 'fondo_foto'; foto: string; pagina?: string }
+  | { op: 'filtro_foto'; ref: string; filtro: FiltroFoto }
+  | ({ op: 'ajustar_foto'; ref: string } & AjustesFoto)
+  | { op: 'recortar_foto'; ref: string; proporcion: ProporcionRecorte }
+  | { op: 'redimensionar'; ancho: number; alto: number; contenido: ContenidoAlRedimensionar }
   | { op: 'quitar_fondo'; ref: string };
 
 export type IdOperacionImagen = OperacionImagen['op'];
@@ -90,6 +100,11 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
   { op: 'fondo_foto', forma: '{"op":"fondo_foto","foto":"o1","pagina":"pa3"}', para: `Pone una foto de la lista "fotos" como fondo de UNA página, llenándola. ${PAGINA}.` },
   // 18/11/2026 (F135): el «Quitar fondo» del editor (MODNet en el navegador, ../../app/image-editor/mako/quitar-fondo.ts), al aceptar.
   { op: 'quitar_fondo', forma: '{"op":"quitar_fondo","ref":"i7q"}', para: `Le quita el fondo a una FOTO del diseño (una "imagen" de la vista): queda la persona o el objeto, sin lo de atrás, en el mismo lugar y del mismo tamaño. Corre al aceptar, en el navegador de la persona. ${REF}.` },
+  // 18/11/2026 (O37): lo que el panel de la foto y «Redimensionar» hacen con la mano. Al final del catálogo, a propósito.
+  { op: 'filtro_foto', forma: '{"op":"filtro_foto","ref":"i7q","filtro":"noir"}', para: `Le pone a una imagen uno de los filtros del editor: "filtro" es ${Object.keys(FILTROS_FOTO).join(', ')} ("original" le saca los filtros). Reemplaza los filtros y ajustes que tenía. ${REF}.` },
+  { op: 'ajustar_foto', forma: '{"op":"ajustar_foto","ref":"i7q","brillo":20,"saturacion":-30}', para: `Ajusta una imagen como los deslizadores del editor: ${Object.entries(AJUSTES_FOTO).map(([k, a]) => `"${k}" (${a.min} a ${a.max})`).join(', ')}, y ${Object.keys(AJUSTES_SI_NO).map((k) => `"${k}"`).join(' y ')} (true o false). 0 lo deja como sin ajustar. Sólo los que cambian: los demás quedan. "ajustes" en la vista dice lo que ya tiene. ${REF}.` },
+  { op: 'recortar_foto', forma: '{"op":"recortar_foto","ref":"i7q","proporcion":"1:1"}', para: `Recorta una imagen a una proporción del editor: "proporcion" es ${Object.keys(PROPORCIONES_RECORTE).join(', ')} (ancho:alto). Se queda con lo más grande de lo que ya se ve, centrado, y el centro no se mueve. No agranda un recorte ni vuelve a la foto entera, y una con "en_marco" no se recorta. ${REF}.` },
+  { op: 'redimensionar', forma: '{"op":"redimensionar","tamano":"historia","contenido":"escalar"}', para: `Cambia el tamaño de TODO el diseño (todas las páginas), como «Redimensionar» del editor: "tamano" es ${Object.entries(TAMANOS_API).map(([k, t]) => `${k} (${t.nombre}, ${t.ancho} × ${t.alto})`).join(', ')}; o "ancho" y "alto" en px (${TOPES_CHAT_IMAGEN.tamanoMin} a ${TOPES_CHAT_IMAGEN.tamanoMax}). "contenido": escalar (lo agranda o achica todo parejo y lo centra; si no se dice, es éste), reubicar (reubica y escala cada cosa en proporción) o igual (sólo cambia la página).` },
 ];
 
 /**
@@ -97,7 +112,7 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
  * en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT_IMAGEN =
-  'agregar íconos o gráficos de la biblioteca; poner una foto que no esté en "fotos" (si la persona no subió ninguna, pídele que la adjunte en el chat); generar imágenes con IA; recortar una foto o cambiar su encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño del diseño (Redimensionar); usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
+  'agregar íconos o gráficos de la biblioteca; poner una foto que no esté en "fotos" (si la persona no subió ninguna, pídele que la adjunte en el chat); generar imágenes con IA; agrandar el recorte de una foto, recortarla libre o volver a la foto entera; filtros o recortes de una foto que va en un marco; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño de UNA sola página; usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
 
 const IDS = new Set<string>(OPERACIONES_CHAT_IMAGEN.map((o) => o.op));
 
@@ -207,6 +222,10 @@ const VALIDAS: Record<IdOperacionImagen, readonly string[]> = {
   agregar_forma: ['forma', 'pagina', 'x', 'y', 'ancho', 'alto', 'color', 'ref'],
   agregar_foto: ['foto', 'pagina', 'x', 'y', 'ancho', 'alto', 'cubrir', 'ref'],
   fondo_foto: ['foto', 'pagina'],
+  filtro_foto: ['ref', 'filtro'],
+  ajustar_foto: ['ref', ...CAMPOS_AJUSTE],
+  recortar_foto: ['ref', 'proporcion'],
+  redimensionar: ['tamano', 'ancho', 'alto', 'contenido'],
   quitar_fondo: ['ref'],
 };
 
@@ -393,6 +412,45 @@ export function validarOperacion(crudo: unknown): Validada {
     case 'quitar_fondo': {
       if (!esRef(ref)) return sinRef('quitar el fondo');
       return { ok: true, op: { op, ref } };
+    }
+    case 'filtro_foto': {
+      if (!esRef(ref)) return sinRef('un filtro');
+      if (typeof raw.filtro !== 'string' || !Object.hasOwn(FILTROS_FOTO, raw.filtro)) return { ok: false, motivo: 'un filtro que el editor no tiene' };
+      return { ok: true, op: { op, ref, filtro: raw.filtro as FiltroFoto } };
+    }
+    case 'ajustar_foto': {
+      if (!esRef(ref)) return sinRef('un ajuste de foto');
+      const ajustes: AjustesFoto = {};
+      for (const [k, a] of Object.entries(AJUSTES_FOTO) as Array<[keyof typeof AJUSTES_FOTO, (typeof AJUSTES_FOTO)[keyof typeof AJUSTES_FOTO]]>) {
+        if (raw[k] === undefined) continue;
+        const n = numero(raw[k]);
+        if (!enRango(n, a.min, a.max)) return { ok: false, motivo: `un ajuste de ${a.nombre} fuera de ${a.min} a ${a.max}` };
+        ajustes[k] = Math.round(n);
+      }
+      for (const [k, a] of Object.entries(AJUSTES_SI_NO) as Array<[keyof typeof AJUSTES_SI_NO, (typeof AJUSTES_SI_NO)[keyof typeof AJUSTES_SI_NO]]>) {
+        if (raw[k] === undefined) continue;
+        if (typeof raw[k] !== 'boolean') return { ok: false, motivo: `un ajuste de ${a.nombre} sin decir si va o no` };
+        ajustes[k] = raw[k] as boolean;
+      }
+      if (!Object.keys(ajustes).length) return { ok: false, motivo: 'un ajuste de foto que no decía qué cambiar' };
+      return { ok: true, op: { op, ref, ...ajustes } };
+    }
+    case 'recortar_foto': {
+      if (!esRef(ref)) return sinRef('un recorte');
+      if (typeof raw.proporcion !== 'string' || !Object.hasOwn(PROPORCIONES_RECORTE, raw.proporcion)) return { ok: false, motivo: `un recorte a una proporción que el editor no tiene (${Object.keys(PROPORCIONES_RECORTE).join(', ')})` };
+      return { ok: true, op: { op, ref, proporcion: raw.proporcion as ProporcionRecorte } };
+    }
+    case 'redimensionar': {
+      const contenido = raw.contenido === undefined ? 'escalar' : CONTENIDOS.find((c) => c === raw.contenido);
+      if (!contenido) return { ok: false, motivo: 'un cambio de tamaño sin decir qué pasa con lo que hay' };
+      if (raw.tamano !== undefined) {
+        if (raw.ancho !== undefined || raw.alto !== undefined) return { ok: false, motivo: 'un cambio de tamaño con un tamaño y medidas a la vez' };
+        const t = typeof raw.tamano === 'string' && Object.hasOwn(TAMANOS_API, raw.tamano) ? TAMANOS_API[raw.tamano] : null;
+        if (!t) return { ok: false, motivo: 'un tamaño de diseño que no conozco' };
+        return { ok: true, op: { op, ancho: t.ancho, alto: t.alto, contenido } };
+      }
+      if (!medida(raw.ancho) || !medida(raw.alto)) return { ok: false, motivo: 'un tamaño de diseño sin ancho y alto válidos' };
+      return { ok: true, op: { op, ancho: Math.round(raw.ancho as number), alto: Math.round(raw.alto as number), contenido } };
     }
   }
 }
