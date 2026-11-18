@@ -11,6 +11,7 @@ import { generarInsightLead, type GenerarInsightResult } from '@/lib/lead-insigh
 import { analizarLlamadasDeLead } from '@/lib/closing';
 import { insightsDeLlamadaDeLead, type InsightLlamada } from '@/lib/insights-llamada';
 import { exigirSesion } from '@/lib/sesion-accion';
+import { leerPorPaginas } from '@/lib/supabase-paginado';
 
 export async function generateLeadInsightAction(leadId: number): Promise<GenerarInsightResult> {
   await exigirSesion();
@@ -58,13 +59,27 @@ export async function leadTieneLlamadaAction(leadId: number): Promise<boolean> {
   const emailNorm = (row.email ?? '').trim().toLowerCase();
   const norm = (u: string) => u.trim().replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase();
   const shareSet = new Set((row.fathom_links ?? []).map((f) => norm(f.url ?? '')).filter(Boolean));
-  const { data } = await supabase.from('closing_analyses').select('lead_id, invitee_email, share_url, status').neq('status', 'error');
-  for (const r of ((data ?? []) as Array<{ lead_id: number | null; invitee_email: string | null; share_url: string | null }>)) {
-    if (r.lead_id === leadId) return true;
-    if (emailNorm && (r.invitee_email ?? '').trim().toLowerCase() === emailNorm) return true;
-    if (r.share_url && shareSet.has(norm(r.share_url))) return true;
+  // ⚠️ PAGINADO (P20, 18/11/2026). `closing_analyses` tiene una fila por llamada del negocio y pasa las 1000:
+  // un `.select()` plano devolvía las primeras 1000 y, si la llamada de este lead estaba después, contestaba
+  // «no tiene llamada» y la pantalla ofrecía pagar otro análisis. Se barre página por página y se corta en
+  // cuanto aparece. La tabla NO tiene `id`: el orden único es `recording_id` (PK workspace_id + recording_id,
+  // mig 0057; el mismo de `leerClosingAnalyses` en lib/closing.ts). Si la lectura falla, contesta `false`, como antes.
+  const cumple = (r: { lead_id: number | null; invitee_email: string | null; share_url: string | null }): boolean =>
+    r.lead_id === leadId
+    || (!!emailNorm && (r.invitee_email ?? '').trim().toLowerCase() === emailNorm)
+    || (!!r.share_url && shareSet.has(norm(r.share_url)));
+  let tiene = false;
+  try {
+    await leerPorPaginas<{ lead_id: number | null; invitee_email: string | null; share_url: string | null }>(
+      supabase, 'closing_analyses', 'recording_id, lead_id, invitee_email, share_url, status',
+      (filas) => { if (filas.some(cumple)) { tiene = true; return false; } },
+      { orden: 'recording_id', filtros: (q) => q.neq('status', 'error') },
+    );
+  } catch (e) {
+    console.error(`[leadTieneLlamada] no pude leer closing_analyses: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
   }
-  return false;
+  return tiene;
 }
 
 export type InsightsDeLlamadaResult =

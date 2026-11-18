@@ -136,7 +136,7 @@ export function CursoM({ cursos, puedeEditar }: { cursos: CursoDatos[]; puedeEdi
       ) : total === 0 ? (
         <VacioM frase={T.cursoVacio} />
       ) : curso.modulos.map((m) => (
-        <SeccionM key={m.clave} titulo={m.nombre} accion={<span className="m-curso-n">{rotuloClases(m.clases.length)}</span>}>
+        <SeccionM key={m.clave} titulo={m.nombre} recorrido="modulo" accion={<span className="m-curso-n">{rotuloClases(m.clases.length)}</span>}>
           {m.clases.length > 0 && (
             <ListaM etiqueta={m.nombre}>
               {m.clases.map((x) => {

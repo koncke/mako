@@ -822,4 +822,49 @@ export const BITACORA: Hito[] = [
     tickets: [97],
     faltaEnProduccion: 'Probarlo en producción en el negocio de MaKo: desarmar un reel subido, un video de YouTube y abrir su plantilla en el editor.',
   },
+  {
+    fecha: '18 nov', hora: '—', chat: 'Nube › Construir: Video', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Le tocaron al Video Editor, al Video Generator y a AI Avatar ocho pendientes de la lista verificada el 17/11 (F160 a F168).',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '—', chat: 'Nube › Construir: Video', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los avatares ya no sacan anuncios del historial, las plantillas de anuncio se ven dibujadas y los cortes se reordenan con el teclado',
+    puntos: [
+      'Hacer un video de avatar ya no tira un anuncio filmado del historial: se guardaba dos veces y la primera entraba como anuncio. Lo mismo al rehacer el guion con tus muletillas, que dejaba un anuncio repetido.',
+      'En «Nuevo video», cada plantilla de anuncio muestra su miniatura dibujada, como en la Biblioteca del editor (quieta, y en bucle con el mouse encima).',
+      'Al terminar un montaje, la pantalla dice «De 0:45 (estimado) a 0:38»: el de antes es la suma de lo pedido a cada toma, no una medición.',
+      'En «Ajusta los cortes», cada tramo se enfoca con Tab y se corre con las flechas. Y un clic que sólo selecciona ya no borra lo más viejo de Deshacer.',
+    ],
+    archivos: [
+      'app/video-generator/actions.ts (`guardar: false`) · app/ai-avatar/actions.ts · app/video-editor/avatar/actions.ts · app/video-generator/video-action.ts — una escritura por acción',
+      'app/video-editor/miniatura-nuevo-video.tsx · plantillas-crear.ts · VideoEditorCliente.tsx — la miniatura de «Nuevo video»',
+      'app/video-generator/montaje-duraciones.tsx · PasoMontaje.tsx — el «antes» rotulado',
+      'app/video-generator/EditorAnuncio.tsx · editor-cortes.ts — las flechas y el deshacer que apila al soltar',
+      'tests/video-avatar-no-saca-anuncios.test.ts · video-editor-miniatura-nuevo.test.ts · video-montaje-duraciones.test.ts · editor-anuncio-gesto.test.ts · editor-cortes.test.ts',
+    ],
+    commits: [
+      { sha: 'cd15ed1b', msg: 'Video: los avatares ya no sacan anuncios, «Nuevo video» dibuja sus plantillas y los cortes se mueven con el teclado', lineas: 997, archivos: 22 },
+    ],
+    revisar: '/video-editor',
+  },
+  {
+    fecha: '18 nov', hora: '—', chat: 'Nube › Construir: Video', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Seis plantillas de anuncio nuevas, cada una con su ejemplo',
+    puntos: [
+      '«Nuevo video» suma la respuesta a un comentario, el caso con números, la historia del fundador, el reel de 3 errores, el clip de podcast y el tour de propiedad, cada una con un ejemplo lleno de un negocio inventado.',
+      'Las tarjetas dibujan ese ejemplo, no rectángulos con un nombre.',
+      '«Gancho escrito» y «Oferta con glitch» se fueron: eran iguales a su original. La máquina de escribir sigue, en el quiebre de la historia.',
+      'Todavía con muestras grises en los clips: faltan los videos de ejemplo con su crédito.',
+    ],
+    archivos: [
+      'lib/editor-video/plantillas.ts · plantillas-ejemplos.ts · plantillas-etiquetas.ts — el catálogo, los ejemplos y las sugeridas',
+      'app/video-editor/plantillas-crear.ts · miniatura-nuevo-video.tsx — la tarjeta dibuja el ejemplo',
+      'tests/video-editor-plantillas.test.ts · video-plantillas-ejemplos.test.ts · video-editor-plantillas-uso.test.ts · plantillas-sugeridas-editores.test.ts · video-editor-chat.test.ts · video-editor-miniatura-nuevo.test.ts',
+    ],
+    revisar: '/video-editor',
+  },
 ];

@@ -14,7 +14,8 @@ import 'server-only';
 //    (`TOMADO_VENCE_MS`, lib/operaciones.ts → cicloCartero) y su binario se borra. Quien robe el token del cartero no puede pedir cualquier archivo del bucket: sólo los de un trabajo que
 //    la PC está por entregar.
 // ⚠️ EL BINARIO NO QUEDA: se borra cuando el trabajo termina para la PC (cualquier acuse), cuando se cancela y cuando
-//    vence. Lo subido que nunca se firmó (se cerró la pestaña entre subir y firmar) queda: no hay barrido todavía.
+//    vence. Lo subido que nunca se firmó (se cerró la pestaña entre subir y firmar) lo borra el barrido nocturno a las 24 horas
+//    (`barrerSubidasSinFirmar`, F96, 18/11/2026), sólo si ningún trabajo lo nombra.
 //    Lo que SÍ queda, desde el 23/10/2026, es la MINIATURA de una foto (640 px, la arma el navegador que la mandó): para
 //    verla en otro dispositivo. Abajo, «Las fotos enviadas».
 
@@ -27,6 +28,7 @@ import {
   MINIATURA_VENCE_MS, fotosDeFirmado, leerFirmable, mimeDeMiniatura, miniaturasVencidas, problemaDeMiniatura, problemaDeVoz, refAdjuntoTurno, vozDeFirmado,
   type AdjuntoPedido, type FotoDeTrabajo, type MimeAdjunto, type TurnoChat,
 } from './operaciones-reglas';
+import { sinTrabajoQueLosNombre, viejosDeLaCarpeta } from './subidas-colgadas';
 
 /** Fuera de los `<ws>/…` del Archivero: los trabajos del Centro son de la plataforma, como sus tablas (mig 0285). */
 const rutaDe = (ref: string) => `operaciones/${ref}`;
@@ -257,6 +259,45 @@ export async function barrerMiniaturasViejas(ahora = Date.now()): Promise<number
     } catch { /* es limpieza */ }
   }
   return borradas;
+}
+
+/** De a cuántos `ref` se pregunta qué trabajo los nombra (un `or` de `like`: va en la URL, así que pocos por vuelta). */
+const REFS_POR_CONSULTA = 20;
+
+/**
+ * Borra lo que la caja subió y nunca se firmó (F96, 18/11/2026: «Lo subido que nunca se firmó… queda: no hay barrido»): los
+ * `operaciones/<ref>` de más de un día que ningún trabajo nombra en su texto firmado (lib/subidas-colgadas.ts). Lista del más
+ * viejo al más nuevo y se detiene en la primera tanda que ya no es vieja. ⚠️ SI NO PUEDE PREGUNTAR QUIÉN LOS NOMBRA, NO BORRA:
+ * un adjunto de un trabajo que espera en la cola (su chat cerrado) tiene que seguir ahí. Lo llama el cron
+ * /api/cron/limpieza-colgados. Devuelve cuántos borró; tira si no pudo listar o preguntar.
+ */
+export async function barrerSubidasSinFirmar(ahora = Date.now()): Promise<number> {
+  let borrados = 0;
+  for (let v = 0, desde = 0; v < VUELTAS_BARRIDO; v += 1) {
+    const { data, error } = await bucket().list('operaciones', { limit: POR_BARRIDA, offset: desde, sortBy: { column: 'created_at', order: 'asc' } });
+    if (error) throw new Error(`no pude listar los adjuntos: ${error.message}`);
+    const lista = data ?? [];
+    const viejos = viejosDeLaCarpeta(lista, ahora);
+    if (!viejos.length) break;
+    const nombrados: string[] = [];
+    for (let i = 0; i < viejos.length; i += REFS_POR_CONSULTA) {
+      const tanda = viejos.slice(i, i + REFS_POR_CONSULTA);
+      const { data: filas, error: noLeyo } = await getSupabaseServer().from('operaciones_pedidos').select('firmado')
+        .or(tanda.map((r) => `firmado.like.*${r}*`).join(','));
+      if (noLeyo) throw new Error(`no pude ver qué trabajos nombran los adjuntos: ${noLeyo.message}`);
+      for (const f of filas ?? []) nombrados.push(...refsDe(String((f as { firmado?: unknown }).firmado ?? '')));
+    }
+    const huerfanos = sinTrabajoQueLosNombre(viejos, nombrados);
+    if (huerfanos.length) {
+      const { error: noBorro } = await bucket().remove(huerfanos.map(rutaDe));
+      if (noBorro) throw new Error(`no pude borrar los adjuntos sin firmar: ${noBorro.message}`);
+      borrados += huerfanos.length;
+    }
+    // Lo que quedó (los que sí nombra un trabajo) corre el lugar: la próxima tanda empieza después de ellos.
+    desde += lista.length - huerfanos.length;
+    if (viejos.length < lista.length || lista.length < POR_BARRIDA) break;
+  }
+  return borrados;
 }
 
 /** Cuánto espera el barrido entre una pasada y otra en la misma instancia: lo llaman la subida Y la lectura. */

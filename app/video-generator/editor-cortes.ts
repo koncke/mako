@@ -181,6 +181,39 @@ export function destinoDeMover(plan: Plan, i: number, segundo: number): number {
   return i;
 }
 
+/**
+ * La flecha del teclado sobre el bloque enfocado: un lugar antes, uno después, o nada (F167, 18/11/2026). Es el MISMO
+ * reorden que el arrastre y que los botones «← Mover / Mover →»: un arrastre no se anuncia solo, y el teclado es el camino
+ * que no pide un mouse. Lo que hace el paso lo decide `moverTramo`, con su tope contra el hermano de la misma toma.
+ */
+export function pasoDeTecla(tecla: string): -1 | 1 | null {
+  if (tecla === 'ArrowLeft') return -1;
+  if (tecla === 'ArrowRight') return 1;
+  return null;
+}
+
+// ── Deshacer ────────────────────────────────────────────────────────────────
+
+/** Cuántos pasos guarda la pila de deshacer: es una pila, no un historial. */
+export const TOPE_DESHACER = 30;
+
+/** La pila con `antes` arriba. Con el tope lleno se cae la entrada más vieja. */
+export function apilarConTope<T>(pila: readonly T[], antes: T): T[] {
+  return [...pila.slice(-(TOPE_DESHACER - 1)), antes];
+}
+
+/**
+ * La pila después de un GESTO (arrastrar un borde o un tramo): una entrada, y SÓLO si el gesto cambió algo.
+ *
+ * ⚠️ SE DECIDE AL SOLTAR, NO AL AGARRAR (F167, 18/11/2026). Antes se apilaba en el `pointerdown` y el `soltar` sacaba la
+ * entrada muda si el plan había vuelto a ser el mismo. Con la pila LLENA eso tiraba la entrada más vieja en cada clic que
+ * sólo selecciona: apilar la 31 empujaba afuera a la 1, y sacar la muda no la devolvía. Decidiendo al soltar, un clic, o un
+ * arrastre que vuelve al mismo lugar, no tocan la pila. Devuelve la MISMA pila (identidad) cuando no apila.
+ */
+export function pilaTrasGesto(pila: readonly Plan[], antes: Plan, despues: Plan): readonly Plan[] {
+  return mismoPlan(antes, despues) ? pila : apilarConTope(pila, antes);
+}
+
 // ── La línea de tiempo ──────────────────────────────────────────────────────
 // El plan son tramos de clips distintos; la línea de tiempo es un solo reloj
 // corrido. Traducir entre los dos es lo que hace que el cabezal, la previsión y

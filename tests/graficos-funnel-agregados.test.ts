@@ -22,6 +22,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { filtrarFilas, agregar, type Fila } from '../lib/graficos-agregar';
 import { campoDe, fuenteDe, type Grafico } from '../lib/graficos-catalogo';
+import { funnelsDeLaFilaDeLead } from '../lib/graficos-funnel-fila';
 
 const lead = (id: number, casa: string, tambien: string[] = []): Fila => ({
   f: '2026-10-10', d: { producto: casa, etapa: 'Nuevo' }, v: { leads: 1 }, r: { lead: String(id) },
@@ -50,7 +51,10 @@ test('los leads del CRM llevan sus funnels agregados (lead_funnel) en la fila', 
   const src = readFileSync(join(__dirname, '..', 'lib', 'graficos-datos.ts'), 'utf8');
   const cuerpo = src.slice(src.indexOf('async function filasLeads'), src.indexOf('async function filasCambios'));
   assert.match(cuerpo, /funnelsAgregados\(/, 'filasLeads dejó de leer los funnels agregados');
-  assert.match(cuerpo, /m: \{ producto: tambien \}/);
+  // Desde el 18/11/2026 la fila de funnels la arma `funnelsDeLaFilaDeLead` (lib/graficos-funnel-fila.ts), que se EJECUTA abajo
+  // y en tests/graficos-venta-en-su-funnel.test.ts. Acá sólo que filasLeads la siga usando.
+  assert.match(cuerpo, /funnelsDeLaFilaDeLead\(/, 'filasLeads dejó de armar sus funnels con funnelsDeLaFilaDeLead');
+  assert.match(cuerpo, /\.\.\.funnels,/, 'filasLeads dejó de poner los funnels en la fila');
 });
 
 test('la dimensión y el filtro se llaman «Funnel» (el id sigue siendo `producto`: lo guardado no cambia)', () => {
@@ -76,6 +80,12 @@ test('por un funnel agregado, el lead cuenta pero su venta y lo cobrado NO (son 
   const [porCasa] = filtrarFilas([venta], [{ dimension: 'producto', valores: ['Negocio que ESCALA'] }]);
   assert.deepEqual(porCasa.v, venta.v, 'en su casa la venta cuenta entera');
   assert.equal(filtrarFilas([venta], []).at(0), venta, 'sin filtro, la fila de siempre');
-  const src = readFileSync(join(__dirname, '..', 'lib', 'graficos-datos.ts'), 'utf8');
-  assert.match(src, /a\.desde <= fila/, 'filasLeads cuenta al lead en el funnel agregado aunque se lo agregara después');
+  // El lead cuenta en el agregado SÓLO desde el día en que se lo agregó (antes era un regex sobre filasLeads; desde el
+  // 18/11/2026 se ejecuta la función que arma la fila).
+  const fila = (dia: string) => funnelsDeLaFilaDeLead({
+    fecha: 'alta', dia, casa: 1, casaNombre: 'Negocio que ESCALA', vendio: false, fechaCierre: null, nombreDe: () => 'Renovación',
+    agregados: [{ nombre: 'Renovación', desde: '2026-10-13', funnel: 2, creado: '2026-10-13T15:00:00.000Z' }],
+  });
+  assert.deepEqual(fila('2026-10-10').m, undefined, 'filasLeads cuenta al lead en el funnel agregado aunque se lo agregara después');
+  assert.deepEqual(fila('2026-10-15').m, { producto: ['Renovación'] });
 });

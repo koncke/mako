@@ -251,10 +251,18 @@ test('CABLEADO: cada lugar que PRESENTA el tablero del cliente pide `soloDelPlan
     assert.equal(llamadas.length, cuantas, `${ruta.join('/')}: cambió la cantidad de lecturas del tablero`);
     for (const l of llamadas) assert.match(l, /listTareas(ConTope)?\(\{ soloDelPlan: true \}\)/, `${ruta.join('/')}: una lectura del tablero sin filtrar`);
   }
-  // Y el aviso de «se cortó en 1000 filas» se mide con las LEÍDAS, no con las que quedaron: si no, el
-  // filtro le saca el aviso a una lectura cortada (el límite que corta en silencio, otra vez).
+  // Y el aviso de «se cortó en 1000 filas» (P20, 18/11/2026). Las TAREAS se leen enteras (listTareasConTope
+  // y listPlanBoard paginan: lo prueba tests/techo-1000-p20.test.ts), así que el aviso NO puede medirse contra
+  // ellas: con la lista filtrada le sacaba el aviso a una lectura cortada (el bug de antes) y con las leídas
+  // salta con 1000 tarjetas sin que nada se haya cortado (el de ahora). Mide sólo los proyectos, que no paginan.
+  // Probado rompiéndolo (18/11): volver a medir `ts.length` en plan-hoy, rojo; `recortado: false` en la API, rojo.
   for (const ruta of [['lib', 'plan-hoy.ts'], ['lib', 'api-mako', 'areas', 'plan.helpers.ts']]) {
-    assert.match(leerFuente(...ruta), /recortado: leidas >= TOPE_FILAS/, `${ruta.join('/')}: mide el tope con la lista ya filtrada`);
+    const avisos = soloCodigo(leerFuente(...ruta)).filter((l) => /\brecortado:/.test(l) && /TOPE_FILAS/.test(l));
+    assert.equal(avisos.length, 2, `${ruta.join('/')}: las dos mitades del tablero declaran su aviso de «recortado»`);
+    for (const l of avisos) {
+      assert.doesNotMatch(l, /\bleidas\b|tareas\.length|\bts\.length/, `${ruta.join('/')}: el aviso se mide contra las tareas, que ya no se cortan`);
+      assert.match(l, /(proyectos|cs|cats)\.length >= TOPE_FILAS/, `${ruta.join('/')}: el aviso dejó de medir los proyectos, que siguen sin paginar`);
+    }
   }
   // Y los que necesitan la tabla ENTERA siguen sin filtro: el cierre por señales (si no, una tarea
   // de la Retro no se cierra nunca), buscar una por id para editarla o cerrarla, y la deduplicación

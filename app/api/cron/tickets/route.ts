@@ -6,6 +6,7 @@
 //   1. los tickets en curso que nombra una bitácora DE ESTE DEPLOY (`tickets: [n]` en un hito) pasan a «Resuelto»;
 //   2. a cada cliente con algo nuevo sin avisar (resuelto, cerrado, o una pregunta del equipo) le llega el aviso;
 //   3. un pedido delegado desde el grupo de WhatsApp que nadie tomó en 30 minutos: un aviso en su grupo (29/10/2026).
+//   3b. un ticket que pasó las 24 h en nuestra cancha sin resolverse: UN aviso a Martín por ticket (lib/tickets-demora.ts, 18/11/2026).
 //   4. a quien levantó un ticket le llega UN correo por cada avance (recibido, en curso, te necesitamos, resuelto), nunca
 //      dos por el mismo y nunca si lo apagó (lib/tickets-avance.ts, 4/11/2026). El final sigue siendo el aviso del paso 2.
 // Cómo y por qué, en lib/tickets-cierre.ts. Sin tickets abiertos, son dos consultas y nada más.
@@ -15,7 +16,7 @@
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
-import { avisarDelegadosSinTomar, avisarPendientes, cerrarLosDesplegados } from '@/lib/tickets-cierre';
+import { avisarDelegadosSinTomar, avisarPendientes, avisarTicketsDeMasDe24h, cerrarLosDesplegados } from '@/lib/tickets-cierre';
 import { avisarAvancesPorEmail } from '@/lib/tickets-avance-email';
 
 export const dynamic = 'force-dynamic';
@@ -33,15 +34,20 @@ export async function GET(req: NextRequest) {
       console.error(`[cron:tickets] delegados sin tomar: ${e instanceof Error ? e.message : String(e)}`);
       return 0;
     });
+    // 3b. Un ticket que pasó las 24 h sin resolverse: UN aviso a Martín por ticket (lib/tickets-cierre.ts, 18/11/2026). Aparte, como el 3.
+    const de24h = await avisarTicketsDeMasDe24h().catch((e: unknown) => {
+      console.error(`[cron:tickets] tickets de más de 24 h: ${e instanceof Error ? e.message : String(e)}`);
+      return 0;
+    });
     // 4. El correo de cada avance. Aparte, como el 3: si Resend o la base fallan, lo de arriba ya se hizo.
     const correos = await avisarAvancesPorEmail().catch((e: unknown) => {
       console.error(`[cron:tickets] correos de avance: ${e instanceof Error ? e.message : String(e)}`);
       return { enviados: 0, fallidos: 0, salteados: {}, motivo: 'falló la vuelta' };
     });
-    if (cerrados.length || avisos.avisados || avisos.fallidos || demorados || correos.enviados || correos.fallidos) {
-      console.log(`[cron:tickets] cerrados ${cerrados.join(', ') || '—'} · avisados ${avisos.avisados} · sin avisar ${avisos.fallidos} · delegados sin tomar ${demorados} · correos de avance ${correos.enviados} (fallidos ${correos.fallidos})`);
+    if (cerrados.length || avisos.avisados || avisos.fallidos || demorados || de24h || correos.enviados || correos.fallidos) {
+      console.log(`[cron:tickets] cerrados ${cerrados.join(', ') || '—'} · avisados ${avisos.avisados} · sin avisar ${avisos.fallidos} · delegados sin tomar ${demorados} · de más de 24 h ${de24h} · correos de avance ${correos.enviados} (fallidos ${correos.fallidos})`);
     }
-    return Response.json({ ok: true, cerrados, ...avisos, demorados, correos });
+    return Response.json({ ok: true, cerrados, ...avisos, demorados, de24h, correos });
   } catch (e) {
     // La mig 0311 sin aplicar no es un error del cron: no hay tickets todavía.
     const msg = e instanceof Error ? e.message : String(e);

@@ -82,7 +82,8 @@ import type { ArranqueIA } from '../panel-reglas';
 import { CSS_ESQUEMA, EditorEsquema, esquemaParaEnviar, textoSecciones } from './EditorEsquema';
 import { SelectorTemaCrear, temaSugerido } from './SelectorTemaCrear';
 import {
-  PROPORCION_IA, configDeCreacion, cuantas, docDe, formatoDeTipo, paramsDeTipo, termino, tipoValido, type TipoCrear,
+  DocDe, configDeCreacion, cuantas, docDe, elDocDe, esteDocDe, formatoDeTipo, paramsDeTipo, participio, proporcionDeTipo,
+  termino, tipoValido, type TipoCrear,
 } from './tipo';
 import { CSS_TIPO, SelectorTipo } from './PiezasTipo';
 import { FUENTES, IDIOMAS, MODOS_TEXTO, OBJETIVOS, TEXTOS, instruccionesConArchivo, paramsIniciales } from './ajustes';
@@ -319,9 +320,9 @@ export function CrearConIA(props: PropsCrear) {
     guardar: async (tarjetas) => {
       const d = docRef.current;
       const esq = esqRef.current;
-      if (!d || !esq) return { ok: false, error: `La ${docDe(tipoGen.current)} no se creó.` };
+      if (!d || !esq) return { ok: false, error: `${elDocDe(tipoGen.current, { mayuscula: true })} no se creó.` };
       const r = await pedirDocs({ accion: 'guardar', id: d.id, version: d.version, titulo: esq.titulo, contenido: contenidoGenerado(d.paginaId, tarjetas) }, 60_000);
-      if (!r.ok) return { ok: false, error: r.conflicto ? `Otra pestaña cambió esta ${docDe(tipoGen.current)}.` : r.error };
+      if (!r.ok) return { ok: false, error: r.conflicto ? `Otra pestaña cambió ${esteDocDe(tipoGen.current)}.` : r.error };
       d.version = r.version;
       // Lo que cambió es QUÉ EXISTE (una landing con contenido): navegación dura.
       if (montada.current) irDuro(`/web-generator/${d.id}`, ws);
@@ -632,10 +633,10 @@ export function CrearConIA(props: PropsCrear) {
     cuerpo = (
       <div className="gp-generando">
         <aside className="gp-gen-log" aria-live="polite">
-          <h1 className="gp-gen-titulo">{gen.guardado === 'listo' ? `${doc[0].toUpperCase()}${doc.slice(1)} generada` : `Generando tu ${doc}…`}</h1>
+          <h1 className="gp-gen-titulo">{gen.guardado === 'listo' ? `${DocDe(tg)} ${participio(tg, 'generad')}` : `Generando tu ${doc}…`}</h1>
           <p className="gp-gen-nota">Tarda unos minutos. No cierres esta pestaña.</p>
           <ol className="gp-pasos">
-            <PasoLog estado={crear === 'error' ? 'error' : crear === 'lista' ? 'lista' : 'pidiendo'} enCurso={`Creando la ${doc}`} hecho={`${doc[0].toUpperCase()}${doc.slice(1)} creada`}
+            <PasoLog estado={crear === 'error' ? 'error' : crear === 'lista' ? 'lista' : 'pidiendo'} enCurso={`Creando ${elDocDe(tg)}`} hecho={`${DocDe(tg)} ${participio(tg, 'cread')}`}
               error={errorCrear} onReintentar={reintentarCrear} />
             {gen.tandas.map((t, k) => (
               <PasoLog
@@ -666,7 +667,7 @@ export function CrearConIA(props: PropsCrear) {
             const t = gen.tarjetas[i];
             const tanda = gen.tandas.find((x) => x.indices.includes(i));
             return t ? (
-              <div key={i} className="gp-gen-seccion" data-lista="si"><MiniaturaLanding tarjeta={t} tema={tema} formato={formatoDeTipo(tg)} proporcion={PROPORCION_IA} entera /></div>
+              <div key={i} className="gp-gen-seccion" data-lista="si"><MiniaturaLanding tarjeta={t} tema={tema} formato={formatoDeTipo(tg)} proporcion={proporcionDeTipo(tg)} entera /></div>
             ) : (
               <div key={i} className="gp-gen-seccion" data-falla={tanda?.estado === 'error' ? 'si' : undefined}>
                 <div className="gp-gen-hueco">

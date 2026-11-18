@@ -74,8 +74,9 @@ de secciones de Automations. Ninguna tiró error de JS ni desbordó a lo ancho. 
 piden nada al navegador al abrir (MaKo Context completa a ~0,9 s; antes, ~1,45 s).
 
 **Lo que falta, en orden:**
-1. Strategy, Offer Playbook y MaKo WhatsApp: siguen en `EN_CAMINO` «sin dueño» (lib/movil-rutas.ts). Se ven en More
-   como «En la computadora».
+1. ~~Strategy, Offer Playbook y MaKo WhatsApp: siguen en `EN_CAMINO` «sin dueño» (lib/movil-rutas.ts). Se ven en More
+   como «En la computadora».~~ (18/11/2026: MaKo WhatsApp salió el 24/10; Strategy y Offer Playbook pasaron a `SOLO_ESCRITORIO`,
+   O2 de docs/pendientes-verificados-17-11.md.)
 2. Lo de Mobile 1 en `EN_CAMINO`: al llegar cada pantalla, su línea sale en el MISMO commit, o el guardián falla.
 3. MaKo Partners para el super admin: la sidebar se lo muestra, el teléfono no (`puedeVerKey` y `requireMovil` no saben de
    `adminShell`). Está anotado en tests/movil-toda-tab.test.ts como diferencia conocida.

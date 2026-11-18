@@ -23,7 +23,8 @@
 //   POST { accion: 'datos', pedidos: [{ grafico, desde, hasta, filtros?, agrupar? }], popupDe? } → { datos: Record<id, DatosGrafico> }
 //   POST { accion: 'valores', campo, desde, hasta, fuentes? }                        → { valores: [{ valor, filas }] }
 //   POST { accion: 'detalle', grafico, desde, hasta, filtros?, agrupar?, sel }        → { detalle: RespuestaDetalle }
-//   POST { accion: 'guardar', version, tablero }                                      → { tablero, version } · 409 si cambió
+//   POST { accion: 'guardar', version, tablero, editando }                            → { tablero, version } · 409 si cambió
+//        · 403 `{ mirando: true }` si `editando: false` y cambia el contenido de una hoja (lib/graficos-guardar-mirando.ts)
 //   POST ?informe=general { accion: 'guardar', … } (14/10/2026): lo mismo sobre el informe de la tab General, que es
 //        este editor con otro informe (lib/graficos-tablero.ts). Sólo el admin, y con General en su capa.
 //
@@ -49,7 +50,7 @@ import { esFechaValida } from '@/lib/date-utils';
 import { esGrafico, MAX_COMPONENTES, type Componente, type Tablero } from '@/lib/graficos-catalogo';
 import { datosDeGraficos, valoresDeCampo, type PedidoDatos } from '@/lib/graficos-datos';
 import { detalleDeGrafico } from '@/lib/graficos-detalle';
-import { guardarInformeAutomatizacionVersion, guardarInformeGeneralVersion, guardarTableroVersion, leerTablero } from '@/lib/graficos-tablero';
+import { guardarInformeAutomatizacionVersion, guardarInformeGeneralVersion, guardarTableroVersion, leerTablero, type ResultadoGuardar } from '@/lib/graficos-tablero';
 import { idDeInformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { automatizacionDelNegocio } from '@/lib/automatizacion-metricas-server';
 import { fuentesDeCampoDeRol, hojaDeRol, informeDeRol, puedePedir } from '@/lib/graficos-plantillas';
@@ -81,14 +82,22 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return err(400, 'JSON inválido'); }
   if (unica && !puedePedir(rol, body)) return err(403, unica.error);
+  // MIRANDO (18/11/2026, lib/graficos-guardar-mirando.ts): con `editando: false`, el guardado sólo puede tocar las HOJAS
+  // (crear, archivar, ordenar, su cabecera, sumar un filtro), no el contenido de una que ya estaba. Sin el campo es una
+  // pestaña de antes de este cambio: se guarda como siempre.
+  const opciones = { mirando: body.editando === false };
+  const guardado = (r: ResultadoGuardar, cambio: string) => (r.ok
+    ? NextResponse.json({ tablero: r.tablero, version: r.version })
+    : r.bloqueado
+      ? NextResponse.json({ error: r.bloqueado, mirando: true }, { status: 403 })
+      : NextResponse.json({ error: cambio, conflicto: true }, { status: 409 }));
 
   if (body.accion === 'guardar' && new URL(req.url).searchParams.get('informe') === 'general') {
     if (rol !== 'admin' || !tabEnCapa('general', capa)) return err(403, 'Sólo el admin de la cuenta');
     if (!('version' in body)) return err(409, 'Recarga la página para seguir editando');
     try {
-      const r = await guardarInformeGeneralVersion(body.tablero, typeof body.version === 'string' ? body.version : null);
-      if (!r.ok) return NextResponse.json({ error: 'El informe cambió en otra pestaña', conflicto: true }, { status: 409 });
-      return NextResponse.json({ tablero: r.tablero, version: r.version });
+      const r = await guardarInformeGeneralVersion(body.tablero, typeof body.version === 'string' ? body.version : null, opciones);
+      return guardado(r, 'El informe cambió en otra pestaña');
     } catch (e) {
       return err(400, e instanceof Error ? e.message : 'No se pudo guardar');
     }
@@ -102,9 +111,8 @@ export async function POST(req: Request) {
     if (!('version' in body)) return err(409, 'Recarga la página para seguir editando');
     try {
       if (!(await automatizacionDelNegocio(idAutomatizacion))) return err(404, 'No existe esa automatización');
-      const r = await guardarInformeAutomatizacionVersion(idAutomatizacion, body.tablero, typeof body.version === 'string' ? body.version : null);
-      if (!r.ok) return NextResponse.json({ error: 'Las métricas cambiaron en otra pestaña', conflicto: true }, { status: 409 });
-      return NextResponse.json({ tablero: r.tablero, version: r.version });
+      const r = await guardarInformeAutomatizacionVersion(idAutomatizacion, body.tablero, typeof body.version === 'string' ? body.version : null, opciones);
+      return guardado(r, 'Las métricas cambiaron en otra pestaña');
     } catch (e) {
       return err(400, e instanceof Error ? e.message : 'No se pudo guardar');
     }
@@ -116,9 +124,8 @@ export async function POST(req: Request) {
     // (filtros fijos, pop-ups, conectores, secciones, cajas de IA) en el primer guardado — se le pide recargar.
     if (!('version' in body)) return err(409, 'Recarga la página para seguir editando');
     try {
-      const r = await guardarTableroVersion(body.tablero, typeof body.version === 'string' ? body.version : null);
-      if (!r.ok) return NextResponse.json({ error: 'El informe cambió en otra pestaña', conflicto: true }, { status: 409 });
-      return NextResponse.json({ tablero: r.tablero, version: r.version });
+      const r = await guardarTableroVersion(body.tablero, typeof body.version === 'string' ? body.version : null, opciones);
+      return guardado(r, 'El informe cambió en otra pestaña');
     } catch (e) {
       return err(400, e instanceof Error ? e.message : 'No se pudo guardar');
     }

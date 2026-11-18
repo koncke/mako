@@ -15,6 +15,12 @@
 //   · `sinRepetidos` que no saca nada → 3 rojos;
 //   · en `filtrarCarruseles`: sin el corte por cuenta elegida → 1 rojo; juntando también en «Guardados» → 1 rojo;
 //   · y el cambio SIN efecto (renombrar `partes` a `yaOcupadas` en sus tres usos) → 0 rojos, 7 verdes.
+//
+// Las dos series del mismo creador (18/11/2026, F130), base 9/0, cada rotura sola y restaurada desde una copia:
+//   · `cabeEnLaSerie` sin el orden en el tiempo                                 → 8/1;
+//   · `cabeEnLaSerie` sin el total (ni distinto, ni la parte por encima)          → 8/1;
+//   · la parte escondida sin anotarse en su serie (`suya.push(p)` fuera)           → 8/1;
+//   · `cabeEnLaSerie` que contesta siempre `true` (la clave vuelve a ser sólo el creador) → 6/3.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -98,6 +104,43 @@ test('dos «pt 2» del mismo creador son series DISTINTAS: una serie no tiene do
   assert.deepEqual(sinRepetidos([apps, red]).map((x) => x.id), [apps.id, red.id], 'el mismo número: las dos quedan');
   assert.deepEqual(sinRepetidos([apps, red, sigue]).map((x) => x.id), [apps.id, red.id], 'y la parte 3 sí se va: su número no estaba');
   assert.deepEqual(repetidosDe([apps, red, sigue]).map((x) => x.x.id), [sigue.id]);
+});
+
+test('dos series DISTINTAS del mismo creador no se toman como una: el orden en el tiempo y el total las separan (18/11/2026)', () => {
+  // El pendiente F130: con la clave de serie = el creador, la «part 2» de una serie de noviembre se escondía porque el mismo
+  // creador tenía la «part 3» de OTRA en octubre. Lo que las separa son hechos de una serie, no el texto (ver la cabecera).
+  // 1. EL ORDEN: la parte 2 de una serie no sale DESPUÉS que su parte 3.
+  const octubre = c({ texto: 'part 3: los precios que nadie te dice', outlier: 9, publicada: '2026-10-01' });
+  const noviembre = c({ texto: 'pt 2 because networking matters', outlier: 7, publicada: '2026-11-02' });
+  assert.deepEqual(sinRepetidos([octubre, noviembre]).map((x) => x.id), [octubre.id, noviembre.id], 'la parte 2 posterior a la 3 es otra serie');
+  // La misma serie, en orden, sigue juntándose (la parte 2 anterior a la 3).
+  const antes = c({ texto: 'part 2 de los precios', outlier: 5, publicada: '2026-09-25' });
+  assert.deepEqual(sinRepetidos([octubre, antes]).map((x) => x.id), [octubre.id], 'la 2 publicada antes que la 3 es la misma serie');
+  // El mismo día no contradice nada (dos partes subidas juntas).
+  const mismoDia = c({ texto: 'part 4 y cerramos', outlier: 4, publicada: '2026-10-01T23:00:00Z' });
+  assert.deepEqual(repetidosDe([octubre, mismoDia]).map((r) => r.x.id), [mismoDia.id]);
+  // 2. EL TOTAL: «2/5» y «3/10» no son la misma serie; «part 5» no entra en una de «2/3».
+  const de5 = c({ texto: 'parte 2 de 5: el guion', outlier: 9 });
+  const de10 = c({ texto: 'part 3/10 of my offer series', outlier: 8 });
+  assert.deepEqual(firmaDeContenido(de5)?.total, 5);
+  assert.deepEqual(firmaDeContenido(de10)?.total, 10);
+  assert.equal(firmaDeContenido(c({ texto: 'llega a la parte 2 del ebook' }))?.total, undefined, '«del ebook» no declara un total');
+  assert.deepEqual(sinRepetidos([de5, de10]).map((x) => x.id), [de5.id, de10.id]);
+  const de3 = c({ texto: 'part 2/3 del método', outlier: 9 });
+  const cinco = c({ texto: 'part 5 y la última', outlier: 3 });
+  assert.deepEqual(sinRepetidos([de3, cinco]).map((x) => x.id), [de3.id, cinco.id], 'la parte 5 no es de una serie de 3');
+  // Sin día ni total no hay hecho que mirar: lo de antes (el mismo creador es la misma serie).
+  const sinDia1 = c({ texto: 'part 2 del menú', outlier: 9, publicada: null });
+  const sinDia2 = c({ texto: 'part 3 del menú', outlier: 2, publicada: null });
+  assert.deepEqual(sinRepetidos([sinDia1, sinDia2]).map((x) => x.id), [sinDia1.id]);
+});
+
+test('lo que se esconde también cuenta para su serie: una «pt 2» que llega después es de otra serie', () => {
+  // La serie A: su parte 1 (quedó) y su parte 2 (se escondió). La «pt 2» de B no puede ser de A, que ya tiene su parte 2.
+  const a1 = c({ texto: 'part 1 de la serie de ventas', outlier: 9, publicada: '2026-10-01' });
+  const a2 = c({ texto: 'part 2 y seguimos con ventas', outlier: 8, publicada: '2026-10-03' });
+  const b2 = c({ texto: 'pt 2 de la otra serie, la de contenido', outlier: 7, publicada: '2026-10-02' });
+  assert.deepEqual(sinRepetidos([a1, a2, b2]).map((x) => x.id), [a1.id, b2.id]);
 });
 
 test('sinRepetidos deja el primero de cada contenido, en el mismo orden, y no toca lo que no tiene firma', () => {

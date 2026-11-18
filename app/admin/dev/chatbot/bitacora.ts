@@ -3503,4 +3503,32 @@ FEEDBACK PROBAR:
     revisar: '/automations',
     tickets: [90],
   },
+  {
+    fecha: '18 nov', hora: '01:00', chat: 'Automations', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'El lote de Automations de la lista del 17/11 (docs/pendientes-verificados-17-11.md): F79, F80, F119 y F138.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '01:40', chat: 'Automations', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Automations: el goteo puede salir sólo algunos días, sin achicar el horario',
+    puntos: [
+      'En Configuraciones de cada automatización, «Todos los canales» tiene una fila nueva, «Días»: se prende y se eligen los días en que salen sus mensajes. Apagada, los de su horario.',
+      'Al prenderla arranca con los días del horario que ya tiene, así que no cambia nada hasta sacar un día. El último día no se puede sacar: lo dice y sigue como estaba.',
+      'Lo mismo por la API de MaKo: `configurar_automatizacion` con `goteoDias` («1,2,3,4», o «horario» para volver), y `configuracion_automatizacion` lo dice.',
+      'El motor ya lo aplicaba desde el 9/11; lo que faltaba era poder guardarlo: lo que llegaba se descartaba sin aviso.',
+    ],
+    archivos: [
+      'lib/config-automatizacion.ts — `configParaGuardar` con `goteo.dias`, `diasDelCambio`, `diasDeGoteoDelTexto`, `alternarDiaDeGoteo`, `diasAlPrenderGoteo`',
+      'app/automations/ConfigAutomatizacionPanel.tsx — `FilaDias` · app/automations/FilasOpciones.tsx — `BotonesDias`',
+      'lib/api-mako/areas/chatbot.def.ts · chatbot.run.ts — `goteoDias` (la op pagó el parámetro acortando su descripción: el margen del CRON en el turno no se movió)',
+      'tests/goteo-dias-guardar.test.ts — la regla, la tuerca y el runner real sobre una base en memoria; probado rompiéndolo',
+      'docs/hallazgos-chatbot.md — la entrada del 18/11',
+    ],
+    revisar: '/automations',
+  },
 ];

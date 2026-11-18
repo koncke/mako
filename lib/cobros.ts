@@ -77,6 +77,7 @@ import { volverAlPrecioLleno } from './primer-mes';
 import { productoDeMako } from './stripe-catalogo-reglas';
 import { esCobroExterno, PREFIJO_EXTERNO, type FilaVentaExterna } from './cobros-externos-reglas';
 import { compraExternaQueFalto } from './cobros-externos-meta';
+import { registrarError } from './errores-app';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Links y credenciales
@@ -1774,12 +1775,34 @@ export async function anularLinksDeCuota(ws: number, pagoId: number, autor: stri
     return ((data ?? []) as Array<{ id: number }>).map((r) => Number(r.id)).filter((id) => id !== exceptoCobroId);
   });
   let anulados = 0;
+  const vivos: string[] = [];
   for (const id of ids) {
     const r = await anularCobro(ws, id, autor);
     if (r.ok) anulados++;
     else console.warn(`[cobros] no pude anular el link ${id} de la cuota ${pagoId}: ${r.error}`);
+    if (r.ok && r.sigueAbierto) vivos.push(r.sigueAbierto);
   }
+  if (vivos.length) await avisarLinkVivoDeCuota(vivos);
   return anulados;
+}
+
+/**
+ * ⚠️ P27 (18/11/2026): la cuota ya se cobró por otro lado y su link quedó ANULADO en MaKo pero ABIERTO en la pasarela (Stripe no
+ * contestó, la cuenta se desconectó, Mercado Pago falló, o Creem, que no sabe cerrar un pago único). Ese link se puede pagar otra
+ * vez: es un doble cobro esperando. Hasta hoy sólo quedaba un `console.warn` y nadie lo veía (lo llama `marcarPago`, que no tira y
+ * no tiene a quién decírselo). Ahora va a los errores de la app, que abren UN ticket por huella para que alguien lo cierre a mano en
+ * la pasarela o devuelva el pago si entra. Sin ids ni montos en el texto (la huella agrupa), y nunca tira.
+ */
+async function avisarLinkVivoDeCuota(motivos: string[]): Promise<void> {
+  try {
+    await registrarError({
+      origen: 'servidor',
+      nombre: 'LinkVivoDeCuotaCobrada',
+      mensaje: `Una cuota ya cobrada quedó con su link de pago abierto en la pasarela (${[...new Set(motivos)].join('; ').slice(0, 300)}): se puede pagar otra vez. Ciérralo a mano en la pasarela o devuelve el pago si entra.`,
+    }, null);
+  } catch (e) {
+    console.warn('[cobros] no pude registrar el link vivo de una cuota cobrada:', e instanceof Error ? e.message : String(e));
+  }
 }
 
 /** Best effort: que el aviso de Stripe de este negocio escuche la lista de HOY (`asegurarEventosStripe`). */

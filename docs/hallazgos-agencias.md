@@ -796,6 +796,9 @@ suscripciones sueltas de sus clientes.
 
 **Hecho =** `porCobrarDe` recibe la mensualidad de cada agencia prendida (fecha del ciclo y total del
 mes) y la muestra como UNA línea, en lugar de las entradas de sus clientes.
+(18/11/2026, P7, en `punta/nube-plata-c3`: lo hace para la agencia prendida SIN meses pagados por el libro —la que faltaba—; la que ya
+tiene historia en el libro la seguía mostrando desde el 10/11. Ver docs/hallazgos-planes-y-cobro.md, «P7: el libro manda en "Por cobrar"
+desde que se prende». Falta mirarlo en producción.)
 
 ⚠️ **No es «un arreglo chico en la vista».** Es juntar dos motores que hoy no se hablan, y hay que
 decidir qué pasa con las entradas de los clientes cuando la agencia ya tiene su mensualidad (hoy el

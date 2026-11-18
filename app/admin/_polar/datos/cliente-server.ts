@@ -54,6 +54,7 @@ import {
   type LlegadaNegocio,
   type MiembroNegocio,
   type NegocioCabecera,
+  type PersonaDelUso,
 } from './cliente'
 
 const motivo = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -100,7 +101,8 @@ export const leerMiembrosDePlataforma = cache(async (): Promise<LecturaMiembros>
 export async function leerNegociosParaMudar(): Promise<Array<{ ws: number; nombre: string }> | null> {
   const clientes = await leerClientes()
   if (!clientes.ok) return null
-  return clientes.datos.filas.map((f) => ({ ws: f.ws, nombre: f.nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+  // Con los de prueba (F21): no cuentan como clientes, pero mudar a alguien al Cliente de Prueba sigue siendo posible.
+  return [...clientes.datos.filas, ...clientes.datos.pruebas].map((f) => ({ ws: f.ws, nombre: f.nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
 }
 
 // ── El negocio (la cabecera y el «Alta») ───────────────────────────────────────────────────────────────────────────
@@ -135,7 +137,8 @@ export const leerNegocio = cache(async (ws: number): Promise<FichaNegocio | null
   else avisos.push(...clientes.avisos)
   if (!miembros.ok) avisos.push(`sus personas: ${miembros.error}`)
   if (!ingresos.ok) avisos.push(`si está al día con sus pagos: ${ingresos.error}`)
-  const fila = clientes.ok ? (clientes.datos.filas.find((f) => f.ws === ws) ?? null) : null
+  // La ficha de un negocio de prueba se sigue abriendo (F21): su fila está aparte, en `pruebas`.
+  const fila = clientes.ok ? (clientes.datos.filas.find((f) => f.ws === ws) ?? clientes.datos.pruebas.find((f) => f.ws === ws) ?? null) : null
   // Cómo está (punto 27): el motivo de At Risk de ESTE negocio, con la misma cuenta que esa pantalla. Sin las dos lecturas, lo
   // que se encuentre es cierto (un pausado, un atrasado) pero «no está en riesgo» no se puede afirmar: `null`.
   const plan = nombreDePlan(w.capa)
@@ -273,6 +276,8 @@ export type LecturaUso = {
   filas: Array<{ dia: string; usuario: number; tab: string; pantallas: number; acciones: number }>
   tabs: Array<{ key: string; label: string; keys: string[] }>
   ia: IaDelDia[]
+  /** Quién es cada persona de `filas` (la tabla «Por persona», F169). Sólo las que tienen uso en este negocio. */
+  personas: PersonaDelUso[]
   avisos: string[]
 }
 
@@ -303,13 +308,21 @@ export const leerUso = cache(async (ws: number): Promise<LecturaUso> => {
   const hoy = v?.hoy ?? new Date().toISOString().slice(0, 10)
   const ia = await iaDe(ws, hoy).catch((e) => { avisos.push(`las llamadas de IA: ${motivo(e)}`); return [] as IaDelDia[] })
   if (v) avisos.push(...v.avisos)
+  const filas = (v?.filas ?? []).filter((f) => f.ws === ws).map(({ dia, usuario, tab, pantallas, acciones }) => ({ dia, usuario, tab, pantallas, acciones }))
+  // Quién es cada uno (F169): las personas de `usuarios`, por id. Puede ser alguien de otro negocio (su agencia), así que se
+  // busca entre todas; viajan sólo las que tienen uso acá (nombre, correo y cara: lo mismo que Members).
+  const ids = new Set(filas.map((f) => f.usuario))
+  const personas: PersonaDelUso[] = ids.size === 0 ? [] : await usuarios()
+    .then((todos) => todos.filter((u) => ids.has(u.id)).map((u) => ({ id: u.id, nombre: u.nombre ?? '', email: u.email, cara: caraDeUsuario(u) })))
+    .catch((e) => { avisos.push(`quién es cada persona: ${motivo(e)}`); return [] as PersonaDelUso[] })
   return {
     medido: v?.medido ?? false,
     desde: v?.desde ?? null,
     hoy,
-    filas: (v?.filas ?? []).filter((f) => f.ws === ws).map(({ dia, usuario, tab, pantallas, acciones }) => ({ dia, usuario, tab, pantallas, acciones })),
+    filas,
     tabs: tabsDeNegocios(),
     ia,
+    personas,
     avisos: [...new Set(avisos)],
   }
 })

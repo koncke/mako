@@ -14,7 +14,8 @@
 //     botón enviar redondo (gris → azul cuando hay texto);
 //   · mientras la IA trabaja el input se bloquea con «Espera a que la IA termine» (Gamma §8);
 //   · la respuesta es un CAMBIO PROPUESTO con el toggle «Original | Modificado» y se acepta o
-//     se descarta entera; después de aceptar, «Restaurar» la vuelve atrás.
+//     se descarta entera; después de aceptar, «Restaurar» la vuelve atrás. Desde el 18/11/2026 la propuesta se ve
+//     ARMARSE (las secciones de a una, ../revelado-propuesta.ts) y «Aceptar» sale con todo a la vista.
 // Lo que NO se copia: «Abrir archivos», la lista de chats guardados del agente y la búsqueda en la
 // web. La charla de cada landing SÍ se guarda desde el 22/10/2026 (antes vivía sólo en la memoria
 // de la pestaña): cada turno va a la base con la clave `landing:<id>` y se ve en el Ops Center
@@ -101,6 +102,8 @@ import {
   type CambioSeccion,
 } from '../diff-tarjetas';
 import { trQuitarYOrdenar } from '../insertar';
+import { comoSeVe, marcarRevelada, seRevela } from '../revelado-propuesta';
+import { useRevelado } from '@/app/_ui/ArmadoEnVivo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
@@ -164,6 +167,9 @@ const CSS_PANELES_B = `
 .gma-rv-resumen{font-size:13px;font-weight:600;color:var(--pb-texto)}
 .gma-rv-lista{display:grid;gap:12px;margin:0;padding:0;list-style:none}
 .gma-rv-fila{display:grid;gap:6px}
+.gma-rv-lista[data-armando] .gma-rv-fila{animation:gmaRvEntra .32s ease-out both}
+@keyframes gmaRvEntra{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.gma-rv-lista[data-armando] .gma-rv-fila{animation:none}}
 .gma-rv-tit{display:flex;align-items:center;gap:6px;min-width:0;font-size:13px}
 .gma-rv-tit b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .gma-rv-tag{flex:none;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:700;background:var(--pb-celeste2);color:var(--pb-tinta)}
@@ -394,6 +400,13 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
     [docVivo, editor, propuesta, diff],
   );
   const filas = diff.cambios.slice(0, MAX_FILAS);
+  // Se ve ARMARSE (AGENTS.md, «Lo que MaKo construye se ve CONSTRUYÉNDOSE»): la respuesta llega entera y las secciones
+  // aparecen de a una con la cadencia de la pieza compartida; «Ver todo» la saltea y con «reducir movimiento» va de una.
+  // Sólo la que llegó y no se vio (../revelado-propuesta.ts): reabrir el panel no la vuelve a armar.
+  const revelando = seRevela(propuesta, estado);
+  const { visibles, saltear } = useRevelado(revelando ? filas.length : 0);
+  const { mostrar, completa } = comoSeVe({ total: filas.length, visibles, revelando });
+  useEffect(() => { if (completa || estado !== 'pendiente') marcarRevelada(propuesta); }, [completa, estado, propuesta]);
 
   return (
     <div className="gma-rv">
@@ -404,8 +417,8 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
           <button type="button" aria-pressed={vista === 'modificado'} onClick={() => setVista('modificado')}>Modificado</button>
         </div>
       </div>
-      <ul className="gma-rv-lista">
-        {filas.map((c) => {
+      <ul className="gma-rv-lista" data-armando={revelando ? '' : undefined} aria-busy={!completa}>
+        {filas.slice(0, mostrar).map((c) => {
           const antes = antesPorId.get(c.id);
           const despues = despuesPorId.get(c.id);
           const mostrar = vista === 'original' ? (c.tipo === 'agrega' ? null : antes) : (c.tipo === 'quita' ? null : despues);
@@ -423,14 +436,16 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
           );
         })}
       </ul>
-      {diff.cambios.length > MAX_FILAS && <span className="gma-rv-mas">y {diff.cambios.length - MAX_FILAS} más</span>}
+      {completa && diff.cambios.length > MAX_FILAS && <span className="gma-rv-mas">y {diff.cambios.length - MAX_FILAS} más</span>}
       {tocadas.length > 0 && <p className="gma-rv-aviso">{tocadas.length === 1 ? `Editaste esa ${terminoTarjeta(config)} mientras tanto.` : `Editaste ${tocadas.length} de esas ${terminoTarjeta(config, { plural: true })} mientras tanto.`}</p>}
       {aviso && <p className="gma-rv-error" role="alert">{aviso}<ReportarASoporte /></p>}
       <div className="gma-rv-acciones">
         {estado === 'pendiente' && (
           <>
             <button type="button" className="gma-pb-boton" data-v="fantasma" data-t="s" onClick={onDescartar}>Descartar</button>
-            <button type="button" className="gma-pb-boton" data-v="primario" data-t="s" onClick={onAceptar}>Aceptar</button>
+            {completa
+              ? <button type="button" className="gma-pb-boton" data-v="primario" data-t="s" onClick={onAceptar}>Aceptar</button>
+              : <button type="button" className="gma-pb-boton" data-v="contorno" data-t="s" onClick={saltear}>Ver todo</button>}
           </>
         )}
         {estado === 'aplicando' && <span className="gma-rv-hecho"><span className="gma-pb-giro" aria-label="Aplicando" /></span>}

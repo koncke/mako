@@ -55,7 +55,8 @@ import { nombreDeShare } from '@/lib/share-nombre';
 import { buscarCurso } from '@/app/conocimientos/catalogo';
 import { titulosElegidos } from '@/lib/conocimiento-ajustes-datos';
 import { veCopywriter } from '@/app/copywriter/acceso';
-import { abrir as abrirGuion, listar as listarGuiones } from '@/lib/copywriter/server';
+import { listar as listarGuiones } from '@/lib/copywriter/server';
+import { guionALaVista } from '@/lib/copywriter/compartir';
 import { esIdPagina, SIN_TITULO } from '@/lib/copywriter/tipos';
 
 export const dynamic = 'force-dynamic';
@@ -444,8 +445,9 @@ export async function POST(req: NextRequest) {
       if (!adm) return SOLO_ADMIN();
       const id = typeof body.recursoId === 'string' ? body.recursoId : '';
       if (!esIdPagina(id)) return NextResponse.json({ ok: false, error: 'falta qué guion' }, { status: 400 });
-      const vivo = await abrirGuion(id);
-      if (!vivo.ok || vivo.pagina.papelera) return NO_ENCONTRADO();
+      // A la vista (B6, 18/11/2026): tampoco se acuña el link de una página que cuelga de otra en la Papelera.
+      const vivo = await guionALaVista(id);
+      if (!vivo) return NO_ENCONTRADO();
       if (!MODOS.includes(modo)) return NextResponse.json({ ok: false, error: 'modo inválido' }, { status: 400 });
       if (modo === 'invitados' && malos.length) return NextResponse.json({ ok: false, error: `email inválido: ${malos[0]}` }, { status: 400 });
       if (modo === 'invitados' && !dests.length) return NextResponse.json({ ok: false, error: 'agrega al menos un email' }, { status: 400 });

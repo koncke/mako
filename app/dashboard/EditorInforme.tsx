@@ -150,14 +150,17 @@ import {
 import { CSS } from './editor-css';
 import { CSS_EDICION } from './edicion-css';
 import { conBusqueda, contextoDeGrafico, csvDeHoja, enOrden, idBusquedaDe, loQueSeVeDe, nombreArchivo, pantallaDeHoja, pedidosDeHoja, periodoDeHoja, type PedidosHoja } from './exportar';
-import { crearColaGuardado, leerRespuestaGuardado, type ColaGuardado } from './guardado';
+import { crearColaGuardado, edicionYaGuardada, GRACIA_EDICION_MS, leerRespuestaGuardado, type ColaGuardado } from './guardado';
+import { ArmadoDeHoja } from './ArmadoDeHoja';
+import { tarjetasPorArmar } from './armado-hoja';
 import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 import { AccionesFilaProvider } from './entidades/acciones-fila';
 import { ELEMENTOS_ALTO_LIBRE_EN_PILA, graficoAltoLibreEnPila, solosEnPila } from './pila';
 import { esAcomodoDe } from './aviso-grilla';
 import { faltaConectarDeHoja } from './falta-conectar';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
-import { hojaConIdsNuevos } from '@/lib/graficos-copia';
+import { hojaConIdsNuevos, nombreDeHoja } from '@/lib/graficos-copia';
+import { ModalGuardarPlantilla } from '@/app/creaciones/PublicarCreacion';
 import { sigueComoSeCreo } from '@/lib/graficos-plantilla-relleno';
 import { tokenDeDashboard } from './copia-dash-cliente';
 import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
@@ -413,6 +416,12 @@ export function EditorInforme({
   // Es estado de la vista: no se guarda.
   const [enGrilla, setEnGrilla] = useState(false);
   const editandoRef = useRef(editando);
+  // MIRANDO (18/11/2026, ./guardado.ts): cada guardado dice si es de la edición. `huboEdicion` = hay algo cambiado editando
+  // (o pedido: la plantilla ajustada) que todavía no quedó guardado; se apaga en `alGuardar` y en `edicionYaGuardada`.
+  const huboEdicion = useRef(editando);
+  const salioDeEditar = useRef(0);
+  if (editandoRef.current && !editando) salioDeEditar.current = Date.now();
+  if (editando) huboEdicion.current = true;
   editandoRef.current = editando;
   const [dispositivoElegido, setDispositivo] = useState<Dispositivo>('escritorio');
   const dispositivo: Dispositivo = editando ? dispositivoElegido : 'escritorio';
@@ -467,6 +476,9 @@ export function EditorInforme({
   /** El ancla del clic derecho: un punto invisible donde se hizo el clic (el `Flotante` se ancla a un elemento). */
   const anclaContextual = useRef<HTMLSpanElement>(null);
   const [editPopup, setEditPopup] = useState<string | null>(null);
+  // Lo que MaKo acaba de armar en una hoja (O13, 18/11/2026, ./armado-hoja.ts): sus tarjetas aparecen de a una.
+  const [armado, setArmado] = useState<{ clave: number; hojaId: string; ids: string[] } | null>(null);
+  const terminarArmado = useCallback(() => setArmado(null), []);
   const [enGesto, setEnGesto] = useState(false);
   const [conflicto, setConflicto] = useState(false);
   // Compartir (punto 3 de v5, paquete de la topbar): un renglón del ⋮ que abre el modal, montado AFUERA del menú.
@@ -676,8 +688,11 @@ export function EditorInforme({
       // El único fetch a mano a /api/graficos: guardar (las lecturas van por `pedidoDeLectura`).
       enviar: async (j, v, ka) => leerRespuestaGuardado(await fetch('/api/graficos' + (informeRef.current !== 'dashboard' ? `?informe=${encodeURIComponent(informeRef.current)}` : ''), {
         method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: ka,
-        body: `{"accion":"guardar","version":${JSON.stringify(v)},"tablero":${j}}`,
+        body: `{"accion":"guardar","version":${JSON.stringify(v)},"editando":${editandoRef.current || huboEdicion.current},"tablero":${j}}`,
       })),
+      alGuardar: (j) => {
+        if (edicionYaGuardada({ editando: editandoRef.current, salioHaceMs: Date.now() - salioDeEditar.current, pendiente: false, confirmado: j, actual: JSON.stringify(tableroRef.current) })) huboEdicion.current = false;
+      },
       alFallar: (ka, j) => {
         ultimoGuardado.current = colaRef.current?.ultimo() ?? ultimoGuardado.current;
         // Lo que no entró queda pendiente: sale con el próximo cambio o al ocultar la pestaña (si no hay uno más nuevo).
@@ -700,6 +715,18 @@ export function EditorInforme({
     const t = setTimeout(() => { void mandar(json); }, RESPIRO_GUARDAR_MS);
     return () => clearTimeout(t);
   }, [tablero, mandar]);
+  // Al salir de editar, pasada la gracia y sin nada por guardar, los guardados vuelven a decir «mirando».
+  useEffect(() => {
+    if (editando) return;
+    const t = window.setTimeout(() => {
+      const cola = colaRef.current;
+      if (edicionYaGuardada({
+        editando: editandoRef.current, salioHaceMs: Date.now() - salioDeEditar.current, pendiente: !!cola?.pendiente() || !!pendienteGuardar.current,
+        confirmado: cola ? cola.ultimo() : ultimoGuardado.current, actual: JSON.stringify(tableroRef.current),
+      })) huboEdicion.current = false;
+    }, GRACIA_EDICION_MS + 100);
+    return () => window.clearTimeout(t);
+  }, [editando]);
   useEffect(() => {
     const flush = () => { if (pendienteGuardar.current) void mandar(pendienteGuardar.current, true); };
     const alOcultar = () => { if (document.visibilityState === 'hidden') flush(); };
@@ -773,7 +800,13 @@ export function EditorInforme({
     if (!creada || !actual) return;
     if (!sigueComoSeCreo(creada, actual)) return;
     if (h) {
+      // La ajustada pisa el contenido de una hoja que quizá ya se guardó: es un cambio que la persona PIDIÓ (eligió la
+      // plantilla), así que se guarda como de la edición aunque esté mirando (./guardado.ts).
+      huboEdicion.current = true;
+      // Lo que el ajuste cambió se ve armándose (./armado-hoja.ts).
+      const ids = tarjetasPorArmar(actual, { ...h, id });
       setTablero((tt) => ({ ...tt, hojas: tt.hojas.map((x) => (x.id === id ? { ...h, id } : x)) }));
+      if (ids.length) setArmado({ clave: Date.now(), hojaId: id, ids });
       vaciar();
     }
     if (aviso) show(aviso);
@@ -800,6 +833,23 @@ export function EditorInforme({
       .then(() => show('Dashboard copiado'))
       .catch((e: unknown) => show(e instanceof Error && e.message !== 'sin portapapeles' ? e.message : 'No se pudo copiar', undefined, 'bad'));
   };
+  /**
+   * «GUARDAR COMO PLANTILLA» (18/11/2026, las plantillas propias, lib/creaciones-dashboard.ts): la hoja queda en «Tus
+   * plantillas» de «Nueva hoja», sólo para el negocio o para la comunidad. Lo que se guarda lo lee el server de lo GUARDADO
+   * (el enchufe, lib/creaciones-enchufes.ts): lo que espera el respiro del autoguardado sale antes, y se espera lo que viaja.
+   */
+  const [comoPlantilla, setComoPlantilla] = useState<{ id: string; nombre: string } | null>(null);
+  const guardarComoPlantilla = (id: string) => {
+    const h = tablero.hojas.find((x) => x.id === id);
+    if (!h) return;
+    const pendiente = pendienteGuardar.current;
+    void (async () => {
+      if (pendiente) await mandar(pendiente);
+      await colaRef.current?.pedir(ultimoGuardado.current);
+      setComoPlantilla({ id, nombre: nombreDeHoja(h) });
+    })();
+  };
+  const cerrarComoPlantilla = useCallback(() => setComoPlantilla(null), []);
   /**
    * Eliminar una hoja la ARCHIVA (14/10/2026, Martín: «Me debería dejar eliminar todas las hojas... Y en el desplegable de
    * las hojas, un texto que diga "Archivados" y ahí la opción de eliminar permanentemente»). Con la última, la pantalla
@@ -1070,6 +1120,13 @@ export function EditorInforme({
    * EDITANDO (17/10/2026): una respuesta que llega después de tocar «Ver» no entra. La ruta tampoco la arma en vista.
    */
   const ponerHojaDeMako = useCallback((h: Hoja) => { if (editandoRef.current) mutarHoja(() => h, h.id); }, [mutarHoja]);
+  /** Lo que propuso MaKo, puesto: lo que agregó o cambió se ve armándose (O13, ./armado-hoja.ts). Su Deshacer, de una. */
+  const aplicarDeMako = useCallback((h: Hoja) => {
+    if (!editandoRef.current) return;
+    const ids = tarjetasPorArmar(tableroRef.current.hojas.find((x) => x.id === h.id), h);
+    ponerHojaDeMako(h);
+    if (ids.length) setArmado({ clave: Date.now(), hojaId: h.id, ids });
+  }, [ponerHojaDeMako]);
   const hojaDelHilo = hoja.id;
   const alHiloMako = useCallback((fn: (h: MensajeEdicion[]) => MensajeEdicion[]) => {
     setHilosMako((x) => ({ ...x, [hojaDelHilo]: fn(x[hojaDelHilo] ?? []) }));
@@ -1677,6 +1734,7 @@ export function EditorInforme({
       {/* ── El lienzo (lo único que scrollea) y, encima, el panel de propiedades y «Editar con MaKo» ── */}
       <div className="lk-cuerpo">
         <div className="lk-lienzo" style={varsTema} data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo} onClick={() => { if (editando) { setSelId(null); setConSel(null); } }}>
+          {armado && armado.hojaId === hoja.id && <ArmadoDeHoja key={armado.clave} ids={armado.ids} onFin={terminarArmado} />}
           <div className="lk-pagina" ref={containerRef} data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo}>
             {dueno && (
               <nav className="lk-miga lk-no-arrastrar" aria-label="Ubicación" onClick={(e) => e.stopPropagation()}>
@@ -1812,7 +1870,7 @@ export function EditorInforme({
             compu (./edicion-css.ts). Desde el 24/10/2026 es el único: el AI Analyst salió (lo de analizar es de la criatura). */}
         {makoEditar && editando && guardable && !enBlanco && !compartido && (
           <PanelEditarMako editando={editando} hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
-            onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
+            onAplicar={aplicarDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
             onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} />
         )}
       </div>
@@ -1914,7 +1972,7 @@ export function EditorInforme({
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300}>
           <MenuHojas
             hojas={enBlanco ? [] : tablero.hojas} otras={pestanas?.filter((p) => p.informe !== informeGeneralODashboard) ?? []} activa={hoja.id} puedeNueva={puedeNuevaHoja && !enBlanco} informe={informeGeneralODashboard}
-            acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onCopiar: copiarHoja, onMover: moverHoja, onEliminar: eliminarHoja } : null}
+            acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onCopiar: copiarHoja, onPlantilla: !esGeneral && !esAutomatizacion ? guardarComoPlantilla : undefined, onMover: moverHoja, onEliminar: eliminarHoja } : null}
             archivadas={guardable ? tablero.archivadas ?? [] : []}
             onRestaurar={(id) => { setMenu(null); restaurarHoja(id); }}
             onBorrarArchivada={borrarArchivada}
@@ -1962,6 +2020,7 @@ export function EditorInforme({
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
       {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} soloFuentes={esGeneral ? FUENTES_GENERAL : undefined} />}
       {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} conTodas={!!unido} />}
+      <ModalGuardarPlantilla tipo="dashboard" de={comoPlantilla} alSalir={cerrarComoPlantilla} />
       {gDetalle && esGrafico(gDetalle) && detalle && (
         <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivosHoja[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
           onCerrar={cerrarDetalle} onCambio={refrescar} onFiltrar={filtrarPor} />

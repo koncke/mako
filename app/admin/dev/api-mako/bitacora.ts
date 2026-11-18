@@ -670,6 +670,36 @@ export const BITACORA: Hito[] = [
     tickets: [74, 69],
   },
   {
+    fecha: '18 nov', hora: '09:00', chat: 'API de MaKo', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la tanda de la nube del 18/11 (docs/pendientes-verificados-17-11.md, «Lo que falta construir»).',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '12:10', chat: 'API de MaKo', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El núcleo de la API: cinco pendientes cerrados y dos descartados con su motivo',
+    puntos: [
+      'Una acción ya aplicada no le gana a la misma pedida otra vez (un lead aplicado sí): lib/propuestas-ref.ts.',
+      'Quién confirmó una propuesta va en su campo; lo que devuelve la acción no lo pisa: lib/api-mako/resultado-propuesta.ts.',
+      'Confirmar anota la hora del reclamo (mig 0420, sin aplicar: el código la tolera) y un cron nocturno cierra como «error» lo que se cortó.',
+      'reuniones_lead devuelve su falla como error, y las propuestas que no se guardan llevan noCorrio (dejan ticket).',
+      'El link a una conversación de WhatsApp lo escribe el código (conLinksDeAccion), no el modelo.',
+      'Descartados: «vacío o ausente» en /mako/revisar (la pantalla ya manda null; el contrato seguro es «no tocar») y mover listar_productos de área (rompe tokens detallados y la URL REST).',
+      'Esperan a Martín: /api/agente/consultar (rompe skills instaladas) y quién confirma en la bandeja.',
+    ],
+    commits: [{ sha: 'a31cad9e', msg: 'Admin y API de MaKo: sin clientes de prueba, uso por persona, y lo que quedaba colgado se cierra', lineas: 1040, archivos: 33 }],
+    archivos: [
+      'lib/propuestas-ref.ts · lib/propuestas.ts — la llave por tipo',
+      'lib/api-mako/resultado-propuesta.ts · lib/api-mako/acciones.ts — el actor',
+      'lib/pendientes-colgadas.ts · lib/mako-pendientes.ts · supabase/migrations/0420_pendientes_reclamada_at.sql — las colgadas',
+      'lib/respuesta-doer.ts · lib/mako-doer-in.ts — el link del chat',
+      'tests/api-mako-nucleo-1811.test.ts — 8/8, probado rompiéndolo',
+    ],
+    revisar: '/mako/pendientes',
+  },
+  {
     fecha: '18 nov', hora: '05:24', chat: 'Construir: seguridad e infraestructura', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
     titulo: 'Cada server action de app/ está cubierta por la API, exceptuada o en una deuda que sólo baja',
     puntos: [

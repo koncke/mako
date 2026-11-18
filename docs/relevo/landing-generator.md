@@ -280,7 +280,7 @@ más tocado; «Ver el tráfico →»). Detalle: docs/hallazgos-editor-landing.md
 4. **Comentar como MaKo** (`comentar_landing`, `borrar_comentario_equipo_landing`, docs/hallazgos-api-mako.md) y
    **renombrar el proyecto del Plan a «Web Generator»** (un cambio de datos del Plan en ws9, migrando por id): decididos,
    sin hacer.
-5. «sacá el video de la web» sin `acomodar_bloque_landing` (presupuesto del turno) y «Mi otro producto» en texto libre.
+5. ~~«sacá el video de la web» sin `acomodar_bloque_landing` (presupuesto del turno)~~ (hecho el 18/11/2026, `punta/nube-construir-web`) y «Mi otro producto» en texto libre.
 
 
 > **Estado al 15/10/2026 11:40: la TANDA 7 está EN PRODUCCIÓN** (entró con el push de Estrategia, `70172c164`;

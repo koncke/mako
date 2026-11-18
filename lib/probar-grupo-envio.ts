@@ -19,7 +19,7 @@ import { getTenantDb } from './workspace';
 import { sanearPartes, TOPE_PARTES, type ParteMensaje } from './mensaje-partes';
 import { prepararPartesGrupo, problemaDePartesGrupo } from './mako-tarjeta-envio';
 import { enviarPartesAlGrupoMaKo } from './mako-grupo';
-import { atarIdDeWhatsApp, copiarAlGrupo } from './grupo-app';
+import { atarIdsDeWhatsApp, copiarAlGrupo } from './grupo-app';
 import { textoDePreparadas } from './mako-tarjeta';
 import { ENCABEZADO_PRUEBA } from './probar-grupo';
 import type { PartePreparada } from './mako-tarjeta';
@@ -50,7 +50,7 @@ export async function enviarPruebaAlGrupo(o: { ws: number; secuenciaId: number; 
   // Al hilo de la app primero: «Probar en el grupo» se ve aunque WhatsApp no lo entregue (lib/grupo-app.ts).
   const copia = await copiarAlGrupo(o.ws, { texto: textoDePreparadas(partes), de: 'mako', partes });
   const r = await enviarPartesAlGrupoMaKo(o.ws, partes);
-  if (copia) await Promise.all(copia.ids.map((fila, i) => (r.ids[i] ? atarIdDeWhatsApp(o.ws, fila, r.ids[i]) : Promise.resolve()))).catch(() => {});
+  await atarIdsDeWhatsApp(o.ws, copia, r.ids);
   if (!r.ok && copia) return { ok: true, salieron: copia.ids.length };
   if (!r.ok) return { ok: false, error: r.sinGrupo ? 'Este negocio no tiene grupo de MaKo.' : (r.error ?? 'No salió.') };
   return { ok: true, salieron: r.salieron };
