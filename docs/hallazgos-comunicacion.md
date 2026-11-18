@@ -97,7 +97,7 @@ contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de
 renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
 uno, se vuelve a mirar el código que nombra.
 
-- **Punto 25 — Los reportes no recorren los negocios.** Los tres crons (reporte-diario, reporte-horario y reporte-semanal) ya abren con `checkCronAuth`, pero arman UN reporte, con el negocio que resuelve un cron sin sesión: el ws 1. Falta el reparto por workspace con el molde de `nutricion` y `email-broadcasts`.
+- **Punto 25 — El diario y el horario no recorren los negocios.** Los tres crons abren con `checkCronAuth` y el semanal ya corre uno por negocio activo, cada uno adentro de su `runWithWorkspace` (app/api/cron/reporte-semanal/route.ts:99-112). El diario y el horario corren UNA vez y sin negocio en contexto, así que leen el que resuelve un cron sin sesión: el ws 1 (lib/reportes.ts lo llama «sólo del dueño» desde F125, 18/11). Falta decidir si son de cada negocio, y si sí, el reparto con el molde del semanal.
 - **Punto 33 — Las estadísticas de email siguen por POSICIÓN.** Los pasos ya tienen id estable (`pasos[].id`) y cada envío lo guarda (`nutricion_envios.nodo_id`, mig 0223), pero /email agrupa por `paso` (el número) y lo cruza con el índice del array (lib/email-marketing.ts:172-210). Insertar un paso le corre las estadísticas a todos los de abajo.
 
 ## La línea sorda NO se cura subiendo Baileys: WhatsApp manda un `<status>` que nadie contesta (14/11/2026, claude5)

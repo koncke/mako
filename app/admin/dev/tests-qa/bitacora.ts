@@ -446,16 +446,16 @@ export const BITACORA: Hito[] = [
   {
     fecha: '18 nov', hora: '03:50', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
     actor: 'claude', tipo: 'investigacion',
-    titulo: 'Los pendientes del estado del arte de agosto, medidos: 13 ya estaban cerrados y 29 se repartieron a su área',
+    titulo: 'Los pendientes del estado del arte de agosto, medidos: 14 ya estaban cerrados y 28 se repartieron a su área',
     puntos: [
-      '**De los 42 pendientes sin tachar**, 13 estaban cerrados o ya no aplicaban (las vistas de cohortes, el WhatsApp oficial que ya se borró, la purga del agente, el contrato de las tablas, la guarda de wpm…) y se tacharon con dónde quedaron.',
-      '**Los otros 29 se repartieron** al documento de hallazgos de cada área, con lo que falta y quién lo decide.',
+      '**De los 42 pendientes sin tachar**, 14 estaban cerrados o ya no aplicaban (las vistas de cohortes, el WhatsApp oficial que ya se borró, la purga del agente, el contrato de las tablas, la guarda de wpm…) y se tacharon con dónde quedaron.',
+      '**Los otros 28 se repartieron** al documento de hallazgos de cada área, con lo que falta y quién lo decide.',
       '**Una falsedad que quedó a la vista:** el reset del negocio de prueba avisa que no puede vaciar las notificaciones ni los borradores de campañas, y ya las vacía.',
       'Además quedaron anotados los hitos que faltaban del Dashboard (6/11) y del recorrido visual, y que Admin también pliega la barra.',
     ],
     archivos: [
       'docs/estado-del-arte.md — la lista, tachada y repartida',
-      'docs/hallazgos-<área>.md — «Pendientes que venían de docs/estado-del-arte.md (18/11/2026)», en 16 documentos',
+      'docs/hallazgos-<área>.md — «Pendientes que venían de docs/estado-del-arte.md (18/11/2026)», en 15 documentos',
       'docs/diseno-sidebar.md · AGENTS.md · docs/relevo/sidebar.md — Admin pliega la barra',
     ],
   },
