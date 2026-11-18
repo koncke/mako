@@ -30,10 +30,28 @@ La maqueta queda como ESPECIFICACIÓN. Lo que mordió al construirlo:
   pestañas (C:/dev/artefactos-pestanas/publicar). Esas páginas no tienen las marcas nuevas del repo (`tour-settings-*`): sus pasos se
   saltean ahí y andan en la app.
 
-Lo que quedó SIN hacer (para el día siguiente): los correos «Día N del reto de MaKo» (un cron nuevo: lib/reto/dias.ts ya sabe qué día
-abre y a qué hora), guardar la hora de WhatsApp desde el mensaje que la persona le manda a MaKo (hoy se guarda al tocarla en el chat),
-las integraciones según lo elegido en Funnel Coach, el reto en el teléfono (MaKo Mobile) y «ver el onboarding desde el principio»
-para el super admin sin borrar datos.
+- **El video y la marca juntos (Martín, 18/11).** El manifiesto de los videos (public/tutoriales/manifiesto.json, del chat de los
+  videos) trae por video sus `frases` { id, t_inicio, t_fin, texto, sel?, espera_clic?, cierra_despues? }; lib/tutoriales/videos.ts
+  las valida (`frasesDe`: sin `espera_clic` vale verdadero si hay `sel`; sin `cierra_despues`, falso). Con frases con marca, el
+  video NO arranca solo: lo arranca «Empezar», y desde ahí los pasos los pone el video (`fraseParaMarcar` en cada `timeupdate`). El
+  texto y el lado salen del paso de lib/tutoriales que marca lo mismo (`mismoLugar`: un `sel` de paso puede ser una lista). Al
+  terminar, el cierre es el último paso del tutorial (el CTA con «Haz clic en…»), salvo que el video ya lo haya marcado y tocado.
+- **El Escape con el que el motor cierra un panel (`cierra_despues`) omitía el tutorial entero:** el manejador del motor oye el
+  Escape en captura. Sólo cuenta el de la persona (`if (!e.isTrusted) return;`).
+- **Las tapas del hueco tapaban el video chico** (los dos `position: fixed` sin z-index: gana el último del DOM): con una marca
+  puesta, el video no se podía pausar ni cerrar. El video lleva z-index 2 y la tarjeta 3.
+- **El Chromium de Playwright no reproduce mp4 (H.264):** para mirar el video hay que lanzar el Chrome instalado
+  (`chromium.launch({ channel: 'chrome' })`). Con el otro, el video «no carga» y parece un error del motor.
+
+Lo que quedó SIN hacer (para el día siguiente):
+- guardar la hora de WhatsApp desde el mensaje que la persona le manda a MaKo (hoy se guarda al tocarla en el chat del reto);
+- las integraciones según lo elegido en Funnel Coach;
+- el reto en el teléfono (MaKo Mobile);
+- los tutoriales con `estado` del chat de las pestañas (pantallas de adentro: la ficha del lead, la clase), que el motor no arranca;
+- la Ticketera, que el motor no arranca porque mira la ruta sin el `?`
+  (app/_ui/tutorial/MotorTutorial.tsx, `TutorialDeLaRuta`);
+- el video y la marca juntos con frases DE VERDAD: hoy (18/11) ningún video del manifiesto trae `frases`, así que el motor sigue
+  como antes (los pasos con «Siguiente»). Se probó con un manifiesto de prueba sobre la página del CRM dibujada.
 
 ## ⚠️ La maqueta del onboarding y la app real no tienen los mismos coaches (17/11/2026)
 

@@ -150,7 +150,8 @@ export function datosCuentaFrenada(i: IncidenteTexto, minAbierto: number, veces:
   return {
     ...(estado ? { anuncios_estado: estado } : {}),
     anuncios_entrega: i.entregaFrenada ? 'sin entregar' : 'entregando',
-    anuncios_hace: horasYMinutos(minAbierto),
+    // Sin «Desde hace 0 min» (ws1, 14/11/2026): con menos de un minuto el renglón se va solo.
+    ...(minAbierto >= 1 ? { anuncios_hace: horasYMinutos(minAbierto) } : {}),
     ...(motivo && motivo !== estado ? { anuncios_motivo_meta: motivo } : {}),
     anuncios_vez: String(veces + 1),
   };
