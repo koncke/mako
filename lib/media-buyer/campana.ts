@@ -24,7 +24,7 @@ import { lugaresDesdeMeta } from '@/lib/meta-geo';
 import { fmtDinero } from '@/lib/format';
 import { leerConfig, guardarConfig, guardarPropuestas, leerDecisiones, reclamar, actualizar, type ConfigGuardada } from './store';
 import { leerDatosCuenta, hoyDelNegocio, type DatosCuenta } from './datos';
-import { validarCampana, cuerpoCampana, diferenciasDeLaCreada, resumenCampana, type EntradaCampana } from './campana-reglas';
+import { validarCampana, cuerpoCampana, codigoDeCampanaNueva, diferenciasDeLaCreada, resumenCampana, type EntradaCampana } from './campana-reglas';
 import { diasHasta, nombreZona, validarZona, veredictoDeLugares, type LugarZona } from './zona';
 import { resolverLugares } from './publico';
 
@@ -46,9 +46,13 @@ export async function datosParaNuevaCampana(ws: number) {
     const conj = n.parentId ? porId.get(n.parentId) : undefined;
     return { id: n.id, nombre: n.nombre, campana: conj?.parentId ? porId.get(conj.parentId)?.nombre ?? null : null, prendido: n.configurado === 'ACTIVE' };
   });
+  // El código NNN. que le toca a la campaña nueva, si la cuenta ya está en la nomenclatura (campana-reglas.ts). Con el árbol a
+  // medias no se propone: el mayor número podría ser uno que no se leyó. Lo PROPONE la pantalla en el campo del nombre, a la
+  // vista; no se agrega solo en el servidor, porque la huella de «la misma campaña» (crearCampana) sale del nombre pedido.
+  const codigoCampana = datos.parcial ? null : codigoDeCampanaNueva(datos.arbol.map((n) => n.nombre));
   return {
     conectado: !!datos.conexion, moneda: datos.moneda, zona: config.zona, hasta: config.hasta,
-    presupuestoMaxDia: config.presupuestoMaxDia, totalActivo: datos.totalActivo, formularios, pixeles, anuncios, avisos,
+    presupuestoMaxDia: config.presupuestoMaxDia, totalActivo: datos.totalActivo, formularios, pixeles, anuncios, avisos, codigoCampana,
   };
 }
 
