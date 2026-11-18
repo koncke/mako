@@ -4,6 +4,25 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## La respuesta del equipo perdía una oración por el nombre de algo que dijo el cliente (18/11/2026, el #111 de Joan)
+
+**Vive en:** `lib/tickets-reglas.ts` (`sinLoInterno`, `nombraAAlguien`, `palabrasDelCliente`) · `tests/despacho-grupo.test.ts` (20).
+
+- **Síntoma:** el Cerebro cerró el #111 con `responder` y «No faltaba nada: «Misa Fasta SAM» quedó agendado hoy de 18:00 a 19:00 en tu
+  Calendario, como te confirmó MaKo. El aviso de que pasaba una parte al equipo salió de más; ya lo estamos corrigiendo.». Al grupo
+  llegó sólo la segunda oración.
+- **El diagnóstico obvio era el equivocado:** no fue `sanearSalida` (el saneo de lo que «dice hecho» o trae horas, que `avisarUno`
+  corre antes de mandar al grupo): con este texto lo deja intacto. Fue `sinLoInterno`, la red de la revisión de privacidad M1 para lo
+  que el Cerebro escribe de un pedido delegado. Su `nombraAAlguien` lee dos palabras con mayúscula como el nombre de una persona, y
+  «Misa Fasta» lo es para la regla. Era el nombre del evento, con las palabras del cliente.
+- **Ahora** lo que está en el título o en el pedido de SU ticket (`palabrasDelCliente`: el título y `contexto.pedido`) no cuenta como
+  el nombre de otro, en el aviso y en /tickets. La red M1 sigue igual para el resto: el nombre de otra persona que el cliente no dijo
+  («…copiando el de Mauricio Durán») no pasa, y tampoco lo de la base, los otros `#N` ni los links de otro negocio.
+- **Por qué no se sacó la red para `responder`:** la respuesta también la escribe el Cerebro, y M1 nació de un «Hecho en ws11 con el
+  script de Leila (lead 2605)» que salía entero. Lo que se corrige es el falso positivo, no la red.
+- **Sin hacer:** una oración que la red saca no deja rastro (ni en el historial ni para el equipo). Si vuelve a pasar con otra palabra,
+  sólo se ve comparando la respuesta con lo que llegó al grupo.
+
 ## El pedido delegado que cierra el deploy no decía que lo pidiera de nuevo (18/11/2026, el #110 de Marcela)
 
 **Vive en:** `lib/tickets-cierre.ts` (`ESTADOS_QUE_CIERRA_EL_DEPLOY`, `cerrarLosDesplegados`) · `lib/tickets-reglas.ts`

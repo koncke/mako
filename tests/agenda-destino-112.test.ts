@@ -71,6 +71,13 @@ test('1. con Google conectado, el pedido TAL CUAL («mi calendario») va a Googl
   // Sin lo que el doer leyó de la agenda (el chat de la app, o antes de esto): como siempre, el de MaKo. Era el #112.
   const antes = turno(PEDIDO, { agenda: false });
   assert.ok(antes.tools.some((x) => x.name === 'crear_evento_calendario') && !antes.tools.some((x) => x.name === 'crear_evento_google'));
+  // EL CASO REAL QUE ANDUVO (18/11/2026, 13:00 UTC): con la frase que le mandó el equipo, MaKo propuso por `proponer_agendar_agenda`
+  // («Voy a agendar en tu Google Calendar "Misa Fasta SAM" hoy 18/11 a las 18:00 por 1 hora, sin invitados»), Joan dijo «si» y a las
+  // 13:01:06 quedó en su Google Calendar. Ese camino sigue: con el arreglo viaja también `crear_evento_google`, y no el de MaKo.
+  const ANDUVO = 'Mako agenda en mi Google Calendar hoy a las 18:00, que dure 1 hora, un evento que se llame Misa Fasta SAM';
+  assert.ok(nombres(turno(ANDUVO, { agenda: false })).includes('proponer_agendar_agenda'), 'lo que anduvo en producción');
+  const real = nombres(turno(ANDUVO));
+  assert.ok(real.includes('proponer_agendar_agenda') && real.includes('crear_evento_google') && !real.includes('crear_evento_calendario'), real.join(', '));
   // «mi agenda», «en Google»: lo mismo.
   for (const f of ['agenda en mi agenda hoy a las 18 la Misa Fasta SAM por una hora', 'agendalo en google hoy a las 18', 'crea un evento en mi Google Calendar hoy a las 18hs por 1 hora que se llame Misa Fasta SAM']) {
     assert.equal(destinoDeLaAgenda({ texto: f, guardado: null, google: CONECTADO }), 'google', f);

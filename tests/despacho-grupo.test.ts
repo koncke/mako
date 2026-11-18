@@ -525,3 +525,22 @@ test('19. una «parte» que es un DATO de lo que se propuso, o una lectura que e
   assert.match(doer, /const partes = partesQueCuentan\(claseDeLaIA\?\.partes \?\? \[\], \{ escrituras: datosDeLasEscrituras, leyo: leyoDelTurno \}\);/);
   assert.equal((doer.match(/anotarSalida\(name, (?:previo\.)?out, input\)/g) ?? []).length, 2, 'una salida se anota sin sus argumentos');
 });
+
+test('20. lo que el equipo le contesta a un pedido delegado no pierde una oración por el nombre de algo que dijo el CLIENTE (#111)', () => {
+  // El cierre del #111 TAL CUAL (el Cerebro, 18/11/2026, decisión `responder`). Al grupo llegó sólo la segunda oración: «Misa Fasta» se
+  // leía como el nombre de una persona (`nombraAAlguien`). Rota: sin `suyo` en `sinLoInterno` → vuelve a llegar media respuesta.
+  const r = 'No faltaba nada: «Misa Fasta SAM» quedó agendado hoy de 18:00 a 19:00 en tu Calendario, como te confirmó MaKo. El aviso de que pasaba una parte al equipo salió de más; ya lo estamos corrigiendo.';
+  const t111 = {
+    id: 111, titulo: 'Lo que faltó de: Crear evento hoy 18 a las 18hs; Duración 1 hora (Nombre: Misa Fasta SAM)', estado: 'resuelto', respuesta: r,
+    duplicado_de: null, workspace_id: 13, decision: 'responder',
+    contexto: { delegado: true, pedido: 'Mako agenda un evento en mi calendario hoy 18 a las 18hs, que dure 1hora , que se llame Misa Fasta SAM' },
+  };
+  assert.equal(textoDelAviso(t111), `Sobre tu pedido #111 («${t111.titulo}»): ${r}`);
+  // /tickets, lo mismo (el «listo» de un delegado resuelto es el del aviso).
+  const fila = { ...t111, descripcion: 'ACCIÓN DELEGADA', tipo: 'pedido' as const, created_at: '2026-11-18T12:43:00Z', updated_at: '2026-11-18T12:45:00Z', despacho: null, decidido_at: null, resuelto_at: '2026-11-18T12:45:00Z' };
+  assert.equal(paraElCliente(fila as never).respuesta, `Sobre tu pedido #111 («${t111.titulo}»): ${r}`);
+  // La red de la revisión de privacidad (M1) sigue: el nombre de OTRA persona, que el cliente no dijo, no pasa.
+  const conOtro = 'No faltaba nada: «Misa Fasta SAM» quedó agendado. Lo armé copiando el de Mauricio Durán.';
+  assert.equal(textoDelAviso({ ...t111, respuesta: conOtro }), `Sobre tu pedido #111 («${t111.titulo}»): No faltaba nada: «Misa Fasta SAM» quedó agendado.`);
+  assert.equal(sinLoInterno('Lo armé copiando el de Mauricio Durán.', { id: 111, suyo: 'agenda la Misa Fasta SAM' }), '');
+});
