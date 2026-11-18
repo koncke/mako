@@ -98,7 +98,7 @@ test('la forma: pestañas y rutas únicas, el clic sólo en el último paso y co
 test('tutorialDeRuta encuentra por la ruta de escritorio y por la del teléfono, sin el ? ni el #', () => {
   assert.equal(tutorialDeRuta('/crm?funnel=2')?.pestana, 'crm');
   assert.equal(tutorialDeRuta('/m/cuenta')?.pestana, 'settings');
-  assert.equal(tutorialDeRuta('/integraciones#saldo-ia')?.pestana, 'integraciones');
+  assert.equal(tutorialDeRuta('/integraciones#saldo-ia')?.pestana, 'settings-integraciones');
   assert.equal(tutorialDeRuta('/no-existe'), null);
   // Una vista de adentro con su query gana; sin ella, la pestaña.
   assert.equal(tutorialDeRuta('/second-brain?ticketera=tickets')?.pestana, 'ticketera');

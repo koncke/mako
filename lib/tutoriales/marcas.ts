@@ -24,6 +24,12 @@ export const MARCA = {
   webMisLandings: 'tour-web-mis-landings',
   /** Prioridades · Tareas · Proyectos · Recurrentes del Plan de la computadora (en el teléfono: `.m-seg[aria-label="Vista"]`). */
   planVistas: 'tour-plan-vistas',
+  /** «Invitar» de Settings › Equipo (app/equipo/EquipoView.tsx). */
+  equipoInvitar: 'tour-equipo-invitar',
+  /** La foto de la barra lateral, que abre el menú de Configuración (app/_components/Sidebar.tsx). Sólo computadora. */
+  barraFoto: 'tour-barra-foto',
+  /** «Mover a…» de la ficha rápida (app/_ui/TarjetaKanban.tsx → CuerpoFichaRapida), en la computadora y en el teléfono. */
+  crmMoverA: 'tour-crm-mover-a',
 } as const;
 
 /** Una sección de Settings (lib/ajustes-secciones.ts: `info`, `seguridad`, `instalar`, `equipo`, `integraciones`…). */

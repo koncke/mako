@@ -16,6 +16,7 @@ import { TUTORIAL_COPILOT } from './copilot';
 import { TUTORIAL_COPYWRITING } from './copywriting';
 import { TUTORIAL_CRM } from './crm';
 import { TUTORIAL_DASHBOARD } from './dashboard';
+import { TUTORIAL_EQUIPO } from './equipo';
 import { TUTORIAL_IMAGE } from './image';
 import { TUTORIAL_INTEGRACIONES } from './integraciones';
 import { TUTORIAL_OFFER } from './offer';
@@ -37,6 +38,7 @@ export const TUTORIALES: readonly TutorialPestana[] = [
   TUTORIAL_OFFER,
   TUTORIAL_SETTINGS,
   TUTORIAL_INTEGRACIONES,
+  TUTORIAL_EQUIPO,
   TUTORIAL_CRM,
   TUTORIAL_TICKETERA,
   TUTORIAL_CHATS,
