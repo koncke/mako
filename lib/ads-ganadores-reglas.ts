@@ -22,7 +22,10 @@ import type { ScriptView } from './ads-analyst';
 export const PISO_GANADOR = { agendas: 3, impresiones: 8_000, cuantos: 3 } as const;
 
 /** Lo que se mira de cada guion analizado (una `ScriptView` de lib/ads-analyst.ts). */
-export type GuionConSenal = Pick<ScriptView, 'short' | 'angle' | 'hookType' | 'agendas' | 'spend' | 'impressions' | 'beats'>;
+export type GuionConSenal = Pick<ScriptView, 'short' | 'angle' | 'hookType' | 'agendas' | 'spend' | 'impressions'> & {
+  /** Los bloques del guion (los de una `ScriptView` traen además su retención, que acá no se usa). */
+  beats: ReadonlyArray<{ kind: string; text: string }>;
+};
 
 /** Los anuncios que pasan el piso, los que más agendaron primero (y a igual agendas, el que las trajo más barato). */
 export function ganadoresConPiso<T extends GuionConSenal>(guiones: readonly T[], piso: { agendas: number; impresiones: number; cuantos: number } = PISO_GANADOR): T[] {

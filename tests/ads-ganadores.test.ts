@@ -46,7 +46,7 @@ test('3. los que más agendaron primero, a igual agendas el más barato, y sólo
 test('4. lo que se dice de cada uno: el gancho dicho, su ángulo por nombre y cuánto costó cada agenda', () => {
   const g = guion({
     short: 'resumen corto', angle: 'testimonio', hookType: 'resultado', agendas: 6, spend: 300, impressions: 40_000,
-    beats: [{ kind: 'contexto', t0: 0, text: 'Contexto' }, { kind: 'gancho', t0: 0, text: 'En 30 días llené mi agenda sin llamar en frío' }],
+    beats: [{ kind: 'contexto', text: 'Contexto' }, { kind: 'gancho', text: 'En 30 días llené mi agenda sin llamar en frío' }],
   });
   const [linea] = lineasDeGanadores([g], (c) => (c === 'testimonio' ? 'Testimonio' : c));
   assert.equal(linea, '- «En 30 días llené mi agenda sin llamar en frío» · ángulo Testimonio · gancho de tipo resultado · 6 agendas, US$ 50 por agenda');

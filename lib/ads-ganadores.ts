@@ -11,7 +11,7 @@
 
 import 'server-only';
 import { guionesConSenal } from './ads-analyst';
-import { getAngles } from './script-angles';
+import { getAngles, type Angle } from './script-angles';
 import { contenidoNoConfiable } from './prompt-render-pure';
 import { encabezadoDeGanadores, ganadoresConPiso, lineasDeGanadores, PISO_GANADOR } from './ads-ganadores-reglas';
 
@@ -24,7 +24,7 @@ export async function ganadoresParaEscribir(): Promise<string> {
     const trabajo = (async () => {
       const ganadores = ganadoresConPiso(await guionesConSenal(), PISO_GANADOR);
       if (!ganadores.length) return '';
-      const angulos = await getAngles().catch(() => []);
+      const angulos = await getAngles().catch((): Angle[] => []);
       const nombre = (clave: string) => angulos.find((a) => a.key === clave)?.label ?? clave;
       return `${encabezadoDeGanadores(PISO_GANADOR)}\n${contenidoNoConfiable(lineasDeGanadores(ganadores, nombre).join('\n'), 'anuncios_del_negocio')}`;
     })();
