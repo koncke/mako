@@ -20,7 +20,7 @@ import { redirect } from 'next/navigation';
 import { destinoDeTabVieja } from './tabs-catalogo';
 import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
-import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
+import { veOnboardingV2, esRevision } from '@/lib/onboarding-v2/revision';
 import { prefiereMovil } from '@/lib/movil-guard';
 import { ChatArranque } from './ChatArranque';
 import { requireRolWs } from '@/lib/tab-access';
@@ -63,7 +63,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     const seguirEnPc = v2 && (await prefiereMovil().catch(() => false));
     const persona = sesion ? { nombre: (sesion.nombre ?? '').trim().split(/\s+/)[0] ?? '', email: sesion.email } : undefined;
     const ws = await getWorkspaceActual();
-    return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} />;
+    return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} videos={v2 ? { revision: esRevision(v2) } : null} />;
   }
 
   // Ya onboardeado → Second Brain, a la sección que pedía el link (`?tab=`), o a su portada.

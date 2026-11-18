@@ -71,3 +71,20 @@ test('el video y la marca van juntos: las frases del manifiesto, con su pausa y 
   assert.match(motor, /if \(!e\.isTrusted\) return;/, 'el Escape con el que el motor cierra un panel no omite el tutorial');
   assert.doesNotMatch(motor, />×</, 'la X del video es un SVG, nunca la letra');
 });
+
+test('los videos de los momentos del onboarding: sus keys, el recorrido la primera vez y el nombre de lo marcado (18/11)', async () => {
+  const { nombreDeFrase, hazDeFrase } = await import('../lib/tutoriales/videos');
+  assert.equal(nombreDeFrase('Toca aquí, en el Objetivo Principal: el perro del Plan te dice por qué.'), 'Objetivo Principal');
+  assert.equal(nombreDeFrase('Mira aquí, el lienzo: ahí se arma cada una.'), 'El lienzo');
+  assert.equal(hazDeFrase('Toca aquí, en la primera de tus cinco tareas, para ver qué te toca.'), 'Haz clic en la primera de tus cinco tareas');
+  assert.equal(hazDeFrase('Toca aquí, en Ver info, para abrir la ficha.'), 'Haz clic en Ver info');
+  assert.equal(nombreDeFrase('Imagina un equipo que trabaja para tu negocio.'), null, 'una frase sin «aquí» no nombra nada');
+  const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
+  const motor = leer('app/_ui/tutorial/MotorTutorial.tsx');
+  assert.match(motor, /const VIDEO_PRIMERA_VEZ_OPS = 'recorrido';/, 'la primera vez en el Ops Center, el video del recorrido');
+  assert.match(motor, /t\.pestana === 'ops-center' \? \{ video: VIDEO_PRIMERA_VEZ_OPS \}/);
+  const chat = leer('app/onboarding/ChatArranque.tsx');
+  for (const k of ['onboarding-bienvenida', 'onboarding-whatsapp', 'onboarding-seguir-pc']) assert.match(chat, new RegExp(`clave[=:] ?["']${k}["']`), `el lugar de ${k}`);
+  assert.match(leer('app/onboarding/page.tsx'), /videos=\{v2 \? \{ revision: esRevision\(v2\) \} : null\}/, 'sólo el onboarding V2 tiene los videos');
+  assert.doesNotMatch(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /landing|vsl/i, 'nunca otro video en su lugar');
+});

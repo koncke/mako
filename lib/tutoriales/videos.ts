@@ -80,3 +80,21 @@ export function videoDe(manifiesto: unknown, key: string): VideoTutorial | null 
   const frases = frasesDe(crudas);
   return { ...resto, archivo: ruta(v.archivo), ...(typeof v.poster === 'string' && v.poster ? { poster: ruta(v.poster) } : {}), ...(frases.length ? { frases } : {}) };
 }
+
+/**
+ * El nombre de lo que la voz marca, de su propia frase: «Toca aquí, en el Objetivo Principal: …» → «Objetivo Principal»;
+ * «Mira aquí, el lienzo: …» → «El lienzo». Para la tarjeta cuando ningún paso de lib/tutoriales marca lo mismo.
+ */
+export function nombreDeFrase(texto: string): string | null {
+  const m = /(?:toca|haz clic|mira)\s+aquí,?\s*(?:en\s+)?([^:.,;]+)/i.exec(texto || '');
+  if (!m) return null;
+  const x = m[1].trim().replace(/^(?:la|el)\s+(?=[A-ZÁÉÍÓÚ¿«])/, '');
+  return x ? x[0].toUpperCase() + x.slice(1) : null;
+}
+
+/** «Haz clic en …» con el nombre de la frase («Haz clic en la primera de tus cinco tareas», «Haz clic en Ver info»). */
+export function hazDeFrase(texto: string): string | null {
+  const n = nombreDeFrase(texto);
+  if (!n) return null;
+  return `Haz clic en ${/^(?:La|El|Los|Las|Un|Una|Tu|Tus) /.test(n) ? n[0].toLowerCase() + n.slice(1) : n}`;
+}

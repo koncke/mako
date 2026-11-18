@@ -29,9 +29,11 @@ import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
 import { motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
 import { useVideoTutorial } from './useVideoTutorial';
-import { fraseParaMarcar, mismoLugar, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
+import { fraseParaMarcar, hazDeFrase, mismoLugar, nombreDeFrase, type FraseVideo, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
 
+/** El video de la primera vez en el Ops Center: el recorrido (public/tutoriales/recorrido.mp4). */
+const VIDEO_PRIMERA_VEZ_OPS = 'recorrido';
 /** Cuánto se espera a que aparezca lo de un paso antes de saltearlo. */
 const ESPERA_PASO_MS = 3000;
 /** MaKo Mobile: por debajo de esto la pestaña es la del teléfono (los pasos `soloComputadora` no van). */
@@ -75,10 +77,10 @@ function pasoDeFrase(f: FraseVideo, pasos: readonly PasoTutorial[]): PasoTutoria
   const mismo = sel ? pasos.find((p) => mismoLugar(p.sel, sel)) : undefined;
   return {
     sel: mismo?.sel ?? sel,
-    titulo: mismo?.titulo ?? (f.espera_clic ? 'Toca aquí' : 'Mira aquí'),
+    titulo: mismo?.titulo ?? nombreDeFrase(f.texto) ?? (f.espera_clic ? 'Toca aquí' : 'Mira aquí'),
     texto: mismo?.texto ?? f.texto,
     lado: mismo?.lado,
-    ...(f.espera_clic ? { clic: true as const, haz: mismo?.haz ?? 'Haz clic en lo marcado' } : {}),
+    ...(f.espera_clic ? { clic: true as const, haz: mismo?.haz ?? hazDeFrase(f.texto) ?? 'Haz clic en lo marcado' } : {}),
   };
 }
 
@@ -146,7 +148,9 @@ function PrimeraVez({ t }: { t: TutorialPestana }) {
     const desde = Date.now();
     const mirar = () => {
       if (!vivo || pedido.current || senalAhora()) return;
-      if (lugarDe(pasos[0].sel) || Date.now() - desde > 6000) { pedido.current = true; mostrarTutorial(t, { alTerminar: onCerrar }); return; }
+      // La PRIMERA vez en el Ops Center (recién salida del onboarding), el video del recorrido en lugar del de la pestaña: presenta
+      // a los coaches, Uso, la Ticketera y termina mandando al chat del reto (acordado con el chat de los videos, 18/11).
+      if (lugarDe(pasos[0].sel) || Date.now() - desde > 6000) { pedido.current = true; mostrarTutorial(t, { alTerminar: onCerrar, ...(t.pestana === 'ops-center' ? { video: VIDEO_PRIMERA_VEZ_OPS } : {}) }); return; }
       window.setTimeout(mirar, 250);
     };
     const id = window.setTimeout(mirar, 600);
@@ -168,13 +172,19 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
   const tarjetaRef = useRef<HTMLDivElement>(null);
 
   // El video de la pestaña y, si trae frases con marca, el modo en que el video manda (después de «Empezar»).
-  const video = useVideoTutorial(senal.tipo === 'tutorial' ? senal.tutorial.pestana : null);
+  const videoPedido = useVideoTutorial(senal.tipo === 'tutorial' ? senal.video ?? null : null);
+  const videoPropio = useVideoTutorial(senal.tipo === 'tutorial' ? senal.tutorial.pestana : null);
+  const video = videoPedido ?? videoPropio;
+  // Con otro video que el de la pestaña (el recorrido), su cierre es SU último lugar marcado («toca aquí, en Reto de 7 días»), no el
+  // último paso del tutorial de la pestaña.
+  const conVideoPedido = !!videoPedido;
   const frases = useMemo(() => video?.frases ?? [], [video]);
   const conFrases = senal.tipo === 'tutorial' && frases.some((f) => f.sel);
   const vidRef = useRef<HTMLVideoElement>(null);
   const [modoVideo, setModoVideo] = useState(false);
   const [frase, setFrase] = useState<FraseVideo | null>(null);
   const [cierre, setCierre] = useState(false);
+  const [cierreFrase, setCierreFrase] = useState<FraseVideo | null>(null);
   const hechas = useRef(new Set<string>());
   // Las que la persona TOCÓ (no las que sólo se mostraron o pasó con «Siguiente»): el cierre no repite un CTA ya tocado.
   const tocadas = useRef(new Set<string>());
@@ -182,9 +192,14 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
   const pasoFrase = useMemo(() => (frase ? pasoDeFrase(frase, pasos) : null), [frase, pasos]);
   const ultimoPaso = pasos[pasos.length - 1] ?? null;
 
-  const paso = modoVideo ? (cierre ? ultimoPaso : pasoFrase) : i >= 0 ? pasos[i] : null;
+  const pasoCierre = useMemo(() => {
+    if (!cierreFrase) return ultimoPaso;
+    const p = pasoDeFrase(cierreFrase, pasos);
+    return { ...p, clic: true as const, haz: p.haz ?? hazDeFrase(cierreFrase.texto) ?? 'Haz clic en lo marcado' };
+  }, [cierreFrase, ultimoPaso, pasos]);
+  const paso = modoVideo ? (cierre ? pasoCierre : pasoFrase) : i >= 0 ? pasos[i] : null;
   const ultimo = modoVideo ? cierre : i === pasos.length - 1;
-  const esperaClic = senal.tipo === 'marca' ? !senal.listo : modoVideo ? (cierre ? !!ultimoPaso?.clic : !!frase?.espera_clic) : !!(paso?.clic && ultimo);
+  const esperaClic = senal.tipo === 'marca' ? !senal.listo : modoVideo ? (cierre ? !!pasoCierre?.clic : !!frase?.espera_clic) : !!(paso?.clic && ultimo);
   // Entre una frase con marca y la siguiente, sólo el video: ni velo ni tarjeta (la página sigue usable).
   const soloVideo = modoVideo && !paso;
 
@@ -192,13 +207,20 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
   /** Terminó el video: el cierre es el CTA del tutorial (su último paso, con «Haz clic en…»), si no se tocó ya con el video. */
   const irAlCierre = useCallback(() => {
     const decidir = () => {
+      if (conVideoPedido) {
+        // El cierre del video pedido: su último lugar marcado, si no lo tocó ya y está en la página.
+        const f = [...frases].reverse().find((x) => !!x.sel);
+        if (f && !tocadas.current.has(f.id) && lugarDe(pasoDeFrase(f, pasos).sel)) { setCierreFrase(f); setCierre(true); }
+        else fin('fin');
+        return;
+      }
       const u = pasos[pasos.length - 1];
       const yaTocado = !!u && frases.some((f) => !!f.sel && tocadas.current.has(f.id) && mismoLugar(u.sel, f.sel));
       if (u?.clic && !yaTocado && lugarDe(u.sel)) setCierre(true);
       else fin('fin');
     };
     if (porCerrar.current) { porCerrar.current = false; cerrarLoAbierto(); window.setTimeout(decidir, 300); } else decidir();
-  }, [pasos, frases, fin]);
+  }, [pasos, frases, fin, conVideoPedido]);
   /** La frase marcada ya está (la tocaron, «Siguiente», o pasó su tiempo): el video sigue. */
   const seguirVideo = useCallback((porClic = false) => {
     if (frase) { hechas.current.add(frase.id); if (porClic) tocadas.current.add(frase.id); if (frase.cierra_despues) porCerrar.current = true; }
@@ -222,7 +244,7 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
   /** La persona cerró el video mientras mandaba: sigue con las tarjetas, desde el primer paso. */
   const sinVideo = useCallback(() => {
     if (!modoVideo) return;
-    setModoVideo(false); setFrase(null); setCierre(false); setEl(null); setGeo({ hueco: null, tarjeta: null }); setI(0);
+    setModoVideo(false); setFrase(null); setCierre(false); setCierreFrase(null); setEl(null); setGeo({ hueco: null, tarjeta: null }); setI(0);
   }, [modoVideo]);
 
   // 0b. Lo marcado por una frase desapareció (cerraron el panel tocando afuera, cambió la vista): el video sigue, nunca queda
