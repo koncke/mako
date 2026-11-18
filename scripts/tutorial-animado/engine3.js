@@ -32,11 +32,29 @@ function layout(ctx, text, size, maxW) {
   if (cur) lines.push(cur); return lines;
 }
 // the words, line by line; `alinear` center or left; colors by position (emphIdx) — MaKo always gold
+// A highlighted name (a button: «A cobrar», «Ver info») never breaks across lines (the Cerebro, 18/11): consecutive emphasized
+// words are joined with a no-break space for the line breaking, and painted word by word as before.
+var NB = ' ';
+// Only ONE name is joined: a list («Publicaciones, Plan, Ventas», «Celular, WhatsApp») is several names, so a comma or a period
+// ends the piece; a quote («lo que tengo que hacer hoy…») is a sentence, it breaks like any text; and more than 5 words is not a
+// button.
+function unido(c) {
+  var ws = c.text.split(' '), idx = c.emphIdx || [], grupos = [], g = null;
+  ws.forEach(function (w, i) {
+    var e = idx.indexOf(i) >= 0;
+    if (e && g && !/[,;:.!?…»]$/.test(ws[i - 1])) g.push(i); else if (e) { g = [i]; grupos.push(g); } else g = null;
+  });
+  var pega = {};
+  grupos.forEach(function (gr) { if (gr.length > 1 && gr.length <= 5 && ws[gr[0]].charAt(0) !== '«') gr.slice(1).forEach(function (i) { pega[i] = 1; }); });
+  var out = [];
+  ws.forEach(function (w, i) { if (pega[i]) out[out.length - 1] += NB + w; else out.push(w); });
+  return out.join(' ');
+}
 function pintarTexto(ctx, c, lines, size, x, y0, lh, alinear, sobreAzul) {
   ctx.font = '800 ' + size + 'px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   var idx = c.emphIdx || [], base = sobreAzul ? '#FFFFFF' : INK, hi = sobreAzul ? '#FFFFFF' : BLUE, gi = 0;
   for (var li = 0; li < lines.length; li++) {
-    var ws = lines[li].split(' '), widths = ws.map(function (w) { return ctx.measureText(w).width; }), sp = ctx.measureText(' ').width;
+    var ws = lines[li].split(' ').join(NB).split(NB), widths = ws.map(function (w) { return ctx.measureText(w).width; }), sp = ctx.measureText(' ').width;
     var tot = widths.reduce(function (a, b) { return a + b; }, 0) + sp * (ws.length - 1), xx = alinear === 'centro' ? x - tot / 2 : x;
     for (var wi = 0; wi < ws.length; wi++, gi++) {
       ctx.fillStyle = norm(ws[wi]) === 'mako' ? GOLD : idx.indexOf(gi) >= 0 ? hi : base;
@@ -45,9 +63,20 @@ function pintarTexto(ctx, c, lines, size, x, y0, lh, alinear, sobreAzul) {
   }
 }
 function ajustar(ctx, text, size, maxW, maxLines, minSize) {
-  var lines = layout(ctx, text, size, maxW);
-  while (lines.length > maxLines && size > minSize) { size -= 6; lines = layout(ctx, text, size, maxW); }
-  return { lines: lines, size: size };
+  // A joined name is one unbreakable piece. The letters keep the size the plain text would get; if the whole name pushes the
+  // text to one more line, it takes that line («Tu turno: toca aquí, en / Nueva automatización, y pídesela a / MaKo.») instead of
+  // shrinking to the minimum to fit in the old count. Only if that does not fit either, smaller. Never past the edge.
+  function encaja(t, s, n) {
+    var ls = layout(ctx, t, s, maxW); if (ls.length > n) return null;
+    ctx.font = '800 ' + s + 'px ' + FONT;
+    return ls.every(function (l) { return ctx.measureText(l).width <= maxW; }) ? ls : null;
+  }
+  var plano = text.split(NB).join(' '), s0 = size;
+  while (!encaja(plano, s0, maxLines) && s0 > minSize) s0 -= 6;
+  var ls = encaja(text, s0, maxLines) || (text !== plano ? encaja(text, s0, maxLines + 1) : null);
+  if (ls) return { lines: ls, size: s0 };
+  var s = s0; while (!(ls = encaja(text, s, maxLines)) && s > minSize) s -= 6;
+  return { lines: ls || layout(ctx, text, s, maxW), size: s };
 }
 
 // ── the text of each kind of moment ──
@@ -71,19 +100,20 @@ var _detras = {};
 function layoutDetras(ctx, W, H, c) {
   var k = CH.indexOf(c); if (_detras[k]) return _detras[k];
   // a short sentence goes on ONE line, smaller if it must («Eso es el Ops Center:» must not break between «Ops» and «Center»)
-  var f = c.text.split(' ').length <= 6 ? ajustar(ctx, c.text, 172, W * 0.9, 1, 118) : null;
-  if (!f || f.lines.length > 1) f = ajustar(ctx, c.text, 172, W * 0.88, 2, 110);
+  var f = c.text.split(' ').length <= 6 ? ajustar(ctx, unido(c), 172, W * 0.9, 1, 118) : null;
+  if (!f || f.lines.length > 1) f = ajustar(ctx, unido(c), 172, W * 0.88, 2, 110);
   var lh = f.size * 1.08, n = f.lines.length;
   var yLast = n === 1 ? 470 : 520, y0 = yLast - (n - 1) * lh;
   ctx.font = '800 ' + f.size + 'px ' + FONT;
   var ult = f.lines[n - 1], ws = ult.split(' '), sp = ctx.measureText(' ').width, wd = ws.map(function (w) { return ctx.measureText(w).width; });
   // his head goes over the longest PLAIN word of the last line: never over a name in blue or over MaKo, which are what must read
   var tot = wd.reduce(function (a, b) { return a + b; }, 0) + sp * (ws.length - 1), x = W / 2 - tot / 2, mejor = null, cualquiera = null;
-  var desde = c.text.split(' ').length - ws.length, em = c.emphIdx || [];
+  var em = c.emphIdx || [], desde = 0; for (var q = 0; q < n - 1; q++) desde += f.lines[q].split(' ').join(NB).split(NB).length;
+  var ini = []; ws.reduce(function (acc, w) { ini.push(acc); return acc + w.split(NB).length; }, desde);
   ws.forEach(function (w, i) {
     var cand = { w: wd[i], c: x + wd[i] / 2 };
     if (!cualquiera || wd[i] > cualquiera.w) cualquiera = cand;
-    if (em.indexOf(desde + i) < 0 && norm(w) !== 'mako' && (!mejor || wd[i] > mejor.w)) mejor = cand;
+    if (w.indexOf(NB) < 0 && em.indexOf(ini[i]) < 0 && norm(w) !== 'mako' && (!mejor || wd[i] > mejor.w)) mejor = cand;
     x += wd[i] + sp;
   });
   mejor = mejor || cualquiera;
@@ -97,7 +127,7 @@ var PELO = 134;   // the top of his hair in the #vox canvas (measured: prueba-vo
 var _arriba = {};
 function layoutArriba(ctx, W, H, c) {
   var k = CH.indexOf(c); if (_arriba[k]) return _arriba[k];
-  var f = ajustar(ctx, c.text, 128, W * 0.86, 2, 80), lh = f.size * 1.12, alto = f.lines.length * lh;
+  var f = ajustar(ctx, unido(c), 128, W * 0.86, 2, 80), lh = f.size * 1.12, alto = f.lines.length * lh;
   var yFin = 205 - alto / 2 + lh / 2, abajo = yFin - lh / 2 + alto, s = 1.3;
   return (_arriba[k] = { f: f, lh: lh, alto: alto, yFin: yFin, lugar: { s: s, cx: 960, top: abajo + 40 - (PELO - 100) * s, a: 1 } });
 }
@@ -110,7 +140,7 @@ function textoDetras(ctx, W, H, c, age, life) {
   pintarTexto(ctx, c, L.lines, L.size, 0, L.y0 - mid, L.lh, 'centro', false); ctx.restore();
 }
 function textoLado(ctx, W, H, c, age, life) {
-  var f = ajustar(ctx, c.text, 112, W * 0.52, 3, 72), lh = f.size * 1.14, alto = f.lines.length * lh;
+  var f = ajustar(ctx, unido(c), 112, W * 0.52, 3, 72), lh = f.size * 1.14, alto = f.lines.length * lh;
   // when he is still crossing over from the center, the text waits for him (it would show through his head)
   var espera = CH[CH.indexOf(c) - 1] && CH[CH.indexOf(c) - 1].modo !== 'lado' ? 220 : 0, a2 = age - espera;
   var op = eoCubic(clamp(a2 / 300, 0, 1)), dx = lerp(-36, 0, eoBack(clamp(a2 / 420, 0, 1)));
@@ -119,7 +149,7 @@ function textoLado(ctx, W, H, c, age, life) {
   pintarTexto(ctx, c, f.lines, f.size, 140, H * 0.5 - alto / 2 + lh / 2, lh, 'izq', false); ctx.restore();
 }
 function textoTitulo(ctx, W, H, c, age, life, azul) {
-  var f = ajustar(ctx, c.text, 132, W * 0.84, 2, 60), lh = f.size * 1.14, alto = f.lines.length * lh;
+  var f = ajustar(ctx, unido(c), 132, W * 0.84, 2, 60), lh = f.size * 1.14, alto = f.lines.length * lh;
   var op = eoCubic(clamp(age / 300, 0, 1)), dy = lerp(40, 0, eoBack(clamp(age / 400, 0, 1))), sc = lerp(0.94, 1, eoBack(clamp(age / 400, 0, 1)));
   if (age > life - 220) { var o = clamp((age - (life - 220)) / 220, 0, 1); op *= 1 - o * 0.9; dy -= o * 20; }
   ctx.save(); ctx.globalAlpha = op; ctx.translate(W / 2, H / 2 + dy); ctx.scale(sc, sc);

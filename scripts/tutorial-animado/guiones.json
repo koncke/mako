@@ -548,7 +548,7 @@
    {
     "dice": "Toca aquí, en el botón del calendario, junto a Filtrar, para ver tus próximas reuniones.",
     "rol": "accion",
-    "sel": "[data-recorrido=\"tour-crm-reuniones\"]",
+    "sel": "[data-recorrido=\"tour-crm-reuniones\"], .m-crm-arriba .crm-reus",
     "cierra": true,
     "tipo": "toca"
    },

@@ -180,8 +180,27 @@ const NOMBRES = ['Ver info', 'Mover a', 'Más acciones', 'Analicemos mi oferta',
   'Ops Center', 'Reto de 7 días', 'Mensaje para', 'Pegar link o texto', 'Buscar plantilla', 'Plantillas con estructura',
   'Tu personaje con IA', 'Antes de generar', 'Offer Coach', 'Funnel Coach', 'Tu oferta', 'Tu perfil'].concat(g.nombres || []);
 const limpiar = (t) => t.replace(/[.,:;¿?¡!…"«»“”()]/g, '').toLowerCase();
+// The button an action names, WHOLE («Toca aquí, en A cobrar:», «Mira aquí, Hacerme partner:»): from after «aquí,» (and «en»)
+// up to the word that ends in «,», «:» or «.», without a leading article; only if it starts with a capital or «¿» (a name as
+// the app writes it) and has 6 words or fewer. Global word indices (w.i), so a chunk break does not matter.
+const ARTICULO = /^(el|la|los|las|tu|tus|un|una|su|sus)$/i;
+function nombreDeAccion(pal) {
+  const fuera = new Set();
+  for (let k = 0; k < pal.length; k++) {
+    if (!/^aquí[,:]?$/i.test(pal[k].t)) continue;
+    let j = k + 1; if (pal[j] && /^en$/i.test(pal[j].t)) j++;
+    while (pal[j] && ARTICULO.test(pal[j].t)) j++;
+    const ini = j; let fin = -1;
+    for (; j < pal.length && j - ini < 7; j++) if (/[,:.;]["»”]?$/.test(pal[j].t)) { fin = j; break; }
+    if (fin < 0 || fin - ini + 1 > 6 || !/^[«¿"]*[A-ZÁÉÍÓÚÑ¿]/.test(pal[ini].t)) continue;
+    for (let q = ini; q <= fin; q++) fuera.add(pal[q].i);
+  }
+  return fuera;
+}
+let NOMBRE_ACCION = new Set();
 function enfasis(chunk) {
   const out = new Set(), lw = chunk.map((w) => limpiar(w.t));
+  chunk.forEach((w, k) => { if (NOMBRE_ACCION.has(w.i)) out.add(k); });
   for (const n of NOMBRES) {
     const nw = n.split(' ').map(limpiar);
     // the first word keeps its capital (or is «quoted»): «tu oferta» in a sentence is not the panel «Tu oferta»
@@ -212,6 +231,7 @@ g.pasos.forEach((p, i) => {
     const em = enfasis(pal); const clave = em.length ? pal[em[0]] : null;
     beats.push({ type: 'app', text: pal.map((w) => w.t).join(' '), img: './app.png', marca: rects[i] || null, pulso: (clave || pal[Math.floor(pal.length / 2)]).s, w0: pal[0], w1: pal[pal.length - 1] });
   } else {
+    NOMBRE_ACCION = nombreDeAccion(pal);
     for (const ch of trozos(pal, (g.pasos[i].rol || (i === 0 ? "gancho" : "")) === "gancho" ? 13 : 10)) beats.push({ text: ch.map((w) => w.t).join(' '), emphIdx: enfasis(ch), w0: ch[0], w1: ch[ch.length - 1], n: ch.length, paso: i });
   }
 });
