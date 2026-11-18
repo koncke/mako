@@ -159,7 +159,8 @@ import { ELEMENTOS_ALTO_LIBRE_EN_PILA, graficoAltoLibreEnPila, solosEnPila } fro
 import { esAcomodoDe } from './aviso-grilla';
 import { faltaConectarDeHoja } from './falta-conectar';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
-import { hojaConIdsNuevos } from '@/lib/graficos-copia';
+import { hojaConIdsNuevos, nombreDeHoja } from '@/lib/graficos-copia';
+import { ModalGuardarPlantilla } from '@/app/creaciones/PublicarCreacion';
 import { sigueComoSeCreo } from '@/lib/graficos-plantilla-relleno';
 import { tokenDeDashboard } from './copia-dash-cliente';
 import { copiarAlPortapapeles } from '@/app/automations/copia-flujo-cliente';
@@ -832,6 +833,23 @@ export function EditorInforme({
       .then(() => show('Dashboard copiado'))
       .catch((e: unknown) => show(e instanceof Error && e.message !== 'sin portapapeles' ? e.message : 'No se pudo copiar', undefined, 'bad'));
   };
+  /**
+   * «GUARDAR COMO PLANTILLA» (18/11/2026, las plantillas propias, lib/creaciones-dashboard.ts): la hoja queda en «Tus
+   * plantillas» de «Nueva hoja», sólo para el negocio o para la comunidad. Lo que se guarda lo lee el server de lo GUARDADO
+   * (el enchufe, lib/creaciones-enchufes.ts): lo que espera el respiro del autoguardado sale antes, y se espera lo que viaja.
+   */
+  const [comoPlantilla, setComoPlantilla] = useState<{ id: string; nombre: string } | null>(null);
+  const guardarComoPlantilla = (id: string) => {
+    const h = tablero.hojas.find((x) => x.id === id);
+    if (!h) return;
+    const pendiente = pendienteGuardar.current;
+    void (async () => {
+      if (pendiente) await mandar(pendiente);
+      await colaRef.current?.pedir(ultimoGuardado.current);
+      setComoPlantilla({ id, nombre: nombreDeHoja(h) });
+    })();
+  };
+  const cerrarComoPlantilla = useCallback(() => setComoPlantilla(null), []);
   /**
    * Eliminar una hoja la ARCHIVA (14/10/2026, Martín: «Me debería dejar eliminar todas las hojas... Y en el desplegable de
    * las hojas, un texto que diga "Archivados" y ahí la opción de eliminar permanentemente»). Con la última, la pantalla
@@ -1954,7 +1972,7 @@ export function EditorInforme({
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300}>
           <MenuHojas
             hojas={enBlanco ? [] : tablero.hojas} otras={pestanas?.filter((p) => p.informe !== informeGeneralODashboard) ?? []} activa={hoja.id} puedeNueva={puedeNuevaHoja && !enBlanco} informe={informeGeneralODashboard}
-            acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onCopiar: copiarHoja, onMover: moverHoja, onEliminar: eliminarHoja } : null}
+            acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onCopiar: copiarHoja, onPlantilla: !esGeneral && !esAutomatizacion ? guardarComoPlantilla : undefined, onMover: moverHoja, onEliminar: eliminarHoja } : null}
             archivadas={guardable ? tablero.archivadas ?? [] : []}
             onRestaurar={(id) => { setMenu(null); restaurarHoja(id); }}
             onBorrarArchivada={borrarArchivada}
@@ -2002,6 +2020,7 @@ export function EditorInforme({
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
       {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} soloFuentes={esGeneral ? FUENTES_GENERAL : undefined} />}
       {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} conTodas={!!unido} />}
+      <ModalGuardarPlantilla tipo="dashboard" de={comoPlantilla} alSalir={cerrarComoPlantilla} />
       {gDetalle && esGrafico(gDetalle) && detalle && (
         <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivosHoja[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
           onCerrar={cerrarDetalle} onCambio={refrescar} onFiltrar={filtrarPor} />

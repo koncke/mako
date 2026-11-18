@@ -61,7 +61,9 @@ test('la puerta del guion administra sólo links de guiones de SU workspace; la 
 test('/api/compartir: el link de un guion es SIEMPRE item + editar, de un guion vivo, y entra por su puerta', () => {
   const r = leer('app/api/compartir/route.ts');
   assert.match(r, /recurso: RECURSO_GUION, alcance: 'item', recursoId: id, modo, permiso: 'editar'/);
-  assert.match(r, /if \(!vivo\.ok \|\| vivo\.pagina\.papelera\) return NO_ENCONTRADO\(\);/, 'no se acuña un link a algo borrado');
+  // A la vista (B6, 18/11/2026): tampoco una página que cuelga de otra en la Papelera. `guionALaVista` se EJECUTA en
+  // tests/copywriter-mudanza.test.ts (B6); acá se fija que las tres puertas la pregunten.
+  assert.match(r, /const vivo = await guionALaVista\(id\);\n\s+if \(!vivo\) return NO_ENCONTRADO\(\);/, 'no se acuña un link a algo borrado');
   assert.match(r, /guion: copy && wsValido \? \{ tipo: 'guion', ws: ws as number \} : null/);
   assert.match(r, /const nadie = \(a: Admins\) => !a\.plataforma && !a\.informe && !a\.guion;/);
   assert.match(r, /for \(const adm of \[a\.informe, a\.guion, a\.plataforma\]\)/, 'copiar, rotar y revocar también');
@@ -101,7 +103,8 @@ test('la ruta: el id del LINK, en su workspace, sin propiedades ni sesión, y si
   const r = leer('app/api/compartido/guion/route.ts');
   assert.match(r, /const a = accesoDeGuion\(acceso\);/);
   assert.match(r, /return await enSuWorkspace\(a, async \(\) => \{/);
-  assert.match(r, /if \(!vivo\.ok \|\| vivo\.pagina\.papelera\) return NO\(\);/, 'un guion en la Papelera no se edita');
+  assert.match(r, /if \(!\(await guionALaVista\(a\.id\)\)\) return NO\(\);/, 'un guion en la Papelera (o que cuelga de una que lo está) no se edita');
+  assert.match(leer('lib/copywriter/compartir.ts'), /const g = await guionALaVista\(a\.id\);\n\s+if \(!g\) return null;/, 'la página pública pregunta lo mismo');
   assert.match(r, /guardar\(\{ id: a\.id, version: b\.version as number, contenido: b\.contenido \}, autor\)/);
   assert.ok(!/b\.id\b|b\.props|getUsuarioActual|getSesion|cookies\(/.test(r), 'ni id ni propiedades del pedido, ni la sesión');
   assert.match(r, /return r\.ok \? json\(\{ ok: true \}\) : falla\(r\.status, r\.error\);/, 'renombrar no le devuelve el árbol del negocio');

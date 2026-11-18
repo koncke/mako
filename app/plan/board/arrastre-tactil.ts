@@ -40,10 +40,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-/** Cuánto hay que mantener el dedo quieto para que esto deje de ser un scroll. */
-const MS_ARMAR = 300;
+/** Cuánto hay que mantener el dedo quieto para que esto deje de ser un scroll. Lo importa el curso (app/_cursos/arrastre-curso.ts). */
+export const MS_ARMAR = 300;
 /** Si se mueve más que esto antes de armarse, era un scroll (se compara al cuadrado). */
-const PX_CANCELA2 = 10 * 10;
+export const PX_CANCELA2 = 10 * 10;
 /** Franja de la ventana donde el arrastre empuja el scroll, y cuánto empuja por frame. */
 const BORDE = 90;
 const PASO = 14;
