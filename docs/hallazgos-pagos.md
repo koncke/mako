@@ -1944,3 +1944,16 @@ Esos pagos traen `fee_details` y `charges_details` (comisión, SIRTAC, IIBB, dé
 Sin filtrar, dan «costos reales» de 1 % a 49 % que no son de MaKo. Para medir lo cobrado hay que filtrar por `collector.id` igual al usuario de la cuenta, u
 `operation_type` `regular_payment`/`recurring_payment` con `collector_id` propio. Además: **no hay ningún cobro real de un plan por Mercado Pago todavía** (los 826
 movimientos de la cuenta del ws 9 eran gastos personales y transferencias), así que ninguna tasa de pasarela (el 25 % de Partners, la brecha del blue) se pudo medir con pagos reales.
+
+## Binance, medido para verificar pagos (punto B) — la clave de lectura y lo que trae `pay/transactions` (18/11/2026)
+
+Medido por el Cerebro con la clave de Martín (`BINANCE_API_KEY` / `BINANCE_API_SECRET` en `C:/dev/mako-api/.env.local`; en Vercel la carga Martín). Es «System generated»
+(HMAC), sin restricción de IP porque Vercel no tiene IP fija. `/sapi/v1/account/apiRestrictions`: `enableReading` true; trading, futures y retiros false;
+**`permitsUniversalTransfer` true**.
+- ⚠️ **Usar SÓLO endpoints de lectura.** Aunque `permitsUniversalTransfer` esté prendido, el código que lea Binance no debe llamar a nada que mueva fondos.
+- **`GET /sapi/v1/pay/transactions` es la fuente:** trae los pagos que MaKo recibe por Binance Pay (`orderType` C2C) con monto, moneda, fecha y `payerInfo.name` +
+  `payerInfo.binanceId` de quien paga. `receiverInfo.name` viene vacío (el dato de MaKo está en `receiverInfo.binanceId`: **68725667**, su Binance Pay ID). Ahí están
+  los pagos de Código (JZ_, 206956446: 59,54 / 15,67 / 40 / 144 / 94 USDT) y el de Leila (BTC).
+- **Los depósitos en cadena (`capital/deposit/hisrec`) y el P2P dan 0:** hoy TODO entra por Binance Pay. Se calza cada comprobante por monto, fecha y el Binance ID de
+  quien paga (cada movimiento se usa una sola vez). Esto sigue SIN hacerse: el brief está en docs/pendientes-partners-pagos-1811.md, sección 2.
+- El Binance Pay ID va en el checkout («Binance Pay ID: 68725667») por el setting `planes.pago_directo` (campo `binancePayId`); lo carga el Cerebro, no el código.
