@@ -25,10 +25,17 @@ el objeto es indistinguible de uno que el modelo no mandó.
 recurrente (:213-233)». Esas líneas son el EJECUTOR `case 'tareas_plan'`, no el borrador.
 
 **La regla que queda:** el mapeo vive en `tareasDelDoer` (lib/plan-tareas-del-doer.ts, sin `server-only`) y el `case` le pasa
-su salida a `crearPropuesta` sin otro `map`. El desempate con la fecha sigue en `limpiarTarea`. Con esto los cinco productores
-de un borrador (reunión, cron, archivo, API del agente, WhatsApp) pasan `recurrente`.
+su salida a `crearPropuesta` sin otro `map`. El desempate con la fecha sigue en `limpiarTarea`.
 
-**Vive en:** lib/plan-tareas-del-doer.ts · lib/mako-doer-acciones.ts · tests/plan-tareas-del-doer.test.ts · *2026-11-18*
+⚠️ **Y la mitad que encontró la revisión adversarial: el registro de la API.** El chat de la app, alguien del equipo por WhatsApp,
+`/api/v1` y los flujos llegan al mismo `case` pasando antes por `validarInput` (lib/api-mako/validar.ts), que copia SÓLO los campos
+declarados en la def. `proponer_tareas_plan` (lib/api-mako/areas/plan.def.ts) no declaraba `recurrente`, así que se borraba ahí,
+sin error, aunque el doer ya lo copiara. Ahora la def lo declara. **Un campo nuevo de una operación de la API va en su def, no sólo
+en el runner**: arreglar el runner deja el campo vivo sólo para el camino que no pasa por el registro.
+
+Con esto los productores de un borrador (reunión, cron, archivo, API del agente, WhatsApp, el registro) pasan `recurrente`.
+
+**Vive en:** lib/plan-tareas-del-doer.ts · lib/mako-doer-acciones.ts · lib/api-mako/areas/plan.def.ts · tests/plan-tareas-del-doer.test.ts · *2026-11-18*
 
 ## El Plan del cliente no deja asignarle una tarea a una persona de su equipo (16/11/2026, SIN HACER)
 

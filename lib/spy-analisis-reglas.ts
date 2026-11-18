@@ -13,6 +13,7 @@
 // =============================================================================
 
 import { VERSION_FORMATOS, formatoDe } from './spy-detalle';
+import { textoVencido } from './spy-reglas';
 
 /** Lo que mira esta regla de una pieza. */
 export type PiezaParaAnalisis = {
@@ -21,9 +22,8 @@ export type PiezaParaAnalisis = {
   vistas: number | null;
   publicada_en: string | null;
   analisis: unknown;
-  /** Lo que la IA lee de la pieza. Opcionales: quien no los pasa se trata como «hay algo que leer». */
-  titulo?: string | null;
-  texto?: string | null;
+  /** Cuándo se leyó el texto. Opcional: quien no lo pasa se trata como «hay algo que leer» (`hayAlgoQueLeer`). */
+  texto_leido_en?: string | null;
 };
 
 /** Cuántas piezas se le mandan a la IA de una vez: entran en un pedido sin pasarse de 4.000 tokens de respuesta. */
@@ -66,14 +66,16 @@ const conCatalogoViejo = (a: unknown): boolean => {
 };
 
 /**
- * ¿No hay nada que leer? Una pieza sin título y sin texto. Es, sobre todo, la de texto VENCIDO: `podarVencido`
- * (lib/spy-reglas.ts) le tacha título, texto y análisis al LEERLA a los 30 días, así que llega con `analisis: null`
- * y parecía «sin leer». Mandarla le cobraba al negocio una lectura de nada en cada tanda, y si la IA contestaba algo,
- * el guardado le pisaba el análisis bueno y le renovaba el reloj del texto (`texto_leido_en`).
- * Sólo cuenta si los dos campos VINIERON: quien no los pasa sigue como antes.
+ * ¿Hay algo que leer? No, si el TEXTO VENCIÓ: `podarVencido` (lib/spy-reglas.ts) le tacha título, texto y análisis al LEERLA
+ * a los 30 días, así que llega con `analisis: null` y parecía «sin leer». Mandarla le cobraba al negocio una lectura de nada
+ * en cada tanda, y si la IA contestaba algo, el guardado le pisaba el análisis bueno y le renovaba el reloj del texto
+ * (`texto_leido_en`), que es la retención de YouTube. Los anuncios no se podan, así que nunca vencen acá.
+ * ⚠️ NO es «sin título ni texto» (la revisión del 18/11): un post sano sin descripción tiene texto vacío y se manda igual, como
+ *    siempre; si la IA no lo devuelve, queda con `ANALISIS_SIN_DATOS`. Lo usan los dos caminos que mandan piezas a la IA
+ *    (lib/spy.ts `analizarCompetidor`, el automático y el de la API).
  */
-const sinNadaQueLeer = (p: PiezaParaAnalisis): boolean =>
-  'titulo' in p && 'texto' in p && !String(p.titulo ?? '').trim() && !String(p.texto ?? '').trim();
+export const hayAlgoQueLeer = (p: PiezaParaAnalisis, ahora: Date = new Date()): boolean =>
+  p.canal === 'anuncios' || typeof p.texto_leido_en !== 'string' || !textoVencido(p.texto_leido_en, ahora);
 
 /**
  * ¿Le falta el análisis? `null` es «no se leyó»; un objeto, aunque venga vacío, es «ya se leyó»… si trae el formato.
@@ -83,7 +85,7 @@ const sinNadaQueLeer = (p: PiezaParaAnalisis): boolean =>
  * formato (`otro` si la IA no lo vio), y una pieza que la IA no devuelve queda con `ANALISIS_SIN_DATOS`, que también lo trae.
  */
 export const faltaAnalisis = (p: PiezaParaAnalisis): boolean =>
-  CANALES_ANALIZABLES.has(p.canal) && !sinNadaQueLeer(p) && (!conFormato(p.analisis) || conCatalogoViejo(p.analisis));
+  CANALES_ANALIZABLES.has(p.canal) && hayAlgoQueLeer(p) && (!conFormato(p.analisis) || conCatalogoViejo(p.analisis));
 
 /**
  * Las que faltan, en el orden en que se leen: primero las que nunca se leyeron, y entre ellas lo que más vistas tiene (es lo que se va a copiar), y a igual
@@ -91,7 +93,7 @@ export const faltaAnalisis = (p: PiezaParaAnalisis): boolean =>
  */
 export function pendientesDeAnalisis<T extends PiezaParaAnalisis>(piezas: readonly T[], tope = PIEZAS_POR_ANALISIS): T[] {
   return piezas
-    .filter(faltaAnalisis)
+    .filter((p) => faltaAnalisis(p))
     .sort((a, b) => {
       // Lo que nunca se leyó va antes que lo que sólo necesita el formato: eso ya tiene algo que mostrar.
       if ((a.analisis == null) !== (b.analisis == null)) return a.analisis == null ? -1 : 1;
@@ -104,7 +106,7 @@ export function pendientesDeAnalisis<T extends PiezaParaAnalisis>(piezas: readon
 }
 
 /** Cuántas faltan: la pantalla dibuja «Analizando…» en esas y deja de preguntar cuando llega a cero. */
-export const cuantasFaltan = (piezas: readonly PiezaParaAnalisis[]): number => piezas.filter(faltaAnalisis).length;
+export const cuantasFaltan = (piezas: readonly PiezaParaAnalisis[]): number => piezas.filter((p) => faltaAnalisis(p)).length;
 
 /**
  * Las refs que se mandaron y la IA no devolvió: se guardan con `ANALISIS_SIN_DATOS`. Se compara sin mayúsculas ni
@@ -126,6 +128,13 @@ export function refsSinRespuesta(enviadas: readonly string[], devueltas: readonl
  * así que una pieza vieja que la IA no devolvía quedaba sin `formatosV`, `faltaAnalisis` la seguía pidiendo, iba
  * primera en cada tanda y se pagaba cada vez que alguien abría la ficha.
  */
+/**
+ * El filtro (PostgREST `or`) de la escritura de `yaRevisadas`: sólo si la fila todavía NO tiene el catálogo de hoy. Es el
+ * compare-and-set contra otra tanda que la clasificó en el medio, y no es `formatosV is null` (la revisión del 18/11): el día
+ * que `VERSION_FORMATOS` suba, una pieza con la versión anterior que la IA no devuelve no se cerraría nunca.
+ */
+export const FILTRO_SIN_LA_VERSION_DE_HOY = `analisis->>formatosV.is.null,analisis->>formatosV.neq.${VERSION_FORMATOS}`;
+
 export function cierreDeLasQueNoVolvieron(
   enviadas: readonly PiezaParaAnalisis[],
   devueltas: readonly string[],

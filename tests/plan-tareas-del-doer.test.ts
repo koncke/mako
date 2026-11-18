@@ -5,10 +5,13 @@
 // copiaba: una «junta de los miércoles» pedida por WhatsApp entraba como tarea normal. El mapeo se
 // mudó a lib/plan-tareas-del-doer.ts para que este test lo CORRA, no para leerlo con un regex.
 //
-// ⚠️ PROBADO ROMPIÉNDOLO (base: 4 pasan, 0 fallan):
-//  · sacar `recurrente:` del objeto de `tareasDelDoer`              → 3 / 1  («llega true»)
-//  · `recurrente: !!x.recurrente`                                  → 3 / 1  («el string "true" no marca»)
-//  · volver al segundo `map` a mano en el `crearPropuesta` del doer → 3 / 1  («el doer pasa lo que arma»)
+// ⚠️ PROBADO ROMPIÉNDOLO (base: 5 pasan, 0 fallan):
+//  · sacar `recurrente:` del objeto de `tareasDelDoer`              → 3 / 2  («llega true» y «por el registro»)
+//  · `recurrente: !!x.recurrente`                                  → 4 / 1  («el string "true" no marca»)
+//  · volver al segundo `map` a mano en el `crearPropuesta` del doer → 4 / 1  («el doer pasa lo que arma»)
+//  · sacar `recurrente` de los campos de la def del registro       → 4 / 1  («por el registro también llega»)
+// La última la encontró la revisión adversarial: con el doer arreglado, el chat de la app, el equipo por WhatsApp, /api/v1 y los
+// flujos pasan por `validarInput`, que copia sólo los campos DECLARADOS en la def, y `recurrente` se caía ahí.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -17,6 +20,8 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tareasDelDoer } from '../lib/plan-tareas-del-doer';
+import { porId } from '../lib/api-mako/registro';
+import { validarInput } from '../lib/api-mako/validar';
 
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -62,4 +67,13 @@ test('el doer pasa a crearPropuesta lo que arma tareasDelDoer, sin otro map en e
   const bloque = src.slice(ini, fin > ini ? fin : undefined);
   assert.match(bloque, /const tareas = tareasDelDoer\(/, 'el case no usa tareasDelDoer');
   assert.match(bloque, /crearPropuesta\(\{ tareas, /, 'el crearPropuesta del doer vuelve a mapear las tareas a mano');
+});
+
+test('por el registro (el chat de la app, /api/v1, los flujos) también llega: la def declara el campo', () => {
+  const def = porId('proponer_tareas_plan');
+  assert.ok(def, 'no está la operación');
+  const v = validarInput(def.parametros, { tareas: [{ titulo: 'Asistir a la junta de los miércoles', recurrente: true }] }, 'json');
+  assert.ok('input' in v, JSON.stringify(v));
+  const [t] = tareasDelDoer('input' in v ? v.input.tareas : undefined);
+  assert.equal(t?.recurrente, true, 'validarInput descarta lo que la def no declara');
 });

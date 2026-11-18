@@ -70,7 +70,7 @@ import { leerPorPaginas } from './supabase-paginado';
 import { borrarSetting, borrarSettingsConPrefijo, getSetting } from './settings';
 import { claveOfertaSpy } from './spy-oferta';
 import { prefijoTranscripciones } from './spy-transcripcion';
-import { ANALISIS_SIN_DATOS, cierreDeLasQueNoVolvieron, ofertaQueQueda, pendientesDeAnalisis, type PiezaParaAnalisis } from './spy-analisis-reglas';
+import { ANALISIS_SIN_DATOS, FILTRO_SIN_LA_VERSION_DE_HOY, cierreDeLasQueNoVolvieron, hayAlgoQueLeer, ofertaQueQueda, pendientesDeAnalisis, type PiezaParaAnalisis } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
 import { claveLectura, leeCanal, type PasoLectura } from './spy-lectura-pasos';
 import { topeDeCompetidores } from './spy-tope';
@@ -1044,7 +1044,9 @@ export async function analizarCompetidor(
   if (!c) return { ok: false, error: 'No encontré ese competidor.' };
   const todas = await listarPiezas(competidorId);
   if (!todas.length) return { ok: false, error: 'Todavía no hay nada leído de ese competidor. Míralo primero.' };
-  const piezas = opts.soloPendientes ? pendientesDeAnalisis(todas) : todas.slice(0, 40);
+  // ⚠️ Lo de texto vencido no va por ningún camino (`hayAlgoQueLeer`): por la API también pisaba el análisis bueno y le renovaba
+  // el reloj del texto (la revisión del 18/11).
+  const piezas = opts.soloPendientes ? pendientesDeAnalisis(todas) : todas.filter((p) => hayAlgoQueLeer(p)).slice(0, 40);
   if (!piezas.length) return { ok: true, analisis: { oferta: c.oferta ?? { promete: '', aQuien: '', precio: null, objecion: '', huecos: [] }, piezas: [] }, leidas: 0 };
   const comoTexto = piezas.map((p) => {
     const etapa = etapaDePieza(p);
@@ -1127,10 +1129,10 @@ async function guardarAnalisis(competidorId: number, a: Analisis, piezasEnviadas
       .eq('competidor_id', competidorId).in('ref', sinDatos).is('analisis', null);
   }
   // ⚠️ Sin tocar `texto_leido_en`: el texto no se volvió a leer, sólo se cerró la relectura del formato. Y sólo si todavía
-  // no tiene `formatosV`: otra tanda que corrió en el medio (otra instancia) pudo haberla clasificado de nuevo.
+  // no tiene el catálogo de hoy (`FILTRO_SIN_LA_VERSION_DE_HOY`): otra tanda que corrió en el medio pudo haberla clasificado.
   for (const r of yaRevisadas) {
     await db.from('spy_piezas').update({ analisis: r.analisis, updated_at: ahora })
-      .eq('competidor_id', competidorId).eq('ref', r.ref).is('analisis->>formatosV', null);
+      .eq('competidor_id', competidorId).eq('ref', r.ref).or(FILTRO_SIN_LA_VERSION_DE_HOY);
   }
 }
 

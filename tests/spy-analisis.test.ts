@@ -14,9 +14,12 @@
 //   · `faltaAnalisis` sin pedir el formato a lo ya leído            → 1 y 2   (el detalle, 4/11)
 //   · `pendientesDeAnalisis` que no pone primero lo nunca leído    → 2
 // Y el 18/11/2026 (pendiente T12, la refutación del 17/11), base 10 pasan:
-//   · `cierreDeLasQueNoVolvieron` que manda todo a `sinDatos` (lo de antes) → 8   (9 / 1)
-//   · `PUEDEN_SER_UNO_NUEVO` sólo con 'otro' (lo de antes)                 → 9   (9 / 1)
-//   · `faltaAnalisis` sin `sinNadaQueLeer`                                  → 10  (9 / 1)
+//   · `cierreDeLasQueNoVolvieron` que manda todo a `sinDatos` (lo de antes) → 8
+//   · `PUEDEN_SER_UNO_NUEVO` sólo con 'otro' (lo de antes)                 → 9
+//   · `faltaAnalisis` sin `hayAlgoQueLeer`                                  → 10
+//   · el filtro de la escritura como `formatosV is null` (la revisión)      → 11
+//   · `hayAlgoQueLeer` que poda también los anuncios                       → 10
+//   Cada una sola: 10 pasan, 1 falla (base: 11 pasan).
 // Correr: node --import tsx --test tests/spy-analisis.test.ts
 // =============================================================================
 
@@ -25,8 +28,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  ANALISIS_SIN_DATOS, PIEZAS_POR_ANALISIS, cierreDeLasQueNoVolvieron, cuantasFaltan, faltaAnalisis, ofertaQueQueda, pendientesDeAnalisis,
-  refsSinRespuesta, type PiezaParaAnalisis,
+  ANALISIS_SIN_DATOS, FILTRO_SIN_LA_VERSION_DE_HOY, PIEZAS_POR_ANALISIS, cierreDeLasQueNoVolvieron, cuantasFaltan, faltaAnalisis, hayAlgoQueLeer,
+  ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta, type PiezaParaAnalisis,
 } from '../lib/spy-analisis-reglas';
 import { VERSION_FORMATOS } from '../lib/spy-detalle';
 import { opcionesDeContenido } from '../lib/spy-vista';
@@ -118,9 +121,13 @@ test('7. el desplegable de tipos: sólo los que tiene, con cuántas, y la red qu
 
 // ── Pendiente T12 (18/11/2026): la relectura de los formatos se hace UNA vez, de verdad ──────────────────────────────
 
+const DIA = 86_400_000;
+const hace = (ms: number) => new Date(Date.now() - ms).toISOString();
+
 /** Una tanda como la corre `analizarCompetidor` + `guardarAnalisis`, sobre las piezas en memoria: manda lo pendiente, la
  *  «IA» devuelve sólo `devuelve`, y lo demás se cierra con `cierreDeLasQueNoVolvieron`. La escritura en la base filtra
- *  `analisis is null` para `sinDatos` y `formatosV is null` para `yaRevisadas`: acá se aplica la misma condición. */
+ *  `analisis is null` para `sinDatos` y «sin el catálogo de hoy» para `yaRevisadas` (`FILTRO_SIN_LA_VERSION_DE_HOY`): acá se
+ *  aplica la misma condición. */
 function tanda(piezas: PiezaParaAnalisis[], devuelve: ReadonlySet<string>): string[] {
   const enviadas = pendientesDeAnalisis(piezas);
   for (const p of enviadas) {
@@ -130,8 +137,8 @@ function tanda(piezas: PiezaParaAnalisis[], devuelve: ReadonlySet<string>): stri
   for (const p of piezas) {
     if (sinDatos.includes(p.ref) && p.analisis == null) p.analisis = { ...ANALISIS_SIN_DATOS };
     const r = yaRevisadas.find((x) => x.ref === p.ref);
-    const sinMarca = !!p.analisis && typeof p.analisis === 'object' && (p.analisis as { formatosV?: unknown }).formatosV == null;
-    if (r && sinMarca) p.analisis = r.analisis;
+    const sinLaDeHoy = !!p.analisis && typeof p.analisis === 'object' && (p.analisis as { formatosV?: unknown }).formatosV !== VERSION_FORMATOS;
+    if (r && sinLaDeHoy) p.analisis = r.analisis;
   }
   return enviadas.map((p) => p.ref);
 }
@@ -139,17 +146,18 @@ function tanda(piezas: PiezaParaAnalisis[], devuelve: ReadonlySet<string>): stri
 test('8. una pieza VIEJA que la IA no devuelve se cierra igual: no se vuelve a mandar ni a pagar', () => {
   const piezas: PiezaParaAnalisis[] = [
     pieza('viejo-otro', 900, { gancho: 'x', formato: 'otro' }),
+    pieza('viejo-con-marca', 850, { gancho: 'z', formato: 'otro', formatosV: 1 }),
     pieza('antes-del-formato', 800, { gancho: 'y' }),
     pieza('nunca', 10),
   ];
   const primera = tanda(piezas, new Set());           // la IA no devuelve ninguna
-  assert.deepEqual(primera.sort(), ['antes-del-formato', 'nunca', 'viejo-otro']);
+  assert.deepEqual(primera.sort(), ['antes-del-formato', 'nunca', 'viejo-con-marca', 'viejo-otro']);
   assert.equal(cuantasFaltan(piezas), 0, 'lo que no volvió quedó pidiendo lectura: la próxima tanda lo vuelve a pagar');
   assert.deepEqual(tanda(piezas, new Set()), [], 'la segunda tanda no tiene nada que mandar');
   // Y lo de antes queda: cerrar no es borrar lo que la IA vieja había leído.
   assert.equal((piezas[0]!.analisis as { gancho: string }).gancho, 'x');
-  assert.equal((piezas[1]!.analisis as { formato: string }).formato, 'otro');
-  assert.deepEqual(piezas[2]!.analisis, ANALISIS_SIN_DATOS);
+  assert.equal((piezas[2]!.analisis as { formato: string }).formato, 'otro');
+  assert.deepEqual(piezas[3]!.analisis, ANALISIS_SIN_DATOS);
 });
 
 test('9. se relee lo que con once formatos pudo caer en el lugar de uno de los nuevos, y nada más', () => {
@@ -158,15 +166,30 @@ test('9. se relee lo que con once formatos pudo caer en el lugar de uno de los n
     assert.equal(faltaAnalisis(pieza('a', 1, { gancho: 'x', formato: f, formatosV: VERSION_FORMATOS })), false, `un «${f}» de hoy no se relee`);
   }
   for (const f of ['tutorial', 'lista', 'storytime', 'pov', 'antes-despues', 'resena']) {
-    assert.equal(faltaAnalisis(pieza('a', 1, { gancho: 'x', formato: f })), false, `un «${f}» no tiene un formato nuevo vecino: releerlo no cambia nada`);
+    assert.equal(faltaAnalisis(pieza('a', 1, { gancho: 'x', formato: f })), false, `un «${f}» no se relee: lo decide Martín (gasto de la IA del negocio)`);
   }
 });
 
-test('10. una pieza sin nada que leer (el texto vencido) no se manda a la IA', () => {
+test('10. una pieza de texto vencido no se manda a la IA; una sana sin texto sí, como siempre', () => {
   // `podarVencido` le tacha título, texto y análisis a los 30 días: llega con `analisis: null`.
-  const vencida = { ...pieza('yt-vieja', 5000, null, 'youtube'), titulo: null, texto: null };
+  const vencida = { ...pieza('yt-vieja', 5000, null, 'youtube'), texto_leido_en: hace(40 * DIA) };
+  assert.equal(hayAlgoQueLeer(vencida), false);
   assert.equal(faltaAnalisis(vencida), false, 'mandarla cobra una lectura de nada y renueva el reloj del texto');
-  assert.equal(faltaAnalisis({ ...vencida, titulo: 'Cómo vender' }), true, 'con un título hay algo que leer');
-  assert.equal(faltaAnalisis(pieza('sin-campos', 5000)), true, 'quien no pasa título ni texto sigue como antes');
   assert.deepEqual(tanda([vencida], new Set()), []);
+  // La revisión del 18/11: un post sano sin descripción no es «nada que leer».
+  const sinTexto = { ...pieza('ig-sin-caption', 50, null, 'instagram'), texto_leido_en: hace(DIA) };
+  assert.equal(faltaAnalisis(sinTexto), true);
+  // Los anuncios no se podan: nunca vencen acá.
+  assert.equal(hayAlgoQueLeer({ ...pieza('ad', null, null, 'anuncios'), texto_leido_en: hace(400 * DIA) }), true);
+  assert.equal(faltaAnalisis(pieza('sin-fecha', 5000)), true, 'quien no pasa la fecha sigue como antes');
 });
+
+test('11. la escritura que cierra lo viejo filtra «sin el catálogo de hoy», no «sin marca»', () => {
+  // Con `formatosV is null`, el día que VERSION_FORMATOS suba, una pieza con la versión anterior que la IA no devuelve no se cierra.
+  assert.equal(FILTRO_SIN_LA_VERSION_DE_HOY, `analisis->>formatosV.is.null,analisis->>formatosV.neq.${VERSION_FORMATOS}`);
+  const src = sinComentarios(readFileSync(resolve(RAIZ, 'lib', 'spy.ts'), 'utf8'));
+  const g = src.slice(src.indexOf('async function guardarAnalisis('), src.indexOf('export const leerSystemDelSpy'));
+  assert.match(g, /for \(const r of yaRevisadas\)[\s\S]{0,300}\.or\(FILTRO_SIN_LA_VERSION_DE_HOY\)/, 'la escritura de yaRevisadas no usa el filtro');
+  assert.doesNotMatch(g, /analisis->>formatosV', null/, 'volvió el filtro que se traba al subir la versión');
+});
+

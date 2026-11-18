@@ -9,9 +9,9 @@ del código.
 
 ## El cron del Runner vencía sin que nada lo dijera, y la guardia lo tapaba midiendo por él (pendiente T6, 18/11/2026)
 
-**Vive en:** `scripts/operaciones/runner-salud.mjs` (`cronDelRunner`, `estado` → `cron` y `cronVencido`, `alTurno`) ·
-`scripts/operaciones/cartero.mjs` (`marcarCronDelRunner`, en el comando `medir`) · `scripts/operaciones/guardia-runner.md` (el
-prompt de la guardia). Lo fija `tests/runner-salud.test.ts`, probado rompiéndolo.
+**Vive en:** `scripts/operaciones/runner-salud.mjs` (`latidoDelCron`, el comando `latido-del-cron`, `cronDelRunner`, `estado` →
+`cron` y `cronVencido`, `alTurno`) · `scripts/operaciones/guardia-runner.md` (el prompt de la guardia). Lo fija
+`tests/runner-salud.test.ts`, probado rompiéndolo (cinco roturas).
 
 **Síntoma:** el cron de sesión del Runner vence a los 7 días (el del 4/11 vencía el 11/11). Sin cron, el vigía (que corre sólo
 desde el cron) y la medición del Runner se apagan, y **nada lo dice**.
@@ -22,18 +22,27 @@ desde el cron) y la medición del Runner se apagan, y **nada lo dice**.
 **El diagnóstico equivocado que circulaba:** 9a949bb07 (6/11) y docs/hallazgos-infra.md dicen resolver «el cron del Runner», y
 arreglaron otra cosa (la guardia apagada se leía como sana). El comentario de `estado` nombraba el cron sin un chequeo.
 
-**Qué quedó:** un script no puede llamar a CronList, así que la vuelta del cron deja una marca: `cartero.mjs medir`, cuando mide
-el chat Runner (no la guardia, «Guardia > Runner», ni otro chat), escribe `~/.claude/operaciones/runner-cron.<cuenta>` con la
-hora. `estado` trae `cron` (`al_dia` / `vencido` / `sin_dato`) y `cronVencido` (Runner vivo + marca de más de 30 min). La
-guardia, con `cronVencido`, le avisa al Cerebro una vez cada 2 horas; y el Cerebro, en cada turno, recibe la línea «EL CRON
-DEL RUNNER … NO CORRE» con el id del Runner para pedirle que lo rearme (no se abre otro).
+**Qué quedó:** un script no puede llamar a CronList, así que la vuelta del cron deja una marca. Su PRIMER paso (en el prompt del
+cron de `LEEME-cartero.md`) es `node ~/.claude/operaciones/runner-salud.mjs latido-del-cron`, que escribe
+`~/.claude/operaciones/runner-cron.<cuenta>` sólo si lo corre el chat Runner. `estado` trae `cron` (`al_dia` / `vencido` /
+`sin_dato`) y `cronVencido` (Runner vivo + sin marca en una hora). La guardia lo mira PRIMERO y le avisa al Cerebro una vez cada 2
+horas; el Cerebro recibe en cada turno la línea «EL CRON DEL RUNNER … NO DA UNA VUELTA» con el id del Runner, para pedirle que lo
+rearme (no se abre otro).
 
-⚠️ **Sin marca nunca, no alarma** (`sin_dato`): un cartero instalado antes de esto no la escribe, y alarmar por eso mandaría a
-rearmar un cron sano. Es el mismo criterio de «un cartero de antes no dice `runner`: no se alarma».
+⚠️ **La primera versión colgaba la marca de `cartero.mjs medir`, y la revisión adversarial la tumbó:**
+- `medir` falla con la huella de la semana (la app en otra cuenta) y cuando falla `get_usage`: alarmaba con el cron sano.
+- `medir` lo corre también cualquier chat al que el hook le pide medir, el Runner incluido: con el cron muerto, un turno suelto
+  del Runner apagaba la alarma media hora.
+- La cuenta salía del marcador (`cuenta-activa.txt`), que puede decir otra. Ahora sale del entorno del chat (`cuentaDelEntorno`).
+- Media hora era poco: con el Runner ocupado (las caricaturas de Spy) la vuelta se corre. Es una hora.
 
-⚠️ **Para que ande en la PC hacen falta tres copias** (eso lo hace el Cerebro, no la nube): `cartero.mjs` y `runner-salud.mjs` a
-`~/.claude/operaciones/`, y el bloque nuevo del prompt de `guardia-runner.md` en la tarea `runner-guardia-<cuenta>` de cada
-cuenta. Sin la copia del cartero, no hay marca y todo queda en `sin_dato` (callado, como antes).
+⚠️ **Sin marca nunca, depende del LEEME:** si `LEEME-cartero.md` no nombra `latido-del-cron`, es un cartero de antes y se calla
+(`sin_dato`); si lo nombra hace más de una hora y no hubo ninguna marca, el cron murió antes de dejarla (`nunca: true`), que es
+justo el caso del título del pendiente.
+
+⚠️ **Para que ande en la PC (eso lo hace el Cerebro, no la nube):** copiar `runner-salud.mjs` a `~/.claude/operaciones/`, sumar la
+línea `latido-del-cron` como primer paso del prompt del cron en `LEEME-cartero.md` y rearmar el cron del Runner en el mismo paso, y
+poner el bloque nuevo de `guardia-runner.md` en la tarea `runner-guardia-<cuenta>` de cada cuenta.
 
 ## Las funciones del cartel del limbo, sin pantalla: se borraron, y el aviso al Cerebro mandaba a un cartel que no existe (pendiente T5, 18/11/2026)
 
@@ -49,8 +58,12 @@ cuenta. Sin la copia del cartero, no hay marca y todo queda en `sin_dato` (calla
   código vivo (`pedidosSinChatVivo`, `comoEstaElDestino`, `avisosDeLimbo`, `chatRecibe`) se quedó en el test.
 - ⚠️ **El defecto que sí se veía:** el aviso al Cerebro (`mensajeLimbo`) y `tickets.ts mensaje` terminaban en «dile a Martín que te lo
   mande desde el cartel rojo del Ops Center». El cartel no existe desde el 31/10: el Cerebro mandaba a Martín a buscar un botón
-  que no está (AGENTS.md, «un mensaje honesto también puede afirmar de más»). Ahora dice que lo reenvíe a un chat abierto desde la
-  conversación de ese chat (mantenerlo apretado → Reenviar), que es lo que existe (`opcionesDelMensaje`, lib/centro-mensajes.ts).
+  que no está (AGENTS.md, «un mensaje honesto también puede afirmar de más»). Ahora dice «para que lo vuelva a escribir en un chat
+  abierto del Ops Center».
+- ⚠️ **Y no «Reenviar», aunque existe (la revisión adversarial):** el «Reenviar» del menú del mensaje (`useCentro.ts`, `reenviar`)
+  firma de nuevo el texto que se ve, y ese texto sale de la columna `texto` de la cola (`listarPedidos` no trae `firmado`). Es lo
+  que la regla de AGENTS.md prohíbe para un mensaje de la cola. **SIN HACER:** que el «Reenviar» de un mensaje propio firme el
+  `firmado` (la guarda `originalParaReenviar` se borró con lo demás: si se arregla, se vuelve a escribir donde corre).
 - **De paso, una guarda ciega:** el test de voseo de ese archivo buscaba `\b(abrí|acá)\b`, que en JavaScript no calza nunca (la
   tilde final no es letra para `\b`). Ahora usa `marcasDeVoseo`, con una frase voseada que tiene que cazar.
 

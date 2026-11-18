@@ -24,6 +24,7 @@
 //
 // Uso:  runner-salud.mjs al-abrir <source>   lo corre el hook SessionStart: corrige el marcador e imprime UNA línea para el chat, o nada
 //       runner-salud.mjs estado     el JSON que lee la guardia (con `cron`: si la vuelta del cron del Runner sigue corriendo)
+//       runner-salud.mjs latido-del-cron   lo corre la vuelta del CRON del Runner, primero (LEEME-cartero.md): deja la marca con hora
 //       runner-salud.mjs tomar      la corrida reclama la vuelta: TOMADO u OCUPADO (dos a la vez no entregan lo mismo)
 //       runner-salud.mjs destino <to>   el id del chat de un `uds:`, para send_message; SIN_DESTINO si ese chat no está abierto
 //       runner-salud.mjs avisar     AVISAR una vez cada 2 horas por cuenta, YA el resto: lo que se le dice al Cerebro sin gastarle cuota
@@ -48,10 +49,16 @@ const LOG = path.join(DIR, 'runner-salud.log');
 export const LATIDO_VIVO_MS = 6 * 60 * 1000;
 /** La vuelta del Runner mide cada 10 min: pasado esto, nadie está midiendo. */
 export const MEDIDO_VIEJO_MS = 30 * 60 * 1000;
-/** La vuelta del CRON del Runner mide cada 10 min y deja su marca (`cartero.mjs medir`): sin una en este rato, el cron no corre. */
-export const CRON_VIVO_MS = 30 * 60 * 1000;
-/** El mismo nombre que escribe `marcarCronDelRunner` en cartero.mjs. */
+/**
+ * La vuelta del CRON del Runner corre cada 10 min y deja su marca (`latido-del-cron`): sin una en este rato, el cron no corre.
+ * Una hora y no 30 min: con el Runner ocupado (las caricaturas de Spy) la vuelta se corre, y una alarma que salta con el cron
+ * sano le hace rearmar algo que anda.
+ */
+export const CRON_VIVO_MS = 60 * 60 * 1000;
 export const marcaDelCron = (cuenta) => path.join(DIR, `runner-cron.${cuenta}`);
+/** La palabra que el LEEME del cartero tiene que nombrar para que la falta de marca cuente: la del comando de la vuelta. */
+export const COMANDO_LATIDO_CRON = 'latido-del-cron';
+const LEEME_CARTERO = () => path.join(DIR, 'LEEME-cartero.md');
 /** De los chats que abren juntos, sólo el primero recibe el aviso o el encargo. */
 const PEDIDA_VENCE_MS = 10 * 60 * 1000;
 /** Una corrida sin actividad en este rato ya terminó: las medidas duran menos de dos minutos. */
@@ -143,20 +150,46 @@ export function tareaDeLaCuenta({ uuid, cuenta, org = null }) {
  * ¿La vuelta del CRON del Runner sigue corriendo? (pendiente T6, 18/11/2026). El cron de sesión vence a los 7 días (el del
  * 4/11 vencía el 11/11) y el Runner rearma su Monitor cada vez que vence, así que `continuo.latido` sigue fresco: «vivo» decía
  * que sí mientras el vigía (que corre sólo desde el cron) y la medición del Runner se habían apagado. La guardia medía por él
- * (`medirYa`) y eso lo tapaba. Un script no puede llamar a CronList: lo que cuenta es la marca que deja la vuelta del cron al
- * medir (`cartero.mjs medir`, sólo cuando mide el chat Runner, nunca la guardia ni otro chat).
+ * (`medirYa`) y eso lo tapaba. Un script no puede llamar a CronList: lo que cuenta es la marca que deja la vuelta del cron con
+ * `latido-del-cron`, su primer paso (LEEME-cartero.md).
+ * ⚠️ NO SE COLGÓ DE `medir` (la revisión adversarial del 18/11): `medir` falla con la huella de la semana y si `get_usage` falla
+ *    (falsa alarma con el cron sano), y lo corre también cualquier chat al que el hook le pide medir, el Runner incluido (con el
+ *    cron muerto, eso apagaba la alarma). Y la cuenta de la marca sale del ENTORNO del chat (`cuentaDelEntorno`), no del marcador.
  *   · `al_dia`: la marca tiene menos de `CRON_VIVO_MS`.
- *   · `vencido`: la marca existe y es más vieja. Es lo único que alarma.
- *   · `sin_dato`: nunca hubo marca. Un cartero de antes no la escribe: callarse es lo correcto, no alarmar.
+ *   · `vencido`: la marca existe y es más vieja; o no hubo nunca una, pero el LEEME ya pide el latido desde hace más de
+ *     `CRON_VIVO_MS` (`nunca: true`): el cron murió antes de poder dejarla, que es justo el caso del título del pendiente.
+ *   · `sin_dato`: nunca hubo marca y el LEEME no pide el latido (un cartero de antes): callarse es lo correcto, no alarmar.
  */
 export function cronDelRunner({ cuenta, ahora = Date.now() }) {
   if (!cuenta) return { estado: 'sin_dato', min: null };
   let t = NaN;
-  try { t = Date.parse(fs.readFileSync(marcaDelCron(cuenta), 'utf8').trim()); } catch { return { estado: 'sin_dato', min: null }; }
+  let hay = true;
+  try { t = Date.parse(fs.readFileSync(marcaDelCron(cuenta), 'utf8').trim()); } catch { hay = false; }
+  if (!hay) {
+    let leeme = '';
+    try { leeme = fs.readFileSync(LEEME_CARTERO(), 'utf8'); } catch { /* sin LEEME: un cartero de antes */ }
+    const desde = haceMs(LEEME_CARTERO(), ahora);
+    if (leeme.includes(COMANDO_LATIDO_CRON) && desde >= CRON_VIVO_MS) return { estado: 'vencido', min: null, nunca: true };
+    return { estado: 'sin_dato', min: null };
+  }
   if (!Number.isFinite(t)) { const ms = haceMs(marcaDelCron(cuenta), ahora); t = Number.isFinite(ms) ? ahora - ms : NaN; }
   if (!Number.isFinite(t)) return { estado: 'sin_dato', min: null };
   const min = Math.max(0, Math.round((ahora - t) / 60000));
   return { estado: ahora - t < CRON_VIVO_MS ? 'al_dia' : 'vencido', min };
+}
+
+/**
+ * El primer paso de cada vuelta del cron del Runner. Escribe la marca de la cuenta de ESTE chat sólo si este chat es el Runner:
+ * la guardia («Guardia > Runner») mide por él y otro chat puede correrlo por error, y cualquiera de los dos taparía un cron
+ * muerto. Devuelve qué hizo, para la salida del comando.
+ */
+export function latidoDelCron(env = process.env, ahora = Date.now()) {
+  const { cuenta } = cuentaDelEntorno(env, leerJson(path.join(DIR, 'config.json'), null));
+  if (!cuenta) return 'SIN_CUENTA';
+  const nombre = nombrePropio(env);
+  if (!esRunner(nombre) || esGuardia(nombre)) return 'NO_ES_EL_RUNNER';
+  fs.writeFileSync(marcaDelCron(cuenta), new Date(ahora).toISOString());
+  return 'MARCADO';
 }
 
 function medidoMin(cuenta, ahora) {
@@ -308,8 +341,9 @@ export function alTurno(env = process.env, ahora = Date.now()) {
     // al mismo que rearme el cron.
     const cron = cronDelRunner({ cuenta, ahora });
     if (cron.estado !== 'vencido') return '';
-    anotar(`al-turno ${cuenta}: el cron del Runner no corre hace ${cron.min} min`);
-    return `EL CRON DEL RUNNER DE ${cuenta} NO CORRE HACE ${cron.min} MIN: el Runner late (su Monitor) pero no mide la cuota ni corre el vigia, y nadie lo avisa. No abras otro: escribile al Runner (send_message a ${runner.chats[0]}) que relea ~/.claude/operaciones/LEEME-cartero.md y rearme el cron. Si se niega a armar el cron sin Martin, en el primer turno de Martin pasale su frase textual. Regla de Martin del 12/11: el Runner siempre activo.`;
+    const cuando = cron.min == null ? 'NO DIO NINGUNA VUELTA DESDE QUE EL LEEME PIDE EL LATIDO' : `NO DA UNA VUELTA HACE ${cron.min} MIN`;
+    anotar(`al-turno ${cuenta}: el cron del Runner ${cron.min == null ? 'nunca dejó marca' : `sin marca hace ${cron.min} min`}`);
+    return `EL CRON DEL RUNNER DE ${cuenta} ${cuando}: el Runner late (su Monitor) pero no mide la cuota ni corre el vigia, y nadie lo avisa. No abras otro: escribile al Runner (send_message a ${runner.chats[0]}) que relea ~/.claude/operaciones/LEEME-cartero.md y rearme el cron. Si se niega a armar el cron sin Martin, en el primer turno de Martin pasale su frase textual. Regla de Martin del 12/11: el Runner siempre activo.`;
   }
   if (runner.chats.length) {
     // Abierto y sin latir: si es nuevo, todavía está armando. Si no, hay que despertarlo, no abrir otro.
@@ -335,6 +369,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     let linea = '';
     try { linea = alTurno(); } catch (e) { anotar(`al-turno falló: ${e instanceof Error ? e.message : String(e)}`); }
     if (linea) process.stdout.write(`${linea}\n`);
+  } else if (cmd === COMANDO_LATIDO_CRON) {
+    let r = 'ERROR';
+    try { r = latidoDelCron(); } catch (e) { anotar(`latido-del-cron falló: ${e instanceof Error ? e.message : String(e)}`); }
+    process.stdout.write(`${r}\n`);
   } else if (cmd === 'estado') {
     process.stdout.write(`${JSON.stringify(estado(), null, 1)}\n`);
   } else if (cmd === 'corridas') {
@@ -349,7 +387,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     const { cuenta } = cuentaDelEntorno(process.env, leerJson(path.join(DIR, 'config.json'), null));
     process.stdout.write(avisarUnaVez(cuenta ?? 'sin-cuenta') ? 'AVISAR\n' : 'YA\n');
   } else {
-    process.stderr.write('uso: runner-salud.mjs al-abrir <source> | al-turno | estado | tomar | destino <to> | avisar | corridas\n');
+    process.stderr.write('uso: runner-salud.mjs al-abrir <source> | al-turno | estado | latido-del-cron | tomar | destino <to> | avisar | corridas\n');
     process.exitCode = 2;
   }
 }

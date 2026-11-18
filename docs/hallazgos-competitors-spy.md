@@ -28,14 +28,22 @@ de más, y manda a arreglar algo que estaba bien.**
   renovaba `texto_leido_en`, que es el reloj de la retención de YouTube.
 - **Qué quedó:** `cierreDeLasQueNoVolvieron` (lib/spy-analisis-reglas.ts) parte lo que no volvió en `sinDatos` (sin análisis →
   `ANALISIS_SIN_DATOS`, como antes) y `yaRevisadas` (con análisis viejo → ese mismo análisis con `formatosV` al día, sin tocar
-  `texto_leido_en` y sólo si todavía no tiene `formatosV`). `faltaAnalisis` no pide lo que no tiene título ni texto
-  (`sinNadaQueLeer`).
+  `texto_leido_en`). `hayAlgoQueLeer` deja afuera lo de texto vencido en los DOS caminos que mandan piezas a la IA (el automático
+  y el de la API, `analizarCompetidor`).
+- ⚠️ **Lo que corrigió la revisión adversarial, y vale para código nuevo:**
+  - El compare-and-set de `yaRevisadas` es «sin el catálogo de hoy» (`FILTRO_SIN_LA_VERSION_DE_HOY`: `formatosV` nulo o distinto
+    de `VERSION_FORMATOS`), no «sin marca». Con `formatosV is null`, el día que la versión suba, lo de la versión anterior que la IA
+    no devuelve vuelve al bucle pagado. **Un CAS sobre una versión compara contra la de hoy, nunca contra «no tiene».**
+  - «Nada que leer» es «el texto venció» (`texto_leido_en` + `textoVencido`), no «sin título ni texto»: un post sano sin
+    descripción se manda igual y se cierra con `ANALISIS_SIN_DATOS`, como siempre. Los anuncios no se podan: nunca vencen acá.
+  - El camino de la API (`spy.run.ts` → `analizarCompetidor` sin `soloPendientes`, las primeras 40) también mandaba lo vencido.
 - **Lo que se relee, decidido por criterio:** además de `otro`, los cuatro formatos viejos donde pudo caer a la fuerza uno de
-  los ocho nuevos (`testimonio`, `opinion`, `detras`, `entrevista`: `PUEDEN_SER_UNO_NUEVO`). No se relee `tutorial`, `lista`,
-  `pov` y compañía: no tienen un formato nuevo vecino y releerlos lo pagaría el negocio para obtener lo mismo.
-- **Lo que NO se hace:** una pasada sobre todos los competidores. La relectura corre sola al abrir la ficha (`SpyApp.tsx`); lo
-  que nadie abre queda con el formato viejo, y una pasada global gastaría la IA de cada negocio en competidores que nadie mira.
-- **Vive en:** lib/spy-analisis-reglas.ts · lib/spy.ts (`guardarAnalisis`) · tests/spy-analisis.test.ts (8, 9 y 10) · *2026-11-18*
+  los ocho nuevos (`testimonio`, `opinion`, `detras`, `entrevista`: `PUEDEN_SER_UNO_NUEVO`). La revisión propone más parejas
+  (`pov` → `tendencia`, `resena` → `promo`, `lista` → `preguntas`/`frase`), o releer todo lo del catálogo de once una vez, o una
+  pasada sobre todos los competidores. **Las tres gastan la IA de cada negocio y las decide Martín:** quedan como el resto abierto
+  del pendiente.
+- **Vive en:** lib/spy-analisis-reglas.ts · lib/spy.ts (`analizarCompetidor`, `guardarAnalisis`) · lib/spy-detalle.ts (el
+  comentario de `VERSION_FORMATOS`) · tests/spy-analisis.test.ts (8 a 11) · *2026-11-18*
 
 ## El tope del plan (Esencial suma UN competidor) va DESPUÉS de `yaEsta`, no arriba de todo (14/11/2026)
 
