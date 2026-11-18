@@ -19,6 +19,9 @@ import { redirect } from 'next/navigation';
 // entera en producción el 29/09/2026. Ver app/onboarding/tabs-catalogo.ts.
 import { destinoDeTabVieja } from './tabs-catalogo';
 import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { getUsuarioActual } from '@/lib/auth';
+import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
+import { prefiereMovil } from '@/lib/movil-guard';
 import { ChatArranque } from './ChatArranque';
 import { requireRolWs } from '@/lib/tab-access';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
@@ -55,7 +58,12 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     // `?ws=` a otro sin recargar deja montado el MISMO componente: React le pasa la vista nueva y él sigue mostrando las
     // respuestas del negocio anterior. Con la key, otro workspace es otro chat, de cero. tests/onboarding-otro-ws.test.ts.
     const ws = await getWorkspaceActual();
-    return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} />;
+    // El onboarding V2 en un TELÉFONO (18/11/2026): el primer paso acá y, al terminar, «Continuar el onboarding desde la PC».
+    const sesion = await getUsuarioActual().catch(() => null);
+    const v2 = !!sesion && veOnboardingV2({ email: sesion.email, ws });
+    const seguirEnPc = v2 && (await prefiereMovil().catch(() => false));
+    const persona = sesion ? { nombre: (sesion.nombre ?? '').trim().split(/\s+/)[0] ?? '', email: sesion.email } : undefined;
+    return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} />;
   }
 
   // Ya onboardeado → Second Brain, a la sección que pedía el link (`?tab=`), o a su portada.

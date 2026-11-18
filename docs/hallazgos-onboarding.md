@@ -4,6 +4,36 @@ El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
 
+## El motor de los tutoriales y el chat del reto, en la app real (18/11/2026)
+
+Martín pasó el onboarding de la maqueta (C:/dev/artefactos-onboarding) a la app («despleguemos todo esto ya en la app, de verdad»).
+La maqueta queda como ESPECIFICACIÓN. Lo que mordió al construirlo:
+
+- **El contenedor del motor se comía los clics del hueco.** `.mk-rec` es `position: fixed; inset: 0`: aunque el hueco tenga
+  `pointer-events: none`, el clic lo recibe el contenedor y nunca llega a lo marcado. El paso con «Haz clic en…» no terminaba nunca.
+  El motor (app/_ui/tutorial/MotorTutorial.tsx) pone el contenedor en `pointer-events: none` y cuatro TAPAS transparentes alrededor
+  del hueco: sólo se toca lo marcado. El `Recorrido` de siempre no lo necesita porque no espera clics en la página.
+- **Una marca cuyo lugar no está tapaba la pantalla entera.** Sin hueco, se dibujaba el velo completo y la página quedaba bloqueada
+  para siempre (una marca espera sin plazo). Ahora el velo entero va sólo en la presentación; un paso que espera su lugar no tapa nada.
+- **El menú de la foto se cierra si el mouse sale de la foto y no llega al menú en 220 ms** (Sidebar.tsx, `scheduleCloseUser`). Con
+  las tapas, el mouse nunca llega: esas marcas van `libre` (sin tapas).
+- **El video chico tapaba los botones de la tarjeta en el teléfono.** Va antes de la tarjeta en el DOM y sube arriba si se cruzarían.
+- **La foto de la barra lleva `data-recorrido="tour-sidebar-perfil"` AL FINAL de la etiqueta:** el chat de las pestañas parcha el
+  COMIENZO (`<button ref={userBtnRef} type="button"`, C:/dev/artefactos-pestanas/barra.tsx) y corta si no lo encuentra una vez.
+- **El diagnóstico obvio era el equivocado:** se pidió «renombrar el asunto de los correos del reto» y «sacar el "24 horas" de la
+  Ticketera». En la app NO había correos del reto (ni push, ni WhatsApp diario: MaKo nunca escribe primero) ni texto de 24 h (sólo en
+  docs/reto-7-dias/guiones-dia-1.md). Tampoco Offer Coach aparte (fusionado en Funnel Coach el 4/11): el día 1 es Funnel Coach.
+- **`node scripts/tsc-acotado.mjs` dio 99** (lo mata la RAM con varios chats): no es un verde. Los tipos los corre la punta en GitHub.
+- **Para MIRAR sin `next dev`:** el componente empaquetado con esbuild (el de node_modules, por `createRequire`; `nodePaths` al
+  node_modules del worktree y `next/navigation` cambiado por un archivo propio) y montado sobre las pestañas que dibuja el chat de las
+  pestañas (C:/dev/artefactos-pestanas/publicar). Esas páginas no tienen las marcas nuevas del repo (`tour-settings-*`): sus pasos se
+  saltean ahí y andan en la app.
+
+Lo que quedó SIN hacer (para el día siguiente): los correos «Día N del reto de MaKo» (un cron nuevo: lib/reto/dias.ts ya sabe qué día
+abre y a qué hora), guardar la hora de WhatsApp desde el mensaje que la persona le manda a MaKo (hoy se guarda al tocarla en el chat),
+las integraciones según lo elegido en Funnel Coach, el reto en el teléfono (MaKo Mobile) y «ver el onboarding desde el principio»
+para el super admin sin borrar datos.
+
 ## ⚠️ La maqueta del onboarding y la app real no tienen los mismos coaches (17/11/2026)
 
 Lo encontró el agente que reescribió los guiones de Offer Coach y Funnel Coach del reto (`docs/reto-7-dias/guiones-coaches-v2.md`).

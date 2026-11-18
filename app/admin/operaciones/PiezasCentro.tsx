@@ -68,7 +68,7 @@ export function SelloCompletado() {
  * título, la hora a la derecha y, si hay algo que contar, el segundo renglón. Con `onMenu`, el «⋯» y el clic derecho.
  */
 export function FilaDeChat({ titulo, texto = titulo, criatura = titulo, aspecto, animo, espera = 0, sub = false, actual, apagada = false, dormida = false,
-  hace, chip, previa, onElegir, onMenu }: {
+  hace, chip, previa, onElegir, onMenu, marca }: {
   /** El nombre entero (el `title` de la fila y su criatura, si no se dice otra). */
   titulo: string;
   /** Lo que se lee en la fila (en un sub-chat, lo de después de «›»). */
@@ -88,9 +88,11 @@ export function FilaDeChat({ titulo, texto = titulo, criatura = titulo, aspecto,
   previa?: ReactNode;
   onElegir: () => void;
   onMenu?: (x: number, y: number) => void;
+  /** El `data-recorrido` de la fila, para el motor de los tutoriales (app/_ui/tutorial): lo que señala el reto (18/11/2026). */
+  marca?: string;
 }) {
   return (
-    <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`}>
+    <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`} {...(marca ? { 'data-recorrido': marca } : {})}>
       <button
         type="button" title={titulo}
         className={`co-fila${apagada ? ' co-fila--sin-dir' : ''}${dormida ? ' co-fila--dormida' : ''}`}

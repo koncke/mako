@@ -23,8 +23,8 @@ import { Button } from '../Button';
 import { cssRecorrido, useRecorrido } from '../Recorrido';
 import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
-import { RUTA_MANIFIESTO, videoDe, type VideoTutorial } from '@/lib/tutoriales/videos';
 import { motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type Senal } from './store';
+import { useVideoTutorial } from './useVideoTutorial';
 
 /** Cuánto se espera a que aparezca lo de un paso antes de saltearlo. */
 const ESPERA_PASO_MS = 3000;
@@ -41,20 +41,6 @@ function lugarDe(sel: string): HTMLElement | null {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>(sel))) if (el.getClientRects().length > 0) return el;
   } catch { /* selector inválido */ }
   return null;
-}
-
-// ── El manifiesto de los videos (una vez por visita) ─────────────────────────────────────────────────────────────────
-let manifiesto: Promise<unknown> | null = null;
-function useVideo(key: string | null): VideoTutorial | null {
-  const [v, setV] = useState<{ key: string; video: VideoTutorial | null } | null>(null);
-  useEffect(() => {
-    if (!key) return;
-    let vivo = true;
-    manifiesto ??= fetch(RUTA_MANIFIESTO, { cache: 'force-cache' }).then((r) => (r.ok ? r.json() : [])).catch(() => []);
-    void manifiesto.then((m) => { if (vivo) setV({ key, video: videoDe(m, key) }); });
-    return () => { vivo = false; };
-  }, [key]);
-  return v && v.key === key ? v.video : null;
 }
 
 // ── El motor ──────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -223,9 +209,11 @@ function Capa({ senal, revision }: { senal: Senal; revision: boolean }) {
       {geo.hueco
         ? <>
             <div className="mk-rec__hueco" style={{ left: geo.hueco.x, top: geo.hueco.y, width: geo.hueco.ancho, height: geo.hueco.alto }} aria-hidden />
-            <Tapas h={geo.hueco} />
+            {!(senal.tipo === 'marca' && senal.libre) && <Tapas h={geo.hueco} />}
           </>
-        : <div className="mk-rec__velo" aria-hidden />}
+        // Sin hueco: el velo entero sólo en la presentación (sin paso). Un paso que todavía espera su lugar NO tapa nada: si el lugar no
+        // aparece (otra pantalla, una ventana angosta), la página sigue usable.
+        : !paso ? <div className="mk-rec__velo" aria-hidden /> : null}
       <div ref={tarjetaRef} className="mk-rec__tarjeta" role="dialog" aria-modal="false" aria-label={titulo} tabIndex={-1}
         style={{ left: t?.x ?? 0, top: t?.y ?? 0, visibility: visible ? 'visible' : 'hidden' }}>
         {estiloFlecha && t && <span className="mk-rec__flecha" data-lado={t.lado} style={estiloFlecha} aria-hidden />}
@@ -285,7 +273,7 @@ function Pie({ senal, paso, ultimo, esperaClic, hayAnterior, siguiente, atras, f
 
 /** El video chico de Martín de ESTA pestaña, abajo a la derecha. Sin video, nada (en la revisión, su lugar marcado). */
 function VideoChico({ tutorial, sub, revision, arriba }: { tutorial: TutorialPestana; sub: string; revision: boolean; arriba: boolean }) {
-  const video = useVideo(tutorial.pestana);
+  const video = useVideoTutorial(tutorial.pestana);
   const [cerrado, setCerrado] = useState(false);
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {

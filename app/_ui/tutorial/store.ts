@@ -23,7 +23,7 @@ export type MotivoFin = 'fin' | 'omitido';
 
 export type Senal =
   | { tipo: 'tutorial'; id: number; tutorial: TutorialPestana; alTerminar?: (m: MotivoFin) => void }
-  | { tipo: 'marca'; id: number; paso: PasoTutorial & { haz: string }; alHacer: () => void; alOmitir?: () => void; listo?: string };
+  | { tipo: 'marca'; id: number; paso: PasoTutorial & { haz: string }; alHacer: () => void; alOmitir?: () => void; listo?: string; libre?: boolean };
 
 let actual: Senal | null = null;
 let n = 0;
@@ -37,11 +37,12 @@ export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m
 }
 
 /**
- * Un solo lugar donde tocar. `alHacer` corre cuando la persona toca lo marcado (o con «Siguiente» de la maqueta). Con `listo`,
- * la tarjeta lleva ese botón («Entendido») y lo marcado no hace falta tocarlo.
+ * Un solo lugar donde tocar. `alHacer` corre cuando la persona toca lo marcado. Con `listo`, la tarjeta lleva ese botón
+ * («Entendido») y lo marcado no hace falta tocarlo. `libre`: sin las tapas alrededor del hueco (el mouse tiene que poder pasar por
+ * otro lado: el menú de la foto se cierra si el mouse sale de la foto y no llega al menú).
  */
-export function senalarDondeTocar(paso: PasoTutorial & { haz: string }, alHacer: () => void, o?: { alOmitir?: () => void; listo?: string }): void {
-  actual = { tipo: 'marca', id: ++n, paso, alHacer, alOmitir: o?.alOmitir, listo: o?.listo };
+export function senalarDondeTocar(paso: PasoTutorial & { haz: string }, alHacer: () => void, o?: { alOmitir?: () => void; listo?: string; libre?: boolean }): void {
+  actual = { tipo: 'marca', id: ++n, paso, alHacer, alOmitir: o?.alOmitir, listo: o?.listo, libre: o?.libre };
   avisar();
 }
 
