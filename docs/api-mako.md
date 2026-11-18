@@ -681,7 +681,7 @@ Propone agregar UN bloque de General (el objetivo y la acción del día, los OKR
 | `opciones.vencidos` | string | no | deadlines (Los vencidos): si, no |
 | `opciones.cuantos` | string | no | proyectos (Cuántos): 2, 3, 4, 6 |
 | `opciones.orden` | string | no | proyectos (Cuáles): prioridad, deadline |
-| `opciones.comparar` | string | no | mes (El mes anterior): si, no |
+| `opciones.comparar` | string | no | mes (El período anterior): si, no |
 
 ```bash
 curl -L \
@@ -732,7 +732,7 @@ Propone cambiar las opciones de UN bloque que ya está en una hoja de General (c
 | `opciones.vencidos` | string | no | deadlines (Los vencidos): si, no |
 | `opciones.cuantos` | string | no | proyectos (Cuántos): 2, 3, 4, 6 |
 | `opciones.orden` | string | no | proyectos (Cuáles): prioridad, deadline |
-| `opciones.comparar` | string | no | mes (El mes anterior): si, no |
+| `opciones.comparar` | string | no | mes (El período anterior): si, no |
 | `titulo` | string | no | Un título propio (texto vacío = el de siempre). Sin esto, no se toca. |
 | `funnel` | string | no | Sólo para el funnel de hoy (UNO) y a quién cobrarle (uno o VARIOS, separados por coma): el funnel o los funnels (id o nombre), o «ninguno» para volver al principal o a todo el negocio. |
 
@@ -5372,7 +5372,7 @@ PROPONE crear un anuncio EN PAUSA dentro de un conjunto existente: reusando el p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `adsetId` | string | sí | id numérico del conjunto de anuncios en Meta (de listar_conjuntos_meta). |
-| `nombre` | string | sí | nombre del anuncio. |
+| `nombre` | string | sí | nombre del anuncio: lo que lo describe. Si el conjunto tiene su código (001.02 …), MaKo le pone adelante el del anuncio (001.02.c). |
 | `fuente` | string (existing \\| upload) | sí | existing = reusar el post de un anuncio existente; upload = imagen o video ya subido a la cuenta. |
 | `source_ad_id` | string | no | solo existing: id numérico del anuncio cuyo post se reusa. |
 | `media_type` | string (image \\| video) | no | solo upload: tipo de media. |
@@ -6890,7 +6890,7 @@ curl -L \
 
 ### `GET /api/v1/whatsapp/leads/{leadId}/etapa-inbox` — Etapa del inbox de un lead
 
-La etapa con la que las dos bandejas de WhatsApp muestran y filtran a un lead (cliente, por-cobrar, no-show, j2, post-j1, agendo, vio-vsl, form, abierto), derivada de sus fechas y asistencias. NO es la etapa del funnel configurable (pipeline_stage): la respuesta trae las dos para que digas cuál es cuál.
+La etapa del CRM de un lead: la columna donde lo dibuja su tablero, con el funnel de su casa, la misma que muestra Chats. Trae también la derivación fija que decide la etiqueta del celular (cliente, por-cobrar, no-show, j2, post-j1, agendo, vio-vsl, form, abierto), con su nombre aparte.
 
 - **Ruta por operación:** `GET /api/v1/whatsapp/etapa_inbox_de_lead`
 - **Token detallado:** permiso `whatsapp=read` (Solo lectura en «WhatsApp»)

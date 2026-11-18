@@ -2,35 +2,133 @@
  "_": "Los tutoriales en video de cada pestaña de MaKo (texto al ritmo de la voz de Martín, su clon de ElevenLabs). Los arma scripts/tutorial-animado/hacer.mjs; key = id del guion en scripts/tutorial-animado/guiones.json.",
  "videos": [
   {
+   "key": "recorrido",
+   "pestana": "Recorrido general (onboarding)",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/recorrido.mp4",
+   "poster": "/tutoriales/recorrido.jpg",
+   "duracion_s": 36.83,
+   "peso_kb": 1506,
+   "guion": "MaKo trae un equipo entero para tu negocio: te lo presento en un minuto. Todo arranca en el Ops Center: escribes lo que te hace falta, y MaKo se encarga. Toca aquí, en Funnel Coach, que arma contigo tu oferta y tu sistema para conseguir clientes. A la izquierda, tu panel con todas las pestañas: toca aquí, en Uso, para ver cuánto lleva gastado tu IA. Si algo falla, toca aquí, en Ticketera, y repórtalo al equipo en su propio chat. Ahora que conoces a tu equipo, toca aquí, en Reto de 7 días, y arranca tu día 1: cada día trae su paso y su video, y puedes adelantar días.",
+   "frases": [
+    {
+     "id": "recorrido-1",
+     "rol": "gancho",
+     "texto": "MaKo trae un equipo entero para tu negocio: te lo presento en un minuto.",
+     "t_inicio": 0.1,
+     "t_fin": 4.52
+    },
+    {
+     "id": "recorrido-2",
+     "rol": "que-es",
+     "texto": "Todo arranca en el Ops Center: escribes lo que te hace falta, y MaKo se encarga.",
+     "t_inicio": 5,
+     "t_fin": 9.56
+    },
+    {
+     "id": "recorrido-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Funnel Coach, que arma contigo tu oferta y tu sistema para conseguir clientes.",
+     "t_inicio": 9.94,
+     "t_fin": 15.2,
+     "sel": "button[title=\"Funnel Coach\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "recorrido-4",
+     "rol": "accion",
+     "texto": "A la izquierda, tu panel con todas las pestañas: toca aquí, en Uso, para ver cuánto lleva gastado tu IA.",
+     "t_inicio": 15.56,
+     "t_fin": 21.82,
+     "sel": "[data-recorrido=\"sb-uso\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "recorrido-5",
+     "rol": "accion",
+     "texto": "Si algo falla, toca aquí, en Ticketera, y repórtalo al equipo en su propio chat.",
+     "t_inicio": 22.28,
+     "t_fin": 26.88,
+     "sel": "[data-recorrido=\"sb-ticketera\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "recorrido-6",
+     "rol": "cierre",
+     "texto": "Ahora que conoces a tu equipo, toca aquí, en Reto de 7 días, y arranca tu día 1: cada día trae su paso y su video, y puedes adelantar días.",
+     "t_inicio": 27.3,
+     "t_fin": 36.14,
+     "sel": "button[title=\"Reto de 7 días\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "mako → maco · center → opcenter · mako → maco · 7 → siete · 1 → uno (ortografía del transcriptor)",
+   "hecho": "2026-11-18T06:32:41.813Z"
+  },
+  {
    "key": "ops-center",
    "pestana": "Ops Center",
    "ruta": "/second-brain",
    "archivo": "/tutoriales/ops-center.mp4",
    "poster": "/tutoriales/ops-center.jpg",
    "duracion_s": 27.1,
-   "peso_kb": 898,
-   "guion": "Aquí no se busca nada: se pide. Un tema, un chat. Así MaKo no mezcla una conversación con otra. El reto tiene su propio chat, Reto de 7 días: ahí te espera el video de cada día. ¿Estás en la calle? Grábale una nota de voz. En Uso ves qué cuenta de IA trabaja para ti y cuánto lleva gastado. Y para arrancar, toca «¿Qué hago hoy?». MaKo mira tu negocio y te ordena el día.",
-   "pantallas": [
+   "peso_kb": 1438,
+   "guion": "Imagina un equipo que trabaja para tu negocio todo el día. Eso es el Ops Center: le pides a MaKo lo que necesites, con tus palabras, y lo hace por ti. Toca aquí, en Nuevo chat, para abrir uno por tema, así nada se mezcla. Mira aquí, Escribe a Ops Center: tu pedido va por escrito o en una nota de voz. Para arrancar, toca aquí, en ¿Qué hago hoy?: MaKo mira tu negocio y te ordena el día.",
+   "frases": [
     {
-     "paso": 1,
-     "sel": "[data-recorrido=\"sb-escribir\"]",
-     "marcado": true
+     "id": "ops-center-1",
+     "rol": "gancho",
+     "texto": "Imagina un equipo que trabaja para tu negocio todo el día.",
+     "t_inicio": 0.08,
+     "t_fin": 3.26
     },
     {
-     "paso": 2,
+     "id": "ops-center-2",
+     "rol": "que-es",
+     "texto": "Eso es el Ops Center: le pides a MaKo lo que necesites, con tus palabras, y lo hace por ti.",
+     "t_inicio": 3.82,
+     "t_fin": 9.6
+    },
+    {
+     "id": "ops-center-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Nuevo chat, para abrir uno por tema, así nada se mezcla.",
+     "t_inicio": 10.22,
+     "t_fin": 14.62,
      "sel": "[data-recorrido=\"sb-nuevo\"]",
-     "marcado": true
+     "espera_clic": true,
+     "cierra_despues": true
     },
     {
-     "paso": 6,
+     "id": "ops-center-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Escribe a Ops Center: tu pedido va por escrito o en una nota de voz.",
+     "t_inicio": 15.22,
+     "t_fin": 20.24,
+     "sel": "[data-recorrido=\"sb-escribir\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "ops-center-5",
+     "rol": "cierre",
+     "texto": "Para arrancar, toca aquí, en ¿Qué hago hoy?: MaKo mira tu negocio y te ordena el día.",
+     "t_inicio": 20.82,
+     "t_fin": 26.42,
      "sel": "[data-recorrido=\"tour-ops-center-que-hago-hoy\"]",
-     "marcado": true
+     "espera_clic": false
     }
    ],
+   "pantallas": [],
+   "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "7 → siete (ortografía del transcriptor)",
-   "hecho": "2026-11-18T04:50:50.273Z"
+   "chequeo": "center → opcenter · center → opcenter (ortografía del transcriptor)",
+   "hecho": "2026-11-18T06:34:05.422Z"
   },
   {
    "key": "offer",
@@ -38,56 +136,59 @@
    "ruta": "/offer",
    "archivo": "/tutoriales/offer.mp4",
    "poster": "/tutoriales/offer.jpg",
-   "duracion_s": 25.3,
-   "peso_kb": 1488,
-   "guion": "Lo que le contaste a MaKo de tu oferta sigue aquí, en la misma conversación. A la derecha, tu oferta se arma sola con cada respuesta. De ahí salen tu landing y tus guiones. Con la flecha ves tus funnels, sus ofertas y cada análisis. Cuando quieras ir a fondo, toca Analicemos mi oferta. Te marca qué la hace fuerte, qué le falta para vender más y te arma la versión mejorada, en PDF.",
-   "pantallas": [
+   "duracion_s": 28.1,
+   "peso_kb": 1469,
+   "guion": "¿Tu oferta convence a la primera, o la explicas diez veces? Offer es tu oferta en un chat con MaKo, atada a un funnel: de ahí salen tu landing y tus guiones. Mira aquí, el chat: contestas, y tu oferta se completa sola, a la derecha. Toca aquí, en la flecha, para ver tus funnels, sus ofertas y cada análisis. Para ir a fondo, toca aquí, en Analicemos mi oferta: te marca qué falta y la mejora, en PDF.",
+   "frases": [
     {
-     "paso": 1,
-     "sel": "section[aria-label=\"MaKo en Offer\"]",
-     "marcado": true
+     "id": "offer-1",
+     "rol": "gancho",
+     "texto": "¿Tu oferta convence a la primera, o la explicas diez veces?",
+     "t_inicio": 0.08,
+     "t_fin": 3.38
     },
     {
-     "paso": 2,
-     "sel": "[aria-label=\"Tu oferta\"]",
-     "marcado": true
+     "id": "offer-2",
+     "rol": "que-es",
+     "texto": "Offer es tu oferta en un chat con MaKo, atada a un funnel: de ahí salen tu landing y tus guiones.",
+     "t_inicio": 3.96,
+     "t_fin": 10.02
     },
     {
-     "paso": 4,
-     "sel": "texto=Analicemos mi oferta",
-     "marcado": true
+     "id": "offer-3",
+     "rol": "accion",
+     "texto": "Mira aquí, el chat: contestas, y tu oferta se completa sola, a la derecha.",
+     "t_inicio": 10.54,
+     "t_fin": 15.26,
+     "sel": "[data-recorrido=\"tour-offer-charla\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "offer-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en la flecha, para ver tus funnels, sus ofertas y cada análisis.",
+     "t_inicio": 15.86,
+     "t_fin": 20.5,
+     "sel": "[data-recorrido=\"tour-offer-proyectos\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "offer-5",
+     "rol": "cierre",
+     "texto": "Para ir a fondo, toca aquí, en Analicemos mi oferta: te marca qué falta y la mejora, en PDF.",
+     "t_inicio": 21.06,
+     "t_fin": 27.4,
+     "sel": "[aria-label=\"Respuestas rápidas\"] button",
+     "espera_clic": false
     }
    ],
+   "pantallas": [],
+   "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T04:45:52.906Z"
-  },
-  {
-   "key": "copilot",
-   "pestana": "Marketing CoPilot",
-   "ruta": "/ads-manager/copiloto",
-   "archivo": "/tutoriales/copilot.mp4",
-   "poster": "/tutoriales/copilot.jpg",
-   "duracion_s": 29.9,
-   "peso_kb": 1180,
-   "guion": "El CoPilot hace de tu equipo de marketing: mira lo que publicas y lo que inviertes, y te dice qué hacer. Antes, tres preguntas cortas, una por pantalla. Marca por dónde vendes. Puede ser más de uno. Con el tiempo que tengas para crear, MaKo calcula cuánto publicar en cada red. Después analiza tu oferta, tu web, tus anuncios, Instagram y YouTube. Lo que te toca va directo a tu Plan, y el piloto no lanza un anuncio sin tu OK. Toca Seguir y arranca.",
-   "pantallas": [
-    {
-     "paso": 3,
-     "sel": "[data-recorrido=\"tour-copilot-canales\"]",
-     "marcado": true
-    },
-    {
-     "paso": 6,
-     "sel": "[data-recorrido=\"tour-copilot-seguir\"]",
-     "marcado": true
-    }
-   ],
-   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
-   "dice_el_guion": true,
-   "chequeo": "ok → okey (ortografía del transcriptor)",
-   "hecho": "2026-11-18T04:52:33.785Z"
+   "hecho": "2026-11-18T06:36:24.915Z"
   },
   {
    "key": "settings-integraciones",
@@ -95,20 +196,69 @@
    "ruta": "/integraciones",
    "archivo": "/tutoriales/settings-integraciones.mp4",
    "poster": "/tutoriales/settings-integraciones.jpg",
-   "duracion_s": 30.67,
-   "peso_kb": 1158,
-   "guion": "Sin tus cuentas conectadas, MaKo trabaja a ciegas. En Integraciones le das acceso a tu negocio. Está en Configuración: toca tu foto, abajo a la izquierda, y entra en Integraciones. Arriba están tus cuentas de IA: el Claude, el GPT o el Gemini con el que trabaja MaKo. Después, cada servicio en su tarjeta: tu WhatsApp con su QR, Instagram y Facebook por Zernio, tus cobros y tu agenda. Conecta sólo lo que usas: cada tarjeta te lleva paso a paso.",
-   "pantallas": [
+   "duracion_s": 29.53,
+   "peso_kb": 1484,
+   "guion": "MaKo se conecta con más de 25 aplicaciones, desde WhatsApp hasta tus cobros. Integraciones, en Configuración, es donde le das acceso a tu negocio. Toca aquí, en tus cuentas de IA, y elige con cuál trabaja MaKo: Claude, GPT o Gemini. Toca aquí, en WhatsApp, y conecta tu número con su QR. Toca aquí, en Zernio, para sumar tu Instagram y tu Facebook. Tu turno: conecta cada servicio que usas desde su tarjeta.",
+   "frases": [
     {
-     "paso": 2,
-     "sel": "a[href=\"/integraciones\"]",
-     "marcado": true
+     "id": "settings-integraciones-1",
+     "rol": "gancho",
+     "texto": "MaKo se conecta con más de 25 aplicaciones, desde WhatsApp hasta tus cobros.",
+     "t_inicio": 0.1,
+     "t_fin": 5.06
+    },
+    {
+     "id": "settings-integraciones-2",
+     "rol": "que-es",
+     "texto": "Integraciones, en Configuración, es donde le das acceso a tu negocio.",
+     "t_inicio": 5.6,
+     "t_fin": 9.72
+    },
+    {
+     "id": "settings-integraciones-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en tus cuentas de IA, y elige con cuál trabaja MaKo: Claude, GPT o Gemini.",
+     "t_inicio": 10.18,
+     "t_fin": 16.68,
+     "sel": "button.tci-destacada, a[href=\"/perfil/ia\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "settings-integraciones-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en WhatsApp, y conecta tu número con su QR.",
+     "t_inicio": 17.22,
+     "t_fin": 20.58,
+     "sel": "[data-recorrido=\"tour-int-whatsapp\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "settings-integraciones-5",
+     "rol": "accion",
+     "texto": "Toca aquí, en Zernio, para sumar tu Instagram y tu Facebook.",
+     "t_inicio": 21.14,
+     "t_fin": 24.84,
+     "sel": "[data-recorrido=\"tour-int-zernio\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "settings-integraciones-6",
+     "rol": "cierre",
+     "texto": "Tu turno: conecta cada servicio que usas desde su tarjeta.",
+     "t_inicio": 25.3,
+     "t_fin": 28.84,
+     "espera_clic": false
     }
    ],
+   "pantallas": [],
+   "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "idéntico",
-   "hecho": "2026-11-18T04:49:22.405Z"
+   "chequeo": "mako → maco · 25 → veinticinco · mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-18T06:39:04.048Z"
   },
   {
    "key": "settings",
@@ -116,30 +266,59 @@
    "ruta": "/perfil",
    "archivo": "/tutoriales/settings.mp4",
    "poster": "/tutoriales/settings.jpg",
-   "duracion_s": 32.77,
-   "peso_kb": 1320,
-   "guion": "Tu perfil está en Configuración: se abre desde tu foto, abajo a la izquierda. Aquí no hay botón de guardar: escribes, sales del campo y queda. El nombre del negocio que pongas cambia en toda la app. Tu zona horaria decide en qué horario MaKo no te molesta. En Equipo sumas a quien vende contigo, con el rol que le toca. MaKo en el teléfono, la computadora y el navegador se instala desde aquí. Y lo más importante: en Integraciones conectas tus cuentas. Sin ellas, MaKo no ve tu negocio.",
-   "pantallas": [
+   "duracion_s": 27.57,
+   "peso_kb": 1527,
+   "guion": "Escribe una vez cómo se llama tu negocio, y se actualiza en toda la app. Tu perfil, en Configuración, se guarda sin botón: escribes, sales del campo y queda. Mira aquí, Nombre del negocio: escribe el tuyo. Toca aquí, en Zona horaria: con ella, MaKo sabe en qué horario no molestarte. Toca aquí, en Integraciones, y conecta tus cuentas: así MaKo trabaja con tus datos reales.",
+   "frases": [
     {
-     "paso": 2,
-     "sel": "input[aria-label=\"Nombre\"]",
-     "marcado": true
+     "id": "settings-1",
+     "rol": "gancho",
+     "texto": "Escribe una vez cómo se llama tu negocio, y se actualiza en toda la app.",
+     "t_inicio": 0.1,
+     "t_fin": 4.62
     },
     {
-     "paso": 6,
-     "sel": "a[href=\"/perfil/instalar\"]",
-     "marcado": true
+     "id": "settings-2",
+     "rol": "que-es",
+     "texto": "Tu perfil, en Configuración, se guarda sin botón: escribes, sales del campo y queda.",
+     "t_inicio": 5.14,
+     "t_fin": 10.9
     },
     {
-     "paso": 7,
-     "sel": "a[href=\"/integraciones\"]",
-     "marcado": true
+     "id": "settings-3",
+     "rol": "accion",
+     "texto": "Mira aquí, Nombre del negocio: escribe el tuyo.",
+     "t_inicio": 11.54,
+     "t_fin": 14.34,
+     "sel": "input[aria-label=\"Nombre del negocio\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Zona horaria: con ella, MaKo sabe en qué horario no molestarte.",
+     "t_inicio": 15,
+     "t_fin": 20.34,
+     "sel": "button[aria-label=\"Zona horaria\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "settings-5",
+     "rol": "cierre",
+     "texto": "Toca aquí, en Integraciones, y conecta tus cuentas: así MaKo trabaja con tus datos reales.",
+     "t_inicio": 21.04,
+     "t_fin": 26.88,
+     "sel": "[data-recorrido=\"tour-settings-integraciones\"]",
+     "espera_clic": false
     }
    ],
+   "pantallas": [],
+   "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T04:54:08.802Z"
+   "hecho": "2026-11-18T06:27:56.260Z"
   },
   {
    "key": "crm",
@@ -147,35 +326,69 @@
    "ruta": "/crm",
    "archivo": "/tutoriales/crm.mp4",
    "poster": "/tutoriales/crm.jpg",
-   "duracion_s": 28.37,
-   "peso_kb": 1358,
-   "guion": "Cada columna es un paso de tu venta. Tu trabajo es que cada lead llegue a Ganado. Arriba de cada etapa ves cuánto podría entrar. En Ganado, lo que ya vendiste. Para cambiar a alguien de etapa sin arrastrar, toca Ver info y Mover a. Las reuniones de los próximos días esperan en este número. ¿Buscas a alguien? Escribe su nombre, o su número con numeral adelante. Y si ya tienes una lista, impórtala entera desde Más acciones.",
-   "pantallas": [
+   "duracion_s": 27.17,
+   "peso_kb": 1404,
+   "guion": "¿Cuánto dinero podría entrarte con los leads que ya tienes? El CRM pone tu venta en columnas, y arriba de cada una ves cuánto podría entrar. Toca aquí, en Ver info, para abrir la ficha rápida del lead. Toca aquí, en Mover a, y elige su etapa nueva sin arrastrar nada. Toca aquí, en el botón del calendario, junto a Filtrar, para ver tus próximas reuniones. Carga tu lista entera: toca aquí, en Más acciones.",
+   "frases": [
     {
-     "paso": 2,
-     "sel": "[data-colkey=\"ganado\"]",
-     "marcado": true
+     "id": "crm-1",
+     "rol": "gancho",
+     "texto": "¿Cuánto dinero podría entrarte con los leads que ya tienes?",
+     "t_inicio": 0.06,
+     "t_fin": 2.96
     },
     {
-     "paso": 3,
-     "sel": "[data-lead-id=\"101\"] button[title=\"La ficha rápida, con «Mover a…»\"]",
-     "marcado": true
+     "id": "crm-2",
+     "rol": "que-es",
+     "texto": "El CRM pone tu venta en columnas, y arriba de cada una ves cuánto podría entrar.",
+     "t_inicio": 3.46,
+     "t_fin": 8.7
     },
     {
-     "paso": 4,
-     "sel": "button[aria-label^=\"Ver las\"]",
-     "marcado": true
+     "id": "crm-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Ver info, para abrir la ficha rápida del lead.",
+     "t_inicio": 9.2,
+     "t_fin": 12.7,
+     "sel": "[data-recorrido=\"tour-crm-ver-info\"]",
+     "espera_clic": true
     },
     {
-     "paso": 6,
+     "id": "crm-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Mover a, y elige su etapa nueva sin arrastrar nada.",
+     "t_inicio": 13.12,
+     "t_fin": 17.3,
+     "sel": "[data-recorrido=\"tour-crm-mover-a\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "crm-5",
+     "rol": "accion",
+     "texto": "Toca aquí, en el botón del calendario, junto a Filtrar, para ver tus próximas reuniones.",
+     "t_inicio": 17.74,
+     "t_fin": 22.64,
+     "sel": "[data-recorrido=\"tour-crm-reuniones\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "crm-6",
+     "rol": "cierre",
+     "texto": "Carga tu lista entera: toca aquí, en Más acciones.",
+     "t_inicio": 23.12,
+     "t_fin": 26.46,
      "sel": "[data-recorrido=\"crm-mas\"]",
-     "marcado": true
+     "espera_clic": false
     }
    ],
+   "pantallas": [],
+   "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T04:43:51.269Z"
+   "hecho": "2026-11-18T06:29:57.222Z"
   }
  ]
 }

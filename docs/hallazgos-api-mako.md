@@ -14,6 +14,27 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## «Todo MaKo por API» tiene guarda: cada server action de app/ está cubierta, exceptuada o en una deuda que sólo baja (18/11/2026, F127)
+
+**Vive en:** `lib/api-mako/cobertura.ts` (las tres listas) · `tests/api-mako-cobertura.test.ts` (la guarda, con el analizador de
+`tests/_puerta-acciones.ts`).
+
+- **Síntoma:** la regla de Martín del 25/10 («todo MaKo se debe poder utilizar por API») no tenía quién la hiciera cumplir.
+  La guarda que la hacía (`b85971b9b`, rama wip/api-acciones-1410) nunca llegó a main, y `tests/api-mako-registro.test.ts`
+  sólo mira las operaciones que EXISTEN: una acción de pantalla que nadie declaró no está en ningún lugar que mire.
+- **El inventario se armó de cero:** 585 acciones en los 'use server' de app/ (586 después de mezclar el main del 18/11). **54 CUBIERTAS** —la acción y la operación
+  dicen lo mismo con las mismas palabras, revisadas una por una contra la descripción de la operación; las cuatro bandejas
+  que confirman o descartan una pendiente van a `confirmar_accion` / `cancelar_accion`—, **7 EXCEPCIONES** (los tokens de
+  la API: el registro no administra credenciales, y la consola de la tab API) y **524 en la DEUDA**, por archivo (525 con el main del 18/11: sumó dos acciones de plantillas y se llevó una del limbo).
+- **La deuda sólo baja:** el test fija el número (`TOPE_DEUDA`). Una acción nueva sin clasificar es rojo, sumarla a
+  la deuda también; cubrir una pide bajar el número en el mismo commit. Una entrada vieja (renombrada, mudada, borrada) y
+  una operación de CUBIERTAS que el registro no tiene, también rojo.
+- **Trampa:** emparejar por NOMBRE falla para los dos lados. Un nombre igual no garantiza la misma capacidad (por eso cada
+  una de las 54 se leyó contra la descripción de su operación), y una operación que hace lo de una acción con OTRO nombre
+  no aparece: esa acción quedó en la DEUDA. **El número de la deuda es un techo honesto, no la cantidad exacta de huecos**: una acción de
+  la deuda que ya tiene su operación con otro nombre se pasa a CUBIERTAS cuando alguien lo mide.
+- **Sin hacer:** recorrer la DEUDA por área (los archivos con más acciones: app/crm/actions.ts, app/customer-success/,
+  app/admin/operaciones/) y cubrir o exceptuar cada una.
 ## Las tres acciones que faltaban: cargar guiones, rehacer las motivaciones y editar con IA (18/11/2026)
 
 Pendiente O19 (docs/pendientes-verificados-17-11.md; Martín, 25/10: «Todo MaKo se debe poder utilizar por API»). Tres cosas

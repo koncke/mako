@@ -741,4 +741,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/api-mako?tab=docs',
   },
+  {
+    fecha: '18 nov', hora: '05:24', chat: 'Construir: seguridad e infraestructura', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada server action de app/ está cubierta por la API, exceptuada o en una deuda que sólo baja',
+    puntos: [
+      '**F127:** lib/api-mako/cobertura.ts clasifica las 585 acciones: 54 con su operación (revisadas contra la descripción), 7 excepciones con motivo (los tokens y la consola de la API) y 524 en la deuda (525 después de mezclar el main del 18/11).',
+      'El test falla con una acción nueva sin clasificar, con una entrada vieja, con una operación que no existe y si la deuda cambia sin mover el número.',
+    ],
+    archivos: [
+      'lib/api-mako/cobertura.ts — las tres listas',
+      'tests/api-mako-cobertura.test.ts — la guarda, probada rompiéndola seis veces',
+      'docs/hallazgos-api-mako.md → «"Todo MaKo por API" tiene guarda…» (18/11/2026)',
+    ],
+    commits: [
+      { sha: 'd4d187e4e', msg: 'API de MaKo: cada server action de app/ tiene su operación, su excepción o está en una deuda que sólo baja (F127)', lineas: 440, archivos: 2 },
+    ],
+    revisar: '/api-mako',
+  },
 ];

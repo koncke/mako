@@ -14,7 +14,7 @@ const SOLO = SOLO_ARG ? SOLO_ARG.split(',').map(Number) : null;
 
 (async () => {
   const t0 = Date.now();
-  const b = await chromium.launch({ args: ['--allow-file-access-from-files', '--mute-audio'] });
+  const b = await chromium.launch({ args: ['--allow-file-access-from-files', '--mute-audio', '--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });   // the GPU: the character (WebGL) is 35 ms a frame there, 210 in software
   const p = await (await b.newContext({ viewport: { width: 1920, height: 1080 } })).newPage();
   const errores = [];
   p.on('pageerror', (e) => errores.push(e.message));
@@ -26,6 +26,11 @@ const SOLO = SOLO_ARG ? SOLO_ARG.split(',').map(Number) : null;
   const cuadro = (t) => p.evaluate((tt) => { window.renderFrame(tt); return document.getElementById('c').toDataURL('image/png').split(',')[1]; }, t);
   if (SOLO) {
     for (const t of SOLO) fs.writeFileSync(path.join(DIR, `cuadro-${t}.png`), Buffer.from(await cuadro(t), 'base64'));
+    // the covered-letters rule, measured on every big screen (engine3.js → medirTapado)
+    const tapado = [];
+    for (const t of SOLO) { const m = await p.evaluate((tt) => (window.medirTapado ? window.medirTapado(tt) : null), t); if (m) tapado.push(m); }
+    fs.writeFileSync(path.join(DIR, 'tapado.json'), JSON.stringify(tapado, null, 1));
+    for (const m of tapado) console.log(m.ok ? 'tapado ok:' : '⚠️ TAPA DE MÁS:', m.texto.slice(0, 40), m.palabras.map((w) => `${w.palabra} ${Math.round(w.visible * 100)}% desde ${Math.round(w.tapadoDesde * 100)}%`).join(', '));
     await b.close(); console.log('cuadros:', SOLO.join(', ')); return;
   }
   const DUR = await p.evaluate(() => window.DUR);

@@ -35,6 +35,7 @@ import 'server-only';
 import { estadoDeAsistencia } from './reuniones-por-asistencia';
 import { getTenantDb } from './workspace';
 import { leerPorPaginas } from './supabase-paginado';
+import { colsConFechaOriginal, momentoDeAlta } from './leads-alta';
 import { TIPO_DE_CAMBIO_USD_MXN } from './config';
 import { conversorGastoMeta } from './moneda-meta';
 import { tzActual } from './timezone';
@@ -273,20 +274,24 @@ export async function reporteMetricas(opts: {
   //
   // ⚠️ NO se usa `listLeads()`: ese getter lee con un `.select().order()` pelado y
   // PostgREST corta en 1000 filas sin avisar. Acá va paginado.
+  // F152 (18/11/2026): `leads_nuevos` es por el día en que NACIÓ el lead (un migrado, por su `fecha_original`:
+  // lib/leads-alta.ts). La columna se pide sólo si existe (la 0405 se aplica a mano).
+  const colsLeads = await colsConFechaOriginal(db,
+    'id, created_at, fecha_agenda, fecha_junta_1, asistio_j1, fecha_junta_2, asistio_j2, cerro, fecha_cierre, monto_cierre_usd, venta_tipo');
   await leerPorPaginas<{
-    created_at: string; fecha_agenda: string | null;
+    created_at: string; fecha_original?: string | null; fecha_agenda: string | null;
     fecha_junta_1: string | null; asistio_j1: boolean | null;
     fecha_junta_2: string | null; asistio_j2: boolean | null;
     cerro: boolean | null; fecha_cierre: string | null; monto_cierre_usd: number | null;
     venta_tipo: string | null;
   }>(
-    db, 'leads',
-    'id, created_at, fecha_agenda, fecha_junta_1, asistio_j1, fecha_junta_2, asistio_j2, cerro, fecha_cierre, monto_cierre_usd, venta_tipo',
+    db, 'leads', colsLeads,
     (filas) => {
       for (const r of filas) {
         filasLeads++;
-        // created_at es timestamptz; las fecha_* son DATE (se toman tal cual).
-        const nac = dentro(r.created_at ? fechaLocalDe(r.created_at, zona) : null);
+        // created_at (y fecha_original) son timestamptz; las fecha_* son DATE (se toman tal cual).
+        const alta = momentoDeAlta(r);
+        const nac = dentro(alta ? fechaLocalDe(alta, zona) : null);
         if (nac) de(claveDe(nac, grano)).leads_nuevos++;
 
         const ag = dentro(r.fecha_agenda);

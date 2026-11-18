@@ -12,6 +12,9 @@
 //   · LA VISTA PREVIA (`muestra`): cada bloque con datos de ejemplo, para el menú «Bloques de General».
 //   · LAS VARIABLES DE UN TEXTO («{{nombre}}», lib/general-piezas.ts): los valores de quien mira.
 //   · LOS FUNNELS que se pueden elegir en un bloque que se ata a uno («Tu funnel hoy», «A quién cobrarle»).
+//   · EL «HOY» DEL EDITOR (18/11/2026): con él se resuelve el período que eligió la hoja (su control de arriba, con lo
+//     elegido mirando), el mismo que miran sus gráficos, y viaja al dibujo como los funnels (app/general/
+//     periodo-de-la-hoja.ts dice qué bloque lo sigue: «El mes»).
 // ⚠️ Lo que adentro de un bloque cambia datos (registrar un KPI, «Marcar cobrada», completar una tarea) hace
 //    `router.refresh()`: la página vuelve a leer y el editor no se entera, que es lo que tiene que pasar.
 // ⚠️ El título propio (el `texto` del elemento) reemplaza al del bloque y va por CONTEXTO (`useTituloPropio`, que lee
@@ -24,6 +27,7 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import type { Elemento, Hoja, VistaValores } from '@/lib/graficos-catalogo';
 import { funnelsDeLaHoja } from '@/lib/graficos-controles-texto';
+import { periodoDeLosBloques, type PeriodoDeBloques } from '../general/periodo-de-la-hoja';
 import { conVariables, opcionDe, piezaGeneral, type OpcionesElegidas, type PiezaGeneral, type ValoresVariables } from '@/lib/general-piezas';
 
 export type { FunnelElegible } from '../components/ElegirFunnels';
@@ -35,9 +39,9 @@ import { RedDeBloque } from './RedDeBloque';
 export type ContextoDeGeneral = {
   /**
    * El bloque dibujado con sus opciones, o null si no hay con qué. `hoja`: lo que filtra la hoja y un bloque puede tomar
-   * (los funnels del control «Funnel» de arriba, por nombre; `funnelsDeLaHoja`).
+   * (los funnels del control «Funnel» de arriba, por nombre, `funnelsDeLaHoja`; y su período, `periodoDeLosBloques`).
    */
-  dibujar: (e: Elemento, hoja?: { funnels: readonly string[] | null }) => ReactNode;
+  dibujar: (e: Elemento, hoja?: { funnels: readonly string[] | null; periodo?: PeriodoDeBloques | null }) => ReactNode;
   /** Lo que el bloque define en el panel (null = nada propio). */
   configurar: (e: Elemento) => ReactNode;
   /** El bloque con datos de ejemplo (y sus opciones, si se dan): el menú y las miniaturas de las plantillas. */
@@ -50,6 +54,8 @@ export type ContextoDeGeneral = {
    * que dibuja varios bloques en uno. Ausente fuera de /general (la galería de «Nueva hoja» presta sólo las muestras).
    */
   datos?: DatosGeneral | null;
+  /** El «hoy» del editor (YYYY-MM-DD): resuelve el período de la hoja. null o ausente = ningún bloque sigue un período. */
+  hoy?: string | null;
 };
 
 const Contexto = createContext<ContextoDeGeneral | null>(null);
@@ -83,6 +89,7 @@ const CSS = `
 export function ElementoGeneral({ e, hoja, vista }: { e: Elemento; hoja?: Hoja | null; vista?: VistaValores | null }) {
   const g = useContext(Contexto);
   const funnels = funnelsDeLaHoja(hoja, vista);
+  const periodo = g?.hoy ? periodoDeLosBloques(hoja, vista, g.hoy) : null;
   const pieza = e.general?.pieza;
   if (!pieza) return null;
   const info = piezaGeneral(pieza);
@@ -97,7 +104,7 @@ export function ElementoGeneral({ e, hoja, vista }: { e: Elemento; hoja?: Hoja |
       <style>{CSS}</style>
       <TituloPropio.Provider value={titulo || null}>
         <RedDeBloque key={JSON.stringify(e.general)} nombre={info.nombre}>
-          <DibujoDeBloque e={e} nombre={info.nombre} enGeneral={!!g} funnels={funnels} />
+          <DibujoDeBloque e={e} nombre={info.nombre} enGeneral={!!g} funnels={funnels} periodo={periodo} />
         </RedDeBloque>
       </TituloPropio.Provider>
     </div>
@@ -105,9 +112,9 @@ export function ElementoGeneral({ e, hoja, vista }: { e: Elemento; hoja?: Hoja |
 }
 
 /** El dibujo del bloque, adentro de la red (ver arriba). */
-function DibujoDeBloque({ e, nombre, enGeneral, funnels }: { e: Elemento; nombre: string; enGeneral: boolean; funnels: readonly string[] | null }) {
+function DibujoDeBloque({ e, nombre, enGeneral, funnels, periodo }: { e: Elemento; nombre: string; enGeneral: boolean; funnels: readonly string[] | null; periodo: PeriodoDeBloques | null }) {
   const g = useContext(Contexto);
-  const nodo = g?.dibujar(e, { funnels }) ?? null;
+  const nodo = g?.dibujar(e, { funnels, periodo }) ?? null;
   return nodo ?? (
     <div className="gen-pieza-vacia">
       {!enGeneral ? `«${nombre}» se ve en la tab General.` : `No pude armar «${nombre}».`}

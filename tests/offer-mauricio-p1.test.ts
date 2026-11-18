@@ -20,6 +20,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import type { PiezasSabidas } from '../lib/offer-marco';
+import { GEMINI_FLASH_LITE } from '../lib/gemini-modelos';
 import { loQueMeGusto, type ConclusionOferta } from '../lib/offer-marco';
 import {
   PARA_QUE_SIRVE, avisosAntesDelDiagnostico, conCobroDelPrecio, esPagoUnico, mensajePdf, parseTurno, respuestaSinIA, sinSaludo,
@@ -90,7 +91,10 @@ test('O4 · con un pago único, «te pagan el 100% al firmar… súbelo» no sal
 // rotura (la red sin el modelo del turno): 1 fallo. rotura (el turno vuelve a 60 s por intento): 1 fallo.
 test('O6 · el turno: en la red de plataforma va directo a flash-lite, y cada intento corta a los 30 s', () => {
   const ia = leer('lib/offer-ia.ts');
-  assert.match(ia, /export const MODELO_TURNO_RED = 'gemini-flash-lite-latest';/);
+  // ⚠️ CAMBIADO A PROPÓSITO el 18/11/2026 (F74): el nombre del modelo vive en lib/gemini-modelos.ts. Lo que se fija es que el
+  // turno use el Flash LITE (el VALOR, ejecutado) y que Offer lo tome de ahí.
+  assert.equal(GEMINI_FLASH_LITE, 'gemini-flash-lite-latest');
+  assert.match(ia, /export const MODELO_TURNO_RED = GEMINI_FLASH_LITE;/);
   assert.match(ia, /provider: r\.provider, clave: r\.clave, wsKey: superWs as number, model: p\.modelosRed\?\.\[r\.provider\],/);
   const turno = funcion(ia, 'turnoOffer');
   assert.match(turno, /maxTokens: 2_000, timeoutMs: 30_000, esfuerzo: 'low',/);
