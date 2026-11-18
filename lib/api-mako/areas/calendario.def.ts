@@ -142,4 +142,19 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'dinero', gating: GATING,
     reversible: true, escribe: 'programa el broadcast en email_broadcasts y anota el enlace en calendario_eventos',
   },
+  {
+    // 18/11/2026, ticket #112 (Joan): «cada vez que quiera agendar algo tiene que agendarlo en mi google calendar de una». La preferencia
+    // del NEGOCIO, guardada (lib/agenda-destino.ts, `KEY_DESTINO_AGENDA`): el doer la lee en cada pedido de agenda. ⚠️ AL FINAL DEL
+    // ÁREA y sin «agenda» ni «evento» en el id: son lo que suma la relevancia de CUALQUIER pedido de agenda, y en el id pesan doble
+    // (lib/api-mako/areas/crm.def.ts, `crear_pagina_reserva`). Viaja forzada sólo cuando la persona dice dónde quiere agendar siempre.
+    id: 'elegir_google_o_mako', area: 'calendario', tipo: 'accion', confirmacion: 'chat',
+    // Sin «agenda» en el título: el título pesa doble en la relevancia (`ordenarPorRelevancia`, lib/api-mako/registro.ts).
+    titulo: 'Elegir entre Google y MaKo',
+    descripcion: 'PROPONE guardar dónde agenda MaKo lo que le pidan de aquí en adelante: «google» (el Google Calendar conectado del negocio) o «mako» (el Calendario de MaKo). Úsala cuando la persona diga dónde quiere que se agende SIEMPRE («cada vez que agende algo, en mi Google Calendar»). Con Google sin conectar no se guarda: dice que hay que conectarlo.',
+    parametros: [
+      { nombre: 'destino', tipo: 'string', obligatorio: true, enum: ['google', 'mako'], descripcion: 'google (su Google Calendar) o mako (el Calendario de MaKo).' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    reversible: true, escribe: 'cambia app_settings mako.agenda.destino',
+  },
 ];

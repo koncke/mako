@@ -1004,4 +1004,23 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-comunicacion.md',
     ],
   },
+  {
+    fecha: '18 nov', hora: '08:10', chat: 'Tickets de Sellers: el filtro de números', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Con tu Google Calendar conectado, lo que le pides agendar a MaKo va a Google',
+    puntos: [
+      'Pediste agendar un evento «en mi calendario» y quedó sólo en el Calendario de MaKo, aunque tenías tu Google Calendar conectado. Ahora, si lo tienes conectado, lo que pides agendar en tu calendario, tu agenda o Google va a tu Google Calendar (y se ve también en el Calendario de MaKo).',
+      'Si le dices a MaKo que de ahora en adelante agende todo en tu Google Calendar, te propone guardarlo y con un «sí» queda así para tu negocio.',
+      'Si pides Google y no está conectado, MaKo te lo dice y te manda el link para conectarlo.',
+      '**Cómo se prueba:** en el grupo de MaKo, «de ahora en adelante agenda todo en mi Google Calendar», «sí», y después «agenda una reunión de equipo mañana a las 10».',
+    ],
+    archivos: [
+      'lib/agenda-destino.ts — dónde se agenda, y la preferencia (puro)',
+      'lib/doer-herramientas.ts — con Google, viaja `crear_evento_google` · lib/mako-doer-in.ts — lee la preferencia y la conexión',
+      'lib/api-mako/areas/calendario.def.ts y .run.ts — `elegir_google_o_mako`',
+      'tests/agenda-destino-112.test.ts (con tests/_agenda-destino-112-hijo.ts) — tres roturas, cada una cae',
+      'docs/hallazgos-calendario.md',
+    ],
+    tickets: [112],
+  },
 ];

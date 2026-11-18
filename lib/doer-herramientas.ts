@@ -22,6 +22,7 @@ import type { Area } from './api-mako/tipos';
 import { esDestructiva, registroParaLaApp, puertaDeDestructivas } from './relevancia-app';
 import { sinVerboAlArranque, ordenDelPedido, pideQuitar } from './mako-intencion-app';
 import { pideSeguimiento, instruccionDelSeguimiento } from './seguimiento-lead';
+import { destinoDeLaAgenda, instruccionDelDestino, instruccionDeLaPreferencia, pidePreferenciaDeAgenda, type ConexionGoogle, type DestinoGuardado } from './agenda-destino';
 
 /** Las de Calendly. A un negocio sin Calendly no le sirven, y su receta («buscá el lead,
  *  pedile el email, ofrecé 3 huecos») le gana a la de Google: con un evento sin lead,
@@ -198,6 +199,9 @@ export type EntradaTurno<T extends { name: string }> = {
   sinCalendly?: boolean;
   /** Hoy, 'YYYY-MM-DD' en la zona del negocio: con él, el día de «llamarlo en dos semanas» lo calcula el código (lib/seguimiento-lead.ts). */
   hoy?: string | null;
+  /** Dónde se agenda (ticket #112, lib/agenda-destino.ts): la preferencia guardada del negocio, el estado de su Google Calendar (null si
+   *  no hizo falta mirarlo) y el link a Integraciones. Sin esto, no se decide nada de la agenda. */
+  agenda?: { guardado: DestinoGuardado | null; google: ConexionGoogle | null; link: string } | null;
   /**
    * Las herramientas PROPIAS de este chat (ids del registro): el coach del Ops Center, que junta las de la oferta y las del
    * funnel (lib/asesores/contexto.ts → `HERRAMIENTAS_DEL_COACH`, 4/11/2026). Sin esto viajaban por relevancia y, al juntar los dos
@@ -250,7 +254,9 @@ const INSTRUCCION_MOVER_SIN_OBJETO = `TE PIDEN MOVER ALGO A OTRO DÍA U HORA SIN
 /** Lo que propone un «agendar llamar a X en dos semanas» (ticket #110): el evento del Calendario y la nota en la ficha del lead. */
 const EVENTO_DEL_SEGUIMIENTO = 'crear_evento_calendario';
 const NOTA_DEL_SEGUIMIENTO = 'agregar_nota_lead';
-const SEGUIMIENTO = [NOTA_DEL_SEGUIMIENTO, EVENTO_DEL_SEGUIMIENTO] as const;
+/** El evento en el Google Calendar del negocio, y la operación que guarda dónde agenda MaKo (ticket #112, lib/agenda-destino.ts). */
+const EVENTO_EN_GOOGLE = 'crear_evento_google';
+const GUARDA_EL_DESTINO = 'elegir_google_o_mako';
 
 export type Turno<T> = {
   tools: Array<T | ToolDef>; delRegistro: ToolDef[]; areas: Area[]; ofrece: boolean;
@@ -327,13 +333,27 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
     .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')))
     // Un seguimiento levantado desde «sin señal clara» no resuelve lo pendiente (lib/doer-hilo.ts, `noResuelvePendientes`).
     .filter((t) => !(v.noResuelvePendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
-  // El seguimiento trae SUS dos operaciones aunque el presupuesto del registro las haya cortado (el área `crm` sola ya llena los
-  // 12.000 caracteres): un pedido que se puede hacer no se delega por falta de lugar. Sólo las que esta vista puede usar.
-  const delSeguimiento: ToolDef[] = seguimiento
-    ? SEGUIMIENTO.filter((n) => !elegidas.some((t) => t.name === n))
-      .map((n) => porId(n)).filter((d): d is NonNullable<typeof d> => !!d && visible(d, p.vista)).map(aToolDef)
-    : [];
-  const tools = [...elegidas, ...delSeguimiento];
+  // DÓNDE SE AGENDA (ticket #112, lib/agenda-destino.ts): con el Google Calendar del negocio conectado, «mi calendario», «mi agenda»,
+  // «Google» o la preferencia guardada van a Google (`crear_evento_google`) y el Calendario de MaKo no viaja para eso: lo de Google ya se
+  // ve ahí. Lo decide quien llama con lo que leyó (`agenda`); sin eso (el chat de la app, los tests de antes), como siempre.
+  const actua = v.intencion === 'actuar' && !v.dudosa;
+  const destino = actua && p.agenda ? destinoDeLaAgenda({ texto: sobre, guardado: p.agenda.guardado, google: p.agenda.google }) : null;
+  const preferencia = actua ? pidePreferenciaDeAgenda(sobre) : null;
+  const enGoogle = destino === 'google';
+  const eventoDelSeguimiento = enGoogle ? EVENTO_EN_GOOGLE : EVENTO_DEL_SEGUIMIENTO;
+  // Lo que el pedido trae FORZADO aunque el presupuesto del registro lo haya cortado (el área `crm` sola ya llena los 12.000
+  // caracteres): un pedido que se puede hacer no se delega por falta de lugar. Sólo lo que esta vista puede usar. El seguimiento
+  // (#110) trae la nota y el evento; Google, su evento; la preferencia, la operación que la guarda.
+  const forzadas = [...new Set([
+    ...(seguimiento ? [NOTA_DEL_SEGUIMIENTO, eventoDelSeguimiento] : []),
+    ...(enGoogle ? [EVENTO_EN_GOOGLE] : destino === 'mako' ? [EVENTO_DEL_SEGUIMIENTO] : []),
+    ...(preferencia ? [GUARDA_EL_DESTINO] : []),
+  ])];
+  const sinMako = (t: { name: string }) => !(enGoogle && t.name === EVENTO_DEL_SEGUIMIENTO);
+  const elegidasConDestino = elegidas.filter(sinMako);
+  const delSeguimiento: ToolDef[] = forzadas.filter((n) => !elegidasConDestino.some((t) => t.name === n))
+    .map((n) => porId(n)).filter((d): d is NonNullable<typeof d> => !!d && visible(d, p.vista)).map(aToolDef);
+  const tools = [...elegidasConDestino, ...delSeguimiento];
   // Lo dice el VEREDICTO, no el texto leído otra vez: con una propuesta de agenda abierta el
   // clasificador ya decidió que es la reunión y no marca nada. Re-leer el texto acá tenía su
   // propio preludio, y «buen día, movela al viernes» llegaba con la agenda y el plan y SIN la
@@ -344,10 +364,16 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
     : v.mover === 'tarea' ? sinFecha
     : null;
   // La del seguimiento, sólo si viajó con qué agendarlo (un prompt que nombra una herramienta que no viajó es una trampa).
-  const deSeguimiento = seguimiento && tools.some((t) => t.name === EVENTO_DEL_SEGUIMIENTO)
-    ? instruccionDelSeguimiento({ texto: sobre, hoy: p.hoy, hayNota: tools.some((t) => t.name === NOTA_DEL_SEGUIMIENTO), enLaApp: deLaApp })
+  const deSeguimiento = seguimiento && tools.some((t) => t.name === eventoDelSeguimiento)
+    ? instruccionDelSeguimiento({ texto: sobre, hoy: p.hoy, hayNota: tools.some((t) => t.name === NOTA_DEL_SEGUIMIENTO), enLaApp: deLaApp, enGoogle })
     : null;
-  const instruccion = [deMover, deSeguimiento].filter(Boolean).join('\n\n') || null;
+  // Y las de la agenda, sólo con lo que nombran en el turno (un prompt que nombra una herramienta que no viajó es una trampa).
+  const conSuEvento = destino === 'google' ? EVENTO_EN_GOOGLE : destino === 'mako' ? EVENTO_DEL_SEGUIMIENTO : null;
+  const deDestino = destino && p.agenda && (!conSuEvento || tools.some((t) => t.name === conSuEvento))
+    ? instruccionDelDestino(destino, { google: p.agenda.google, link: p.agenda.link, guardado: p.agenda.guardado })
+    : null;
+  const dePreferencia = preferencia && tools.some((t) => t.name === GUARDA_EL_DESTINO) ? instruccionDeLaPreferencia(preferencia) : null;
+  const instruccion = [deMover, deSeguimiento, deDestino, dePreferencia].filter(Boolean).join('\n\n') || null;
   // LO QUE SE PUEDE OFRECER (27/10/2026, la constancia fiscal de Leila): en una pregunta, o con un adjunto para interpretar, las
   // que escriben no viajan («la ofrece», arriba), y sin sus NOMBRES MaKo decía «no puedo» de lo que con un «sí» se hace. Sólo los
   // nombres, de las áreas del pedido y por su relevancia: el esquema viaja con el «sí». Lo dice el turno de la app
@@ -360,7 +386,7 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   // Las propias que escriben, en una pregunta, se ofrecen siempre: son lo que este chat hace (`propias`).
   const ofreciblesPropias = ofrece ? propias.filter((t) => { const d = porId(t.name); return escribe(t.name) && !!d && !esDestructiva(d); }).map((t) => t.name) : [];
   const ofrecibles = [...ofreciblesPropias, ...ofreciblesDelRegistro];
-  return { tools, delRegistro: [...delRegistro, ...delSeguimiento], areas, ofrece, instruccion, ofrecibles };
+  return { tools, delRegistro: [...delRegistro.filter(sinMako), ...delSeguimiento], areas, ofrece, instruccion, ofrecibles };
 }
 
 /** Las propias de un chat (`propias`) como herramientas: las que existen en el registro y la vista puede pedir, en el orden dado. */

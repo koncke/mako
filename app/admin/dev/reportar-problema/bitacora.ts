@@ -351,4 +351,19 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/tickets/bandeja',
   },
+  {
+    fecha: '18 nov', hora: '10:30', chat: 'Tickets de Sellers: el filtro de números', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La respuesta del equipo a tu pedido te llega entera, también cuando nombra lo que pediste',
+    puntos: [
+      'Cuando el equipo te contestaba un pedido nombrando algo con mayúsculas que dijiste tú (por ejemplo, el nombre de un evento), esa oración no te llegaba al grupo.',
+      'Ahora, lo que está en tu pedido te llega tal cual, en el grupo y en tus tickets.',
+    ],
+    archivos: [
+      'lib/tickets-reglas.ts — `sinLoInterno` no cuenta como el nombre de otro lo que está en el título o el pedido de tu ticket',
+      'tests/despacho-grupo.test.ts (20)',
+      'docs/hallazgos-ticketera.md',
+    ],
+    revisar: '/tickets/bandeja',
+  },
 ];

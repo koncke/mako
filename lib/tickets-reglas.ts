@@ -689,7 +689,7 @@ export function paraElCliente(t: FilaParaCliente, eventos: readonly EventoParaCl
   // ⚠️ DE UN PEDIDO DELEGADO, LO DEL EQUIPO LO ESCRIBE EL CEREBRO (la re-verificación de d49539722, N2: /tickets y /m/tickets lo
   // mostraban crudo). El «listo» es el mismo texto fijo del aviso (`textoDelAviso`) y lo demás pasa por `sinLoInterno`.
   const delegado = esPedidoDelegado(t.contexto);
-  const delEquipo = (s: string): string => (delegado ? sinLoInterno(s, { id: t.id, ws: t.workspace_id }) : s);
+  const delEquipo = (s: string): string => (delegado ? sinLoInterno(s, { id: t.id, ws: t.workspace_id, suyo: palabrasDelCliente(t) }) : s);
   const respuesta = !delegado ? t.respuesta : t.estado === 'resuelto' ? textoDelAviso(t) : (t.respuesta && delEquipo(t.respuesta)) || null;
   if (t.despacho === 'runner') lineas.push({ at: t.created_at, quien: 'equipo', texto: 'Lo vimos como algo que debería andar: ya se está arreglando.' });
   for (const e of eventos) {
@@ -908,11 +908,11 @@ const LO_INTERNO = [
  * hablan de la base, del código ni de otro negocio (`LO_INTERNO`), sin claves, sin `#N` que no sea el suyo, sin links que no sean de
  * MaKo o que lleven otro `ws`, y con tope. Lo que no pasa, no va: el aviso dice lo suyo con texto fijo.
  */
-export function sinLoInterno(texto: string, propio: { id: number; ws?: number }): string {
+export function sinLoInterno(texto: string, propio: { id: number; ws?: number; suyo?: string }): string {
   const oraciones = taparClaves(texto ?? '').texto.split(/(?<=[.!?])\s+|\n+/).map((o) => o.trim()).filter(Boolean);
   const quedan = oraciones.filter((o) => {
     if (LO_INTERNO.some((r) => r.test(o))) return false;
-    if (nombraAAlguien(o)) return false;
+    if (nombraAAlguien(o, propio.suyo)) return false;
     if ([...o.matchAll(/#\s*(\d+)/g)].some((m) => Number(m[1]) !== propio.id)) return false;
     const links = o.match(/https?:\/\/\S+/gi) ?? [];
     return links.every((l) => linkDelNegocio(l, propio.ws) === l.replace(/[.,;:!?)»]+$/, ''));
@@ -948,11 +948,25 @@ const NO_SON_PERSONAS = new Set(['mako', 'media', 'buyer', 'google', 'ads', 'man
  * con dos palabras seguidas con mayúscula que no son de `NO_SON_PERSONAS`. En la duda, la oración no va: un nombre de pila suelto
  * («lo de Leila») todavía pasa.
  */
-function nombraAAlguien(o: string): boolean {
+/**
+ * ¿La oración nombra a una PERSONA (dos palabras con mayúscula)? ⚠️ LO QUE DIJO EL CLIENTE NO ES DE OTRO (18/11/2026, el #111 de Joan):
+ * el Cerebro cerró con «No faltaba nada: «Misa Fasta SAM» quedó agendado hoy de 18:00 a 19:00 en tu Calendario…» y al grupo llegó
+ * sólo la SEGUNDA oración: «Misa Fasta» se leyó como el nombre de alguien. Era el nombre del evento, con las palabras del cliente. Lo
+ * que está en el título o en el pedido de SU ticket (`suyo`) no se cuenta.
+ */
+function nombraAAlguien(o: string, suyo = ''): boolean {
+  const propio = suyo.toLowerCase();
   for (const m of o.matchAll(/(\p{Lu}\p{Ll}+)\s+(\p{Lu}\p{Ll}+)/gu)) {
+    if (propio && propio.includes(`${m[1]} ${m[2]}`.toLowerCase())) continue;
     if (!NO_SON_PERSONAS.has(m[1].toLowerCase()) || !NO_SON_PERSONAS.has(m[2].toLowerCase())) return true;
   }
   return false;
+}
+
+/** Las palabras del cliente en SU ticket: el título y lo que pidió (un pedido delegado lo guarda en `contexto.pedido`). */
+export function palabrasDelCliente(t: { titulo?: string | null; contexto?: unknown }): string {
+  const pedido = t.contexto && typeof t.contexto === 'object' ? (t.contexto as { pedido?: unknown }).pedido : null;
+  return [t.titulo ?? '', typeof pedido === 'string' ? pedido : ''].join('\n');
 }
 
 /** El primer link a MaKo de `texto` que sea de ESTE negocio (sin `ws=` o con el suyo), o null. */
@@ -974,7 +988,7 @@ export function textoDelAviso(t: AvisoCliente): string {
   // de MaKo si el Cerebro lo dejó— y lo demás del Cerebro pasa por `sinLoInterno`.
   if (esPedidoDelegado(t.contexto)) {
     const suyo = `tu pedido #${t.id} («${t.titulo}»)`;
-    const limpio = sinLoInterno(r, { id: t.id, ws: t.workspace_id });
+    const limpio = sinLoInterno(r, { id: t.id, ws: t.workspace_id, suyo: palabrasDelCliente(t) });
     // ⚠️ «LISTO: YA QUEDÓ» SÓLO SI SE HIZO (18/11/2026, el #107 de Marcela). Martín CONTESTÓ el pedido desde el Centro sin hacerlo
     // («no agendes nada, solo dile que lo vuelva a hacer») y `responder` lleva a `resuelto` (`estadoDeDecision`): al grupo le llegó
     // «Listo: ya quedó tu pedido #107 («Pide agendar una llamada…»)», y la llamada no se agendó. Con `responder` va su respuesta.

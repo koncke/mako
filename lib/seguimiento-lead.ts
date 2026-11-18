@@ -154,7 +154,7 @@ export const fechaLegible = (f: string): string => `${LEGIBLE_DIA[diaDeLaSemana(
  * La línea del system de ESTE turno. Nombra sólo las herramientas que viajan (un prompt que nombra una que no viajó es una trampa):
  * quien la arma pasa `hayNota` según si `agregar_nota_lead` está en el turno.
  */
-export function instruccionDelSeguimiento(p: { texto: string; hoy?: string | null; hayNota: boolean; enLaApp?: boolean }): string {
+export function instruccionDelSeguimiento(p: { texto: string; hoy?: string | null; hayNota: boolean; enLaApp?: boolean; enGoogle?: boolean }): string {
   const fecha = p.hoy ? fechaDelSeguimiento(p.texto, p.hoy) : null;
   const dicha = horaDelSeguimiento(p.texto);
   const hora = dicha ?? HORA_DEL_SEGUIMIENTO;
@@ -169,8 +169,13 @@ export function instruccionDelSeguimiento(p: { texto: string; hoy?: string | nul
     : '';
   return [
     'TE PIDEN AGENDAR UN SEGUIMIENTO PARA MÁS ADELANTE (llamar o contactar a alguien en una fecha). Es algo que puedes hacer: no lo delegues ni lo dejes sólo en el texto de una nota. En ESTE turno, sin preguntar antes, propón:',
-    `${nota}crear_evento_calendario con tipo «llamada», título «Llamar a <su nombre como figura en el CRM>», ${cuando}, ${laHora} en la zona del negocio, duracionMin 15, y en notas el nombre del lead y para qué es la llamada.`,
-    'El evento del Calendario no queda atado a la ficha del lead: por eso su nombre va en el título y en las notas. No es una reunión con el lead: nada de proponer_agendar_agenda ni crear_evento_google, que le mandan una invitación.',
+    // Con el Google Calendar del negocio como destino (ticket #112, lib/agenda-destino.ts), el evento va a Google: ahí no hay «tipo».
+    p.enGoogle
+      ? `${nota}crear_evento_google con título «Llamar a <su nombre como figura en el CRM>», ${cuando}, ${laHora} en la zona del negocio, duracionMin 15, y en descripcion el nombre del lead y para qué es la llamada.`
+      : `${nota}crear_evento_calendario con tipo «llamada», título «Llamar a <su nombre como figura en el CRM>», ${cuando}, ${laHora} en la zona del negocio, duracionMin 15, y en notas el nombre del lead y para qué es la llamada.`,
+    p.enGoogle
+      ? 'El evento de Google no queda atado a la ficha del lead: por eso su nombre va en el título y en la descripción. No es una reunión con el lead: nada de proponer_agendar_agenda, que le manda una invitación.'
+      : 'El evento del Calendario no queda atado a la ficha del lead: por eso su nombre va en el título y en las notas. No es una reunión con el lead: nada de proponer_agendar_agenda, que le manda una invitación.',
     // En la app no hay «sí» escrito: cada propuesta es una tarjeta que la persona toca (lib/mako-turno-app-reglas.ts, CONFIRMAR).
     p.enLaApp
       ? (p.hayNota ? 'Las dos quedan propuestas, cada una en su tarjeta: la persona las confirma con un toque.' : 'Queda propuesto en su tarjeta: la persona lo confirma con un toque.')
