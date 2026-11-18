@@ -136,18 +136,18 @@ test('5. la operación real que guarda dónde agenda MaKo (base de mentira)', ()
     const o = JSON.parse(l.slice(11)) as Record<string, unknown> & { nombre: string };
     return [o.nombre, o];
   }));
-  const sin = e.get('sinGoogle') as { google: { ok: boolean; error: string }; pendientes: number; guardado: unknown };
+  const sin = e.get('sinGoogle') as unknown as { google: { ok: boolean; error: string }; pendientes: number; guardado: unknown };
   assert.equal(sin.google.ok, false);
   assert.match(sin.google.error, /no tiene una agenda de Google conectada/);
   assert.equal(sin.pendientes, 0, 'sin Google, «google» no queda propuesto');
   assert.equal(sin.guardado, null);
-  const mako = e.get('mako') as { mako: { ok: boolean }; antes: unknown; si: { resultado: string }; guardado: unknown };
+  const mako = e.get('mako') as unknown as { mako: { ok: boolean }; antes: unknown; si: { resultado: string }; guardado: unknown };
   assert.equal(mako.mako.ok, true);
   assert.equal(mako.antes, null, 'hasta el «sí» no se guarda nada');
   assert.match(mako.si.resultado, /Hecho/);
   assert.equal(mako.guardado, 'mako');
   assert.match(JSON.stringify(e.get('invalido')), /google \| mako/);
-  assert.deepEqual((e.get('red') as { red: string[] }).red, []);
+  assert.deepEqual((e.get('red') as unknown as { red: string[] }).red, []);
 });
 
 test('6. el doer lee la preferencia y la conexión de la agenda y se las pasa al turno', () => {
