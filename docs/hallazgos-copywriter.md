@@ -1022,8 +1022,10 @@ mismas piezas que ia.ts (`pideParaIA`, `guionParaIA`, la estructura sugerida), y
 - **las «arregladas» prueban el otro lado**: el defecto está en lo que escribió el modelo y no en la página (el voseo común,
   el inglés, las notas de producción, el «## SECCIÓN GANCHO»). Si el saneo deja de arreglarlo, da rojo.
 
-Y el orden del saneo se fija por los NOMBRES de los pasos dentro de `medir` (test 5), no por sus líneas: renombrar una
-variable no lo rompe, sacar o mover un paso sí. **Lo que esto no mide es si un modelo de verdad escribe bien**: eso sigue en
+Y el orden del saneo se fija por los NOMBRES de los pasos, del saneo al «aplicar» de ia.ts (test 5), no por sus líneas:
+renombrar una variable no lo rompe, sacar o mover un paso sí, y un segundo camino de saneo también. Sirvió el mismo día: al
+mezclar main, `medir` se partió en `procesar` + `medirS` (las piezas largas por secciones, lib/copywriter/por-secciones.ts) y
+el test 5 dio rojo. El saneo seguía igual y el test se reescribió para no depender del nombre de la función. **Lo que esto no mide es si un modelo de verdad escribe bien**: eso sigue en
 el arnés de chats (scripts/probar-chats/).
 
 **Lo que encontró escribir los casos:**
