@@ -42,6 +42,10 @@ una vez (con `fetchSeguro`, sólo de `i.ytimg.com`) para que la IA del negocio l
 - **Tablas globales** (mig `0409_thumbnails_biblioteca.sql`, sin `workspace_id`, como la biblioteca de carruseles):
   `thumbnails_canales` (canal, rubro, idioma, de dónde salió, activo/excluido) y `thumbnails_videos` (video, título, vistas,
   me gusta, comentarios, duración, `leido_en`, `oculto`). RLS prendido y sin políticas; las lee el servidor.
+- **El rubro es del CANAL, no del video** (regla desde el 18/11/2026; antes figuraba en «Lo que no se hizo»): lo pone la búsqueda
+  que trajo al canal y lo heredan todos sus videos, así que un canal de ventas que hace un video de marketing queda en ventas. No
+  hay un clasificador por video a propósito (sería una pasada de IA por video para un filtro que nadie pidió afinar). La pantalla
+  dice «Rubro del canal» y la API (`buscar_thumbnails`) lo describe igual; el porqué, en la cabecera de `lib/thumbnails/explorar.ts`.
 - **Lo puro:** `lib/thumbnails/explorar.ts` (qué se muestra, filtros, URL, orden y reparto por canal) y `lib/thumbnails/carga.ts`
   (la búsqueda y las filas). Tests: `tests/thumbnails-explorar.test.ts`, `tests/thumbnails-carga.test.ts`.
 - **El servidor:** `lib/thumbnails/servidor.ts` (lee la biblioteca y los guardados del negocio, `thumbnails.guardados`).
@@ -124,4 +128,3 @@ de la vidriera».
 - **Las miniaturas de los canales que sigue el negocio en Spy** no entran a esta pestaña: Spy ya guarda las suyas
   (`spy_piezas.miniatura`), pero mezclar las dos bibliotecas cambia de quién es cada tarjeta. Se puede sumar como «De tus cuentas»,
   igual que en carruseles.
-- **El rubro lo pone la búsqueda**, no un clasificador: un canal de ventas que hace un video de marketing queda en ventas.
