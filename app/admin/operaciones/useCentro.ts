@@ -551,10 +551,11 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const { cuenta } = destinoDeChat(c);
     return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaTextoLargo(k.version)) ? MAX_TEXTO_LARGO : MAX_TEXTO;
   };
-  /** «Automático» por fase (18/11/2026): ¿este chat, con lo elegido ahora, va por fase? Lo dice el selector («Sonnet → Opus»). */
+  /** «Automático» por fase (18/11/2026): ¿con «Automático», este chat iría por fase? Lo dice el selector («Sonnet → Opus»),
+   *  también con otro modelo elegido: la opción describe lo que haría ella. */
   const porFaseDe = (c: ChatCentro) => {
     const d = destinoDeChat(c);
-    return vaPorFase(d.sesion, c.titulo, modelo, runnerEntiendePorFase(carteros, d.cuenta));
+    return vaPorFase(d.sesion, c.titulo, null, runnerEntiendePorFase(carteros, d.cuenta));
   };
   /** Lo que se firma de cómo corre el trabajo: lo elegido y, con «Automático», las fases (lib/centro-cuentas.ts). */
   const comoDelEnvio = (c: ChatCentro) => {
