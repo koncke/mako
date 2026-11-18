@@ -13,6 +13,29 @@ corrida y fecha viene; antes de actuar sobre una, verificá contra el código: v
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
 
+## El «⋯» de Chats y del Web Generator abren el menú del clic derecho, y el «⋯» se lo traga al cerrarlo (18/11/2026, nube)
+
+**Síntoma:** el F119 de la lista del 17/11. Desde el 27/10 el clic derecho de una fila de Chats y de un renglón del Panel del
+Web Generator abría `MenuContextual`, pero su «⋯» seguía con su propio menú (un `Dropdown` y un `MenuFlotante`), y
+tests/clic-derecho-listas cruzaba las dos listas rótulo por rótulo para que no se separaran. AGENTS.md ya decía «el "⋯" y el
+clic derecho de lo mismo son un menú».
+
+**Cómo se abre desde un botón:** `useMenuContextual` ya expone `abrir(de, x, y)`; el «⋯» lo llama con el borde de abajo del
+botón (`r.left, r.bottom + 4`), igual que el «⋯» de una columna del CRM. No hace falta otra pieza.
+
+**La trampa que apareció al hacerlo:** `MenuContextual` se cierra en el `pointerdown` de un toque afuera (en captura, en
+`document`), y el «⋯» queda afuera. Tocar el «⋯» con su menú abierto lo cerraba en el `pointerdown` y lo volvía a ABRIR en el
+`click`. El arreglo es anotar en el `onPointerDown` del botón si su menú estaba abierto (todavía lo está: el cierre recién llega
+a la pantalla después) y, si lo estaba, no abrir en el `click`. El «⋯» del CRM (`abrirMenuDeColumna`) tiene el mismo
+comportamiento de reabrir y no se tocó.
+
+**Y el CSS:** el «⋯» de Chats aparecía sólo con `:hover`/`:focus-within`; con el Dropdown el foco quedaba adentro de la fila,
+con el menú en un portal no. Va `data-abierto` en el «⋯» mientras su menú está abierto.
+
+**Vive en:** app/chats/ListaChats.tsx (`MasAcciones`, `abrirMenuDesde`) · app/chats/chats.css · app/web-generator/Inicio.tsx
+(`abrirMenuDesde`, `masEstabaAbierto`) · tests: tests/clic-derecho-listas.test.ts, tests/editor-landing-panel.test.ts,
+tests/crm-feedback-27-10.test.ts, tests/chats-mas-simple.test.ts.
+
 ## Marcar pasos de un tutorial sobre las pestañas en HTML: los selectores que mienten (17/11/2026)
 
 Lo encontró el agente que escribió los 17 tutoriales (`docs/reto-7-dias/tutoriales-por-pestana.md`).

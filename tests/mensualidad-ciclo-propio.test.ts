@@ -216,7 +216,7 @@ const falsos: Record<string, unknown> = {
       return { ok: true, ids: ['wa-1'] };
     },
   },
-  './grupo-app': { copiarAlGrupo: async () => ({ ids: ['g-1'] }), atarIdDeWhatsApp: async () => undefined },
+  './grupo-app': { copiarAlGrupo: async () => ({ ids: ['g-1'], porParte: ['g-1'] }), atarIdDeWhatsApp: async () => undefined, atarIdsDeWhatsApp: async () => undefined },
   './recibos': {
     reciboDePago: async () => null,
     emitirReciboManual: async (m: (typeof recibos)[number]) => { recibos.push(m); return { ok: true, numero: 6 }; },

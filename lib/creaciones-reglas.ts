@@ -42,10 +42,10 @@ export const INFO_TIPO: Record<TipoCreacion, { titulo: string; singular: string;
  * galería, y publicar uno contesta que todavía no se puede. tests/creaciones.test.ts exige que cada tipo esté en UNA de
  * las dos listas, y que una entrada de `POR_ENCHUFAR` ya enchufada falle (se queda vieja sola).
  */
-export const ENCHUFADOS = ['automatizacion', 'guion', 'formato_imagen'] as const satisfies readonly TipoCreacion[];
+// `dashboard` (18/11/2026): una hoja del informe del Dashboard (lib/creaciones-dashboard.ts).
+export const ENCHUFADOS = ['automatizacion', 'guion', 'formato_imagen', 'dashboard'] as const satisfies readonly TipoCreacion[];
 export type TipoEnchufado = (typeof ENCHUFADOS)[number];
 export const POR_ENCHUFAR: Partial<Record<TipoCreacion, string>> = {
-  dashboard: 'Graphics',
   // Un proyecto del Video Editor vive en el NAVEGADOR (IndexedDB): el servidor sólo tiene una copia para leer, sin los
   // archivos. Su enchufe necesita que el editor arme la plantilla (docs/relevo/nube-plantillas.md).
   formato_video: 'Video Editor',

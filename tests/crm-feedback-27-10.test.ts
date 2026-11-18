@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { esNombreDeTelefono, nombreParaAlta, nombreUsable, fotoDeTarjeta } from '../lib/contacto-lead';
 import { cambiarClaveEnLista, fusionarRecientes } from '../app/chats/lista-reglas';
+import { itemsFilaChat } from '../app/chats/menu-contextual-chats';
 import { claveEtapaEnFunnel, contarBandejas, enFunnelYEtapa, filtrarChats, FILTRO_INICIAL } from '../lib/chats-reglas';
 import { pideWizardAlElegir, reunionYaCargada } from '../app/crm/mover-etapa';
 import { diaDeReunion, esEventoDelCrm, esR2 } from '../lib/auto-reuniones-reglas';
@@ -166,13 +167,19 @@ test('la lista trae los funnels con sus etapas y, por lead, su casa y sus agrega
 
 // ── 5 · los «⋯» ───────────────────────────────────────────────────────────────
 
+// Desde el 18/11/2026 (F119) el «⋯» de la fila abre el MISMO menú que su clic derecho (`itemsFilaChat`): se ejecuta esa lista.
 test('el «⋯» de la fila: lo del CRM, sin cerrar ni posponer', () => {
+  const sinLead = { leadId: null, asignado: null, canales: [{ canal: 'whatsapp', telefono: '1' }] } as never;
+  const conLead = { leadId: 7, asignado: null, canales: [] };
+  const dos = [{ id: 5, nombre: 'Uno' }, { id: 6, nombre: 'Dos' }] as never;
+  const rotulos = (xs: ReturnType<typeof itemsFilaChat>) => xs.flatMap((x) => (x ? [x.label, ...(x.hijos ?? []).map((h) => h.label)] : []));
+  assert.ok(rotulos(itemsFilaChat(sinLead, [], null)).includes('Agregar al CRM'));
+  assert.ok(rotulos(itemsFilaChat(sinLead, [], dos)).includes('Agregar al CRM en'), 'con varios funnels no pregunta en cuál');
+  assert.ok(rotulos(itemsFilaChat(conLead, [], null)).includes('Abrir ficha'));
+  const ids = [sinLead, conLead].flatMap((c) => itemsFilaChat(c, [], dos)).flatMap((x) => (x ? [x.id, ...(x.hijos ?? []).map((h) => h.id)] : []));
+  for (const prohibido of ['cerrar', 'posponer', 'reabrir', 'reanudar']) assert.ok(!ids.includes(prohibido), prohibido);
   const l = fuente('app/chats/ListaChats.tsx');
-  const menu = l.slice(l.indexOf('function MasAcciones('), l.indexOf('return (', l.indexOf('function MasAcciones(')));
-  assert.match(menu, /label: 'Agregar al CRM'/);
-  assert.match(menu, /title: 'Agregar al CRM en'/, 'con varios funnels no pregunta en cuál');
-  assert.match(menu, /label: 'Abrir ficha'/);
-  assert.doesNotMatch(menu, /'cerrar'|'posponer'|'reabrir'|'reanudar'/);
+  assert.match(l.slice(l.indexOf('function MasAcciones(')), /onAbrir\(e\.currentTarget\)/, 'el «⋯» no abre el menú de la fila');
 });
 
 // ── 2 · el contrato y la R1 cargada a mano ────────────────────────────────────

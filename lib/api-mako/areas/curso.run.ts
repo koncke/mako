@@ -25,6 +25,7 @@ import { modulosDelCurso, crearModulo, renombrarModulo, reordenarModulos } from 
 import { nombreDeModulo, type ModuloCurso } from '@/lib/curso-modulos';
 import { clasesDelProducto, claseDeId, accesoDe, quitarCursoDelAcceso, revocarAcceso, reactivarAcceso } from '@/lib/curso-datos';
 import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
+import { estaSacado } from '@/lib/comunidad-moderacion';
 import { invitadoAlProducto, entroAlProducto, correoQueFallo, productosVisibles } from '@/lib/curso-invitar-reglas';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import { logLeadEvent } from '@/lib/leads';
@@ -629,7 +630,7 @@ export const RUNNERS: Runners = {
   },
 
   dar_acceso_curso: {
-    preparar: revisando(async (input) => {
+    preparar: revisando(async (input, ctx) => {
       const leadId = num(input, 'leadId');
       const productoId = num(input, 'productoId');
       if (leadId == null) return { error: 'Falta el leadId.' };
@@ -639,6 +640,8 @@ export const RUNNERS: Runners = {
       const lead = await leadDe(leadId);
       if (!lead) return { error: `El lead #${leadId} no existe en este negocio.` };
       if (!lead.ganado) return { error: `${lead.nombre} no está en Ganado: el portal sólo le abre a un cliente ganado, y por la API no se lo pasa a Ganado. Muévelo a Ganado en el funnel de ese producto y vuelve a pedirlo.` };
+      // Sacado de ESE programa en Members (O12): el núcleo no lo invita; se dice acá, antes del «sí», con el mismo texto.
+      if (await estaSacado(ctx.ws, leadId, productoId)) return { error: TEXTO_NO_INVITA.sacado };
       const acc = await accesoDe(leadId);
       if (acc?.revocado) return { error: `${TEXTO_NO_INVITA.cortado} (habilitar_acceso_curso)` };
       if (!(await productosDelCliente(leadId)).productos.includes(productoId)) {
