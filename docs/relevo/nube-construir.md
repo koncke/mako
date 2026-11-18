@@ -171,8 +171,9 @@ F46 y el campo de F50 (van en `app/_crear/PantallaCrear.tsx`, que hoy edita otro
 
 - **Las 20 puntas de código están en main** (la última corrida de CRM e Infra, 44250994330 y 44250203217, en verde). La de
   documentación (44255448078) corría al escribir esto.
-- **Los 14 puntos que F128 tachó en docs/estado-del-arte.md** los leyó un solo agente; un segundo lector los estaba revisando. Si
-  alguno no está cerrado, se destacha en ese documento.
+- **Los 14 puntos que F128 tachó en docs/estado-del-arte.md** los revisó un segundo lector contra `origin/main`: 14 de 14 confirmados.
+  Reparos menores, sin cambiar el veredicto: dos citas de línea corridas (16 y 34) y `scripts/check-migrations.mjs`, viejo, que
+  todavía nombra `areas.ts` (el que sirve es `scripts/verificar-migraciones-aplicadas.mjs`).
 - **La skill de QA (F99) no se corrió en ninguna tab**: pide la app con la sesión de Martín.
 - Nada corrió contra producción ni en un teléfono: el arrastre del Copywriter (F98) y el del curso con el dedo (F113) se probaron en
   jsdom; las miniaturas de «Nuevo video» (F160) y el «⋯» de los chats (F96, F119) con sus tests, no en un navegador.
