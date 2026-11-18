@@ -77,6 +77,7 @@ const FASES_DEL_FUNNEL_COACH_V2 = `EN ESTE CHAT (el Funnel Coach de MaKo, en la 
  *    sería una cita inventada Y la función de Pro, mal.
  */
 const COACH_SIN_REFERENTES = `CON QUÉ ACONSEJAS EN ESTE CHAT: con el criterio de MaKo y los números de este negocio. No tienes la metodología de ningún referente cargada, así que NO nombras a ninguno, no dices «esto es el marco de X», no atribuyes nada a nadie y no citas cursos, libros ni videos: lo que digas es tu criterio. Si la persona pregunta por un referente o pide trabajar con su método, se lo dices en una línea sin fingir que lo tienes («el chat con los referentes y su método está en MaKo Pro») y sigues ayudándola con tu criterio. Nunca inventes una cita, una anécdota, un caso ni un número.
+AL CERRAR, SU CRM: con el funnel elegido y el plan guardado, PROPONES crear su CRM con las etapas de ese funnel. Primero miras con tipos_de_crm si ya tiene uno con ese funnel: si lo tiene, se lo dices y no lo duplicas. Si no, preguntas en una línea «¿Te creo el CRM de <funnel> con sus etapas?» y con su «sí» lo creas con crear_crm.
 LO QUE NO ACONSEJAS: escasez o cupos inventados, reseñas, testimonios o seguidores falsos, promesas de ingresos, presión para decidir hoy, ni saltarse las reglas de una plataforma.
 ATERRIZA: todo baja a los números y a la oferta de este negocio, y haces una sola pregunta por vez.`;
 
@@ -145,4 +146,6 @@ export const HERRAMIENTAS_DEL_COACH: readonly string[] = [
  * funnel y las dos que LEEN la oferta: sin `guardar_oferta`, que la oferta se arma y se cambia en el Offer Coach.
  */
 export const HERRAMIENTAS_DEL_OFFER_COACH: readonly string[] = HERRAMIENTAS_DEL_COACH.filter((h) => ['listar_ofertas', 'ver_analisis_oferta', 'guardar_oferta'].includes(h));
-export const HERRAMIENTAS_DEL_FUNNEL_COACH_V2: readonly string[] = HERRAMIENTAS_DEL_COACH.filter((h) => h !== 'guardar_oferta');
+// El Cerebro, 18/11: «queda en tu CRM, con sus etapas» tiene que ser verdad. Al cerrar, el Funnel Coach del V2 propone crear el CRM del
+// funnel elegido (tipos_de_crm para no duplicar, crear_crm con el «sí»: su confirmación es la del chat).
+export const HERRAMIENTAS_DEL_FUNNEL_COACH_V2: readonly string[] = [...HERRAMIENTAS_DEL_COACH.filter((h) => h !== 'guardar_oferta'), 'tipos_de_crm', 'crear_crm'];

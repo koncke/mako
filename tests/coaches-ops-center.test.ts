@@ -473,8 +473,19 @@ test('17. cada coach del V2 hace lo suyo y manda al otro sin armarlo', () => {
 
 test('18. las herramientas de cada coach del V2 salen de las seis, llegan en cada turno y el Funnel Coach no guarda ofertas', async () => {
   assert.deepEqual([...HERRAMIENTAS_DEL_OFFER_COACH], ['listar_ofertas', 'ver_analisis_oferta', 'guardar_oferta']);
-  assert.deepEqual([...HERRAMIENTAS_DEL_FUNNEL_COACH_V2], ['listar_ofertas', 'ver_analisis_oferta', 'calcular_presupuesto_anuncios', 'ver_plan_funnel', 'guardar_plan_funnel']);
-  for (const h of [...HERRAMIENTAS_DEL_OFFER_COACH, ...HERRAMIENTAS_DEL_FUNNEL_COACH_V2]) assert.ok(HERRAMIENTAS_DEL_COACH.includes(h), `${h}: fuera de las seis, el margen de la 11 no lo cubre`);
+  // 18/11, el Cerebro: «queda en tu CRM, con sus etapas» tiene que ser verdad. El Funnel Coach del V2 suma tipos_de_crm y crear_crm.
+  assert.deepEqual([...HERRAMIENTAS_DEL_FUNNEL_COACH_V2], ['listar_ofertas', 'ver_analisis_oferta', 'calcular_presupuesto_anuncios', 'ver_plan_funnel', 'guardar_plan_funnel', 'tipos_de_crm', 'crear_crm']);
+  for (const h of HERRAMIENTAS_DEL_OFFER_COACH) assert.ok(HERRAMIENTAS_DEL_COACH.includes(h), `${h}: fuera de las seis, el margen de la 11 no lo cubre`);
+  // Las dos del CRM no están en las seis: su peso se mide acá, con el mismo margen que la 11 (al menos 4.000 para lo demás).
+  {
+    const { charsDeTools } = await import('../lib/api-mako/registro');
+    const { PRESUPUESTO_REGISTRO_CHARS, propiasDelChat } = await import('../lib/doer-herramientas');
+    const v = { canal: 'app', alcance: 'proponer', ws: 13, rol: 'admin', tabs: null } as const;
+    const del = propiasDelChat(HERRAMIENTAS_DEL_FUNNEL_COACH_V2, v);
+    assert.deepEqual(del.map((x) => x.name), [...HERRAMIENTAS_DEL_FUNNEL_COACH_V2], 'todas existen y un admin las puede pedir');
+    const peso = charsDeTools(del);
+    assert.ok(PRESUPUESTO_REGISTRO_CHARS - peso >= 4_000, `el Funnel Coach del V2 pesa ${peso}: quedan ${PRESUPUESTO_REGISTRO_CHARS - peso} para lo demás`);
+  }
   const { herramientasDelChat } = await import('../lib/mako-turno-app-reglas');
   const { clasificarIntencion } = await import('../lib/mako-intencion');
   const { escribe } = await import('../lib/doer-herramientas');
