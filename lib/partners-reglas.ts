@@ -38,8 +38,29 @@ export function refQueVale(p: { previo: string | null; previoEsDePartner: boolea
 /** Desde cuántos meses PAGADOS del referido se gana (docs/referidos.md: «desde su 2º pago»). */
 export const PAGOS_PARA_ACREDITAR = 2;
 
-/** Lo que se lleva el partner del primer mes de cada negocio que trae: TODO (25/10/2026, Martín: «el 100%»). */
+/** Lo que se lleva el partner del primer mes de cada negocio que trae: TODO (25/10/2026, Martín: «el 100%»). REGLA VIEJA: ya no se acredita así. */
 export const PARTE_DEL_PARTNER = 1;
+
+/**
+ * LA REGLA DEL PROGRAMA (18/11/2026, Martín: «Olvidémonos por ahora de pagar el 100% del primer mes»): el partner se lleva una parte
+ * de CADA PAGO de cada negocio que trae, todos los meses, mientras ese negocio pague. Mensual o anual: la parte de lo que paga.
+ * Cuánto, según por dónde entra la plata:
+ *  - `directo`: Binance (USDT/USDC) o transferencia bancaria / CBU → 30 % redondo. También cuando el partner le cobra al negocio él
+ *    mismo y le manda a MaKo el 70 % por Binance o transferencia: se queda con el 30 %.
+ *  - `pasarela`: link de pago o pasarela (Mercado Pago, Whop, tarjeta) → 27 %: el partner asume parte del costo de la pasarela.
+ * La landing pública de Partners importa estos nombres: no los renombres sin avisar.
+ */
+export const COMISION_PARTNER_DIRECTO = 0.3;
+export const COMISION_PARTNER_PASARELA = 0.27;
+
+export type CanalDelPago = 'directo' | 'pasarela';
+
+/** Lo que le toca al partner de UN pago de `montoUsd`, en dólares con centavos (Pro 97 → 29,10 directo, 26,19 por pasarela). */
+export function comisionDelPago(montoUsd: number, canal: CanalDelPago): number {
+  const centavos = Math.round(Math.max(0, Number(montoUsd) || 0) * 100);
+  const parte = canal === 'directo' ? COMISION_PARTNER_DIRECTO : COMISION_PARTNER_PASARELA;
+  return Math.round(centavos * parte) / 100;
+}
 
 /** El código público de un negocio, a partir de su nombre: minúsculas, sin acentos, con guiones. 3 a 24 letras. */
 export function codigoDesdeNombre(nombre: string, sufijo = ''): string {
