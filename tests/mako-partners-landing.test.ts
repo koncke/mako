@@ -339,6 +339,10 @@ test('«¿Por qué ser partner de MaKo te conviene?»: seis beneficios y «MaKo 
     'Pensada para vender en Latinoamérica', 'Pagar con Mercado Pago, en pesos']);
   // Sistema simple (18/11/2026): sin transferencia ni Binance en el checkout; la tabla y la tarjeta no los prometen.
   assert.doesNotMatch(texto(tabla), /Binance|transferencia/i);
+  // Martín (18/11/2026): «yo me refiero a PAGAR con Binance». Los negocios pagan con Mercado Pago; el partner sí COBRA por Binance
+  // (el paso 3 de «Así de simple» queda). Que falle si la landing vuelve a decir que se PAGA con Binance o por transferencia.
+  assert.doesNotMatch(t, /pag\w* (?:con|por|en)[^.]{0,60}(?:Binance|transferencia)/i, 'nadie paga MaKo con Binance ni por transferencia');
+  assert.match(t, /Cobras del 1 al 5 de cada mes En dólares por Binance o en pesos\./, 'el partner cobra por Binance o en pesos');
   assert.match(tabla, /<td class="mk mp-vs2-precio">Desde <b class="mp-vs2-verde">US\$ 47<\/b> al mes<\/td><td class="otra mp-vs2-precio">Desde US\$ 97 al mes<\/td>/, 'el precio, sin tilde y el 47 en verde');
   assert.equal((tabla.match(/class="mp-vs2-si"/g) ?? []).length, filas.length - 1, 'MaKo: ✓ en todas menos el precio');
   assert.equal((tabla.match(/class="mp-vs2-no"/g) ?? []).length, filas.length - 1, 'GoHighLevel: ✕ en todas menos el precio');
