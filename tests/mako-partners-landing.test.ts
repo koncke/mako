@@ -23,7 +23,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, DIAS_COOKIE_REF, RUTA_ALTA_PARTNERS, comisionDelPago } from '../lib/partners-reglas';
+import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, RUTA_ALTA_PARTNERS, comisionDelPago } from '../lib/partners-reglas';
 import { porcentaje, usd } from '../app/mako-partners/numeros';
 import { PROGRAMA_ACELERADOR } from '../lib/planes-mako';
 
@@ -60,21 +60,19 @@ test('el TÍTULO dice el 30% (sin «de por vida»), y el subtítulo el ejemplo d
   assert.match(fuente('app/mako-partners/page.tsx'), /title: 'MaKo Partners: llévate el 30% de cada pago de cada negocio que traigas'/);
 });
 
-test('por qué conviene, así de simple y según cómo pagan: cada idea UNA vez (la pasada de copy del 18/11/2026)', async () => {
+test('así de simple (3 pasos en tarjetas) y según cómo pagan: cada idea UNA vez (18/11/2026)', async () => {
   const { html, t } = await landing();
-  const numeros = texto(html.slice(html.indexOf('class="mp-numeros"'), html.indexOf('</ul>', html.indexOf('class="mp-numeros"'))));
-  assert.match(t, /Por qué conviene/);
-  assert.match(numeros, /Ilimitado Sin tope de negocios: cuantos más traes, más cobras \./);
-  assert.ok(numeros.includes(`${DIAS_COOKIE_REF} días Tu link guarda a quien lo abrió por ${DIAS_COOKIE_REF} días: si se suma después, igual es tuyo .`));
-  assert.match(numeros, /1 minuto Te haces partner y tu link aparece en el acto \./);
-  // Martín: «no pongas "no es un pago único"… se entiende».
-  assert.doesNotMatch(t, /pago único|El 30% es tuyo/);
-  // Los 3 pasos, en orden.
-  assert.match(t, /Así de simple 1 Compartes tu link En tus redes, tus grupos de WhatsApp o tus anuncios\. Si no entran por el link, ponen tu código al pagar\. 2 El negocio se suma a MaKo Desde su primer pago, cada mes te deja tu parte\. 3 Cobras del 1 al 5 de cada mes Lo que ganaste en el mes se suma en tu panel\./);
+  // Martín: «Elimina "por qué conviene"… y simplemente pon "así de simple", pero con el diseño de las tarjetas».
+  assert.doesNotMatch(t, /Por qué conviene|pago único|El 30% es tuyo/);
+  assert.match(html, /<h2>Así de simple<\/h2><ol class="mp-numeros">/, 'los pasos, con el diseño de las tarjetas de los números');
+  // Los 3 pasos, en orden; el 3 dice cómo cobras («"tú eliges cómo cobrar…" debería estar… en el paso 3»).
+  assert.match(t, /Así de simple 1 Compartes tu link En tus redes, tus grupos de WhatsApp o tus anuncios\. Si no entran por el link, ponen tu código al pagar\. 2 El negocio se suma a MaKo Paga su plan con tu link o tu código, y desde su primer pago cada mes te deja tu parte\. 3 Cobras del 1 al 5 de cada mes Tú eliges cómo: dólares por Binance o pesos por transferencia\./);
   // Según cómo pagan: las dos tarjetas, con los montos de la regla.
-  assert.ok(t.includes(`Cuánto te llevas según cómo pagan La que más te deja 30% Transferencia o Binance MaKo Pro: US$ 29,10 por mes MaKo Essential: US$ 14,10 por mes Cuando el negocio paga por transferencia o Binance, o cuando le cobras tú y nos mandas el resto.`), 'la de transferencia');
+  assert.ok(t.includes(`Cuánto te llevas según cómo pagan La que más te deja 30% Transferencia o Binance MaKo Pro: US$ 29,10 por mes MaKo Essential: US$ 14,10 por mes Cuando el negocio paga por transferencia o Binance.`), 'la de transferencia');
   assert.ok(t.includes(`${PASARELA} Pasarela de pago (tarjeta, Mercado Pago) MaKo Pro: ${pasarelaPro} por mes MaKo Essential: ${pasarelaEssential} por mes La pasarela cobra su comisión y la compartimos.`), 'la de pasarela');
-  assert.equal((t.match(/Tú eliges cómo cobrar: dólares por Binance o pesos por transferencia\./g) ?? []).length, 1, 'cómo cobras, UNA vez');
+  assert.equal((t.match(/dólares por Binance o pesos por transferencia/g) ?? []).length, 1, 'cómo cobras, UNA vez (en el paso 3)');
+  // Martín: «elimina lo de "o cuando le cobras tú y nos mandas el resto"… no son agencias».
+  assert.doesNotMatch(t, /cobras tú|nos mandas el resto|cualquier plan/i);
   assert.match(html, /class="mp-cobro mp-cobro-mejor"/, 'la de transferencia, destacada');
 });
 
@@ -141,7 +139,8 @@ test('las PREGUNTAS: sólo las dudas que no están arriba, y «¿Cuándo cobro?�
   assert.match(faq, /Cualquier negocio que todavía no usa MaKo y entra con tu link o pone tu código al pagar\. Tu propio negocio no cuenta\./);
   assert.match(faq, /En tu panel de MaKo Partners: cada negocio que trajiste, lo que te deja y lo que tienes a cobrar\./);
   // Ser partner pide tener el plan de MaKo pago (Martín, 18/11/2026: «de hecho no es gratis»): ningún «gratis» en la landing.
-  assert.match(faq, /Tener tu plan de MaKo activo\. Si tu plan se corta, lo que ganaste no se pierde: te lo pagamos cuando lo reactivas\./);
+  // Martín: «sí o sí necesitan el plan de 97, el de MaKo Pro» (el precio, de los planes).
+  assert.match(faq, /Tener tu plan MaKo Pro activo \(US\$ 97 al mes\)\. Si tu plan se corta, lo que ganaste no se pierde: te lo pagamos cuando lo reactivas\./);
   assert.doesNotMatch(t, /gratis/i, 'ningún «gratis» sobre ser partner');
   assert.doesNotMatch(t, /segundo mes|2º pago|segundo pago|¿Siempre es el/, 'ya no se espera al 2º pago');
   assert.match(t, /Empieza a ganar con tu link/, 'el cierre');

@@ -34,7 +34,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, DIAS_COOKIE_REF, RUTA_ALTA_PARTNERS, comisionDelPago, type CanalDelPago } from '@/lib/partners-reglas';
+import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, RUTA_ALTA_PARTNERS, comisionDelPago, type CanalDelPago } from '@/lib/partners-reglas';
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
 import { gananciaPorMes, porcentaje, usd } from './numeros';
@@ -139,13 +139,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-numero b { display: block; font-size: 54px; line-height: 1; font-weight: 800; letter-spacing: -.04em; color: var(--mp-azul); margin-bottom: 12px; }
 .mp-numero span { display: block; font-size: 16px; color: var(--mp-dim); }
 .mp-numero strong { color: var(--mp-ink); }
-/* «Así de simple»: tres pasos numerados (es una secuencia). */
-.mp-pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; grid-template-columns: repeat(3, 1fr); }
-.mp-paso { display: flex; flex-direction: column; gap: 6px; padding: 24px; border-radius: 22px; background: var(--mp-gris); }
-.mp-paso-n { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; margin-bottom: 6px; border-radius: 50%;
-  background: var(--mp-azul); color: var(--mp-sobre-azul); font-weight: 800; }
-.mp-paso b { font-size: 19px; line-height: 1.25; color: var(--mp-ink); }
-.mp-paso > span:last-child { font-size: 16px; color: var(--mp-dim); }
+.mp-numero .mp-numero-t { margin-bottom: 4px; font-size: 19px; line-height: 1.25; font-weight: 800; color: var(--mp-ink); }
 /* «Cuánto te llevas según cómo pagan»: dos tarjetas; la de transferencia, destacada sin gritar. */
 .mp-cobros { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; max-width: 860px; margin: 0 auto; }
 .mp-cobro { display: flex; flex-direction: column; gap: 6px; padding: 26px 24px 24px; border-radius: 22px; background: var(--mp-sup); border: 1px solid var(--mp-borde); }
@@ -159,8 +153,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-cobro-montos { list-style: none; margin: 4px 0 6px; padding: 0; display: grid; gap: 2px; color: var(--mp-ink); font-variant-numeric: tabular-nums; }
 .mp-cobro-montos b { font-weight: 800; }
 /* Aire entre el título de una sección y sus tarjetas (sin bajada en medio). */
-.mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-pasos, .mp-seccion h2 + .mp-cobros { margin-top: 28px; }
-.mp-cobros-nota { margin: 20px auto 0; text-align: center; font-size: 16px; color: var(--mp-suave); }
+.mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-cobros { margin-top: 28px; }
 .mp-faq { max-width: 780px; margin: 0 auto; display: grid; gap: 10px; }
 .mp-faq details { background: var(--mp-sup); border: 1px solid var(--mp-borde); border-radius: 16px; padding: 0 22px; }
 .mp-faq summary { cursor: pointer; list-style: none; padding: 18px 0; font-weight: 700; font-size: 17px; color: var(--mp-ink); display: flex;
@@ -179,7 +172,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-pie { text-align: center; color: #8A93A2; font-size: 13.5px; padding: 28px 0 40px; }
 .mp-pie a { color: #5B6472; }
 @media (max-width: 860px) {
-  .mp-hero-grilla, .mp-numeros, .mp-pasos, .mp-cobros { grid-template-columns: 1fr; }
+  .mp-hero-grilla, .mp-numeros, .mp-cobros { grid-template-columns: 1fr; }
   .mp-hero h1, .mp-app .mp-hero h1 { font-size: 36px; }
   .mp-app .mp-hero { padding: 4px 16px 20px; border-radius: 18px; }
   .mp-hero-grilla { gap: 28px; padding-top: 24px; }
@@ -259,27 +252,19 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
           dice cuánto ganas; los números, por qué conviene; «Así de simple», los 3 pasos; «según cómo pagan», el 30% y el 25% con sus
           montos (Martín: «en otra sección deberíamos aclarar lo de la transferencia o pasarela de pago»); las preguntas, sólo dudas
           que no estén arriba; el cierre, una frase y el botón. Los números, de las constantes. */}
-      <section className="mp-seccion">
-        <div className="mp-wrap">
-          <h2>Por qué conviene</h2>
-          <ul className="mp-numeros">
-            <li className="mp-numero"><b>Ilimitado</b><span>Sin tope de negocios: cuantos más traes, <strong>más cobras</strong>.</span></li>
-            <li className="mp-numero"><b>{DIAS_COOKIE_REF} días</b><span>Tu link guarda a quien lo abrió por {DIAS_COOKIE_REF} días: si se suma después, <strong>igual es tuyo</strong>.</span></li>
-            <li className="mp-numero"><b>1 minuto</b><span>Te haces partner y tu link <strong>aparece en el acto</strong>.</span></li>
-          </ul>
-        </div>
-      </section>
-
+      {/* Martín, 18/11/2026: «Elimina "por qué conviene"… y simplemente pon "así de simple", pero con el diseño de las tarjetas de
+          "por qué te conviene"… "tú eliges cómo cobrar…" debería estar arriba, en "así de simple", en el paso 3». Los pasos son una
+          secuencia: el número grande arriba de cada tarjeta. */}
       <section className="mp-seccion">
         <div className="mp-wrap">
           <h2>Así de simple</h2>
-          <ol className="mp-pasos">
-            <li className="mp-paso"><span className="mp-paso-n">1</span><b>Compartes tu link</b>
+          <ol className="mp-numeros">
+            <li className="mp-numero"><b>1</b><span className="mp-numero-t">Compartes tu link</span>
               <span>En tus redes, tus grupos de WhatsApp o tus anuncios. Si no entran por el link, ponen tu código al pagar.</span></li>
-            <li className="mp-paso"><span className="mp-paso-n">2</span><b>El negocio se suma a MaKo</b>
-              <span>Desde su primer pago, cada mes te deja tu parte.</span></li>
-            <li className="mp-paso"><span className="mp-paso-n">3</span><b>Cobras del 1 al 5 de cada mes</b>
-              <span>Lo que ganaste en el mes se suma en tu panel.</span></li>
+            <li className="mp-numero"><b>2</b><span className="mp-numero-t">El negocio se suma a MaKo</span>
+              <span>Paga su plan con tu link o tu código, y desde su primer pago cada mes te deja tu parte.</span></li>
+            <li className="mp-numero"><b>3</b><span className="mp-numero-t">Cobras del 1 al 5 de cada mes</span>
+              <span>Tú eliges cómo: dólares por Binance o pesos por transferencia.</span></li>
           </ol>
         </div>
       </section>
@@ -293,7 +278,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
               <b className="mp-cobro-pct">{directo}</b>
               <h3>Transferencia o Binance</h3>
               {montos('directo')}
-              <p>Cuando el negocio paga por transferencia o Binance, o cuando le cobras tú y nos mandas el resto.</p>
+              <p>Cuando el negocio paga por transferencia o Binance.</p>
             </div>
             <div className="mp-cobro">
               <b className="mp-cobro-pct">{pasarela}</b>
@@ -302,7 +287,6 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
               <p>La pasarela cobra su comisión y la compartimos.</p>
             </div>
           </div>
-          <p className="mp-cobros-nota">Tú eliges cómo cobrar: dólares por Binance o pesos por transferencia.</p>
         </div>
       </section>
 
@@ -329,7 +313,10 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
             </details>
             <details>
               <summary>¿Qué necesito para ser partner?</summary>
-              <p>Tener tu plan de MaKo activo. Si tu plan se corta, lo que ganaste no se pierde: te lo pagamos cuando lo reactivas.</p>
+              <p>
+                Tener tu plan {tope?.nombre} activo{tope && <> ({usd(tope.precioUsd)} al mes)</>}. Si tu plan se corta, lo que ganaste no se pierde:
+                te lo pagamos cuando lo reactivas.
+              </p>
             </details>
           </div>
         </div>
