@@ -60,8 +60,8 @@ siete quedaron a medias o corregidos, y además F169 pasó a medias (la tabla «
 | `nube-construir-video` · `-video-2` | F160, F164, F166, F167, F168 | 71aed02596 · 1e35d50a0e | ✅ |
 | `nube-construir-crm` | F117, F148, F150, F152, F154, F157, F158 | 4135431828 | ✅ |
 | `nube-construir-infra` | F69, F74, F85, F115, F126, F127, F173 | 6d3d5bb5a7 | ✅ |
-| `nube-construir-docs` | F20, F22, F99, F128 | 4b7c4cec85 | corriendo (44255448078) |
-| `nube-construir-cierre` | F53, este relevo y el documento | — | — |
+| `nube-construir-docs` | F20, F22, F99, F128 | 4b7c4cec85 | ✅ |
+| `nube-construir-cierre` | F53, este relevo y el documento | 9055e61e5c | ✅ |
 
 ## Lo que decide Martín
 
@@ -159,7 +159,9 @@ F46 y el campo de F50 (van en `app/_crear/PantallaCrear.tsx`, que hoy edita otro
 - **F115 encontró dos agujeros reales** y los cerró: `estadoPuenteAction` y `estadoPruebaAction` (app/video-generator/puente-actions.ts)
   contestaban sin sesión.
 - **El índice de hallazgos se re-duplicaba solo** (F53): 64 → 89 filas en dos horas después de P21. La clave del driver pasó al
-  documento (hallazgos-infra.md, «El índice volvió a duplicarse…»).
+  documento (hallazgos-infra.md, «El índice volvió a duplicarse…»). ⚠️ Y el arreglo de un driver de mezcla no corre en su propia
+  punta: Actions mezcla con el driver de MAIN, y el viejo devolvió las 25 filas (la primera corrida de la punta de cierre dio rojo
+  por eso). Se mezcló main en la máquina con el driver nuevo y se subió sin nada de main por detrás; desde que entró, ya rige.
 - **En el clon superficial de la nube, `git log -- <archivo>` puede devolver el commit del borde del clon** en vez del cambio real:
   para refutar, antes `git fetch --shallow-since=<fecha>` (lo encontró el lote de documentación).
 - **El chat del Video Editor todavía le dice «Pasa a Pro» al cliente de una agencia** (F148): devuelve `textoSoloPro('ia-editores')`
@@ -169,8 +171,8 @@ F46 y el campo de F50 (van en `app/_crear/PantallaCrear.tsx`, que hoy edita otro
 
 ## Lo que falta verificar
 
-- **Las 20 puntas de código están en main** (la última corrida de CRM e Infra, 44250994330 y 44250203217, en verde). La de
-  documentación (44255448078) corría al escribir esto.
+- **Las 20 puntas de código están en main** (la última corrida de CRM e Infra, 44250994330 y 44250203217, en verde). También las de
+  documentación y de cierre: las 22 puntas de la tanda, en verde.
 - **Los 14 puntos que F128 tachó en docs/estado-del-arte.md** los revisó un segundo lector contra `origin/main`: 14 de 14 confirmados.
   Reparos menores, sin cambiar el veredicto: dos citas de línea corridas (16 y 34) y `scripts/check-migrations.mjs`, viejo, que
   todavía nombra `areas.ts` (el que sirve es `scripts/verificar-migraciones-aplicadas.mjs`).
