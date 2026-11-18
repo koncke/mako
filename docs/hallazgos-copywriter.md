@@ -3,6 +3,35 @@
 Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026). El diseño y sus decisiones están en
 [diseno-copywriter.md](diseno-copywriter.md); acá va lo que no se deduce del código.
 
+## El VSL Generator ya era el Copywriter, y el hueco que queda es el LARGO (18/11/2026, F93)
+
+**Síntoma:** el pendiente F93 (docs/pendientes-verificados-17-11.md) pedía construir el VSL Generator con el plan de agosto
+(app/admin/dev/vsl-generator/bitacora.ts): `lib/vsl-writer.ts`, `/api/vsl-generator` con una tabla de borradores (la migración
+0422 quedó reservada para eso) y una operación de la API. El agente que lo verificó el 17/11 buscó esos ARCHIVOS, no los encontró
+y lo dio por abierto.
+
+**Causa:** la búsqueda fue por archivo, no por capacidad. Las cuatro piezas existen desde el 28-29/10 con otro nombre:
+las plantillas VSL de «Nueva» salen de `lib/vsl-estructuras.ts` (`vsls` en lib/copywriter/plantillas.ts, `conVsl` en
+catalogos.ts), MaKo las escribe desde el chat de la página (lib/copywriter/ia.ts, con todas sus guardas: la voz, el largo por
+duración, las cifras sin fuente, el inglés) y la API las crea y las escribe (`crear_documento_copywriter` con `plantillaId`,
+`editar_documento_copywriter`, `replicar_link_o_texto_copywriter` con tipo `vsl`). El contrato doble de las etiquetas también:
+cada sección es un Título 2 con `attrs.seccion` = la etiqueta exacta (`tituloDeSeccion`, doc.ts), y `bloquesDelDoc` la lee.
+
+**Lo que se hizo:** no se escribió un segundo motor. /vsl-generator lleva a `/copywriter?nuevo=vsl` (app/vsl-generator/destino.ts,
+el molde de /youtube-writer), /vsl-writer va directo, y «vsl generator» y «guion de vsl» son alias del Copywriter en
+lib/funciones-mako.ts. Lo fija tests/vsl-generator-destino.test.ts, probado rompiéndolo.
+
+**El hueco de verdad, medido con las funciones de lib/copywriter/ia-reglas.ts:** `objetivoDeDuracion` topea en 2.000 palabras
+(~13 minutos dichos). Las cinco estructuras de lib/vsl-estructuras.ts son de 20 a 40 minutos (3.000 a 6.000 palabras), y la
+plantilla «Clase gratuita · 42 min» pide 6.300. Con el tope, `cortaParaSuDuracion` da por buena la clase desde 1.500 palabras
+(10 minutos) y `avisoDeDuracion` avisa recién debajo de 1.200: un VSL largo sale de un tercio de su duración y, por encima de
+1.200 palabras, nada lo dice. Arreglarlo es escribir una pieza larga sección por sección; vive en lib/copywriter/ia.ts y es del
+chat del Copywriter.
+
+**La regla que queda:** un pendiente que nombra un módulo por construir se refuta buscando la CAPACIDAD (qué pantalla o qué
+operación ya hace eso), no el archivo. Un plan de construcción fechado antes de una consolidación (acá, «Copywriter = Notion» y la
+regla de Create del 29/10) describe un mundo que ya no existe, y seguirlo al pie de la letra fabrica la segunda implementación.
+
 ## Un rollback se dispara con «no dejó rastro», nunca con «falló»: `crear` borraba el guion que SÍ se había guardado (6/11/2026, B7)
 
 El síntoma, de la verificación de la mudanza: la persona crea un guion, el texto se guarda bien, y la
@@ -844,11 +873,15 @@ nada». Medido en producción (ws 9, sesión de Martín, navegador de la app, s�
 - `grafoParaChat` ya está en main (lib/cerebro-para-chat.ts, c272b97dd): falta cambiar `const GRAFO` en lib/copywriter/contexto.ts (docs/plantillas-reales/README.md, tanda 0).
 - Las bajas de la verificación de la mudanza (C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md):
   - `crear` (lib/copywriter/server.ts) borra el documento si el índice «falla», aunque haya llegado: abre «No existe» (B7);
-  - el link compartido de una página cuya madre está en la Papelera sigue editando: app/api/compartido/guion/route.ts
-    mira sólo `pagina.papelera`; falta `escondida(paginas, id)` (B6);
-  - después de mudar, /copywriter abre una página mudada y no la última del usuario: nacen con `actualizado = ahora` (B3);
-  - con el índice casi lleno no entra nada y la marca queda «hecha» con 0 (B4);
-  - un `reels.historial` con JSON roto se toma como «no hay» (B5).
+  - ~~el link compartido de una página cuya madre está en la Papelera sigue editando: app/api/compartido/guion/route.ts
+    mira sólo `pagina.papelera`; falta `escondida(paginas, id)` (B6)~~ — hecho el 18/11/2026: `guionALaVista`
+    (lib/copywriter/compartir.ts) en las tres puertas;
+  - ~~después de mudar, /copywriter abre una página mudada y no la última del usuario: nacen con `actualizado = ahora` (B3)~~
+    — hecho el 18/11/2026: `fechasDeLoMudado` (lib/copywriter/mudanza-reglas.ts);
+  - ~~con el índice casi lleno no entra nada y la marca queda «hecha» con 0 (B4)~~ — hecho el 18/11/2026: `quedanAfuera` y
+    `sinLugar` de `crearVarias`;
+  - ~~un `reels.historial` con JSON roto se toma como «no hay» (B5)~~ — hecho el 18/11/2026: `leerLoDeAntes`.
+  Las cuatro, con su caso ejecutado en tests/copywriter-mudanza.test.ts. Ver la entrada del 18/11 más abajo.
 - «Compartir para editar» desde el teléfono del dueño (la vista del guion del teléfono no tiene el menú ⋯): D9.
 
 ## La cabecera de `app/copywriter/acceso.ts` dice «sólo el super admin» y la tab está abierta a todos desde el 29/10 (14/11/2026)
@@ -931,3 +964,51 @@ pura, y es la única que decide. Candado **sólo** con la capa `completo` vendid
 ws1, los acuerdos a mano (sin suscripción de la pasarela) y la plataforma dan `false`. Y `candadoDeReplicarGuion` devuelve
 `null` en el `catch`: **ante la duda, pasa**. ⚠️ La prueba gratis tiene los topes de SU plan desde el primer día, a propósito
 (`lib/plan-esencial.ts`, `capaVendidaDe`): una prueba del de 47 ve el candado, una del de 97 no.
+
+## Las bajas que quedaban de la mudanza, y arrastrar un título con su tabla (18/11/2026)
+
+**Los síntomas.** Cinco cosas que nadie veía de golpe, todas con la pantalla «funcionando»:
+- el link para editar de una subpágina seguía abriendo y guardando con su madre en la Papelera (B6);
+- después de la mudanza, /copywriter abría un Reel viejo en vez de la última página del usuario (B3);
+- con el índice casi lleno no entraba nada y la marca quedaba «hecha» con 0: los Reels, que no tienen otra pantalla, no
+  aparecían nunca (B4);
+- un `reels.historial` que no era JSON se mudaba como «no hay» (B5);
+- arrastrar un título con sólo una tabla debajo se llevaba el título solo (F98), y cuatro plantillas de fábrica tienen esa
+  forma (lib/copywriter/plantillas.ts: los ganchos del anuncio, la historia del Reel, el contexto de las Stories y los slides
+  del Carrusel).
+
+**Las causas.**
+- **B6:** «en la Papelera» se preguntaba por la página y no por su cadena: `escondida` (lib/copywriter/arbol.ts) es la
+  pregunta de la tab, y las tres puertas del link no la usaban.
+- **B3:** `crearVarias` ponía `actualizado: ahora` y `masReciente` abre la más nueva.
+- **B4 y B5:** el «hecha» del final no miraba lo que no entró ni lo que no se pudo leer. El `parse` devolvía `null` para el
+  JSON roto, el mismo `null` que «no hay».
+- **F98 (el diagnóstico obvio era el equivocado):** «que la tabla cuente como contenido de la sección» se arregla en
+  `seccionDe` y NO alcanza. `editor.setSelection` acepta una tabla como extremo (`blockEdgePos` le da un lugar en la última
+  celda), pero el arrastre de BlockNote (`blockPositionsFromSelection`, @blocknote/core 0.56, extensions/SideMenu/dragging.ts)
+  toma la selección entera sólo si sus dos extremos caen en un bloque de grupo `blockContent`. Adentro de una tabla el extremo
+  cae en el párrafo de una celda (`tableParagraph`, grupo `tableContent`), y BlockNote se lleva el título solo.
+  `MultipleNodeSelection`, que lo resolvería, no está exportada.
+
+**Dónde vive.**
+- `guionALaVista` (lib/copywriter/compartir.ts), que llaman la página pública, /api/compartido/guion y /api/compartir.
+- `fechasDeLoMudado`, `leerLoDeAntes` y `quedanAfuera` (lib/copywriter/mudanza-reglas.ts), y `crearVarias` con `actualizado` y
+  `sinLugar` (lib/copywriter/server.ts).
+- La `cola` de `seccionDe` y `llevarCola` (lib/copywriter/seccion-arrastre.ts), que `MenuLateral` (app/copywriter/editor/CuerpoNotion.tsx)
+  llama después de soltar.
+
+**Las reglas que quedan.**
+- **Una página «borrada» es la que no se ve en la tab**, no la que tiene su propia marca: toda puerta que abre o escribe una
+  página por un link pregunta `escondida`.
+- **Lo que se trae de otra pantalla nace con su fecha**, nunca con «ahora»: la fecha decide qué se abre primero.
+- **Un «hecha» se gana**: lo que no se pudo leer y lo que no entró por el tope dejan la marca «en curso», y el reintento lo trae.
+  Un tope que se eligió a propósito (`TOPE_MUDANZA`) es otra cosa y sí cierra.
+- **Lo que el arrastre de BlockNote no puede llevar se lleva después**: la cola sigue a la sección con `llevarCola`, que no
+  hace nada si ya está en su lugar (se llama en el `drop` y en el `dragend`). Son dos pasos de deshacer.
+- **BlockNote corre sin navegador**: `BlockNoteEditor.create` en jsdom (tests/copywriter-arrastrar-seccion.test.ts) sirve para
+  probar lo que se le hace al documento con la API pública.
+
+**Lo que quedó SIN hacer.**
+- Mirar el arrastre de una sección con tabla en un navegador de verdad: la nube no lo abre. Lo que se probó es la regla y
+  `llevarCola` contra BlockNote; el `drop` y el `dragend` en un navegador, no.
+

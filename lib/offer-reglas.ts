@@ -1684,13 +1684,24 @@ function montosDe(valor: string | null | undefined): Monto[] {
   const out: Monto[] = [];
   for (const m of t.matchAll(CIFRA_ESCALA)) {
     const despues = t.slice((m.index ?? 0) + m[0].length);
-    if (m[0].includes('%') || UNIDAD_PLAZO.test(despues) || /^\s*(?:clientes?|personas?|alumnos?|pacientes?|a la vez|por mes|al mes)\b/i.test(despues)) continue;
+    if (m[0].includes('%') || UNIDAD_PLAZO.test(despues) || CANTIDAD_DESPUES.test(despues)) continue;
+    // «20 al mes» es una CAPACIDAD; «USD 1,200 al mes» o «$1,200 al mes», un PRECIO por mes (18/11/2026: con la moneda
+    // ADELANTE, la cifra se descartaba y `precioDe` daba null, así que la oferta quedaba sin nivel). Con la moneda atrás
+    // («800 MXN al mes») ya entraba: lo que sigue a la cifra es la moneda, no «al mes».
+    if (POR_MES_DESPUES.test(despues) && !MONEDA_ANTES.test(t.slice(0, m.index ?? 0))) continue;
     const k = claveCifra(m[0]);
     if (!k) continue;
     out.push({ monto: Number(k), moneda, texto: m[0].trim() });
   }
   return out;
 }
+
+/** Lo que va DESPUÉS de una cifra que no es plata: una cantidad de gente o de cupos. */
+const CANTIDAD_DESPUES = /^\s*(?:clientes?|personas?|alumnos?|pacientes?|a la vez)\b/i;
+/** «al mes», «por mes» después de la cifra: una capacidad, salvo que la cifra lleve la moneda adelante (`MONEDA_ANTES`). */
+const POR_MES_DESPUES = /^\s*(?:por mes|al mes)\b/i;
+/** La moneda pegada ANTES de la cifra («USD 1,200», «US$ 900», «$1,200», «€ 50»). */
+const MONEDA_ANTES = /(?:\busd|\bus\$|\bmxn|\beur|€|\$)\s*$/i;
 
 /** El precio de la pieza: el monto MÁS ALTO (en «2.500 USD o 2 pagos de 1.300» es 2.500). */
 export function precioDe(valor: string | null | undefined): Monto | null {

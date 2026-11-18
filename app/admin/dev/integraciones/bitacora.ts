@@ -1253,4 +1253,13 @@ export const BITACORA: Hito[] = [
       'tests/spy-varias-claves.test.ts + tests/_spy-claves-hijo.ts — las funciones reales con un Apify de mentira (7 roturas)',
     ],
   },
+  {
+    fecha: '18 nov', hora: '01:29', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'La tarjeta de Apify ya no dice 40 lecturas por día en su presentación',
+    puntos: [
+      'La presentación de la tarjeta de Apify en Integraciones decía «MaKo no pasa de 40 lecturas por día»; el tope real de Competitors Spy es 150, y ahora lo dice, tomado del mismo número que lo hace cumplir.',
+    ],
+    archivos: ['lib/servicio-slides.ts — la slide «Corre con tu cuenta»', 'tests/apify-slide-tope.test.ts', 'docs/hallazgos-integraciones.md (18/11/2026)'],
+    revisar: '/integraciones?abrir=apify-instagram',
+  },
 ];

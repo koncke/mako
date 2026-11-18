@@ -17,6 +17,7 @@
 // =============================================================================
 
 import { conWs } from './ws-tab';
+import { DOMINIOS_MAKO } from './email-remitente';
 
 /** Distancia de edición (inserción, borrado, cambio de una letra). Sólo para hosts: cortos. */
 function distancia(a: string, b: string): number {
@@ -34,7 +35,10 @@ function distancia(a: string, b: string): number {
  * «hola-malo.com/crm/2761», conv 1502). El modelo reescribe el link de una herramienta y le cambia una letra al dominio; el
  * link lleva a otro sitio. Un host a una o dos letras del de MaKo (`base`), y que no es el de MaKo, se corrige al de MaKo
  * (`hola-malo.com`, `holamako.com`, `hola-mako.co`). Uno distinto de verdad (google.com, el sitio del negocio) no se toca, ni
- * los otros dominios propios (`otros`, p. ej. makodigital.app). Va ANTES de `linksConWs`, que sólo reconoce el host exacto.
+ * los otros dominios propios (`otros`, p. ej. makodigital.app). Va ANTES de reconocer el host exacto: desde el 18/11/2026 la
+ * llama `linksConWs` misma (abajo), así que lo corrige toda salida al grupo y no sólo el doer.
+ * ⚠️ Un dominio inventado DEL TODO («tu-dashboard.com/integraciones») no se corrige, a propósito: no se distingue del sitio de un
+ * negocio, y endurecerlo rompería sus links legítimos (docs/hallazgos-comunicacion.md, 18/11/2026).
  */
 export function conElDominioDeMaKo(texto: string, base: string, otros: readonly string[] = []): string {
   if (!texto) return texto;
@@ -56,9 +60,19 @@ const COLA = /[.,;:!?)\]}*_>»"'`]+$/;
 /**
  * Le pega `?ws=<ws>` a cada link a una pantalla de MaKo (`base`, p. ej. https://hola-mako.com) que no lo tenga.
  * `base` puede venir con o sin `https://` y con o sin `www.`: se reconoce el HOST.
+ *
+ * ⚠️ Y ANTES CORRIGE EL DOMINIO QUE EL MODELO INVENTA (`conElDominioDeMaKo`, 18/11/2026). Hasta ese día la corrección corría
+ * sólo en la respuesta del doer (lib/mako-doer-in.ts), y por `enviarAlGrupoMaKo` / `enviarPartesAlGrupoMaKo` (lib/mako-grupo.ts)
+ * sale texto que también escribe la IA (`generarMensajeAviso`, lib/flujos.ts): un «hola-malo.com/crm/2761» de un aviso salía tal
+ * cual. Va ACÁ porque ésta es la función por la que pasa TODO lo que va al grupo de un negocio: las dos salidas de
+ * lib/mako-grupo.ts, la copia al hilo de la app (`filaDeParte`, lib/grupo-app.ts) y el cruce del eco (`ponerIdALaCopia`, que
+ * normaliza los DOS lados con esta función). Corregir en una sola de esas puntas dejaba la copia de la app con el dominio
+ * inventado y el eco sin emparejar: una burbuja doble. Un host distinto de verdad (el sitio del negocio) no se toca.
  */
-export function linksConWs(texto: string, ws: number | null, base: string): string {
-  if (!texto || !ws) return texto;
+export function linksConWs(texto0: string, ws: number | null, base: string): string {
+  if (!texto0) return texto0;
+  const texto = conElDominioDeMaKo(texto0, base, DOMINIOS_MAKO);
+  if (!ws) return texto;
   let host: string;
   try { host = new URL(base.includes('://') ? base : `https://${base}`).host.replace(/^www\./, ''); } catch { return texto; }
   const hostRe = host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
