@@ -3974,12 +3974,13 @@ sus consumidores se lee como evidencia de que existen.** Se cuentan los `import`
 
 ### Sin hacer
 
-- **Compare-and-set en `moverClienteDeEtapa`** (`lib/cs-mover-etapa.ts`): si el cliente manda las
+- ~~**Compare-and-set en `moverClienteDeEtapa`** (`lib/cs-mover-etapa.ts`): si el cliente manda las
   dos últimas tareas en el mismo segundo (dos pestañas), los dos envíos ven la etapa completa y los
   dos contestan `cambio: true` — sale dos veces el mensaje de la etapa nueva y dos líneas de
   historial (la fila queda bien). Se dejó porque cuatro tests fijan la FORMA del upsert de ese
   choke point y el caso es raro; el arreglo es `update … where etapa = desde` + `upsert` con
-  `ignoreDuplicates`.
+  `ignoreDuplicates`.~~ — hecho desde el 06/10/2026 (54e312726), medido el 18/11 en
+  `lib/cs-mover-etapa.ts`: `.eq('etapa', previa.etapa)` y el `upsert` con `ignoreDuplicates`.
 - **Con el envío apagado, Mauricio recibe igual el aviso** de cada llamada («No le escribí: envío de
   WhatsApp apagado», con dedup de 72 h por sesión). Si después se prende, el dedup se come el aviso
   corregido.
@@ -3989,9 +3990,10 @@ sus consumidores se lee como evidencia de que existen.** Se cuentan los `import`
   Fathom) no está**: el posterior manda las tareas que le quedan en su etapa.
 - El onboarding de la tab Curso (regla de la casa), la limpieza de videos huérfanos del bucket
   (subidas abandonadas cerrando la pestaña), y la sincronización de las llamadas con Calendly.
-- Las actions de `app/customer-success/actions.ts` preguntan el workspace del cliente pero no la
+- ~~Las actions de `app/customer-success/actions.ts` preguntan el workspace del cliente pero no la
   CAPA (el `requireCapa` vive en la página, y una server action es un POST que no pasa por ella).
-  Las del curso sí la preguntan.
+  Las del curso sí la preguntan.~~ — hecho desde el 06/10/2026 (54e312726): la primera línea de cada
+  export es `puedeUsarCs` (app/customer-success/puerta.ts), medido el 18/11.
 - Lo que MaKo puede leer del curso por WhatsApp o la API (el avance de un cliente) no está declarado
   en el registro de `lib/api-mako/areas/`.
 - Whop: quedan en la base 4 credenciales (ws1 y ws4) y una fila de `webhook_routing` del ws1, y las
@@ -4862,7 +4864,8 @@ encontró la revisión final volviendo a correr los arneses de cada paso sobre e
 - La vista Avance cuenta por etapa del kanban: las tareas de los sueltos no salen ahí (sí en la ficha).
 - «Completar un módulo» exige también las clases con candado manual (lib/curso-bloqueo.ts).
 - Borrar una etapa en el kanban manda al final los sueltos anclados a ella.
-- Pantallas táctiles: no hay arrastre (quedan ↑↓ y «Mover antes / después»).
+- ~~Pantallas táctiles: no hay arrastre (quedan ↑↓ y «Mover antes / después»).~~ — hecho el 18/11/2026: el curso se
+  reordena con el dedo (`tocar`, app/_cursos/arrastre-curso.ts). Ver la entrada del 18/11.
 - Código sin uso: `guardarClase` (lib/curso-admin.ts), `conteoDeNotas` (lib/curso-notas.ts), el
   componente `ChecklistCurso` y la prop `onboarding` de `CursoApp`.
 - La Comunidad del equipo exige una sesión con id de usuario: la de `dev-login` contesta «Tu sesión
@@ -5716,8 +5719,8 @@ pone (`conPostDeComentar`): no hay token del alumno para preguntarlo.
 
 **Lo que quedó SIN hacer:** la llamada del curso leída de Calendly (crear sesiones solas dispara el aviso del cron
 `curso-sesiones` a clientes reales: hace falta decidir qué evento es la llamada de entrega); importar cursos de Skool o
-Hotmart (Skool no tiene API de contenido; Hotmart pide credenciales del productor); reordenar el curso con el dedo (un
-gesto se verifica en un navegador, y no hubo); las imágenes huérfanas de un borrador y la portada de un módulo vinculado
+Hotmart (Skool no tiene API de contenido; Hotmart pide credenciales del productor); ~~reordenar el curso con el dedo (un
+gesto se verifica en un navegador, y no hubo)~~ (hecho el 18/11/2026, ver la entrada de ese día); las imágenes huérfanas de un borrador y la portada de un módulo vinculado
 que se borra (cosméticas, sin datos para probar el borrado); el recorrido en el ws3. El toggle «Etapa del kanban» YA
 pregunta a dónde van los clientes desde el 08/10 (QuitarEtapa): falta probarlo en la app.
 
@@ -6209,3 +6212,36 @@ Lo encontró la tarea de la portada que buscaba el video que Mauricio dejó en s
 
 **Vive en:** lib/curso.ts (`videoDeLink`, `reproductorDeClase`) · lib/embeds.ts (`reconocerUrl`) ·
 app/compartido/curso/[token]/Reproductor.tsx (`VideoYouTube`).
+
+## Reordenar el curso con el dedo (18/11/2026)
+
+**El síntoma.** En un teléfono o una tablet, los módulos y las clases del curso no se podían reordenar arrastrando: con el
+dedo no pasaba nada. Quedaban las flechas ↑↓ de las clases y «Mover antes / después» del menú.
+
+**La causa.** El arrastre del curso (app/_cursos/arrastre-curso.ts) es HTML5 drag-and-drop, que un dedo no dispara.
+
+**Lo que se hizo.** `tocar`, el mismo gesto por pointer events, con el molde del Plan (app/plan/board/arrastre-tactil.ts):
+- se arma manteniendo el dedo quieto `MS_ARMAR` (300 ms), y un dedo que se mueve antes es un scroll;
+- los listeners viven en `window`, nada de `setPointerCapture`;
+- el scroll de la página se frena con un `touchmove` no pasivo, sólo con el gesto armado;
+- el `click` que el navegador inventa después de soltar se traga medio segundo;
+- con el gesto armado no llega el `contextmenu`: Android lo dispara a los ~500 ms y abría el «…» de la tarjeta.
+
+La copia que sigue al dedo es la del mouse (`moverCopia`, sumada a app/plan/board/arrastre-copia.ts), y dónde cae y qué pasa al
+soltar son las MISMAS funciones que usa el mouse (`destinoEn`, `soltarEn`). El dedo pregunta la zona con `elementFromPoint`;
+el mouse, con el `dragover`.
+
+**Las reglas que quedan.**
+- **Un arrastre nuevo para el dedo reusa la decisión del mouse, no la copia**: si el `dragover` y el dedo calculan el destino
+  por separado, se arregla uno y el otro sigue roto. Por eso `destinoEn` y `soltarEn` salieron del handler.
+- **Si el navegador arranca su propio arrastre con el dedo** (iPadOS con un toque largo), gana ése: `agarrar` suelta el gesto
+  del dedo sin terminar nada, o el `pointercancel` de después le borraría la mano.
+- **jsdom no trae `PointerEvent` ni `elementFromPoint`**: el test (tests/curso-arrastre-dedo.test.ts) arma un `MouseEvent` con
+  `pointerId`, `pointerType` e `isPrimary`, y los rectángulos a mano. Así se ejecuta el hook de verdad en React.
+
+**Lo que quedó SIN hacer.**
+- Mirarlo con un dedo en un teléfono de verdad: la nube no lo abre.
+- El kanban de la entrega y la tabla de Clientes siguen sin arrastre con el dedo (arriba, «Arrastre táctil»): es otra pieza
+  (`TablaClientes.tsx`, el kanban), no el curso.
+- La llamada del curso leída de Calendly: espera que Martín elija qué evento es la llamada de entrega.
+

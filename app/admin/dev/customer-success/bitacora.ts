@@ -1346,4 +1346,29 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'ae8c568df', msg: 'Customer Success: el alta de un cliente y la de un alumno frenan por el tope del plan', lineas: 33, archivos: 3 }],
     revisar: "/classroom/clients",
   },
+  {
+    fecha: '18 nov', hora: '02:00', chat: 'Nube › Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Continuar con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la nube con la lista «Lo que falta construir» (docs/pendientes-verificados-17-11.md): acá, F113 de Customer Success.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '02:20', chat: 'Nube › Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El curso se reordena con el dedo',
+    puntos: [
+      '**En un teléfono o una tablet ya se pueden mover los módulos y las clases del curso**: mantener la tarjeta apretada un momento, llevarla y soltarla. Antes, con el dedo no pasaba nada.',
+      'Es el mismo gesto que con el mouse: cae en el mismo lugar y una clase llevada a la barra se muda a ese módulo. Mientras se arrastra no se abre el menú «…» y, al soltar, no se abre la tarjeta.',
+      'Probado con el arrastre de verdad en React sobre un navegador de mentira (jsdom) y rompiéndolo; falta mirarlo con un dedo en un teléfono.',
+      'De F113 quedan dos: leer de Calendly la llamada del curso espera que Martín elija qué evento es la llamada de entrega; importar cursos de Skool o Hotmart se descarta (Martín, 25/10: «Depreca Hotmart, Skool, eso no sirve»).',
+    ],
+    archivos: [
+      'app/_cursos/arrastre-curso.ts — `tocar` (el dedo), y `destinoEn` / `soltarEn`, que comparten el mouse y el dedo',
+      'app/plan/board/arrastre-copia.ts — `moverCopia`, para mover la copia sin `dragover`',
+      'app/_cursos/CursoUgc.tsx — `onPointerDown` en las tres zonas que arrastran',
+      'tests/curso-arrastre-dedo.test.ts — el gesto ejecutado, probado rompiéndolo',
+    ],
+    revisar: '/customer-success',
+  },
 ];
