@@ -36,6 +36,8 @@
 
 import { ordenarConSugeridas, type ConSugerencia, type SenalesNegocio } from '../plantillas-sugeridas';
 import { ETIQUETAS_VIDEO } from './plantillas-etiquetas';
+// Sólo para la API (objetivo y «cuándo usarla»): el módulo de ejemplos importa de acá sólo TIPOS, así que no hay ciclo.
+import { ejemploDeVideo } from './plantillas-ejemplos';
 
 export const LIENZO_REF = { ancho: 1080, alto: 1920 } as const;
 /** Meta Ads Guide «Instagram Reels» (15/10/2026): 14 % arriba, 35 % abajo, 6 % por lado. */
@@ -85,7 +87,7 @@ export type AnclaPieza = { borde: 'arriba' | 'centro' | 'abajo'; y: number };
 
 export type PiezaTexto = {
   tipo: 'texto';
-  /** Sin hueco es decoración (la cuenta regresiva). */
+  /** Sin hueco es decoración (era la cuenta regresiva de la oferta, que se fue el 18/11/2026: hoy no hay ninguna). */
   hueco?: HuecoTexto;
   muestra: string;
   pista: 'texto-1' | 'texto-2' | 'texto-3' | 'texto-4';
@@ -131,7 +133,6 @@ export type Plantilla = {
 const CLIP: HuecoClip = { nombre: 'clip', rotulo: 'Tu clip', acepta: 'ambos' };
 const ANTES: HuecoClip = { nombre: 'antes', rotulo: 'Antes', acepta: 'ambos' };
 const DESPUES: HuecoClip = { nombre: 'despues', rotulo: 'Después', acepta: 'ambos' };
-const PRODUCTO: HuecoClip = { nombre: 'producto', rotulo: 'Tu producto', acepta: 'ambos' };
 /** El fondo del cierre: opcional (la muestra lisa sirve como está) y sin rótulo. */
 const FINAL: HuecoClip = { nombre: 'final', rotulo: '', acepta: 'ambos', opcional: true };
 
@@ -162,55 +163,104 @@ function cierre(inicio: number, fin: number, titulo: string, cta: string): Pieza
   ];
 }
 
-// ── Las cinco ────────────────────────────────────────────────────────────────
+// ── Las piezas comunes (de las once) ─────────────────────────────────────────
+// ⚠️ LA TOMA DE APOYO OPCIONAL VA SIN RÓTULO (doc §6, trampa 7): una muestra opcional que no se reemplaza se exporta
+//    tal cual, y `quedanMuestras` no la cuenta. Con «Toma de apoyo» dibujado, saldría así en el anuncio.
+
+/** La toma de apoyo opcional: encima de la principal, silenciada y sin rótulo (trampa 7). */
+const BROLL: HuecoClip = { nombre: 'broll', rotulo: '', acepta: 'ambos', opcional: true };
+/** «Sale 0.3»: el fundido de salida de todo el catálogo. */
+const sale = (s: number): [string, number] => ['desaparecer-gradualmente', s];
+/** La toma de apoyo de la tabla («0.3 / 0.3»): entra y sale con un fundido. */
+const broll = (inicio: number, fin: number): PiezaClip => ({
+  tipo: 'clip', hueco: BROLL, pista: 'video-1', inicio, fin, silenciar: true,
+  animacion: { entrada: ['aparecer-gradualmente', 0.3], salida: sale(0.3) },
+});
+/** El gancho amarillo de arriba, el de `gancho` (Anton, trazo negro, mayúsculas, en y=300, rebota y se va). */
+const ganchoArriba = (muestra: string, fin: number, px = 104): PiezaTexto => ({
+  tipo: 'texto', hueco: { nombre: 'gancho', maxCaracteres: 28 }, muestra, pista: 'texto-1', inicio: 0, fin,
+  estilo: { efecto: 'amarillo-trazo-negro', fuente: 'Anton', px, mayusculas: true },
+  ancla: { borde: 'arriba', y: 300 }, animacion: { entrada: ['rebote', 0.5], salida: sale(0.3) },
+});
+
+// ── Las cinco que el doc conserva, en su versión completa (doc 2.1, 2.3, 2.4, 2.9 y 2.11; 18/11/2026) ──────────
+// Hasta el 18/11/2026 eran la versión condensada de 15 s del plan de octubre, con textos de muestra genéricos («ESTO LO
+// CAMBIA TODO», «María López»). Cada pieza es ahora la fila de su tabla en docs/plantillas-reales/video.md, y la muestra
+// de cada hueco es el texto del ejemplo del doc, como en las seis nuevas. Las piezas comunes (la toma de apoyo, el
+// gancho de arriba, el «sale 0.3») van ANTES de esta sección: son `const`, y un `const` no se puede usar antes de su
+// línea (el módulo tiraría al cargar).
 
 const gancho: Plantilla = {
   id: 'gancho',
   nombre: 'Anuncio con gancho',
-  descripcion: 'Una frase que frena el scroll, tu clip y un cierre con botón.',
-  duracion: 15,
+  descripcion: 'Una frase que frena el scroll, un dato que la prueba y un cierre que pide un mensaje.',
+  duracion: 24,
   portada: 1,
   subtitulos: 'palabra-resaltada',
   ideaDe: ['Popping Scale Text', 'End Card'],
   piezas: [
-    { tipo: 'clip', hueco: CLIP, pista: 'principal', inicio: 0, fin: 12, transicion: { id: 'mezclar', duracion: 0.5 } },
-    ...cierre(12, 15, '¿Listo para empezar?', 'Escríbenos hoy'),
+    { tipo: 'clip', hueco: CLIP, pista: 'principal', inicio: 0, fin: 21, transicion: { id: 'mezclar', duracion: 0.5 } },
+    broll(6, 9.5),
+    ...cierre(21, 24, '¿Vendes programas de +USD 1,000?', 'Escribe LLAMADA'),
+    ganchoArriba('¿CIERRAS MENOS DEL 20 %?', 2.5),
     {
-      tipo: 'texto', hueco: { nombre: 'gancho', maxCaracteres: 28 }, muestra: 'ESTO LO CAMBIA TODO', pista: 'texto-1', inicio: 0, fin: 2.5,
-      estilo: { efecto: 'amarillo-trazo-negro', fuente: 'Anton', px: 104, mayusculas: true },
-      ancla: { borde: 'arriba', y: 300 }, animacion: { entrada: ['rebote', 0.5], salida: ['desaparecer-gradualmente', 0.3] },
+      tipo: 'texto', hueco: { nombre: 'dato', maxCaracteres: 24 }, muestra: '2/10 → 4/10 CIERRES', pista: 'texto-2', inicio: 14, fin: 19,
+      estilo: { efecto: 'recuadro-amarillo', fuente: 'Montserrat', px: 88, negrita: true, mayusculas: true, relleno: [0.6, 0.3] },
+      ancla: { borde: 'centro', y: 700 }, animacion: { entrada: ['acercar', 0.4], bucle: ['pulso', 1], salida: sale(0.3) },
+    },
+    // ⚠️ El aviso dice de dónde sale el número (la mediana de las alumnas, no un caso suelto): sin él, el dato promete.
+    // ⚠️ Va en 840, no en el 800 del doc: el doc supuso el dato «en un renglón, termina cerca de 770», y 19 caracteres
+    //    de Montserrat 88 en negrita no entran en los 842 px de ancho (se parte en dos, 568–832 con la tarjeta). Se pone
+    //    34 px debajo de la letra, como el aviso del testimonio (doc 2.4: dato de ~604 a ~796, aviso en 830).
+    {
+      tipo: 'texto', hueco: { nombre: 'aviso', maxCaracteres: 32 }, muestra: 'Mediana de 52 alumnas', pista: 'texto-1', inicio: 14, fin: 19,
+      estilo: { efecto: 'sombra-suave', fuente: 'Montserrat', px: 36, opacidad: 0.8 },
+      ancla: { borde: 'arriba', y: 840 }, animacion: { entrada: ['aparecer-gradualmente', 0.3] },
     },
   ],
 };
 
 const testimonio: Plantilla = {
   id: 'testimonio',
-  nombre: 'Testimonio',
-  descripcion: 'Un cliente cuenta su experiencia: la cita, su nombre y un cierre.',
-  duracion: 15,
+  nombre: 'Testimonio de cliente',
+  descripcion: 'Un cliente real cuenta su resultado: la cita, su nombre, el número que lo prueba y un cierre.',
+  duracion: 33,
   portada: 2,
+  // Limpio: un testimonio editado como anuncio pierde credibilidad (doc 2.4).
   subtitulos: 'predeterminado',
   ideaDe: ['Quote Card', 'Lower Third', 'End Card'],
   piezas: [
-    { tipo: 'clip', hueco: CLIP, pista: 'principal', inicio: 0, fin: 12, transicion: { id: 'mezclar', duracion: 0.5 } },
-    ...cierre(12, 15, 'Únete a nuestros clientes', 'Pide el tuyo'),
+    { tipo: 'clip', hueco: CLIP, pista: 'principal', inicio: 0, fin: 30, transicion: { id: 'mezclar', duracion: 0.5 } },
+    broll(10, 14),
+    ...cierre(30, 33, 'Únete al próximo grupo', 'Agenda tu llamada'),
     {
-      tipo: 'texto', hueco: { nombre: 'cita', maxCaracteres: 48 }, muestra: '“Lo recomiendo a todos”', pista: 'texto-1', inicio: 0, fin: 3.5,
+      tipo: 'texto', hueco: { nombre: 'cita', maxCaracteres: 48 }, muestra: '“De 6 a 21 pacientes”', pista: 'texto-1', inicio: 0, fin: 3.5,
       estilo: { efecto: 'recuadro-blanco', fuente: 'Playfair Display', px: 72, cursiva: true, relleno: [0.45, 0.25] },
       ancla: { borde: 'arriba', y: 300 }, animacion: { entrada: ['subir', 0.6], salida: ['desaparecer-gradualmente', 0.3] },
     },
     {
       // «Lower Third»: crece hacia ARRIBA desde 1010 y el detalle, hacia abajo desde
       // 1030: un nombre en dos renglones no pisa el detalle.
-      tipo: 'texto', hueco: { nombre: 'nombre', maxCaracteres: 28 }, muestra: 'María López', pista: 'texto-2', inicio: 1, fin: 6,
+      tipo: 'texto', hueco: { nombre: 'nombre', maxCaracteres: 28 }, muestra: 'Lucía Garza', pista: 'texto-2', inicio: 1, fin: 6,
       estilo: { efecto: 'translucido', fuente: 'Montserrat', px: 56, negrita: true, alineacion: 'izquierda', relleno: [0.4, 0.2] },
       ancla: { borde: 'abajo', y: 1010 }, animacion: { entrada: ['deslizar-derecha', 0.5], salida: ['deslizar-izquierda', 0.4] },
     },
     {
-      tipo: 'texto', hueco: { nombre: 'detalle', maxCaracteres: 32 }, muestra: 'Clienta desde 2024', pista: 'texto-3', inicio: 1.3, fin: 6,
+      tipo: 'texto', hueco: { nombre: 'detalle', maxCaracteres: 32 }, muestra: 'Nutrióloga · Monterrey', pista: 'texto-3', inicio: 1.3, fin: 6,
       estilo: { efecto: 'sombra-suave', fuente: 'Montserrat', px: 40, opacidad: 0.8, alineacion: 'izquierda' },
       ancla: { borde: 'arriba', y: 1030 },
       animacion: { entrada: ['aparecer-gradualmente', 0.4], salida: ['desaparecer-gradualmente', 0.3] },
+    },
+    {
+      tipo: 'texto', hueco: { nombre: 'dato', maxCaracteres: 24 }, muestra: '21 PACIENTES AL MES', pista: 'texto-1', inicio: 18, fin: 25,
+      estilo: { efecto: 'recuadro-amarillo', fuente: 'Montserrat', px: 80, negrita: true, mayusculas: true, relleno: [0.6, 0.3] },
+      ancla: { borde: 'centro', y: 700 }, animacion: { entrada: ['acercar', 0.4], salida: sale(0.3) },
+    },
+    // ⚠️ Sin el aviso, el número de UN caso se lee como una promesa (doc 2.4: «Resultado de un caso»).
+    {
+      tipo: 'texto', hueco: { nombre: 'aviso', maxCaracteres: 32 }, muestra: 'Resultado de un caso', pista: 'texto-4', inicio: 18, fin: 25,
+      estilo: { efecto: 'sombra-suave', fuente: 'Montserrat', px: 36, opacidad: 0.8 },
+      ancla: { borde: 'arriba', y: 830 }, animacion: { entrada: ['aparecer-gradualmente', 0.3] },
     },
   ],
 };
@@ -219,8 +269,8 @@ const testimonio: Plantilla = {
 const ROTULO_ANTES: HuecoTexto = { nombre: 'rotulo-antes', maxCaracteres: 12 };
 const ROTULO_DESPUES: HuecoTexto = { nombre: 'rotulo-despues', maxCaracteres: 12 };
 type Rotulo = { hueco: HuecoTexto; muestra: string; efecto: string };
-const R_ANTES: Rotulo = { hueco: ROTULO_ANTES, muestra: 'ANTES', efecto: 'recuadro-negro' };
-const R_DESPUES: Rotulo = { hueco: ROTULO_DESPUES, muestra: 'DESPUÉS', efecto: 'recuadro-amarillo' };
+const R_ANTES: Rotulo = { hueco: ROTULO_ANTES, muestra: '2025', efecto: 'recuadro-negro' };
+const R_DESPUES: Rotulo = { hueco: ROTULO_DESPUES, muestra: 'HOY · 60 %', efecto: 'recuadro-amarillo' };
 
 const rotuloGrande = ({ hueco, muestra, efecto }: Rotulo, inicio: number, fin: number): PiezaTexto => ({
   tipo: 'texto', hueco, muestra, pista: 'texto-1', inicio, fin,
@@ -248,7 +298,7 @@ const antesDespues: Plantilla = {
       tipo: 'clip', hueco: ANTES, pista: 'principal', inicio: 6, fin: 11, celda: ARRIBA, silenciar: true,
       animacion: { entrada: ['deslizar-derecha', 0.5], salida: ['desaparecer-gradualmente', 0.4] },
     },
-    ...cierre(11, 14, 'Tu cambio empieza hoy', 'Reserva tu cita'),
+    ...cierre(11, 14, 'Preventa desde MXN 2.4 M', 'Escribe PRECIOS'),
     {
       tipo: 'clip', hueco: DESPUES, pista: 'video-1', inicio: 6.2, fin: 11, celda: ABAJO, silenciar: true,
       animacion: { entrada: ['deslizar-izquierda', 0.5], salida: ['desaparecer-gradualmente', 0.4] },
@@ -273,8 +323,8 @@ const beneficio = (n: number, muestra: string, inicio: number, y: number): Pieza
 
 const beneficios: Plantilla = {
   id: 'beneficios',
-  nombre: 'Beneficios',
-  descripcion: 'Tres razones para comprar, una tras otra, sobre tu clip.',
+  nombre: 'Lo que te llevas',
+  descripcion: 'Tres entregables concretos, uno tras otro, y un cierre para agendar.',
   duracion: 15,
   portada: 6,
   ideaDe: ['Animated List', 'End Card'],
@@ -282,62 +332,67 @@ const beneficios: Plantilla = {
     { tipo: 'clip', hueco: CLIP, pista: 'principal', inicio: 0, fin: 12, transicion: { id: 'mezclar', duracion: 0.5 } },
     { tipo: 'clip', hueco: FINAL, pista: 'principal', inicio: 12, fin: 15 },
     {
-      tipo: 'texto', hueco: { nombre: 'titulo', maxCaracteres: 28 }, muestra: '3 RAZONES PARA PROBARLO', pista: 'texto-1', inicio: 0, fin: 12,
+      tipo: 'texto', hueco: { nombre: 'titulo', maxCaracteres: 28 }, muestra: 'LO QUE TE LLEVAS', pista: 'texto-1', inicio: 0, fin: 12,
       estilo: { efecto: 'blanco-trazo-negro', fuente: 'Anton', px: 88, mayusculas: true },
       ancla: { borde: 'arriba', y: 300 }, animacion: { entrada: ['rebote', 0.5], salida: ['desaparecer-gradualmente', 0.3] },
     },
     // «Animated List»: 1,5 s entre ítems para que se lean.
-    beneficio(1, 'Fácil de usar', 2, 560),
-    beneficio(2, 'Envío gratis', 3.5, 720),
-    beneficio(3, 'Garantía de 30 días', 5, 880),
+    // ⚠️ Cada beneficio en 24 caracteres o menos: con más, Montserrat 60 se parte en dos renglones y pisa al siguiente.
+    beneficio(1, 'Apertura ensayada', 2, 560),
+    beneficio(2, 'Práctica en vivo semanal', 3.5, 720),
+    beneficio(3, 'Simulacro con directorio', 5, 880),
     {
-      tipo: 'texto', hueco: { nombre: 'cta', maxCaracteres: 20 }, muestra: 'Pruébalo hoy', pista: 'texto-1', inicio: 12.4, fin: 15,
+      tipo: 'texto', hueco: { nombre: 'cta', maxCaracteres: 20 }, muestra: 'Agenda tu llamada', pista: 'texto-1', inicio: 12.4, fin: 15,
       estilo: { efecto: 'recuadro-amarillo', fuente: 'Montserrat', px: 72, negrita: true, relleno: [0.6, 0.3] },
       ancla: { borde: 'centro', y: 760 }, animacion: { entrada: ['rebote', 0.5], bucle: ['pulso', 1] },
+    },
+    // El detalle nuevo del doc (2.3). Su tabla no dice cómo entra: se copia del detalle del cierre de la invitación a
+    // clase (2.9), que es la misma pieza (sombra suave debajo del botón).
+    {
+      tipo: 'texto', hueco: { nombre: 'detalle', maxCaracteres: 28 }, muestra: '12 lugares por cohorte', pista: 'texto-2', inicio: 12.8, fin: 15,
+      estilo: { efecto: 'sombra-suave', fuente: 'Montserrat', px: 48 },
+      ancla: { borde: 'arriba', y: 880 }, animacion: { entrada: ['aparecer-gradualmente', 0.4] },
     },
   ],
 };
 
-/** «Countdown Timer»: 0,8 s por número. Decoración: sin hueco. */
-const numero = (n: string, inicio: number): PiezaTexto => ({
-  tipo: 'texto', muestra: n, pista: 'texto-1', inicio, fin: mas(inicio, 0.8),
-  estilo: { efecto: 'sombra-dura', fuente: 'Anton', px: 300 },
-  ancla: { borde: 'centro', y: 760 }, animacion: { entrada: ['rebote', 0.3], salida: ['desaparecer-gradualmente', 0.3] },
-});
-
+// ⚠️ MISMO ID, OTRA PLANTILLA (doc 2.9): `oferta` era el anuncio de e-commerce con una cuenta regresiva 3-2-1 (la
+//    decoración `numero`) y «SOLO POR 48 HORAS». Desde el 18/11/2026 es la invitación a una clase gratis en vivo, la
+//    puerta de entrada del infoproductor: la cuenta regresiva se fue, el hueco `producto` pasó a `clip` y la oferta, a la
+//    `fecha` con su `horario` por país. Un proyecto viejo armado con la de antes sigue andando (doc §6, trampa 14).
 const oferta: Plantilla = {
   id: 'oferta',
-  nombre: 'Oferta con cuenta regresiva',
-  descripcion: 'Tu producto, la oferta, una cuenta regresiva y el botón para comprar.',
-  duracion: 15,
+  nombre: 'Invitación a clase en vivo',
+  descripcion: 'La fecha de tu clase gratis en vivo, el horario por país y un solo llamado para registrarse.',
+  duracion: 16,
   portada: 4,
-  ideaDe: ['Countdown Timer', 'End Card'],
+  subtitulos: 'palabra-resaltada',
+  ideaDe: ['End Card'],
   piezas: [
-    { tipo: 'clip', hueco: PRODUCTO, pista: 'principal', inicio: 0, fin: 9, transicion: { id: 'destello-blanco', duracion: 0.4 } },
-    { tipo: 'clip', hueco: FINAL, pista: 'principal', inicio: 9, fin: 15 },
+    { tipo: 'clip', hueco: CLIP, pista: 'principal', inicio: 0, fin: 13, transicion: { id: 'destello-blanco', duracion: 0.4 } },
+    // El botón va sin mayúsculas: el de `cierre()` no las dibuja (doc 2.9).
+    ...cierre(13, 16, 'Llena tu consulta online', 'Regístrate gratis'),
     {
-      tipo: 'texto', hueco: { nombre: 'gancho', maxCaracteres: 28 }, muestra: 'SOLO POR 48 HORAS', pista: 'texto-1', inicio: 0, fin: 3,
+      tipo: 'texto', hueco: { nombre: 'gancho', maxCaracteres: 28 }, muestra: 'CLASE GRATIS EN VIVO', pista: 'texto-1', inicio: 0, fin: 3,
       estilo: { efecto: 'etiqueta-roja', fuente: 'Anton', px: 104, mayusculas: true, relleno: [0.4, 0.15] },
-      ancla: { borde: 'arriba', y: 300 }, animacion: { entrada: ['rebote', 0.5], salida: ['desaparecer-gradualmente', 0.3] },
+      ancla: { borde: 'arriba', y: 300 }, animacion: { entrada: ['rebote', 0.5], salida: sale(0.3) },
     },
+    // ⚠️ La fecha, la hora y «por Zoom» salen del evento real: el ejemplo no se copia (doc 2.9).
     {
-      tipo: 'texto', hueco: { nombre: 'oferta', maxCaracteres: 22 }, muestra: '50 % DE DESCUENTO', pista: 'texto-1', inicio: 3, fin: 9,
-      estilo: { efecto: 'amarillo-trazo-negro', fuente: 'Anton', px: 112, mayusculas: true },
+      tipo: 'texto', hueco: { nombre: 'fecha', maxCaracteres: 24 }, muestra: 'JUEVES 12 DE NOVIEMBRE', pista: 'texto-1', inicio: 3, fin: 9,
+      estilo: { efecto: 'amarillo-trazo-negro', fuente: 'Anton', px: 96, mayusculas: true },
       ancla: { borde: 'arriba', y: 300 },
-      animacion: { entrada: ['acercar', 0.5], bucle: ['latido', 1.2], salida: ['desaparecer-gradualmente', 0.3] },
-    },
-    numero('3', 9),
-    numero('2', 9.8),
-    numero('1', 10.6),
-    {
-      tipo: 'texto', hueco: { nombre: 'cta', maxCaracteres: 20 }, muestra: '¡COMPRA AHORA!', pista: 'texto-1', inicio: 11.4, fin: 15,
-      estilo: { efecto: 'etiqueta-roja', fuente: 'Montserrat', px: 80, negrita: true, mayusculas: true, relleno: [0.6, 0.3] },
-      ancla: { borde: 'centro', y: 700 }, animacion: { entrada: ['rebote', 0.5], bucle: ['pulso', 1] },
+      animacion: { entrada: ['acercar', 0.5], bucle: ['latido', 1.2], salida: sale(0.3) },
     },
     {
-      tipo: 'texto', hueco: { nombre: 'detalle', maxCaracteres: 28 }, muestra: 'Envío gratis incluido', pista: 'texto-2', inicio: 11.8, fin: 15,
-      estilo: { efecto: 'sombra-suave', fuente: 'Montserrat', px: 48 },
-      ancla: { borde: 'arriba', y: 830 }, animacion: { entrada: ['aparecer-gradualmente', 0.5] },
+      tipo: 'texto', hueco: { nombre: 'horario', maxCaracteres: 32 }, muestra: '19:00 México · 20:00 Bogotá', pista: 'texto-2', inicio: 3.6, fin: 9,
+      estilo: { efecto: 'sombra-suave', fuente: 'Montserrat', px: 48, negrita: true },
+      ancla: { borde: 'arriba', y: 620 }, animacion: { entrada: ['aparecer-gradualmente', 0.4], salida: sale(0.3) },
+    },
+    {
+      tipo: 'texto', hueco: { nombre: 'detalle', maxCaracteres: 28 }, muestra: 'Sin costo · por Zoom', pista: 'texto-3', inicio: 13.8, fin: 16,
+      estilo: { efecto: 'sombra-suave', fuente: 'Montserrat', px: 44 },
+      ancla: { borde: 'arriba', y: 930 }, animacion: { entrada: ['aparecer-gradualmente', 0.4] },
     },
   ],
 };
@@ -348,24 +403,6 @@ const oferta: Plantilla = {
 // (el test 1 exige «fondo ⇔ relleno») sale de la tarjeta de hoy con ese efecto, y «sale 0.3» es el
 // `desaparecer-gradualmente` de todas. Las muestras son los textos del doc (≤ 5 palabras, test 7); el ejemplo lleno de
 // cada una, en ./plantillas-ejemplos.ts.
-// ⚠️ LA TOMA DE APOYO OPCIONAL VA SIN RÓTULO (doc §6, trampa 7): una muestra opcional que no se reemplaza se exporta
-//    tal cual, y `quedanMuestras` no la cuenta. Con «Toma de apoyo» dibujado, saldría así en el anuncio.
-
-/** La toma de apoyo opcional: encima de la principal, silenciada y sin rótulo (trampa 7). */
-const BROLL: HuecoClip = { nombre: 'broll', rotulo: '', acepta: 'ambos', opcional: true };
-/** «Sale 0.3»: el fundido de salida de todo el catálogo. */
-const sale = (s: number): [string, number] => ['desaparecer-gradualmente', s];
-/** La toma de apoyo de la tabla («0.3 / 0.3»): entra y sale con un fundido. */
-const broll = (inicio: number, fin: number): PiezaClip => ({
-  tipo: 'clip', hueco: BROLL, pista: 'video-1', inicio, fin, silenciar: true,
-  animacion: { entrada: ['aparecer-gradualmente', 0.3], salida: sale(0.3) },
-});
-/** El gancho amarillo de arriba, el de `gancho` (Anton, trazo negro, mayúsculas, en y=300, rebota y se va). */
-const ganchoArriba = (muestra: string, fin: number, px = 104): PiezaTexto => ({
-  tipo: 'texto', hueco: { nombre: 'gancho', maxCaracteres: 28 }, muestra, pista: 'texto-1', inicio: 0, fin,
-  estilo: { efecto: 'amarillo-trazo-negro', fuente: 'Anton', px, mayusculas: true },
-  ancla: { borde: 'arriba', y: 300 }, animacion: { entrada: ['rebote', 0.5], salida: sale(0.3) },
-});
 
 const respuestaComentario: Plantilla = {
   id: 'respuesta-comentario',
@@ -706,6 +743,12 @@ export function validarValores(p: Plantilla, v: unknown): { ok: true; valores: V
 // Las señales del negocio las lee el runner: sale el MISMO orden que la pestaña, con la
 // sugerida marcada (`sugerida: "<porqué>"`).
 
+/** El objetivo y «cuándo usarla» de una plantilla, de su ejemplo (./plantillas-ejemplos.ts). Sin ejemplo, nada. */
+function objetivoYCuando(id: string): { objetivo?: string; cuando?: string } {
+  const e = ejemploDeVideo(id);
+  return e ? { objetivo: e.objetivo, cuando: e.cuando } : {};
+}
+
 export function plantillasParaApi(senales?: SenalesNegocio | null) {
   return {
     total: PLANTILLAS.length,
@@ -715,6 +758,8 @@ export function plantillasParaApi(senales?: SenalesNegocio | null) {
       nombre: p.nombre,
       descripcion: p.descripcion,
       ...(porque ? { sugerida: porque } : {}),
+      // El objetivo y «cuándo usarla» del doc (2.0 y cada ficha) viven en el ejemplo: es la única fuente.
+      ...objetivoYCuando(p.id),
       duracion_segundos: p.duracion,
       huecos: huecosDe(p).map((h) =>
         h.tipo === 'clip'

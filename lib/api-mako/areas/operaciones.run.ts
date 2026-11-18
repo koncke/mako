@@ -14,11 +14,18 @@ import {
   agruparAvances, chatsPorNombre, completadoSinVer, completadosDeLasCuentas, completadosSinVer, lineasDeConversacion, lineasParaLaApi, pedidoDelCompletado,
   pedidosDelCompletado, piezaParaLaApi, sinMarkdown, nodoDeCompletado, type CompletadoDeChat, type LineaChat, type YaVistos,
 } from '@/lib/centro-chats';
-import { ESTADOS, ROTULO, carteroVivo, type EstadoPedido, type TurnoChat } from '@/lib/operaciones-reglas';
+import { ESTADOS, ROTULO, carteroVivo, sanearConsumo, type Cierre, type EstadoPedido, type TurnoChat } from '@/lib/operaciones-reglas';
+import { NOTA_CONSUMO, compararConsumo, gastoPorFase, type Consumo } from '@/lib/centro-uso';
 import { cierreComoClaude, listasEnRenglones } from '@/lib/respuesta-como-claude';
 
 const json = (o: unknown): string => JSON.stringify(o);
 const cuentaN = (c: string | null) => (c ? `cuenta ${c.replace('claude', '')}` : 'cuenta desconocida');
+/** El cierre sin las fotos crudas de la cuota: el consumo sale aparte, ya calculado (`gastoPorFase`). */
+function sinConsumo(c: Cierre): Cierre {
+  const { consumo, ...resto } = c;
+  void consumo;
+  return resto;
+}
 const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
 /** Los chats que dicen «Completado», con lo mismo que la lista del Ops Center, y el ✓ de cada uno. null = no se pudieron leer los
@@ -55,19 +62,28 @@ export const RUNNERS: Runners = {
       const limite = typeof input.limite === 'number' && input.limite >= 1 ? Math.min(50, Math.floor(input.limite)) : 20;
       const todos = await listarPedidos(estado ? 100 : limite);
       const pedidos = (estado ? todos.filter((p) => p.estado === estado) : todos).slice(0, limite);
+      // El consumo por fase (18/11/2026): lo que subió la PC con el cierre, vuelto a sanear, y lo que gastó cada fase.
+      const consumos = pedidos.map((p) => (p.cierre?.consumo ? sanearConsumo(p.cierre.consumo) : null));
+      const medidos = consumos.filter((c): c is Consumo => !!c);
       return json({
-        pedidos: pedidos.map((p) => ({
-          id: p.id,
-          creado: p.created_at,
-          chat: p.destino_titulo ?? p.destino,
-          cuenta: cuentaN(p.destino_cuenta),
-          estado: ROTULO[p.estado],
-          texto: p.texto.length > 300 ? `${p.texto.slice(0, 300)}…` : p.texto,
-          ...(p.voz ? { audio: { segundos: p.voz.segundos } } : {}),
-          motivo: p.motivo,
-          // Como se dibuja (26/10/2026): un «1) … 2) …» corrido, en renglones (lib/respuesta-como-claude.ts).
-          cierre: p.cierre ? cierreComoClaude(p.cierre) : null,
-        })),
+        pedidos: pedidos.map((p, i) => {
+          const consumo = consumos[i];
+          return {
+            id: p.id,
+            creado: p.created_at,
+            chat: p.destino_titulo ?? p.destino,
+            cuenta: cuentaN(p.destino_cuenta),
+            estado: ROTULO[p.estado],
+            texto: p.texto.length > 300 ? `${p.texto.slice(0, 300)}…` : p.texto,
+            ...(p.voz ? { audio: { segundos: p.voz.segundos } } : {}),
+            motivo: p.motivo,
+            // Como se dibuja (26/10/2026): un «1) … 2) …» corrido, en renglones (lib/respuesta-como-claude.ts).
+            cierre: p.cierre ? cierreComoClaude(sinConsumo(p.cierre)) : null,
+            ...(consumo ? { consumo: { modo: consumo.modo, fases: gastoPorFase(consumo) } } : {}),
+          };
+        }),
+        // Para comparar (el «antes y después» del pedido): por modo y fase, el promedio de puntos de la ventana de 5 horas.
+        ...(medidos.length ? { comparacion: compararConsumo(medidos), notaConsumo: NOTA_CONSUMO } : {}),
         nota: pedidos.length
           ? 'Escrito ≠ entregado ≠ hecho ≠ comprobado: «entregado» quiere decir que salió hacia el chat, no que lo terminó.'
           : 'No hay pedidos con ese filtro.',

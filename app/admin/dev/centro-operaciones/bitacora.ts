@@ -2571,4 +2571,39 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/operaciones',
   },
+  {
+    fecha: '18 nov', hora: '02:01', chat: 'Ops Center', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ops Center: «Automático» explora con Sonnet, ejecuta con Opus, y mide lo que gasta cada fase',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Automático ahora elige por fase:** a un chat de la app le llega el trabajo con Sonnet para leer y armar el plan; cuando va a cambiar algo, el Runner lo pasa a Opus. El selector lo dice: «Automático · Sonnet → Opus».',
+      '**Si eliges un modelo, manda el tuyo:** no hay fases. El esfuerzo que elijas vale para las dos.',
+      '**El Cerebro no cambia de modelo,** ni un chat de la terminal: a ésos se les entrega como siempre.',
+      '**El gasto queda medido:** cada trabajo guarda cuánto subió el uso de la cuenta al explorar y al ejecutar, y se puede comparar contra los que corren sin fases.',
+    ],
+    commits: [{ sha: 'b75c83f0b', msg: 'Ops Center: «Automático» explora con Sonnet, ejecuta con Opus, y mide el consumo de cada fase', lineas: 613, archivos: 16 }],
+    archivos: [
+      'lib/centro-cuentas.ts — vaPorFase, comoCorreDelEnvio, rotuloAutomaticoModelo · lib/operaciones-reglas.ts — porFase firmado, sanearConsumo',
+      'lib/centro-uso.ts — gastoPorFase, compararConsumo · lib/api-mako/areas/operaciones.run.ts — consumo y comparacion en ver_pedidos_operaciones',
+      'scripts/operaciones/cartero.mjs 1.28.0 — comoCorre, lineasDeFase, fase <id> ejecutar, anotarConsumo, el cierre con el consumo',
+      'app/admin/operaciones/mandar.ts — el `como` entero al payload (copiado campo por campo, el «por fase» se perdía)',
+      'tests/ops-center-por-fase.test.ts (6, 6 roturas en rojo) y el diferencial de tests/operaciones.test.ts',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '06:30', chat: 'Construir pendientes (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ops Center del cliente: el «⋯» de cada chat, con Renombrar y Cambiar su criatura',
+    puntos: [
+      '**Cada chat con MaKo del cliente tiene su «⋯» y su clic derecho**, el mismo menú del Ops Center del super admin: Renombrar y Cambiar su criatura.',
+      '**La criatura elegida se queda**: viaja con la lista y se ve en la fila, en la cabecera y en el teléfono. «Volver al de siempre» la quita.',
+      '**El Cerebro no se toca**: no se renombra y sigue con la estrella de MaKo. Lo de Offer, de antes, de Automations y de los editores se cambia en su tab.',
+      '**Sólo sobre los chats de esa persona, en su negocio**: el de otra persona o de otro negocio contesta que no existe.',
+    ],
+    archivos: [
+      'app/admin/operaciones/PiezasCentro.tsx — MenusCentro recibe `MenuDeChats` (el del super admin, por menuDelCentro; el JSX, el mismo)',
+      'app/second-brain/useChatCliente.ts — el motor del menú del cliente y la criatura elegida en la lista · ChatSecondBrain.tsx — onMenu en la fila',
+      'app/api/mako/chat/route.ts — GET ?sesiones=1 con `munecos`; POST `renombrar` y `criatura` · lib/mako-turno-app.ts — renombrarSesion, ponerMunecoDeSesion',
+      'lib/chat-mako-reglas.ts — idConMenu, conCriaturaElegida · tests/ops-menu-cliente.test.ts (la ruta de verdad con una cookie firmada; 9 roturas en rojo)',
+    ],
+  },
 ];

@@ -867,4 +867,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '18 nov', hora: '—', chat: 'Nube › Construir: Video', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las plantillas de siempre, en su versión completa, y la oferta pasa a ser la invitación a una clase en vivo',
+    puntos: [
+      'El anuncio con gancho dura 24 s y suma una toma de apoyo, el dato que prueba lo que promete y de dónde sale ese dato.',
+      'El testimonio dura 33 s y suma el número del resultado con «Resultado de un caso» debajo; «Lo que te llevas» suma los lugares por grupo.',
+      '«Oferta con cuenta regresiva» pasa a ser «Invitación a clase en vivo»: la fecha, el horario por país y el registro. Ya no se sugiere a quien vende con checkout.',
+      'Cada plantilla muestra su ejemplo de verdad (ya no «ESTO LO CAMBIA TODO»), y la API de MaKo dice para qué sirve cada una y cuándo usarla.',
+    ],
+    archivos: [
+      'lib/editor-video/plantillas.ts · plantillas-ejemplos.ts · plantillas-etiquetas.ts — el catálogo, los ejemplos y las sugeridas',
+      'lib/api-mako/areas/video.def.ts · docs/api-mako.md — el objetivo y el «cuándo usarla» en listar_plantillas_video',
+      'tests/video-editor-plantillas.test.ts · video-plantillas-ejemplos.test.ts · video-editor-plantillas-uso.test.ts · plantillas-sugeridas-editores.test.ts · video-editor-chat.test.ts · video-editor-nuevo-video.test.ts · video-editor-reemplazo.test.ts',
+    ],
+    revisar: '/video-editor',
+  },
 ];

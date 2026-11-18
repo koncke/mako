@@ -183,11 +183,12 @@ test('7: nada del ejemplo nombra a un real, ni tiene voseo ni regionalismos', ()
 });
 
 test('8: la insignia de la tarjeta, y el módulo es puro', () => {
-  assert.equal(insigniaDeVideo(porId('gancho')), '15 s · 1 clip');
-  assert.equal(insigniaDeVideo(porId('gancho'), 'Recibes leads de anuncios'), 'Sugerida · 15 s · 1 clip');
-  assert.equal(insigniaDeVideo(porId('testimonio'), true), 'Sugerida · 15 s · 1 clip');
+  // Las insignias del doc (2.1, 2.4, 2.9 y 2.11): la toma de apoyo opcional no cuenta como clip.
+  assert.equal(insigniaDeVideo(porId('gancho')), '24 s · 1 clip');
+  assert.equal(insigniaDeVideo(porId('gancho'), 'Recibes leads de anuncios'), 'Sugerida · 24 s · 1 clip');
+  assert.equal(insigniaDeVideo(porId('testimonio'), true), 'Sugerida · 33 s · 1 clip');
   assert.equal(insigniaDeVideo(porId('antes-despues'), null), '14 s · 2 clips');
-  assert.equal(insigniaDeVideo(porId('oferta'), false), '15 s · 1 clip');
+  assert.equal(insigniaDeVideo(porId('oferta'), false), '16 s · 1 clip');
   // El fondo del cierre (opcional) no cuenta, y un hueco con dos piezas cuenta una vez.
   for (const p of PLANTILLAS) {
     const n = huecosDe(p).filter((h) => h.tipo === 'clip' && !h.opcional).length;
@@ -212,3 +213,6 @@ test('8: la insignia de la tarjeta, y el módulo es puro', () => {
 // · 8: la insignia cuenta el fondo opcional del cierre → 7/1 (8). · `import { type … }` (un import de valor) → 7/1 (8).
 // 18/11/2026 (F164: once plantillas, todas con ejemplo; las dos variantes se retiraron del catálogo), base 8 de 8:
 // · el tour fuera del catálogo → 1/7 (1 a 7). · el tour sin `vozDesde` (su guion arranca en el 15) → 7/1 (6). Restaurado: 8/0.
+// 18/11/2026 (las cinco del doc en su versión completa), base 8 de 8: el detalle de beneficios sin su texto en el
+// ejemplo → 6/2 (2, 4). · el aviso del testimonio fuera del ejemplo → 6/2 (2, 4). · el aviso del gancho en el 800 del doc
+// → 7/1 (5). Restaurado: 8/0.

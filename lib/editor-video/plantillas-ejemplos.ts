@@ -15,7 +15,8 @@
 //     tope y sus mayúsculas), el guion para grabar con segundos, las tomas de apoyo y el texto del anuncio.
 //   · `plantillaConEjemplo`: una COPIA de la plantilla con la `muestra` de cada pieza cambiada por el texto de su hueco,
 //     para que MiniaturaPlantilla dibuje el ejemplo. Un hueco con varias piezas (los rótulos de «Antes y después») las
-//     cambia todas; la decoración sin hueco (la cuenta regresiva) queda como está. Ningún tiempo se toca.
+//     cambia todas; una decoración sin hueco quedaría como está (no queda ninguna desde que la oferta perdió su cuenta
+//     regresiva, el 18/11/2026). Ningún tiempo se toca.
 //   · `insigniaDeVideo`: «Sugerida · 15 s · 1 clip» (la insignia de la tarjeta de CapCut, doc 1 y 5).
 //
 // QUÉ PLANTILLA DEL DOC VA EN CADA ID DE HOY:
@@ -25,31 +26,21 @@
 //   beneficios    → 2.3 «Lo que te llevas» (Voz de Líder)
 //   oferta        → 2.9 «Invitación a clase en vivo» (Consulta Rentable)
 //   y desde el 18/11/2026 (F164) las seis nuevas, cada una con su id del doc: respuesta-comentario (2.2), caso-numeros
-//   (2.5), historia (2.6), tres-errores (2.7), clip-podcast (2.8) y tour-propiedad (2.10). Sus textos SON las muestras de
-//   su plantilla (el doc no trae otras), así que su miniatura no cambia con el ejemplo.
+//   (2.5), historia (2.6), tres-errores (2.7), clip-podcast (2.8) y tour-propiedad (2.10).
+//   Desde ese mismo día las cinco que el doc conserva están en su versión completa (gancho a 24 s, testimonio a 33 s, el
+//   detalle de beneficios, oferta como la invitación a clase), y en las ONCE los textos del ejemplo SON las muestras de la
+//   plantilla: el doc trae un solo texto por hueco. La miniatura dibuja lo mismo con ejemplo o sin él.
 //   gancho-escrito y oferta-glitch: el doc las RETIRA (2.0, «prefiero deprecar antes que conservar»): se sacaron del
 //   catálogo el 18/11/2026.
 //
-// LO QUE DEL DOC NO ENTRA EN LOS HUECOS DE HOY (va al chat de Video cuando cambie el catálogo):
-//   · gancho: el doc dura 24 s (clip 0–21) y suma la toma de apoyo `broll` (6–9.5), el `dato` «2/10 → 4/10 CIERRES» y el
-//     `aviso` «Mediana de 52 alumnas» (14–19). Hoy hay gancho, titulo-final y cta: el guion se condensó a 0–12 s y la
-//     aclaración de la mediana sobrevive sólo en el texto del anuncio.
-//   · testimonio: el doc dura 33 s (clip 0–30) y suma `broll` (10–14), el `dato` «21 PACIENTES AL MES» y el `aviso`
-//     «Resultado de un caso» (18–25). El guion se condensó a 0–12 s y se cayó el bloque 25–30 («Si eres nutrióloga y
-//     vives de consultas sueltas, este programa es para ti.»). ⚠️ Sin el aviso, el ejemplo no dice que es un caso: el
-//     chat de Video lo tiene que devolver con el hueco.
-//   · beneficios: el `detalle` «12 lugares por cohorte» (texto-2, 12.8–15) es un hueco nuevo: no está.
-//     ⚠️ «Práctica en vivo semanal» tiene 24 caracteres, el tope justo: la caja estimada entra en un renglón con 1,2 px de
-//     margen (cajaDeTexto: 841,2 de 842,4); medido con la fuente de verdad puede partirse y pisar al beneficio 3. Y
-//     «Simulacro con directorio» ya se estima en dos renglones (880–1050): entra porque abajo no hay nada a la vez.
-//   · oferta: el doc dura 16 s (clip 0–13) y es otra plantilla con el mismo id. Su `fecha` va en el hueco `oferta` de hoy
-//     (22 caracteres: «JUEVES 12 DE NOVIEMBRE» los ocupa todos); el `horario` «19:00 México · 20:00 Bogotá» no tiene
-//     hueco; el título del cierre «Llena tu consulta online» tampoco (la oferta de hoy no tiene titulo-final); el botón
-//     va en MAYÚSCULAS porque la pieza de hoy las dibuja (en el doc es el de `cierre()`, sin ellas); y la cuenta
-//     regresiva 3-2-1 que el doc saca sigue dibujándose (es decoración, sin hueco). El guion se condensó a 0–9 s.
-//   · antes-despues: entra entero (el doc sólo cambia los textos). Sin voz: el guion va vacío y lo cuenta el anuncio.
-//   · En todas: los créditos de las muestras de Pexels (doc 2.0 y 7: ninguna está elegida todavía), y la captura propia
-//     de `caso-numeros`.
+// LO QUE DEL DOC TODAVÍA NO ESTÁ (18/11/2026):
+//   · En todas: las muestras de Pexels con su crédito (doc 2.0 y 7: ninguna está elegida todavía), y la captura propia
+//     de `caso-numeros`. Hasta entonces, los huecos de clip se ven con la muestra gris.
+//   · beneficios: ⚠️ «Práctica en vivo semanal» tiene 24 caracteres, el tope justo: la caja estimada entra en un renglón
+//     con 1,2 px de margen (cajaDeTexto: 841,2 de 842,4); medido con la fuente de verdad puede partirse y pisar al
+//     beneficio 3. Y «Simulacro con directorio» ya se estima en dos renglones (880–1050): entra porque abajo no hay nada
+//     a la vez.
+//   · antes-despues: sin voz, el guion va vacío y lo cuenta el anuncio.
 //
 // ⚠️ Español neutro con «tú» (tests/puente-panel-copy.test.ts barre lib/); los números como en el doc (USD 1,500,
 // MXN 2.4 M). Lo fija tests/video-plantillas-ejemplos.test.ts.
@@ -96,14 +87,19 @@ export const EJEMPLOS_VIDEO: Readonly<Partial<Record<string, EjemploVideo>>> = {
     cuando: 'Anuncio pagado o reel que vende una llamada a público frío: frena el scroll en 3 s, prueba con un dato y cierra pidiendo un mensaje.',
     textos: {
       gancho: '¿CIERRAS MENOS DEL 20 %?',
+      dato: '2/10 → 4/10 CIERRES',
+      aviso: 'Mediana de 52 alumnas',
       'titulo-final': '¿Vendes programas de +USD 1,000?',
       cta: 'Escribe LLAMADA',
     },
+    // El dato es la mediana de 52 alumnas en 4 cohortes, no un caso suelto: por eso el aviso.
     guion: [
       { segundos: '0–3 s', dice: '«Si cierras menos del 20 % de tus llamadas de venta, bajar el precio no lo va a arreglar.»' },
-      { segundos: '3–6.5 s', dice: '«Las llamadas que cierran empiezan con preguntas sobre lo que le cuesta al cliente seguir igual.»' },
-      { segundos: '6.5–9.5 s', dice: '«Con ese cambio, la mitad de mis alumnas ya cierra 4 de cada 10 llamadas o más.»' },
-      { segundos: '9.5–12 s', dice: '«Si vendes programas de más de mil dólares, escríbeme LLAMADA.»' },
+      { segundos: '3–6 s', dice: '«Lo que lo arregla está en los primeros cinco minutos.»' },
+      { segundos: '6–9.5 s', dice: '«Casi todos abren la llamada presentando su programa: módulos, bonos, sesiones.»' },
+      { segundos: '9.5–14 s', dice: '«Las llamadas que cierran empiezan al revés: con preguntas sobre lo que le cuesta al cliente seguir igual.»' },
+      { segundos: '14–17 s', dice: '«Con ese cambio, la mitad de mis alumnas ya cierra 4 de cada 10 llamadas o más.»' },
+      { segundos: '17–21 s', dice: '«Si vendes programas de más de mil dólares, escríbeme LLAMADA y te mando mi guion de apertura.»' },
     ],
     tomas: ['Una agenda de llamadas en la pantalla de una laptop', 'Manos tomando notas junto a una videollamada'],
     anuncio:
@@ -120,15 +116,18 @@ export const EJEMPLOS_VIDEO: Readonly<Partial<Record<string, EjemploVideo>>> = {
       cita: '“De 6 a 21 pacientes”',
       nombre: 'Lucía Garza',
       detalle: 'Nutrióloga · Monterrey',
+      dato: '21 PACIENTES AL MES',
+      aviso: 'Resultado de un caso',
       'titulo-final': 'Únete al próximo grupo',
       cta: 'Agenda tu llamada',
     },
     // Sólo las respuestas: las preguntas de quien entrevista se cortan. Sin lo que cobra ni lo que gana (va en anuncios).
     guion: [
       { segundos: '0–3.5 s', dice: '«Pasé de 6 a 21 pacientes al mes, y no fue por publicar más recetas.»' },
-      { segundos: '3.5–6.5 s', dice: '«Atendía por consulta suelta: semanas llenas y semanas vacías.»' },
-      { segundos: '6.5–10 s', dice: '«Con la Dra. Ochoa armé un plan de tres meses y aprendí a explicarlo en la primera consulta.»' },
-      { segundos: '10–12 s', dice: '«En la semana 9 ya atendía 21 pacientes al mes.»' },
+      { segundos: '3.5–10 s', dice: '«Atendía por consulta suelta. Tenía semanas llenas y semanas vacías, y nunca sabía cuántos pacientes iba a tener.»' },
+      { segundos: '10–18 s', dice: '«En el programa de la Dra. Ochoa armé un plan de tres meses y aprendí a explicarlo en la primera consulta, sin sentir que estaba vendiendo.»' },
+      { segundos: '18–25 s', dice: '«En la semana 9 ya atendía 21 pacientes al mes, y los jueves estaban llenos.»' },
+      { segundos: '25–30 s', dice: '«Si eres nutrióloga y vives de consultas sueltas, este programa es para ti.»' },
     ],
     tomas: [
       'Las manos de la nutrióloga armando un plan de alimentación',
@@ -166,6 +165,7 @@ export const EJEMPLOS_VIDEO: Readonly<Partial<Record<string, EjemploVideo>>> = {
       'beneficio-2': 'Práctica en vivo semanal',
       'beneficio-3': 'Simulacro con directorio',
       cta: 'Agenda tu llamada',
+      detalle: '12 lugares por cohorte',
     },
     guion: [
       {
@@ -182,16 +182,19 @@ export const EJEMPLOS_VIDEO: Readonly<Partial<Record<string, EjemploVideo>>> = {
     sobre: 'La Dra. Mariana Ochoa enseña a nutriólogas a llenar su consulta online. Invita a su clase gratis en vivo por Zoom.',
     objetivo: 'Evento',
     cuando: 'Llenar el registro de una clase gratis en vivo, la puerta de entrada a un programa de alto valor: fecha clara y un solo llamado.',
+    // Los horarios están verificados (doc 2.9): el 12/11/2026 es jueves, y 19:00 en CDMX (UTC−6) son las 20:00 en Bogotá.
     textos: {
       gancho: 'CLASE GRATIS EN VIVO',
-      oferta: 'JUEVES 12 DE NOVIEMBRE',
-      cta: 'REGÍSTRATE GRATIS',
+      fecha: 'JUEVES 12 DE NOVIEMBRE',
+      horario: '19:00 México · 20:00 Bogotá',
+      'titulo-final': 'Llena tu consulta online',
+      cta: 'Regístrate gratis',
       detalle: 'Sin costo · por Zoom',
     },
     guion: [
       { segundos: '0–3 s', dice: '«Si eres nutrióloga y tu consulta no se llena, esta clase es para ti.»' },
-      { segundos: '3–7 s', dice: '«El jueves 12 de noviembre te enseño en vivo cómo llenar tu consulta online sin publicar todos los días.»' },
-      { segundos: '7–9 s', dice: '«Es gratis y por Zoom. Regístrate en el link.»' },
+      { segundos: '3–9 s', dice: '«El jueves 12 de noviembre te enseño en vivo cómo llenar tu consulta online sin publicar todos los días.»' },
+      { segundos: '9–13 s', dice: '«Son tres claves, es gratis y es por Zoom. Regístrate en el link.»' },
     ],
     tomas: ['Una laptop abierta en una videollamada, con la galería borrosa'],
   },

@@ -339,7 +339,8 @@ test('10: armarLinea: principal pegada, pistas en orden, marcas, animaciones, tr
   assert.equal(p(cta, 'fontSize'), Math.round((64 * 90) / 1920 * 10) / 10);
   assert.equal(p(cta, 'fontWeight'), 'bold');
   // El ancla, a partirYUbicar: arriba = margen de arriba; centro = al medio y corrido; abajo = borde de abajo.
-  assert.deepEqual(pedidos[pedidos.findIndex((x) => x.contenido === 'ANTES')], { contenido: 'ANTES', vertical: 'top', margenPx: 300, margenIzquierdo: 0.11, margenDerecho: 0.11 });
+  // El rótulo del antes dice «2025» desde el 18/11/2026 (doc 2.11: el ejemplo de Torre Alameda).
+  assert.deepEqual(pedidos[pedidos.findIndex((x) => x.contenido === '2025')], { contenido: '2025', vertical: 'top', margenPx: 300, margenIzquierdo: 0.11, margenDerecho: 0.11 });
   assert.equal(p(rotuloGrande, 'transform.positionY'), 300 - 960);
   const titulo = tracks.overlay[0].elements[3];
   assert.equal(p(titulo, 'transform.positionY'), 620 - 960);
@@ -354,17 +355,19 @@ test('10: armarLinea: principal pegada, pistas en orden, marcas, animaciones, tr
   assert.equal(divisor.type === 'graphic' && divisor.definitionId, 'rectangle');
   assert.deepEqual([p(divisor, 'fill'), p(divisor, 'transform.scaleX'), p(divisor, 'transform.scaleY'), p(divisor, 'transform.positionY')], ['#ffffff', 1, 0.0111, 0]);
 
-  // Con medios y textos: el video llena el hueco (recortado a 9:16) y lo que no sirve se descarta.
-  const video: MedioHueco = { mediaId: 'v1', type: 'video', width: 1920, height: 1080, duracion: 20, nombre: 'mi video.mp4' };
+  // Con medios y textos: el video llena el hueco (recortado a 9:16) y lo que no sirve se descarta. El clip del gancho
+  // dura 21 s desde el 18/11/2026 (doc 2.1): un video de 30 s deja 9 s de recorte.
+  const video: MedioHueco = { mediaId: 'v1', type: 'video', width: 1920, height: 1080, duracion: 30, nombre: 'mi video.mp4' };
   const g = armar(porId('gancho'), undefined, { medios: { clip: video }, textos: { gancho: 'NUEVO', cta: 'x'.repeat(25), otro: 'hola' } });
   const clip = g.tracks.main.elements[0];
   assert.equal(clip.type, 'video');
-  assert.deepEqual([clip.mediaId, clip.name, clip.trimStart, clip.trimEnd, clip.type === 'video' && clip.sourceDuration], ['v1', 'mi video.mp4', 0, 8000, 20000]);
+  assert.deepEqual([clip.mediaId, clip.name, clip.trimStart, clip.trimEnd, clip.type === 'video' && clip.sourceDuration], ['v1', 'mi video.mp4', 0, 9000, 30000]);
   assert.equal(leerMarcas(clip.params)?.muestra, false);
   assert.equal(p(clip, 'recorte.izquierda'), 0.3418);
   assert.equal(p(clip, 'muted'), false);
   assert.equal(p(g.tracks.overlay[0].elements[0], 'content'), 'NUEVO');
-  assert.equal(p(g.tracks.overlay[1].elements[0], 'content'), 'Escríbenos hoy');
+  // La pista texto-2 lleva el dato (14 s) y después el botón (21,6 s): el botón de 25 caracteres no entra y queda su muestra.
+  assert.equal(p(g.tracks.overlay[1].elements[1], 'content'), 'Escribe LLAMADA');
   assert.equal(g.descartes.length, 2);
   assert.equal(quedanMuestras(g.tracks), false, 'el cierre es opcional');
   // Un video de 4 s no llena «antes» (su pieza más larga dura 5 s): quedan las muestras.
@@ -415,7 +418,7 @@ test('11: en 2160x3840 las posiciones y el relleno van ×2; las escalas y la let
   });
   assert.equal(textosConTarjeta, 5, 'los cuatro rótulos y el botón');
   // Lo que se le pide a partirYUbicar también va en px del lienzo grande.
-  assert.equal(grande.pedidos.find((x) => x.contenido === 'ANTES')?.margenPx, 600);
+  assert.equal(grande.pedidos.find((x) => x.contenido === '2025')?.margenPx, 600);
 });
 
 // ── Geometría, escena y valores ──────────────────────────────────────────────
@@ -457,13 +460,15 @@ test('13: escenaEn: lo que se ve, en orden de dibujo y con la pose del editor', 
   assert.equal(frase.rect.y, 300);
   // Al terminar la entrada (0,5 s), la identidad.
   assert.deepEqual(escenaEn(gancho, 0.5)[1].pose, POSE_IDENTIDAD);
-  // t = 13: el cierre, de abajo hacia arriba (la principal primero).
-  assert.deepEqual(escenaEn(gancho, 13).map((x) => nombreDe(x.pieza)), ['final', 'cta', 'titulo-final']);
-  // El botón entra en 12,6 s con «Aparecer gradualmente» de 0,5 s: a la mitad, opacidad 0,5.
-  const boton = escenaEn(gancho, 12.85).find((x) => nombreDe(x.pieza) === 'cta');
+  // t = 22: el cierre (21–24 s desde el 18/11/2026, doc 2.1), de abajo hacia arriba (la principal primero).
+  assert.deepEqual(escenaEn(gancho, 22).map((x) => nombreDe(x.pieza)), ['final', 'cta', 'titulo-final']);
+  // La toma de apoyo (6–9,5 s) va ENCIMA del clip y debajo de los textos.
+  assert.deepEqual(escenaEn(gancho, 7).map((x) => nombreDe(x.pieza)), ['clip', 'broll']);
+  // El botón entra en 21,6 s con «Aparecer gradualmente» de 0,5 s: a la mitad, opacidad 0,5.
+  const boton = escenaEn(gancho, 21.85).find((x) => nombreDe(x.pieza) === 'cta');
   assert.ok(boton && cerca(boton.pose.opacidad, 0.5, 1e-9), `opacidad ${boton?.pose.opacidad}`);
   // En `duracion` se ve el último cuadro, no nada.
-  assert.equal(escenaEn(gancho, 15).length, 3);
+  assert.equal(escenaEn(gancho, 24).length, 3);
   assert.equal(frase.revelado, null);
   // El quiebre de la historia: la máquina de escribir no mueve, revela. A la mitad de su 1 s (9,5 s), la mitad.
   const historia = porId('historia');
@@ -521,3 +526,5 @@ test('14: validarValores: hueco que no existe, texto largo, medio en un hueco de
 // Las seis del 18/11/2026 (F164) y las dos variantes retiradas, base 14 de 14 con las once; cada una restaurada:
 // · el tour fuera del catálogo → 12/2 (1, 10). · el quiebre de la historia sin la máquina de escribir → 11/3 (1, 10, 13).
 // Restaurado: 14/0.
+// 18/11/2026 (las cinco que el doc conserva, en su versión completa), base 14 de 14: el aviso del gancho en el 800 del
+// doc (el dato se parte en dos renglones y lo pisa) → 13/1 (6). Restaurado: 14/0.
