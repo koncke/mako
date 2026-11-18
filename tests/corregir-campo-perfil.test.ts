@@ -44,7 +44,7 @@ test('1. la forma: chat, admin, reversible, al final del área negocio, por los 
   assert.equal(a.area, 'negocio');
   assert.equal(a.confirmacion, 'chat', 'la persona ve lo de antes y lo nuevo en la tarjeta (o el «sí» de WhatsApp)');
   assert.equal(a.reversible, true);
-  assert.equal(a.gating.rolMinimo, 'admin', 'el perfil del negocio lo cambia un admin, como guardar_campo_perfil');
+  assert.equal(a.gating?.rolMinimo, 'admin', 'el perfil del negocio lo cambia un admin, como guardar_campo_perfil');
   assert.equal(a.costo, 'gratis');
   assert.deepEqual([...a.canales].sort(), ['app', 'http', 'whatsapp']);
   assert.deepEqual(a.parametros.map((p) => p.nombre), ['key', 'valor']);
