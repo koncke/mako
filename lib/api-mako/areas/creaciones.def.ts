@@ -79,7 +79,7 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'crea (o actualiza) la fila de la creación en `creaciones`, visible para todos los negocios',
     parametros: [
       { nombre: 'tipo', rotulo: 'Tipo', tipo: 'string', obligatorio: true, enum: TIPOS_CREACION, descripcion: `qué se publica. Hoy se pueden: ${ENCHUFADOS.join(', ')}.` },
-      { nombre: 'origenId', rotulo: 'Qué publicar', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"; un guion: su id de página «g…»; un diseño: su uuid).' },
+      { nombre: 'origenId', rotulo: 'Qué publicar', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el id de la cosa en este negocio, como texto (una automatización: su número de listar_secuencias_nutricion, p. ej. "12"; un guion: su id de página «g…»; un diseño: su uuid; una hoja del Dashboard: su id de leer_hoja_dashboard).' },
       { nombre: 'titulo', rotulo: 'Título', tipo: 'string', max: TOPE_TITULO_CREACION, descripcion: 'cómo se llama en la galería. Sin valor, el nombre de la automatización.' },
       { nombre: 'descripcion', rotulo: 'Descripción', tipo: 'string', max: TOPE_DESCRIPCION_CREACION, descripcion: 'para qué sirve, en una o dos frases.' },
       { nombre: 'autorNombre', rotulo: 'Autor', tipo: 'string', max: TOPE_AUTOR_CREACION, descripcion: 'el nombre con que firma (el del negocio, o el de una persona). Sin valor, «Un negocio de MaKo».' },
@@ -97,8 +97,8 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'usar_creacion', area: 'creaciones', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Usar una creación en este negocio',
-    descripcion: 'PROPONE crear en este negocio una copia de una creación publicada o de una plantilla propia del negocio: una automatización nace APAGADA en Automations (si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice); un guion nace como página del Copywriter; un diseño, en el Image Editor. Cuenta un uso de la creación (uno por negocio; las propias no cuentan).',
-    escribe: 'crea la copia en su tab (`nutricion_secuencias` apagada, una página del Copywriter o un diseño de `image_disenos`) y anota el uso en `creacion_usos`',
+    descripcion: 'PROPONE crear en este negocio una copia de una creación publicada o de una plantilla propia del negocio: una automatización nace APAGADA en Automations (si su disparador apunta a una etapa que este negocio no tiene, nace sin disparador y lo dice); un guion nace como página del Copywriter; un diseño, en el Image Editor; una hoja, al final del Dashboard de quien la usa. Cuenta un uso de la creación (uno por negocio; las propias no cuentan).',
+    escribe: 'crea la copia en su tab (`nutricion_secuencias` apagada, una página del Copywriter, un diseño de `image_disenos` o una hoja del informe del Dashboard) y anota el uso en `creacion_usos`',
     parametros: [creacionId()],
     canales: TODOS, costo: 'gratis', gating: G_ADMIN,
   },
@@ -110,7 +110,7 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'crea (o actualiza) la fila de la plantilla en `creaciones`, privada o publicada',
     parametros: [
       { nombre: 'tipo', rotulo: 'Tipo', tipo: 'string', obligatorio: true, enum: TIPOS_CREACION, descripcion: `qué se guarda. Hoy se pueden: ${ENCHUFADOS.join(', ')}.` },
-      { nombre: 'origenId', rotulo: 'Qué guardar', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el id de la cosa en este negocio, como texto (una automatización: su número; un guion: su id de página «g…»; un diseño: su uuid).' },
+      { nombre: 'origenId', rotulo: 'Qué guardar', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el id de la cosa en este negocio, como texto (una automatización: su número; un guion: su id de página «g…»; un diseño: su uuid; una hoja del Dashboard: su id).' },
       { nombre: 'visibilidad', rotulo: 'Quién la ve', tipo: 'string', obligatorio: true, enum: VISIBILIDADES, descripcion: 'privada (sólo este negocio, tal cual) o publica (toda la comunidad, sin los datos del negocio).' },
       { nombre: 'titulo', rotulo: 'Título', tipo: 'string', max: TOPE_TITULO_CREACION, descripcion: 'cómo se llama la plantilla. Sin valor, el nombre de la cosa.' },
       { nombre: 'descripcion', rotulo: 'Descripción', tipo: 'string', max: TOPE_DESCRIPCION_CREACION, descripcion: 'para qué sirve, en una o dos frases.' },
