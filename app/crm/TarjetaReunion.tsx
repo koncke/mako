@@ -166,12 +166,9 @@ export function TarjetaReunion({ r, ahora, ctx, onVerDetalle }: {
  * Las reuniones, cada una con su tarjeta: el reloj que las cuenta (de a minuto; de a 15 s cuando alguna está cerca) y lo
  * que se pide al abrir (lo último y la R1), UNA vez para todas.
  */
-export function ReunionesParaPreparar({ reuniones, onVerDetalle, recorrido }: {
+export function ReunionesParaPreparar({ reuniones, onVerDetalle }: {
   reuniones: readonly ReunionParaPreparar[];
   onVerDetalle?: (leadId: number) => void;
-  /** La marca del tutorial (`data-recorrido`): la pone el teléfono, donde la lista está a la vista (en la computadora la marca
-   *  va en el botón que la abre, app/crm/ReunionesProximas.tsx). */
-  recorrido?: string;
 }) {
   const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
   const [ahora, setAhora] = useState(() => Date.now());
@@ -205,7 +202,7 @@ export function ReunionesParaPreparar({ reuniones, onVerDetalle, recorrido }: {
   });
 
   return (
-    <div className="crm-reus" data-recorrido={recorrido}>
+    <div className="crm-reus">
       <style>{CSS}</style>
       {orden.map((r) => (
         <TarjetaReunion key={r.id} r={r} ahora={montado ? ahora : null}

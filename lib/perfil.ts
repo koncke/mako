@@ -121,7 +121,8 @@ export async function leerPerfil(): Promise<{ perfil: Perfil; vista: VistaPerfil
       ...DEFAULT_PERFIL,
       nombre: u.nombre || '',
       email: u.email,
-      avatarUrl: u.foto_url ?? '',
+      // Filtrada al leer también (F173): una foto de afuera que ya estaba en la fila no se dibuja en la barra de cada pantalla.
+      avatarUrl: fotoDePersonaSegura(u.foto_url) ?? '',
       telefono: extra.telefono ?? '',
       cargo: extra.cargo ?? '',
       empresa: extra.empresa ?? '',

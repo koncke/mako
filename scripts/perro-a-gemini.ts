@@ -19,6 +19,7 @@ config({ path: resolve(process.cwd(), '.env.local') });
 import { runWithWorkspace, OWNER_WS } from '../lib/workspace';
 import { getSetting, setSetting } from '../lib/settings';
 import { modeloDeFeature } from '../lib/model-registry';
+import { modeloGeminiTexto } from '../lib/gemini-modelos';
 
 const APLICAR = process.argv.includes('--apply');
 const KEY = 'mako.modelos';
@@ -39,7 +40,7 @@ async function main() {
 
     await setSetting('mako.backup.modelos', raw);
     const next = { ...overrides };
-    for (const f of DEL_PERRO) next[f] = { provider: 'gemini', model: process.env.GEMINI_MODEL || 'gemini-flash-latest' };
+    for (const f of DEL_PERRO) next[f] = { provider: 'gemini', model: modeloGeminiTexto() };
     await setSetting(KEY, JSON.stringify(next));
     console.log(`\nbackup → mako.backup.modelos`);
     for (const f of DEL_PERRO) {
