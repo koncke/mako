@@ -8,6 +8,8 @@
 // `preparar` no lee la base: nada sale a la red, y si algo saliera se anota y el padre lo ve.
 // =============================================================================
 
+export {};
+
 const red: string[] = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL) => {
   red.push(String(entrada instanceof Request ? entrada.url : entrada));
