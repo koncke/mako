@@ -68,10 +68,10 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   // El clasificador: Claude con el crédito de los grupos.
   if (u.host === 'api.anthropic.com') {
     if (escena.claseCaida || new Headers(init.headers).get('x-api-key') !== CREDITO2) return r(500, { type: 'error', error: { type: 'api_error', message: 'Overloaded' } });
-    let cuerpo: { model?: string; tools?: unknown[] } = {};
+    let cuerpo: { model?: string } = {};
     try { cuerpo = JSON.parse(String(init.body ?? '{}')) as typeof cuerpo; } catch { /* sin cuerpo */ }
-    // El clasificador va sin herramientas; el turno, con las del registro.
-    const esTurno = Array.isArray(cuerpo.tools) && cuerpo.tools.length > 0;
+    // El clasificador se reconoce por su system (`SYSTEM_DE_CLASE`): lo demás es el turno (con un invitado, sin herramientas).
+    const esTurno = !String(init.body ?? '').includes('Clasificas UN mensaje');
     if (esTurno && !escena.turnoConClaude) return r(400, { type: 'error', error: { type: 'invalid_request_error', message: 'en esta escena el turno no lo contesta Claude' } });
     return r(200, { id: 'msg_1', type: 'message', role: 'assistant', model: String(cuerpo.model ?? ''), stop_reason: 'end_turn', content: [{ type: 'text', text: esTurno ? escena.respuesta : escena.clase }], usage: { input_tokens: 900, output_tokens: 40 } });
   }
