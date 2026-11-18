@@ -71,7 +71,8 @@ test('las marcas del teléfono: las de Offer y las de Settings también van en M
   assert.ok(/marcaCrear\('Offer', 'proyectos'\)/.test(de('app/m/offer/')), 'el selector de Offer en el teléfono');
   assert.ok(/marcaSettings\(s\.key\)/.test(de('app/m/cuenta/')), 'las secciones de «Tu cuenta»');
   assert.ok(/marcaIntegracion\(i\.key\)/.test(de('app/m/configuraciones/integraciones/')), 'las integraciones del teléfono');
-  assert.ok(/MARCA\.crmVerInfo/.test(de('app/m/crm/')) && /MARCA\.crmReuniones/.test(de('app/m/crm/')), 'las del CRM del teléfono');
+  // Las reuniones del teléfono no llevan marca (dos tests fijan el texto de <ReunionesParaPreparar>): su paso las busca por clase.
+  assert.ok(/MARCA\.crmVerInfo/.test(de('app/m/crm/')), 'la de «Ver info» del CRM del teléfono');
 });
 
 test('la forma: pestañas y rutas únicas, el clic sólo en el último paso y con su «Haz clic»', () => {

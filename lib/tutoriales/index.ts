@@ -10,6 +10,7 @@
 import { TUTORIAL_AUTOMATIONS } from './automations';
 import { TUTORIAL_AVATAR } from './avatar';
 import { TUTORIAL_CALENDAR } from './calendar';
+import { TUTORIAL_CHATS } from './chats';
 import { TUTORIAL_CLASSROOM } from './classroom';
 import { TUTORIAL_COPILOT } from './copilot';
 import { TUTORIAL_COPYWRITING } from './copywriting';
@@ -38,6 +39,7 @@ export const TUTORIALES: readonly TutorialPestana[] = [
   TUTORIAL_INTEGRACIONES,
   TUTORIAL_CRM,
   TUTORIAL_TICKETERA,
+  TUTORIAL_CHATS,
   TUTORIAL_CALENDAR,
   TUTORIAL_AUTOMATIONS,
   TUTORIAL_COPILOT,

@@ -27,7 +27,8 @@ export const TUTORIAL_CRM: TutorialPestana = {
       lado: 'derecha',
     },
     {
-      sel: conMarca(MARCA.crmReuniones),
+      // En el teléfono la lista está a la vista (app/m/crm/TableroCrm.tsx); la marca no le entra: dos tests fijan su texto.
+      sel: `${conMarca(MARCA.crmReuniones)}, .m-crm-arriba .crm-reus`,
       titulo: 'Tus reuniones',
       texto: 'Tócalo y ves las que vienen, en orden.',
       sub: 'Las reuniones de los próximos días esperan en este número.',
