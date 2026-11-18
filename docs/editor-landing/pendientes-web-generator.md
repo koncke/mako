@@ -334,7 +334,7 @@ Revisado el 9/11/2026, sólo lectura, contra `origin/main` `406dfd8fc` (9/11 12:
 | Qué | Estado | Prio | Fuente |
 |---|---|---|---|
 | Replicar en el teléfono: /m/landing no tiene crear ni Replicar. En Spy del teléfono, «Replicar su sitio» y la extensión dicen «En la computadora» (correcto para la extensión) | pendiente | P3 | lib/movil-rutas.ts:263, app/m/competitor-spy/SpyM.tsx:34-35, docs/pendientes.md:361 |
-| Carrusel 4:5: `origin/punta/web-generator-45` (`93e7f8be5`, 1 commit, firmado bien) también está en `ci-rojo/`, y el motivo no consta. Choca con main en lib/api-mako/areas/landing.def.ts y docs/api-mako.md | a medias | P3 | rama |
+| ~~Carrusel 4:5: `origin/punta/web-generator-45` (`93e7f8be5`, 1 commit, firmado bien) también está en `ci-rojo/`, y el motivo no consta. Choca con main en lib/api-mako/areas/landing.def.ts y docs/api-mako.md~~ Rescatada el 18/11/2026 en `punta/nube-construir-web`: el rojo era tests/ops-center-bateria.test.ts (el `enum` de los 20 ids de plantilla sacaba a editar_landing_con_ia del turno); la operación ya no lo lleva y el runner valida (hallazgos-editor-landing.md, 18/11) | hecho | P3 | rama |
 | La segunda pregunta de la iniciativa («¿Vas a pautar esta página en Meta?») y la guía de la pestaña | pendiente | P3 | docs/hallazgos-editor-landing.md:9-23 |
 | Las animaciones de las etapas 4, 6 y 9 | pendiente | P3 | docs/pendientes.md:380 |
 | La cadena de pago en dominio propio termina en hola-mako.com y pierde el anuncio (el 8/11 había 0 clientes con dominio propio) | pendiente | P3 | docs/pendientes.md:381 |

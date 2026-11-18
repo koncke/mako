@@ -1927,4 +1927,30 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '18 nov', hora: '03:10', chat: 'Nube › Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Continuar con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la nube con la lista «Lo que falta construir» (docs/pendientes-verificados-17-11.md): acá, F16 (el carrusel 4:5) y F112 (los pedidos al chat) del Web Generator.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '04:30', chat: 'Nube › Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El carrusel 4:5 se elige al crear, y «sacá el video» llega con la herramienta',
+    puntos: [
+      '**El carrusel vertical 4:5 ya se elige al crear**, con una plantilla por cada tipo de carrusel de MaKo: lo había dejado hecho otro chat el 7/11 y no había llegado porque daba rojo. Se rescató.',
+      'El rojo: la lista de plantillas que viajaba en una herramienta de MaKo le sacaba el lugar a «Editar la landing con IA», y un pedido como «hacé la landing más corta» llegaba sin ella. La lista ya no viaja; MaKo la lee de las plantillas y un nombre que no existe vuelve con las dos listas.',
+      '**«Sacá el video de la web» ya le llega a MaKo con la herramienta que saca un bloque.** Antes entendía que era editar pero no tenía cómo hacerlo.',
+      'Queda: los diseños con animaciones piden copiar el panel de Framer, que la nube no puede abrir.',
+    ],
+    archivos: [
+      'lib/editor-landing/plantillas-carrusel.ts — las plantillas de carrusel (de la punta del 7/11)',
+      'lib/api-mako/areas/landing.def.ts y landing.run.ts — crear_presentacion_desde_plantilla sin la lista de ids; el runner valida',
+      'lib/api-mako/areas/landing-editor.def.ts — «sacar» en el título de acomodar_bloque_landing',
+      'tests/web-generator-carrusel-45.test.ts y tests/_presentacion-plantilla-hijo.ts — el runner real, probado rompiéndolo',
+      'tests/mako-intencion-landing.test.ts — «sacá el video de la web» con acomodar_bloque_landing',
+    ],
+    revisar: '/web-generator',
+  },
 ];

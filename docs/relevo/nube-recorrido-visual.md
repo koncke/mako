@@ -57,8 +57,9 @@ Ya estaban en main: AD1 (`2fb65f144`), EQ1 (`488e13b52`), W2 y la difusión del 
   cuentan como clientes, y «Nuevos en 30 días» y «Para mirar» tienen alcances distintos sin decirlo).
 - **Ads:** AD2 (dos entradas a MaKo a la vista: la caja del centro y la estrella).
 - **Dashboards:** D1 a D7 (la tabla del recorrido).
-- **Plantillas reales** (docs/plantillas-reales/): CR1 (miniaturas en blanco en Video, Image y Offer) y AV1 (los retratos de AI
-  Avatar se hacen en Flow; la nube no los puede generar).
+- **Plantillas reales** (docs/plantillas-reales/): CR1 (miniaturas en blanco en Video y Offer; en Image, corregido el 18/11 midiendo
+  el código, desde `bebd4cde0` del 6/11 sólo los 7 tamaños en blanco quedan como marco con rótulo: que tampoco ésos queden así lo
+  decide Martín) y AV1 (los retratos de AI Avatar se hacen en Flow; la nube no los puede generar).
 - **Iniciativa** (docs/mako-iniciativa/plan.md): AV2 en T15, A5 en T8, CH1 en la T4b que propone el recorrido.
 
 ## Lo que falta verificar
