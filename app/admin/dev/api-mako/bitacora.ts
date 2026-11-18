@@ -560,6 +560,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/api-mako?tab=tokens&v=nuevo',
   },
+  // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
+  // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
+  {
+    fecha: '6 nov', hora: '05:30', chat: 'Recorrido visual (nube)', sesion: 'cli_11df35a4-d789-5260-a695-cc3c7b859c4e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El área de Automations se llama «Automations» en la API',
+    puntos: [
+      '**En el índice, en la ayuda de /api-mako y en el permiso de un token** decía «Chatbot y secuencias». Los permisos se guardan por la clave, así que ningún token cambia.',
+      'Llegó por el encargo del 6/11 para la nube: lo que seguía abierto del recorrido visual del 30/10 y la llamada con Leila del 5/11.',
+    ],
+    commits: [{ sha: '7132bc7f2', msg: 'Automations, Chats, Plan y la API: lo que quedó abierto del recorrido visual (A3, CH2, P2, AP1)', lineas: 264, archivos: 15 }],
+    archivos: [
+      'lib/api-mako/tipos.ts — el rótulo del área · app/api-mako/Articulos.tsx · docs/api-mako.md (generado)',
+      'tests/recorrido-plan-api.test.ts — probado rompiéndolo (4/0)',
+    ],
+    revisar: '/api-mako',
+  },
   {
     fecha: '6 nov', hora: '14:20', chat: 'Barrido de pendientes (nube)', sesion: 'cli_908aa36b-adb2-556c-b042-b48962ca685a', cuenta: 'nube',
     actor: 'claude', tipo: 'implementacion',

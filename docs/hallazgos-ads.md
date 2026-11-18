@@ -28,6 +28,62 @@ registro completo de las corridas está en [corridas-multiagente.md](corridas-mu
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `app/api/cron/ads-analyst-sync/route.ts:18` · `lib/cron-workspaces.ts` (`correrRonda`)
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 26 — `ads-analyst-sync` sin techo.** `fathom-plan` ya corre con `correrRonda` (techo, mínimo y rotación propia, app/api/cron/fathom-plan/route.ts:48-67). `ads-analyst-sync` sigue con `correrPorWorkspace` pelado (app/api/cron/ads-analyst-sync/route.ts:18): el primer negocio con mucho para analizar se come la corrida de los demás.
+## La nomenclatura también al agregar un anuncio por la API de MaKo, y el código de campaña propuesto en «Nueva campaña» (18/11/2026)
+
+**Vive en:** `lib/media-buyer/creativos.ts` (`nombreConCodigoDeAnuncio`) · `lib/api-mako/areas/ads.run.ts`
+(`nombreEnLaNomenclatura`, en `proponer_agregar_anuncio` y `proponer_anuncio_desde_archivo`) · `lib/media-buyer/campana-reglas.ts`
+(`codigoDeCampanaNueva`, `nombresDeLaCampana`, `cuerpoCampana`, `validarCampana`) · `lib/media-buyer/campana.ts`
+(`datosParaNuevaCampana` → `codigoCampana`) · `app/ads-manager/NuevaCampana.tsx` · `tests/ads-nomenclatura.test.ts`.
+
+**Síntoma.** O9 trajo el código NNN.SS.x a «Subir creativos» (lib/media-buyer/subir.ts) y un revisor encontró que la API de MaKo
+seguía sin él: `proponer_agregar_anuncio` creaba el anuncio con el nombre que escribe el modelo, y la decisión del 31/07 dice
+«también al agregar un ad a una campaña existente». «Nueva campaña» pedía el nombre a mano, sin el `NNN.` que armaba el Ads
+Manager viejo.
+
+**Lo que se hizo.** Al agregar un anuncio a un conjunto con código (`001.02 …`), el código va ADELANTE y lo que mandó el modelo
+queda como la parte que lo describe (`001.02.d Testimonio Juan`), como la plantilla vieja (`'{padre}.{a} {objetivo} / {angulo}'`)
+y la regla de abajo (el código es el primer token). No se reemplaza: es lo único que dice qué es ese anuncio. Si el nombre ya trae
+el código de ESE conjunto con una letra libre, se respeta; uno de otro conjunto, una letra tomada o el código del conjunto copiado
+se cambian. El resumen de la propuesta y el «creado» dicen el nombre final. En «Nueva campaña», si la cuenta ya usa la
+nomenclatura, el nombre viene propuesto con el `NNN.` que sigue al MAYOR (nunca el conteo), y el conjunto y el anuncio de la
+campaña nacen `NNN.01` y `NNN.01.a`; el título y el texto de respaldo que lee el público van sin el código.
+
+**El diagnóstico obvio era el equivocado (dos veces).**
+- «Leer los hermanos del árbol de siempre» (`getMetaHealth`): tiene una caché de 120 s que crear un anuncio no expira, así que dos
+  propuestas del mismo conjunto, aprobadas seguidas, saldrían con la misma letra. Se leen EN VIVO (`leerArbolMetaEnVivo`, por la
+  Zernio del negocio o el token). Y como /mako/revisar vuelve a PREPARAR al confirmar, la segunda toma la letra siguiente; el
+  resumen que vio la persona puede decir la anterior, y el «creado» dice la que quedó.
+- «Que el servidor le ponga el código a la campaña» parecía lo más seguro, y rompía la guarda de «la misma campaña» de
+  `crearCampana`: la huella sale del nombre pedido, y con el código calculado en el servidor el mismo pedido repetido después de
+  crear la primera saldría `005.` y se crearía dos veces. Por eso lo PROPONE la pantalla, a la vista, y viaja como lo dejó la
+  persona.
+
+**Lo que queda, con su porqué:**
+- **«Usar en un anuncio»** (app/anuncio/nuevo/UsarEnAnuncio.tsx) y **`proponer_crear_campana`** de la API no proponen el código de
+  campaña: la pantalla ya lo recibe (`codigoCampana` viaja en `datosParaNuevaCampana`) pero no lo pone; la API depende de que el
+  modelo lo escriba. No se hizo para no tocar dos puertas que no se revisaron hoy.
+- **El código de un anuncio BORRADO puede volver**: la Graph API no lista lo borrado, así que si el de la mayor letra se borra, el
+  siguiente la repite (igual que en «Subir creativos»).
+- **Con el árbol a medias (`parcial`) no se propone el anuncio** en un conjunto con código: un error de lectura de Meta frena el
+  pedido (con `falla`), en vez de arriesgar una letra repetida.
+- ⚠️ **Fuera de esto, visto al pasar:** `proponer_anuncio_desde_archivo` con origen «mensaje» no se puede confirmar en /mako/revisar:
+  al confirmar se vuelve a preparar sin el archivo del mensaje (`ctx.archivoDelMensaje` sólo existe en el turno del grupo) y
+  contesta «No veo una imagen ni un video en este mensaje». Está detrás de `ZERNIO_ANUNCIOS_PROBADO` (apagado); no se tocó.
+
+**La regla.** Un nombre que se calcula en `preparar` se vuelve a calcular al confirmar (la pantalla genérica prepara de nuevo): lo
+que depende de lo que ya existe se lee en vivo, y lo que hace a la idempotencia de un pedido (la huella) no se puede calcular en el
+servidor con un dato que cambia después de crear.
+
 ## Los guiones nuevos ya leen lo que le funcionó al negocio en sus anuncios, con un piso de agendas (18/11/2026)
 
 **Vive en:** `lib/ads-ganadores-reglas.ts` (`PISO_GANADOR`, `ganadoresConPiso`, `lineasDeGanadores`) · `lib/ads-ganadores.ts`
@@ -977,8 +1033,9 @@ publicado. **Por qué:** «Hoy solo se pone nomenclatura difícil de entender» 
 Cualquier generador nuevo choca de frente con los dos bugs de arriba: leelos antes.
 
 ⚠️ *(18/11/2026)* ~~el anuncio nuevo en un conjunto existente sin código~~: desde ese día sale con su NNN.SS.x
-(`codigosDeAnunciosNuevos`, lib/media-buyer/creativos.ts). Siguen sin hacer lo que el nombre DICE por IA y renombrar lo ya
-publicado: ver «Dos pedidos del 31/07 que se fueron con el Ads Manager viejo», arriba de todo.
+(`codigosDeAnunciosNuevos`, lib/media-buyer/creativos.ts), al subirlo desde el Media Buyer y al agregarlo por la API de MaKo
+(`nombreConCodigoDeAnuncio`); y «Nueva campaña» propone el `NNN.` que sigue. Siguen sin hacer lo que el nombre DICE por IA y
+renombrar lo ya publicado: ver «La nomenclatura también al agregar un anuncio por la API» y «Dos pedidos del 31/07…», arriba.
 
 ---
 

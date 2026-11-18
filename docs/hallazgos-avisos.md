@@ -1,5 +1,16 @@
 # Hallazgos — avisos
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `lib/espaciado.ts:40-44` · `lib/avisos.ts` · `app/api/webhooks/calendly/route.ts:712-716` · `lib/meta-lead-nuevo.ts`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 15 — Las marcas de dedup de los avisos se acumulan sin barrido.** Viven en `app_settings` como `mako.aviso.last.<tipo>:<hash>` (lib/espaciado.ts:40-44) y ninguna línea de lib/ ni de app/api/cron las borra. Lo de los avisos por entidad sin `dedupKey` se cerró en parte: «reunión cancelada» lleva su clave (app/api/webhooks/calendly/route.ts:712-716) y el de un formulario de Meta sale sólo con un lead creado por esa entrega (lib/meta-lead-nuevo.ts), así que una reentrega no lo repite. Es también el encargo 633 de docs/encargos-6-11/verificar-7.json.
+
 ## Avisos: lo que dejó `punta/nada-por-detras` (revisada el 8/11/2026)
 
 Las dos puntas entraron a `main` **sin que nadie las mirara**. La revisión las leyó con tres lentes

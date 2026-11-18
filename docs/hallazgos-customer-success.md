@@ -34,6 +34,17 @@ que quedaron en `lib/api-mako/areas/cs.def.ts`.
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** —
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 43 — Renegociar el frente 04 de CS** (no había ningún cliente que hubiera llegado a las juntas, y los contratos vencían en octubre y noviembre; la salida recomendada era cambiarlo por la oferta de renovación). Las fechas ya pasaron. Es lo que se le vende a un cliente real: lo decide Martín.
+
 ## Esencial: 1 curso y la comunidad sólo en Pro (14/11/2026)
 
 - **«Un curso» NO es un producto, y contarlos así era el diagnóstico obvio y equivocado.** No hay tabla `cursos`: Classroom, `listar_cursos`

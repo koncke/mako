@@ -27,6 +27,7 @@ import {
   diaDeSemanaTexto, mayuscula,
 } from './tiempo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 const DIA = 86_400_000;
 type Vista = 'mes' | 'proximos';
@@ -121,7 +122,8 @@ export function Calendario({ pedido = null, onPedidoAbierto }: {
           <button type="button" role="tab" className="cmu-chip" data-on={vista === 'proximos'} aria-selected={vista === 'proximos'} onClick={() => setVista('proximos')}>Próximos</button>
         </div>
         {comunidad.puedoGestionarEventos && api.guardarEvento && (
-          <Button size="sm" icon={<Ico n="calendario" size={15} />} onClick={() => setEditor({ evento: null, oc: null })}>Nuevo evento</Button>
+          <Button size="sm" icon={<Ico n="calendario" size={15} />} onClick={() => setEditor({ evento: null, oc: null })}
+            data-recorrido={MARCA.classroomCalendarNuevo}>Nuevo evento</Button>
         )}
       </div>
       <span className="cmu-meta">Horas en {nombreDeZona(zona)}</span>

@@ -4,6 +4,17 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `lib/anthropic-usage.ts:179,196` · `lib/embeddings.ts` · `lib/transcribe.ts:26,179`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 27 — El gasto de IA, a medias.** Ya se atribuye al workspace (`recordUsage(…, wsForzado)`, lib/anthropic-usage.ts:179, :196) y está el índice `(workspace_id, created_at desc, provider)` (mig 0132). Lo de lib/transcribe.ts escucha por `transcribirAudio` (lib/ai-cheap.ts, que registra), y el STT de las clases (lib/transcribe-plataforma.ts) deja su fila desde 57a275a1e8 (F85, el mismo 18/11). **El que sigue sin registrar es lib/embeddings.ts**, que corre en cada búsqueda del RAG (app/admin/dev/pricing/modelo.ts:149 lo cuenta como «un módulo gasta sin registrar»). Las tres lecturas truncadas y los `recordUsage` sin `await` no se volvieron a medir.
+- **Punto 36 — La puerta de ingesta no extrae el audio.** lib/transcribe.ts sigue topeando en 25 MB (:26) y le pide a la persona «Sube solo el audio o recorta el video» (:179). Extraer el audio antes es lo único que falta para que una clase entera entre por esa puerta.
 ## Los modelos de Gemini salen de un lugar, y escuchar una clase deja su fila en el gasto (18/11/2026, F74 y F85)
 
 **Vive en:** `lib/gemini-modelos.ts` + `tests/gemini-modelos.test.ts` (F74) · `lib/transcribe-plataforma.ts` (`anotarUso`,

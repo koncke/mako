@@ -184,7 +184,7 @@ export function NotificacionesPanel({ canal, admin, zona, deOtro = false }: {
       <>
         <TituloAjustes titulo="Notificaciones" bajada={deOtro ? 'A quién le avisa MaKo en esta cuenta.' : undefined} />
         {errorDe(deOtro ? dest.error : inApp.error ?? push.error ?? correos.error ?? dest.error)}
-        <GrupoAjustes titulo="Canales" recorrido={MARCA.notifCanales}>
+        <GrupoAjustes titulo="Canales">
           {!deOtro && <FilaAjustes icono="avisar" titulo={NOMBRE_CANAL.app} href={`${BASE}?canal=app`} valor={<Estado r={inApp.dato && resumenApp(inApp.dato)} />} />}
           {!deOtro && <FilaAjustes icono="celular" titulo={NOMBRE_CANAL.celular} href={`${BASE}?canal=celular`} valor={<Estado r={push.dato && resumenCelular(push.dato, telefonos, ids)} />} />}
           {admin && <FilaAjustes icono="whatsapp" titulo={NOMBRE_CANAL.whatsapp} href={`${BASE}?canal=whatsapp`} valor={<Estado r={dest.dato && resumenDestinatarios(dest.dato.telefonos.length, 'whatsapp')} />} />}
@@ -202,7 +202,7 @@ export function NotificacionesPanel({ canal, admin, zona, deOtro = false }: {
 
         {!deOtro && <GrupoAjustes titulo="No molestar">
           <FilaAjustes titulo="Pausar los avisos al celular" detalle={silencio ? `Hora de ${ciudadDeZona(zona)}` : undefined}
-            fin={<Switch checked={!!silencio} disabled={!push.dato} label={undefined} onChange={(v) => cambiarSilencio(v ? SILENCIO_SUGERIDO : null)} />} recorrido={MARCA.notifNoMolestar} />
+            fin={<Switch checked={!!silencio} disabled={!push.dato} label={undefined} onChange={(v) => cambiarSilencio(v ? SILENCIO_SUGERIDO : null)} />} />
           {silencio && (
             <FilaAjustes titulo="Horario" fin={(
               <span className="aj-horario">
@@ -265,7 +265,7 @@ export function NotificacionesPanel({ canal, admin, zona, deOtro = false }: {
         {p && (
           <>
             <GrupoAjustes>
-              <FilaAjustes titulo="Avisos al celular" fin={<Switch checked={p.activo} onChange={(v) => void guardarPush({ ...p, activo: v })} />} />
+              <FilaAjustes titulo="Avisos al celular" fin={<Switch checked={p.activo} onChange={(v) => void guardarPush({ ...p, activo: v })} />} recorrido={MARCA.notifAvisosCelular} />
               {/* Los avisos llegan a la app INSTALADA en el teléfono: sin ninguno, la fila lleva a instalarla. */}
               {telefonos === 0
                 ? <FilaAjustes titulo="Tus teléfonos" valor={<>Instalar la app<PuntoEstado tono="warn" /></>} href="/perfil/instalar" />

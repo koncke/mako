@@ -171,8 +171,8 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onElegir, on
   return (
     <>
       <section className="fb-galeria" aria-label={nueva ? 'Nueva hoja' : `Plantillas de ${nombreTab}`}>
-        {/* Sin «Ahora no» desde el 16/10/2026 (Martín): la galería se abre sólo con «Templates» y «Cerrar» se queda con
-            la de hoy. */}
+        {/* Sin «Ahora no» desde el 16/10/2026 (Martín): «Cerrar» se queda con la de hoy. Desde el 18/11/2026, si se abrió
+            sola (un negocio nuevo, ./galeria.ts → `abreSola`), cerrarla se recuerda en este navegador y no vuelve a saltar. */}
         <button type="button" className="fb-boton-texto fb-galeria-cerrar" onClick={onCerrar} title={nueva ? 'Sin crear la hoja' : 'Se queda la de hoy'}>
           Cerrar
         </button>

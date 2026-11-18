@@ -44,7 +44,7 @@ import {
 import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
 import { campanasRetenidas } from '@/lib/media-buyer/productos';
 import { conjuntosDe as conjuntosDeMB, generadosDelNegocio as generadosDelNegocioMB, plantillaDelConjunto as plantillaDelConjuntoMB, revisarSubida as revisarSubidaMB, subirCreativos as subirCreativosMB } from '@/lib/media-buyer/subir';
-import { archivoValido as archivoValidoSubida, leerPedidoDeSubida, NOMBRE_CTA as NOMBRE_CTA_SUBIDA } from '@/lib/media-buyer/creativos';
+import { archivoValido as archivoValidoSubida, codigoDeConjunto, leerPedidoDeSubida, nombreConCodigoDeAnuncio, NOMBRE_CTA as NOMBRE_CTA_SUBIDA } from '@/lib/media-buyer/creativos';
 import { esPathDeStaging } from '@/lib/ads-staging';
 import { barrerStagingViejo, faltanEnStaging, firmarSubidaDeStaging } from '@/lib/ads-staging-firma';
 import type { Alerta as AlertaMB } from '@/lib/media-buyer/protect';
@@ -61,7 +61,7 @@ import { calcularPresupuestoAds } from '@/lib/calculadora-presupuesto-ads';
 import { ROTULO_FUNNEL, sanearPlan } from '@/lib/funnel-plan';
 import { guardarPlanFunnel, leerPlanFunnel } from '@/lib/funnel-plan-db';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
-import { getMetaAccountHealth, type NodoEstado } from '@/lib/meta-health';
+import { getMetaAccountHealth, leerArbolMetaEnVivo, type MetaHealth, type NodoEstado } from '@/lib/meta-health';
 // El aviso «es N veces el actual» vive en UN lugar con la tabla del Ads Manager: era la
 // misma cuenta escrita dos veces acá y una tercera en el cartel de la pantalla.
 import { saltoPresupuesto } from '@/lib/presupuesto-cambio';
@@ -299,6 +299,26 @@ function prepararOverride(cual: Vocab, campo: 'angle' | 'avatar') {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * El nombre FINAL de un anuncio que se agrega a un conjunto existente (18/11/2026, la revisión de O9): con el conjunto en la
+ * nomenclatura (`001.02 …`), el código NNN.SS.x va adelante y lo que mandó quien lo pide queda como la parte que lo describe
+ * (`nombreConCodigoDeAnuncio`, lib/media-buyer/creativos.ts). Lo calcula `preparar`, así que se vuelve a calcular al confirmar
+ * en /mako/revisar (`aplicarPropuestaGenerica` prepara de nuevo): dos propuestas del mismo conjunto muestran la misma letra
+ * hasta que se aprueba la primera, y la segunda toma la que sigue. Los anuncios del conjunto se leen EN VIVO
+ * (`leerArbolMetaEnVivo`, por la Zernio del negocio o el token, como el árbol de siempre): la caché tiene hasta 120 s y no
+ * vería el anuncio recién aprobado. Con la lectura caída o a medias no se elige una letra a ciegas: se dice y no se propone.
+ */
+async function nombreEnLaNomenclatura(ws: number, adsetId: string, conjunto: string, nombre: string): Promise<{ nombre: string } | { error: string; falla: true }> {
+  const codigo = codigoDeConjunto(conjunto);
+  if (!codigo) return { nombre: nombre.trim() };
+  let h: MetaHealth;
+  try { h = await leerArbolMetaEnVivo(ws); }
+  catch (err) { return { error: `No pude leer los anuncios del conjunto «${conjunto}» para ponerle al nuevo su código (${codigo}.x): ${err instanceof Error ? err.message : String(err)}. Reintenta en un momento.`, falla: true }; }
+  if (h.parcial) return { error: `No pude leer todos los anuncios de tu cuenta de Meta, y sin ellos no sé qué código (${codigo}.x) le toca al anuncio nuevo de «${conjunto}». Reintenta en un momento.`, falla: true };
+  const hermanos = h.ads.filter((a) => a.parentId === adsetId).map((a) => a.name);
+  return { nombre: nombreConCodigoDeAnuncio(conjunto, hermanos, nombre) };
+}
 
 export const RUNNERS: Runners = {
   // ── LECTURAS — Ads Manager ───────────────────────────────────────────────
@@ -828,7 +848,7 @@ export const RUNNERS: Runners = {
     },
   },
   proponer_agregar_anuncio: {
-    preparar: async (input) => {
+    preparar: async (input, ctx) => {
       if (!(await metaConectada())) return { error: SIN_META };
       const adsetId = str(input, 'adsetId');
       const nombre = str(input, 'nombre');
@@ -864,13 +884,16 @@ export const RUNNERS: Runners = {
         if (!conj.needsForm && !/^https:\/\/[^\s/]+\.[^\s]+$/.test(creative.destination_url ?? '')) return { error: 'Hace falta destination_url exacta con https.', faltan: ['destination_url'] };
       }
       const detalle = creative.source === 'existing' ? `reusando el post del anuncio ${creative.source_ad_id}` : `con ${creative.media_type === 'video' ? `el video ${creative.video_id}` : 'una imagen ya subida'}; texto: «${String(creative.primary_text).slice(0, 120)}»`;
-      return { payload: { adsetId, nombre, creative }, resumen: `Crear EN PAUSA el anuncio «${nombre}» en el conjunto «${conj.name}» (${adsetId}), ${detalle}.` };
+      // El nombre que se crea es el que dice el resumen: con el código de la nomenclatura si el conjunto lo tiene.
+      const final = await nombreEnLaNomenclatura(ctx.ws, adsetId, conj.name, nombre);
+      if ('error' in final) return final;
+      return { payload: { adsetId, nombre: final.nombre, creative }, resumen: `Crear EN PAUSA el anuncio «${final.nombre}» en el conjunto «${conj.name}» (${adsetId}), ${detalle}.` };
     },
     ejecutar: async (p) => {
       const creative = p.creative as Creative;
       try {
         const r = await addAdToAdset(String(p.adsetId), creative, String(p.nombre));
-        return { ok: true, resumen: `Anuncio creado EN PAUSA (${r.ad_id}). Para que entregue hay que activarlo.`, datos: { ad_id: r.ad_id, creative_id: r.creative_id } };
+        return { ok: true, resumen: `Anuncio «${String(p.nombre)}» creado EN PAUSA (${r.ad_id}). Para que entregue hay que activarlo.`, datos: { ad_id: r.ad_id, creative_id: r.creative_id } };
       } catch (err) { return errorAlCrear(err, creative?.source === 'existing'); }
     },
   },
@@ -897,6 +920,9 @@ export const RUNNERS: Runners = {
       const destino = str(input, 'destination_url');
       if (!conj.needsForm && !/^https:\/\/[^\s/]+\.[^\s]+$/.test(destino)) return { error: 'Hace falta destination_url exacta con https.', faltan: ['destination_url'] };
       if (conj.needsForm) return { error: `El conjunto «${conj.name}» optimiza por formulario: súbelo desde el Media Buyer, donde se elige el formulario.` };
+      // El nombre, ANTES de bajar el archivo: con la lectura de los anuncios caída no queda un archivo suelto en el bucket.
+      const final = await nombreEnLaNomenclatura(ctx.ws, adsetId, conj.name, nombre);
+      if ('error' in final) return final;
       // El archivo: el del mensaje (lo baja el turno del grupo) o el de un link.
       let archivo: { bytes: Uint8Array; mime: string; nombre: string } | null = null;
       if (origen === 'mensaje') {
@@ -942,8 +968,8 @@ export const RUNNERS: Runners = {
       if (eSubida) return { error: `No pude guardar el archivo (${eSubida.message}).`, falla: true };
       const opcional = (k: string) => str(input, k) || undefined;
       return {
-        payload: { adsetId, nombre, ruta, media_type: tipo, primary_text: textoPrincipal, headline: opcional('headline'), cta_type: opcional('cta_type'), destination_url: destino },
-        resumen: `Crear EN PAUSA el anuncio «${nombre}» en el conjunto «${conj.name}» (${adsetId}) con ${tipo === 'video' ? 'el video' : 'la imagen'} que mandaste, por Zernio.`,
+        payload: { adsetId, nombre: final.nombre, ruta, media_type: tipo, primary_text: textoPrincipal, headline: opcional('headline'), cta_type: opcional('cta_type'), destination_url: destino },
+        resumen: `Crear EN PAUSA el anuncio «${final.nombre}» en el conjunto «${conj.name}» (${adsetId}) con ${tipo === 'video' ? 'el video' : 'la imagen'} que mandaste, por Zernio.`,
       };
     },
     ejecutar: async (p) => {
@@ -963,7 +989,7 @@ export const RUNNERS: Runners = {
       };
       try {
         const r = await addAdToAdset(String(p.adsetId), creative, String(p.nombre));
-        return { ok: true, resumen: `Anuncio creado EN PAUSA (${r.ad_id}). Para que entregue hay que activarlo.`, datos: { ad_id: r.ad_id } };
+        return { ok: true, resumen: `Anuncio «${String(p.nombre)}» creado EN PAUSA (${r.ad_id}). Para que entregue hay que activarlo.`, datos: { ad_id: r.ad_id } };
       } catch (err) { return errorAlCrear(err); }
     },
   },

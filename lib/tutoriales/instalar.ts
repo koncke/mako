@@ -1,34 +1,45 @@
-// El tutorial de Settings › Instalar la app (/perfil/instalar: app/perfil/instalar/InstalarApp.tsx). Sus tres grupos llevan marca. Sin
-// video todavía: el `sub` es una propuesta para su guion. En el teléfono es /m/cuenta/instalar (otra pantalla), sin medir: sin `rutaMovil`.
+// El tutorial de Settings › Instalar la app (/perfil/instalar: app/perfil/instalar/InstalarApp.tsx). Cuadra con el guion de su video
+// (key `settings-instalar`: v3 para la entrada y las frases de acción del manifiesto v4). El QR (`img.aj-telefono__qr`, clase global) y
+// «Descargar» (su `href`) ya tienen un atributo estable; la fila de la extensión lleva su marca. En el teléfono es /m/cuenta/instalar
+// (otra pantalla), sin medir: sin `rutaMovil`.
 import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_INSTALAR: TutorialPestana = {
-  pestana: 'instalar',
+  pestana: 'settings-instalar',
   nombre: 'Instalar la app',
   ruta: '/perfil/instalar',
-  intro: 'MaKo va contigo: en la computadora, en el teléfono y en el navegador.',
+  intro: '¿Pagas Claude o ChatGPT? En tu computadora, tus chats con MaKo usan esa suscripción.',
   pasos: [
     {
-      sel: conMarca(MARCA.instalarComputadora),
-      titulo: 'En tu computadora',
-      texto: 'La app para Windows o Mac. Con ella ves el CRM y el Plan aunque se corte internet.',
-      sub: 'En tu computadora, MaKo es una app: ves tu CRM y tu Plan aunque se corte internet.',
+      sel: 'a[href="/perfil/instalar"]',
+      titulo: 'Instalar la app',
+      texto: 'MaKo en tu computadora, en tu celular y en Chrome.',
+      sub: 'Instalar la app, en Configuración, lleva MaKo a tu computadora, tu celular y Chrome.',
+      lado: 'derecha',
+    },
+    {
+      sel: 'img.aj-telefono__qr',
+      titulo: 'En tu celular',
+      texto: 'Escanéalo con la cámara. En iPhone, Compartir y «Agregar a inicio»; en Android, «Instalar app».',
+      sub: 'Mira aquí, el QR: escanéalo con tu celular. En iPhone, Compartir y Agregar a inicio; en Android, Instalar app.',
       lado: 'izquierda',
     },
     {
-      sel: conMarca(MARCA.instalarTelefono),
-      titulo: 'En tu teléfono',
-      texto: 'En el iPhone, desde Safari: Compartir y «Agregar a inicio». En Android, desde Chrome: «Instalar app».',
-      sub: 'En el teléfono la agregas a tu pantalla de inicio desde el navegador.',
+      sel: conMarca(MARCA.instalarExtension),
+      titulo: 'Extensión para Chrome',
+      texto: 'Hace tus videos con tu cuenta de Google Flow.',
+      sub: 'Mira aquí, Extensión para Chrome: hace tus videos con tu cuenta de Google Flow.',
       lado: 'izquierda',
     },
     {
-      sel: conMarca(MARCA.instalarNavegador),
-      titulo: 'En tu navegador',
-      texto: 'La extensión de MaKo para Chrome.',
-      sub: 'Y en Chrome, la extensión de MaKo.',
+      sel: 'a[href^="/api/ia-pc/descargar"]',
+      titulo: 'Descargar',
+      texto: 'La app de MaKo para tu computadora, en Windows o en Mac.',
+      sub: 'Empieza por la computadora: toca aquí, en Descargar, y tus chats con MaKo usan tu suscripción de Claude o ChatGPT.',
       lado: 'izquierda',
+      haz: 'Haz clic en Descargar',
+      clic: true,
     },
   ],
 };

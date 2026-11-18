@@ -1404,4 +1404,36 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  // ⚠️ Los dos de abajo se anotaron el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había
+  // dejado hito. El pedido es el que copió el relevo (docs/relevo/nube-dashboards.md:5-7, con sus «…»), no el mensaje entero: la
+  // hora del pedido no se sabe y va «—». La fecha y la hora del hito de trabajo son las del commit (+0000, como los de arriba).
+  // El trabajo lo hizo la sesión de la nube claude.ai/code/session_015PX68rWnc7TkWaRKJ5MZAR, que no dejó su id de terminal:
+  // el `sesion` es el de la que lo ANOTÓ (el campo dice «la sesión que lo anotó», _registro/tipos.ts).
+  {
+    fecha: '6 nov', hora: '—', chat: 'Dashboards (nube)', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que las hojas copiadas no se rompan al editarlas, con claro y oscuro, la entrada configurable y la hoja de Código Inmobiliario',
+    pedido: 'Los dashboard puede que estén, pero se rompen todos en la vista de EDICIÓN y hay algunos que los botones no son funcionales. Haz que todo sea funcional y editable… Y los que vienen en dark mode, deben acompañar siempre el white mode… armes un dashboard especial para [Código Inmobiliario]… todos los bloques nuevos se conviertan en bloques utilizables… las animaciones de entrada sean configurables en "Personalización"',
+    puntos: ['Llegó como encargo para la nube. Está copiado del relevo (docs/relevo/nube-dashboards.md), con sus cortes: el texto entero no quedó en el repo.'],
+  },
+  {
+    fecha: '6 nov', hora: '15:26', chat: 'Dashboards (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cada tarjeta de un diseño es un bloque: se ve igual mirando y editando, con claro y oscuro y la entrada en «Personalización»',
+    puntos: [
+      '**Mirando y editando se ve igual:** cada tarjeta de los 22 diseños es un bloque de la hoja, y se elige, se mueve, se agranda, se duplica y se borra como cualquier pieza.',
+      '**Las hojas guardadas no se rompen:** al abrirse pasan a bloques y no se borra nada; sus piezas de antes quedan plegadas en «Todas las piezas».',
+      '**«Bloques»** en la barra de edición pone cualquier tarjeta del informe en cualquier hoja, y el panel de un bloque dice de qué piezas lee.',
+      '**Los 22 diseños siguen el modo de MaKo**, claro u oscuro, con el contraste medido; la animación de entrada se elige en «Personalización» (antes «Estilo de la hoja»).',
+      '**La pastilla del período** de Marketing, Chat y Landing abre el Filtro de la hoja: parecía un botón y no hacía nada.',
+      '**«Velocidad de llamada»**, la hoja para Código Inmobiliario. El 10/11 Martín la rechazó por armada con tarjetas de tres diseños («se inventó cosas», AGENTS.md → «PROHIBIDO INVENTAR») y se rehízo como la copia de Tend (54b01f8d4, docs/diseno/mockups-dashboard/velocidad-tend/).',
+    ],
+    commits: [{ sha: '6d21693eb', msg: 'Dashboard: cada tarjeta de un diseño es un bloque editable; claro/oscuro, entrada y la hoja de velocidad de llamada', lineas: 4216, archivos: 106 }],
+    archivos: [
+      'lib/disenos-partes.ts — el catálogo de las 204 tarjetas · app/dashboard/disenos/BloqueDeDiseno.tsx · DisenoVivo.tsx — el bloque y el despachador',
+      'lib/graficos-entradas.ts — las 13 entradas de «Personalización»',
+      'tests/dashboard-bloques-diseno.test.ts — 12 casos · tests/_diseno-cableado.ts — las guardas viejas, al modelo de bloques',
+      'docs/relevo/nube-dashboards.md → «Para el Cerebro (6/11/2026, noche)» — qué quedó y qué no',
+    ],
+    revisar: '/dashboard',
+  },
 ];

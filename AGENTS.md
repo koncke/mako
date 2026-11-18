@@ -3520,6 +3520,10 @@ distinguir un iPad (manda UA de Macintosh, lib/movil-dispositivo.ts), y lo que v
 - **Automations arranca con la sidebar plegada** (23/10): `/automations` está en `RUTAS_QUE_PLIEGAN`
   (app/_components/Sidebar.tsx), como el Ops Center; la flecha la abre. Su panel flotante (lista y chat con MaKo) mide
   `MUELLE.listaAncho` (400, lib/lienzo-grafo.ts) y de ese número cuelgan los insets del lienzo.
+- **Admin también arranca con la sidebar plegada** (6/11, c2b284487): `/admin` exacto y `/admin/<sección>` de
+  `SECCIONES_ADMIN` (app/_components/nav.ts) la pliegan por `pliegaLaBarra` (Sidebar.tsx), porque la copia de Polar trae su
+  propia barra. Las otras tabs bajo /admin (/admin/dev, /admin/ui, /admin/approvals…) NO pliegan. Una sección nueva de Admin
+  va a `SECCIONES_ADMIN`, no a `RUTAS_QUE_PLIEGAN` (docs/diseno-sidebar.md).
 - **Lo táctil se decide por capacidad, no por dispositivo**: `@media (pointer: coarse)` para los 44 px de toque, y
   toda interacción que se abre al pasar el cursor (los desplegables de la sidebar) tiene su equivalente al tocar.
 - **Se mira en el ancho y el alto reales de una tablet** (1024×768 y 820×1180), no sólo en un monitor y en 390 px.

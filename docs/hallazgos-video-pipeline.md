@@ -31,6 +31,18 @@ Los tres corolarios, cada uno pagado por un caso real de abajo:
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `scripts/tutorial-animado/vsl-julio/assemble.sh` · `scripts/tutorial-animado/LEEME.md`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 18 — La receta del VSL, a medias.** Los scripts ya están en el repo (scripts/tutorial-animado/vsl-julio/, 4bc7bad1eb del 16/11), pero `assemble.sh` apunta a carpetas de la PC (el scratchpad de una sesión y `OneDrive/Escritorio/MaKo-VSL/`), y las reglas de la voz siguen afuera: `OneDrive/Escritorio/MaKo-VSL/_voz-martin.md` y `C:/dev/reel-mentores/voz/LA-CONFIG.json` (scripts/tutorial-animado/LEEME.md). Si se pierde esa carpeta se pierde la receta de la voz.
+- **Punto 42 — Los tres bloqueantes del pipeline de video de agosto**: si la salida de Flow por API trae marca de agua y dónde; la cuenta Gmail dedicada y su saldo; si `POST /characters` sostiene la identidad en tres generaciones. Y la foto de Mauricio en `mako.persona` del ws 1. El pipeline cambió mucho desde entonces (el puente a Flow, ApiMart): cuáles siguen siendo preguntas se mide en producción.
+
 ## ⚠️ El Omni de ApiMart son CINCO productos, y el código eligió uno que no es de Google (17/11/2026)
 
 **Síntoma:** `lib/apimart-reglas.ts` y `lib/mako-tokens-paquetes.ts` dan `kling-v3-omni` por «el único Omni». Con eso el minuto

@@ -3,6 +3,16 @@
 Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026). El diseño y sus decisiones están en
 [diseno-copywriter.md](diseno-copywriter.md); acá va lo que no se deduce del código.
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `app/ideas/page.tsx` · `app/_components/nav.ts:730`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 44 — Ideas sigue en «Coming soon»** (app/ideas/page.tsx, 8 líneas; nav.ts:730 con `comingSoon: true`; /ideas cuelga de la familia de Copywriting, nav.ts:460). Lo que pedía el punto —buscar si se desarrolló en la otra cuenta antes de rehacerlo— se mira en los worktrees, ramas, etiquetas y lo sin commitear de la PC de Martín: desde la nube no se ve.
 ## Una pieza larga se escribe por secciones: el tope es POR PEDIDO, no por pieza (18/11/2026)
 
 **Síntoma:** la «Clase gratuita · 42 min» (6.300 palabras dichas) salía con 2.000 como mucho (~13 minutos) y nada lo decía:

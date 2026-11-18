@@ -14,7 +14,7 @@ const SOLO = SOLO_ARG ? SOLO_ARG.split(',').map(Number) : null;
 
 (async () => {
   const t0 = Date.now();
-  const b = await chromium.launch({ args: ['--allow-file-access-from-files', '--mute-audio'] });
+  const b = await chromium.launch({ args: ['--allow-file-access-from-files', '--mute-audio', '--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });   // the GPU: the character (WebGL) is 35 ms a frame there, 210 in software
   const p = await (await b.newContext({ viewport: { width: 1920, height: 1080 } })).newPage();
   const errores = [];
   p.on('pageerror', (e) => errores.push(e.message));
@@ -26,6 +26,16 @@ const SOLO = SOLO_ARG ? SOLO_ARG.split(',').map(Number) : null;
   const cuadro = (t) => p.evaluate((tt) => { window.renderFrame(tt); return document.getElementById('c').toDataURL('image/png').split(',')[1]; }, t);
   if (SOLO) {
     for (const t of SOLO) fs.writeFileSync(path.join(DIR, `cuadro-${t}.png`), Buffer.from(await cuadro(t), 'base64'));
+    // the covered-letters rule, measured on every big screen (engine3.js → medirTapado)
+    const tapado = [];
+    // EVERY 100 ms of every big screen, except the first 250 ms of its entrance (the Cerebro, 18/11); the worst frame per screen
+    const muestras = await p.evaluate(() => (window.BEATS || []).filter((b) => b.modo === 'heroe').flatMap((b) => { const r = []; for (let t = b.s + 250; t < b.e - 150; t += 100) r.push(t); return r; }));
+    const peor = {};
+    for (const t of muestras) { const m = await p.evaluate((tt) => (window.medirTapado ? window.medirTapado(tt) : null), t); if (!m) continue; const ant = peor[m.texto]; const v = Math.min(1, ...m.palabras.map((w) => w.visible)); if (!ant || (!m.ok && ant.ok) || (m.ok === ant.ok && v < ant._v)) peor[m.texto] = Object.assign(m, { _v: v }); }
+    tapado.push(...Object.values(peor));
+    fs.writeFileSync(path.join(DIR, 'tapado.json'), JSON.stringify(tapado, null, 1));
+    console.log('medido en', muestras.length, 'cuadros');
+    for (const m of tapado) console.log(m.ok ? 'tapado ok:' : `⚠️ TAPA DE MÁS (a los ${m.edad} ms):`, m.texto.slice(0, 40), m.palabras.map((w) => `${w.palabra} ${Math.round(w.visible * 100)}% desde ${Math.round(w.tapadoDesde * 100)}%`).join(', '));
     await b.close(); console.log('cuadros:', SOLO.join(', ')); return;
   }
   const DUR = await p.evaluate(() => window.DUR);

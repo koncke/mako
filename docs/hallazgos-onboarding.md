@@ -4,6 +4,16 @@ El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `lib/onboarding-state.ts` · `app/api/onboarding/route.ts:324` · `lib/onboarding-crm.ts`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Puntos 29, 30 y 31 — excluidos de la pasada del 18/11: el onboarding lo está rehaciendo otro chat ese día.** Lo medido, para ese chat: (29) lib/onboarding-state.ts ya no tiene `PASOS_ONBOARDING` y el onboarding es el chat de arranque desde el 16/10, así que «las cuatro listas paralelas» casi seguro vencieron; (30) el `case 'funnel'` de app/api/onboarding/route.ts:324 sigue sin un solo llamador (`templateId` no aparece en app/), y el CRM del arranque lo arma lib/onboarding-crm.ts; (31) el paso `gemini` ya no existe, y conectar una IA dejó de ser obligatorio con los MaKo Tokens (15/11).
 ## El motor de los tutoriales y el chat del reto, en la app real (18/11/2026)
 
 Martín pasó el onboarding de la maqueta (C:/dev/artefactos-onboarding) a la app («despleguemos todo esto ya en la app, de verdad»).
@@ -40,6 +50,14 @@ La maqueta queda como ESPECIFICACIÓN. Lo que mordió al construirlo:
   Escape en captura. Sólo cuenta el de la persona (`if (!e.isTrusted) return;`).
 - **Las tapas del hueco tapaban el video chico** (los dos `position: fixed` sin z-index: gana el último del DOM): con una marca
   puesta, el video no se podía pausar ni cerrar. El video lleva z-index 2 y la tarjeta 3.
+- **Lo marcado adentro de un panel con su propio velo quedaba DEBAJO del motor.** La ficha rápida del CRM (FichaRapida,
+  app/_ui/TarjetaKanban.tsx) pone su velo en z-index 1200 y el motor vive en 400 (`Z_PISO_RECORRIDO`): al marcar «Mover a…»
+  el video se pausaba y no se veía ni el anillo ni la tarjeta; si la persona cerraba la ficha tocando afuera, el video quedaba
+  pausado para siempre. El motor sube por encima de la capa de lo marcado y de cualquier `aria-modal` abierto (`zParaMarcar`), y
+  si lo marcado por una frase desaparece, el video sigue a los 3 s. El CRM dibujado de las pestañas NO tiene la ficha ni la
+  marca de «Mover a»: se probó imitándola (velo 1200, Escape en captura de la ventana).
+- **«Mostrada» no es «tocada».** La última frase del CRM («Más acciones», `espera_clic: false`) se marca sin pausar; contarla como
+  tocada hacía que al terminar el video se saltara el CTA. El cierre mira sólo las que la persona tocó (`tocadas`).
 - **El Chromium de Playwright no reproduce mp4 (H.264):** para mirar el video hay que lanzar el Chrome instalado
   (`chromium.launch({ channel: 'chrome' })`). Con el otro, el video «no carga» y parece un error del motor.
 
@@ -50,8 +68,9 @@ Lo que quedó SIN hacer (para el día siguiente):
 - los tutoriales con `estado` del chat de las pestañas (pantallas de adentro: la ficha del lead, la clase), que el motor no arranca;
 - la Ticketera, que el motor no arranca porque mira la ruta sin el `?`
   (app/_ui/tutorial/MotorTutorial.tsx, `TutorialDeLaRuta`);
-- el video y la marca juntos con frases DE VERDAD: hoy (18/11) ningún video del manifiesto trae `frases`, así que el motor sigue
-  como antes (los pasos con «Siguiente»). Se probó con un manifiesto de prueba sobre la página del CRM dibujada.
+- el video y la marca juntos, en la app de verdad: las frases llegan con punta/tutoriales-videos (922d59222). Se miró con ese
+  manifiesto y su crm.mp4 sobre el CRM dibujado (pausa en «Ver info» a los 9,3 s; «Mover a…» adentro de la ficha imitada; el
+  CTA de «Más acciones» al final), no en la app.
 
 ## ⚠️ La maqueta del onboarding y la app real no tienen los mismos coaches (17/11/2026)
 

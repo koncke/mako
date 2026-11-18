@@ -85,6 +85,11 @@ export type Validacion = { ok: true; valor: EntradaCampana } | { ok: false; erro
 export function validarCampana(x: Record<string, unknown>, lugares: LugarZona[]): Validacion {
   const nombre = texto(x.nombre, 200);
   if (!nombre) return { ok: false, error: 'Ponle un nombre a la campaña.', faltan: ['nombre'] };
+  // Con el código solo («004.»), el título y el texto de respaldo del anuncio quedarían en el código: falta lo que la describe.
+  const codigo = codigoDeCampana(nombre);
+  if (codigo && nombresDeLaCampana(nombre).descripcion === nombre) {
+    return { ok: false, error: `Después de su código (${codigo}) ponle a la campaña un nombre que la describa.`, faltan: ['nombre'] };
+  }
   const objetivo = String(x.objetivo ?? '') as ObjetivoCampana;
   if (!(OBJETIVOS_CAMPANA as readonly string[]).includes(objetivo)) return { ok: false, error: `El objetivo es uno de: ${OBJETIVOS_CAMPANA.join(', ')}.`, faltan: ['objetivo'] };
   const presupuestoDia = Number(x.presupuestoDia);
@@ -149,6 +154,50 @@ function lugaresZernio(ls: readonly LugarZona[]): Record<string, unknown> {
   return g;
 }
 
+// ── La nomenclatura de una campaña nueva (18/11/2026, la revisión de O9) ─────────────────────────────────────────────────────
+// La decisión del 31/07 (docs/hallazgos-ads.md, «la nomenclatura se genera sola»): campaña `001.`, conjunto `001.02`, anuncio
+// `001.02.a`, con el código como PRIMER token y lo que la describe después. El Ads Manager viejo armaba el `{nnn}` solo (y del
+// CONTEO de campañas, que repetía un número al archivar una); se fue el 25/10 y «Nueva campaña» volvió a pedirlo a mano.
+
+/** El código de campaña `NNN.` al principio de un nombre (`004. Leads`), o null. `004.02` es de un conjunto, no de una campaña. */
+const CODIGO_CAMPANA = /^\s*(\d{3})\.(?=$|[\s\-–—/|·:])/;
+/** Cualquier código de la nomenclatura al principio de un nombre (de campaña, de conjunto o de anuncio): su NNN. */
+const NNN_DE_LA_NOMENCLATURA = /^\s*(\d{3})\.(?:\d{2,3}(?:\.[a-z]+)?)?(?=$|[\s\-–—/|·:])/i;
+
+export function codigoDeCampana(nombre: string): string | null {
+  const m = CODIGO_CAMPANA.exec(nombre);
+  return m ? `${m[1]}.` : null;
+}
+
+/**
+ * El código que le toca a una campaña nueva: el que sigue al MAYOR NNN que ya usa la cuenta en sus campañas, conjuntos y
+ * anuncios (no al conteo: archivar una no repite un número). Sólo si la cuenta YA está en la nomenclatura, como el anuncio
+ * (`codigosDeAnunciosNuevos` sólo pone código si el conjunto tiene uno): a un negocio que no la usa no se le pone un «001.»
+ * que nadie pidió. null también pasado el 999 (el código es de tres dígitos).
+ */
+export function codigoDeCampanaNueva(nombres: readonly string[]): string | null {
+  let mayor = -1;
+  for (const n of nombres) {
+    const m = NNN_DE_LA_NOMENCLATURA.exec(n);
+    if (m) mayor = Math.max(mayor, Number(m[1]));
+  }
+  return mayor >= 0 && mayor < 999 ? `${String(mayor + 1).padStart(3, '0')}.` : null;
+}
+
+/**
+ * Los nombres de lo que se crea con la campaña: con un código de campaña (`004. Leads`), el conjunto sale `004.01 Leads` y el
+ * anuncio `004.01.a Leads`, para que el anuncio que se le agregue después tome su letra (lib/media-buyer/creativos.ts). Sin
+ * código, como siempre: «… · Conjunto» y «… · Anuncio». `descripcion` es el nombre SIN el código: lo que puede leer el
+ * público (el título y el texto de respaldo), nunca un código interno.
+ */
+export function nombresDeLaCampana(nombre: string): { campana: string; conjunto: string; anuncio: string; descripcion: string } {
+  const cod = codigoDeCampana(nombre);
+  if (!cod) return { campana: nombre, conjunto: `${nombre} · Conjunto`.slice(0, 255), anuncio: `${nombre} · Anuncio`.slice(0, 255), descripcion: nombre };
+  const descripcion = nombre.replace(CODIGO_CAMPANA, '').replace(/^[\s\-–—/|·:]+/, '').trim();
+  const con = (codigo: string) => (descripcion ? `${codigo} ${descripcion}` : codigo).slice(0, 255);
+  return { campana: nombre, conjunto: con(`${cod}01`), anuncio: con(`${cod}01.a`), descripcion: descripcion || nombre };
+}
+
 /**
  * El cuerpo de `POST /v1/ads/create` (forma legacy). `creativoReusado`: el creativo del anuncio a reusar, con lo que el
  * servidor leyó de él (su texto y su link: Zernio pide `body` y `linkUrl` en esta forma aunque los ignore con un creativo
@@ -160,9 +209,10 @@ export function cuerpoCampana(e: EntradaCampana, x: {
   creativoReusado?: { id: string; texto: string | null; link: string | null } | null;
 }): Record<string, unknown> {
   const boton: string = e.boton ?? (e.objetivo === 'formulario' ? 'SIGN_UP' : e.objetivo === 'compras' ? 'SHOP_NOW' : 'LEARN_MORE');
+  const nombres = nombresDeLaCampana(e.nombre);
   const cuerpo: Record<string, unknown> = {
     accountId: x.conexion.accountId, adAccountId: x.conexion.adAccountId,
-    name: `${e.nombre} · Anuncio`.slice(0, 255), campaignName: e.nombre, adSetName: `${e.nombre} · Conjunto`.slice(0, 255), adName: `${e.nombre} · Anuncio`.slice(0, 255),
+    name: nombres.anuncio, campaignName: nombres.campana, adSetName: nombres.conjunto, adName: nombres.anuncio,
     goal: GOAL[e.objetivo], budgetAmount: e.presupuestoDia, budgetType: 'daily',
     targeting: { ...lugaresZernio(e.lugares), ...(e.edadMin != null ? { ageMin: e.edadMin } : {}), ...(e.edadMax != null ? { ageMax: e.edadMax } : {}) },
     callToAction: boton,
@@ -177,7 +227,7 @@ export function cuerpoCampana(e: EntradaCampana, x: {
   if (e.creativo.tipo === 'anuncio') {
     if (!x.creativoReusado) throw new Error('Falta el creativo del anuncio a reusar.');
     cuerpo.existingCreativeId = x.creativoReusado.id;
-    cuerpo.body = e.texto || x.creativoReusado.texto || e.nombre;
+    cuerpo.body = e.texto || x.creativoReusado.texto || nombres.descripcion;
     if (!cuerpo.linkUrl && x.creativoReusado.link) cuerpo.linkUrl = x.creativoReusado.link;
   } else {
     cuerpo.body = e.texto;
@@ -185,7 +235,7 @@ export function cuerpoCampana(e: EntradaCampana, x: {
     else if (e.creativo.tipo === 'video') cuerpo.video = { url: e.creativo.url, ...(e.creativo.miniatura ? { thumbnailUrl: e.creativo.miniatura } : {}) };
     else cuerpo.video = { id: e.creativo.videoId };
   }
-  cuerpo.headline = e.titulo ?? e.nombre;
+  cuerpo.headline = e.titulo ?? nombres.descripcion;
   return cuerpo;
 }
 

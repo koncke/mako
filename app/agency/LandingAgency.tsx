@@ -24,6 +24,7 @@ import type { EstadoAgency } from '@/lib/agency';
 import { TEXTO_NO_AGENCY } from '@/lib/agency-reglas';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import { SumarseAgency } from './SumarseAgency';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 const usdTxt = (n: number) => `US$ ${n.toLocaleString('es-AR')}`;
 
@@ -38,6 +39,8 @@ export function LandingAgency({ estado, usd, volver, sinMarco = false }: {
 }) {
   const [sumando, setSumando] = useState(false);
   const cta = <Accion estado={estado} onSumarme={() => setSumando(true)} volver={volver} />;
+  // La marca del tutorial (lib/tutoriales/agency.ts) va en la fila del botón de arriba sólo cuando es «Sumarme como Agency».
+  const conSumarme = !!estado && !estado.esAgency && estado.puede.ok;
 
   const contenido = (
     <>
@@ -56,7 +59,7 @@ export function LandingAgency({ estado, usd, volver, sinMarco = false }: {
                 Ábrele a cada cliente su propia cuenta de MaKo, entra a la que quieras con un clic y decide quién la paga.
                 Son tus clientes: MaKo nunca les vende nada.
               </p>
-              <div className="ag-acciones">{cta}</div>
+              <div className="ag-acciones" data-recorrido={conSumarme ? MARCA.agencySumarme : undefined}>{cta}</div>
               <ul className="ag-chips">
                 <li>Tus clientes son tuyos</li>
                 <li>MaKo no les hace promociones</li>
@@ -77,7 +80,7 @@ export function LandingAgency({ estado, usd, volver, sinMarco = false }: {
           </div>
         </section>
 
-        <section className="ag-seccion">
+        <section className="ag-seccion" data-recorrido={MARCA.agencyAsiDeSimple}>
           <h2>Así de simple</h2>
           <div className="ag-pasos">
             <div className="ag-paso"><span>1</span><b>Abres su cuenta</b><p>Su nombre y su email, o desde un lead de tu CRM. Le llega su acceso.</p></div>
@@ -86,7 +89,7 @@ export function LandingAgency({ estado, usd, volver, sinMarco = false }: {
           </div>
         </section>
 
-        <section className="ag-seccion">
+        <section className="ag-seccion" data-recorrido={MARCA.agencyPartnerOAgency}>
           <h2>¿Partner o Agency?</h2>
           <div className="ag-vs">
             <div className="ag-vs-col">

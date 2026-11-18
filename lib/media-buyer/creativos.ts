@@ -126,13 +126,51 @@ const numeroALetra = (n: number): string => { let s = ''; while (n > 0) { n--; s
 export function codigosDeAnunciosNuevos(conjunto: string, hermanos: readonly string[], n: number): Array<string | null> {
   const codigo = codigoDeConjunto(conjunto);
   if (!codigo) return Array.from({ length: n }, () => null);
+  const mayor = Math.max(0, ...[...letrasUsadas(codigo, hermanos)].map(letraANumero));
+  return Array.from({ length: n }, (_, i) => `${codigo}.${numeroALetra(mayor + i + 1)}`);
+}
+
+/** Las letras (en minúscula) que ya usan los anuncios de un conjunto con código: `001.02.c …` → `c`. */
+function letrasUsadas(codigo: string, hermanos: readonly string[]): Set<string> {
   const propio = new RegExp(`^\\s*${codigo.replace('.', '\\.')}\\.([a-z]+)(?=$|[\\s\\-–—/|·:])`, 'i');
-  let mayor = 0;
+  const out = new Set<string>();
   for (const h of hermanos) {
     const m = propio.exec(h);
-    if (m) mayor = Math.max(mayor, letraANumero(m[1]));
+    if (m) out.add(m[1].toLowerCase());
   }
-  return Array.from({ length: n }, (_, i) => `${codigo}.${numeroALetra(mayor + i + 1)}`);
+  return out;
+}
+
+/** El código de un ANUNCIO al principio de un nombre (`001.02.c`): el del conjunto y la letra. */
+const CODIGO_ANUNCIO = /^(\d{3}\.\d{2,3})\.([a-z]+)(?=$|[\s\-–—/|·:])/i;
+const SEPARADOR = /^($|[\s\-–—/|·:])/;
+
+/**
+ * El nombre FINAL de UN anuncio que se agrega a un conjunto existente (`proponer_agregar_anuncio` y
+ * `proponer_anuncio_desde_archivo` de la API de MaKo; 18/11/2026, la revisión de O9). La decisión del 31/07 dice que la
+ * nomenclatura sale sola «también al agregar un ad a una campaña existente», y la regla de docs/hallazgos-ads.md pide que
+ * `NNN.SS.x ` sea el PRIMER token, terminado en espacio. Así que el código va adelante y lo que mandó quien lo pide (el modelo,
+ * o la persona que lo corrigió en la pantalla de revisión) queda como la parte que lo DESCRIBE, igual que en la plantilla del
+ * Ads Manager viejo (`'{padre}.{a} {objetivo} / {angulo}'`). No se reemplaza: es lo único que dice qué es ese anuncio.
+ *   · Un conjunto sin código: el nombre tal cual (no se inventa una nomenclatura que el negocio no usa).
+ *   · Si el nombre YA trae el código de ESTE conjunto con una letra que ningún hermano usa, se respeta: lo eligió alguien.
+ *   · Si trae otro código de anuncio (el de un hermano copiado, el de otro conjunto), o el del conjunto o su campaña copiados
+ *     de su nombre, se saca y se pone el que le toca: un código que no dice dónde vive el anuncio es peor que ninguno.
+ */
+export function nombreConCodigoDeAnuncio(conjunto: string, hermanos: readonly string[], nombre: string): string {
+  const base = nombre.trim();
+  const codigo = codigoDeConjunto(conjunto);
+  if (!codigo) return base;
+  const ad = CODIGO_ANUNCIO.exec(base);
+  if (ad && ad[1] === codigo && !letrasUsadas(codigo, hermanos).has(ad[2].toLowerCase())) return base;
+  const campana = codigo.slice(0, 4); // «001.»
+  let desc = base;
+  if (ad) desc = base.slice(ad[0].length);
+  else if (base.startsWith(codigo) && SEPARADOR.test(base.slice(codigo.length))) desc = base.slice(codigo.length);
+  else if (base.startsWith(campana) && SEPARADOR.test(base.slice(campana.length))) desc = base.slice(campana.length);
+  desc = desc.replace(/^[\s\-–—/|·:]+/, '').trim();
+  const [nuevo] = codigosDeAnunciosNuevos(conjunto, hermanos, 1);
+  return desc ? `${nuevo} ${desc}` : String(nuevo);
 }
 
 /** Una subida tal como llega: de la pantalla (/api/media-buyer → subir_creativos) o de la API de MaKo (subir_creativos_media_buyer). */

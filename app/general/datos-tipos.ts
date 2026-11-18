@@ -15,12 +15,13 @@ import type { Foco } from '@/lib/focus';
 import type { ProgresoQuarter, MetricaObjetivo, UnidadObjetivo } from '@/lib/objectives-modelo';
 import type { DesgloseData } from '@/app/_components/Desglose';
 import type { EstadoFuentes, EstadoLampara } from '@/lib/vista-general-modelo';
-import type { Pendientes, ResumenComparativo } from '@/lib/queries';
+import type { Pendientes } from '@/lib/queries';
 import type { BoardTask, Label } from '@/app/plan/board/types';
 import type { ItemCalendario } from '@/lib/calendario-modelo';
 import type { ConteoFunnel } from '@/lib/general-alcance';
 import type { CobroM } from '@/app/m/dashboard/modelo';
 import type { KpiVista, CandidatoVista } from './KpisCard';
+import type { MesDeGeneral, MesDelPeriodo } from './mes-del-periodo';
 
 /** Lo que se leyó, o por qué no. */
 export type Leido<T> = { ok: true; d: T } | { ok: false; error: string };
@@ -65,8 +66,13 @@ export type DatosGeneral = {
   kpis: Leido<{ kpis: KpiVista[]; candidatos: CandidatoVista[]; objetivos: Array<{ id: string; titulo: string }>; objetivoPrincipalId: string | null }>;
   semaforo: Leido<{ alertas: AlertaVista[]; fuentes: EstadoFuentes; lampara: EstadoLampara; objetivoAtrasado: boolean }>;
   pendientes: Leido<Pick<Pendientes, 'total' | 'porTipo' | 'aviso'>>;
-  /** `comparativo` null = el mes no se pudo comparar (se dice). */
-  mes: Leido<{ comparativo: ResumenComparativo | null; desgloses: Record<string, DesgloseData> }>;
+  /** El mes a la fecha (hasta ayer). `comparativo` null = el mes no se pudo comparar (se dice). */
+  mes: Leido<MesDeGeneral>;
+  /**
+   * «El mes» con el PERÍODO de la hoja con que se abrió la página (./periodo-de-la-hoja.ts), ya leído. Ausente o null = no
+   * se pidió (el teléfono, una hoja sin control de período) o no se pudo leer: el bloque lo pide al dibujarse.
+   */
+  mesDelPeriodo?: MesDelPeriodo | null;
   plan: Leido<{
     /** Las de la vista Prioridades del Plan, en su orden (hasta 5). */
     prioridades: TareaVista[];

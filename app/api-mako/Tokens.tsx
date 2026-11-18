@@ -35,6 +35,7 @@ import type { AreaDocs } from './datos';
 import { crearTokenApi, editarTokenApi, regenerarTokenApi, revocarTokenApi } from './actions';
 import { BotonCopiar, Icono, fechaLarga, ultimoUso, useCopiar } from './piezas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 export type VistaTokens = { v: 'detallados' | 'nuevo' | 'clasicos' } | { v: 'token'; id: string; accion: 'ver' | 'editar' | 'regenerar' };
 
@@ -167,7 +168,7 @@ function Lista({ tokens, nuevo, onEliminar }: { tokens: TokenPublico[]; nuevo: {
     <>
       <div className="gh-subhead">
         <h2 className="gh-subhead-heading">Tokens de acceso personal detallados</h2>
-        <Link className="gh-btn" href={`${T}&v=nuevo`}>Generar nuevo token</Link>
+        <Link className="gh-btn" href={`${T}&v=nuevo`} data-recorrido={MARCA.apiGenerar}>Generar nuevo token</Link>
         <p className="gh-subhead-description" style={{ margin: 0 }}>Tokens con permisos por área, para integraciones y para usar la API desde tus propios scripts.</p>
       </div>
       {nuevo && tokens.some((t) => t.id === nuevo.id) && (

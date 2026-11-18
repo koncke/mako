@@ -422,4 +422,41 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-infra.md → «La prueba de carga que se le prometió a Teo»',
     ],
   },
+  {
+    fecha: '18 nov', hora: '—', chat: 'Lo que falta construir (nube)', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes verificados del 17/11',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: ['Llegó por el coordinador de la nube, repartido en lotes. Éste es el de documentación y del registro de /admin/dev: F128, F20, F22 y F99 de docs/pendientes-verificados-17-11.md.'],
+  },
+  {
+    fecha: '18 nov', hora: '03:50', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La prueba haciendo de usuario se puede repetir: la skill «qa-usuarios»',
+    puntos: [
+      '**El método de los informes del 10 al 13/11** (AI Avatar, Spy, Dashboard, Image, Marketing CoPilot, Video Editor, Web Generator) quedó escrito para repetirlo: las personas, dónde se escribe y dónde sólo se mira, cómo se captura a 1440 y a 375 y el formato del informe.',
+      '**Mirar, no leer:** cada pantalla con su captura, al lado de su referencia; una pantalla vacía en producción es una falla.',
+      '**Lo que no se hace en producción**, en una lista: escribir fuera del negocio de prueba, compartir, cambiar el plan, gastar plata, mandarle algo a una persona real, el Chrome con la sesión de un cliente.',
+      '**Faltan recorrer así** CRM, Automations, Plan, Ads Manager, Copywriting, Offer, Classroom, Ops Center, Calendario, Email y Cobranza: se hace con el navegador de la app y la sesión de Martín, no desde la nube.',
+    ],
+    archivos: [
+      '.claude/skills/qa-usuarios/SKILL.md — el método',
+      'docs/pruebas/dashboard-10-11.md — el informe que sirve de molde · docs/hallazgos-pruebas.md — las trampas del navegador',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '03:50', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Los pendientes del estado del arte de agosto, medidos: 14 ya estaban cerrados y 28 se repartieron a su área',
+    puntos: [
+      '**De los 42 pendientes sin tachar**, 14 estaban cerrados o ya no aplicaban (las vistas de cohortes, el WhatsApp oficial que ya se borró, la purga del agente, el contrato de las tablas, la guarda de wpm…) y se tacharon con dónde quedaron.',
+      '**Los otros 28 se repartieron** al documento de hallazgos de cada área, con lo que falta y quién lo decide.',
+      '**Una falsedad que quedó a la vista:** el reset del negocio de prueba avisa que no puede vaciar las notificaciones ni los borradores de campañas, y ya las vacía.',
+      'Además quedaron anotados los hitos que faltaban del Dashboard (6/11) y del recorrido visual, y que Admin también pliega la barra.',
+    ],
+    archivos: [
+      'docs/estado-del-arte.md — la lista, tachada y repartida',
+      'docs/hallazgos-<área>.md — «Pendientes que venían de docs/estado-del-arte.md (18/11/2026)», en 15 documentos',
+      'docs/diseno-sidebar.md · AGENTS.md · docs/relevo/sidebar.md — Admin pliega la barra',
+    ],
+  },
 ];

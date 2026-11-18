@@ -36,6 +36,19 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `lib/credenciales.ts` (`wsDelEntorno`) · `lib/cripto-credenciales.ts` · `docs/migracion-cifrado-credenciales.md` · `app/` · `lib/mako-doer-in.ts`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 1 — Rotar el `GITHUB_TOKEN` y la `ANTHROPIC_API_KEY` que compartían el ws 1 y la agencia.** No se hace desde el repo ni se mide desde la nube: es GitHub, Anthropic y Vercel (producción, Martín). Desde el 18/10 el código ya no toma la copia de una key de la plataforma en la fila del ws 1 como la IA de ese negocio (`provsDe`, lib/ai-cheap.ts), pero eso no rota nada: la key sigue siendo la misma.
+- **Punto 3 — El runbook del cifrado v2.** El código ya no lee el formato viejo: `descifrar` sólo acepta `gcm2` (lib/cripto-credenciales.ts:71-88), así que `CREDENCIALES_V1_OFF=1` quedó sin objeto, y ningún código lee `AUTH_COOKIE_VALUE` (sólo aparece en comentarios). Lo que queda es de Vercel: sacar `AUTH_COOKIE_VALUE` del entorno (producción) y poner al día docs/migracion-cifrado-credenciales.md, que sigue describiendo los pasos 4 y 5 como pendientes.
+- **Punto 8 — El entorno que no es de IA sigue saliendo del ws 1.** `wsDelEntorno` (lib/credenciales.ts:582) manda la IA (18/10) y el correo de MaKo (4/11) a la fila de la plataforma; Meta, Calendly y Fathom siguen con `OWNER_WS`, el negocio de Mauricio. El propio comentario lo deja como «otra decisión» (docs/relevo/ticketera.md). Es la fuga que se arma el día que alguien cargue en el ws 1 una de esas claves como si fuera de la plataforma.
+- **Punto 12 — El barrido de rutas que se abren por URL sin un botón, y MaKo en los grupos de WhatsApp con clientes** («en el grupo de PRUEBAS trae datos cruzados, falta ver el camino de entrada»). No hay un barrido escrito después del 25/08. El grupo cambió mucho desde entonces (`hayInvitado`, `quienPide`, el grupo de la app), así que el síntoma de agosto se vuelve a medir en el grupo de prueba antes de buscarle causa.
 ## Toda server action de app/ corta sin sesión, la foto de una persona sale filtrada siempre, y borrar un cliente deja constancia (18/11/2026)
 
 **Vive en:** `tests/acciones-con-puerta.test.ts` + `tests/_puerta-acciones.ts` (F115) · `lib/foto-perfil.ts` (`conFotoSegura`),

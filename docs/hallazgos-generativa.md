@@ -14,6 +14,17 @@ MaKo. Corrida de 9 agentes, 2026-08-18.
 
 ---
 
+## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
+
+**Vive en:** `lib/elevenlabs.ts` · `lib/metodo-catalogo.ts:568` · `app/video-editor/_opencut/subtitles/generar.ts`
+
+Lo que seguía vivo de los «Pendientes vivos» de `docs/estado-del-arte.md` (el corte transversal del 25/08/2026), medido
+contra `origin/main` el 18/11 por la pasada que tachó allá lo cerrado (F128 de docs/pendientes-verificados-17-11.md). Cada
+renglón nombra su punto; allá queda la línea con «→ repartido a» este documento. Es una medición con fecha: antes de trabajar
+uno, se vuelve a mirar el código que nombra.
+
+- **Punto 20 — useapi y el experimento de US$5.** La ventana de reembolso de useapi (14 días, menos de 50 generaciones) y la promo de Google AI Pro (cortaba en octubre de 2026) ya pasaron. El experimento con `fal-ai/wan/animate/replace` (pasarle un anuncio ya producido) no se corrió: no aparece en ningún archivo fuera de estado-del-arte. Gasta plata: lo decide Martín.
+- **Punto 35 — Subtítulos y ElevenLabs.** Los subtítulos ya existen por otro camino (el Video Editor los genera con Whisper en el navegador, app/video-editor/_opencut/subtitles/generar.ts) y `lib/elevenlabs.ts` está escrito; `timestamp_granularities` en lib/transcribe.ts no hizo falta. Queda la decisión sobre el campo de ElevenLabs que pega el cliente (lib/metodo-catalogo.ts:568): el plan gratis de ElevenLabs es no comercial por contrato, y el campo no lo dice ni lo frena. Lo decide Martín.
 ## El cupo por tipo estaba bien y el avatar igual tiraba un anuncio: se guardaba DOS veces, y la primera sin el tipo (18/11/2026, F168)
 
 **El síntoma.** Después del arreglo del 06/11 (abajo), un video de avatar todavía podía sacar un

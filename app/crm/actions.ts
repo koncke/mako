@@ -140,7 +140,7 @@ import { TopeDelPlanError, frenarAltaPorTope } from '@/lib/topes-crm';
 import { ofrecePartners } from './partners-crm';
 import { avisanDelLead, type EstadoDatos } from '@/lib/datos-aviso';
 // La ficha del funnel del lead y «N sin marcar»: las MISMAS lecturas que la ficha del teléfono (app/m/crm/datos.ts).
-import { apagadosDeFunnel, fichaDelFunnelDelLead, type FichaDelFunnel } from '@/lib/ficha/config-server';
+import { apagadosDeFunnel, fichaDelFunnelDelLead, negocioNuevoParaLaFicha, type FichaDelFunnel } from '@/lib/ficha/config-server';
 import { datosSinMarcarDeLead, leerInsumosDatosLead } from '@/lib/datos-del-lead';
 import { rolDeFicha, vePrivado, type RolFicha } from '@/lib/ficha/registro';
 import { tabEnCapa } from '@/lib/capas';
@@ -316,6 +316,12 @@ export type LeadFullData = {
    * la de respaldo y no ofrece «Personalizar» (el primer cambio pisaría una ficha que no se vio).
    */
   ficha: FichaDelFunnel | null;
+  /**
+   * ¿Es un negocio NUEVO? (18/11/2026, `negocioNuevoParaLaFicha`, lib/ficha/config-server.ts): sin ningún lead anterior a la
+   * ficha por bloques. Sólo ahí la galería de una tab que nadie configuró se abre sola (app/crm/lead-view/ficha/galeria.ts).
+   * Ausente o false: no se abre sola.
+   */
+  negocioNuevo?: boolean;
   /** Quién mira, en lo que le importa a la ficha (lib/ficha/registro.ts). */
   rol: RolFicha;
   /** El admin y el closer de ESTE lead ven lo privado (decisión 5: el puntaje de la llamada). */
@@ -349,6 +355,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   if (!lead) return null;
   // La ficha por bloques y quién mira: arrancan acá, en paralelo con todo lo de abajo, y no tiran.
   const fichaP = fichaDelFunnelDelLead(lead.funnel_id ?? null);
+  const negocioNuevoP = negocioNuevoParaLaFicha();
   const rolP = getRolWsEfectivo().catch(() => null);
   // La pestaña «Tracking» (punto 18): arranca acá para correr en paralelo con todo lo de abajo, y
   // no tira nunca (lib/tracking-ficha-server.ts).
@@ -434,7 +441,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     : tracking;
   const rol = rolDeFicha(rolWs);
   return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking: trackingConEnvios, pixelPuesto, sinTracking: await sinTrackingP, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), enviosLanding, resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
-    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP, suscripcion: await suscripcionP };
+    ficha, negocioNuevo: await negocioNuevoP, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP, suscripcion: await suscripcionP };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

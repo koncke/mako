@@ -20,6 +20,7 @@
 import { Section, Eyebrow, Button, ButtonLink } from '@/app/_ui';
 import { Paso } from './curso/ChecklistCurso';
 import type { OnboardingClientes } from './onboarding-clientes';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 export function ChecklistClientes({ estado, onCargar, onAbrirFicha }: {
   estado: OnboardingClientes;
@@ -38,7 +39,7 @@ export function ChecklistClientes({ estado, onCargar, onAbrirFicha }: {
       </Paso>
 
       <Paso hecho={estado.cs_clientes} titulo="Tus clientes"
-        accion={!estado.cs_clientes ? <Button size="sm" variant="secondary" onClick={onCargar}>Cargar un cliente</Button> : undefined}>
+        accion={!estado.cs_clientes ? <Button size="sm" variant="secondary" onClick={onCargar} data-recorrido={MARCA.classroomClientsCargar}>Cargar un cliente</Button> : undefined}>
         {estado.cs_clientes ? 'Listo.' : 'Carga uno o gana una venta en el CRM.'}
       </Paso>
 

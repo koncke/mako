@@ -342,6 +342,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor?ver=carruseles',
   },
+  // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
+  // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
+  {
+    fecha: '6 nov', hora: '05:46', chat: 'Recorrido visual (nube)', sesion: 'cli_11df35a4-d789-5260-a695-cc3c7b859c4e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Con la barra fijada y el chat abiertos, el panel de herramientas va encima del lienzo',
+    puntos: [
+      '**A 1280 px el lienzo quedaba en 257 px** y la página se cortaba: el panel lo empujaba. Ahora, con el editor angosto, el panel se abre encima y el lienzo pasa a 619 px. A 1440 no cambia nada.',
+      'Llegó por el encargo del 6/11 para la nube: lo que seguía abierto del recorrido visual del 30/10 y la llamada con Leila del 5/11.',
+    ],
+    commits: [{ sha: 'e7c51f1b2', msg: 'Image Editor: con la barra fijada y el chat abiertos, el panel va encima del lienzo', lineas: 105, archivos: 7 }],
+    archivos: [
+      'app/image-editor/_doory/editor/EditorApp.module.css · chrome/ToolHost.module.css',
+      'tests/recorrido-imagen-panel.test.ts — 4/0, siete roturas probadas · docs/recorrido-visual/imagen-barra-chat-*.png',
+    ],
+    revisar: '/image-editor',
+  },
   {
     fecha: '6 nov', hora: '11:00', chat: 'Carruseles y Thumbnails (nube)', sesion: 'cli_51816bfa-5baf-5efc-81a6-fc18bc5235f4', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
     titulo: 'Lo que vio en producción: OUTLIER como portada, sin CTA ni Biblioteca, sólo imágenes, «Editar» y una tab Thumbnails',

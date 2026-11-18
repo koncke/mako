@@ -670,6 +670,25 @@ Y también:
       'tests/agencia-grupos-auto.test.ts · tests/_agencia-grupos-auto-hijo.ts — 15 roturas',
     ],
   },
+  // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
+  // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
+  {
+    fecha: '6 nov', hora: '05:35', chat: 'Recorrido visual (nube)', sesion: 'cli_11df35a4-d789-5260-a695-cc3c7b859c4e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Instalar la app explica para qué sirve MaKo en la computadora, y Agency se ve debajo de Settings',
+    puntos: [
+      '**Instalar la app › En tu computadora** suma «Para qué sirve»: tu Claude o tu ChatGPT en MaKo, la copia sin conexión del CRM y del Plan, y que arranca sola. Dice sólo lo que la app hace hoy.',
+      '**En el menú del perfil**, MaKo Partners y Agency Dashboard suben justo debajo de Settings.',
+      'Llegó por el encargo del 6/11 para la nube: lo que seguía abierto del recorrido visual del 30/10 y la llamada con Leila del 5/11.',
+    ],
+    commits: [{ sha: '49a7cad73', msg: 'Settings: «Para qué sirve» MaKo en la computadora, y Agency a la vista en el menú del perfil', lineas: 121, archivos: 8 }],
+    archivos: [
+      'app/perfil/instalar/InstalarApp.tsx · page.tsx — «Para qué sirve» (?ver=escritorio)',
+      'app/_components/nav.ts — el orden del menú del perfil',
+      'tests/recorrido-instalar-agency.test.ts — probado rompiéndolo (5/0) · docs/recorrido-visual/instalar-*.png',
+    ],
+    revisar: '/perfil/instalar?ver=escritorio',
+  },
   {
     fecha: '12 nov', hora: '22:10', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
     actor: 'claude', tipo: 'correccion',

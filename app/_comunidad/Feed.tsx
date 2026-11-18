@@ -19,6 +19,7 @@ import { EditorCategorias } from './EditorCategorias';
 import { PostAbierto } from './PostAbierto';
 import { AvatarNivel, BotonLike, Hace, Ico, Menu, NombreMiembro, useComunidad, type ItemMenu } from './piezas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 /** La miniatura de YouTube de un video embebido (los otros no la publican sin pedirla a su API). */
 function tapaDeVideo(embed: string): string | null {
@@ -148,14 +149,15 @@ export function Feed({ inicial, postPedido = null, onPostAbierto, version = 0 }:
     <div className="cmu-main">
       <div className="cmu-card cmu-escribir">
         <AvatarNivel m={comunidad.yo} size={40} />
-        <button type="button" className="cmu-escribir-btn" disabled={!publicable} onClick={() => setCompositor({ editando: null })}>
+        <button type="button" className="cmu-escribir-btn" disabled={!publicable} onClick={() => setCompositor({ editando: null })}
+          data-recorrido={MARCA.classroomCommunityEscribir}>
           {publicable ? 'Escribe algo'
             : comunidad.yo.nivel < comunidad.nivelParaPostear ? `Publicas desde el nivel ${comunidad.nivelParaPostear}` : 'Aquí publica el equipo'}
         </button>
       </div>
 
       <div className="cmu-barra">
-        <div className="cmu-chips" role="tablist" aria-label="Categorías">
+        <div className="cmu-chips" role="tablist" aria-label="Categorías" data-recorrido={MARCA.classroomCommunityCategorias}>
           <button type="button" role="tab" className="cmu-chip" data-on={cat == null} aria-selected={cat == null} onClick={() => elegirCategoria(null)}>Todas</button>
           {comunidad.categorias.map((c) => (
             <button key={c.id} type="button" role="tab" className="cmu-chip" data-on={cat === c.id} aria-selected={cat === c.id}
@@ -178,12 +180,14 @@ export function Feed({ inicial, postPedido = null, onPostAbierto, version = 0 }:
 
       {error && <p className="cmu-error" role="alert">{error}<ReportarASoporte /></p>}
 
-      {fijados.map((p) => (
-        <TarjetaPost key={`f${p.id}`} p={p} categoria={nombreCategoria(p.categoriaId)} menu={menuDe(p)}
+      {/* El menú del PRIMER post lleva la marca del tutorial de Community (lib/tutoriales/classroom-community.ts). */}
+      {fijados.map((p, i) => (
+        <TarjetaPost key={`f${p.id}`} p={p} categoria={nombreCategoria(p.categoriaId)} menu={menuDe(p)} marcaMenu={i === 0 ? MARCA.classroomCommunityMenuPost : undefined}
           onAbrir={() => setAbierto(p.id)} onCambio={(c) => actualizar(p.id, c)} />
       ))}
-      {posts.map((p) => (
+      {posts.map((p, i) => (
         <TarjetaPost key={p.id} p={p} categoria={nombreCategoria(p.categoriaId)} menu={menuDe(p)}
+          marcaMenu={i === 0 && !fijados.length ? MARCA.classroomCommunityMenuPost : undefined}
           onAbrir={() => setAbierto(p.id)} onCambio={(c) => actualizar(p.id, c)} />
       ))}
 
@@ -221,7 +225,9 @@ export function Feed({ inicial, postPedido = null, onPostAbierto, version = 0 }:
 
 // ── La tarjeta ──────────────────────────────────────────────────────────────────
 
-function TarjetaPost({ p, categoria, menu, onAbrir, onCambio }: {
+function TarjetaPost({ p, categoria, menu, onAbrir, onCambio, marcaMenu }: {
+  /** La marca del tutorial en su menú (sólo el primer post del feed). */
+  marcaMenu?: string;
   p: PostVista;
   categoria: string | null;
   menu: ItemMenu[];
@@ -242,7 +248,7 @@ function TarjetaPost({ p, categoria, menu, onAbrir, onCambio }: {
             </span>
           </div>
           {p.fijado && <span className="cmu-fijado"><Ico n="pin" size={14} /> Fijado</span>}
-          <Menu items={menu} />
+          <Menu items={menu} recorrido={marcaMenu} />
         </div>
         <h3 className="cmu-post-tit">{p.titulo}</h3>
         {p.extracto && <p className="cmu-post-ext">{p.extracto}</p>}

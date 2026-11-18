@@ -160,4 +160,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/chats',
   },
+  // ⚠️ Anotado el 18/11/2026 (docs/pendientes-verificados-17-11.md, F20): el trabajo es del 6/11 y no había dejado hito.
+  // La fecha y la hora son las del commit (+0000); la sesión, la que lo hizo (docs/relevo/nube-recorrido-visual.md).
+  {
+    fecha: '6 nov', hora: '05:30', chat: 'Recorrido visual (nube)', sesion: 'cli_11df35a4-d789-5260-a695-cc3c7b859c4e', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Sin un chat elegido, un solo vacío, y los filtros en un renglón',
+    puntos: [
+      '**Sin un chat elegido** ya no se dibuja el panel del contacto: eran dos vacíos diciendo lo mismo.',
+      '**Los filtros de la lista van en un renglón** que se corre de costado si no entran, sin recortar el funnel ni la etapa.',
+      'Llegó por el encargo del 6/11 para la nube: lo que seguía abierto del recorrido visual del 30/10 y la llamada con Leila del 5/11.',
+    ],
+    commits: [{ sha: '7132bc7f2', msg: 'Automations, Chats, Plan y la API: lo que quedó abierto del recorrido visual (A3, CH2, P2, AP1)', lineas: 264, archivos: 15 }],
+    archivos: [
+      'app/chats/PanelContacto.tsx · app/chats/chats.css',
+      'tests/recorrido-chats.test.ts — probado rompiéndolo (3/0) · docs/recorrido-visual/chats-ch2-*.png',
+    ],
+    revisar: '/chats',
+  },
 ];
