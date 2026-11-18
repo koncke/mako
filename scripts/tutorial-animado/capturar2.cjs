@@ -3,7 +3,7 @@
 //   node capturar2.cjs <pagina.html> <salida.png> '<json: ["sel1","sel2"]>'
 // Prints JSON: { rects: [ {x,y,w,h} | null ] } — null when the selector finds nothing visible on screen.
 const { chromium } = require('C:/dev/playwright-medidor/node_modules/playwright-core');
-const [pagina, salida, selsJson] = process.argv.slice(2);
+const [pagina, salida, selsJson, hover] = process.argv.slice(2);   // hover: something to pass the cursor over first (the photo's menu)
 const sels = JSON.parse(selsJson || '[]');
 (async () => {
   const b = await chromium.launch({ args: ['--mute-audio', '--allow-file-access-from-files'] });
@@ -12,6 +12,7 @@ const sels = JSON.parse(selsJson || '[]');
   await p.goto('file:///' + pagina.split('\\').join('/'));
   await p.waitForTimeout(1800);
   // no cursor-driven or animated leftovers in the photo
+  if (hover) { try { await p.hover(hover, { timeout: 3000 }); await p.waitForTimeout(700); } catch (e) { /* stays closed: the rects say null */ } }
   await p.addStyleTag({ content: '*,*::before,*::after{animation-play-state:paused!important;caret-color:transparent!important}' });
   const rects = await p.evaluate((ss) => ss.map((s) => {
     if (!s) return null;
