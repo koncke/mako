@@ -33,7 +33,12 @@ import { usePasoAlFunnel } from './reto/usePasoAlFunnel';
 import { VistaDelPlan } from './VistaDelPlan';
 import type { CoachDelOps } from '@/lib/chat-mako-reglas';
 import { inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
-import type { OfertaDelCoach } from '@/lib/funnel-plan';
+import { ROTULO_FUNNEL, type OfertaDelCoach } from '@/lib/funnel-plan';
+import { VideosDelChat } from '@/app/_ui/tutorial/VideosDelChat';
+import { VIDEOS_DEL_FUNNEL, VIDEOS_DEL_OFFER } from './VideoDelCoach';
+import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
+import { PARA_TODOS } from '@/lib/onboarding-v2/revision';
+
 
 export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver, cual = 'funnel', dosCoaches = false, visible = false }: {
   referente: IdAsesor | null;
@@ -53,6 +58,9 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
   const { k, r, aspecto, quien, vacio, saludo, plan, titulo, tab, entregadaEn, ocupado } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
+  const claseDelCoach = !dosCoaches ? null
+    : cual === 'funnel' ? (plan?.funnel ? { clave: `funnel-clase-${plan.funnel}`, titulo: `la clase de ${ROTULO_FUNNEL[plan.funnel]}` } : null)
+      : oferta?.estado === 'hay' ? { clave: 'offer-coach-clase', titulo: 'la clase de la oferta' } : null;
   // Con la oferta entregada, la marca a Funnel Coach, recién cuando la persona la vio (Martín, 18/11: «mínimo déjame verla»).
   usePasoAlFunnel({ activo: dosCoaches && cual === 'offer' && visible, entregadaEn, ocupado, contenedor: useCallback(() => hilo.current, []) });
   const portada = useVideoDelCoach(cual, dosCoaches, saludo);
@@ -75,6 +83,7 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
           clave: tab, titulo, aspecto, animo: k.enCurso ? 'trabajando' : 'despierto', onMuneco: eligeReferente ? () => setEligiendo(true) : undefined, onVolver,
           acciones: (
             <>
+              {dosCoaches && <VideosDelChat videos={cual === 'funnel' ? VIDEOS_DEL_FUNNEL : VIDEOS_DEL_OFFER} />}
               {r && <span className="co-cab__inspirado">{inspiradoEn(r)}</span>}
               {plan && !mostrandoCerebro && <button type="button" className="co-chip" aria-pressed={mostrandoPlan} onClick={() => setViendoPlan((v) => !v)}>{mostrandoPlan ? 'Ver el chat' : 'Ver el plan'}</button>}
               {r && <BotonSecondBrainDe referente={r} viendo={mostrandoCerebro} onCambiar={(si) => { setViendoCerebro(si); if (si) setViendoPlan(false); }} />}
@@ -82,7 +91,17 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
           ),
         }}
         reemplazo={mostrandoCerebro && r ? <CerebroDelGuru referente={r} /> : undefined}
-        arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={titulo} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
+        arriba={<>
+          {/* LA CLASE DE LO QUE ELIGIÓ, sin obligar (Martín, 18/11): la del funnel, recién cuando lo eligió (su plan guardado); la de la
+              oferta, cuando ya la armó. Antes, el coach sólo avisa que existen. */}
+          {claseDelCoach && (
+            <div className="co-clase" style={{ padding: '8px 16px 0' }}>
+              <p style={{ margin: '0 0 4px', fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>Mírate {claseDelCoach.titulo}, cuando quieras.</p>
+              <VideoDelMomento clave={claseDelCoach.clave} titulo={claseDelCoach.titulo} revision={!PARA_TODOS} />
+            </div>
+          )}
+          <BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={titulo} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />
+        </>}
         despues={<>
           <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} reportable={esRespuestaDeMaKo} />
           {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}

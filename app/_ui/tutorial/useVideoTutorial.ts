@@ -16,3 +16,15 @@ export function useVideoTutorial(key: string | null): VideoTutorial | null {
   }, [key]);
   return v && v.key === key ? v.video : null;
 }
+
+/** El manifiesto entero (la misma lectura, una por visita): para la lista de videos de un chat (./VideosDelChat.tsx). */
+export function useManifiesto(): unknown | null {
+  const [m, setM] = useState<unknown | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    manifiesto ??= fetch(RUTA_MANIFIESTO, { cache: 'force-cache' }).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+    void manifiesto.then((x) => { if (vivo) setM(x); });
+    return () => { vivo = false; };
+  }, []);
+  return m;
+}

@@ -18,6 +18,8 @@ import { esRevision } from '@/lib/onboarding-v2/revision';
 import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, type CoachDelOps } from '@/lib/chat-mako-reglas';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
+import type { VideoDeUnChat } from '@/app/_ui/tutorial/VideosDelChat';
+import { FUNNELS, ROTULO_FUNNEL } from '@/lib/funnel-plan';
 
 /** La clave del video de cada coach en el manifiesto. */
 export const CLAVE_VIDEO_DEL_COACH: Record<CoachDelOps, string> = { offer: 'offer-coach', funnel: 'funnel-coach' };
@@ -53,3 +55,12 @@ export function useVideoDelCoach(cual: CoachDelOps, dosCoaches: boolean, saludo:
   }, [id, cual, revision]);
   return { items, enMensaje };
 }
+
+// Los videos de cada coach del V2 para su ícono de videos (18/11, Martín: «el mismo ícono de videos que tiene el reto… que al
+// cliquearlo se vean los videos de ese chat»; app/_ui/tutorial/VideosDelChat.tsx), con las claves del chat de los videos: su
+// presentación, la clase de la oferta y una clase por funnel.
+export const VIDEOS_DEL_OFFER: readonly VideoDeUnChat[] = [{ clave: 'offer-coach', titulo: `Cómo trabaja ${ORIGEN_OFFER_COACH}` }, { clave: 'offer-coach-clase', titulo: 'La clase de la oferta' }];
+export const VIDEOS_DEL_FUNNEL: readonly VideoDeUnChat[] = [
+  { clave: 'funnel-coach', titulo: `Cómo trabaja ${ORIGEN_FUNNEL_COACH}` },
+  ...FUNNELS.map((f) => ({ clave: `funnel-clase-${f}`, titulo: `La clase de ${ROTULO_FUNNEL[f]}` })),
+];
