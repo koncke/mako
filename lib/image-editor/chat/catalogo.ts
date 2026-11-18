@@ -41,6 +41,7 @@ export type CapaA = 'frente' | 'atras' | 'subir' | 'bajar';
 export type FormaNueva = 'rectangulo' | 'circulo';
 /** Qué pasa con lo que hay al cambiar el tamaño del diseño: las tres de «Redimensionar» del editor. */
 export type ContenidoAlRedimensionar = 'escalar' | 'reubicar' | 'igual';
+const CONTENIDOS: readonly ContenidoAlRedimensionar[] = ['escalar', 'reubicar', 'igual'];
 
 export type OperacionImagen =
   | { op: 'cambiar_texto'; ref: string; texto: string }
@@ -432,8 +433,8 @@ export function validarOperacion(crudo: unknown): Validada {
       return { ok: true, op: { op, ref, proporcion: raw.proporcion as ProporcionRecorte } };
     }
     case 'redimensionar': {
-      const contenido = raw.contenido === undefined ? 'escalar' : raw.contenido;
-      if (contenido !== 'escalar' && contenido !== 'reubicar' && contenido !== 'igual') return { ok: false, motivo: 'un cambio de tamaño sin decir qué pasa con lo que hay' };
+      const contenido = raw.contenido === undefined ? 'escalar' : CONTENIDOS.find((c) => c === raw.contenido);
+      if (!contenido) return { ok: false, motivo: 'un cambio de tamaño sin decir qué pasa con lo que hay' };
       if (raw.tamano !== undefined) {
         if (raw.ancho !== undefined || raw.alto !== undefined) return { ok: false, motivo: 'un cambio de tamaño con un tamaño y medidas a la vez' };
         const t = typeof raw.tamano === 'string' && Object.hasOwn(TAMANOS_API, raw.tamano) ? TAMANOS_API[raw.tamano] : null;

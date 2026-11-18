@@ -121,7 +121,8 @@ export function textoDeFiltros(specs: readonly ImageFilterSpec[]): string {
   if (filtro) return filtro.nombre;
   const v = ajustesDeVista(n);
   return Object.entries(v)
-    .map(([k, x]) => (typeof x === 'boolean' ? AJUSTES_SI_NO[k as AjusteSiNo].nombre : `${AJUSTES_FOTO[k as AjusteDeslizable].nombre} ${x > 0 ? '+' : ''}${x}`))
+    .map(([k, x]) => (typeof x === 'boolean' ? AJUSTES_SI_NO[k as AjusteSiNo].nombre : typeof x === 'number' ? `${AJUSTES_FOTO[k as AjusteDeslizable].nombre} ${x > 0 ? '+' : ''}${x}` : ''))
+    .filter(Boolean)
     .join(' · ');
 }
 

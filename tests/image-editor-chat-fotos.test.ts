@@ -72,7 +72,7 @@ const aplicar = (ops: Record<string, unknown>[], extra: Partial<Parameters<typeo
 // ── La copia contra el motor ─────────────────────────────────────────────────────
 
 test('1: los filtros de la copia son los del motor, uno por uno, y se normalizan igual', () => {
-  const delMotor = new Map(FILTER_PRESETS.map((p) => [p.id, p.specs]));
+  const delMotor = new Map(FILTER_PRESETS.map((p) => [p.id, p.specs] as const));
   assert.equal(Object.keys(FILTROS_FOTO).length, FILTER_PRESETS.length, 'el motor tiene otro número de filtros que el chat');
   for (const [nombre, f] of Object.entries(FILTROS_FOTO)) {
     assert.ok(delMotor.has(f.preset), `«${nombre}» apunta a «${f.preset}», que el motor no tiene`);
