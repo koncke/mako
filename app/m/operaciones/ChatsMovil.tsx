@@ -48,7 +48,7 @@ import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
 import { ElegirMuneco } from '@/app/admin/operaciones/ElegirMuneco';
 import { guardarMunecoAction } from '@/app/admin/operaciones/acciones';
 import { ASPECTO_MAKO, aspectoDe, aspectoDeReferente, elegidoPara, esCriaturaDeMako, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
-import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
+import { asesorPorId, inspiradoEn, referenteDelFunnelCoachV2, referenteDelOfferCoachV2, type IdAsesor } from '@/lib/asesores/catalogo';
 import { GaleriaDeGurus } from '@/app/second-brain/GaleriaDeGurus';
 import { useCoaches, useGurusConCharla } from '@/app/second-brain/useCoaches';
 import { HojaDelGuru } from '@/app/m/second-brain/HojaDelGuru';
@@ -236,6 +236,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // Con el onboarding V2 (18/11/2026, `dosCoaches`, lo dice el servidor), los DOS: el Offer Coach y después el Funnel Coach.
   const { referente, oferta, puedeElegir, elegirReferente, dosCoaches } = useCoaches();
   const delCoach = asesorPorId(referente);
+  // Con los dos coaches del V2, cada fila con el referente de SU área (el Cerebro, 18/11; lib/asesores/catalogo.ts).
+  const delOffer = asesorPorId(referenteDelOfferCoachV2(referente));
+  const delFunnel = asesorPorId(referenteDelFunnelCoachV2(referente));
   const [conCoach, setConCoach] = useState<CoachDelOps | null>(null);
   const [renombre, setRenombre] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   const [eligiendo, setEligiendo] = useState<{ aspecto: Aspecto; guardando: boolean } | null>(null);
@@ -481,13 +484,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             {/* Con el V2, los dos coaches (como en la computadora): el Offer Coach con quien aconseja y el Funnel Coach con su criatura. */}
             {!parte && dosCoaches && (
               <>
-                <FilaM chevron={false} leading={<Muneco titulo={delCoach?.nombre ?? 'MaKo'} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" size={40} />}
+                <FilaM chevron={false} leading={<Muneco titulo={delOffer?.nombre ?? 'MaKo'} aspecto={delOffer ? aspectoDeReferente(delOffer.id) : ASPECTO_MAKO} animo="despierto" size={40} />}
                   titulo={<span className="m-operaciones-texto1">{ORIGEN_OFFER_COACH}</span>}
-                  segunda={delCoach ? inspiradoEn(delCoach) : previaDelOfferCoach(oferta)}
+                  segunda={delOffer ? inspiradoEn(delOffer) : previaDelOfferCoach(oferta)}
                   onClick={() => { setGuru(null); setGrupo(null); setConCoach('offer'); }} />
-                <FilaM chevron={false} leading={<Muneco titulo={ORIGEN_FUNNEL_COACH} aspecto={ASPECTO_FUNNEL_COACH_V2} animo="despierto" size={40} />}
+                <FilaM chevron={false} leading={<Muneco titulo={delFunnel?.nombre ?? ORIGEN_FUNNEL_COACH} aspecto={delFunnel ? aspectoDeReferente(delFunnel.id) : ASPECTO_FUNNEL_COACH_V2} animo="despierto" size={40} />}
                   titulo={<span className="m-operaciones-texto1">{ORIGEN_FUNNEL_COACH}</span>}
-                  segunda={PREVIA_DEL_FUNNEL_COACH_V2}
+                  segunda={delFunnel ? inspiradoEn(delFunnel) : PREVIA_DEL_FUNNEL_COACH_V2}
                   onClick={() => { setGuru(null); setGrupo(null); setConCoach('funnel'); }} />
               </>
             )}

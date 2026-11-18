@@ -41,7 +41,7 @@ export const SECCIONES_CUENTA: SeccionAjustes[] = [
   { key: 'notificaciones', label: 'Notificaciones', href: '/perfil/notificaciones', icono: 'avisar', descripcion: 'Los avisos que te llegan a ti.' },
   // Las TRES instalaciones (24/10/2026, Martín: «"Instalar la App" tiene que tener las 3 instalaciones: la app Mobile, Desktop y la
   // extensión»).
-  { key: 'instalar', label: 'Instalar la app', href: '/perfil/instalar', icono: 'celular', descripcion: 'MaKo en tu teléfono, en tu computadora y en tu navegador.' },
+  { key: 'instalar', label: 'Instalar la app', href: '/perfil/instalar', icono: 'celular', descripcion: 'La app de MaKo en tu teléfono y en tu computadora, y la extensión en tu navegador.' }, // 18/11, Martín: «MaKo en tu teléfono» se confundía con MaKo por WhatsApp
   // «Tus cuentas de IA» SALIÓ DEL ÍNDICE el 24/10/2026 (Martín: «Elimina la tab de "Tus cuentas de IA", para eso ya tenemos
   // "Integraciones"»), pero /perfil/ia SIGUE: el instalador de Windows vuelve ahí al terminar (RUTA_TRAS_INSTALAR, en las PC
   // de los clientes) y el teléfono la abre. El admin la tiene en Integraciones (la tarjeta destacada); un closer o un setter

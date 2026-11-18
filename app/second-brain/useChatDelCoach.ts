@@ -20,7 +20,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useChatCliente } from './useChatCliente';
 import { ASPECTO_MAKO, aspectoDe, aspectoDeReferente } from '@/lib/centro-munecos';
 import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, TAB_FUNNEL_COACH, TAB_OFFER_COACH, type CoachDelOps, type ElegidoChat } from '@/lib/chat-mako-reglas';
-import { asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
+import { asesorPorId, referenteDelFunnelCoachV2, referenteDelOfferCoachV2, type IdAsesor } from '@/lib/asesores/catalogo';
 import { saludoDelFunnelCoach, saludoDelFunnelCoachV2, saludoDelOfferCoach, sanearOfertaDelCoach, sanearPlan, type OfertaDelCoach, type PlanFunnel } from '@/lib/funnel-plan';
 import { ofertaRecienEntregada } from '@/lib/reto/dias';
 import type { Desde } from '@/lib/chat-desde';
@@ -53,8 +53,11 @@ export function useChatDelCoach({ referente, oferta, caja, cual = 'funnel', dosC
     return () => { vivo = false; };
   }, [de.tab]);
   // El Funnel Coach del V2 no tiene referente al frente: el elegido es el del Offer Coach (lib/asesores/contexto.ts).
-  const sinReferente = dosCoaches && cual === 'funnel';
-  const r = sinReferente ? null : asesorPorId(referente);
+  // Cada coach del V2 con el referente de SU área (el Cerebro, 18/11): el Offer Coach el de oferta (o Hormozi); el Funnel Coach el de
+  // adquisición, o su criatura (lib/asesores/catalogo.ts).
+  const delCoach = !dosCoaches ? referente : cual === 'funnel' ? referenteDelFunnelCoachV2(referente) : referenteDelOfferCoachV2(referente);
+  const sinReferente = dosCoaches && cual === 'funnel' && !delCoach;
+  const r = asesorPorId(delCoach);
   const aspecto = r ? aspectoDeReferente(r.id) : sinReferente ? ASPECTO_FUNNEL_COACH_V2 : ASPECTO_MAKO;
   const quien = useMemo(() => ({ nombre: r?.nombre ?? (sinReferente ? ORIGEN_FUNNEL_COACH : 'MaKo'), aspecto }), [r?.nombre, sinReferente, aspecto]);
   const k = useChatCliente({ elegido, setElegido, activo: false, entrarAlCerebro: false, chatInicial: null, opcionArmar: '', busca: '', caja, desde: de.desde, tab: de.tab, quien });

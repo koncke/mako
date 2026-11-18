@@ -45,9 +45,9 @@ export function GuiaApp({ inicial, qr }: { inicial: DestinoApp; qr: string | nul
       <div className="gapp__caja">
         {destino.tipo === 'qr' ? (
           <>
-            <h1 className="gapp__titulo">MaKo en tu teléfono</h1>
+            <h1 className="gapp__titulo">La app de MaKo en tu teléfono</h1>
             {/* eslint-disable-next-line @next/next/no-img-element -- el QR viene armado del server, como en /perfil/instalar */}
-            {qr && <img className="gapp__qr" src={qr} alt="QR para instalar MaKo en tu teléfono" width={240} height={240} />}
+            {qr && <img className="gapp__qr" src={qr} alt="QR para instalar la app de MaKo en tu teléfono" width={240} height={240} />}
             <p className="gapp__nota">Escanéalo con la cámara de tu teléfono.</p>
           </>
         ) : destino.tipo === 'guia' ? (
