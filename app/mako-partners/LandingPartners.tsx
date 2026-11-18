@@ -146,6 +146,12 @@ body:has(.mp-publica) { background: #FFFFFF; }
   background: var(--mp-azul-bg); }
 /* Aire entre el título de una sección y sus tarjetas (sin bajada en medio). */
 .mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-pasos { margin-top: 28px; }
+/* «Recomendar MaKo es fácil»: las mismas tarjetas que «Así de simple», 2 × 2, con el ícono en un recuadro (sin línea punteada). */
+.mp-pasos.mp-ventajas { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.mp-ventajas .mp-paso::after { display: none; }
+.mp-paso > .mp-ventaja-ic { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-bottom: 10px; border-radius: 12px;
+  color: var(--mp-azul); background: var(--mp-azul-bg); }
+.mp-ventaja-ic svg { width: 24px; height: 24px; }
 /* «Así de simple»: profundidad suave (borde fino, sombra y un degradé muy leve de la marca), el número en un círculo, un ícono, y en
    la computadora la línea punteada que une los pasos (en el hueco entre tarjetas). */
 .mp-pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; grid-template-columns: repeat(3, 1fr); }
@@ -178,7 +184,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-pie { text-align: center; color: #8A93A2; font-size: 13.5px; padding: 28px 0 40px; }
 .mp-pie a { color: #5B6472; }
 @media (max-width: 860px) {
-  .mp-hero-grilla, .mp-numeros, .mp-pasos { grid-template-columns: 1fr; }
+  .mp-hero-grilla, .mp-numeros, .mp-pasos, .mp-pasos.mp-ventajas { grid-template-columns: 1fr; }
   .mp-pasos { gap: 14px; }
   .mp-paso:not(:last-child)::after { display: none; }
   .mp-hero h1, .mp-app .mp-hero h1 { font-size: 36px; }
@@ -203,6 +209,23 @@ const PASOS: ReadonlyArray<{ titulo: string; texto: string; icono: readonly stri
     icono: ['M3 21l18 0', 'M5 21v-14l8 -4v18', 'M19 21v-10l-6 -4', 'M9 9l0 .01', 'M9 12l0 .01', 'M9 15l0 .01', 'M9 18l0 .01'] },
   { titulo: 'Cobras del 1 al 5 de cada mes', texto: 'En dólares por Binance o en pesos.',
     icono: ['M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12', 'M20 12v4h-4a2 2 0 0 1 0 -4h4'] },
+];
+
+/**
+ * «RECOMENDAR MaKo ES FÁCIL» (18/11/2026, Martín: «si se va la sección de 30 o 25… quedaría como súper vacía la landing»): por qué
+ * MaKo se recomienda solo. Sólo lo que existe: las funciones del sitio (CRM, WhatsApp, Automations, Ads y el chat de MaKo), el
+ * onboarding y los tutoriales, el soporte por WhatsApp y el material de lib/partners-recursos.ts (el PDF de venta y los mensajes para
+ * copiar, con su link y su código; los audios y videos todavía no están grabados y no se nombran). Íconos de Tabler (MIT).
+ */
+const VENTAJAS: ReadonlyArray<{ titulo: string; texto: string; icono: readonly string[] }> = [
+  { titulo: 'Hace de todo', texto: 'CRM, WhatsApp, automatizaciones, anuncios e IA en una sola app.',
+    icono: ['M4 4h6v6h-6z', 'M14 4h6v6h-6z', 'M4 14h6v6h-6z', 'M14 17h6', 'M17 14v6'] },
+  { titulo: 'Lo usa cualquiera', texto: 'Sin conocimientos técnicos: arranca solo con el onboarding y los tutoriales.',
+    icono: ['M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0', 'M9 10l.01 0', 'M15 10l.01 0', 'M9.5 15a3.5 3.5 0 0 0 5 0'] },
+  { titulo: 'Soporte por WhatsApp', texto: 'Tus referidos tienen ayuda personalizada: no les das soporte tú.',
+    icono: ['M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9', 'M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1'] },
+  { titulo: 'Te damos el material', texto: 'Un PDF de venta y mensajes listos para copiar, con tu link y tu código.',
+    icono: ['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z', 'M9 9l1 0', 'M9 13l6 0', 'M9 17l6 0'] },
 ];
 
 /** La acción de la landing: hacerse partner, o volver al panel. Siempre un link (sin JavaScript también lleva). */
@@ -313,6 +336,25 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
               </li>
             ))}
           </ol>
+        </div>
+      </section>
+
+      <section className="mp-seccion">
+        <div className="mp-wrap">
+          <h2>Recomendar MaKo es fácil</h2>
+          <ul className="mp-pasos mp-ventajas">
+            {VENTAJAS.map((v) => (
+              <li key={v.titulo} className="mp-paso">
+                <span className="mp-ventaja-ic">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    {v.icono.map((d) => <path key={d} d={d} />)}
+                  </svg>
+                </span>
+                <b>{v.titulo}</b>
+                <span>{v.texto}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

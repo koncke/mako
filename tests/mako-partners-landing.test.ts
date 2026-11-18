@@ -281,3 +281,14 @@ test('el deslizador frena en 20, 50 y 100 (Martín: «una muy pequeña frenada»
   const c = fuente('app/mako-partners/Calculadora.tsx');
   assert.ok(c.includes('setN(arrastrando.current ? iman(v) : v)'), 'el imán sólo al arrastrar: con el teclado sigue de a 1');
 });
+
+test('«Recomendar MaKo es fácil»: cuatro tarjetas con lo que existe de verdad, antes de las preguntas (18/11/2026)', async () => {
+  const { html, t } = await landing();
+  assert.ok(html.indexOf('<h2>Recomendar MaKo es fácil</h2>') > html.indexOf('<h2>Así de simple</h2>') && html.indexOf('<h2>Recomendar MaKo es fácil</h2>') < html.indexOf('<h2>Preguntas frecuentes</h2>'));
+  assert.match(t, /Recomendar MaKo es fácil Hace de todo CRM, WhatsApp, automatizaciones, anuncios e IA en una sola app\. Lo usa cualquiera Sin conocimientos técnicos: arranca solo con el onboarding y los tutoriales\. Soporte por WhatsApp Tus referidos tienen ayuda personalizada: no les das soporte tú\. Te damos el material Un PDF de venta y mensajes listos para copiar, con tu link y tu código\./);
+  assert.equal((html.match(/class="mp-ventaja-ic"/g) ?? []).length, 4, 'un ícono por tarjeta');
+  // El material, sólo lo que existe (lib/partners-recursos.ts: el PDF de venta y los mensajes para copiar).
+  const recursos = fuente('lib/partners-recursos.ts');
+  assert.ok(recursos.includes('export function pdfDeVenta') && recursos.includes('export function mensajesParaCopiar'), 'el material que la tarjeta promete existe');
+  assert.doesNotMatch(t, /clases|videos|audios/i, 'nada de material que todavía no existe');
+});
