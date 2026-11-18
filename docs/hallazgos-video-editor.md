@@ -6,6 +6,35 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## «Nuevo video» dibuja cada plantilla de anuncio, y la miniatura entra ESTÁTICA a propósito (18/11/2026, F160)
+
+**El síntoma:** en «¿Qué vas a crear hoy?» las plantillas de anuncio se veían como el marco vacío con su rótulo, mientras la
+Biblioteca del editor ya las dibujaba en bucle con `MiniaturaPlantilla`. La ranura `miniatura` de `PantallaCrear` existía
+desde el 29/10 y Video no la llenaba.
+
+**El diagnóstico obvio («cargarla con un `import()` para no meter el motor en la portada») era el equivocado, por dos
+lados:**
+- por la puerta del motor (`app/video-editor/editor-cargado.ts`) la portada bajaría el motor ENTERO (1,1 MB) para dibujar
+  tarjetas;
+- con un `import()` propio, el empaquetador arma otro grupo con SU copia de lo que el editor también trae: la duplicación que
+  cerró `tests/video-editor-fluidez.test.ts` (F1), y por eso ese test no deja otra puerta.
+
+**Lo que se midió:** el grafo de VALOR de `miniatura-plantilla.tsx` son ~21 módulos chicos (el dibujo en canvas 2D, la escena,
+las animaciones, la muestra de fuentes) y NINGUNO del núcleo, del `.wasm` ni de mediabunny: lo único «pesado» era el nombre
+de la carpeta. Y la miniatura se dibuja en cuanto se abre la portada, así que cargarla a pedido no ahorra nada. Entró estática
+(`app/video-editor/miniatura-nuevo-video.tsx`, a su proporción dentro del 4:3 con `cajaDeMiniatura`).
+
+**La red:** `tests/video-editor-miniatura-nuevo.test.ts` dibuja la tarjeta REAL con la función real (un canvas por plantilla
+del catálogo, nada en los lienzos) y recorre el grafo con el parser de TypeScript: si un día la miniatura importa algo del
+motor, falla nombrándolo. Las piezas se importan ADENTRO del test: con el motor en el grafo, el `.wasm` tiraría al cargar el
+archivo y no se sabría qué test cayó.
+
+**Regla que queda:** «no meter el motor» se mide en el grafo de imports, no en la carpeta. Lo liviano que se ve al abrir va
+estático; lo pesado, por la puerta única. Y la red es el grafo con un test, porque lo liviano deja de serlo con un import.
+
+**Vive en:** `app/video-editor/miniatura-nuevo-video.tsx` · `app/video-editor/plantillas-crear.ts` (`plantillaDeTarjeta`) ·
+`app/video-editor/VideoEditorCliente.tsx` · *2026-11-18 nube-construir-video*
+
 ## La «Edición automática» se arranca desde TRES lugares: el candado va en `correrEnjambre` (14/11/2026)
 
 Al cerrar la IA de los editores para Esencial, el botón «obvio» (`editor-header.tsx`) no era: ahí sólo vive `EnVivo`, mientras corre. La

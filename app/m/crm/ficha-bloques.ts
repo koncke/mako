@@ -95,16 +95,26 @@ export function tabsQueVe(o: { verTracking: boolean; verReuniones: boolean; verP
 /**
  * LAS PIEZAS DEL TELÉFONO, EN ORDEN: las tabs que el lead ve, una debajo de la otra, y en cada una los
  * bloques de la ficha del funnel que tienen versión de teléfono. Una pieza va una sola vez.
+ * Después, las HOJAS PROPIAS del funnel (18/11/2026, O2 de docs/pendientes-verificados-17-11.md): las que el admin arma con
+ * «Nueva hoja» (lib/ficha/config.ts, `FichaEfectiva.hojas`). En la computadora son pestañas después de las cuatro y se ven en
+ * todo lead del funnel (app/crm/lead-view/ficha/FichaPorBloques.tsx), así que acá van al final, con la MISMA tabla de piezas
+ * (`PIEZA_DE_BLOQUE`). Hasta ese día el teléfono no las leía: un bloque que sólo estaba en una hoja propia no salía en el
+ * teléfono. Lo que una pieza no tiene que mostrar se calla igual (`piezasQueSeDibujan`).
  */
-export function piezasDelTelefono(tabs: Readonly<Record<TabFicha, ReadonlyArray<{ id: BloqueId }>>>, ve: readonly TabFicha[]): PiezaPuesta[] {
+export function piezasDelTelefono(
+  tabs: Readonly<Record<TabFicha, ReadonlyArray<{ id: BloqueId }>>>,
+  ve: readonly TabFicha[],
+  hojas: ReadonlyArray<{ bloques: ReadonlyArray<{ id: BloqueId }> }> = [],
+): PiezaPuesta[] {
   const out: PiezaPuesta[] = [];
-  for (const tab of ORDEN_TABS_ESCRITORIO) {
-    if (!ve.includes(tab)) continue;
-    for (const b of tabs[tab] ?? []) {
+  const sumar = (bloques: ReadonlyArray<{ id: BloqueId }>) => {
+    for (const b of bloques) {
       const pieza = PIEZA_DE_BLOQUE[b.id];
       if (pieza && !out.some((x) => x.pieza === pieza)) out.push({ pieza, bloque: b.id });
     }
-  }
+  };
+  for (const tab of ORDEN_TABS_ESCRITORIO) if (ve.includes(tab)) sumar(tabs[tab] ?? []);
+  for (const h of hojas) sumar(h.bloques);
   return out;
 }
 

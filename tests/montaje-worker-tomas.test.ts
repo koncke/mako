@@ -192,8 +192,9 @@ test('el worker manda la lista entera y suma las duraciones reales para el «De 
   // El supuesto de que todas las tomas duran lo mismo, en cualquiera de sus formas.
   assert.doesNotMatch(WORKER, /seg\[0\]/, 'volvió la duración de la primera toma para todas');
   assert.doesNotMatch(WORKER, /clips\.length \* /, 'volvió el «antes» como tomas × una duración');
-  // Y la pantalla sigue siendo la que lee ese número.
-  assert.match(sinComentarios(leer('app/video-generator/PasoMontaje.tsx')), /reloj\(estado\.segundosAntes\)/);
+  // Y la pantalla sigue siendo la que lee ese número (desde el 18/11/2026 lo dibuja DuracionesMontaje, rotulado como estimado:
+  // tests/video-montaje-duraciones.test.ts).
+  assert.match(sinComentarios(leer('app/video-generator/PasoMontaje.tsx')), /<DuracionesMontaje antes=\{estado\.segundosAntes\} despues=\{estado\.segundosDespues\} \/>/);
 });
 
 test('todo lo que el worker importa viaja en la imagen: un import que falta mata el contenedor al arrancar', () => {
