@@ -1944,4 +1944,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '18 nov', hora: '02:20', chat: 'De octubre', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una landing publicada ya puede mostrar dos versiones y medir cuál convierte más',
+    puntos: [
+      'Con una prueba A/B corriendo, cada visitante ve siempre la misma versión de la landing (la de siempre o la nueva), y queda anotado cuál vio.',
+      'Una versión nueva que cambia un botón de pago, un formulario o un enlace no se muestra: la prueba sólo compara textos y orden. Si se publica otra versión a mano, la prueba se detiene.',
+      'Cada día MaKo cuenta, en las dos versiones, cuántos tocaron el botón de conversión, dejaron sus datos o le dieron play al video, contando sólo a quienes vieron la página.',
+      'Todavía no hay cómo crear una prueba de landing: la primera en público espera el sí de Martín.',
+    ],
+    archivos: [
+      'lib/editor-landing/prueba-landing-servir.ts — qué versión se le sirve a cada visitante',
+      'lib/editor-landing/pagina-publica.ts · app/l/[slug] · app/api/landing-generator/dominio — la página publicada con la prueba',
+      'lib/pruebas/medidores-landing.ts · app/api/cron/pruebas — los medidores de la landing en el cron diario',
+      'tests/pruebas-landing.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/web-generator',
+  },
 ];

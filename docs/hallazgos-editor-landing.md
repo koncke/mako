@@ -3215,9 +3215,11 @@ en lib/editor-landing/prueba-landing.ts:
 - **Con prueba, la respuesta es `private, no-cache` + `Vary: Cookie`** (hoy `public`).
 
 Lo que quedó SIN hacer (espera a A1/A2 de Automations, que pasa las firmas):
-- Conectarlo en `responderPublico` (pagina-publica.ts): la marca de prueba en la misma fila que ya lee (sin una lectura extra por
-  visita), `asignar`, la foto de la rama, las cabeceras y la cookie; la vista previa con `?variante=B`; publicar a mano detiene la
-  prueba; el medidor `clic_conversion` contra la interfaz `Medidor`; y la API (crear, ver, aprobar, detener).
+- ~~Conectarlo en `responderPublico` (pagina-publica.ts): `asignar`, la foto de la rama, las cabeceras y la cookie; publicar a mano
+  detiene la prueba; el medidor `clic_conversion` contra la interfaz `Medidor`~~ (18/11/2026, O18: `prueba-landing-servir.ts`,
+  `lib/pruebas/medidores-landing.ts`; ver docs/hallazgos-pruebas.md, «La landing sirve y cuenta su prueba A/B»). **Sigue sin hacer:**
+  la marca de prueba en la misma fila (es una migración: se lee la prueba en cada pedido que llega a la función, y sin prueba el
+  borde guarda la página 30 s), la vista previa con `?variante=B` y la API (crear, ver, aprobar, detener).
 
 ## Todo editable en las páginas de MaKo (cada botón, video, imagen e ícono) y el clic derecho (25/10/2026, claude5)
 

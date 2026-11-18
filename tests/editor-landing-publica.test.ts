@@ -620,7 +620,8 @@ test('app/l tiene EXACTAMENTE las siete rutas, sólo GET y HEAD, y ninguna lee l
     assert.match(src, /responderPublico\(/, `${f}: la decisión vive en pagina-publica.ts`);
     // La vista previa entra como 'vista' (noindex, sin Pixel, no-store); las otras dos como 'pagina'.
     if (f.includes('vista')) assert.match(src, /responderPublico\(req, \{ tipo: 'vista', token(?:, ruta)? \}, \{ leer: \(\) => leerVistaPrevia\(token(?:, ruta)?\) \}\)/);
-    else assert.match(src, /responderPublico\(req, \{ tipo: 'pagina', slug, ruta(?:: '')? \}, \{ leer: \(\) => leerPublicado\(slug, (?:''|ruta)\) \}\)/);
+    // Desde el 18/11/2026 (O18) la página publicada también pasa la prueba A/B (`probar`), con la MISMA lectura y la misma ruta.
+    else assert.match(src, /responderPublico\(req, \{ tipo: 'pagina', slug, ruta(?:: '')? \}, \{\s*leer: async \(\) => \(sitio = await leerPublicado\(slug, (''|ruta)\)\),\s*probar: async \(\) => \(sitio \? probarLanding\(sitio, \1, req\) : null\),\s*\}\)/);
   }
 });
 
