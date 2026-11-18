@@ -13983,10 +13983,29 @@ consulta, donde se llama) · `lib/mako-doer-acciones.ts` (`listar_campanas_meta`
 - **Un acuse no trae datos ni abre un ticket:** «Bien hecho» corre como charla que se contesta (`esCharlaConAlgo`) y el modelo volvió a
   dar números. En ese camino se sacan sólo las oraciones sin respaldo (`sinOracionesConNumeros`); si no queda nada, alcanza la reacción.
   La nota de la charla ahora dice «un elogio o un acuse: una línea y sin números».
-- **Lo que quedó SIN hacer:**
-  - que `listar_campanas_meta` traiga los leads de cada campaña y el costo por lead ya calculado, en la MISMA ventana de 30 días que el
-    gasto (lib/mako-doer-acciones.ts; los leads por campaña salen de lib/leads-por-campana-server.ts, que hoy cuenta todo el historial);
-  - «Rio Dulce X Mako» tiene 10 leads y ningún gasto con ese nombre en `marketing_metrics_daily` («Río Dulce 1146…» es otra campaña):
-    la respuesta correcta es «no hay gasto registrado»;
-  - los cuatro turnos de esa charla cayeron a gemini-flash-lite después de un timeout de 45 s de gemini-flash, con el router pidiendo
-    sonnet u opus: Sellers esperó ~1 min y le contestó el modelo más débil (la cascada de proveedores, lib/mako-doer-in.ts).
+- **El costo por lead, ya hecho (17/11, la segunda tanda):** `listar_campanas_meta` trae por campaña los leads del CRM que entraron en
+  la MISMA ventana de 30 días que el gasto y `costo_por_lead_<moneda>` (`costoPorLeadDeCampanas`, lib/leads-por-campana.ts). Antes el
+  modelo dividía el gasto de 30 días por los leads de TODO el historial, que salían de otra herramienta. Una campaña con leads y sin
+  gasto (Rio Dulce X Mako; la que gastó es «Río Dulce 1146…», otra) sale en `campanas_con_leads_sin_gasto`: se cruza por id, o por el
+  nombre EXACTO si sólo quedó el nombre, nunca por uno parecido. Medido en el ws24 el 17/11: Captacion Mako Forms, 28 leads en la
+  ventana y ARS 3.795 por lead (esa noche eran 21).
+  - ⚠️ **Fuera de Next la lectura de leads no corre** (`unstable_cache` y el AsyncLocalStorage de Next): una sonda con un script da
+    `aviso_leads`, no el cruce. Para medir con los datos reales se leen las tablas directo y se aplica la función pura.
+
+## «Gemini lento» no era la causa: la IA del negocio pisaba lo que ya había contestado Claude (17/11/2026, tickets #108 y #109)
+
+**Vive en:** `lib/mako-doer-in.ts` (el bucle de las cuentas de su IA, después de `claudeDelGrupo`) · tests/_clase-del-grupo-hijo.ts
+
+- **El síntoma:** Sellers esperó ~1 min por cada respuesta en el grupo, y le contestó gemini-flash-lite: el modelo más débil, después de
+  un timeout de 45 s de gemini-flash. El router pedía sonnet u opus.
+- ⚠️ **El diagnóstico obvio (Gemini es lento, subirle el plazo o sacarlo) era el equivocado.** En `anthropic_usage` de esa charla, Claude
+  con el crédito de los grupos YA había contestado a los 9 s (dos pasos). El bucle de las cuentas de SU IA —el RESPALDO de Claude según
+  `hayRespaldoDespuesDeClaude`— no preguntaba si ya había respuesta: corría el turno entero otra vez con su Gemini, y esa respuesta
+  pisaba la de Claude. Con un Gemini sano igual pasaba, sólo que no se notaba: el negocio recibía lo de su IA, nunca lo de Claude, y las
+  herramientas corrían dos veces.
+- **La regla:** en una cascada, cada escalón pregunta si el anterior ya contestó. Ahora el bucle corta con `if (respuesta) break`.
+- ⚠️ **El test del grupo DEPENDÍA del bug:** su Anthropic de mentira contestaba el turno con el JSON de la clase, y la IA del negocio lo
+  pisaba con la respuesta esperada. Un harness que da verde con el bug adentro no mide lo que dice. Ahora el clasificador contesta su
+  clase, el turno con el crédito da 400 salvo con `turnoConClaude`, y la escena `claudeContesta` fija que su IA no corre (el 5-ter).
+- **Lo que no se tocó, a propósito:** que el crédito vaya con Haiku aunque el router pida sonnet u opus es la regla del 22/10 (el crédito
+  de MaKo va con el modelo barato, `evaluarClaveDelNegocio`, lib/anthropic.ts). Cambiarla es una decisión de Martín.

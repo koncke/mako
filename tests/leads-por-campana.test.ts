@@ -25,7 +25,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  campanasDelTexto, campanasConocidas, listaParaLaPersona, palabrasDelPedido, type CampanaConLeads,
+  campanasDelTexto, campanasConocidas, costoPorLeadDeCampanas, listaParaLaPersona, palabrasDelPedido, type CampanaConLeads,
 } from '../lib/leads-por-campana';
 import { sanearSalida, SIN_HACER_LO_DEMAS, SIN_HACER } from '../lib/doer-salida';
 
@@ -135,4 +135,40 @@ test('9. el doer le pasa a buscar_leads el canal por donde el código le escribe
   assert.match(doer, /NOMBRES_DE_SIEMPRE\.has\(name\) \? runMakoTool\(name, input, \{ aPersona: ctxApi\.aPersona \}\)/);
   const crm = readFileSync(join(RAIZ, 'lib/api-mako/areas/crm.run.ts'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(crm, /buscar_leads: \{ leer: \(input, ctx\) => runMakoTool\('buscar_leads', input, \{ aPersona: ctx\.aPersona \}\) \}/);
+});
+
+// ── Tickets #108 y #109 de Sellers (17/11/2026): el costo por lead, con los leads de la MISMA ventana que el gasto ──
+test('10. el costo por lead cuenta los leads de la ventana por id o por nombre, y una campaña con leads sin gasto sale aparte', () => {
+  // Paráfrasis del ws24: dos campañas con gasto, y «Rio Dulce X Mako» con leads y sin gasto (hay otra «Río Dulce 1146…» que sí gastó).
+  const conGasto = [{ id: '111', nombre: 'Captacion Mako Forms' }, { id: '222', nombre: 'Prima Terra X Mako' }, { id: '333', nombre: 'Río Dulce 1146, entre Av. San Juan y Alderete WP' }];
+  const leads = [
+    { key: '111', campana: 'Captacion Mako Forms', entro: '2026-11-10' },
+    { key: '111', campana: 'Captacion Mako Forms', entro: '2026-10-19' },
+    { key: '111', campana: 'Captacion Mako Forms', entro: '2026-10-18' },          // antes de la ventana: no cuenta
+    { key: 'n:Prima Terra X Mako', campana: 'Prima Terra X Mako', entro: '2026-11-17' }, // sólo el nombre: cuenta por nombre
+    { key: '444', campana: 'Rio Dulce X Mako', entro: '2026-11-12' },
+    { key: '444', campana: 'Rio Dulce X Mako', entro: '2026-11-13' },
+    { key: 'n:Una sin gasto', campana: '', entro: '2026-11-01' },
+    { key: null, campana: '', entro: '2026-11-01' },                                 // sin campaña: no cuenta
+  ];
+  const r = costoPorLeadDeCampanas(conGasto, leads, '2026-10-19', '2026-11-17');
+  // Rota: sin el filtro de la ventana → Captacion cuenta 3 (el gasto de 30 días dividido por los leads de siempre).
+  assert.equal(r.leadsPorId.get('111'), 2);
+  // Rota: sin el cruce por nombre → Prima Terra queda con 0 leads y va a «sin gasto».
+  assert.equal(r.leadsPorId.get('222'), 1);
+  // Rota: cruzar por un nombre PARECIDO → Rio Dulce X Mako se lleva el gasto de la otra campaña de Río Dulce.
+  assert.equal(r.leadsPorId.get('333'), undefined);
+  assert.deepEqual(r.sinGasto, [{ nombre: 'Rio Dulce X Mako', leads: 2 }, { nombre: 'Una sin gasto', leads: 1 }]);
+});
+
+test('11. la herramienta de campañas trae el costo por lead en la moneda de la cuenta y las campañas sin gasto', () => {
+  const src = readFileSync(join(__dirname, '..', 'lib', 'mako-doer-acciones.ts'), 'utf8');
+  const i = src.indexOf("case 'listar_campanas_meta': {");
+  const cuerpo = src.slice(i, src.indexOf("case 'proponer_lead':", i));
+  // Rota: la herramienta sin el cruce → el modelo vuelve a dividir gasto de 30 días por leads de otra herramienta.
+  assert.match(cuerpo, /costoPorLeadDeCampanas\(/);
+  assert.match(cuerpo, /`costo_por_lead_\$\{moneda\.toLowerCase\(\)\}`/, 'el costo por lead no va en la moneda de la cuenta');
+  assert.match(cuerpo, /campanas_con_leads_sin_gasto/, 'una campaña con leads y sin gasto no sale aparte');
+  // Rota: sacarlas de una de las dos salidas (con gasto, o sin ninguna campaña con gasto) → esas campañas no le llegan al modelo.
+  assert.equal((cuerpo.match(/\.\.\.conLeadsSinGasto,/g) ?? []).length, 2, 'las campañas sin gasto no van en las dos salidas');
 });

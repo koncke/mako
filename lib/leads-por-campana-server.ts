@@ -16,7 +16,7 @@ import { getCampaignNameMap, getAnunciosMap, getAdNameMap } from './queries';
 import { origenAds } from './campana-atribucion';
 import {
   campanasConocidas, campanasDelTexto, hablaDeCampana, listaParaLaPersona,
-  LIMITE_POR_CAMPANA, LIMITE_MAXIMO_POR_CAMPANA, type CampanaConLeads, type FilaDeCampana,
+  LIMITE_POR_CAMPANA, LIMITE_MAXIMO_POR_CAMPANA, type CampanaConLeads, type FilaDeCampana, type LeadConCampana,
 } from './leads-por-campana';
 
 type FilaConClave = FilaDeCampana & { key: string | null };
@@ -118,4 +118,10 @@ export async function respuestaDeCampana(texto: string, op: OpcionesCampana = {}
       ? `Pásale los ${van.length} con nombre y teléfono, y dile que faltan ${deLaCampana.length - van.length}.`
       : 'Pásale todos, con nombre y teléfono, sin cortar la lista.',
   });
+}
+
+/** Los leads del negocio con su campaña, para cruzarlos con el gasto (`costoPorLeadDeCampanas`). `aviso`: no se pudo leer algo. */
+export async function leadsConSuCampana(): Promise<{ leads: LeadConCampana[]; aviso: string | null }> {
+  const { filas, aviso } = await leerCampanas();
+  return { leads: filas.map((f) => ({ key: f.key, campana: f.campana, entro: f.entro })), aviso };
 }
