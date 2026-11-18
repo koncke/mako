@@ -12552,6 +12552,10 @@ cuenta a propósito.
 
 ### Y lo que NO es un bug, para que nadie lo «arregle»
 
+> ⚠️ **Superado el 18/11/2026.** P21 (9a813a3d25) cambió la regla a **una fila por documento** y la clave del driver pasó
+> al documento (F53, «El índice volvió a duplicarse dos horas después de juntarlo», al final de este archivo). Lo de abajo
+> describe la regla del 7/11.
+
 **17 áreas comparten documento con otra, a propósito** (la cabecera lo dice: 77 filas, 60 documentos). Que
 `hallazgos-seguridad.md` esté en «Aislamiento» y en «Seguridad», o `hallazgos-carruseles.md` en «Carruseles» y
 en «Carruseles (la biblioteca de ejemplos)», es correcto: la fila es del ÁREA, no del documento.
@@ -12820,3 +12824,27 @@ falta RAM, se reintenta más tarde; subir `--heap` sólo cuando el 134 es de V8 
 - `leads?select=…&limit=5000` devolvió 1000 filas y ningún error: el tope del servidor (`max-rows`) gana al `limit`. Las cuentas
   de cierres de Mauricio salieron mal hasta paginar con `order=id.asc&limit=1000&offset=…` (eran 1310). Regla para todo script que
   cuente: paginar siempre, o pedir `count=exact` y comparar.
+
+## El índice volvió a duplicarse dos horas después de juntarlo: la fila se identificaba por su rótulo (18/11/2026, F53)
+
+**Síntoma.** A las 04:53 P21 (9a813a3d25) dejó `docs/hallazgos.md` en 64 filas para 64 documentos, una por documento, y
+para eso renombró áreas («Image Editor» ×3 → una sola, «Carruseles (la biblioteca de ejemplos)» adentro de «Carruseles»). A
+las 06:20 main tenía **89 filas para los mismos 64 documentos**. Nadie había cosechado mal: lo hicieron las mezclas.
+
+**Causa.** El driver (`scripts/unir-indice-hallazgos.mjs`) identificaba cada fila por **«Área + documento»**. Una punta
+cortada antes de P21 traía la fila con el rótulo viejo («Image Editor|hallazgos-editor-imagen.md»), y para el driver ésa era
+OTRA área que la de main («Editor de imagen|…»), así que la conservaba. Cada punta vieja que entraba devolvía sus filas. Y la
+guarda del índice en disco (tests/unir-indice-hallazgos.test.ts) contaba por la misma clave, así que daba verde.
+
+**Arreglo.** La clave es el **documento** (la 2.ª celda), en `filaDelIndice` y en `filaDeLaTabla`: la fila vieja y la de main
+son la misma y se unen por entrada. Al unir gana **el rótulo de main** (`rotulosDelIndice(theirs)`): en una mezcla limpia la
+fila vieja vuelve en su lugar de antes, a veces arriba, y «el rótulo de la primera» elegía el viejo (12 de 25 documentos
+quedaban así). `unaFilaPorClave` mira todas las filas de la tabla principal, también las de documentos que no son
+`hallazgos-*` (cuatro tenían dos filas). Se consolidó main otra vez: 89 → 64, con las 2.512 entradas textuales y los
+rótulos de P21. La guarda en disco cuenta por documento.
+
+**La regla.** Cuando una limpieza **renombra** algo que otras ramas todavía tienen con el nombre viejo, la clave que une las
+dos versiones no puede ser el nombre: tiene que ser algo que las dos ramas compartan (acá, el documento). Si no, cada rama
+vieja que entra deshace la limpieza, y la guarda que cuenta por la misma clave no lo ve.
+
+**Vive en:** `scripts/unir-indice-hallazgos.mjs` · `tests/unir-indice-hallazgos.test.ts` · `docs/hallazgos.md`.
