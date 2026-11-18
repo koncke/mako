@@ -19,6 +19,13 @@
 // ⚠️ TREINTA DÍAS. Sin la enmienda, lo que se guarda de la API (títulos, vistas) vence a los 30 días: lo leído hace más no se
 // muestra (`vigente`) y el script lo borra (`podar`).
 //
+// ⚠️ EL RUBRO ES DEL CANAL, NO DEL VIDEO (regla, 18/11/2026). `nicho` es el de la fila del canal (`thumbnails_canales.nicho`): lo
+// pone la búsqueda que trajo al canal (lib/thumbnails/carga.ts, `filaDeCanal(c, nicho, …)`), y todos sus videos lo heredan. Un
+// canal de ventas que sube un video de marketing queda en ventas. No hay un clasificador por video A PROPÓSITO: sería una pasada
+// de IA por cada video (como el «tema» de carruseles) para un filtro que nadie pidió afinar. Por eso la pantalla dice «Rubro del
+// canal» y la API (`buscar_thumbnails`, lib/api-mako/areas/imagen.def.ts) lo describe así: el filtro no promete el tema del video.
+// Un canal que entró por un link (lib/thumbnails/traer-servidor.ts) queda con el rubro VACÍO: no se sabe y no se inventa.
+//
 // Puro (sin `server-only`): lo usan el lector (./servidor.ts), la pantalla, la API de MaKo y los tests
 // (tests/thumbnails-explorar.test.ts).
 // =============================================================================
