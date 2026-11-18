@@ -82,11 +82,20 @@ export type UploadTranscribeResult = {
 // forma de enterarse es que el artefacto diga quién lo hizo. `curso-transcribir.ts`
 // lo escribe en la cabecera del .md.
 //
-// No se usa la cascada de `lib/ai-cheap.ts` a propósito, y la diferencia es real: esa
-// arranca por Gemini, que manda el audio INLINE y topea en 14 MB, mientras que acá
-// entran archivos de hasta 25 MB; además resuelve credenciales por workspace y
-// registra uso, que en un script de línea de comandos son efectos que nadie pidió.
-// Lo que sí se comparte es el criterio: gratis primero, pago último, y se dice cuál.
+// ── POR QUÉ NO PASA POR LA PUERTA DEL AUDIO (`transcribirAudio`, lib/ai-cheap.ts) — DECIDIDO EL 18/11/2026 (F85) ──
+// Se miró pasarlo y se decidió que NO, por cuatro razones que no cambian con el tiempo:
+//   1. Lo que se escucha acá es de la PLATAFORMA: las clases de los cursos de MaKo y su Conocimiento, que carga sólo el
+//      super admin (la ruta abre con `getSesionAdmin`). La puerta resuelve las claves del NEGOCIO del pedido (`provsDe`) y le
+//      aplica D6b y los MaKo Tokens de ese negocio: acá no hay negocio. D6b ya lo tiene escrito así (FUERA_DE_D6B de
+//      tests/d6b-rutas.test.ts), y Claude no está en esta cascada, así que el veto no tiene nada que decir.
+//   2. El tamaño: la puerta arranca por Gemini, que manda el audio INLINE y topea en 14 MB; una clase entra hasta 25 MB.
+//   3. Lo que devuelve: la puerta da sólo el texto, y acá hacen falta la duración y el idioma medidos (con eso se compara
+//      la transcripción contra la fuente).
+//   4. Lo corren scripts de línea de comandos (scripts/curso-transcribir.ts), y la puerta es `server-only`.
+// Lo que SÍ faltaba, y desde el 18/11 está: REGISTRAR EL USO (`anotarUso`, abajo). Hasta ese día este era uno de los dos
+// caminos que gastaban sin dejar fila (app/admin/dev/pricing/modelo.ts, «ciegos»): una clase pasada por el whisper-1 pago
+// no aparecía en el gasto de IA. No descuenta MaKo Tokens: ese cupo es de un cliente, y esto no es de ninguno.
+// Lo que sí se comparte con la puerta es el criterio: gratis primero, pago último, y se dice cuál.
 const STT_CASCADA: Array<{ nombre: string; base: string; modelo: string; envKey: string }> = [
   { nombre: 'groq', base: 'https://api.groq.com/openai/v1', modelo: 'whisper-large-v3-turbo', envKey: 'GROQ_API_KEY' },
   { nombre: 'openai', base: OAI, modelo: 'whisper-1', envKey: 'OPENAI_API_KEY' },
@@ -167,6 +176,26 @@ async function sttGemini(buf: Buffer, mime: string, key: string, hint?: string):
   return { texto, modelo };
 }
 
+/** La fila del gasto de IA de una clase escuchada (F85, 18/11/2026). */
+export const FEATURE_STT_PLATAFORMA = 'cursos-transcribir';
+
+/**
+ * Deja la fila en `anthropic_usage` con el proveedor que escuchó y los segundos de audio (whisper-1 cobra por segundo; Groq
+ * y Gemini salen en cero, pero quedan contados). Best-effort: anotar no puede tumbar una transcripción que ya se hizo.
+ * ⚠️ Y el catch va ACÁ ADENTRO, no en quien llama: se llama dentro del `try` de cada proveedor, y un error que se escape
+ * de acá se lee como «este proveedor falló» y le pide la misma clase al siguiente (lo fija tests/transcribe-plataforma-uso).
+ * El import es DINÁMICO por lo mismo que `asegurarCreds`: lib/anthropic-usage es `server-only`, y en un script de línea de
+ * comandos tira al importarse; ahí no hay a qué negocio anotarlo, así que el catch es el camino esperado.
+ */
+async function anotarUso(modelo: string, proveedor: string, segundos: number | null, archivo: string): Promise<void> {
+  try {
+    const { recordSttUsage } = await import('./anthropic-usage');
+    await recordSttUsage(FEATURE_STT_PLATAFORMA, modelo, segundos ?? 0, `Transcribir una clase: ${archivo || 'sin nombre'}`, proveedor);
+  } catch {
+    /* script de línea de comandos: no hay dónde anotar */
+  }
+}
+
 export async function transcribeMediaBuffer(
   bytes: ArrayBuffer,
   mime: string,
@@ -203,7 +232,9 @@ export async function transcribeMediaBuffer(
       // ⚠️ Un 200 con texto VACÍO no es un éxito ni un fallo del proveedor: puede ser
       // un audio sin voz. Se devuelve como ok con el texto vacío y el que llama decide,
       // pero NO se cae al siguiente proveedor —gastar dos veces por un silencio.
-      return { status: 'ok', transcript: tr.text ?? '', idioma: tr.language ?? null, duracion_s: tr.duration ?? null, model: p.modelo, error: null };
+      const duracion = typeof tr.duration === 'number' ? tr.duration : null;
+      await anotarUso(p.modelo, p.nombre, duracion, filename);
+      return { status: 'ok', transcript: tr.text ?? '', idioma: tr.language ?? null, duracion_s: duracion, model: p.modelo, error: null };
     } catch (e) {
       errores.push(`${p.modelo}: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -217,6 +248,7 @@ export async function transcribeMediaBuffer(
   if (kGemini) {
     try {
       const { texto, modelo } = await sttGemini(buf, mime, kGemini, hint);
+      await anotarUso(modelo, 'gemini', null, filename);
       return { status: 'ok', transcript: texto, idioma: null, duracion_s: null, model: modelo, error: null };
     } catch (e) {
       errores.push(`gemini: ${e instanceof Error ? e.message : String(e)}`);
