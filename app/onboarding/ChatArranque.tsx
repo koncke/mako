@@ -23,7 +23,7 @@
 // =============================================================================
 
 import { TarjetaAvisos } from './TarjetaAvisos';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { CLAVE_ENTRADA_MOVIL } from '@/app/m/_ui/entrada';
@@ -40,6 +40,7 @@ import type { VistaEntrante } from '@/lib/verificacion-entrante';
 import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { OfferApp, type ArranqueOffer } from '../offer/OfferApp';
 import { EntradaMako } from './EntradaMako';
+import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
 import { CriaturaMako, type Reaccion } from './CriaturaMako';
 import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, linkPdfLoQueVende, mandaElArranque, placeholderDe, preguntaQueContesta, tarjetaConNumero, tarjetasDe, terminoElArranque } from './arranque-ui';
 
@@ -60,10 +61,12 @@ async function llamar(cuerpo: Record<string, unknown>): Promise<Respuesta> {
   }
 }
 
-export function ChatArranque({ inicial, arbolVacio, opcionArmar, seguirEnPc = false, persona }: {
+export function ChatArranque({ inicial, arbolVacio, opcionArmar, seguirEnPc = false, persona, videos = null }: {
   inicial: VistaArranque; arbolVacio: ArbolOffer; opcionArmar: string;
   /** Quién es (para «Sigamos en tu computadora»). */
   persona?: { nombre: string; email: string };
+  /** Los videos de los momentos del onboarding V2 (app/_ui/tutorial/VideoDelMomento.tsx); null = sin videos (el de siempre). */
+  videos?: { revision: boolean } | null;
   /**
    * El onboarding V2 en un TELÉFONO (18/11/2026, Martín: «desde el celular se podría romper completamente: lo opaco, lo que se
    * señala»): se hace el primer paso acá y, al terminar, «Continuar el onboarding desde la PC» en vez de entrar. Lo decide la página.
@@ -266,6 +269,18 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar, seguirEnPc = fa
     return null;
   };
 
+  // LOS VIDEOS DE LOS MOMENTOS (onboarding V2, 18/11/2026): la bienvenida arriba del primer mensaje de MaKo y el de WhatsApp con su
+  // tarjeta (escribirle a MaKo con el código). Las claves son las del chat de los videos; sin video, nada (en la revisión, su lugar).
+  const primerMako = useMemo(() => [...vista.antes, ...vista.despues].find((m) => m.de === 'mako')?.id ?? null, [vista]);
+  const extraConVideo = (m: OfferMensaje) => {
+    const carta = extra(m);
+    if (!videos) return carta;
+    const v = m.id === primerMako ? { clave: 'onboarding-bienvenida', titulo: 'la bienvenida' }
+      : tarjetas.get(m.id) === 'whatsapp' ? { clave: 'onboarding-whatsapp', titulo: 'tu WhatsApp con MaKo' } : null;
+    if (!v) return carta;
+    return <>{<VideoDelMomento clave={v.clave} titulo={v.titulo} revision={videos.revision} />}{carta}</>;
+  };
+
   const arranque: ArranqueOffer = {
     antes,
     despues,
@@ -283,7 +298,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar, seguirEnPc = fa
       void responder({ opcion: idx, ...(texto !== undefined ? { opcionTexto: texto } : {}), ...preguntaQueContesta(vista) }, texto ?? null);
     },
     ocupado,
-    extra,
+    extra: extraConVideo,
     // Sólo si NUNCA hubo una conversación anotada: con una anotada que no se pudo leer, abrir otra hacía
     // rehacer la oferta y dejaba la vieja huérfana (revisión del 16/10).
     abrirEnFunnel: vista.modo === 'oferta' && vista.etapa === 'oferta' && !vista.tieneSesion && !vista.sesionCaida
@@ -326,7 +341,8 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar, seguirEnPc = fa
   return (
     <div className={`arr-capa${saliendo ? ' arr-capa--sale' : ''}`}>
       <style>{CSS_ARRANQUE}</style>
-      {enPc && <SeguirEnPc nombre={persona?.nombre ?? ''} email={persona?.email ?? ''} />}
+      {enPc && <SeguirEnPc nombre={persona?.nombre ?? ''} email={persona?.email ?? ''}
+        video={videos ? <VideoDelMomento clave="onboarding-seguir-pc" titulo="sigamos en tu computadora" revision={videos.revision} /> : null} />}
       {/* La cabecera de la referencia que mandó Martín (17/10): la foto de MaKo, su nombre y «Tu onboarding», y una
           línea. Los mensajes van sueltos sobre el fondo, sin recuadro (CSS de abajo). */}
       <header className="arr-cabecera">
@@ -483,7 +499,7 @@ function VisorPdf({ sesionId, url, onCerrar }: { sesionId: number; url: string; 
 
 /** «SIGAMOS EN TU COMPUTADORA» (V2, en el teléfono): lo que sigue del onboarding (el video, el recorrido y el reto) va en una pantalla
  *  grande. Lo contestado ya quedó guardado: al entrar desde la computadora sigue justo donde quedó. */
-export function SeguirEnPc({ nombre, email }: { nombre: string; email: string }) {
+export function SeguirEnPc({ nombre, email, video = null }: { nombre: string; email: string; video?: ReactNode }) {
   const paso = (n: number, t: string, x: string) => (
     <li style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
       <span style={{ flex: 'none', width: 26, height: 26, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 700 }}>{n}</span>
@@ -495,6 +511,7 @@ export function SeguirEnPc({ nombre, email }: { nombre: string; email: string })
       <div style={{ width: 'min(380px, 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
         <h1 style={{ margin: 0, fontSize: 22, lineHeight: 1.25, fontWeight: 700 }}>{nombre ? `${nombre}, sigamos` : 'Sigamos'} en tu computadora</h1>
         <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--dim)' }}>Tu onboarding sigue en una pantalla grande: ahí te muestro MaKo por dentro, con tu reto de 7 días.</p>
+        {video}
         <ol style={{ listStyle: 'none', margin: '6px 0 0', padding: 14, width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
           {paso(1, 'Abre MaKo en tu computadora', 'Con el link que te mandamos a tu correo.')}
           {paso(2, 'Entra con tu cuenta', email)}
