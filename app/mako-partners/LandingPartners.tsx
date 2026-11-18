@@ -142,15 +142,19 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-numero .mp-numero-t { margin-bottom: 4px; font-size: 19px; line-height: 1.25; font-weight: 800; color: var(--mp-ink); }
 /* «Cuánto te llevas según cómo pagan»: dos tarjetas; la de transferencia, destacada sin gritar. */
 .mp-cobros { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; max-width: 860px; margin: 0 auto; }
-.mp-cobro { display: flex; flex-direction: column; gap: 6px; padding: 26px 24px 24px; border-radius: 22px; background: var(--mp-sup); border: 1px solid var(--mp-borde); }
-.mp-cobro-mejor { border: 2px solid var(--mp-azul); box-shadow: 0 18px 40px color-mix(in srgb, var(--mp-azul) 14%, transparent); }
-.mp-cobro-etq { align-self: flex-start; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--mp-azul); background: var(--mp-azul-bg); }
+/* El mismo relleno en las dos (el borde de 2 px de la destacada se descuenta del relleno): el 30 y el 25, a la misma altura. */
+.mp-cobro { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 26px 24px 22px; border-radius: 22px; background: var(--mp-sup);
+  border: 1px solid var(--mp-borde); }
+.mp-cobro-mejor { padding: 25px 23px 21px; border: 2px solid var(--mp-azul); box-shadow: 0 18px 40px color-mix(in srgb, var(--mp-azul) 14%, transparent); }
+.mp-cobro-etq { position: absolute; top: 14px; right: 14px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--mp-azul); background: var(--mp-azul-bg); }
+.mp-cobro-cab { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
 .mp-cobro-pct { font-size: 56px; line-height: 1; font-weight: 800; letter-spacing: -.04em; color: var(--mp-azul); }
-.mp-cobro h3 { margin: 4px 0 0; font-size: 20px; font-weight: 700; color: var(--mp-ink); }
-.mp-cobro h3 span { font-size: 16px; font-weight: 500; color: var(--mp-suave); }
+.mp-cobro h3 { margin: 0; font-size: 20px; font-weight: 700; color: var(--mp-ink); }
 .mp-cobro p { margin: 0; color: var(--mp-dim); }
-.mp-cobro-montos { list-style: none; margin: 4px 0 6px; padding: 0; display: grid; gap: 2px; color: var(--mp-ink); font-variant-numeric: tabular-nums; }
+/* La línea chica de información, debajo de un divisor fino. */
+.mp-cobro .mp-cobro-info { padding-top: 12px; border-top: 1px solid var(--mp-borde); font-size: 14px; color: var(--mp-suave); }
+.mp-cobro-montos { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; color: var(--mp-ink); font-variant-numeric: tabular-nums; }
 .mp-cobro-montos b { font-weight: 800; }
 /* Aire entre el título de una sección y sus tarjetas (sin bajada en medio). */
 .mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-cobros { margin-top: 28px; }
@@ -272,19 +276,21 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
       <section className="mp-seccion">
         <div className="mp-wrap">
           <h2>Cuánto te llevas según cómo pagan</h2>
+          {/* Versión 66 (18/11/2026, Martín: «simplifica el texto… 30% por transferencia y 25% por pasarela de pago sin el paréntesis.
+              Y que estén alineados… el chip de "la que más te deja"… a la derecha para que no interrumpa… un pequeño divider… y que
+              ahí aclare… información simple, resumida»). Las dos tarjetas, con la misma estructura y el mismo relleno: el 30 y el 25
+              quedan a la misma altura; el chip va en posición absoluta y no empuja nada. El porqué del 25% queda en su pregunta. */}
           <div className="mp-cobros">
             <div className="mp-cobro mp-cobro-mejor">
               <span className="mp-cobro-etq">La que más te deja</span>
-              <b className="mp-cobro-pct">{directo}</b>
-              <h3>Transferencia o Binance</h3>
+              <div className="mp-cobro-cab"><b className="mp-cobro-pct">{directo}</b><h3>Transferencia</h3></div>
               {montos('directo')}
-              <p>Cuando el negocio paga por transferencia o Binance.</p>
+              <p className="mp-cobro-info">Pagan por transferencia a Mercado Pago o por Binance.</p>
             </div>
             <div className="mp-cobro">
-              <b className="mp-cobro-pct">{pasarela}</b>
-              <h3>Pasarela de pago <span>(tarjeta, Mercado Pago)</span></h3>
+              <div className="mp-cobro-cab"><b className="mp-cobro-pct">{pasarela}</b><h3>Pasarela de pago</h3></div>
               {montos('pasarela')}
-              <p>La pasarela cobra su comisión y la compartimos.</p>
+              <p className="mp-cobro-info">Pagan con link de pago o con tarjeta de crédito o débito.</p>
             </div>
           </div>
         </div>

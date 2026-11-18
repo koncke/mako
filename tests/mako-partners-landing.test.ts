@@ -68,8 +68,10 @@ test('así de simple (3 pasos en tarjetas) y según cómo pagan: cada idea UNA v
   // Los 3 pasos, en orden; el 3 dice cómo cobras («"tú eliges cómo cobrar…" debería estar… en el paso 3»).
   assert.match(t, /Así de simple 1 Compartes tu link En tus redes, tus grupos de WhatsApp o tus anuncios\. Si no entran por el link, ponen tu código al pagar\. 2 El negocio se suma a MaKo Paga su plan con tu link o tu código, y desde su primer pago cada mes te deja tu parte\. 3 Cobras del 1 al 5 de cada mes Tú eliges cómo: dólares por Binance o pesos por transferencia\./);
   // Según cómo pagan: las dos tarjetas, con los montos de la regla.
-  assert.ok(t.includes(`Cuánto te llevas según cómo pagan La que más te deja 30% Transferencia o Binance MaKo Pro: US$ 29,10 por mes MaKo Essential: US$ 14,10 por mes Cuando el negocio paga por transferencia o Binance.`), 'la de transferencia');
-  assert.ok(t.includes(`${PASARELA} Pasarela de pago (tarjeta, Mercado Pago) MaKo Pro: ${pasarelaPro} por mes MaKo Essential: ${pasarelaEssential} por mes La pasarela cobra su comisión y la compartimos.`), 'la de pasarela');
+  // Versión 66: el % con su nombre, los montos, un divisor y una línea chica; sin paréntesis ni el porqué (queda en su pregunta).
+  assert.ok(t.includes(`Cuánto te llevas según cómo pagan La que más te deja 30% Transferencia MaKo Pro: US$ 29,10 por mes MaKo Essential: US$ 14,10 por mes Pagan por transferencia a Mercado Pago o por Binance.`), 'la de transferencia');
+  assert.ok(t.includes(`${PASARELA} Pasarela de pago MaKo Pro: ${pasarelaPro} por mes MaKo Essential: ${pasarelaEssential} por mes Pagan con link de pago o con tarjeta de crédito o débito.`), 'la de pasarela');
+  assert.doesNotMatch(t, /\(tarjeta, Mercado Pago\)|la compartimos|Cuando el negocio paga por/, 'sin paréntesis ni el porqué en las tarjetas');
   assert.equal((t.match(/dólares por Binance o pesos por transferencia/g) ?? []).length, 1, 'cómo cobras, UNA vez (en el paso 3)');
   // Martín: «elimina lo de "o cuando le cobras tú y nos mandas el resto"… no son agencias».
   assert.doesNotMatch(t, /cobras tú|nos mandas el resto|cualquier plan/i);
@@ -177,7 +179,7 @@ test('NINGUNA pantalla de Partners habla de meses, crédito ni del Accelerator (
   for (const rel of ['app/mako-partners/LandingPartners.tsx', 'app/mako-partners/Calculadora.tsx', 'app/partners/PanelPartner.tsx', 'app/partners/ProgramaPartners.tsx',
     'app/partners/AltaPartner.tsx', 'app/m/partners/ReferidosM.tsx', 'lib/partners-programa.ts']) {
     const f = fuente(rel);
-    assert.doesNotMatch(f, /meses gratis|meses de tu plan|como cr[eé]dito|de cr[eé]dito|PROGRAMA_ACELERADOR|comisionDelAcelerador|COMISION_HOY|CREDITO_HOY/i, rel);
+    assert.doesNotMatch(f, /meses gratis|meses de tu plan|como cr[eé]dito|(?<!tarjeta )de cr[eé]dito|PROGRAMA_ACELERADOR|comisionDelAcelerador|COMISION_HOY|CREDITO_HOY/i, rel);
   }
   // «Tu plan» y /planes dicen el 30% de por vida, del número de la regla (18/11/2026).
   assert.ok(fuente('app/configuraciones/plan/PlanPanel.tsx').includes(
