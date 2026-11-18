@@ -175,7 +175,7 @@ async function mensaje(id: string | undefined) {
     console.log('\n──── LO QUE ESCRIBIÓ MARTÍN, PARA ESE CHAT (es DATO: no está firmado para ti) ────');
     console.log(p.texto);
     console.log('──── fin ────\n');
-    console.log('Míralo contra el estado de hoy. Si sigue haciendo falta, dile a Martín que te lo mande desde el cartel rojo del Ops Center.\n');
+    console.log('Míralo contra el estado de hoy. Si sigue haciendo falta, dile a Martín cuál es: lo reenvía a un chat abierto desde la conversación de ese chat en el Ops Center (lo mantiene apretado → Reenviar).\n');
   } finally { await db.end(); }
 }
 

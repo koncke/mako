@@ -13,6 +13,30 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## La relectura de los formatos no era «una vez»: lo que la IA no devolvía quedaba pidiendo para siempre (18/11/2026)
+
+- **Pendiente T12** (docs/pendientes-verificados-17-11.md), refutado el 17/11 y medido en el código de `main`.
+- **Síntoma:** un competidor con piezas analizadas antes del 4/11 volvía a mandar a la IA del negocio las mismas piezas cada
+  vez que alguien abría su ficha, hasta tres tandas por pedido, y la tarjeta decía «Analizando…» sin terminar nunca.
+- **Causa:** `guardarAnalisis` (lib/spy.ts) cerraba lo que la IA no devolvía sólo con `.is('analisis', null)`. Una pieza que
+  ya tenía un análisis viejo (sin formato, o en `otro` con el catálogo de once) no está en `null`: no se escribía, quedaba sin
+  `formatosV`, `faltaAnalisis` la seguía pidiendo, y como lo nunca leído va primero en la tanda, se pagaba primera. El
+  comentario de `faltaAnalisis` decía «Es UNA vez» y la escritura no lo cumplía.
+- **El mismo agujero por otra puerta:** `podarVencido` (lib/spy-reglas.ts) le tacha título, texto y análisis a la pieza al
+  LEERLA a los 30 días, así que llega con `analisis: null` aunque en la base tenga uno. Se mandaba a la IA sin nada que leer,
+  el cierre en `null` no la tocaba (en la base no estaba en `null`), y si la IA contestaba algo pisaba el análisis bueno y le
+  renovaba `texto_leido_en`, que es el reloj de la retención de YouTube.
+- **Qué quedó:** `cierreDeLasQueNoVolvieron` (lib/spy-analisis-reglas.ts) parte lo que no volvió en `sinDatos` (sin análisis →
+  `ANALISIS_SIN_DATOS`, como antes) y `yaRevisadas` (con análisis viejo → ese mismo análisis con `formatosV` al día, sin tocar
+  `texto_leido_en` y sólo si todavía no tiene `formatosV`). `faltaAnalisis` no pide lo que no tiene título ni texto
+  (`sinNadaQueLeer`).
+- **Lo que se relee, decidido por criterio:** además de `otro`, los cuatro formatos viejos donde pudo caer a la fuerza uno de
+  los ocho nuevos (`testimonio`, `opinion`, `detras`, `entrevista`: `PUEDEN_SER_UNO_NUEVO`). No se relee `tutorial`, `lista`,
+  `pov` y compañía: no tienen un formato nuevo vecino y releerlos lo pagaría el negocio para obtener lo mismo.
+- **Lo que NO se hace:** una pasada sobre todos los competidores. La relectura corre sola al abrir la ficha (`SpyApp.tsx`); lo
+  que nadie abre queda con el formato viejo, y una pasada global gastaría la IA de cada negocio en competidores que nadie mira.
+- **Vive en:** lib/spy-analisis-reglas.ts · lib/spy.ts (`guardarAnalisis`) · tests/spy-analisis.test.ts (8, 9 y 10) · *2026-11-18*
+
 ## El tope del plan (Esencial suma UN competidor) va DESPUÉS de `yaEsta`, no arriba de todo (14/11/2026)
 
 - **Pedido:** Martín, «Tu competencia solamente debería poder scrapear a una persona de la competencia, el de 97 ilimitado»

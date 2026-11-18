@@ -16,6 +16,11 @@
 //   - corridas sin mirar la última actividad o lo archivado → «corridas»;
 //   - alAbrir sin mirar el origen → «al compactar» y «por el hook de verdad»;
 //   - el hook sin pasarle el origen → «por el hook de verdad».
+// Y el 18/11/2026 (pendiente T6, el cron del Runner que vence sin que nadie lo vea), cada una cae sola:
+//   - `cronDelRunner` sin mirar la edad de la marca → «el cron vencido»;
+//   - `cronDelRunner` que alarma sin marca → «sin marca no alarma»;
+//   - al-turno sin mirar el cron con el Runner vivo → «al-turno: el cron vencido»;
+//   - `marcarCronDelRunner` que también marca a la guardia → «la marca la deja sólo el Runner».
 // Y un cambio sin efecto (renombrar una variable local) lo deja verde.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -328,4 +333,63 @@ test('al-turno: sólo el Cerebro recibe el aviso, y con el Runner vivo nadie', (
   p.chatVivo(3, 'Runner');
   p.latido(1 * MIN);
   assert.equal(p.correr('al-turno', { CLAUDE_PID: '2' }), '');
+});
+
+// ── El cron del Runner (pendiente T6, 18/11/2026) ─────────────────────────────────────────────────────────────────────────────
+// El cron de sesión vence a los 7 días y el Runner rearma su Monitor igual: el latido sigue fresco y «vivo» decía que sí con el vigía
+// y la medición apagados. La vuelta del cron deja `runner-cron.<cuenta>` al medir; sin esa marca reciente, el cron no corre.
+const marcarCron = (p: ReturnType<typeof pc>, hace: number, cuenta = 'claude5') =>
+  writeFileSync(join(p.dir, `runner-cron.${cuenta}`), new Date(Date.now() - hace).toISOString());
+
+test('estado: el cron del Runner al día, vencido, o sin marca (un cartero de antes), y sólo el vencido con Runner vivo alarma', () => {
+  const p = pc();
+  p.guardia(); p.chatVivo(1, 'Runner'); p.latido(0);
+  const sinMarca = JSON.parse(p.correr('estado'));
+  assert.equal(sinMarca.runner.vivo, true);
+  assert.deepEqual(sinMarca.cron, { estado: 'sin_dato', min: null }, 'sin marca no alarma');
+  assert.equal(sinMarca.cronVencido, false);
+  marcarCron(p, 9 * MIN);
+  const alDia = JSON.parse(p.correr('estado'));
+  assert.equal(alDia.cron.estado, 'al_dia');
+  assert.equal(alDia.cronVencido, false);
+  marcarCron(p, 45 * MIN);
+  const vencido = JSON.parse(p.correr('estado'));
+  assert.equal(vencido.cron.estado, 'vencido', 'el cron vencido');
+  assert.equal(vencido.cron.min, 45);
+  assert.equal(vencido.cronVencido, true, 'con el Runner latiendo, el cron que no corre es lo que la guardia tiene que avisar');
+  // Sin Runner vivo, lo que vale es «no hay Runner»: el cron no es lo que falta.
+  p.latido(20 * MIN);
+  assert.equal(JSON.parse(p.correr('estado')).cronVencido, false);
+});
+
+test('al-turno: el cron vencido con el Runner vivo se le dice al Cerebro, sin abrir otro', () => {
+  const p = pc();
+  p.chatVivo(1, 'Cerebro');
+  const runner = p.chatVivo(2, 'Runner');
+  p.latido(1 * MIN);
+  marcarCron(p, 5 * MIN);
+  assert.equal(p.correr('al-turno', { CLAUDE_PID: '1' }), '', 'con el cron al día, nada');
+  marcarCron(p, 50 * MIN);
+  const linea = p.correr('al-turno', { CLAUDE_PID: '1' });
+  assert.match(linea, /^EL CRON DEL RUNNER DE claude5 NO CORRE HACE 50 MIN/);
+  assert.ok(linea.includes(`send_message a ${runner}`), linea);
+  assert.doesNotMatch(linea, /start_session/);
+  assert.ok(!/["\\\n]/.test(linea), 'va adentro de un JSON armado a mano');
+  assert.equal(p.correr('al-turno', { CLAUDE_PID: '2' }), '', 'sólo el Cerebro lo recibe');
+});
+
+test('la marca la deja sólo el Runner: ni la guardia ni otro chat', async () => {
+  const { marcarCronDelRunner } = await import('../scripts/operaciones/cartero.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'runner-cron-'));
+  const ahora = Date.parse('2026-11-18T12:00:00Z');
+  assert.equal(marcarCronDelRunner('claude5', 'Guardia > Runner', ahora, dir), false, 'la guardia mide por el Runner: si marcara, taparía el cron vencido');
+  assert.equal(marcarCronDelRunner('claude5', 'Cerebro', ahora, dir), false);
+  assert.equal(marcarCronDelRunner('claude5', null, ahora, dir), false);
+  assert.equal(marcarCronDelRunner('no-es-cuenta', 'Runner', ahora, dir), false);
+  assert.equal(marcarCronDelRunner('claude5', 'Runner', ahora, dir), true);
+  assert.equal(readFileSync(join(dir, 'runner-cron.claude5'), 'utf8'), '2026-11-18T12:00:00.000Z');
+  // El que mide desde el comando `medir` es ese mismo: si se desengancha, el Runner mide y la marca no aparece nunca.
+  const src = readFileSync(fileURLToPath(new URL('../scripts/operaciones/cartero.mjs', import.meta.url)), 'utf8').replace(/\r\n/g, '\n');
+  const caso = src.slice(src.indexOf("case 'medir': {"), src.indexOf("case 'uso':"));
+  assert.match(caso, /marcarCronDelRunner\(c, sesionPropia\(dirPropio\(cfg\)\)\?\.name\)/, '`medir` no deja la marca');
 });

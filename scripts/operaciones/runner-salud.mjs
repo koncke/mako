@@ -23,7 +23,7 @@
 // anda send_message, que va por la app y pide el id del chat: `destino` lo saca del pipe. Este archivo nunca reclama ni entrega.
 //
 // Uso:  runner-salud.mjs al-abrir <source>   lo corre el hook SessionStart: corrige el marcador e imprime UNA línea para el chat, o nada
-//       runner-salud.mjs estado     el JSON que lee la guardia
+//       runner-salud.mjs estado     el JSON que lee la guardia (con `cron`: si la vuelta del cron del Runner sigue corriendo)
 //       runner-salud.mjs tomar      la corrida reclama la vuelta: TOMADO u OCUPADO (dos a la vez no entregan lo mismo)
 //       runner-salud.mjs destino <to>   el id del chat de un `uds:`, para send_message; SIN_DESTINO si ese chat no está abierto
 //       runner-salud.mjs avisar     AVISAR una vez cada 2 horas por cuenta, YA el resto: lo que se le dice al Cerebro sin gastarle cuota
@@ -48,6 +48,10 @@ const LOG = path.join(DIR, 'runner-salud.log');
 export const LATIDO_VIVO_MS = 6 * 60 * 1000;
 /** La vuelta del Runner mide cada 10 min: pasado esto, nadie está midiendo. */
 export const MEDIDO_VIEJO_MS = 30 * 60 * 1000;
+/** La vuelta del CRON del Runner mide cada 10 min y deja su marca (`cartero.mjs medir`): sin una en este rato, el cron no corre. */
+export const CRON_VIVO_MS = 30 * 60 * 1000;
+/** El mismo nombre que escribe `marcarCronDelRunner` en cartero.mjs. */
+export const marcaDelCron = (cuenta) => path.join(DIR, `runner-cron.${cuenta}`);
 /** De los chats que abren juntos, sólo el primero recibe el aviso o el encargo. */
 const PEDIDA_VENCE_MS = 10 * 60 * 1000;
 /** Una corrida sin actividad en este rato ya terminó: las medidas duran menos de dos minutos. */
@@ -135,6 +139,26 @@ export function tareaDeLaCuenta({ uuid, cuenta, org = null }) {
   return { existe: false, prendida: false };
 }
 
+/**
+ * ¿La vuelta del CRON del Runner sigue corriendo? (pendiente T6, 18/11/2026). El cron de sesión vence a los 7 días (el del
+ * 4/11 vencía el 11/11) y el Runner rearma su Monitor cada vez que vence, así que `continuo.latido` sigue fresco: «vivo» decía
+ * que sí mientras el vigía (que corre sólo desde el cron) y la medición del Runner se habían apagado. La guardia medía por él
+ * (`medirYa`) y eso lo tapaba. Un script no puede llamar a CronList: lo que cuenta es la marca que deja la vuelta del cron al
+ * medir (`cartero.mjs medir`, sólo cuando mide el chat Runner, nunca la guardia ni otro chat).
+ *   · `al_dia`: la marca tiene menos de `CRON_VIVO_MS`.
+ *   · `vencido`: la marca existe y es más vieja. Es lo único que alarma.
+ *   · `sin_dato`: nunca hubo marca. Un cartero de antes no la escribe: callarse es lo correcto, no alarmar.
+ */
+export function cronDelRunner({ cuenta, ahora = Date.now() }) {
+  if (!cuenta) return { estado: 'sin_dato', min: null };
+  let t = NaN;
+  try { t = Date.parse(fs.readFileSync(marcaDelCron(cuenta), 'utf8').trim()); } catch { return { estado: 'sin_dato', min: null }; }
+  if (!Number.isFinite(t)) { const ms = haceMs(marcaDelCron(cuenta), ahora); t = Number.isFinite(ms) ? ahora - ms : NaN; }
+  if (!Number.isFinite(t)) return { estado: 'sin_dato', min: null };
+  const min = Math.max(0, Math.round((ahora - t) / 60000));
+  return { estado: ahora - t < CRON_VIVO_MS ? 'al_dia' : 'vencido', min };
+}
+
 function medidoMin(cuenta, ahora) {
   const t = Date.parse(leerJson(path.join(DIR, 'uso', `${cuenta}.json`), null)?.medido ?? '');
   return Number.isFinite(t) ? Math.round((ahora - t) / 60000) : null;
@@ -147,9 +171,15 @@ export function estado(env = process.env, ahora = Date.now()) {
   // ⚠️ LA TAREA TAMBIÉN VA EN EL ESTADO (6/11/2026). `estado` es el JSON que lee la guardia, y no decía NADA de su propia
   // tarea: si el reloj del Runner vence sin rearmarse, la medición sigue por `medirYa` y el vigía se apaga **en silencio**.
   // `tareaDeLaCuenta` ya existía y ya devolvía `prendida`; nadie la miraba desde acá.
+  // ⚠️ Y EL CRON DEL RUNNER (18/11/2026, pendiente T6): `cronVencido` es el único caso en que la guardia tiene que avisar con el
+  // Runner «vivo». Sin esto, la guardia medía por él y el vigía quedaba apagado sin que nadie lo dijera.
+  const runner = runnerDeLaCuenta({ uuid, ahora });
+  const cron = cronDelRunner({ cuenta, ahora });
   return {
     cuenta, uuid, marcador: leerMarcador(),
-    runner: runnerDeLaCuenta({ uuid, ahora }),
+    runner,
+    cron,
+    cronVencido: runner.vivo && cron.estado === 'vencido',
     tarea: cuenta ? tareaDeLaCuenta({ uuid, cuenta, org: env.CLAUDE_CODE_ORGANIZATION_UUID ?? null }) : { existe: false, prendida: false },
     medidoMin: min,
     medirYa: min == null || min * 60000 >= MEDIDO_VIEJO_MS,
@@ -273,7 +303,14 @@ export function alTurno(env = process.env, ahora = Date.now()) {
   if (!uuid || !cuenta) return '';
   if (!esElCerebro(nombrePropio(env))) return '';
   const runner = runnerDeLaCuenta({ uuid, ahora });
-  if (runner.vivo) return '';
+  if (runner.vivo) {
+    // Late (su Monitor) pero su cron no corre: no mide la cuota ni corre el vigía (pendiente T6). No se abre otro: se le pide
+    // al mismo que rearme el cron.
+    const cron = cronDelRunner({ cuenta, ahora });
+    if (cron.estado !== 'vencido') return '';
+    anotar(`al-turno ${cuenta}: el cron del Runner no corre hace ${cron.min} min`);
+    return `EL CRON DEL RUNNER DE ${cuenta} NO CORRE HACE ${cron.min} MIN: el Runner late (su Monitor) pero no mide la cuota ni corre el vigia, y nadie lo avisa. No abras otro: escribile al Runner (send_message a ${runner.chats[0]}) que relea ~/.claude/operaciones/LEEME-cartero.md y rearme el cron. Si se niega a armar el cron sin Martin, en el primer turno de Martin pasale su frase textual. Regla de Martin del 12/11: el Runner siempre activo.`;
+  }
   if (runner.chats.length) {
     // Abierto y sin latir: si es nuevo, todavía está armando. Si no, hay que despertarlo, no abrir otro.
     if (runner.latidoMin == null || runner.latidoMin * 60000 < RUNNER_NUEVO_MS) return '';

@@ -7,6 +7,53 @@ del código.
 
 ---
 
+## El cron del Runner vencía sin que nada lo dijera, y la guardia lo tapaba midiendo por él (pendiente T6, 18/11/2026)
+
+**Vive en:** `scripts/operaciones/runner-salud.mjs` (`cronDelRunner`, `estado` → `cron` y `cronVencido`, `alTurno`) ·
+`scripts/operaciones/cartero.mjs` (`marcarCronDelRunner`, en el comando `medir`) · `scripts/operaciones/guardia-runner.md` (el
+prompt de la guardia). Lo fija `tests/runner-salud.test.ts`, probado rompiéndolo.
+
+**Síntoma:** el cron de sesión del Runner vence a los 7 días (el del 4/11 vencía el 11/11). Sin cron, el vigía (que corre sólo
+desde el cron) y la medición del Runner se apagan, y **nada lo dice**.
+
+**Por qué el latido no lo cazaba:** el Runner rearma su Monitor cada vez que vence, así que `continuo.latido` sigue fresco y
+`runner.vivo` dice que sí. Y la guardia, al ver `medirYa`, medía por él: el único síntoma (la cuota sin medir) desaparecía.
+
+**El diagnóstico equivocado que circulaba:** 9a949bb07 (6/11) y docs/hallazgos-infra.md dicen resolver «el cron del Runner», y
+arreglaron otra cosa (la guardia apagada se leía como sana). El comentario de `estado` nombraba el cron sin un chequeo.
+
+**Qué quedó:** un script no puede llamar a CronList, así que la vuelta del cron deja una marca: `cartero.mjs medir`, cuando mide
+el chat Runner (no la guardia, «Guardia > Runner», ni otro chat), escribe `~/.claude/operaciones/runner-cron.<cuenta>` con la
+hora. `estado` trae `cron` (`al_dia` / `vencido` / `sin_dato`) y `cronVencido` (Runner vivo + marca de más de 30 min). La
+guardia, con `cronVencido`, le avisa al Cerebro una vez cada 2 horas; y el Cerebro, en cada turno, recibe la línea «EL CRON
+DEL RUNNER … NO CORRE» con el id del Runner para pedirle que lo rearme (no se abre otro).
+
+⚠️ **Sin marca nunca, no alarma** (`sin_dato`): un cartero instalado antes de esto no la escribe, y alarmar por eso mandaría a
+rearmar un cron sano. Es el mismo criterio de «un cartero de antes no dice `runner`: no se alarma».
+
+⚠️ **Para que ande en la PC hacen falta tres copias** (eso lo hace el Cerebro, no la nube): `cartero.mjs` y `runner-salud.mjs` a
+`~/.claude/operaciones/`, y el bloque nuevo del prompt de `guardia-runner.md` en la tarea `runner-guardia-<cuenta>` de cada
+cuenta. Sin la copia del cartero, no hay marca y todo queda en `sin_dato` (callado, como antes).
+
+## Las funciones del cartel del limbo, sin pantalla: se borraron, y el aviso al Cerebro mandaba a un cartel que no existe (pendiente T5, 18/11/2026)
+
+**Vive en:** `lib/centro-limbo.ts` (quedan las constantes del vencimiento y `haceCuanto`) · `lib/limbo-al-cerebro.ts` y su copia en
+`scripts/operaciones/cartero.mjs` (`mensajeLimbo`) · `scripts/tickets.ts` (`mensaje`). Lo fijan `tests/centro-limbo.test.ts` y
+`tests/limbo-al-cerebro.test.ts`.
+
+- **Lo que había:** `mensajesEnLimbo`, `queHacer`, `textoDelCartel`, `textoDeVence`, `originalParaReenviar` y `chatsParaMandarle`,
+  más `descartarDelLimboAction` y `descartarDelLimbo`, con cero call sites fuera de los tests desde que Martín sacó el cartel rojo
+  (31/10). Su propio encabezado decía «queda la regla y sus textos, sin pantalla».
+- **El camino elegido fue borrarlas**, no ponerlas en el Uso: Martín vetó el cartel, lo que espera un chat cerrado ya se lo dice
+  el Runner al Cerebro, y una pieza nueva en el Uso es una pantalla que él tiene que ver antes. Lo que se probaba con ellas sobre
+  código vivo (`pedidosSinChatVivo`, `comoEstaElDestino`, `avisosDeLimbo`, `chatRecibe`) se quedó en el test.
+- ⚠️ **El defecto que sí se veía:** el aviso al Cerebro (`mensajeLimbo`) y `tickets.ts mensaje` terminaban en «dile a Martín que te lo
+  mande desde el cartel rojo del Ops Center». El cartel no existe desde el 31/10: el Cerebro mandaba a Martín a buscar un botón
+  que no está (AGENTS.md, «un mensaje honesto también puede afirmar de más»). Ahora dice que lo reenvíe a un chat abierto desde la
+  conversación de ese chat (mantenerlo apretado → Reenviar), que es lo que existe (`opcionesDelMensaje`, lib/centro-mensajes.ts).
+- **De paso, una guarda ciega:** el test de voseo de ese archivo buscaba `\b(abrí|acá)\b`, que en JavaScript no calza nunca (la
+  tilde final no es letra para `\b`). Ahora usa `marcasDeVoseo`, con una frase voseada que tiene que cazar.
+
 ## Los pendientes se fabrican solos: 73 de 285 ya estaban cerrados, y un «ya está» de una lectura falla un tercio (17/11/2026)
 
 **Vive en:** las listas de pendientes (`docs/pendientes-*.md`, `docs/encargos-*/`, `docs/relevo/*.md`) y las secciones «Sin
@@ -182,7 +229,7 @@ Sin título no se nombra a nadie: va **«Escribe lo que necesitas»**, el mismo 
 - **Un `tsc` acotado en un worktree no ve `NODE_ENV`:** `next-env.d.ts` no se versiona, y sin `node_modules/next/types/global.d.ts` en el `include` da 0 errores donde GitHub da TS2769. Mi primer intento de reproducir el rojo dio verde por eso.
 - **Una mezcla vieja deja JSX huérfano sin chocar:** `PiezasCentro.tsx` había perdido `sinNoticias` y `horaAR` en la rama, y conservaba el renglón que los usaba. Lo vio sólo el `tsc` entero.
 
-**SIN HACER / sin medir:** una entrega real de la guardia con `send_message`; el cambio real de una cuenta a otra; que un chat obedezca el encargo de crear la guardia (las otras cuatro cuentas no la tienen); si la guardia debe mirar también el cron vencido. Detalle en `docs/relevo/runner.md`.
+**SIN HACER / sin medir:** una entrega real de la guardia con `send_message`; el cambio real de una cuenta a otra; que un chat obedezca el encargo de crear la guardia (las otras cuatro cuentas no la tienen); ~~si la guardia debe mirar también el cron vencido~~ (hecho el 18/11/2026: «El cron del Runner vencía sin que nada lo dijera», arriba). Detalle en `docs/relevo/runner.md`.
 
 ---
 

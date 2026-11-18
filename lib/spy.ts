@@ -70,7 +70,7 @@ import { leerPorPaginas } from './supabase-paginado';
 import { borrarSetting, borrarSettingsConPrefijo, getSetting } from './settings';
 import { claveOfertaSpy } from './spy-oferta';
 import { prefijoTranscripciones } from './spy-transcripcion';
-import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
+import { ANALISIS_SIN_DATOS, cierreDeLasQueNoVolvieron, ofertaQueQueda, pendientesDeAnalisis, type PiezaParaAnalisis } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
 import { claveLectura, leeCanal, type PasoLectura } from './spy-lectura-pasos';
 import { topeDeCompetidores } from './spy-tope';
@@ -1088,7 +1088,7 @@ export async function analizarCompetidor(
         : { ok: false, error: 'Conecta tu Claude, tu GPT o tu Gemini para que MaKo analice sus piezas.', sinIA: true };
     }
     const analisis = leerAnalisis(objetoJson(texto));
-    await guardarAnalisis(competidorId, analisis, piezas.map((p) => p.ref), c.oferta);
+    await guardarAnalisis(competidorId, analisis, piezas, c.oferta);
     return { ok: true, analisis, leidas: piezas.length };
   } catch (e) {
     return { ok: false, error: `No pude analizar al competidor: ${msg(e)}`, falla: true };
@@ -1100,9 +1100,12 @@ export async function analizarCompetidor(
  *
  * ⚠️ El ref que devuelve la IA se busca entre los ENVIADOS sin mayúsculas: un modelo que lo reescribe en minúsculas no
  * encuentra la fila con `.eq('ref', …)` y la pieza queda pendiente para siempre. Lo que se mandó y no volvió se marca
- * leído sin datos (`ANALISIS_SIN_DATOS`), por la misma razón.
+ * leído sin datos (`ANALISIS_SIN_DATOS`), por la misma razón. Y lo que tenía un análisis VIEJO y no volvió se cierra
+ * con ese mismo análisis y `formatosV` al día (`cierreDeLasQueNoVolvieron`): sin eso quedaba pidiendo lectura para
+ * siempre (pendiente T12, 17/11/2026).
  */
-async function guardarAnalisis(competidorId: number, a: Analisis, enviadas: readonly string[], ofertaAnterior: OfertaLeida | null): Promise<void> {
+async function guardarAnalisis(competidorId: number, a: Analisis, piezasEnviadas: readonly PiezaParaAnalisis[], ofertaAnterior: OfertaLeida | null): Promise<void> {
+  const enviadas = piezasEnviadas.map((p) => p.ref);
   const db = await getTenantDb();
   const ahora = new Date().toISOString();
   const oferta = ofertaQueQueda(a.oferta, ofertaAnterior);
@@ -1118,10 +1121,16 @@ async function guardarAnalisis(competidorId: number, a: Analisis, enviadas: read
       .update({ analisis: { gancho: p.gancho, tipoGancho: p.tipoGancho, angulo: p.angulo, etiquetas: p.etiquetas, formato: p.formato || 'otro', formatosV: VERSION_FORMATOS }, texto_leido_en: ahora, updated_at: ahora })
       .eq('competidor_id', competidorId).eq('ref', ref);
   }
-  const faltan = refsSinRespuesta(enviadas, a.piezas.map((p) => p.ref));
-  if (faltan.length) {
+  const { sinDatos, yaRevisadas } = cierreDeLasQueNoVolvieron(piezasEnviadas, a.piezas.map((p) => p.ref));
+  if (sinDatos.length) {
     await db.from('spy_piezas').update({ analisis: ANALISIS_SIN_DATOS, texto_leido_en: ahora, updated_at: ahora })
-      .eq('competidor_id', competidorId).in('ref', faltan).is('analisis', null);
+      .eq('competidor_id', competidorId).in('ref', sinDatos).is('analisis', null);
+  }
+  // ⚠️ Sin tocar `texto_leido_en`: el texto no se volvió a leer, sólo se cerró la relectura del formato. Y sólo si todavía
+  // no tiene `formatosV`: otra tanda que corrió en el medio (otra instancia) pudo haberla clasificado de nuevo.
+  for (const r of yaRevisadas) {
+    await db.from('spy_piezas').update({ analisis: r.analisis, updated_at: ahora })
+      .eq('competidor_id', competidorId).eq('ref', r.ref).is('analisis->>formatosV', null);
   }
 }
 
