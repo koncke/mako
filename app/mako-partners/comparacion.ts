@@ -1,51 +1,50 @@
 // =============================================================================
-// MaKo frente a GoHighLevel: la tabla de la landing de MaKo Partners (18/11/2026)
+// MaKo vs. GoHighLevel: la tabla de la landing de MaKo Partners (18/11/2026)
 // =============================================================================
-// Martín por el Cerebro: «la idea es posicionar a MaKo por arriba de HighLevel… sacar ventaja para que elijan revender esto». La
-// tabla va a la vista (sin desplegable) y la columna de MaKo gana: lo que GoHighLevel cobra aparte, en rojo; lo que no tiene, con
-// una cruz.
-// ⚠️ CADA FILA ES VERDAD Y SE PUEDE COMPROBAR en el sitio oficial de GoHighLevel: la `fuente` es la página que lo dice (leída el
-// 18/11/2026). Si GoHighLevel cambia, la fila se corrige o se va; una fila sin fuente no entra (el test lo exige).
-// Lo que NO va, porque no se puede decir con verdad: «material para recomendar» (ellos también lo dan: Brand Kit y Asset Library en
-// gohighlevel.com/affiliate), «arranca sin conocimientos técnicos» y «el coach con IA y el reto de 7 días» (tienen su onboarding:
-// no se les puede poner una cruz), «MaKo opera la cuenta desde WhatsApp» (no se puede afirmar la cruz), «en español» a secas (su
-// app tiene la interfaz en español; lo que está en inglés es la ayuda) y la comisión (ellos pagan 40% recurrente; Martín compite
-// por valor).
-// Lo de MaKo sale del código: las líneas de WhatsApp vienen con el plan (se conecta por QR, lib/evolution-*, sin cobro por
-// mensaje), el setter con IA es de Pro (`celdaDeMaKo`, de `FUNCIONES_SOLO_PRO`) y el precio, el de Essential.
-// Aparte de LandingPartners.tsx porque son datos de OTRA app: en la landing no se escribe ningún número a mano.
+// Martín por el Cerebro: «la idea es posicionar a MaKo por arriba de HighLevel… si vas a poner la X, pon simplemente la X, no
+// aclares cosas abajo. Tampoco pongas datos de gohighlevel.com». La tabla va a la vista: sólo ✓ y ✕ (salvo el precio de entrada,
+// que dice los dos montos), sin textos debajo de cada celda ni la nota de las fuentes.
+// ⚠️ CADA ✕ ES VERDAD Y SE PUEDE COMPROBAR en el sitio oficial de GoHighLevel: la `fuente` es la página que lo dice (leída el
+// 18/11/2026). No se muestra, pero queda acá y el test exige una por fila. Si GoHighLevel cambia, la fila se corrige o se va.
+//   · WhatsApp: US$ 10 al mes aparte por cuenta, más cada mensaje (su guía de precios de WhatsApp).
+//   · IA: los agentes de IA se pagan aparte, por uso o US$ 50/97 al mes por cuenta («AI Agents… remain paid»).
+//   · Todo en el mismo precio: por lo de arriba, WhatsApp e IA son extras.
+//   · Soporte: chat, Zoom, tickets y teléfono; WhatsApp no figura.
+//   · Tutoriales en español: su centro de ayuda está en inglés (también /es/).
+//   · Ayuda con anuncios y atención de contactos: a sus afiliados les da material (Brand Kit, Asset Library), no esa ayuda.
+//   · Latinoamérica y los medios de pago: «We don't accept PayPal, checks» y el plan se paga con tarjeta; ni pesos, ni Binance, ni
+//     Mercado Pago.
+// Lo que NO va como ✕ porque sería falso (Martín lo pidió y el Cerebro lo descartó): «todo en una sola app» (GoHighLevel también lo
+// es) y «material para vender» (también lo da). Las filas 4 y 7 lo dicen de una forma que sí es verdad. Tampoco la comisión (ellos
+// pagan 40% recurrente; Martín compite por valor).
+// Lo de MaKo sale del código: el WhatsApp y la IA vienen con el plan (`celdaDeMaKo`; el test lo verifica) y el precio, el de
+// Essential. Aparte de LandingPartners.tsx porque son datos de OTRA app: en la landing no se escribe ningún número a mano.
 // =============================================================================
 
-import { COMPETIDORES, celdaDeMaKo, type ClaveFila } from '@/app/vsl/_sitio/competencia';
+import { COMPETIDORES, celdaDeMaKo } from '@/app/vsl/_sitio/competencia';
 
-/** Una fila: lo de MaKo (vacío = sólo el tilde) y lo de la otra app: lo que cuesta aparte (`costo`) o lo que no tiene (`no`). */
-export type FilaVs = { nombre: string; mako: string; otra: string; tipo: 'costo' | 'no'; fuente: string };
+/** Una fila: ✓ para MaKo y ✕ para la otra; la del precio, con los dos montos. */
+export type FilaVs = { nombre: string; precio?: { mako: string; otra: string }; fuente: string };
 
 const GHL = COMPETIDORES.find((x) => x.slug === 'gohighlevel');
 export const NOMBRE_OTRA = GHL?.nombre ?? 'GoHighLevel';
 export const LOGO_OTRA = GHL?.logo ?? '/vsl-assets/logos/apps/gohighlevel.png';
 
-/** Lo de MaKo de una fila de la matriz del sitio: «si» es el tilde solo; si no, lo que dice («En Pro»). */
-const deMaKo = (clave: ClaveFila): string => { const v = celdaDeMaKo(clave).v; return v === 'si' ? '' : v; };
+export const COMPARACION_TITULO = `MaKo vs. ${NOMBRE_OTRA}`;
 
-export const COMPARACION_TITULO = 'Lo que GoHighLevel te cobra aparte o ni siquiera tiene, en MaKo viene incluido';
+const AYUDA = 'https://help.gohighlevel.com/support/solutions/articles/';
+const PRECIOS_IA = `${AYUDA}155000001156-highlevel-pricing-guide`;
+const PAGOS = `${AYUDA}48001208376-common-billing-related-questions-for-agencies`;
 
 export const COMPARACION: readonly FilaVs[] = [
-  { nombre: 'WhatsApp incluido en el plan', mako: deMaKo('whatsapp'), otra: 'US$ 10 al mes aparte, más cada mensaje', tipo: 'costo',
-    fuente: 'https://help.gohighlevel.com/support/solutions/articles/155000001428-whatsapp-pricing-billing-and-rebilling-guide' },
-  { nombre: 'IA que contesta a tus clientes', mako: deMaKo('setter_ia'), otra: 'Aparte: por uso o desde US$ 50 al mes', tipo: 'costo',
-    fuente: 'https://help.gohighlevel.com/support/solutions/articles/155000001156-highlevel-pricing-guide' },
-  { nombre: 'Precio de entrada', mako: `Desde ${celdaDeMaKo('precio').v} al mes`, otra: `Desde ${GHL?.celdas.precio?.v ?? '?'} al mes`, tipo: 'costo',
-    fuente: GHL?.celdas.precio?.fuente ?? '' },
-  { nombre: 'Soporte por WhatsApp', mako: '', otra: 'Chat, Zoom, tickets y teléfono', tipo: 'no',
-    fuente: 'https://help.gohighlevel.com/support/solutions/articles/155000000969-24-7-customer-support-options' },
-  { nombre: 'Centro de ayuda en español', mako: '', otra: 'En inglés', tipo: 'no',
-    fuente: 'https://help.gohighlevel.com/support/home' },
-  // «We don't accept PayPal, checks» y el plan se paga con tarjeta; su transferencia (ACH) es sólo para recargar la billetera desde
-  // US$ 1.000, no para el plan. «Sólo con tarjeta», aprobado por el Cerebro (18/11/2026).
-  { nombre: 'Pagar con Mercado Pago, transferencia o Binance', mako: '', otra: 'Sólo con tarjeta', tipo: 'no',
-    fuente: 'https://help.gohighlevel.com/support/solutions/articles/48001208376-common-billing-related-questions-for-agencies' },
+  { nombre: 'Precio de entrada', precio: { mako: celdaDeMaKo('precio').v, otra: GHL?.celdas.precio?.v ?? '?' },
+    fuente: GHL?.celdas.precio?.fuente ?? 'https://www.gohighlevel.com/pricing' },
+  { nombre: 'WhatsApp incluido en el plan', fuente: `${AYUDA}155000001428-whatsapp-pricing-billing-and-rebilling-guide` },
+  { nombre: 'IA incluida en el plan', fuente: PRECIOS_IA },
+  { nombre: 'Todo incluido en el mismo precio, sin extras', fuente: PRECIOS_IA },
+  { nombre: 'Soporte por WhatsApp', fuente: `${AYUDA}155000000969-24-7-customer-support-options` },
+  { nombre: 'Fácil de usar, con tutoriales en español de cada pantalla', fuente: 'https://help.gohighlevel.com/support/home' },
+  { nombre: 'Te ayudamos con tus anuncios y atendemos a tus contactos', fuente: 'https://www.gohighlevel.com/affiliate' },
+  { nombre: 'Pensada para vender en Latinoamérica: WhatsApp, pesos y Binance', fuente: PAGOS },
+  { nombre: 'Pagar con Mercado Pago, transferencia o Binance', fuente: PAGOS },
 ];
-
-/** Cuándo se leyeron las fuentes (se dice debajo de la tabla, así la comparación queda con fecha). */
-export const COMPARACION_LEIDA = 'noviembre de 2026';

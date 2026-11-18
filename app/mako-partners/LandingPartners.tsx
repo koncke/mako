@@ -37,12 +37,15 @@ import { COMISION_PARTNER_DIRECTO, RUTA_ALTA_PARTNERS } from '@/lib/partners-reg
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
 import { gananciaPorMes, porcentaje, usd } from './numeros';
-import { COMPARACION, COMPARACION_LEIDA, COMPARACION_TITULO, LOGO_OTRA, NOMBRE_OTRA } from './comparacion';
+import { COMPARACION, COMPARACION_TITULO, LOGO_OTRA, NOMBRE_OTRA } from './comparacion';
 import { BENEFICIOS } from './beneficios';
 import { Carrusel } from './Carrusel';
 import { EstrellaMaKo } from '@/app/vsl/_competencia/marca';
 import { MARCA } from '@/lib/tutoriales/marcas';
-import { INDUSTRIAS } from '@/app/vsl/_sitio/datos';
+import {
+  Apple, Brain, Briefcase, Calculator, Car, Compass, DraftingCompass, Dumbbell, House, Megaphone, MessagesSquare, MonitorPlay,
+  PartyPopper, Plane, Scale, School, ShieldCheck, Smile, Sparkles, TrendingUp, type LucideIcon,
+} from 'lucide-react';
 import { CSS_REEMPLAZA } from '@/app/vsl/_sitio/estilos';
 
 const CSS = `
@@ -202,7 +205,6 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-vs2-tabla thead .otra { border-radius: 18px 18px 0 0; }
 .mp-vs2-tabla thead .otra b { color: #6B7280; }
 .mp-vs2-tabla thead .otra .mp-vs2-logo { filter: grayscale(1); opacity: .65; }
-.mp-vs2-tabla .otra.costo .mp-vs2-dato { color: #C2413B; font-weight: 700; }
 .mp-vs2-chip { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); padding: 5px 11px; border-radius: 999px; white-space: nowrap;
   font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--mp-sobre-azul); background: var(--mp-azul);
   box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--mp-azul) 80%, transparent); }
@@ -211,10 +213,12 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-vs2-si { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; color: #fff;
   background: var(--mp-bien); box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--mp-bien) 80%, transparent); vertical-align: middle; }
 .mp-vs2-si svg { width: 18px; height: 18px; }
-.mp-vs2-tabla .mk .mp-vs2-dato { display: block; margin-top: 6px; font-size: 14.5px; }
-.mp-vs2-no { display: block; margin-bottom: 2px; color: #C2413B; font-size: 18px; font-weight: 800; line-height: 1; }
-.mp-vs2-tabla .otra.no .mp-vs2-dato { font-size: 14.5px; }
-.mp-vs2-nota { margin: 16px 0 0; font-size: 13px; line-height: 18px; color: #6B7280; text-align: center; }
+.mp-vs2-no { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; color: #C2413B;
+  background: color-mix(in srgb, #C2413B 12%, var(--mp-sup)); vertical-align: middle; }
+.mp-vs2-no svg { width: 15px; height: 15px; }
+/* El precio de entrada: los dos montos, sin tilde; el de MaKo en verde. */
+.mp-vs2-precio { font-weight: 600; }
+.mp-vs2-verde { color: var(--mp-bien); font-size: 1.25em; font-weight: 800; }
 /* «Así de simple»: profundidad suave (borde fino, sombra y un degradé muy leve de la marca), el número en un círculo, un ícono, y en
    la computadora la línea punteada que une los pasos (en el hueco entre tarjetas). */
 .mp-pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; grid-template-columns: repeat(3, 1fr); }
@@ -283,13 +287,60 @@ body:has(.mp-publica) { background: #FFFFFF; }
   .mp-vs2-chip { font-size: 10px; padding: 4px 8px; letter-spacing: .04em; }
   .mp-vs2-logo { width: 30px; height: 30px; }
   .mp-vs2-si { width: 26px; height: 26px; } .mp-vs2-si svg { width: 15px; height: 15px; }
-  .mp-vs2-tabla .mk .mp-vs2-dato, .mp-vs2-tabla .otra.no .mp-vs2-dato { font-size: 12.5px; }
+  .mp-vs2-no { width: 26px; height: 26px; } .mp-vs2-no svg { width: 13px; height: 13px; }
+  .mp-vs2-precio { font-size: 12.5px; }
 }
 }
 `;
 
 /** El ejemplo del subtítulo, con el plan más caro (18/11/2026, decidido: «Trae 10 y son US$ 291 extra por mes»). */
 const NEGOCIOS_DEL_EJEMPLO = 10;
+
+/**
+ * A QUIÉN LE PUEDES RECOMENDAR MaKo (18/11/2026, Martín por el Cerebro: «pondría más cosas… prestadores de servicios o más avatares…
+ * hay muchos que pueden vender high ticket»). Una lista PROPIA de Partners (ya no los cuatro rubros de Industrias): quienes venden
+ * servicios o high ticket, con un ícono cada uno (lucide-react, la librería del sitio; el más cercano y sencillo). Son 20: la fila
+ * se llena sola, sin repetirlos.
+ */
+const RUBROS: ReadonlyArray<{ nombre: string; Icono: LucideIcon }> = [
+  { nombre: 'Agencias de marketing', Icono: Megaphone }, { nombre: 'Coaches', Icono: MessagesSquare },
+  { nombre: 'Mentores', Icono: Compass }, { nombre: 'Consultores', Icono: Briefcase },
+  { nombre: 'Infoproductores', Icono: MonitorPlay }, { nombre: 'Inmobiliarias', Icono: House },
+  { nombre: 'Clínicas estéticas', Icono: Sparkles }, { nombre: 'Odontólogos', Icono: Smile },
+  { nombre: 'Abogados', Icono: Scale }, { nombre: 'Contadores', Icono: Calculator },
+  { nombre: 'Academias y escuelas', Icono: School }, { nombre: 'Entrenadores y gimnasios', Icono: Dumbbell },
+  { nombre: 'Psicólogos y terapeutas', Icono: Brain }, { nombre: 'Nutricionistas', Icono: Apple },
+  { nombre: 'Brokers de seguros', Icono: ShieldCheck }, { nombre: 'Asesores financieros', Icono: TrendingUp },
+  { nombre: 'Agencias de viajes', Icono: Plane }, { nombre: 'Organizadores de eventos', Icono: PartyPopper },
+  { nombre: 'Arquitectos y estudios', Icono: DraftingCompass }, { nombre: 'Concesionarias de autos', Icono: Car },
+];
+
+/**
+ * EL CARRUSEL DE RUBROS (18/11/2026): el MISMO de la portada (las clases `s-tira` de CSS_REEMPLAZA, en su variante clara: velocidad,
+ * bordes fundidos y quieto con «reducir movimiento»). Va DOS veces (Martín: «ponerlo abajo de "así de simple", y repetirlo al final
+ * antes de las preguntas frecuentes»). Dos listas iguales para que la vuelta no se corte; la segunda, oculta para el lector.
+ */
+function TiraRubros() {
+  return (
+    <section className="s-tira s-reemplaza-claro mp-tira" aria-label="A quién le puedes recomendar MaKo">
+      <p className="s-tira-r">A quién le puedes recomendar MaKo</p>
+      <div className="s-tira-v">
+        <div className="s-tira-p">
+          {[false, true].map((oculta) => (
+            <ul key={String(oculta)} className="s-tira-l" aria-hidden={oculta || undefined}>
+              {RUBROS.map(({ nombre, Icono }) => (
+                <li key={nombre} className="s-tira-i">
+                  <span className="mp-tira-ic"><Icono size={22} strokeWidth={1.9} aria-hidden="true" /></span>
+                  {nombre}
+                </li>
+              ))}
+            </ul>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 /** Los 3 pasos de «Así de simple», con su ícono (Tabler, MIT, como los del resto del sitio): link, negocio y billetera. */
 const PASOS: ReadonlyArray<{ titulo: string; texto: string; icono: readonly string[] }> = [
@@ -359,33 +410,6 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
           marketinero, para que se entienda, no sea redundante»; aprobada por el Cerebro). Cada idea, UNA vez en la página: el héroe
           dice cuánto ganas; «Así de simple», los 3 pasos; las preguntas, sólo dudas
           que no estén arriba; el cierre, una frase y el botón. Los números, de las constantes. */}
-      {/* EL CARRUSEL DE PARTNERS (18/11/2026, Martín: «utilices el divider tipo carrusel que tenemos… decídelo tú… si ponemos de los
-          otros, como las apps… no sé si va a confundir»): UNO, propio, entre el héroe y «Así de simple»: a quién le puedes recomendar
-          MaKo, con los rubros de Industrias tal cual están en el código (INDUSTRIAS, app/vsl/_sitio/datos.ts) y sus íconos. El MISMO
-          carrusel que la portada (las clases `s-tira` de CSS_REEMPLAZA, en su variante clara): velocidad, bordes fundidos y quieto
-          con «reducir movimiento». Son cuatro rubros: cada vuelta los repite para que la fila llene el ancho y no quede un hueco. */}
-      <section className="s-tira s-reemplaza-claro mp-tira" aria-label="A quién le puedes recomendar MaKo">
-        <p className="s-tira-r">A quién le puedes recomendar MaKo</p>
-        <div className="s-tira-v">
-          <div className="s-tira-p">
-            {[false, true].map((oculta) => (
-              <ul key={String(oculta)} className="s-tira-l" aria-hidden={oculta || undefined}>
-                {[0, 1, 2].flatMap((vuelta) => INDUSTRIAS.map((r) => (
-                  <li key={`${vuelta}-${r.avatar}`} className="s-tira-i" aria-hidden={vuelta > 0 || undefined}>
-                    <span className="mp-tira-ic">
-                      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        {r.icono.map((d) => <path key={d} d={d} />)}
-                      </svg>
-                    </span>
-                    {r.nombre}
-                  </li>
-                )))}
-              </ul>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Martín, 18/11/2026: «Elimina "por qué conviene"… y simplemente pon "así de simple", pero con el diseño de las tarjetas de
           "por qué te conviene"… "tú eliges cómo cobrar…" debería estar arriba, en "así de simple", en el paso 3». Los pasos son una
           secuencia: el número grande arriba de cada tarjeta. */}
@@ -411,6 +435,8 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
           </ol>
         </div>
       </section>
+
+      <TiraRubros />
 
       <section className="mp-seccion mp-conviene-sec">
         <div className="mp-wrap">
@@ -444,23 +470,32 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
                 {COMPARACION.map((f) => (
                   <tr key={f.nombre}>
                     <th scope="row">{f.nombre}</th>
-                    <td className="mk">
-                      <span className="mp-vs2-si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5l9 -10" /></svg></span>
-                      <span className="mp-oculto">Sí</span>
-                      {f.mako ? <span className="mp-vs2-dato">{f.mako}</span> : null}
-                    </td>
-                    <td className={`otra ${f.tipo}`}>
-                      {f.tipo === 'no' ? <><span className="mp-vs2-no" aria-hidden="true">✕</span><span className="mp-oculto">No.</span></> : null}
-                      <span className="mp-vs2-dato">{f.otra}</span>
-                    </td>
+                    {f.precio ? (
+                      <>
+                        <td className="mk mp-vs2-precio">Desde <b className="mp-vs2-verde">{f.precio.mako}</b> al mes</td>
+                        <td className="otra mp-vs2-precio">Desde {f.precio.otra} al mes</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="mk">
+                          <span className="mp-vs2-si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5l9 -10" /></svg></span>
+                          <span className="mp-oculto">Sí</span>
+                        </td>
+                        <td className="otra">
+                          <span className="mp-vs2-no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" aria-hidden="true"><path d="M7 7l10 10" /><path d="M17 7l-10 10" /></svg></span>
+                          <span className="mp-oculto">No</span>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="mp-vs2-nota">Datos de gohighlevel.com y de su centro de ayuda, {COMPARACION_LEIDA}.</p>
           </div>
         </div>
       </section>
+
+      <TiraRubros />
 
       <section className="mp-seccion">
         <div className="mp-wrap">

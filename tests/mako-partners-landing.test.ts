@@ -27,7 +27,6 @@ import { COMISION_PARTNER_DIRECTO, RUTA_ALTA_PARTNERS } from '../lib/partners-re
 import { porcentaje, usd } from '../app/mako-partners/numeros';
 import { PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR } from '../lib/planes-mako';
 import { COMPARACION } from '../app/mako-partners/comparacion';
-import { EN_PRO } from '../app/vsl/_sitio/competencia';
 
 (globalThis as unknown as { React: typeof React }).React = React;
 const RAIZ = join(import.meta.dirname, '..');
@@ -78,7 +77,7 @@ test('así de simple (3 pasos en tarjetas), y sin «según cómo pagan»: el par
 
 test('la CALCULADORA: el botón del plan que alterna, el deslizador, el precio en una línea y el botón (siempre al 30%)', async () => {
   const { html, t } = await landing();
-  const hero = html.slice(html.indexOf('class="mp-hero-grilla"'), html.indexOf('class="s-tira'));
+  const hero = html.slice(html.indexOf('class="mp-hero-grilla"'), html.indexOf('<section class="mp-seccion">'));
   assert.ok(hero.includes('class="mp-calc" id="calculadora"'), 'la calculadora está en el hero');
   assert.doesNotMatch(html, /Si se suscribe|mp-ficha/, 'la ficha «Si se suscribe» se fue');
   assert.equal(COMISION_PARTNER_DIRECTO, 0.3, 'el partner cobra el 30%');
@@ -265,16 +264,27 @@ test('/mako-partners lleva la barra del sitio arriba y el pie abajo, como /plane
   assert.match(pagina, /<PieGlobal claro \/>/, 'el pie del sitio');
 });
 
-test('el carrusel de Partners: entre el héroe y «Así de simple», con los rubros de Industrias y el mismo estilo que la portada', async () => {
+test('el carrusel de rubros: 20 que venden servicios o high ticket, debajo de «Así de simple» y otra vez antes de las preguntas (18/11/2026)', async () => {
   const { html } = await landing();
-  const { INDUSTRIAS } = await import('../app/vsl/_sitio/datos');
-  const i = html.indexOf('class="s-tira s-reemplaza-claro mp-tira"');
-  assert.ok(i > html.indexOf('class="mp-hero-grilla"') && i < html.indexOf('<h2>Así de simple</h2>'), 'entre el héroe y «Así de simple»');
-  const tira = html.slice(html.indexOf('>', i) + 1, html.indexOf('</section>', i));
-  assert.match(texto(tira), /^\s*A quién le puedes recomendar MaKo/);
-  for (const r of INDUSTRIAS) assert.ok(tira.includes(`</svg></span>${r.nombre}</li>`), `el rubro ${r.nombre}, con su ícono`);
-  assert.equal((tira.match(/class="s-tira-l"/g) ?? []).length, 2, 'dos vueltas iguales, la segunda oculta para el lector, como la portada');
-  assert.ok(fuente('app/mako-partners/LandingPartners.tsx').includes('CSS_REEMPLAZA + CSS'), 'el mismo CSS del carrusel de la portada');
+  // Martín: «ponerlo abajo de "así de simple", y repetirlo al final antes de las preguntas frecuentes».
+  const tiras = [...html.matchAll(/<section class="s-tira s-reemplaza-claro mp-tira"/g)].map((m) => m.index!);
+  assert.equal(tiras.length, 2, 'dos veces');
+  assert.ok(tiras[0] > html.indexOf('<h2>Así de simple</h2>') && tiras[0] < html.indexOf('<h2>¿Por qué ser partner'), 'debajo de «Así de simple»');
+  assert.ok(tiras[1] > html.indexOf('<div class="mp-vs2">') && tiras[1] < html.indexOf('<h2>Preguntas frecuentes</h2>'), 'antes de las preguntas');
+  assert.ok(html.indexOf('class="s-tira') > html.indexOf('<section class="mp-seccion">'), 'ya no entre el héroe y «Así de simple»');
+  const RUBROS = ['Agencias de marketing', 'Coaches', 'Mentores', 'Consultores', 'Infoproductores', 'Inmobiliarias', 'Clínicas estéticas',
+    'Odontólogos', 'Abogados', 'Contadores', 'Academias y escuelas', 'Entrenadores y gimnasios', 'Psicólogos y terapeutas', 'Nutricionistas',
+    'Brokers de seguros', 'Asesores financieros', 'Agencias de viajes', 'Organizadores de eventos', 'Arquitectos y estudios', 'Concesionarias de autos'];
+  for (const i of tiras) {
+    const tira = html.slice(html.indexOf('>', i) + 1, html.indexOf('</section>', i));
+    assert.match(texto(tira), /^\s*A quién le puedes recomendar MaKo/);
+    const lista = tira.slice(0, tira.indexOf('</ul>'));
+    assert.deepEqual([...lista.matchAll(/<\/svg><\/span>([^<]+)<\/li>/g)].map((m) => m[1]), RUBROS, 'los 20, en orden, cada uno con su ícono y sin repetirse');
+    assert.equal((tira.match(/class="s-tira-l"/g) ?? []).length, 2, 'dos listas iguales, la segunda oculta para el lector, como la portada');
+  }
+  const f = fuente('app/mako-partners/LandingPartners.tsx');
+  assert.ok(f.includes('CSS_REEMPLAZA + CSS'), 'el mismo CSS del carrusel de la portada');
+  assert.doesNotMatch(f, /INDUSTRIAS/, 'una lista propia de Partners, no la de Industrias');
 });
 
 test('el deslizador frena en 20, 50 y 100 (Martín: «una muy pequeña frenada»), sólo al arrastrar', async () => {
@@ -316,25 +326,29 @@ test('«¿Por qué ser partner de MaKo te conviene?»: seis beneficios y «MaKo 
   assert.ok(recursos.includes('export function pdfDeVenta') && recursos.includes('export function mensajesParaCopiar'), 'el material que la tarjeta promete existe');
   assert.doesNotMatch(t, /clases|videos|audios/i, 'nada de material que todavía no existe');
 
-  // La comparación, A LA VISTA y a favor de MaKo (Martín: «posicionar a MaKo por arriba de HighLevel»): sin desplegable.
+  // La comparación, A LA VISTA (Martín: «si vas a poner la X, pon simplemente la X… Tampoco pongas datos de gohighlevel.com… El título
+  // debería ser MaKo versus GoHighLevel»): sólo ✓ y ✕, el precio con el de MaKo en verde, sin la nota de las fuentes.
   assert.doesNotMatch(html, /class="s-vs"|TarjetasVs/, 'sin el desplegable de las comparaciones');
-  const tabla = html.slice(html.indexOf('<div class="mp-vs2">'), html.indexOf('<h2>Preguntas frecuentes</h2>'));
+  const tabla = html.slice(html.indexOf('<div class="mp-vs2">'), html.indexOf('</table>'));
   assert.ok(html.indexOf('<div class="mp-vs2">') > html.indexOf('id="beneficios"'), 'debajo del carrusel');
-  assert.ok(texto(tabla).includes('Lo que GoHighLevel te cobra aparte o ni siquiera tiene, en MaKo viene incluido'), 'el título que posiciona');
+  assert.match(tabla, /<h3 class="mp-vs2-t">MaKo vs\. GoHighLevel<\/h3>/, 'el título');
   assert.match(tabla, /<th scope="col" class="mk"><span class="mp-vs2-chip">Recomendado<\/span>/, 'MaKo, destacada y «Recomendado»');
   const filas = [...tabla.matchAll(/<th scope="row">([^<]+)<\/th>/g)].map((m) => m[1]);
-  assert.deepEqual(filas, COMPARACION.map((f) => f.nombre));
-  assert.deepEqual(filas, ['WhatsApp incluido en el plan', 'IA que contesta a tus clientes', 'Precio de entrada', 'Soporte por WhatsApp',
-    'Centro de ayuda en español', 'Pagar con Mercado Pago, transferencia o Binance']);
-  assert.equal((tabla.match(/class="mp-vs2-si"/g) ?? []).length, filas.length, 'MaKo: un tilde verde por fila');
-  assert.equal((tabla.match(/class="otra costo"/g) ?? []).length + (tabla.match(/class="otra no"/g) ?? []).length, filas.length, 'GoHighLevel: lo que cuesta o la cruz');
-  // ⚠️ Cada fila sobre GoHighLevel es verdad y tiene su fuente en su sitio oficial. Sin fuente, no entra.
+  assert.deepEqual(filas, ['Precio de entrada', 'WhatsApp incluido en el plan', 'IA incluida en el plan', 'Todo incluido en el mismo precio, sin extras',
+    'Soporte por WhatsApp', 'Fácil de usar, con tutoriales en español de cada pantalla', 'Te ayudamos con tus anuncios y atendemos a tus contactos',
+    'Pensada para vender en Latinoamérica: WhatsApp, pesos y Binance', 'Pagar con Mercado Pago, transferencia o Binance']);
+  assert.match(tabla, /<td class="mk mp-vs2-precio">Desde <b class="mp-vs2-verde">US\$ 47<\/b> al mes<\/td><td class="otra mp-vs2-precio">Desde US\$ 97 al mes<\/td>/, 'el precio, sin tilde y el 47 en verde');
+  assert.equal((tabla.match(/class="mp-vs2-si"/g) ?? []).length, filas.length - 1, 'MaKo: ✓ en todas menos el precio');
+  assert.equal((tabla.match(/class="mp-vs2-no"/g) ?? []).length, filas.length - 1, 'GoHighLevel: ✕ en todas menos el precio');
+  for (const m of tabla.matchAll(/<td class="(?:mk|otra)">([\s\S]*?)<\/td>/g)) assert.match(texto(m[1]).trim(), /^(Sí|No)$/, 'sin aclaraciones en las celdas: sólo ✓ o ✕');
+  assert.doesNotMatch(html, /Datos de gohighlevel|mp-vs2-nota/, 'sin la nota de las fuentes');
+  // ⚠️ Cada ✕ es verdad y tiene su fuente oficial (en el código, no en la página). Sin fuente, no entra.
   for (const f of COMPARACION) assert.match(f.fuente, /^https:\/\/(www\.|help\.)?gohighlevel\.com\//, `${f.nombre}: la fuente es de GoHighLevel`);
-  // Lo de MaKo, derivado: el setter con IA es de Pro, el precio es el de Essential.
-  assert.equal(COMPARACION[1].mako, EN_PRO);
-  assert.equal(COMPARACION[2].mako, `Desde ${usd(PLANES_MAKO_DEFAULT.find((p) => p.id === 'esencial')!.precioUsd)} al mes`);
-  assert.ok(texto(tabla).includes('Precio de entrada Sí Desde US$ 47 al mes Desde US$ 97 al mes'));
-  assert.ok(texto(tabla).includes('Datos de gohighlevel.com y de su centro de ayuda, noviembre de 2026.'), 'la comparación, con fecha');
-  // Sin la comisión (ellos pagan 40% y juega en contra: Martín compite por valor).
-  assert.doesNotMatch(texto(tabla), /comisi[oó]n|40 ?%|recurrente/i);
+  // Lo de MaKo, del código: el WhatsApp y la IA vienen con el plan (no «En Pro») y el precio es el de Essential.
+  const { celdaDeMaKo } = await import('../app/vsl/_sitio/competencia');
+  assert.equal(celdaDeMaKo('whatsapp').v, 'si');
+  assert.equal(celdaDeMaKo('asistente_ia').v, 'si');
+  assert.equal(COMPARACION[0].precio?.mako, usd(PLANES_MAKO_DEFAULT.find((p) => p.id === 'esencial')!.precioUsd));
+  // Sin la comisión (ellos pagan 40% y juega en contra: Martín compite por valor), ni «una sola app» o «material» como ✕ (serían falsos).
+  assert.doesNotMatch(texto(tabla), /comisi[oó]n|40 ?%|recurrente|una sola app|material/i);
 });
