@@ -95,6 +95,9 @@ const FRASES = g.pasos.map((p, i) => {
   if (p.rol === 'accion' || p.rol === 'cierre') fr.espera_clic = p.rol === 'accion' && p.tipo === 'toca';
   // it opens a panel or changes the view: the engine closes it before the next mark
   if (p.cierra) fr.cierra_despues = true;
+  // a «mira» that still waits: what is done OUTSIDE the screen (the QR is scanned with the phone, not clicked) — the engine
+  // marks it and waits for «Siguiente» (the onboarding chat, 18/11)
+  if (p.espera === 'siguiente') fr.espera_siguiente = true;
   return fr;
 });
 

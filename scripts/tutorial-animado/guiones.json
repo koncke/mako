@@ -352,6 +352,67 @@
     "rol": "gancho"
    },
    {
+    "dice": "Primero, la app de Máko en tu teléfono: te avisa al instante de lo que pasa en tu negocio, y abres Máko desde el celular.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "No es lo mismo que escribirle a Máko por WhatsApp: es la aplicación.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Toca aquí, en tu foto.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "[data-recorrido=\"tour-barra-foto\"]"
+   },
+   {
+    "dice": "Ahora toca aquí, en Settings.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "#user-menu a[href^=\"/perfil\"]"
+   },
+   {
+    "dice": "Y aquí, en Instalar la app.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "[data-recorrido=\"tour-settings-instalar\"]"
+   },
+   {
+    "dice": "Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente.",
+    "rol": "accion",
+    "tipo": "mira",
+    "sel": "img.aj-telefono__qr",
+    "espera": "siguiente"
+   },
+   {
+    "dice": "Mira aquí, la extensión para Chrome: con ella tienes a Máko a mano mientras navegas.",
+    "rol": "accion",
+    "tipo": "mira",
+    "sel": "[data-recorrido=\"tour-settings-instalar-extension\"]"
+   },
+   {
+    "dice": "Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "[data-recorrido=\"tour-settings-integraciones\"]"
+   },
+   {
+    "dice": "Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "[data-recorrido=\"tour-settings-info\"]"
+   },
+   {
+    "dice": "Para cerrar el día, dile a Máko por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+    "rol": "cierre"
+   }
+  ],
+  "pasosV5": [
+   {
+    "dice": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso.",
+    "rol": "gancho"
+   },
+   {
     "dice": "Primero, Máko en tu teléfono: escaneas un QR, y los avisos de tu negocio te llegan al instante.",
     "rol": "que-es"
    },
@@ -371,7 +432,9 @@
     "dice": "Para cerrar el día, dile a Máko por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
     "rol": "cierre"
    }
-  ]
+  ],
+  "v6": true,
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
  },
  {
   "id": "reto-dia-3",
@@ -382,6 +445,41 @@
   "v4": true,
   "v5": true,
   "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Primero, toca aquí, en CRM, y carga tus clientes: con un CSV o, si ya usas otro CRM, lo integramos.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/crm\"]"
+   },
+   {
+    "dice": "Después, toca aquí, en Automations, para armar tu primera automatización.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/automations\"]"
+   },
+   {
+    "dice": "Mira aquí, Nueva automatización: pídele a Máko que conteste a tus clientes por donde te escriben, WhatsApp, Instagram o email.",
+    "rol": "accion",
+    "tipo": "mira",
+    "sel": "aside[aria-label=\"Tus automatizaciones\"] button.chb-nueva"
+   },
+   {
+    "dice": "Y toca aquí, en Calendar, y conecta tu calendario: las llamadas que agenden caen en tu agenda.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/calendario\"]"
+   },
+   {
+    "dice": "Y pruébalo por WhatsApp: mándale a Máko un audio pidiéndole que cargue un lead en tu CRM.",
+    "rol": "cierre"
+   }
+  ],
+  "nota": "Martín, 18/11: sin difusión de WhatsApp; va la primera automatización, en el canal que use la persona.",
+  "pasosV5": [
    {
     "dice": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda.",
     "rol": "gancho"
@@ -407,7 +505,8 @@
     "rol": "cierre"
    }
   ],
-  "nota": "Martín, 18/11: sin difusión de WhatsApp; va la primera automatización, en el canal que use la persona."
+  "v6": true,
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
  },
  {
   "id": "reto-dia-4",
@@ -418,6 +517,28 @@
   "v4": true,
   "v5": true,
   "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Primero, toca aquí, en Competitor Spy, y agrega a tres competidores: mira lo que más tiempo llevan activo, porque si sigue activo, vende.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/competitor-spy\"]"
+   },
+   {
+    "dice": "Después, toca aquí, en Web Generator: pegas una página que ya vende, y la arma con tu oferta.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/web-generator\"]"
+   },
+   {
+    "dice": "Y por WhatsApp, pregúntale a Máko qué le está funcionando a tu competencia.",
+    "rol": "cierre"
+   }
+  ],
+  "pasosV5": [
    {
     "dice": "Te doy la bienvenida al día 4: hoy copias lo que ya le funciona a tu competencia.",
     "rol": "gancho"
@@ -438,7 +559,9 @@
     "dice": "Y por WhatsApp, pregúntale a Máko qué le está funcionando a tu competencia.",
     "rol": "cierre"
    }
-  ]
+  ],
+  "v6": true,
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
  },
  {
   "id": "reto-dia-5",
@@ -449,6 +572,31 @@
   "v4": true,
   "v5": true,
   "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Primero, toca aquí, en Ímich, y replica un carrusel que ya funcionó, con tu oferta.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/image-editor\"]",
+    "ver": {
+     "ímich": "Image"
+    }
+   },
+   {
+    "dice": "Después, toca aquí, en Copywriting, y escribe tu guion replicando a tu referente.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/copywriter\"]"
+   },
+   {
+    "dice": "Y por WhatsApp, mándale a Máko un audio con la idea de tu guion: te lo escribe.",
+    "rol": "cierre"
+   }
+  ],
+  "pasosV5": [
    {
     "dice": "Te doy la bienvenida al día 5: hoy armas una semana de contenido, sin hoja en blanco.",
     "rol": "gancho"
@@ -472,7 +620,9 @@
     "dice": "Y por WhatsApp, mándale a Máko un audio con la idea de tu guion: te lo escribe.",
     "rol": "cierre"
    }
-  ]
+  ],
+  "v6": true,
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
  },
  {
   "id": "reto-dia-6",
@@ -483,6 +633,29 @@
   "v4": true,
   "v5": true,
   "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Toca aquí, en Video: en Ei-Ai Avatar armas tu personaje con una foto tuya.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/video-editor\"]",
+    "ver": {
+     "ei-ai": "AI"
+    }
+   },
+   {
+    "dice": "Y con él haces tu clip de 10 segundos, de regalo, con el gancho del guion que escribiste ayer.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
+    "rol": "cierre"
+   }
+  ],
+  "pasosV5": [
    {
     "dice": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte.",
     "rol": "gancho"
@@ -506,7 +679,9 @@
     "dice": "Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
     "rol": "cierre"
    }
-  ]
+  ],
+  "v6": true,
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
  },
  {
   "id": "reto-dia-7",
@@ -517,6 +692,28 @@
   "v4": true,
   "v5": true,
   "pasos": [
+   {
+    "dice": "Te doy la bienvenida al día 7, el último del reto.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Primero, toca aquí, en Marketing CoPilot: revisa tu oferta, tu página y tu contenido.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/ads-manager/copiloto\"]"
+   },
+   {
+    "dice": "Después, toca aquí, en Plan: ahí te deja las tareas de cada semana.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "aside[data-sidebar] a[href^=\"/plan\"]"
+   },
+   {
+    "dice": "Y mándale a Máko un audio por WhatsApp con cómo te fue en el reto.",
+    "rol": "cierre"
+   }
+  ],
+  "pasosV5": [
    {
     "dice": "Te doy la bienvenida al día 7, el último del reto.",
     "rol": "gancho"
@@ -537,7 +734,9 @@
     "dice": "Y mándale a Máko un audio por WhatsApp con cómo te fue en el reto.",
     "rol": "cierre"
    }
-  ]
+  ],
+  "v6": true,
+  "porPasos": "una frase por cada lugar que marcan sus tareas (lib/reto/dias.ts); el motor del reto la marca y pausa"
  },
  {
   "id": "ops-center",
@@ -2836,7 +3035,7 @@
   "tanda": 4,
   "pasos": [
    {
-    "dice": "Máko en tu computadora, en tu celular y en Chrome.",
+    "dice": "La app de Máko en tu computadora, en tu celular y en Chrome.",
     "rol": "gancho"
    },
    {
@@ -2914,7 +3113,8 @@
    }
   ],
   "v4": true,
-  "v5": true
+  "v5": true,
+  "v6": true
  },
  {
   "id": "settings-equipo",
