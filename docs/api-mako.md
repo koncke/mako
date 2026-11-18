@@ -681,7 +681,7 @@ Propone agregar UN bloque de General (el objetivo y la acción del día, los OKR
 | `opciones.vencidos` | string | no | deadlines (Los vencidos): si, no |
 | `opciones.cuantos` | string | no | proyectos (Cuántos): 2, 3, 4, 6 |
 | `opciones.orden` | string | no | proyectos (Cuáles): prioridad, deadline |
-| `opciones.comparar` | string | no | mes (El mes anterior): si, no |
+| `opciones.comparar` | string | no | mes (El período anterior): si, no |
 
 ```bash
 curl -L \
@@ -732,7 +732,7 @@ Propone cambiar las opciones de UN bloque que ya está en una hoja de General (c
 | `opciones.vencidos` | string | no | deadlines (Los vencidos): si, no |
 | `opciones.cuantos` | string | no | proyectos (Cuántos): 2, 3, 4, 6 |
 | `opciones.orden` | string | no | proyectos (Cuáles): prioridad, deadline |
-| `opciones.comparar` | string | no | mes (El mes anterior): si, no |
+| `opciones.comparar` | string | no | mes (El período anterior): si, no |
 | `titulo` | string | no | Un título propio (texto vacío = el de siempre). Sin esto, no se toca. |
 | `funnel` | string | no | Sólo para el funnel de hoy (UNO) y a quién cobrarle (uno o VARIOS, separados por coma): el funnel o los funnels (id o nombre), o «ninguno» para volver al principal o a todo el negocio. |
 

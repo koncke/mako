@@ -661,4 +661,17 @@ export const BITACORA: Hito[] = [
     revisar: '/general',
     tickets: [7],
   },
+  {
+    fecha: '18 nov', hora: '06:38', chat: 'De octubre (nube)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: '«El mes» sigue el período que elige la hoja',
+    puntos: [
+      'Pendiente O10 (3): con la hoja en «Últimos 30 días», «El mes» seguía en el mes a la fecha al lado de gráficos que decían otra cosa.',
+      'Ahora lee el período de la hoja (también el que se elige mirando), se llama como el período y se compara con el anterior del mismo largo.',
+      'Sin período en la hoja, y en el teléfono, sigue el mes a la fecha de siempre.',
+      'A propósito no lo siguen «A quién cobrarle» (la lista de todo lo pendiente), los bloques de ahora, los del trimestre ni los diseños de hoja.',
+    ],
+    commits: [{ sha: '14a826a2c', msg: 'General: «El mes» sigue el período que elige la hoja', lineas: 899, archivos: 21 }],
+    archivos: ['app/general/periodo-de-la-hoja.ts', 'app/general/mes-del-periodo.ts', 'app/general/MesDelPeriodo.tsx', 'app/dashboard/ElementoGeneral.tsx', 'app/api/graficos/route.ts', 'tests/general-periodo-de-la-hoja.test.ts — probado rompiéndolo'],
+    revisar: '/dashboard',
+  },
 ];

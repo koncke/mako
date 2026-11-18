@@ -169,9 +169,10 @@ export const PIEZAS_GENERAL = [
     ],
   },
   {
-    id: 'mes', nombre: 'El mes', icono: 'grafico', linea: 'Ad Spend, agendas, cierres y lo cobrado contra el mes anterior.', w: 12, h: 5,
+    // 18/11/2026: con un período en la hoja, mira ESE período (app/general/periodo-de-la-hoja.ts); sin él, el mes a la fecha.
+    id: 'mes', nombre: 'El mes', icono: 'grafico', linea: 'Ad Spend, agendas, cierres y lo cobrado del período, contra el anterior.', w: 12, h: 5,
     opciones: [
-      { id: 'comparar', nombre: 'El mes anterior', def: 'si', valores: [{ id: 'si', nombre: 'Se compara', icono: 'ver' }, { id: 'no', nombre: 'Sin comparar', icono: 'ocultar' }] },
+      { id: 'comparar', nombre: 'El período anterior', def: 'si', valores: [{ id: 'si', nombre: 'Se compara', icono: 'ver' }, { id: 'no', nombre: 'Sin comparar', icono: 'ocultar' }] },
       FONDO,
     ],
   },

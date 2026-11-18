@@ -252,15 +252,20 @@ function ResumenMes({ c, desgloses, comparar }: { c: ResumenComparativo; desglos
   );
 }
 
-export function BloqueMes({ d, op }: { d: DatosGeneral['mes']; op?: OpcionesElegidas }) {
-  if (!d.ok) return <Fallo titulo="El mes" error={d.error} />;
+/**
+ * `titulo`: el del período que mira (18/11/2026, ../periodo-de-la-hoja.ts: con la hoja en «Últimos 30 días», «El mes» lee
+ * esos días y se llama así). Sin período de la hoja, «El mes», el mes a la fecha de siempre. Un `etiqueta_anterior` vacío
+ * es un período que no se compara («Todo»): sin «vs.» ni flechas.
+ */
+export function BloqueMes({ d, op, titulo = 'El mes' }: { d: DatosGeneral['mes']; op?: OpcionesElegidas; titulo?: string }) {
+  if (!d.ok) return <Fallo titulo={titulo} error={d.error} />;
   const comparar = opcionDe('mes', op, 'comparar') === 'si';
   const c = d.d.comparativo;
   return (
     <div className="gb">
-      <Cabeza titulo="El mes" extra={c && comparar ? `vs. ${c.etiqueta_anterior}` : null} />
+      <Cabeza titulo={titulo} extra={c && comparar && c.etiqueta_anterior ? `vs. ${c.etiqueta_anterior}` : null} />
       {/* Esconder el bloque escondería el fallo: el mes sigue existiendo y la pantalla no diría que no lo pudo leer. */}
-      {c ? <ResumenMes c={c} desgloses={d.d.desgloses} comparar={comparar} /> : <span className="gb-fallo">No pude leer el resumen del mes.</span>}
+      {c ? <ResumenMes c={c} desgloses={d.d.desgloses} comparar={comparar} /> : <span className="gb-fallo">{titulo === 'El mes' ? 'No pude leer el resumen del mes.' : 'No pude leer el resumen del período.'}</span>}
     </div>
   );
 }

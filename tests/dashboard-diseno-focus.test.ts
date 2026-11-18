@@ -202,5 +202,6 @@ test('Focus es un diseño del catálogo, su plantilla lo trae, y el editor lo di
   assert.ok((DISENOS_HOJA as readonly string[]).includes('foco'));
   assert.match(leer('lib/general-plantillas.ts'), /id: 'foco'[\s\S]{0,900}diseno: \{ id: 'foco', piezas: \{\} \}/);
   cableadoDelDiseno(instanciarPlantilla(PLANTILLAS_GENERAL.find((p) => p.id === 'foco')!), 'foco', 'FocusVivo', ['conGeneral ?']);
-  assert.match(leer('app/general/ProveedorGeneral.tsx'), /\n\s+datos,\n\s+\}\), \[datos, variables\]\)/, 'General presta sus datos a la hoja');
+  // Lo que se cuida: el contexto de General lleva sus DATOS (y se rehace cuando cambian), no qué más lleva al lado.
+  assert.match(leer('app/general/ProveedorGeneral.tsx'), /useMemo<ContextoDeGeneral>\(\(\) => \(\{[\s\S]*?\n\s+datos,\n[\s\S]*?\}\), \[datos\b/, 'General presta sus datos a la hoja');
 });

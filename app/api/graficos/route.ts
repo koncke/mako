@@ -27,6 +27,10 @@
 //        · 403 `{ mirando: true }` si `editando: false` y cambia el contenido de una hoja (lib/graficos-guardar-mirando.ts)
 //   POST ?informe=general { accion: 'guardar', … } (14/10/2026): lo mismo sobre el informe de la tab General, que es
 //        este editor con otro informe (lib/graficos-tablero.ts). Sólo el admin, y con General en su capa.
+//   POST { accion: 'mes-general', desde, hasta } (18/11/2026)                       → { mes: Leido<MesDeGeneral> }
+//        «El mes» de los bloques de General con el período que eligió la hoja (app/general/periodo-de-la-hoja.ts). Lo
+//        pide el navegador cuando la hoja o la vista eligen otro período que el de entrada. La misma puerta que Focus:
+//        el admin, con General en su capa (un closer o un setter no llegan: `puedePedir` es positivo).
 //
 // El DETALLE (lib/graficos-detalle.ts) es lo que hay atrás de un número clickeado: las cosas que lo forman,
 // cada una con sus ids y, en `puede`, qué tabs tiene la capa — de eso dependen los botones de cada fila.
@@ -54,6 +58,7 @@ import { guardarInformeAutomatizacionVersion, guardarInformeGeneralVersion, guar
 import { idDeInformeAutomatizacion } from '@/lib/informe-automatizacion';
 import { automatizacionDelNegocio } from '@/lib/automatizacion-metricas-server';
 import { fuentesDeCampoDeRol, hojaDeRol, informeDeRol, puedePedir } from '@/lib/graficos-plantillas';
+import { leerMesDelPeriodo } from '@/app/general/mes-del-periodo-server';
 
 /** Los componentes del pop-up del gráfico `id` (en cualquier hoja del informe), o null si no está o no tiene. */
 function componentesDePopup(t: Tablero, id: string): Componente[] | null {
@@ -157,6 +162,16 @@ export async function POST(req: Request) {
       pedidos.push({ grafico, desde, hasta, filtros: p.filtros, agrupar: p.agrupar });
     }
     return NextResponse.json({ datos: await datosDeGraficos(pedidos) });
+  }
+
+  if (body.accion === 'mes-general') {
+    // Lo que lee un bloque de General: lo mismo que la página de Focus (app/dashboard/page.tsx, `conFocus`).
+    if (rol !== 'admin' || !tabEnCapa('general', capa)) return err(403, 'Sólo el admin de la cuenta');
+    const desde = String(body.desde ?? '');
+    const hasta = String(body.hasta ?? '');
+    if (!esFechaValida(desde) || !esFechaValida(hasta) || desde > hasta) return err(400, 'Período inválido');
+    // El período va TAL CUAL: el corte en hoy (el del negocio) lo hace `rangoDelResumen`, adentro de la lectura.
+    return NextResponse.json({ mes: await leerMesDelPeriodo({ desde, hasta }) });
   }
 
   // (Hasta el 13/10/2026 había una acción `bloques`: desde v5 ningún bloque llega a la pantalla —el saneo los
