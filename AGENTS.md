@@ -2162,8 +2162,8 @@ código nuevo:
   que toque marcas de turnos o acuses en una vuelta nueva pasa por ahí. ⚠️ El servidor y la migración 0355 van ANTES de instalarlo
   (docs/diseno-cartero-servicio.md §2.6). `instalar-servicio` lo comprueba, y ni él ni `quitar-servicio` corren desde un chat.
 - **PARA SABER CÓMO ESTÁ UN CHAT, `comoEstaElDestino`; PARA OFRECERLO, `chatRecibe`** (30/10/2026; docs/hallazgos-operaciones.md, «La revisión del servicio»). `vivo` es de la última vuelta: una foto vieja no dice ni
-  abierto ni cerrado. Y `envio.puede` con `espera !== 'chat_cerrado'` no dice que esté abierto: sin Runner, `comoSale` da `'cartero'` antes de mirar el estado. Volver a firmar un mensaje de la cola pasa por
-  `originalParaReenviar`: la columna `texto` no está firmada. Lo que no sale va al cartel del limbo con su causa (`mensajesEnLimbo`): una causa nueva, con su texto y su remedio.
+  abierto ni cerrado. Y `envio.puede` con `espera !== 'chat_cerrado'` no dice que esté abierto: sin Runner, `comoSale` da `'cartero'` antes de mirar el estado. Volver a firmar un mensaje de la cola firma lo que
+  Martín firmó (`firmado`), nunca la columna `texto`, que no está firmada. Lo que espera un chat cerrado se lo dice el Runner al Cerebro (lib/limbo-al-cerebro.ts): el cartel y su lógica se borraron (18/11/2026).
 - **EN LA BASE, `visto_at` ES «LLEGÓ ALGO» Y `runner_visto_at` ES «HAY UN RUNNER». EN EL CÓDIGO, `vistoAt` ES EL RUNNER** (30/10/2026). Quien pregunte
   «¿hay quien entregue?» usa `carteroVivo`; quien pregunte «¿la PC está?» o «¿de cuándo es esta foto?», `noticiasAt` (`sinNoticiasDesde`). Una vuelta con `servicio` no escribe ni
   `runner_visto_at` ni `version`, y no reclama nada (`filaDeLaVuelta`). El estado de la PC sale de una sola regla, `estadoDeLaPc`, se muestra en el Uso y no en un cartel (Martín, 31/10), y cualquier

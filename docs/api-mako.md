@@ -1386,6 +1386,7 @@ PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando p
 | `tareas.proyecto` | string | no | NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó. |
 | `tareas.deadline` | string | no | fecha límite AAAA-MM-DD, solo si la dijeron. |
 | `tareas.prioridad` | string (alta \\| media \\| baja \\| futuro) | no | se ignora al aplicar: la tarea entra sin prioridad. |
+| `tareas.recurrente` | boolean | no | true SOLO si se repite para siempre (la junta de los miércoles); va sin deadline. |
 
 ```bash
 curl -L \

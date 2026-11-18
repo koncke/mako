@@ -897,7 +897,22 @@ Ahora `estado` trae `tarea`, y al abrir un chat se avisa **con el nombre de la t
 igual que cuando no existe.
 
 **Lo que sigue sin cubrirse, y es del Runner:** rearmar el cron antes del 11/11 sólo lo puede pedir Martín. Lo que esto arregla
-es que, cuando se caiga, **se diga**.
+es que, cuando se caiga, **se diga**. ⚠️ (18/11/2026) Esto arreglaba la guardia APAGADA, no el cron vencido: con el cron vencido
+el latido seguía fresco y nada lo decía. Eso se cerró aparte, con la marca de la vuelta del cron (docs/hallazgos-operaciones.md,
+«El cron del Runner vencía sin que nada lo dijera»).
+## En la nube, el `tsc` acotado muere sin memoria con su tope por defecto y dice «código undefined» (18/11/2026)
+
+**Vive en:** `scripts/tsc-acotado.mjs` (el `--heap=`, por defecto 2.560 MB).
+
+**Síntoma:** `node scripts/tsc-acotado.mjs lib/plan-tareas-del-doer.ts tests/plan-tareas-del-doer.test.ts` (dos archivos chicos que
+importan lib/plan-proyectos-catalogo.ts) contestó «NO SE PUDO CHEQUEAR (código undefined, 1464 bytes de salida): … Si fue el vigía de
+RAM, esperá o cerrá chats», con 15 GB libres y sin vigía (la nube no tiene). Corrido a mano, el `tsc` salió con 134: «Reached heap
+limit». El `undefined` es `status` en `null` porque el proceso murió por una señal.
+
+**La regla que queda:** en la nube, donde la RAM no la comparten otros chats, el acotado va con `--heap=9000` (dio 0 sobre 16
+archivos de lib/, app/ y tests/). En la PC el tope sigue en 2.560 a propósito (lo comparten los chats). Y un «código undefined» no es
+el vigía: es una señal, casi siempre la del heap.
+
 ## El índice de hallazgos se duplicaba solo: `merge=union` sobre una TABLA deja las dos filas (6/11/2026)
 
 **Vive en:** `.gitattributes` (los dos globs) · `scripts/unir-indice-hallazgos.mjs` (nuevo) ·
