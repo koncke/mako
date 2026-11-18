@@ -133,3 +133,78 @@ Un A/B del tutorial del Second Brain de 13,7 s, con la misma voz y el mismo guio
 - **La estética de las referencias choca con las reglas de Martín:** la app real y no un dibujo, «de cerca y simple», «efectos con moderación». Hay que adaptarla, no calcarla.
 - **Datos:** nada de cifras inventadas, ni miniaturas o música de otros.
 - **Sesgo de las fuentes:** los creadores venden su kit, y la comparación HyperFrames contra Remotion la publicó HeyGen.
+
+## La galería de formatos (18/11/2026): lo que se aprendió haciendo 86 formatos
+
+**Qué quedó.** La galería https://claude.ai/artifact/CXe1Ana7MvnJ44gzaXc7hF (cuenta claude2) tiene, con la voz de Martín y su
+MP4 1080×1920 cada uno, las réplicas de los 54 formatos del paquete de un competidor (mdmukeem__001, Instagram, #07-#60) y 32
+formatos de la investigación de afuera (`investigacion/formatos-por-codigo.md`: HyperFrames, Remotion, YouTube). Martín los
+marca con ★ Elegir: quedan en la base del artefacto, colección `elegidos` (se leen con ArtifactData). La fuente vive en
+`C:/dev/artefactos-animaciones/` (no es un repo; ver su `LEEME.md`), los MP4 en `mp4/<id>.mp4`.
+
+**Lo que se reusa (todo en esa carpeta):**
+- `reels/kit/kit.js` + `kit.css`: **todo sale de T** (`cuadro(T, K)` pinta el segundo desde cero), la voz manda el reloj,
+  `?cap&t=N` congela, `K.pal(escena, palabra)` ata cada cosa a la palabra que la nombra, subtítulos punch/karaoke que no dejan
+  palabras débiles ni números colgando y no separan «high ticket».
+- `reels/kit/toma.js`: **Martín en cubos** (el voxel makeBoy de morrow) como `KIT.martin` / `KIT.toma` (cuarto con bokeh).
+- `tools/voz_formato.sh <id>`: TTS (clon v4 de LA-CONFIG) → alineación → pausas ≤ 0,3 s → **-14 LUFS** → `t-<id>.js` → chequeo.
+- `tools/turno.mjs`: el navegador, de a UNO y por orden de llegada en toda la PC. `capturar.mjs` + `hoja.py` para mirar;
+  `render-mp4.mjs` para el MP4; `mirar-chico.mjs` para verlo como en el celular; `verificar-numeros-carrera.mjs` de ejemplo
+  para comprobar números cuadro por cuadro.
+- El brief para constructores (`investigacion/competencia/BRIEF-constructores.md`): 5 agentes en paralelo, 3 formatos por
+  vuelta; el orquestador aprobaba cada uno mirando cuadros sacados del MP4 con ffmpeg (`reels/fichas/aprobados.txt`).
+
+**Decisiones de Martín (18/11):** su personaje es SIEMPRE el Martín en cubos (memoria `personaje-martin-en-cubos`); nada que
+recree un juego o una marca conocidos (pixel-quest se rehízo: tubos, bloques «?» y SCORE remitían a un juego famoso). «Offer
+Coach» se sigue nombrando: si se separa del Funnel Coach está abierto, y no se rehacen formatos por eso.
+
+### Trampas (síntoma → causa → regla)
+- **Partículas «no se lee nada»: el diagnóstico obvio (brillo, bloom) era el equivocado.** A resolución completa se leía bien.
+  `gl_PointSize` va en píxeles del buffer y la página baja su resolución interna cuando corre chica (galería en el celular,
+  `pixelRatio` 0,3-0,8): cada punto quedaba 3× más grande que las letras. Multiplicar por `renderer.getPixelRatio()`. Las
+  capturas con `?cap` corren a resolución 1 y lo escondían: mirar también con `mirar-chico.mjs`.
+- **Parches en el MP4 (parecían mosaicos viejos o falta de memoria):** `render-mp4.mjs` sacaba la foto sin esperar a que se
+  rasterizara un SVG pesado bajo una cámara que cambia de escala. Ahora busca, espera 2 cuadros y vuelve a buscar. Además:
+  lo estático, pintado una vez en un canvas; nada de filtros sobre lo que se mueve.
+- **Estilos que sólo fallan en el MP4:** el kit le ponía la clase `cap` al body en modo captura, y cualquier `.cap{}` de un
+  formato se aplicaba a toda la página (todo en mayúsculas sólo en el video). Ahora es `kit-cap`. Diagnóstico: el estilo
+  calculado en el navegador.
+- **`K.p(T, t0, d, 'back')` daba 2e-16 antes de t0** y un `> 0` se disparaba temprano (el disco del quiz salía blanco; parecía
+  el degradé). Ahora devuelve 0 y 1 exactos en los bordes.
+- **Cuentas en pantalla: cada cuadro tiene que dar.** Tres formas de romperlo: un contador que sube dentro de una igualdad
+  («4 × US$3.000 = US$7.500» a mitad de camino); un título que cuenta mientras la píldora ya dice el número final; una carrera
+  con el mes entero y montos continuos («MES 5» con 22.600 en vez de 20.000). Regla: en una igualdad el resultado entra
+  entero en la palabra que lo dice y queda ≥ 2 s; contador suelto sí puede subir; y **verificar con un script** que lea la
+  página cuadro por cuadro (encuentra en un minuto lo que una hoja de contacto no muestra).
+- **Lentitud de render (el obvio era «el voxel en SwiftShader»):** cinco `drop-shadow` CSS encadenados sobre el canvas
+  WebGL, 1,8 s/cuadro; un solo filtro SVG, 0,8 s. `feTurbulence` a pantalla completa por cuadro: 212 s contra 47; grano
+  pintado una vez.
+- **Un comentario `//` pegado a mitad de una línea se come lo que sigue** (tres veces: un frasco sin banda, etiquetas
+  apiladas, una cámara sin actualizar). `node --check` sólo atrapa la sintaxis, no un objeto que nunca entra a la escena.
+- **Mirar lo viejo creyendo que es lo nuevo:** la hoja de contacto vive fuera de `cap/<id>/` y sobrevive al borrado;
+  `capturar.mjs` nombraba `t03.52` y `t017.8` y la hoja salía desordenada (arreglado). Un MP4 en `mp4/` no es un formato
+  terminado, y un informe de agente puede decir algo que no se hizo: verificar en el archivo antes de darlo por hecho.
+- **La fila del navegador fue el costo dominante:** con 5-11 trabajos, cada captura o render esperó 10-30 min. Encadenar
+  captura y render en un solo comando en segundo plano; el turno ahora es FIFO.
+- **`voz_formato.sh` pisa en el acto la voz y los tiempos que usa la página.** Ante un pedido que puede cambiar, esperar o
+  copiar; si se pierde, se recupera del audio del MP4 (alinear → tiempos → apretar → normalizar), sin TTS.
+- **Legibilidad:** una captura de la app a escala real en un 9:16 deja el texto en ~25-30 px; agrandarla ≥ 1,35× con la
+  cámara recorriéndola (medir el alto de la letra, no el font-size). Con zoom > 1,2× y el teléfono a todo el ancho se cortan
+  los renglones en el borde: teléfono al ~85 %.
+- **Fuentes:** Press Start 2P no tiene Í ni É; IBM Plex Mono no tiene ✓ ↑ ↓ (la tabla ASCII se corre); un `overflow:hidden`
+  que esconde texto recorta las tildes de las mayúsculas. `toLocaleString('es')` no agrupa 4 cifras («3000»).
+- **Guiones:** la voz va a ~2,5 palabras/s más 1,4 s de cola: ≤ 42 palabras corridas, ≤ 36 en listas. El chequeo (STT)
+  marca de más con cifras («1930») y con «síes». Los guiones de la investigación prometían cosas que no sabemos si MaKo hace
+  («agenda por ti»): sólo lo confirmado.
+- **Three.js:** `alphaMap` lee el canal verde; las etiquetas proyectadas van un cuadro atrás sin `updateMatrixWorld()`;
+  `transmission` sólo refracta la escena 3D (el fondo va como `scene.background`); para pintar por capas cada luz necesita
+  `layers.enableAll()`; el Martín del kit se lleva a otra escena si las dos cargan three.js de la misma URL.
+
+### Lo que quedó sin hacer
+- De la investigación no se hicieron, por decisión: el Wrapped personalizado (se parece al «Resumen del año» que Martín sacó),
+  el cierre con estrellas de tienda de apps (obliga a inventar reseñas) y la pared de reels inclinada (como la de Lanzamiento).
+- La cita de `quote-cinema` la escribimos nosotros y sale firmada por Martín: espera su OK.
+- `recorte-vox` dice «Funnel Coach» (se hizo en el ida y vuelta del coach); `adilet` (anterior) dice «Offer Coach».
+- Los MP4 anteriores al 18/11 (morrow, cuatro, aleferr, adilet) quedaron a -19 LUFS; los nuevos, a -14.
+- `C:/dev/reel-mentores/voz/chequear-guion.mjs` debería pasar cifras a palabras antes de comparar.
+- Las trampas sueltas y completas, por constructor: `C:/dev/artefactos-animaciones/investigacion/trampas-constructores.md`.
