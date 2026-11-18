@@ -2299,9 +2299,12 @@ una tanda con su chequeo; `renders.mjs` renderiza y deja una hoja de cuadros por
 
 ### Lo que quedó SIN hacer (18/11, tarde)
 
-- El recorrido marca `sb-second-brain`, `sb-grafo` y `sb-brain-volver`, que no existen en main. Además, el mapa del Second Brain
-  es sólo del admin (`veMapa` en `app/second-brain/ChatSecondBrain.tsx`): hoy un cliente no tiene dónde tocar. Las pone el chat del
-  onboarding, o pasa los pasos del recorrido de la app y se rehace el video.
+- El recorrido marca `sb-second-brain`, `sb-grafo` y `sb-brain-volver`. Las puso el chat del onboarding en los componentes reales
+  (`punta/onboarding-v2-motor`, 8aedc7662). Hasta que eso llegue a main, la app no corre el recorrido aprobado: el primer día en el
+  Ops Center sale el tutorial de la pestaña. La app usa el video sólo si sus marcas son esos 6 pasos, en ese orden.
+  ⚠️ Leí `veMapa` («sólo el admin», `app/second-brain/ChatSecondBrain.tsx`) como el admin de MaKo, y es el admin DEL NEGOCIO, o
+  sea el dueño. El mapa no lo ven los closers ni los setters. Un «admin» en un comentario hay que confirmarlo con el rol antes de
+  sacar una decisión de producto de ahí.
 - `offer-coach` termina marcando la caja del chat (`sb-escribir`). La app todavía no separó los coaches: el chat del onboarding
   confirma la key y las marcas, y se cambian en el manifiesto sin tocar el video.
 - `reto-dia-3` sale SIN la difusión: el Cerebro la está confirmando con Martín (nada invasivo, cuidar el baneo). Si dice que sí,
