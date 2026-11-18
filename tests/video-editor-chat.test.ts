@@ -804,7 +804,7 @@ test('43: la FORMA de reemplazar_clip y usar_plantilla: los huecos y sus topes s
   });
   assert.deepEqual(v({ op: 'usar_plantilla', id: 'gancho' }), { ok: true, op: { op: 'usar_plantilla', id: 'gancho', textos: {}, clips: {} } });
   const motivo = (raw: unknown) => { const r = v(raw); return r.ok ? '' : r.motivo; };
-  assert.match(motivo({ op: 'usar_plantilla', id: 'inventada' }), /no es una plantilla \(son: gancho, gancho-escrito/);
+  assert.match(motivo({ op: 'usar_plantilla', id: 'inventada' }), /no es una plantilla \(son: gancho, respuesta-comentario, beneficios/);
   assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', textos: { gancho: 'x'.repeat(29) } }), /hasta 28 caracteres/);
   assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', textos: { clip: 'hola' } }), /hueco de clip: va en "clips"/);
   assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', clips: { gancho: 'm1' } }), /hueco de texto: va en "textos"/);
@@ -950,7 +950,8 @@ test('50: la API de MaKo LISTA las plantillas (gratis, con la tab del editor) y 
   assert.match(def!.descripcion, /NO se puede por la API/);
   const api = plantillasParaApi();
   assert.equal(api.total, PLANTILLAS.length);
-  assert.equal(api.plantillas.length, 7, 'las cinco y sus dos variantes');
+  // Las once de docs/plantillas-reales/video.md (las dos variantes se retiraron el 18/11/2026).
+  assert.equal(api.plantillas.length, 11, 'las once del catálogo');
   for (const p of PLANTILLAS) {
     const de = api.plantillas.find((x) => x.id === p.id)!;
     assert.deepEqual(de.huecos.map((h) => h.nombre), huecosDe(p).map((h) => h.nombre), p.id);

@@ -1346,7 +1346,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           {!compacto && <span style={{ fontSize: 40, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.025em', lineHeight: 1 }}>Plan</span>}
         </div>}
         {/* tabs */}
-        {!soloVista && <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
+        {!soloVista && <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }} data-recorrido={MARCA.planVistas}>
           {[...VISTAS.map((v) => ({ id: v as string, label: v === 'proyectos' ? repo.labelPlural : (v as string) })),
             ...(vistaExtra ? [{ id: vistaExtra.id, label: vistaExtra.label }] : [])].map((v) => (
             <button key={v.id} onClick={() => setView(v.id)} style={{ border: 'none', background: view === v.id ? 'var(--surface)' : 'transparent', color: view === v.id ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v.id ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v.id ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v.label}</button>
@@ -1919,6 +1919,7 @@ function FunnelIcon({ color = 'currentColor', size = 17 }: { color?: string; siz
 // mismo archivo la usa mas abajo. Es la trampa que AGENTS.md ya tiene escrita.
 import { BarraAcciones } from '@/app/_components/BarraAcciones';
 import { iniciales } from '@/lib/unicode-seguro';
+import { MARCA } from '@/lib/tutoriales/marcas';
 export { BarraAcciones };
 export type { AccionPlegable } from '@/app/_components/BarraAcciones';
 

@@ -13,6 +13,8 @@
 //
 // PROBADO ROMPIÉNDOLO (18/11/2026): base 3/0 →
 //   · `plantillaDeTarjeta` devolviendo siempre null → 2/1 (cae el 1);
+//   · `plantillaDeTarjeta` devolviendo la plantilla del catálogo, sin el ejemplo → 2/1 (cae el 1);
+//   · `plantillaDeTarjeta` armando un objeto nuevo en cada llamada → 2/1 (cae el 1);
 //   · `import { EditorCore } from './_opencut/core'` en miniatura-nuevo-video.tsx → 1/2 (caen el 2, por el grafo, y el 1, que
 //     ya no carga en node: el .wasm del núcleo tira al importarse);
 //   · `miniatura={miniaturaDeNuevoVideo}` sacado de VideoEditorCliente → 2/1 (cae el 3).
@@ -58,6 +60,22 @@ test('1. cada plantilla de anuncio de «Nuevo video» se dibuja con SU miniatura
     assert.doesNotMatch(html, /<canvas\b|data-miniatura-plantilla/, `${p.nombre}: no es una plantilla de anuncio`);
   }
   assert.equal(miniaturaDeNuevoVideo({ id: 'plantilla:no-existe', nombre: 'x', formato: '9 / 16' }, false), null, 'un id que no está en el catálogo');
+  // Lo que se dibuja es el EJEMPLO (la «Miniatura» de cada plantilla en docs/plantillas-reales/video.md), no la muestra
+  // genérica del catálogo, y es el MISMO objeto en cada render (la tarjeta la pide siempre; uno nuevo la redibujaría).
+  const { ejemploDeVideo } = await import('@/lib/editor-video/plantillas-ejemplos');
+  let comparados = 0;
+  for (const p of anuncios) {
+    const dibujada = plantillaDeTarjeta(p.id)!;
+    assert.equal(plantillaDeTarjeta(p.id), dibujada, `${p.nombre}: otro objeto en cada llamada`);
+    const e = ejemploDeVideo(dibujada.id);
+    if (!e) continue;
+    for (const pieza of dibujada.piezas) {
+      if (pieza.tipo !== 'texto' || !pieza.hueco || !(pieza.hueco.nombre in e.textos)) continue;
+      assert.equal(pieza.muestra, e.textos[pieza.hueco.nombre], `${p.nombre}: el hueco ${pieza.hueco.nombre} no muestra el ejemplo`);
+      comparados++;
+    }
+  }
+  assert.ok(comparados >= 10, `sólo ${comparados} huecos comparados: el lector no miró los ejemplos`);
 });
 
 /** Los archivos del repo que `desde` importa por VALOR, transitivamente; y los paquetes externos. */

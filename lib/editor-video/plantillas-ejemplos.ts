@@ -10,7 +10,7 @@
 // (Rodrigo Ibarra). Ninguno nombra a alguien de la lista REALES (tests/_reales.ts), y los datos son los mismos que usa
 // Copywriter para que la persona reconozca el negocio.
 //
-// QUÉ HACE ESTE MÓDULO (el catálogo NO cambia todavía: lib/editor-video/plantillas.ts lo lleva otro chat):
+// QUÉ HACE ESTE MÓDULO:
 //   · `EJEMPLOS_VIDEO`: por id de plantilla EXISTENTE, el negocio, cuándo usarla, un texto por hueco de texto (con su
 //     tope y sus mayúsculas), el guion para grabar con segundos, las tomas de apoyo y el texto del anuncio.
 //   · `plantillaConEjemplo`: una COPIA de la plantilla con la `muestra` de cada pieza cambiada por el texto de su hueco,
@@ -24,7 +24,11 @@
 //   antes-despues → 2.11 «Antes y después» (Torre Alameda)
 //   beneficios    → 2.3 «Lo que te llevas» (Voz de Líder)
 //   oferta        → 2.9 «Invitación a clase en vivo» (Consulta Rentable)
-//   gancho-escrito y oferta-glitch: el doc las RETIRA (2.0, «prefiero deprecar antes que conservar»): sin ejemplo.
+//   y desde el 18/11/2026 (F164) las seis nuevas, cada una con su id del doc: respuesta-comentario (2.2), caso-numeros
+//   (2.5), historia (2.6), tres-errores (2.7), clip-podcast (2.8) y tour-propiedad (2.10). Sus textos SON las muestras de
+//   su plantilla (el doc no trae otras), así que su miniatura no cambia con el ejemplo.
+//   gancho-escrito y oferta-glitch: el doc las RETIRA (2.0, «prefiero deprecar antes que conservar»): se sacaron del
+//   catálogo el 18/11/2026.
 //
 // LO QUE DEL DOC NO ENTRA EN LOS HUECOS DE HOY (va al chat de Video cuando cambie el catálogo):
 //   · gancho: el doc dura 24 s (clip 0–21) y suma la toma de apoyo `broll` (6–9.5), el `dato` «2/10 → 4/10 CIERRES» y el
@@ -44,7 +48,8 @@
 //     va en MAYÚSCULAS porque la pieza de hoy las dibuja (en el doc es el de `cierre()`, sin ellas); y la cuenta
 //     regresiva 3-2-1 que el doc saca sigue dibujándose (es decoración, sin hueco). El guion se condensó a 0–9 s.
 //   · antes-despues: entra entero (el doc sólo cambia los textos). Sin voz: el guion va vacío y lo cuenta el anuncio.
-//   · En las cinco: los créditos de las muestras de Pexels (doc 2.0 y 7: ninguna está elegida todavía).
+//   · En todas: los créditos de las muestras de Pexels (doc 2.0 y 7: ninguna está elegida todavía), y la captura propia
+//     de `caso-numeros`.
 //
 // ⚠️ Español neutro con «tú» (tests/puente-panel-copy.test.ts barre lib/); los números como en el doc (USD 1,500,
 // MXN 2.4 M). Lo fija tests/video-plantillas-ejemplos.test.ts.
@@ -70,6 +75,11 @@ export type EjemploVideo = {
   textos: Readonly<Record<string, string>>;
   /** El guion para grabar, con los segundos de cada parte («0–3 s»). Vacío = sin voz: lo cuenta el texto del anuncio. */
   guion: ReadonlyArray<{ segundos: string; dice: string }>;
+  /**
+   * El segundo en que empieza la voz, si antes hay tomas SIN voz (el tour de propiedad: los espacios van sin hablar y el
+   * asesor habla desde el 15; doc 2.10). Sin el campo, la voz arranca en 0. Las tomas de antes se cuentan en `tomas`.
+   */
+  vozDesde?: number;
   /** Las tomas de apoyo que se graban (nunca la cara de una persona de stock: doc 2.0). */
   tomas: readonly string[];
   /** El texto del anuncio, si el doc lo trae. */
@@ -184,6 +194,166 @@ export const EJEMPLOS_VIDEO: Readonly<Partial<Record<string, EjemploVideo>>> = {
       { segundos: '7–9 s', dice: '«Es gratis y por Zoom. Regístrate en el link.»' },
     ],
     tomas: ['Una laptop abierta en una videollamada, con la galería borrosa'],
+  },
+
+  // ── Las seis del 18/11/2026 (F164): el ejemplo es el del doc, y los textos son las muestras de su plantilla ──────
+
+  // ── 2.2 Respuesta a un comentario · Cierre Consultivo ──────────────────────
+  'respuesta-comentario': {
+    negocio: 'Cierre Consultivo',
+    sobre: 'Andrea Salcedo, coach de ventas para coaches en CDMX. Vende un programa de 90 días de USD 1,500.',
+    objetivo: 'Vender una llamada',
+    cuando: 'Contenido de cierre para quien ya está considerando comprar: responde una objeción de precio o de confianza con el formato de respuesta a un comentario.',
+    // ⚠️ El comentario tiene que ser real; si no hay uno, el rótulo dice «Pregunta frecuente» (nunca un @ inventado).
+    textos: {
+      usuario: 'Pregunta frecuente',
+      comentario: '¿Pagar si YouTube es gratis?',
+      'frase-clave': 'LA CORRECCIÓN NO ES GRATIS',
+      'titulo-final': '3 llamadas revisadas: USD 150',
+      cta: 'Escribe LLAMADA',
+    },
+    guion: [
+      { segundos: '0–4 s', dice: '«Me preguntan seguido por qué cobro 1,500 dólares si en YouTube está casi todo gratis.»' },
+      { segundos: '4–10 s', dice: '«Es cierto: la información está. Lo que no está es alguien que escuche tu llamada de venta y te diga en qué minuto la perdiste.»' },
+      { segundos: '10–16 s', dice: '«Ver un video es gratis. Que alguien corrija tu llamada, no. Mis alumnas me pagan para lograrlo en 90 días y no en tres años.»' },
+      { segundos: '16–21 s', dice: '«Si quieres probar, reviso tres de tus llamadas por 150 dólares, y se descuentan si después entras.»' },
+      { segundos: '21–25 s', dice: '«Escríbeme LLAMADA.»' },
+    ],
+    tomas: ['Un escritorio con un micrófono y una laptop, sin nadie'],
+  },
+
+  // ── 2.5 Caso con números · Pulso Dental ────────────────────────────────────
+  'caso-numeros': {
+    negocio: 'Pulso Dental',
+    sobre: 'Diego Ferrer, agencia para clínicas dentales en Bogotá: USD 1,200 al mes con contrato de 3 meses. El caso es su cliente, la Clínica Dental Altamira de Medellín.',
+    objetivo: 'Prueba social',
+    cuando: 'Agencias y servicios con un resultado medible: quien habla cuenta el caso y, encima, la captura del panel con los números.',
+    textos: {
+      gancho: 'DE 6 A 23 VALORACIONES',
+      'dato-1': 'VALORACIONES: 6 → 23',
+      'dato-2': '9 TRATAMIENTOS CERRADOS',
+      'dato-3': 'MISMA INVERSIÓN EN ANUNCIOS',
+      'titulo-final': '¿Tu clínica quiere lo mismo?',
+      cta: 'Escribe CITAS',
+    },
+    guion: [
+      { segundos: '0–4 s', dice: '«Así pasó una clínica dental de Medellín de 6 a 23 valoraciones de implantes al mes.»' },
+      { segundos: '4–9 s', dice: '«Sus anuncios traían mensajes de "¿precio?", pero nadie los contestaba a tiempo y casi ninguno volvía.»' },
+      { segundos: '9–15 s', dice: '«Cambiamos tres cosas: un anuncio por tratamiento, respuesta en menos de cinco minutos y el rango de precio dicho antes de agendar.»' },
+      { segundos: '15–19 s', dice: '«Al tercer mes, con la misma inversión, cerraron 9 tratamientos.»' },
+      { segundos: '19–22 s', dice: '«Si tienes una clínica dental, escríbeme CITAS y reviso tus anuncios.»' },
+    ],
+    // ⚠️ Sólo con el permiso del cliente, y con los nombres de los pacientes tapados antes de subir la captura (doc 2.5).
+    tomas: ['El escritorio de una agencia con dos monitores, sin personas', 'La captura del panel con los números del caso: 6, 23 y 9'],
+    anuncio:
+      'Así pasó la Clínica Dental Altamira de 6 a 23 valoraciones de implantes al mes. Resultados de una clínica en particular, mostrados con su permiso. Escríbenos CITAS y revisamos tus anuncios sin costo.',
+  },
+
+  // ── 2.6 Historia del fundador · Pulso Dental ───────────────────────────────
+  historia: {
+    negocio: 'Pulso Dental',
+    sobre: 'Diego Ferrer, agencia para clínicas dentales en Bogotá. En 2021 manejaba seis clínicas y perdió cuatro en un semestre.',
+    objetivo: 'Prueba social',
+    cuando: 'Orgánico de conexión: antes, quiebre y hoy, y cierra pidiendo un mensaje. Habla de clientes atendidos, nunca de la facturación propia.',
+    textos: {
+      gancho: 'PERDÍ 4 DE 6 CLÍNICAS',
+      'etiqueta-antes': 'ANTES · 2021',
+      quiebre: '14 mensajes, 5 respuestas',
+      'etiqueta-cambio': 'EL CAMBIO',
+      'etiqueta-hoy': 'DESDE 2022',
+      numero: '31 CLÍNICAS ATENDIDAS',
+      'titulo-final': '¿Tu clínica pierde mensajes?',
+      cta: 'Escribe AUDITORIA',
+    },
+    guion: [
+      { segundos: '0–3 s', dice: '«En 2021 manejaba los anuncios de seis clínicas y perdí cuatro en un semestre.»' },
+      { segundos: '3–9 s', dice: '«Los anuncios traían mensajes baratos, y yo creía que con eso alcanzaba. Las clínicas no veían pacientes.»' },
+      { segundos: '9–13 s', dice: '«Una tarde, en la recepción de una clínica, vi entrar 14 mensajes. Se contestaron 5.»' },
+      { segundos: '13–20 s', dice: '«Ahí entendí que yo vendía mensajes y la clínica necesitaba pacientes. Sumamos lo que pasa después del anuncio: respuesta a cada paciente en menos de cinco minutos, con un guion.»' },
+      { segundos: '20–27 s', dice: '«Desde 2022 atendimos a 31 clínicas de Colombia y México. Si tu clínica recibe mensajes y no pacientes, escríbeme AUDITORIA y reviso tus mensajes.»' },
+    ],
+    // El 31 es el total desde 2022, no las clínicas activas (doc 2.6).
+    tomas: ['La recepción de una clínica vacía', 'Un escritorio desordenado de noche, con una laptop'],
+  },
+
+  // ── 2.7 Reel de 3 errores · Voz de Líder ───────────────────────────────────
+  'tres-errores': {
+    negocio: 'Voz de Líder',
+    sobre: 'Rodrigo Ibarra enseña oratoria a gerentes en Lima: programa de 90 días en cohortes de 12, USD 2,000.',
+    objetivo: 'Educar',
+    cuando: 'Contenido orgánico de autoridad: enseña algo concreto, junta comentarios y termina en un mensaje directo.',
+    textos: {
+      gancho: '3 ERRORES ANTE EL DIRECTORIO',
+      'titulo-1': 'ERROR 1 · INICIO IMPROVISADO',
+      'titulo-2': 'ERROR 2 · LEER DIAPOSITIVAS',
+      'titulo-3': 'ERROR 3 · DEMASIADOS DATOS',
+      pregunta: 'Comenta 1, 2 o 3',
+      cta: 'Escribe JUNTA',
+    },
+    guion: [
+      { segundos: '0–3 s', dice: '«Tres errores que hacen que el directorio deje de escucharte en el primer minuto.»' },
+      { segundos: '3–11 s', dice: '«Error uno: improvisas el inicio. Los primeros 20 segundos se escriben y se ensayan en voz alta, como un discurso corto.»' },
+      { segundos: '11–20 s', dice: '«Error dos: lees las diapositivas. Si la frase ya está en la pantalla, no la repitas; di lo que la pantalla no dice.»' },
+      { segundos: '20–29 s', dice: '«Error tres: respondes una pregunta difícil con más datos. Primero contesta sí o no, y después da un solo número.»' },
+      { segundos: '29–35 s', dice: '«¿Cuál te pasa más? Comenta 1, 2 o 3.»' },
+      { segundos: '35–38 s', dice: '«Y si te toca presentar este mes, escríbeme JUNTA.»' },
+    ],
+    tomas: ['Una pantalla de presentación en una sala vacía', 'Una mesa de directorio vacía'],
+  },
+
+  // ── 2.8 Clip de podcast o clase · Cierre Consultivo ────────────────────────
+  'clip-podcast': {
+    negocio: 'Cierre Consultivo',
+    sobre: 'El podcast «Ventas sin presión» de Andrea Salcedo, coach de ventas para coaches en CDMX: el fragmento del episodio 27.',
+    objetivo: 'Educar',
+    cuando: 'Sacar un clip vertical de un video largo (podcast, clase en vivo o webinar), que arranca en la frase más fuerte y no en la pregunta de quien entrevista.',
+    textos: {
+      gancho: 'TU PRECIO NO ES CARO',
+      encabezado: 'Podcast Ventas sin presión',
+      cta: 'Episodio completo en el perfil',
+    },
+    guion: [
+      {
+        segundos: '0–40 s',
+        dice: '«Tu precio no es caro. Es caro para el cliente equivocado. Cuando alguien te dice "está caro", te está diciendo que no ve el problema tan grande como lo ves tú. Entonces no bajes el precio: vuelve al problema. Pregúntale cuánto le cuesta cada mes seguir así, y deja que haga la cuenta en voz alta. Casi siempre, la objeción se cae sola.»',
+      },
+    ],
+    tomas: ['Un micrófono y audífonos en una mesa, sin nadie'],
+  },
+
+  // ── 2.10 Tour de propiedad · Torre Alameda ─────────────────────────────────
+  'tour-propiedad': {
+    negocio: 'Torre Alameda',
+    sobre: 'Preventa de departamentos en Querétaro: 2 recámaras desde MXN 2.4 M. Presenta Karen, asesora de la sala de ventas.',
+    objetivo: 'Propiedad',
+    cuando: 'Presentar una propiedad o un departamento muestra: un espacio por toma, los datos en etiquetas y una visita como llamado.',
+    // ⚠️ Cada etiqueta es un dato de la ficha de la propiedad: si la persona no lo dio, se pregunta; nunca se ponen los
+    //    metros, el precio ni las amenidades de este ejemplo (doc 2.10).
+    textos: {
+      gancho: 'DEPTO CON VISTA AL PARQUE',
+      precio: 'DESDE MXN 2.4 M',
+      'chip-1': '78 m² frente al parque',
+      'chip-2': 'Cocina integral con barra',
+      'chip-3': '2 recámaras · 2 baños',
+      'chip-4': 'Roof garden y alberca',
+      nombre: 'Karen Méndez',
+      detalle: 'Asesora · Torre Alameda',
+      cta: 'Escribe VISITA',
+    },
+    vozDesde: 15,
+    guion: [
+      { segundos: '15–24 s', dice: '«Soy Karen, de Torre Alameda. Este sábado abrimos el departamento muestra. Escríbeme VISITA y te paso los horarios y la lista de precios.»' },
+    ],
+    // Las cinco primeras van SIN voz, con movimiento (hacia adelante o un paneo lento).
+    tomas: [
+      'La obra vista desde la calle',
+      'La sala del departamento muestra, con el parque por la ventana',
+      'La cocina',
+      'La recámara principal',
+      'El roof garden con la alberca',
+    ],
+    anuncio:
+      'Departamentos de 2 recámaras en preventa en Querétaro, frente a un parque y a 8 minutos de Constituyentes. Desde MXN 2.4 millones, con enganche del 10 % diferido a 18 meses. Escríbenos VISITA para conocer el departamento muestra este sábado.',
   },
 };
 

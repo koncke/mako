@@ -103,6 +103,7 @@ import { sanearConfig } from '../lib/editor-landing/validar';
 import { mezclarConfig } from '../lib/editor-landing/server-reglas';
 import { PLANTILLAS } from '../lib/editor-landing/plantillas';
 import { PLANTILLAS_PRESENTACION } from '../lib/editor-landing/plantillas-presentaciones';
+import { PLANTILLAS_CARRUSEL } from '../lib/editor-landing/plantillas-carrusel';
 import { temaSugerido } from '../app/web-generator/crear/SelectorTemaCrear';
 import { TEMAS } from '../lib/editor-landing/temas';
 import { tarjeta, textoDe, titulo, type JsonNodo } from '../lib/editor-landing/doc';
@@ -352,9 +353,11 @@ test('el tema sugerido existe en el catálogo para cada objetivo', () => {
 
 const ORIGEN = { modo: 'ia' as const, pedido: 'algo', objetivo: 'agendar' as const, basadoEnUrl: null };
 
-test('el tipo de la query: sólo «presentacion» crea una presentación; lo demás, una landing', () => {
+test('el tipo de la query: «presentacion» y «carrusel»; lo demás, una landing', () => {
   assert.equal(tipoValido('presentacion'), 'presentacion');
-  for (const v of ['landing', 'PRESENTACION', 'presentación', '', null, undefined, 'pagina']) assert.equal(tipoValido(v), 'landing', String(v));
+  // 6/11/2026: el carrusel 4:5 que pidió Leila tres veces (plantillas-carrusel.ts).
+  assert.equal(tipoValido('carrusel'), 'carrusel');
+  for (const v of ['landing', 'PRESENTACION', 'presentación', 'CARRUSEL', 'carrousel', '4:5', '', null, undefined, 'pagina']) assert.equal(tipoValido(v), 'landing', String(v));
 });
 
 test('los parámetros de la IA: una presentación pide diapositivas y suelta la landing de base', () => {
@@ -368,6 +371,13 @@ test('los parámetros de la IA: una presentación pide diapositivas y suelta la 
   assert.equal(land.basadoEnUrl, 'https://ejemplo.com/landing');
   // Volver de Presentación a Landing no deja el formato pegado.
   assert.equal(paramsDeTipo({ ...p, formato: 'presentacion' }, 'landing').formato, 'pagina');
+  assert.equal(pres.proporcion, '16:9', 'una presentación manda su forma explícita');
+  // Y un CARRUSEL (6/11/2026) manda la suya: es lo único que le dice a la IA que escriba láminas.
+  const carr = paramsDeTipo(p, 'carrusel');
+  assert.equal(carr.formato, 'presentacion');
+  assert.equal(carr.proporcion, '4:5');
+  assert.equal(carr.basadoEnUrl, null);
+  assert.equal('proporcion' in paramsDeTipo({ ...p, proporcion: '4:5' }, 'landing'), false, 'la forma del carrusel queda pegada en una landing');
 });
 
 test('el alta de la IA: una presentación nace presentación (y sobrevive al saneo del server)', () => {
@@ -388,11 +398,12 @@ test('el alta de la IA: una presentación nace presentación (y sobrevive al san
 
 test('las plantillas de cada tipo, y el alta de cada una con SU formato', () => {
   assert.equal(plantillasDe('presentacion'), PLANTILLAS_PRESENTACION);
+  assert.equal(plantillasDe('carrusel'), PLANTILLAS_CARRUSEL);
   // Una landing ofrece DISEÑOS, y el copy (el objetivo) se elige después (12/10/2026; el cruce
   // diseño × objetivo lo fija tests/editor-landing-disenos.test.ts).
   assert.ok(plantillasDe('landing').every((p) => p.pideObjetivo), 'una landing ofrece diseños');
   assert.ok(PLANTILLAS_PRESENTACION.length >= 12, `hay ${PLANTILLAS_PRESENTACION.length} presentaciones`);
-  for (const p of PLANTILLAS_PRESENTACION) {
+  for (const p of [...PLANTILLAS_PRESENTACION, ...PLANTILLAS_CARRUSEL]) {
     const r = pedidoDePlantilla(p);
     assert.equal(r.accion, 'crear');
     assert.equal(r.titulo, p.nombre);
@@ -514,7 +525,7 @@ test('la caja «¿Qué vas a crear hoy?»: el micrófono y el ejemplo de «Nueva
   assert.match(src, /<MiniaturaLanding tarjeta=\{m\[p\.id\] \?\? null\} tema=\{temaPorId\(p\.tema\)\} formato=\{formatoDe\(p\)\} proporcion=\{p\.proporcion\} \/>/);
 });
 
-test('los ejemplos que se escriben solos: cortos y de los dos tipos', () => {
+test('los ejemplos que se escriben solos: cortos y de los tres tipos', () => {
   for (const t of ['landing', 'presentacion'] as const) {
     assert.ok(EJEMPLOS_CAJA[t].length >= 3, t);
     for (const e of EJEMPLOS_CAJA[t]) assert.ok(e.length <= 70, `${t}: «${e}» es largo para un placeholder`);

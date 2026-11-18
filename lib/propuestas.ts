@@ -24,6 +24,7 @@
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
+import { refYaTomada } from './propuestas-ref';
 
 /** `accion` = una acción genérica del registro de la API (lib/api-mako) esperando
  *  confirmación en /mako/revisar/<id>; `datos` = { operacion, payload, resumen, canal }. */
@@ -95,8 +96,9 @@ export async function crearPropuesta(input: {
     if (ref) {
       const { data } = await db.from('propuestas').select('id, estado').eq('ref', ref).maybeSingle();
       const estado = data ? str((data as Record<string, unknown>).estado) : null;
-      if (data && estado !== 'descartada') return { id: str((data as Record<string, unknown>).id), nueva: false };
-      // Descartada: entra de nuevo, con una `ref` propia para no chocar con la
+      // Qué estado bloquea depende del tipo (lib/propuestas-ref.ts, F114): un lead aplicado sí, una acción aplicada no.
+      if (data && refYaTomada(input.tipo, estado)) return { id: str((data as Record<string, unknown>).id), nueva: false };
+      // Descartada (o una ACCIÓN ya aplicada): entra de nuevo, con una `ref` propia para no chocar con la
       // vieja. El día en la llave mantiene la idempotencia donde hace falta —dos
       // submits seguidos siguen siendo uno— sin encadenar a esa persona a una
       // decisión que se tomó hace un mes.
@@ -106,10 +108,10 @@ export async function crearPropuesta(input: {
         // día chocaría contra el unique de `ref` — la idempotencia se rompería
         // justo en el caso que esta rama vino a habilitar.
         const { data: hoy } = await db.from('propuestas').select('id, estado').eq('ref', refFinal).maybeSingle();
-        if (hoy && str((hoy as Record<string, unknown>).estado) !== 'descartada') {
+        if (hoy && refYaTomada(input.tipo, str((hoy as Record<string, unknown>).estado))) {
           return { id: str((hoy as Record<string, unknown>).id), nueva: false };
         }
-        // Descartada OTRA VEZ hoy: se deja entrar sin llave. Perder la
+        // Descartada (o aplicada) OTRA VEZ hoy: se deja entrar sin llave. Perder la
         // idempotencia de un caso tan raro es mucho más barato que volver a
         // encadenar a esa persona, que es el bug que se está arreglando.
         if (hoy) refFinal = null;

@@ -286,7 +286,7 @@ Antes de subir se corre `verify-prompt-registry-sync`.
 - En Video hay que verificar qué modelo contesta `video-editor-ia` antes de medir al experto.
 - El turno de Offer corre con un modelo chico (`gemini-flash-lite-latest`, 2,000 tokens): el bloque del experto tiene tope y va antes de la regla de lo que no existe.
 
-**Las pruebas del experto** (evals) usan el formato de marketingskills (`prompt`, `expected_output`, `assertions`). Video y Offer ya listan las suyas; las de Copywriter quedan pendientes.
+**Las pruebas del experto** (evals) usan el formato de marketingskills (`prompt`, `expected_output`, `assertions`). Video y Offer ya listan las suyas; las de Copywriter están desde el 18/11/2026 en `tests/copywriter-experto-evals.test.ts` (casos en `tests/_copywriter-experto-evals.ts`), sin llamar a un modelo: cada verificación cita su regla del prompt y se prueba sobre salidas fijas buenas y malas.
 
 ---
 
@@ -397,7 +397,7 @@ Cada paso pasa `tsc` acotado y los tests de su tab. La cosecha va en el mismo co
 - **AI Avatar:**
   - la prueba de la plantilla 5 (podcast, dos personas);
   - los 5 retratos, los 10 pósters y los 10 loops (`public/ai-avatar/plantillas/`), que esperan al motor.
-- **Ejemplos que faltan en Copywriter:** las VSL `vsl-anti-solucion`, `vsl-diagnostico` y `vsl-historia-fundador` (quedan ocultas), y `reel-nicho`, `aida`, `bab` y `gancho-propuesta-cta`.
+- **Ejemplos que faltan en Copywriter:** ~~las VSL `vsl-anti-solucion`, `vsl-diagnostico` y `vsl-historia-fundador` (quedan ocultas)~~ (18/11/2026: tienen su ejemplo y volvieron a la galería), y `reel-nicho`, `aida`, `bab` y `gancho-propuesta-cta`.
 - **Offer:**
   - el teléfono (`app/m/offer/HojasOfferM.tsx`) y la API de MaKo con plantillas;
   - la nota del valor apilado en `docs/offer-marco.md` §6.3.

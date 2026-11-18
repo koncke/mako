@@ -57,6 +57,7 @@ import { descargarComo } from '@/app/video-generator/descargar';
 import { nombreDeArchivo } from '@/lib/ai-avatar/descarga';
 import { useWs } from '@/app/_ui/Link';
 import { soltarGuionPasado, verGuionPasado } from '@/lib/guion-pasado';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
 type Vista = { tipo: 'nueva' } | { tipo: 'proyecto'; id: string } | { tipo: 'todos' };
@@ -471,7 +472,7 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
             <span className="hf-preset-nombre">{preset ? preset.nombre : 'Preset'}</span>
             <span className="hf-preset-cambiar"><Icon name="pen" size={12} /> {preset ? 'Cambiar' : 'Elegir'}</span>
           </button>
-          <button type="button" className="hf-generar" disabled={!!falta || enviando} onClick={onGenerar} title={falta || undefined}>
+          <button type="button" className="hf-generar" disabled={!!falta || enviando} onClick={onGenerar} title={falta || undefined} data-recorrido={MARCA.avatarGenerar}>
             <span>{enviando ? 'Pidiendo…' : 'Generar'}</span>
             <small>{enviando ? 'Gratis' : pieDeGenerar({ preset: !!preset, pasosFaltan: req.pasos.filter((x) => !x.hecho).length, foto: !!foto, flowListo: puente.puede })}</small>
           </button>
@@ -501,7 +502,7 @@ function Requisitos({ pasos, motor }: { pasos: readonly PasoRequisito[]; motor?:
   const [abierta, setAbierta] = useState(false);
   const r = resumenDeRequisitos(pasos);
   return (
-    <section className="hf-requisitos" aria-label="Antes de generar">
+    <section className="hf-requisitos" aria-label="Antes de generar" data-recorrido={MARCA.avatarAntes}>
       <button type="button" className="hf-requisitos-cabecera" aria-expanded={abierta} onClick={() => setAbierta((v) => !v)}>
         <span className="hf-requisitos-titulo">Antes de generar</span>
         <span className="hf-requisitos-resumen">{r.linea}</span>
