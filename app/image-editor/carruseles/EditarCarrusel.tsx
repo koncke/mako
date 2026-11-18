@@ -35,7 +35,8 @@ import { fasesDesde } from '@/app/_ui/armado-en-vivo';
 import { useRevelado } from '@/app/_ui/ArmadoEnVivo';
 import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
 import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
-import { eventosDe, fasesSegunLaIA, type EventoReplica } from '@/lib/carruseles/replica';
+import { fasesSegunLaIA, type EventoReplica } from '@/lib/carruseles/replica';
+import { errorSinFin, leerStreamDeReplica } from '@/lib/carruseles/replica-stream';
 import type { Carrusel } from '@/lib/carruseles/explorar';
 import type { Thumbnail } from '@/lib/thumbnails/explorar';
 import type { Vertical } from '@/lib/thumbnails/verticales';
@@ -119,23 +120,15 @@ export function EditarCarrusel({ carrusel = null, thumbnail = null, vertical = n
         setError(j?.error ?? 'No pude armar tu versión. Vuelve a intentar.');
         return;
       }
-      const lector = r.body.getReader();
-      const dec = new TextDecoder();
-      let resto = '';
-      for (;;) {
-        const { value, done } = await lector.read();
-        if (done) break;
-        resto += dec.decode(value, { stream: true });
-        const corte = resto.lastIndexOf('\n');
-        if (corte < 0) continue;
-        for (const e of eventosDe(resto.slice(0, corte))) {
-          if (e.fase === 'leer') { setTotal(e.laminas); setFase('leer'); }
-          else if (e.fase === 'escribir') setFase('escribir');
-          else if (e.fase === 'lamina') { setFase('armar'); setPaginas((ps) => [...ps, { pagina: e.pagina, ancho: e.ancho, alto: e.alto }]); }
-          else if (e.fase === 'fin') { if (e.ok) setFin(e); else setError(e.error); }
-        }
-        resto = resto.slice(corte + 1);
-      }
+      // El stream entero, hasta su última línea (lib/carruseles/replica-stream.ts). La ruta manda su `fin` antes de su tope, con la
+      // causa; si igual termina SIN `fin` (la función murió), se dice qué pasó en vez de quedarse en la fase en curso (F14, 18/11).
+      const { conFin, ultima } = await leerStreamDeReplica(r.body, (e) => {
+        if (e.fase === 'leer') { setTotal(e.laminas); setFase('leer'); }
+        else if (e.fase === 'escribir') setFase('escribir');
+        else if (e.fase === 'lamina') { setFase('armar'); setPaginas((ps) => [...ps, { pagina: e.pagina, ancho: e.ancho, alto: e.alto }]); }
+        else if (e.fase === 'fin') { if (e.ok) setFin(e); else setError(e.error); }
+      });
+      if (!conFin && !ctrl.signal.aborted) setError(errorSinFin(ultima));
     } catch (e) {
       if (ctrl.signal.aborted) return;
       setError(e instanceof Error && e.name === 'TimeoutError'

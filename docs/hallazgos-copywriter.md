@@ -3,6 +3,35 @@
 Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026). El diseño y sus decisiones están en
 [diseno-copywriter.md](diseno-copywriter.md); acá va lo que no se deduce del código.
 
+## El VSL Generator ya era el Copywriter, y el hueco que queda es el LARGO (18/11/2026, F93)
+
+**Síntoma:** el pendiente F93 (docs/pendientes-verificados-17-11.md) pedía construir el VSL Generator con el plan de agosto
+(app/admin/dev/vsl-generator/bitacora.ts): `lib/vsl-writer.ts`, `/api/vsl-generator` con una tabla de borradores (la migración
+0422 quedó reservada para eso) y una operación de la API. El agente que lo verificó el 17/11 buscó esos ARCHIVOS, no los encontró
+y lo dio por abierto.
+
+**Causa:** la búsqueda fue por archivo, no por capacidad. Las cuatro piezas existen desde el 28-29/10 con otro nombre:
+las plantillas VSL de «Nueva» salen de `lib/vsl-estructuras.ts` (`vsls` en lib/copywriter/plantillas.ts, `conVsl` en
+catalogos.ts), MaKo las escribe desde el chat de la página (lib/copywriter/ia.ts, con todas sus guardas: la voz, el largo por
+duración, las cifras sin fuente, el inglés) y la API las crea y las escribe (`crear_documento_copywriter` con `plantillaId`,
+`editar_documento_copywriter`, `replicar_link_o_texto_copywriter` con tipo `vsl`). El contrato doble de las etiquetas también:
+cada sección es un Título 2 con `attrs.seccion` = la etiqueta exacta (`tituloDeSeccion`, doc.ts), y `bloquesDelDoc` la lee.
+
+**Lo que se hizo:** no se escribió un segundo motor. /vsl-generator lleva a `/copywriter?nuevo=vsl` (app/vsl-generator/destino.ts,
+el molde de /youtube-writer), /vsl-writer va directo, y «vsl generator» y «guion de vsl» son alias del Copywriter en
+lib/funciones-mako.ts. Lo fija tests/vsl-generator-destino.test.ts, probado rompiéndolo.
+
+**El hueco de verdad, medido con las funciones de lib/copywriter/ia-reglas.ts:** `objetivoDeDuracion` topea en 2.000 palabras
+(~13 minutos dichos). Las cinco estructuras de lib/vsl-estructuras.ts son de 20 a 40 minutos (3.000 a 6.000 palabras), y la
+plantilla «Clase gratuita · 42 min» pide 6.300. Con el tope, `cortaParaSuDuracion` da por buena la clase desde 1.500 palabras
+(10 minutos) y `avisoDeDuracion` avisa recién debajo de 1.200: un VSL largo sale de un tercio de su duración y, por encima de
+1.200 palabras, nada lo dice. Arreglarlo es escribir una pieza larga sección por sección; vive en lib/copywriter/ia.ts y es del
+chat del Copywriter.
+
+**La regla que queda:** un pendiente que nombra un módulo por construir se refuta buscando la CAPACIDAD (qué pantalla o qué
+operación ya hace eso), no el archivo. Un plan de construcción fechado antes de una consolidación (acá, «Copywriter = Notion» y la
+regla de Create del 29/10) describe un mundo que ya no existe, y seguirlo al pie de la letra fabrica la segunda implementación.
+
 ## Un rollback se dispara con «no dejó rastro», nunca con «falló»: `crear` borraba el guion que SÍ se había guardado (6/11/2026, B7)
 
 El síntoma, de la verificación de la mudanza: la persona crea un guion, el texto se guarda bien, y la
