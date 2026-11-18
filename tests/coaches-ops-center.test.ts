@@ -501,8 +501,9 @@ test('19. el interruptor decide en el servidor: el contexto, la ruta y las panta
   // El mismo de la página: el email de la sesión y el negocio del chat. Si la sesión no se lee, el coach único.
   assert.match(r, /async function veDosCoaches\(ws: number\): Promise<boolean> \{\n\s*const sesion = await getUsuarioActual\(\)\.catch\(\(\) => null\);\n\s*return !!sesion && veOnboardingV2\(\{ email: sesion\.email, ws \}\);/);
   // Los dos contextos, sólo con el interruptor; sin él, el del coach único, aunque escriba desde una pestaña del Offer Coach.
-  assert.match(r, /if \(await veDosCoaches\(quien\.ws\)\) \{\n\s*if \(tab === ORIGEN_OFFER_COACH\) \{\n\s*return \{ contexto: `\$\{contextoDelOfferCoach\(referente, sinReferentes\)\}\\n\\n\$\{ofertaParaElContextoV2\(oferta, 'offer'\)\}`, referente, propias: HERRAMIENTAS_DEL_OFFER_COACH \};/);
-  assert.match(r, /return \{ contexto: `\$\{contextoDelFunnelCoachV2\(sinReferentes\)\}\\n\\n\$\{ofertaParaElContextoV2\(oferta, 'funnel'\)\}`, referente: null, propias: HERRAMIENTAS_DEL_FUNNEL_COACH_V2 \};\n\s*\}/);
+  assert.match(r, /if \(await veDosCoaches\(quien\.ws\)\) \{\n[^\n]*\n\s*if \(tab === ORIGEN_OFFER_COACH\) \{\n\s*const delOffer = referenteDelOfferCoachV2\(referente\);\n\s*return \{ contexto: `\$\{contextoDelOfferCoach\(delOffer, sinReferentes\)\}\\n\\n\$\{ofertaParaElContextoV2\(oferta, 'offer'\)\}`, referente: delOffer, propias: HERRAMIENTAS_DEL_OFFER_COACH \};/);
+  // 18/11, el Cerebro: cada coach del V2 con el referente de SU área (el de adquisición al Funnel Coach, el de oferta al Offer Coach).
+  assert.match(r, /return \{ contexto: `\$\{contextoDelFunnelCoachV2\(sinReferentes, delFunnel\)\}\\n\\n\$\{ofertaParaElContextoV2\(oferta, 'funnel'\)\}`, referente: delFunnel, propias: HERRAMIENTAS_DEL_FUNNEL_COACH_V2 \};/);
   assert.equal((r.match(/contextoDelOfferCoach\(|contextoDelFunnelCoachV2\(/g) ?? []).length, 2, 'en ningún otro lado de la ruta');
   // El teléfono lo sabe por la ruta (`dosCoaches`); la computadora, por la página, con la MISMA función.
   assert.match(r, /veDosCoaches\(persona\.ws\),\n\s*\]\);/);
@@ -552,7 +553,7 @@ test('20. el saludo de cada coach del V2 dice con qué oferta abre, y el que no 
   const motor = leer('app/second-brain/useChatDelCoach.ts');
   assert.match(motor, /cual === 'offer' \? saludoDelOfferCoach\(oferta, r\?\.completo \?\? null\)\n\s*: dosCoaches \? saludoDelFunnelCoachV2\(oferta\) : saludoDelFunnelCoach\(oferta\);/);
   assert.match(motor, /if \(ocupado \|\| cual !== 'funnel'\) return;/);
-  assert.match(motor, /const sinReferente = dosCoaches && cual === 'funnel';/, 'el Funnel Coach del V2, con su criatura y sin referente');
+  assert.match(motor, /const sinReferente = dosCoaches && cual === 'funnel' && !delCoach;/, 'el Funnel Coach del V2: su criatura si no hay referente de adquisición');
 });
 
 test('21. el Offer Coach tiene su conversación, fija en su fila, y su video la primera vez', () => {
@@ -582,4 +583,15 @@ test('21. el Offer Coach tiene su conversación, fija en su fila, y su video la 
   // El Funnel Coach del V2 no elige referente (su criatura); el Offer Coach sí.
   assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /const eligeReferente = puedeElegir && !\(dosCoaches && cual === 'funnel'\);/);
   assert.match(leer('app/m/second-brain/HojaDelCoach.tsx'), /const eligeReferente = puedeElegir && !\(dosCoaches && cual === 'funnel'\);/);
+});
+
+test('cada coach del V2 con el referente de SU área (el Cerebro, 18/11): Juan ADS nunca al frente del Offer Coach', async () => {
+  const { referenteDelOfferCoachV2, referenteDelFunnelCoachV2, areaDeReferente } = await import('../lib/asesores/catalogo');
+  assert.equal(areaDeReferente('hormozi'), 'oferta');
+  assert.equal(areaDeReferente('juan-ads'), 'adquisicion');
+  assert.equal(referenteDelOfferCoachV2('juan-ads'), 'hormozi', 'uno de anuncios no va al Offer Coach: Hormozi de fábrica');
+  assert.equal(referenteDelFunnelCoachV2('juan-ads'), 'juan-ads', 'va al Funnel Coach');
+  assert.equal(referenteDelOfferCoachV2('hormozi'), 'hormozi');
+  assert.equal(referenteDelFunnelCoachV2('hormozi'), null, 'uno de oferta no va al Funnel Coach: su criatura');
+  assert.equal(referenteDelOfferCoachV2(null), null, 'eligió MaKo: se respeta');
 });

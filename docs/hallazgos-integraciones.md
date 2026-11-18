@@ -2781,3 +2781,39 @@ del negocio, cifradas como las demás.
   había leído (la caché de las extra, como en Zernio). **No medido:** el cuerpo real que manda Apify cuando una cuenta se queda sin
   crédito del mes (se probó con el `not-enough-usage-to-run-paid-actor` que ya tenía el test de la traída), ni la tarjeta en un
   navegador (la nube no tiene `.env.local` para levantar la app).
+
+## Reconectar Instagram en Zernio cambia el id de la cuenta, y los comentarios se perdían con un 200 (18/11/2026, ticket #113)
+
+**Síntoma:** desde el 14/11 a las 15:32 UTC no le entró a Fiesta Music (ws10) ni un comentario de Instagram a sus siete
+automatizaciones (706 a 712), aunque la cuenta figuraba conectada y la key válida.
+
+**El diagnóstico obvio era el equivocado:** no fue un deploy (el 14/11 nadie tocó la ruta ni la firma) ni la key. Leandro reconectó
+Instagram en Zernio y **la cuenta nació con OTRO id** (fiestamusic `6af88ded…`; la vieja, `6acc51b9…`, ya no existe en ninguna
+clave). El ruteo (`webhook_routing`, `zernio_cuenta`) seguía con la vieja. Un `comment.received` trae **sólo** `account.accountId`:
+la ruta no lo encontraba y contestaba **200 «sin workspace»** (Zernio lo da por entregado y no reintenta). Y el `account.connected`,
+que es el que reclama las cuentas nuevas, se descartaba por lo mismo: un círculo del que no se salía solo.
+
+**Ahora** (`reclamarCuentaSinRuteo`, lib/zernio.ts, y la ruta del webhook): con un evento firmado con el secreto de un negocio
+(`?w=<ws>`) y una cuenta sin ruteo, se le pregunta a Zernio con las claves de ESE negocio (relectura fresca) si la cuenta es suya, y
+si lo es se anota y el evento entra. Con el maestro no hay a quién preguntar. Una cuenta ruteada a otro negocio no llega a la
+pregunta: la frena `aceptaElWorkspace`. Test: tests/zernio-cuenta-reconectada.test.ts.
+
+**La regla:** un identificador de un tercero que puede cambiar (el id de una cuenta reconectada) no puede ser la única llave de un
+ruteo que descarta en silencio. Si hay otra prueba de pertenencia (la firma del negocio), se usa para reclamar.
+
+**Qué pasó el 14/11, medido en Zernio:** en la clave 1 hay dos webhooks de `hooks.tusemilla.app` y dos perfiles nuevos,
+«semilla-leandro-tejado» y «semilla-fiesta-music»: **otra app (Semilla) usa la misma key** y reconectó las cuentas en SUS perfiles.
+El perfil «Default», el único que mira `cuentasConectadas` con una key propia (`profileIdEfectivo`), quedó vacío. Por eso tampoco las
+reclamó abrir la tarjeta de MaKo: listaba cero cuentas.
+
+**La clave 2, sin webhook:** la pasada diaria del cron (`meta-leads-poll`) re-registra el webhook sólo si falta en la clave 1
+(`webhookDeLeads` mira `cfg(ws)`). Ahora pregunta también por cada clave (`algunaClaveSinWebhook`): una clave sin la URL del negocio,
+activa y escuchando `comment.received`, re-registra. El de la clave 2 del ws10 lo registró el Cerebro con el sí de Martín (18/11).
+
+**Lo que quedó SIN hacer:**
+- `cuentasConectadas` sigue filtrando por el perfil Default con una key propia: una cuenta en otro perfil de la misma key (lo que hace
+  Semilla) no se reclama al conectar. Ahora entra igual con su primer evento (`reclamarCuentaSinRuteo` no filtra por perfil). Sacarle el
+  filtro tiene un riesgo sin medir: una key de agencia compartida entre negocios.
+- @fiestamusic está conectada en **las dos** claves (dos equipos de Zernio). No está medido por cuál de los dos entrega Zernio cada
+  comentario.
+- Los comentarios del 14 al 18/11 no se recuperan: Zernio recibió un 200 por cada uno.

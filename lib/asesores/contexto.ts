@@ -116,7 +116,9 @@ export function contextoDelOfferCoach(elegido: IdAsesor | null, sinReferentes = 
  * criatura, como en la maqueta: el referente elegido es el del Offer Coach): los marcos de anuncios y de orgánico, atribuidos, o con
  * el candado, sin los de nadie.
  */
-export function contextoDelFunnelCoachV2(sinReferentes = false): string {
+export function contextoDelFunnelCoachV2(sinReferentes = false, elegido: IdAsesor | null = null): string {
+  // Con un referente de ADQUISICIÓN elegido (lib/asesores/catalogo.ts, `referenteDelFunnelCoachV2`), su ficha al frente.
+  if (!sinReferentes && elegido) return `${FASES_DEL_FUNNEL_COACH_V2}\n\n${contextoDeReferente(elegido)}`;
   return `${FASES_DEL_FUNNEL_COACH_V2}\n\n${sinReferentes ? COACH_SIN_REFERENTES : tusFuentes(DEL_FUNNEL)}`;
 }
 

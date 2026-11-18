@@ -105,7 +105,7 @@ import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, SUBS_VISIBLES, edadCorta, esFi
 import { ASPECTO_MAKO, aspectoDeChat, aspectoDeReferente } from '@/lib/centro-munecos';
 import { ChatDelReto, useReto } from './reto/ChatDelReto';
 import { MarcaAlReto } from './reto/MarcaAlReto';
-import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
+import { asesorPorId, inspiradoEn, referenteDelFunnelCoachV2, referenteDelOfferCoachV2, type IdAsesor } from '@/lib/asesores/catalogo';
 import { tocarEnLaBarra, type EntradaBarra } from '@/lib/ops-center-navegar';
 // Directo y no desde el índice de app/_ui (ver app/_ui/CargandoMako.tsx).
 import { CargandoMako } from '@/app/_ui/CargandoMako';
@@ -270,6 +270,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const [eligiendoReferente, setEligiendoReferente] = useState(false);
   const gurusConCharla = useGurusConCharla(guru);
   const delCoach = asesorPorId(referente);
+  // Con los dos coaches del V2, cada fila con el referente de SU área (el Cerebro, 18/11; lib/asesores/catalogo.ts).
+  const delOffer = asesorPorId(referenteDelOfferCoachV2(referente));
+  const delFunnel = asesorPorId(referenteDelFunnelCoachV2(referente));
   // El aviso del «⋯» de una fila (F96): el Toast de la casa, como el del super admin (ConCentro). En Ops Center lo pone ConCentro.
   const avisoMenu = useToast();
   const k = useChatCliente({ elegido, setElegido, activo: !ops, entrarAlCerebro: !ops, chatInicial, opcionArmar, busca, caja, aspectoOffer: delCoach ? aspectoDeReferente(delCoach.id) : null,
@@ -537,13 +540,13 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       {verCoach && dosCoaches && (
         <>
           <div className="co-jefe">
-            <FilaDeChat titulo={ORIGEN_OFFER_COACH} marca="sb-offer" aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" actual={verOffer} hace=""
-              previa={<span className="co-fila__coach">{delCoach ? inspiradoEn(delCoach) : previaDelOfferCoach(oferta)}</span>}
+            <FilaDeChat titulo={ORIGEN_OFFER_COACH} marca="sb-offer" aspecto={delOffer ? aspectoDeReferente(delOffer.id) : ASPECTO_MAKO} animo="despierto" actual={verOffer} hace=""
+              previa={<span className="co-fila__coach">{delOffer ? inspiradoEn(delOffer) : previaDelOfferCoach(oferta)}</span>}
               onElegir={() => elegir({ coach: 'offer' })} />
             {filasOffer.length > 0 && <div className="co-jefe__subs">{filasOffer.map((f) => fila(f, true))}</div>}
           </div>
-          <FilaDeChat titulo={ORIGEN_FUNNEL_COACH} marca="sb-funnel" aspecto={ASPECTO_FUNNEL_COACH_V2} animo="despierto" actual={verFunnel} hace=""
-            previa={<span className="co-fila__coach">{PREVIA_DEL_FUNNEL_COACH_V2}</span>}
+          <FilaDeChat titulo={ORIGEN_FUNNEL_COACH} marca="sb-funnel" aspecto={delFunnel ? aspectoDeReferente(delFunnel.id) : ASPECTO_FUNNEL_COACH_V2} animo="despierto" actual={verFunnel} hace=""
+            previa={<span className="co-fila__coach">{delFunnel ? inspiradoEn(delFunnel) : PREVIA_DEL_FUNNEL_COACH_V2}</span>}
             onElegir={() => elegir({ coach: 'funnel' })} />
         </>
       )}

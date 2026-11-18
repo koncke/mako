@@ -111,6 +111,16 @@ export const CLAVE_REFERENTES = 'coaches.referentes';
  *    a él). Sale Hormozi: una elección de Hormozi no se pisa, y una de MaKo se recupera tocando la criatura. Cuántos negocios
  *    quedaron así se mide en producción (docs/relevo/nube-funnel-coach.md).
  */
+// ── EL REFERENTE DE CADA COACH DEL ONBOARDING V2 (18/11/2026, el Cerebro siguiendo a Martín) ──────────────────────────────────
+// Cada coach lleva el referente de SU área: el Offer Coach, el de OFERTA (Hormozi de fábrica); el Funnel Coach, el de ADQUISICIÓN o
+// anuncios (Juan ADS va ahí, nunca al frente del Offer Coach), o su criatura. Lo que ya eligió cada negocio (un solo valor guardado,
+// `referenteDelCoach`) se reparte por el área: si es de oferta, al Offer Coach; si no, al Funnel Coach.
+export const areaDeReferente = (id: IdAsesor): 'oferta' | 'adquisicion' => (asesorPorId(id)?.especialidad === 'Oferta' ? 'oferta' : 'adquisicion');
+/** El del Offer Coach: el elegido si es de oferta; uno de otra área, Hormozi. null (eligió MaKo) se respeta. */
+export const referenteDelOfferCoachV2 = (elegido: IdAsesor | null): IdAsesor | null => (elegido && areaDeReferente(elegido) !== 'oferta' ? REFERENTE_DE_FABRICA : elegido);
+/** El del Funnel Coach: el elegido si es de adquisición; si no, ninguno (su criatura). */
+export const referenteDelFunnelCoachV2 = (elegido: IdAsesor | null): IdAsesor | null => (elegido && areaDeReferente(elegido) === 'adquisicion' ? elegido : null);
+
 export function referenteDelCoach(v: unknown): IdAsesor | null {
   const o = v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
   // Lo elegido desde el 4/11/2026, con el coach único.

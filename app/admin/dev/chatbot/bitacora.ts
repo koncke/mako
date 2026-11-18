@@ -3570,4 +3570,25 @@ FEEDBACK PROBAR:
     ],
     revisar: '/automations',
   },
+  {
+    fecha: '18 nov', hora: '16:30', chat: 'Automations', sesion: 'local_a66389ee-c8c2-4e93-a5bd-211c85b41d49', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los comentarios de Instagram vuelven a entrar después de reconectar la cuenta en Zernio',
+    puntos: [
+      'Desde el 14/11 no entraba ningún comentario de Instagram a las automatizaciones de Fiesta Music. Al reconectar Instagram en Zernio la cuenta cambió de id, y MaKo seguía buscando la vieja: el comentario llegaba y se descartaba sin avisar.',
+      'Ahora, si llega un evento de una cuenta que MaKo no conoce, firmado por tu negocio, MaKo le pregunta a Zernio con tus claves si la cuenta es tuya; si lo es, la anota y el comentario entra a la automatización.',
+      'Y si tienes dos claves de Zernio, MaKo revisa todos los días que las dos tengan su aviso registrado: la segunda tuya no lo tenía.',
+      'Los comentarios del 14 al 18/11 no se recuperan: Zernio ya los dio por entregados.',
+      '**Cómo se prueba:** comenta «lista» desde otra cuenta en una publicación de @fiestamusic y mira que se cree la inscripción en «IG - LISTA» y salga el DM.',
+    ],
+    archivos: [
+      'lib/zernio.ts — `reclamarCuentaSinRuteo`',
+      'app/api/webhooks/zernio/route.ts — la pregunta antes del «sin workspace», sólo con la firma de un negocio',
+      'tests/zernio-cuenta-reconectada.test.ts — probado rompiéndolo, cuatro roturas',
+      'app/api/cron/meta-leads-poll/route.ts y lib/zernio.ts `algunaClaveSinWebhook` — la pasada diaria registra el webhook en TODAS las claves',
+      'docs/hallazgos-integraciones.md — la entrada del 18/11'
+    ],
+    tickets: [113],
+    revisar: '/automations',
+  },
 ];
