@@ -72,7 +72,7 @@ export function InstalarApp({ qr, url, extension, sinConexion }: {
     <>
       <TituloAjustes titulo="Instalar la app" />
 
-      <GrupoAjustes titulo="En tu computadora" recorrido={MARCA.instalarComputadora}>
+      <GrupoAjustes titulo="En tu computadora">
         {/* Corto, como Linear («macOS · Download»): lo que dice el sistema al abrirlo va en el `title` del botón. */}
         <FilaAjustes icono="computadora" titulo="Windows" detalle="Instalador .exe"
           fin={boton(DESCARGA_DE.windows, 'Descargar', { titulo: AVISO_SMARTSCREEN })} />
@@ -82,7 +82,7 @@ export function InstalarApp({ qr, url, extension, sinConexion }: {
         <FilaAjustes icono="pregunta" titulo="Para qué sirve" href={RUTA_PARA_QUE_SIRVE} />
       </GrupoAjustes>
 
-      <GrupoAjustes titulo="En tu teléfono" recorrido={MARCA.instalarTelefono}>
+      <GrupoAjustes titulo="En tu teléfono">
         <div className="aj-telefono">
           {/* eslint-disable-next-line @next/next/no-img-element -- data URL generado en el server */}
           {qr && <img className="aj-telefono__qr" src={qr} alt="Código QR para abrir MaKo en el celular" width={148} height={148} />}
@@ -94,8 +94,8 @@ export function InstalarApp({ qr, url, extension, sinConexion }: {
         </div>
       </GrupoAjustes>
 
-      <GrupoAjustes titulo="En tu navegador" recorrido={MARCA.instalarNavegador}>
-        <FilaAjustes icono="web" titulo="Extensión para Chrome" detalle={`Versión ${extension.version}`}
+      <GrupoAjustes titulo="En tu navegador">
+        <FilaAjustes icono="web" titulo="Extensión para Chrome" detalle={`Versión ${extension.version}`} recorrido={MARCA.instalarExtension}
           fin={boton(extension.tienda, 'Agregar a Chrome', { afuera: true })} />
         <FilaAjustes icono="pregunta" titulo="Cómo instalarla" href="/extension/instalar" />
       </GrupoAjustes>

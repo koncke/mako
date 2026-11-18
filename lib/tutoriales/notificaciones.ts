@@ -1,28 +1,39 @@
-// El tutorial de Settings › Notificaciones (/perfil/notificaciones: app/perfil/NotificacionesPanel.tsx). Los canales y «Pausar los
-// avisos al celular» llevan su marca (la fila: el grupo «No molestar» lo fija tests/agencia-grupos.test.ts). Sin video todavía: el `sub`
-// es una propuesta para su guion. En el teléfono es la hoja «Notificaciones» de «Tu cuenta», todavía sin medir: sin `rutaMovil`.
+// El tutorial de Settings › Notificaciones (/perfil/notificaciones: app/perfil/NotificacionesPanel.tsx). Cuadra con el guion de su video
+// (key `settings-notificaciones`, C:/dev/tutoriales-video: v3 para la entrada, y las frases de acción del manifiesto v4 con su `sel`).
+// «Avisos al celular» vive en el detalle del canal Celular (`?canal=celular`): su paso toca antes la fila «Celular». En el teléfono es la
+// hoja «Notificaciones» de «Tu cuenta», todavía sin medir: sin `rutaMovil`.
 import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
+const CELULAR = 'a[href="/perfil/notificaciones?canal=celular"]';
+
 export const TUTORIAL_NOTIFICACIONES: TutorialPestana = {
-  pestana: 'notificaciones',
+  pestana: 'settings-notificaciones',
   nombre: 'Notificaciones',
   ruta: '/perfil/notificaciones',
-  intro: 'Tú decides qué te avisa MaKo y por dónde.',
+  intro: 'Un mensaje sin responder no puede esperar a que abras MaKo.',
   pasos: [
     {
-      sel: conMarca(MARCA.notifCanales),
-      titulo: 'Por dónde te avisa',
-      texto: 'En la app, en el celular, por WhatsApp o por email. Tocas uno y eliges qué te llega por ahí.',
-      sub: 'Cada aviso, por el canal que elijas: la app, el celular, WhatsApp o el email.',
+      sel: 'a[href="/perfil/notificaciones"]',
+      titulo: 'Notificaciones',
+      texto: 'Por dónde te avisa MaKo: en la app, al celular, por WhatsApp o por email.',
+      sub: 'En Notificaciones, dentro de Configuración, eliges por dónde te avisa: En la app, Celular, WhatsApp o Email.',
+      lado: 'derecha',
+    },
+    {
+      sel: CELULAR,
+      titulo: 'Celular',
+      texto: 'Los avisos que te llegan al teléfono, aunque MaKo esté cerrado.',
+      sub: 'Toca aquí, en Celular, para que los avisos te lleguen al teléfono.',
       lado: 'izquierda',
     },
     {
-      sel: conMarca(MARCA.notifNoMolestar),
-      titulo: 'No molestar',
-      texto: 'Pausa los avisos al celular en un horario, con la hora de tu zona.',
-      sub: 'Y con No molestar, MaKo no te escribe al celular de noche.',
-      lado: 'arriba',
+      sel: conMarca(MARCA.notifAvisosCelular),
+      antes: CELULAR,
+      titulo: 'Avisos al celular',
+      texto: 'Préndelos y te llegan al teléfono.',
+      sub: 'Mira aquí, Avisos al celular: préndelos y te llegan al teléfono.',
+      lado: 'izquierda',
     },
   ],
 };

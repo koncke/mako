@@ -31,6 +31,7 @@ import Link from '@/app/_ui/Link';
 import { BarraAcciones, type AccionPlegable } from '@/app/_components/BarraAcciones';
 import { SelectorVista } from '@/app/_ui/SelectorVista';
 import { repartirEnEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 /**
  * Las formas de mirar la misma lista. Es UN valor y no un booleano por vista: con
@@ -399,7 +400,7 @@ export function VistaToggleClientes({ vista, onSet, vistas }: {
   onSet: (v: VistaClientes) => void;
   vistas: readonly VistaClientes[];
 }) {
-  return <SelectorVista vistas={ORDEN_VISTAS.filter((v) => vistas.includes(v))} vista={vista} onVista={onSet} ariaLabel="Cómo ver los clientes" />;
+  return <SelectorVista vistas={ORDEN_VISTAS.filter((v) => vistas.includes(v))} vista={vista} onVista={onSet} ariaLabel="Cómo ver los clientes" recorrido={MARCA.classroomClientsVistas} />;
 }
 
 /** Un desplegable que se cierra con Escape, con un click afuera y al elegir. */

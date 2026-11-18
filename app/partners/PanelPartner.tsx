@@ -20,6 +20,7 @@ import { DIAS_COOKIE_REF, PAGO_HOY, PAGOS_PARA_ACREDITAR, RUTA_LANDING_PARTNERS,
 import type { Tablero } from '@/lib/partners-programa';
 import { BarrasPorMes } from './BarrasPorMes';
 import { RecursosPartner } from './RecursosPartner';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import { cambiarCobroPartnerAction, cambiarCodigoPartnerAction } from './actions';
 
 export const CSS_PANEL = `
@@ -201,7 +202,7 @@ export function PanelPartner({ tablero, nombreNegocio, agencia = false, cobraEnL
         <div className="pp-kpi"><span className="pp-kpi-etq">Visitas a tu link</span><b>{tablero.visitas.total}</b><small className={tablero.visitas.esteMes ? 'bien' : ''}>{mas(tablero.visitas.esteMes)}</small></div>
         <div className="pp-kpi"><span className="pp-kpi-etq">Negocios que trajiste</span><b>{tablero.referidos.length}</b><small className={tablero.nuevosEsteMes ? 'bien' : ''}>{mas(tablero.nuevosEsteMes)}</small></div>
         <div className="pp-kpi"><span className="pp-kpi-etq">Ganaste</span><b>{usd(r.ganadoUsd)}</b><small>{r.porGanarUsd > 0 ? `${usd(r.porGanarUsd)} más en camino` : r.pagadoUsd > 0 ? `Ya cobraste ${usd(r.pagadoUsd)}` : 'El 100% de cada primer mes'}</small></div>
-        <div className="pp-kpi destacado"><span className="pp-kpi-etq">A cobrar</span><b>{usd(r.aCobrarUsd)}</b><small>{tablero.alta?.cobro ? `A ${tablero.alta.cobro}` : 'Carga dónde te transferimos'}</small></div>
+        <div className="pp-kpi destacado"><span className="pp-kpi-etq">A cobrar</span><b data-recorrido={MARCA.partnersACobrar}>{usd(r.aCobrarUsd)}</b><small>{tablero.alta?.cobro ? `A ${tablero.alta.cobro}` : 'Carga dónde te transferimos'}</small></div>
       </div>
       <div className="pp-fila">
         <section className="pp-caja" aria-labelledby="pp-ganado">

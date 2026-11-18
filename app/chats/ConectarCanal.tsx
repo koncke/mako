@@ -18,6 +18,7 @@
 // El WhatsApp recién conectado sigue en AdministrarWhatsApp (`recien`): la única vez que se pregunta si se traen los chats.
 
 import { useCallback, useState, type ReactNode } from 'react';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import { Mail } from 'lucide-react';
 import { Modal } from '@/app/_ui';
 import { ConectarMedio } from '@/app/automations/ConectarMedio';
@@ -45,7 +46,8 @@ export function BotonesCanales({ onElegir, enLista = false }: { onElegir: (c: Ca
   return (
     <div className={enLista ? 'rio-conectar-lista' : 'rio-vacio-botones'}>
       {CANALES_CONECTABLES.map((c) => (
-        <button key={c.canal} type="button" className={enLista ? 'rio-conectar-fila' : 'rio-btn'} onClick={() => onElegir(c.canal)}>
+        <button key={c.canal} type="button" className={enLista ? 'rio-conectar-fila' : 'rio-btn'} onClick={() => onElegir(c.canal)}
+          data-recorrido={c.canal === 'whatsapp' ? MARCA.chatsWhatsapp : undefined}>
           <IconoConectable canal={c.canal} size={enLista ? 22 : 18} />
           {enLista ? <span className="rio-conectar-txt"><span className="rio-conectar-nombre">{c.nombre}</span><span>{c.linea}</span></span> : c.nombre}
         </button>

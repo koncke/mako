@@ -5146,10 +5146,24 @@ dibuja las pestañas con estos componentes, sin las marcas de la maqueta, y mide
 - **No rebasear una punta sobre la que otro construye.** Rebasear le cambia el sha a lo que el otro chat ya tenía de base, y obliga
   a un `--force-with-lease`. Si la punta local AVANZA desde la remota (`git merge-base --is-ancestor`), se sube tal cual: la punta
   mezcla main sola en GitHub.
-- **Lo que falta**: las sub-pestañas de Classroom (Community, Clients, Calendar, Leaderboards, About), Seguridad (lee al montar:
-  sale «Cargando…» dibujada), Identidades fiscales, Tu plan, MaKo Partners, Agency y API (la lista entera está en
-  C:/dev/artefactos-pestanas/archivos.json); conviene hacerlas con sus guiones. Falta también medir los de adentro (`estado`) con su
-  pantalla dibujada, y medir en el teléfono el Ops Center, Calendar, Video, Image, la Ticketera, Chats, Equipo y las de Settings.
+- **Una marca que ya tiene un atributo estable no se crea: se le pasa el selector al manifiesto.** Del pedido de marcas de los videos
+  (C:/dev/tutoriales-video/marcas-que-faltan.md), la mitad ya tenía con qué encontrarse: `data-tarjeta="ticket"`, la clase global del
+  QR, el `href` de «Descargar», `.cop-ent__ops`. Y una no PUEDE llevar marca fija: «Nueva automatización» (`button.chb-nueva`), porque el
+  recorrido viejo de Automations le escribe SU `data-recorrido` mientras corre (`marcar`, recorrido-automations.ts).
+- **Lo que el guion dice y la app no muestra en ese momento** (medido el 18/11):
+  - «Tu primer mes» (Tu plan) no existe en la prueba: sale recién en el primer mes pagado (`lineaDelPrimerMes`). En la prueba, lo que se
+    cobra está en la tarjeta del plan. El guion o la marca tiene que cambiar.
+  - Las sub-pestañas de la comunidad de Classroom son de MaKo Pro: con Essential (y en su prueba) muestran el candado.
+  - En Clients, «Cargar un cliente» sale sólo SIN clientes y la tarjeta sólo CON clientes: nunca están las dos.
+  - «Sumarme como Agency» sale sólo con Pro (con Essential, «Pásate a MaKo Pro»); su marca va en la fila `.ag-acciones` porque
+    tests/agency.test.ts fija la línea del botón.
+- **Un `<Modal>` de la app arranca con `display: none` hasta que su efecto lo prende** (la pila de modales): dibujado estático, la marca
+  está pero el medidor dice «no se ve». Se mide con el estado de adentro dibujado aparte (`MK_ADENTRO=1`, el LEEME del kit).
+- **Topes de largo en los tests**: además de la cabecera de SecuenciaPerfil, tests/cs-kanban-fases.test.ts topea el largo del render de
+  `KanbanEntrega`: la marca de la primera tarjeta lo pasaba por 99 caracteres y hubo que acortarla.
+- **Lo que falta**: medir los de adentro (`estado`) con su pantalla dibujada, medir en el teléfono el Ops Center, Calendar, Video, Image,
+  la Ticketera, Chats, Equipo, las de Settings y las de Classroom, y la pasada contra el manifiesto final (v4) de los videos cuando esté
+  en main: cada frase con `sel`, su paso y su marca.
 
 ## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
 

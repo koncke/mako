@@ -13,6 +13,7 @@ import { Switch } from '../_ui/Toggle';
 import { Dropdown } from '../components/Dropdown';
 import { ReportarASoporte } from '../_ui/ReportarASoporte';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import {
   getIdentidadesFiscalesAction,
   saveIdentidadFiscalAction,
@@ -147,7 +148,7 @@ export function IdentidadesFiscalesPanel({ moneda }: { moneda?: ReactNode } = {}
   const cerrar = () => { if (!busy) setForm(null); };
   return (
     <>
-      <TituloAjustes titulo="Identidades fiscales" accion={lista !== null && <button type="button" className="aj-boton" onClick={nueva}>Agregar</button>} />
+      <TituloAjustes titulo="Identidades fiscales" accion={lista !== null && <button type="button" className="aj-boton" onClick={nueva} data-recorrido={MARCA.fiscalAgregar}>Agregar</button>} />
       {err && !form && <div className="aj-error" role="alert">{err}<ReportarASoporte /></div>}
 
       {moneda}
@@ -192,7 +193,7 @@ export function IdentidadesFiscalesPanel({ moneda }: { moneda?: ReactNode } = {}
           {/* Subir el documento fiscal propio → IA rellena los campos de abajo (lo vacío; lo escrito no se pisa). */}
           <input ref={fileRef} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirDocFiscal(f); }} />
           <div className="aj-fiscal-form__leer">
-            <button type="button" className="aj-boton" data-variante="borde" disabled={leyendo} onClick={() => fileRef.current?.click()}
+            <button type="button" className="aj-boton" data-variante="borde" disabled={leyendo} onClick={() => fileRef.current?.click()} data-recorrido={MARCA.fiscalLlenar}
               title="MaKo lee tu constancia (RFC, CUIT…) y llena lo que esté vacío. Revísalo antes de guardar.">
               {leyendo ? 'Leyendo documento…' : 'Llenar desde un PDF o una foto'}
             </button>

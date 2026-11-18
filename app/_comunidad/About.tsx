@@ -20,6 +20,7 @@ import { NIVEL_MAX, rotuloNivel } from '@/lib/comunidad-niveles';
 import { AvatarNivel, Ico, Texto, useComunidad } from './piezas';
 import { zonaDelNavegador, zonasDisponibles } from './tiempo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 export function About() {
   const { api, setComunidad, abrirPerfil } = useComunidad();
@@ -53,7 +54,7 @@ export function About() {
               {about.descripcion && <p className="cmu-dim" style={{ margin: '4px 0 0' }}>{about.descripcion}</p>}
             </div>
             {about.puedoEditar && api.guardarAbout && (
-              <Button variant="secondary" size="sm" icon={<Ico n="lapiz" size={14} />} onClick={() => setEditando(true)}>Editar</Button>
+              <Button variant="secondary" size="sm" icon={<Ico n="lapiz" size={14} />} onClick={() => setEditando(true)} data-recorrido={MARCA.classroomAboutEditar}>Editar</Button>
             )}
           </div>
           <div className="cmu-stats">
@@ -127,7 +128,7 @@ function EditorAbout({ about, onCerrar, onListo }: { about: AboutVista; onCerrar
       pie={(
         <>
           <Button variant="tertiary" onClick={onCerrar}>No guardar</Button>
-          <Button loading={guardando} onClick={() => void guardar()}>Guardar About</Button>
+          <Button loading={guardando} onClick={() => void guardar()} data-recorrido={MARCA.classroomAboutGuardar}>Guardar About</Button>
         </>
       )}>
       <div className="cmu-form">
@@ -141,12 +142,12 @@ function EditorAbout({ about, onCerrar, onListo }: { about: AboutVista; onCerrar
         <label className="cmu-campo-l">De qué se trata
           <Textarea value={texto} maxLength={TOPE_ABOUT} rows={7} onChange={(e) => setTexto(e.target.value)} />
         </label>
-        <label className="cmu-campo-l">Reglas
+        <label className="cmu-campo-l" data-recorrido={MARCA.classroomAboutReglas}>Reglas
           <Textarea value={reglas} maxLength={TOPE_REGLAS} rows={5} onChange={(e) => setReglas(e.target.value)} />
         </label>
         {about.puedoConfigurar && api.guardarAjustes && (
           <div className="cmu-form-fila">
-            <div className="cmu-campo-l">Publican desde
+            <div className="cmu-campo-l" data-recorrido={MARCA.classroomAboutPublican}>Publican desde
               <Select ariaLabel="Publican desde" value={nivel} onChange={setNivel}
                 options={Array.from({ length: NIVEL_MAX }, (_, i) => ({ value: String(i + 1), label: i === 0 ? 'Todos' : `Nivel ${i + 1}` }))} />
             </div>

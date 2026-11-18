@@ -16,6 +16,7 @@ import type { FilaRanking, RankingVista } from '@/lib/comunidad-tipos';
 import { NIVEL_MAX, TOPE_NOMBRE_NIVEL, UMBRALES_NIVEL, nombreNivelDefault, rotuloNivel } from '@/lib/comunidad-niveles';
 import { AvatarNivel, Hace, Ico, useComunidad } from './piezas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 export function Ranking() {
   const { api, comunidad } = useComunidad();
@@ -51,13 +52,14 @@ export function Ranking() {
               <b className="cmu-card-tit">Ranking de alumnos</b>
               <span className="cmu-dim cmu-chico">1 like = 1 punto</span>
               {comunidad.puedoConfigurar && api.guardarNombresNivel && (
-                <Button variant="secondary" size="sm" icon={<Ico n="lapiz" size={14} />} onClick={() => setEditando(true)}>Nombres de los niveles</Button>
+                <Button variant="secondary" size="sm" icon={<Ico n="lapiz" size={14} />} onClick={() => setEditando(true)}
+                  data-recorrido={MARCA.classroomLeaderboardsNombres}>Nombres de los niveles</Button>
               )}
             </>
           )}
         </div>
         <div className="cmu-card">
-          <div className="cmu-niveles">
+          <div className="cmu-niveles" data-recorrido={MARCA.classroomLeaderboardsNiveles}>
             {r.niveles.map((n) => (
               <div key={n.nivel} className="cmu-nivel" data-mio={miNivel === n.nivel}>
                 <span className="cmu-nivel-num">{miNivel != null && n.nivel > miNivel ? <Ico n="candado" size={13} /> : n.nivel}</span>
@@ -73,7 +75,7 @@ export function Ranking() {
       </div>
 
       <div className="cmu-tablas">
-        <Tabla titulo="Últimos 7 días" filas={r.semana} />
+        <Tabla titulo="Últimos 7 días" filas={r.semana} recorrido={MARCA.classroomLeaderboardsRanking} />
         <Tabla titulo="Últimos 30 días" filas={r.mes} />
         <Tabla titulo="Total" filas={r.total} />
       </div>
@@ -85,10 +87,10 @@ export function Ranking() {
 }
 
 /** Una tabla del ranking. Vacía dice que todavía nadie sumó, no un hueco. */
-export function Tabla({ titulo, filas, compacta = false, pie }: { titulo: string; filas: readonly FilaRanking[]; compacta?: boolean; pie?: ReactNode }) {
+export function Tabla({ titulo, filas, compacta = false, pie, recorrido }: { titulo: string; filas: readonly FilaRanking[]; compacta?: boolean; pie?: ReactNode; recorrido?: string }) {
   const { abrirPerfil } = useComunidad();
   return (
-    <div className="cmu-card">
+    <div className="cmu-card" data-recorrido={recorrido}>
       <b className="cmu-card-tit">{titulo}</b>
       {filas.length === 0 && <p className="cmu-meta" style={{ margin: '6px 0 0' }}>Nadie sumó puntos todavía.</p>}
       {filas.map((f) => (
