@@ -96,6 +96,10 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
   // La descarga del instalador de MaKo en tu computadora (0.4.x, 18/11/2026): `personaDelRequest` sólo lee la sesión, el rol y el negocio.
   { unidad: 'app/api/ia-pc/descargar/route.ts#GET', usa: ['VERSION_PC', 'limitePorIp', 'personaDelRequest', 'getSupabaseServer', 'archivoDelInstalador', 'archivoDelInstaladorMac', 'nombreDelInstalador', 'nombreDelInstaladorMac', 'registrarError'], porque: 'devuelve el instalador de MaKo para la computadora (Windows o Mac): no le pide nada a una IA' },
+  // La voz de los coaches del V2 (33b61d4f0, montada en ChatDelCoach el 18/11): dice el mensaje con ElevenLabs y la key de la plataforma
+  // (lib/voz-mako.ts), cobrando MaKo Tokens; a la cascada llega sólo de paso, por sus imports.
+  { unidad: 'app/api/voz-coach/route.ts#GET', usa: ['getUsuarioActual', 'getWorkspaceActual', 'veOnboardingV2', 'vozCoachDisponible'], porque: 'dice si el botón de la voz se muestra (la revisión de Martín y la key de ElevenLabs): no le pide nada a una IA' },
+  { unidad: 'app/api/voz-coach/route.ts#POST', usa: ['getUsuarioActual', 'getWorkspaceActual', 'veOnboardingV2', 'audioDelCoach'], porque: 'el audio del mensaje del coach con ElevenLabs (lib/voz-coach.ts, cobra MaKo Tokens): no le pide nada a la cascada' },
   // La medición de uso de Admin › Activity (mig 0398, 5/11/2026): la monta la barra de TODA pantalla, el Ops Center incluido. Suma contadores.
   { unidad: 'app/api/actividad/route.ts#POST', usa: ['getUsuarioActual', 'sanearLote', 'getWorkspaceActual', 'registrarActividad'], porque: 'suma cuántas pantallas y acciones hizo la persona por tab (actividad_uso): no le pide nada a una IA' },
   // Los grupos de la persona, para la lista de chats (3/11/2026): filas de `grupo_mensajes`. El turno de MaKo corre en otra invocación (app/api/cron/grupo-turno).
