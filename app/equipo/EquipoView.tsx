@@ -13,6 +13,7 @@
 // el mail sale solo (lib/invitaciones.ts) y la pantalla dice si salió o no.
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import { Dropdown } from '../components/Dropdown';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { CtaPasarAPro } from '../_components/CtaPasarAPro';
@@ -141,7 +142,7 @@ export function EquipoView({ roles = null }: { roles?: ReactNode } = {}) {
   // está activa, cuándo entró, el rol en un select y el «⋯» con lo demás. Se fue la tarjeta «Sumar al equipo» siempre abierta
   // y su línea, y la línea larga de los roles arriba de la lista.
   const titulo = (
-    <TituloAjustes titulo="Equipo" accion={<button type="button" className="aj-boton" onClick={() => { setInvitando(true); setErrCrear(null); setAPro(null); }}>Invitar</button>} />
+    <TituloAjustes titulo="Equipo" accion={<button type="button" className="aj-boton" data-recorrido={MARCA.equipoInvitar} onClick={() => { setInvitando(true); setErrCrear(null); setAPro(null); }}>Invitar</button>} />
   );
   if (!equipo) {
     return (

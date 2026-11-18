@@ -30,6 +30,7 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { Modal } from '@/app/_ui/Modal';
 import type { CrmJunta } from './CrmBoard';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 const MONO = "'JetBrains Mono', ui-monospace, monospace";
 
@@ -72,6 +73,7 @@ export function BotonReuniones({ juntas, contenido }: {
         onClick={() => setAbierto(true)}
         title={n === 1 ? 'Tienes una reunión cerca' : `Tienes ${n} reuniones cerca`}
         aria-label={n === 1 ? 'Ver la reunión que viene' : `Ver las ${n} reuniones que vienen`}
+        data-recorrido={MARCA.crmReuniones}
         style={{
           flex: 'none', height: 40, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 7,
           borderRadius: 10, border: '1px solid var(--primary)', background: 'var(--primary-bg)', color: 'var(--primary)',

@@ -25,18 +25,43 @@ import { htmlDeTarjeta } from './render';
 import { CSS_CONTENIDO } from './css';
 import { colorDeRelleno, urlFuentes, type Tema } from './temas';
 import { descargar, esperarRecursos, nombreArchivo, prepararParaCaptura, type OpExportar } from './exportar-html';
+import { ANCHO_DIAPO_EM, diapositivaFija, formaFija, proporcionDe, type ConfigLanding } from './api-tipos';
 
 /** Ancho del lienzo de la foto (px): el de una pantalla de escritorio, donde la sección mide 64.5em × 18px. */
 const ANCHO_FOTO = 1280;
+/** La letra base de la foto (px): la de Gamma en escritorio. De acá sale el tamaño de la diapositiva. */
+const BASE_FOTO = 18;
+
+/**
+ * ⚠️ UNA DIAPOSITIVA SE FOTOGRAFÍA CON SU FORMA, UNA SECCIÓN NO (6/11/2026, el carrusel de Leila).
+ * Hasta hoy la foto salía del `.gm-doc` en un lienzo de 1280 px SIN `data-formato`, así que ninguna regla de
+ * «15b. Presentaciones» (css.ts) se aplicaba: la diapositiva se dibujaba FLUIDA y la imagen salía del ancho
+ * de una pantalla con el alto del texto. En una landing da igual —es lo que se quiere—, pero un CARRUSEL
+ * se exporta como imágenes para subirlas: una lámina que no es 4:5 sale con franjas o recortada en Instagram.
+ * Con forma fija se fotografía la TARJETA (la lámina), en un lienzo que le deja tomar su ancho entero:
+ * medido en Chromium: 774 × 968 px en 4:5, × 2 de `pixelRatio` = 1548 × 1936 (Instagram pide 1080 × 1350, la
+ * misma forma: 0,800 clavado), y 2322 × 1306 en 16:9.
+ */
+export function formaDeLaFoto(config: ConfigLanding | undefined): { ancho: number; proporcion: string | null } {
+  if (!config || !diapositivaFija(config)) return { ancho: ANCHO_FOTO, proporcion: null };
+  const prop = formaFija(proporcionDe(config));
+  // + 4em: lo que `min(Xem, calc(100% - 4em))` le descuenta al contenedor (css.ts, «15b»).
+  return { ancho: Math.ceil((ANCHO_DIAPO_EM[prop] + 4) * BASE_FOTO), proporcion: prop };
+}
 
 type Montaje = { contenedor: HTMLDivElement; quitar: () => void };
 
 /** El contenedor fuera de la pantalla, con la hoja y las fuentes del tema (si no estaban ya). */
-function montar(tema: Tema): Montaje {
+function montar(tema: Tema, forma: ReturnType<typeof formaDeLaFoto>): Montaje {
   const caja = document.createElement('div');
   caja.setAttribute('aria-hidden', 'true');
-  Object.assign(caja.style, { position: 'fixed', left: '-20000px', top: '0', width: ANCHO_FOTO + 'px', pointerEvents: 'none' } satisfies Partial<CSSStyleDeclaration>);
-  caja.style.setProperty('--gm-base', '18px');
+  Object.assign(caja.style, { position: 'fixed', left: '-20000px', top: '0', width: forma.ancho + 'px', pointerEvents: 'none' } satisfies Partial<CSSStyleDeclaration>);
+  caja.style.setProperty('--gm-base', BASE_FOTO + 'px');
+  // Sin estos dos, las reglas de la diapositiva (css.ts, «15b») no se aplican y la foto sale fluida.
+  if (forma.proporcion) {
+    caja.dataset.formato = 'presentacion';
+    caja.dataset.proporcion = forma.proporcion;
+  }
   const hoja = document.createElement('style');
   hoja.setAttribute('data-gm-exportar', '');
   hoja.textContent = CSS_CONTENIDO;
@@ -73,7 +98,8 @@ export function nombreDeFoto(numero: number, titulo: string, total: number): str
 
 export async function exportarPng(op: OpExportar): Promise<void> {
   const [{ toPng, getFontEmbedCSS }, { default: JSZip }] = await Promise.all([import('html-to-image'), import('jszip')]);
-  const montaje = montar(op.tema);
+  const forma = formaDeLaFoto(op.config);
+  const montaje = montar(op.tema, forma);
   const fondo = colorDeRelleno(op.tema.fondo);
   const fotos: { nombre: string; dataUrl: string }[] = [];
   try {
@@ -82,7 +108,9 @@ export async function exportarPng(op: OpExportar): Promise<void> {
     for (let i = 0; i < n; i++) {
       const { tarjeta, numero } = op.elegidas[i];
       montaje.contenedor.innerHTML = htmlDeTarjeta(tarjeta, op.tema, { modo: 'exportar', urlBase: op.urlBase ?? undefined, paginas: op.paginas });
-      const raiz = montaje.contenedor.querySelector<HTMLElement>('.gm-doc');
+      // Con forma fija, la foto es la TARJETA (la diapositiva o la lámina); sin ella, el documento entero.
+      const raiz = (forma.proporcion && montaje.contenedor.querySelector<HTMLElement>('.gm-doc .gm-tarjeta'))
+        || montaje.contenedor.querySelector<HTMLElement>('.gm-doc');
       if (!raiz) continue;
       prepararParaCaptura(raiz);
       await esperarRecursos(raiz, document);

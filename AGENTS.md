@@ -12599,3 +12599,11 @@ Closing se vendió como de Pro desde el 23/10 y nada lo frenaba; la tabla promet
 - Lo que le contesta SOLO a un lead con IA (el setter) se pregunta con `tieneSetterIA` / `sumaSetterIA` (lib/setter-ia-reglas.ts), nunca
   mirando `paso_ia` a mano; lo que crea MaKo pasa por `guardarSinSetterSiFrena`.
 - Un tope en 0 es «no lo trae»: la tabla lo dibuja vacío y el freno dice que es de Pro (`pidePasarAPro`, lib/editor-landing/tope-landings.ts).
+
+## Las marcas de los tutoriales (`data-recorrido`, 18/11/2026)
+- Un control que señala un tutorial (lib/tutoriales) lleva su marca de `lib/tutoriales/marcas.ts`: la MISMA en la computadora y en
+  MaKo Mobile. Si se cambia el control, se cambia el paso: tests/tutoriales-pestanas.test.ts exige que cada marca que pide un paso
+  la ponga algún componente.
+- Nunca un selector de un tutorial con una clase de un CSS Module, un id de `useId` ni un dato (el nombre de un lead, un id).
+- Un atributo nuevo en un JSX va donde no parte el texto que fijan los tests de esa pantalla: antes de subir,
+  `grep -l <ruta-sin-extensión> tests/*.test.ts` y correr esos.
