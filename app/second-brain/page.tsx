@@ -27,7 +27,9 @@ import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
 import { esAdminDeTab } from '@/lib/puerta-admin-tab';
-import { rutaConWs } from '@/lib/workspace';
+import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { getUsuarioActual } from '@/lib/auth';
+import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 import { rutaDelSecondBrainEnOpsCenter } from '@/lib/ops-center-ruta';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
 import { PantallaSecondBrain, mapaDelSecondBrain, pideElMapa, quienOpera, type QuerySecondBrain } from './pagina';
@@ -62,5 +64,9 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
 
   const mapa: ReactNode = pMapa ? await pMapa : null;
 
-  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" />;
+  // El chat «Reto de 7 días» (18/11/2026): sólo la revisión de Martín (sus cuentas y el Cliente de Prueba) hasta que lo apruebe.
+  const sesion = await getUsuarioActual().catch(() => null);
+  const retoV2 = !!sesion && veOnboardingV2({ email: sesion.email, ws: await getWorkspaceActual().catch(() => null) });
+  const nombrePersona = (sesion?.nombre ?? '').trim().split(/\s+/)[0] ?? '';
+  return <PantallaSecondBrain veMapa={veMapa} mapa={mapa} centro={centro} q={q} inicio="second-brain" retoV2={retoV2} nombrePersona={nombrePersona} />;
 }

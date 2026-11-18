@@ -13,6 +13,7 @@
 // PROBADO ROMPIÉNDOLO (26/10/2026): ver el registro al final del archivo.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createElement } from 'react';
@@ -96,8 +97,21 @@ test('4. la API devuelve el MISMO texto que se dibuja', () => {
   const c = cierreComoClaude(CIERRE);
   assert.equal(c.hecho, listasEnRenglones(CIERRE.hecho));
   assert.equal(c.prueba, CIERRE.prueba);
+  // ver_pedidos_operaciones EJECUTADO (18/11/2026): el runner real, con la base reemplazada (tests/_ver-pedidos-operaciones-hijo.ts).
+  // Hasta ese día esto buscaba la línea literal del runner, y se puso rojo con el código correcto al sacar del cierre las fotos
+  // de la cuota (`consumo`), que salen aparte. Lo que cuida: el cierre que devuelve la API es el que se dibuja, y nada más.
+  const cuota = { cinco: { pct: 20, reinicia: '2026-10-26T08:00:00.000Z' }, semana: { pct: 40, reinicia: '2026-10-30T12:00:00.000Z' }, medido: '2026-10-26T03:00:00.000Z' };
+  const conConsumo = { ...CIERRE, consumo: { modo: 'sin_tocar', fases: [{ fase: 'todo', modelo: null, desde: '2026-10-26T03:00:00.000Z', cuota }], fin: { at: '2026-10-26T03:43:00.000Z', cuota: { ...cuota, cinco: { ...cuota.cinco, pct: 27 }, medido: '2026-10-26T03:42:00.000Z' } } } };
+  const pedido = (id: string, cierre: unknown) => ({ id, created_at: '2026-10-26T03:00:00.000Z', destino: LOCAL, destino_titulo: 'Cerebro', destino_cuenta: 'claude4', estado: 'comprobado', texto: 'x', motivo: null, cierre });
+  const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_ver-pedidos-operaciones-hijo.ts')], {
+    cwd: RAIZ, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120_000,
+    env: { ...process.env, PEDIDOS_DE_PRUEBA: JSON.stringify([pedido('a', CIERRE), pedido('b', conConsumo)]) },
+  });
+  const api = JSON.parse(salida.trim().split('\n').pop() ?? '{}') as { pedidos: Array<{ cierre: unknown; consumo?: { fases: Array<{ cinco: number | null }> } }> };
+  assert.deepEqual(api.pedidos[0].cierre, cierreComoClaude(CIERRE), 'ver_pedidos_operaciones: el cierre, como se dibuja');
+  assert.deepEqual(api.pedidos[1].cierre, cierreComoClaude(CIERRE), 'ver_pedidos_operaciones: las fotos de la cuota no van adentro del cierre');
+  assert.equal(api.pedidos[1].consumo?.fases[0].cinco, 7, 'el consumo sale aparte, ya calculado');
   const run = sinComentarios(leer('lib/api-mako/areas/operaciones.run.ts'));
-  assert.match(run, /cierre: p\.cierre \? cierreComoClaude\(p\.cierre\) : null,/, 'ver_pedidos_operaciones');
   // El «Completado» (y cada uno de sus `anteriores`) sale de `resumen`: la respuesta va como se dibuja ahí adentro.
   assert.match(run, /function resumen\([^)]*\) \{[\s\S]*?respuesta: listasEnRenglones\(t\.texto\),/, 'ver_completados_operaciones');
   const t = { local: LOCAL, uuid: 'u1', rol: 'el' as const, de: null, texto: CIERRE.hecho, at: '2026-10-26T03:43:00.000Z', trabajo: null };
@@ -109,3 +123,5 @@ test('4. la API devuelve el MISMO texto que se dibuja', () => {
 // (1); todo en columna → 1 rojo (2); la columna también en el teléfono → 1 rojo (2); el hilo sin `listasEnRenglones` ni aire
 // → 2 rojos (2 y 3); el «Ya está» sin arreglar → 1 rojo (3); la API con el cierre crudo → 1 rojo (4); la API con lo del chat
 // crudo → 1 rojo (4).
+// Y desde que el 4 corre el runner (18/11/2026, base 4/0): `ver_pedidos_operaciones` con el cierre crudo (sin cierreComoClaude)
+// → 1 rojo (4, «el cierre, como se dibuja»); con las fotos de la cuota adentro del cierre → 1 rojo (4, «no van adentro»).

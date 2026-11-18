@@ -192,6 +192,81 @@ export function textoReinicioPasado(t: number, ahora: number): string {
   return `el ${dia} a las ${hora}`;
 }
 
+// ── El consumo de un trabajo, por fase (18/11/2026) ───────────────────────────────────────────────────────────────────
+// Pedido de Aaron por Martín (ticket 876825880-11): «Sonnet para explorar, Opus para ejecutar, midiendo el consumo antes y
+// después». Lo que se mide es lo de ARRIBA, la cuota de la CUENTA: la PC anota la cuota al entregar el trabajo, al pasar a
+// ejecutar (`cartero.mjs fase <id> ejecutar`) y al cerrarlo (`cierre`), y el cierre sube con esas fotos (`consumo`).
+// ⚠️ ES EL USO DE LA CUENTA, NO DEL CHAT: con otros chats trabajando en la misma cuenta, la diferencia incluye lo de ellos.
+//    La cuota no se mide por chat en ningún lado (ni la barra de estado ni get_usage lo dan): por eso cada número va con la
+//    nota de qué mide. Y es en puntos ENTEROS de la ventana (la cuota se guarda redondeada).
+// ⚠️ UNA DIFERENCIA SÓLO VALE ENTRE DOS MEDICIONES DE LA MISMA VENTANA: si entre las dos se reinició (otro `reinicia`), o la
+//    del final no es más nueva que la del principio (nadie midió en el medio), no hay número: se dice por qué.
+
+/** Las fases de un trabajo: `explorar` y `ejecutar` con «Automático» por fase; `todo`, un trabajo sin fases. */
+export const FASES = ['explorar', 'ejecutar', 'todo'] as const;
+export type Fase = (typeof FASES)[number];
+/** Cómo corrió: por fase, con el modelo que eligió Martín, o sin tocar el modelo del chat. */
+export const MODOS_CONSUMO = ['por_fase', 'elegido', 'sin_tocar'] as const;
+export type ModoConsumo = (typeof MODOS_CONSUMO)[number];
+/** Una fase con la cuota de su cuenta cuando arrancó. `modelo`: la familia que se le pidió al Runner (null = sin tocar). */
+export type FaseMedida = { fase: Fase; modelo: string | null; desde: string; cuota: Cuota | null };
+/** Lo que sube el cierre de un trabajo: sus fases y la cuota al cerrarlo. Lo sanea `sanearConsumo` (lib/operaciones-reglas.ts). */
+export type Consumo = { modo: ModoConsumo; fases: FaseMedida[]; fin: { at: string; cuota: Cuota | null } };
+
+/** Lo que gastó una fase, en puntos de cada ventana. null = no se puede decir; `motivo` dice por qué en la de 5 horas. */
+export type GastoDeFase = { fase: Fase; modelo: string | null; minutos: number | null; cinco: number | null; semana: number | null; motivo: string | null };
+
+/** La diferencia de UNA ventana entre dos fotos de la cuota, o el motivo por el que no hay número. */
+function diferencia(a: Cuota | null, b: Cuota | null, cual: 'cinco' | 'semana'): { puntos: number | null; motivo: string | null } {
+  const va = a?.[cual];
+  const vb = b?.[cual];
+  if (!a || !b || !va || !vb) return { puntos: null, motivo: 'sin medir' };
+  // Sin una medición nueva en el medio, la foto del final es la misma del principio: un 0 sería inventado.
+  if (!(Date.parse(b.medido) > Date.parse(a.medido))) return { puntos: null, motivo: 'nadie midió en el medio' };
+  const ra = Date.parse(va.reinicia ?? '');
+  const rb = Date.parse(vb.reinicia ?? '');
+  if (Number.isFinite(ra) && Number.isFinite(rb) && Math.abs(ra - rb) > 5 * 60_000) return { puntos: null, motivo: 'se reinició la ventana' };
+  const puntos = vb.pct - va.pct;
+  return puntos < 0 ? { puntos: null, motivo: 'se reinició la ventana' } : { puntos, motivo: null };
+}
+
+/** Lo que gastó cada fase: de la foto con que arrancó a la de la fase siguiente (o la del cierre). */
+export function gastoPorFase(c: Consumo): GastoDeFase[] {
+  return c.fases.map((f, i) => {
+    const sig = c.fases[i + 1];
+    const fin = sig ? { at: sig.desde, cuota: sig.cuota } : c.fin;
+    const cinco = diferencia(f.cuota, fin.cuota, 'cinco');
+    const semana = diferencia(f.cuota, fin.cuota, 'semana');
+    const t0 = Date.parse(f.desde);
+    const t1 = Date.parse(fin.at);
+    const minutos = Number.isFinite(t0) && Number.isFinite(t1) && t1 >= t0 ? Math.round((t1 - t0) / 60_000) : null;
+    // El motivo es el de la ventana de 5 horas, la que se compara: en un solo trabajo, la semanal casi no se mueve.
+    return { fase: f.fase, modelo: f.modelo, minutos, cinco: cinco.puntos, semana: semana.puntos, motivo: cinco.motivo };
+  });
+}
+
+/**
+ * Para COMPARAR (el «antes y después» del pedido): por modo y por fase, cuántos trabajos tienen número y el promedio de puntos
+ * de la ventana de 5 horas. Lo que no tiene número no entra al promedio, pero se cuenta (`sinNumero`): un promedio de 1 de 9
+ * no se lee como el de 9.
+ */
+/** Lo que acompaña cada número de consumo, donde se muestre (la API de MaKo lo devuelve al lado). */
+export const NOTA_CONSUMO = 'Es lo que subió el uso de la CUENTA entre que empezó y terminó cada fase, en puntos de la ventana de 5 horas (y de la semana): si otros chats trabajaban en la misma cuenta, incluye lo de ellos. Sin número cuando nadie midió en el medio o la ventana se reinició.';
+export type FilaComparacion = { modo: ModoConsumo; fase: Fase; modelo: string | null; trabajos: number; sinNumero: number; promedioCinco: number | null };
+export function compararConsumo(lista: readonly Consumo[]): FilaComparacion[] {
+  const filas = new Map<string, FilaComparacion & { suma: number }>();
+  for (const c of lista) {
+    for (const g of gastoPorFase(c)) {
+      const k = `${c.modo}|${g.fase}|${g.modelo ?? ''}`;
+      const f = filas.get(k) ?? { modo: c.modo, fase: g.fase, modelo: g.modelo, trabajos: 0, sinNumero: 0, promedioCinco: null, suma: 0 };
+      if (g.cinco == null) f.sinNumero++;
+      else { f.trabajos++; f.suma += g.cinco; }
+      filas.set(k, f);
+    }
+  }
+  return [...filas.values()].map(({ suma, ...f }) => ({ ...f, promedioCinco: f.trabajos ? Math.round((suma / f.trabajos) * 10) / 10 : null }));
+}
+
 /**
  * Lo que la barra de estado de Claude Code le pasa a su comando (stdin), reducido a la cuota (cartero.mjs `uso` la anota
  * con esta misma forma). `resets_at` viene en SEGUNDOS unix. null = esa sesión no trae cuota (una clave de API, o un

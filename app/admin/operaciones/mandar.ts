@@ -26,8 +26,9 @@ import { ERROR_SUBIDA, porQueFallo } from './leer-adjunto';
 export type DestinoTrabajo = { sesion: string; cuenta: string | null; titulo: string; tope?: number };
 
 export type ResultadoMandar = { ok: true; id: string; creado: string } | { ok: false; error: string };
-/** El modelo y el esfuerzo con los que tiene que correr el chat (null = «Automático»: no se tocan). Van firmados. */
-export type ComoCorre = { modelo?: Modelo | null; esfuerzo?: Esfuerzo | null };
+/** El modelo y el esfuerzo con los que tiene que correr el chat (null = «Automático»), y si va por fase (18/11/2026: lo decide
+ *  lib/centro-cuentas.ts → comoCorreDelEnvio). Van firmados. */
+export type ComoCorre = { modelo?: Modelo | null; esfuerzo?: Esfuerzo | null; porFase?: true };
 
 export function useFirma(sub: string) {
   // undefined = todavía no se leyó; null = este dispositivo no tiene clave.
@@ -53,9 +54,10 @@ export function useFirma(sub: string) {
     const antes = problemaAntesDeMandar(!!clave, texto, adjuntos.length > 0, d.tope);
     if (antes || !clave) return { ok: false, error: antes ?? 'Crea tu Token para comenzar a chatear' };
     try {
+      // `...como` ENTERO (18/11/2026): copiando campo por campo, el `porFase` nuevo se perdía acá sin un error.
       const payload = nuevoPayload({
         id: crypto.randomUUID(), texto: texto.trim() || TEXTO_SOLO_ADJUNTOS, destino: d.sesion, cuenta: d.cuenta, titulo: d.titulo, alcance,
-        modelo: como.modelo ?? null, esfuerzo: como.esfuerzo ?? null, adjuntos, voz,
+        ...como, adjuntos, voz,
       }, Date.now());
       const firmado = armarFirmable(payload);
       const firma = await firmar(clave, firmado);

@@ -38,12 +38,15 @@ import { esOpcionArmar } from '@/app/offer/ayudas';
 import { conPegados, esPegadoLargo } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
-  EDITORES, JEFE_SECOND_BRAIN, NOMBRE_JEFE, SECCION_OFFER, SIN_TITULO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo,
+  EDITORES, JEFE_SECOND_BRAIN, NOMBRE_JEFE, SECCION_OFFER, SIN_TITULO, arbolDelJefe, colgarIrA, conCriaturaElegida, criaturaDeOffer, esFilaDe, idConMenu, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo, tituloDe,
   type AppDeEscritorio, type ElegidoChat, type IrA,
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes, ChatDeAutomatizacion, ChatDeEditor, ChatDeOffer } from '@/lib/chat-mako-indice';
 import { etiquetaDesde, type Desde } from '@/lib/chat-desde';
 import { aspectoDeChat, aspectoDeReferente, type Aspecto } from '@/lib/centro-munecos';
+import { nombreValido } from '@/lib/centro-chats';
+import type { MunecosDeChats } from '@/lib/chat-munecos';
+import type { MenuDeChats } from '@/app/admin/operaciones/PiezasCentro';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import type { OfferSesionVista } from '@/lib/offer-marco';
 import { eleccionVigente, resumenDeIA, type CuentaDeIA, type EleccionIA } from '@/lib/chat-ia-reglas';
@@ -123,7 +126,7 @@ async function linksDelPedido(texto: string): Promise<IrA[]> {
 
 export type ChatCliente = ReturnType<typeof useChatCliente>;
 
-export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null, tab: tabPropia = null, aspectoOffer = null, quien = null }: {
+export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null, tab: tabPropia = null, aspectoOffer = null, quien = null, avisar }: {
   elegido: ElegidoChat | null;
   setElegido: Dispatch<SetStateAction<ElegidoChat | null>>;
   /** Lee Offer, los chats de antes y si tiene su IA. En el Ops Center del super admin la lista es la de Claude Code: no. */
@@ -149,6 +152,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   /** Quién contesta en un chat que se abre sin la lista (`activo: false`): el gurú o el coach. Sin esto no hay fila de la que sacarlo, y el
    *  hilo dibujaba una criatura sorteada con «Sin título» de nombre (Martín, 3/11/2026: «el que responde es una criatura de mako»). */
   quien?: { nombre: string; aspecto: Aspecto } | null;
+  /** El aviso corto de lo que hace el «⋯» de una fila («Chat renombrado», un error), como el del super admin. */
+  avisar?: (texto: string, tono: 'good' | 'bad') => void;
 }) {
   const ws = useWs();
   const [sesiones, setSesiones] = useState<SesionChat[] | null>(sesionesIniciales);
@@ -207,15 +212,23 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const [cuentasIA, setCuentasIA] = useState<CuentaDeIA[] | null>(null);
   const [iaDe, setIaDe] = useState<Record<string, EleccionIA>>({});
   const [conectando, setConectando] = useState(false);
+  /** Las criaturas que eligió para sus chats con MaKo, por conversación (F96, lib/chat-munecos.ts): llegan con la lista. */
+  const [munecos, setMunecos] = useState<MunecosDeChats>({});
+  // El «⋯» de una fila (F96, 18/11/2026): dónde abre y de qué conversación; y sus dos ventanas, Renombrar y Su criatura.
+  const [menuFila, setMenuFila] = useState<{ x: number; y: number; id: number } | null>(null);
+  const [renombrando, setRenombrando] = useState<{ id: number; texto: string; error: string | null; mandando: boolean } | null>(null);
+  const [eligiendo, setEligiendo] = useState<{ id: number; aspecto: Aspecto; guardando: boolean } | null>(null);
 
   useEffect(() => { const t = window.setInterval(() => setAhora(Date.now()), 60_000); return () => window.clearInterval(t); }, []);
 
   // ── La lista: las conversaciones de esta persona ──
   const cargarLista = useCallback(async (): Promise<SesionChat[] | null> => {
-    const l = await pedir<{ sesiones: SesionChat[] }>(`${RUTA}?sesiones=1`);
+    const l = await pedir<{ sesiones: SesionChat[]; munecos?: MunecosDeChats | null }>(`${RUTA}?sesiones=1`);
     if (!l.ok) { setErrorLista(l.reintentable ? l.error : 'No pude cargar tus chats.'); return null; }
     setErrorLista(null);
     setSesiones(l.datos.sesiones ?? []);
+    // null = no se pudieron leer: se quedan las que ya había (o la de su nombre), nunca «no eligió ninguna».
+    if (l.datos.munecos) setMunecos(l.datos.munecos);
     return l.datos.sesiones ?? [];
   }, []);
 
@@ -659,7 +672,10 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   // ── Lo que se dibuja ──
   // Cada fila con SU criatura (lib/centro-munecos.ts → aspectoDeChat): el Cerebro, la estrella (sale de su nombre).
   const lista = useMemo(() => listaDelCliente({ sesiones: sesiones ?? [], offer: offer ?? [], antes: antes ?? [], busca, automations: automations ?? [], editores: editores ?? [] })
-    .map((f) => ({ ...f, aspecto: f.clave === 'jefe' ? null : f.guru ? aspectoDeReferente(f.guru) : f.origen === 'offer' && aspectoOffer ? aspectoOffer : aspectoDeChat(f.clave) })), [sesiones, offer, antes, busca, automations, editores, aspectoOffer]);
+    .map((f) => ({ ...f, aspecto: f.clave === 'jefe' ? null : f.guru ? aspectoDeReferente(f.guru) : f.origen === 'offer' && aspectoOffer ? aspectoOffer : aspectoDeChat(f.clave) }))
+    // La que eligió con el «⋯» (F96) le gana a la de su nombre: sólo en sus conversaciones con MaKo (nunca el Cerebro), por id.
+    .map((f) => conCriaturaElegida(f, munecos)),
+  [sesiones, offer, antes, busca, automations, editores, aspectoOffer, munecos]);
   /** La fila de lo abierto (un chat nuevo no tiene). */
   const filaAbierta = elegido ? lista.find((f) => esFilaDe(f, elegido)) ?? null : null;
   const esJefe = filaAbierta?.clave === 'jefe';
@@ -698,6 +714,68 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     pendiente: notaEnEspera && notaEnEspera.chat === chatAbierto
       ? { url: notaEnEspera.url, secs: notaEnEspera.secs, onBorrar: tirarNota, onDejar: reenviarNota } : null,
   };
+  // ── El «⋯» de una fila de SUS chats con MaKo (F96, 18/11/2026): el menú del super admin (MenusCentro) ──
+  // La conversación se busca en la lista entera (no en la filtrada por la búsqueda) y el Cerebro no lo tiene. Lo que escribe va
+  // por la ruta (`renombrar`, `criatura`), que vuelve a mirar que sea suya.
+  const deLaPersona = (id: number | undefined): SesionChat | null => {
+    if (id == null || !sesiones) return null;
+    const s = sesiones.find((x) => x.id === id) ?? null;
+    return s && arbolDelJefe(sesiones).jefe?.id !== s.id ? s : null;
+  };
+  const aspectoDeSesion = (s: SesionChat): Aspecto => munecos[String(s.id)] ?? aspectoDeChat(`s${s.id}`);
+  const delMenu = deLaPersona(menuFila?.id);
+  const deRenombre = deLaPersona(renombrando?.id);
+  const deMuneco = deLaPersona(eligiendo?.id);
+  /** El «⋯» (y el clic derecho) de una fila: sólo la de una conversación con MaKo que no es el Cerebro. */
+  const menuDeFila = (f: Parameters<typeof idConMenu>[0]): ((x: number, y: number) => void) | undefined => {
+    const id = idConMenu(f);
+    return id == null || !deLaPersona(id) ? undefined : (x, y) => setMenuFila({ x, y, id });
+  };
+  async function renombrarChat() {
+    const r = renombrando;
+    if (!r || r.mandando || !deRenombre) return;
+    const v = nombreValido(r.texto);
+    if (!v.ok) { setRenombrando({ ...r, error: v.error }); return; }
+    if (v.nombre === tituloDe(deRenombre)) { setRenombrando(null); return; }
+    setRenombrando({ ...r, mandando: true, error: null });
+    const l = await postJson<{ sesion: SesionChat }>({ action: 'renombrar', sessionId: r.id, nombre: v.nombre });
+    if (!l.ok) { setRenombrando({ ...r, mandando: false, error: l.error }); return; }
+    setSesiones((ss) => ss?.map((x) => (x.id === r.id ? { ...x, titulo: l.datos.sesion.titulo } : x)) ?? ss);
+    setRenombrando(null);
+    avisar?.('Chat renombrado', 'good');
+  }
+  async function guardarCriatura(aspecto: Aspecto | null) {
+    const e = eligiendo;
+    if (!e || e.guardando || !deMuneco) return;
+    setEligiendo({ ...e, guardando: true });
+    const l = await postJson<{ munecos: MunecosDeChats }>({ action: 'criatura', sessionId: e.id, aspecto });
+    if (!l.ok) { setEligiendo({ ...e, guardando: false }); avisar?.(l.error, 'bad'); return; }
+    setMunecos(l.datos.munecos ?? {});
+    setEligiendo(null);
+    avisar?.('Criatura guardada', 'good');
+  }
+  const menuDeChats: MenuDeChats = {
+    menu: menuFila && delMenu ? { x: menuFila.x, y: menuFila.y } : null,
+    delMenu: delMenu ? { titulo: tituloDe(delMenu), renombra: true, cambiaCriatura: true } : null,
+    cerrarMenu: () => setMenuFila(null),
+    elegirEnMenu: (opcion) => {
+      const s = delMenu;
+      setMenuFila(null);
+      if (!s) return;
+      if (opcion === 'renombrar') setRenombrando({ id: s.id, texto: tituloDe(s), error: null, mandando: false });
+      if (opcion === 'muneco') setEligiendo({ id: s.id, aspecto: aspectoDeSesion(s), guardando: false });
+    },
+    renombrando: renombrando && deRenombre ? renombrando : null,
+    escribirNombre: (t) => setRenombrando((r) => (r ? { ...r, texto: t, error: null } : r)),
+    cerrarRenombre: () => setRenombrando(null),
+    renombrar: renombrarChat,
+    notaRenombre: 'Se renombra en su chat.',
+    eligiendo: eligiendo && deMuneco ? eligiendo : null,
+    deMuneco: deMuneco ? { titulo: tituloDe(deMuneco), animo: 'despierto', elegida: String(deMuneco.id) in munecos } : null,
+    cambiarAspecto: (a) => setEligiendo((x) => (x ? { ...x, aspecto: a } : x)),
+    cerrarMuneco: () => setEligiendo(null),
+    guardarElegido: guardarCriatura,
+  };
   /** Los mensajes del hilo, para la barra de los fijados. */
   const mensajesWA = useMemo(() => items.flatMap((x) => (x.k === 'msg' ? [mensajeWADe(x, nombreMuneco)] : [])), [items, nombreMuneco]);
 
@@ -707,7 +785,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     items, cargado, errorCarga, recargar, ahora, trabajo, segs, enCurso, armandoOffer, tarjeta, correrTarjeta, alTerminarTrabajo, reintentar,
     texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, vozCaja, pegados, quitarPegado, pegarLargo, cita, setCita,
     marcas, ponerMarca, accionesWA, menuWA, setMenuWA, infoWA, setInfoWA, elegirEnMenu, mensajesWA,
-    iaConectada, app, conectando, setConectando, mirarSuIA,
+    iaConectada, app, conectando, setConectando, mirarSuIA, menuDeFila, menuDeChats,
     cuentasIA: idOffer != null ? null : cuentasIA, iaDelChat, elegirIA, resumenIA: resumenDeIA(iaDelChat, cuentasIA),
   };
 }

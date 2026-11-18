@@ -60,7 +60,16 @@ async function llamar(cuerpo: Record<string, unknown>): Promise<Respuesta> {
   }
 }
 
-export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: VistaArranque; arbolVacio: ArbolOffer; opcionArmar: string }) {
+export function ChatArranque({ inicial, arbolVacio, opcionArmar, seguirEnPc = false, persona }: {
+  inicial: VistaArranque; arbolVacio: ArbolOffer; opcionArmar: string;
+  /** Quién es (para «Sigamos en tu computadora»). */
+  persona?: { nombre: string; email: string };
+  /**
+   * El onboarding V2 en un TELÉFONO (18/11/2026, Martín: «desde el celular se podría romper completamente: lo opaco, lo que se
+   * señala»): se hace el primer paso acá y, al terminar, «Continuar el onboarding desde la PC» en vez de entrar. Lo decide la página.
+   */
+  seguirEnPc?: boolean;
+}) {
   const [vista, setVista] = useState<VistaArranque>(inicial);
   // La animación va UNA vez, y sólo al principio de todo (con algo contestado, se entra directo al chat).
   const [intro, setIntro] = useState(!inicial.introVista && (inicial.etapa === 'telefono' || inicial.etapa === 'nombre'));
@@ -221,11 +230,14 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     setSaliendo(true);
     router.push(destino);
   }, [vista.modo, router]);
+  const [enPc, setEnPc] = useState(false);
   useEffect(() => {
+    // En el teléfono (V2) no entra solo: sigue en la computadora.
+    if (seguirEnPc) return;
     if (vista.etapa !== 'listo') return;
     const t = window.setTimeout(() => { void entrar(); }, MS_PARA_ENTRAR);
     return () => window.clearTimeout(t);
-  }, [vista.etapa, entrar]);
+  }, [vista.etapa, entrar, seguirEnPc]);
 
   // ── Lo que se dibuja ─────────────────────────────────────────────────────
   const lado = ladoDeLaPregunta(vista.etapa, vista.modo);
@@ -248,7 +260,9 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (t === 'telefono') return <TarjetaTelefono inicial={vista.telefonoDelPago} ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
     if (t === 'whatsapp') return <TarjetaWhatsapp v={vista.whatsapp} ocupado={ocupado} onOtro={async () => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: vista.telefonoNumero.replace(/\D/g, '') })); } finally { setOcupado(false); } }} />;
     if (t === 'avisos') return <TarjetaAvisos qr={vista.avisosQr} onRevisar={releer} onSinSoporte={() => void llamar({ action: 'avisos', sinSoporte: true }).then(aplicar)} />;
-    if (t === 'listo') return <TarjetaListo onEntrar={() => void entrar()} entrando={entrandoYa} />;
+    if (t === 'listo') return seguirEnPc
+      ? <div className="arr-links"><button type="button" onClick={() => setEnPc(true)} className="arr-link arr-link--principal">Continuar el onboarding desde la PC</button></div>
+      : <TarjetaListo onEntrar={() => void entrar()} entrando={entrandoYa} />;
     return null;
   };
 
@@ -312,6 +326,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   return (
     <div className={`arr-capa${saliendo ? ' arr-capa--sale' : ''}`}>
       <style>{CSS_ARRANQUE}</style>
+      {enPc && <SeguirEnPc nombre={persona?.nombre ?? ''} email={persona?.email ?? ''} />}
       {/* La cabecera de la referencia que mandó Martín (17/10): la foto de MaKo, su nombre y «Tu onboarding», y una
           línea. Los mensajes van sueltos sobre el fondo, sin recuadro (CSS de abajo). */}
       <header className="arr-cabecera">
@@ -463,6 +478,30 @@ function VisorPdf({ sesionId, url, onCerrar }: { sesionId: number; url: string; 
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** «SIGAMOS EN TU COMPUTADORA» (V2, en el teléfono): lo que sigue del onboarding (el video, el recorrido y el reto) va en una pantalla
+ *  grande. Lo contestado ya quedó guardado: al entrar desde la computadora sigue justo donde quedó. */
+export function SeguirEnPc({ nombre, email }: { nombre: string; email: string }) {
+  const paso = (n: number, t: string, x: string) => (
+    <li style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <span style={{ flex: 'none', width: 26, height: 26, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 700 }}>{n}</span>
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}><b style={{ fontSize: 'var(--fs-sm)' }}>{t}</b><small style={{ fontSize: 'var(--fs-meta)', color: 'var(--dim)', overflowWrap: 'anywhere' }}>{x}</small></span>
+    </li>
+  );
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Sigamos en tu computadora" style={{ position: 'fixed', inset: 0, zIndex: 900, background: 'var(--bg)', color: 'var(--ink)', overflow: 'auto', display: 'grid', placeItems: 'center', padding: '24px max(20px, env(safe-area-inset-left, 0px))' }}>
+      <div style={{ width: 'min(380px, 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
+        <h1 style={{ margin: 0, fontSize: 22, lineHeight: 1.25, fontWeight: 700 }}>{nombre ? `${nombre}, sigamos` : 'Sigamos'} en tu computadora</h1>
+        <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--dim)' }}>Tu onboarding sigue en una pantalla grande: ahí te muestro MaKo por dentro, con tu reto de 7 días.</p>
+        <ol style={{ listStyle: 'none', margin: '6px 0 0', padding: 14, width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)' }}>
+          {paso(1, 'Abre MaKo en tu computadora', 'Con el link que te mandamos a tu correo.')}
+          {paso(2, 'Entra con tu cuenta', email)}
+          {paso(3, 'Sigues justo donde quedaste', 'Lo que contestaste ya está guardado.')}
+        </ol>
+      </div>
+    </div>
   );
 }
 
