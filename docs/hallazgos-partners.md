@@ -414,3 +414,58 @@ un partner (`refQueVale`, lib/partners-reglas.ts, con `esCodigoDePartner`); si n
 **Sin hacer:** una cookie de alguien que nunca terminó el alta de partner sigue tapando el link de uno real (`esCodigoDePartner`
 no mira el alta): no le quita a nadie, sólo deja sin arreglar ese caso. **Vive en:** app/r/[codigo]/route.ts ·
 lib/partners-reglas.ts · lib/partners-programa.ts
+
+## Un crédito por CADA pago, 30 % directo y 25 % por pasarela: reemplaza «el 100 % del primer mes» (18/11/2026)
+
+Martín unificó el programa (18/11/2026): «Olvidémonos por ahora de pagar el 100 % del primer mes». El partner se lleva una parte de **cada pago**
+de cada negocio que trae, todos los meses, mientras ese negocio pague. **30 % si el pago entró por Binance (USDT/USDC) o transferencia/CBU, 25 % si
+entró por una pasarela** (Mercado Pago, Stripe, Creem). Pro US$ 97 → US$ 29,10 o US$ 24,25; Essential US$ 47 → US$ 14,10 o US$ 11,75. Un anual
+es el % de lo que pagó (US$ 970 → US$ 291).
+- ⚠️ **El 25 % NO sale de una cuenta de costos: es una decisión de Martín, y el mismo día pasó de 27 a 25.** El Cerebro había pasado una base que estaba
+  mal (Mercado Pago «~3 %»): su página de hoy dice 6,29 % + IVA al instante (7,61 %), más 0,6 % de débitos y créditos, ~8,2 %; Whop, ~10,5 % (2,7 % + US$ 0,30,
+  1,5 % tarjeta internacional, 1 % de conversión, retiro a cripto 5 % + US$ 1). **No se pudo medir con cobros reales: todavía no hay ningún cobro de un plan
+  por Mercado Pago** (los 826 movimientos de la cuenta del ws 9 son gastos personales y transferencias). Si algún día se mide, ver la trampa de
+  `/v1/payments/search` en docs/hallazgos-pagos.md.
+
+- ⚠️ **El índice único era el que impedía la regla nueva, y no estaba en el código sino en la base.** `partner_creditos_un_referido` (mig 0330) era único por
+  `(referidor, referido)`: un segundo renglón del mismo negocio chocaba con 23505, y el cron lo trataba como «ya estaba» y seguía, sin avisar. Cambiar sólo el
+  código habría dejado el programa acreditando UNA vez y callado. La **migración 0421** agrega `pago_id` y `canal`, y cambia el índice: el renglón viejo
+  (sin `pago_id`) sigue siendo uno por negocio; el nuevo es uno por pago. **Sin la 0421 el cron no acredita nada** (lee `pago_id` de lo ya acreditado; si
+  falla, avisa en el log «¿falta la migración 0421?» y sigue sin escribir): desplegar antes de aplicarla es seguro, nunca acredita de más ni de menos.
+  **0421 preparada, NO aplicada** (escribir en producción pide el sí de Martín).
+- **El canal sale del pago, no del plan.** `canalDelPago` (lib/partners-reglas.ts): con `proveedor` (stripe/mercadopago/creem) o método `tarjeta` → pasarela;
+  método `cripto` (así entra Binance), `transferencia` o `efectivo` → directo; lo que no se sabe (sin proveedor y con método `otro` o vacío) va por la tasa
+  **menor**: nunca se acredita de más, y si era directo el super admin lo corrige con un `ajuste`. No existe «Whop» en `Pasarela`: si se suma una pasarela,
+  decidir su canal ahí.
+- **Lo que vale de cada pago es lo que ENTRÓ, con tope.** Se lee `pagos.monto_usd`, no el precio de lista. Pero un partner nunca gana más que la lista
+  (revisión de plata del 29/10, hallazgo 6): un cobro de US$ 1.500 de una venta a mano que trajera código dejaría US$ 450. Cada pago cuenta hasta el
+  precio de lista por mes × los meses de su cobro (`topeUsd`). Un pago sin `monto_usd` no se acredita y se avisa en el log (no se inventa la plata).
+- **Lo ya ganado queda como está; quien ya lo ganó no cobra dos veces.** El renglón viejo (100 % del primer mes, ganado al 2º pago) vale más que el 30 % de
+  dos pagos, así que quien lo tiene no gana por sus 2 primeros pagos (`PAGOS_QUE_CUBRE_EL_CREDITO_VIEJO`); del 3º en adelante, sí. Quien NO lo tiene gana por
+  todos sus pagos, el primero incluido, **también los anteriores al 18/11** (ver «Sin hacer»).
+- **El tablero ya no tiene «en camino».** Los estados son `registrado` (no pagó), `pagando` (ya pagó y sigue) y `se-fue`. «Lo que te deja cada mes» es la suma
+  de los que `pagan` (precio de lista y canal de su último pago); el acumulado es lo del libro. La API (`ver_programa_partners`) cambió: `en_camino_usd` →
+  `te_deja_cada_mes_usd`, `le_deja_usd` → `le_deja_cada_mes_usd` y `ganado_usd` por negocio.
+- **`PAGOS_PARA_ACREDITAR` y `gananciaDelReferido` quedan exportadas pero muertas** (`@deprecated`): la landing vieja de `app/mako-partners/*` (Calculadora,
+  LandingPartners) todavía las importa, y borrarlas rompía el build del chat del Sitio. Se borran cuando esa landing se rehaga con `COMISION_PARTNER_*`.
+
+**Probado rompiendo** (tests/partners-comision-por-pago.test.ts y tests/partners-credito-simulado.test.ts, que corre el cron REAL contra una base de mentira): la
+tasa, el redondeo a centavos, el canal, el tope, el crédito viejo y el «paga cada mes» los ve un test. **Una rotura no la ve ninguno y es a propósito:**
+el cron sin leer lo ya acreditado (`yaAcreditados`) sigue sin duplicar porque el índice único por pago (mig 0421, simulado en el test) lo frena con 23505; esa
+lectura sólo evita insertar de más. Si algún día se saca el índice, esa guarda pasa a ser la única.
+
+**Sin hacer:**
+- **Medido en producción el 18/11/2026 (sólo lectura):** 2 códigos de partner, **0 compras con código y 0 renglones en el libro**. No hay ningún referido real
+  todavía: el primer corrimiento de la 0421 no acredita nada ni manda ningún aviso. Queda una decisión para cuando haya referidos: quien no tenía el crédito
+  viejo gana por TODOS sus pagos, también los anteriores a la regla; si Martín no lo quiere, poner una fecha de corte en `creditosDeUnReferido`.
+- **«El partner cobra él y le manda a MaKo el 70 %»** (el 30 % «redondo» aunque cobre él): no hay nada que lo automatice, el pago que entra a MaKo es el del
+  partner, no el del negocio. Hoy se anota a mano con un `ajuste`.
+- **Lo que Martín pidió después y NO está hecho** (el brief completo está en docs/pendientes-partners-pagos-1811.md): el panel que suma solo y se paga del 1 al 5
+  (A, D); verificar que la plata entró con las APIs de Mercado Pago y Binance (B, C); la cotización de Mercado Pago al momento; y «ser partner no es gratis»
+  (el alta exige el plan pago y activo; hoy `hacermePartner` no lo mira).
+- **Reembolsos:** un pago devuelto después de acreditado no descuenta el crédito (no hay contra-asiento). Un `ajuste` negativo a mano.
+- **Todavía dicen «el primer mes entero»:** `app/configuraciones/plan/PlanPanel.tsx` y `app/planes/Vitrina.tsx` (los pinea `tests/mako-partners-landing.test.ts`),
+  y toda `app/mako-partners/*`: son del chat del Sitio.
+**Vive en:** lib/partners-reglas.ts (`comisionDelPago`, `canalDelPago`, `creditosDeUnReferido`) · lib/partners-programa.ts (`acreditarReferidos`,
+`pagosDeLosReferidos`, `tableroDe`) · supabase/migrations/0421_partners_credito_por_pago.sql · app/partners/PanelPartner.tsx · app/m/partners/ReferidosM.tsx ·
+tests/partners-comision-por-pago.test.ts, tests/partners-credito-simulado.test.ts, tests/partners-empezar-ya.test.ts.
