@@ -30,10 +30,15 @@ async function leer(): Promise<EstadoReto | null> {
   return leerEstado(await getSetting(CLAVE_RETO).catch(() => null));
 }
 
+/**
+ * El número de la línea de MaKo a la que la persona ya le escribió (la verificación de su WhatsApp lo guarda: `numeroLinea` en
+ * `mako.contacto.verificacion`). Sin preguntarle a Evolution ni pasar por lib/mako-grupo, que llega a una IA (tests/d6b-rutas.test.ts).
+ */
 async function linea(): Promise<string | null> {
   try {
-    const { lineaQueRecibe } = await import('@/lib/mako-grupo');
-    return (await lineaQueRecibe())?.numero ?? null;
+    const v = JSON.parse((await getSetting('mako.contacto.verificacion')) ?? 'null') as { numeroLinea?: unknown } | null;
+    const n = String(v?.numeroLinea ?? '').replace(/\D/g, '');
+    return n.length >= 8 ? n : null;
   } catch { return null; }
 }
 

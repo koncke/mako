@@ -764,7 +764,7 @@ export async function estadoVerificacionEntrante(ws: number): Promise<VistaEntra
 }
 
 /** La línea que recibe el mensaje y su número, sólo si está conectada. Lee la base de Evolution: no le habla a WhatsApp. */
-export async function lineaQueRecibe(): Promise<{ instancia: string; numero: string } | null> {
+async function lineaQueRecibe(): Promise<{ instancia: string; numero: string } | null> {
   const instancia = await instanciaVoz();
   const r = await ev(`/instance/fetchInstances?instanceName=${encodeURIComponent(instancia)}`);
   const fila = Array.isArray(r.body)

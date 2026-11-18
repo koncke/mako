@@ -48,6 +48,9 @@ export const RETO_TITULO = 'Reto de 7 días';
 export const RETO_SUB = 'Cada día un video para que avances con tu negocio. Puedes adelantar días cuando quieras.';
 export const RETO_HOLA = (nombre: string) => `¡Hola${nombre ? `, ${nombre}` : ''}! Éste es tu reto de 7 días. ${RETO_SUB}`;
 
+/** «En X › Y»: la ruta va aparte para que empiece por la tab de la barra (tests/mako-nombres-de-tabs.test.ts). */
+const en = (ruta: string): string => `En ${ruta}`;
+
 export const DIAS_RETO: readonly DiaReto[] = [
   {
     n: 1, titulo: 'Tu oferta y tu sistema de adquisición', video: 'reto-dia-1',
@@ -61,21 +64,21 @@ export const DIAS_RETO: readonly DiaReto[] = [
     n: 2, titulo: 'Conecta todo: la app, la extensión y tus integraciones', video: 'reto-dia-2',
     mensaje: 'Día 2: conectamos todo, de a un paso. Primero MaKo en tu teléfono; después la extensión para Chrome y tus integraciones.',
     tareas: [
-      { id: 'app', titulo: 'MaKo en tu teléfono', donde: 'En Settings › Instalar la app', detalle: 'Escanea el QR: los avisos de tu negocio, al instante.',
+      { id: 'app', titulo: 'MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR: los avisos de tu negocio, al instante.',
         marcas: [
           { sel: '[data-recorrido="tour-sidebar-perfil"]', titulo: 'Tu cuenta', texto: 'Lo de tu cuenta está en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
           { sel: '[data-recorrido="tour-settings-instalar"]', titulo: 'Instalar la app', texto: 'Ahí está el QR para tu teléfono.', haz: 'Haz clic en Instalar la app', lado: 'derecha' },
         ] },
-      { id: 'extension', titulo: 'La extensión para Chrome', donde: 'En Settings › Instalar la app', detalle: 'MaKo a mano mientras navegas.',
+      { id: 'extension', titulo: 'La extensión para Chrome', donde: en('Settings › Instalar la app'), detalle: 'MaKo a mano mientras navegas.',
         marcas: [{ sel: '[data-recorrido="tour-settings-instalar"]', titulo: 'La extensión', texto: 'En la misma sección, la extensión para Chrome.', haz: 'Haz clic en Instalar la app', lado: 'derecha' }] },
-      { id: 'integraciones', titulo: 'Las integraciones de lo que elegiste', donde: 'En Settings › Integraciones', detalle: 'Sólo las de tu funnel: no se conectan aquí.',
+      { id: 'integraciones', titulo: 'Las integraciones de lo que elegiste', donde: en('Settings › Integraciones'), detalle: 'Sólo las de tu funnel: no se conectan aquí.',
         marcas: [
           { sel: '[data-recorrido="tour-sidebar-perfil"]', titulo: 'Tus integraciones', texto: 'Están en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
           { sel: '[data-recorrido="tour-settings-integraciones"]', titulo: 'Integraciones', texto: 'Aquí conectas lo que necesita tu funnel.', haz: 'Haz clic en Integraciones', lado: 'derecha' },
         ] },
-      { id: 'perfil', titulo: 'Tu perfil y tu foto', donde: 'En Settings › Perfil', detalle: 'Lo que contaste en el chat ya está guardado.',
+      { id: 'perfil', titulo: 'Tu perfil y tu foto', donde: en('Settings › Perfil'), detalle: 'Lo que contaste en el chat ya está guardado.',
         marcas: [
           { sel: '[data-recorrido="tour-sidebar-perfil"]', titulo: 'Tu perfil', texto: 'Está en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'La primera sección es tu perfil.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
@@ -122,9 +125,9 @@ export const DIAS_RETO: readonly DiaReto[] = [
     n: 6, titulo: 'Tu video con IA', video: 'reto-dia-6',
     mensaje: 'Día 6: tu video con IA, sin grabarte. El clip de 10 segundos va de regalo.',
     tareas: [
-      { id: 'personaje', titulo: 'Tu personaje con IA', donde: 'En Video › AI Avatar', detalle: 'Con una foto tuya.',
+      { id: 'personaje', titulo: 'Tu personaje con IA', donde: en('Video › AI Avatar'), detalle: 'Con una foto tuya.',
         marcas: [enLaBarra('/video-editor', 'Video', 'Tu personaje con IA está en Video, con una foto tuya.')] },
-      { id: 'clip', titulo: 'Tu clip de 10 segundos, de regalo', donde: 'En Video › AI Avatar', detalle: 'Con el gancho de tu guion.',
+      { id: 'clip', titulo: 'Tu clip de 10 segundos, de regalo', donde: en('Video › AI Avatar'), detalle: 'Con el gancho de tu guion.',
         marcas: [enLaBarra('/video-editor', 'Video', 'Tu clip de 10 segundos, con el gancho de tu guion.')] },
     ],
   },
