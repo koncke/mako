@@ -81,6 +81,8 @@ export type KanbanMProps = {
   tarjetas: TarjetaKanban[];
   /** «leads», «tareas»: la columna vacía dice «Sin leads». */
   unidades: string;
+  /** La marca del tutorial en cada tarjeta (`data-recorrido`, lib/tutoriales/marcas.ts): el paso toma la primera. */
+  recorridoTarjeta?: string;
   /** Arriba de la barra de etapas: el selector de funnel, de producto. */
   arriba?: ReactNode;
   onTocar?: (id: string) => void;
@@ -460,6 +462,7 @@ export function KanbanM(p: KanbanMProps) {
                 {lista.map((t) => {
                   const attrs = {
                     className: 'm-kb-tj',
+                    'data-recorrido': p.recorridoTarjeta,
                     'data-agarrada': agarrada === t.id || undefined,
                     'data-se-va': seVa === t.id || undefined,
                     'data-llego': llego === t.id || undefined,

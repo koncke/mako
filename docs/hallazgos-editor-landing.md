@@ -23,6 +23,31 @@ sección, `AskAgent.tsx`), `app/web-generator/editor/revelado-propuesta.ts`. **L
   así que la marca vive lo mismo que ella.
 - **Sin hacer:** lo mismo en «Editar con MaKo» del Dashboard (`app/dashboard/EditorInforme.tsx`, `PanelEditarMako.tsx`), en Offer
   y en el onboarding (este encargo era sólo la parte del editor de landing).
+## El carrusel 4:5 ya estaba hecho y rojo: se rescató, y el rojo era un `enum` (18/11/2026, nube, F16 y F112)
+
+- **El pedido (F16) era construir las plantillas de carrusel 4:5.** Se construyeron (una por tipo de lib/carruseles/tipos.ts,
+  en plantillas-presentaciones.ts) y recién después apareció que **ya existían**: `punta/web-generator-45` (7/11, claude1)
+  hace eso y más —«Carrusel» como tipo de la pantalla de crear, la IA que escribe láminas, el PNG con su forma— y quedó en
+  `ci-rojo/` con «el motivo no consta». La versión nueva se tiró y se rescató la vieja (merge de origin/main: un choque en
+  `ia.ts`, que se unió: `reglasDeFormato` más `REGLA_CIFRAS_DEL_NEGOCIO`). **La regla:** antes de construir un pendiente,
+  `git branch -r` y `docs/editor-landing/pendientes-web-generator.md` (la tabla de las ramas a medias), no sólo main.
+- **El rojo NO era de la punta vieja ni de la nueva: era de las dos, y por lo mismo.** Las dos sumaban los ids de carrusel
+  al `enum` del parámetro `plantilla` de `crear_presentacion_desde_plantilla`, y esos ~200 caracteres sacaban a
+  `editar_landing_con_ia` del presupuesto de 12.000 del turno: «hacé la landing más corta y más directa» llegaba sin ella
+  (tests/ops-center-bateria.test.ts, el «piso» de la app y de WhatsApp). Medido: sin carruseles 4/0, con el enum 2/2.
+  **La operación ya no lleva `enum`** (la regla de AGENTS.md: una op grande no suma enums de ids) y el `preparar` es la
+  única validación, que devuelve `disponibles: { presentaciones, carruseles }`. Lo prueba el runner REAL en un hijo
+  (tests/_presentacion-plantilla-hijo.ts, desde tests/web-generator-carrusel-45.test.ts, 13/0).
+- **«Sacá el video de la web» ya trae `acomodar_bloque_landing` (F112, punto 2).** Con «sacar» sólo en la descripción la
+  operación empataba en 4 puntos con una docena declarada antes y quedaba ~560 caracteres afuera; con «sacar» en el TÍTULO
+  («Mover, sacar o borrar un bloque», peso doble) suma 5 y entra. «Quítale la animación a la sección 2» no cambia (otra
+  raíz): el título sigue sin «quitar», por lo que ya estaba escrito ahí.
+- **Sin hacer (F112, punto 1):** los diseños con animaciones (cinta, carrusel, pasos) piden copiar el panel de Framer, que
+  la nube no puede abrir. Y del carrusel: mirarlo en un teléfono de verdad y medir el PNG en Safari.
+
+**Vive en:** lib/editor-landing/plantillas-carrusel.ts, lib/api-mako/areas/landing.def.ts (`crear_presentacion_desde_plantilla`),
+lib/api-mako/areas/landing.run.ts, lib/api-mako/areas/landing-editor.def.ts (`acomodar_bloque_landing`),
+tests/web-generator-carrusel-45.test.ts, tests/mako-intencion-landing.test.ts, tests/ops-center-bateria.test.ts
 
 ## Cerrar «Replicar» para Esencial: se busca por lo que hace, no por el nombre (14/11/2026)
 
@@ -111,6 +136,62 @@ MaKo (`replicar_landing`) sigue sin navegador: sin foto sale la copia de antes; 
   **Lo fija:** tests/web-replicate-agentes.test.ts (22 roturas).
 - **Falta:** el anillo en el paso 1 («Leer»), la página real adentro de cada caja (la foto de la copia idéntica, en un iframe
   con sandbox) y verlo con una réplica de punta a punta en la app (esta nube no tiene la base).
+## El carrusel 4:5 se ELIGE al crear: la segunda mitad del pedido de Leila (6/11/2026)
+
+Leila lo pidió TRES veces (2.14 / 3.9 / 4.10 de `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md:66`): armaba el
+carrusel en el Image Editor, lento, «emulando Canva», porque el rápido no ofrecía el tamaño.
+
+- **El diagnóstico obvio era el equivocado.** La proporción 4:5 ya estaba hecha (`cd0f4811e`, 6/11:
+  `PROPORCIONES`, la hoja, el PDF, el PPTX y la miniatura, con 8 tests), así que el ítem parecía cerrado. No lo estaba:
+  la forma sólo se alcanzaba **creando una presentación 16:9 y cambiándola a mano** en Configuración → «Relación de
+  aspecto». El pedido de Leila era justamente no tener que hacer eso. Una lista de pedidos marcada «A MEDIAS» puede
+  tener hecha la mitad que se ve en el código y faltar entera la que se ve en la pantalla.
+- **Y lo que de verdad faltaba vivía en otro módulo: la exportación.** Un carrusel se CREA para subirlo, y
+  `exportar-png.ts` montaba su lienzo (1280 px) **sin `data-formato="presentacion"`**, así que ninguna regla de «15b.
+  Presentaciones» (css.ts) se aplicaba: fotografiaba el `.gm-doc` fluido, del ancho de una pantalla y con el alto del
+  texto. En una landing es lo que se quiere, y en una presentación no se nota (se mira en el editor), pero una lámina
+  que no es 4:5 la recorta Instagram. Ahora, **con forma fija se fotografía la TARJETA** en un lienzo que la deja tomar
+  su ancho entero (`ANCHO_DIAPO_EM + 4em` por los 18 px de letra base). Medido en Chromium con ese mismo montaje:
+  4:5 → 774 × 968 px (× 2 de `pixelRatio` = **1548 × 1936**, relación 0.800 exacta; Instagram pide 1080 × 1350);
+  16:9 → 2322 × 1306. Lo que no tiene forma sigue saliendo fluido, igual que antes.
+- **La regla:** una superficie que exporta una diapositiva tiene que declarar `data-formato` y `data-proporcion` en el
+  envoltorio, o la hoja la dibuja como una sección. El selector `diapo()` acepta las dos formas (la raíz con el
+  formato, o la raíz adentro de un envoltorio con él): es barato ponerlo y no hay manera de notar que falta.
+- **Las plantillas NO se duplican, pero tampoco se reusa el documento.** Las 8 salen de `TIPOS_CARRUSEL`
+  (`lib/carruseles/tipos.ts`), las mismas que el Image Editor. Lo que **no** sirve es `documentoDeCarrusel`
+  (`lib/carruseles/documento.ts`): ése arma el documento del MOTOR de Imagen (textbox/rect/ellipse en un lienzo de
+  1080 × 1350 px) y este editor es un documento de bloques. Lo compartible de un carrusel es su ESTRUCTURA, no su
+  documento; quien vaya a reusar «lo que ya existe» por el documento se estrella.
+- **«Carrusel» es la primera palabra MASCULINA de la pantalla de crear.** Landing y Presentación son femeninas, así que
+  las frases tenían «la» y «generada» escritos a mano: «La carrusel no se creó», «Carrusel generada». El artículo y el
+  participio salen ahora de `GENERO_TIPO` (`crear/tipo.ts`): `elDocDe`, `esteDocDe`, `participio`.
+- **`temaPorId` MIENTE: un id que no existe devuelve `pewter`, nunca `undefined`** (`lib/editor-landing/temas.ts`). Un
+  `assert.ok(temaPorId(x))` pasa con cualquier cosa, y la plantilla nace con el tema equivocado sin que nada avise. Se
+  cuenta contra la lista (`TEMAS.map(t => t.id)`). Lo descubrió romperlo a propósito: la rotura daba 0 rojos.
+- **Un banco del editor miente si no se le fija `--gm-base`.** La letra de la diapositiva sale de
+  `min(18px, 100vw / 68.5)` —el ancho de una 16:9, no el del contenedor—, así que en un contenedor chico la lámina se
+  achica por `calc(100% - 4em)` y el texto se ve gigante: la primera medición dio la portada a 2,3 × su alto y parecía
+  un bug del producto. Se fija `--gm-base` y se le dan al contenedor **≥ 47em** de esa letra; recién ahí la lámina toma
+  sus 43em y mide 0.800 clavado.
+- **La IA tiene reglas propias para 4:5.** En una lámina entra la mitad que en una diapositiva (43em contra 64,5), y lo
+  que se lee con el pulgar no es lo que se proyecta en una pared. `ParamsGeneracion.proporcion` viaja en todo pedido y
+  `reglasDeFormato` (ia.ts) elige UNO de los tres juegos: página, diapositiva o lámina. Se lee del pedido CRUDO, como
+  `formato`: `normalizarParams` no conoce ninguno de los dos.
+- **Vive en:** `lib/editor-landing/plantillas-carrusel.ts` (nuevo), `app/web-generator/crear/tipo.ts`,
+  `lib/editor-landing/{api-tipos,ia,exportar-png}.ts`, `lib/api-mako/areas/landing-editor.helpers.ts`.
+  **Lo fija:** `tests/web-generator-carrusel-45.test.ts` (12 tests, 28 roturas a propósito, 28 rojos).
+- **Lo que quedó SIN hacer:**
+  - **La letra que LLENA la lámina.** El cuerpo de una lámina 4:5 se ve chico para Instagram (mucho aire arriba y
+    abajo). El Image Editor lo resuelve con `tamanoQueLlena` (`lib/carruseles/documento.ts`): busca la letra más
+    grande que entra. Acá los tamaños son fijos en em y están calibrados para 16:9. La palanca que el sistema ya tiene
+    es `--gm-escala-cuerpo` por `[data-proporcion="4:5"]` en `lib/editor-landing/css.ts` (los títulos la dividen, así
+    que subirla agranda el cuerpo sin tocar los titulares). Es una decisión de diseño: no se tocó.
+  - **El PDF y el PowerPoint de un carrusel no se vieron en pantalla.** Los tamaños están fijados por
+    `tests/editor-landing-carrusel-45.test.ts` (8 × 10 in y 10 × 12,5 in), pero nadie abrió el archivo.
+  - **La palabra «lámina» sólo llega hasta donde llega `terminoTarjeta`.** El diálogo de Exportar escribía
+    «Todas las secciones» a mano (ya pasa por `terminoTarjeta`), pero cualquier otro texto de pantalla con la
+    palabra escrita sigue diciéndola en un carrusel: se busca con
+    `grep -rn "secciones\|diapositiva" app/web-generator --include=*.tsx`.
 
 ## MaKo toma la iniciativa en el Web Generator: «¿Ya está lista para que la vean?» (5/11/2026, nube)
 
@@ -2244,8 +2325,9 @@ Los tres vinieron de la revisión con Código Inmobiliario (16/10, Fathom 863534
   `listar_pendientes`): quedaba a 4 palabras de «landing» y el tope es 3. Analizar UNA PARTE de la landing nombrada es
   analizar; las animaciones van al tipo `animar`, porque lo que las LEE es `ver_configuracion_landing`, que viaja con
   esa relevancia (la de analizar trae el análisis del copy, que no las mira).
-- **Sin hacer:** «sacá el video de la web» ya es editar, pero `acomodar_bloque_landing` no entra en el presupuesto
-  («sacá» y «video» suman más en `listar_videos_landing` y `despublicar_landing`).
+- ~~**Sin hacer:** «sacá el video de la web» ya es editar, pero `acomodar_bloque_landing` no entra en el presupuesto
+  («sacá» y «video» suman más en `listar_videos_landing` y `despublicar_landing`).~~ Hecho el 18/11/2026: «sacar» va en
+  el TÍTULO de acomodar_bloque_landing (ver la entrada del 18/11 arriba; tests/mako-intencion-landing.test.ts).
 - **Vive en:** `lib/mako-intencion.ts` (`PARTE_DE_LANDING`, `PEDIDO_ANALIZAR_PARTE`, `PEDIDO_ANALIZAR_ANIMACION`) ·
   `lib/api-mako/areas/landing-editor.def.ts` · `tests/mako-intencion-landing.test.ts` (T1-T4).
 
@@ -2285,7 +2367,7 @@ Los tres vinieron de la revisión con Código Inmobiliario (16/10, Fathom 863534
   MaKo como `pago_recibido`). No se hizo: toca el motor de avisos (`lib/disparadores.ts`, `avisos-catalogo.ts`,
   `variables-aviso.ts`, `plantillas-automatizaciones.ts`) que el chat Automations reescribía ese día. El plan, en
   docs/relevo/landing-generator.md → «Lo que sigue (17/10)».
-- «sacá el video de la web» es editar, pero `acomodar_bloque_landing` no entra en el presupuesto del turno.
+- ~~«sacá el video de la web» es editar, pero `acomodar_bloque_landing` no entra en el presupuesto del turno.~~ Hecho el 18/11/2026 (la entrada de ese día, arriba).
 - «Mi otro producto»: preguntar en texto libre pide decidir cómo vuelve la respuesta al pedido (hoy cada mensaje se
   interpreta suelto en /api/mako/pedidos).
 
@@ -4680,3 +4762,15 @@ lleva esa extensión, y `registrar` comparaba con los bytes y rechazaba cualquie
   (`caminoDe`): lo elegido en una pregunta que un salto dejó afuera no cuenta. El script de la página (`hist`) y el server
   (`puntajeDe`) siguen la misma regla. Una múltiple suma todas las marcadas y no salta.
 
+
+## Si la pasarela no deja abrir el pago de una landing, el dueño se entera en su campanita (18/11/2026, P17)
+
+**Vive en:** `lib/editor-landing/pago-pedido.ts` (`avisarFallo` de `DepPago`) · `lib/editor-landing/pago-landing-server.ts` · `tests/editor-landing-pago-candado.test.ts`
+
+- *Lo que pasaba:* cuando `crearCobro` fallaba en `ejecutarPago` (la cuenta desconectada, una clave vencida, la pasarela caída), el
+  comprador veía «no se pudo» y el motivo quedaba sólo en el historial del lead, que nadie abre si no sabe que pasó algo.
+- *Ahora:* además del historial, sale una notificación urgente en la campanita del negocio (`pago-landing-fallo`), con el link a la ficha
+  de quien quiso pagar (`linkDelLeadDelAviso`). Es opcional en `DepPago` y best effort: si falla, el visitante ve lo mismo.
+- *Sin hacer (hay que MEDIR):* si una tarjeta rechazada DENTRO del Checkout de Stripe de un pago único dispara algo que MaKo traduzca.
+  Mapear `payment_intent.payment_failed` en lib/cobros-eventos.ts a ciegas sería avisar «le rechazaron el pago» en cada intento fallido
+  aunque la persona reintente y pague en el mismo checkout. Se mide con un cobro de prueba (P29) antes de decidir.

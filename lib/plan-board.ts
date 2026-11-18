@@ -14,6 +14,7 @@ import { esIdColumnaPropia } from './plan-columnas';
 import { esColumnaInexistente } from './nutricion-grafo-motor';
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, WS_NINGUNO } from '@/lib/workspace';
+import { leerTodo, type OrdenPaginado } from '@/lib/supabase-paginado';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
 import { scoreFromPrio, prioFromScore, curveTaskScores, sanearHist, HIST_CAP } from '@/app/plan/board/types';
 // Las COLUMNAS del kanban (mig 0294): las mismas reglas que la mitad del cliente (lib/todo.ts).
@@ -269,12 +270,34 @@ function labelToRow(l: Label, orden = 0): Row {
   };
 }
 
+/**
+ * Lee `plan_tareas` ENTERA, paginada (P20, 18/11/2026). El tablero del dueño ya pasa las 500 tarjetas y PostgREST
+ * corta cada `.select()` en 1000 filas SIN error: pasado ese número, el tablero, el reparto del cron, el ruteo y el
+ * barrido de dependencias trabajaban con una parte del tablero sin saberlo (el barrido, además, BORRABA las aristas
+ * de las tareas que no alcanzaba a leer).
+ *
+ * El orden termina en `id`, que es único dentro del negocio (PK `workspace_id, id`, mig 0093; getTenantDb fija el
+ * workspace). Si el que llama necesita otro orden para presentar, lo pone ADELANTE (`['orden', 'num', 'id']`).
+ *
+ * Devuelve la forma `{ data, error }` de PostgREST a propósito: cada lugar decide con un error lo mismo que decidía
+ * antes (los que tiraban siguen tirando; los que seguían con la lista vacía, siguen igual).
+ */
+async function leerTareasPlan(
+  db: Awaited<ReturnType<typeof getTenantDb>>, cols: string, orden: OrdenPaginado = 'id',
+): Promise<{ data: Row[] | null; error: { message: string } | null }> {
+  try {
+    return { data: await leerTodo<Row>(db, 'plan_tareas', cols, { orden }), error: null };
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : String(e) } };
+  }
+}
+
 // ── carga ────────────────────────────────────────────────────────────────────
 export async function listPlanBoard(): Promise<{ tareas: BoardTask[]; proyectos: Label[]; deps: Dep[] }> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const [t, p, d] = await Promise.all([
-      db.from('plan_tareas').select('*').order('orden', { ascending: true }).order('num', { ascending: true }),
+      leerTareasPlan(db, '*', ['orden', 'num', 'id']),
       db.from('plan_proyectos').select('*').order('orden', { ascending: true }),
       db.from('plan_dependencias').select('entidad, de_id, a_id, clase, razon, origen, confianza'),
     ]);
@@ -353,10 +376,17 @@ export async function limpiarDependenciasColgadas(): Promise<number> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const [t, p, d] = await Promise.all([
-      db.from('plan_tareas').select('id'),
+      leerTareasPlan(db, 'id'),
       db.from('plan_proyectos').select('id'),
       db.from('plan_dependencias').select('entidad, de_id, a_id'),
     ]);
+    // ⚠️ «NO PUDE LEER» NO ES «NO HAY NINGUNA VIVA» (P20, 18/11/2026). Con la lectura caída, `data` llega null, el
+    // conjunto de vivas queda vacío y TODAS las aristas se leían como colgadas: el barrido las borraba enteras. Lo
+    // único que este barrido puede hacer sin poder leer es no tocar nada.
+    if (t.error || p.error) {
+      console.error(`[plan-board] dependencias colgadas: no pude leer ${t.error ? 'las tareas' : 'los proyectos'} (${(t.error ?? p.error)?.message}); no borro nada`);
+      return 0;
+    }
     const vivosT = new Set((t.data ?? []).map((r) => str((r as Row).id)));
     const vivosP = new Set((p.data ?? []).map((r) => str((r as Row).id)));
     const muertas = (d.data ?? []).filter((r) => {
@@ -713,7 +743,8 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     // proyectos, tres de ellos sobre Instagram.
     const cuentaPorProy = new Map<string, number>();
     {
-      const { data: tRows } = await db.from('plan_tareas').select('labels');
+      // Paginado (P20): el tamaño de cada proyecto que ve el ruteo es TODO el tablero, no las primeras 1000.
+      const { data: tRows } = await leerTareasPlan(db, 'id, labels');
       for (const r of (tRows ?? []) as Array<{ labels: unknown }>) {
         for (const l of asArr<unknown>(r.labels).map(String)) cuentaPorProy.set(l, (cuentaPorProy.get(l) ?? 0) + 1);
       }
@@ -1070,7 +1101,8 @@ export async function recurvarPlanOwner(): Promise<{ movidas: number; total: num
       // que no se nombra acá no llega, y el filtro de abajo daría `false` para todas.
       // Y `estado` (mig 0294), por lo mismo: lo que no se nombra no llega, y sin él lo que el
       // criterio no dejó pasar entraría al reparto como trabajo pendiente.
-      db.from('plan_tareas').select('id, num, score, score_base, score_manual, progress, labels, deadline, historial, created_at, recurrente, estado').order('num', { ascending: true }),
+      // Paginado (P20): el reparto curva el tablero ENTERO; con las primeras 1000 las demás quedaban fuera de la curva.
+      leerTareasPlan(db, 'id, num, score, score_base, score_manual, progress, labels, deadline, historial, created_at, recurrente, estado', ['num', 'id']),
       db.from('plan_dependencias').select('entidad, de_id, a_id, clase, razon, origen, confianza'),
     ]);
     const deps = (dRes.data ?? []).map(sanearDep).filter((x): x is Dep => x != null);
@@ -1216,7 +1248,8 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
     const [tRes, pRes] = await Promise.all([
       // `recurrente` va en la lista: este `select` enumera columnas y lo que no se nombra
       // no llega — abajo decide quién se puntúa y quién es la vara contra la que se puntúa.
-      db.from('plan_tareas').select('id, title, detalle, score, score_manual, progress, labels, historial, deadline, recurrente'),
+      // Paginado (P20): una tarea nueva que caía después de la fila 1000 no se puntuaba, y la vara quedaba corta.
+      leerTareasPlan(db, 'id, title, detalle, score, score_manual, progress, labels, historial, deadline, recurrente'),
       db.from('plan_proyectos').select('id, name, score'),
     ]);
     const filasT = (tRes.data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; score_manual: boolean; progress: number; labels: unknown; historial: unknown; deadline: string | null; recurrente: boolean }>;
@@ -1461,7 +1494,8 @@ export async function priorizarProyectosOwner(motivo?: string): Promise<{
     const [tRes, pRes] = await Promise.all([
       // `recurrente` va en la lista (este `select` enumera columnas): sin él, el Perro
       // juzga un proyecto por trabajo que nunca se cierra.
-      db.from('plan_tareas').select('title, progress, score, labels, recurrente'),
+      // Paginado (P20): el Perro juzga cada proyecto por TODO lo que tiene adentro, no por las primeras 1000 tareas.
+      leerTareasPlan(db, 'id, title, progress, score, labels, recurrente'),
       // Y acá lo MISMO un nivel más arriba (mig 0164): sin la columna, el proyecto que se
       // repite entra al ranking y `esRecurrente` contesta false para todos.
       db.from('plan_proyectos').select('id, name, detalle, score, historial, score_manual, recurrente'),

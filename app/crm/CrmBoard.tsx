@@ -162,6 +162,7 @@ import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import dynamic from 'next/dynamic';
 import { seleccionDeColumna, type SeleccionDifusion } from './seleccion-difusion';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 // La hoja de la DIFUSIÓN es de Automations (app/automations/difusion/HojaDifusion.tsx): trae sus editores de cada canal, así
 // que se carga recién al abrirla y no con el tablero.
@@ -3080,7 +3081,7 @@ export function CrmBoard({
                 insignia={insigniaDeCanal(l.canal)}
                 /* Qué datos, en qué orden y con qué diseño: «Personalizar tarjetas» (`propsDeTarjeta`, arriba del return). */
                 {...propsDeTarjeta(l, campos, diseno)}
-                pildora={{ texto: 'Ver info', titulo: 'La ficha rápida, con «Mover a…»', onClick: () => { setMoviendoRapida(false); setRapida(l); } }}
+                pildora={{ texto: 'Ver info', titulo: 'La ficha rápida, con «Mover a…»', recorrido: MARCA.crmVerInfo, onClick: () => { setMoviendoRapida(false); setRapida(l); } }}
                 antes={
                   /* LA CASILLA. `onClick` con `stopPropagation` y no `onChange`: el click
                      en la tarjeta ABRE la ficha, asi que sin frenarlo tildar abriria el

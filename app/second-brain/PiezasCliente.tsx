@@ -24,6 +24,7 @@ import { IconoChat } from '@/app/m/mako/iconos';
 import { FranjaApp, useBloqueoApp } from '@/app/_chat/AppPrimero';
 import { caracteres, nombrePegado } from '@/lib/chat-pegado';
 import { ARRANQUES_SECOND_BRAIN, AVISO_EDITOR, AVISO_EDITOR_AJENO, AVISO_LIENZO } from '@/lib/chat-mako-reglas';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import { NOMBRE_MODELO_IA, type CuentaIA } from '@/lib/chat-ia-reglas';
 import type { ChatCliente } from './useChatCliente';
 
@@ -130,7 +131,8 @@ export function HiloDelCliente({ k, apertura = null }: {
           <Muneco titulo={k.nombreMuneco} aspecto={k.aspectoMuneco} animo="despierto" size={76} />
           <p className="co-portada__nombre">{k.esAutomatizacion || k.esEditor ? 'Todavía no hay mensajes en esta charla.' : '¿En qué te ayudo?'}</p>
           {(k.esJefe || k.idTurno == null) && k.idOffer == null && !k.esAutomatizacion && !k.esEditor && <div className="ch-arranques">
-            {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => k.enviar(a)}>{a}</button>)}
+            {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => k.enviar(a)}
+              data-recorrido={a === '¿Qué hago hoy?' ? MARCA.opsCenterQueHagoHoy : undefined}>{a}</button>)}
           </div>}
         </div>
       ))) : (<>

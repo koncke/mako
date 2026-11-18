@@ -58,6 +58,7 @@ import { FilaPermisoIaM } from '../_ui/PermisoIaM';
 import { useShellM } from '../_ui/contexto';
 import type { Perfil, VistaPerfil } from '@/lib/perfil';
 import { GRUPO_CUENTA, GRUPO_NEGOCIO, SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
+import { marcaSettings } from '@/lib/tutoriales/marcas';
 import { InformacionPersonal, type NegocioDelPerfil } from '@/app/perfil/InformacionPersonal';
 import {
   comoDesbloquear, filaInstalar, resumenAvisos, rielNotificaciones, segundaAvisos, tiposParaRol, toastDeActivar,
@@ -145,17 +146,17 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
       <SeccionM titulo={GRUPO_CUENTA}>
       <ListaM etiqueta={GRUPO_CUENTA}>
         {ve('info') && (
-          <FilaM navegacion leading={<IconoSeccion k="info" />} titulo={ROTULO.info}
+          <FilaM navegacion leading={<IconoSeccion k="info" />} titulo={ROTULO.info} recorrido={marcaSettings('info')}
             // Mirando a un cliente, el perfil es el SUYO: la fila lo dice (sin rótulo se leería como el tuyo).
             segunda={datos.vista ? datos.vista.cliente : undefined}
             riel={datos.perfil ? undefined : 'No disponible'}
             onClick={datos.perfil ? () => setHoja('info') : undefined} />
         )}
         {ve('seguridad') && (
-          <FilaM navegacion leading={<IconoSeccion k="seguridad" />} titulo={ROTULO.seguridad} href="/m/cuenta/seguridad" />
+          <FilaM navegacion leading={<IconoSeccion k="seguridad" />} titulo={ROTULO.seguridad} href="/m/cuenta/seguridad" recorrido={marcaSettings('seguridad')} />
         )}
         {ve('notificaciones') && (
-          <FilaM navegacion leading={<IconoSeccion k="notificaciones" />} titulo={ROTULO.notificaciones}
+          <FilaM navegacion leading={<IconoSeccion k="notificaciones" />} titulo={ROTULO.notificaciones} recorrido={marcaSettings('notificaciones')}
             riel={rielNotificaciones(avisos.vista, datos.guardable ? resumenAvisos(avisos.prefs, tipos) : null) ?? undefined}
             onClick={() => setHoja('notificaciones')} />
         )}
@@ -163,12 +164,12 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
         <FilaPermisoIaM />
         {ve('instalar') && !appIos && (
           fila === 'pasos-ios' || fila === 'pasos'
-            ? <FilaM navegacion leading={<IconoSeccion k="instalar" />} titulo={ROTULO.instalar} href="/m/cuenta/instalar" />
+            ? <FilaM navegacion leading={<IconoSeccion k="instalar" />} titulo={ROTULO.instalar} href="/m/cuenta/instalar" recorrido={marcaSettings('instalar')} />
             : fila === 'boton'
-              ? <FilaM navegacion leading={<IconoSeccion k="instalar" />} titulo={ROTULO.instalar} chevron={false}
+              ? <FilaM navegacion leading={<IconoSeccion k="instalar" />} titulo={ROTULO.instalar} chevron={false} recorrido={marcaSettings('instalar')}
                   riel={avisos.ocupado === 'instalar' ? <span className="mk-spin" aria-hidden /> : undefined}
                   deshabilitada={avisos.ocupado != null} onClick={() => void avisos.instalar()} />
-              : <FilaM navegacion leading={<IconoSeccion k="instalar" />} titulo={ROTULO.instalar}
+              : <FilaM navegacion leading={<IconoSeccion k="instalar" />} titulo={ROTULO.instalar} recorrido={marcaSettings('instalar')}
                   riel={fila === 'instalada' ? 'Instalada' : undefined} />
         )}
       </ListaM>
@@ -181,8 +182,8 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
         <SeccionM titulo={GRUPO_NEGOCIO}>
         <ListaM etiqueta={GRUPO_NEGOCIO}>
           {datos.negocio.map((s) => (s.enComputadora
-            ? <FilaEnComputadoraM key={s.key} leading={<IconoNegocio n={s.icono} />} titulo={s.label} href={s.href} motivo="Esta sección se usa en la computadora." />
-            : <FilaM key={s.key} navegacion leading={<IconoNegocio n={s.icono} />} titulo={s.label} href={s.href} />))}
+            ? <FilaEnComputadoraM key={s.key} leading={<IconoNegocio n={s.icono} />} titulo={s.label} href={s.href} motivo="Esta sección se usa en la computadora." recorrido={marcaSettings(s.key)} />
+            : <FilaM key={s.key} navegacion leading={<IconoNegocio n={s.icono} />} titulo={s.label} href={s.href} recorrido={marcaSettings(s.key)} />))}
         </ListaM>
         </SeccionM>
       )}
