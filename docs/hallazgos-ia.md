@@ -8077,3 +8077,35 @@ habilitarla es decisión de Martín: habilitarla es volver a prestarle IA a un c
 - **Sin hacer:** «hay respaldo» en el turno del grupo no mira `turnoRed.cortar` (la red del ws9 salteada por datos de clientes
   cuenta como respaldo, y entonces no se reintenta: lo de antes, lib/mako-doer-in.ts → `hayRespaldoDespuesDeClaude`); y el
   clasificador del grupo sigue cortando al primer 529 (ahí mandan las reglas, no hay cartel).
+
+## El crédito de Claude va con el modelo que pide el router, no siempre con Haiku (18/11/2026, claude2)
+
+**Vive en:** `lib/veto-claude.ts` (`evaluarClaveDelNegocio`, `MODELOS_DEL_CREDITO`) · `lib/anthropic.ts` (`permisoDeLaClaveDelNegocio`,
+`chatClaudeTools`: `modeloDelCredito`) · `lib/mako-doer-in.ts` (`claudeDelGrupo`) · `lib/mako-router.ts` (los ids)
+
+- **La decisión:** Martín, por el Cerebro, el 18/11: «Si, cambia el modelo sin problema» (el crédito iba siempre con Haiku, la regla
+  IA5 del 22/10, aunque el router pidiera Sonnet u Opus). El Plan queda como estaba: nunca con el crédito, y con su clave, Haiku.
+- ⚠️ **El arreglo obvio («sacar el `model = modelos[0]` del crédito») no alcanzaba: el modelo del router nunca llegaba a la puerta.**
+  El turno del grupo llamaba a `chatClaudeTools` sin modelo, y la puerta 2 sólo recibía lo que el negocio eligió para SU Claude
+  (haiku o sonnet). Sacando el Haiku forzado, el crédito habría ido con la elección del negocio, no con el router. Ahora el router
+  viaja como `modeloDelCredito` y la puerta lo usa SÓLO con una clave que es el crédito: con la que paga el negocio, va la suya.
+- **Trampas:** Haiku 4.5 no acepta `output_config.effort` (el pedido de la clave del negocio no lo mandaba por eso): va sólo con
+  Sonnet u Opus. Sin poder leer el crédito (`creditosPlataforma: null`), Haiku: «no pude leer» nunca habilita gastar más. La puerta 3
+  (las funciones de texto del onboarding) y los pedidos sin router (la charla, el clasificador, el bot 1 a 1, el chat del Ops Center)
+  siguen con Haiku: no hay modelo del router que respetar.
+- **Cuánto más gasta (medido el 18/11 en `anthropic_usage`, los 50 turnos del grupo que pagó el crédito en 14 días, con los precios
+  de lib/anthropic-usage.ts; la fórmula reproduce el `cost_usd` real de cada turno con Haiku):**
+
+  | El turno que el router manda a… | turnos | tokens (entrada · caché escrita · caché leída · salida) | Haiku | Sonnet 5 | Opus 4.8 |
+  |---|---|---|---|---|---|
+  | Sonnet (un dato, una acción) | 39 | 21.270 · 6.831 · 2.749 · 157 | US$0,031 | US$0,062 | US$0,154 |
+  | Opus (razonamiento, copy) | 4 | 13.590 · 9.233 · 9.233 · 245 | US$0,027 | US$0,055 | US$0,136 |
+  | la charla (sigue con Haiku) | 7 | 12.630 · 10.022 · 0 · 139 | US$0,026 | — | — |
+
+  Los 14 días: **US$1,49 con Haiku → US$3,13 con el modelo del router (×2,1)**, o sea de ~US$3,20 a ~US$6,70 por mes, contra
+  US$200 por mes de cada cuenta Max. Con los 59 turnos del grupo de esos 14 días (los 9 que contestó otra IA por el bug de la
+  cascada), ~US$7,90. **Es un piso:** Sonnet 5 piensa por default (adaptive) y suma salida; el tokenizador de Opus 4.8 cuenta
+  entre 1× y 1,35× los tokens de Haiku 4.5. El costo es casi todo ENTRADA (21 mil tokens contra 157 de salida) y la caché casi no
+  pega (2.749 leídos): mejorar la caché del turno rinde más que elegir el modelo.
+- **Lo que quedó SIN hacer:** la caché del turno del grupo lee poco (lib/anthropic.ts marca el system y las herramientas; el
+  historial cambia en cada turno). Es lo que más pesaría si el volumen sube.
