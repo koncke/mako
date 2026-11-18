@@ -88,7 +88,7 @@ export function videoDe(manifiesto: unknown, key: string): VideoTutorial | null 
  * «Mira aquí, el lienzo: …» → «El lienzo». Para la tarjeta cuando ningún paso de lib/tutoriales marca lo mismo.
  */
 export function nombreDeFrase(texto: string): string | null {
-  const m = /(?:toca|haz clic|mira)\s+aquí,?\s*(?:en\s+)?([^:.,;]+)/i.exec(texto || '');
+  const m = /(?:(?:toca|haz clic|mira)\s+aquí,?|aquí,)\s*(?:en\s+)?([^:.,;]+)/i.exec(texto || '');
   if (!m) return null;
   const x = m[1].trim().replace(/^(?:la|el)\s+(?=[A-ZÁÉÍÓÚ¿«])/, '');
   return x ? x[0].toUpperCase() + x.slice(1) : null;
