@@ -51,8 +51,10 @@ export async function GET(request: NextRequest) {
     ? await correrPorWorkspace('zernio', async (ws) => {
       const { barrerLeadsDeZernio } = await import('@/lib/zernio-leads-barrido');
       if (diaria) {
-        const { asegurarWebhook, leadsEnElWebhook } = await import('@/lib/zernio');
-        if ((await leadsEnElWebhook(ws).catch(() => null)) !== true) await asegurarWebhook(ws).catch((e) => console.warn(`[cron:meta-leads-poll] webhook de Zernio ws${ws}: ${e instanceof Error ? e.message : e}`));
+        const { asegurarWebhook, leadsEnElWebhook, algunaClaveSinWebhook } = await import('@/lib/zernio');
+        // ⚠️ TODAS LAS CLAVES (ticket #113, 18/11/2026): mirando sólo la 1, la 2 del ws10 quedó sin webhook y sus comentarios no llegaban.
+        const falta = (await leadsEnElWebhook(ws).catch(() => null)) !== true || (await algunaClaveSinWebhook(ws).catch(() => true));
+        if (falta) await asegurarWebhook(ws).catch((e) => console.warn(`[cron:meta-leads-poll] webhook de Zernio ws${ws}: ${e instanceof Error ? e.message : e}`));
       }
       const r = await barrerLeadsDeZernio(ws, dias);
       console.log(`[cron:meta-leads-poll] zernio ws${ws} dias=${dias} vistos=${r.vistos} cargados=${r.cargados} ya=${r.yaEstaban} del_webhook=${r.delWebhook} ignorados=${r.ignorados} motivo=${r.motivo ?? '-'}`);

@@ -12,7 +12,6 @@
 import { revalidatePath } from 'next/cache';
 import { getUsuarioActual } from '@/lib/auth';
 import { adminDeWorkspaceActual, estaImpersonando, getCapaActual, getWorkspace, runWithWorkspace } from '@/lib/workspace';
-import { capaDef } from '@/lib/capas';
 import { pedirPlanSinPasarela } from '@/lib/compra-plan';
 import { PLAN_PRO } from '@/lib/subir-plan-reglas';
 import { cambiarSettingSi, getSetting, setSetting } from '@/lib/settings';
@@ -34,7 +33,10 @@ export async function darmeDeBajaAction(): Promise<ResultadoBaja> {
   const r = await darDeBajaMiPlan(ws, sesion?.nombre || sesion?.email || 'el negocio');
   // El comprobante, al email de quien la pidió. Si no sale, la baja igual quedó hecha (el código está en pantalla).
   if (r.ok && sesion?.email) {
-    const plan = capaDef(await getCapaActual()).nombre;
+    // El plan que se vende, no la capa (18/11/2026): el email decía «Agencia» o «Completo». Con `import()` para no sumarle a
+    // cada acción de este archivo las lecturas del plan (los tests que la corren con sus bordes simulados no las tienen).
+    const { nombreDelPlanDe } = await import('@/lib/plan-visible');
+    const plan = await nombreDelPlanDe(ws, await getCapaActual());
     const m = await mandarCodigoDeBaja({ to: sesion.email, codigo: r.codigo, plan, finAt: r.finAt });
     if (!m.enviado) console.error(`[plan] no salió el código de baja ${r.codigo}: ${m.error ?? 'sin detalle'}`);
   }
