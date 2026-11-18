@@ -76,6 +76,9 @@ const CON_TILDE: Readonly<Record<string, string>> = {
   TITULO: 'Título', BOTON: 'Botón', DESCRIPCION: 'Descripción', 'QUIEN SOY': 'Quién soy', TRANSICION: 'Transición',
   // La de `youtube-retencion` (lib/guion-estructuras.ts): sin esto se leería «Cta medio».
   'CTA MEDIO': 'CTA medio',
+  // Las de las tres VSL que volvieron a la galería el 18/11/2026 (sus chips decían «Por que falla», «Causa raiz»).
+  'POR QUE FALLA': 'Por qué falla', 'CATEGORIA NUEVA': 'Categoría nueva', SINTOMAS: 'Síntomas', DIAGNOSTICO: 'Diagnóstico',
+  'CAUSA RAIZ': 'Causa raíz', GARANTIA: 'Garantía', TRANSFORMACION: 'Transformación',
 };
 
 /** «AGITACION» → «Agitación»; «CTA» queda «CTA»; «GANCHO» → «Gancho». */

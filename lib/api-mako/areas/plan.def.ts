@@ -422,6 +422,9 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'proyecto', tipo: 'string', descripcion: 'NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó.', max: 120 },
           { nombre: 'deadline', tipo: 'string', descripcion: 'fecha límite AAAA-MM-DD, solo si la dijeron.', max: 10 },
           { nombre: 'prioridad', tipo: 'string', descripcion: 'se ignora al aplicar: la tarea entra sin prioridad.', enum: ['alta', 'media', 'baja', 'futuro'] },
+          // Sin este campo declarado, `validarInput` lo descartaba y el chat de la app, el equipo por WhatsApp, /api/v1 y los
+          // flujos nunca podían proponer una recurrente (pendiente T11, 18/11/2026).
+          { nombre: 'recurrente', tipo: 'boolean', descripcion: 'true SOLO si se repite para siempre (la junta de los miércoles); va sin deadline.' },
         ],
       },
     ],
