@@ -66,21 +66,25 @@ test('los TRES NÚMEROS grandes: el 30%, lo del mes con Pro, ilimitado', async (
   assert.match(texto(html), /El 30% es tuyo de por vida/);
 });
 
-test('la CALCULADORA: un bloque azul en el hero, UN control, el resultado del mes enorme, la pasarela en una línea y el botón', async () => {
+test('la CALCULADORA: el deslizador, dos selectores segmentados (plan y cómo te pagan), el resultado enorme y el botón', async () => {
   const { html, t } = await landing();
   const hero = html.slice(html.indexOf('class="mp-hero-grilla"'), html.indexOf('class="mp-seccion"'));
   assert.ok(hero.includes('class="mp-calc" id="calculadora"'), 'la calculadora está en el hero');
   assert.doesNotMatch(html, /Si se suscribe|mp-ficha/, 'la ficha «Si se suscribe» se fue');
   assert.ok(COMISION_PARTNER_DIRECTO === 0.3 && COMISION_PARTNER_PASARELA > 0 && COMISION_PARTNER_PASARELA < COMISION_PARTNER_DIRECTO,
     'directo 30%, y la pasarela, menos');
-  // Martín, 18/11/2026: «que sea mucho más claro… hay como muchos botones» y «No pongas textos innecesarios».
+  // Martín, 18/11/2026: «que sea mucho más claro», «No pongas textos innecesarios», y en la versión 55 «me faltan como los botones
+  // para poder seleccionar… eliminaría el texto "Si pagan por pasarela de pago, te llevas"».)
   const calc = hero.slice(hero.indexOf('class="mp-calc"'));
   const calcT = texto(calc.slice(calc.indexOf('>') + 1, calc.lastIndexOf('</a>') + 4));
   assert.equal(calcT.trim(),
-    `¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año, con MaKo Pro Si pagan por pasarela de pago, te llevas el ${PASARELA}: ${usd(5 * comisionDelPago(97, 'pasarela'))} al mes. Hacerme partner gratis`,
+    `¿Cuántos negocios traes? 5 MaKo Pro MaKo Essential ¿Cómo te pagan? Binance o transferencia · 30% Pasarela de pago · ${PASARELA} US$ 145,50 al mes US$ 1.746 en un año Hacerme partner`,
     'sin JavaScript: 5 negocios con el plan más caro, cobrando directo; y NADA más');
-  assert.equal((calc.match(/<input/g) ?? []).length, 1, 'un solo control: el deslizador');
-  assert.doesNotMatch(calc, /<button|role="radio"/, 'sin selectores de plan ni de forma de pago');
+  assert.equal((calc.match(/<input/g) ?? []).length, 1, 'un solo deslizador');
+  assert.equal((calc.match(/role="radiogroup"/g) ?? []).length, 2, 'dos selectores: el plan y cómo te pagan');
+  assert.equal((calc.match(/role="radio"/g) ?? []).length, 4, 'dos opciones cada uno');
+  assert.equal((calc.match(/aria-checked="true"/g) ?? []).length, 2, 'una elegida en cada uno');
+  assert.doesNotMatch(calcT, /Si pagan por pasarela|negocios ×/, 'ni la línea de la pasarela ni la cuenta');
   assert.equal((calc.match(/<a /g) ?? []).length, 1, 'una sola llamada a la acción');
   const { gananciaPorMes, gananciaEnUnAnio } = await import('../app/mako-partners/numeros');
   assert.equal(gananciaPorMes(10, 97, 'directo'), 291);
@@ -103,7 +107,10 @@ test('la CALCULADORA: un bloque azul en el hero, UN control, el resultado del me
 test('las PREGUNTAS: cuánto, por qué 30% o 27%, cada pago, y lo de siempre', async () => {
   const { t } = await landing();
   const preguntas = ['¿Cuánto gano?', '¿Siempre es el 30%?', '¿Cuándo cobro?', '¿Hay un límite?', '¿Quién cuenta como mi referido?', '¿Y si no entra con mi link?',
-    '¿Cuánto dura mi link?', '¿Puedo hacer anuncios con mi link?', '¿Cuesta algo ser partner?'];
+    '¿Cuánto dura mi link?', '¿Puedo hacer anuncios con mi link?', '¿Qué necesito para ser partner?'];
+  // Ser partner pide tener el plan de MaKo pago (Martín, 18/11/2026: «de hecho no es gratis»): ningún «gratis» en la landing.
+  assert.match(t, /Tener tu plan de MaKo activo\. Con tu cuenta te haces partner en un minuto y tu link aparece en el acto\./);
+  assert.doesNotMatch(t, /gratis/i, 'ningún «gratis» sobre ser partner');
   for (const q of preguntas) assert.ok(t.includes(q), q);
   assert.match(t, /El 30% de cada pago de cada negocio que entra con tu link, todos los meses, para siempre: US\$ 29,10 al mes por cada MaKo Pro y US\$ 14,10 por cada MaKo Essential\. Es dinero, no crédito ni descuentos\./);
   assert.match(t, /Binance o transferencia bancaria , o si le cobras tú y nos mandas el 70% por Binance o transferencia, te llevas el 30% \./);
@@ -124,7 +131,7 @@ test('UNA acción, un link: hacerse partner (al alta), volver al panel, o ningun
   const { html: pub } = await landing();
   const links = pub.match(/<a class="mp-btn" href="[^"]+">[^<]+<\/a>/g) ?? [];
   assert.equal(links.length, 3, 'arriba, en la calculadora y al final');
-  for (const a of links) assert.ok(a.includes(`href="${RUTA_ALTA_PARTNERS}">Hacerme partner gratis<`), a);
+  for (const a of links) assert.ok(a.includes(`href="${RUTA_ALTA_PARTNERS}">Hacerme partner<`), a);
   assert.doesNotMatch(pub, /<form/);
   const { html: app } = await landing({ modo: 'app', accion: { href: '/partners', texto: 'Ir a mi panel' } });
   assert.equal((app.match(/<a class="mp-btn" href="\/partners">Ir a mi panel<\/a>/g) ?? []).length, 3);
@@ -219,4 +226,10 @@ test('la API de MaKo (lo que lee MaKo para contestar) dice la regla nueva: 30% d
   assert.ok(run.includes("gana: REGLA_PARTNERS, cuando_se_gana: 'cada vez que uno de sus negocios paga: su parte de ese pago', se_le_paga: CUANDO_SE_PAGA_PARTNERS"), 'el partner');
   assert.ok(run.includes('Gana ${REGLA_PARTNERS_CORTA}.'), 'el resumen de hacerme_partner');
   assert.doesNotMatch(run, /PAGOS_PARA_ACREDITAR|gananciaDelReferido/, 'ya no se espera al 2º pago ni se cuenta el primer mes');
+});
+
+test('los botones de llamada a la acción van en MAYÚSCULA por la clase (Martín, 18/11/2026: «Todos los botones de CTA»)', () => {
+  const css = fuente('app/mako-partners/LandingPartners.tsx').match(/const CSS = `([\s\S]*?)`;/)![1];
+  assert.match(css, /\.mp-btn \{[^}]*text-transform: uppercase; letter-spacing: \.04em;/, 'los tres «HACERME PARTNER»');
+  assert.match(fuente('app/planes/Vitrina.tsx'), /\.cp-btn \{[^}]*text-transform: uppercase; letter-spacing: \.03em; \}/, 'los de la tabla de /planes');
 });

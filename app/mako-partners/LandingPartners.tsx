@@ -67,7 +67,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-bajada b { color: var(--mp-ink); }
 .mp-acciones { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
 .mp-btn { display: inline-block; border: 0; cursor: pointer; font: inherit; background: var(--mp-azul); color: var(--mp-sobre-azul) !important;
-  text-decoration: none; font-weight: 700; font-size: 17px; padding: 16px 28px; border-radius: 12px;
+  text-decoration: none; font-weight: 700; font-size: 17px; padding: 16px 28px; border-radius: 12px; text-transform: uppercase; letter-spacing: .04em;
   box-shadow: 0 10px 26px color-mix(in srgb, var(--mp-azul) 32%, transparent); transition: transform .15s ease, box-shadow .15s ease; }
 .mp-btn:hover { transform: translateY(-1px); box-shadow: 0 14px 30px color-mix(in srgb, var(--mp-azul) 36%, transparent); }
 .mp-chips { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 22px 0 0; padding: 0; list-style: none; color: var(--mp-suave); font-size: 14.5px; }
@@ -86,11 +86,23 @@ body:has(.mp-publica) { background: #FFFFFF; }
   border: 3px solid var(--mp-azul-osc); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
 .mp-calc-barra::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--mp-sobre-azul); border: 3px solid var(--mp-azul-osc); }
 .mp-calc-barra:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 6px; }
-.mp-calc-res { margin: 26px 0 0; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.22); }
+/* Los dos selectores (el plan y cómo te pagan), iguales: dos píldoras del mismo ancho y el mismo alto, la elegida en blanco. */
+.mp-calc-seg { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); }
+.mp-calc-sub + .mp-calc-seg { margin-top: 8px; }
+.mp-calc-op { font: inherit; font-size: 14px; font-weight: 700; line-height: 1.25; min-height: 52px; padding: 8px 10px; border: 0; border-radius: 10px;
+  cursor: pointer; color: var(--mp-sobre-azul); background: transparent; transition: background .15s ease, color .15s ease; }
+.mp-calc-op:hover { background: rgba(255,255,255,.10); }
+.mp-calc-op.activo { background: var(--mp-sobre-azul); color: var(--mp-azul-osc); box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+.mp-calc-op:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 2px; }
+/* En el teléfono, las dos opciones de cada selector una debajo de la otra, a todo el ancho: «Binance o transferencia · 30%» no entra en
+   media columna y quedaba en tres renglones, más alto que el otro selector. Así los dos miden lo mismo. */
+@media (max-width: 480px) { .mp-calc-seg { grid-template-columns: 1fr; } .mp-calc-op { min-height: 44px; } }
+.mp-calc-sub { margin-top: 18px; font-weight: 700; font-size: 15px; }
+.mp-calc-res { margin: 24px 0 22px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.22); }
 .mp-calc-monto { font-size: 72px; line-height: .95; font-weight: 800; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
 .mp-calc-monto span { display: block; margin-top: 8px; font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: 0; opacity: .9; }
 .mp-calc-anio { margin-top: 10px; font-size: 17px; font-weight: 600; opacity: .9; font-variant-numeric: tabular-nums; }
-.mp-calc-pasarela { margin: 18px 0 22px; font-size: 14px; line-height: 1.45; opacity: .82; font-variant-numeric: tabular-nums; }
 .mp-calc .mp-btn { background: var(--mp-sobre-azul); color: var(--mp-azul-osc) !important; box-shadow: none; width: 100%; text-align: center; box-sizing: border-box; }
 .mp-seccion { padding: 72px 0; }
 .mp-app .mp-seccion { padding: 44px 0 8px; }
@@ -153,7 +165,9 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
   const planes = PLANES_MAKO_DEFAULT.filter((p) => p.activo).slice().sort((a, b) => b.precioUsd - a.precioUsd);
   const tope = planes[0];
   const publica = modo === 'publica';
-  const boton = accion === undefined ? { href: RUTA_ALTA_PARTNERS, texto: 'Hacerme partner gratis' } : accion;
+  // «Hacerme partner», sin «gratis» (Martín, 18/11/2026: «de hecho no es gratis, deben estar pagando su suscripción»). En mayúscula
+  // por la clase (`.mp-btn`), como todos los botones de llamada a la acción del sitio.
+  const boton = accion === undefined ? { href: RUTA_ALTA_PARTNERS, texto: 'Hacerme partner' } : accion;
   // Adentro de la app ya hay un <main> (el del shell): la landing es un bloque más.
   const Raiz = publica ? 'main' : 'div';
   const directo = porcentaje(COMISION_PARTNER_DIRECTO), pasarela = porcentaje(COMISION_PARTNER_PASARELA);
@@ -182,7 +196,6 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
               </p>
               <div className="mp-acciones"><Boton boton={boton} marca={!publica && boton?.href === RUTA_ALTA_PARTNERS ? MARCA.partnersHacerme : undefined} /></div>
               <ul className="mp-chips">
-                <li>Gratis</li>
                 <li>Negocios ilimitados</li>
                 <li>Todos los meses</li>
                 <li>Cobras en dinero</li>
@@ -250,8 +263,8 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
               <p>Sí. Compártelo donde quieras: tus redes, tus grupos de WhatsApp, tu newsletter o tus anuncios.</p>
             </details>
             <details>
-              <summary>¿Cuesta algo ser partner?</summary>
-              <p>No. Es gratis: con tu cuenta de MaKo te haces partner en un minuto y tu link aparece en el acto.</p>
+              <summary>¿Qué necesito para ser partner?</summary>
+              <p>Tener tu plan de MaKo activo. Con tu cuenta te haces partner en un minuto y tu link aparece en el acto.</p>
             </details>
           </div>
         </div>

@@ -46,7 +46,7 @@ body:has(.s-barra) .cp-cab > div { top: 77px; }
 .cp-precio { font-size: 15px; font-weight: 700; color: #12151B; }
 .cp-precio small { font-weight: 500; color: #5B6472; font-size: 13px; }
 .cp-reco { justify-self: start; margin-bottom: 2px; padding: 2px 9px; border-radius: 999px; background: #2F6FED; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
-.cp-btn { display: block; margin-top: 6px; text-align: center; padding: 8px 10px; border-radius: 8px; background: #12151B; color: #fff !important; font-size: 13.5px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: filter .15s ease, transform .15s ease; }
+.cp-btn { display: block; margin-top: 6px; text-align: center; padding: 8px 10px; border-radius: 8px; background: #12151B; color: #fff !important; font-size: 13.5px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: filter .15s ease, transform .15s ease; text-transform: uppercase; letter-spacing: .03em; }
 .cp-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
 .cp-btn-azul { background: #2F6FED; }
 /* La columna recomendada, resaltada de arriba abajo. */
