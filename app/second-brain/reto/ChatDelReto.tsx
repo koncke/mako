@@ -24,22 +24,47 @@ import {
 } from '@/lib/reto/dias';
 import { senalAhora, senalarDondeTocar } from '@/app/_ui/tutorial/store';
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
+import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
+import { claveTarea, diaAbierto, estadoDeLosDias } from '@/lib/reto/dias';
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null };
 
-/** El reto del negocio, de /api/reto. */
+/** Lo del ensayo «desde cero» (app/_ui/tutorial/desde-cero.ts): el mismo cálculo que /api/reto, con el estado en el navegador. */
+function datosDelEnsayo(base: DatosReto | null, e: EstadoReto | null): DatosReto {
+  const { abierto, dias, hechos } = estadoDeLosDias(e, Date.now());
+  return { ve: true, linea: base?.linea ?? null, estado: e, abierto, dias, hechos };
+}
+function hacerEnEnsayo(e: EstadoReto | null, c: { accion?: unknown; dia?: unknown; id?: unknown; hora?: unknown }): EstadoReto | null {
+  const ahora = Date.now();
+  if (c.accion === 'empezar') return e ?? { v: 1, inicio: new Date(ahora).toISOString(), adelantado: 1, hechas: {} };
+  if (!e) return e;
+  if (c.accion === 'adelantar' && Number(c.dia) === diaAbierto(e, ahora) + 1) return { ...e, adelantado: Number(c.dia) };
+  if (c.accion === 'hecha') return { ...e, hechas: { ...e.hechas, [claveTarea(Number(c.dia), String(c.id))]: new Date(ahora).toISOString() } };
+  if (c.accion === 'hora' && (HORAS_WA as readonly string[]).includes(String(c.hora))) return { ...e, horaWa: String(c.hora) };
+  return e;
+}
+
+/** El reto del negocio, de /api/reto (en el ensayo «desde cero», del navegador: no se escribe nada). */
 export function useReto(activo = true) {
+  const ensayo = useEnsayo();
   const [d, setD] = useState<DatosReto | null>(null);
   const leer = useCallback(async () => {
     const r = await fetch('/api/reto', { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
-    if (r && r.ok) setD(r as DatosReto);
-  }, []);
+    if (!r || !r.ok) return;
+    setD(ensayo.activo && r.ve ? datosDelEnsayo(r as DatosReto, retoDelEnsayo()) : (r as DatosReto));
+  }, [ensayo.activo]);
   useEffect(() => { if (activo) void leer(); }, [activo, leer]);
   const hacer = useCallback(async (cuerpo: Record<string, unknown>) => {
+    if (ensayo.activo) {
+      const e = hacerEnEnsayo(retoDelEnsayo(), cuerpo);
+      guardarRetoDelEnsayo(e);
+      setD((prev) => datosDelEnsayo(prev, e));
+      return { ok: true };
+    }
     const r = await fetch('/api/reto', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo) }).then((x) => x.json()).catch(() => null);
     if (r && r.ok) setD(r as DatosReto);
     return r;
-  }, []);
+  }, [ensayo.activo]);
   return { d, leer, hacer };
 }
 

@@ -9,9 +9,13 @@ import { useEffect, useRef } from 'react';
 import { useRecorrido } from '@/app/_ui/Recorrido';
 import { senalAhora, senalarDondeTocar, useSenal } from '@/app/_ui/tutorial/store';
 import { RETO_SUB } from '@/lib/reto/dias';
+import { useEnsayo, vistoEnEnsayo } from '@/app/_ui/tutorial/desde-cero';
 
 export function MarcaAlReto({ empezo, listo }: { empezo: boolean; listo: boolean }) {
-  const opsVisto = useRecorrido('tutorial-ops-center', { autoabrir: false }).visto;
+  const ensayo = useEnsayo();
+  const visto = useRecorrido('tutorial-ops-center', { autoabrir: false }).visto;
+  // En el ensayo «desde cero», lo visto vive en el navegador (app/_ui/tutorial/desde-cero.ts).
+  const opsVisto = ensayo.activo ? vistoEnEnsayo('tutorial-ops-center') : visto;
   const senal = useSenal();
   const marcado = useRef(false);
   useEffect(() => {
@@ -22,6 +26,6 @@ export function MarcaAlReto({ empezo, listo }: { empezo: boolean; listo: boolean
       senalarDondeTocar({ sel: '[data-recorrido="sb-reto-chat"]', titulo: 'Tu reto de 7 días', texto: RETO_SUB, haz: 'Haz clic en Reto de 7 días', lado: 'derecha' }, () => {});
     }, 700);
     return () => window.clearTimeout(t);
-  }, [listo, empezo, senal, opsVisto]);
+  }, [listo, empezo, senal, opsVisto, ensayo.v]);
   return null;
 }

@@ -23,8 +23,9 @@ import { Button } from '../Button';
 import { cssRecorrido, useRecorrido } from '../Recorrido';
 import { Z_PISO_RECORRIDO, necesitaScroll, posicionTarjeta, recorteDe, type Caja, type Medida, type PosicionTarjeta } from '@/lib/recorridos';
 import { pasosPara, tutorialDeRuta, type PasoTutorial, type TutorialPestana } from '@/lib/tutoriales';
-import { motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type Senal } from './store';
+import { motorPresente, mostrarTutorial, senalAhora, terminar, useSenal, type MotivoFin, type Senal } from './store';
 import { useVideoTutorial } from './useVideoTutorial';
+import { marcarVistoEnEnsayo, salirDelEnsayo, useEnsayo, vistoEnEnsayo } from './desde-cero';
 
 /** Cuánto se espera a que aparezca lo de un paso antes de saltearlo. */
 const ESPERA_PASO_MS = 3000;
@@ -50,8 +51,16 @@ export function MotorTutorial({ revision }: { revision: boolean }) {
     return () => motorPresente(false);
   }, []);
   const senal = useSenal();
+  const ensayo = useEnsayo();
   return (
     <>
+      {ensayo.activo && (
+        <div className="mk-tuto-ensayo" role="status">
+          <style>{CSS_ENSAYO}</style>
+          <span>Viendo el onboarding desde cero: no se guarda nada.</span>
+          <button type="button" onClick={salirDelEnsayo}>Salir del ensayo</button>
+        </div>
+      )}
       <TutorialDeLaRuta />
       {senal && <Capa key={senal.id} senal={senal} revision={revision} />}
     </>
@@ -65,9 +74,14 @@ function TutorialDeLaRuta() {
   return t ? <PrimeraVez key={t.pestana} t={t} /> : null;
 }
 function PrimeraVez({ t }: { t: TutorialPestana }) {
-  const r = useRecorrido(`tutorial-${t.pestana}`);
+  // En el ensayo «desde cero» (./desde-cero.ts), lo visto vive en el navegador y no se le escribe al server.
+  const ensayo = useEnsayo();
+  const id = `tutorial-${t.pestana}`;
+  const r = useRecorrido(id, { autoabrir: !ensayo.activo });
   const pedido = useRef(false);
-  const { abierto, onCerrar } = r;
+  const abierto = ensayo.activo ? !vistoEnEnsayo(id) : r.abierto;
+  const cerrarDeVerdad = r.onCerrar;
+  const onCerrar = useCallback((m: MotivoFin) => { if (ensayo.activo) marcarVistoEnEnsayo(id); else cerrarDeVerdad(m); }, [ensayo.activo, id, cerrarDeVerdad]);
   useEffect(() => {
     if (!abierto || pedido.current || senalAhora()) return;
     // Espera a que la pestaña pinte su primer paso (los datos llegan después del montaje), hasta 6 s.
@@ -294,6 +308,13 @@ function VideoChico({ tutorial, sub, revision, arriba }: { tutorial: TutorialPes
     </aside>
   );
 }
+
+const CSS_ENSAYO = `
+.mk-tuto-ensayo { position: fixed; top: max(10px, env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 590; display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px; border-radius: 999px; background: var(--ink); color: var(--surface); font-size: var(--fs-meta); box-shadow: 0 8px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); }
+.mk-tuto-ensayo button { border: 0; border-radius: 999px; padding: 5px 10px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.mk-tuto-ensayo span { white-space: nowrap; }
+@media (max-width: 640px) { .mk-tuto-ensayo { left: 12px; right: 12px; transform: none; border-radius: 14px; padding: 8px 8px 8px 12px; } .mk-tuto-ensayo span { flex: 1; min-width: 0; white-space: normal; line-height: 1.35; } }
+`;
 
 // ⚠️ SIN COMILLAS INVERTIDAS ADENTRO (es un template literal: AGENTS.md).
 const CSS_TUTORIAL = `
