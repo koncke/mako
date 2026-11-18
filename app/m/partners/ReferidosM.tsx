@@ -11,7 +11,7 @@
 import { CabeceraM, FilaDatoM, ListaM, PildoraM, SeccionM, VacioM, ComputadoraM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui/Button';
 import Link from '@/app/_ui/Link';
-import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, PAGO_HOY, RUTA_LANDING_PARTNERS, TEXTO_ESTADO_REFERIDO, textoProgramaSinReferidos, textoSinReferidos } from '@/lib/partners-reglas';
+import { COMISION_PARTNER_DIRECTO, PAGO_HOY, RUTA_LANDING_PARTNERS, TEXTO_ESTADO_REFERIDO, textoProgramaSinReferidos, textoSinReferidos } from '@/lib/partners-reglas';
 import type { ResumenPrograma, Tablero } from '@/lib/partners-programa';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import { RecursosParaRecomendar } from '@/app/partners/RecursosPartner';
@@ -26,7 +26,6 @@ export function ReferidosM({ tablero, agencia = false, cobraEnLinea = true, emai
     try { await navigator.clipboard.writeText(valor); toast(`${que} copiado`); } catch { toast('No pude copiarlo: mantén apretado el texto'); }
   };
   const pctDirecto = Math.round(COMISION_PARTNER_DIRECTO * 100);
-  const pctPasarela = Math.round(COMISION_PARTNER_PASARELA * 100);
   const texto = tablero.link ? `Te recomiendo MaKo para vender más con tu negocio: ${tablero.link}` : '';
   return (
     <>
@@ -75,7 +74,7 @@ export function ReferidosM({ tablero, agencia = false, cobraEnLinea = true, emai
               ))}
             </ListaM>
           )}
-        <p className="m-partners-nota">Ganas el {pctDirecto}% de cada pago de cada negocio, todos los meses ({pctPasarela}% si paga con tarjeta o link de pago). {PAGO_HOY}</p>
+        <p className="m-partners-nota">Ganas el {pctDirecto}% del precio del plan de cada negocio, todos los meses, pague como pague. {PAGO_HOY}</p>
       </SeccionM>
     </>
   );

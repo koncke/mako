@@ -16,7 +16,7 @@
 import { useState } from 'react';
 import { Pagina, PageHeader, ErrorState, ButtonLink } from '@/app/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, DIAS_COOKIE_REF, PAGO_HOY, RUTA_LANDING_PARTNERS, TEXTO_ESTADO_REFERIDO, TOPE_COBRO, textoSinReferidos } from '@/lib/partners-reglas';
+import { COMISION_PARTNER_DIRECTO, DIAS_COOKIE_REF, PAGO_HOY, RUTA_LANDING_PARTNERS, TEXTO_ESTADO_REFERIDO, TOPE_COBRO, textoSinReferidos } from '@/lib/partners-reglas';
 import type { Tablero } from '@/lib/partners-programa';
 import { BarrasPorMes } from './BarrasPorMes';
 import { RecursosPartner } from './RecursosPartner';
@@ -189,7 +189,6 @@ export function PanelPartner({ tablero, nombreNegocio, agencia = false, cobraEnL
   }
   const r = tablero.resumen;
   const pctDirecto = Math.round(COMISION_PARTNER_DIRECTO * 100);
-  const pctPasarela = Math.round(COMISION_PARTNER_PASARELA * 100);
   const textoWa = ref.link ? `Te recomiendo MaKo para vender más con tu negocio: ${ref.link}` : '';
   return (
     <Pagina>
@@ -197,7 +196,7 @@ export function PanelPartner({ tablero, nombreNegocio, agencia = false, cobraEnL
       <PageHeader titulo="MaKo Partners" acciones={acciones} />
       <div className="pp-hola">
         <h2>{nombreNegocio ? `Hola, ${nombreNegocio}` : 'Tu panel de partner'}</h2>
-        <p>Te llevas el {pctDirecto}% de cada pago de cada negocio que traes, todos los meses ({pctPasarela}% si paga con tarjeta o link de pago).</p>
+        <p>Te llevas el {pctDirecto}% del precio del plan de cada negocio que traes, todos los meses, pague como pague.</p>
       </div>
       <div className="pp-kpis">
         <div className="pp-kpi"><span className="pp-kpi-etq">Visitas a tu link</span><b>{tablero.visitas.total}</b><small className={tablero.visitas.esteMes ? 'bien' : ''}>{mas(tablero.visitas.esteMes)}</small></div>

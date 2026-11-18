@@ -44,8 +44,7 @@ import { EMAIL_MAKO, linkApp } from './app-url';
 import { diagnosticoEnTexto, esFalloPasajero, leadDeLaCompra, opcionStripe, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, precioCambio, TEXTO_PRECIO_CAMBIO, TEXTO_PRUEBA_USADA_WHATSAPP, TEXTO_SIN_PASARELA, whatsappsDeLaPrueba, type PedidoCompra, type PrecioVisto } from './compra-plan-reglas';
 import { casillaDeLaPrueba, creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, patronesDeLaCasilla, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
 import { whatsappDelPedido } from './paises';
-import { DESCUENTO_PAGO_DIRECTO } from './partners-reglas';
-import { formatoDelMonto, montoDelMedio, NOMBRE_MEDIO_DIRECTO } from './pago-directo-reglas';
+import { conRecargoDePasarela, formatoDelMonto, montoDelMedio, NOMBRE_MEDIO_DIRECTO } from './pago-directo-reglas';
 import { creadoPorPrimerMes, TEXTO_PROMO_CUENTA, TEXTO_PROMO_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
 import { PROMO_ENTRADA } from './promo-entrada-reglas';
 import { listarUsuarios } from './usuarios';
@@ -129,7 +128,9 @@ export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean;
   try {
     const ws = await wsSuperAdmin();
     const monedas = await monedasDeLaPlataforma(ws);
-    const conPrecio = (ms: typeof monedas) => ms.map((m) => ({ pasarela: m.pasarela, moneda: m.moneda, monto: precioEn(plan, m.moneda) })).filter((x): x is { pasarela: Pasarela; moneda: string; monto: number } => x.monto != null);
+    // EL PRECIO POR PASARELA ES EL DE LISTA + 5 % (18/11/2026, Martín: «si pagan por pasarela de pago, se le debe sumar el 5 %»): acá, en UN solo punto,
+    // para que lo que muestra la página sea lo que cobra `iniciarCompraDePlan` (que usa este mismo monto). La lista queda para transferencia y Binance.
+    const conPrecio = (ms: typeof monedas) => ms.map((m) => { const lista = precioEn(plan, m.moneda); return { pasarela: m.pasarela, moneda: m.moneda, monto: lista == null ? null : conRecargoDePasarela(lista, m.moneda) }; }).filter((x): x is { pasarela: Pasarela; moneda: string; monto: number } => x.monto != null);
     const reales = conPrecio(monedas.filter((m) => !m.prueba));
     const deUnaPrueba = opts.conPrueba === true ? conPrecio(monedas.filter((m) => m.prueba)) : [];
     // Mercado Pago sólo en su país; afuera, Stripe (27/10/2026, `pasarelasDelPais`). Después del precio: en Argentina sin
@@ -333,7 +334,7 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
       ? { medio: p.medioDirecto, monto: montoDelMedio(p.medioDirecto, { precioUsd: elegido.precioUsd, precioArs: precioEnPesos(elegido) }) }
       : null;
     const dePago = directo
-      ? ` Va a pagar por ${NOMBRE_MEDIO_DIRECTO[directo.medio]}${directo.monto ? ` ${formatoDelMonto(directo.monto)}` : ''}, con el ${Math.round(DESCUENTO_PAGO_DIRECTO * 100)}% de descuento por pagar así.`
+      ? ` Va a pagar por ${NOMBRE_MEDIO_DIRECTO[directo.medio]}${directo.monto ? ` ${formatoDelMonto(directo.monto)}` : ''}: el precio de lista, sin el recargo de la pasarela.`
       : '';
     const wa = p.whatsapp ? ` WhatsApp: +${p.whatsapp}.` : '';
     // El diagnóstico de la puerta del Accelerator (lib/compra-plan-reglas.ts): con eso arranca la llamada.
@@ -498,7 +499,8 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
 
     const r = await crearCobro(ws, {
       leadId: lead.leadId, pasarela: via.pasarela, tipo: 'suscripcion', concepto: conceptoDelPlan(plan),
-      monto: via.monto, moneda: via.moneda, montoUsd: plan.precioUsd, email: p.email, nombre: p.nombre,
+      // `montoUsd`: lo que entra en dólares, ya con el recargo de la pasarela (101,85 por un Pro de 97). A su partner le cuenta el 30 % de la lista (el tope por pago).
+      monto: via.monto, moneda: via.moneda, montoUsd: conRecargoDePasarela(plan.precioUsd, 'USD'), email: p.email, nombre: p.nombre,
       altaCapa: plan.capa, creadoPor: conPrueba ? creadoPorPrueba(plan.id) : conDescuento ? creadoPorPrimerMes(plan.id) : `planes:${plan.id}`,
       // El primer cobro, 7 días después: el `start_date` de Mercado Pago. La persona carga la tarjeta ahora.
       inicioAt: conPrueba ? finDeLaPrueba(Date.now()) : null,

@@ -1,6 +1,6 @@
 # Pendientes de Partners y de cobros — pedidos de Martín del 18/11/2026 (NO hechos)
 
-Lo que está hecho: la regla 30 % directo / 25 % pasarela y un crédito por cada pago (docs/hallazgos-partners.md, «Un crédito por CADA pago»).
+Lo que está hecho: un crédito por cada pago, SIEMPRE el 30 % del precio de lista (el 25 % por pasarela de la mañana se reemplazó a la tarde: la pasarela cobra lista + 5 %), la opción «Transferencia o Binance» al precio de lista en el checkout y el recargo de pasarela (docs/hallazgos-partners.md y docs/hallazgos-pagos.md).
 Lo de acá abajo lo pidió Martín el mismo día (relayado por el Cerebro) y **no está hecho**. Cada punto es un trabajo propio. Reglas de siempre:
 escribir en producción (migraciones) pide el sí de Martín escrito EN EL CHAT; lo que se ve se mira con capturas a 1440 y a 375; lo aprendido va a
 docs/hallazgos-pagos.md y docs/hallazgos-partners.md.
@@ -40,7 +40,7 @@ Martín: «para evitar fraude… te fijas… si realmente impactó y listo… au
 
 ## 3. El panel del partner suma solo y se le paga del 1 al 5 (A), y elige por dónde cobra (D)
 Martín: «que ahí vaya sumándose todo lo que va a ganar y que el proceso de pago sea exactamente el mismo que… código inmobiliario de agencia, que me pagan del 1 al 5».
-- Cada pago confirmado de un negocio referido suma su comisión **en dólares** (30 % directo / 25 % pasarela). Si pagó en pesos, se convierte con la MISMA cotización con
+- Cada pago confirmado de un negocio referido suma su comisión **en dólares** (siempre el 30 % del precio de lista, por el canal que sea). Si pagó en pesos, se convierte con la MISMA cotización con
   la que se le cobró (la del momento), no la de hoy. Un pago devuelto antes de pagarle al partner se descuenta (hoy NO hay contra-asiento: ver hallazgos-partners).
 - El panel muestra: lo de este mes (sube solo), el detalle por negocio y por pago con canal y %, «Se te paga entre el 1 y el 5 de <mes>» y el historial de lo pagado.
 - Ciclo = el del cobro de agencia (lib/agencia-mes-reglas.ts, lib/agencia-mes.ts): el día 1 MaKo cierra el mes anterior de cada partner, le avisa cuánto le toca y a Martín

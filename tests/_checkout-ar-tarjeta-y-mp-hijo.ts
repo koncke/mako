@@ -129,7 +129,8 @@ async function main() {
   out.precioViejo = await comprar('AR', { pasarela: 'stripe', precioVisto: { monto: 40, moneda: 'USD' } });
   out.monedaVieja = await comprar('AR', { pasarela: 'stripe', precioVisto: { monto: 47, moneda: 'ARS' } });
   out.sinCrearNada = { cobros: db.cobros.length - antes.cobros, checkouts: checkoutsStripe - antes.checkouts, leads: db.leads.length - antes.leads };
-  out.precioDeHoy = await comprar('AR', { pasarela: 'stripe', precioVisto: { monto: 47, moneda: 'USD' } });
+  // 18/11/2026: la pasarela cobra el precio de lista + 5 %: Essential 47 → US$ 49,35 (el de transferencia o Binance es el de lista).
+  out.precioDeHoy = await comprar('AR', { pasarela: 'stripe', precioVisto: { monto: 49.35, moneda: 'USD' } });
 
   // ── 2. Mercado Pago no contesta UNA vez; el token no se lee UNA vez. ──
   avisos.length = 0;

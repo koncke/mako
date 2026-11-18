@@ -415,7 +415,7 @@ un partner (`refQueVale`, lib/partners-reglas.ts, con `esCodigoDePartner`); si n
 no mira el alta): no le quita a nadie, sólo deja sin arreglar ese caso. **Vive en:** app/r/[codigo]/route.ts ·
 lib/partners-reglas.ts · lib/partners-programa.ts
 
-## Un crédito por CADA pago, 30 % directo y 25 % por pasarela: reemplaza «el 100 % del primer mes» (18/11/2026)
+## Un crédito por CADA pago (30 % del precio de lista, el canal ya no cambia el %): reemplaza «el 100 % del primer mes» (18/11/2026)
 
 Martín unificó el programa (18/11/2026): «Olvidémonos por ahora de pagar el 100 % del primer mes». El partner se lleva una parte de **cada pago**
 de cada negocio que trae, todos los meses, mientras ese negocio pague. **30 % si el pago entró por Binance (USDT/USDC) o transferencia/CBU, 25 % si
@@ -469,3 +469,16 @@ lectura sólo evita insertar de más. Si algún día se saca el índice, esa gua
 **Vive en:** lib/partners-reglas.ts (`comisionDelPago`, `canalDelPago`, `creditosDeUnReferido`) · lib/partners-programa.ts (`acreditarReferidos`,
 `pagosDeLosReferidos`, `tableroDe`) · supabase/migrations/0421_partners_credito_por_pago.sql · app/partners/PanelPartner.tsx · app/m/partners/ReferidosM.tsx ·
 tests/partners-comision-por-pago.test.ts, tests/partners-credito-simulado.test.ts, tests/partners-empezar-ya.test.ts.
+
+## El 25 % por pasarela duró unas horas: el partner cobra SIEMPRE el 30 % del precio de lista (18/11/2026, tarde)
+
+El mismo 18/11 el porcentaje de la pasarela pasó de 27 % a 25 % y, a la tarde, Martín dio vuelta el modelo de precios (docs/hallazgos-pagos.md, «El modelo se dio vuelta»): la
+pasarela cobra lista + 5 % y MaKo no le «resta» al partner: **«en MaKo Partners… siempre cobrarían lo mismo»**. Hoy:
+- `comisionDelPago` no baja por pasarela: `COMISION_PARTNER_PASARELA` = 0.30 (las dos constantes quedan, la landing las importa). Lo que cuenta es el precio de LISTA: un negocio que pagó
+  US$ 101,85 por pasarela deja US$ 29,10, igual que uno que pagó 97 por Binance. Sale del tope por pago (lista × meses): ya estaba para que un cobro de US$ 1.500 no deje el 30 % de 1.500.
+  Probado con un pago de 101,85 por pasarela en tests/partners-credito-simulado.test.ts y tests/partners-comision-por-pago.test.ts.
+- Las pantallas ya no dicen dos porcentajes (panel, teléfono, bienvenida). **La landing del Sitio sí** (app/mako-partners/*: «Si pagan por pasarela… te llevas el 30 %», «Hacerme partner
+  gratis»): Martín dijo que ser partner NO es gratis (ver docs/pendientes-partners-pagos-1811.md, sección 4). El test de la landing (tests/mako-partners-landing.test.ts) exigía que la pasarela
+  fuera MENOS que lo directo: pasó a «igual o menos».
+- ⚠️ **El cálculo del 25 % que dejé escrito antes (24,25 / 11,75 y el comentario de `COMISION_PARTNER_PASARELA`) ya no vale**, ni la base de costos de Mercado Pago (6,29 % + IVA…): el 5 % de recargo
+  es para cubrir el costo de la pasarela, y no se midió con cobros reales (todavía no hay ninguno por Mercado Pago).

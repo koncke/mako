@@ -33,7 +33,7 @@ import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared
 import type { Pasarela } from '@/lib/cobros-tipos';
 import { TEXTO_PRECIO_CAMBIO, type OrigenCompra } from '@/lib/compra-plan-reglas';
 import {
-  CHIP_PAGO_DIRECTO, NOMBRE_MEDIO_DIRECTO, formatoDelMonto, linkDeBinance, textoDelComprobante, urlDeEmail, urlDeWhatsApp,
+  NOMBRE_MEDIO_DIRECTO, formatoDelMonto, linkDeBinance, textoDelComprobante, urlDeEmail, urlDeWhatsApp,
   type DatosDePagoDirecto, type MedioDirecto,
 } from '@/lib/pago-directo-reglas';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
@@ -60,11 +60,13 @@ const NOMBRE: Readonly<Record<Pasarela, string>> = {
  */
 // 14/11/2026 (Martín): sin «Pagas en la página segura de Stripe»; las marcas con sus LOGOS; Mercado Pago con el suyo, bien distinto.
 // La nota de Mercado Pago (el email de su cuenta) va en su fila: debajo del botón ya no hay texto.
+// 18/11/2026 (Martín): las pasarelas cobran el precio de lista + 5 %, y una línea chica lo dice. (El 14/11 Martín había sacado el subtítulo de
+// Mercado Pago; esta línea es la del recargo, pedida el 18/11.)
+const NOTA_PASARELA = 'Incluye el costo de la pasarela';
 const DETALLE: Readonly<Record<Pasarela, { sub: string | null }>> = {
-  stripe: { sub: null },
-  // Sin subtítulo (14/11/2026, noche, Martín: «en la parte de mercado pago, no pongas ningún subtítulo»).
-  mercadopago: { sub: null },
-  creem: { sub: null },
+  stripe: { sub: NOTA_PASARELA },
+  mercadopago: { sub: NOTA_PASARELA },
+  creem: { sub: NOTA_PASARELA },
 };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -265,7 +267,7 @@ export function CompraPlan(p: {
               <input type="radio" name="pasarela" value="directo" checked={directoElegido} onChange={() => { setDirectoElegido(true); setPasarela(null); }} />
               <span className="ck-medio-icono" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M3 10l9 -6l9 6" /><path d="M5 10v8" /><path d="M10 10v8" /><path d="M14 10v8" /><path d="M19 10v8" /><path d="M3 20h18" /></svg></span>
               <span className="ck-medio-texto"><b>Transferencia o Binance</b></span>
-              <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: '#e6f6ec', color: '#14663a' }}>{CHIP_PAGO_DIRECTO}</span>
+
             </label>
           </div>
           {directoElegido && (
@@ -280,7 +282,7 @@ export function CompraPlan(p: {
               )}
               {montoDirecto && (
                 <p style={{ margin: 0 }}>
-                  <small style={{ display: 'block', opacity: 0.7 }}>Envía exactamente (ya con el 5% de descuento)</small>
+                  <small style={{ display: 'block', opacity: 0.7 }}>Envía exactamente (el precio de lista, sin costo de pasarela)</small>
                   <b style={{ fontSize: 28, lineHeight: 1.15 }}>{formatoDelMonto(montoDirecto)}</b>
                 </p>
               )}

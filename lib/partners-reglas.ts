@@ -56,25 +56,29 @@ export const gananciaDelReferido = (precioListaUsd: number): number => Math.roun
  * Cuánto, según por dónde entra la plata:
  *  - `directo`: Binance (USDT/USDC) o transferencia bancaria / CBU → 30 % redondo. Cada negocio referido le paga a MaKo DIRECTO, con el
  *    link de pago o el código del partner (Martín, 18/11: «no son agencias»): el partner no le cobra al negocio ni le manda a MaKo un 70 %.
- *  - `pasarela`: link de pago o pasarela (Mercado Pago, Whop, tarjeta) → 25 %. ES UNA DECISIÓN DE MARTÍN (18/11/2026), no la cuenta del
- *    costo: el mismo día empezó en 27 % y bajó a 25 %. Referencia (la del Cerebro, 18/11; NO se pudo medir con cobros reales: todavía no
- *    hay ningún cobro de un plan por Mercado Pago): Mercado Pago cobra 6,29 % + IVA al instante (7,61 %) y 0,6 % más de débitos y
- *    créditos, ~8,2 %; Whop, ~10,5 % (2,7 % + US$ 0,30, 1,5 % tarjeta internacional, 1 % de conversión y un retiro a cripto de 5 %).
+ *  - `pasarela`: link de pago o pasarela (Mercado Pago, Whop, tarjeta) → TAMBIÉN 30 %. HISTORIA DEL NÚMERO (todo el 18/11/2026): empezó en
+ *    27 %, bajó a 25 % y a la tarde Martín DIO VUELTA el modelo («tiene que ser al revés… si pagan por pasarela de pago, se le debe sumar el
+ *    5 %, no restarnos a nosotros… en MaKo Partners… siempre cobrarían lo mismo»): el precio de lista es el de transferencia o Binance y la
+ *    pasarela cobra lista + 5 % (`RECARGO_PASARELA`); el partner se lleva SIEMPRE el 30 % del PRECIO DE LISTA, por el canal que sea (Pro
+ *    US$ 29,10; Essential US$ 14,10), aunque el negocio haya pagado US$ 101,85. Eso lo hace el tope por pago (`topeUsd` de
+ *    `creditosDeUnReferido`: lista × meses); el canal se sigue guardando, sólo como dato. Las dos constantes quedan (la landing las importa).
  * La landing pública de Partners importa estos nombres: no los renombres sin avisar.
  */
 export const COMISION_PARTNER_DIRECTO = 0.3;
-export const COMISION_PARTNER_PASARELA = 0.25;
+export const COMISION_PARTNER_PASARELA = 0.3;
 
 export type CanalDelPago = 'directo' | 'pasarela';
 
 /**
- * El descuento por pagar con Binance o transferencia en el checkout, PARA TODOS (con o sin partner; Martín, 18/11/2026: «utilizamos lo
- * mismo para todos y es el mismo descuento, es el 5 %»). Los montos salen de `lib/pago-directo-reglas.ts`. Un negocio referido que
- * paga así le cuenta a su partner el canal `directo` (30 %) sobre lo que pagó, ya con el descuento.
+ * El RECARGO por pagar con pasarela en el checkout, PARA TODOS (Martín, 18/11/2026, tarde, que reemplaza el «5 % OFF» por pagar directo):
+ * el precio de lista (Pro US$ 97, Essential US$ 47) es el de transferencia o Binance, SIN descuento; por pasarela (Mercado Pago, tarjeta,
+ * Whop) se cobra el precio + 5 % (US$ 101,85 y US$ 49,35; en pesos, el precio en pesos × 1,05 al millar hacia arriba): el costo de la pasarela
+ * lo paga quien elige la pasarela, no MaKo. La cuenta está en `lib/pago-directo-reglas.ts` (`conRecargoDePasarela`). A su partner un negocio
+ * referido le deja SIEMPRE el 30 % del precio de lista, pague como pague.
  */
-export const DESCUENTO_PAGO_DIRECTO = 0.05;
+export const RECARGO_PASARELA = 0.05;
 
-/** Lo que le toca al partner de UN pago de `montoUsd`, en dólares con centavos (Pro 97 → 29,10 directo, 24,25 por pasarela). */
+/** Lo que le toca al partner de UN pago de `montoUsd`, en dólares con centavos (Pro 97 → 29,10; el canal ya no cambia el %: siempre se llama con el precio de lista). */
 export function comisionDelPago(montoUsd: number, canal: CanalDelPago): number {
   const centavos = Math.round(Math.max(0, Number(montoUsd) || 0) * 100);
   const parte = canal === 'directo' ? COMISION_PARTNER_DIRECTO : COMISION_PARTNER_PASARELA;

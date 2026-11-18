@@ -1,14 +1,16 @@
 // =============================================================================
-// pago-directo-reglas — «Transferencia o Binance · 5 % OFF» en el checkout, para TODOS (18/11/2026)
+// pago-directo-reglas — «Transferencia o Binance» al precio de lista, y las pasarelas con +5 %, en el checkout (18/11/2026)
 // =============================================================================
 // Martín (18/11): «el tema de la pasarela de pago, también deberías agregar ahí la opción de transferencia para el resto de personas,
-// incluso que no son por partners, y… ofrecerle también a ellos un descuento si pagan por eso… utilizamos lo mismo para todos y es el
-// mismo descuento, es el 5 %».
+// incluso que no son por partners». Primero fue «5 % de descuento si pagan por eso»; a la tarde lo dio vuelta: «tiene que ser al revés… el
+// precio final que nosotros definimos. Si pagan por pasarela de pago, se le debe sumar el 5 %, no restarnos a nosotros». HOY: el precio de
+// lista es el de transferencia o Binance (US$ 97 y US$ 47, los links de Binance son por 97 y 47 USDT); la pasarela cobra lista + 5 %
+// (`conRecargoDePasarela`, que lee `compra-plan.ts` en `ofertaDelPlan`: lo que se muestra es lo que se cobra).
 //
 // QUÉ ES HOY: una opción más junto a las pasarelas (app/planes/[plan]/CompraPlan.tsx). Al elegirla se ven los datos de MaKo para
 // pagar, el monto exacto con el descuento y dos botones para mandar el comprobante (WhatsApp / email). Al confirmar entra por el
 // flujo de «Quiero» (`pedirPlanSinPasarela`, lib/compra-plan.ts): el lead en el CRM, «Quieren entrar» y el aviso al equipo, con el
-// medio, el monto con descuento y el código de partner si vino con uno.
+// medio, el monto (el precio de lista) y el código de partner si vino con uno.
 // ⚠️ LA ACTIVACIÓN ES DE MARTÍN, A MANO. Todavía no se verifica la plata contra Mercado Pago ni Binance (docs/pendientes-partners-pagos-1811.md,
 // sección 2): ningún texto de este checkout promete que «se activa sola».
 //
@@ -17,21 +19,19 @@
 // (`DATOS_VACIOS`). Una opción sin ningún dato cargado NO se muestra (`mediosDisponibles` da []): no se le pide a nadie que pague a un
 // alias que no existe.
 //
-// A un negocio referido que paga así le cuenta el canal «directo» (30 % para su partner, lib/partners-reglas.ts `canalDelPago`) sobre lo
-// que pagó, ya con el descuento: lo anota Martín en el CRM como pago de método transferencia o cripto.
+// A su partner, un negocio referido le deja SIEMPRE el 30 % del precio de lista, pague como pague (lib/partners-reglas.ts); el canal
+// (`canalDelPago`) sólo se guarda como dato. Lo anota Martín en el CRM como pago de método transferencia o cripto.
 //
 // Puro (lo importa también el cliente): sin red ni base. Lo prueba tests/pago-directo.test.ts.
 // =============================================================================
 
-import { DESCUENTO_PAGO_DIRECTO } from './partners-reglas';
+import { RECARGO_PASARELA } from './partners-reglas';
 
 export type MedioDirecto = 'binance' | 'transferencia';
 export const MEDIOS_DIRECTOS: readonly MedioDirecto[] = ['binance', 'transferencia'];
 export const esMedioDirecto = (v: unknown): v is MedioDirecto => MEDIOS_DIRECTOS.includes(v as MedioDirecto);
 
 export const NOMBRE_MEDIO_DIRECTO: Readonly<Record<MedioDirecto, string>> = { binance: 'Binance', transferencia: 'Transferencia' };
-/** El chip de la fila del checkout: «5% OFF». */
-export const CHIP_PAGO_DIRECTO = `${Math.round(DESCUENTO_PAGO_DIRECTO * 100)}% OFF`;
 
 /** Los datos de MaKo para recibir el pago. Cada uno null hasta que Martín lo mande: NUNCA un número de ejemplo. */
 export type DatosDePagoDirecto = {
@@ -110,19 +110,20 @@ export const linkDeBinance = (d: DatosDePagoDirecto, plan: string, periodo: 'men
 
 const centavos = (n: number) => Math.round(n * 100) / 100;
 
-/** El precio en dólares/USDT con el descuento: Pro 97 → 92,15; Essential 47 → 44,65. */
-export const usdConDescuento = (usd: number): number => centavos(Math.max(0, usd) * (1 - DESCUENTO_PAGO_DIRECTO));
-
-/** El precio en pesos con el descuento, redondeado al millar HACIA ARRIBA (la regla de la casa, lib/dolar-blue-reglas.ts `pesosDelPlan`). */
-export function pesosConDescuento(pesos: number): number {
-  const exacto = Math.round(Math.max(0, pesos) * (1 - DESCUENTO_PAGO_DIRECTO) * 1e6) / 1e6;
-  return Math.ceil(exacto / 1000) * 1000;
+/**
+ * El precio por PASARELA: el de lista + 5 % (`RECARGO_PASARELA`). En dólares, a centavos (97 → 101,85; 47 → 49,35). En pesos (ARS), al
+ * millar HACIA ARRIBA, la regla de la casa (lib/dolar-blue-reglas.ts `pesosDelPlan`). Otra moneda local (la de una Mercado Pago de otro
+ * país), a centavos. A la millonésima antes de redondear: 97 × 1,05 no debe dar 101,85000000000001.
+ */
+export function conRecargoDePasarela(monto: number, moneda: string): number {
+  const exacto = Math.round(Math.max(0, monto) * (1 + RECARGO_PASARELA) * 1e6) / 1e6;
+  return moneda.toUpperCase() === 'ARS' ? Math.ceil(exacto / 1000) * 1000 : centavos(exacto);
 }
 
-/** Lo que se paga con ese medio: dólares/USDT por Binance, pesos por transferencia (null = el plan no tiene precio en pesos). */
+/** Lo que se paga con ese medio, AL PRECIO DE LISTA: dólares/USDT por Binance, pesos por transferencia (null = el plan no tiene precio en pesos). */
 export function montoDelMedio(medio: MedioDirecto, p: { precioUsd: number; precioArs: number | null }): { monto: number; moneda: 'USD' | 'ARS' } | null {
-  if (medio === 'binance') return { monto: usdConDescuento(p.precioUsd), moneda: 'USD' };
-  return p.precioArs != null && p.precioArs > 0 ? { monto: pesosConDescuento(p.precioArs), moneda: 'ARS' } : null;
+  if (medio === 'binance') return { monto: centavos(Math.max(0, p.precioUsd)), moneda: 'USD' };
+  return p.precioArs != null && p.precioArs > 0 ? { monto: p.precioArs, moneda: 'ARS' } : null;
 }
 
 export function formatoDelMonto(m: { monto: number; moneda: 'USD' | 'ARS' }): string {
@@ -132,8 +133,8 @@ export function formatoDelMonto(m: { monto: number; moneda: 'USD' | 'ARS' }): st
 
 /** El texto que arma el botón de WhatsApp / el email: quién es, qué plan, cuánto y por qué medio. */
 export function textoDelComprobante(p: { nombre: string; plan: string; medio: MedioDirecto; monto: { monto: number; moneda: 'USD' | 'ARS' } | null }): string {
-  const cuanto = p.monto ? formatoDelMonto(p.monto) : 'el monto del plan con el 5% de descuento';
-  return `Hola, soy ${p.nombre.trim() || '—'}. Pagué ${p.plan} por ${NOMBRE_MEDIO_DIRECTO[p.medio]}: ${cuanto} (con el ${Math.round(DESCUENTO_PAGO_DIRECTO * 100)}% de descuento). Te mando el comprobante.`;
+  const cuanto = p.monto ? formatoDelMonto(p.monto) : 'el precio del plan';
+  return `Hola, soy ${p.nombre.trim() || '—'}. Pagué ${p.plan} por ${NOMBRE_MEDIO_DIRECTO[p.medio]}: ${cuanto}. Te mando el comprobante.`;
 }
 
 /** `wa.me` al WhatsApp de MaKo con el texto armado. null si todavía no hay WhatsApp cargado (el botón no se muestra). */

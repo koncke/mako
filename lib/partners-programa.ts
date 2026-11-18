@@ -604,7 +604,6 @@ async function nombreDe(ws: number): Promise<string> {
 
 const hola = (nombre: string | null) => `Hola${nombre ? ` ${nombre.split(' ')[0]}` : ''},`;
 const PCT_DIRECTO = `${Math.round(COMISION_PARTNER_DIRECTO * 100)} %`;
-const PCT_PASARELA = `${Math.round(COMISION_PARTNER_PASARELA * 100)} %`;
 
 /** Las dos bienvenidas: al que llegó («te recomendó…») y al partner («se sumó…»). */
 async function bienvenidas(referidor: number, referido: number): Promise<void> {
@@ -613,11 +612,11 @@ async function bienvenidas(referidor: number, referido: number): Promise<void> {
     await avisarDePlataforma({
       to: a.email, asunto: `Te damos la bienvenida a MaKo de parte de ${quien}`, preheader: 'Llegaste con su link de MaKo Partners.', tag: 'partners-bienvenida',
       cuerpo: [hola(a.nombre), '', `Llegaste a MaKo con el link de ${quien}. ¡Qué bueno tenerte!`, '',
-        `Si tú también recomiendas MaKo, te llevas el ${PCT_DIRECTO} de cada pago de cada negocio que traigas, todos los meses. Hazte partner aquí:`,
+        `Si tú también recomiendas MaKo, te llevas el ${PCT_DIRECTO} del precio del plan de cada negocio que traigas, todos los meses. Hazte partner aquí:`,
         linkApp('/partners', referido)].join('\n'),
     });
   }
-  const gana = `te llevas el ${PCT_DIRECTO} de lo que pague si paga por Binance o transferencia, y el ${PCT_PASARELA} si paga con tarjeta o link de pago`;
+  const gana = `te llevas el ${PCT_DIRECTO} del precio de su plan, pague como pague`;
   for (const a of aRef) {
     await avisarDePlataforma({
       to: a.email, asunto: `${nuevo} se sumó a MaKo con tu link`, preheader: 'Tu referido ya tiene su cuenta.', tag: 'partners-nuevo-referido',

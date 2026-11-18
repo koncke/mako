@@ -8,7 +8,7 @@
 // Corre `acreditarReferidos` (lib/partners-programa.ts) REAL contra una base EN MEMORIA (lib/supabase.ts simulado) y con
 // los mails anotados en vez de enviados (lib/invitaciones.ts simulado). Nada toca la base de producción ni manda un mail.
 //   1. un negocio entra con el link de otro y paga su primer mes (por pasarela) → quedan atados, salen las DOS bienvenidas y ya
-//      gana el 25 % de ESE pago, con el aviso al partner (18/11/2026: un crédito por cada pago, ya no se espera al 2º);
+//      gana el 30 % de ESE pago, con el aviso al partner (18/11/2026: un crédito por cada pago, ya no se espera al 2º);
 //   2. paga su segundo mes (por Binance) → gana el 30 % de ese pago, y sale otro aviso;
 //   3. el cron vuelve a correr → nada se repite (ni crédito ni mails);
 //   4. el tablero del partner y el panel del super admin cuentan lo mismo.
@@ -52,7 +52,7 @@ const tablas = {
     // Coach Laura entró con el código de la PLATAFORMA y pagó dos meses: ni atado, ni crédito, ni mails.
     { id: 2, workspace_id: 9, tipo: 'suscripcion', alta_ws: 30, ref_codigo: 'mako', alta_estado: 'hecha', estado: 'pagado',
     monto_usd: 47, moneda: 'USD', created_at: '2026-10-25T11:00:00Z', cliente_ws: null }],
-  pagos: [{ id: 1, workspace_id: 9, cobro_id: 1, pagado: true, fecha_pago: '2026-10-25', monto_usd: 97, proveedor: 'mercadopago', metodo: 'tarjeta' },
+  pagos: [{ id: 1, workspace_id: 9, cobro_id: 1, pagado: true, fecha_pago: '2026-10-25', monto_usd: 101.85, proveedor: 'mercadopago', metodo: 'tarjeta' },
     { id: 10, workspace_id: 9, cobro_id: 2, pagado: true, fecha_pago: '2026-10-25', monto_usd: 47, proveedor: 'mercadopago', metodo: 'tarjeta' },
     { id: 11, workspace_id: 9, cobro_id: 2, pagado: true, fecha_pago: '2026-11-25', monto_usd: 47, proveedor: 'mercadopago', metodo: 'tarjeta' }],
   partner_creditos: [],
@@ -169,7 +169,7 @@ const correr = (): Salida => {
   return salida;
 };
 
-test('primer pago (por pasarela): quedan atados, salen las DOS bienvenidas (a los admins) y ya gana el 25 % de ese pago', () => {
+test('primer pago (por pasarela): quedan atados, salen las DOS bienvenidas (a los admins) y ya gana el 30 % de ese pago', () => {
   const s = correr();
   assert.deepEqual(s.r1, { vistos: 2, atados: 1, acreditados: 1 });
   assert.equal(s.atadoPlataforma, null, 'el código de la plataforma no ata a nadie');
@@ -186,7 +186,7 @@ test('segundo pago (por Binance): gana el 30 % de ese pago, un crédito por cada
   const s = correr();
   assert.deepEqual(s.r2, { vistos: 2, atados: 0, acreditados: 1 });
   assert.deepEqual(s.creditos.map((c) => [c.referidor_ws, c.referido_ws, c.tipo, c.monto_usd, c.pago_id, c.canal]), [
-    [10, 20, 'referido', 24.25, 1, 'pasarela'],
+    [10, 20, 'referido', 29.1, 1, 'pasarela'],
     [10, 20, 'referido', 29.1, 2, 'directo'],
   ]);
   const aviso = s.mails.slice(s.mails1, s.mails2);
@@ -206,15 +206,15 @@ test('el tablero del partner y el panel del super admin cuentan lo mismo', () =>
   assert.equal(s.tablero.link, 'https://hola-mako.com/r/estudio-sol');
   assert.deepEqual(s.tablero.referidos.map((r) => [r.nombre, r.estado, r.mesesPagados]), [['Inmobiliaria del Parque', 'pagando', 2]]);
   assert.equal(s.tablero.referidos[0].mensualUsd, 29.1, 'lo que deja cada mes: el 30 % de US$ 97, con el canal de su último pago (Binance)');
-  assert.equal(s.tablero.referidos[0].ganadoUsd, 53.35);
-  assert.equal(s.tablero.resumen.ganadoUsd, 53.35);
+  assert.equal(s.tablero.referidos[0].ganadoUsd, 58.2);
+  assert.equal(s.tablero.resumen.ganadoUsd, 58.2);
   assert.equal(s.tablero.resumen.cadaMesUsd, 29.1);
-  assert.equal(s.tablero.resumen.aCobrarUsd, 53.35, 'todavía nadie se lo transfirió');
+  assert.equal(s.tablero.resumen.aCobrarUsd, 58.2, 'todavía nadie se lo transfirió');
   assert.equal(s.programa.referidos, 1, 'Coach Laura (código de la plataforma) no cuenta');
   assert.equal(s.programa.partners, 1, 'partners = los que terminaron el alta (la plataforma tiene código y no cuenta)');
-  assert.equal(s.programa.ganadoUsd, 53.35);
-  assert.equal(s.programa.aPagarUsd, 53.35);
-  assert.deepEqual(s.programa.lista.map((p) => [p.nombre, p.referidos, p.ganadoUsd, p.aCobrarUsd, p.cobro]), [['Estudio Sol', 1, 53.35, 53.35, 'estudio.sol.mp']]);
+  assert.equal(s.programa.ganadoUsd, 58.2);
+  assert.equal(s.programa.aPagarUsd, 58.2);
+  assert.deepEqual(s.programa.lista.map((p) => [p.nombre, p.referidos, p.ganadoUsd, p.aCobrarUsd, p.cobro]), [['Estudio Sol', 1, 58.2, 58.2, 'estudio.sol.mp']]);
 });
 
 test('quien ya ganó con la regla VIEJA no cobra de nuevo por sus 2 primeros pagos; el 3º sí, con TOPE en el precio de lista (US$ 1.500 → US$ 97)', () => {

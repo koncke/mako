@@ -1915,7 +1915,7 @@ estaban commiteados (docs/hallazgos-infra.md, la trampa ya anotada).
 el 4/12»): eso pide leer si el negocio tiene prendido `cuota-por-vencer`, y es otra pieza. «Quitar» una excepción no existe en la
 API de MaKo (sólo en la ficha).
 
-## «Transferencia o Binance · 5 % OFF» en el checkout, para todos (18/11/2026)
+## «Transferencia o Binance» en el checkout, para todos (18/11/2026) — el «5 % OFF» de la mañana se DIO VUELTA a la tarde (ver la sección siguiente)
 
 Martín: «agregar ahí la opción de transferencia para el resto de personas, incluso que no son por partners… ofrecerle también a ellos un descuento… es el 5 %».
 Una fila más junto a las pasarelas en `app/planes/[plan]/CompraPlan.tsx`; las reglas puras en `lib/pago-directo-reglas.ts`, la constante
@@ -1957,3 +1957,22 @@ Medido por el Cerebro con la clave de Martín (`BINANCE_API_KEY` / `BINANCE_API_
 - **Los depósitos en cadena (`capital/deposit/hisrec`) y el P2P dan 0:** hoy TODO entra por Binance Pay. Se calza cada comprobante por monto, fecha y el Binance ID de
   quien paga (cada movimiento se usa una sola vez). Esto sigue SIN hacerse: el brief está en docs/pendientes-partners-pagos-1811.md, sección 2.
 - El Binance Pay ID va en el checkout («Binance Pay ID: 68725667») por el setting `planes.pago_directo` (campo `binancePayId`); lo carga el Cerebro, no el código.
+
+## El modelo se dio vuelta: lista para transferencia/Binance, lista + 5 % por pasarela (18/11/2026, tarde)
+
+Martín: «tiene que ser al revés… los links de Pro mensual y Essential mensual… tiene que ser el precio final que nosotros definimos. Si pagan por pasarela de pago, se le debe
+sumar el 5 %, no restarnos a nosotros… en MaKo Partners… siempre cobrarían lo mismo». Reemplaza el «5 % OFF» de la mañana (y el 25 % de Partners).
+- **El precio de lista (Pro US$ 97, Essential US$ 47) es el de transferencia o Binance**, sin descuento: los links de Binance Pay son por 97 y 47 USDT; el monto en pesos de
+  la transferencia es el precio en pesos del plan tal cual. **Por pasarela** (Mercado Pago, tarjeta, Creem/Whop) se cobra lista + 5 % (`RECARGO_PASARELA`, lib/partners-reglas.ts;
+  la cuenta es `conRecargoDePasarela`, lib/pago-directo-reglas.ts): Pro US$ 101,85, Essential US$ 49,35; en pesos, lista × 1,05 al millar hacia arriba (166.000 → 175.000).
+- ⚠️ **El recargo se aplica en UN solo punto, y es el que hace que «lo que se muestra es lo que se cobra».** `ofertaDelPlan` (lib/compra-plan.ts) devuelve cada pasarela con su
+  monto ya recargado; la página (precio, resumen, «Suscribirme por…») y `iniciarCompraDePlan` (el cobro, `via.monto`) leen ESA misma oferta. `precioVisto` sigue frenando si
+  el monto de la pestaña no es el de hoy. Aplicarlo en `precioEn` habría sido el error: lo leen la retención, subir de plan, reactivar y el cobro de agencia.
+- Cada pasarela dice «Incluye el costo de la pasarela» en una línea chica (el 14/11 Martín había sacado el subtítulo de Mercado Pago: esta línea es la del recargo, pedida el 18/11).
+  La fila «Transferencia o Binance» va sin chip, con el precio de lista; un cobro por pasarela guarda `monto_usd` con el recargo (101,85): lo que entró de verdad.
+- **Partners no cambia con el canal:** el partner cobra SIEMPRE el 30 % del precio de LISTA (US$ 29,10 y US$ 14,10), aunque el negocio haya pagado 101,85 por pasarela. Lo hace el tope por
+  pago (lista × meses, `topeUsd`): un pago mayor a la lista cuenta hasta la lista. El canal se sigue guardando, sólo como dato. `COMISION_PARTNER_PASARELA` pasó a 0.30.
+- **Lo que esto deja inconsistente (NO se tocó):** los flujos que cobran por `precioEn` sin recargo —reactivar un plan y el primer plan propio de un ex cliente de agencia
+  (`reactivarPlan`, `primerPlanPropio`), las ofertas de retención y subir de plan (`retencion-plan`, `subir-plan-reglas`)— siguen al precio de lista aunque el cobro vaya por pasarela;
+  una suscripción ya armada renueva con el monto que tiene su cobro (el cron del blue no la toca: lib/dolar-blue-corrida.ts). Las anuales no pasan por la pasarela (se piden).
+  Decidir si esos flujos también llevan el 5 %. **La landing del Sitio** todavía dice dos porcentajes de Partners y «Hacerme partner gratis» (app/mako-partners/*, no mío).
