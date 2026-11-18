@@ -36,6 +36,7 @@ import { nombreDeArchivo } from '@/lib/ai-avatar/descarga';
 import { ChipM, ChipsM } from './piezas';
 import { useWs } from '@/app/_ui/Link';
 import { soltarGuionPasado, verGuionPasado } from '@/lib/guion-pasado';
+import { MARCA, marcaCrear } from '@/lib/tutoriales/marcas';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
 type Filtro = Categoria | 'Nuevos' | null;
@@ -126,7 +127,7 @@ export function EstudioM({ inicio, plantillaInicial, avatarInicial, ahora }: {
   return (
     <>
       {/* Los proyectos: «Nueva» primero, después cada look (la columna de escritorio, en una tira). */}
-      <div className="m-ai-avatar-tira" role="list" aria-label="Tus proyectos" data-m-sin-pull>
+      <div className="m-ai-avatar-tira" role="list" aria-label="Tus proyectos" data-m-sin-pull data-recorrido={marcaCrear('AI Avatar', 'proyectos')}>
         <button type="button" role="listitem" className="m-ai-avatar-tira__nueva" aria-current={!abierto ? 'page' : undefined} onClick={() => { setAbiertoId(null); setError(''); }}>
           <Icon name="plus" size={20} /><span>Nueva</span>
         </button>
@@ -179,7 +180,7 @@ export function EstudioM({ inicio, plantillaInicial, avatarInicial, ahora }: {
                       <button key={q} type="button" className="m-ai-avatar-pastilla" onClick={() => setLinea(q === 'modelo' ? SIN_MOTOR.modelo : SIN_MOTOR[q as PiezaSinMotor])}>{t}</button>
                     ))}
                   </div>
-                  <Button variant="primary" size="lg" loading={enviando}
+                  <Button variant="primary" size="lg" loading={enviando} data-recorrido={MARCA.avatarGenerar}
                     disabled={!preset || !foto || !inicio.puente.puede || !enLinea}
                     onClick={() => preset && void generarLook({ plantillaId: preset.id, fotoId, detalle })}>
                     Generar
@@ -423,7 +424,7 @@ function ProyectoM({ p, inicio, ahora, enLinea, enviando, error, onRecrear, onEl
 /** «Antes de generar» en el teléfono: los mismos pasos de la computadora (lib/ai-avatar/requisitos.ts), que se hacen ALLÁ. */
 function RequisitosM({ pasos }: { pasos: readonly PasoRequisito[] }) {
   return (
-    <SeccionM titulo="Antes de generar">
+    <SeccionM titulo="Antes de generar" recorrido={MARCA.avatarAntes}>
       <ol className="m-ai-avatar-pasos">
         {pasos.map((x, i) => (
           <li key={x.id} className={x.hecho ? 'm-ai-avatar-paso m-ai-avatar-paso--hecho' : 'm-ai-avatar-paso'} aria-label={`${x.titulo}: ${x.hecho ? 'listo' : 'falta'}`}>

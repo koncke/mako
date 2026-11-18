@@ -283,4 +283,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/copywriter',
   },
+  {
+    fecha: "18 nov", hora: "02:05", chat: "De octubre (nube)", cuenta: "claude2",
+    sesion: "cli_220069ef-c004-5c47-ae62-3770ea6e643f",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Los guiones nuevos leen lo que ya le funcionó al negocio en sus anuncios, con un piso de agendas",
+    puntos: [
+      "**Ads Writer y Copywriter:** al escribir un guion (y en el Copywriter, un ad, reel, story, YouTube o VSL) MaKo recibe los anuncios del negocio analizados por Ads Analyst que trajeron al menos 3 agendas y se mostraron al menos 8.000 veces: su gancho, su ángulo, el tipo de gancho y cuánto costó cada agenda.",
+      "**Sin piso no entra nada:** con una sola agenda, «este ángulo gana» es falso; si ningún anuncio pasa el piso, el guion se escribe como antes. Los umbrales son razonados, no medidos en producción.",
+    ],
+    archivos: [
+      "lib/ads-ganadores-reglas.ts · lib/ads-ganadores.ts — el piso y el bloque",
+      "lib/ads-analyst.ts — `guionesConSenal` (sin la vuelta por todos los anuncios de Meta)",
+      "lib/razones.ts · lib/copywriter/ia.ts — los dos que escriben",
+      "tests/ads-ganadores.test.ts — con sus roturas",
+      "docs/hallazgos-ads.md — «Los guiones nuevos ya leen lo que le funcionó al negocio»",
+    ],
+    revisar: "/ads-writer",
+  },
 ];

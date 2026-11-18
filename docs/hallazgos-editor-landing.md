@@ -6,6 +6,23 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## La propuesta del chat se ve armarse, sección por sección (18/11/2026)
+
+**Vive en:** `app/web-generator/editor/paneles/PanelAgente.tsx` (`RevisionPropuesta`, la usan el chat y el popover de una
+sección, `AskAgent.tsx`), `app/web-generator/editor/revelado-propuesta.ts`. **Lo fija:** `tests/web-generator-propuesta-revelada.test.ts`.
+
+- **El síntoma:** «Editar» devolvía la propuesta entera y la tarjeta «Original | Modificado» aparecía de golpe, contra la regla
+  «Lo que MaKo construye se ve CONSTRUYÉNDOSE» (O13 de docs/pendientes-verificados-17-11.md).
+- **Lo que se reveló es la TARJETA, no el documento.** Aplicar sección por sección en el editor rompía dos contratos: «Aceptar»
+  guarda la versión de respaldo y aplica en UN paso de deshacer, y «Restaurar» cuenta esos pasos (`deshacerPropuesta`). Así que
+  aplicar sigue igual y lo que se arma de a una son las filas de la revisión, con `useRevelado` (la cadencia y el «reducir
+  movimiento» son de la pieza compartida, no se copiaron).
+- **«Aceptar» sale con todo a la vista; mientras tanto, «Ver todo».** Lo que se aprueba se ve entero, y se puede saltear.
+- **El chat es un store de módulo que sobrevive al panel** (⇤ lo desmonta): sin una marca por propuesta (un `WeakSet`), cada vez
+  que se abría el panel todas las tarjetas pendientes se volvían a armar. La propuesta no se guarda en la base (`hilo-agente.ts`),
+  así que la marca vive lo mismo que ella.
+- **Sin hacer:** lo mismo en «Editar con MaKo» del Dashboard (`app/dashboard/EditorInforme.tsx`, `PanelEditarMako.tsx`), en Offer
+  y en el onboarding (este encargo era sólo la parte del editor de landing).
 ## El carrusel 4:5 ya estaba hecho y rojo: se rescató, y el rojo era un `enum` (18/11/2026, nube, F16 y F112)
 
 - **El pedido (F16) era construir las plantillas de carrusel 4:5.** Se construyeron (una por tipo de lib/carruseles/tipos.ts,
@@ -3280,9 +3297,11 @@ en lib/editor-landing/prueba-landing.ts:
 - **Con prueba, la respuesta es `private, no-cache` + `Vary: Cookie`** (hoy `public`).
 
 Lo que quedó SIN hacer (espera a A1/A2 de Automations, que pasa las firmas):
-- Conectarlo en `responderPublico` (pagina-publica.ts): la marca de prueba en la misma fila que ya lee (sin una lectura extra por
-  visita), `asignar`, la foto de la rama, las cabeceras y la cookie; la vista previa con `?variante=B`; publicar a mano detiene la
-  prueba; el medidor `clic_conversion` contra la interfaz `Medidor`; y la API (crear, ver, aprobar, detener).
+- ~~Conectarlo en `responderPublico` (pagina-publica.ts): `asignar`, la foto de la rama, las cabeceras y la cookie; publicar a mano
+  detiene la prueba; el medidor `clic_conversion` contra la interfaz `Medidor`~~ (18/11/2026, O18: `prueba-landing-servir.ts`,
+  `lib/pruebas/medidores-landing.ts`; ver docs/hallazgos-pruebas.md, «La landing sirve y cuenta su prueba A/B»). **Sigue sin hacer:**
+  la marca de prueba en la misma fila (es una migración: se lee la prueba en cada pedido que llega a la función, y sin prueba el
+  borde guarda la página 30 s), la vista previa con `?variante=B` y la API (crear, ver, aprobar, detener).
 
 ## Todo editable en las páginas de MaKo (cada botón, video, imagen e ícono) y el clic derecho (25/10/2026, claude5)
 

@@ -58,7 +58,8 @@ export const FORMATOS = [
  *   · 1 = los ONCE formatos de la mañana del 4/11/2026, y todo lo analizado antes (sin la marca).
  *   · 2 = los DIECINUEVE del catálogo (docs/catalogo-funnels-y-formatos.md), desde el 4/11/2026.
  * ⚠️ SUBIRLO CUESTA PLATA: hace que la IA del negocio vuelva a leer piezas ya leídas. Se sube sólo cuando entran
- * formatos NUEVOS, y lo que se relee es nada más lo que quedó en `otro` (ver `faltaAnalisis`).
+ * formatos NUEVOS, y lo que se relee es lo que pudo caer a la fuerza en el lugar de uno nuevo (`PUEDEN_SER_UNO_NUEVO`, en
+ * lib/spy-analisis-reglas.ts: `otro`, `testimonio`, `opinion`, `detras` y `entrevista` desde el 18/11/2026).
  */
 export const VERSION_FORMATOS = 2;
 

@@ -54,6 +54,8 @@ import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { EditarCarrusel } from './EditarCarrusel';
 import { CarruselAbierto } from './CarruselAbierto';
 import { FiltrosCarruselModal } from './FiltrosCarruselModal';
+import { NombreModal } from '../NombreModal';
+import { TOPE_NOMBRE_BUSQUEDA } from '../nombre-reglas';
 import { useImagenesVivas } from './imagenes-vivas';
 import { esLinkDeVideo, linkDeInstagram } from '@/lib/carruseles/link';
 import { PanelThumbnails, type DatosThumbnails } from './Thumbnails';
@@ -325,9 +327,9 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
     });
   };
 
-  const guardarBusqueda = () => {
-    const nombre = window.prompt('Nombre de la búsqueda', nombreDeBusqueda(f, creadores))?.trim();
-    if (!nombre) return;
+  // «Guardar búsqueda» abre el campo con el nombre sugerido (../NombreModal.tsx, 18/11/2026: antes era `window.prompt`).
+  const [nombrando, setNombrando] = useState<string | null>(null);
+  const guardarBusqueda = (nombre: string) => {
     setAviso(null);
     start(async () => {
       const r = await guardarBusquedaAction(nombre, queryDeFiltros(f));
@@ -478,7 +480,7 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
               <span className={s.espacio} />
               {!sinFiltrosDe(f) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
               {/* Un link pegado no es una búsqueda para guardar: es «Traer tu outlier» (11/11/2026, la prueba en producción). */}
-              {!sinFiltrosDe(f) && !linkPegado && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
+              {!sinFiltrosDe(f) && !linkPegado && <button type="button" className={s.texto} onClick={() => setNombrando(nombreDeBusqueda(f, creadores))}>Guardar búsqueda</button>}
               {telefono || cuantosSeVen == null ? null : (
                 <span className={s.total}>
                   {contadorCorto(cuantosSeVen)} {f.que === 'anuncios' ? (cuantosSeVen === 1 ? 'anuncio' : 'anuncios') : (cuantosSeVen === 1 ? 'carrusel' : 'carruseles')}
@@ -565,6 +567,11 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
           onAplicar={(c) => { setFiltrosAbiertos(false); setParecidosDe(null); cambiar(c); }} onCerrar={() => setFiltrosAbiertos(false)} />
       ) : null}
       {editando ? <EditarCarrusel key={editando.id} carrusel={editando} onCerrar={() => setEditando(null)} /> : null}
+      {nombrando != null ? (
+        <NombreModal titulo="Guardar búsqueda" rotulo="Nombre de la búsqueda" inicial={nombrando} tope={TOPE_NOMBRE_BUSQUEDA}
+          accion="Guardar búsqueda" noAccion="No guardar" alSalir={() => setNombrando(null)}
+          onGuardar={(nombre) => { setNombrando(null); guardarBusqueda(nombre); }} />
+      ) : null}
     </div>
   );
 }
