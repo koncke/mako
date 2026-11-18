@@ -137,7 +137,8 @@ async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[
   const saldosCrm = await saldosDeCrms(lead);
   // Con una renovación con plata, la pieza del estado de cuenta se ve aunque la casa no tenga nada.
   const verPagos = saldosCrm.length > 0 || tieneDeal({ estado: lead.estado_lead, etapa: pipelineStageOf(lead), cuotas: insumos.pagos.length, planEnLead: planEnLead(lead) });
-  const piezas = piezasDelTelefono(efectiva.tabs, tabsQueVe({ verTracking, verReuniones: tieneEtapaDeReunion(insumos.stages), verPagos }));
+  // Las hojas propias del funnel van después de las tabs (O2, 18/11/2026): en la computadora se ven en todo lead del funnel.
+  const piezas = piezasDelTelefono(efectiva.tabs, tabsQueVe({ verTracking, verReuniones: tieneEtapaDeReunion(insumos.stages), verPagos }), efectiva.hojas);
   let sinMarcar: number | null = null;
   try {
     sinMarcar = (await datosSinMarcarDeLead(lead, insumos)).datos.avisar.length;
