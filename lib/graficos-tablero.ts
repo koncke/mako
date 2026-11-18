@@ -43,6 +43,7 @@ import { setSetting } from './settings';
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual } from './workspace';
 import { sanearTablero, type Tablero } from './graficos-catalogo';
+import { escrituraMirando } from './graficos-guardar-mirando';
 import { tableroInicial, tableroInicialDe } from './graficos-plantillas';
 import { agenciasAprobadasDe } from './agencia';
 import { informeGeneralInicial } from './general-plantillas';
@@ -127,10 +128,10 @@ export async function guardarTablero(raw: unknown): Promise<Tablero> {
  * = alguien guardó en el medio: no se escribe nada y la pantalla lo dice (no pisa). Delega en `guardarTableroSi`,
  * el mismo compare-and-set que la API de MaKo: una sola escritura con versión, con dos puertas.
  */
-export async function guardarTableroVersion(raw: unknown, version: string | null): Promise<ResultadoGuardar> {
+export async function guardarTableroVersion(raw: unknown, version: string | null, opts: OpcionesGuardar = {}): Promise<ResultadoGuardar> {
   const s = await getUsuarioActual();
   if (!s) throw new Error('Sin sesión');
-  return guardarTableroSi(s.sub, raw, version);
+  return guardarTableroSi(s.sub, raw, version, 'dashboard', opts);
 }
 
 /** Guarda (sin mirar la versión) el tablero de `sub` en el workspace en curso. */
@@ -205,19 +206,34 @@ export async function leerTableroVisible(sub: string, informe: Informe = 'dashbo
  * Lo que contesta un guardado con versión. `version` es la huella de lo que quedó guardado: el que guarda la
  * usa en el PRÓXIMO guardado (si no, su segundo autoguardado chocaría contra el primero).
  */
-export type ResultadoGuardar = { ok: true; tablero: Tablero; version: string } | { ok: false };
+export type ResultadoGuardar = { ok: true; tablero: Tablero; version: string } | { ok: false; bloqueado?: string };
+
+/**
+ * Cómo se guarda. `mirando`: la pantalla dice que NO está editando (18/11/2026, lib/graficos-guardar-mirando.ts): contra lo
+ * guardado sólo pasan las cosas de las hojas (crear, archivar, ordenar, la cabecera, sumar un filtro); un cambio del
+ * contenido de una hoja que ya estaba vuelve `{ ok: false, bloqueado }` y no se escribe nada.
+ */
+export type OpcionesGuardar = { mirando?: boolean };
 
 /**
  * Guarda el tablero de `sub` SÓLO si lo guardado sigue siendo la versión `version` (compare-and-set).
  * `{ ok: false }` = alguien lo cambió en el medio (otra pestaña autoguardó): no se escribe nada.
  * ⚠️ El error de escritura NO se traga: tira, y el que llama lo dice.
  */
-export async function guardarTableroSi(sub: string, raw: unknown, version: string | null, informe: Informe = 'dashboard'): Promise<ResultadoGuardar> {
+export async function guardarTableroSi(sub: string, raw: unknown, version: string | null, informe: Informe = 'dashboard', opts: OpcionesGuardar = {}): Promise<ResultadoGuardar> {
   const t = sanearTablero(raw);
   if (!t) throw new Error('Tablero inválido');
   const ws = await wsDeLaLectura();
   const actual = await filaDe(ws, sub, informe);
   if (versionDe(actual?.value ?? null) !== version) return { ok: false };
+  // Mirando, contra lo GUARDADO (la misma fila que se va a pisar). Sin nada guardado, o guardado ilegible (la pantalla
+  // muestra el inicial), no hay nada de la persona que cuidar.
+  if (opts.mirando && actual?.value != null) {
+    let antes: Tablero | null = null;
+    try { antes = sanearTablero(JSON.parse(actual.value)); } catch { antes = null; }
+    const bloqueado = antes ? escrituraMirando(antes, t) : null;
+    if (bloqueado) return { ok: false, bloqueado };
+  }
   const ahora = new Date().toISOString();
   const db = getSupabaseServer();
   const valor = JSON.stringify(t);
@@ -254,10 +270,10 @@ export async function leerInformeGeneral(): Promise<LecturaTablero> {
 }
 
 /** El autoguardado del editor en General: el MISMO compare-and-set que el del Dashboard, sobre el informe de General. */
-export async function guardarInformeGeneralVersion(raw: unknown, version: string | null): Promise<ResultadoGuardar> {
+export async function guardarInformeGeneralVersion(raw: unknown, version: string | null, opts: OpcionesGuardar = {}): Promise<ResultadoGuardar> {
   const s = await getUsuarioActual();
   if (!s) throw new Error('Sin sesión');
-  return guardarTableroSi(s.sub, raw, version, 'general');
+  return guardarTableroSi(s.sub, raw, version, 'general', opts);
 }
 
 // ── El informe de UNA automatización (23/10/2026, la pestaña «Métricas»): las mismas dos puertas, con su clave ──────
@@ -280,10 +296,10 @@ export async function leerInformeAutomatizacion(id: number): Promise<LecturaTabl
 }
 
 /** El autoguardado del editor en las Métricas de una automatización: el MISMO compare-and-set, sobre su informe. */
-export async function guardarInformeAutomatizacionVersion(id: number, raw: unknown, version: string | null): Promise<ResultadoGuardar> {
+export async function guardarInformeAutomatizacionVersion(id: number, raw: unknown, version: string | null, opts: OpcionesGuardar = {}): Promise<ResultadoGuardar> {
   const s = await getUsuarioActual();
   if (!s) throw new Error('Sin sesión');
-  return guardarTableroSi(s.sub, raw, version, informeDeAutomatizacion(id));
+  return guardarTableroSi(s.sub, raw, version, informeDeAutomatizacion(id), opts);
 }
 
 export type InformeGuardadoCrudo = { sub: string; raw: string | null; actualizado: string | null };

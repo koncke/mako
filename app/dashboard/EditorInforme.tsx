@@ -150,7 +150,7 @@ import {
 import { CSS } from './editor-css';
 import { CSS_EDICION } from './edicion-css';
 import { conBusqueda, contextoDeGrafico, csvDeHoja, enOrden, idBusquedaDe, loQueSeVeDe, nombreArchivo, pantallaDeHoja, pedidosDeHoja, periodoDeHoja, type PedidosHoja } from './exportar';
-import { crearColaGuardado, leerRespuestaGuardado, type ColaGuardado } from './guardado';
+import { crearColaGuardado, edicionYaGuardada, GRACIA_EDICION_MS, leerRespuestaGuardado, type ColaGuardado } from './guardado';
 import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 import { AccionesFilaProvider } from './entidades/acciones-fila';
 import { ELEMENTOS_ALTO_LIBRE_EN_PILA, graficoAltoLibreEnPila, solosEnPila } from './pila';
@@ -413,6 +413,12 @@ export function EditorInforme({
   // Es estado de la vista: no se guarda.
   const [enGrilla, setEnGrilla] = useState(false);
   const editandoRef = useRef(editando);
+  // MIRANDO (18/11/2026, ./guardado.ts): cada guardado dice si es de la edición. `huboEdicion` = hay algo cambiado editando
+  // (o pedido: la plantilla ajustada) que todavía no quedó guardado; se apaga en `alGuardar` y en `edicionYaGuardada`.
+  const huboEdicion = useRef(editando);
+  const salioDeEditar = useRef(0);
+  if (editandoRef.current && !editando) salioDeEditar.current = Date.now();
+  if (editando) huboEdicion.current = true;
   editandoRef.current = editando;
   const [dispositivoElegido, setDispositivo] = useState<Dispositivo>('escritorio');
   const dispositivo: Dispositivo = editando ? dispositivoElegido : 'escritorio';
@@ -676,8 +682,11 @@ export function EditorInforme({
       // El único fetch a mano a /api/graficos: guardar (las lecturas van por `pedidoDeLectura`).
       enviar: async (j, v, ka) => leerRespuestaGuardado(await fetch('/api/graficos' + (informeRef.current !== 'dashboard' ? `?informe=${encodeURIComponent(informeRef.current)}` : ''), {
         method: 'POST', headers: { 'content-type': 'application/json' }, keepalive: ka,
-        body: `{"accion":"guardar","version":${JSON.stringify(v)},"tablero":${j}}`,
+        body: `{"accion":"guardar","version":${JSON.stringify(v)},"editando":${editandoRef.current || huboEdicion.current},"tablero":${j}}`,
       })),
+      alGuardar: (j) => {
+        if (edicionYaGuardada({ editando: editandoRef.current, salioHaceMs: Date.now() - salioDeEditar.current, pendiente: false, confirmado: j, actual: JSON.stringify(tableroRef.current) })) huboEdicion.current = false;
+      },
       alFallar: (ka, j) => {
         ultimoGuardado.current = colaRef.current?.ultimo() ?? ultimoGuardado.current;
         // Lo que no entró queda pendiente: sale con el próximo cambio o al ocultar la pestaña (si no hay uno más nuevo).
@@ -700,6 +709,18 @@ export function EditorInforme({
     const t = setTimeout(() => { void mandar(json); }, RESPIRO_GUARDAR_MS);
     return () => clearTimeout(t);
   }, [tablero, mandar]);
+  // Al salir de editar, pasada la gracia y sin nada por guardar, los guardados vuelven a decir «mirando».
+  useEffect(() => {
+    if (editando) return;
+    const t = window.setTimeout(() => {
+      const cola = colaRef.current;
+      if (edicionYaGuardada({
+        editando: editandoRef.current, salioHaceMs: Date.now() - salioDeEditar.current, pendiente: !!cola?.pendiente() || !!pendienteGuardar.current,
+        confirmado: cola ? cola.ultimo() : ultimoGuardado.current, actual: JSON.stringify(tableroRef.current),
+      })) huboEdicion.current = false;
+    }, GRACIA_EDICION_MS + 100);
+    return () => window.clearTimeout(t);
+  }, [editando]);
   useEffect(() => {
     const flush = () => { if (pendienteGuardar.current) void mandar(pendienteGuardar.current, true); };
     const alOcultar = () => { if (document.visibilityState === 'hidden') flush(); };
@@ -773,6 +794,9 @@ export function EditorInforme({
     if (!creada || !actual) return;
     if (!sigueComoSeCreo(creada, actual)) return;
     if (h) {
+      // La ajustada pisa el contenido de una hoja que quizá ya se guardó: es un cambio que la persona PIDIÓ (eligió la
+      // plantilla), así que se guarda como de la edición aunque esté mirando (./guardado.ts).
+      huboEdicion.current = true;
       setTablero((tt) => ({ ...tt, hojas: tt.hojas.map((x) => (x.id === id ? { ...h, id } : x)) }));
       vaciar();
     }

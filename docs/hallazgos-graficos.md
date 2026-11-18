@@ -7,6 +7,28 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## Guardar mirando: la puerta va en el server, y lo editado sigue siendo edición hasta guardarse (18/11/2026)
+
+- **Síntoma:** `guardar` de /api/graficos escribía el informe entero sin saber si la pantalla estaba editando. Las dos veces
+  que se escribió el informe de alguien que sólo miraba (la grilla al montar, 11/10; MaKo cambiando la hoja mirada, 16/10)
+  se cerraron en la pantalla o en otra ruta: la escritura no tenía puerta.
+- **La puerta:** cada guardado manda `editando`; con `false`, `guardarTableroSi` compara contra lo GUARDADO con
+  `escrituraMirando` (lib/graficos-guardar-mirando.ts) y deja pasar sólo lo de las hojas: crear (también la que trae
+  `?hoja=` o la de una plantilla), archivar, restaurar, borrar de Archivados, ordenar, la cabecera (nombre, emoji y subtítulo
+  se editan en el lugar también mirando) y SUMAR un filtro («Filtrar la página por esto» desde el detalle). Lo demás de una
+  hoja que ya estaba vuelve 403 `{ mirando: true }` y no se escribe nada. Vale para los tres informes (Dashboard, General y
+  las Métricas de una automatización). Sin el campo (una pestaña de antes) se guarda como siempre.
+- **La trampa que casi rompe lo editado:** un texto escrito en el lugar se guarda AL SALIR de la edición (`useEnLugar`,
+  app/dashboard/Elemento.tsx), DESPUÉS de que la pantalla ya está en «Ver»; un guardado que falló sale más tarde; y la
+  plantilla ajustada (`rellenarHoja`) pisa una hoja que quizá ya se guardó. Mandar `editando` con el estado de ese momento
+  hacía que el server rechazara lo editado. Por eso la pantalla lleva `huboEdicion`: queda prendido hasta que lo de la
+  pantalla quedó confirmado, fuera de la edición y pasada una gracia de 5 s (`edicionYaGuardada`, app/dashboard/guardado.ts).
+- **Compara después del saneo de los dos lados**: el saneo es idempotente con todas las plantillas (lo mide el test); si un
+  día deja de serlo, mirando no se podría crear una hoja y lo diría ese test.
+- **Vive en:** lib/graficos-guardar-mirando.ts · lib/graficos-tablero.ts (`guardarTableroSi`, `OpcionesGuardar`) ·
+  app/api/graficos/route.ts · app/dashboard/EditorInforme.tsx · app/dashboard/guardado.ts. **Lo fija:**
+  tests/graficos-guardar-mirando.test.ts (4 roturas) · tests/dashboard-guardado.test.ts · tests/graficos-modelo-v5.test.ts.
+
 ## La venta de un lead agregado, por fecha de cierre: donde la pone el OKR (18/11/2026)
 
 - **Síntoma:** una hoja de Leads por fecha de **cierre**, filtrada por un funnel AGREGADO («Renovación»), ponía en 0 la venta
