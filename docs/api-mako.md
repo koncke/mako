@@ -16512,7 +16512,7 @@ curl -L \
 
 ### `GET /api/v1/video/plantillas` — Plantillas de anuncio del editor
 
-El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, cuánto dura y sus huecos, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».
+El catálogo de plantillas de anuncio vertical (9:16) del Video Editor (/video-editor): id, nombre, qué es, su objetivo y cuándo usarla, cuánto dura y sus huecos, primero las sugeridas para este negocio (con su porqué en "sugerida"). Un hueco de clip se llena con un video o una foto (con los segundos que pide: un video más corto no entra; una foto sirve siempre; uno opcional puede quedar con su muestra); uno de texto, con hasta su máximo de caracteres (trae el texto de ejemplo). Usar una plantilla NO se puede por la API: el proyecto vive en el navegador de quien edita. Se usa en el editor, en la pestaña Plantillas o pidiéndoselo al chat «Editar con IA».
 
 - **Ruta por operación:** `GET /api/v1/video/listar_plantillas_video`
 - **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)

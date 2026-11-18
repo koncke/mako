@@ -32,7 +32,7 @@ import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
 import { ignoradasDelChat, preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { edadCorta } from '@/lib/chat-mako-reglas';
 import {
-  AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, type Esfuerzo, type Modelo,
+  AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, rotuloAutomaticoModelo, type Esfuerzo, type Modelo,
 } from '@/lib/centro-cuentas';
 import { TEXTO_SEGUNDO_RENGLON, segundoRenglon } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
@@ -68,7 +68,7 @@ export function SelloCompletado() {
  * título, la hora a la derecha y, si hay algo que contar, el segundo renglón. Con `onMenu`, el «⋯» y el clic derecho.
  */
 export function FilaDeChat({ titulo, texto = titulo, criatura = titulo, aspecto, animo, espera = 0, sub = false, actual, apagada = false, dormida = false,
-  hace, chip, previa, onElegir, onMenu }: {
+  hace, chip, previa, onElegir, onMenu, marca }: {
   /** El nombre entero (el `title` de la fila y su criatura, si no se dice otra). */
   titulo: string;
   /** Lo que se lee en la fila (en un sub-chat, lo de después de «›»). */
@@ -88,9 +88,11 @@ export function FilaDeChat({ titulo, texto = titulo, criatura = titulo, aspecto,
   previa?: ReactNode;
   onElegir: () => void;
   onMenu?: (x: number, y: number) => void;
+  /** El `data-recorrido` de la fila, para el motor de los tutoriales (app/_ui/tutorial): lo que señala el reto (18/11/2026). */
+  marca?: string;
 }) {
   return (
-    <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`}>
+    <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`} {...(marca ? { 'data-recorrido': marca } : {})}>
       <button
         type="button" title={titulo}
         className={`co-fila${apagada ? ' co-fila--sin-dir' : ''}${dormida ? ' co-fila--dormida' : ''}`}
@@ -307,7 +309,8 @@ export function SelectoresDeEnvio({ centro: k, chat }: { centro: Centro; chat: C
         <select className="co-chip co-envio-sel" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
           title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
           onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
-          <option value={AUTOMATICO}>Automático</option>
+          {/* Como la cuenta («Automático · Cuenta 2»): dice qué hace. Por fase, «Automático · Sonnet → Opus» (18/11/2026). */}
+          <option value={AUTOMATICO}>{rotuloAutomaticoModelo(conModelo && k.porFaseDe(chat))}</option>
           {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
         </select>
       </label>

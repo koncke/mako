@@ -2572,6 +2572,25 @@ export const BITACORA: Hito[] = [
     revisar: '/admin/operaciones',
   },
   {
+    fecha: '18 nov', hora: '02:01', chat: 'Ops Center', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ops Center: «Automático» explora con Sonnet, ejecuta con Opus, y mide lo que gasta cada fase',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Automático ahora elige por fase:** a un chat de la app le llega el trabajo con Sonnet para leer y armar el plan; cuando va a cambiar algo, el Runner lo pasa a Opus. El selector lo dice: «Automático · Sonnet → Opus».',
+      '**Si eliges un modelo, manda el tuyo:** no hay fases. El esfuerzo que elijas vale para las dos.',
+      '**El Cerebro no cambia de modelo,** ni un chat de la terminal: a ésos se les entrega como siempre.',
+      '**El gasto queda medido:** cada trabajo guarda cuánto subió el uso de la cuenta al explorar y al ejecutar, y se puede comparar contra los que corren sin fases.',
+    ],
+    commits: [{ sha: 'b75c83f0b', msg: 'Ops Center: «Automático» explora con Sonnet, ejecuta con Opus, y mide el consumo de cada fase', lineas: 613, archivos: 16 }],
+    archivos: [
+      'lib/centro-cuentas.ts — vaPorFase, comoCorreDelEnvio, rotuloAutomaticoModelo · lib/operaciones-reglas.ts — porFase firmado, sanearConsumo',
+      'lib/centro-uso.ts — gastoPorFase, compararConsumo · lib/api-mako/areas/operaciones.run.ts — consumo y comparacion en ver_pedidos_operaciones',
+      'scripts/operaciones/cartero.mjs 1.28.0 — comoCorre, lineasDeFase, fase <id> ejecutar, anotarConsumo, el cierre con el consumo',
+      'app/admin/operaciones/mandar.ts — el `como` entero al payload (copiado campo por campo, el «por fase» se perdía)',
+      'tests/ops-center-por-fase.test.ts (6, 6 roturas en rojo) y el diferencial de tests/operaciones.test.ts',
+    ],
+  },
+  {
     fecha: '18 nov', hora: '06:30', chat: 'Construir pendientes (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
     titulo: 'Ops Center del cliente: el «⋯» de cada chat, con Renombrar y Cambiar su criatura',
     puntos: [

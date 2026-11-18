@@ -36,6 +36,7 @@ const leer = (...ruta: string[]) => sinComentarios(readFileSync(join(RAIZ, ...ru
 
 const NADA: SenalesNegocio = { canales: [], entradas: [], cobros: [], cuello: null };
 const CHECKOUT: SenalesNegocio = { ...NADA, canales: ['carrito'], entradas: ['carrito'] };
+const WEBINAR: SenalesNegocio = { ...NADA, canales: ['webinar'] };
 const EN_PERSONA: SenalesNegocio = { ...NADA, canales: ['presencial'] };
 const TODO: SenalesNegocio = {
   canales: CANALES.map((c) => c.id), entradas: Object.keys(ENTRADAS) as SenalesNegocio['entradas'], cobros: ['unico', 'suscripcion'], cuello: 'oferta',
@@ -79,11 +80,14 @@ test('sin señales: la galería de Video, la API y el chat en el orden de siempr
 
 // ── Qué se sugiere a quién: Video Editor ─────────────────────────────────────────────────────
 
-test('video · cobra en un checkout: primero «Oferta con cuenta regresiva», sola', () => {
-  const r = plantillasEnOrden(CHECKOUT);
-  assert.deepEqual(sugeridasVideo(CHECKOUT), ['oferta']);
+// `oferta` es la invitación a una clase en vivo desde el 18/11/2026 (doc 2.9): la de quien vende en webinars. La de
+// quien cobra en un checkout era el anuncio de e-commerce con cuenta regresiva, y el doc saca esa fila.
+test('video · vende en webinars: primero «Invitación a clase en vivo», sola; a quien cobra en un checkout, ninguna', () => {
+  const r = plantillasEnOrden(WEBINAR);
+  assert.deepEqual(sugeridasVideo(WEBINAR), ['oferta']);
+  assert.deepEqual(sugeridasVideo(CHECKOUT), [], 'ninguna plantilla de video es de checkout');
   assert.equal(r[0].plantilla.id, 'oferta', 'la sugerida va primero');
-  assert.equal(r[0].porque, 'Vendes con checkout', 'el porqué es el del eje más pesado');
+  assert.equal(r[0].porque, 'Vendes en webinars', 'el porqué es el del eje más pesado');
   assert.deepEqual(r.slice(1).map((x) => x.plantilla.id), PLANTILLAS.map((p) => p.id).filter((id) => id !== 'oferta'), 'y las demás, en el orden de siempre');
 });
 
@@ -151,16 +155,16 @@ test('imagen · la page lee las señales y bajan hasta el servicio de plantillas
 });
 
 test('la API de MaKo da el mismo orden, con la sugerida marcada', () => {
-  const v = plantillasParaApi(CHECKOUT).plantillas;
+  const v = plantillasParaApi(WEBINAR).plantillas;
   assert.equal(v[0].id, 'oferta');
-  assert.equal((v[0] as { sugerida?: string }).sugerida, 'Vendes con checkout');
+  assert.equal((v[0] as { sugerida?: string }).sugerida, 'Vendes en webinars');
   assert.match(leer('lib', 'api-mako', 'areas', 'video.run.ts'), /plantillasParaApi\(await senalesDelNegocio\(\)\.catch\(\(\) => null\)\)/);
   // Imagen ya no: su área no tiene plantillas que ordenar (las 10 de Doory se borraron el 6/11/2026).
 });
 
 test('el chat «Editar con IA» lee las plantillas en el mismo orden, con la sugerida marcada', () => {
-  const p = catalogoParaPrompt(CHECKOUT);
-  assert.match(p, /· "oferta" «Oferta con cuenta regresiva» \(SUGERIDA para este negocio: Vendes con checkout\), /);
+  const p = catalogoParaPrompt(WEBINAR);
+  assert.match(p, /· "oferta" «Invitación a clase en vivo» \(SUGERIDA para este negocio: Vendes en webinars\), /);
   assert.ok(p.indexOf('· "oferta" ') < p.indexOf('· "gancho" '), 'la sugerida va primero');
   assert.match(p, /Si la persona no dice cuál, elige una SUGERIDA para este negocio\./);
   const ia = leer('lib', 'editor-video', 'ia.ts');
@@ -189,3 +193,5 @@ test('el chat «Editar con IA» lee las plantillas en el mismo orden, con la sug
 // 18/11/2026 (F164, las seis plantillas nuevas): el clip de podcast con una fila → 1 rojo («el clip de podcast no se
 // sugiere nunca»). · el caso con números sin «llamadas» → 1 rojo («vende por llamada…»). · el tour fuera del catálogo con
 // su fila puesta → 1 rojo («cada plantilla … tiene su fila»). Restaurado: en verde.
+// 18/11/2026 (la oferta pasó a la invitación a clase): la fila de la oferta otra vez con el checkout → 1 rojo («vende en
+// webinars…»). Restaurado: en verde.
