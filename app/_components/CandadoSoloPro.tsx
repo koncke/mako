@@ -17,7 +17,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import Link from '@/app/_ui/Link';
 import { SANS } from '@/app/_ui/tokens';
-import { CtaPasarAPro } from './CtaPasarAPro';
+import { CtaPasarAPro, TextoDelTope } from './CtaPasarAPro';
 import { esTelefono } from '@/lib/telefono';
 import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
 import { RUTA_CAMBIAR_PLAN, textoSoloPro, type FuncionSoloPro } from '@/lib/topes-plan';
@@ -47,7 +47,7 @@ export function CandadoSoloPro({ funcion, style }: { funcion: FuncionSoloPro; st
   useEffect(() => { setTelefono(esTelefono(navigator.userAgent)); }, []);
   return (
     <div role="status" data-solo-pro={funcion} style={{ ...caja, ...style }}>
-      <p style={texto}><IconoCandado /><span>{textoSoloPro(funcion)}</span></p>
+      <p style={texto}><IconoCandado /><span><TextoDelTope texto={textoSoloPro(funcion)} /></span></p>
       {!telefono && <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} style={btnPro}>{ROTULO_PASAR_A_PRO}</Link></CtaPasarAPro>}
     </div>
   );

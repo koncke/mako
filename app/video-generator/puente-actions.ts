@@ -147,10 +147,20 @@ async function nombreDeWorkspace(ws: number): Promise<string> {
  *
  * Sin guard de admin: leer si el navegador propio esta conectado no es una
  * escritura, y `estadoPuente` ya viene scopeado por `getTenantDb`.
+ *
+ * ⚠️ PERO SÍ CON SESIÓN (18/11/2026, F115): una server action es un POST con un
+ * id que viaja en el bundle, y el proxy sólo valida la firma de la cookie. Sin
+ * sesión resuelta contra la base contesta «sin conectar», que es lo que vería
+ * cualquiera que no tenga un puente: no dice nada de ningún negocio
+ * (tests/acciones-con-puerta.test.ts).
  */
 export async function estadoPuenteAction(): Promise<Puente> {
+  if (!(await getRolWsEfectivo())) return SIN_PUENTE;
   return estadoPuente();
 }
+
+/** El estado de un puente que no existe: lo que se contesta sin sesión. El mismo de `estadoPuente` sin fila. */
+const SIN_PUENTE: Puente = { estado: 'sin_conectar', detalle: '', etiqueta: '', projectId: '', ultimoVisto: null, emparejado: false, version: '' };
 
 export type PruebaOut =
   | { ok: true; trabajoId: number }
@@ -183,6 +193,8 @@ export type EstadoPruebaOut = {
  * llamada falló», que son dos arreglos distintos.
  */
 export async function estadoPruebaAction(trabajoId: number | null): Promise<EstadoPruebaOut> {
+  // Con sesión, como `estadoPuenteAction` (F115): sin ella, nada que leer.
+  if (!(await getRolWsEfectivo())) return { puente: SIN_PUENTE, prueba: null };
   const puente = await estadoPuente();
   if (trabajoId == null) return { puente, prueba: null };
 

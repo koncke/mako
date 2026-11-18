@@ -49,7 +49,8 @@ test('3. el cartel con «Pasar a Pro» en la computadora; en el teléfono dice q
   const pc = sinComentarios(leer('app/equipo/EquipoView.tsx'));
   assert.match(pc, /setErrCrear\(j\.error \?\? 'No se pudo invitar\.'\); setAPro\(j\.pasarAPro \?\? null\);/);
   // Envuelto en `CtaPasarAPro` (6/11/2026, #494): al cliente de una agencia, el cambio de plan se lo pide a ella.
-  assert.match(pc, /\{errCrear\}\{aPro && <> <CtaPasarAPro><Link href=\{aPro\}[^>]*>Pasar a Pro<\/Link><\/CtaPasarAPro><\/>\}/);
+  // (18/11/2026, F148: el texto pasa por `TextoDelTope`, que al cliente de una agencia le saca el «Pasa a MaKo Pro».)
+  assert.match(pc, /<TextoDelTope texto=\{errCrear\} \/>\{aPro && <> <CtaPasarAPro><Link href=\{aPro\}[^>]*>Pasar a Pro<\/Link><\/CtaPasarAPro><\/>\}/);
   const m = sinComentarios(leer('app/m/configuraciones/equipo/EquipoM.tsx'));
   assert.match(m, /if \(!j\.ok && j\.pasarAPro\) \{ haptico\('error'\); setTope\(true\); return; \}/);
   assert.match(m, /\{tope && <p className="m-configuraciones-aviso" data-tono="warn" role="status">Llegaste al tope de tu plan\.<\/p>\}/, 'aparte del error para Soporte: no es un error');

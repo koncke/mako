@@ -25,6 +25,7 @@ import { conMedidorDeMt, medidorAbierto } from './mako-tokens-medidor';
 import { recordUsage } from './anthropic-usage';
 import { leerErrorProveedor } from './ia-rotacion-modelo';
 import { anotarSaturado, esSaturacion, primeroLosSanos } from './ia-saturacion';
+import { GEMINI_FLASH, GEMINI_FLASH_LITE, modeloGeminiVideo } from './gemini-modelos';
 
 export type VideoParaGemini =
   | { tipo: 'youtube'; url: string }
@@ -54,7 +55,7 @@ export type RespuestaVideoGemini =
 export const ENLACE_YT = /^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/;
 
 const RAIZ = (base: string) => base.replace(/\/openai\/?$/, '').replace(/\/v1(beta)?\/?$/, '');
-const MODELOS = () => [...new Set([process.env.GEMINI_VIDEO_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest', 'gemini-flash-lite-latest'])];
+const MODELOS = () => [...new Set([modeloGeminiVideo(), GEMINI_FLASH_LITE])];
 const PLAZO_PEDIDO_MS = 300_000;
 const ESPERA_ACTIVO_MS = 180_000;
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -157,7 +158,7 @@ export async function mirarVideoConGemini(p: PedidoVideoGemini): Promise<Respues
     const como = p.mirar(duracionS);
     parteVideo.videoMetadata = { fps: como.fps, ...(como.hastaS ? { endOffset: `${Math.floor(como.hastaS)}s` } : {}) };
     try {
-      for (const model of primeroLosSanos('gemini', MODELOS(), 'gemini-flash-latest')) {
+      for (const model of primeroLosSanos('gemini', MODELOS(), GEMINI_FLASH)) {
         const queda = finDelPlazo - Date.now();
         if (queda < 30_000) { ultimo = ultimo || 'se acabó el plazo'; break; }
         let res: Response;

@@ -18,7 +18,7 @@ async function main() {
   const { crearPostgrest } = await imp('tests/_postgrest-de-mentira.ts');
   let ids = 1000;
   const pg = crearPostgrest({
-    tablas: ['app_settings', 'workspaces', 'usuarios', 'bajas_cuenta', 'cobros', 'credenciales', 'agencia_clientes', 'leads', 'evolution_instancias'],
+    tablas: ['app_settings', 'workspaces', 'usuarios', 'bajas_cuenta', 'cobros', 'credenciales', 'agencia_clientes', 'leads', 'evolution_instancias', 'borrados_workspace'],
     defaults: (tabla: string, f: Fila) => (tabla === 'bajas_cuenta' ? { id: ids++, estado: 'pendiente', prueba: false, ...f } : { ...f }),
     unicos: [{ tabla: 'bajas_cuenta', columnas: ['usuario_id'], donde: (f: Fila) => f.estado === 'pendiente', nombre: 'bajas_cuenta_una_pendiente_uk' }],
   });
@@ -165,7 +165,7 @@ async function main() {
   // Borrar un negocio de verdad se lleva sus archivos y cierra su pedido con el mail.
   await pedirBajaDe(7, false);
   const mailsAntesDeBorrar = correos.length;
-  const borrado = await eliminarWorkspace(A_BORRAR, 'Se Va', PLATAFORMA);
+  const borrado = await eliminarWorkspace(A_BORRAR, 'Se Va', PLATAFORMA, 'super@test.com');
   await cerrarBajasDelNegocio(A_BORRAR, 'super@test.com');
   R.borrado = { ok: borrado.ok, error: borrado.error };
   R.borradosStorage = borradosStorage;
