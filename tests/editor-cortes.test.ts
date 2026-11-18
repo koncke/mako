@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   moverBorde, moverTramo, quitarTramo, partirTramo, destinoDeMover, inicios, enSegundo, mismoPlan, MINIMO_SEG,
+  pilaTrasGesto, apilarConTope, pasoDeTecla, TOPE_DESHACER,
 } from '../app/video-generator/editor-cortes';
 import { porQueNoSirveElPlan, type Plan } from '../app/video-generator/plan-montaje';
 
@@ -320,12 +321,15 @@ test('destinoDeMover · ⚠️ NO OSCILA con un tramo angosto al lado de uno anc
 });
 
 /**
- * El gesto completo, como lo hace la pantalla: `apilar()` al agarrar el bloque, un paso
- * por `pointermove` (`destinoDeMover` + `moverTramo`), y al soltar se TIRA la entrada si
- * el plan quedó igual. Son las funciones de verdad; lo único simulado es la secuencia.
+ * El gesto completo, como lo hace la pantalla: el plan de antes se guarda al agarrar el
+ * bloque, un paso por `pointermove` (`destinoDeMover` + `moverTramo`), y al soltar
+ * `pilaTrasGesto` apila UNA entrada, sólo si el plan cambió (F167, 18/11/2026: antes se
+ * apilaba al agarrar y se sacaba la muda al soltar, y con la pila llena eso tiraba la más
+ * vieja). Son las funciones de verdad; lo único simulado es la secuencia. La pantalla
+ * entera, dibujada, en tests/editor-anuncio-gesto.test.ts.
  */
-function gesto(inicial: Plan, i: number, segundos: number[]): { plan: Plan; pila: Plan[] } {
-  const pila: Plan[] = [inicial];          // apilar(), en el pointerdown
+function gesto(inicial: Plan, i: number, segundos: number[], pilaPrevia: readonly Plan[] = []): { plan: Plan; pila: readonly Plan[] } {
+  const antes = inicial;                   // gestoRef, en el pointerdown
   let p = inicial;
   let vivo = i;
   for (const seg of segundos) {            // pointermove
@@ -336,15 +340,13 @@ function gesto(inicial: Plan, i: number, segundos: number[]): { plan: Plan; pila
     vivo = destino;
     p = nuevo;
   }
-  // soltar(): la entrada muda se saca, igual que en un arrastre de borde que volvió.
-  if (pila.length && mismoPlan(pila[pila.length - 1], p)) pila.pop();
-  return { plan: p, pila };
+  // soltar(): una entrada, sólo si el gesto cambió algo.
+  return { plan: p, pila: pilaTrasGesto(pilaPrevia, antes, p) };
 }
 
-// ⚠️ Las roturas de ESTE test viven en EditorAnuncio.tsx y las caza el cableado de abajo:
-// `apilar()` sacado del `pointerdown` del bloque → 1 fallo; movido al `pointermove` → 1;
-// el `soltar` sin la limpieza por `mismoPlan` → 1; el rechazo leído con `mismoPlan` en vez
-// de la identidad → 1. Lo de acá es la SECUENCIA, con las funciones puras de verdad.
+// ⚠️ Las roturas del CABLEADO de esto viven en EditorAnuncio.tsx y las caza la pantalla
+// dibujada (tests/editor-anuncio-gesto.test.ts). Lo de acá es la SECUENCIA, con las
+// funciones puras de verdad.
 test('el gesto · un arrastre es UNA entrada de deshacer, y Ctrl+Z lo deshace en un paso', () => {
   const inicial = plan();
   // El dedo arrastra el primer tramo hasta el final, pasando por los tres vecinos.
@@ -359,19 +361,49 @@ test('el gesto · uno que vuelve al mismo lugar —o un clic que sólo seleccion
   const ida = gesto(inicial, 0, [10, 23, 14, 7, 2]);
   assert.deepEqual(ida.plan.segs.map((s) => s.toma), [1, 2, 3, 4], 'volvió a donde estaba');
   assert.equal(ida.pila.length, 0, 'una entrada muda hace que Deshacer parezca roto');
-  // Un clic sin arrastrar: apiló al agarrar y no movió nada.
+  // Un clic sin arrastrar: no movió nada, y no se apila.
   assert.equal(gesto(inicial, 2, []).pila.length, 0);
+});
+
+// rotura (`pilaTrasGesto` apilando siempre, el clic incluido): 2 fallos, 32 pases (cae también el del gesto que vuelve).
+// rotura (`apilarConTope` con `slice(-TOPE_DESHACER)`: la pila crece a 31): 1 fallo, 34 pases.
+test('el gesto · ⚠️ con la pila LLENA, un clic que sólo selecciona NO tira la entrada más vieja (F167)', () => {
+  const inicial = plan();
+  // 30 entradas: la más vieja es el plan de partida.
+  let pila: readonly Plan[] = [];
+  let p = inicial;
+  for (let k = 0; k < TOPE_DESHACER; k++) {
+    const nuevo = moverTramo(p, 3, 2);   // los dos últimos se cambian de lugar, ida y vuelta
+    pila = apilarConTope(pila, p);
+    p = nuevo;
+  }
+  assert.equal(pila.length, TOPE_DESHACER);
+  assert.equal(mismoPlan(pila[0], inicial), true, 'la primera entrada es el plan de partida');
+  // El clic: agarra y suelta sin mover. Antes la 31 empujaba afuera a la primera.
+  const tras = gesto(p, 1, [], pila);
+  assert.equal(tras.pila, pila, 'la MISMA pila: el clic no la tocó');
+  assert.equal(mismoPlan(tras.pila[0], inicial), true, 'la primera entrada sigue ahí');
+  // Y el tope sigue topeando cuando el gesto SÍ cambia algo.
+  const conCambio = gesto(p, 0, [7, 10], pila);
+  assert.equal(conCambio.pila.length, TOPE_DESHACER, 'una de verdad con la pila llena: se cae la más vieja, como siempre');
+});
+
+test('pasoDeTecla · las flechas mueven un lugar, lo demás no hace nada', () => {
+  assert.equal(pasoDeTecla('ArrowLeft'), -1);
+  assert.equal(pasoDeTecla('ArrowRight'), 1);
+  for (const t of ['ArrowUp', 'ArrowDown', 'Enter', ' ', 'a', '']) assert.equal(pasoDeTecla(t), null, t);
 });
 
 // ── El cableado de la pantalla ──────────────────────────────────────────────
 // ⚠️ UN GESTO NO SE VERIFICA LEYENDO EL HANDLER (regla de la casa): se arrastra en un
 // navegador. Esto no lo reemplaza — fija que la pantalla use las piezas de arriba y la
 // MISMA disciplina de deshacer, que es lo que los tests sí pueden ejecutar.
-// rotura (el bloque sin `apilar()` en su `pointerdown`): 1 fallo, 31 pases.
-// rotura (`apilar()` movido adentro del `pointermove`): 1 fallo, 31 pases.
-// rotura (el `soltar` sin la limpieza de la entrada muda): 1 fallo, 31 pases.
-// rotura (el rechazo leído con `mismoPlan` en vez de la identidad): 1 fallo, 31 pases.
-// rotura (los dos botones de mover sacados): 1 fallo, 31 pases.
+// rotura (`apilar(…)` metido adentro del `pointermove`): 1 fallo, 34 pases.
+// rotura (el `soltar` sin `pilaTrasGesto`): 1 fallo, 34 pases.
+// rotura (el rechazo leído con `mismoPlan` en vez de la identidad): 1 fallo, 34 pases.
+// rotura (los dos botones de mover sacados): 1 fallo, 34 pases.
+// (Lo que HACE el gesto —el clic que no apila, el borde que sí, las flechas— se prueba dibujando la pantalla:
+// tests/editor-anuncio-gesto.test.ts.)
 test('el cableado · el bloque se agarra, apila una vez, y usa las operaciones puras', () => {
   const src = readFileSync(resolve(import.meta.dirname, '..', 'app', 'video-generator', 'EditorAnuncio.tsx'), 'utf8')
     .replace(/\r\n/g, '\n')
@@ -380,11 +412,11 @@ test('el cableado · el bloque se agarra, apila una vez, y usa las operaciones p
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
   assert.match(src, /moverTramo/, 'la pantalla no reimplementa el reorden');
   assert.match(src, /destinoDeMover/, 'ni la decisión de a qué posición va');
-  // El pointerdown del bloque: selecciona, apila UNA vez y arranca el gesto de tramo.
+  // El pointerdown del bloque: selecciona, guarda el plan de antes y arranca el gesto de tramo (la entrada la pone `soltar`).
   assert.match(
     src,
-    /onPointerDown=\{\(e\) => \{[\s\S]{0,400}?apilar\(\);[\s\S]{0,200}?movidoRef\.current = i;[\s\S]{0,120}?setArrastre\(\{ modo: 'tramo' \}\);/,
-    'apila al EMPEZAR el gesto, no en cada pointermove',
+    /onPointerDown=\{\(e\) => \{[\s\S]{0,400}?gestoRef\.current = planRef\.current;[\s\S]{0,200}?movidoRef\.current = i;[\s\S]{0,120}?setArrastre\(\{ modo: 'tramo' \}\);/,
+    'guarda el plan al EMPEZAR el gesto',
   );
   // ⚠️ SOBRE EL CUERPO DEL HANDLER, no sobre «la palabra pointermove y 400 caracteres
   // más»: el `addEventListener('pointermove', …)` va DESPUÉS del cuerpo, así que un
@@ -394,8 +426,8 @@ test('el cableado · el bloque se agarra, apila una vez, y usa las operaciones p
   assert.doesNotMatch(cuerpoMover, /apilar\(/, 'apilar() en el pointermove = una entrada de deshacer por PASO');
   // El rechazo se lee por IDENTIDAD, que es la señal que da `moverTramo`.
   assert.match(src, /const nuevo = moverTramo\(p, i, destino\);[\s\S]{0,80}?if \(nuevo === p\) return;/);
-  // Y la limpieza de la entrada muda es la MISMA para los dos gestos.
-  assert.match(src, /const soltar = \(\) => \{[\s\S]{0,400}?mismoPlan\(pila\[pila\.length - 1\], planRef\.current\)/);
+  // Y la decisión de apilar es la MISMA para los dos gestos, y va al soltar.
+  assert.match(src, /const soltar = \(\) => \{[\s\S]{0,600}?pilaTrasGesto\(pilaRef\.current, antes, planRef\.current\)/);
   // Ctrl+Z sigue ahí, y el botón también.
   assert.match(src, /e\.key\.toLowerCase\(\) !== 'z'/);
   assert.match(src, /title="Deshacer \(Ctrl\+Z\)"/);
