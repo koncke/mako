@@ -76,7 +76,7 @@ Para cosechar en docs/hallazgos-video-pipeline.md §17:
 | 7 | Para volver, toca la flecha de aquí arriba. | Pausa con clic: marcado el botón para volver DEL PROPIO Second Brain, no el Ops Center de la barra (Martín, 17/11). |
 | 8 | ¿Algo falla, o quieres proponer algo nuevo? | Pausa: marcada la Ticketera. |
 | 9 | Mándale un audio o un mensaje a Máko aquí, en la Ticketera. | Sigue marcada la Ticketera; el recuadro late con «aquí». |
-| 10 | Nos comprometemos a resolverlo en menos de veinticuatro horas. | Sigue marcada la Ticketera. |
+| 10 | Daremos todo nuestro esfuerzo para resolverlo. | Sigue marcada la Ticketera. |
 | 11 | Y ahora, elige arriba cómo seguimos. | Sin marca. Arriba del chat, el recuadro con «Seguir con el reto de 7 días de MaKo» y «Muéstrame {pestaña}». Si elige seguir con el reto, el tutorial oscurece todo y marca el chat de Offer Coach en la barra (Martín, 17/11). |
 
 **De dónde sale:** Corregido con el feedback de Martín del 17/11: sin explicar cada chat; el reto arriba, al lado de los mensajes fijados; la barra se pliega; se vuelve del Second Brain con su propio botón; la Ticketera después del Second Brain, con su compromiso de 24 horas; y sin «¿Una duda? Escríbele a MaKo aquí». Las 10 pausas, lo que marca cada una y sus tarjetas son las de la maqueta (cuerpo.html:1273-1285). Varias frases son de Martín (audio-12.33.22.txt:1; onboarding-16-11-decisiones.md:42-43):

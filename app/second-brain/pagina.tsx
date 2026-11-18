@@ -35,7 +35,7 @@ import '@/app/admin/runway/decisiones.css';
 import '@/app/tickets/bandeja/bandeja.css';
 
 /** `?offer=` y `?antes=` (21/10/2026): la conversación de Offer o el chat de antes abierto, que se siguen en el Ops Center. */
-export type QuerySecondBrain = { coach?: string; grupo?: string; chat?: string; offer?: string; antes?: string; panel?: string; area?: string; centro?: string; ticketera?: string; recorrido?: string };
+export type QuerySecondBrain = { coach?: string; grupo?: string; chat?: string; offer?: string; antes?: string; panel?: string; area?: string; centro?: string; ticketera?: string; recorrido?: string; reto?: string };
 
 /** ¿La URL pide el Mapa? `?panel=mapa`, o un `?area=` de los links de siempre. */
 export const pideElMapa = (q: QuerySecondBrain): boolean => q.panel === 'mapa' || !!q.area;
@@ -73,7 +73,10 @@ const enteroDe = (v: string | undefined): number | null => {
   return Number.isInteger(n) && n > 0 ? n : null;
 };
 
-export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio }: {
+export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio, retoV2 = false, nombrePersona = '' }: {
+  /** El chat «Reto de 7 días» (onboarding V2, lib/onboarding-v2/revision.ts): lo decide la página, en el server. */
+  retoV2?: boolean;
+  nombrePersona?: string;
   veMapa: boolean;
   mapa: ReactNode | null;
   /** El Centro, sólo para quien `puedeOperar` (app/admin/operaciones/datos.ts): con él, la pantalla es Ops Center. */
@@ -91,7 +94,8 @@ export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio }: {
       {/* En modo CLARO desde el 16/10/2026 («pon en white mode la tab de Second Brain», Martín). */}
       <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={chat} offerInicial={enteroDe(q.offer)} antesInicial={enteroDe(q.antes)} funnelInicial={q.coach === 'funnel'}
         opcionArmar={OPCION_ARMAR} centro={centro}
-        centroInicial={centro ? claveCentro : null} ticketeraInicial={ticketera} inicio={inicio} />
+        centroInicial={centro ? claveCentro : null} ticketeraInicial={ticketera} inicio={inicio}
+        retoV2={retoV2} retoInicial={q.reto === '1'} nombrePersona={nombrePersona} />
     </Pagina>
   );
 }
