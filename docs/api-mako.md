@@ -17717,7 +17717,7 @@ PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el na
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
-| `id` | string (gancho \\| gancho-escrito \\| testimonio \\| antes-despues \\| beneficios \\| oferta \\| oferta-glitch) | sí | La plantilla (listar_plantillas_video). |
+| `id` | string (gancho \\| respuesta-comentario \\| beneficios \\| testimonio \\| caso-numeros \\| historia \\| tres-errores \\| clip-podcast \\| oferta \\| tour-propiedad \\| antes-despues) | sí | La plantilla (listar_plantillas_video). |
 | `textos` | object[] | no | Opcional: lo que dicta la persona para cada hueco de texto. |
 | `textos.hueco` | string | sí | El nombre del hueco de texto. |
 | `textos.texto` | string | sí | Lo que dice, hasta el máximo del hueco. |

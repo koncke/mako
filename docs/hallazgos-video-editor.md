@@ -6,6 +6,41 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Las seis plantillas nuevas del Video Editor: dos variantes fuera y un tour que habla desde el 15 (18/11/2026, F164)
+
+**Qué entró:** las seis de `docs/plantillas-reales/video.md` (2.2 respuesta a un comentario, 2.5 caso con números, 2.6 historia
+del fundador, 2.7 reel de 3 errores, 2.8 clip de podcast, 2.10 tour de propiedad), cada una con su ejemplo de un negocio ficticio
+(`lib/editor-video/plantillas-ejemplos.ts`) y su fila de «Sugerido» (`plantillas-etiquetas.ts`). «Gancho escrito» y «Oferta con
+glitch» salieron del catálogo, como pide el doc (2.0): con el ejemplo lleno eran dos tarjetas iguales a su original. El orden es
+el de la tabla del doc.
+
+**Lo que no se ve en el código:**
+- **La máquina de escribir no se perdió con `gancho-escrito`:** vive en el quiebre de `historia` (9 a 13 s). Los tests que la
+  medían (el armado, la escena y la miniatura) miran ahora ese texto, no una variante.
+- **El tour no habla desde el segundo 0:** sus primeros 15 s son los espacios sin voz y el asesor habla al final. El ejemplo
+  lleva `vozDesde: 15`, y el test del guion arranca ahí; sin el campo, el test exigía un guion pegado desde 0 que el doc no tiene.
+- **Cinco archivos de test fijaban el catálogo de siete por id** (las plantillas, los ejemplos, el uso, el chat y las sugeridas). Se
+  movieron con el catálogo, en el mismo commit; un test que nombre una plantilla retirada ahora pregunta `plantillaPorId(id) === null`.
+- **La «Sugerida» del caso con números sale para quien vende por llamada** (la fila del doc), así que a ese negocio ahora se le
+  sugieren tres: el testimonio, el caso y el gancho. El clip de podcast va `{}`: ninguna señal del negocio lo distingue.
+- **La tarjeta de «Nuevo video» dibuja el EJEMPLO, no las muestras de la plantilla** (`plantillaDeTarjeta` devuelve
+  `plantillaConEjemplo`, con caché por id para que la miniatura no se vuelva a armar en cada render): es lo que pide la sección
+  «Miniatura» del doc, y lo fija `tests/video-editor-miniatura-nuevo.test.ts`.
+
+**Lo que quedó sin hacer, con dónde vive:**
+- los clips de Pexels con su crédito y la captura propia del caso (`public/video-editor/plantillas/`, no existe): sin una key de
+  Pexels y sin elegir el material no hay qué poner, así que los huecos siguen con la muestra gris, como el resto del catálogo;
+- reescribir las cuatro que el doc conserva a su versión completa (`gancho` a 24 s, `testimonio` a 33 s, los textos de
+  `beneficios` y `antes-despues`) y volver `oferta` la invitación a una clase en vivo (con su fila `{ canal: ['webinar'] }`);
+- `plantillasParaApi` todavía no devuelve `objetivo` ni `cuando` (`lib/editor-video/chat-api.ts`);
+- buscar en la web los nombres del elenco (Torre Alameda, «Ventas sin presión») antes de publicar.
+
+**El prompt del chat creció:** el catálogo que lee «Editar con IA» pasó a 11 renglones de plantillas (~4.700 caracteres de
+~29.800 en total). Sin tope medido para ese chat; si un proveedor chico se cae por tamaño, el primer sospechoso es éste.
+
+**Vive en:** `lib/editor-video/plantillas.ts` · `lib/editor-video/plantillas-ejemplos.ts` · `lib/editor-video/plantillas-etiquetas.ts` ·
+`app/video-editor/plantillas-crear.ts` · *2026-11-18 nube-construir-video*
+
 ## «Nuevo video» dibuja cada plantilla de anuncio, y la miniatura entra ESTÁTICA a propósito (18/11/2026, F160)
 
 **El síntoma:** en «¿Qué vas a crear hoy?» las plantillas de anuncio se veían como el marco vacío con su rótulo, mientras la

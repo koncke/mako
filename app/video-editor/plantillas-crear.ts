@@ -21,7 +21,7 @@
 
 import type { PlantillaCrear } from '@/app/_crear/reglas';
 import { plantillaPorId, plantillasEnOrden, type Plantilla } from '@/lib/editor-video/plantillas';
-import { ejemploDeVideo, insigniaDeVideo } from '@/lib/editor-video/plantillas-ejemplos';
+import { ejemploDeVideo, insigniaDeVideo, plantillaConEjemplo } from '@/lib/editor-video/plantillas-ejemplos';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { PLANTILLAS_GUIADAS, plantillaGuiada } from '@/lib/video-plantillas';
 
@@ -139,13 +139,23 @@ export function destinoDe(id: string): DestinoNuevoVideo | null {
   return null;
 }
 
+/** Las plantillas con su ejemplo ya puesto, una por id: el catálogo es fijo, y la miniatura redibuja si cambia el objeto. */
+const conEjemplo = new Map<string, Plantilla>();
+
 /**
- * La plantilla de anuncio que nombra una tarjeta de «Nuevo video», o null si la tarjeta es otra cosa (un lienzo, una guiada,
- * «Generar con IA»). Es lo que dibuja la miniatura de la tarjeta (./miniatura-nuevo-video.tsx, F160): la MISMA plantilla que
- * arma `destinoDe`, buscada en el catálogo y no reconstruida.
+ * Lo que dibuja la miniatura de una tarjeta de «Nuevo video» (./miniatura-nuevo-video.tsx, F160): la plantilla de anuncio que
+ * nombra, con los textos de SU ejemplo en los huecos (`plantillaConEjemplo`; la «Miniatura» de cada plantilla en
+ * docs/plantillas-reales/video.md es el ejemplo, no la muestra genérica), o null si la tarjeta es otra cosa (un lienzo, una
+ * guiada, «Generar con IA»). La MISMA plantilla que arma `destinoDe`, buscada en el catálogo; y el MISMO objeto en cada
+ * llamada, porque la tarjeta la pide en cada render.
  */
 export function plantillaDeTarjeta(id: string): Plantilla | null {
-  return id.startsWith(PREFIJO.plantilla) ? plantillaPorId(id.slice(PREFIJO.plantilla.length)) : null;
+  if (!id.startsWith(PREFIJO.plantilla)) return null;
+  const base = plantillaPorId(id.slice(PREFIJO.plantilla.length));
+  if (!base) return null;
+  let p = conEjemplo.get(base.id);
+  if (!p) conEjemplo.set(base.id, (p = plantillaConEjemplo(base)));
+  return p;
 }
 
 /** La ruta que arma una plantilla de anuncio en un proyecto nuevo (la page la valida contra el catálogo). */
