@@ -7449,3 +7449,21 @@ la prueba gratis del héroe de la portada. Lo que sirve para la próxima:
   caja pasa de 416 (salida de su panel de 362) a 362. Las 25 landings no tienen este problema. Calendario muestra a 375 una
   escena 74 px más ancha a cada lado, pero está centrada y recortada a propósito (`overflow: clip` en su raíz), así que no se
   tocó. Tests: `tests/heroe-vsl-antes-del-boton.test.ts` y `tests/detalle-no-desborda-telefono.test.ts`.
+
+## MaKo Partners al 30% de por vida: la landing recalculada antes de que llegaran las reglas (18/11/2026)
+
+Martín: «Me gusta la misma… solamente calculado a esto». Era la misma landing (`app/mako-partners/LandingPartners.tsx` y
+`Calculadora.tsx`), pero los números ahora salen de `lib/partners-reglas.ts`, que es del chat de Cobros (`COMISION_PARTNER_DIRECTO`,
+`COMISION_PARTNER_PASARELA`, `comisionDelPago(montoUsd, canal)` y el tipo `CanalDelPago`). Lo que sirve para la próxima:
+
+- **Mostrar y probar con las reglas de otro chat que todavía no están en main, sin tocar su archivo.** Se usa un tsconfig propio
+  que extiende el del repo y le pone a `@/lib/partners-reglas` un `paths` exacto hacia una COPIA de su archivo, sacada de su punta
+  con `git show`. tsx lo toma de `TSX_TSCONFIG_PATH` y esbuild de `tsconfig`. Hay una trampa: la copia importa con `./` (por ejemplo
+  `./cobros-reglas`), y esos imports se reescriben a rutas relativas hacia `lib/` del repo, porque una ruta absoluta `C:/…` se lee
+  como un esquema de URL. Así se dibujó el artefacto y se corrieron los tests antes del merge. Lo arma solo
+  `C:/dev/artefactos-mako/armar.mjs partners`, y deja de hacerlo cuando las constantes están en main.
+- **No prometer lo que todavía no pasa.** «¿Cuándo cobro?» dice «cada vez que el negocio paga» y no da fecha: Cobros está pasando la
+  acreditación a un crédito por pago, y `PAGOS_PARA_ACREDITAR` (esperar al 2º pago) deja de aplicar. El pago al partner sigue
+  siendo una transferencia de MaKo (`PAGO_HOY`).
+- **PENDIENTE, fuera de la landing:** «Tu plan» (`app/configuraciones/plan/PlanPanel.tsx`) y /planes (`app/planes/Vitrina.tsx`)
+  siguen diciendo «el primer mes entero». `tests/mako-partners-landing.test.ts` las sigue como están, con un aviso.

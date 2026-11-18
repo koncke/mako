@@ -1,29 +1,29 @@
 'use client';
 
 // =============================================================================
-// Calculadora — «¿cuánto te llevas?», el bloque azul del hero de MaKo Partners (24/10/2026; sólo el azul, 25/10/2026)
+// Calculadora — «¿cuánto te llevas?», el bloque azul del hero de MaKo Partners (24/10/2026; sólo el azul, 25/10/2026;
+// el 30% de por vida, 18/11/2026)
 // =============================================================================
 // Martín (24/10): «Falta algo como "Calculadora" para que calculen cuanto podrían ganar si refieren a X personas». Y el
 // 25/10: «La calculadora ponlo en dode hoy está "Si se suscribe". Y solo la parte azul». Por eso es UN bloque: la barra de
-// cuántos negocios traes, el plan que eligen y el resultado, todo adentro del azul, a la derecha del título (donde estaba la
-// ficha «Si se suscribe»). El resultado grande es lo que se lleva: n veces el 100% del primer mes, a precio de lista
-// (`gananciaDelReferido`). Ni una tasa de conversión inventada. Sin JavaScript se lee con el valor de arranque (5 negocios
-// en el plan más caro).
+// cuántos negocios traes, el plan que eligen, cómo pagan y el resultado, todo adentro del azul, a la derecha del título.
+//
+// EL PROGRAMA NUEVO (18/11/2026, Martín por el Cerebro: «Me gusta la misma… solamente calculado a esto»): el partner se lleva
+// un porcentaje de CADA pago de cada negocio que trae, todos los meses, para siempre. El porcentaje depende de por dónde entra
+// la plata (`COMISION_PARTNER_DIRECTO`: Binance o transferencia; `COMISION_PARTNER_PASARELA`: pasarela o link de pago), y la
+// cuenta la hace `comisionDelPago` (lib/partners-reglas.ts, del chat de Cobros): acá no se escribe ningún número a mano. El
+// resultado grande es lo que le deja CADA MES; abajo, lo de 12 meses. Ni una tasa de conversión inventada. Sin JavaScript se
+// lee con el valor de arranque (5 negocios en el plan más caro, cobrando directo).
 // =============================================================================
 
 import { useState, type ReactNode } from 'react';
-import { gananciaDelReferido } from '@/lib/partners-reglas';
+import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, comisionDelPago, type CanalDelPago } from '@/lib/partners-reglas';
+import { CANALES, MESES_DEL_ANIO, gananciaEnUnAnio, gananciaPorMes, porcentaje, usd } from './numeros';
 
 export type PlanCalculadora = { id: string; nombre: string; precioUsd: number };
 
 export const MAX_NEGOCIOS = 50;
 export const NEGOCIOS_DE_ARRANQUE = 5;
-
-const usd = (n: number) => `US$ ${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
-
-/** Lo que se lleva por traer `n` negocios a un plan: `n` veces su primer mes entero. Puro (lo prueba el test). */
-export const gananciaPorNegocios = (n: number, precioUsd: number): number =>
-  Math.round(Math.max(0, Math.floor(n)) * gananciaDelReferido(precioUsd) * 100) / 100;
 
 export function Calculadora({ planes, children }: {
   /** Los planes que puede elegir un referido, del más caro al más barato. */
@@ -33,9 +33,11 @@ export function Calculadora({ planes, children }: {
 }) {
   const [n, setN] = useState(NEGOCIOS_DE_ARRANQUE);
   const [planId, setPlanId] = useState(planes[0]?.id ?? '');
+  const [canal, setCanal] = useState<CanalDelPago>(CANALES[0].id);
   const plan = planes.find((p) => p.id === planId) ?? planes[0];
   if (!plan) return null;
-  const total = gananciaPorNegocios(n, plan.precioUsd);
+  const porMes = gananciaPorMes(n, plan.precioUsd, canal);
+  const parte = canal === 'directo' ? COMISION_PARTNER_DIRECTO : COMISION_PARTNER_PASARELA;
   return (
     <div className="mp-calc" id="calculadora" aria-label="Calculadora de lo que ganas">
       <div className="mp-calc-etq">Calcula lo que te llevas</div>
@@ -54,11 +56,21 @@ export function Calculadora({ planes, children }: {
           </button>
         ))}
       </div>
+      <div className="mp-calc-sub" id="mp-calc-canal">Cómo te pagan los negocios</div>
+      <div className="mp-calc-planes" role="radiogroup" aria-labelledby="mp-calc-canal">
+        {CANALES.map((c) => (
+          <button key={c.id} type="button" role="radio" aria-checked={c.id === canal}
+            className={`mp-calc-plan${c.id === canal ? ' activo' : ''}`} onClick={() => setCanal(c.id)}>
+            {c.texto}
+          </button>
+        ))}
+      </div>
       <div className="mp-calc-res" aria-live="polite">
-        <div className="mp-calc-res-etq">Te llevas</div>
-        <div className="mp-calc-res-monto">{usd(total)}</div>
+        <div className="mp-calc-res-etq">Te llevas cada mes</div>
+        <div className="mp-calc-res-monto">{usd(porMes)}</div>
+        <div className="mp-calc-res-anio">En {MESES_DEL_ANIO} meses: <b>{usd(gananciaEnUnAnio(n, plan.precioUsd, canal))}</b></div>
         <div className="mp-calc-res-cuenta">
-          {n} {n === 1 ? 'negocio' : 'negocios'} × {usd(gananciaDelReferido(plan.precioUsd))}: el primer mes entero de {n === 1 ? 'su' : 'cada'} {plan.nombre}
+          {n} {n === 1 ? 'negocio' : 'negocios'} × {usd(comisionDelPago(plan.precioUsd, canal))}: el {porcentaje(parte)} de {n === 1 ? 'su' : 'cada'} {plan.nombre}, todos los meses
         </div>
       </div>
       {children}

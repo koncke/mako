@@ -13,6 +13,7 @@ import { ConfirmDialog } from '../../_components/ChatItemMenu';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes, Pastilla } from '../../_ui/Ajustes';
 import { IconoMenu } from '../../_ui/iconos-menu';
 import { MARCA } from '@/lib/tutoriales/marcas';
+import { PORCENTAJE_DIRECTO } from '@/app/mako-partners/numeros';
 import { aceptarRetencionAction, darmeDeBajaAction, empezarPlanYaAction, pasarAProAction, pedirProAction } from './actions';
 import type { OfertaRetencion, OpcionRetencion } from '@/lib/retencion-plan';
 import { CAPACIDADES_PASARELA, COMO_SE_PAGA, NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
@@ -206,10 +207,11 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
         )}
       </GrupoAjustes>
       {aviso && <p className="aj-texto" role="status" style={{ color: aviso.ok ? 'var(--good)' : 'var(--bad)' }}>{aviso.texto}</p>}
-      {/* MaKo Partners (23/10/2026): cualquier negocio recomienda MaKo. Desde el 25/10 gana DINERO: el 100% del primer mes. */}
+      {/* MaKo Partners (23/10/2026): cualquier negocio recomienda MaKo y gana DINERO. Desde el 18/11, el 30% de cada pago de cada negocio,
+          de por vida (el 25% si paga por pasarela): el porcentaje sale de la regla (app/mako-partners/numeros.ts). */}
       {!clienteDeAgencia && (
-        <GrupoAjustes titulo="Recomienda MaKo" descripcion="Comparte tu link: te llevas el primer mes entero de cada negocio que entra por él.">
-          <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Con MaKo Partners te llevas el primer mes entero de cada negocio que traigas." href="/partners" apilada />
+        <GrupoAjustes titulo="Recomienda MaKo" descripcion={`Comparte tu link: te llevas el ${PORCENTAJE_DIRECTO} de cada pago de cada negocio que entra por él, de por vida.`}>
+          <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle={`Con MaKo Partners te llevas el ${PORCENTAJE_DIRECTO} de cada pago de cada negocio que traigas, todos los meses.`} href="/partners" apilada />
         </GrupoAjustes>
       )}
       {puedeDarseDeBaja && (

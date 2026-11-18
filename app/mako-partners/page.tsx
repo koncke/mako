@@ -12,7 +12,7 @@ import type { Metadata } from 'next';
 import { LandingPartners } from './LandingPartners';
 import { PieGlobal } from '../vsl/_sitio/Barra';
 
-export const metadata: Metadata = { title: 'MaKo Partners: llévate el 100% del primer mes de cada negocio que traigas', robots: { index: true, follow: true } };
+export const metadata: Metadata = { title: 'MaKo Partners: llévate el 30% de cada pago de cada negocio que traigas, de por vida', robots: { index: true, follow: true } };
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 

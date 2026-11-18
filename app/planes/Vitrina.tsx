@@ -24,6 +24,7 @@ import { botonDelPlan } from '@/lib/compra-plan-reglas';
 import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, planConPrueba, rutaDelPlan, type PlanMako } from '@/lib/planes-mako';
 import { GRUPOS_DE_LA_TABLA, celdaDeCapa, filasDeComparacion, nombreCorto, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
+import { PORCENTAJE_DIRECTO } from '@/app/mako-partners/numeros';
 import { signoInfo } from './signos';
 import { CSS_TARJETAS, TarjetasPlanes, type PlanEnTarjeta } from './Tarjetas';
 import { CSS_TOKENS, CalculadoraTokens } from './CalculadoraTokens';
@@ -172,7 +173,7 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
           ))}
         </section>
 
-        <p className="planes-pie">¿Ya tienes MaKo? Recomiéndalo y llévate el primer mes entero de cada negocio que traigas: <Link href="/mako-partners">MaKo Partners</Link></p>
+        <p className="planes-pie">¿Ya tienes MaKo? Recomiéndalo y llévate el {PORCENTAJE_DIRECTO} de cada pago de cada negocio que traigas, de por vida: <Link href="/mako-partners">MaKo Partners</Link></p>
       </div>
     </main>
   );
