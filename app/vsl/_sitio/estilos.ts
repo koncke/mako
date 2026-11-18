@@ -115,9 +115,13 @@ export const CSS_BARRA = `
 .s-nb-lleno:hover{background:${GRIS}}
 
 /* El menú abierto: a todo el ancho, debajo de la barra, #0D0B28 con filete abajo; entra en .32 s. */
-.s-mega{position:absolute;left:0;right:0;top:100%;background:${CARD};border-bottom:1px solid ${LINEA12};opacity:0;visibility:hidden;transform:translateY(-8px);pointer-events:none;transition:opacity .32s,transform .32s,visibility 0s linear .32s}
-.s-nav-it:hover>.s-mega,.s-nav-it:focus-within>.s-mega{opacity:1;visibility:visible;transform:none;pointer-events:auto;transition:opacity .32s,transform .32s,visibility 0s}
-.s-nav:hover .s-nav-it:not(:hover)>.s-mega{opacity:0;visibility:hidden;transform:translateY(-8px);pointer-events:none}
+/* EL MENÚ NO SE CAMBIA AL CRUZAR EN DIAGONAL (18/11/2026, Martín: «aprieto MaKo Partners y no me redirecciona a ningún lado»). Para
+   llegar a «MaKo Partners» (primera columna de Recursos) el mouse cruza «Producto» o «Industrias»: el menú se cambiaba al instante y
+   el clic caía en otro link (MaKo Agency). Ahora hay una intención: el que se abre espera .15 s y el que se va sigue visible .15 s;
+   si el mouse llega al panel antes, nada cambia. Los clics los corta «visibility» (que también espera), no «pointer-events». */
+.s-mega{position:absolute;left:0;right:0;top:100%;background:${CARD};border-bottom:1px solid ${LINEA12};opacity:0;visibility:hidden;transform:translateY(-8px);transition:opacity .2s,transform .2s,visibility 0s linear .2s}
+.s-nav-it:hover>.s-mega,.s-nav-it:focus-within>.s-mega{opacity:1;visibility:visible;transform:none;transition:opacity .32s .15s,transform .32s .15s,visibility 0s .15s}
+.s-nav:hover .s-nav-it:not(:hover)>.s-mega{opacity:0;visibility:hidden;transform:translateY(-8px);transition:opacity .2s .15s,transform .2s .15s,visibility 0s linear .35s}
 .s-nav:hover .s-nav-it:not(:hover)>.s-nav-a{background:transparent;color:${GRIS}}
 .s-mega-in{width:min(1200px,calc(100% - 48px));margin:0 auto;padding:40px 0 44px}
 /* «Product»: los cuatro grandes (cuadro de 40 #141230 radio 4 con el ícono de 20 en el color de acento; 15/20 700 y 15/20 500). */

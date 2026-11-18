@@ -7518,3 +7518,18 @@ Martín: «Me gusta la misma… solamente calculado a esto». Era la misma landi
   (el logo de MaKo en su cuadro negro salía gris claro aunque el CSS dijera `#12151B`). El cuadro que tiene que quedar oscuro
   lleva `data-tema-fijo=""`.
 - **Regla:** si GoHighLevel cambia, la fila se corrige o se va. Una fila sin fuente oficial no entra.
+
+## «Aprieto MaKo Partners y no me lleva a ningún lado»: no era el link, era el menú (18/11/2026)
+
+- **El diagnóstico obvio era el equivocado.** Parecía un link roto en el artefacto (`/mako-partners` sin cambiar a
+  `partners.html`), pero todos estaban bien y un `click()` programático navegaba. Lo que fallaba era el MOUSE: «MaKo Partners» está
+  en la primera columna del menú «Recursos», y para llegar el mouse cruza en diagonal «Producto» o «Industrias». El CSS cambiaba de
+  menú al instante (`.s-nav:hover .s-nav-it:not(:hover)>.s-mega` lo escondía en el acto) y el clic caía en «MaKo Agency». Pasa en
+  el sitio real, no sólo en el artefacto.
+- **Cómo se reproduce:** Playwright con `mouse.move` en pasos desde «Recursos» hasta el link (no `element.click()`, que no cruza
+  nada).
+- **El arreglo** (app/vsl/_sitio/estilos.ts, CSS_BARRA): intención. El que se abre espera .15 s y el que se va sigue visible .15 s.
+  Los clics los corta `visibility` (que respeta el `transition-delay`), no `pointer-events` (que cambia al instante y dejaba el
+  panel de abajo «agarrable»). Test: tests/barra-menu-intencion.test.ts.
+- **Trampa de los CSS en template literals:** un comentario con comillas invertidas adentro de `CSS_BARRA` rompe el archivo
+  («Transform failed»). En los comentarios de CSS, «comillas» y no backticks.
