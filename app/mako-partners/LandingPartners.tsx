@@ -179,11 +179,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-paso-ic { width: 26px; height: 26px; color: var(--mp-azul); }
 .mp-paso b { font-size: 19px; line-height: 1.25; color: var(--mp-ink); }
 .mp-paso > span { font-size: 16px; color: var(--mp-dim); }
-/* Las marcas del deslizador (20, 50 y 100), chiquitas, debajo de la pista. */
-.mp-calc-marcas { position: relative; height: 22px; margin: 6px 12px 0; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.mp-calc-marcas span { position: absolute; top: 0; transform: translateX(-50%); padding-top: 6px; opacity: .7; }
-.mp-calc-marcas span::before { content: ""; position: absolute; top: 0; left: 50%; width: 1px; height: 4px; background: currentColor; }
-.mp-calc-marcas span.activa { opacity: 1; }
+
 .mp-faq { max-width: 780px; margin: 0 auto; display: grid; gap: 10px; }
 .mp-faq details { background: var(--mp-sup); border: 1px solid var(--mp-borde); border-radius: 16px; padding: 0 22px; }
 .mp-faq summary { cursor: pointer; list-style: none; padding: 18px 0; font-weight: 700; font-size: 17px; color: var(--mp-ink); display: flex;

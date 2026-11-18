@@ -28,7 +28,8 @@ export const MAX_NEGOCIOS = 100;
 /**
  * LAS FRENADAS (18/11/2026, Martín: «que se detenga en 20, en 50 y después en 100… no que se detenga, sino que haga una muy pequeña
  * frenada»): al arrastrar, un valor a ±2 de una marca se acomoda en ella (100 es el final). Sólo al arrastrar: con el teclado sigue de
- * a 1 (si no, desde 18 la flecha caería siempre en 20 y no se podría pasar a 21).
+ * a 1 (si no, desde 18 la flecha caería siempre en 20 y no se podría pasar a 21). Sin marcas debajo de la pista (Martín: «no hace falta
+ * que pongas… abajo 20, 50 o 100… Sí que se detenga ahí»).
  */
 export const MARCAS_NEGOCIOS = [20, 50, MAX_NEGOCIOS] as const;
 export const iman = (v: number): number => MARCAS_NEGOCIOS.find((m) => Math.abs(v - m) <= 2) ?? v;
@@ -133,9 +134,6 @@ export function Calculadora({ planes, children }: {
         onPointerDown={() => { arrastrando.current = true; }} onPointerUp={() => { arrastrando.current = false; }}
         onChange={(e) => { const v = Number(e.currentTarget.value); setN(arrastrando.current ? iman(v) : v); }}
         style={{ ['--mp-lleno' as string]: posicion(n) }} />
-      <div className="mp-calc-marcas" aria-hidden="true">
-        {MARCAS_NEGOCIOS.map((m) => <span key={m} className={n === m ? 'activa' : ''} style={{ left: posicion(m) }}>{m}</span>)}
-      </div>
       <div className="mp-calc-res" aria-live="polite">
         <div className="mp-calc-monto">{usd(porMes)} <span>al mes</span></div>
         <div className="mp-calc-anio">{usd(gananciaEnUnAnio(n, plan.precioUsd, canal))} en un año</div>

@@ -95,7 +95,7 @@ test('la CALCULADORA: dos botones que alternan (plan y cómo te pagan), el desli
   assert.equal(calcT.trim(),
     // Cada botón muestra SÓLO la opción de ahora: el texto completo (computadora) y el corto (teléfono), el CSS muestra uno; el del
     // plan, con su precio debajo.
-    'MaKo: US$ 97 MaKo: US$ 97 Transferencia Transferencia ¿Cuántos negocios traes? 5 20 50 100 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
+    'MaKo: US$ 97 MaKo: US$ 97 Transferencia Transferencia ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
     'sin JavaScript: 5 negocios con el plan más caro, cobrando directo; y NADA más');
   assert.equal((calc.match(/<input/g) ?? []).length, 1, 'un solo deslizador');
   assert.match(calc, /<input id="mp-calc-n" class="mp-calc-barra" type="range" min="1" max="100"/, 'hasta 100 negocios');
