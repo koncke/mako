@@ -2262,10 +2262,43 @@ MB); la copia en 1080p está en `OneDrive/Escritorio/MaKo-VSL/tutoriales/videos/
 - **Medido:** la voz v4 cobra ~0,44 créditos por carácter (~170 por tutorial); cada video, 1,5 a 2,5 min de render con UN
   Chromium por vez (la PC tiene 16 GB y otros chats); en 720p entran en 1,5 MB con CRF 25 (el recorrido, de 37 s, con 29).
 
-### Lo que quedó SIN hacer (18/11)
+### v5: los guiones saben qué está viviendo la persona, más el onboarding y el reto (18/11, tarde)
 
-- 34 marcas `FALTA` (classroom-*, settings-*, partners, agency, api, chats): las está poniendo el chat de las pestañas con esos
-  ids. Mientras no estén en main, el motor de la app no encuentra qué marcar en esas frases.
-- Las 16 pestañas que no tenían guion aprobado se escribieron desde el código; las de Classroom y Equipo describen la pantalla de
-  Pro (en Essential, según el código, muestran un candado o son de una sola persona). No verificado en la app.
-- Offer Coach está dentro de Funnel Coach desde el 4/11; si Martín los vuelve a separar, cambian el recorrido y el video de Offer.
+Martín: el primer video presenta al muñeco, el primero de cada día saluda el día y cada pestaña da su bienvenida («en esta
+pestaña vas a poder…»). Son 47 videos: las 34 pestañas, el recorrido, 5 del onboarding (`onboarding-bienvenida`,
+`onboarding-whatsapp`, `onboarding-seguir-pc`, `offer-coach`, `funnel-coach`) y `reto-dia-1` a `reto-dia-7`. Los guiones están
+en `scripts/tutorial-animado/guiones.json` (la marca `v5`). `aplicar-v5.mjs` los escribió una vez; `voces.mjs` hace las voces de
+una tanda con su chequeo; `renders.mjs` renderiza y deja una hoja de cuadros por video.
+
+- **⚠️ El diagnóstico obvio era el equivocado: el primer video no era el recorrido.** El pedido decía «el recorrido, el primero
+  que ve». El primero es `onboarding-bienvenida`, en /onboarding al entrar después de pagar. El recorrido sale la primera vez que
+  se entra al Ops Center, ya pasado el onboarding. La presentación va donde la persona ve al muñeco por primera vez, y el
+  recorrido abre con «¡Hola de nuevo!». El orden lo sabe el chat del onboarding, no el guion: se pregunta antes de escribir.
+- **Un video que la app muestra «sólo el mp4» no puede decir «toca aquí».** Los del onboarding y el reto no tienen frases ni
+  marcas: el «aquí» señalaría la nada. En el reto, las marcas las dispara cada tarea de la lista de debajo del video
+  (`lib/reto/dias.ts`), así que el video manda a esa lista. Antes de escribir un «toca aquí» hay que preguntar si ESE lugar lee
+  `frases[]`.
+- **«Toca» a mitad de un recorrido puede abrir otro tutorial.** Si el recorrido se pausaba hasta tocar Funnel Coach, el coach se
+  abría y arrancaba su propio video de la primera vez. Los dos coaches van con «mira»: se marcan sin pausar.
+- **El nombre de la app manda: «Settings», no «Configuración».** El menú de la foto dice «Settings» (app/_components/nav.ts) y
+  ninguna pantalla dice «Configuración». Los v4 lo traían del pedido, no de la app.
+- **«Bienvenido a X» no se usa: va «Te doy la bienvenida a X».** Es la regla de textos neutros en género, y la dice Martín en
+  primera persona.
+- **Después de la pantalla azul quedaban ~0,3 s de pantalla vacía.** El texto del costado espera 220 ms cuando el personaje viene
+  del centro, para no pasar por su cabeza. Esperaba también después de un título azul, donde el personaje no está y entra por la
+  derecha: el texto nunca se cruza con él. Ahora espera sólo después de una pantalla `heroe` (engine3.js, `textoLado`). Se vio en
+  la hoja de cuadros de funnel-coach, no en el log.
+- **La regla de las letras tapadas se mide sólo en el modo de cuadros de `render2.cjs`.** Un `hacer.mjs <id> video` no la mide.
+  `renders.mjs` corre antes una pasada de cuadros y anota el veredicto.
+- **Medido:** 47 voces dicen su guion (3 pidieron una toma más) y cobraron ~8.600 créditos. Cada render tarda 45 a 110 s con la GPU.
+
+### Lo que quedó SIN hacer (18/11, tarde)
+
+- `offer-coach` y el recorrido marcan Offer Coach con `button[title="Offer Coach"]`, que no está confirmado. La app todavía no
+  separó los coaches; la marca la confirma el chat del onboarding, y se cambia en el manifiesto sin tocar el video.
+- `reto-dia-3` sale SIN la difusión: el Cerebro la está confirmando con Martín (nada invasivo, cuidar el baneo). Si dice que sí,
+  se suma una frase y se rehace ese video.
+- Las keys `onboarding-*` y `offer-coach`/`funnel-coach` las crea en la app el chat del onboarding (con el deploy del 19/11, detrás
+  del interruptor). Sin su lugar, el video está en el manifiesto y no se ve.
+- Las pestañas de Classroom y Equipo describen la pantalla de Pro (en Essential, según el código, muestran un candado o son de una
+  sola persona). No verificado en la app.
