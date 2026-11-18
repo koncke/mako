@@ -4,7 +4,7 @@
 // Martín (18/11): «el tema de la pasarela de pago, también deberías agregar ahí la opción de transferencia para el resto de personas,
 // incluso que no son por partners». Primero fue «5 % de descuento si pagan por eso»; a la tarde lo dio vuelta: «tiene que ser al revés… el
 // precio final que nosotros definimos. Si pagan por pasarela de pago, se le debe sumar el 5 %, no restarnos a nosotros». HOY: el precio de
-// lista es el de transferencia o Binance (US$ 97 y US$ 47, los links de Binance son por 97 y 47 USDT); la pasarela cobra lista + 5 %
+// lista es el de transferencia o Binance (US$ 97 y US$ 47; por Binance, el monto en USDT es el de lista); la pasarela cobra lista + 5 %
 // (`conRecargoDePasarela`, que lee `compra-plan.ts` en `ofertaDelPlan`: lo que se muestra es lo que se cobra).
 //
 // QUÉ ES HOY: una opción más junto a las pasarelas (app/planes/[plan]/CompraPlan.tsx). Al elegirla se ven los datos de MaKo para
@@ -38,10 +38,11 @@ export type DatosDePagoDirecto = {
   /** Binance: el Pay ID de MaKo. */
   binancePayId: string | null;
   /**
-   * Binance: el «payment link» de Binance Pay EXIGE monto, así que hay uno por plan y período, en USDT y con el 5 % ya descontado
-   * (Pro mensual 92,15; Essential 44,65…). Clave `<idDelPlan>:<mensual|anual>`; sólo https. Sin link para el plan, se muestra el Pay ID.
+   * Binance: el QR personal de «Recibir» de Binance Pay de MaKo (`https://app.binance.com/uni-qr/<código>`): PERMANENTE, lo paga cualquiera, todas las
+   * veces que quiera, y quien paga pone el monto (por eso el checkout muestra el monto en USDT bien grande). ⚠️ NO un «payment request»: vence a los 30
+   * días y puede ser de un solo pago (medido por el Cerebro, 18/11; los 4 links por plan que Martín había creado se descartaron). Sólo https.
    */
-  linksBinance: Record<string, string>;
+  linkBinance: string | null;
   /** Transferencia: el link «Transferime con Mercado Pago» de la cuenta de MaKo (abre la app para transferir; no trae monto). */
   linkTransferencia: string | null;
   /** Transferencia: alias y CVU de la Mercado Pago de MaKo. */
@@ -58,12 +59,15 @@ export type DatosDePagoDirecto = {
 export const CLAVE_PAGO_DIRECTO = 'planes.pago_directo';
 
 // ⚠️ SIN INVENTAR NADA (Cerebro, 18/11): los carga Martín. Mientras estén vacíos, la opción no aparece en el checkout.
-export const DATOS_VACIOS: DatosDePagoDirecto = { binancePayId: null, linksBinance: {}, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null };
+export const DATOS_VACIOS: DatosDePagoDirecto = { binancePayId: null, linkBinance: null, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null };
 
 const texto = (v: unknown, max: number): string | null => {
   const t = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '';
   return t || null;
 };
+
+/** Un enlace sólo si es https (se dibuja como un link para un cliente: nunca `javascript:` ni nada raro). */
+const soloHttps = (u: string | null): string | null => (u && /^https:\/\/[^\s]+$/i.test(u) ? u : null);
 
 /** Los datos como los escribió Martín, limpios (lo que no se entiende queda en null: nunca se guarda basura que se muestre a un cliente). */
 export function datosLimpios(v: unknown): DatosDePagoDirecto {
@@ -71,18 +75,11 @@ export function datosLimpios(v: unknown): DatosDePagoDirecto {
   const wa = String(o.whatsapp ?? '').replace(/\D/g, '');
   const email = texto(o.email, 200);
   const link = texto(o.linkTransferencia, 300);
-  // Los links de Binance por plan: clave `<plan>:<mensual|anual>`, valor https. Lo que no cumple se descarta (no se le muestra a un cliente).
-  const linksBinance: Record<string, string> = {};
-  const crudos = o.linksBinance && typeof o.linksBinance === 'object' && !Array.isArray(o.linksBinance) ? (o.linksBinance as Record<string, unknown>) : {};
-  for (const [k, v] of Object.entries(crudos).slice(0, 40)) {
-    const u = texto(v, 300);
-    if (/^[a-z0-9-]{1,32}:(mensual|anual)$/.test(k) && u && /^https:\/\/[^\s]+$/i.test(u)) linksBinance[k] = u;
-  }
   return {
     binancePayId: texto(o.binancePayId, 40),
-    linksBinance,
+    linkBinance: soloHttps(texto(o.linkBinance, 300)),
     // Sólo https (se dibuja como un enlace para un cliente: nunca `javascript:` ni nada raro).
-    linkTransferencia: link && /^https:\/\/[^\s]+$/i.test(link) ? link : null,
+    linkTransferencia: soloHttps(link),
     alias: texto(o.alias, 60),
     cvu: texto(o.cvu, 40),
     titular: texto(o.titular, 120),
@@ -100,13 +97,10 @@ export function datosDeSetting(crudo: string | null): DatosDePagoDirecto {
 /** Con qué se puede pagar HOY: Binance si hay Pay ID; transferencia si hay link, alias o CVU. Vacío = la opción no se muestra. */
 export function mediosDisponibles(d: DatosDePagoDirecto): MedioDirecto[] {
   const out: MedioDirecto[] = [];
-  if (d.binancePayId || Object.keys(d.linksBinance).length) out.push('binance');
+  if (d.binancePayId || d.linkBinance) out.push('binance');
   if (d.alias || d.cvu || d.linkTransferencia) out.push('transferencia');
   return out;
 }
-
-/** El link de Binance Pay del plan y período elegidos, o null (entonces el checkout muestra el Pay ID). */
-export const linkDeBinance = (d: DatosDePagoDirecto, plan: string, periodo: 'mensual' | 'anual' = 'mensual'): string | null => d.linksBinance[`${plan}:${periodo}`] ?? null;
 
 const centavos = (n: number) => Math.round(n * 100) / 100;
 

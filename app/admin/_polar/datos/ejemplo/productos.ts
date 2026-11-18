@@ -95,7 +95,7 @@ export const PAGOS_EJEMPLO: DatosPagos = {
   precioAgencia: { usd: 47, mp: { moneda: 'ARS', monto: 56000 } },
   errorAgencia: null,
   conMercadoPago: true,
-  pagoDirecto: { binancePayId: null, linksBinance: {}, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null },
+  pagoDirecto: { binancePayId: null, linkBinance: null, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null },
 }
 
 export const NOTIFICACIONES_EJEMPLO: DatosNotificaciones = { ok: true, emisor: EMISOR_EJEMPLO, waSolo: true }

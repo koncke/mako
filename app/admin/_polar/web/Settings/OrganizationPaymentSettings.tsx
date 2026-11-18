@@ -180,9 +180,10 @@ function ClienteDeAgencia({ inicial, conMercadoPago }: { inicial: PrecioClienteA
   )
 }
 
-type CampoDePagoDirecto = Exclude<keyof DatosDePagoDirecto, 'linksBinance'>
+type CampoDePagoDirecto = keyof DatosDePagoDirecto
 const CAMPOS_PAGO_DIRECTO: ReadonlyArray<{ campo: CampoDePagoDirecto; titulo: string; ayuda?: string; modo?: 'text' | 'tel' | 'email' }> = [
-  { campo: 'binancePayId', titulo: 'Binance Pay ID', ayuda: 'Sin él, no se ofrece pagar por Binance.' },
+  { campo: 'binancePayId', titulo: 'Binance Pay ID', ayuda: 'Va siempre debajo, con «Copiar». Con él o con el link, se ofrece pagar por Binance.' },
+  { campo: 'linkBinance', titulo: 'Link de Binance Pay (tu QR de «Recibir»)', ayuda: 'El enlace https de tu QR personal de Recibir: es permanente y quien paga pone el monto. NO uses un «payment request» (vence a los 30 días). En la PC se dibuja como QR.' },
   { campo: 'linkTransferencia', titulo: 'Link «Transferime con Mercado Pago»', ayuda: 'Un enlace https que abre la app de Mercado Pago para transferirte. Es el botón principal de la transferencia.' },
   { campo: 'alias', titulo: 'Alias de la Mercado Pago', ayuda: 'Con el link, el alias o el CVU, se ofrece la transferencia.' },
   { campo: 'cvu', titulo: 'CVU' },
@@ -191,35 +192,32 @@ const CAMPOS_PAGO_DIRECTO: ReadonlyArray<{ campo: CampoDePagoDirecto; titulo: st
   { campo: 'email', titulo: 'Email de cobros', ayuda: 'Sin él no sale el botón de email.', modo: 'email' },
 ]
 
-/** «Transferencia o Binance · 5% OFF» (18/11/2026): los datos que ve quien elige pagar así en /planes. Sin ninguno cargado, la opción no se muestra. */
-function PagoDirecto({ inicial, planes }: { inicial: DatosDePagoDirecto; planes: ReadonlyArray<{ id: string; nombre: string; precioUsd: number }> }) {
+/** «Transferencia o Binance» (18/11/2026): los datos que ve quien elige pagar así en /planes. Sin ninguno cargado, la opción no se muestra. */
+function PagoDirecto({ inicial }: { inicial: DatosDePagoDirecto }) {
   const router = useRouter()
   const [valores, setValores] = useState<Record<CampoDePagoDirecto, string>>(() => Object.fromEntries(CAMPOS_PAGO_DIRECTO.map((c) => [c.campo, inicial[c.campo] ?? ''])) as Record<CampoDePagoDirecto, string>)
-  // Un link de Binance Pay por plan (mensual): `<idDelPlan>:mensual`. El anual, si hace falta, va con la clave `<idDelPlan>:anual` (el checkout de hoy cobra por mes).
-  const [links, setLinks] = useState<Record<string, string>>(() => ({ ...inicial.linksBinance }))
-  const [guardado, setGuardado] = useState(JSON.stringify({ valores, links }))
+  const [guardado, setGuardado] = useState(JSON.stringify(valores))
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const marca = useMarcaDeGuardado()
 
   async function guardar() {
-    if (JSON.stringify({ valores, links }) === guardado) return
+    if (JSON.stringify(valores) === guardado) return
     setGuardando(true)
-    const r = await guardarPagoDirectoAction({ ...valores, linksBinance: links } as unknown as DatosDePagoDirecto).catch(() => ({ ok: false as const, error: 'No pude guardar los datos.' }))
+    const r = await guardarPagoDirectoAction(valores as unknown as DatosDePagoDirecto).catch(() => ({ ok: false as const, error: 'No pude guardar los datos.' }))
     setGuardando(false)
     if (!r.ok) { setError(r.error); return }
     setError(null)
     // Lo que no se entendió (un WhatsApp con pocos dígitos, un email roto) vuelve vacío: se ve que no se guardó.
     const limpio = Object.fromEntries(CAMPOS_PAGO_DIRECTO.map((c) => [c.campo, r.datos[c.campo] ?? ''])) as Record<CampoDePagoDirecto, string>
     setValores(limpio)
-    setLinks({ ...r.datos.linksBinance })
-    setGuardado(JSON.stringify({ valores: limpio, links: r.datos.linksBinance }))
+    setGuardado(JSON.stringify(limpio))
     marca.marcar()
     router.refresh()
   }
 
   return (
-    <SettingsGroup title="Transferencia o Binance · 5% OFF" description="Los datos que ve quien elige pagar así en el checkout, con el 5% de descuento. Sin ninguno cargado, la opción no se muestra. La activación la haces tú a mano.">
+    <SettingsGroup title="Transferencia o Binance" description="Los datos que ve quien elige pagar así en el checkout, al precio de lista (por pasarela se cobra el 5% más). Sin ninguno cargado, la opción no se muestra. La activación la haces tú a mano.">
       {CAMPOS_PAGO_DIRECTO.map((c) => (
         <SettingsGroupItem key={c.campo} title={c.titulo} description={c.ayuda}>
           <Box flexDirection="column" rowGap="s" width="100%" alignItems="end">
@@ -230,22 +228,6 @@ function PagoDirecto({ inicial, planes }: { inicial: DatosDePagoDirecto; planes:
               value={valores[c.campo]}
               disabled={guardando}
               onChange={(e) => setValores((v) => ({ ...v, [c.campo]: e.target.value }))}
-              onBlur={() => void guardar()}
-              onKeyDown={(e) => { if (e.key === 'Enter') void guardar() }}
-            />
-          </Box>
-        </SettingsGroupItem>
-      ))}
-      {planes.map((pl) => (
-        <SettingsGroupItem key={pl.id} title={`Link de Binance Pay · ${pl.nombre}`} description={`El payment link por mes, en USDT, con el 5% ya descontado (${(Math.round(pl.precioUsd * 95) / 100).toLocaleString('es-AR')}). Sin link, se muestra el Binance Pay ID.`}>
-          <Box flexDirection="column" rowGap="s" width="100%" alignItems="end">
-            <Input
-              aria-label={`Link de Binance Pay de ${pl.nombre}`}
-              inputMode="url"
-              placeholder="Sin cargar"
-              value={links[`${pl.id}:mensual`] ?? ''}
-              disabled={guardando}
-              onChange={(e) => setLinks((v) => ({ ...v, [`${pl.id}:mensual`]: e.target.value }))}
               onBlur={() => void guardar()}
               onKeyDown={(e) => { if (e.key === 'Enter') void guardar() }}
             />
@@ -285,7 +267,7 @@ const OrganizationPaymentSettings: React.FC<{ datos: DatosPagos }> = ({ datos })
         </SettingsGroup>
       )}
 
-      {datos.pagoDirecto ? <PagoDirecto inicial={datos.pagoDirecto} planes={activos.map((p) => ({ id: p.id, nombre: p.nombre, precioUsd: p.precioUsd }))} /> : <Alert variant="danger" title="No pude leer los datos de «Transferencia o Binance»" />}
+      {datos.pagoDirecto ? <PagoDirecto inicial={datos.pagoDirecto} /> : <Alert variant="danger" title="No pude leer los datos de «Transferencia o Binance»" />}
 
       {datos.precioAgencia ? (
         <ClienteDeAgencia inicial={datos.precioAgencia} conMercadoPago={datos.conMercadoPago} />

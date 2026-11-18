@@ -254,7 +254,7 @@ test('41 · Payments: el monto de Mercado Pago dice la consecuencia, sin el crit
             precioAgencia: { usd: 47, mp: { moneda: 'ARS', monto: 50000 } },
             errorAgencia: null,
             conMercadoPago: true,
-            pagoDirecto: { binancePayId: null, linksBinance: {}, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null },
+            pagoDirecto: { binancePayId: null, linkBinance: null, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null },
           },
         }))))
   assert.ok(html.includes('Sin este monto no sale el link del primer mes.'))

@@ -33,7 +33,7 @@ import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared
 import type { Pasarela } from '@/lib/cobros-tipos';
 import { TEXTO_PRECIO_CAMBIO, type OrigenCompra } from '@/lib/compra-plan-reglas';
 import {
-  NOMBRE_MEDIO_DIRECTO, formatoDelMonto, linkDeBinance, textoDelComprobante, urlDeEmail, urlDeWhatsApp,
+  NOMBRE_MEDIO_DIRECTO, formatoDelMonto, textoDelComprobante, urlDeEmail, urlDeWhatsApp,
   type DatosDePagoDirecto, type MedioDirecto,
 } from '@/lib/pago-directo-reglas';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
@@ -76,8 +76,8 @@ export type OpcionDirecta = {
   montos: Partial<Record<MedioDirecto, { monto: number; moneda: 'USD' | 'ARS' }>>;
   datos: DatosDePagoDirecto;
   nombrePlan: string;
-  /** El id del plan: con él se busca su link de Binance Pay (`linksBinance`). */
-  planId: string;
+  /** El QR (data URL, ya dibujado en el servidor) del link de Binance Pay de MaKo: se ve en la PC para escanearlo con el teléfono. null = sin link. */
+  qrBinance: string | null;
 };
 
 const PANEL_DIRECTO: React.CSSProperties = { border: '1px solid rgba(17,17,17,.14)', borderRadius: 12, padding: '14px 14px 12px', background: '#fafafa', marginTop: 10, display: 'grid', gap: 10 };
@@ -290,12 +290,17 @@ export function CompraPlan(p: {
               {medioDirecto === 'transferencia' && p.directo.datos.linkTransferencia && (
                 <a className="planes-btn" href={p.directo.datos.linkTransferencia} target="_blank" rel="noopener noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>TRANSFERIR CON MERCADO PAGO</a>
               )}
-              {/* Binance: el link del plan (trae el monto con el 5% ya descontado); sin link para este plan, el Pay ID con «Copiar». */}
-              {medioDirecto === 'binance' && linkDeBinance(p.directo.datos, p.directo.planId) && (
-                <a className="planes-btn" href={linkDeBinance(p.directo.datos, p.directo.planId)!} target="_blank" rel="noopener noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>PAGAR CON BINANCE</a>
+              {/* BINANCE (18/11/2026): el QR personal de «Recibir» de MaKo, permanente y que paga cualquiera: quien paga pone el monto, por eso va el monto en USDT bien
+                  grande y la línea «Ingresa exactamente…». En la PC el QR para escanearlo con el teléfono; en el teléfono, el botón «PAGAR CON BINANCE» con el link.
+                  El Pay ID con «Copiar» va SIEMPRE debajo. */}
+              {medioDirecto === 'binance' && p.directo.datos.linkBinance && (
+                <>
+                  <style dangerouslySetInnerHTML={{ __html: '.ck-binance-qr{display:none;justify-content:center}.ck-binance-qr img{width:180px;height:180px;border-radius:8px;background:#fff;padding:6px;border:1px solid rgba(17,17,17,.14)}@media (min-width:768px){.ck-binance-qr{display:flex}.ck-binance-movil{display:none!important}}' }} />
+                  {p.directo.qrBinance && <div className="ck-binance-qr"><img src={p.directo.qrBinance} alt="Código QR para pagar con Binance: escanéalo con tu teléfono" /></div>}
+                  <a className="planes-btn ck-binance-movil" href={p.directo.datos.linkBinance} target="_blank" rel="noopener noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>PAGAR CON BINANCE</a>
+                </>
               )}
-              {/* ⚠️ El link es un «Payment Request» de Binance Pay: puede ser de UN solo pago o vencer (se confirma con el primer pago real). Por eso el Pay ID con «Copiar» va SIEMPRE debajo. */}
-              {medioDirecto === 'binance' && linkDeBinance(p.directo.datos, p.directo.planId) && p.directo.datos.binancePayId && <small style={{ opacity: 0.75 }}>Si el link no abre, envía el monto a este Binance Pay ID.</small>}
+              {medioDirecto === 'binance' && montoDirecto && <small style={{ opacity: 0.85 }}>Ingresa exactamente <b>{formatoDelMonto(montoDirecto)}</b> en USDT.</small>}
               {medioDirecto === 'binance' && <DatoCopiable etiqueta="Binance Pay ID" valor={p.directo.datos.binancePayId} />}
               {medioDirecto === 'transferencia' && (
                 <>

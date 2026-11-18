@@ -1977,8 +1977,10 @@ sumar el 5 %, no restarnos a nosotros… en MaKo Partners… siempre cobrarían 
   una suscripción ya armada renueva con el monto que tiene su cobro (el cron del blue no la toca: lib/dolar-blue-corrida.ts). Las anuales no pasan por la pasarela (se piden).
   Decidir si esos flujos también llevan el 5 %. **La landing del Sitio** todavía dice dos porcentajes de Partners y «Hacerme partner gratis» (app/mako-partners/*, no mío).
 
-- ⚠️ **Los links de Binance son «Payment Request» de Binance Pay** (`app.binance.com/uni-qr/request-to-pay?billOrderId=…&billType=request_a_payment`), en USDT y a precio de lista:
-  Pro mensual 97, Essential mensual 47, Essential anual 470 y Pro anual 970 (Martín los creó el 18/11; los carga el Cerebro en `linksBinance`, claves `<idPlan>:mensual|anual`).
-  **DUDA ABIERTA: un «request to pay» puede ser de UN solo pago o vencer; no se sabe.** Se confirma con el primer pago real: si el link queda usado, Martín crea uno nuevo o se pasa a
-  mostrar sólo el Pay ID. Por eso el checkout muestra SIEMPRE el Binance Pay ID (68725667) con «Copiar» debajo de «PAGAR CON BINANCE», con la línea «Si el link no abre, envía el
-  monto a este Binance Pay ID». Hoy el checkout cobra por mes: los links anuales sólo se usan cuando el anual se pague por esta vía.
+- ⚠️ **Los «Payment Request» de Binance Pay NO sirven para un checkout fijo (medido por el Cerebro, 18/11).** Martín había creado 4 (`app.binance.com/uni-qr/request-to-pay?billOrderId=…`,
+  97 / 47 / 970 / 470 USDT), pero Binance dice que un payment request **vence a los 30 días** (FAQ de Binance Pay) y en el historial de Martín los viejos dicen «Expired (1 Paid)»: puede ser
+  de un solo pago. Se descartaron. **Lo que sí sirve es su QR personal de «Recibir»** (`https://app.binance.com/uni-qr/<código>`): permanente, lo paga cualquiera todas las veces que
+  quiera, y **quien paga pone el monto**. Por eso el setting `planes.pago_directo` tiene UN campo `linkBinance` (no uno por plan) y el checkout, al elegir Binance, muestra: el monto en
+  USDT bien grande («Ingresa exactamente US$ 97 en USDT», el precio de lista), el QR dibujado desde ese link en la PC (`qrcode`, en el servidor, para escanearlo con el teléfono), el botón
+  «PAGAR CON BINANCE» en el teléfono y, SIEMPRE debajo, el Binance Pay ID (68725667) con «Copiar». Riesgo del QR: como quien paga escribe el monto, puede mandar uno distinto: lo
+  verifica Martín a mano (la verificación automática es el punto B).

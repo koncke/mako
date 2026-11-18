@@ -23,6 +23,7 @@ import { ladaDelPais } from '@/lib/paises';
 import { CompraPlan, type OpcionDirecta } from './CompraPlan';
 import { MEDIOS_DIRECTOS, mediosDisponibles, montoDelMedio, type MedioDirecto } from '@/lib/pago-directo-reglas';
 import { leerDatosDePagoDirecto } from '@/lib/pago-directo';
+import QRCode from 'qrcode';
 import { Ficha, incluyeDeLaColumna, resumenDelAnual, resumenDelPlan, totalDeHoyPorPasarela } from './Checkout';
 import { QuieroPlan } from './QuieroPlan';
 
@@ -107,8 +108,10 @@ export default async function PlanPage({ params, searchParams }: {
   const montosDirectos: OpcionDirecta['montos'] = {};
   for (const m of MEDIOS_DIRECTOS) { const v = montoDelMedio(m, { precioUsd: plan.precioUsd, precioArs: precioEnPesos(plan) }); if (v) montosDirectos[m] = v; }
   const datosDirectos = await leerDatosDePagoDirecto();
+  // El QR del link de Binance Pay de MaKo se dibuja ACÁ, en el servidor (como en /app): el cliente sólo muestra la imagen.
+  const qrBinance = datosDirectos.linkBinance ? await QRCode.toDataURL(datosDirectos.linkBinance, { margin: 1, width: 360 }).catch(() => null) : null;
   const mediosDirectos = mediosDisponibles(datosDirectos).filter((m: MedioDirecto) => montosDirectos[m]);
-  const directo: OpcionDirecta | undefined = mediosDirectos.length ? { medios: mediosDirectos, montos: montosDirectos, datos: datosDirectos, nombrePlan: plan.nombre, planId: plan.id } : undefined;
+  const directo: OpcionDirecta | undefined = mediosDirectos.length ? { medios: mediosDirectos, montos: montosDirectos, datos: datosDirectos, nombrePlan: plan.nombre, qrBinance } : undefined;
   return (
     <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumen} sinPrueba={conPrueba ? resumenSin : undefined}>
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
