@@ -17,7 +17,7 @@ import 'server-only';
 //    y el portal le dice en la entrada que no está activo. Las dos con el MISMO instante: «Volver a admitir» lo usa
 //    para habilitar sólo un corte que hizo este «sacar» (`accesoTrasAdmitir`).
 
-import { idValido, leerClave, puedeModerar, puedeSacar, sanearTexto } from './comunidad-reglas';
+import { claveDeLead, idValido, leerClave, puedeModerar, puedeSacar, sanearTexto } from './comunidad-reglas';
 import { de, msg, postDe, infoDeMiembros, miembroVista, descartarAdjunto, type Actor } from './comunidad-datos';
 import { getSupabaseServer } from './supabase';
 import { runWithWorkspace } from './workspace';
@@ -128,6 +128,19 @@ export async function sacadosPorProducto(ws: number): Promise<Map<number, Set<nu
     out.get(p)!.add(Number(f.lead_id));
   }
   return out;
+}
+
+/**
+ * ¿Este alumno está fuera de ESTE programa (baneo vigente en `comunidad_baneos`)? Lo pregunta la invitación al curso
+ * (lib/curso-invitar.ts) antes de mandar nada: volver a invitar a alguien que se sacó le reabría el programa sin pasar por
+ * «Volver a admitir» (O12, 18/11/2026). La clave es la del portón del alumno (`claveDeLead`, la misma que mira
+ * `actorDelAlumno`), en el negocio `ws`. TIRA si la base no contesta: con «no sé», quien invita no manda (falla cerrada).
+ */
+export async function estaSacado(ws: number, leadId: number, productoId: number): Promise<boolean> {
+  const { data, error } = await de(ws, 'comunidad_baneos').select('id')
+    .eq('producto_id', productoId).eq('miembro', claveDeLead(leadId)).is('levantado_at', null).limit(1);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown[]).length > 0;
 }
 
 /** Los alumnos fuera de la comunidad (baneo vigente), del más reciente al más viejo. Sólo el equipo. */

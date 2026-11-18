@@ -5913,9 +5913,9 @@ del alumno (`SinSoporteCtx`, que pone PortalAlumno; la vista previa del equipo s
 - **Los sacados de ANTES de este arreglo** siguen con el curso abierto (el baneo está, el corte no). Sin backfill: es
   escribir en clientes reales. Para el alumno de prueba de Leandro: Members → «Fuera» → «Volver a admitir» y «Sacar» otra
   vez. Para contarlos: `comunidad_baneos` con `levantado_at` null cruzado con `curso_accesos` sin `revocado_at`.
-- **Volver a invitar a un sacado** (la tarjeta del kanban, la ficha, el buscador) le reabre el curso con el baneo puesto:
+- ~~**Volver a invitar a un sacado** (la tarjeta del kanban, la ficha, el buscador) le reabre el curso con el baneo puesto:
   curso sí, comunidad no, lo mismo que f33. La guarda iría en `invitarAlCurso` (lib/curso-invitar.ts) con un motivo propio
-  («lo sacaron de este programa»), y cada pantalla que dibuja los motivos tendría que decirlo.
+  («lo sacaron de este programa»), y cada pantalla que dibuja los motivos tendría que decirlo.~~ **Hecho el 18/11/2026 (O12):** `estaSacado` en `invitarAlCurso`, el motivo `sacado` en `TEXTO_NO_INVITA` y en los `preparar` de la API; ver «A quien sacaron de un programa no se lo vuelve a invitar», al final.
 - La API de MaKo (`sacar_alumno_comunidad`) ya corta el curso, pero su `preparar` sigue sin poder sacar a alguien que ya
   está fuera: los sacados de antes se arreglan desde la pantalla.
 - Nada se miró en el navegador (sin RAM para `next dev`, y probarlo pide sacar a un alumno de verdad).
@@ -6213,6 +6213,28 @@ Lo encontró la tarea de la portada que buscaba el video que Mauricio dejó en s
 **Vive en:** lib/curso.ts (`videoDeLink`, `reproductorDeClase`) · lib/embeds.ts (`reconocerUrl`) ·
 app/compartido/curso/[token]/Reproductor.tsx (`VideoYouTube`).
 
+## A quien sacaron de un programa no se lo vuelve a invitar a ese curso (18/11/2026, O12)
+
+**El síntoma (pendiente O12, abierto desde el 24/10):** «Sacar» en Members le achica la lista de cursos al acceso del alumno
+(`sacarDelCurso`) o, si era su único curso, se lo corta. Pero `invitarAlCurso` (lib/curso-invitar.ts) sólo frenaba con el acceso
+CORTADO (`previo?.revocado`): a un sacado que tenía otros cursos, volver a invitarlo a ese curso (la tarjeta del kanban, la ficha,
+el buscador, el CRM al pasar a Ganado, la API) le mandaba el mail y `marcarInvitacion` le volvía a sumar el curso. El programa se
+reabría con el baneo de la comunidad puesto, sin pasar por «Volver a admitir».
+**Vive en:** lib/comunidad-moderacion.ts (`estaSacado`: el baneo vigente de ESE programa, con la misma clave que el portón del
+alumno, `claveDeLead`, en el negocio de la invitación; tira si la base no contesta) · lib/curso-invitar.ts (la dependencia `sacado`
+y el motivo `sacado`, con su texto en `TEXTO_NO_INVITA`) · lib/crm-curso-al-ganar-reglas.ts (la línea del historial) ·
+lib/api-mako/areas/curso.run.ts y cs.run.ts (el `preparar` lo dice antes del «sí»).
+**Las reglas:**
+- **La guarda va antes de `cortado`, y corta también reenviando y desde el buscador.** Si era su único curso, «Sacar» también le
+  cortó el acceso, y lo que lo arregla es «Volver a admitir» (levanta el baneo y reabre SÓLO el corte que hizo ese «Sacar»), no
+  habilitarlo desde su ficha: el motivo manda a Members.
+- **Sin producto no se pregunta el baneo:** el mail nombra los cursos que el alumno VE, y el sacado ya no está en esa lista.
+- **«No sé» no invita:** con `comunidad_baneos` sin contestar, la invitación vuelve como error y no sale ningún mail.
+- **Probado con la función real de «Volver a admitir»** (`admitirAlumno`): después de admitirlo, la invitación a ese curso sale.
+**Lo que queda, y es producción (no se hizo):** los sacados de ANTES del 24/10 siguen con el curso abierto (el baneo está, el
+corte no). Contarlos: `comunidad_baneos` con `levantado_at` null cruzado con `curso_accesos` (`area` null) sin `revocado_at` que
+todavía abra ese producto. Arreglarlos es escribir en clientes reales: desde Members, «Volver a admitir» y «Sacar» otra vez.
+Lo fija tests/curso-invitar-sacado.test.ts (las funciones reales contra un PostgREST de mentira; tres roturas, cada una cae).
 ## Reordenar el curso con el dedo (18/11/2026)
 
 **El síntoma.** En un teléfono o una tablet, los módulos y las clases del curso no se podían reordenar arrastrando: con el

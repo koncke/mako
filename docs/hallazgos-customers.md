@@ -352,3 +352,11 @@ La revisó el Cerebro sobre el commit 34c42de99: 55 hallazgos en pie después de
 - Después de `router.push`, un layout compartido con la página de destino no se vuelve a leer. Por eso la lista de negocios (leída en app/admin/(polar)/customers/layout.tsx) sigue mostrando un negocio borrado. Regla: tras borrar algo que lee un layout, push y después refresh. No es una falla del borrado (lib/eliminar-workspace.ts:116 borra de verdad). Deducido del código.
 - Entorno: `gh` no está instalado en esta máquina y el commit de Polar `72aa1109` no resuelve en la API de GitHub, así que el código original sólo se pudo leer de `main`. Al comparar con Polar, anotar de qué rama salió.
 
+
+## El Admin del teléfono decía «Plan a mano» de quien no tiene plan a mano (18/11/2026, P37)
+
+**Vive en:** `lib/clientes-plataforma-reglas.ts` (`plataDeCliente`) · `app/m/customers/CustomersM.tsx` · `tests/m-customers-plata.test.ts`
+
+- La fila «Plata» de la ficha de un negocio en /m/customers caía a `c.planAManoTxt ?? 'Plan a mano'`: todo negocio sin MRR, fuera de
+  prueba y sin un plan a mano guardado salía «Plan a mano» (por ejemplo, uno cuyo pago no se le atribuye). Es la frase falsa que la
+  computadora dejó de decir el 5/11. Ahora sale de `plataDeCliente`: sin dato, «—»; con pagos sin su valor en dólares, lo dice.

@@ -11,7 +11,8 @@
 
 import { useMemo, type ReactNode } from 'react';
 import type { Elemento } from '@/lib/graficos-catalogo';
-import { funnelsDeBloque, type OpcionesElegidas, type PiezaGeneral, type ValoresVariables } from '@/lib/general-piezas';
+import { type OpcionesElegidas, type PiezaGeneral, type ValoresVariables } from '@/lib/general-piezas';
+import { funnelDeFunnelHoy, funnelsDeCobranza, type HojaDeBloque } from './funnels-de-la-hoja';
 import { ContextoGeneral, type ContextoDeGeneral } from '../dashboard/ElementoGeneral';
 import { EditarObjetivo } from './EditarObjetivo';
 import type { DatosGeneral } from './datos-tipos';
@@ -22,23 +23,16 @@ import { BloquePrioridades, BloqueProyectos, BloqueTareas, BloqueDeadlines, Mues
 import { BloqueMiDia, BloqueLlamadas, BloquePublicaciones, MuestraMiDia, MuestraLlamadas, MuestraPublicaciones } from './bloques/Agenda';
 import { BloquePendientes, BloqueFunnel, BloqueCobranza, BloqueMes, MuestraFunnel, MuestraCobranza, MuestraMes } from './bloques/Negocio';
 
-/** Un bloque con sus datos y sus opciones. */
 /**
- * `hoja`: lo que la HOJA filtra y el bloque puede tomar (22/10/2026): los funnels elegidos en su «Filtro» (el control
- * «Funnel» de arriba, por nombre). «A quién cobrarle» sin funnels propios lee esos, así la hoja «Cobros» entera mira el
- * mismo CRM o CRMs. Los propios del bloque (su panel) mandan.
+ * Un bloque con sus datos y sus opciones. `hoja`: lo que la HOJA filtra y el bloque puede tomar: los funnels elegidos en su
+ * «Filtro» (el control «Funnel» de arriba, por nombre). «A quién cobrarle» y «Tu funnel hoy» sin funnels propios leen esos
+ * (./funnels-de-la-hoja.ts), así la hoja entera mira el mismo CRM o CRMs. Los propios del bloque (su panel) mandan.
  */
-function funnelsDeCobranza(g: NonNullable<Elemento['general']>, d: DatosGeneral, hoja?: { funnels: readonly string[] | null }): number[] {
-  const propios = funnelsDeBloque(g);
-  if (propios.length || !hoja?.funnels?.length || !d.funnels.ok) return propios;
-  return d.funnels.d.filter((f) => hoja.funnels?.includes(f.nombre)).map((f) => f.id);
-}
-
-export function dibujarBloque(e: Elemento, d: DatosGeneral, hoja?: { funnels: readonly string[] | null }): ReactNode {
+export function dibujarBloque(e: Elemento, d: DatosGeneral, hoja?: HojaDeBloque): ReactNode {
   const g = e.general;
   if (!g) return null;
   const op = g.opciones;
-  const funnel = g.funnel ?? null;
+  const funnel = funnelDeFunnelHoy(g, d, hoja);
   switch (g.pieza) {
     case 'cabecera': return <BloqueMetaObjetivo d={d.cabecera} op={op} />;
     case 'accion': return <BloqueAccion d={d.cabecera} op={op} />;

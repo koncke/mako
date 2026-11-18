@@ -211,10 +211,11 @@ const PERMITIDAS = new Set(['objetivo_cierres', 'objetivo_cash_usd', 'objetivo_d
 /**
  * @deprecated Las metas ahora son `objectives` (mig 0155).
  *
- * Se deja viva por dos razones concretas: los tres settings siguen siendo el
- * ORIGEN de la migración —`migrarSettingsAObjectives` los lee— y hay avisos y
- * lecturas viejas (`getObjetivoProgreso`) que todavía los miran. Borrar el origen
- * el mismo día que se migra deja sin red al que descubra un error mañana.
+ * Se deja viva porque los tres settings siguen siendo el ORIGEN de la migración
+ * —`migrarSettingsAObjectives` los lee—. Las lecturas viejas que los miraban ya no
+ * están: los reportes leen `objectives` desde el 8/11/2026 y el grafo del Second Brain
+ * desde el 18/11/2026, y `getObjetivoProgreso` se borró ese día (F82). No la llama
+ * ninguna pantalla.
  */
 export async function setObjetivoAction(key: string, value: string): Promise<void> {
   await guard();

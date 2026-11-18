@@ -116,13 +116,15 @@ test('el constructor lee clientes y reuniones sin que una fuente caída tumbe el
   assert.match(g, /\{ count: 'exact' \}/, 'el total de clientes es exacto, no los que se leyeron');
 });
 
+// Desde el 18/11/2026 el ARMADO del grafo vive en lib/cerebro-armado.ts (puro) y lib/cerebro-grafo.ts sólo lee (F109): lo
+// que estos dos casos miran es del armado; «no hay `falta:`» se pregunta sobre los dos archivos.
 test('los clientes y las reuniones no cuelgan además del nodo de área del funnel (el hub inflado)', () => {
-  const g = sinComentarios(leer('lib/cerebro-grafo.ts'));
+  const g = sinComentarios(leer('lib/cerebro-armado.ts'));
   assert.match(g, /nutricionDelFunnel\.has\(n\.id\) \|\| \/\^\(cliente\|reunion\):\/\.test\(n\.id\)\) continue;/);
 });
 
 test('ya no hay once nodos `falta:` fijos: lo que falta se dice en la raíz', () => {
-  const g = sinComentarios(leer('lib/cerebro-grafo.ts'));
+  const g = sinComentarios(leer('lib/cerebro-armado.ts') + '\n' + leer('lib/cerebro-grafo.ts'));
   assert.doesNotMatch(g, /`falta:/, 'sin los nodos de hueco por área (con la variable que sea)');
   assert.doesNotMatch(g, /Todavía sin construir/);
   assert.match(g, /k: 'Todavía sin info'/, 'la raíz lo dice');
