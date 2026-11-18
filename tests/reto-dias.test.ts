@@ -57,3 +57,16 @@ test('las reglas de Martín (18/11): sin atajos, WhatsApp escribiendo ELLOS, nad
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(chat, />\s*Hacerlo\s*</, 'sin «Hacerlo»');
 });
+
+test('el correo de cada día: «Día N del reto de MaKo», una vez, y el día 1 no lleva', async () => {
+  const { correoDelDia, diaParaAvisar } = await import('../lib/reto/dias');
+  const m = correoDelDia(3, 'https://app/second-brain?reto=1');
+  assert.equal(m.asunto, 'Día 3 del reto de MaKo', 'Martín, 18/11: el asunto');
+  assert.match(m.cuerpo, /Carga tus clientes en el CRM/);
+  assert.match(m.cuerpo, /https:\/\/app\/second-brain\?reto=1/);
+  assert.doesNotMatch(m.cuerpo, /tu video de hoy/i);
+  const ahora = h('2026-11-19T12:30:00Z'); // el día 2 ya abrió
+  assert.equal(diaParaAvisar(base, h('2026-11-18T23:00:00Z')), null, 'el día 1 no lleva correo');
+  assert.equal(diaParaAvisar(base, ahora), 2);
+  assert.equal(diaParaAvisar({ ...base, avisado: 2 }, ahora), null, 'una vez por día');
+});

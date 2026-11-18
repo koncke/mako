@@ -144,7 +144,9 @@ export const DIAS_RETO: readonly DiaReto[] = [
 // ── En qué día va ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Lo que se guarda por negocio (`app_settings` → `reto.estado`). */
-export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Record<string, string>; horaWa?: string };
+export type EstadoReto = { v: 1; inicio: string; adelantado: number; hechas: Record<string, string>; horaWa?: string;
+  /** El último día del que salió el correo «Día N del reto de MaKo» (lib/reto/correos.ts): uno por día, una vez. */
+  avisado?: number };
 
 export const CLAVE_RETO = 'reto.estado';
 export const HORAS_WA = ['8:00', '9:00', '10:00', '12:00', '15:00', '18:00', '20:00'] as const;
@@ -160,7 +162,8 @@ export function leerEstado(crudo: unknown): EstadoReto | null {
   for (const [k, v] of Object.entries(e.hechas && typeof e.hechas === 'object' ? e.hechas : {})) if (/^\d:[a-z-]+$/.test(k) && typeof v === 'string') hechas[k] = v;
   const adelantado = Number.isInteger(e.adelantado) ? Math.max(1, Math.min(7, Number(e.adelantado))) : 1;
   const horaWa = typeof e.horaWa === 'string' && (HORAS_WA as readonly string[]).includes(e.horaWa) ? e.horaWa : undefined;
-  return { v: 1, inicio: e.inicio, adelantado, hechas, ...(horaWa ? { horaWa } : {}) };
+  const avisado = Number.isInteger(e.avisado) ? Math.max(1, Math.min(7, Number(e.avisado))) : undefined;
+  return { v: 1, inicio: e.inicio, adelantado, hechas, ...(horaWa ? { horaWa } : {}), ...(avisado ? { avisado } : {}) };
 }
 
 /** La hora de Argentina (la de MaKo), UTC−3. */
@@ -213,3 +216,34 @@ export function proximaTarea(e: EstadoReto, ahora: number): { dia: DiaReto; tare
 
 /** El mensaje escrito de la prueba por WhatsApp, con la hora elegida. */
 export const mensajeEscrito = (p: PruebaWhatsApp, hora = '9:00') => (p.escrito ? p.escrito.replace('{hora}', hora) : '');
+
+// ── El correo de cada día ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * EL CORREO «DÍA N DEL RETO DE MaKo» (Martín, 18/11: «el asunto "Martín MaKo · Día 3 tu video de hoy" no tiene sentido. Va "Día 3 del
+ * reto de MaKo", y lo mismo en todos los días»). Corto: qué toca hoy y el link al chat del reto. Lo manda lib/reto/correos.ts.
+ */
+export function correoDelDia(n: number, link: string): { asunto: string; preheader: string; cuerpo: string } {
+  const d = DIAS_RETO.find((x) => x.n === n) ?? DIAS_RETO[0];
+  return {
+    asunto: `Día ${d.n} del reto de MaKo`,
+    preheader: d.titulo,
+    cuerpo: [
+      `Ya está tu día ${d.n}: ${d.titulo.toLowerCase()}.`,
+      '',
+      d.mensaje,
+      '',
+      'Lo que te toca hoy:',
+      ...d.tareas.map((t) => `· ${t.titulo} (${t.donde.replace(/^En /, 'en ')})`),
+      '',
+      'Tu video y todo lo del día, en el chat «Reto de 7 días» de MaKo:',
+      link,
+    ].join('\n'),
+  };
+}
+
+/** ¿Toca mandar el correo de un día? El del día abierto, si todavía no salió (el día 1 no lleva: se empieza adentro de MaKo). */
+export function diaParaAvisar(e: EstadoReto, ahora: number): number | null {
+  const abierto = diaAbierto(e, ahora);
+  return abierto > 1 && abierto > (e.avisado ?? 1) ? abierto : null;
+}
