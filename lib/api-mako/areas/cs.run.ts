@@ -60,6 +60,7 @@ import { negociosDelPedido, type FilaCarteraLeida, type NegocioLeido } from '@/l
 import { getSupabaseServer } from '@/lib/supabase';
 import { productosDelAlumno } from '@/lib/curso-datos';
 import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
+import { estaSacado } from '@/lib/comunidad-moderacion';
 import { invitadoAlProducto, entroAlProducto, correoQueFallo } from '@/lib/curso-invitar-reglas';
 import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import { listProductos } from '@/lib/productos';
@@ -564,10 +565,13 @@ export const RUNNERS: Runners = {
   },
 
   invitar_cliente_curso_cs: {
-    preparar: revisando(async (input) => {
+    preparar: revisando(async (input, ctx) => {
       const leadId = num(input, 'leadId');
       const cliente = await clienteDelWorkspace(leadId);
       if (!cliente) return { error: NO_ES_CLIENTE(leadId) };
+      // Sacado de ESE programa en Members (O12): el núcleo no lo invita; se dice acá, antes del «sí», con el mismo texto.
+      const pedidoProducto = num(input, 'productoId');
+      if (pedidoProducto != null && (await estaSacado(ctx.ws, cliente.id, pedidoProducto))) return { error: TEXTO_NO_INVITA.sacado };
       const acc = await accesoDe(cliente.id);
       if (acc?.revocado) return { error: TEXTO_NO_INVITA.cortado };
       // A UN CURSO (09/10/2026): con `productoId` se lo invita a ése, como la ficha y la tarjeta del kanban,
