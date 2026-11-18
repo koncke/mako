@@ -17,6 +17,10 @@ const pg = crearPostgrest({
   defaults: (_t, f) => ({ id: ++n, ...f }),
 });
 const storage = new Map<string, Uint8Array>();
+let saldo = 10_000;
+const cobros: Array<{ mt: number; feature: string; referencia: string | null; usd: number | null }> = [];
+const devoluciones: Array<Record<string, unknown>> = [];
+let elevenCaido = false;
 let llamadasEleven = 0;
 let subidas = 0;
 const red: string[] = [];
@@ -34,11 +38,23 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     storage.set(ruta, cuerpo);
     return new Response(JSON.stringify({ Key: ruta }), { status: 200, headers: { 'content-type': 'application/json' } });
   }
+  // La caja de MaKo Tokens (lib/mako-tokens-caja.ts): lo que se cobra y lo que se devuelve, y si hay saldo.
+  if (u.host === 'supa.test' && u.pathname === '/rest/v1/rpc/mako_tokens_gastar') {
+    const a = JSON.parse(String(init.body ?? '{}')) as { p_cuesta: number; p_feature: string; p_referencia: string | null; p_costo_usd: number | null };
+    const alcanza = saldo >= a.p_cuesta;
+    if (alcanza) { saldo -= a.p_cuesta; cobros.push({ mt: a.p_cuesta, feature: a.p_feature, referencia: a.p_referencia, usd: a.p_costo_usd }); }
+    return new Response(JSON.stringify([{ ok: alcanza, saldo, comprado: 0, tomado_cupo: alcanza ? a.p_cuesta : 0, tomado_comprado: 0 }]), { status: 200, headers: { 'content-type': 'application/json' } });
+  }
+  if (u.host === 'supa.test' && u.pathname === '/rest/v1/rpc/mako_tokens_ajustar') {
+    devoluciones.push(JSON.parse(String(init.body ?? '{}')) as Record<string, unknown>);
+    return new Response('null', { status: 200, headers: { 'content-type': 'application/json' } });
+  }
   if (u.host === 'supa.test') return pg.responder(u, init);
   if (u.host === 'api.elevenlabs.io') {
     llamadasEleven++;
     const b = JSON.parse(String(init.body ?? '{}')) as { text?: string; model_id?: string };
     red.push(`${u.pathname}|${b.model_id}|${b.text}`);
+    if (elevenCaido) return new Response(JSON.stringify({ detail: { status: 'system_busy' } }), { status: 503, headers: { 'content-type': 'application/json' } });
     return new Response(new Uint8Array(4096).fill(0xff), { status: 200, headers: { 'content-type': 'audio/mpeg' } });
   }
   red.push(`OTRA ${u.host}${u.pathname}`);
@@ -72,17 +88,34 @@ async function main() {
     tras1,
     segunda: f2.ok ? { guardado: f2.guardado, bytes: await bytes(f2.cuerpo) } : f2,
     llamadas: llamadasEleven, usado: usado(), rutas: [...storage.keys()], pedido: red[red.length - 1],
+    cobros: [...cobros],
   });
 
   // 3. Lo PERSONALIZADO: se pide con streaming, no se guarda, y suma al mes.
-  const antes = { llamadas: llamadasEleven, subidas };
+  const antes = { llamadas: llamadasEleven, subidas, cobros: cobros.length };
   const RESP = 'Eso es oro: bajar de cien a ochenta kilos en cuatro meses es un resultado medible. Cuéntame qué incluye hoy tu programa.';
   const p1 = await en(() => audioDelCoach(RESP, { fija: false, ws: WS }));
   salida('personalizado', {
     ok: p1.ok, stream: p1.ok && !(p1.cuerpo instanceof Uint8Array), bytes: p1.ok ? await bytes(p1.cuerpo) : 0,
     llamadas: llamadasEleven - antes.llamadas, subidas: subidas - antes.subidas, usado: usado(), largo: RESP.length,
     uso: pg.db.anthropic_usage.filter((f) => f.feature === 'voz-coach').length,
+    cobros: cobros.slice(antes.cobros),
   });
+
+  // 3-bis. SIN SALDO de MaKo Tokens: no se pide el audio, y el tope del mes no se mueve.
+  const saldoAntes = saldo;
+  saldo = 0;
+  const antesSin = { llamadas: llamadasEleven, usado: usado() };
+  const s1 = await en(() => audioDelCoach('Y ahora dime cuánto cobras hoy por tu programa completo.', { fija: false, ws: WS }));
+  salida('sinSaldo', { r: s1.ok ? { ok: true } : s1, llamadas: llamadasEleven - antesSin.llamadas, usadoAntes: antesSin.usado, usado: usado() });
+  saldo = saldoAntes;
+
+  // 3-ter. ElevenLabs no genera nada (un 503): se cobró antes de pedir, y se DEVUELVE.
+  elevenCaido = true;
+  const antesCaido = { cobros: cobros.length, devoluciones: devoluciones.length };
+  const c1 = await en(() => audioDelCoach('Cuéntame quién es tu cliente ideal y qué le duele hoy.', { fija: false, ws: WS }));
+  elevenCaido = false;
+  salida('elevenCaido', { r: c1.ok ? { ok: true } : c1, cobros: cobros.slice(antesCaido.cobros), devoluciones: devoluciones.slice(antesCaido.devoluciones) });
 
   // 4. El tope del mes: lleno, no se pide nada.
   const fila = pg.db.app_settings.find((s) => s.workspace_id === WS && s.key === claveDelMesVozCoach());

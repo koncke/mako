@@ -112,6 +112,16 @@ export const MT_POR_IMAGEN: Record<Calidad, number> = {
   premium: mtDeUsd(USD_POR_IMAGEN.premium),
 };
 
+/**
+ * LA VOZ (text-to-speech de ElevenLabs; 18/11/2026, la voz de los coaches, lib/voz-coach.ts): el precio de LISTA de la API para
+ * Flash y Turbo, **US$0,04 cada 1.000 caracteres** en todos los planes y cobrado en dólares (elevenlabs.io/pricing/api, leído el
+ * 18/11/2026). `publicado`, no medido: la key de la plataforma no tiene `user_read` y no deja leer la factura. Una respuesta de un
+ * coach (~300 caracteres) son 13 MT.
+ */
+export const USD_POR_MIL_CARACTERES_DE_VOZ = 0.04;
+/** Lo que cuesta, en MT, decir `caracteres` con la voz. */
+export const mtDeVoz = (caracteres: number): number => mtDeUsd(Math.max(0, caracteres) * USD_POR_MIL_CARACTERES_DE_VOZ / 1000);
+
 export type Plan = 'free' | 'pro' | 'growth';
 
 /**
