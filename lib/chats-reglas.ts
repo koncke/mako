@@ -17,7 +17,7 @@
 // =============================================================================
 
 import { MAKO_SETTER } from './pipeline';
-import type { CanalChat, ChatResumen, EstadoChat, EtapaEnFunnel, FormatoMsg, IdentidadCanal, ParteTexto } from './chats-tipos';
+import type { CanalChat, ChatResumen, CuentaSocial, EstadoChat, EtapaEnFunnel, FormatoMsg, IdentidadCanal, LineaChat, ParteTexto } from './chats-tipos';
 import { normalizarEmail } from './chats-email-reglas';
 
 // ── Claves ──────────────────────────────────────────────────────────────────────
@@ -156,6 +156,38 @@ export const destinoTelefono = (tel: string | null | undefined): string | null =
 /** 'WhatsApp' con una sola línea; 'WhatsApp (Ventas)' con varias, para que el selector las distinga. */
 export const rotuloWhatsapp = (rotuloDeLaLinea: string, variasLineas: boolean): string =>
   (variasLineas ? `WhatsApp (${rotuloDeLaLinea})` : 'WhatsApp');
+
+/** Un renglón del selector de canal: un número de WhatsApp (su línea), una cuenta de Instagram o Messenger, o un canal entero. */
+export type OpcionCanal = { canal: CanalChat; cuenta: string | null; label: string; desconectado: boolean };
+
+/**
+ * LOS RENGLONES DEL SELECTOR DE CANAL (18/11/2026), sin «Todos los canales»: cada número de WhatsApp, cada cuenta de Instagram y
+ * de Messenger (o el canal entero si la cuenta no se pudo leer y hay conversaciones de él) y el Email si hay conversaciones.
+ * Lo usan el chip «Canales» de escritorio (app/chats/FiltrosChats.tsx) y el filtro del teléfono (app/m/chats): hasta este día
+ * el teléfono armaba su propia lista con un renglón por CANAL, así que el super admin no podía pasar de su número al de MaKo
+ * (las dos son WhatsApp: O48 de docs/pendientes-verificados-17-11.md). Elegir un renglón fija `canal` y `cuenta` del filtro.
+ */
+export function opcionesDeCanal(
+  lineas: readonly LineaChat[],
+  cuentasSociales: readonly CuentaSocial[],
+  chats: readonly Pick<ChatResumen, 'canales'>[],
+): OpcionCanal[] {
+  const out: OpcionCanal[] = [];
+  for (const l of lineas) {
+    out.push({ canal: 'whatsapp', cuenta: l.linea, label: rotuloWhatsapp(l.rotulo, lineas.length > 1), desconectado: l.estado !== 'conectado' });
+  }
+  const hay = (canal: CanalChat) => chats.some((c) => c.canales.some((i) => i.canal === canal));
+  for (const canal of ['instagram', 'messenger'] as const) {
+    const suyas = cuentasSociales.filter((c) => c.canal === canal);
+    const nombre = canal === 'instagram' ? 'Instagram' : 'Messenger';
+    if (suyas.length) for (const c of suyas) out.push({ canal, cuenta: c.cuenta, label: suyas.length > 1 ? c.rotulo : nombre, desconectado: false });
+    // Hay conversaciones de ese canal y su cuenta no se pudo leer: el canal entero, sin cuenta.
+    else if (hay(canal)) out.push({ canal, cuenta: null, label: nombre, desconectado: false });
+  }
+  // El email: un renglón, el canal entero (el negocio tiene un solo dominio), en cuanto haya una conversación.
+  if (hay('email')) out.push({ canal: 'email', cuenta: null, label: 'Email', desconectado: false });
+  return out;
+}
 
 // ── Estado efectivo y no leídos (§2.5) ──────────────────────────────────────────
 

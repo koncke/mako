@@ -12,6 +12,46 @@ verificá contra el código.** Las marcadas ⚠️ estaban vivas la última vez 
 
 La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
+## El borrador de WhatsApp perdía `recurrente` (pendiente T11, 18/11/2026)
+
+**Síntoma:** pedirle a MaKo por WhatsApp «sumá al plan la junta de los miércoles» dejaba una tarea normal, con score y
+deadline, aunque el schema de `proponer_tareas_plan` le ofrece `recurrente` al modelo.
+
+**Causa:** dos `map` escritos a mano en el `case` del doer (`lib/mako-doer-acciones.ts`): el que lee el JSON del modelo
+copiaba cinco campos de seis, y el del `crearPropuesta` volvía a copiar cinco. Las dos cosas compilan: un campo que no está en
+el objeto es indistinguible de uno que el modelo no mandó.
+
+**Diagnóstico equivocado que circulaba:** docs/encargos-6-11/triaje-varios.md:46 y 3d2144c6a decían que el doer «sí manda
+recurrente (:213-233)». Esas líneas son el EJECUTOR `case 'tareas_plan'`, no el borrador.
+
+**La regla que queda:** el mapeo vive en `tareasDelDoer` (lib/plan-tareas-del-doer.ts, sin `server-only`) y el `case` le pasa
+su salida a `crearPropuesta` sin otro `map`. El desempate con la fecha sigue en `limpiarTarea`.
+
+⚠️ **Y la mitad que encontró la revisión adversarial: el registro de la API.** El chat de la app, alguien del equipo por WhatsApp,
+`/api/v1` y los flujos llegan al mismo `case` pasando antes por `validarInput` (lib/api-mako/validar.ts), que copia SÓLO los campos
+declarados en la def. `proponer_tareas_plan` (lib/api-mako/areas/plan.def.ts) no declaraba `recurrente`, así que se borraba ahí,
+sin error, aunque el doer ya lo copiara. Ahora la def lo declara. **Un campo nuevo de una operación de la API va en su def, no sólo
+en el runner**: arreglar el runner deja el campo vivo sólo para el camino que no pasa por el registro.
+
+Con esto los productores de un borrador (reunión, cron, archivo, API del agente, WhatsApp, el registro) pasan `recurrente`.
+
+**Vive en:** lib/plan-tareas-del-doer.ts · lib/mako-doer-acciones.ts · lib/api-mako/areas/plan.def.ts · tests/plan-tareas-del-doer.test.ts · *2026-11-18*
+## El filtro «Responsable» en el tablero del dueño: una columna nueva que no puede romper los guardados (F156, 18/11/2026)
+
+**Vive en:** `supabase/migrations/0419_plan_tareas_responsable_tipo.sql` (SIN APLICAR) · `lib/todo-estados.ts`
+(`responsableDeLaFila`, `responsableParaGuardar`) · `lib/plan-board.ts` · `lib/plan-propuesta.ts` · `app/plan/board/repo-plan.ts`
+
+- **Síntoma:** el filtro «Responsable» existía desde el 16/10 sólo en el tablero del cliente; `plan_tareas` no tenía la columna.
+- **La trampa de agregar una columna al tablero del DUEÑO:** el guardado es un `upsert` de la fila ENTERA (`taskToRow`). Si el
+  mapper de escritura manda `responsable_tipo` y la migración todavía no está aplicada, PostgREST rechaza el guardado de
+  CUALQUIER tarjeta, no sólo de las que tienen responsable. Y si el de lectura no la trae, el próximo guardado la borra.
+  **Regla:** la tarjeta trae la clave SÓLO si la fila trajo la columna (`'responsable_tipo' in fila`), y el guardado la manda
+  sólo si la tarjeta la trae: `undefined` ≠ `null`, y esa diferencia es la que deja convivir el código con la migración sin
+  aplicar. El alta desde una reunión la manda siempre y, con 42703/PGRST204, reintenta sin ella (perder el responsable es
+  recuperable; perder la tarea, no).
+- **Lo que no se hizo:** las tareas de antes quedan «Sin asignar» (null = nadie lo dijo, no «mío»; sin backfill). El tablero
+  único para el dueño (meter también las tareas de otras personas de la reunión) sigue siendo sólo del cliente: es otra decisión.
+
 ## El Plan del cliente no deja asignarle una tarea a una persona de su equipo (16/11/2026, SIN HACER)
 
 - Lo encontró el repaso de los entregables del Accelerator («Delegation Framework: cada persona con sus tareas en tu plan»): el
@@ -1293,7 +1333,7 @@ cliente».
 
 **Vive en:** lib/plan-fathom.ts · app/api/plan-fathom/route.ts · lib/reunion-auto.ts · lib/importar-en-segundo-plano.ts · lib/plan-propuesta.ts · tests/plan-recurrente-nace.test.ts · *2026-09-26 · recurrentes: nacer desde la extracción*
 
-### ⚠️ El JUEZ del criterio de Mauricio tiene CERO call sites
+### ~~⚠️ El JUEZ del criterio de Mauricio tiene CERO call sites~~ (falso desde el 30/09/2026: lo llama `lib/reunion-auto.ts`, c84904513)
 
 `juzgarConCriterio` (lib/plan-criterio-juez.ts) está escrito entero, con su prompt editable,
 su saneo determinista en `lib/plan-criterio-reglas.ts`, sus 16 tests y su entrada propia en
@@ -1357,8 +1397,8 @@ PARA SIEMPRE?»… sobre un prompt donde ese bloque no existe.
 
 ### Lo que quedó sin hacer en reuniones
 
-- **`recurrente` NO entra por WhatsApp ni por la API del agente.** La cadena quedó cerrada para la reunión de Fathom, el cron y el archivo subido; los otros dos productores de borradores siguen sin preguntarlo ni mandarlo: `lib/mako-doer-acciones.ts:844` (el map a `crearPropuesta` del doer, y su prompt) y `app/api/agente/plan/route.ts:105` (Claude Code). También `tareasDesdeRespuestas` (`TareaExtra`, lib/plan-propuesta.ts): una tarea que nace de una respuesta del wizard no puede nacer recurrente. En los tres el campo se cae en el `map`, sin error (2026-09-26).
-- **Nadie llama a `juzgarConCriterio`** — ver la entrada de arriba. El juez del criterio de compromisos está completo y es código muerto (2026-09-26).
+- ~~**`recurrente` NO entra por WhatsApp ni por la API del agente.** La cadena quedó cerrada para la reunión de Fathom, el cron y el archivo subido; los otros dos productores de borradores siguen sin preguntarlo ni mandarlo: `lib/mako-doer-acciones.ts:844` (el map a `crearPropuesta` del doer, y su prompt) y `app/api/agente/plan/route.ts:105` (Claude Code). También `tareasDesdeRespuestas` (`TareaExtra`, lib/plan-propuesta.ts): una tarea que nace de una respuesta del wizard no puede nacer recurrente. En los tres el campo se cae en el `map`, sin error (2026-09-26).~~ **Cerrado:** la API del agente el 6/11 (3d2144c6a, `app/api/agente/plan/route.ts`); `tareasDesdeRespuestas` se borró el 5/10 (d763c2b9e); WhatsApp el 18/11/2026 (`tareasDelDoer`, lib/plan-tareas-del-doer.ts, con tests/plan-tareas-del-doer.test.ts). Ver «El borrador de WhatsApp perdía `recurrente`» arriba de todo.
+- ~~**Nadie llama a `juzgarConCriterio`** — ver la entrada de arriba. El juez del criterio de compromisos está completo y es código muerto (2026-09-26).~~ **Falso desde el 30/09/2026:** lo llama `lib/reunion-auto.ts` (c84904513).
 - **Las tareas extraídas de una reunión de Fathom tienen que quedar guardadas ahí para siempre:** hoy si salís de la pantalla hay que volver a correr la extracción, y al volver atrás no se guardan las tareas creadas si no se cargan al plan (2026-08-05).
 - **El contexto extraído sigue pobre y no cita a los invitados**; y no deja cargar al plan de Mauricio una reunión con él (2026-08-05).
 - **Timestamp de la reunión dentro del detalle de cada tarea** venida de Fathom, para poder ir a escuchar lo que se dijo. Lo pidió al menos dos veces (2026-07-30).
@@ -5560,7 +5600,7 @@ pidió.** Si la mayoría no los pidió, el problema es el filtro y no el orden. 
   interruptor del detalle, que es un click. Revisar si en LOTE sí conviene.
 - **El arrastre de Recurrentes es sólo con mouse**: `useArrastreTactil` está cableado a las
   bandas de PRIORIDAD, que esa vista no tiene.
-- **`juzgarConCriterio` sigue con cero call sites** (ver la entrada de Fathom).
+- ~~**`juzgarConCriterio` sigue con cero call sites** (ver la entrada de Fathom).~~ Lo llama `lib/reunion-auto.ts` desde el 30/09/2026 (c84904513).
 
 **Vive en:** `supabase/migrations/0163_tareas_recurrentes.sql` · `0164_proyectos_recurrentes.sql` · `0165_recurrentes_frecuencia.sql` · `lib/plan-recurrentes.ts` · `app/plan/board/BoardShell.tsx` · `app/_components/nav.ts` · *2026-09-26*
 

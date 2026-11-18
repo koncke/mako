@@ -13,6 +13,7 @@
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
+import { leerTodo } from '@/lib/supabase-paginado';
 import { AREAS, type AreaDev, type EstadoArea } from './areas';
 import { TITULOS_EN_PLAN } from './customer-success/roadmap-cs';
 
@@ -143,13 +144,22 @@ async function tareasAbiertas(ws: number): Promise<TareaRoadmap[]> {
   if (cache && cache.ws === ws && Date.now() - cache.at < 30_000) return cache.filas;
   const filas = runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
-    const [{ data: proys }, { data: tareas }] = await Promise.all([
+    // ⚠️ Las tareas abiertas van PAGINADAS (P20, 18/11/2026): el tablero del dueño ya pasa las 500 y PostgREST corta
+    // en 1000 filas sin error; pasado ese número, un área con trabajo abierto se pintaba «Cerrado». Orden por `id`,
+    // único dentro del negocio (PK `workspace_id, id`). Si la lectura falla, la lista queda vacía como antes (el
+    // `.select()` de antes no miraba el error), pero lo deja en el log.
+    const [{ data: proys }, tareas] = await Promise.all([
       db.from('plan_proyectos').select('id, name'),
-      db.from('plan_tareas').select('num, title, labels, score, progress, deadline').lt('progress', 100),
+      leerTodo<Record<string, unknown>>(db, 'plan_tareas', 'id, num, title, labels, score, progress, deadline', {
+        orden: 'id', filtros: (q) => q.lt('progress', 100),
+      }).catch((e: unknown): Record<string, unknown>[] => {
+        console.error(`[roadmap] no pude leer plan_tareas: ${e instanceof Error ? e.message : String(e)}`);
+        return [];
+      }),
     ]);
     const nombre = new Map((proys ?? []).map((p) => [p.id as string, p.name as string]));
     const out: TareaRoadmap[] = [];
-    for (const t of tareas ?? []) {
+    for (const t of tareas) {
       // Una tarea puede colgar de varios proyectos: aparece en el roadmap de cada
       // área que la reclame. No se deduplica a propósito — si dos áreas comparten
       // trabajo, las dos tienen que verlo.

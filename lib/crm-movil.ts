@@ -200,7 +200,7 @@ export async function fichaMovil(leadId: number): Promise<FichaMovil | null> {
 
   const ultima = r.llamadas[0] ?? null;
   const faltantes = (() => {
-    try { return faltantesDeLead(l).map((s) => s.label).slice(0, 4); } catch { return []; }
+    try { return faltantesDeLead(l, undefined, { hoyISO: hoy }).map((s) => s.label).slice(0, 4); } catch { return []; }
   })();
   const reuniones: ReunionesLead = {
     fecha_junta_1: l.fecha_junta_1, junta_1_at: l.junta_1_at, fecha_junta_2: l.fecha_junta_2, junta_2_at: l.junta_2_at,

@@ -23,7 +23,7 @@ import { crearAnuncioPorZernio, leerAnuncioPorZernio, leerErrorDeZernio } from '
 import { leerDatosCuenta, type DatosCuenta } from './datos';
 import { resultados } from './motor';
 import { leerConfig, guardarPropuestas, reclamar, actualizar } from './store';
-import { CTAS, archivoValido, cuerpoCreativoEnConjunto, errorDeTextos, nombreDeAnuncio, type ArchivoSubido, type ConjuntoParaSubir, type Cta, type TextosCreativo } from './creativos';
+import { CTAS, archivoValido, codigosDeAnunciosNuevos, cuerpoCreativoEnConjunto, errorDeTextos, nombreDeAnuncio, type ArchivoSubido, type ConjuntoParaSubir, type Cta, type TextosCreativo } from './creativos';
 export type { ConjuntoParaSubir } from './creativos';
 import type { NodoMB } from './motor';
 
@@ -49,14 +49,16 @@ export function conjuntosDe(datos: DatosCuenta): ConjuntoParaSubir[] {
 /**
  * Los textos de partida para un conjunto: los del anuncio que MÁS resultados trajo en él (7 días), o del primero que
  * haya. Lo nuevo se prueba contra el ganador con su mismo destino y su mismo botón.
+ * `deAnuncioId` es el id de ESE anuncio (18/11/2026, F100): lo que «Subir creativos» manda como `original` cuando la
+ * persona pide probar lo nuevo contra él (el Relevo de motor.ts propone pausarlo si uno le gana).
  */
-export async function plantillaDelConjunto(ws: number, datos: DatosCuenta, adSetId: string): Promise<{ textos: TextosCreativo; deAnuncio: string | null }> {
+export async function plantillaDelConjunto(ws: number, datos: DatosCuenta, adSetId: string): Promise<{ textos: TextosCreativo; deAnuncio: string | null; deAnuncioId: string | null }> {
   const config = await leerConfig(ws);
   const ads = datos.arbol.filter((a) => a.parentId === adSetId && a.nivel === 'ad');
   const res = (id: string) => { const s = datos.larga.find((x) => x.adId === id); return s ? resultados(s, config.kpi) : 0; };
   const mejor = [...ads].sort((a, b) => res(b.id) - res(a.id) || Number(b.configurado === 'ACTIVE') - Number(a.configurado === 'ACTIVE'))[0] ?? null;
   const vacio: TextosCreativo = { textoPrincipal: '', titulo: '', cta: 'LEARN_MORE', link: null, formularioId: null };
-  if (!mejor) return { textos: vacio, deAnuncio: null };
+  if (!mejor) return { textos: vacio, deAnuncio: null, deAnuncioId: null };
   try {
     const a = await runWithWorkspace(ws, () => getAdForEdit(mejor.id));
     if (a.creative) {
@@ -67,11 +69,12 @@ export async function plantillaDelConjunto(ws: number, datos: DatosCuenta, adSet
           link: a.creative.destination_url?.startsWith('https://') ? a.creative.destination_url : null, formularioId: a.creative.lead_form_id ?? null,
         },
         deAnuncio: mejor.nombre,
+        deAnuncioId: mejor.id,
       };
     }
   } catch { /* sin token propio: se prueba Zernio */ }
   const z = await leerAnuncioPorZernio(ws, mejor.id).catch(() => null);
-  return { textos: { ...vacio, textoPrincipal: z?.body ?? '', link: z?.linkUrl?.startsWith('https://') ? z.linkUrl : null }, deAnuncio: mejor.nombre };
+  return { textos: { ...vacio, textoPrincipal: z?.body ?? '', link: z?.linkUrl?.startsWith('https://') ? z.linkUrl : null }, deAnuncio: mejor.nombre, deAnuncioId: mejor.id };
 }
 
 export type ResultadoSubida = { ok: true; creados: string[]; errores: string[]; decisionId: string | null } | { ok: false; error: string };
@@ -157,6 +160,10 @@ export async function subirCreativos(ws: number, x: { adSetId: string; archivos:
   await reclamar(ws, d.id, ['abierta'], { estado: 'aplicada', origen: 'persona', aplicada_por: quien.slice(0, 200), aplicada_at: new Date().toISOString(), canal: 'zernio' });
 
   const db = getSupabaseServer();
+  // La nomenclatura (NNN.SS.x, 18/11/2026): si el conjunto tiene su código, cada anuncio nuevo sale con el suyo, con la letra que
+  // sigue a la mayor que ya usan sus anuncios. Sin código, el nombre de siempre.
+  const hermanos = datos.arbol.filter((n) => n.parentId === conjunto.id && n.nivel === 'ad').map((n) => n.nombre);
+  const codigos = codigosDeAnunciosNuevos(conjunto.nombre, hermanos, archivos.length);
   const creados: string[] = [];
   const errores: string[] = [];
   for (const [i, a] of archivos.entries()) {
@@ -168,7 +175,7 @@ export async function subirCreativos(ws: number, x: { adSetId: string; archivos:
         if (error || !data?.signedUrl) throw new Error(`no pude leer «${a.nombre}» del staging`);
         urlDescarga = data.signedUrl;
       }
-      const cuerpo = cuerpoCreativoEnConjunto({ conexion, adSetId: x.adSetId, nombre: nombreDeAnuncio(a.nombre, i), archivo: a, urlDescarga, textos: x.textos, activo: x.activo });
+      const cuerpo = cuerpoCreativoEnConjunto({ conexion, adSetId: x.adSetId, nombre: nombreDeAnuncio(a.nombre, i, codigos[i]), archivo: a, urlDescarga, textos: x.textos, activo: x.activo });
       // La clave de idempotencia: el path del staging (único por subida), o la ref del video de MaKo en ESTA subida (su
       // decisión): subir el mismo video otra vez, después de deshacerlo, es otro anuncio y no la respuesta guardada del borrado.
       const clave = a.ref ? `mb-subir:${ws}:${d.id}:${a.ref}` : `mb-subir:${ws}:${a.path}`;

@@ -2500,4 +2500,51 @@ export const BITACORA: Hito[] = [
       'tests/pregunta-para-martin.test.ts (8) y tests/ops-center-por-tab.test.ts (6) — 28 roturas en rojo y una neutra en verde',
     ],
   },
+  {
+    fecha: '18 nov', hora: '12:00', chat: 'Construir pendientes (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por la sesión de la nube que trabaja «Lo que falta construir» de docs/pendientes-verificados-17-11.md, en una punta por área.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '12:30', chat: 'Construir pendientes (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'Grupo de la app: cada parte de un aviso queda atada a su mensaje de WhatsApp',
+    puntos: [
+      '**Un aviso en varias partes ya no mezcla los mensajes:** si una parte no dejaba burbuja en el hilo de la app (un texto vacío), el id de WhatsApp de la parte siguiente se ataba a la burbuja equivocada, y una cita o una reacción de WhatsApp caía en otra burbuja.',
+      '**Vale para los cinco envíos por partes:** los avisos, «Probar en el grupo», los recibos, el PDF de la mensualidad de la agencia y el grupo de SuperAdmin.',
+    ],
+    archivos: [
+      'lib/grupo-reglas.ts — paresFilaWa (empareja por parte) · lib/grupo-app.ts — Copia.porParte y atarIdsDeWhatsApp',
+      'tests/grupos-ops-espejo.test.ts — la copia real contra la base de mentira; con el emparejamiento de antes, 13/1',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '01:00', chat: 'Traba (nube)', sesion: 'cli_6ab6e94e-8cd3-5fa9-a736-713a1fc58542', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes: la sección «Traba otra cosa»',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó con el encargo de la sesión: los 13 de «Traba otra cosa» de docs/pendientes-verificados-17-11.md, en su orden, refutando cada uno contra main antes de tocarlo, y lo que no esté hecho, con un test que lo reproduzca.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '01:35', chat: 'Traba (nube)', sesion: 'cli_6ab6e94e-8cd3-5fa9-a736-713a1fc58542', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'El Runner avisa cuando su cron dejó de correr, y el aviso al Cerebro ya no manda a un cartel que no existe',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El cron del Runner que vence ya no pasa en silencio:** cuando el Runner sigue latiendo pero su cron no corre (no mide la cuota ni corre el vigía), el Cerebro lo recibe en cada turno con el pedido de rearmarlo, y la guardia se lo avisa.',
+      '**Un Runner recién abierto tiene su hora para armar el cron:** no hereda la marca vieja del Runner anterior, así que no salta la alarma mientras se está armando.',
+      '**Lo que espera un chat cerrado:** el aviso al Cerebro le decía que te pidiera reenviarlo «desde el cartel rojo», que sacaste el 31/10. Ahora le dice que te pida volver a escribirlo en un chat abierto.',
+      '**Limpieza:** se borraron las funciones del cartel que ninguna pantalla usaba.',
+      'Para que corra en la PC faltan las copias del cartero, de runner-salud, la línea del latido en el cron del Runner y el prompt de la guardia: las hace el Cerebro.',
+    ],
+    commits: [{ sha: '0f0bf08a', msg: 'Pendientes «Traba otra cosa»: T6, T5, T11 y T12 cerrados con test; los otros nueve, con su estado de hoy', lineas: 985, archivos: 30 }],
+    archivos: [
+      'scripts/operaciones/runner-salud.mjs — latido-del-cron, cronDelRunner, estado (cron, cronVencido), alTurno · scripts/operaciones/cartero.mjs — mensajeLimbo',
+      'scripts/operaciones/guardia-runner.md — el prompt de la guardia con cronVencido',
+      'lib/centro-limbo.ts, app/admin/operaciones/acciones.ts, lib/operaciones.ts — lo del cartel, borrado · lib/limbo-al-cerebro.ts, scripts/tickets.ts — el texto nuevo',
+      'tests/runner-salud.test.ts (9 roturas) · tests/centro-limbo.test.ts · tests/centro-estado-pc.test.ts',
+    ],
+  },
 ];

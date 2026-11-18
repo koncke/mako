@@ -16,6 +16,7 @@
 // =============================================================================
 
 import { plantillasPropiasDe, type PlantillaTarjeta } from './plantillas-tarjeta';
+import { iniciales } from './unicode-seguro';
 
 /** Los colores de la familia: los de sección del prototipo (azul, verde, violeta, turquesa, gris). */
 export type ColorTarjeta = 'blue' | 'green' | 'purple' | 'teal' | 'grey';
@@ -40,11 +41,17 @@ export function fotoQueNoCargo(img: { complete: boolean; naturalWidth: number } 
   return !!img && img.complete && img.naturalWidth === 0;
 }
 
-/** Las iniciales de un nombre: dos letras, en mayúscula. Sin nombre, «?». Ignora lo que no es letra ni número. */
+/**
+ * Las iniciales de un nombre: dos letras, en mayúscula. Sin nombre, «?». Ignora lo que no es letra ni número.
+ * ⚠️ Por LETRA, nunca por unidad UTF-16 (18/11/2026, O14): `palabras[0][0]` y `slice(0, 2)` cortaban por la mitad una letra
+ * fuera del plano básico («𝐀na», común en los nombres de Instagram), el HTML del server llevaba «�» y la tarjeta del kanban
+ * (CRM, Clients, Plan) tiraba la pantalla al hidratar (#418). La primera y la última palabra, con `iniciales`
+ * (lib/unicode-seguro.ts); las dos de una sola palabra, con `Array.from`, que corta por punto de código.
+ */
 export function inicialesDe(nombre: string | null | undefined): string {
   const palabras = String(nombre ?? '').trim().split(/\s+/).map((p) => p.replace(/[^\p{L}\p{N}]/gu, '')).filter(Boolean);
   if (!palabras.length) return '?';
-  const dos = palabras.length === 1 ? palabras[0].slice(0, 2) : palabras[0][0] + palabras[palabras.length - 1][0];
+  const dos = palabras.length === 1 ? Array.from(palabras[0]).slice(0, 2).join('') : iniciales(`${palabras[0]} ${palabras[palabras.length - 1]}`, 2, '');
   return dos.toLocaleUpperCase('es');
 }
 

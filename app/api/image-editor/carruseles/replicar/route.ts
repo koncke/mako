@@ -28,7 +28,7 @@ import { puerta } from '@/lib/image-editor/server';
 import { candadoIaDeEditores } from '@/lib/editores-ia-pro';
 import { rateLimit } from '@/lib/rate-limit';
 import { replicarEjemplo, type EjemploAReplicar } from '@/lib/carruseles/replica-servidor';
-import { lineaDeEvento } from '@/lib/carruseles/replica';
+import { streamDeReplica } from '@/lib/carruseles/replica-stream';
 import { leerPedidoGuiado } from '@/lib/carruseles/guiado';
 import { esIdDeVertical } from '@/lib/thumbnails/verticales';
 import { vistaDeOtro } from '@/lib/vista-de-otro';
@@ -37,10 +37,16 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 // ⚠️ MEDIDO con la IA real el 6/11/2026 (scripts/carruseles-probar-editar.mts, cinco corridas): 21,6 s · 33,4 s · 143,4 s ·
 // 149,3 s · **276,9 s**. El peor caso casi toca este tope, y no es por el tamaño del pedido: `gemini-flash-latest` se cuelga y
-// se come su plazo entero de 120 s antes de que conteste el respaldo (8 s). Si alguna vez se pasa de 300, el stream se corta
-// SIN mandar el `fin` y la pantalla espera para siempre. El plazo de la cascada es por llamada, no por pedido:
+// se come su plazo entero de 120 s antes de que conteste el respaldo (8 s). El plazo de la cascada es por llamada, no por pedido:
 // docs/hallazgos-ia.md → «Un modelo de Gemini que se cuelga se come el plazo ENTERO».
+//
+// ⚠️ ANTES DEL TOPE SE AVISA (18/11/2026, F14). Si se pasaba de 300, Vercel cortaba la función, el stream terminaba SIN el `fin` y
+// la pantalla esperaba para siempre en «Escribo tu versión…». Ahora `streamDeReplica` (lib/carruseles/replica-stream.ts) manda él
+// el `fin` con la causa (la fase en que estaba) a `AVISO_ANTES_DEL_TOPE_MS`, y la pantalla, si igual le llega un stream sin `fin`,
+// lo dice (`leerStreamDeReplica`). Lo de atrás no se aborta: si termina y guarda, queda en «tus diseños», y el texto lo dice.
 export const maxDuration = 300;
+/** Cuándo manda la ruta su propio `fin`: 15 s antes de que Vercel corte (`maxDuration`), con lugar para escribirlo y cerrar. */
+const AVISO_ANTES_DEL_TOPE_MS = (maxDuration - 15) * 1000;
 
 const fallo = (error: string, status: number) =>
   Response.json({ ok: false, error }, { status, headers: { 'cache-control': 'no-store' } });
@@ -69,20 +75,12 @@ export async function POST(req: NextRequest) {
   const vista = await vistaDeOtro().catch(() => null);
   const negocioAjeno = vista && vista.clienteWs === p.ws ? vista.clienteNombre : null;
 
-  const enc = new TextEncoder();
-  const stream = new ReadableStream<Uint8Array>({
-    async start(ctrl) {
-      const mandar = (linea: string) => { try { ctrl.enqueue(enc.encode(linea)); } catch { /* se cerró */ } };
-      try {
-        const r = await runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, ejemplo, { pedido, guiado, negocioAjeno, alEvento: (e) => mandar(lineaDeEvento(e)) }));
-        if (!r.ok) mandar(lineaDeEvento({ fase: 'fin', ok: false, error: r.error, conectar: r.conectar ?? null }));
-      } catch (e) {
-        console.error('[carruseles] replicar:', e instanceof Error ? e.message : e);
-        mandar(lineaDeEvento({ fase: 'fin', ok: false, error: 'No pude armar el diseño. Vuelve a intentar.' }));
-      } finally {
-        try { ctrl.close(); } catch { /* ya cerrado */ }
-      }
+  const stream = streamDeReplica(
+    (alEvento) => runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, ejemplo, { pedido, guiado, negocioAjeno, alEvento })),
+    {
+      plazoMs: AVISO_ANTES_DEL_TOPE_MS, minutos: Math.floor(AVISO_ANTES_DEL_TOPE_MS / 60_000), negocioAjeno,
+      alFallar: (e) => console.error('[carruseles] replicar:', e instanceof Error ? e.message : e),
     },
-  });
+  );
   return new Response(stream, { headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' } });
 }

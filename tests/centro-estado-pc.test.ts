@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ListaUso } from '../app/admin/operaciones/Uso';
-import { mensajesEnLimbo, textoDelCartel } from '../lib/centro-limbo';
+import { pedidosSinChatVivo, comoEstaElDestino } from '../lib/operaciones-reglas';
 import { estadoDeLaPc, comoSale, completarChats, preguntaDeChatCerrado, sinNoticiasDesde } from '../lib/centro-chats';
 import { carteroVivo, faltaColumnaDeLaVuelta, filaDeLaVuelta, motivoDeEspera, sanearServicio, vistoDeLaFila, type ChatCartero } from '../lib/operaciones-reglas';
 import { cuentasDeUso } from '../lib/centro-uso';
@@ -71,19 +71,21 @@ test('«sin Runner» cuenta sólo lo que sigue en «escrito», y sin pedidos igu
   assert.equal(estadoDeLaPc(sinRunner, [{ estado: 'escrito', created_at: 'no es una fecha', destino_cuenta: null }], AHORA)!.texto, 'Sin Runner desde el 24 oct a las 15:00');
 });
 
-test('con un Runner dando vueltas está al día, con su edad; lo que espera al Runner de OTRA cuenta lo cuenta la regla de los mensajes', () => {
+test('con un Runner dando vueltas está al día, con su edad; lo que espera al Runner de OTRA cuenta no es «chat cerrado»', () => {
   assert.deepEqual(estadoDeLaPc(conRunner, [pedido(7 * DIA)], AHORA), { tipo: 'al_dia', desde: AHORA - MIN, texto: 'La PC dio noticias hace 1 min', hacer: null });
   assert.equal(sinNoticiasDesde(conRunner, AHORA), null);
   // Corrido en la revisión: Runner en la 1, la 2 con el servicio subiendo y su chat vivo sin Runner. La PC está al día, y el mensaje igual espera.
   const dos = [{ cuenta: 'claude1', vistoAt: iso(MIN), noticiasAt: iso(MIN), chats: [] }, { cuenta: 'claude2', vistoAt: iso(6 * DIA), noticiasAt: iso(MIN), chats: [chatDe({ vivo: true, runner: false })] }];
   const cola = [{ id: 'p1', texto: 'hola', motivo: null, destino: CHAT, destino_titulo: 'CRM', ...pedido(5 * DIA) }];
   assert.equal(estadoDeLaPc(dos, cola, AHORA)?.tipo, 'al_dia');
-  const limbo = mensajesEnLimbo(cola, dos, AHORA);
-  assert.equal(textoDelCartel(limbo, AHORA), '1 mensaje tuyo espera al Runner de la cuenta 2 (de hace 5 días)');
+  // El cartel que decía «1 mensaje tuyo espera al Runner de la cuenta 2» se borró con su lógica (18/11/2026, pendiente T5): lo que queda
+  // es que al Cerebro no se le diga «chat cerrado» por un chat vivo que espera a su Runner.
+  assert.equal(comoEstaElDestino(CHAT, 'claude2', dos, AHORA), 'sin_runner');
+  assert.deepEqual(pedidosSinChatVivo(cola, dos, AHORA), []);
   // Sin el servicio: la 2 callada hace 6 días. Lo mismo, con la foto vieja.
   const callada = [dos[0], { ...dos[1], noticiasAt: iso(6 * DIA) }];
   assert.equal(estadoDeLaPc(callada, cola, AHORA)?.tipo, 'al_dia');
-  assert.equal(mensajesEnLimbo(cola, callada, AHORA)[0]?.causa, 'sin_runner');
+  assert.equal(comoEstaElDestino(CHAT, 'claude2', callada, AHORA), 'sin_noticias');
 });
 
 test('en el Uso se dibuja el hecho con su edad, y qué hacer; sin dato, nada', () => {

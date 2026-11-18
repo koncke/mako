@@ -13,7 +13,7 @@
 import 'server-only';
 import { crearNotificacion, anotarSalida, type NotifSeveridad, type SalidaAviso } from './notificaciones';
 import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, enviarPartesAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
-import { alguienAbrioElGrupo, atarIdDeWhatsApp, claveDeConversacion, copiarAlGrupo, type Copia } from './grupo-app';
+import { alguienAbrioElGrupo, atarIdsDeWhatsApp, claveDeConversacion, copiarAlGrupo, type Copia } from './grupo-app';
 import { idDeLaApp } from './grupo-salida';
 import { partesConRotulo, textoDePreparadas, type PartePreparada, type SinGrupo } from './mako-tarjeta';
 import { reclamarEspaciado, salioReciente } from './espaciado';
@@ -351,8 +351,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // conversación del negocio: un negocio sin grupo también tiene una. ⚠️ Un aviso `alDueno` NUNCA entra a la memoria del cliente aunque el `ws` sea el suyo: su clave es
     // la del grupo de la plataforma. Se emite adentro del workspace del cliente, y con su clave MaKo le repetiría avisos de agencia sobre él.
     if (copia && env.ok && env.id) {
-      const ids = porPartes?.ids ?? [env.id];
-      await Promise.all(copia.ids.map((fila, i) => (ids[i] ? atarIdDeWhatsApp(wsLector, fila, ids[i]) : Promise.resolve()))).catch(() => {});
+      await atarIdsDeWhatsApp(wsLector, copia, porPartes?.ids ?? [env.id]);
     }
     if (env.ok || copia) {
       const { guardarTurno } = await import('./mako-doer-conv');

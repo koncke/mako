@@ -143,7 +143,7 @@ Lo construye el chat del CRM (brief mandado el 07/10). De este lado solo `lib/cu
 ```ts
 // lib/curso-invitar.ts (server-only) — lo usa el CRM
 invitarAlCursoSinSesion({ ws, leadId, email?, autor }): Promise<
-  { ok: true; enviado: boolean; motivo?: 'ya-invitado' | 'ya-entro' | 'sin-email' | 'sin-clases' | 'cortado' | 'no-ganado' }
+  { ok: true; enviado: boolean; motivo?: 'ya-invitado' | 'ya-entro' | 'sin-email' | 'sin-clases' | 'cortado' | 'no-ganado' | 'sacado' }  // sacado: 18/11/2026, O12
   | { ok: false; error: string }>
 
 // lib/curso-alcance.ts (puro) — permisos por alumno

@@ -13,8 +13,9 @@
 // (lib/mako-tools.ts) TODAVÍA usa el viejo: el runner de plan.run.ts la corre solo
 // cuando los dos criterios coinciden, y si no contesta desde leerTablero.
 //
-// ⚠️ listPlanBoard y listTareas no paginan: PostgREST corta en 1000 filas sin avisar.
-// `recortado` lo dice cuando se llega justo al tope, para que el runner lo declare.
+// ⚠️ Las TAREAS se leen enteras desde el 18/11/2026 (P20: listPlanBoard y listTareasConTope paginan).
+// Los PROYECTOS todavía no: `recortado` dice cuando esa lectura llega justo al tope de 1000, para que el
+// runner lo declare. Medido contra las tareas saltaría con 1000 tarjetas sin que nada se haya cortado.
 // =============================================================================
 
 import 'server-only';
@@ -177,13 +178,13 @@ export async function leerTablero(ws: number): Promise<Tablero> {
         repeticion: textoRepeticion(p.recurrencia),
       })),
       deps: b.deps,
-      recortado: b.tareas.length >= TOPE_FILAS || b.proyectos.length >= TOPE_FILAS,
+      recortado: b.proyectos.length >= TOPE_FILAS,
     };
   }
   // El mismo tablero que /plan, con el mismo filtro (#507): lo que MaKo llama «el tablero» es el Plan,
-  // no lo que propuso una Retro. Buscar una tarea por id (plan.run.ts) sigue viendo todo. Y `recortado`
-  // se mide con las filas LEÍDAS: el filtro le sacaría el aviso a una lectura cortada en 1000.
-  const [{ tareas, leidas }, cats] = await Promise.all([listTareasConTope({ soloDelPlan: true }), listCategorias()]);
+  // no lo que propuso una Retro. Buscar una tarea por id (plan.run.ts) sigue viendo todo. Las tareas
+  // vienen enteras (paginadas, P20): `recortado` sólo mide los proyectos, que todavía no paginan.
+  const [{ tareas }, cats] = await Promise.all([listTareasConTope({ soloDelPlan: true }), listCategorias()]);
   return {
     board: 'todo',
     tareas: tareas.map((t) => ({
@@ -212,7 +213,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       repeticion: textoRepeticion(c.recurrencia),
     })),
     deps: [],
-    recortado: leidas >= TOPE_FILAS || cats.length >= TOPE_FILAS,
+    recortado: cats.length >= TOPE_FILAS,
   };
 }
 

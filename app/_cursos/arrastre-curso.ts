@@ -43,9 +43,20 @@
 //   ⚠️ UN GESTO QUE NACE EN UN CONTROL O EN UN TEXTO QUE SE EDITA (`[data-nodrag]`) NO ARRASTRA: sin
 //      esto, seleccionar el nombre de un módulo con el mouse se llevaba la tarjeta entera.
 //   ⚠️ AL ORIGEN NO SE LE TOCA NADA: lo que se mueve es la copia y lo que dice dónde cae es el hueco.
+//
+// CON EL DEDO (18/11/2026, F113 (5) de los pendientes del 17/11): el HTML5 drag-and-drop no dispara con un dedo, así que en
+// un teléfono o una tablet el curso no se podía reordenar. `tocar` arma el MISMO gesto por pointer events, con el molde del
+// Plan (app/plan/board/arrastre-tactil.ts, de donde salen `MS_ARMAR` y `PX_CANCELA2`): se arma manteniendo el dedo quieto,
+// un dedo que se mueve antes era un scroll, los listeners viven en `window` (nada de `setPointerCapture`), el scroll se frena
+// con un `touchmove` no pasivo sólo con el gesto armado, y el `click` que el navegador inventa después de soltar se traga.
+// Lo que decide dónde cae y qué pasa al soltar es lo MISMO que el del mouse (`destinoEn`, `soltarEn`), no una copia: el dedo
+// pregunta la zona con `elementFromPoint` y el mouse con el `dragover`. El mouse no pasa por acá (`pointerType === 'mouse'`).
+//   ⚠️ CON EL GESTO ARMADO, EL `contextmenu` NO LLEGA: Android lo dispara al mantener apretado (~500 ms) y abría el «…» de la
+//      tarjeta en medio del arrastre. El «…» sigue en su botón.
 
 import { useCallback, useEffect, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { fotoVaciaDeArrastre, scrollerDe, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
+import { MS_ARMAR, PX_CANCELA2 } from '@/app/plan/board/arrastre-tactil';
 import { empujeDeColumna } from '@/app/crm/arrastre-columna';
 import { antesDeEn, filaEnBarra, indiceEnGrilla, indiceEnLista, ordenAlSoltar, type FilaBarra, type RectTarjeta } from './orden';
 
@@ -78,7 +89,7 @@ export function useArrastreCurso(p: {
   /** Sin esto, las clases no se arrastran. `antesDe` null = al final del módulo. */
   onLlevarClase?: (claseId: number, moduloKey: string, antesDe: number | null) => void;
 }) {
-  const { pararScroll, montarCopia, soltarCopia } = useArrastreCopia();
+  const { pararScroll, montarCopia, soltarCopia, moverCopia } = useArrastreCopia();
   const [mano, setMano] = useState<ManoCurso | null>(null);
   const [destino, setDestino] = useState<DestinoCurso | null>(null);
   /** El alto de lo que se agarró: el hueco de una grilla mide eso (el «hueco del tamaño de una tarjeta»). */
@@ -109,6 +120,13 @@ export function useArrastreCurso(p: {
   // Los datos viajan por un ref: los handlers se arman en cada render y el gesto dura muchos.
   const datos = useRef(p);
   useEffect(() => { datos.current = p; });
+  /** El gesto del DEDO en curso (ver la cabecera): sin armar mientras el dedo no se quedó quieto `MS_ARMAR`. */
+  const tactil = useRef<{
+    pointerId: number; x0: number; y0: number; armado: boolean; timer: ReturnType<typeof setTimeout> | null;
+    m: ManoCurso; x: number; y: number; zona: ZonaCurso | null;
+  } | null>(null);
+  /** Cuándo terminó el último gesto armado: el `click` que el navegador inventa después se traga (medio segundo). */
+  const finTactil = useRef(0);
 
   const ponerDestino = (d: DestinoCurso | null) => {
     if (mismoDestino(destinoRef.current, d)) return;
@@ -156,6 +174,19 @@ export function useArrastreCurso(p: {
   };
 
   /**
+   * Una clase sobre la barra: la pastilla en lugar de la tarjeta (ver `pildora`). Se escribe sobre los nodos, nunca con
+   * `setState` (uno por `dragover` redibuja el curso sesenta veces por segundo). La llaman el `dragover` y el dedo.
+   */
+  const pastillaEn = (enBarra: boolean, x: number, y: number) => {
+    const p = pildora.current;
+    if (!p) return;
+    p.style.display = enBarra ? 'block' : 'none';
+    p.style.transform = `translate3d(${x + 14}px, ${y - 18}px, 0)`;
+    // `opacity` y no `visibility`: un hijo con su propio `visibility` se seguía viendo (el chip «Sin video»).
+    if (copiaGrande.current) copiaGrande.current.style.opacity = enBarra ? '0' : '1';
+  };
+
+  /**
    * El auto-scroll, en `document` y en captura (ver la cabecera): empuja el que scrollea BAJO EL
    * CURSOR, el contenido o la barra. Se monta al agarrar y se suelta en `dragend` Y en `drop`.
    *
@@ -174,16 +205,7 @@ export function useArrastreCurso(p: {
       const t = e.target as Element | null;
       const z = typeof t?.closest === 'function' ? t.closest<HTMLElement>('[data-zona]')?.dataset.zona : undefined;
       if (!z || !acepta(z as ZonaCurso, m)) ponerDestino(null);
-      // Una clase sobre la barra: la pastilla en lugar de la tarjeta (ver `pildora`). Se escribe sobre
-      // los nodos, nunca con `setState` (uno por `dragover` redibuja el curso sesenta veces por segundo).
-      const p = pildora.current;
-      if (p) {
-        const enBarra = z === 'barra';
-        p.style.display = enBarra ? 'block' : 'none';
-        p.style.transform = `translate3d(${e.clientX + 14}px, ${e.clientY - 18}px, 0)`;
-        // `opacity` y no `visibility`: un hijo con su propio `visibility` se seguía viendo (el chip «Sin video»).
-        if (copiaGrande.current) copiaGrande.current.style.opacity = enBarra ? '0' : '1';
-      }
+      pastillaEn(z === 'barra', e.clientX, e.clientY);
       for (const sc of scrollers) {
         if (sc.scrollHeight <= sc.clientHeight + 1) continue;
         const r = sc.getBoundingClientRect();
@@ -223,10 +245,23 @@ export function useArrastreCurso(p: {
     if (!e.currentTarget.contains(e.target as Node)) return;
     const o = origen.current;
     if (o && e.currentTarget.contains(o) && o.closest('[data-nodrag]')) { e.preventDefault(); return; }
+    // Si el navegador arranca su propio arrastre con el dedo (el de iPadOS lo hace con un toque largo), gana ése: el del
+    // dedo se suelta sin terminar nada, o el `pointercancel` que manda después le borraría la mano a éste.
+    if (tactil.current?.timer) clearTimeout(tactil.current.timer);
+    tactil.current = null;
     const nodo = e.currentTarget.querySelector<HTMLElement>('[data-arr-copia]') ?? e.currentTarget;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', m.tipo === 'modulo' ? m.key : String(m.id));
     fotoVaciaDeArrastre(e.dataTransfer);
+    const raiz = levantar(nodo, m, e.clientX, e.clientY);
+    if (raiz) montarEmpuje(raiz);
+  };
+
+  /**
+   * Lo que se agarra pasa a la mano: el estado, la copia que sigue al cursor (o al dedo) y la pastilla de una clase.
+   * Devuelve el `.ugc` donde se colgó la copia. Lo llaman el `dragstart` del mouse y el dedo (`tocar`).
+   */
+  const levantar = (nodo: HTMLElement, m: ManoCurso, x: number, y: number): HTMLElement | null => {
     const r = nodo.getBoundingClientRect();
     manoRef.current = m;
     destinoRef.current = null;
@@ -237,7 +272,7 @@ export function useArrastreCurso(p: {
     // La copia se cuelga del `.ugc`: la hoja del origen viste todo bajo `.ahdoc .ugc`, y colgada del
     // `body` salía como texto suelto (ver `montarCopia`).
     const raiz = nodo.closest<HTMLElement>('.ugc');
-    montarCopia(nodo, e.clientX - r.left, e.clientY - r.top, raiz);
+    montarCopia(nodo, x - r.left, y - r.top, raiz);
     quitarPildora();
     if (m.tipo === 'clase' && raiz) {
       // La copia que acaba de colgar `montarCopia` es la última hija del `.ugc`. La pastilla va al lado,
@@ -257,7 +292,55 @@ export function useArrastreCurso(p: {
       raiz.appendChild(p);
       pildora.current = p;
     }
-    if (raiz) montarEmpuje(raiz);
+    return raiz;
+  };
+
+  /**
+   * Dónde caería lo que va en la mano si se suelta en (x, y) sobre la zona `z` (su elemento, `el`). UNA función para el
+   * `dragover` del mouse y para el dedo: dos copias del mismo predicado se arreglan la mitad de las veces.
+   */
+  const destinoEn = (z: ZonaCurso, el: HTMLElement, m: ManoCurso, clientX: number, clientY: number): DestinoCurso | null => {
+    if (z === 'barra' && m.tipo === 'clase') {
+      // Una clase sobre la barra no abre hueco: el módulo a la altura del cursor la recibe entera
+      // (`filaEnBarra`: también en el aire entre dos renglones, que antes no recibía nada).
+      if (!filasBarra.current) {
+        const sc = scrollerDe(el);
+        const off = desplazamiento(sc);
+        const filas = [...el.querySelectorAll<HTMLElement>('[data-arr-modulo]')]
+          .filter((n) => datos.current.recibeClases(n.dataset.arrModulo ?? ''))
+          .map((n) => { const r = n.getBoundingClientRect(); return { key: n.dataset.arrModulo ?? '', y1: r.top + off, y2: r.bottom + off }; });
+        filasBarra.current = { filas, sc };
+      }
+      const { filas, sc } = filasBarra.current;
+      const k = filaEnBarra(filas, clientY + desplazamiento(sc));
+      return k && k !== m.moduloKey ? { zona: 'barra-clase', key: k } : null;
+    }
+    const med = medir(z, el);
+    const py = clientY + desplazamiento(med.sc);
+    const indice = z === 'barra'
+      ? indiceEnLista(med.rects.map((r) => (r.y1 + r.y2) / 2), py)
+      : indiceEnGrilla(med.rects, clientX, py);
+    return { zona: z, indice };
+  };
+
+  /** Soltar lo que va en la mano sobre la zona `z`, con el destino de ese momento. Lo llaman el `drop` y el dedo. */
+  const soltarEn = (z: ZonaCurso, m: ManoCurso) => {
+    // ⚠️ EL DESTINO SE LEE ANTES DE `terminar()`, que lo borra.
+    const d = destinoRef.current;
+    const { modulos, clasesDe, onOrdenarModulos, onLlevarClase } = datos.current;
+    terminar();
+    if (m.tipo === 'clase' && z === 'barra') {
+      if (d && d.zona === 'barra-clase') onLlevarClase?.(m.id, d.key, null);
+      return;
+    }
+    if (!d || d.zona !== z || !('indice' in d)) return;
+    if (m.tipo === 'modulo') {
+      const nueva = ordenAlSoltar(modulos, m.key, d.indice);
+      if (nueva) onOrdenarModulos?.(nueva);
+      return;
+    }
+    const nueva = ordenAlSoltar(clasesDe(m.moduloKey), m.id, d.indice);
+    if (nueva) onLlevarClase?.(m.id, m.moduloKey, antesDeEn(nueva, m.id));
   };
 
   /** Los handlers de una zona: dónde caería, y qué pasa al soltar. */
@@ -274,51 +357,137 @@ export function useArrastreCurso(p: {
       // `preventDefault` es lo que HABILITA soltar: sin él el navegador lo rechaza y no pasa nada.
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      if (z === 'barra' && m.tipo === 'clase') {
-        // Una clase sobre la barra no abre hueco: el módulo a la altura del cursor la recibe entera
-        // (`filaEnBarra`: también en el aire entre dos renglones, que antes no recibía nada).
-        if (!filasBarra.current) {
-          const sc = scrollerDe(e.currentTarget);
-          const off = desplazamiento(sc);
-          const filas = [...e.currentTarget.querySelectorAll<HTMLElement>('[data-arr-modulo]')]
-            .filter((n) => datos.current.recibeClases(n.dataset.arrModulo ?? ''))
-            .map((n) => { const r = n.getBoundingClientRect(); return { key: n.dataset.arrModulo ?? '', y1: r.top + off, y2: r.bottom + off }; });
-          filasBarra.current = { filas, sc };
-        }
-        const { filas, sc } = filasBarra.current;
-        const k = filaEnBarra(filas, e.clientY + desplazamiento(sc));
-        ponerDestino(k && k !== m.moduloKey ? { zona: 'barra-clase', key: k } : null);
-        return;
-      }
-      const med = medir(z, e.currentTarget);
-      const py = e.clientY + desplazamiento(med.sc);
-      const indice = z === 'barra'
-        ? indiceEnLista(med.rects.map((r) => (r.y1 + r.y2) / 2), py)
-        : indiceEnGrilla(med.rects, e.clientX, py);
-      ponerDestino({ zona: z, indice });
+      ponerDestino(destinoEn(z, e.currentTarget, m, e.clientX, e.clientY));
     },
     onDrop: (e: ReactDragEvent<HTMLElement>) => {
       const m = manoRef.current;
       if (!m || !acepta(z, m)) return;
       e.preventDefault();
-      // ⚠️ EL DESTINO SE LEE ANTES DE `terminar()`, que lo borra.
-      const d = destinoRef.current;
-      const { modulos, clasesDe, onOrdenarModulos, onLlevarClase } = datos.current;
-      terminar();
-      if (m.tipo === 'clase' && z === 'barra') {
-        if (d && d.zona === 'barra-clase') onLlevarClase?.(m.id, d.key, null);
-        return;
-      }
-      if (!d || d.zona !== z || !('indice' in d)) return;
-      if (m.tipo === 'modulo') {
-        const nueva = ordenAlSoltar(modulos, m.key, d.indice);
-        if (nueva) onOrdenarModulos?.(nueva);
-        return;
-      }
-      const nueva = ordenAlSoltar(clasesDe(m.moduloKey), m.id, d.indice);
-      if (nueva) onLlevarClase?.(m.id, m.moduloKey, antesDeEn(nueva, m.id));
+      soltarEn(z, m);
     },
   });
+
+  // ── EL DEDO (ver la cabecera) ─────────────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * `onPointerDown` de lo que se arrastra: con el dedo (o un lápiz), arma el arrastre si el dedo se queda quieto `MS_ARMAR`.
+   * El mouse sigue por el HTML5 drag-and-drop de siempre.
+   */
+  const tocar = (e: ReactPointerEvent<HTMLElement>, m: ManoCurso) => {
+    if (e.pointerType === 'mouse' || !e.isPrimary) return;
+    if (!e.currentTarget.contains(e.target as Node)) return;
+    const t = e.target as Element;
+    if (typeof t.closest === 'function' && t.closest('[data-nodrag]')) return;
+    const d = datos.current;
+    if (m.tipo === 'modulo' ? !d.onOrdenarModulos : !d.onLlevarClase) return;
+    if (tactil.current?.timer) clearTimeout(tactil.current.timer);
+    const nodo = e.currentTarget.querySelector<HTMLElement>('[data-arr-copia]') ?? e.currentTarget;
+    const g = {
+      pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, armado: false,
+      timer: null as ReturnType<typeof setTimeout> | null, m, x: e.clientX, y: e.clientY, zona: null as ZonaCurso | null,
+    };
+    g.timer = setTimeout(() => {
+      if (tactil.current !== g) return;
+      g.timer = null;
+      g.armado = true;
+      levantar(nodo, m, g.x, g.y);
+      // Un golpecito háptico para que se entienda que la tarjeta se levantó (como el Plan).
+      try { navigator.vibrate?.(12); } catch { /* no todos lo tienen */ }
+    }, MS_ARMAR);
+    tactil.current = g;
+  };
+
+  useEffect(() => {
+    let raf: number | null = null;
+    const cancelar = () => {
+      const g = tactil.current;
+      if (g?.timer) clearTimeout(g.timer);
+      tactil.current = null;
+      if (raf != null) cancelAnimationFrame(raf);
+      raf = null;
+      if (g?.armado) terminar();
+    };
+    /** Dónde está el dedo: la copia lo sigue, y la zona de abajo dice dónde caería. */
+    const apuntar = (x: number, y: number) => {
+      const g = tactil.current;
+      if (!g?.armado) return;
+      moverCopia(x, y);
+      const bajo = typeof document.elementFromPoint === 'function' ? document.elementFromPoint(x, y) : null;
+      const el = bajo && typeof bajo.closest === 'function' ? bajo.closest<HTMLElement>('[data-zona]') : null;
+      const z = (el?.dataset.zona ?? null) as ZonaCurso | null;
+      pastillaEn(z === 'barra', x, y);
+      if (!el || !z || !acepta(z, g.m)) { g.zona = null; ponerDestino(null); return; }
+      g.zona = z;
+      ponerDestino(destinoEn(z, el, g.m, x, y));
+    };
+    /** El auto-scroll del que scrollea bajo el dedo (el contenido o la barra), mientras el dedo esté en su borde. */
+    const empujar = () => {
+      raf = null;
+      const g = tactil.current;
+      if (!g?.armado) return;
+      let movio = false;
+      for (const sc of document.querySelectorAll<HTMLElement>('.ugc .ugc-content, .ugc .ugc-side')) {
+        if (sc.scrollHeight <= sc.clientHeight + 1) continue;
+        const r = sc.getBoundingClientRect();
+        if (g.x < r.left || g.x > r.right) continue;
+        const d = empujeDeColumna(r, g.y);
+        if (d) { sc.scrollTop += d; movio = true; }
+      }
+      if (movio) { apuntar(g.x, g.y); raf = requestAnimationFrame(empujar); }
+    };
+    const alMover = (e: PointerEvent) => {
+      const g = tactil.current;
+      if (!g || e.pointerId !== g.pointerId) return;
+      g.x = e.clientX;
+      g.y = e.clientY;
+      if (!g.armado) {
+        const dx = e.clientX - g.x0;
+        const dy = e.clientY - g.y0;
+        if (dx * dx + dy * dy > PX_CANCELA2) cancelar();   // era un scroll
+        return;
+      }
+      apuntar(e.clientX, e.clientY);
+      if (raf == null) raf = requestAnimationFrame(empujar);
+    };
+    const alSoltar = (e: PointerEvent) => {
+      const g = tactil.current;
+      if (!g || e.pointerId !== g.pointerId) return;
+      if (!g.armado) { cancelar(); return; }
+      finTactil.current = performance.now();
+      tactil.current = null;
+      if (raf != null) cancelAnimationFrame(raf);
+      raf = null;
+      const m = manoRef.current;
+      if (g.zona && m) soltarEn(g.zona, m);
+      else terminar();
+    };
+    const alCancelar = (e: PointerEvent) => { if (tactil.current && e.pointerId === tactil.current.pointerId) cancelar(); };
+    // `passive: false` es lo único que frena el scroll de la página con el gesto armado (el `onTouchMove` de React es pasivo).
+    const alMoverTouch = (e: TouchEvent) => { if (tactil.current?.armado) e.preventDefault(); };
+    const sinMenu = (e: Event) => { if (tactil.current?.armado) { e.preventDefault(); e.stopPropagation(); } };
+    const sinClicFantasma = (e: Event) => {
+      if (performance.now() - finTactil.current < 500) { e.preventDefault(); e.stopPropagation(); finTactil.current = 0; }
+    };
+    window.addEventListener('pointermove', alMover);
+    window.addEventListener('pointerup', alSoltar);
+    window.addEventListener('pointercancel', alCancelar);
+    window.addEventListener('contextmenu', sinMenu, true);
+    window.addEventListener('click', sinClicFantasma, true);
+    document.addEventListener('touchmove', alMoverTouch, { passive: false });
+    return () => {
+      window.removeEventListener('pointermove', alMover);
+      window.removeEventListener('pointerup', alSoltar);
+      window.removeEventListener('pointercancel', alCancelar);
+      window.removeEventListener('contextmenu', sinMenu, true);
+      window.removeEventListener('click', sinClicFantasma, true);
+      document.removeEventListener('touchmove', alMoverTouch);
+      if (raf != null) cancelAnimationFrame(raf);
+      if (tactil.current?.timer) clearTimeout(tactil.current.timer);
+      tactil.current = null;
+    };
+    // Todo lo que leen viaja por refs (`datos`, `manoRef`, `tactil`, `destinoRef`): se arman una vez.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return {
     /** Lo que va en la mano (para dibujar). */
@@ -331,6 +500,8 @@ export function useArrastreCurso(p: {
     esDestino: (key: string) => !!mano && destino?.zona === 'barra-clase' && destino.key === key,
     marcarOrigen,
     agarrar,
+    /** `onPointerDown` de lo que se arrastra: el mismo arrastre con el dedo (ver la cabecera). */
+    tocar,
     terminar,
     zona,
   };

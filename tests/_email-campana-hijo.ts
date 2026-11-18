@@ -925,8 +925,47 @@ async function escenarioAcomodo(): Promise<Record<string, unknown>> {
   return out;
 }
 
+/**
+ * LOS DÍAS DEL GOTEO POR LA API (18/11/2026, F79; tests/goteo-dias-guardar.test.ts). `configurar_automatizacion` con
+ * `goteoDias`: lo que propone, lo que guarda en `app_settings` (la clave de la automatización) y lo que dice
+ * `configuracion_automatizacion` después. Con los rechazos: un día que no existe, la lista vacía, y «horario» que los saca.
+ */
+async function escenarioGoteoDias(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const configurar = runnerDe('configurar_automatizacion') as unknown as Runner;
+  const configuracion = runnerDe('configuracion_automatizacion') as unknown as Runner;
+  const en = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const ID = 81;
+  db.nutricion_secuencias.push({ id: ID, workspace_id: NEGOCIO, clave: 'goteo-dias', nombre: 'Reactivación', activa: false, archivada_at: null, trigger_tipo: 'etapa_actual', etapa: 'lead', funnel_id: null, pasos: [] });
+  const out: Record<string, unknown> = {};
+  const leer = async () => {
+    const x = await en(() => configuracion.leer!({ secuenciaId: ID }, ctx(NEGOCIO)));
+    return (JSON.parse(typeof x === 'string' ? x : x.content) as { goteo: Record<string, unknown> }).goteo;
+  };
+  out.diaQueNoExiste = await en(() => configurar.preparar!({ secuenciaId: ID, goteoDias: '1,9' }, ctx(NEGOCIO)));
+  out.palabra = await en(() => configurar.preparar!({ secuenciaId: ID, goteoDias: 'lunes' }, ctx(NEGOCIO)));
+  out.vacia = await en(() => configurar.preparar!({ secuenciaId: ID, goteoDias: ' , ' }, ctx(NEGOCIO)));
+  const p = await en(() => configurar.preparar!({ secuenciaId: ID, goteoDias: '4, 1,2,3,1' }, ctx(NEGOCIO)));
+  out.preparar = p;
+  out.ejecutar = await en(() => configurar.ejecutar!(p.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.guardado = setting(NEGOCIO, `automatizacion.config:${ID}`);
+  out.leido = await leer();
+  // Los minutos después: los días se quedan (el cambio del goteo es campo por campo).
+  const p2 = await en(() => configurar.preparar!({ secuenciaId: ID, goteoMinutos: 5 }, ctx(NEGOCIO)));
+  await en(() => configurar.ejecutar!(p2.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.trasMinutos = setting(NEGOCIO, `automatizacion.config:${ID}`);
+  const p3 = await en(() => configurar.preparar!({ secuenciaId: ID, goteoDias: 'horario' }, ctx(NEGOCIO)));
+  out.prepararHorario = p3;
+  await en(() => configurar.ejecutar!(p3.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.trasHorario = setting(NEGOCIO, `automatizacion.config:${ID}`);
+  out.leidoTrasHorario = await leer();
+  return out;
+}
+
 async function main() {
   const escenarios: Record<string, () => Promise<Record<string, unknown>>> = {
+    'goteo-dias': escenarioGoteoDias,
     dominio: escenarioDominio, claves: escenarioClaves, lote: escenarioLote, secuencia: escenarioSecuencia, columnas: escenarioColumnas, topes: escenarioTopes, prioridad: escenarioPrioridad, acomodo: escenarioAcomodo,
     cuenta: escenarioCuenta, vacia: escenarioVacia, 'ws1-antes': () => escenarioWs1('antes'), 'ws1-despues': () => escenarioWs1('despues'), 'ws1-caida': () => escenarioWs1('caida'),
   };

@@ -13,7 +13,7 @@ import { Button } from '@/app/_ui/Button';
 import { CabeceraM, FilaDatoM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, VacioM, type TonoPildora } from '@/app/m/_ui';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import type { FilaCliente, VistaClientes } from '@/lib/clientes-plataforma';
-import { ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, nombreDePlan, ultimaVezTxt, type Segmento } from '@/lib/clientes-plataforma-reglas';
+import { ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, nombreDePlan, plataDeCliente, ultimaVezTxt, type Segmento } from '@/lib/clientes-plataforma-reglas';
 import type { VistaIngresos } from '@/lib/admin-ingresos';
 import { ROTULO_ESTADO_CLIENTE, diaTxt, mesTxt, usd } from '@/lib/admin-ingresos-reglas';
 import { mesesVisibles } from '@/app/admin/ingresos/ingresos-vista';
@@ -137,7 +137,7 @@ export function CustomersM({ vista, arriba, ingresos = null, errores = null, act
             <FilaDatoM k="Leads" v={c.leads == null ? '—' : c.leads.toLocaleString('es-AR')} />
             <FilaDatoM k="Plan" v={nombreDePlan(c.capa)} />
             <FilaDatoM k="Grupo" v={grupoTxt(c)} />
-            <FilaDatoM k="Plata" v={c.mrrUsd > 0 ? `${usdTxt(c.mrrUsd)} por mes${c.primerMesUsd != null ? ` · primer mes a ${usdTxt(c.primerMesUsd)}` : ''}` : c.prueba ? 'En prueba gratis' : c.planAManoTxt ?? 'Plan a mano'} />
+            <FilaDatoM k="Plata" v={plataDeCliente(c)} />
             {c.pagoPendiente && <FilaDatoM k="Pago" v="Tiene un pago esperando" />}
           </ListaM>
         )}

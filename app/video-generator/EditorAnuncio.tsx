@@ -32,12 +32,13 @@
 // debajo del dedo que está arrastrando, y el recorte se vería como que no pasó
 // nada. Con la escala fija, la tira se acorta — que es lo que uno hizo.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Button, Modal, Alert } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import {
   moverBorde, moverTramo, quitarTramo, partirTramo, destinoDeMover, inicios, enSegundo, mismoPlan,
+  apilarConTope, pilaTrasGesto, pasoDeTecla,
 } from './editor-cortes';
 import type { Plan } from './plan-montaje';
 import { PISTAS, hayMusica } from '@/lib/musica-catalogo';
@@ -228,7 +229,14 @@ export function EditorAnuncio({
     const mover = (e: PointerEvent) => {
       if (a.modo === 'borde') {
         const d = (e.clientX - a.x0) / escala;
-        setPlan((p) => moverBorde(p, a.i, a.borde, a.v0 + d, duraLaToma(p.segs[a.i]?.toma ?? 1)));
+        // ⚠️ AFUERA DEL UPDATER Y CON EL REF AL DÍA, como el reorden de abajo: el `soltar` decide si el gesto apila
+        // comparando contra `planRef.current`, y un `setPlan(updater)` lo dejaría un cuadro atrás (el último paso del
+        // borde antes de soltar no contaría).
+        const p = planRef.current;
+        const nuevo = moverBorde(p, a.i, a.borde, a.v0 + d, duraLaToma(p.segs[a.i]?.toma ?? 1));
+        if (nuevo === p) return;
+        planRef.current = nuevo;
+        setPlan(nuevo);
         return;
       }
       // Reordenar. Se mide contra la POSICIÓN ABSOLUTA del dedo sobre la tira, igual
@@ -255,13 +263,16 @@ export function EditorAnuncio({
     };
     const soltar = () => {
       setArrastre(null);
-      // Un arrastre que vuelve al mismo lugar —o que ni se movió, porque tocar un
-      // borde YA apiló— no puede dejar una entrada muda en la pila.
-      const pila = pilaRef.current;
-      if (pila.length && mismoPlan(pila[pila.length - 1], planRef.current)) {
-        pilaRef.current = pila.slice(0, -1);
-        setCuantosDeshacer(pilaRef.current.length);
-      }
+      // El gesto apila AL TERMINAR, y sólo si cambió algo (`pilaTrasGesto`). Un clic que sólo selecciona, o un arrastre
+      // que vuelve al mismo lugar, no tocan la pila: antes apilaba al agarrar y, con la pila llena, eso tiraba la entrada
+      // más vieja aunque después se sacara la muda (F167).
+      const antes = gestoRef.current;
+      gestoRef.current = null;
+      if (!antes) return;
+      const pila = pilaTrasGesto(pilaRef.current, antes, planRef.current);
+      if (pila === pilaRef.current) return;
+      pilaRef.current = [...pila];
+      setCuantosDeshacer(pilaRef.current.length);
     };
     window.addEventListener('pointermove', mover);
     window.addEventListener('pointerup', soltar);
@@ -294,20 +305,19 @@ export function EditorAnuncio({
   // botón tiene que apagarse cuando no queda nada, y eso sí necesita repintar.
   const pilaRef = useRef<Plan[]>([]);
   const [cuantosDeshacer, setCuantosDeshacer] = useState(0);
-
   /**
-   * Guarda el plan de AHORA, antes de cambiarlo.
+   * El plan de cuando EMPEZÓ el gesto que está en curso (un borde o un tramo), o null.
    *
-   * ⚠️ SE LLAMA UNA VEZ POR GESTO, NO POR CAMBIO. Un arrastre dispara decenas de
-   * `setPlan` por segundo: si cada uno apilara, Ctrl+Z desharía un píxel y habría
-   * que apretarlo cuarenta veces para volver donde uno estaba. Por eso el apilado
-   * de un borde va en el `pointerdown` —cuando el gesto EMPIEZA— y no en el
-   * `pointermove`.
+   * ⚠️ UNA ENTRADA POR GESTO, NO POR CAMBIO. Un arrastre dispara decenas de `setPlan` por segundo: si cada uno apilara,
+   * Ctrl+Z desharía un píxel. El `pointerdown` guarda acá el plan de antes y el `soltar` lo apila UNA vez, y sólo si el
+   * gesto cambió algo (`pilaTrasGesto`, ./editor-cortes.ts).
    */
-  const apilar = useCallback(() => {
-    // Tope de 30: es una pila de deshacer, no un historial. Treinta gestos hacia
-    // atrás es más de lo que nadie recuerda haber hecho.
-    pilaRef.current = [...pilaRef.current.slice(-29), planRef.current];
+  const gestoRef = useRef<Plan | null>(null);
+
+  /** Guarda `antes` arriba de la pila (las ediciones de un toque: partir, mover con botón o teclado, quitar). */
+  const apilar = useCallback((antes: Plan) => {
+    // Tope de 30 (`TOPE_DESHACER`): es una pila de deshacer, no un historial.
+    pilaRef.current = apilarConTope(pilaRef.current, antes);
     setCuantosDeshacer(pilaRef.current.length);
   }, []);
 
@@ -319,6 +329,7 @@ export function EditorAnuncio({
     setCuantosDeshacer(pilaRef.current.length);
     setReproduciendo(false);
     setSel(null);
+    planRef.current = previo;
     setPlan(previo);
   }, []);
 
@@ -349,7 +360,8 @@ export function EditorAnuncio({
     // tramo— no hay nada que apilar ni que aplicar. Una pila con entradas mudas
     // hace que deshacer parezca roto.
     if (mismoPlan(nuevo, antes)) return false;
-    apilar();
+    apilar(antes);
+    planRef.current = nuevo;
     setPlan(nuevo);
     return true;
   };
@@ -372,6 +384,31 @@ export function EditorAnuncio({
     if (sel == null) return;
     const destino = sel + paso;
     if (editar((p) => moverTramo(p, sel, destino))) setSel(destino);
+  };
+
+  /**
+   * El mismo reorden con las FLECHAS, sobre el bloque enfocado (F167). Tab lleva el foco de bloque en bloque (y lo
+   * selecciona); ← y → lo mueven un lugar. El foco sigue al bloque a su lugar nuevo: los bloques van por índice, así que
+   * sin esto quedaría en el que ahora ocupa el lugar de donde salió.
+   */
+  const bloquesRef = useRef<Array<HTMLDivElement | null>>([]);
+  const enfocarRef = useRef<number | null>(null);
+  useEffect(() => {
+    const i = enfocarRef.current;
+    if (i == null) return;
+    enfocarRef.current = null;
+    bloquesRef.current[i]?.focus();
+  });
+  const moverConTecla = (i: number, e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const paso = pasoDeTecla(e.key);
+    if (paso == null || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    // Que la flecha no corra la tira de costado: acá la flecha mueve el bloque.
+    e.preventDefault();
+    const destino = i + paso;
+    if (editar((p) => moverTramo(p, i, destino))) {
+      setSel(destino);
+      enfocarRef.current = destino;
+    }
   };
 
   const quitar = (i: number) => {
@@ -512,14 +549,19 @@ export function EditorAnuncio({
               return (
                 <div
                   key={i}
+                  ref={(el) => { bloquesRef.current[i] = el; }}
+                  tabIndex={0}
+                  aria-label={`Toma ${s.toma}. Con las flechas cambias su lugar`}
+                  onFocus={() => setSel(i)}
+                  onKeyDown={(e) => moverConTecla(i, e)}
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     setSel(i);
                     setReproduciendo(false);
-                    // El gesto entero es UNA entrada de deshacer, así que se apila cuando
-                    // EMPIEZA. Un simple clic para seleccionar deja una entrada muda, y la
-                    // saca `soltar` con `mismoPlan` — es lo mismo que ya hace un borde.
-                    apilar();
+                    // El gesto entero es UNA entrada de deshacer: acá se guarda el plan de antes y
+                    // la entrada la pone `soltar`, sólo si el gesto cambió algo. Un clic que sólo
+                    // selecciona no toca la pila.
+                    gestoRef.current = planRef.current;
                     movidoRef.current = i;
                     setArrastre({ modo: 'tramo' });
                   }}
@@ -560,9 +602,9 @@ export function EditorAnuncio({
                         e.stopPropagation();
                         setReproduciendo(false);
                         setSel(i);
-                        // El gesto entero es UNA entrada de deshacer, y por eso
-                        // se apila acá y no en cada `pointermove`.
-                        apilar();
+                        // El gesto entero es UNA entrada de deshacer: el plan de antes se guarda acá
+                        // y `soltar` lo apila, sólo si el borde se movió.
+                        gestoRef.current = planRef.current;
                         setArrastre({ modo: 'borde', i, borde, x0: e.clientX, v0: borde === 'ini' ? s.ini : s.fin });
                       }}
                       title={borde === 'ini' ? 'Recortar el principio' : 'Recortar el final'}

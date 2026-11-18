@@ -46,12 +46,18 @@ test('el ▶ va en las tarjetas que son UN anuncio, con sesión y mirando', () =
   assert.match(sinComentarios(leer('app/dashboard/EditorInforme.tsx')), /const conReproductor = !compartido && !editando;/, 'el ▶ aparece en un link compartido (la ruta del video pide sesión)');
 });
 
-test('la ruta del video: la puerta de Ads, el token del workspace, y el src validado', () => {
+// (18/11/2026, O8) La lectura se mudó a lib/anuncio-video-leer.ts, con Zernio primero: lo que hace por cada canal lo prueba
+// tests/meta-zernio-tanda-c.test.ts corriéndolo. Acá queda lo que no se ve corriéndolo: la puerta va primero, la conexión es la
+// del workspace (nunca el token del entorno) y el src del plugin pasa por `srcDelReproductor`.
+test('la ruta del video: la puerta de Ads, la conexión del workspace, y el src validado', () => {
   const ruta = sinComentarios(leer('app/api/anuncios/video/route.ts'));
   const get = ruta.slice(ruta.indexOf('export async function GET'));
   assert.match(get, /^export async function GET\(req: NextRequest\) \{\s*const no = await guardAdsWs\(\);\s*if \(no\) return no;/);
-  assert.match(ruta, /await credWs\('META_ACCESS_TOKEN'\)/);
-  assert.match(ruta, /reproductor: srcDelReproductor\(v\.embed_html\)/);
+  assert.match(get, /await videoDeAnuncio\(adId\)/, 'la ruta lee por la conexión del negocio');
+  const lib = sinComentarios(leer('lib/anuncio-video-leer.ts'));
+  assert.match(lib, /const c = await canalMeta\(ws\);/, 'el canal de Meta del workspace');
+  assert.doesNotMatch(lib, /process\.env\.META_ACCESS_TOKEN|credWs\(|envCred\(/, 'nunca un token que no sea el del negocio');
+  assert.match(lib, /reproductor: srcDelReproductor\(v\.embed_html\)/);
 });
 
 test('la miniatura de un anuncio en la portada es un póster vertical, no una franja 4:3', () => {

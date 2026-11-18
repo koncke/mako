@@ -5,7 +5,8 @@
 //
 // Verificado rompiéndolo (13/10/2026), con la base en verde (10 de 10, antes del test del id), cada rotura → 1 fallo y 9 pases:
 //   · `porQueNoEstrella` sin el corte de «es tuya».
-//   · sacar 'dashboard' de `POR_ENCHUFAR` (un tipo queda sin enchufe y sin dueño).
+//   · sacar 'dashboard' de `POR_ENCHUFAR` (un tipo queda sin enchufe y sin dueño). Desde el 18/11/2026 `dashboard` está
+//     enchufado: la misma rotura es sacar 'formato_video'.
 //   · sacar el `revoke all on creacion_usos` de la migración.
 //   · agregar `workspace_origen` al tipo `Creacion` que sale a otros negocios.
 //   · cambiar `getSupabaseServer` por `getTenantDb` en lib/creaciones.ts.

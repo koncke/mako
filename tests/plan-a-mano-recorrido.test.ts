@@ -124,7 +124,8 @@ test('la fecha a la vista: la ficha del negocio en Admin, el teléfono y Tu plan
   const ficha = fuente('app/admin/_polar/datos/cliente-server.ts');
   assert.equal((ficha.match(/planAMano: fila\?\.planAManoTxt \?\? null,/g) ?? []).length, 2, 'la cabecera y el alta, con el texto de la lista');
   assert.match(fuente('app/admin/_polar/web/Customer/CustomerPage/CustomerDetailsSection.tsx'), /<Row label="Plan a mano" value=\{alta\.planAMano\} \/>/);
-  assert.match(fuente('app/m/customers/CustomersM.tsx'), /c\.prueba \? 'En prueba gratis' : c\.planAManoTxt \?\? 'Plan a mano'/);
+  // El teléfono dice la plata con `plataDeCliente` (P37, 18/11/2026: sin plan a mano no dice «Plan a mano»; lo ejecuta tests/m-customers-plata.test.ts).
+  assert.match(fuente('app/m/customers/CustomersM.tsx'), /<FilaDatoM k="Plata" v=\{plataDeCliente\(c\)\} \/>/);
   assert.match(fuente('app/configuraciones/plan/PlanPanel.tsx'), /gratisHasta \? `Gratis hasta el \$\{gratisHasta\}` : 'Acordado con MaKo'/);
   assert.match(fuente('app/m/configuraciones/plan/PlanM.tsx'), /gratisHasta \? `Gratis hasta el \$\{gratisHasta\}` : 'Acordado con MaKo'/);
   assert.match(fuente('lib/api-mako/areas/negocio.run.ts'), /gratis_hasta: gratisHasta/, 'la API lo dice');

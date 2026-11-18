@@ -314,4 +314,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/tickets/bandeja',
   },
+  {
+    fecha: '18 nov', hora: '01:58', chat: 'De octubre: la alerta de 24 h de los tickets', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La Ticketera dice cuánto tardó cada ticket, y a Martín le llega un aviso cuando uno pasa las 24 h sin resolverse',
+    puntos: [
+      '**La promesa a Teo (O59):** «medir el tiempo de cada ticket, con alerta a las 24 h» no tenía nada detrás, y la bandeja decía «ayer», que no dice si pasó las 24 h.',
+      '**El aviso:** el cron de tickets junta los que siguen esperando algo nuestro (por decidir, en curso o arreglados sin publicar) con más de 24 h, y le manda a Martín UN mensaje al grupo de SuperAdmin y a su campanita, con quién lo levantó y de qué trata. Una vez por ticket; «esperando al cliente» no cuenta; sin poder leer el historial, no avisa.',
+      '**En la bandeja:** al lado de «hace X», «tardó 5 h» de un cerrado y, en rojo, «lleva 26 h» del abierto que pasó las 24 h.',
+    ],
+    commits: [{ sha: 'f1bc18fa8', msg: 'Ticketera: cuánto tardó cada ticket, y un aviso a Martín cuando uno pasa las 24 h sin resolverse', lineas: 542, archivos: 11 }],
+    archivos: [
+      'lib/tickets-demora.ts — `tiempoDelTicket`, `paraLaAlerta24h`, `textoAlerta24h`',
+      'lib/tickets-cierre.ts — `avisarTicketsDeMasDe24h` · app/api/cron/tickets/route.ts — el 3b',
+      'app/tickets/bandeja/TablaTickets.tsx, TarjetaTicket.tsx y bandeja.css — el rótulo',
+      'tests/tickets-24h.test.ts (con tests/_tickets-24h-hijo.ts) — probado con siete roturas',
+      'docs/hallazgos-ticketera.md',
+    ],
+    revisar: '/admin/operaciones?ticketera=lista',
+  },
 ];

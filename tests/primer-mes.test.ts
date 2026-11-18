@@ -170,7 +170,9 @@ test('el cableado: la cookie del reloj, lo que viaja, y las pantallas', () => {
   assert.match(fuente('app/m/configuraciones/plan/page.tsx'), /primerMes: lineaDelPrimerMes\(sus, formatoMonto\)/);
   // (La lista de clientes de la computadora, app/customers/CustomersApp.tsx, se borró el 6/11/2026 con la copia de Polar: ver el
   // TODO de abajo.)
-  assert.match(fuente('app/m/customers/CustomersM.tsx'), /primer mes a \$\{usdTxt\(c\.primerMesUsd\)\}/);
+  // El teléfono dice la plata con `plataDeCliente` (lib/clientes-plataforma-reglas.ts, P37 del 18/11/2026), que lleva el primer mes.
+  assert.match(fuente('lib/clientes-plataforma-reglas.ts'), /primer mes a \$\{usdTxt\(c\.primerMesUsd\)\}/);
+  assert.match(fuente('app/m/customers/CustomersM.tsx'), /v=\{plataDeCliente\(c\)\}/);
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await conciliarPrimerMes\(\)/);
 });
 
