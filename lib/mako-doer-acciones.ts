@@ -687,7 +687,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
                   tipo_cambio_usd_mxn: TIPO_DE_CAMBIO_USD_MXN,
                   nota: '`gasto_usd` es un DERIVADO con un tipo de cambio FIJO del código, no lo que cobró Meta. Si el monto en dólares importa de verdad, que lo verifiquen contra el resumen de facturación de Meta.',
                 }
-              : { gasto: moneda ? `${moneda} — la moneda de la cuenta publicitaria de Meta` : 'la moneda de la cuenta publicitaria (no se pudo saber cuál)', nota: 'No hay tipo de cambio para esta moneda: no conviertas el gasto por tu cuenta.' },
+              : { gasto: moneda ? `${moneda} — la moneda de la cuenta publicitaria de Meta` : 'la moneda de la cuenta publicitaria (no se pudo saber cuál)', nota: 'No hay tipo de cambio para esta moneda: no conviertas el gasto por tu cuenta. Un costo por lead o por resultado va en ESTA moneda (el gasto dividido por los leads); en dólares, no.' },
           campanas,
           ...(omitidas ? { campanas_omitidas: omitidas } : {}),
           instruccion: `Cuando digas un gasto, di SIEMPRE la moneda y el período ("X ${moneda ?? '(la moneda de la cuenta)'} entre el ${desde} y el ${hasta}"). Es el gasto de ESA ventana, no el histórico de la campaña.`,

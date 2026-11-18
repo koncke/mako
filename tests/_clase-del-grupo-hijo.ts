@@ -164,6 +164,12 @@ async function main() {
   // Una PREGUNTA que afirma un número que no vio (ninguna herramienta lo devolvió): no sale.
   await correr('inventado', { clase: '{"clase":"PREGUNTA","resumen":"cuántos leads entraron hoy","reenviado":false}', respuesta: 'Hoy entraron 137 leads, 12 más que ayer.' },
     '¿cuántos leads entraron hoy?');
+  // Los tickets #108 y #109 de Sellers (17/11/2026): una cuenta sobre los datos que vio SÍ sale (el costo por lead del #108)…
+  await correr('derivado', { clase: '{"clase":"PREGUNTA","resumen":"el costo por lead de la campaña","reenviado":false}', respuesta: 'Te costó ARS 5.059 cada lead.' },
+    '¿cuánto me costó cada lead si gasté 106249 pesos y entraron 21?');
+  // …y un ACUSE que vuelve a dar números sin respaldo pierde esas oraciones, sin «no lo vi» ni ticket (el «Bien hecho» del #109).
+  await correr('acuse', { clase: '{"clase":"CHARLA","resumen":"elogia la respuesta","reenviado":false}', respuesta: 'Gracias a ti. Captación quedó en 1.558 por lead. Cualquier cosa me dices.' },
+    'Bien hecho');
   // ACCIÓN: el turno corre con las lecturas y las escrituras SIMPLES; si pregunta un dato que falta, sale su pregunta.
   await correr('accionPregunta', { clase: '{"clase":"ACCION","resumen":"Agendar una reunión con Juan el viernes","reenviado":false}', respuesta: '¿A qué hora la agendo?' },
     'agéndame una reunión con Juan Pérez el viernes');

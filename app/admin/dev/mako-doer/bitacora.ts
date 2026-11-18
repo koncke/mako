@@ -901,4 +901,20 @@ export const BITACORA: Hito[] = [
     ],
     tickets: [92],
   },
+  {
+    fecha: '17 nov', hora: '21:28', chat: 'Tickets de Sellers: el filtro de números', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo ya te da el costo por lead de cada campaña, en vez de decirte que no tiene el dato',
+    puntos: [
+      'Pediste el costo promedio de cada campaña y MaKo te contestó que no tenía el dato, cuando sí lo tenía: el gasto de cada campaña dividido por sus leads. Ahora te da esa cuenta.',
+      'Y cuando le dices «Bien hecho», ya no te contesta que no tiene un dato ni lo anota como un problema.',
+      '**Cómo se prueba:** en el grupo de MaKo, «¿cuál es el costo por lead de cada campaña?».',
+    ],
+    archivos: [
+      'lib/doer-salida.ts — `esDerivado` y `sinOracionesConNumeros`',
+      'lib/mako-doer-in.ts — el saneo de una consulta: los derivados contra los datos, y el acuse sin ticket',
+      'tests/despacho-grupo.test.ts (17) · tests/clase-del-grupo.test.ts (5-bis)',
+    ],
+    tickets: [108, 109],
+  },
 ];

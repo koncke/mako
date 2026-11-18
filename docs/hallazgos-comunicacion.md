@@ -13960,3 +13960,33 @@ la fila #259 del ws9, que es la que se manda (dato de producción: se cambia con
 **Vive en:** lib/lineas-vigilante.ts · lib/aviso-evento.ts (`emitirPorEvento`) · lib/mako-grupo.ts (`enviarAlGrupoMaKo`) ·
 lib/grupo-app.ts (`grupo_mensajes`) · lib/mako-tarjeta.ts (`salioLaTarjeta`) · lib/flujos.ts (`ejecutarPasos`).
 *17/11/2026, chat «Automations» (claude2).*
+
+## El filtro de números tiraba las cuentas bien hechas, y un «Bien hecho» abría un ticket (17/11/2026, tickets #108 y #109 de Sellers)
+
+**Vive en:** `lib/doer-salida.ts` (`numerosSinFuente`, `esDerivado`, `sinOracionesConNumeros`) · `lib/mako-doer-in.ts` (el saneo de una
+consulta, donde se llama) · `lib/mako-doer-acciones.ts` (`listar_campanas_meta`)
+
+- **El síntoma:** Sellers (ws 24) pidió por el grupo «el costo promedio de cada campaña» y le llegó «Ese dato no lo vi en lo que tengo a
+  mano», con un ticket. Contestó «Bien hecho» y le volvió a llegar lo mismo, con otro ticket.
+- ⚠️ **El diagnóstico obvio («MaKo no tiene el gasto») era el equivocado.** El gasto estaba en la herramienta de campañas. El filtro
+  (`numerosSinFuente`) sólo acepta números LITERALES de las fuentes: un costo por lead es una división (gasto ÷ leads) y un redondeo
+  («10664.83» → «10.665») cambia los dígitos. Ninguno de los dos está nunca escrito, y el filtro tiraba la respuesta ENTERA.
+- ⚠️ **Y no todo lo que bloqueó estaba bien.** La cuenta del ws24 cobra en ARS y la herramienta dice «no conviertas»: el «US$ 4,18» del
+  #108 pide una tasa (106.249 ÷ 21 ÷ ~1.210) que no está en ningún dato, o sea que la puso el modelo. Ese número sigue sin salir.
+- **La regla:** un número vale si está literal en las fuentes, o si sale de los DATOS del turno (las herramientas, el mensaje, el
+  historial; NO el system, que trae cientos de números) redondeado como se muestra, o de DOS de ellos con una cuenta acotada: a ÷ b
+  (b un entero ≥ 2, con 3 cifras o más en lo mostrado) y, sólo si va con «%», el porcentaje y la variación. Sumas y restas NO.
+- ⚠️ **La trampa de los derivados: cuantas más cuentas se aceptan, más números inventados pasan de casualidad.** Medido con los 124
+  valores de las herramientas del ws24: con sumas y restas, 539 salía de 505 + 34 y de 1726 − 1187. Con la regla de arriba, un entero
+  al azar entre 100 y 20.000 pasa el 6 % de las veces, y entre 1.000 y 200.000 el 0,3 %. Ése es el precio: un cociente de casualidad
+  pasa, pero una respuesta correcta ya no se tira.
+- **Un acuse no trae datos ni abre un ticket:** «Bien hecho» corre como charla que se contesta (`esCharlaConAlgo`) y el modelo volvió a
+  dar números. En ese camino se sacan sólo las oraciones sin respaldo (`sinOracionesConNumeros`); si no queda nada, alcanza la reacción.
+  La nota de la charla ahora dice «un elogio o un acuse: una línea y sin números».
+- **Lo que quedó SIN hacer:**
+  - que `listar_campanas_meta` traiga los leads de cada campaña y el costo por lead ya calculado, en la MISMA ventana de 30 días que el
+    gasto (lib/mako-doer-acciones.ts; los leads por campaña salen de lib/leads-por-campana-server.ts, que hoy cuenta todo el historial);
+  - «Rio Dulce X Mako» tiene 10 leads y ningún gasto con ese nombre en `marketing_metrics_daily` («Río Dulce 1146…» es otra campaña):
+    la respuesta correcta es «no hay gasto registrado»;
+  - los cuatro turnos de esa charla cayeron a gemini-flash-lite después de un timeout de 45 s de gemini-flash, con el router pidiendo
+    sonnet u opus: Sellers esperó ~1 min y le contestó el modelo más débil (la cascada de proveedores, lib/mako-doer-in.ts).

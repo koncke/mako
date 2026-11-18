@@ -131,6 +131,19 @@ test('5. una PREGUNTA no afirma un número que no vio: va «no lo vi» y su marc
   assert.doesNotMatch(e.salio[0], /137|\[\[/, 'salió el número inventado o la marca');
 });
 
+test('5-bis. una cuenta sobre los datos que vio SÍ sale, y un acuse no trae números sin respaldo ni abre un ticket (#108, #109)', () => {
+  // Rota: `numerosSinFuente` sin `esDerivado` → el costo por lead sale como «no lo vi» con su ticket (el #108).
+  const d = escena('derivado');
+  assert.equal(d.turno.length, 1);
+  assert.deepEqual(d.salio, ['Te costó ARS 5.059 cada lead.']);
+  assert.equal(d.tickets.length, 0, 'abrió un ticket por una cuenta bien hecha');
+  // Rota: el acuse por el mismo camino que una pregunta → «no lo vi» y un ticket por un «Bien hecho» (el #109).
+  const a = escena('acuse');
+  assert.equal(a.turno.length, 1, 'el «Bien hecho» no corrió como charla que se contesta');
+  assert.deepEqual(a.salio, ['Gracias a ti. Cualquier cosa me dices.']);
+  assert.equal(a.tickets.length, 0, 'un acuse abrió un ticket');
+});
+
 test('6. ACCIÓN: sólo las escrituras simples; la pregunta de un dato sale; lo que no hizo se DELEGA como pedido', () => {
   const p = escena('accionPregunta');
   assert.equal(p.turno.length, 1);

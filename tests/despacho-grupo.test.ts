@@ -32,7 +32,7 @@ import {
 import { rechazoSiNoEsConfirmacionPura } from '../lib/confirmacion-pura';
 import { leerClase } from '../lib/mako-intencion-ia';
 import { hechosDelDiagnostico } from '../lib/diagnostico-negocio';
-import { numerosSinFuente, noLoPuedeHacer, sanearSalida, SIN_HACER, SIN_HACER_SIN_PROMESA } from '../lib/doer-salida';
+import { numerosSinFuente, noLoPuedeHacer, sanearSalida, sinOracionesConNumeros, SIN_HACER, SIN_HACER_SIN_PROMESA } from '../lib/doer-salida';
 import {
   clasificar, delegadoQueDecideMartin, estadoInicial, hitosDeLosTickets, hitosDelNegocio, linkDelNegocio, sanearContexto, sinLoInterno, textoDelAviso,
   ticketsQueNombran,
@@ -427,4 +427,28 @@ test('16. M1 por las otras dos puertas: lo que escribe el Cerebro de un pedido d
   // Un ticket de siempre (no delegado): la respuesta de Martín, tal cual.
   const comun = paraElCliente({ ...fila, contexto: {}, respuesta: 'Te lo arreglé, Juan Pérez ya lo ve.' });
   assert.equal(comun.respuesta, 'Te lo arreglé, Juan Pérez ya lo ve.');
+});
+
+// ── Tickets #108 y #109 de Sellers (17/11/2026): el filtro de números bloqueaba una cuenta bien hecha ──
+test('17. un costo por lead o un redondeo sale de los datos y pasa; una tasa de cambio que puso el modelo, no', () => {
+  // Paráfrasis de lo que vio MaKo (números del ws24: el gasto de la herramienta de campañas y los leads del turno anterior).
+  const campanas = '{"moneda":{"gasto":"ARS"},"campanas":[{"nombre":"Captacion Mako Forms","gasto_ars":106249},{"nombre":"Prima Terra X Mako","gasto_ars":15661}]}';
+  const antes = 'Llegaron 21 de Captacion Mako Forms, 13 de Prima Terra X Mako y 10 de Rio Dulce X Mako.';
+  const system = 'el catálogo y la memoria, con sus números: 1210';
+  // Rota: `esDerivado` sin el cociente → «5.059» y «1.205» salen como inventados (el #108).
+  assert.deepEqual(numerosSinFuente('Captación: ARS 5.059 por lead. Prima Terra: ARS 1.205 por lead.', [system, campanas, antes], [campanas, antes]), []);
+  // Rota: los derivados probados contra el system también → pasa la conversión con la tasa que puso el modelo.
+  assert.deepEqual(numerosSinFuente('Captación: US$ 4,18 por lead.', [system, campanas, antes], [campanas, antes]), ['4,18']);
+  // Rota: `esDerivado` sin el redondeo de UN valor → «10.665» y «539» salen como inventados (el #109).
+  assert.deepEqual(numerosSinFuente('El CPM fue 10.665 y el CPC 539.', ['{"cpm":10664.83,"cpc":538.61}']), []);
+  // El porcentaje, sólo con «%»: sin él, «2,34» de 23367 ÷ 998295 sería un cociente de casualidad.
+  assert.deepEqual(numerosSinFuente('El CTR fue 2,34%.', ['{"clics":23367,"impresiones":998295}']), []);
+  assert.deepEqual(numerosSinFuente('Fueron 2,34 clics.', ['{"clics":23367,"impresiones":998295}']), ['2,34']);
+  // Rota: con sumas y restas → «539» sale de 505 + 34 aunque nadie lo haya calculado.
+  assert.deepEqual(numerosSinFuente('Entraron 539 leads.', ['{"a":505,"b":34}']), ['539']);
+  // Lo de siempre, igual.
+  assert.deepEqual(numerosSinFuente('Entraron 137 leads hoy.', ['{"total":12}']), ['137']);
+  // Un acuse: se van sólo las oraciones sin respaldo; si no queda nada, null (la reacción alcanza).
+  assert.equal(sinOracionesConNumeros('Gracias a ti. Quedó así: Captación en 1.558 por lead. Cualquier cosa me dices.', ['1.558']), 'Gracias a ti. Cualquier cosa me dices.');
+  assert.equal(sinOracionesConNumeros('Captación en 1.558 por lead.', ['1.558']), null);
 });
