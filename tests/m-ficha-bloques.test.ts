@@ -47,7 +47,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { aplicarCambio, fichaEfectiva, RESPALDO_VACIO, type FichaGuardada } from '../lib/ficha/config';
+import { aplicarCambio, fichaEfectiva, puestoDeEntrada, RESPALDO_VACIO, type FichaGuardada } from '../lib/ficha/config';
 import { PLANTILLAS_FICHA, type PlantillaId } from '../lib/ficha/plantillas';
 import type { TabFicha } from '../lib/ficha/catalogo';
 import {
@@ -324,4 +324,21 @@ test('el mes a mes en el teléfono: la misma cuenta que la computadora, destilad
   const datos = sinComentarios(leer('app/m/crm/datos.ts'));
   assert.match(datos, /mesAMes: cobrado\.suscripcion \? mesAMesDelTelefono\(cobrado\.suscripcion, hoy\) : null/, 'de la MISMA cuenta que el estado de cuenta');
   assert.match(datos, /saldo: conMesAMes \? null :/, 'con el mes a mes puesto, el estado de cuenta de la casa se calla');
+});
+
+// Las hojas propias del funnel (18/11/2026, O2 de docs/pendientes-verificados-17-11.md): la computadora las dibuja como pestañas
+// después de las cuatro, en todo lead del funnel, y el teléfono no las leía. Van al final, con la MISMA tabla de piezas.
+// Probado rompiéndolo (base 1/0): el server sin pasar `efectiva.hojas` → 0 / 1; `piezasDelTelefono` sin recorrer las hojas → 0 / 1.
+test('las hojas propias del funnel van al final de la ficha del teléfono, una pieza una vez', () => {
+  const guardada: FichaGuardada = {
+    hojas: [{ id: 'h-extra', nombre: 'Extra', bloques: [puestoDeEntrada('direccion', RESPALDO_VACIO), puestoDeEntrada('contacto', RESPALDO_VACIO)] }],
+  };
+  const ef = fichaEfectiva('una-llamada', guardada, RESPALDO_VACIO);
+  const sinHojas = piezas(piezasDelTelefono(ef.tabs, sinReunion));
+  const conHojas = piezas(piezasDelTelefono(ef.tabs, sinReunion, ef.hojas));
+  assert.ok(!sinHojas.includes('direccion'), 'el caso: la dirección no está en ninguna de las cuatro tabs');
+  assert.deepEqual(conHojas.slice(0, sinHojas.length), sinHojas, 'lo de las tabs, igual y primero');
+  assert.deepEqual(conHojas.slice(sinHojas.length), ['direccion'], 'lo de la hoja al final; el contacto ya estaba y va una vez');
+  const datos = sinComentarios(leer('app/m/crm/datos.ts'));
+  assert.match(datos, /piezasDelTelefono\(efectiva\.tabs, tabsQueVe\(\{[^}]*\}\), efectiva\.hojas\)/, 'el server le pasa las hojas del funnel');
 });

@@ -1371,4 +1371,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/customer-success',
   },
+  {
+    fecha: "18 nov", hora: "01:49", chat: "De octubre: O40 y O12", sesion: "cli_220069ef-c004-5c47-ae62-3770ea6e643f", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "A quien sacaron de un programa en Members no se lo vuelve a invitar a ese curso",
+    puntos: [
+      "Volver a invitar a un alumno que sacaste de un programa le reabría ese curso, sin pasar por «Volver a admitir». Ahora no se le manda nada, ni reenviando ni desde el buscador.",
+      "Cada pantalla, el CRM y MaKo dicen «Está fuera de este programa» y que se vuelve a admitir en Members.",
+      "Después de «Volver a admitir», invitarlo anda como siempre.",
+      "**Cómo se prueba:** en Members, «Sacar» a un alumno de prueba con dos cursos e invitarlo otra vez a ese curso desde su tarjeta.",
+    ],
+    archivos: [
+      "lib/comunidad-moderacion.ts — `estaSacado`: el baneo vigente de ese programa",
+      "lib/curso-invitar.ts — la guarda y el motivo `sacado`",
+      "lib/api-mako/areas/curso.run.ts · lib/api-mako/areas/cs.run.ts — el `preparar` lo dice antes del «sí»",
+      "tests/curso-invitar-sacado.test.ts — las funciones reales contra la base de mentira; tres roturas, cada una cae",
+    ],
+    commits: [{ sha: 'ebf1c2e39', msg: 'Clients: a quien sacaron de un programa en Members no se lo vuelve a invitar a ese curso', lineas: 289, archivos: 13 }],
+    revisar: "/classroom/clients?vista=miembros",
+  },
 ];
