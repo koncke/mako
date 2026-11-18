@@ -34,7 +34,7 @@ export const gananciaEnUnAnio = (n: number, precioUsd: number, canal: CanalDelPa
   redondo(gananciaPorMes(n, precioUsd, canal) * MESES_DEL_ANIO);
 
 // ── La regla dicha en una frase, para la API de MaKo (lo que lee MaKo para contestar, también en los grupos de WhatsApp) ────────
-// El Cerebro, 18/11/2026: «Hoy le dice a cualquier cliente "el 100% del primer mes"… 30 % de cada pago, de por vida; 25 % si los
+// El Cerebro, 18/11/2026: «Hoy le dice a cualquier cliente "el 100% del primer mes"… 30 % de cada pago; 25 % si los
 // negocios pagan por pasarela; se paga del 1 al 5 de cada mes (eso lo está construyendo Cobros: dilo como regla, sin prometer la
 // pantalla)». Los montos, de los planes y de la regla.
 
@@ -45,12 +45,12 @@ export const montosPorMes = (canal: CanalDelPago): string =>
   planesDeLista().map((p) => `${usd(comisionDelPago(p.precioUsd, canal))} por mes por cada ${p.nombre}`).join(' y ');
 
 /** Lo que gana un partner, entero. */
-export const REGLA_PARTNERS = `el ${PORCENTAJE_DIRECTO} de cada pago de cada negocio nuevo que entra con su link o su código, todos los meses, de por vida, `
+export const REGLA_PARTNERS = `el ${PORCENTAJE_DIRECTO} de cada pago de cada negocio nuevo que entra con su link o su código, todos los meses, mientras el negocio siga en MaKo, `
   + `si esos negocios pagan por Binance o transferencia bancaria (${montosPorMes('directo')}); el ${PORCENTAJE_PASARELA} si pagan por una `
   + `pasarela o un link de pago, como Mercado Pago, tarjeta o Whop (${montosPorMes('pasarela')})`;
 
 /** Lo mismo, corto (para el resumen de una propuesta). */
-export const REGLA_PARTNERS_CORTA = `el ${PORCENTAJE_DIRECTO} de cada pago de cada negocio que traiga, de por vida (el ${PORCENTAJE_PASARELA} si pagan por pasarela)`;
+export const REGLA_PARTNERS_CORTA = `el ${PORCENTAJE_DIRECTO} de cada pago de cada negocio que traiga, todos los meses, mientras siga en MaKo (el ${PORCENTAJE_PASARELA} si pagan por pasarela)`;
 
 /** Cuándo se le paga: la regla (la pantalla que lo hace la está construyendo Cobros). */
 export const CUANDO_SE_PAGA_PARTNERS = 'del 1 al 5 de cada mes, MaKo le transfiere lo que tiene a cobrar a la cuenta que dejó';

@@ -81,7 +81,8 @@ test('la CALCULADORA: dos interruptores arriba (plan y cómo te pagan), el desli
   const calc = hero.slice(hero.indexOf('class="mp-calc"'));
   const calcT = texto(calc.slice(calc.indexOf('>') + 1, calc.lastIndexOf('</a>') + 4));
   assert.equal(calcT.trim(),
-    'MaKo Pro · US$ 97 MaKo Essential · US$ 47 Transferencia Pasarela de pago ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
+    // Cada opción trae su texto completo (computadora) y el corto (teléfono): el HTML tiene los dos y el CSS muestra uno.
+    'MaKo Pro · US$ 97 Pro · US$ 97 MaKo Essential · US$ 47 Essential · US$ 47 Transferencia Transferencia Pasarela de pago Pasarela ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
     'sin JavaScript: 5 negocios con el plan más caro, cobrando directo; y NADA más');
   assert.equal((calc.match(/<input/g) ?? []).length, 1, 'un solo deslizador');
   // Martín, versión 57: «que sea uno, que vos le apretes y cambia la otra opción, porque es un botón de dos opciones».
@@ -90,6 +91,9 @@ test('la CALCULADORA: dos interruptores arriba (plan y cómo te pagan), el desli
   assert.equal((calc.match(/aria-checked="false"/g) ?? []).length, 2, 'los dos arrancan en la primera opción');
   assert.doesNotMatch(calcT, /Binance|%/, 'sin «Binance» ni el porcentaje en los interruptores');
   assert.ok(calcT.indexOf('Pasarela de pago') < calcT.indexOf('¿Cuántos negocios traes?'), 'los interruptores, arriba del deslizador');
+  // El Cerebro, 18/11: «11,5 px en el teléfono es poco para leer»: textos cortos y 13 px debajo de 480 px.
+  const cssCalc = fuente('app/mako-partners/LandingPartners.tsx');
+  assert.match(cssCalc, /@media \(max-width: 479px\) \{\s*\.mp-calc-sw-largo \{ display: none; \}\s*\.mp-calc-sw-corto \{ display: inline; \}\s*\.mp-calc-sw-op \{ font-size: 13px;/);
   assert.doesNotMatch(calcT, /Si pagan por pasarela|negocios ×/, 'ni la línea de la pasarela ni la cuenta');
   assert.equal((calc.match(/<a /g) ?? []).length, 1, 'una sola llamada a la acción');
   const { gananciaPorMes, gananciaEnUnAnio } = await import('../app/mako-partners/numeros');
@@ -168,8 +172,13 @@ test('NINGUNA pantalla de Partners habla de meses, crédito ni del Accelerator (
   // «Tu plan» y /planes dicen el 30% de por vida, del número de la regla (18/11/2026).
   assert.ok(fuente('app/configuraciones/plan/PlanPanel.tsx').includes(
     'detalle={`Con MaKo Partners te llevas el ${PORCENTAJE_DIRECTO} de cada pago de cada negocio que traigas, todos los meses.`} href="/partners"'));
+  assert.ok(fuente('app/configuraciones/plan/PlanPanel.tsx').includes('de cada pago de cada negocio que entra por él, todos los meses, mientras el negocio siga en MaKo.'));
+  // Se dice igual en todos lados (el Cerebro, 18/11): sin «de por vida» en «Tu plan», /planes ni la regla de la API.
+  for (const rel of ['app/configuraciones/plan/PlanPanel.tsx', 'app/planes/Vitrina.tsx', 'app/mako-partners/numeros.ts', 'app/mako-partners/LandingPartners.tsx']) {
+    assert.doesNotMatch(fuente(rel), /de por vida/, rel);
+  }
   assert.ok(fuente('app/planes/Vitrina.tsx').includes(
-    'llévate el {PORCENTAJE_DIRECTO} de cada pago de cada negocio que traigas, de por vida: <Link href="/mako-partners">MaKo Partners</Link>'));
+    'llévate el {PORCENTAJE_DIRECTO} de cada pago de cada negocio que traigas, todos los meses, mientras siga en MaKo: <Link href="/mako-partners">MaKo Partners</Link>'));
 });
 
 /**
@@ -220,10 +229,10 @@ test('«el primer mes entero» / «el 100% del primer mes» no aparece en ningun
 
 test('la API de MaKo (lo que lee MaKo para contestar) dice la regla nueva: 30% de por vida, menos por pasarela, del 1 al 5', async () => {
   const { REGLA_PARTNERS, REGLA_PARTNERS_CORTA, CUANDO_SE_PAGA_PARTNERS } = await import('../app/mako-partners/numeros');
-  assert.ok(REGLA_PARTNERS.startsWith('el 30% de cada pago de cada negocio nuevo que entra con su link o su código, todos los meses, de por vida'), REGLA_PARTNERS);
+  assert.ok(REGLA_PARTNERS.startsWith('el 30% de cada pago de cada negocio nuevo que entra con su link o su código, todos los meses, mientras el negocio siga en MaKo'), REGLA_PARTNERS);
   assert.ok(REGLA_PARTNERS.includes('(US$ 29,10 por mes por cada MaKo Pro y US$ 14,10 por mes por cada MaKo Essential)'), 'lo directo, escrito');
   assert.ok(REGLA_PARTNERS.includes(`el ${PASARELA} si pagan por una pasarela o un link de pago, como Mercado Pago, tarjeta o Whop (${pasarelaPro} por mes por cada MaKo Pro`), 'la pasarela, de la constante');
-  assert.ok(REGLA_PARTNERS_CORTA.includes(`de por vida (el ${PASARELA} si pagan por pasarela)`));
+  assert.ok(REGLA_PARTNERS_CORTA.includes(`todos los meses, mientras siga en MaKo (el ${PASARELA} si pagan por pasarela)`));
   assert.match(CUANDO_SE_PAGA_PARTNERS, /^del 1 al 5 de cada mes/);
   const def = fuente('lib/api-mako/areas/negocio.def.ts');
   assert.ok(def.includes('MaKo Partners paga en DINERO ${REGLA_PARTNERS}. Se le paga ${CUANDO_SE_PAGA_PARTNERS}.'), 'la descripción de ver_mi_programa_partners');

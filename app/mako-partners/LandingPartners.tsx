@@ -101,6 +101,13 @@ body:has(.mp-publica) { background: #FFFFFF; }
   white-space: nowrap; text-align: center; opacity: .85; transition: color .2s ease, opacity .2s ease; }
 .mp-calc-sw-op.activo { color: var(--mp-azul-osc); opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .mp-calc-sw-fondo, .mp-calc-sw-op { transition: none; } }
+.mp-calc-sw-corto { display: none; }
+/* En el teléfono, el texto corto y la letra fija en 13 px (con el completo, la letra bajaba a 11,5 px para entrar). */
+@media (max-width: 479px) {
+  .mp-calc-sw-largo { display: none; }
+  .mp-calc-sw-corto { display: inline; }
+  .mp-calc-sw-op { font-size: 13px; padding-inline: 2px; }
+}
 .mp-calc-res { margin: 18px 0 22px; container-type: inline-size; }
 /* El precio en UNA línea con «al mes» al final, más chico; la letra sigue el ancho del recuadro (cqi) para que el monto más largo
    («US$ 1.367,70 al mes») entre sin partirse. */

@@ -173,7 +173,7 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
           ))}
         </section>
 
-        <p className="planes-pie">¿Ya tienes MaKo? Recomiéndalo y llévate el {PORCENTAJE_DIRECTO} de cada pago de cada negocio que traigas, de por vida: <Link href="/mako-partners">MaKo Partners</Link></p>
+        <p className="planes-pie">¿Ya tienes MaKo? Recomiéndalo y llévate el {PORCENTAJE_DIRECTO} de cada pago de cada negocio que traigas, todos los meses, mientras siga en MaKo: <Link href="/mako-partners">MaKo Partners</Link></p>
       </div>
     </main>
   );

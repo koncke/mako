@@ -25,12 +25,18 @@ export type PlanCalculadora = { id: string; nombre: string; precioUsd: number };
 export const MAX_NEGOCIOS = 50;
 export const NEGOCIOS_DE_ARRANQUE = 5;
 
-type Opcion<T extends string> = { id: T; texto: string };
+// VERSIÓN 57 (18/11/2026, Martín: «que sea uno, que vos le apretes y cambia la otra opción… los dos botones arriba… la barra
+// deslizable abajo antes del precio… no hace falta el divider… "al mes" al final… pon simplemente transferencia»): cada selector es
+// UN interruptor, arriba; el deslizador, antes del precio; el precio en una línea. En el teléfono (menos de 480 px), textos cortos
+// («Pro · US$ 97», «Pasarela») y letra de 13 px (el Cerebro: «11,5 px en el teléfono es poco para leer»).
+
+/** `corto`: lo que dice en el teléfono (menos de 480 px), donde el completo no entra en media píldora con letra legible. */
+type Opcion<T extends string> = { id: T; texto: string; corto: string };
 
 /** Cómo te pagan: el texto simple, sin el porcentaje (Martín: «transferencia o pasarela de pago. Simple»). */
 const CANALES: readonly [Opcion<CanalDelPago>, Opcion<CanalDelPago>] = [
-  { id: 'directo', texto: 'Transferencia' },
-  { id: 'pasarela', texto: 'Pasarela de pago' },
+  { id: 'directo', texto: 'Transferencia', corto: 'Transferencia' },
+  { id: 'pasarela', texto: 'Pasarela de pago', corto: 'Pasarela' },
 ];
 
 /**
@@ -45,8 +51,11 @@ function Interruptor<T extends string>({ opciones: [a, b], valor, cambiar, etiqu
     <button type="button" role="switch" aria-checked={segunda} aria-label={`${etiqueta}: ${segunda ? b.texto : a.texto}`}
       className={`mp-calc-sw${segunda ? ' der' : ''}`} onClick={() => cambiar(segunda ? a.id : b.id)}>
       <span className="mp-calc-sw-fondo" aria-hidden="true" />
-      <span className={`mp-calc-sw-op${segunda ? '' : ' activo'}`}>{a.texto}</span>
-      <span className={`mp-calc-sw-op${segunda ? ' activo' : ''}`}>{b.texto}</span>
+      {[a, b].map((o, i) => (
+        <span key={o.id} className={`mp-calc-sw-op${(i === 1) === segunda ? ' activo' : ''}`}>
+          <span className="mp-calc-sw-largo">{o.texto}</span><span className="mp-calc-sw-corto">{o.corto}</span>
+        </span>
+      ))}
     </button>
   );
 }
@@ -62,7 +71,9 @@ export function Calculadora({ planes, children }: {
   const [canal, setCanal] = useState<CanalDelPago>(CANALES[0].id);
   const plan = planes.find((p) => p.id === planId) ?? planes[0];
   if (!plan) return null;
-  const opcionesPlan = planes.slice(0, 2).map((p) => ({ id: p.id, texto: `${p.nombre} · ${usd(p.precioUsd)}` }));
+  const opcionesPlan = planes.slice(0, 2).map((p) => ({
+    id: p.id, texto: `${p.nombre} · ${usd(p.precioUsd)}`, corto: `${p.nombre.replace(/^MaKo\s+/, '')} · ${usd(p.precioUsd)}`,
+  }));
   return (
     <div className="mp-calc" id="calculadora" aria-label="Calculadora de lo que ganas">
       {opcionesPlan.length === 2 && (
