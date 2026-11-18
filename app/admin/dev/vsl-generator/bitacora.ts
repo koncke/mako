@@ -25,9 +25,9 @@ import type { Hito, Parte } from '../_registro/tipos';
 export const PARTES: Parte[] = [
   { titulo: 'Las estructuras de VSL largo', detalle: '5 estructuras de 20 a 45 min con guía bloque por bloque y minutaje · las 7 de guion-estructuras.ts son de anuncio de 30-90 s y no sirven acá', estado: 'hecha' },
   { titulo: 'El nombre coincide con la ruta', detalle: '/vsl-writer → /vsl-generator, con el path viejo redirigiendo porque está escrito en tareas del plan y en mensajes que MaKo ya mandó', estado: 'hecha' },
-  { titulo: 'El motor: lib/vsl-writer.ts', detalle: 'Compositor de brief (funnel + perfil + método + ganadores), el {{jsonShape}} del guion por bloques, y los 4 prompts en el registry · nada de esto existe todavía', estado: 'cola' },
-  { titulo: 'La ruta y los borradores', detalle: '/api/vsl-generator + tabla de borradores en TENANT_TABLES + alta en model-registry e ia-labels · sin esto no hay override de modelo ni desglose de gasto', estado: 'cola' },
-  { titulo: 'La pantalla y su onboarding', detalle: 'Quitar el comingSoon de nav.ts y el ComingSoon de la page, más las 3 etapas de la tab (Conectar → Contexto → Ensayo), que es regla en toda tab', estado: 'cola' },
+  { titulo: 'El motor: lib/vsl-writer.ts', detalle: 'NO se escribe (18/11): lo hace el Copywriter desde el 28-29/10 (plantillas VSL con estas estructuras, el chat «Editar» y la API) · y desde el 18/11 una VSL de más de ~13 min sale con su duración, escrita por secciones (lib/copywriter/por-secciones.ts) · falta medirlo con un modelo de verdad, y la API todavía escribe hasta el tope de un pedido', estado: 'sigue' },
+  { titulo: 'La ruta y los borradores', detalle: 'Un VSL es una página del Copywriter (su guardado, su feature copywriter-ia con su costo y su API): no hace falta /api/vsl-generator ni una tabla de borradores aparte', estado: 'hecha' },
+  { titulo: 'La pantalla', detalle: '/vsl-generator y /vsl-writer llevan a las plantillas de VSL del Copywriter (18/11, como /youtube-writer) · falta sacar la fila de «Coming soon» del menú (nav.ts, jefe Sidebar) · el onboarding de 3 etapas ya no es regla (01/11: ningún wizard tapa una tab)', estado: 'sigue' },
   { titulo: 'El loop Analyst → Generator', detalle: 'El Analyst detecta el bloque donde se cae la curva, el Generator reescribe ESE bloque, se mide la variante · es el único diferencial real de la dupla', estado: 'cola' },
   { titulo: 'Estructuras editables desde /admin/guiones', detalle: 'Como las de ads · hoy el catálogo es código y solo lo puede tocar quien commitea', estado: 'cola' },
 ];
@@ -98,5 +98,55 @@ export const BITACORA: Hito[] = [
     commits: [
       { sha: '897ce26e', msg: 'Un redirect es navegación: los 26 que perdían el ?ws= de la pestaña', lineas: 126, archivos: 26 },
     ],
+  },
+
+  {
+    fecha: '18 nov', hora: '01:20', chat: 'Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes (entre ellos, el VSL Generator completo)',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'El pendiente era el F93 de la lista verificada del 17/11 (docs/pendientes-verificados-17-11.md): el plan de agosto entero — motor, ruta y borradores, pantalla, el loop con el Analyst y las estructuras editables.',
+    ],
+  },
+
+  {
+    fecha: '18 nov', hora: '01:28', chat: 'Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'El motor de agosto ya existe con otro nombre: un VSL se escribe en el Copywriter',
+    puntos: [
+      '**Refutado antes de escribir una línea.** El encargo era `lib/vsl-writer.ts` (compositor de brief, `{{jsonShape}}` por bloques, prompts), `/api/vsl-generator` con su tabla de borradores y una operación de la API. Las cuatro cosas ya las hace el Copywriter desde el 28-29/10: las plantillas de «Nueva» del grupo VSL salen de `lib/vsl-estructuras.ts` (`vsls` en lib/copywriter/plantillas.ts), MaKo las escribe desde el chat de la página (lib/copywriter/ia.ts, con la voz del negocio, el largo por duración, las cifras sin fuente y el voseo vigilados) y la API las crea y las escribe (`listar_plantillas_copywriter`, `crear_documento_copywriter` con `plantillaId`, `editar_documento_copywriter`, `replicar_link_o_texto_copywriter` con tipo `vsl`).',
+      '**Escribir el motor de agosto hoy sería una segunda implementación de «escribir un VSL»**, con su propio guardado y sin ninguna de esas guardas. AGENTS.md lo dice para este caso exacto: lo que se agrega va al módulo que ya existe, no al lado. Y la regla de Create (29/10) va en la misma dirección: lo que era una tab es una plantilla de «Nuevo …». La migración 0422 reservada para los borradores no se usó.',
+      '**Y el contrato doble con el VSL Analyst ya lo cumple la página del Copywriter:** cada sección es un Título 2 con `attrs.seccion` = la etiqueta EXACTA (`tituloDeSeccion`, lib/copywriter/doc.ts), y `bloquesDelDoc` la lee. El loop Analyst → Generator, cuando se haga, se apoya en eso y en `corteDeSegundo` (lib/vsl-retencion.ts), no en una tabla nueva.',
+      'Lo que SÍ se hizo: /vsl-generator lleva a las plantillas del Copywriter con las de VSL primero (`?nuevo=vsl`), como /youtube-writer desde el 28/10; /vsl-writer va directo, sin el doble salto; y «VSL Generator» y «guion de VSL» son alias del Copywriter en lib/funciones-mako.ts, para que MaKo no niegue que puede escribir un VSL.',
+      '⚠️ **El hueco de verdad es el LARGO, y es del Copywriter.** Medido con las funciones de lib/copywriter/ia-reglas.ts: `objetivoDeDuracion` topea en 2.000 palabras (~13 minutos dichos), así que la «Clase gratuita · 42 min» (6.300 palabras) se da por buena desde 1.500 (10 min) y avisa recién debajo de 1.200. Las cinco estructuras de acá son de 20 a 40 minutos: ninguna sale entera, y por encima de 1.200 palabras no lo dice nadie. Va al chat del Copywriter (escribir una pieza larga sección por sección).',
+      'Siguen en cola, sin tocar: los ejemplos de las tres VSL que no salen en la galería (docs/plantillas-reales/copywriter.md, «Sin hacer»), el loop con el Analyst y las estructuras de VSL editables desde /admin/guiones (hoy entran a la biblioteca con `conVsl`, sin override).',
+    ],
+    archivos: [
+      'app/vsl-generator/destino.ts — a dónde lleva la ruta y por qué no hay un motor propio',
+      'app/vsl-generator/page.tsx y app/vsl-writer/page.tsx — las dos rutas van al Copywriter (o al «Coming soon» si no lo puede usar)',
+      'tests/vsl-generator-destino.test.ts — el destino, el tipo, las plantillas de VSL a la vista y sus secciones por etiqueta',
+    ],
+    revisar: '/vsl-generator',
+  },
+
+  {
+    fecha: '18 nov', hora: '02:00', chat: 'Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una VSL larga sale con su duración: el Copywriter la escribe por secciones',
+    puntos: [
+      'El hueco que quedó del F93: «Editar» del Copywriter escribe la pieza en UN pedido y en un pedido entran 2.000 palabras (~13 minutos dichos). La «Clase gratuita · 42 min» pide 6.300, salía con 2.000 como mucho, se daba por buena desde 1.500 y el aviso callaba arriba de 1.200.',
+      '**Ahora:** con la pantalla, una pieza más larga de lo que entra en un pedido toma la primera pasada como BORRADOR y alarga sus secciones cortas (debajo del 75 % de lo suyo) en tandas de hasta 2.000 palabras, una llamada por tanda, en orden (lib/copywriter/por-secciones.ts). El largo de cada sección sale de la GUÍA de su estructura (los minutos de cada bloque de lib/vsl-estructuras.ts), escalado a la duración de la página; lo que vuelve reemplaza la sección del borrador en su lugar, sólo si es más largo.',
+      '**Lo que no cambió, a propósito:** el tope de 2.000 palabras POR PEDIDO (`PALABRAS_POR_PEDIDO`, ia-reglas.ts) sigue: es lo que entra en una respuesta y lo que cuesta una llamada. Lo que cambió es que una pieza pueden ser varias. No se toca una sección que el borrador no escribió (puede ser de la persona), y la API de MaKo no lo prende (corta a 60 s por HTTP).',
+      '**N llamadas = N cobros:** cada tanda es una llamada que el medidor reserva y cobra aparte; la clase de 42 minutos son unas 6 (el borrador y 5 tandas). Lo dice la fila de `copywriter-ia` en lib/mako-tokens-costos.ts, y un test la ata a la misma cuenta. Sin tiempo para otra tanda (60 s antes del corte de la ruta), con una falla del proveedor o sin MaKo Tokens, corta ahí: lo escrito queda en la propuesta y el aviso dice qué secciones alargar (y, sin saldo, el texto del medidor).',
+      'El aviso de duración de esa pieza mide contra su largo REAL y nombra las secciones cortas («pídele a MaKo que alargue «Clave dos» y «Clave tres»»); el de una pieza que entra en un pedido sigue como estaba.',
+      '⚠️ Sin medir con un modelo de verdad: el test ejecuta el armado con un modelo de mentira. Cuánto tarda cada tanda con el Gemini de un negocio (y si las 6 entran en los 300 s de la ruta) se ve en producción; si no entran, el aviso nombra lo que faltó.',
+    ],
+    archivos: [
+      'lib/copywriter/por-secciones.ts — el presupuesto por sección, las tandas, el reemplazo en su lugar y el aviso',
+      'lib/copywriter/ia.ts — «Editar» con las tandas después del borrador (sólo con `porSecciones`)',
+      'tests/copywriter-por-secciones.test.ts — el armado con un modelo de mentira, probado rompiéndolo',
+    ],
+    revisar: '/copywriter?nuevo=vsl',
   },
 ];

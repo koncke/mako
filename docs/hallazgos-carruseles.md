@@ -8,6 +8,49 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## «Editar» que se queda esperando para siempre, y la «part 2» de otra serie escondida (18/11/2026)
+
+Tres pendientes de la lista verificada del 17/11 (F14, F130 y F27), los tres con la misma forma: algo que la pantalla AFIRMA
+(una espera, una grilla limpia, un filtro por rubro) sin que el código lo pueda cumplir en un caso medible.
+
+**F14 · Un stream que se corta sin `fin` deja la pantalla en la fase en curso para siempre.** La ruta de «Editar»
+(`app/api/image-editor/carruseles/replicar/route.ts`) tiene `maxDuration = 300` y una corrida real llegó a 276,9 s. Si se pasaba,
+Vercel cortaba la función, el NDJSON terminaba sin el evento `fin` y `EditarCarrusel.tsx` hacía `if (done) break;` sin decir nada:
+«Escribo tu versión con tu IA…» girando sin fin. **Lo obvio era subir el `maxDuration` y no alcanza:** el plazo de la cascada es
+POR LLAMADA (`lib/ai-cheap.ts`) y `leerDocumentoIA` no acepta un plazo por pedido, así que cualquier tope se puede pasar.
+- **Vive en:** `lib/carruseles/replica-stream.ts` (`streamDeReplica` del lado de la ruta, `leerStreamDeReplica` del lado de la pantalla).
+- La ruta manda ELLA el `fin` con la causa 15 s antes de su tope (`AVISO_ANTES_DEL_TOPE_MS`), nombrando la fase en que estaba
+  según el último evento que de verdad salió («Tu IA tardó más de 4 minutos en escribir la versión y se cortó…»). Lo de atrás
+  no se aborta (no hay señal por pedido): si termina y guarda, queda en «tus diseños», y el texto lo dice.
+- La pantalla, si igual le llega un stream sin `fin` (la función murió por otra cosa), dice `errorSinFin` en vez de esperar. Y
+  ahora lee también la ÚLTIMA línea aunque no traiga `\n`: antes se perdía, y si era el `fin`, la pantalla quedaba igual.
+- **La regla:** un stream de eventos que termina en un `fin` tiene DOS redes, las dos con test que las corre: el productor
+  manda su `fin` antes de su tope, y el consumidor trata «se cerró sin `fin`» como un error con texto. Una sola no alcanza: la
+  primera no cubre una función que muere por memoria, la segunda no sabe nombrar la causa.
+- Lo que sigue abierto: el plazo en sí (un presupuesto de tiempo para la cascada entera, o uno más corto para el primer modelo
+  de Gemini). Competitor Spy (`app/competitor-spy/DesarmarImagen.tsx`) lee la misma ruta con su propio bucle; ya trataba el
+  «sin fin» («Image no terminó de armarlo»), y ahora recibe el `fin` con la causa.
+
+**F130 · Dos series numeradas distintas de un mismo creador se tomaban como una, y la parte de la segunda SE ESCONDÍA.** La
+clave de una serie era sólo el creador (`serie:<competidorId>`), con la excepción del mismo número. El comentario decía que el
+precio de equivocarse era que la parte «baje unos lugares»: falso, `sinRepetidos` la saca de la grilla. **Lo obvio era meter el
+texto en la clave, y está mal** (ya medido el 6/11: los pies de las partes no se parecen; con el texto se rompían 4 casos).
+- **Vive en:** `lib/carruseles/duplicados.ts` (`cabeEnLaSerie`, `unaVezCadaContenido`).
+- Lo que separa dos series sin umbrales son HECHOS de una serie: el mismo número (ya estaba), un total declarado distinto
+  («part 2/5» y «part 3/10», o una «part 5» frente a una «2/3»), y el ORDEN en el tiempo (la parte 2 de una serie no sale
+  después que su parte 3; se compara por día). Para cada creador se lleva una lista de series; una parte va a la primera con la
+  que no se contradice, y si se contradice con todas, se queda. Lo escondido también se anota en su serie.
+- Lo que sigue sin separarse: dos series que corren a la vez, en orden compatible y sin totales. Y el mismo TEMA de un creador
+  (las de meal prep) tampoco se junta: las dos cosas piden un clasificador de tema que no existe.
+
+**F27 · El rubro de un thumbnail es el de su CANAL.** Decidido como regla (no un clasificador por video: sería una pasada de IA
+por video para un filtro que nadie pidió afinar). La pantalla dice «Rubro del canal», la API (`buscar_thumbnails`, parámetro
+`nicho`) lo describe así y la cabecera de `lib/thumbnails/explorar.ts` lo explica. Salió de «Lo que no se hizo» de
+`docs/carruseles/thumbnails.md` y pasó a «Cómo está armado».
+
+Tests: `tests/carruseles-replica-stream.test.ts`, `tests/carruseles-duplicados.test.ts` (dos casos nuevos),
+`tests/thumbnails-explorar.test.ts` (un caso nuevo). Todos corren el código y están probados rompiéndolos (el detalle, en su cabecera).
+
 ## «No es tu embudo, es el de Mauricio»: no era una inspección ni la IA, era la oferta elegida a ciegas (14/11/2026)
 
 **Síntoma (demo con Julio, 13/11, min 41:31-42:21, Fathom 203125958):** Martín tocó «Editar» en Image y leyó en vivo: «no sé por qué
@@ -1189,8 +1232,12 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
   `lib/carruseles/biblioteca-servidor.ts` → `bibliotecaParaEditar`).
 - 1 de los 245 links sin leer, y 26 creadores de la lista sin leer. El comando `links` ya está (arriba), pero **no se pudo
   correr con `--de-verdad` ni una vez**: el techo del crédito es US$0,00. Lo probado es el camino en seco y las piezas puras.
-- Los 32 temas de hashtag siguen prendidos, sin decidir si conviene apagarlos. Traen de todo.
-- **Series y duplicados: hecho lo medible** (`lib/carruseles/duplicados.ts`, arriba). Lo que queda: el mismo TEMA de un
+- Los 32 temas de hashtag siguen prendidos, sin decidir si conviene apagarlos. Traen de todo. (⚠️ 18/11/2026: la decisión del
+  7/11 de más abajo, «Los 32 temas se QUEDAN», mide el ruido del clasificador y no la relevancia, y el 5/11 Martín dijo que no
+  quería las 259 piezas que llegaron por hashtag. Sigue siendo decisión de Martín: no se tocó.)
+- **Series y duplicados: hecho lo medible** (`lib/carruseles/duplicados.ts`, arriba). ~~Dos series numeradas distintas de un
+  mismo creador se tomaban como una.~~ **Cerrado el 18/11/2026** con `cabeEnLaSerie` (el número, el total y el orden en el tiempo
+  las separan; ver la entrada de arriba). Lo que queda: el mismo TEMA de un
   creador (las de meal prep) NO se junta, porque son carruseles distintos del mismo rubro; juntarlos pide clasificar el tema, y
   eso no existe todavía. Y «you can find anything on the internet» ya no está en la base (0 piezas el 6/11): el ejemplo del
   pedido se fue con la curaduría del 6/11, no con esto.
@@ -1198,8 +1245,9 @@ y su permiso escrito para mostrarles los datos a nuestros clientes: lo decide Ma
 - **Láminas, medido el 6/11:** 744 de 912 carruseles visibles las tienen. De los otros, 111 sin leer (`laminas` cortó «al techo» con US$0,54 de un tope de 1,50, sin mirar por qué) y 57 que el actor no dio.
 - **«Editar» con la IA real: probado y funcionando** (6/11, cinco corridas; ver la entrada de arriba). Lo que quedó abierto es
   el **plazo**: una corrida llegó a 276,9 s contra el `maxDuration = 300` de `app/api/image-editor/carruseles/replicar/route.ts`,
-  porque el modelo principal de Gemini se cuelga 120 s enteros. Si se pasa, el stream se corta sin `fin` y la pantalla espera
-  para siempre. Las palancas: un presupuesto de tiempo para toda la cascada (hoy el plazo es por llamada, `lib/ai-cheap.ts`) o
+  porque el modelo principal de Gemini se cuelga 120 s enteros. ~~Si se pasa, el stream se corta sin `fin` y la pantalla espera
+  para siempre.~~ **Cerrado el 18/11/2026** (lib/carruseles/replica-stream.ts): la ruta manda su `fin` con la causa antes del
+  tope y la pantalla dice el corte si igual le llega sin `fin`. Lo que sigue abierto es el plazo en sí. Las palancas: un presupuesto de tiempo para toda la cascada (hoy el plazo es por llamada, `lib/ai-cheap.ts`) o
   un plazo más corto para el primer modelo. Falta medir cuánto tarda un pedido de 10 láminas que SÍ contesta.
 - **Un ejemplo que cuenta la historia de su autor no se puede replicar sin inventarle una historia al cliente** (medido con la
   IA real, carrusel `-895`): el prompt ya prohíbe copiar sus hechos y el modelo igual le arma una biografía al negocio. Es

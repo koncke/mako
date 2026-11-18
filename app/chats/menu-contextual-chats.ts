@@ -2,13 +2,14 @@
 // menu-contextual-chats — QUÉ ofrece el clic derecho de una conversación de la lista de Chats (puro)
 // =============================================================================
 // Pedido de Leandro (ws10, 24/10/2026, f26): «el click derecho casi que en toda la app se tiene que poder usar». El clic
-// derecho de una fila (y mantenerla presionada con el dedo) ofrece lo MISMO que su «⋯» (`MasAcciones`, ListaChats.tsx):
+// derecho de una fila (y mantenerla presionada con el dedo) es el MISMO menú que su «⋯» (`MasAcciones`, ListaChats.tsx):
 // «Abrir ficha» o «Agregar al CRM» (con 2+ funnels, en cuál) y «Asignar ›» si hay lead, con «Abrir» arriba, que es lo que ya
 // hace tocar la fila. Sin Cerrar ni Posponer: Martín los sacó del «⋯» el 27/10 y viven en la cabecera del chat abierto. CÓMO
 // se abre es de app/_ui/useMenuContextual.ts y se dibuja con la pieza de la casa (app/_ui/MenuContextual.tsx).
 //
-// ⚠️ EL «⋯» SIGUE CON SU DROPDOWN, A PROPÓSITO: el pedido era sólo sumar el clic derecho. Las dos listas dicen lo mismo y
-//    tests/clic-derecho-listas.test.ts las cruza (cada rótulo del «⋯» está acá y al revés).
+// ⚠️ DESDE EL 18/11/2026 EL «⋯» ABRE ESTE MENÚ (AGENTS.md, «El "⋯" y el clic derecho de lo mismo son un menú»; el F119 de
+//    docs/pendientes-verificados-17-11.md). Hasta ese día era un Dropdown con su propia lista, que tests/clic-derecho-listas
+//    cruzaba con ésta rótulo por rótulo: ahora hay una sola, y el test fija que el «⋯» la abre.
 // =============================================================================
 import type { EntradaMenuContextual, ItemMenuContextual } from '@/app/_ui/MenuContextual';
 import type { ChatResumen } from '@/lib/chats-tipos';

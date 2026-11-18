@@ -78,7 +78,7 @@ La rama (`rescate/grupos-ops-0311`) estaba 387 commits detrás de main, y main h
 **Lo que quedó sin hacer**, con el archivo donde vive:
 - ~~La respuesta al equipo que entra a un lote ajeno, o cuyo autollamado falló, llega a MaKo~~: hecho el 4/11 (`sinLasDelEquipo`, arriba).
 - ~~Un invitado cuenta como no leídos los avisos a la agencia que no ve~~: hecho el 4/11 (arriba).
-- Atar el id de WhatsApp a la copia va por posición: una parte vacía de una tarjeta corre los ids (`emitirAviso`, lib/avisos.ts, y lib/probar-grupo-envio.ts). El eco por texto lo cubre casi siempre.
+- ~~Atar el id de WhatsApp a la copia va por posición: una parte vacía de una tarjeta corre los ids (`emitirAviso`, lib/avisos.ts, y lib/probar-grupo-envio.ts). El eco por texto lo cubre casi siempre.~~ Hecho el 18/11/2026 (punta/nube-construir-grupo): la copia devuelve su fila POR PARTE (`Copia.porParte`) y `atarIdsDeWhatsApp` (lib/grupo-app.ts) empareja por parte con `paresFilaWa` (lib/grupo-reglas.ts). Eran CINCO lugares, no dos: también lib/recibos.ts, lib/agencia-mes.ts y el grupo de SuperAdmin en lib/mako-grupo.ts. La única parte que no deja fila es un texto vacío: un video o un Word dejan su texto («(un video)»), y una foto o un PDF dejan su adjunto. Lo fija tests/grupos-ops-espejo.test.ts con la copia real.
 - El push del espejo corre adentro del webhook (`espejarUno`, lib/grupo-espejo.ts): con muchos miembros suscriptos demora la respuesta a Evolution. Hoy `push_suscripciones` estaba en 0.
 - El autollamado se aborta a los 5 s (`dispararTurno`, app/api/grupos/[ws]/mensajes/route.ts): sin comprobar en Vercel si, en un arranque en frío, la función llamada sigue corriendo. Si no sigue, lo levanta el cron a los 2 o 3 minutos.
 
