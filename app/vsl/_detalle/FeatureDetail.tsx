@@ -476,6 +476,14 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-row-text { display: flex; flex-direction: column; justify-content: center; }
 .mk-row-media { display: flex; }
 .mk-row-media .mk-panel { flex: 1; display: flex; align-items: center; justify-content: center; }
+/* EL PANEL ES CONTENEDOR (18/11/2026): la caja «Aquí falta la animación» (app/vsl/_competencia/FaltaAnimacion.tsx) tiene
+   min-height 260 y aspect-ratio 16/10, y el navegador pasa esa altura mínima por la proporción a un ANCHO mínimo de 416 px
+   (260 × 1,6). Con el panel, 454: eso estiraba <main> a 494 y en un teléfono de 375 o 390 TODAS las páginas de detalle se
+   cortaban a la derecha (también a 900 px). Contenedor de ancho (inline-size), el panel ya no toma su ancho de lo de adentro;
+   y más angosto que 416, la caja deja la proporción y queda en 260 de alto, que es lo que ya medía. Desde 416, igual que antes.
+   NO va en FaltaAnimacion: en las landings sus recuadros quedan exactamente como están, y hay diseños que la miran por «>». */
+.mk-row-media > .mk-panel, .mk-hero-media > .mk-panel { container: mk-panel / inline-size; }
+@container mk-panel (max-width: 415px) { .mk-falta { aspect-ratio: auto; } }
 .mk-row-rev { flex-direction: row-reverse; }
 .mk-row-text { flex: 1 1 0; min-width: 0; }
 .mk-row-media { flex: 1 1 0; min-width: 0; }

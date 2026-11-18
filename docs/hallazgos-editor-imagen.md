@@ -537,8 +537,9 @@ workspace». Quien lo sabe es el server (`getWorkspaceActual`, prop de la págin
   fuera del `EditorProvider` (el «Crear un diseño» del Inicio) va por portal a `<body>`, envuelto en `.cv` y con
   `useCapaModal`.
 - Dentro del editor: un `Popover` (z 200) abierto desde un `Dialog` (z 300) queda detrás del velo; para eso está
-  el prop `overModal`. `ui/Menu` no lo tiene, y tampoco se da vuelta hacia arriba: abierto desde la barra inferior
-  tapa su botón (la lista del zoom usa `Popover placement="top"`).
+  el prop `overModal`. ~~`ui/Menu` no lo tiene, y tampoco se da vuelta hacia arriba: abierto desde la barra inferior
+  tapa su botón~~ (18/11/2026, F46 a: `ui/Menu` ya se da vuelta hacia arriba y tiene `overModal`; todavía ningún `<Menu>` lo
+  pasa) (la lista del zoom usa `Popover placement="top"`).
 
 ## La barra del objeto flota SOBRE el lienzo: el lienzo le reserva la franja
 
@@ -819,9 +820,11 @@ cazadas). Lo que costó:
 - **Del armazón:** la vista rápida al pasar el mouse por el riel y la pestaña «Estilos» de Diseño
   (`chrome/RielCanva.tsx`); la mini-barra pegada a la selección (falta la posición en pantalla del objeto); las marcas
   de la regla con la posición del elemento (`workspace/Rulers.tsx`); el «⋯» por mosaico de la cuadrícula
-  (`workspace/PageGrid.tsx`); «Editando ▾» y el avatar (no hay modos ni co-edición); en Proyectos, «Carpetas».
+  (`workspace/PageGrid.tsx`); ~~«Editando ▾» y el avatar (no hay modos ni co-edición); en Proyectos, «Carpetas»~~ (descartados
+  por escrito el 18/11/2026, F133: ver arriba).
 - **Las fuentes salen de jsDelivr**, no de un almacenamiento propio (tanda 4).
-- **Marca, versiones, compartir y comentarios**: en `null` (`mako/adaptadorNube.ts`); piden tablas propias.
+- **Marca, versiones, compartir y comentarios**: en `null` (`mako/adaptadorNube.ts`); piden tablas propias. (18/11/2026, F132:
+  ~~versiones y comentarios~~ y el banco de fotos quedaron descartados por escrito; Marca y compartir siguen, y compartir lo decide Martín.)
 - **Un SVG subido se guarda como PNG** (`mako/nube.ts` → `aRaster`): para conservarlo vectorial hay que sanearlo
   en el server y servirlo desde un origen sin cookies.
 - **El relevamiento de FUNCIONES de Canva** quedó escrito el 14/10 a la noche

@@ -1699,9 +1699,7 @@
    {
     "dice": "Para empezar, toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.",
     "rol": "cierre",
-    "sel": "[data-recorrido=\"tour-chats-whatsapp\"]",
-    "falta": true,
-    "donde": "El botón «WhatsApp» que abre la conexión del canal en Chats (app/chats/ChatsApp.tsx → el modal de ConectarCanal.tsx). No ubiqué el botón exacto."
+    "sel": "[data-recorrido=\"tour-chats-whatsapp\"]"
    }
   ],
   "ojo": "Sin ningún canal conectado (lo normal en la prueba), la pantalla es sólo «Conecta un canal para ver tus chats aquí.» con los botones WhatsApp, Instagram, Messenger y Email: los filtros, el botón Máko y Comentario aparecen recién con un canal. El botón Máko sólo sugiere en WhatsApp («Por ahora, sólo en WhatsApp»). Un closer o setter sin canales lee «Todavía no hay canales conectados.» y no ve los botones.",
@@ -1777,25 +1775,19 @@
     "dice": "Toca aquí, en Categorías, para ordenar los temas de tu comunidad.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-community-categorias\"]",
-    "falta": true,
-    "donde": "Las categorías del feed (app/_comunidad/Feed.tsx, div.cmu-chips role=\"tablist\" aria-label=\"Categorías\"; el editor es EditorCategorias.tsx). Hoy se alcanza con [role=\"tablist\"][aria-label=\"Categorías\"].",
     "tipo": "toca"
    },
    {
     "dice": "Toca aquí, en el menú de un post, y elige Fijar arriba para lo que nadie se puede perder.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-community-menu-post\"]",
-    "falta": true,
-    "donde": "El menú del primer post del feed, con la opción «Fijar arriba» (app/_comunidad/Feed.tsx, línea ~136). Sólo aparece si hay un post.",
     "cierra": true,
     "tipo": "toca"
    },
    {
     "dice": "Abre la conversación tú: toca aquí, en Escribe algo, y suma un video, una encuesta o un archivo.",
     "rol": "cierre",
-    "sel": "[data-recorrido=\"tour-classroom-community-escribir\"]",
-    "falta": true,
-    "donde": "El compositor del post nuevo, placeholder «Escribe algo…» (app/_comunidad/Compositor.tsx, línea ~173)."
+    "sel": "[data-recorrido=\"tour-classroom-community-escribir\"]"
    }
   ],
   "ojo": "Es SÓLO de Máko Pro: con Essential (y en la prueba de Essential, que tiene los topes de su plan desde el primer día) la pestaña muestra el candado «La comunidad de tus alumnos es de MaKo Pro. Pasa a Pro para usarlo.» en vez del feed. Además pide un producto: sin ninguno dice «Sin productos · La comunidad es de un producto. Crea uno en el CRM.»",
@@ -1849,7 +1841,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "soloPro": true
  },
  {
   "id": "classroom-clients",
@@ -1868,28 +1861,17 @@
     "rol": "que-es"
    },
    {
-    "dice": "Toca aquí, en un cliente, y abre su ficha: sus tareas, sus pagos, su curso y sus llamadas.",
-    "rol": "accion",
-    "sel": "[data-recorrido=\"tour-classroom-clients-cliente\"]",
-    "falta": true,
-    "donde": "La primera tarjeta del tablero de Clients (app/customer-success/ClienteCard.tsx → TarjetaPersona de app/_ui/TarjetaKanban.tsx). Sin clientes no hay tarjeta.",
-    "cierra": true,
-    "tipo": "toca"
+    "dice": "Cada cliente tiene su ficha, con sus tareas, sus pagos, su curso y sus llamadas.",
+    "rol": "cosa"
    },
    {
-    "dice": "Toca aquí, en Lista, Miembros o Avance, para cambiar la vista del Kanban.",
-    "rol": "accion",
-    "sel": "[data-recorrido=\"tour-classroom-clients-vistas\"]",
-    "falta": true,
-    "donde": "El selector de vista Kanban · Lista · Miembros · Avance de la barra de Clients (app/customer-success/BarraClientes.tsx).",
-    "tipo": "toca"
+    "dice": "Y arriba cambias la vista: Kanban, Lista, Miembros o Avance.",
+    "rol": "cosa"
    },
    {
     "dice": "Para sumar a tus clientes de antes, toca aquí, en Cargar un cliente.",
     "rol": "cierre",
-    "sel": "[data-recorrido=\"tour-classroom-clients-cargar\"]",
-    "falta": true,
-    "donde": "El botón «Cargar un cliente» del checklist (app/customer-success/ChecklistClientes.tsx, línea ~41). Sólo se ve mientras no hay clientes cargados (`!estado.cs_clientes`)."
+    "sel": "[data-recorrido=\"tour-classroom-clients-cargar\"]"
    }
   ],
   "ojo": "Con la cartera vacía (lo normal en la prueba) no hay barra ni vistas: se ve «Todavía no tienes clientes» con «Cargar un cliente» y la lista «Configura tu cartera». Avance sólo aparece si el producto tiene curso y Miembros si hay un programa elegido. Los íconos de vista no tienen texto: el nombre sale al pasar el cursor. Es de los dos planes.",
@@ -1965,24 +1947,18 @@
     "dice": "Toca aquí, en Nuevo evento: cada uno puede repetirse solo.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-calendar-nuevo\"]",
-    "falta": true,
-    "donde": "El botón «Nuevo evento» del calendario del curso (app/_comunidad/Calendario.tsx, línea ~124).",
     "tipo": "toca"
    },
    {
     "dice": "Toca aquí, en Quién entra, y elige si es para todos, desde un nivel o para quien tenga un módulo.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-calendar-quien-entra\"]",
-    "falta": true,
-    "donde": "El select «Quién entra» del editor de evento (app/_comunidad/EditorEvento.tsx, línea ~234, `ariaLabel=\"Quién entra\"`). Hoy se alcanza con [aria-label=\"Quién entra\"].",
     "tipo": "toca"
    },
    {
     "dice": "Suma el link de Zoom o Meet, o la dirección si es en persona, y toca aquí, en Crear evento.",
     "rol": "cierre",
-    "sel": "[data-recorrido=\"tour-classroom-calendar-crear\"]",
-    "falta": true,
-    "donde": "El botón «Crear evento» del pie del editor (app/_comunidad/EditorEvento.tsx; dice «Guardar evento» al editar uno)."
+    "sel": "[data-recorrido=\"tour-classroom-calendar-crear\"]"
    }
   ],
   "ojo": "Es parte de la comunidad: SÓLO Máko Pro (en Essential, el mismo candado que Community) y pide un producto. No es el Calendar de Sales (/calendario), que ya tiene su guion. «Desde un nivel» y «Con un módulo» salen en Quién entra; «Con un módulo» sólo si el curso tiene módulos.",
@@ -2036,7 +2012,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "soloPro": true
  },
  {
   "id": "classroom-leaderboards",
@@ -2058,24 +2035,18 @@
     "dice": "Mira aquí, los niveles: cada like le suma un punto al alumno, y con los puntos sube de nivel.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-leaderboards-niveles\"]",
-    "falta": true,
-    "donde": "La lista de niveles de arriba del ranking, junto a «1 like = 1 punto» (app/_comunidad/Ranking.tsx).",
     "tipo": "mira"
    },
    {
     "dice": "Toca aquí, en Últimos 7 días, Últimos 30 días o Total, para ver quién más sumó.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-leaderboards-ranking\"]",
-    "falta": true,
-    "donde": "Las tres tablas «Últimos 7 días», «Últimos 30 días» y «Total» (app/_comunidad/Ranking.tsx); la marca va en la primera.",
     "tipo": "toca"
    },
    {
     "dice": "Ponle nombre propio a cada nivel: toca aquí, en Nombres de los niveles.",
     "rol": "cierre",
-    "sel": "[data-recorrido=\"tour-classroom-leaderboards-nombres\"]",
-    "falta": true,
-    "donde": "El botón «Nombres de los niveles» (app/_comunidad/Ranking.tsx, línea ~54). Sólo lo ve un admin del workspace."
+    "sel": "[data-recorrido=\"tour-classroom-leaderboards-nombres\"]"
    }
   ],
   "ojo": "SÓLO Máko Pro (candado en Essential) y pide un producto. Con una comunidad nueva las tres tablas dicen «Nadie sumó puntos todavía.» y los niveles no abren nada hasta que el curso tenga módulos o clases bloqueados por nivel. El equipo no aparece en el ranking: ve «Ranking de alumnos · 1 like = 1 punto».",
@@ -2126,7 +2097,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "soloPro": true
  },
  {
   "id": "classroom-about",
@@ -2148,32 +2120,24 @@
     "dice": "Toca aquí, en Editar, y escribe el nombre y una descripción corta.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-about-editar\"]",
-    "falta": true,
-    "donde": "El botón «Editar» de About (app/_comunidad/About.tsx, línea ~56).",
     "tipo": "toca"
    },
    {
     "dice": "Mira aquí, Reglas: deja claro qué se puede publicar.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-about-reglas\"]",
-    "falta": true,
-    "donde": "El campo «Reglas» del editor de About (app/_comunidad/About.tsx).",
     "tipo": "mira"
    },
    {
     "dice": "Mira aquí, Publican desde: elige quién escribe, todos o quienes llegaron a un nivel.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-classroom-about-publican\"]",
-    "falta": true,
-    "donde": "El select «Publican desde» (app/_comunidad/About.tsx, línea ~150, `ariaLabel=\"Publican desde\"`). Hoy se alcanza con [aria-label=\"Publican desde\"].",
     "tipo": "mira"
    },
    {
     "dice": "Cuando termines, toca aquí, en Guardar About, y quien entre ya sabe a qué viene.",
     "rol": "cierre",
-    "sel": "[data-recorrido=\"tour-classroom-about-guardar\"]",
-    "falta": true,
-    "donde": "El botón «Guardar About» (app/_comunidad/About.tsx, línea ~130)."
+    "sel": "[data-recorrido=\"tour-classroom-about-guardar\"]"
    }
   ],
   "ojo": "SÓLO Máko Pro (candado en Essential) y pide un producto. «Publican desde» y la zona del calendario sólo los ve quien configura la comunidad (puedoConfigurar); el resto del formulario lo edita quien puede editar el About.",
@@ -2224,7 +2188,8 @@
     "rol": "cierre"
    }
   ],
-  "v4": true
+  "v4": true,
+  "soloPro": true
  },
  {
   "id": "settings-seguridad",
@@ -2246,14 +2211,10 @@
     "dice": "Toca aquí, en Verificación en 2 pasos, para que entrar pida un código de tu celular.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-settings-seguridad-2-pasos\"]",
-    "falta": true,
-    "donde": "La fila «Verificación en 2 pasos» del grupo «Cómo entras» (app/perfil/seguridad/SeguridadCuenta.tsx, línea ~138; su clave es `app`). Hoy se alcanza con a[href=\"/perfil/seguridad?ver=app\"].",
     "tipo": "toca"
    },
    {
     "sel": "[data-recorrido=\"tour-settings-seguridad-configurar\"]",
-    "falta": true,
-    "donde": "El botón «Configurar» de la fila «App de autenticación», dentro de Verificación en 2 pasos (app/perfil/seguridad/SeguridadCuenta.tsx, línea ~236).",
     "dice": "Mira aquí, en Configurar: escaneas el código con tu app de autenticación.",
     "rol": "accion",
     "tipo": "mira"
@@ -2346,8 +2307,6 @@
     "dice": "Mira aquí, Avisos al celular: préndelos y te llegan al teléfono.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-settings-notificaciones-avisos-celular\"]",
-    "falta": true,
-    "donde": "El interruptor «Avisos al celular» del detalle del canal Celular (app/perfil/NotificacionesPanel.tsx, línea ~267).",
     "tipo": "mira"
    },
    {
@@ -2431,8 +2390,6 @@
     "dice": "Mira aquí, Extensión para Chrome: con ella, tus videos se hacen con tu cuenta de Google Flow.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-settings-instalar-extension\"]",
-    "falta": true,
-    "donde": "La fila «Extensión para Chrome» del grupo «En tu navegador» (app/perfil/instalar/InstalarApp.tsx).",
     "tipo": "mira"
    },
    {
@@ -2600,16 +2557,12 @@
     "dice": "Toca aquí, en Agregar, para sumar una empresa con su RFC, CUIT o NIT, su domicilio y su correo.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-settings-fiscal-agregar\"]",
-    "falta": true,
-    "donde": "El botón «Agregar» del título de Identidades fiscales (app/configuraciones/IdentidadesFiscalesPanel.tsx, línea ~150). Ojo: el pie del formulario tiene otro «Agregar».",
     "tipo": "toca"
    },
    {
     "dice": "Mira aquí, Llenar desde un PDF o una foto: Máko completa los campos por ti.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-settings-fiscal-llenar\"]",
-    "falta": true,
-    "donde": "El botón «Llenar desde un PDF o una foto» del formulario (app/configuraciones/IdentidadesFiscalesPanel.tsx, línea ~195).",
     "tipo": "mira"
    },
    {
@@ -2684,27 +2637,15 @@
     "rol": "que-es"
    },
    {
-    "dice": "Toca aquí, en Tu primer mes, y mira lo que se cobra cuando termina la prueba.",
-    "rol": "accion",
-    "sel": "[data-recorrido=\"tour-settings-plan-primer-mes\"]",
-    "falta": true,
-    "donde": "La fila «Tu primer mes» (app/configuraciones/plan/PlanPanel.tsx, línea ~195). Sólo aparece si `suscripcion.primerMes`.",
-    "tipo": "toca"
-   },
-   {
     "dice": "Mira aquí, Pasar a Máko Pro: si quieres más, pídelo y te lo cambiamos antes de que termine tu prueba.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-settings-plan-pro\"]",
-    "falta": true,
-    "donde": "La fila «Pasar a MaKo Pro» (app/configuraciones/plan/PlanPanel.tsx, líneas ~163-167; abre la confirmación «¿Pasar a…?»).",
     "tipo": "mira"
    },
    {
     "dice": "Si te convenció, toca aquí, en Empezar mi plan ya: pagas desde hoy y se van los topes de la prueba.",
     "rol": "cierre",
-    "sel": "[data-recorrido=\"tour-settings-plan-empezar\"]",
-    "falta": true,
-    "donde": "La fila «Empezar mi plan ya» (app/configuraciones/plan/PlanPanel.tsx, línea ~151)."
+    "sel": "[data-recorrido=\"tour-settings-plan-empezar\"]"
    }
   ],
   "ojo": "El nombre del plan que se lee es el de la capa (`capaDef(capa).nombre`): «Completo» o «Agencia», no «MaKo Essential» ni «MaKo Pro». Por eso el guion no nombra el plan. «Pasar a MaKo Pro» sólo aparece en Essential y no para la cuenta de una agencia. Las líneas de la prueba y «Empezar mi plan ya» sólo con la prueba en curso.",
@@ -2774,16 +2715,12 @@
     "dice": "Mira aquí, Hacerme partner: es gratis, son tres preguntas y tu link aparece al instante.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-partners-hacerme\"]",
-    "falta": true,
-    "donde": "El botón «Hacerme partner» de la landing de /partners (app/partners/page.tsx, línea ~107 → app/mako-partners/LandingPartners.tsx).",
     "tipo": "mira"
    },
    {
     "dice": "Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-partners-a-cobrar\"]",
-    "falta": true,
-    "donde": "El número «A cobrar» del panel del partner (app/partners/PanelPartner.tsx, línea ~204). Sólo existe después de sumarse.",
     "tipo": "toca"
    },
    {
@@ -2865,24 +2802,18 @@
     "dice": "Mira aquí, Así de simple: abres cada cuenta desde un lead, y la pagas tú o tu cliente.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-agency-asi-de-simple\"]",
-    "falta": true,
-    "donde": "La sección «Así de simple» de la landing de Agency (app/agency/LandingAgency.tsx, su h2).",
     "tipo": "mira"
    },
    {
     "dice": "Mira aquí, ¿Partner o Agency?: ahí ves en qué se diferencian.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-agency-partner-o-agency\"]",
-    "falta": true,
-    "donde": "La sección «¿Partner o Agency?» de la landing (app/agency/LandingAgency.tsx, su h2).",
     "tipo": "mira"
    },
    {
     "dice": "Con Máko Pro activo, toca aquí, en Sumarme como Agency: a tus clientes no les mandamos promociones ni otros planes.",
     "rol": "cierre",
-    "sel": "[data-recorrido=\"tour-agency-sumarme\"]",
-    "falta": true,
-    "donde": "El botón «Sumarme como Agency» (app/agency/LandingAgency.tsx, línea ~141). Sin Pro activo no aparece: en su lugar, «Pásate a MaKo Pro»."
+    "sel": "[data-recorrido=\"tour-agency-sumarme\"]"
    }
   ],
   "ojo": "Para quien no es agencia, la pestaña es una landing. «Sumarme como Agency» exige capa Pro ('agencia') con estado 'activo': en Essential el botón es «Pásate a MaKo Pro». No confirmé si una prueba de Pro tiene estado 'activo' (si no, verá «Tu cuenta está pausada»). Si paga el cliente, no se entra a su cuenta hasta que pague. Cada cuenta cuesta US$47/mes (precioClienteDeAgencia), no lo dije.",
@@ -2956,24 +2887,18 @@
     "dice": "Toca aquí, en Documentación, y encuentra lo que se puede pedir, con ejemplos.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-api-documentacion\"]",
-    "falta": true,
-    "donde": "La pestaña «Documentación» de /api-mako (app/api-mako/ApiMako.tsx, tab `docs`).",
     "tipo": "toca"
    },
    {
     "dice": "Toca aquí, en Tokens: cada uno es una llave con nombre, vencimiento y áreas.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-api-tokens\"]",
-    "falta": true,
-    "donde": "La pestaña «Tokens» de /api-mako (app/api-mako/ApiMako.tsx, tab `tokens`; lleva a /api-mako?tab=tokens).",
     "tipo": "toca"
    },
    {
     "dice": "Toca aquí, en Generar nuevo token, y cópialo apenas aparece: con él, tus herramientas trabajan solas con tu negocio.",
     "rol": "cierre",
-    "sel": "[data-recorrido=\"tour-api-generar\"]",
-    "falta": true,
-    "donde": "El link «Generar nuevo token» (app/api-mako/Tokens.tsx; va a /api-mako?tab=tokens&v=nuevo). Hay otro, «Generar nuevo token (clásico)»: la marca va en el primero."
+    "sel": "[data-recorrido=\"tour-api-generar\"]"
    }
   ],
   "ojo": "Sólo el admin. El token de aquí NO sirve para la skill de Claude (esa usa el suyo, en Integraciones → Claude). Los permisos por área son Sin acceso, Lectura o Lectura y escritura.",

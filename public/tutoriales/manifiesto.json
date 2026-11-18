@@ -191,6 +191,64 @@
    "hecho": "2026-11-18T06:53:22.402Z"
   },
   {
+   "key": "copilot",
+   "pestana": "Marketing CoPilot",
+   "ruta": "/ads-manager/copiloto",
+   "archivo": "/tutoriales/copilot.mp4",
+   "poster": "/tutoriales/copilot.jpg",
+   "duracion_s": 26.3,
+   "peso_kb": 1475,
+   "guion": "Deja de adivinar cuánto publicar y en qué red. El CoPilot hace de tu equipo de marketing: mira lo que publicas y lo que inviertes, y te dice qué hacer. Mira aquí, ¿Por dónde vendes?: marca dónde publicas o inviertes. Haz clic aquí, en Seguir, y responde las otras dos, una por pantalla. Completa las tres ahora: lo que te toca va a tu Plan, y el CoPilot no lanza un anuncio sin tu OK.",
+   "frases": [
+    {
+     "id": "copilot-1",
+     "rol": "gancho",
+     "texto": "Deja de adivinar cuánto publicar y en qué red.",
+     "t_inicio": 0.1,
+     "t_fin": 2.88
+    },
+    {
+     "id": "copilot-2",
+     "rol": "que-es",
+     "texto": "El CoPilot hace de tu equipo de marketing: mira lo que publicas y lo que inviertes, y te dice qué hacer.",
+     "t_inicio": 3.38,
+     "t_fin": 9.44
+    },
+    {
+     "id": "copilot-3",
+     "rol": "accion",
+     "texto": "Mira aquí, ¿Por dónde vendes?: marca dónde publicas o inviertes.",
+     "t_inicio": 10.02,
+     "t_fin": 14.26,
+     "sel": ".cop-ent__ops",
+     "espera_clic": false
+    },
+    {
+     "id": "copilot-4",
+     "rol": "accion",
+     "texto": "Haz clic aquí, en Seguir, y responde las otras dos, una por pantalla.",
+     "t_inicio": 14.74,
+     "t_fin": 18.96,
+     "sel": "button.cop-ent__seguir",
+     "espera_clic": true
+    },
+    {
+     "id": "copilot-5",
+     "rol": "cierre",
+     "texto": "Completa las tres ahora: lo que te toca va a tu Plan, y el CoPilot no lanza un anuncio sin tu OK.",
+     "t_inicio": 19.46,
+     "t_fin": 25.6,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "ok → okey (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:15:23.960Z"
+  },
+  {
    "key": "settings-integraciones",
    "pestana": "Integraciones",
    "ruta": "/integraciones",
@@ -570,6 +628,184 @@
    "hecho": "2026-11-18T07:06:09.210Z"
   },
   {
+   "key": "spy",
+   "pestana": "Competitor Spy",
+   "ruta": "/competitor-spy",
+   "archivo": "/tutoriales/spy.mp4",
+   "poster": "/tutoriales/spy.jpg",
+   "duracion_s": 26.3,
+   "peso_kb": 1491,
+   "guion": "No adivines qué publicar: mira qué ya le funciona a tu competencia. Competitor Spy sigue las cuentas que eliges y te marca las piezas que rindieron varias veces más de lo normal. Toca aquí, en Anuncios, y mira los que tiene activos. Toca aquí, en Contenido, para volver a todo lo que publica. Pruébalo ya: toca aquí, en una pieza, y después en Hacer uno así: MaKo escribe el tuyo con tu oferta.",
+   "frases": [
+    {
+     "id": "spy-1",
+     "rol": "gancho",
+     "texto": "No adivines qué publicar: mira qué ya le funciona a tu competencia.",
+     "t_inicio": 0.1,
+     "t_fin": 4.2
+    },
+    {
+     "id": "spy-2",
+     "rol": "que-es",
+     "texto": "Competitor Spy sigue las cuentas que eliges y te marca las piezas que rindieron varias veces más de lo normal.",
+     "t_inicio": 4.66,
+     "t_fin": 10.66
+    },
+    {
+     "id": "spy-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Anuncios, y mira los que tiene activos.",
+     "t_inicio": 11.2,
+     "t_fin": 14.14,
+     "sel": "[data-recorrido=\"spy-tab-anuncios\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "spy-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Contenido, para volver a todo lo que publica.",
+     "t_inicio": 14.68,
+     "t_fin": 17.96,
+     "sel": "[data-recorrido=\"spy-tab-contenido\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "spy-5",
+     "rol": "cierre",
+     "texto": "Pruébalo ya: toca aquí, en una pieza, y después en Hacer uno así: MaKo escribe el tuyo con tu oferta.",
+     "t_inicio": 18.5,
+     "t_fin": 25.62,
+     "sel": "[data-recorrido=\"spy-grilla\"] div[role=\"button\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:17:31.245Z"
+  },
+  {
+   "key": "copywriting",
+   "pestana": "Copywriting",
+   "ruta": "/copywriter",
+   "archivo": "/tutoriales/copywriting.mp4",
+   "poster": "/tutoriales/copywriting.jpg",
+   "duracion_s": 24.47,
+   "peso_kb": 1379,
+   "guion": "El copy que vende casi nunca nace de una hoja en blanco. Copywriting te muestra los anuncios, reels y videos de YouTube que mejor rindieron en las cuentas que sigues. Toca aquí, en Plantillas, si prefieres una base que ya trae gancho, cuerpo y cierre. Toca aquí, en Pegar link o texto, si viste uno afuera que quieres usar. Listo: toca aquí, en Replicar, y MaKo reescribe ese copy para lo que vendes.",
+   "frases": [
+    {
+     "id": "copywriting-1",
+     "rol": "gancho",
+     "texto": "El copy que vende casi nunca nace de una hoja en blanco.",
+     "t_inicio": 0.06,
+     "t_fin": 3.14
+    },
+    {
+     "id": "copywriting-2",
+     "rol": "que-es",
+     "texto": "Copywriting te muestra los anuncios, reels y videos de YouTube que mejor rindieron en las cuentas que sigues.",
+     "t_inicio": 3.62,
+     "t_fin": 9.32
+    },
+    {
+     "id": "copywriting-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Plantillas, si prefieres una base que ya trae gancho, cuerpo y cierre.",
+     "t_inicio": 9.66,
+     "t_fin": 14.58,
+     "sel": "#copy-plantillas",
+     "espera_clic": true
+    },
+    {
+     "id": "copywriting-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Pegar link o texto, si viste uno afuera que quieres usar.",
+     "t_inicio": 14.86,
+     "t_fin": 18.6,
+     "sel": "[data-recorrido=\"tour-copywriting-pegar\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "copywriting-5",
+     "rol": "cierre",
+     "texto": "Listo: toca aquí, en Replicar, y MaKo reescribe ese copy para lo que vendes.",
+     "t_inicio": 18.98,
+     "t_fin": 23.78,
+     "sel": "[aria-label=\"Outliers de copy\"] button",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:19:24.331Z"
+  },
+  {
+   "key": "web",
+   "pestana": "Web Generator",
+   "ruta": "/web-generator",
+   "archivo": "/tutoriales/web.mp4",
+   "poster": "/tutoriales/web.jpg",
+   "duracion_s": 26.47,
+   "peso_kb": 1501,
+   "guion": "Antes de diseñar tu página, mira las que ya convierten. Web Generator te muestra páginas que venden, y cada una trae su botón Replicar. Toca aquí, en VSL, Webinar o Página de venta, para ver sólo ese tipo. Mira aquí, el buscador: pega el link de una página que te gustó para replicarla. Elige una y toca aquí, en Replicar: se vuelve a armar para tu negocio y queda en Mis landings.",
+   "frases": [
+    {
+     "id": "web-1",
+     "rol": "gancho",
+     "texto": "Antes de diseñar tu página, mira las que ya convierten.",
+     "t_inicio": 0.08,
+     "t_fin": 3.2
+    },
+    {
+     "id": "web-2",
+     "rol": "que-es",
+     "texto": "Web Generator te muestra páginas que venden, y cada una trae su botón Replicar.",
+     "t_inicio": 3.64,
+     "t_fin": 8.38
+    },
+    {
+     "id": "web-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en VSL, Webinar o Página de venta, para ver sólo ese tipo.",
+     "t_inicio": 8.82,
+     "t_fin": 14.2,
+     "sel": "[aria-label=\"Tipo de página\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "web-4",
+     "rol": "accion",
+     "texto": "Mira aquí, el buscador: pega el link de una página que te gustó para replicarla.",
+     "t_inicio": 14.64,
+     "t_fin": 19.18,
+     "sel": "input[aria-label^=\"Buscar páginas\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "web-5",
+     "rol": "cierre",
+     "texto": "Elige una y toca aquí, en Replicar: se vuelve a armar para tu negocio y queda en Mis landings.",
+     "t_inicio": 19.54,
+     "t_fin": 25.76,
+     "sel": "a[href^=\"/web-generator?replicar=\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "generator → webgenerator (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:21:19.068Z"
+  },
+  {
    "key": "plan",
    "pestana": "Plan",
    "ruta": "/plan",
@@ -748,6 +984,1144 @@
    "dice_el_guion": true,
    "chequeo": "idéntico",
    "hecho": "2026-11-18T07:10:52.419Z"
+  },
+  {
+   "key": "avatar",
+   "pestana": "AI Avatar",
+   "ruta": "/ai-avatar",
+   "archivo": "/tutoriales/avatar.mp4",
+   "poster": "/tutoriales/avatar.jpg",
+   "duracion_s": 27.33,
+   "peso_kb": 1320,
+   "guion": "Tu cara, en escenas que nunca grabaste: el auto, un podcast, la cocina. AI Avatar te pone en esas escenas con IA, en cuatro pasos. Toca aquí, en Charla en el auto o en otro preset, que trae la escena armada. Mira aquí, Personaje: ahí va tu foto, de frente y con buena luz. Mira aquí, Describe la escena: cuenta lo que pasa. Cuando esté todo, toca aquí, en Generar, y mírate en esa escena.",
+   "frases": [
+    {
+     "id": "avatar-1",
+     "rol": "gancho",
+     "texto": "Tu cara, en escenas que nunca grabaste: el auto, un podcast, la cocina.",
+     "t_inicio": 0.08,
+     "t_fin": 5.26
+    },
+    {
+     "id": "avatar-2",
+     "rol": "que-es",
+     "texto": "AI Avatar te pone en esas escenas con IA, en cuatro pasos.",
+     "t_inicio": 5.8,
+     "t_fin": 9.68
+    },
+    {
+     "id": "avatar-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Charla en el auto o en otro preset, que trae la escena armada.",
+     "t_inicio": 10.14,
+     "t_fin": 14.04,
+     "sel": "button[aria-label=\"Usar el preset Charla en el auto\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "avatar-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Personaje: ahí va tu foto, de frente y con buena luz.",
+     "t_inicio": 14.58,
+     "t_fin": 18.8,
+     "sel": "button[aria-label=\"Personaje: tu foto\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "avatar-5",
+     "rol": "accion",
+     "texto": "Mira aquí, Describe la escena: cuenta lo que pasa.",
+     "t_inicio": 19.38,
+     "t_fin": 22.08,
+     "sel": "textarea[aria-label=\"Describe la escena\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "avatar-6",
+     "rol": "cierre",
+     "texto": "Cuando esté todo, toca aquí, en Generar, y mírate en esa escena.",
+     "t_inicio": 22.58,
+     "t_fin": 26.64,
+     "sel": "[data-recorrido=\"tour-avatar-generar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": false,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:24:04.019Z"
+  },
+  {
+   "key": "video",
+   "pestana": "Video",
+   "ruta": "/video-editor",
+   "archivo": "/tutoriales/video.mp4",
+   "poster": "/tutoriales/video.jpg",
+   "duracion_s": 25.23,
+   "peso_kb": 1381,
+   "guion": "Para tu próximo video, parte de uno que ya funcionó. En Video, MaKo arma tus videos a partir de una frase o de una plantilla. Mira aquí, la caja de arriba: escribe en una línea lo que quieres. Toca aquí, en Ver ejemplo, para ver un anuncio terminado antes de usar su plantilla. Para el primero, toca aquí, en Mensaje para…: le hablas a tu cliente ideal en 30 segundos.",
+   "frases": [
+    {
+     "id": "video-1",
+     "rol": "gancho",
+     "texto": "Para tu próximo video, parte de uno que ya funcionó.",
+     "t_inicio": 0.06,
+     "t_fin": 3.14
+    },
+    {
+     "id": "video-2",
+     "rol": "que-es",
+     "texto": "En Video, MaKo arma tus videos a partir de una frase o de una plantilla.",
+     "t_inicio": 3.68,
+     "t_fin": 8.24
+    },
+    {
+     "id": "video-3",
+     "rol": "accion",
+     "texto": "Mira aquí, la caja de arriba: escribe en una línea lo que quieres.",
+     "t_inicio": 8.74,
+     "t_fin": 12.5,
+     "sel": "[data-caja-pedido]",
+     "espera_clic": false
+    },
+    {
+     "id": "video-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Ver ejemplo, para ver un anuncio terminado antes de usar su plantilla.",
+     "t_inicio": 12.98,
+     "t_fin": 17.94,
+     "sel": "button[aria-label=\"Ver un ejemplo de Anuncio con gancho\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "video-5",
+     "rol": "cierre",
+     "texto": "Para el primero, toca aquí, en Mensaje para…: le hablas a tu cliente ideal en 30 segundos.",
+     "t_inicio": 18.42,
+     "t_fin": 24.54,
+     "sel": "button[aria-label=\"Usar la plantilla Mensaje para…\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "30 → treinta (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:26:02.137Z"
+  },
+  {
+   "key": "image",
+   "pestana": "Image",
+   "ruta": "/image-editor",
+   "archivo": "/tutoriales/image.mp4",
+   "poster": "/tutoriales/image.jpg",
+   "duracion_s": 24.03,
+   "peso_kb": 1323,
+   "guion": "¿Quieres carruseles que la gente guarde y miniaturas que inviten a entrar? Ímich te arma esas piezas, y cada miniatura de YouTube viene en dos versiones para probar cuál se toca más. Toca aquí, en la portada de Lista o tips: ya trae el nombre de tu negocio. Toca aquí, en Ver ejemplo, y mira cómo queda la pieza terminada. Empieza por un carrusel: toca aquí, en Usar plantilla.",
+   "frases": [
+    {
+     "id": "image-1",
+     "rol": "gancho",
+     "texto": "¿Quieres carruseles que la gente guarde y miniaturas que inviten a entrar?",
+     "t_inicio": 0.06,
+     "t_fin": 3.68
+    },
+    {
+     "id": "image-2",
+     "rol": "que-es",
+     "texto": "Image te arma esas piezas, y cada miniatura de YouTube viene en dos versiones para probar cuál se toca más.",
+     "t_inicio": 4.36,
+     "t_fin": 10.32
+    },
+    {
+     "id": "image-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en la portada de Lista o tips: ya trae el nombre de tu negocio.",
+     "t_inicio": 10.82,
+     "t_fin": 15.2,
+     "sel": "span[aria-label=\"Lista o tips: portada\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "image-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Ver ejemplo, y mira cómo queda la pieza terminada.",
+     "t_inicio": 15.74,
+     "t_fin": 19.44,
+     "sel": "button[aria-label=\"Ver un ejemplo de Lista o tips\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "image-5",
+     "rol": "cierre",
+     "texto": "Empieza por un carrusel: toca aquí, en Usar plantilla.",
+     "t_inicio": 20.06,
+     "t_fin": 23.34,
+     "sel": "button[aria-label=\"Usar la plantilla Lista o tips\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "imich → image (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:28:06.132Z"
+  },
+  {
+   "key": "chats",
+   "pestana": "Chats",
+   "ruta": "/chats",
+   "archivo": "/tutoriales/chats.mp4",
+   "poster": "/tutoriales/chats.jpg",
+   "duracion_s": 27.17,
+   "peso_kb": 1501,
+   "guion": "WhatsApp, Instagram, Messenger y email, en una sola bandeja. Chats junta los mensajes de tus clientes, escriban por donde escriban, y en WhatsApp MaKo te sugiere qué contestar. Toca aquí, en Todos, y filtra por Míos, Sin asignar o Atiende MaKo. Toca aquí, en Canal, y mira sólo lo que llega por uno de ellos. Para empezar, toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.",
+   "frases": [
+    {
+     "id": "chats-1",
+     "rol": "gancho",
+     "texto": "WhatsApp, Instagram, Messenger y email, en una sola bandeja.",
+     "t_inicio": 0.1,
+     "t_fin": 4.4
+    },
+    {
+     "id": "chats-2",
+     "rol": "que-es",
+     "texto": "Chats junta los mensajes de tus clientes, escriban por donde escriban, y en WhatsApp MaKo te sugiere qué contestar.",
+     "t_inicio": 4.92,
+     "t_fin": 11.42
+    },
+    {
+     "id": "chats-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Todos, y filtra por Míos, Sin asignar o Atiende MaKo.",
+     "t_inicio": 11.86,
+     "t_fin": 16.84,
+     "sel": "button[aria-label=\"Bandeja, mostrar y orden\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "chats-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Canal, y mira sólo lo que llega por uno de ellos.",
+     "t_inicio": 17.3,
+     "t_fin": 21.2,
+     "sel": "button[aria-label=\"Canal\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "chats-5",
+     "rol": "cierre",
+     "texto": "Para empezar, toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.",
+     "t_inicio": 21.66,
+     "t_fin": 26.46,
+     "sel": "[data-recorrido=\"tour-chats-whatsapp\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:32:36.748Z"
+  },
+  {
+   "key": "classroom-community",
+   "pestana": "Community",
+   "ruta": "/classroom/community",
+   "archivo": "/tutoriales/classroom-community.mp4",
+   "poster": "/tutoriales/classroom-community.jpg",
+   "duracion_s": 27.33,
+   "peso_kb": 1518,
+   "guion": "Tus alumnos avanzan más cuando se acompañan. Community, una de las pestañas de Classroom, es donde conversan entre ellos, contigo y con tu equipo. Toca aquí, en Categorías, para ordenar los temas de tu comunidad. Toca aquí, en el menú de un post, y elige Fijar arriba para lo que nadie se puede perder. Abre la conversación tú: toca aquí, en Escribe algo, y suma un video, una encuesta o un archivo.",
+   "frases": [
+    {
+     "id": "classroom-community-1",
+     "rol": "gancho",
+     "texto": "Tus alumnos avanzan más cuando se acompañan.",
+     "t_inicio": 0.04,
+     "t_fin": 2.66
+    },
+    {
+     "id": "classroom-community-2",
+     "rol": "que-es",
+     "texto": "Community, una de las pestañas de Classroom, es donde conversan entre ellos, contigo y con tu equipo.",
+     "t_inicio": 3.14,
+     "t_fin": 9.1
+    },
+    {
+     "id": "classroom-community-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Categorías, para ordenar los temas de tu comunidad.",
+     "t_inicio": 9.54,
+     "t_fin": 13.36,
+     "sel": "[data-recorrido=\"tour-classroom-community-categorias\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "classroom-community-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en el menú de un post, y elige Fijar arriba para lo que nadie se puede perder.",
+     "t_inicio": 13.78,
+     "t_fin": 19.32,
+     "sel": "[data-recorrido=\"tour-classroom-community-menu-post\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "classroom-community-5",
+     "rol": "cierre",
+     "texto": "Abre la conversación tú: toca aquí, en Escribe algo, y suma un video, una encuesta o un archivo.",
+     "t_inicio": 19.74,
+     "t_fin": 26.64,
+     "sel": "[data-recorrido=\"tour-classroom-community-escribir\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "solo_pro": true,
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:33:59.250Z"
+  },
+  {
+   "key": "classroom-clients",
+   "pestana": "Clients",
+   "ruta": "/classroom/clients",
+   "archivo": "/tutoriales/classroom-clients.mp4",
+   "poster": "/tutoriales/classroom-clients.jpg",
+   "duracion_s": 25.53,
+   "peso_kb": 1380,
+   "guion": "Vender es la mitad; la otra mitad es entregar bien. Clients, en Classroom, te muestra en qué etapa de tu servicio va cada lead que ganaste en el CRM. Cada cliente tiene su ficha, con sus tareas, sus pagos, su curso y sus llamadas. Y arriba cambias la vista: Kanban, Lista, Miembros o Avance. Para sumar a tus clientes de antes, toca aquí, en Cargar un cliente.",
+   "frases": [
+    {
+     "id": "classroom-clients-1",
+     "rol": "gancho",
+     "texto": "Vender es la mitad; la otra mitad es entregar bien.",
+     "t_inicio": 0.1,
+     "t_fin": 3.62
+    },
+    {
+     "id": "classroom-clients-2",
+     "rol": "que-es",
+     "texto": "Clients, en Classroom, te muestra en qué etapa de tu servicio va cada lead que ganaste en el CRM.",
+     "t_inicio": 4.1,
+     "t_fin": 9.84
+    },
+    {
+     "id": "classroom-clients-3",
+     "rol": "cosa",
+     "texto": "Cada cliente tiene su ficha, con sus tareas, sus pagos, su curso y sus llamadas.",
+     "t_inicio": 10.38,
+     "t_fin": 15.6
+    },
+    {
+     "id": "classroom-clients-4",
+     "rol": "cosa",
+     "texto": "Y arriba cambias la vista: Kanban, Lista, Miembros o Avance.",
+     "t_inicio": 16.08,
+     "t_fin": 20.6
+    },
+    {
+     "id": "classroom-clients-5",
+     "rol": "cierre",
+     "texto": "Para sumar a tus clientes de antes, toca aquí, en Cargar un cliente.",
+     "t_inicio": 21.2,
+     "t_fin": 24.84,
+     "sel": "[data-recorrido=\"tour-classroom-clients-cargar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "cargar → encargar (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:35:51.876Z"
+  },
+  {
+   "key": "classroom-calendar",
+   "pestana": "Calendar del curso",
+   "ruta": "/classroom/calendar",
+   "archivo": "/tutoriales/classroom-calendar.mp4",
+   "poster": "/tutoriales/classroom-calendar.jpg",
+   "duracion_s": 24.8,
+   "peso_kb": 1371,
+   "guion": "Una llamada en grupo cada semana le da ritmo a tu programa. El Calendar del curso arma esas citas con tus alumnos. Toca aquí, en Nuevo evento: cada uno puede repetirse solo. Toca aquí, en Quién entra, y elige si es para todos, desde un nivel o para quien tenga un módulo. Suma el link de Zoom o Meet, o la dirección si es en persona, y toca aquí, en Crear evento.",
+   "frases": [
+    {
+     "id": "classroom-calendar-1",
+     "rol": "gancho",
+     "texto": "Una llamada en grupo cada semana le da ritmo a tu programa.",
+     "t_inicio": 0.1,
+     "t_fin": 3.48
+    },
+    {
+     "id": "classroom-calendar-2",
+     "rol": "que-es",
+     "texto": "El Calendar del curso arma esas citas con tus alumnos.",
+     "t_inicio": 3.9,
+     "t_fin": 7
+    },
+    {
+     "id": "classroom-calendar-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Nuevo evento: cada uno puede repetirse solo.",
+     "t_inicio": 7.4,
+     "t_fin": 11.32,
+     "sel": "[data-recorrido=\"tour-classroom-calendar-nuevo\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "classroom-calendar-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Quién entra, y elige si es para todos, desde un nivel o para quien tenga un módulo.",
+     "t_inicio": 11.78,
+     "t_fin": 17.84,
+     "sel": "[data-recorrido=\"tour-classroom-calendar-quien-entra\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "classroom-calendar-5",
+     "rol": "cierre",
+     "texto": "Suma el link de Zoom o Meet, o la dirección si es en persona, y toca aquí, en Crear evento.",
+     "t_inicio": 18.34,
+     "t_fin": 24.12,
+     "sel": "[data-recorrido=\"tour-classroom-calendar-crear\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "solo_pro": true,
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:37:30.393Z"
+  },
+  {
+   "key": "classroom-leaderboards",
+   "pestana": "Leaderboards",
+   "ruta": "/classroom/leaderboards",
+   "archivo": "/tutoriales/classroom-leaderboards.mp4",
+   "poster": "/tutoriales/classroom-leaderboards.jpg",
+   "duracion_s": 24.57,
+   "peso_kb": 1322,
+   "guion": "Un alumno que suma puntos vuelve más seguido. Leaderboards, dentro de Classroom, es el ranking de tu comunidad. Mira aquí, los niveles: cada like le suma un punto al alumno, y con los puntos sube de nivel. Toca aquí, en Últimos 7 días, Últimos 30 días o Total, para ver quién más sumó. Ponle nombre propio a cada nivel: toca aquí, en Nombres de los niveles.",
+   "frases": [
+    {
+     "id": "classroom-leaderboards-1",
+     "rol": "gancho",
+     "texto": "Un alumno que suma puntos vuelve más seguido.",
+     "t_inicio": 0.1,
+     "t_fin": 2.56
+    },
+    {
+     "id": "classroom-leaderboards-2",
+     "rol": "que-es",
+     "texto": "Leaderboards, dentro de Classroom, es el ranking de tu comunidad.",
+     "t_inicio": 3.08,
+     "t_fin": 6.6
+    },
+    {
+     "id": "classroom-leaderboards-3",
+     "rol": "accion",
+     "texto": "Mira aquí, los niveles: cada like le suma un punto al alumno, y con los puntos sube de nivel.",
+     "t_inicio": 7.06,
+     "t_fin": 13,
+     "sel": "[data-recorrido=\"tour-classroom-leaderboards-niveles\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "classroom-leaderboards-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Últimos 7 días, Últimos 30 días o Total, para ver quién más sumó.",
+     "t_inicio": 13.6,
+     "t_fin": 19.3,
+     "sel": "[data-recorrido=\"tour-classroom-leaderboards-ranking\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "classroom-leaderboards-5",
+     "rol": "cierre",
+     "texto": "Ponle nombre propio a cada nivel: toca aquí, en Nombres de los niveles.",
+     "t_inicio": 19.86,
+     "t_fin": 23.86,
+     "sel": "[data-recorrido=\"tour-classroom-leaderboards-nombres\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "solo_pro": true,
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "7 → siete · 30 → treinta (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:39:18.017Z"
+  },
+  {
+   "key": "classroom-about",
+   "pestana": "About",
+   "ruta": "/classroom/about",
+   "archivo": "/tutoriales/classroom-about.mp4",
+   "poster": "/tutoriales/classroom-about.jpg",
+   "duracion_s": 29.2,
+   "peso_kb": 1362,
+   "guion": "¿Qué lee primero quien entra a tu comunidad? About, otra pestaña de Classroom, cuenta de qué se trata y qué se espera de cada miembro. Toca aquí, en Editar, y escribe el nombre y una descripción corta. Mira aquí, Reglas: deja claro qué se puede publicar. Mira aquí, Publican desde: elige quién escribe, todos o quienes llegaron a un nivel. Cuando termines, toca aquí, en Guardar About, y quien entre ya sabe a qué viene.",
+   "frases": [
+    {
+     "id": "classroom-about-1",
+     "rol": "gancho",
+     "texto": "¿Qué lee primero quien entra a tu comunidad?",
+     "t_inicio": 0,
+     "t_fin": 2.1
+    },
+    {
+     "id": "classroom-about-2",
+     "rol": "que-es",
+     "texto": "About, otra pestaña de Classroom, cuenta de qué se trata y qué se espera de cada miembro.",
+     "t_inicio": 2.62,
+     "t_fin": 7.9
+    },
+    {
+     "id": "classroom-about-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Editar, y escribe el nombre y una descripción corta.",
+     "t_inicio": 8.42,
+     "t_fin": 12.52,
+     "sel": "[data-recorrido=\"tour-classroom-about-editar\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "classroom-about-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Reglas: deja claro qué se puede publicar.",
+     "t_inicio": 13.12,
+     "t_fin": 16.88,
+     "sel": "[data-recorrido=\"tour-classroom-about-reglas\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "classroom-about-5",
+     "rol": "accion",
+     "texto": "Mira aquí, Publican desde: elige quién escribe, todos o quienes llegaron a un nivel.",
+     "t_inicio": 17.46,
+     "t_fin": 22.92,
+     "sel": "[data-recorrido=\"tour-classroom-about-publican\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "classroom-about-6",
+     "rol": "cierre",
+     "texto": "Cuando termines, toca aquí, en Guardar About, y quien entre ya sabe a qué viene.",
+     "t_inicio": 23.46,
+     "t_fin": 28.5,
+     "sel": "[data-recorrido=\"tour-classroom-about-guardar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "solo_pro": true,
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:41:26.206Z"
+  },
+  {
+   "key": "settings-seguridad",
+   "pestana": "Seguridad",
+   "ruta": "/perfil/seguridad",
+   "archivo": "/tutoriales/settings-seguridad.mp4",
+   "poster": "/tutoriales/settings-seguridad.jpg",
+   "duracion_s": 29.73,
+   "peso_kb": 1389,
+   "guion": "Si alguien consigue tu correo, no debería entrar a tu negocio. Seguridad, en Configuración, te muestra lo que le falta a tu cuenta para protegerla. Toca aquí, en Verificación en 2 pasos, para que entrar pida un código de tu celular. Mira aquí, en Configurar: escaneas el código con tu app de autenticación. Guarda tus diez códigos de recuperación: no se vuelven a mostrar. Desde ese momento, tu correo solo ya no alcanza para entrar a tu negocio.",
+   "frases": [
+    {
+     "id": "settings-seguridad-1",
+     "rol": "gancho",
+     "texto": "Si alguien consigue tu correo, no debería entrar a tu negocio.",
+     "t_inicio": 0.14,
+     "t_fin": 3.72
+    },
+    {
+     "id": "settings-seguridad-2",
+     "rol": "que-es",
+     "texto": "Seguridad, en Configuración, te muestra lo que le falta a tu cuenta para protegerla.",
+     "t_inicio": 4.2,
+     "t_fin": 9.18
+    },
+    {
+     "id": "settings-seguridad-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Verificación en 2 pasos, para que entrar pida un código de tu celular.",
+     "t_inicio": 9.62,
+     "t_fin": 14.74,
+     "sel": "[data-recorrido=\"tour-settings-seguridad-2-pasos\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "settings-seguridad-4",
+     "rol": "accion",
+     "texto": "Mira aquí, en Configurar: escaneas el código con tu app de autenticación.",
+     "t_inicio": 15.22,
+     "t_fin": 19.8,
+     "sel": "[data-recorrido=\"tour-settings-seguridad-configurar\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-seguridad-5",
+     "rol": "cosa",
+     "texto": "Guarda tus diez códigos de recuperación: no se vuelven a mostrar.",
+     "t_inicio": 20.26,
+     "t_fin": 24.12
+    },
+    {
+     "id": "settings-seguridad-6",
+     "rol": "cierre",
+     "texto": "Desde ese momento, tu correo solo ya no alcanza para entrar a tu negocio.",
+     "t_inicio": 24.58,
+     "t_fin": 29.04,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "2 → dos (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:43:33.900Z"
+  },
+  {
+   "key": "settings-notificaciones",
+   "pestana": "Notificaciones",
+   "ruta": "/perfil/notificaciones",
+   "archivo": "/tutoriales/settings-notificaciones.mp4",
+   "poster": "/tutoriales/settings-notificaciones.jpg",
+   "duracion_s": 26.9,
+   "peso_kb": 1475,
+   "guion": "Un mensaje sin responder no puede esperar a que abras MaKo. En Notificaciones, dentro de Configuración, eliges por dónde te avisa: En la app, Celular, WhatsApp o Email. Toca aquí, en Celular, para que los avisos te lleguen al teléfono. Mira aquí, Avisos al celular: préndelos y te llegan al teléfono. Así te enteras a tiempo de cada mensaje, y en No molestar eliges tus horas de silencio.",
+   "frases": [
+    {
+     "id": "settings-notificaciones-1",
+     "rol": "gancho",
+     "texto": "Un mensaje sin responder no puede esperar a que abras MaKo.",
+     "t_inicio": 0.08,
+     "t_fin": 3.48
+    },
+    {
+     "id": "settings-notificaciones-2",
+     "rol": "que-es",
+     "texto": "En Notificaciones, dentro de Configuración, eliges por dónde te avisa: En la app, Celular, WhatsApp o Email.",
+     "t_inicio": 3.98,
+     "t_fin": 11.52
+    },
+    {
+     "id": "settings-notificaciones-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Celular, para que los avisos te lleguen al teléfono.",
+     "t_inicio": 12.1,
+     "t_fin": 15.6,
+     "sel": "a[href=\"/perfil/notificaciones?canal=celular\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "settings-notificaciones-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Avisos al celular: préndelos y te llegan al teléfono.",
+     "t_inicio": 16.28,
+     "t_fin": 20.42,
+     "sel": "[data-recorrido=\"tour-settings-notificaciones-avisos-celular\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-notificaciones-5",
+     "rol": "cierre",
+     "texto": "Así te enteras a tiempo de cada mensaje, y en No molestar eliges tus horas de silencio.",
+     "t_inicio": 20.86,
+     "t_fin": 26.22,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:45:15.130Z"
+  },
+  {
+   "key": "settings-instalar",
+   "pestana": "Instalar la app",
+   "ruta": "/perfil/instalar",
+   "archivo": "/tutoriales/settings-instalar.mp4",
+   "poster": "/tutoriales/settings-instalar.jpg",
+   "duracion_s": 28.63,
+   "peso_kb": 1379,
+   "guion": "MaKo en tu computadora, en tu celular y en Chrome. Instalar la app, en Configuración, te guía en cada uno. Mira aquí, el QR: escanéalo con tu celular. En iPhone, Compartir y Agregar a inicio; en Android, Instalar app. Mira aquí, Extensión para Chrome: con ella, tus videos se hacen con tu cuenta de Google Flow. Empieza por la computadora: toca aquí, en Descargar, y tus chats con MaKo usan tu suscripción de Claude o ChatGPT.",
+   "frases": [
+    {
+     "id": "settings-instalar-1",
+     "rol": "gancho",
+     "texto": "MaKo en tu computadora, en tu celular y en Chrome.",
+     "t_inicio": 0.1,
+     "t_fin": 3.02
+    },
+    {
+     "id": "settings-instalar-2",
+     "rol": "que-es",
+     "texto": "Instalar la app, en Configuración, te guía en cada uno.",
+     "t_inicio": 3.44,
+     "t_fin": 6.64
+    },
+    {
+     "id": "settings-instalar-3",
+     "rol": "accion",
+     "texto": "Mira aquí, el QR: escanéalo con tu celular. En iPhone, Compartir y Agregar a inicio; en Android, Instalar app.",
+     "t_inicio": 7.06,
+     "t_fin": 14.9,
+     "sel": "img.aj-telefono__qr",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-instalar-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Extensión para Chrome: con ella, tus videos se hacen con tu cuenta de Google Flow.",
+     "t_inicio": 15.3,
+     "t_fin": 20.62,
+     "sel": "[data-recorrido=\"tour-settings-instalar-extension\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-instalar-5",
+     "rol": "cierre",
+     "texto": "Empieza por la computadora: toca aquí, en Descargar, y tus chats con MaKo usan tu suscripción de Claude o ChatGPT.",
+     "t_inicio": 20.98,
+     "t_fin": 27.94,
+     "sel": "a[href^=\"/api/ia-pc/descargar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "claude → cloud (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:48:25.778Z"
+  },
+  {
+   "key": "settings-equipo",
+   "pestana": "Equipo",
+   "ruta": "/equipo",
+   "archivo": "/tutoriales/settings-equipo.mp4",
+   "poster": "/tutoriales/settings-equipo.jpg",
+   "duracion_s": 27.7,
+   "peso_kb": 1524,
+   "guion": "Si vendes con más gente, que cada uno vea lo suyo, y nada más. Equipo, en Configuración, suma a quien trabaja contigo, con su rol. Mira aquí, el rol: elige Setter, Closer o Admin. El Admin ve todo, y los otros dos, lo que les toca. Toca aquí, en los tres puntos, para reenviarle el acceso, suspender o quitar a esa persona. Pruébalo ya: toca aquí, en Invitar, escribe su correo y elige su rol.",
+   "frases": [
+    {
+     "id": "settings-equipo-1",
+     "rol": "gancho",
+     "texto": "Si vendes con más gente, que cada uno vea lo suyo, y nada más.",
+     "t_inicio": 0.1,
+     "t_fin": 3.88
+    },
+    {
+     "id": "settings-equipo-2",
+     "rol": "que-es",
+     "texto": "Equipo, en Configuración, suma a quien trabaja contigo, con su rol.",
+     "t_inicio": 4.38,
+     "t_fin": 8.74
+    },
+    {
+     "id": "settings-equipo-3",
+     "rol": "accion",
+     "texto": "Mira aquí, el rol: elige Setter, Closer o Admin. El Admin ve todo, y los otros dos, lo que les toca.",
+     "t_inicio": 9.14,
+     "t_fin": 16.42,
+     "sel": "button[aria-label^=\"Rol de \"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-equipo-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en los tres puntos, para reenviarle el acceso, suspender o quitar a esa persona.",
+     "t_inicio": 16.74,
+     "t_fin": 22.18,
+     "sel": "button[aria-label^=\"Acciones sobre \"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "settings-equipo-5",
+     "rol": "cierre",
+     "texto": "Pruébalo ya: toca aquí, en Invitar, escribe su correo y elige su rol.",
+     "t_inicio": 22.5,
+     "t_fin": 27,
+     "sel": "[data-recorrido=\"tour-equipo-invitar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:51:11.641Z"
+  },
+  {
+   "key": "settings-fiscal",
+   "pestana": "Identidades fiscales",
+   "ruta": "/configuraciones/fiscal",
+   "archivo": "/tutoriales/settings-fiscal.mp4",
+   "poster": "/tutoriales/settings-fiscal.jpg",
+   "duracion_s": 30.27,
+   "peso_kb": 1391,
+   "guion": "Tus datos fiscales se cargan una vez y sirven en cada venta. Identidades fiscales, en Configuración, guarda tu moneda y cada empresa con la que facturas. Toca aquí, en Agregar, para sumar una empresa con su RFC, CUIT o NIT, su domicilio y su correo. Mira aquí, Llenar desde un PDF o una foto: MaKo completa los campos por ti. Después, en cada venta del CRM eliges cuál factura en Facturado por, sin volver a escribir nada.",
+   "frases": [
+    {
+     "id": "settings-fiscal-1",
+     "rol": "gancho",
+     "texto": "Tus datos fiscales se cargan una vez y sirven en cada venta.",
+     "t_inicio": 0.08,
+     "t_fin": 3.74
+    },
+    {
+     "id": "settings-fiscal-2",
+     "rol": "que-es",
+     "texto": "Identidades fiscales, en Configuración, guarda tu moneda y cada empresa con la que facturas.",
+     "t_inicio": 4.24,
+     "t_fin": 9.78
+    },
+    {
+     "id": "settings-fiscal-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Agregar, para sumar una empresa con su RFC, CUIT o NIT, su domicilio y su correo.",
+     "t_inicio": 10.32,
+     "t_fin": 17.06,
+     "sel": "[data-recorrido=\"tour-settings-fiscal-agregar\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "settings-fiscal-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Llenar desde un PDF o una foto: MaKo completa los campos por ti.",
+     "t_inicio": 17.64,
+     "t_fin": 22.7,
+     "sel": "[data-recorrido=\"tour-settings-fiscal-llenar\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-fiscal-5",
+     "rol": "cierre",
+     "texto": "Después, en cada venta del CRM eliges cuál factura en Facturado por, sin volver a escribir nada.",
+     "t_inicio": 23.3,
+     "t_fin": 29.58,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:52:50.996Z"
+  },
+  {
+   "key": "settings-plan",
+   "pestana": "Tu plan",
+   "ruta": "/configuraciones/plan",
+   "archivo": "/tutoriales/settings-plan.mp4",
+   "poster": "/tutoriales/settings-plan.jpg",
+   "duracion_s": 21.2,
+   "peso_kb": 1239,
+   "guion": "Cero sorpresas el día del cobro. Tu plan, en Configuración, te dice qué día termina tu prueba gratis y cuánto se cobra. Mira aquí, Pasar a MaKo Pro: si quieres más, pídelo y te lo cambiamos antes de que termine tu prueba. Si te convenció, toca aquí, en Empezar mi plan ya: pagas desde hoy y se van los topes de la prueba.",
+   "frases": [
+    {
+     "id": "settings-plan-1",
+     "rol": "gancho",
+     "texto": "Cero sorpresas el día del cobro.",
+     "t_inicio": 0.1,
+     "t_fin": 1.86
+    },
+    {
+     "id": "settings-plan-2",
+     "rol": "que-es",
+     "texto": "Tu plan, en Configuración, te dice qué día termina tu prueba gratis y cuánto se cobra.",
+     "t_inicio": 2.28,
+     "t_fin": 7.44
+    },
+    {
+     "id": "settings-plan-3",
+     "rol": "accion",
+     "texto": "Mira aquí, Pasar a MaKo Pro: si quieres más, pídelo y te lo cambiamos antes de que termine tu prueba.",
+     "t_inicio": 7.94,
+     "t_fin": 13.78,
+     "sel": "[data-recorrido=\"tour-settings-plan-pro\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "settings-plan-4",
+     "rol": "cierre",
+     "texto": "Si te convenció, toca aquí, en Empezar mi plan ya: pagas desde hoy y se van los topes de la prueba.",
+     "t_inicio": 14.26,
+     "t_fin": 20.5,
+     "sel": "[data-recorrido=\"tour-settings-plan-empezar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:54:01.009Z"
+  },
+  {
+   "key": "partners",
+   "pestana": "MaKo Partners",
+   "ruta": "/partners",
+   "archivo": "/tutoriales/partners.mp4",
+   "poster": "/tutoriales/partners.jpg",
+   "duracion_s": 25.63,
+   "peso_kb": 1445,
+   "guion": "Cada negocio que traes a MaKo te deja su primer mes entero, en dinero. MaKo Partners, en el menú de tu foto, te paga por recomendar MaKo. Mira aquí, Hacerme partner: es gratis, son tres preguntas y tu link aparece al instante. Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes. Listo: comparte tu link, y si alguien no entra por él, que ponga tu código al pagar.",
+   "frases": [
+    {
+     "id": "partners-1",
+     "rol": "gancho",
+     "texto": "Cada negocio que traes a MaKo te deja su primer mes entero, en dinero.",
+     "t_inicio": 0.06,
+     "t_fin": 4.32
+    },
+    {
+     "id": "partners-2",
+     "rol": "que-es",
+     "texto": "MaKo Partners, en el menú de tu foto, te paga por recomendar MaKo.",
+     "t_inicio": 4.92,
+     "t_fin": 8.6
+    },
+    {
+     "id": "partners-3",
+     "rol": "accion",
+     "texto": "Mira aquí, Hacerme partner: es gratis, son tres preguntas y tu link aparece al instante.",
+     "t_inicio": 8.98,
+     "t_fin": 14.68,
+     "sel": "[data-recorrido=\"tour-partners-hacerme\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "partners-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes.",
+     "t_inicio": 15.16,
+     "t_fin": 19.78,
+     "sel": "[data-recorrido=\"tour-partners-a-cobrar\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "partners-5",
+     "rol": "cierre",
+     "texto": "Listo: comparte tu link, y si alguien no entra por él, que ponga tu código al pagar.",
+     "t_inicio": 20.26,
+     "t_fin": 24.94,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:55:17.037Z"
+  },
+  {
+   "key": "agency",
+   "pestana": "Agency Dashboard",
+   "ruta": "/agency",
+   "archivo": "/tutoriales/agency.mp4",
+   "poster": "/tutoriales/agency.jpg",
+   "duracion_s": 27.73,
+   "peso_kb": 1325,
+   "guion": "Si tienes una agencia, entra a la cuenta de cada cliente con un clic. Agency Dashboard, en las opciones de tu foto, junta las cuentas de tus clientes. Mira aquí, Así de simple: abres cada cuenta desde un lead, y la pagas tú o tu cliente. Mira aquí, ¿Partner o Agency?: ahí ves en qué se diferencian. Con MaKo Pro activo, toca aquí, en Sumarme como Agency: a tus clientes no les mandamos promociones ni otros planes.",
+   "frases": [
+    {
+     "id": "agency-1",
+     "rol": "gancho",
+     "texto": "Si tienes una agencia, entra a la cuenta de cada cliente con un clic.",
+     "t_inicio": 0.1,
+     "t_fin": 4.1
+    },
+    {
+     "id": "agency-2",
+     "rol": "que-es",
+     "texto": "Agency Dashboard, en las opciones de tu foto, junta las cuentas de tus clientes.",
+     "t_inicio": 4.62,
+     "t_fin": 9.1
+    },
+    {
+     "id": "agency-3",
+     "rol": "accion",
+     "texto": "Mira aquí, Así de simple: abres cada cuenta desde un lead, y la pagas tú o tu cliente.",
+     "t_inicio": 9.46,
+     "t_fin": 15.1,
+     "sel": "[data-recorrido=\"tour-agency-asi-de-simple\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "agency-4",
+     "rol": "accion",
+     "texto": "Mira aquí, ¿Partner o Agency?: ahí ves en qué se diferencian.",
+     "t_inicio": 15.46,
+     "t_fin": 19.38,
+     "sel": "[data-recorrido=\"tour-agency-partner-o-agency\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "agency-5",
+     "rol": "cierre",
+     "texto": "Con MaKo Pro activo, toca aquí, en Sumarme como Agency: a tus clientes no les mandamos promociones ni otros planes.",
+     "t_inicio": 19.7,
+     "t_fin": 27.04,
+     "sel": "[data-recorrido=\"tour-agency-sumarme\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:58:13.472Z"
+  },
+  {
+   "key": "api",
+   "pestana": "API",
+   "ruta": "/api-mako",
+   "archivo": "/tutoriales/api.mp4",
+   "poster": "/tutoriales/api.jpg",
+   "duracion_s": 31.1,
+   "peso_kb": 1384,
+   "guion": "Si usas n8n, Zapier o Make, ponlos a trabajar con tu negocio. Con la API, que sale al pasar el cursor por tu foto, esas herramientas leen y escriben en tu cuenta. Toca aquí, en Documentación, y encuentra lo que se puede pedir, con ejemplos. Toca aquí, en Tokens: cada uno es una llave con nombre, vencimiento y áreas. Toca aquí, en Generar nuevo token, y cópialo apenas aparece: con él, tus herramientas trabajan solas con tu negocio.",
+   "frases": [
+    {
+     "id": "api-1",
+     "rol": "gancho",
+     "texto": "Si usas n8n, Zapier o Make, ponlos a trabajar con tu negocio.",
+     "t_inicio": 0.1,
+     "t_fin": 4.94
+    },
+    {
+     "id": "api-2",
+     "rol": "que-es",
+     "texto": "Con la API, que sale al pasar el cursor por tu foto, esas herramientas leen y escriben en tu cuenta.",
+     "t_inicio": 5.42,
+     "t_fin": 11.24
+    },
+    {
+     "id": "api-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Documentación, y encuentra lo que se puede pedir, con ejemplos.",
+     "t_inicio": 11.78,
+     "t_fin": 16.36,
+     "sel": "[data-recorrido=\"tour-api-documentacion\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "api-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Tokens: cada uno es una llave con nombre, vencimiento y áreas.",
+     "t_inicio": 16.82,
+     "t_fin": 22.32,
+     "sel": "[data-recorrido=\"tour-api-tokens\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "api-5",
+     "rol": "cierre",
+     "texto": "Toca aquí, en Generar nuevo token, y cópialo apenas aparece: con él, tus herramientas trabajan solas con tu negocio.",
+     "t_inicio": 22.82,
+     "t_fin": 30.4,
+     "sel": "[data-recorrido=\"tour-api-generar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T08:01:11.920Z"
+  },
+  {
+   "key": "report-problem",
+   "pestana": "Report a problem",
+   "ruta": "/tickets",
+   "archivo": "/tutoriales/report-problem.mp4",
+   "poster": "/tutoriales/report-problem.jpg",
+   "duracion_s": 25.8,
+   "peso_kb": 1504,
+   "guion": "Si algo no anda o te falta una función, que el equipo lo sepa. Report a problem, al apoyar el cursor sobre tu foto, lleva tu pedido al equipo. Mira aquí, Cuéntale a MaKo qué pasó: escríbelo con tus palabras. Mira aquí, el ticket que arma MaKo: revisa que diga lo que pasó antes de mandarlo. Cuando esté claro, toca aquí, en Mandárselo al equipo: si te preguntan algo, verás Espera tu respuesta.",
+   "frases": [
+    {
+     "id": "report-problem-1",
+     "rol": "gancho",
+     "texto": "Si algo no anda o te falta una función, que el equipo lo sepa.",
+     "t_inicio": 0.14,
+     "t_fin": 3.96
+    },
+    {
+     "id": "report-problem-2",
+     "rol": "que-es",
+     "texto": "Report a problem, al apoyar el cursor sobre tu foto, lleva tu pedido al equipo.",
+     "t_inicio": 4.42,
+     "t_fin": 8.94
+    },
+    {
+     "id": "report-problem-3",
+     "rol": "accion",
+     "texto": "Mira aquí, Cuéntale a MaKo qué pasó: escríbelo con tus palabras.",
+     "t_inicio": 9.54,
+     "t_fin": 13.28,
+     "sel": "textarea[aria-label=\"Cuéntale a MaKo qué pasó\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "report-problem-4",
+     "rol": "accion",
+     "texto": "Mira aquí, el ticket que arma MaKo: revisa que diga lo que pasó antes de mandarlo.",
+     "t_inicio": 13.78,
+     "t_fin": 18.56,
+     "sel": "[data-tarjeta=\"ticket\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "report-problem-5",
+     "rol": "cierre",
+     "texto": "Cuando esté claro, toca aquí, en Mandárselo al equipo: si te preguntan algo, verás Espera tu respuesta.",
+     "t_inicio": 18.98,
+     "t_fin": 25.12,
+     "sel": "[data-tarjeta=\"ticket\"] button.co-chip--primario",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T08:03:17.729Z"
   }
  ]
 }
