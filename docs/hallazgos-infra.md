@@ -863,6 +863,12 @@ limit». El `undefined` es `status` en `null` porque el proceso murió por una s
 archivos de lib/, app/ y tests/). En la PC el tope sigue en 2.560 a propósito (lo comparten los chats). Y un «código undefined» no es
 el vigía: es una señal, casi siempre la del heap.
 
+⚠️ **Y el pre-push de la nube también va con Node 24.** El hook corre el `node` que haya en el PATH, y el de la nube es el 22:
+el mismo día, `git push origin HEAD:punta/traba-1811` frenó con «FILTRO ROJO» sobre más de 40 tests de otras áreas («la tanda salió
+con 1») que el veredicto, minutos antes y con Node 24, había dado verdes (8.554 tests). Con `export PATH="$(sh scripts/node24.sh):$PATH"`
+en el MISMO comando del push, el filtro dio verde. Cada llamada de Bash arranca con el PATH de base: exportarlo en una llamada
+anterior no alcanza. **Una ráfaga de rojos ajenos en el filtro, con el veredicto verde, es el Node 22 antes que el código.**
+
 ## El índice de hallazgos se duplicaba solo: `merge=union` sobre una TABLA deja las dos filas (6/11/2026)
 
 **Vive en:** `.gitattributes` (los dos globs) · `scripts/unir-indice-hallazgos.mjs` (nuevo) ·
