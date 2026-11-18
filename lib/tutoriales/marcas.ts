@@ -17,6 +17,13 @@ export const MARCA = {
   crmReuniones: 'tour-crm-reuniones',
   /** «Mostrar más integraciones»: la grilla de la computadora muestra doce sin conectar (app/integraciones/IntegracionesBoard.tsx). */
   integracionesMas: 'tour-int-mas',
+  avatarAntes: 'tour-avatar-antes',
+  avatarGenerar: 'tour-avatar-generar',
+  copywritingPegar: 'tour-copywriting-pegar',
+  /** «Mis landings» en la computadora (app/web-generator/OutliersLandings.tsx); en el teléfono es el link «Tus landings» (`?ver=lista`). */
+  webMisLandings: 'tour-web-mis-landings',
+  /** Prioridades · Tareas · Proyectos · Recurrentes del Plan de la computadora (en el teléfono: `.m-seg[aria-label="Vista"]`). */
+  planVistas: 'tour-plan-vistas',
 } as const;
 
 /** Una sección de Settings (lib/ajustes-secciones.ts: `info`, `seguridad`, `instalar`, `equipo`, `integraciones`…). */

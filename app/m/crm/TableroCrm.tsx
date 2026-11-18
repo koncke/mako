@@ -128,12 +128,12 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
   const camino = datos.columnas.filter((c) => c.camino);
   const iPx = px ? camino.findIndex((c) => c.key === px.col) : -1;
   const proximo = px ? (
-    <ReunionesParaPreparar reuniones={[{
+    <ReunionesParaPreparar recorrido={MARCA.crmReuniones} reuniones={[{
       id: `${px.id}-J1`, leadId: px.id, cual: 'R1', fecha: px.fecha, dia: px.dia, at: px.at, url: px.url,
       nombre: px.nombre, empresa: px.empresa, foto: px.foto,
       paso: iPx >= 0 ? { n: iPx + 1, de: camino.length, etapa: camino[iPx].titulo } : null,
       plata: px.plata, objetivo: null, facturacion: null, sinVsl: false,
-    }]} onVerDetalle={() => router.push(ficha(px.id))} recorrido={MARCA.crmReuniones} />
+    }]} onVerDetalle={() => router.push(ficha(px.id))} />
   ) : null;
   const arriba = selector || proximo ? <div className="m-crm-arriba">{selector}{proximo}</div> : undefined;
 

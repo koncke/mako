@@ -35,6 +35,7 @@ import { TarjetaPlantilla } from '@/app/_crear/TarjetaPlantilla';
 import { GrillaMixta } from '@/app/_crear/GrillaMixta';
 import { usePortadaCrear } from '@/app/_crear/portada-ctx';
 import type { PlantillaCrear } from '@/app/_crear/reglas';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 /** Cuántas plantillas van en la fila de la portada (las demás, en «Ver todas»). */
 const PLANTILLAS_EN_PORTADA = 8;
@@ -363,7 +364,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
     <div className={telefono ? `${s.botones} ${oc.botonesTelefono}` : s.botones}>
       <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
       {/* «Pegar link o texto» replica igual (lib/copywriter/pegado-servidor.ts): mismo candado que la tarjeta. */}
-      <button type="button" className={s.pastilla} onClick={() => (soloPro ? setCandado(true) : setPegando(true))}>Pegar link o texto</button>
+      <button type="button" className={s.pastilla} data-recorrido={MARCA.copywritingPegar} onClick={() => (soloPro ? setCandado(true) : setPegando(true))}>Pegar link o texto</button>
       {pantalla
         ? <button type="button" className={s.pastilla} onClick={pantalla.verProyectos}>Mis guiones</button>
         : <Link href={rutaGuiones} className={s.pastilla}>Mis guiones</Link>}

@@ -28,6 +28,7 @@ import s from '@/app/image-editor/carruseles/explorar.module.css';
 import o from '@/app/video-editor/outliers.module.css';
 import l from './outliers-landings.module.css';
 import { usePortadaCrear } from '@/app/_crear/portada-ctx';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 const inicial = (n: string) => Array.from(n.trim())[0]?.toUpperCase() ?? '·';
 
@@ -102,7 +103,7 @@ export function OutliersLandings({ portada, telefono = false, rutaCrear = RUTA_P
           <div className={s.botones}>
             <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
             {/* La portada va sin el chat (12/11/2026): tus landings se abren a la izquierda. */}
-            {pantalla ? <button type="button" className={s.pastilla} onClick={pantalla.verProyectos}>Mis landings</button> : null}
+            {pantalla ? <button type="button" className={s.pastilla} data-recorrido={MARCA.webMisLandings} onClick={pantalla.verProyectos}>Mis landings</button> : null}
             {/* En el teléfono no se crea una landing (es de la computadora: la lista lo dice): el botón lleva a las tuyas. */}
             <Link href={rutaCrear} className={telefono ? s.pastilla : s.nuevo}>{telefono ? 'Tus landings' : <><span aria-hidden>＋</span> Nueva landing</>}</Link>
           </div>

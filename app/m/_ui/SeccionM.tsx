@@ -12,11 +12,13 @@
 
 import type { ReactNode } from 'react';
 
-export function SeccionM({ titulo, accion, id, children }: {
+export function SeccionM({ titulo, accion, id, recorrido, children }: {
   titulo: ReactNode;
   /** Como mucho una, texto azul: <Link className="m-lnk" href="/m/plan">Ver el plan</Link>. */
   accion?: ReactNode;
   id?: string;
+  /** La marca del tutorial de la pestaña (`data-recorrido`, lib/tutoriales/marcas.ts). */
+  recorrido?: string;
   children?: ReactNode;
 }) {
   // Sin título ni acción, no hay cabecera: un <h2> vacío dejaba su alto (28 + 10 px) como un hueco donde falta un nombre
@@ -24,7 +26,7 @@ export function SeccionM({ titulo, accion, id, children }: {
   const conCab = (titulo != null && titulo !== '' && titulo !== false) || !!accion;
   const idTitulo = id && conCab ? `${id}-titulo` : undefined;
   return (
-    <section className="m-seccion" id={id} aria-labelledby={idTitulo}>
+    <section className="m-seccion" id={id} aria-labelledby={idTitulo} data-recorrido={recorrido}>
       {conCab && (
         <div className="m-seccion__cab">
           <h2 className="m-seccion__titulo" id={idTitulo}>{titulo}</h2>
