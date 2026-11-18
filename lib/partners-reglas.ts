@@ -7,10 +7,10 @@
 // SÓLO PLATA (25/10/2026, Martín: «Elimina lo de "gana meses de tu plan", que solo ganen direro y listo... literalmente se
 // llevan el 100% de lo que venden... No pongas al programa de 1500 en el programa de referidos»). Reemplaza lo decidido el
 // 10/10 en docs/referidos.md (meses de crédito para el plan, plata sólo para los revendedores, el 20% del grupal):
-//   · Cada negocio NUEVO que entra con el link (o con el código al pagar) le deja al partner el 100% de SU PRIMER MES, a
-//     precio de lista del plan que eligió (US$ 97 Pro, US$ 47 Essential), en dinero. Una sola vez por negocio, sin tope.
-//   · Se gana cuando el referido ya pagó 2 meses: el que entra y se va al mes no deja nada. Ahí pasa a «a cobrar» y MaKo se
-//     lo transfiere a la cuenta que el partner dejó en su alta. El pago lo anota el super admin (un renglón del libro).
+//   · (REGLA VIEJA, hasta el 18/11/2026: el 100% de SU PRIMER MES, una sola vez por negocio, al 2º pago. Lo ya ganado así queda
+//     en el libro como está; desde el 18/11 la regla es la de `COMISION_PARTNER_DIRECTO`, más abajo: una parte de CADA pago.)
+//   · Lo ganado pasa a «a cobrar» y MaKo se lo transfiere a la cuenta que el partner dejó en su alta. El pago lo anota el
+//     super admin (un renglón del libro).
 //   · El Accelerator de US$ 1.500 no entra en Partners. Las agencias tampoco: su panel es otro (Agency Dashboard).
 //   · El origen que vale es el PRIMERO; sólo clientes nuevos; nadie se refiere a sí mismo.
 // =============================================================================
@@ -35,11 +35,20 @@ export function refQueVale(p: { previo: string | null; previoEsDePartner: boolea
   return { ref: p.codigo, ponerCookie: true };
 }
 
-/** Desde cuántos meses PAGADOS del referido se gana (docs/referidos.md: «desde su 2º pago»). */
-export const PAGOS_PARA_ACREDITAR = 2;
+/**
+ * Cuántos pagos del referido ya cubría el crédito de la REGLA VIEJA (el 100% del primer mes, que se ganaba al 2º pago): quien lo
+ * tiene en el libro (un renglón `referido` sin `pago_id`) no vuelve a ganar por sus 2 primeros pagos. Del 3º en adelante, sí.
+ */
+export const PAGOS_QUE_CUBRE_EL_CREDITO_VIEJO = 2;
 
-/** Lo que se lleva el partner del primer mes de cada negocio que trae: TODO (25/10/2026, Martín: «el 100%»). REGLA VIEJA: ya no se acredita así. */
-export const PARTE_DEL_PARTNER = 1;
+/**
+ * @deprecated REGLA VIEJA (el 100% del primer mes, al 2º pago). Ya NO acredita nada. Sigue exportada sólo porque la landing vieja
+ * (app/mako-partners/*: Calculadora, LandingPartners) todavía la importa: el chat del Sitio la rehace con `COMISION_PARTNER_*` y
+ * `comisionDelPago`; cuando eso esté en main, se borran las dos.
+ */
+export const PAGOS_PARA_ACREDITAR = 2;
+/** @deprecated REGLA VIEJA: el 100% del primer mes a precio de lista. Ver `PAGOS_PARA_ACREDITAR`. */
+export const gananciaDelReferido = (precioListaUsd: number): number => Math.round(Math.max(0, precioListaUsd) * 100) / 100;
 
 /**
  * LA REGLA DEL PROGRAMA (18/11/2026, Martín: «Olvidémonos por ahora de pagar el 100% del primer mes»): el partner se lleva una parte
@@ -90,19 +99,19 @@ export function codigoNuevoValido(v: unknown): { ok: true; codigo: string } | { 
   return { ok: true, codigo: s };
 }
 
-export type EstadoReferido = 'registrado' | 'primer-pago' | 'acreditado' | 'se-fue';
+export type EstadoReferido = 'registrado' | 'pagando' | 'se-fue';
 
 /**
- * En qué va un referido, con sus meses PAGADOS (cuotas cobradas de su plan) y si su lugar sigue vigente. Acreditado =
- * ya llegó a su 2º pago (el renglón del libro lo dice; esto es para la pantalla mientras tanto).
- * ⚠️ Sin lugar vigente y sin llegar al 2º pago es 'se-fue' AUNQUE no haya pagado nada (25/10/2026, revisión del tren): el
- * que canceló la prueba antes del día 8 (0 meses) daba 'registrado', y `porGanar` lo sumaba como «US$ 97 más en camino»
- * en el panel del partner (y `en_camino_usd` en la API) para siempre, por un negocio que no va a pagar nunca.
+ * En qué va un referido, con sus meses PAGADOS (cuotas cobradas de su plan) y si su lugar sigue vigente (18/11/2026, la regla
+ * por pago): 'pagando' = ya pagó y sigue (te deja su parte CADA mes); 'registrado' = todavía no pagó; 'se-fue' = su lugar ya no
+ * está vigente (lo ganado hasta ahí queda en el libro; no deja más).
+ * ⚠️ Sin lugar vigente es 'se-fue' AUNQUE no haya pagado nada (25/10/2026, revisión del tren): el que canceló la prueba antes del
+ * día 8 (0 meses) daba 'registrado', y se sumaba como «en camino» en el panel del partner para siempre, por un negocio que no
+ * va a pagar nunca.
  */
-export function estadoDelReferido(p: { mesesPagados: number; acreditado: boolean; vigente: boolean }): EstadoReferido {
-  if (p.acreditado) return 'acreditado';
-  if (!p.vigente && p.mesesPagados < PAGOS_PARA_ACREDITAR) return 'se-fue';
-  return p.mesesPagados >= 1 ? 'primer-pago' : 'registrado';
+export function estadoDelReferido(p: { mesesPagados: number; vigente: boolean }): EstadoReferido {
+  if (!p.vigente) return 'se-fue';
+  return p.mesesPagados >= 1 ? 'pagando' : 'registrado';
 }
 
 /** Lo que `seFueSegunSusCobros` mira de cada cobro del lugar (los de la plataforma con su `alta_ws`). */
@@ -130,19 +139,46 @@ export function seFueSegunSusCobros(cobros: ReadonlyArray<CobroDelReferido>): bo
 /** La píldora de cada negocio en el panel (y en el teléfono). */
 export const TEXTO_ESTADO_REFERIDO: Readonly<Record<EstadoReferido, string>> = {
   registrado: 'Todavía no pagó',
-  'primer-pago': 'Pagó su primer mes',
-  acreditado: 'Ya lo ganaste',
-  'se-fue': 'Se fue antes del 2º pago',
+  pagando: 'Paga cada mes',
+  'se-fue': 'Dejó de pagar',
 };
 
-/** ¿Este referido ya le deja su primer mes al partner? (2 meses pagados, y nunca a sí mismo). */
-export function correspondeAcreditar(p: { referidorWs: number; referidoWs: number; mesesPagados: number; yaAcreditado: boolean }): boolean {
-  return !p.yaAcreditado && p.referidorWs !== p.referidoWs && p.mesesPagados >= PAGOS_PARA_ACREDITAR;
+/**
+ * Por dónde entró un pago (18/11/2026): una pasarela (el `proveedor` del pago: Stripe, Mercado Pago, Creem; o un método `tarjeta`)
+ * es 'pasarela' (27 %); una transferencia, Binance/cripto o efectivo, 'directo' (30 %). Lo que no se sabe (sin proveedor y con un
+ * método `otro` o vacío) va por la tasa MENOR: nunca se acredita de más; si era directo, el super admin lo corrige con un `ajuste`.
+ */
+export function canalDelPago(p: { proveedor?: string | null; metodo?: string | null }): CanalDelPago {
+  if (p.proveedor) return 'pasarela';
+  const m = String(p.metodo ?? '').toLowerCase();
+  return m === 'transferencia' || m === 'cripto' || m === 'efectivo' ? 'directo' : 'pasarela';
 }
 
-/** Lo que gana el partner por un referido: el 100% de SU PRIMER MES, a precio de lista. */
-export const gananciaDelReferido = (precioListaUsd: number): number =>
-  Math.round(Math.max(0, precioListaUsd) * PARTE_DEL_PARTNER * 100) / 100;
+/** Un pago cobrado de un referido, como lo lee el cron (`pagos`: `monto_usd` es lo que entró, en dólares). */
+export type PagoDeReferido = { id: number; montoUsd: number | null; fecha: string; proveedor?: string | null; metodo?: string | null };
+
+export type CreditoPorPago = { pagoId: number; pagoUsd: number; canal: CanalDelPago; comisionUsd: number };
+
+/**
+ * Lo que hay que acreditar HOY de un referido: UN crédito por cada pago cobrado que todavía no tiene el suyo. Los pagos van en orden
+ * (fecha, id). Un pago sin monto en dólares no se acredita (no se inventa la plata: se deja dicho en el log del cron). Quien ya
+ * ganó con la regla vieja (`teniaCreditoViejo`) no gana por sus primeros `PAGOS_QUE_CUBRE_EL_CREDITO_VIEJO` pagos: ya se los pagó
+ * ese crédito (el 100% de su primer mes vale más que el 30 % de dos).
+ */
+export function creditosDeUnReferido(p: { pagos: ReadonlyArray<PagoDeReferido>; yaAcreditados: ReadonlySet<number>; teniaCreditoViejo: boolean }): { acreditar: CreditoPorPago[]; sinMonto: number[] } {
+  const orden = [...p.pagos].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.id - b.id);
+  const cubiertos = p.teniaCreditoViejo ? PAGOS_QUE_CUBRE_EL_CREDITO_VIEJO : 0;
+  const acreditar: CreditoPorPago[] = [];
+  const sinMonto: number[] = [];
+  orden.forEach((pago, i) => {
+    if (i < cubiertos || p.yaAcreditados.has(pago.id)) return;
+    const usd = Number(pago.montoUsd);
+    if (pago.montoUsd == null || !Number.isFinite(usd) || usd <= 0) { sinMonto.push(pago.id); return; }
+    const canal = canalDelPago(pago);
+    acreditar.push({ pagoId: pago.id, pagoUsd: Math.round(usd * 100) / 100, canal, comisionUsd: comisionDelPago(usd, canal) });
+  });
+  return { acreditar, sinMonto };
+}
 
 /**
  * El precio de lista POR MES con el que se compró el plan del referido. Lo que se cobró (`monto_usd`) no sirve solo: el anual
@@ -171,7 +207,7 @@ export const PAGO_HOY = 'Te lo transferimos a la cuenta que nos dejaste.';
 export type Renglon = { tipo: 'referido' | 'uso' | 'ajuste'; monto_usd: number };
 
 export type Resumen = {
-  /** Lo que ganó: los primeros meses de sus referidos que ya pagaron su 2º mes (y los ajustes a favor). */
+  /** Lo que ganó: su parte de cada pago de sus referidos, más lo de la regla vieja (y los ajustes a favor). */
   ganadoUsd: number;
   /** Lo que MaKo ya le transfirió (y los ajustes en contra). */
   pagadoUsd: number;
@@ -192,9 +228,12 @@ export function resumenDelLibro(renglones: ReadonlyArray<Renglon>): Resumen {
   return { ganadoUsd: r2(ganado), pagadoUsd: r2(pagado), aCobrarUsd: r2(Math.max(0, ganado - pagado)) };
 }
 
-/** Lo que va a ganar con los que todavía no pagaron su 2º mes (los que siguen: ni ganados ni idos). */
-export function porGanar(referidos: ReadonlyArray<{ estado: EstadoReferido; gananciaUsd: number | null }>): number {
-  const s = referidos.filter((r) => r.estado === 'registrado' || r.estado === 'primer-pago').reduce((a, r) => a + (r.gananciaUsd ?? 0), 0);
+/**
+ * «Lo que te deja cada mes»: la suma de lo que dejan los negocios que SIGUEN pagando (los 'pagando'; el que todavía no pagó o se
+ * fue no suma: no hay un pago confirmado detrás). Es un cálculo con el precio de lista y el canal de su último pago, no una promesa.
+ */
+export function cadaMes(referidos: ReadonlyArray<{ estado: EstadoReferido; mensualUsd: number | null }>): number {
+  const s = referidos.filter((r) => r.estado === 'pagando').reduce((a, r) => a + (r.mensualUsd ?? 0), 0);
   return Math.round(s * 100) / 100;
 }
 
@@ -379,7 +418,7 @@ export function contarPrograma(p: {
  */
 export function textoSinReferidos(p: { cobraEnLinea: boolean; emailMako: string }): string {
   return p.cobraEnLinea
-    ? 'Comparte tu link: cada negocio que entra con él aparece aquí, y cuando paga su segundo mes, te llevas su primer mes entero.'
+    ? 'Comparte tu link: cada negocio que entra con él aparece aquí, y te llevas una parte de cada pago que haga, todos los meses.'
     : `Comparte tu link. Si alguien entró con él y no aparece aquí, escríbenos a ${p.emailMako} y lo sumamos.`;
 }
 

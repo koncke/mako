@@ -4,7 +4,8 @@
 // Martín (25/10, ~15:40): «que solo ganen direro y listo... literalmente se llevan el 100% de lo que venden... es importante
 // que en la compra, en el carrito, esté la opción de poner código de referido... copia el dashboard de otras apps que usen
 // referidos, tanto para superadmin como para los clientes». Y: «Todo, todo siempre tiene que ir a la API». Lo que se cuida:
-//   · lo que se gana es el 100% del primer mes A PRECIO DE LISTA POR MES (un anual cobra el año: no se gana el año);
+//   · el precio de lista POR MES de cada plan (un anual cobra el año: el mes de lista, no el año). Desde el 18/11 lo que se gana
+//     es una parte de CADA pago (tests/partners-credito-por-pago.test.ts); aquí queda el precio por mes que usa el panel;
 //   · el alta (lo que contestó) se valida y se guarda limpia; el link cuenta visitas sin robots y sólo la primera vez;
 //   · el código del carrito: escrito gana sobre la cookie y el `?ref=`; uno que no es de nadie se dice; el Accelerator no lo lleva;
 //   · el panel del partner (Tolt) y el del super admin (FirstPromoter): sus números, y «Marcar pagado» sólo del super admin y
@@ -19,7 +20,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CLAVE_ALTA_PARTNERS, altaLimpia, cobroLimpio, esRobot, ganadoPorMes, gananciaDelReferido, leerAlta, leerVisitas, porGanar, precioDeListaPorMes,
+  CLAVE_ALTA_PARTNERS, altaLimpia, cobroLimpio, esRobot, ganadoPorMes, leerAlta, leerVisitas, precioDeListaPorMes,
   sumarVisita, ultimosMeses,
 } from '../lib/partners-reglas';
 import { TEXTO_CODIGO_NO_EXISTE, codigoDeLaCompra, leerPedidoCompra } from '../lib/compra-plan-reglas';
@@ -30,19 +31,18 @@ const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\
   .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 const lista = (p: string) => ({ pro: 97, esencial: 47 } as Record<string, number>)[p] ?? null;
 
-test('lo que se gana: el 100% del primer mes a precio de LISTA por mes (el anual no deja el año)', () => {
-  assert.equal(gananciaDelReferido(97), 97);
+test('el precio de LISTA por mes de cada plan (el anual no deja el año)', () => {
   assert.equal(precioDeListaPorMes({ plan_mako: 'pro', monto_usd: 970, meses: 12 }, lista), 97, 'un anual de Pro deja el mes de Pro');
   assert.equal(precioDeListaPorMes({ plan_mako: 'esencial', monto_usd: 47, meses: 1 }, lista), 47);
   assert.equal(precioDeListaPorMes({ plan_mako: null, monto_usd: 600, meses: 12 }, lista), 50, 'sin plan conocido, lo cobrado por mes');
   assert.equal(precioDeListaPorMes({ plan_mako: 'raro', monto_usd: 97 }, lista), 97);
   assert.equal(precioDeListaPorMes({ plan_mako: null, monto_usd: null }, lista), null, 'no se sabe: no se inventa');
-  assert.equal(porGanar([{ estado: 'registrado', gananciaUsd: 97 }, { estado: 'primer-pago', gananciaUsd: 47 }, { estado: 'acreditado', gananciaUsd: 97 }, { estado: 'se-fue', gananciaUsd: 47 }]), 144, 'en camino: los que siguen');
   const p = fuente('lib/partners-programa.ts');
   // 29/10/2026: con la compra sin plan anotado (la venta a mano), la lista de la capa vendida (`conPlanDeLista`,
-  // tests/revision-plata-agency-2910.test.ts).
-  assert.match(p, /primero\.set\(Number\(c\.alta_ws\), \{ codigo: c\.ref_codigo, precio: precioDeListaPorMes\(conPlanDeLista\(c\), listaDe\) \}\)/, 'el cron usa el precio de lista');
-  assert.match(p, /const monto = gananciaDelReferido\(precio\);/);
+  // tests/revision-plata-agency-2910.test.ts). El tablero usa ese precio para «lo que te deja cada mes»; el cron, desde el 18/11,
+  // acredita por cada PAGO con lo que entró (`creditosDeUnReferido`), no con el precio de lista.
+  assert.match(p, /const precio = precioDeListaPorMes\(conPlanDeLista\(c\), listaDe\);/, 'el tablero usa el precio de lista');
+  assert.match(p, /creditosDeUnReferido\(\{/, 'el cron acredita por pago');
 });
 
 test('lo ganado por mes: los últimos 6, del más viejo al de hoy, sólo lo ganado (no lo pagado)', () => {
@@ -172,7 +172,6 @@ test('la API: las cinco operaciones de Partners, con sus puertas y la misma func
 // Roturas (25/10/2026; base 27 / 0 con partners-solo-plata, mako-partners-landing, partners-para-clientes y partners-referidos
 // juntos), cada una restaurada (pasan / fallan):
 //   · el anual deja el año (lo cobrado, no el precio de lista)                 -> 26 / 1
-//   · el 50% del primer mes en vez del 100%                                     -> 23 / 4
 //   · las visitas cuentan el robot de vista previa de WhatsApp                  -> 26 / 1
 //   · la visita se cuenta siempre, también con cookie                           -> 26 / 1
 //   · la cookie le gana al código escrito en el carrito                         -> 26 / 1

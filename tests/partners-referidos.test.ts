@@ -2,12 +2,11 @@
 // MaKo Partners (23/10/2026): las reglas (docs/referidos.md), el cableado y el origen del onboarding
 // =============================================================================
 // «el sistema de referidos con la página de MaKo Partners... que se gestione de manera automática... el dashboard de
-// cuánto dinero tenés acumulado» (Martín, 22/10/2026). Desde el 25/10 Partners paga SÓLO PLATA: el 100% del primer mes;
+// cuánto dinero tenés acumulado» (Martín, 22/10/2026). Desde el 25/10 Partners paga SÓLO PLATA; desde el 18/11, una parte de
+// CADA pago (30 % directo, 27 % pasarela): lo cuida tests/partners-credito-por-pago.test.ts. Ya no hay «2º mes»;
 // lo nuevo (el alta, las visitas, el precio de lista del anual, el carrito) lo cuida tests/partners-solo-plata.test.ts.
 //
 // Probado rompiéndolo (23/10/2026; base 9 / 0; los dos del libro rehechos el 25/10). Una rotura por vez, restaurando:
-//   · PAGOS_PARA_ACREDITAR = 1 (acredita con el primer pago)                     -> 7 / 2
-//   · `correspondeAcreditar` deja que alguien se refiera a sí mismo              -> 8 / 1
 //   · el cron acredita a quien YA tenía cuenta (sin `alta_estado = hecha`)       -> 8 / 1
 //   · /r pisa la cookie del primero que lo trajo                                 -> 8 / 1
 //   · (6/11) /r deja que una cookie de un código MUERTO tape el link vigente      -> ver el test de abajo
@@ -25,7 +24,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  PAGOS_PARA_ACREDITAR, codigoDesdeNombre, correspondeAcreditar, gananciaDelReferido, estadoDelReferido, linkDePartner, porGanar, resumenDelLibro,
+  cadaMes, codigoDesdeNombre, estadoDelReferido, linkDePartner, resumenDelLibro,
   seFueSegunSusCobros, refQueVale,
 } from '../lib/partners-reglas';
 
@@ -40,26 +39,20 @@ test('el código sale del nombre: minúsculas, sin acentos, con guiones; y el li
   assert.equal(linkDePartner('https://hola-mako.com/', 'juan'), 'https://hola-mako.com/r/juan');
 });
 
-test('cuenta desde el 2º mes pagado, una vez, y nunca a uno mismo', () => {
-  assert.equal(PAGOS_PARA_ACREDITAR, 2);
-  assert.equal(correspondeAcreditar({ referidorWs: 1, referidoWs: 2, mesesPagados: 1, yaAcreditado: false }), false);
-  assert.equal(correspondeAcreditar({ referidorWs: 1, referidoWs: 2, mesesPagados: 2, yaAcreditado: false }), true);
-  assert.equal(correspondeAcreditar({ referidorWs: 1, referidoWs: 2, mesesPagados: 5, yaAcreditado: true }), false);
-  assert.equal(correspondeAcreditar({ referidorWs: 3, referidoWs: 3, mesesPagados: 5, yaAcreditado: false }), false);
-  assert.equal(gananciaDelReferido(47), 47, 'el 100% del primer mes de su plan, a precio de lista');
-});
-
-test('el estado de cada referido en el tablero', () => {
-  assert.equal(estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: true }), 'registrado');
-  assert.equal(estadoDelReferido({ mesesPagados: 1, acreditado: false, vigente: true }), 'primer-pago');
-  assert.equal(estadoDelReferido({ mesesPagados: 1, acreditado: false, vigente: false }), 'se-fue');
-  assert.equal(estadoDelReferido({ mesesPagados: 3, acreditado: true, vigente: false }), 'acreditado');
+test('el estado de cada referido en el tablero (18/11: paga cada mes, todavía no pagó, o se fue)', () => {
+  assert.equal(estadoDelReferido({ mesesPagados: 0, vigente: true }), 'registrado');
+  assert.equal(estadoDelReferido({ mesesPagados: 1, vigente: true }), 'pagando', 'con un pago confirmado ya deja su parte');
+  assert.equal(estadoDelReferido({ mesesPagados: 5, vigente: true }), 'pagando');
+  assert.equal(estadoDelReferido({ mesesPagados: 1, vigente: false }), 'se-fue');
+  assert.equal(estadoDelReferido({ mesesPagados: 3, vigente: false }), 'se-fue', 'lo ganado queda en el libro; no deja más');
   // 25/10/2026 (revisión del tren): el que canceló la prueba sin pagar nada se fue; no es plata «en camino» para el partner.
-  assert.equal(estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: false }), 'se-fue');
-  assert.equal(porGanar([
-    { estado: estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: false }), gananciaUsd: 97 },
-    { estado: estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: true }), gananciaUsd: 47 },
-  ]), 47, 'sólo el que sigue');
+  assert.equal(estadoDelReferido({ mesesPagados: 0, vigente: false }), 'se-fue');
+  assert.equal(cadaMes([
+    { estado: estadoDelReferido({ mesesPagados: 0, vigente: false }), mensualUsd: 26.19 },
+    { estado: estadoDelReferido({ mesesPagados: 0, vigente: true }), mensualUsd: 12.69 },
+    { estado: estadoDelReferido({ mesesPagados: 2, vigente: true }), mensualUsd: 29.1 },
+    { estado: estadoDelReferido({ mesesPagados: 4, vigente: true }), mensualUsd: 14.1 },
+  ]), 43.2, 'sólo los que pagan y siguen: lo que dejan CADA MES');
 });
 
 test('se fue según SUS COBROS: la prueba caída y ningún otro cobro vivo (ronda 2: con el corte apagado nadie lo pausa)', () => {

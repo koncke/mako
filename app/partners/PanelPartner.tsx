@@ -16,7 +16,7 @@
 import { useState } from 'react';
 import { Pagina, PageHeader, ErrorState, ButtonLink } from '@/app/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { DIAS_COOKIE_REF, PAGO_HOY, PAGOS_PARA_ACREDITAR, RUTA_LANDING_PARTNERS, TEXTO_ESTADO_REFERIDO, TOPE_COBRO, textoSinReferidos } from '@/lib/partners-reglas';
+import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, DIAS_COOKIE_REF, PAGO_HOY, RUTA_LANDING_PARTNERS, TEXTO_ESTADO_REFERIDO, TOPE_COBRO, textoSinReferidos } from '@/lib/partners-reglas';
 import type { Tablero } from '@/lib/partners-programa';
 import { BarrasPorMes } from './BarrasPorMes';
 import { RecursosPartner } from './RecursosPartner';
@@ -86,7 +86,7 @@ export const fecha = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${
 const mas = (n: number) => (n > 0 ? `+${n} este mes` : 'Este mes, todavía ninguno');
 
 /** El tono de la píldora de cada negocio: verde lo ganado, ámbar lo que está por ganarse, gris lo demás. */
-export const tonoDelEstado = (e: keyof typeof TEXTO_ESTADO_REFERIDO): '' | 'good' | 'warn' => (e === 'acreditado' ? 'good' : e === 'primer-pago' ? 'warn' : '');
+export const tonoDelEstado = (e: keyof typeof TEXTO_ESTADO_REFERIDO): '' | 'good' | 'warn' => (e === 'pagando' ? 'good' : e === 'registrado' ? 'warn' : '');
 
 /** Un campo de sólo lectura con «Copiar» (el link, el código), y una acción al lado si la tiene («Cambiar»). */
 function Copiable({ etiqueta, valor, accion }: { etiqueta: string; valor: string; accion?: { texto: string; onClick: () => void } }) {
@@ -188,7 +188,8 @@ export function PanelPartner({ tablero, nombreNegocio, agencia = false, cobraEnL
     return <Pagina><PageHeader titulo="MaKo Partners" acciones={acciones} /><ErrorState titulo="No pude leer tu panel" detalle="Prueba otra vez en un minuto." /></Pagina>;
   }
   const r = tablero.resumen;
-  const mes = PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`;
+  const pctDirecto = Math.round(COMISION_PARTNER_DIRECTO * 100);
+  const pctPasarela = Math.round(COMISION_PARTNER_PASARELA * 100);
   const textoWa = ref.link ? `Te recomiendo MaKo para vender más con tu negocio: ${ref.link}` : '';
   return (
     <Pagina>
@@ -196,18 +197,18 @@ export function PanelPartner({ tablero, nombreNegocio, agencia = false, cobraEnL
       <PageHeader titulo="MaKo Partners" acciones={acciones} />
       <div className="pp-hola">
         <h2>{nombreNegocio ? `Hola, ${nombreNegocio}` : 'Tu panel de partner'}</h2>
-        <p>Te llevas el 100% del primer mes de cada negocio que traes.</p>
+        <p>Te llevas el {pctDirecto}% de cada pago de cada negocio que traes, todos los meses ({pctPasarela}% si paga con tarjeta o link de pago).</p>
       </div>
       <div className="pp-kpis">
         <div className="pp-kpi"><span className="pp-kpi-etq">Visitas a tu link</span><b>{tablero.visitas.total}</b><small className={tablero.visitas.esteMes ? 'bien' : ''}>{mas(tablero.visitas.esteMes)}</small></div>
         <div className="pp-kpi"><span className="pp-kpi-etq">Negocios que trajiste</span><b>{tablero.referidos.length}</b><small className={tablero.nuevosEsteMes ? 'bien' : ''}>{mas(tablero.nuevosEsteMes)}</small></div>
-        <div className="pp-kpi"><span className="pp-kpi-etq">Ganaste</span><b>{usd(r.ganadoUsd)}</b><small>{r.porGanarUsd > 0 ? `${usd(r.porGanarUsd)} más en camino` : r.pagadoUsd > 0 ? `Ya cobraste ${usd(r.pagadoUsd)}` : 'El 100% de cada primer mes'}</small></div>
+        <div className="pp-kpi"><span className="pp-kpi-etq">Te deja cada mes</span><b>{usd(r.cadaMesUsd)}</b><small>{r.ganadoUsd > 0 ? `En total ganaste ${usd(r.ganadoUsd)}` : `El ${pctDirecto}% de cada pago`}</small></div>
         <div className="pp-kpi destacado"><span className="pp-kpi-etq">A cobrar</span><b data-recorrido={MARCA.partnersACobrar}>{usd(r.aCobrarUsd)}</b><small>{tablero.alta?.cobro ? `A ${tablero.alta.cobro}` : 'Carga dónde te transferimos'}</small></div>
       </div>
       <div className="pp-fila">
         <section className="pp-caja" aria-labelledby="pp-ganado">
           <div className="pp-caja-cab"><h3 id="pp-ganado">Lo que ganaste</h3><span>Últimos 6 meses</span></div>
-          <BarrasPorMes datos={tablero.porMes} vacio={`Cuando un negocio que trajiste pague su ${mes} mes, lo que ganaste aparece aquí.`} />
+          <BarrasPorMes datos={tablero.porMes} vacio="Cuando un negocio que trajiste pague, lo que ganaste aparece aquí." />
         </section>
         <section className="pp-caja" aria-labelledby="pp-comparte">
           <div className="pp-caja-cab"><h3 id="pp-comparte">Comparte</h3><span>Tu link dura {DIAS_COOKIE_REF} días</span></div>
@@ -225,12 +226,12 @@ export function PanelPartner({ tablero, nombreNegocio, agencia = false, cobraEnL
       {/* Los recursos para revender (27/10/2026, compromiso de Martín con Leila): el PDF de venta y los mensajes, con su link. */}
       {ref.link && ref.codigo && <RecursosPartner link={ref.link} codigo={ref.codigo} nombreNegocio={nombreNegocio} />}
       <section className="pp-caja" aria-labelledby="pp-negocios" style={{ marginBottom: 14 }}>
-        <div className="pp-caja-cab"><h3 id="pp-negocios">Tus negocios</h3><span>Ganas su primer mes cuando pagan el {mes}</span></div>
+        <div className="pp-caja-cab"><h3 id="pp-negocios">Tus negocios</h3><span>Ganas tu parte de cada pago, todos los meses</span></div>
         {tablero.referidos.length === 0
           ? <div className="pp-vacio"><b>Tu primer negocio aparece aquí</b>{textoSinReferidos({ cobraEnLinea, emailMako })}</div>
           : (
             <table className="pp-tabla">
-              <thead><tr><th>Negocio</th><th className="ocultable">Plan</th><th className="ocultable">Desde</th><th>Estado</th><th className="num">Te deja</th></tr></thead>
+              <thead><tr><th>Negocio</th><th className="ocultable">Plan</th><th className="ocultable">Desde</th><th>Estado</th><th className="num ocultable">Ganado</th><th className="num">Te deja al mes</th></tr></thead>
               <tbody>
                 {tablero.referidos.map((x) => (
                   <tr key={x.ws}>
@@ -238,7 +239,8 @@ export function PanelPartner({ tablero, nombreNegocio, agencia = false, cobraEnL
                     <td className="ocultable"><span>{x.plan ?? '—'}</span></td>
                     <td className="ocultable"><span>{fecha(x.desde)}</span></td>
                     <td><span className={`pp-pild ${tonoDelEstado(x.estado)}`}>{TEXTO_ESTADO_REFERIDO[x.estado]}</span></td>
-                    <td className="num"><b>{x.gananciaUsd != null && x.estado !== 'se-fue' ? usd(x.gananciaUsd) : '—'}</b></td>
+                    <td className="num ocultable"><span>{x.ganadoUsd > 0 ? usd(x.ganadoUsd) : '—'}</span></td>
+                    <td className="num"><b>{x.mensualUsd != null && x.estado === 'pagando' ? usd(x.mensualUsd) : '—'}</b></td>
                   </tr>
                 ))}
               </tbody>

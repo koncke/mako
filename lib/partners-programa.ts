@@ -3,17 +3,17 @@
 // =============================================================================
 // Pedido de Martín (22/10/2026): «el sistema de referidos con la página de MaKo Partners... que se gestione de manera
 // automática... las bienvenidas de las personas que vos referiste con el dashboard de cuánto dinero tenés acumulado». Desde
-// el 25/10/2026 Partners paga SÓLO PLATA: el 100% del primer mes de cada negocio que trae (lib/partners-reglas.ts). Acá lo que
-// lee y escribe:
+// el 25/10/2026 Partners paga SÓLO PLATA y, desde el 18/11/2026, una PARTE DE CADA PAGO de cada negocio que trae, todos los meses
+// (30 % por Binance o transferencia, 27 % por pasarela: lib/partners-reglas.ts). Acá lo que lee y escribe:
 //
 //   · `altaDePartner` / `hacermePartner`: hacerse partner es terminar el alta (el setting `partners.alta`, con lo que
 //     contestó: a cuántos quiere referir, cómo, y dónde se le transfiere). Ahí nace (o se reusa) su código.
 //   · `tableroDe`: el panel del partner — su link y su código, las visitas al link, lo ganado, lo que tiene a cobrar, lo
 //     ganado por mes, sus negocios (en qué va cada uno) y lo que MaKo ya le transfirió.
 //   · `acreditarReferidos` (cron de la pasarela, idempotente): un referido es un negocio cuyo plan se COMPRÓ con el código
-//     (`cobros.ref_codigo`: el link /r/<código> o el código escrito al pagar). Al llegar a su 2º mes pagado, un renglón en
-//     `partner_creditos` por el 100% del primer mes de su plan a precio de lista; el índice único impide ganarlo dos veces.
-//     Además deja el referido en el negocio (`workspaces.referido_por_ws`, el primero vale) y manda las dos bienvenidas.
+//     (`cobros.ref_codigo`: el link /r/<código> o el código escrito al pagar). UN renglón en `partner_creditos` por CADA pago
+//     cobrado del negocio (`pagos`), con su canal; el índice único por pago (mig 0421) impide ganarlo dos veces. Lo ganado con la
+//     regla vieja (el 100% del primer mes, al 2º pago) queda como está. Además deja el referido en el negocio (`workspaces.referido_por_ws`, el primero vale) y manda las dos bienvenidas.
 //   · `resumenDelPrograma` / `registrarPagoAPartner`: el panel del super admin y su «Marcar pagado» (lo que MaKo transfirió,
 //     un renglón `uso` en el libro).
 //
@@ -30,12 +30,12 @@ import { avisarDePlataforma } from './invitaciones';
 import { formatoMonto } from './pasarela-moneda';
 import { PLANES_MAKO_DEFAULT } from './planes-mako';
 import {
-  CLAVE_ALTA_PARTNERS, CLAVE_VISITAS_PARTNERS, PAGOS_PARA_ACREDITAR, TEXTO_CODIGO_INVALIDO, altaLimpia, codigoDesdeNombre, codigoNuevoValido, cobroLimpio, contarPrograma,
-  correspondeAcreditar, estadoDelReferido, esRobot, gananciaDelReferido, ganadoPorMes, leerAlta, leerVisitas, linkDePartner,
-  porGanar, precioDeListaPorMes, resumenDelLibro, seFueSegunSusCobros, sumarVisita,
-  type AltaPartner, type EstadoReferido, type Renglon, type Resumen,
+  CLAVE_ALTA_PARTNERS, CLAVE_VISITAS_PARTNERS, COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, TEXTO_CODIGO_INVALIDO, altaLimpia, cadaMes,
+  canalDelPago, codigoDesdeNombre, codigoNuevoValido, cobroLimpio, comisionDelPago, contarPrograma, creditosDeUnReferido, estadoDelReferido, esRobot,
+  ganadoPorMes, leerAlta, leerVisitas, linkDePartner, precioDeListaPorMes, resumenDelLibro, seFueSegunSusCobros, sumarVisita,
+  type AltaPartner, type EstadoReferido, type PagoDeReferido, type Renglon, type Resumen,
 } from './partners-reglas';
-import { cuotasDeLugares, cobrosDeLugares } from './plan-acceso';
+import { cobrosDeLugares } from './plan-acceso';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 const mesDe = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
@@ -270,8 +270,10 @@ export async function sumarVisitaAlLink(codigo: string, userAgent: string | null
 
 type Referido = {
   ws: number; nombre: string; desde: string; mesesPagados: number; estado: EstadoReferido;
-  /** Lo que deja (o dejó) al partner: el 100% de su primer mes a precio de lista. null = no se sabe el precio. */
-  gananciaUsd: number | null;
+  /** Lo que le deja al partner CADA MES: su parte (30 % / 27 %) del precio de lista, con el canal de su último pago. null = no se sabe el precio. */
+  mensualUsd: number | null;
+  /** Lo que ya le dejó en total (los renglones `referido` de este negocio en el libro). */
+  ganadoUsd: number;
   plan: string | null;
 };
 
@@ -280,7 +282,7 @@ export type Tablero = {
   link: string | null;
   alta: AltaPartner | null;
   referidos: Referido[];
-  resumen: Resumen & { porGanarUsd: number };
+  resumen: Resumen & { cadaMesUsd: number };
   /** Quienes abrieron el link (la primera vez de cada navegador): el total y este mes. */
   visitas: { total: number; esteMes: number };
   /** Negocios que entraron este mes. */
@@ -310,19 +312,34 @@ async function comprasConCodigo(plataforma: number, codigos: readonly string[]):
 }
 
 /**
- * Meses pagados (cuotas cobradas) de cada negocio, con los cobros de la plataforma que pagan su lugar. Con `idos`, anota
- * ahí los que se FUERON según esos mismos cobros (`seFueSegunSusCobros`, 25/10/2026, ronda 2: con el corte de acceso
- * apagado, `workspaces.estado` sigue 'activo' aunque haya cancelado la prueba sin pagar, y el tablero lo contaba «en camino»).
+ * Los PAGOS cobrados de cada negocio (`pagos` pagados de los cobros de la plataforma que pagan su lugar), con lo que entró en
+ * dólares y por dónde: de acá sale cada crédito del partner y los meses pagados. Con `idos`, anota ahí los que se FUERON según
+ * esos mismos cobros (`seFueSegunSusCobros`, 25/10/2026, ronda 2: con el corte de acceso apagado, `workspaces.estado` sigue
+ * 'activo' aunque haya cancelado la prueba sin pagar, y el tablero lo contaba «en camino»).
  */
-async function mesesPagadosDe(plataforma: number, wss: readonly number[], idos?: Set<number>): Promise<Map<number, number>> {
-  const out = new Map<number, number>();
+async function pagosDeLosReferidos(plataforma: number, wss: readonly number[], idos?: Set<number>): Promise<Map<number, PagoDeReferido[]>> {
+  const out = new Map<number, PagoDeReferido[]>();
   if (!wss.length) return out;
   const cobros = (await cobrosDeLugares(plataforma)).filter((c) => c.alta_ws != null && wss.includes(Number(c.alta_ws)));
-  const cuotas = await cuotasDeLugares(plataforma, cobros.map((c) => c.id));
   const dueno = new Map(cobros.map((c) => [c.id, Number(c.alta_ws)]));
-  for (const p of cuotas) {
-    const ws = dueno.get(p.cobro_id);
-    if (ws != null) out.set(ws, (out.get(ws) ?? 0) + 1);
+  const db = getSupabaseServer();
+  const ids = cobros.map((c) => c.id);
+  // De a tandas y paginado (PostgREST corta en 1.000), como `cuotasDeLugares`.
+  for (let i = 0; i < ids.length; i += 200) {
+    const tanda = ids.slice(i, i + 200);
+    for (let desde = 0; ; desde += 1000) {
+      const { data, error } = await db.from('pagos').select('id, cobro_id, monto_usd, fecha_pago, metodo, proveedor')
+        .eq('workspace_id', plataforma).in('cobro_id', tanda).eq('pagado', true).order('id', { ascending: true }).range(desde, desde + 999);
+      if (error) throw new Error(`No pude leer los pagos de los referidos: ${error.message}`);
+      for (const p of (data ?? []) as Array<{ id: number; cobro_id: number; monto_usd: number | string | null; fecha_pago: string | null; metodo: string | null; proveedor: string | null }>) {
+        const ws = dueno.get(p.cobro_id);
+        if (ws == null) continue;
+        const lista = out.get(ws) ?? [];
+        lista.push({ id: Number(p.id), montoUsd: p.monto_usd == null ? null : Number(p.monto_usd), fecha: String(p.fecha_pago ?? '').slice(0, 10), metodo: p.metodo, proveedor: p.proveedor });
+        out.set(ws, lista);
+      }
+      if ((data ?? []).length < 1000) break;
+    }
   }
   if (idos) for (const ws of wss) if (seFueSegunSusCobros(cobros.filter((c) => Number(c.alta_ws) === ws))) idos.add(ws);
   return out;
@@ -340,7 +357,9 @@ export async function tableroDe(ws: number): Promise<Tablero> {
   ]);
   if (libro.error) throw new Error(`No pude leer lo ganado: ${libro.error.message}`);
   const renglones = (libro.data ?? []) as Array<Renglon & { referido_ws: number | null; nota: string | null; created_at: string }>;
-  const acreditados = new Set(renglones.filter((r) => r.tipo === 'referido' && r.referido_ws != null).map((r) => Number(r.referido_ws)));
+  // Lo que cada negocio le dejó al partner (todos sus renglones `referido`: el viejo y los de cada pago).
+  const ganadoDe = new Map<number, number>();
+  for (const r of renglones) if (r.tipo === 'referido' && r.referido_ws != null) ganadoDe.set(Number(r.referido_ws), (ganadoDe.get(Number(r.referido_ws)) ?? 0) + (Number(r.monto_usd) || 0));
 
   let referidos: Referido[] = [];
   if (codigo) {
@@ -350,21 +369,25 @@ export async function tableroDe(ws: number): Promise<Tablero> {
     for (const c of compras) if (!porWs.has(Number(c.alta_ws))) porWs.set(Number(c.alta_ws), c);
     const wss = [...porWs.keys()];
     const idos = new Set<number>();
-    const [meses, nombres] = await Promise.all([
-      mesesPagadosDe(plataforma, wss, idos).catch(() => new Map<number, number>()),
+    const [pagosDe, nombres] = await Promise.all([
+      pagosDeLosReferidos(plataforma, wss, idos).catch(() => new Map<number, PagoDeReferido[]>()),
       wss.length ? db.from('workspaces').select('id, nombre, estado').in('id', wss) : Promise.resolve({ data: [] }),
     ]);
     const filas = new Map(((nombres.data ?? []) as Array<{ id: number; nombre: string; estado: string }>).map((w) => [Number(w.id), w]));
     referidos = wss.map((rws) => {
-      const m = meses.get(rws) ?? 0;
+      const pagos = pagosDe.get(rws) ?? [];
+      const m = pagos.length;
       const w = filas.get(rws);
       const c = porWs.get(rws)!;
       const precio = precioDeListaPorMes(conPlanDeLista(c), listaDe);
+      // El canal de su ÚLTIMO pago decide qué porcentaje deja cada mes; sin pagos, el menor (no se promete de más).
+      const ultimo = [...pagos].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id - a.id)[0];
       return {
         ws: rws, nombre: w?.nombre ?? 'Un negocio', desde: c.created_at, mesesPagados: m, plan: nombreDelPlan(c.plan_mako),
-        gananciaUsd: precio != null ? gananciaDelReferido(precio) : null,
+        mensualUsd: precio != null ? comisionDelPago(precio, ultimo ? canalDelPago(ultimo) : 'pasarela') : null,
+        ganadoUsd: Math.round((ganadoDe.get(rws) ?? 0) * 100) / 100,
         // Vigente: su negocio sin pausar Y sus cobros vivos (`idos`): con el corte apagado, nadie pausa al que se fue sin pagar.
-        estado: estadoDelReferido({ mesesPagados: m, acreditado: acreditados.has(rws), vigente: w?.estado === 'activo' && !idos.has(rws) }),
+        estado: estadoDelReferido({ mesesPagados: m, vigente: w?.estado === 'activo' && !idos.has(rws) }),
       };
     }).sort((a, b) => b.desde.localeCompare(a.desde));
   }
@@ -372,7 +395,7 @@ export async function tableroDe(ws: number): Promise<Tablero> {
   const esteMes = mesDe(Date.now());
   return {
     codigo, link: codigo ? linkDePartner(APP_BASE_URL, codigo) : null, alta, referidos,
-    resumen: { ...resumenDelLibro(renglones), porGanarUsd: porGanar(referidos) },
+    resumen: { ...resumenDelLibro(renglones), cadaMesUsd: cadaMes(referidos) },
     visitas: { total: v.total, esteMes: v.meses[esteMes] ?? 0 },
     nuevosEsteMes: referidos.filter((r) => r.desde.slice(0, 7) === esteMes).length,
     porMes: ganadoPorMes(renglones, esteMes),
@@ -501,7 +524,8 @@ export async function registrarPagoAPartner(p: { ws: number; montoUsd?: number |
  * Lo automático de MaKo Partners (lo corre el cron de la pasarela). Idempotente: cada paso mira su propia marca.
  *   1. Cada compra con código y negocio: el referido queda en el negocio (`referido_por_ws`, si no tenía) y, la primera
  *      vez, las dos bienvenidas (la marca es haber escrito `referido_por_ws`: compare-and-set sobre null).
- *   2. Con el 2º mes pagado: lo ganado por el partner (el índice único lo hace una sola vez) y su aviso.
+ *   2. UN crédito por cada pago cobrado del negocio (18/11/2026): su parte, 30 % o 27 % según el canal del pago (el índice único
+ *      por pago, mig 0421, lo hace una sola vez) y un aviso por referido con lo de esa corrida. Sin la 0421 no acredita nada.
  */
 export async function acreditarReferidos(): Promise<{ vistos: number; atados: number; acreditados: number }> {
   const out = { vistos: 0, atados: 0, acreditados: 0 };
@@ -514,13 +538,20 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
     .in('estado', ['pagado', 'reembolsado']).order('created_at', { ascending: true }).limit(1000);
   if (error) { console.warn(`[partners] no pude leer las compras con código: ${error.message}`); return out; }
   // El PRIMERO vale: la compra más vieja de cada negocio decide quién lo refirió.
-  const primero = new Map<number, { codigo: string; precio: number | null }>();
+  const primero = new Map<number, { codigo: string }>();
   for (const c of (data ?? []) as Array<CompraConCodigo & { ref_codigo: string }>) {
-    // El precio de LISTA por mes de su plan: un anual cobra el año, y lo que se gana es su primer mes (`precioDeListaPorMes`).
-    if (!primero.has(Number(c.alta_ws))) primero.set(Number(c.alta_ws), { codigo: c.ref_codigo, precio: precioDeListaPorMes(conPlanDeLista(c), listaDe) });
+    if (!primero.has(Number(c.alta_ws))) primero.set(Number(c.alta_ws), { codigo: c.ref_codigo });
   }
-  const meses = await mesesPagadosDe(plataforma, [...primero.keys()]).catch(() => new Map<number, number>());
-  for (const [referido, { codigo, precio }] of primero) {
+  const pagosDe = await pagosDeLosReferidos(plataforma, [...primero.keys()]).catch((e) => { console.warn(`[partners] no pude leer los pagos de los referidos: ${msg(e)}`); return null; });
+  // Lo ya acreditado, de una lectura. Si no se puede leer (o falta la 0421: sin `pago_id` no hay cómo no acreditar dos veces) no
+  // se acredita NADA: nunca de más.
+  let previo: Array<{ referidor_ws: number; referido_ws: number; pago_id: number | null }> | null = null;
+  if (primero.size) {
+    const r = await db.from('partner_creditos').select('referidor_ws, referido_ws, pago_id').eq('tipo', 'referido').in('referido_ws', [...primero.keys()]).limit(10000);
+    if (r.error) console.warn(`[partners] no acredito por pago: no pude leer lo ya acreditado (${r.error.message}). ¿Falta la migración 0421?`);
+    else previo = (r.data ?? []) as typeof previo;
+  }
+  for (const [referido, { codigo }] of primero) {
     out.vistos++;
     try {
       const referidor = await wsDelCodigo(codigo);
@@ -529,17 +560,30 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
       const { data: atado } = await db.from('workspaces').update({ referido_por_ws: referidor }).eq('id', referido).is('referido_por_ws', null).select('id');
       if (atado?.length) {
         out.atados++;
-        await bienvenidas(referidor, referido, precio).catch((e) => console.warn(`[partners] bienvenidas ${referidor}→${referido}: ${msg(e)}`));
+        await bienvenidas(referidor, referido).catch((e) => console.warn(`[partners] bienvenidas ${referidor}→${referido}: ${msg(e)}`));
       }
-      // 2. Lo ganado, con el 2º mes pagado.
-      const m = meses.get(referido) ?? 0;
-      if (!correspondeAcreditar({ referidorWs: referidor, referidoWs: referido, mesesPagados: m, yaAcreditado: false }) || precio == null) continue;
-      const monto = gananciaDelReferido(precio);
-      if (monto <= 0) continue;
-      const { error: e2 } = await db.from('partner_creditos').insert({ referidor_ws: referidor, referido_ws: referido, tipo: 'referido', monto_usd: monto, nota: 'Su 2º mes pagado: el 100% de su primer mes' });
-      if (e2) { if (e2.code !== '23505') console.warn(`[partners] no pude acreditar ${referidor}←${referido}: ${e2.message}`); continue; }
-      out.acreditados++;
-      await avisarGanado(referidor, referido, monto).catch((e) => console.warn(`[partners] aviso de lo ganado ${referidor}: ${msg(e)}`));
+      // 2. Un crédito por cada pago cobrado que todavía no tiene el suyo.
+      if (!pagosDe || !previo) continue;
+      const suyos = previo.filter((f) => Number(f.referido_ws) === referido && Number(f.referidor_ws) === referidor);
+      const { acreditar, sinMonto } = creditosDeUnReferido({
+        pagos: pagosDe.get(referido) ?? [],
+        yaAcreditados: new Set(suyos.filter((f) => f.pago_id != null).map((f) => Number(f.pago_id))),
+        teniaCreditoViejo: suyos.some((f) => f.pago_id == null),
+      });
+      if (sinMonto.length) console.warn(`[partners] el negocio ${referido} tiene pagos sin monto en dólares (${sinMonto.join(', ')}): no se acreditan hasta que lo tengan`);
+      let ganado = 0;
+      let cuantos = 0;
+      for (const cr of acreditar) {
+        if (!(cr.comisionUsd > 0)) continue;
+        const pct = Math.round((cr.canal === 'directo' ? COMISION_PARTNER_DIRECTO : COMISION_PARTNER_PASARELA) * 100);
+        const { error: e2 } = await db.from('partner_creditos').insert({
+          referidor_ws: referidor, referido_ws: referido, tipo: 'referido', monto_usd: cr.comisionUsd, pago_id: cr.pagoId, canal: cr.canal,
+          nota: `Su pago de ${formatoMonto(cr.pagoUsd, 'USD')} (${cr.canal === 'directo' ? 'Binance o transferencia' : 'pasarela'}): el ${pct} %`,
+        });
+        if (e2) { if (e2.code !== '23505') console.warn(`[partners] no pude acreditar ${referidor}←${referido} (pago ${cr.pagoId}): ${e2.message}`); continue; }
+        out.acreditados++; ganado += cr.comisionUsd; cuantos++;
+      }
+      if (cuantos) await avisarGanado(referidor, referido, Math.round(ganado * 100) / 100, cuantos).catch((e) => console.warn(`[partners] aviso de lo ganado ${referidor}: ${msg(e)}`));
     } catch (e) {
       console.warn(`[partners] referido ${referido}: ${msg(e)}`);
     }
@@ -553,35 +597,36 @@ async function nombreDe(ws: number): Promise<string> {
 }
 
 const hola = (nombre: string | null) => `Hola${nombre ? ` ${nombre.split(' ')[0]}` : ''},`;
-const MES = PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`;
+const PCT_DIRECTO = `${Math.round(COMISION_PARTNER_DIRECTO * 100)} %`;
+const PCT_PASARELA = `${Math.round(COMISION_PARTNER_PASARELA * 100)} %`;
 
 /** Las dos bienvenidas: al que llegó («te recomendó…») y al partner («se sumó…»). */
-async function bienvenidas(referidor: number, referido: number, precio: number | null): Promise<void> {
+async function bienvenidas(referidor: number, referido: number): Promise<void> {
   const [quien, nuevo, aRef, aNuevo] = await Promise.all([nombreDe(referidor), nombreDe(referido), adminsDe(referidor), adminsDe(referido)]);
   for (const a of aNuevo) {
     await avisarDePlataforma({
       to: a.email, asunto: `Te damos la bienvenida a MaKo de parte de ${quien}`, preheader: 'Llegaste con su link de MaKo Partners.', tag: 'partners-bienvenida',
       cuerpo: [hola(a.nombre), '', `Llegaste a MaKo con el link de ${quien}. ¡Qué bueno tenerte!`, '',
-        'Si tú también recomiendas MaKo, te llevas el primer mes entero de cada negocio que traigas. Hazte partner aquí:',
+        `Si tú también recomiendas MaKo, te llevas el ${PCT_DIRECTO} de cada pago de cada negocio que traigas, todos los meses. Hazte partner aquí:`,
         linkApp('/partners', referido)].join('\n'),
     });
   }
-  const gana = precio != null ? `ganas ${formatoMonto(gananciaDelReferido(precio), 'USD')}, el 100% de su primer mes` : 'ganas el 100% de su primer mes';
+  const gana = `te llevas el ${PCT_DIRECTO} de lo que pague si paga por Binance o transferencia, y el ${PCT_PASARELA} si paga con tarjeta o link de pago`;
   for (const a of aRef) {
     await avisarDePlataforma({
       to: a.email, asunto: `${nuevo} se sumó a MaKo con tu link`, preheader: 'Tu referido ya tiene su cuenta.', tag: 'partners-nuevo-referido',
       cuerpo: [hola(a.nombre), '', `${nuevo} se sumó a MaKo con tu link de MaKo Partners.`, '',
-        `Cuando pague su ${MES} mes, ${gana}. Lo ves en tu panel:`, linkApp('/partners', referidor)].join('\n'),
+        `Cada vez que pague su mensualidad, ${gana}. Y se repite todos los meses mientras pague. Lo ves en tu panel:`, linkApp('/partners', referidor)].join('\n'),
     });
   }
 }
 
-async function avisarGanado(referidor: number, referido: number, monto: number): Promise<void> {
+async function avisarGanado(referidor: number, referido: number, monto: number, pagos: number): Promise<void> {
   const [nuevo, aRef] = await Promise.all([nombreDe(referido), adminsDe(referidor)]);
   for (const a of aRef) {
     await avisarDePlataforma({
-      to: a.email, asunto: `Ganaste ${formatoMonto(monto, 'USD')} en MaKo Partners`, preheader: `Tu referido pagó su ${MES} mes.`, tag: 'partners-credito',
-      cuerpo: [hola(a.nombre), '', `${nuevo} pagó su ${MES} mes: ganaste ${formatoMonto(monto, 'USD')}, el 100% de su primer mes.`, '',
+      to: a.email, asunto: `Ganaste ${formatoMonto(monto, 'USD')} en MaKo Partners`, preheader: pagos === 1 ? 'Tu referido pagó su mensualidad.' : `Tu referido pagó ${pagos} mensualidades.`, tag: 'partners-credito',
+      cuerpo: [hola(a.nombre), '', pagos === 1 ? `${nuevo} pagó su mensualidad: ganaste ${formatoMonto(monto, 'USD')}, tu parte de ese pago.` : `${nuevo} pagó ${pagos} mensualidades: ganaste ${formatoMonto(monto, 'USD')} en total, tu parte de esos pagos.`, '',
         'Ya está a cobrar en tu panel:', linkApp('/partners', referidor)].join('\n'),
     });
   }

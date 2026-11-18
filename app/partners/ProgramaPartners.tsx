@@ -78,7 +78,7 @@ export function ProgramaPartners({ programa, cobraEnLinea = true }: {
       <PageHeader titulo="MaKo Partners" acciones={acciones} />
       <div className="pp-hola">
         <h2>El programa</h2>
-        <p>Cada partner se lleva el 100% del primer mes de cada negocio que trae.</p>
+        <p>Cada partner se lleva el 30% de cada pago de cada negocio que trae, todos los meses (27% si paga con tarjeta o link de pago).</p>
       </div>
       <div className="pp-kpis pg-kpis">
         <div className="pp-kpi"><span className="pp-kpi-etq">Partners</span><b>{alMenos}{programa.partners}</b><small className={programa.partnersEsteMes ? 'bien' : ''}>{programa.partnersEsteMes ? `+${programa.partnersEsteMes} este mes` : 'Este mes, todavía ninguno'}</small></div>

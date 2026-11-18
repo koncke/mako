@@ -11,7 +11,7 @@
 import { CabeceraM, FilaDatoM, ListaM, PildoraM, SeccionM, VacioM, ComputadoraM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui/Button';
 import Link from '@/app/_ui/Link';
-import { PAGO_HOY, PAGOS_PARA_ACREDITAR, RUTA_LANDING_PARTNERS, TEXTO_ESTADO_REFERIDO, textoProgramaSinReferidos, textoSinReferidos } from '@/lib/partners-reglas';
+import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, PAGO_HOY, RUTA_LANDING_PARTNERS, TEXTO_ESTADO_REFERIDO, textoProgramaSinReferidos, textoSinReferidos } from '@/lib/partners-reglas';
 import type { ResumenPrograma, Tablero } from '@/lib/partners-programa';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import { RecursosParaRecomendar } from '@/app/partners/RecursosPartner';
@@ -25,7 +25,8 @@ export function ReferidosM({ tablero, agencia = false, cobraEnLinea = true, emai
     if (!valor) return;
     try { await navigator.clipboard.writeText(valor); toast(`${que} copiado`); } catch { toast('No pude copiarlo: mantén apretado el texto'); }
   };
-  const mes = PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`;
+  const pctDirecto = Math.round(COMISION_PARTNER_DIRECTO * 100);
+  const pctPasarela = Math.round(COMISION_PARTNER_PASARELA * 100);
   const texto = tablero.link ? `Te recomiendo MaKo para vender más con tu negocio: ${tablero.link}` : '';
   return (
     <>
@@ -57,8 +58,8 @@ export function ReferidosM({ tablero, agencia = false, cobraEnLinea = true, emai
         <ListaM>
           <FilaDatoM k="Visitas a tu link" v={String(tablero.visitas.total)} />
           <FilaDatoM k="Negocios que trajiste" v={String(tablero.referidos.length)} />
-          <FilaDatoM k="Ganaste" v={usd(r.ganadoUsd)} />
-          {r.porGanarUsd > 0 && <FilaDatoM k="En camino" v={usd(r.porGanarUsd)} />}
+          <FilaDatoM k="Te deja cada mes" v={usd(r.cadaMesUsd)} />
+          <FilaDatoM k="Ganaste en total" v={usd(r.ganadoUsd)} />
           <FilaDatoM k="Ya cobraste" v={usd(r.pagadoUsd)} />
           {agencia && <FilaDatoM k="Tus clientes de agencia" v="Agency Dashboard" href="/m/agency" azul />}
         </ListaM>
@@ -70,11 +71,11 @@ export function ReferidosM({ tablero, agencia = false, cobraEnLinea = true, emai
             <ListaM>
               {tablero.referidos.map((x) => (
                 <FilaDatoM key={x.ws} k={x.nombre}
-                  v={<PildoraM tono={x.estado === 'acreditado' ? 'good' : x.estado === 'primer-pago' ? 'warn' : 'neutro'}>{TEXTO_ESTADO_REFERIDO[x.estado]}{x.gananciaUsd != null && x.estado !== 'se-fue' ? ` · ${usd(x.gananciaUsd)}` : ''}</PildoraM>} />
+                  v={<PildoraM tono={x.estado === 'pagando' ? 'good' : x.estado === 'registrado' ? 'warn' : 'neutro'}>{TEXTO_ESTADO_REFERIDO[x.estado]}{x.mensualUsd != null && x.estado === 'pagando' ? ` · ${usd(x.mensualUsd)} al mes` : ''}</PildoraM>} />
               ))}
             </ListaM>
           )}
-        <p className="m-partners-nota">Ganas el primer mes entero de cada negocio cuando paga su {mes} mes. {PAGO_HOY}</p>
+        <p className="m-partners-nota">Ganas el {pctDirecto}% de cada pago de cada negocio, todos los meses ({pctPasarela}% si paga con tarjeta o link de pago). {PAGO_HOY}</p>
       </SeccionM>
     </>
   );
