@@ -13,6 +13,7 @@
 // CRM (lib/automatizaciones-del-lead.ts), el historial del lead al inscribirse y la tarjeta del paso en el lienzo.
 // =============================================================================
 import { dentroDelHorario, proximaApertura, textoDeApertura, horaCorta, type HorarioEnvio } from './horario-envio';
+import { AUDIO_POR_GRABAR } from './flujo-grafo';
 
 /**
  * Por qué no sale, en palabras (`texto`: la ficha, el historial, la tarjeta del paso), lo corto para un chip
@@ -60,6 +61,11 @@ export type FilaQueEspera = {
    */
   correFueraDeHorario?: boolean;
   /**
+   * La tarjeta en la que está es una nota de voz POR GRABAR (18/11/2026, F80: `audioPorGrabar`, lib/flujo-grafo.ts). El motor
+   * no la manda a ninguna hora (falla y vuelve a mirar mañana): se dice qué falta, no la hora.
+   */
+  audioPorGrabar?: boolean;
+  /**
    * Lo que NO pasa por los topes de la línea: el carril del recordatorio (`pasaPorAntiBan`). (Hasta el 23/10/2026 también
    * el lead con la reunión encima, por la excepción de «Misma persona», que se fue: los topes de la línea sí lo frenan.)
    */
@@ -90,6 +96,8 @@ export function porQueNoSale(f: FilaQueEspera, c: ContextoDelEnvio): FrenoDelEnv
   // Lo del canal, como el motor: con el envío apagado o sin línea, un WhatsApp no sale a ninguna hora. Va ANTES del horario:
   // decir «Sale mañana 9:00» de algo que tampoco va a salir a esa hora es mentir.
   if (wa && !c.whatsappPrendido) return freno('No sale: el envío de WhatsApp del negocio está apagado.', 'WhatsApp apagado');
+  // Después del envío apagado y antes de la línea, como el motor (`procesarEnvios`): sin el audio grabado no sale nunca.
+  if (f.audioPorGrabar) return freno('No sale: la nota de voz de esta tarjeta todavía no está grabada.', AUDIO_POR_GRABAR);
   if (wa && !f.hayLinea) return freno('No sale: el negocio no tiene una línea de WhatsApp.', 'Sin línea de WhatsApp');
   if (f.canal === 'email' && c.emailPrendido === false) return freno('No sale: el envío de email del negocio está apagado. Se prende en Email › Envío real, o al volver a activar la automatización.', 'Email apagado');
 

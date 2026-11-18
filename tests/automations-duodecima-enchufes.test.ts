@@ -79,9 +79,14 @@ test('la ruta lee el CRON de la LISTA (`disparadoresDeSecuencia`) y lo pasa a ed
   assert.match(cron, /return lista\[0\] \? valorIADeDisparador\(lista\[0\]\) : null;/);
   // Una lectura que falla no tumba el pedido: editar pregunta igual, el 409 cae a las columnas.
   assert.match(cron, /catch \(e\) \{[\s\S]*return null;/);
-  const editar = tramo(RUTA, "const delCron = [...respuestas]", 'send({ t: \'fase\', fase: \'modelo\' });');
+  // (18/11/2026: el contexto, el prompt y el modelo de editar viven en el motor, lib/flujo-ia-editar.ts. La ruta lee el CRON
+  // guardado y se lo pasa; el motor arma el contexto con él.)
+  const ruta = tramo(RUTA, "const delCron = [...respuestas]", 'editarFlujoConIA({');
+  assert.match(ruta, /const disparadorActual = await cronGuardado\(\);/);
+  assert.match(tramo(RUTA, 'editarFlujoConIA({', '});', 400), /editarFlujoConIA\(\{[^}]*\bdisparadorActual\b/);
+  const editar = tramo(sinComentarios(leer('lib/flujo-ia-editar.ts')), 'const leido = await armarContexto(', 'send({ t: \'fase\', fase: \'modelo\' });');
   // (28/10/2026: primero el CRON guardado, porque el contexto trae el del anuncio si es el guardado: tests/crear-ia-anuncio.)
-  assert.match(editar, /const disparadorActual = await cronGuardado\(\);\s*const leido = await armarContexto\(ws, pedido, \{ anuncio: [^}]+\}\);/);
+  assert.match(editar, /const leido = await armarContexto\(ws, pedido, \{ anuncio: \/:anuncio\$\/\.test\(disparadorActual \?\? ''\)/);
   assert.match(editar, /aplicarRespuestas\(\{ \.\.\.leido\.ctx, disparadorActual \}, pedido, respuestas\)/);
   // El MISMO ctx (con el CRON) llega al user, a deIAEdicion y a erroresEdicion.
   assert.match(editar, /userDeEditar\(ctx, /);

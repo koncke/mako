@@ -616,17 +616,22 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const alListoIA = (r: ListoCrearIA): boolean => {
     const nuevos = renumerar(r.pasos as PasoSecuenciaDto[]);
     if (r.modo === 'crear') {
-      const guardado = JSON.stringify(renumerar(normalizar(r.pasos as PasoSecuenciaDto[])));
       setPasos(nuevos);
-      setPublicado(guardado);
       setVisto(JSON.stringify(nuevos));
       setConvertida(false);
       setLimpiar(false);
-      // Ya lo guardó el server (publicado y pausado): no es un borrador, y lo publicado cambió. Como en
-      // Publicar: el borrador de antes se borra y la base pasa a ser ésta (sin eso, el próximo cambio se
-      // rechazaba con «Cambió lo publicado»). Un rechazo que llegó mientras la IA trabajaba ya no vale.
-      void borrador.publicado(nuevos);
-      setAbiertoPublicado(nuevos);
+      // QUEDÓ EN EL BORRADOR (18/11/2026, F80: lleva una nota de voz por grabar, que no se publica): lo publicado sigue
+      // vacío —ni `publicado` ni la base cambian— y el server ya guardó el borrador, así que el lienzo lo tiene como un
+      // cambio sin publicar y Publicar, con la nota grabada, lo pasa. `borrador.publicado` NO va: borraría ese borrador.
+      if (!r.borrador) {
+        const guardado = JSON.stringify(renumerar(normalizar(r.pasos as PasoSecuenciaDto[])));
+        setPublicado(guardado);
+        // Ya lo guardó el server (publicado y pausado): no es un borrador, y lo publicado cambió. Como en
+        // Publicar: el borrador de antes se borra y la base pasa a ser ésta (sin eso, el próximo cambio se
+        // rechazaba con «Cambió lo publicado»). Un rechazo que llegó mientras la IA trabajaba ya no vale.
+        void borrador.publicado(nuevos);
+        setAbiertoPublicado(nuevos);
+      }
       setErr((e) => (e === ERROR_DESACTUALIZADO ? null : e));
       if (r.nombre) setNombre(r.nombre);
       // El disparador que quedó puesto (revisión, 09/10/2026): `disparo` se siembra al montar, y sin

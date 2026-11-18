@@ -28,7 +28,7 @@ import { porQueNoSale, type ContextoDelEnvio } from './por-que-no-sale';
 import { indiceActual, esHiloDelCarril, esTarjetaMako } from './nutricion-grafo-motor';
 import { esperaQueAbra } from './mako-tarjeta';
 import { lineaDelPaso } from './mensaje-partes';
-import { idDe, type PasoGrafo } from './flujo-grafo';
+import { idDe, audioPorGrabar, type PasoGrafo } from './flujo-grafo';
 import type { FilaAutomatizacion, FilaInscripcion, FrenoDeFila } from './automatizaciones-del-lead-reglas';
 
 /** Lo de una inscripción que hace falta para su último fallo (`id`: el de la fila de `nutricion_inscripciones`). */
@@ -111,6 +111,7 @@ export async function frenosDelNegocio(filas: readonly ConId[], secs: readonly F
         ultimoFallo,
         correFueraDeHorario: carril || makoIgual,
         sinAntiBan: carril,
+        audioPorGrabar: audioPorGrabar(paso),
       }, ctx);
     };
   } catch (e) {
