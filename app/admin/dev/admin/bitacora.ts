@@ -693,6 +693,33 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/products/templates',
   },
+  {
+    fecha: '18 nov', hora: '09:00', chat: 'Admin', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la tanda de la nube del 18/11 (docs/pendientes-verificados-17-11.md, «Lo que falta construir»).',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '12:00', chat: 'Admin', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Customers sin los negocios de prueba, y «Por persona» en Usage',
+    puntos: [
+      'F21: el Cliente de Prueba, el de Diseño y la cuenta de revisión de las tiendas ya no cuentan como clientes (ni en la lista, ni en los números, ni en «Para mirar» ni en At Risk); su ficha se sigue abriendo, se puede mudar a alguien ahí y el DEBUG de MaKo los encuentra.',
+      'F21 (CU2): la API dice que «nuevos en 30 días» y «activos» no cuentan a los clientes de una agencia. No se unificó con «Para mirar»: su pago pendiente es plata que le debe a MaKo su agencia.',
+      'F169: la ficha › Usage tiene la tabla «Por persona» (pantallas, acciones, la tab más usada y su último día), con las mismas filas y el mismo rango que la de las tabs.',
+      '«Prueba real», que nombraba el recorrido, no está en WS_PRUEBAS y no se agregó: decide Martín.',
+    ],
+    commits: [{ sha: 'a31cad9e', msg: 'Admin y API de MaKo: sin clientes de prueba, uso por persona, y lo que quedaba colgado se cierra', lineas: 1040, archivos: 33 }],
+    archivos: [
+      'lib/clientes-plataforma.ts — NO_SON_CLIENTES y `pruebas` aparte',
+      'lib/clientes-plataforma-reglas.ts — apartarLosQueNoSonClientes',
+      'app/admin/_polar/datos/clientes.ts — clientesEnRiesgo con `fuera`',
+      'app/admin/_polar/datos/cliente.ts — usoPorPersona',
+      'app/admin/_polar/web/Customer/CustomerPage/CustomerUsageView.tsx — la tabla «Por persona»',
+    ],
+    revisar: '/admin/customers',
+  },
 ];
 
 export const PARTES: Parte[] = [

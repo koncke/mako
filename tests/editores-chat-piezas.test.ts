@@ -28,7 +28,9 @@ test('el Image Editor: el hilo con su criatura, la propuesta en el hueco de MaKo
   const h = hueco(imagen);
   assert.match(h, /if \(!m \|\| m\.de !== 'mako'\) return null;/, 'lo de la persona no lleva propuesta');
   assert.match(h, /<RevisionPropuesta[\s\S]*onAceptar=\{\(\) => void aceptarPropuesta\(editorRef\.current, m\)\}/);
-  assert.match(imagen, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => \{ if \(!adj\.preparando\) enviar\(texto, alcanceReal, \{ archivos: adj\.tomar\(\) \}\); \}\} ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/);
+  // 18/11/2026 (F49): `ocupado` del Image Editor es `hilo.corriendo || aplicando`.
+  assert.match(imagen, /const ocupado = hilo\.corriendo \|\| aplicando;/);
+  assert.match(imagen, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => \{ if \(!adj\.preparando\) enviar\(texto, alcanceReal, \{ archivos: adj\.tomar\(\) \}\); \}\} ocupado=\{ocupado \|\| nota\.pendientes\}/);
   assert.doesNotMatch(imagen, /<textarea\b/);
 });
 
@@ -56,6 +58,6 @@ test('los dos cargan la hoja del Centro (sin ella, el hilo y la caja no tienen f
 
 test('los dos siguen recortando lo que se pide a su tope (la caja única no tiene `maxLength`)', () => {
   // Con «Discutir | Editar» y la marca (5/11/2026) el pedido lleva sus opciones al final: lo que se cuida es el recorte.
-  assert.match(imagen, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT_IMAGEN\.instruccion\), alc, archivos(\)|, \{ intencion, kit \}\))/);
+  assert.match(imagen, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT_IMAGEN\.instruccion\), alc, archivos(\)|, \{ intencion, kit(, interpretar)? \}\))/);
   assert.match(video, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT\.instruccion\), alc, (op|\{ \.\.\.op, intencion \})\)/);
 });

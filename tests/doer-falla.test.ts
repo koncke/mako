@@ -296,7 +296,9 @@ test('13. una GUARDA lleva su marca explícita (`guarda: true`): una falla con l
   for (const g of ["error: 'Falta el nombre.", "error: 'Faltan leadId o startIso.'", 'error: `No existe el lead #${leadId} en este workspace.`', "error: 'Falta secuenciaId.'"])
     assert.ok(viejo.includes(`JSON.stringify({ ok: false, guarda: true, ${g}`), `sin marca: ${g}`);
   assert.equal((viejo.match(/ok: false, guarda: true,/g) ?? []).length, 15, 'cambió cuántas guardas marca el runner viejo');
-  assert.equal((viejo.match(/JSON\.stringify\(\{ ok: false, error: e instanceof Error \? e\.message : String\(e\) \}\)/g) ?? []).length, 3, 'lo que revienta no es una guarda');
+  // F114 (18/11/2026): la propuesta de un lead que no se guardó (la base) es una falla NUESTRA: lleva `noCorrio`, como la pendiente.
+  assert.equal((viejo.match(/JSON\.stringify\(\{ ok: false, error: e instanceof Error \? e\.message : String\(e\)(, noCorrio: true)? \}\)/g) ?? []).length, 3, 'lo que revienta no es una guarda');
+  assert.equal((viejo.match(/JSON\.stringify\(\{ ok: false, error: e instanceof Error \? e\.message : String\(e\), noCorrio: true \}\)/g) ?? []).length, 1, 'la propuesta del lead que no entró es nuestra');
   // requireLead (ficha_lead, reuniones_lead) devuelve la guarda en vez de tirar: un throw es una falla real para el turno.
   const tools = leer('lib/mako-tools.ts');
   assert.doesNotMatch(tools, /throw new Error\('Falta leadId|throw new Error\(`No existe un lead con id/);

@@ -38,6 +38,9 @@ export const ACCIONES_SIMPLES: ReadonlySet<string> = new Set([
   'crear_evento_calendario', 'crear_evento_google',
   // El Plan: una tarea.
   'proponer_tareas_plan', 'mover_tarea_plan', 'cambiar_fecha_tarea_plan', 'actualizar_avance_tarea',
+  // Un dato del perfil del negocio que ya estaba cargado (O21, 18/11/2026: Leila, «¿cómo te hago recordar que LíderMente es de
+  // 7:30 a 9:30?»): un solo campo, con lo de antes en la tarjeta y su «sí». Sin esto se delegaba al equipo.
+  'corregir_campo_perfil',
   // El «sí» y el «no» a lo que MaKo ya propuso.
   'confirmar_accion', 'cancelar_accion',
   // LO QUE MARTÍN MOSTRÓ EN LA LLAMADA CON THIAGO (29/10/2026, el Cerebro: docs/promesas/2910-llamada-thiago.md, «desde el grupo, lo

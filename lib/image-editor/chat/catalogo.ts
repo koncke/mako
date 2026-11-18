@@ -67,7 +67,8 @@ export type OperacionImagen =
   | { op: 'filtro_foto'; ref: string; filtro: FiltroFoto }
   | ({ op: 'ajustar_foto'; ref: string } & AjustesFoto)
   | { op: 'recortar_foto'; ref: string; proporcion: ProporcionRecorte }
-  | { op: 'redimensionar'; ancho: number; alto: number; contenido: ContenidoAlRedimensionar };
+  | { op: 'redimensionar'; ancho: number; alto: number; contenido: ContenidoAlRedimensionar }
+  | { op: 'quitar_fondo'; ref: string };
 
 export type IdOperacionImagen = OperacionImagen['op'];
 
@@ -97,6 +98,8 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
   { op: 'agregar_forma', forma: '{"op":"agregar_forma","forma":"rectangulo","x":0,"y":900,"ancho":1080,"alto":180,"color":"#141414","ref":"n2"}', para: `Agrega una forma: "forma" es rectangulo o circulo. ${MEDIDAS}. "color" de relleno (#RRGGBB). ${PAGINA}. "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido.` },
   { op: 'agregar_foto', forma: '{"op":"agregar_foto","foto":"o1","x":0,"y":0,"ancho":1080,"alto":720,"cubrir":true,"ref":"n3"}', para: `Pone una foto de la lista "fotos" del DISEÑO: "foto" es su ref. Sin "cubrir" entra entera en la caja (ancho y alto), sin deformarse; con "cubrir": true llena la caja y corta lo que sobra. ${MEDIDAS} (sin medidas va centrada). ${PAGINA}. "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido, por ejemplo mandarla atrás de los textos con "capa". Sólo las de "fotos": una dirección de internet no sirve.` },
   { op: 'fondo_foto', forma: '{"op":"fondo_foto","foto":"o1","pagina":"pa3"}', para: `Pone una foto de la lista "fotos" como fondo de UNA página, llenándola. ${PAGINA}.` },
+  // 18/11/2026 (F135): el «Quitar fondo» del editor (MODNet en el navegador, ../../app/image-editor/mako/quitar-fondo.ts), al aceptar.
+  { op: 'quitar_fondo', forma: '{"op":"quitar_fondo","ref":"i7q"}', para: `Le quita el fondo a una FOTO del diseño (una "imagen" de la vista): queda la persona o el objeto, sin lo de atrás, en el mismo lugar y del mismo tamaño. Corre al aceptar, en el navegador de la persona. ${REF}.` },
   // 18/11/2026 (O37): lo que el panel de la foto y «Redimensionar» hacen con la mano. Al final del catálogo, a propósito.
   { op: 'filtro_foto', forma: '{"op":"filtro_foto","ref":"i7q","filtro":"noir"}', para: `Le pone a una imagen uno de los filtros del editor: "filtro" es ${Object.keys(FILTROS_FOTO).join(', ')} ("original" le saca los filtros). Reemplaza los filtros y ajustes que tenía. ${REF}.` },
   { op: 'ajustar_foto', forma: '{"op":"ajustar_foto","ref":"i7q","brillo":20,"saturacion":-30}', para: `Ajusta una imagen como los deslizadores del editor: ${Object.entries(AJUSTES_FOTO).map(([k, a]) => `"${k}" (${a.min} a ${a.max})`).join(', ')}, y ${Object.keys(AJUSTES_SI_NO).map((k) => `"${k}"`).join(' y ')} (true o false). 0 lo deja como sin ajustar. Sólo los que cambian: los demás quedan. "ajustes" en la vista dice lo que ya tiene. ${REF}.` },
@@ -109,7 +112,7 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
  * en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT_IMAGEN =
-  'agregar íconos o gráficos de la biblioteca; poner una foto que no esté en "fotos" (si la persona no subió ninguna, pídele que la adjunte en el chat); generar imágenes con IA; quitar el fondo de una foto; agrandar el recorte de una foto, recortarla libre o volver a la foto entera; filtros o recortes de una foto que va en un marco; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño de UNA sola página; usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
+  'agregar íconos o gráficos de la biblioteca; poner una foto que no esté en "fotos" (si la persona no subió ninguna, pídele que la adjunte en el chat); generar imágenes con IA; agrandar el recorte de una foto, recortarla libre o volver a la foto entera; filtros o recortes de una foto que va en un marco; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño de UNA sola página; usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
 
 const IDS = new Set<string>(OPERACIONES_CHAT_IMAGEN.map((o) => o.op));
 
@@ -223,6 +226,7 @@ const VALIDAS: Record<IdOperacionImagen, readonly string[]> = {
   ajustar_foto: ['ref', ...CAMPOS_AJUSTE],
   recortar_foto: ['ref', 'proporcion'],
   redimensionar: ['tamano', 'ancho', 'alto', 'contenido'],
+  quitar_fondo: ['ref'],
 };
 
 const textoValido = (x: unknown): string | null => {
@@ -404,6 +408,10 @@ export function validarOperacion(crudo: unknown): Validada {
       if (!esRef(raw.foto)) return { ok: false, motivo: 'una foto que no es de la lista' };
       if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'un fondo de una página que ya no está' };
       return { ok: true, op: { op, foto: raw.foto, ...(raw.pagina !== undefined ? { pagina: raw.pagina as string } : {}) } };
+    }
+    case 'quitar_fondo': {
+      if (!esRef(ref)) return sinRef('quitar el fondo');
+      return { ok: true, op: { op, ref } };
     }
     case 'filtro_foto': {
       if (!esRef(ref)) return sinRef('un filtro');

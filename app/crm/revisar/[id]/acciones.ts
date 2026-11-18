@@ -23,6 +23,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getTenantDb } from '@/lib/workspace';
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { agregarAProducto } from '@/lib/lead-funnel';
+import { atarVisitaAlLead } from '@/lib/lead-visita';
 import { casaParaEscribir, casaReal } from '@/lib/lead-funnel-reglas';
 import type { FilaImport } from '@/app/crm/leads-importar';
 import { productosDePropuesta, atribucionDePropuesta } from './propuesta-lead';
@@ -88,13 +89,13 @@ export async function confirmarLeadsAction(id: string, filas: FilaImport[]): Pro
   // entrantes ya muestra la grabación»). Su atribución NO se pisa (su primer contacto es el que la trajo): sólo la
   // llave de la visita, y sólo si la ficha no tenía una (`.is(null)`: dos dispositivos no se pisan).
   const enriquecidos = (r.ids ?? []).filter((x) => x.destino === 'enriquecer');
+  // El update vive en lib/lead-visita.ts: lo usa también el opt-in que se suma directo a la ficha (O44, 18/11/2026).
   if (Object.keys(atrib).length && enriquecidos.length) {
-    const db = await getTenantDb();
     for (const x of enriquecidos) {
       const visitor = atrib[x.filaId]?.visitor_id;
       if (!visitor) continue;
-      const { error } = await db.from('leads').update({ visitor_id: visitor }).eq('id', x.leadId).is('visitor_id', null);
-      if (error) errores.push(`No pude atar la visita a un lead que ya existía: ${error.message}`);
+      const { error } = await atarVisitaAlLead(x.leadId, visitor);
+      if (error) errores.push(`No pude atar la visita a un lead que ya existía: ${error}`);
     }
   }
 
