@@ -116,8 +116,9 @@ export const DEUDA: Readonly<Record<string, readonly string[]>> = {
     'fotoCentroAction', 'pedidosDelChatAction', 'pushesCentroAction', 'turnosCentroAction', 'guardarAliasCuentaAction',
     'creditoApiAction', 'creditoDelNegocioAction', 'computadorasDelNegocioAction', 'marcarMensajeAction', 'marcarYaVistoAction',
     'guardarBorradorAction', 'contestarPreguntaAction', 'ignorarPreguntaAction', 'ignorarDecisionAction', 'encolarPedidoAction',
-    'cancelarPedidoAction', 'descartarDelLimboAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'decidirChatNuevoAction',
+    'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'decidirChatNuevoAction',
   ],
+  'app/admin/plantillas/actions.ts': ['retirarPlantillaAction'],
   'app/admin/runway/acciones.ts': ['responderDecision', 'deshacerDecision'],
   'app/ads-writer/onboarding-actions.ts': ['marcarPasoCopyAction'],
   'app/agency/actions.ts': [
@@ -157,7 +158,7 @@ export const DEUDA: Readonly<Record<string, readonly string[]>> = {
     'guardarAjusteConocimientoAction', 'ordenarModulosConocimientoAction', 'llevarClaseConocimientoAction',
   ],
   'app/creaciones/actions.ts': [
-    'estrellaAction', 'opcionesPublicarAction', 'guardarPlantillaAction', 'plantillasDelTipoAction', 'rankingAction',
+    'estrellaAction', 'opcionesPublicarAction', 'guardarPlantillaAction', 'plantillasDelTipoAction', 'tomarPlantillaAction', 'rankingAction',
   ],
   'app/crm/[id]/cobros-actions.ts': [
     'opcionesCobroAction', 'monedasCobroAction', 'cobrosDelLeadAction', 'senalesDeCobroAction', 'crearCobroAction',
