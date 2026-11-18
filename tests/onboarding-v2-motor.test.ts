@@ -58,6 +58,7 @@ test('el video y la marca van juntos: las frases del manifiesto, con su pausa y 
   assert.equal(f[1].cierra_despues, true);
   assert.equal(f[2].espera_clic, false, '«Mira aquí»: marca sin pausar');
   assert.equal(f[2].cierra_despues, false, 'sin el campo, no cierra nada');
+  assert.equal(frasesDe([{ id: 'qr', t_inicio: 1, t_fin: 2, texto: 'Escanea el QR', sel: 'img.aj-telefono__qr', espera_clic: false, espera_siguiente: true }])[0].espera_clic, true, 'espera_siguiente: una «mira» que espera');
   const nada = new Set<string>();
   assert.equal(fraseParaMarcar(f, 3, nada), null, 'una frase sin sel no marca');
   assert.equal(fraseParaMarcar(f, 6.2, nada)?.id, 'b');
