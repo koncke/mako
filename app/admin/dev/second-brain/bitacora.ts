@@ -825,6 +825,23 @@ export const BITACORA: Hito[] = [
       '**La forma del mapa tiene test**: un solo cerebro siempre, y en un negocio completo las métricas de Obsidian en las cuatro plantillas de funnel.',
       '**«Cómo hablas vendiendo» cuenta las conversaciones**: leía un dato que no existía y nunca decía cuántas conversaciones de venta había leído MaKo.',
     ],
+  },
+  {
+    fecha: '18 nov', hora: '12:55', chat: 'Tickets de Sellers: el filtro de números', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los coaches hablan: cada mensaje se puede escuchar, con una voz propia (en revisión)',
+    puntos: [
+      'Cada mensaje del coach trae un botón para escucharlo, debajo del texto, y el último suena solo la primera vez (se apaga con «Que suene solo»).',
+      'La voz es una de la biblioteca de ElevenLabs, en español neutro: no es la de Martín ni imita a nadie. Las preguntas fijas se guardan y salen al instante; las respuestas se dicen en el momento (el primer audio, medido, en menos de medio segundo).',
+      'Lo ve sólo la revisión de Martín, y sólo cuando la voz de la plataforma esté conectada en producción: hasta entonces el botón no aparece.',
+    ],
+    archivos: [
+      'lib/voz-coach-reglas.ts — la voz, el texto que se lee y el tope (puro) · lib/voz-coach.ts — `audioDelCoach`',
+      'app/api/voz-coach/route.ts · app/_ui/voz-coach/BotonVozCoach.tsx',
+      'tests/voz-coach.test.ts (con tests/_voz-coach-hijo.ts) — dos roturas, cada una cae',
+      'docs/hallazgos-ia.md',
+    ],
+    revisar: '/second-brain',
     archivos: [
       'lib/cerebro-armado.ts — el armado puro (`armarCerebro`, `camposDelBrief`)',
       'lib/cerebro-grafo.ts — sólo las lecturas, y llama al armado',
