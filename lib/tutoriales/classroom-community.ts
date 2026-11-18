@@ -9,7 +9,6 @@
 // · «Escribe algo» es el botón que abre el compositor (el campo con ese texto vive adentro). Va sin `clic`: el botón se apaga para
 //   el alumno que no llegó al nivel para publicar (al equipo nunca, pero el componente es el mismo).
 // · En el teléfono (/m/comunidad), sin medir: sin `rutaMovil`.
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_CLASSROOM_COMMUNITY: TutorialPestana = {
@@ -19,28 +18,21 @@ export const TUTORIAL_CLASSROOM_COMMUNITY: TutorialPestana = {
   intro: 'Tus alumnos avanzan más cuando se acompañan.',
   pasos: [
     {
-      sel: '.cls-tab[href^="/classroom/community"]',
-      titulo: 'Community',
-      texto: 'Donde conversan tus alumnos entre ellos, contigo y con tu equipo.',
-      sub: 'Community, una de las pestañas de Classroom, es donde conversan entre ellos, contigo y con tu equipo.',
-      lado: 'abajo',
-    },
-    {
-      sel: conMarca(MARCA.classroomCommunityCategorias),
+      sel: '[data-recorrido="tour-classroom-community-categorias"]',
       titulo: 'Categorías',
       texto: 'Los temas de tu comunidad. Con el lápiz las creas, las ordenas y eliges quién publica en cada una.',
       sub: 'Toca aquí, en Categorías, para ordenar los temas de tu comunidad.',
       lado: 'abajo',
     },
     {
-      sel: conMarca(MARCA.classroomCommunityMenuPost),
+      sel: '[data-recorrido="tour-classroom-community-menu-post"]',
       titulo: 'Fijar arriba',
       texto: 'En el menú de cada post, «Fijar arriba» lo deja primero para todos.',
       sub: 'Toca aquí, en el menú de un post, y elige Fijar arriba para lo que nadie se puede perder.',
       lado: 'izquierda',
     },
     {
-      sel: conMarca(MARCA.classroomCommunityEscribir),
+      sel: '[data-recorrido="tour-classroom-community-escribir"]',
       titulo: 'Escribe algo',
       texto: 'Tu post, con un video, una encuesta o un archivo.',
       sub: 'Abre la conversación tú: toca aquí, en Escribe algo, y suma un video, una encuesta o un archivo.',

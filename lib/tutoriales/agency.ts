@@ -8,7 +8,6 @@
 //   botón: tests/agency.test.ts fija el texto exacto de su línea. NO SE PUDO MEDIR con Valentina (Essential): se midió dibujando la
 //   landing como la ve un negocio con Pro.
 // · Ya agencia, /agency abre su dashboard y estos pasos no están: el motor los saltea. En el teléfono (/m/agency), sin medir.
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_AGENCY: TutorialPestana = {
@@ -18,28 +17,21 @@ export const TUTORIAL_AGENCY: TutorialPestana = {
   intro: 'Si tienes una agencia, entra a la cuenta de cada cliente con un clic.',
   pasos: [
     {
-      sel: '.ag-hero h1',
-      titulo: 'Agency Dashboard',
-      texto: 'Las cuentas de MaKo de tus clientes, juntas, y entras a cada una con un clic.',
-      sub: 'Agency Dashboard, en las opciones de tu foto, junta las cuentas de tus clientes.',
-      lado: 'abajo',
-    },
-    {
-      sel: conMarca(MARCA.agencyAsiDeSimple),
+      sel: '[data-recorrido="tour-agency-asi-de-simple"]',
       titulo: 'Así de simple',
       texto: 'Abres la cuenta con su nombre y su email, o desde un lead de tu CRM, y eliges quién la paga.',
       sub: 'Mira aquí, Así de simple: abres cada cuenta desde un lead, y la pagas tú o tu cliente.',
       lado: 'arriba',
     },
     {
-      sel: conMarca(MARCA.agencyPartnerOAgency),
+      sel: '[data-recorrido="tour-agency-partner-o-agency"]',
       titulo: '¿Partner o Agency?',
       texto: 'Partner gana dinero recomendando MaKo; Agency usa MaKo para atender a sus clientes.',
       sub: 'Mira aquí, ¿Partner o Agency?: ahí ves en qué se diferencian.',
       lado: 'arriba',
     },
     {
-      sel: conMarca(MARCA.agencySumarme),
+      sel: '[data-recorrido="tour-agency-sumarme"]',
       titulo: 'Sumarme como Agency',
       texto: 'Tres preguntas y tienes tu Agency Dashboard. A tus clientes no les mandamos promociones.',
       sub: 'Con MaKo Pro activo, toca aquí, en Sumarme como Agency: a tus clientes no les mandamos promociones ni otros planes.',

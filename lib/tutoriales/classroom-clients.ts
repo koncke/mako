@@ -6,7 +6,6 @@
 //   la lista «Configura tu cartera») se ve sólo mientras no hay ningún cliente, y sin clientes no hay tarjeta. El único paso marcado
 //   es el cierre.
 // · El cierre lleva `clic`: «Cargar un cliente» no se apaga. En el teléfono, sin medir: sin `rutaMovil`.
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_CLASSROOM_CLIENTS: TutorialPestana = {
@@ -16,14 +15,7 @@ export const TUTORIAL_CLASSROOM_CLIENTS: TutorialPestana = {
   intro: 'Vender es la mitad; la otra mitad es entregar bien.',
   pasos: [
     {
-      sel: '.cls-tab[href^="/classroom/clients"]',
-      titulo: 'Clients',
-      texto: 'Cada lead que ganaste en el CRM, en la etapa de tu servicio en que va.',
-      sub: 'Clients, en Classroom, te muestra en qué etapa de tu servicio va cada lead que ganaste en el CRM.',
-      lado: 'abajo',
-    },
-    {
-      sel: conMarca(MARCA.classroomClientsCargar),
+      sel: '[data-recorrido="tour-classroom-clients-cargar"]',
       titulo: 'Cargar un cliente',
       texto: 'Tus clientes de antes de MaKo, para seguir su entrega aquí.',
       sub: 'Para sumar a tus clientes de antes, toca aquí, en Cargar un cliente.',

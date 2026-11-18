@@ -2,7 +2,6 @@
 // (public/tutoriales/manifiesto.json, key `offer`): un paso por cosa nombrada, en su orden, y el `sub` es la frase del guion.
 // La charla y la flecha de los proyectos son de la pantalla de crear (app/_crear/PantallaCrear.tsx); en el teléfono, el hilo y el
 // selector de funnel de app/m/offer. «Tu oferta» (el documento de la derecha) no existe en el teléfono.
-import { conMarca, marcaCrear } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_OFFER: TutorialPestana = {
@@ -10,35 +9,27 @@ export const TUTORIAL_OFFER: TutorialPestana = {
   nombre: 'Offer',
   ruta: '/offer',
   rutaMovil: '/m/offer',
-  intro: 'Lo que le contaste a MaKo de tu oferta sigue aquí, en la misma conversación.',
+  intro: '¿Tu oferta convence a la primera, o la explicas diez veces?',
   pasos: [
     {
-      sel: conMarca(marcaCrear('Offer', 'charla')),
+      sel: '[data-recorrido="tour-offer-charla"]',
       titulo: 'La misma charla',
       texto: 'MaKo sigue desde lo que contaste en el onboarding: no hace falta repetirlo.',
-      sub: 'Lo que le contaste a MaKo de tu oferta sigue aquí, en la misma conversación.',
+      sub: 'Mira aquí, el chat: contestas, y tu oferta se completa sola, a la derecha.',
       lado: 'derecha',
     },
     {
-      sel: '[aria-label="Tu oferta"]',
-      titulo: 'Tu oferta',
-      texto: 'Para quién es, qué logra, qué entregas y el precio. Se completa mientras respondes.',
-      sub: 'A la derecha, tu oferta se arma sola con cada respuesta. De ahí salen tu landing y tus guiones.',
-      lado: 'izquierda',
-      soloComputadora: true,
-    },
-    {
-      sel: conMarca(marcaCrear('Offer', 'proyectos')),
+      sel: '[data-recorrido="tour-offer-proyectos"]',
       titulo: 'Tus proyectos',
       texto: 'Cada funnel con sus ofertas y sus análisis anteriores.',
-      sub: 'Con la flecha ves tus funnels, sus ofertas y cada análisis.',
+      sub: 'Toca aquí, en la flecha, para ver tus funnels, sus ofertas y cada análisis.',
       lado: 'derecha',
     },
     {
       sel: '[aria-label="Respuestas rápidas"] button',
       titulo: 'Analicemos mi oferta',
       texto: 'Te pide dos datos: cuántas personas te compraron y cuántas lograron el resultado.',
-      sub: 'Cuando quieras ir a fondo, toca Analicemos mi oferta. Te marca qué la hace fuerte, qué le falta para vender más y te arma la versión mejorada, en PDF.',
+      sub: 'Para ir a fondo, toca aquí, en Analicemos mi oferta: te marca qué falta y la mejora, en PDF.',
       lado: 'arriba',
       haz: 'Haz clic en «Analicemos mi oferta»',
       clic: true,

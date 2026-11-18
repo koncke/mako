@@ -7,7 +7,6 @@
 // · «Quién entra» y «Crear evento» viven ADENTRO del editor que abre «Nuevo evento»: sus pasos lo abren antes (`antes`). Medidos en
 //   el editor dibujado aparte. «Crear evento» va sin `clic`: se apaga mientras guarda.
 // · En el teléfono (/m/comunidad), sin medir: sin `rutaMovil`.
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_CLASSROOM_CALENDAR: TutorialPestana = {
@@ -17,34 +16,27 @@ export const TUTORIAL_CLASSROOM_CALENDAR: TutorialPestana = {
   intro: 'Una llamada en grupo cada semana le da ritmo a tu programa.',
   pasos: [
     {
-      sel: '.cls-tab[href^="/classroom/calendar"]',
-      titulo: 'Calendar',
-      texto: 'Las citas en grupo con tus alumnos: llamadas, clases en vivo, encuentros.',
-      sub: 'El Calendar del curso arma esas citas con tus alumnos.',
-      lado: 'abajo',
-    },
-    {
-      sel: conMarca(MARCA.classroomCalendarNuevo),
+      sel: '[data-recorrido="tour-classroom-calendar-nuevo"]',
       titulo: 'Nuevo evento',
       texto: 'Una cita con tus alumnos. Puede repetirse sola, cada semana o cada mes.',
       sub: 'Toca aquí, en Nuevo evento: cada uno puede repetirse solo.',
       lado: 'izquierda',
     },
     {
-      sel: conMarca(MARCA.classroomCalendarQuienEntra),
-      antes: conMarca(MARCA.classroomCalendarNuevo),
+      sel: '[data-recorrido="tour-classroom-calendar-quien-entra"]',
       titulo: 'Quién entra',
       texto: 'Todos, quienes llegaron a un nivel, o quienes tienen un módulo del curso.',
       sub: 'Toca aquí, en Quién entra, y elige si es para todos, desde un nivel o para quien tenga un módulo.',
       lado: 'arriba',
+      antes: '[data-recorrido="tour-classroom-calendar-nuevo"]',
     },
     {
-      sel: conMarca(MARCA.classroomCalendarCrear),
-      antes: conMarca(MARCA.classroomCalendarNuevo),
+      sel: '[data-recorrido="tour-classroom-calendar-crear"]',
       titulo: 'Crear evento',
       texto: 'Con el link de Zoom o Meet, o la dirección si es en persona, queda en el calendario de tus alumnos.',
       sub: 'Suma el link de Zoom o Meet, o la dirección si es en persona, y toca aquí, en Crear evento.',
       lado: 'arriba',
+      antes: '[data-recorrido="tour-classroom-calendar-nuevo"]',
     },
   ],
 };
