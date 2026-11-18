@@ -417,7 +417,10 @@ export const BITACORA: Hito[] = [
       '«Descargar todas las páginas» en un ZIP quedó probado (se arma y se vuelve a abrir igual); falta bajarlo en producción.',
       'Medido: alojar las fuentes del editor serían 997 archivos y 17 MB, y no están en el proyecto. No se movieron.',
     ],
-    commits: ['6783b4700'],
+    commits: [
+      { sha: '6783b4700', msg: 'Image: el chat de MaKo pone filtros, recorta y cambia el tamaño del diseño; el ZIP de varias páginas, probado', lineas: 808, archivos: 12 },
+      { sha: 'e7f94b6a0', msg: 'Image: los ajustes de una foto se leen sin un valor vacío, y el test de los filtros arma su mapa con pares', lineas: 10, archivos: 3 },
+    ],
     archivos: [
       'lib/image-editor/chat/fotos.ts — los filtros, los ajustes y el recorte como los guarda el editor (copia con su test)',
       'lib/image-editor/chat/catalogo.ts y aplicar.ts — las cuatro operaciones nuevas',
