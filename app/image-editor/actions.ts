@@ -17,7 +17,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { crearDiseno, puerta } from '@/lib/image-editor/server';
-import { documentoEnBlanco } from '@/lib/image-editor/reglas';
+import { conPlantilla, documentoEnBlanco } from '@/lib/image-editor/reglas';
 import { documentoDeCarrusel } from '@/lib/carruseles/documento';
 import { marcaDelNegocio } from '@/lib/carruseles/marca';
 import { tipoCarrusel, type Lamina } from '@/lib/carruseles/tipos';
@@ -46,7 +46,8 @@ export async function crearDisenoNuevoAction(id: string): Promise<Resultado> {
     ? documentoDeCarrusel({ laminas: tipo.estructura(tipo.laminas.def), estilo: estiloConKit(tipo.estilo, kit, fuenteDelEditorDeImagen), marca: await marcaDelNegocio(p.ws, kit), nuevoId: randomUUID })
     : documentoEnBlanco(pl.ancho, pl.alto, Array.from({ length: Math.max(1, pl.paginas) }, () => randomUUID()));
   if (!doc) return { ok: false, error: 'Esa plantilla no existe.' };
-  const r = await crearDiseno(p.ws, p.quien, { titulo: pl.tituloDiseno ?? pl.nombre, doc });
+  // El diseño recuerda de qué plantilla nació (18/11/2026, lib/image-editor/reglas.ts → `conPlantilla`); uno en blanco, ninguna.
+  const r = await crearDiseno(p.ws, p.quien, { titulo: pl.tituloDiseno ?? pl.nombre, doc: conPlantilla(doc, real || tipo ? pl.id : null) });
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
 }
 

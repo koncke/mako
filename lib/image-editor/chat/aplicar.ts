@@ -218,16 +218,24 @@ export function aplicarOperaciones(p: {
   const tituloDe = (ref: string, o: Obj) => p.vista.elementos.get(ref)?.titulo ?? (tipoDe(o) === 'texto' ? `«${String(o.text ?? '').replace(/\s+/g, ' ').slice(0, 40)}»` : String(o.name ?? PALABRA_TIPO[tipoDe(o)]));
   /** El elemento de una ref, listo para cambiar; o el motivo por el que no. */
   const elemento = (ref: string, op: { bloqueadoVale?: boolean } = {}): { pg: Pagina; i: number; o: Obj; titulo: string } | string => {
-    if (declaradas.has(ref) && !nuevas.has(ref)) return `«${ref}» no se pudo agregar`;
+    // ⚠️ LA REF NO SE DIBUJA (18/11/2026): «t11», «n1» o «p3» son nombres de la vista que lee la IA, y estos motivos los
+    //    LEE la persona en «No se aplica: …» (PanelMakoIA.tsx). Lo cuida tests/image-editor-chat.test.ts pasando por acá.
+    if (declaradas.has(ref) && !nuevas.has(ref)) return 'un elemento nuevo no se pudo agregar';
     // Primero lo agregado en este pedido: si la IA le puso una ref que ya existe, de ahí en más habla de lo nuevo.
     const id = nuevas.get(ref) ?? p.vista.elementos.get(ref)?.id;
-    if (!id) return `«${ref}» no está en el diseño`;
+    if (!id) return 'uno de los elementos no está en el diseño';
     const b = buscar(id);
-    if (!b) return `${p.vista.elementos.get(ref)?.titulo ?? ref} ya no está`;
+    if (!b) return `${p.vista.elementos.get(ref)?.titulo ?? 'un elemento'} ya no está`;
     const titulo = tituloDe(ref, b.o);
     if (p.soloRefs && !nuevas.has(ref) && !p.soloRefs.has(ref)) return `${titulo} no está en lo elegido`;
     if (b.o.locked === true && !op.bloqueadoVale) return `${titulo} está bloqueado`;
     return { ...b, titulo };
+  };
+  /** Por qué no está la página de una ref, sin nombrar la ref (la persona no la conoce). */
+  const sinPagina = (ref?: string): string => {
+    if (ref && paginasDeclaradas.has(ref) && !paginasNuevas.has(ref)) return 'la página nueva no se pudo agregar';
+    if (ref && p.vista.paginas.has(ref)) return 'una de las páginas ya no está';
+    return 'una de las páginas no está en el diseño';
   };
   const paginaDe = (ref?: string): Pagina | null => {
     if (ref && paginasDeclaradas.has(ref) && !paginasNuevas.has(ref)) return null;
@@ -278,7 +286,7 @@ export function aplicarOperaciones(p: {
         if (op.ref) declaradas.add(op.ref);
         const estilo = sinFuenteQueFalta(op.estilo);
         const pg = paginaDe(op.pagina);
-        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        if (!pg) { descartes.push(sinPagina(op.pagina)); break; }
         const w = anchoDe(pg);
         const h = altoDe(pg);
         const tamano = estilo.tamano ?? Math.max(12, Math.round(Math.min(w, h) * 0.05));
@@ -436,7 +444,7 @@ export function aplicarOperaciones(p: {
       case 'fondo': {
         if (p.soloRefs) { descartes.push(deLaPagina('El fondo')); break; }
         const pg = paginaDe(op.pagina);
-        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        if (!pg) { descartes.push(sinPagina(op.pagina)); break; }
         const bg = (pg.background ?? {}) as { type?: string; color?: string };
         const antes = bg.type === 'solid' ? String(bg.color) : bg.type === 'image' ? 'imagen' : 'degradado';
         pg.background = { type: 'solid', color: op.color };
@@ -448,7 +456,7 @@ export function aplicarOperaciones(p: {
         if (p.soloRefs) { descartes.push(deLaPagina('Una página nueva')); break; }
         if (doc.pages.length >= POR_DEFECTO.maxPaginas) { descartes.push(`el diseño ya tiene ${POR_DEFECTO.maxPaginas} páginas`); break; }
         const base = op.despues_de ? paginaDe(op.despues_de) : null;
-        if (op.despues_de && !base) { descartes.push(`la página «${op.despues_de}» no está`); break; }
+        if (op.despues_de && !base) { descartes.push(sinPagina(op.despues_de)); break; }
         const i = base ? doc.pages.indexOf(base) + 1 : doc.pages.length;
         // Como el motor: la copia lleva «(copia)» en el nombre; la en blanco, el tamaño de la de antes (`newPageSize`).
         const antes = base ?? doc.pages[doc.pages.length - 1];
@@ -467,7 +475,7 @@ export function aplicarOperaciones(p: {
       case 'borrar_pagina': {
         if (p.soloRefs) { descartes.push(deLaPagina('Borrar una página')); break; }
         const pg = paginaDe(op.pagina);
-        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        if (!pg) { descartes.push(sinPagina(op.pagina)); break; }
         if (doc.pages.length <= 1) { descartes.push('un diseño se queda con al menos una página'); break; }
         const i = doc.pages.indexOf(pg);
         doc.pages.splice(i, 1);
@@ -478,7 +486,7 @@ export function aplicarOperaciones(p: {
       case 'agregar_forma': {
         if (op.ref) declaradas.add(op.ref);
         const pg = paginaDe(op.pagina);
-        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        if (!pg) { descartes.push(sinPagina(op.pagina)); break; }
         const circulo = op.forma === 'circulo';
         const o: Obj = {
           type: circulo ? 'ellipse' : 'rect', shapeKind: circulo ? 'ellipse' : 'rect', id: p.nuevoId(), name: circulo ? 'Círculo' : 'Rectángulo',
@@ -495,9 +503,9 @@ export function aplicarOperaciones(p: {
       case 'agregar_foto': {
         if (op.ref) declaradas.add(op.ref);
         const f = p.fotos?.get(op.foto);
-        if (!f) { descartes.push(`la foto «${op.foto}» no está en Subidos`); break; }
+        if (!f) { descartes.push('una de las fotos no está en Subidos'); break; }
         const pg = paginaDe(op.pagina);
-        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        if (!pg) { descartes.push(sinPagina(op.pagina)); break; }
         const o = objetoFoto(f, op, anchoDe(pg), altoDe(pg), p.nuevoId());
         pg.objects.push(o);
         if (op.ref) nuevas.set(op.ref, String(o.id));
@@ -507,9 +515,9 @@ export function aplicarOperaciones(p: {
       case 'fondo_foto': {
         if (p.soloRefs) { descartes.push(deLaPagina('El fondo')); break; }
         const f = p.fotos?.get(op.foto);
-        if (!f) { descartes.push(`la foto «${op.foto}» no está en Subidos`); break; }
+        if (!f) { descartes.push('una de las fotos no está en Subidos'); break; }
         const pg = paginaDe(op.pagina);
-        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        if (!pg) { descartes.push(sinPagina(op.pagina)); break; }
         const bg = (pg.background ?? {}) as { type?: string; color?: string };
         const antes = bg.type === 'solid' ? String(bg.color) : bg.type === 'image' ? 'imagen' : 'degradado';
         pg.background = { type: 'image', src: f.url, fit: 'cover' };

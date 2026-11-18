@@ -46,6 +46,14 @@ const LEIBLES = new Set(ACCEPT_ADJUNTOS_CHAT.split(','));
 
 export type AlcanceChat = 'diseno' | 'seleccion';
 
+/**
+ * ¿Hay una propuesta a mitad de aplicarse (esperando las fuentes)? Mientras tanto NO se pide otra (18/11/2026, F49): el pedido
+ * nuevo cerraba sólo las `pendiente`, así que la que estaba aplicando quedaba viva; si fallaba volvía a `pendiente` (dos «Aceptar»),
+ * y si entraba, la nueva estaba calculada sobre el documento de antes y aceptarla repetía las páginas. Lo usan `pedirEdicion` y la
+ * caja del panel (PanelMakoIA.tsx), con la misma pregunta.
+ */
+export const hayAplicando = (disenoId: string): boolean => leerHilo(disenoId).mensajes.some((m) => m.de === 'mako' && m.estado === 'aplicando');
+
 const cortes = new Map<string, AbortController>();
 export const detener = (disenoId: string) => cortes.get(disenoId)?.abort();
 
@@ -172,7 +180,7 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   const discutir = op.intencion === 'discutir';
   const disenoId = editor.designId;
   const texto = instruccion.trim();
-  if (!disenoId || (!texto && !archivos.length) || leerHilo(disenoId).corriendo) return;
+  if (!disenoId || (!texto && !archivos.length) || leerHilo(disenoId).corriendo || hayAplicando(disenoId)) return;
 
   const elegidosIds = editor.state.selection.ids.slice();
   const alcanceReal: AlcanceChat = alcance === 'seleccion' && elegidosIds.length ? 'seleccion' : 'diseno';
@@ -285,10 +293,14 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
  * «Aceptar»: aplica la propuesta sobre el documento de AHORA, en un paso de deshacer. Devuelve lo que no se pudo (un
  * elemento que ya no está, uno que se bloqueó en el medio).
  */
-export async function aceptarPropuesta(editor: EditorEngine, m: MensajeMako): Promise<void> {
+export async function aceptarPropuesta(editor: EditorEngine, visto: MensajeMako): Promise<void> {
   const disenoId = editor.designId;
-  const p = m.propuesta;
-  if (!p || !disenoId || m.estado !== 'pendiente') return;
+  if (!disenoId) return;
+  // El estado se lee del STORE, no del mensaje que trae quien llama (18/11/2026, F49): la tarjeta, el «Usar plantilla» o un
+  // doble clic pueden tener la foto de antes de que un pedido nuevo la cerrara, y con esa foto `pendiente` se aplicaba igual.
+  const m = leerHilo(disenoId).mensajes.find((x): x is MensajeMako => x.id === visto.id && x.de === 'mako');
+  const p = m?.propuesta;
+  if (!m || !p || m.estado !== 'pendiente') return;
   cambiarMensaje(disenoId, m.id, { estado: 'aplicando', aviso: undefined });
   const probar = () => {
     const doc = editor.getDocument();

@@ -210,7 +210,7 @@ test('10: lo bloqueado no se toca, y lo que ya no está se descarta con su motiv
   const sinTitulo = diseno();
   sinTitulo.pages[0].objects.shift();
   const r2 = aplicarOperaciones({ doc: sinTitulo, operaciones: [op({ op: 'color', ref: ref('obj-titulo'), color: '#000000' }), op({ op: 'color', ref: 'tzz', color: '#000000' })], vista: VISTA, nuevoId });
-  assert.deepEqual(r2.descartes, ['«Hola mundo» ya no está', '«tzz» no está en el diseño']);
+  assert.deepEqual(r2.descartes, ['«Hola mundo» ya no está', 'uno de los elementos no está en el diseño']);
 });
 
 test('11: duplicar, cambiar el orden, alinear y borrar', () => {
@@ -973,4 +973,98 @@ test('ningún motivo visible nombra un campo del JSON, un id de operación ni un
     assert.ok(!/^[A-Z]/.test(v.motivo), `el motivo «${v.motivo}» arranca en mayúscula: se concatena en una frase`);
   }
   assert.ok(vistos.length >= 40, `sólo ${vistos.length} de ${malas.length} operaciones se rechazaron: ¿cambió el catálogo?`);
+});
+
+// 18/11/2026 (F48 de docs/pendientes-verificados-17-11.md): el test de arriba sólo pasaba por `validarOperacion`, y los motivos
+// que arma `aplicarOperaciones` (lo que ya no está, la página o la foto que falta) seguían mostrando la ref de la vista que
+// lee la IA: «t11 no está en el diseño», «la página «p3» no está», «la foto «o9» no está en Subidos». Llegan a la pantalla
+// igual: acciones.ts los suma a `descartes` y PanelMakoIA.tsx los dibuja en «No se aplica: …».
+// PROBADO ROMPIÉNDOLO: con los motivos de antes, base 1/0 → 0/1 (nombra «tzz», «n1», «pzz», «pn1» y «o9»).
+test('ningún motivo de APLICAR nombra una ref de la vista: lo que falta se dice con palabras', () => {
+  const sinTitulo = diseno();
+  sinTitulo.pages[0].objects.shift();          // el título se borró en el medio, sin título en la vista: no queda nombre
+  const vistaSinTitulos = { elementos: new Map([['t3k', { id: 'obj-titulo' }]]), paginas: new Map([['pzz', 'pag-borrada']]) };
+  const refs = ['tzz', 'n1', 'pzz', 'pn1', 'pqq', 'o9', 't3k'];
+  const r = aplicarOperaciones({
+    doc: sinTitulo,
+    operaciones: [
+      op({ op: 'color', ref: 'tzz', color: '#000000' }),                         // nunca estuvo
+      op({ op: 'color', ref: 't3k', color: '#000000' }),                         // estaba y se borró (sin título en la vista)
+      op({ op: 'agregar_texto', texto: 'x', pagina: 'pqq', ref: 'n1' }),          // lo nuevo no entra (la página no existe)…
+      op({ op: 'color', ref: 'n1', color: '#000000' }),                          // …y lo que dependía de él
+      op({ op: 'fondo', pagina: 'pzz', color: '#000000' }),                      // una página que estaba y ya no
+      op({ op: 'agregar_pagina', despues_de: 'pqq', nueva: 'pn1' }),             // la página nueva no entra…
+      op({ op: 'fondo', pagina: 'pn1', color: '#000000' }),                      // …y lo que iba en ella
+      op({ op: 'agregar_foto', foto: 'o9' }),                                    // una foto que no se ofreció
+      op({ op: 'fondo_foto', foto: 'o9' }),
+    ],
+    vista: vistaSinTitulos, nuevoId, activePageId: 'pag-1',
+  });
+  assert.equal(r.aplicadas, 0);
+  assert.equal(r.descartes.length, 9, r.descartes.join(' · '));
+  for (const d of r.descartes) {
+    for (const x of refs) {
+      assert.ok(!new RegExp(String.raw`(^|[^a-z0-9])${x}([^a-z0-9]|$)`).test(d), `el motivo «${d}» nombra la ref interna «${x}»: eso lo LEE la persona en «No se aplica: …»`);
+    }
+    assert.ok(!/^[A-Z]/.test(d) && d.length <= 90, `el motivo «${d}» no entra en la línea de «No se aplica»`);
+  }
+  // Y dicen lo que pasó, distinto para cada caso (no un «no se pudo» para todo).
+  assert.deepEqual(r.descartes, [
+    'uno de los elementos no está en el diseño',
+    'un elemento ya no está',
+    'una de las páginas no está en el diseño',
+    'un elemento nuevo no se pudo agregar',
+    'una de las páginas ya no está',
+    'una de las páginas no está en el diseño',
+    'la página nueva no se pudo agregar',
+    'una de las fotos no está en Subidos',
+    'una de las fotos no está en Subidos',
+  ]);
+});
+
+// 18/11/2026 (F49 de docs/pendientes-verificados-17-11.md): «un pedido nuevo cierra la propuesta anterior» estaba escrito y nunca
+// se probó ACEPTANDO LAS DOS. Y tenía dos agujeros: `aceptarPropuesta` miraba el estado del mensaje que le pasaban (la foto que
+// tenía la pantalla), no el del store, así que la propuesta vieja se aplicaba igual; y mientras una se aplicaba (esperando las
+// fuentes) se podía pedir otra, que nacía calculada sobre el documento de antes.
+// PROBADO ROMPIÉNDOLO: con `aceptarPropuesta` leyendo el mensaje que le pasan, base 1/0 → 0/1 (dos «aplicar», dos páginas
+// nuevas en vez de una); sin `hayAplicando` en `pedirEdicion`, 0/1 (un segundo pedido a la IA mientras la otra se aplicaba).
+test('dos pedidos seguidos y aceptar los dos: entra uno solo, y mientras uno se aplica no sale otro pedido', async () => {
+  const { editor, log, doc } = editorDeMentira();
+  const pedidos: Array<{ url: string; cuerpo: Obj | null }> = [];
+  fetchDeMentira({ ok: true, resumen: 'Agrego una página.', operaciones: [{ op: 'agregar_pagina' }] }, pedidos);
+  await pedirEdicion(editor as never, 'agrega una página', 'diseno');
+  const a = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  await pedirEdicion(editor as never, 'agrega una página', 'diseno');
+  const b = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.notEqual(a.id, b.id);
+  assert.equal((leerHilo(editor.designId).mensajes.find((m) => m.id === a.id) as MensajeMako).estado, 'descartada');
+  // La pantalla todavía tenía a la primera como «pendiente» (la foto de antes): aceptar las dos con esas fotos.
+  assert.equal(a.estado, 'pendiente');
+  await aceptarPropuesta(editor as never, a);
+  await aceptarPropuesta(editor as never, b);
+  assert.equal(log.filter((l) => l.startsWith('aplicar')).length, 1, `se aplicó más de una: ${log.join(' → ')}`);
+  assert.equal((doc() as Doc).pages.length, 3, 'una sola página nueva');
+
+  // Mientras una propuesta espera sus fuentes, otro pedido no sale (ni a la IA ni al hilo).
+  const otro = editorDeMentira();
+  let soltar: () => void = () => {};
+  const esperar = new Promise<void>((r) => { soltar = r; });
+  otro.editor.fonts.load = async (f: string, w: number) => { otro.log.push(`fuente:${f}:${w}`); await esperar; return true; };
+  const pedidos2: Array<{ url: string; cuerpo: Obj | null }> = [];
+  fetchDeMentira({ ok: true, resumen: 'Agrego un texto.', operaciones: [{ op: 'agregar_texto', texto: 'Hola' }] }, pedidos2);
+  await pedirEdicion(otro.editor as never, 'agrega un texto', 'diseno');
+  const c = leerHilo(otro.editor.designId).mensajes.at(-1) as MensajeMako;
+  const aceptando = aceptarPropuesta(otro.editor as never, c);
+  assert.equal((leerHilo(otro.editor.designId).mensajes.at(-1) as MensajeMako).estado, 'aplicando');
+  const antes = { ia: pedidos2.filter((x) => x.url === '/api/image-editor/ia').length, mensajes: leerHilo(otro.editor.designId).mensajes.length };
+  await pedirEdicion(otro.editor as never, 'y otro texto', 'diseno');
+  assert.deepEqual({ ia: pedidos2.filter((x) => x.url === '/api/image-editor/ia').length, mensajes: leerHilo(otro.editor.designId).mensajes.length }, antes);
+  soltar();
+  await aceptando;
+  assert.equal((leerHilo(otro.editor.designId).mensajes.at(-1) as MensajeMako).estado, 'aplicada');
+  // Y la caja del panel hace la misma pregunta (no deja escribir mientras tanto, ni se borra lo escrito).
+  const panel = leer('app/image-editor/mako/chat/PanelMakoIA.tsx');
+  assert.match(panel, /const ocupado = hilo\.corriendo \|\| aplicando;/);
+  assert.match(panel, /if \(ocupado \|\|/);
+  assert.match(panel, /ocupado=\{ocupado \|\| nota\.pendientes\}/);
 });
