@@ -12239,3 +12239,59 @@ la PC en verde. Van con `[…].join('')`. No lo vio la PC porque ese barrido no 
 
 **El pie del modal en el teléfono:** a 375 px «Cancelar», el conteo y los formatos medían ~310 px en 162, y «Descargar» quedaba
 ENCIMA de los botones de formato (ya pasaba con CSV y MD). En el teléfono el formato sube a su renglón, arriba de las opciones.
+
+## Los 61 pedidos de diseño del CRM, re-medidos contra main (18/11/2026, O47)
+
+**Síntoma:** el pendiente O47 decía «61 de 341 pedidos de diseño del CRM sin implementar» y el encabezado de la tabla
+(docs/feedback-diseno-pendiente.md, «El CRM, medido aparte») seguía diciendo «8 sin empezar, 46 a medias, 5 superados, 2
+hechos», una foto del 24/10 contra 3b1276eb9. Nada la volvió a medir en 25 días, con 161 commits tocando `app/crm`, `app/m/crm`
+y `lib/ficha` en el medio.
+
+**Medido contra origin/main (2d4e26ded), fila por fila, abriendo el archivo que cada una nombra:** siguen siendo 61 filas
+(contadas hasta la primera línea que no es fila). **17 hechas, 6 que ya no aplican y 38 abiertas.** La tabla tiene ahora una
+última columna «Re-medido 18/11/2026» con el estado de cada una y su archivo:línea.
+
+**Lo que la foto del 24/10 daba por abierto y no lo estaba (el diagnóstico obvio era el equivocado):**
+- *Instagram por nombre:* la fila decía «por nombre no hay fuente». Desde el 03/11 existe (Apify con la clave de Spy del negocio,
+  ~20 s y ~US$0,012 por búsqueda: `app/api/crm/instagram-buscar/route.ts:109-117`, 3660fcb8b). El comentario de cabecera de
+  `lib/instagram-buscar.ts` sigue diciendo que no hay fuente: está viejo, no la fila.
+- *Hojas de la ficha como el Dashboard:* ya no aplica. El 24/10 Martín cambió las hojas por tabs al estilo Stripe/HubSpot/Notion
+  (`app/crm/lead-view/LeadTabs.tsx:12-26`): no hay desplegable que unificar.
+- *Datos por bloque (Fiscales, Servicio, Promesa):* entraron el 30/10 (f5c23258a); la fila listaba los tres como faltantes.
+- *«También en» y «de dónde vino»:* el 24/10 Martín mandó sacar «También en» (`ProductoDelLead.tsx:340`), así que lo que esas dos
+  filas pedían dibujar ya no tiene dónde ir sin una decisión nueva suya.
+- *«No hay plantilla para T1 (no-show)»:* existe «Un Lead No Asistió» (`lib/plantillas-automatizaciones.ts:430`, desde el 15/10).
+  Para T3 (nutrición manual vencida) sigue sin haber ninguna.
+- El commit c7ff7d7fc (cuotas, tag `respaldo/crm-diseno-t17-2410`) **no está en el clon**; en main el wizard sí tiene «+ Agregar
+  cuota» y la ficha conserva «Armar el plan» junto al plan libre y por tramos.
+
+**Lo que sigue abierto, por pantalla** (archivo donde iría):
+- *Wizards y modales del tablero:* «¿En qué situación está esta R1?» sin `WizardShell` (`CrmBoard.tsx:4325`); «Ya está agendada»,
+  «Ya la tuve» y «Se reprogramó» piden sólo la fecha (`CrmBoard.tsx:4362`, `StageMoveDialog.tsx:1022`); el «¿Vino?» de la ficha
+  no mueve la etapa (`resumen/reunion.tsx:65`); «Traer de otro funnel» sin etiquetas ni orden (`TraerDeOtroProducto.tsx:210`);
+  nutrición sin «de qué etapa sale» (`EtapasModal.tsx:731`, `lib/etapas-crm-server.ts:408`); lote traído de un grupo sin «Deshacer»
+  ni tope (`TraerDeGrupoWA.tsx`, `CrmBoard.tsx:3770`); `UnificarFichas` y `PersonalizarTarjetas` sin pie fijo.
+- *Menús y editor de funnel:* «Asignar fuentes» en la columna de entrada de un funnel de Prospección (`CrmBoard.tsx:2650`);
+  `EditorEtiquetas.tsx` sin montar; sin «Sugerido» en `PersonalizarTarjetas.tsx` y en los tipos de «Nuevo CRM»; clic derecho sin
+  bloque en la ficha y sin nada en `/crm/revisar`.
+- *Ficha:* «Insights del lead» sin el aviso de qué falta (`GeneratedInsightCard.tsx:138`, `AnalystDelLead.tsx:42`); Notas sin la caja
+  de los chats (`NotasCard.tsx:257`); sin responder el DM (`resumen/charla.tsx:87`); «anuncio-de-origen» sin componente
+  (`lib/ficha/plantillas.ts:54`); video sin identificar (`ComportamientoCard.tsx:90`); etiquetas junto al nombre rotas en el teléfono
+  (`CabeceraLead.tsx:292`); galería que no se abre sola en un workspace nuevo (`FichaPorBloques.tsx:281`); datos elegibles en 7 bloques
+  de Pagos y Reuniones (`lib/ficha/catalogo.ts:232-343`); historial con tarjetas propias (`AuditHistory.tsx`); sin «Comentarios»
+  (los comentarios van a Notas); sin «Unificar» en la API de MaKo.
+- *Teléfono:* hojas propias sin mostrar (`app/m/crm/ficha-bloques.ts:74`); la tarjeta no sigue la plantilla (`TableroCrm.tsx:240`);
+  «Sin teléfono», «Sin agendar», «Sin setter» (`app/m/crm/[id]/FichaLead.tsx:182-186`).
+- *Necesitan a Martín, producción o un aparato:* Google Calendar en «Vincular evento» (`lib/agenda-evento-etapa.ts:36`); plantillas de
+  Pagos más cortas (`lib/ficha/plantillas-pagos.ts:59`); «vino de otro funnel» y atribución por funnel (necesita migración);
+  velocidad de «Vincular evento» (`agenda-evento-actions.ts:84`); arrastrar en un teléfono real; la cobertura de la extensión sobre
+  los 221 del grupo.
+
+**La regla:** la tabla de un feedback viejo se re-mide con una corrida propia, no se «actualiza» por lo que dice el relevo; y su
+encabezado con los totales se reescribe en el mismo commit que cambia sus filas, o el número queda de decoración. Las filas de
+esta tabla ya traen la medición con fecha: la que se cierre desde acá se tacha en su celda, con el commit.
+
+**Chicas** (un archivo, sin pantalla nueva, para hacer después): `lib/ficha/plantillas.ts` (sacar o dibujar «anuncio-de-origen»),
+`CabeceraLead.tsx:292` (`flex:none`), `FichaPorBloques.tsx:281` y `galeria.ts:11-15` (galería en un workspace nuevo),
+`GeneratedInsightCard.tsx`/`AnalystDelLead.tsx` (el aviso de qué falta), `app/m/crm/[id]/FichaLead.tsx` y `ficha-bloques.ts` (los
+rótulos de «Sin…»), `menu-contextual-crm.ts` + `CrmBoard.tsx:2650` (sin «Asignar fuentes» en Prospección).

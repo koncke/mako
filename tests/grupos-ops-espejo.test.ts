@@ -99,6 +99,14 @@ test('⚠️ el eco de un video o un Word de una tarjeta no duplica: el hilo los
   assert.deepEqual(R().ecoDeVideo, [{ autor: 'mako', wa: 'ECOV' }, { autor: 'mako', wa: 'ECOD' }], 'una tarjeta con video salía con una burbuja de más');
 });
 
+// Probado rompiéndolo (18/11/2026): con el emparejamiento por posición de antes (`copia.ids[i]` con `ids[i]`), «Tres» quedaba atada a
+// WA-B: base 14/0 → 13/1 (sólo éste en rojo); con `paresFilaWa`, verde.
+test('una tarjeta por partes ata el id de WhatsApp de cada parte a SU fila, aunque una parte no deje fila', () => {
+  const r = R().idsPorParte;
+  assert.deepEqual(r.porParte, ['fila', null, 'fila'], 'la parte vacía no deja fila, y su lugar queda marcado');
+  assert.deepEqual(r.filas, [{ texto: 'Uno', wa: 'WA-A' }, { texto: 'Tres', wa: 'WA-C' }], 'la fila de «Tres» se ató al id de otra parte');
+});
+
 test('sin copia: el anillo dice de quién es; fuera del anillo, es la persona dueña de la línea', () => {
   const r = R();
   assert.deepEqual(r.ecoDelAnillo, [{ autor: 'mako', nombre: 'MaKo' }, { autor: 'equipo', nombre: 'Equipo de MaKo' }]);

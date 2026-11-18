@@ -79,8 +79,11 @@ function sembrar(ws: number) {
 async function main() {
   const { runWithWorkspace } = await import('../lib/workspace');
   const { mudarLoDeAntes } = await import('../lib/copywriter/mudanza');
+  const { crear, crearVarias, papelera, restaurar } = await import('../lib/copywriter/server');
+  const { guionALaVista } = await import('../lib/copywriter/compartir');
+  const { masReciente } = await import('../lib/copywriter/arbol');
   const mudar = (ws: number) => runWithWorkspace(ws, mudarLoDeAntes);
-  for (const id of [11, 12, 13, 14, 15, 16, 17]) pg.db.workspaces.push({ id, nombre: `ws${id}` });
+  for (const id of [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]) pg.db.workspaces.push({ id, nombre: `ws${id}` });
   const out: Record<string, unknown> = {};
 
   // E2 · dos corridas seguidas: la segunda no hace nada. Y la celda vieja entra.
@@ -163,6 +166,85 @@ async function main() {
     sembrar(17);
     await mudar(17);
     out.dosNegocios = { comparten: [...ids(17)].filter((x) => a.has(x)).length, paginas: ids(17).size };
+  }
+
+  // ── Las cuatro bajas que quedaban de la verificación (18/11/2026) ──────────────────────────────────────────────
+  type Pag = { id: string; titulo: string; padre: string | null; actualizado: string; papelera?: string };
+  const indiceEntero = (ws: number) => { const v = valor(ws, INDICE); return v ? JSON.parse(v) as Pag[] : []; };
+  const pagina = (i: number): Pag & { emoji: null; tipo: 'ad'; orden: number } =>
+    ({ id: `g${(0xa00000000000 + i).toString(16)}`, titulo: `Propia ${i}`, emoji: null, tipo: 'ad', padre: null, orden: i, actualizado: '2026-11-01T00:00:00.000Z' });
+
+  // B3 · el negocio ya tenía una página propia: después de mudar, /copywriter sigue abriendo ÉSA (no un Reel mudado), y lo
+  // mudado nace con la fecha de su origen (un Reel con `at`, un guion con `creadoEn`), nunca con «ahora».
+  {
+    const ws = 18;
+    const propia = await runWithWorkspace(ws, () => crear({ tipo: 'ad', titulo: 'Mi guion de hoy' }));
+    if (!propia.ok) throw new Error(`crear: ${propia.error}`);
+    poner(ws, 'mako.razones', JSON.stringify([{ id: 'c1', nombre: 'Salario', guiones: [{ ...guion('g1', 'GANCHO\nA'), creadoEn: Date.parse('2026-10-05T12:00:00.000Z') }, guion('g2', 'GANCHO\nB')] }]));
+    poner(ws, 'reels.historial', JSON.stringify([{ id: 'r1', pedido: 'Reel pedido 1', at: '2026-10-20T10:00:00.000Z', pieza: pieza('R1') }, { id: 'r2', pedido: 'Reel pedido 2', at: '2099-01-01T00:00:00.000Z', pieza: pieza('R2') }]));
+    await mudar(ws);
+    const ix = indiceEntero(ws);
+    const de = (t: string) => ix.find((p) => p.titulo === t)?.actualizado ?? null;
+    out.B3 = {
+      abre: masReciente(ix as never)?.id === propia.pagina.id,
+      ningunaLeGana: ix.filter((p) => p.id !== propia.pagina.id).every((p) => p.actualizado < propia.pagina.actualizado),
+      reel1: de('Reel pedido 1'), guion1: de('Salario · Dolor'), padreReels: de('Reels'), marca: marca(ws), paginas: ix.length,
+    };
+  }
+
+  // B4 · el índice casi lleno: no entra nada y la marca NO queda «hecha»; al liberar lugar, el reintento trae todo.
+  {
+    const ws = 19;
+    sembrar(ws);
+    poner(ws, INDICE, JSON.stringify(Array.from({ length: 485 }, (_, i) => pagina(i))));
+    const r1 = await mudar(ws);
+    const tras1 = { paginas: indiceEntero(ws).length, marca: marca(ws) };
+    poner(ws, INDICE, JSON.stringify(Array.from({ length: 400 }, (_, i) => pagina(i))));
+    envejecer(ws);
+    const r2 = await mudar(ws);
+    out.B4 = { r1, tras1, r2, paginas: indiceEntero(ws).length, marca: marca(ws) };
+  }
+
+  // B4c · `crearVarias` contra un índice con una sola página de lugar: crea una y dice cuántas no entraron.
+  {
+    const ws = 20;
+    poner(ws, INDICE, JSON.stringify(Array.from({ length: 499 }, (_, i) => pagina(i))));
+    const ids = ['gb00000000001', 'gb00000000002', 'gb00000000003'];
+    const r = await runWithWorkspace(ws, () => crearVarias(ids.map((id) => ({ id, padreId: null, titulo: id, tipo: 'ad' as const }))));
+    out.B4c = r.ok ? { creadas: r.creadas, faltan: r.faltan, sinLugar: r.sinLugar, paginas: indiceEntero(ws).length } : { error: r.error };
+  }
+
+  // B5 · un `reels.historial` que no es JSON: lo que se puede leer se muda, la marca no queda «hecha», y con el historial
+  // arreglado el reintento trae los Reels.
+  {
+    const ws = 21;
+    sembrar(ws);
+    const bueno = valor(ws, 'reels.historial')!;
+    poner(ws, 'reels.historial', bueno.slice(0, 40));
+    const r1 = await mudar(ws);
+    const tras1 = { ...estado(ws) };
+    poner(ws, 'reels.historial', bueno);
+    envejecer(ws);
+    const r2 = await mudar(ws);
+    out.B5 = { r1, tras1, r2, ...estado(ws) };
+  }
+
+  // B6 · el link de una página que cuelga de otra en la Papelera no abre ni escribe; si la madre vuelve, el link vuelve.
+  {
+    const ws = 22;
+    const vista = (id: string) => runWithWorkspace(ws, () => guionALaVista(id)).then((g) => (g ? g.pagina.id === id : false));
+    const madre = await runWithWorkspace(ws, () => crear({ tipo: 'pagina', titulo: 'Campaña de noviembre' }));
+    if (!madre.ok) throw new Error(`crear madre: ${madre.error}`);
+    const hija = await runWithWorkspace(ws, () => crear({ tipo: 'ad', titulo: 'Anuncio 1', padre: madre.pagina.id }));
+    if (!hija.ok) throw new Error(`crear hija: ${hija.error}`);
+    const antes = { madre: await vista(madre.pagina.id), hija: await vista(hija.pagina.id) };
+    await runWithWorkspace(ws, () => papelera(madre.pagina.id));
+    const enPapelera = { madre: await vista(madre.pagina.id), hija: await vista(hija.pagina.id), noExiste: await vista('gfffffffffff0') };
+    await runWithWorkspace(ws, () => restaurar(madre.pagina.id));
+    const vuelta = { madre: await vista(madre.pagina.id), hija: await vista(hija.pagina.id) };
+    // Otro negocio no ve la hija de éste, aunque esté a la vista acá.
+    const otro = await runWithWorkspace(11, () => guionALaVista(hija.pagina.id));
+    out.B6 = { antes, enPapelera, vuelta, otroNegocio: otro !== null };
   }
 
   out.red = red;

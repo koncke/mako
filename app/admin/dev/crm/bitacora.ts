@@ -4154,6 +4154,22 @@ export const BITACORA: Hito[] = [
     tickets: [106],
   },
   {
+    fecha: '18 nov', hora: '04:25', chat: 'CRM', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Los 61 pedidos de diseño del CRM, re-medidos contra main: 17 hechos, 6 que ya no aplican y 38 abiertos',
+    puntos: [
+      '**Del Cerebro (pendientes verificados del 17/11, O47):** la tabla «El CRM, medido aparte» seguía con la foto del 24/10 («8 sin empezar, 46 a medias»).',
+      '**Medido fila por fila contra main:** siguen siendo 61. 17 están hechos, 6 ya no aplican porque un pedido posterior de Martín los reemplazó y 38 siguen abiertos.',
+      '**Lo que se daba por abierto y no lo estaba:** buscar Instagram por nombre (anda con Apify desde el 03/11), las hojas de la ficha como el Dashboard (son tabs desde el 24/10) y los datos por bloque de Fiscales, Servicio y Promesa.',
+      '**Qué queda para hacer, chico:** el bloque «anuncio-de-origen» que no se dibuja, las etiquetas junto al nombre en el teléfono, la galería de un workspace nuevo, los «Sin…» del teléfono y «Asignar fuentes» en Prospección.',
+    ],
+    archivos: [
+      'docs/feedback-diseno-pendiente.md — la última columna «Re-medido 18/11/2026», con el archivo y la línea de cada fila',
+      'docs/hallazgos-crm.md · docs/hallazgos.md',
+    ],
+    revisar: '/crm',
+  },
+  {
     fecha: '18 nov', hora: '01:05', chat: 'Lo que falta construir (nube) › F125', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Los pendientes verificados del 17/11, uno por uno',

@@ -304,7 +304,8 @@ function FiltrosThumbnailModal({ filtros, lista, onAplicar, onCerrar }: {
           <h3>Qué mostrar</h3>
           <div className={s.dosCol}>
             <label className={s.campo}>
-              <span className={s.etiqueta}>Rubro</span>
+              {/* «del canal»: el rubro lo hereda cada video de su canal, no es el tema del video (lib/thumbnails/explorar.ts). */}
+              <span className={s.etiqueta}>Rubro del canal</span>
               <select className={s.select} value={f.nicho} onChange={(e) => poner({ nicho: e.target.value as NichoThumbnail | '' })}>
                 <option value="">Todos los rubros</option>
                 {NICHOS_THUMBNAIL.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
