@@ -16,7 +16,7 @@
 // arranque (5 negocios en el plan más caro).
 // =============================================================================
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from 'react';
 import { gananciaEnUnAnio, gananciaPorMes, usd } from './numeros';
 
 export type PlanCalculadora = { id: string; nombre: string; precioUsd: number };
@@ -54,25 +54,36 @@ type Opcion<T extends string> = { id: T; texto: string; corto: string; completo?
 
 
 
-/** UN botón que muestra la opción de ahora y, al tocarlo, pasa a la otra. */
-function Alternar<T extends string>({ opciones: [a, b], valor, cambiar, etiqueta }: {
-  opciones: readonly [Opcion<T>, Opcion<T>]; valor: T; cambiar: (v: T) => void; etiqueta: string;
+/**
+ * LOS DOS PLANES, DOS BOTONES (18/11/2026, Martín por el Cerebro: «en lugar del botón con el deslizable que cambia de 97 a 47, ya
+ * podrían ser dos botones, y el que esté seleccionado que se note, y el otro más apagado»). Uno al lado del otro: el elegido, lleno
+ * y con sombra; el otro, apagado (se aviva al pasar el mouse). Sin mini interruptor ni latido. Es un grupo de radio: las flechas
+ * pasan de uno al otro y el lector de pantalla oye cuál está elegido.
+ */
+function ElegirPlan<T extends string>({ opciones, valor, cambiar, etiqueta }: {
+  opciones: readonly Opcion<T>[]; valor: T; cambiar: (v: T) => void; etiqueta: string;
 }) {
-  const actual = valor === b.id ? b : a;
-  const otra = actual === a ? b : a;
-  // La transición del texto, sólo cuando lo tocan: al cargar, el texto está quieto (una animación que arranca en opacidad 0 deja
-  // el botón vacío si el navegador la frena, por ejemplo en una pestaña de fondo).
-  // `tocado` también apaga el latido del mini interruptor: late hasta que tocan ESE botón.
-  const [tocado, setTocado] = useState(false);
+  const mover = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const paso = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!paso) return;
+    e.preventDefault();
+    const k = (i + paso + opciones.length) % opciones.length;
+    cambiar(opciones[k].id);
+    (e.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[k])?.focus();
+  };
   return (
-    <button type="button" className={`mp-calc-alt${tocado ? ' tocado' : ''}${actual === b ? ' der' : ''}`}
-      onClick={() => { setTocado(true); cambiar(otra.id); }}
-      aria-label={`${etiqueta}: ${actual.completo ?? actual.texto}. Cambiar a ${otra.completo ?? otra.texto}`}>
-      <span className={`mp-calc-alt-tx${tocado ? ' entra' : ''}`} key={actual.id}>
-        <span className="mp-calc-alt-largo">{actual.texto}</span><span className="mp-calc-alt-corto">{actual.corto}</span>
-      </span>
-      <span className="mp-calc-mini" aria-hidden="true"><span className="mp-calc-mini-bola" /></span>
-    </button>
+    <div className="mp-calc-alts" role="radiogroup" aria-label={etiqueta}>
+      {opciones.map((o, i) => {
+        const si = o.id === valor;
+        return (
+          <button key={o.id} type="button" role="radio" aria-checked={si} tabIndex={si ? 0 : -1}
+            className={`mp-calc-alt${si ? ' elegido' : ''}`} aria-label={o.completo ?? o.texto}
+            onClick={() => cambiar(o.id)} onKeyDown={(e) => mover(e, i)}>
+            <span className="mp-calc-alt-largo">{o.texto}</span><span className="mp-calc-alt-corto">{o.corto}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -108,16 +119,14 @@ export function Calculadora({ planes, children }: {
   const plan = planes.find((p) => p.id === planId) ?? planes[0];
   const porMes = useCorre(plan ? gananciaPorMes(n, plan.precioUsd) : 0);
   if (!plan) return null;
+  // «MaKo Pro: US$ 97» en la computadora y «Pro: US$ 97» en el teléfono (el nombre sin «MaKo»), de los planes.
   const opcionesPlan = planes.slice(0, 2).map((p) => ({
-    id: p.id, texto: `MaKo: ${usd(p.precioUsd)}`, corto: `MaKo: ${usd(p.precioUsd)}`, completo: `${p.nombre}, ${usd(p.precioUsd)}`,
+    id: p.id, texto: `${p.nombre}: ${usd(p.precioUsd)}`, corto: `${p.nombre.replace(/^MaKo\s+/, '')}: ${usd(p.precioUsd)}`,
+    completo: `${p.nombre}, ${usd(p.precioUsd)}`,
   }));
   return (
     <div className="mp-calc" id="calculadora" aria-label="Calculadora de lo que ganas">
-      <div className="mp-calc-alts">
-        {opcionesPlan.length === 2 && (
-          <Alternar etiqueta="Plan" opciones={[opcionesPlan[0], opcionesPlan[1]]} valor={plan.id} cambiar={setPlanId} />
-        )}
-      </div>
+      {opcionesPlan.length === 2 && <ElegirPlan etiqueta="Plan del negocio que traes" opciones={opcionesPlan} valor={plan.id} cambiar={setPlanId} />}
       <div className="mp-calc-fila">
         <label htmlFor="mp-calc-n">¿Cuántos negocios traes?</label>
         <output htmlFor="mp-calc-n" className="mp-calc-n">{n}</output>

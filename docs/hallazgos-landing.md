@@ -7491,6 +7491,11 @@ Martín: «Me gusta la misma… solamente calculado a esto». Era la misma landi
   (`container-type: inline-size` + `cqi`), con un piso: 15 px.
 - **Medir todas las combinaciones, no el arranque.** El monto más largo no es el de arranque («US$ 1.367,70 al mes» con 47
   negocios): la prueba recorre de 1 a 100 negocios × plan × forma de pago y mira que nada se salga.
+- **Los dos botones del plan (versión final): el pedido literal se perdía en el fondo.** Se pidió el elegido «con el relleno del
+  color de marca y texto blanco», pero la calculadora entera ES azul de marca: un botón azul ahí no se distingue. El elegido va
+  blanco con el texto azul y sombra; el otro, transparente con borde fino y texto atenuado. «MaKo Essential: US$ 47» entra en
+  medio recuadro sólo con 8 px de relleno y la letra a `100cqi / 11.4` (16,4 px a 1440); debajo de 172 px de ancho va el corto
+  («Essential: US$ 47») por `@container`. Es un `radiogroup`: las flechas cambian de plan.
 - **Un `str.replace` que no encuentra el texto no avisa.** Un comentario de la versión 57 no entró porque el script usó
   `replace` sin verificar: en los scripts de edición, cada reemplazo con `assert s.count(a) == 1`, y convirtiendo CRLF antes.
 

@@ -88,37 +88,30 @@ body:has(.mp-publica) { background: #FFFFFF; }
   border: 3px solid var(--mp-azul-osc); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
 .mp-calc-barra::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--mp-sobre-azul); border: 3px solid var(--mp-azul-osc); }
 .mp-calc-barra:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 6px; }
-/* Los dos botones que alternan (18/11/2026): uno al lado del otro, cada uno con la opción de ahora en UNA línea y un mini interruptor
-   (pista y bolita) que se desliza al otro lado al tocar, y late cada ~2 s hasta que tocan ese botón. Borde, fondo y sombra de botón;
-   se levanta al pasar el mouse y se hunde al tocarlo. */
-.mp-calc-alts { display: grid; grid-template-columns: 1fr; gap: 10px; }
-.mp-calc-alt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 56px; padding: 8px 10px 8px 12px;
-  border-radius: 14px; cursor: pointer; font: inherit; text-align: left; color: var(--mp-sobre-azul); background: rgba(255,255,255,.14);
-  border: 1px solid rgba(255,255,255,.4); box-shadow: 0 6px 16px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.2);
-  transition: transform .12s ease, background .15s ease, box-shadow .15s ease; -webkit-tap-highlight-color: transparent; container-type: inline-size; }
-.mp-calc-alt:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.25); }
-.mp-calc-alt:active { transform: translateY(1px) scale(.98); box-shadow: 0 2px 6px rgba(0,0,0,.18); }
+/* Los dos planes, DOS botones uno al lado del otro (18/11/2026, Martín: «el que esté seleccionado que se note, y el otro más
+   apagado»). Sobre el azul de la calculadora, el elegido va BLANCO con el texto azul y una sombra suave (un relleno azul se perdía
+   en el fondo azul); el otro, transparente, con el texto blanco atenuado y un borde fino, y se aviva al pasar el mouse. El cambio es
+   una transición corta. */
+.mp-calc-alts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mp-calc-alt { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 52px; padding: 8px; border-radius: 14px;
+  cursor: pointer; font: inherit; text-align: center; color: rgba(255,255,255,.72); background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.3); box-shadow: none; container-type: inline-size; -webkit-tap-highlight-color: transparent;
+  transition: background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .12s ease; }
+.mp-calc-alt:hover { color: var(--mp-sobre-azul); background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.55); }
+.mp-calc-alt:active { transform: scale(.98); }
+.mp-calc-alt.elegido { color: var(--mp-azul-osc); background: var(--mp-sobre-azul); border-color: var(--mp-sobre-azul);
+  box-shadow: 0 8px 20px rgba(0,0,0,.2); }
 .mp-calc-alt:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 3px; }
-.mp-calc-alt-tx { display: flex; min-width: 0; }
-.mp-calc-alt-tx.entra { animation: mp-cambia .22s ease; }
-/* Una línea, grande y en semibold (Martín: «deben ser más grandes porque no se ven»): 17–18 px en la computadora, siguiendo el ancho
-   del botón. */
-.mp-calc-alt-largo, .mp-calc-alt-corto { font-size: clamp(15px, calc((100cqi - 36px) / 8.2), 18px); font-weight: 600; line-height: 1.2; white-space: nowrap; }
+/* Una línea, en semibold el elegido: 15–17 px, siguiendo el ancho del botón. Si «MaKo Essential: US$ 47» no entra, va el corto. */
+.mp-calc-alt-largo, .mp-calc-alt-corto { font-size: clamp(14px, calc(100cqi / 11.4), 17px); font-weight: 500; line-height: 1.2; white-space: nowrap; }
+.mp-calc-alt.elegido .mp-calc-alt-largo, .mp-calc-alt.elegido .mp-calc-alt-corto { font-weight: 600; }
 .mp-calc-alt-corto { display: none; }
-/* El mini interruptor: una pista de 28 × 16 con su bolita; a la derecha cuando está la segunda opción. */
-.mp-calc-mini { position: relative; flex: none; width: 28px; height: 16px; border-radius: 999px; background: rgba(255,255,255,.3); box-shadow: inset 0 0 0 1px rgba(255,255,255,.45); }
-.mp-calc-mini-bola { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--mp-sobre-azul);
-  box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s ease; }
-.mp-calc-alt.der .mp-calc-mini-bola { transform: translateX(12px); }
-@keyframes mp-cambia { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-@keyframes mp-late { 0%, 60%, 100% { transform: scale(1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.45), 0 0 0 0 rgba(255,255,255,.5); }
-  25% { transform: scale(1.15); box-shadow: inset 0 0 0 1px rgba(255,255,255,.6), 0 0 0 6px rgba(255,255,255,0); } }
-.mp-calc-alt:not(.tocado) .mp-calc-mini { animation: mp-late 2s ease-in-out .6s infinite; }
-@media (prefers-reduced-motion: reduce) { .mp-calc-alt, .mp-calc-alt-tx.entra, .mp-calc-mini, .mp-calc-mini-bola { transition: none; animation: none !important; } }
-/* En el teléfono, 15–16 px; con un solo botón a todo el ancho, el mini interruptor entra al lado del texto. */
+@container (max-width: 172px) { .mp-calc-alt-largo { display: none; } .mp-calc-alt-corto { display: inline; } }
+@media (prefers-reduced-motion: reduce) { .mp-calc-alt { transition: none; } }
+/* En el teléfono, el nombre corto: «Pro: US$ 97» / «Essential: US$ 47». */
 @media (max-width: 479px) {
   .mp-calc-alt-largo { display: none; }
-  .mp-calc-alt-corto { display: inline; font-size: clamp(15px, calc(100cqi / 8), 16px); }
+  .mp-calc-alt-corto { display: inline; font-size: clamp(14px, calc(100cqi / 9), 16px); }
 }
 .mp-calc-res { margin: 18px 0 22px; container-type: inline-size; }
 /* El precio en UNA línea con «al mes» al final, más chico; la letra sigue el ancho del recuadro (cqi) para que el monto más largo

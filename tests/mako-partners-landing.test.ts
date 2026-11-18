@@ -89,23 +89,24 @@ test('la CALCULADORA: el botón del plan que alterna, el deslizador, el precio e
   assert.equal(calcT.trim(),
     // Cada botón muestra SÓLO la opción de ahora: el texto completo (computadora) y el corto (teléfono), el CSS muestra uno; el del
     // plan, con su precio debajo.
-    'MaKo: US$ 97 MaKo: US$ 97 ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
+    'MaKo Pro: US$ 97 Pro: US$ 97 MaKo Essential: US$ 47 Essential: US$ 47 ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
     'sin JavaScript: 5 negocios con el plan más caro, cobrando directo; y NADA más');
   assert.equal((calc.match(/<input/g) ?? []).length, 1, 'un solo deslizador');
   assert.match(calc, /<input id="mp-calc-n" class="mp-calc-barra" type="range" min="1" max="100"/, 'hasta 100 negocios');
-  // Martín: «un único botón que si lo cliqueas cambia a la otra opción y que esté un botón al lado del otro».
-  assert.equal((calc.match(/<button/g) ?? []).length, 1, 'un botón: el del plan (el de la forma de pago se fue: siempre es el 30%)');
-  assert.ok(calc.includes('aria-label="Plan: MaKo Pro, US$ 97. Cambiar a MaKo Essential, US$ 47"'), 'dice cuál es y a cuál cambia, con el plan completo');
-  // Martín: «el pequeño botoncito dentro del botón que se note que es switchable, pero no me convence el ícono».
-  assert.equal((calc.match(/class="mp-calc-mini"/g) ?? []).length, 1, 'con su mini interruptor');
-  assert.doesNotMatch(calc, /mp-calc-alt-ic|<svg/, 'sin el ícono ⇄');
-  assert.doesNotMatch(calcT, /Essential|Pasarela|Transferencia/, 'el botón muestra sólo la opción de ahora, y no hay forma de pago');
-  assert.doesNotMatch(calcT, /Binance|%/, 'sin «Binance» ni el porcentaje en los interruptores');
-  assert.ok(calcT.indexOf('MaKo: US$ 97') < calcT.indexOf('¿Cuántos negocios traes?'), 'el botón, arriba del deslizador');
-  // En el teléfono, los nombres cortos con letra de 14 px (el Cerebro: «13 px o más»).
+  // Martín (18/11/2026, por el Cerebro): «ya podrían ser dos botones, y el que esté seleccionado que se note, y el otro más apagado».
+  assert.equal((calc.match(/<button/g) ?? []).length, 2, 'dos botones: Pro y Essential');
+  assert.match(calc, /<div class="mp-calc-alts" role="radiogroup" aria-label="Plan del negocio que traes">/, 'un grupo de radio');
+  assert.match(calc, /<button type="button" role="radio" aria-checked="true" tabindex="0" class="mp-calc-alt elegido" aria-label="MaKo Pro, US\$ 97">/, 'Pro, el elegido de arranque');
+  assert.match(calc, /<button type="button" role="radio" aria-checked="false" tabindex="-1" class="mp-calc-alt" aria-label="MaKo Essential, US\$ 47">/, 'Essential, apagado');
+  assert.doesNotMatch(calc, /mp-calc-mini|mp-calc-alt-ic|<svg/, 'sin mini interruptor ni ícono');
+  assert.doesNotMatch(calcT, /Pasarela|Transferencia/, 'no hay forma de pago');
+  assert.doesNotMatch(calcT, /Binance|%/, 'sin «Binance» ni el porcentaje en los botones');
+  assert.ok(calcT.indexOf('MaKo Pro: US$ 97') < calcT.indexOf('¿Cuántos negocios traes?'), 'los botones, arriba del deslizador');
   const cssCalc = fuente('app/mako-partners/LandingPartners.tsx');
-  assert.match(cssCalc, /\.mp-calc-alt-largo, \.mp-calc-alt-corto \{ font-size: clamp\(15px, [^;]*, 18px\); font-weight: 600;/, 'grande y en semibold');
-  assert.match(cssCalc, /\.mp-calc-alt:not\(\.tocado\) \.mp-calc-mini \{ animation: mp-late 2s ease-in-out \.6s infinite; \}/, 'late hasta que lo tocan');
+  assert.match(cssCalc, /\.mp-calc-alts \{ display: grid; grid-template-columns: 1fr 1fr;/, 'uno al lado del otro');
+  assert.match(cssCalc, /\.mp-calc-alt\.elegido \{[^}]*background: var\(--mp-sobre-azul\);[^}]*box-shadow:/, 'el elegido, lleno y con sombra');
+  assert.match(cssCalc, /\.mp-calc-alt:hover \{/, 'el apagado se aviva al pasar el mouse');
+  assert.doesNotMatch(cssCalc, /mp-late|mp-calc-mini/, 'sin latido ni mini interruptor');
   assert.doesNotMatch(calcT, /Si pagan por pasarela|negocios ×/, 'ni la línea de la pasarela ni la cuenta');
   assert.equal((calc.match(/<a /g) ?? []).length, 1, 'una sola llamada a la acción');
   const { gananciaPorMes, gananciaEnUnAnio } = await import('../app/mako-partners/numeros');
