@@ -116,6 +116,7 @@ import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 import { PREVIA_DEL_FUNNEL_COACH_V2, previaDelCoach, previaDelOfferCoach } from '@/lib/funnel-plan';
 import { ASPECTO_FUNNEL_COACH_V2 } from './useChatDelCoach';
+import { usePasoAlFunnel } from './reto/usePasoAlFunnel';
 
 /** Cuántas filas se ven debajo del Cerebro antes de «Mostrar N más». */
 const FILAS_VISIBLES = SUBS_VISIBLES;
@@ -513,6 +514,23 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // no puede hacer, y un closer no ve Offer (lo cerraría la puerta de la tab). `veMapa` lo sabe el servidor al dibujar; `puedeElegir`
   // llega después: con los dos, la fila no parpadea para el admin.
   const verCoach = ops || veMapa || puedeElegir;
+  // EL PASO A FUNNEL COACH DESDE UNA CONVERSACIÓN DE OFERTA (la del PDF, que cuelga del Offer Coach; 18/11/2026, sólo con los dos
+  // coaches): una versión NUEVA mientras está abierta es una oferta entregada, y la marca espera a que la persona la vea
+  // (./reto/usePasoAlFunnel.ts). Se cuenta cuando la conversación queda quieta (Offer ya terminó de armarla), y contra lo que tenía
+  // ESA conversación: al abrir otra, la cuenta vuelve a empezar.
+  const { ofertaAbierta } = k;
+  const [entregadaOffer, setEntregadaOffer] = useState<number | null>(null);
+  const versionesVistas = useRef<{ id: number; n: number } | null>(null);
+  useEffect(() => {
+    if (!ofertaAbierta || ofertaAbierta.id !== idOffer) return;
+    const antes = versionesVistas.current;
+    if (!antes || antes.id !== ofertaAbierta.id) { versionesVistas.current = { id: ofertaAbierta.id, n: ofertaAbierta.versiones }; setEntregadaOffer(null); return; }
+    if (k.enCurso) return;
+    if (ofertaAbierta.versiones > antes.n) setEntregadaOffer(Date.now());
+    versionesVistas.current = { id: ofertaAbierta.id, n: ofertaAbierta.versiones };
+  }, [ofertaAbierta, idOffer, k.enCurso]);
+  const seVeLaConversacion = idOffer != null && !conCoach && !enOtroChat && !verMapa && !ticketera;
+  usePasoAlFunnel({ activo: dosCoaches && seVeLaConversacion, entregadaEn: entregadaOffer, ocupado: k.enCurso || k.tarjeta != null, contenedor: useCallback(() => hilo.current, []) });
   const coaches = (
     <div className="co-cuenta co-cuenta--coaches">
       {/* LOS DOS COACHES (onboarding V2): el Offer Coach con las conversaciones de oferta colgando de él, y después el Funnel Coach. */}
@@ -744,7 +762,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       )}
       {offerAbierto && dosCoaches && (
         <div style={{ display: verOffer ? 'contents' : 'none' }}>
-          <ChatDelCoach cual="offer" referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} dosCoaches />
+          <ChatDelCoach cual="offer" referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} dosCoaches visible={verOffer} />
         </div>
       )}
       {centro && <MenusCentro centro={centro} />}

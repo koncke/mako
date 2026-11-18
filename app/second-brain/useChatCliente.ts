@@ -787,5 +787,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     marcas, ponerMarca, accionesWA, menuWA, setMenuWA, infoWA, setInfoWA, elegirEnMenu, mensajesWA,
     iaConectada, app, conectando, setConectando, mirarSuIA, menuDeFila, menuDeChats,
     cuentasIA: idOffer != null ? null : cuentasIA, iaDelChat, elegirIA, resumenIA: resumenDeIA(iaDelChat, cuentasIA),
+    // Cuántas versiones armó la conversación de Offer abierta (con su id: al cambiar de conversación, la de antes no cuenta). La usa el
+    // paso de Offer Coach a Funnel Coach (app/second-brain/reto/usePasoAlFunnel.ts): una versión nueva es una oferta entregada.
+    ofertaAbierta: deOfferAbierta ? { id: deOfferAbierta.id, versiones: deOfferAbierta.versiones } : null,
   };
 }
