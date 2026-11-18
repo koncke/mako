@@ -58,6 +58,17 @@ La maqueta queda como ESPECIFICACIÓN. Lo que mordió al construirlo:
   marca de «Mover a»: se probó imitándola (velo 1200, Escape en captura de la ventana).
 - **«Mostrada» no es «tocada».** La última frase del CRM («Más acciones», `espera_clic: false`) se marca sin pausar; contarla como
   tocada hacía que al terminar el video se saltara el CTA. El cierre mira sólo las que la persona tocó (`tocadas`).
+- **El video se adapta al recorrido aprobado, NO al revés (18/11).** Al meter los videos de verdad, el recorrido de la maqueta y
+  la primera vez en el Ops Center pasaron a seguir las frases del video «recorrido» (Funnel Coach, Uso, la Ticketera, el reto), que el
+  chat de los videos escribió por su cuenta, y se perdió el recorrido que Martín había aprobado (el reto, la barra «Tu panel», el
+  Second Brain, la Ticketera). Martín: «antes era mucho mejor, le mostrábamos la sidebar». **Regla:** un video cuyas marcas no son
+  los pasos aprobados no los reemplaza: ese momento va sin video (su «Sin grabar») hasta que el video se rehaga, una frase por paso.
+- **El diagnóstico obvio era el equivocado: «el video no coincide» no era el reloj, era DÓNDE caía la pausa.** El motor pausaba en
+  el t_inicio de la frase de acción: al seguir, la voz terminaba esa frase con la marca ya en la siguiente (Martín: «está narrando
+  todavía lo de Funnel Coach»). **Regla:** la marca sale en el t_inicio y se QUEDA mientras la voz la narra; la pausa va en el t_fin,
+  en el silencio del final; la marca siguiente, recién en el t_inicio de SU frase. `timeupdate` llega cada ~250 ms: la pausa justa se
+  mira con `requestAnimationFrame` (app/_ui/tutorial/MotorTutorial.tsx). La maqueta tiene su propio motor y lleva lo mismo
+  (`premarcaEn`, C:/dev/artefactos-onboarding/cuerpo.html).
 - **El Chromium de Playwright no reproduce mp4 (H.264):** para mirar el video hay que lanzar el Chrome instalado
   (`chromium.launch({ channel: 'chrome' })`). Con el otro, el video «no carga» y parece un error del motor.
 
