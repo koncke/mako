@@ -127,15 +127,18 @@ test('la respuesta: texto con tope, y sin ella la cascada prueba otro proveedor'
 // rotura 6 (la ruta sin la rama de la consulta): 7 pass / 1 fail, cae éste.
 test('la ruta: la consulta va ANTES de editar y devuelve el borrador tal cual', () => {
   const ruta = leer('app/api/chat-agent/secuencias/ia/route.ts');
+  // Desde el 18/11/2026 el motor de explicar y de editar vive en lib/flujo-ia-editar.ts (lo llaman la ruta y la API de MaKo).
+  const motor = leer('lib/flujo-ia-editar.ts');
   // Desde el 22/10/2026 la decide `vaAExplicar` con la intención (Discutir / Editar, lib/flujo-ia-intencion.ts): sin
   // elegir, sigue siendo `esConsulta` y sólo sin respuestas (tests/chat-mako-discutir-editar.test.ts).
-  const consulta = ruta.indexOf('if (vaAExplicar(intencion, respuestas.length > 0, esConsulta(pedido), esPreguntaDirecta(pedido)))');
-  const editar = ruta.indexOf("getPromptText('chatbot.editar-ia.system'");
+  const consulta = motor.indexOf('if (vaAExplicar(intencion, respuestas.length > 0, esConsulta(pedido), esPreguntaDirecta(pedido)))');
+  const editar = motor.indexOf("getPromptText('chatbot.editar-ia.system'");
   assert.ok(consulta > 0 && editar > consulta, 'la consulta se decide antes del prompt de editar');
-  assert.match(ruta.slice(consulta, editar), /getPromptText\('chatbot\.explicar-ia\.system', EXPLICAR_IA_SYSTEM_TEMPLATE\)/);
+  assert.match(motor.slice(consulta, editar), /getPromptText\('chatbot\.explicar-ia\.system', EXPLICAR_IA_SYSTEM_TEMPLATE\)/);
   assert.match(ruta, /const contestar = async[\s\S]{0,1200}pasos: base,[\s\S]{0,200}cambiadas: \[\], quitadas: \[\]/, 'contestar devuelve el borrador sin cambios');
   // (24/10/2026, f23: con lo que falta en MaKo, si lo dijo. Y desde el 27/10/2026, con qué IA contestó.)
-  assert.match(ruta, /if \(r\.respuesta\) \{ await contestar\(r\.respuesta, r\.falta, ia\); return; \}/, 'la capa 2: editar contestó');
+  assert.match(motor, /if \(r\.respuesta\) return \{ t: 'contesta', respuesta: r\.respuesta, \.\.\.\(r\.falta \? \{ falta: r\.falta \} : \{\}\), ia \};/, 'la capa 2: editar contestó');
+  assert.match(ruta, /if \(g\.t === 'contesta'\) \{ await contestar\(g\.respuesta, g\.falta, g\.ia\); return; \}/, 'la ruta no contesta lo que contestó el motor');
   // (22/10/2026: la revisión vive en `revisarEdicion`, lib/flujo-ia-revision-editar.ts.)
   const rev = leer('lib/flujo-ia-revision-editar.ts');
   assert.match(rev, /if \(r\.respuesta\) \{[\s\S]{0,300}?return \{ r, errores: e \? \[e\] : \[\] \};/, 'una respuesta no se reintenta por «no cambió nada»');

@@ -24,10 +24,11 @@ import { anguloGuionPorId, instruccionesTexto } from './guion-angulos';
 import { getAngulosGuion } from './guion-angulos-store';
 import { estructuraPorId } from './guion-estructuras';
 import { getEstructurasGuion } from './guion-estructuras-store';
-import { getSetting, setSetting } from './settings';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { getAvatares, avataresTexto, type Avatar } from './avatares';
 import { getEntregables, entregablesTexto } from './entregable';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, errorDeCascada } from './ai-cheap';
+import { fundirMatriz, type FusionMatriz } from './razones-fundir';
 
 // El shape del guion y su pipeline de producción viven en lib/guion-estado.ts
 // (sin 'server-only'): los componentes de cliente los necesitan igual, y una
@@ -104,13 +105,24 @@ function normalizarRazon(v: unknown): RazonCelda {
 }
 
 // ── Persistencia ─────────────────────────────────────────────────────────────
-export async function getRazones(): Promise<RazonCelda[]> {
-  const raw = await getSetting(SETTING_KEY);
+function parsearRazones(raw: string | null): RazonCelda[] {
   if (!raw) return [];
   try {
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr.map(normalizarRazon).filter((r) => r.nombre) : [];
   } catch { return []; }
+}
+export async function getRazones(): Promise<RazonCelda[]> {
+  return parsearRazones(await getSetting(SETTING_KEY));
+}
+/**
+ * La matriz en ESTRICTO: si la base no contesta, TIRA (`getSettingEstricto`). `getRazones` convierte un 5xx en [], y todo
+ * lo que escribe la matriz ENTERA (`setRazones`) después de leerla con `getRazones` la borra con la base caída un instante.
+ * Lo usa quien lee para reescribirla (lib/guiones-cargar.ts, `regenerarMatrizSinPerder`). Un JSON roto da [], como
+ * `getRazones`: es lo que la tab ve.
+ */
+export async function getRazonesEstricto(): Promise<RazonCelda[]> {
+  return parsearRazones(await getSettingEstricto(SETTING_KEY));
 }
 export async function setRazones(list: RazonCelda[]): Promise<void> {
   await setSetting(SETTING_KEY, JSON.stringify(list));
@@ -165,14 +177,34 @@ export function parseRazones(text: string, avatares: Avatar[]): RazonCelda[] {
 // ── Generación de la matriz de razones (envelope {ok}; nunca lanza) ──────────
 export type GenResult = { ok: true; razones: RazonCelda[]; uso: Uso } | { ok: false; error: string };
 
-export async function generarRazones(): Promise<GenResult> {
+/** Lo que tiene que estar antes de generar la matriz (sin IA): los avatares y el negocio cargado. null = se puede. */
+function faltaParaGenerar(avatares: Avatar[], brief: string): string | null {
+  if (avatares.length < 1) return 'Primero define tus avatares: son las filas de la matriz.';
+  if (!brief.trim() || brief.replace(/[—\-·\s]/g, '').length < 20) return 'Primero carga tu negocio en El Archivero: de ahí salen las razones.';
+  return null;
+}
+
+/**
+ * ¿Se puede generar la matriz? La misma pregunta que hace `generarRazones` antes de llamar a la IA, para quien tiene que
+ * saberlo SIN escribir (la API de MaKo la hace en `preparar`: lo que se sabe sin escribir falla ahí). null = se puede.
+ */
+export async function faltaParaGenerarRazones(): Promise<string | null> {
+  const [avatares, brief] = await Promise.all([getAvatares(), perfilNegocioTexto()]);
+  return faltaParaGenerar(avatares, brief);
+}
+
+/**
+ * `opts.soloAvatar`: sólo las motivaciones de ESE avatar (las otras filas no van al prompt). `opts.hastaMs`: hasta cuándo
+ * puede contestar la IA (epoch ms; la API de MaKo por HTTP corta a 60 s).
+ */
+export async function generarRazones(opts: { soloAvatar?: string | null; hastaMs?: number } = {}): Promise<GenResult> {
   try {
-    const avatares = await getAvatares();
-    if (avatares.length < 1) return { ok: false, error: 'Primero define tus avatares: son las filas de la matriz.' };
+    const todos = await getAvatares();
+    const avatares = opts.soloAvatar ? todos.filter((a) => a.id === opts.soloAvatar) : todos;
+    if (opts.soloAvatar && todos.length && !avatares.length) return { ok: false, error: 'Ese avatar ya no existe: pide los avatares de nuevo.' };
     const [brief, fase, entregables] = await Promise.all([perfilNegocioTexto(), faseNegocioTexto(), getEntregables()]);
-    if (!brief.trim() || brief.replace(/[—\-·\s]/g, '').length < 20) {
-      return { ok: false, error: 'Primero carga tu negocio en El Archivero: de ahí salen las razones.' };
-    }
+    const falta = faltaParaGenerar(avatares, brief);
+    if (falta) return { ok: false, error: falta };
     const sys = await renderPrompt('razones.system', RAZONES_SYSTEM_TEMPLATE, {});
     const user = await renderPrompt('razones.user', RAZONES_USER_TEMPLATE, {
       avatares: avataresTexto(avatares),
@@ -190,6 +222,7 @@ export async function generarRazones(): Promise<GenResult> {
       feature: 'razones', motivo: 'Matriz de motivaciones de compra por avatar',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parseRazones(t, avatares).length > 0,
       erroresOut: errores,
+      ...(opts.hastaMs != null ? { hastaMs: opts.hastaMs } : {}),
       // Es de lo primero que toca un cliente nuevo, y desde el 15/10/2026 un cliente nuevo no
       // trae una API: sin la red ve «conecta tu IA» en su primera semana (docs/mapa-ia-24h.md).
       redDePlataforma: true,
@@ -201,6 +234,28 @@ export async function generarRazones(): Promise<GenResult> {
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+// ── Regenerar SIN perder guiones (la API de MaKo, `generar_anuncios_planteados`) ──────────────────────────────────────────
+/**
+ * Arma de nuevo las motivaciones y las FUNDE con la matriz de hoy (lib/razones-fundir.ts): lo que tiene guiones, formato o
+ * imagen se queda tal cual; lo que no tiene nada se reemplaza; hasta 3 por avatar. La matriz se relee en ESTRICTO
+ * DESPUÉS de la IA (lo que otra pestaña escribió mientras se generaba no se pisa, y con la base caída no se escribe nada).
+ * La pantalla sigue con `generarRazones` + `setRazones` (reemplazo total): ver la cabecera de lib/razones-fundir.ts.
+ */
+export async function regenerarMatrizSinPerder(opts: { soloAvatar?: string | null; hastaMs?: number } = {}): Promise<{ ok: true; fusion: FusionMatriz } | { ok: false; error: string }> {
+  const r = await generarRazones(opts);
+  if (!r.ok) return r;
+  let actuales: RazonCelda[];
+  let avatares: Avatar[];
+  try { [actuales, avatares] = await Promise.all([getRazonesEstricto(), getAvatares()]); } catch {
+    return { ok: false, error: 'No pude leer tus anuncios planteados: no cambié nada. Reintenta en un momento.' };
+  }
+  const fusion = fundirMatriz(actuales, r.razones, { avatares: avatares.map((a) => a.id), soloAvatar: opts.soloAvatar ?? null });
+  // Sin nada nuevo no se escribe: sacar las vacías sin poner otras en su lugar no es «rehacer».
+  if (!fusion.agregadas.length) return { ok: false, error: 'MaKo no encontró motivaciones nuevas: las que trajo ya estaban, o cada avatar ya tiene sus 3 con trabajo.' };
+  await setRazones(fusion.razones);
+  return { ok: true, fusion };
 }
 
 // ── Guion de una celda (a pedido) ────────────────────────────────────────────

@@ -53,25 +53,22 @@ import { after, type NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual, getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { getSetting, setSetting } from '@/lib/settings';
 import { canceladaDesde, claveCancelada, MIRAR_CANCELADA_MS, pushDeTrabajo } from '@/lib/flujo-ia-trabajo-reglas';
-import { getPromptText } from '@/lib/prompt-render';
 import { valorDisparo } from '@/lib/flujo-conversacion';
 import { ordenarAvisos } from '@/lib/flujo-ia-cliente';
 import { sanearAdjuntos, bloqueDeAdjuntos } from '@/lib/chat-adjuntos-automatizacion';
 import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 import {
-  EDITAR_IA_SYSTEM_TEMPLATE, ordenDeRevelado, conEtiquetasReales, refsSinResolver, disparadorReal,
-  userDeEditar, leyendoDe, leyendoTexto, aIA,
-  type EventoIA, type ResultadoEdicion, type GuardadoIA,
+  ordenDeRevelado, conEtiquetasReales, refsSinResolver, disparadorReal,
+  type EventoIA, type GuardadoIA,
 } from '@/lib/flujo-ia';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { disparadorDeValorIA, valorIADeDisparador, type Disparador } from '@/lib/disparadores';
 import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
-import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
-import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE } from '@/lib/flujo-ia-consulta';
-import { intencionDe, extrasDelUser, vaAExplicar, esPreguntaDirecta, lugarInventado } from '@/lib/flujo-ia-intencion';
-import { revisarEdicion, etapaQueNoExiste, textoEtapaQueNoExiste } from '@/lib/flujo-ia-revision-editar';
+import { crearNuevas, crearFlujoConIA } from '@/lib/flujo-ia-crear';
+import { editarFlujoConIA } from '@/lib/flujo-ia-editar';
+import { intencionDe } from '@/lib/flujo-ia-intencion';
 import {
-  sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron, textosDeRespuestas,
+  sanearRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron,
 } from '@/lib/flujo-ia-preguntas';
 import { sanearChat, type EventoPreguntaIA, type MensajeChatMako, type PreguntaMako } from '@/lib/automatizacion-chat';
 import { leerChat, agregarAlChat } from '@/lib/automatizacion-chat-db';
@@ -338,17 +335,11 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        // ⚠️ CON EL CRON DEL ANUNCIO GUARDADO, EL CONTEXTO LO TRAE (la revisión del Cerebro, 28/10/2026): el anuncio entra al
-        // catálogo sólo si el pedido lo nombra (el techo de Groq), y «¿Qué hace esta automatización?» no lo nombra: el rótulo
-        // del CRON no se encontraba y MaKo contestaba «no tiene CRON».
+        // EL MOTOR DE EDITAR (y de explicar) vive en lib/flujo-ia-editar.ts desde el 18/11/2026 (pendiente O19, P0-7): la MISMA
+        // función que llama la API de MaKo (`editar_armada_con_ia`). Acá quedan el stream, el chat y el borrador.
+        // ⚠️ CON EL CRON DEL ANUNCIO GUARDADO, EL CONTEXTO LO TRAE (la revisión del Cerebro, 28/10/2026): `disparadorActual`
+        // viaja al motor, que lo pasa a `armarContexto` (sin eso, «¿Qué hace esta automatización?» contestaba «no tiene CRON»).
         const disparadorActual = await cronGuardado();
-        const leido = await armarContexto(ws, pedido, { anuncio: /:anuncio$/.test(disparadorActual ?? ''), mencion: /:mencion$/.test(disparadorActual ?? ''), textos: textosDeRespuestas(respuestas) });
-        const { perfil, voz } = leido;
-        const leyendo = leyendoDe(leido.ctx, perfil);
-        send({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });
-        // Lo que contestó (una condición, «Otra cosa») va al pedido; el canal, a `canalElegido`. El CRON que ya tiene
-        // decide el ámbito de las condiciones y si un DM puede salir sin preguntar (`cronActual`, lib/flujo-ia.ts).
-        const { ctx, pedido: pedidoEditar } = aplicarRespuestas({ ...leido.ctx, disparadorActual }, pedido, respuestas);
 
         /** MaKo CONTESTÓ (una pregunta): al chat, y el borrador vuelve tal cual, sin una tarjeta tocada. */
         // `falta` (24/10/2026, f23): lo que pidió y no está en MaKo. Desde el 27/10/2026 (ticket 874749710-14 de Leandro) el
@@ -373,63 +364,16 @@ export async function POST(req: NextRequest) {
             resumen: respuesta, cambiadas: [], quitadas: [], ...(falta ? { falta } : {}), ...(ia ? { ia } : {}),
           });
         };
-        // ⚠️ UNA PREGUNTA NO PASA POR EDITAR (15/10/2026, lib/flujo-ia-consulta.ts): «¿Qué hace esta automatización? No
-        // cambies nada, sólo explícamelo.» terminaba en «Cambié 1», con el texto del video de #198 reescrito. Va a un prompt
-        // que sólo puede devolver {"respuesta"}; con respuestas a una pregunta de MaKo, es un pedido y sigue abajo.
-        // ⚠️ Y DESDE EL 22/10/2026 LO ELIGE LA PERSONA (lib/flujo-ia-intencion.ts): «Discutir» va siempre acá, «Editar»
-        // nunca; sin elegir, lo de antes. En los tres, lo último de la charla viaja (sin eso «como te dije» no existía).
-        // UNA ETAPA QUE NO EXISTE se dice ANTES del modelo (22/10/2026, el arnés contra producción: el modelo no devolvía nada y
-        // salía «No cambió nada»). Sin inventarla ni poner otra a escondidas: el CRON no se toca (lib/flujo-ia-revision-editar.ts).
-        const sinEtapa = respuestas.length === 0 ? etapaQueNoExiste(pedido, ctx) : null;
-        if (sinEtapa) { await contestar(textoEtapaQueNoExiste(sinEtapa)); return; }
-        const extras = [...extrasDelUser(intencion, historial), ...(adjuntos.length ? [bloqueDeAdjuntos(adjuntos)] : [])];
-        if (vaAExplicar(intencion, respuestas.length > 0, esConsulta(pedido), esPreguntaDirecta(pedido))) {
-          const system = await getPromptText('chatbot.explicar-ia.system', EXPLICAR_IA_SYSTEM_TEMPLATE);
-          const cron = ctx.disparadores.find((x) => x.value === disparadorActual)?.label ?? null;
-          const user = [userDeExplicar({ cron, flujo: JSON.stringify(aIA(base, ctx)), pregunta: pedido }), ...extras].join('\n\n');
-          send({ t: 'fase', fase: 'respuesta' });
-          // Y un lugar de Configuraciones que no existe es un error, como en Editar (24/10/2026, f22: `lugarInventado`).
-          const traducirRespuesta = (obj: Record<string, unknown>) => {
-            const x = deIARespuesta(obj);
-            const falso = x.r.respuesta ? lugarInventado(x.r.respuesta) : null;
-            return falso ? { ...x, errores: [...x.errores, falso] } : x;
-          };
-          const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir: traducirRespuesta, motivo: 'Contestar una pregunta sobre una automatización' });
-          if ('error' in g) {
-            await anotar([mensajeChat('mako', g.error, 'app')]);
-            send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) });
-            return;
-          }
-          await contestar(g.r.respuesta, g.r.falta, textoDeQuienContesto(g.quien));
-          return;
-        }
-
-        // Sin slots: lo variable va en el `user` (un override guardado no conoce bloques nuevos).
-        const system = await getPromptText('chatbot.editar-ia.system', EDITAR_IA_SYSTEM_TEMPLATE);
-        const user = [userDeEditar(ctx, { perfil, voz, pedido: pedidoEditar }, base), ...extras].join('\n\n');
-        // Cada intento del modelo pasa por la misma revisión (lib/flujo-ia-revision-editar.ts, la prueban sus tests con la
-        // respuesta grabada): en «Editar» contestar sin cambiar es un error salvo lo que vale (`errorDeRespuestaEnEditar`);
-        // pedir SUMAR y cambiar lo que había, también; y «hazlo» con lo pedido ya hecho se contesta en vez de «No cambió nada».
-        // Y EL CONTROL DE LO PEDIDO (22/10/2026, Martín: «creó a la mitad las cosas que le pedí»): lo pegado entre comillas que
-        // no quedó en el flujo es un error la PRIMERA vez (`control`, uno por turno) y después se dice en ROJO (`noHecho`).
-        const control = { yaPidioLoQueFalta: false };
-        const traducir = (obj: Record<string, unknown>): { r: ResultadoEdicion; errores: string[] } =>
-          revisarEdicion({ obj, base, ctx, pedido, historial, intencion, control });
-
-        send({ t: 'fase', fase: 'modelo' });
-        const g = await generar({
-          system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir, motivo: 'Editar una automatización con IA',
-          alIntento: (n) => { if (n > 1) send({ t: 'fase', fase: 'modelo', intento: n }); },
-        });
-        if ('error' in g) {
+        const g = await editarFlujoConIA({ ws, base, pedido, disparadorActual, respuestas, historial, intencion, adjuntos, hastaMs: inicio + PLAZO_MODELO_MS, alFase: send });
+        if (g.t === 'error') {
           await anotar([mensajeChat('mako', g.error, 'app')]);
           send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) });
           return;
         }
-        const r = g.r;
-        const ia = textoDeQuienContesto(g.quien);
-        // La capa 2 de la consulta: el modelo de editar contestó en vez de cambiar (`deIAEdicion` no aplicó nada).
-        if (r.respuesta) { await contestar(r.respuesta, r.falta, ia); return; }
+        // MaKo contestó (una etapa que no existe, una pregunta, o el modelo de editar contestó en vez de cambiar): el borrador
+        // vuelve tal cual. `g.ia`: qué IA lo contestó (lo que se contesta sin el modelo no lo lleva).
+        if (g.t === 'contesta') { await contestar(g.respuesta, g.falta, g.ia); return; }
+        const { r, ia } = g;
         send({ t: 'fase', fase: 'revision', reparadas: r.avisos.length });
 
         // Cancelado mientras el modelo escribía: no queda nada escrito.

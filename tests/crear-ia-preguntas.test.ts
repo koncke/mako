@@ -285,6 +285,8 @@ test('el turno de la persona no se escribe dos veces si el historial ya termina 
 // ── 5. La ruta y la API de MaKo ─────────────────────────────────────────────────
 
 const RUTA = sinComentarios(leer('app/api/chat-agent/secuencias/ia/route.ts'));
+// El motor de editar (18/11/2026): el contexto, el prompt y el modelo se mudaron de la ruta a lib/flujo-ia-editar.ts.
+const MOTOR_EDITAR = sinComentarios(leer('lib/flujo-ia-editar.ts'));
 
 test('la ruta: el GET exige admin (el MISMO guard que el POST) y lee el chat con el ws del pedido', () => {
   const get = RUTA.slice(RUTA.indexOf('export async function GET('), RUTA.indexOf('export async function POST('));
@@ -305,9 +307,12 @@ test('la ruta: editar con la respuesta del CRON NO llama al modelo; «Déjalo as
   // del cierre): se busca la llamada, y que exista (un indexOf -1 dejaría la comparación sin sentido). Roto cambiando la
   // llamada (12/10, en un espejo): 15 / 1, cae éste.
   // (28/10/2026: con el CRON guardado y lo de «Otra cosa» de tercer argumento, `armarContexto(ws, pedido, { anuncio, textos })`.)
-  const contexto = RUTA.indexOf('armarContexto(ws, pedido');
+  // (18/11/2026: el contexto y el modelo de editar viven en el motor, lib/flujo-ia-editar.ts; la ruta lo llama con
+  // `editarFlujoConIA(`, que es lo que la rama del CRON no puede alcanzar.)
+  const contexto = RUTA.indexOf('editarFlujoConIA(');
   assert.ok(contexto > 0, 'editar no lee el contexto');
-  assert.ok(fin < contexto && fin < RUTA.indexOf('await generar({'), 'la rama del CRON llega al modelo');
+  assert.ok(fin < contexto, 'la rama del CRON llega al modelo');
+  assert.equal(RUTA.indexOf('await generar({'), -1, 'la ruta volvió a llamar al modelo por su cuenta');
   assert.match(RUTA.slice(i, fin), /respuestaDelCron\(delCron, historial\)/);
   assert.match(RUTA.slice(i, fin), /pasos: base,/);
   assert.match(RUTA.slice(i, fin), /cambiadas: \[\], quitadas: \[\], \.\.\.\(listo\.disparadores \? \{ disparadores: listo\.disparadores \} : \{\}\)/);
@@ -318,7 +323,9 @@ test('la ruta: editar con la respuesta del CRON NO llama al modelo; «Déjalo as
   assert.equal(respuestaDelCron(respuesta('cron', 'basura:x'), []).disparadores, undefined);
   // Editar pasa su propio motivo a la cascada y usa la revisión de editar. (17/10, #847: y el número de intento como
   // fase, tests/crear-ia-intentos.test.ts.)
-  assert.match(RUTA, /generar\(\{\s*system, user, hastaMs: inicio \+ PLAZO_MODELO_MS, traducir, motivo: 'Editar una automatización con IA',\s*alIntento: [^\n]*\n\s*\}\)/);
+  // (18/11/2026: la llamada vive en el motor, lib/flujo-ia-editar.ts; el plazo lo pone la ruta al llamarlo.)
+  assert.match(MOTOR_EDITAR, /generar\(\{\s*system, user, hastaMs, traducir, motivo: 'Editar una automatización con IA',\s*alIntento: [^\n]*\n\s*\}\)/);
+  assert.match(RUTA, /editarFlujoConIA\(\{[^}]*hastaMs: inicio \+ PLAZO_MODELO_MS,/);
   // (15/10/2026: una RESPUESTA del modelo no cambió nada y no se revisa: «no cambió nada» la reintentaría,
   // tests/flujo-ia-consulta.test.ts.)
   // (22/10/2026: la revisión vive en `revisarEdicion`, lib/flujo-ia-revision-editar.ts: una respuesta vuelve ANTES de `erroresEdicion`.)
