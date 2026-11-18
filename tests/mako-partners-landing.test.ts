@@ -64,9 +64,10 @@ test('así de simple (3 pasos en tarjetas) y según cómo pagan: cada idea UNA v
   const { html, t } = await landing();
   // Martín: «Elimina "por qué conviene"… y simplemente pon "así de simple", pero con el diseño de las tarjetas».
   assert.doesNotMatch(t, /Por qué conviene|pago único|El 30% es tuyo/);
-  assert.match(html, /<h2>Así de simple<\/h2><ol class="mp-numeros">/, 'los pasos, con el diseño de las tarjetas de los números');
-  // Los 3 pasos, en orden; el 3 dice cómo cobras («"tú eliges cómo cobrar…" debería estar… en el paso 3»).
-  assert.match(t, /Así de simple 1 Compartes tu link En tus redes, tus grupos de WhatsApp o tus anuncios\. Si no entran por el link, ponen tu código al pagar\. 2 El negocio se suma a MaKo Paga su plan con tu link o tu código, y desde su primer pago cada mes te deja tu parte\. 3 Cobras del 1 al 5 de cada mes Tú eliges cómo: dólares por Binance o pesos por transferencia\./);
+  assert.match(html, /<h2>Así de simple<\/h2><ol class="mp-pasos">/, 'los pasos, con su diseño');
+  assert.equal((html.match(/class="mp-paso-ic"/g) ?? []).length, 3, 'un ícono por paso');
+  // Los 3 pasos, en orden, con una línea de texto (Martín: «el texto de abajo es muy largo»).
+  assert.match(t, /Así de simple 1 Compartes tu link En redes, grupos o anuncios\. 2 El negocio se suma a MaKo Paga con tu link o tu código\. 3 Cobras del 1 al 5 de cada mes En dólares por Binance o en pesos\./);
   // Según cómo pagan: las dos tarjetas, con los montos de la regla.
   // Versión 66: el % con su nombre, los montos, un divisor y una línea chica; sin paréntesis ni el porqué (queda en su pregunta).
   // Versión 68 (Martín: «el título… está medio confuso… las tarjetas… muy chiquitito»): el título nuevo y los montos con el plan al final.
@@ -74,7 +75,7 @@ test('así de simple (3 pasos en tarjetas) y según cómo pagan: cada idea UNA v
   assert.ok(t.includes(`${PASARELA} Pasarela de pago ${pasarelaPro} por mes con MaKo Pro ${pasarelaEssential} con MaKo Essential Pagan con link de pago o con tarjeta de crédito o débito.`), 'la de pasarela');
   assert.doesNotMatch(t, /Cuánto te llevas según cómo pagan/);
   assert.doesNotMatch(t, /\(tarjeta, Mercado Pago\)|la compartimos|Cuando el negocio paga por/, 'sin paréntesis ni el porqué en las tarjetas');
-  assert.equal((t.match(/dólares por Binance o pesos por transferencia/g) ?? []).length, 1, 'cómo cobras, UNA vez (en el paso 3)');
+  assert.equal((t.match(/dólares por Binance/g) ?? []).length, 1, 'cómo cobras, UNA vez (en el paso 3)');
   // Martín: «elimina lo de "o cuando le cobras tú y nos mandas el resto"… no son agencias».
   assert.doesNotMatch(t, /cobras tú|nos mandas el resto|cualquier plan/i);
   assert.match(html, /class="mp-cobro mp-cobro-mejor"/, 'la de transferencia, destacada');
@@ -94,7 +95,7 @@ test('la CALCULADORA: dos botones que alternan (plan y cómo te pagan), el desli
   assert.equal(calcT.trim(),
     // Cada botón muestra SÓLO la opción de ahora: el texto completo (computadora) y el corto (teléfono), el CSS muestra uno; el del
     // plan, con su precio debajo.
-    'MaKo: US$ 97 MaKo: US$ 97 Transferencia Transferencia ¿Cuántos negocios traes? 5 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
+    'MaKo: US$ 97 MaKo: US$ 97 Transferencia Transferencia ¿Cuántos negocios traes? 5 20 50 100 US$ 145,50 al mes US$ 1.746 en un año Hacerme partner',
     'sin JavaScript: 5 negocios con el plan más caro, cobrando directo; y NADA más');
   assert.equal((calc.match(/<input/g) ?? []).length, 1, 'un solo deslizador');
   assert.match(calc, /<input id="mp-calc-n" class="mp-calc-barra" type="range" min="1" max="100"/, 'hasta 100 negocios');
@@ -279,4 +280,12 @@ test('el carrusel de Partners: entre el héroe y «Así de simple», con los rub
   for (const r of INDUSTRIAS) assert.ok(tira.includes(`</svg></span>${r.nombre}</li>`), `el rubro ${r.nombre}, con su ícono`);
   assert.equal((tira.match(/class="s-tira-l"/g) ?? []).length, 2, 'dos vueltas iguales, la segunda oculta para el lector, como la portada');
   assert.ok(fuente('app/mako-partners/LandingPartners.tsx').includes('CSS_REEMPLAZA + CSS'), 'el mismo CSS del carrusel de la portada');
+});
+
+test('el deslizador frena en 20, 50 y 100 (Martín: «una muy pequeña frenada»), sólo al arrastrar', async () => {
+  const { iman, MARCAS_NEGOCIOS } = await import('../app/mako-partners/Calculadora');
+  assert.deepEqual([...MARCAS_NEGOCIOS], [20, 50, 100]);
+  for (const [v, sale] of [[17, 17], [18, 20], [22, 20], [23, 23], [48, 50], [52, 50], [98, 100], [5, 5]]) assert.equal(iman(v), sale, `${v} → ${sale}`);
+  const c = fuente('app/mako-partners/Calculadora.tsx');
+  assert.ok(c.includes('setN(arrastrando.current ? iman(v) : v)'), 'el imán sólo al arrastrar: con el teclado sigue de a 1');
 });

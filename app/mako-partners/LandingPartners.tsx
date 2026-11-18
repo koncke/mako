@@ -165,7 +165,25 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-tira-ic { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; color: var(--mp-azul);
   background: var(--mp-azul-bg); }
 /* Aire entre el título de una sección y sus tarjetas (sin bajada en medio). */
-.mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-cobros { margin-top: 28px; }
+.mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-pasos, .mp-seccion h2 + .mp-cobros { margin-top: 28px; }
+/* «Así de simple»: profundidad suave (borde fino, sombra y un degradé muy leve de la marca), el número en un círculo, un ícono, y en
+   la computadora la línea punteada que une los pasos (en el hueco entre tarjetas). */
+.mp-pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; grid-template-columns: repeat(3, 1fr); }
+.mp-paso { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 24px 24px 26px; border-radius: 22px; border: 1px solid var(--mp-borde);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mp-azul) 7%, var(--mp-sup)) 0%, var(--mp-sup) 75%);
+  box-shadow: 0 14px 34px -22px color-mix(in srgb, var(--mp-azul) 45%, transparent); }
+.mp-paso:not(:last-child)::after { content: ""; position: absolute; top: 44px; right: -29px; width: 30px; border-top: 2px dotted color-mix(in srgb, var(--mp-azul) 55%, transparent); }
+.mp-paso-cab { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.mp-paso-n { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; font-weight: 800;
+  color: var(--mp-sobre-azul); background: var(--mp-azul); box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--mp-azul) 70%, transparent); }
+.mp-paso-ic { width: 26px; height: 26px; color: var(--mp-azul); }
+.mp-paso b { font-size: 19px; line-height: 1.25; color: var(--mp-ink); }
+.mp-paso > span { font-size: 16px; color: var(--mp-dim); }
+/* Las marcas del deslizador (20, 50 y 100), chiquitas, debajo de la pista. */
+.mp-calc-marcas { position: relative; height: 22px; margin: 6px 12px 0; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mp-calc-marcas span { position: absolute; top: 0; transform: translateX(-50%); padding-top: 6px; opacity: .7; }
+.mp-calc-marcas span::before { content: ""; position: absolute; top: 0; left: 50%; width: 1px; height: 4px; background: currentColor; }
+.mp-calc-marcas span.activa { opacity: 1; }
 .mp-faq { max-width: 780px; margin: 0 auto; display: grid; gap: 10px; }
 .mp-faq details { background: var(--mp-sup); border: 1px solid var(--mp-borde); border-radius: 16px; padding: 0 22px; }
 .mp-faq summary { cursor: pointer; list-style: none; padding: 18px 0; font-weight: 700; font-size: 17px; color: var(--mp-ink); display: flex;
@@ -184,7 +202,9 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-pie { text-align: center; color: #8A93A2; font-size: 13.5px; padding: 28px 0 40px; }
 .mp-pie a { color: #5B6472; }
 @media (max-width: 860px) {
-  .mp-hero-grilla, .mp-numeros, .mp-cobros { grid-template-columns: 1fr; }
+  .mp-hero-grilla, .mp-numeros, .mp-cobros, .mp-pasos { grid-template-columns: 1fr; }
+  .mp-pasos { gap: 14px; }
+  .mp-paso:not(:last-child)::after { display: none; }
   /* El relleno de arriba deja lugar al chip (el % nunca queda debajo de él); los montos, en un renglón. */
   .mp-cobro { padding: 52px 22px 24px; }
   .mp-cobro-mejor { padding: 51px 21px 23px; }
@@ -203,6 +223,16 @@ body:has(.mp-publica) { background: #FFFFFF; }
 
 /** El ejemplo del subtítulo, con el plan más caro (18/11/2026, decidido: «Trae 10 y son US$ 291 extra por mes»). */
 const NEGOCIOS_DEL_EJEMPLO = 10;
+
+/** Los 3 pasos de «Así de simple», con su ícono (Tabler, MIT, como los del resto del sitio): link, negocio y billetera. */
+const PASOS: ReadonlyArray<{ titulo: string; texto: string; icono: readonly string[] }> = [
+  { titulo: 'Compartes tu link', texto: 'En redes, grupos o anuncios.',
+    icono: ['M9 15l6 -6', 'M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464', 'M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463'] },
+  { titulo: 'El negocio se suma a MaKo', texto: 'Paga con tu link o tu código.',
+    icono: ['M3 21l18 0', 'M5 21v-14l8 -4v18', 'M19 21v-10l-6 -4', 'M9 9l0 .01', 'M9 12l0 .01', 'M9 15l0 .01', 'M9 18l0 .01'] },
+  { titulo: 'Cobras del 1 al 5 de cada mes', texto: 'En dólares por Binance o en pesos.',
+    icono: ['M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12', 'M20 12v4h-4a2 2 0 0 1 0 -4h4'] },
+];
 
 /** La acción de la landing: hacerse partner, o volver al panel. Siempre un link (sin JavaScript también lleva). */
 export type AccionLanding = { href: string; texto: string };
@@ -302,13 +332,22 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
       <section className="mp-seccion">
         <div className="mp-wrap">
           <h2>Así de simple</h2>
-          <ol className="mp-numeros">
-            <li className="mp-numero"><b>1</b><span className="mp-numero-t">Compartes tu link</span>
-              <span>En tus redes, tus grupos de WhatsApp o tus anuncios. Si no entran por el link, ponen tu código al pagar.</span></li>
-            <li className="mp-numero"><b>2</b><span className="mp-numero-t">El negocio se suma a MaKo</span>
-              <span>Paga su plan con tu link o tu código, y desde su primer pago cada mes te deja tu parte.</span></li>
-            <li className="mp-numero"><b>3</b><span className="mp-numero-t">Cobras del 1 al 5 de cada mes</span>
-              <span>Tú eliges cómo: dólares por Binance o pesos por transferencia.</span></li>
+          {/* Menos plano, sin dramatismo (Martín, 18/11/2026: «quedó muy plano esas tarjetitas. Tampoco que sea súper dramático… el
+              texto de abajo es muy largo»): profundidad suave, el número en un círculo, un ícono por paso, la línea punteada que los
+              une en la computadora, y una línea de texto. */}
+          <ol className="mp-pasos">
+            {PASOS.map((p, i) => (
+              <li key={p.titulo} className="mp-paso">
+                <div className="mp-paso-cab">
+                  <span className="mp-paso-n">{i + 1}</span>
+                  <svg className="mp-paso-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    {p.icono.map((d) => <path key={d} d={d} />)}
+                  </svg>
+                </div>
+                <b>{p.titulo}</b>
+                <span>{p.texto}</span>
+              </li>
+            ))}
           </ol>
         </div>
       </section>

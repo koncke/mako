@@ -24,6 +24,15 @@ export type PlanCalculadora = { id: string; nombre: string; precioUsd: number };
 
 /** Hasta 100 negocios (Martín, 18/11/2026: «que el deslizable sea hasta 100»). */
 export const MAX_NEGOCIOS = 100;
+
+/**
+ * LAS FRENADAS (18/11/2026, Martín: «que se detenga en 20, en 50 y después en 100… no que se detenga, sino que haga una muy pequeña
+ * frenada»): al arrastrar, un valor a ±2 de una marca se acomoda en ella (100 es el final). Sólo al arrastrar: con el teclado sigue de
+ * a 1 (si no, desde 18 la flecha caería siempre en 20 y no se podría pasar a 21).
+ */
+export const MARCAS_NEGOCIOS = [20, 50, MAX_NEGOCIOS] as const;
+export const iman = (v: number): number => MARCAS_NEGOCIOS.find((m) => Math.abs(v - m) <= 2) ?? v;
+const posicion = (v: number) => `${((v - 1) / (MAX_NEGOCIOS - 1)) * 100}%`;
 export const NEGOCIOS_DE_ARRANQUE = 5;
 
 // LOS DOS BOTONES QUE ALTERNAN (18/11/2026, Martín sobre los interruptores dobles: «Yo no quiero que sea un botón doble donde se vea
@@ -99,6 +108,7 @@ export function Calculadora({ planes, children }: {
   children?: ReactNode;
 }) {
   const [n, setN] = useState(NEGOCIOS_DE_ARRANQUE);
+  const arrastrando = useRef(false);
   const [planId, setPlanId] = useState(planes[0]?.id ?? '');
   const [canal, setCanal] = useState<CanalDelPago>(CANALES[0].id);
   const plan = planes.find((p) => p.id === planId) ?? planes[0];
@@ -120,8 +130,12 @@ export function Calculadora({ planes, children }: {
         <output htmlFor="mp-calc-n" className="mp-calc-n">{n}</output>
       </div>
       <input id="mp-calc-n" className="mp-calc-barra" type="range" min={1} max={MAX_NEGOCIOS} step={1} value={n}
-        onChange={(e) => setN(Number(e.currentTarget.value))}
-        style={{ ['--mp-lleno' as string]: `${((n - 1) / (MAX_NEGOCIOS - 1)) * 100}%` }} />
+        onPointerDown={() => { arrastrando.current = true; }} onPointerUp={() => { arrastrando.current = false; }}
+        onChange={(e) => { const v = Number(e.currentTarget.value); setN(arrastrando.current ? iman(v) : v); }}
+        style={{ ['--mp-lleno' as string]: posicion(n) }} />
+      <div className="mp-calc-marcas" aria-hidden="true">
+        {MARCAS_NEGOCIOS.map((m) => <span key={m} className={n === m ? 'activa' : ''} style={{ left: posicion(m) }}>{m}</span>)}
+      </div>
       <div className="mp-calc-res" aria-live="polite">
         <div className="mp-calc-monto">{usd(porMes)} <span>al mes</span></div>
         <div className="mp-calc-anio">{usd(gananciaEnUnAnio(n, plan.precioUsd, canal))} en un año</div>
