@@ -88,6 +88,52 @@ test('el correo de cada día: «Día N del reto de MaKo», una vez, y el día 1 
   assert.equal(diaParaAvisar({ ...base, avisado: 2 }, ahora), null, 'una vez por día');
 });
 
+// EL PASO DE OFFER COACH A FUNNEL COACH (18/11/2026). Martín, sobre la maqueta: «me manda la oferta con el PDF para descargar… pero
+// apenas me la manda automáticamente ya sale el botón para hacer clic en Funnel Coach. Eso no tiene sentido… mínimo déjame verla».
+// Probado rompiéndolo (18/11/2026), con el archivo en 6 / 0, una rotura por vez y restaurada (sha256), cada una 5 / 1:
+//   · `marcaAlFunnelYa` sin esperar la lectura (true con la oferta entregada)          · el gesto de escribir contando el turno que
+//     YA corría (`if (ocupado && entregadaEn != null)`)                                  · la tarjeta a la derecha de la fila
+//   · la conversación de oferta contando versiones con Offer todavía armándola
+test('el paso a Funnel Coach espera a que la persona VEA su oferta: un gesto o ~20 s, nunca en el acto ni encima de ella', async () => {
+  const { LECTURA_DE_LA_OFERTA_MS, marcaAlFunnelYa, ofertaRecienEntregada } = await import('../lib/reto/dias');
+  const t0 = h('2026-11-18T15:00:00Z');
+  assert.equal(LECTURA_DE_LA_OFERTA_MS, 20_000);
+  assert.equal(marcaAlFunnelYa({ entregadaEn: t0, ahora: t0, gesto: false, ocupado: false }), false, 'en el acto, no: primero la ve');
+  assert.equal(marcaAlFunnelYa({ entregadaEn: t0, ahora: t0 + 19_999, gesto: false, ocupado: false }), false);
+  assert.equal(marcaAlFunnelYa({ entregadaEn: t0, ahora: t0 + 20_000, gesto: false, ocupado: false }), true, 'después de leerla');
+  assert.equal(marcaAlFunnelYa({ entregadaEn: t0, ahora: t0 + 1_000, gesto: true, ocupado: false }), true, 'descargó el PDF, bajó hasta el final o escribió');
+  assert.equal(marcaAlFunnelYa({ entregadaEn: t0, ahora: t0 + 60_000, gesto: true, ocupado: true }), false, 'nunca con MaKo escribiendo');
+  assert.equal(marcaAlFunnelYa({ entregadaEn: null, ahora: t0, gesto: true, ocupado: false }), false, 'sin una oferta entregada en esta visita, nada');
+  // Qué es «entregada»: una oferta que aparece o cambia; la de antes, la del perfil o «no se sabe», no.
+  const hay = (nombre: string, de = 'guardada') => ({ estado: 'hay' as const, nombre, de });
+  assert.equal(ofertaRecienEntregada({ estado: 'no-hay' }, hay('Mentoría')), true);
+  assert.equal(ofertaRecienEntregada(hay('Mentoría', 'conversacion'), hay('Mentoría')), true, 'armada y ahora guardada');
+  assert.equal(ofertaRecienEntregada(hay('Mentoría'), hay('Mentoría 2')), true, 'otra');
+  assert.equal(ofertaRecienEntregada(hay('Mentoría'), hay('Mentoría')), false, 'la que ya estaba al abrir');
+  assert.equal(ofertaRecienEntregada({ estado: 'no-hay' }, hay('MaKo', 'perfil')), false, 'la del perfil no la armó nadie');
+  assert.equal(ofertaRecienEntregada({ estado: 'no-se' }, hay('Mentoría')), false, 'sin saber qué había, no se afirma una entrega');
+  assert.equal(ofertaRecienEntregada(null, hay('Mentoría')), false);
+  // El motor: escribir cuenta si EMPIEZA un turno después de la entrega; la tarjeta debajo de la fila; sólo con la fila a la vista;
+  // una vez por visita (la misma cuenta que el chat del reto) y la tarea queda hecha al tocarla.
+  const leerSin = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
+  const paso = leerSin('app/second-brain/reto/usePasoAlFunnel.ts');
+  assert.match(paso, /if \(ocupado && !antesOcupado\.current && entregadaEn != null\) setGesto\(true\);/);
+  assert.match(paso, /marcarTarea\(\[\{ \.\.\.m, lado: 'abajo' \}\], \(\) => \{ if \(d\?\.estado\) void hacer\(\{ accion: 'hecha', dia: 1, id: TAREA\.id \}\); \}\);/);
+  assert.match(paso, /if \(!m \|\| yaMarcada\(CLAVE\) \|\| senalAhora\(\) \|\| !filaVisible\(m\.sel\)\) return;/);
+  assert.match(paso, /if \(Date\.now\(\) - ultimoGesto > GESTO_RECIENTE_MS\) return;/, 'bajar al último mensaje lo hace la pantalla, no la persona');
+  // Dónde se entrega: el Offer Coach (relee la oferta al terminar cada turno) y la conversación de oferta del PDF (una versión nueva,
+  // contada con Offer ya quieto). Los dos, sólo con los dos coaches y a la vista.
+  const chat = leerSin('app/second-brain/ChatDelCoach.tsx');
+  assert.match(chat, /usePasoAlFunnel\(\{ activo: dosCoaches && cual === 'offer' && visible, entregadaEn, ocupado,/);
+  const motor = leerSin('app/second-brain/useChatDelCoach.ts');
+  assert.match(motor, /if \(ocupado \|\| cual !== 'offer' \|\| !dosCoaches\) return;/);
+  assert.match(motor, /if \(base\.current != null && ofertaRecienEntregada\(base\.current, nueva\)\) setEntregadaEn\(Date\.now\(\)\);/);
+  const sb = leerSin('app/second-brain/ChatSecondBrain.tsx');
+  assert.match(sb, /if \(k\.enCurso\) return;\n\s*if \(ofertaAbierta\.versiones > antes\.n\) setEntregadaOffer\(Date\.now\(\)\);/);
+  assert.match(sb, /usePasoAlFunnel\(\{ activo: dosCoaches && seVeLaConversacion, entregadaEn: entregadaOffer,/);
+  assert.match(sb, /dosCoaches visible=\{verOffer\} \/>/);
+});
+
 test('el día 3 es tu primera automatización, sin atarla a WhatsApp (Martín, 18/11)', () => {
   const d3 = DIAS_RETO[2];
   assert.doesNotMatch(JSON.stringify(d3), /difusi/i, 'sin «difusión»');

@@ -21,7 +21,8 @@ import { useChatCliente } from './useChatCliente';
 import { ASPECTO_MAKO, aspectoDe, aspectoDeReferente } from '@/lib/centro-munecos';
 import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, TAB_FUNNEL_COACH, TAB_OFFER_COACH, type CoachDelOps, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { asesorPorId, type IdAsesor } from '@/lib/asesores/catalogo';
-import { saludoDelFunnelCoach, saludoDelFunnelCoachV2, saludoDelOfferCoach, sanearPlan, type OfertaDelCoach, type PlanFunnel } from '@/lib/funnel-plan';
+import { saludoDelFunnelCoach, saludoDelFunnelCoachV2, saludoDelOfferCoach, sanearOfertaDelCoach, sanearPlan, type OfertaDelCoach, type PlanFunnel } from '@/lib/funnel-plan';
+import { ofertaRecienEntregada } from '@/lib/reto/dias';
 import type { Desde } from '@/lib/chat-desde';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
@@ -73,11 +74,31 @@ export function useChatDelCoach({ referente, oferta, caja, cual = 'funnel', dosC
     return () => { vivo = false; };
   }, [ocupado, cual]);
 
+  // EL OFFER COACH DEL V2 RELEE LA OFERTA AL TERMINAR CADA TURNO (18/11/2026): si apareció una (o cambió), se acaba de ENTREGAR, y
+  // eso abre el paso a Funnel Coach (app/second-brain/reto/usePasoAlFunnel.ts), que espera a que la persona la vea. Lo que había al
+  // abrir es la base: una oferta de antes no es una entrega.
+  const [entregadaEn, setEntregadaEn] = useState<number | null>(null);
+  const base = useRef<OfertaDelCoach | null>(null);
+  useEffect(() => { if (base.current == null && oferta != null) base.current = oferta; }, [oferta]);
+  useEffect(() => {
+    if (ocupado || cual !== 'offer' || !dosCoaches) return;
+    let vivo = true;
+    void fetch('/api/mako/chat?coaches=1', { cache: 'no-store' })
+      .then((x) => (x.ok ? x.json() : null)).catch(() => null)
+      .then((j: { oferta?: unknown } | null) => {
+        if (!vivo || !j) return;
+        const nueva = sanearOfertaDelCoach(j.oferta);
+        if (base.current != null && ofertaRecienEntregada(base.current, nueva)) setEntregadaEn(Date.now());
+        if (base.current == null || nueva.estado !== 'no-se') base.current = nueva;
+      });
+    return () => { vivo = false; };
+  }, [ocupado, cual, dosCoaches]);
+
   // El saludo espera a saber con qué oferta abre (`oferta` null): antes, abría diciendo que no había y medio segundo después que sí.
   const vacio = elegido != null && oferta != null && k.cargado && !k.errorCarga && !k.items.length && !k.trabajo;
   const texto = oferta == null ? null
     : cual === 'offer' ? saludoDelOfferCoach(oferta, r?.completo ?? null)
       : dosCoaches ? saludoDelFunnelCoachV2(oferta) : saludoDelFunnelCoach(oferta);
   const saludo = useMemo<ItemHilo[]>(() => (texto ? [{ k: 'msg', id: `saludo-${de.tab}`, role: 'assistant', texto, at: new Date().toISOString() }] : []), [texto, de.tab]);
-  return { k, r, aspecto, quien, vacio, saludo, plan, titulo: de.titulo, tab: de.tab };
+  return { k, r, aspecto, quien, vacio, saludo, plan, titulo: de.titulo, tab: de.tab, entregadaEn, ocupado };
 }
