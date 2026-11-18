@@ -15,7 +15,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import Link from '@/app/_ui/Link';
-import { CtaPasarAPro } from './CtaPasarAPro';
+import { CtaPasarAPro, TextoDelTope } from './CtaPasarAPro';
 import { esTelefono } from '@/lib/telefono';
 import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
@@ -45,7 +45,7 @@ export function CartelSoloPro({ texto }: { texto: string }) {
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ color: 'var(--dim)' }}>
         <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
       </svg>
-      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.45 }}>{texto}</p>
+      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.45 }}><TextoDelTope texto={texto} /></p>
       {conLink && <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} style={boton}>{ROTULO_PASAR_A_PRO}</Link></CtaPasarAPro>}
     </div>
   );
@@ -56,7 +56,7 @@ export function TextoConPasarAPro({ texto }: { texto: string }) {
   const conLink = useConLink();
   return (
     <span data-tope-plan>
-      {texto}
+      <TextoDelTope texto={texto} />
       {conLink && (
         <>
           {' '}

@@ -14,6 +14,11 @@
   animation: menu-in var(--cv-duration-fast) var(--cv-ease-out);
 }
 
+/* Abierto desde un diálogo (MaKo, 18/11/2026): por encima del velo del diálogo, como el `overModal` de Popover.module.css. */
+.overModal {
+  z-index: calc(var(--cv-z-modal) + 2);
+}
+
 .item {
   display: flex;
   align-items: center;

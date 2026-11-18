@@ -178,7 +178,7 @@ producción es recién con el despliegue diario de Vercel en «Ready», que esta
 | `punta/movil-chats-linea` | O48 (las 150 por línea) | c026f4223 | en main |
 | `punta/dashboard-octubre` | O10 (1)(2)(3 funnel), O13 Dashboard | 0e8e3a6d5 | en main |
 | `punta/dashboard-funnel-agrupado` | O10 (1) al agrupar | b3980c1f5 | en main |
-| `punta/general-periodo` | O10 (3) período | 629531ccc | <!-- estado --> |
+| `punta/general-periodo` | O10 (3) período | 629531ccc | en main |
 | `punta/tickets-24h` | O59 | d21bcb74a | en main |
 | `punta/imagen-octubre` | O34, O33, O37 (a), O32 medido | d908f010d | en main |
 | `punta/ops-modelo-por-fase` | O20 | ed9a8bcca | en main (primero rojo por un test que copiaba una línea; se hizo prueba real) |
@@ -186,10 +186,10 @@ producción es recién con el despliegue diario de Vercel en «Ready», que esta
 | `punta/copywriter-octubre` | O23 | 0a6fac1e6 | en main |
 | `punta/infra-octubre` | O26, O27 | f1587b2e3 | en main |
 | `punta/ads-octubre` | O9, O22, O8 | 1a471006c | en main |
-| `punta/ads-nomenclatura` | O9 (el código en la API y en «Nueva campaña») | 2ab404cbf | <!-- estado --> |
+| `punta/ads-nomenclatura` | O9 (el código en la API y en «Nueva campaña») | 2ab404cbf | en main |
 | `punta/api-acciones-octubre` | O19 | 50dd5728c | en main (primero choque de mezcla con main, unido) |
 | `punta/octubre-crm-perfil` | O21, O44, O45 | c06b5d14a | en main |
-| `punta/crm-pedidos-chicos` | seis de O47 | 0a64e2439 | <!-- estado --> |
+| `punta/crm-pedidos-chicos` | seis de O47 | 0a64e2439 | en main |
 
 Un revisor independiente contrastó contra `origin/main` todo lo que se dio por hecho; tres faltas que encontró se arreglaron en
 las puntas de segunda vuelta (`movil-chats-linea`, `dashboard-funnel-agrupado`, `ads-nomenclatura`).

@@ -98,6 +98,8 @@ import { CajaDelCliente, HiloDelCliente, UsoDelCliente, estadoDelCliente } from 
 import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 import { ORIGEN_FUNNEL_COACH, SUBS_VISIBLES, edadCorta, esFilaDe, gurusDeLaBarra, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { ASPECTO_MAKO, aspectoDeChat, aspectoDeReferente } from '@/lib/centro-munecos';
+import { ChatDelReto, useReto } from './reto/ChatDelReto';
+import { MarcaAlReto } from './reto/MarcaAlReto';
 import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { tocarEnLaBarra, type EntradaBarra } from '@/lib/ops-center-navegar';
 // Directo y no desde el índice de app/_ui (ver app/_ui/CargandoMako.tsx).
@@ -163,6 +165,12 @@ type Props = {
   ticketeraInicial?: VistaDeTicketera | null;
   /** Qué se abre sin nada en la URL: el jefe del Second Brain (/second-brain) o el Cerebro (/admin/operaciones). */
   inicio?: 'second-brain' | 'centro';
+  /** El chat «Reto de 7 días» (18/11/2026): sólo para quien ve el onboarding V2 (lib/onboarding-v2/revision.ts, lo decide el server). */
+  retoV2?: boolean;
+  /** `?reto=1`: abre el chat del reto. */
+  retoInicial?: boolean;
+  /** El primer nombre de la persona, para el saludo del reto. */
+  nombrePersona?: string;
 };
 
 export function ChatSecondBrain(props: Props) {
@@ -191,7 +199,7 @@ const urlPelada = (e: Elegido | null): boolean => !!e && ('id' in e || 'offer' i
 /** El chat de Claude Code de entrada: el Cerebro (va primero) o el primero que puede recibir. */
 const centroDeEntrada = (k: Centro): string | null => (k.chats.find((c) => c.sesion) ?? k.chats[0])?.clave ?? null;
 
-function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, funnelInicial = false, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain' }: Omit<Props, 'centro'> & { centro: Centro | null }) {
+function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, funnelInicial = false, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, retoInicial = false, nombrePersona = '' }: Omit<Props, 'centro'> & { centro: Centro | null }) {
   const router = useRouter();
   /** La página en la que se está (/second-brain o /admin/operaciones): los links del Mapa vuelven a ella. */
   const base = usePathname() || '/second-brain';
@@ -231,9 +239,12 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const [grupo, setGrupo] = useState<number | null>(grupoInicial);
   const [gruposMontados, setGruposMontados] = useState<readonly number[]>(grupoInicial != null ? [grupoInicial] : []);
   const grupos = useGrupos();
-  const enOtroChat = delGuru != null || grupo != null;
+  // EL CHAT DEL RETO (18/11/2026): como el de un gurú, con lo suyo (app/second-brain/reto/ChatDelReto.tsx). Sólo con el onboarding V2.
+  const [reto, setReto] = useState(retoV2 && retoInicial);
+  const datosReto = useReto(retoV2);
+  const enOtroChat = delGuru != null || grupo != null || reto;
   const enChatNuevo = elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo';
-  const [conChat, setConChat] = useState(funnelInicial || guruInicial != null || grupoInicial != null || chatInicial != null || offerInicial != null || antesInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
+  const [conChat, setConChat] = useState((retoV2 && retoInicial) || funnelInicial || guruInicial != null || grupoInicial != null || chatInicial != null || offerInicial != null || antesInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
   const [ticketera, setTicketera] = useState<VistaDeTicketera | null>(ticketeraInicial);
   const [busca, setBusca] = useState('');
   /** El filtro de la barra (feedback 4, 22/10/2026): el de Automations, con las áreas y, para el super admin, el estado. */
@@ -248,7 +259,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const [eligiendoReferente, setEligiendoReferente] = useState(false);
   const gurusConCharla = useGurusConCharla(guru);
   const delCoach = asesorPorId(referente);
-  const k = useChatCliente({ elegido, setElegido, activo: !ops, entrarAlCerebro: !ops, chatInicial, opcionArmar, busca, caja, aspectoOffer: delCoach ? aspectoDeReferente(delCoach.id) : null });
+  // El aviso del «⋯» de una fila (F96): el Toast de la casa, como el del super admin (ConCentro). En Ops Center lo pone ConCentro.
+  const avisoMenu = useToast();
+  const k = useChatCliente({ elegido, setElegido, activo: !ops, entrarAlCerebro: !ops, chatInicial, opcionArmar, busca, caja, aspectoOffer: delCoach ? aspectoDeReferente(delCoach.id) : null,
+    avisar: (t, tono) => avisoMenu.show(t, undefined, tono) });
   const { idOffer, idAntes } = k;
   // El Second Brain del gurú de una conversación de Offer, en el lugar de la conversación (SuSecondBrain.tsx). Se guarda PARA QUÉ
   // conversación se abrió: cambiar de chat vuelve a la conversación sin un efecto que lo apague.
@@ -350,6 +364,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     if (!k.elegir(e)) return;
     setGuru(null);
     setGrupo(null);
+    setReto(false);
     // ⚠️ ACÁ NO SE SUELTA `yendo` (24/10/2026, limpiando el `setYendoAlGrafo` que quedó huérfano del merge c77408c36): con el
     // grafo a la vista el paso de abajo es 'chat' y lo deja en 'fuera', que es lo que muestra el chat en el acto; si ya estaba
     // en 'fuera' (el grafo todavía montado, saliendo), ponerlo en null lo traería de vuelta al panel.
@@ -425,7 +440,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     return (
       <FilaDeChat key={f.clave} titulo={f.titulo} criatura={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} actual={actual}
         texto={sub ? partesDelNombre(f.titulo).sub ?? f.titulo : f.titulo} sub={sub}
-        hace={edadCorta(f.actividad, k.ahora)} previa={vivo ? <RenglonDeFila vivo /> : null} onElegir={() => elegir(f.elegido)} />
+        hace={edadCorta(f.actividad, k.ahora)} previa={vivo ? <RenglonDeFila vivo /> : null} onElegir={() => elegir(f.elegido)}
+        onMenu={k.menuDeFila(f)} />
     );
   };
 
@@ -436,6 +452,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     if (ticketera) cerrarTicketera(paso.ir == null);
     setNuevoCentro(false);
     setGrupo(null);
+    setReto(false);
     setGuru(id);
     setGurusMontados((xs) => (xs.includes(id) ? xs : [...xs, id]));
     setConChat(true);
@@ -447,10 +464,22 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     if (ticketera) cerrarTicketera(paso.ir == null);
     setNuevoCentro(false);
     setGuru(null);
+    setReto(false);
     setGrupo(ws);
     setGruposMontados((xs) => (xs.includes(ws) ? xs : [...xs, ws]));
     setConChat(true);
     if (paso.ir) { setYendo('fuera'); router.push(`${base}?grupo=${ws}`); }
+  };
+  /** Abre el chat del reto ahí mismo, como un gurú. */
+  const abrirReto = () => {
+    const paso = tocarEnLaBarra('chat', estadoPanel());
+    if (ticketera) cerrarTicketera(paso.ir == null);
+    setNuevoCentro(false);
+    setGuru(null);
+    setGrupo(null);
+    setReto(true);
+    setConChat(true);
+    if (paso.ir) { setYendo('fuera'); router.push(`${base}?reto=1`); }
   };
   /** Cuándo fue lo último con un gurú. */
   const edadDeGuru = (id: IdAsesor | undefined) => { const at = gurusConCharla.find((g) => g.id === id)?.at; return edadCorta(at ? Date.parse(at) : null, k.ahora); };
@@ -473,7 +502,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     <div className="co-cuenta co-cuenta--coaches">
       {verCoach && (
         <div className="co-jefe">
-          <FilaDeChat titulo={ORIGEN_FUNNEL_COACH} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" actual={verFunnel} hace=""
+          <FilaDeChat titulo={ORIGEN_FUNNEL_COACH} marca="sb-funnel" aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" actual={verFunnel} hace=""
             previa={<span className="co-fila__coach">{delCoach ? inspiradoEn(delCoach) : previaDelCoach(oferta)}</span>}
             onElegir={() => elegir({ coach: 'funnel' })} />
           {/* Las conversaciones de oferta (las que colgaban del coach de oferta de antes, y la del onboarding): cuelgan del coach, cada una con su motor. */}
@@ -540,6 +569,13 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             <>
               <div className="co-cuenta co-cuenta--cerebro">{fila(cerebroFila)}</div>
               {coaches}
+              {retoV2 && (
+                <div className="co-cuenta">
+                  <FilaDeChat titulo="Reto de 7 días" marca="sb-reto-chat" aspecto={ASPECTO_MAKO} animo="despierto" actual={reto && !verMapa && !ticketera} hace=""
+                    previa={<span className="co-fila__coach">{datosReto.d?.estado ? `Día ${Math.max(1, datosReto.d.abierto)} de 7` : 'Tu reto empieza aquí'}</span>}
+                    onElegir={abrirReto} />
+                </div>
+              )}
               <div className="co-cuenta">
                 {/* Sin títulos de sección (22/10/2026, Martín): el grupo sin chat propio lleva su fila JEFE, con su criatura. */}
                 <GruposPorJefe chats={corte} fila={fila} jefe={(g) => { const j = jefeDelGrupo(g); return j ? { ...j, aspecto: aspectoDeChat(j.clave) } : null; }} />
@@ -656,6 +692,12 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         );
       })}
       {/* El grupo de un negocio (ChatDelGrupo.tsx): su hilo, los avisos y quién está. */}
+      {/* Al llegar del onboarding (V2), la marca que lleva al chat del reto (MarcaAlReto.tsx). */}
+      {retoV2 && !reto && <MarcaAlReto empezo={!!datosReto.d?.estado} listo={!!datosReto.d?.ve} />}
+      {/* El chat del reto (ChatDelReto.tsx): su hilo de cada día y su desplegable. */}
+      {retoV2 && reto && !verMapa && !ticketera && (
+        <ChatDelReto nombre={nombrePersona} onVolver={() => { setReto(false); setConChat(false); }} />
+      )}
       {gruposMontados.map((ws) => {
         const seVe = ws === grupo && !verMapa && !ticketera;
         return (
@@ -672,6 +714,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         </div>
       )}
       {centro && <MenusCentro centro={centro} />}
+      {/* El «⋯» de las filas de SUS chats con MaKo (F96): el mismo menú, con el motor del cliente (useChatCliente). */}
+      <MenusCentro chats={k.menuDeChats} />
+      {!centro && <Toast state={avisoMenu.toast} onClose={avisoMenu.clear} />}
       {eligiendoReferente && <ElegirReferente titulo={ORIGEN_FUNNEL_COACH} elegido={referente} onCerrar={() => setEligiendoReferente(false)} onElegir={(id) => { setEligiendoReferente(false); elegirReferente(id); }} />}
       {/* «Tus cuentas de IA» ahí mismo (/perfil/ia): conectar su computadora con su Claude o, si es admin, la clave. */}
       {k.conectando && (

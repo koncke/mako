@@ -578,14 +578,50 @@ export function conElLibro(tramos: readonly Tramo[], mensualidades: ReadonlySet<
 }
 
 /**
+ * ⚠️ P7 (18/11/2026): EL LIBRO MANDA DESDE QUE SE PRENDE, NO DESDE SU PRIMER PAGO. `conElLibro` reemplaza la mensualidad del CRM con los
+ * TRAMOS del libro, y un libro prendido que todavía no cobró ningún mes no tiene tramos: Código (`desde` 2026-12) seguía en «Por cobrar»
+ * con lo del CRM, «4/12 US$238» (el pago de noviembre cargado a mano más un mes), cuando lo que va a pagar es «5/12 US$426» (lo que el
+ * libro calcula con su cartera). Para cada historia del libro SIN tramo (`proximos` de `agencia:<ag>`, la arma el lector con
+ * `proximoDelLibroPrendido`): su próximo cobro entra a «Por cobrar» (`sinTramo`) y la mensualidad del CRM de esa agencia
+ * (`mensualidades`, del mismo cliente `ws:<ag>`) sale de «Por cobrar» (`reemplazadas`). El MRR no se toca: sale de lo pagado.
+ */
+export function libroSinTramos(
+  tramos: readonly Tramo[], proximos: ReadonlyMap<string, ProximoDeSuscripcion> | undefined, mensualidades: ReadonlySet<string>,
+): { sinTramo: Array<{ cliente: string; proximo: ProximoDeSuscripcion }>; reemplazadas: Set<string> } {
+  const sinTramo: Array<{ cliente: string; proximo: ProximoDeSuscripcion }> = [];
+  const reemplazadas = new Set<string>();
+  if (!proximos?.size) return { sinTramo, reemplazadas };
+  const conTramo = new Set(tramos.map((t) => t.suscripcion));
+  for (const [k, p] of proximos) {
+    if (!esDelLibro(k) || conTramo.has(k)) continue;
+    const ag = Number(k.slice('agencia:'.length));
+    if (!Number.isSafeInteger(ag) || ag <= 0) continue;
+    const cliente = `ws:${ag}`;
+    sinTramo.push({ cliente, proximo: p });
+    for (const t of tramos) if (t.cliente === cliente && !esDelLibro(t.suscripcion) && mensualidades.has(t.suscripcion)) reemplazadas.add(t.suscripcion);
+  }
+  return { sinTramo, reemplazadas };
+}
+
+/**
  * Lo que se espera cobrar: cada suscripción viva con su vencimiento (atrasada o en los próximos `dias`), lo más cercano primero.
  * `proximos` (por clave de suscripción, `lead:<id>:<crm>`): las que tienen su historia mes a mes la usan (fecha y monto); las
  * demás —la pasarela, o sin historia— siguen con la regla de los tramos (el último cobro más un mes). Viva o cortada lo siguen
  * diciendo los tramos, como el MRR: la historia sólo pone CUÁNDO y CUÁNTO.
  */
-export function porCobrarDe(tramos: readonly Tramo[], hoy: string, dias = 31, proximos?: ReadonlyMap<string, ProximoDeSuscripcion>, reemplazadas?: ReadonlySet<string>): PorCobrar[] {
+export function porCobrarDe(
+  tramos: readonly Tramo[], hoy: string, dias = 31, proximos?: ReadonlyMap<string, ProximoDeSuscripcion>, reemplazadas?: ReadonlySet<string>,
+  sinTramo: ReadonlyArray<{ cliente: string; proximo: ProximoDeSuscripcion }> = [],
+): PorCobrar[] {
   const hasta = masDias(hoy, dias);
   const out: PorCobrar[] = [];
+  // El libro prendido de una agencia que todavía no pagó ningún mes por él (`libroSinTramos`): no tiene tramo, y su próximo cobro lo
+  // dice el libro. Mismas reglas que una historia: lo atrasado (con su tope) y lo que vence en la ventana.
+  for (const { cliente, proximo: p } of sinTramo) {
+    if (p.sinCobro) continue;
+    if (p.atrasado && diasEntre(p.atrasado.fecha, hoy) <= ATRASO_MAXIMO_DIAS) out.push({ cliente, fecha: p.atrasado.fecha, usd: p.atrasado.usd, atrasado: true });
+    if (p.siguiente && p.siguiente.fecha <= hasta) out.push({ cliente, fecha: p.siguiente.fecha, usd: p.siguiente.usd, atrasado: false });
+  }
   // Dos claves de la misma suscripción (pagos con y sin su CRM) apuntan a la MISMA historia: se cuenta una vez.
   const usadas = new Set<ProximoDeSuscripcion>();
   // La que reemplazó el libro de su agencia (`conElLibro`): lo que viene lo dice el libro, no la historia del CRM. Por la clave Y por
@@ -690,6 +726,7 @@ export function calcularIngresos(pagos: readonly PagoIngreso[], quien: ReadonlyM
   // Y la mensualidad de una agencia que pasó a su libro es UNA: el libro termina su suscripción del CRM (`conElLibro`).
   const mensualidades = new Set(pagos.filter((p) => p.mensualidad === true && p.suscripcion != null).map((p) => p.suscripcion as string));
   const { tramos, reemplazadas } = conElLibro(conMensualidad(tramosDe(periodos, hoy), proximos, hoy), mensualidades);
+  const prendido = libroSinTramos(tramos, proximos, mensualidades);
   const movimientos = movimientosDe(tramos);
   const meses = mesesDe(pagos, tramos, movimientos, hoy, n);
   const clientes = clientesDe(pagos, tramos, quien, hoy, proximos);
@@ -712,7 +749,7 @@ export function calcularIngresos(pagos: readonly PagoIngreso[], quien: ReadonlyM
     meses,
     movimientos,
     clientes,
-    porCobrar: porCobrarDe(tramos, hoy, 31, proximos, reemplazadas),
+    porCobrar: porCobrarDe(tramos, hoy, 31, proximos, new Set([...reemplazadas, ...prendido.reemplazadas]), prendido.sinTramo),
     pagos: pagosRecientes(pagos, quien, hoy),
     entradas: entradasDe(pagos, quien, hoy),
   };

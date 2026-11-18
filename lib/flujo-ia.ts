@@ -84,6 +84,7 @@ import {
   claseDe, idDe, nuevoId, puertosDe, raicesSalida, raizRespuesta, descendientes, indicePorId,
   conectarPuerto, puedeTenerParalelos, validarGrafo, contarParalelos, esPasoIA,
   borrarNodo, padresDe, siguienteDe, medioDe, puedeSumarAIStep, ramasABDe, CLAVES_AB, MAX_RAMAS_AB, MIN_RAMAS_AB, MIN_PCT_AB, PASO_PCT_AB,
+  audioPorGrabar,
 } from './flujo-grafo';
 import { faltanEnPaso, LEAD_DEL_EVENTO } from './api-mako/flujo-params';
 import { respuestaAPasoIA } from './paso-ia-convertir';
@@ -1119,6 +1120,10 @@ function respondeEnElComentario(social: CanalSocial | null, est: Estado): boolea
   return true;
 }
 
+/** Lo que escribe el modelo para pedir una nota de voz POR GRABAR (`"audio": "grabar"`, F80). Lo lee también la IA al editar. */
+export const MARCA_AUDIO_POR_GRABAR = 'grabar';
+const esMarcaGrabar = (v: unknown): boolean => ['grabar', 'por grabar', 'por_grabar'].includes(normNombre(v));
+
 function nodoDe(c: Card, est: Estado): NodoIA {
   const raw = c.raw;
   const { ctx, avisos } = est;
@@ -1147,6 +1152,13 @@ function nodoDe(c: Card, est: Estado): NodoIA {
       if (audioPedido != null && audioPedido !== '') {
         const a = canal === 'whatsapp' ? porIdOTitulo(ctx.audios, audioPedido) : null;
         if (a) { paso.tipo = 'audio'; paso.audio_id = a.id; }
+        // POR GRABAR (18/11/2026, F80): «mándale un audio» sin uno en la biblioteca. La tarjeta queda con la nota de voz
+        // sin su audio (`audioPorGrabar`): la automatización nace como BORRADOR (lib/flujo-ia-crear-core.ts) y no se
+        // publica hasta que la persona la graba. Lo que dice la nota no lo escribe MaKo: una tarjeta nueva lleva sólo su link.
+        else if (canal === 'whatsapp' && esMarcaGrabar(audioPedido)) {
+          paso.tipo = 'audio'; paso.audio_id = null;
+          if (c.deAntes === undefined && cuerpo) { cuerpo = ''; avisos.push('Saqué el texto de la nota de voz: lo dices tú al grabarla'); }
+        }
         else avisos.push(canal === 'email' ? 'Un email no lleva nota de voz: la saqué' : social ? `Por ${NOMBRE_CANAL[social]} no va nota de voz: la saqué` : 'Ese audio no está en tu biblioteca: el mensaje va como texto');
       }
       // Un ARCHIVO también por Instagram y Messenger (16/10/2026): el editor social los lleva desde la decimocuarta tanda y
@@ -2494,7 +2506,7 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado, exist
     link: x.link,
   };
   if (tocaMedia || cambiaCanal) {
-    raw.audio = toca('audio', 'audio_id') ? (x.audio ?? x.audio_id) : p.tipo === 'audio' ? p.audio_id : undefined;
+    raw.audio = toca('audio', 'audio_id') ? (x.audio ?? x.audio_id) : p.tipo === 'audio' ? (audioPorGrabar(p) ? MARCA_AUDIO_POR_GRABAR : p.audio_id) : undefined;
     raw.archivo = toca('archivo', 'media_id', 'adjunto') ? (x.archivo ?? x.media_id ?? x.adjunto) : p.tipo === 'media' ? p.media_id : undefined;
     raw.ia = toca('ia') ? x.ia : p.tipo === 'ia';
     // Una nota de voz o un archivo sin texto, por un canal que no los lleva: queda vacío (y se deja como estaba).
@@ -3324,8 +3336,9 @@ function siguienteLibre(pasos: readonly PasoGrafo[], i: number): boolean {
  * es de la persona, no de la IA, y no frena lo que la IA agregó.
  */
 export function erroresNuevos(base: readonly PasoGrafo[], pasos: readonly PasoGrafo[]): string[] {
-  const antes = new Set(validarGrafo(base));
-  return validarGrafo(pasos).filter((e) => !antes.has(e));
+  // Una nota de voz POR GRABAR (F80) no frena: lo que arma «Editar con IA» va al BORRADOR del lienzo, y Publicar la pide.
+  const antes = new Set(validarGrafo(base, { audiosPorGrabar: true }));
+  return validarGrafo(pasos, { audiosPorGrabar: true }).filter((e) => !antes.has(e));
 }
 
 // ── VALIDAR: la segunda capa ──────────────────────────────────────────────────────
@@ -3427,7 +3440,8 @@ export function validarIA(pasos: readonly PasoGrafo[], ctx: CtxIA, soloIds?: Rea
         }
         if (String(p.cuerpo ?? '').length > TOPE_TEXTO_SOCIAL) err.push(`un mensaje por ${n} pasa los ${TOPE_TEXTO_SOCIAL} caracteres`);
       }
-      if (p.tipo === 'audio' && !audios.has(Number(p.audio_id))) err.push('un mensaje usa un audio que no está en la biblioteca');
+      // La nota de voz POR GRABAR (F80) no tiene audio a propósito: es un borrador que la persona graba.
+      if (p.tipo === 'audio' && !audioPorGrabar(p) && !audios.has(Number(p.audio_id))) err.push('un mensaje usa un audio que no está en la biblioteca');
       if (p.tipo === 'media' && !archivos.has(Number(p.media_id))) err.push('un mensaje usa un archivo que no está en la biblioteca');
       if ((p.tipo === 'ia' || p.tipo === 'audio' || p.tipo === 'media') && p.canal === 'email') err.push('un email no puede llevar audio, archivo ni IA');
       if (p.canal === 'email' && !String(p.asunto ?? '').trim()) err.push('un email no tiene asunto');
@@ -3559,7 +3573,7 @@ export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres, o: { compact
         const t: Record<string, unknown> = { id, tipo: canal === 'email' ? 'email' : 'mensaje', ...(o.compacto && canal === 'whatsapp' ? {} : { canal }), texto: recorte(String(p.cuerpo ?? ''), largo) };
         if (p.canal === 'email') t.asunto = p.asunto ?? '';
         if (p.tipo === 'ia') t.ia = true;
-        if (p.tipo === 'audio') t.audio = p.audio_id;
+        if (p.tipo === 'audio') t.audio = audioPorGrabar(p) ? MARCA_AUDIO_POR_GRABAR : p.audio_id;
         if (p.tipo === 'media') t.archivo = p.media_id;
         // LOS BOTONES (25/10/2026, «Editar con IA» los conoce): con su id (para colgar de "btn:<id>"), a qué tarjeta sigue
         // cada uno o qué link abre. Sin esto el modelo no los veía, y un pedido sobre ellos no tenía de dónde agarrarse.
@@ -3982,8 +3996,8 @@ const CANALES_PROMPT = MENSAJES_MENU.map((o) => canalDeMenu(o.value))
   .map((g) => `${g.canales.map((c) => `"${c}"`).join(' o ')}${g.como ? ` (${g.como})` : ''}`).join('; ');
 
 const TARJETAS_Y_REGLAS = `LAS TARJETAS (no hay otras):
-- "mensaje": lo que le llega al lead. "canal": ${CANALES_PROMPT}. Opcional: "audio" o "archivo" (un id de la lista, sólo por WhatsApp) y "link" (una clave de LINKS).
-- "esperar": "horas" o "dias". Con "antes_de_reunion": true, espera hasta ese tiempo antes de la reunión del lead.
+- "mensaje": lo que le llega al lead. "canal": ${CANALES_PROMPT}. Opcional: "audio" o "archivo" (un id de la lista, sólo WhatsApp; "audio": "grabar" si lo graba él) y "link" (una clave de LINKS).
+- "esperar": "horas" o "dias". Con "antes_de_reunion": true, espera hasta ese tiempo antes de su reunión.
 - "condicion": "ramas": [{"si": [filas], "sigue": id}] y "si_no" para lo demás. Gana la primera rama que se cumple.
 - "etiqueta": "poner" o "sacar" una etiqueta o varias (una lista), por su nombre.
 - "accion": "operacion" (una de ACCIONES) y "datos". "avisar_al_equipo" es el aviso al grupo del negocio: su "mensaje" lleva los datos que el equipo necesita.
@@ -3991,7 +4005,7 @@ const TARJETAS_Y_REGLAS = `LAS TARJETAS (no hay otras):
 
 FILAS: {"campo": "<uno de CONDICIONES>"}; si pide un dato, "valor": un número (horas, %, cantidad) o el nombre EXACTO de una etapa, etiqueta u opción, y "producto" si hay varios; un número puede llevar "op": "menor_igual". Con "no": true se niegan. Varias filas en una rama se cumplen todas: no pongas dos "condicion" seguidas.
 
-CÓMO SE CONECTAN: cada tarjeta tiene un "id" corto ("t1", "t2"…) y "sigue" dice cuál viene después. Si "sigue" es una lista, la primera es la que sigue y las demás arrancan A LA VEZ (por ejemplo, un camino por WhatsApp y otro por email). Cada tarjeta cuelga de un solo lugar y no hay saltos.
+CÓMO SE CONECTAN: cada tarjeta tiene un "id" corto ("t1", "t2"…) y "sigue" dice cuál viene después. Si "sigue" es una lista, la primera es la que sigue y las demás arrancan A LA VEZ (un camino por WhatsApp y otro por email). Cada tarjeta cuelga de un solo lugar y no hay saltos.
 
 REGLAS (el código las comprueba y saca lo que no cumpla):
 1. Usa SÓLO lo de las listas. Una etiqueta que no existe va por su nombre en "etiquetas_nuevas". Nunca inventes un id.
@@ -4271,6 +4285,8 @@ export type ListoIA = {
   cron?: CronAviso | null;
   /** Crear: lo que dijo MaKo («Creé «X»: sale … Manda «…»»), armado por el server con lo guardado (`textoDeCreada`). */
   texto?: string;
+  /** Crear: quedó en el BORRADOR, sin publicar (F80: lleva una nota de voz por grabar). `pasos` es el borrador. */
+  borrador?: boolean;
   /** Qué IA lo contestó, en palabras («Con tu Claude», lib/quien-contesto.ts, 27/10/2026); ausente si no se sabe. */
   ia?: string;
 } & Partial<ExtrasEdicionIA>;

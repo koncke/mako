@@ -200,6 +200,33 @@ export function documentoEnBlanco(ancho: number, alto: number, pageId: string | 
   };
 }
 
+// ── La plantilla de la que nace un diseño (18/11/2026, F18 de docs/pendientes-verificados-17-11.md) ──────────────────
+// «Slug permanente: los diseños creados la recuerdan por él» (lib/image-editor/plantillas-reales.ts) era una promesa sin nadie
+// que la cumpliera: la estructura se arma con ids al azar (`estructura(randomUUID)`), así que ni los ids decían de qué plantilla
+// venía un diseño. Ahora va en `doc.meta.plantilla`, el id de la tarjeta de «Nuevo diseño» (app/image-editor/plantillas-crear.ts:
+// `real-<slug>`, `carrusel-<tipo>`). Sin migración: `meta` viaja entero con el documento (la migración del motor lo copia,
+// `_doory/editor/engine/migrations.ts`, y el resize lo conserva), y un diseño en blanco no lleva ninguna.
+
+/** El prefijo del id de la tarjeta de una plantilla real (`real-ultimos-lugares`). Lo usa app/image-editor/plantillas-crear.ts. */
+export const PREFIJO_PLANTILLA_REAL = 'real-';
+export const TOPE_SLUG_PLANTILLA = 80;
+const SLUG_PLANTILLA = /^[a-z0-9][a-z0-9_-]*$/;
+
+/** El documento con la plantilla de la que nace (una copia: no toca el de entrada). Sin slug válido, vuelve igual. */
+export function conPlantilla<T>(doc: T, slug: string | null | undefined): T {
+  if (!slug || slug.length > TOPE_SLUG_PLANTILLA || !SLUG_PLANTILLA.test(slug) || !doc || typeof doc !== 'object') return doc;
+  const d = doc as Record<string, unknown>;
+  const meta = d.meta && typeof d.meta === 'object' && !Array.isArray(d.meta) ? (d.meta as Record<string, unknown>) : {};
+  return { ...d, meta: { ...meta, plantilla: slug } } as T;
+}
+
+/** De qué plantilla nació un diseño (el id de la tarjeta), o null. */
+export function plantillaDelDiseno(doc: unknown): string | null {
+  const meta = doc && typeof doc === 'object' ? (doc as { meta?: unknown }).meta : null;
+  const s = meta && typeof meta === 'object' ? (meta as { plantilla?: unknown }).plantilla : null;
+  return typeof s === 'string' && s.length <= TOPE_SLUG_PLANTILLA && SLUG_PLANTILLA.test(s) ? s : null;
+}
+
 type Obj = Record<string, unknown>;
 const esTexto = (o: Obj) => typeof o.text === 'string' && /text/i.test(String(o.type ?? ''));
 

@@ -737,13 +737,19 @@ llegan a MaKo pero no vuelven al recargar. Una migración nueva se le pide al Ce
    - el riel en la pieza: `ListaAvance` de Avance.tsx, con `PILL_PROPUESTA`;
    - su `GET ?hecho=<sessionId>`, mirando `sesionDe` antes de leer.
 4. **Tanda 9, muñecos y Renombrar.** Ya están el almacén `lib/chat-munecos(-db).ts` (compare-and-set, con test) y la
-   acción `renombrar_chat_mako`. Falta:
-   - el «⋯» de cada fila: Renombrar con `nombreValido`, y «Cambiar su muñeco» con `ElegirMuneco`. El «⋯» de las filas
-     de Claude Code ya existe (`MenusCentro`, PiezasCentro.tsx): copiarlo;
-   - leer `munecosDeChats` al listar.
+   acción `renombrar_chat_mako`. ~~Falta:~~
+   - ~~el «⋯» de cada fila: Renombrar con `nombreValido`, y «Cambiar su muñeco» con `ElegirMuneco`. El «⋯» de las filas
+     de Claude Code ya existe (`MenusCentro`, PiezasCentro.tsx): copiarlo;~~
+   - ~~leer `munecosDeChats` al listar.~~
+
+   **Hecho el 18/11/2026 (F96, punta `nube-construir-ops-menu`):** no se copió el «⋯»: es EL MISMO `MenusCentro`, que ahora recibe
+   `MenuDeChats` (el super admin lo arma con `menuDelCentro`, el cliente con useChatCliente). Lo que escribe va por /api/mako/chat
+   (`renombrar`, `criatura`) y la lista trae `munecos`. Lo fija tests/ops-menu-cliente.test.ts, que corre la ruta de verdad.
 
    La acción `muneco_chat_mako` se sacó hasta que la pantalla lea los muñecos: un «Listo» que no cambia nada en
-   pantalla sería mentira.
+   pantalla sería mentira. **Desde el 18/11 la pantalla los lee**, así que esa razón ya no está; la operación sigue sin
+   declararse en la API: antes hay que medir su enum de formas, colores y caras contra el presupuesto de 12.000 del chat
+   de la app (tests/ops-center-bateria.test.ts). Es lo que queda de la tanda 9.
 5. **Tanda 6:** los sub-chats del CRM y del lead en la barra, «Second Brain › <Área>» y el Mapa limpio.
 6. **Después, la etapa 5:** los chats y las creaciones como nodos del grafo, con el layout guardado.
 

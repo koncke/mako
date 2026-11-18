@@ -39,6 +39,7 @@ import { entregasDeProductos } from '@/lib/entrega-servicio';
 import type { EntregaConfig } from '@/lib/servicio-etapas';
 import { leerTodo, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { CAMPO_ETAPA } from '@/lib/etapa-historial';
+import { LINEA_DEL_DESENLACE } from '@/lib/lead-desenlace';
 import { hayGrabadorConectado } from '@/lib/grabadores';
 import { estadoMedios } from '@/lib/disparadores-canales';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -166,6 +167,51 @@ async function gestosAMano(leadIds: ReadonlySet<number>, ahora: number): Promise
     else if (f.campo === 'Links de Fathom' && f.valor_nuevo) fathomAMano++;
   }
   return { movimientos, noShowsAMano, fathomAMano };
+}
+
+/**
+ * Las líneas del historial (`lead_audit`) desde `desde` con el filtro de quien llama, paginadas y con tope, como
+ * `gestosAMano`: el filtro por lead va en memoria (la casa de un CRM son miles de ids). Pasado el tope, tira y esa
+ * sugerencia se calla, en vez de leer todo.
+ */
+async function historialDesde<T>(cols: string, desde: string, filtro: (q: ConsultaPaginada) => ConsultaPaginada): Promise<T[]> {
+  return leerTodo<T>(await getTenantDb(), 'lead_audit', cols, {
+    orden: 'id', maxPaginas: 10, paralelo: 4,
+    filtros: (q) => filtro(q.gte('created_at', desde) as unknown as ConsultaPaginada),
+  });
+}
+
+/**
+ * CLASE 3 (18/11/2026, F158): los leads de la casa que HOY están perdidos, con cuándo se perdieron: la ÚLTIMA línea
+ * «Estado: perdido» de su historial en la ventana (`perdidosDias.hasta`). Un perdido sin esa línea en la ventana se perdió
+ * antes, o por un camino que no la dejó: no viaja (no se afirma «hace 60 días» de alguien que no se sabe). Tira si no se leyó.
+ */
+async function perdidosConFecha(casa: readonly Lead[], ahora: number): Promise<NonNullable<EntradaSugerencias['perdidos']>> {
+  const ids = new Set(casa.filter((l) => l.estado_lead === 'perdido').map((l) => Number(l.id)));
+  if (!ids.size) return [];
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.perdidosDias.hasta * 86_400_000).toISOString();
+  const filas = await historialDesde<{ lead_id: number; created_at: string }>('id, lead_id, created_at', desde,
+    (q) => q.eq('campo', LINEA_DEL_DESENLACE.estado_lead).eq('valor_nuevo', 'perdido') as unknown as ConsultaPaginada);
+  const ultima = new Map<number, string>();
+  for (const f of filas) {
+    const id = Number(f.lead_id);
+    if (ids.has(id) && String(ultima.get(id) ?? '') < String(f.created_at)) ultima.set(id, f.created_at);
+  }
+  return [...ultima].map(([lead, d]) => ({ lead, desde: d }));
+}
+
+/**
+ * CLASE 3 (18/11/2026, F158): los cambios de etapa de los leads de la casa en la ventana (`caidaDias`), en orden, los haya
+ * hecho una persona o el sistema (que el sistema pase a alguien a nutrición también es que no avanzó). Tira si no se leyó.
+ */
+async function salidasDeEtapa(leadIds: ReadonlySet<number>, ahora: number): Promise<NonNullable<EntradaSugerencias['salidas']>> {
+  if (!leadIds.size) return [];
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.caidaDias * 86_400_000).toISOString();
+  const filas = await historialDesde<{ id: number; lead_id: number; valor_anterior: string | null; valor_nuevo: string | null }>(
+    'id, lead_id, valor_anterior, valor_nuevo', desde, (q) => q.eq('campo', CAMPO_ETAPA) as unknown as ConsultaPaginada);
+  return filas
+    .filter((f) => leadIds.has(Number(f.lead_id)) && f.valor_anterior && f.valor_nuevo)
+    .map((f) => ({ lead: Number(f.lead_id), desde: String(f.valor_anterior), hacia: String(f.valor_nuevo) }));
 }
 
 /**
@@ -368,13 +414,15 @@ async function calcular(ws: number, crm: CrmDeLaPantalla): Promise<Calculo> {
   // «Volver» importa mientras se le está vendiendo: los pasos del recorrido, sin el ganado.
   const enRecorrido = new Set(cfg.stages.filter((s) => (s.band ?? 'pipeline') === 'pipeline' && s.key !== TERMINAL_DEL_PIPELINE).map((s) => s.key));
   // Las lecturas que dependen de los leads, a la vez. Lo que falla se abstiene (null o ausente): esa sugerencia se calla.
-  const [cuotas, gestosLeidos, mensajes, dms, sinCrm, volvieron] = await Promise.all([
+  const [cuotas, gestosLeidos, mensajes, dms, sinCrm, volvieron, perdidos, salidas] = await Promise.all([
     leadsCrudos ? cuotasDe(idsCasa, hoy).catch(avisar('cuotas')) : Promise.resolve(null),
     leadsCrudos ? gestosAMano(idsCasa, ahora).catch(avisar('gestos')) : Promise.resolve(null),
     leadsCrudos ? mensajesAMano(deCasa, ahora).catch(avisar('mensajes a mano')) : Promise.resolve(null),
     dmsNuevos(ahora).catch(avisar('conversaciones nuevas')),
     fuentesSinCrm(ahora).catch(avisar('landings y campañas sin CRM')),
     leadsCrudos ? leadsQueVolvieron(deCasa, enRecorrido, tz, ahora).catch(avisar('los que volvieron')) : Promise.resolve(null),
+    leadsCrudos ? perdidosConFecha(casa, ahora).catch(avisar('los perdidos')) : Promise.resolve(null),
+    leadsCrudos ? salidasDeEtapa(idsCasa, ahora).catch(avisar('las salidas de cada etapa')) : Promise.resolve(null),
   ]);
   const gestos = gestosLeidos ? { ...gestosLeidos, ...(mensajes ? { mensajes } : {}) } : null;
   // Cada lectura de la clase 4 se abstiene sola: un DM que no se leyó no calla al lead que volvió.
@@ -395,6 +443,7 @@ async function calcular(ws: number, crm: CrmDeLaPantalla): Promise<Calculo> {
     etapas: cfg.stages, transiciones: cfg.transitions, plazos,
     automatizaciones: automs, leads, cuotas,
     conectado: { whatsapp: medios, fathom }, hoy, ahora,
+    perdidos, salidas,
     gestos, nuevos,
   };
 

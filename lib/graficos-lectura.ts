@@ -13,6 +13,7 @@ import { tableroDeCapa, type QueTablero } from './tablero-de-capa';
 import { leerTodo, type ConsultaPaginada, type OrdenPaginado } from './supabase-paginado';
 import { diasAntes, hoyEnTijuana } from './date-utils';
 import { tramosDeDias } from './graficos-agregar';
+import type { AgregadoDeLead } from './graficos-funnel-fila';
 import { productosCrm } from './api-mako/areas/crm.helpers';
 
 export const num = (v: unknown): number => {
@@ -135,8 +136,8 @@ export async function rotulosDelCrm(): Promise<{ producto: (id: number | null) =
  * agregados («Renovación» en el ws1, sin un solo lead de casa) salía VACÍA porque el filtro miraba sólo la casa (17/10/2026).
  * Si no se puede leer, ningún lead tiene agregados (la hoja queda como antes) y se dice en el log.
  */
-export async function funnelsAgregados(leadIds: readonly number[], producto: (id: number | null) => string | null): Promise<Map<number, Array<{ nombre: string; desde: string }>>> {
-  const out = new Map<number, Array<{ nombre: string; desde: string }>>();
+export async function funnelsAgregados(leadIds: readonly number[], producto: (id: number | null) => string | null): Promise<Map<number, AgregadoDeLead[]>> {
+  const out = new Map<number, AgregadoDeLead[]>();
   if (!leadIds.length) return out;
   try {
     // `desde`: el día en que se lo agregó (revisión de B5). Lo que le pasó ANTES es de otro funnel.
@@ -146,9 +147,11 @@ export async function funnelsAgregados(leadIds: readonly number[], producto: (id
       if (!nombre) continue;
       const lista = out.get(Number(f.lead_id)) ?? [];
       const desde = fechaTj(f.created_at) ?? '';
+      // `funnel` y `creado` (crudo): de qué funnel es la venta por fecha de cierre (`funnelDelMomento`, como los OKR).
+      const creado = f.created_at ?? '';
       const ya = lista.find((x) => x.nombre === nombre);
-      if (!ya) lista.push({ nombre, desde });
-      else if (desde && desde < ya.desde) ya.desde = desde;
+      if (!ya) lista.push({ nombre, desde, funnel: Number(f.funnel_id), creado });
+      else if (desde && desde < ya.desde) { ya.desde = desde; ya.funnel = Number(f.funnel_id); ya.creado = creado; }
       out.set(Number(f.lead_id), lista);
     }
   } catch (e) {

@@ -27,6 +27,8 @@ type Preparacion = {
   conectado: boolean; moneda: string | null; zona: LugarZona[]; hasta: string | null; presupuestoMaxDia: number | null; totalActivo: number;
   formularios: Array<{ id: string; name: string; status?: string }>; pixeles: Array<{ id: string; name: string }>;
   anuncios: Array<{ id: string; nombre: string; campana: string | null; prendido: boolean }>; avisos: string[];
+  /** El código NNN. que le toca a la campaña nueva, si la cuenta ya está en la nomenclatura (lib/media-buyer/campana-reglas.ts). */
+  codigoCampana?: string | null;
 };
 
 const BOTON: Record<string, string> = {
@@ -74,6 +76,8 @@ export function NuevaCampana() {
       if (!r.ok) { if ((r as { sinCuenta?: boolean }).sinCuenta) { setSinCuenta(true); return; } setErrorPrep(r.error ?? 'No pude leer tu cuenta.'); return; }
       setSinCuenta(false);
       setPrep(r);
+      // La nomenclatura (18/11/2026): el código NNN. que sigue va propuesto en el nombre; la persona escribe lo que la describe.
+      if (r.codigoCampana) setNombre((x) => x || `${r.codigoCampana} `);
       // Lo del Media Buyer, de partida: su zona y su fecha de fin (la campaña no puede salir de ellas).
       setLugares((x) => (x.length ? x : r.zona));
       setHasta((x) => x || (r.hasta ?? ''));

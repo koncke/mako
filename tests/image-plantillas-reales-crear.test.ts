@@ -122,7 +122,8 @@ test('4: la computadora y el teléfono la dibujan con la misma pieza, y «Ver ej
 
 test('5: la API crea la estructura de una real y lista las reales con los textos de su ejemplo', () => {
   const run = sinComentarios(leer('lib/api-mako/areas/imagen.run.ts'));
-  assert.match(run, /const real = plantilla \? plantillaImagen\(plantilla\) : null;\s*if \(real\) \{\s*return \{\s*doc: real\.estructura\(randomUUID\)/);
+  // Desde el 18/11/2026 (F18) con la plantilla de la que nace en `meta.plantilla` (`conPlantilla`).
+  assert.match(run, /const real = plantilla \? plantillaImagen\(plantilla\) : null;\s*if \(real\) \{\s*return \{\s*doc: conPlantilla\(real\.estructura\(randomUUID\), /);
   assert.match(run, /reales: PLANTILLAS_IMAGEN\.map\(/);
   assert.match(run, /ejemplo: \{ negocio: `\$\{p\.negocio\} \(ficticio\)`, textos: textosDe\(p\.ejemplo\(randomUUID\)\) \}/);
   const def = leer('lib/api-mako/areas/imagen.def.ts');

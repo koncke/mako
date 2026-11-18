@@ -51,6 +51,7 @@ export default async function ChatsPage({ searchParams }: { searchParams: Busque
         canales={datos.canales}
         fallas={datos.fallas}
         fuera={datos.fuera}
+        fueraPorCanal={datos.fueraPorCanal}
         sinResponderInicial={sp.ver === 'sin-responder'}
       />
       <ComputadoraM que="Conectar canales y asignar" />

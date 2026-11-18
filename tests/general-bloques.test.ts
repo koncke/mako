@@ -135,7 +135,8 @@ test('cada bloque se dibuja, tiene vista previa, y vacío muestra su placeholder
   const muestra = prov.slice(prov.indexOf('export function muestraDeBloque'), prov.indexOf('export function configurarBloque'));
   assert.ok(dibujar.length > 200 && muestra.length > 200, 'no encontré las dos funciones');
   for (const p of PIEZAS_GENERAL) {
-    assert.match(dibujar, new RegExp(`case '${p.id}': return <Bloque`), `«${p.id}» no se dibuja`);
+    // Su caso devuelve un bloque, aunque elija cuál («El mes» con el período de la hoja o sin él, 18/11/2026).
+    assert.match(dibujar, new RegExp(`case '${p.id}': return [^\\n]*<Bloque`), `«${p.id}» no se dibuja`);
     assert.match(muestra, new RegExp(`case '${p.id}': return <`), `«${p.id}» no tiene vista previa`);
   }
   // Los bloques que pueden estar vacíos dibujan el placeholder (el bloque con datos de ejemplo y la acción encima).

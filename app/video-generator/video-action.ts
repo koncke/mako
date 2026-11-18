@@ -2274,6 +2274,9 @@ export async function cambiarMuletillasAction(
     guionId: item.guionId,
     guionTexto: guion.texto,
     adaptarVoz,
+    // Se guarda abajo, con el id del anuncio. Guardado acá dejaba un FANTASMA con un id al azar (otro anuncio más en la
+    // lista, que además podía empujar a uno de verdad fuera del cupo): F168, app/video-generator/actions.ts → `guardar`.
+    guardar: false,
   });
   if (!out.ok) return out;
 

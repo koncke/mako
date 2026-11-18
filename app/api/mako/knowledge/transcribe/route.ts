@@ -1,9 +1,10 @@
 // =============================================================================
 // /api/mako/knowledge/transcribe — sube un video/audio de una clase → transcript
 // =============================================================================
-// Recibe un archivo (multipart) de una clase de curso, lo transcribe con OpenAI
-// (whisper-1) y devuelve el texto para que el usuario lo revise y lo guarde en el
-// conocimiento. No persiste nada: el guardado lo hace /api/mako/knowledge (create),
+// Recibe un archivo (multipart) de una clase de curso, lo transcribe con la cascada de
+// la plataforma (lib/transcribe-plataforma.ts: Groq, el whisper-1 de OpenAI y Gemini; la
+// transcripción deja su fila en el gasto de IA) y devuelve el texto para que el usuario lo
+// revise y lo guarde en el conocimiento. No persiste nada: el guardado lo hace /api/mako/knowledge (create),
 // así el usuario ve/edita la transcripción antes de embeberla.
 // =============================================================================
 

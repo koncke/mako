@@ -37,6 +37,7 @@ import { sendMetaCAPIEvent } from './meta-capi';
 import { esSexo } from './resumen-ficha';
 import {
   ESPERA_AVISO_CALIFICADO_MS, EVENTOS_CALIFICADO, LINEA_CALIFICADO_EN_META, avisaCalificadoAMeta, eventIdCalificado,
+  CALIFICADO_SIN_MARCA, CAMPO_CALIFICADO, SI_EN_EL_HISTORIAL, calificacionYaEnMeta, type LineaDeHistorial,
 } from './meta-capi-payload';
 // Cuándo se descarta el «calificado»: puro y compartido con la ficha y con el
 // canal de MaKo, para que los tres apliquen la MISMA regla.
@@ -71,7 +72,6 @@ import { INDICE_ID_EXTERNO, LeadYaMigradoError } from './migracion-leads';
 // validador y la pantalla discrepan justo en los leads con etapas huérfanas.
 import { etapaVigenteDe } from './funnel-etapas';
 import { avanceDe, duracionesDeEventos, esEventoDeVideo } from './vsl-retencion';
-import { hoyEnTijuana } from './date-utils';
 import { limpiaNoShow, textoNoShow } from './reagenda-no-show';
 import { cachedRead, TAG, TTL } from './cache';
 import { actualizarEtiquetaLead } from './evolution-labels';
@@ -1000,10 +1000,19 @@ export async function moverLeadDeFunnel(leadId: number, funnelId: number | null)
  */
 async function calificadoYaEnMeta(leadId: number): Promise<boolean> {
   try {
-    const { data, error } = await (await getTenantDb()).from('lead_audit').select('id')
-      .eq('lead_id', leadId).eq('campo', 'Meta').eq('valor_nuevo', LINEA_CALIFICADO_EN_META).limit(1);
+    const db = await getTenantDb();
+    // F154 (18/11/2026): la marca de hoy, o un «Calificado: Sí» de cuando la marca no existía (`CALIFICADO_SIN_MARCA`,
+    // lib/meta-capi-payload.ts): lo que viajó entonces ya contó. Dos lecturas exactas en vez de traer el historial entero.
+    const [marca, antes] = await Promise.all([
+      db.from('lead_audit').select('campo, valor_nuevo, created_at')
+        .eq('lead_id', leadId).eq('campo', 'Meta').eq('valor_nuevo', LINEA_CALIFICADO_EN_META).limit(1),
+      db.from('lead_audit').select('campo, valor_nuevo, created_at')
+        .eq('lead_id', leadId).eq('campo', CAMPO_CALIFICADO).eq('valor_nuevo', SI_EN_EL_HISTORIAL)
+        .gte('created_at', CALIFICADO_SIN_MARCA.desde).lt('created_at', CALIFICADO_SIN_MARCA.hasta).limit(1),
+    ]);
+    const error = marca.error ?? antes.error;
     if (error) { console.error(`[updateLead] lead ${leadId}: no pude leer si la calificación ya fue a Meta: ${error.message}`); return false; }
-    return ((data ?? []) as unknown[]).length > 0;
+    return calificacionYaEnMeta([...((marca.data ?? []) as LineaDeHistorial[]), ...((antes.data ?? []) as LineaDeHistorial[])]);
   } catch (e) {
     console.error(`[updateLead] lead ${leadId}: no pude leer si la calificación ya fue a Meta:`, e instanceof Error ? e.message : e);
     return false;
@@ -1935,7 +1944,7 @@ const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
   { k: 'fecha_agenda', label: 'Fecha de agendamiento' },
   { k: 'asistio_j1', label: 'Asistió R1' },
   { k: 'asistio_j2', label: 'Asistió R2' },
-  { k: 'calificado', label: 'Calificado' },
+  { k: 'calificado', label: CAMPO_CALIFICADO },
   { k: 'fecha_junta_1', label: 'Fecha R1' },
   { k: 'fecha_junta_2', label: 'Fecha R2' },
   { k: 'closer', label: 'Closer' },
@@ -2682,15 +2691,20 @@ export type VideoEngagement = {
 export async function getVslEngagement(visitorId: string | null): Promise<VslEngagement> {
   if (!visitorId) return { plays: 0, max_pct: null, sin_datos: true, porVideo: [] };
   const supabase = (await getTenantDb());
-  const [{ data, error }, durs] = await Promise.all([
-    supabase.from('vsl_events').select('tipo_evento, porcentaje, event, segundos, video_id, vsl_titulo').eq('visitor_id', visitorId),
+  type FilaVsl = { tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null; vsl_titulo: string | null };
+  // ⚠️ PAGINADO (P20, 18/11/2026), como `getVslEngagementMap`: hay visitantes con cientos de eventos (uno por hito
+  // del video), y un `.select()` plano cortaba en 1000 sin error, así que los plays y el avance máximo salían de
+  // menos. Orden por `id` (PK). Si la lectura falla, `sin_datos` como antes (y las duraciones fallan igual que antes).
+  const [lectura, durs] = await Promise.all([
+    leerTodo<FilaVsl>(supabase, 'vsl_events', 'id, tipo_evento, porcentaje, event, segundos, video_id, vsl_titulo', { orden: 'id', eq: { visitor_id: visitorId } })
+      .then((v) => ({ ok: true as const, v }), (e: unknown) => ({ ok: false as const, e })),
     getDuracionesVsl(),
   ]);
-  if (error) {
-    console.error(`[getVslEngagement] falló: ${error.message}`);
+  if (!lectura.ok) {
+    console.error(`[getVslEngagement] falló: ${lectura.e instanceof Error ? lectura.e.message : String(lectura.e)}`);
     return { plays: 0, max_pct: null, sin_datos: true, porVideo: [] };
   }
-  const rows = (data ?? []) as Array<{ tipo_evento: string | null; porcentaje: number | null; event: string | null; segundos: number | null; video_id: string | null; vsl_titulo: string | null }>;
+  const rows = lectura.v;
   const dur = resolverDuracion(videosDe(rows), durs);
   const esPlay = (r: { tipo_evento: string | null; event: string | null }) => r.tipo_evento === 'play' || r.event === 'vsl_play';
 
@@ -3573,8 +3587,8 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
  */
 export function faltantesDeLead(
   lead: Lead,
-  tienePlan?: boolean,
-  extra?: ExtraRequisitos,
+  tienePlan: boolean | undefined,
+  extra: ExtraRequisitos,
 ): Step[] {
   const { stage, v } = requisitosDeLead(lead, tienePlan, extra);
   return stepsForStage(stage, v);
@@ -3584,15 +3598,22 @@ export function faltantesDeLead(
  * Lo que la etapa del lead pide y YA está cargado (los «resueltos» del desplegable de la ficha).
  * Sale de los MISMOS valores que `faltantesDeLead` y de la misma regla (`pasosResueltos`).
  */
-export function resueltosDeLead(lead: Lead, tienePlan?: boolean, extra?: ExtraRequisitos): Step[] {
+export function resueltosDeLead(lead: Lead, tienePlan: boolean | undefined, extra: ExtraRequisitos): Step[] {
   const { stage, v } = requisitosDeLead(lead, tienePlan, extra);
   return pasosResueltos(stage, v);
 }
 
-type ExtraRequisitos = { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[]; grabable?: boolean };
+/**
+ * `hoyISO` ES OBLIGATORIO (18/11/2026, F125; el mismo #510 de `faltantesParaMover`): es el día del NEGOCIO, y decide si
+ * una reunión sin hora «ya pasó» (y con eso si se pide su asistencia y su Fathom). Hasta acá salía de `hoyEnTijuana()`
+ * adentro, así que la ficha, «A revisar» y el worklist le pedían la asistencia a un negocio de otro país con el día de
+ * Tijuana, mientras el corte del server (`setPipelineStage`) ya usaba el suyo. Sin default, lo frena el compilador:
+ * quien llama lo saca de su negocio (`hoyEnWorkspace()`, o `hoyDelWorkspace(ws)` con el ws a mano).
+ */
+type ExtraRequisitos = { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[]; grabable?: boolean; hoyISO: string };
 
 /** La etapa vigente del lead y los valores con que se evalúan sus requisitos. UNA sola vez. */
-function requisitosDeLead(lead: Lead, tienePlan?: boolean, extra?: ExtraRequisitos): { stage: string; v: StageReqValues } {
+function requisitosDeLead(lead: Lead, tienePlan: boolean | undefined, extra: ExtraRequisitos): { stage: string; v: StageReqValues } {
   // El override manual (pipeline_stage) vale SOLO si esa etapa sigue existiendo en
   // el funnel del workspace; si no, se deriva del estado del lead — la misma regla
   // que usa el board (crm-map). Sin este chequeo, un lead parado en una etapa que
@@ -3646,7 +3667,7 @@ function requisitosDeLead(lead: Lead, tienePlan?: boolean, extra?: ExtraRequisit
     // un cierre recurrente movido con éxito reaparecía al toque en "Datos sin
     // marcar" pidiendo un plan de pagos que no existe para esa venta.
     tienePlan: lead.venta_tipo === 'suscripcion' ? undefined : tienePlan,
-    hoyISO: hoyEnTijuana(),
+    hoyISO: extra.hoyISO,
     // Timestamps con hora (Calendly): "ya pasó" mira la hora real, no solo el día,
     // así una reunión de HOY que ya terminó exige cargar el Fathom.
     atJ1: lead.junta_1_at,
@@ -3695,15 +3716,16 @@ function resumirVisitas(rows: Array<{ created_at: string }>): VisitasLanding {
 export async function contarVisitasLanding(visitorId: string | null): Promise<VisitasLanding> {
   if (!visitorId) return { ...SIN_VISITAS };
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('landing_visits')
-    .select('created_at')
-    .eq('visitor_id', visitorId);
-  if (error) {
-    console.error(`[contarVisitasLanding] falló: ${error.message}`);
+  // Paginado (P20, 18/11/2026): una visita por carga de página, y un visitante que vuelve mucho pasa las 1000;
+  // un `.select()` plano cortaba ahí sin error y el total, los días y la última visita salían de menos. Orden por
+  // `id` (PK). Si la lectura falla, «sin visitas» como antes.
+  try {
+    const filas = await leerTodo<{ created_at: string }>(supabase, 'landing_visits', 'id, created_at', { orden: 'id', eq: { visitor_id: visitorId } });
+    return resumirVisitas(filas);
+  } catch (e) {
+    console.error(`[contarVisitasLanding] falló: ${e instanceof Error ? e.message : String(e)}`);
     return { ...SIN_VISITAS };
   }
-  return resumirVisitas((data ?? []) as Array<{ created_at: string }>);
 }
 
 /**
@@ -3717,16 +3739,21 @@ export async function getVisitasLandingMap(
   const out = new Map<string, VisitasLanding>();
   if (ids.length === 0) return out;
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('landing_visits')
-    .select('visitor_id, created_at')
-    .in('visitor_id', ids);
-  if (error) {
-    console.error(`[getVisitasLandingMap] falló: ${error.message}`);
+  // Paginado y en tandas de visitantes (P20, 18/11/2026), con el molde de `getVslEngagementMap`: un `.in()` suelto
+  // sobre la tabla del CRM cortaba en 1000 visitas sin error y los visitantes del final quedaban «sin visitas».
+  // Las tandas de 200 son para que el `.in()` no reviente la URL. Orden por `id` (PK). Si falla, el mapa vacío como antes.
+  let data: Array<{ visitor_id: string; created_at: string }>;
+  try {
+    const tandas = await Promise.all(enTandas(ids, 200).map((tanda) => leerTodo<{ visitor_id: string; created_at: string }>(
+      supabase, 'landing_visits', 'id, visitor_id, created_at', { orden: 'id', filtros: (q) => q.in('visitor_id', tanda) },
+    )));
+    data = tandas.flat();
+  } catch (e) {
+    console.error(`[getVisitasLandingMap] falló: ${e instanceof Error ? e.message : String(e)}`);
     return out;
   }
   const porVisitor = new Map<string, Array<{ created_at: string }>>();
-  for (const r of (data ?? []) as Array<{ visitor_id: string; created_at: string }>) {
+  for (const r of data) {
     const arr = porVisitor.get(r.visitor_id) ?? [];
     arr.push({ created_at: r.created_at });
     porVisitor.set(r.visitor_id, arr);

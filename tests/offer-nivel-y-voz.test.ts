@@ -28,7 +28,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   OPCION_ARMAR, TEXTO_LISTA_PARA_ARMAR, bloqueNivel, jergaAjena, mensajeDeMako, nivelDeOferta, parsePropuesta, piezasParaPrompt,
-  preguntaEscalera, prometeHacerloPorElCliente, siguientePregunta,
+  preguntaEscalera, prometeHacerloPorElCliente, siguientePregunta, precioDe,
 } from '../lib/offer-reglas';
 import { PIEZAS, PREGUNTAS_GUIA, type PiezaKey, type PiezasSabidas, type PropuestaOferta } from '../lib/offer-marco';
 import { readFileSync } from 'node:fs';
@@ -80,6 +80,18 @@ test('el nivel lo decide el código con el precio: la membresía de Leila es una
   assert.equal(nivelDeOferta(conPrecio('49 USD al mes'))?.nivel, 'bajo');
   assert.equal(nivelDeOferta(conPrecio('sin dato: todavía no lo sé')), null);
   assert.equal(nivelDeOferta({}), null);
+});
+
+// 18/11/2026 (el pendiente F11 de la lista del 17/11): con la moneda ADELANTE y «al mes», la cifra se descartaba como si fuera
+// una capacidad («20 al mes») y la oferta quedaba sin precio ni nivel. Probado rompiéndolo (base 8/0): sin `MONEDA_ANTES` en
+// `montosDe` (la regla de antes) → 7/1; sin la regla de «al mes» (todo «al mes» como precio) → 7/1.
+test('«USD 1,200 al mes» y «$1,200 al mes» son un PRECIO por mes; «20 al mes» sigue siendo una capacidad', () => {
+  assert.deepEqual(precioDe('USD 1,200 al mes'), { monto: 1200, moneda: 'USD', texto: '1,200' });
+  assert.deepEqual(precioDe('$1,200 por mes'), { monto: 1200, moneda: null, texto: '1,200' });
+  assert.deepEqual(nivelDeOferta(conPrecio('USD 1,200 al mes')), { nivel: 'alto', recurrente: true, precio: { monto: 1200, moneda: 'USD', texto: '1,200' } });
+  assert.equal(precioDe('atiendo 20 al mes'), null, 'una capacidad no es un precio');
+  assert.equal(precioDe('USD 900 por 20 clientes al mes')?.monto, 900, 'el precio, y la cantidad de clientes afuera');
+  assert.equal(precioDe('800 MXN al mes')?.monto, 800, 'con la moneda atrás, como antes');
 });
 
 test('la escalera, según el nivel: en una entrada se pregunta qué vende DESPUÉS (la de Leila preguntó «antes»)', () => {

@@ -1145,7 +1145,12 @@ export const RUNNERS: Runners = {
       const plantilla = str(input, 'plantilla') ?? '';
       const titulo = str(input, 'titulo');
       const pedido = pedidoDePresentacion(plantilla, titulo);
-      if (!pedido) return { error: 'Esa plantilla de presentación no existe.', disponibles: disenosParaApi().presentaciones };
+      // La def no trae `enum` (18/11/2026, por el presupuesto del turno): ésta es la única validación del id, y devuelve
+      // las DOS listas que acepta.
+      if (!pedido) {
+        const { presentaciones, carruseles } = disenosParaApi();
+        return { error: 'Esa plantilla no existe. Elige una de `presentaciones` o de `carruseles`.', disponibles: { presentaciones, carruseles } };
+      }
       return {
         payload: { plantilla, ...(titulo ? { titulo } : {}) },
         resumen: `Crear la presentación «${pedido.titulo}» desde la plantilla «${pedidoDePresentacion(plantilla, null)?.titulo ?? plantilla}», como borrador sin publicar.`,

@@ -51,7 +51,11 @@ export type PlantillaFicha = {
 };
 
 // La misma lista de Tracking para las dos de llamada («Tracking: la misma de Llamada con R1 y R2»).
-const TRACKING_LLAMADA: readonly BloqueId[] = ['visitas', 'anuncio-de-origen', 'actividad-en-pagina', 'grabacion-de-visita'];
+// ⚠️ SIN «anuncio-de-origen» DESDE EL 18/11/2026 (aquí y en Formulario de Meta, Landing y Venta Directa): el bloque está en
+//    el catálogo y no tiene componente (lo que dice el video del anuncio sale de `ad_transcripts`, que la ficha no lee), así
+//    que la ficha lo salteaba callado. Vuelve a las plantillas en el MISMO commit que le dé su componente. Se queda en el
+//    catálogo para que una ficha guardada que lo nombre siga cargando (tests/ficha-anuncio-de-origen.test.ts).
+const TRACKING_LLAMADA: readonly BloqueId[] = ['visitas', 'actividad-en-pagina', 'grabacion-de-visita'];
 
 /** EL RESPALDO: la ficha de hoy pasada a bloques, sin perder nada. «Los avisos quedan como hoy». */
 export const PLANTILLA_RESPALDO: PlantillaFicha = {
@@ -104,7 +108,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'lo-que-contesto', 'calificacion', 'origen', 'charla-whatsapp', 'automatizaciones-en-curso', 'tiempo-en-etapa', 'setter-y-closer', 'ingreso-estimado', 'proxima-reunion', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
       pagos: ['suscripcion', 'cobrado', 'oferta', 'links-de-pago', 'venta', 'cuotas', 'movimientos'],
-      tracking: ['anuncio-de-origen', 'visitas', 'actividad-en-pagina'],
+      tracking: ['visitas', 'actividad-en-pagina'],
     },
     // `comprobante` explícito desde el 16/10/2026: con `cuotas` en Pagos dejaría de nacer apagado solo, y este funnel no lo pedía.
     apagados: ['empresa', 'plan', 'comprobante', 'dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal'],
@@ -115,7 +119,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'lo-que-contesto', 'pagina-de-registro', 'origen', 'proxima-reunion', 'charla-whatsapp', 'automatizaciones-en-curso', 'lo-que-le-mandamos', 'tiempo-en-etapa', 'calificacion', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
       pagos: ['suscripcion', 'cobrado', 'oferta', 'links-de-pago', 'venta', 'cuotas', 'movimientos'],
-      tracking: ['visitas', 'video-visto', 'actividad-en-pagina', 'grabacion-de-visita', 'anuncio-de-origen'],
+      tracking: ['visitas', 'video-visto', 'actividad-en-pagina', 'grabacion-de-visita'],
     },
     apagados: ['dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal'],
   },
@@ -148,7 +152,7 @@ export const PLANTILLAS_FICHA: readonly PlantillaFicha[] = [
     tabs: {
       resumen: ['siguiente-accion', 'posibles-duplicados', 'contacto', 'cobrado', 'origen', 'lo-que-contesto', 'charla-whatsapp', 'notas', 'motivo-de-salida', 'plazo-nutricion'],
       pagos: ['suscripcion', 'cobrado', 'links-de-pago', 'cuotas', 'movimientos', 'venta', 'oferta', 'cliente-en-cs'],
-      tracking: ['video-visto', 'actividad-en-pagina', 'grabacion-de-visita', 'visitas', 'anuncio-de-origen'],
+      tracking: ['video-visto', 'actividad-en-pagina', 'grabacion-de-visita', 'visitas'],
     },
     apagados: ['setter', 'calificado', 'empresa', 'plan', 'dealServicio', 'dealPromesa', 'dealObligaciones', 'dealFiscal', 'dealFiscalDoc'],
     siguenAvisando: ['comprobante'],

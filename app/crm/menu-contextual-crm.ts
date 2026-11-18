@@ -32,6 +32,7 @@ import type { EntradaMenuContextual, ItemMenuContextual } from '@/app/_ui/MenuCo
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
 import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
+import { tipoDeFunnel, type EntradaId } from '@/lib/pipeline';
 import { ORDEN_KANBAN, type OrdenKanban } from './orden-kanban';
 import { textoDifusionDeColumna } from './seleccion-difusion';
 
@@ -90,6 +91,11 @@ export type ContextoCrm =
     mover: boolean;
     /** Es la etapa de entrada: ahí van las campañas de Meta. */
     entrada: boolean;
+    /**
+     * «Asignar fuentes» se ofrece en ESTE funnel (`ofreceAsignarFuentes`, 18/11/2026): en uno de Prospección no. Ausente =
+     * se ofrece (lo de siempre).
+     */
+    fuentes?: boolean;
     /** Es una etapa de reunión: ahí se asigna el evento de agenda cuyas reservas caen en ella. */
     reunion?: boolean;
     /** Es Ganado (22/10/2026): ahí se vincula el producto que cobra («Vincular cobro», app/crm/CobroDeEtapaModal.tsx). */
@@ -105,6 +111,17 @@ export type ContextoCrm =
     difusion?: { visibles: number; filtrado: boolean } | null;
   }
   | { sobre: 'fondo'; seleccionados: number };
+
+/**
+ * ¿«Asignar fuentes» va en el menú de la columna de entrada de ESTE funnel? (18/11/2026). Martín, 12/10: «que las opciones
+ * estén referidas al FUNNEL, como "Anuncios a Landing", "Anuncios a WhatsApp", "Prospección"… Prospección no tiene Meta por
+ * ningún lado». Las fuentes son las campañas de Meta y los formularios de Web Generator que TRAEN gente (CampanasModal); en
+ * Prospección el que escribe primero es el negocio, así que no se ofrece. Un funnel sin tipo declarado (`[]`, o la lectura
+ * caída) lo sigue ofreciendo: sólo se esconde cuando se SABE que es de Prospección.
+ */
+export function ofreceAsignarFuentes(entradas: readonly EntradaId[] | null | undefined): boolean {
+  return tipoDeFunnel(entradas ?? [])?.id !== 'prospeccion';
+}
 
 /** Hay acciones de LOTE cuando el clic cae sobre un tildado y hay más de uno. Con uno solo, es su menú. */
 export const esLote = (c: ContextoCrm): boolean =>
@@ -144,7 +161,7 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
       'col_ordenar',
       // La difusión a la columna entera (Leila, 29/10/2026): «Leads», porque es a quiénes le llega, no a la etapa.
       ...(c.difusion ? ['col_difusion' as const] : []),
-      ...(c.entrada ? ['col_campanas' as const] : []),
+      ...(c.entrada && c.fuentes !== false ? ['col_campanas' as const] : []),
       'col_renombrar',
       ...(c.tipo ? ['col_tipo' as const] : []),
       ...(c.reunion ? ['col_evento' as const] : []),

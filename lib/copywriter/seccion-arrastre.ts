@@ -11,10 +11,19 @@
 //
 // Cómo se usa: al empezar el arrastre, el editor SELECCIONA desde el título hasta `hasta`, y el arrastre de BlockNote
 // (`dragStart`, @blocknote/core extensions/SideMenu/dragging.ts) mueve la selección entera cuando abarca varios bloques.
-// Su selección (`editor.setSelection`) exige que los dos extremos tengan texto: `hasta` es el ÚLTIMO bloque de la sección
-// que lo tiene. Un divisor o una tabla al final de la sección (sin texto propio) quedan donde estaban: es raro, y se dice acá.
+// `hasta` es el ÚLTIMO bloque de la sección que tiene TEXTO: el arrastre de BlockNote sólo toma la selección entera si sus dos
+// extremos caen en el contenido de un bloque (`blockPositionsFromSelection`); un extremo adentro de una tabla cae en el
+// párrafo de una celda (grupo «tableContent») y BlockNote se lleva el título solo. Medido leyendo @blocknote/core 0.56.
 //
-// Puro (sin BlockNote ni React): lo usa el editor y lo prueba tests/copywriter-arrastrar-seccion.test.ts.
+// ⚠️ LO QUE QUEDA AL FINAL SIN TEXTO (una tabla, un divisor) ES LA `cola`, Y SIGUE A LA SECCIÓN AL SOLTAR (18/11/2026). Hasta
+// ese día se quedaba donde estaba, con un comentario que lo llamaba «raro»: cuatro plantillas de fábrica tienen esa forma
+// (lib/copywriter/plantillas.ts: los ganchos del anuncio, la historia del Reel, el contexto de las Stories y los slides del
+// Carrusel, todos un título con una tabla debajo), y arrastrar esos títulos era el mismo «deja su contenido atrás» de Leila.
+// La selección no puede terminar en la tabla, así que se arrastra hasta `hasta` (o el título solo) y, cuando BlockNote
+// terminó de soltar, `llevarCola` pone la cola detrás de lo que se movió. Son DOS pasos de deshacer (el soltar y la cola).
+//
+// Puro (sin BlockNote ni React): `llevarCola` recibe el editor por su forma. Lo usa el editor (CuerpoNotion, `MenuLateral`)
+// y lo prueba tests/copywriter-arrastrar-seccion.test.ts, la cola contra un BlockNote de verdad (headless, en jsdom).
 // =============================================================================
 
 /** Lo que hace falta de un bloque de primer nivel del documento de BlockNote (`editor.document`). */
@@ -32,11 +41,23 @@ export function nivelDeTitulo(b: BloqueArrastre): number | null {
 /** ¿El bloque tiene texto propio? (un párrafo, un título, una viñeta…; no un divisor ni una tabla). */
 const conTexto = (b: BloqueArrastre): boolean => Array.isArray(b.content);
 
+/** La sección de un título: lo que se selecciona antes del arrastre y lo que lo sigue después. */
+export type Seccion = {
+  /** El título. */
+  desde: string;
+  /** El último bloque CON texto de la sección (el otro extremo de `editor.setSelection`), o null si debajo no hay ninguno. */
+  hasta: string | null;
+  /** Lo que queda al final de la sección sin texto (una tabla, un divisor): no entra en la selección y sigue al soltar. */
+  cola: string[];
+  /** Cuántos bloques tiene la sección entera, con el título. */
+  cuantos: number;
+};
+
 /**
- * La sección que se lleva el título `id`: `{ desde, hasta }` (los ids de los dos extremos, para `editor.setSelection`), o null
- * si el bloque no es un título de primer nivel o si no tiene nada debajo que llevarse (ahí se arrastra solo, como siempre).
+ * La sección que se lleva el título `id`, o null si el bloque no es un título de primer nivel o si no tiene nada debajo que
+ * llevarse (ahí se arrastra solo, como siempre).
  */
-export function seccionDe(bloques: readonly BloqueArrastre[], id: string): { desde: string; hasta: string; cuantos: number } | null {
+export function seccionDe(bloques: readonly BloqueArrastre[], id: string): Seccion | null {
   const i = bloques.findIndex((b) => b.id === id);
   if (i < 0) return null;
   const nivel = nivelDeTitulo(bloques[i]);
@@ -47,8 +68,44 @@ export function seccionDe(bloques: readonly BloqueArrastre[], id: string): { des
     if (n != null && n <= nivel) break;
     fin = k;
   }
-  let hasta = -1;
+  if (fin === i) return null;
+  let hasta = i;
   for (let k = fin; k > i; k--) if (conTexto(bloques[k])) { hasta = k; break; }
-  if (hasta < 0) return null;
-  return { desde: bloques[i].id, hasta: bloques[hasta].id, cuantos: hasta - i + 1 };
+  return {
+    desde: bloques[i].id,
+    hasta: hasta > i ? bloques[hasta].id : null,
+    cola: bloques.slice(hasta + 1, fin + 1).map((b) => b.id),
+    cuantos: fin - i + 1,
+  };
+}
+
+/** Lo que `llevarCola` usa del editor de BlockNote (por su forma: este módulo no importa BlockNote). */
+export type EditorCola = {
+  readonly document: readonly { id: string }[];
+  getBlock(id: string): unknown;
+  removeBlocks(ids: string[]): unknown;
+  insertBlocks(bloques: never[], referencia: string, lugar: 'after'): unknown;
+  transact<T>(fn: () => T): T;
+};
+
+/**
+ * Después de soltar: si lo que se llevó la selección (`hasta`, o el título si no había texto debajo) se movió y su `cola` quedó
+ * donde estaba, la cola va detrás de él, en su orden y en UNA transacción. Devuelve cuántos bloques movió. No toca nada (0) si la
+ * cola ya va detrás (el arrastre se canceló o se soltó en el mismo lugar), si falta un bloque, o si lo movido ya no está en el
+ * primer nivel (se soltó adentro de otro bloque, o en otro editor): ahí no se adivina dónde iría.
+ */
+export function llevarCola(editor: EditorCola, tramo: Pick<Seccion, 'desde' | 'hasta' | 'cola'>): number {
+  if (!tramo.cola.length) return 0;
+  const tras = tramo.hasta ?? tramo.desde;
+  const doc = editor.document.map((b) => b.id);
+  const i = doc.indexOf(tras);
+  if (i < 0 || !tramo.cola.every((id) => doc.includes(id))) return 0;
+  if (tramo.cola.every((id, k) => doc[i + 1 + k] === id)) return 0;
+  const bloques = tramo.cola.map((id) => editor.getBlock(id));
+  if (bloques.some((b) => !b)) return 0;
+  editor.transact(() => {
+    editor.removeBlocks([...tramo.cola]);
+    editor.insertBlocks(bloques as never[], tras, 'after');
+  });
+  return bloques.length;
 }

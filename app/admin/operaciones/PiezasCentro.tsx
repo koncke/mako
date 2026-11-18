@@ -32,7 +32,7 @@ import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
 import { ignoradasDelChat, preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { edadCorta } from '@/lib/chat-mako-reglas';
 import {
-  AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, type Esfuerzo, type Modelo,
+  AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, rotuloAutomaticoModelo, type Esfuerzo, type Modelo,
 } from '@/lib/centro-cuentas';
 import { TEXTO_SEGUNDO_RENGLON, segundoRenglon } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
@@ -68,7 +68,7 @@ export function SelloCompletado() {
  * título, la hora a la derecha y, si hay algo que contar, el segundo renglón. Con `onMenu`, el «⋯» y el clic derecho.
  */
 export function FilaDeChat({ titulo, texto = titulo, criatura = titulo, aspecto, animo, espera = 0, sub = false, actual, apagada = false, dormida = false,
-  hace, chip, previa, onElegir, onMenu }: {
+  hace, chip, previa, onElegir, onMenu, marca }: {
   /** El nombre entero (el `title` de la fila y su criatura, si no se dice otra). */
   titulo: string;
   /** Lo que se lee en la fila (en un sub-chat, lo de después de «›»). */
@@ -88,9 +88,11 @@ export function FilaDeChat({ titulo, texto = titulo, criatura = titulo, aspecto,
   previa?: ReactNode;
   onElegir: () => void;
   onMenu?: (x: number, y: number) => void;
+  /** El `data-recorrido` de la fila, para el motor de los tutoriales (app/_ui/tutorial): lo que señala el reto (18/11/2026). */
+  marca?: string;
 }) {
   return (
-    <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`}>
+    <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`} {...(marca ? { 'data-recorrido': marca } : {})}>
       <button
         type="button" title={titulo}
         className={`co-fila${apagada ? ' co-fila--sin-dir' : ''}${dormida ? ' co-fila--dormida' : ''}`}
@@ -307,7 +309,8 @@ export function SelectoresDeEnvio({ centro: k, chat }: { centro: Centro; chat: C
         <select className="co-chip co-envio-sel" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
           title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
           onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
-          <option value={AUTOMATICO}>Automático</option>
+          {/* Como la cuenta («Automático · Cuenta 2»): dice qué hace. Por fase, «Automático · Sonnet → Opus» (18/11/2026). */}
+          <option value={AUTOMATICO}>{rotuloAutomaticoModelo(conModelo && k.porFaseDe(chat))}</option>
           {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
         </select>
       </label>
@@ -324,38 +327,87 @@ export function SelectoresDeEnvio({ centro: k, chat }: { centro: Centro; chat: C
   );
 }
 
-/** El «⋯» de un chat (y el clic derecho) con Renombrar y Cambiar su muñeco, como las filas de ChatGPT y Claude. */
-export function MenusCentro({ centro: k }: { centro: Centro }) {
+/**
+ * Lo que necesita el «⋯» de una fila de chat. UNA pieza para los dos Ops Center (F96, 18/11/2026; AGENTS.md: el «⋯» y el clic
+ * derecho de lo mismo son UN menú): el del super admin lo arma `menuDelCentro` sobre useCentro (sus chats de Claude Code, el nombre
+ * por cuenta y la criatura por nombre) y el del cliente, useChatCliente (app/second-brain), sobre SUS chats con MaKo (la criatura
+ * por conversación: lib/chat-munecos.ts). Lo de cada uno —a quién se le escribe, qué se guarda— queda en su motor.
+ */
+export type MenuDeChats = {
+  menu: { x: number; y: number } | null;
+  /** El chat del menú: su nombre, si se puede renombrar y si su criatura se puede cambiar (la del Cerebro es la estrella). */
+  delMenu: { titulo: string; renombra: boolean; cambiaCriatura: boolean } | null;
+  cerrarMenu: () => void;
+  elegirEnMenu: (id: string) => void;
+  renombrando: { texto: string; error: string | null; mandando: boolean } | null;
+  escribirNombre: (texto: string) => void;
+  cerrarRenombre: () => void;
+  renombrar: () => Promise<void>;
+  /** Debajo del nombre: dónde se renombra («Se renombra en su chat.», o en cuántas cuentas). */
+  notaRenombre: string;
+  eligiendo: { aspecto: Aspecto; guardando: boolean } | null;
+  /** El chat cuya criatura se elige: su nombre, su ánimo y si ya tiene una elegida («Volver al de siempre»). */
+  deMuneco: { titulo: string; animo: Animo; elegida: boolean } | null;
+  cambiarAspecto: (a: Aspecto) => void;
+  cerrarMuneco: () => void;
+  guardarElegido: (a: Aspecto | null) => Promise<void>;
+};
+
+/** El «⋯» del Ops Center del super admin, sobre useCentro: lo de siempre, dicho con la forma de `MenuDeChats`. */
+export function menuDelCentro(k: Centro): MenuDeChats {
   const { menu, delMenu, renombrando, deRenombre, eligiendo, deMuneco, munecos } = k;
+  const cuentas = deRenombre ? new Set(deRenombre.sesiones.map((s) => s.cuenta)).size : 0;
+  return {
+    menu: menu && delMenu ? { x: menu.x, y: menu.y } : null,
+    // El Cerebro es siempre la estrella de MaKo (lib/centro-munecos.ts → ASPECTO_MAKO): su criatura no se cambia.
+    delMenu: delMenu ? { titulo: delMenu.titulo, renombra: delMenu.sesiones.length > 0, cambiaCriatura: !esCriaturaDeMako(delMenu.titulo) } : null,
+    cerrarMenu: k.cerrarMenu,
+    elegirEnMenu: k.elegirEnMenu,
+    renombrando: renombrando && deRenombre ? renombrando : null,
+    escribirNombre: (texto) => { if (renombrando) k.setRenombrando({ ...renombrando, texto, error: null }); },
+    cerrarRenombre: () => k.setRenombrando(null),
+    renombrar: k.renombrar,
+    notaRenombre: cuentas > 1 ? `Se renombra en sus ${cuentas} cuentas.` : 'Se renombra en su chat.',
+    eligiendo: eligiendo && deMuneco ? eligiendo : null,
+    deMuneco: deMuneco ? { titulo: deMuneco.titulo, animo: animoDe(deMuneco), elegida: !!elegidoPara(munecos, deMuneco.titulo) } : null,
+    cambiarAspecto: (a) => { if (eligiendo) k.setEligiendo({ ...eligiendo, aspecto: a }); },
+    cerrarMuneco: () => k.setEligiendo(null),
+    guardarElegido: k.guardarElegido,
+  };
+}
+
+/** El «⋯» de un chat (y el clic derecho) con Renombrar y Cambiar su muñeco, como las filas de ChatGPT y Claude. */
+export function MenusCentro(p: { centro: Centro } | { chats: MenuDeChats }) {
+  const k = 'chats' in p ? p.chats : menuDelCentro(p.centro);
+  const { menu, delMenu, renombrando, eligiendo, deMuneco } = k;
   return (
     <>
       {menu && delMenu && (
         <MenuContextual punto={{ x: menu.x, y: menu.y }} titulo={delMenu.titulo} onCerrar={k.cerrarMenu} onElegir={k.elegirEnMenu}
           items={[
-            ...(delMenu.sesiones.length ? [{ id: 'renombrar', label: 'Renombrar', icono: 'renombrar' as const }] : []),
-            // El Cerebro es siempre la estrella de MaKo (lib/centro-munecos.ts → ASPECTO_MAKO): su criatura no se cambia.
-            ...(esCriaturaDeMako(delMenu.titulo) ? [] : [{ id: 'muneco', label: 'Cambiar su criatura', icono: 'emoji' as const }]),
+            ...(delMenu.renombra ? [{ id: 'renombrar', label: 'Renombrar', icono: 'renombrar' as const }] : []),
+            ...(delMenu.cambiaCriatura ? [{ id: 'muneco', label: 'Cambiar su criatura', icono: 'emoji' as const }] : []),
           ]} />
       )}
-      {renombrando && deRenombre && (
-        <Modal titulo="Renombrar" onCerrar={() => k.setRenombrando(null)} ancho={480}
+      {renombrando && (
+        <Modal titulo="Renombrar" onCerrar={k.cerrarRenombre} ancho={480}
           pie={<Button loading={renombrando.mandando} onClick={() => void k.renombrar()}>Renombrar</Button>}>
           <form onSubmit={(e) => { e.preventDefault(); void k.renombrar(); }} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Field label="Nombre" hint="Para ponerlo dentro de su jefe: CRM › Lead Detail" error={renombrando.error ?? undefined}>
               <Input data-autofocus value={renombrando.texto} maxLength={120} disabled={renombrando.mandando}
-                onChange={(e) => k.setRenombrando({ ...renombrando, texto: e.target.value, error: null })} />
+                onChange={(e) => k.escribirNombre(e.target.value)} />
             </Field>
-            <p className="co-nota">{new Set(deRenombre.sesiones.map((s) => s.cuenta)).size > 1 ? `Se renombra en sus ${new Set(deRenombre.sesiones.map((s) => s.cuenta)).size} cuentas.` : 'Se renombra en su chat.'}</p>
+            <p className="co-nota">{k.notaRenombre}</p>
           </form>
         </Modal>
       )}
       {eligiendo && deMuneco && (
-        <Modal titulo="Su criatura" onCerrar={() => k.setEligiendo(null)} ancho={760} alto="min(560px, 90dvh)"
+        <Modal titulo="Su criatura" onCerrar={k.cerrarMuneco} ancho={760} alto="min(560px, 90dvh)"
           pie={<>
-            {elegidoPara(munecos, deMuneco.titulo) && <Button variant="tertiary" disabled={eligiendo.guardando} onClick={() => void k.guardarElegido(null)}>Volver al de siempre</Button>}
+            {deMuneco.elegida && <Button variant="tertiary" disabled={eligiendo.guardando} onClick={() => void k.guardarElegido(null)}>Volver al de siempre</Button>}
             <Button loading={eligiendo.guardando} onClick={() => void k.guardarElegido(eligiendo.aspecto)}>Guardar criatura</Button>
           </>}>
-          <ElegirMuneco titulo={deMuneco.titulo} animo={animoDe(deMuneco)} aspecto={eligiendo.aspecto} onCambio={(a) => k.setEligiendo({ ...eligiendo, aspecto: a })} />
+          <ElegirMuneco titulo={deMuneco.titulo} animo={deMuneco.animo} aspecto={eligiendo.aspecto} onCambio={k.cambiarAspecto} />
         </Modal>
       )}
     </>

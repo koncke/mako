@@ -69,7 +69,7 @@ import {
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, textoCasoRespuesta,
   RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos, rotuloSiNoDeRespuesta,
   esPasoIA, erroresDelPasoIA, medioDe, raicesRespuesta, puedeSumarAIStep, juntarPasosIA, cambioDeMedio,
-  llegaTarde, minutosDeCerca, ramasABDe, CLAVES_AB, MAX_RAMAS_AB, MIN_RAMAS_AB, PASO_PCT_AB,
+  llegaTarde, minutosDeCerca, ramasABDe, CLAVES_AB, MAX_RAMAS_AB, MIN_RAMAS_AB, PASO_PCT_AB, audioPorGrabar, AUDIO_POR_GRABAR,
   type MedioAIStep, type Espera, type RamaAB,
 } from './flujo-grafo';
 // La libertad de un escenario del AI Step (undécima tanda): UNA lectura para la tarjeta, el editor y el motor.
@@ -1168,7 +1168,8 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         t = {
           ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, canal: social ?? (email ? 'email' : 'whatsapp'),
           puertos: [...filasBotones, ...puertos], ...pie, alto: altoDeMensaje(p, audio) + ALTO_PUERTO * (1 + filasBotones.length),
-          ...(vacio ? { advertencia: 'Sin escribir' } : fueraDeVentana ? { advertencia: AVISO_VENTANA_META } : botonSinDestino ? { advertencia: `El botón «${botonSinDestino.rotulo}» no lleva a ninguna tarjeta` } : {}),
+          // La nota de voz por grabar (F80) no está «sin escribir»: falta grabarla (la burbuja lo dice igual).
+          ...(vacio ? { advertencia: audioPorGrabar(p) ? AUDIO_POR_GRABAR : 'Sin escribir' } : fueraDeVentana ? { advertencia: AVISO_VENTANA_META } : botonSinDestino ? { advertencia: `El botón «${botonSinDestino.rotulo}» no lleva a ninguna tarjeta` } : {}),
         };
       }
     }

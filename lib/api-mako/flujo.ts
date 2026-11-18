@@ -81,6 +81,7 @@ export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
  *   · `crear_automatizacion_con_ia` (décima tanda, docs/diseno-automations-galeria-v2.md §4): una automatización que crea
  *     automatizaciones con IA cada vez que entra un lead es un lazo que gasta la IA del negocio. Su `preparar` también la
  *     rechaza desde un flujo (la clave de scope con `PREFIJO_FLUJO`): esto la saca de la lista, aquello frena un paso viejo.
+ *   · `editar_armada_con_ia` (18/11/2026), por lo mismo: una que se reescribe con IA cada vez que entra un lead.
  */
 // `vender_plan_mako` (23/10/2026, revisión adversarial): un paso de un flujo se confirma solo, y vender un plan de MaKo lo
 // confirma el super admin. Su runner además lo rechaza desde un flujo (un paso viejo o importado).
@@ -92,7 +93,7 @@ export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
 // sus publicaciones de todos; lo decide una persona de la plataforma, nunca un paso que se confirma solo.
 // Los recibos de MaKo (5/11/2026, lib/recibos.ts): cargar un pago numera un documento y reenviarlo le escribe a un tercero; los
 // confirma el super admin, nunca un paso.
-export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia', 'vender_plan_mako',
+export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia', 'editar_armada_con_ia', 'vender_plan_mako',
   'lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer',
   'cuenta_media_buyer', 'modo_agente_media_buyer', 'zona_media_buyer', 'hasta_media_buyer', 'proponer_crear_campana',
   'subir_creativos_media_buyer', 'cambiar_biblioteca_carruseles', 'cargar_pago_a_mano', 'reenviar_recibo',
@@ -103,7 +104,10 @@ export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_
   'armar_magnet', 'pagina_captura_magnet', 'link_publico_magnet', 'primero_magnet', 'dejar_compartir_magnet',
   // «Traer tu outlier» (11/11/2026, areas/imagen.def.ts): lee un link con Apify (Instagram) por cada vez que corre; el link lo elige
   // una persona mirando, no un evento.
-  'traer_outlier', ...DEL_ESTUDIO_DE_VIDEO.map((d) => d.id)]);
+  'traer_outlier',
+  // Rehacer los anuncios planteados (18/11/2026, areas/contenido.def.ts): un paso que corre por cada lead los volvería a armar
+  // cada vez, con la IA del negocio. Su runner además lo rechaza desde un flujo.
+  'generar_anuncios_planteados', ...DEL_ESTUDIO_DE_VIDEO.map((d) => d.id)]);
 
 /**
  * Y lo que se acepta EN EL EDITOR DE VIDEO (pantalla `/video-editor`: las operaciones de su chat, lib/editor-video/chat-api.ts,

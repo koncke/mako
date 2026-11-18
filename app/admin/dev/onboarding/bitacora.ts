@@ -883,4 +883,26 @@ export const BITACORA: Hito[] = [
       "tests/onboarding-funnel-recomendado.test.ts — la tabla, el paso nuevo y el ejemplo de Ana; probado rompiéndolo (5 roturas)",
     ],
   },
+  {
+    fecha: "18 nov", hora: "05:10", chat: "Onboarding: la maqueta y el reto de 7 días", sesion: "local_a9a5a9e9-220c-4884-9a60-56376fe2cdaa", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El motor de los tutoriales y el chat «Reto de 7 días», en la app real, detrás del interruptor de la revisión",
+    puntos: [
+      "Martín, 18/11: «despleguemos todo esto ya en la app, de verdad». La maqueta del onboarding queda como especificación.",
+      "El interruptor vive en el código (lib/onboarding-v2/revision.ts): lo ven sus cuentas y el Cliente de Prueba (ws 3); PARA_TODOS lo prende para todos.",
+      "El motor corre los tutoriales de cada pestaña (lib/tutoriales, del chat de las pestañas) sobre la página real, y la MARCA de un solo lugar que reemplaza a los botones de atajo («Abrir Funnel Coach», «Ver mi reto», «Hacerlo»).",
+      "El chat «Reto de 7 días» en el Ops Center: el desplegable, cada día con su video (o su lugar marcado), lo que le toca diciendo DÓNDE, su prueba por WhatsApp escribiendo ELLOS y «¿Adelantas el día que sigue?». El día 1 marca Funnel Coach.",
+      "En el teléfono, al terminar el onboarding: «Continuar el onboarding desde la PC».",
+      "Lo que mordió (el contenedor que se comía el clic del hueco, la marca sin lugar que tapaba todo, el menú de la foto) y lo que falta: docs/hallazgos-onboarding.md, 18/11.",
+    ],
+    revisar: "/second-brain?reto=1",
+    archivos: [
+      "app/_ui/tutorial/MotorTutorial.tsx y store.ts — el motor y su API (mostrarTutorial, senalarDondeTocar)",
+      "lib/reto/dias.ts — los 7 días, sus tareas y marcas, y en qué día va (puro, con test)",
+      "app/api/reto/route.ts — lo guardado del reto (app_settings reto.estado)",
+      "app/second-brain/reto/ChatDelReto.tsx — el chat y su desplegable",
+      "app/second-brain/ChatSecondBrain.tsx — la fila del reto, la marca de Funnel Coach y la marca al llegar del onboarding",
+      "app/onboarding/ChatArranque.tsx — «Continuar el onboarding desde la PC»",
+    ],
+  },
 ];

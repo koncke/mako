@@ -26,7 +26,8 @@
 //     No Avanzó»; cuotas en la cartera → «Una Cuota Venció».
 //   · CLASE 3, «El tablero llega a un estado»: parados en la entrada más de N días, reuniones que ya
 //     pasaron sin marcar (sin Fathom conectado), ganados sin cobro o cuotas vencidas, nutriciones
-//     manuales vencidas.
+//     manuales vencidas y, desde el 18/11/2026 (F158), los perdidos hace 60 a 90 días y la etapa donde
+//     la mitad o más no avanza.
 //
 // ⚠️ «NUNCA TE PROPONE UNA AUTOMATIZACIÓN QUE YA EXISTE» (el mapa). Se compara por DISPARADOR, con la
 // misma lista de CRON que lee el motor (`disparadoresDe`, lib/disparadores.ts: el primero de las
@@ -88,6 +89,17 @@ export const UMBRALES_SUGERENCIAS = {
   gestosMensaje: 3,
   /** Un mensaje más corto que esto («ok», «gracias», «¿pudiste ver?») no es una secuencia: es una respuesta. */
   mensajeMinimoLetras: 25,
+  /** Clase 3 (18/11/2026, F158): «Perdidos hace 60 a 90 días», y desde cuántos hay algo que proponer (el piso de los parados). */
+  perdidosDias: { desde: 60, hasta: 90 },
+  perdidosMinimo: 5,
+  /**
+   * Clase 3 (18/11/2026, F158): «una etapa donde se te cae más gente (la mitad o más no avanza)». Se mira lo que SALIÓ de
+   * cada paso en esta ventana (el historial de la etapa), con un piso de salidas: diez casos no son una tendencia
+   * (lib/recomendaciones-senales.ts usa el mismo piso para sus tasas).
+   */
+  caidaDias: 90,
+  caidaParte: 0.5,
+  caidaMinimo: 10,
 } as const;
 
 // ── El dato ──────────────────────────────────────────────────────────────────
@@ -162,6 +174,17 @@ export type EntradaSugerencias = {
      *  está ese lead hoy. Ausente = no se pudieron leer (esa sugerencia se calla). */
     mensajes?: ReadonlyArray<{ texto: string; muestra: string; lead: number; etapa: string }>;
   } | null;
+  /**
+   * CLASE 3 (18/11/2026, F158): los leads de la casa que HOY están perdidos, con cuándo se perdieron (la última línea
+   * «Estado: perdido» del historial, en los últimos `perdidosDias.hasta` días). Uno sin esa línea no viaja: no se sabe
+   * cuándo se perdió. Ausente o null = no se leyó (la sugerencia se calla).
+   */
+  perdidos?: ReadonlyArray<{ lead: number; desde: string }> | null;
+  /**
+   * CLASE 3 (18/11/2026, F158): los cambios de etapa de los leads de la casa en los últimos `caidaDias` días (el historial:
+   * `Etapa`, de una key a otra, en orden), los haya hecho una persona o el sistema. Ausente o null = no se leyó.
+   */
+  salidas?: ReadonlyArray<{ lead: number; desde: string; hacia: string }> | null;
   /** CLASE 4 (20/10/2026): lo nuevo que llegó en esos días (conversaciones de Instagram y Messenger). null = no se leyó. */
   nuevos?: {
     dmInstagram: number; dmMessenger: number;
@@ -349,6 +372,8 @@ const hashCorto = (s: string): string => {
 };
 /** «Hace 5 veces que mueves de A a B»: un id por par de etapas. */
 export const idGestoMover = (desde: string, hacia: string): string => `gesto-mover:${hashCorto(`${desde}>${hacia}`)}`;
+/** «En la etapa X no avanza la mitad»: un id por etapa (su key puede traer cualquier cosa). */
+export const idCaida = (etapa: string): string => `caida:${hashCorto(etapa)}`;
 /** «Llegaron leads de la landing X»: un id por landing o campaña. */
 export const idSinCrm = (tipo: 'landing' | 'campaña', nombre: string): string => `sin-crm:${tipo === 'campaña' ? 'campana' : 'landing'}:${hashCorto(nombre)}`;
 
@@ -445,6 +470,62 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
         id: 'manual-vencida', clase: 3, etapa: 'manual', soloAdmin: false,
         texto: `${vencidas} leads con la nutrición manual vencida. ¿Los reviso contigo?`,
         accion: { tipo: 'chat', pedido: `En este CRM hay ${vencidas} leads en ${comillas(label('manual'))} con el plazo vencido. ¿Quiénes son y a qué etapa conviene pasar a cada uno?` },
+      });
+    }
+  }
+
+  // «Perdidos hace 60 a 90 días → volver a escribirles con la oferta de hoy» (F158, 18/11/2026). No hay plantilla para
+  // «este mensaje a estos perdidos»: lo arma MaKo por el chat, que PROPONE y la persona confirma. Sólo los que se sabe
+  // cuándo se perdieron (`perdidos`, el historial): sin la fecha, no se afirma «hace 60 días».
+  if (e.perdidos) {
+    const { desde, hasta } = U.perdidosDias;
+    const n = e.perdidos.filter((p) => {
+      const dias = (e.ahora - Date.parse(p.desde)) / DIA_MS;
+      return Number.isFinite(dias) && dias >= desde && dias <= hasta;
+    }).length;
+    if (n >= U.perdidosMinimo) {
+      ofrecer({
+        id: 'perdidos-60-90', clase: 3, etapa: null, soloAdmin: false,
+        texto: `${n} leads se perdieron hace ${desde} a ${hasta} días. ¿Les escribo con la oferta de hoy?`,
+        accion: { tipo: 'chat', pedido: `En este CRM hay ${n} leads que se perdieron hace ${desde} a ${hasta} días. ¿Quiénes son, y qué mensaje les mando para volver a escribirles con la oferta de hoy?` },
+      });
+    }
+  }
+
+  // «Una etapa donde se te cae más gente (la mitad o más no avanza) → probar un recordatorio o un mensaje ahí» (F158).
+  // De lo que SALIÓ de cada paso del recorrido en la ventana, cuánto fue a nutrición o a una salida en vez de a un paso
+  // de más adelante (o a Ganado). Volver a un paso anterior no cuenta para ningún lado (reagendar no es caerse), y de cada
+  // lead vale su ÚLTIMA salida de esa etapa. Una sola sugerencia: la etapa que más pierde.
+  if (e.salidas) {
+    const orden = new Map(pipeline.map((st, i) => [st.key, i] as const));
+    const banda = new Map(e.etapas.map((st) => [st.key, st.band ?? 'pipeline'] as const));
+    const ultima = new Map<string, { desde: string; hacia: string }>();
+    for (const x of e.salidas) if (x.desde !== x.hacia) ultima.set(`${x.lead}|${x.desde}`, x);
+    const cuenta = new Map<string, { salieron: number; cayeron: number }>();
+    for (const x of ultima.values()) {
+      const i = orden.get(x.desde);
+      if (i == null || x.desde === TERMINAL_DEL_PIPELINE) continue;
+      const b = banda.get(x.hacia);
+      const cae = b === 'nutricion' || b === 'salidas';
+      const avanza = x.hacia === TERMINAL_DEL_PIPELINE || (orden.get(x.hacia) ?? -1) > i;
+      if (!cae && !avanza) continue;
+      const c = cuenta.get(x.desde) ?? { salieron: 0, cayeron: 0 };
+      c.salieron++;
+      if (cae) c.cayeron++;
+      cuenta.set(x.desde, c);
+    }
+    const peor = [...cuenta]
+      .filter(([, c]) => c.salieron >= U.caidaMinimo && c.cayeron / c.salieron >= U.caidaParte)
+      .sort((a, b) => b[1].cayeron / b[1].salieron - a[1].cayeron / a[1].salieron || b[1].salieron - a[1].salieron)[0];
+    if (peor) {
+      const [etapa, c] = peor;
+      ofrecer({
+        id: idCaida(etapa), clase: 3, etapa, soloAdmin: false,
+        texto: conEtapa((et) => `En ${et}, ${c.cayeron} de ${c.salieron} no avanzaron. ¿Probamos un recordatorio ahí?`, label(etapa)),
+        accion: {
+          tipo: 'chat',
+          pedido: `En este CRM, de los ${c.salieron} leads que salieron de ${comillas(label(etapa))} en los últimos ${U.caidaDias} días, ${c.cayeron} no avanzaron (pasaron a nutrición o se perdieron). ¿Qué recordatorio o mensaje conviene probar en esa etapa?`,
+        },
       });
     }
   }

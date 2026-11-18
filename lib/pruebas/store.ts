@@ -210,7 +210,7 @@ export async function reiniciarEpoca(ws: number, id: number, epocaLeida: number,
  * si otro pedido la escribió primero, gana ésa). `at` es la hora del PEDIDO (crítica 9). `previo` congela el estado de la
  * métrica al asignar («ya había agendado»). Si escribir falla, el CONTROL: nunca una rama que no quedó registrada.
  */
-export async function servirRama(ws: number, p: PruebaGuardada | null, unidad: string | null | undefined, o: { at?: string; previo?: Readonly<Record<string, boolean>> } = {}): Promise<string> {
+export async function servirRama(ws: number, p: PruebaGuardada | null, unidad: string | null | undefined, o: { at?: string; previo?: Readonly<Record<string, boolean>>; preferida?: string | null } = {}): Promise<string> {
   const control = p?.ramas.find((r) => r.control)?.clave ?? 'A';
   if (!p || !unidad) return ramaParaServir(p, unidad).clave;
   const leer = async (): Promise<string | null | 'error'> => {
@@ -220,7 +220,8 @@ export async function servirRama(ws: number, p: PruebaGuardada | null, unidad: s
   };
   const previa = p.estado === 'corriendo' && !p.sirviendo ? await leer() : null;
   if (previa === 'error') return control;
-  const r = ramaParaServir(p, unidad, previa);
+  // `preferida`: la rama que trae la cookie del servidor de la landing (ver `ramaParaServir`).
+  const r = ramaParaServir(p, unidad, previa, o.preferida);
   if (!r.escribir) return r.clave;
   const { error } = await db().from('prueba_asignaciones').upsert({
     prueba_id: p.id, unidad, variante: r.clave, workspace_id: ws, epoca: p.epoca,

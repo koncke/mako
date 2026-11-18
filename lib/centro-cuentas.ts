@@ -12,13 +12,29 @@
 //
 // El modelo y el esfuerzo los aplica el Runner con `set_session_model` / `set_session_effort` antes de entregar (lib/
 // runner.ts). Esas herramientas son de la APP: a un chat de terminal no se le puede cambiar el modelo desde afuera, así
-// que ahí el selector no se ofrece. «Automático» no toca nada: lo decide el Cerebro.
+// que ahí el selector no se ofrece.
+//
+// «AUTOMÁTICO» ES POR FASE desde el 18/11/2026 (pedido de Aaron por Martín, ticket 876825880-11: «Sonnet para explorar,
+// Opus para ejecutar, midiendo el consumo antes y después»). Hasta ese día «Automático» no tocaba nada. La regla, la más
+// simple que se puede escribir, porque un pedido no dice en qué fase está:
+//   · todo trabajo «Automático» a un chat de la app ARRANCA EXPLORANDO con Sonnet: leer, buscar, medir y armar el plan, sin
+//     cambiar archivos. Si se contesta sólo leyendo (una pregunta), termina ahí, en Sonnet;
+//   · EJECUTAR arranca cuando el CHAT lo dice: antes de su primer cambio corre `cartero.mjs fase <id> ejecutar` y termina
+//     el turno; el Runner le pone Opus y le escribe que siga (scripts/operaciones/cartero.mjs → `fase`, `mensajeFase`).
+//     El chat no se lo puede cambiar solo: la app no deja que una sesión se cambie el modelo de su propio turno;
+//   · un modelo elegido a mano manda (no hay fases); el esfuerzo elegido vale para las dos fases;
+//   · NO al Cerebro: reparte y juzga, y elige él el modelo de cada jefe (AGENTS.md → «El modelo justo y la instrucción
+//     precisa»). Ni a un chat de terminal (no se le puede cambiar), ni con un Runner de antes de la 1.28.0 (lo ignoraría
+//     y la caja diría algo que no pasa).
+// El consumo de cada fase se mide con la cuota de la cuenta (lib/centro-uso.ts → gastoPorFase).
 
 import type { CarteroP, ChatCentro, SesionDeChat } from './centro-chats';
 import { usoDeCuenta, type Cuota } from './centro-uso';
-import { ESFUERZOS, MODELOS, carteroVivo, type Esfuerzo, type Modelo } from './operaciones-reglas';
+import { ESFUERZOS, MODELOS, MODELO_EJECUTAR, MODELO_EXPLORAR, aceptaPorFase, carteroVivo, type Esfuerzo, type Modelo } from './operaciones-reglas';
+// ⚠️ Puro (sin server-only): lo usan la caja de la computadora y la del teléfono (app/admin/operaciones/useCentro.ts).
+import { esElCerebro } from './tickets-aviso';
 
-export { ESFUERZOS, MODELOS, type Esfuerzo, type Modelo };
+export { ESFUERZOS, MODELOS, MODELO_EJECUTAR, MODELO_EXPLORAR, type Esfuerzo, type Modelo };
 
 export const AUTOMATICO = 'auto';
 
@@ -84,3 +100,30 @@ export const NOMBRE_ESFUERZO: Record<Esfuerzo, string> = { low: 'Bajo', medium: 
 
 /** El modelo se le puede cambiar sólo a un chat de la APP (`local_…`): las herramientas que lo hacen son de la app. */
 export const aceptaModelo = (sesion: string | null | undefined): boolean => !!sesion && sesion.startsWith('local_');
+
+/** Lo que se firma de «cómo corre» un trabajo de la caja. `porFase`: «Automático» por fase (ver arriba). */
+export type ComoCorreEnvio = { modelo?: Modelo | null; esfuerzo?: Esfuerzo | null; porFase?: true };
+
+/** ¿Alguno de los Runners de esa cuenta entiende «por fase»? (`aceptaPorFase`; sin cuenta, cualquiera). Como `topeDe`. */
+export const runnerEntiendePorFase = (carteros: readonly { cuenta: string; version?: string | null }[], cuenta: string | null | undefined): boolean =>
+  carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaPorFase(k.version));
+
+/**
+ * ¿Este trabajo va por fase? Con «Automático» (sin modelo), a un chat de la app que no es el Cerebro, y con un Runner en
+ * esa cuenta que lo entiende (`runnerEntiende`, de `runnerEntiendePorFase`).
+ */
+export function vaPorFase(sesion: string | null | undefined, titulo: string, modelo: Modelo | null | undefined, runnerEntiende: boolean): boolean {
+  return !modelo && aceptaModelo(sesion) && !esElCerebro(titulo) && runnerEntiende;
+}
+
+/** Lo que se firma: el modelo y el esfuerzo sólo para un chat de la app; y «Automático», por fase cuando va (`vaPorFase`). */
+export function comoCorreDelEnvio(
+  sesion: string | null | undefined, titulo: string, modelo: Modelo | null | undefined, esfuerzo: Esfuerzo | null | undefined, runnerEntiende: boolean,
+): ComoCorreEnvio {
+  if (!aceptaModelo(sesion)) return {};
+  return { modelo: modelo ?? null, esfuerzo: esfuerzo ?? null, ...(vaPorFase(sesion, titulo, modelo, runnerEntiende) ? { porFase: true as const } : {}) };
+}
+
+/** Cómo se lee «Automático» en el selector de modelo: con las dos fases cuando va por fase («Sonnet → Opus»). */
+export const rotuloAutomaticoModelo = (porFase: boolean): string =>
+  (porFase ? `Automático · ${NOMBRE_MODELO[MODELO_EXPLORAR]} → ${NOMBRE_MODELO[MODELO_EJECUTAR]}` : 'Automático');
