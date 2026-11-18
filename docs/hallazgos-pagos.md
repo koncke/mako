@@ -1976,3 +1976,9 @@ sumar el 5 %, no restarnos a nosotros… en MaKo Partners… siempre cobrarían 
   (`reactivarPlan`, `primerPlanPropio`), las ofertas de retención y subir de plan (`retencion-plan`, `subir-plan-reglas`)— siguen al precio de lista aunque el cobro vaya por pasarela;
   una suscripción ya armada renueva con el monto que tiene su cobro (el cron del blue no la toca: lib/dolar-blue-corrida.ts). Las anuales no pasan por la pasarela (se piden).
   Decidir si esos flujos también llevan el 5 %. **La landing del Sitio** todavía dice dos porcentajes de Partners y «Hacerme partner gratis» (app/mako-partners/*, no mío).
+
+- ⚠️ **Los links de Binance son «Payment Request» de Binance Pay** (`app.binance.com/uni-qr/request-to-pay?billOrderId=…&billType=request_a_payment`), en USDT y a precio de lista:
+  Pro mensual 97, Essential mensual 47, Essential anual 470 y Pro anual 970 (Martín los creó el 18/11; los carga el Cerebro en `linksBinance`, claves `<idPlan>:mensual|anual`).
+  **DUDA ABIERTA: un «request to pay» puede ser de UN solo pago o vencer; no se sabe.** Se confirma con el primer pago real: si el link queda usado, Martín crea uno nuevo o se pasa a
+  mostrar sólo el Pay ID. Por eso el checkout muestra SIEMPRE el Binance Pay ID (68725667) con «Copiar» debajo de «PAGAR CON BINANCE», con la línea «Si el link no abre, envía el
+  monto a este Binance Pay ID». Hoy el checkout cobra por mes: los links anuales sólo se usan cuando el anual se pague por esta vía.

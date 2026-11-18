@@ -91,6 +91,9 @@ test('Binance: el link del plan y período elegidos («PAGAR CON BINANCE»); sin
   assert.match(f, /PAGAR CON BINANCE/);
   assert.match(f, /linkDeBinance\(p\.directo\.datos, p\.directo\.planId\)/);
   assert.match(f, /<DatoCopiable etiqueta="Binance Pay ID"/, 'el Pay ID con «Copiar» queda siempre');
+  assert.match(f, /Si el link no abre, envía el monto a este Binance Pay ID\./, 'el link puede vencer: la salida va escrita');
+  const ids = datosLimpios({ linksBinance: { 'pro:mensual': 'https://app.binance.com/uni-qr/request-to-pay?billOrderId=466413363120758784&billType=request_a_payment', 'pro:anual': 'https://app.binance.com/uni-qr/request-to-pay?billOrderId=466413554297847808&billType=request_a_payment' } });
+  assert.deepEqual(Object.keys(ids.linksBinance), ['pro:mensual', 'pro:anual'], 'acepta la forma de un Payment Request de Binance Pay (con ? y &)');
   assert.match(fuente('app/planes/[plan]/page.tsx'), /planId: plan\.id/);
 });
 

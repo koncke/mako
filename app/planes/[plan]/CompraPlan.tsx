@@ -294,6 +294,8 @@ export function CompraPlan(p: {
               {medioDirecto === 'binance' && linkDeBinance(p.directo.datos, p.directo.planId) && (
                 <a className="planes-btn" href={linkDeBinance(p.directo.datos, p.directo.planId)!} target="_blank" rel="noopener noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>PAGAR CON BINANCE</a>
               )}
+              {/* ⚠️ El link es un «Payment Request» de Binance Pay: puede ser de UN solo pago o vencer (se confirma con el primer pago real). Por eso el Pay ID con «Copiar» va SIEMPRE debajo. */}
+              {medioDirecto === 'binance' && linkDeBinance(p.directo.datos, p.directo.planId) && p.directo.datos.binancePayId && <small style={{ opacity: 0.75 }}>Si el link no abre, envía el monto a este Binance Pay ID.</small>}
               {medioDirecto === 'binance' && <DatoCopiable etiqueta="Binance Pay ID" valor={p.directo.datos.binancePayId} />}
               {medioDirecto === 'transferencia' && (
                 <>
