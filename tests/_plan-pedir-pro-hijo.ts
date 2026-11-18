@@ -34,6 +34,8 @@ type Escena = {
   sus: Record<string, unknown> | null;
   /** `esClienteDeAgencia`: sí / no / no sé. */
   agencia: boolean | null;
+  /** `pagaUnPlanDe` (si paga un plan de MaKo: el `rige` del nombre del plan). Sin decirlo, sí cuando hay suscripción. */
+  rige?: boolean | null;
   /** `?empezar=1`: vino de un tope de la PRUEBA. */
   empezar?: boolean;
 };
@@ -78,6 +80,9 @@ async function main() {
   mock.module(url('lib/plan-a-mano.ts'), { namedExports: { gratisHastaDe: async () => null } });
   mock.module(url('lib/retencion-plan.ts'), { namedExports: { ofertaDeRetencion: async () => null, estadoDeRetencion: async () => null } });
   mock.module(url('lib/agencia.ts'), { namedExports: { esClienteDeAgencia: async () => estado.agencia } });
+  mock.module(url('lib/plan-esencial.ts'), { namedExports: {
+    pagaUnPlanDe: async () => { if (estado.rige === null) throw new Error('la base no contesta'); return estado.rige ?? estado.sus != null; },
+  } });
   mock.module(url('lib/compra-plan.ts'), { namedExports: { planesMako: async () => PLANES } });
   // Las acciones de servidor: la fila las llama de verdad, y acá sólo queda anotado el nombre de la que corrió. Todas
   // contestan «no pude» para que ningún camino se vaya a `window.location` (no hay navegador).
@@ -107,7 +112,7 @@ async function main() {
 
   /** Dibuja la pantalla con esta escena y devuelve lo que quedó dibujado. */
   const dibujar = async (e: Escena) => {
-    Object.assign(estado, { empezar: false }, e);
+    Object.assign(estado, { empezar: false, rige: undefined }, e);
     filas = [];
     const pantalla = await PlanPage({ searchParams: Promise.resolve(estado.empezar ? { empezar: '1' } : {}) });
     const html = renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router as never }, pantalla));
@@ -116,6 +121,8 @@ async function main() {
       /** CADA destino al que se puede ir desde la pantalla: así se ve si alguna fila volvió a ser un link. */
       enlaces: [...html.matchAll(/href="([^"]*)"/g)].map((m) => m[1]),
       botones: (html.match(/<button/g) ?? []).length,
+      /** El nombre del plan, como lo lee el cliente (el título grande de «Tu plan»), sin la pastilla del estado. */
+      plan: /<span class="aj-plan__nombre">([^<]*)/.exec(html)?.[1] ?? null,
     };
   };
 
@@ -127,6 +134,20 @@ async function main() {
   salida.clienteDeAgencia = await dibujar({ capa: 'completo', sus: PRUEBA, agencia: true });
   salida.noSeSiEsDeAgencia = await dibujar({ capa: 'completo', sus: PRUEBA, agencia: null });
   salida.yaEsPro = await dibujar({ capa: 'agencia', sus: PRUEBA, agencia: false });
+
+  // ── EL NOMBRE DEL PLAN (18/11/2026): el que se vende, nunca la capa (lib/plan-visible-reglas.ts) ──────────────────
+  // Decía «Agencia» a quien paga MaKo Pro y «Completo» a quien paga Essential. Lo lee tests/plan-visible.test.ts.
+  const nombre = async (e: Escena) => (await dibujar(e)).plan;
+  const PAGA_PRO = { ...PAGADA, alta_capa: 'agencia', creado_por: 'planes:pro', monto: 97, concepto: 'MaKo Pro · mensual' };
+  salida.nombres = {
+    pruebaEssential: await nombre({ capa: 'completo', sus: PRUEBA, agencia: false }),
+    pagaPro: await nombre({ capa: 'agencia', sus: PAGA_PRO, agencia: false }),
+    deAgenciaConPlan: await nombre({ capa: 'completo', sus: null, agencia: true, rige: true }),
+    deAgenciaSinPlan: await nombre({ capa: 'completo', sus: null, agencia: true, rige: false }),
+    aMano: await nombre({ capa: 'agencia', sus: null, agencia: false, rige: false }),
+    otraCapa: await nombre({ capa: 'pm', sus: null, agencia: false }),
+    sinLeerRige: await nombre({ capa: 'agencia', sus: PRUEBA, agencia: false, rige: null }),
+  };
 
   // ── QUÉ ACCIÓN CORRE CADA FILA DE LA ESCENA «en prueba» ───────────────────────────────────────────────────────────────
   // El handler es el del componente de verdad. Un dibujo estático no vuelve a dibujar (los `useState` no avanzan), así que

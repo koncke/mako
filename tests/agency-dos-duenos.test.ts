@@ -194,6 +194,8 @@ test('LOS NUEVE USOS de `esClienteDeAgencia` resuelven el «no sé» por el lado
     ['lib/tope-texto-agencia.ts', 'el «Pasa a … Pro» de los topes y candados que contesta la API'],
     // La frontera que alimenta a la barra: resuelve el «no sé» y devuelve boolean.
     ['lib/vista-de-otro.ts', 'lo que la barra le esconde, vía /api/auth/me'],
+    // (18/11/2026) El nombre del plan en «Tu plan»: con «no sé», «Plan de tu agencia», como el resto de esa pantalla.
+    ['lib/plan-visible.ts', 'el nombre del plan que ve el cliente en «Tu plan»'],
   ];
   for (const [rel, que] of usos) {
     const src = leer(rel);

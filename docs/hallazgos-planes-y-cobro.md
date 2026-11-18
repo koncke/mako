@@ -3933,3 +3933,35 @@ gastado ÷ los clientes que entran, y se reemplaza ahí.
 - *Vive en:* lib/admin-ingresos-libro.ts · lib/admin-ingresos-reglas.ts (`libroSinTramos`, `porCobrarDe`) · lib/admin-ingresos.ts ·
   tests/admin-ingresos-libro.test.ts (10a-10e, probado rompiéndolo).
 
+## «Tu plan» decía la CAPA, no el plan: «Agencia» a quien paga MaKo Pro (18/11/2026)
+
+- *Síntoma:* Martín lo vio en la maqueta del onboarding: en una prueba de MaKo Pro, «Tu plan» decía «Agencia». La app real
+  hace lo mismo: quien paga Pro lee «Agencia», quien paga Essential lee «Completo». Pasaba en tres lugares: «Tu plan» en la
+  computadora, «Tu plan» en el teléfono y el email del código de baja.
+- *Causa:* `capaDef(capa).nombre` (lib/capas.ts) es el nombre de la CAPA, algo interno. Es el mismo error que el #89 del
+  12/11 en la ficha de los tickets, que se arregló sólo ahí (`planDeLaFicha`).
+- *El arreglo obvio era el equivocado:* traducir la capa al plan (`completo` = Essential, `agencia` = Pro, `CAPA_DE_PLAN`)
+  le dice «MaKo Pro» al ws1 y a los acuerdos a mano, que tienen esa capa sin pagar un plan. Lo que los separa es `rige`:
+  si el negocio paga un plan de MaKo, por la pasarela o por su agencia (`pagaUnPlanDe`, lib/plan-esencial.ts). Una prueba
+  autorizada cuenta como pagada (`FILTRO_SUSCRIPCION_DE_MAKO`).
+- *La regla que queda:* un texto que ve el cliente nunca nombra la capa. El nombre sale de `nombreDelPlanDe(ws, capa)`
+  (lib/plan-visible.ts), que es puro en `nombreDelPlanVisible` (lib/plan-visible-reglas.ts):
+  · quien paga ve el nombre del catálogo (`planesMako`);
+  · el cliente de una agencia sin un plan del catálogo ve «Plan de tu agencia»;
+  · el resto ve «Plan a medida»;
+  · si `rige` no se pudo leer, se muestra el plan de su capa.
+  La ficha de los tickets decide con la misma `planQueSeVende`.
+- *Trampas:*
+  · actions.ts lo trae con `import()`. tests/prueba-topes.test.ts corre esas acciones con lib/workspace simulado sin
+    `wsSuperAdmin`, y un import estático de lib/plan-esencial no enlazaría en ESM.
+  · El hijo que dibuja «Tu plan» (tests/_plan-pedir-pro-hijo.ts) ahora simula `pagaUnPlanDe`. Sin eso, el nombre del plan
+    iría a la base de verdad.
+  · `esClienteDeAgencia` tiene una lista CERRADA de quién la llama (tests/agency-dos-duenos.test.ts): un uso nuevo da rojo
+    hasta que se suma ahí, con su «no sé» resuelto con `!== false`. Acá el «no sé» cuenta como de agencia, igual que el resto
+    de «Tu plan», que con «no sé» ya dice «Lo maneja tu agencia». El filtro del push lo cazó antes de GitHub.
+- *Sin hacer (otros textos que nombran la capa):*
+  · lib/api-mako/areas/negocio.run.ts:219, cuando MaKo le contesta al cliente qué plan tiene;
+  · lib/cobros.ts:492, el concepto de reserva de un cobro de alta sin concepto («MaKo · plan Agencia»);
+  · lib/cobros.ts:1124-1396 y lib/api-mako/areas/cobros.run.ts:1144, textos para quien vende (Martín o la agencia).
+- *Vive en:* lib/plan-visible-reglas.ts · lib/plan-visible.ts · app/configuraciones/plan/page.tsx · app/m/configuraciones/plan/page.tsx ·
+  app/configuraciones/plan/actions.ts · lib/tickets-reglas.ts (`planDeLaFicha`) · tests/plan-visible.test.ts.
