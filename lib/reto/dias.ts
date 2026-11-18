@@ -97,13 +97,19 @@ export const DIAS_RETO: readonly DiaReto[] = [
     whatsapp: { texto: 'Dile a MaKo a qué hora te escribe sobre el reto: le escribes tú primero, así WhatsApp no frena sus mensajes.', ejemplo: '«Hola MaKo, prefiero que me escribas a las 9:00 sobre el reto.»', escrito: 'Hola MaKo, prefiero que me escribas a las {hora} sobre el reto.' },
   },
   {
-    n: 3, titulo: 'Tus contactos y tu primera difusión', video: 'reto-dia-3',
-    mensaje: 'Día 3: tus contactos. Los cargas tú en el CRM, con un CSV o integrando el CRM que ya usas.',
+    // Martín, 18/11: «no lo llamaría el día 3 de difusión de WhatsApp, porque hay muchos que no usan WhatsApp y hacen sus mensajes
+    // por Instagram, otros por email… tu primera automatización de mensajes o de respuestas a clientes». Sin atarla a un canal.
+    n: 3, titulo: 'Tus contactos y tu primera automatización', video: 'reto-dia-3',
+    mensaje: 'Día 3: tus contactos y tu primera automatización. Cargas tus clientes en el CRM y dejas a MaKo respondiendo por el canal que usas: WhatsApp, Instagram o email.',
     tareas: [
       { id: 'contactos', titulo: 'Carga tus clientes en el CRM', donde: 'En CRM', detalle: 'Con un CSV o, si ya usas otro CRM, lo integramos.',
         marcas: [enLaBarra('/crm', 'CRM', 'Ahí cargas tus clientes: con un CSV, o integrando tu CRM.')] },
-      { id: 'difusion', titulo: 'Manda tu primera difusión', donde: 'En CRM', detalle: 'MaKo la escribe con tu oferta y sale de a poco.',
-        marcas: [enLaBarra('/crm', 'CRM', 'Desde una columna le escribes a todos: sale de a poco, para cuidar tu WhatsApp.')] },
+      { id: 'automatizacion', titulo: 'Tu primera automatización de mensajes', donde: 'En Automations', detalle: 'Que MaKo atienda solo a tus clientes, por el canal que usas: WhatsApp, Instagram o email.',
+        marcas: [
+          enLaBarra('/automations', 'Automations', 'Aquí armas tu primera automatización de mensajes.'),
+          // «Atiende MaKo» de Chats es sólo un filtro (las charlas que ya atiende MaKo): la respuesta automática se arma aquí.
+          { sel: 'aside[aria-label="Tus automatizaciones"] button.chb-nueva', titulo: 'Nueva automatización', texto: 'Pídesela a MaKo con tus palabras: qué responder y por qué canal.', haz: 'Haz clic en Nueva automatización', lado: 'derecha' },
+        ] },
       { id: 'calendar', titulo: 'Conecta tu calendario', donde: 'En Calendar', detalle: 'Las llamadas que agenden caen en tu agenda.',
         marcas: [enLaBarra('/calendario', 'Calendar', 'Conecta tu calendario: las llamadas caen en tu agenda.')] },
     ],

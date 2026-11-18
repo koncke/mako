@@ -87,3 +87,14 @@ test('el correo de cada día: «Día N del reto de MaKo», una vez, y el día 1 
   assert.equal(diaParaAvisar(base, ahora), 2);
   assert.equal(diaParaAvisar({ ...base, avisado: 2 }, ahora), null, 'una vez por día');
 });
+
+test('el día 3 es tu primera automatización, sin atarla a WhatsApp (Martín, 18/11)', () => {
+  const d3 = DIAS_RETO[2];
+  assert.doesNotMatch(JSON.stringify(d3), /difusi/i, 'sin «difusión»');
+  const t = d3.tareas.find((x) => x.id === 'automatizacion');
+  assert.ok(t, 'la tarea de la automatización');
+  assert.equal(t.donde, 'En Automations');
+  assert.match(t.detalle, /WhatsApp, Instagram o email/, 'el canal que usa la persona');
+  assert.ok(t.marcas.some((m) => /chb-nueva/.test(m.sel)), 'marca «Nueva automatización»');
+  assert.deepEqual(d3.tareas.map((x) => x.id), ['contactos', 'automatizacion', 'calendar']);
+});
