@@ -12631,4 +12631,5 @@ Closing se vendió como de Pro desde el 23/10 y nada lo frenaba; la tabla promet
 algo que lee el cliente, usa `nombreDelPlanDe(ws, capa)` (lib/plan-visible.ts), o su versión pura `nombreDelPlanVisible`
 (lib/plan-visible-reglas.ts). Devuelve el nombre del catálogo si paga un plan (`rige`, `pagaUnPlanDe`); si no,
 «Plan de tu agencia» o «Plan a medida». No traduzcas capa a plan a mano: el ws1 y los acuerdos a mano tienen la capa de un
-plan sin pagarlo. La ficha interna de los tickets decide con la misma `planQueSeVende`. Lo fija tests/plan-visible.test.ts.
+plan sin pagarlo. La ficha interna de los tickets decide con la misma `planQueSeVende`, y el concepto de un cobro de alta,
+con `conceptoDeAlta`. Los textos para quien VENDE (Martín, una agencia) pueden nombrar la capa. Lo fija tests/plan-visible.test.ts.

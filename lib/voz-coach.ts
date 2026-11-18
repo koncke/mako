@@ -20,6 +20,11 @@ import { getSupabaseServer } from './supabase';
 import { MEDIA_BUCKET } from './evolution-media';
 import { exigirPermisoIa } from './ia-permiso';
 import { recordUsage } from './anthropic-usage';
+import { cobrarMediosMt, devolverMediosMt } from './mako-tokens-medidor';
+import { mtDeVoz, USD_POR_MIL_CARACTERES_DE_VOZ } from './mako-tokens-reglas';
+
+/** El nombre del gasto en el libro de MaKo Tokens y en anthropic_usage. */
+export const FEATURE_VOZ_COACH = 'voz-coach';
 import {
   VOZ_COACH, textoParaVozCoach, claveDelMesVozCoach, usadoDelMes, cabeEnElMesVozCoach, rutaDeLaFija, firmaDeLaFija,
 } from './voz-coach-reglas';
@@ -60,7 +65,14 @@ export async function audioDelCoach(texto0: string, op: { fija: boolean; ws: num
   const clave = claveDelMesVozCoach();
   const usado = usadoDelMes(await getSetting(clave).catch(() => null));
   if (!cabeEnElMesVozCoach(usado, texto.length)) return { ok: false, status: 429, error: 'Este mes ya se usó toda la voz de los coaches de tu negocio.' };
+  // TODO GASTA MAKO TOKENS (Martín, 15/11/2026; lib/mako-tokens-medidor.ts): la voz es un MEDIO, se cobra exacto ANTES de pedirla
+  // (`cobrarMediosMt`), por lo que cuesta (`mtDeVoz`). Lo fijo ya guardado salió arriba y no paga nada.
+  const mt = mtDeVoz(texto.length);
+  const sinSaldo = await cobrarMediosMt(mt, { feature: FEATURE_VOZ_COACH, referencia: op.fija ? 'pregunta fija' : 'respuesta del coach', costoUsd: (texto.length * USD_POR_MIL_CARACTERES_DE_VOZ) / 1000 });
+  if (sinSaldo) return { ok: false, status: 402, error: sinSaldo };
   await setSetting(clave, String(usado + texto.length)).catch(() => {});
+  // Si ElevenLabs no llega a generar nada (no contesta, o rechaza el pedido), se devuelve: es lo único que no cobra el proveedor.
+  const devolver = (por: string) => devolverMediosMt(mt, { feature: FEATURE_VOZ_COACH, referencia: por }).catch(() => {});
 
   let r: Response;
   try {
@@ -71,14 +83,16 @@ export async function audioDelCoach(texto0: string, op: { fija: boolean; ws: num
       signal: AbortSignal.timeout(30_000),
     });
   } catch (e) {
+    await devolver('ElevenLabs no contestó');
     return { ok: false, status: 502, error: `ElevenLabs no contestó (${e instanceof Error ? e.message : 'error'}).`.slice(0, 200) };
   }
   if (!r.ok || !r.body) {
     const detalle = (await r.text().catch(() => '')).slice(0, 160);
     console.error(`[voz-coach] ElevenLabs ${r.status}: ${detalle}`);
+    await devolver(`ElevenLabs ${r.status}`);
     return { ok: false, status: 502, error: 'ElevenLabs no pudo leer este mensaje ahora.' };
   }
-  void recordUsage('voz-coach', VOZ_COACH.modelo, {}, `${texto.length} caracteres${op.fija ? ' · fija' : ''}`, 'elevenlabs', 1, op.ws).catch(() => {});
+  void recordUsage(FEATURE_VOZ_COACH, VOZ_COACH.modelo, {}, `${texto.length} caracteres${op.fija ? ' · fija' : ''}`, 'elevenlabs', 1, op.ws).catch(() => {});
 
   if (!ruta) return { ok: true, cuerpo: r.body, guardado: false };
   // Una fija se guarda ENTERA antes de contestar: la próxima vez sale de acá, sin pagarla.

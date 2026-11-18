@@ -20,9 +20,9 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { nombreDelPlanVisible, planQueSeVende, PLAN_A_MEDIDA, PLAN_DE_TU_AGENCIA } from '../lib/plan-visible-reglas';
+import { conceptoDeAlta, nombreDelPlanVisible, planQueSeVende, PLAN_A_MEDIDA, PLAN_DE_TU_AGENCIA } from '../lib/plan-visible-reglas';
 import { planDeLaFicha } from '../lib/tickets-reglas';
-import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
+import { nombresDeLosPlanes, PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
@@ -99,4 +99,29 @@ test('4. las tres vistas piden el nombre a `nombreDelPlanDe`, y ninguna vuelve a
   assert.match(leer('app/configuraciones/plan/actions.ts'), /await import\('@\/lib\/plan-visible'\)/);
   // `rige` es el de la ficha de los tickets (`pagaUnPlanDe`), no otra lectura.
   assert.match(leer('lib/plan-visible.ts'), /pagaUnPlanDe\(ws, capa\)/);
+});
+
+test('5. los otros dos textos que lee el cliente: lo que MaKo le contesta y el concepto de un cobro de alta', () => {
+  // EL CONCEPTO DE RESERVA DE UN COBRO DE ALTA (lib/cobros.ts, `crearCobro`): termina en el recibo del cliente y decía
+  // «MaKo · plan Agencia». Es la venta de un plan: el de su capa, con el nombre del catálogo.
+  const n = nombresDeLosPlanes();
+  assert.deepEqual(n, { esencial: 'MaKo Essential', pro: 'MaKo Pro' });
+  assert.equal(conceptoDeAlta('agencia', n), 'MaKo Pro');
+  assert.equal(conceptoDeAlta('completo', n), 'MaKo Essential');
+  assert.equal(conceptoDeAlta('pm', n), `MaKo · ${PLAN_A_MEDIDA}`);
+  for (const capa of ['completo', 'agencia', 'pm', 'superadmin']) {
+    assert.ok(!CAPAS.some((c) => conceptoDeAlta(capa, n).includes(c)), `capa ${capa}: el concepto nombra la capa`);
+  }
+  // Los nombres, del catálogo que se le pase; si le falta uno, el de PLANES_MAKO_DEFAULT.
+  assert.deepEqual(nombresDeLosPlanes([{ id: 'pro', nombre: 'Pro Nuevo' }]), { esencial: 'MaKo Essential', pro: 'Pro Nuevo' });
+  const cobros = leer('lib/cobros.ts');
+  assert.match(cobros, /\(altaCapa \? conceptoDeAlta\(altaCapa, nombresDeLosPlanes\(\)\) : 'Pago'\)/);
+  assert.doesNotMatch(cobros, /MaKo · plan \$\{capaDef/, 'volvió «MaKo · plan <capa>»');
+  // LO QUE MaKo LE CONTESTA AL CLIENTE («¿qué plan tengo?», `ver_mi_plan`): lo mismo que «Tu plan», con `import()`.
+  const run = leer('lib/api-mako/areas/negocio.run.ts');
+  const verMiPlan = run.slice(run.indexOf('  ver_mi_plan: {'), run.indexOf('  dar_de_baja_mi_plan: {'));
+  assert.ok(verMiPlan.length > 100, 'no encontré `ver_mi_plan` en lib/api-mako/areas/negocio.run.ts');
+  assert.match(verMiPlan, /await import\('@\/lib\/plan-visible'\)/);
+  assert.match(verMiPlan, /const plan = await nombreDelPlanDe\(ctx\.ws, ws\?\.capa \?\? null\);/);
+  assert.doesNotMatch(verMiPlan, /capaDef\([^)]*\)\.nombre/, 'ver_mi_plan volvió a decir la capa');
 });
