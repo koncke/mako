@@ -45,6 +45,7 @@ import { TEMAS } from '../lib/editor-landing/temas';
 import { MiniaturaLanding } from '../app/web-generator/MiniaturaLanding';
 import { marcasDeVoseo } from '../lib/puestas-data';
 import { dominioQueSirve } from '../lib/editor-landing/dominios-reglas';
+import { itemsRenglonLanding } from '../app/web-generator/menu-contextual-landings';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -286,25 +287,27 @@ test('la barra: «Ir a», «Nueva landing» PRIMERO, la lista de documentos, y a
   assert.match(src, /className="gp-doc-abrir" title=\{f\.url\}[^>]*onClick=\{\(\) => abrirDiagnostico\(f\)\}/);
 });
 
+// Desde el 18/11/2026 (F119) el «⋯» abre el MISMO menú que el clic derecho del renglón (`itemsRenglonLanding`,
+// app/web-generator/menu-contextual-landings.ts): se ejecuta esa lista, y lo que hace cada renglón es `elegirEnRenglon`.
 test('el «⋯» de cada renglón: Abrir, Diagnóstico, Cambiar nombre, Duplicar, Archivar y Eliminar (tacho rojo)', () => {
   const src = sinComentarios(leer(INICIO));
-  const ini = src.indexOf('<MenuFlotante ancla={menu.ancla}');
-  const bloque = src.slice(ini, src.indexOf('</MenuFlotante>', ini));
-  assert.ok(ini > 0 && bloque.length > 500 && bloque.length < 4_000, `el bloque del menú mide ${bloque.length}`);
-  const propio = bloque.slice(bloque.indexOf(') : ('));
-  const enOrden = ['texto="Abrir"', 'texto="Diagnóstico"', 'texto="Cambiar nombre"', 'texto="Duplicar"', 'texto="Archivar"', 'peligro texto="Eliminar"'];
-  const pos = enOrden.map((t) => propio.indexOf(t));
-  assert.ok(pos.every((p, i) => p > 0 && (i === 0 || p > pos[i - 1])), `faltan o se desordenaron: ${enOrden.filter((_, i) => pos[i] < 0).join(', ')}`);
+  const doc = { id: 1, titulo: 'Mi landing', slug: null, publicadoAt: null } as unknown as LandingResumen;
+  const propio = itemsRenglonLanding({ tipo: 'landing', clave: 'b', nombre: 'Mi landing', doc } as never);
+  const rotulos = propio.flatMap((x) => (x ? [x.label] : []));
+  assert.deepEqual(rotulos, ['Abrir', 'Diagnóstico', 'Cambiar nombre', 'Duplicar', 'Archivar', 'Eliminar']);
+  const eliminar = propio[propio.length - 1];
+  assert.ok(eliminar && eliminar.peligro && eliminar.icono === 'borrar', 'Eliminar con el tacho rojo de la casa');
   // Cambiar nombre es AHÍ MISMO (el renglón se vuelve un campo), no un diálogo.
-  assert.match(propio, /texto="Cambiar nombre" onClick=\{\(\) => \{ setMenu\(null\); setRenombrando\(\{ id: mf\.doc\.id, texto: mf\.doc\.titulo \}\); \}\}/);
+  const elegir = src.slice(src.indexOf('const elegirEnRenglon = '), src.indexOf('\n  };\n', src.indexOf('const elegirEnRenglon = ')));
+  assert.match(elegir, /else if \(id === 'renombrar'\) setRenombrando\(\{ id: f\.doc\.id, texto: f\.doc\.titulo \}\);/);
   const campo = src.slice(src.indexOf('className="gp-doc-input"'), src.indexOf('/>', src.indexOf('className="gp-doc-input"')));
   assert.match(campo, /onBlur=\{\(\) => void guardarNombre\(\)\}/, 'el campo de «Cambiar nombre» no guarda al salir');
   assert.match(campo, /if \(e\.key === 'Enter'\) \{ e\.preventDefault\(\); void guardarNombre\(\); \}/);
   assert.match(campo, /if \(e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\); setRenombrando\(null\); \}/);
   // Una de afuera: su Diagnóstico y Eliminar (borra el diagnóstico, no el seguimiento del Pixel).
-  const ajena = bloque.slice(0, bloque.indexOf(') : ('));
-  assert.match(ajena, /texto="Diagnóstico"/);
-  assert.match(ajena, /peligro texto="Eliminar"/);
+  const ajena = itemsRenglonLanding({ tipo: 'analizada', clave: 'a', nombre: 'x.com', url: 'https://x.com' });
+  assert.deepEqual(ajena.flatMap((x) => (x ? [x.label] : [])), ['Diagnóstico', 'Abrir la página', 'Eliminar']);
+  assert.equal(ajena[ajena.length - 1]?.peligro, true);
   assert.match(src, /fetch\(`\/api\/landing-analyst\/view\?url=\$\{encodeURIComponent\(url\)\}`, \{ method: 'DELETE'/);
 });
 

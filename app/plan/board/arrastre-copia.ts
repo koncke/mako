@@ -92,6 +92,8 @@ export function useArrastreCopia() {
   useEffect(() => () => pararScroll(), [pararScroll]);
 
   const copia = useRef<HTMLElement | null>(null);
+  /** Dónde se agarró la tarjeta (respecto de su esquina): lo usa `moverCopia`. */
+  const desfase = useRef({ dx: 0, dy: 0 });
   const soltarCopia = useCallback(() => { copia.current?.remove(); copia.current = null; }, []);
   useEffect(() => soltarCopia, [soltarCopia]);
 
@@ -105,6 +107,7 @@ export function useArrastreCopia() {
    */
   const montarCopia = useCallback((origen: HTMLElement, dx: number, dy: number, dentroDe?: HTMLElement | null) => {
     soltarCopia();
+    desfase.current = { dx, dy };
     // Quién scrollea se decide acá, en el `dragstart`, y vale para todo el gesto.
     scroller.current = scrollerDe(origen);
     const r = origen.getBoundingClientRect();
@@ -138,5 +141,14 @@ export function useArrastreCopia() {
     document.addEventListener('drop', fin, true);
   }, [soltarCopia]);
 
-  return { empujarScroll, pararScroll, montarCopia, soltarCopia };
+  /**
+   * Mueve la copia a un punto de la ventana. Es para el arrastre con el DEDO (pointer events, que no tienen `dragover`:
+   * app/_cursos/arrastre-curso.ts, 18/11/2026); el del mouse la mueve solo, adentro de `montarCopia`.
+   */
+  const moverCopia = useCallback((clientX: number, clientY: number) => {
+    if (!copia.current) return;
+    copia.current.style.transform = `translate3d(${clientX - desfase.current.dx}px, ${clientY - desfase.current.dy}px, 0) rotate(1.5deg)`;
+  }, []);
+
+  return { empujarScroll, pararScroll, montarCopia, soltarCopia, moverCopia };
 }

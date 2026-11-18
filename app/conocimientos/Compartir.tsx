@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCapaModal } from '@/app/_components/pila-modales';
+import { iniciales as inicialesDeTexto } from '@/lib/unicode-seguro';
 
 type Invitado = {
   id: number; email: string; nombre: string | null; gravatar: string; token_prefijo: string;
@@ -50,9 +51,14 @@ function nombreDe(i: { nombre: string | null; email: string }): string {
   const local = i.email.split('@')[0].replace(/[._-]+/g, ' ').trim();
   return local ? local.replace(/\b\w/g, (c) => c.toUpperCase()) : i.email;
 }
+/**
+ * La primera y la última palabra con letra, cada una por su primera LETRA entera (`iniciales`, lib/unicode-seguro.ts). Hasta el
+ * 18/11/2026 (O14) tomaba `p[0]?.[0]`, la primera unidad UTF-16: con un nombre que empieza con un emoji o con una letra fuera del
+ * plano básico («𝐀na»), el avatar dibujaba media letra.
+ */
 function iniciales(nombre: string): string {
-  const p = nombre.split(/\s+/).filter(Boolean);
-  return ((p[0]?.[0] ?? '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase() || '?';
+  const p = nombre.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
+  return inicialesDeTexto(p.length > 1 ? `${p[0]} ${p[p.length - 1]}` : p[0], 2, '?');
 }
 /** Color estable por email: la misma persona siempre tiene el mismo círculo. */
 function hueDe(email: string): number {
