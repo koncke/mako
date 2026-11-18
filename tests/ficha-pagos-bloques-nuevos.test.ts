@@ -50,7 +50,8 @@ test('plantillas: todo bloque que pone una plantilla tiene componente (si no, la
   // ⚠️ LA MISMA FALLA FUERA DE PAGOS, medida el 17/11/2026 y fuera de P28 (docs/hallazgos-crm.md, «Bloques que una plantilla
   // pone y no se dibujan»): cuatro bloques de Reuniones y Tracking. Se fijan para que la lista no CREZCA callada; quien le dé
   // componente a uno, lo saca de aquí.
-  const CONOCIDOS_SIN_COMPONENTE = ['anuncio-de-origen', 'ciclo-de-venta', 'cohorte', 'diagnostico-mako'];
+  // 18/11/2026: `anuncio-de-origen` salió de las plantillas (tests/ficha-anuncio-de-origen.test.ts).
+  const CONOCIDOS_SIN_COMPONENTE = ['ciclo-de-venta', 'cohorte', 'diagnostico-mako'];
   assert.deepEqual([...new Set(sinComponente.filter((x) => !dePagos.includes(x)).map((x) => x.id))].sort(), CONOCIDOS_SIN_COMPONENTE);
   for (const id of ['confirmacion-de-pago', 'recordatorios-de-cobro', 'excepciones', 'cliente-en-cs'] as const) {
     assert.ok(REGLAS_PAGOS[id], `${id} tiene sus reglas en Pagos`);
