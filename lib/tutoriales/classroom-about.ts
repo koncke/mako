@@ -8,7 +8,6 @@
 //   Medidos en el editor dibujado aparte. «Publican desde» lo ve sólo quien configura la comunidad. «Guardar About» va sin `clic`:
 //   se apaga mientras guarda.
 // · En el teléfono (/m/comunidad), sin medir: sin `rutaMovil`.
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_CLASSROOM_ABOUT: TutorialPestana = {
@@ -18,42 +17,35 @@ export const TUTORIAL_CLASSROOM_ABOUT: TutorialPestana = {
   intro: '¿Qué lee primero quien entra a tu comunidad?',
   pasos: [
     {
-      sel: '.cls-tab[href^="/classroom/about"]',
-      titulo: 'About',
-      texto: 'De qué se trata tu comunidad y qué se espera de cada miembro.',
-      sub: 'About, otra pestaña de Classroom, cuenta de qué se trata y qué se espera de cada miembro.',
-      lado: 'abajo',
-    },
-    {
-      sel: conMarca(MARCA.classroomAboutEditar),
+      sel: '[data-recorrido="tour-classroom-about-editar"]',
       titulo: 'Editar',
       texto: 'El nombre de la comunidad, una descripción corta y de qué se trata.',
       sub: 'Toca aquí, en Editar, y escribe el nombre y una descripción corta.',
       lado: 'izquierda',
     },
     {
-      sel: conMarca(MARCA.classroomAboutReglas),
-      antes: conMarca(MARCA.classroomAboutEditar),
+      sel: '[data-recorrido="tour-classroom-about-reglas"]',
       titulo: 'Reglas',
       texto: 'Qué se puede publicar y qué no.',
       sub: 'Mira aquí, Reglas: deja claro qué se puede publicar.',
       lado: 'arriba',
+      antes: '[data-recorrido="tour-classroom-about-editar"]',
     },
     {
-      sel: conMarca(MARCA.classroomAboutPublican),
-      antes: conMarca(MARCA.classroomAboutEditar),
+      sel: '[data-recorrido="tour-classroom-about-publican"]',
       titulo: 'Publican desde',
       texto: 'Todos, o sólo quienes llegaron a un nivel.',
       sub: 'Mira aquí, Publican desde: elige quién escribe, todos o quienes llegaron a un nivel.',
       lado: 'arriba',
+      antes: '[data-recorrido="tour-classroom-about-editar"]',
     },
     {
-      sel: conMarca(MARCA.classroomAboutGuardar),
-      antes: conMarca(MARCA.classroomAboutEditar),
+      sel: '[data-recorrido="tour-classroom-about-guardar"]',
       titulo: 'Guardar About',
       texto: 'Quien entre a tu comunidad ya sabe a qué viene.',
       sub: 'Cuando termines, toca aquí, en Guardar About, y quien entre ya sabe a qué viene.',
       lado: 'arriba',
+      antes: '[data-recorrido="tour-classroom-about-editar"]',
     },
   ],
 };

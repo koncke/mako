@@ -3,24 +3,14 @@
 // código ya escribe: el link vive en el menú de la foto (se abre antes, con la foto), la caja tiene su `aria-label` y el ticket armado su
 // `data-tarjeta="ticket"`. El ticket y «Mandárselo al equipo» aparecen recién cuando MaKo lo arma: al entrar, el motor los saltea.
 // En el teléfono todavía no está medido: sin `rutaMovil`.
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_REPORTAR: TutorialPestana = {
   pestana: 'report-problem',
   nombre: 'Report a problem',
   ruta: '/tickets',
-  intro: '¿Algo no anda, o te falta una función? Que el equipo lo sepa.',
+  intro: 'Si algo no anda o te falta una función, que el equipo lo sepa.',
   pasos: [
-    {
-      sel: 'a[href="/tickets"]',
-      antes: conMarca(MARCA.barraFoto),
-      titulo: 'Report a problem',
-      texto: 'Está en el menú de tu foto, abajo a la izquierda.',
-      sub: 'Report a problem, que aparece al pasar por tu foto, lleva tu pedido al equipo.',
-      lado: 'derecha',
-      soloComputadora: true,
-    },
     {
       sel: 'textarea[aria-label="Cuéntale a MaKo qué pasó"]',
       titulo: 'Cuéntale qué pasó',

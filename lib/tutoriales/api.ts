@@ -8,7 +8,6 @@
 //   pestañas pausan el video hasta el toque, así que al llegar al cierre se está en Tokens; con tokens la tab abre en Documentación y
 //   el cierre espera a ese toque.
 // · El cierre lleva `clic`: es un link, no se apaga. En el teléfono (/m/api-mako), sin medir: sin `rutaMovil`.
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_API: TutorialPestana = {
@@ -18,28 +17,21 @@ export const TUTORIAL_API: TutorialPestana = {
   intro: 'Si usas n8n, Zapier o Make, ponlos a trabajar con tu negocio.',
   pasos: [
     {
-      sel: '.gh-titulo-app',
-      titulo: 'La API de MaKo',
-      texto: 'Para que n8n, Zapier, Make o tus scripts lean y escriban en tu cuenta.',
-      sub: 'Con la API, que sale al pasar el cursor por tu foto, esas herramientas leen y escriben en tu cuenta.',
-      lado: 'abajo',
-    },
-    {
-      sel: conMarca(MARCA.apiDocumentacion),
+      sel: '[data-recorrido="tour-api-documentacion"]',
       titulo: 'Documentación',
       texto: 'Cada cosa que se le puede pedir a MaKo, con ejemplos en cURL, JavaScript y Python.',
       sub: 'Toca aquí, en Documentación, y encuentra lo que se puede pedir, con ejemplos.',
       lado: 'abajo',
     },
     {
-      sel: conMarca(MARCA.apiTokens),
+      sel: '[data-recorrido="tour-api-tokens"]',
       titulo: 'Tokens',
       texto: 'Cada token es una llave con nombre, vencimiento y las áreas que puede tocar.',
       sub: 'Toca aquí, en Tokens: cada uno es una llave con nombre, vencimiento y áreas.',
       lado: 'abajo',
     },
     {
-      sel: conMarca(MARCA.apiGenerar),
+      sel: '[data-recorrido="tour-api-generar"]',
       titulo: 'Generar nuevo token',
       texto: 'Recién generado se ve una sola vez: cópialo ahí y pégalo en tu herramienta.',
       sub: 'Toca aquí, en Generar nuevo token, y cópialo apenas aparece: con él, tus herramientas trabajan solas con tu negocio.',

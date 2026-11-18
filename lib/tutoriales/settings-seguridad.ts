@@ -6,7 +6,6 @@
 //   si ya se tocó, la fila no está y se sigue). Medido a 1440 en la entrada sólo su `antes`; la marca, en el detalle dibujado aparte.
 // · Las dos últimas frases («Guarda tus diez códigos…» y el cierre) no marcan nada: sin paso. Por eso no hay `clic`.
 // · En el teléfono es /m/cuenta/seguridad (otra pantalla), sin medir: sin `rutaMovil`.
-import { MARCA, conMarca, marcaSettings } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_SETTINGS_SEGURIDAD: TutorialPestana = {
@@ -16,26 +15,19 @@ export const TUTORIAL_SETTINGS_SEGURIDAD: TutorialPestana = {
   intro: 'Si alguien consigue tu correo, no debería entrar a tu negocio.',
   pasos: [
     {
-      sel: conMarca(marcaSettings('seguridad')),
-      titulo: 'Seguridad',
-      texto: 'Cómo entras a MaKo, y lo que le falta a tu cuenta.',
-      sub: 'Seguridad, en Configuración, te muestra lo que le falta a tu cuenta para protegerla.',
-      lado: 'derecha',
-    },
-    {
-      sel: conMarca(MARCA.seguridad2Pasos),
+      sel: '[data-recorrido="tour-settings-seguridad-2-pasos"]',
       titulo: 'Verificación en 2 pasos',
       texto: 'Además de tu correo, entrar te pide un código de tu celular.',
       sub: 'Toca aquí, en Verificación en 2 pasos, para que entrar pida un código de tu celular.',
       lado: 'abajo',
     },
     {
-      sel: conMarca(MARCA.seguridadConfigurar),
-      antes: conMarca(MARCA.seguridad2Pasos),
+      sel: '[data-recorrido="tour-settings-seguridad-configurar"]',
       titulo: 'Configurar',
       texto: 'Te muestra un QR: lo escaneas con Google Authenticator o Microsoft Authenticator y escribes el código.',
       sub: 'Mira aquí, en Configurar: escaneas el código con tu app de autenticación.',
       lado: 'izquierda',
+      antes: '[data-recorrido="tour-settings-seguridad-2-pasos"]',
     },
   ],
 };
