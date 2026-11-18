@@ -931,7 +931,7 @@ export async function enviarAlGrupoSuperAdmin(texto: string, o: { sinCopia?: tru
   else {
     const conArchivo = partes ? await enviarPartesAJid(jid, partes).catch(() => null) : null;
     if (conArchivo?.ok && conArchivo.ids.length) {
-      if (copia && app && wsApp != null) await Promise.all(copia.ids.map((f, i) => (conArchivo.ids[i] ? app.atarIdDeWhatsApp(wsApp, f, conArchivo.ids[i]) : Promise.resolve()))).catch(() => {});
+      if (copia && app && wsApp != null) await app.atarIdsDeWhatsApp(wsApp, copia, conArchivo.ids);
       r = { ok: true, id: conArchivo.ids[conArchivo.ids.length - 1] };
     } else {
       const e = await enviarTextoVozMaKo(jid, texto);
