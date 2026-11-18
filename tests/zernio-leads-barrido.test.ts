@@ -131,7 +131,8 @@ test('el cron: cada 30 minutos y en la pasada diaria; en la diaria, el webhook a
   assert.equal(tocaBarrerZernio(new Date('2026-10-29T18:10:00Z'), true), true);
   const c = leer('app/api/cron/meta-leads-poll/route.ts');
   assert.match(c, /const zernio = tocaBarrerZernio\(new Date\(\), diaria\)\n\s+\? await correrPorWorkspace\('zernio', async \(ws\) => \{/);
-  assert.match(c, /if \(diaria\) \{\n[^\n]*\n\s+if \(\(await leadsEnElWebhook\(ws\)\.catch\(\(\) => null\)\) !== true\) await asegurarWebhook\(ws\)/);
+  // 18/11/2026 (ticket #113): además de los leads, que TODAS las claves tengan el webhook (tests/zernio-cuenta-reconectada.test.ts).
+  assert.match(c, /if \(diaria\) \{[\s\S]*?const falta = \(await leadsEnElWebhook\(ws\)\.catch\(\(\) => null\)\) !== true \|\| [^\n]*\n\s+if \(falta\) await asegurarWebhook\(ws\)/);
   assert.match(c, /const r = await barrerLeadsDeZernio\(ws, dias\);/);
 });
 

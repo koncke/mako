@@ -25,6 +25,7 @@
 
 import { lineaDeAdjuntos } from './tickets-adjuntos';
 import { taparClaves } from './claves-en-el-chat';
+import { planQueSeVende } from './plan-visible-reglas';
 
 /** Los tres tipos, con las palabras de la pantalla (las mismas en el formulario y en la bandeja de Martín). */
 
@@ -1015,12 +1016,15 @@ export function textoDelAviso(t: AvisoCliente): string {
  * (lib/capas.ts), y la capa `completo` ES Essential; la `agencia`, Pro (`CAPA_DE_PLAN`, lib/agencia-cobro-reglas.ts). Pero la
  * misma capa la tienen el ws1 y los acuerdos a mano, que no pagan un plan y no tienen topes. Lo que separa es `rige`: si se le
  * aplican los topes de su plan (`aplicanTopes`, lib/topes-plan-server.ts). `null` = no se pudo leer.
+ * La decisión vive en `planQueSeVende` (lib/plan-visible-reglas.ts) desde el 18/11/2026: la MISMA que le pone nombre al plan
+ * en «Tu plan» del cliente, que decía la capa («Agencia» a quien paga Pro).
  */
 export function planDeLaFicha(p: { capa: string | null; nombreCapa: string; rige: boolean | null }): string {
-  const vendible = p.capa === 'completo' || p.capa === 'agencia';
-  if (!vendible) return p.nombreCapa;
-  if (p.rige === true) return p.capa === 'agencia' ? 'Pro' : 'Essential';
-  if (p.rige === false) return `sin cobro de MaKo, sin topes (capa ${p.nombreCapa})`;
+  const plan = planQueSeVende(p);
+  if (plan === 'otra-capa') return p.nombreCapa;
+  if (plan === 'pro') return 'Pro';
+  if (plan === 'esencial') return 'Essential';
+  if (plan === 'sin-plan') return `sin cobro de MaKo, sin topes (capa ${p.nombreCapa})`;
   return `? (capa ${p.nombreCapa})`;
 }
 

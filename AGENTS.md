@@ -12624,3 +12624,11 @@ Closing se vendió como de Pro desde el 23/10 y nada lo frenaba; la tabla promet
 - Nunca un selector de un tutorial con una clase de un CSS Module, un id de `useId` ni un dato (el nombre de un lead, un id).
 - Un atributo nuevo en un JSX va donde no parte el texto que fijan los tests de esa pantalla: antes de subir,
   `grep -l <ruta-sin-extensión> tests/*.test.ts` y correr esos.
+
+## Un texto que ve el cliente nunca nombra la capa (18/11/2026)
+
+`capaDef(capa).nombre` (lib/capas.ts) es interno («Completo», «Agencia», «Project Manager»). Para el plan del negocio en
+algo que lee el cliente, usa `nombreDelPlanDe(ws, capa)` (lib/plan-visible.ts), o su versión pura `nombreDelPlanVisible`
+(lib/plan-visible-reglas.ts). Devuelve el nombre del catálogo si paga un plan (`rige`, `pagaUnPlanDe`); si no,
+«Plan de tu agencia» o «Plan a medida». No traduzcas capa a plan a mano: el ws1 y los acuerdos a mano tienen la capa de un
+plan sin pagarlo. La ficha interna de los tickets decide con la misma `planQueSeVende`. Lo fija tests/plan-visible.test.ts.

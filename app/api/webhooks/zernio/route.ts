@@ -50,7 +50,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { eventoSocialDe } from '@/lib/canal-social';
 import { procesarEventoSocial, dispararEventoSocial, contestarDisparoSocial, pausarRespuestaSocial, tocarBotonSocial } from '@/lib/zernio-entrante';
-import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTO_LEADS, EVENTOS_ESCUCHADOS, usaCuentaPropia, cuentasConectadas } from '@/lib/zernio';
+import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTO_LEADS, EVENTOS_ESCUCHADOS, usaCuentaPropia, cuentasConectadas, reclamarCuentaSinRuteo } from '@/lib/zernio';
 import { leerLeadDeZernio } from '@/lib/zernio-lead';
 import { cargarLeadDeZernio, alNacerLeadDeZernio } from '@/lib/zernio-leads';
 
@@ -133,6 +133,10 @@ export async function POST(req: NextRequest) {
   try {
     if (perfil) ws = await wsPorIdentificadorEstricto(RUTEO_PERFIL, perfil);
     if (ws == null && cuenta) ws = await wsPorIdentificadorEstricto(RUTEO_CUENTA, cuenta);
+    // ⚠️ LA CUENTA RECONECTADA (ticket #113, 18/11/2026): reconectar Instagram en Zernio le da a la cuenta OTRO id, y sin ruteo el
+    // comentario se perdía con un 200. Sólo con la firma de un negocio (`?w=`): se le pregunta a Zernio, con SUS claves, si la cuenta
+    // es suya, y si lo es se anota. Con el maestro no: ahí no hay negocio que preguntar.
+    if (ws == null && typeof w === 'number' && cuenta && (await reclamarCuentaSinRuteo(w, cuenta))) ws = w;
     // Sólo con el MAESTRO hace falta saberlo; con el secreto de un negocio alcanza con comparar.
     if (ws != null && w == null) cuentaPropia = await usaCuentaPropia(ws);
   } catch (err) {
