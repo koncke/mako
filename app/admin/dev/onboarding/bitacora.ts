@@ -884,6 +884,19 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: "18 nov", hora: "14:30", chat: "Onboarding: la maqueta y el reto de 7 días", sesion: "local_a9a5a9e9-220c-4884-9a60-56376fe2cdaa", cuenta: "claude2",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El video y la marca juntos, y el lugar del video de cada momento del onboarding",
+    puntos: [
+      "Martín: «el video del tutorial y la marca tienen que ir JUNTOS». Con las frases del manifiesto, el video pone los pasos: marca, pausa hasta el clic o «Siguiente», cierra lo que se abrió y termina en el botón final.",
+      "La primera vez en el Ops Center sale el video del RECORRIDO (los coaches, Uso, la Ticketera y el reto), y su cierre manda al chat del reto.",
+      "Los lugares de video de la bienvenida, WhatsApp y «Sigamos en tu computadora» en el chat del onboarding (claves acordadas con el chat de los videos). Sin video, nada; en la revisión, su lugar marcado.",
+      "El motor queda encima de la ficha rápida del CRM (su velo está en 1200), y un video nunca queda pausado sin salida.",
+    ],
+    revisar: "/second-brain?desde-cero=1",
+    archivos: ["app/_ui/tutorial/MotorTutorial.tsx", "app/_ui/tutorial/VideoDelMomento.tsx", "lib/tutoriales/videos.ts", "app/onboarding/ChatArranque.tsx"],
+  },
+  {
     fecha: "18 nov", hora: "05:10", chat: "Onboarding: la maqueta y el reto de 7 días", sesion: "local_a9a5a9e9-220c-4884-9a60-56376fe2cdaa", cuenta: "claude2",
     actor: "claude", tipo: "implementacion",
     titulo: "El motor de los tutoriales y el chat «Reto de 7 días», en la app real, detrás del interruptor de la revisión",

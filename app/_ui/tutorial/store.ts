@@ -22,7 +22,9 @@ import type { PasoTutorial, TutorialPestana } from '@/lib/tutoriales';
 export type MotivoFin = 'fin' | 'omitido';
 
 export type Senal =
-  | { tipo: 'tutorial'; id: number; tutorial: TutorialPestana; alTerminar?: (m: MotivoFin) => void }
+  | { tipo: 'tutorial'; id: number; tutorial: TutorialPestana; alTerminar?: (m: MotivoFin) => void;
+      /** Otro video en lugar del de la pestaña (la primera vez en el Ops Center, el del recorrido): su último lugar marcado es el cierre. */
+      video?: string }
   | { tipo: 'marca'; id: number; paso: PasoTutorial & { haz: string }; alHacer: () => void; alOmitir?: () => void; listo?: string; libre?: boolean };
 
 let actual: Senal | null = null;
@@ -31,8 +33,8 @@ const oyentes = new Set<() => void>();
 const avisar = () => { for (const f of oyentes) f(); };
 
 /** El tutorial de una pestaña. Reemplaza lo que hubiera (una cosa por vez). */
-export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void }): void {
-  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar };
+export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string }): void {
+  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}) };
   avisar();
 }
 
