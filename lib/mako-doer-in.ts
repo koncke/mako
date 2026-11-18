@@ -69,7 +69,7 @@ import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
 import { conElReenvio, esReenviado } from '@/lib/doer-reenvio';
 import { clasificarConIA, type LlamarAlClasificador } from '@/lib/mako-intencion-ia';
 import { abrirTicketDelGrupo, respuestaDelTicket } from '@/lib/tickets-del-grupo';
-import { delegaLaAccion, faltaAlgunaParte, lineaApruebaEnLaApp, lineaDeLoQueFalta, negocioLeido, respuestaDeLaDelegacion, respuestaDelDebug, viajaEnLaAccion } from '@/lib/despacho-grupo';
+import { delegaLaAccion, faltaAlgunaParte, lineaApruebaEnLaApp, lineaDeLoQueFalta, negocioLeido, partesQueCuentan, respuestaDeLaDelegacion, respuestaDelDebug, viajaEnLaAccion, type EscrituraDelTurno } from '@/lib/despacho-grupo';
 import { hechosDelDiagnostico } from '@/lib/diagnostico-negocio';
 import { AUDIO_DEL_LOTE_SIN_ESCUCHAR, audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar, conUnAudioCitadoEscuchado } from '@/lib/audio-citado';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
@@ -2749,9 +2749,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     /** Las escrituras y propuestas que CORRIERON en el turno (sin el «sí» y el «no» a lo de antes): cuántas partes de un pedido
      *  compuesto se hicieron (`faltaAlgunaParte`), y si quedó propuesto un WhatsApp a un lead (`SE_APRUEBAN_EN_LA_APP`). */
     const escriturasDelTurno: string[] = [];
-    const anotarSalida = (name: string, out: unknown): void => {
+    /** Y lo que se les pasó: una «parte» que es un DATO de una de ellas (la duración, el título) no es una parte pendiente (`partesQueCuentan`, el #111). */
+    const datosDeLasEscrituras: EscrituraDelTurno[] = [];
+    const anotarSalida = (name: string, out: unknown, input?: Record<string, unknown>): void => {
       salidasDelTurno.push(typeof out === 'string' ? out : JSON.stringify(out ?? ''));
-      if (escribe(name) && name !== 'confirmar_accion' && name !== 'cancelar_accion') escriturasDelTurno.push(name);
+      if (escribe(name) && name !== 'confirmar_accion' && name !== 'cancelar_accion') {
+        escriturasDelTurno.push(name);
+        datosDeLasEscrituras.push({ nombre: name, args: input ?? {} });
+      }
     };
     /**
      * LO QUE EL TURNO DEJÓ ESPERANDO UN «SÍ», por id (24/10/2026, el ws15): si el turno muere después, el cartel lo
@@ -2778,7 +2783,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       if (previo) {
         console.warn(`[mako-doer-in] ws=${wsData} ${name}: ya corrió en un intento anterior de este turno; se devuelve lo que dejó`);
         // Lo repetido también es lo último que vio el modelo (como el turno de la app); sus tragadas ya se contaron al correr.
-        anotarSalida(name, previo.out);
+        anotarSalida(name, previo.out, input);
         anotarLaUltima(name, previo.out);
         return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       }
@@ -2801,7 +2806,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
       anotarLaUltima(name, out);
       if (esFallaTragadaDeHerramienta(out)) tragadasDelTurno++;
-      anotarSalida(name, out);
+      anotarSalida(name, out, input);
       // El ticket mismo no cuenta como falla a reportar: si falló, registrarlo otra vez falla igual.
       if (name !== LEVANTAR_TICKET) {
         const errTicket = errorParaTicket(name, out);
@@ -3783,7 +3788,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // EL PEDIDO COMPUESTO (29/10/2026, la llamada con Thiago: «moveme la reunión y mandale un WhatsApp»; lib/despacho-grupo.ts): si
     // la IA listó varias partes y el turno hizo o propuso menos, lo demás va al equipo como pedido delegado, con lo que ya se hizo.
     // Nunca se pierde una parte en silencio. La línea la escribe el código, después del saneo.
-    const partes = claseDeLaIA?.partes ?? [];
+    // Sólo las partes que piden una escritura propia (el #111: «Duración 1 hora (Nombre: …)» era el argumento de la que se propuso).
+    const partes = partesQueCuentan(claseDeLaIA?.partes ?? [], { escrituras: datosDeLasEscrituras, leyo: leyoDelTurno });
     if (esAccionIA && respuesta && !avisoDeSistema && !textoFijo && faltaAlgunaParte(partes, escriturasDelTurno.length)) {
       const abierto = await abrirTicketDelGrupo({
         ws: wsData, actor: actorDeWhatsApp(quienPide, data.pushName) ?? null, jid, msgId,

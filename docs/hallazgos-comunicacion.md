@@ -88,6 +88,35 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## Una «parte» que era un dato, o una lectura, abría un pedido de más (ticket #111, 18/11/2026)
+
+**Vive en:** `lib/despacho-grupo.ts` (`partesQueCuentan`, `esDatoDeUnaEscritura`) · `lib/mako-doer-in.ts` (`datosDeLasEscrituras`, que
+anota los argumentos de cada escritura del turno) · `tests/despacho-grupo.test.ts` (19) · `tests/clase-del-grupo.test.ts`
+(«eventoConDatos», el pedido tal cual).
+
+- **Síntoma:** Joan (ws 13) pidió «agenda un evento en mi calendario hoy 18 a las 18hs, que dure 1hora, que se llame Misa Fasta SAM».
+  MaKo (ya con claude-sonnet-5) propuso UN `crear_evento_calendario` con todo, y en la misma respuesta dijo «Lo demás que me pediste
+  lo pasé al equipo (pedido #111)». La IA había listado dos partes: «Crear evento hoy 18 a las 18hs» y «Duración 1 hora (Nombre: Misa
+  Fasta SAM)». `faltaAlgunaParte` cuenta por CANTIDAD: 1 escritura de 2 partes.
+- **La causa:** la segunda «parte» eran los ARGUMENTOS de la primera. La red del #77 (`RX_DATO_DE_LA_ANTERIOR`, al leer la clase)
+  junta «Nota: …» u «Hora: …» con la parte anterior, pero pide los dos puntos, y «Duración 1 hora (…)» no los tiene.
+- **Ahora** el doer anota lo que se le pasó a cada escritura o propuesta del turno, y no cuentan las partes que piden una escritura
+  propia: (1) las que empiezan por el nombre de un dato (duración, hora, fecha, título, nombre, monto, etapa…); (2) las que no
+  empiezan con un verbo y cuyo contenido está, en tres cuartos o más, en los valores CORTOS de lo que se pasó («que dure 1 hora y se
+  llame Misa Fasta SAM»: «1 hora» también vale 60, los minutos); (3) las que sólo LEEN («Buscar la reunión de Rodrigo»), si el turno
+  leyó.
+- **Trampa: la parte que ES la acción también coincide con sus argumentos.** «replicar la landing https://ejemplo.com/oferta» contra
+  `url` da 5 de 6 palabras. Sin pedir que un dato no empiece con un verbo, se descartaba como dato y la OTRA parte quedaba sola: la
+  automatización del pedido compuesto ya no se delegaba. Lo atajó la escena «compuesto» de tests/clase-del-grupo.test.ts.
+- **Trampa: un texto largo no es un dato.** En el #110 lo que faltaba («agendar llamada en dos semanas») estaba ADENTRO de la nota que
+  se propuso. Se compara sólo con los valores de hasta 80 caracteres: que la parte esté dentro de una nota no dice que sea un dato de
+  ella, y puede ser justo lo que falta hacer.
+- **Medido en anthropic_usage** (lectura, `model = 'clase:delegada-parte'`, del 11 al 18/11): 3 delegaciones parciales, **2 falsas**.
+  El #111 (un dato) y el #101 del 16/11 (Joan: «Buscar la reunión de Rodrigo» y «Mover el lead a descalificado»; MaKo lo movió y la
+  búsqueda contó como parte). La tercera, el #110, era verdadera, y se arregló aparte (docs/hallazgos-ia.md).
+- **Sin hacer:** sigue siendo por cantidad entre las partes que cuentan. Con tres acciones y dos hechas, se delega «lo que faltó» con
+  las tres en el título: no se adivina cuál fue cuál.
+
 ## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
 
 **Vive en:** `app/api/cron/reporte-{diario,horario,semanal}/route.ts` · `lib/reportes.ts` · `lib/email-marketing.ts:172-210`

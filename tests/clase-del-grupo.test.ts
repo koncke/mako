@@ -259,6 +259,14 @@ test('9. la llamada con Thiago: replicar una landing y las campañas se hacen de
   assert.match(t.titulo, /^Lo que faltó de: replicar la landing https:\/\/ejemplo\.com\/oferta; crear una automatización de bienvenida/);
   assert.match(t.descripcion, /Lo que MaKo YA hizo o dejó propuesto en el grupo \(no lo repitas\): replicar_landing\./);
   assert.deepEqual(k.salio, [`Te dejo la réplica de la landing propuesta.\n\nLo demás que me pediste lo pasé al equipo de MaKo (pedido #${t.id}). Te aviso por aquí cuando esté.`]);
+  // El ticket #111 (Joan, 18/11/2026), TAL CUAL: la segunda «parte» («Duración 1 hora (Nombre: Misa Fasta SAM)») eran los argumentos del
+  // evento que se propuso. Cero partes faltantes: sin «lo pasé al equipo» y sin ticket (`partesQueCuentan`, lib/despacho-grupo.ts).
+  // Rota: sin `partesQueCuentan` en procesarDoer → el pedido #111 otra vez.
+  const j = escena('eventoConDatos');
+  assert.ok(j.pendientes.some((p) => p.tipo === 'crear_evento_calendario'), `el evento no quedó propuesto: ${JSON.stringify(j.pendientes)}`);
+  assert.equal(j.tickets.length, 0, `se delegó un dato del evento: ${JSON.stringify(j.tickets.map((x) => x.titulo))}`);
+  assert.deepEqual(j.salio, ['Te dejo propuesto el evento «Misa Fasta SAM» hoy de 18:00 a 19:00. ¿Lo confirmo?']);
+  assert.doesNotMatch(j.salio.join('\n'), /pasé al equipo/);
 });
 
 test('10. «súbeme este anuncio» con un video: el doer lo acepta, el turno pide la herramienta y, con la bandera apagada, la regla es la respuesta', () => {

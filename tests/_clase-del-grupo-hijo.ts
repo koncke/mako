@@ -243,6 +243,13 @@ async function main() {
     herramienta: { nombre: 'replicar_landing', args: { url: 'https://ejemplo.com/oferta', formato: 'landing' } },
     respuesta: 'Te dejo la réplica de la landing propuesta.',
   }, 'replícame https://ejemplo.com/oferta como landing y además créame una automatización de bienvenida para los leads nuevos');
+  // UNA «PARTE» QUE ES UN DATO (ticket #111, Joan, 18/11/2026 12:43 UTC): el pedido TAL CUAL y las dos partes que listó la IA en
+  // producción. MaKo propuso UN evento con todo (la hora, la duración y el título): la segunda «parte» eran sus argumentos.
+  await correr('eventoConDatos', {
+    clase: '{"clase":"ACCION","resumen":"Agendar el evento Misa Fasta SAM hoy a las 18 por una hora","reenviado":false,"partes":["Crear evento hoy 18 a las 18hs","Duración 1 hora (Nombre: Misa Fasta SAM)"]}',
+    herramienta: { nombre: 'crear_evento_calendario', args: { titulo: 'Misa Fasta SAM', tipo: 'otro', fecha: '2026-11-18', hora: '18:00', duracionMin: 60 } },
+    respuesta: 'Te dejo propuesto el evento «Misa Fasta SAM» hoy de 18:00 a 19:00. ¿Lo confirmo?',
+  }, 'Mako agenda un evento en mi calendario hoy 18 a las 18hs, que dure 1hora , que se llame Misa Fasta SAM');
   // «SÚBEME ESTE ANUNCIO» CON UN VIDEO (29/10/2026, la llamada con Thiago): el doer acepta el videoMessage, el turno pide
   // `proponer_anuncio_desde_archivo` y, con ZERNIO_ANUNCIOS_PROBADO apagada, la operación dice que falta la prueba (no baja ni sube nada).
   await correr('anuncioVideo', {

@@ -76,9 +76,75 @@ export const lineaApruebaEnLaApp = (link: string): string => `Ese WhatsApp sale 
 // propuestas que partes, lo demás va al equipo como pedido delegado. Nunca se pierde una parte en silencio. Por cantidad, a propósito:
 // no se adivina qué parte fue cuál, y delegar de más cuesta un ticket; perder una parte cuesta la promesa.
 
-/** ¿Quedó alguna parte sin hacer ni proponer? `hechas`: las escrituras o propuestas que corrieron en el turno. */
+/** ¿Quedó alguna parte sin hacer ni proponer? `hechas`: las escrituras o propuestas que corrieron en el turno. Las `partes`, las que
+ *  CUENTAN (`partesQueCuentan`): sin los datos de una escritura del turno ni las lecturas que el turno ya hizo. */
 export function faltaAlgunaParte(partes: readonly string[], hechas: number): boolean {
   return partes.length >= 2 && hechas > 0 && hechas < partes.length;
+}
+
+// ── UNA «PARTE» QUE NO ES UNA PARTE (18/11/2026, los pedidos #111 y #101 de Código Inmobiliario) ──────────────────────────────────
+// #111: «agenda un evento en mi calendario hoy 18 a las 18hs, que dure 1hora, que se llame Misa Fasta SAM». La IA listó dos partes
+// («Crear evento hoy 18 a las 18hs» y «Duración 1 hora (Nombre: Misa Fasta SAM)»), MaKo propuso UN `crear_evento_calendario` con todo
+// —la hora, la hora de duración y el título— y `faltaAlgunaParte` (1 de 2) le dijo «Lo demás lo pasé al equipo (pedido #111)». La
+// segunda «parte» eran los ARGUMENTOS de la primera. #101 (16/11): «Buscar la reunión de Rodrigo» y «Mover el lead a descalificado»;
+// MaKo buscó y lo movió, y la búsqueda contó como una parte sin escritura. Medido en anthropic_usage: 3 «delegada-parte» en 7 días,
+// 2 falsos así (docs/hallazgos-comunicacion.md). Sigue siendo por cantidad, pero sin lo que no pide una escritura propia.
+
+/** Una escritura o propuesta del turno, con lo que se le pasó. */
+export type EscrituraDelTurno = { nombre: string; args: unknown };
+
+const sinTildes = (s: string): string => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/** Lo que nombra un DATO de una acción, al principio de la parte: «Duración 1 hora», «Hora: 15:00», «Nombre del evento…». Sin los
+ *  ambiguos: «Mensaje a Juan», «Correo a Ana» o «Presupuesto nuevo…» pueden ser otra acción. */
+const RX_PARAMETRO = /^\s*(?:(?:la|el|los|las|su|sus|con|y)\s+)?(?:duracion|horario|hora|fecha|dia|titulo|nombre|monto|precio|importe|etapa|lugar|ubicacion|direccion|descripcion|cantidad|valor|moneda|formato|color|asunto)\b/;
+/** Una parte que sólo LEE: «Buscar la reunión de Rodrigo», «Ver el lead», «Revisar la campaña». La hace el turno, sin escribir. */
+const RX_LECTURA = /^\s*(?:buscar?|busca(?:rla|rlo|rlas|rlos)|ver|mirar?|revisar?|fijarse|fijate|consultar?|leer|encontrar|ubicar|chequear?|averiguar|identificar|localizar)\b/;
+/** Lo que no dice NADA de una parte: artículos, preposiciones, y los verbos con que se dice un dato («que dure», «que se llame»). */
+const VACIAS = new Set(['que', 'los', 'las', 'del', 'con', 'por', 'para', 'una', 'unos', 'unas', 'este', 'esta', 'esto', 'sus', 'mis', 'tus',
+  'dure', 'dura', 'llame', 'sea', 'quede', 'diga', 'nombre', 'titulo', 'duracion', 'hora', 'horas', 'minuto', 'minutos', 'min', 'hs']);
+
+/** Los valores CORTOS de lo que se pasó (los textos largos —una nota, un mensaje— no cuentan: que la parte esté adentro de una nota
+ *  no dice que sea un dato de ella, y puede ser justo lo que falta hacer). */
+function valoresCortos(x: unknown, out: string[] = []): string[] {
+  if (typeof x === 'number' && Number.isFinite(x)) out.push(String(x));
+  else if (typeof x === 'string' && x.length <= 80) out.push(x);
+  else if (Array.isArray(x)) for (const v of x) valoresCortos(v, out);
+  else if (x && typeof x === 'object') for (const [k, v] of Object.entries(x)) if (!k.startsWith('__')) valoresCortos(v, out);
+  return out;
+}
+const palabras = (s: string): string[] => sinTildes(s).split(/[^a-z0-9ñ]+/).filter(Boolean);
+
+/** Lo que dice la parte: palabras de 3 letras o más que no son vacías, y números; «1 hora» vale también como 60 (minutos). «18hs» no:
+ *  es la hora del reloj, no una duración. */
+function significativas(parte: string): string[] {
+  const t = sinTildes(parte).replace(/\b(\d{1,2})\s*(?:hora|horas)\b/g, (_m, n: string) => `${n} ${Number(n) * 60}`);
+  return palabras(t).map((p) => p.replace(/^(\d+)hs?$/, '$1')).filter((p) => (/^\d+$/.test(p) || p.length >= 3) && !VACIAS.has(p));
+}
+
+/** La parte arranca con un VERBO en infinitivo («Crear…», «Replicar…», «Mandarle…»): es una ACCIÓN, no el dato de otra. ⚠️ Sin esto
+ *  la parte que ES la acción coincide con sus propios argumentos («replicar la landing https://…» contra `url`) y se descartaba: la
+ *  OTRA parte quedaba sola y ya no se delegaba (la escena «compuesto» de tests/clase-del-grupo.test.ts). */
+const RX_EMPIEZA_CON_VERBO = /^\s*(?:y\s+)?[a-zñ]{2,}(?:ar|er|ir)(?:l[aeo]s?|me|te|se|nos|selo|sela)?\b/;
+
+/** ¿Esta parte es un DATO de una escritura del turno? Empieza por el nombre de un dato, o no es una acción y lo que dice está en sus
+ *  valores cortos. */
+export function esDatoDeUnaEscritura(parte: string, escrituras: readonly EscrituraDelTurno[]): boolean {
+  if (!escrituras.length) return false;
+  const t = sinTildes(parte);
+  if (RX_PARAMETRO.test(t)) return true;
+  if (RX_EMPIEZA_CON_VERBO.test(t)) return false;
+  const sig = significativas(parte);
+  if (!sig.length) return false;
+  const valores = new Set(palabras(valoresCortos(escrituras.map((e) => e.args)).join(' ')));
+  const dentro = sig.filter((p) => valores.has(p));
+  // Tres cuartos o más, y al menos una PALABRA (un número suelto coincide con cualquier fecha).
+  return dentro.length / sig.length >= 0.75 && dentro.some((p) => !/^\d+$/.test(p));
+}
+
+/** Las partes que piden una escritura propia: sin los datos de lo que el turno escribió o propuso, y sin las lecturas si el turno leyó. */
+export function partesQueCuentan(partes: readonly string[], o: { escrituras: readonly EscrituraDelTurno[]; leyo: boolean }): string[] {
+  return partes.filter((p) => !esDatoDeUnaEscritura(p, o.escrituras) && !(o.leyo && RX_LECTURA.test(sinTildes(p))));
 }
 
 /** La línea que dice que lo demás se delegó. El número lo escribe el código. */

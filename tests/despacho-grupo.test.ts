@@ -25,7 +25,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ACCIONES_CON_PANTALLA, ACCIONES_SIMPLES, MIN_SIN_TOMAR, WS_CON_CUIDADO, delegaLaAccion, delegadosParaAvisar, esAccionSimple, faltaAlgunaParte,
+  ACCIONES_CON_PANTALLA, ACCIONES_SIMPLES, MIN_SIN_TOMAR, WS_CON_CUIDADO, delegaLaAccion, delegadosParaAvisar, esAccionSimple, esDatoDeUnaEscritura, faltaAlgunaParte, partesQueCuentan,
   lineaApruebaEnLaApp, lineaDeLoQueFalta, negocioLeido, preguntaUnDato, respuestaDeLaDelegacion, respuestaDelDebug, textoDelegadoSinTomar,
   viajaEnLaAccion, type DelegadoSinTomar,
 } from '../lib/despacho-grupo';
@@ -482,4 +482,46 @@ test('18. «Listo: ya quedó» sólo si el pedido se hizo; si Martín lo contest
   const cierre = sinComentarios(leer('lib/tickets-cierre.ts'));
   assert.equal((cierre.match(/\.select\('id, titulo, estado, respuesta, duplicado_de, workspace_id, usuario_id, canal, contexto, updated_at[^']*\bdecision\b[^']*'\)/g) ?? []).length, 2,
     'el aviso no lee la decisión en los dos caminos (el cron y la decisión de Martín)');
+});
+
+test('19. una «parte» que es un DATO de lo que se propuso, o una lectura que el turno hizo, no es una parte pendiente (#111, #101)', () => {
+  // El #111 TAL CUAL (Joan, 18/11/2026): las dos partes de la IA y los argumentos del evento que MaKo propuso.
+  const evento = [{ nombre: 'crear_evento_calendario', args: { titulo: 'Misa Fasta SAM', tipo: 'otro', fecha: '2026-11-18', hora: '18:00', duracionMin: 60 } }];
+  const p111 = ['Crear evento hoy 18 a las 18hs', 'Duración 1 hora (Nombre: Misa Fasta SAM)'];
+  assert.deepEqual(partesQueCuentan(p111, { escrituras: evento, leyo: false }), ['Crear evento hoy 18 a las 18hs']);
+  assert.equal(faltaAlgunaParte(partesQueCuentan(p111, { escrituras: evento, leyo: false }), 1), false, 'cero partes faltantes: sin «lo pasé al equipo»');
+  assert.equal(faltaAlgunaParte(p111, 1), true, 'contadas crudas, era el #111');
+  // El mismo dato dicho de otra forma, sin la palabra del dato adelante: lo que dice está en los valores del evento (60 = 1 hora).
+  assert.ok(esDatoDeUnaEscritura('Que dure 1 hora y se llame Misa Fasta SAM', evento));
+  // El #101 (16/11): «buscar» la reunión es una lectura; si el turno leyó, no le falta una escritura.
+  const mover = [{ nombre: 'proponer_cambio_etapa', args: { leadId: 6123, etapa: 'descal' } }];
+  const p101 = ['Buscar la reunión de Rodrigo (martes 17 de noviembre a las 11 am)', 'Mover el lead a la columna de descalificado'];
+  assert.deepEqual(partesQueCuentan(p101, { escrituras: mover, leyo: true }), ['Mover el lead a la columna de descalificado']);
+  assert.deepEqual(partesQueCuentan(p101, { escrituras: mover, leyo: false }), p101, 'si no leyó, la búsqueda sigue contando: nunca se pierde una parte en silencio');
+
+  // LO QUE SIGUE DELEGÁNDOSE (las roturas que no se pueden permitir):
+  // · el #110: lo que faltaba está DENTRO de la nota, pero un texto largo no es un dato (puede ser justo lo que falta hacer);
+  const nota = [{ nombre: 'agregar_nota_lead', args: { leadId: 501, texto: 'agendar llamar en dos semanas para coordinar reunión (estaban terminando de hacer unos arreglos en la casa de Villa del Parque)' } }];
+  const p110 = ['Agregar nota al lead de Valery', 'Especificar que es para agendar llamada en dos semanas para coordinar reunión'];
+  assert.deepEqual(partesQueCuentan(p110, { escrituras: nota, leyo: true }), p110);
+  // · otra acción sobre la misma persona («mándale un WhatsApp a Juan» con la reunión de Juan movida);
+  const reunion = [{ nombre: 'proponer_mover_reunion', args: { lead: 'Juan Pérez', fecha: '2026-11-20', hora: '10:00' } }];
+  assert.deepEqual(partesQueCuentan(['Mover la reunión de Juan al viernes', 'Mandarle un WhatsApp a Juan'], { escrituras: reunion, leyo: true }),
+    ['Mover la reunión de Juan al viernes', 'Mandarle un WhatsApp a Juan']);
+  // · la misma acción para OTRO («la etiqueta VIP a Juan y a Pedro», con la de Juan hecha);
+  const etiqueta = [{ nombre: 'poner_etiqueta_lead', args: { leadId: 7, etiqueta: 'VIP' } }];
+  assert.equal(partesQueCuentan(['Poner la etiqueta VIP a Juan', 'Poner la etiqueta VIP a Pedro'], { escrituras: etiqueta, leyo: true }).length, 2);
+  // · «Mensaje a Ana…» o «Presupuesto nuevo…» no se leen como el nombre de un dato: pueden ser otra acción;
+  assert.ok(!esDatoDeUnaEscritura('Mensaje a Ana para confirmar la visita', evento));
+  assert.ok(!esDatoDeUnaEscritura('Presupuesto nuevo para la campaña Verano', evento));
+  // · y sin ninguna escritura en el turno, nada es «el dato de otra».
+  assert.ok(!esDatoDeUnaEscritura('Duración 1 hora', []));
+  // · la del pedido compuesto de la llamada con Thiago (tests/clase-del-grupo.test.ts, «compuesto»), igual. Rota (medido): sin
+  //   `RX_EMPIEZA_CON_VERBO`, «replicar la landing https://…» coincide con su propia `url` y queda 1: la automatización no se delega.
+  assert.equal(partesQueCuentan(['replicar la landing https://ejemplo.com/oferta', 'crear una automatización de bienvenida'],
+    { escrituras: [{ nombre: 'replicar_landing', args: { url: 'https://ejemplo.com/oferta', formato: 'landing' } }], leyo: false }).length, 2);
+  // Y el doer cuenta con ellas: los argumentos de cada escritura, y las partes que cuentan.
+  const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
+  assert.match(doer, /const partes = partesQueCuentan\(claseDeLaIA\?\.partes \?\? \[\], \{ escrituras: datosDeLasEscrituras, leyo: leyoDelTurno \}\);/);
+  assert.equal((doer.match(/anotarSalida\(name, (?:previo\.)?out, input\)/g) ?? []).length, 2, 'una salida se anota sin sus argumentos');
 });

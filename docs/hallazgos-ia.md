@@ -27,7 +27,7 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
   programado). Y lo que nombra el Plan («agrega una tarea: llamar a Juan el lunes») sigue siendo una tarea: las reglas lo leen
   como `capturar`, pero la clase ACCION de la IA sobre un `capturar` dudoso lo vuelve `actuar`, y sin la exclusión le ganaba al Plan.
 - **Sin hacer:** el pedido compuesto cuenta las partes por CANTIDAD (`faltaAlgunaParte`, lib/despacho-grupo.ts). Si la IA lista
-  tres partes para este mismo pedido, la tercera se delega aunque la nota y el evento estén propuestos.
+  tres partes para este mismo pedido, la tercera se delega aunque la nota y el evento estén propuestos. Desde el #111 (el mismo día) no cuentan las partes que son un DATO de una escritura del turno ni las lecturas que el turno hizo (docs/hallazgos-comunicacion.md).
 
 ## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
 

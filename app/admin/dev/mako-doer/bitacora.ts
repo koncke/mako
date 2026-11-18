@@ -987,4 +987,21 @@ export const BITACORA: Hito[] = [
     ],
     tickets: [110],
   },
+  {
+    fecha: '18 nov', hora: '07:20', chat: 'Tickets de Sellers: el filtro de números', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Cuando MaKo hace lo que le pediste con todos sus datos, ya no te dice que pasó «lo demás» al equipo',
+    puntos: [
+      'Pediste agendar un evento con su hora, su duración y su nombre, y MaKo lo propuso con todo, pero igual te dijo que había pasado «lo demás» al equipo. La duración y el nombre eran datos del mismo evento, no otro pedido.',
+      'Lo mismo cuando le pides buscar algo y después hacer un cambio: si lo buscó y lo hizo, no queda nada pendiente.',
+      'Si de verdad falta algo de lo que pediste, MaKo lo sigue pasando al equipo y te avisa.',
+      '**Cómo se prueba:** en el grupo de MaKo, «agenda un evento hoy a las 18, que dure una hora, que se llame Reunión de equipo».',
+    ],
+    archivos: [
+      'lib/despacho-grupo.ts — `partesQueCuentan` y `esDatoDeUnaEscritura`',
+      'lib/mako-doer-in.ts — anota lo que se le pasó a cada escritura del turno',
+      'tests/despacho-grupo.test.ts (19) · tests/clase-del-grupo.test.ts («eventoConDatos», el pedido tal cual)',
+      'docs/hallazgos-comunicacion.md',
+    ],
+  },
 ];
