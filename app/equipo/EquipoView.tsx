@@ -15,7 +15,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
-import { CtaPasarAPro } from '../_components/CtaPasarAPro';
+import { CtaPasarAPro, TextoDelTope } from '../_components/CtaPasarAPro';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import Link from '@/app/_ui/Link';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes, SELECT_AJUSTES, TituloAjustes } from '@/app/_ui/Ajustes';
@@ -225,7 +225,7 @@ export function EquipoView({ roles = null }: { roles?: ReactNode } = {}) {
             <div className="aj-invitar__campo"><span className="aj-rotulo">Rol</span><Dropdown value={rol} options={ROL_OPTS} onChange={setRol} width="100%" ariaLabel="Rol del miembro" buttonStyle={{ ...SELECT_AJUSTES, height: 40 }} /></div>
             {roles && <p className="aj-texto" style={{ margin: 0, fontSize: 13 }}>{roles}</p>}
             {/* El tope de usuarios del plan: el cliente de una agencia no sube de plan acá (6/11/2026, #494), se lo pide a ella. */}
-            {errCrear && <div className="aj-error" role="alert" style={{ margin: 0 }}>{errCrear}{aPro && <> <CtaPasarAPro><Link href={aPro} style={{ color: 'var(--primary)' }}>Pasar a Pro</Link></CtaPasarAPro></>}<ReportarASoporte /></div>}
+            {errCrear && <div className="aj-error" role="alert" style={{ margin: 0 }}><TextoDelTope texto={errCrear} />{aPro && <> <CtaPasarAPro><Link href={aPro} style={{ color: 'var(--primary)' }}>Pasar a Pro</Link></CtaPasarAPro></>}<ReportarASoporte /></div>}
           </div>
         </Modal>
       )}

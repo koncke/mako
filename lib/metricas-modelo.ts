@@ -79,7 +79,7 @@ export type FilaMetricas = {
   vsl_visitantes: number | null;
 
   // ── CRM ────────────────────────────────────────────────────────────────────
-  /** Leads creados en el período (`leads.created_at`). */
+  /** Leads que NACIERON en el período: `coalesce(fecha_original, created_at)` (un migrado, por su fecha del CRM anterior: lib/leads-alta.ts). */
   leads_nuevos: number;
   /** Leads cuyo AGENDAMIENTO se registró en el período (`fecha_agenda`). Es
    *  «cuándo reservó», no «cuándo es la reunión». */

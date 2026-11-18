@@ -6889,7 +6889,7 @@ curl -L \
 
 ### `GET /api/v1/whatsapp/leads/{leadId}/etapa-inbox` — Etapa del inbox de un lead
 
-La etapa con la que las dos bandejas de WhatsApp muestran y filtran a un lead (cliente, por-cobrar, no-show, j2, post-j1, agendo, vio-vsl, form, abierto), derivada de sus fechas y asistencias. NO es la etapa del funnel configurable (pipeline_stage): la respuesta trae las dos para que digas cuál es cuál.
+La etapa del CRM de un lead: la columna donde lo dibuja su tablero, con el funnel de su casa, la misma que muestra Chats. Trae también la derivación fija que decide la etiqueta del celular (cliente, por-cobrar, no-show, j2, post-j1, agendo, vio-vsl, form, abierto), con su nombre aparte.
 
 - **Ruta por operación:** `GET /api/v1/whatsapp/etapa_inbox_de_lead`
 - **Token detallado:** permiso `whatsapp=read` (Solo lectura en «WhatsApp»)

@@ -46,6 +46,7 @@ import {
   type RolesComerciales,
 } from './funnel-comercial';
 import { leerTodo, leerPorPaginas, type OrdenPaginado, type ConsultaPaginada } from './supabase-paginado';
+import { contarAltas, leerAltas, diaDeAltaUtc } from './leads-alta';
 import { faltaComprobante } from './pago-comprobante';
 import { mrrDeLaPasarela } from './cobros-reglas';
 import { leerCambiosDeSuscripcion } from './suscripcion-movimientos';
@@ -1349,10 +1350,12 @@ async function enLosFunnels<T extends { id: number }>(filas: readonly T[], funne
  * cada una): van como filas PAGINADAS (el tope de 1000 de PostgREST) y se reparten con `enLosFunnels`.
  */
 async function altasEnFunnels(supabase: Awaited<ReturnType<typeof getTenantDb>>, desde: string, hasta: string, funnels: readonly number[]): Promise<{ entradas: number; ganadas: number }> {
-  const filas = await leerTodo<{ id: number; estado_lead: string | null; created_at: string }>(supabase, 'leads', 'id, estado_lead, created_at', {
-    orden: 'id', filtros: (q) => q.gte('created_at', desde).lte('created_at', hasta),
-  });
-  const en = await enLosFunnels(filas, funnels, (x) => x.created_at.slice(0, 10));
+  // F152 (18/11/2026): por el día en que NACIÓ (un migrado, por su fecha del CRM anterior: lib/leads-alta.ts), no por
+  // el día en que entró a MaKo.
+  const filas = await leerAltas<{ id: number; estado_lead: string | null; created_at: string; fecha_original?: string | null }>(
+    supabase, 'id, estado_lead, created_at', desde, hasta, { orden: 'id' },
+  );
+  const en = await enLosFunnels(filas, funnels, (x) => diaDeAltaUtc(x));
   return { entradas: en.length, ganadas: en.filter((x) => x.estado_lead === 'ganado').length };
 }
 
@@ -1396,14 +1399,14 @@ export async function getFunnelEtapas(
       .select('id, asistio_j1, calificado, estado_lead, fecha_junta_1')
       .gte('fecha_junta_1', start)
       .lte('fecha_junta_1', end),
+    // F152: las altas por el día en que NACIERON (`contarAltas`, lib/leads-alta.ts: un migrado cuenta en su fecha del CRM
+    // anterior, no el día que se migró). Tira si la base no contesta: el `catch` de abajo lo vuelve el mismo error de siempre.
     necesitaEntradas && !conFunnels
-      ? supabase.from('leads').select('id', { count: 'exact', head: true })
-          .gte('created_at', altaDesde).lte('created_at', altaHasta)
+      ? contarAltas(supabase, altaDesde, altaHasta).then((count) => ({ count, error: null }), (e: unknown) => ({ count: null, error: { message: e instanceof Error ? e.message : String(e) } }))
       : Promise.resolve(null),
     necesitaEntradas && !conFunnels
-      ? supabase.from('leads').select('id', { count: 'exact', head: true })
-          .eq('estado_lead', 'ganado')
-          .gte('created_at', altaDesde).lte('created_at', altaHasta)
+      ? contarAltas(supabase, altaDesde, altaHasta, (q) => q.eq('estado_lead', 'ganado') as ConsultaPaginada)
+          .then((count) => ({ count, error: null }), (e: unknown) => ({ count: null, error: { message: e instanceof Error ? e.message : String(e) } }))
       : Promise.resolve(null),
     necesitaEntradas && conFunnels ? altasEnFunnels(supabase, altaDesde, altaHasta, funnels) : Promise.resolve(null),
   ]);
@@ -1619,10 +1622,10 @@ async function _getFunnelSeries(
     // ⚠️ PAGINADA. Acá hacen falta las FILAS (hay que repartirlas por semana), así
     // que no se puede resolver con un count — y un `.select()` suelto topea en las
     // 1000 de PostgREST sin dar error: las semanas viejas quedarían vacías.
+    // F152: por el día en que NACIÓ cada lead (lib/leads-alta.ts), no por el día en que entró a MaKo.
     necesitaEntradas
-      ? leerTodo<{ id: number; created_at: string | null; estado_lead: string }>(
-          supabase, 'leads', 'id, created_at, estado_lead',
-          { orden: 'id', filtros: (q) => q.gte('created_at', `${rangoInicio}T00:00:00Z`).lte('created_at', `${rangoFin}T23:59:59Z`) },
+      ? leerAltas<{ id: number; created_at: string | null; fecha_original?: string | null; estado_lead: string }>(
+          supabase, 'id, created_at, estado_lead', `${rangoInicio}T00:00:00Z`, `${rangoFin}T23:59:59Z`, { orden: 'id' },
         )
       : Promise.resolve([]),
   ]);
@@ -1635,7 +1638,7 @@ async function _getFunnelSeries(
   const j1Crudas: Array<{ id: number; fecha_junta_1: string | null; asistio_j1: boolean | null; calificado: boolean | null; estado_lead: string }> = j1Res.data ?? [];
   const agendas = await enLosFunnels(agendasCrudas, funnels, (r) => r.fecha_junta_1);
   const j1s = await enLosFunnels(j1Crudas, funnels, (r) => r.fecha_junta_1);
-  const altasRes = await enLosFunnels(altasTodas, funnels, (r) => (r.created_at ? r.created_at.slice(0, 10) : null));
+  const altasRes = await enLosFunnels(altasTodas, funnels, (r) => diaDeAltaUtc(r));
 
   // Índice de semana de una fecha = lunes de esa fecha
   const semanaDe = (fecha: string): string => lunesDeFecha(fecha);
@@ -1668,8 +1671,9 @@ async function _getFunnelSeries(
     });
   }
   for (const r of altasRes) {
-    if (!r.created_at) continue;
-    add(semanaDe(r.created_at.slice(0, 10)), (a) => {
+    const alta = diaDeAltaUtc(r);
+    if (!alta) continue;
+    add(semanaDe(alta), (a) => {
       a.alta += 1;
       if (r.estado_lead === 'ganado') a.altaCie += 1;
     });

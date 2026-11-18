@@ -79,7 +79,7 @@ import { RUTA_LINEAS } from './SalidaWhatsApp';
 // El candado del setter con IA (14/11/2026): Publicar o Activar con MaKo Essential contesta su texto (lib/setter-ia-reglas.ts).
 import { TEXTO_SETTER_SOLO_PRO } from '@/lib/setter-ia-reglas';
 import { marcarSoloPro } from '@/app/_components/solo-pro';
-import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';
+import { CtaPasarAPro, TextoDelTope } from '@/app/_components/CtaPasarAPro';
 import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 
@@ -1248,7 +1248,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const errPie = err !== TEXTO_SETTER_SOLO_PRO ? err : null;
   const avisoSetter = rolAdmin && err === TEXTO_SETTER_SOLO_PRO && (
     <span role="status" style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.4 }}>
-      {err} <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} style={{ fontWeight: 650, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{ROTULO_PASAR_A_PRO}</Link></CtaPasarAPro>
+      <TextoDelTope texto={err} /> <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} style={{ fontWeight: 650, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{ROTULO_PASAR_A_PRO}</Link></CtaPasarAPro>
     </span>
   );
   const avisoRitmoPrendida = activa && secuencia.aviso_ritmo && (

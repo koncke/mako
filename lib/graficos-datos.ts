@@ -29,6 +29,7 @@ import { productosCrm } from './api-mako/areas/crm.helpers';
 import { ventasDeCrms, type VentaDeCrm } from './ventas-crm';
 import { LECTORES_EXTRA, noEsDelNegocio } from './graficos-datos-extra';
 import { nombrarFilas } from './graficos-nombres';
+import { hayFechaOriginal, momentoDeAlta } from './leads-alta';
 export type { Rango };
 import { conversorGastoMeta } from './moneda-meta';
 import { hoyEnTijuana, lunesDeFecha } from './date-utils';
@@ -203,14 +204,30 @@ type FLead = {
   meta_campaign_name: string | null; meta_ad_name: string | null; closer: string | null; setter: string | null; motivo_perdida: string | null;
   venta_tipo: string | null; fecha_agenda: string | null; fecha_primer_pago: string | null; nombre: string | null;
   fecha_junta_2: string | null; fecha_confirmacion: string | null; meta_lead_id: string | null;
+  /** Cuándo se creó en el CRM anterior (mig 0405; sólo si la columna existe): el alta de un lead migrado. */
+  fecha_original?: string | null;
 };
 const COLS_LEAD = 'id, created_at, fecha_junta_1, fecha_cierre, asistio_j1, calificado, cerro, estado_lead, monto_cierre_usd, total_cobrado_usd, pipeline_stage, funnel_id, origen_lead, utm_source, utm_campaign, utm_content, meta_campaign_name, meta_ad_name, closer, setter, motivo_perdida, venta_tipo, fecha_agenda, fecha_primer_pago, nombre, fecha_junta_2, fecha_confirmacion, meta_lead_id';
 
 const columnaLead = (fecha: string) => (fecha === 'agenda' ? 'fecha_junta_1' : fecha === 'cierre' ? 'fecha_cierre' : 'created_at');
 async function leadsCrudos(fecha: string, rg: Rango): Promise<FLead[]> {
   const col = columnaLead(fecha);
+  // F152 (18/11/2026): el ALTA es el día en que el lead NACIÓ (`momentoDeAlta`, lib/leads-alta.ts): un migrado de otro CRM
+  // cuenta en su `fecha_original`, no el día que se migró. PostgREST no hace un `coalesce` en un filtro: son dos lecturas
+  // que no se pisan (sin fecha original por `created_at`, y con ella por la suya). Sin la columna (la 0405 se aplica a
+  // mano), la de siempre.
+  if (col === 'created_at' && (await hayFechaOriginal(await getTenantDb()))) {
+    const cols = `${COLS_LEAD}, fecha_original`;
+    const rows = rg.sinRango
+      ? await leer<FLead>('leads', cols, rg, { col, ts: true })
+      : (await Promise.all([
+        leer<FLead>('leads', cols, rg, { col: 'created_at', ts: true, extra: (q) => q.is('fecha_original', null) as typeof q }),
+        leer<FLead>('leads', cols, rg, { col: 'fecha_original', ts: true }),
+      ])).flat();
+    return rows.filter((x) => enRango(fechaTj(momentoDeAlta(x)), rg));
+  }
   const rows = await leer<FLead>('leads', COLS_LEAD, rg, { col, ts: col === 'created_at' });
-  return rows.filter((x) => enRango(fecha === 'agenda' ? x.fecha_junta_1 : fecha === 'cierre' ? x.fecha_cierre : fechaTj(x.created_at), rg));
+  return rows.filter((x) => enRango(fecha === 'agenda' ? x.fecha_junta_1 : fecha === 'cierre' ? x.fecha_cierre : fechaTj(momentoDeAlta(x)), rg));
 }
 
 /**
@@ -249,7 +266,7 @@ async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
   return rows.map((x) => {
     // Sólo los funnels en los que YA estaba el día de esta fila (revisión de B5, la regla de lib/funnels-elegidos.ts): una alta
     // o una agenda de antes de que se lo agregara a «Renovación» no es de «Renovación». Sin fecha, ninguno.
-    const fila = fecha === 'agenda' ? fechaTj(x.fecha_junta_1) : fecha === 'cierre' ? fechaTj(x.fecha_cierre) : fechaTj(x.created_at);
+    const fila = fecha === 'agenda' ? fechaTj(x.fecha_junta_1) : fecha === 'cierre' ? fechaTj(x.fecha_cierre) : fechaTj(momentoDeAlta(x));
     const tambien = fila ? (agregados.get(Number(x.id)) ?? []).filter((a) => a.nombre !== rot.producto(x.funnel_id) && !!a.desde && a.desde <= fila).map((a) => a.nombre) : [];
     const ciclo = diasEntre(x.fecha_agenda, x.fecha_primer_pago);
     const vendio = gano(x);
@@ -259,7 +276,7 @@ async function filasLeads(fecha: string, rg: Rango): Promise<Fila[]> {
     const dt = (i: number) => t[i] ?? 0;
     const ct = (i: number) => (t[i] != null ? 1 : 0);
     return {
-      f: fecha === 'agenda' ? x.fecha_junta_1 : fecha === 'cierre' ? x.fecha_cierre : fechaTj(x.created_at),
+      f: fecha === 'agenda' ? x.fecha_junta_1 : fecha === 'cierre' ? x.fecha_cierre : fechaTj(momentoDeAlta(x)),
       d: {
         etapa: rot.etapa(x.funnel_id, txt(x.pipeline_stage)),
         producto: rot.producto(x.funnel_id),
@@ -410,7 +427,7 @@ async function filasNegocio(rg: Rango): Promise<Fila[]> {
   for (const v of enCrms) out.push({ f: v.fecha, d: {}, v: { cierres: 1, vendido: v.monto } });
   for (const x of meta) out.push({ f: x.f, d: {}, v: { gasto: x.v.gasto, impresiones: x.v.impresiones, clics: x.v.clics, vistas_landing: x.v.vistas_landing } });
   for (const x of vsl) out.push({ f: x.f, d: {}, v: { vistas_vsl: x.n } });
-  for (const x of altas) out.push({ f: fechaTj(x.created_at), d: {}, v: { leads: 1 } });
+  for (const x of altas) out.push({ f: fechaTj(momentoDeAlta(x)), d: {}, v: { leads: 1 } });
   for (const x of agendas) out.push({ f: x.fecha_junta_1, d: {}, v: { agendas: 1, asistencias: x.asistio_j1 ? 1 : 0 } });
   for (const x of cierres) if (gano(x)) out.push({ f: x.fecha_cierre, d: {}, v: { cierres: 1, vendido: num(x.monto_cierre_usd) } });
   for (const x of cobros) out.push({ f: x.fecha_pago, d: {}, v: { cobrado: num(x.monto_usd) } });

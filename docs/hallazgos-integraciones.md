@@ -1770,8 +1770,10 @@ reconectar.
   propio del negocio y un negocio que sólo conectó por Zernio no lo tiene. Existe `GET /v1/ads/leads?accountId&since=<segundos>` (más nuevo primero, cursor por
   `pagination.cursor`) para un barrido, que además traería `fieldData`, y la regla de lo inmediato (24 h) ya está en `cargarLeadDeZernio`.
 - **Los nombres de campaña, conjunto y anuncio** (punto 4): se pueden resolver por id contra `marketing_metrics_daily`, o desde la API de anuncios de Zernio.
-- **Un fallo DESPUÉS del insert deja el lead sin anunciar:** si `upsertLeadFromMeta` tira al dejar el rastro o al sumarlo a otro funnel, el reintento de Zernio
-  encuentra el lead (`created: false`) y nadie dispara el aviso ni las automatizaciones. Es de la puerta compartida (el webhook de Meta tiene el mismo hueco).
+- ~~**Un fallo DESPUÉS del insert deja el lead sin anunciar:** si `upsertLeadFromMeta` tira al dejar el rastro o al sumarlo a otro funnel, el reintento de Zernio
+  encuentra el lead (`created: false`) y nadie dispara el aviso ni las automatizaciones. Es de la puerta compartida (el webhook de Meta tiene el mismo hueco).~~
+  Cerrado el 18/11/2026 (F117): el anuncio deja su marca en el historial antes de salir, y un reintento sin marca lo anuncia, en las tres puertas
+  (lib/meta-anuncio.ts; docs/hallazgos-crm.md, «Siete pendientes del CRM»).
 - **Sin prueba de punta a punta** (un evento firmado contra un negocio de prueba): ws3 no tiene key de Zernio y no se la pone con código.
 - Tipos: salió «sin tipos» (política del tren): los chequea el `tsc` acotado de Integración.
 

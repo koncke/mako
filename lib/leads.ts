@@ -37,6 +37,7 @@ import { sendMetaCAPIEvent } from './meta-capi';
 import { esSexo } from './resumen-ficha';
 import {
   ESPERA_AVISO_CALIFICADO_MS, EVENTOS_CALIFICADO, LINEA_CALIFICADO_EN_META, avisaCalificadoAMeta, eventIdCalificado,
+  CALIFICADO_SIN_MARCA, CAMPO_CALIFICADO, SI_EN_EL_HISTORIAL, calificacionYaEnMeta, type LineaDeHistorial,
 } from './meta-capi-payload';
 // Cuándo se descarta el «calificado»: puro y compartido con la ficha y con el
 // canal de MaKo, para que los tres apliquen la MISMA regla.
@@ -1000,10 +1001,19 @@ export async function moverLeadDeFunnel(leadId: number, funnelId: number | null)
  */
 async function calificadoYaEnMeta(leadId: number): Promise<boolean> {
   try {
-    const { data, error } = await (await getTenantDb()).from('lead_audit').select('id')
-      .eq('lead_id', leadId).eq('campo', 'Meta').eq('valor_nuevo', LINEA_CALIFICADO_EN_META).limit(1);
+    const db = await getTenantDb();
+    // F154 (18/11/2026): la marca de hoy, o un «Calificado: Sí» de cuando la marca no existía (`CALIFICADO_SIN_MARCA`,
+    // lib/meta-capi-payload.ts): lo que viajó entonces ya contó. Dos lecturas exactas en vez de traer el historial entero.
+    const [marca, antes] = await Promise.all([
+      db.from('lead_audit').select('campo, valor_nuevo, created_at')
+        .eq('lead_id', leadId).eq('campo', 'Meta').eq('valor_nuevo', LINEA_CALIFICADO_EN_META).limit(1),
+      db.from('lead_audit').select('campo, valor_nuevo, created_at')
+        .eq('lead_id', leadId).eq('campo', CAMPO_CALIFICADO).eq('valor_nuevo', SI_EN_EL_HISTORIAL)
+        .gte('created_at', CALIFICADO_SIN_MARCA.desde).lt('created_at', CALIFICADO_SIN_MARCA.hasta).limit(1),
+    ]);
+    const error = marca.error ?? antes.error;
     if (error) { console.error(`[updateLead] lead ${leadId}: no pude leer si la calificación ya fue a Meta: ${error.message}`); return false; }
-    return ((data ?? []) as unknown[]).length > 0;
+    return calificacionYaEnMeta([...((marca.data ?? []) as LineaDeHistorial[]), ...((antes.data ?? []) as LineaDeHistorial[])]);
   } catch (e) {
     console.error(`[updateLead] lead ${leadId}: no pude leer si la calificación ya fue a Meta:`, e instanceof Error ? e.message : e);
     return false;
@@ -1935,7 +1945,7 @@ const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
   { k: 'fecha_agenda', label: 'Fecha de agendamiento' },
   { k: 'asistio_j1', label: 'Asistió R1' },
   { k: 'asistio_j2', label: 'Asistió R2' },
-  { k: 'calificado', label: 'Calificado' },
+  { k: 'calificado', label: CAMPO_CALIFICADO },
   { k: 'fecha_junta_1', label: 'Fecha R1' },
   { k: 'fecha_junta_2', label: 'Fecha R2' },
   { k: 'closer', label: 'Closer' },

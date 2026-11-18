@@ -78,7 +78,8 @@ import { listarCobros } from '@/lib/cobros';
 import { enElTope, estadoTopeCrm, frenarAltaPorTope, TopeDelPlanError } from '@/lib/topes-crm';
 import { etapaAbierta, leerLoteMigracion, migradoDeLimpio, porEtapa, ubicarEnEtapas } from '@/lib/migracion-leads';
 import { crearMigrados, idsExternosQueYaEstan, textoSinMigracion } from '@/lib/migracion-leads-server';
-import { textoSoloPro, textoTope } from '@/lib/topes-plan';
+import { textoSoloPro } from '@/lib/topes-plan';
+import { textoTopeDelNegocio } from '@/lib/tope-texto-agencia';
 import { precioDelResumen } from '@/lib/producto-precio-texto';
 import { cuentasValidas, type CuentaPago } from '@/lib/cobro-etapa';
 import { cuentasDePago } from '@/lib/cuentas-pago-server';
@@ -2868,7 +2869,8 @@ export const RUNNERS: Runners = {
       if (!nombre) return { error: 'Falta el nombre del CRM.', faltan: ['nombre'] };
       // El tope del plan (23/10/2026, lib/topes-crm.ts): con MaKo Essential, un CRM. No se propone lo que va a fallar.
       const tope = await estadoTopeCrm(ctx.ws, 'crm.funnels');
-      if (tope && enElTope(tope, 'crm.funnels')) return { error: `${textoTope(tope.tope)} Planes: /planes.` };
+      // Al cliente de una agencia, sin «Pasa a MaKo Pro» ni los planes (F148): su plan lo cambia su agencia.
+      if (tope && enElTope(tope, 'crm.funnels')) return { error: await textoTopeDelNegocio(ctx.ws, tope.tope) };
       if (nombre.toLowerCase() === FUNNEL_DEFAULT_NOMBRE.toLowerCase()) return { error: `«${FUNNEL_DEFAULT_NOMBRE}» es el nombre del CRM que ya existe. Ponle otro.` };
       if (input.tipo === TIPO_CRM_OTRO && !esCanal(input.canal)) return { error: 'Con el tipo otro, pasa el canal: cómo se cierra la venta.', faltan: ['canal'] };
       if (input.tipo === TIPO_CRM_OTRO && !(Array.isArray(input.entradas) && input.entradas.length)) return { error: 'Con el tipo otro, pasa al menos una entrada: cómo llega la gente.', faltan: ['entradas'] };

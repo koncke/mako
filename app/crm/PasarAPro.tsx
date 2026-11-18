@@ -9,7 +9,7 @@
 
 import Link from '@/app/_ui/Link';
 import { SANS } from '@/app/_ui';
-import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';
+import { CtaPasarAPro, TextoDelTope } from '@/app/_components/CtaPasarAPro';
 import { esTelefono } from '@/lib/telefono';
 import { RUTA_CAMBIAR_PLAN, textoTope } from '@/lib/topes-plan';
 
@@ -36,7 +36,8 @@ export function CartelTope({ tope }: { tope: number }) {
       border: '1px solid color-mix(in srgb, var(--warn) 45%, var(--border))', background: 'color-mix(in srgb, var(--warn) 8%, var(--surface))',
       fontFamily: SANS, fontSize: 13.5, color: 'var(--ink)',
     }}>
-      <span style={{ flex: '1 1 260px' }}>{textoTope(tope)}</span>
+      {/* Al cliente de una agencia, sin «Pasa a MaKo Pro» (F148): el CTA de al lado le dice a quién pedírselo. */}
+      <span style={{ flex: '1 1 260px' }}><TextoDelTope texto={textoTope(tope)} /></span>
       <PasarAPro />
     </div>
   );
