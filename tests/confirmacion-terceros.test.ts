@@ -260,5 +260,6 @@ test('quién la pidió va en el payload y sale al leerla: ni la bandeja lo muest
   assert.match(doer, /if \(await esEcoDeMaKoAhora\(instance, jid, key\)\) return \{ engaged: false, skip: 'eco de mi propia respuesta' \};\n[^\n]*\n\s*await anotarLineaDelDueno\(instance\);/);
   assert.match(doer, /sinElLlamadoAMaKo\(textoDirecto, lineaDelDueno \? null : await numeroDeLaLinea\(instance\)\)/);
   assert.match(doer, /mensajeUsuario: texto, enElGrupo,/);
-  assert.match(doer, /crearRunnerAcciones\(wsData, jid, Date\.now\(\), texto, enElGrupo\)/);
+  // Con el arranque del registro (ticket #110): las propuestas de un turno llevan una sola marca de turno.
+  assert.match(doer, /crearRunnerAcciones\(wsData, jid, ctxApi\.turnStart \?\? Date\.now\(\), texto, enElGrupo\)/);
 });
