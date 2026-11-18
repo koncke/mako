@@ -10,7 +10,8 @@
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { getTenantDb } from '@/lib/workspace';
-import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/transcribe';
+import { STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/transcribe';
+import { transcribirAnuncio } from '@/lib/transcripcion-por-video';
 import { getPromptText } from '@/lib/prompt-render';
 import { diasAntes, ayerEnTijuana } from '@/lib/date-utils';
 import { correrPorWorkspace } from '@/lib/cron-workspaces';
@@ -101,11 +102,14 @@ export async function GET(request: NextRequest) {
     const acceso = await accesoDeMeta();
     if (!acceso) throw new Error('Meta no está conectado en este workspace (ni por Zernio ni con el token)');
 
-    let ok = 0, sinVideo = 0, grandes = 0, errores = 0, procesados = 0;
+    // Un video ya transcripto en este negocio se reusa (lib/transcripcion-por-video.ts, 18/11/2026): el mismo video en varios
+    // anuncios se paga una vez, no una por anuncio.
+    let ok = 0, sinVideo = 0, grandes = 0, errores = 0, procesados = 0, reusadas = 0;
     for (const adId of pendientes) {
       if (procesados >= MAX_POR_CORRIDA || Date.now() - tStart > TIME_BUDGET_MS) break;
       procesados++;
-      const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId), prompts, ...acceso });
+      const res = await transcribirAnuncio(supabase, adId, { imageUrl: thumbs.get(adId), prompts, ...acceso });
+      if (res.reusada) reusadas++;
       const { error: upErr } = await supabase.from('ad_transcripts').upsert({
         ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,
         secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: res.error, updated_at: new Date().toISOString(),
@@ -118,8 +122,8 @@ export async function GET(request: NextRequest) {
     }
 
     const ms = Date.now() - tStart;
-    console.log(`[cron:transcribe-ads] pendientes=${pendientes.length} procesados=${procesados} ok=${ok} sin_video=${sinVideo} grandes=${grandes} err=${errores} ms=${ms}`);
-    return { total_pendientes: pendientes.length, procesados, ok_count: ok, sin_video: sinVideo, muy_grande: grandes, errores, restantes: pendientes.length - procesados, ms };
+    console.log(`[cron:transcribe-ads] pendientes=${pendientes.length} procesados=${procesados} ok=${ok} sin_video=${sinVideo} grandes=${grandes} err=${errores} reusadas=${reusadas} ms=${ms}`);
+    return { total_pendientes: pendientes.length, procesados, ok_count: ok, sin_video: sinVideo, muy_grande: grandes, errores, reusadas, restantes: pendientes.length - procesados, ms };
   });
 
   return Response.json({ ok: true, workspaces: resultados });

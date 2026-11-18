@@ -12,6 +12,7 @@ import { esColumnaInexistente } from './nutricion-grafo-motor';
 import 'server-only';
 import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 import { getTenantDb } from './workspace';
+import { leerTodo } from './supabase-paginado';
 import { quarterDeFecha } from '@/app/plan/board/cuando';
 // «Cada cuánto se repite» (mig 0165). El enum, el saneo y la invariante salen del módulo
 // compartido —el MISMO que usa la mitad del dueño— y no se reescriben acá: dos saneos son
@@ -402,9 +403,10 @@ export function sanearNotas(raw: string): string {
  */
 export async function listTareasDeRetro(retroId: number): Promise<Tarea[]> {
   const supabase = await getTenantDb();
-  const { data, error } = await supabase.from('experimento_tareas').select(COLS).eq('retro_id', retroId);
-  if (error) throw new Error(`listTareasDeRetro: ${error.message}`);
-  return ((data ?? []) as Record<string, unknown>[]).map(rowTo);
+  // Paginado (P20, 18/11/2026): PostgREST corta en 1000 filas sin error. Orden por `id` (PK). Tira como antes.
+  const data = await leerTodo<Record<string, unknown>>(supabase, 'experimento_tareas', COLS, { orden: 'id', eq: { retro_id: retroId } })
+    .catch((e: unknown) => { throw new Error(`listTareasDeRetro: ${e instanceof Error ? e.message : String(e)}`); });
+  return data.map(rowTo);
 }
 
 /**
@@ -425,7 +427,7 @@ export async function listTareasDeRetro(retroId: number): Promise<Tarea[]> {
  * tablero: /plan, su GET, «Hoy»/«Semana», el escalón «Plan» del foco, y lo que MaKo llama tablero.
  *
  * No se filtra en SQL (un `.or(...)` con tres columnas y nulls) sino en memoria y con la función
- * compartida: esta lectura ya trae el tablero entero sin paginar (ver lib/plan-hoy.ts) y dos reglas
+ * compartida: esta lectura ya trae el tablero entero (paginado desde el 18/11/2026, P20) y dos reglas
  * distintas para «qué es del Plan» serían dos respuestas distintas el día que cambie una.
  */
 export async function listTareas(opts?: { soloDelPlan?: boolean }): Promise<Tarea[]> {
@@ -435,20 +437,20 @@ export async function listTareas(opts?: { soloDelPlan?: boolean }): Promise<Tare
 /**
  * Lo mismo, diciendo también CUÁNTAS filas trajo la consulta ANTES de filtrar.
  *
- * ⚠️ Esta lectura no pagina y PostgREST corta en 1000 filas SIN avisar (ver lib/plan-hoy.ts), y quien
- * presenta el tablero avisa «recortado» comparando el largo contra ese tope. Con `soloDelPlan` el largo
- * ya no sirve para eso: de 1000 filas leídas, las de la Retro se van y quedan 800 — «no se recortó»
- * cuando sí, que es el límite que corta en silencio otra vez. `leidas` es el número que hay que mirar.
+ * ⚠️ PAGINA desde el 18/11/2026 (P20): antes PostgREST cortaba en 1000 filas SIN avisar (ver lib/plan-hoy.ts) y
+ * quien presenta el tablero avisaba «recortado» comparando contra ese tope. `leidas` sigue siendo lo mismo de
+ * siempre —las filas leídas ANTES de filtrar con `soloDelPlan`—, nada más que ahora son TODAS: de 1500 filas,
+ * las de la Retro se van y quedan las del plan, y `leidas` dice 1500. Quien compare `leidas` contra 1000 para
+ * decir «recortado» ya no está midiendo un corte (no lo hay): está midiendo el tamaño del tablero.
+ *
+ * El orden es el del tablero (`orden`, después `created_at`) y termina en `id`, la PK: sin la columna única, las
+ * filas empatadas se reparten distinto en cada página y salen repetidas o salteadas, sin error.
  */
 export async function listTareasConTope(opts?: { soloDelPlan?: boolean }): Promise<{ tareas: Tarea[]; leidas: number }> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('experimento_tareas')
-    .select(COLS)
-    .order('orden', { ascending: true })
-    .order('created_at', { ascending: true });
-  if (error) throw new Error(`listTareas: ${error.message}`);
-  const todas = (data ?? []).map(rowTo);
+  const data = await leerTodo<Record<string, unknown>>(supabase, 'experimento_tareas', COLS, { orden: ['orden', 'created_at', 'id'] })
+    .catch((e: unknown) => { throw new Error(`listTareas: ${e instanceof Error ? e.message : String(e)}`); });
+  const todas = data.map(rowTo);
   return { tareas: opts?.soloDelPlan ? todas.filter(esDelPlanCliente) : todas, leidas: todas.length };
 }
 

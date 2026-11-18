@@ -206,7 +206,8 @@ test('mientras hay una nota sin salir, `pendientes` frena lo escrito (salen en e
     ['app/_components/MakoChat.tsx', /ocupado=\{pensando \|\| nota\.pendientes\}/],
     ['app/whatsapp/WhatsAppAdvisor.tsx', /ocupado=\{pensando \|\| nota\.pendientes\}/],
     ['app/dashboard/PanelEditarMako.tsx', /ocupado=\{pensando \|\| nota\.pendientes\}/],
-    ['app/image-editor/mako/chat/PanelMakoIA.tsx', /ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/],
+    // 18/11/2026 (F49): en Image `ocupado` también cuenta la propuesta que se está aplicando.
+    ['app/image-editor/mako/chat/PanelMakoIA.tsx', /const ocupado = hilo\.corriendo \|\| aplicando;[\s\S]*ocupado=\{ocupado \|\| nota\.pendientes\}/],
     ['app/video-editor/_opencut/chat/PanelChat.tsx', /ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/],
     ['app/web-generator/editor/paneles/PanelAgente.tsx', /ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/],
     ['app/tickets/soporte/PiezasSoporte.tsx', /ocupado=\{s\.notasPendientes\}/],

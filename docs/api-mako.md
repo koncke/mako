@@ -1386,6 +1386,7 @@ PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando p
 | `tareas.proyecto` | string | no | NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó. |
 | `tareas.deadline` | string | no | fecha límite AAAA-MM-DD, solo si la dijeron. |
 | `tareas.prioridad` | string (alta \\| media \\| baja \\| futuro) | no | se ignora al aplicar: la tarea entra sin prioridad. |
+| `tareas.recurrente` | boolean | no | true SOLO si se repite para siempre (la junta de los miércoles); va sin deadline. |
 
 ```bash
 curl -L \
@@ -12262,7 +12263,7 @@ curl -L \
 
 ### `POST /api/v1/landing/presentaciones` — Crear una presentación desde una plantilla
 
-Crea una presentación nueva (diapositivas) en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo de la plantilla para adaptar. Úsala cuando pidan armar una presentación y la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones`). Devuelve el id y el link al editor. No corre en una automatización.
+Crea una presentación (diapositivas) o un carrusel 4:5 en el editor del Web Generator desde una plantilla, el mismo alta que «Plantillas» en la pantalla y sin IA. Queda como borrador sin publicar, con el texto de ejemplo para adaptar. Úsala cuando la persona quiera partir de una plantilla. Los ids salen de listar_disenos_landing (`presentaciones` y `carruseles`). Devuelve el id y el link al editor. No corre en una automatización.
 
 - **Ruta por operación:** `POST /api/v1/landing/crear_presentacion_desde_plantilla`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -12277,7 +12278,7 @@ Crea una presentación nueva (diapositivas) en el editor del Web Generator desde
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `plantilla` | string (pres-pitch \\| pres-propuesta \\| pres-informe-mensual \\| pres-caso-exito \\| pres-onboarding \\| pres-plan-marketing \\| pres-webinar \\| pres-clase \\| pres-roadmap \\| pres-equipo \\| pres-ventas \\| pres-resultados) | sí | La plantilla (de listar_disenos_landing, `presentaciones`). |
+| `plantilla` | string | sí | El id de una plantilla de listar_disenos_landing: de `presentaciones` (16:9) o de `carruseles` (4:5). |
 | `titulo` | string | no | El nombre de la presentación en el Panel. Sin él, el de la plantilla. |
 
 ```bash
@@ -12288,7 +12289,7 @@ curl -L \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/landing/presentaciones" \
-  -d '{"plantilla":"pres-pitch"}'
+  -d '{"plantilla":"PLANTILLA"}'
 ```
 
 ### `PUT /api/v1/landing/comentarios/{comentario}/estado` — Marcar un comentario del diagnóstico
@@ -13054,7 +13055,7 @@ curl -L \
   -d '{"bloque":"titulo"}'
 ```
 
-### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos` — Mover o borrar un bloque
+### `POST /api/v1/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos` — Mover, sacar o borrar un bloque
 
 Acomoda un bloque dentro de su sección en una landing del editor del Web Generator: mover (a otra posición), duplicar (la copia va debajo) o borrar (quitar o sacar un botón, el formulario, un video, una imagen). El bloque se nombra por su posición en la sección (de ver_secciones_landing). Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
@@ -17716,7 +17717,7 @@ PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el na
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
-| `id` | string (gancho \\| gancho-escrito \\| testimonio \\| antes-despues \\| beneficios \\| oferta \\| oferta-glitch) | sí | La plantilla (listar_plantillas_video). |
+| `id` | string (gancho \\| respuesta-comentario \\| beneficios \\| testimonio \\| caso-numeros \\| historia \\| tres-errores \\| clip-podcast \\| oferta \\| tour-propiedad \\| antes-despues) | sí | La plantilla (listar_plantillas_video). |
 | `textos` | object[] | no | Opcional: lo que dicta la persona para cada hueco de texto. |
 | `textos.hueco` | string | sí | El nombre del hueco de texto. |
 | `textos.texto` | string | sí | Lo que dice, hasta el máximo del hueco. |

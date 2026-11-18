@@ -110,7 +110,8 @@ test('2. cada una corta también lo que no pasa por la caja (una sugerencia, un 
     'app/crm/lead-view/ficha/GaleriaTab.tsx': /if \(pensando \|\| !texto \|\| appEscritorio\.bloqueada\) return;/,
     'app/dashboard/NuevaHoja.tsx': /if \(pensando \|\| !listo \|\| appEscritorio\.bloqueada\) return;/,
     'app/dashboard/PanelEditarMako.tsx': /if \(\(!mensaje && !conArchivos\) \|\| pensando \|\| adj\.preparando \|\| appEscritorio\.bloqueada\) return;/,
-    'app/image-editor/mako/chat/PanelMakoIA.tsx': /if \(hilo\.corriendo \|\| \(!instruccion\.trim\(\) && !archivos\.length\) \|\| !disenoId \|\| appEscritorio\.bloqueada\) return;/,
+    // 18/11/2026 (F49): en Image, `ocupado` es `hilo.corriendo || aplicando` (mientras se aplica una propuesta no se pide otra).
+    'app/image-editor/mako/chat/PanelMakoIA.tsx': /const ocupado = hilo\.corriendo \|\| aplicando;[\s\S]*if \(ocupado \|\| \(!instruccion\.trim\(\) && !archivos\.length\) \|\| !disenoId \|\| appEscritorio\.bloqueada\) return;/,
     'app/video-editor/_opencut/chat/PanelChat.tsx': /if \(hilo\.corriendo \|\| \(!instruccion\.trim\(\) && !op\.archivos\?\.length\) \|\| !proyectoId \|\| appEscritorio\.bloqueada\) return;/,
     // 14/11/2026: además frena el candado de Pro de «Replicar» (copiar la landing de otro negocio es de MaKo Pro).
     'app/web-generator/CajaCrear.tsx': /const enviar = \(\) => \{\n\s*if \(appEscritorio\.bloqueada(?: \|\| candado)?\) return;/,

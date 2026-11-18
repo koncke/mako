@@ -26,7 +26,8 @@ import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { REGISTROS_SLUGS, registroDe } from '@/app/admin/dev/registros';
 import { anotarDelCerebro, ticketsDelNegocioEntre } from './tickets-db';
 import { HORAS_MAX_SIN_TOMAR, MIN_SIN_TOMAR, delegadosParaAvisar, textoDelegadoSinTomar, type DelegadoSinTomar } from './despacho-grupo';
-import { avisaEnSuGrupo, destinoDelAvisoAlGrupo, hitosDeLosTickets, hitosDelNegocio, HORAS_REINTENTO_GRUPO, loCierraElDeploy, pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, ticketsQueNombran, TIPO_FALTA_EN_PRODUCCION, TIPO_PASO_HECHO, type AvisoCliente } from './tickets-reglas';
+import { avisaEnSuGrupo, destinoDelAvisoAlGrupo, hitosDeLosTickets, hitosDelNegocio, HORAS_REINTENTO_GRUPO, loCierraElDeploy, pruebaDeProduccion, sanearContexto, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, ticketsQueNombran, TIPO_FALTA_EN_PRODUCCION, TIPO_PASO_HECHO, type AvisoCliente } from './tickets-reglas';
+import { ALERTA_24H_DESDE, ESTADOS_QUE_NOS_ESPERAN, HORAS_ALERTA, paraLaAlerta24h, textoAlerta24h, TIPO_ALERTA_24H, type TicketParaAlerta } from './tickets-demora';
 
 const T = 'tickets';
 
@@ -75,6 +76,56 @@ export async function avisarDelegadosSinTomar(ahoraMs = Date.now()): Promise<num
     if (r.ok) salieron++;
   }
   return salieron;
+}
+
+/**
+ * EL TICKET QUE PASÓ LAS 24 H SIN RESOLVERSE (18/11/2026, la promesa de Martín a Teo: «medir el tiempo de cada ticket, con alerta
+ * a las 24 h»). Lo corre el cron de tickets (cada 15 minutos), sobre el molde de `avisarDelegadosSinTomar`: los tickets que siguen
+ * en nuestra cancha (`ESTADOS_QUE_NOS_ESPERAN`: esperando al cliente NO) con más de 24 h desde que se levantaron, y de los que no se
+ * avisó, le llegan a Martín en UN mensaje al grupo de SuperAdmin y a su campanita (el canal de `mandar`, lib/credito-vigia.ts). Qué
+ * cuenta y qué dice, en lib/tickets-demora.ts. El renglón `TIPO_ALERTA_24H` de cada ticket va aunque el aviso no salga: /tickets ya
+ * lo pinta en rojo, y reintentar cada 15 minutos sería ruido. Devuelve de cuántos tickets se avisó.
+ *
+ * ⚠️ Lee los más NUEVOS primero (`created_at` desc): los ya avisados que siguen abiertos se acumulan, y con el orden al revés podrían
+ * llenar las 50 filas y dejar afuera justo los que acaban de cruzar.
+ */
+export async function avisarTicketsDeMasDe24h(ahoraMs = Date.now()): Promise<number> {
+  const db = getSupabaseServer();
+  const hasta = new Date(ahoraMs - HORAS_ALERTA * 3600_000).toISOString();
+  const { data, error } = await db.from(T).select('id, workspace_id, titulo, tipo, estado, created_at, canal, contexto, usuario_nombre, usuario_email')
+    .in('estado', [...ESTADOS_QUE_NOS_ESPERAN]).gte('created_at', ALERTA_24H_DESDE).lte('created_at', hasta)
+    .order('created_at', { ascending: false }).limit(50);
+  if (error) throw new Error(error.message);
+  const filas: TicketParaAlerta[] = (data ?? []).map((f) => ({ ...(f as unknown as TicketParaAlerta), contexto: sanearContexto((f as { contexto?: unknown }).contexto) }));
+  if (!filas.length) return 0;
+  const { data: ev, error: eEv } = await db.from('ticket_eventos').select('ticket_id').in('ticket_id', filas.map((f) => f.id)).eq('tipo', TIPO_ALERTA_24H);
+  // Sin poder leer a quién ya se avisó, no se avisa: mejor ninguno que el mismo cada 15 minutos.
+  if (eEv) throw new Error(eEv.message);
+  const nuevos = paraLaAlerta24h(filas, new Set((ev ?? []).map((e) => Number(e.ticket_id))), ahoraMs);
+  if (!nuevos.length) return 0;
+  // El nombre del negocio, para decir de quién es. Sin poder leerlo, el aviso sale igual, sin el negocio.
+  const { data: wss, error: eWs } = await db.from('workspaces').select('id, nombre').in('id', [...new Set(nuevos.map((f) => Number(f.workspace_id)))]);
+  if (eWs) console.error(`[tickets] los negocios del aviso de 24 h: ${eWs.message}`);
+  const nombres = new Map((wss ?? []).map((w) => [Number(w.id), typeof w.nombre === 'string' ? w.nombre : null]));
+  const texto = textoAlerta24h(nuevos.map((f) => ({ ...f, negocio: nombres.get(Number(f.workspace_id)) ?? null })), ahoraMs);
+  const { enviarAlGrupoSuperAdmin } = await import('./mako-grupo');
+  const { crearNotificacion } = await import('./notificaciones');
+  const grupo = await enviarAlGrupoSuperAdmin(texto).then((r) => r.ok, (e: unknown) => { console.error(`[tickets] el aviso de 24 h no salió al grupo: ${e instanceof Error ? e.message : String(e)}`); return false; });
+  const plataforma = await plataformaONull();
+  const campanita = plataforma == null ? false : await crearNotificacion({
+    ws: plataforma, tipo: 'ticket-24h', severidad: 'warn',
+    titulo: nuevos.length === 1 ? 'Un ticket pasó las 24 h sin resolverse' : `${nuevos.length} tickets pasaron las 24 h sin resolverse`,
+    descripcion: texto.slice(0, 280), link: '/admin/operaciones?ticketera=lista', entityType: 'ticket', payload: { tickets: nuevos.map((f) => f.id) },
+    origen: 'sistema:tickets-24h',
+  }).then((id) => id != null, () => false);
+  const salio = grupo || campanita;
+  const { error: eIns } = await db.from('ticket_eventos').insert(nuevos.map((f) => ({
+    ticket_id: f.id, actor: 'sistema', tipo: TIPO_ALERTA_24H,
+    texto: salio ? 'Pasaron las 24 h sin resolverse: se le avisó a Martín.' : 'Pasaron las 24 h sin resolverse: el aviso a Martín no salió.',
+    datos: { horas: Math.floor((ahoraMs - Date.parse(f.created_at)) / 3600_000) },
+  })));
+  if (eIns) console.error(`[tickets] el renglón del aviso de 24 h: ${eIns.message}`);
+  return salio ? nuevos.length : 0;
 }
 
 /**

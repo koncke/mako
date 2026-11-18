@@ -32,6 +32,9 @@ import type { ProductoArranque, RespuestasArranque } from '@/lib/media-buyer/arr
 import { productoDeAccion, type AnuncioDestacado } from '@/lib/media-buyer/productos';
 import { CTAS, NOMBRE_CTA, errorDeTextos, type ConjuntoParaSubir, type Cta, type TextosCreativo } from '@/lib/media-buyer/creativos';
 import { subirAlStaging } from './creativeUpload';
+import type { CreativoMako } from '@/lib/creativo-mako';
+import { MisCreativos } from './MisCreativos';
+import { TOPE_SUBIDA, archivoListo, pedidoDeSubida, subiendoAlgo, sumarGenerado, type ArchivoEnSubida } from './subir-generados';
 import { NOMBRE_TACTICA, aplicablesEnLote, deHoy, lineaDelMes, resultadoAplicar, rotuloDe, type ResultadoAplicar } from './mb-modelo';
 import { AlertasProtect, Ic, TarjetaAccion } from './Autopilot';
 import type { Alerta } from '@/lib/media-buyer/protect';
@@ -384,8 +387,8 @@ function DescartarModal({ onCerrar, onDescartar }: { onCerrar: () => void; onDes
 // ── Subir creativos nuevos a un conjunto (lo que Meta rechaza con la app del cliente: va por su Zernio) ──
 // Un modal: el conjunto, los archivos (subidos al staging con su barra), los textos (los del mejor anuncio del conjunto,
 // editables) y publicar. Cada archivo es un anuncio nuevo en el conjunto; queda en «Hechas» con su «Deshacer».
-
-type ArchivoEnSubida = { clave: string; nombre: string; tipo: 'image' | 'video'; progreso: number; path: string | null; error: string | null };
+// Desde el 18/11/2026 (F100) un archivo también puede ser un video que MaKo ya generó («Mis creativos», copiado del Ads
+// Manager de antes: va por su `ref`), y lo nuevo se puede probar contra el mejor anuncio del conjunto (`original`).
 
 function SubirCreativosModal({ onCerrar, onListo }: { onCerrar: () => void; onListo: (msg: string) => void }) {
   const [conjuntos, setConjuntos] = useState<ConjuntoParaSubir[] | null>(null);
@@ -393,41 +396,49 @@ function SubirCreativosModal({ onCerrar, onListo }: { onCerrar: () => void; onLi
   const [adSetId, setAdSetId] = useState('');
   const [textos, setTextos] = useState<TextosCreativo>({ textoPrincipal: '', titulo: '', cta: 'LEARN_MORE', link: null, formularioId: null });
   const [deAnuncio, setDeAnuncio] = useState<string | null>(null);
-  const [archivos, setArchivos] = useState<ArchivoEnSubida[]>([]);
+  const [deAnuncioId, setDeAnuncioId] = useState<string | null>(null);
+  const [contraOriginal, setContraOriginal] = useState(false);
+  const [archivos, setArchivos] = useState<readonly ArchivoEnSubida[]>([]);
+  const [generados, setGenerados] = useState<CreativoMako[] | null>(null);
+  const [avisoGenerados, setAvisoGenerados] = useState<string | null>(null);
+  const [verMako, setVerMako] = useState(false);
   const [pausa, setPausa] = useState(false);
   const [publicando, setPublicando] = useState(false);
   useEffect(() => {
-    void api<{ conjuntos: ConjuntoParaSubir[]; conectado: boolean }>({ op: 'subir_preparar' }).then((r) => {
-      if (!r.ok) { setAviso(r.error ?? 'No pude leer la cuenta.'); setConjuntos([]); return; }
+    void api<{ conjuntos: ConjuntoParaSubir[]; conectado: boolean; generados?: CreativoMako[]; avisoGenerados?: string | null }>({ op: 'subir_preparar' }).then((r) => {
+      if (!r.ok) { setAviso(r.error ?? 'No pude leer la cuenta.'); setConjuntos([]); setGenerados([]); return; }
       setConjuntos(r.conjuntos);
+      setGenerados(r.generados ?? []);
+      setAvisoGenerados(r.avisoGenerados ?? null);
       if (!r.conectado) setAviso('Para publicar creativos nuevos conecta tu cuenta por Zernio (Ajustes → Conectar con Facebook).');
     });
   }, []);
   const elegir = (id: string) => {
     setAdSetId(id);
     setDeAnuncio(null);
-    void api<{ plantilla: { textos: TextosCreativo; deAnuncio: string | null } | null }>({ op: 'subir_preparar', adSetId: id }).then((r) => {
-      if (r.ok && r.plantilla) { setTextos(r.plantilla.textos); setDeAnuncio(r.plantilla.deAnuncio); }
+    setDeAnuncioId(null);
+    setContraOriginal(false);
+    void api<{ plantilla: { textos: TextosCreativo; deAnuncio: string | null; deAnuncioId?: string | null } | null }>({ op: 'subir_preparar', adSetId: id }).then((r) => {
+      if (r.ok && r.plantilla) { setTextos(r.plantilla.textos); setDeAnuncio(r.plantilla.deAnuncio); setDeAnuncioId(r.plantilla.deAnuncioId ?? null); }
     });
   };
   const agregar = (files: FileList | null) => {
-    for (const f of Array.from(files ?? []).slice(0, 10)) {
+    for (const f of Array.from(files ?? []).slice(0, TOPE_SUBIDA)) {
       const clave = `${f.name}-${f.size}-${Date.now()}`;
       const tipo = f.type.startsWith('video') ? 'video' as const : 'image' as const;
-      setArchivos((xs) => [...xs, { clave, nombre: f.name, tipo, progreso: 0, path: null, error: null }]);
+      setArchivos((xs) => [...xs, { clave, nombre: f.name, tipo, progreso: 0, path: null, ref: null, error: null }]);
       const cambiar = (c: Partial<ArchivoEnSubida>) => setArchivos((xs) => xs.map((x) => (x.clave === clave ? { ...x, ...c } : x)));
       subirAlStaging(f, (p) => cambiar({ progreso: p })).then((r) => cambiar({ path: r.path, progreso: 100 }), (e) => cambiar({ error: e instanceof Error ? e.message : String(e) }));
     }
   };
-  const listos = archivos.filter((a) => a.path && !a.error);
-  const subiendoAun = archivos.some((a) => !a.path && !a.error);
+  const listos = archivos.filter(archivoListo);
+  const subiendoAun = subiendoAlgo(archivos);
   const falta = !adSetId ? 'Elige el conjunto.' : !listos.length ? 'Sube al menos un archivo.' : errorDeTextos(textos);
   const publicar = async () => {
     setPublicando(true);
-    const r = await api<{ creados: string[]; errores: string[] }>({
-      op: 'subir_creativos', adSetId, textos, activo: !pausa,
-      archivos: listos.map((a) => ({ path: a.path, tipo: a.tipo, nombre: a.nombre })),
-    });
+    const r = await api<{ creados: string[]; errores: string[] }>(
+      pedidoDeSubida({ adSetId, textos, pausa, archivos, original: contraOriginal ? deAnuncioId : null }),
+    );
     setPublicando(false);
     if (r.ok) onListo(r.errores?.length ? `Se crearon ${r.creados.length} de ${listos.length}` : `${r.creados.length} ${r.creados.length === 1 ? 'anuncio creado' : 'anuncios creados'}`);
     else setAviso(r.error ?? 'No se pudo publicar.');
@@ -451,13 +462,21 @@ function SubirCreativosModal({ onCerrar, onListo }: { onCerrar: () => void; onLi
             <input type="file" multiple accept="image/*,video/*" style={{ display: 'none' }} onChange={(e) => { agregar(e.target.files); e.target.value = ''; }} />
             <span>Elige imágenes o videos (hasta 10)</span>
           </label>
+          <button type="button" className="aa-link" onClick={() => setVerMako((v) => !v)}
+            style={{ marginTop: 10, padding: 0, border: 0, background: 'none', cursor: 'pointer' }}>Mis creativos</button>
+          {verMako && (
+            <div style={{ marginTop: 10 }}>
+              <MisCreativos generados={generados} aviso={avisoGenerados} elegidos={archivos.flatMap((a) => (a.ref ? [a.ref] : []))}
+                onElegir={(c) => setArchivos((xs) => sumarGenerado(xs, c))} />
+            </div>
+          )}
           {archivos.length > 0 && (
             <ul className="aa-archivos">
               {archivos.map((a) => (
                 <li key={a.clave}>
                   <span className="aa-archivo-tipo">{a.tipo === 'video' ? 'Video' : 'Imagen'}</span>
                   <span className="aa-archivo-nombre">{a.nombre}</span>
-                  {a.error ? <em data-tono="mal">{a.error}</em> : a.path ? <em>Listo</em> : <div className="aa-barra" style={{ width: 120 }}><i style={{ width: `${a.progreso}%` }} /></div>}
+                  {a.error ? <em data-tono="mal">{a.error}</em> : a.path || a.ref ? <em>Listo</em> : <div className="aa-barra" style={{ width: 120 }}><i style={{ width: `${a.progreso}%` }} /></div>}
                   <button type="button" className="aa-quitar" aria-label={`Quitar ${a.nombre}`} onClick={() => setArchivos((xs) => xs.filter((x) => x.clave !== a.clave))}>✕</button>
                 </li>
               ))}
@@ -475,6 +494,10 @@ function SubirCreativosModal({ onCerrar, onListo }: { onCerrar: () => void; onLi
         {textos.formularioId
           ? <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>Usa el formulario instantáneo del conjunto.</p>
           : <TextField label="Link de destino" value={textos.link ?? ''} placeholder="https://" onChange={(e) => setTextos((t) => ({ ...t, link: e.target.value || null }))} />}
+        {deAnuncio && deAnuncioId && (
+          <Switch checked={contraOriginal} onChange={setContraOriginal} label={`Probarlos contra «${deAnuncio}»`}
+            hint="Si uno le gana, MaKo te propone pausar el original." />
+        )}
         <Switch checked={pausa} onChange={setPausa} label="Dejarlos en pausa" hint="Si no, empiezan a entregar con el presupuesto del conjunto." />
       </div>
     </Modal>

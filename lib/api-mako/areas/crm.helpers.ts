@@ -104,8 +104,9 @@ export async function productosCrm(): Promise<ProductoCrm[] | null> {
   })));
 }
 
-/** Copia de getLeadFullAction (app/crm/actions.ts): los mismos insumos para faltantesDeLead. */
-export async function faltantesDeUnLead(lead: Lead): Promise<Step[]> {
+/** Copia de getLeadFullAction (app/crm/actions.ts): los mismos insumos para faltantesDeLead. `hoyISO` es el día del
+ *  NEGOCIO (`hoyDelWorkspace(ctx.ws)`): la API corre con el ws explícito, no el del ambiente. */
+export async function faltantesDeUnLead(lead: Lead, hoyISO: string): Promise<Step[]> {
   const [pagos, respuestas, stages, grabable] = await Promise.all([
     getPagosByLead(lead.id).catch(() => []),
     getLeadRespuestas(lead).catch(() => ({ R1: [], R2: [] })),
@@ -114,7 +115,7 @@ export async function faltantesDeUnLead(lead: Lead): Promise<Step[]> {
   ]);
   // Un cobro confirmado por la pasarela no pide comprobante (lib/pago-comprobante.ts).
   const comprobantesFaltantes = pagos.filter(faltaComprobante).length;
-  return faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable });
+  return faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages, grabable, hoyISO });
 }
 
 const BANDA: Record<string, string> = { activo: 'pipeline', nutricion: 'nutricion', descartado: 'salidas' };
@@ -217,8 +218,8 @@ export const algoIgnorado = (lead: Pick<Lead, 'datos_ignorados' | 'pendientes_ig
  * Lo que le falta a un lead y qué AVISA, con la ficha de SU funnel: lo mismo que cuenta «N sin marcar» de
  * su ficha y su fila en «A revisar» (`avisanDelLead`, lib/datos-aviso.ts).
  */
-export async function datosSinMarcarDeUnLead(lead: Lead): Promise<{ faltan: Step[]; avisan: Step[]; apagados: StepId[] }> {
-  const [faltan, apagados] = await Promise.all([faltantesDeUnLead(lead), apagadosDeFunnel(lead.funnel_id ?? null)]);
+export async function datosSinMarcarDeUnLead(lead: Lead, hoyISO: string): Promise<{ faltan: Step[]; avisan: Step[]; apagados: StepId[] }> {
+  const [faltan, apagados] = await Promise.all([faltantesDeUnLead(lead, hoyISO), apagadosDeFunnel(lead.funnel_id ?? null)]);
   return { faltan, avisan: avisanDelLead(faltan, lead, apagados), apagados };
 }
 

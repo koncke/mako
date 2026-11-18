@@ -951,7 +951,7 @@ export function comoEstaElDestino(destino: string, cuenta: string | null | undef
 /**
  * Los mensajes `escrito` hace más de `SIN_CHAT_VIVO_MS` hacia un chat que una foto al día dice cerrado (30/10/2026): la cuenta es de MaKo,
  * con lo que subió la PC. La usan el vigía del Runner y el aviso al Cerebro (lib/limbo-al-cerebro.ts), que dice; el cartel del Ops Center se sacó el 31/10/2026. El aviso dice
- * «espera un chat cerrado»: lo demás que no sale (sin Runner, un chat por abrir) tiene otra causa, y la clasifica `mensajesEnLimbo`.
+ * «espera un chat cerrado»: lo demás que no sale (sin Runner, un chat por abrir) tiene otra causa y no va ahí (`comoEstaElDestino`).
  */
 export function pedidosSinChatVivo<P extends { created_at: string; destino: string; destino_cuenta?: string | null; estado: string }>(
   pedidos: readonly P[], carteros: readonly FotoDeChats[], ahora: number,

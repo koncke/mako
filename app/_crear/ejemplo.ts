@@ -4,11 +4,15 @@
 // Martín, 29/10/2026: «Los templates tienen que ser reales... deben ser ejemplos reales... así MaKo al entrar te da el
 // template y te puede ir ayudando a crearlo». Cada plantilla nace con el ejemplo COMPLETO de un negocio ficticio del elenco
 // (docs/plantillas-reales/README.md, 2.2), y las cinco tabs lo dicen con las mismas palabras (README, 2.3):
-//   · el rótulo: «Ejemplo: <negocio> (negocio ficticio)»;
-//   · el primer mensaje, armado acá y sin llamar a la IA (no gasta la IA del cliente sin que lo pida), con «Adaptar a mi
-//     negocio» primero y el segundo botón de cada tab;
+//   · el rótulo: «Ejemplo: <negocio> (negocio ficticio)» (lo usan la tarjeta de Create y el Lead Magnet Generator);
+//   · el primer mensaje, armado acá y sin llamar a la IA (no gasta la IA del cliente sin que lo pida): la pregunta de la
+//     oferta (abajo, desde el 5/11/2026) y el segundo botón de cada tab;
 //   · Offer es la excepción: adaptar empieza por el documento de la oferta, así que pide eso, con «No tengo, pregúntame».
-// Puro (sin React): lo leen los chats de cada tab y sus tests (tests/crear-pantalla.test.ts).
+// Puro (sin React): lo leen sus tests (tests/crear-pantalla.test.ts, tests/iniciativa-create.test.ts).
+// ⚠️ `primerMensajeDeEjemplo` NO TIENE QUIEN LA LLAME en app/ ni en lib/ (medido el 18/11/2026). Cada tab armó su primer
+// mensaje por su lado: el Copywriter con lib/copywriter/iniciativa.ts (su página nace con la estructura, no con el ejemplo, así
+// que «Es un ejemplo de…» ahí sería falso), Video e Image con lib/aperturas/, Offer con su chat. El único que la tenía en el
+// plan es AI Avatar (T15 de docs/mako-iniciativa/plan.md), que puede armar lo mismo con `pasoOferta` y `quienDelEjemplo`.
 //
 // ⚠️ DESDE EL 5/11/2026 PREGUNTA LA OFERTA, NO «¿LO ADAPTO A TU NEGOCIO?» (docs/mako-iniciativa/plan.md T4 y §4): «¿Lo adapto…?»
 // pregunta una ACCIÓN (lo atrapa `PREGUNTA_DE_ACCION`, lib/aperturas/reglas.ts). La primera pregunta es de HECHO: «¿Para cuál de
@@ -21,10 +25,9 @@ import { pasoOferta, type OfertaCorta } from '@/lib/aperturas/comunes';
 /** Las tabs de Create que abren una plantilla con un ejemplo. */
 export type TabConEjemplo = 'copywriter' | 'video' | 'image' | 'avatar' | 'offer';
 
-export const ADAPTAR_A_MI_NEGOCIO = 'Adaptar a mi negocio';
 export const NO_TENGO_PREGUNTAME = 'No tengo, pregúntame';
 
-/** El segundo botón de cada tab (README, 2.3). Offer no tiene «Adaptar a mi negocio»: su único botón es este. */
+/** El segundo botón de cada tab (README, 2.3). En Offer es el único. */
 const SEGUNDO_BOTON: Readonly<Record<TabConEjemplo, string>> = {
   copywriter: 'Solo la estructura',
   video: 'Lo edito yo',

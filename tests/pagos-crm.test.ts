@@ -24,7 +24,9 @@ import { armarCobranza } from '../lib/datos-comercial';
 import { cobroDeFila } from '../app/m/dashboard/modelo';
 import { funnelsDeLaHoja } from '../lib/graficos-controles-texto';
 import type { CtxFicha } from '../app/crm/lead-view/ficha/tipos';
-import type { Hoja } from '../lib/graficos-catalogo';
+import type { Elemento, Hoja } from '../lib/graficos-catalogo';
+import { funnelsDeCobranza } from '../app/general/funnels-de-la-hoja';
+import type { DatosGeneral } from '../app/general/datos-tipos';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -139,7 +141,11 @@ test('P1: el «Funnel» de arriba de la hoja llega a «A quién cobrarle», y la
   assert.deepEqual(funnelsDeLaHoja(hoja, { f: { valores: ['Renovación', 'Sprint 3 días'] } }), ['Renovación', 'Sprint 3 días']);
   const prov = sinComentarios(leer('app/general/ProveedorGeneral.tsx'));
   assert.match(prov, /case 'cobranza': return <BloqueCobranza d=\{d\.cobranza\} elegidos=\{funnelsDeCobranza\(g, d, hoja\)\}/);
-  assert.match(prov, /const propios = funnelsDeBloque\(g\);\s*if \(propios\.length \|\| !hoja\?\.funnels\?\.length \|\| !d\.funnels\.ok\) return propios;/, 'los propios del bloque mandan; si no, los de la hoja');
+  // Desde el 18/11/2026 la regla vive en app/general/funnels-de-la-hoja.ts y se EJECUTA (antes era un regex sobre el fuente):
+  const datos = { funnels: { ok: true, d: [{ id: 1, nombre: 'Ventas' }, { id: 2, nombre: 'Renovación' }] } } as unknown as DatosGeneral;
+  const cobranza = (extra: Record<string, unknown> = {}) => ({ pieza: 'cobranza', ...extra }) as unknown as NonNullable<Elemento['general']>;
+  assert.deepEqual(funnelsDeCobranza(cobranza(), datos, { funnels: ['Renovación'] }), [2], 'los propios del bloque mandan; si no, los de la hoja');
+  assert.deepEqual(funnelsDeCobranza(cobranza({ funnels: [1] }), datos, { funnels: ['Renovación'] }), [1], 'los propios del bloque mandan; si no, los de la hoja');
   assert.match(sinComentarios(leer('app/dashboard/Elemento.tsx')), /<ElementoGeneral e=\{e\} hoja=\{ctx\?\.hoja \?\? null\} vista=\{ctx\?\.vista \?\? null\} \/>/);
   const plantillas = sinComentarios(leer('lib/graficos-plantillas-generales.ts'));
   const cobros = plantillas.slice(plantillas.indexOf("id: 'cobranza'"), plantillas.indexOf("id: 'automatizaciones'"));

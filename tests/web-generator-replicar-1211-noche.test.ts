@@ -120,7 +120,8 @@ test('5. la publicada: sólo el CSS que usa (y lo que prenden sus scripts), cach
   assert.ok(docPub.length < CSS_CONTENIDO.length / 2, `la publicada entera (${docPub.length}) pesa menos que la mitad de la hoja (${CSS_CONTENIDO.length})`);
   const pub = fuente('lib/editor-landing/pagina-publica.ts');
   assert.match(pub, /export const CACHE_BORDE = 's-maxage=30, stale-while-revalidate=300';/);
-  assert.match(pub, /if \(modo === 'publico'\) comunes\['Vercel-CDN-Cache-Control'\] = CACHE_BORDE;/);
+  // Con una prueba A/B corriendo no va al borde (O18, 18/11/2026: lo ejecuta tests/pruebas-landing.test.ts, el 6).
+  assert.match(pub, /if \(modo === 'publico' && !prueba\) comunes\['Vercel-CDN-Cache-Control'\] = CACHE_BORDE;/);
   assert.equal(conVersion('https://hola-mako.site/x', 'abc'), 'https://hola-mako.site/x?v=abc');
   assert.equal(conVersion('https://hola-mako.site/x?a=1#b', '2026-11-12T10:00:00.000Z'), 'https://hola-mako.site/x?a=1&v=2026-11-12T100000.000Z#b');
   assert.equal(conVersion('https://hola-mako.site/x', null), 'https://hola-mako.site/x');

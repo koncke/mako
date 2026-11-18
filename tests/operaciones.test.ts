@@ -76,8 +76,6 @@ function acciones(src: string): Array<{ nombre: string; cuerpo: string }> {
 const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'contestarPreguntaAction', 'guardarBorradorAction', 'marcarMensajeAction', 'guardarAliasCuentaAction', 'decidirChatNuevoAction', 'marcarYaVistoAction', 'creditoApiAction', 'creditoDelNegocioAction', 'computadorasDelNegocioAction', 'desconectarComputadoraAction',
   // Lo terminado viejo de UN chat, al abrirlo (23/10/2026, `pedidosDelChatAction`): con la misma guarda que las demás.
   'pedidosDelChatAction',
-  // Dar de baja un mensaje que espera un chat cerrado (30/10/2026): toca los mensajes de Martín.
-  'descartarDelLimboAction',
   // «Ignorar» y «Volver a mostrar» lo que espera a Martín (5/11/2026): cancela la respuesta que todavía no salió.
   'ignorarPreguntaAction', 'ignorarDecisionAction'];
 
