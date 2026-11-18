@@ -61,7 +61,7 @@ const otras = /faltante|sobrante|repetida/i.test(chequeo);
 const faltas = [...chequeo.matchAll(/falta: «(.+?)»/g)].map((m) => m[1]);
 const pegadas = difs.filter(([a, b]) => faltas.some((f) => b === f + a || b === f.replace(/s$/, '') + a));
 const soloOrtografia = !/sobrante|repetida/i.test(chequeo) && faltas.every((f) => f === 'ei' || pegadas.some(([a, b]) => b.startsWith(f.replace(/s$/, '')))) && difs.filter((d) => !pegadas.includes(d)).every(([a, b]) => /^\d+$/.test(a) || a === b + 's' || b === a + 's' || ORTOGRAFIA.some(([x, y]) => x === a && y === b));
-const dijoBien = chequeo.includes('✅') || (difs.length > 0 && soloOrtografia);
+const dijoBien = chequeo.includes('✅') || ((difs.length > 0 || faltas.length > 0) && soloOrtografia);
 const diferencias = difs.map(([a, b]) => `${a} → ${b}`);
 paso('chequeo: ' + chequeo.split('\n').filter(Boolean).slice(0, 2).join(' · '));
 

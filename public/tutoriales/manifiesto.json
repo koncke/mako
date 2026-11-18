@@ -137,7 +137,7 @@
    "archivo": "/tutoriales/offer.mp4",
    "poster": "/tutoriales/offer.jpg",
    "duracion_s": 28.1,
-   "peso_kb": 1530,
+   "peso_kb": 1528,
    "guion": "¿Tu oferta convence a la primera, o la explicas diez veces? Offer es tu oferta en un chat con MaKo, atada a un funnel: de ahí salen tu landing y tus guiones. Mira aquí, el chat: contestas, y tu oferta se completa sola, a la derecha. Toca aquí, en la flecha, para ver tus funnels, sus ofertas y cada análisis. Para ir a fondo, toca aquí, en Analicemos mi oferta: te marca qué falta y la mejora, en PDF.",
    "frases": [
     {
@@ -188,7 +188,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T06:53:22.402Z"
+   "hecho": "2026-11-18T08:10:09.347Z"
   },
   {
    "key": "copilot",
@@ -575,7 +575,7 @@
    "archivo": "/tutoriales/automations.mp4",
    "poster": "/tutoriales/automations.jpg",
    "duracion_s": 25.93,
-   "peso_kb": 1381,
+   "peso_kb": 1376,
    "guion": "Cada lead que no contestas a tiempo es una venta que se enfría. Automations manda mensajes solos: cuando alguien agenda, no se presenta o le vence una cuota. Mira aquí, el lienzo: ahí se arma cada una, y nada sale hasta que la publicas y la activas. Mira aquí, el signo de pregunta: cada botón del lienzo te muestra su tutorial. Tu turno: toca aquí, en Nueva automatización, y pídesela a MaKo.",
    "frases": [
     {
@@ -625,7 +625,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "mako → maco (ortografía del transcriptor)",
-   "hecho": "2026-11-18T07:06:09.210Z"
+   "hecho": "2026-11-18T08:12:49.617Z"
   },
   {
    "key": "spy",
@@ -1049,9 +1049,9 @@
    "pantallas": [],
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
-   "dice_el_guion": false,
+   "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T07:24:04.019Z"
+   "hecho": "2026-11-18T08:34:35.623Z"
   },
   {
    "key": "video",
@@ -1120,7 +1120,7 @@
    "archivo": "/tutoriales/image.mp4",
    "poster": "/tutoriales/image.jpg",
    "duracion_s": 24.03,
-   "peso_kb": 1323,
+   "peso_kb": 1324,
    "guion": "¿Quieres carruseles que la gente guarde y miniaturas que inviten a entrar? Ímich te arma esas piezas, y cada miniatura de YouTube viene en dos versiones para probar cuál se toca más. Toca aquí, en la portada de Lista o tips: ya trae el nombre de tu negocio. Toca aquí, en Ver ejemplo, y mira cómo queda la pieza terminada. Empieza por un carrusel: toca aquí, en Usar plantilla.",
    "frases": [
     {
@@ -1172,7 +1172,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "imich → image (ortografía del transcriptor)",
-   "hecho": "2026-11-18T07:28:06.132Z"
+   "hecho": "2026-11-18T08:15:21.244Z"
   },
   {
    "key": "chats",
@@ -1181,7 +1181,7 @@
    "archivo": "/tutoriales/chats.mp4",
    "poster": "/tutoriales/chats.jpg",
    "duracion_s": 27.17,
-   "peso_kb": 1501,
+   "peso_kb": 1499,
    "guion": "WhatsApp, Instagram, Messenger y email, en una sola bandeja. Chats junta los mensajes de tus clientes, escriban por donde escriban, y en WhatsApp MaKo te sugiere qué contestar. Toca aquí, en Todos, y filtra por Míos, Sin asignar o Atiende MaKo. Toca aquí, en Canal, y mira sólo lo que llega por uno de ellos. Para empezar, toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.",
    "frases": [
     {
@@ -1231,7 +1231,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T07:32:36.748Z"
+   "hecho": "2026-11-18T08:17:48.512Z"
   },
   {
    "key": "classroom-community",
@@ -1356,7 +1356,7 @@
    "archivo": "/tutoriales/classroom-calendar.mp4",
    "poster": "/tutoriales/classroom-calendar.jpg",
    "duracion_s": 24.8,
-   "peso_kb": 1371,
+   "peso_kb": 1364,
    "guion": "Una llamada en grupo cada semana le da ritmo a tu programa. El Calendar del curso arma esas citas con tus alumnos. Toca aquí, en Nuevo evento: cada uno puede repetirse solo. Toca aquí, en Quién entra, y elige si es para todos, desde un nivel o para quien tenga un módulo. Suma el link de Zoom o Meet, o la dirección si es en persona, y toca aquí, en Crear evento.",
    "frases": [
     {
@@ -1407,7 +1407,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T07:37:30.393Z"
+   "hecho": "2026-11-18T08:20:06.383Z"
   },
   {
    "key": "classroom-leaderboards",
@@ -1416,7 +1416,7 @@
    "archivo": "/tutoriales/classroom-leaderboards.mp4",
    "poster": "/tutoriales/classroom-leaderboards.jpg",
    "duracion_s": 24.57,
-   "peso_kb": 1322,
+   "peso_kb": 1319,
    "guion": "Un alumno que suma puntos vuelve más seguido. Leaderboards, dentro de Classroom, es el ranking de tu comunidad. Mira aquí, los niveles: cada like le suma un punto al alumno, y con los puntos sube de nivel. Toca aquí, en Últimos 7 días, Últimos 30 días o Total, para ver quién más sumó. Ponle nombre propio a cada nivel: toca aquí, en Nombres de los niveles.",
    "frases": [
     {
@@ -1467,7 +1467,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "7 → siete · 30 → treinta (ortografía del transcriptor)",
-   "hecho": "2026-11-18T07:39:18.017Z"
+   "hecho": "2026-11-18T08:22:36.844Z"
   },
   {
    "key": "classroom-about",
@@ -1545,7 +1545,7 @@
    "archivo": "/tutoriales/settings-seguridad.mp4",
    "poster": "/tutoriales/settings-seguridad.jpg",
    "duracion_s": 29.73,
-   "peso_kb": 1389,
+   "peso_kb": 1386,
    "guion": "Si alguien consigue tu correo, no debería entrar a tu negocio. Seguridad, en Configuración, te muestra lo que le falta a tu cuenta para protegerla. Toca aquí, en Verificación en 2 pasos, para que entrar pida un código de tu celular. Mira aquí, en Configurar: escaneas el código con tu app de autenticación. Guarda tus diez códigos de recuperación: no se vuelven a mostrar. Desde ese momento, tu correo solo ya no alcanza para entrar a tu negocio.",
    "frases": [
     {
@@ -1601,7 +1601,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "2 → dos (ortografía del transcriptor)",
-   "hecho": "2026-11-18T07:43:33.900Z"
+   "hecho": "2026-11-18T08:24:40.838Z"
   },
   {
    "key": "settings-notificaciones",
@@ -1610,7 +1610,7 @@
    "archivo": "/tutoriales/settings-notificaciones.mp4",
    "poster": "/tutoriales/settings-notificaciones.jpg",
    "duracion_s": 26.9,
-   "peso_kb": 1475,
+   "peso_kb": 1476,
    "guion": "Un mensaje sin responder no puede esperar a que abras MaKo. En Notificaciones, dentro de Configuración, eliges por dónde te avisa: En la app, Celular, WhatsApp o Email. Toca aquí, en Celular, para que los avisos te lleguen al teléfono. Mira aquí, Avisos al celular: préndelos y te llegan al teléfono. Así te enteras a tiempo de cada mensaje, y en No molestar eliges tus horas de silencio.",
    "frases": [
     {
@@ -1659,7 +1659,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T07:45:15.130Z"
+   "hecho": "2026-11-18T08:26:07.033Z"
   },
   {
    "key": "settings-instalar",
@@ -1787,7 +1787,7 @@
    "archivo": "/tutoriales/settings-fiscal.mp4",
    "poster": "/tutoriales/settings-fiscal.jpg",
    "duracion_s": 30.27,
-   "peso_kb": 1391,
+   "peso_kb": 1393,
    "guion": "Tus datos fiscales se cargan una vez y sirven en cada venta. Identidades fiscales, en Configuración, guarda tu moneda y cada empresa con la que facturas. Toca aquí, en Agregar, para sumar una empresa con su RFC, CUIT o NIT, su domicilio y su correo. Mira aquí, Llenar desde un PDF o una foto: MaKo completa los campos por ti. Después, en cada venta del CRM eliges cuál factura en Facturado por, sin volver a escribir nada.",
    "frases": [
     {
@@ -1836,7 +1836,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T07:52:50.996Z"
+   "hecho": "2026-11-18T08:28:52.533Z"
   },
   {
    "key": "settings-plan",
@@ -1895,7 +1895,7 @@
    "archivo": "/tutoriales/partners.mp4",
    "poster": "/tutoriales/partners.jpg",
    "duracion_s": 25.63,
-   "peso_kb": 1445,
+   "peso_kb": 1448,
    "guion": "Cada negocio que traes a MaKo te deja su primer mes entero, en dinero. MaKo Partners, en el menú de tu foto, te paga por recomendar MaKo. Mira aquí, Hacerme partner: es gratis, son tres preguntas y tu link aparece al instante. Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes. Listo: comparte tu link, y si alguien no entra por él, que ponga tu código al pagar.",
    "frases": [
     {
@@ -1944,7 +1944,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T07:55:17.037Z"
+   "hecho": "2026-11-18T08:31:14.730Z"
   },
   {
    "key": "agency",
@@ -2062,7 +2062,7 @@
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
    "chequeo": "idéntico",
-   "hecho": "2026-11-18T08:01:11.920Z"
+   "hecho": "2026-11-18T08:34:04.522Z"
   },
   {
    "key": "report-problem",
