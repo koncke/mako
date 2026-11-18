@@ -7,6 +7,9 @@
 // Va en un proceso aparte porque reemplaza `Module._load` (AGENTS.md: un test que toca `Module._load` corre solo).
 // =============================================================================
 
+// Un módulo, no un script global: sin esto sus nombres chocan con los de otros hijos en el tsc entero (TS2300/TS2451).
+export {};
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const Modulo = require('node:module') as { _load: (pedido: string, padre: unknown, esMain: boolean) => unknown };
 const cargarOriginal = Modulo._load;
