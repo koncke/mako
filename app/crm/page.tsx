@@ -5,9 +5,9 @@
 import { listLeadsDeFunnel, type Lead } from '@/lib/leads';
 // DEFAULT en las dos: el board pinta las COLUMNAS del negocio (la etapa de cada lead
 // se deriva de sus propias columnas con deriveStageKey, no del funnel).
-import { getPipelineStagesDefault, getFunnelTransitionsDefault, getFunnelDe, listarFunnels } from '@/lib/funnels';
+import { getPipelineStagesDefault, getFunnelTransitionsDefault, getFunnelDe, getFunnelDefault, listarFunnels } from '@/lib/funnels';
 import { estadoCursoAlGanar } from '@/lib/crm-curso-al-ganar';
-import { generateFunnel, DEFAULT_PIPELINE, type FunnelTransition } from '@/lib/pipeline';
+import { generateFunnel, DEFAULT_PIPELINE, type EntradaId, type FunnelTransition } from '@/lib/pipeline';
 import {
   getCampaignNameMap,
   getAnunciosMap,
@@ -131,6 +131,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     ),
   ).then((r) => r.filter((x): x is string => Boolean(x)));
   const pEquipo = getEquipoAction().catch(() => [] as MiembroEquipo[]);
+  // Cómo entra la gente a ESTE funnel (18/11/2026): en uno de Prospección, el menú de la columna de entrada no ofrece
+  // «Asignar fuentes» (app/crm/menu-contextual-crm.ts → `ofreceAsignarFuentes`). Las dos lecturas no tiran: con error,
+  // `entradas` vuelve vacío, que lo sigue ofreciendo.
+  const pEntradas = (funnelId ? getFunnelDe(funnelId) : getFunnelDefault()).then((f) => f.entradas).catch(() => [] as EntradaId[]);
   // De qué campaña y de qué creativo vino cada lead, para el filtro del tablero. Arranca en
   // la misma ola que el resto (no en serie) y, si falla, el filtro se queda sin opciones:
   // no puede tumbar el CRM.
@@ -267,6 +271,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       stages={stages}
       funnels={funnels}
       funnelActivo={funnelId}
+      entradasFunnel={await pEntradas}
       abrirEmbudo={abrirEmbudo}
       abrirImportar={abrirImportar}
       juntas={juntas}
