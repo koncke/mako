@@ -105,11 +105,13 @@ export function mediosDisponibles(d: DatosDePagoDirecto): MedioDirecto[] {
 const centavos = (n: number) => Math.round(n * 100) / 100;
 
 /**
- * El precio por PASARELA: el de lista + 5 % (`RECARGO_PASARELA`). En dólares, a centavos (97 → 101,85; 47 → 49,35). En pesos (ARS), al
+ * El precio por PASARELA: el de lista + `RECARGO_PASARELA` (hoy 0: el de lista tal cual; con 5 %, en dólares a centavos 97 → 101,85; 47 → 49,35). Prendido, en pesos (ARS), al
  * millar HACIA ARRIBA, la regla de la casa (lib/dolar-blue-reglas.ts `pesosDelPlan`). Otra moneda local (la de una Mercado Pago de otro
  * país), a centavos. A la millonésima antes de redondear: 97 × 1,05 no debe dar 101,85000000000001.
  */
 export function conRecargoDePasarela(monto: number, moneda: string): number {
+  // Recargo APAGADO (`RECARGO_PASARELA` = 0, 18/11/2026): el precio de lista TAL CUAL, sin redondear (un precio en pesos que no es múltiplo de mil no sube).
+  if (!(RECARGO_PASARELA > 0)) return monto;
   const exacto = Math.round(Math.max(0, monto) * (1 + RECARGO_PASARELA) * 1e6) / 1e6;
   return moneda.toUpperCase() === 'ARS' ? Math.ceil(exacto / 1000) * 1000 : centavos(exacto);
 }

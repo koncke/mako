@@ -1984,3 +1984,11 @@ sumar el 5 %, no restarnos a nosotros… en MaKo Partners… siempre cobrarían 
   USDT bien grande («Ingresa exactamente US$ 97 en USDT», el precio de lista), el QR dibujado desde ese link en la PC (`qrcode`, en el servidor, para escanearlo con el teléfono), el botón
   «PAGAR CON BINANCE» en el teléfono y, SIEMPRE debajo, el Binance Pay ID (68725667) con «Copiar». Riesgo del QR: como quien paga escribe el monto, puede mandar uno distinto: lo
   verifica Martín a mano (la verificación automática es el punto B).
+
+## El recargo de pasarela se APAGÓ antes del despliegue: de vuelta al sistema simple, 97 y 47 (18/11/2026, noche)
+
+Martín: «para no complicarnos… volvamos al sistema simple que ya teníamos de Mercado Pago y la pasarela de pago a 47 y 97. Luego vamos a ver si implementamos otra cosa». `RECARGO_PASARELA` pasó a **0**
+(lib/partners-reglas.ts): el mecanismo queda (`conRecargoDePasarela`, un solo punto en `ofertaDelPlan`) pero las pasarelas cobran el precio de LISTA —97 / 47 y los pesos tal cual, sin ×1,05 ni
+redondeo al millar— y salió de las pantallas todo texto del 5 % («Incluye el costo de la pasarela»). **Partners no cambia: el 30 % del precio de lista, siempre.** «Transferencia o Binance» queda como
+está: oculta mientras el setting `planes.pago_directo` esté vacío. ⚠️ **Trampa:** con el recargo en 0 `conRecargoDePasarela` devuelve el monto sin redondear a propósito: un precio en pesos que no es múltiplo
+de mil (73.555) subiría de golpe al millar si se aplicara el redondeo con 0 %. Los textos de las secciones anteriores describen el modelo de la tarde, hoy apagado.

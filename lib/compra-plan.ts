@@ -334,7 +334,7 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
       ? { medio: p.medioDirecto, monto: montoDelMedio(p.medioDirecto, { precioUsd: elegido.precioUsd, precioArs: precioEnPesos(elegido) }) }
       : null;
     const dePago = directo
-      ? ` Va a pagar por ${NOMBRE_MEDIO_DIRECTO[directo.medio]}${directo.monto ? ` ${formatoDelMonto(directo.monto)}` : ''}: el precio de lista, sin el recargo de la pasarela.`
+      ? ` Va a pagar por ${NOMBRE_MEDIO_DIRECTO[directo.medio]}${directo.monto ? ` ${formatoDelMonto(directo.monto)}` : ''}: el precio de lista.`
       : '';
     const wa = p.whatsapp ? ` WhatsApp: +${p.whatsapp}.` : '';
     // El diagnóstico de la puerta del Accelerator (lib/compra-plan-reglas.ts): con eso arranca la llamada.

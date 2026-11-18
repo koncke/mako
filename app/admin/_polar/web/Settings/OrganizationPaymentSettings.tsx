@@ -217,7 +217,7 @@ function PagoDirecto({ inicial }: { inicial: DatosDePagoDirecto }) {
   }
 
   return (
-    <SettingsGroup title="Transferencia o Binance" description="Los datos que ve quien elige pagar así en el checkout, al precio de lista (por pasarela se cobra el 5% más). Sin ninguno cargado, la opción no se muestra. La activación la haces tú a mano.">
+    <SettingsGroup title="Transferencia o Binance" description="Los datos que ve quien elige pagar así en el checkout, al precio de lista. Sin ninguno cargado, la opción no se muestra. La activación la haces tú a mano.">
       {CAMPOS_PAGO_DIRECTO.map((c) => (
         <SettingsGroupItem key={c.campo} title={c.titulo} description={c.ayuda}>
           <Box flexDirection="column" rowGap="s" width="100%" alignItems="end">

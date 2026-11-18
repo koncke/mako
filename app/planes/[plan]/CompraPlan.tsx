@@ -60,13 +60,11 @@ const NOMBRE: Readonly<Record<Pasarela, string>> = {
  */
 // 14/11/2026 (Martín): sin «Pagas en la página segura de Stripe»; las marcas con sus LOGOS; Mercado Pago con el suyo, bien distinto.
 // La nota de Mercado Pago (el email de su cuenta) va en su fila: debajo del botón ya no hay texto.
-// 18/11/2026 (Martín): las pasarelas cobran el precio de lista + 5 %, y una línea chica lo dice. (El 14/11 Martín había sacado el subtítulo de
-// Mercado Pago; esta línea es la del recargo, pedida el 18/11.)
-const NOTA_PASARELA = 'Incluye el costo de la pasarela';
+// 18/11/2026, tarde: el recargo del 5 % de la pasarela se APAGÓ (lib/partners-reglas.ts, `RECARGO_PASARELA` = 0): sin subtítulos otra vez.
 const DETALLE: Readonly<Record<Pasarela, { sub: string | null }>> = {
-  stripe: { sub: NOTA_PASARELA },
-  mercadopago: { sub: NOTA_PASARELA },
-  creem: { sub: NOTA_PASARELA },
+  stripe: { sub: null },
+  mercadopago: { sub: null },
+  creem: { sub: null },
 };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -282,7 +280,7 @@ export function CompraPlan(p: {
               )}
               {montoDirecto && (
                 <p style={{ margin: 0 }}>
-                  <small style={{ display: 'block', opacity: 0.7 }}>Envía exactamente (el precio de lista, sin costo de pasarela)</small>
+                  <small style={{ display: 'block', opacity: 0.7 }}>Envía exactamente (el precio de lista)</small>
                   <b style={{ fontSize: 28, lineHeight: 1.15 }}>{formatoDelMonto(montoDirecto)}</b>
                 </p>
               )}

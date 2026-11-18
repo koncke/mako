@@ -24,17 +24,15 @@ const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const DATOS: DatosDePagoDirecto = { binancePayId: 'PAYID-DE-PRUEBA', linkBinance: 'https://app.binance.com/uni-qr/ejemplo', linkTransferencia: 'https://mpago.la/ejemplo', alias: 'alias.de.prueba', cvu: null, titular: 'Titular de prueba', whatsapp: '5491100000000', email: 'cobros@ejemplo.com' };
 
-test('el modelo (18/11, tarde): el precio de lista es el de transferencia o Binance; la pasarela cobra lista + 5 % (RECARGO_PASARELA), para todos', () => {
-  assert.equal(RECARGO_PASARELA, 0.05);
-  assert.match(fuente('lib/partners-reglas.ts'), /export const RECARGO_PASARELA = 0\.05;/);
+test('el modelo (18/11, tarde): el recargo de pasarela está APAGADO (RECARGO_PASARELA = 0): las pasarelas cobran el precio de LISTA, 97 / 47 y los pesos tal cual', () => {
+  assert.equal(RECARGO_PASARELA, 0, 'Martín simplificó antes del despliegue: «volvamos al sistema simple… a 47 y 97»');
+  assert.match(fuente('lib/partners-reglas.ts'), /export const RECARGO_PASARELA = 0;/);
   assert.doesNotMatch(fuente('lib/partners-reglas.ts'), /DESCUENTO_PAGO_DIRECTO/, 'ya no hay descuento por pagar directo');
-  // Dólares: a centavos. Pesos: al millar hacia arriba.
-  assert.equal(conRecargoDePasarela(97, 'USD'), 101.85);
-  assert.equal(conRecargoDePasarela(47, 'USD'), 49.35);
-  assert.equal(conRecargoDePasarela(166000, 'ARS'), 175000, '174.300 → 175.000');
-  assert.equal(conRecargoDePasarela(81000, 'ARS'), 86000, '85.050 → 86.000');
-  assert.equal(conRecargoDePasarela(100000, 'ARS'), 105000, 'justo en un millar: no sube de más');
-  assert.equal(conRecargoDePasarela(1000, 'MXN'), 1050, 'otra moneda local: a centavos, sin el millar de los pesos argentinos');
+  assert.equal(conRecargoDePasarela(97, 'USD'), 97);
+  assert.equal(conRecargoDePasarela(47, 'USD'), 47);
+  assert.equal(conRecargoDePasarela(166000, 'ARS'), 166000, 'los pesos sin ×1,05');
+  assert.equal(conRecargoDePasarela(73555, 'ARS'), 73555, 'un precio en pesos que no es múltiplo de mil NO se redondea hacia arriba mientras el recargo esté apagado');
+  assert.equal(conRecargoDePasarela(1000, 'MXN'), 1000);
 });
 
 test('transferencia y Binance cobran el precio de LISTA, sin descuento: Pro 97 USDT, Essential 47, los pesos tal cual', () => {
@@ -137,7 +135,7 @@ test('a un referido que paga así le cuenta el canal directo; y por pasarela tam
   assert.equal(canalDelPago({ proveedor: null, metodo: 'transferencia' }), 'directo');
 });
 
-test('la pantalla: la fila «Transferencia o Binance» (sin chip de descuento) sólo se dibuja con datos; las pasarelas dicen que incluyen su costo; ningún texto dice que se activa sola', () => {
+test('la pantalla: la fila «Transferencia o Binance» (sin chip de descuento) sólo se dibuja con datos; las pasarelas sin subtítulo; ningún texto dice que se activa sola', () => {
   const props = { plan: 'pro', ladaInicial: '54', pasarelas: [{ pasarela: 'mercadopago' as const, moneda: 'ARS', monto: 166000 }], origen: null, refCodigo: null };
   const sin = renderToStaticMarkup(createElement(CompraPlan, props));
   assert.doesNotMatch(sin, /Transferencia o Binance/, 'sin datos de MaKo, no hay fila');
@@ -146,7 +144,7 @@ test('la pantalla: la fila «Transferencia o Binance» (sin chip de descuento) s
   }));
   assert.match(con, /Transferencia o Binance/);
   assert.doesNotMatch(con, /OFF|descuento/, 'sin chip ni texto de descuento');
-  assert.match(con, /Incluye el costo de la pasarela/, 'la línea chica de cada pasarela');
+  assert.doesNotMatch(con, /Incluye el costo de la pasarela|5%|5 %/, 'sin subtítulos ni textos del recargo: está apagado');
   assert.doesNotMatch(con, /se activa sola|activa automáticamente/i);
   const f = fuente('app/planes/[plan]/CompraPlan.tsx');
   assert.match(f, /ENVIAR COMPROBANTE POR WHATSAPP/);

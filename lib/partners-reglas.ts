@@ -70,13 +70,16 @@ export const COMISION_PARTNER_PASARELA = 0.3;
 export type CanalDelPago = 'directo' | 'pasarela';
 
 /**
- * El RECARGO por pagar con pasarela en el checkout, PARA TODOS (Martín, 18/11/2026, tarde, que reemplaza el «5 % OFF» por pagar directo):
+ * APAGADO (0) desde el 18/11/2026, tarde: Martín simplificó antes del despliegue («para no complicarnos… volvamos al sistema simple que ya teníamos de Mercado
+ * Pago y la pasarela de pago a 47 y 97. Luego vamos a ver si implementamos otra cosa»). Las pasarelas cobran el precio de LISTA; el mecanismo queda para cuando se
+ * quiera prender. Lo que sigue describe el modelo que se apagó:
+ * El RECARGO por pagar con pasarela en el checkout, PARA TODOS (Martín, 18/11/2026, tarde, que reemplazó el «5 % OFF» por pagar directo):
  * el precio de lista (Pro US$ 97, Essential US$ 47) es el de transferencia o Binance, SIN descuento; por pasarela (Mercado Pago, tarjeta,
  * Whop) se cobra el precio + 5 % (US$ 101,85 y US$ 49,35; en pesos, el precio en pesos × 1,05 al millar hacia arriba): el costo de la pasarela
  * lo paga quien elige la pasarela, no MaKo. La cuenta está en `lib/pago-directo-reglas.ts` (`conRecargoDePasarela`). A su partner un negocio
  * referido le deja SIEMPRE el 30 % del precio de lista, pague como pague.
  */
-export const RECARGO_PASARELA = 0.05;
+export const RECARGO_PASARELA = 0;
 
 /** Lo que le toca al partner de UN pago de `montoUsd`, en dólares con centavos (Pro 97 → 29,10; el canal ya no cambia el %: siempre se llama con el precio de lista). */
 export function comisionDelPago(montoUsd: number, canal: CanalDelPago): number {
