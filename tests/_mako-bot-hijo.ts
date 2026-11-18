@@ -50,6 +50,11 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.host === 'evolution.test') return r(200, { key: { id: `env-${red.length}` } });
   if (u.host === 'api.anthropic.com') {
     if (new Headers(init.headers).get('x-api-key') !== CREDITO2) return r(500, { type: 'error', error: { type: 'api_error', message: 'Overloaded' } });
+    // El turno del DOER (su system dice si es un chat de a dos o un grupo) con el crédito da 400: lo contesta la IA del negocio
+    // (`escena.turno`), que es lo que miden estas escenas. `escena.claude` es la charla del bot con quien no tiene negocio. Hasta el
+    // 17/11/2026 el turno del doer salía con `escena.claude` y su GPT lo pisaba: el bug de los tickets #108 y #109.
+    const cuerpo = String(init.body ?? '');
+    if (cuerpo.includes('chat de WhatsApp de a dos') || cuerpo.includes('estás en un grupo de WhatsApp')) return r(400, { type: 'error', error: { type: 'invalid_request_error', message: 'en estas escenas el turno del doer no lo contesta Claude' } });
     return r(200, { id: 'msg_1', type: 'message', role: 'assistant', model: 'claude', stop_reason: 'end_turn', content: [{ type: 'text', text: escena.claude }], usage: { input_tokens: 9, output_tokens: 4 } });
   }
   if (u.host === 'api.openai.com' && u.pathname.endsWith('/chat/completions')) {

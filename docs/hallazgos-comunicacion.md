@@ -14007,7 +14007,8 @@ consulta, donde se llama) · `lib/mako-doer-acciones.ts` (`listar_campanas_meta`
 - ⚠️ **El test del grupo DEPENDÍA del bug:** su Anthropic de mentira contestaba el turno con el JSON de la clase, y la IA del negocio lo
   pisaba con la respuesta esperada. Un harness que da verde con el bug adentro no mide lo que dice. Ahora el clasificador contesta su
   clase, el turno con el crédito da 400 salvo con `turnoConClaude`, y la escena `claudeContesta` fija que su IA no corre (el 5-ter).
-  **El mismo molde estaba en un segundo arnés** (tests/_grupos-ops-arnes.ts, el de grupos-ops-turno y -espejo), y sólo lo mostró el rojo
+  **El mismo molde estaba en dos arneses más** (tests/_grupos-ops-arnes.ts, el de grupos-ops-turno y -espejo, y tests/_mako-bot-hijo.ts,
+  que reconoce el turno del doer por su system: «chat de WhatsApp de a dos» o «estás en un grupo de WhatsApp»), y sólo lo mostró el rojo
   de GitHub. El clasificador se reconoce por su system (`SYSTEM_DE_CLASE`, «Clasificas UN mensaje»), no por ir sin herramientas: el
   turno con un invitado tampoco lleva. Los arneses que pueden tener el molde: los que simulan `api.anthropic.com` y corren
   `manejarEntranteDoer` (`grep -l api.anthropic.com tests/_*.ts | xargs grep -l mako-doer-in`).
