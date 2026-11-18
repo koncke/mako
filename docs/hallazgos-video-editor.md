@@ -6,6 +6,33 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Las cinco del doc, enteras: un aviso que el doc ponía encima del dato, y una oferta que dejó de ser de checkout (18/11/2026, F164)
+
+**Qué entró:** `gancho` (24 s, con la toma de apoyo, el dato y el aviso de la mediana), `testimonio` (33 s, con la toma
+de apoyo, el dato y «Resultado de un caso»), `Lo que te llevas` (los textos del doc y el detalle «12 lugares por cohorte»), `antes
+y después` (los textos de Torre Alameda) y `oferta`, que con el mismo id pasó a ser la **invitación a una clase en vivo** (doc
+2.9): sin la cuenta regresiva, con la fecha, el horario por país y el cierre común. En las once, la muestra de cada hueco es el
+texto del ejemplo del doc. La API de MaKo (`listar_plantillas_video`) suma el `objetivo` y el `cuando` de cada una.
+
+**Lo que no se ve en el código:**
+- **El doc ponía el aviso del gancho encima de su dato.** Suponía «2/10 → 4/10 CIERRES» en un renglón (hasta ~770) y el aviso en
+  800, pero 19 caracteres de Montserrat 88 en negrita no entran en los 842 px de ancho: se parte en dos (568–832 con la
+  tarjeta). Lo cazó el test de la zona segura; el aviso va en 840, 34 px debajo de la letra, como el del testimonio, y el doc
+  quedó anotado. **Un número de layout de un doc se mide con `cajaDeTexto` antes de creerle.**
+- **Los helpers comunes son `const`:** la toma de apoyo, el gancho de arriba y el «sale 0.3» estaban debajo de las seis nuevas, y
+  usarlos desde el gancho (que va antes en el archivo) tiraba al cargar el módulo. Se subieron antes de las cinco.
+- **La oferta ya no se le sugiere a quien cobra en un checkout** (su fila pasó a `{ canal: ['webinar'] }`, como pide el doc): hoy
+  ninguna plantilla de video es de checkout. Y su hueco pasó de `producto` a `clip`: un proyecto viejo armado con la de antes
+  sigue andando (doc §6, trampa 14).
+- **El clip del gancho pide 21 s:** dos tests que usaban el gancho para «un video de 20 s llena el hueco» pasaron a «Lo que te
+  llevas» (12 s). Cuidado con el próximo test que tome el gancho como «la plantilla corta».
+
+**Lo que quedó sin hacer:** los WebP de muestra con sus créditos (y lo que cuelga de ellos), los textos de ejemplo que quedan sin
+cambiar en el diálogo de exportar y la marca `ejemplo: true` en la línea que lee el chat (`chat/linea.ts`).
+
+**Vive en:** `lib/editor-video/plantillas.ts` · `lib/editor-video/plantillas-ejemplos.ts` · `lib/editor-video/plantillas-etiquetas.ts` ·
+`lib/api-mako/areas/video.def.ts` · *2026-11-18 nube-construir-video-2*
+
 ## Las seis plantillas nuevas del Video Editor: dos variantes fuera y un tour que habla desde el 15 (18/11/2026, F164)
 
 **Qué entró:** las seis de `docs/plantillas-reales/video.md` (2.2 respuesta a un comentario, 2.5 caso con números, 2.6 historia
@@ -30,9 +57,11 @@ el de la tabla del doc.
 **Lo que quedó sin hacer, con dónde vive:**
 - los clips de Pexels con su crédito y la captura propia del caso (`public/video-editor/plantillas/`, no existe): sin una key de
   Pexels y sin elegir el material no hay qué poner, así que los huecos siguen con la muestra gris, como el resto del catálogo;
-- reescribir las cuatro que el doc conserva a su versión completa (`gancho` a 24 s, `testimonio` a 33 s, los textos de
-  `beneficios` y `antes-despues`) y volver `oferta` la invitación a una clase en vivo (con su fila `{ canal: ['webinar'] }`);
-- `plantillasParaApi` todavía no devuelve `objetivo` ni `cuando` (`lib/editor-video/chat-api.ts`);
+- ~~reescribir las cuatro que el doc conserva a su versión completa (`gancho` a 24 s, `testimonio` a 33 s, los textos de
+  `beneficios` y `antes-despues`) y volver `oferta` la invitación a una clase en vivo (con su fila `{ canal: ['webinar'] }`)~~
+  — hecho el 18/11/2026, entrada de arriba;
+- ~~`plantillasParaApi` todavía no devuelve `objetivo` ni `cuando` (`lib/editor-video/chat-api.ts`)~~ — hecho el 18/11/2026,
+  en `lib/editor-video/plantillas.ts` (no en chat-api.ts, como decía este renglón);
 - buscar en la web los nombres del elenco (Torre Alameda, «Ventas sin presión») antes de publicar.
 
 **El prompt del chat creció:** el catálogo que lee «Editar con IA» pasó a 11 renglones de plantillas (~4.700 caracteres de

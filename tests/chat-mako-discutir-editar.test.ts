@@ -77,14 +77,17 @@ test('el cliente manda la intención', () => {
 
 // ── El cableado en la ruta y en el chat ─────────────────────────────────────────────────────────────────────────
 const ruta = readFileSync(join(__dirname, '..', 'app/api/chat-agent/secuencias/ia/route.ts'), 'utf8').replace(/\r\n/g, '\n');
+// El motor de editar y de explicar vive en lib/flujo-ia-editar.ts desde el 18/11/2026 (lo llaman la ruta y la API de MaKo).
+const motor = readFileSync(join(__dirname, '..', 'lib/flujo-ia-editar.ts'), 'utf8').replace(/\r\n/g, '\n');
 const chat = readFileSync(join(__dirname, '..', 'app/automations/ChatMako.tsx'), 'utf8').replace(/\r\n/g, '\n');
 
 test('la ruta: la intención decide explicar o editar, la charla va en los dos, y en Editar contestar es un error', () => {
   assert.match(ruta, /const intencion = intencionDe\(body\.intencion\);/);
+  assert.match(ruta, /editarFlujoConIA\(\{ ws, base, pedido, disparadorActual, respuestas, historial, intencion, adjuntos, /, 'la ruta no le pasa la intención, la charla ni lo adjuntado al motor');
   // (23/10/2026, AU4: y lo adjuntado, leído, como un bloque más.)
-  assert.match(ruta, /const extras = \[\.\.\.extrasDelUser\(intencion, historial\), \.\.\.\(adjuntos\.length \? \[bloqueDeAdjuntos\(adjuntos\)\] : \[\]\)\];\n\s+if \(vaAExplicar\(intencion, respuestas\.length > 0, esConsulta\(pedido\), esPreguntaDirecta\(pedido\)\)\) \{/);
-  assert.match(ruta, /const user = \[userDeExplicar\(\{[^\n]+\}\), \.\.\.extras\]\.join\('\\n\\n'\);/);
-  assert.match(ruta, /const user = \[userDeEditar\(ctx, \{ perfil, voz, pedido: pedidoEditar \}, base\), \.\.\.extras\]\.join\('\\n\\n'\);/);
+  assert.match(motor, /const extras = \[\.\.\.extrasDelUser\(intencion, historial\), \.\.\.\(adjuntos\.length \? \[bloqueDeAdjuntos\(adjuntos\)\] : \[\]\)\];\n\s+if \(vaAExplicar\(intencion, respuestas\.length > 0, esConsulta\(pedido\), esPreguntaDirecta\(pedido\)\)\) \{/);
+  assert.match(motor, /const user = \[userDeExplicar\(\{[^\n]+\}\), \.\.\.extras\]\.join\('\\n\\n'\);/);
+  assert.match(motor, /const user = \[userDeEditar\(ctx, \{ perfil, voz, pedido: pedidoEditar \}, base\), \.\.\.extras\]\.join\('\\n\\n'\);/);
   // (22/10/2026: la revisión vive en `revisarEdicion`, lib/flujo-ia-revision-editar.ts.)
   const rev = readFileSync(join(__dirname, '..', 'lib/flujo-ia-revision-editar.ts'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(rev, /const e = o\.intencion === 'editar' \? errorDeRespuestaEnEditar\(o\.pedido, r\.respuesta, \{ esPregunta: esConsulta\(o\.pedido\), charlaConTextos: charlaConTextos\(o\.historial\) \}\) : null;/);

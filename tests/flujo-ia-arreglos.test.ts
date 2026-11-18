@@ -373,7 +373,8 @@ test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON 
   // 20/10/2026: con el texto de «Creé…» y, si es un Recurrente, su horario (la tarjeta CRON lo siembra igual).
   // 27/10/2026: y con qué IA lo escribió (`quien` en el core, `ia` en el `listo`; tests/automations-quien-contesto.test.ts).
   assert.match(ruta, /etiquetasNuevas: creadas, disparador: puesto, texto,\n\s*\.\.\.\(rec && puesto \? \{ cron: rec\.cron \} : \{\}\),\n\s*quien: g\.quien \?\? null,\n\s*\};/);
-  assert.match(ruta, /etiquetasNuevas: r\.etiquetasNuevas, disparador: r\.disparador, texto: r\.texto, \.\.\.\(r\.cron \? \{ cron: r\.cron \} : \{\}\), \.\.\.\(ia \? \{ ia \} : \{\}\) \}\);/);
+  // 18/11/2026 (F80): y si quedó en el BORRADOR (una nota de voz por grabar), la marca: la pantalla no lo da por publicado.
+  assert.match(ruta, /etiquetasNuevas: r\.etiquetasNuevas, disparador: r\.disparador, texto: r\.texto, \.\.\.\(r\.cron \? \{ cron: r\.cron \} : \{\}\), \.\.\.\(ia \? \{ ia \} : \{\}\), \.\.\.\(r\.borrador \? \{ borrador: true \} : \{\}\) \}\);/);
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Sexta tanda (varios CRON): lo puesto se pinta en el PRIMERO de la lista (`useDisparadores`).
   // Verificado sacando el `sembrarPrimero` (09/10/2026, cuatro archivos, base 71 / 0): 70 / 1, cae éste.

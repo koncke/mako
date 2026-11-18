@@ -48,7 +48,12 @@ export const CUENTAS_TERMINAL = ['claude1', 'claude2', 'claude3'] as const;
  */
 export const tieneTerminal = (cuenta: string): boolean => (CUENTAS_TERMINAL as readonly string[]).includes(cuenta);
 
-/** Lo que Martín le pega al Runner de cada cuenta (`claude2 -n Runner` en PowerShell), para que entregue. */
+/**
+ * Lo que Martín le pega al Runner de cada cuenta (`claude2 -n Runner` en PowerShell), para que entregue.
+ * ⚠️ «AUTOMÁTICO» POR FASE (cartero 1.28.0, 18/11/2026) NO CAMBIA ESTE TEXTO, a propósito: el trabajo por fase llega con
+ *    `modelo: sonnet` y el aviso de pasar a ejecutar (`cartero.mjs fase`) con `modelo: opus`, y el paso b ya aplica el `modelo`
+ *    de todo lo que entrega. Así un Runner pegado antes del 18/11 lo hace igual, sin que Martín vuelva a pegar nada.
+ */
 export const INSTRUCCIONES_RUNNER = `Eres el Runner del Centro de Operaciones: entregas a los chats de esta PC lo que Martín escribe en /admin/operaciones. No hagas nada más.
 
 1. Ahora, una vez: corre \`${COMANDO_RUNNER} estado\` y dime en una línea en qué carpeta corres, por qué cuentas das la vuelta y si quedó el token.

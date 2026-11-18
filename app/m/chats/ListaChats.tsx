@@ -26,7 +26,7 @@ import type { YoChats } from '@/lib/chats';
 import type { FilaChatM } from './datos';
 import {
   FILAS_POR_TANDA, FILTRO_INICIAL_M, MOSTRAR_M, ORDEN_M,
-  bandejasVisibles, conteoDeBandeja, opcionElegida, rotuloFiltro, rutaHiloM, segundaDeCanal,
+  bandejasVisibles, conteoDeBandeja, filasDelFiltro, fueraDelFiltro, opcionElegida, rotuloFiltro, rutaHiloM, segundaDeCanal,
 } from './modelo';
 
 /** Las fuentes que lib/chats.ts nombra en `fallas`, en palabras (las mismas de escritorio). */
@@ -42,7 +42,7 @@ function textoFallasLista(fallas: readonly string[]): string | null {
 
 const ESTADO: Record<string, string> = { cerrada: 'Cerrada', pospuesta: 'Pospuesta' };
 
-export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, sinResponderInicial }: {
+export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, fueraPorCanal, sinResponderInicial }: {
   filas: FilaChatM[];
   conteos: ConteosBandeja;
   yo: YoChats;
@@ -50,6 +50,8 @@ export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, sinResp
   canales: OpcionCanal[];
   fallas: string[];
   fuera: number;
+  /** Las de cada renglón de canal que quedaron en la computadora (por `claveCuenta`). */
+  fueraPorCanal: Record<string, number>;
   sinResponderInicial: boolean;
 }) {
   const [filtro, setFiltro] = useState<FiltroChats>(() => ({ ...FILTRO_INICIAL_M, sinResponder: sinResponderInicial }));
@@ -70,12 +72,15 @@ export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, sinResp
   };
 
   const visibles = useMemo(() => {
-    const porClave = new Map(filas.map((f) => [f.chat.clave, f]));
-    const chats = filtrarChats(filas.map((f) => f.chat), filtro, yo).filter((c) => coincideBusqueda(c, q));
+    // Sin canal elegido, las 150 más nuevas de todas; con una línea, las que viajaron por ella (`filasQueViajan`).
+    const base = filasDelFiltro(filas, filtro);
+    const porClave = new Map(base.map((f) => [f.chat.clave, f]));
+    const chats = filtrarChats(base.map((f) => f.chat), filtro, yo).filter((c) => coincideBusqueda(c, q));
     return chats.map((c) => porClave.get(c.clave)).filter((f): f is FilaChatM => !!f);
   }, [filas, filtro, yo, q]);
 
   const bandejas = bandejasVisibles(conteos);
+  const fueraAhora = fueraDelFiltro(filtro, fuera, fueraPorCanal);
   const aviso = textoFallasLista(fallas);
   const hayFiltro = filtro.mostrar !== FILTRO_INICIAL_M.mostrar || filtro.orden !== FILTRO_INICIAL_M.orden || filtro.canal != null;
 
@@ -157,7 +162,7 @@ export function ListaChats({ filas, conteos, yo, canales, fallas, fuera, sinResp
         ) : (
           <VacioM frase={q ? 'Nadie con ese nombre.' : filtro.sinResponder ? 'Nadie espera respuesta.' : filas.length ? 'Nada en esta bandeja.' : 'Todavía no hay chats.'} />
         )}
-        {fuera > 0 && <p className="m-chats-aviso">Las {fuera} más viejas, en la computadora.</p>}
+        {fueraAhora > 0 && <p className="m-chats-aviso">Las {fueraAhora} más viejas, en la computadora.</p>}
       </div>
 
       <SheetM id="filtros" abierto={filtros} onCerrar={() => setFiltros(false)} titulo="Filtrar">

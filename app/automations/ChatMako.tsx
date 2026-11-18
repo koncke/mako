@@ -418,6 +418,8 @@ export function ChatMako(p: ChatMakoProps) {
       avisos: l.avisos, etiquetasNuevas: l.etiquetasNuevas, disparador: l.disparador ?? null, base,
       // El horario de un Recurrente (20/10/2026): sin él, la tarjeta CRON se sembraba sin horario.
       ...(l.cron ? { cron: l.cron } : {}),
+      // Crear que quedó en el BORRADOR (F80, una nota de voz por grabar): lo publicado sigue vacío.
+      ...(l.borrador ? { borrador: true } : {}),
       ...(l.resumen !== undefined ? { resumen: l.resumen } : {}),
       ...(l.cambiadas ? { cambiadas: l.cambiadas } : {}),
       ...(l.quitadas ? { quitadas: l.quitadas } : {}),
