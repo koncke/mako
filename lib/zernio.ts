@@ -239,6 +239,30 @@ export async function perfilDeClaveExtra(ws: number, k: ClaveZernio): Promise<st
   return profileId;
 }
 
+/**
+ * ¿ES DE ESTE NEGOCIO UNA CUENTA QUE NO ESTÁ EN EL RUTEO? (18/11/2026, ticket #113 de Leandro, ws10). Cuando el negocio reconecta
+ * Instagram en Zernio, la cuenta nace con OTRO id, y el ruteo (`RUTEO_CUENTA`) sigue con el viejo. Un `comment.received` trae sólo
+ * ese id: sin ruteo, el webhook lo descartaba con un 200 («sin workspace»), y el `account.connected` que la iba a reclamar se
+ * descartaba igual, por lo mismo. Del 14 al 18/11 no le entró a Fiesta Music ni un comentario a sus siete automatizaciones.
+ *
+ * Lo llama el webhook SÓLO con un evento firmado con el secreto de ESE negocio (`?w=<ws>`). Quién es dueño de la cuenta no lo dice
+ * el cuerpo: lo dice Zernio, listando las cuentas de las claves del negocio (relectura fresca). Si está, se anota en el ruteo.
+ * Una cuenta ya ruteada a otro negocio no llega acá: la frena `aceptaElWorkspace`. Nunca tira por una clave que no se puede leer.
+ */
+export async function reclamarCuentaSinRuteo(ws: number, accountId: string): Promise<boolean> {
+  for (const k of await clavesZernio(ws, { fresca: true })) {
+    const ids = await idsDeCuentasDe(k, true).catch((e) => {
+      console.warn(`[zernio] ws${ws}: no pude leer las cuentas de la clave ${k.slot} para la cuenta sin ruteo ${accountId}: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    });
+    if (!ids?.has(accountId)) continue;
+    await upsertRouting(RUTEO_CUENTA, accountId, ws);
+    console.log(`[zernio] ws${ws}: la cuenta ${accountId} no estaba en el ruteo y es de la clave ${k.slot}: anotada`);
+    return true;
+  }
+  return false;
+}
+
 /** Se olvida lo cacheado de un negocio (al guardar o quitar una clave en este proceso). */
 export function olvidarClavesZernio(ws: number): void {
   extrasCache.delete(ws);
