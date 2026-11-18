@@ -26,7 +26,8 @@ import {
 } from './meta-ads';
 import type { MarketingMetricRow } from './types';
 import { pollMetaLeads, credencialesDeLeads } from './meta-leads';
-import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from './transcribe';
+import { STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from './transcribe';
+import { transcribirAnuncio } from './transcripcion-por-video';
 import { getPromptText } from './prompt-render';
 import { syncScriptAnalyses } from './ads-analyst';
 import { syncClosingCalls, RESERVA_LLAMADA_MS } from './closing';
@@ -416,7 +417,8 @@ async function jobTranscripts(deadline: number, marcar: Marcar): Promise<boolean
   let erroresRun = 0;
   for (const adId of pendientes) {
     if (Date.now() > deadline - 60_000) return false; // una transcripción puede tardar ~1 min; el próximo tick retoma
-    const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId), prompts, ...acceso });
+    // El mismo video en varios anuncios se transcribe una vez (lib/transcripcion-por-video.ts, 18/11/2026).
+    const res = await transcribirAnuncio(supabase, adId, { imageUrl: thumbs.get(adId), prompts, ...acceso });
     const { error: upErr } = await supabase.from('ad_transcripts').upsert({
       ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: sinNulos(res.transcript),
       secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: sinNulos(res.error), updated_at: new Date().toISOString(),

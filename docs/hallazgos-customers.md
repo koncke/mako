@@ -6,6 +6,34 @@ grilla de administración), Billing (era /admin/cobros) y Agents (era /admin/age
 diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEEME.md](customers/referencias/otras-apps/LEEME.md).
 
 
+## Los negocios de prueba no son clientes, y Usage dice lo de cada persona (18/11/2026)
+
+Del recorrido visual del 30/10 (CU1: «las cuentas de prueba cuentan como clientes») y del relevo de Admin («lo que hace cada
+persona en la ficha de su negocio… falta dibujarlo»).
+
+- **Encontrar no es contar, también para los de prueba.** `vistaDeClientes` (lib/clientes-plataforma.ts) sigue armando la fila
+  de TODOS los negocios, y aparta los que no son clientes (`NO_SON_CLIENTES`: `WS_PRUEBAS` y la cuenta de revisión de las
+  tiendas, el mismo criterio que lib/baja-cuenta.ts) ANTES de contar: no están en la lista, ni en los números, ni en «Para
+  mirar», ni en At Risk. Van aparte, en `pruebas`, para lo que BUSCA un negocio: su ficha (`leerNegocio`), «Editar persona»
+  (mudar a alguien al Cliente de Prueba) y el DEBUG de MaKo (`diagnosticar_negocio`). ⚠️ Sacarlos de la lista sin esa salida
+  apagaba el DEBUG del Cliente de Prueba, que es donde se prueba.
+- ⚠️ **Sacarlos de las filas no alcanza para At Risk**: un atrasado entra por los INGRESOS. `clientesEnRiesgo` recibe el set de
+  los que no son clientes (`fuera`) y los saca de los dos bucles, como al cliente de una agencia.
+- ⚠️ **«Prueba real», que nombraba el recorrido, NO está en `WS_PRUEBAS`** y no se agregó: su número no está en el código, y
+  sumarlo es decidir que un workspace de producción deja de contar (y, si va a `WS_PRUEBAS`, que el Reset lo pueda vaciar).
+- **«Nuevos en 30 días» y «activos» no cuentan a los clientes de una agencia; «Para mirar» y «en riesgo», sí.** No se unificó:
+  el pago pendiente de un cliente de agencia es plata que le debe a MaKo su agencia, y sacarlo de «Para mirar» lo escondería. Se
+  dice en la descripción y en la `nota` de `ver_clientes_de_mako` (CU2).
+- **«Por persona» en Usage**: `usoPorPersona` (app/admin/_polar/datos/cliente.ts) suma las MISMAS filas, en el MISMO rango y con
+  la misma junta de tabs que `usoDelNegocio`, por quién las abrió; las dos tablas cuadran (lo fija el test). La persona se
+  busca entre TODOS los usuarios (puede ser alguien de su agencia) y, si no aparece, sale «Sin nombre» con su uso: no se
+  esconde. La IA no va: no se anota por persona. Las columnas son las de la tabla de arriba y la persona, la de Members.
+
+**Vive en:** `lib/clientes-plataforma.ts` · `lib/clientes-plataforma-reglas.ts` · `app/admin/_polar/datos/clientes.ts` ·
+`app/admin/_polar/datos/cliente.ts` · `app/admin/_polar/datos/cliente-server.ts` ·
+`app/admin/_polar/web/Customer/CustomerPage/CustomerUsageView.tsx` · `tests/clientes-sin-pruebas.test.ts` ·
+`tests/admin-polar-uso-por-persona.test.ts` · *18/11/2026, nube (F21, F169)*
+
 ## Costs: a dónde va una suscripción, y los dólares que salían divididos por 100 (10/11/2026)
 
 Martín, 10/11: «Si todavía no está dentro de SuperAdmin toda la parte de costos con gráficos bien diseñada, eso debería
