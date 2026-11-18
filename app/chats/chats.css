@@ -523,7 +523,8 @@
   flex: none;
 }
 
-/* El «⋯» aparece al pasar el cursor, en el lugar de la hora. */
+/* El «⋯» aparece al pasar el cursor, en el lugar de la hora, y se queda mientras su menú está abierto (18/11/2026: el menú es
+   el MenuContextual del clic derecho, que va por portal, así que el foco ya no queda adentro de la fila). */
 .rio .rio-fila-mas {
   position: absolute;
   top: 10px;
@@ -532,9 +533,11 @@
   pointer-events: none;
 }
 .rio .rio-fila:hover .rio-fila-mas,
-.rio .rio-fila:focus-within .rio-fila-mas { opacity: 1; pointer-events: auto; }
+.rio .rio-fila:focus-within .rio-fila-mas,
+.rio .rio-fila-mas[data-abierto="true"] { opacity: 1; pointer-events: auto; }
 .rio .rio-fila:hover .rio-hora,
-.rio .rio-fila:focus-within .rio-hora { visibility: hidden; }
+.rio .rio-fila:focus-within .rio-hora,
+.rio .rio-fila:has(.rio-fila-mas[data-abierto="true"]) .rio-hora { visibility: hidden; }
 
 .rio .rio-lista-pie {
   padding: 12px;

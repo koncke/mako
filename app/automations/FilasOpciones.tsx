@@ -18,6 +18,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Tooltip } from '@/app/_ui/Tooltip';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { DIAS_PANTALLA, type DiaSemana } from '@/lib/horario-envio';
 
 const SANS = "'Geist', sans-serif";
 
@@ -119,6 +120,31 @@ export function FilaOpcion({ nombre, info, children, interruptor, sinInterruptor
 function ConInfo({ texto, info }: { texto: string; info: string }) {
   const i = texto.lastIndexOf(' ');
   return <>{texto.slice(0, i + 1)}<span style={{ whiteSpace: 'nowrap' }}>{texto.slice(i + 1)}<Info texto={info} /></span></>;
+}
+
+/**
+ * LOS DÍAS DE LA SEMANA, en botones redondos (18/11/2026, «Días» del goteo, F79). Copiados de los días del «Horario de
+ * oficina» (app/configuraciones/HorarioEnvioPanel.tsx, el mismo tamaño, borde y color), que es la fila vecina de esta misma
+ * pantalla: una persona que ya eligió los días del horario reconoce éstos sin explicación. Vive acá y no allá porque aquel
+ * archivo arrastra acciones del servidor y éste lo dibujan los tests.
+ */
+export function BotonesDias({ dias, disabled = false, onAlternar }: { dias: readonly DiaSemana[]; disabled?: boolean; onAlternar: (d: DiaSemana) => void }) {
+  return (
+    <div role="group" aria-label="Días" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {DIAS_PANTALLA.map((d) => {
+        const on = dias.includes(d.dia);
+        return (
+          <button key={d.dia} type="button" disabled={disabled} aria-pressed={on} aria-label={d.nombre} title={d.nombre} onClick={() => onAlternar(d.dia)}
+            style={{
+              width: 38, height: 38, borderRadius: '50%', fontFamily: SANS, fontSize: 13.5, fontWeight: 700,
+              border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
+              background: on ? 'var(--primary)' : 'var(--surface)', color: on ? '#fff' : 'var(--dim)',
+              cursor: disabled ? 'default' : 'pointer',
+            }}>{d.corto}</button>
+        );
+      })}
+    </div>
+  );
 }
 
 /** La unidad al lado del número, en gris (más claro con la opción apagada). */
