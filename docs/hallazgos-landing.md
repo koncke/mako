@@ -7433,7 +7433,19 @@ la prueba gratis del héroe de la portada. Lo que sirve para la próxima:
   de cuando era grilla: en flex en columna eso achica a los hijos, por eso lleva `stretch`.
 - **`flex-basis` en px se vuelve ALTO cuando la fila pasa a columna.** El video del detalle tenía `flex: 1.25 1 540px` (el ancho en
   la fila). En el teléfono eran 540 px de alto para un video de 255, con ~300 px vacíos debajo. Va `flex: none` en la columna.
-- **PENDIENTE, en producción desde antes:** las páginas de detalle viejas (FeatureDetail: /vsl/semaforo y las otras que lo
-  siguen usando) miden 494 px en un teléfono de 375, y el texto queda cortado a la derecha. No lo causa el héroe sino las filas de
-  «Cómo funciona» (`.mk-row-text` a 454 dentro de `.mk-row` en columna). Medido en hola-mako.com/vsl/semaforo el 18/11/2026.
-  Test: `tests/heroe-vsl-antes-del-boton.test.ts`.
+- **Las 12 páginas de detalle se cortaban a la derecha en el teléfono, y no era lo que parecía (arreglado el mismo 18/11).**
+  En producción, /vsl/semaforo a 375 medía 494 (también a 390 y a 900), igual en las 12 que usan FeatureDetail. Lo primero que
+  pareció fueron las filas de «Cómo funciona», que miden 454: su `.mk-row` choca con la pieza global `.mk-row` de
+  `app/_ui/ui.css`, que trae `flex-wrap: wrap`. Forzarles `nowrap` NO cambió nada. Tampoco sirvieron `min-width: 0` ni
+  `contain: inline-size` en la caja. La causa era la caja «Aquí falta la animación» (`FaltaAnimacion`): `min-height: 260px`
+  + `aspect-ratio: 16/10`, y el navegador pasa la altura mínima por la proporción a un ANCHO mínimo (260 × 1,6 = 416, con el
+  panel 454). Como `<main>` va con `margin: auto` dentro de `.mk-det`, que es flex en columna, mide lo que pide su contenido
+  y se estiraba a 494. Lo que la encontró fue probar variantes de CSS inyectadas sobre la página y medir `<main>` en cada una:
+  sólo sacar la proporción lo bajaba a 375.
+  El arreglo va en `FeatureDetail.tsx`: el panel es contenedor de ancho (`container: mk-panel / inline-size`), y con menos de
+  416 la caja deja la proporción (queda en 260 de alto, lo que ya medía). NO va en `FaltaAnimacion`: en las landings sus
+  recuadros tienen que quedar como están, y hay diseños que la miran con `>` (prioridades, image, video), así que un
+  envoltorio los rompería. Medido: las 12 a 375 y 390, `<main>` del ancho de la pantalla; a 1440 y 1024, idénticas; a 900 la
+  caja pasa de 416 (salida de su panel de 362) a 362. Las 25 landings no tienen este problema. Calendario muestra a 375 una
+  escena 74 px más ancha a cada lado, pero está centrada y recortada a propósito (`overflow: clip` en su raíz), así que no se
+  tocó. Tests: `tests/heroe-vsl-antes-del-boton.test.ts` y `tests/detalle-no-desborda-telefono.test.ts`.
