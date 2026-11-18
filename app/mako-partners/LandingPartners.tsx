@@ -36,10 +36,12 @@ import Link from 'next/link';
 import { COMISION_PARTNER_DIRECTO, RUTA_ALTA_PARTNERS } from '@/lib/partners-reglas';
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
-import { gananciaPorMes, porcentaje, usd } from './numeros';
+import { PORCENTAJE_DIRECTO, gananciaPorMes, porcentaje, usd } from './numeros';
+import { COMPARACION, COMPARACION_CON, COMPARACION_LEIDA } from './comparacion';
+import { TarjetasVs } from '@/app/vsl/_sitio/Comparaciones';
 import { MARCA } from '@/lib/tutoriales/marcas';
 import { INDUSTRIAS } from '@/app/vsl/_sitio/datos';
-import { CSS_REEMPLAZA } from '@/app/vsl/_sitio/estilos';
+import { CSS_BASE, CSS_COMPARACIONES, CSS_REEMPLAZA } from '@/app/vsl/_sitio/estilos';
 
 const CSS = `
 .mp-root { --mp-ink: #12151B; --mp-dim: #4A5260; --mp-suave: #5B6472; --mp-borde: #E6EAF2; --mp-sup: #FFFFFF; --mp-gris: #F6F8FB;
@@ -146,12 +148,27 @@ body:has(.mp-publica) { background: #FFFFFF; }
   background: var(--mp-azul-bg); }
 /* Aire entre el título de una sección y sus tarjetas (sin bajada en medio). */
 .mp-seccion h2 + .mp-numeros, .mp-seccion h2 + .mp-pasos { margin-top: 28px; }
-/* «Recomendar MaKo es fácil»: las mismas tarjetas que «Así de simple», 2 × 2, con el ícono en un recuadro (sin línea punteada). */
+/* «¿Por qué ser partner de MaKo te conviene?»: «te conviene» con el degradé de la marca; las mismas tarjetas que «Así de simple»,
+   2 × 2, con el ícono en un recuadro (sin línea punteada); y debajo, la tabla contra GoHighLevel. */
+.mp-conviene { font-style: normal; font-weight: 900; color: var(--mp-azul);
+  background: linear-gradient(90deg, var(--mp-azul-osc) 0%, var(--mp-azul) 55%, color-mix(in srgb, var(--mp-azul) 70%, #22B8F0) 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .mp-pasos.mp-ventajas { grid-template-columns: repeat(2, 1fr); gap: 16px; }
 .mp-ventajas .mp-paso::after { display: none; }
 .mp-paso > .mp-ventaja-ic { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-bottom: 10px; border-radius: 12px;
   color: var(--mp-azul); background: var(--mp-azul-bg); }
 .mp-ventaja-ic svg { width: 24px; height: 24px; }
+/* LA sección fuerte: más aire, el título más grande, seis tarjetas 3 × 2. */
+.mp-seccion.mp-conviene-sec { padding: 112px 0 104px; }
+.mp-seccion.mp-conviene-sec h2 { font-size: 46px; }
+.mp-conviene-sec h2 + .mp-pasos { margin-top: 40px; }
+.mp-conviene-sec .mp-pasos.mp-ventajas { grid-template-columns: repeat(3, 1fr); gap: 20px; }
+/* La comparación del sitio (TarjetasVs) adentro de la landing: sin su banda lavanda ni su relleno de página, la tarjeta a lo ancho. */
+.mp-vs.s-sitio { min-height: 0; background: transparent; overflow-x: visible; margin-top: 48px; }
+.mp-vs .s-cv { background: transparent; padding: 0; }
+.mp-vs .s-cont { max-width: 860px; padding: 0; }
+.mp-vs .s-cv-grilla { margin-top: 0; grid-template-columns: minmax(0, 1fr); }
+.mp-vs .s-mx-fecha { margin-top: 14px; font-size: 13px; line-height: 18px; color: #6B7280; text-align: center; }
 /* «Así de simple»: profundidad suave (borde fino, sombra y un degradé muy leve de la marca), el número en un círculo, un ícono, y en
    la computadora la línea punteada que une los pasos (en el hueco entre tarjetas). */
 .mp-pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; grid-template-columns: repeat(3, 1fr); }
@@ -196,6 +213,14 @@ body:has(.mp-publica) { background: #FFFFFF; }
   .mp-seccion h2, .mp-app .mp-seccion h2 { font-size: 27px; }
   .mp-btn { width: 100%; text-align: center; box-sizing: border-box; }
 }
+@media (max-width: 860px) {
+  .mp-seccion.mp-conviene-sec { padding: 72px 0 64px; }
+  .mp-seccion.mp-conviene-sec h2 { font-size: 31px; }
+  .mp-conviene-sec h2 + .mp-pasos { margin-top: 28px; }
+  .mp-conviene-sec .mp-pasos.mp-ventajas { grid-template-columns: 1fr; gap: 14px; }
+  .mp-vs.s-sitio { margin-top: 32px; }
+}
+}
 `;
 
 /** El ejemplo del subtítulo, con el plan más caro (18/11/2026, decidido: «Trae 10 y son US$ 291 extra por mes»). */
@@ -212,20 +237,28 @@ const PASOS: ReadonlyArray<{ titulo: string; texto: string; icono: readonly stri
 ];
 
 /**
- * «RECOMENDAR MaKo ES FÁCIL» (18/11/2026, Martín: «si se va la sección de 30 o 25… quedaría como súper vacía la landing»): por qué
- * MaKo se recomienda solo. Sólo lo que existe: las funciones del sitio (CRM, WhatsApp, Automations, Ads y el chat de MaKo), el
- * onboarding y los tutoriales, el soporte por WhatsApp y el material de lib/partners-recursos.ts (el PDF de venta y los mensajes para
- * copiar, con su link y su código; los audios y videos todavía no están grabados y no se nombran). Íconos de Tabler (MIT).
+ * «¿POR QUÉ SER PARTNER DE MaKo TE CONVIENE?» (18/11/2026, Martín por el Cerebro: «que se sepa el valor para el partner… ¿qué le
+ * evita que sea fácil de usar? Le evita que le estén preguntando todo el tiempo»). La sección importante de la página: el
+ * beneficio PARA EL PARTNER, no para el negocio. Sólo lo que existe: el onboarding y los tutoriales, el grupo de WhatsApp de cada
+ * negocio con el equipo, las funciones del sitio y el material de lib/partners-recursos.ts (el PDF de venta y los mensajes para
+ * copiar; los audios y videos todavía no están grabados y no se nombran). Sin números inventados («en vez de diez» no va).
+ * Íconos de Tabler (MIT).
  */
-const VENTAJAS: ReadonlyArray<{ titulo: string; texto: string; icono: readonly string[] }> = [
-  { titulo: 'Hace de todo', texto: 'CRM, WhatsApp, automatizaciones, anuncios e IA en una sola app.',
+const BENEFICIOS: ReadonlyArray<{ titulo: string; texto: string; icono: readonly string[] }> = [
+  { titulo: 'Todo en una sola app', texto: 'CRM, WhatsApp, automatizaciones, anuncios e IA juntos. Dejan de pagar varias herramientas y no quieren volver atrás.',
     icono: ['M4 4h6v6h-6z', 'M14 4h6v6h-6z', 'M4 14h6v6h-6z', 'M14 17h6', 'M17 14v6'] },
-  { titulo: 'Lo usa cualquiera', texto: 'Sin conocimientos técnicos: arranca solo con el onboarding y los tutoriales.',
-    icono: ['M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0', 'M9 10l.01 0', 'M15 10l.01 0', 'M9.5 15a3.5 3.5 0 0 0 5 0'] },
-  { titulo: 'Soporte por WhatsApp', texto: 'Tus referidos tienen ayuda personalizada: no les das soporte tú.',
+  { titulo: 'Ingresos que duran', texto: `Un negocio que lo tiene todo en MaKo no se va. Y tu ${PORCENTAJE_DIRECTO} sigue entrando, mes tras mes.`,
+    icono: ['M3 17l6 -6l4 4l8 -8', 'M14 7l7 0l0 7'] },
+  { titulo: 'Fácil de usar', texto: 'Lo aprenden solos con el onboarding y los tutoriales. Nadie te escribe para preguntarte cómo se usa.',
+    icono: ['M3 12l3 0', 'M12 3l0 3', 'M7.8 7.8l-2.2 -2.2', 'M16.2 7.8l2.2 -2.2', 'M7.8 16.2l-2.2 2.2', 'M12 12l9 3l-4 2l-2 4l-3 -9'] },
+  { titulo: 'Soporte prioritario', texto: 'Si algo les pasa, les respondemos nosotros en su grupo de WhatsApp. Tú sólo cobras.',
     icono: ['M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9', 'M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1'] },
-  { titulo: 'Te damos el material', texto: 'Un PDF de venta y mensajes listos para copiar, con tu link y tu código.',
-    icono: ['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z', 'M9 9l1 0', 'M9 13l6 0', 'M9 17l6 0'] },
+  // «cobrando por transferencia…» decía que el NEGOCIO cobra así con MaKo, y eso no está: lo que es verdad es que MaKo se paga así.
+  { titulo: 'Hecha para Latinoamérica', texto: 'Pensada para cómo se vende en Latinoamérica: por WhatsApp y en español. Y se paga por transferencia, Mercado Pago o Binance.',
+    icono: ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0', 'M3.6 9h16.8', 'M3.6 15h16.8', 'M11.5 3a17 17 0 0 0 0 18', 'M12.5 3a17 17 0 0 1 0 18'] },
+  // «No te dejamos solo» no es neutro en género (memoria «textos neutros»): «Nunca vendes sin ayuda».
+  { titulo: 'Te ayudamos a vender', texto: 'Nunca vendes sin ayuda: material listo con tu link, te ayudamos con tus anuncios y respondemos las dudas de tus contactos antes de que compren.',
+    icono: ['M18 8a3 3 0 0 1 0 6', 'M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5', 'M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8'] },
 ];
 
 /** La acción de la landing: hacerse partner, o volver al panel. Siempre un link (sin JavaScript también lleva). */
@@ -339,11 +372,11 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
         </div>
       </section>
 
-      <section className="mp-seccion">
+      <section className="mp-seccion mp-conviene-sec">
         <div className="mp-wrap">
-          <h2>Recomendar MaKo es fácil</h2>
+          <h2>¿Por qué ser partner de MaKo <em className="mp-conviene">te conviene</em>?</h2>
           <ul className="mp-pasos mp-ventajas">
-            {VENTAJAS.map((v) => (
+            {BENEFICIOS.map((v) => (
               <li key={v.titulo} className="mp-paso">
                 <span className="mp-ventaja-ic">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -355,6 +388,12 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
               </li>
             ))}
           </ul>
+          {/* La comparación con el MISMO componente de las del sitio (Martín: «copia el diseño que ya hicimos en todas las comparaciones,
+              MaKo versus otro, que cuando le doy clic abajo sale el desplegable con la tabla»): una tarjeta, sus 5 filas y la fecha. */}
+          <div className="s-sitio s-claro mp-vs">
+            <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_COMPARACIONES }} />
+            <TarjetasVs solo={[COMPARACION_CON]} titulo={null} filas={COMPARACION} nota={`Datos de gohighlevel.com y de su centro de ayuda, ${COMPARACION_LEIDA}.`} conBoton={false} />
+          </div>
         </div>
       </section>
 

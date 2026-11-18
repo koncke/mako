@@ -24,8 +24,10 @@ import { join } from 'node:path';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { COMISION_PARTNER_DIRECTO, RUTA_ALTA_PARTNERS } from '../lib/partners-reglas';
-import { usd } from '../app/mako-partners/numeros';
-import { PROGRAMA_ACELERADOR } from '../lib/planes-mako';
+import { porcentaje, usd } from '../app/mako-partners/numeros';
+import { PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR } from '../lib/planes-mako';
+import { COMPARACION } from '../app/mako-partners/comparacion';
+import { EN_PRO } from '../app/vsl/_sitio/competencia';
 
 (globalThis as unknown as { React: typeof React }).React = React;
 const RAIZ = join(import.meta.dirname, '..');
@@ -282,13 +284,42 @@ test('el deslizador frena en 20, 50 y 100 (Martín: «una muy pequeña frenada»
   assert.ok(c.includes('setN(arrastrando.current ? iman(v) : v)'), 'el imán sólo al arrastrar: con el teclado sigue de a 1');
 });
 
-test('«Recomendar MaKo es fácil»: cuatro tarjetas con lo que existe de verdad, antes de las preguntas (18/11/2026)', async () => {
+test('«¿Por qué ser partner de MaKo te conviene?»: seis beneficios y «MaKo vs GoHighLevel» con el componente del sitio, cada fila con su fuente (18/11/2026)', async () => {
   const { html, t } = await landing();
-  assert.ok(html.indexOf('<h2>Recomendar MaKo es fácil</h2>') > html.indexOf('<h2>Así de simple</h2>') && html.indexOf('<h2>Recomendar MaKo es fácil</h2>') < html.indexOf('<h2>Preguntas frecuentes</h2>'));
-  assert.match(t, /Recomendar MaKo es fácil Hace de todo CRM, WhatsApp, automatizaciones, anuncios e IA en una sola app\. Lo usa cualquiera Sin conocimientos técnicos: arranca solo con el onboarding y los tutoriales\. Soporte por WhatsApp Tus referidos tienen ayuda personalizada: no les das soporte tú\. Te damos el material Un PDF de venta y mensajes listos para copiar, con tu link y tu código\./);
-  assert.equal((html.match(/class="mp-ventaja-ic"/g) ?? []).length, 4, 'un ícono por tarjeta');
-  // El material, sólo lo que existe (lib/partners-recursos.ts: el PDF de venta y los mensajes para copiar).
+  const h2 = '<h2>¿Por qué ser partner de MaKo <em class="mp-conviene">te conviene</em>?</h2>';
+  assert.ok(html.includes(h2), '«te conviene» con el degradé de la marca');
+  assert.ok(html.indexOf(h2) > html.indexOf('<h2>Así de simple</h2>') && html.indexOf(h2) < html.indexOf('<h2>Preguntas frecuentes</h2>'), 'entre «Así de simple» y las preguntas');
+  assert.match(html, /<section class="mp-seccion mp-conviene-sec">/, 'la sección fuerte, con más aire');
+  const pct = porcentaje(COMISION_PARTNER_DIRECTO);
+  assert.ok(t.includes('Todo en una sola app CRM, WhatsApp, automatizaciones, anuncios e IA juntos. Dejan de pagar varias herramientas y no quieren volver atrás. '
+    + `Ingresos que duran Un negocio que lo tiene todo en MaKo no se va. Y tu ${pct} sigue entrando, mes tras mes. `
+    + 'Fácil de usar Lo aprenden solos con el onboarding y los tutoriales. Nadie te escribe para preguntarte cómo se usa. '
+    + 'Soporte prioritario Si algo les pasa, les respondemos nosotros en su grupo de WhatsApp. Tú sólo cobras. '
+    + 'Hecha para Latinoamérica Pensada para cómo se vende en Latinoamérica: por WhatsApp y en español. Y se paga por transferencia, Mercado Pago o Binance. '
+    + 'Te ayudamos a vender Nunca vendes sin ayuda: material listo con tu link, te ayudamos con tus anuncios y respondemos las dudas de tus contactos antes de que compren.'),
+    'las seis tarjetas, en orden (el 30%, de la constante)');
+  assert.equal((html.match(/class="mp-ventaja-ic"/g) ?? []).length, 6, 'un ícono por tarjeta');
+  assert.doesNotMatch(t, /Recomendar MaKo es fácil|Hace de todo|en vez de diez|cinco herramientas|rápido y en persona|No te dejamos solo|cobrando por/,
+    'lo que se fue, los números inventados y lo que no se puede prometer');
   const recursos = fuente('lib/partners-recursos.ts');
   assert.ok(recursos.includes('export function pdfDeVenta') && recursos.includes('export function mensajesParaCopiar'), 'el material que la tarjeta promete existe');
   assert.doesNotMatch(t, /clases|videos|audios/i, 'nada de material que todavía no existe');
+
+  // La comparación: el MISMO componente de las comparaciones del sitio (TarjetasVs), con UNA tarjeta, la de GoHighLevel.
+  assert.ok(fuente('app/mako-partners/LandingPartners.tsx').includes('<TarjetasVs solo={[COMPARACION_CON]}'), 'el componente del sitio, no una copia');
+  assert.equal((html.match(/<label class="s-vs">/g) ?? []).length, 1, 'una sola tarjeta');
+  assert.ok(t.includes('MaKo vs GoHighLevel'));
+  assert.ok(html.indexOf('<label class="s-vs">') > html.indexOf(h2) && html.indexOf('<label class="s-vs">') < html.indexOf('<h2>Preguntas frecuentes</h2>'));
+  const panel = html.slice(html.indexOf('id="vs-gohighlevel"'), html.indexOf('<h2>Preguntas frecuentes</h2>'));
+  const filas = [...panel.matchAll(/<th scope="row" class="s-mx-c0">([^<]+)<\/th>/g)].map((m) => m[1]);
+  assert.deepEqual(filas, ['Soporte por WhatsApp', 'Centro de ayuda en español', 'WhatsApp incluido en el plan', 'IA que contesta a tus clientes', 'Precio de entrada']);
+  // ⚠️ Cada fila sobre GoHighLevel es verdad y tiene su fuente en su sitio oficial. Sin fuente, no entra.
+  for (const f of COMPARACION) assert.match(f.otra.fuente ?? '', /^https:\/\/(www\.|help\.)?gohighlevel\.com\//, `${f.nombre}: la fuente es de GoHighLevel`);
+  // Lo de MaKo, derivado: el setter con IA es de Pro, el precio es el de Essential.
+  assert.equal(COMPARACION[3].mako.v, EN_PRO);
+  assert.equal(COMPARACION[4].mako.v, `Desde ${usd(PLANES_MAKO_DEFAULT.find((p) => p.id === 'esencial')!.precioUsd)} al mes`);
+  assert.ok(texto(panel).includes('Precio de entrada Desde US$ 47 al mes Desde US$ 97 al mes'));
+  assert.ok(texto(panel).includes('Datos de gohighlevel.com y de su centro de ayuda, noviembre de 2026.'), 'la comparación, con fecha');
+  // Sin la comisión (ellos pagan 40% y juega en contra: Martín compite por valor).
+  assert.doesNotMatch(texto(panel), /comisi[oó]n|40 ?%|recurrente/i);
 });

@@ -37,6 +37,12 @@ const idPanel = (c: Pick<Competidor, 'slug'>) => `vs-${c.slug}`;
 const idCasilla = (c: Pick<Competidor, 'slug'>) => `ck-vs-${c.slug}`;
 
 /**
+ * Una fila PROPIA, fuera de la matriz (18/11/2026): la landing de MaKo Partners usa este mismo componente («MaKo vs GoHighLevel», la
+ * tarjeta que abre su panel) con sus filas, cada una con la fuente en la celda de la otra app (app/mako-partners/comparacion.ts).
+ */
+export type FilaPropia = { nombre: string; mako: Celda; otra: Celda };
+
+/**
  * Las flechas (14/11/2026, noche, Martín: «nunca se tiene que quedar algo cortado por la mitad… tampoco tiene que existir el scroll de
  * izquierda a derecha… con las flechitas… tampoco quiero que se vea la barra de scroll… esa sección la haría como más larga»): la tabla
  * va ENTERA a lo alto de la página (sin caja con scroll), con la cabecera fija al bajar. El script mide cuántas apps entran enteras al
@@ -69,7 +75,7 @@ function LogoApp({ c, size = 36 }: { c: Pick<Competidor, 'logo'>; size?: number 
 }
 
 /** La tabla: MaKo fijo y una columna por app. Con una sola app (la página «MaKo vs X») no lleva flechas. */
-export function TablaCompetencia({ competidores }: { competidores: readonly Competidor[] }) {
+export function TablaCompetencia({ competidores, filas, nota, conBoton = true }: { competidores: readonly Competidor[]; filas?: readonly FilaPropia[]; nota?: string; conBoton?: boolean }) {
   const varias = competidores.length > 1;
   const cols = 2 + competidores.length;
   return (
@@ -91,7 +97,7 @@ export function TablaCompetencia({ competidores }: { competidores: readonly Comp
               </th>
               <th scope="col" className="s-mx-mk">
                 <span className="s-mx-cab"><span className="s-mx-estrella s-mk-ico" data-tema-fijo=""><EstrellaMaKo size={24} /></span><b>MaKo</b></span>
-                <a className="s-mx-btn" href={RUTA_CTA}>{TEXTO_CTA}</a>
+                {conBoton ? <a className="s-mx-btn" href={RUTA_CTA}>{TEXTO_CTA}</a> : null}
               </th>
               {competidores.map((c, i) => (
                 <th key={c.slug} scope="col" className="s-mx-app" data-c={i}>
@@ -102,7 +108,13 @@ export function TablaCompetencia({ competidores }: { competidores: readonly Comp
             </tr>
           </thead>
           <tbody>
-            {GRUPOS_MATRIZ.map((g) => (
+            {filas ? filas.map((f) => (
+              <tr key={f.nombre} className="s-mx-f">
+                <th scope="row" className="s-mx-c0">{f.nombre}</th>
+                <td className="s-mx-mk"><ValorCelda c={f.mako} fila={f.nombre} app="MaKo" /></td>
+                {competidores.map((c, i) => <td key={c.slug} data-c={i}><ValorCelda c={f.otra} fila={f.nombre} app={c.nombre} /></td>)}
+              </tr>
+            )) : GRUPOS_MATRIZ.map((g) => (
               <Fragment key={g.titulo}>
                 <tr className="s-mx-g"><th scope="colgroup" colSpan={cols}><span>{g.titulo}</span></th></tr>
                 {g.filas.map((f) => (
@@ -117,6 +129,7 @@ export function TablaCompetencia({ competidores }: { competidores: readonly Comp
           </tbody>
         </table>
       </div>
+      {nota ? <p className="s-mx-fecha">{nota}</p> : null}
       {varias ? <script data-visor="" dangerouslySetInnerHTML={{ __html: SCRIPT_FLECHAS }} /> : null}
     </div>
   );
@@ -134,7 +147,7 @@ function LogosVs({ c, size = 44 }: { c: Competidor; size?: number }) {
 }
 
 /** El panel que abre cada tarjeta: el comentario, «Elige X si / Elige MaKo si» y la tabla de las dos (sus filas de la matriz). */
-function PanelVs({ c }: { c: Competidor }) {
+function PanelVs({ c, filas, nota, conBoton }: { c: Competidor; filas?: readonly FilaPropia[]; nota?: string; conBoton?: boolean }) {
   const cerrar = (
     <label htmlFor={idCasilla(c)} className="s-vs-cerrar">Cerrar <span aria-hidden="true">×</span></label>
   );
@@ -158,7 +171,7 @@ function PanelVs({ c }: { c: Competidor }) {
           <ul>{ELIGE_MAKO_SI.map((x) => <li key={x}><span className="s-mx-si"><Tilde /></span>{x}</li>)}</ul>
         </div>
       </div>
-      <TablaCompetencia competidores={[c]} />
+      <TablaCompetencia competidores={[c]} filas={filas} nota={nota} conBoton={conBoton} />
       <div className="s-vs-pie">{cerrar}</div>
     </div>
   );
@@ -169,13 +182,24 @@ function PanelVs({ c }: { c: Competidor }) {
  * «al tocarlas llevan a la landing principal, y no tiene que pasar»): la tarjeta es un label con su casilla, y el panel el hermano que
  * sigue (sin JavaScript, y anda en el visor). Cómo cae el panel en la grilla, en estilos.ts (CSS_COMPARACIONES, «LA TARJETA ABRE»).
  */
-export function TarjetasVs({ excepto }: { excepto?: string }) {
+export function TarjetasVs({ excepto, solo, titulo = 'MaKo vs las demás.', filas, nota, conBoton }: {
+  excepto?: string;
+  /** Sólo estas apps (por su slug). La landing de Partners muestra una: GoHighLevel. */
+  solo?: readonly string[];
+  /** El título de la sección; `null`, sin título (lo pone la página que lo usa). */
+  titulo?: string | null;
+  /** Las filas del panel en lugar de la matriz, y la nota de debajo (de dónde salen los datos y cuándo). */
+  filas?: readonly FilaPropia[];
+  nota?: string;
+  /** `false`: sin el botón de comprar en la cabecera de la tabla (en Partners la acción es hacerse partner, y sin «gratis»). */
+  conBoton?: boolean;
+}) {
   return (
     <section className="s-cv">
       <div className="s-cont">
-        <h2 className="s-cv-h2">MaKo vs las demás.</h2>
+        {titulo ? <h2 className="s-cv-h2">{titulo}</h2> : null}
         <div className="s-cv-grilla">
-          {COMPETIDORES.filter((c) => c.slug !== excepto).map((c) => (
+          {COMPETIDORES.filter((c) => c.slug !== excepto && (!solo || solo.includes(c.slug))).map((c) => (
             <Fragment key={c.slug}>
               <label className="s-vs">
                 <input type="checkbox" id={idCasilla(c)} className="s-vs-ck s-sr" aria-controls={idPanel(c)} aria-label={`Ver MaKo vs ${c.nombre}`} />
@@ -186,7 +210,7 @@ export function TarjetasVs({ excepto }: { excepto?: string }) {
                   <span className="s-vs-a"><span className="s-vs-a-ver">Comparar</span><span className="s-vs-a-cerrar">Cerrar</span> <Flecha size={20} /></span>
                 </span>
               </label>
-              <PanelVs c={c} />
+              <PanelVs c={c} filas={filas} nota={nota} conBoton={conBoton} />
             </Fragment>
           ))}
         </div>

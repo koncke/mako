@@ -7493,3 +7493,24 @@ Martín: «Me gusta la misma… solamente calculado a esto». Era la misma landi
   negocios): la prueba recorre de 1 a 100 negocios × plan × forma de pago y mira que nada se salga.
 - **Un `str.replace` que no encuentra el texto no avisa.** Un comentario de la versión 57 no entró porque el script usó
   `replace` sin verificar: en los scripts de edición, cada reemplazo con `assert s.count(a) == 1`, y convirtiendo CRLF antes.
+
+## Comparar contra otra app (GoHighLevel) en una landing: cada fila con su fuente (18/11/2026)
+
+- **Las filas «obvias» eran las falsas.** Para Partners se pidió una tabla MaKo vs. GoHighLevel con candidatas como «material para
+  recomendar», «arranca sin conocimientos técnicos» y «en español». Leídas en su sitio oficial, las tres juegan en contra o son
+  mentira: GoHighLevel da Brand Kit, Asset Library y scripts a sus afiliados (gohighlevel.com/affiliate), tiene onboarding, y su
+  app tiene la interfaz en español. Lo verificable de verdad fue otra cosa: su soporte lista chat, Zoom, tickets y teléfono (sin
+  WhatsApp), su centro de ayuda está en inglés, su WhatsApp cuesta US$ 10 al mes aparte más cada mensaje, y sus agentes de IA se
+  pagan aparte («AI Agents… remain paid»).
+- **Lo propio también se verifica.** «IA que contesta a tus clientes» es de MaKo Pro (el setter con IA está en
+  `FUNCIONES_SOLO_PRO`, lib/topes-plan.ts), así que la celda dice «En MaKo Pro» y no un tilde a secas.
+- **Dónde vive:** las filas, en app/mako-partners/comparacion.ts (forma `FilaPropia`, la fuente en la celda de la otra app; lo
+  de MaKo derivado con `celdaDeMaKo`: el setter dice «En Pro» solo, y el precio sale de Essential). La tabla la dibuja el MISMO
+  componente de las comparaciones del sitio (`TarjetasVs` de app/vsl/_sitio/Comparaciones.tsx, con `solo`, `titulo={null}`,
+  `filas`, `nota` y `conBoton={false}`: en Partners no va el «PRUÉBALO GRATIS» de su cabecera). No vive en LandingPartners.tsx
+  porque el test «ningún número a mano» prohíbe `US$ \d` en la landing, y los números de GoHighLevel no son nuestros. El test
+  exige una fuente de gohighlevel.com por fila y que no aparezca la comisión (ellos pagan 40%).
+- **Trampa:** tests/vsl-comparaciones-competencia.test.ts prohíbe `<p className="s-mx-nota">` (Martín sacó la nota de las fuentes
+  de /vsl/comparaciones). La nota con fecha de Partners usa otra clase (`s-mx-fecha`) y el test pide que la página de
+  comparaciones no pase `nota=`.
+- **Regla:** si GoHighLevel cambia, la fila se corrige o se va. Una fila sin fuente oficial no entra.
