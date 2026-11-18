@@ -7415,3 +7415,25 @@ Las transcripciones: `C:/dev/artefactos-mako/feedback-16-11/` (fuera del repo).
   `/inicio`, que sin sesión termina en el login. En el artefacto único ahora está el Login de verdad (`login.html`); el botón de la
   maqueta lo tiene que apuntar ahí su chat.
 
+
+## En el teléfono, el VSL antes del botón; y la portada con UN botón (18/11/2026)
+
+Martín: «jamás debería salir el botón previo al VSL… siempre es el VSL y debajo del VSL el botón», y sin «Ver planes» debajo de
+la prueba gratis del héroe de la portada. Lo que sirve para la próxima:
+
+- **El diagnóstico obvio estaba mal en crm y funnel.** Como su `FEATURES[…].videoEmbed` tiene video de Panda, parecían tener el
+  VSL arriba con el botón antes. Pero las 25 landings de `LANDINGS_COMPETENCIA` se dibujan con su diseño propio
+  (`app/vsl/_competencia/disenos/<slug>.tsx`), y arriba llevan una GRABACIÓN de la app (`<video>`), no el VSL. Lo que dice si una
+  página tiene el problema es medirla, no leer los datos: se dibujaron todas y se midió a 375 dónde quedan el título, el primer
+  video y el primer botón. El botón salía antes del VSL sólo en la portada y en /vsl/semaforo. El Accelerator ya iba bien.
+- **El orden lo pone el CSS y el botón sigue siendo uno.** La caja del texto se abre (`display:contents`) y el video va antes del
+  botón (`order`): `.s-hero-tx` en `app/vsl/_sitio/estilos.ts` (≤889) y `.mk-hero-v .mk-hero-text` en
+  `app/vsl/_detalle/FeatureDetail.tsx` (≤860). Dos trampas: una caja con `display:contents` deja de ser el contenedor de `cqi`
+  (la letra del título de la portada), así que el contenedor pasa a la fila. Y la fila de la portada tenía `align-items:center`
+  de cuando era grilla: en flex en columna eso achica a los hijos, por eso lleva `stretch`.
+- **`flex-basis` en px se vuelve ALTO cuando la fila pasa a columna.** El video del detalle tenía `flex: 1.25 1 540px` (el ancho en
+  la fila). En el teléfono eran 540 px de alto para un video de 255, con ~300 px vacíos debajo. Va `flex: none` en la columna.
+- **PENDIENTE, en producción desde antes:** las páginas de detalle viejas (FeatureDetail: /vsl/semaforo y las otras que lo
+  siguen usando) miden 494 px en un teléfono de 375, y el texto queda cortado a la derecha. No lo causa el héroe sino las filas de
+  «Cómo funciona» (`.mk-row-text` a 454 dentro de `.mk-row` en columna). Medido en hola-mako.com/vsl/semaforo el 18/11/2026.
+  Test: `tests/heroe-vsl-antes-del-boton.test.ts`.

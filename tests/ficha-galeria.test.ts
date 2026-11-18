@@ -38,14 +38,17 @@ const sinComentarios = (x: string) => x.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 const R = RESPALDO_VACIO;
 const base = (g = {}) => ({ eleccion: { id: 'dos-reuniones' as const }, guardada: g, respaldo: R, efectiva: fichaEfectiva('dos-reuniones', g, R) });
 
-test('la galería YA NO SE ABRE SOLA: cada tab usa su sugerida y se abre con «Templates» (16/10/2026)', () => {
-  // Martín: «en los casos de los workspace que ya tienen leads, simplemente ponles las plantillas sugeridas, es decir
-  // que no aparezca el "¿Qué vas a crear hoy?"». Se fueron `abreSola` y el «Ahora no» que se recordaba en el navegador.
-  // Probado rompiéndolo (16/10/2026): devolverle `abreSola(` a `galeriaAbierta` → este test falla.
+test('la galería se abre sola SÓLO en un negocio nuevo; en uno con leads de antes, cada tab usa su sugerida', () => {
+  // Martín (16/10/2026): «en los casos de los workspace que ya tienen leads, simplemente ponles las plantillas sugeridas, es
+  // decir que no aparezca el "¿Qué vas a crear hoy?"». ⚠️ REESCRITO EL 18/11/2026: hasta ese día este test fijaba que no se
+  // abriera sola en NINGUNO (sin `abreSola` ni la memoria del navegador), y la excepción se había vuelto la regla
+  // (docs/feedback-diseno-pendiente.md, fila del 16/10). La regla se EJECUTA en tests/ficha-galeria-sola.test.ts; aquí,
+  // que cerrar no escribe la ficha del funnel.
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
-  assert.match(ficha, /const galeriaAbierta = \(tab: LugarFicha\): boolean => !!ff\.ficha && puede && galeria === tab;/);
-  assert.doesNotMatch(ficha, /abreSola\(|galeria-cerrada|localStorage/, 'volvió la apertura sola o su «Ahora no»');
   assert.match(ficha, /onCerrar=\{\(\) => soltarGaleria\(tab\)\}/, 'cerrar no es elegir: no escribe la ficha del funnel');
+  const soltar = ficha.slice(ficha.indexOf('const soltarGaleria = '), ficha.indexOf('const usarGaleria = '));
+  assert.ok(soltar.length > 50, 'no encontré soltarGaleria');
+  assert.doesNotMatch(soltar, /cambiar\(/, 'cerrar la galería no manda ningún cambio a la ficha');
 });
 
 test('sin plantilla elegida abajo no va NADA, y tocar una plantilla la elige (16/10/2026)', () => {

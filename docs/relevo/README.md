@@ -75,6 +75,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Approvals (la pestaña, los paneles sin API y la extensión que se publica sola, 5/11) | `Lee docs/relevo/nube-approvals.md y seguimos desde ahí.` |
 | Ops Center: la fecha y el «Ignorar» de lo que espera a Martín (migración 0394 sin aplicar) | `Lee docs/relevo/nube-ops-ignorar.md y seguimos desde ahí.` |
 | Black November de Leila (la rampa del número, el horario de las prendidas y los bloques de venta de las landings, 5/11) | `Lee docs/relevo/nube-black-november.md y seguimos desde ahí.` |
+| Los 46 pendientes «De octubre» (18/11): 13 cerrados, lo que espera una decisión de Martín, lo de producción y lo grande | `Lee docs/relevo/nube-octubre.md y seguimos desde ahí.` |
 | Creem fuera: rechazó la tienda (5/11, definitivo); las legales, la moderación sin proveedor y LatAm sin Creem | `Lee docs/relevo/nube-creem-fuera.md y seguimos desde ahí.` |
 | La revisión de Creem: /aup, Creem en las legales, la moderación antes de generar y AI Avatar (5/11; superado por el rechazo) | `Lee docs/relevo/nube-creem-revision.md y seguimos desde ahí.` |
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |

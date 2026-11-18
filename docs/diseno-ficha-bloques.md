@@ -168,7 +168,7 @@ En landing, lead magnet y carrito, el comportamiento es la prueba de intención.
 | `video-visto`<br>también en Resumen | Por cada video: cuántas veces le dio play y hasta qué % llegó. | Sólo el nombre de los videos | ⅓ · ½ · completo | número grande con barra · tres cajitas · lista por video | — | Sí |
 | `actividad-en-pagina` | Evento por evento: entró, tocó un botón (con su texto), bajó hasta el %, le dio play, retención, salida. | No | ½ · completo | línea de tiempo · sólo clics (¿tocó «Comprar»?) · por visita | — | Sí; salió, volvió, cerró y agendó se guardan y no se ven |
 | `grabacion-de-visita` | Las sesiones grabadas de su visita, con «Ver la grabación», o por qué no hay. | No | ½ · completo | lista · sólo la última | — | Sí |
-| `anuncio-de-origen`<br>también en Resumen | Lo que dice el video del anuncio que lo trajo, para saber qué promesa vio antes de dejar sus datos. | No | ½ · completo | 3 líneas y «ver entero» · texto completo | — | A medias: se guarda y sólo lo usa el diagnóstico |
+| `anuncio-de-origen`<br>también en Resumen | Lo que dice el video del anuncio que lo trajo, para saber qué promesa vio antes de dejar sus datos. | No | ½ · completo | 3 líneas y «ver entero» · texto completo | — | No: sin componente, fuera de las plantillas desde el 18/11/2026 (sigue en el catálogo) |
 
 **Para implementar.**
 - La regla de hoy para que salga la tab: lib/tracking-ficha.ts:24-37 (pedida el 12/10, :4-5).
@@ -176,7 +176,7 @@ En landing, lead magnet y carrito, el comportamiento es la prueba de intención.
 - `video-visto`: `getVslEngagement` (lib/leads.ts:2273), en ComportamientoCard.tsx:122-292.
 - `actividad-en-pagina`: `TrackingTimelineCard` (app/crm/lead-view/TrackingTimelineCard.tsx:68-139), tope de 40 eventos; los no dibujados en lib/leads.ts:2512-2535. Hoy repite el vacío de `ComportamientoCard`.
 - `grabacion-de-visita`: `GrabacionCard` (app/crm/lead-view/GrabacionCard.tsx:79-116, ya se calla en :89).
-- `anuncio-de-origen`: `ad_transcripts`, que el diagnóstico busca por `meta_ad_id` (lib/lead-insights.ts:371-378). El bloque lo busca con `adIdDeLead`, que también mira `utm_content`.
+- `anuncio-de-origen`: `ad_transcripts`, que el diagnóstico busca por `meta_ad_id` (lib/lead-insights.ts:371-378). El bloque lo busca con `adIdDeLead`, que también mira `utm_content`. ⚠️ **No tiene componente** (18/11/2026): la ficha no lee `ad_transcripts` (`getLeadFullAction`, app/crm/actions.ts) y la plantilla que lo ponía lo salteaba callada. Salió de las cinco plantillas que lo nombraban (Llamada con R1 y R2, Una llamada, Formulario de Meta, Landing con opt-in y Venta Directa) y vuelve con su componente; una ficha guardada que lo nombre sigue cargando sin él (tests/ficha-anuncio-de-origen.test.ts).
 
 ### Pagos
 
@@ -262,7 +262,7 @@ Es lo de hoy pasado a bloques, sin perder nada. Suma al Resumen el origen y el s
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `cambios-de-mako` → `proxima-reunion` → `contacto` → `lo-que-contesto` → `video-visto` → `calificacion` → `setter-y-closer` → `tiempo-en-etapa` → `ingreso-estimado` → `cobrado` → `charla-whatsapp` → `origen` → `redes-y-web` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** `reunion-1` → `reunion-2` → `lo-que-salio-de-la-llamada` → `agendar-reunion` → `mensaje-listo` → `diagnostico-mako` → `cohorte` → `ciclo-de-venta`
 - **Pagos:** `suscripcion` → `cobrado` → `venta` → `cuotas` → `oferta` → `links-de-pago` → `confirmacion-de-pago` → `movimientos` → `recordatorios-de-cobro` → `contrato` → `datos-fiscales` → `servicio-vendido` → `promesa-y-garantia` → `obligaciones` → `excepciones` → `cliente-en-cs`
-- **Tracking:** `visitas` → `anuncio-de-origen` → `actividad-en-pagina` → `grabacion-de-visita`
+- **Tracking:** `visitas` → `actividad-en-pagina` → `grabacion-de-visita`
 
 El Resumen es lo que el closer lee 30 segundos antes de entrar (cuándo, cuánto del VSL vio y qué contestó), lo que el setter necesita para contactarlo y lo que el dueño ve que se cae. En Reuniones, cada reunión al lado de lo que salió de ella, para preparar la R2 mirando la R1. En Pagos, con el lead abierto se ven la oferta, los links y «Dijo que sí»; con la venta aparece el resto. Todos los avisos del deal quedan prendidos: es el funnel para el que se diseñó el modelo (ws1). `charla-whatsapp` depende de la decisión 2.
 
@@ -290,17 +290,17 @@ Si se anotó, cuándo es el evento (con su lugar y hora), si le llegan los recor
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `contacto` → `lo-que-contesto` → `calificacion` → `origen` → `charla-whatsapp` → `automatizaciones-en-curso` → `tiempo-en-etapa` → `setter-y-closer` → `ingreso-estimado` → `proxima-reunion` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale (no hay etapa de reunión).
 - **Pagos:** `suscripcion` → `cobrado` → `oferta` → `links-de-pago` → `venta` → `cuotas` → `movimientos`
-- **Tracking:** `anuncio-de-origen` → `visitas` → `actividad-en-pagina`
+- **Tracking:** `visitas` → `actividad-en-pagina`
 - **Avisos que nacen apagados:** empresa, plan, comprobante de pago, servicio, promesa, obligaciones y datos fiscales.
 
-Pesa lo que contestó y de qué anuncio vino. «¿Era calificado?» va arriba porque es lo único que aprende Meta, y «Sin moverse» porque decide la velocidad de contacto. La próxima reunión se calla salvo que reserve por Cal.com. Sin landing casi nunca hay visitas, así que en Tracking el anuncio es casi todo. Las cuotas quedan fuera porque cargar una reserva gana el lead. Una inmobiliaria suma `respuesta-destacada` (Zona, Presupuesto) con un toque: no es otra entrada, así que no tiene plantilla propia.
+Pesa lo que contestó y de qué anuncio vino. «¿Era calificado?» va arriba porque es lo único que aprende Meta, y «Sin moverse» porque decide la velocidad de contacto. La próxima reunión se calla salvo que reserve por Cal.com. Sin landing casi nunca hay visitas (el anuncio de origen vuelve a Tracking cuando tenga su componente). Las cuotas quedan fuera porque cargar una reserva gana el lead. Una inmobiliaria suma `respuesta-destacada` (Zona, Presupuesto) con un toque: no es otra entrada, así que no tiene plantilla propia.
 
 ### Landing con opt-in sin reunión (incluye recurso gratis y el link de la bio o de YouTube)
 
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `contacto` → `lo-que-contesto` → `pagina-de-registro` → `origen` → `proxima-reunion` → `charla-whatsapp` → `automatizaciones-en-curso` → `lo-que-le-mandamos` → `tiempo-en-etapa` → `calificacion` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale.
 - **Pagos:** `suscripcion` → `cobrado` → `oferta` → `links-de-pago` → `venta` → `cuotas` → `movimientos`
-- **Tracking:** `visitas` → `video-visto` → `actividad-en-pagina` → `grabacion-de-visita` → `anuncio-de-origen`
+- **Tracking:** `visitas` → `video-visto` → `actividad-en-pagina` → `grabacion-de-visita`
 - **Avisos que nacen apagados:** servicio, promesa, obligaciones y datos fiscales.
 
 Lo que completó, en qué página y si le llegó la nutrición le dicen al equipo cómo abrir la charla, aunque el funnel no tenga campaña de Meta. La próxima reunión cubre la landing con Cal.com sin etapa de reunión (ws13), donde hoy lo que contestó al reservar no se ve en ninguna tab. El recurso gratis no tiene registro por lead: mientras tanto, `lo-que-le-mandamos` muestra el envío. Es el funnel con más datos de comportamiento.
@@ -330,7 +330,7 @@ Los toques y el tiempo sin moverse dicen a quién insistir. Las redes son la ide
 - **Resumen:** `siguiente-accion` → `posibles-duplicados` → `contacto` → `cobrado` → `origen` → `lo-que-contesto` → `charla-whatsapp` → `notas` → `motivo-de-salida` → `plazo-nutricion`
 - **Reuniones:** no sale.
 - **Pagos:** `suscripcion` → `cobrado` → `links-de-pago` → `cuotas` → `movimientos` → `venta` → `oferta` → `cliente-en-cs`
-- **Tracking:** `video-visto` → `actividad-en-pagina` → `grabacion-de-visita` → `visitas` → `anuncio-de-origen`
+- **Tracking:** `video-visto` → `actividad-en-pagina` → `grabacion-de-visita` → `visitas`
 - **Avisos que nacen apagados:** setter, calificado, empresa, plan, servicio, promesa, obligaciones, datos y documento fiscal. El comprobante sólo se pide en un pago a mano.
 
 Sin llamada, la pregunta es si compró y cuánto, y el chip de cobrado responde sin cambiar de tab. `venta` dice «sin monto» cuando la página de gracias lo ganó sin probar la compra. `cliente-en-cs` muestra si ya tiene su acceso al curso. Cuando no hay prueba de compra, el Tracking es la mejor señal: la actividad en «sólo clics» dice si tocó «Comprar» y no pagó.

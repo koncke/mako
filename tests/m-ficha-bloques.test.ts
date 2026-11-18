@@ -41,6 +41,11 @@
 // Probado rompiéndolo (17/11/2026, base 9/0): `suscripcion` fuera de PIEZA_DE_BLOQUE → 7 / 2 («con un deal» y «mes a mes»);
 // y cada una → 8 / 1 («mes a mes»): `mesAMesDelTelefono` del más viejo al más nuevo; los cortados sin juntar; el server sin
 // callar el estado de cuenta con el mes a mes puesto; la ficha sin dibujar la pieza; `estadoDeSuscripcion` sin la cancelada.
+//
+// ⚠️ CAMBIADO EL 18/11/2026 (Martín, 22/10: «si no tiene ese dato, que no lo muestre»): las filas del Resumen ya no dicen
+// «Sin setter», «Sin marcar», «Sin motivo»… (`resumenDelTelefono` devuelve null y la fila no va). Probado rompiéndolo, base
+// 10/0: el equipo con «· sin closer» de vuelta → 9 / 1; el motivo con «Sin motivo» de vuelta → 9 / 1; «Redes» repitiendo el @
+// que ya va en el Contacto → 9 / 1 (las tres, «el Resumen nativo»).
 // =============================================================================
 
 import { test } from 'node:test';
@@ -248,23 +253,30 @@ test('el Resumen nativo en el teléfono: una fila por bloque, y se calla lo que 
   const abierto = resumenDelTelefono({ estado_lead: 'abierto', setter: 'Ana', closer: null, calificado: true, ingreso_estimado: 1500, instagram: 'Mako.App', web: 'https://www.mako.com/' },
     { etapa: 'agenda', hoy, ahoraMs, siguiente: { titulo: '¿Vino a la reunión 1?', detalle: null }, enEtapa: { desde: '2026-10-04T15:00:00Z', plazo: 10 } });
   assert.equal(abierto.siguiente, '¿Vino a la reunión 1?');
-  assert.equal(abierto.equipo, 'Ana · sin closer');
+  // ⚠️ CAMBIADO A PROPÓSITO EL 18/11/2026 (Martín, 22/10: «si no tiene ese dato, que no lo muestre»): decía «Ana · sin closer».
+  assert.equal(abierto.equipo, 'Ana (setter)');
   assert.equal(abierto.calificado, 'Calificado');
   assert.equal(abierto.ingreso, '$1,500');
   assert.equal(abierto['en-etapa'], '12 días de 10');
   assert.equal(abierto.motivo, null, 'no salió: el motivo se calla');
   assert.equal(abierto.plazo, null, 'fuera de la nutrición manual, el plazo se calla');
   assert.equal(abierto.redes, 'mako.com · @mako.app');
+  // Con el @ como único canal ya va en el Contacto: «Redes» no lo repite (18/11/2026), y sin otra red la fila no va.
+  const soloIg = resumenDelTelefono({ estado_lead: 'abierto', instagram: 'Mako.App', web: 'https://www.mako.com/' }, { etapa: 'agenda', hoy, ahoraMs, instagramEnContacto: true });
+  assert.equal(soloIg.redes, 'mako.com');
+  assert.equal(resumenDelTelefono({ estado_lead: 'abierto', instagram: 'Mako.App' }, { etapa: 'agenda', hoy, ahoraMs, instagramEnContacto: true }).redes, null);
   const ganado = resumenDelTelefono({ estado_lead: 'ganado', ingreso_estimado: 1500 }, { etapa: 'ganado', hoy, ahoraMs, enEtapa: { desde: '2026-10-01T00:00:00Z', plazo: null } });
   assert.equal(ganado.ingreso, null, 'el ingreso estimado no es una venta: en un ganado se calla');
   assert.equal(ganado['en-etapa'], null, 'en una etapa que terminó no hay reloj');
   const perdido = resumenDelTelefono({ estado_lead: 'perdido', nutricion_manual_deadline: '2026-10-14' }, { etapa: 'manual', hoy, ahoraMs });
-  assert.equal(perdido.motivo, 'Sin motivo', 'salió sin motivo: se dice, para que lo completen');
+  // ⚠️ CAMBIADO A PROPÓSITO EL 18/11/2026: decía «Sin motivo» (para que lo completen, en la computadora). Lo vacío no se escribe.
+  assert.equal(perdido.motivo, null, 'salió sin motivo: la fila no va');
   assert.equal(perdido.plazo, 'Venció hace 2 días');
-  // Lo que se calla vacío no se dibuja; lo que se lee siempre (el equipo), sí.
+  // Lo vacío no se dibuja (18/11/2026: tampoco el equipo sin nadie, que decía «Sin setter · sin closer»).
   const puestas: PiezaPuesta[] = [{ pieza: 'motivo', bloque: 'motivo-de-salida' }, { pieza: 'equipo', bloque: 'setter-y-closer' }, { pieza: 'siguiente', bloque: 'siguiente-accion' }];
   const nada = { proxima: null, llegoPor: null, respuestas: 0, llamada: false };
-  assert.deepEqual(piezas(piezasQueSeDibujan(puestas, { ...nada, resumen: resumenDelTelefono({ estado_lead: 'abierto' }, { etapa: 'lead', hoy, ahoraMs }) })), ['equipo']);
+  assert.deepEqual(piezas(piezasQueSeDibujan(puestas, { ...nada, resumen: resumenDelTelefono({ estado_lead: 'abierto' }, { etapa: 'lead', hoy, ahoraMs }) })), []);
+  assert.deepEqual(piezas(piezasQueSeDibujan(puestas, { ...nada, resumen: resumenDelTelefono({ estado_lead: 'abierto', closer: 'Luis' }, { etapa: 'lead', hoy, ahoraMs }) })), ['equipo']);
   // La ficha las dibuja como filas, y el server las arma con la misma función.
   assert.match(sinComentarios(leer('app/m/crm/[id]/FichaLead.tsx')), /default: \{\s*const v = p\.resumen\?\.\[pz\];/);
   assert.match(sinComentarios(leer('app/m/crm/datos.ts')), /resumen: lead \? resumenDelTelefono\(lead, \{/);

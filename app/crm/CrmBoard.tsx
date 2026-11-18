@@ -43,6 +43,7 @@ import {
   type Stage,
   type StageBand,
   type FunnelTransition,
+  type EntradaId,
   esTerminal,
   etapasVisibles,
   MAX_LABEL_ETAPA,
@@ -142,7 +143,7 @@ import { ReunionesParaPreparar, type ReunionParaPreparar } from './TarjetaReunio
 import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLoteLeads';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
-import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
+import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, ofreceAsignarFuentes, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
 import { cuantasDibujar, TANDA_COLUMNA } from './columna-por-tandas';
 import { publicarLeadAbierto } from './lead-abierto';
@@ -494,6 +495,7 @@ export function CrmBoard({
   abrirEmbudo = null,
   abrirImportar = false,
   funnelActivo = null,
+  entradasFunnel = null,
   ordenManual = {},
   cursoAlGanar = null,
   partners = false,
@@ -543,6 +545,8 @@ export function CrmBoard({
   abrirImportar?: boolean;
   /** null = el funnel del negocio (sin `?funnel=` en la URL). */
   funnelActivo?: number | null;
+  /** Cómo entra la gente a ESTE funnel (su tipo, `tipoDeFunnel`): en uno de Prospección no se ofrece «Asignar fuentes». */
+  entradasFunnel?: EntradaId[] | null;
   /** El orden que se armó arrastrando tarjetas en este embudo: etapa → leads (mig 0200). */
   ordenManual?: Record<string, number[]>;
   /**
@@ -2651,7 +2655,7 @@ export function CrmBoard({
       return {
         leadId: null, colKey: c.key,
         ctx: {
-          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', reunion: c.kind === 'reunion', ganado: c.key === 'ganado', tipo: columnaConTipo(c),
+          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', fuentes: ofreceAsignarFuentes(entradasFunnel), reunion: c.kind === 'reunion', ganado: c.key === 'ganado', tipo: columnaConTipo(c),
           // La MISMA condición que el renglón del «⋯» (y su test, tests/crm-curso-al-ganar.test.ts).
           curso: cursoAlGanar && terminalEstadoFor(c.key) === 'ganado' ? cursoPrendido : null,
           borrable: colsBorrables.has(c.key),

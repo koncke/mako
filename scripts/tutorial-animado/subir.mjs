@@ -25,7 +25,7 @@ for (const k of keys) { cp(`${RAIZ}/public-tutoriales/${k}.mp4`, `public/tutoria
 { const man = JSON.parse(readFileSync(`${RAIZ}/public-tutoriales/manifiesto.json`, 'utf8')); man.videos = man.videos.filter((v) => v.formato === 4);
   writeFileSync(`${WT}/public/tutoriales/manifiesto.json`, JSON.stringify(man, null, 1)); rutas.push('public/tutoriales/manifiesto.json');
   console.log('manifiesto:', man.videos.map((v) => v.key).join(', ')); }
-for (const f of ['engine2.js', 'hacer.mjs', 'capturar2.cjs', 'render2.cjs', 'leer-guiones.mjs', 'sumar-base.mjs', 'pagina.mjs', 'hoja-pantallas.mjs', 'subir.mjs', 'LEEME.md'])
+for (const f of ['engine2.js', 'engine3.js', 'voxel-martin.mjs', 'vox-piezas.mjs', 'hacer.mjs', 'capturar2.cjs', 'render2.cjs', 'leer-guiones.mjs', 'sumar-base.mjs', 'pagina.mjs', 'hoja-pantallas.mjs', 'subir.mjs', 'LEEME.md'])
   cp(`${RAIZ}/motor/${f}`, `scripts/tutorial-animado/${f}`);
 cp(`${RAIZ}/guiones.json`, 'scripts/tutorial-animado/guiones.json');
 for (const f of readdirSync(`${RAIZ}/motor/icons`)) cp(`${RAIZ}/motor/icons/${f}`, `scripts/tutorial-animado/icons/${f}`);

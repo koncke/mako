@@ -119,8 +119,8 @@ export function EtiquetasDelLead({ leadId, version, compacto = false }: {
 
   if (compacto) {
     const [primera, ...resto] = suyas ?? [];
-    // `wrap`: si algún día el renglón del nombre le pone tope a este grupo, la píldora baja de
-    // renglón en vez de quedar cortada (hoy `.cl-junto` de CabeceraLead es `flex: none`).
+    // `wrap`: con el renglón del nombre angosto (un teléfono), la píldora baja de renglón en vez de quedar cortada. Desde
+    // el 18/11/2026 `.cl-junto` de CabeceraLead cede (tests/lead-etiquetas-ceden.test.ts); hasta ese día era `flex: none`.
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
         {primera && chip(primera)}
