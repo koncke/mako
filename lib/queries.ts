@@ -2547,7 +2547,7 @@ async function _getPendientesDeMarcar(
     // los que más lo necesitan) y de su propio detalle en la fila, que pasaba de
     // "Faltan: Setter · Empresa" a una frase que no dice qué cargar. Con la etapa
     // efectiva, esa población dejó de ser marginal.
-    const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline, grabable });
+    const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline, grabable, hoyISO: hoy });
     // "Empresa" ignorada (empresa_omitido) NO notifica en el worklist del CRM general
     // (sigue visible como recordatorio suave en la ficha, que usa faltantesDeLead directo).
     const faltanSinEmpresa = l.empresa_omitido ? faltanRaw.filter((f) => f.id !== 'empresa') : faltanRaw;

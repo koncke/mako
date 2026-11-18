@@ -119,3 +119,21 @@ export async function leerRespuestaGuardado(r: Response): Promise<RespuestaGuard
   }
   return { ok: false, status: r.status, conflicto };
 }
+
+// ── MIRANDO (18/11/2026, lib/graficos-guardar-mirando.ts) ─────────────────────────────────────────────────────────
+// Cada guardado dice si la pantalla está EDITANDO (`editando` en el cuerpo). Con `false`, el server sólo deja pasar lo de
+// las hojas (crear, archivar, ordenar, su cabecera, sumar un filtro). Lo que se cambió editando sigue yendo con `true`
+// hasta que quedó GUARDADO: un texto escrito en el lugar se guarda AL SALIR de la edición (app/dashboard/Elemento.tsx,
+// `useEnLugar`), un instante después de tocar «Ver», y un guardado que falló sale más tarde. Mandarlo con `false` haría que
+// el server lo rechace y se perdiera lo editado.
+
+/** Cuánto dura «recién salió de editar»: lo que se cambia en ese rato todavía es de la edición. */
+export const GRACIA_EDICION_MS = 5000;
+
+/**
+ * ¿Lo cambiado editando ya quedó guardado, y los próximos guardados pueden decir «mirando»? Sólo fuera de la edición,
+ * pasada la gracia, sin nada en la cola y con lo último confirmado igual a lo que hay en pantalla.
+ */
+export function edicionYaGuardada(p: { editando: boolean; salioHaceMs: number; pendiente: boolean; confirmado: string; actual: string }): boolean {
+  return !p.editando && p.salioHaceMs >= GRACIA_EDICION_MS && !p.pendiente && p.confirmado === p.actual;
+}

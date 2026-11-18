@@ -71,7 +71,6 @@ import { INDICE_ID_EXTERNO, LeadYaMigradoError } from './migracion-leads';
 // validador y la pantalla discrepan justo en los leads con etapas huérfanas.
 import { etapaVigenteDe } from './funnel-etapas';
 import { avanceDe, duracionesDeEventos, esEventoDeVideo } from './vsl-retencion';
-import { hoyEnTijuana } from './date-utils';
 import { limpiaNoShow, textoNoShow } from './reagenda-no-show';
 import { cachedRead, TAG, TTL } from './cache';
 import { actualizarEtiquetaLead } from './evolution-labels';
@@ -3578,8 +3577,8 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
  */
 export function faltantesDeLead(
   lead: Lead,
-  tienePlan?: boolean,
-  extra?: ExtraRequisitos,
+  tienePlan: boolean | undefined,
+  extra: ExtraRequisitos,
 ): Step[] {
   const { stage, v } = requisitosDeLead(lead, tienePlan, extra);
   return stepsForStage(stage, v);
@@ -3589,15 +3588,22 @@ export function faltantesDeLead(
  * Lo que la etapa del lead pide y YA está cargado (los «resueltos» del desplegable de la ficha).
  * Sale de los MISMOS valores que `faltantesDeLead` y de la misma regla (`pasosResueltos`).
  */
-export function resueltosDeLead(lead: Lead, tienePlan?: boolean, extra?: ExtraRequisitos): Step[] {
+export function resueltosDeLead(lead: Lead, tienePlan: boolean | undefined, extra: ExtraRequisitos): Step[] {
   const { stage, v } = requisitosDeLead(lead, tienePlan, extra);
   return pasosResueltos(stage, v);
 }
 
-type ExtraRequisitos = { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[]; grabable?: boolean };
+/**
+ * `hoyISO` ES OBLIGATORIO (18/11/2026, F125; el mismo #510 de `faltantesParaMover`): es el día del NEGOCIO, y decide si
+ * una reunión sin hora «ya pasó» (y con eso si se pide su asistencia y su Fathom). Hasta acá salía de `hoyEnTijuana()`
+ * adentro, así que la ficha, «A revisar» y el worklist le pedían la asistencia a un negocio de otro país con el día de
+ * Tijuana, mientras el corte del server (`setPipelineStage`) ya usaba el suyo. Sin default, lo frena el compilador:
+ * quien llama lo saca de su negocio (`hoyEnWorkspace()`, o `hoyDelWorkspace(ws)` con el ws a mano).
+ */
+type ExtraRequisitos = { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[]; grabable?: boolean; hoyISO: string };
 
 /** La etapa vigente del lead y los valores con que se evalúan sus requisitos. UNA sola vez. */
-function requisitosDeLead(lead: Lead, tienePlan?: boolean, extra?: ExtraRequisitos): { stage: string; v: StageReqValues } {
+function requisitosDeLead(lead: Lead, tienePlan: boolean | undefined, extra: ExtraRequisitos): { stage: string; v: StageReqValues } {
   // El override manual (pipeline_stage) vale SOLO si esa etapa sigue existiendo en
   // el funnel del workspace; si no, se deriva del estado del lead — la misma regla
   // que usa el board (crm-map). Sin este chequeo, un lead parado en una etapa que
@@ -3651,7 +3657,7 @@ function requisitosDeLead(lead: Lead, tienePlan?: boolean, extra?: ExtraRequisit
     // un cierre recurrente movido con éxito reaparecía al toque en "Datos sin
     // marcar" pidiendo un plan de pagos que no existe para esa venta.
     tienePlan: lead.venta_tipo === 'suscripcion' ? undefined : tienePlan,
-    hoyISO: hoyEnTijuana(),
+    hoyISO: extra.hoyISO,
     // Timestamps con hora (Calendly): "ya pasó" mira la hora real, no solo el día,
     // así una reunión de HOY que ya terminó exige cargar el Fathom.
     atJ1: lead.junta_1_at,
