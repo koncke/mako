@@ -3090,8 +3090,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
               try {
                 // ⏱ 45 s por pedido (11/11/2026): sin plazo, un Anthropic colgado trababa el turno hasta el corte de undici. Dos
                 // cuentas colgadas suman 90 s, dentro de `PLAZO_DOER_MS` y de los 420 s del webhook.
+                // Con el crédito, el modelo y el effort que pidió el router (18/11/2026, Martín: «Si, cambia el modelo sin problema»):
+                // la charla sigue con el barato (`ruta.model` vacío), un dato con Sonnet y el razonamiento con Opus. Con SU Claude, va
+                // lo que eligió el negocio (la puerta 2 no mira esto con la clave que paga él).
                 const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
                   feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 8, maxTokens: 2500, plazoPasoMs: PLAZO_CLAUDE_DEL_GRUPO_MS,
+                  ...(ruta.model ? { modeloDelCredito: ruta.model, effort: ruta.effort } : {}),
                   motivo: `Claude del grupo${cuenta ? ` (${cuenta})` : ''} · ${ruta.motivo} «${recorte}»`,
                 });
                 claudeProbado = true;

@@ -14003,6 +14003,9 @@ consulta, donde se llama) · `lib/mako-doer-acciones.ts` (`listar_campanas_meta`
   `hayRespaldoDespuesDeClaude`— no preguntaba si ya había respuesta: corría el turno entero otra vez con su Gemini, y esa respuesta
   pisaba la de Claude. Con un Gemini sano igual pasaba, sólo que no se notaba: el negocio recibía lo de su IA, nunca lo de Claude, y las
   herramientas corrían dos veces.
+- **Un segundo caso, el mismo día: el #107 de Marcela (ws 23).** Claude contestó con el crédito a las 20:52:01 y gemini-flash-lite pisó
+  esa respuesta: delegó el pedido sin correr ninguna herramienta. Si una respuesta del grupo sale con el modelo del negocio cuando el
+  crédito anda, mirar esto primero (`anthropic_usage`: una fila «Claude del grupo» y, DESPUÉS, las de su IA en el mismo turno).
 - **La regla:** en una cascada, cada escalón pregunta si el anterior ya contestó. Ahora el bucle corta con `if (respuesta) break`.
 - ⚠️ **El test del grupo DEPENDÍA del bug:** su Anthropic de mentira contestaba el turno con el JSON de la clase, y la IA del negocio lo
   pisaba con la respuesta esperada. Un harness que da verde con el bug adentro no mide lo que dice. Ahora el clasificador contesta su

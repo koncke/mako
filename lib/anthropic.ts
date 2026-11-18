@@ -184,11 +184,11 @@ async function exigirClaveDeLaPlataforma(key: string, feature?: string): Promise
  * turno con herramientas del chat (`chatClaudeTools`): un negocio que conectó SÓLO su Claude no tenía ninguna IA para el
  * chat, y «Conectar tu IA» le pedía Gemini (docs/investigacion-ops-center-19-10.md).
  */
-export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { modelo?: string; cuentaDeLosGrupos?: string } = {}): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
+export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { modelo?: string; cuentaDeLosGrupos?: string; modeloDelCredito?: string } = {}): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
   let clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
   // EL CRÉDITO ASIGNADO AL NEGOCIO (22/10/2026, Martín: «habilita los tokens de la API de la cuenta de Mauricio… para su Ops
   // Center»; lib/credito-negocio.ts): sin su clave propia —o con una copia de la de MaKo, como el ws1—, la del crédito que le
-  // asignó Martín, prendido en SuperAdmin › Uso. Sigue por esta misma puerta como el crédito del ws10: el barato, nunca el Plan,
+  // asignó Martín, prendido en SuperAdmin › Uso. Sigue por esta misma puerta como el crédito del ws10: el modelo del router (desde el 18/11/2026), nunca el Plan,
   // y su gasto con la marca del crédito. Su clave propia, si la conecta, gana.
   // Y EL DE LOS GRUPOS (28/10/2026, `CLAVES_CREDITO_DE_LOS_GRUPOS`): sólo el turno de un grupo de WhatsApp, con la cuenta que eligió
   // el doer (`cuentasDelCreditoDeLosGrupos`), por la misma puerta y con las mismas reglas.
@@ -224,13 +224,14 @@ export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { model
   try { clavesPlataforma = await clavesAnthropicDeLaPlataforma(); } catch { return { noPudeLeer: true }; }
   const pausa = await claudePausado();
   // IA5 (22/10/2026): el modelo que eligió el negocio para SU Claude, y las claves del crédito de Max de la plataforma: una
-  // de ésas puesta como clave de un negocio (el ws10) va con el barato, elija lo que elija (lo paga Martín). Sin poder
-  // leerlas, `null`: también el barato.
+  // de ésas puesta como clave de un negocio (el ws10) va con el modelo del crédito (`modeloDelCredito`, abajo), no con lo que
+  // eligió el negocio para SU Claude. Sin poder leerlas, `null`: el barato.
   let modelo: string;
   try {
     const { getSetting } = await import('@/lib/settings');
     // El que eligió la persona para ESTE chat (8b, `opts.modelo`, sólo «haiku» o «sonnet»: `modeloDeSuClaude`), si no, el del
-    // negocio. Con el crédito de MaKo, `evaluarClaveDelNegocio` lo baja a Haiku igual.
+    // negocio. Con el crédito de MaKo, ninguno de los dos: el del router (`modeloDelCredito`), o el barato. La elección es de SU
+    // clave, no del crédito.
     modelo = modeloDeSuClaude(opts.modelo ?? await getSetting(CLAVE_MODELO_SU_CLAUDE));
   } catch { modelo = modeloDeSuClaude(opts.modelo ?? null); }
   let creditosPlataforma: Array<string | null> | null;
@@ -261,7 +262,9 @@ export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { model
     // anotaba como del negocio; la marca SÍ sabe).
     if (esElCreditoMarcado(clave, await leerMarcaDeCredito())) creditosPlataforma = [...(creditosPlataforma ?? []), clave];
   } catch { creditosPlataforma = null; }
-  const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma });
+  // Con el crédito, el modelo del ROUTER (`modeloDelCredito`, 18/11/2026). Lo que eligió la persona para su chat no: con el crédito
+  // de MaKo sigue el barato (tests/chat-ia.test.ts, el 3); el «sí» de Martín fue para el router.
+  const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma, modeloConCredito: opts.modeloDelCredito });
   if (!v.ok) return pausa ? { pausa: true } : null;
   // La cuenta del crédito de los grupos que paga (ANTHROPIC_CREDITO_CUENTA3 → 3): sin ella, el Uso se lo anotaba a la cuenta 1.
   const n = delGrupo ? Number(/(\d+)$/.exec(delGrupo)?.[1]) : NaN;
@@ -733,6 +736,9 @@ export async function chatClaudeTools(
     cuentaDeLosGrupos?: string;
     /** 8b (23/10/2026): con `soloSuClaude`, el modelo que eligió la persona para ese chat («haiku» o «sonnet»). */
     modeloSuClaude?: string;
+    /** Con `soloSuClaude` y el CRÉDITO de MaKo (18/11/2026): el modelo que pidió el router del turno (lib/mako-router.ts). Uno
+     *  de `MODELOS_DEL_CREDITO`; sin él, el barato. Con la clave que paga el negocio no se usa: va lo que eligió él. */
+    modeloDelCredito?: string;
     /** 8b (23/10/2026): DIRECTO a la clave de OpenAI del negocio, sin la cascada y sin caer a Claude. Sin su clave, tira. */
     soloSuOpenAI?: boolean;
     /** Con `soloSuOpenAI`, el modelo de OpenAI que corre (el elegido o el de por defecto, `MODELO_SU_OPENAI_DEFAULT`). Sin
@@ -781,13 +787,13 @@ export async function chatClaudeTools(
   /** La clave de Claude del NEGOCIO, cuando ninguna IA barata suya contestó (abajo). */
   let delNegocio: PermisoClaveDelNegocio | null = null;
   if (opts.soloSuClaude) {
-    const n = await permisoDeLaClaveDelNegocio(opts.feature, { modelo: opts.modeloSuClaude, cuentaDeLosGrupos: opts.cuentaDeLosGrupos }).catch(() => null);
+    const n = await permisoDeLaClaveDelNegocio(opts.feature, { modelo: opts.modeloSuClaude, cuentaDeLosGrupos: opts.cuentaDeLosGrupos, modeloDelCredito: opts.modeloDelCredito }).catch(() => null);
     if (n && 'permiso' in n) delNegocio = n.permiso;
     else throw new Error(`falló la IA (${n && 'pausa' in n ? CLAUDE_EN_PAUSA : n && 'noPudeLeer' in n ? NO_PUDE_COMPROBAR_SU_CLAUDE : 'el negocio no tiene su clave de Claude'})`);
   } else if (!opts.model && opts.feature) {
     // ── EL CRÉDITO DE CLAUDE PRIMERO EN EL ESPACIO DE MaKo (11/11/2026, Martín: «gastemos eso para todo esto en lugar de Gemini,
     // porque es mucho más estable»). Sólo en la plataforma y nunca el Plan (`cuentasDelCreditoParaElPedido` devuelve [] si no);
-    // de cuenta en cuenta, como el bot 1 a 1 (lib/mako-bot.ts), por la puerta 2 (`soloSuClaude`, Haiku, la marca «(cuenta N)»).
+    // de cuenta en cuenta, como el bot 1 a 1 (lib/mako-bot.ts), por la puerta 2 (`soloSuClaude`, Haiku sin un modelo pedido, la marca «(cuenta N)»).
     // Cubre el chat del Ops Center (lib/mako-turno-app.ts) y el de la web (app/api/mako-doer). Si una cuenta falla SIN haber
     // corrido ninguna herramienta: sin saldo, 401 o 429, la otra cuenta; plazo, 5xx u «overloaded», directo a la cascada (es el
     // mismo Anthropic). Si ya corrió una herramienta, se re-lanza: otro modelo duplicaría la escritura (la regla de abajo).
@@ -898,10 +904,12 @@ export async function chatClaudeTools(
   // Por debajo del mínimo del modelo (4.096 tokens en Haiku 4.5) la marca se ignora sin error.
   const systemConCache = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
   for (let step = 0; step < maxSteps; step++) {
-    // Con la clave del negocio, el pedido de `conClaveDelNegocio` (el modelo barato, sin thinking ni effort) más las
-    // herramientas: es la forma que ya anda con su clave.
+    // Con la clave del negocio, el pedido de `conClaveDelNegocio` (sin thinking ni effort) más las herramientas: es la forma que ya
+    // anda con su clave. Con el CRÉDITO y un modelo del router que no es el barato (18/11/2026), además el effort que pidió el router
+    // (Haiku 4.5 no lo acepta) y lugar para pensar: el tope de salida es un techo, se paga lo que se usa.
+    const conEsfuerzo = !!delNegocio?.esCredito && model !== 'claude-haiku-4-5' && !!opts.effort;
     const payload: Record<string, unknown> = delNegocio
-      ? { model, max_tokens: opts.maxTokens ?? 4096, system: systemConCache, messages: msgs, tools }
+      ? { model, max_tokens: conEsfuerzo ? Math.max(opts.maxTokens ?? 4096, 8000) : opts.maxTokens ?? 4096, system: systemConCache, messages: msgs, tools, ...(conEsfuerzo ? { output_config: { effort: opts.effort } } : {}) }
       : {
         model,
         max_tokens: opts.maxTokens ?? 16000,

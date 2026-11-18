@@ -149,6 +149,21 @@ test('6. el % del vigía (11/11/2026): primero la que menos gastó; la plataform
     'el interruptor de la plataforma no apaga sólo lo de la plataforma');
 });
 
+test('10. el crédito va con el modelo y el effort del ROUTER; con SU Claude, lo que eligió el negocio (18/11/2026)', () => {
+  // Martín, por el Cerebro: «Si, cambia el modelo sin problema» (el crédito iba siempre con Haiku aunque el router pidiera más).
+  const r = correr();
+  // Rota: la puerta 2 bajando el crédito al barato (`if (esCredito || delPlan) model = modelos[0]`) → Haiku en los dos.
+  assert.equal(r.routerOpus.texto, 'hola desde Claude', `Opus con el crédito no contestó: ${r.routerOpus.texto}`);
+  assert.deepEqual(r.routerOpus.pedidos, [{ clave: 'sk-ant-api03-credito-cuenta2-', modelo: 'claude-opus-4-8' }]);
+  assert.deepEqual(r.routerSonnet.pedidos, [{ clave: 'sk-ant-api03-credito-cuenta2-', modelo: 'claude-sonnet-5' }]);
+  // Rota: sin `output_config` en el pedido del crédito → Opus sin el effort que pidió el router.
+  assert.deepEqual(r.routerOpus.esfuerzos, ['high']);
+  assert.deepEqual(r.routerSonnet.esfuerzos, ['medium']);
+  // Rota: el modelo del router también con la clave que paga el negocio → el ws13 paga Opus sin haberlo elegido.
+  assert.deepEqual(r.routerSuClaude.pedidos, [{ clave: 'sk-ant-api03-propia-del-ws13-', modelo: 'claude-haiku-4-5' }]);
+  assert.deepEqual(r.routerSuClaude.esfuerzos, [null], 'Haiku 4.5 no acepta effort');
+});
+
 // ── Probado rompiéndolo (28/10/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
 //   R1 sin el reparto (`const i = 0`)                                                    → falla el 1
 //   R2 sin saltear la agotada                                                            → falla el 1

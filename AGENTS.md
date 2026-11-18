@@ -3126,7 +3126,10 @@ turno» cuenta el último TERMINADO, bien o mal: con sólo los buenos, se quedab
 
 **Y con qué IA corre un chat (el «+» de la caja, 8b) lo decide la RUTA, nunca el navegador:** toda entrada que pase `ia` a
 `turnoApp` lo valida antes con `eleccionDelPedido` (lib/chat-ia.ts), que lo cruza con las cuentas que se le ofrecerían ahora a
-esa persona. El turno no lo vuelve a validar. Y el modelo lo sigue cuidando la puerta 2: con el crédito de MaKo, Haiku siempre.
+esa persona. El turno no lo vuelve a validar. Y el modelo lo sigue cuidando la puerta 2: con el crédito de MaKo, el que pide el
+router del turno (`modeloDelCredito`, uno de `MODELOS_DEL_CREDITO`: Haiku, Sonnet u Opus; 18/11/2026, Martín: «Si, cambia el
+modelo sin problema»); sin router, o sin poder leer el crédito, Haiku, elija lo que elija la persona. El Plan, nunca con el
+crédito.
 
 **Y la sesión de Claude en la PC del cliente se inicia SIN consola (0.4.0):** `iniciarSesionDeClaude` (scripts/ia-pc/mako-pc.mjs),
 con su página local en 127.0.0.1. Nunca `stdio: 'inherit'` ni una ventana de terminal para un paso de la persona, y el

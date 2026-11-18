@@ -97,7 +97,8 @@ test('4. el grupo contesta con CLAUDE PRIMERO: su Claude, o el crédito de los p
   assert.doesNotMatch(DOER, /await chatCheap\(/, 'volvió la charla barata (Gemini primero) al grupo');
   // La puerta 2 (lo de verdad, en tests/credito-grupos.test.ts): la cuenta del grupo pasa por ahí.
   const ant = sinComentarios(readFileSync(join(RAIZ, 'lib/anthropic.ts'), 'utf8')).replace(/\r\n/g, '\n');
-  assert.match(ant, /permisoDeLaClaveDelNegocio\(opts\.feature, \{ modelo: opts\.modeloSuClaude, cuentaDeLosGrupos: opts\.cuentaDeLosGrupos \}\)/);
+  // Y el modelo del router (18/11/2026): con el crédito, `modeloDelCredito`.
+  assert.match(ant, /permisoDeLaClaveDelNegocio\(opts\.feature, \{ modelo: opts\.modeloSuClaude, cuentaDeLosGrupos: opts\.cuentaDeLosGrupos, modeloDelCredito: opts\.modeloDelCredito \}\)/);
 });
 
 test('5. sin pin y sin su IA, el grupo va igual con CLAUDE PRIMERO (nunca a la puerta 1), y cada pedido a Claude tiene plazo', () => {

@@ -934,4 +934,19 @@ export const BITACORA: Hito[] = [
       'tests/clase-del-grupo.test.ts (5-ter) · tests/leads-por-campana.test.ts (10 y 11)',
     ],
   },
+  {
+    fecha: '18 nov', hora: '00:09', chat: 'Tickets de Sellers: el filtro de números', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo en WhatsApp piensa con un modelo mejor cuando el pedido lo necesita',
+    puntos: [
+      'Hasta hoy MaKo contestaba en el grupo siempre con el modelo más simple de Claude. Ahora usa uno mejor cuando le pides un dato o una acción, y el más capaz cuando hay que razonar o escribir; la charla sigue con el simple.',
+      '**Cómo se prueba:** en el grupo de MaKo, «¿qué campaña me conviene pausar y por qué?».',
+    ],
+    archivos: [
+      'lib/veto-claude.ts — `MODELOS_DEL_CREDITO` y el crédito con el modelo del router',
+      'lib/anthropic.ts — `modeloDelCredito` hasta la puerta 2, y el effort con Sonnet u Opus',
+      'lib/mako-doer-in.ts — el turno del grupo le pasa el modelo y el effort del router',
+      'tests/credito-modelo-router.test.ts · tests/credito-grupos.test.ts (10)',
+    ],
+  },
 ];

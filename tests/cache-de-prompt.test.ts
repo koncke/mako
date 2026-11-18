@@ -19,7 +19,8 @@ test('el system del turno con herramientas va con cache_control efímero, en las
   assert.ok(tools.length > 100, 'no encontré chatClaudeTools');
   assert.match(tools, /const systemConCache = \[\{ type: 'text', text: system, cache_control: \{ type: 'ephemeral' \} \}\];/);
   const payload = tools.slice(tools.indexOf('const payload: Record<string, unknown> = delNegocio'), tools.indexOf('if (opts.toolChoice)'));
-  assert.match(payload, /\? \{ model, max_tokens: opts\.maxTokens \?\? 4096, system: systemConCache, messages: msgs, tools \}/, 'con la clave del negocio, sin caché');
+  // Con el crédito y Sonnet u Opus (18/11/2026), además el effort del router y un tope más alto: el system con caché, igual.
+  assert.match(payload, /\? \{ model, max_tokens: conEsfuerzo \? Math\.max\(opts\.maxTokens \?\? 4096, 8000\) : opts\.maxTokens \?\? 4096, system: systemConCache, messages: msgs, tools, \.\.\.\(conEsfuerzo \? \{ output_config: \{ effort: opts\.effort \} \} : \{\}\) \}/, 'con la clave del negocio, sin caché');
   assert.match(payload, /max_tokens: opts\.maxTokens \?\? 16000,\n\s*system: systemConCache,/, 'con la plataforma, sin caché');
   assert.doesNotMatch(payload, /\bsystem,/, 'volvió el system en texto');
 });

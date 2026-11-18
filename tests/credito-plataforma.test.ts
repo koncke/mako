@@ -92,8 +92,9 @@ test('4. una cuenta que falla: la otra cuenta si es de ESA cuenta; el respaldo s
 });
 
 test('5. lo que dice la lista de modelos es lo que corre: el crédito PRIMERO, con la misma regla, sin tocar el `def`', () => {
-  assert.equal(primeroConElCredito('mako-doer'), 'primero: crédito de Claude (Haiku), sólo en el espacio de MaKo');
-  assert.equal(primeroConElCredito('mako-doer-in'), 'primero: crédito de Claude (Haiku), en los grupos de WhatsApp de todos los negocios sin su Claude');
+  assert.equal(primeroConElCredito('mako-doer'), 'primero: crédito de Claude (Haiku, o el modelo que se pida), sólo en el espacio de MaKo');
+  // 18/11/2026 (Martín: «Si, cambia el modelo sin problema»): en los grupos, el crédito va con el modelo del router.
+  assert.equal(primeroConElCredito('mako-doer-in'), 'primero: crédito de Claude (con el modelo que pide el router: Haiku, Sonnet u Opus), en los grupos de WhatsApp de todos los negocios sin su Claude');
   assert.equal(primeroConElCredito('plan-fathom'), null, 'la lista dice que el Plan va con el crédito');
   assert.equal(primeroConElCredito('cs-sesion'), null, 'la lista dice que una función con `fallback: []` va con el crédito');
   // El `def` sigue siendo el respaldo, no Anthropic (un `def` de Anthropic va a la puerta 1, que el veto frena).
