@@ -272,6 +272,26 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 ---
 
 
+## La limpieza semanal de %TEMP% está construida y la instala Martín (18/11/2026, F69)
+
+**Vive en:** `scripts/limpiar-temporales-instalar.cmd` (registra la tarea) · `scripts/limpiar-temporales-semanal.cmd` (lo que la
+tarea corre) · `tests/limpiar-temporales-instalar.test.ts`.
+
+- **Lo que faltaba:** `scripts/limpiar-temporales.mjs` sabía vaciar `tsx-<usuario>` desde el 6/11 (ver «Los scripts llenaban
+  %TEMP%…» más abajo), pero nadie lo corría: 216.852 entradas ese día. Ahora hay un instalador que registra la tarea
+  programada `mako-limpiar-temporales` (los lunes a las 13:17, como el usuario que la instala, y si la PC estaba apagada,
+  apenas se prende) y la tarea, que corre el limpiador con `--aplicar` y suma cada corrida a
+  `%LOCALAPPDATA%\mako\limpiar-temporales.log`.
+- **Trampa: la tarea no hereda el PATH de la terminal.** El instalador busca el node de esa máquina con `where node` y se
+  lo pasa a la tarea con su ruta entera; las rutas de los scripts salen de `%~dp0`, nunca de `C:\Users\…` (los instaladores
+  de los cursos tienen la ruta de OneDrive escrita a mano y ya no es donde vive el clon).
+- **Un .cmd no corre en Linux**, así que el test fija lo que se rompe en silencio entre los tres archivos (que los nombres
+  que se llaman existan, que no haya rutas fijas ni caracteres fuera de ASCII, que instalar no borre nada) y corre DE VERDAD
+  la parte que se puede: el limpiador con las banderas exactas de la tarea, sobre un %TEMP% de mentira.
+- **Para Martín:** construido, falta instalarlo. Se corre una sola vez, en una terminal de su PC:
+  `scripts\limpiar-temporales-instalar.cmd`. Antes, `node scripts\limpiar-temporales.mjs` dice qué borraría sin borrar nada.
+  Ninguna sesión lo instala: borra cientos de miles de archivos en su máquina.
+
 ## /api-mako sin sesión: ni `PUBLICOS` ni `esPublica` (16/11/2026)
 
 - **⚠️ El diagnóstico obvio era el equivocado: sumar /api-mako a `PUBLICOS` la deja de SÓLO LECTURA para todos.** Crear un token
@@ -824,8 +844,9 @@ no haber podido limpiar.
 chat que corra un test en este momento, y sacarle una entrada a un proceso vivo lo hace fallar con un error que no tiene nada
 que ver con su código.
 
-**Sin hacer, y lo decide Martín:** correr `node scripts/limpiar-temporales.mjs --aplicar`. No lo corrí: borra 207.092
-entradas en su máquina con diez chats trabajando. Sin `--aplicar` el script sólo cuenta.
+~~**Sin hacer, y lo decide Martín:** correr `node scripts/limpiar-temporales.mjs --aplicar`.~~ (18/11/2026, F69: quedó el
+instalador de la tarea semanal, `scripts/limpiar-temporales-instalar.cmd`, ver la entrada de arriba; **falta que Martín lo
+instale**.) No lo corrí: borra 207.092 entradas en su máquina con diez chats trabajando. Sin `--aplicar` el script sólo cuenta.
 ## Un dato que se calcula y nadie lee es un dato que miente: la guardia del Runner apagada (6/11/2026)
 
 **Vive en:** `scripts/operaciones/runner-salud.mjs` (`estado`, `alAbrir`, `tareaDeLaCuenta`). Lo fija
