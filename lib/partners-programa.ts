@@ -550,11 +550,12 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
   const pagosDe = await pagosDeLosReferidos(plataforma, [...primero.keys()]).catch((e) => { console.warn(`[partners] no pude leer los pagos de los referidos: ${msg(e)}`); return null; });
   // Lo ya acreditado, de una lectura. Si no se puede leer (o falta la 0421: sin `pago_id` no hay cómo no acreditar dos veces) no
   // se acredita NADA: nunca de más.
-  let previo: Array<{ referidor_ws: number; referido_ws: number; pago_id: number | null }> | null = null;
+  type CreditoPrevio = { referidor_ws: number; referido_ws: number; pago_id: number | null };
+  let previo: CreditoPrevio[] | null = null;
   if (primero.size) {
     const r = await db.from('partner_creditos').select('referidor_ws, referido_ws, pago_id').eq('tipo', 'referido').in('referido_ws', [...primero.keys()]).limit(10000);
     if (r.error) console.warn(`[partners] no acredito por pago: no pude leer lo ya acreditado (${r.error.message}). ¿Falta la migración 0421?`);
-    else previo = (r.data ?? []) as typeof previo;
+    else previo = (r.data ?? []) as CreditoPrevio[];
   }
   for (const [referido, { codigo, precio }] of primero) {
     out.vistos++;
