@@ -408,6 +408,29 @@ export const BITACORA: Hito[] = [
     revisar: '/image-editor',
   },
   {
+    fecha: '18 nov', hora: '01:29', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Continuar con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: ['Llegó en el brief del coordinador de la nube, con el lote de Carruseles y Thumbnails de la lista verificada del 17/11 (F14, F27, F55, F130, F78, F56, F3).'],
+  },
+  {
+    fecha: '18 nov', hora: '01:29', chat: 'Lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Editar» un ejemplo ya no se queda esperando para siempre, y la parte de otra serie vuelve a la grilla',
+    puntos: [
+      'Si armar tu versión tarda más de lo que el servidor puede, MaKo te dice en qué paso se cortó y qué hacer, en vez de quedarse girando.',
+      'Dos series numeradas distintas de un mismo creador ya no se toman como una: la fecha y el total («parte 2 de 5») las separan, y la parte de la segunda serie vuelve a verse.',
+      'En Thumbnails, el filtro dice «Rubro del canal»: el rubro es el del canal que subió el video, no el tema de cada video.',
+    ],
+    archivos: [
+      'lib/carruseles/replica-stream.ts — el stream de «Editar»: el fin antes del tope (ruta) y el corte sin fin (pantalla)',
+      'app/api/image-editor/carruseles/replicar/route.ts y app/image-editor/carruseles/EditarCarrusel.tsx — los dos lados',
+      'lib/carruseles/duplicados.ts — `cabeEnLaSerie`: el número, el total y el orden en el tiempo',
+      'lib/thumbnails/explorar.ts, lib/api-mako/areas/imagen.def.ts, app/image-editor/carruseles/Thumbnails.tsx — el rubro del canal',
+      'docs/hallazgos-carruseles.md — la cosecha (18/11/2026)',
+    ],
+    revisar: '/image-editor',
+  },
+  {
     fecha: '18 nov', hora: '04:40', chat: 'De octubre: Image (nube)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
     titulo: 'El chat de MaKo pone filtros, recorta y cambia el tamaño del diseño; el ZIP de varias páginas, probado',
     puntos: [

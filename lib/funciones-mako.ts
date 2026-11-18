@@ -321,7 +321,9 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     hace: ['Crear una página desde un template de «Nueva» (anuncio, copy de Meta, Reel, stories, carrusel, email, VSL, YouTube)', 'Escribir por bloques con «/», arrastrar con el asa, listas, desplegables y tablas', 'Pedirle a MaKo que mejore, acorte o agregue una sección en la página', 'Compartir una página para que el cliente la edite'],
     reemplaza: 'Notion',
     // Reels se retiró del Video Editor el 29/10/2026 («no como tab, sino como template»): su guion es el template «Guion de Reel».
-    alias: ['copywriter', 'copywriting', 'notion', 'paginas', 'templates', 'copy', 'reel', 'reels', 'guion de reel'],
+    // Y el VSL Generator del menú (18/11/2026): /vsl-generator lleva a las plantillas de VSL de acá
+    // (app/vsl-generator/destino.ts). Con el nombre que la persona lee en el menú, MaKo no niega que puede escribir un VSL.
+    alias: ['copywriter', 'copywriting', 'notion', 'paginas', 'templates', 'copy', 'reel', 'reels', 'guion de reel', 'vsl generator', 'guion de vsl'],
     conecta: [{ a: 'ads-manager', motivo: 'El copy de anuncio se publica en Ads Manager' }, { a: 'video-generator', motivo: 'El guion se vuelve video' }],
     estado: 'lista', fuentes: ['docs/diseno-copywriter.md', 'lib/copywriter/plantillas.ts'],
   },
