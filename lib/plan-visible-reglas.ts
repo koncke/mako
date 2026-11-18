@@ -48,3 +48,15 @@ export function nombreDelPlanVisible(p: {
   if (plan === 'no-se') return p.capa === 'agencia' ? p.nombres.pro : p.nombres.esencial;
   return PLAN_A_MEDIDA;
 }
+
+/**
+ * El concepto de RESERVA de un cobro de alta que llega sin concepto (`crearCobro`, lib/cobros.ts): termina en el recibo que ve el
+ * cliente, y decía «MaKo · plan Agencia» (la capa). Es la venta de un plan, así que `rige` es sí: la capa `agencia` es Pro y la
+ * `completo`, Essential. Una capa sin plan del catálogo, «MaKo · Plan a medida».
+ */
+export function conceptoDeAlta(capa: string, nombres: { esencial: string; pro: string }): string {
+  const plan = planQueSeVende({ capa, rige: true });
+  if (plan === 'pro') return nombres.pro;
+  if (plan === 'esencial') return nombres.esencial;
+  return `MaKo · ${PLAN_A_MEDIDA}`;
+}

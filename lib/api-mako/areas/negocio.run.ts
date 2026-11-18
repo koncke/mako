@@ -216,7 +216,10 @@ export const RUNNERS: Runners = {
   ver_mi_plan: {
     leer: async (_input, ctx) => {
       const [ws, sus, gratisHasta] = await Promise.all([getWorkspace(ctx.ws), suscripcionDeMakoDe(ctx.ws), gratisHastaDe(ctx.ws).catch(() => null)]);
-      const plan = capaDef(ws?.capa).nombre;
+      // El plan que se vende, no la capa (18/11/2026): le decía «Agencia» a quien paga MaKo Pro. Lo mismo que «Tu plan»
+      // (lib/plan-visible.ts), con `import()` como app/configuraciones/plan/actions.ts: este archivo lo cargan muchos tests.
+      const { nombreDelPlanDe } = await import('@/lib/plan-visible');
+      const plan = await nombreDelPlanDe(ctx.ws, ws?.capa ?? null);
       const donde = linkApp('/configuraciones/plan', ctx.ws);
       if (!sus) return json({ plan, cobro: 'acordado con MaKo', ...(gratisHasta ? { gratis_hasta: gratisHasta } : {}), para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
       return json({

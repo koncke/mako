@@ -9,8 +9,8 @@
 //   4. `audioDelCoach` REAL (tests/_voz-coach-hijo.ts): sin la key, nada; una fija se guarda y la segunda vez sale guardada, sin
 //      pagarla; lo personalizado va por streaming y suma al mes; con el tope lleno no se pide nada;
 //   5. la ruta y el botón: detrás del interruptor de la revisión y de la key; el botón no tapa el texto.
-// Probado rompiéndolo (18/11/2026): sin la caché de la fija → falla 4; sin reservar el tope → falla 4; sin `veOnboardingV2` en la
-// ruta → falla 5.
+// Probado rompiéndolo (18/11/2026): sin la caché de la fija → falla 4; sin reservar el tope → falla 4; sin `cobrarMediosMt` → falla
+// 4; sin `devolverMediosMt` → falla 4; sin `veOnboardingV2` en la ruta → falla 5.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -23,6 +23,7 @@ import {
   rutaDeLaFija, firmaDeLaFija, sueneSolo, leerSonados, conSonado, TOPE_SONADOS,
 } from '../lib/voz-coach-reglas';
 import { VOZ_MAKO } from '../lib/voz-mako-reglas';
+import { mtDeVoz, USD_POR_MIL_CARACTERES_DE_VOZ } from '../lib/mako-tokens-reglas';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -81,7 +82,7 @@ test('4. audioDelCoach real: sin key nada; la fija se guarda una vez; lo persona
   assert.equal(sin.r.status, 503);
   assert.equal(sin.llamadas, 0, 'sin la key de la plataforma no se llama a ElevenLabs');
 
-  const f = e.get('fija') as unknown as { disponible: boolean; primera: { guardado: boolean; bytes: number }; tras1: { llamadas: number; subidas: number }; segunda: { guardado: boolean; bytes: number }; llamadas: number; rutas: string[]; pedido: string };
+  const f = e.get('fija') as unknown as { disponible: boolean; primera: { guardado: boolean; bytes: number }; tras1: { llamadas: number; subidas: number }; segunda: { guardado: boolean; bytes: number }; llamadas: number; rutas: string[]; pedido: string; cobros: Array<{ mt: number; feature: string; referencia: string }> };
   assert.equal(f.disponible, true);
   assert.equal(f.primera.guardado, false);
   assert.ok(f.primera.bytes > 0);
@@ -91,11 +92,26 @@ test('4. audioDelCoach real: sin key nada; la fija se guarda una vez; lo persona
   assert.ok(f.rutas.some((x) => x.includes(`voz-coach/${VOZ_COACH.voiceId}/${VOZ_COACH.modelo}/`)));
   assert.match(f.pedido, new RegExp(`^/v1/text-to-speech/${VOZ_COACH.voiceId}/stream\\|${VOZ_COACH.modelo}\\|`));
 
-  const p = e.get('personalizado') as unknown as { ok: boolean; stream: boolean; llamadas: number; subidas: number; usado: string; largo: number };
+  const p = e.get('personalizado') as unknown as { ok: boolean; stream: boolean; llamadas: number; subidas: number; usado: string; largo: number; cobros: Array<{ mt: number; feature: string; referencia: string }> };
   assert.equal(p.ok, true);
   assert.equal(p.stream, true, 'lo personalizado va por streaming');
   assert.deepEqual([p.llamadas, p.subidas], [1, 0], 'lo personalizado no se guarda');
   assert.equal(Number(p.usado), 79 + p.largo, 'cada audio pedido suma sus caracteres al mes');
+
+  // TODO GASTA MAKO TOKENS (Martín, 15/11): la fija se cobra la PRIMERA vez (lo que cuesta), y ya guardada no paga nada; lo
+  // personalizado, cada vez, por lo que cuesta. Rota: sin `cobrarMediosMt` en audioDelCoach → no hay cobros.
+  assert.deepEqual(f.cobros.map((c) => [c.mt, c.feature, c.referencia]), [[mtDeVoz(79), 'voz-coach', 'pregunta fija']], 'la segunda vez, guardada, no cobra');
+  assert.deepEqual(p.cobros.map((c) => [c.mt, c.referencia]), [[mtDeVoz(p.largo), 'respuesta del coach']]);
+  const sinSaldo = e.get('sinSaldo') as unknown as { r: { ok: boolean; status: number; error: string }; llamadas: number; usadoAntes: string; usado: string };
+  assert.equal(sinSaldo.r.status, 402);
+  assert.match(sinSaldo.r.error, /Te quedaste sin MaKo Tokens/);
+  assert.equal(sinSaldo.llamadas, 0, 'sin saldo no se pide el audio');
+  assert.equal(sinSaldo.usado, sinSaldo.usadoAntes, 'ni se mueve el tope del mes');
+  const caido = e.get('elevenCaido') as unknown as { r: { status: number }; cobros: Array<{ mt: number }>; devoluciones: Array<{ p_delta_cupo: number; p_feature: string }> };
+  assert.equal(caido.r.status, 502);
+  assert.equal(caido.devoluciones.length, 1, 'ElevenLabs no generó nada: se devuelve');
+  assert.equal(caido.devoluciones[0].p_delta_cupo, caido.cobros[0].mt);
+  assert.equal(caido.devoluciones[0].p_feature, 'voz-coach');
 
   const t = e.get('tope') as unknown as { r: { ok: boolean; status?: number }; llamadas: number };
   assert.equal(t.r.status, 429);
@@ -104,6 +120,14 @@ test('4. audioDelCoach real: sin key nada; la fija se guarda una vez; lo persona
   const v = e.get('vacio') as unknown as Record<string, { status: number }>;
   for (const k of ['emoji', 'link', 'largo']) assert.equal(v[k].status, 400, k);
   assert.deepEqual((e.get('red') as unknown as { otras: string[] }).otras, []);
+});
+
+test('4-bis. lo que cuesta la voz en MaKo Tokens: el precio de lista de ElevenLabs, con la conversión de siempre', () => {
+  assert.equal(USD_POR_MIL_CARACTERES_DE_VOZ, 0.04);
+  assert.equal(mtDeVoz(314), 13, 'una respuesta típica del coach');
+  assert.equal(mtDeVoz(121), 5, 'una pregunta');
+  assert.equal(mtDeVoz(3000), 120, 'un onboarding entero con voz');
+  assert.equal(mtDeVoz(0), 0);
 });
 
 test('5. la ruta y el botón: detrás de la revisión y de la key; el botón no tapa el texto y suena solo una vez', () => {

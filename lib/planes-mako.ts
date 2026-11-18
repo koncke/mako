@@ -440,3 +440,12 @@ export function precioEn(plan: PlanMako, moneda: string): number | null {
 
 /** El concepto del cobro (lo ve el comprador en el checkout y en su resumen de tarjeta). */
 export const conceptoDelPlan = (plan: PlanMako): string => `${plan.nombre} · mensual`;
+
+/**
+ * El nombre de Essential y de Pro en el catálogo `planes` (el vigente es `planesMako`, lib/compra-plan.ts); si falta uno, el de
+ * PLANES_MAKO_DEFAULT. Para lo que le pone NOMBRE al plan del cliente (lib/plan-visible-reglas.ts), nunca el de la capa.
+ */
+export function nombresDeLosPlanes(planes: readonly Pick<PlanMako, 'id' | 'nombre'>[] = PLANES_MAKO_DEFAULT): { esencial: string; pro: string } {
+  const de = (id: string) => planes.find((p) => p.id === id)?.nombre || PLANES_MAKO_DEFAULT.find((p) => p.id === id)!.nombre;
+  return { esencial: de('esencial'), pro: de('pro') };
+}

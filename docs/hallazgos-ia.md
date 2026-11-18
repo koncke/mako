@@ -34,7 +34,12 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
   coach) y la persona no lo apagó («Que suene solo», en el navegador). Detrás del interruptor del onboarding V2.
 - **Sin hacer:** (1) el botón lo monta el chat del onboarding en `ChatDelCoach` (punta/offer-coach-v2); (2) el navegador espera el
   audio ENTERO (0,7–0,9 s medido): empezar a sonar con el primer pedazo pide MediaSource, que en iPhone es otra API; (3) la voz no
-  descuenta MaKo Tokens: si debe, es una decisión de producto.
+  descuenta MaKo Tokens: si debe, es una decisión de producto. → **Decidido el mismo día** (la regla de Martín, «todo gasta MaKo
+  Tokens»): lo personalizado se cobra por lo que cuesta, exacto y ANTES de pedirlo (`cobrarMediosMt`, como un medio), y si
+  ElevenLabs no genera nada se devuelve (`devolverMediosMt`); una fija ya guardada no paga nada. El costo es el precio de LISTA de la
+  API, US$0,04 cada 1.000 caracteres en Flash/Turbo (`USD_POR_MIL_CARACTERES_DE_VOZ`, lib/mako-tokens-reglas.ts): 13 MT una
+  respuesta, ~120 MT un onboarding entero. ⚠️ La cabecera `character-cost` (27 por 121 caracteres) NO es esa unidad: no sirve para
+  convertir a dólares. Sin saldo, no se pide el audio (402) y el tope del mes no se mueve.
 
 ## «Agendar llamar en dos semanas» se delegaba teniendo con qué hacerlo (ticket #110, 18/11/2026)
 

@@ -6,7 +6,8 @@
 //     (`planDelNegocio`, lib/tickets-db.ts);
 //   · si es cliente de una agencia, `esClienteDeAgencia` (lib/agencia.ts, con `cache`: la página ya la llama, y la segunda
 //     llamada no vuelve a leer);
-//   · los nombres del catálogo, `planesMako` (lib/compra-plan.ts), con los de PLANES_MAKO_DEFAULT si falta alguno.
+//   · los nombres del catálogo, `planesMako` (lib/compra-plan.ts), con los de PLANES_MAKO_DEFAULT si falta alguno
+//     (`nombresDeLosPlanes`, lib/planes-mako.ts).
 // Una lectura que falla no rompe la pantalla: cuenta como «no sé», y la regla decide con eso.
 // =============================================================================
 
@@ -14,14 +15,8 @@ import 'server-only';
 import { pagaUnPlanDe } from './plan-esencial';
 import { esClienteDeAgencia } from './agencia';
 import { planesMako } from './compra-plan';
-import { PLANES_MAKO_DEFAULT, type PlanMako } from './planes-mako';
+import { nombresDeLosPlanes, type PlanMako } from './planes-mako';
 import { nombreDelPlanVisible } from './plan-visible-reglas';
-
-/** El nombre de cada plan, del catálogo vigente; si falta uno, el de PLANES_MAKO_DEFAULT. */
-export function nombresDelCatalogo(planes: readonly Pick<PlanMako, 'id' | 'nombre'>[]): { esencial: string; pro: string } {
-  const de = (id: string) => planes.find((p) => p.id === id)?.nombre || PLANES_MAKO_DEFAULT.find((p) => p.id === id)!.nombre;
-  return { esencial: de('esencial'), pro: de('pro') };
-}
 
 /** El nombre del plan del negocio `ws` para el cliente: «MaKo Pro», «MaKo Essential», «Plan de tu agencia» o «Plan a medida». */
 export async function nombreDelPlanDe(ws: number, capa: string | null): Promise<string> {
@@ -33,5 +28,5 @@ export async function nombreDelPlanDe(ws: number, capa: string | null): Promise<
   // con «no sé» ya dice «Lo maneja tu agencia». Así el título y el resto de la pantalla no se contradicen. Si paga un plan del
   // catálogo, esto no cambia nada: el nombre es el del catálogo. Lo fija tests/agency-dos-duenos.test.ts.
   const deAgencia = (await esClienteDeAgencia(ws)) !== false;
-  return nombreDelPlanVisible({ capa, rige, clienteDeAgencia: deAgencia, nombres: nombresDelCatalogo(planes) });
+  return nombreDelPlanVisible({ capa, rige, clienteDeAgencia: deAgencia, nombres: nombresDeLosPlanes(planes) });
 }
