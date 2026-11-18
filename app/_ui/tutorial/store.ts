@@ -24,7 +24,11 @@ export type MotivoFin = 'fin' | 'omitido';
 export type Senal =
   | { tipo: 'tutorial'; id: number; tutorial: TutorialPestana; alTerminar?: (m: MotivoFin) => void;
       /** Otro video en lugar del de la pestaña (la primera vez en el Ops Center, el del recorrido): su último lugar marcado es el cierre. */
-      video?: string }
+      video?: string;
+      /** Sin la presentación: arranca en el video (lo pidió un clic, como el «▶» del video del día del reto). */
+      directo?: boolean }
+  /** Un video que se estaba viendo en su lugar y salió de la vista (o se navegó): sigue flotando abajo a la derecha, desde `desde`. */
+  | { tipo: 'video'; id: number; clave: string; titulo: string; desde: number }
   | { tipo: 'marca'; id: number; paso: PasoTutorial & { haz: string }; alHacer: () => void; alOmitir?: () => void; listo?: string; libre?: boolean };
 
 let actual: Senal | null = null;
@@ -33,8 +37,19 @@ const oyentes = new Set<() => void>();
 const avisar = () => { for (const f of oyentes) f(); };
 
 /** El tutorial de una pestaña. Reemplaza lo que hubiera (una cosa por vez). */
-export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string }): void {
-  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}) };
+export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string; directo?: boolean }): void {
+  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}), ...(o?.directo ? { directo: true } : {}) };
+  avisar();
+}
+
+/**
+ * EL VIDEO SIEMPRE A LA VISTA (Martín, 18/11: «si estoy viendo el tutorial y me voy a otro lugar… que aparezca la vista previa
+ * chiquitita abajo a la derecha, o si scrolleo en el chat y queda muy arriba… que aparezca también ahí abajito»). Un video que
+ * corría en su lugar y salió de la vista sigue aquí, desde donde iba. No pisa un tutorial en curso.
+ */
+export function reproducirFlotante(clave: string, titulo: string, desde: number): void {
+  if (actual && actual.tipo !== 'video') return;
+  actual = { tipo: 'video', id: ++n, clave, titulo, desde };
   avisar();
 }
 
@@ -61,6 +76,7 @@ export function terminar(id: number, como: MotivoFin | 'hecho'): void {
   if (!s || s.id !== id) return;
   actual = null;
   avisar();
+  if (s.tipo === 'video') return;
   if (s.tipo === 'tutorial') s.alTerminar?.(como === 'omitido' ? 'omitido' : 'fin');
   else if (como === 'omitido') s.alOmitir?.();
   else s.alHacer();

@@ -55,6 +55,18 @@ export const RETO_HOLA = (nombre: string) => `¡Hola${nombre ? `, ${nombre}` : '
 /** «En X › Y»: la ruta va aparte para que empiece por la tab de la barra (tests/mako-nombres-de-tabs.test.ts). */
 const en = (ruta: string): string => `En ${ruta}`;
 
+/**
+ * El video de un día del reto como TUTORIAL (Martín, 18/11: «que el video del día 2 pause en cada cosa que pide»): sus pasos son las
+ * marcas de sus tareas, en orden. Con frases con `sel` en el manifiesto, el motor marca cada lugar cuando la voz lo nombra y pausa
+ * hasta el clic (app/_ui/tutorial/MotorTutorial.tsx); el video corre en el cuadrito de abajo a la derecha, que sigue al navegar.
+ */
+export function tutorialDelDia(d: DiaReto): import('@/lib/tutoriales').TutorialPestana {
+  return {
+    pestana: d.video, nombre: `Día ${d.n}`, ruta: '/second-brain', intro: d.mensaje,
+    pasos: d.tareas.flatMap((t) => t.marcas.map((m) => ({ sel: m.sel, titulo: m.titulo, texto: m.texto, ...(m.lado ? { lado: m.lado } : {}) }))),
+  };
+}
+
 export const DIAS_RETO: readonly DiaReto[] = [
   {
     n: 1, titulo: 'Tu oferta y tu sistema de adquisición', video: 'reto-dia-1',
