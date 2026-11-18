@@ -38,6 +38,7 @@ import {
   MODELO_DOCS, type EsfuerzoBarato, type ProvName,
 } from './ai-cheap';
 import { overrideDeFeature } from './model-registry';
+import { GEMINI_FLASH_LITE } from './gemini-modelos';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
 import {
@@ -73,7 +74,7 @@ export const PROVS_OFFER: readonly ProvName[] = ['gemini'];
  * `MODELO_DOCS` (`minimax/minimax-m3:free`) ya no es gratis. Si allá cambia, cambia acá.
  */
 /** El modelo de Gemini del turno en la red de plataforma (ver `Pedido.modelosRed`). */
-export const MODELO_TURNO_RED = 'gemini-flash-lite-latest';
+export const MODELO_TURNO_RED = GEMINI_FLASH_LITE;
 
 export const MODELOS_OFFER: Partial<Record<ProvName, string>> = {
   openrouter: 'nvidia/nemotron-3-super-120b-a12b:free',

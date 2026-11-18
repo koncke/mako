@@ -33,6 +33,7 @@ import { sanearBloque } from '@/lib/chat-bloques';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { conHorasDelNegocio } from './horas-del-negocio';
 import { registrarAccionMako } from '@/lib/actividad-registro';
+import { errorDelPlanParaElNegocio } from '@/lib/tope-texto-agencia';
 
 export { vistaDe };
 
@@ -65,6 +66,18 @@ export async function ejecutarOperacion(
 }
 
 async function correrOperacion(
+  id: string,
+  inputCrudo: Record<string, unknown> | null | undefined,
+  ctx: Ctx,
+  origen: 'query' | 'json',
+  vistaPrevia?: Vista,
+): Promise<Resultado> {
+  const r = await correrCruda(id, inputCrudo, ctx, origen, vistaPrevia);
+  // Al cliente de una agencia, un tope o un candado de Pro no le dice «Pasa a … Pro»: su plan lo cambia su agencia (F148).
+  return r.ok ? r : { ...r, error: await errorDelPlanParaElNegocio(ctx.ws, r.error) };
+}
+
+async function correrCruda(
   id: string,
   inputCrudo: Record<string, unknown> | null | undefined,
   ctx: Ctx,

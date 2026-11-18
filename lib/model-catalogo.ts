@@ -13,6 +13,8 @@
 // Nadie importa este archivo directo: `model-registry.ts` lo re-exporta entero, así
 // que los call-sites siguen escribiendo `from '@/lib/model-registry'`.
 
+import { GEMINI_FLASH } from './gemini-modelos';
+
 export type Proveedor = 'anthropic' | 'groq' | 'openai' | 'gemini';
 export type ModeloRef = { provider: Proveedor; model: string };
 export type FeatureModelo = {
@@ -104,7 +106,7 @@ const SONNET: ModeloRef = { provider: 'anthropic', model: 'claude-sonnet-5' };
 const GROQ_WHISPER: ModeloRef = { provider: 'groq', model: 'whisper-large-v3-turbo' };
 // Gemini Flash: 1M de contexto + function-calling. BYOK por cliente (su propia key).
 // El free entrena; para datos de clientes va key paga (ver metodo-catalogo).
-const GEMINI = (model = 'gemini-flash-latest'): ModeloRef => ({ provider: 'gemini', model });
+const GEMINI = (model: string = GEMINI_FLASH): ModeloRef => ({ provider: 'gemini', model });
 // La IA del negocio sin Gemini (`deSuIA`): su GPT por clave (su Claude va antes, por la segunda puerta del veto). El modelo
 // es el barato de OpenAI que ya usa la cascada (lib/ai-cheap.ts): lo paga el negocio.
 const SU_IA: ModeloRef = { provider: 'openai', model: 'gpt-4o-mini' };

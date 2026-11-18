@@ -86,7 +86,8 @@ test('las puertas: sólo lo que SUMA una cuenta, y antes de guardar nada', () =>
   //    Lo que NO cambia es el tope: las puertas de arriba son las que cuidan la plata y no se aflojan por esto.
   const cartel = leer('app/integraciones/CuentasDePago.tsx');
   assert.match(cartel, /\{msg\.planes && <CtaPasarAPro><a href=\{msg\.planes\}[^>]*>Pasar a Pro<\/a><\/CtaPasarAPro>\}/);
-  assert.match(sinComentarios(cartel), /import \{ CtaPasarAPro \} from '\.\.\/_components\/CtaPasarAPro';/, 'el envoltorio tiene que venir del componente compartido, no de una copia local');
+  // (18/11/2026, F148: del mismo componente viene `TextoDelTope`, el texto del tope sin «Pasa a MaKo Pro» para ese cliente.)
+  assert.match(sinComentarios(cartel), /import \{ CtaPasarAPro, TextoDelTope \} from '\.\.\/_components\/CtaPasarAPro';/, 'el envoltorio tiene que venir del componente compartido, no de una copia local');
 });
 
 test('el tope vive SÓLO en las puertas que conectan: nunca desconecta ni frena un cobro', () => {

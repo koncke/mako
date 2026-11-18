@@ -189,6 +189,7 @@ import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente, 
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { urlGravatar } from '@/lib/gravatar';
+import { fotoDePersonaSegura } from '@/lib/foto-perfil';
 import { type VisitasMap } from './crm-map';
 import { TOPE_NOTA, BUCKET_NOTAS_LEAD, pathEsNotaDelLead } from './notas-reglas';
 import { esMimeNota, TOPE_NOTA_BYTES, nombreDeAdjunto } from '@/app/customer-success/curso/reglas';
@@ -2738,7 +2739,9 @@ export async function getEquipoAction(): Promise<MiembroEquipo[]> {
     // setterMaKoOption / la estrella en la ficha), pero no como opción a elegir.
     return ((data ?? []) as Array<{ nombre: string | null; email: string; foto_url: string | null; rol: string; workspace_id: number | null }>)
       .filter((u) => u.rol !== 'admin' && u.workspace_id === ws && (u.nombre?.trim() || u.email) && u.nombre?.trim() !== MAKO_SETTER)
-      .map((u) => ({ nombre: u.nombre?.trim() || u.email, email: u.email, foto_url: u.foto_url ?? null }));
+      // La foto pasa por el filtro de orígenes (lib/foto-perfil.ts, F173): la dibujan Chats y el CRM como avatar, y una de
+      // afuera que ya está en la base es un web bug que avisa quién abrió la pantalla.
+      .map((u) => ({ nombre: u.nombre?.trim() || u.email, email: u.email, foto_url: fotoDePersonaSegura(u.foto_url) }));
   } catch {
     return [];
   }
@@ -2967,7 +2970,8 @@ export async function getLeadAuditAction(id: number): Promise<LeadAuditRowFull[]
   const rows = await getLeadAudit(id);
   // Autores con pinta de email → resolver contra la tabla usuarios (global).
   const emails = [...new Set(rows.map((r) => r.autor).filter((a) => a.includes('@')))];
-  const porEmail = new Map<string, { nombre: string; foto_url: string | null }>();
+  // La foto del autor pasa por el filtro de orígenes (lib/foto-perfil.ts, F173): la dibuja el historial del lead.
+  const porEmail = new Map<string, { nombre: string; foto: string | null }>();
   if (emails.length) {
     try {
       const { data } = await getSupabaseServer()
@@ -2975,7 +2979,7 @@ export async function getLeadAuditAction(id: number): Promise<LeadAuditRowFull[]
         .select('email, nombre, foto_url')
         .in('email', emails);
       for (const u of (data ?? []) as Array<{ email: string; nombre: string | null; foto_url: string | null }>) {
-        porEmail.set(u.email, { nombre: u.nombre?.trim() || u.email, foto_url: u.foto_url ?? null });
+        porEmail.set(u.email, { nombre: u.nombre?.trim() || u.email, foto: fotoDePersonaSegura(u.foto_url) });
       }
     } catch { /* sin enriquecer: se muestra el email pelado */ }
   }
@@ -2984,7 +2988,7 @@ export async function getLeadAuditAction(id: number): Promise<LeadAuditRowFull[]
     return {
       ...r,
       autor_nombre: u?.nombre ?? (r.autor.includes('@') ? r.autor.split('@')[0] : r.autor),
-      autor_foto: u?.foto_url ?? null,
+      autor_foto: u?.foto ?? null,
       revertible: REVERTIBLES.has(r.campo),
     };
   });

@@ -106,7 +106,8 @@ import { senalesAOfrecer, hayAlgoQueOfrecer, asistenciaImplicita } from './senal
 // La misma pieza que usan las fichas: los dos toques de Meta viven en UN lugar.
 import { SenalesMetaChips } from './MoverEtapaConfirm';
 import { coincideBusqueda } from '@/lib/buscar-texto';
-import { arrobaInstagram, linksDeInstagramComoArroba } from './campo-inline';
+import { linksDeInstagramComoArroba } from './campo-inline';
+import { CAMPOS_LEAD_POR_DEFECTO, camposDelLead, type CampoLead } from './buscar-leads';
 import type { FunnelResumen } from '@/lib/funnel-fila';
 import { LogoMeta } from '@/app/_components/ServicioVisual';
 import { openCalendlyEn } from './calendly-widget';
@@ -582,6 +583,8 @@ export function CrmBoard({
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
   const [activeBands, setActiveBands] = useState<Set<StageBand>>(() => new Set<StageBand>(KANBAN_BANDS));
   const [search, setSearch] = useState('');
+  // Dónde busca la barra (F150): todos los campos, como siempre; la flechita achica (app/crm/buscar-leads.ts).
+  const [camposBusqueda, setCamposBusqueda] = useState<CampoLead[]>(CAMPOS_LEAD_POR_DEFECTO);
   // Multi-selección: el set VACÍO significa "todas" (no hay valor centinela 'todos').
   const [stageFilter, setStageFilter] = useState<Set<string>>(() => new Set());
   const [originFilter, setOriginFilter] = useState<Set<string>>(() => new Set());
@@ -1731,7 +1734,7 @@ export function CrmBoard({
   const matches = (l: CrmLead, salvo?: 'ads') => {
     // Buscar como busca una persona (sin acentos, por palabras sueltas, por #id):
     // la regla vive en lib/buscar-texto, no acá — ver «Una cosa, un lugar».
-    if (!coincideBusqueda([l.id, l.name, l.company, l.email, l.phone, arrobaInstagram(l.instagram)], linksDeInstagramComoArroba(search))) return false;
+    if (!coincideBusqueda(camposDelLead(l, camposBusqueda), linksDeInstagramComoArroba(search))) return false;
     if (stageFilter.size > 0 && !stageFilter.has(effStage(l))) return false;
     if (originFilter.size > 0 && !originFilter.has(l.canal)) return false;
     // El filtro «Anuncio» es UN árbol (campaña › anuncio): pasa la campaña elegida entera O
@@ -3292,7 +3295,7 @@ export function CrmBoard({
         <SelectorFunnel funnels={funnelsConNombre} activo={funnelActivo} puedeCrear={!!puedeCrearCrm} onEditarEtapas={(id, nombre) => setEtapasDe({ id, nombre })} />
         <VistaSelector vista={vista} onVista={cambiarVista} pendientes={marcarPending} />
         <>
-          <Buscador value={search} onChange={setSearch} />
+          <Buscador value={search} onChange={setSearch} campos={camposBusqueda} onCampos={setCamposBusqueda} />
           <CrmFilterMenu
             stages={stages}
             etapas={stageFilter} setEtapas={setStageFilter}

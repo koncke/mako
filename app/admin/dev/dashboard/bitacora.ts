@@ -1390,4 +1390,18 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '18 nov', hora: '05:40', chat: 'Dashboard (nube, octubre)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«Vendido por funnel» y la hoja filtrada por ese funnel ya dan lo mismo',
+    puntos: [
+      '**Agrupado por funnel, la venta de un lead que se sumó a otro funnel va donde la pone el objetivo**, igual que cuando se filtra la hoja: antes la barra y la hoja filtrada daban dos números para la misma venta.',
+      '**El lead se sigue contando una vez**, en su funnel de origen; lo que se mueve es sólo la venta. También en las tablas con columnas por funnel.',
+    ],
+    archivos: [
+      'lib/graficos-agregar.ts (`partesParaAgrupar`) — la venta al grupo de su dueño',
+      'tests/graficos-venta-agrupada-por-funnel.test.ts — la barra contra la hoja filtrada',
+    ],
+    revisar: '/dashboard',
+  },
 ];

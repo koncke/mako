@@ -177,4 +177,34 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'c0513f606', msg: 'Proxy: las acciones y las páginas dinámicas con extensión pasan por el control', lineas: 426, archivos: 20 }],
     revisar: '/crm',
   },
+  {
+    fecha: '18 nov', hora: '04:30', chat: 'Construir: seguridad e infraestructura', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Todos los pendientes de seguridad e infraestructura',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Le tocó a este chat el lote de seguridad e infraestructura de docs/pendientes-verificados-17-11.md: F115, F127, F126, F173, F74, F85 y F69.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '05:10', chat: 'Construir: seguridad e infraestructura', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Toda server action corta sin sesión, la foto de una persona sale filtrada y borrar un cliente deja constancia',
+    puntos: [
+      '**F115:** un guard barre las 585 acciones de los 98 \'use server\' de app/ y sigue cada llamada hasta el fondo (no busca un nombre). Aparecieron dos sin puerta y quedaron con la suya: el estado del puente a Flow y el de un trabajo de la cola. Las páginas por URL se midieron: ninguna muestra datos sin puerta.',
+      '**F173:** la foto de una persona sale por `fotoDePersonaSegura` en todos los lectores (equipo, historial del lead, grupos de la app, la barra), y la acción `foto` de /api/admin/usuarios rechaza lo que no es seguro.',
+      '**F126:** borrar un cliente anota antes en `borrados_workspace` (mig 0418, SIN APLICAR: hasta aplicarla se borra igual, con aviso), no borra si no pudo anotar, y se lleva también sus clips de video y sus creativos de grupo.',
+    ],
+    archivos: [
+      'tests/acciones-con-puerta.test.ts, tests/_puerta-acciones.ts, tests/_puerta-acciones-hijo.ts — el guard de la sesión',
+      'app/video-generator/puente-actions.ts — las dos acciones que no tenían puerta',
+      'lib/foto-perfil.ts, lib/usuarios.ts, app/crm/actions.ts, lib/grupo-puerta.ts, lib/perfil.ts, app/api/admin/usuarios/route.ts — la foto filtrada',
+      'lib/eliminar-workspace.ts, lib/reset-workspace.ts, supabase/migrations/0418_borrados_workspace.sql — la auditoría y los buckets',
+      'docs/hallazgos-seguridad.md → «Toda server action de app/ corta sin sesión…» (18/11/2026)',
+    ],
+    commits: [
+      { sha: 'c638ae9da', msg: 'Seguridad: la foto de una persona sale filtrada en el equipo, el historial, los grupos y la barra (F173)', lineas: 238, archivos: 8 },
+      { sha: '4c6fa0701', msg: 'Borrar un cliente deja constancia y se lleva todos sus archivos (F126)', lineas: 514, archivos: 7 },
+      { sha: '09f0727c0', msg: 'Seguridad: un guard que exige que TODA server action de app/ corte sin sesión al arrancar (F115)', lineas: 821, archivos: 4 },
+    ],
+    revisar: '/admin',
+  },
 ];

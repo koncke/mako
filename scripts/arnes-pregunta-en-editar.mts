@@ -10,7 +10,7 @@
 // Gasta unas pocas llamadas de la clave de la plataforma (Claude) y de la gratis de Gemini.
 // Correr: node --env-file=.env.local --import tsx scripts/arnes-pregunta-en-editar.mts ["una frase"]
 // =============================================================================
-export {};   // un .mts sin import ni export es un script GLOBAL para tsc (guardas-push.sh)
+import { GEMINI_FLASH_LITE } from '../lib/gemini-modelos';
 const base0 = process.cwd().split(String.fromCharCode(92)).join('/');
 const imp = (p: string) => import(`file:///${base0}/${p}`);
 const intencion = await imp('lib/flujo-ia-intencion.ts');
@@ -39,7 +39,7 @@ async function claude(system: string, user: string): Promise<string> {
 }
 async function gemini(system: string, user: string): Promise<string> {
   const r = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', { method: 'POST', headers: { authorization: `Bearer ${process.env.GEMINI_API_KEY ?? ''}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ model: 'gemini-flash-lite-latest', messages: [{ role: 'system', content: system }, { role: 'user', content: user }], response_format: { type: 'json_object' } }), signal: AbortSignal.timeout(60_000) });
+    body: JSON.stringify({ model: GEMINI_FLASH_LITE, messages: [{ role: 'system', content: system }, { role: 'user', content: user }], response_format: { type: 'json_object' } }), signal: AbortSignal.timeout(60_000) });
   const j = await r.json(); if (!r.ok) throw new Error(`gemini ${r.status}: ${JSON.stringify(j).slice(0, 160)}`);
   return j.choices?.[0]?.message?.content ?? '';
 }

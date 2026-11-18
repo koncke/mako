@@ -1268,12 +1268,30 @@ export function contestoAntesDeEscribir(pasos: readonly PasoGrafo[]): string[] {
  * Lo corre `setSecuenciaPasos` (lo publicado: es lo único que lee el motor, así que una tarjeta
  * suelta nunca corre) y el lienzo antes de Publicar y de Probar (`frenoDelFlujo`, que muestra el
  * PRIMERO: por eso «sin ningún camino» va adelante y las sueltas nombran su tarjeta).
+ *
+ * `audiosPorGrabar` (18/11/2026, F80): deja pasar SÓLO la nota de voz por grabar (`audioPorGrabar`). Lo usan quienes
+ * guardan un BORRADOR con la vara de Publicar (Crear con IA, que la deja en `pasos_borrador`, y lo que agrega «Editar
+ * con IA», que va al borrador del lienzo). `setSecuenciaPasos` y el lienzo no lo pasan: lo publicado nunca la lleva.
  */
-export function validarGrafo(pasos: readonly PasoGrafo[]): string[] {
-  return erroresDeForma(pasos, true);
+export function validarGrafo(pasos: readonly PasoGrafo[], o?: { audiosPorGrabar?: boolean }): string[] {
+  return erroresDeForma(pasos, true, o?.audiosPorGrabar === true);
 }
 
-function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[] {
+/**
+ * LA NOTA DE VOZ POR GRABAR (18/11/2026, F80): una tarjeta de mensaje `tipo: 'audio'` SIN su audio de la biblioteca. La
+ * pide Crear con IA («mándale un audio») cuando el negocio todavía no lo grabó: queda en el BORRADOR, no se PUBLICA
+ * (`validarGrafo` la frena: «Graba el audio de «X»»), el motor no la manda NUNCA (ni como texto: lib/nutricion.ts) y la
+ * tarjeta dice «Audio por grabar». Un audio con su id que ya no está en la biblioteca NO es esto: es «no disponible».
+ * Pura (la usan el lienzo, el motor, por-que-no-sale y la revisión de la IA).
+ */
+export const AUDIO_POR_GRABAR = 'Audio por grabar';
+/** Por qué el motor no la manda (el `error` del envío en `nutricion_envios`, que lee la ficha). */
+export const NOTA_AUDIO_POR_GRABAR = 'la nota de voz de la tarjeta está por grabar';
+export function audioPorGrabar(p: { tipo?: unknown; audio_id?: unknown } | null | undefined): boolean {
+  return !!p && p.tipo === 'audio' && !(Number(p.audio_id) > 0);
+}
+
+function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean, audiosPorGrabar = false): string[] {
   const err: string[] = [];
   const ids = pasos.map((p, i) => idDe(p, i));
   const ini = indiceInicio(pasos);
@@ -1326,6 +1344,8 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
     // Los BOTONES (24/10/2026): sólo Instagram y Messenger, hasta 3, cada uno con a dónde lleva, debajo de un texto de hasta 640.
     if (publicar && c === 'mensaje') err.push(...problemasDeBotones(p, textoFinalDe(p), `la tarjeta ${ids[i]}`));
     if (publicar && c === 'mensaje') err.push(...problemasDeRespuestaPublica(p, `la tarjeta ${ids[i]}`));
+    // La nota de voz por grabar (F80): guardar sí (es un borrador), publicar no. `errorLegible` la nombra como se ve.
+    if (publicar && !audiosPorGrabar && c === 'mensaje' && audioPorGrabar(p)) err.push(`graba el audio de la tarjeta ${ids[i]} antes de publicar`);
     if (publicar && c === 'esperar') {
       const m = Number(p.espera?.minutos);
       if (!p.espera || !(m > 0)) err.push(`la espera ${ids[i]} no dice cuánto`);
