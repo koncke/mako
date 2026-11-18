@@ -26,7 +26,9 @@ export type Senal =
       /** Otro video en lugar del de la pestaña (la primera vez en el Ops Center, el del recorrido): su último lugar marcado es el cierre. */
       video?: string;
       /** Sin la presentación: arranca en el video (lo pidió un clic, como el «▶» del video del día del reto). */
-      directo?: boolean }
+      directo?: boolean;
+      /** La persona tocó lo marcado por una frase del video (su `sel`): el chat del reto lo cuenta como hecho. */
+      alTocar?: (sel: string) => void }
   /** Un video que se estaba viendo en su lugar y salió de la vista (o se navegó): sigue flotando abajo a la derecha, desde `desde`. */
   | { tipo: 'video'; id: number; clave: string; titulo: string; desde: number }
   | { tipo: 'marca'; id: number; paso: PasoTutorial & { haz: string }; alHacer: () => void; alOmitir?: () => void; listo?: string; libre?: boolean };
@@ -37,8 +39,8 @@ const oyentes = new Set<() => void>();
 const avisar = () => { for (const f of oyentes) f(); };
 
 /** El tutorial de una pestaña. Reemplaza lo que hubiera (una cosa por vez). */
-export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string; directo?: boolean }): void {
-  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}), ...(o?.directo ? { directo: true } : {}) };
+export function mostrarTutorial(tutorial: TutorialPestana, o?: { alTerminar?: (m: MotivoFin) => void; video?: string; directo?: boolean; alTocar?: (sel: string) => void }): void {
+  actual = { tipo: 'tutorial', id: ++n, tutorial, alTerminar: o?.alTerminar, ...(o?.video ? { video: o.video } : {}), ...(o?.directo ? { directo: true } : {}), ...(o?.alTocar ? { alTocar: o.alTocar } : {}) };
   avisar();
 }
 

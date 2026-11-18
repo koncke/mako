@@ -144,3 +144,14 @@ test('el día 3 es tu primera automatización, sin atarla a WhatsApp (Martín, 1
   assert.ok(t.marcas.some((m) => /chb-nueva/.test(m.sel)), 'marca «Nueva automatización»');
   assert.deepEqual(d3.tareas.map((x) => x.id), ['contactos', 'automatizacion', 'calendar']);
 });
+
+test('lo tocado durante el video del día cuenta como hecho: la tarea cuya última marca es ese lugar (el Cerebro, 18/11)', async () => {
+  const { tareasQueCierra } = await import('../lib/reto/dias');
+  const d2 = DIAS_RETO[1];
+  assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-settings-instalar"]'), ['app', 'extension'], 'tocar «Instalar la app» cierra la app y la extensión');
+  assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-settings-integraciones"]'), ['integraciones']);
+  assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-barra-foto"]'), [], 'la foto es un paso del camino, no cierra nada');
+  const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
+  assert.match(chat, /alTocar: onTocado/, 'el video del día avisa lo tocado');
+  assert.match(chat, /¡Hiciste todo lo del día \{dia\.n\}!/, 'con todo hecho, la felicita y pasa a WhatsApp');
+});

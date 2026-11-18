@@ -26,7 +26,7 @@ import { mostrarTutorial, senalAhora, senalarDondeTocar } from '@/app/_ui/tutori
 import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { useVideoQueFlota } from '@/app/_ui/tutorial/useVideoQueFlota';
 import { guardarRetoDelEnsayo, retoDelEnsayo, useEnsayo } from '@/app/_ui/tutorial/desde-cero';
-import { claveTarea, diaAbierto, estadoDeLosDias, tutorialDelDia } from '@/lib/reto/dias';
+import { claveTarea, diaAbierto, estadoDeLosDias, tareasQueCierra, tutorialDelDia } from '@/lib/reto/dias';
 
 type DatosReto = { ve: boolean; estado: EstadoReto | null; abierto: number; dias: EstadoDia[]; hechos: number; linea: string | null };
 
@@ -131,7 +131,8 @@ export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: ()
             {abiertos.map((dia) => (
               <Dia key={dia.n} dia={dia} e={e} linea={d.linea} hora={horaWa}
                 onHora={(h) => { setHora(h); void hacer({ accion: 'hora', hora: h }); }}
-                onMarcar={(t) => marcarTarea(t.marcas, () => { void hacer({ accion: 'hecha', dia: dia.n, id: t.id }); }, () => {})} />
+                onMarcar={(t) => marcarTarea(t.marcas, () => { void hacer({ accion: 'hecha', dia: dia.n, id: t.id }); }, () => {})}
+                onTocadoEnVideo={(sel) => { for (const id of tareasQueCierra(dia, sel)) if (!tareaHecha(e, dia.n, id)) void hacer({ accion: 'hecha', dia: dia.n, id }); }} />
             ))}
             {d.abierto < 7 && (
               <Burbuja>
@@ -158,15 +159,16 @@ function Burbuja({ children, ancho = false }: { children: ReactNode; ancho?: boo
   return <FilaDelChat m={null} quien={{ titulo: 'MaKo', aspecto: ASPECTO_MAKO }} marcas={null} hora={null} ancho={ancho}><div className="rt-md">{children}</div></FilaDelChat>;
 }
 
-function Dia({ dia, e, linea, hora, onHora, onMarcar }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; onHora: (h: string) => void; onMarcar: (t: TareaReto) => void }) {
+function Dia({ dia, e, linea, hora, onHora, onMarcar, onTocadoEnVideo }: { dia: DiaReto; e: EstadoReto; linea: string | null; hora: string; onHora: (h: string) => void; onMarcar: (t: TareaReto) => void; onTocadoEnVideo: (sel: string) => void }) {
   const p = dia.whatsapp;
+  const todas = dia.tareas.every((t) => tareaHecha(e, dia.n, t.id));
   const link = p ? linkWaMe(linea, mensajeEscrito(p, hora)) : null;
   return (
     <>
       <p className="co-dia">Día {dia.n} de 7</p>
       <Burbuja ancho>
         <p>{dia.mensaje}</p>
-        <VideoDelDia dia={dia} />
+        <VideoDelDia dia={dia} onTocado={onTocadoEnVideo} />
       </Burbuja>
       <Burbuja ancho>
         <div className="rt-tarjeta" data-recorrido={`sb-reto-dia-${dia.n}`}>
@@ -187,6 +189,8 @@ function Dia({ dia, e, linea, hora, onHora, onMarcar }: { dia: DiaReto; e: Estad
           </ol>
         </div>
       </Burbuja>
+      {/* Lo que hizo durante el video ya cuenta (el Cerebro, 18/11): si hizo todo, la felicita y pasa a la prueba por WhatsApp. */}
+      {todas && <Burbuja><p>¡Hiciste todo lo del día {dia.n}!{p ? ' Te queda la prueba por WhatsApp.' : ''}</p></Burbuja>}
       {p && (
         <Burbuja ancho>
           <div className="rt-tarjeta rt-wa">
@@ -208,7 +212,7 @@ function Dia({ dia, e, linea, hora, onHora, onMarcar }: { dia: DiaReto; e: Estad
 }
 
 /** El video del día: el del manifiesto (`reto-dia-<n>`), o en la revisión su lugar marcado. Nunca otro video. */
-function VideoDelDia({ dia }: { dia: DiaReto }) {
+function VideoDelDia({ dia, onTocado }: { dia: DiaReto; onTocado?: (sel: string) => void }) {
   const v = useVideoTutorial(dia.video);
   const ref = useRef<HTMLVideoElement>(null);
   // Si sale de la vista corriendo (o se navega), sigue abajo a la derecha (Martín, 18/11).
@@ -217,7 +221,7 @@ function VideoDelDia({ dia }: { dia: DiaReto }) {
   // lo nombra, pausa hasta el clic y sigue en el cuadrito de abajo a la derecha mientras la persona navega.
   if (v && v.frases?.some((f) => f.sel)) {
     return (
-      <button type="button" className="rt-video rt-video--pasos" onClick={() => mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true })}
+      <button type="button" className="rt-video rt-video--pasos" onClick={() => mostrarTutorial(tutorialDelDia(dia), { video: dia.video, directo: true, alTocar: onTocado })}
         style={v.poster ? { backgroundImage: `url(${v.poster})` } : undefined} aria-label={`Ver el video del día ${dia.n}: te marca dónde tocar`}>
         <span className="rt-video__play" aria-hidden>▶</span><span className="rt-video__dice">Ver el video del día {dia.n}: te marco dónde tocar</span>
       </button>

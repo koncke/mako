@@ -67,6 +67,16 @@ export function tutorialDelDia(d: DiaReto): import('@/lib/tutoriales').TutorialP
   };
 }
 
+/**
+ * Las tareas del día que cierra tocar ese lugar: las que tienen ESE lugar como su última marca (el Cerebro, 18/11: «lo que la persona
+ * ya hizo tocando lo marcado durante el video cuenta como HECHO en la lista del día… nunca pide dos veces lo mismo»).
+ */
+export function tareasQueCierra(d: DiaReto, sel: string): string[] {
+  const norm = (x: string) => x.split(',').map((y) => y.replace(/\s+/g, ' ').trim());
+  const tocado = norm(sel);
+  return d.tareas.filter((t) => { const u = t.marcas[t.marcas.length - 1]; return !!u && norm(u.sel).some((x) => tocado.includes(x)); }).map((t) => t.id);
+}
+
 export const DIAS_RETO: readonly DiaReto[] = [
   {
     // DOS TAREAS, EN ORDEN (18/11/2026; Martín, 15/11: «al terminar el onboarding, Oferta y Funnel Coach en DOS chats separados»): la

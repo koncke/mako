@@ -261,11 +261,15 @@ function Capa({ senal, revision }: { senal: SenalConCapa; revision: boolean }) {
   }, [pasos, frases, fin, conVideoPedido]);
   /** La frase marcada ya está (la tocaron, «Siguiente», o pasó su tiempo): el video sigue. */
   const seguirVideo = useCallback((porClic = false) => {
-    if (frase) { hechas.current.add(frase.id); if (porClic) tocadas.current.add(frase.id); if (frase.cierra_despues) porCerrar.current = true; }
+    if (frase) {
+      hechas.current.add(frase.id);
+      if (porClic) { tocadas.current.add(frase.id); if (senal.tipo === 'tutorial' && frase.sel) senal.alTocar?.(pasoFrase?.sel ?? frase.sel); }
+      if (frase.cierra_despues) porCerrar.current = true;
+    }
     setFrase(null); setEl(null); setGeo({ hueco: null, tarjeta: null });
     const v = vidRef.current;
     if (!v || v.ended) irAlCierre(); else void v.play().catch(() => {});
-  }, [frase, irAlCierre]);
+  }, [frase, irAlCierre, senal, pasoFrase]);
   const siguiente = useCallback(() => {
     if (modoVideo) { if (cierre) fin('fin'); else seguirVideo(); return; }
     // «Empezar» con un video que trae sus frases: desde aquí manda el video (con sonido: hubo un clic).
