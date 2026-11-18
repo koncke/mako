@@ -10,29 +10,21 @@ export const TUTORIAL_COPILOT: TutorialPestana = {
   nombre: 'Marketing CoPilot',
   ruta: '/ads-manager/copiloto',
   rutaMovil: '/m/ads',
-  intro: 'El CoPilot hace de tu equipo de marketing: mira lo que publicas y lo que inviertes, y te dice qué hacer.',
+  intro: 'Deja de adivinar cuánto publicar y en qué red.',
   pasos: [
-    {
-      sel: '.cop-ent__barra',
-      titulo: 'Tres preguntas',
-      texto: 'Una por pantalla, y en dos minutos el CoPilot ya sabe por dónde vendes.',
-      sub: 'Antes, tres preguntas cortas, una por pantalla.',
-      lado: 'abajo',
-    },
     {
       sel: '.cop-ent__ops',
       titulo: 'Por dónde vendes',
       texto: 'Anuncios, Instagram o YouTube. Puedes marcar más de uno.',
-      sub: 'Marca por dónde vendes. Puede ser más de uno. Con el tiempo que tengas para crear, MaKo calcula cuánto publicar en cada red.',
+      sub: 'Mira aquí, ¿Por dónde vendes?: marca dónde publicas o inviertes.',
       lado: 'abajo',
     },
     {
       sel: 'button.cop-ent__seguir',
       titulo: 'Seguir',
       texto: 'Después analiza tu oferta, tu web, tus anuncios, Instagram y YouTube. Lo que te toca va directo a tu Plan.',
-      sub: 'Después analiza tu oferta, tu web, tus anuncios, Instagram y YouTube. Lo que te toca va directo a tu Plan, y el piloto no lanza un anuncio sin tu OK. Toca Seguir y arranca.',
+      sub: 'Haz clic aquí, en Seguir, y responde las otras dos, una por pantalla.',
       lado: 'arriba',
-      // Sin `clic`: «Seguir» está apagado hasta que se marca un canal, y con el velo sólo se puede tocar lo marcado.
     },
   ],
 };

@@ -2,22 +2,14 @@
 // (key `settings-instalar`: v3 para la entrada y las frases de acción del manifiesto v4). El QR (`img.aj-telefono__qr`, clase global) y
 // «Descargar» (su `href`) ya tienen un atributo estable; la fila de la extensión lleva su marca. En el teléfono es /m/cuenta/instalar
 // (otra pantalla), sin medir: sin `rutaMovil`.
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_INSTALAR: TutorialPestana = {
   pestana: 'settings-instalar',
   nombre: 'Instalar la app',
   ruta: '/perfil/instalar',
-  intro: '¿Pagas Claude o ChatGPT? En tu computadora, tus chats con MaKo usan esa suscripción.',
+  intro: 'MaKo en tu computadora, en tu celular y en Chrome.',
   pasos: [
-    {
-      sel: 'a[href="/perfil/instalar"]',
-      titulo: 'Instalar la app',
-      texto: 'MaKo en tu computadora, en tu celular y en Chrome.',
-      sub: 'Instalar la app, en Configuración, lleva MaKo a tu computadora, tu celular y Chrome.',
-      lado: 'derecha',
-    },
     {
       sel: 'img.aj-telefono__qr',
       titulo: 'En tu celular',
@@ -26,10 +18,10 @@ export const TUTORIAL_INSTALAR: TutorialPestana = {
       lado: 'izquierda',
     },
     {
-      sel: conMarca(MARCA.instalarExtension),
+      sel: '[data-recorrido="tour-settings-instalar-extension"]',
       titulo: 'Extensión para Chrome',
       texto: 'Hace tus videos con tu cuenta de Google Flow.',
-      sub: 'Mira aquí, Extensión para Chrome: hace tus videos con tu cuenta de Google Flow.',
+      sub: 'Mira aquí, Extensión para Chrome: con ella, tus videos se hacen con tu cuenta de Google Flow.',
       lado: 'izquierda',
     },
     {

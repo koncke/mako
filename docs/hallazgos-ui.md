@@ -5186,9 +5186,19 @@ dibuja las pestañas con estos componentes, sin las marcas de la maqueta, y mide
   está pero el medidor dice «no se ve». Se mide con el estado de adentro dibujado aparte (`MK_ADENTRO=1`, el LEEME del kit).
 - **Topes de largo en los tests**: además de la cabecera de SecuenciaPerfil, tests/cs-kanban-fases.test.ts topea el largo del render de
   `KanbanEntrega`: la marca de la primera tarjeta lo pasaba por 99 caracteres y hubo que acortarla.
+- **El manifiesto de los videos es la fuente de los pasos** (v4, 18/11): cada frase con `sel` de public/tutoriales/manifiesto.json es un
+  paso, en su orden, con el MISMO sel (texto igual, no «equivalente»), y su `sub` es la frase. Se rearman con
+  C:/dev/artefactos-pestanas/pasos-desde-manifiesto.mts y se revisan con cuadrar-manifiesto.mjs; de lib/tutoriales sólo quedan el
+  título, el texto, el lado, el `antes` y si es de la computadora. Entre v3 y v4 cambiaron las frases y las acciones de casi todas las
+  pestañas: armar a mano contra un guion que todavía se mueve es rehacerlo.
+- **Una lista «computadora, teléfono» en el paso no cuadra con el sel simple del manifiesto**: al copiar el sel exacto, el teléfono pierde
+  lo que encontraba sólo por la otra mitad de la lista (las reuniones del CRM en /m/crm, que no pueden llevar marca). La lista va en el
+  manifiesto, o el control del teléfono lleva la misma marca.
+- **Un tutorial con `rutaMovil` cuyos pasos son todos `soloComputadora`** no tiene nada que mostrar en el teléfono: el test de la forma lo
+  frena. Pasó con Automations, Dashboard y Classroom al tomar los pasos del video: se les sacó la ruta del teléfono.
 - **Lo que falta**: medir los de adentro (`estado`) con su pantalla dibujada, medir en el teléfono el Ops Center, Calendar, Video, Image,
-  la Ticketera, Chats, Equipo, las de Settings y las de Classroom, y la pasada contra el manifiesto final (v4) de los videos cuando esté
-  en main: cada frase con `sel`, su paso y su marca.
+  la Ticketera, Chats, Equipo, las de Settings y las de Classroom, y volver a medir dibujados los pasos que trajo el v4 («Canal» en
+  Chats, «Contenido» en Spy).
 
 ## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
 

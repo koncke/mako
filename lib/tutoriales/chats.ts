@@ -3,7 +3,6 @@
 // están Míos, Sin asignar y Atiende MaKo) y el botón «WhatsApp» de conectar un canal (su marca; aparece sólo si falta conectarlo: con
 // WhatsApp ya conectado, el motor saltea el paso). «El botón MaKo de la caja» vive adentro de una conversación de WhatsApp abierta: queda
 // sin paso hasta que el manifiesto le dé su `sel`. En el teléfono (/m/chats) todavía no está medido: sin `rutaMovil`.
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_CHATS: TutorialPestana = {
@@ -13,22 +12,20 @@ export const TUTORIAL_CHATS: TutorialPestana = {
   intro: 'WhatsApp, Instagram, Messenger y email, en una sola bandeja.',
   pasos: [
     {
-      sel: 'a[href="/chats"]',
-      titulo: 'Chats',
-      texto: 'Los mensajes de tus clientes, escriban por donde escriban.',
-      sub: 'Chats junta los mensajes de tus clientes, escriban por donde escriban. Lo abres en tu panel, a la izquierda.',
-      lado: 'derecha',
-      soloComputadora: true,
-    },
-    {
       sel: 'button[aria-label="Bandeja, mostrar y orden"]',
       titulo: 'Qué ver',
       texto: 'Míos, Sin asignar o Atiende MaKo, y en qué orden.',
-      sub: 'Arriba filtras por Míos, Sin asignar o Atiende MaKo.',
+      sub: 'Toca aquí, en Todos, y filtra por Míos, Sin asignar o Atiende MaKo.',
       lado: 'abajo',
     },
     {
-      sel: conMarca(MARCA.chatsWhatsapp),
+      sel: 'button[aria-label="Canal"]',
+      titulo: 'Canal',
+      texto: 'Y mira sólo lo que llega por uno de ellos.',
+      sub: 'Toca aquí, en Canal, y mira sólo lo que llega por uno de ellos.',
+    },
+    {
+      sel: '[data-recorrido="tour-chats-whatsapp"]',
       titulo: 'Conecta WhatsApp',
       texto: 'Escaneas el QR desde tu celular y listo: tus chats entran aquí.',
       sub: 'Para empezar, toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.',

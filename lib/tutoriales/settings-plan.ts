@@ -7,7 +7,6 @@
 // · «Empezar mi plan ya» (el cierre) lleva `clic`: la fila no se apaga (mientras corre otra acción deja de ser botón, y en el tutorial
 //   no corre ninguna). Tocarla abre el pago. Sin prueba (ya se cobra) no existe y el motor saltea el paso.
 // · En el teléfono (/m/configuraciones/plan) no hay ninguna de estas filas (el teléfono no vende): sin `rutaMovil`.
-import { MARCA, conMarca, marcaSettings } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_SETTINGS_PLAN: TutorialPestana = {
@@ -17,21 +16,14 @@ export const TUTORIAL_SETTINGS_PLAN: TutorialPestana = {
   intro: 'Cero sorpresas el día del cobro.',
   pasos: [
     {
-      sel: conMarca(marcaSettings('plan')),
-      titulo: 'Tu plan',
-      texto: 'Qué día termina tu prueba gratis y cuánto se cobra ese día.',
-      sub: 'Tu plan, en Configuración, te dice qué día termina tu prueba gratis y cuánto se cobra.',
-      lado: 'derecha',
-    },
-    {
-      sel: conMarca(MARCA.settingsPlanPro),
+      sel: '[data-recorrido="tour-settings-plan-pro"]',
       titulo: 'Pasar a MaKo Pro',
       texto: 'Lo pides aquí y te lo cambiamos antes de que termine tu prueba. Pedirlo no cobra nada.',
       sub: 'Mira aquí, Pasar a MaKo Pro: si quieres más, pídelo y te lo cambiamos antes de que termine tu prueba.',
       lado: 'abajo',
     },
     {
-      sel: conMarca(MARCA.settingsPlanEmpezar),
+      sel: '[data-recorrido="tour-settings-plan-empezar"]',
       titulo: 'Empezar mi plan ya',
       texto: 'Pagas desde hoy y se van los topes de la prueba.',
       sub: 'Si te convenció, toca aquí, en Empezar mi plan ya: pagas desde hoy y se van los topes de la prueba.',

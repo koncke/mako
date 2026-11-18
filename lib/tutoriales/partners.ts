@@ -9,7 +9,6 @@
 //   sumarse (otra vista de la misma ruta). En la landing el motor lo saltea; ya partner, saltea el título y «Hacerme partner».
 // · El cierre («Listo: comparte tu link…») no marca nada: sin paso. «A cobrar» es una «toca» que no es el cierre: sin `clic`.
 // · En el teléfono (/m/partners), sin medir: sin `rutaMovil`.
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_PARTNERS: TutorialPestana = {
@@ -19,21 +18,14 @@ export const TUTORIAL_PARTNERS: TutorialPestana = {
   intro: 'Cada negocio que traes a MaKo te deja su primer mes entero, en dinero.',
   pasos: [
     {
-      sel: '.mp-hero h1',
-      titulo: 'MaKo Partners',
-      texto: 'Recomiendas MaKo y te llevas el primer mes entero de cada negocio que traes.',
-      sub: 'MaKo Partners, en el menú de tu foto, te paga por recomendar MaKo.',
-      lado: 'abajo',
-    },
-    {
-      sel: conMarca(MARCA.partnersHacerme),
+      sel: '[data-recorrido="tour-partners-hacerme"]',
       titulo: 'Hacerme partner',
       texto: 'Es gratis: tres preguntas, y tu link aparece en el acto.',
       sub: 'Mira aquí, Hacerme partner: es gratis, son tres preguntas y tu link aparece al instante.',
       lado: 'abajo',
     },
     {
-      sel: conMarca(MARCA.partnersACobrar),
+      sel: '[data-recorrido="tour-partners-a-cobrar"]',
       titulo: 'A cobrar',
       texto: 'Lo que ganaste y todavía no te transferimos: entra cuando el negocio que trajiste paga su segundo mes.',
       sub: 'Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes.',

@@ -6,7 +6,6 @@
 // · Las reuniones aparecen sólo si hay alguna por delante (si no, el motor saltea el paso). En el teléfono la lista está a la vista
 //   (app/m/crm/TableroCrm.tsx) y no lleva marca: dos tests fijan el texto de <ReunionesParaPreparar>; se la busca por clase.
 // · Buscar y Más acciones son de la barra del tablero de la computadora (app/crm/CrmToolbar.tsx).
-import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_CRM: TutorialPestana = {
@@ -14,58 +13,36 @@ export const TUTORIAL_CRM: TutorialPestana = {
   nombre: 'CRM',
   ruta: '/crm',
   rutaMovil: '/m/crm',
-  intro: 'Cada columna es un paso de tu venta. Tu trabajo es que cada lead llegue a Ganado.',
+  intro: '¿Cuánto dinero podría entrarte con los leads que ya tienes?',
   pasos: [
     {
-      sel: '[data-colkey], [data-kb-col]',
-      titulo: 'Tus etapas',
-      texto: 'Cada columna es un paso de tu venta, del primer mensaje a la venta.',
-      sub: 'Cada columna es un paso de tu venta. Tu trabajo es que cada lead llegue a Ganado.',
-      lado: 'derecha',
-    },
-    {
-      sel: '[data-colkey="ganado"], [data-kb-col="ganado"]',
-      titulo: 'Lo que hay en juego',
-      texto: 'Cada etapa suma lo que podría entrar: todavía no es una venta. Ganado suma lo vendido.',
-      sub: 'Arriba de cada etapa ves cuánto podría entrar. En Ganado, lo que ya vendiste.',
-      lado: 'izquierda',
-    },
-    {
-      sel: conMarca(MARCA.crmVerInfo),
+      sel: '[data-recorrido="tour-crm-ver-info"]',
       titulo: 'Ver info',
       texto: 'La ficha rápida del lead, sin salir del tablero.',
-      sub: 'Para cambiar a alguien de etapa sin arrastrar, toca Ver info',
+      sub: 'Toca aquí, en Ver info, para abrir la ficha rápida del lead.',
       lado: 'derecha',
     },
     {
-      sel: conMarca(MARCA.crmMoverA),
-      antes: conMarca(MARCA.crmVerInfo),
+      sel: '[data-recorrido="tour-crm-mover-a"]',
       titulo: 'Mover a…',
       texto: 'Eliges la etapa y el lead pasa ahí.',
-      sub: 'y Mover a.',
+      sub: 'Toca aquí, en Mover a, y elige su etapa nueva sin arrastrar nada.',
       lado: 'abajo',
+      antes: '[data-recorrido="tour-crm-ver-info"]',
     },
     {
-      sel: `${conMarca(MARCA.crmReuniones)}, .m-crm-arriba .crm-reus`,
-      antes: 'button.tk-x, .m-sheet__cerrar',
+      sel: '[data-recorrido="tour-crm-reuniones"]',
       titulo: 'Tus reuniones',
       texto: 'Tócalo y ves las que vienen, en orden.',
-      sub: 'Las reuniones de los próximos días esperan en este número.',
+      sub: 'Toca aquí, en el botón del calendario, junto a Filtrar, para ver tus próximas reuniones.',
       lado: 'abajo',
+      antes: 'button.tk-x, .m-sheet__cerrar',
     },
     {
-      sel: conMarca('crm-buscar'),
-      titulo: 'Buscar',
-      texto: 'Por nombre, email o teléfono. Para uno puntual, #412.',
-      sub: '¿Buscas a alguien? Escribe su nombre, o su número con numeral adelante.',
-      lado: 'abajo',
-      soloComputadora: true,
-    },
-    {
-      sel: conMarca('crm-mas'),
+      sel: '[data-recorrido="crm-mas"]',
       titulo: 'Importa tu lista',
       texto: 'Aquí eliges «Importar leads». También editas las etapas.',
-      sub: 'Y si ya tienes una lista, impórtala entera desde Más acciones.',
+      sub: 'Carga tu lista entera: toca aquí, en Más acciones.',
       lado: 'abajo',
       haz: 'Haz clic en Más acciones',
       clic: true,
