@@ -7,6 +7,24 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## Lo que MaKo arma en una hoja se ve armándose, de a una tarjeta (18/11/2026)
+
+- **Pedido:** «Lo que MaKo construye se ve CONSTRUYÉNDOSE» (AGENTS.md, 28/10). «Editar con MaKo» y el ajuste de una
+  plantilla a los datos del negocio (`rellenarHoja`) ponían la hoja nueva de golpe (pendiente O13).
+- **Cómo:** el cambio entra entero al informe (y lo guarda el autoguardado de siempre); lo que cambia es cómo se MUESTRA.
+  `tarjetasPorArmar` (app/dashboard/armado-hoja.ts) da las tarjetas que MaKo agregó o cambió, en el orden en que se leen,
+  y `ArmadoDeHoja` las revela con la cadencia de la pieza compartida (`useRevelado`) y su «Ver todo» (`VerTodoArmado`,
+  exportado de app/_ui/ArmadoEnVivo.tsx con el mismo estilo). El Deshacer de MaKo va de una.
+- **Trampa:** la grilla ubica cada tarjeta con `transform`: esconderla con `transform` la movería de lugar. Va `opacity` y
+  la propiedad suelta `translate`, que no pisa a `transform` (y la transición conserva la de `transform` de la grilla).
+- **Con «reducir movimiento»:** `useRevelado` muestra todo de una y la hoja de estilo apaga la transición.
+- **Sin hacer:** «Nueva hoja» armada con «Pídeselo a MaKo» entra con la animación de entrada de la hoja, no tarjeta por
+  tarjeta; y el editor de landing (app/web-generator/editor/paneles/PanelAgente.tsx), Offer y el onboarding siguen
+  aplicando de golpe (el resto de O13, de otros chats). **No se miró en un navegador.**
+- **Vive en:** app/dashboard/armado-hoja.ts · app/dashboard/ArmadoDeHoja.tsx · app/dashboard/EditorInforme.tsx
+  (`aplicarDeMako`, `rellenarHoja`) · app/_ui/ArmadoEnVivo.tsx (`VerTodoArmado`). **Lo fija:**
+  tests/dashboard-armado-hoja.test.ts (3 roturas).
+
 ## Guardar mirando: la puerta va en el server, y lo editado sigue siendo edición hasta guardarse (18/11/2026)
 
 - **Síntoma:** `guardar` de /api/graficos escribía el informe entero sin saber si la pantalla estaba editando. Las dos veces

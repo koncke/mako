@@ -151,6 +151,8 @@ import { CSS } from './editor-css';
 import { CSS_EDICION } from './edicion-css';
 import { conBusqueda, contextoDeGrafico, csvDeHoja, enOrden, idBusquedaDe, loQueSeVeDe, nombreArchivo, pantallaDeHoja, pedidosDeHoja, periodoDeHoja, type PedidosHoja } from './exportar';
 import { crearColaGuardado, edicionYaGuardada, GRACIA_EDICION_MS, leerRespuestaGuardado, type ColaGuardado } from './guardado';
+import { ArmadoDeHoja } from './ArmadoDeHoja';
+import { tarjetasPorArmar } from './armado-hoja';
 import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 import { AccionesFilaProvider } from './entidades/acciones-fila';
 import { ELEMENTOS_ALTO_LIBRE_EN_PILA, graficoAltoLibreEnPila, solosEnPila } from './pila';
@@ -473,6 +475,9 @@ export function EditorInforme({
   /** El ancla del clic derecho: un punto invisible donde se hizo el clic (el `Flotante` se ancla a un elemento). */
   const anclaContextual = useRef<HTMLSpanElement>(null);
   const [editPopup, setEditPopup] = useState<string | null>(null);
+  // Lo que MaKo acaba de armar en una hoja (O13, 18/11/2026, ./armado-hoja.ts): sus tarjetas aparecen de a una.
+  const [armado, setArmado] = useState<{ clave: number; hojaId: string; ids: string[] } | null>(null);
+  const terminarArmado = useCallback(() => setArmado(null), []);
   const [enGesto, setEnGesto] = useState(false);
   const [conflicto, setConflicto] = useState(false);
   // Compartir (punto 3 de v5, paquete de la topbar): un renglón del ⋮ que abre el modal, montado AFUERA del menú.
@@ -797,7 +802,10 @@ export function EditorInforme({
       // La ajustada pisa el contenido de una hoja que quizá ya se guardó: es un cambio que la persona PIDIÓ (eligió la
       // plantilla), así que se guarda como de la edición aunque esté mirando (./guardado.ts).
       huboEdicion.current = true;
+      // Lo que el ajuste cambió se ve armándose (./armado-hoja.ts).
+      const ids = tarjetasPorArmar(actual, { ...h, id });
       setTablero((tt) => ({ ...tt, hojas: tt.hojas.map((x) => (x.id === id ? { ...h, id } : x)) }));
+      if (ids.length) setArmado({ clave: Date.now(), hojaId: id, ids });
       vaciar();
     }
     if (aviso) show(aviso);
@@ -1094,6 +1102,13 @@ export function EditorInforme({
    * EDITANDO (17/10/2026): una respuesta que llega después de tocar «Ver» no entra. La ruta tampoco la arma en vista.
    */
   const ponerHojaDeMako = useCallback((h: Hoja) => { if (editandoRef.current) mutarHoja(() => h, h.id); }, [mutarHoja]);
+  /** Lo que propuso MaKo, puesto: lo que agregó o cambió se ve armándose (O13, ./armado-hoja.ts). Su Deshacer, de una. */
+  const aplicarDeMako = useCallback((h: Hoja) => {
+    if (!editandoRef.current) return;
+    const ids = tarjetasPorArmar(tableroRef.current.hojas.find((x) => x.id === h.id), h);
+    ponerHojaDeMako(h);
+    if (ids.length) setArmado({ clave: Date.now(), hojaId: h.id, ids });
+  }, [ponerHojaDeMako]);
   const hojaDelHilo = hoja.id;
   const alHiloMako = useCallback((fn: (h: MensajeEdicion[]) => MensajeEdicion[]) => {
     setHilosMako((x) => ({ ...x, [hojaDelHilo]: fn(x[hojaDelHilo] ?? []) }));
@@ -1701,6 +1716,7 @@ export function EditorInforme({
       {/* ── El lienzo (lo único que scrollea) y, encima, el panel de propiedades y «Editar con MaKo» ── */}
       <div className="lk-cuerpo">
         <div className="lk-lienzo" style={varsTema} data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo} onClick={() => { if (editando) { setSelId(null); setConSel(null); } }}>
+          {armado && armado.hojaId === hoja.id && <ArmadoDeHoja key={armado.clave} ids={armado.ids} onFin={terminarArmado} />}
           <div className="lk-pagina" ref={containerRef} data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo}>
             {dueno && (
               <nav className="lk-miga lk-no-arrastrar" aria-label="Ubicación" onClick={(e) => e.stopPropagation()}>
@@ -1836,7 +1852,7 @@ export function EditorInforme({
             compu (./edicion-css.ts). Desde el 24/10/2026 es el único: el AI Analyst salió (lo de analizar es de la criatura). */}
         {makoEditar && editando && guardable && !enBlanco && !compartido && (
           <PanelEditarMako editando={editando} hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
-            onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
+            onAplicar={aplicarDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
             onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} />
         )}
       </div>

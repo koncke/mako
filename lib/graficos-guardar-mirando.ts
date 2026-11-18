@@ -39,7 +39,7 @@ export const NO_SE_CAMBIA_MIRANDO = 'Mirando la hoja no se cambia su contenido. 
 const CAMBIA_MIRANDO: ReadonlySet<string> = new Set(['nombre', 'emoji', 'subtitulo', 'controles']);
 
 /** JSON con las claves en orden y sin los `undefined`: dos objetos iguales dan el mismo texto armados como sea. */
-function canon(x: unknown): string {
+export function canon(x: unknown): string {
   if (Array.isArray(x)) return `[${x.map((v) => (v === undefined ? 'null' : canon(v))).join(',')}]`;
   if (x && typeof x === 'object') {
     const claves = Object.keys(x as Record<string, unknown>).filter((k) => (x as Record<string, unknown>)[k] !== undefined).sort();
