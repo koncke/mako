@@ -29,6 +29,7 @@ import type { AlcanceEvento, EntradaEvento } from './api';
 import { Ico, useComunidad } from './piezas';
 import { diaDeSemanaTexto, duracionTexto, hoyEn, zonasDisponibles } from './tiempo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 const DURACIONES = [30, 45, 60, 90, 120, 180, 240, 360, 480, 720, 1440];
 const COLOR_PORTADA = '#7c8796';
@@ -127,7 +128,7 @@ export function EditorEvento({ evento, oc, zonaVista, onCerrar, onListo }: {
         pie={(
           <>
             <Button variant="tertiary" onClick={onCerrar}>No guardar</Button>
-            <Button loading={guardando} onClick={() => void guardar()}>{evento ? 'Guardar evento' : 'Crear evento'}</Button>
+            <Button loading={guardando} onClick={() => void guardar()} data-recorrido={MARCA.classroomCalendarCrear}>{evento ? 'Guardar evento' : 'Crear evento'}</Button>
           </>
         )}>
         {!opciones && !error ? <div style={{ display: 'grid', placeItems: 'center', padding: 30 }}><Spinner /></div> : (
@@ -230,7 +231,7 @@ export function EditorEvento({ evento, oc, zonaVista, onCerrar, onListo }: {
             </div>
 
             <div className="cmu-form-fila">
-              <div className="cmu-campo-l">Quién entra
+              <div className="cmu-campo-l" data-recorrido={MARCA.classroomCalendarQuienEntra}>Quién entra
                 <Select ariaLabel="Quién entra" value={tipoAcceso}
                   onChange={(v) => setAcceso(v === 'nivel' ? { tipo: 'nivel', nivel: 2 } : v === 'modulo' ? { tipo: 'modulo', clave: modulos[0]?.clave ?? '' } : { tipo: 'todos' })}
                   options={[

@@ -1,57 +1,38 @@
-// El tutorial de Chats (/chats, la bandeja unificada: app/chats/ChatsApp.tsx). Sus filtros y su lista llevan `aria-label` propios
-// (app/chats/FiltrosChats.tsx); cada chat es un `.rio-fila-boton` (clase global de app/chats/chats.css) y el paso toma el primero.
-// En el teléfono (/m/chats) es otra pantalla, todavía sin medir: sin `rutaMovil`.
+// El tutorial de Chats (/chats, la bandeja unificada: app/chats/ChatsApp.tsx). Cuadra con el guion de su video (key `chats`: v3 para la
+// entrada y las frases de acción del manifiesto v4). El link de la barra (`a[href="/chats"]`), el filtro «Bandeja, mostrar y orden» (donde
+// están Míos, Sin asignar y Atiende MaKo) y el botón «WhatsApp» de conectar un canal (su marca; aparece sólo si falta conectarlo: con
+// WhatsApp ya conectado, el motor saltea el paso). «El botón MaKo de la caja» vive adentro de una conversación de WhatsApp abierta: queda
+// sin paso hasta que el manifiesto le dé su `sel`. En el teléfono (/m/chats) todavía no está medido: sin `rutaMovil`.
+import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_CHATS: TutorialPestana = {
   pestana: 'chats',
   nombre: 'Chats',
   ruta: '/chats',
-  intro: 'Todo lo que te escriben llega aquí, venga de donde venga.',
+  intro: 'WhatsApp, Instagram, Messenger y email, en una sola bandeja.',
   pasos: [
     {
-      sel: 'section[aria-label="Chats"]',
-      titulo: 'Todos tus chats',
-      texto: 'WhatsApp, Instagram y Messenger en una sola lista. El ícono de la foto dice por dónde te escribió.',
-      sub: 'WhatsApp, Instagram y Messenger, en una sola lista. Ya no saltas de una app a otra.',
+      sel: 'a[href="/chats"]',
+      titulo: 'Chats',
+      texto: 'Los mensajes de tus clientes, escriban por donde escriban.',
+      sub: 'Chats junta los mensajes de tus clientes, escriban por donde escriban. Lo abres en tu panel, a la izquierda.',
       lado: 'derecha',
+      soloComputadora: true,
     },
     {
       sel: 'button[aria-label="Bandeja, mostrar y orden"]',
       titulo: 'Qué ver',
-      texto: 'Los abiertos, los pospuestos o los cerrados, y en qué orden.',
-      sub: 'Aquí eliges qué ver: lo abierto, lo que pospusiste o lo que ya cerraste.',
+      texto: 'Míos, Sin asignar o Atiende MaKo, y en qué orden.',
+      sub: 'Arriba filtras por Míos, Sin asignar o Atiende MaKo.',
       lado: 'abajo',
     },
     {
-      sel: 'button[aria-label="Canal"]',
-      titulo: 'Por canal',
-      texto: 'Sólo WhatsApp, sólo Instagram, o todos juntos.',
-      sub: 'Si un día quieres contestar sólo Instagram, filtras por canal.',
+      sel: conMarca(MARCA.chatsWhatsapp),
+      titulo: 'Conecta WhatsApp',
+      texto: 'Escaneas el QR desde tu celular y listo: tus chats entran aquí.',
+      sub: 'Para empezar, toca aquí, en WhatsApp, y conéctalo con el QR desde tu celular.',
       lado: 'abajo',
-    },
-    {
-      sel: 'button[aria-label="Etapa"]',
-      titulo: 'Por etapa',
-      texto: 'Los chats de los leads de una etapa de tu CRM.',
-      sub: 'Y por etapa: primero los que están por comprar.',
-      lado: 'abajo',
-    },
-    {
-      sel: 'button[aria-label="Buscar"]',
-      titulo: 'Buscar',
-      texto: 'Por nombre o por lo que dijeron.',
-      sub: '¿Buscas una conversación? Escribe su nombre aquí.',
-      lado: 'abajo',
-    },
-    {
-      sel: '.rio-fila-boton',
-      titulo: 'Abre un chat',
-      texto: 'Contestas desde aquí, y a la derecha ves su ficha del CRM.',
-      sub: 'Toca un chat: le contestas desde aquí y ves en qué etapa está.',
-      lado: 'derecha',
-      haz: 'Haz clic en un chat',
-      clic: true,
     },
   ],
 };

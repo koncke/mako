@@ -12,6 +12,7 @@ import { useState } from 'react';
 import { ConfirmDialog } from '../../_components/ChatItemMenu';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes, Pastilla } from '../../_ui/Ajustes';
 import { IconoMenu } from '../../_ui/iconos-menu';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import { aceptarRetencionAction, darmeDeBajaAction, empezarPlanYaAction, pasarAProAction, pedirProAction } from './actions';
 import type { OfertaRetencion, OpcionRetencion } from '@/lib/retencion-plan';
 import { CAPACIDADES_PASARELA, COMO_SE_PAGA, NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
@@ -149,7 +150,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
   //    que ahora también se arma en prueba (app/configuraciones/plan/page.tsx).
   const filaEmpezar = enPrueba && puedeDarseDeBaja && (
     <FilaAjustes icono="subir" titulo="Empezar mi plan ya" detalle={`Pagas ${suscripcion!.monto} desde hoy y se van los topes de la prueba.`}
-      onClick={corriendo ? undefined : () => void empezarYa()} apilada />
+      onClick={corriendo ? undefined : () => void empezarYa()} apilada recorrido={MARCA.settingsPlanEmpezar} />
   );
   // LO QUE MEJORA EL PLAN, EN UNA SOLA PIEZA: la subida en el acto (con pasarela) o el pedido de Pro. Junto, porque su LUGAR
   // cambia con de dónde vino la persona (abajo, `proAntesDeEmpezar`). Las dos son BOTONES: la de arriba cobra (con su
@@ -161,11 +162,11 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
     <>
       {subir && puedeDarseDeBaja && (
         <FilaAjustes icono="subir" titulo={`Pasar a ${subir.nombre}`} detalle={`${subir.monto} por mes, con contactos y landings ilimitados. Lo tienes en el acto.`}
-          onClick={corriendo ? undefined : () => setConfirmarSubida(true)} apilada />
+          onClick={corriendo ? undefined : () => setConfirmarSubida(true)} apilada recorrido={MARCA.settingsPlanPro} />
       )}
       {porLlamada && (
         <FilaAjustes icono="subir" titulo={porLlamada.titulo} detalle={proPedido ? 'Ya nos llegó tu pedido: te escribimos para cambiártelo.' : porLlamada.detalle}
-          onClick={corriendo || proPedido ? undefined : () => void pedirPro()} apilada />
+          onClick={corriendo || proPedido ? undefined : () => void pedirPro()} apilada recorrido={MARCA.settingsPlanPro} />
       )}
     </>
   );
@@ -192,7 +193,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
         </div>
         {proAntesDeEmpezar && filaPro}
         {!destacarEmpezar && filaEmpezar}
-        {suscripcion?.primerMes && <FilaAjustes icono="nota" titulo="Tu primer mes" detalle={suscripcion.primerMes} apilada />}
+        {suscripcion?.primerMes && <FilaAjustes icono="nota" titulo="Tu primer mes" detalle={suscripcion.primerMes} apilada recorrido={MARCA.settingsPlanPrimerMes} />}
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
         {retencion && <FilaAjustes icono="nota" titulo="Tu oferta" detalle={retencion} apilada />}
         {!proAntesDeEmpezar && filaPro}

@@ -5,7 +5,7 @@ import { MARCA, conMarca } from './marcas';
 import type { TutorialPestana } from './tipos';
 
 export const TUTORIAL_EQUIPO: TutorialPestana = {
-  pestana: 'equipo',
+  pestana: 'settings-equipo',
   nombre: 'Equipo',
   ruta: '/equipo',
   intro: 'Aquí sumas a quien vende contigo, y cada uno ve sólo lo suyo.',

@@ -28,6 +28,7 @@ import { startRegistration } from '@simplewebauthn/browser';
 import { useConfirm } from '@/app/_ui';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes, PuntoEstado, TituloAjustes } from '@/app/_ui/Ajustes';
 import Link from '@/app/_ui/Link';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import { descargarCodigos } from '@/app/login/2fa/descargar-codigos';
 import { CampoCodigo } from '@/app/login/2fa/CampoCodigo';
 import {
@@ -135,7 +136,8 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
 
         <GrupoAjustes titulo="Cómo entras">
           {filasDeAcceso(e).map((f) => (
-            <FilaAjustes key={f.clave} icono={f.icono} titulo={f.titulo} valor={estado(f.valor.texto, f.valor.tono)} href={`${BASE}?ver=${f.clave}`} />
+            <FilaAjustes key={f.clave} icono={f.icono} titulo={f.titulo} valor={estado(f.valor.texto, f.valor.tono)} href={`${BASE}?ver=${f.clave}`}
+              recorrido={f.clave === 'app' ? MARCA.seguridad2Pasos : undefined} />
           ))}
         </GrupoAjustes>
 
@@ -234,7 +236,7 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
             <FilaAjustes icono="escudo" titulo="App de autenticación" detalle="Un código nuevo cada 30 segundos" valor={estado('Activada', 'good')} fin={botonQuitar('totp', 'la app de autenticación')} />
           ) : !qr ? (
             <FilaAjustes icono="escudo" titulo="App de autenticación" detalle="Google Authenticator, Microsoft Authenticator…" fin={(
-              <button type="button" className="aj-boton" disabled={ocupado}
+              <button type="button" className="aj-boton" disabled={ocupado} data-recorrido={MARCA.seguridadConfigurar}
                 onClick={() => void correr(() => pedir({ accion: 'totp-iniciar' }).then((j) => { if (j.ok) setQr({ qr: String(j.qr), secreto: String(j.secreto), uri: typeof j.uri === 'string' ? j.uri : undefined }); return j; }))}>Configurar</button>
             )} />
           ) : (

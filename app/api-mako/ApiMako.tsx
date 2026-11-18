@@ -19,6 +19,7 @@
 import type { ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { Icono, type NombreIcono } from './piezas';
+import { MARCA } from '@/lib/tutoriales/marcas';
 import './github.css';
 
 export type TabApi = 'docs' | 'tokens' | 'registro';
@@ -47,7 +48,8 @@ export function ApiMako({ tab, tokens, children, publica = false }: { tab: TabAp
         </div>
         <nav className="gh-underline-nav" aria-label="API">
           {tabs.map((t) => (
-            <Link key={t.id} href={`/api-mako?tab=${t.id}`} className="gh-underline-item" aria-current={tab === t.id ? 'page' : undefined}>
+            <Link key={t.id} href={`/api-mako?tab=${t.id}`} className="gh-underline-item" aria-current={tab === t.id ? 'page' : undefined}
+              data-recorrido={t.id === 'docs' ? MARCA.apiDocumentacion : t.id === 'tokens' ? MARCA.apiTokens : undefined}>
               <Icono n={t.icono} />{t.label}
               {t.id === 'tokens' && tokens > 0 && <span className="gh-counter">{tokens}</span>}
             </Link>

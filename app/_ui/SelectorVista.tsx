@@ -20,7 +20,7 @@ import type { CSSProperties } from 'react';
 import { Tooltip } from './Tooltip';
 import { ICONO_VISTA, type VistaIcono } from './iconos-vista';
 
-export function SelectorVista<V extends VistaIcono>({ vistas, vista, onVista, ariaLabel, style }: {
+export function SelectorVista<V extends VistaIcono>({ vistas, vista, onVista, ariaLabel, style, recorrido }: {
   /** Las vistas que ofrece la pantalla, en el orden en que se dibujan. */
   vistas: readonly V[];
   vista: V;
@@ -28,11 +28,13 @@ export function SelectorVista<V extends VistaIcono>({ vistas, vista, onVista, ar
   /** Qué se mira: «Cómo ver los leads». */
   ariaLabel: string;
   style?: CSSProperties;
+  /** La marca del tutorial de la pestaña (`data-recorrido`, lib/tutoriales/marcas.ts). */
+  recorrido?: string;
 }) {
   if (vistas.length < 2) return null;
   return (
     <div role="tablist" aria-label={ariaLabel} className="mk-selector-vista"
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flex: 'none', padding: 2, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', ...style }}>
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flex: 'none', padding: 2, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', ...style }} data-recorrido={recorrido}>
       {vistas.map((v) => {
         const activa = v === vista;
         return (

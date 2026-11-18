@@ -7,11 +7,18 @@
 // Lo que falta de las 34 pestañas (archivos.json de C:/dev/artefactos-pestanas) va sumando su archivo y su línea acá.
 // =============================================================================
 
+import { TUTORIAL_AGENCY } from './agency';
+import { TUTORIAL_API } from './api';
 import { TUTORIAL_AUTOMATIONS } from './automations';
 import { TUTORIAL_AVATAR } from './avatar';
 import { TUTORIAL_CALENDAR } from './calendar';
 import { TUTORIAL_CHATS } from './chats';
 import { TUTORIAL_CLASSROOM } from './classroom';
+import { TUTORIAL_CLASSROOM_ABOUT } from './classroom-about';
+import { TUTORIAL_CLASSROOM_CALENDAR } from './classroom-calendar';
+import { TUTORIAL_CLASSROOM_CLIENTS } from './classroom-clients';
+import { TUTORIAL_CLASSROOM_COMMUNITY } from './classroom-community';
+import { TUTORIAL_CLASSROOM_LEADERBOARDS } from './classroom-leaderboards';
 import { TUTORIAL_COPILOT } from './copilot';
 import { TUTORIAL_COPYWRITING } from './copywriting';
 import { TUTORIAL_CRM } from './crm';
@@ -23,9 +30,13 @@ import { TUTORIAL_INTEGRACIONES } from './integraciones';
 import { TUTORIAL_NOTIFICACIONES } from './notificaciones';
 import { TUTORIAL_OFFER } from './offer';
 import { TUTORIAL_OPS_CENTER } from './ops-center';
+import { TUTORIAL_PARTNERS } from './partners';
 import { TUTORIAL_PLAN } from './plan';
 import { TUTORIAL_REPORTAR } from './reportar';
 import { TUTORIAL_SETTINGS } from './settings';
+import { TUTORIAL_SETTINGS_FISCAL } from './settings-fiscal';
+import { TUTORIAL_SETTINGS_PLAN } from './settings-plan';
+import { TUTORIAL_SETTINGS_SEGURIDAD } from './settings-seguridad';
 import { TUTORIAL_SPY } from './spy';
 import { TUTORIAL_TICKETERA } from './ticketera';
 import { TUTORIAL_VIDEO } from './video';
@@ -60,6 +71,17 @@ export const TUTORIALES: readonly TutorialPestana[] = [
   TUTORIAL_REPORTAR,
   TUTORIAL_NOTIFICACIONES,
   TUTORIAL_INSTALAR,
+  TUTORIAL_SETTINGS_SEGURIDAD,
+  TUTORIAL_SETTINGS_FISCAL,
+  TUTORIAL_SETTINGS_PLAN,
+  TUTORIAL_PARTNERS,
+  TUTORIAL_AGENCY,
+  TUTORIAL_API,
+  TUTORIAL_CLASSROOM_COMMUNITY,
+  TUTORIAL_CLASSROOM_CLIENTS,
+  TUTORIAL_CLASSROOM_CALENDAR,
+  TUTORIAL_CLASSROOM_LEADERBOARDS,
+  TUTORIAL_CLASSROOM_ABOUT,
   // Los de las pantallas de adentro (con `estado`): los que la app ya tenía, en el formato nuevo (./de-siempre.ts).
   ...TUTORIALES_DE_ADENTRO,
 ];

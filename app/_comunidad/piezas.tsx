@@ -272,12 +272,12 @@ export type ItemMenu = { label: string; onClick: () => void; peligro?: boolean; 
  * Con `boton`, el que lo abre es ese botón (con texto) y no los tres puntos; con `arriba`, la lista
  * abre hacia ARRIBA — la usa el pie de un modal, donde abrir hacia abajo la cortaría el borde.
  */
-export function Menu({ items, etiqueta = 'Opciones', boton, arriba = false }: { items: ItemMenu[]; etiqueta?: string; boton?: ReactNode; arriba?: boolean }) {
+export function Menu({ items, etiqueta = 'Opciones', boton, arriba = false, recorrido }: { items: ItemMenu[]; etiqueta?: string; boton?: ReactNode; arriba?: boolean; recorrido?: string }) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   if (!items.length) return null;
   return (
-    <div className="cmu-menu" ref={ref} onClick={(e) => e.stopPropagation()}>
+    <div className="cmu-menu" ref={ref} onClick={(e) => e.stopPropagation()} data-recorrido={recorrido}>
       {boton ? (
         <button type="button" className="mk-btn mk-btn--secondary mk-btn--md" aria-expanded={abierto} onClick={() => setAbierto((x) => !x)}>{boton}</button>
       ) : (

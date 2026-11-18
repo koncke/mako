@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { DIAS_COOKIE_REF, PAGO_HOY, PAGOS_PARA_ACREDITAR, RUTA_ALTA_PARTNERS, gananciaDelReferido } from '@/lib/partners-reglas';
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
+import { MARCA } from '@/lib/tutoriales/marcas';
 
 const usd = (n: number) => `US$ ${n.toLocaleString('es-AR')}`;
 const ORDINAL: Record<number, string> = { 1: 'primer', 2: 'segundo', 3: 'tercer' };
@@ -130,8 +131,9 @@ body:has(.mp-publica) { background: #FFFFFF; }
 /** La acción de la landing: hacerse partner, o volver al panel. Siempre un link (sin JavaScript también lleva). */
 export type AccionLanding = { href: string; texto: string };
 
-function Boton({ boton }: { boton: AccionLanding | null }) {
-  return boton ? <Link className="mp-btn" href={boton.href}>{boton.texto}</Link> : null;
+/** `marca`: la del tutorial de /partners (sólo el botón de arriba, adentro de la app, para quien todavía no es partner). */
+function Boton({ boton, marca }: { boton: AccionLanding | null; marca?: string }) {
+  return boton ? <Link className="mp-btn" href={boton.href} data-recorrido={marca}>{boton.texto}</Link> : null;
 }
 
 export function LandingPartners({ modo = 'publica', accion, rotulo }: {
@@ -169,7 +171,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
               <p className="mp-bajada">
                 Cada negocio que entra con tu link te deja <b>su primer mes entero</b>: {precios.join(' y ')}, en dinero. Negocios ilimitados.
               </p>
-              <div className="mp-acciones"><Boton boton={boton} /></div>
+              <div className="mp-acciones"><Boton boton={boton} marca={!publica && boton?.href === RUTA_ALTA_PARTNERS ? MARCA.partnersHacerme : undefined} /></div>
               <ul className="mp-chips">
                 <li>Gratis</li>
                 <li>Negocios ilimitados</li>
