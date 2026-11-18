@@ -148,75 +148,77 @@
    "ruta": "/second-brain",
    "archivo": "/tutoriales/recorrido.mp4",
    "poster": "/tutoriales/recorrido.jpg",
-   "duracion_s": 41.57,
-   "peso_kb": 1523,
-   "guion": "¡Hola de nuevo! Ya estás adentro de MaKo. MaKo trae un equipo entero para tu negocio: te lo presento en un minuto. Todo arranca en el Ops Center: escribes lo que te hace falta, y MaKo se encarga. Mira aquí, Offer Coach: arma contigo tu oferta. Y aquí, Funnel Coach: tu sistema para conseguir clientes. A la izquierda, tu panel con todas las pestañas: toca aquí, en Uso, para ver cuánto lleva gastado tu IA. Si algo falla, toca aquí, en Ticketera, y repórtalo al equipo en su propio chat. Ahora que conoces a tu equipo, toca aquí, en Reto de 7 días, y arranca tu día 1: cada día trae su paso y su video, y puedes adelantar días.",
+   "duracion_s": 35.33,
+   "peso_kb": 1429,
+   "guion": "¡Hola de nuevo! Te muestro tu MaKo por dentro: dura menos de un minuto. Y tu reto de 7 días tiene su propio chat: cada día un video para que avances con tu negocio. Y a la izquierda aparece tu panel, con todas las pestañas de MaKo. Toca Second Brain: es todo lo que MaKo sabe de tu negocio. A medida que te conozco, voy armando tu Second Brain automáticamente. Y para volver, la flecha de arriba. Si tienes un problema o quieres proponer algo, escríbele a MaKo en la Ticketera: daremos todo nuestro esfuerzo para resolverlo. ¡Listo! Vamos con tu día 1.",
    "frases": [
     {
      "id": "recorrido-1",
      "rol": "gancho",
-     "texto": "¡Hola de nuevo! Ya estás adentro de MaKo.",
+     "texto": "¡Hola de nuevo! Te muestro tu MaKo por dentro: dura menos de un minuto.",
      "t_inicio": 0.04,
-     "t_fin": 2.5
+     "t_fin": 4.38
     },
     {
      "id": "recorrido-2",
-     "rol": "gancho",
-     "texto": "MaKo trae un equipo entero para tu negocio: te lo presento en un minuto.",
-     "t_inicio": 2.94,
-     "t_fin": 7.4
+     "rol": "accion",
+     "texto": "Y tu reto de 7 días tiene su propio chat: cada día un video para que avances con tu negocio.",
+     "t_inicio": 4.86,
+     "t_fin": 10.52,
+     "sel": "[data-recorrido=\"sb-reto-chat\"]",
+     "espera_clic": false
     },
     {
      "id": "recorrido-3",
-     "rol": "que-es",
-     "texto": "Todo arranca en el Ops Center: escribes lo que te hace falta, y MaKo se encarga.",
-     "t_inicio": 7.96,
-     "t_fin": 12.5
+     "rol": "accion",
+     "texto": "Y a la izquierda aparece tu panel, con todas las pestañas de MaKo.",
+     "t_inicio": 10.96,
+     "t_fin": 14.44,
+     "sel": "aside[data-sidebar]",
+     "espera_clic": false
     },
     {
      "id": "recorrido-4",
      "rol": "accion",
-     "texto": "Mira aquí, Offer Coach: arma contigo tu oferta.",
-     "t_inicio": 12.9,
-     "t_fin": 16,
-     "sel": "button[title=\"Offer Coach\"]",
-     "espera_clic": false
+     "texto": "Toca Second Brain: es todo lo que MaKo sabe de tu negocio.",
+     "t_inicio": 14.92,
+     "t_fin": 18.68,
+     "sel": "[data-recorrido=\"sb-second-brain\"]",
+     "espera_clic": true
     },
     {
      "id": "recorrido-5",
      "rol": "accion",
-     "texto": "Y aquí, Funnel Coach: tu sistema para conseguir clientes.",
-     "t_inicio": 16.38,
-     "t_fin": 19.8,
-     "sel": "button[title=\"Funnel Coach\"]",
+     "texto": "A medida que te conozco, voy armando tu Second Brain automáticamente.",
+     "t_inicio": 19.1,
+     "t_fin": 22.88,
+     "sel": "[data-recorrido=\"sb-grafo\"]",
      "espera_clic": false
     },
     {
      "id": "recorrido-6",
      "rol": "accion",
-     "texto": "A la izquierda, tu panel con todas las pestañas: toca aquí, en Uso, para ver cuánto lleva gastado tu IA.",
-     "t_inicio": 20.2,
-     "t_fin": 26.42,
-     "sel": "[data-recorrido=\"sb-uso\"]",
-     "espera_clic": true,
-     "cierra_despues": true
+     "texto": "Y para volver, la flecha de arriba.",
+     "t_inicio": 23.34,
+     "t_fin": 25.14,
+     "sel": "[data-recorrido=\"sb-brain-volver\"], button.cbg-atras",
+     "espera_clic": true
     },
     {
      "id": "recorrido-7",
      "rol": "accion",
-     "texto": "Si algo falla, toca aquí, en Ticketera, y repórtalo al equipo en su propio chat.",
-     "t_inicio": 26.88,
-     "t_fin": 31.44,
+     "texto": "Si tienes un problema o quieres proponer algo, escríbele a MaKo en la Ticketera: daremos todo nuestro esfuerzo para resolverlo.",
+     "t_inicio": 25.74,
+     "t_fin": 32.32,
      "sel": "[data-recorrido=\"sb-ticketera\"]",
-     "espera_clic": true
+     "espera_clic": false
     },
     {
      "id": "recorrido-8",
      "rol": "cierre",
-     "texto": "Ahora que conoces a tu equipo, toca aquí, en Reto de 7 días, y arranca tu día 1: cada día trae su paso y su video, y puedes adelantar días.",
-     "t_inicio": 31.92,
-     "t_fin": 40.86,
-     "sel": "button[title=\"Reto de 7 días\"]",
+     "texto": "¡Listo! Vamos con tu día 1.",
+     "t_inicio": 32.84,
+     "t_fin": 34.64,
      "espera_clic": false
     }
    ],
@@ -224,8 +226,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "mako → maco · mako → maco · mako → maco · 7 → siete · 1 → uno (ortografía del transcriptor)",
-   "hecho": "2026-11-18T13:50:20.983Z"
+   "chequeo": "7 → siete · 1 → uno (ortografía del transcriptor)",
+   "hecho": "2026-11-18T14:41:23.873Z"
   },
   {
    "key": "offer-coach",

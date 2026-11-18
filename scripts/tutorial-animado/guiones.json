@@ -89,46 +89,48 @@
   "tanda": 2,
   "pasos": [
    {
-    "dice": "¡Hola de nuevo! Ya estás adentro de Máko.",
+    "dice": "¡Hola de nuevo! Te muestro tu Máko por dentro: dura menos de un minuto.",
     "rol": "gancho"
    },
    {
-    "dice": "Máko trae un equipo entero para tu negocio: te lo presento en un minuto.",
-    "rol": "gancho"
-   },
-   {
-    "dice": "Todo arranca en el Ops Center: escribes lo que te hace falta, y Máko se encarga.",
-    "rol": "que-es"
-   },
-   {
-    "dice": "Mira aquí, Offer Coach: arma contigo tu oferta.",
+    "dice": "Y tu reto de 7 días tiene su propio chat: cada día un video para que avances con tu negocio.",
     "rol": "accion",
     "tipo": "mira",
-    "sel": "button[title=\"Offer Coach\"]"
+    "sel": "[data-recorrido=\"sb-reto-chat\"]"
    },
    {
-    "dice": "Y aquí, Funnel Coach: tu sistema para conseguir clientes.",
+    "dice": "Y a la izquierda aparece tu panel, con todas las pestañas de Máko.",
     "rol": "accion",
     "tipo": "mira",
-    "sel": "button[title=\"Funnel Coach\"]"
+    "sel": "aside[data-sidebar]"
    },
    {
-    "dice": "A la izquierda, tu panel con todas las pestañas: toca aquí, en Uso, para ver cuánto lleva gastado tu IA.",
+    "dice": "Toca Second Brain: es todo lo que Máko sabe de tu negocio.",
     "rol": "accion",
-    "sel": "[data-recorrido=\"sb-uso\"]",
-    "cierra": true,
-    "tipo": "toca"
+    "tipo": "toca",
+    "sel": "[data-recorrido=\"sb-second-brain\"]"
    },
    {
-    "dice": "Si algo falla, toca aquí, en Ticketera, y repórtalo al equipo en su propio chat.",
+    "dice": "A medida que te conozco, voy armando tu Second Brain automáticamente.",
     "rol": "accion",
-    "sel": "[data-recorrido=\"sb-ticketera\"]",
-    "tipo": "toca"
+    "tipo": "mira",
+    "sel": "[data-recorrido=\"sb-grafo\"]"
    },
    {
-    "dice": "Ahora que conoces a tu equipo, toca aquí, en Reto de 7 días, y arranca tu día 1: cada día trae su paso y su video, y puedes adelantar días.",
-    "rol": "cierre",
-    "sel": "button[title=\"Reto de 7 días\"]"
+    "dice": "Y para volver, la flecha de arriba.",
+    "rol": "accion",
+    "tipo": "toca",
+    "sel": "[data-recorrido=\"sb-brain-volver\"], button.cbg-atras"
+   },
+   {
+    "dice": "Si tienes un problema o quieres proponer algo, escríbele a Máko en la Ticketera: daremos todo nuestro esfuerzo para resolverlo.",
+    "rol": "accion",
+    "tipo": "mira",
+    "sel": "[data-recorrido=\"sb-ticketera\"]"
+   },
+   {
+    "dice": "¡Listo! Vamos con tu día 1.",
+    "rol": "cierre"
    }
   ],
   "ajustes": "Del recorrido de la maqueta (GUION del onboarding) con lo del 18/11: el reto en su chat «Reto de 7 días», sin botones de atajo, «Tu panel». Sin el Second Brain: hoy su ruta es el Ops Center.",
@@ -192,7 +194,52 @@
    }
   ],
   "v4": true,
-  "v5": true
+  "v5": true,
+  "pasosV5": [
+   {
+    "dice": "¡Hola de nuevo! Ya estás adentro de Máko.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Máko trae un equipo entero para tu negocio: te lo presento en un minuto.",
+    "rol": "gancho"
+   },
+   {
+    "dice": "Todo arranca en el Ops Center: escribes lo que te hace falta, y Máko se encarga.",
+    "rol": "que-es"
+   },
+   {
+    "dice": "Mira aquí, Offer Coach: arma contigo tu oferta.",
+    "rol": "accion",
+    "tipo": "mira",
+    "sel": "button[title=\"Offer Coach\"]"
+   },
+   {
+    "dice": "Y aquí, Funnel Coach: tu sistema para conseguir clientes.",
+    "rol": "accion",
+    "tipo": "mira",
+    "sel": "button[title=\"Funnel Coach\"]"
+   },
+   {
+    "dice": "A la izquierda, tu panel con todas las pestañas: toca aquí, en Uso, para ver cuánto lleva gastado tu IA.",
+    "rol": "accion",
+    "sel": "[data-recorrido=\"sb-uso\"]",
+    "cierra": true,
+    "tipo": "toca"
+   },
+   {
+    "dice": "Si algo falla, toca aquí, en Ticketera, y repórtalo al equipo en su propio chat.",
+    "rol": "accion",
+    "sel": "[data-recorrido=\"sb-ticketera\"]",
+    "tipo": "toca"
+   },
+   {
+    "dice": "Ahora que conoces a tu equipo, toca aquí, en Reto de 7 días, y arranca tu día 1: cada día trae su paso y su video, y puedes adelantar días.",
+    "rol": "cierre",
+    "sel": "button[title=\"Reto de 7 días\"]"
+   }
+  ],
+  "fuente": "El recorrido aprobado por Martín: GUION de C:/dev/artefactos-onboarding/cuerpo.html (V2, 18/11), una frase por paso, mismo orden y mismas marcas. Martín, 18/11 tarde: el video sigue al recorrido, nunca al revés."
  },
  {
   "id": "offer-coach",
