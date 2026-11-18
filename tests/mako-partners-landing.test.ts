@@ -260,3 +260,9 @@ test('los botones de llamada a la acción van en MAYÚSCULA por la clase (Martí
   assert.match(css, /\.mp-btn \{[^}]*text-transform: uppercase; letter-spacing: \.04em;/, 'los tres «HACERME PARTNER»');
   assert.match(fuente('app/planes/Vitrina.tsx'), /\.cp-btn \{[^}]*text-transform: uppercase; letter-spacing: \.03em; \}/, 'los de la tabla de /planes');
 });
+
+test('/mako-partners lleva la barra del sitio arriba y el pie abajo, como /planes (Martín, 18/11/2026: «falta… la top bar»)', () => {
+  const pagina = fuente('app/mako-partners/page.tsx');
+  assert.match(pagina, /<BarraGlobal claro barraPropia=".mp-publica .mp-barra" \/>/, 'la barra del sitio, y la propia oculta');
+  assert.match(pagina, /<PieGlobal claro \/>/, 'el pie del sitio');
+});

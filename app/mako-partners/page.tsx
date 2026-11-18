@@ -10,7 +10,7 @@
 
 import type { Metadata } from 'next';
 import { LandingPartners } from './LandingPartners';
-import { PieGlobal } from '../vsl/_sitio/Barra';
+import { BarraGlobal, PieGlobal } from '../vsl/_sitio/Barra';
 
 export const metadata: Metadata = { title: 'MaKo Partners: llévate el 30% de cada pago de cada negocio que traigas', robots: { index: true, follow: true } };
 export const dynamic = 'force-dynamic';
@@ -22,8 +22,12 @@ export const revalidate = 0;
  * no lo ve, y quedaban dos pies uno encima del otro (16/11/2026). Precios y Términos ya están en el del sitio.
  */
 export default function MakoPartnersPage() {
+  // LA BARRA DEL SITIO ARRIBA, como /planes y las landings (18/11/2026, Martín: «falta todo lo de arriba de la top bar con las
+  // diferentes páginas de MaKo… esto al fin y al cabo es una landing dentro de la landing principal… todo eso igual»). La barrita
+  // propia de la landing («MaKo Partners · Entrar», `.mp-barra`) se oculta: la reemplaza la del sitio.
   return (
     <>
+      <BarraGlobal claro barraPropia=".mp-publica .mp-barra" />
       <style dangerouslySetInnerHTML={{ __html: '.mp-publica .mp-pie{display:none}' }} />
       <LandingPartners />
       <PieGlobal claro />
