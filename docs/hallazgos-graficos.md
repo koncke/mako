@@ -43,9 +43,13 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
   pantalla quedó confirmado, fuera de la edición y pasada una gracia de 5 s (`edicionYaGuardada`, app/dashboard/guardado.ts).
 - **Compara después del saneo de los dos lados**: el saneo es idempotente con todas las plantillas (lo mide el test); si un
   día deja de serlo, mirando no se podría crear una hoja y lo diría ese test.
+- **Y compara sólo contra lo que estaba A LA VISTA, no contra las archivadas.** El `?hoja=` de una plantilla entra con su id
+  FIJO (`paraAgregar`, lib/graficos-plantillas.ts) y `hojaDestino` mira sólo las hojas a la vista: si hay una ARCHIVADA con
+  ese id, el saneo le cambia el id a la archivada y la hoja nueva llega con el id viejo. Comparada contra la archivada, la
+  puerta la tomaba por un cambio de contenido y no dejaba abrir la plantilla mirando.
 - **Vive en:** lib/graficos-guardar-mirando.ts · lib/graficos-tablero.ts (`guardarTableroSi`, `OpcionesGuardar`) ·
   app/api/graficos/route.ts · app/dashboard/EditorInforme.tsx · app/dashboard/guardado.ts. **Lo fija:**
-  tests/graficos-guardar-mirando.test.ts (4 roturas) · tests/dashboard-guardado.test.ts · tests/graficos-modelo-v5.test.ts.
+  tests/graficos-guardar-mirando.test.ts (5 roturas) · tests/dashboard-guardado.test.ts · tests/graficos-modelo-v5.test.ts.
 
 ## La venta de un lead agregado, por fecha de cierre: donde la pone el OKR (18/11/2026)
 

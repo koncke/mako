@@ -12,7 +12,8 @@
 // LA REGLA, en positivo: mirando se pueden hacer las cosas de las HOJAS, no las de su contenido:
 //   · crear una hoja (en blanco, de una plantilla, armada por MaKo, pegada, duplicada, la que trae `?hoja=`): una hoja que
 //     no estaba se guarda entera;
-//   · archivarla, restaurarla, borrarla de Archivados, cambiarlas de orden, y la vacía de un informe en blanco;
+//   · archivarla, restaurarla, borrarla de Archivados, cambiarlas de orden, y la vacía de un informe en blanco (lo que se
+//     cuida es lo que estaba A LA VISTA: una archivada no la toca nada mirando);
 //   · cambiar su cabecera (el nombre, el emoji y el subtítulo se editan en el lugar también mirando: app/dashboard/Cabecera.tsx);
 //   · SUMAR un filtro a la barra («Filtrar la página por esto», desde el detalle de un número: `filtrarPor`).
 // Todo lo demás de una hoja que ya estaba (sus componentes, sus conectores, su tema, su diseño, su animación, los filtros
@@ -62,11 +63,14 @@ function mismaHojaMirando(antes: Hoja, despues: Hoja): boolean {
  * llega (saneado). Sin nada guardado no se llama: no hay nada de la persona que cuidar.
  */
 export function escrituraMirando(antes: Tablero, despues: Tablero): string | null {
-  const previas = new Map([...antes.hojas, ...(antes.archivadas ?? [])].map((h) => [h.id, h] as const));
+  // Lo que se cuida es lo que estaba A LA VISTA. Una archivada no la toca nada mirando, y su id puede volver adentro de
+  // una hoja NUEVA: el `?hoja=` de una plantilla con id fijo (`hojaDestino`, lib/graficos-plantillas.ts) mira sólo las
+  // hojas a la vista, y el saneo le cambia el id a la archivada que choca.
+  const previas = new Map(antes.hojas.map((h) => [h.id, h] as const));
   const llegan = [...despues.hojas, ...(despues.archivadas ?? [])];
   for (const h of llegan) {
     const a = previas.get(h.id);
-    // Una hoja que no estaba: se crea entera (una plantilla, una copia, lo que trajo un link).
+    // Una hoja que no estaba a la vista: se crea entera (una plantilla, una copia, lo que trajo un link, una restaurada).
     if (a && !mismaHojaMirando(a, h)) return NO_SE_CAMBIA_MIRANDO;
   }
   // Una hoja a la vista que desaparece sin pasar a Archivados: sólo la vacía que viaja adentro de un informe en blanco.

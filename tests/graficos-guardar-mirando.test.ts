@@ -12,6 +12,7 @@
 //   2. `CAMBIA_MIRANDO` sin 'controles' (sumar un filtro mirando) ..................... 1 fallo
 //   3. sin la excepción de la hoja vacía de un informe en blanco ...................... 1 fallo
 //   4. `edicionYaGuardada` sin mirar la gracia ........................................ 1 fallo
+//   5. comparar también contra las ARCHIVADAS (el `?hoja=` con el id de una archivada) . 1 fallo
 // =============================================================================
 
 import { test } from 'node:test';
@@ -47,6 +48,8 @@ test('mirando pasan las cosas de las hojas', () => {
     ['cambiarlas de orden', con(g, (t) => ({ ...t, hojas: [t.hojas[1], t.hojas[0]] }))],
     ['la cabecera', con(g, (t) => ({ ...t, hojas: t.hojas.map((h) => (h.id === a.id ? { ...h, nombre: 'Otro', emoji: '🔥', subtitulo: 'Un subtítulo' } : h)) }))],
     ['sumar un filtro', con(g, (t) => ({ ...t, hojas: t.hojas.map((h) => (h.id === b.id ? { ...h, controles: [...h.controles, nuevoControlVista('lista', 'producto')!] } : h)) }))],
+    // El `?hoja=` de una plantilla con id fijo, con una hoja ARCHIVADA de ese mismo id: entra una hoja nueva con ese id.
+    ['una hoja nueva con el id de una archivada', con(g, (t) => ({ ...t, hojas: [...t.hojas, { ...plantilla(5), id: (t.archivadas ?? [])[0].id }] }))],
   ];
   for (const [que, llega] of casos) assert.equal(escrituraMirando(g, llega), null, que);
   // Un informe EN BLANCO: la hoja vacía que viaja por dentro se reemplaza por la primera que se crea.
@@ -65,7 +68,6 @@ test('mirando NO pasa un cambio del contenido de una hoja que ya estaba', () => 
     ['quitar un componente', enA((h) => ({ ...h, componentes: h.componentes.slice(1) }))],
     ['cambiar el tema', enA((h) => ({ ...h, tema: { ...h.tema, acento: '#ff0066' } }))],
     ['quitar un filtro que tenía', enA((h) => ({ ...h, controles: h.controles.slice(1) }))],
-    ['cambiar un componente de una archivada', con(g, (t) => ({ ...t, archivadas: (t.archivadas ?? []).map((h) => ({ ...h, componentes: h.componentes.slice(1) })) }))],
     ['sacar una hoja sin archivarla', con(g, (t) => ({ ...t, hojas: [t.hojas[1]] }))],
   ];
   assert.ok(a.componentes.length > 1 && a.controles.length > 0, 'la plantilla de prueba tiene qué tocar');
