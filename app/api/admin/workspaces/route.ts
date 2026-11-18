@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
       case 'eliminar': {
         if (typeof body.id !== 'number') return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });
         const { eliminarWorkspace } = await import('@/lib/eliminar-workspace');
-        const r = await eliminarWorkspace(body.id, String(body.nombre ?? ''), await getWorkspaceActual());
+        const r = await eliminarWorkspace(body.id, String(body.nombre ?? ''), await getWorkspaceActual(), admin.email);
         if (!r.ok) return NextResponse.json(r, { status: 400 });
         // Si lo había pedido (Eliminar mi cuenta): cierra su pedido y le manda el mail que le prometimos. Nunca tira.
         const { cerrarBajasDelNegocio } = await import('@/lib/baja-cuenta');

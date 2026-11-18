@@ -25,6 +25,7 @@ import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { eventIdLeadCrudo } from '@/lib/meta-capi-payload';
 import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
 import { alNacerLeadDeMeta } from '@/lib/meta-lead-nuevo';
+import { reintentoSinAnunciar } from '@/lib/meta-anuncio';
 import { credWsEstricta } from '@/lib/credenciales';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { anotarFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
@@ -284,18 +285,24 @@ export async function POST(request: NextRequest) {
         // ⚠️ NO se agrega al camino de POLLING (lib/meta-leads.ts): ése hace una
         // pasada de 90 días, así que mandaría `Lead` por leads viejísimos que caen
         // fuera de la ventana de CAPI. Ahí no hay nada que optimizar.
-        const capi = await sendMetaCAPIEvent({
-          eventName: 'Lead',
-          email: lead.email,
-          phone: lead.telefono,
-          metaLeadId: leadgenId,
-          eventTime: graphLead.created_time ?? null,
-          eventId: eventIdLeadCrudo(leadgenId),
-          customData: { lead_type: 'formulario_meta' },
-        });
-        if (!capi.ok && (capi.motivo === 'rechazado' || capi.motivo === 'http' || capi.motivo === 'red')) {
-          // Lo que Meta rechaza va donde el dueño lo lee, no sólo al log.
-          await logLeadEvent(lead.id, 'Meta', `No entró la conversión Lead: ${capi.detalle}`.slice(0, 300), 'MaKo');
+        // ⚠️ En su propio try (F117, 18/11/2026): si la conversión tira, el lead ya está grabado y lo de abajo no corría
+        // nunca (el poll lo encontraba ya creado).
+        try {
+          const capi = await sendMetaCAPIEvent({
+            eventName: 'Lead',
+            email: lead.email,
+            phone: lead.telefono,
+            metaLeadId: leadgenId,
+            eventTime: graphLead.created_time ?? null,
+            eventId: eventIdLeadCrudo(leadgenId),
+            customData: { lead_type: 'formulario_meta' },
+          });
+          if (!capi.ok && (capi.motivo === 'rechazado' || capi.motivo === 'http' || capi.motivo === 'red')) {
+            // Lo que Meta rechaza va donde el dueño lo lee, no sólo al log.
+            await logLeadEvent(lead.id, 'Meta', `No entró la conversión Lead: ${capi.detalle}`.slice(0, 300), 'MaKo');
+          }
+        } catch (e) {
+          console.error(`[webhook:meta-leads] CAPI leadgen=${leadgenId}: ${e instanceof Error ? e.message : String(e)}`);
         }
 
         // (Hasta el 09/10/2026 acá se le creaba al lead nuevo su contacto y su conversación en
@@ -304,10 +311,15 @@ export async function POST(request: NextRequest) {
         // LO INMEDIATO de un lead nuevo (el aviso, los flujos, las automatizaciones): sólo en INSERT, para no re-avisar
         // si Meta reenvía el batch. Vive en lib/meta-lead-nuevo.ts porque el POLL también crea leads (17/10/2026, #868):
         // una página sin suscribir no recibe este webhook nunca, y sus leads entraban sin disparar nada.
+        // Y una reentrega de un lead cuyo anuncio se cayó (F117): sin la marca del anuncio, se anuncia ahora.
         if (created) {
           await alNacerLeadDeMeta(ws, { id: lead.id, nombre: lead.nombre, telefono: lead.telefono }, {
             fieldData: graphLead.field_data ?? null, campana: graphLead.campaign_name ?? null,
           });
+        } else if (await reintentoSinAnunciar(ws, { id: lead.id, creadoAt: lead.created_at, formCreadoEn: graphLead.created_time ?? null })) {
+          await alNacerLeadDeMeta(ws, { id: lead.id, nombre: lead.nombre, telefono: lead.telefono }, {
+            fieldData: graphLead.field_data ?? null, campana: graphLead.campaign_name ?? null,
+          }, { esReintento: true });
         }
       });
     } catch (err) {

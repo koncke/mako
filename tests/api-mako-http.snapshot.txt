@@ -119,6 +119,7 @@ cancelar_accion
 cancelar_analisis_dashboard
 cancelar_programacion_broadcast
 cancelar_suscripcion
+cargar_guiones_anuncio
 catalogo_angulos_guion
 catalogo_estructuras_guion
 catalogo_metricas_experimento
@@ -235,6 +236,7 @@ duplicar_elemento_video
 duplicar_hoja_dashboard
 duplicar_landing
 editar_about_comunidad
+editar_armada_con_ia
 editar_avatar_negocio
 editar_broadcast
 editar_categoria_comunidad
@@ -317,6 +319,7 @@ ficha_secuencia_mensajes
 fijar_post_comunidad
 fijar_remitente_email
 fijar_zona_horaria_workspace
+generar_anuncios_planteados
 generar_avatares
 generar_conclusiones_dashboard
 generar_lead_magnets

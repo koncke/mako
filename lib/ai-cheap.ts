@@ -43,6 +43,7 @@ import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacio
 import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
 import { anotarColgadoEnElPedido, anotarSaturado, esSaturacion as dijoSaturado, esTimeout, fallaDeSaturacion, plazoEsperadoMs, primeroLosSanos } from '@/lib/ia-saturacion';
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
+import { RESPALDOS_GEMINI, modeloGeminiStt, modeloGeminiTexto, modeloGeminiVision } from '@/lib/gemini-modelos';
 import { esFallaPasajeraDelCredito, queHacerSiFallaElCredito } from '@/lib/veto-claude';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
@@ -428,7 +429,7 @@ export const CASCADA_DOCS: ProvName[] = ['gemini', 'openai'];
 export const PREFIJO_REBOTE = 'rebote:';
 
 const MODELOS_RESPALDO: Partial<Record<ProvName, string[]>> = {
-  gemini: ['gemini-flash-lite-latest'],
+  gemini: [...RESPALDOS_GEMINI],
 };
 
 /**
@@ -452,7 +453,7 @@ function modelosAProbar(prov: ProvName, pedido?: string, conRespaldo = true): Ar
 /** El modelo de chat por default de un proveedor (el que usa `chatCheap` cuando no se pide uno). Lo que no sea Gemini no
  *  rota de modelo (no tiene respaldos), así que no hace falta su nombre. */
 function modeloPorDefecto(prov: ProvName): string {
-  return prov === 'gemini' ? process.env.GEMINI_MODEL || 'gemini-flash-latest' : '';
+  return prov === 'gemini' ? modeloGeminiTexto() : '';
 }
 
 /**
@@ -493,7 +494,7 @@ const anotarSuOpenAI = (prov: string, error: string, feature?: string, modelo?: 
  */
 export const MODELO_DOCS: Partial<Record<ProvName, string>> = {
   groq: process.env.DOCS_MODEL_GROQ || 'openai/gpt-oss-120b',
-  gemini: process.env.GEMINI_MODEL || 'gemini-flash-latest',
+  gemini: modeloGeminiTexto(),
   openai: 'gpt-4o-mini',
   cerebras: 'gpt-oss-120b',
   openrouter: MODELO_OPENROUTER_GRATIS,
@@ -1341,7 +1342,7 @@ async function leerConOpenAI(key: string, o: DocOpts, cuenta = 1, prov: ProvName
 async function leerConGemini(key: string, o: DocOpts, cuenta = 1, modelPedido?: string): Promise<string> {
   // Endpoint NATIVO (no el OpenAI-compat): maneja PDF e imágenes vía inline_data.
   // `modelPedido` lo pone la rotación de modelos de leerDocumentoIA; sin él, el de siempre.
-  const model = modelPedido || process.env.GEMINI_VISION_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  const model = modelPedido || modeloGeminiVision();
   const imagenes = o.dataUrls && o.dataUrls.length ? o.dataUrls : [o.dataUrl];
   const partesImagen = imagenes.map((u) => {
     const m = u.match(/^data:([^;]+);base64,([\s\S]*)$/);
@@ -1869,7 +1870,7 @@ async function sttWhisper(p: Prov, buf: Buffer, mime: string, opts: SttOpts): Pr
 async function sttGemini(p: Prov, base64: string, buf: Buffer, mime: string, opts: SttOpts, modelo?: string): Promise<string> {
   if (buf.length > MAX_INLINE_GEMINI) throw new Error('audio demasiado grande para mandarlo inline');
   // `modelo` lo elige `escucharCon` (otro modelo si éste está saturado); sin él, el de siempre.
-  const model = modelo ?? (process.env.GEMINI_STT_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest');
+  const model = modelo ?? modeloGeminiStt();
   // p.base es el shim OpenAI-compatible (…/v1beta/openai); la API nativa cuelga del
   // mismo host sin ese sufijo.
   const base = p.base.replace(/\/openai\/?$/, '');
@@ -1944,7 +1945,7 @@ const esSaturacion = (msg: string): boolean =>
  * envejece solo; un alias no.
  */
 function modelosSttGemini(): string[] {
-  const base = process.env.GEMINI_STT_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  const base = modeloGeminiStt();
   return modelosAProbar('gemini', base).filter((m): m is string => !!m);
 }
 

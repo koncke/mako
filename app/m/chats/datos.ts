@@ -18,10 +18,13 @@ import { contarBandejas, opcionesDeCanal, type ConteosBandeja, type OpcionCanal 
 import type { ChatResumen, EtapaChat } from '@/lib/chats-tipos';
 import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
 import { haceCuanto } from '@/app/m/crm/reglas';
-import { PAGINAS_WHATSAPP_M, TOPE_FILAS_M, segundaLinea } from './modelo';
+import { PAGINAS_WHATSAPP_M, TOPE_FILAS_M, filasQueViajan, segundaLinea } from './modelo';
 
-/** Una fila del teléfono: la conversación tal cual la arma escritorio, y lo que se dibuja ya calculado. */
-export type FilaChatM = { chat: ChatResumen; segunda: string; riel: string };
+/**
+ * Una fila del teléfono: la conversación tal cual la arma escritorio, y lo que se dibuja ya calculado. `enTope`: está entre las
+ * `TOPE_FILAS_M` más recientes de todas (sin un canal elegido, la lista es ésa); las demás viajan por su línea (`filasQueViajan`).
+ */
+export type FilaChatM = { chat: ChatResumen; segunda: string; riel: string; enTope: boolean };
 
 export type ChatsM = {
   filas: FilaChatM[];
@@ -37,8 +40,9 @@ export type ChatsM = {
   canales: OpcionCanal[];
   /** Las fuentes que NO se pudieron leer (lib/chats.ts): «no pude leer» no es «no hay chats». */
   fallas: string[];
-  /** Cuántas conversaciones quedaron en la computadora por el tope. */
+  /** Cuántas conversaciones quedaron en la computadora por el tope: de todas, y de cada renglón del filtro de canal. */
   fuera: number;
+  fueraPorCanal: Record<string, number>;
 };
 
 /** null = no hay acceso o no se pudo leer nada (distinto de «no hay chats»). */
@@ -52,15 +56,19 @@ export async function leerChatsM(): Promise<ChatsM | null> {
       hoyEnWorkspace(),
     ]);
     const ahora = Date.now();
-    const visibles = lista.chats.slice(0, TOPE_FILAS_M);
+    const canales = opcionesDeCanal(lista.lineas, lista.cuentasSociales, lista.chats);
+    // Las 150 más nuevas de todas Y las 150 más nuevas de cada línea o cuenta: elegir la línea de MaKo trae las suyas aunque las
+    // más nuevas sean todas del otro número (la revisión de O48, 18/11/2026). Con lo ya leído: no se lee nada de más.
+    const viaje = filasQueViajan(lista.chats, canales, TOPE_FILAS_M);
     return {
-      filas: visibles.map((c): FilaChatM => ({ chat: c, segunda: segundaLinea(c), riel: c.ultimaFecha ? haceCuanto(c.ultimaFecha, ahora, tz, hoy) : '' })),
+      filas: viaje.viajan.map(({ chat: c, enTope }): FilaChatM => ({ chat: c, segunda: segundaLinea(c), riel: c.ultimaFecha ? haceCuanto(c.ultimaFecha, ahora, tz, hoy) : '', enTope })),
       conteos: contarBandejas(lista.chats, puerta.yo),
       yo: puerta.yo,
       etapas: lista.etapas,
-      canales: opcionesDeCanal(lista.lineas, lista.cuentasSociales, lista.chats),
+      canales,
       fallas: lista.fallas,
-      fuera: Math.max(0, lista.chats.length - visibles.length),
+      fuera: viaje.fueraTodos,
+      fueraPorCanal: viaje.fueraPorCanal,
     };
   } catch (e) {
     console.error('[m/chats] no se pudo leer:', e instanceof Error ? e.message : e);

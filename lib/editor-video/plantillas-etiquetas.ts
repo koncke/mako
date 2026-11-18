@@ -10,14 +10,15 @@
 // contesta cada una. El gancho, «¿por qué frenar el scroll y dejar tus datos?» (los leads vienen de anuncios); el
 // testimonio, «¿por qué confiar?» (el que cierra conversando, y el cuello en la conversión); el antes y después y los
 // beneficios, «¿qué gano?» (el cuello en la oferta; los beneficios también para quien vende desde su página); la oferta,
-// «¿por qué AHORA?» (el que cobra en un checkout o en un lanzamiento).
+// desde el 18/11/2026 la invitación a una clase gratis en vivo (doc 2.9), «¿cuándo es?» (el que vende en webinars).
 // Las seis del 18/11/2026 (docs/plantillas-reales/video.md, tanda 1 de la sección 5, con la fila que pide cada una):
 // la respuesta a un comentario, de quien vende por chat; el caso con números, de quien vende por llamada y cobra una
 // suscripción; la historia, del cuello en la conversión; los tres errores, de quien recibe mensajes; el tour, de quien
 // cierra en persona. El clip de podcast va `{}`: es para recortar un video largo, y ninguna señal del negocio lo distingue.
 // («Gancho escrito» y «Oferta con glitch» iban `{}` por ser variantes de su original; se retiraron ese día.)
-// ⚠️ Y LA OFERTA NO LLEVA UN EJE GENÉRICO: es de quien cobra en un checkout o en un lanzamiento, y un cuello en la
-//    conversión la sugeriría a quien vende por llamada (la regla de lib/graficos-plantillas-etiquetas.ts).
+// ⚠️ Y LA OFERTA NO LLEVA UN EJE GENÉRICO: es de quien vende en webinars, y un cuello en la conversión la sugeriría a
+//    quien vende por llamada (la regla de lib/graficos-plantillas-etiquetas.ts). Hasta el 18/11 también era de quien
+//    cobra en un checkout (`carrito`): era el anuncio de e-commerce con cuenta regresiva, y el doc saca esa fila.
 //
 // Puro y sólo con tipos: lo leen la galería (en el navegador), la API de MaKo, el chat y los tests.
 // =============================================================================
@@ -34,7 +35,7 @@ export const ETIQUETAS_VIDEO: Readonly<Record<string, EtiquetasPlantilla>> = {
   historia: { cuello: ['conversion'] },
   'tres-errores': { entrada: ['chat_entrante'] },
   'clip-podcast': {},
-  oferta: { canal: ['carrito', 'webinar'], entrada: ['carrito'] },
+  oferta: { canal: ['webinar'] },
   'tour-propiedad': { canal: ['presencial'] },
   'antes-despues': { cuello: ['oferta'] },
 };

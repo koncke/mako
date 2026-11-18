@@ -34,6 +34,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from '../app/crm/seleccion-columna';
 import { arrobaInstagram, linksDeInstagramComoArroba } from '../app/crm/campo-inline';
+import { CAMPOS_LEAD_POR_DEFECTO, camposDelLead } from '../app/crm/buscar-leads';
 import { coincideBusqueda } from '../lib/buscar-texto';
 import { buscarEnCartera } from '../app/m/crm/reglas';
 
@@ -129,7 +130,9 @@ test('6 (Instagram): el buscador encuentra al lead por su @, con o sin @, en may
   assert.deepEqual(buscarEnCartera(cartera, 'instagram.com/MartinKoncke/').filas.map((f) => f.id), [1]);
   assert.deepEqual(buscarEnCartera(cartera, '@martinkoncke').filas.map((f) => f.id), [1]);
   // Cableado: el tablero y el teléfono pasan el Instagram, y el mapa del tablero lo trae.
-  assert.match(BOARD, /coincideBusqueda\(\[l\.id, l\.name, l\.company, l\.email, l\.phone, arrobaInstagram\(l\.instagram\)\], linksDeInstagramComoArroba\(search\)\)/);
+  // (Desde el 18/11/2026, F150, los campos los elige la flechita: app/crm/buscar-leads.ts. Sin tocar nada van todos, el @ incluido.)
+  assert.match(BOARD, /coincideBusqueda\(camposDelLead\(l, camposBusqueda\), linksDeInstagramComoArroba\(search\)\)/);
+  assert.ok(camposDelLead({ id: 7, instagram: 'martinkoncke' }, CAMPOS_LEAD_POR_DEFECTO).includes('@martinkoncke'), 'el buscador perdió el Instagram');
   assert.match(leer('app/crm/crm-map.ts'), /instagram: l\.instagram \?\? null,/);
   assert.match(leer('lib/crm-movil.ts'), /telefono: l\.telefono, instagram: l\.instagram \}\)\), q\);/);
 });

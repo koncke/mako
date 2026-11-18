@@ -52,7 +52,7 @@ import type { PasoGrafo } from '@/lib/flujo-grafo';
  *     `pregunta` la dibuja el chat.
  */
 // 20/10/2026: y `cron`, el horario del Recurrente que puso el server (la tarjeta CRON lo siembra igual).
-export type ListoCrearIA = Pick<ListoIA, 'secuenciaId' | 'pasos' | 'nombre' | 'orden' | 'avisos' | 'etiquetasNuevas' | 'disparador' | 'cron'>
+export type ListoCrearIA = Pick<ListoIA, 'secuenciaId' | 'pasos' | 'nombre' | 'orden' | 'avisos' | 'etiquetasNuevas' | 'disparador' | 'cron' | 'borrador'>
   & Partial<ExtrasEdicionIA>
   & { modo: 'crear' | 'editar'; base?: readonly PasoGrafo[] };
 

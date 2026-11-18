@@ -1024,3 +1024,23 @@ export async function etapasDeChats(): Promise<{ stages: Stage[]; falla: boolean
   return { stages: e.stages, falla: e.falla };
 }
 
+/**
+ * F157 (18/11/2026): LA ETAPA DEL CRM de cada uno de estos leads —la columna donde lo dibuja su tablero, leída con el funnel
+ * de SU casa (`embudosDeLeads`)—, la misma que muestra Chats. La pide la API de MaKo (`etapa_inbox`, lib/api-mako/areas/
+ * whatsapp.run.ts), que hasta hoy contestaba la derivación fija de las bandejas de WhatsApp que ya no existen (`derivarEtapa`,
+ * lib/wa-etapas.ts: «cliente», «por-cobrar»…), ciega a las etapas de cada negocio. Un id que no es de este negocio no
+ * vuelve. Tira si no pudo leer: «no pude leer la etapa» no es una etapa.
+ */
+export async function etapasDelCrmPorId(ids: readonly number[]): Promise<Map<number, { key: string; label: string }>> {
+  const filas = await leerLeads(ids);
+  const out = new Map<number, { key: string; label: string }>();
+  if (!filas.length) return out;
+  const e = await etapasDelNegocio();
+  const embudoDe = await embudosDeLeads(filas, { stages: e.stages, labels: e.labels });
+  for (const l of filas) {
+    const emb = embudoDe(l);
+    out.set(Number(l.id), etapaDe(l, emb.stages, emb.labels));
+  }
+  return out;
+}
+
