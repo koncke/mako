@@ -182,7 +182,8 @@ function ClienteDeAgencia({ inicial, conMercadoPago }: { inicial: PrecioClienteA
 
 const CAMPOS_PAGO_DIRECTO: ReadonlyArray<{ campo: keyof DatosDePagoDirecto; titulo: string; ayuda?: string; modo?: 'text' | 'tel' | 'email' }> = [
   { campo: 'binancePayId', titulo: 'Binance Pay ID', ayuda: 'Sin él, no se ofrece pagar por Binance.' },
-  { campo: 'alias', titulo: 'Alias de la Mercado Pago', ayuda: 'Con el alias o el CVU, se ofrece la transferencia.' },
+  { campo: 'linkTransferencia', titulo: 'Link «Transferime con Mercado Pago»', ayuda: 'Un enlace https que abre la app de Mercado Pago para transferirte. Es el botón principal de la transferencia.' },
+  { campo: 'alias', titulo: 'Alias de la Mercado Pago', ayuda: 'Con el link, el alias o el CVU, se ofrece la transferencia.' },
   { campo: 'cvu', titulo: 'CVU' },
   { campo: 'titular', titulo: 'Titular de las cuentas' },
   { campo: 'whatsapp', titulo: 'WhatsApp para comprobantes', ayuda: 'Con el código de país, sin signos (5491122334455). Sin él no sale ese botón.', modo: 'tel' },

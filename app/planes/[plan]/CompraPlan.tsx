@@ -276,10 +276,20 @@ export function CompraPlan(p: {
                   ))}
                 </div>
               )}
-              {montoDirecto && <p style={{ margin: 0, fontSize: 15 }}>Envía exactamente <b>{formatoDelMonto(montoDirecto)}</b> <small>(ya con el 5% de descuento)</small></p>}
+              {montoDirecto && (
+                <p style={{ margin: 0 }}>
+                  <small style={{ display: 'block', opacity: 0.7 }}>Envía exactamente (ya con el 5% de descuento)</small>
+                  <b style={{ fontSize: 28, lineHeight: 1.15 }}>{formatoDelMonto(montoDirecto)}</b>
+                </p>
+              )}
+              {/* El botón principal de la transferencia: el «Transferime con Mercado Pago» de MaKo (abre la app; no trae monto, por eso el monto va grande arriba). */}
+              {medioDirecto === 'transferencia' && p.directo.datos.linkTransferencia && (
+                <a className="planes-btn" href={p.directo.datos.linkTransferencia} target="_blank" rel="noopener noreferrer" style={{ textAlign: 'center', textDecoration: 'none' }}>TRANSFERIR CON MERCADO PAGO</a>
+              )}
               {medioDirecto === 'binance' && <DatoCopiable etiqueta="Binance Pay ID" valor={p.directo.datos.binancePayId} />}
               {medioDirecto === 'transferencia' && (
                 <>
+                  {p.directo.datos.linkTransferencia && (p.directo.datos.alias || p.directo.datos.cvu) && <small style={{ opacity: 0.7 }}>¿Transfieres desde otro banco? Usa estos datos:</small>}
                   <DatoCopiable etiqueta="Alias" valor={p.directo.datos.alias} />
                   <DatoCopiable etiqueta="CVU" valor={p.directo.datos.cvu} />
                 </>

@@ -37,6 +37,8 @@ export const CHIP_PAGO_DIRECTO = `${Math.round(DESCUENTO_PAGO_DIRECTO * 100)}% O
 export type DatosDePagoDirecto = {
   /** Binance: el Pay ID de MaKo. */
   binancePayId: string | null;
+  /** Transferencia: el link «Transferime con Mercado Pago» de la cuenta de MaKo (abre la app para transferir; no trae monto). */
+  linkTransferencia: string | null;
   /** Transferencia: alias y CVU de la Mercado Pago de MaKo. */
   alias: string | null;
   cvu: string | null;
@@ -51,7 +53,7 @@ export type DatosDePagoDirecto = {
 export const CLAVE_PAGO_DIRECTO = 'planes.pago_directo';
 
 // ⚠️ SIN INVENTAR NADA (Cerebro, 18/11): los carga Martín. Mientras estén vacíos, la opción no aparece en el checkout.
-export const DATOS_VACIOS: DatosDePagoDirecto = { binancePayId: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null };
+export const DATOS_VACIOS: DatosDePagoDirecto = { binancePayId: null, linkTransferencia: null, alias: null, cvu: null, titular: null, whatsapp: null, email: null };
 
 const texto = (v: unknown, max: number): string | null => {
   const t = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '';
@@ -63,8 +65,11 @@ export function datosLimpios(v: unknown): DatosDePagoDirecto {
   const o = v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
   const wa = String(o.whatsapp ?? '').replace(/\D/g, '');
   const email = texto(o.email, 200);
+  const link = texto(o.linkTransferencia, 300);
   return {
     binancePayId: texto(o.binancePayId, 40),
+    // Sólo https (se dibuja como un enlace para un cliente: nunca `javascript:` ni nada raro).
+    linkTransferencia: link && /^https:\/\/[^\s]+$/i.test(link) ? link : null,
     alias: texto(o.alias, 60),
     cvu: texto(o.cvu, 40),
     titular: texto(o.titular, 120),
@@ -79,11 +84,11 @@ export function datosDeSetting(crudo: string | null): DatosDePagoDirecto {
   try { return datosLimpios(JSON.parse(crudo)); } catch { return { ...DATOS_VACIOS }; }
 }
 
-/** Con qué se puede pagar HOY: Binance si hay Pay ID; transferencia si hay alias o CVU. Vacío = la opción no se muestra. */
+/** Con qué se puede pagar HOY: Binance si hay Pay ID; transferencia si hay link, alias o CVU. Vacío = la opción no se muestra. */
 export function mediosDisponibles(d: DatosDePagoDirecto): MedioDirecto[] {
   const out: MedioDirecto[] = [];
   if (d.binancePayId) out.push('binance');
-  if (d.alias || d.cvu) out.push('transferencia');
+  if (d.alias || d.cvu || d.linkTransferencia) out.push('transferencia');
   return out;
 }
 

@@ -22,7 +22,7 @@ import { CompraPlan } from '../app/planes/[plan]/CompraPlan';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
-const DATOS: DatosDePagoDirecto = { binancePayId: 'PAYID-DE-PRUEBA', alias: 'alias.de.prueba', cvu: null, titular: 'Titular de prueba', whatsapp: '5491100000000', email: 'cobros@ejemplo.com' };
+const DATOS: DatosDePagoDirecto = { binancePayId: 'PAYID-DE-PRUEBA', linkTransferencia: 'https://mpago.la/ejemplo', alias: 'alias.de.prueba', cvu: null, titular: 'Titular de prueba', whatsapp: '5491100000000', email: 'cobros@ejemplo.com' };
 
 test('el descuento es UNO para todos: 5 %, y sale en una constante junto a las de Partners', () => {
   assert.equal(DESCUENTO_PAGO_DIRECTO, 0.05);
@@ -46,15 +46,16 @@ test('los datos de MaKo NO se inventan: sin ninguno la opción no se ofrece, y c
   assert.ok(Object.values(DATOS_VACIOS).every((v) => v === null));
   assert.deepEqual(datosDeSetting(null), DATOS_VACIOS, 'sin setting, sin datos');
   assert.deepEqual(datosDeSetting('esto no es json'), DATOS_VACIOS, 'un setting roto no muestra nada');
-  assert.deepEqual(mediosDisponibles({ ...DATOS, alias: null, cvu: null }), ['binance']);
+  assert.deepEqual(mediosDisponibles({ ...DATOS, alias: null, cvu: null, linkTransferencia: null }), ['binance']);
+  assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null, alias: null, cvu: null }), ['transferencia'], 'con sólo el link de Mercado Pago alcanza');
   assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null }), ['transferencia']);
   assert.deepEqual(mediosDisponibles({ ...DATOS, binancePayId: null, alias: null, cvu: '0000003100000000000001' }), ['transferencia']);
 });
 
 test('los datos viven en un SETTING editable (no en una constante) y se limpian: lo que no se entiende no se muestra a un cliente', () => {
   assert.equal(CLAVE_PAGO_DIRECTO, 'planes.pago_directo');
-  const l = datosLimpios({ binancePayId: '  123 456  ', alias: 'mako.cobros', cvu: '', titular: 'MaKo SRL', whatsapp: '+54 9 11 2233-4455', email: 'COBROS@Mako.com' });
-  assert.deepEqual(l, { binancePayId: '123 456', alias: 'mako.cobros', cvu: null, titular: 'MaKo SRL', whatsapp: '5491122334455', email: 'cobros@mako.com' });
+  const l = datosLimpios({ binancePayId: '  123 456  ', linkTransferencia: 'https://mpago.la/abc', alias: 'mako.cobros', cvu: '', titular: 'MaKo SRL', whatsapp: '+54 9 11 2233-4455', email: 'COBROS@Mako.com' });
+  assert.deepEqual(l, { binancePayId: '123 456', linkTransferencia: 'https://mpago.la/abc', alias: 'mako.cobros', cvu: null, titular: 'MaKo SRL', whatsapp: '5491122334455', email: 'cobros@mako.com' });
   const m = datosLimpios({ whatsapp: '12345', email: 'no-es-email', alias: 42 });
   assert.equal(m.whatsapp, null, 'un WhatsApp con pocos dígitos');
   assert.equal(m.email, null);
