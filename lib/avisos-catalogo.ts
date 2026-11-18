@@ -561,7 +561,7 @@ Meta ya no marca ningún problema: tus anuncios pueden salir normal.
     ejemplo: `🟡 *Meta no pudo cobrar la cuenta publicitaria de Natalia*
 🕐 Desde hace 35 min
 
-Por ahora sus anuncios siguen saliendo, pero Meta da unos días para pagar: si no se paga, los frena.
+Meta da unos días para pagar: si no se paga, frena sus anuncios.
 
 Qué hacer:
 1. Entra a la facturación de Meta: https://business.facebook.com/billing_hub

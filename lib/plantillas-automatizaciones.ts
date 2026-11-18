@@ -806,8 +806,10 @@ const CAUSA_DE_LA_CUENTA: ReadonlyArray<CausaCuenta> = [
     id: 'gracia', estado: 'En período de gracia', emoji: '🟡',
     titular: 'Meta no pudo cobrar tu cuenta publicitaria',
     titularAgencia: 'Meta no pudo cobrar la cuenta publicitaria de {{cliente_nombre}}',
-    efecto: 'Por ahora tus anuncios siguen saliendo, pero Meta da unos días para pagar: si no se paga, los frena.',
-    efectoAgencia: 'Por ahora sus anuncios siguen saliendo, pero Meta da unos días para pagar: si no se paga, los frena.',
+    // Sin decir cómo está la entrega (revisión del Cerebro, 18/11): en el caso de Natalia, el mismo incidente se marcó «sin
+    // entregar». No se sabe de verdad, así que no se afirma ni lo uno ni lo otro.
+    efecto: 'Meta te da unos días para pagar: si no se paga, frena tus anuncios.',
+    efectoAgencia: 'Meta da unos días para pagar: si no se paga, frena sus anuncios.',
     pasos: PAGAR_EN_META,
   },
   {

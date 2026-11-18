@@ -197,12 +197,14 @@ test('la alerta dice la CAUSA de cada estado, y lo que Meta no confirmó no lo a
   assert.match(impago!, /\nQué hacer:\n1\. Entra a la facturación de Meta: https:\/\/business\.facebook\.com\/billing_hub\n2\. Paga el saldo pendiente o cambia la tarjeta/, 'urge sin decir qué hacer, que es sólo ansiedad');
   assert.match(impago!, /\n👉 El estado en MaKo: https:\/\/x\/integraciones\n\n— MaKo$/);
   assert.ok(!/Motivo que da Meta/.test(impago!), 'repite el mismo dato dos veces');
-  // EL PERÍODO DE GRACIA: Meta no pudo cobrar y da unos días; los anuncios SIGUEN. El texto de antes decía «Anuncios: sin
-  // entregar» con un dato que lib/meta-health.ts deduce de la severidad, no que Meta confirme. Ahora no lleva ese renglón.
+  // EL PERÍODO DE GRACIA: Meta no pudo cobrar y da unos días. El texto de antes decía «Anuncios: sin entregar» con un dato que
+  // lib/meta-health.ts deduce de la severidad, no que Meta confirme. Ahora no afirma cómo está la entrega, ni para un lado ni
+  // para el otro: «siguen saliendo» también puede ser falso (Natalia, ws19, 17/11: el mismo incidente marcado «sin entregar»).
   for (const entregaFrenada of [false, true]) {
     const gracia = await loQueSale({ statusLabel: 'En período de gracia', disableReason: 'Riesgo de pago', entregaFrenada, confirmado: true }, 400, 1);
     assert.match(gracia!, /^🟡 \*Meta no pudo cobrar tu cuenta publicitaria\*\n/);
-    assert.match(gracia!, /Por ahora tus anuncios siguen saliendo, pero Meta da unos días para pagar: si no se paga, los frena\./);
+    assert.match(gracia!, /\nMeta te da unos días para pagar: si no se paga, frena tus anuncios\.\n/);
+    assert.ok(!/siguen saliendo|no se están mostrando|entregando/.test(gracia!), `afirma cómo está la entrega: «${gracia}»`);
     assert.ok(!/sin entregar|per[ií]odo de gracia|[A-ZÁÉÍÓÚÑ]{5,}/.test(gracia!), `jerga, mayúsculas o «sin entregar» en el período de gracia: «${gracia}»`);
     assert.match(gracia!, /📋 Motivo que da Meta: Riesgo de pago/);
     assert.match(gracia!, /🕐 Desde hace 6 h 40 min\n/);
