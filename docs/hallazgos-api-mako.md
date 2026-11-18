@@ -14,6 +14,40 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## Corregir un dato del perfil por el chat: `corregir_campo_perfil` y «¿cómo te hago recordar que…?» (18/11/2026, O21)
+
+- **El síntoma:** Leila, en la llamada del 27/10: «¿cómo te hago recordar que LíderMente es de 7:30 a 9:30?». MaKo no tenía
+  cómo: `guardar_campo_perfil` sólo llena HUECOS («ya tiene valor» se rechaza) y, medido con el turno real
+  (`clasificarIntencion` + `herramientasDelTurno` / `herramientasDelChat`), la pregunta caía en `consultar` (en una pregunta no
+  viajan las que escriben) y «recordá que la garantía es de 30 días», «en realidad mi precio es…» o «corregí mi horario» caían al
+  default (en WhatsApp, una idea para el Plan). Ninguna de 12 frases traía la herramienta.
+- **Lo que quedó:** `corregir_campo_perfil` (chat, admin, al final del área, `PUT /negocio/perfil/campos/{key}`; el `PATCH`
+  sigue siendo completar un hueco). El resumen dice lo de antes y lo nuevo, y **lo de antes VIAJA en el payload**: si el dato
+  cambió antes del «sí» (otra corrección, un documento, la pantalla), `faltaParaConfirmar` cierra la propuesta (`yaNoVale`) y
+  `corregirCampoPerfil` (negocio.helpers) vuelve a comparar al escribir. Va por la MISMA puerta que `completarHuecoPerfil`: un
+  campo del Archivero a lo manual (gana sobre lo que saque después un documento), uno del wizard a las answers. En el clasificador,
+  `esDatoDelPerfil` (lib/mako-intencion.ts) antes de la pregunta, y la operación entre las simples del grupo
+  (`ACCIONES_SIMPLES`, lib/despacho-grupo.ts): sin eso el grupo la delegaba al equipo.
+- **Tres trampas que no se ven:**
+  - `faltaParaConfirmar` **no está envuelto en un try** en `confirmarPendiente` (lib/api-mako/acciones.ts): una lectura estricta
+    que tira revienta el «sí». Se envuelve en el runner y «no pude leer» vuelve como TEXTO (la pendiente sigue viva), nunca como
+    `yaNoVale` (que la cerraría por un 5xx).
+  - El payload lleva `campo_id`, no `key`: la tarjeta y la bandeja (`lineasDelPayload`) saltean los ids, y «oferta_incluye» en
+    pantalla es jerga.
+  - **Las palabras de la relevancia de una regla nueva DESPLAZAN a otras del área.** Con «corregir campo perfil…» delante, «en
+    realidad mi precio es 3000 dólares» en la app trae la corrección del perfil y ya no `guardar_oferta` (el 75 % del presupuesto se
+    llena con las del perfil; por WhatsApp viajan las dos). Para el precio hay dos lugares (el perfil y el catálogo de ofertas) y la
+    frase es ambigua: quedó así, anotado.
+- ⚠️ **Lo que quedó SIN hacer (decisión de Martín):** la pantalla (`app/api/onboarding/archivero/manual/route.ts`) sólo deja PISAR
+  un dato ya cargado al super admin («Ocupado → solo super-admin»), y `CamposNegocio` no dibuja los `rechazados`: un cliente que
+  corrige un dato ocupado en «El brief» lo ve volver al valor viejo sin aviso. Por el chat, desde hoy, un admin del negocio sí lo
+  corrige (con su «sí»). Si sólo el super admin tiene que poder pisar, es `faltaParaConfirmar` + el mismo chequeo en `ejecutar`;
+  si no, la pantalla tiene un bug. Y `guardar_campo_perfil` (por pantalla) no viaja en la ACCIÓN del grupo: un hueco pedido por el
+  grupo se sigue delegando.
+- **Vive en:** `lib/api-mako/areas/negocio.def.ts` · `lib/api-mako/areas/negocio.run.ts` (`corregir_campo_perfil`) ·
+  `lib/api-mako/areas/negocio.helpers.ts` (`valorDelCampoPerfil`, `corregirCampoPerfil`) · `lib/mako-intencion.ts`
+  (`esDatoDelPerfil`) · `lib/despacho-grupo.ts` · `tests/corregir-campo-perfil.test.ts` · `tests/clase-del-grupo.test.ts` (el 12).
+
 ## La referencia pública de /api-mako (16/11/2026)
 
 - **Un `page.tsx` de Next no puede exportar otra cosa que lo de una página**: la vista sin sesión vive en
