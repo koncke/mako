@@ -46,15 +46,18 @@ async function landing(p: Props = {}): Promise<{ html: string; t: string }> {
   return { html, t: texto(html) };
 }
 
-test('el TÍTULO dice el 30% de por vida, y la bajada cuánto por mes y por plan, en dinero', async () => {
+test('el TÍTULO dice el 30% (sin «de por vida»), y el subtítulo el ejemplo de 10 negocios en Pro, de la regla', async () => {
   const { html, t } = await landing();
-  assert.match(html, /<h1>Recomienda MaKo y llévate el <em>30%<\/em> de por vida<\/h1>/);
-  assert.ok(t.includes('el 30% de cada pago, todos los meses, para siempre : US$ 29,10 al mes por cada MaKo Pro y US$ 14,10 por cada MaKo Essential, en dinero. Negocios ilimitados.'), 'la bajada');
+  assert.match(html, /<h1>Recomienda MaKo y llévate el <em>30%<\/em><\/h1>/);
+  // Martín, 18/11/2026: «Elimina esto del título: de por vida. Y mejora el copy del subtítulo». El subtítulo decidido, con los US$ 291
+  // de la regla (10 × US$ 97 × 30%).
+  assert.ok(t.includes('Por cada negocio que entra con tu link, te llevas el 30% de lo que paga, todos los meses . Con 10 negocios en MaKo Pro, son US$ 291 al mes para ti.'), 'el subtítulo');
+  assert.doesNotMatch(t, /de por vida|para siempre/, 'ni «de por vida» ni «para siempre» en la página');
   assert.match(t, /Todos los meses/);
   assert.match(t, /Cobras en dinero/);
   assert.doesNotMatch(t, VIEJO, 'nada del «100% del primer mes», ni meses, crédito, Accelerator, devolución, «Cómo funciona» ni el alta a mano');
   assert.ok(!t.includes(PROGRAMA_ACELERADOR.nombre), 'el Accelerator no está en Partners');
-  assert.match(fuente('app/mako-partners/page.tsx'), /title: 'MaKo Partners: llévate el 30% de cada pago de cada negocio que traigas, de por vida'/);
+  assert.match(fuente('app/mako-partners/page.tsx'), /title: 'MaKo Partners: llévate el 30% de cada pago de cada negocio que traigas'/);
 });
 
 test('los TRES NÚMEROS grandes: el 30%, lo del mes con Pro, ilimitado', async () => {
@@ -63,7 +66,7 @@ test('los TRES NÚMEROS grandes: el 30%, lo del mes con Pro, ilimitado', async (
   assert.match(numeros, /30% de cada pago de cada negocio que traes, todos los meses\./);
   assert.match(numeros, /US\$ 29,10 al mes por cada negocio que elige MaKo Pro \./);
   assert.match(numeros, /Ilimitado Traes 10 negocios, cobras 10 veces cada mes\. Traes 100, cobras 100 \./);
-  assert.match(texto(html), /El 30% es tuyo de por vida/);
+  assert.match(texto(html), /El 30% es tuyo todos los meses/);
 });
 
 test('la CALCULADORA: el deslizador, dos selectores segmentados (plan y cómo te pagan), el resultado enorme y el botón', async () => {
@@ -112,7 +115,7 @@ test('las PREGUNTAS: cuánto, por qué 30% o 27%, cada pago, y lo de siempre', a
   assert.match(t, /Tener tu plan de MaKo activo\. Con tu cuenta te haces partner en un minuto y tu link aparece en el acto\./);
   assert.doesNotMatch(t, /gratis/i, 'ningún «gratis» sobre ser partner');
   for (const q of preguntas) assert.ok(t.includes(q), q);
-  assert.match(t, /El 30% de cada pago de cada negocio que entra con tu link, todos los meses, para siempre: US\$ 29,10 al mes por cada MaKo Pro y US\$ 14,10 por cada MaKo Essential\. Es dinero, no crédito ni descuentos\./);
+  assert.match(t, /El 30% de cada pago de cada negocio que entra con tu link, todos los meses, mientras el negocio siga en MaKo: US\$ 29,10 al mes por cada MaKo Pro y US\$ 14,10 por cada MaKo Essential\. Es dinero, no crédito ni descuentos\./);
   assert.match(t, /Binance o transferencia bancaria , o si le cobras tú y nos mandas el 70% por Binance o transferencia, te llevas el 30% \./);
   assert.ok(t.includes(`pasarela o un link de pago (Mercado Pago, tarjeta, Whop), el ${PASARELA} : ${pasarelaPro} al mes por cada MaKo Pro y ${pasarelaEssential} por cada MaKo Essential.`),
     'la pasarela, con su porcentaje y sus montos');
@@ -124,7 +127,7 @@ test('las PREGUNTAS: cuánto, por qué 30% o 27%, cada pago, y lo de siempre', a
   assert.ok(t.includes(`${DIAS_COOKIE_REF} días. Si alguien lo abre hoy`), 'cuánto dura, sin «vale el primero»');
   assert.match(t, /pone tu código al pagar/, 'el código del carrito');
   assert.doesNotMatch(t, /¿Y si soy agencia\?/, 'lo de agencia salió de Partners');
-  assert.match(t, /Tu 30% de por vida te está esperando/, 'el cierre');
+  assert.match(t, /Tu 30% te está esperando/, 'el cierre');
 });
 
 test('UNA acción, un link: hacerse partner (al alta), volver al panel, o ninguna (el super admin)', async () => {

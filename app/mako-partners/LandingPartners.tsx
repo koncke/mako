@@ -37,7 +37,7 @@ import Link from 'next/link';
 import { COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, DIAS_COOKIE_REF, PAGO_HOY, RUTA_ALTA_PARTNERS, comisionDelPago, type CanalDelPago } from '@/lib/partners-reglas';
 import { PLANES_MAKO_DEFAULT } from '@/lib/planes-mako';
 import { Calculadora } from './Calculadora';
-import { porcentaje, usd } from './numeros';
+import { gananciaPorMes, porcentaje, usd } from './numeros';
 import { MARCA } from '@/lib/tutoriales/marcas';
 
 const CSS = `
@@ -65,6 +65,7 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-hero h1 em { font-style: normal; color: var(--mp-azul); }
 .mp-bajada { margin: 0 0 26px; font-size: 18.5px; color: var(--mp-dim); max-width: 540px; }
 .mp-bajada b { color: var(--mp-ink); }
+.mp-junto { white-space: nowrap; }
 .mp-acciones { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
 .mp-btn { display: inline-block; border: 0; cursor: pointer; font: inherit; background: var(--mp-azul); color: var(--mp-sobre-azul) !important;
   text-decoration: none; font-weight: 700; font-size: 17px; padding: 16px 28px; border-radius: 12px; text-transform: uppercase; letter-spacing: .04em;
@@ -146,6 +147,9 @@ body:has(.mp-publica) { background: #FFFFFF; }
 }
 `;
 
+/** El ejemplo del subtítulo: cuántos negocios (Martín, 18/11/2026: «Con 10 negocios en MaKo Pro, son US$ 291 al mes para ti»). */
+const NEGOCIOS_DEL_EJEMPLO = 10;
+
 /** La acción de la landing: hacerse partner, o volver al panel. Siempre un link (sin JavaScript también lleva). */
 export type AccionLanding = { href: string; texto: string };
 
@@ -189,10 +193,12 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
           <div className="mp-hero-grilla">
             <div>
               <span className="mp-ceja">MaKo Partners</span>
-              <h1>Recomienda MaKo y llévate el <em>{directo}</em> de por vida</h1>
+              {/* Martín, 18/11/2026: «Elimina esto del título: de por vida. Y mejora el copy del subtítulo, que sea más claro y
+                  marketinero». El ejemplo de 10 negocios en el plan más caro sale de la regla (`gananciaPorMes`), no escrito. */}
+              <h1>Recomienda MaKo y llévate el <em>{directo}</em></h1>
               <p className="mp-bajada">
-                Cada negocio que entra con tu link te deja <b>el {directo} de cada pago, todos los meses, para siempre</b>: {precios('directo')}, en
-                dinero. Negocios ilimitados.
+                Por cada negocio que entra con tu link, te llevas <b>el {directo} de lo que paga, todos los meses</b>.
+                {tope && <> Con {NEGOCIOS_DEL_EJEMPLO} negocios en {tope.nombre}, son <b className="mp-junto">{usd(gananciaPorMes(NEGOCIOS_DEL_EJEMPLO, tope.precioUsd, 'directo'))} al mes</b> para ti.</>}
               </p>
               <div className="mp-acciones"><Boton boton={boton} marca={!publica && boton?.href === RUTA_ALTA_PARTNERS ? MARCA.partnersHacerme : undefined} /></div>
               <ul className="mp-chips">
@@ -208,7 +214,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
 
       <section className="mp-seccion">
         <div className="mp-wrap">
-          <h2>El {directo} es tuyo de por vida</h2>
+          <h2>El {directo} es tuyo todos los meses</h2>
           <p className="mp-sub">No es un pago único: te llevas el {directo} de cada pago, todos los meses, mientras el negocio siga en MaKo.</p>
           <ul className="mp-numeros">
             <li className="mp-numero"><b>{directo}</b><span>de <strong>cada pago</strong> de cada negocio que traes, todos los meses.</span></li>
@@ -226,7 +232,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
             <details open>
               <summary>¿Cuánto gano?</summary>
               <p>
-                El <b>{directo} de cada pago</b> de cada negocio que entra con tu link, todos los meses, para siempre: {precios('directo')}.
+                El <b>{directo} de cada pago</b> de cada negocio que entra con tu link, todos los meses, mientras el negocio siga en MaKo: {precios('directo')}.
                 Es dinero, no crédito ni descuentos.
               </p>
             </details>
@@ -274,7 +280,7 @@ export function LandingPartners({ modo = 'publica', accion, rotulo }: {
         <section className="mp-seccion">
           <div className="mp-wrap">
             <div className="mp-final">
-              <h2>Tu {directo} de por vida te está esperando</h2>
+              <h2>Tu {directo} te está esperando</h2>
               <p>Hazte partner en un minuto: tu link aparece en el acto.</p>
               <Boton boton={boton} />
               {publica && <div><Link className="mp-texto" href="/planes">¿Todavía no tienes MaKo? Ver los planes →</Link></div>}
