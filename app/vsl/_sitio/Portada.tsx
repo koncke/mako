@@ -8,8 +8,10 @@
 // Los valores medidos, en ./estilos.ts y docs/diseno/sitio-beehiiv.md; lo que dice, en ./datos.ts.
 //
 // Lo que cambió de la referencia, y por qué:
-//   · Hero: sin sus estrellas ni «4.9/5 from 28,479 customers» (contador suyo). Sus dos botones son la llamada y «Ver planes»;
-//     su nota («Get started for free…») es la frase de la landing de MaKo que acompaña a la llamada. Su imagen (tres pantallas de su
+//   · Hero: sin sus estrellas ni «4.9/5 from 28,479 customers» (contador suyo). De sus dos botones queda UNO, la llamada: «Ver
+//     planes» se fue el 18/11/2026 (Martín: «no debería estar el botón de ver planes debajo del primer CTA de prueba gratis»), y
+//     en el teléfono va DEBAJO del VSL (`HeroSitio`). Su nota («Get started for free…») es la frase de la landing de MaKo que
+//     acompaña a la llamada. Su imagen (tres pantallas de su
 //     producto superpuestas) son tres de MaKo con los visuales de sus landings: el CRM, el Ops Center y Automations.
 //   · La tira: no hay logos de clientes. Van las apps conocidas con las que MaKo se conecta, con su logo oficial
 //     (app/_components/ServicioVisual.tsx) y su nombre, deslizándose como la suya.
@@ -82,9 +84,12 @@ function HeroSitio() {
               vender High Ticket… ese sería nuestro principal», en todos lados. */}
           <h1 className="s-h1">El mejor software<br /> para vender<br /> <em>High Ticket.</em></h1>
           <p className="s-hero-p"><strong>Marketing, ventas y entrega del servicio en una sola app.</strong> Con una IA que conoce tu negocio, desde que alguien te descubre hasta que es tu cliente y le entregas lo que compró.</p>
+          {/* UN botón: «Ver planes» se fue (Martín, 18/11/2026: «no debería estar el botón de ver planes debajo del primer CTA de
+              prueba gratis»; los planes están en «Precios», arriba, y más abajo en esta misma página). En el teléfono este botón
+              va DEBAJO del video, no antes: «jamás debería salir el botón previo al VSL… siempre es el VSL y debajo del VSL el
+              botón». Lo hace el CSS (estilos.ts, `.s-hero-tx{display:contents}` debajo de 890 px): el botón sigue siendo uno. */}
           <div className="s-hero-btns">
             <Boton clase="s-btn-alto" />
-            <Boton href={RUTA_PRECIOS} texto="Ver planes" clase="s-btn-alto s-btn-borde" />
           </div>
         </div>
         {/* Martín (12/11/2026): «en esa parte debería estar el VSL que yo ya grabé», y no las tres pantallas (CRM, Ops Center

@@ -34,9 +34,10 @@
 // a crear hoy?... Y que pueda elegir».
 //   · EL NOMBRE de cada tab es el de la ficha del funnel (`efectiva.nombres`); personalizando, doble clic en la
 //     pestaña lo cambia (../LeadTabs.tsx), como una hoja del Dashboard. La clave (`?tab=`) no cambia.
-//   · LA GALERÍA de una tab (./GaleriaTab.tsx) va EN EL LUGAR de la tab: se abre SOLA para el admin en una tab que
-//     nadie configuró en este funnel, y con «Plantillas» personalizando. Lo que se mira se dibuja abajo con los datos de
-//     este lead (`fichaConVista`, ./galeria.ts): mirar no guarda nada; «Usar» sí.
+//   · LA GALERÍA de una tab (./GaleriaTab.tsx) va EN EL LUGAR de la tab: se abre SOLA para el admin de un negocio NUEVO
+//     en una tab que nadie configuró en este funnel (18/11/2026: en uno con leads de antes, no; ver `abreSola`), y con
+//     «Templates» personalizando. Lo que se mira se dibuja abajo con los datos de este lead (`fichaConVista`,
+//     ./galeria.ts): mirar no guarda nada; «Usar» sí.
 //   · LA ÉPICA es de la tab (`efectiva.epica`): el titular gigante es el nombre de la tab, la grilla reparte menos por
 //     fila y cada bloque recibe `epico` (./tipos.ts).
 //
@@ -100,10 +101,10 @@ import { AgregarBloque } from './AgregarBloque';
 import { MiniaturaFicha } from './MiniaturaFicha';
 import { cambiaAvisos, useFichaDelFunnel } from './useFichaDelFunnel';
 import { SelectorDispositivo } from './SelectorDispositivo';
-import { claveDeLugar, dispositivoVisto, estiloDeFicha, indiceDeOcurrencia, lugarDeClave, puedePersonalizar, tabDelDato, type DispositivoFicha } from './armar';
+import { claveDeLugar, CORTE_MOVIL, dispositivoVisto, estiloDeFicha, indiceDeOcurrencia, lugarDeClave, puedePersonalizar, tabDelDato, type DispositivoFicha } from './armar';
 import { entradaDe } from './registro';
 import { CSS_FICHA } from './ficha-css';
-import { cambioDeNueva, cambioDeVista, fichaConVista, type VistaGaleria } from './galeria';
+import { abreSola, anotarCerrada, cambioDeNueva, cambioDeVista, cerradasDe, claveCerrada, fichaConVista, type VistaGaleria } from './galeria';
 import type { CtxFicha } from './tipos';
 import { ctxDelTrato } from './pagos/trato';
 
@@ -169,6 +170,27 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // LA GALERÍA (./GaleriaTab.tsx): la tab (o la hoja propia) donde se abrió con «Templates» y lo que se mira en cada una.
   const [galeria, setGaleria] = useState<LugarFicha | null>(null);
   const [vistas, setVistas] = useState<Partial<Record<string, VistaGaleria>>>({});
+  // Para que se abra SOLA en un negocio nuevo (`abreSola`, ./galeria.ts): las tabs que se cerraron en este navegador y si
+  // la pantalla es de computadora. Se leen DESPUÉS de montar (el server no sabe ni lo uno ni lo otro), y mientras tanto
+  // no se abre: el HTML del server y el primer pintado son la tab con su sugerida.
+  const funnelDeLaFicha = ff.ficha?.funnel.id ?? null;
+  const [montado, setMontado] = useState(false);
+  const [escritorio, setEscritorio] = useState(false);
+  const [cerradas, setCerradas] = useState<ReadonlySet<string>>(() => new Set());
+  useEffect(() => {
+    setMontado(true);
+    const mq = window.matchMedia(`(max-width: ${CORTE_MOVIL}px)`);
+    const ver = () => setEscritorio(!mq.matches);
+    ver();
+    mq.addEventListener('change', ver);
+    return () => mq.removeEventListener('change', ver);
+  }, []);
+  useEffect(() => {
+    if (funnelDeLaFicha == null) return;
+    let almacen: Storage | null = null;
+    try { almacen = window.localStorage; } catch { /* sin almacenamiento */ }
+    setCerradas(cerradasDe(almacen, funnelDeLaFicha));
+  }, [funnelDeLaFicha]);
   // «NUEVA HOJA»: la clave que va a tener (la elige la pantalla, así va a ella en el acto) y la hoja a la que se vuelve
   // si se cierra sin crearla. `ultima` es la última hoja elegida en el desplegable.
   const [nueva, setNueva] = useState<{ id: IdHoja; volver: string } | null>(null);
@@ -274,14 +296,26 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   }, [pedido?.n]);
 
   // ── La galería de una tab ─────────────────────────────────────────────────────────────────
-  // ⚠️ YA NO SE ABRE SOLA (16/10/2026, Martín: «en los casos de los workspace que ya tienen leads, simplemente ponles
-  // las plantillas sugeridas, es decir que no aparezca el "¿Qué vas a crear hoy?"»). Una tab sin configurar ya se
-  // dibuja con su sugerida (`efectiva`), sin escribir nada; la galería se abre sólo con «Templates». Con eso se fueron
-  // `abreSola` y el «Ahora no» que se recordaba en el navegador.
-  const galeriaAbierta = (tab: LugarFicha): boolean => !!ff.ficha && puede && galeria === tab;
+  // ⚠️ SE ABRE SOLA SÓLO EN UN NEGOCIO NUEVO (18/11/2026, `abreSola`, ./galeria.ts). Del 16/10 al 18/11/2026 no se abría
+  // sola en ninguno (Martín: «en los casos de los workspace que ya tienen leads, simplemente ponles las plantillas
+  // sugeridas, es decir que no aparezca el "¿Qué vas a crear hoy?"»), y la excepción se había vuelto la regla para todos.
+  // En un negocio con leads de antes, cada tab sin configurar se dibuja con su sugerida, sin escribir nada; ahí la
+  // galería se abre sólo con «Templates».
+  const galeriaAbierta = (tab: LugarFicha): boolean => !!ff.ficha && puede && (galeria === tab || (esTabFicha(tab) && abreSola({
+    puede, montado, escritorio, editando: enEdicion, negocioNuevo: data.negocioNuevo === true,
+    configurada: efectiva.configuradas.includes(tab),
+    cerrada: funnelDeLaFicha != null && cerradas.has(claveCerrada(funnelDeLaFicha, tab)),
+  })));
+  /** Cerrar (o elegir) la galería de una tab. Cerrar no es elegir: se recuerda en ESTE navegador y no se vuelve a abrir sola. */
   const soltarGaleria = (tab: LugarFicha) => {
     setGaleria((g) => (g === tab ? null : g));
     setVistas((v) => { const n = { ...v }; delete n[tab]; return n; });
+    if (funnelDeLaFicha == null || !esTabFicha(tab)) return;
+    const clave = claveCerrada(funnelDeLaFicha, tab);
+    let almacen: Storage | null = null;
+    try { almacen = window.localStorage; } catch { /* sin almacenamiento */ }
+    anotarCerrada(almacen, clave);
+    setCerradas((c) => new Set(c).add(clave));
   };
   /** «Usar»: lo que se mira (o, sin mirar nada, la de hoy, que queda elegida). */
   const usarGaleria = (tab: LugarFicha) => {

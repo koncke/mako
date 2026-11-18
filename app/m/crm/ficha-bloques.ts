@@ -137,8 +137,11 @@ export type ConQueDibujar = {
 /**
  * LAS FILAS DEL RESUMEN en el teléfono: el texto de cada una, o null cuando el bloque de escritorio se callaría (la
  * MISMA regla: el motivo sólo si salió, el plazo sólo en la nutrición manual, el ingreso no en un ganado, la siguiente
- * acción sólo si hay una). Lo que en escritorio se dibuja con «—» para llenarlo (el equipo, la calificación) acá dice
- * «Sin setter» o «Sin marcar»: se lee, y se llena en la computadora.
+ * acción sólo si hay una).
+ * ⚠️ LO VACÍO NO SE ESCRIBE (18/11/2026; Martín, 22/10: «si no tiene ese dato, que no lo muestre»). Lo que en escritorio
+ * se dibuja con «—» para llenarlo (el equipo, la calificación, la dirección) en el teléfono decía «Sin setter», «Sin
+ * marcar», «Sin dirección»: ahora es null y la fila no se dibuja (se llena en la computadora). El equipo, como el bloque
+ * de escritorio, dice el rol de cada uno: con uno solo, «Ana (setter)».
  */
 export type ResumenTelefono = Partial<Record<PiezaResumen, string | null>>;
 
@@ -150,6 +153,35 @@ export type LeadParaResumen = {
   pagina_registro?: string | null; entrada_social?: unknown; direccion?: string | null; sexo?: string | null;
 };
 
+/** El setter y el closer en una fila, con el rol de cada uno si falta el otro; sin ninguno, null (no se dibuja). */
+export function equipoDelTelefono(setter: string | null | undefined, closer: string | null | undefined): string | null {
+  const s = setter?.trim() || null;
+  const c = closer?.trim() || null;
+  if (s && c) return `${s} · ${c}`;
+  if (s) return `${s} (setter)`;
+  if (c) return `${c} (closer)`;
+  return null;
+}
+
+/**
+ * LO QUE SE PUEDE TOCAR PARA CONTACTARLO, en la fila de acciones de la ficha (FichaLead.tsx), además de Grabar, Agendar y
+ * Nota, que van siempre. Sólo lo que lleva a algún lado (Martín, 22/10/2026: «si no tiene ese dato, que no lo muestre»):
+ * sin número no hay «Llamar» ni «WhatsApp» apagados; con el @ como único canal, «Instagram» si tiene link.
+ */
+export function accionesDeContacto(o: { soloInstagram: string | null; igHref: string | null; tel: string | null; puedeWa: boolean }): Array<'instagram' | 'llamar' | 'whatsapp'> {
+  if (o.soloInstagram) return o.igHref ? ['instagram'] : [];
+  return [...(o.tel ? ['llamar' as const] : []), ...(o.puedeWa ? ['whatsapp' as const] : [])];
+}
+
+/** Las filas de la pieza `contacto`: sólo los datos que hay. Con el @ como único canal, el @ en lugar del teléfono. */
+export function filasDeContacto(o: { soloInstagram: string | null; telefono: string | null; email: string | null; empresa: string | null }): Array<{ k: string; v: string }> {
+  return [
+    ...(o.soloInstagram ? [{ k: 'Instagram', v: `@${o.soloInstagram}` }] : o.telefono ? [{ k: 'Teléfono', v: o.telefono }] : []),
+    ...(o.email ? [{ k: 'Email', v: o.email }] : []),
+    ...(o.empresa ? [{ k: 'Empresa', v: o.empresa }] : []),
+  ];
+}
+
 /** Las filas del Resumen de un lead. Pura: la arma el server (./datos.ts) y la ejecuta el test. */
 export function resumenDelTelefono(l: LeadParaResumen, o: {
   etapa: string | null; hoy: string; ahoraMs: number;
@@ -159,26 +191,28 @@ export function resumenDelTelefono(l: LeadParaResumen, o: {
   enEtapa?: { desde: string | null; plazo: number | null } | null;
   /** La fila de «Automatizaciones», ya armada (`filaDeAutomatizaciones`); null = no está en ninguna. */
   automatizaciones?: string | null;
+  /** El @ ya va en el Contacto (es su único canal, `soloInstagram`): «Redes» no lo repite (18/11/2026). */
+  instagramEnContacto?: boolean;
 }): ResumenTelefono {
   const salio = l.estado_lead === 'perdido' || l.estado_lead === 'descalificado';
   const t = o.enEtapa && !(o.etapa && ETAPAS_SIN_RELOJ.includes(o.etapa)) ? tiempoEnEtapa(o.enEtapa.desde, o.enEtapa.plazo, o.ahoraMs) : null;
   const d = l.nutricion_manual_deadline ? diasEntre(o.hoy, l.nutricion_manual_deadline) : null;
-  const ig = usuarioInstagram(l.instagram);
+  const ig = o.instagramEnContacto ? null : usuarioInstagram(l.instagram);
   const redes = REDES.map((r) => (r === 'instagram' ? (ig ? `@${ig}` : null) : paginaLegible(l[r]))).filter((x): x is string => !!x);
   const entrada = entradaSocialGuardada(l.entrada_social);
   return {
     siguiente: o.siguiente ? o.siguiente.titulo : null,
-    equipo: `${l.setter?.trim() || 'Sin setter'} · ${l.closer?.trim() || 'sin closer'}`,
-    calificado: l.calificado === true ? 'Calificado' : l.calificado === false ? 'No calificado' : 'Sin marcar',
-    ingreso: ingresoNoAplica(l.estado_lead) ? null : l.ingreso_estimado != null ? usd(l.ingreso_estimado) : 'Sin estimar',
+    equipo: equipoDelTelefono(l.setter, l.closer),
+    calificado: l.calificado === true ? 'Calificado' : l.calificado === false ? 'No calificado' : null,
+    ingreso: ingresoNoAplica(l.estado_lead) ? null : l.ingreso_estimado != null ? usd(l.ingreso_estimado) : null,
     'en-etapa': t ? (t.dias === 0 ? 'Hoy' : textoDias(t.dias)) + (t.plazo ? ` de ${t.plazo}` : '') : null,
-    motivo: salio ? (l.motivo_perdida?.trim() || 'Sin motivo') : null,
-    plazo: o.etapa === 'manual' ? (d == null ? 'Sin plazo' : d === 0 ? 'Vence hoy' : d > 0 ? `Faltan ${textoDias(d)}` : `Venció hace ${textoDias(-d)}`) : null,
+    motivo: salio ? (l.motivo_perdida?.trim() || null) : null,
+    plazo: o.etapa === 'manual' && d != null ? (d === 0 ? 'Vence hoy' : d > 0 ? `Faltan ${textoDias(d)}` : `Venció hace ${textoDias(-d)}`) : null,
     redes: redes.length ? redes.join(' · ') : null,
     pagina: paginaLegible(l.pagina_registro),
     entrada: entrada ? `${COMO_ENTRO[entrada.como]}${entrada.texto ? `: «${entrada.texto}»` : ''}` : null,
-    direccion: l.direccion?.trim() || 'Sin dirección',
-    sexo: SEXOS.find((x) => x.id === l.sexo)?.label ?? 'Sin dato',
+    direccion: l.direccion?.trim() || null,
+    sexo: SEXOS.find((x) => x.id === l.sexo)?.label ?? null,
     automatizaciones: o.automatizaciones ?? null,
   };
 }

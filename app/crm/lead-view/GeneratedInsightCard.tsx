@@ -1,12 +1,13 @@
 'use client';
 
 // =============================================================================
-// GeneratedInsightCard — Insights del lead (✦ MaKo) — ÚNICA card de la tab
+// GeneratedInsightCard — «Insights» (✦ MaKo; el nombre, desde el 18/11/2026, el que pidió Martín) — ÚNICA card de la tab
 // =============================================================================
 // Un solo lugar: MaKo lee las llamadas (Closing Analyst), formularios, chat,
 // anuncio, tracking y cobranza y devuelve una lectura comercial accionable.
-// SOLO se genera si hay al menos UNA llamada analizada. Si falta un dato
-// completable, se pide con el wizard conocido. Diseño scaneble, no muro de texto.
+// SOLO se genera si hay al menos UNA llamada analizada. Si falta algo, lo dice como lo pidió
+// Martín («No es posible generar hasta que…», ./insights-aviso.ts) y lo pide con el wizard conocido.
+// Diseño scaneble, no muro de texto.
 
 import { useState, useTransition, type CSSProperties } from 'react';
 import { useRefrescarFicha } from './ficha-cambio';
@@ -19,6 +20,8 @@ import { generateLeadInsightAction, analizarLlamadaLeadAction, leadTieneLlamadaA
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useTzWorkspace } from './useTzWorkspace';
+import { avisoDeInsights, TITULO_INSIGHTS } from './insights-aviso';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -128,6 +131,8 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
   const tieneFathom = ((lead.fathom_links ?? []) as FathomLink[]).some((f) => f.url?.trim());
   const puedeGenerar = !faltantes.length && hayLlamadas;
   const c = insight?.contenido;
+  // Qué frena generar, dicho como lo pidió Martín («No es posible generar hasta que…»), y qué hacer (./insights-aviso.ts).
+  const aviso = avisoDeInsights({ hayInsight: !!insight, llamadas: llamadas.length, faltantes: faltantes.length, tieneFathom });
 
   return (
     <>
@@ -135,7 +140,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: c ? 14 : 12 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
             <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>✦ MAKO</span>
-            <span style={sectLabel}>Insights del lead</span>
+            <span style={sectLabel}>{TITULO_INSIGHTS}</span>
           </div>
           {puedeGenerar && (
             <button type="button" onClick={generar} disabled={pending} style={btn}>
@@ -154,10 +159,10 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
             Lo que este bloque sí aporta y el de arriba no: que ESOS datos son los que
             frenan el análisis, y el botón que los completa sin salir de la tab. Eso es
             una frase y un botón. */}
-        {faltantes.length > 0 && (
+        {aviso?.tipo === 'faltan-datos' && (
           <div style={{ ...mini, borderColor: 'var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: c ? 12 : 0 }}>
             <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>
-              Faltan {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} para {insight ? 'regenerar' : 'generar'}
+              {aviso.texto}
             </span>
             <button type="button" onClick={() => setWizard(true)} style={btnSec}>Completar datos</button>
           </div>
@@ -167,19 +172,15 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
             re-linkear: MaKo busca la llamada en Closing Analyst y Fathom por email
             o share_url (aunque el lead no tenga el link cargado). Si no la encuentra,
             el error se muestra abajo (nunca queda en silencio). */}
-        {!insight && !hayLlamadas && !faltantes.length && !fase && (
-          <div style={{ ...mini, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        {aviso?.tipo === 'sin-llamada' && !fase && (
+          <div style={{ ...mini, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: c ? 12 : 0 }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 3 }}>Se necesita al menos una llamada</div>
-              <div style={{ fontSize: 13, color: 'var(--dim)' }}>
-                {tieneFathom
-                  ? 'Este lead tiene el link de Fathom pero su llamada todavía no está analizada. MaKo la analiza y genera el insight.'
-                  : 'MaKo busca la llamada entre las analizadas y en Fathom (por email o link) y la re-linkea a este lead. Si no la encuentra, carga el link de Fathom.'}
-              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 3 }}>{aviso.texto}</div>
+              <div style={{ fontSize: 13, color: 'var(--dim)' }}>{aviso.detalle}</div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button type="button" onClick={pedirAnalisis} disabled={pending} style={btn}>✦ Analizar la llamada</button>
-              {!tieneFathom && <button type="button" onClick={() => setWizard(true)} style={btnSec}>Cargar link de Fathom</button>}
+              {aviso.cargarFathom && <button type="button" onClick={() => setWizard(true)} style={btnSec}>Cargar link de Fathom</button>}
             </div>
           </div>
         )}
@@ -191,7 +192,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
         )}
         {/* Error SIEMPRE visible (antes solo se mostraba con llamadas: los fallos
             del análisis/re-link quedaban invisibles). */}
-        {error && !faltantes.length && !fase && <p style={{ fontSize: 13.5, color: 'var(--bad)', fontWeight: 600, marginTop: 10, marginBottom: 0 }}>{error}</p>}
+        {error && !faltantes.length && !fase && <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontWeight: 600, marginTop: 10, marginBottom: 0 }}>{error}<ReportarASoporte /></p>}
 
         {/* Análisis (diseño scaneble) */}
         {c && (
