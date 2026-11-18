@@ -144,6 +144,15 @@ test('5-bis. una cuenta sobre los datos que vio SÍ sale, y un acuse no trae nú
   assert.equal(a.tickets.length, 0, 'un acuse abrió un ticket');
 });
 
+test('5-ter. si Claude (el crédito de los grupos) contestó el turno, la IA del negocio no corre y sale lo de Claude', () => {
+  // Rota: sin el `if (respuesta) break` del bucle de su IA → su GPT corre el turno otra vez y su texto pisa al de Claude
+  // (en el ws24: Gemini colgado 45 s, flash-lite y la respuesta al minuto, tickets #108 y #109).
+  const c = escena('claudeContesta');
+  assert.equal(c.turno.length, 0, `corrió la IA del negocio después de Claude: ${JSON.stringify(c.turno.map((t) => t.usuario.slice(0, 60)))}`);
+  assert.deepEqual(c.salio, ['Hoy no entró ningún lead nuevo.']);
+  assert.ok(c.clasificador.length >= 2, 'el turno no fue a Claude');
+});
+
 test('6. ACCIÓN: sólo las escrituras simples; la pregunta de un dato sale; lo que no hizo se DELEGA como pedido', () => {
   const p = escena('accionPregunta');
   assert.equal(p.turno.length, 1);

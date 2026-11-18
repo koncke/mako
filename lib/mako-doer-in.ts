@@ -3160,6 +3160,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
              */
             const plazoDe = new Map<string, number>();
             for (const [nInst, { prov, inst }] of instancias.entries()) {
+              // ⚠️ SI CLAUDE YA CONTESTÓ, SU IA NO CORRE (17/11/2026, tickets #108 y #109 de Sellers). Su IA es el RESPALDO de Claude
+              // (`hayRespaldoDespuesDeClaude`), pero este bucle corría igual: el turno entero otra vez con su Gemini, que pisaba la
+              // respuesta de Claude. Medido en el ws24: Claude contestó a los 9 s, Gemini se colgó 45 s, rotó a flash-lite y salió
+              // ésa, al minuto y con el modelo más débil. Y otra corrida de las herramientas por un turno que ya terminó.
+              if (respuesta) break;
               const plazoCorriendo = plazoDe.get(prov);
               if (plazoCorriendo != null && !hayTiempoParaOtroIntento(plazoCorriendo)) {
                 console.warn(`[mako-doer-in] ws=${wsData} ${rotulo(inst)} sin probar: ${prov} ya se tomó su plazo en este turno`);
