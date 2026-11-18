@@ -118,7 +118,7 @@ Sin capturas: los cambios son de texto de avisos y de servidor, no de pantalla.
 
 - **Admin (`app/admin`)**: Runway con foto del 3/10 (`app/admin/runway/datos.ts`); borrar el mazo viejo (`app/tickets/decisiones/Mazo.tsx`,
   `app/admin/runway/Tablero.tsx`); registro de acciones por usuario; historial de `/admin/dev`.
-- **Ops Center** (vive en `app/admin/operaciones`): muñecos y «Renombrar» por fila (`munecosDeChats`); chat del grupo en la barra
+- **Ops Center** (vive en `app/admin/operaciones`): ~~muñecos y «Renombrar» por fila (`munecosDeChats`)~~ (hecho el 18/11/2026, F96: tests/ops-menu-cliente.test.ts); chat del grupo en la barra
   (`?grupo=1`, `grupoHilo`); riel «Lo que hizo» (`ListaAvance`, `GET ?hecho=`); retirar `/api/mako-doer`; las funciones del limbo
   sin pantalla (`originalParaReenviar`, `queHacer`); `CARTERO_VIVO_MS` derivado del intervalo real (lib/operaciones-reglas.ts:37,
   pide columna y cartero nuevo); adjuntos sólo foto y PDF; purga de adjuntos que nunca se mandaron.

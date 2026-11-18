@@ -16,7 +16,8 @@
 //   · Las de una estructura FIJAN su id (`pas`, `youtube-retencion`…): un ejemplo escrito con esas etiquetas no puede
 //     seguir a la primera de la biblioteca editable. Si el super admin la cambió o la apagó, la página nace con el ejemplo
 //     y sin estructura elegida (trampa 5).
-//   · Tres VSL no tienen ejemplo todavía: salen de la galería (`visible: false`) y siguen resolviendo por id (la API).
+//   · Desde el 18/11/2026 las cinco VSL de fábrica tienen ejemplo y salen en la galería. Del 29/10 al 18/11, las tres sin
+//     ejemplo (contrarian, diagnóstico e historia del fundador) estuvieron ocultas (`visible: false`), resolviendo por id.
 //
 // LA FORMA DE CADA UNA copia algo que la casa ya tiene (la regla «copiar antes de crear»): el Reel, la tab Reels del
 // Editor (app/reels/reel-pedido.ts); las Stories, `story-dia` y `PiezaStory` (lib/ig-writer.ts); el Carrusel,
@@ -234,7 +235,11 @@ const SECUENCIA: Plantilla = {
   contenido: () => docDeEjemplo(EJEMPLOS['secuencia-nutricion']),
 };
 
-/** 10 y 11 · Las VSL: las dos con ejemplo, visibles; las otras tres, fuera de la galería y con su esqueleto. */
+/**
+ * 10 y 11 · Las VSL, todas con ejemplo y en la galería. Las tres de abajo volvieron el 18/11/2026 con su ejemplo (las versiones
+ * de 10 minutos, como la de agendar). Una VSL de la biblioteca de fábrica sin fila acá sale de la galería con su esqueleto
+ * (`visible: false`, ver `vsls`).
+ */
 const VSL_CON_EJEMPLO: Readonly<Record<string, Pick<Plantilla, 'nombre' | 'descripcion' | 'duracion' | 'insignia' | 'ejemplo' | 'pide'>>> = {
   'vsl-respuesta-directa': {
     nombre: 'VSL para agendar', descripcion: 'El video de la página de agenda, para tráfico frío.', duracion: 600, insignia: '🎥 VSL · 10 min',
@@ -244,6 +249,18 @@ const VSL_CON_EJEMPLO: Readonly<Record<string, Pick<Plantilla, 'nombre' | 'descr
     nombre: 'Clase gratuita: 3 claves', descripcion: 'Enseñas de verdad y la oferta llega al final, ganada.', duracion: 2_520, insignia: '🎓 Clase · 42 min',
     ejemplo: { negocio: 'Consulta Rentable', rubro: 'programa para nutriólogas' }, pide: ['oferta', 'mecanismo', 'historia', 'fecha_cupo'],
   },
+  'vsl-anti-solucion': {
+    nombre: 'VSL para quien ya probó todo', descripcion: 'Por qué lo que ya probó no podía funcionar. Para quien no agendó.', duracion: 600, insignia: '🔥 VSL · 10 min',
+    ejemplo: { negocio: 'Cierre Consultivo', rubro: 'mentoría de ventas para coaches' }, pide: ['avatar', 'mecanismo', 'prueba', 'oferta', 'accion'],
+  },
+  'vsl-diagnostico': {
+    nombre: 'VSL de diagnóstico', descripcion: 'Del síntoma que tu cliente reconoce a la causa que no ve.', duracion: 600, insignia: '🩺 VSL · 10 min',
+    ejemplo: { negocio: 'Voz de Líder', rubro: 'programa de oratoria para gerentes' }, pide: ['avatar', 'mecanismo', 'prueba', 'oferta', 'accion'],
+  },
+  'vsl-historia-fundador': {
+    nombre: 'VSL con tu historia', descripcion: 'Tu peor momento, lo que cambió y tu método. Para quien ya te sigue.', duracion: 600, insignia: '📖 VSL · 10 min',
+    ejemplo: { negocio: 'Consulta Rentable', rubro: 'programa para nutriólogas' }, pide: ['historia', 'mecanismo', 'prueba', 'oferta', 'accion'],
+  },
 };
 function vsls(c: CatalogosCopy): Plantilla[] {
   return ESTRUCTURAS_VSL_DEFAULT.filter((v) => v.activo).map((v) => {
@@ -252,7 +269,8 @@ function vsls(c: CatalogosCopy): Plantilla[] {
     return {
       id: v.id, grupo: 'VSL' as const, emoji: v.emoji, tipo: 'vsl' as const, estructura: con ? fija(c, v.id) : v.id,
       ...(con ?? {
-        // Sin ejemplo todavía (docs/plantillas-reales/copywriter.md, «Sin hacer»): no sale en la galería.
+        // Sin ejemplo (desde el 18/11/2026 las cinco de fábrica lo tienen; esto cubre una VSL que se sume sin el suyo): no sale
+        // en la galería.
         nombre: v.nombre, visible: false,
         descripcion: `${v.minutos} minutos, en ${v.etiquetas.length} bloques: de ${nombreDeSeccion(v.etiquetas[0])} a ${nombreDeSeccion(v.etiquetas[v.etiquetas.length - 1])}.`,
       }),

@@ -29,6 +29,8 @@ import { PuenteEnlace } from './video-generator/PuenteEnlace';
 import { ZonaDelNegocio } from './_components/ZonaDelNegocio';
 import { ReportadorDeErrores } from './_components/ReportarErrores';
 import { VeloGuia } from './_ui/guia/VeloGuia';
+import { MotorTutorial } from './_ui/tutorial/MotorTutorial';
+import { esRevision, veOnboardingV2 } from '@/lib/onboarding-v2/revision';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
@@ -150,6 +152,8 @@ export default async function RootLayout({
   // ⚠️ Con una agencia adentro de un cliente, una ruta pública (/vsl, /compartido) cargada en duro queda con ese
   // hueco y sin barra: la barra no se monta ahí para sacarlo. Es raro y sólo es espacio; está en hallazgos-ui.
   const vista = sesion ? await vistaDeOtro() : null;
+  // El onboarding V2 y los tutoriales nuevos (18/11/2026): sólo la revisión de Martín hasta que lo apruebe (lib/onboarding-v2/revision.ts).
+  const veV2 = sesion ? veOnboardingV2({ email: sesion.email, ws: await getWorkspaceActual() }) : false;
   return (
     <html lang="es" className="h-full antialiased" {...(vista ? { 'data-barra-agencia': '1' } : {})}>
       <body>
@@ -320,6 +324,9 @@ export default async function RootLayout({
               {/* La guía de cada pestaña (29/10/2026, «MaKo te enseña señalando»): el velo con sus huecos, UNA vez para toda la
                   app. Sin una tab que registre su guía (app/_ui/guia/useGuiaDeLaTab.ts) no dibuja nada. */}
               {sesion && <VeloGuia />}
+              {/* El motor de los tutoriales de cada pestaña y de las marcas del onboarding (18/11/2026), sobre la página de verdad.
+                  Sólo para quien ve el onboarding V2; para los demás no se monta (lib/onboarding-v2/revision.ts). */}
+              {sesion && veV2 && <MotorTutorial revision={esRevision(veV2)} />}
               {/* El pago de un cliente de agencia que paga su propia cuenta, al terminar su onboarding (Agency Dashboard,
                   25/10/2026). Encima de todo y también en el teléfono: el primer mes no se cierra. */}
               {sesion && <CartelPagoCliente />}

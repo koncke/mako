@@ -36,7 +36,7 @@ Martín, 4/11: «me gustaría que trabajemos bajo la misma metodología que el r
 
 ## Sin hacer
 
-- **Si el cron del Runner vence sin rearmarse** (el 11/11), la medición sigue por `medirYa` de la guardia, pero el vigía se apaga. Falta que la guardia lo mire.
+- ~~**Si el cron del Runner vence sin rearmarse** (el 11/11), la medición sigue por `medirYa` de la guardia, pero el vigía se apaga. Falta que la guardia lo mire.~~ Hecho el 18/11/2026 (pendiente T6): la vuelta del cron deja `runner-cron.<cuenta>` con `runner-salud.mjs latido-del-cron`, `estado` trae `cronVencido` y el Cerebro y la guardia lo avisan. Falta en la PC: copiar `runner-salud.mjs`, sumar la línea al prompt del cron del LEEME (y rearmar el cron) y el prompt nuevo de la guardia (docs/hallazgos-operaciones.md).
 - **Abrir un Runner sin Martín:** `start_session` está vedado en un turno automático, así que el hook se lo pide al primer chat que Martín abre. Si nadie abre un chat, la entrega sigue por la guardia, de a 20 minutos.
 - **`CARTERO_VIVO_MS` sigue siendo un número suelto:** derivarlo del intervalo real pide columna y cartero nuevo. Dueño: Runner (`docs/pendientes.md`).
 - **El limbo:** 6 mensajes, los primeros vencen el 08/11. Los cierra el Cerebro, de a uno. Tres (`1e5ca526…`, `6e5ee912…`, `bb5ff6c7…`) salieron al buzón el 03/11 a las 04:24 UTC justo antes de morir el Runner, y quedaron en «incierto» sin acuse. Eran de octubre.

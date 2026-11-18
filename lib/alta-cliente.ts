@@ -28,7 +28,7 @@ import { crearUsuario, listarUsuarios } from './usuarios';
 import { getSupabaseServer } from './supabase';
 import { setSetting } from './settings';
 import { estadoInicial, setEstadoOnboarding } from './onboarding-state';
-import { hoyEnTijuana } from './date-utils';
+import { hoyEnWorkspace } from './timezone';
 import { capaDef, esCapaVendible, type CapaId } from './capas';
 import { invitarPorEmail, type ResultadoInvitacion } from './invitaciones';
 import { APP_BASE_URL } from './app-url';
@@ -74,8 +74,10 @@ export async function darDeAltaCliente(a: {
       await setEstadoOnboarding(estadoInicial('pending'));
       if (def.integracionesRequeridas.includes('meta')) {
         // objetivo_desde ancla el progreso del objetivo en /general; sin esto usaría la fecha de
-        // arranque del dueño.
-        await setSetting('objetivo_desde', hoyEnTijuana());
+        // arranque del dueño. El día es el DEL NEGOCIO NUEVO (adentro de su `runWithWorkspace`, F125): recién creado
+        // todavía no tiene zona guardada, así que hoy da el default (lo mismo que antes); si el alta llega a guardarla
+        // antes de este paso, ya cuenta.
+        await setSetting('objetivo_desde', await hoyEnWorkspace());
       }
     });
   } catch (e) {

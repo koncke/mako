@@ -47,6 +47,7 @@ import { TAB_ONBOARDINGS } from '@/lib/tab-onboarding-catalogo';
 import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
 import type { NodoCerebro } from '@/lib/cerebro-modelo';
 import { lugarSeccion, lugarDato, datoDeCampo } from '@/lib/secciones-negocio';
+import { cortarSinPartir } from '@/lib/unicode-seguro';
 
 const limpio = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
@@ -156,6 +157,40 @@ export async function completarHuecoPerfil(key: string, valor: string): Promise<
   const [files, manual, previas] = await Promise.all([listFiles(), mapaEstricto('mako.archivero.manual'), mapaEstricto('mako.onboarding.answers')]);
   const efectivo = computeEffective(files, manual).answers;
   if (limpio(efectivo[key]) || limpio(previas[key])) return { ok: false, motivo: `ese campo ya tiene valor; corregirlo se hace en ${datoDeCampo(key) ? lugarDato(datoDeCampo(key)!) : lugarSeccion('archivero')}` };
+  if (!esCampoArchivero(key)) {
+    await saveAnswers({ ...previas, [key]: valor });
+    return { ok: true };
+  }
+  await setManual({ ...manual, [key]: valor });
+  await persistirBrief(Object.keys(efectivo));
+  return { ok: true };
+}
+
+/**
+ * El valor que HOY tiene un campo del perfil, leído ESTRICTO (O21, 18/11/2026): lo que sale de los documentos con lo manual
+ * encima (computeEffective) o, si no, lo que guardó el wizard. '' = hueco. Tira si la base no contesta: sobre una lectura
+ * tolerante, «no pude leer» sería '' y una corrección se compararía contra un hueco que no existe.
+ */
+export async function valorDelCampoPerfil(key: string): Promise<string> {
+  const [files, manual, previas] = await Promise.all([listFiles(), mapaEstricto('mako.archivero.manual'), mapaEstricto('mako.onboarding.answers')]);
+  return limpio(computeEffective(files, manual).answers[key]) || limpio(previas[key]);
+}
+
+/** «Ya dice eso»: mismo texto, sin contar los espacios de más. Una mayúscula distinta SÍ es una corrección. */
+export const mismoValorPerfil = (a: string, b: string): boolean => a.replace(/\s+/g, ' ').trim() === b.replace(/\s+/g, ' ').trim();
+
+/**
+ * CORRIGE un campo que YA tiene valor (corregir_campo_perfil, O21). Por la MISMA puerta que completarHuecoPerfil: los
+ * campos del Archivero (negocio_que_hace, oferta_*, avatar_*) van a lo manual —que gana sobre lo que saque después un
+ * documento, como la edición de la pantalla—; los demás (negocio_objetivo, negocio_freno, marca_*), a las answers.
+ * Es un compare-and-set: si el valor de hoy ya no es `antes` (lo que la persona vio en la tarjeta), no escribe.
+ */
+export async function corregirCampoPerfil(key: string, valor: string, antes: string): Promise<{ ok: boolean; motivo?: string }> {
+  const [files, manual, previas] = await Promise.all([listFiles(), mapaEstricto('mako.archivero.manual'), mapaEstricto('mako.onboarding.answers')]);
+  const efectivo = computeEffective(files, manual).answers;
+  const hoy = limpio(efectivo[key]) || limpio(previas[key]);
+  if (!hoy) return { ok: false, motivo: 'ese dato quedó vacío desde la propuesta: ahora se completa, no se corrige' };
+  if (!mismoValorPerfil(hoy, antes)) return { ok: false, motivo: `ese dato cambió desde la propuesta (ahora dice «${cortarSinPartir(hoy, 120)}»)` };
   if (!esCampoArchivero(key)) {
     await saveAnswers({ ...previas, [key]: valor });
     return { ok: true };

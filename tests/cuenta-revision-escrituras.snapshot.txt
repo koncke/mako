@@ -278,6 +278,7 @@ POST /api/push/prueba → PERMITIDA
 POST /api/push/suscripcion → PERMITIDA
 POST /api/recorridos → PERMITIDA
 POST /api/regenerate-transcript → cortada
+POST /api/reto → cortada
 POST /api/second-brain/buscar → cortada
 POST /api/second-brain/exportar → cortada
 POST /api/soporte/reportar → PERMITIDA
@@ -330,6 +331,7 @@ acción app/_sin-conexion/acciones.ts → cortada (ninguna página acepta un POS
 acción app/admin/cobros/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/admin/cobros/recibos-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/admin/operaciones/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/admin/plantillas/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/admin/runway/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/ads-writer/onboarding-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/agency/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)

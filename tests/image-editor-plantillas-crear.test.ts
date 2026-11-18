@@ -102,14 +102,16 @@ test('4: la acción busca el id en la lista, arma el documento sin el motor y lo
   assert.match(src, /:\s*documentoEnBlanco\(pl\.ancho, pl\.alto, Array\.from\(\{ length: Math\.max\(1, pl\.paginas\) \}/, 'la última rama: en blanco, una página por id');
   assert.doesNotMatch(src, /documentoDePlantilla/, 'volvió la rama de las plantillas de Doory, borradas el 6/11/2026');
   // El nombre sale de la tarjeta (o del que ella declara para el diseño: «Carrusel · Lista o tips»), nunca del navegador.
-  assert.match(src, /crearDiseno\(p\.ws, p\.quien, \{ titulo: pl\.tituloDiseno \?\? pl\.nombre, doc \}\)/);
+  // Desde el 18/11/2026 (F18) el diseño recuerda la tarjeta de la que nació (`conPlantilla`, lib/image-editor/reglas.ts).
+  assert.match(src, /crearDiseno\(p\.ws, p\.quien, \{ titulo: pl\.tituloDiseno \?\? pl\.nombre, doc: conPlantilla\(doc, real \|\| tipo \? pl\.id : null\) \}\)/);
   assert.doesNotMatch(src, /_doory/, 'el motor es sólo de cliente');
 });
 
 test('5: la computadora y el teléfono, con la MISMA lista y la MISMA acción', () => {
   const escritorio = sinComentarios(leer('app/image-editor/ImageEditorCliente.tsx'));
   // Delante, las plantillas PROPIAS del negocio y las de la comunidad (6/11/2026, app/creaciones/usePlantillasPropias.ts):
-  // son de escritorio por ahora (docs/relevo/nube-plantillas.md); la lista de MaKo sigue siendo la misma de los dos.
+  // desde el 18/11/2026 también en el teléfono (lo fija tests/image-movil-propias.test.ts, montando la pantalla); la lista de
+  // MaKo sigue siendo la misma de los dos.
   assert.match(escritorio, /plantillasNuevo = useMemo\(\(\) => \[\.\.\.propias\.plantillas, \.\.\.PLANTILLAS_NUEVO_DISENO\]/);
   assert.match(escritorio, /plantillas=\{plantillasNuevo\}/);
   assert.match(escritorio, /ejemplos=\{EJEMPLOS_NUEVO_DISENO\}/);

@@ -31,7 +31,7 @@ import { zonaDelNegocioEstricta } from './timezone';
 import { EMAIL_MAKO } from './app-url';
 import { avisarDePlataforma, mandarReciboPorEmail } from './invitaciones';
 import { anotarLoDelEquipo, enviarPartesAlGrupoMaKo, grupoJidEstricto } from './mako-grupo';
-import { atarIdDeWhatsApp, copiarAlGrupo } from './grupo-app';
+import { atarIdsDeWhatsApp, copiarAlGrupo } from './grupo-app';
 import { KEY_QUIEN_PAGA, quienPagaDe } from './agency-reglas';
 import type { Cobro } from './cobros-tipos';
 import type { PartePreparada } from './mako-tarjeta';
@@ -497,7 +497,7 @@ async function despacharWhatsApp(r: ReciboFila, pagos: readonly ReciboPagoFila[]
     return estado;
   }
   const s = await enviarPartesAlGrupoMaKo(ws, partes);
-  if (copia) await Promise.all(copia.ids.map((f, i) => (s.ids[i] ? atarIdDeWhatsApp(ws, f, s.ids[i]) : Promise.resolve()))).catch(() => {});
+  await atarIdsDeWhatsApp(ws, copia, s.ids);
   if (s.ok && s.ids[0]) await anotarLoDelEquipo(ws, t.pie, s.ids[0]).catch((e) => console.warn(`[recibos] recibo ${r.id}: no lo pude anotar en el grupo: ${msg(e)}`));
   const estado = s.ok ? 'enviado' : copia ? 'en_app' : 'fallo';
   await casRecibo(fila, {

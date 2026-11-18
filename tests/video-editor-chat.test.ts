@@ -37,6 +37,7 @@ import { DEFAULTS_RESALTADO, PARAM_NO_DICHAS_OPACIDAD, PARAM_RESALTAR, PARAM_RES
 import type { SceneTracks } from '../app/video-editor/_opencut/timeline/types';
 import { NO_SE_PUEDE_CHAT } from '../lib/editor-video/chat-catalogo';
 import { PLANTILLAS, huecosDe, plantillaPorId, plantillasParaApi } from '../lib/editor-video/plantillas';
+import { OBJETIVOS_VIDEO } from '../lib/editor-video/plantillas-ejemplos';
 import { armarLinea, paramsDeTextoDeHueco, type Medir } from '../app/video-editor/_opencut/plantillas/armar';
 import { MARCA, codificarAncla } from '../app/video-editor/_opencut/plantillas/huecos';
 import { DEFS as DEFS_VIDEO } from '../lib/api-mako/areas/video.def';
@@ -804,7 +805,7 @@ test('43: la FORMA de reemplazar_clip y usar_plantilla: los huecos y sus topes s
   });
   assert.deepEqual(v({ op: 'usar_plantilla', id: 'gancho' }), { ok: true, op: { op: 'usar_plantilla', id: 'gancho', textos: {}, clips: {} } });
   const motivo = (raw: unknown) => { const r = v(raw); return r.ok ? '' : r.motivo; };
-  assert.match(motivo({ op: 'usar_plantilla', id: 'inventada' }), /no es una plantilla \(son: gancho, gancho-escrito/);
+  assert.match(motivo({ op: 'usar_plantilla', id: 'inventada' }), /no es una plantilla \(son: gancho, respuesta-comentario, beneficios/);
   assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', textos: { gancho: 'x'.repeat(29) } }), /hasta 28 caracteres/);
   assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', textos: { clip: 'hola' } }), /hueco de clip: va en "clips"/);
   assert.match(motivo({ op: 'usar_plantilla', id: 'gancho', clips: { gancho: 'm1' } }), /hueco de texto: va en "textos"/);
@@ -871,12 +872,13 @@ test('45: reemplazar_clip: una muestra llena las de su hueco, un video corto o d
 
 test('46: usar_plantilla va SOLA y con la línea de tiempo vacía; un medio que no alcanza deja la muestra y se dice', () => {
   const vacia = () => vistaDeLinea({ tracks: VACIA, tps: TPS, cabezal: 0, elegidos: [], medios: MEDIOS as never });
-  const uso = (extra: Record<string, unknown>) => validarOperacion({ op: 'usar_plantilla', id: 'gancho', ...extra });
+  // Con «Lo que te llevas» (su clip pide 12 s): el gancho pide 21 s desde el 18/11/2026 y el video de 20 s ya no le alcanza.
+  const uso = (extra: Record<string, unknown>) => validarOperacion({ op: 'usar_plantilla', id: 'beneficios', ...extra });
   const op = (x: ReturnType<typeof validarOperacion>) => (x.ok ? x.op : assert.fail(x.motivo));
-  const bien = revisarOperaciones({ operaciones: [op(uso({ textos: { gancho: 'Oferta loca' }, clips: { clip: 'm2' } }))], vista: vacia(), alcance: 'video' });
-  assert.deepEqual(bien.resueltas, [{ op: 'usar_plantilla', plantilla: 'gancho', textos: { gancho: 'Oferta loca' }, medios: { clip: 'a2' } }]);
-  assert.deepEqual([bien.cambios[0].titulo, bien.cambios[0].despues], ['Plantilla «Anuncio con gancho»', '15 s en 9:16']);
-  assert.deepEqual(bien.cambios.slice(1).map((c) => `${c.titulo}: ${c.despues}`), ['Clip «clip»: largo.mp4', 'Texto «gancho»: «Oferta loca»']);
+  const bien = revisarOperaciones({ operaciones: [op(uso({ textos: { titulo: 'Oferta loca' }, clips: { clip: 'm2' } }))], vista: vacia(), alcance: 'video' });
+  assert.deepEqual(bien.resueltas, [{ op: 'usar_plantilla', plantilla: 'beneficios', textos: { titulo: 'Oferta loca' }, medios: { clip: 'a2' } }]);
+  assert.deepEqual([bien.cambios[0].titulo, bien.cambios[0].despues], ['Plantilla «Lo que te llevas»', '15 s en 9:16']);
+  assert.deepEqual(bien.cambios.slice(1).map((c) => `${c.titulo}: ${c.despues}`), ['Clip «clip»: largo.mp4', 'Texto «titulo»: «Oferta loca»']);
   // El video de 4 s no llena un hueco de 12 s: la plantilla va igual, con la muestra.
   const corto = revisarOperaciones({ operaciones: [op(uso({ clips: { clip: 'm1' } }))], vista: vacia(), alcance: 'video' });
   assert.deepEqual((corto.resueltas[0] as Extract<OperacionResuelta, { op: 'usar_plantilla' }>).medios, {});
@@ -950,7 +952,8 @@ test('50: la API de MaKo LISTA las plantillas (gratis, con la tab del editor) y 
   assert.match(def!.descripcion, /NO se puede por la API/);
   const api = plantillasParaApi();
   assert.equal(api.total, PLANTILLAS.length);
-  assert.equal(api.plantillas.length, 7, 'las cinco y sus dos variantes');
+  // Las once de docs/plantillas-reales/video.md (las dos variantes se retiraron el 18/11/2026).
+  assert.equal(api.plantillas.length, 11, 'las once del catálogo');
   for (const p of PLANTILLAS) {
     const de = api.plantillas.find((x) => x.id === p.id)!;
     assert.deepEqual(de.huecos.map((h) => h.nombre), huecosDe(p).map((h) => h.nombre), p.id);
@@ -958,7 +961,17 @@ test('50: la API de MaKo LISTA las plantillas (gratis, con la tab del editor) y 
   const ad = api.plantillas.find((x) => x.id === 'antes-despues')!;
   assert.deepEqual(ad.huecos.find((h) => h.nombre === 'antes'), { nombre: 'antes', tipo: 'clip', acepta: 'ambos', segundos: 5, opcional: false });
   assert.deepEqual(ad.huecos.find((h) => h.nombre === 'final'), { nombre: 'final', tipo: 'clip', acepta: 'ambos', segundos: 3, opcional: true });
-  assert.deepEqual(api.plantillas[0].huecos.find((h) => h.nombre === 'gancho'), { nombre: 'gancho', tipo: 'texto', max_caracteres: 28, ejemplo: 'ESTO LO CAMBIA TODO' });
+  assert.deepEqual(api.plantillas[0].huecos.find((h) => h.nombre === 'gancho'), { nombre: 'gancho', tipo: 'texto', max_caracteres: 28, ejemplo: '¿CIERRAS MENOS DEL 20 %?' });
+  // Desde el 18/11/2026 cada una dice su objetivo y cuándo usarla (doc 5, tanda 1), los del ejemplo («Ver ejemplo»).
+  const gancho = api.plantillas.find((x) => x.id === 'gancho')!;
+  assert.equal(gancho.objetivo, 'Vender una llamada');
+  assert.match(gancho.cuando ?? '', /^Anuncio pagado o reel que vende una llamada/);
+  assert.equal(api.plantillas.find((x) => x.id === 'oferta')!.objetivo, 'Evento');
+  for (const x of api.plantillas) {
+    assert.ok((OBJETIVOS_VIDEO as readonly string[]).includes(x.objetivo ?? ''), `${x.id}: sin objetivo`);
+    assert.ok((x.cuando ?? '').length > 20, `${x.id}: sin «cuándo usarla»`);
+  }
+  assert.match(def!.descripcion, /su objetivo y cuándo usarla/, 'la descripción de la lectura nombra los dos campos');
   // El runner (server-only) devuelve eso, con las sugeridas para el negocio primero (tests/plantillas-sugeridas-editores.test.ts),
   // y desde el 6/11/2026 el ejemplo de un negocio ficticio de cada una (lib/editor-video/plantillas-ejemplos.ts). Sólo LEE:
   // usar una plantilla es del editor.
@@ -1186,6 +1199,7 @@ test('53: «Borrar silencios» sin pausas (ticket 31, 29/10): todo el video salv
 // · (50) R59 la lectura de la API pide admin · R60 no sale por HTTP · R61 lista cinco · R62 el
 //   runner devuelve otra cosa.
 // Restaurado: 51/0.
+// · (50, 18/11/2026, base en verde) la API sin el objetivo ni el «cuándo usarla» → 1 rojo (50). Restaurado: en verde.
 // · (51, 28/10, base 52/0) B1 el chat cae al clip del cabezal (`cabezal: true`) · B2 borrar_silencios no va última
 //   · B3 normalizar el clip que se parte va en el mismo pedido → cada una 51/1. Restaurado: 52/0.
 // · (52, 28/10, ticket 23, base 53/0) R1 correrLarga vuelve a ignorar lo que devuelve generarSubtitulos · R2 un return

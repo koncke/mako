@@ -44,6 +44,8 @@ import { ExplorarCarruseles, type DatosExplorador } from './carruseles/ExplorarC
 import { BASE_SIN_DATOS, ChatReplica, ReplicarGuiado, useGuiado, type BaseGuiado } from './carruseles/ReplicarGuiado';
 import { useCarruselesDeImage } from './carruseles/useCarruselesDeImage';
 import { MiniaturaTarjetaDiseno } from './MiniaturaDiseno';
+import { NombreModal } from './NombreModal';
+import { TOPE_NOMBRE_DISENO } from './nombre-reglas';
 import { plantillaImagen, type DocumentoDoory } from '@/lib/image-editor/plantillas-reales';
 import type { Carrusel, FiltrosCarrusel } from '@/lib/carruseles/explorar';
 import type { FiltrosThumbnail } from '@/lib/thumbnails/explorar';
@@ -117,9 +119,9 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
     setDisenos((xs) => xs?.map((d) => (d.id === id ? { ...d, titulo } : d)) ?? xs);
   }, []);
 
-  const renombrar = useCallback(async (d: ResumenDiseno) => {
-    const nuevo = window.prompt('Nuevo nombre del diseño', d.titulo)?.trim();
-    if (!nuevo || nuevo === d.titulo) return;
+  // «Cambiar nombre» abre el campo (./NombreModal.tsx, 18/11/2026: antes era `window.prompt`); `renombrar` guarda lo escrito.
+  const [renombrando, setRenombrando] = useState<ResumenDiseno | null>(null);
+  const renombrar = useCallback(async (d: ResumenDiseno, nuevo: string) => {
     setAviso(null);
     // El abierto se renombra POR el editor: si fuera directo a la base, su próximo guardado chocaría con la versión.
     if (editor.current?.id === d.id) { editor.current.renombrar(nuevo); return; }
@@ -151,13 +153,13 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
 
   const proyectos = useMemo((): ProyectoCrear[] | null => disenos?.map((d) => {
     const menu: AccionProyecto[] = [
-      { rotulo: 'Cambiar nombre', hacer: () => renombrar(d) },
+      { rotulo: 'Cambiar nombre', hacer: () => setRenombrando(d) },
       { rotulo: 'Duplicar', hacer: () => duplicar(d) },
       { rotulo: 'Guardar como plantilla', hacer: () => setComoPlantilla({ id: d.id, nombre: d.titulo }) },
       { rotulo: 'Eliminar', hacer: () => eliminar(d), peligro: true, confirmar: `¿Eliminar «${d.titulo}»? No se puede deshacer.` },
     ];
     return { id: d.id, nombre: d.titulo, href: rutaDe(d.id), cuando: Date.parse(d.actualizado) || null, menu };
-  }) ?? null, [disenos, renombrar, duplicar, eliminar]);
+  }) ?? null, [disenos, duplicar, eliminar]);
 
   // Plantillas propias (6/11/2026, Leila): las que guardó el negocio y las mejores de la comunidad, primero en «Nuevo diseño».
   const [comoPlantilla, setComoPlantilla] = useState<{ id: string; nombre: string } | null>(null);
@@ -277,6 +279,11 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       <EjemploPlantillaImagen p={plantillaDelEjemplo} alSalir={() => setEjemploReal(null)} alUsar={() => crearPlantilla(ejemploReal.tarjeta)} />
     )}
     <ModalGuardarPlantilla tipo="formato_imagen" de={comoPlantilla} alSalir={() => setComoPlantilla(null)} alGuardar={propias.recargar} />
+    {renombrando && (
+      <NombreModal titulo="Cambiar nombre" rotulo="Nombre del diseño" inicial={renombrando.titulo} anterior={renombrando.titulo}
+        tope={TOPE_NOMBRE_DISENO} accion="Cambiar nombre" noAccion="No cambiar" alSalir={() => setRenombrando(null)}
+        onGuardar={(nuevo) => { const d = renombrando; setRenombrando(null); void renombrar(d, nuevo); }} />
+    )}
     </>
   );
 }

@@ -50,6 +50,7 @@ import {
   type PasoGeneracion,
 } from './modelo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { marcaCrear } from '@/lib/tutoriales/marcas';
 
 const GEN_QUIETA: GenM = { paso: 'diagnostico', corriendo: false, error: null };
 
@@ -638,7 +639,7 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
     <div className="m-offer" style={sesion ? { paddingBottom: altoDock + 16 } : undefined}>
       {/* El selector: donde escritorio tiene el desplegable (en el lugar del título), una píldora con el camino. */}
       <div className="m-offer-cab">
-        <button type="button" className="m-offer-selector" aria-haspopup="dialog"
+        <button type="button" className="m-offer-selector" aria-haspopup="dialog" data-recorrido={marcaCrear('Offer', 'proyectos')}
           aria-label={camino ? `${ROTULOS.selector}: ${caminoEnUnaLinea(camino)}` : ROTULOS.selector}
           disabled={cambiando || gen.corriendo || arbolVacio(arbol)} onClick={() => setHoja('funnel')}>
           <IconoFunnel size={18} />

@@ -231,6 +231,12 @@ async function main() {
     clase: '{"clase":"ACCION","resumen":"Pausar la campaña Verano y subirle el presupuesto","reenviado":false,"partes":["pausar la campaña Verano","subirle el presupuesto a 50 por día"]}',
     respuesta: '¿Cuál campaña Verano, la de Meta o la de Google?',
   }, 'pausame la campaña Verano y subile el presupuesto a 50 por día');
+  // O21 (18/11/2026, Leila: «¿cómo te hago recordar que LíderMente es de 7:30 a 9:30?»): corregir un dato del perfil desde el grupo.
+  // `corregir_campo_perfil` (una escritura simple, con su «sí») viaja en la ACCIÓN con la lectura que da las claves.
+  await correr('corregirPerfil', {
+    clase: '{"clase":"ACCION","resumen":"Corregir lo que incluye el programa","reenviado":false}',
+    respuesta: '¿Lo guardo en lo que incluye tu programa o en la garantía?',
+  }, 'acordate que el programa incluye clases en vivo de 7:30 a 9:30');
   // EL PEDIDO COMPUESTO: hace lo que puede (la réplica) y lo demás (la automatización) lo delega, con lo que ya hizo. Nunca en silencio.
   await correr('compuesto', {
     clase: '{"clase":"ACCION","resumen":"Replicar una landing y crear una automatización","reenviado":false,"partes":["replicar la landing https://ejemplo.com/oferta","crear una automatización de bienvenida"]}',

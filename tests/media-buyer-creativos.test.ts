@@ -3,7 +3,7 @@
 // Verificado rompiéndolo: con el video por imageUrl y un link http aceptado, 2 fallos y 3 pases. Restaurado, 5 de 5.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuerpoCreativoEnConjunto, errorDeTextos, nombreDeAnuncio, type TextosCreativo } from '../lib/media-buyer/creativos';
+import { codigoDeConjunto, codigosDeAnunciosNuevos, cuerpoCreativoEnConjunto, errorDeTextos, nombreDeAnuncio, type TextosCreativo } from '../lib/media-buyer/creativos';
 
 const conexion = { accountId: 'zacc1', adAccountId: 'act_1426493815659364' };
 const textos: TextosCreativo = { textoPrincipal: 'Agenda tu diagnóstico gratis.', titulo: 'Diagnóstico gratis', cta: 'LEARN_MORE', link: 'https://hola-mako.com/vsl', formularioId: null };
@@ -44,6 +44,24 @@ test('lo que no se publica se dice antes: sin texto, sin título, sin destino, u
 test('el nombre del anuncio sale del archivo, con la marca de MaKo', () => {
   assert.equal(nombreDeAnuncio('hook_dolor-v2.mp4', 0), 'hook dolor v2 · MaKo');
   assert.equal(nombreDeAnuncio('.png', 2), 'Creativo 3 · MaKo');
+  assert.equal(nombreDeAnuncio('hook_dolor-v2.mp4', 0, '001.02.c'), '001.02.c hook dolor v2 · MaKo', 'con su código, el código va primero');
+});
+
+// ── La nomenclatura NNN.SS.x de un anuncio nuevo en un conjunto que ya existe (O9, 18/11/2026) ──
+// Verificado rompiéndolo (18/11/2026): contando las letras por la CANTIDAD de anuncios en vez de por la mayor → 1 fallo
+// («salta las que se borraron»); aceptando cualquier número al principio como código («2026 Leads») → 1 fallo. Restaurado, en verde.
+test('el código del anuncio nuevo sale del conjunto y de la MAYOR letra que ya usan sus anuncios', () => {
+  assert.equal(codigoDeConjunto('001.02 Leads / Dolor'), '001.02');
+  assert.equal(codigoDeConjunto('  014.11 - Retargeting'), '014.11');
+  assert.equal(codigoDeConjunto('Leads / Dolor'), null, 'sin nomenclatura no hay código');
+  assert.equal(codigoDeConjunto('2026 Leads de noviembre'), null, 'un año no es un código');
+  assert.equal(codigoDeConjunto('001.02.a Hook'), null, 'el nombre de un ANUNCIO no es el de un conjunto');
+  assert.deepEqual(codigosDeAnunciosNuevos('001.02 Leads', ['001.02.a Hook dolor', '001.02.b Hook cifra'], 2), ['001.02.c', '001.02.d']);
+  // Borrado el «b», el que sigue es el «d»: una letra repetida confunde dos anuncios en el reporte.
+  assert.deepEqual(codigosDeAnunciosNuevos('001.02 Leads', ['001.02.a Hook', '001.02.c Otro'], 1), ['001.02.d'], 'salta las que se borraron');
+  assert.deepEqual(codigosDeAnunciosNuevos('001.02 Leads', ['001.02.z X', 'Sin código', '001.03.f De otro conjunto'], 1), ['001.02.aa']);
+  assert.deepEqual(codigosDeAnunciosNuevos('001.02 Leads', [], 1), ['001.02.a']);
+  assert.deepEqual(codigosDeAnunciosNuevos('Leads sin código', ['001.02.a X'], 2), [null, null], 'sin código en el conjunto, el nombre de siempre');
 });
 
 // ── Los hooks de un video ganador como guion para el Video Generator (lib/media-buyer/hooks-guion.ts) ──

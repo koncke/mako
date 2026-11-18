@@ -117,7 +117,8 @@ test('1: conserva id, inicio y duración; una foto pasa a video y un video a fot
 });
 
 test('2: un hueco de 12 s no acepta un video de 10 s; con 12 s justos sí', () => {
-  const t = armar('gancho');
+  // «Lo que te llevas»: su clip dura 12 s (el del gancho pasó a 21 s el 18/11/2026, doc 2.1).
+  const t = armar('beneficios');
   const clip = principal(t)[0];
   assert.equal(clip.duration, 12000);
   const ref = { trackId: 'principal', elementId: clip.id };

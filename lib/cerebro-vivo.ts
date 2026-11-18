@@ -44,7 +44,8 @@ export type ConteoLeads = {
   porEtapa: Array<{ key: string; leads: number }>;
   origenes: Array<{ origen: string; leads: number }>;
 };
-export type ObjetivoVivo = { id: string; titulo: string; metaValor: number; unidad: string; quarter: number | null; anio: number; funnelIds: number[] };
+/** Un objetivo del Q (`objectives`, la misma tabla que General y los reportes). `metrica`: qué mide ('cierres', 'cash_usd'…). */
+export type ObjetivoVivo = { id: string; titulo: string; metrica?: string; metaValor: number; unidad: string; quarter: number | null; anio: number; funnelIds: number[] };
 export type KpiVivo = { id: string; nombre: string; objectiveId: string | null; compromiso: number; unidad: string; cadencia: string; funnelIds: number[] };
 /** Un cliente: un lead con la venta GANADA en el CRM (lib/clientes-ganados.ts es la definición de «cliente» del producto). */
 export type ClienteVivo = { leadId: number; nombre: string; empresa: string | null; fechaCierre: string | null; sinCobro: boolean };
@@ -128,7 +129,11 @@ type Armado = {
 };
 
 /** Suma lo vivo al grafo, sobre los mismos arreglos. Una arista sólo se tiende si sus DOS puntas existen. */
-export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: string; primeraEtapa: string | null; etapasEnMapa: ReadonlySet<string> }): void {
+export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: {
+  raiz: string; primeraEtapa: string | null; etapasEnMapa: ReadonlySet<string>;
+  /** La etapa donde se cuenta un cierre (la de `kind: 'cierre'` del funnel principal), si está en el mapa. */
+  etapaCierre?: string | null;
+}): void {
   const ids = new Set(g.nodos.map((n) => n.id));
   const push = (n: NodoCerebro) => { g.nodos.push(n); ids.add(n.id); return n.id; };
   const hay = (id: string) => ids.has(id);
@@ -278,7 +283,11 @@ export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: str
     });
     const funnels = o.funnelIds.map(nodoFunnel).filter((x): x is string => !!x);
     for (const f of funnels) unir(id, f, 'Este objetivo cuenta lo de este funnel');
-    if (!funnels.length) unir(id, hay('objetivo') ? 'objetivo' : hay('fase') ? 'fase' : opciones.raiz, 'Un objetivo del negocio entero');
+    // El que mide CIERRES se engancha con la etapa donde se cierra (18/11/2026, F82): era la arista del nodo `objetivo`
+    // de los settings viejos, que ya no existe. Es una arista lateral, y para el mapa vale más que otro radio.
+    const cuentaCierres = o.metrica === 'cierres' && !!opciones.etapaCierre && opciones.etapasEnMapa.has(opciones.etapaCierre);
+    if (cuentaCierres) unir(id, opciones.etapaCierre!, 'Un cierre se cuenta cuando un lead llega aquí');
+    if (!funnels.length && !cuentaCierres) unir(id, hay('fase') ? 'fase' : opciones.raiz, 'Un objetivo del negocio entero');
   }
   for (const k of l.kpis) {
     const id = push({
@@ -373,24 +382,9 @@ function esDatoNombrable(n: NodoCerebro): boolean {
   return limpio(n.etiqueta).replace(/[^\p{L}\p{N}]/gu, '').length >= 4;
 }
 
-/**
- * D1 · EL OBJETIVO EN NÚMEROS (lib/cerebro-grafo.ts), con los settings `objetivo_cierres` y `objetivo_cash_usd` TAL COMO SE
- * GUARDAN: strings ('12', '30000'), del onboarding (SETTINGS_WIZARD) y de `setObjetivoAction`. Sin cierres, ningún nodo: lo
- * que falta se dice en la raíz. Es plata del negocio: un closer no lo ve (`sinLaPlata`, lib/cerebro-union.ts).
- */
-export function nodoDelObjetivo(objCierres: unknown, objCash: unknown): NodoCerebro | null {
-  const nCierres = Number(objCierres);
-  const nCash = Number(objCash);
-  if (!Number.isFinite(nCierres) || nCierres <= 0) return null;
-  return {
-    id: 'objetivo',
-    area: 'norte',
-    etiqueta: `${nCierres} ${nCierres === 1 ? 'cierre' : 'cierres'} en 90 días`,
-    detalle: Number.isFinite(nCash) && nCash > 0 ? `Y USD ${nCash.toLocaleString('es')} de facturación.` : '',
-    fuente: 'lo pusiste como objetivo',
-    autoria: 'usuario',
-  };
-}
+// ⚠️ `nodoDelObjetivo` (el nodo `objetivo` armado con los settings VIEJOS `objetivo_cierres` y `objetivo_cash_usd`) se
+// borró el 18/11/2026 (F82): la meta del grafo sale sólo de `objectives`, en los nodos `okr:` de arriba. Ver «D1» en
+// lib/cerebro-armado.ts.
 
 /** Los nodos cuyo NOMBRE aparece entero en el título (la búsqueda del grafo al revés: el título es el pajar). */
 function candidatosNombrados(titulo: string, nodos: NodoCerebro[]): NodoCerebro[] {

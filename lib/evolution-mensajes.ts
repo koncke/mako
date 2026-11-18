@@ -428,6 +428,11 @@ async function resolverLeadIdsPorTelefono(supabase: Awaited<ReturnType<typeof ge
   const phones = [...new Set(sinLead.map((c) => (c.telefono || '').replace(/\D/g, '').slice(-10)).filter((p) => p.length >= 8))].slice(0, 50);
   if (!phones.length) return;
   const conds = phones.map((p) => `telefono_normalizado.like.%${p}%`).join(',');
+  // ⚠️ TOPE A PROPÓSITO, NO UN CORTE QUE HAYA QUE PAGINAR (P20, revisado el 18/11/2026). Esta lectura no CUENTA nada:
+  // busca el lead de, como mucho, 50 teléfonos (el `.slice(0, 50)` de arriba) para ponerle el nombre y la etapa del CRM
+  // a conversaciones que todavía no lo tienen. 300 filas son seis candidatos por teléfono, y quedan por debajo de las
+  // 1000 de PostgREST: el que corta es este tope, nunca el servidor. Si alguna vez no alcanzara, lo que se pierde es el
+  // adorno de una conversación (se ve con el número), no un dato.
   const { data } = await supabase.from('leads').select('id, telefono_normalizado').or(conds).limit(300);
   const porTel = new Map<string, number>();
   for (const l of (data ?? []) as Array<{ id: number; telefono_normalizado: string | null }>) {
@@ -513,6 +518,12 @@ export async function getConversacionesNoOficial(
   const agendaP = asentar(opts?.conAgenda === false
     ? Promise.resolve(new Map<string, string>())
     : getNombresContacto().catch(() => new Map<string, string>()));
+  // ⚠️ TOPE A PROPÓSITO, NO UN CORTE QUE HAYA QUE PAGINAR (P20, revisado el 18/11/2026). Esto no cuenta nada: son las
+  // conversaciones VACÍAS de «Nutrición - Manual» que la bandeja dibuja para poder escribirles, y van al final de una
+  // lista que se corta a `limite` conversaciones (abajo, `salida.slice(0, limite)`; sin fecha quedan últimas). Es una
+  // bandeja, no un total: con más de 300 leads en esa etapa, los que sobran no tienen su renglón vacío (se les escribe
+  // desde la ficha), y nada se calcula de menos. 300 queda por debajo de las 1000 de PostgREST: corta este tope, no el
+  // servidor. ⚠️ Lo que sí falta: no hay ORDER BY, así que cuáles 300 entran, si hubiera más, no está definido.
   const manualesP = asentar(supabase
     .from('leads')
     .select('id, nombre, empresa, telefono_normalizado')

@@ -41,7 +41,7 @@ async function main() {
   const { NextRequest } = await import('next/server');
   const { POST } = await import('../app/api/webhooks/evolution/route');
   const { firmaDeInstancia } = await import('../lib/evolution-firma');
-  const { copiarAlGrupo } = await import('../lib/grupo-app');
+  const { copiarAlGrupo, atarIdsDeWhatsApp } = await import('../lib/grupo-app');
   const { enviarAGrupoJid, anotarEnviadosAlGrupo } = await import('../lib/mako-grupo');
   const { conSalidaDelGrupo } = await import('../lib/grupo-salida');
   const { leerMensajeDeWhatsApp } = await import('../lib/grupo-espejo');
@@ -129,6 +129,11 @@ async function main() {
   await webhook({ key: { id: 'ECOV', fromMe: true, remoteJid: JID }, message: { videoMessage: { caption: 'Mira el resumen', mimetype: 'video/mp4' } }, pushName: 'Martín', messageTimestamp: ahora() });
   await webhook({ key: { id: 'ECOD', fromMe: true, remoteJid: JID }, message: { documentMessage: { mimetype: 'application/msword', fileName: 'plan.doc' } }, pushName: 'Martín', messageTimestamp: ahora() });
   out.ecoDeVideo = foto().map((f) => ({ autor: f.autor, wa: f.wa }));
+  // El id de WhatsApp de cada parte va con la fila de ESA parte (18/11/2026): una parte que no deja fila (un texto vacío) corría los ids.
+  await limpiar(); escenaNueva();
+  const copiaPorPartes = await copiarAlGrupo(WS, { texto: '', de: 'mako', partes: [{ tipo: 'texto', texto: 'Uno' }, { tipo: 'texto', texto: '   ' }, { tipo: 'texto', texto: 'Tres' }] as never });
+  await atarIdsDeWhatsApp(WS, copiaPorPartes, ['WA-A', 'WA-B', 'WA-C']);
+  out.idsPorParte = { porParte: copiaPorPartes?.porParte.map((x) => (x == null ? null : 'fila')), filas: foto().map((f) => ({ texto: f.texto, wa: f.wa })) };
   // ⚠️ Con un link: la copia lo guarda con `?ws=`, y lo que manda el doer va crudo.
   await limpiar(); escenaNueva();
   const dicho = 'Abrí el ticket. Mira el progreso aquí: https://hola-mako.com/tickets?t=5';

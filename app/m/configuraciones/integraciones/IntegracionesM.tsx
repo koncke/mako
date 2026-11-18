@@ -10,6 +10,7 @@ import { useWs } from '@/app/_ui/Link';
 import { FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, VacioM } from '@/app/m/_ui';
 import { abrirEnComputadora } from '@/app/m/_ui/EnComputadoraM';
 import dynamic from 'next/dynamic';
+import { marcaIntegracion } from '@/lib/tutoriales/marcas';
 // Las líneas de WhatsApp (29/10/2026), las mismas que en la computadora. El QR no: no se escanea con el mismo teléfono.
 const LineasWhatsApp = dynamic(() => import('@/app/integraciones/LineasWhatsApp'), { ssr: false });
 
@@ -58,7 +59,7 @@ export function IntegracionesM({ conectadas, sinConectar, historial, abrir, suel
                 pill={i.problema
                   ? <PildoraM tono={i.problema.rojo ? 'bad' : 'warn'}>{i.problema.estado}</PildoraM>
                   : i.estado === 'conectada' ? <PildoraM tono="good">Conectada</PildoraM> : undefined}
-                onClick={() => setAbierta(i)} />
+                onClick={() => setAbierta(i)} recorrido={marcaIntegracion(i.key)} />
             ))}
           </ListaM>
         </SeccionM>
@@ -68,7 +69,7 @@ export function IntegracionesM({ conectadas, sinConectar, historial, abrir, suel
           <ListaM>
             {sinConectar.map((i) => (
               <FilaM key={i.key} titulo={i.nombre} segunda={i.problema ? i.detalle : i.descripcion}
-                pill={i.problema ? <PildoraM tono="warn">{i.problema.estado}</PildoraM> : undefined} onClick={() => setAbierta(i)} />
+                pill={i.problema ? <PildoraM tono="warn">{i.problema.estado}</PildoraM> : undefined} onClick={() => setAbierta(i)} recorrido={marcaIntegracion(i.key)} />
             ))}
           </ListaM>
         </SeccionM>

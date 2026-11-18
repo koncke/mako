@@ -76,8 +76,6 @@ function acciones(src: string): Array<{ nombre: string; cuerpo: string }> {
 const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'contestarPreguntaAction', 'guardarBorradorAction', 'marcarMensajeAction', 'guardarAliasCuentaAction', 'decidirChatNuevoAction', 'marcarYaVistoAction', 'creditoApiAction', 'creditoDelNegocioAction', 'computadorasDelNegocioAction', 'desconectarComputadoraAction',
   // Lo terminado viejo de UN chat, al abrirlo (23/10/2026, `pedidosDelChatAction`): con la misma guarda que las demás.
   'pedidosDelChatAction',
-  // Dar de baja un mensaje que espera un chat cerrado (30/10/2026): toca los mensajes de Martín.
-  'descartarDelLimboAction',
   // «Ignorar» y «Volver a mostrar» lo que espera a Martín (5/11/2026): cancela la respuesta que todavía no salió.
   'ignorarPreguntaAction', 'ignorarDecisionAction'];
 
@@ -204,6 +202,11 @@ const BATERIA: Array<[string, string]> = [
   ['con modelo y esfuerzo', variante({ modelo: 'sonnet', esfuerzo: 'high' })],
   ['modelo raro', variante({ modelo: 'gpt-5' })],
   ['esfuerzo raro', variante({ esfuerzo: 'turbo' })],
+  // «Automático» por fase (18/11/2026): sólo `true`, y nunca con un modelo elegido. Con el esfuerzo, sí.
+  ['por fase', variante({ porFase: true, esfuerzo: 'high' })],
+  ['por fase raro', variante({ porFase: 'si' })],
+  ['por fase en falso', variante({ porFase: false })],
+  ['por fase con modelo', variante({ porFase: true, modelo: 'opus' })],
 ];
 
 test('el servidor y el cartero dan el MISMO veredicto sobre cada texto firmado', async () => {
@@ -216,7 +219,20 @@ test('el servidor y el cartero dan el MISMO veredicto sobre cada texto firmado',
     if (!a.ok) assert.equal(b.motivo, a.motivo, `${nombre}: motivos distintos`);
     else buenos++;
   }
-  assert.equal(buenos, 5, 'la batería tiene cinco textos válidos');
+  assert.equal(buenos, 6, 'la batería tiene seis textos válidos');
+});
+
+// Probado ROMPIÉNDOLO (18/11/2026): armarFirmable poniendo `porFase: false` en todo trabajo sin fases → 3 fallos (éste, el
+// diferencial y el del modelo: el texto de siempre cambia, y el servidor lo rechaza); el cartero sin validar `porFase` → 1
+// fallo (el diferencial: «por fase raro: servidor false, cartero true»).
+test('sin «por fase» el texto firmado es el de siempre; con él va adentro, y con un modelo elegido no va', () => {
+  assert.ok(!('porFase' in JSON.parse(armarFirmable(base()))), 'un trabajo sin fases firma lo mismo que antes del 18/11');
+  const datos = { id: '6b2b7d32-9a51-4e43-9a43-2f3a4b5c6d7e', texto: 'hola', destino: 'local_0b1c2d3e-4f50-4a61-8b72-9c83d4e5f601', cuenta: 'claude4', titulo: 'CRM', alcance: 'solo_esto' as const };
+  const conFase = leerFirmable(armarFirmable(nuevoPayload({ ...datos, porFase: true }, AHORA)), AHORA);
+  assert.ok(conFase.ok && conFase.p.porFase === true && conFase.p.modelo === null);
+  const conModelo = JSON.parse(armarFirmable(nuevoPayload({ ...datos, porFase: true, modelo: 'haiku' }, AHORA)));
+  assert.equal(conModelo.modelo, 'haiku');
+  assert.ok(!('porFase' in conModelo), 'el modelo que elige Martín manda: no hay fases');
 });
 
 // Probado ROMPIÉNDOLO (17/10/2026): armarFirmable poniendo `modelo: null` siempre → 1 fallo (éste).

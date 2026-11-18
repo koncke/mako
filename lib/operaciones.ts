@@ -280,19 +280,6 @@ export async function servicioListoEnMako(): Promise<boolean> {
   return true;
 }
 
-/**
- * Dar de baja un mensaje del cartel de los que no salieron (30/10/2026, lib/centro-limbo.ts): lo que espera, y también lo que ya venció,
- * que `cancelarPedido` no mira. Con compare-and-set: si la PC lo tomó entretanto, salió y no se toca.
- */
-export async function descartarDelLimbo(id: string): Promise<boolean> {
-  const { data, error } = await getSupabaseServer().from(T_PEDIDOS)
-    .update({ estado: 'cancelado', motivo: 'Lo descartó Martín', updated_at: new Date().toISOString() })
-    .eq('id', id).in('estado', ['escrito', 'no_entregado']).select('id, firmado');
-  if (error) throw new Error(error.message);
-  await borrarAdjuntosDe((data ?? []).map((f) => f.firmado as string | null));
-  return (data ?? []).length > 0;
-}
-
 /** Acuña el token de los carteros. Se muestra UNA vez; se guarda por hash. Acuñar uno nuevo
  *  invalida el anterior: hay que pegarlo de nuevo en la PC. */
 export async function crearTokenCartero(): Promise<{ token: string }> {

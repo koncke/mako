@@ -50,9 +50,9 @@ import {
   setMeetingManual, setPipelineStage, duplicadosDeLead, getTrackingEvents, getVslEngagement,
   contarVisitasLanding, esRequisitosFaltantes, type Lead, type FathomLink,
 } from '@/lib/leads';
-import { getFunnelDefault, getFunnelDe, listarFunnels, idDelFunnelDefault } from '@/lib/funnels';
+import { getFunnelDefault, getFunnelDe, listarFunnels, leerFunnels, idDelFunnelDefault } from '@/lib/funnels';
 import { completarNombresDelGrupo, etapasParaTraer, etiquetaDeOrigen, gruposDeLinea, marcarEnElCrm, participantesDelGrupo, traerDelGrupo } from '@/app/crm/grupo-wa-server';
-import { etapaPorDefecto, funnelPorDefecto, type GrupoWA } from '@/lib/grupo-wa-reglas';
+import { etapaPorDefecto, type GrupoWA } from '@/lib/grupo-wa-reglas';
 import { leadsDelGrupo, pedidosDeFichas } from '@/app/crm/enriquecer-lote-server';
 import { VERSION_FICHAS } from '@/lib/wa-fichas-cliente';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId, type Stage } from '@/lib/pipeline';
@@ -774,8 +774,10 @@ export const RUNNERS: Runners = {
     }),
   },
   faltantes_del_lead: {
-    leer: (input) => conLead(input, async (lead) => {
-      const [{ faltan, avisan, apagados }, stages] = await Promise.all([datosSinMarcarDeUnLead(lead), etapasDelFunnelDeLead(lead)]);
+    leer: (input, ctx) => conLead(input, async (lead) => {
+      // El día del NEGOCIO, con el ws explícito (F125): el mismo que usa su ficha y su fila en «A revisar».
+      const { hoy } = await hoyDelWorkspace(ctx.ws);
+      const [{ faltan, avisan, apagados }, stages] = await Promise.all([datosSinMarcarDeUnLead(lead, hoy), etapasDelFunnelDeLead(lead)]);
       // `avisan` es lo que cuenta «N sin marcar» de su ficha y su fila en «A revisar» (la ficha de SU funnel):
       // si MaKo dijera otro número, contradiría la pantalla.
       const siAvisa = new Set(avisan.map((f) => f.id));
@@ -1281,11 +1283,24 @@ export const RUNNERS: Runners = {
       const pg = await grupoPedido(input);
       if ('error' in pg) return { error: pg.error ?? 'No pude leer los grupos de esa línea.' };
       const { g, grupo } = pg;
-      // Por defecto, como la pantalla: el CRM «Prospección» si lo hay, y ahí «Tibio» (el Cerebro, 23/10/2026).
-      const funnels = await listarFunnels();
-      const funnelId = n(input.embudoId) ?? funnelPorDefecto(funnels, await idDelFunnelDefault());
+      // ⚠️ CON MÁS DE UN FUNNEL, EL DESTINO LO DICE LA PERSONA (O45, 18/11/2026). La pantalla trae al CRM que se mira
+      // (cb24330c6: «siempre en el CRM en el que estoy parado»); por el chat no hay CRM «que se mira», y hasta este día caían a
+      // «Prospección» o al principal sin que la tarjeta lo dijera (Leila, llamada del 30/10). Ahora, sin `embudoId` y con dos o
+      // más, no se elige: se pregunta, con los funnels del negocio. Con uno solo (activo), ése. Y «no pude leer» no es «hay
+      // uno» (`leerFunnels`, lib/funnels.ts).
+      const funnels = await leerFunnels();
+      if (!funnels) return { error: 'No pude leer los funnels del negocio.', falla: true };
+      const pedido = n(input.embudoId);
+      if (pedido == null && funnels.length > 1) {
+        return {
+          error: `Este negocio tiene ${funnels.length} funnels: pregúntale a la persona a cuál van los contactos (${funnels.map((f) => `«${nombreVisible(f)}»`).join(', ')}) y pásalo en embudoId.`,
+          faltan: ['embudoId'], disponibles: funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f) })),
+        };
+      }
+      const funnelId = pedido ?? funnels[0]?.id ?? null;
       if (funnelId == null) return { error: 'Este negocio todavía no tiene un funnel.' };
-      if (!funnels.some((f) => f.id === funnelId)) return { error: 'Ese funnel no es de este negocio (mira productos_del_lead).' };
+      const destino = funnels.find((f) => f.id === funnelId);
+      if (!destino) return { error: 'Ese funnel no es de este negocio (mira productos_del_lead).' };
       const { etapas, entrada } = await etapasParaTraer(funnelId);
       const e = String(input.etapa ?? '').trim().toLowerCase();
       const etapa = e ? etapas.find((s) => s.key.toLowerCase() === e || s.label.toLowerCase() === e) : etapas.find((s) => s.key === etapaPorDefecto(etapas, entrada));
@@ -1302,7 +1317,8 @@ export const RUNNERS: Runners = {
       return {
         payload: { linea: g.linea, jid: grupo.jid, nombreGrupo: grupo.nombre, funnelId, etapa: etapa.key, etiqueta: origen.nombre },
         // Los que ya son leads no se vuelven a cargar (Martín, 24/10/2026): la cuenta es la de los NUEVOS, y los otros se dicen.
-        resumen: `Traer ${p.participantes.length - ya} contactos nuevos del grupo «${grupo.nombre}» a «${etapa.label}», con la etiqueta «${origen.nombre}»${ya ? ` (${ya} ya son leads: no se vuelven a cargar)` : ''}${p.sinNumero ? `; ${p.sinNumero} sin número visible no se traen` : ''}. No se le escribe a nadie.`,
+        // El FUNNEL va dicho (O45): la etapa sola no dice a qué CRM van.
+        resumen: `Traer ${p.participantes.length - ya} contactos nuevos del grupo «${grupo.nombre}» al funnel «${nombreVisible(destino)}», en «${etapa.label}», con la etiqueta «${origen.nombre}»${ya ? ` (${ya} ya son leads: no se vuelven a cargar)` : ''}${p.sinNumero ? `; ${p.sinNumero} sin número visible no se traen` : ''}. No se le escribe a nadie.`,
       };
     },
     ejecutar: (payload, ctx) => seguro('traer los contactos del grupo', async () => {

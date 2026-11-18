@@ -777,19 +777,40 @@ function buildScriptView(r: StoredView, m: AdMetrics, cierres: number): ScriptVi
   };
 }
 
+/** Las vistas (análisis + métricas vivas) de las filas ANALIZADAS, con señal. Lo comparten la vista entera y `guionesConSenal`. */
+async function vistasDeAnalizadas(rows: StoredView[]): Promise<ScriptView[]> {
+  // Incluye videos con beats Y anuncios de imagen (sin beats de retención).
+  const analizadas = rows.filter((r) => r.status === 'analizada' && (r.es_imagen || (r.beats?.length ?? 0) > 0));
+  const ids = analizadas.map((r) => r.ad_id);
+  const [metrics, cierresByAd] = await Promise.all([getScriptMetrics(ids), getCierresByAd(ids)]);
+  const scripts: ScriptView[] = [];
+  for (const r of analizadas) {
+    const m = metrics.get(r.ad_id);
+    if (!m) continue; // analizado pero sin métricas de Meta → no se muestra
+    const sv = buildScriptView(r, m, cierresByAd.get(r.ad_id) ?? 0);
+    if (sv) scripts.push(sv);
+  }
+  return scripts;
+}
+
+/**
+ * Sólo los guiones analizados con sus métricas vivas, sin los contadores de la pantalla (18/11/2026, O22): lo que leen los que
+ * ESCRIBEN guiones (lib/ads-ganadores.ts) para saber qué ya le funcionó al negocio. Ahorra la vuelta entera por los anuncios de
+ * Meta que la vista necesita para contar los «sin analizar».
+ */
+export async function guionesConSenal(): Promise<ScriptView[]> {
+  return vistasDeAnalizadas(await leerScriptAnalyses<StoredView>(VIEW_COLS));
+}
+
 /** Datos para /ads-analyst: TODOS los guiones analizados con sus métricas
  *  vivas de todo el histórico (sin filtro de fecha). */
 export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
   // Paginado: de acá salen los contadores (`total`, `analizadas`, `sinTranscript`)
   // y la lista de guiones — cortada en 1000, los números cerraban igual y mentían.
   const rows = await leerScriptAnalyses<StoredView>(VIEW_COLS);
-  // Incluye videos con beats Y anuncios de imagen (sin beats de retención).
-  const analizadas = rows.filter((r) => r.status === 'analizada' && (r.es_imagen || (r.beats?.length ?? 0) > 0));
-  const ids = analizadas.map((r) => r.ad_id);
 
-  const [metrics, cierresByAd, allAdIds] = await Promise.all([
-    getScriptMetrics(ids),
-    getCierresByAd(ids),
+  const [scripts, allAdIds] = await Promise.all([
+    vistasDeAnalizadas(rows),
     getAllMetaAdIds(),
   ]);
 
@@ -806,13 +827,6 @@ export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
   let lastSync: string | null = null;
   for (const r of rows) if (!lastSync || r.updated_at > lastSync) lastSync = r.updated_at;
 
-  const scripts: ScriptView[] = [];
-  for (const r of analizadas) {
-    const m = metrics.get(r.ad_id);
-    if (!m) continue; // analizado pero sin métricas de Meta → no se muestra
-    const sv = buildScriptView(r, m, cierresByAd.get(r.ad_id) ?? 0);
-    if (sv) scripts.push(sv);
-  }
   counts.enVista = scripts.length;
   return { scripts, counts, lastSync };
 }
