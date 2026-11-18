@@ -27,7 +27,7 @@ export const BENEFICIOS: readonly Beneficio[] = [
   { titulo: 'Soporte prioritario', texto: 'Si algo les pasa, les respondemos nosotros en su grupo de WhatsApp. Tú sólo cobras.',
     icono: ['M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9', 'M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1'] },
   // «cobrando por transferencia…» decía que el NEGOCIO cobra así con MaKo, y eso no está: lo que es verdad es que MaKo se paga así.
-  { titulo: 'Hecha para Latinoamérica', texto: 'Pensada para cómo se vende en Latinoamérica: por WhatsApp y en español. Y se paga por transferencia, Mercado Pago o Binance.',
+  { titulo: 'Hecha para Latinoamérica', texto: 'Pensada para cómo se vende en Latinoamérica: por WhatsApp y en español. Y se paga con Mercado Pago, en pesos.',
     icono: ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0', 'M3.6 9h16.8', 'M3.6 15h16.8', 'M11.5 3a17 17 0 0 0 0 18', 'M12.5 3a17 17 0 0 1 0 18'] },
   // «No te dejamos solo» no es neutro en género (memoria «textos neutros»): «Nunca vendes sin ayuda».
   { titulo: 'Te ayudamos a vender', texto: 'Nunca vendes sin ayuda: material listo con tu link, te ayudamos con tus anuncios y respondemos las dudas de tus contactos antes de que compren.',
