@@ -152,3 +152,50 @@ export function ofertaParaElContexto(o: OfertaDelCoach): string {
   if (o.estado === 'no-se') return 'LA OFERTA: al abrir no se pudieron leer sus ofertas guardadas. Antes de dar una por cargada, míralas con listar_ofertas.';
   return 'LA OFERTA: no tiene ninguna guardada ni armada. Empieza por armarla con la persona (la fase 1).';
 }
+
+// ── LOS DOS COACHES DEL ONBOARDING V2 (18/11/2026) ──────────────────────────────────────────────────────────────────────────────
+// Sólo para quien ve el onboarding V2 (lib/onboarding-v2/revision.ts): el Offer Coach arma la oferta y le deja su diagnóstico; el
+// Funnel Coach viene después, con la oferta hecha (lib/asesores/contexto.ts). Lo de arriba es del coach único y no cambia. Lo que
+// dicen sale de la maqueta del onboarding (C:/dev/artefactos-onboarding/cuerpo.html, OF_HOLA y FC_HOLA). Nombran al otro coach por
+// DÓNDE está en la lista, nunca con un botón (Martín, 18/11: «ese tipo de botones jamás»).
+
+/** Lo que dice el chat vacío del Offer Coach. `inspiradoEn`: el nombre entero de quien aconseja (null = MaKo, o el candado). */
+export function saludoDelOfferCoach(o: OfertaDelCoach, inspiradoEn: string | null): string {
+  const hola = `Soy Offer Coach${inspiradoEn ? `, inspirado en ${inspiradoEn}` : ''}. Vamos a armar una oferta tan buena que dé vergüenza decirte que no. Al final te dejo su diagnóstico.`;
+  // La del perfil no la armó nadie (se siembra con el nombre del onboarding): se arma desde el principio, como sin oferta.
+  if (o.estado === 'hay' && o.de !== 'perfil') return `${hola}\n\n${renglonDeLaOferta(o)} Si no es esa, dime cuál.\n\n¿La revisamos juntos?`;
+  const pide = '¿Tienes un documento de tu oferta, tu guion de ventas o el link de tu web? Súbelo o pégalo aquí. Si no, cuéntame qué vendes, a quién y a qué precio.';
+  return `${hola}\n\n${pide}${o.estado === 'no-se' ? ' Si ya tienes una guardada, dime cuál: ahora no pude ver tus ofertas.' : ''}`;
+}
+
+/**
+ * Lo que dice el chat vacío del Funnel Coach del V2: con la oferta, cuál usa y qué funnel le interesa (la maqueta, FC_HOLA); sin ella,
+ * que la arme en el Offer Coach. ⚠️ NO PREGUNTA EL PRESUPUESTO, como el del coach único: el onboarding ya lo preguntó en el
+ * diagnóstico (docs/hallazgos-ops-center.md, 15/11, «preguntada dos veces»), y el coach lo pide después, para la calculadora.
+ */
+export function saludoDelFunnelCoachV2(o: OfertaDelCoach): string {
+  const hola = 'Soy Funnel Coach: armamos juntos tu sistema para conseguir clientes, con tu oferta ya hecha.';
+  // Los de `FUNNELS`, con las palabras de la fase «ELEGIR EL FUNNEL» del contexto (lib/asesores/contexto.ts).
+  const cual = '¿Qué funnel te interesa: anuncios, orgánico, YouTube, anuncios a WhatsApp, anuncios a VSL, o scraping y prospección en frío? Si no sabes cuál, te ayudo a elegir.';
+  if (o.estado === 'hay') return `${hola} ${renglonDeLaOferta(o)} Si no es esa, dime cuál.\n\n${cual}`;
+  if (o.estado === 'no-se') return `${hola}\n\nAhora no pude ver tus ofertas. Si ya armaste una con Offer Coach, dime cuál; si no, ármala primero ahí: es el chat que está arriba de éste en tu lista.`;
+  return `${hola}\n\nTodavía no veo tu oferta: ármala primero con Offer Coach, el chat que está arriba de éste en tu lista, y aquí seguimos con ella.`;
+}
+
+/** Lo mismo, para el MODELO de cada coach del V2 (como `ofertaParaElContexto`, que es del coach único). */
+export function ofertaParaElContextoV2(o: OfertaDelCoach, cual: 'offer' | 'funnel'): string {
+  if (o.estado === 'hay' && !(cual === 'offer' && o.de === 'perfil')) {
+    return `${ofertaParaElContexto(o)}${cual === 'funnel' ? ' Es la oferta hecha: no la vuelvas a armar aquí; si quiere cambiarla, eso es en el Offer Coach.' : ''}`;
+  }
+  if (o.estado === 'no-se') return ofertaParaElContexto(o);
+  return cual === 'offer'
+    ? 'LA OFERTA: todavía no tiene una armada (a lo sumo, el nombre de su negocio en el perfil). Empieza por armarla con la persona (el paso 2).'
+    : 'LA OFERTA: no tiene ninguna guardada ni armada. No la armes aquí: dile en una línea que la arme primero con el Offer Coach, el chat que está arriba de éste en su lista.';
+}
+
+/** El renglón de la fila del Offer Coach sin referente al frente (con uno, «Inspirado en …»). */
+export function previaDelOfferCoach(o: OfertaDelCoach | null): string {
+  return o?.estado === 'no-hay' ? 'Empieza por tu oferta' : 'Tu oferta, con su diagnóstico';
+}
+/** El renglón de la fila del Funnel Coach del V2. */
+export const PREVIA_DEL_FUNNEL_COACH_V2 = 'Tu sistema para conseguir clientes';

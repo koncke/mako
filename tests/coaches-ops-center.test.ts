@@ -11,6 +11,8 @@
 //   · el camino con archivos con CONTEXTO_SECOND_BRAIN fijo       → 10
 // Y lo del coach único (4/11/2026), con el archivo en 17 / 0, una rotura por vez y restaurada: cada una dio 16 / 1 en el test que la
 // nombra su cabecera (11, 11b y 12-16); sumar una herramienta de 3.835 caracteres dio 14 / 3 (11, 11b y 13).
+// Y LOS DOS COACHES DEL ONBOARDING V2 (18/11/2026, 17-21): el Offer Coach y el Funnel Coach separados, SÓLO detrás del interruptor
+// (lib/onboarding-v2/revision.ts). Las roturas, en la cabecera de la 17.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,17 +20,29 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import {
-  JEFE_SECOND_BRAIN, NOMBRE_JEFE, ORIGEN_FUNNEL_COACH, TABS_CON_CHAT_PROPIO, TAB_FUNNEL_COACH, listaDelCliente, origenDeClave,
+  JEFE_SECOND_BRAIN, NOMBRE_JEFE, ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, TABS_CON_CHAT_PROPIO, TAB_FUNNEL_COACH, TAB_OFFER_COACH, esCoachDelOps,
+  listaDelCliente, origenDeClave,
 } from '../lib/chat-mako-reglas';
 import { ASESORES, REFERENTE_DE_FABRICA, conReferenteElegido, inspiradoEn, referenteDelCoach, referentePedido } from '../lib/asesores/catalogo';
 import { FICHAS } from '../lib/asesores/fichas';
-import { HERRAMIENTAS_DEL_COACH, contextoDeReferente, contextoDelFunnelCoach } from '../lib/asesores/contexto';
-import { lineasDelPlan, ofertaDelCoach, ofertaParaElContexto, previaDelCoach, saludoDelFunnelCoach, sanearOfertaDelCoach, sanearPlan } from '../lib/funnel-plan';
+import {
+  HERRAMIENTAS_DEL_COACH, HERRAMIENTAS_DEL_FUNNEL_COACH_V2, HERRAMIENTAS_DEL_OFFER_COACH, contextoDeReferente, contextoDelFunnelCoach, contextoDelFunnelCoachV2,
+  contextoDelOfferCoach,
+} from '../lib/asesores/contexto';
+import {
+  PREVIA_DEL_FUNNEL_COACH_V2, lineasDelPlan, ofertaDelCoach, ofertaParaElContexto, ofertaParaElContextoV2, previaDelCoach, previaDelOfferCoach,
+  saludoDelFunnelCoach, saludoDelFunnelCoachV2, saludoDelOfferCoach, sanearOfertaDelCoach, sanearPlan, type OfertaDelCoach,
+} from '../lib/funnel-plan';
 import { ofertaArmadaDe } from '../lib/offer-marco';
 import { aspectoDe, aspectoDeReferente, esCriaturaDeMako, sanearAspecto } from '../lib/centro-munecos';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(resolve(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
+/** Los archivos de app/ y lib/ (los del índice y los nuevos sin commitear), sin las bitácoras de app/admin/dev/. */
+const delRepo = () => execFileSync('git', ['ls-files', '-c', '-o', '--exclude-standard', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' })
+  .split('\n').filter((f) => /\.(tsx?|mts)$/.test(f) && !f.startsWith('app/admin/dev/'));
+/** El código sin comentarios: la historia se cuenta ahí, y está bien. Primero las líneas, después los bloques. */
+const sinComentarios = (src: string) => src.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('1. el chat principal se lee «Ops Center» y sigue siendo la estrella', () => {
   const [jefe] = listaDelCliente({ sesiones: [], offer: [], antes: [], busca: '' });
@@ -54,12 +68,12 @@ test('3. tiene su hilo propio, y la pantalla lo abre debajo del Ops Center, con 
   assert.match(p, /<div className="co-cuenta co-cuenta--cerebro">\{fila\(cerebroFila\)\}<\/div>\n\s*\{coaches\}/, 'el coach va debajo del Ops Center');
   // Sus herramientas son del admin, y un closer no ve Offer: lo cerraría la puerta de la tab.
   assert.match(p, /const verCoach = ops \|\| veMapa \|\| puedeElegir;/);
-  assert.match(p, /\{verCoach && \(\n\s*<div className="co-jefe">\n\s*<FilaDeChat titulo=\{ORIGEN_FUNNEL_COACH\}/);
+  assert.match(p, /\{verCoach && !dosCoaches && \(\n\s*<div className="co-jefe">\n\s*<FilaDeChat titulo=\{ORIGEN_FUNNEL_COACH\}/);
   assert.match(p, /onElegir=\{\(\) => elegir\(\{ coach: 'funnel' \}\)\} \/>\n(\s*\{\/\*[^\n]*\*\/\}\n)?\s*\{filasOffer\.length > 0 && <div className="co-jefe__subs">\{filasOffer\.map\(\(f\) => fila\(f, true\)\)\}<\/div>\}/,
     'las conversaciones de oferta cuelgan del Funnel Coach');
   // Un turno no se corta por tocar otro chat: queda montado, escondido.
   assert.match(p, /\{funnelAbierto && \(\n\s*<div style=\{\{ display: verFunnel \? 'contents' : 'none' \}\}>/);
-  assert.match(p, /const hrefVolver = conCoach \? `\$\{base\}\?coach=funnel`/, 'ir al Mapa y volver no pierde el coach');
+  assert.match(p, /const hrefVolver = conCoach \? `\$\{base\}\?coach=\$\{coachElegido\}`/, 'ir al Mapa y volver no pierde el coach');
 });
 
 test('4. el coach abre con Hormozi (Martín, 4/11/2026: «Por defecto, que esté la cara de hormozi»)', () => {
@@ -208,7 +222,7 @@ test('11b. las propias más lo que elige el registro nunca pasan de 12.000', asy
 
 test('10. la ruta usa el contexto del coach sólo desde su chat, y sólo el admin cambia quién lo aconseja', () => {
   const r = leer('app/api/mako/chat/route.ts');
-  assert.match(r, /desde\?\.tab !== ORIGEN_FUNNEL_COACH\) return \{ contexto: CONTEXTO_SECOND_BRAIN \}/);
+  assert.match(r, /const tab = desde\?\.tab;\n\s*if \(tab !== ORIGEN_FUNNEL_COACH && tab !== ORIGEN_OFFER_COACH\) return \{ contexto: CONTEXTO_SECOND_BRAIN \}/);
   // Los dos caminos de la ruta, JSON y con archivos: un adjunto no le saca el contexto ni sus herramientas.
   assert.equal((r.match(/contexto: delChat\.contexto, referente: delChat\.referente, propias: delChat\.propias/g) ?? []).length, 2);
   // `sinReferentes` desde el 14/11/2026 (lib/asesores/candado.ts): con el candado, el coach corre sin la metodología de nadie.
@@ -316,7 +330,7 @@ test('13. quien armó la oferta en una conversación de oferta no vuelve a empez
   assert.match(r, /listarOfertas\(true\)\.catch\(\(\) => 'no-se' as const\)/);
   assert.match(r, /ofertaArmada\(\)\.catch\(\(\) => 'no-se' as const\)/);
   assert.match(r, /return ofertaDelCoach\(guardadas, armada\);/);
-  assert.match(r, /return json\(\{ ok: true, referente, oferta, puedeElegir: persona\.rol === 'admin' \}\);/);
+  assert.match(r, /return json\(\{ ok: true, referente, oferta, puedeElegir: persona\.rol === 'admin', dosCoaches \}\);/);
   assert.match(r, /Promise\.all\(\[leerReferente\(\), laOfertaDelCoach\(\)\]\)/);
   // Y la pantalla espera a saber antes de saludar: abría diciendo que no había y medio segundo después que sí.
   const motor = leer('app/second-brain/useChatDelCoach.ts');
@@ -329,36 +343,73 @@ test('13. quien armó la oferta en una conversación de oferta no vuelve a empez
   assert.ok(c.includes(FICHAS.hormozi), 'con Hormozi al frente, su ficha');
 });
 
-test('14. «Offer Coach» no aparece en ninguna pantalla ni en la API', () => {
-  const lista = execFileSync('git', ['ls-files', '-c', '-o', '--exclude-standard', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' })
-    .split('\n').filter((f) => /\.(tsx?|mts)$/.test(f) && !f.startsWith('app/admin/dev/'));
+// Hasta el 18/11/2026 este test frenaba «Offer Coach» en TODO app/ y lib/ (el coach único del 4/11). Desde que Martín los separó
+// (15/11: «Oferta y Funnel Coach en DOS chats separados»), vuelve SÓLO detrás del interruptor del onboarding V2: en el texto, nada más
+// que en los archivos de abajo (cada uno sólo del V2 o con su puerta), y en las pantallas, nombrado con ORIGEN_OFFER_COACH y sólo con
+// `dosCoaches`. Quien no ve el V2 sigue con el coach único: sus textos no lo nombran (abajo) ni le abren su chat (la 19).
+test('14. «Offer Coach» sólo detrás del interruptor del onboarding V2', () => {
+  const lista = delRepo();
   assert.ok(lista.length > 500, `miró ${lista.length} archivos`);
   const con: string[] = [];
+  const nombran: string[] = [];
   for (const f of lista) {
     let src: string;
     try { src = readFileSync(resolve(RAIZ, f), 'utf8'); } catch { continue; }
-    // Sin comentarios: la historia se cuenta ahí, y está bien. Primero las líneas, después los bloques.
-    const sin = src.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const sin = sinComentarios(src);
     if (/offer coach/i.test(sin)) con.push(f);
+    if (f.startsWith('app/') && /ORIGEN_OFFER_COACH|TAB_OFFER_COACH|cual="offer"|'offer-coach'|"offer-coach"/.test(sin)) nombran.push(f);
   }
-  assert.deepEqual(con, [], 'un «Offer Coach» en un texto es una segunda puerta a lo mismo');
-  assert.doesNotMatch(leer('lib/chat-mako-reglas.ts'), /ORIGEN_OFFER_COACH|queAbreElOfferCoach/);
+  // El texto: su nombre (lib/chat-mako-reglas.ts), los contextos y los saludos del V2, y el reto (que es del V2).
+  assert.deepEqual(con.sort(), ['lib/asesores/contexto.ts', 'lib/chat-mako-reglas.ts', 'lib/funnel-plan.ts', 'lib/reto/dias.ts'],
+    'un «Offer Coach» escrito en otro lado es una segunda puerta: va con ORIGEN_OFFER_COACH y detrás de `dosCoaches`');
+  // Las pantallas y la ruta que lo nombran: cada una con su puerta, medida abajo y en la 19. Una nueva falla acá: hay que decidirla.
+  assert.deepEqual(nombran.sort(), [
+    'app/api/mako/chat/route.ts', 'app/m/operaciones/ChatsMovil.tsx', 'app/m/second-brain/ChatClienteM.tsx', 'app/second-brain/ChatSecondBrain.tsx',
+    'app/second-brain/VideoDelCoach.tsx', 'app/second-brain/useChatDelCoach.ts',
+  ]);
+  assert.doesNotMatch(leer('lib/chat-mako-reglas.ts'), /queAbreElOfferCoach/, 'la fila que abría un gurú o una conversación de Offer no vuelve');
+  // Lo del coach único NO lo nombra: ni su contexto (con cualquier referente y con el candado), ni su saludo, ni su renglón.
+  const ofertas: OfertaDelCoach[] = [
+    { estado: 'no-hay' }, { estado: 'no-se' }, { estado: 'hay', nombre: 'Mentoría', de: 'guardada', conversacion: null },
+    { estado: 'hay', nombre: 'MaKo', de: 'perfil', conversacion: null }, { estado: 'hay', nombre: 'Sprint', de: 'conversacion', conversacion: 'Mi oferta' },
+  ];
+  for (const id of [null, ...ASESORES.map((a) => a.id)]) for (const candado of [false, true]) assert.doesNotMatch(contextoDelFunnelCoach(id, candado), /Offer Coach/i, `${id} ${candado}`);
+  for (const o of ofertas) {
+    for (const t of [saludoDelFunnelCoach(o), previaDelCoach(o), ofertaParaElContexto(o)]) assert.doesNotMatch(t, /Offer Coach/i, JSON.stringify(o));
+  }
+  // Las puertas de las pantallas (la ruta, en la 19).
+  const sb = leer('app/second-brain/ChatSecondBrain.tsx');
+  assert.match(sb, /\{verCoach && dosCoaches && \(\n\s*<>\n\s*<div className="co-jefe">\n\s*<FilaDeChat titulo=\{ORIGEN_OFFER_COACH\}/, 'la fila del Offer Coach, sólo con los dos');
+  assert.match(sb, /\{offerAbierto && dosCoaches && \(\n\s*<div style=\{\{ display: verOffer \? 'contents' : 'none' \}\}>\n\s*<ChatDelCoach cual="offer"/, 'su chat, sólo con los dos');
+  assert.match(sb, /const verOffer = verCoachElegido && coachElegido === 'offer' && dosCoaches;/);
+  assert.match(sb, /const coachDeEntrada: CoachDelOps \| null = coachInicial === 'offer' && !dosCoaches \? 'funnel' : coachInicial;/, '?coach=offer sin los dos es el coach único');
+  assert.equal((sb.match(/ORIGEN_OFFER_COACH/g) ?? []).length, 3, 'el import, su fila y el título de elegir quién aconseja (`dosCoaches ?`)');
+  assert.match(sb, /<ElegirReferente titulo=\{dosCoaches \? ORIGEN_OFFER_COACH : ORIGEN_FUNNEL_COACH\}/);
+  for (const f of ['app/m/second-brain/ChatClienteM.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
+    const m = leer(f);
+    assert.match(m, /<HojaDelCoach key=\{conCoach\} cual=\{dosCoaches \? conCoach : 'funnel'\} dosCoaches=\{!!dosCoaches\}/, `${f}: la hoja del Offer Coach, sólo con los dos`);
+    // Cada ORIGEN_OFFER_COACH (salvo el import) va adentro del bloque `dosCoaches && (` … `)}`, y el bloque del coach único con `!dosCoaches`.
+    const bloque = /\{(?:verCoach|!parte) && dosCoaches && \(\n[\s\S]*?\n\s{10,12}\)\}/.exec(m)?.[0] ?? '';
+    assert.ok(bloque.includes('ORIGEN_OFFER_COACH'), `${f}: el bloque de los dos coaches`);
+    assert.equal((m.match(/ORIGEN_OFFER_COACH/g) ?? []).length - 1, (bloque.match(/ORIGEN_OFFER_COACH/g) ?? []).length, `${f}: un Offer Coach fuera de su puerta`);
+    assert.match(m, /\{(?:verCoach|!parte) && !dosCoaches && /, `${f}: el coach único, sin los dos`);
+  }
 });
 
-test('15. en el teléfono también hay un solo coach, para el cliente y el super admin', () => {
+test('15. en el teléfono, el mismo coach que en la computadora (o los dos, con el V2), para el cliente y el super admin', () => {
   const m = leer('app/m/second-brain/ChatClienteM.tsx');
   assert.match(m, /const verCoach = hrefMapa != null \|\| puedeElegir;/);
   assert.match(m, /titulo=\{<span className="m-operaciones-texto1">\{ORIGEN_FUNNEL_COACH\}<\/span>\}/);
   assert.match(m, /\{filasOffer\.map\(\(f\) => fila\(f, true\)\)\}/, 'las conversaciones de oferta cuelgan del coach');
   assert.match(m, /const resto = verCoach \? todasLasFilas\.filter\(\(f\) => f\.origen !== 'offer'\) : todasLasFilas;/, 'sin la fila del coach, siguen en la lista');
-  assert.match(m, /<HojaDelCoach referente=\{referente\}/);
+  assert.match(m, /<HojaDelCoach key=\{conCoach\} cual=\{dosCoaches \? conCoach : 'funnel'\} dosCoaches=\{!!dosCoaches\} referente=\{referente\}/);
   const sa = leer('app/m/operaciones/ChatsMovil.tsx');
   assert.match(sa, /titulo=\{<span className="m-operaciones-texto1">\{ORIGEN_FUNNEL_COACH\}<\/span>\}/);
-  assert.match(sa, /<HojaDelCoach referente=\{referente\}/);
+  assert.match(sa, /<HojaDelCoach key=\{conCoach\} cual=\{dosCoaches \? conCoach : 'funnel'\} dosCoaches=\{!!dosCoaches\} referente=\{referente\}/);
   const h = leer('app/m/second-brain/HojaDelCoach.tsx');
-  assert.match(h, /useChatDelCoach\(\{ referente, oferta, caja \}\)/, 'el motor de la computadora');
+  assert.match(h, /useChatDelCoach\(\{ referente, oferta, caja, cual, dosCoaches \}\)/, 'el motor de la computadora');
   assert.match(h, /onClick=\{\(\) => \{ onReferente\(id\); setVista\(null\); \}\}/, 'se elige quién aconseja adentro de la hoja');
-  assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /useChatDelCoach\(\{ referente, oferta, caja \}\)/);
+  assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /useChatDelCoach\(\{ referente, oferta, caja, cual, dosCoaches \}\)/);
 });
 
 test('16. las conversaciones de oferta aconsejan con el MISMO referente que el coach del que cuelgan', () => {
@@ -367,4 +418,168 @@ test('16. las conversaciones de oferta aconsejan con el MISMO referente que el c
   assert.doesNotMatch(o, /leerReferentes\(\)\)\.offer/);
   const sb = leer('app/second-brain/ChatSecondBrain.tsx');
   assert.match(sb, /aspectoOffer: delCoach \? aspectoDeReferente\(delCoach\.id\) : null/, 'su cara en la lista y en el hilo');
+});
+
+// ── LOS DOS COACHES DEL ONBOARDING V2 (18/11/2026) ────────────────────────────────────────────────────────────────────────────────
+// Martín, 15/11 (DESPUÉS de juntarlos el 4/11): «al terminar el onboarding, Oferta y Funnel Coach en DOS chats separados». El Offer
+// Coach arma la oferta y le deja el diagnóstico; el Funnel Coach viene después, con la oferta hecha. SÓLO con el interruptor
+// (lib/onboarding-v2/revision.ts); quien no lo ve, el coach único de arriba (1-16), sin un carácter cambiado (su contexto, medido con
+// sha256 antes y después de separar las piezas).
+// Probado rompiéndolo (18/11/2026), con el archivo en 22 / 0, una rotura por vez y restaurada (comprobado con sha256), cada una 21 / 1
+// salvo la de la hoja (20 / 2):
+//   · el Funnel Coach del V2 con `guardar_oferta` (sin el filtro)                     → cae 18
+//   · el contexto del Funnel Coach del V2 con la fase «1. LA OFERTA» del coach único   → cae 17
+//   · la ruta sin `if (await veDosCoaches(quien.ws))` (los dos contextos para todos)  → cae 19
+//   · la fila del Offer Coach sin `dosCoaches &&` (ChatSecondBrain.tsx)               → cae 14
+//   · la hoja del teléfono con `cual={conCoach}` (sin la puerta)                      → caen 14 y 15
+//   · `listaDelCliente` sin sacar la conversación del Offer Coach                     → cae 21
+//   · el saludo del Offer Coach que da por armada la oferta del perfil                → cae 20
+
+test('17. cada coach del V2 hace lo suyo y manda al otro sin armarlo', () => {
+  const offer = contextoDelOfferCoach('hormozi');
+  const funnel = contextoDelFunnelCoachV2();
+  for (const c of [offer, funnel, contextoDelOfferCoach(null), contextoDelOfferCoach('hormozi', true), contextoDelFunnelCoachV2(true)]) {
+    assert.match(c, /manda sobre la voz del teléfono/, 'sin esto el turno responde en cinco líneas');
+  }
+  // El Offer Coach: la oferta, con su diagnóstico y guardada; el funnel no es suyo, y lo manda al Funnel Coach, que está debajo.
+  assert.match(offer, /^EN ESTE CHAT \(el Offer Coach de MaKo/);
+  assert.match(offer, /EL DIAGNÓSTICO: .*una nota de 0 a 100/);
+  for (const d of ['cliente ideal', 'promesa', 'certeza', 'precio y cobro', 'foco']) assert.ok(offer.includes(d), `el diagnóstico mira ${d}, como la rúbrica de Offer`);
+  assert.match(offer, /guardar_oferta/);
+  assert.match(offer, /el Funnel Coach, el chat que está debajo de éste en su lista/);
+  assert.doesNotMatch(offer, /calcular_presupuesto_anuncios|guardar_plan_funnel|ELEGIR EL FUNNEL/, 'el funnel no se arma en el Offer Coach');
+  assert.ok(offer.includes(FICHAS.hormozi), 'con Hormozi al frente, su ficha');
+  // Sin referente al frente (eligió MaKo): los marcos de la oferta, no los del funnel.
+  const offerMaKo = contextoDelOfferCoach(null);
+  assert.ok(offerMaKo.includes(FICHAS.hormozi) && !offerMaKo.includes(FICHAS['juan-ads']) && !offerMaKo.includes(FICHAS['julian-otalora']));
+  // El Funnel Coach del V2: el funnel con la oferta hecha, sin la fase de la oferta, y sin armarla: la manda al Offer Coach.
+  assert.match(funnel, /^EN ESTE CHAT \(el Funnel Coach de MaKo/);
+  assert.doesNotMatch(funnel, /1\. LA OFERTA|guardar_oferta/, 'la oferta no se arma en el Funnel Coach del V2');
+  assert.match(funnel, /La oferta NO se arma ni se cambia aquí/);
+  assert.match(funnel, /el Offer Coach, el chat que está arriba de éste en su lista/);
+  for (const h of ['calcular_presupuesto_anuncios', 'guardar_plan_funnel', 'ver_plan_funnel', 'listar_ofertas']) assert.ok(funnel.includes(h), h);
+  assert.ok(funnel.indexOf('1. ELEGIR EL FUNNEL') < funnel.indexOf('2. PLANEAR') && funnel.indexOf('2. PLANEAR') < funnel.indexOf('3. GUARDAR'));
+  // Sin referente al frente (su propia criatura): los marcos de anuncios y orgánico, atribuidos.
+  assert.ok(funnel.includes(FICHAS['juan-ads']) && funnel.includes(FICHAS['julian-otalora']) && !funnel.includes(FICHAS.hormozi));
+  assert.match(funnel, /No eres ninguno de ellos/);
+  // El candado (Essential): la metodología de nadie, en los dos.
+  for (const c of [contextoDelOfferCoach('hormozi', true), contextoDelFunnelCoachV2(true)]) {
+    for (const id of ['hormozi', 'juan-ads', 'julian-otalora'] as const) assert.ok(!c.includes(FICHAS[id]), `${id}: su ficha no viaja`);
+    assert.match(c, /NO nombras a ninguno/);
+  }
+  // Y pesan menos que el coach único con los tres marcos.
+  assert.ok(funnel.length < contextoDelFunnelCoach(null).length && offerMaKo.length < contextoDelFunnelCoach(null).length);
+});
+
+test('18. las herramientas de cada coach del V2 salen de las seis, llegan en cada turno y el Funnel Coach no guarda ofertas', async () => {
+  assert.deepEqual([...HERRAMIENTAS_DEL_OFFER_COACH], ['listar_ofertas', 'ver_analisis_oferta', 'guardar_oferta']);
+  assert.deepEqual([...HERRAMIENTAS_DEL_FUNNEL_COACH_V2], ['listar_ofertas', 'ver_analisis_oferta', 'calcular_presupuesto_anuncios', 'ver_plan_funnel', 'guardar_plan_funnel']);
+  for (const h of [...HERRAMIENTAS_DEL_OFFER_COACH, ...HERRAMIENTAS_DEL_FUNNEL_COACH_V2]) assert.ok(HERRAMIENTAS_DEL_COACH.includes(h), `${h}: fuera de las seis, el margen de la 11 no lo cubre`);
+  const { herramientasDelChat } = await import('../lib/mako-turno-app-reglas');
+  const { clasificarIntencion } = await import('../lib/mako-intencion');
+  const { escribe } = await import('../lib/doer-herramientas');
+  const vista = { canal: 'app', alcance: 'proponer', ws: 13, rol: 'admin', tabs: null } as const;
+  const casos: Array<[readonly string[], string[]]> = [
+    [HERRAMIENTAS_DEL_OFFER_COACH, ['guarda esta oferta', 'ayúdame a armar mi oferta', '¿qué le falta a mi oferta?', 'vendo una mentoría de 3 meses a 1500 dólares para coaches']],
+    [HERRAMIENTAS_DEL_FUNNEL_COACH_V2, ['Tengo 1000 dólares por mes para anuncios', '¿qué funnel me conviene?', 'guarda el plan', '1000 dólares', 'crea una landing para mi oferta']],
+  ];
+  for (const [propias, frases] of casos) {
+    for (const texto of frases) {
+      const veredicto = clasificarIntencion(texto, { canal: 'app' });
+      const r = herramientasDelChat({ veredicto, texto, agendaAbierta: false, deSiempre: [], vista, hayPendientes: false, propias });
+      const ofrece = veredicto.intencion === 'consultar' || veredicto.intencion === 'pensar';
+      for (const id of propias) {
+        if (ofrece && escribe(id)) assert.ok(r.ofrecibles?.includes(id), `«${texto}»: ${id} no se ofrece`);
+        else assert.ok(r.tools.some((x) => x.name === id), `«${texto}» (${veredicto.intencion}): ${id} no llegó`);
+      }
+    }
+  }
+});
+
+test('19. el interruptor decide en el servidor: el contexto, la ruta y las pantallas de la computadora', () => {
+  const r = leer('app/api/mako/chat/route.ts');
+  // El mismo de la página: el email de la sesión y el negocio del chat. Si la sesión no se lee, el coach único.
+  assert.match(r, /async function veDosCoaches\(ws: number\): Promise<boolean> \{\n\s*const sesion = await getUsuarioActual\(\)\.catch\(\(\) => null\);\n\s*return !!sesion && veOnboardingV2\(\{ email: sesion\.email, ws \}\);/);
+  // Los dos contextos, sólo con el interruptor; sin él, el del coach único, aunque escriba desde una pestaña del Offer Coach.
+  assert.match(r, /if \(await veDosCoaches\(quien\.ws\)\) \{\n\s*if \(tab === ORIGEN_OFFER_COACH\) \{\n\s*return \{ contexto: `\$\{contextoDelOfferCoach\(referente, sinReferentes\)\}\\n\\n\$\{ofertaParaElContextoV2\(oferta, 'offer'\)\}`, referente, propias: HERRAMIENTAS_DEL_OFFER_COACH \};/);
+  assert.match(r, /return \{ contexto: `\$\{contextoDelFunnelCoachV2\(sinReferentes\)\}\\n\\n\$\{ofertaParaElContextoV2\(oferta, 'funnel'\)\}`, referente: null, propias: HERRAMIENTAS_DEL_FUNNEL_COACH_V2 \};\n\s*\}/);
+  assert.equal((r.match(/contextoDelOfferCoach\(|contextoDelFunnelCoachV2\(/g) ?? []).length, 2, 'en ningún otro lado de la ruta');
+  // El teléfono lo sabe por la ruta (`dosCoaches`); la computadora, por la página, con la MISMA función.
+  assert.match(r, /veDosCoaches\(persona\.ws\),\n\s*\]\);/);
+  assert.match(leer('app/second-brain/page.tsx'), /retoV2=\{retoV2\} dosCoaches=\{retoV2\}/, 'el cliente: el mismo interruptor que el reto');
+  const ops = leer('app/admin/operaciones/page.tsx');
+  assert.match(ops, /const dosCoaches = !!sesion && veOnboardingV2\(\{ email: sesion\.email, ws \}\);/, 'Martín revisa desde su Ops Center: sin esto, su barra y el servidor no decían lo mismo');
+  assert.match(ops, /<PantallaSecondBrain [^>]*dosCoaches=\{dosCoaches\} \/>/);
+  assert.doesNotMatch(ops, /retoV2/, 'el reto es del cliente: el Ops Center del super admin no lo prende');
+  assert.match(leer('app/second-brain/pagina.tsx'), /coachInicial=\{esCoachDelOps\(q\.coach\) \? q\.coach : null\}/);
+  // El teléfono: hasta que la ruta contesta, el coach único (null); sólo `true` prende los dos.
+  const uc = leer('app/second-brain/useCoaches.ts');
+  assert.match(uc, /useState<boolean \| null>\(null\)/);
+  assert.match(uc, /setDosCoaches\(j\.dosCoaches === true\);/);
+  // El interruptor sigue apagado para todos (lo prende Martín, con UN cambio).
+  assert.match(readFileSync(resolve(RAIZ, 'lib/onboarding-v2/revision.ts'), 'utf8'), /export const PARA_TODOS = false;/);
+});
+
+test('20. el saludo de cada coach del V2 dice con qué oferta abre, y el que no la tiene la manda a armar al otro', () => {
+  const guardada: OfertaDelCoach = { estado: 'hay', nombre: 'Mentoría 1:1', de: 'guardada', conversacion: null };
+  const perfil: OfertaDelCoach = { estado: 'hay', nombre: 'MaKo', de: 'perfil', conversacion: null };
+  // El Offer Coach: quién aconseja, la oferta que hay (para revisarla) o lo que pide para armarla. La del perfil no la armó nadie.
+  assert.match(saludoDelOfferCoach({ estado: 'no-hay' }, 'Alex Hormozi'), /^Soy Offer Coach, inspirado en Alex Hormozi\. .*\n\n¿Tienes un documento de tu oferta, tu guion de ventas o el link de tu web\?/);
+  assert.match(saludoDelOfferCoach({ estado: 'no-hay' }, null), /^Soy Offer Coach\. Vamos a armar/, 'sin referente (o con el candado), sin «inspirado en»');
+  assert.match(saludoDelOfferCoach(guardada, null), /Voy a usar tu oferta «Mentoría 1:1»\. Si no es esa, dime cuál\.\n\n¿La revisamos juntos\?$/);
+  assert.match(saludoDelOfferCoach(perfil, null), /¿Tienes un documento de tu oferta/, 'la del perfil se arma desde el principio');
+  assert.match(saludoDelOfferCoach({ estado: 'no-se' }, null), /ahora no pude ver tus ofertas\.$/);
+  assert.match(saludoDelOfferCoach({ estado: 'no-hay' }, null), /te dejo su diagnóstico/);
+  // El Funnel Coach del V2: con la oferta, cuál y el presupuesto; sin ella, al Offer Coach, por DÓNDE está (nunca un botón).
+  assert.match(saludoDelFunnelCoachV2(guardada), /con tu oferta ya hecha\. Voy a usar tu oferta «Mentoría 1:1»\. Si no es esa, dime cuál\.\n\n¿Qué funnel te interesa: anuncios, orgánico, YouTube, .*\? Si no sabes cuál, te ayudo a elegir\.$/);
+  // Sin el presupuesto, que el onboarding ya preguntó (docs/hallazgos-ops-center.md, 15/11: «preguntada dos veces»).
+  for (const o of [guardada, perfil, { estado: 'no-hay' } as const, { estado: 'no-se' } as const]) assert.doesNotMatch(saludoDelFunnelCoachV2(o), /invertir/);
+  assert.match(saludoDelFunnelCoachV2(perfil), /Voy a usar «MaKo», la oferta de tu perfil del negocio\./, 'como el coach único: dice de dónde salió');
+  assert.match(saludoDelFunnelCoachV2({ estado: 'no-hay' }), /ármala primero con Offer Coach, el chat que está arriba de éste en tu lista/);
+  assert.doesNotMatch(saludoDelFunnelCoachV2({ estado: 'no-hay' }), /qué vendes, a quién/, 'el Funnel Coach del V2 no la arma');
+  assert.match(saludoDelFunnelCoachV2({ estado: 'no-se' }), /Si ya armaste una con Offer Coach, dime cuál/);
+  // Lo mismo, para el modelo.
+  assert.match(ofertaParaElContextoV2({ estado: 'no-hay' }, 'funnel'), /No la armes aquí: .*Offer Coach/);
+  assert.match(ofertaParaElContextoV2({ estado: 'no-hay' }, 'offer'), /Empieza por armarla con la persona \(el paso 2\)/);
+  assert.match(ofertaParaElContextoV2(perfil, 'offer'), /todavía no tiene una armada/);
+  assert.match(ofertaParaElContextoV2(guardada, 'funnel'), /^LA OFERTA CON LA QUE ABRISTE: .*no la vuelvas a armar aquí; si quiere cambiarla, eso es en el Offer Coach\.$/);
+  assert.equal(ofertaParaElContextoV2(guardada, 'offer'), ofertaParaElContexto(guardada));
+  // Los renglones de las filas.
+  assert.equal(previaDelOfferCoach({ estado: 'no-hay' }), 'Empieza por tu oferta');
+  assert.equal(previaDelOfferCoach(null), 'Tu oferta, con su diagnóstico');
+  assert.equal(PREVIA_DEL_FUNNEL_COACH_V2, 'Tu sistema para conseguir clientes');
+  // El motor: el saludo de cada uno, y el plan sólo para el Funnel Coach.
+  const motor = leer('app/second-brain/useChatDelCoach.ts');
+  assert.match(motor, /cual === 'offer' \? saludoDelOfferCoach\(oferta, r\?\.completo \?\? null\)\n\s*: dosCoaches \? saludoDelFunnelCoachV2\(oferta\) : saludoDelFunnelCoach\(oferta\);/);
+  assert.match(motor, /if \(ocupado \|\| cual !== 'funnel'\) return;/);
+  assert.match(motor, /const sinReferente = dosCoaches && cual === 'funnel';/, 'el Funnel Coach del V2, con su criatura y sin referente');
+});
+
+test('21. el Offer Coach tiene su conversación, fija en su fila, y su video la primera vez', () => {
+  assert.ok(TABS_CON_CHAT_PROPIO.includes(TAB_OFFER_COACH));
+  assert.equal(TAB_OFFER_COACH, 'offer-coach');
+  assert.equal(ORIGEN_OFFER_COACH, 'Offer Coach');
+  assert.ok(esCoachDelOps('offer') && esCoachDelOps('funnel') && !esCoachDelOps('hormozi'));
+  const clave = `mako-movil:p:${TAB_OFFER_COACH}`;
+  assert.equal(origenDeClave(clave), ORIGEN_OFFER_COACH);
+  const lista = listaDelCliente({ sesiones: [], offer: [], busca: '', antes: [
+    { id: 7, titulo: 'x', updatedAt: '2026-11-01T00:00:00Z', clave },
+    { id: 9, titulo: 'z', updatedAt: '2026-11-01T00:00:00Z', clave: `mako-movil:p:${TAB_FUNNEL_COACH}` },
+    { id: 8, titulo: 'y', updatedAt: '2026-11-01T00:00:00Z', clave: 'mako-movil:p:crm:4' },
+  ] });
+  assert.deepEqual(lista.map((f) => f.clave), ['jefe', 'a8'], 'las dos conversaciones de los coaches van en su fila fija, no en el resto');
+  // Su video y el del Funnel Coach (las claves acordadas con el chat de los videos), sólo con los dos coaches y con el chat vacío.
+  const v = leer('app/second-brain/VideoDelCoach.tsx');
+  assert.match(v, /<VideoDelMomento clave="offer-coach" titulo=\{ORIGEN_OFFER_COACH\} revision=\{revision\} \/>/);
+  assert.match(v, /<VideoDelMomento clave="funnel-coach" titulo=\{ORIGEN_FUNNEL_COACH\} revision=\{revision\} \/>/);
+  assert.match(v, /useVideoTutorial\(dosCoaches \? clave : null\)/);
+  assert.match(v, /const conVideo = dosCoaches && \(video != null \|\| revision\);/);
+  for (const f of ['app/second-brain/ChatDelCoach.tsx', 'app/m/second-brain/HojaDelCoach.tsx']) {
+    const c = leer(f);
+    assert.match(c, /const portada = useVideoDelCoach\(cual, dosCoaches, saludo\);/, f);
+    assert.match(c, /<HiloMako items=\{portada\.items\} [^\n]*enMensaje=\{portada\.enMensaje\}/, `${f}: en la portada (el chat vacío)`);
+  }
+  // El Funnel Coach del V2 no elige referente (su criatura); el Offer Coach sí.
+  assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /const eligeReferente = puedeElegir && !\(dosCoaches && cual === 'funnel'\);/);
+  assert.match(leer('app/m/second-brain/HojaDelCoach.tsx'), /const eligeReferente = puedeElegir && !\(dosCoaches && cual === 'funnel'\);/);
 });

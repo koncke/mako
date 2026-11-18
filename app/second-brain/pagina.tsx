@@ -26,6 +26,7 @@ import { resumenDelRecolector } from '@/lib/recolector';
 import { estaImpersonando } from '@/lib/workspace';
 import { AprendeSolo } from './AprendeSolo';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
+import { esCoachDelOps } from '@/lib/chat-mako-reglas';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { esVistaTicketera } from '@/app/tickets/decisiones/reglas';
 // La Ticketera vive adentro de Ops Center (16/10/2026): sus hojas las importa la página (CambioVista.tsx lo explica).
@@ -73,9 +74,11 @@ const enteroDe = (v: string | undefined): number | null => {
   return Number.isInteger(n) && n > 0 ? n : null;
 };
 
-export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio, retoV2 = false, nombrePersona = '' }: {
+export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio, retoV2 = false, dosCoaches = false, nombrePersona = '' }: {
   /** El chat «Reto de 7 días» (onboarding V2, lib/onboarding-v2/revision.ts): lo decide la página, en el server. */
   retoV2?: boolean;
+  /** Los dos coaches del onboarding V2 (lib/onboarding-v2/revision.ts → `veOnboardingV2`), decidido en el server. */
+  dosCoaches?: boolean;
   nombrePersona?: string;
   veMapa: boolean;
   mapa: ReactNode | null;
@@ -92,10 +95,10 @@ export function PantallaSecondBrain({ veMapa, mapa, centro, q, inicio, retoV2 = 
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* En modo CLARO desde el 16/10/2026 («pon en white mode la tab de Second Brain», Martín). */}
-      <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={chat} offerInicial={enteroDe(q.offer)} antesInicial={enteroDe(q.antes)} funnelInicial={q.coach === 'funnel'}
+      <ChatSecondBrain veMapa={veMapa} mapa={mapa} chatInicial={chat} offerInicial={enteroDe(q.offer)} antesInicial={enteroDe(q.antes)} coachInicial={esCoachDelOps(q.coach) ? q.coach : null}
         opcionArmar={OPCION_ARMAR} centro={centro}
         centroInicial={centro ? claveCentro : null} ticketeraInicial={ticketera} inicio={inicio}
-        retoV2={retoV2} retoInicial={q.reto === '1'} nombrePersona={nombrePersona} />
+        retoV2={retoV2} dosCoaches={dosCoaches} retoInicial={q.reto === '1'} nombrePersona={nombrePersona} />
     </Pagina>
   );
 }

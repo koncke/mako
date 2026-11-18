@@ -8,6 +8,8 @@
 // motor de los dos (app/second-brain/useChatDelCoach.ts): su conversación, la cara de quien aconseja, la oferta y después el funnel.
 // ⚠️ UNA SOLA HOJA (SheetM → «Una hoja sobre otra REEMPLAZA»): el plan, su Second Brain, la Info de un mensaje, «Tus cuentas de IA» y
 // elegir quién aconseja se abren ADENTRO, con su «‹», como en HojaDelGuru.tsx.
+// CON EL ONBOARDING V2 (18/11/2026, `dosCoaches`): la misma hoja es cualquiera de los dos coaches (`cual`), como en la computadora
+// (app/second-brain/ChatDelCoach.tsx): el Offer Coach con quien aconseja, el Funnel Coach con su criatura y sin elegir referente.
 
 import '@/app/admin/operaciones/centro.css';
 import '@/app/m/operaciones/operaciones.css';
@@ -25,11 +27,12 @@ import { BotonSecondBrainDe, CerebroDelGuru, rotuloSecondBrain } from '@/app/sec
 import { VistaDelPlan } from '@/app/second-brain/VistaDelPlan';
 import { useChatDelCoach } from '@/app/second-brain/useChatDelCoach';
 import { ASPECTO_MAKO, aspectoDeReferente } from '@/lib/centro-munecos';
-import { ORIGEN_FUNNEL_COACH } from '@/lib/chat-mako-reglas';
+import type { CoachDelOps } from '@/lib/chat-mako-reglas';
+import { useVideoDelCoach } from '@/app/second-brain/VideoDelCoach';
 import { ASESORES, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import type { OfertaDelCoach } from '@/lib/funnel-plan';
 
-export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCerrar }: {
+export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCerrar, cual = 'funnel', dosCoaches = false }: {
   referente: IdAsesor | null;
   /** Con qué oferta abre (lib/funnel-plan.ts → `ofertaDelCoach`); null = todavía no se sabe. */
   oferta: OfertaDelCoach | null;
@@ -37,10 +40,17 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
   puedeElegir: boolean;
   onReferente: (id: IdAsesor | null) => void;
   onCerrar: () => void;
+  /** Qué coach: sin el V2, siempre el Funnel Coach. */
+  cual?: CoachDelOps;
+  /** El onboarding V2: los dos coaches separados (lo dice el servidor, app/second-brain/useCoaches.ts → `dosCoaches`). */
+  dosCoaches?: boolean;
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  const { k, r, aspecto, quien, vacio, saludo, plan } = useChatDelCoach({ referente, oferta, caja });
+  const { k, r, aspecto, quien, vacio, saludo, plan, titulo: nombre, tab } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
+  const portada = useVideoDelCoach(cual, dosCoaches, saludo);
+  // El Funnel Coach del V2 no tiene referente al frente: su criatura no elige.
+  const eligeReferente = puedeElegir && !(dosCoaches && cual === 'funnel');
   // Hablar con un referente es de MaKo Pro (14/11/2026, 'chat-referentes'): acá sólo decide qué se ve al elegir quién aconseja. El
   // referente ya llega en null con el candado (app/second-brain/useCoaches.ts), así que `r` es null y no hay «Second Brain de X».
   const soloPro = useSoloPro('chat-referentes');
@@ -60,14 +70,14 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
 
   return (
     <>
-      <PantallaChatM abierto onCerrar={onCerrar} id="funnel-coach"
+      <PantallaChatM abierto onCerrar={onCerrar} id={tab}
         aviso={panel ? undefined : <AvisoDeIA app={k.app} iaConectada={k.iaConectada} onConectar={() => k.setConectando(true)} />}
         titulo={titulo ?? (
           <span className="m-operaciones-titulo">
-            <button type="button" className="m-operaciones-titulo__muneco" disabled={!puedeElegir} aria-label="Elegir quién aconseja" onClick={() => setVista('elegir')}>
-              <Muneco titulo={r?.nombre ?? 'MaKo'} aspecto={aspecto} animo={k.enCurso ? 'trabajando' : 'despierto'} size={34} />
+            <button type="button" className="m-operaciones-titulo__muneco" disabled={!eligeReferente} aria-label="Elegir quién aconseja" onClick={() => setVista('elegir')}>
+              <Muneco titulo={quien.nombre} aspecto={aspecto} animo={k.enCurso ? 'trabajando' : 'despierto'} size={34} />
             </button>
-            <span className="m-operaciones-titulo__texto"><span className="m-operaciones-titulo__nombre">{ORIGEN_FUNNEL_COACH}</span></span>
+            <span className="m-operaciones-titulo__texto"><span className="m-operaciones-titulo__nombre">{nombre}</span></span>
           </span>
         )}
         pie={panel ? undefined : (
@@ -78,7 +88,7 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
         )}>
         {panel && panel !== 'cerebro' && (
           <button type="button" className="m-operaciones-volver" onClick={volverDelPanel}>
-            <span aria-hidden>‹</span> {ORIGEN_FUNNEL_COACH}
+            <span aria-hidden>‹</span> {nombre}
           </button>
         )}
         {panel === 'info' && k.infoWA && <InfoMensaje m={k.infoWA} />}
@@ -121,11 +131,11 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
                 {r && <BotonSecondBrainDe referente={r} viendo={false} onCambiar={(si) => setVista(si ? 'cerebro' : null)} />}
               </div>
               <div className="m-operaciones-fijados">
-                <BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={ORIGEN_FUNNEL_COACH} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />
+                <BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />
               </div>
             </div>
             {vacio ? (
-              <HiloMako items={saludo} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null}
+              <HiloMako items={portada.items} quien={quien} ahora={k.ahora} escribiendo={null} tarjeta={null} enMensaje={portada.enMensaje}
                 onTarjeta={() => {}} onReintentar={() => {}} onRecargar={k.recargar} onResponder={(t) => k.enviar(t)} />
             ) : <HiloDelCliente k={k} />}
           </div>

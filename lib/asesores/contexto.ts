@@ -10,6 +10,7 @@
 
 import { asesorPorId, ASESORES, type Asesor, type IdAsesor } from './catalogo';
 import { FICHAS } from './fichas';
+import { DIMENSIONES } from '../offer-marco';
 
 /** Cómo se usa una ficha, con cualquier referente. */
 function reglasDe(a: Asesor): string {
@@ -31,11 +32,41 @@ export function contextoDeReferente(id: IdAsesor | null): string {
 //    ambas funcionalidades dentro»). EL ORDEN ES LA OFERTA Y DESPUÉS EL FUNNEL, y no al revés: un funnel lleva gente a una oferta, y
 //    con una oferta floja cualquier presupuesto se quema (era la razón por la que el Funnel Coach sin oferta mandaba al Offer Coach).
 //    Pero no es un formulario: quien ya tiene la oferta, o llega con una pregunta del funnel, no pasa por la primera fase.
-const FASES_DEL_COACH = `EN ESTE CHAT (el Funnel Coach de MaKo, en la COMPUTADORA), y esto manda sobre la voz del teléfono: la persona está en su escritorio, con la pantalla entera. Responde completo pero sin relleno: puedes usar listas cortas y negritas cuando ordenan, nunca tablas largas ni JSON. Ayudas a la persona con su oferta y con cómo consigue clientes, y después lo llevas a cabo. Vas por fases, sin anunciarlas como un formulario; si llega con una pregunta de una fase, contesta esa:
+// Las piezas son las mismas para el coach único y los dos coaches del onboarding V2 (más abajo): la voz de la computadora y las tres
+// fases del funnel. ⚠️ El texto del coach único quedó IGUAL al separarlas (18/11/2026, medido con sha256 de todos sus contextos).
+const VOZ_DE_LA_COMPUTADORA = 'y esto manda sobre la voz del teléfono: la persona está en su escritorio, con la pantalla entera. Responde completo pero sin relleno: puedes usar listas cortas y negritas cuando ordenan, nunca tablas largas ni JSON.';
+const FASE_ELEGIR_EL_FUNNEL = 'ELEGIR EL FUNNEL: anuncios, orgánico, YouTube, anuncios a WhatsApp, anuncios a VSL, o scraping y prospección en frío. Lo decides con preguntas, una por vez: cuánto puede invertir, qué hace hoy y qué resultado le da. Recomiendas UNO y dices por qué ese y no los otros.';
+const FASE_PLANEAR = 'PLANEAR LA EJECUCIÓN: con ese presupuesto, cuántos creativos, cuántos ángulos contra qué avatares y razones de compra, y si va una landing o una prueba A/B de landings. Para anuncios, los números salen de la herramienta calcular_presupuesto_anuncios (la calculadora de presupuesto): no los estimes de memoria. Si el presupuesto no alcanza, dilo.';
+const FASE_GUARDAR_EL_PLAN = 'GUARDAR Y EJECUTAR: cuando el plan esté decidido, guárdalo con guardar_plan_funnel. Un plan que sólo está escrito en este chat no existe: el botón «Ver el plan» muestra lo guardado, y tú lo lees con ver_plan_funnel. Después haz lo que puedas con tus herramientas y, si algo se hace en otra pantalla de MaKo (Ads Manager, Web Generator, Competitors Spy, Dashboard), nómbrala.';
+const POR_FASES = 'Vas por fases, sin anunciarlas como un formulario; si llega con una pregunta de una fase, contesta esa:';
+
+const FASES_DEL_COACH = `EN ESTE CHAT (el Funnel Coach de MaKo, en la COMPUTADORA), ${VOZ_DE_LA_COMPUTADORA} Ayudas a la persona con su oferta y con cómo consigue clientes, y después lo llevas a cabo. ${POR_FASES}
 1. LA OFERTA: antes de elegir un funnel, mira la que hay. Las guardadas salen de listar_ofertas y la última que armó MaKo en una conversación de oferta, de ver_analisis_oferta: si ya hay una, dila en una línea y sigue, sin volver a preguntar lo que ya está. Si no hay, o le falta lo que hace que alguien compre (a quién, qué resultado, precio, garantía), trabájala con preguntas, una por vez. Cuando esté decidida, guárdala con guardar_oferta: una oferta que sólo está escrita en este chat no existe.
-2. ELEGIR EL FUNNEL: anuncios, orgánico, YouTube, anuncios a WhatsApp, anuncios a VSL, o scraping y prospección en frío. Lo decides con preguntas, una por vez: cuánto puede invertir, qué hace hoy y qué resultado le da. Recomiendas UNO y dices por qué ese y no los otros.
-3. PLANEAR LA EJECUCIÓN: con ese presupuesto, cuántos creativos, cuántos ángulos contra qué avatares y razones de compra, y si va una landing o una prueba A/B de landings. Para anuncios, los números salen de la herramienta calcular_presupuesto_anuncios (la calculadora de presupuesto): no los estimes de memoria. Si el presupuesto no alcanza, dilo.
-4. GUARDAR Y EJECUTAR: cuando el plan esté decidido, guárdalo con guardar_plan_funnel. Un plan que sólo está escrito en este chat no existe: el botón «Ver el plan» muestra lo guardado, y tú lo lees con ver_plan_funnel. Después haz lo que puedas con tus herramientas y, si algo se hace en otra pantalla de MaKo (Ads Manager, Web Generator, Competitors Spy, Dashboard), nómbrala.`;
+2. ${FASE_ELEGIR_EL_FUNNEL}
+3. ${FASE_PLANEAR}
+4. ${FASE_GUARDAR_EL_PLAN}`;
+
+// ── LOS DOS COACHES DEL ONBOARDING V2 (18/11/2026) ──────────────────────────────────────────────────────────────────────────────
+// Martín, 15/11 (DESPUÉS de juntarlos el 4/11): «al terminar el onboarding, Oferta y Funnel Coach en DOS chats separados». Sólo para
+// quien ve el onboarding V2 (lib/onboarding-v2/revision.ts); lo decide el servidor (app/api/mako/chat/route.ts → `contextoDelChat`).
+// ⚠️ CADA UNO HACE LO SUYO Y MANDA AL OTRO, SIN ARMARLO: el Offer Coach no arma el funnel y el Funnel Coach no arma la oferta. Si el
+//    Funnel Coach la armara «porque falta», volvería a ser el coach único por otra puerta, y la oferta quedaría sin su diagnóstico.
+// ⚠️ SIN BOTONES DE ATAJO (Martín, 18/11: «ese tipo de botones jamás»): el otro coach se nombra por DÓNDE está en la lista, y el reto
+//    marca su fila (lib/reto/dias.ts, `sb-offer` y `sb-funnel`).
+
+/** Lo que mira el diagnóstico: las dimensiones de la rúbrica de Offer (lib/offer-marco.ts), para que la nota hable el mismo idioma. */
+const DIMENSIONES_DEL_DIAGNOSTICO = DIMENSIONES.map((d) => d.label.toLowerCase()).join(', ');
+
+const FASES_DEL_OFFER_COACH = `EN ESTE CHAT (el Offer Coach de MaKo, en la COMPUTADORA), ${VOZ_DE_LA_COMPUTADORA} Armas la oferta con la persona y le dejas su diagnóstico. Cómo consigue clientes NO es de este chat: lo arma después el Funnel Coach, con esta oferta. Vas por pasos, sin anunciarlos como un formulario; si llega con una pregunta de un paso, contesta esa:
+1. MIRAR LO QUE HAY: las ofertas guardadas salen de listar_ofertas y la última que armó MaKo en una conversación de oferta, de ver_analisis_oferta. Si ya hay una, dila en una línea y trabaja sobre ella, sin volver a preguntar lo que ya está. Si te pasa un documento de su oferta, su guion de ventas o el link de su web, léelo y pregunta sólo lo que falta.
+2. ARMARLA con preguntas, una por vez: a quién le vende, qué resultado le promete y en cuánto tiempo, qué recibe exactamente, el precio y cómo se cobra, la garantía y por qué decidir ahora. Si algo no conviene (un precio por debajo del valor, una garantía que no le pide nada al cliente), dilo con un ejemplo y una recomendación, y deja que decida.
+3. EL DIAGNÓSTICO: cuando esté armada, déjale su diagnóstico en UN mensaje: una nota de 0 a 100, lo más fuerte, lo más flojo y los 3 cambios que más la suben, mirando ${DIMENSIONES_DEL_DIAGNOSTICO}. Nunca le inventes un número que la persona no dio.
+4. GUARDARLA con guardar_oferta: una oferta que sólo está escrita en este chat no existe. Cuando quede guardada, ciérralo en una línea: ahora sigue su sistema para conseguir clientes, con el Funnel Coach, el chat que está debajo de éste en su lista. No armes aquí el funnel, el presupuesto ni el plan: si los pide, se lo dices así.`;
+
+const FASES_DEL_FUNNEL_COACH_V2 = `EN ESTE CHAT (el Funnel Coach de MaKo, en la COMPUTADORA), ${VOZ_DE_LA_COMPUTADORA} Armas con la persona su sistema para conseguir clientes, con la oferta que ya armó con el Offer Coach, y después lo llevas a cabo. La oferta NO se arma ni se cambia aquí: si no tiene una, o le falta lo que hace que alguien compre (a quién, qué resultado, precio), díselo en una línea y que la arme primero con el Offer Coach, el chat que está arriba de éste en su lista. Para leerla tienes listar_ofertas y ver_analisis_oferta. ${POR_FASES}
+1. ${FASE_ELEGIR_EL_FUNNEL}
+2. ${FASE_PLANEAR}
+3. ${FASE_GUARDAR_EL_PLAN}`;
 
 /**
  * LO QUE EL COACH LE DICE A UN ESENCIAL (14/11/2026, lib/asesores/candado.ts, 'chat-referentes'): el coach entero y SIN la ficha de
@@ -57,8 +88,36 @@ ATERRIZA: todo baja a los números y a la oferta de este negocio, y haces una so
 export function contextoDelFunnelCoach(elegido: IdAsesor | null, sinReferentes = false): string {
   if (sinReferentes) return `${FASES_DEL_COACH}\n\n${COACH_SIN_REFERENTES}`;
   if (elegido) return `${FASES_DEL_COACH}\n\n${contextoDeReferente(elegido)}`;
-  const delTema = ASESORES.filter((a) => a.enElCoach);
-  return `${FASES_DEL_COACH}\n\nTUS FUENTES: te apoyas en estos referentes y siempre dices de quién es cada marco. No eres ninguno de ellos, no participan ni respaldan este producto, y nunca les inventes una cita ni un número.\n\n${delTema.map((a) => `MARCOS DE ${a.completo.toUpperCase()} (${a.especialidad}, de «${a.curso}»):\n${FICHAS[a.id]}`).join('\n\n')}`;
+  return `${FASES_DEL_COACH}\n\n${tusFuentes(ASESORES.filter((a) => a.enElCoach))}`;
+}
+
+/** Sin referente al frente: las fichas de los de su tema, atribuyendo. */
+function tusFuentes(delTema: readonly Asesor[]): string {
+  return `TUS FUENTES: te apoyas en estos referentes y siempre dices de quién es cada marco. No eres ninguno de ellos, no participan ni respaldan este producto, y nunca les inventes una cita ni un número.\n\n${delTema.map((a) => `MARCOS DE ${a.completo.toUpperCase()} (${a.especialidad}, de «${a.curso}»):\n${FICHAS[a.id]}`).join('\n\n')}`;
+}
+
+/** Los marcos de cada coach del V2 sin referente al frente: la oferta para uno, los anuncios y el orgánico para el otro. */
+const DE_LA_OFERTA = ASESORES.filter((a) => a.enElCoach && a.especialidad === 'Oferta');
+const DEL_FUNNEL = ASESORES.filter((a) => a.enElCoach && a.especialidad !== 'Oferta');
+
+/**
+ * EL OFFER COACH (onboarding V2): arma la oferta y le deja el diagnóstico. Quien aconseja es el referente del coach
+ * (`referenteDelCoach`, Hormozi de fábrica): el mismo de las conversaciones de oferta, que cuelgan de su fila. Con «MaKo», los
+ * marcos de la oferta; con el candado (Essential), sin la metodología de nadie, como el coach único.
+ */
+export function contextoDelOfferCoach(elegido: IdAsesor | null, sinReferentes = false): string {
+  if (sinReferentes) return `${FASES_DEL_OFFER_COACH}\n\n${COACH_SIN_REFERENTES}`;
+  if (elegido) return `${FASES_DEL_OFFER_COACH}\n\n${contextoDeReferente(elegido)}`;
+  return `${FASES_DEL_OFFER_COACH}\n\n${tusFuentes(DE_LA_OFERTA)}`;
+}
+
+/**
+ * EL FUNNEL COACH DEL ONBOARDING V2: el sistema para conseguir clientes, con la oferta hecha. SIN referente al frente (su propia
+ * criatura, como en la maqueta: el referente elegido es el del Offer Coach): los marcos de anuncios y de orgánico, atribuidos, o con
+ * el candado, sin los de nadie.
+ */
+export function contextoDelFunnelCoachV2(sinReferentes = false): string {
+  return `${FASES_DEL_FUNNEL_COACH_V2}\n\n${sinReferentes ? COACH_SIN_REFERENTES : tusFuentes(DEL_FUNNEL)}`;
 }
 
 /**
@@ -77,3 +136,11 @@ export const HERRAMIENTAS_DEL_COACH: readonly string[] = [
   'listar_ofertas', 'ver_analisis_oferta', 'guardar_oferta',
   'calcular_presupuesto_anuncios', 'ver_plan_funnel', 'guardar_plan_funnel',
 ];
+
+/**
+ * Las de cada coach del onboarding V2, sacadas de las seis de arriba (así nunca pesan más que ellas, y el margen de los 12.000
+ * caracteres que mide tests/coaches-ops-center.test.ts vale para los dos). El Offer Coach, las de la oferta; el Funnel Coach, las del
+ * funnel y las dos que LEEN la oferta: sin `guardar_oferta`, que la oferta se arma y se cambia en el Offer Coach.
+ */
+export const HERRAMIENTAS_DEL_OFFER_COACH: readonly string[] = HERRAMIENTAS_DEL_COACH.filter((h) => ['listar_ofertas', 'ver_analisis_oferta', 'guardar_oferta'].includes(h));
+export const HERRAMIENTAS_DEL_FUNNEL_COACH_V2: readonly string[] = HERRAMIENTAS_DEL_COACH.filter((h) => h !== 'guardar_oferta');

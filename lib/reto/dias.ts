@@ -57,12 +57,18 @@ const en = (ruta: string): string => `En ${ruta}`;
 
 export const DIAS_RETO: readonly DiaReto[] = [
   {
+    // DOS TAREAS, EN ORDEN (18/11/2026; Martín, 15/11: «al terminar el onboarding, Oferta y Funnel Coach en DOS chats separados»): la
+    // oferta con el Offer Coach y después el sistema para conseguir clientes con el Funnel Coach. La marca lleva de uno al otro: la
+    // fila de cada coach (app/second-brain/ChatSecondBrain.tsx, `sb-offer` y `sb-funnel`). El reto es del onboarding V2, y con él
+    // están los dos coaches (el mismo interruptor). ⚠️ El id de la segunda sigue siendo 'funnel': lo guardado antes (`1:funnel`) vale.
     n: 1, titulo: 'Tu oferta y tu sistema de adquisición', video: 'reto-dia-1',
-    mensaje: 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta y tu sistema de adquisición de clientes, con Funnel Coach.',
-    tareas: [{
-      id: 'funnel', titulo: 'Tu oferta y tu funnel, con Funnel Coach', donde: 'En el Ops Center', detalle: 'Te pregunta como un coach y te deja tu funnel en el CRM.',
-      marcas: [{ sel: '[data-recorrido="sb-funnel"]', titulo: 'Tu día 1 sigue en Funnel Coach', texto: 'Ahí armas tu oferta y tu sistema de adquisición.', haz: 'Haz clic en Funnel Coach', lado: 'derecha' }],
-    }],
+    mensaje: 'Hoy es tu día 1. Tu onboarding ya está; ahora tu oferta, con Offer Coach, y después tu sistema para conseguir clientes, con Funnel Coach.',
+    tareas: [
+      { id: 'offer', titulo: 'Tu oferta, con Offer Coach', donde: 'En el Ops Center', detalle: 'Te pregunta como un coach y te deja el diagnóstico de tu oferta.',
+        marcas: [{ sel: '[data-recorrido="sb-offer"]', titulo: 'Tu día 1 sigue en Offer Coach', texto: 'Ahí armamos tu oferta.', haz: 'Haz clic en Offer Coach', lado: 'derecha' }] },
+      { id: 'funnel', titulo: 'Tu sistema para conseguir clientes, con Funnel Coach', donde: 'En el Ops Center', detalle: 'Con tu oferta ya hecha, elige contigo tu funnel y su plan.',
+        marcas: [{ sel: '[data-recorrido="sb-funnel"]', titulo: 'Ahora, Funnel Coach', texto: 'Ahí armas tu sistema para conseguir clientes.', haz: 'Haz clic en Funnel Coach', lado: 'derecha' }] },
+    ],
   },
   {
     n: 2, titulo: 'Conecta todo: la app, la extensión y tus integraciones', video: 'reto-dia-2',
@@ -200,6 +206,33 @@ export function diaAbierto(e: EstadoReto, ahora: number): number {
 
 export const claveTarea = (dia: number, id: string) => `${dia}:${id}`;
 export const tareaHecha = (e: EstadoReto, dia: number, id: string) => !!e.hechas[claveTarea(dia, id)];
+
+// ── El paso de Offer Coach a Funnel Coach (18/11/2026) ────────────────────────────────────────────────────────────────────────
+// Martín, sobre la maqueta: «me manda la oferta con el PDF para descargar… pero apenas me la manda automáticamente ya sale el botón
+// para hacer clic en Funnel Coach. Eso no tiene sentido… mínimo déjame verla». La marca de la segunda tarea del día 1 sale desde el
+// Offer Coach (app/second-brain/reto/usePasoAlFunnel.ts) recién cuando la persona VIO la oferta: hizo algo con ella (descargó el
+// PDF, bajó hasta el final o escribió) o pasó un tiempo de lectura. Nunca en el acto, nunca con MaKo escribiendo.
+
+/** Lo que tarda en leerse una oferta entregada antes de marcar Funnel Coach sin que la persona haga nada. */
+export const LECTURA_DE_LA_OFERTA_MS = 20_000;
+
+/** ¿Ya se marca Funnel Coach? `entregadaEn`: cuándo se entregó la oferta (null = no se entregó en esta visita). */
+export function marcaAlFunnelYa(p: { entregadaEn: number | null; ahora: number; gesto: boolean; ocupado: boolean }): boolean {
+  if (p.entregadaEn == null || p.ocupado) return false;
+  return p.gesto || p.ahora - p.entregadaEn >= LECTURA_DE_LA_OFERTA_MS;
+}
+
+/** La oferta del Offer Coach, como la cuenta para saber si se acaba de entregar (lib/funnel-plan.ts → OfertaDelCoach). */
+type OfertaVista = { estado: 'hay'; nombre: string; de: string } | { estado: 'no-hay' } | { estado: 'no-se' };
+
+/**
+ * ¿Se acaba de entregar una oferta? Lo que había al abrir el chat contra lo que hay después de un turno: una oferta que aparece o
+ * cambia (otro nombre, o pasó de armada a guardada). La del perfil no cuenta (nadie la armó), y «no se sabe» nunca es una entrega.
+ */
+export function ofertaRecienEntregada(antes: OfertaVista | null, ahora: OfertaVista | null): boolean {
+  if (!antes || !ahora || ahora.estado !== 'hay' || ahora.de === 'perfil' || antes.estado === 'no-se') return false;
+  return antes.estado !== 'hay' || antes.nombre !== ahora.nombre || antes.de !== ahora.de;
+}
 
 export type EstadoDia = 'hecho' | 'medias' | 'hoy' | 'luego';
 

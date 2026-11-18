@@ -1,6 +1,7 @@
 # Hallazgos — Ops Center (los coaches y sus referentes)
 
-La casa de varios chats: el central y el Funnel Coach (desde el 4/11/2026, el único coach: la oferta y el funnel). Quién aconseja de qué está en
+La casa de varios chats: el central y el Funnel Coach (desde el 4/11/2026, el único coach: la oferta y el funnel; con el onboarding V2,
+otra vez dos desde el 18/11: el Offer Coach y el Funnel Coach). Quién aconseja de qué está en
 `lib/asesores/catalogo.ts`, su ficha destilada en `lib/asesores/fichas.ts`, la caricatura en
 `public/asesores/<id>.png` y se elige tocando la criatura, en `app/second-brain/ElegirReferente.tsx`.
 Acá va lo que costó y no se deduce leyendo el código.
@@ -682,3 +683,78 @@ otra tabla que el CoPilot no ve.
   pestaña?» (lib/guia/reglas.ts; app/second-brain/ChatSecondBrain.tsx), y la pregunta de tu IA espera
   (app/second-brain/PiezasCliente.tsx). Con la bienvenida nueva, «tu IA» y el reto compiten con esa pregunta: va una apertura
   por pantalla, así que hay que decidir el orden.
+
+## Offer Coach y Funnel Coach otra vez separados, sólo con el interruptor del onboarding V2 (18/11/2026)
+
+Martín decidió el 15/11 —DESPUÉS de que la app los juntara el 4/11 (`a7c0c050a`)— que al terminar el onboarding la oferta y el
+funnel van en DOS chats. Volvieron, sólo para quien ve el V2 (`lib/onboarding-v2/revision.ts`); los demás siguen con el coach
+único.
+
+- **El diagnóstico obvio era el equivocado: «la página ya calcula `retoV2`, alcanza con usarlo».** No alcanza. Al super admin
+  `/second-brain` lo REDIRIGE a `/admin/operaciones` (`quienOpera`), y esa página nunca recibió `retoV2`. Y el CONTEXTO lo decide
+  el servidor del chat (`app/api/mako/chat/route.ts` → `veDosCoaches`), que sí ve el email de Martín: su barra mostraba el coach
+  único mientras el servidor le contestaba como el Funnel Coach del V2, sin la fase de la oferta y mandándolo a un Offer Coach que
+  no estaba en su pantalla. **Regla:** si el servidor decide algo con el interruptor, CADA página que dibuja ese chat decide con la
+  misma función: `/second-brain` (`dosCoaches={retoV2}`), `/admin/operaciones` (`veOnboardingV2` con su sesión; el reto no, es del
+  cliente) y el teléfono, que lo lee de `?coaches=1` (`dosCoaches`, null hasta saberlo: coach único mientras tanto).
+- **Lo decide el interruptor, no la pantalla.** Un `desde.tab = 'Offer Coach'` sin el V2 (una pestaña abierta mientras estaba
+  prendido) corre el coach único. `offer-coach` está en `TABS_CON_CHAT_PROPIO` para todos a propósito: crear la conversación no da
+  nada sin el contexto, y sacarla dejaría sin hilo a quien la usó si el V2 se apaga.
+- **Separar sin tocar al coach único se MIDE.** Las fases se partieron en constantes compartidas (`FASE_ELEGIR_EL_FUNNEL`, …) y el
+  sha256 de los 66 contextos del coach único (cada referente, MaKo y el candado) quedó igual antes y después. Leer el diff no
+  alcanza para eso.
+- **Las herramientas de cada coach del V2 SALEN de las seis** (`HERRAMIENTAS_DEL_COACH.filter`): pesan menos y el margen de los
+  12.000 que mide el test 11 vale para las dos. El Funnel Coach del V2 no tiene `guardar_oferta`: con ella volvería a armar
+  ofertas, que es el coach único por otra puerta.
+- **Quien aconseja es UNO (`{ coach }`), y con el V2 es el del Offer Coach** (Hormozi de fábrica), el mismo de las conversaciones
+  de oferta que cuelgan de su fila. El Funnel Coach del V2 no tiene referente: su criatura (`aspectoDe('Funnel Coach')`) y los
+  marcos de anuncios y orgánico. ⚠️ Un negocio que eligió, por ejemplo, Juan ADS para el coach único lo verá al frente del Offer
+  Coach cuando el V2 se prenda para todos: es una elección suya y no se pisa, pero es un referente de anuncios aconsejando la
+  oferta. Si Martín quiere un referente por coach, va otra clave al lado (`offer`/`funnel` ya existen de antes del 4/11 y
+  `referenteDelCoach` las lee: no se pueden reusar sin cambiar su significado).
+- **El saludo del Funnel Coach del V2 no pregunta el presupuesto** (el del coach único sí): pregunta qué funnel, como la maqueta,
+  porque el onboarding ya preguntó la inversión (lo de abajo, 15/11).
+
+**Trampas del entorno:**
+- `node scripts/tsc-acotado.mjs` contesta «NO SE PUDO CHEQUEAR (código 1, 0 bytes)» con UN archivo si ese archivo es
+  `lib/chat-mako-reglas.ts`: su grafo son 2.784 archivos del repo (`tsc --listFilesOnly`), un tsc casi completo, y con ~3 GB
+  libres muere sin decir nada. No es el script: `lib/funnel-plan.ts` o `lib/asesores/contexto.ts` solos pasan. Lo que importa
+  `chat-mako-reglas` se chequea en la punta.
+- Para mirar un componente del Ops Center con esbuild, todo lo que importa un archivo `'use server'` arrastra `node:crypto` y
+  `node:async_hooks` (`lib/workspace.ts`, `lib/solo-su-ia.ts`…). La cura es lo que hace Next: un plugin `onLoad` que reemplaza cada
+  módulo que empieza con `'use server'` por funciones vacías con sus mismos nombres. `ChatSecondBrain.tsx` entero ni así: se dibujan
+  las filas con las mismas props y el `ChatDelCoach` de verdad, sobre la hoja de C:/dev/artefactos-pestanas (app.css).
+- `tests/reportar-en-el-menu.test.ts` (5) falla en Windows también en main: compara rutas con `/` contra las de `\`. No es un rojo.
+
+**Lo que no cuadra con la maqueta, o quedó sin hacer:**
+- **El video del Funnel Coach y el día 1 del reto prometen el CRM** («lo que elijas queda en tu CRM, con sus etapas»,
+  `public/tutoriales/manifiesto.json` → `funnel-coach` y `reto-dia-1`), y el Funnel Coach guarda un PLAN en app_settings
+  (`guardar_plan_funnel`, `lib/api-mako/areas/ads.def.ts`): no crea el funnel ni sus etapas en el CRM. La tarea del día 1 dice lo
+  que hace hoy («elige contigo tu funnel y su plan»).
+- **Al guardar la oferta, la marca a Funnel Coach no sale sola desde el Offer Coach** (la maqueta oscurece y marca `sb-funnel` ahí
+  mismo). Hoy la dispara el reto, como siguiente tarea, cuando se abre su chat (`app/second-brain/reto/ChatDelReto.tsx`); y la
+  tarea se marca hecha al tocar la fila, no al guardar la oferta.
+- **El flujo de la maqueta no está**: subir el documento y preguntar sólo lo que falta, el diagnóstico con su nota, las dimensiones
+  y el PDF en un mensaje (el del motor de Offer, `lib/offer-ia.ts`), y elegir hasta 3 funnels en un recuadro. El Offer Coach es el
+  chat único con su contexto: el diagnóstico lo escribe el modelo, no el motor de Offer.
+- **El video de cada coach es un `<video>` suelto** (`app/_ui/tutorial/VideoDelMomento.tsx`): la última frase del manifiesto, que
+  marca `sb-escribir`, no se dibuja como marca. Eso lo hace el motor de los tutoriales.
+
+**Después del primer rojo (18/11/2026, la misma tarde):**
+- **El rojo de `tests/m-chat-pantalla.test.ts` NO era que el Offer Coach volviera a ser una hoja** (la lectura obvia, por el nombre
+  del test: «ninguna conversación del Ops Center del teléfono vuelve a la hoja»). `app/m/second-brain/HojaDelCoach.tsx` seguía con
+  `PantallaChatM`, como main; lo que cambió es el `id`, que pasó de `"funnel-coach"` fijo a `{tab}` (cada coach el suyo), y el test
+  fijaba el literal. **Regla:** antes de «arreglar» un rojo por su título, mirar QUÉ comparó (aquí, un regex con el id escrito).
+- **La marca a Funnel Coach, recién cuando la persona VIO su oferta** (Martín, sobre la maqueta: «apenas me la manda
+  automáticamente ya sale el botón para hacer clic en Funnel Coach… mínimo déjame verla»). En la app nada la disparaba al entregar
+  la oferta: sólo el chat del reto, al abrirse. Ahora sale desde donde se entrega (`app/second-brain/reto/usePasoAlFunnel.ts`): el
+  Offer Coach (relee la oferta al terminar cada turno: una que aparece o cambia es una entrega) y la conversación de oferta del PDF
+  (una versión nueva). Espera un gesto (descargar el PDF, bajar hasta el final, escribir) o 20 s (`marcaAlFunnelYa`,
+  lib/reto/dias.ts), nunca con MaKo escribiendo, con la tarjeta DEBAJO de la fila (a la derecha tapaba el principio del chat) y
+  sólo si la fila se ve.
+  - ⚠️ **Dos trampas que daban la marca en el acto igual:** (1) «escribió» contado como «hay un turno corriendo»: mientras Offer arma
+    la oferta la conversación YA está ocupada, así que la entrega llegaba con el gesto hecho. Cuenta un turno que EMPIEZA después.
+    (2) Bajar al último mensaje lo hace la pantalla sola (`scrollTop = scrollHeight` en cada mensaje): un `scroll` sin rueda, dedo o
+    tecla en el último segundo no es la persona.
+  - Lo que falta: en la maqueta (C:/dev/artefactos-onboarding/cuerpo.html, después de `oferta-lista`) la marca sigue saliendo en el
+    acto; es del chat de la maqueta.

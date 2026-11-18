@@ -59,6 +59,11 @@
 // Center y, debajo, el Funnel Coach, que trabaja la oferta y el funnel en un chat. Las conversaciones de oferta de antes (y la del
 // onboarding entre ellas: es su primera mitad) cuelgan de SU fila, y cada una se sigue con su motor. Tocar su criatura elige quién
 // aconseja (./ElegirReferente.tsx): Hormozi de fábrica.
+// ⚠️ Y DOS COACHES CON EL ONBOARDING V2 (18/11/2026, `dosCoaches`, lib/onboarding-v2/revision.ts). Martín, 15/11 —después de juntarlos—:
+//    «al terminar el onboarding, Oferta y Funnel Coach en DOS chats separados». Quien lo ve tiene, debajo del Ops Center, el Offer Coach
+//    (la cara de quien aconseja, marca `sb-offer`, con las conversaciones de oferta colgando de él) y después el Funnel Coach (su propia
+//    criatura, marca `sb-funnel`). Cada uno es ./ChatDelCoach.tsx con su `cual`, montado una vez y escondido. Quien no lo ve, el coach
+//    único, exactamente como antes.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -96,7 +101,7 @@ import { VolverDelGrafo } from './volver';
 import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, UsoDelCliente, estadoDelCliente } from './PiezasCliente';
 import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
-import { ORIGEN_FUNNEL_COACH, SUBS_VISIBLES, edadCorta, esFilaDe, gurusDeLaBarra, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, SUBS_VISIBLES, edadCorta, esFilaDe, gurusDeLaBarra, jefeDelGrupo, type CoachDelOps, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { ASPECTO_MAKO, aspectoDeChat, aspectoDeReferente } from '@/lib/centro-munecos';
 import { ChatDelReto, useReto } from './reto/ChatDelReto';
 import { MarcaAlReto } from './reto/MarcaAlReto';
@@ -109,7 +114,9 @@ import { ancla } from '@/app/_ui/guia/ancla';
 import { useAperturaDelCerebro } from './PiezasCliente';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
-import { previaDelCoach } from '@/lib/funnel-plan';
+import { PREVIA_DEL_FUNNEL_COACH_V2, previaDelCoach, previaDelOfferCoach } from '@/lib/funnel-plan';
+import { ASPECTO_FUNNEL_COACH_V2 } from './useChatDelCoach';
+import { usePasoAlFunnel } from './reto/usePasoAlFunnel';
 
 /** Cuántas filas se ven debajo del Cerebro antes de «Mostrar N más». */
 const FILAS_VISIBLES = SUBS_VISIBLES;
@@ -152,8 +159,8 @@ type Props = {
   /** `?offer=` y `?antes=`: la conversación de Offer o el chat de antes que se abre al entrar. */
   offerInicial?: number | null;
   antesInicial?: number | null;
-  /** `?coach=funnel`: abre el Funnel Coach. */
-  funnelInicial?: boolean;
+  /** `?coach=funnel` abre el Funnel Coach; `?coach=offer`, el Offer Coach (sólo con `dosCoaches`; sin él, el coach único). */
+  coachInicial?: CoachDelOps | null;
   /** «Armar mi oferta», la opción con que Offer arma la oferta (lib/offer-reglas.ts → OPCION_ARMAR, que baja de la página:
    *  importarlo en el navegador arrastraría las reglas del motor). */
   opcionArmar?: string;
@@ -167,6 +174,8 @@ type Props = {
   inicio?: 'second-brain' | 'centro';
   /** El chat «Reto de 7 días» (18/11/2026): sólo para quien ve el onboarding V2 (lib/onboarding-v2/revision.ts, lo decide el server). */
   retoV2?: boolean;
+  /** Los DOS coaches del onboarding V2 (Offer Coach y Funnel Coach), con el mismo interruptor: lo decide el server. */
+  dosCoaches?: boolean;
   /** `?reto=1`: abre el chat del reto. */
   retoInicial?: boolean;
   /** El primer nombre de la persona, para el saludo del reto. */
@@ -199,14 +208,16 @@ const urlPelada = (e: Elegido | null): boolean => !!e && ('id' in e || 'offer' i
 /** El chat de Claude Code de entrada: el Cerebro (va primero) o el primero que puede recibir. */
 const centroDeEntrada = (k: Centro): string | null => (k.chats.find((c) => c.sesion) ?? k.chats[0])?.clave ?? null;
 
-function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, funnelInicial = false, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, retoInicial = false, nombrePersona = '' }: Omit<Props, 'centro'> & { centro: Centro | null }) {
+function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, coachInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', retoV2 = false, dosCoaches = false, retoInicial = false, nombrePersona = '' }: Omit<Props, 'centro'> & { centro: Centro | null }) {
+  // `?coach=offer` sin los dos coaches es el coach único: un link de la revisión no abre un chat que esta persona no tiene.
+  const coachDeEntrada: CoachDelOps | null = coachInicial === 'offer' && !dosCoaches ? 'funnel' : coachInicial;
   const router = useRouter();
   /** La página en la que se está (/second-brain o /admin/operaciones): los links del Mapa vuelven a ella. */
   const base = usePathname() || '/second-brain';
   /** Ops Center: el super admin, con sus chats de Claude Code (el servidor mandó el Centro). */
   const ops = centro != null;
   const [elegido, setElegido] = useState<Elegido | null>(() => {
-    if (funnelInicial) return { coach: 'funnel' };
+    if (coachDeEntrada) return { coach: coachDeEntrada };
     if (offerInicial != null) return { offer: offerInicial };
     if (antesInicial != null) return { antes: antesInicial };
     if (!centro) return null;
@@ -244,7 +255,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const datosReto = useReto(retoV2);
   const enOtroChat = delGuru != null || grupo != null || reto;
   const enChatNuevo = elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo';
-  const [conChat, setConChat] = useState((retoV2 && retoInicial) || funnelInicial || guruInicial != null || grupoInicial != null || chatInicial != null || offerInicial != null || antesInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
+  const [conChat, setConChat] = useState((retoV2 && retoInicial) || coachDeEntrada != null || guruInicial != null || grupoInicial != null || chatInicial != null || offerInicial != null || antesInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
   const [ticketera, setTicketera] = useState<VistaDeTicketera | null>(ticketeraInicial);
   const [busca, setBusca] = useState('');
   /** El filtro de la barra (feedback 4, 22/10/2026): el de Automations, con las áreas y, para el super admin, el estado. */
@@ -391,10 +402,11 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const restoFilas = filtros.length ? todasLasFilas.filter((f) => pasaFiltroChats({ titulo: f.titulo }, filtros)) : todasLasFilas;
   const corte = todas || busca.trim() || filtros.length ? restoFilas : restoFilas.filter((f, i) => i < FILAS_VISIBLES || esFilaDe(f, elegido));
   // El grafo se abre sin soltar el chat que estaba abierto: vuelve a él (17/10/2026: «nunca cambia de chat»).
-  const conCoach = !!elegido && 'coach' in elegido;
-  const hrefMapa = `${base}?panel=mapa${idElegido ? `&chat=${idElegido}` : urlCentro ? `&centro=${encodeURIComponent(urlCentro)}` : conCoach ? '&coach=funnel' : ''}`;
+  const coachElegido: CoachDelOps | null = elegido && 'coach' in elegido ? elegido.coach : null;
+  const conCoach = coachElegido != null;
+  const hrefMapa = `${base}?panel=mapa${idElegido ? `&chat=${idElegido}` : urlCentro ? `&centro=${encodeURIComponent(urlCentro)}` : conCoach ? `&coach=${coachElegido}` : ''}`;
   /** Volver del Mapa a lo que estaba elegido (lo vuelve a armar el servidor). */
-  const hrefVolver = conCoach ? `${base}?coach=funnel` : idElegido ? `${base}?chat=${idElegido}` : idOffer ? `${base}?offer=${idOffer}` : idAntes ? `${base}?antes=${idAntes}`
+  const hrefVolver = conCoach ? `${base}?coach=${coachElegido}` : idElegido ? `${base}?chat=${idElegido}` : idOffer ? `${base}?offer=${idOffer}` : idAntes ? `${base}?antes=${idAntes}`
     : urlCentro ? `${base}?centro=${encodeURIComponent(urlCentro)}` : base;
   /** ¿El panel muestra un chat con MaKo? Fuera de Ops Center, siempre; en Ops Center, sólo si es el elegido (por la URL). */
   const enSB = !ops || (elegido != null && !('centro' in elegido));
@@ -489,18 +501,53 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const filasDeGurus = gurusSoloPro ? [] : gurusDeLaBarra({ conCharla: gurusConCharla, abierto: guru, busca });
 
   /** El coach, fijo debajo del Ops Center, con sus conversaciones de oferta, y debajo los gurús con los que ya habló. */
-  const verFunnel = conCoach && !verMapa && !ticketera && !nuevoCentro && !enOtroChat;
+  const verCoachElegido = conCoach && !verMapa && !ticketera && !nuevoCentro && !enOtroChat;
+  const verFunnel = verCoachElegido && coachElegido === 'funnel';
+  const verOffer = verCoachElegido && coachElegido === 'offer' && dosCoaches;
   // ⚠️ UNA VEZ ABIERTO QUEDA MONTADO, ESCONDIDO (la revisión del 1/11/2026): tiene su propio motor, y el de esta pantalla no sabe si está ocupado. Desmontado a mitad de un
   // turno, la respuesta llegaba a nadie y al volver el hilo terminaba en la pregunta. Un trabajo largo corre en segundo plano y no bloquea la navegación.
-  const [funnelAbierto, setFunnelAbierto] = useState(funnelInicial);
-  useEffect(() => { if (conCoach) setFunnelAbierto(true); }, [conCoach]);
+  // Con los dos coaches (V2), cada uno el suyo: pasar de Offer Coach a Funnel Coach no corta el turno del otro.
+  const [funnelAbierto, setFunnelAbierto] = useState(coachDeEntrada === 'funnel');
+  const [offerAbierto, setOfferAbierto] = useState(coachDeEntrada === 'offer');
+  useEffect(() => { if (coachElegido === 'funnel') setFunnelAbierto(true); else if (coachElegido === 'offer') setOfferAbierto(true); }, [coachElegido]);
   // Sus herramientas son del admin del negocio (la oferta, el presupuesto y el plan): a un closer o un setter el coach le prometería lo que
   // no puede hacer, y un closer no ve Offer (lo cerraría la puerta de la tab). `veMapa` lo sabe el servidor al dibujar; `puedeElegir`
   // llega después: con los dos, la fila no parpadea para el admin.
   const verCoach = ops || veMapa || puedeElegir;
+  // EL PASO A FUNNEL COACH DESDE UNA CONVERSACIÓN DE OFERTA (la del PDF, que cuelga del Offer Coach; 18/11/2026, sólo con los dos
+  // coaches): una versión NUEVA mientras está abierta es una oferta entregada, y la marca espera a que la persona la vea
+  // (./reto/usePasoAlFunnel.ts). Se cuenta cuando la conversación queda quieta (Offer ya terminó de armarla), y contra lo que tenía
+  // ESA conversación: al abrir otra, la cuenta vuelve a empezar.
+  const { ofertaAbierta } = k;
+  const [entregadaOffer, setEntregadaOffer] = useState<number | null>(null);
+  const versionesVistas = useRef<{ id: number; n: number } | null>(null);
+  useEffect(() => {
+    if (!ofertaAbierta || ofertaAbierta.id !== idOffer) return;
+    const antes = versionesVistas.current;
+    if (!antes || antes.id !== ofertaAbierta.id) { versionesVistas.current = { id: ofertaAbierta.id, n: ofertaAbierta.versiones }; setEntregadaOffer(null); return; }
+    if (k.enCurso) return;
+    if (ofertaAbierta.versiones > antes.n) setEntregadaOffer(Date.now());
+    versionesVistas.current = { id: ofertaAbierta.id, n: ofertaAbierta.versiones };
+  }, [ofertaAbierta, idOffer, k.enCurso]);
+  const seVeLaConversacion = idOffer != null && !conCoach && !enOtroChat && !verMapa && !ticketera;
+  usePasoAlFunnel({ activo: dosCoaches && seVeLaConversacion, entregadaEn: entregadaOffer, ocupado: k.enCurso || k.tarjeta != null, contenedor: useCallback(() => hilo.current, []) });
   const coaches = (
     <div className="co-cuenta co-cuenta--coaches">
-      {verCoach && (
+      {/* LOS DOS COACHES (onboarding V2): el Offer Coach con las conversaciones de oferta colgando de él, y después el Funnel Coach. */}
+      {verCoach && dosCoaches && (
+        <>
+          <div className="co-jefe">
+            <FilaDeChat titulo={ORIGEN_OFFER_COACH} marca="sb-offer" aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" actual={verOffer} hace=""
+              previa={<span className="co-fila__coach">{delCoach ? inspiradoEn(delCoach) : previaDelOfferCoach(oferta)}</span>}
+              onElegir={() => elegir({ coach: 'offer' })} />
+            {filasOffer.length > 0 && <div className="co-jefe__subs">{filasOffer.map((f) => fila(f, true))}</div>}
+          </div>
+          <FilaDeChat titulo={ORIGEN_FUNNEL_COACH} marca="sb-funnel" aspecto={ASPECTO_FUNNEL_COACH_V2} animo="despierto" actual={verFunnel} hace=""
+            previa={<span className="co-fila__coach">{PREVIA_DEL_FUNNEL_COACH_V2}</span>}
+            onElegir={() => elegir({ coach: 'funnel' })} />
+        </>
+      )}
+      {verCoach && !dosCoaches && (
         <div className="co-jefe">
           <FilaDeChat titulo={ORIGEN_FUNNEL_COACH} marca="sb-funnel" aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" actual={verFunnel} hace=""
             previa={<span className="co-fila__coach">{delCoach ? inspiradoEn(delCoach) : previaDelCoach(oferta)}</span>}
@@ -710,14 +757,19 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       })}
       {funnelAbierto && (
         <div style={{ display: verFunnel ? 'contents' : 'none' }}>
-          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} />
+          <ChatDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} dosCoaches={dosCoaches} />
+        </div>
+      )}
+      {offerAbierto && dosCoaches && (
+        <div style={{ display: verOffer ? 'contents' : 'none' }}>
+          <ChatDelCoach cual="offer" referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onVolver={() => setConChat(false)} dosCoaches visible={verOffer} />
         </div>
       )}
       {centro && <MenusCentro centro={centro} />}
       {/* El «⋯» de las filas de SUS chats con MaKo (F96): el mismo menú, con el motor del cliente (useChatCliente). */}
       <MenusCentro chats={k.menuDeChats} />
       {!centro && <Toast state={avisoMenu.toast} onClose={avisoMenu.clear} />}
-      {eligiendoReferente && <ElegirReferente titulo={ORIGEN_FUNNEL_COACH} elegido={referente} onCerrar={() => setEligiendoReferente(false)} onElegir={(id) => { setEligiendoReferente(false); elegirReferente(id); }} />}
+      {eligiendoReferente && <ElegirReferente titulo={dosCoaches ? ORIGEN_OFFER_COACH : ORIGEN_FUNNEL_COACH} elegido={referente} onCerrar={() => setEligiendoReferente(false)} onElegir={(id) => { setEligiendoReferente(false); elegirReferente(id); }} />}
       {/* «Tus cuentas de IA» ahí mismo (/perfil/ia): conectar su computadora con su Claude o, si es admin, la clave. */}
       {k.conectando && (
         <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>

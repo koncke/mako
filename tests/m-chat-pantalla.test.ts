@@ -29,7 +29,8 @@ const CONVERSACIONES = [
   ['app/m/second-brain/ChatClienteM.tsx', /<PantallaChatM abierto=\{abierta && elegido != null\} onCerrar=\{cerrar\} id="chat-cliente"/],
   ['app/m/second-brain/HojaDelGrupo.tsx', /<PantallaChatM abierto onCerrar=\{onCerrar\} id=\{`grupo-\$\{ws\}`\} grupo\b/],
   ['app/m/second-brain/HojaDelGuru.tsx', /<PantallaChatM abierto onCerrar=\{onCerrar\} id=\{`guru-\$\{r\.id\}`\}/],
-  ['app/m/second-brain/HojaDelCoach.tsx', /<PantallaChatM abierto onCerrar=\{onCerrar\} id="funnel-coach"/],
+  // `id={tab}`: 'funnel-coach' o, con el onboarding V2 (18/11/2026), 'offer-coach' (app/second-brain/useChatDelCoach.ts → DEL_COACH).
+  ['app/m/second-brain/HojaDelCoach.tsx', /<PantallaChatM abierto onCerrar=\{onCerrar\} id=\{tab\}/],
   ['app/m/operaciones/ChatsMovil.tsx', /<PantallaChatM abierto=\{!!elegido\} onCerrar=\{cerrarHoja\} id="chat"/],
 ] as const;
 
