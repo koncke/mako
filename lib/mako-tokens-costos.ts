@@ -165,7 +165,9 @@ const COSTOS: readonly CostoDeFeature[] = [
 
   // ── Escribir ─────────────────────────────────────────────────────────────
   { feature: 'campaign-suggest', costoUsd: 0.01213, origen: 'medido', n: 14, porque: 'Estructurar una campaña de Meta, medido sobre 14 llamadas.' },
-  { feature: 'copywriter-ia', costoUsd: 0.00504, origen: 'medido', n: 28, porque: 'Media por guion de anuncio, medida en producción (el Copywriter escribe ads, reels, stories y YouTube).' },
+  // ⚠️ La unidad es UNA LLAMADA, y desde el 18/11/2026 una pieza larga son varias (lib/copywriter/por-secciones.ts): el borrador y
+  // una tanda de hasta 2.000 palabras por cada grupo de secciones cortas. El medidor cobra cada una por separado, con su costo real.
+  { feature: 'copywriter-ia', costoUsd: 0.00504, origen: 'medido', n: 28, porque: 'Media por guion de anuncio, medida en producción (el Copywriter escribe ads, reels, stories y YouTube). Una pieza de más de unos 13 minutos (una VSL larga) se escribe por secciones: el borrador y una llamada más por cada tanda de hasta 2.000 palabras (la clase de 42 minutos son unas 6), cada una cobrada aparte.' },
   { feature: 'reels-writer', costoUsd: 0.00504, origen: 'estimado', n: 0, porque: 'Un guion de Reel es el mismo trabajo que un guion de anuncio.' },
   { feature: 'stories-writer', costoUsd: 0.00504, origen: 'estimado', n: 0, porque: 'Un arco de Stories: como un guion de anuncio.' },
   { feature: 'carousels-writer', costoUsd: 0.00504, origen: 'estimado', n: 0, porque: 'Escribir el texto de un carrusel: como un guion de anuncio. ⚠️ No incluye las IMÁGENES, que son medios y se cobran aparte.' },
