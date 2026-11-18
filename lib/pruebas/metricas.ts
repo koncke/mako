@@ -68,8 +68,13 @@ export function problemasDeMetrica(clave: string, superficie: Superficie, def: D
  * (congelado), por clave: {agendo: true}. La que decide y un guardrail pueden ser las dos de estado.
  */
 export type Asignacion = { unidad: string; rama: string; asignadaAt: string; previo?: Readonly<Record<string, boolean>> };
-/** Lo que el medidor dice de una unidad: si logró la métrica y cuándo (la PRIMERA vez). */
-export type Resultado = { logro: boolean; at?: string | null };
+/**
+ * Lo que el medidor dice de una unidad: si logró la métrica y cuándo (la PRIMERA vez). `cuenta: false` = esta unidad NO
+ * entra al denominador (no es un «no»): en una landing, la que recibió una rama y nunca corrió el Pixel (un bot, la vista
+ * previa de WhatsApp) no vio la página (diseño 2.6, «Denominador en landing»). Lo decide el medidor con un dato; un
+ * hueco sigue siendo una lectura incompleta.
+ */
+export type Resultado = { logro: boolean; at?: string | null; cuenta?: boolean };
 
 /** Un medidor: lee la base de la superficie y devuelve el resultado de CADA unidad que se le pidió. */
 export type Medidor = (p: {
@@ -110,6 +115,7 @@ export function conteosPorRama(
     if (fin > hasta) continue;
     const r = resultados.get(a.unidad);
     if (!r) { faltan.push(a.unidad); continue; }
+    if (r.cuenta === false) continue;
     c.n++;
     if (!r.logro || a.previo?.[o.metrica] === true) continue;
     const at = r.at ? Date.parse(r.at) : NaN;

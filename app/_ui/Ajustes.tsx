@@ -20,6 +20,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import Link from './Link';
 import { IconoMenu, type NombreIconoMenu } from './iconos-menu';
 import type { GrupoSecciones, SeccionAjustes } from '@/lib/ajustes-secciones';
+import { marcaSettings } from '@/lib/tutoriales/marcas';
 
 /**
  * La pantalla: el índice de Settings y la sección activa. El índice va por `grupos` («Tu cuenta» y «Tu negocio»,
@@ -46,7 +47,7 @@ export function AjustesPagina({ lugar, secciones, grupos, activa, amplio, childr
           <div key={g.titulo || 'unico'} className="aj-indice-grupo" role="group" aria-label={g.titulo || undefined}>
             {g.titulo && <div className="aj-indice-grupo-titulo">{g.titulo}</div>}
             {g.secciones.map((s) => (
-              <Link key={s.key} href={s.href} data-activa={s.key === activa} aria-current={s.key === activa ? 'page' : undefined}>
+              <Link key={s.key} href={s.href} data-activa={s.key === activa} aria-current={s.key === activa ? 'page' : undefined} data-recorrido={marcaSettings(s.key)}>
                 <IconoMenu nombre={s.icono} size={17} />
                 {s.label}
               </Link>
