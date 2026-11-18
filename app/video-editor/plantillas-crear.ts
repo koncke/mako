@@ -20,7 +20,7 @@
 // =============================================================================
 
 import type { PlantillaCrear } from '@/app/_crear/reglas';
-import { plantillasEnOrden } from '@/lib/editor-video/plantillas';
+import { plantillaPorId, plantillasEnOrden, type Plantilla } from '@/lib/editor-video/plantillas';
 import { ejemploDeVideo, insigniaDeVideo } from '@/lib/editor-video/plantillas-ejemplos';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { PLANTILLAS_GUIADAS, plantillaGuiada } from '@/lib/video-plantillas';
@@ -137,6 +137,15 @@ export function destinoDe(id: string): DestinoNuevoVideo | null {
     return p ? { tipo: 'plantilla', id: p.plantilla.id } : null;
   }
   return null;
+}
+
+/**
+ * La plantilla de anuncio que nombra una tarjeta de «Nuevo video», o null si la tarjeta es otra cosa (un lienzo, una guiada,
+ * «Generar con IA»). Es lo que dibuja la miniatura de la tarjeta (./miniatura-nuevo-video.tsx, F160): la MISMA plantilla que
+ * arma `destinoDe`, buscada en el catálogo y no reconstruida.
+ */
+export function plantillaDeTarjeta(id: string): Plantilla | null {
+  return id.startsWith(PREFIJO.plantilla) ? plantillaPorId(id.slice(PREFIJO.plantilla.length)) : null;
 }
 
 /** La ruta que arma una plantilla de anuncio en un proyecto nuevo (la page la valida contra el catálogo). */
