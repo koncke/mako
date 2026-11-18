@@ -189,23 +189,31 @@ async function loQueSale(i: { statusLabel: string | null; disableReason: string 
 test('la alerta dice la CAUSA de cada estado, y lo que Meta no confirmó no lo afirma', async () => {
   // Pedido del dueño (12/8): «que diga "tu cuenta publicitaria está SUSPENDIDA por falta de pago", no simplemente que
   // está frenada». No es estilo: con el síntoma no se sabe qué hacer, con la causa sí.
+  // 18/11/2026 (Joan, ws13: «¿qué significa que está en período de gracia?»): QUÉ pasó en palabras de un dueño, QUÉ pasa si no
+  // hace nada y QUÉ hacer, en pasos. Sin mayúsculas gritadas.
   const impago = await loQueSale({ statusLabel: 'Saldo impago', disableReason: 'Saldo impago', entregaFrenada: true, confirmado: true }, 35, 0);
-  assert.match(impago!, /^🚨 Tu cuenta publicitaria está \*SUSPENDIDA POR FALTA DE PAGO\*\n/);
-  assert.match(impago!, /\n✅ Paga el saldo que debes en el Business Manager de Meta\.\n/, 'urge sin decir qué hacer, que es sólo ansiedad');
-  assert.match(impago!, /\n📉 Anuncios: sin entregar\n🕐 Hace 35 min que está así\.\n/);
-  assert.match(impago!, /\n👉 https:\/\/x\/integraciones\n\n— MaKo$/);
-  assert.ok(!/Motivo de Meta/.test(impago!), 'repite el mismo dato dos veces');
-  // «Sin entregar» es un HECHO que Meta confirma (`entrega_frenada`): sin él, no se afirma.
-  const gracia = await loQueSale({ statusLabel: 'En período de gracia', disableReason: 'Riesgo de pago', entregaFrenada: false, confirmado: true }, 400, 1);
-  assert.match(gracia!, /EN PERÍODO DE GRACIA/);
-  assert.match(gracia!, /📉 Anuncios: entregando/);
-  assert.ok(!/sin entregar/.test(gracia!), 'afirma que no entrega sin que Meta lo confirme');
-  assert.match(gracia!, /⚠️ Motivo de Meta: Riesgo de pago/);
-  assert.match(gracia!, /Hace 6 h 40 min que está así/);
-  // Un estado sin causa conocida: lo dice tal cual y NO inventa qué hacer.
+  assert.match(impago!, /^🔴 \*Meta frenó tus anuncios porque no pudo cobrarte\*\n🕐 Desde hace 35 min\n/);
+  assert.match(impago!, /mientras no se pague, no te entran leads de Meta/, 'no dice qué le pasa si no hace nada');
+  assert.match(impago!, /\nQué hacer:\n1\. Entra a la facturación de Meta: https:\/\/business\.facebook\.com\/billing_hub\n2\. Paga el saldo pendiente o cambia la tarjeta/, 'urge sin decir qué hacer, que es sólo ansiedad');
+  assert.match(impago!, /\n👉 El estado en MaKo: https:\/\/x\/integraciones\n\n— MaKo$/);
+  assert.ok(!/Motivo que da Meta/.test(impago!), 'repite el mismo dato dos veces');
+  // EL PERÍODO DE GRACIA: Meta no pudo cobrar y da unos días; los anuncios SIGUEN. El texto de antes decía «Anuncios: sin
+  // entregar» con un dato que lib/meta-health.ts deduce de la severidad, no que Meta confirme. Ahora no lleva ese renglón.
+  for (const entregaFrenada of [false, true]) {
+    const gracia = await loQueSale({ statusLabel: 'En período de gracia', disableReason: 'Riesgo de pago', entregaFrenada, confirmado: true }, 400, 1);
+    assert.match(gracia!, /^🟡 \*Meta no pudo cobrar tu cuenta publicitaria\*\n/);
+    assert.match(gracia!, /Por ahora tus anuncios siguen saliendo, pero Meta da unos días para pagar: si no se paga, los frena\./);
+    assert.ok(!/sin entregar|per[ií]odo de gracia|[A-ZÁÉÍÓÚÑ]{5,}/.test(gracia!), `jerga, mayúsculas o «sin entregar» en el período de gracia: «${gracia}»`);
+    assert.match(gracia!, /📋 Motivo que da Meta: Riesgo de pago/);
+    assert.match(gracia!, /🕐 Desde hace 6 h 40 min\n/);
+  }
+  // «Desde hace 0 min» (ws1, 14/11/2026): con menos de un minuto, el renglón se va.
+  const recien = await loQueSale({ statusLabel: 'Saldo impago', disableReason: null, entregaFrenada: true, confirmado: true }, 0, 0);
+  assert.ok(!/Desde hace/.test(recien!), `«Desde hace 0 min»: «${recien}»`);
+  // Un estado sin causa conocida: lo dice tal cual y NO inventa la causa (ni «no pudo cobrar» ni «deshabilitó»).
   const otro = await loQueSale({ statusLabel: 'Cerrada (cualquiera)', disableReason: null, entregaFrenada: true, confirmado: true }, 20, 0);
-  assert.match(otro!, /^🚨 \*Tu cuenta publicitaria tiene un problema\*\n📋 Estado en Meta: Cerrada \(cualquiera\)\n/);
-  assert.ok(!/✅/.test(otro!), 'inventó qué hacer para un estado que no conoce');
+  assert.match(otro!, /^🔴 \*Tu cuenta publicitaria tiene un problema en Meta\*\n📋 Estado en Meta: Cerrada \(cualquiera\)\n/);
+  assert.ok(!/cobr|deshabilit|pag/i.test(otro!), 'inventó la causa de un estado que no conoce');
 });
 
 // Rotura: el techo en ≤ 30 → 38 / 2, caen éste y el 6 de tests/dato-evento.test.ts.
