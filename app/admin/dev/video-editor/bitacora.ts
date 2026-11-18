@@ -846,6 +846,25 @@ export const BITACORA: Hito[] = [
       'app/video-generator/EditorAnuncio.tsx · editor-cortes.ts — las flechas y el deshacer que apila al soltar',
       'tests/video-avatar-no-saca-anuncios.test.ts · video-editor-miniatura-nuevo.test.ts · video-montaje-duraciones.test.ts · editor-anuncio-gesto.test.ts · editor-cortes.test.ts',
     ],
+    commits: [
+      { sha: 'cd15ed1b', msg: 'Video: los avatares ya no sacan anuncios, «Nuevo video» dibuja sus plantillas y los cortes se mueven con el teclado', lineas: 997, archivos: 22 },
+    ],
+    revisar: '/video-editor',
+  },
+  {
+    fecha: '18 nov', hora: '—', chat: 'Nube › Construir: Video', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Seis plantillas de anuncio nuevas, cada una con su ejemplo',
+    puntos: [
+      '«Nuevo video» suma la respuesta a un comentario, el caso con números, la historia del fundador, el reel de 3 errores, el clip de podcast y el tour de propiedad, cada una con un ejemplo lleno de un negocio inventado.',
+      'Las tarjetas dibujan ese ejemplo, no rectángulos con un nombre.',
+      '«Gancho escrito» y «Oferta con glitch» se fueron: eran iguales a su original. La máquina de escribir sigue, en el quiebre de la historia.',
+      'Todavía con muestras grises en los clips: faltan los videos de ejemplo con su crédito.',
+    ],
+    archivos: [
+      'lib/editor-video/plantillas.ts · plantillas-ejemplos.ts · plantillas-etiquetas.ts — el catálogo, los ejemplos y las sugeridas',
+      'app/video-editor/plantillas-crear.ts · miniatura-nuevo-video.tsx — la tarjeta dibuja el ejemplo',
+      'tests/video-editor-plantillas.test.ts · video-plantillas-ejemplos.test.ts · video-editor-plantillas-uso.test.ts · plantillas-sugeridas-editores.test.ts · video-editor-chat.test.ts · video-editor-miniatura-nuevo.test.ts',
+    ],
     revisar: '/video-editor',
   },
 ];

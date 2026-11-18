@@ -5131,6 +5131,40 @@ compilado) en `C:/dev/artefactos-pestanas/` (fuera del repo; LEEME.md ahí). Lo 
   aparece sólo como logo en una lista de íconos. El video estaba en la maqueta del onboarding, que arma otro chat. Antes de cambiar
   una página por una queja, se busca en el HTML publicado si lo que se describe está ahí.
 
+## Los tutoriales de cada pestaña en la app real: lib/tutoriales (18/11/2026, chat «Pestañas»)
+
+Martín: «los vamos a hacer con la app real». Un tutorial por pestaña en `lib/tutoriales/<pestaña>.ts`, con el formato de paso de
+la maqueta del onboarding (`sel`, `titulo`, `texto`, `sub`, `lado`, `haz`/`clic`, `antes`, `soloComputadora`). Las marcas
+viven en `lib/tutoriales/marcas.ts` y van en los componentes reales. Para probarlos, `C:/dev/artefactos-pestanas/medir-tutoriales.cjs`
+dibuja las pestañas con estos componentes, sin las marcas de la maqueta, y mide a 1440 y a 390. Lo que no se ve leyendo el código:
+
+- **Ya había TRES formatos de recorrido y ninguno era éste.** Estaban `PasoRecorrido` (app/_ui/Recorrido.tsx: Automations, la ficha
+  de Spy, la ficha del CRM, el curso y el Dashboard), la guía por objetivos (`GuiaDeTab`, lib/guia: Ops Center, CRM, Calendario e
+  Image) y los checklists de arranque, que no señalan nada. Los de las pantallas de adentro no se copiaron: `lib/tutoriales/de-siempre.ts`
+  los LEE de sus archivos y los pasa al formato nuevo, con `estado`. Así hay una sola fuente mientras el motor viejo siga vivo.
+- **No existe un interruptor «sólo la revisión de Martín».** `esCuentaDeRevision` y `enRevision` son la cuenta demo de las
+  tiendas. Las marcas y los datos no cambian nada en pantalla, así que salen sin interruptor: lo necesita el MOTOR que los muestra.
+- **Agregar un atributo en el medio de un JSX rompe los tests que fijan su texto exacto.** Pasó en 6 tests: crm-feedback-22-10,
+  integraciones-vercel, la portada de Copywriting, la de Web, `soloVista` del Plan y el teléfono de Web. El atributo nuevo va donde no
+  parte lo que fijan (antes del `onClick`, o al final). Antes de subir, se corren los tests que nombran el archivo
+  (`grep -l <ruta-sin-extensión> tests/*.test.ts`): fueron 47 y tardan segundos. Uno es peor: tests/lienzo-sexta-tanda.test.ts
+  TOPEA EL LARGO de la cabecera de app/automations/SecuenciaPerfil.tsx. Ahí no entra ni un atributo, y «Publicar» se quedó sin marca.
+- **Las marcas del recorrido viejo de Automations no existen fuera del recorrido.** `marcar()` (recorrido-automations.ts) las pone
+  recién al abrirse, buscando por `DONDE`. Varias se reconocen sólo por el TEXTO: el nodo CONDITION, el AI STEP (`[data-nodo]` no dice
+  su tipo) y «Publicar». Esos tres pasos quedaron afuera del tutorial del lienzo hasta que tengan una marca fija.
+- **La grilla de Integraciones muestra 12 «Sin conectar» y después «Mostrar más integraciones».** Calendly, Stripe y Panda quedan detrás:
+  su paso lleva `antes` (`tour-int-mas`). Con un HTML estático el clic no abre nada, así que se midió dibujándola ya abierta (un
+  parche del dibujante con `MK_INT_TODAS=1`). Google Calendar no es una tarjeta (`oculto` en el catálogo): no hay `tour-int-google-calendar`.
+- **Los selectores de la maqueta traían DATOS**: `[data-lead-id="101"]`, `[data-prioridad="101"]`, «R1 con Gabriela Ortiz», «Marcar
+  «Conectar la agenda»». En la app real son «el primero de su tipo»: la marca va en TODAS las tarjetas y `querySelector` toma la primera.
+- **Una lista de selectores evita tocar componentes**: `'[data-colkey="ganado"], [data-kb-col="ganado"]'`. La computadora y el teléfono
+  escriben atributos distintos para la misma columna; con la coma, el mismo paso anda en los dos.
+- **Los pasos que arrancan FUERA de la pantalla**: la columna Ganado, la respuesta rápida de Offer en el teléfono, las integraciones de
+  abajo y la grilla de Spy. El motor los tiene que llevar a la vista (`scrollIntoView`); el de la maqueta no lo hacía.
+- **Lo que falta**: los tutoriales de las pestañas que todavía no tienen uno, que son Chats, las sub-pestañas de Classroom, las
+  secciones de Settings, MaKo Partners, Agency, API y Report a problem (la lista entera está en C:/dev/artefactos-pestanas/archivos.json).
+  Falta también medir los de adentro (`estado`) con su pantalla dibujada, y medir en el teléfono el Ops Center, Calendar, Video, Image y la Ticketera.
+
 ## Una captura «de teléfono» con `--window-size=390` miente: el Edge sin ventana tiene un ancho mínimo (24/10/2026)
 
 **El síntoma:** las fotos del arnés de Chats a 390 × 844 salían con las burbujas cortadas a la derecha y el botón del

@@ -4,6 +4,31 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+## La landing sirve y cuenta su prueba A/B (O18, L2; 18/11/2026)
+
+**Vive en:** `lib/editor-landing/prueba-landing-servir.ts` (qué rama se le sirve a un pedido, sin base), `lib/editor-landing/prueba-landing-server.ts`
+(las piezas reales), `lib/editor-landing/pagina-publica.ts` (`dep.probar`), las rutas `app/l/[slug]`, `app/l/[slug]/[ruta]` y el dominio propio
+(`app/api/landing-generator/dominio`), `lib/pruebas/medidores-landing*.ts` y el cron `app/api/cron/pruebas`. **Lo fija:** `tests/pruebas-landing.test.ts`.
+
+- **Con prueba, la respuesta es privada para TODO pedido**, también lo de MaKo que va fijo a A: desde el 12/11 la publicada se guarda 30 s
+  en el borde de Vercel (`CACHE_BORDE`), y un A guardado ahí se lo daría a todos sin repartir. Sin prueba, nada cambia. Por lo mismo, la
+  lectura de la prueba en cada pedido (lo que la crítica 27 quería evitar con una marca en la fila, que es una migración) corre sólo en
+  los pedidos que llegan a la función.
+- **Una B armada sobre otra versión, o con otra estructura, no se sirve NI SE ASIGNA.** Se revisa antes de `servirRama`: una persona
+  contada en B que vio A ensucia la prueba. La estructura de A sale CRUDA de la fila (`SitioPublico.estructura`): `leerFoto` no copia
+  `pagos` ni `htmlLibre`, y sin ellos dos pagos distintos daban «igual». Publicar a mano además detiene la prueba (`publicar`).
+- **El servidor asigna antes de que corra el Pixel**, así que un bot o la vista previa de WhatsApp reciben rama y nunca ven la página. El
+  medidor los devuelve `cuenta: false` y `conteosPorRama` los saca del denominador sin tomarlos como un hueco (un hueco sigue haciendo
+  fallar la lectura). El denominador es quien tiene una visita de ESA landing desde que se asignó.
+- **La rama que ya vio viaja en `mko_ab_<prueba>`** (HttpOnly, del servidor) y `ramaParaServir` la respeta como `preferida` si está
+  activa: Safari borra a los 7 días la cookie del visitante (la escribe el Pixel por JavaScript) y la huella del id nuevo podía mandarla
+  a la otra versión. La primera rotura de ese test quedó en verde: la unidad de ejemplo caía en B por la huella.
+- **`clic_conversion` cuenta sólo los destinos congelados**, con su query, su ancla o su subruta, y no uno que sólo empieza igual.
+- **Sin hacer:** nada crea una prueba de landing todavía (ni pantalla ni API): una prueba existe sólo si alguien la crea, y la primera en
+  público espera el sí de Martín (M1). Tampoco: la vista previa `?variante=B`, servir la ganadora después de concluir (hoy vuelve a
+  servirse lo publicado), los guardrails «agendó» y «pagó» por visitante, el dominio propio en el medidor (como el Análisis) y todo L3
+  (el agente que propone variantes).
+
 ## Lo que ve la PC y no GitHub (16/11/2026)
 
 - **Los tests que arman su lista con `git ls-files` no ven un archivo NUEVO sin commitear** (tests/cuenta-revision-escrituras): verde
@@ -285,7 +310,7 @@ La tarjeta «A/B TEST» y sus puertas están en docs/hallazgos-chatbot.md («La 
 - **El plan de una prueba de «Agendó» usa la tasa de «Respondió»** (`historiaDe`, lib/pruebas/automatizacion.ts): el n del
   plan queda corto, y la prueba llega antes a su horizonte con menos potencia. El juez sigue mirando una sola vez (no
   inventa ganadores), pero ve menos. Falta leer la tasa de agenda de la automatización.
-- **Landings** tiene las firmas y el store (25/10): sus medidores van en `MEDIDORES.landing` del cron.
+- ~~**Landings** tiene las firmas y el store (25/10): sus medidores van en `MEDIDORES.landing` del cron.~~ (18/11/2026, O18: están; ver «La landing sirve y cuenta su prueba A/B», arriba).
 
 ## Mirar todos los días miente: 10 a 35 % de falsos ganadores con el volumen de MaKo (25/10/2026)
 

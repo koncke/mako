@@ -8,21 +8,26 @@
 // reclama la prueba).
 //
 // LOS MEDIDORES, por superficie y por métrica, los pone cada una: Automations («respondio», «agendo», «pago»:
-// lib/pruebas/medidores-automatizacion.ts) y Landings («clic_conversion», «optin», «play_manual»). Sin medidor, la lectura
-// de esa prueba queda fallida y no decide nada.
+// lib/pruebas/medidores-automatizacion.ts) y Landings («clic_conversion», «optin», «play_manual»: lib/pruebas/medidores-landing.ts).
+// Sin medidor, la lectura de esa prueba queda fallida y no decide nada.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { correrPruebas, type Medidores } from '@/lib/pruebas/corrida';
 import { MEDIDORES_AUTOMATIZACION } from '@/lib/pruebas/medidores-automatizacion';
+import { MEDIDORES_LANDING } from '@/lib/pruebas/medidores-landing';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-/** Los medidores de cada superficie, por clave de métrica. Landings suma los de la landing (`landing`, `portada_mako`). */
+/**
+ * Los medidores de cada superficie, por clave de métrica. Los de la landing (O18, 18/11/2026: lib/pruebas/medidores-landing.ts)
+ * miden las páginas de Web Generator; `portada_mako` todavía no tiene quién la sirva, así que tampoco medidor.
+ */
 const MEDIDORES: Medidores = {
   automatizacion: MEDIDORES_AUTOMATIZACION,
+  landing: MEDIDORES_LANDING,
 };
 
 export async function GET(request: NextRequest) {

@@ -1386,6 +1386,7 @@ PROPONE agregar tareas al plan: deja un BORRADOR con las tareas. Úsala cuando p
 | `tareas.proyecto` | string | no | NOMBRE legible del proyecto (nunca un id). Si ya existe, el nombre exacto de listar_tareas_plan. Es una propuesta: no le digas a la persona en qué proyecto quedó. |
 | `tareas.deadline` | string | no | fecha límite AAAA-MM-DD, solo si la dijeron. |
 | `tareas.prioridad` | string (alta \\| media \\| baja \\| futuro) | no | se ignora al aplicar: la tarea entra sin prioridad. |
+| `tareas.recurrente` | boolean | no | true SOLO si se repite para siempre (la junta de los miércoles); va sin deadline. |
 
 ```bash
 curl -L \
@@ -17746,7 +17747,7 @@ PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el na
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
-| `id` | string (gancho \\| gancho-escrito \\| testimonio \\| antes-despues \\| beneficios \\| oferta \\| oferta-glitch) | sí | La plantilla (listar_plantillas_video). |
+| `id` | string (gancho \\| respuesta-comentario \\| beneficios \\| testimonio \\| caso-numeros \\| historia \\| tres-errores \\| clip-podcast \\| oferta \\| tour-propiedad \\| antes-despues) | sí | La plantilla (listar_plantillas_video). |
 | `textos` | object[] | no | Opcional: lo que dicta la persona para cada hueco de texto. |
 | `textos.hueco` | string | sí | El nombre del hueco de texto. |
 | `textos.texto` | string | sí | Lo que dice, hasta el máximo del hueco. |

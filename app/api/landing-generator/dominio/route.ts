@@ -36,6 +36,7 @@ import { HEADER_DOMINIO, conEnlacesDelDominio, dominioValido, hostDeCabecera, pe
 import { leerPublicado } from '@/lib/editor-landing/publicar';
 import { urlLandingEn } from '@/lib/editor-landing/origen-landings';
 import { APP_BASE_URL, basesLandings } from '@/lib/app-url';
+import { probarLanding } from '@/lib/editor-landing/prueba-landing-server';
 import { CACHE_ERROR, paginaNoDisponible, paginaNoEncontrada, responderPublico } from '@/lib/editor-landing/pagina-publica';
 import { responderPasoPago } from '@/lib/editor-landing/pago-pagina';
 import { estadoCobroLanding, leerLandingDePago, temaDelPaso } from '@/lib/editor-landing/pago-landing-server';
@@ -119,6 +120,12 @@ export async function GET(req: NextRequest) {
   // En el dominio, la canónica es la del dominio, y los enlaces entre páginas (que la foto trae con la
   // URL de MaKo) se reescriben al servir: `conEnlacesDelDominio` dice por qué no al publicar.
   const base = urlDeDominio(host);
+  // Cada base donde la foto pudo quedar escrita: hola-mako.site (tanda 4) y hola-mako.com/l (antes).
+  const delDominio = (html: string) => {
+    for (const b of basesLandings()) html = conEnlacesDelDominio(html, urlLandingEn(b, slug), base);
+    return html;
+  };
+  let servido: Awaited<ReturnType<typeof leerPublicado>> = null;
   return responderPublico(req, { tipo: 'pagina', slug, ruta, base }, {
     leer: async () => {
       const sitio = await leerPublicado(slug, ruta);
@@ -126,10 +133,13 @@ export async function GET(req: NextRequest) {
       // viejo: si OTRA landing lo tomó en el medio, la lectura por slug traería la suya. Sólo se sirve
       // la landing de ESTE dominio (revisión de la tanda 2, BAJA).
       if (!sitio || sitio.docId !== docId) return null;
-      // Cada base donde la foto pudo quedar escrita: hola-mako.site (tanda 4) y hola-mako.com/l (antes).
-      let html = sitio.pagina.html;
-      for (const b of basesLandings()) html = conEnlacesDelDominio(html, urlLandingEn(b, slug), base);
-      return { ...sitio, pagina: { ...sitio.pagina, html } };
+      servido = { ...sitio, pagina: { ...sitio.pagina, html: delDominio(sitio.pagina.html) } };
+      return servido;
+    },
+    // La prueba A/B (O18), igual que en /l: la rama de este visitante, con sus enlaces reescritos al dominio.
+    probar: async () => {
+      const r = servido ? await probarLanding(servido, ruta, req) : null;
+      return r ? { ...r, lectura: { ...r.lectura, pagina: { ...r.lectura.pagina, html: delDominio(r.lectura.pagina.html) } } } : null;
     },
   });
 }
