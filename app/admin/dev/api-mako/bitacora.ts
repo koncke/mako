@@ -669,4 +669,27 @@ export const BITACORA: Hito[] = [
     revisar: '/api-mako?tab=docs',
     tickets: [74, 69],
   },
+  {
+    fecha: '18 nov', hora: '05:25', chat: 'API de MaKo', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La API ya edita con IA una automatización ya armada, carga guiones por WhatsApp y HTTP y rehace las motivaciones de compra sin borrar guiones',
+    puntos: [
+      '**Editar con IA una automatización con ramas** (`editar_armada_con_ia`): el «Editar» del chat del lienzo vivía adentro de su ruta y se mudó a lib/flujo-ia-editar.ts. Propone por chat con la firma de lo publicado; al confirmar crea las etiquetas nuevas y publica, y si alguien la tocó en el medio no aplica nada. Va por `chat` y no por `pantalla` porque la pantalla genérica vuelve a correr `preparar`, que acá corre el modelo.',
+      '**Cargar guiones** (`cargar_guiones_anuncio`, WhatsApp y HTTP): por la app ya estaba `cargar_guion_propio`. El orquestador salió de la server action a lib/guiones-cargar.ts, y ahora lee la matriz en estricto y la relee después de la IA: con la base caída un instante, cargar un guion podía borrar todos los anuncios.',
+      '**Rehacer las motivaciones** (`generar_anuncios_planteados`): funde en vez de reemplazar (lib/razones-fundir.ts). Lo que tiene guiones, formato o imagen se queda con su id; lo vacío se reemplaza, hasta 3 por avatar.',
+      '**El nombre del pendiente sacaba al CRON del chat**: con el id `editar_automatizacion_con_ia`, `cambiar_crons_secuencia` quedaba con -923 caracteres de margen. Con `editar_armada_con_ia`, 310 (lo mismo que sin ella).',
+      'Lo que no se hizo: «Generar» en la pantalla del onboarding sigue reemplazando la matriz entera (decide Martín).',
+    ],
+    commits: [
+      { sha: '65c097488', msg: 'API de MaKo: editar con IA una automatización ya armada, cargar guiones y rehacer las motivaciones sin borrar guiones', lineas: 1905, archivos: 35 },
+    ],
+    archivos: [
+      'lib/flujo-ia-editar.ts — el motor de editar con IA, para la ruta del lienzo y para la API',
+      'lib/guiones-cargar.ts — la carga de guiones, para el botón del Video Generator y para la API',
+      'lib/razones-fundir.ts · lib/razones.ts — fundir la matriz (`regenerarMatrizSinPerder`, `getRazonesEstricto`)',
+      'lib/api-mako/areas/chatbot.def.ts · chatbot.run.ts · contenido.def.ts · contenido.run.ts · registro.ts · rest.ts · flujo.ts — las tres operaciones',
+      'tests/api-acciones-octubre.test.ts — las tres por las funciones reales de la API (6/6; probado rompiéndolo: 6 roturas, las 6 rojas)',
+      'tests/razones-fundir.test.ts — la fusión (6/6; 4 roturas, las 4 rojas)',
+    ],
+    revisar: '/api-mako?tab=docs',
+  },
 ];
