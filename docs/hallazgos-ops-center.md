@@ -739,3 +739,22 @@ funnel van en DOS chats. Volvieron, sólo para quien ve el V2 (`lib/onboarding-v
   chat único con su contexto: el diagnóstico lo escribe el modelo, no el motor de Offer.
 - **El video de cada coach es un `<video>` suelto** (`app/_ui/tutorial/VideoDelMomento.tsx`): la última frase del manifiesto, que
   marca `sb-escribir`, no se dibuja como marca. Eso lo hace el motor de los tutoriales.
+
+**Después del primer rojo (18/11/2026, la misma tarde):**
+- **El rojo de `tests/m-chat-pantalla.test.ts` NO era que el Offer Coach volviera a ser una hoja** (la lectura obvia, por el nombre
+  del test: «ninguna conversación del Ops Center del teléfono vuelve a la hoja»). `app/m/second-brain/HojaDelCoach.tsx` seguía con
+  `PantallaChatM`, como main; lo que cambió es el `id`, que pasó de `"funnel-coach"` fijo a `{tab}` (cada coach el suyo), y el test
+  fijaba el literal. **Regla:** antes de «arreglar» un rojo por su título, mirar QUÉ comparó (aquí, un regex con el id escrito).
+- **La marca a Funnel Coach, recién cuando la persona VIO su oferta** (Martín, sobre la maqueta: «apenas me la manda
+  automáticamente ya sale el botón para hacer clic en Funnel Coach… mínimo déjame verla»). En la app nada la disparaba al entregar
+  la oferta: sólo el chat del reto, al abrirse. Ahora sale desde donde se entrega (`app/second-brain/reto/usePasoAlFunnel.ts`): el
+  Offer Coach (relee la oferta al terminar cada turno: una que aparece o cambia es una entrega) y la conversación de oferta del PDF
+  (una versión nueva). Espera un gesto (descargar el PDF, bajar hasta el final, escribir) o 20 s (`marcaAlFunnelYa`,
+  lib/reto/dias.ts), nunca con MaKo escribiendo, con la tarjeta DEBAJO de la fila (a la derecha tapaba el principio del chat) y
+  sólo si la fila se ve.
+  - ⚠️ **Dos trampas que daban la marca en el acto igual:** (1) «escribió» contado como «hay un turno corriendo»: mientras Offer arma
+    la oferta la conversación YA está ocupada, así que la entrega llegaba con el gesto hecho. Cuenta un turno que EMPIEZA después.
+    (2) Bajar al último mensaje lo hace la pantalla sola (`scrollTop = scrollHeight` en cada mensaje): un `scroll` sin rueda, dedo o
+    tecla en el último segundo no es la persona.
+  - Lo que falta: en la maqueta (C:/dev/artefactos-onboarding/cuerpo.html, después de `oferta-lista`) la marca sigue saliendo en el
+    acto; es del chat de la maqueta.

@@ -58,6 +58,7 @@ test('el video y la marca van juntos: las frases del manifiesto, con su pausa y 
   assert.equal(f[1].cierra_despues, true);
   assert.equal(f[2].espera_clic, false, '«Mira aquí»: marca sin pausar');
   assert.equal(f[2].cierra_despues, false, 'sin el campo, no cierra nada');
+  assert.equal(frasesDe([{ id: 'qr', t_inicio: 1, t_fin: 2, texto: 'Escanea el QR', sel: 'img.aj-telefono__qr', espera_clic: false, espera_siguiente: true }])[0].espera_clic, true, 'espera_siguiente: una «mira» que espera');
   const nada = new Set<string>();
   assert.equal(fraseParaMarcar(f, 3, nada), null, 'una frase sin sel no marca');
   assert.equal(fraseParaMarcar(f, 6.2, nada)?.id, 'b');
@@ -118,4 +119,19 @@ test('el recorrido aprobado en la app: sus pasos, sus marcas en los componentes 
   const grafo = leer('app/second-brain/Grafo.tsx');
   assert.match(grafo, /className="cbg-marco" data-recorrido="sb-grafo"/);
   assert.match(grafo, /aria-label="Volver a la lista" data-recorrido="sb-brain-volver"/);
+});
+
+test('el video siempre a la vista y el del día paso a paso (Martín, 18/11)', async () => {
+  const { DIAS_RETO, tutorialDelDia } = await import('../lib/reto/dias');
+  const t2 = tutorialDelDia(DIAS_RETO[1]);
+  assert.equal(t2.pestana, 'reto-dia-2', 'el tutorial del día lleva la key de su video');
+  assert.ok(t2.pasos.length >= 4 && t2.pasos.every((p) => p.sel && p.titulo), 'sus pasos son las marcas de sus tareas, en orden');
+  const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
+  const reto = leer('app/second-brain/reto/ChatDelReto.tsx');
+  assert.match(reto, /mostrarTutorial\(tutorialDelDia\(dia\), \{ video: dia\.video, directo: true \}\)/, 'con frases, el video del día lo pasa el motor');
+  assert.match(reto, /useVideoQueFlota\(ref, v \? dia\.video : null/, 'el del día flota al salir de la vista');
+  assert.match(leer('app/_ui/tutorial/VideoDelMomento.tsx'), /useVideoQueFlota\(ref, v \? clave : null, titulo\)/, 'los del onboarding también');
+  const motor = leer('app/_ui/tutorial/MotorTutorial.tsx');
+  assert.match(motor, /senal\.tipo === 'video' && <VideoFlotante/, 'el flotante lo dibuja el motor');
+  assert.match(motor, /Date\.now\(\) - w\.desde > 4000/, 'un lugar de otra página se espera unos segundos antes de saltearlo');
 });

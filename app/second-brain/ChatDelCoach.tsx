@@ -29,12 +29,13 @@ import { ElegirReferente } from './ElegirReferente';
 import { BotonSecondBrainDe, CerebroDelGuru } from './SuSecondBrain';
 import { useChatDelCoach } from './useChatDelCoach';
 import { useVideoDelCoach } from './VideoDelCoach';
+import { usePasoAlFunnel } from './reto/usePasoAlFunnel';
 import { VistaDelPlan } from './VistaDelPlan';
 import type { CoachDelOps } from '@/lib/chat-mako-reglas';
 import { inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import type { OfertaDelCoach } from '@/lib/funnel-plan';
 
-export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver, cual = 'funnel', dosCoaches = false }: {
+export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVolver, cual = 'funnel', dosCoaches = false, visible = false }: {
   referente: IdAsesor | null;
   /** Con qué oferta abre (lib/funnel-plan.ts → `ofertaDelCoach`); null = todavía no se sabe. */
   oferta: OfertaDelCoach | null;
@@ -46,10 +47,14 @@ export function ChatDelCoach({ referente, oferta, puedeElegir, onReferente, onVo
   cual?: CoachDelOps;
   /** El onboarding V2: los dos coaches separados (lo decide el servidor, app/second-brain/page.tsx → `retoV2`). */
   dosCoaches?: boolean;
+  /** Está a la vista (queda montado y escondido): el paso a Funnel Coach sólo corre con el Offer Coach en pantalla. */
+  visible?: boolean;
 }) {
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  const { k, r, aspecto, quien, vacio, saludo, plan, titulo, tab } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
+  const { k, r, aspecto, quien, vacio, saludo, plan, titulo, tab, entregadaEn, ocupado } = useChatDelCoach({ referente, oferta, caja, cual, dosCoaches });
+  // Con la oferta entregada, la marca a Funnel Coach, recién cuando la persona la vio (Martín, 18/11: «mínimo déjame verla»).
+  usePasoAlFunnel({ activo: dosCoaches && cual === 'offer' && visible, entregadaEn, ocupado, contenedor: useCallback(() => hilo.current, []) });
   const portada = useVideoDelCoach(cual, dosCoaches, saludo);
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo]);
   const seguirHilo = useCallback(() => hilo.current, []);

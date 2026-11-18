@@ -55,6 +55,18 @@ export const RETO_HOLA = (nombre: string) => `¡Hola${nombre ? `, ${nombre}` : '
 /** «En X › Y»: la ruta va aparte para que empiece por la tab de la barra (tests/mako-nombres-de-tabs.test.ts). */
 const en = (ruta: string): string => `En ${ruta}`;
 
+/**
+ * El video de un día del reto como TUTORIAL (Martín, 18/11: «que el video del día 2 pause en cada cosa que pide»): sus pasos son las
+ * marcas de sus tareas, en orden. Con frases con `sel` en el manifiesto, el motor marca cada lugar cuando la voz lo nombra y pausa
+ * hasta el clic (app/_ui/tutorial/MotorTutorial.tsx); el video corre en el cuadrito de abajo a la derecha, que sigue al navegar.
+ */
+export function tutorialDelDia(d: DiaReto): import('@/lib/tutoriales').TutorialPestana {
+  return {
+    pestana: d.video, nombre: `Día ${d.n}`, ruta: '/second-brain', intro: d.mensaje,
+    pasos: d.tareas.flatMap((t) => t.marcas.map((m) => ({ sel: m.sel, titulo: m.titulo, texto: m.texto, ...(m.lado ? { lado: m.lado } : {}) }))),
+  };
+}
+
 export const DIAS_RETO: readonly DiaReto[] = [
   {
     // DOS TAREAS, EN ORDEN (18/11/2026; Martín, 15/11: «al terminar el onboarding, Oferta y Funnel Coach en DOS chats separados»): la
@@ -72,9 +84,11 @@ export const DIAS_RETO: readonly DiaReto[] = [
   },
   {
     n: 2, titulo: 'Conecta todo: la app, la extensión y tus integraciones', video: 'reto-dia-2',
-    mensaje: 'Día 2: conectamos todo, de a un paso. Primero MaKo en tu teléfono; después la extensión para Chrome y tus integraciones.',
+    mensaje: 'Día 2: conectamos todo, de a un paso. Primero la app de MaKo en tu teléfono; después la extensión para Chrome y tus integraciones.',
     tareas: [
-      { id: 'app', titulo: 'MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR: los avisos de tu negocio, al instante.',
+      // Martín, 18/11: «MaKo con tu teléfono» no se entiende, «pareciera que está hablando de MaKo con WhatsApp otra vez… es la
+      // aplicación de MaKo en tu teléfono». Se nombra la APP, aparte de MaKo por WhatsApp.
+      { id: 'app', titulo: 'La app de MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR e instala la app de MaKo: los avisos de tu negocio, al instante. Es aparte de MaKo por WhatsApp.',
         marcas: [
           { sel: conMarca(MARCA.barraFoto), titulo: 'Tu cuenta', texto: 'Lo de tu cuenta está en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
@@ -206,6 +220,33 @@ export function diaAbierto(e: EstadoReto, ahora: number): number {
 
 export const claveTarea = (dia: number, id: string) => `${dia}:${id}`;
 export const tareaHecha = (e: EstadoReto, dia: number, id: string) => !!e.hechas[claveTarea(dia, id)];
+
+// ── El paso de Offer Coach a Funnel Coach (18/11/2026) ────────────────────────────────────────────────────────────────────────
+// Martín, sobre la maqueta: «me manda la oferta con el PDF para descargar… pero apenas me la manda automáticamente ya sale el botón
+// para hacer clic en Funnel Coach. Eso no tiene sentido… mínimo déjame verla». La marca de la segunda tarea del día 1 sale desde el
+// Offer Coach (app/second-brain/reto/usePasoAlFunnel.ts) recién cuando la persona VIO la oferta: hizo algo con ella (descargó el
+// PDF, bajó hasta el final o escribió) o pasó un tiempo de lectura. Nunca en el acto, nunca con MaKo escribiendo.
+
+/** Lo que tarda en leerse una oferta entregada antes de marcar Funnel Coach sin que la persona haga nada. */
+export const LECTURA_DE_LA_OFERTA_MS = 20_000;
+
+/** ¿Ya se marca Funnel Coach? `entregadaEn`: cuándo se entregó la oferta (null = no se entregó en esta visita). */
+export function marcaAlFunnelYa(p: { entregadaEn: number | null; ahora: number; gesto: boolean; ocupado: boolean }): boolean {
+  if (p.entregadaEn == null || p.ocupado) return false;
+  return p.gesto || p.ahora - p.entregadaEn >= LECTURA_DE_LA_OFERTA_MS;
+}
+
+/** La oferta del Offer Coach, como la cuenta para saber si se acaba de entregar (lib/funnel-plan.ts → OfertaDelCoach). */
+type OfertaVista = { estado: 'hay'; nombre: string; de: string } | { estado: 'no-hay' } | { estado: 'no-se' };
+
+/**
+ * ¿Se acaba de entregar una oferta? Lo que había al abrir el chat contra lo que hay después de un turno: una oferta que aparece o
+ * cambia (otro nombre, o pasó de armada a guardada). La del perfil no cuenta (nadie la armó), y «no se sabe» nunca es una entrega.
+ */
+export function ofertaRecienEntregada(antes: OfertaVista | null, ahora: OfertaVista | null): boolean {
+  if (!antes || !ahora || ahora.estado !== 'hay' || ahora.de === 'perfil' || antes.estado === 'no-se') return false;
+  return antes.estado !== 'hay' || antes.nombre !== ahora.nombre || antes.de !== ahora.de;
+}
 
 export type EstadoDia = 'hecho' | 'medias' | 'hoy' | 'luego';
 

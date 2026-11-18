@@ -9,15 +9,20 @@
 //   onboarding-seguir-pc (el teléfono: «Sigamos en tu computadora»), offer-coach y funnel-coach (la entrada a cada coach).
 // Sin video para esa clave, NADA (nunca otro en su lugar). En la revisión de Martín, su lugar marcado: así ve dónde va.
 // =============================================================================
+import { useRef } from 'react';
 import { useVideoTutorial } from './useVideoTutorial';
+import { useVideoQueFlota } from './useVideoQueFlota';
 
 export function VideoDelMomento({ clave, titulo, revision }: { clave: string; titulo: string; revision: boolean }) {
   const v = useVideoTutorial(clave);
+  const ref = useRef<HTMLVideoElement>(null);
+  // Si sale de la vista corriendo (o se navega), sigue abajo a la derecha (Martín, 18/11).
+  useVideoQueFlota(ref, v ? clave : null, titulo);
   return (
     <>
       <style>{CSS}</style>
       {v
-        ? <video className="mk-vmom" data-clave={clave} src={v.archivo} poster={v.poster} controls playsInline preload="metadata" />
+        ? <video ref={ref} className="mk-vmom" data-clave={clave} src={v.archivo} poster={v.poster} controls playsInline preload="metadata" />
         : revision
           ? <div className="mk-vmom mk-vmom--lugar" data-clave={clave} role="note"><b>Tu video: {titulo}</b><span>Todavía no está grabado: va aquí.</span></div>
           : null}
