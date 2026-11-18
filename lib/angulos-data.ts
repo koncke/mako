@@ -49,7 +49,7 @@ export function formatoPorId(id: string): FormatoAngulo | undefined {
  *
  * Una celda suma como mucho 1 a cada formato (los ids de imagen y de video no se repiten). La celda virtual de los
  * guiones propios no es un anuncio planteado y no cuenta (`CELDA_GUIONES_PROPIOS`: lib/api-mako/areas/contenido.run.ts
- * la importa de acá; app/video-generator/cargar-guiones-action.ts tiene su propia copia, `CELDA_PROPIOS`). Un id que la
+ * y lib/guiones-cargar.ts —que escribe ahí los guiones que se cargan— la importan de acá). Un id que la
  * biblioteca no tiene no se cuenta.
  *
  * Reemplaza a la «recomendación de formatos» a nivel negocio, que se sacó el 23/10/2026: 0 negocios la tenían

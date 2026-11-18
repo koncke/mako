@@ -33,7 +33,10 @@
 
 import 'server-only';
 import type { Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
-import { siguientePasoOpciones, sugerirGuion, setEstadoGuion, borrarGuionDeCelda, editarTextoGuion, type RazonCelda } from '@/lib/razones';
+import { PREFIJO_FLUJO } from '../canal';
+import { siguientePasoOpciones, sugerirGuion, setEstadoGuion, borrarGuionDeCelda, editarTextoGuion, faltaParaGenerarRazones, regenerarMatrizSinPerder, type RazonCelda } from '@/lib/razones';
+import { queQuedaAlRegenerar } from '@/lib/razones-fundir';
+import { previoCarga, cargarGuiones, textoDeLink, NO_PUDE_LEER_GUIONES } from '@/lib/guiones-cargar';
 import { ESTADOS_GUION, esEstadoGuion, estadoMasAvanzado, type EstadoGuion, type GuionItem } from '@/lib/guion-estado';
 import { getAvatares, type Avatar } from '@/lib/avatares';
 import { getAngulosGuion } from '@/lib/guion-angulos-store';
@@ -80,6 +83,13 @@ const formatoCorto = (id: string): { id: string; nombre: string } | null => {
 const formatoLargo = (f: FormatoAngulo) => ({ id: f.id, medio: f.medio, nombre: f.nombre, descripcion: f.descripcion, ejemplo: f.ejemplo });
 
 const siguienteEstado = (e: EstadoGuion): EstadoGuion | null => ESTADOS_GUION[ESTADOS_GUION.indexOf(e) + 1] ?? null;
+
+/** Lo que tiene la IA cuando la acción se confirma por HTTP (/api/v1 corta a 60 s) y en el resto (/mako/revisar: 300 s). */
+const PLAZO_IA_HTTP_MS = 40_000;
+const PLAZO_IA_MS = 110_000;
+const hastaDe = (canal: string): number => Date.now() + (canal === 'http' ? PLAZO_IA_HTTP_MS : PLAZO_IA_MS);
+/** Unos nombres, para un resumen: los primeros seis y cuántos más. */
+const nombresDe = (xs: readonly string[]): string => `${xs.slice(0, 6).map((x) => `«${x}»`).join(', ')}${xs.length > 6 ? ` y ${xs.length - 6} más` : ''}`;
 
 const NO_PUDE_LEER = (err: unknown): string => `No pude leer los anuncios planteados del negocio (${fallo(err)}). No es que no haya: reintenta en un momento.`;
 
@@ -403,7 +413,7 @@ export const RUNNERS: Runners = {
         repetidos_en_el_texto: lista.filter((g) => g.repetido_en_el_texto).length,
         ya_guardados: lista.filter((g) => g.ya_guardado).length,
         guiones: lista,
-        nota: 'No se guardó nada. comienzo = primeros 160 caracteres. La carga se hace desde la tab (Video Generator → cargar guiones).',
+        nota: 'No se guardó nada. comienzo = primeros 160 caracteres. Para guardarlos: cargar_guiones_anuncio (por la app, cargar_guion_propio).',
       });
     },
   },
@@ -694,6 +704,92 @@ export const RUNNERS: Runners = {
       });
     },
   },
+  // ── Pendiente O19 (18/11/2026): cargar los guiones que trae la persona y rehacer las motivaciones ──────────────────
+  // CARGAR (P0-10). La MISMA carga que el botón del Video Generator (lib/guiones-cargar.ts; el botón entra por
+  // app/video-generator/cargar-guiones-action.ts). `preparar` sólo lee (el previo) y es determinista: la pantalla genérica
+  // lo vuelve a correr al confirmar con el texto que la persona corrigió. Un link se lee de nuevo al confirmar.
+  cargar_guiones_anuncio: {
+    preparar: async (input): Promise<Preparado> => {
+      let texto = str(input, 'texto');
+      const link = str(input, 'link');
+      if (!texto && link) {
+        const l = await textoDeLink(link);
+        if (!l.ok) return { error: l.error };
+        texto = l.texto.trim();
+      }
+      if (!texto) return { error: 'Falta el guion: pasa el texto (o un link público).', faltan: ['texto'] };
+      const r = await previoCarga(texto);
+      if (!r.ok) return { error: r.error, ...(r.error === NO_PUDE_LEER_GUIONES ? { falla: true } : {}) };
+      // Los repetidos DENTRO del texto se marcan y no se cargan (en la pantalla la persona los destilda; acá no hay casillas).
+      const guardados = new Set(r.previo.yaGuardados ?? []);
+      const unicos = r.previo.guiones.filter((g) => !g.duplicado);
+      // Lo que se va a guardar: ni repetido dentro del texto ni ya guardado (el resumen nombra SÓLO éstos: lo que queda).
+      const aGuardar = r.previo.guiones.filter((g, i) => !g.duplicado && !guardados.has(i));
+      const nuevos = aGuardar.length;
+      if (!nuevos) return { error: unicos.length === 1 ? 'Ese guion ya está guardado.' : 'Esos guiones ya están guardados.', yaEstaba: true };
+      const yaEstaban = unicos.length - nuevos;
+      const repetidos = r.previo.guiones.length - unicos.length;
+      const titulos = aGuardar.map((g) => g.titulo || corta(g.texto.replace(/\s+/g, ' '), 50));
+      return {
+        payload: { texto },
+        resumen: `Guardar ${nuevos === 1 ? 'un guion' : `${nuevos} guiones`} en «Guiones propios», en borrador: ${nombresDe(titulos)}.`
+          + `${yaEstaban ? ` ${yaEstaban === 1 ? 'Uno ya estaba guardado' : `${yaEstaban} ya estaban guardados`} y no se repite${yaEstaban === 1 ? '' : 'n'}.` : ''}`
+          + `${repetidos ? ` ${repetidos === 1 ? 'Uno se repite' : `${repetidos} se repiten`} dentro del texto y va una sola vez.` : ''}`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const texto = String(payload.texto ?? '');
+      const previo = await previoCarga(texto);
+      if (!previo.ok) return { ok: false, resumen: previo.error };
+      const indices = previo.previo.guiones.map((g, i) => (g.duplicado ? -1 : i)).filter((i) => i >= 0);
+      const r = await cargarGuiones(texto, indices, { hastaMs: hastaDe(ctx.canal) });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.cargados) return { ok: true, resumen: 'No guardé nada nuevo: esos guiones ya estaban guardados.', datos: { celdaId: CELDA_PROPIOS, guionIds: [] } };
+      return {
+        ok: true,
+        resumen: `Guardé ${r.cargados === 1 ? 'un guion' : `${r.cargados} guiones`} en «Guiones propios», en borrador${r.salteados ? (r.salteados === 1 ? ' (uno ya estaba)' : ` (${r.salteados} ya estaban)`) : ''}.`,
+        datos: { celdaId: CELDA_PROPIOS, guionIds: r.ids },
+      };
+    },
+  },
+
+  // REHACER LAS MOTIVACIONES (P0-11). `preparar` sólo lee (qué se queda y qué se reemplaza, sin IA); la IA corre al
+  // confirmar, en `regenerarMatrizSinPerder`, que relee la matriz en estricto DESPUÉS de la IA y funde (lib/razones-fundir.ts).
+  generar_anuncios_planteados: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      // Un flujo no la corre (lib/api-mako/flujo.ts → NO_EN_FLUJOS): un paso que rehace los anuncios cada vez que entra un
+      // lead gasta la IA del negocio y le saca lo que no tenía trabajo a quien lo estaba escribiendo. Esto frena un paso viejo.
+      if (ctx.canalKey.startsWith(PREFIJO_FLUJO)) return { error: 'Una automatización no puede rehacer tus anuncios: pídeselo a MaKo por el chat.' };
+      const avatarId = str(input, 'avatarId');
+      const falta = await faltaParaGenerarRazones();
+      if (falta) return { error: falta };
+      const [m, avatares] = await Promise.all([matriz(), getAvatares()]);
+      if ('error' in m) return { error: m.error, falla: true };
+      const av = avatarId ? avatares.find((a) => a.id === avatarId) : null;
+      if (avatarId && !av) return { error: `No hay un avatar con id «${avatarId}» en este negocio. Pide listar_anuncios_planteados.` };
+      const { conservadas, reemplazadas } = queQuedaAlRegenerar(m.razones, avatarId || null);
+      const quienes = av ? `el avatar «${av.nombre}»` : avatares.length === 1 ? 'tu avatar' : `tus ${avatares.length} avatares`;
+      return {
+        payload: avatarId ? { avatarId } : {},
+        resumen: `MaKo arma de nuevo las motivaciones de compra de ${quienes}, hasta 3 por avatar.`
+          + ` ${conservadas.length ? `Se quedan tal cual ${conservadas.length === 1 ? 'un anuncio' : `${conservadas.length} anuncios`} con guiones, formato o imagen: ${nombresDe(conservadas.map((c) => c.nombre))}.` : 'Ningún anuncio tiene guiones, formato ni imagen todavía.'}`
+          + `${reemplazadas.length ? ` Se reemplaza${reemplazadas.length === 1 ? '' : 'n'} ${reemplazadas.length === 1 ? 'uno' : reemplazadas.length} que todavía no tiene${reemplazadas.length === 1 ? '' : 'n'} nada: ${nombresDe(reemplazadas.map((c) => c.nombre))}.` : ''}`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const r = await regenerarMatrizSinPerder({ soloAvatar: str(payload, 'avatarId') || null, hastaMs: hastaDe(ctx.canal) });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      const f = r.fusion;
+      return {
+        ok: true,
+        resumen: `Listo: ${f.agregadas.length === 1 ? 'entró un anuncio planteado nuevo' : `entraron ${f.agregadas.length} anuncios planteados nuevos`}`
+          + `${f.conservadas.length ? `; ${f.conservadas.length === 1 ? 'se quedó uno' : `se quedaron ${f.conservadas.length}`} con su trabajo` : ''}`
+          + `${f.reemplazadas.length ? `; ${f.reemplazadas.length === 1 ? 'salió uno que no tenía nada' : `salieron ${f.reemplazadas.length} que no tenían nada`}` : ''}.`,
+        datos: { celdaIds: f.agregadas.map((c) => c.id) },
+      };
+    },
+  },
+
   // `crear_borrador_instagram` salió el 06/10/2026 con la tab Instagram: dejaba un
   // borrador en un programador que ya no existe (contenido_posts sin pantalla).
   // `recomendar_formatos_creativo` salió el 23/10/2026: pagaba IA por una lista de formatos a nivel negocio que
