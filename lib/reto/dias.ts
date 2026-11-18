@@ -66,9 +66,11 @@ export const DIAS_RETO: readonly DiaReto[] = [
   },
   {
     n: 2, titulo: 'Conecta todo: la app, la extensión y tus integraciones', video: 'reto-dia-2',
-    mensaje: 'Día 2: conectamos todo, de a un paso. Primero MaKo en tu teléfono; después la extensión para Chrome y tus integraciones.',
+    mensaje: 'Día 2: conectamos todo, de a un paso. Primero la app de MaKo en tu teléfono; después la extensión para Chrome y tus integraciones.',
     tareas: [
-      { id: 'app', titulo: 'MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR: los avisos de tu negocio, al instante.',
+      // Martín, 18/11: «MaKo con tu teléfono» no se entiende, «pareciera que está hablando de MaKo con WhatsApp otra vez… es la
+      // aplicación de MaKo en tu teléfono». Se nombra la APP, aparte de MaKo por WhatsApp.
+      { id: 'app', titulo: 'La app de MaKo en tu teléfono', donde: en('Settings › Instalar la app'), detalle: 'Escanea el QR e instala la app de MaKo: los avisos de tu negocio, al instante. Es aparte de MaKo por WhatsApp.',
         marcas: [
           { sel: conMarca(MARCA.barraFoto), titulo: 'Tu cuenta', texto: 'Lo de tu cuenta está en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'Todo lo de tu cuenta y tu negocio.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
