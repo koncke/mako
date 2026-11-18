@@ -19,12 +19,6 @@ export const porcentaje = (x: number): string => `${Math.round(x * 100)}%`;
 export const PORCENTAJE_DIRECTO = porcentaje(COMISION_PARTNER_DIRECTO);
 export const PORCENTAJE_PASARELA = porcentaje(COMISION_PARTNER_PASARELA);
 
-/** Las dos formas de pago, con su porcentaje. La primera es la de arranque de la calculadora. */
-export const CANALES: ReadonlyArray<{ id: CanalDelPago; texto: string }> = [
-  { id: 'directo', texto: `Binance o transferencia (${PORCENTAJE_DIRECTO})` },
-  { id: 'pasarela', texto: `Pasarela de pago (${PORCENTAJE_PASARELA})` },
-];
-
 /** US$ con centavos sólo si los hay: «US$ 29,10», «US$ 1.746». */
 export const usd = (n: number): string =>
   `US$ ${n.toLocaleString('es-AR', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;

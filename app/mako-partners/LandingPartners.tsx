@@ -75,27 +75,22 @@ body:has(.mp-publica) { background: #FFFFFF; }
 .mp-calc { border-radius: 24px; padding: 26px 26px 24px; color: var(--mp-sobre-azul);
   background: radial-gradient(420px 220px at 100% 0%, rgba(255,255,255,.16), transparent 70%), linear-gradient(140deg, var(--mp-azul) 0%, var(--mp-azul-osc) 100%);
   box-shadow: 0 26px 60px color-mix(in srgb, var(--mp-azul) 34%, transparent); }
-.mp-calc-etq { font-size: 12.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
-.mp-calc-fila { display: flex; justify-content: space-between; align-items: baseline; margin-top: 14px; }
-.mp-calc-fila label { font-weight: 600; font-size: 15px; }
-.mp-calc-n { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
-.mp-calc-barra { --mp-lleno: 8%; width: 100%; margin: 12px 0 16px; height: 8px; border-radius: 999px; appearance: none; -webkit-appearance: none; cursor: pointer;
+/* La calculadora (18/11/2026, Martín: «que sea mucho más claro… siento que hay como muchos botones»): UN control (cuántos negocios),
+   el resultado como lo que más se ve, una línea chica para la pasarela y el botón. Nada más. */
+.mp-calc-fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.mp-calc-fila label { font-weight: 700; font-size: 18px; }
+.mp-calc-n { font-size: 40px; line-height: 1; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.mp-calc-barra { --mp-lleno: 8%; width: 100%; margin: 16px 0 0; height: 8px; border-radius: 999px; appearance: none; -webkit-appearance: none; cursor: pointer;
   background: linear-gradient(90deg, var(--mp-sobre-azul) var(--mp-lleno), rgba(255,255,255,.28) var(--mp-lleno)); }
 .mp-calc-barra::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--mp-sobre-azul);
   border: 3px solid var(--mp-azul-osc); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
 .mp-calc-barra::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--mp-sobre-azul); border: 3px solid var(--mp-azul-osc); }
 .mp-calc-barra:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 6px; }
-.mp-calc-planes { display: flex; gap: 8px; flex-wrap: wrap; }
-.mp-calc-plan { font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; color: var(--mp-sobre-azul); background: rgba(255,255,255,.12);
-  border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 8px 14px; transition: background .15s ease; }
-.mp-calc-plan.activo { background: var(--mp-sobre-azul); color: var(--mp-azul-osc); border-color: var(--mp-sobre-azul); }
-.mp-calc-res { margin: 22px 0 20px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.22); }
-.mp-calc-res-etq { font-size: 14px; font-weight: 600; opacity: .85; }
-.mp-calc-res-monto { font-size: 68px; line-height: 1; font-weight: 800; letter-spacing: -.045em; margin: 8px 0 10px; }
-.mp-calc-res-anio { font-size: 17px; margin: 0 0 8px; }
-.mp-calc-res-anio b { font-weight: 800; }
-.mp-calc-res-cuenta { font-size: 15px; opacity: .9; }
-.mp-calc-sub { margin: 16px 0 8px; font-weight: 600; font-size: 15px; }
+.mp-calc-res { margin: 26px 0 0; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.22); }
+.mp-calc-monto { font-size: 72px; line-height: .95; font-weight: 800; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.mp-calc-monto span { display: block; margin-top: 8px; font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: 0; opacity: .9; }
+.mp-calc-anio { margin-top: 10px; font-size: 17px; font-weight: 600; opacity: .9; font-variant-numeric: tabular-nums; }
+.mp-calc-pasarela { margin: 18px 0 22px; font-size: 14px; line-height: 1.45; opacity: .82; font-variant-numeric: tabular-nums; }
 .mp-calc .mp-btn { background: var(--mp-sobre-azul); color: var(--mp-azul-osc) !important; box-shadow: none; width: 100%; text-align: center; box-sizing: border-box; }
 .mp-seccion { padding: 72px 0; }
 .mp-app .mp-seccion { padding: 44px 0 8px; }
@@ -130,7 +125,8 @@ body:has(.mp-publica) { background: #FFFFFF; }
   .mp-app .mp-hero { padding: 4px 16px 20px; border-radius: 18px; }
   .mp-hero-grilla { gap: 28px; padding-top: 24px; }
   .mp-calc { padding: 22px 18px 20px; border-radius: 20px; }
-  .mp-calc-res-monto { font-size: 54px; }
+  .mp-calc-monto { font-size: 52px; }
+  .mp-calc-monto span { font-size: 17px; }
   .mp-numero b { font-size: 44px; }
   .mp-seccion { padding: 52px 0; }
   .mp-seccion h2, .mp-app .mp-seccion h2 { font-size: 27px; }
