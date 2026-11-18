@@ -79,8 +79,10 @@ export function marcarTarea(marcas: readonly MarcaReto[], alTerminar: () => void
 }
 
 const YA_MARCADA = 'mako.reto.marcada.';
-const yaMarcada = (k: string) => { try { return !!sessionStorage.getItem(YA_MARCADA + k); } catch { return false; } };
-const anotarMarcada = (k: string) => { try { sessionStorage.setItem(YA_MARCADA + k, '1'); } catch { /* sin storage */ } };
+// Exportadas para el paso de Offer Coach a Funnel Coach (./usePasoAlFunnel.ts): la misma tarea se marca una vez por visita, la
+// marque este chat o el Offer Coach.
+export const yaMarcada = (k: string) => { try { return !!sessionStorage.getItem(YA_MARCADA + k); } catch { return false; } };
+export const anotarMarcada = (k: string) => { try { sessionStorage.setItem(YA_MARCADA + k, '1'); } catch { /* sin storage */ } };
 
 export function ChatDelReto({ nombre, onVolver }: { nombre: string; onVolver: () => void }) {
   const { d, hacer } = useReto();
