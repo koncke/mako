@@ -229,9 +229,11 @@ que eso no se rompa:
   corrí» de que existan objetivos: eso es indistinguible de «alguien los creó a mano», y una
   migración que decide si le toca mirando un estado que otro puede cambiar es un bucle. Pasó
   exactamente eso con el onboarding de las tabs (03/09/2026).
-- **NO borra los settings.** Siguen ahí, y encima siguen VIVOS: `lib/reportes.ts` los lee por
-  `getObjetivoProgreso` para el reporte diario y el semanal. Borrar el origen el mismo día
-  que se migra deja sin red al que descubra un error mañana.
+- **NO borra los settings.** Siguen ahí ~~, y encima siguen VIVOS: `lib/reportes.ts` los lee por
+  `getObjetivoProgreso` para el reporte diario y el semanal~~ (desde el 18/11/2026 ya no los lee
+  nadie más que la migración: los reportes leen `objectives` desde el 8/11 y el grafo desde el 18/11,
+  y `getObjetivoProgreso` se borró). Borrar el origen el mismo día que se migra deja sin red al que
+  descubra un error mañana.
 
 ## Restaurar un diseño no es restaurar el código: la forma vuelve, los bugs no
 
@@ -1016,10 +1018,17 @@ la portada entera del teléfono.
 - **Una «Prioridades del Plan» por funnel no existe**: las tareas del tablero no tienen funnel, tienen proyecto.
 - **«A quién cobrarle» sigue TAMBIÉN en el Dashboard** (la sección de la hoja Comercial): Martín pidió ponerla en General y no
   dijo si se saca de allá. Se le preguntó el 13/10.
-- **`getObjetivoProgreso` y los tres settings siguen alimentando los reportes**
+- ~~**`getObjetivoProgreso` y los tres settings siguen alimentando los reportes**
   (`lib/reportes.ts:66` y `:174`). Mientras existan, hay dos fuentes para «cuál es la meta»:
   la vieja manda en los reportes por WhatsApp y la nueva en la pantalla. Unificarlo es
-  mover esos dos call-sites a `objetivosContextoTexto()`.
+  mover esos dos call-sites a `objetivosContextoTexto()`.~~ Cerrado en dos tandas, y **la receta
+  de este renglón era la equivocada**: `objetivosContextoTexto()` devuelve prosa para un prompt, no
+  números para una línea de reporte. Los reportes pasaron a `metasDelQuarter` + `lineasDeMetas`
+  (71d97602f, 8/11/2026; el porqué, arriba de todo en este documento). El 18/11/2026 (F82) el grafo
+  del Second Brain dejó de leer `objetivo_cierres` y `objetivo_cash_usd`: su nodo `objetivo` se
+  borró y la meta son los nodos `okr:` de `objectives` (lib/cerebro-armado.ts, «D1»), y
+  `getObjetivoProgreso` se borró de `lib/queries.ts` porque ya no lo llamaba nadie. Los tres settings
+  siguen escritos sólo como ORIGEN de `migrarSettingsAObjectives`.
 - **Quitar el cupo de capacidad no se puede desde MaKo, y no es de una línea.** Guardar el cupo
   vacío (`setCapacidad('')`) se relee como **0**: `getSettingNum` hace `Number('')`, que vale 0
   (lib/settings.ts:88-97). El camino normal lo tolera porque pasa por `capacidadDe`, que trata

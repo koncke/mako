@@ -808,4 +808,30 @@ export const BITACORA: Hito[] = [
     revisar: '/second-brain',
     tickets: [45],
   },
+  {
+    fecha: '18 nov', hora: '02:05', chat: 'Nube · lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: ['**El lote del grafo**: F82 (la meta del grafo de una sola fuente), F108 (el brief del esquema vivo) y F109 (un test de la topología).'],
+  },
+  {
+    fecha: '18 nov', hora: '02:05', chat: 'Nube · lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El mapa del negocio: la meta de una sola fuente, los campos nuevos del brief y su forma con test',
+    puntos: [
+      '**La meta del mapa es la de General**: el nodo «12 cierres en 90 días» salía de la configuración vieja y quedaba al lado de los objetivos nuevos, con otro número si la meta se había cambiado. Ahora la meta son los objetivos del trimestre, y el de cierres se engancha con la etapa donde se cierra.',
+      '**Un campo nuevo del brief aparece en el mapa**: un campo agregado con «+ Campo» en el brief cae en el área de su grupo (uno de un grupo nuevo, en el Resumen del negocio).',
+      '**La forma del mapa tiene test**: un solo cerebro siempre, y en un negocio completo las métricas de Obsidian en las cuatro plantillas de funnel.',
+      '**«Cómo hablas vendiendo» cuenta las conversaciones**: leía un dato que no existía y nunca decía cuántas conversaciones de venta había leído MaKo.',
+    ],
+    archivos: [
+      'lib/cerebro-armado.ts — el armado puro (`armarCerebro`, `camposDelBrief`)',
+      'lib/cerebro-grafo.ts — sólo las lecturas, y llama al armado',
+      'lib/cerebro-vivo.ts — el objetivo de cierres se engancha con la etapa de cierre',
+      'lib/queries.ts — sin `getObjetivoProgreso`',
+      'tests/cerebro-topologia.test.ts — probado rompiéndolo (6 roturas)',
+    ],
+    revisar: '/second-brain',
+  },
 ];
