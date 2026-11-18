@@ -120,7 +120,6 @@ import { indiceEnColumna, antesDeQuien } from './orden-manual';
 import { Dropdown } from '@/app/components/Dropdown';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import type { CampoTarjetaCliente, FormaTarjetaCliente } from '@/lib/tarjeta-clientes';
-import { MARCA } from '@/lib/tutoriales/marcas';
 
 /** Dónde está un cliente en esta entrega. */
 export type Asignacion = { etapa: string; etapa_desde: string; por: string };
@@ -540,7 +539,6 @@ export function KanbanEntrega({
     return <p className="ke-nada">Este servicio no tiene etapas de entrega configuradas.</p>;
   }
 
-  const primerLead = visibles.map((e) => porEtapa[e.key]?.[0]).find(Boolean)?.leadId; // la marca del tutorial
   return (
     <div className="ke" onContextMenu={alClicDerecho}>
       {/* ⛔ ACÁ HUBO UNA CABECERA Y YA NO HAY NINGUNA (05/10/2026). Se fueron, en este
@@ -676,7 +674,7 @@ export function KanbanEntrega({
                           a propósito — dos selectores para la misma animación son dos lugares
                           que tocar el día que cambie. */}
                       <div data-tarjeta data-lead-id={c.leadId} className={`ke-card mk-tarjeta-sel${elegida ? ' ke-card-elegida' : ''}`}
-                        draggable data-recorrido={c.leadId === primerLead ? MARCA.classroomClientsCliente : undefined}
+                        draggable
                         onPointerDownCapture={(ev) => { origenGesto.current = ev.target as Element; }}
                         onDragStart={(ev) => agarrar(ev, c.leadId)}
                         onDragEnd={soltarGesto}
