@@ -333,4 +333,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/operaciones?ticketera=lista',
   },
+  {
+    fecha: '18 nov', hora: '06:25', chat: 'Tickets de Sellers: el filtro de números', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Cuando MaKo aprende a hacer algo que le pediste, te avisa que se lo pidas de nuevo, en vez de «Listo: ya quedó»',
+    puntos: [
+      'Si le pediste algo a MaKo en el grupo y no lo podía hacer, el equipo le enseña a hacerlo. Hasta hoy, cuando eso llegaba, te avisaba «Listo: ya quedó tu pedido», aunque lo que pediste no se había hecho.',
+      'Ahora te dice que MaKo ya puede hacerlo y que se lo pidas de nuevo en el grupo. En tus tickets se ve lo mismo.',
+      'Si el equipo hizo tu pedido, o te contestó, el aviso sigue igual.',
+    ],
+    archivos: [
+      'lib/tickets-reglas.ts — `conCierreDelDeploy` y `cerradoPorElDeploy`; `textoDelAviso` pide que lo vuelva a pedir',
+      'lib/tickets-cierre.ts — `cerrarLosDesplegados` marca al pedido delegado en su contexto',
+      'tests/aviso-delegado-deploy.test.ts (con tests/_aviso-delegado-deploy-hijo.ts) — dos roturas, cada una cae',
+      'docs/hallazgos-ticketera.md',
+    ],
+    revisar: '/tickets/bandeja',
+  },
 ];

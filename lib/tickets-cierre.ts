@@ -26,7 +26,7 @@ import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { REGISTROS_SLUGS, registroDe } from '@/app/admin/dev/registros';
 import { anotarDelCerebro, ticketsDelNegocioEntre } from './tickets-db';
 import { HORAS_MAX_SIN_TOMAR, MIN_SIN_TOMAR, delegadosParaAvisar, textoDelegadoSinTomar, type DelegadoSinTomar } from './despacho-grupo';
-import { avisaEnSuGrupo, destinoDelAvisoAlGrupo, hitosDeLosTickets, hitosDelNegocio, HORAS_REINTENTO_GRUPO, loCierraElDeploy, pruebaDeProduccion, sanearContexto, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, ticketsQueNombran, TIPO_FALTA_EN_PRODUCCION, TIPO_PASO_HECHO, type AvisoCliente } from './tickets-reglas';
+import { avisaEnSuGrupo, destinoDelAvisoAlGrupo, hitosDeLosTickets, hitosDelNegocio, HORAS_REINTENTO_GRUPO, loCierraElDeploy, pruebaDeProduccion, sanearContexto, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, conCierreDelDeploy, ticketsQueNombran, TIPO_FALTA_EN_PRODUCCION, TIPO_PASO_HECHO, type AvisoCliente } from './tickets-reglas';
 import { ALERTA_24H_DESDE, ESTADOS_QUE_NOS_ESPERAN, HORAS_ALERTA, paraLaAlerta24h, textoAlerta24h, TIPO_ALERTA_24H, type TicketParaAlerta } from './tickets-demora';
 
 const T = 'tickets';
@@ -161,7 +161,7 @@ export async function cerrarLosDesplegados(desplegados = ticketsDesplegados()): 
   if (!desplegados.size) return [];
   const db = getSupabaseServer();
   const ids = [...desplegados.keys()];
-  const { data, error } = await db.from(T).select('id, respuesta').in('id', ids).in('estado', [...ESTADOS_QUE_CIERRA_EL_DEPLOY]);
+  const { data, error } = await db.from(T).select('id, respuesta, contexto').in('id', ids).in('estado', [...ESTADOS_QUE_CIERRA_EL_DEPLOY]);
   if (error) throw new Error(`no pude leer los tickets abiertos: ${error.message}`);
   const cerrados: number[] = [];
   const ahora = new Date().toISOString();
@@ -176,7 +176,10 @@ export async function cerrarLosDesplegados(desplegados = ticketsDesplegados()): 
       continue;
     }
     const respuesta = (f.respuesta as string | null) || `Ya está arreglado: ${hito.titulo}.`;
-    const { data: ok } = await db.from(T).update({ estado: 'resuelto', resuelto_at: ahora, respuesta: respuesta.slice(0, 2000), avisado_at: null, updated_at: ahora })
+    // Un PEDIDO DELEGADO que cierra el deploy queda marcado (`conCierreDelDeploy`, el #110): lo que llegó es la CAPACIDAD, no lo que
+    // pidió, y su aviso no dice «ya quedó» sino que lo pida de nuevo (`textoDelAviso`).
+    const contexto = conCierreDelDeploy(f.contexto);
+    const { data: ok } = await db.from(T).update({ estado: 'resuelto', resuelto_at: ahora, respuesta: respuesta.slice(0, 2000), avisado_at: null, updated_at: ahora, ...(contexto ? { contexto } : {}) })
       .eq('id', id).in('estado', [...ESTADOS_QUE_CIERRA_EL_DEPLOY]).select('id');
     if (!ok?.length) continue;
     cerrados.push(id);

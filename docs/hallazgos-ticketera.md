@@ -4,6 +4,30 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## El pedido delegado que cierra el deploy no decía que lo pidiera de nuevo (18/11/2026, el #110 de Marcela)
+
+**Vive en:** `lib/tickets-cierre.ts` (`ESTADOS_QUE_CIERRA_EL_DEPLOY`, `cerrarLosDesplegados`) · `lib/tickets-reglas.ts`
+(`conCierreDelDeploy`, `cerradoPorElDeploy`, `textoDelAviso`) · `tests/aviso-delegado-deploy.test.ts`.
+
+- **La trampa:** `ESTADOS_QUE_CIERRA_EL_DEPLOY` incluye `esperando_decision`. Un pedido DELEGADO con su hito `tickets: [n]` se
+  cierra solo al desplegar, con `decision = null`, y `textoDelAviso` le mandaba al grupo «Listo: ya quedó tu pedido #n». Pero lo
+  que se arregló fue la CAPACIDAD (en el #110, que MaKo pudiera agendar la llamada en el Calendario): lo que la persona pidió no se
+  hizo, y lo tiene que pedir de nuevo.
+  - **Corrige la regla del #107** (abajo, «"Listo: ya quedó" de un pedido que nadie hizo»), que daba por hecho «el cierre por
+    arreglo, que no trae decisión». Un cierre por arreglo no hizo lo que se pidió.
+- **Para el #110 el Cerebro lo evitó a mano** antes del deploy: dejó `decision = 'responder'` y la respuesta («Ya está… Pídeselo de
+  nuevo aquí en el grupo»), con el ticket todavía en `esperando_decision`. El cierre del deploy conserva las dos y sale «Sobre tu
+  pedido #110: …». `responder` sigue ganando sobre la marca nueva.
+- **Ahora** el cierre marca al pedido delegado en su contexto (`cerradoPorElDeploy: true`, jsonb, sin migración) y el aviso dice
+  «Ya está: MaKo ahora puede hacer tu pedido #n («…»). Pídeselo de nuevo aquí en el grupo.». /tickets dice lo mismo (`paraElCliente`
+  usa el mismo texto). Uno que el equipo HIZO (`scripts/tickets-cerrar-resueltos.mjs` con `hecho`) no lleva la marca y sigue con
+  «Listo: ya quedó».
+- **Trampa: «lo cerró el deploy» no se puede deducir después.** El hito en el build (`ticketsDesplegados()`) también existe para un
+  pedido que el equipo hizo Y además arregló en código, y `decision = null` también lo tiene uno cerrado por el script de
+  resueltos. La marca se pone en el momento del cierre, que es el único lugar que sabe por qué cerró.
+- **Sin hacer:** los DUPLICADOS de un pedido delegado se cierran en bloque (`.eq('duplicado_de', id)`) sin la marca: si alguno es
+  también delegado, todavía le llega «Listo: ya quedó».
+
 ## Cuánto tarda cada ticket, y la alerta a Martín a las 24 h (18/11/2026, claude2)
 
 **El pedido:** Martín le prometió a Teo «medir el tiempo de cada ticket, con alerta a las 24 h»
@@ -1480,7 +1504,7 @@ el plan, `lib/plan-esencial.ts`, que lee la suscripción con los mismos filtros 
   de un pedido delegado sólo por el estado, y el «listo» es fijo (no lee la respuesta, a propósito: lo que escribe el Cerebro no va al
   grupo tal cual). Así, cada vez que Martín CONTESTA un pedido delegado, el cliente lee que quedó hecho.
 - **La regla:** «hecho» lo dice la DECISIÓN, no el estado. «Listo: ya quedó» sale sólo si no fue `responder` (`hacer`, o el cierre por
-  arreglo, que no trae decisión); con `responder` va «Sobre tu pedido #n: <su respuesta>», pasada por `sinLoInterno`. La decisión
+  arreglo, que no trae decisión —corregido el mismo día: el cierre por el deploy pide que lo pida de nuevo, ver arriba—); con `responder` va «Sobre tu pedido #n: <su respuesta>», pasada por `sinLoInterno`. La decisión
   tiene que viajar: los dos `select` del aviso (el cron y la decisión de Martín) la leían sin `decision`, y el ticket llegaba sin ella.
   La vista del cliente (/tickets y /m/tickets) la lee de `COLS` y dice lo mismo que el aviso.
 - **Test:** tests/despacho-grupo.test.ts, el 18 (el caso del #107; cuatro roturas, cada una roja).

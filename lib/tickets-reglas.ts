@@ -925,6 +925,20 @@ export function sinLoInterno(texto: string, propio: { id: number; ws?: number })
 export const esPedidoDelegado = (contexto: unknown): boolean =>
   !!contexto && typeof contexto === 'object' && (contexto as { delegado?: unknown }).delegado === true;
 
+/**
+ * EL PEDIDO DELEGADO QUE CIERRA EL DEPLOY (18/11/2026, el #110 de Marcela). `ESTADOS_QUE_CIERRA_EL_DEPLOY` incluye
+ * `esperando_decision`: un pedido delegado con su hito `tickets: [n]` se cierra solo al desplegar, sin decisión, y su aviso decía
+ * «Listo: ya quedó tu pedido #n». Lo que se arregló fue la CAPACIDAD (MaKo no tenía con qué hacerlo); lo que pidió no se hizo, y lo
+ * tiene que pedir de nuevo. El cierre lo marca en el contexto (jsonb, sin migración) y el aviso lo lee. Sólo a un pedido delegado.
+ */
+export const CERRADO_POR_EL_DEPLOY = 'cerradoPorElDeploy';
+export const cerradoPorElDeploy = (contexto: unknown): boolean =>
+  esPedidoDelegado(contexto) && (contexto as Record<string, unknown>)[CERRADO_POR_EL_DEPLOY] === true;
+/** El contexto con la marca, o null si no es un pedido delegado (no se toca). */
+export function conCierreDelDeploy(contexto: unknown): Record<string, unknown> | null {
+  return esPedidoDelegado(contexto) ? { ...(contexto as Record<string, unknown>), [CERRADO_POR_EL_DEPLOY]: true } : null;
+}
+
 /** Las palabras con mayúscula que no son una persona: lo de MaKo y de las plataformas que se nombran en un «listo». */
 const NO_SON_PERSONAS = new Set(['mako', 'media', 'buyer', 'google', 'ads', 'manager', 'meta', 'facebook', 'instagram', 'whatsapp', 'web', 'generator',
   'video', 'editor', 'second', 'brain', 'black', 'friday', 'cyber', 'monday', 'business', 'chat', 'agent', 'tiktok', 'youtube', 'zernio', 'canva', 'notion']);
@@ -965,6 +979,8 @@ export function textoDelAviso(t: AvisoCliente): string {
     // («no agendes nada, solo dile que lo vuelva a hacer») y `responder` lleva a `resuelto` (`estadoDeDecision`): al grupo le llegó
     // «Listo: ya quedó tu pedido #107 («Pide agendar una llamada…»)», y la llamada no se agendó. Con `responder` va su respuesta.
     if (t.estado === 'resuelto' && t.decision === 'responder') return limpio ? `Sobre ${suyo}: ${limpio}` : `Cerramos ${suyo}.`;
+    // Lo cerró el DEPLOY (`cerradoPorElDeploy`, el #110): llegó la capacidad, no lo que pidió. Que lo pida de nuevo; nada de «ya quedó».
+    if (t.estado === 'resuelto' && cerradoPorElDeploy(t.contexto)) return `Ya está: MaKo ahora puede hacer ${suyo}. Pídeselo de nuevo aquí en el grupo.`;
     if (t.estado === 'resuelto') {
       const link = linkDelNegocio(r, t.workspace_id);
       return `Listo: ya quedó ${suyo}.${link ? ` Lo ves aquí: ${link}` : ''}`;
