@@ -18,8 +18,10 @@
 // =============================================================================
 
 import type { EditorEngine } from '../../_doory/editor/extensions';
+import { resizeDocument } from '../../_doory/editor/engine/magicResize';
 import { TOPES_CHAT_IMAGEN, validarOperaciones } from '@/lib/image-editor/chat/catalogo';
-import { aplicarOperaciones, type FotoDelChat, type RefsDeVista } from '@/lib/image-editor/chat/aplicar';
+import { aplicarOperaciones, ponerRecorte, type FotoDelChat, type Redimensionar, type RefsDeVista } from '@/lib/image-editor/chat/aplicar';
+import { removeBackground } from '../../_doory/editor/engine/bgRemoval';
 import { familiaDe, tipoDe, vistaDeDiseno } from '@/lib/image-editor/chat/vista';
 import { memoriaDelHilo } from '@/lib/image-editor/chat/hilo';
 import { FUENTES } from '../fuentes';
@@ -30,6 +32,8 @@ import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/m
 import type { KitMarca } from '@/lib/marca/kits';
 import type { IntencionChat } from '@/app/_chat/SelectorIntencion';
 import { esRespuestaSoloPro, marcarSoloPro } from '@/app/_components/solo-pro';
+import { separarCita } from '@/lib/centro-mensajes';
+import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, textoActual } from './pedidos';
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -46,8 +50,34 @@ const LEIBLES = new Set(ACCEPT_ADJUNTOS_CHAT.split(','));
 
 export type AlcanceChat = 'diseno' | 'seleccion';
 
+/**
+ * ¿Hay una propuesta a mitad de aplicarse (esperando las fuentes)? Mientras tanto NO se pide otra (18/11/2026, F49): el pedido
+ * nuevo cerraba sólo las `pendiente`, así que la que estaba aplicando quedaba viva; si fallaba volvía a `pendiente` (dos «Aceptar»),
+ * y si entraba, la nueva estaba calculada sobre el documento de antes y aceptarla repetía las páginas. Lo usan `pedirEdicion` y la
+ * caja del panel (PanelMakoIA.tsx), con la misma pregunta.
+ */
+export const hayAplicando = (disenoId: string): boolean => leerHilo(disenoId).mensajes.some((m) => m.de === 'mako' && m.estado === 'aplicando');
+
 const cortes = new Map<string, AbortController>();
 export const detener = (disenoId: string) => cortes.get(disenoId)?.abort();
+
+/**
+ * «Redimensionar» del editor (`pages.resize` del motor, alcance «todo el diseño»): la misma función y el mismo paso
+ * para sacar el tamaño elegido de la lista si el tamaño cambió. El chat la recibe por acá porque lib/ no puede importar
+ * el motor (O37, 18/11/2026).
+ */
+export const redimensionarComoElEditor: Redimensionar = (doc, ancho, alto, modo) => {
+  const d = doc as Parameters<typeof resizeDocument>[0];
+  const r = resizeDocument(d, ancho, alto, modo);
+  return r.meta?.presetId !== undefined && (r.width !== d.width || r.height !== d.height) ? { ...r, meta: { ...r.meta, presetId: undefined } } : r;
+};
+
+/** El tamaño de la primera página (el del diseño): si cambió al aceptar, el editor vuelve a encuadrar, como «Redimensionar». */
+const tamanoDe = (doc: unknown): string => {
+  const d = (doc ?? {}) as { width?: unknown; height?: unknown; pages?: Array<{ width?: unknown; height?: unknown }> };
+  const p = d.pages?.[0];
+  return `${p?.width ?? d.width}x${p?.height ?? d.height}`;
+};
 
 const nuevoIdObjeto = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `o${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
@@ -157,6 +187,29 @@ async function fotosParaPedir(editor: EditorEngine, archivos: readonly File[], s
 
 const fotoRef = (i: number) => `o${i + 1}`;
 
+/**
+ * POST /api/mako/pedidos (18/11/2026, F136 tanda 3; ./pedidos.ts): qué se pide (lo del diseño abierto y lo demás). Nunca lanza:
+ * una falla o el plazo vencido devuelven null, y el mensaje entero sigue a la IA del chat, como antes.
+ */
+async function pedirPedidos(texto: string, diseno: { id: string; nombre: string }, senal: AbortSignal): Promise<unknown> {
+  const plazo = new AbortController();
+  const t = setTimeout(() => plazo.abort(), PLAZO_PEDIDOS_MS);
+  const alCortar = () => plazo.abort();
+  senal.addEventListener('abort', alCortar);
+  try {
+    const res = await fetch('/api/mako/pedidos', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cuerpoPedidos(texto, diseno)), signal: plazo.signal,
+    });
+    return await res.json().catch(() => null);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+    senal.removeEventListener('abort', alCortar);
+  }
+}
+
 /** Las refs con que se pidió, para aplicar (al pedir es la vista; después de recargar, lo guardado). */
 const refsDe = (p: Propuesta): RefsDeVista => ({
   elementos: new Map(p.refs.map(([ref, id]) => [ref, { id }] as const)),
@@ -167,12 +220,12 @@ const refsDe = (p: Propuesta): RefsDeVista => ({
  * Manda una instrucción y deja en el hilo la respuesta: una PROPUESTA para revisar, o lo que no se pudo. Con `intencion`
  * «discutir», MaKo contesta sin proponer nada. `kit`: la marca elegida (su logo va entre las fotos, sus fuentes primero).
  */
-export async function pedirEdicion(editor: EditorEngine, instruccion: string, alcance: AlcanceChat, archivos: readonly File[] = [], op: { intencion?: IntencionChat; kit?: KitMarca | null; /** Escribir la plantilla con lo del negocio (lib/image-editor/chat/ia.ts → `negocioParaEscribir`). */ conNegocio?: boolean } = {}): Promise<void> {
+export async function pedirEdicion(editor: EditorEngine, instruccion: string, alcance: AlcanceChat, archivos: readonly File[] = [], op: { intencion?: IntencionChat; kit?: KitMarca | null; /** Escribir la plantilla con lo del negocio (lib/image-editor/chat/ia.ts → `negocioParaEscribir`). */ conNegocio?: boolean; /** `false`: un pedido NUESTRO (una sugerencia), que es del diseño abierto por definición y no pasa por /api/mako/pedidos. */ interpretar?: boolean } = {}): Promise<void> {
   const kit = op.kit ?? null;
   const discutir = op.intencion === 'discutir';
   const disenoId = editor.designId;
   const texto = instruccion.trim();
-  if (!disenoId || (!texto && !archivos.length) || leerHilo(disenoId).corriendo) return;
+  if (!disenoId || (!texto && !archivos.length) || leerHilo(disenoId).corriendo || hayAplicando(disenoId)) return;
 
   const elegidosIds = editor.state.selection.ids.slice();
   const alcanceReal: AlcanceChat = alcance === 'seleccion' && elegidosIds.length ? 'seleccion' : 'diseno';
@@ -198,10 +251,32 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   }));
   const corte = new AbortController();
   cortes.set(disenoId, corte);
-  const terminar = (m: MensajeNuevo) => {
+  // Las burbujas de lo que NO es del diseño abierto van debajo de la respuesta («se contesta lo actual y se propone lo otro»).
+  let burbujas: MensajeNuevo[] = [];
+  const terminar = (m: MensajeNuevo | null) => {
     cortes.delete(disenoId);
-    cambiarHilo(disenoId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, conId(m)] }));
+    const nuevos = [...(m ? [m] : []), ...burbujas].map(conId);
+    cambiarHilo(disenoId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, ...nuevos] }));
   };
+
+  // Lo que el mensaje pide (./pedidos.ts): lo del diseño abierto sigue por acá; lo demás vuelve como burbuja, con su link. Con
+  // «Discutir», o con un pedido nuestro (una sugerencia, «Usar plantilla»), el mensaje va entero.
+  let paraEditar: string | null = texto;
+  if (op.interpretar !== false && !op.conNegocio && !discutir && texto) {
+    const { pedido: lemos, conCita } = separarCita(texto);
+    const ri = await pedirPedidos(lemos, { id: disenoId, nombre: editor.state.title ?? '' }, corte.signal);
+    if (corte.signal.aborted) {
+      terminar({ de: 'mako', texto: 'Detenido.' });
+      return;
+    }
+    const interp = interpretacionDe(ri, lemos);
+    paraEditar = conCita(textoActual(interp));
+    burbujas = burbujasDe(interp, disenoId).map((b) => ({ de: 'mako' as const, texto: b.texto, ...(b.links.length ? { links: b.links } : {}) }));
+  }
+  if (!paraEditar && !archivos.length) {
+    terminar(null);
+    return;
+  }
 
   // El documento de ESTE momento: el mismo para la vista que va a la IA y para probar la propuesta.
   const doc = editor.getDocument();
@@ -234,7 +309,7 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   const fotoDeRef = new Map<string, FotoDelChat>(fotos.map((f, i) => [fotoRef(i), { id: f.id, url: f.url, nombre: f.nombre, ancho: f.ancho, alto: f.alto }]));
   const paraLeer = archivos.filter((f) => LEIBLES.has(f.type));
   // Sólo un SVG o un AVIF y nada escrito: a la ruta no le llega ningún archivo, y sin texto contestaría que falta.
-  const instruccionIA = texto || (archivos.length && !paraLeer.length ? 'Pon en el diseño lo que adjunté.' : '');
+  const instruccionIA = paraEditar || (archivos.length && !paraLeer.length ? 'Pon en el diseño lo que adjunté.' : '');
   const r = await pedirIA({
     instruccion: instruccionIA, diseno: vista.json, alcance: alcanceReal, memoria,
     ...(kit ? { kit: kit.id } : {}), ...(discutir ? { intencion: 'discutir' } : {}), ...(op.conNegocio ? { conNegocio: true } : {}),
@@ -265,6 +340,7 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   const prueba = aplicarOperaciones({
     doc, operaciones, vista: refsDe(propuesta), nuevoId: nuevoIdObjeto, activePageId,
     soloRefs: alcanceReal === 'seleccion' ? new Set(elegidos) : null, fuente: fuenteDelEditor(doc), fotos: fotoDeRef,
+    redimensionar: redimensionarComoElEditor,
   });
   // `deForma` es casi siempre vacío: la ruta ya filtró, y lo que tiró viene en `r.descartes`.
   const descartes = [...fallas, ...(r.descartes ?? []), ...deForma, ...prueba.descartes];
@@ -281,14 +357,40 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   });
 }
 
+/** Una foto ya sin fondo, subida a «Subidos»: con qué `src` estaba la foto cuando se recortó, para no ponérsela a otra. */
+type Recorte = { src: string; url: string; assetId: string; ancho: number; alto: number };
+
+type ObjDoc = { id?: unknown; src?: unknown; name?: unknown };
+const objetoDe = (doc: unknown, id: string): ObjDoc | undefined =>
+  ((doc as { pages?: Array<{ objects?: ObjDoc[] }> })?.pages ?? []).flatMap((p) => p.objects ?? []).find((o) => o.id === id);
+
+/**
+ * «Quitar el fondo» de una foto (18/11/2026, F135): el MISMO motor del botón del editor (MODNet en el navegador, lo prende
+ * ../quitar-fondo.ts → `prenderQuitarFondo`), y la foto recortada se sube a «Subidos». No toca el diseño: lo pone `ponerRecorte`
+ * sobre el documento de la propuesta, así entra en el mismo paso de deshacer.
+ */
+async function recortarFoto(editor: EditorEngine, doc: unknown, id: string): Promise<Recorte> {
+  const o = objetoDe(doc, id);
+  if (!o || typeof o.src !== 'string') throw new Error('sin foto');
+  const original = await (await fetch(o.src)).blob();
+  const sinFondo = await removeBackground(original);
+  const ref = await editor.assets.upload(sinFondo, 'sin-fondo.png');
+  editor.store.setState((st) => ({ uploads: [ref, ...st.uploads.filter((u) => u.id !== ref.id)] }));
+  return { src: o.src, url: ref.url, assetId: ref.id, ancho: ref.width, alto: ref.height };
+}
+
 /**
  * «Aceptar»: aplica la propuesta sobre el documento de AHORA, en un paso de deshacer. Devuelve lo que no se pudo (un
  * elemento que ya no está, uno que se bloqueó en el medio).
  */
-export async function aceptarPropuesta(editor: EditorEngine, m: MensajeMako): Promise<void> {
+export async function aceptarPropuesta(editor: EditorEngine, visto: MensajeMako): Promise<void> {
   const disenoId = editor.designId;
-  const p = m.propuesta;
-  if (!p || !disenoId || m.estado !== 'pendiente') return;
+  if (!disenoId) return;
+  // El estado se lee del STORE, no del mensaje que trae quien llama (18/11/2026, F49): la tarjeta, el «Usar plantilla» o un
+  // doble clic pueden tener la foto de antes de que un pedido nuevo la cerrara, y con esa foto `pendiente` se aplicaba igual.
+  const m = leerHilo(disenoId).mensajes.find((x): x is MensajeMako => x.id === visto.id && x.de === 'mako');
+  const p = m?.propuesta;
+  if (!m || !p || m.estado !== 'pendiente') return;
   cambiarMensaje(disenoId, m.id, { estado: 'aplicando', aviso: undefined });
   const probar = () => {
     const doc = editor.getDocument();
@@ -297,6 +399,7 @@ export async function aceptarPropuesta(editor: EditorEngine, m: MensajeMako): Pr
       r: aplicarOperaciones({
         doc, operaciones: p.operaciones, vista: refsDe(p), nuevoId: nuevoIdObjeto, activePageId: p.paginaId ?? editor.state.activePageId,
         soloRefs: p.alcance === 'seleccion' ? new Set(p.elegidos) : null, fuente: fuenteDelEditor(doc), fotos: new Map(p.fotos ?? []),
+        redimensionar: redimensionarComoElEditor,
       }),
     };
   };
@@ -307,18 +410,38 @@ export async function aceptarPropuesta(editor: EditorEngine, m: MensajeMako): Pr
   }
   // Las fuentes, antes: el motor mide el texto con la que esté cargada.
   await Promise.all(r.fuentes.flatMap((f) => [editor.fonts.load(f, 400), editor.fonts.load(f, 700)]));
+  // Las fotos sin fondo, también antes (la primera vez baja el modelo: puede tardar). Lo que no se pudo se dice y lo demás entra.
+  const recortes = new Map<string, Recorte>();
+  const fallas: string[] = [];
+  for (const id of r.sinFondo) {
+    try { recortes.set(id, await recortarFoto(editor, doc, id)); } catch (e) {
+      console.warn('[image-editor/chat] quitar el fondo', id, e);
+      const nombre = objetoDe(doc, id)?.name;
+      fallas.push(`no pude quitarle el fondo a ${typeof nombre === 'string' && nombre.trim() ? nombre.trim().slice(0, 40) : 'una foto'}`);
+    }
+  }
   // Mientras cargaban, la persona pudo seguir editando: se vuelve a armar sobre lo de ahora.
   if (editor.getDocument() !== doc) ({ doc, r } = probar());
-  if (!r.aplicadas) {
-    cambiarMensaje(disenoId, m.id, { estado: 'pendiente', aviso: 'Ya no se puede aplicar: el diseño cambió' });
+  // Cada recorte, a SU foto: si la persona la cambió por otra en el medio, ésa no se toca.
+  let sinRecortar = 0;
+  for (const id of r.sinFondo) {
+    const x = recortes.get(id);
+    if (!x || objetoDe(r.doc, id)?.src !== x.src || !ponerRecorte(r.doc, id, x)) sinRecortar++;
+  }
+  if (!r.aplicadas || r.aplicadas - sinRecortar <= 0) {
+    cambiarMensaje(disenoId, m.id, { estado: 'pendiente', aviso: `Ya no se puede aplicar: ${fallas[0] ?? 'el diseño cambió'}` });
     return;
   }
   editor.stopEditingText();
+  const otroTamano = tamanoDe(r.doc) !== tamanoDe(doc);
   editor.applyDocument(r.doc as unknown as Parameters<EditorEngine['applyDocument']>[0], { label: 'MaKo IA', ...(r.pagina ? { activePageId: r.pagina } : {}) });
+  // Como `pages.resize` del motor: con otro tamaño, el lienzo se vuelve a encuadrar (si no, queda con el zoom de antes).
+  if (otroTamano) editor.view.fit(editor.state.zoomMode === 'fit-width' ? 'fit-width' : 'fit-page');
+  const descartes = [...r.descartes, ...fallas];
   cambiarMensaje(disenoId, m.id, {
     estado: 'aplicada',
     aplicada: { version: editor.state.docVersion },
-    descartes: r.descartes.length ? r.descartes : m.descartes,
+    descartes: descartes.length ? descartes : m.descartes,
   });
   editor.toast('Cambio aplicado', 'success');
 }

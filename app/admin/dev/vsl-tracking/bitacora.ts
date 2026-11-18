@@ -580,4 +580,23 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-landing.md — los números y por qué una lista de prohibidos no alcanzaba',
     ],
   },
+  {
+    fecha: '18 nov', hora: '02:16', chat: 'Nube › Octubre: CRM y perfil', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El opt-in de alguien que ya estaba en el CRM le ata la visita a su ficha: su grabación y sus visitas vuelven a aparecer',
+    puntos: [
+      '**Antes:** desde el 14/11, un opt-in cuyo email o teléfono coincide con un solo lead se suma directo a esa ficha, y ese camino no escribía la llave de la visita: la ficha quedaba sin la grabación, las visitas ni lo que vio del video de esa persona.',
+      '**Ahora:** una sola función para los dos caminos que suman a una ficha existente (el directo y «enriquecer» de la propuesta). Escribe la llave sólo si la ficha no tenía una y no toca la atribución.',
+      'Las fichas que perdieron la llave del 14/11 a hoy no se arreglan solas: haría falta cruzarlas en la base.',
+    ],
+    commits: [{ sha: 'a73d43378', msg: 'El opt-in de alguien que ya estaba en el CRM le ata la visita a su ficha (O44)', lineas: 227, archivos: 9 }],
+    archivos: [
+      'lib/lead-visita.ts — `atarVisitaAlLead`',
+      'app/api/track/optin/route.ts — el camino directo de un solo lead',
+      'app/crm/revisar/[id]/acciones.ts — «enriquecer» pasa por la misma función',
+      'tests/optin-visita.test.ts — corre la ruta de verdad contra un PostgREST de mentira; probado rompiéndolo (4 roturas, las 4 rojas)',
+      'docs/hallazgos-landing.md',
+    ],
+    revisar: '/crm',
+  },
 ];

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { usePortalRoot } from '../context'
 import { formatShortcut } from '../shortcuts'
 import styles from './Menu.module.css'
+import { posicionMenu } from './menuPosicion'
 
 export interface MenuItem {
   id: string
@@ -26,10 +27,12 @@ interface MenuProps {
   at?: { x: number; y: number }
   anchorRef?: RefObject<HTMLElement | null>
   onClose: () => void
+  /** Abierto desde un diálogo: el menú queda por encima del velo del diálogo (como `Popover`). */
+  overModal?: boolean
 }
 
 /** Keyboard-navigable menu (arrow keys, Home/End, Enter, Escape). */
-export function Menu({ items, label, at, anchorRef, onClose }: MenuProps) {
+export function Menu({ items, label, at, anchorRef, onClose, overModal = false }: MenuProps) {
   const root = usePortalRoot()
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
@@ -38,16 +41,8 @@ export function Menu({ items, label, at, anchorRef, onClose }: MenuProps) {
     const panel = ref.current
     if (!panel) return
     const r = panel.getBoundingClientRect()
-    let left = at?.x ?? 0
-    let top = at?.y ?? 0
-    if (anchorRef?.current) {
-      const a = anchorRef.current.getBoundingClientRect()
-      left = a.left
-      top = a.bottom + 6
-    }
-    left = Math.max(8, Math.min(left, window.innerWidth - r.width - 8))
-    top = Math.max(8, Math.min(top, window.innerHeight - r.height - 8))
-    setPos({ left, top })
+    const anchor = anchorRef?.current ? anchorRef.current.getBoundingClientRect() : null
+    setPos(posicionMenu({ panel: r, at, anchor, vw: window.innerWidth, vh: window.innerHeight }))
   }, [at, anchorRef, items.length])
 
   useEffect(() => {
@@ -116,7 +111,7 @@ export function Menu({ items, label, at, anchorRef, onClose }: MenuProps) {
       ref={ref}
       role="menu"
       aria-label={label}
-      className={styles.menu}
+      className={`${styles.menu} ${overModal ? styles.overModal : ''}`}
       style={{ left: pos?.left ?? 0, top: pos?.top ?? 0, opacity: pos ? undefined : 0 }}
       onKeyDown={onKeyDown}
     >

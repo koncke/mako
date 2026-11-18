@@ -141,5 +141,33 @@ export function ramaDeCookie(cabeceraCookie: string | null | undefined, pruebaId
   return null;
 }
 
+/**
+ * LA UNIDAD de una prueba de landing es el `visitor_id` del Pixel (diseño 2.3), que vive en la cookie `nqe_visitor_id`
+ * (lib/landing-token.ts: la lee y la reescribe por JavaScript, en el dominio más corto). Se lee con la forma que acuña
+ * el Pixel (un UUID, o `<ms>-<azar>` sin crypto); lo que no tiene esa forma no es un visitante (`desconocido` tampoco).
+ */
+export const COOKIE_VISITANTE = 'nqe_visitor_id';
+const FORMA_VISITANTE = /^[A-Za-z0-9-]{8,80}$/;
+export function visitanteDeCookie(cabeceraCookie: string | null | undefined): string | null {
+  for (const parte of String(cabeceraCookie ?? '').split(';')) {
+    const i = parte.indexOf('=');
+    if (i < 0 || parte.slice(0, i).trim() !== COOKIE_VISITANTE) continue;
+    let v = parte.slice(i + 1).trim();
+    try { v = decodeURIComponent(v); } catch { return null; }
+    return FORMA_VISITANTE.test(v) && v.toLowerCase() !== 'desconocido' ? v : null;
+  }
+  return null;
+}
+
+/**
+ * Sin cookie del visitante, la crea el SERVIDOR (diseño 3.2, etapa 1, paso 2): NO HttpOnly (el Pixel la lee por
+ * JavaScript y manda ese mismo id en cada evento, que es lo que mide la prueba), Lax, 1 año, del host. El Pixel la
+ * reescribe en el dominio corto con el mismo valor.
+ */
+export function cookieDeVisitante(id: string, segura: boolean): string {
+  const valor = FORMA_VISITANTE.test(id) ? id : '';
+  return `${COOKIE_VISITANTE}=${valor}; Path=/; Max-Age=31536000; SameSite=Lax${segura ? '; Secure' : ''}`;
+}
+
 /** Las cabeceras de caché de una página CON prueba corriendo: privada y por cookie (sin prueba, todo sigue como hoy). */
 export const CABECERAS_CON_PRUEBA: Readonly<Record<string, string>> = { 'Cache-Control': 'private, no-cache', Vary: 'Cookie' };

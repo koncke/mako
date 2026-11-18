@@ -120,8 +120,9 @@ test('la operación: en el registro, al FINAL de su área, se confirma en el cha
   assert.equal(d.costo, 'ia');
   const delArea = REGISTRO.filter((x) => x.area === 'negocio');
   // AL FINAL de su área cuando nació (3/11); detrás sólo lo que nació después, que tampoco le gana un empate: los kits de
-  // marca (5/11/2026) y las plantillas de Offer (6/11/2026). Si entra algo más acá, va al final de esta lista.
-  const despues = ['ver_kits_marca', 'guardar_kit_marca', 'elegir_kit_marca', 'borrar_kit_marca', 'ver_plantillas_oferta'];
+  // marca (5/11/2026), las plantillas de Offer (6/11/2026) y corregir un dato del perfil (18/11/2026, O21). Si entra algo más
+  // acá, va al final de esta lista.
+  const despues = ['ver_kits_marca', 'guardar_kit_marca', 'elegir_kit_marca', 'borrar_kit_marca', 'ver_plantillas_oferta', 'corregir_campo_perfil'];
   assert.deepEqual(delArea.slice(-1 - despues.length).map((x) => x.id), [ID, ...despues], 'una operación nueva va AL FINAL de su área (AGENTS.md)');
   assert.doesNotMatch(`${d.id} ${d.titulo}`, /perfil|archivero/i, 'el título repite las palabras del área y le saca lugar a otra');
   assert.ok(d.canales.includes('app') && d.canales.includes('whatsapp'));

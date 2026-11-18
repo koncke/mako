@@ -14,6 +14,7 @@ import { pendienteRepetida, MARGEN_RELOJ_MS } from './turno-sin-duplicar';
 import { datosSinMediosEmojis } from './unicode-seguro';
 import { conQuienPidio, sinQuienPidio } from './confirmacion-pura';
 import { salidaDelGrupo } from './grupo-salida';
+import { conColumnaNueva, cortesDeColgadas, faltaLaColumna, RESULTADO_COLGADA } from './pendientes-colgadas';
 
 export type EstadoPendiente = 'pendiente' | 'confirmada' | 'ejecutada' | 'cancelada' | 'vencida' | 'error';
 export type Pendiente = {
@@ -193,12 +194,35 @@ export async function resolverPendiente(ws: number, id: number, estado: EstadoPe
 export async function reclamarPendiente(ws: number, id: number): Promise<boolean> {
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
-    const { data } = await db.from('mako_acciones_pendientes')
-      .update({ estado: 'confirmada' })
-      .eq('id', id).eq('estado', 'pendiente').gt('vence_at', new Date().toISOString())
-      .select('id');
+    const ahora = new Date().toISOString();
+    // Con la hora del reclamo (mig 0420, F114): el barrido de las colgadas la cierra 30 minutos después. Sin la migración,
+    // reclama igual sin anotarla (lib/pendientes-colgadas.ts → `conColumnaNueva`).
+    const { data } = await conColumnaNueva((conHora) => db.from('mako_acciones_pendientes')
+      .update(conHora ? { estado: 'confirmada', reclamada_at: ahora } : { estado: 'confirmada' })
+      .eq('id', id).eq('estado', 'pendiente').gt('vence_at', ahora)
+      .select('id'));
     return (data ?? []).length > 0;
   });
+}
+
+/**
+ * Cierra como 'error' las pendientes que se reclamaron y nunca terminaron (F114, 18/11/2026): las 'confirmada' sin resultado
+ * hace más de `COLGADA_TRAS_MS` desde su reclamo (mig 0420) o, si no se sabe cuándo se reclamaron, desde su vencimiento. CRUZA
+ * NEGOCIOS: sólo la llama el cron (/api/cron/limpieza-colgados), con la clave de servicio. Devuelve cuántas cerró; tira si la
+ * base no contestó (el cron lo dice).
+ */
+export async function cerrarConfirmadasColgadas(ahoraMs = Date.now()): Promise<number> {
+  const db = getSupabaseServer();
+  const corte = cortesDeColgadas(ahoraMs);
+  const cerrar = () => db.from('mako_acciones_pendientes')
+    .update({ estado: 'error', resultado: RESULTADO_COLGADA, resuelto_at: new Date(ahoraMs).toISOString() })
+    .eq('estado', 'confirmada').is('resuelto_at', null);
+  const porVencida = await cerrar().lt('vence_at', corte.vencidaAntesDe).select('id');
+  if (porVencida.error) throw new Error(`mako_acciones_pendientes (por vencimiento): ${porVencida.error.message}`);
+  const porReclamo = await cerrar().lt('reclamada_at', corte.reclamadaAntesDe).select('id');
+  // Sin la 0420 no hay hora del reclamo: lo de arriba ya cerró lo que se puede saber.
+  if (porReclamo.error && !faltaLaColumna(porReclamo.error)) throw new Error(`mako_acciones_pendientes (por reclamo): ${porReclamo.error.message}`);
+  return (porVencida.data ?? []).length + (porReclamo.error ? 0 : (porReclamo.data ?? []).length);
 }
 
 /**

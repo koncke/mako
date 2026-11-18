@@ -65,6 +65,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Recibos de pago por correo y WhatsApp, con registro en SuperAdmin (en main desde el 5/11, la 0397 aplicada: falta cargar el 0001 y el 0002) | `Lee docs/relevo/nube-recibos.md y seguimos desde ahí.` |
 | Varias claves de Apify (Spy y la biblioteca de carruseles, 5/11) | `Lee docs/relevo/nube-apify.md y seguimos desde ahí.` |
 | Admin › Costs: a dónde va una suscripción del 47 y del 97, el primer mes, el techo del CAC y los cupos (11/11, en `punta/costs-suscripcion`; dos decisiones para Martín adentro) | `Lee docs/relevo/nube-costs-suscripcion.md y seguimos desde ahí.` |
+| Los 13 pendientes de «Traba otra cosa» (18/11, en `punta/traba-1811`): tres cerrados con test, uno a medias, y qué traba a los otros nueve (copias a la PC para el Cerebro adentro) | `Lee docs/relevo/nube-traba.md y seguimos desde ahí.` |
 | Lo prometido a Thiago: «Usar en un anuncio», «Guardar en MaKo» en la extensión 0.77.0 y el relevo del original en el Media Buyer (6/11, en `punta/thiago-anuncios`) | `Lee docs/relevo/nube-thiago-anuncios.md y seguimos desde ahí.` |
 | Vigía de aprobaciones (App Store, Google Play, la extensión, Meta, Google y Resend) | `Lee docs/relevo/nube-aprobaciones.md y seguimos desde ahí.` |
 | Admin › Revenue y Customers leen el libro de la mensualidad de las agencias (10/11, en `punta/ingresos-agencia`) | `Lee docs/relevo/nube-ingresos-agencia.md y seguimos desde ahí.` |

@@ -13,8 +13,8 @@ import { rateLimit } from '@/lib/rate-limit';
 import {
   CreacionError, FaltaTablaCreacionesError, compartirCreacion, darEstrella, guardarCreacion, listarCreaciones,
   misCreaciones, opcionesParaPublicar, plantillasDelTipo, publicarCreacion, quitarEstrella, rankingCreaciones,
-  retirarCreacion, usarCreacion, verCreacion,
-  type Creacion, type CreacionDetalle, type CreacionRankeada, type FiltroCreaciones,
+  retirarCreacion, tomarCreacion, usarCreacion, verCreacion,
+  type Creacion, type CreacionConDefinicion, type CreacionDetalle, type CreacionRankeada, type FiltroCreaciones,
 } from '@/lib/creaciones';
 import { esOrdenCreaciones, esPeriodoRanking, esTipoCreacion, sanearOrigenId } from '@/lib/creaciones-reglas';
 import { esVisibilidad } from '@/lib/plantillas-propias-reglas';
@@ -139,11 +139,23 @@ export async function compartirPlantillaAction(id: number, autorNombre?: string)
 }
 
 /** Las plantillas de un tipo para «Nuevo …» de su tab: las tuyas y las mejores de la comunidad. */
-export async function plantillasDelTipoAction(tipo: string): Promise<{ mias: Creacion[]; comunidad: Creacion[] } | { error: string }> {
+export async function plantillasDelTipoAction(tipo: string, opts?: { conDefinicion?: boolean }): Promise<{ mias: CreacionConDefinicion[]; comunidad: CreacionConDefinicion[] } | { error: string }> {
   const p = await puerta();
   if ('error' in p) return p;
   if (!esTipoCreacion(tipo)) return { error: 'Tipo desconocido.' };
-  try { return await plantillasDelTipo(p.ws, tipo); } catch (e) { return falla('cargar tus plantillas', p.ws, e); }
+  try { return await plantillasDelTipo(p.ws, tipo, 6, { conDefinicion: opts?.conDefinicion === true }); } catch (e) { return falla('cargar tus plantillas', p.ws, e); }
+}
+
+/**
+ * Una plantilla para que la pantalla la cree ella (el Dashboard: su editor tiene el informe abierto, lib/creaciones.ts →
+ * `tomarCreacion`). Devuelve la definición; el uso queda contado.
+ */
+export async function tomarPlantillaAction(id: number, tipo: string): Promise<{ definicion: unknown; titulo: string } | { error: string }> {
+  const p = await puerta();
+  if ('error' in p) return p;
+  if (!esTipoCreacion(tipo)) return { error: 'Tipo desconocido.' };
+  if (!rateLimit(`creaciones:usar:${p.ws}`, 20, 60_000)) return { error: 'Demasiados intentos. Espera un minuto.' };
+  try { return await tomarCreacion(p.ws, Number(id), tipo); } catch (e) { return falla('usar la plantilla', p.ws, e); }
 }
 
 /** El ranking de lo publicado: de la semana, del mes o de siempre. */

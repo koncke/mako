@@ -232,4 +232,24 @@ export function ordenEntre(arriba?: number | null, abajo?: number | null): numbe
 export type ResponsableTipo = 'mio' | 'cliente' | 'tercero';
 export const esResponsableTipo = (t: unknown): t is ResponsableTipo => t === 'mio' || t === 'cliente' || t === 'tercero';
 
+/**
+ * `plan_tareas.responsable_tipo` (mig 0419, F156, 18/11/2026), de la fila a la tarjeta del tablero del DUEÑO.
+ *
+ * ⚠️ VA EN LOS DOS MAPPERS de lib/plan-board.ts por la razón destructiva de siempre (el guardado es un `upsert` de la fila
+ * ENTERA), PERO SÓLO SI LA FILA TRAE LA COLUMNA. Una fila leída antes de aplicar la 0419 no la tiene: la tarjeta queda sin
+ * la clave (`{}`, no `null`), y `responsableParaGuardar` no la manda — si la mandara, PostgREST rechazaría el guardado
+ * ENTERO de cualquier tarjeta por una columna que no existe. Con la columna, la lectura trae `null` o el valor, y el
+ * guardado lo devuelve tal cual.
+ */
+export function responsableDeLaFila(fila: Record<string, unknown>): { responsableTipo?: ResponsableTipo | null } {
+  if (!('responsable_tipo' in fila)) return {};
+  return { responsableTipo: esResponsableTipo(fila.responsable_tipo) ? fila.responsable_tipo : null };
+}
+
+/** Lo que el guardado manda de `responsable_tipo`: nada si la tarjeta no lo trae (sin la 0419), y si no, lo que trae. */
+export function responsableParaGuardar(t: { responsableTipo?: ResponsableTipo | null }): { responsable_tipo?: ResponsableTipo | null } {
+  if (t.responsableTipo === undefined) return {};
+  return { responsable_tipo: esResponsableTipo(t.responsableTipo) ? t.responsableTipo : null };
+}
+
 export type CriterioVeredicto = 'cumple' | 'no_cumple';

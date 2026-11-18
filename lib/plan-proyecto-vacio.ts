@@ -24,6 +24,7 @@ import 'server-only';
 // =============================================================================
 
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, WS_NINGUNO } from '@/lib/workspace';
+import { leerTodo } from '@/lib/supabase-paginado';
 import { chatCheapCascade, errorDeCascada } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import { crearPropuesta, type PropuestaTarea } from '@/lib/plan-propuesta';
@@ -37,6 +38,24 @@ const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
 const enPlan = async <T,>(fn: () => Promise<T>): Promise<T> =>
   runWithWorkspace((await getWorkspaceActual()) ?? WS_NINGUNO, fn);
+
+/**
+ * `plan_tareas` ENTERA, paginada (P20, 18/11/2026): PostgREST corta en 1000 filas sin error, y aquí una tarea abierta
+ * que caía después de esa fila hacía que su proyecto se viera VACÍO y se le propusieran tareas que ya tiene. Orden por
+ * `id`, único dentro del negocio (PK `workspace_id, id`).
+ *
+ * ⚠️ Si la lectura falla devuelve `null`, NO `[]` (18/11/2026). El `.select()` de antes no miraba el error y una lectura
+ * caída se leía como «el plan no tiene tareas»: TODOS los proyectos salían vacíos, y proponerles tareas pagaba IA por
+ * cada uno. «No pude leer» no es «no hay nada»: cada llamador lo dice y no sigue.
+ */
+async function tareasDelPlan(db: Awaited<ReturnType<typeof getTenantDb>>, cols: string): Promise<Row[] | null> {
+  try {
+    return await leerTodo<Row>(db, 'plan_tareas', cols, { orden: 'id' });
+  } catch (e) {
+    console.error(`[plan-proyecto-vacio] no pude leer plan_tareas: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
 
 export type ProyectoVacio = { id: string; nombre: string; emoji: string; detalle: string; score: number };
 
@@ -60,11 +79,13 @@ export async function proyectosSinTareas(): Promise<ProyectoVacio[]> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const [t, p] = await Promise.all([
-      db.from('plan_tareas').select('progress, labels'),
+      tareasDelPlan(db, 'id, progress, labels'),
       db.from('plan_proyectos').select('id, name, emoji, detalle, score'),
     ]);
+    // Sin las tareas no se puede saber qué proyecto está vacío: se dice, no se contestan todos (lo atrapa la API).
+    if (t === null) throw new Error('No pude leer las tareas del plan para saber qué proyectos están vacíos.');
     const conTrabajo = new Set<string>();
-    for (const r of t.data ?? []) {
+    for (const r of t) {
       const row = r as Row;
       if (Number(row.progress ?? 0) >= 100) continue;
       for (const l of asArr<unknown>(row.labels).map(String)) conTrabajo.add(l);
@@ -106,7 +127,7 @@ Devuelve EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
  * nada usable — y eso ÚLTIMO se distingue del resto con `motivo`, porque «no pude» y «no
  * hacía falta» no son lo mismo y el que mira la pantalla tiene que poder saber cuál fue.
  */
-export async function proponerTareasParaProyecto(projId: string): Promise<{ id: string; n: number } | { error: string }> {
+export async function proponerTareasParaProyecto(projId: string): Promise<{ id: string; n: number } | { error: string; falla?: true }> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const { data: fila } = await db.from('plan_proyectos').select('id, name, detalle').eq('id', projId).maybeSingle();
@@ -114,8 +135,9 @@ export async function proponerTareasParaProyecto(projId: string): Promise<{ id: 
     const nombre = str((fila as Row).name, 'Proyecto');
     const detalle = str((fila as Row).detalle);
 
-    const { data: tRows } = await db.from('plan_tareas').select('title, progress, labels');
-    const todas = (tRows ?? []).map((r) => ({ titulo: str((r as Row).title), progress: Number((r as Row).progress ?? 0), labels: asArr<unknown>((r as Row).labels).map(String) }));
+    const tRows = await tareasDelPlan(db, 'id, title, progress, labels');
+    if (tRows === null) return { error: 'No pude leer las tareas del plan. Prueba de nuevo en un rato.', falla: true };
+    const todas = tRows.map((r) => ({ titulo: str((r as Row).title), progress: Number((r as Row).progress ?? 0), labels: asArr<unknown>((r as Row).labels).map(String) }));
     if (todas.some((t) => t.progress < 100 && t.labels.includes(projId))) {
       return { error: 'Ese proyecto ya tiene tareas abiertas.' };
     }

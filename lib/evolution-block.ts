@@ -6,6 +6,7 @@
 
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
+import { leerTodo } from '@/lib/supabase-paginado';
 import { TelefonosDe, sufijoDeBusqueda } from '@/lib/numero-whatsapp';
 
 const norm = (t: string) => (t || '').replace(/\D/g, '');
@@ -71,10 +72,26 @@ export async function estaBloqueadoEstricto(telefono: string | null | undefined)
   return (await filasDelContacto('wa_bloqueados', telefono)).length > 0;
 }
 
+/**
+ * Los teléfonos de `tabla` ENTEROS, paginados (P20, 18/11/2026). Un `.select()` plano cortaba en 1000 filas sin error:
+ * pasado ese número, un bloqueado no salía marcado en /whatsapp ni en /chats, y un oculto volvía a aparecer en la
+ * bandeja y en MaKo. Orden por `id` (PK). Si la lectura falla, la lista vacía, como el `.select()` de antes (que no
+ * miraba el error), pero lo deja en el log. Lo que DECIDE un envío no pasa por aquí: pregunta `estaBloqueado`.
+ */
+async function telefonosDe(tabla: 'wa_bloqueados' | 'wa_ocultos'): Promise<TelefonosDe> {
+  const db = await getTenantDb();
+  try {
+    const filas = await leerTodo<{ telefono: string | null }>(db, tabla, 'id, telefono', { orden: 'id' });
+    return new TelefonosDe(filas.map((r) => r.telefono));
+  } catch (e) {
+    console.error(`[evolution-block] no pude leer ${tabla}: ${e instanceof Error ? e.message : String(e)}`);
+    return new TelefonosDe([]);
+  }
+}
+
 /** Los bloqueados del workspace, para marcar una lista de una: `has` responde con la regla de identidad. */
 export async function telefonosBloqueados(): Promise<TelefonosDe> {
-  const { data } = await (await getTenantDb()).from('wa_bloqueados').select('telefono');
-  return new TelefonosDe(((data ?? []) as Array<{ telefono: string | null }>).map((r) => r.telefono));
+  return telefonosDe('wa_bloqueados');
 }
 
 // ── Ocultar/mostrar (distinto de bloquear: NO corta el envío; solo saca la
@@ -98,6 +115,5 @@ export async function mostrarContacto(telefono: string): Promise<void> {
 
 /** Los ocultos del workspace, para filtrar una lista de una: `has` responde con la regla de identidad. */
 export async function telefonosOcultos(): Promise<TelefonosDe> {
-  const { data } = await (await getTenantDb()).from('wa_ocultos').select('telefono');
-  return new TelefonosDe(((data ?? []) as Array<{ telefono: string | null }>).map((r) => r.telefono));
+  return telefonosDe('wa_ocultos');
 }

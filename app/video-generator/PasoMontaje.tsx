@@ -26,12 +26,7 @@ import { BotonEditarEnEditor } from './editor-video';
 import type { Plan } from './plan-montaje';
 import { MOTIVO_VENCIDO, textoEspera } from '@/lib/montaje/cola';
 import { EmpezarPlanYa } from '@/app/_ui/EmpezarPlanYa';
-
-/** `70.04` → `1:10`. Sin decimales: nadie lee un anuncio en centésimas. */
-function reloj(seg: number): string {
-  const s = Math.round(seg);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
+import { DuracionesMontaje } from './montaje-duraciones';
 
 export function PasoMontaje({ planId, titulo, clips, segundosPorToma }: {
   planId: string;
@@ -146,10 +141,8 @@ export function PasoMontaje({ planId, titulo, clips, segundosPorToma }: {
               no se cree. Dicho con el antes y el después, sí. */}
           {estado.segundosAntes != null && estado.segundosDespues != null && (
             <div style={{ textAlign: 'center', lineHeight: 1.5 }}>
-              <div style={{ fontSize: 'var(--fs-md)', color: 'var(--ink)' }}>
-                De <strong>{reloj(estado.segundosAntes)}</strong> a{' '}
-                <strong>{reloj(estado.segundosDespues)}</strong>
-              </div>
+              {/* El de antes va rotulado: es la suma de lo pedido a cada toma, no una medición (./montaje-duraciones.tsx). */}
+              <DuracionesMontaje antes={estado.segundosAntes} despues={estado.segundosDespues} />
               <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
                 Se fue el silencio, no una palabra.
               </div>

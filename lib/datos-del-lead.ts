@@ -26,6 +26,7 @@ import { encuentroGrabable } from './encuentro-ws';
 import { estadoDatosDeLead } from './datos-aviso-config';
 import type { Step } from './stage-requirements';
 import type { EstadoDatos } from './datos-aviso';
+import { hoyEnWorkspace } from './timezone';
 
 /** Lo que hace falta leer para contar los datos sin marcar de un lead. La ficha de escritorio usa también el resto. */
 export type InsumosDatosLead = {
@@ -35,19 +36,23 @@ export type InsumosDatosLead = {
   respuestas: { R1: RespuestaQA[]; R2: RespuestaQA[] };
   /** ¿El encuentro se graba? (si no, el Fathom no se pide). */
   grabable: boolean;
+  /** HOY en la zona del NEGOCIO (18/11/2026, F125): decide si una reunión sin hora ya pasó. Era el de Tijuana. */
+  hoy: string;
 };
 
 /** Los insumos, en paralelo. Ninguna lectura tira: cada una cae a lo que ya caía en la ficha de escritorio. */
 export async function leerInsumosDatosLead(lead: Lead): Promise<InsumosDatosLead> {
-  const [pagos, stagesRaw, respuestas, grabable] = await Promise.all([
+  const [pagos, stagesRaw, respuestas, grabable, hoy] = await Promise.all([
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
     // DEL LEAD: la ficha pinta los requisitos de SU recorrido.
     getPipelineStagesDeLead(lead).catch(() => DEFAULT_STAGES),
     getLeadRespuestas(lead),
     encuentroGrabable(),
+    // Nunca tira (sin zona legible, el default): lo mismo que el CRM le pasa a «A revisar» (app/crm/page.tsx).
+    hoyEnWorkspace(),
   ]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
-  return { pagos, stages, respuestas, grabable };
+  return { pagos, stages, respuestas, grabable, hoy };
 }
 
 /**
@@ -58,7 +63,7 @@ export async function leerInsumosDatosLead(lead: Lead): Promise<InsumosDatosLead
 export async function datosSinMarcarDeLead(lead: Lead, i: InsumosDatosLead): Promise<{ faltantes: Step[]; datos: EstadoDatos }> {
   // Un cobro confirmado por la pasarela no pide comprobante (lib/pago-comprobante.ts).
   const comprobantesFaltantes = i.pagos.filter(faltaComprobante).length;
-  const extraReq = { comprobantesFaltantes, r2RespuestasOk: i.respuestas.R2.length > 0, pipeline: i.stages, grabable: i.grabable };
+  const extraReq = { comprobantesFaltantes, r2RespuestasOk: i.respuestas.R2.length > 0, pipeline: i.stages, hoyISO: i.hoy, grabable: i.grabable };
   const faltantes = faltantesDeLead(lead, i.pagos.length > 0, extraReq);
   const datos = await estadoDatosDeLead(lead, faltantes, i.pagos.length > 0, extraReq);
   return { faltantes, datos };

@@ -77,9 +77,13 @@ export type PruebaParaServir = {
  *     Nunca un sorteo sin registro (crítica, punto 15);
  *   · con `sirviendo` → esa rama, sin escribir;
  *   · la unidad ya tiene rama → ésa, siempre; si esa rama se cortó, el control (deja de servirse), sin escribir;
+ *   · sin rama guardada pero con una `preferida` ACTIVA → ésa, y se escribe. Es la rama que la persona ya vio en esta
+ *     prueba y que trae la cookie del servidor (`mko_ab_<prueba>`, lib/editor-landing/prueba-landing.ts): si Safari le
+ *     borró la cookie del visitante a los 7 días, su `visitor_id` es nuevo y sin esto la huella la podría mandar a la
+ *     OTRA versión. Una preferida cortada o que no es de la prueba no cuenta (decide la huella);
  *   · si no → la que da `asignar`, y se escribe.
  */
-export function ramaParaServir(p: PruebaParaServir | null, unidad: string | null | undefined, previa?: string | null):
+export function ramaParaServir(p: PruebaParaServir | null, unidad: string | null | undefined, previa?: string | null, preferida?: string | null):
   { clave: string; escribir: boolean } {
   const control = p?.ramas.find((r) => r.control)?.clave ?? 'A';
   if (!p) return { clave: control, escribir: false };
@@ -89,6 +93,7 @@ export function ramaParaServir(p: PruebaParaServir | null, unidad: string | null
     const r = p.ramas.find((x) => x.clave === previa);
     return { clave: r && r.activa !== false ? previa : control, escribir: false };
   }
+  if (preferida && p.ramas.some((x) => x.clave === preferida && x.activa !== false && x.peso > 0)) return { clave: preferida, escribir: true };
   const nueva = asignar(p.id, p.epoca, unidad, p.ramas);
   return nueva ? { clave: nueva, escribir: true } : { clave: control, escribir: false };
 }

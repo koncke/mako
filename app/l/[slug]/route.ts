@@ -20,6 +20,7 @@
 import type { NextRequest } from 'next/server';
 import { leerPublicado } from '@/lib/editor-landing/publicar';
 import { responderPublico } from '@/lib/editor-landing/pagina-publica';
+import { probarLanding } from '@/lib/editor-landing/prueba-landing-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,12 @@ type Params = Promise<{ slug: string }>;
 
 export async function GET(req: NextRequest, ctx: { params: Params }) {
   const { slug } = await ctx.params;
-  return responderPublico(req, { tipo: 'pagina', slug, ruta: '' }, { leer: () => leerPublicado(slug, '') });
+  // La prueba A/B (O18): con una corriendo, la rama de este visitante (lib/editor-landing/prueba-landing-servir.ts).
+  let sitio: Awaited<ReturnType<typeof leerPublicado>> = null;
+  return responderPublico(req, { tipo: 'pagina', slug, ruta: '' }, {
+    leer: async () => (sitio = await leerPublicado(slug, '')),
+    probar: async () => (sitio ? probarLanding(sitio, '', req) : null),
+  });
 }
 
 export async function HEAD(req: NextRequest, ctx: { params: Params }) {

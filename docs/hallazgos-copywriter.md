@@ -3,6 +3,39 @@
 Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026). El diseño y sus decisiones están en
 [diseno-copywriter.md](diseno-copywriter.md); acá va lo que no se deduce del código.
 
+## Una pieza larga se escribe por secciones: el tope es POR PEDIDO, no por pieza (18/11/2026)
+
+**Síntoma:** la «Clase gratuita · 42 min» (6.300 palabras dichas) salía con 2.000 como mucho (~13 minutos) y nada lo decía:
+`objetivoDeDuracion` topea en lo que entra en un pedido, así que la segunda pasada la daba por buena desde 1.500 y `avisoDeDuracion`
+avisaba recién debajo de 1.200. Medido ejecutando esas funciones: las cinco estructuras de lib/vsl-estructuras.ts (20 a 40 minutos)
+quedaban todas debajo de su largo, en silencio.
+
+**Causa:** el tope de 2.000 palabras es del PEDIDO (lo que entra en una respuesta con `maxTokens: 6_000` y en 110 s) y se usaba como
+tope de la PIEZA. Ahora es `PALABRAS_POR_PEDIDO` (ia-reglas.ts), con ese porqué escrito.
+
+**Lo que se hizo** (lib/copywriter/por-secciones.ts, cableado en `editar` de lib/copywriter/ia.ts con `porSecciones`):
+- La primera pasada queda como BORRADOR.
+- Sus secciones cortas (debajo del 75 % de lo suyo) se piden otra vez en tandas de hasta `PALABRAS_POR_PEDIDO`, una llamada por
+  tanda, en orden. Lo de cada sección sale de los minutos de la GUÍA de su estructura, escalado a la duración de la página.
+- Lo que vuelve reemplaza la sección del borrador en su lugar de la lista de operaciones, y sólo si es más largo. La propuesta escribe
+  cada sección una vez.
+- El aviso de esa pieza mide contra su largo real y nombra las secciones que siguen cortas.
+
+**Trampas:**
+- **N llamadas = N cobros.** El medidor reserva y cobra cada llamada aparte. La clase de 42 minutos son unas 6 (el borrador y 5
+  tandas): lo dice la fila de `copywriter-ia` (lib/mako-tokens-costos.ts) y tests/copywriter-por-secciones.test.ts ata ese número a la
+  misma cuenta que arma las tandas.
+- **No en paralelo:** contra una sola clave es un 429, y un 429 degrada de proveedor.
+- **No toca lo que el borrador no escribió:** puede ser de la persona.
+- **Corta en la primera falla y sin saldo:** sin saldo no hay otra llamada que lo arregle, y el aviso lleva el texto del medidor.
+- **Sin otra tanda pasados los 210 s:** la ruta corta a los 300, con lo que leer los archivos ya gastó.
+- **La segunda pasada vieja («complétala ENTERA») no corre sobre esa pieza:** pedirle entera a un pedido es justo lo que no entra.
+- **Los tests de este módulo fijan líneas literales de ia.ts** (copywriter.test.ts, copywriter-outliers.test.ts…). Partir `medir` en
+  `procesar` + `medirS` se hizo sin mover ninguna, y la única que cambió de forma (el aviso) se actualizó con su porqué.
+- **Lo que no corre:** la API de MaKo (`editar_documento_copywriter`) no lo prende, porque corta a 60 s por HTTP y no tiene tiempo para
+  tandas. Ahí una pieza larga sigue saliendo hasta el tope de un pedido.
+- **Sin medir con un modelo de verdad:** cuánto tarda cada tanda con el Gemini de un negocio, y si las 6 entran en los 300 s, se ve en
+  producción.
 ## El VSL Generator ya era el Copywriter, y el hueco que queda es el LARGO (18/11/2026, F93)
 
 **Síntoma:** el pendiente F93 (docs/pendientes-verificados-17-11.md) pedía construir el VSL Generator con el plan de agosto
@@ -25,8 +58,9 @@ lib/funciones-mako.ts. Lo fija tests/vsl-generator-destino.test.ts, probado romp
 (~13 minutos dichos). Las cinco estructuras de lib/vsl-estructuras.ts son de 20 a 40 minutos (3.000 a 6.000 palabras), y la
 plantilla «Clase gratuita · 42 min» pide 6.300. Con el tope, `cortaParaSuDuracion` da por buena la clase desde 1.500 palabras
 (10 minutos) y `avisoDeDuracion` avisa recién debajo de 1.200: un VSL largo sale de un tercio de su duración y, por encima de
-1.200 palabras, nada lo dice. Arreglarlo es escribir una pieza larga sección por sección; vive en lib/copywriter/ia.ts y es del
-chat del Copywriter.
+1.200 palabras, nada lo dice. ~~Arreglarlo es escribir una pieza larga sección por sección; vive en lib/copywriter/ia.ts y es del
+chat del Copywriter.~~ Hecho el 18/11/2026 en la pantalla (lib/copywriter/por-secciones.ts): la entrada de arriba, «Una pieza larga
+se escribe por secciones». Por la API de MaKo sigue con el tope de un pedido.
 
 **La regla que queda:** un pendiente que nombra un módulo por construir se refuta buscando la CAPACIDAD (qué pantalla o qué
 operación ya hace eso), no el archivo. Un plan de construcción fechado antes de una consolidación (acá, «Copywriter = Notion» y la
@@ -857,12 +891,18 @@ nada». Medido en producción (ws 9, sesión de Martín, navegador de la app, s�
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
 - Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).
 - Mudar las preguntas de MaKo al patrón común «MaKo toma la iniciativa» cuando el Cerebro lo arme: hoy los pasos salen de
-  lib/copywriter/iniciativa.ts y PanelMaKo los dibuja. Y app/_crear/ejemplo.ts (de Create) todavía dice que el
-  Copywriter abre con «Adaptar a mi negocio» y «Solo la estructura»: el Copywriter ya no lo usa.
+  lib/copywriter/iniciativa.ts y PanelMaKo los dibuja. ~~Y app/_crear/ejemplo.ts (de Create) todavía dice que el
+  Copywriter abre con «Adaptar a mi negocio» y «Solo la estructura»~~ (18/11/2026: desde 7148a3f8f, el 5/11, el primer
+  mensaje de app/_crear/ejemplo.ts pregunta la oferta, «¿Para cuál de tus ofertas es?», no «¿Lo adapto…?»; su cabecera se
+  corrigió el 18/11). Lo que sigue en pie: `primerMensajeDeEjemplo` no tiene quién la llame en app/ ni en lib/, y el
+  Copywriter no la va a usar (su página nace con la estructura: «Es un ejemplo de…» sería falso). Ver la entrada del 18/11.
 - La calidad de las guías de cada sección (lib/copywriter/plantillas-guias.ts) se revisó a ojo: el test fija que estén,
   que sean cortas y sin voseo, no que digan lo correcto.
-- Los `evals` del experto (un pedido, la salida esperada y sus verificaciones): la calidad de «adaptar» no tiene prueba
-  automática. Y los ejemplos de las VSL ocultas (`vsl-anti-solucion`, `vsl-diagnostico`, `vsl-historia-fundador`).
+- ~~Los `evals` del experto (un pedido, la salida esperada y sus verificaciones): la calidad de «adaptar» no tiene prueba
+  automática. Y los ejemplos de las VSL ocultas (`vsl-anti-solucion`, `vsl-diagnostico`, `vsl-historia-fundador`).~~
+  (18/11/2026: los evals están en tests/copywriter-experto-evals.test.ts, con los casos en tests/_copywriter-experto-evals.ts,
+  y las tres VSL tienen su ejemplo y volvieron a la galería. Lo que los evals NO miden es la calidad de un modelo de verdad:
+  eso sigue siendo del arnés de chats, scripts/probar-chats/. Ver la entrada del 18/11.)
 - Las cifras de los ejemplos contra la tabla del elenco (docs/plantillas-reales/README.md, 2.2) se revisaron a ojo: no
   hay test.
 - El arrastre del árbol de Notion (reordenar y anidar páginas) se perdió al entrar al shell único de Create (su lista es
@@ -965,6 +1005,79 @@ ws1, los acuerdos a mano (sin suscripción de la pasarela) y la plataforma dan `
 `null` en el `catch`: **ante la duda, pasa**. ⚠️ La prueba gratis tiene los topes de SU plan desde el primer día, a propósito
 (`lib/plan-esencial.ts`, `capaVendidaDe`): una prueba del de 47 ve el candado, una del de 97 no.
 
+## Las pruebas del experto sin llamar al modelo, y las tres VSL que volvieron a la galería (18/11/2026, O23)
+
+**Vive en:** tests/copywriter-experto-evals.test.ts, tests/_copywriter-experto-evals.ts, lib/copywriter/plantillas-ejemplos.ts,
+lib/copywriter/plantillas.ts (`VSL_CON_EJEMPLO`), lib/copywriter/plantillas-guias.ts, lib/copywriter/doc.ts (`CON_TILDE`),
+app/_crear/ejemplo.ts.
+
+**Los evals de `lib/copywriter/experto.ts` no llaman a ningún modelo, y prueban igual lo que importa.** Un caso es un pedido
+(el tipo de pieza, un negocio inventado, el prompt de la persona) con UNA salida buena y varias malas FIJAS, escritas como
+operaciones que devolvería el modelo. Lo determinista corre de verdad: el pedido de adaptar se arma con `renderTemplate` y las
+mismas piezas que ia.ts (`pideParaIA`, `guionParaIA`, la estructura sugerida), y cada salida pasa por el MISMO saneo que
+`medir` de lib/copywriter/ia.ts (sanear → al «tú» → al español → sin lo que nadie pidió → aplicar). Tres cosas lo sostienen:
+- **cada verificación cita su regla con un fragmento literal** de `EXPERTO_COPY`, `ADAPTAR_USER` o `bloqueIdiomaCopy`. Si
+  alguien borra la regla del prompt, la verificación queda sin respaldo y el test 1 da rojo;
+- **cada mala dice qué verificación rompe, y tiene que romper ésa** (no «alguna»);
+- **las «arregladas» prueban el otro lado**: el defecto está en lo que escribió el modelo y no en la página (el voseo común,
+  el inglés, las notas de producción, el «## SECCIÓN GANCHO»). Si el saneo deja de arreglarlo, da rojo.
+
+Y el orden del saneo se fija por los NOMBRES de los pasos, del saneo al «aplicar» de ia.ts (test 5), no por sus líneas:
+renombrar una variable no lo rompe, sacar o mover un paso sí, y un segundo camino de saneo también. Sirvió el mismo día: al
+mezclar main, `medir` se partió en `procesar` + `medirS` (las piezas largas por secciones, lib/copywriter/por-secciones.ts) y
+el test 5 dio rojo. El saneo seguía igual y el test se reescribió para no depender del nombre de la función. **Lo que esto no mide es si un modelo de verdad escribe bien**: eso sigue en
+el arnés de chats (scripts/probar-chats/).
+
+**Lo que encontró escribir los casos:**
+1. **El tuteo automático no arregla todo el voseo.** `alTuteo` (lib/al-tuteo.ts) corrige «tocá», «agendá», «contás», «mirá»,
+   «escribime», pero **no** «andá», «vení», «pedime», «ponete» ni «sentite», y `marcasDeVoseo` sí las marca. Un modelo que
+   escriba «Andá a la web» deja el voseo en la página. El eval lo fija como una mala que el saneo NO arregla (`sin-voseo`).
+2. **`restosDelEjemplo` cuenta como resto un renglón genérico.** La primera salida buena del email usaba «Hola, {nombre}:» y
+   «Agenda tu llamada de admisión», iguales a dos bloques del ejemplo de Voz de Líder, y dio rojo en «nada del ejemplo». La
+   regla es correcta («nada del ejemplo»), pero un saludo se escribe igual en cualquier email: si la página de una persona
+   salta con «quedan restos del ejemplo» sin razón, mirar esto primero.
+3. **La segunda capa de «no inventes cifras» mira sólo porcentajes, «N veces» y la garantía** (`cifrasSinFuente`,
+   lib/copywriter/ia-reglas.ts). Un precio sin fuente («USD 8,000») o un cupo inventado («Quedan 3 lugares») pasan sin aviso, y
+   el método prohíbe los dos con todas las letras («cifras… garantías, fechas o cupos»). El eval los mira por su cuenta, y la
+   del cupo compara contra los cupos que el negocio DICE, no contra cualquier «3»: «3 de marzo» en el negocio hacía pasar
+   «Quedan 3 lugares». En el producto, sigue abierto.
+4. **Y la que sí se arregló: los ids de bloque le daban fuente a una cifra inventada.** Los evals dieron rojo UNA vez en
+   seis corridas, sin tocar nada. La causa: las fuentes de `cifrasSinFuente` llevan el guion de antes como `guionParaIA`, con
+   «[b4k73xq2z]» adelante de cada renglón, y esos ids son al azar. El «73» de un id le daba fuente al «73 %» que el modelo
+   inventó. Medido con ids al azar: con 30 bloques, un número de dos cifras sale suelto en algún id el 10 % de las veces, y
+   uno de una cifra («3 veces», «5x») el 99 %, así que esos casi nunca se avisaban en el producto. Ahora `cifrasSinFuente`
+   saca los ids antes de buscar (`sinIdsDeBloque`, lib/copywriter/ia-reglas.ts), con su caso en tests/copywriter.test.ts
+   (probado rompiéndolo: sin el arreglo, 1 fallo). Después del arreglo, 25 corridas seguidas de los evals: 0 fallos.
+   ⚠️ **Un test que da rojo una vez en seis no es «flaky»: algo al azar está entrando a lo que se compara.** Antes de
+   reintentarlo, buscar qué dato del caso sale de `Math.random`, de la hora o de un id.
+
+**Las tres VSL ocultas tienen su ejemplo y volvieron a la galería.** `vsl-anti-solucion` (Cierre Consultivo),
+`vsl-diagnostico` (Voz de Líder) y `vsl-historia-fundador` (Consulta Rentable), con el molde de las otras dos: 10 minutos,
+el tramo de cada sección y el texto dicho entre comillas, de 600 a 665 palabras, sin un solo contraste «no es X, es Y» (lo
+frena el test de plantillas), y pasando `problemasDelEjemplo`. La galería pasó de 12 a 15 plantillas, y lo que la deriva lo
+heredó sin tocarlo: la cuenta de la comparación de la landing (`N_PLANTILLAS`) y el listado de la API de MaKo
+(`plantillasVisibles`). Y el test de plantillas ahora exige que TODA VSL activa de lib/vsl-estructuras.ts tenga su ejemplo:
+una cuarta no se puede volver a esconder sin que nadie lo vea.
+- ⚠️ **Sus secciones se guardan en mayúscula y sin tilde** («POR QUE FALLA», «CAUSA RAIZ»: son las claves de
+  lib/vsl-estructuras.ts), y el chip las mostraba así. Se sumaron a `CON_TILDE` (lib/copywriter/doc.ts), que sólo cambia lo que
+  se DIBUJA: la identidad de la sección sigue en `attrs.seccion`.
+
+**`primerMensajeDeEjemplo` (app/_crear/ejemplo.ts) no tiene quién la llame en app/ ni en lib/.** El renglón de «Qué quedó sin
+hacer» decía que el Copywriter abría con «Adaptar a mi negocio»: falso desde 7148a3f8f (5/11), que la pasó a preguntar la
+oferta. Lo que sí es cierto es que nadie la usa: el Copywriter arma su primer mensaje en lib/copywriter/iniciativa.ts (y ahí
+«Es un ejemplo de…» sería falso, porque su página nace con la estructura), Video e Image con lib/aperturas/, Offer con su
+chat. El único que la tenía en el plan es AI Avatar (T15 de docs/mako-iniciativa/plan.md). **No se borró**: AGENTS.md («el
+primer mensaje de MaKo sale de app/_crear/ejemplo.ts») y el README de las plantillas reales la nombran, y sus tests la fijan.
+Lo que conviene: borrarla con sus tests cuando T15 se cierre o se abandone, y corregir esas dos líneas en el mismo commit. Se
+borró la constante `ADAPTAR_A_MI_NEGOCIO`, que no la leía nadie.
+
+**Lo que quedó sin hacer:**
+- Que `cifrasSinFuente` mire también precios y cupos (el hallazgo 3), con su caso en tests/copywriter.test.ts, donde ya tiene
+  los suyos.
+- Que `alTuteo` arregle los imperativos que hoy sólo marca (el hallazgo 1), con su caso en el eval (`sin-voseo` pasaría a ser
+  una «arreglada»).
+- El texto de la operación que lista las plantillas por la API de MaKo (lib/api-mako/areas/copywriter.def.ts) dice «VSL» sin
+  nombrar cuáles: no hizo falta tocarla, porque el listado sale de `plantillasVisibles`.
 ## Las bajas que quedaban de la mudanza, y arrastrar un título con su tabla (18/11/2026)
 
 **Los síntomas.** Cinco cosas que nadie veía de golpe, todas con la pantalla «funcionando»:

@@ -2520,4 +2520,55 @@ export const BITACORA: Hito[] = [
       'tests/grupos-ops-espejo.test.ts — la copia real contra la base de mentira; con el emparejamiento de antes, 13/1',
     ],
   },
+  {
+    fecha: '18 nov', hora: '01:00', chat: 'Traba (nube)', sesion: 'cli_6ab6e94e-8cd3-5fa9-a736-713a1fc58542', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes: la sección «Traba otra cosa»',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó con el encargo de la sesión: los 13 de «Traba otra cosa» de docs/pendientes-verificados-17-11.md, en su orden, refutando cada uno contra main antes de tocarlo, y lo que no esté hecho, con un test que lo reproduzca.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '01:35', chat: 'Traba (nube)', sesion: 'cli_6ab6e94e-8cd3-5fa9-a736-713a1fc58542', cuenta: 'claude2', actor: 'claude', tipo: 'correccion',
+    titulo: 'El Runner avisa cuando su cron dejó de correr, y el aviso al Cerebro ya no manda a un cartel que no existe',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El cron del Runner que vence ya no pasa en silencio:** cuando el Runner sigue latiendo pero su cron no corre (no mide la cuota ni corre el vigía), el Cerebro lo recibe en cada turno con el pedido de rearmarlo, y la guardia se lo avisa.',
+      '**Un Runner recién abierto tiene su hora para armar el cron:** no hereda la marca vieja del Runner anterior, así que no salta la alarma mientras se está armando.',
+      '**Lo que espera un chat cerrado:** el aviso al Cerebro le decía que te pidiera reenviarlo «desde el cartel rojo», que sacaste el 31/10. Ahora le dice que te pida volver a escribirlo en un chat abierto.',
+      '**Limpieza:** se borraron las funciones del cartel que ninguna pantalla usaba.',
+      'Para que corra en la PC faltan las copias del cartero, de runner-salud, la línea del latido en el cron del Runner y el prompt de la guardia: las hace el Cerebro.',
+    ],
+    commits: [{ sha: '0f0bf08a', msg: 'Pendientes «Traba otra cosa»: T6, T5, T11 y T12 cerrados con test; los otros nueve, con su estado de hoy', lineas: 985, archivos: 30 }],
+    archivos: [
+      'scripts/operaciones/runner-salud.mjs — latido-del-cron, cronDelRunner, estado (cron, cronVencido), alTurno · scripts/operaciones/cartero.mjs — mensajeLimbo',
+      'scripts/operaciones/guardia-runner.md — el prompt de la guardia con cronVencido',
+      'lib/centro-limbo.ts, app/admin/operaciones/acciones.ts, lib/operaciones.ts — lo del cartel, borrado · lib/limbo-al-cerebro.ts, scripts/tickets.ts — el texto nuevo',
+      'tests/runner-salud.test.ts (9 roturas) · tests/centro-limbo.test.ts · tests/centro-estado-pc.test.ts',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '09:00', chat: 'Ops Center', cuenta: 'claude2', actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Llegó por el coordinador de la tanda de la nube del 18/11 (docs/pendientes-verificados-17-11.md, «Lo que falta construir»).',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '12:20', chat: 'Ops Center', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que la caja subió y nunca se firmó, y lo subido para leer, se borran de noche',
+    puntos: [
+      'F96: el cron /api/cron/limpieza-colgados borra lo de más de un día que nadie usó. Un adjunto de la caja, sólo si ningún trabajo firmado lo nombra (uno que espera en la cola con su chat cerrado queda).',
+      'Siguen abiertos, con su motivo en el informe al coordinador: el «⋯» de cada chat del cliente, el riel «Lo que hizo», retirar /api/mako-doer y derivar CARTERO_VIVO_MS.',
+    ],
+    commits: [{ sha: 'a31cad9e', msg: 'Admin y API de MaKo: sin clientes de prueba, uso por persona, y lo que quedaba colgado se cierra', lineas: 1040, archivos: 33 }],
+    archivos: [
+      'lib/operaciones-adjuntos.ts — barrerSubidasSinFirmar',
+      'lib/chat-leer-purga.ts — barrerLecturasSinLeer',
+      'lib/subidas-colgadas.ts — la regla, pura',
+      'app/api/cron/limpieza-colgados/route.ts — el cron (vercel.json)',
+    ],
+    revisar: '/admin/operaciones',
+  },
 ];
