@@ -1,0 +1,1281 @@
+[
+ {
+  "id": "recorrido",
+  "pestana": "Recorrido general (onboarding)",
+  "ruta": "/second-brain",
+  "pagina": "app-ops-center.html",
+  "icono": "lucide:map",
+  "tanda": 2,
+  "pantallas": [
+   1,
+   8
+  ],
+  "pasos": [
+   {
+    "dice": "Te muestro tu Máko por dentro, en un minuto."
+   },
+   {
+    "dice": "A la izquierda están tus chats: cada uno es un experto que trabaja para tu negocio.",
+    "sel": "[data-recorrido=\"sb-chats\"]"
+   },
+   {
+    "dice": "El Ops Center es Máko: le pides lo que necesites y lo reparte. Siempre está primero."
+   },
+   {
+    "dice": "Offer Coach arma tu oferta contigo, inspirado en Alex Hormozi y otros referentes."
+   },
+   {
+    "dice": "Funnel Coach elige contigo tu sistema para conseguir clientes, y lo arman juntos."
+   },
+   {
+    "dice": "El reto tiene su propio chat, Reto de 7 días: cada día, un paso con un video. Puedes adelantar días cuando quieras."
+   },
+   {
+    "dice": "Más a la izquierda está tu panel, con todas las pestañas: tus ventas, tu marketing y todo lo que creas."
+   },
+   {
+    "dice": "En Uso ves cuánto lleva gastado tu IA, y en Ticketera reportas cualquier problema."
+   },
+   {
+    "dice": "Y si tienes una duda, escríbele a Máko en la caja de abajo. ¡Vamos con tu día 1!",
+    "sel": "[data-recorrido=\"sb-escribir\"]"
+   }
+  ],
+  "ajustes": "Del recorrido de la maqueta (GUION del onboarding) con lo del 18/11: el reto en su chat «Reto de 7 días», sin botones de atajo, «Tu panel». Sin el Second Brain: hoy su ruta es el Ops Center."
+ },
+ {
+  "id": "ops-center",
+  "pestana": "Ops Center",
+  "ruta": "/second-brain",
+  "pagina": "app-ops-center.html",
+  "icono": "lucide:sparkles",
+  "tanda": 1,
+  "pantallas": [
+   1,
+   5
+  ],
+  "pasos": [
+   {
+    "dice": "Aquí no se busca nada: se pide.",
+    "sel": "[data-recorrido=\"sb-escribir\"]"
+   },
+   {
+    "dice": "Un tema, un chat. Así Máko no mezcla una conversación con otra.",
+    "sel": "[data-recorrido=\"sb-nuevo\"]"
+   },
+   {
+    "dice": "El reto tiene su propio chat, Reto de 7 días: ahí te espera el video de cada día."
+   },
+   {
+    "dice": "¿Estás en la calle? Grábale una nota de voz.",
+    "sel": "button[aria-label=\"Grabar una nota de voz\"]"
+   },
+   {
+    "dice": "En Uso ves qué cuenta de IA trabaja para ti y cuánto lleva gastado.",
+    "sel": "[data-recorrido=\"sb-uso\"]"
+   },
+   {
+    "dice": "Y para arrancar, toca «¿Qué hago hoy?». Máko mira tu negocio y te ordena el día.",
+    "sel": "[data-recorrido=\"tour-ops-center-que-hago-hoy\"]"
+   }
+  ],
+  "ajustes": "Paso 3: «Tu plan de la semana» → el chat «Reto de 7 días» (18/11)."
+ },
+ {
+  "id": "offer",
+  "pestana": "Offer",
+  "ruta": "/offer",
+  "pagina": "app-offer.html",
+  "icono": "lucide:tag",
+  "tanda": 1,
+  "pantallas": [
+   1,
+   3
+  ],
+  "pasos": [
+   {
+    "dice": "Lo que le contaste a Máko de tu oferta sigue aquí, en la misma conversación.",
+    "sel": "section[aria-label=\"MaKo en Offer\"]"
+   },
+   {
+    "dice": "A la derecha, tu oferta se arma sola con cada respuesta. De ahí salen tu landing y tus guiones.",
+    "sel": "[aria-label=\"Tu oferta\"]"
+   },
+   {
+    "dice": "Con la flecha ves tus funnels, sus ofertas y cada análisis.",
+    "sel": "button[aria-label=\"Ver tus proyectos de Offer\"]"
+   },
+   {
+    "dice": "Cuando quieras ir a fondo, toca Analicemos mi oferta.",
+    "sel": "texto=Analicemos mi oferta"
+   },
+   {
+    "dice": "Te marca qué la hace fuerte, qué le falta para vender más y te arma la versión mejorada, en PDF."
+   }
+  ],
+  "ajustes": "Paso 1: «en el onboarding» → «de tu oferta» (desde el 16/11 el onboarding no pregunta la oferta)."
+ },
+ {
+  "id": "copilot",
+  "pestana": "Marketing CoPilot",
+  "ruta": "/ads-manager/copiloto",
+  "pagina": "app-copilot.html",
+  "icono": "lucide:compass",
+  "tanda": 1,
+  "pantallas": [
+   2,
+   5
+  ],
+  "pasos": [
+   {
+    "dice": "El CoPilot hace de tu equipo de marketing: mira lo que publicas y lo que inviertes, y te dice qué hacer."
+   },
+   {
+    "dice": "Antes, tres preguntas cortas, una por pantalla.",
+    "sel": "[data-recorrido=\"tour-copilot-pasos\"]"
+   },
+   {
+    "dice": "Marca por dónde vendes. Puede ser más de uno.",
+    "sel": "[data-recorrido=\"tour-copilot-canales\"]"
+   },
+   {
+    "dice": "Con el tiempo que tengas para crear, Máko calcula cuánto publicar en cada red."
+   },
+   {
+    "dice": "Después analiza tu oferta, tu web, tus anuncios, Instagram y YouTube. Lo que te toca va directo a tu Plan, y el piloto no lanza un anuncio sin tu OK."
+   },
+   {
+    "dice": "Toca Seguir y arranca.",
+    "sel": "[data-recorrido=\"tour-copilot-seguir\"]"
+   }
+  ]
+ },
+ {
+  "id": "settings-integraciones",
+  "pestana": "Integraciones",
+  "ruta": "/integraciones",
+  "pagina": "app-settings.html",
+  "icono": "lucide:plug",
+  "tanda": 1,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Sin tus cuentas conectadas, Máko trabaja a ciegas. En Integraciones le das acceso a tu negocio."
+   },
+   {
+    "dice": "Está en Configuración: toca tu foto, abajo a la izquierda, y entra en Integraciones.",
+    "sel": "a[href=\"/integraciones\"]"
+   },
+   {
+    "dice": "Arriba están tus cuentas de IA: el Claude, el GPT o el Gemini con el que trabaja Máko."
+   },
+   {
+    "dice": "Después, cada servicio en su tarjeta: tu WhatsApp con su QR, Instagram y Facebook por Zernio, tus cobros y tu agenda."
+   },
+   {
+    "dice": "Conecta sólo lo que usas: cada tarjeta te lleva paso a paso."
+   }
+  ],
+  "ajustes": "Guion nuevo (18/11), sacado de app/integraciones (TusCuentasIA arriba, la grilla de lib/integraciones-catalogo.ts). La pantalla marcada es Configuración con «Integraciones» en el índice: la página de Integraciones no está dibujada.",
+  "soloDonde": true
+ },
+ {
+  "id": "settings",
+  "pestana": "Configuración › Tu perfil",
+  "ruta": "/perfil",
+  "pagina": "app-settings.html",
+  "icono": "lucide:user-cog",
+  "tanda": 1,
+  "pantallas": [
+   1,
+   6
+  ],
+  "pasos": [
+   {
+    "dice": "Tu perfil está en Configuración: se abre desde tu foto, abajo a la izquierda."
+   },
+   {
+    "dice": "Aquí no hay botón de guardar: escribes, sales del campo y queda.",
+    "sel": "input[aria-label=\"Nombre\"]"
+   },
+   {
+    "dice": "El nombre del negocio que pongas cambia en toda la app.",
+    "sel": "input[aria-label=\"Nombre del negocio\"]"
+   },
+   {
+    "dice": "Tu zona horaria decide en qué horario Máko no te molesta.",
+    "sel": "button[aria-label=\"Zona horaria\"]"
+   },
+   {
+    "dice": "En Equipo sumas a quien vende contigo, con el rol que le toca.",
+    "sel": "a[href=\"/equipo\"]"
+   },
+   {
+    "dice": "Máko en el teléfono, la computadora y el navegador se instala desde aquí.",
+    "sel": "a[href=\"/perfil/instalar\"]"
+   },
+   {
+    "dice": "Y lo más importante: en Integraciones conectas tus cuentas. Sin ellas, Máko no ve tu negocio.",
+    "sel": "a[href=\"/integraciones\"]"
+   }
+  ],
+  "ajustes": "Paso 1 nuevo: «Tu perfil» es una pestaña de Configuración (18/11)."
+ },
+ {
+  "id": "crm",
+  "pestana": "CRM",
+  "ruta": "/crm",
+  "pagina": "app-crm.html",
+  "icono": "lucide:users",
+  "tanda": 1,
+  "pantallas": [
+   1,
+   5
+  ],
+  "pasos": [
+   {
+    "dice": "Cada columna es un paso de tu venta. Tu trabajo es que cada lead llegue a Ganado."
+   },
+   {
+    "dice": "Arriba de cada etapa ves cuánto podría entrar. En Ganado, lo que ya vendiste.",
+    "sel": "[data-colkey=\"ganado\"]"
+   },
+   {
+    "dice": "Para cambiar a alguien de etapa sin arrastrar, toca Ver info y Mover a.",
+    "sel": "[data-lead-id=\"101\"] button[title=\"La ficha rápida, con «Mover a…»\"]"
+   },
+   {
+    "dice": "Las reuniones de los próximos días esperan en este número.",
+    "sel": "button[aria-label^=\"Ver las\"]"
+   },
+   {
+    "dice": "¿Buscas a alguien? Escribe su nombre, o su número con numeral adelante.",
+    "sel": "[data-recorrido=\"crm-buscar\"]",
+    "ver": {
+     "numeral": "«#»"
+    }
+   },
+   {
+    "dice": "Y si ya tienes una lista, impórtala entera desde Más acciones.",
+    "sel": "[data-recorrido=\"crm-mas\"]"
+   }
+  ]
+ },
+ {
+  "id": "ticketera",
+  "pestana": "Ticketera",
+  "ruta": "/second-brain",
+  "pagina": "app-ticketera.html",
+  "icono": "lucide:ticket",
+  "tanda": 2,
+  "pantallas": [
+   3,
+   5
+  ],
+  "pasos": [
+   {
+    "dice": "Un buen reporte se arregla mucho más rápido."
+   },
+   {
+    "dice": "Cuéntale qué pasó, en qué pantalla y qué esperabas que pasara.",
+    "sel": "textarea[aria-label=\"Cuéntale a MaKo qué pasó\"]"
+   },
+   {
+    "dice": "Si tienes una captura, súmala desde el más: ahorra preguntas.",
+    "sel": "button[aria-label=\"Más opciones\"]"
+   },
+   {
+    "dice": "Máko te pregunta lo que falte y lo arma como un ticket para el equipo.",
+    "sel": "[data-recorrido=\"sb-hilo\"]"
+   },
+   {
+    "dice": "En Tus tickets sigues cada uno, con su estado y la respuesta.",
+    "sel": "button[aria-label=\"Tus tickets\"]"
+   },
+   {
+    "dice": "Las ideas de mejora entran por el mismo lugar que los errores.",
+    "sel": "button[aria-label=\"Tus tickets\"]"
+   }
+  ]
+ },
+ {
+  "id": "calendar",
+  "pestana": "Calendar",
+  "ruta": "/calendario",
+  "pagina": "app-calendar.html",
+  "icono": "lucide:calendar-days",
+  "tanda": 2,
+  "pantallas": [
+   2,
+   4
+  ],
+  "pasos": [
+   {
+    "dice": "Tu semana entera en un solo lugar: llamadas de venta, publicaciones, entregas y lo que vence en el Plan."
+   },
+   {
+    "dice": "Toca un nombre para esconderlo y quedarte con lo que importa hoy.",
+    "sel": "[data-recorrido=\"calendario-usos\"]"
+   },
+   {
+    "dice": "Las reuniones que se agendan en el CRM aparecen aquí solas, con el nombre del lead.",
+    "sel": "[aria-label^=\"R1 con Gabriela Ortiz\"]"
+   },
+   {
+    "dice": "En Llamadas ves todas juntas, sin nada alrededor.",
+    "sel": "a[href=\"/calendario?vista=llamadas\"]"
+   },
+   {
+    "dice": "¿Una llamada que no pasó por la agenda? Anótala con este más.",
+    "sel": "[data-recorrido=\"calendario-llamada\"]"
+   }
+  ]
+ },
+ {
+  "id": "automations",
+  "pestana": "Automations",
+  "ruta": "/automations",
+  "pagina": "app-automations.html",
+  "icono": "lucide:workflow",
+  "tanda": 2,
+  "pantallas": [
+   2,
+   4
+  ],
+  "pasos": [
+   {
+    "dice": "Cada lead que no contestas a tiempo es una venta que se enfría."
+   },
+   {
+    "dice": "Aquí viven los mensajes que salen solos: cuando alguien agenda, cuando no se presenta o cuando vence una cuota.",
+    "sel": "aside[aria-label=\"Tus automatizaciones\"]"
+   },
+   {
+    "dice": "Cada una se arma en este lienzo, tarjeta por tarjeta. Nada se envía hasta que la publicas y la activas. Antes, la pruebas como si fueras el lead.",
+    "sel": "[data-lienzo-vacio=\"true\"]"
+   },
+   {
+    "dice": "El tutorial de cada botón del lienzo está en este signo.",
+    "sel": "[data-recorrido=\"au-ayuda\"]"
+   },
+   {
+    "dice": "Toca Nueva automatización: dile a Máko qué necesitas, o elige una plantilla.",
+    "sel": "[data-recorrido=\"tour-automations-nueva\"]"
+   }
+  ]
+ },
+ {
+  "id": "spy",
+  "pestana": "Competitor Spy",
+  "ruta": "/competitor-spy",
+  "pagina": "app-spy.html",
+  "icono": "lucide:binoculars",
+  "tanda": 3,
+  "pantallas": [
+   2,
+   4
+  ],
+  "pasos": [
+   {
+    "dice": "No adivines qué publicar: mira qué ya le funciona a tu competencia."
+   },
+   {
+    "dice": "Desde Competidores sumas a quien quieras mirar.",
+    "sel": "[data-recorrido=\"spy-volver\"]"
+   },
+   {
+    "dice": "Cada punto es una pieza. Las que quedan muy por arriba son outliers: rindieron varias veces más que su mediana.",
+    "sel": "section[aria-label=\"Vistas por día de publicación\"]"
+   },
+   {
+    "dice": "Sus anuncios y su funnel tienen pestaña propia.",
+    "sel": "[data-recorrido=\"spy-tab-anuncios\"]"
+   },
+   {
+    "dice": "Abajo está todo lo que publica. Ordénalo por más vistas.",
+    "sel": "[data-recorrido=\"spy-grilla\"] button[aria-label=\"Ordenar\"]"
+   },
+   {
+    "dice": "Abre una pieza y toca Hacer uno así: Máko escribe el tuyo con tu oferta."
+   }
+  ]
+ },
+ {
+  "id": "copywriting",
+  "pestana": "Copywriting",
+  "ruta": "/copywriter",
+  "pagina": "app-copywriting.html",
+  "icono": "lucide:pen-line",
+  "tanda": 3,
+  "pantallas": [
+   1,
+   4
+  ],
+  "pasos": [
+   {
+    "dice": "El copy que vende casi nunca nace de una hoja en blanco."
+   },
+   {
+    "dice": "Aquí tienes los outliers de las cuentas que sigues: anuncios, reels y videos de YouTube.",
+    "sel": "[aria-label=\"Qué ver\"]"
+   },
+   {
+    "dice": "Arriba quedan los que más superaron a su autor.",
+    "sel": "button[aria-label=\"Orden\"]"
+   },
+   {
+    "dice": "¿Prefieres partir de una base? Las plantillas ya traen la estructura: gancho, cuerpo y cierre.",
+    "sel": "#copy-plantillas"
+   },
+   {
+    "dice": "Si viste uno afuera, pega su link o su texto.",
+    "sel": "[data-recorrido=\"tour-copywriting-pegar\"]"
+   },
+   {
+    "dice": "Elige uno, toca Replicar, y Máko lo reescribe para lo que vendes."
+   }
+  ]
+ },
+ {
+  "id": "web",
+  "pestana": "Web Generator",
+  "ruta": "/web-generator",
+  "pagina": "app-web.html",
+  "icono": "lucide:globe",
+  "tanda": 3,
+  "pantallas": [
+   2,
+   5
+  ],
+  "pasos": [
+   {
+    "dice": "Antes de diseñar tu página, mira las que ya convierten."
+   },
+   {
+    "dice": "Filtra por tipo: VSL, webinar, página de venta o agendar llamada.",
+    "sel": "[aria-label=\"Tipo de página\"]"
+   },
+   {
+    "dice": "Pasa el cursor por una y la página baja entera, de punta a punta.",
+    "sel": "a[aria-label=\"Ver la página de @AlexHormozi\"]"
+   },
+   {
+    "dice": "¿Te gustó la de alguien más? Su link va en el buscador.",
+    "sel": "input[aria-label^=\"Buscar páginas\"]"
+   },
+   {
+    "dice": "Si prefieres un diseño limpio, parte de una plantilla.",
+    "sel": "#wg-plantillas"
+   },
+   {
+    "dice": "Tus páginas quedan en Mis landings.",
+    "sel": "[data-recorrido=\"tour-web-mis-landings\"]"
+   },
+   {
+    "dice": "Y con Replicar, la página se vuelve a armar para tu negocio, con tus textos."
+   }
+  ]
+ },
+ {
+  "id": "plan",
+  "pestana": "Plan",
+  "ruta": "/plan",
+  "pagina": "app-plan.html",
+  "icono": "lucide:list-checks",
+  "tanda": 2,
+  "pantallas": [
+   1,
+   5
+  ],
+  "pasos": [
+   {
+    "dice": "Cuando todo parece urgente, el Plan te dice qué va primero."
+   },
+   {
+    "dice": "A la izquierda, tu Objetivo Principal: el proyecto que más mueve tu negocio ahora.",
+    "sel": "[data-recorrido=\"tour-plan-objetivo\"]"
+   },
+   {
+    "dice": "El perro te explica por qué lo eligió, en una línea.",
+    "sel": "[data-razon-objetivo]"
+   },
+   {
+    "dice": "A la derecha, las cinco tareas que tocan ahora, en orden.",
+    "sel": "[data-prioridad=\"101\"]"
+   },
+   {
+    "dice": "Tus proyectos, las tareas sueltas y lo que se repite están en estas vistas.",
+    "sel": "[data-recorrido=\"tour-plan-vistas\"]"
+   },
+   {
+    "dice": "¿Terminaste una? Toca Completar y sube la siguiente.",
+    "sel": "button[aria-label^=\"Marcar «Conectar la agenda\"]"
+   }
+  ]
+ },
+ {
+  "id": "dashboard",
+  "pestana": "Dashboard",
+  "ruta": "/dashboard",
+  "pagina": "app-dashboard.html",
+  "icono": "lucide:layout-dashboard",
+  "tanda": 2,
+  "pantallas": [
+   1,
+   4
+  ],
+  "pasos": [
+   {
+    "dice": "Tu Dashboard arranca vacío a propósito: tú eliges qué mirar cada mañana."
+   },
+   {
+    "dice": "Pídele una hoja a Máko con tus palabras. Por ejemplo: lo que tengo que hacer hoy y a quién cobrarle.",
+    "sel": "[data-caja-pedido]"
+   },
+   {
+    "dice": "Hay plantillas para agencias, cursos, Instagram y más. Búscalas por nombre.",
+    "sel": "input[aria-label=\"Buscar plantilla\"]"
+   },
+   {
+    "dice": "Cada hoja que armes suma una pestaña arriba, para pasar de una a otra.",
+    "sel": "nav[aria-label=\"Hojas del Dashboard\"]"
+   },
+   {
+    "dice": "Para empezar, usa General: lo que entró, lo que invertiste y quién te necesita.",
+    "sel": "[data-plantilla=\"general\"]"
+   }
+  ]
+ },
+ {
+  "id": "classroom",
+  "pestana": "Classroom",
+  "ruta": "/classroom",
+  "pagina": "app-classroom.html",
+  "icono": "lucide:graduation-cap",
+  "tanda": 2,
+  "pantallas": [
+   1,
+   5
+  ],
+  "pasos": [
+   {
+    "dice": "Quien llega al resultado renueva y te recomienda. El curso es el camino."
+   },
+   {
+    "dice": "Cada módulo es una etapa de tu entrega: del onboarding hasta el final.",
+    "sel": "[data-recorrido=\"modulo\"]"
+   },
+   {
+    "dice": "Suma uno y su etapa aparece sola en el tablero de Clients.",
+    "sel": "[data-recorrido=\"nuevo-modulo\"]"
+   },
+   {
+    "dice": "Antes de mandarlo, míralo como lo ve tu cliente.",
+    "sel": "[data-recorrido=\"vista-alumno\"]"
+   },
+   {
+    "dice": "En Clients sigues en qué etapa está cada persona.",
+    "sel": "a[href=\"/classroom/clients\"]"
+   },
+   {
+    "dice": "Y cuando el curso esté listo, invita a tus clientes desde aquí.",
+    "sel": "[data-recorrido=\"invitar\"]"
+   }
+  ]
+ },
+ {
+  "id": "avatar",
+  "pestana": "AI Avatar",
+  "ruta": "/ai-avatar",
+  "pagina": "app-avatar.html",
+  "icono": "lucide:user-round",
+  "tanda": 3,
+  "pantallas": [
+   1,
+   6
+  ],
+  "pasos": [
+   {
+    "dice": "Tu cara, en escenas que nunca grabaste: en el auto, en un podcast, en la cocina."
+   },
+   {
+    "dice": "Primero, lo que falta para generar. Son cuatro pasos, y la pantalla te marca cuál sigue.",
+    "sel": "section[aria-label=\"Antes de generar\"]"
+   },
+   {
+    "dice": "Elige un preset: cada uno trae la escena armada.",
+    "sel": "button[aria-label=\"Usar el preset Charla en el auto\"]"
+   },
+   {
+    "dice": "En Personaje va tu foto, de frente y con buena luz.",
+    "sel": "button[aria-label=\"Personaje: tu foto\"]"
+   },
+   {
+    "dice": "Cuenta lo que pasa en la escena.",
+    "sel": "textarea[aria-label=\"Describe la escena\"]"
+   },
+   {
+    "dice": "Cada look que generes queda guardado detrás de esta flecha.",
+    "sel": "button[aria-label=\"Ver tus proyectos de AI Avatar\"]"
+   },
+   {
+    "dice": "Y cuando esté todo, toca Generar.",
+    "sel": "[data-recorrido=\"tour-avatar-generar\"]"
+   }
+  ]
+ },
+ {
+  "id": "video",
+  "pestana": "Video",
+  "ruta": "/video-editor",
+  "pagina": "app-video.html",
+  "icono": "lucide:clapperboard",
+  "tanda": 3,
+  "pantallas": [
+   3,
+   5
+  ],
+  "pasos": [
+   {
+    "dice": "Para tu próximo video, parte de uno que ya funcionó."
+   },
+   {
+    "dice": "¿Ya sabes lo que quieres? Escríbelo en una línea y Máko lo arma.",
+    "sel": "[data-caja-pedido]"
+   },
+   {
+    "dice": "Cada plantilla de anuncio tiene su ejemplo: míralo antes de usarla.",
+    "sel": "button[aria-label=\"Ver un ejemplo de Anuncio con gancho\"]"
+   },
+   {
+    "dice": "¿Sin ganas de ponerte frente a la cámara? Tu personaje con IA lo hace por ti.",
+    "sel": "button[aria-label=\"Usar la plantilla Tu personaje con IA\"]"
+   },
+   {
+    "dice": "Y Mensaje para te lleva de la mano: Máko te pide la referencia, tu guion, tu foto y tu voz.",
+    "sel": "button[aria-label=\"Usar la plantilla Mensaje para…\"]"
+   },
+   {
+    "dice": "El guion va en seis bloques, y cada uno te dice cuánto dura su clip.",
+    "sel": "button[aria-label=\"Usar la plantilla Mensaje para…\"]"
+   }
+  ]
+ },
+ {
+  "id": "image",
+  "pestana": "Image",
+  "ruta": "/image-editor",
+  "pagina": "app-image.html",
+  "icono": "lucide:image",
+  "tanda": 3,
+  "pantallas": [
+   1,
+   5
+  ],
+  "pasos": [
+   {
+    "dice": "De aquí salen los carruseles que la gente guarda y las miniaturas que invitan a entrar."
+   },
+   {
+    "dice": "Con una frase en la caja de arriba, Máko te arma la pieza.",
+    "sel": "[data-caja-pedido]"
+   },
+   {
+    "dice": "Cada plantilla ya trae el nombre de tu negocio. Sólo cambias el contenido.",
+    "sel": "span[aria-label=\"Lista o tips: portada\"]"
+   },
+   {
+    "dice": "Con el ejemplo ves cómo queda terminada.",
+    "sel": "button[aria-label=\"Ver un ejemplo de Lista o tips\"]"
+   },
+   {
+    "dice": "Las miniaturas de YouTube vienen en dos versiones, para que pruebes cuál se toca más.",
+    "sel": "button[aria-label=\"Usar la plantilla Miniatura · Resultado con cara · Coach\"]"
+   },
+   {
+    "dice": "Empieza por un carrusel: toca Usar plantilla.",
+    "sel": "button[aria-label=\"Usar la plantilla Lista o tips\"]"
+   }
+  ]
+ },
+ {
+  "id": "chats",
+  "pestana": "Chats",
+  "ruta": "/chats",
+  "pagina": "app-ops-center.html",
+  "icono": "lucide:messages-square",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Cada cliente te escribe por donde quiere. Aquí te llegan todos sus mensajes juntos: WhatsApp, Instagram, Messenger y email."
+   },
+   {
+    "dice": "Está en tu panel, a la izquierda: Chats.",
+    "sel": "a[href=\"/chats\"]"
+   },
+   {
+    "dice": "Arriba filtras por Míos, Sin asignar o Atiende Máko."
+   },
+   {
+    "dice": "En WhatsApp, el botón Máko de la caja te sugiere una respuesta. Tú decides si la envías."
+   },
+   {
+    "dice": "Con Comentario dejas una nota que sólo ve tu equipo."
+   },
+   {
+    "dice": "Si alguien nuevo te escribe, súmalo con Agregar al CRM."
+   },
+   {
+    "dice": "Para empezar, toca WhatsApp y conéctalo con el QR desde tu celular."
+   }
+  ],
+  "ojo": "Sin ningún canal conectado (lo normal en la prueba), la pantalla es sólo «Conecta un canal para ver tus chats aquí.» con los botones WhatsApp, Instagram, Messenger y Email: los filtros, el botón Máko y Comentario aparecen recién con un canal. El botón Máko sólo sugiere en WhatsApp («Por ahora, sólo en WhatsApp»). Un closer o setter sin canales lee «Todavía no hay canales conectados.» y no ve los botones.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "classroom-community",
+  "pestana": "Community",
+  "ruta": "/classroom/community",
+  "pagina": "app-classroom.html",
+  "icono": "lucide:users-round",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Tus alumnos avanzan más cuando se acompañan. Aquí conversan entre ellos, contigo y con tu equipo."
+   },
+   {
+    "dice": "Está en Classroom, en las pestañas de arriba.",
+    "sel": "a[href=\"/classroom/community\"]"
+   },
+   {
+    "dice": "Ordena los temas con Categorías, y cada post cae en la suya."
+   },
+   {
+    "dice": "Un post puede llevar un video, una encuesta o un archivo."
+   },
+   {
+    "dice": "Lo que nadie se puede perder, fíjalo arriba desde el menú del post."
+   },
+   {
+    "dice": "A la derecha, cuántos miembros tiene y cuántos andan en línea ahora."
+   },
+   {
+    "dice": "Abre la conversación tú: toca Escribe algo y publica tu primer post."
+   }
+  ],
+  "ojo": "Es SÓLO de Máko Pro: con Essential (y en la prueba de Essential, que tiene los topes de su plan desde el primer día) la pestaña muestra el candado «La comunidad de tus alumnos es de MaKo Pro. Pasa a Pro para usarlo.» en vez del feed. Además pide un producto: sin ninguno dice «Sin productos · La comunidad es de un producto. Crea uno en el CRM.»",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "classroom-clients",
+  "pestana": "Clients",
+  "ruta": "/classroom/clients",
+  "pagina": "app-classroom.html",
+  "icono": "lucide:contact",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Vender es la mitad. La otra mitad es entregar bien, y aquí ves en qué etapa de tu servicio va cada cliente."
+   },
+   {
+    "dice": "Está en Classroom, en las pestañas de arriba.",
+    "sel": "a[href=\"/classroom/clients\"]"
+   },
+   {
+    "dice": "Cada lead que ganas en el CRM aparece aquí como cliente."
+   },
+   {
+    "dice": "Abre su ficha y tienes sus tareas, sus pagos, su curso y sus llamadas."
+   },
+   {
+    "dice": "Arriba cambias la vista: Kanban, Lista, Miembros o Avance."
+   },
+   {
+    "dice": "Las columnas se cambian desde Editar etapas, en los tres puntos."
+   },
+   {
+    "dice": "¿Ya tienes clientes de antes? Toca Cargar un cliente."
+   }
+  ],
+  "ojo": "Con la cartera vacía (lo normal en la prueba) no hay barra ni vistas: se ve «Todavía no tienes clientes» con «Cargar un cliente» y la lista «Configura tu cartera». Avance sólo aparece si el producto tiene curso y Miembros si hay un programa elegido. Los íconos de vista no tienen texto: el nombre sale al pasar el cursor. Es de los dos planes.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "classroom-calendar",
+  "pestana": "Calendar del curso",
+  "ruta": "/classroom/calendar",
+  "pagina": "app-classroom.html",
+  "icono": "lucide:calendar",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Una llamada en grupo cada semana le da ritmo a tu programa. Aquí armas esas citas."
+   },
+   {
+    "dice": "Está en Classroom, en las pestañas de arriba.",
+    "sel": "a[href=\"/classroom/calendar\"]"
+   },
+   {
+    "dice": "Cambia entre Mes y Próximos para ver lo que viene."
+   },
+   {
+    "dice": "Cada evento puede repetirse solo: cada día, cada semana o cada mes."
+   },
+   {
+    "dice": "Pega el link de Zoom o Meet, o pon una dirección si es en persona."
+   },
+   {
+    "dice": "En Quién entra eliges si es para todos, desde un nivel o para quien tenga un módulo."
+   },
+   {
+    "dice": "Para crear el primero, toca Nuevo evento."
+   }
+  ],
+  "ojo": "Es parte de la comunidad: SÓLO Máko Pro (en Essential, el mismo candado que Community) y pide un producto. No es el Calendar de Sales (/calendario), que ya tiene su guion. «Desde un nivel» y «Con un módulo» salen en Quién entra; «Con un módulo» sólo si el curso tiene módulos.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "classroom-leaderboards",
+  "pestana": "Leaderboards",
+  "ruta": "/classroom/leaderboards",
+  "pagina": "app-classroom.html",
+  "icono": "lucide:trophy",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Un alumno que suma puntos vuelve más seguido. Aquí está el ranking de tu comunidad."
+   },
+   {
+    "dice": "Está en Classroom, en las pestañas de arriba.",
+    "sel": "a[href=\"/classroom/leaderboards\"]"
+   },
+   {
+    "dice": "Cada like que recibe un alumno le da un punto, y con los puntos sube de nivel."
+   },
+   {
+    "dice": "En cada nivel ves qué parte de los miembros llegó y qué parte del curso le abre."
+   },
+   {
+    "dice": "Abajo, quién más sumó en 7 días, en 30 y en total."
+   },
+   {
+    "dice": "Ponle nombre propio a cada nivel: toca Nombres de los niveles."
+   }
+  ],
+  "ojo": "SÓLO Máko Pro (candado en Essential) y pide un producto. Con una comunidad nueva las tres tablas dicen «Nadie sumó puntos todavía.» y los niveles no abren nada hasta que el curso tenga módulos o clases bloqueados por nivel. El equipo no aparece en el ranking: ve «Ranking de alumnos · 1 like = 1 punto».",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "classroom-about",
+  "pestana": "About",
+  "ruta": "/classroom/about",
+  "pagina": "app-classroom.html",
+  "icono": "lucide:info",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Es lo primero que lee quien entra a tu comunidad: de qué se trata y qué se espera de cada miembro."
+   },
+   {
+    "dice": "Está en Classroom, en las pestañas de arriba.",
+    "sel": "a[href=\"/classroom/about\"]"
+   },
+   {
+    "dice": "Arriba van el nombre y una descripción corta, con el número de miembros y tu equipo."
+   },
+   {
+    "dice": "En Reglas dejas claro qué se puede publicar y qué no."
+   },
+   {
+    "dice": "Con Publican desde decides si escriben todos o sólo quienes llegaron a un nivel."
+   },
+   {
+    "dice": "Para completarlo, toca Editar y después Guardar About."
+   }
+  ],
+  "ojo": "SÓLO Máko Pro (candado en Essential) y pide un producto. «Publican desde» y la zona del calendario sólo los ve quien configura la comunidad (puedoConfigurar); el resto del formulario lo edita quien puede editar el About.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "settings-seguridad",
+  "pestana": "Seguridad",
+  "ruta": "/perfil/seguridad",
+  "pagina": "app-settings.html",
+  "icono": "lucide:shield-check",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Si alguien consigue tu correo, no debería entrar a tu negocio. Aquí cierras esa puerta."
+   },
+   {
+    "dice": "Está en Configuración, en el índice de la izquierda.",
+    "sel": "a[href=\"/perfil/seguridad\"]"
+   },
+   {
+    "dice": "Arriba ves lo que le falta a tu cuenta, con Resolver al lado."
+   },
+   {
+    "dice": "La verificación en 2 pasos suma un código de tu celular, además de Google."
+   },
+   {
+    "dice": "Te da diez códigos de recuperación: descárgalos, que no se vuelven a mostrar."
+   },
+   {
+    "dice": "En Dispositivos recordados olvidas el que no reconozcas."
+   },
+   {
+    "dice": "Toca Verificación en 2 pasos, luego Configurar, y escanea el QR con tu app de autenticación."
+   }
+  ],
+  "ojo": "La ven todos los roles. «Resolver» sólo aparece si falta algo (si no, dice «Tu cuenta está protegida»). La app de autenticación sugerida es Google Authenticator o Microsoft Authenticator; en el celular el QR se reemplaza por «Abrir en la app».",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "settings-notificaciones",
+  "pestana": "Notificaciones",
+  "ruta": "/perfil/notificaciones",
+  "pagina": "app-settings.html",
+  "icono": "lucide:bell",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Una reunión agendada o un mensaje sin responder no pueden esperar a que abras Máko."
+   },
+   {
+    "dice": "Está en Configuración, en el índice de la izquierda.",
+    "sel": "a[href=\"/perfil/notificaciones\"]"
+   },
+   {
+    "dice": "Elige por dónde te avisa: En la app, Celular, WhatsApp o Email."
+   },
+   {
+    "dice": "En la app y en Celular prendes o apagas cada aviso, y lo pruebas con Enviar prueba."
+   },
+   {
+    "dice": "¿De noche no quieres avisos? En No molestar los pausas y eliges el horario."
+   },
+   {
+    "dice": "Para que te lleguen al teléfono, toca Celular y prende Avisos al celular."
+   }
+  ],
+  "ojo": "WhatsApp y Email (a qué números y correos avisa Máko) sólo los ve el admin del negocio. Para que lleguen al teléfono hace falta la app instalada: sin ella, «Tus teléfonos» dice «Instalar la app».",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "settings-instalar",
+  "pestana": "Instalar la app",
+  "ruta": "/perfil/instalar",
+  "pagina": "app-settings.html",
+  "icono": "lucide:download",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "En tu computadora, tus chats con Máko usan tu propia suscripción de Claude o ChatGPT."
+   },
+   {
+    "dice": "Está en Configuración, en el índice de la izquierda.",
+    "sel": "a[href=\"/perfil/instalar\"]"
+   },
+   {
+    "dice": "Y con Sin conexión, guarda una copia cifrada de tu CRM y tu Plan."
+   },
+   {
+    "dice": "En el celular, escanea este QR. En iPhone, Compartir y Agregar a inicio; en Android, Instalar app."
+   },
+   {
+    "dice": "La extensión de Chrome hace tus videos con tu cuenta de Google Flow."
+   },
+   {
+    "dice": "Empieza por la computadora: toca Descargar en Windows o en Mac."
+   }
+  ],
+  "ojo": "«Sin conexión» se activa aparte, con una clave para esa computadora, y no se ofrece mirando la cuenta de otro. El botón de la extensión dice «Agregar a Chrome». La extensión también completa contactos desde WhatsApp Web; el guion sólo nombra los videos.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "settings-equipo",
+  "pestana": "Equipo",
+  "ruta": "/equipo",
+  "pagina": "app-settings.html",
+  "icono": "lucide:users",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Cuando vendes con más gente, cada persona tiene que ver lo suyo y nada más."
+   },
+   {
+    "dice": "Está en Configuración, en el índice de la izquierda.",
+    "sel": "a[href=\"/equipo\"]"
+   },
+   {
+    "dice": "El Setter ve el CRM, WhatsApp, Email y Automations."
+   },
+   {
+    "dice": "El Closer, el CRM, WhatsApp y su hoja de Closing. El Admin, todo tu negocio."
+   },
+   {
+    "dice": "Con los tres puntos de cada persona le reenvías el acceso, la suspendes o la quitas."
+   },
+   {
+    "dice": "Toca Invitar, escribe su correo, elige su rol y le llega el acceso."
+   }
+  ],
+  "ojo": "Essential es de UNA persona ('equipo.usuarios': 1): en Essential (y en su prueba, con los topes del plan) invitar falla con «Pasar a Pro». Pro permite 5. Sólo la ve el admin del negocio.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "settings-fiscal",
+  "pestana": "Identidades fiscales",
+  "ruta": "/configuraciones/fiscal",
+  "pagina": "app-settings.html",
+  "icono": "lucide:receipt",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Si facturas con una o con varias empresas, aquí quedan sus datos para cada venta."
+   },
+   {
+    "dice": "Está en Configuración, en el índice de la izquierda.",
+    "sel": "a[href=\"/configuraciones/fiscal\"]"
+   },
+   {
+    "dice": "Primero, la moneda del negocio: en la que cobras. Lo ya cobrado no cambia."
+   },
+   {
+    "dice": "Cada razón social lleva su identificación fiscal, como RFC, CUIT o NIT, su domicilio y su correo."
+   },
+   {
+    "dice": "En cada venta del CRM eliges cuál factura, en Facturado por."
+   },
+   {
+    "dice": "Toca Agregar y luego Llenar desde un PDF o una foto: Máko completa los campos."
+   }
+  ],
+  "ojo": "«Facturado por» vive en los pagos de la ficha de cada lead del CRM (bloques-deal.tsx), y sólo si ese dato está visible en la ficha. Máko llena lo que está vacío y la pantalla pide revisarlo antes de guardar. Sólo la ve el admin.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "settings-plan",
+  "pestana": "Tu plan",
+  "ruta": "/configuraciones/plan",
+  "pagina": "app-settings.html",
+  "icono": "lucide:credit-card",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Sin letra chica: aquí ves tu plan, hasta qué día dura tu prueba gratis y cuánto se cobra ese día."
+   },
+   {
+    "dice": "Está en Configuración, en el índice de la izquierda.",
+    "sel": "a[href=\"/configuraciones/plan\"]"
+   },
+   {
+    "dice": "Si quieres más, pide Pasar a Máko Pro y te lo cambiamos antes de que termine."
+   },
+   {
+    "dice": "Darme de baja durante la prueba no te cobra nada, y tus datos quedan guardados."
+   },
+   {
+    "dice": "¿Ya te convenció? Toca Empezar mi plan ya: pagas desde hoy y se van los topes de la prueba."
+   }
+  ],
+  "ojo": "El nombre del plan que se lee es el de la capa (`capaDef(capa).nombre`): «Completo» o «Agencia», no «MaKo Essential» ni «MaKo Pro». Por eso el guion no nombra el plan. «Pasar a MaKo Pro» sólo aparece en Essential y no para la cuenta de una agencia. Las líneas de la prueba y «Empezar mi plan ya» sólo con la prueba en curso.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "partners",
+  "pestana": "MaKo Partners",
+  "ruta": "/partners",
+  "pagina": "app-ops-center.html",
+  "icono": "lucide:handshake",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Cada negocio que traes a Máko te deja su primer mes entero, en dinero, y sin límite de negocios."
+   },
+   {
+    "dice": "Está en el menú de tu foto, abajo a la izquierda.",
+    "sel": "a[href=\"/partners\"]"
+   },
+   {
+    "dice": "Te haces partner gratis con tres preguntas, y tu link aparece en el acto."
+   },
+   {
+    "dice": "Si alguien no entra por tu link, que ponga tu código al pagar."
+   },
+   {
+    "dice": "En tu panel ves las visitas, los negocios que trajiste y lo que tienes A cobrar."
+   },
+   {
+    "dice": "Ganas su primer mes cuando el negocio paga el segundo."
+   },
+   {
+    "dice": "Para empezar, toca Hacerme partner."
+   }
+  ],
+  "ojo": "La ve sólo el admin del negocio, y NO la cuenta de un cliente de agencia (la manda a /inicio). Cualquier plan puede ser partner desde el 29/10. Tu propio negocio no cuenta como referido. El link dura 60 días.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "agency",
+  "pestana": "Agency Dashboard",
+  "ruta": "/agency",
+  "pagina": "app-ops-center.html",
+  "icono": "lucide:building-2",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Si tienes una agencia, aquí manejas las cuentas de Máko de tus clientes."
+   },
+   {
+    "dice": "Está en el menú de tu foto, abajo a la izquierda.",
+    "sel": "a[href=\"/agency\"]"
+   },
+   {
+    "dice": "Abres su cuenta con su nombre y su email, o desde un lead de tu CRM."
+   },
+   {
+    "dice": "Eliges quién la paga: tú con tu tarjeta, o tu cliente."
+   },
+   {
+    "dice": "Después entras a su cuenta con un clic, y Máko no les ofrece otros planes."
+   },
+   {
+    "dice": "Es parte de Máko Pro. Con Pro activo, toca Sumarme como Agency."
+   }
+  ],
+  "ojo": "Para quien no es agencia, la pestaña es una landing. «Sumarme como Agency» exige capa Pro ('agencia') con estado 'activo': en Essential el botón es «Pásate a MaKo Pro». No confirmé si una prueba de Pro tiene estado 'activo' (si no, verá «Tu cuenta está pausada»). Si paga el cliente, no se entra a su cuenta hasta que pague. Cada cuenta cuesta US$47/mes (precioClienteDeAgencia), no lo dije.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "api",
+  "pestana": "API",
+  "ruta": "/api-mako",
+  "pagina": "app-ops-center.html",
+  "icono": "lucide:code-xml",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Si usas n8n, Zapier o Make, esta es la puerta para que lean y escriban en tu negocio."
+   },
+   {
+    "dice": "Está en el menú de tu foto, abajo a la izquierda.",
+    "sel": "a[href=\"/api-mako\"]"
+   },
+   {
+    "dice": "En Documentación está cada cosa que se puede pedir, con ejemplos."
+   },
+   {
+    "dice": "Cada token es una llave: le pones nombre, vencimiento y qué áreas puede tocar."
+   },
+   {
+    "dice": "Cópialo apenas aparece: después ya no lo vas a poder ver."
+   },
+   {
+    "dice": "En Registro ves lo que pidió cada token en los últimos 30 días."
+   },
+   {
+    "dice": "Para conectar tu primera herramienta, toca Tokens y Generar nuevo token."
+   }
+  ],
+  "ojo": "Sólo el admin. El token de aquí NO sirve para la skill de Claude (esa usa el suyo, en Integraciones → Claude). Los permisos por área son Sin acceso, Lectura o Lectura y escritura.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ },
+ {
+  "id": "report-problem",
+  "pestana": "Report a problem",
+  "ruta": "/tickets",
+  "pagina": "app-ops-center.html",
+  "icono": "lucide:life-buoy",
+  "tanda": 4,
+  "pantallas": [
+   1
+  ],
+  "pasos": [
+   {
+    "dice": "Si algo no anda o te falta algo, el equipo de Máko lo tiene que saber."
+   },
+   {
+    "dice": "Está en el menú de tu foto, abajo a la izquierda.",
+    "sel": "a[href=\"/tickets\"]"
+   },
+   {
+    "dice": "Escríbelo como se lo contarías a alguien: Máko te ayuda a dejarlo claro."
+   },
+   {
+    "dice": "Antes de mandarlo te muestra el ticket. Ahí eliges qué es: Algo no anda, Quiero pedir algo nuevo o Tengo una pregunta."
+   },
+   {
+    "dice": "Cuando el equipo te pregunte algo, el ticket dice Espera tu respuesta."
+   },
+   {
+    "dice": "Empieza aquí: escribe en Cuéntale a Máko qué pasó, y al final toca Mandárselo al equipo."
+   }
+  ],
+  "ojo": "Es EL MISMO chat de Soporte que el tutorial aprobado de la Ticketera (#2): se puede reusar ese guion en vez de éste. La pantalla se titula «Reportar problema» aunque en el menú diga «Report a problem». La ven todos los roles y no la frena el onboarding.",
+  "ajustes": "Guion nuevo (18/11) del código de origin/main; + la línea de dónde está.",
+  "soloDonde": true
+ }
+]
