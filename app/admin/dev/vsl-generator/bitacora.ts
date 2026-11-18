@@ -99,4 +99,24 @@ export const BITACORA: Hito[] = [
       { sha: '897ce26e', msg: 'Un redirect es navegación: los 26 que perdían el ?ws= de la pestaña', lineas: 126, archivos: 26 },
     ],
   },
+
+  {
+    fecha: '18 nov', hora: '02:00', chat: 'Lo que falta construir', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una VSL larga sale con su duración: el Copywriter la escribe por secciones',
+    puntos: [
+      'El hueco que quedó del F93: «Editar» del Copywriter escribe la pieza en UN pedido y en un pedido entran 2.000 palabras (~13 minutos dichos). La «Clase gratuita · 42 min» pide 6.300, salía con 2.000 como mucho, se daba por buena desde 1.500 y el aviso callaba arriba de 1.200.',
+      '**Ahora:** con la pantalla, una pieza más larga de lo que entra en un pedido toma la primera pasada como BORRADOR y alarga sus secciones cortas (debajo del 75 % de lo suyo) en tandas de hasta 2.000 palabras, una llamada por tanda, en orden (lib/copywriter/por-secciones.ts). El largo de cada sección sale de la GUÍA de su estructura (los minutos de cada bloque de lib/vsl-estructuras.ts), escalado a la duración de la página; lo que vuelve reemplaza la sección del borrador en su lugar, sólo si es más largo.',
+      '**Lo que no cambió, a propósito:** el tope de 2.000 palabras POR PEDIDO (`PALABRAS_POR_PEDIDO`, ia-reglas.ts) sigue: es lo que entra en una respuesta y lo que cuesta una llamada. Lo que cambió es que una pieza pueden ser varias. No se toca una sección que el borrador no escribió (puede ser de la persona), y la API de MaKo no lo prende (corta a 60 s por HTTP).',
+      '**N llamadas = N cobros:** cada tanda es una llamada que el medidor reserva y cobra aparte; la clase de 42 minutos son unas 6 (el borrador y 5 tandas). Lo dice la fila de `copywriter-ia` en lib/mako-tokens-costos.ts, y un test la ata a la misma cuenta. Sin tiempo para otra tanda (60 s antes del corte de la ruta), con una falla del proveedor o sin MaKo Tokens, corta ahí: lo escrito queda en la propuesta y el aviso dice qué secciones alargar (y, sin saldo, el texto del medidor).',
+      'El aviso de duración de esa pieza mide contra su largo REAL y nombra las secciones cortas («pídele a MaKo que alargue «Clave dos» y «Clave tres»»); el de una pieza que entra en un pedido sigue como estaba.',
+      '⚠️ Sin medir con un modelo de verdad: el test ejecuta el armado con un modelo de mentira. Cuánto tarda cada tanda con el Gemini de un negocio (y si las 6 entran en los 300 s de la ruta) se ve en producción; si no entran, el aviso nombra lo que faltó.',
+    ],
+    archivos: [
+      'lib/copywriter/por-secciones.ts — el presupuesto por sección, las tandas, el reemplazo en su lugar y el aviso',
+      'lib/copywriter/ia.ts — «Editar» con las tandas después del borrador (sólo con `porSecciones`)',
+      'tests/copywriter-por-secciones.test.ts — el armado con un modelo de mentira, probado rompiéndolo',
+    ],
+    revisar: '/copywriter?nuevo=vsl',
+  },
 ];

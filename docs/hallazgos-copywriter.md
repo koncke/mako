@@ -3,6 +3,40 @@
 Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026). El diseño y sus decisiones están en
 [diseno-copywriter.md](diseno-copywriter.md); acá va lo que no se deduce del código.
 
+## Una pieza larga se escribe por secciones: el tope es POR PEDIDO, no por pieza (18/11/2026)
+
+**Síntoma:** la «Clase gratuita · 42 min» (6.300 palabras dichas) salía con 2.000 como mucho (~13 minutos) y nada lo decía:
+`objetivoDeDuracion` topea en lo que entra en un pedido, así que la segunda pasada la daba por buena desde 1.500 y `avisoDeDuracion`
+avisaba recién debajo de 1.200. Medido ejecutando esas funciones: las cinco estructuras de lib/vsl-estructuras.ts (20 a 40 minutos)
+quedaban todas debajo de su largo, en silencio.
+
+**Causa:** el tope de 2.000 palabras es del PEDIDO (lo que entra en una respuesta con `maxTokens: 6_000` y en 110 s) y se usaba como
+tope de la PIEZA. Ahora es `PALABRAS_POR_PEDIDO` (ia-reglas.ts), con ese porqué escrito.
+
+**Lo que se hizo** (lib/copywriter/por-secciones.ts, cableado en `editar` de lib/copywriter/ia.ts con `porSecciones`):
+- La primera pasada queda como BORRADOR.
+- Sus secciones cortas (debajo del 75 % de lo suyo) se piden otra vez en tandas de hasta `PALABRAS_POR_PEDIDO`, una llamada por
+  tanda, en orden. Lo de cada sección sale de los minutos de la GUÍA de su estructura, escalado a la duración de la página.
+- Lo que vuelve reemplaza la sección del borrador en su lugar de la lista de operaciones, y sólo si es más largo. La propuesta escribe
+  cada sección una vez.
+- El aviso de esa pieza mide contra su largo real y nombra las secciones que siguen cortas.
+
+**Trampas:**
+- **N llamadas = N cobros.** El medidor reserva y cobra cada llamada aparte. La clase de 42 minutos son unas 6 (el borrador y 5
+  tandas): lo dice la fila de `copywriter-ia` (lib/mako-tokens-costos.ts) y tests/copywriter-por-secciones.test.ts ata ese número a la
+  misma cuenta que arma las tandas.
+- **No en paralelo:** contra una sola clave es un 429, y un 429 degrada de proveedor.
+- **No toca lo que el borrador no escribió:** puede ser de la persona.
+- **Corta en la primera falla y sin saldo:** sin saldo no hay otra llamada que lo arregle, y el aviso lleva el texto del medidor.
+- **Sin otra tanda pasados los 210 s:** la ruta corta a los 300, con lo que leer los archivos ya gastó.
+- **La segunda pasada vieja («complétala ENTERA») no corre sobre esa pieza:** pedirle entera a un pedido es justo lo que no entra.
+- **Los tests de este módulo fijan líneas literales de ia.ts** (copywriter.test.ts, copywriter-outliers.test.ts…). Partir `medir` en
+  `procesar` + `medirS` se hizo sin mover ninguna, y la única que cambió de forma (el aviso) se actualizó con su porqué.
+- **Lo que no corre:** la API de MaKo (`editar_documento_copywriter`) no lo prende, porque corta a 60 s por HTTP y no tiene tiempo para
+  tandas. Ahí una pieza larga sigue saliendo hasta el tope de un pedido.
+- **Sin medir con un modelo de verdad:** cuánto tarda cada tanda con el Gemini de un negocio, y si las 6 entran en los 300 s, se ve en
+  producción.
+
 ## Un rollback se dispara con «no dejó rastro», nunca con «falló»: `crear` borraba el guion que SÍ se había guardado (6/11/2026, B7)
 
 El síntoma, de la verificación de la mudanza: la persona crea un guion, el texto se guarda bien, y la
