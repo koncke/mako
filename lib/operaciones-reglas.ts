@@ -15,6 +15,7 @@
 // =============================================================================
 
 import { ACCEPT_ADJUNTOS_CHAT, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, tipoPorFirma } from './mako-adjuntos';
+import { FASES, MODOS_CONSUMO, sanearCuota, type Consumo, type FaseMedida } from './centro-uso';
 
 export const VERSION_PEDIDO = 1 as const;
 /** Tope del texto de un pedido. Se RECHAZA, no se recorta (AGENTS.md: un tope en un texto que
@@ -72,6 +73,18 @@ export type Modelo = (typeof MODELOS)[number];
 export const ESFUERZOS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export type Esfuerzo = (typeof ESFUERZOS)[number];
 
+/**
+ * «Automático» POR FASE (18/11/2026; pedido de Aaron por Martín, ticket 876825880-11: «Sonnet para explorar, Opus para
+ * ejecutar, midiendo el consumo antes y después»). `porFase: true` va ADENTRO de la firma, OPCIONAL: sin él, el texto
+ * firmado es idéntico al de antes, y un cartero de antes lo ignora (por eso la caja lo firma sólo con un Runner que lo
+ * entiende: `aceptaPorFase`). Con un modelo elegido no va: el que elige Martín manda. La regla de qué es cada fase vive en
+ * lib/centro-cuentas.ts (`comoCorreDelEnvio`); la PC la aplica en scripts/operaciones/cartero.mjs (`comoCorre`, `fase`).
+ */
+export const MODELO_EXPLORAR: Modelo = 'sonnet';
+export const MODELO_EJECUTAR: Modelo = 'opus';
+export const VERSION_POR_FASE = '1.28.0';
+export const aceptaPorFase = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_POR_FASE);
+
 export type PayloadPedido = {
   v: typeof VERSION_PEDIDO;
   /** uuid que pone el navegador; va adentro de la firma. */
@@ -87,9 +100,11 @@ export type PayloadPedido = {
   alcance: Alcance;
   creado: string;
   vence: string;
-  /** null o ausente = «Automático»: no se toca el modelo del chat. */
+  /** null o ausente = «Automático»: no se toca el modelo del chat (salvo `porFase`). */
   modelo?: Modelo | null;
   esfuerzo?: Esfuerzo | null;
+  /** «Automático» por fase (18/11/2026): explora con MODELO_EXPLORAR y ejecuta con MODELO_EJECUTAR. Ausente = sin fases. */
+  porFase?: true;
   /** Las fotos y los PDF que van con el trabajo (17/10/2026). Ausente = sin adjuntos: el texto firmado es el de siempre. */
   adjuntos?: AdjuntoPedido[];
   /** Lo mandó como NOTA DE VOZ (26/10/2026): `texto` es su transcripción. Ausente = escrito («Las notas de voz enviadas»). */
@@ -397,6 +412,8 @@ export function armarFirmable(p: PayloadPedido): string {
     // Sólo si se eligieron: sin ellos, el texto firmado es el de siempre.
     ...(p.modelo ? { modelo: p.modelo } : {}),
     ...(p.esfuerzo ? { esfuerzo: p.esfuerzo } : {}),
+    // Por fase, sólo si se pidió (y nunca con un modelo elegido): sin él, el texto firmado es el de siempre.
+    ...(p.porFase && !p.modelo ? { porFase: true } : {}),
     // Los adjuntos, sólo si hay: sin ellos, el texto firmado es el de siempre.
     ...(p.adjuntos?.length ? { adjuntos: p.adjuntos.map((a) => ({ ref: a.ref, nombre: a.nombre, mime: a.mime, bytes: a.bytes, sha256: a.sha256 })) } : {}),
     // La nota de voz, sólo si lo fue: sin ella, el texto firmado es el de siempre.
@@ -406,7 +423,7 @@ export function armarFirmable(p: PayloadPedido): string {
 
 export function nuevoPayload(entrada: {
   id: string; texto: string; destino: string; cuenta: string | null; titulo: string | null; alcance: Alcance;
-  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null; adjuntos?: readonly AdjuntoPedido[]; voz?: VozDelPedido | null;
+  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null; porFase?: boolean; adjuntos?: readonly AdjuntoPedido[]; voz?: VozDelPedido | null;
 }, ahora: number): PayloadPedido {
   const segundos = entrada.voz ? segundosDeVoz(entrada.voz.segundos) : null;
   return {
@@ -421,6 +438,7 @@ export function nuevoPayload(entrada: {
     vence: new Date(ahora + VENCE_DIAS * 86_400_000).toISOString(),
     modelo: entrada.modelo ?? null,
     esfuerzo: entrada.esfuerzo ?? null,
+    ...(entrada.porFase && !entrada.modelo ? { porFase: true as const } : {}),
     ...(entrada.adjuntos?.length ? { adjuntos: [...entrada.adjuntos] } : {}),
     ...(segundos ? { voz: { segundos } } : {}),
   };
@@ -450,6 +468,9 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   if (!(ALCANCES as readonly unknown[]).includes(o.alcance)) return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !(MODELOS as readonly unknown[]).includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !(ESFUERZOS as readonly unknown[]).includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
+  // Por fase (18/11/2026): sólo `true`, y nunca con un modelo elegido (el que elige Martín manda).
+  if (o.porFase !== undefined && o.porFase !== true) return { ok: false, motivo: 'por fase inválido' };
+  if (o.porFase === true && o.modelo != null) return { ok: false, motivo: 'por fase con un modelo elegido' };
   if (o.adjuntos !== undefined) { const m = problemaDeAdjuntos(o.adjuntos); if (m) return { ok: false, motivo: m }; }
   const creado = typeof o.creado === 'string' ? Date.parse(o.creado) : NaN;
   const vence = typeof o.vence === 'string' ? Date.parse(o.vence) : NaN;
@@ -466,6 +487,7 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
       cuenta: (o.cuenta as string | null) ?? null, titulo: (o.titulo as string | null) ?? null,
       alcance: o.alcance as Alcance, creado: o.creado as string, vence: o.vence as string,
       modelo: (o.modelo as Modelo | null | undefined) ?? null, esfuerzo: (o.esfuerzo as Esfuerzo | null | undefined) ?? null,
+      ...(o.porFase === true ? { porFase: true as const } : {}),
       ...(o.adjuntos !== undefined ? { adjuntos: o.adjuntos as AdjuntoPedido[] } : {}),
     },
   };
@@ -811,7 +833,38 @@ export function resumirTurnos(
 
 /** El cierre de cuatro renglones (§3 del diseño): lo deja el chat al terminar. */
 /** `revisar`: la página de MaKo donde se mira lo que hizo (punto 6, la sub-tab «Review»). Sólo una ruta interna. */
-export type Cierre = { decidido: string; hecho: string; comprobado: string; sigue: string; prueba: string | null; revisar?: string | null };
+/** `consumo` (18/11/2026): las fotos de la cuota de la cuenta por fase, que pone la PC (cartero 1.28.0). Ausente = no se midió. */
+export type Cierre = { decidido: string; hecho: string; comprobado: string; sigue: string; prueba: string | null; revisar?: string | null; consumo?: Consumo };
+
+/** Hasta cuántas fases guarda el consumo de un trabajo: explorar y ejecutar, o una sola. */
+const MAX_FASES_CONSUMO = 2;
+/**
+ * El consumo que sube la PC con el cierre, saneado: el modo y las fases de las listas, las fechas válidas y cada cuota por
+ * `sanearCuota` (una cuota que no vale queda null, no tira el resto). null = no vino o no vale: el cierre entra igual, sin él.
+ */
+export function sanearConsumo(x: unknown): Consumo | null {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  const o = x as Record<string, unknown>;
+  if (!(MODOS_CONSUMO as readonly unknown[]).includes(o.modo)) return null;
+  const fecha = (v: unknown) => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : null);
+  if (!Array.isArray(o.fases) || !o.fases.length || o.fases.length > MAX_FASES_CONSUMO) return null;
+  const fases: FaseMedida[] = [];
+  for (const f of o.fases as unknown[]) {
+    if (!f || typeof f !== 'object') return null;
+    const k = f as Record<string, unknown>;
+    const desde = fecha(k.desde);
+    if (!(FASES as readonly unknown[]).includes(k.fase) || !desde) return null;
+    if (k.modelo != null && !(MODELOS as readonly unknown[]).includes(k.modelo)) return null;
+    fases.push({ fase: k.fase as FaseMedida['fase'], modelo: (k.modelo as Modelo | null | undefined) ?? null, desde, cuota: sanearCuota(k.cuota) });
+  }
+  // Por fase: explorar y, si pasó, ejecutar, en ese orden. Sin fases: una sola, «todo».
+  const orden = fases.map((f) => f.fase).join(',');
+  if (o.modo === 'por_fase' ? orden !== 'explorar' && orden !== 'explorar,ejecutar' : orden !== 'todo') return null;
+  const fin = o.fin && typeof o.fin === 'object' ? (o.fin as Record<string, unknown>) : null;
+  const at = fecha(fin?.at);
+  if (!at) return null;
+  return { modo: o.modo as Consumo['modo'], fases, fin: { at, cuota: sanearCuota(fin?.cuota) } };
+}
 
 /**
  * Una ruta para revisar: «/algo» de MaKo, en un renglón y hasta 300 caracteres; lo demás no se guarda (null). Es la
@@ -841,6 +894,8 @@ export function sanearCierres(x: unknown): CierreEntrante[] {
     };
     const revisar = rutaParaRevisar(k.revisar);
     if (revisar) cierre.revisar = revisar;
+    const consumo = sanearConsumo(k.consumo);
+    if (consumo) cierre.consumo = consumo;
     if (!cierre.hecho && !cierre.decidido) continue;
     out.push({ id: o.id, cierre });
   }

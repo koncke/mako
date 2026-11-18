@@ -37,7 +37,7 @@ import type { EstadoCarteros, Pedido } from '@/lib/operaciones';
 import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import { esperaAMartin, type AccionDeshacer, type AccionResponder } from '@/app/admin/runway/decisiones';
-import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
+import { AUTOMATICO, comoCorreDelEnvio, cuentasDelChat, destinoDe, runnerEntiendePorFase, sesionAutomatica, vaPorFase, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
 import { desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, ignorarDecisionAction, ignorarPreguntaAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type pedidosDelChatAction, type turnosCentroAction, type FotoCentro } from './acciones';
 // Las LECTURAS van por GET y no por acción (23/10/2026): ver ./lectura-centro.ts.
 import { leerCentro } from './lectura-centro';
@@ -551,6 +551,16 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const { cuenta } = destinoDeChat(c);
     return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaTextoLargo(k.version)) ? MAX_TEXTO_LARGO : MAX_TEXTO;
   };
+  /** «Automático» por fase (18/11/2026): ¿este chat, con lo elegido ahora, va por fase? Lo dice el selector («Sonnet → Opus»). */
+  const porFaseDe = (c: ChatCentro) => {
+    const d = destinoDeChat(c);
+    return vaPorFase(d.sesion, c.titulo, modelo, runnerEntiendePorFase(carteros, d.cuenta));
+  };
+  /** Lo que se firma de cómo corre el trabajo: lo elegido y, con «Automático», las fases (lib/centro-cuentas.ts). */
+  const comoDelEnvio = (c: ChatCentro) => {
+    const d = destinoDeChat(c);
+    return comoCorreDelEnvio(d.sesion, c.titulo, modelo, esfuerzo, runnerEntiendePorFase(carteros, d.cuenta));
+  };
   /** ¿El Runner de la cuenta a la que sale baja archivos grandes (1.16.0, 18/10/2026)? Con él: hasta 20 archivos de hasta
    *  100 MB, subidos directo al storage y TAL CUAL (no se achican). Con uno de antes, los topes de siempre (4 y 4 MB). */
   const grandesDe = (c: ChatCentro | undefined) => {
@@ -633,8 +643,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const tope = topeDe(c);
     const antes = problemaAntesDeMandar(!!firma.clave, texto, archivos.length > 0, tope);
     if (antes) { avisar(antes, 'bad'); return; }
-    // El modelo y el esfuerzo sólo viajan a un chat de la app (lib/centro-cuentas.ts → aceptaModelo).
-    const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
+    // El modelo y el esfuerzo sólo viajan a un chat de la app; «Automático», por fase cuando va (lib/centro-cuentas.ts).
+    const como = comoDelEnvio(c);
     const voz = nota ? { segundos: Math.max(1, Math.round(nota.segundos)) } : null;
     const grandes = grandesDe(c);
     const sesion = d.sesion;
@@ -690,7 +700,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (!d.sesion || !sale.puede) { avisar(textoDeEnvio(sale) ?? 'No recibe ahora', 'bad'); return; }
     if (!firma.clave) { avisar('Crea tu Token para comenzar a chatear', 'bad'); return; }
     const cita = citas[c.clave] ?? null;
-    const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
+    const como = comoDelEnvio(c);
     const voz = { segundos: Math.max(1, Math.round(segundos)) };
     const sesion = d.sesion;
     const tope = topeDe(c);
@@ -873,7 +883,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     /** «Pegar» del «+» sin nada que pegar (20/10/2026). */
     sinImagen: (puedeLeer: boolean) => avisar(puedeLeer ? 'No hay una imagen copiada' : 'Este navegador no deja pegar', 'bad'),
     puedeAbrirEn, adjuntaEnNuevo, apertura, abrirChat, mandarTextoA,
-    cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
+    cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo, porFaseDe,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,
     renombrando, setRenombrando, deRenombre, renombrar, renombrarChat,
     eligiendo, setEligiendo, deMuneco, abrirMuneco, guardarElegido,

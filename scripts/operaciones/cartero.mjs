@@ -65,6 +65,9 @@
 //                                  los corre el Runner de la app en cada vuelta, antes de `ciclo`
 //   cierre <id> --hecho "…" [--decidido "…"] [--comprobado "…"] [--sigue "…"] [--prueba "…"] [--revisar "/ruta"]
 //                                  lo corre el CHAT QUE RECIBIÓ el pedido, al terminarlo
+//   fase <id> ejecutar             (1.28.0) lo corre el CHAT de un trabajo «por fase», antes de su primer cambio: el Runner le
+//                                  pone Opus y le escribe que siga (un texto fijo). Anota la cuota de la cuenta en ese momento.
+//                                  Lo que gastó cada fase lo saca MaKo del cierre (`ver_pedidos_operaciones`), no esta PC
 //   plan prioridades --trabajo <id> [--n 10]   (1.15.7) lo corre un CHAT a pedido FIRMADO de Martín (el id de ese pedido):
 //                                  las abiertas del proyecto de su jefe, de SÓLO LECTURA. Un chat no cierra tareas.
 //   preguntar <archivo.json>       (1.14.0) lo corre un CHAT que necesita una decisión de Martín: la pregunta va a su
@@ -146,7 +149,14 @@ import { spawn, spawnSync } from 'node:child_process';
 // 1.27.0: A MARTÍN SÓLO LE LLEGAN SUS DECISIONES (10/11/2026). `preguntar` rechaza, con el motivo y saliendo con 3, la pregunta con jerga, la
 //         que le pide un dato que el chat puede medir y la de qué hace primero el chat (`juzgarPregunta`, copia de lib/pregunta-para-martin.ts).
 //         No se guarda: el chat la decide con la opción recomendada, o la reescribe en palabras de producto si de verdad es de Martín.
-export const VERSION = '1.27.0';
+// 1.28.0: «AUTOMÁTICO» POR FASE Y EL CONSUMO MEDIDO (18/11/2026; pedido de Aaron por Martín, ticket 876825880-11: «Sonnet para explorar,
+//         Opus para ejecutar, midiendo el consumo antes y después»). Un trabajo firmado con `porFase` (opcional: sin él, el de siempre; la
+//         caja lo firma sólo con un Runner de ésta) se entrega con Sonnet (`comoCorre`) y su mensaje le dice al chat que explore y que,
+//         antes de su primer cambio, corra `fase <id> ejecutar`: eso deja en el buzón un texto FIJO (`mensajeFase`) con Opus, que el
+//         Runner aplica con set_session_model como cualquier `modelo`. Y cada trabajo entregado anota la cuota de su cuenta al
+//         entregarse, al pasar a ejecutar y al cerrarse (`consumo/<id>.json`): el cierre sube esas fotos (`consumo`) y MaKo saca lo
+//         que gastó cada fase (lib/centro-uso.ts → gastoPorFase). Un servidor de antes no lee `consumo`.
+export const VERSION = '1.28.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -629,6 +639,9 @@ export function leerFirmable(texto, ahora) {
   if (o.alcance !== 'solo_esto' && o.alcance !== 'de_ahora_en_mas') return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !MODELOS.includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !ESFUERZOS.includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
+  // Por fase (1.28.0; copia de lib/operaciones-reglas.ts, con test diferencial): sólo `true`, y nunca con un modelo elegido.
+  if (o.porFase !== undefined && o.porFase !== true) return { ok: false, motivo: 'por fase inválido' };
+  if (o.porFase === true && o.modelo != null) return { ok: false, motivo: 'por fase con un modelo elegido' };
   if (o.adjuntos !== undefined) { const m = problemaDeAdjuntos(o.adjuntos); if (m) return { ok: false, motivo: m }; }
   const creado = typeof o.creado === 'string' ? Date.parse(o.creado) : NaN;
   const vence = typeof o.vence === 'string' ? Date.parse(o.vence) : NaN;
@@ -639,9 +652,17 @@ export function leerFirmable(texto, ahora) {
   return { ok: true, p: o };
 }
 
+/** Los modelos de cada fase de «Automático» por fase (copia de lib/operaciones-reglas.ts → MODELO_EXPLORAR y MODELO_EJECUTAR). */
+export const MODELO_EXPLORAR = 'sonnet';
+export const MODELO_EJECUTAR = 'opus';
+/** ¿Va por fase? Firmado con `porFase` y a un chat de la APP (a uno de terminal no se le puede cambiar el modelo). */
+export const vaPorFase = (p) => p?.porFase === true && !p.modelo && String(p?.destino ?? '').startsWith('local_');
+
 /** Lo que el Runner necesita para aplicar el modelo y el esfuerzo antes de entregar: la sesión y los dos valores. Sólo en
- *  un chat de la APP (`local_…`): las herramientas que los cambian son de la app, y a uno de terminal no se le puede. */
+ *  un chat de la APP (`local_…`): las herramientas que los cambian son de la app, y a uno de terminal no se le puede.
+ *  Por fase (1.28.0), el modelo es el de explorar: el de ejecutar lo pide el chat con `fase <id> ejecutar`. */
 export function comoCorre(p) {
+  if (vaPorFase(p)) return { sesion: p.destino, modelo: MODELO_EXPLORAR, esfuerzo: p.esfuerzo ?? null };
   return String(p?.destino ?? '').startsWith('local_') && (p.modelo || p.esfuerzo)
     ? { sesion: p.destino, modelo: p.modelo ?? null, esfuerzo: p.esfuerzo ?? null }
     : {};
@@ -755,7 +776,7 @@ export function turnosDeLineas(lineas, pendiente = null) {
     if (m) {
       const cuerpo = m[2].trim();
       // El aviso de una respuesta de la Ticketera lo arma la PC (mensajeAviso): no es una conversación.
-      if (!cuerpo || esAvisoDeLimbo(cuerpo) || /^Martín contestó tu tarjeta/.test(cuerpo) || /^Un cliente levantó el ticket #/.test(cuerpo) || esAvisoDeRegla(cuerpo) || esAvisoDeTicketNuevo(cuerpo) || esAvisoDeDelegado(cuerpo)) continue;
+      if (!cuerpo || esAvisoDeLimbo(cuerpo) || esAvisoDeFase(cuerpo) || /^Martín contestó tu tarjeta/.test(cuerpo) || /^Un cliente levantó el ticket #/.test(cuerpo) || esAvisoDeRegla(cuerpo) || esAvisoDeTicketNuevo(cuerpo) || esAvisoDeDelegado(cuerpo)) continue;
       const trabajo = /^Pedido de Martín desde el Centro de Operaciones/.test(cuerpo) ? (/ cierre ([0-9a-f-]{36}) /.exec(cuerpo)?.[1] ?? null) : null;
       const de = /\bname="([^"]{1,60})"/.exec(m[1])?.[1] ?? /\bfrom="([^"]{1,60})"/.exec(m[1])?.[1] ?? null;
       turnos.push(trabajo
@@ -1387,6 +1408,100 @@ async function subirPasos(cuenta, cfg, propio, ultimo, hasta = Infinity, ahora =
   return subidas;
 }
 
+// ── «Automático» por fase (1.28.0, 18/11/2026) ───────────────────────────────────────────────────────────────────
+// Pedido de Aaron por Martín (ticket 876825880-11): «Sonnet para explorar, Opus para ejecutar, midiendo el consumo antes y
+// después». La regla (lib/centro-cuentas.ts lo explica entero): el trabajo se entrega con Sonnet y explora; EJECUTAR lo dice
+// el CHAT, corriendo `fase <id> ejecutar` antes de su primer cambio. Una sesión no se puede cambiar el modelo de su propio
+// turno (la app no la deja), así que lo cambia el Runner: `fase` deja en el buzón un texto FIJO con `modelo: opus`, y el paso b
+// del Runner (lib/runner.ts) lo aplica con set_session_model como cualquier otro. De MaKo no viaja nada: el id ya se verificó
+// al entregar el trabajo firmado, y el texto lo arma esta PC.
+
+/** Lo que el mensaje de un trabajo por fase le pide al chat. */
+export function lineasDeFase(id) {
+  return [
+    `— Este trabajo va POR FASE, para ahorrar cuota: ahora corres con ${NOMBRE_MODELO_PC[MODELO_EXPLORAR]} para EXPLORAR (leer, buscar, medir y armar el plan), sin cambiar archivos.`,
+    '  Si se contesta sólo leyendo, termínalo así. Si hay que EJECUTAR (editar archivos, commitear, subir), antes del primer cambio corre esto y termina el turno con una línea («Paso a ejecutar»):',
+    `node "${ESTE}" fase ${id} ejecutar`,
+    `  El Runner te pasa a ${NOMBRE_MODELO_PC[MODELO_EJECUTAR]} y te escribe para que sigas con el plan.`,
+    '',
+  ];
+}
+const NOMBRE_MODELO_PC = { opus: 'Opus', sonnet: 'Sonnet', haiku: 'Haiku' };
+
+/** El texto FIJO que recibe el chat al pasar a ejecutar. Lo único variable es el id, que ya se verificó. */
+export function mensajeFase(id) {
+  if (!UUID_RE.test(id ?? '')) throw new Error('id inválido');
+  return [
+    `Fase de ejecutar del trabajo ${id}: ya corres con ${NOMBRE_MODELO_PC[MODELO_EJECUTAR]}.`,
+    'Sigue con el plan que armaste y haz los cambios. Al terminar, deja el cierre como dice el trabajo.',
+  ].join('\n');
+}
+/** ¿Es el texto de la fase de ejecutar? Como los demás textos fijos, no es lo que dijo un chat ni lo que escribió Martín. */
+export const esAvisoDeFase = (cuerpo) => /^Fase de ejecutar del trabajo [0-9a-f-]{36}: ya corres con /.test(cuerpo);
+/** El id del aviso de fase: fijo para cada trabajo (no sale dos veces) y NUNCA el del pedido (su acuse le pisaría el estado). */
+export function idDelAvisoDeFase(id) {
+  const h = crypto.createHash('sha256').update(`fase:ejecutar:${id}`).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+// ── el consumo de cada trabajo (1.28.0) ──────────────────────────────────────────────────────────────────────────
+// La cuota de la CUENTA (la que sube `cuotaDe`) al entregar el trabajo, al pasar a ejecutar y al cerrarlo. No es la del chat:
+// ni la barra de estado ni get_usage la dan por chat, y por eso MaKo la muestra con esa nota (lib/centro-uso.ts).
+const CONSUMO = path.join(DIR, 'consumo');
+/** Un trabajo sin cierre no queda anotado para siempre. */
+export const CONSUMO_VENCE_MS = 15 * 86_400_000;
+const consumoDe = (id) => path.join(CONSUMO, `${id}.json`);
+
+/** Lo que se anota al entregar: el modo, la primera fase con la cuota de ahora, y lo necesario para pasar a ejecutar. */
+export function anotarConsumo(id, cuenta, p, entrega, cuota, ahora = Date.now()) {
+  if (!UUID_RE.test(id ?? '')) return;
+  const porFase = vaPorFase(p);
+  const modo = porFase ? 'por_fase' : p.modelo ? 'elegido' : 'sin_tocar';
+  const modelo = porFase ? MODELO_EXPLORAR : String(p?.destino ?? '').startsWith('local_') ? (p.modelo ?? null) : null;
+  escribirJson(consumoDe(id), {
+    id, cuenta, modo,
+    fases: [{ fase: porFase ? 'explorar' : 'todo', modelo, desde: new Date(ahora).toISOString(), cuota: cuota ?? null }],
+    // Para el aviso de fase: a quién, desde qué carpeta y con qué esfuerzo (el elegido vale para las dos fases).
+    ...(porFase ? { entrega: { dir: entrega.dir, to: entrega.to, titulo: entrega.titulo, sesion: p.destino, esfuerzo: p.esfuerzo ?? null } } : {}),
+  });
+}
+
+/** `fase <id> ejecutar`: deja el aviso con Opus en el buzón y anota la cuota de ahora. Una vez por trabajo, y sólo desde el
+ *  chat que lo recibió (si la sesión que lo corre se sabe y es otra, no: un chat no le cambia el modelo a otro). */
+export function pasarAEjecutar(id, fase, ahora = Date.now(), cuota = undefined, env = process.env) {
+  if (!UUID_RE.test(id ?? '')) throw new Error('id inválido');
+  if (fase !== 'ejecutar') throw new Error('uso: fase <id> ejecutar');
+  const r = leerJson(consumoDe(id), null);
+  if (!r || r.modo !== 'por_fase' || !r.entrega || !Array.isArray(r.fases)) throw new Error('ese trabajo no va por fase: sigue con el modelo que tienes');
+  const quien = sesionQuePregunta(env);
+  if (quien && quien !== r.entrega.sesion) throw new Error('ese trabajo es de otro chat: córrelo sólo en el chat que lo recibió');
+  if (r.fases.some((f) => f.fase === 'ejecutar')) return { ok: true, yaEstaba: true };
+  const avisoId = idDelAvisoDeFase(id);
+  escribirJson(path.join(buzonDe(r.cuenta), `${avisoId}.json`), {
+    id: avisoId, tipo: 'fase', reclamado: new Date(ahora).toISOString(), clave: null, dir: r.entrega.dir,
+    to: r.entrega.to, titulo: r.entrega.titulo, mensaje: mensajeFase(id),
+    sesion: r.entrega.sesion, modelo: MODELO_EJECUTAR, esfuerzo: r.entrega.esfuerzo ?? null,
+  });
+  r.fases.push({ fase: 'ejecutar', modelo: MODELO_EJECUTAR, desde: new Date(ahora).toISOString(), cuota: cuota === undefined ? cuotaDe(r.cuenta) : cuota });
+  escribirJson(consumoDe(id), r);
+  log(`[${r.cuenta}] FASE ${id} → ejecutar (${MODELO_EJECUTAR})`);
+  return { ok: true, aviso: avisoId };
+}
+
+/** Lo que sube el cierre: las fases y la cuota al cerrarlo. null = ese trabajo no se anotó (lo entregó un cartero de antes). */
+export function consumoParaElCierre(id, ahora = Date.now(), cuota = undefined) {
+  const r = leerJson(consumoDe(id), null);
+  if (!r || !Array.isArray(r.fases) || !r.fases.length) return null;
+  return { modo: r.modo, fases: r.fases, fin: { at: new Date(ahora).toISOString(), cuota: cuota === undefined ? cuotaDe(r.cuenta) : cuota } };
+}
+
+/** Lo anotado de hace más de CONSUMO_VENCE_MS se borra (un trabajo que nunca se cerró). */
+function limpiarConsumo(ahora = Date.now()) {
+  for (const f of listar(CONSUMO)) {
+    try { if (ahora - fs.statSync(f).mtimeMs > CONSUMO_VENCE_MS) fs.rmSync(f, { force: true }); } catch { /* ya no está */ }
+  }
+}
+
 // ── el mensaje que recibe el chat ────────────────────────────────────────────────────────────
 export function mensaje(p, rutas = []) {
   const fecha = new Date(p.creado).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -1402,6 +1517,8 @@ export function mensaje(p, rutas = []) {
     '',
     // Las fotos y los PDF que mandó con el trabajo, ya en esta PC (1.9.0): el chat los abre con Read.
     ...(rutas.length ? [...lineasDeAdjuntos(rutas), ''] : []),
+    // 1.28.0: «Automático» por fase. Al chat se le pide que diga cuándo pasa a ejecutar: no se puede cambiar el modelo solo.
+    ...(vaPorFase(p) ? lineasDeFase(p.id) : []),
     regla,
     '— Al terminar, dejá el cierre. Martín lo lee en el TELÉFONO: escribile claro, directo y en sus palabras (qué cambia para él o',
     '  para sus clientes), sin jerga interna: nada de nombres de tren, shas, versiones, refutadores, tests ni rutas de archivos.',
@@ -1724,6 +1841,8 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
       to: `uds:${chat.pipe}`, titulo: chat.titulo, mensaje: mensaje(l.p, rutas),
       ...comoCorre(l.p),
     });
+    // 1.28.0: la cuota de la cuenta al entregarlo (y, si va por fase, a quién pasarle Opus después).
+    try { anotarConsumo(id, cuenta, l.p, { dir: chat.dir, to: `uds:${chat.pipe}`, titulo: chat.titulo }, cuotaDe(cuenta)); } catch (e) { log(`[${cuenta}] CONSUMO ${id} no se anotó: ${e.message}`); }
     log(`[${cuenta}] BUZON ${id} → ${chat.titulo} (${rotuloDir(chat.dir)})`);
   }
 
@@ -1818,6 +1937,7 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   if (limboError) log(`[${cuenta}] los mensajes sin entregar no se pudieron calcular: ${limboError}`);
   limpiarAdjuntos();
   limpiarAperturas();
+  limpiarConsumo();
   return {
     vencidos: Number(salida.vencidos) || 0, acuses: Number(salida.acuses) || 0, cierres: Number(salida.cierres) || 0,
     avisos, avisosError, tickets, ticketsError, ticketsNuevos, ticketsNuevosError, limbo, limboError,
@@ -2135,6 +2255,10 @@ function cierre(id, args) {
     if (!/^\/(?![/\\])\S{0,299}$/.test(revisar)) throw new Error('--revisar es una ruta de MaKo que empieza con /, como /crm?lead=12');
     c.revisar = revisar;
   }
+  // 1.28.0: con la cuota de ahora, lo que se anotó al entregarlo (y al pasar a ejecutar). Lo que gastó lo saca MaKo.
+  let consumo = null;
+  try { consumo = consumoParaElCierre(id); } catch (e) { log(`CIERRE ${id}: el consumo no se pudo leer (${e.message})`); }
+  if (consumo) c.consumo = consumo;
   escribirJson(path.join(CIERRES, `${id}.json`), { id, cierre: c });
   log(`CIERRE ${id}`);
 }
@@ -2881,6 +3005,7 @@ if (esMain) {
       case 'pendientes': { const propio = dirPropio(); exigirRunner(propio); imprimir(pendientes(cuentaOpcional(), propio)); break; }
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
+      case 'fase': imprimir(pasarAEjecutar(resto[0], resto[1])); break;
       case 'preguntar': {
         const r = preguntar(resto[0]);
         imprimir(r);

@@ -32,7 +32,7 @@ import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
 import { ignoradasDelChat, preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { edadCorta } from '@/lib/chat-mako-reglas';
 import {
-  AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, type Esfuerzo, type Modelo,
+  AUTOMATICO, ESFUERZOS, MODELOS, NOMBRE_ESFUERZO, NOMBRE_MODELO, aceptaModelo, rotuloAutomaticoModelo, type Esfuerzo, type Modelo,
 } from '@/lib/centro-cuentas';
 import { TEXTO_SEGUNDO_RENGLON, segundoRenglon } from '@/lib/centro-chats';
 import { ElegirMuneco } from './ElegirMuneco';
@@ -307,7 +307,8 @@ export function SelectoresDeEnvio({ centro: k, chat }: { centro: Centro; chat: C
         <select className="co-chip co-envio-sel" value={conModelo ? k.modelo ?? AUTOMATICO : AUTOMATICO} disabled={!conModelo || k.enviando}
           title={conModelo ? 'Con qué modelo corre' : 'El modelo se elige sólo en los chats de la app'}
           onChange={(e) => k.setModelo(e.target.value === AUTOMATICO ? null : e.target.value as Modelo)}>
-          <option value={AUTOMATICO}>Automático</option>
+          {/* Como la cuenta («Automático · Cuenta 2»): dice qué hace. Por fase, «Automático · Sonnet → Opus» (18/11/2026). */}
+          <option value={AUTOMATICO}>{rotuloAutomaticoModelo(conModelo && k.porFaseDe(chat))}</option>
           {MODELOS.map((m) => <option key={m} value={m}>{NOMBRE_MODELO[m]}</option>)}
         </select>
       </label>
