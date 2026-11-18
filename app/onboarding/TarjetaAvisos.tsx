@@ -74,7 +74,7 @@ export function TarjetaAvisos({ qr, onRevisar, onSinSoporte }: { qr: string | nu
       {paso === 'qr' && (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- el QR viene armado del server, como en /perfil/instalar */}
-          {qr && <img src={qr} alt="QR para abrir MaKo en tu teléfono" width={168} height={168} style={{ borderRadius: 8, alignSelf: 'center' }} />}
+          {qr && <img src={qr} alt="QR para instalar la app de MaKo en tu teléfono" width={168} height={168} style={{ borderRadius: 8, alignSelf: 'center' }} />}
           <span className="arr-tarjeta__titulo">Escanéalo con tu teléfono</span>
           <span className="arr-tarjeta__nota">Instala MaKo, entra con tu cuenta y activa los avisos. Sigo solo cuando estén.</span>
         </>
