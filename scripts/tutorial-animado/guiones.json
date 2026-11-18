@@ -3370,7 +3370,7 @@
   "tanda": 4,
   "pasos": [
    {
-    "dice": "Cada negocio que traes a Máko te deja su primer mes entero, en dinero.",
+    "dice": "Cada negocio que traes a Máko te deja el 30 por ciento de lo que paga, todos los meses, para siempre.",
     "rol": "gancho"
    },
    {
@@ -3384,7 +3384,7 @@
     "tipo": "mira"
    },
    {
-    "dice": "Toca aquí, en A cobrar: lo ganas cuando ese negocio paga su segundo mes.",
+    "dice": "Toca aquí, en A cobrar: cada mes que ese negocio paga, se suma a lo tuyo.",
     "rol": "accion",
     "sel": "[data-recorrido=\"tour-partners-a-cobrar\"]",
     "tipo": "toca"
@@ -3447,7 +3447,8 @@
    }
   ],
   "v4": true,
-  "v5": true
+  "v5": true,
+  "nota": "18/11: el programa cambió al 30 % de cada pago, todos los meses (27 % por pasarela). Antes, el 100 % del primer mes."
  },
  {
   "id": "agency",

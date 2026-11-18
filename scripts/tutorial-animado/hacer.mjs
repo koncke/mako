@@ -56,11 +56,11 @@ if (vozNueva || !chequeo) {
 // a final «s» that melts into the next word («toca Celular» → «tocas», «reenvías su» → «reenvía») is the transcriber too
 const ORTOGRAFIA = [['ok', 'okey'], ['zernio', 'sernio'], ['claude', 'cloud'], ['mako', 'maco'], ['ops', 'op'], ['tienes', 'tiene'], ['imich', 'image']];   // «Ímich»: how the voice is told to say «Image» // «tienes sus»: the two s melt into one
 const difs = [...chequeo.matchAll(/cambiada: «(.+?)» → «(.+?)»/g)].map((m) => [m[1], m[2]]);
-const otras = /faltante|sobrante|repetida/i.test(chequeo);
+const otras = /faltante|sobrante|repetida|de más:/i.test(chequeo);   // «de más»: a word the voice added (18/11: «se suma A lo tuyo» passed)
 // two words the transcriber glued («Ops Center» → «Opcenter»): a «falta X» plus a «Y → XY»
 const faltas = [...chequeo.matchAll(/falta: «(.+?)»/g)].map((m) => m[1]);
 const pegadas = difs.filter(([a, b]) => faltas.some((f) => b === f + a || b === f.replace(/s$/, '') + a));
-const soloOrtografia = !/sobrante|repetida/i.test(chequeo) && faltas.every((f) => f === 'ei' || pegadas.some(([a, b]) => b.startsWith(f.replace(/s$/, '')))) && difs.filter((d) => !pegadas.includes(d)).every(([a, b]) => /^\d+$/.test(a) || a === b + 's' || b === a + 's' || ORTOGRAFIA.some(([x, y]) => x === a && y === b));
+const soloOrtografia = !/sobrante|repetida|de más:/i.test(chequeo) && faltas.every((f) => f === 'ei' || pegadas.some(([a, b]) => b.startsWith(f.replace(/s$/, '')))) && difs.filter((d) => !pegadas.includes(d)).every(([a, b]) => /^\d+$/.test(a) || a === b + 's' || b === a + 's' || ORTOGRAFIA.some(([x, y]) => x === a && y === b));
 const dijoBien = chequeo.includes('✅') || ((difs.length > 0 || faltas.length > 0) && soloOrtografia);
 const diferencias = difs.map(([a, b]) => `${a} → ${b}`);
 paso('chequeo: ' + chequeo.split('\n').filter(Boolean).slice(0, 2).join(' · '));
