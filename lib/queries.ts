@@ -15,7 +15,6 @@ import { conversorGastoMeta } from './moneda-meta';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
 import { firmadoEnCrms, ventasDeCrms } from './ventas-crm';
 import { listReviewPendientes } from './review-queue';
-import { getSettingNum, getSetting } from './settings';
 import { lunesDeFecha, diasAntes, ayerEnTijuana } from './date-utils';
 import {
   getVslEngagementMap,
@@ -2959,93 +2958,6 @@ export async function getPendientesBadge(
 ): Promise<number> {
   const [cola, forms] = await Promise.all([getColaDeAccion(hoy), getFormulariosSinAgenda(hoy)]);
   return cola.length + forms.length;
-}
-
-// =============================================================================
-// OBJETIVO GLOBAL — progreso acumulado (Fase 14)
-// =============================================================================
-// NO se ata al filtro de rango global: el objetivo es acumulado desde
-// objetivo_desde, siempre. Sirve también de auditoría — si el contador de
-// cierres no cuadra, faltan leads históricos o resoluciones sin marcar.
-// =============================================================================
-
-export type ObjetivoProgreso = {
-  desde: string;
-  cierres_actual: number;
-  cierres_meta: number | null;
-  cash_actual: number;
-  cash_meta: number | null;
-  // Sold = lo FIRMADO (Σ monto_cierre_usd de los ganados) — referencia, no es
-  // cash cobrado (v3 Fase H).
-  sold_actual: number;
-  // Ritmo: cierres en los últimos 30 días → semanas estimadas para la meta
-  cierres_30d: number;
-  semanas_estimadas: number | null;
-  cumplido: boolean;
-};
-
-const OBJETIVO_DESDE_DEFAULT = '2025-12-08';
-
-export const getObjetivoProgreso = cachedRead('getObjetivoProgreso', _getObjetivoProgreso, { tags: [TAG.leads, TAG.pagos, TAG.settings], revalidate: TTL.user });
-async function _getObjetivoProgreso(
-  hoy: string = new Date().toISOString().slice(0, 10),
-): Promise<ObjetivoProgreso> {
-  const supabase = (await getTenantDb());
-
-  const [cierresMeta, cashMeta, desdeRaw] = await Promise.all([
-    getSettingNum('objetivo_cierres'),
-    getSettingNum('objetivo_cash_usd'),
-    getSetting('objetivo_desde'),
-  ]);
-  const desde = desdeRaw && /^\d{4}-\d{2}-\d{2}$/.test(desdeRaw) ? desdeRaw : OBJETIVO_DESDE_DEFAULT;
-
-  // Cierres ganados desde `desde` (incluye ganados sin fecha_cierre cargada). Un becado
-  // («sin cobro», #747) no es una venta: no suma al objetivo de cierres ni al Sold.
-  const { data: ganados, error: gErr } = await supabase
-    .from('leads')
-    .select('fecha_cierre, monto_cierre_usd')
-    .eq('estado_lead', 'ganado')
-    .neq('venta_tipo', VENTA_SIN_COBRO);
-  if (gErr) throw new Error(`Query objetivo cierres falló: ${gErr.message}`);
-  const ganadosRows = (ganados ?? []) as Array<{ fecha_cierre: string | null; monto_cierre_usd: number | null }>;
-  const cuentan = ganadosRows.filter((g) => g.fecha_cierre === null || g.fecha_cierre >= desde);
-  // Y las ventas cerradas en un CRM agregado desde `desde` (una renovación, CO2).
-  const enCrms = await firmadoEnCrms(desde, null);
-  const cierres_actual = cuentan.length + enCrms.cierres;
-  // Sold = total firmado de esos cierres (lo vendido, no lo cobrado).
-  const sold_actual = cuentan.reduce((s, g) => s + Number(g.monto_cierre_usd ?? 0), 0) + enCrms.usd;
-
-  // Cash: Σ pagos pagado=true con fecha_pago en [desde, hoy].
-  const cash_actual = await getCashCollectedPeriodo(desde, hoy);
-
-  // Ritmo: cierres con fecha_cierre en los últimos 30 días.
-  const hace30 = restarDiasISO(hoy, 30);
-  const cierres_30d = ganadosRows.filter(
-    (g) => g.fecha_cierre !== null && g.fecha_cierre >= hace30 && g.fecha_cierre <= hoy,
-  ).length;
-
-  const faltanCierres = cierresMeta !== null ? Math.max(cierresMeta - cierres_actual, 0) : 0;
-  const cierresPorSemana = cierres_30d / (30 / 7);
-  const semanas_estimadas =
-    cierresPorSemana > 0 && faltanCierres > 0 ? Math.ceil(faltanCierres / cierresPorSemana) : null;
-
-  const cumplido =
-    cierresMeta !== null &&
-    cashMeta !== null &&
-    cierres_actual >= cierresMeta &&
-    cash_actual >= cashMeta;
-
-  return {
-    desde,
-    cierres_actual,
-    cierres_meta: cierresMeta,
-    cash_actual,
-    cash_meta: cashMeta,
-    sold_actual,
-    cierres_30d,
-    semanas_estimadas,
-    cumplido,
-  };
 }
 
 // =============================================================================
