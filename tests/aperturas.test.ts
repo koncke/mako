@@ -194,7 +194,7 @@ test('6. el montaje: en el Cerebro, en lugar de la portada (también sin la app)
   const p = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   const hilo = p.slice(p.indexOf('export function HiloDelCliente('), p.indexOf('export function CajaDelCliente('));
   assert.match(hilo, /!k\.items\.length && !k\.trabajo \? \(apertura \?\? \(k\.app === 'bloquea' \? null : \(/, 'vacío: la apertura, también bloqueado');
-  assert.match(hilo, /marcas=\{k\.marcas\} \/>\n\s*\{apertura\}\n\s*<\/>/, 'con historia: después del último mensaje');
+  assert.match(hilo, /marcas=\{k\.marcas\}(?: enMensaje=\{enMensaje\})? \/>\n\s*\{apertura\}\n\s*<\/>/, 'con historia: después del último mensaje');
   const usar = p.slice(p.indexOf('export function useAperturaDelCerebro('), p.indexOf('export function HiloDelCliente('));
   assert.match(usar, /const libre = o\.libre && k\.esJefe && k\.cargado && !k\.errorCarga && !k\.enCurso && !o\.propia && !deLaGuia && !guia\.senalando && !guia\.esperando;/,
     'calla trabajando, fuera del Cerebro, con la de la tab, con la guía hablando o señalando');

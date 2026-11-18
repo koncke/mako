@@ -589,7 +589,7 @@ test('21. el Offer Coach tiene su conversación, fija en su fila, y su video la 
   for (const f of ['app/second-brain/ChatDelCoach.tsx', 'app/m/second-brain/HojaDelCoach.tsx']) {
     const c = leer(f);
     assert.match(c, /const portada = useVideoDelCoach\(cual, dosCoaches, saludo\);/, f);
-    assert.match(c, /<HiloMako items=\{portada\.items\} [^\n]*enMensaje=\{portada\.enMensaje\}/, `${f}: en la portada (el chat vacío)`);
+    assert.match(c, /<HiloMako items=\{portada\.items\} [^\n]*enMensaje=\{(?:dosCoaches \? conVoz\(true, portada\.enMensaje as never\) : )?portada\.enMensaje\}/, `${f}: en la portada (el chat vacío)`);
   }
   // El Funnel Coach del V2 no elige referente (su criatura); el Offer Coach sí.
   assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /const eligeReferente = puedeElegir && !\(dosCoaches && cual === 'funnel'\);/);

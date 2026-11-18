@@ -9,6 +9,8 @@
 // panel del Ops Center (PanelChat.tsx) y el teléfono en su hoja (SheetM), como el super admin pone el suyo
 // (Conversacion.tsx y ChatsMovil.tsx). Una sola vez, para que no se separen.
 
+import type { EnMensaje } from '@/app/_chat/HiloMako';
+import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { useMemo, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
@@ -108,8 +110,10 @@ export function useAperturaDelCerebro(k: ChatCliente, o: { libre: boolean; propi
   return estado.apertura ? <AperturaMako estado={estado} quien={quien} acciones={{}} onConectar={() => k.setConectando(true)} /> : null;
 }
 
-export function HiloDelCliente({ k, apertura = null }: {
+export function HiloDelCliente({ k, apertura = null, enMensaje }: {
   k: ChatCliente;
+  /** Lo que va con cada mensaje de MaKo (`HiloMako`): la voz de los coaches del V2 (app/second-brain/ChatDelCoach.tsx). */
+  enMensaje?: (x: Extract<ItemHilo, { k: 'msg' }>) => EnMensaje | null;
   /** Lo que MaKo dice primero (`useAperturaDelCerebro`): con el hilo vacío, en lugar de la portada (también sin la app: sus
    *  botones andan); con historia, después del último mensaje. Nunca se guarda. */
   apertura?: ReactNode | null;
@@ -138,7 +142,7 @@ export function HiloDelCliente({ k, apertura = null }: {
       ))) : (<>
         <HiloMako items={k.items} quien={{ nombre: k.nombreMuneco, aspecto: k.aspectoMuneco }} ahora={k.ahora} escribiendo={k.enCurso ? { segs: k.segs } : null}
           tarjeta={k.tarjeta} onTarjeta={(x, a) => void k.correrTarjeta(x, a)} onReintentar={k.reintentar} onRecargar={k.recargar}
-          onResponder={(t) => k.enviar(t)} sinMandar={k.app === 'bloquea' ? FRASE_RESPONDER : null} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} />
+          onResponder={(t) => k.enviar(t)} sinMandar={k.app === 'bloquea' ? FRASE_RESPONDER : null} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} enMensaje={enMensaje} />
         {apertura}
       </>)}
     </ContextoWA.Provider>
