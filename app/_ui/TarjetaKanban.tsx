@@ -234,7 +234,11 @@ export function CaraTarjeta({ nombre, foto, insignia, tam = 46, color }: {
 
 // ── La tarjeta de una persona (un lead, un cliente) ───────────────────────────
 
-export type PildoraTarjeta = { texto: string; onClick: (e: MouseEvent<HTMLButtonElement>) => void; titulo?: string };
+export type PildoraTarjeta = {
+  texto: string; onClick: (e: MouseEvent<HTMLButtonElement>) => void; titulo?: string;
+  /** La marca del tutorial de la pestaña (`data-recorrido`, lib/tutoriales/marcas.ts). Va en todas: el paso toma la primera. */
+  recorrido?: string;
+};
 export type AvanceTarjeta = { pct: number; texto?: string; aviso?: { texto: string; tono: 'mal' | 'riesgo' } | null };
 
 type PropsPersona = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
@@ -292,7 +296,7 @@ export const TarjetaPersona = forwardRef<HTMLElement, PropsPersona>(function Tar
           {subtitulo ? <span className="tk-sub" title={subtitulo}>{subtitulo}</span> : null}
         </div>
         {pildora && (
-          <button type="button" className="tk-pill tk-pill--suave" title={pildora.titulo}
+          <button type="button" className="tk-pill tk-pill--suave" title={pildora.titulo} data-recorrido={pildora.recorrido}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); pildora.onClick(e); }}>{pildora.texto}</button>
         )}
