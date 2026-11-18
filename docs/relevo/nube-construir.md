@@ -30,12 +30,15 @@ Martín, 18/11: «continúes con absolutamente todos los pendientes». El encarg
 
 | | Ítems |
 |---|---:|
-| ✅ Hechos (tachados en el documento) | **28** |
-| 🟠 A medias: lo de código hecho, con lo que falta escrito | **32** |
+| ✅ Hechos (tachados en el documento) | **31** |
+| 🟠 A medias: lo de código hecho, con lo que falta escrito | **34** |
 | Sin construir: decisión de Martín | 11 |
 | Sin construir: piden producción, la PC de Martín, su Chrome o un teléfono (30 son 📏 «hay que medir») | 44 |
 | Sin construir: el onboarding, el reto o los tutoriales (otros chats hoy) | 5 |
-| Documentación (F20, F22, F99, F128) y el índice (F53) | 5 |
+
+**El segundo lector** (un agente que buscaba qué faltaba en lo construido) confirmó 51 y refutó 7: seis tenían un resto que la propia
+evidencia admitía (F17, F18, F50, F80, F148, F152) y en F133 quedaba una línea sin tachar en docs/hallazgos-editor-imagen.md. Los
+siete quedaron a medias o corregidos, y además F169 pasó a medias (la tabla «Por persona» no está en Polar, la referencia).
 
 ## Las puntas
 
@@ -55,13 +58,15 @@ Martín, 18/11: «continúes con absolutamente todos los pendientes». El encarg
 | `nube-construir-web` | F16, F112 | bbd2c162ad | ✅ |
 | `nube-construir-ads` | F100 | fb64820641 | ✅ |
 | `nube-construir-video` · `-video-2` | F160, F164, F166, F167, F168 | 71aed02596 · 1e35d50a0e | ✅ |
-| `nube-construir-crm` | F117, F148, F150, F152, F154, F157, F158 | 4135431828 | ver «Lo que falta verificar» |
-| `nube-construir-infra` | F69, F74, F85, F115, F126, F127, F173 | 6d3d5bb5a7 | ver «Lo que falta verificar» |
+| `nube-construir-crm` | F117, F148, F150, F152, F154, F157, F158 | 4135431828 | ✅ |
+| `nube-construir-infra` | F69, F74, F85, F115, F126, F127, F173 | 6d3d5bb5a7 | ✅ |
+| `nube-construir-docs` | F20, F22, F99, F128 | 4b7c4cec85 | corriendo (44255448078) |
 | `nube-construir-cierre` | F53, este relevo y el documento | — | — |
 
 ## Lo que decide Martín
 
-Cada una en palabras de producto, con lo que pasa si sí y si no. Ninguna se construyó.
+Cada una en palabras de producto, con lo que pasa si sí y si no. Ninguna se construyó, salvo la tabla de la 23, que espera que
+la veas.
 
 1. **Anuncios en cantidad (F92).** Un botón que pide 100 piezas de una vez, para probar muchos ángulos rápido. Falta saber de
    qué son. *Si son imagen o texto:* se arma una cola con tope; cada pieza descuenta MaKo Tokens. *Si son video:* sale por Flow
@@ -108,6 +113,12 @@ Cada una en palabras de producto, con lo que pasa si sí y si no. Ninguna se con
 21. **Verificar las palabras de cada montaje (F166).** *Si sí:* avisa si un montaje cortó una palabra, y gasta una transcripción
     por montaje. *Si no:* no se verifica.
 22. **La música del editor de video (F167).** Necesita la licencia comercial (Epidemic Sound Connect), que la firmas tú.
+23. **La tabla «Por persona» de la ficha de un cliente (F169).** Está construida, pero Polar (la referencia de Admin) no la tiene.
+    *Si te sirve:* se queda. *Si no:* se saca. Hay que verla.
+24. **Del estado del arte (F128), seis que son tuyos:** rotar la clave de GitHub y la de Anthropic que quedaron expuestas (punto
+    1); confirmar en el registrador que se renovó multiplicatusresultados.com, que vencía el 21/10 (6); el experimento de US$5 con
+    fal/wan (20); el email a los clientes que ya pagaban con el precio viejo (21); la clave de ElevenLabs que pega el cliente, porque
+    el plan gratis de ElevenLabs no permite uso comercial (35); y renegociar el frente 04 de Customer Success (43).
 
 ## Lo que espera producción, la PC o un teléfono
 
@@ -149,13 +160,20 @@ F46 y el campo de F50 (van en `app/_crear/PantallaCrear.tsx`, que hoy edita otro
   contestaban sin sesión.
 - **El índice de hallazgos se re-duplicaba solo** (F53): 64 → 89 filas en dos horas después de P21. La clave del driver pasó al
   documento (hallazgos-infra.md, «El índice volvió a duplicarse…»).
+- **En el clon superficial de la nube, `git log -- <archivo>` puede devolver el commit del borde del clon** en vez del cambio real:
+  para refutar, antes `git fetch --shallow-since=<fecha>` (lo encontró el lote de documentación).
+- **El chat del Video Editor todavía le dice «Pasa a Pro» al cliente de una agencia** (F148): devuelve `textoSoloPro('ia-editores')`
+  crudo en lugar de `TextoDelTope`.
 - **Una VSL larga cuesta unas seis llamadas a la IA** (F93): cada tanda descuenta MaKo Tokens. Sin medir si seis tandas entran en
   los 300 s con el Gemini de un negocio.
 
 ## Lo que falta verificar
 
-- **Las puntas de CRM e Infra** estaban corriendo en Actions cuando se escribió esto (runs 44250994330 y 44250203217). Si dan rojo,
-  queda `ci-rojo/nube-construir-crm` o `-infra`: se lee el paso rojo, se arregla en la misma rama y se vuelve a subir.
+- **Las 20 puntas de código están en main** (la última corrida de CRM e Infra, 44250994330 y 44250203217, en verde). La de
+  documentación (44255448078) corría al escribir esto.
+- **Los 14 puntos que F128 tachó en docs/estado-del-arte.md** los leyó un solo agente; un segundo lector los estaba revisando. Si
+  alguno no está cerrado, se destacha en ese documento.
+- **La skill de QA (F99) no se corrió en ninguna tab**: pide la app con la sesión de Martín.
 - Nada corrió contra producción ni en un teléfono: el arrastre del Copywriter (F98) y el del curso con el dedo (F113) se probaron en
   jsdom; las miniaturas de «Nuevo video» (F160) y el «⋯» de los chats (F96, F119) con sus tests, no en un navegador.
 - «En main» no es «en producción»: el despliegue diario corre a las 08:05 de Argentina.
