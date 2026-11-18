@@ -43,3 +43,31 @@ test('el motor se monta sólo para la revisión, y la guía no pregunta donde é
   const hoja = motor.slice(motor.indexOf('const CSS_TUTORIAL = `') + 22);
   assert.equal(hoja.slice(0, hoja.indexOf('`;')).includes('`'), false, 'la hoja es un template literal: sin comillas invertidas adentro');
 });
+
+test('el video y la marca van juntos: las frases del manifiesto, con su pausa y su cierre (Martín, 18/11)', async () => {
+  const { frasesDe, fraseParaMarcar, mismoLugar } = await import('../lib/tutoriales/videos');
+  const f = frasesDe([
+    { id: 'b', t_inicio: 6, t_fin: 8, texto: 'Toca aquí, en Ver info.', sel: '[data-recorrido="tour-crm-ver-info"]', cierra_despues: true },
+    { id: 'a', t_inicio: 0, t_fin: 5, texto: 'Este es tu CRM.' },
+    { id: 'c', t_inicio: 9, t_fin: 11, texto: 'Mira el lienzo.', sel: '.lienzo', espera_clic: false },
+    { id: 'rara', t_inicio: 'x', texto: 'sin tiempo' },
+  ]);
+  assert.deepEqual(f.map((x) => x.id), ['a', 'b', 'c'], 'en orden de tiempo, sin las raras');
+  assert.equal(f[0].espera_clic, false, 'sin sel no hay nada que esperar');
+  assert.equal(f[1].espera_clic, true, 'con sel y sin el campo: pausa hasta el clic');
+  assert.equal(f[1].cierra_despues, true);
+  assert.equal(f[2].espera_clic, false, '«Mira aquí»: marca sin pausar');
+  assert.equal(f[2].cierra_despues, false, 'sin el campo, no cierra nada');
+  const nada = new Set<string>();
+  assert.equal(fraseParaMarcar(f, 3, nada), null, 'una frase sin sel no marca');
+  assert.equal(fraseParaMarcar(f, 6.2, nada)?.id, 'b');
+  assert.equal(fraseParaMarcar(f, 9.5, new Set(['b']))?.id, 'c');
+  assert.equal(fraseParaMarcar(f, 12, new Set(['b'])), null, 'una «Mira aquí» que ya pasó no se marca tarde');
+  assert.equal(fraseParaMarcar(f, 12, nada)?.id, 'b', 'la que espera el clic sigue esperando');
+  assert.ok(mismoLugar('[data-recorrido="tour-crm-reuniones"], .m-crm-arriba .crm-reus', '.m-crm-arriba .crm-reus'), 'un sel de lista «computadora, teléfono»');
+  assert.equal(videoDe({ videos: [{ key: 'crm', archivo: 'crm.mp4', frases: [{ id: 'x', t_inicio: 1, t_fin: 2, texto: 'hola', sel: '#a' }] }] }, 'crm')?.frases?.[0]?.espera_clic, true, 'videoDe trae las frases');
+  const motor = readFileSync(new URL('../app/_ui/tutorial/MotorTutorial.tsx', import.meta.url), 'utf8');
+  assert.match(motor, /fraseParaMarcar\(/, 'el motor marca al ritmo del video');
+  assert.match(motor, /if \(!e\.isTrusted\) return;/, 'el Escape con el que el motor cierra un panel no omite el tutorial');
+  assert.doesNotMatch(motor, />×</, 'la X del video es un SVG, nunca la letra');
+});
