@@ -494,7 +494,7 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'crea un creativo y un anuncio en PAUSA en la cuenta de Meta del negocio',
     parametros: [
       P_ADSET,
-      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre del anuncio.' },
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre del anuncio: lo que lo describe. Si el conjunto tiene su código (001.02 …), MaKo le pone adelante el del anuncio (001.02.c).' },
       { nombre: 'fuente', tipo: 'string', obligatorio: true, enum: ['existing', 'upload'], descripcion: 'existing = reusar el post de un anuncio existente; upload = imagen o video ya subido a la cuenta.' },
       { nombre: 'source_ad_id', tipo: 'string', max: 30, descripcion: 'solo existing: id numérico del anuncio cuyo post se reusa.' },
       { nombre: 'media_type', tipo: 'string', enum: ['image', 'video'], descripcion: 'solo upload: tipo de media.' },
@@ -518,7 +518,7 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'guarda el archivo y, al aprobarlo, crea un anuncio EN PAUSA por Zernio en la cuenta de Meta del negocio',
     parametros: [
       P_ADSET,
-      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre del anuncio.' },
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre del anuncio: lo que lo describe. Si el conjunto tiene su código (001.02 …), MaKo le pone adelante el del anuncio (001.02.c).' },
       { nombre: 'origen', tipo: 'string', obligatorio: true, enum: ['mensaje', 'link'], descripcion: 'mensaje = la imagen o el video que mandaron en este mensaje; link = el archivo de un link (Google Drive o https directo).' },
       { nombre: 'link', tipo: 'string', max: 2000, descripcion: 'solo origen link: el link del archivo (compartido con «cualquiera con el enlace» si es de Drive).' },
       { nombre: 'primary_text', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'texto principal del anuncio.' },
