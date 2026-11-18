@@ -697,4 +697,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/ads-manager?estrategia=1',
   },
+  {
+    fecha: '18 nov', hora: '01:50', chat: 'De octubre (nube)', cuenta: 'claude2',
+    sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El mismo video en varios anuncios se transcribe una vez, y el anuncio nuevo de un conjunto con código sale con su NNN.SS.x',
+    puntos: [
+      '**Transcribir una vez por video:** el cron diario y la extracción del historial reusan la transcripción guardada del video (`creative_transcripts`, del mismo negocio) en vez de pagar la IA otra vez por cada anuncio que lo usa. Se guardan las que salieron bien, nunca los errores; «Re-generar» la rehace igual.',
+      '**La nomenclatura del anuncio nuevo:** al subir un creativo a un conjunto que se llama `001.02 …`, el anuncio sale `001.02.c …`, con la letra que sigue a la mayor que ya usan sus anuncios. Un conjunto sin código queda como antes.',
+      'No se hizo, y espera una decisión: transcribir al subir (es gasto nuevo: pagaría también los anuncios que nunca entregan), la parte del nombre que escribía la IA y renombrar lo ya publicado en Meta.',
+    ],
+    archivos: [
+      'lib/transcripcion-por-video.ts · lib/transcripcion-por-video-reglas.ts — la caché por video',
+      'lib/transcribe.ts — `guardada` en transcribeAd, antes de bajar y escuchar',
+      'app/api/cron/transcribe-ads/route.ts · lib/onboarding-extract.ts — los dos que transcriben en lote',
+      'lib/media-buyer/creativos.ts · lib/media-buyer/subir.ts — el código NNN.SS.x',
+      'tests/transcripcion-por-video.test.ts (y su hijo) · tests/media-buyer-creativos.test.ts · tests/zernio-meta.test.ts — con sus roturas',
+      'docs/hallazgos-ads.md — «Dos pedidos del 31/07 que se fueron con el Ads Manager viejo»',
+    ],
+    revisar: '/ads-manager',
+  },
 ];

@@ -90,10 +90,49 @@ export function cuerpoCreativoEnConjunto(x: {
   return cuerpo;
 }
 
-/** El nombre del anuncio nuevo: el del archivo sin extensión, con la marca de MaKo. */
-export function nombreDeAnuncio(nombreArchivo: string, i: number): string {
+/**
+ * El nombre del anuncio nuevo: el del archivo sin extensión, con la marca de MaKo. Con `codigo` (el NNN.SS.x de la nomenclatura,
+ * `codigosDeAnunciosNuevos`), el código va primero: es lo que se lee de un nombre en la nomenclatura de la cuenta.
+ */
+export function nombreDeAnuncio(nombreArchivo: string, i: number, codigo: string | null = null): string {
   const base = nombreArchivo.replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[_-]+/g, ' ').trim().slice(0, 80) || `Creativo ${i + 1}`;
-  return `${base} · MaKo`;
+  return `${codigo ? `${codigo} ` : ''}${base} · MaKo`;
+}
+
+// ── La nomenclatura NNN.SS.x (18/11/2026, O9) ─────────────────────────────────────────────────────────────────────────────
+// Martín, 31/07/2026 (docs/hallazgos-ads.md, «la nomenclatura se genera sola»): campaña `001.`, conjunto `001.02`, anuncio
+// `001.02.a`, «también al agregar un ad a una campaña existente». La regla vivía en el Ads Manager viejo (CampanasBrowser.tsx:
+// `codigoPadre`, `nextSuffix`, `letra`) y se fue con él el 25/10 (0c9383b83): desde ahí un anuncio subido a un conjunto con
+// código nacía «hook dolor v2 · MaKo», fuera de la nomenclatura. Se trae ACÁ, sin IA: el código sale del nombre del conjunto y
+// de las letras que ya usan sus anuncios. Lo que el nombre DICE (objetivo, ángulo) salía del análisis con IA: eso no (cuesta).
+//
+// Sólo con el código de un CONJUNTO al principio de su nombre (tres dígitos, un punto y dos o tres): un conjunto sin
+// nomenclatura no recibe un código inventado, y un «2026 Leads» no se lee como uno.
+const CODIGO_CONJUNTO = /^\s*(\d{3}\.\d{2,3})(?=$|[\s\-–—/|·:])/;
+
+/** El código NNN.SS de un conjunto, si su nombre arranca con él; null si no está en la nomenclatura. */
+export function codigoDeConjunto(nombre: string): string | null {
+  return CODIGO_CONJUNTO.exec(nombre)?.[1] ?? null;
+}
+
+/** Letra → número (a=1, z=26, aa=27…) y al revés: la letra del anuncio dentro de su conjunto. */
+const letraANumero = (s: string): number => { let n = 0; for (const ch of s.toLowerCase()) n = n * 26 + (ch.charCodeAt(0) - 96); return n; };
+const numeroALetra = (n: number): string => { let s = ''; while (n > 0) { n--; s = String.fromCharCode(97 + (n % 26)) + s; n = Math.floor(n / 26); } return s; };
+
+/**
+ * Los códigos NNN.SS.x de los `n` anuncios nuevos de un conjunto: el del conjunto y la letra que sigue a la MAYOR que ya usa un
+ * anuncio suyo (no al conteo: borrar un anuncio no hace que el siguiente repita una letra). Sin código en el conjunto, `n` nulls.
+ */
+export function codigosDeAnunciosNuevos(conjunto: string, hermanos: readonly string[], n: number): Array<string | null> {
+  const codigo = codigoDeConjunto(conjunto);
+  if (!codigo) return Array.from({ length: n }, () => null);
+  const propio = new RegExp(`^\\s*${codigo.replace('.', '\\.')}\\.([a-z]+)(?=$|[\\s\\-–—/|·:])`, 'i');
+  let mayor = 0;
+  for (const h of hermanos) {
+    const m = propio.exec(h);
+    if (m) mayor = Math.max(mayor, letraANumero(m[1]));
+  }
+  return Array.from({ length: n }, (_, i) => `${codigo}.${numeroALetra(mayor + i + 1)}`);
 }
 
 /** Una subida tal como llega: de la pantalla (/api/media-buyer → subir_creativos) o de la API de MaKo (subir_creativos_media_buyer). */

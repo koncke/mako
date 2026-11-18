@@ -23,7 +23,7 @@ import { crearAnuncioPorZernio, leerAnuncioPorZernio, leerErrorDeZernio } from '
 import { leerDatosCuenta, type DatosCuenta } from './datos';
 import { resultados } from './motor';
 import { leerConfig, guardarPropuestas, reclamar, actualizar } from './store';
-import { CTAS, archivoValido, cuerpoCreativoEnConjunto, errorDeTextos, nombreDeAnuncio, type ArchivoSubido, type ConjuntoParaSubir, type Cta, type TextosCreativo } from './creativos';
+import { CTAS, archivoValido, codigosDeAnunciosNuevos, cuerpoCreativoEnConjunto, errorDeTextos, nombreDeAnuncio, type ArchivoSubido, type ConjuntoParaSubir, type Cta, type TextosCreativo } from './creativos';
 export type { ConjuntoParaSubir } from './creativos';
 import type { NodoMB } from './motor';
 
@@ -157,6 +157,10 @@ export async function subirCreativos(ws: number, x: { adSetId: string; archivos:
   await reclamar(ws, d.id, ['abierta'], { estado: 'aplicada', origen: 'persona', aplicada_por: quien.slice(0, 200), aplicada_at: new Date().toISOString(), canal: 'zernio' });
 
   const db = getSupabaseServer();
+  // La nomenclatura (NNN.SS.x, 18/11/2026): si el conjunto tiene su código, cada anuncio nuevo sale con el suyo, con la letra que
+  // sigue a la mayor que ya usan sus anuncios. Sin código, el nombre de siempre.
+  const hermanos = datos.arbol.filter((n) => n.parentId === conjunto.id && n.nivel === 'ad').map((n) => n.nombre);
+  const codigos = codigosDeAnunciosNuevos(conjunto.nombre, hermanos, archivos.length);
   const creados: string[] = [];
   const errores: string[] = [];
   for (const [i, a] of archivos.entries()) {
@@ -168,7 +172,7 @@ export async function subirCreativos(ws: number, x: { adSetId: string; archivos:
         if (error || !data?.signedUrl) throw new Error(`no pude leer «${a.nombre}» del staging`);
         urlDescarga = data.signedUrl;
       }
-      const cuerpo = cuerpoCreativoEnConjunto({ conexion, adSetId: x.adSetId, nombre: nombreDeAnuncio(a.nombre, i), archivo: a, urlDescarga, textos: x.textos, activo: x.activo });
+      const cuerpo = cuerpoCreativoEnConjunto({ conexion, adSetId: x.adSetId, nombre: nombreDeAnuncio(a.nombre, i, codigos[i]), archivo: a, urlDescarga, textos: x.textos, activo: x.activo });
       // La clave de idempotencia: el path del staging (único por subida), o la ref del video de MaKo en ESTA subida (su
       // decisión): subir el mismo video otra vez, después de deshacerlo, es otro anuncio y no la respuesta guardada del borrado.
       const clave = a.ref ? `mb-subir:${ws}:${d.id}:${a.ref}` : `mb-subir:${ws}:${a.path}`;
