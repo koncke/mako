@@ -289,7 +289,7 @@ function VideoChico({ tutorial, sub, revision, arriba }: { tutorial: TutorialPes
         <button type="button" className="mk-tuto__vx" aria-label="Cerrar el video" onClick={() => setCerrado(true)}>×</button></header>
       {video
         ? <video ref={ref} className="mk-tuto__vid" src={video.archivo} poster={video.poster} controls playsInline preload="metadata" />
-        : <div className="mk-tuto__lugar" role="note"><b>Tu video de esta pestaña</b><span>Todavía no está grabado: va acá.</span></div>}
+        : <div className="mk-tuto__lugar" role="note"><b>Tu video de esta pestaña</b><span>Todavía no está grabado: va aquí.</span></div>}
       {!video && sub && <p className="mk-tuto__sub">{sub}</p>}
     </aside>
   );

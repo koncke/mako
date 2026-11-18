@@ -184,7 +184,7 @@ function VideoDelDia({ dia }: { dia: DiaReto }) {
   const v = useVideoTutorial(dia.video);
   if (v) return <video className="rt-video" src={v.archivo} poster={v.poster} controls playsInline preload="metadata" />;
   if (PARA_TODOS) return null;
-  return <div className="rt-video rt-video--lugar" role="note"><b>Tu video del día {dia.n}</b><span>Todavía no está grabado: va acá.</span></div>;
+  return <div className="rt-video rt-video--lugar" role="note"><b>Tu video del día {dia.n}</b><span>Todavía no está grabado: va aquí.</span></div>;
 }
 
 /** EL DESPLEGABLE DEL RETO, en la cabecera del chat. */

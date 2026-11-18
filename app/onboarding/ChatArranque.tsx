@@ -233,7 +233,8 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar, seguirEnPc = fa
   const [enPc, setEnPc] = useState(false);
   useEffect(() => {
     // En el teléfono (V2) no entra solo: sigue en la computadora.
-    if (vista.etapa !== 'listo' || seguirEnPc) return;
+    if (seguirEnPc) return;
+    if (vista.etapa !== 'listo') return;
     const t = window.setTimeout(() => { void entrar(); }, MS_PARA_ENTRAR);
     return () => window.clearTimeout(t);
   }, [vista.etapa, entrar, seguirEnPc]);

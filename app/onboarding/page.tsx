@@ -57,12 +57,12 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     // que sólo existían en el ws 3). El chat guarda la conversación en su estado (`useState(inicial)`), y pasar de un
     // `?ws=` a otro sin recargar deja montado el MISMO componente: React le pasa la vista nueva y él sigue mostrando las
     // respuestas del negocio anterior. Con la key, otro workspace es otro chat, de cero. tests/onboarding-otro-ws.test.ts.
-    const ws = await getWorkspaceActual();
     // El onboarding V2 en un TELÉFONO (18/11/2026): el primer paso acá y, al terminar, «Continuar el onboarding desde la PC».
     const sesion = await getUsuarioActual().catch(() => null);
-    const v2 = !!sesion && veOnboardingV2({ email: sesion.email, ws });
+    const v2 = !!sesion && veOnboardingV2({ email: sesion.email, ws: wsOrigen });
     const seguirEnPc = v2 && (await prefiereMovil().catch(() => false));
     const persona = sesion ? { nombre: (sesion.nombre ?? '').trim().split(/\s+/)[0] ?? '', email: sesion.email } : undefined;
+    const ws = await getWorkspaceActual();
     return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} />;
   }
 
