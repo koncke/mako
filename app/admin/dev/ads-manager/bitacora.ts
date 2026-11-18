@@ -762,4 +762,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '18 nov', hora: '03:38', chat: 'De octubre (nube)', cuenta: 'claude2',
+    sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El anuncio que MaKo agrega a un conjunto también sale con su código NNN.SS.x, y «Nueva campaña» propone el número que sigue',
+    puntos: [
+      '**Agregar un anuncio por MaKo:** si el conjunto se llama `001.02 …`, el anuncio nuevo sale `001.02.d <lo que pidió>`, con la letra que sigue a la mayor de SUS anuncios. La propuesta que se aprueba ya dice el nombre final, y si mientras tanto se creó otro, toma la letra siguiente.',
+      '**Nueva campaña:** si la cuenta ya usa la nomenclatura, el nombre viene con el número de campaña que sigue (`004. `) y el conjunto y el anuncio nacen `004.01` y `004.01.a`. El título que ve el público no lleva el código.',
+      'Lo encontró un revisor de la tanda de O9: la nomenclatura salía sólo al subir desde el Media Buyer. Siguen sin el código de campaña «Usar en un anuncio» y la campaña que propone MaKo por chat.',
+    ],
+    archivos: [
+      'lib/media-buyer/creativos.ts — `nombreConCodigoDeAnuncio`',
+      'lib/api-mako/areas/ads.run.ts — `proponer_agregar_anuncio` y `proponer_anuncio_desde_archivo`, con los anuncios leídos en vivo',
+      'lib/media-buyer/campana-reglas.ts · lib/media-buyer/campana.ts · app/ads-manager/NuevaCampana.tsx — el código de campaña',
+      'tests/ads-nomenclatura.test.ts (y su hijo) — el runner de verdad por el token y por Zernio, con sus roturas',
+      'docs/hallazgos-ads.md — «La nomenclatura también al agregar un anuncio por la API de MaKo»',
+    ],
+    revisar: '/ads-manager/nueva',
+  },
 ];

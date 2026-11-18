@@ -5372,7 +5372,7 @@ PROPONE crear un anuncio EN PAUSA dentro de un conjunto existente: reusando el p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `adsetId` | string | sí | id numérico del conjunto de anuncios en Meta (de listar_conjuntos_meta). |
-| `nombre` | string | sí | nombre del anuncio. |
+| `nombre` | string | sí | nombre del anuncio: lo que lo describe. Si el conjunto tiene su código (001.02 …), MaKo le pone adelante el del anuncio (001.02.c). |
 | `fuente` | string (existing \\| upload) | sí | existing = reusar el post de un anuncio existente; upload = imagen o video ya subido a la cuenta. |
 | `source_ad_id` | string | no | solo existing: id numérico del anuncio cuyo post se reusa. |
 | `media_type` | string (image \\| video) | no | solo upload: tipo de media. |
