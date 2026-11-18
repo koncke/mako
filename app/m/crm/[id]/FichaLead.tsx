@@ -65,7 +65,7 @@ import { huecosR2Action, reservarR2Action } from '@/app/crm/agendar-r2-actions';
 import { linkInstagram } from '@/app/crm/campo-inline';
 import { notaLeadAction, moverEtapaAction, deshacerMoverAction } from '../acciones';
 import { chipsDeDia, rotuloAgendar, rotuloDia, type CualAgendar, type EtapaM, type LineaActividad } from '../reglas';
-import { gruposDeLaFicha, type MesAMesTelefono, type PiezaFicha, type ResumenTelefono, type SaldoTelefono } from '../ficha-bloques';
+import { accionesDeContacto, filasDeContacto, gruposDeLaFicha, type MesAMesTelefono, type PiezaFicha, type ResumenTelefono, type SaldoTelefono } from '../ficha-bloques';
 
 export type ProductoFicha = { funnelId: number; nombre: string; esCasa: boolean; etapa: string | null; etapaLabel: string | null; movibles: EtapaM[] };
 export type ModoAgendaFicha = 'google' | 'calendly-r2' | 'link' | 'nada';
@@ -172,20 +172,24 @@ export function FichaLead(p: FichaLeadProps) {
   // Su único canal es el @ (sin email ni teléfono). El link se arma en campo-inline (`linkInstagram`): un usuario que no lo es (un
   // nombre con espacios guardado a mano) no tiene link, y entonces no se dibuja el botón en vez de dibujar uno que no lleva a nada.
   const igHref = p.soloInstagram ? linkInstagram(p.soloInstagram) : null;
-  // Agendar, Nota y Grabar (04/11/2026) siempre; Llamar y WhatsApp, o Instagram si es su único canal.
-  const nAcciones = 3 + (p.soloInstagram ? (igHref ? 1 : 0) : 2);
+  // Agendar, Nota y Grabar (04/11/2026) siempre; y lo que lleva a algún lado para contactarlo (`accionesDeContacto`):
+  // Llamar con número, WhatsApp con chat o número, o Instagram si es su único canal. Sin número no hay botones apagados
+  // (18/11/2026; Martín, 22/10: «si no tiene ese dato, que no lo muestre»).
+  const contactar = accionesDeContacto({ soloInstagram: p.soloInstagram ?? null, igHref, tel: p.tel, puedeWa });
+  const nAcciones = 3 + contactar.length;
 
   // La versión de teléfono de cada bloque de escritorio (../ficha-bloques.ts, PIEZA_DE_BLOQUE). Las que se
   // callan sin datos ya vienen filtradas del server; el `&&` de aquí es el cinturón.
   const filaDe = (pz: PiezaFicha): ReactNode => {
     switch (pz) {
-      case 'proxima': return <FilaDatoM k="Próxima llamada" v={p.proxima ?? 'Sin agendar'} />;
+      // Sin próxima llamada, la fila no va (no «Sin agendar»): «Agendar» está en la fila de acciones.
+      case 'proxima': return p.proxima && <FilaDatoM k="Próxima llamada" v={p.proxima} />;
+      // Sólo los datos que hay (`filasDeContacto`): con el @ como único canal, ESE canal; sin teléfono, ni la fila (Martín,
+      // 22/10/2026: «si no tiene ese dato, que no lo muestre»).
       case 'contacto': return (
         <>
-          {/* Con el @ como único canal la fila dice ESE canal, no «Sin teléfono» (Martín, 22/10/2026: «si no tiene ese dato, que no lo muestre»). */}
-          {p.soloInstagram ? <FilaDatoM k="Instagram" v={`@${p.soloInstagram}`} /> : <FilaDatoM k="Teléfono" v={p.telefono ?? 'Sin teléfono'} />}
-          {p.email && <FilaDatoM k="Email" v={p.email} />}
-          {p.empresa && <FilaDatoM k="Empresa" v={p.empresa} />}
+          {filasDeContacto({ soloInstagram: p.soloInstagram ?? null, telefono: p.telefono, email: p.email, empresa: p.empresa })
+            .map((f) => <FilaDatoM key={f.k} k={f.k} v={f.v} />)}
         </>
       );
       case 'llego-por': return p.llegoPor && <FilaDatoM k="Llegó por" v={p.llegoPor} />;
@@ -248,37 +252,25 @@ export function FichaLead(p: FichaLeadProps) {
   return (
     <>
       <div className="m-crm-acciones" role="group" aria-label="Acciones" style={{ gridTemplateColumns: `repeat(${nAcciones}, minmax(0, 1fr))` }}>
-        {/* ⚠️ CON EL @ COMO ÚNICO CANAL NO HAY LLAMAR NI WHATSAPP, NI APAGADOS (23/10/2026). Un lead que entró sólo con su @ no
-            tiene número: los dos botones de abajo se dibujarían grises con un toast de «Sin teléfono», un botón muerto por cada uno.
-            En su lugar va el que sí lleva a algún lado, «Instagram» (el mismo que ofrece la fila de la tabla de escritorio donde las
-            demás ofrecen WhatsApp), y la fila se reparte entre los que quedan. Un @ que no es un usuario no tiene link: ninguno. */}
-        {p.soloInstagram ? (
-          igHref && (
-            <a className="m-crm-accion" href={igHref} target="_blank" rel="noopener noreferrer" aria-label={`Abrir el Instagram de ${p.nombre}`}>
-              <span className="m-crm-accion__c"><Icon name="instagram" size={22} /></span>Instagram
-            </a>
-          )
-        ) : (
-          <>
-            {p.tel ? (
-              <a className="m-crm-accion" href={p.tel} aria-label={`Llamar a ${p.nombre}`}>
-                <span className="m-crm-accion__c"><IconoMenu nombre="telefono" size={22} /></span>Llamar
-              </a>
-            ) : (
-              <button type="button" className="m-crm-accion" aria-disabled="true" aria-label="Llamar: sin teléfono" onClick={() => toast('Sin teléfono')}>
-                <span className="m-crm-accion__c"><IconoMenu nombre="telefono" size={22} /></span>Llamar
-              </button>
-            )}
-            {puedeWa ? (
-              <Link className="m-crm-accion" href={rutaChatsDeLead(p.id)} aria-label={`WhatsApp con ${p.nombre}`}>
-                <span className="m-crm-accion__c"><IconoMenu nombre="whatsapp" size={22} /></span>WhatsApp
-              </Link>
-            ) : (
-              <button type="button" className="m-crm-accion" aria-disabled="true" aria-label="WhatsApp: sin número" onClick={() => toast('Sin número de WhatsApp')}>
-                <span className="m-crm-accion__c"><IconoMenu nombre="whatsapp" size={22} /></span>WhatsApp
-              </button>
-            )}
-          </>
+        {/* ⚠️ NINGÚN BOTÓN APAGADO (23/10/2026 con el @ como único canal; 18/11/2026 para todo lead sin número). Sin número,
+            Llamar y WhatsApp se dibujaban grises con un toast de «Sin teléfono», un botón muerto por cada uno: ahora no van, y la
+            fila se reparte entre los que quedan (`accionesDeContacto`). Con el @ como único canal va el que sí lleva a algún lado,
+            «Instagram» (el mismo que ofrece la fila de la tabla de escritorio donde las demás ofrecen WhatsApp). Un @ que no es un
+            usuario no tiene link: ninguno. */}
+        {contactar.includes('instagram') && igHref && (
+          <a className="m-crm-accion" href={igHref} target="_blank" rel="noopener noreferrer" aria-label={`Abrir el Instagram de ${p.nombre}`}>
+            <span className="m-crm-accion__c"><Icon name="instagram" size={22} /></span>Instagram
+          </a>
+        )}
+        {contactar.includes('llamar') && p.tel && (
+          <a className="m-crm-accion" href={p.tel} aria-label={`Llamar a ${p.nombre}`}>
+            <span className="m-crm-accion__c"><IconoMenu nombre="telefono" size={22} /></span>Llamar
+          </a>
+        )}
+        {contactar.includes('whatsapp') && (
+          <Link className="m-crm-accion" href={rutaChatsDeLead(p.id)} aria-label={`WhatsApp con ${p.nombre}`}>
+            <span className="m-crm-accion__c"><IconoMenu nombre="whatsapp" size={22} /></span>WhatsApp
+          </Link>
         )}
         {/* «Grabar» (04/11/2026, pedido de Martín): el mismo panel que la ficha de escritorio, en una hoja. Una llamada de ESTE
             teléfono no se graba (lo dice el panel): sirve para una llamada en altavoz desde otro aparato o una charla en persona. */}

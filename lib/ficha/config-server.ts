@@ -129,6 +129,31 @@ export async function fichaDelFunnelDelLead(funnelId: number | null): Promise<Fi
   }
 }
 
+/**
+ * El día en que salió la ficha por bloques (16/10/2026). Martín, ese día: «en los casos de los workspace que ya tienen
+ * leads, simplemente ponles las plantillas sugeridas, es decir que no aparezca el "¿Qué vas a crear hoy?"». Los que ya
+ * tenían leads eran los clientes de antes; un negocio sin ningún lead anterior a esta fecha es NUEVO, y a ése sí se le
+ * abre la galería de una tab que nadie configuró (app/crm/lead-view/ficha/galeria.ts → `abreSola`).
+ */
+export const FICHA_POR_BLOQUES_DESDE = '2026-10-16';
+
+/**
+ * ¿Es un negocio NUEVO para la galería de la ficha? (`FICHA_POR_BLOQUES_DESDE`). Una sola fila con LIMIT 1, en el
+ * workspace de la sesión (getTenantDb). Nunca tira, y con la lectura caída contesta `false`: el error caro es abrirle la
+ * galería sola a un cliente de antes, que es justo lo que Martín pidió que no pase. Un lead traído de Meta con fecha vieja
+ * guarda esa fecha en `meta_created_at`; `created_at` es cuándo entró a MaKo.
+ */
+export async function negocioNuevoParaLaFicha(): Promise<boolean> {
+  try {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('leads').select('id').lt('created_at', FICHA_POR_BLOQUES_DESDE).limit(1);
+    if (error) return false;
+    return (data ?? []).length === 0;
+  } catch {
+    return false;
+  }
+}
+
 export type ResultadoGuardarFicha =
   | { ok: true; ficha: FichaDelFunnel; antes: FichaGuardada; cambio: boolean }
   | { ok: false; error: string };

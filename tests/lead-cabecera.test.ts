@@ -97,12 +97,14 @@ test('Reuniones: sólo si el funnel del lead tiene una etapa de reunión, con la
 
 // ── 19 · MaKo Analyst ──────────────────────────────────────────────────────────
 
-test('MaKo Analyst: el chat atado al lead en las dos puertas, y el análisis de llamadas plegado y sólo si hay algo', () => {
+test('MaKo Analyst: el chat atado al lead en las dos puertas, y «Insights» plegado debajo', () => {
   const pieza = codigo('app/crm/lead-view/AnalystDelLead.tsx');
   assert.match(pieza, /import \{ MakoAnalystLead \} from '\.\/MakoAnalystLead';/);
   assert.match(pieza, /<MakoAnalystLead leadId=\{lead\.id\} nombre=\{lead\.nombre\} \/>/, 'el chat se monta con el lead');
-  assert.match(pieza, /const hayAnalisis = !!inicial \|\| llamadas\.length > 0;/);
-  assert.match(pieza, /\{hayAnalisis && \(\s*<details/, 'lo de antes va plegado (details) y sólo si hay algo');
+  // ⚠️ CAMBIADO A PROPÓSITO EL 18/11/2026: iba «sólo si hay algo» y a un lead sin llamada nunca le aparecía el aviso de qué
+  // falta («No es posible generar hasta que…», Martín, 03/07; tests/insights-aviso.test.ts lo ejecuta). Ahora va siempre.
+  assert.match(pieza, /<details[\s\S]*?\{TITULO_INSIGHTS\}[\s\S]*?<GeneratedInsightCard/, '«Insights» va plegado (details)');
+  assert.doesNotMatch(pieza, /hayAnalisis/, 'volvió a esconderse cuando no hay llamada: el lead nunca ve qué falta');
   // ⚠️ CAMBIADO A PROPÓSITO EL 14/10/2026: el chat se monta una vez, en la ficha compartida; cada puerta
   // le dice cuánto alto le queda visible.
   // Desde el 16/10/2026 el chat vive en el panel «AI Analyst» (a la izquierda, alto completo), no en una pestaña.
@@ -155,10 +157,10 @@ test('la cabecera: portada y foto con las piezas de la casa, y el nombre se edit
 // (Las seis, vueltas a correr el 14/10/2026 con un script que rompe y restaura: 9 pases, 1 fallo
 // cada una.)
 //
-// Lo que este test NO cubre, porque vive en CabeceraLead.tsx: `.cl-junto` es `flex:none`, así que
-// el `flexWrap` del grupo no se activa nunca y, en una pantalla angosta, una etiqueta larga (el chip
-// llega a 220 px) + «+N» + la píldora de 150 pasan el ancho y `.cd-txt` (overflow:hidden) recorta
-// la píldora.
+// Lo que este test NO cubre, porque vive en CabeceraLead.tsx y es layout: que en una pantalla angosta una
+// etiqueta larga (el chip llega a 220 px) + «+N» + la píldora de 150 entren. Hasta el 18/11/2026 `.cl-junto`
+// era `flex:none` y `.cd-txt` (overflow:hidden) recortaba la píldora; lo mide en Chrome
+// tests/lead-etiquetas-ceden.test.ts.
 test('las etiquetas al lado del nombre: la primera es el chip de siempre, el «+N» desde la segunda y la píldora «＋ Etiqueta»', () => {
   const src = codigo('app/crm/lead-view/EtiquetasDelLead.tsx');
   const iCompacto = src.indexOf('if (compacto) {');

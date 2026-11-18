@@ -289,7 +289,15 @@ const CSS = `
    Abajo de todo (lo que hace la fila, que alinea por la base) quedaba debajo de la foto cuando a la derecha van el
    funnel y los datos sin marcar, y se leía separado de la cara. */
 .cl-cab .cd-txt{ align-self:flex-start; }
-.cl-junto{ display:inline-flex; align-items:center; flex:none; }
+/* Las etiquetas junto al nombre CEDEN (18/11/2026, Martin el 13/10: la primera siempre a la vista, el +N y la pildora
+   de agregar). Con flex:none median lo que su contenido en un solo renglon, y en un telefono una etiqueta larga dejaba la
+   pildora afuera de la pantalla, sin forma de agregar otra. Ahora el grupo mide como mucho su renglon, sus piezas bajan
+   de renglon (el grupo envuelve) y la etiqueta larga se corta con tres puntos (su nombre entero sigue en el title).
+   Medido en Chrome a 360 y 390 px (tests/lead-etiquetas-ceden.test.ts). */
+.cl-junto{ display:inline-flex; align-items:center; flex:0 1 auto; min-width:0; max-width:100%; }
+/* Cada pieza del grupo (la etiqueta, el +N, la pildora) puede achicarse a su renglon. Chrome no lo necesita; va por WebKit
+   (el iPhone), que toma el minimo de un item flex por su contenido. No medido en un iPhone. */
+.cl-junto > * > *{ min-width:0; }
 /* A la derecha: el funnel arriba y el aviso de datos sin marcar debajo (punto 9: «que ese
    desplegable este arriba de donde hoy esta 1 sin marcar»). Pegado a la derecha aunque el nombre
    sea largo: el texto es lo que cede. */
