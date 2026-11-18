@@ -902,7 +902,7 @@ export const BITACORA: Hito[] = [
     tickets: [92],
   },
   {
-    fecha: '17 nov', hora: '21:28', chat: 'Tickets de Sellers: el filtro de números', cuenta: 'claude2',
+    fecha: '17 nov', hora: '21:28', chat: 'Tickets de Sellers: el filtro de números', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
     actor: 'claude', tipo: 'correccion',
     titulo: 'MaKo ya te da el costo por lead de cada campaña, en vez de decirte que no tiene el dato',
     puntos: [
