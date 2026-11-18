@@ -206,8 +206,9 @@ test('el AVISO por email: un cron diario con su auth primero, sólo pruebas auto
 });
 
 test('MaKo PARTNERS: el crédito cuenta cuotas COBRADAS, y la prueba no deja ninguna hasta el día 8', () => {
-  const meses = cuerpo('lib/partners-programa.ts', 'mesesPagadosDe');
-  assert.match(meses, /const cuotas = await cuotasDeLugares\(plataforma, cobros\.map\(\(c\) => c\.id\)\);/);
+  // 18/11/2026: el crédito es POR PAGO (`pagosDeLosReferidos` lee los pagos cobrados de sus cobros), ya no cuenta cuotas para un 2º mes.
+  const pagos = cuerpo('lib/partners-programa.ts', 'pagosDeLosReferidos');
+  assert.match(pagos, /\.in\('cobro_id', tanda\)\.eq\('pagado', true\)/, 'sólo los pagos cobrados');
   assert.match(cuerpo('lib/plan-acceso.ts', 'cuotasDeLugares'), /\.eq\('pagado', true\)/, 'sólo las cobradas');
   // La prueba no asienta ninguna cuota: el alta al autorizar no pasa por `aplicarPagoAprobado`.
   assert.doesNotMatch(cuerpo('lib/cobros.ts', 'activarPruebaSiAutorizo'), /aplicarPagoAprobado|asentarCuota|insert\(/);
