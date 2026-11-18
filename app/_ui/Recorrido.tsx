@@ -552,6 +552,9 @@ export function useRecorrido(id: string, opciones?: { soloLocal?: boolean; autoa
   return { visto, abierto, reabrir, marcarVisto, onCerrar };
 }
 
+/** La misma hoja, para el motor de los tutoriales (app/_ui/tutorial/MotorTutorial.tsx): se ve igual que este recorrido. */
+export function cssRecorrido(): string { return CSS; }
+
 // ── La hoja ───────────────────────────────────────────────────────────────────
 //
 // ⚠️ SIN COMILLAS INVERTIDAS ADENTRO, ni en los comentarios: la hoja es un template
