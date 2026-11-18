@@ -395,10 +395,31 @@ export const BITACORA: Hito[] = [
       'El test de antes comparaba el orden de dos líneas del código y daba verde con el problema adentro. El nuevo corre el chequeo de verdad, con otros procesos pidiendo el mismo turno y la pausa del Cerebro prendida.',
       'Queda igual, a propósito: el chequeo completo de la emergencia a main todavía espera la memoria con el turno tomado (scripts/typecheck-lock.mjs).',
     ],
+    commits: [
+      { sha: 'ad892bf9d', msg: 'El chequeo de tipos del push ya no se queda con el turno de la PC esperando memoria (O26)', lineas: 381, archivos: 5 },
+    ],
     archivos: [
       'scripts/tipos-respaldo-push.mjs — tandasConTurno: mira la memoria con el turno, lo suelta si no alcanza',
       'tests/tipos-respaldo-push.test.ts — corre main con un lock de verdad y procesos que piden el turno',
       'docs/hallazgos-infra.md → «El respaldo de tipos del push seguía esperando RAM con el turno tomado»',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '02:25', chat: 'De octubre (nube)', sesion: 'cli_220069ef-c004-5c47-ae62-3770ea6e643f', cuenta: 'claude2', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La prueba de carga que se le prometió a Teo: cuánto tardan las pantallas con mucha gente a la vez',
+    puntos: [
+      'Un comando pide la misma pantalla muchas veces a la vez y dice cuánto tardó la mitad, el 95 y el 99 de cada cien, y cuántas fallaron y por qué.',
+      'Sólo corre contra la máquina propia. Para la app de verdad hay que pedirlo con una bandera explícita, y tiene topes: 20 a la vez y 2.000 en total.',
+      'Antes de arrancar dice cuánto va a pedir, y la sesión que se le pasa no se muestra nunca.',
+      'El Plan y el Dashboard leían de a una cosas que no dependen una de la otra: ahora van juntas, y se lee lo mismo que antes.',
+      'Falta medirlo en producción, con el visto bueno de Martín: la cifra de «el Dashboard tarda 4-6 s» es de antes del cambio de región.',
+    ],
+    archivos: [
+      'scripts/prueba-de-carga.mjs — la carga, el plan y el rechazo a producción',
+      'tests/prueba-de-carga.test.ts — lo puro y la carga de verdad contra un servidor local',
+      'app/plan/page.tsx y app/dashboard/page.tsx — las lecturas independientes, juntas',
+      'tests/plan-lecturas-juntas.test.ts — corre la página del Plan y mira qué lectura espera a cuál',
+      'docs/hallazgos-infra.md → «La prueba de carga que se le prometió a Teo»',
     ],
   },
 ];
