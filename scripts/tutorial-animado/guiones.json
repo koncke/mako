@@ -375,7 +375,7 @@
  },
  {
   "id": "reto-dia-3",
-  "pestana": "Reto · Día 3: tus contactos",
+  "pestana": "Reto · Día 3: tus contactos y tu primera automatización",
   "ruta": "/second-brain?reto=1",
   "icono": "lucide:trophy",
   "soloTexto": true,
@@ -391,7 +391,11 @@
     "rol": "que-es"
    },
    {
-    "dice": "Y conectas tu calendario: las llamadas que agenden caen en tu agenda.",
+    "dice": "Y armas tu primera automatización: Máko contesta a tus clientes por donde te escriben, WhatsApp, Instagram o email.",
+    "rol": "cosa"
+   },
+   {
+    "dice": "Después conectas tu calendario: las llamadas que agenden caen en tu agenda.",
     "rol": "cosa"
    },
    {
@@ -403,7 +407,7 @@
     "rol": "cierre"
    }
   ],
-  "nota": "Sin la difusión: el Cerebro la está confirmando con Martín (nada invasivo, cuidar el baneo). Si dice que sí, se suma."
+  "nota": "Martín, 18/11: sin difusión de WhatsApp; va la primera automatización, en el canal que use la persona."
  },
  {
   "id": "reto-dia-4",

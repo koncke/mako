@@ -456,48 +456,55 @@
   },
   {
    "key": "reto-dia-3",
-   "pestana": "Reto · Día 3: tus contactos",
+   "pestana": "Reto · Día 3: tus contactos y tu primera automatización",
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-3.mp4",
    "poster": "/tutoriales/reto-dia-3.jpg",
-   "duracion_s": 27.13,
-   "peso_kb": 1522,
-   "guion": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda. Cargas tus clientes en el CRM, con un CSV o integrando el CRM que ya usas. Y conectas tu calendario: las llamadas que agenden caen en tu agenda. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
+   "duracion_s": 34.33,
+   "peso_kb": 1432,
+   "guion": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda. Cargas tus clientes en el CRM, con un CSV o integrando el CRM que ya usas. Y armas tu primera automatización: MaKo contesta a tus clientes por donde te escriben, WhatsApp, Instagram o email. Después conectas tu calendario: las llamadas que agenden caen en tu agenda. Debajo de este video están tus tareas: toca cada una y te marco dónde se hace. Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
    "frases": [
     {
      "id": "reto-dia-3-1",
      "rol": "gancho",
      "texto": "Te doy la bienvenida al día 3: hoy ordenas tus contactos y tu agenda.",
      "t_inicio": 0.04,
-     "t_fin": 4.92
+     "t_fin": 4.98
     },
     {
      "id": "reto-dia-3-2",
      "rol": "que-es",
      "texto": "Cargas tus clientes en el CRM, con un CSV o integrando el CRM que ya usas.",
      "t_inicio": 5.48,
-     "t_fin": 10.72
+     "t_fin": 10.62
     },
     {
      "id": "reto-dia-3-3",
      "rol": "cosa",
-     "texto": "Y conectas tu calendario: las llamadas que agenden caen en tu agenda.",
-     "t_inicio": 11.26,
-     "t_fin": 15.28
+     "texto": "Y armas tu primera automatización: MaKo contesta a tus clientes por donde te escriben, WhatsApp, Instagram o email.",
+     "t_inicio": 11.08,
+     "t_fin": 18.08
     },
     {
      "id": "reto-dia-3-4",
      "rol": "cosa",
-     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
-     "t_inicio": 15.94,
-     "t_fin": 20.78
+     "texto": "Después conectas tu calendario: las llamadas que agenden caen en tu agenda.",
+     "t_inicio": 18.6,
+     "t_fin": 22.72
     },
     {
      "id": "reto-dia-3-5",
+     "rol": "cosa",
+     "texto": "Debajo de este video están tus tareas: toca cada una y te marco dónde se hace.",
+     "t_inicio": 23.28,
+     "t_fin": 28.12
+    },
+    {
+     "id": "reto-dia-3-6",
      "rol": "cierre",
      "texto": "Y pruébalo por WhatsApp: mándale a MaKo un audio pidiéndole que cargue un lead en tu CRM.",
-     "t_inicio": 21.32,
-     "t_fin": 26.44,
+     "t_inicio": 28.64,
+     "t_fin": 33.64,
      "espera_clic": false
     }
    ],
@@ -505,8 +512,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "3 → tres · mako → maco (ortografía del transcriptor)",
-   "hecho": "2026-11-18T13:54:13.163Z"
+   "chequeo": "3 → tres (ortografía del transcriptor)",
+   "hecho": "2026-11-18T14:46:54.076Z"
   },
   {
    "key": "reto-dia-4",
