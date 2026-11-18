@@ -39,7 +39,6 @@ export const MARCA = {
   instalarExtension: 'tour-settings-instalar-extension',
   // ── Los de los guiones de video (18/11, C:/dev/tutoriales-video/marcas-que-faltan.md): un id por frase, como el manifiesto. ──
   /** Settings › Tu plan (app/configuraciones/plan/PlanPanel.tsx): «Tu primer mes», «Pasar a MaKo Pro» y «Empezar mi plan ya». */
-  settingsPlanPrimerMes: 'tour-settings-plan-primer-mes',
   settingsPlanPro: 'tour-settings-plan-pro',
   settingsPlanEmpezar: 'tour-settings-plan-empezar',
   /** Settings › Seguridad (app/perfil/seguridad/SeguridadCuenta.tsx): la fila «Verificación en 2 pasos» y, en su detalle, «Configurar». */
@@ -64,8 +63,6 @@ export const MARCA = {
   classroomCommunityMenuPost: 'tour-classroom-community-menu-post',
   classroomCommunityEscribir: 'tour-classroom-community-escribir',
   /** Classroom › Clients (app/customer-success: la primera tarjeta, el selector de vistas y «Cargar un cliente»). */
-  classroomClientsCliente: 'tour-classroom-clients-cliente',
-  classroomClientsVistas: 'tour-classroom-clients-vistas',
   classroomClientsCargar: 'tour-classroom-clients-cargar',
   /** Classroom › Calendar (app/_comunidad/Calendario.tsx y EditorEvento.tsx). */
   classroomCalendarNuevo: 'tour-classroom-calendar-nuevo',

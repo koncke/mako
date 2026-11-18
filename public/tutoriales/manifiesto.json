@@ -191,6 +191,64 @@
    "hecho": "2026-11-18T06:53:22.402Z"
   },
   {
+   "key": "copilot",
+   "pestana": "Marketing CoPilot",
+   "ruta": "/ads-manager/copiloto",
+   "archivo": "/tutoriales/copilot.mp4",
+   "poster": "/tutoriales/copilot.jpg",
+   "duracion_s": 26.3,
+   "peso_kb": 1475,
+   "guion": "Deja de adivinar cuánto publicar y en qué red. El CoPilot hace de tu equipo de marketing: mira lo que publicas y lo que inviertes, y te dice qué hacer. Mira aquí, ¿Por dónde vendes?: marca dónde publicas o inviertes. Haz clic aquí, en Seguir, y responde las otras dos, una por pantalla. Completa las tres ahora: lo que te toca va a tu Plan, y el CoPilot no lanza un anuncio sin tu OK.",
+   "frases": [
+    {
+     "id": "copilot-1",
+     "rol": "gancho",
+     "texto": "Deja de adivinar cuánto publicar y en qué red.",
+     "t_inicio": 0.1,
+     "t_fin": 2.88
+    },
+    {
+     "id": "copilot-2",
+     "rol": "que-es",
+     "texto": "El CoPilot hace de tu equipo de marketing: mira lo que publicas y lo que inviertes, y te dice qué hacer.",
+     "t_inicio": 3.38,
+     "t_fin": 9.44
+    },
+    {
+     "id": "copilot-3",
+     "rol": "accion",
+     "texto": "Mira aquí, ¿Por dónde vendes?: marca dónde publicas o inviertes.",
+     "t_inicio": 10.02,
+     "t_fin": 14.26,
+     "sel": ".cop-ent__ops",
+     "espera_clic": false
+    },
+    {
+     "id": "copilot-4",
+     "rol": "accion",
+     "texto": "Haz clic aquí, en Seguir, y responde las otras dos, una por pantalla.",
+     "t_inicio": 14.74,
+     "t_fin": 18.96,
+     "sel": "button.cop-ent__seguir",
+     "espera_clic": true
+    },
+    {
+     "id": "copilot-5",
+     "rol": "cierre",
+     "texto": "Completa las tres ahora: lo que te toca va a tu Plan, y el CoPilot no lanza un anuncio sin tu OK.",
+     "t_inicio": 19.46,
+     "t_fin": 25.6,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "ok → okey (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:15:23.960Z"
+  },
+  {
    "key": "settings-integraciones",
    "pestana": "Integraciones",
    "ruta": "/integraciones",
@@ -570,6 +628,184 @@
    "hecho": "2026-11-18T07:06:09.210Z"
   },
   {
+   "key": "spy",
+   "pestana": "Competitor Spy",
+   "ruta": "/competitor-spy",
+   "archivo": "/tutoriales/spy.mp4",
+   "poster": "/tutoriales/spy.jpg",
+   "duracion_s": 26.3,
+   "peso_kb": 1491,
+   "guion": "No adivines qué publicar: mira qué ya le funciona a tu competencia. Competitor Spy sigue las cuentas que eliges y te marca las piezas que rindieron varias veces más de lo normal. Toca aquí, en Anuncios, y mira los que tiene activos. Toca aquí, en Contenido, para volver a todo lo que publica. Pruébalo ya: toca aquí, en una pieza, y después en Hacer uno así: MaKo escribe el tuyo con tu oferta.",
+   "frases": [
+    {
+     "id": "spy-1",
+     "rol": "gancho",
+     "texto": "No adivines qué publicar: mira qué ya le funciona a tu competencia.",
+     "t_inicio": 0.1,
+     "t_fin": 4.2
+    },
+    {
+     "id": "spy-2",
+     "rol": "que-es",
+     "texto": "Competitor Spy sigue las cuentas que eliges y te marca las piezas que rindieron varias veces más de lo normal.",
+     "t_inicio": 4.66,
+     "t_fin": 10.66
+    },
+    {
+     "id": "spy-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Anuncios, y mira los que tiene activos.",
+     "t_inicio": 11.2,
+     "t_fin": 14.14,
+     "sel": "[data-recorrido=\"spy-tab-anuncios\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "spy-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Contenido, para volver a todo lo que publica.",
+     "t_inicio": 14.68,
+     "t_fin": 17.96,
+     "sel": "[data-recorrido=\"spy-tab-contenido\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "spy-5",
+     "rol": "cierre",
+     "texto": "Pruébalo ya: toca aquí, en una pieza, y después en Hacer uno así: MaKo escribe el tuyo con tu oferta.",
+     "t_inicio": 18.5,
+     "t_fin": 25.62,
+     "sel": "[data-recorrido=\"spy-grilla\"] div[role=\"button\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:17:31.245Z"
+  },
+  {
+   "key": "copywriting",
+   "pestana": "Copywriting",
+   "ruta": "/copywriter",
+   "archivo": "/tutoriales/copywriting.mp4",
+   "poster": "/tutoriales/copywriting.jpg",
+   "duracion_s": 24.47,
+   "peso_kb": 1379,
+   "guion": "El copy que vende casi nunca nace de una hoja en blanco. Copywriting te muestra los anuncios, reels y videos de YouTube que mejor rindieron en las cuentas que sigues. Toca aquí, en Plantillas, si prefieres una base que ya trae gancho, cuerpo y cierre. Toca aquí, en Pegar link o texto, si viste uno afuera que quieres usar. Listo: toca aquí, en Replicar, y MaKo reescribe ese copy para lo que vendes.",
+   "frases": [
+    {
+     "id": "copywriting-1",
+     "rol": "gancho",
+     "texto": "El copy que vende casi nunca nace de una hoja en blanco.",
+     "t_inicio": 0.06,
+     "t_fin": 3.14
+    },
+    {
+     "id": "copywriting-2",
+     "rol": "que-es",
+     "texto": "Copywriting te muestra los anuncios, reels y videos de YouTube que mejor rindieron en las cuentas que sigues.",
+     "t_inicio": 3.62,
+     "t_fin": 9.32
+    },
+    {
+     "id": "copywriting-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Plantillas, si prefieres una base que ya trae gancho, cuerpo y cierre.",
+     "t_inicio": 9.66,
+     "t_fin": 14.58,
+     "sel": "#copy-plantillas",
+     "espera_clic": true
+    },
+    {
+     "id": "copywriting-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Pegar link o texto, si viste uno afuera que quieres usar.",
+     "t_inicio": 14.86,
+     "t_fin": 18.6,
+     "sel": "[data-recorrido=\"tour-copywriting-pegar\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "copywriting-5",
+     "rol": "cierre",
+     "texto": "Listo: toca aquí, en Replicar, y MaKo reescribe ese copy para lo que vendes.",
+     "t_inicio": 18.98,
+     "t_fin": 23.78,
+     "sel": "[aria-label=\"Outliers de copy\"] button",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "mako → maco (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:19:24.331Z"
+  },
+  {
+   "key": "web",
+   "pestana": "Web Generator",
+   "ruta": "/web-generator",
+   "archivo": "/tutoriales/web.mp4",
+   "poster": "/tutoriales/web.jpg",
+   "duracion_s": 26.47,
+   "peso_kb": 1501,
+   "guion": "Antes de diseñar tu página, mira las que ya convierten. Web Generator te muestra páginas que venden, y cada una trae su botón Replicar. Toca aquí, en VSL, Webinar o Página de venta, para ver sólo ese tipo. Mira aquí, el buscador: pega el link de una página que te gustó para replicarla. Elige una y toca aquí, en Replicar: se vuelve a armar para tu negocio y queda en Mis landings.",
+   "frases": [
+    {
+     "id": "web-1",
+     "rol": "gancho",
+     "texto": "Antes de diseñar tu página, mira las que ya convierten.",
+     "t_inicio": 0.08,
+     "t_fin": 3.2
+    },
+    {
+     "id": "web-2",
+     "rol": "que-es",
+     "texto": "Web Generator te muestra páginas que venden, y cada una trae su botón Replicar.",
+     "t_inicio": 3.64,
+     "t_fin": 8.38
+    },
+    {
+     "id": "web-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en VSL, Webinar o Página de venta, para ver sólo ese tipo.",
+     "t_inicio": 8.82,
+     "t_fin": 14.2,
+     "sel": "[aria-label=\"Tipo de página\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "web-4",
+     "rol": "accion",
+     "texto": "Mira aquí, el buscador: pega el link de una página que te gustó para replicarla.",
+     "t_inicio": 14.64,
+     "t_fin": 19.18,
+     "sel": "input[aria-label^=\"Buscar páginas\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "web-5",
+     "rol": "cierre",
+     "texto": "Elige una y toca aquí, en Replicar: se vuelve a armar para tu negocio y queda en Mis landings.",
+     "t_inicio": 19.54,
+     "t_fin": 25.76,
+     "sel": "a[href^=\"/web-generator?replicar=\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "generator → webgenerator (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:21:19.068Z"
+  },
+  {
    "key": "plan",
    "pestana": "Plan",
    "ruta": "/plan",
@@ -748,6 +984,195 @@
    "dice_el_guion": true,
    "chequeo": "idéntico",
    "hecho": "2026-11-18T07:10:52.419Z"
+  },
+  {
+   "key": "avatar",
+   "pestana": "AI Avatar",
+   "ruta": "/ai-avatar",
+   "archivo": "/tutoriales/avatar.mp4",
+   "poster": "/tutoriales/avatar.jpg",
+   "duracion_s": 27.33,
+   "peso_kb": 1320,
+   "guion": "Tu cara, en escenas que nunca grabaste: el auto, un podcast, la cocina. AI Avatar te pone en esas escenas con IA, en cuatro pasos. Toca aquí, en Charla en el auto o en otro preset, que trae la escena armada. Mira aquí, Personaje: ahí va tu foto, de frente y con buena luz. Mira aquí, Describe la escena: cuenta lo que pasa. Cuando esté todo, toca aquí, en Generar, y mírate en esa escena.",
+   "frases": [
+    {
+     "id": "avatar-1",
+     "rol": "gancho",
+     "texto": "Tu cara, en escenas que nunca grabaste: el auto, un podcast, la cocina.",
+     "t_inicio": 0.08,
+     "t_fin": 5.26
+    },
+    {
+     "id": "avatar-2",
+     "rol": "que-es",
+     "texto": "AI Avatar te pone en esas escenas con IA, en cuatro pasos.",
+     "t_inicio": 5.8,
+     "t_fin": 9.68
+    },
+    {
+     "id": "avatar-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en Charla en el auto o en otro preset, que trae la escena armada.",
+     "t_inicio": 10.14,
+     "t_fin": 14.04,
+     "sel": "button[aria-label=\"Usar el preset Charla en el auto\"]",
+     "espera_clic": true
+    },
+    {
+     "id": "avatar-4",
+     "rol": "accion",
+     "texto": "Mira aquí, Personaje: ahí va tu foto, de frente y con buena luz.",
+     "t_inicio": 14.58,
+     "t_fin": 18.8,
+     "sel": "button[aria-label=\"Personaje: tu foto\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "avatar-5",
+     "rol": "accion",
+     "texto": "Mira aquí, Describe la escena: cuenta lo que pasa.",
+     "t_inicio": 19.38,
+     "t_fin": 22.08,
+     "sel": "textarea[aria-label=\"Describe la escena\"]",
+     "espera_clic": false
+    },
+    {
+     "id": "avatar-6",
+     "rol": "cierre",
+     "texto": "Cuando esté todo, toca aquí, en Generar, y mírate en esa escena.",
+     "t_inicio": 22.58,
+     "t_fin": 26.64,
+     "sel": "[data-recorrido=\"tour-avatar-generar\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": false,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-18T07:24:04.019Z"
+  },
+  {
+   "key": "video",
+   "pestana": "Video",
+   "ruta": "/video-editor",
+   "archivo": "/tutoriales/video.mp4",
+   "poster": "/tutoriales/video.jpg",
+   "duracion_s": 25.23,
+   "peso_kb": 1381,
+   "guion": "Para tu próximo video, parte de uno que ya funcionó. En Video, MaKo arma tus videos a partir de una frase o de una plantilla. Mira aquí, la caja de arriba: escribe en una línea lo que quieres. Toca aquí, en Ver ejemplo, para ver un anuncio terminado antes de usar su plantilla. Para el primero, toca aquí, en Mensaje para…: le hablas a tu cliente ideal en 30 segundos.",
+   "frases": [
+    {
+     "id": "video-1",
+     "rol": "gancho",
+     "texto": "Para tu próximo video, parte de uno que ya funcionó.",
+     "t_inicio": 0.06,
+     "t_fin": 3.14
+    },
+    {
+     "id": "video-2",
+     "rol": "que-es",
+     "texto": "En Video, MaKo arma tus videos a partir de una frase o de una plantilla.",
+     "t_inicio": 3.68,
+     "t_fin": 8.24
+    },
+    {
+     "id": "video-3",
+     "rol": "accion",
+     "texto": "Mira aquí, la caja de arriba: escribe en una línea lo que quieres.",
+     "t_inicio": 8.74,
+     "t_fin": 12.5,
+     "sel": "[data-caja-pedido]",
+     "espera_clic": false
+    },
+    {
+     "id": "video-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Ver ejemplo, para ver un anuncio terminado antes de usar su plantilla.",
+     "t_inicio": 12.98,
+     "t_fin": 17.94,
+     "sel": "button[aria-label=\"Ver un ejemplo de Anuncio con gancho\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "video-5",
+     "rol": "cierre",
+     "texto": "Para el primero, toca aquí, en Mensaje para…: le hablas a tu cliente ideal en 30 segundos.",
+     "t_inicio": 18.42,
+     "t_fin": 24.54,
+     "sel": "button[aria-label=\"Usar la plantilla Mensaje para…\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "30 → treinta (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:26:02.137Z"
+  },
+  {
+   "key": "image",
+   "pestana": "Image",
+   "ruta": "/image-editor",
+   "archivo": "/tutoriales/image.mp4",
+   "poster": "/tutoriales/image.jpg",
+   "duracion_s": 24.03,
+   "peso_kb": 1323,
+   "guion": "¿Quieres carruseles que la gente guarde y miniaturas que inviten a entrar? Ímich te arma esas piezas, y cada miniatura de YouTube viene en dos versiones para probar cuál se toca más. Toca aquí, en la portada de Lista o tips: ya trae el nombre de tu negocio. Toca aquí, en Ver ejemplo, y mira cómo queda la pieza terminada. Empieza por un carrusel: toca aquí, en Usar plantilla.",
+   "frases": [
+    {
+     "id": "image-1",
+     "rol": "gancho",
+     "texto": "¿Quieres carruseles que la gente guarde y miniaturas que inviten a entrar?",
+     "t_inicio": 0.06,
+     "t_fin": 3.68
+    },
+    {
+     "id": "image-2",
+     "rol": "que-es",
+     "texto": "Image te arma esas piezas, y cada miniatura de YouTube viene en dos versiones para probar cuál se toca más.",
+     "t_inicio": 4.36,
+     "t_fin": 10.32
+    },
+    {
+     "id": "image-3",
+     "rol": "accion",
+     "texto": "Toca aquí, en la portada de Lista o tips: ya trae el nombre de tu negocio.",
+     "t_inicio": 10.82,
+     "t_fin": 15.2,
+     "sel": "span[aria-label=\"Lista o tips: portada\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "image-4",
+     "rol": "accion",
+     "texto": "Toca aquí, en Ver ejemplo, y mira cómo queda la pieza terminada.",
+     "t_inicio": 15.74,
+     "t_fin": 19.44,
+     "sel": "button[aria-label=\"Ver un ejemplo de Lista o tips\"]",
+     "espera_clic": true,
+     "cierra_despues": true
+    },
+    {
+     "id": "image-5",
+     "rol": "cierre",
+     "texto": "Empieza por un carrusel: toca aquí, en Usar plantilla.",
+     "t_inicio": 20.06,
+     "t_fin": 23.34,
+     "sel": "button[aria-label=\"Usar la plantilla Lista o tips\"]",
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "imich → image (ortografía del transcriptor)",
+   "hecho": "2026-11-18T07:28:06.132Z"
   }
  ]
 }

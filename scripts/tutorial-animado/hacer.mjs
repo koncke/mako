@@ -297,7 +297,7 @@ if (modo === 'video' || modo === 'web') {                        // 'web': only 
   man.videos.push({ key: id, pestana: g.pestana, ruta: g.ruta, archivo: `/tutoriales/${id}.mp4`, poster: `/tutoriales/${id}.jpg`, duracion_s: +dur.toFixed(2),
     peso_kb: Math.round(peso / 1024), guion: textoPantalla.replace(/Ei-Ai/g, "AI"), frases: FRASES,
     pantallas: enPantalla.map((i) => ({ paso: i + 1, sel: g.pasos[i].sel || null, marcado: !!rects[i] })),
-    formato: g.v4 ? 4 : 3, voz: `${VOZ.model_id} · ${VOZ.voz}`, dice_el_guion: dijoBien, chequeo: diferencias.length ? diferencias.join(' · ') + (soloOrtografia ? ' (ortografía del transcriptor)' : '') : 'idéntico',
+    ...(g.soloPro ? { solo_pro: true } : {}), formato: g.v4 ? 4 : 3, voz: `${VOZ.model_id} · ${VOZ.voz}`, dice_el_guion: dijoBien, chequeo: diferencias.length ? diferencias.join(' · ') + (soloOrtografia ? ' (ortografía del transcriptor)' : '') : 'idéntico',
     hecho: new Date().toISOString() });
   man.videos.sort((a, b) => (todos.findIndex((x) => x.id === a.key) - todos.findIndex((x) => x.id === b.key)));
   writeFileSync(MANIFIESTO_PUB, JSON.stringify(man, null, 1));

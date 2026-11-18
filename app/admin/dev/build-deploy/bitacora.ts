@@ -255,4 +255,28 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-infra.md → «Los minutos de GitHub Actions»',
     ],
   },
+  // ── 18 nov: el índice de hallazgos que se re-duplicaba (F53, la tanda de «Lo que falta construir») ────────────
+  {
+    fecha: '18 nov', hora: '06:50', chat: 'Pendientes: lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Seguir con todos los pendientes',
+    pedido: 'continúes con absolutamente todos los pendientes',
+    puntos: [
+      'Esta tanda tomó «Lo que falta construir» de docs/pendientes-verificados-17-11.md; acá entra F53, el índice de hallazgos con filas repetidas.',
+    ],
+  },
+  {
+    fecha: '18 nov', hora: '06:55', chat: 'Pendientes: lo que falta construir (nube)', sesion: 'cli_f48f3c88-a96a-5f72-9e4b-57d3461c2c45', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El índice de hallazgos ya no se re-duplica con cada mezcla',
+    puntos: [
+      'P21 lo dejó en 64 filas a las 04:53 y a las 06:20 eran 89: la mezcla identificaba la fila por «Área + documento» y cada punta vieja traía el rótulo viejo.',
+      'La clave pasó al documento y, al unir, gana el rótulo de main. Main se juntó otra vez: 89 → 64, con las 2.512 entradas y los rótulos de P21.',
+      'tests/unir-indice-hallazgos.test.ts con tres casos nuevos, probados rompiéndolo (12/5, 16/1 y 16/1).',
+    ],
+    archivos: [
+      'scripts/unir-indice-hallazgos.mjs — la clave es el documento; `rotulosDelIndice`',
+      'docs/hallazgos-infra.md → «El índice volvió a duplicarse dos horas después de juntarlo»',
+    ],
+  },
 ];

@@ -193,7 +193,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
         </div>
         {proAntesDeEmpezar && filaPro}
         {!destacarEmpezar && filaEmpezar}
-        {suscripcion?.primerMes && <FilaAjustes icono="nota" titulo="Tu primer mes" detalle={suscripcion.primerMes} apilada recorrido={MARCA.settingsPlanPrimerMes} />}
+        {suscripcion?.primerMes && <FilaAjustes icono="nota" titulo="Tu primer mes" detalle={suscripcion.primerMes} apilada />}
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
         {retencion && <FilaAjustes icono="nota" titulo="Tu oferta" detalle={retencion} apilada />}
         {!proAntesDeEmpezar && filaPro}
