@@ -1,6 +1,88 @@
 # Relevo del Cerebro
 
 
+## 18/11/2026 ~21:15 UTC — LEER PRIMERO (claude2 al 96 % semanal; se reinicia el 24/11 a las 21:00 UTC)
+
+Cuando Martín escriba «Continua» desde otra cuenta, el Cerebro arranca por acá. Cada chat dejó su propio relevo en su carpeta
+(`docs/relevo/<chat>.md`): leerlos antes de despachar.
+
+### 1. En producción (despliegue manual b7939d2be, 18/11 20:25 UTC, verificado leyendo hola-mako.com/mako-partners)
+- **MaKo Partners unificado: el partner cobra SIEMPRE el 30 % del precio de lista, todos los meses** (Pro US$ 29,10, Essential
+  US$ 14,10). Se acabó el «100 % del primer mes». Un crédito por cada pago (`lib/partners-programa.ts`), PERO **no acredita nada
+  hasta que se aplique la migración 0421** (espera el sí de Martín escrito en el chat de Cobros).
+- **Landing /mako-partners nueva:** «Recomienda MaKo y llévate el 30%», calculadora (dos botones «MaKo: US$ 97 / 47» + deslizador
+  hasta 100 con imán en 20 y 50), «Así de simple» (3 pasos), carrusel de 20 rubros (dos veces), «¿Por qué ser partner de MaKo te
+  conviene?» (carrusel de 6 beneficios), tabla «MaKo vs. GoHighLevel» (9 filas ✓/✕, cada una verificada en el sitio de GHL),
+  preguntas, cierre. CTA en mayúscula en todo el sitio. Barra del sitio en Partners, las 12 páginas de detalle y /app (con el
+  arreglo de «intención» del menú Recursos).
+- **Checkout simple:** Mercado Pago y tarjeta a 97 y 47. `RECARGO_PASARELA = 0` (el +5 % existe pero apagado). La opción
+  «Transferencia o Binance» está en el código pero OCULTA (el setting `planes.pago_directo` del ws 9 está vacío: NO cargarlo hasta
+  que Martín lo pida).
+- «Tu plan», /planes y la API de MaKo dicen la regla nueva. El video tutorial «partners» rehecho con el 30 %.
+- Ya estaban desde el despliegue de las 11:05 UTC: onboarding V2 detrás del interruptor, voz de los coaches (BotonVozCoach),
+  hasta 3 funnels en el Funnel Coach, 34 tutoriales por pestaña y 35 videos.
+
+### 2. Decisiones de Martín del 18/11 (en la memoria: trato-p2p-comision, verificar-pagos-contra-la-cuenta,
+cobrar-mako-argentina-directo, cta-en-mayuscula)
+- Partners: 30 % siempre; ser partner exige **MaKo Pro activo** (pendiente en el código); no hay caso «el partner cobra y manda el 70 %».
+- Los pesos van al **dólar cripto (Binance) en el momento del clic**, no al blue diario (pendiente en el código: hoy el cron sigue
+  con el blue).
+- Pagos directos: el comprobante es obligatorio; nada de montos únicos con centavos; el calce es por número de orden/operación.
+- **Claude no mueve plata:** la clave de Binance es de SÓLO lectura (ya probada; en `C:/dev/mako-api/.env.local`). Los pagos a
+  partners los hace Martín; MaKo arma la lista del 1 al 5 y verifica que pagó.
+- Datos de cobro de Martín (para cuando reactive la transferencia): alias holamako, CVU 0000003100062063077421, titular Martin
+  Carballo Koncke, https://mpago.la/1bfQ8i6, Binance https://app.binance.com/uni-qr/68G3kuwL (QR personal, permanente), Pay ID
+  68725667. Los «request to pay» de Binance vencen a los 30 días: no usarlos.
+
+### 3. Los links
+- **Artefacto único** (sitio, precios, landings, Partners, onboarding con checkout, pestañas): https://claude.ai/artifact/KGn9GUek4GRqKm6M1Q345M
+  (#partners, #onboarding). Fuentes: C:/dev/artefactos-sitio, C:/dev/artefactos-mako/fuentes, C:/dev/artefactos-onboarding
+  (el panel de pagos directos guardado y apagado en cuerpo.html, `COBROS_NUEVOS = false`), C:/dev/artefactos-pestanas.
+  ⚠️ Varios chats publican en el mismo artefacto: cada uno sube SÓLO sus archivos; `index.html` es el visor compartido.
+- **Galería de animaciones:** https://claude.ai/artifact/CXe1Ana7MvnJ44gzaXc7hF (fuente C:/dev/artefactos-animaciones; MP4 en /mp4).
+- **Tutoriales en video:** motor en scripts/tutorial-animado, manifiesto public/tutoriales/manifiesto.json; la galería la tiene el
+  chat de tutoriales (ver su relevo).
+- **Reel de mentores:** C:/dev/reel-mentores/montaje/REEL-v-hormozi-palma.mp4 (y -SIN-MUSICA).
+
+### 4. Los chats (todos en claude2; cada uno con su relevo)
+| Chat | Id | Qué tiene |
+|---|---|---|
+| Sitio de MaKo | local_8a4308f4-0f95-4cb5-953b-50da7d4a60a3 | Landing Partners, barra del sitio, artefacto del sitio |
+| Cobros | local_d6234a31-9b41-4758-80e7-2aa35e86f242 | Partners en el código, checkout, pagos directos; `docs/pendientes-partners-pagos-1811.md` |
+| Onboarding: maqueta y reto | local_a9a5a9e9-220c-4884-9a60-56376fe2cdaa | Onboarding V2, coaches, reto; relevo en la memoria relevo-onboarding-v2-18-11 |
+| Artefacto: pestañas | local_c430f027-c8f5-4682-b795-2f9d05298b18 | Pestañas dibujadas (PC y teléfono) |
+| Tutoriales con voz | local_bd6a3308-70ac-4b8d-b43a-8ffed47f6cb3 | Videos tutoriales y del reto |
+| Galería de animaciones | local_fc7cc6c7-a902-4922-82af-3cf90eaaadac | Animaciones por código, formatos de la competencia |
+| Tickets de Leila | local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c | Tickets y respuestas de MaKo en WhatsApp |
+| Automations | local_a66389ee-c8c2-4e93-a5bd-211c85b41d49 | Automatizaciones (#259 aplicado) |
+
+### 5. PENDIENTES
+**De Martín (nadie más puede):**
+1. Escribir en el chat de Cobros: «Sí, aplica en producción la migración 0421 de Partners (pago y canal en partner_creditos, un
+   crédito por pago)». Sin eso, Partners no acredita nada.
+2. Cargar en Vercel (Production): `BINANCE_API_KEY` y `BINANCE_API_SECRET` (están en C:/dev/mako-api/.env.local) y
+   `MAKO_ELEVENLABS_API_KEY` (sin ella no suena la voz de los coaches ni la «Voz de MaKo»).
+3. Revisar el onboarding V2 en producción con su sesión (está detrás del interruptor `veOnboardingV2`) y decidir cuándo va PARA_TODOS.
+4. Decidir si se activa el cobro de MaKo Tokens (la 0416).
+5. Galería: el OK de quote-cinema y ★ Elegir.
+6. Cuando reactive la transferencia/Binance: el WhatsApp para comprobantes y confirmar equipo@hola-mako.com; consultar con su
+   contador el recargo por tarjeta (la ley de tarjetas lo prohíbe; se puede presentar como descuento por transferencia).
+
+**De código (briefs en el repo):**
+1. `docs/pendientes-partners-pagos-1811.md` (chat de Cobros): la cotización cripto en el momento del clic; la verificación de pagos
+   contra Mercado Pago y Binance (por número de orden del comprobante); el panel del partner que suma y el pago del 1 al 5 con la
+   lista para Martín; que el partner elija cómo cobrar; el alta exige MaKo Pro.
+2. `docs/onboarding/offer-coach-es-el-motor-de-offer.md` (en punta/onboarding-v2-motor): el Offer Coach usa el motor de Offer, con
+   el PDF en un mensaje y después el botón del Funnel Coach.
+3. Verificar que estén en producción y funcionando: el #113 de Leandro (webhook de Zernio en la segunda clave), el Funnel Coach que
+   crea el CRM (70add9573) y el ícono de videos con la clase del funnel (f6ec822ba).
+4. Pestañas que faltaban en el artefacto: confirmar en el relevo del chat de pestañas (antes faltaban Chats y API).
+
+**Del Cerebro, siempre:** re-armar el vigía de GitHub (`node ~/.claude/guardia/vigia-ci.mjs esperar`) y correr
+`node ~/.claude/guardia/limpiar-disco.mjs` cada tanto.
+
+
+
 ## 17/11/2026 ~20:30 UTC — PLAN DEL REINICIO DE LAS 18:00 (21:00 UTC). Martín lo pidió antes del corte; si el recordatorio se perdió, despachar esto
 
 Martín, textual: «pon un recordatorio para que todos los chats continúen con todos sus trabajos». Hay un CronCreate en la sesión del
