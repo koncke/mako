@@ -28,6 +28,34 @@ registro completo de las corridas está en [corridas-multiagente.md](corridas-mu
 
 ---
 
+## Los guiones nuevos ya leen lo que le funcionó al negocio en sus anuncios, con un piso de agendas (18/11/2026)
+
+**Vive en:** `lib/ads-ganadores-reglas.ts` (`PISO_GANADOR`, `ganadoresConPiso`, `lineasDeGanadores`) · `lib/ads-ganadores.ts`
+(`ganadoresParaEscribir`) · `lib/ads-analyst.ts` (`guionesConSenal`, que comparte `vistasDeAnalizadas` con la vista) ·
+`lib/razones.ts` (`generarGuion`) · `lib/copywriter/ia.ts` (`discutir`, `editar`, `ganadoresDe`) · `tests/ads-ganadores.test.ts`.
+
+**Síntoma.** El escritor de guiones del Ads Writer y el Copywriter escribían sin mirar `script_analyses`: un guion nuevo no sabía
+qué ángulo y qué gancho ya le habían traído agendas a ESE negocio. Nada fuera de Ads Analyst y la API leía esa tabla.
+
+**Lo que se hizo.** `ganadoresParaEscribir` lee los guiones analizados con sus métricas vivas (del negocio en curso, con un tope de
+5 s: es un agregado, y sin él el guion sale igual) y deja pasar sólo los que trajeron **al menos 3 agendas** y se mostraron **al
+menos 8.000 veces** (el piso «confiable» de `buildAccountProfile`), los que más agendaron primero, hasta 3. Lo que entra es lo
+que se sabe de cada uno (el gancho dicho, su ángulo por nombre, el tipo de gancho, cuántas agendas y a cuánto), nunca una
+conclusión. Va al final del pedido de `generarGuion` y, en el Copywriter, pegado al bloque del negocio (el slot `negocio`: un slot
+nuevo no lo tendría un prompt guardado en /configuraciones) y sólo en las piezas con método (ad, reel, story, YouTube, VSL).
+
+**El diagnóstico obvio era el equivocado.** «Pasarle el perfil de la cuenta» (`buildAccountProfile`, el que usa Valorar) parecía lo
+directo, y trae `exemplares_top` ordenados por agendas SIN piso: un anuncio con una agenda puede salir primero, que es exactamente
+el «ángulo ganador» falso que el pendiente prohibía. Y la vista entera (`getScriptAnalystView`) recorre además todos los anuncios
+de Meta para contar los «sin analizar»: para escribir no hace falta.
+
+**Lo que queda.** Los umbrales son defaults razonados, NO medidos contra producción (están juntos en `PISO_GANADOR`). Si un negocio
+nunca llega a 3 agendas por anuncio, no le entra nada: es lo correcto, pero conviene medir en producción cuántos negocios tienen
+algún ganador antes de bajar el piso.
+
+**La regla.** Lo que se le cuenta a un modelo como «lo que funcionó» pasa un piso de muestra escrito en un módulo puro con su test;
+sin el piso, no entra nada (la misma regla que `nMinimo` de lib/recomendaciones-senales.ts).
+
 ## Dos pedidos del 31/07 que se fueron con el Ads Manager viejo: transcribir un video una vez y la nomenclatura del anuncio nuevo (18/11/2026)
 
 **Vive en:** `lib/transcripcion-por-video.ts` y `lib/transcripcion-por-video-reglas.ts` (la caché por video) ·
