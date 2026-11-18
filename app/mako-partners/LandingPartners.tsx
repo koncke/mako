@@ -87,26 +87,32 @@ body:has(.mp-publica) { background: #FFFFFF; }
   border: 3px solid var(--mp-azul-osc); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
 .mp-calc-barra::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--mp-sobre-azul); border: 3px solid var(--mp-azul-osc); }
 .mp-calc-barra:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 6px; }
-/* Los dos interruptores (el plan y cómo te pagan), arriba e iguales: UNA píldora con el fondo blanco que se desliza a la opción
-   activa (18/11/2026, versión 57). La letra se achica con el ancho de la píldora (cqi) antes que partirse en dos renglones. */
-.mp-calc-sw { position: relative; display: grid; grid-template-columns: 1fr 1fr; width: 100%; padding: 4px; border-radius: 999px; cursor: pointer;
-  font: inherit; color: var(--mp-sobre-azul); background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); container-type: inline-size; }
-.mp-calc-sw + .mp-calc-sw { margin-top: 10px; }
-.mp-calc-sw:hover { background: rgba(255,255,255,.17); }
-.mp-calc-sw:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 3px; }
-.mp-calc-sw-fondo { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 999px; background: var(--mp-sobre-azul);
-  box-shadow: 0 2px 10px rgba(0,0,0,.18); transition: transform .2s ease; }
-.mp-calc-sw.der .mp-calc-sw-fondo { transform: translateX(100%); }
-.mp-calc-sw-op { position: relative; padding: 12px 4px; font-size: min(14px, calc((50cqi - 12px) / 11.5)); font-weight: 700; line-height: 1.2;
-  white-space: nowrap; text-align: center; opacity: .85; transition: color .2s ease, opacity .2s ease; }
-.mp-calc-sw-op.activo { color: var(--mp-azul-osc); opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .mp-calc-sw-fondo, .mp-calc-sw-op { transition: none; } }
-.mp-calc-sw-corto { display: none; }
-/* En el teléfono, el texto corto y la letra fija en 13 px (con el completo, la letra bajaba a 11,5 px para entrar). */
+/* Los dos botones que alternan (18/11/2026): uno al lado del otro, cada uno con la opción de ahora y el ícono de alternar. Borde,
+   fondo y sombra de botón; se levanta al pasar el mouse y se hunde al tocarlo. El del plan, con el precio en una línea chica. */
+.mp-calc-alts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mp-calc-alt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 62px; padding: 10px 10px 10px 14px;
+  border-radius: 14px; cursor: pointer; font: inherit; text-align: left; color: var(--mp-sobre-azul); background: rgba(255,255,255,.14);
+  border: 1px solid rgba(255,255,255,.4); box-shadow: 0 6px 16px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.2);
+  transition: transform .12s ease, background .15s ease, box-shadow .15s ease; -webkit-tap-highlight-color: transparent; }
+.mp-calc-alt:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.25); }
+.mp-calc-alt:active { transform: translateY(1px) scale(.98); box-shadow: 0 2px 6px rgba(0,0,0,.18); }
+.mp-calc-alt:focus-visible { outline: 2px solid var(--mp-sobre-azul); outline-offset: 3px; }
+.mp-calc-alt-tx { display: flex; flex-direction: column; min-width: 0; animation: mp-cambia .22s ease; }
+.mp-calc-alt-largo, .mp-calc-alt-corto { font-size: 15px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
+.mp-calc-alt-corto { display: none; }
+.mp-calc-alt-sub { margin-top: 2px; font-size: 13px; font-weight: 600; opacity: .85; font-variant-numeric: tabular-nums; }
+.mp-calc-alt-ic { flex: none; width: 30px; height: 30px; padding: 6px; border-radius: 999px; background: rgba(255,255,255,.2); }
+@keyframes mp-cambia { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes mp-pulso { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,255,255,.55); } 50% { transform: scale(1.18); box-shadow: 0 0 0 8px rgba(255,255,255,0); } }
+.mp-invita .mp-calc-alt-ic { animation: mp-pulso 1.1s ease .4s 1; }
+@media (prefers-reduced-motion: reduce) { .mp-calc-alt, .mp-calc-alt-tx, .mp-invita .mp-calc-alt-ic { transition: none; animation: none; } }
+/* En el teléfono, los nombres cortos, 13 px o más, y el ícono un poco más chico para que todo entre en media fila. */
 @media (max-width: 479px) {
-  .mp-calc-sw-largo { display: none; }
-  .mp-calc-sw-corto { display: inline; }
-  .mp-calc-sw-op { font-size: 13px; padding-inline: 2px; }
+  .mp-calc-alts { gap: 8px; }
+  .mp-calc-alt { padding: 10px 6px 10px 10px; gap: 6px; }
+  .mp-calc-alt-largo { display: none; }
+  .mp-calc-alt-corto { display: inline; font-size: 14px; }
+  .mp-calc-alt-ic { width: 24px; height: 24px; padding: 4px; }
 }
 .mp-calc-res { margin: 18px 0 22px; container-type: inline-size; }
 /* El precio en UNA línea con «al mes» al final, más chico; la letra sigue el ancho del recuadro (cqi) para que el monto más largo
