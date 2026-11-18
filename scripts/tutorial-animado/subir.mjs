@@ -21,7 +21,10 @@ const rutas = [];
 const cp = (desde, hacia) => { mkdirSync(hacia.replace(/\/[^/]+$/, ''), { recursive: true }); copyFileSync(desde, `${WT}/${hacia}`); rutas.push(hacia); };
 mkdirSync(`${WT}/public/tutoriales`, { recursive: true });
 for (const k of keys) { cp(`${RAIZ}/public-tutoriales/${k}.mp4`, `public/tutoriales/${k}.mp4`); cp(`${RAIZ}/public-tutoriales/${k}.jpg`, `public/tutoriales/${k}.jpg`); }
-cp(`${RAIZ}/public-tutoriales/manifiesto.json`, 'public/tutoriales/manifiesto.json');
+// only the videos in the current format (v4: frases[] with times, marks, espera_clic and cierra_despues) go to the repo
+{ const man = JSON.parse(readFileSync(`${RAIZ}/public-tutoriales/manifiesto.json`, 'utf8')); man.videos = man.videos.filter((v) => v.formato === 4);
+  writeFileSync(`${WT}/public/tutoriales/manifiesto.json`, JSON.stringify(man, null, 1)); rutas.push('public/tutoriales/manifiesto.json');
+  console.log('manifiesto:', man.videos.map((v) => v.key).join(', ')); }
 for (const f of ['engine2.js', 'hacer.mjs', 'capturar2.cjs', 'render2.cjs', 'leer-guiones.mjs', 'sumar-base.mjs', 'pagina.mjs', 'hoja-pantallas.mjs', 'subir.mjs', 'LEEME.md'])
   cp(`${RAIZ}/motor/${f}`, `scripts/tutorial-animado/${f}`);
 cp(`${RAIZ}/guiones.json`, 'scripts/tutorial-animado/guiones.json');

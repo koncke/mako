@@ -5333,6 +5333,14 @@ lo abrió el cron, lo abrió `app/integraciones/page.tsx` al dibujarse. Un cron 
 siempre y deja log; una escritura colgada de un render depende de que alguien haya
 mirado, así que no queda ningún rastro de por qué empezó ese día y no otro.
 
+## Y un aviso al cliente dice qué pasó, qué le pasa y qué hacer, en sus palabras (18/11/2026)
+
+La vara: un dueño de inmobiliaria que no es técnico lo entiende en la primera lectura. Tres cosas, en este orden: **qué pasó**
+(«Meta no pudo cobrar tu cuenta publicitaria», no «período de gracia»; «MaKo perdió acceso a tu WhatsApp», no «se cerró la
+sesión del dispositivo vinculado»), **qué le pasa si no hace nada** («si no se paga, Meta frena tus anuncios») y **qué hacer**, en
+pasos numerados con el botón o el link exacto. Corto, con «tú», neutro y sin mayúsculas gritadas. Y el texto de un aviso con
+evento de la plataforma vive en SU fila del ws9: cambiar la plantilla no cambia lo que llega (docs/hallazgos-avisos.md, 18/11).
+
 # Un mensaje que habla de un MOMENTO se re-pregunta al salir, no al programarse
 
 Un reintento conserva el texto del mensaje, no su sentido. «Te dejo el video para que llegues
