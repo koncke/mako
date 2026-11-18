@@ -106,14 +106,15 @@ test('el texto ES el de la fila: «se desconectó» y «se cortó» son dos even
     // 17/11/2026 (T1): el texto nuevo, que se entienda: qué dejó de hacer MaKo, que su WhatsApp anda, y el paso a paso del QR.
     '🔴 *MaKo perdió acceso a tu WhatsApp*\n📱 +5215512345678\n🕐 Desde el 3 de octubre\nMaKo ya no puede mandar ni leer los mensajes de ese número: tus automatizaciones de WhatsApp no salen. Tu WhatsApp sigue andando normal en tu teléfono.\n\nPara que MaKo vuelva:\n1. Abre este link en tu computadora: https://hola-mako.com/whatsapp\n2. En tu teléfono, entra a WhatsApp › Dispositivos vinculados (en el menú ⋮ o en Configuración) y toca «Vincular un dispositivo».\n3. Escanea el código QR que aparece en la computadora.\n\n— MaKo');
   assert.equal(textoConDatos(tarjeta('mako-whatsapp-caido'), datosCaida({ ...HECHOS, motivo: null, desde: '2026-10-03T15:00:00Z' })),
-    '🔴 *Se cortó tu WhatsApp*\n📱 +5215512345678\n🕐 Desde el 3 de octubre\nPor ese número no entran ni salen mensajes. Puede volver solo; si sigue así, reconéctalo:\nhttps://hola-mako.com/whatsapp\n\n— MaKo');
+    // 18/11/2026: el teléfono anda; lo que se cortó es MaKo. Y sin QR: un corte puede volver solo.
+    '🔴 *MaKo perdió la conexión con tu WhatsApp*\n📱 +5215512345678\n🕐 Desde el 3 de octubre\nMaKo no puede mandar ni leer los mensajes de ese número: tus automatizaciones de WhatsApp no salen. Tu WhatsApp sigue andando normal en tu teléfono.\n\nPuede volver solo en un rato: no hace falta que hagas nada todavía. Si en unas horas sigue así, abre este link en tu computadora para revisar tu línea:\nhttps://hola-mako.com/whatsapp\n\n— MaKo');
   // La firma «— MaKo» cuenta (16/10/2026): una tarjeta TAL CUAL no le suma envoltorio, así que va en la plantilla.
   // rotura 8 (la plantilla de la caída sin firma): 6 pass / 1 fail, cae éste.
-  assert.equal(textoConDatos(tarjeta('mako-whatsapp-volvio'), datosVolvio({ linea: '+5215512345678' })), '🟢 *Volvió tu WhatsApp*\n📱 +5215512345678\nPor ese número ya entran y salen mensajes otra vez. — MaKo');
+  assert.equal(textoConDatos(tarjeta('mako-whatsapp-volvio'), datosVolvio({ linea: '+5215512345678' })), '🟢 *MaKo volvió a conectarse con tu WhatsApp*\n📱 +5215512345678\nTus automatizaciones de WhatsApp vuelven a salir. — MaKo');
   // Sin número ni fecha, sus renglones se van enteros, y la frase sigue.
   const sinNada = textoConDatos(tarjeta('mako-whatsapp-caido'), datosCaida({ ...HECHOS, motivo: null, desde: null, linea: null }));
   assert.doesNotMatch(sinNada, /📱|🕐/);
-  assert.match(sinNada, /^🔴 \*Se cortó tu WhatsApp\*\nPor ese número no entran ni salen mensajes\./);
+  assert.match(sinNada, /^🔴 \*MaKo perdió la conexión con tu WhatsApp\*\nMaKo no puede mandar ni leer los mensajes/);
   // Ninguna plantilla de la plataforma cita una frase del código.
   for (const id of ['mako-whatsapp-caido', 'mako-whatsapp-desvinculado', 'mako-whatsapp-volvio']) assert.doesNotMatch(tarjeta(id), /linea_titulo|linea_motivo/, id);
 });

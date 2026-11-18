@@ -181,5 +181,5 @@ El registro de qué se corrió y cuándo está en
 [corridas-multiagente.md](corridas-multiagente.md). Y el número de arriba es la mejor
 evidencia de por qué existe la regla de la cosecha: sin una fase final que escriba en el
 repo, más de la mitad del trabajo de los agentes se evapora.
-- [avisos](hallazgos-avisos.md) — hallazgos del área. Lo último: **el aviso de una automatización sobre un lead le llega a SU setter (14/11)**, resuelto por nombre sin adivinar; el WhatsApp sólo por la puerta de MaKo
+- [avisos](hallazgos-avisos.md) — hallazgos del área. Lo último: **los avisos que el cliente no entendía (18/11)**: el texto que sale es el de la fila del ws9, no el del código; «sin entregar» en el período de gracia era deducido de la severidad; y un test con `/escanear/` dejaba pasar «escanéalo». **el aviso de una automatización sobre un lead le llega a SU setter (14/11)**, resuelto por nombre sin adivinar; el WhatsApp sólo por la puerta de MaKo
 - [Lo que NO se puede hacer dentro de MaKo](feedback-usando-mako.md) — el registro de huecos del producto, visto usándolo

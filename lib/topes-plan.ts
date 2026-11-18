@@ -102,8 +102,27 @@ const QUE_ES_SOLO_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'replicar-guion': 'Replicar el guion de otro',
   'chat-referentes': 'Hablar con los referentes del marketing',
 };
+/**
+ * Las dos frases que mandan a pasar a Pro, al final del texto de un candado y de un tope. Viven acá para que
+ * `sinPasarAPro` las saque al cliente de una AGENCIA (F148, 18/11/2026): su plan lo cambia su agencia, y leer «Pasa a MaKo
+ * Pro» al lado de «Pídele a tu agencia que te pase a Pro» le dice dos cosas distintas.
+ */
+export const FRASE_PASAR_A_PRO_SOLO = 'Pasa a Pro para usarlo.';
+export const FRASE_PASAR_A_PRO_TOPE = 'Pasa a MaKo Pro para tener más.';
+
 /** El texto del candado: qué es, que es de Pro y cómo tenerlo (con el botón a `RUTA_CAMBIAR_PLAN`). */
-export const textoSoloPro = (f: FuncionSoloPro): string => `${QUE_ES_SOLO_PRO[f]} es de MaKo Pro. Pasa a Pro para usarlo.`;
+export const textoSoloPro = (f: FuncionSoloPro): string => `${QUE_ES_SOLO_PRO[f]} es de MaKo Pro. ${FRASE_PASAR_A_PRO_SOLO}`;
+
+/**
+ * El texto de un candado o de un tope SIN la frase que manda a pasar a Pro: lo que lee el cliente de una agencia (F148). Lo
+ * demás no se toca: «Llegaste al tope de tu plan» y «es de MaKo Pro» son verdad para él igual. Un texto sin esas frases
+ * vuelve tal cual.
+ */
+export function sinPasarAPro(texto: string): string {
+  let t = texto;
+  for (const f of [FRASE_PASAR_A_PRO_TOPE, FRASE_PASAR_A_PRO_SOLO]) t = t.split(f).join('');
+  return t === texto ? texto : t.replace(/[ \t]{2,}/g, ' ').trim();
+}
 
 // ── LA PRUEBA GRATIS (25/10/2026, el Cerebro) ─────────────────────────────────────────────────────────────────────
 // Martín: «hay que evaluar que funciones le damos acceso en esos 7 días, porque de pronto se vienen y generan un montón de
@@ -182,4 +201,4 @@ export const RUTA_CAMBIAR_PLAN = '/configuraciones/plan';
 /** A dónde lleva el botón de un tope de la PRUEBA: «Tu plan», con «Empezar mi plan ya» a la vista. */
 export const RUTA_EMPEZAR_PLAN = `${RUTA_CAMBIAR_PLAN}?empezar=1`;
 
-export const textoTope = (t: number): string => `Llegaste al tope de tu plan (${t}). Pasa a MaKo Pro para tener más.`;
+export const textoTope = (t: number): string => `Llegaste al tope de tu plan (${t}). ${FRASE_PASAR_A_PRO_TOPE}`;

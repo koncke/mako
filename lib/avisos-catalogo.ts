@@ -521,11 +521,17 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     // cuántas veces —«Aviso número ≤ 3»— lo decide la automatización de SuperAdmin (`mako-meta-cuenta-frenada`). Hasta ese
     // día lo mandaba `emitirAviso` directo, sin techo (el «18ª vez» del grupo de Mauricio).
     disparador: 'Cron alerta-critica: revisa cada 10 min y emite el evento cada 1 hora mientras haya un incidente ABIERTO en service_incidents con entrega frenada o severidad roja, confirmado por Meta. Qué dice y hasta cuántas veces lo decide la automatización de SuperAdmin; al resolverse sale meta-cuenta-recuperada. Si dos workspaces comparten la misma cuenta publicitaria, avisa UNA vez.',
-    ejemplo: `🚨 Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*
-📉 Anuncios: sin entregar
-🕐 Hace 35 min que está así.
-✅ Paga el saldo que debes en el Business Manager de Meta.
-👉 https://hola-mako.com/integraciones
+    ejemplo: `🔴 *Meta frenó tus anuncios porque no pudo cobrarte*
+🕐 Desde hace 35 min
+
+Tus anuncios no se están mostrando: mientras no se pague, no te entran leads de Meta.
+
+Qué hacer:
+1. Entra a la facturación de Meta: https://business.facebook.com/billing_hub
+2. Paga el saldo pendiente o cambia la tarjeta si venció o no tiene fondos.
+3. Cuando Meta cobra, los anuncios vuelven a salir solos.
+
+👉 El estado en MaKo: https://hola-mako.com/integraciones
 
 — MaKo`,
   },
@@ -541,10 +547,9 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     // Es la contracara de la insistencia: si MaKo avisó y después se calla, el dueño no sabe si dejó de avisar porque se
     // resolvió o porque el aviso se rompió. Desde el 16/10/2026, el evento de la plataforma `meta_cuenta_recuperada`.
     disparador: 'Cron alerta-critica: el incidente que se venía avisando pasó a resuelto. Lo dice la automatización de SuperAdmin.',
-    ejemplo: `✅✅ *LISTO, YA ESTÁ ENTREGANDO* ✅✅
-
-🟢 Tu cuenta publicitaria volvió a la normalidad.
-🔕 Dejo de insistir.
+    ejemplo: `🟢 *Tu cuenta publicitaria volvió a estar en orden*
+Meta ya no marca ningún problema: tus anuncios pueden salir normal.
+🔕 Dejo de avisarte.
 
 — MaKo`,
   },
@@ -553,11 +558,16 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     id: 'meta-cuenta-frenada-agencia', titulo: 'Cuenta Meta del cliente de una agencia, frenada', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Lo mismo que «meta-cuenta-frenada», cuando esa cuenta es de un cliente de una agencia aprobada: le llega a la agencia y no al cliente.',
-    ejemplo: `🚨 La cuenta publicitaria de *Natalia* está *EN PERÍODO DE GRACIA*: Meta la frena en cualquier momento
-📉 Anuncios: sin entregar
-🕐 Hace 35 min que está así.
-✅ Hay que regularizar el pago en Meta AHORA, antes de que corte.
-👉 https://hola-mako.com/partners
+    ejemplo: `🟡 *Meta no pudo cobrar la cuenta publicitaria de Natalia*
+🕐 Desde hace 35 min
+
+Meta da unos días para pagar: si no se paga, frena sus anuncios.
+
+Qué hacer:
+1. Entra a la facturación de Meta: https://business.facebook.com/billing_hub
+2. Paga el saldo pendiente o cambia la tarjeta si venció o no tiene fondos.
+
+👉 El estado en MaKo: https://hola-mako.com/partners
 
 — MaKo`,
   },
@@ -565,7 +575,8 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     id: 'meta-cuenta-recuperada-agencia', titulo: 'Cuenta Meta del cliente de una agencia, recuperada', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Lo mismo que «meta-cuenta-recuperada», cuando esa cuenta es de un cliente de una agencia aprobada.',
-    ejemplo: `✅ La cuenta publicitaria de *Natalia* volvió a la normalidad.
+    ejemplo: `🟢 *La cuenta publicitaria de Natalia volvió a estar en orden*
+Meta ya no marca ningún problema: sus anuncios pueden salir normal.
 🔕 Dejo de avisarte.
 
 — MaKo`,
@@ -662,12 +673,13 @@ Lo arreglas tú: entra a la configuración de la Página y saca esa otra app (o 
     disparador: 'Cron diario: un workspace con landing_token acuñado no registra visitas hace más de 48h.',
     // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `tracking_apagado`, lote 3). Antes lo
     // redactaba una IA con `contexto`: la fecha y los días llegaban como el modelo quisiera.
-    ejemplo: `🔴 *Tu landing dejó de mandarme datos*
+    ejemplo: `🔴 *MaKo dejó de ver las visitas de tu página*
 ⏱️ Sin visitas hace 3 días
 🕐 La última: el 14 de octubre
-Los anuncios pueden seguir corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel de MaKo quedó apuntando a una dirección vieja.
+Tus anuncios pueden seguir trayendo leads, pero MaKo ya no sabe de qué anuncio viene cada uno: sin eso no puede decirte cuáles funcionan.
+Lo más común es que la página haya cambiado de dirección o que se haya borrado el código de MaKo (el Pixel).
 
-Revísalo aquí:
+Para arreglarlo, abre este link y revisa la dirección de tu página y el Pixel:
 https://hola-mako.com/integraciones?abrir=landing
 
 — MaKo`,
@@ -904,8 +916,9 @@ Ya le mandé sus pendientes.`,
     id: 'cs-cliente-sin-contacto', titulo: 'Cliente sin contacto', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cron diario cs-sin-contacto: un cliente ganado que no está dado de baja ni graduado lleva 21 días sin llamada, sin escribir por WhatsApp y sin cambio de etapa. Lo que le manda el negocio (también lo automático) no cuenta. Uno por cliente y por racha: un contacto nuevo empieza otra.',
-    ejemplo: `*Ana Ruiz* lleva 23 días sin mensajes suyos ni sesión registrada, ni cambio de etapa.
-Escríbele hoy o agenda una sesión.`,
+    ejemplo: `*Ana Ruiz* lleva 23 días sin escribirte ni avanzar de etapa, y sin sesión registrada.
+Escríbele hoy o agenda una sesión:
+https://hola-mako.com/classroom/clients?cliente=14`,
   },
   // La COPIA a Mauricio del recordatorio de clases (#780, decisión de Martín del 06/10/2026: por
   // WhatsApp, a los 3 días sin entrar, sólo los videos sin ver de su etapa). La emite el mismo cron
@@ -1018,7 +1031,12 @@ https://hola-mako.com/integraciones?abrir=anthropic — MaKo`,
     // lib/email-reputacion.ts) con la regla de lib/email-freno.ts. Uno por hora como mucho; apagado, no vuelve a avisar.
     // 13/11/2026, ticket #93: apagaba con 5 de los últimos 100; ahora con 10 % de los últimos 300 (el 5 % es `email-rebotes`).
     disparador: 'Llega un rebote o una queja de un email del negocio y, de los últimos 300 emails enviados desde que se prendió el envío (100 o más), rebotó el 10 % o más o se marcó como spam el 0,3 % o más. Apaga el envío de email.',
-    ejemplo: `Apagué el envío de email: de los últimos 300 emails, 31 rebotaron: esas direcciones no existen (10,3 %). Si sigue, Gmail y Outlook mandan tus emails a spam. Revisa la lista y vuelve a prenderlo desde Email.`,
+    ejemplo: `Apagué el envío de tus emails automáticos: de tus últimos 300 emails, 31 no llegaron porque esas direcciones no existen (10,3 %).
+Si sigue pasando, Gmail y Outlook empiezan a mandar todos tus emails a spam, también los de la gente que sí quiere recibirlos. Mientras esté apagado, tus emails automáticos no salen.
+
+Qué hacer:
+1. En MaKo, entra a *Email* y revisa a quién le escribes: saca las direcciones que no existen o que no pidieron tus emails.
+2. Vuelve a prender el envío con el botón «Envío real», arriba.`,
   },
   {
     id: 'email-rebotes', titulo: 'Están rebotando tus emails', categoria: 'aviso', porDefecto: 'on',
@@ -1113,7 +1131,7 @@ https://hola-mako.com/plan — MaKo`,
     // camino viejo: el código sólo pasa los datos de la línea (`datosCaida`). Cuando WhatsApp CERRÓ la sesión, el aviso es
     // otro (`wa-desvinculado`).
     disparador: 'Cuando una línea de WhatsApp del negocio queda caída dos pruebas seguidas (se prueba cada 10 minutos) y no es porque WhatsApp cerró la sesión. Avisa al negocio y repite cada 24 h mientras siga así. Una línea que nunca se vinculó, o que el negocio desvinculó, no avisa.',
-    ejemplo: `🔴 *Se cortó tu WhatsApp*\n📱 +52 55 1234 5678\n🕐 Desde el 3 de octubre\nPor ese número no entran ni salen mensajes. Puede volver solo; si sigue así, reconéctalo:\nhttps://hola-mako.com/whatsapp\n\n— MaKo`,
+    ejemplo: `🔴 *MaKo perdió la conexión con tu WhatsApp*\n📱 +52 55 1234 5678\n🕐 Desde el 3 de octubre\nMaKo no puede mandar ni leer los mensajes de ese número: tus automatizaciones de WhatsApp no salen. Tu WhatsApp sigue andando normal en tu teléfono.\n\nPuede volver solo en un rato: no hace falta que hagas nada todavía. Si en unas horas sigue así, abre este link en tu computadora para revisar tu línea:\nhttps://hola-mako.com/whatsapp\n\n— MaKo`,
   },
   {
     /**
@@ -1136,7 +1154,7 @@ https://hola-mako.com/plan — MaKo`,
     id: 'wa-reconectado', titulo: 'WhatsApp de empresa reconectado', categoria: 'aviso', porDefecto: 'on',
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
     disparador: 'Cuando vuelve una línea cuya caída ya se había avisado (se prueba cada 10 minutos). Sale una vez y deja de insistir. El texto es el de su automatización de SuperAdmin (evento `whatsapp_volvio`).',
-    ejemplo: `🟢 *Volvió tu WhatsApp*\n📱 +52 55 1234 5678\nPor ese número ya entran y salen mensajes otra vez. — MaKo`,
+    ejemplo: `🟢 *MaKo volvió a conectarse con tu WhatsApp*\n📱 +52 55 1234 5678\nTus automatizaciones de WhatsApp vuelven a salir. — MaKo`,
   },
   {
     id: 'wa-sin-responder', titulo: 'Conversaciones sin responder hace X horas', categoria: 'accion',

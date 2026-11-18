@@ -750,23 +750,114 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
  * tests/alerta-critica.test.ts. Uno que no está acá cae al «Si no», que dice el estado tal cual y NO inventa qué hacer.
  * Pedido del dueño (12/8): la CAUSA, no el síntoma — «suspendida por falta de pago» dice qué hacer, «frenada» no.
  */
-const CAUSA_DE_LA_CUENTA: ReadonlyArray<{ id: string; estado: string; titular: string; queHacer: string; titularAgencia: string; queHacerAgencia?: string }> = [
-  { id: 'impago', estado: 'Saldo impago', titular: 'Tu cuenta publicitaria está *SUSPENDIDA POR FALTA DE PAGO*', queHacer: 'Paga el saldo que debes en el Business Manager de Meta.', titularAgencia: 'La cuenta publicitaria de *{{cliente_nombre}}* está *SUSPENDIDA POR FALTA DE PAGO*', queHacerAgencia: 'Hay que pagar el saldo que debe en el Business Manager de Meta.' },
-  { id: 'deshabilitada', estado: 'Deshabilitada', titular: 'Meta *DESHABILITÓ* tu cuenta publicitaria', queHacer: 'Entra al Business Manager y pide la revisión de la cuenta.', titularAgencia: 'Meta *DESHABILITÓ* la cuenta publicitaria de *{{cliente_nombre}}*' },
-  { id: 'riesgo', estado: 'En revisión de riesgo', titular: 'Meta puso tu cuenta *EN REVISIÓN DE RIESGO*', queHacer: 'No toques nada estos días: ni presupuestos ni anuncios nuevos.', titularAgencia: 'Meta puso la cuenta publicitaria de *{{cliente_nombre}}* *EN REVISIÓN DE RIESGO*' },
-  { id: 'liquidacion', estado: 'Pendiente de liquidación', titular: 'Tu cuenta publicitaria quedó *PENDIENTE DE LIQUIDACIÓN*', queHacer: 'Meta está esperando que se salde la cuenta. Revisa el método de pago.', titularAgencia: 'La cuenta publicitaria de *{{cliente_nombre}}* quedó *PENDIENTE DE LIQUIDACIÓN*' },
-  { id: 'gracia', estado: 'En período de gracia', titular: 'Tu cuenta publicitaria está *EN PERÍODO DE GRACIA*: Meta la frena en cualquier momento', queHacer: 'Regulariza el pago en Meta AHORA, antes de que corte.', titularAgencia: 'La cuenta publicitaria de *{{cliente_nombre}}* está *EN PERÍODO DE GRACIA*: Meta la frena en cualquier momento', queHacerAgencia: 'Hay que regularizar el pago en Meta AHORA, antes de que corte.' },
-  { id: 'cierre', estado: 'Pendiente de cierre', titular: 'Tu cuenta publicitaria está *POR CERRARSE*', queHacer: 'Entra ya al Business Manager: si se cierra, se pierde el historial.', titularAgencia: 'La cuenta publicitaria de *{{cliente_nombre}}* está *POR CERRARSE*' },
-  { id: 'cerrada', estado: 'Cerrada', titular: 'Tu cuenta publicitaria está *CERRADA*', queHacer: 'Hay que apelar en el Business Manager o abrir una cuenta nueva.', titularAgencia: 'La cuenta publicitaria de *{{cliente_nombre}}* está *CERRADA*' },
+// ⚠️ 18/11/2026 (Martín: «revisa ya todos los mensajes… el aviso debería ser que no habían pagado su cuenta publicitaria»):
+// Joan (ws13) preguntó «¿qué significa que está en período de gracia?». Cada estado dice, en palabras de un dueño que no es
+// técnico, QUÉ pasó, QUÉ le pasa si no hace nada y QUÉ hacer en pasos, sin mayúsculas gritadas. Y ya NO lleva el renglón
+// «Anuncios: sin entregar»: ese dato lo deduce lib/meta-health.ts de la severidad (`entregaFrenada: severidad === 'rojo'`), y en
+// «En período de gracia» con saldo adeudado decía «sin entregar» cuando Meta sigue mostrando los anuncios unos días. Lo que
+// pasa con los anuncios lo dice el texto de cada estado, que sí sabe qué hace Meta en cada uno.
+const FACTURACION_META = 'https://business.facebook.com/billing_hub';
+const CALIDAD_META = 'https://www.facebook.com/accountquality';
+const PAGAR_EN_META: readonly string[] = [
+  `Entra a la facturación de Meta: ${FACTURACION_META}`,
+  'Paga el saldo pendiente o cambia la tarjeta si venció o no tiene fondos.',
 ];
 
+type CausaCuenta = {
+  id: string; estado: string; emoji: string;
+  titular: string; titularAgencia: string;
+  efecto: string; efectoAgencia: string;
+  pasos: readonly string[];
+};
+const CAUSA_DE_LA_CUENTA: ReadonlyArray<CausaCuenta> = [
+  {
+    id: 'impago', estado: 'Saldo impago', emoji: '🔴',
+    titular: 'Meta frenó tus anuncios porque no pudo cobrarte',
+    titularAgencia: 'Meta frenó los anuncios de {{cliente_nombre}} porque no pudo cobrar',
+    efecto: 'Tus anuncios no se están mostrando: mientras no se pague, no te entran leads de Meta.',
+    efectoAgencia: 'Sus anuncios no se están mostrando: mientras no se pague, no le entran leads de Meta.',
+    pasos: [...PAGAR_EN_META, 'Cuando Meta cobra, los anuncios vuelven a salir solos.'],
+  },
+  {
+    id: 'deshabilitada', estado: 'Deshabilitada', emoji: '🔴',
+    titular: 'Meta deshabilitó tu cuenta publicitaria',
+    titularAgencia: 'Meta deshabilitó la cuenta publicitaria de {{cliente_nombre}}',
+    efecto: 'Tus anuncios no salen y no te entran leads de Meta hasta que Meta la vuelva a habilitar.',
+    efectoAgencia: 'Sus anuncios no salen y no le entran leads de Meta hasta que Meta la vuelva a habilitar.',
+    pasos: [`Entra a Calidad de la cuenta en Meta: ${CALIDAD_META}`, 'Busca la cuenta deshabilitada y toca «Solicitar revisión».'],
+  },
+  {
+    id: 'riesgo', estado: 'En revisión de riesgo', emoji: '🟡',
+    titular: 'Meta está revisando tu cuenta publicitaria',
+    titularAgencia: 'Meta está revisando la cuenta publicitaria de {{cliente_nombre}}',
+    efecto: 'Es una revisión de seguridad de Meta: mientras dura, tus anuncios pueden frenarse.',
+    efectoAgencia: 'Es una revisión de seguridad de Meta: mientras dura, sus anuncios pueden frenarse.',
+    pasos: ['No hace falta pagar ni pedir nada: suele resolverse sola en unos días.', 'Mientras tanto, no subas presupuestos de golpe ni publiques muchos anuncios nuevos.'],
+  },
+  {
+    id: 'liquidacion', estado: 'Pendiente de liquidación', emoji: '🟡',
+    titular: 'Meta tiene un cobro pendiente en tu cuenta publicitaria',
+    titularAgencia: 'Meta tiene un cobro pendiente en la cuenta publicitaria de {{cliente_nombre}}',
+    efecto: 'Meta está esperando que se pague un saldo. Si no se paga, frena tus anuncios.',
+    efectoAgencia: 'Meta está esperando que se pague un saldo. Si no se paga, frena sus anuncios.',
+    pasos: PAGAR_EN_META,
+  },
+  {
+    id: 'gracia', estado: 'En período de gracia', emoji: '🟡',
+    titular: 'Meta no pudo cobrar tu cuenta publicitaria',
+    titularAgencia: 'Meta no pudo cobrar la cuenta publicitaria de {{cliente_nombre}}',
+    // Sin decir cómo está la entrega (revisión del Cerebro, 18/11): en el caso de Natalia, el mismo incidente se marcó «sin
+    // entregar». No se sabe de verdad, así que no se afirma ni lo uno ni lo otro.
+    efecto: 'Meta te da unos días para pagar: si no se paga, frena tus anuncios.',
+    efectoAgencia: 'Meta da unos días para pagar: si no se paga, frena sus anuncios.',
+    pasos: PAGAR_EN_META,
+  },
+  {
+    id: 'cierre', estado: 'Pendiente de cierre', emoji: '🔴',
+    titular: 'Meta está por cerrar tu cuenta publicitaria',
+    titularAgencia: 'Meta está por cerrar la cuenta publicitaria de {{cliente_nombre}}',
+    efecto: 'Si se cierra, se pierde la cuenta con todo su historial y tus anuncios dejan de salir.',
+    efectoAgencia: 'Si se cierra, se pierde la cuenta con todo su historial y sus anuncios dejan de salir.',
+    pasos: [`Entra a la facturación de Meta y paga lo que esté pendiente: ${FACTURACION_META}`, `Si no hay nada pendiente, entra a Calidad de la cuenta y mira qué pide Meta: ${CALIDAD_META}`],
+  },
+  {
+    id: 'cerrada', estado: 'Cerrada', emoji: '🔴',
+    titular: 'Meta cerró tu cuenta publicitaria',
+    titularAgencia: 'Meta cerró la cuenta publicitaria de {{cliente_nombre}}',
+    efecto: 'Tus anuncios ya no salen desde esa cuenta.',
+    efectoAgencia: 'Sus anuncios ya no salen desde esa cuenta.',
+    pasos: [`Entra a Calidad de la cuenta y pide la revisión: ${CALIDAD_META}`, 'Si Meta no la reabre, hay que crear una cuenta publicitaria nueva y conectarla en MaKo.'],
+  },
+];
+
+/** El «Si no» de la CONDITION: un estado que no está arriba. Dice el estado tal cual y no inventa qué pasó. */
+const OTRO_PROBLEMA: Omit<CausaCuenta, 'id' | 'estado'> = {
+  emoji: '🔴',
+  titular: 'Tu cuenta publicitaria tiene un problema en Meta',
+  titularAgencia: 'La cuenta publicitaria de {{cliente_nombre}} tiene un problema en Meta',
+  efecto: 'Puede que tus anuncios no se estén mostrando.',
+  efectoAgencia: 'Puede que sus anuncios no se estén mostrando.',
+  pasos: [`Entra a Calidad de la cuenta en Meta y mira qué pide: ${CALIDAD_META}`],
+};
+
 /**
- * El texto de la alerta: cada dato en su renglón, y un renglón sin su dato se va solo (el motivo de Meta, cuando no agrega
- * nada). «Sin entregar» es un DATO que pone el cron sólo si Meta lo confirmó (`anuncios_entrega`), nunca una frase fija.
+ * El texto de la alerta: el titular, los datos (cada uno en su renglón: sin el dato, el renglón se va solo), qué pasa, los pasos
+ * y el link a MaKo. `agencia`: el texto que nombra al cliente, para el grupo de la agencia.
  */
-const textoCuentaFrenada = (titular: string, queHacer: string | null, link = '{{link_integraciones}}'): string => [
-  `🚨 ${titular}`, '📉 Anuncios: {{anuncios_entrega}}', '🕐 Hace {{anuncios_hace}} que está así.', '⚠️ Motivo de Meta: {{anuncios_motivo_meta}}',
-  ...(queHacer ? [`✅ ${queHacer}`] : []), `👉 ${link}`, '', '— MaKo',
+const textoCuentaFrenada = (c: Omit<CausaCuenta, 'id' | 'estado'>, agencia = false, extra?: string): string => [
+  `${c.emoji} *${agencia ? c.titularAgencia : c.titular}*`,
+  ...(extra ? [extra] : []),
+  '🕐 Desde hace {{anuncios_hace}}',
+  '📋 Motivo que da Meta: {{anuncios_motivo_meta}}',
+  '',
+  agencia ? c.efectoAgencia : c.efecto,
+  '',
+  'Qué hacer:',
+  ...c.pasos.map((p, i) => `${i + 1}. ${p}`),
+  '',
+  `👉 El estado en MaKo: ${agencia ? '{{cliente_link}}' : '{{link_integraciones}}'}`,
+  '',
+  '— MaKo',
 ].join('\n');
 
 /** El techo de fábrica de la alerta: cuántas veces avisa por incidente (editable en la CONDITION de la fila). */
@@ -833,7 +924,9 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_caido' },
     pasos: [
-      mako('wc_mk', '🔴 *Se cortó tu WhatsApp*\n📱 {{linea_numero}}\n🕐 Desde el {{linea_fecha}}\nPor ese número no entran ni salen mensajes. Puede volver solo; si sigue así, reconéctalo:\n{{linea_link}}\n\n— MaKo', null),
+      // 18/11/2026: «por ese número no entran ni salen mensajes» era falso: el teléfono anda; lo que se cortó es MaKo. Como la #259,
+      // pero SIN el QR: un corte puede volver solo, y pedir un QR nuevo ahí tumba la sesión (tests/linea-vigilancia.test.ts).
+      mako('wc_mk', '🔴 *MaKo perdió la conexión con tu WhatsApp*\n📱 {{linea_numero}}\n🕐 Desde el {{linea_fecha}}\nMaKo no puede mandar ni leer los mensajes de ese número: tus automatizaciones de WhatsApp no salen. Tu WhatsApp sigue andando normal en tu teléfono.\n\nPuede volver solo en un rato: no hace falta que hagas nada todavía. Si en unas horas sigue así, abre este link en tu computadora para revisar tu línea:\n{{linea_link}}\n\n— MaKo', null),
     ],
   },
   {
@@ -861,7 +954,7 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'whatsapp_volvio' },
     pasos: [
-      mako('wv_mk', '🟢 *Volvió tu WhatsApp*\n📱 {{linea_numero}}\nPor ese número ya entran y salen mensajes otra vez. — MaKo', null),
+      mako('wv_mk', '🟢 *MaKo volvió a conectarse con tu WhatsApp*\n📱 {{linea_numero}}\nTus automatizaciones de WhatsApp vuelven a salir. — MaKo', null),
     ],
   },
   {
@@ -881,8 +974,8 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     pasos: [
       condicion('mf_tope', [[[{ campo: 'dato:anuncios_vez', op: 'menor_igual', valor: TOPE_AVISOS_CUENTA_FRENADA }], 'mf_estado']], null),
       condicion('mf_estado', CAUSA_DE_LA_CUENTA.map((c) => [[{ campo: 'dato:anuncios_estado', valor: c.estado }], `mf_${c.id}`] as const), 'mf_otro'),
-      ...CAUSA_DE_LA_CUENTA.map((c) => makoUrgente(`mf_${c.id}`, textoCuentaFrenada(c.titular, c.queHacer), null)),
-      makoUrgente('mf_otro', textoCuentaFrenada('*Tu cuenta publicitaria tiene un problema*\n📋 Estado en Meta: {{anuncios_estado}}', null), null),
+      ...CAUSA_DE_LA_CUENTA.map((c) => makoUrgente(`mf_${c.id}`, textoCuentaFrenada(c), null)),
+      makoUrgente('mf_otro', textoCuentaFrenada(OTRO_PROBLEMA, false, '📋 Estado en Meta: {{anuncios_estado}}'), null),
     ],
   },
   {
@@ -900,8 +993,8 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     pasos: [
       condicion('mfa_tope', [[[{ campo: 'dato:anuncios_vez', op: 'menor_igual', valor: TOPE_AVISOS_CUENTA_FRENADA }], 'mfa_estado']], null),
       condicion('mfa_estado', CAUSA_DE_LA_CUENTA.map((c) => [[{ campo: 'dato:anuncios_estado', valor: c.estado }], `mfa_${c.id}`] as const), 'mfa_otro'),
-      ...CAUSA_DE_LA_CUENTA.map((c) => makoUrgenteAgencia(`mfa_${c.id}`, textoCuentaFrenada(c.titularAgencia, c.queHacerAgencia ?? c.queHacer, '{{cliente_link}}'))),
-      makoUrgenteAgencia('mfa_otro', textoCuentaFrenada('*La cuenta publicitaria de {{cliente_nombre}} tiene un problema*\n📋 Estado en Meta: {{anuncios_estado}}', null, '{{cliente_link}}')),
+      ...CAUSA_DE_LA_CUENTA.map((c) => makoUrgenteAgencia(`mfa_${c.id}`, textoCuentaFrenada(c, true))),
+      makoUrgenteAgencia('mfa_otro', textoCuentaFrenada(OTRO_PROBLEMA, true, '📋 Estado en Meta: {{anuncios_estado}}')),
     ],
   },
   {
@@ -915,7 +1008,7 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'meta_cuenta_recuperada' },
     pasos: [
-      makoUrgente('mr_mk', '✅✅ *LISTO, YA ESTÁ ENTREGANDO* ✅✅\n\n🟢 Tu cuenta publicitaria volvió a la normalidad.\n🔕 Dejo de avisarte.\n\n— MaKo', null),
+      makoUrgente('mr_mk', '🟢 *Tu cuenta publicitaria volvió a estar en orden*\nMeta ya no marca ningún problema: tus anuncios pueden salir normal.\n🔕 Dejo de avisarte.\n\n— MaKo', null),
     ],
   },
   {
@@ -928,7 +1021,7 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'meta_cuenta_recuperada_agencia' },
     pasos: [
-      makoUrgenteAgencia('mra_mk', '✅ La cuenta publicitaria de *{{cliente_nombre}}* volvió a la normalidad.\n🔕 Dejo de avisarte.\n\n— MaKo'),
+      makoUrgenteAgencia('mra_mk', '🟢 *La cuenta publicitaria de {{cliente_nombre}} volvió a estar en orden*\nMeta ya no marca ningún problema: sus anuncios pueden salir normal.\n🔕 Dejo de avisarte.\n\n— MaKo'),
     ],
   },
   {
@@ -1019,7 +1112,7 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'tracking_apagado' },
     pasos: [
-      mako('ta_mk', '🔴 *Tu landing dejó de mandarme datos*\n⏱️ Sin visitas hace {{tracking_dias}}\n🕐 La última: el {{tracking_ultima}}\nLos anuncios pueden seguir corriendo, así que no lo vas a notar en los leads: lo que se pierde es saber de dónde vienen. Suele ser que el Pixel de MaKo quedó apuntando a una dirección vieja.\n\nRevísalo aquí:\n{{tracking_link}}\n\n— MaKo', null),
+      mako('ta_mk', '🔴 *MaKo dejó de ver las visitas de tu página*\n⏱️ Sin visitas hace {{tracking_dias}}\n🕐 La última: el {{tracking_ultima}}\nTus anuncios pueden seguir trayendo leads, pero MaKo ya no sabe de qué anuncio viene cada uno: sin eso no puede decirte cuáles funcionan.\nLo más común es que la página haya cambiado de dirección o que se haya borrado el código de MaKo (el Pixel).\n\nPara arreglarlo, abre este link y revisa la dirección de tu página y el Pixel:\n{{tracking_link}}\n\n— MaKo', null),
     ],
   },
   {

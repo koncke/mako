@@ -61,7 +61,8 @@ test('el freno: desde 100 enviados, 5 % de rebotes avisa, 10 % de rebotes o 0,3 
   assert.equal(decidirFrenoEmail({ enviados: 1000, rebotes: 0, quejas: 2 }).frena, false, '0,2 %');
   const q = decidirFrenoEmail({ enviados: 1000, rebotes: 0, quejas: 3 });
   assert.equal(q.frena && q.motivo, 'quejas', '0,3 %');
-  if (r.frena) assert.match(textoDelFreno(r, { enviados: 300, rebotes: 30, quejas: 0 }), /^Apagué el envío de email: de los últimos 300 emails, 30 rebotaron/);
+  // 18/11/2026: el texto nuevo dice además qué pasa mientras está apagado y con qué botón se prende (lib/email-freno.ts).
+  if (r.frena) assert.match(textoDelFreno(r, { enviados: 300, rebotes: 30, quejas: 0 }), /^Apagué el envío de tus emails automáticos: de tus últimos 300 emails, 30 no llegaron porque esas direcciones no existen \(10 %\)\./);
   if (!a.frena && a.avisa) assert.match(textoDelAvisoDeRebotes(a, { enviados: 300, rebotes: 15, quejas: 0 }), /^De tus últimos 300 emails, 15 rebotaron \(5 %\).*El envío sigue\. Si los rebotes llegan a 10 %, lo apago/);
 });
 

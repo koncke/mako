@@ -78,10 +78,18 @@ export function decidirFrenoEmail(c: ConteoEmail): FrenoEmail {
 /** Lo que se le dice al negocio cuando frena. Corto: qué pasó, por qué importa y qué hacer. */
 export function textoDelFreno(f: Extract<FrenoEmail, { frena: true }>, c: ConteoEmail): string {
   const pct = f.porcentaje.toLocaleString('es-MX', { maximumFractionDigits: 1 });
+  // 18/11/2026: «Revisa la lista y vuelve a prenderlo desde Email» no decía qué lista ni con qué botón, ni qué pasa mientras.
   const que = f.motivo === 'quejas'
-    ? `de los últimos ${c.enviados} emails, ${c.quejas} se marcaron como spam (${pct} %)`
-    : `de los últimos ${c.enviados} emails, ${c.rebotes} rebotaron: esas direcciones no existen (${pct} %)`;
-  return `Apagué el envío de email: ${que}. Si sigue, Gmail y Outlook mandan tus emails a spam. Revisa la lista y vuelve a prenderlo desde Email.`;
+    ? `de tus últimos ${c.enviados} emails, ${c.quejas === 1 ? '1 lo marcaron' : `${c.quejas} los marcaron`} como spam (${pct} %)`
+    : `de tus últimos ${c.enviados} emails, ${c.rebotes === 1 ? '1 no llegó porque esa dirección no existe' : `${c.rebotes} no llegaron porque esas direcciones no existen`} (${pct} %)`;
+  return [
+    `Apagué el envío de tus emails automáticos: ${que}.`,
+    'Si sigue pasando, Gmail y Outlook empiezan a mandar todos tus emails a spam, también los de la gente que sí quiere recibirlos. Mientras esté apagado, tus emails automáticos no salen.',
+    '',
+    'Qué hacer:',
+    '1. En MaKo, entra a *Email* y revisa a quién le escribes: saca las direcciones que no existen o que no pidieron tus emails.',
+    '2. Vuelve a prender el envío con el botón «Envío real», arriba.',
+  ].join('\n');
 }
 
 /**

@@ -327,8 +327,9 @@ export function textoSinContacto(a: { nombre: string; dias: number; link: string
     // Analyst y el WhatsApp que espeja la línea no oficial. Una llamada por teléfono o un chat
     // desde otro número no dejan rastro acá (AGENTS.md, «Un mensaje que sale solo no puede
     // AFIRMAR…»).
-    `*${a.nombre}* lleva ${a.dias} días sin mensajes suyos ni sesión registrada, ni cambio de etapa.`,
-    'Escríbele hoy o agenda una sesión.',
+    // 18/11/2026: «sin mensajes suyos» → «sin escribirte»: lo mismo que se afirmaba, dicho como lo diría una persona.
+    `*${a.nombre}* lleva ${a.dias} días sin escribirte ni avanzar de etapa, y sin sesión registrada.`,
+    `Escríbele hoy o agenda una sesión${a.link ? ':' : '.'}`,
     ...(a.link ? [a.link] : []),
   ].join('\n');
 }

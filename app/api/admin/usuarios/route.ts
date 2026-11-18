@@ -21,6 +21,7 @@ import { listarWorkspaces, OWNER_WS } from '@/lib/workspace';
 import type { Rol, RolWorkspace } from '@/lib/auth-session';
 import { invitarPorEmail } from '@/lib/invitaciones';
 import { urlGravatar, caraDeUsuario } from '@/lib/gravatar';
+import { fotoDePersonaSegura } from '@/lib/foto-perfil';
 // Suspender, eliminar, bajar de rol o mover a alguien APAGA los tokens clásicos de la API que
 // esa persona acuñó (14/10/2026): sólo los que ya no administra, y sin tirar nunca (la decisión
 // ya está escrita; si esto falla, el chequeo por pedido los corta igual en menos de un minuto).
@@ -216,7 +217,11 @@ export async function POST(req: NextRequest) {
       case 'foto': {
         if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
         const url = typeof body.foto_url === 'string' ? body.foto_url.trim() : '';
-        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { foto_url: url || null }) });
+        // Sólo una foto de un origen nuestro (el storage, Google, Iconify, Gravatar o un emoji): una URL de afuera es un web
+        // bug que avisa quién abrió cada pantalla donde se dibuja esa cara (F173). Se rechaza con el motivo; no se guarda vacía.
+        const segura = url ? fotoDePersonaSegura(url) : null;
+        if (url && !segura) return NextResponse.json({ ok: false, error: 'Esa foto no se puede usar: súbela desde la computadora o elige un ícono.' }, { status: 400 });
+        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { foto_url: segura }) });
       }
 
       // Volver a mandarle el acceso. Hace falta aunque el envío sea automático: el mail
