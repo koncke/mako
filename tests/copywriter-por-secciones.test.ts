@@ -15,7 +15,7 @@
 //   8. el cableado: «Editar» de la pantalla lo prende y la segunda pasada vieja no corre sobre esa pieza.
 //
 // Probado rompiéndolo (base 8/0):
-//   · `tandasDeSecciones` sin el corte por el tope (todas en una tanda)           → 6/2 (caen el 2 y el 7);
+//   · `tandasDeSecciones` sin el corte por el tope (todas en una tanda)           → 5/3 (caen el 2, el 5 y el 7);
 //   · `escribirPorSecciones` sin el filtro de lo que escribió el borrador         → 7/1 (cae el 4);
 //   · `reemplazarSecciones` aceptando una sección más corta                       → 7/1 (cae el 4);
 //   · sin el `break` del saldo (sigue pidiendo)                                   → 7/1 (cae el 5);
