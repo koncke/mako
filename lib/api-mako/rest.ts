@@ -735,6 +735,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/video/presets-subtitulos', 'guardar_preset_subtitulos'],
   ['DELETE', '/video/presets-subtitulos/{preset}', 'borrar_preset_subtitulos'],
   ['GET', '/video/avatares', 'ver_avatares'],
+  // El personaje en cubos (19/11/2026): leer sus videos y proponer uno nuevo (se confirma en /mako/revisar).
+  ['GET', '/video/cubos', 'ver_videos_cubos'],
+  ['POST', '/video/cubos', 'crear_video_cubos'],
   // ── integraciones ─────────────────────────────────────────────────────────
   ['GET', '/integraciones/agente-claude', 'ver_estado_agente_claude'],
   ['GET', '/integraciones/cuotas-ia', 'ver_cuotas_ia'],

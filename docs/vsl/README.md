@@ -1,7 +1,8 @@
 # Guiones de VSL para vender MaKo
 
-> **19/11/2026: el VSL principal nuevo es [guion-vsl-principal.md](guion-vsl-principal.md)** (el Martín en cubos + 3 tomas de
-> Martín, CTA «PRUÉBALO GRATIS AHORA»). `principal.md`, más abajo, quedó viejo: cerraba con «Agenda tu diagnóstico
+> **19/11/2026: el VSL principal nuevo es [guion-vsl-principal.md](guion-vsl-principal.md)** (v3: el personaje en cubos sigue
+> a un cliente y Martín, en 5 tomas humanas, saluda, cuenta y despide; CTA «PRUÉBALO GRATIS AHORA»). Antes de escribir algo
+> que diga Martín: [voz-de-martin.md](voz-de-martin.md) y [estructura-vsl.md](estructura-vsl.md). `principal.md`, más abajo, quedó viejo: cerraba con «Agenda tu diagnóstico
 > gratis». Lo que hay en el sitio y lo que se puede prometer: [relevo-landings.md](relevo-landings.md). Cómo venden con
 > video los demás: [competencia.md](competencia.md). Los guiones de esta tabla son de octubre: antes de usar uno, cruzarlo
 > con el relevo (el CTA, AI Avatar y lo que es sólo de Pro cambiaron).
