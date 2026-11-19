@@ -1191,100 +1191,172 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-2.mp4",
    "poster": "/tutoriales/reto-dia-2.jpg",
-   "duracion_s": 55.47,
-   "peso_kb": 1453,
-   "guion": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso. Primero, la app de MaKo en tu teléfono: te avisa al instante de lo que pasa en tu negocio, y abres MaKo desde el celular. No es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación. Toca aquí, en tu foto. Ahora toca aquí, en Settings. Y aquí, en Instalar la app. Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente. Mira aquí, la extensión para Chrome: con ella tienes a MaKo a mano mientras navegas. Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel. Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado. Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+   "duracion_s": 93.8,
+   "peso_kb": 4963,
+   "guion": "¿Sabías que quien te pide información empieza a perder las ganas de comprar a los ocho minutos? Te doy la bienvenida al día dos: hoy conectamos todo, para que ningún lead se te enfríe. Imagina que vendes un programa de coaching de tres mil dólares. Alguien llena tu formulario de Meta a las nueve de la noche. Si lo ves al día siguiente, esa persona ya habló con otro coach. En cambio, con Meta conectado en tus integraciones, ese lead entra solo a tu CRM. Y con la app de MaKo en tu teléfono, tienes tu CRM y tus avisos en el bolsillo. Lo ves esa misma noche, y le contestas en minutos. En algo de tres mil dólares, esos minutos son la diferencia entre una venta y un no. ¿Crees que igual contestas rápido? Un lead que no ves, no lo puedes contestar. La app no es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación de MaKo en tu teléfono. Toca aquí, en tu foto. Ahora toca aquí, en Settings. Y aquí, en Instalar la app. Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente. Mira aquí, la extensión para Chrome: con ella tienes a MaKo a mano mientras navegas. Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel. Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado. Hoy ganas velocidad: lo que pasa en tu negocio, lo ves en tu teléfono. Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto. Le escribes tú primero, y así WhatsApp no frena sus mensajes.",
    "frases": [
     {
      "id": "reto-dia-2-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 2: hoy conectamos todo, de a un paso.",
+     "texto": "¿Sabías que quien te pide información empieza a perder las ganas de comprar a los ocho minutos?",
      "t_inicio": 0.06,
-     "t_fin": 5.14
+     "t_fin": 5.26
     },
     {
      "id": "reto-dia-2-2",
      "rol": "que-es",
-     "texto": "Primero, la app de MaKo en tu teléfono: te avisa al instante de lo que pasa en tu negocio, y abres MaKo desde el celular.",
-     "t_inicio": 5.82,
-     "t_fin": 12.52
+     "texto": "Te doy la bienvenida al día dos: hoy conectamos todo, para que ningún lead se te enfríe.",
+     "t_inicio": 5.76,
+     "t_fin": 11.56
     },
     {
      "id": "reto-dia-2-3",
-     "rol": "cosa",
-     "texto": "No es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación.",
-     "t_inicio": 13,
-     "t_fin": 16.72
+     "rol": "porque",
+     "texto": "Imagina que vendes un programa de coaching de tres mil dólares.",
+     "t_inicio": 12.08,
+     "t_fin": 15.04
     },
     {
      "id": "reto-dia-2-4",
+     "rol": "porque",
+     "texto": "Alguien llena tu formulario de Meta a las nueve de la noche.",
+     "t_inicio": 15.48,
+     "t_fin": 18.3
+    },
+    {
+     "id": "reto-dia-2-5",
+     "rol": "porque",
+     "texto": "Si lo ves al día siguiente, esa persona ya habló con otro coach.",
+     "t_inicio": 18.82,
+     "t_fin": 22.06
+    },
+    {
+     "id": "reto-dia-2-6",
+     "rol": "porque",
+     "texto": "En cambio, con Meta conectado en tus integraciones, ese lead entra solo a tu CRM.",
+     "t_inicio": 22.6,
+     "t_fin": 27.88
+    },
+    {
+     "id": "reto-dia-2-7",
+     "rol": "porque",
+     "texto": "Y con la app de MaKo en tu teléfono, tienes tu CRM y tus avisos en el bolsillo.",
+     "t_inicio": 28.36,
+     "t_fin": 32.8
+    },
+    {
+     "id": "reto-dia-2-8",
+     "rol": "porque",
+     "texto": "Lo ves esa misma noche, y le contestas en minutos.",
+     "t_inicio": 33.3,
+     "t_fin": 36.44
+    },
+    {
+     "id": "reto-dia-2-9",
+     "rol": "porque",
+     "texto": "En algo de tres mil dólares, esos minutos son la diferencia entre una venta y un no.",
+     "t_inicio": 36.94,
+     "t_fin": 41.42
+    },
+    {
+     "id": "reto-dia-2-10",
+     "rol": "porque",
+     "texto": "¿Crees que igual contestas rápido? Un lead que no ves, no lo puedes contestar.",
+     "t_inicio": 42,
+     "t_fin": 46.3
+    },
+    {
+     "id": "reto-dia-2-11",
+     "rol": "cosa",
+     "texto": "La app no es lo mismo que escribirle a MaKo por WhatsApp: es la aplicación de MaKo en tu teléfono.",
+     "t_inicio": 46.74,
+     "t_fin": 52.2
+    },
+    {
+     "id": "reto-dia-2-12",
      "rol": "accion",
      "texto": "Toca aquí, en tu foto.",
-     "t_inicio": 17.3,
-     "t_fin": 18.58,
+     "t_inicio": 52.66,
+     "t_fin": 54.02,
      "sel": "[data-recorrido=\"tour-barra-foto\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-5",
+     "id": "reto-dia-2-13",
      "rol": "accion",
      "texto": "Ahora toca aquí, en Settings.",
-     "t_inicio": 19.16,
-     "t_fin": 21.12,
+     "t_inicio": 54.42,
+     "t_fin": 56.38,
      "sel": "#user-menu a[href^=\"/perfil\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-6",
+     "id": "reto-dia-2-14",
      "rol": "accion",
      "texto": "Y aquí, en Instalar la app.",
-     "t_inicio": 21.58,
-     "t_fin": 23.22,
+     "t_inicio": 56.78,
+     "t_fin": 58.36,
      "sel": "[data-recorrido=\"tour-settings-instalar\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-7",
+     "id": "reto-dia-2-15",
      "rol": "accion",
      "texto": "Mira aquí, el QR: escanéalo con tu teléfono, y cuando tengas la app, toca Siguiente.",
-     "t_inicio": 23.88,
-     "t_fin": 29.38,
+     "t_inicio": 58.88,
+     "t_fin": 64.08,
      "sel": "[data-recorrido=\"tour-settings-instalar\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-8",
+     "id": "reto-dia-2-16",
      "rol": "accion",
      "texto": "Mira aquí, la extensión para Chrome: con ella tienes a MaKo a mano mientras navegas.",
-     "t_inicio": 30.08,
-     "t_fin": 34.8,
+     "t_inicio": 64.56,
+     "t_fin": 69.12,
      "sel": "[data-recorrido=\"tour-settings-instalar\"]",
      "espera_clic": false
     },
     {
-     "id": "reto-dia-2-9",
+     "id": "reto-dia-2-17",
      "rol": "accion",
      "texto": "Después, toca aquí, en Integraciones, y conecta sólo lo que necesita tu funnel.",
-     "t_inicio": 35.32,
-     "t_fin": 40.14,
+     "t_inicio": 69.6,
+     "t_fin": 74.44,
      "sel": "[data-recorrido=\"tour-settings-integraciones\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-10",
+     "id": "reto-dia-2-18",
      "rol": "accion",
      "texto": "Y al final, toca aquí, en tu perfil, y sube tu foto: lo que contaste ya está guardado.",
-     "t_inicio": 40.72,
-     "t_fin": 46.16,
+     "t_inicio": 74.82,
+     "t_fin": 80.34,
      "sel": "[data-recorrido=\"tour-settings-info\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-2-11",
+     "id": "reto-dia-2-19",
      "rol": "cierre",
-     "texto": "Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto: le escribes tú primero, y así WhatsApp no frena sus mensajes.",
-     "t_inicio": 46.84,
-     "t_fin": 54.78,
+     "texto": "Hoy ganas velocidad: lo que pasa en tu negocio, lo ves en tu teléfono.",
+     "t_inicio": 80.88,
+     "t_fin": 84.98,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-2-20",
+     "rol": "cierre",
+     "texto": "Para cerrar el día, dile a MaKo por WhatsApp a qué hora te escribe sobre el reto.",
+     "t_inicio": 85.44,
+     "t_fin": 89.34,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-2-21",
+     "rol": "cierre",
+     "texto": "Le escribes tú primero, y así WhatsApp no frena sus mensajes.",
+     "t_inicio": 89.7,
+     "t_fin": 93.12,
      "espera_clic": false
     }
    ],
@@ -1292,8 +1364,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "2 → dos (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:35:51.683Z"
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T02:30:39.355Z"
   },
   {
    "key": "reto-dia-3",

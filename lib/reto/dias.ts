@@ -116,6 +116,9 @@ export const DIAS_RETO: readonly DiaReto[] = [
         marcas: [
           { sel: conMarca(MARCA.barraFoto), titulo: 'Tu perfil', texto: 'Está en Settings, en el menú de tu foto.', haz: 'Haz clic en tu foto', lado: 'derecha', libre: true },
           { sel: '#user-menu a[href^="/perfil"]', titulo: 'Settings', texto: 'La primera sección es tu perfil.', haz: 'Haz clic en Settings', lado: 'derecha', libre: true },
+          // 19/11: la última marca es la sección Perfil (la que marca el video del día 2, `tour-settings-info`). Con Settings como
+          // última, tocar Settings en el video cerraba «Tu perfil y tu foto» antes de llegar al perfil, y tocar Perfil no cerraba nada.
+          { sel: conMarca(marcaSettings('info')), titulo: 'Perfil', texto: 'Tu nombre y tu foto: lo que contaste en el chat ya está guardado.', haz: 'Haz clic en Perfil', lado: 'derecha' },
         ] },
     ],
     whatsapp: { texto: 'Dile a MaKo a qué hora te escribe sobre el reto: le escribes tú primero, así WhatsApp no frena sus mensajes.', ejemplo: '«Hola MaKo, prefiero que me escribas a las 9:00 sobre el reto.»', escrito: 'Hola MaKo, prefiero que me escribas a las {hora} sobre el reto.' },
@@ -126,8 +129,9 @@ export const DIAS_RETO: readonly DiaReto[] = [
     n: 3, titulo: 'Tus contactos y tu primera automatización', video: 'reto-dia-3',
     mensaje: 'Día 3: tus contactos y tu primera automatización. Cargas tus clientes en el CRM y dejas a MaKo respondiendo por el canal que usas: WhatsApp, Instagram o email.',
     tareas: [
-      { id: 'contactos', titulo: 'Carga tus clientes en el CRM', donde: 'En CRM', detalle: 'Con un CSV o, si ya usas otro CRM, lo integramos.',
-        marcas: [enLaBarra('/crm', 'CRM', 'Ahí cargas tus clientes: con un CSV, o integrando tu CRM.')] },
+      { id: 'contactos', titulo: 'Carga tus clientes en el CRM', donde: 'En CRM', detalle: 'Con un CSV, aunque vengan de otro sistema.',
+        // 19/11: decía «si ya usas otro CRM, lo integramos», que promete un equipo. Lo que hay es importar un CSV (app/crm/ImportarLeadsModal.tsx).
+        marcas: [enLaBarra('/crm', 'CRM', 'Ahí cargas tus clientes con un CSV, aunque vengan de otro sistema.')] },
       { id: 'automatizacion', titulo: 'Tu primera automatización de mensajes', donde: 'En Automations', detalle: 'Que MaKo atienda solo a tus clientes, por el canal que usas: WhatsApp, Instagram o email.',
         marcas: [
           enLaBarra('/automations', 'Automations', 'Aquí armas tu primera automatización de mensajes.'),
@@ -163,12 +167,14 @@ export const DIAS_RETO: readonly DiaReto[] = [
   },
   {
     n: 6, titulo: 'Tu video con IA', video: 'reto-dia-6',
-    mensaje: 'Día 6: tu video con IA, sin grabarte. El clip de 10 segundos va de regalo.',
+    // 19/11: decía «el clip de 10 segundos va de regalo», y en la app no hay clip de regalo: la prueba deja hacer un video con el
+    // personaje (`prueba.avatares`, lib/topes-plan.ts). Y «AI Avatar» ya no es una tab: es «Tu personaje con IA», en Video › Crear desde cero.
+    mensaje: 'Día 6: tu video con IA, sin grabarte: tu personaje y tu primer clip.',
     tareas: [
-      { id: 'personaje', titulo: 'Tu personaje con IA', donde: en('Video › AI Avatar'), detalle: 'Con una foto tuya.',
+      { id: 'personaje', titulo: 'Tu personaje con IA', donde: en('Video › Tu personaje con IA'), detalle: 'Con una foto tuya.',
         marcas: [enLaBarra('/video-editor', 'Video', 'Tu personaje con IA está en Video, con una foto tuya.')] },
-      { id: 'clip', titulo: 'Tu clip de 10 segundos, de regalo', donde: en('Video › AI Avatar'), detalle: 'Con el gancho de tu guion.',
-        marcas: [enLaBarra('/video-editor', 'Video', 'Tu clip de 10 segundos, con el gancho de tu guion.')] },
+      { id: 'clip', titulo: 'Tu primer clip con tu personaje', donde: en('Video › Tu personaje con IA'), detalle: 'Con el gancho de tu guion.',
+        marcas: [enLaBarra('/video-editor', 'Video', 'Tu primer clip, con el gancho de tu guion.')] },
     ],
   },
   {
