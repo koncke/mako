@@ -36,6 +36,12 @@ y python-audio-separator a pedido; rea-video sin SenseVoice, conservando su NOTI
 (~US$0,22/mes); por reel ~260 s de CPU (~US$0,002). Falta medir audio-separator. **El contenedor lo prende Martín**; no se
 construye ni se despliega sin su OK.
 
+## Contra el método de Referentes (19/11)
+
+El chat de Referentes desarmó 134 reels a mano y pidió compararlo con la app. Los 7 puntos, contrastados con el código y
+ordenados por costo, están en `docs/diseno-desarmar-video.md` → «Contra el método de Referentes». Lo más barato: «Hacer uno así»
+no le lleva al Copywriter ni la grabación ni el CTA, que el desarme ya tiene. Nada programado: lo decide el Cerebro.
+
 ## Trampas para quien siga
 
 - Las rutas bajo `/api/video-editor/*` llevan sólo el candado del editor; un módulo de servidor no importa del motor
