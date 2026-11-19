@@ -236,9 +236,9 @@ export const DEFS: readonly OperacionDef[] = [
   // lista; la acción la confirma el cliente y vuelve a pasar cada comentario por el camino del webhook (lib/recuperar-comentarios.ts).
   // Sin `http`: lee la bandeja de Zernio entera, con pausas por su límite, y puede pasar el minuto de /api/v1.
   {
-    id: 'comentarios_perdidos_instagram', area: 'chatbot', tipo: 'lectura',
+    id: 'ver_comentarios_perdidos', area: 'chatbot', tipo: 'lectura',
     titulo: 'Ver comentarios de Instagram perdidos',
-    descripcion: 'Lista los comentarios de Instagram de un período que tienen la palabra clave de una automatización de comentario activa y a cuya persona nunca le llegó ese recurso (por ejemplo, porque la cuenta estuvo desconectada). Para cada uno: la persona, qué dijo, a qué automatización entraría y hasta cuándo se le puede contestar por privado (Meta da 7 días desde el comentario). Marca como «dudoso» el comentario que dice algo más que la palabra. No manda nada: para mandarlos, recuperar_comentarios_instagram.',
+    descripcion: 'Lista los comentarios de Instagram de un período que tienen la palabra clave de una automatización de comentario activa y a cuya persona nunca le llegó ese recurso (por ejemplo, porque la cuenta estuvo desconectada). Para cada uno: la persona, qué dijo, a qué automatización entraría y hasta cuándo se le puede contestar por privado (Meta da 7 días desde el comentario). Marca como «dudoso» el comentario que dice algo más que la palabra. No manda nada: para mandarlos, recuperar_comentarios_perdidos.',
     parametros: [
       { nombre: 'desde', tipo: 'string', obligatorio: true, max: 40, descripcion: 'desde cuándo, con fecha, hora y zona (p. ej. 2026-11-14T13:42-03:00).' },
       { nombre: 'hasta', tipo: 'string', obligatorio: true, max: 40, descripcion: 'hasta cuándo, con fecha, hora y zona (p. ej. 2026-11-18T16:46-03:00).' },
@@ -246,9 +246,9 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', lenta: true, gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
-    id: 'recuperar_comentarios_instagram', aTerceros: true, area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    id: 'recuperar_comentarios_perdidos', aTerceros: true, area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Recuperar comentarios de Instagram perdidos',
-    descripcion: 'PROPONE recuperar los comentarios de Instagram de un período que no entraron a sus automatizaciones (la misma lista que comentarios_perdidos_instagram): al confirmar, cada persona entra a su automatización y le sale el mensaje privado como respuesta a SU comentario, una vez por recurso. Sólo los que siguen dentro de los 7 días de Meta. Antes de confirmar, muéstrale la lista a la persona y pregúntale por los «dudosos»: los que no quiera van en excluir.',
+    descripcion: 'PROPONE recuperar los comentarios de Instagram de un período que no entraron a sus automatizaciones (la misma lista que ver_comentarios_perdidos): al confirmar, cada persona entra a su automatización y le sale el mensaje privado como respuesta a SU comentario, una vez por recurso. Sólo los que siguen dentro de los 7 días de Meta. Antes de confirmar, muéstrale la lista a la persona y pregúntale por los «dudosos»: los que no quiera van en excluir.',
     parametros: [
       { nombre: 'desde', tipo: 'string', obligatorio: true, max: 40, descripcion: 'desde cuándo, con fecha, hora y zona (p. ej. 2026-11-14T13:42-03:00).' },
       { nombre: 'hasta', tipo: 'string', obligatorio: true, max: 40, descripcion: 'hasta cuándo, con fecha, hora y zona (p. ej. 2026-11-18T16:46-03:00).' },

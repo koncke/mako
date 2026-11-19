@@ -2828,8 +2828,8 @@ al 14/11. Lo que sí sirve es la **bandeja**: `/inbox/comments?accountId=…` (l
 **Reprocesar es volver a pasar cada comentario por el camino del webhook** (`eventoSocialDe` → `procesarEventoSocial` →
 `dispararEventoSocial`, lib/recuperar-comentarios.ts): el motor manda el privado como respuesta a ESE comentario y aplica solo los
 7 días de Meta, porque la fecha del evento es la del comentario. Meta deja UNA respuesta privada por comentario: el que pidió dos
-recursos recibe uno por cada comentario suyo. La operación es de la API de MaKo (`recuperar_comentarios_instagram`) y la confirma
+recursos recibe uno por cada comentario suyo. La operación es de la API de MaKo (`recuperar_comentarios_perdidos`) y la confirma
 el cliente. Martín no quiere que salga por un script.
 
-**Lo que quedó SIN hacer:** no se probó contra producción con un envío real. La lectura (`comentarios_perdidos_instagram`) es la
+**Lo que quedó SIN hacer:** no se probó contra producción con un envío real. La lectura (`ver_comentarios_perdidos`) es la
 prueba en seco. La operación no sale por HTTP (tarda más que el minuto de /api/v1).

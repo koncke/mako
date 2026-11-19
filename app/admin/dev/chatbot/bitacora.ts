@@ -3604,7 +3604,7 @@ FEEDBACK PROBAR:
     archivos: [
       'lib/recuperar-comentarios-reglas.ts — qué se recupera, sin duplicar, los 7 días y los dudosos (puro)',
       'lib/recuperar-comentarios.ts — lee la bandeja de Zernio y vuelve a pasar cada comentario por el camino del webhook',
-      'lib/api-mako/areas/chatbot.def.ts y .run.ts — `comentarios_perdidos_instagram` y `recuperar_comentarios_instagram`',
+      'lib/api-mako/areas/chatbot.def.ts y .run.ts — `ver_comentarios_perdidos` y `recuperar_comentarios_perdidos`',
       'tests/recuperar-comentarios-114.test.ts — probado rompiéndolo, tres roturas',
       'docs/hallazgos-integraciones.md — la entrada del 18/11',
     ],

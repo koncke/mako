@@ -4,7 +4,7 @@
 // Ticket #114 (Leandro, ws10, 18/11/2026). Durante el corte del #113 (del 14 al 18/11) el webhook de Zernio descartó los
 // comentarios de @fiestamusic con un 200 «sin workspace»: 32 personas comentaron una palabra clave y no les llegó su recurso.
 // Martín: «no debería salir por acá por una decisión de Claude… para eso está la aplicación… preguntárselo al cliente». Así
-// que es una operación de la API de MaKo (`recuperar_comentarios_instagram`) que el cliente confirma.
+// que es una operación de la API de MaKo (`recuperar_comentarios_perdidos`) que el cliente confirma.
 //
 // Lo que decide este módulo, sin red:
 //   · QUÉ AUTOMATIZACIÓN le toca a cada comentario: con el MISMO comparador del motor (`dispara`, que en el server es

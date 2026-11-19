@@ -117,7 +117,7 @@ import {
 const legado = (ctx: Ctx) => crearRunnerAcciones(ctx.ws, ctx.canalKey, ctx.turnStart ?? 0, ctx.mensajeUsuario ?? '');
 const texto = async (p: Promise<string | { content: string; isError?: boolean }>) => { const r = await p; return typeof r === 'string' ? r : r.content; };
 const json = (x: unknown): string => JSON.stringify(x);
-/** El período de recuperar_comentarios_instagram: dos fechas con zona, en orden y de no más de 14 días. */
+/** El período de recuperar_comentarios_perdidos: dos fechas con zona, en orden y de no más de 14 días. */
 const periodoDe = (input: Record<string, unknown>): { desde: number; hasta: number } | { error: string } => {
   const desde = Date.parse(str(input, 'desde'));
   const hasta = Date.parse(str(input, 'hasta'));
@@ -912,7 +912,7 @@ export const RUNNERS: Runners = {
   // `crear_secuencia_mensajes`, que se retiró.
   // RECUPERAR LOS COMENTARIOS PERDIDOS (ticket #114): la lista se arma igual en la lectura y al proponer, y al confirmar se vuelve a
   // armar (pudo entrar alguien entre medio) y se le sacan los excluidos.
-  comentarios_perdidos_instagram: {
+  ver_comentarios_perdidos: {
     leer: async (input, ctx) => {
       const p = periodoDe(input);
       if ('error' in p) return p.error;
@@ -927,7 +927,7 @@ export const RUNNERS: Runners = {
       });
     },
   },
-  recuperar_comentarios_instagram: {
+  recuperar_comentarios_perdidos: {
     preparar: async (input, ctx) => {
       if (desdeUnFlujo(ctx)) return { error: 'Una automatización no puede recuperar comentarios: pídeselo a MaKo por el grupo.' };
       const p = periodoDe(input);
