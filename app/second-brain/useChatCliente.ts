@@ -126,7 +126,7 @@ async function linksDelPedido(texto: string): Promise<IrA[]> {
 
 export type ChatCliente = ReturnType<typeof useChatCliente>;
 
-export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null, tab: tabPropia = null, aspectoOffer = null, quien = null, avisar }: {
+export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null, tab: tabPropia = null, aspectoOffer = null, quien = null, avisar, offerDirecto = false }: {
   elegido: ElegidoChat | null;
   setElegido: Dispatch<SetStateAction<ElegidoChat | null>>;
   /** Lee Offer, los chats de antes y si tiene su IA. En el Ops Center del super admin la lista es la de Claude Code: no. */
@@ -154,6 +154,9 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   quien?: { nombre: string; aspecto: Aspecto } | null;
   /** El aviso corto de lo que hace el «⋯» de una fila («Chat renombrado», un error), como el del super admin. */
   avisar?: (texto: string, tono: 'good' | 'bad') => void;
+  /** La conversación de Offer se dibuja TAL CUAL la da su motor (`itemsDeOffer`: cada mensaje con su id `of-<id>`), sin la proyección
+   *  del Ops Center. La usa el Offer Coach del V2 (./useChatDelCoach.ts), que necesita saber qué mensaje lleva el PDF de su oferta. */
+  offerDirecto?: boolean;
 }) {
   const ws = useWs();
   const [sesiones, setSesiones] = useState<SesionChat[] | null>(sesionesIniciales);
@@ -321,12 +324,14 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const ponerOffer = useCallback(async (s: OfferSesionVista) => {
     offerRef.current = s;
     setDeOfferAbierta(s);
+    // El Offer Coach (V2): su conversación nació en el Ops Center y no trae el arranque de ningún onboarding para unir.
+    if (offerDirecto) { setItems(itemsDeOffer(s.mensajes, conWsDeAudio)); return; }
     const l = await pedir<{ mensajes: MensajeChat[] }>(`${RUTA}?offerId=${s.id}`);
     if (offerRef.current?.id !== s.id) return;
     if (!l.ok) { setItems(itemsDeOffer(s.mensajes, conWsDeAudio)); return; }
     const op = opcionesDeOffer(s.mensajes);
     setItems([...itemsDeSesion(l.datos.mensajes ?? [], [], [], conWsDeAudio), ...(op ? [op] : [])]);
-  }, [conWsDeAudio]);
+  }, [conWsDeAudio, offerDirecto]);
 
   useEffect(() => {
     if (!esDelCliente) return;
@@ -790,5 +795,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     // Cuántas versiones armó la conversación de Offer abierta (con su id: al cambiar de conversación, la de antes no cuenta). La usa el
     // paso de Offer Coach a Funnel Coach (app/second-brain/reto/usePasoAlFunnel.ts): una versión nueva es una oferta entregada.
     ofertaAbierta: deOfferAbierta ? { id: deOfferAbierta.id, versiones: deOfferAbierta.versiones } : null,
+    /** La conversación de Offer abierta, entera (su conclusión y sus mensajes con el PDF): la tarjeta de la oferta del Offer Coach. */
+    sesionOffer: deOfferAbierta,
   };
 }

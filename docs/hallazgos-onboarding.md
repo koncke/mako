@@ -4,6 +4,39 @@ El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
 
+## Offer Coach = el motor de Offer: no hacía falta montar OfferApp (19/11/2026)
+
+**Vive en:** `app/second-brain/useChatDelCoach.ts` (`motorOffer`) · `app/second-brain/useChatCliente.ts` (`offerDirecto`) ·
+`app/api/offer/route.ts` (`'coach'`) · `lib/onboarding-v2/offer-coach-db.ts` · `app/second-brain/OfertaEnElChat.tsx` ·
+`lib/chat-mako-indice.ts` (`chatsDeOffer`).
+
+- **El diagnóstico obvio era el equivocado.** El brief (docs/onboarding/offer-coach-es-el-motor-de-offer.md) proponía embeber
+  `OfferApp` con su modo `arranque`. Pero el chat del Ops Center YA sigue cualquier conversación de Offer con su motor: basta con
+  elegir `{ offer: id }` (app/second-brain/motor-offer.ts: el turno, los archivos, la nota de voz, «Armar mi oferta» y la relectura
+  mientras arma). Embeber `OfferApp` traía otra caja y otro hilo, y su `origen: 'arranque'` hace que el servidor NO arme la oferta
+  (es la conversación del onboarding: sólo pregunta qué vende). Con el motor del Ops Center se quedan la cara, la voz y los videos
+  del coach sin tocarlos.
+- **`useChatDelCoach` le pasaba `opcionArmar: ''` a `useChatCliente`**: en el coach, tocar «Armar mi oferta» la mandaba como un
+  mensaje más y nunca armaba. El texto ahora lo devuelve `/api/offer` `'coach'` (`OPCION_ARMAR`): sin cablearlo por las cuatro
+  pantallas que montan el coach (ChatsMovil ni lo tenía) y sin meter `lib/offer-reglas.ts` en el navegador.
+- **La proyección del Ops Center (`?offerId=` → `hiloDeOffer`) pierde el id y el `pdf` de cada mensaje**: con ella no se puede saber
+  qué mensaje trae la oferta. `offerDirecto` dibuja con `itemsDeOffer` (ids `of-<id>`), como la tab. La proyección sólo hace falta
+  para unir el arranque de un onboarding viejo, que la conversación del coach no tiene.
+- **Armar NO guarda la oferta**: `'armar'` deja la conclusión, pero la fila de `ofertas` la escribía el botón «Guardar en este
+  funnel», que Martín sacó el 16/11. Sin guardar, Funnel Coach la ve como «armada en una conversación», no como guardada. La
+  tarjeta la guarda sola al aparecer (`'guardar-oferta'`, una vez por versión).
+- **La conversación del coach salía dos veces**: como la fila de Offer Coach y colgando de ella (`filasOffer`). `chatsDeOffer` la
+  esconde, sólo a quien tiene el V2: a los demás se les lista como cualquier otra.
+- **Un `.css` importado en un componente que cargan los tests rompe en node** (AGENTS.md lo dice para la caja): `.co-ol` va en
+  `app/_chat/chat.css`, que ya llega con la caja del chat (`AdjuntosCaja`).
+- **Trampa que queda:** la conversación es POR NEGOCIO y la crea abrir Offer Coach. Martín ve el V2 por su email en cualquier
+  negocio: si abre Offer Coach en el de un cliente, ahí queda una conversación vacía de Offer en su funnel principal (se ve en la
+  tab Offer del cliente). Con el Offer Coach del modelo pasaba lo mismo, pero no se veía.
+- **Quedó SIN hacer:** el contexto y las herramientas del Offer Coach del modelo (`lib/asesores/contexto.ts` →
+  `contextoDelOfferCoach`, `HERRAMIENTAS_DEL_OFFER_COACH`) ya no los usa ninguna pantalla del V2; se pueden borrar cuando Martín
+  apruebe el motor. Lo que pedía de ese contexto (más asertivo con el miedo a cobrar caro, la garantía, «¿vendes otras ofertas?»)
+  vive ahora en las preguntas del motor de Offer (`lib/offer-reglas.ts`), que no se tocaron. Sin probar en producción todavía.
+
 ## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
 
 **Vive en:** `lib/onboarding-state.ts` · `app/api/onboarding/route.ts:324` · `lib/onboarding-crm.ts`
