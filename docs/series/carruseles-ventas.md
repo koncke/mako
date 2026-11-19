@@ -104,6 +104,14 @@ que guardó Martín para esta serie las clasificó el chat «Inspiración»: las
 | 6 | Páginas que venden: cópialas (Web Generator › Replicar) | `DfHzvg_mTiU` @textura.us, 9 láminas (la guardó Martín) | COPIAR | Hecho (19/11) |
 | 7 | Deja de hacer carruseles aburridos (las estructuras de Image) | `De2Durokr-D` @adarshxdesign, 7 láminas (la guardó Martín) | CARRUSEL | Hecho (19/11) |
 | 8 | WhatsApp + IA = tu lista (sacar la gente de un grupo) | `DaZFc_kkttt` otra vez (la del 1) | GRUPO | Hecho (19/11) |
+| 9 | Deja de escribir ganchos aburridos (plantilla «10 ganchos» de Copywriting) | `DfQb-eqnJ3Q` @ramiro.cubria, 7 láminas, x41, 16.680 comentarios | GANCHO | Hecho (19/11) |
+| 10 | La oferta en 7 tuits (las 9 partes con que la app la puntúa) | `Dfv2Z-HiA00` @AlexHormozi, 8 láminas | OFERTA | Hecho (19/11) |
+| 11 | Deja de improvisar tus reels (plantilla «Reel que trae mensajes») | `Dffx80AmQZW` @ramiro.cubria, 5 láminas | GUION | Hecho (19/11) |
+
+Las referencias de Ramiro Cubría, Víctor Heras y Hormozi las juntó el chat de Referentes: `C:/dev/referentes-videos/carruseles-de-venta.md`
+(estructura lámina por lámina y por qué vende; láminas en `C:/dev/referentes-videos/<cuenta>/pub/<id>/`). **Falta CURSO:** la referencia
+que mejor va («Mata la pregunta del precio», de Hormozi, `Dfyl114CP0z`) es de dibujos de palitos, una idea por lámina; hay que
+dibujarlos (SVG) o elegir otra. Los casos de cliente de Ramiro piden cifras reales de un cliente con su permiso: no se usaron.
 
 Los archivos: `C:/dev/carruseles-ventas/<slug>/` (`carrusel.html`, `laminas/NN.png`, `piezas/` con las pantallas dibujadas) y los
 scripts en `C:/dev/carruseles-ventas/tools/` (`dibujar-*.tsx`, `escribir-*.py`, `arreglo-*.py`, `capturar.cjs`). Las referencias, en
@@ -173,5 +181,8 @@ Lo que de entrada NO va a salir igual, y es lo que hay que iterar (o decidir que
   realidad», «Antes y después», «Paso a paso» y «Opinión») (dibujados con `documentoDeCarrusel` + `PaginaCarrusel` y las fuentes del catálogo) hay títulos largos que se
   montan sobre el texto de abajo. Para el carrusel 7 se eligieron las 4 láminas limpias de cada estructura; la falla queda anotada
   en `docs/hallazgos-contenido.md` para Image.
+- **Tuits con la voz de Martín, nunca con las palabras de la referencia.** El formato de tuits de Hormozi se copia; sus frases no
+  («hasta que te digan que eres caro…» es suya). Cada tuit sale de algo que la app sabe medir (las 9 partes de una oferta,
+  `lib/offer-marco.ts`) y se revisa el género («alguien como ella» se cambió por «alguien parecido»).
 - **La palabra del CTA cambia el largo:** «Comment “GIFT”» entra en una línea; «Comenta “HORMOZI”» no, y empujó el resto fuera de
   la caja. Se mide con la palabra real.
