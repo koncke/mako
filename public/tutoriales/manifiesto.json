@@ -550,6 +550,498 @@
    "hecho": "2026-11-18T13:48:38.475Z"
   },
   {
+   "key": "funnel-clase-anuncios",
+   "pestana": "Funnel Coach · Clase: Anuncios",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-anuncios.mp4",
+   "poster": "/tutoriales/funnel-clase-anuncios.jpg",
+   "duracion_s": 49.07,
+   "peso_kb": 2623,
+   "guion": "Un anuncio no vende solo: lleva a la gente a un lugar donde sí se vende. Te doy la bienvenida a la clase de Anuncios: pagas para que te vea quien todavía no te conoce. El anuncio le habla a un tipo de cliente con un problema, y lo lleva a tu página. Ahí deja sus datos, agenda o compra, según lo que vendas. ¿Cuándo te conviene? Cuando ya sabes que tu oferta se vende y quieres más gente, más rápido. Arranca con poco y prueba varios ángulos: el mismo producto, contado de formas distintas. Mira qué anuncio trae contactos más baratos, y pon el presupuesto ahí. Y que el anuncio diga lo mismo que la página: si no coinciden, la gente se va. Funnel Coach te ayuda a armar el anuncio, la página y tu CRM con sus etapas. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-anuncios-1",
+     "rol": "gancho",
+     "texto": "Un anuncio no vende solo: lleva a la gente a un lugar donde sí se vende.",
+     "t_inicio": 0.08,
+     "t_fin": 4.86
+    },
+    {
+     "id": "funnel-clase-anuncios-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de Anuncios: pagas para que te vea quien todavía no te conoce.",
+     "t_inicio": 5.38,
+     "t_fin": 10.94
+    },
+    {
+     "id": "funnel-clase-anuncios-3",
+     "rol": "cosa",
+     "texto": "El anuncio le habla a un tipo de cliente con un problema, y lo lleva a tu página.",
+     "t_inicio": 11.54,
+     "t_fin": 15.76
+    },
+    {
+     "id": "funnel-clase-anuncios-4",
+     "rol": "cosa",
+     "texto": "Ahí deja sus datos, agenda o compra, según lo que vendas.",
+     "t_inicio": 16.34,
+     "t_fin": 20.1
+    },
+    {
+     "id": "funnel-clase-anuncios-5",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando ya sabes que tu oferta se vende y quieres más gente, más rápido.",
+     "t_inicio": 20.64,
+     "t_fin": 26.14
+    },
+    {
+     "id": "funnel-clase-anuncios-6",
+     "rol": "cosa",
+     "texto": "Arranca con poco y prueba varios ángulos: el mismo producto, contado de formas distintas.",
+     "t_inicio": 26.64,
+     "t_fin": 31.82
+    },
+    {
+     "id": "funnel-clase-anuncios-7",
+     "rol": "cosa",
+     "texto": "Mira qué anuncio trae contactos más baratos, y pon el presupuesto ahí.",
+     "t_inicio": 32.26,
+     "t_fin": 36.22
+    },
+    {
+     "id": "funnel-clase-anuncios-8",
+     "rol": "cosa",
+     "texto": "Y que el anuncio diga lo mismo que la página: si no coinciden, la gente se va.",
+     "t_inicio": 36.66,
+     "t_fin": 40.94
+    },
+    {
+     "id": "funnel-clase-anuncios-9",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda a armar el anuncio, la página y tu CRM con sus etapas.",
+     "t_inicio": 41.46,
+     "t_fin": 46.42,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-anuncios-10",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 46.92,
+     "t_fin": 48.36,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T00:50:54.931Z"
+  },
+  {
+   "key": "funnel-clase-organico",
+   "pestana": "Funnel Coach · Clase: Orgánico",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-organico.mp4",
+   "poster": "/tutoriales/funnel-clase-organico.jpg",
+   "duracion_s": 50.97,
+   "peso_kb": 2704,
+   "guion": "Puedes vender sin pagar un anuncio, si publicas con constancia. Te doy la bienvenida a la clase de Orgánico: publicas en Instagram, y quien te sigue te escribe. Publicas reels, carruseles e historias sobre el problema que resuelves. Quien se identifica comenta una palabra o te escribe, y ahí conversas. Y le vendes por mensaje, o lo pasas a una llamada. ¿Cuándo te conviene? Cuando no tienes presupuesto para anuncios, pero sí tiempo para publicar seguido. No hace falta una cuenta grande: hay quien vende con mil seguidores. La clave es la constancia: unas tres publicaciones por semana, durante meses. Y tener quién conteste: un buen reel puede traerte decenas de mensajes en un día. Funnel Coach te ayuda a pensar qué publicar y cómo responder, y lo que entra queda en tu CRM. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-organico-1",
+     "rol": "gancho",
+     "texto": "Puedes vender sin pagar un anuncio, si publicas con constancia.",
+     "t_inicio": 0.06,
+     "t_fin": 3.7
+    },
+    {
+     "id": "funnel-clase-organico-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de Orgánico: publicas en Instagram, y quien te sigue te escribe.",
+     "t_inicio": 4.1,
+     "t_fin": 9.64
+    },
+    {
+     "id": "funnel-clase-organico-3",
+     "rol": "cosa",
+     "texto": "Publicas reels, carruseles e historias sobre el problema que resuelves.",
+     "t_inicio": 10.1,
+     "t_fin": 14.3
+    },
+    {
+     "id": "funnel-clase-organico-4",
+     "rol": "cosa",
+     "texto": "Quien se identifica comenta una palabra o te escribe, y ahí conversas.",
+     "t_inicio": 14.64,
+     "t_fin": 18.8
+    },
+    {
+     "id": "funnel-clase-organico-5",
+     "rol": "cosa",
+     "texto": "Y le vendes por mensaje, o lo pasas a una llamada.",
+     "t_inicio": 19.16,
+     "t_fin": 21.74
+    },
+    {
+     "id": "funnel-clase-organico-6",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando no tienes presupuesto para anuncios, pero sí tiempo para publicar seguido.",
+     "t_inicio": 22.22,
+     "t_fin": 27.82
+    },
+    {
+     "id": "funnel-clase-organico-7",
+     "rol": "cosa",
+     "texto": "No hace falta una cuenta grande: hay quien vende con mil seguidores.",
+     "t_inicio": 28.26,
+     "t_fin": 31.68
+    },
+    {
+     "id": "funnel-clase-organico-8",
+     "rol": "cosa",
+     "texto": "La clave es la constancia: unas tres publicaciones por semana, durante meses.",
+     "t_inicio": 32.08,
+     "t_fin": 37.04
+    },
+    {
+     "id": "funnel-clase-organico-9",
+     "rol": "cosa",
+     "texto": "Y tener quién conteste: un buen reel puede traerte decenas de mensajes en un día.",
+     "t_inicio": 37.36,
+     "t_fin": 42
+    },
+    {
+     "id": "funnel-clase-organico-10",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda a pensar qué publicar y cómo responder, y lo que entra queda en tu CRM.",
+     "t_inicio": 42.44,
+     "t_fin": 48.44,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-organico-11",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 48.8,
+     "t_fin": 50.28,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T00:54:48.172Z"
+  },
+  {
+   "key": "funnel-clase-youtube",
+   "pestana": "Funnel Coach · Clase: YouTube",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-youtube.mp4",
+   "poster": "/tutoriales/funnel-clase-youtube.jpg",
+   "duracion_s": 50.07,
+   "peso_kb": 2651,
+   "guion": "Un video de YouTube puede seguir trayéndote clientes meses después de subirlo. Te doy la bienvenida a la clase de YouTube: videos que responden lo que tu cliente busca antes de comprar. Quien los mira te conoce, confía en tu forma de pensar y da un paso: se anota, agenda o compra. A diferencia de un reel, que dura un par de días, un video se sigue encontrando en el buscador. ¿Cuándo te conviene? Cuando tu cliente investiga antes de comprar, y lo que vendes cuesta más. El video largo es el que mejor vende lo caro: explica y genera confianza. Necesitas constancia: arrancar con varios videos hechos te ayuda a no frenar. Y no esperes clientes en una semana: es un activo que crece con el tiempo. Funnel Coach te ayuda a elegir de qué hablar y a dónde llevar a quien te mira. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-youtube-1",
+     "rol": "gancho",
+     "texto": "Un video de YouTube puede seguir trayéndote clientes meses después de subirlo.",
+     "t_inicio": 0.08,
+     "t_fin": 4.46
+    },
+    {
+     "id": "funnel-clase-youtube-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de YouTube: videos que responden lo que tu cliente busca antes de comprar.",
+     "t_inicio": 4.9,
+     "t_fin": 11
+    },
+    {
+     "id": "funnel-clase-youtube-3",
+     "rol": "cosa",
+     "texto": "Quien los mira te conoce, confía en tu forma de pensar y da un paso: se anota, agenda o compra.",
+     "t_inicio": 11.38,
+     "t_fin": 17.86
+    },
+    {
+     "id": "funnel-clase-youtube-4",
+     "rol": "cosa",
+     "texto": "A diferencia de un reel, que dura un par de días, un video se sigue encontrando en el buscador.",
+     "t_inicio": 18.28,
+     "t_fin": 23.02
+    },
+    {
+     "id": "funnel-clase-youtube-5",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando tu cliente investiga antes de comprar, y lo que vendes cuesta más.",
+     "t_inicio": 23.44,
+     "t_fin": 28.86
+    },
+    {
+     "id": "funnel-clase-youtube-6",
+     "rol": "cosa",
+     "texto": "El video largo es el que mejor vende lo caro: explica y genera confianza.",
+     "t_inicio": 29.22,
+     "t_fin": 33.98
+    },
+    {
+     "id": "funnel-clase-youtube-7",
+     "rol": "cosa",
+     "texto": "Necesitas constancia: arrancar con varios videos hechos te ayuda a no frenar.",
+     "t_inicio": 34.34,
+     "t_fin": 38.94
+    },
+    {
+     "id": "funnel-clase-youtube-8",
+     "rol": "cosa",
+     "texto": "Y no esperes clientes en una semana: es un activo que crece con el tiempo.",
+     "t_inicio": 39.26,
+     "t_fin": 43.22
+    },
+    {
+     "id": "funnel-clase-youtube-9",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda a elegir de qué hablar y a dónde llevar a quien te mira.",
+     "t_inicio": 43.58,
+     "t_fin": 47.5,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-youtube-10",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 47.94,
+     "t_fin": 49.36,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T00:57:54.368Z"
+  },
+  {
+   "key": "funnel-clase-anuncios-a-whatsapp",
+   "pestana": "Funnel Coach · Clase: Anuncios a WhatsApp",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-anuncios-a-whatsapp.mp4",
+   "poster": "/tutoriales/funnel-clase-anuncios-a-whatsapp.jpg",
+   "duracion_s": 61.4,
+   "peso_kb": 3153,
+   "guion": "Si alguien te escribe por WhatsApp y tardas en contestar, se lo lleva otro. Te doy la bienvenida a la clase de Anuncios a WhatsApp: el anuncio abre un chat contigo, y vendes conversando. Funciona así. La persona ve tu anuncio, con un botón que avisa que va a abrir WhatsApp. Lo toca, y te llega su primer mensaje. Conversas: descubres qué necesita y resuelves sus dudas. Y le vendes ahí mismo, o lo pasas a una llamada o a una visita. ¿Cuándo te conviene? Cuando vendes a personas, a un precio medio, y la venta se da conversando. Se arranca con poco: unos pocos dólares por día alcanzan para probar. La condición es contestar rápido, y seguir la conversación: a quien te escribió y no le haces seguimiento, lo pierdes. Un buen número: de cada 100 conversaciones, entre 5 y 20 terminan en compra. Funnel Coach te ayuda con el anuncio y con qué contestar, y en Chats, MaKo te sugiere la respuesta. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-1",
+     "rol": "gancho",
+     "texto": "Si alguien te escribe por WhatsApp y tardas en contestar, se lo lleva otro.",
+     "t_inicio": 0.12,
+     "t_fin": 4.12
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de Anuncios a WhatsApp: el anuncio abre un chat contigo, y vendes conversando.",
+     "t_inicio": 4.76,
+     "t_fin": 11.32
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-3",
+     "rol": "cosa",
+     "texto": "Funciona así. La persona ve tu anuncio, con un botón que avisa que va a abrir WhatsApp.",
+     "t_inicio": 11.82,
+     "t_fin": 16.84
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-4",
+     "rol": "cosa",
+     "texto": "Lo toca, y te llega su primer mensaje.",
+     "t_inicio": 17.34,
+     "t_fin": 19.74
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-5",
+     "rol": "cosa",
+     "texto": "Conversas: descubres qué necesita y resuelves sus dudas.",
+     "t_inicio": 20.26,
+     "t_fin": 23.94
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-6",
+     "rol": "cosa",
+     "texto": "Y le vendes ahí mismo, o lo pasas a una llamada o a una visita.",
+     "t_inicio": 24.38,
+     "t_fin": 28.1
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-7",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando vendes a personas, a un precio medio, y la venta se da conversando.",
+     "t_inicio": 28.72,
+     "t_fin": 34.24
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-8",
+     "rol": "cosa",
+     "texto": "Se arranca con poco: unos pocos dólares por día alcanzan para probar.",
+     "t_inicio": 34.7,
+     "t_fin": 38.42
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-9",
+     "rol": "cosa",
+     "texto": "La condición es contestar rápido, y seguir la conversación: a quien te escribió y no le haces seguimiento, lo pierdes.",
+     "t_inicio": 38.98,
+     "t_fin": 46.02
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-10",
+     "rol": "cosa",
+     "texto": "Un buen número: de cada 100 conversaciones, entre 5 y 20 terminan en compra.",
+     "t_inicio": 46.66,
+     "t_fin": 51.98
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-11",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda con el anuncio y con qué contestar, y en Chats, MaKo te sugiere la respuesta.",
+     "t_inicio": 52.76,
+     "t_fin": 58.56,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-12",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 59.06,
+     "t_fin": 60.72,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "100 → cien · 5 → cinco · 20 → veinte (ortografía del transcriptor)",
+   "hecho": "2026-11-19T00:45:55.729Z"
+  },
+  {
+   "key": "funnel-clase-anuncios-a-vsl",
+   "pestana": "Funnel Coach · Clase: Anuncios a VSL",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-anuncios-a-vsl.mp4",
+   "poster": "/tutoriales/funnel-clase-anuncios-a-vsl.jpg",
+   "duracion_s": 75.17,
+   "peso_kb": 3869,
+   "guion": "Si cobras 3.000 dólares o más, casi nadie te compra con un clic. Te doy la bienvenida a la clase de Anuncios a VSL: el funnel para vender caro en una llamada. Funciona así. Un anuncio le habla a un tipo de cliente con un problema, y lo lleva a una página. En esa página hay un video corto que explica tu servicio: eso es la VSL. Quien se convence contesta unas preguntas y agenda una llamada contigo. Y en esa llamada se cierra la venta. ¿Cuándo te conviene? Cuando lo que vendes cuesta desde unos 3.000 dólares, alguien sabe cerrar por llamada, y tienes presupuesto para juntar llamadas. Haz la cuenta: con 20 llamadas al mes, cerrando una de cada cinco, son cuatro ventas. A 3.000 dólares, 12.000 al mes. Las preguntas antes de agendar filtran a los curiosos: su negocio, cuánto factura y qué quiere lograr. Y entre la agenda y la llamada, los recordatorios hacen que se presente. Un aviso: si todavía no vendiste esa oferta, véndela primero a gente que ya te conoce, antes de pagar anuncios. Funnel Coach te ayuda a armar cada pieza: el anuncio, la página, las preguntas y tu CRM con sus etapas. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-anuncios-a-vsl-1",
+     "rol": "gancho",
+     "texto": "Si cobras 3.000 dólares o más, casi nadie te compra con un clic.",
+     "t_inicio": 0.08,
+     "t_fin": 4
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de Anuncios a VSL: el funnel para vender caro en una llamada.",
+     "t_inicio": 4.42,
+     "t_fin": 10.74
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-3",
+     "rol": "cosa",
+     "texto": "Funciona así. Un anuncio le habla a un tipo de cliente con un problema, y lo lleva a una página.",
+     "t_inicio": 11.22,
+     "t_fin": 17.26
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-4",
+     "rol": "cosa",
+     "texto": "En esa página hay un video corto que explica tu servicio: eso es la VSL.",
+     "t_inicio": 17.7,
+     "t_fin": 22.74
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-5",
+     "rol": "cosa",
+     "texto": "Quien se convence contesta unas preguntas y agenda una llamada contigo.",
+     "t_inicio": 23.12,
+     "t_fin": 26.94
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-6",
+     "rol": "cosa",
+     "texto": "Y en esa llamada se cierra la venta.",
+     "t_inicio": 27.34,
+     "t_fin": 29.46
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-7",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando lo que vendes cuesta desde unos 3.000 dólares, alguien sabe cerrar por llamada, y tienes presupuesto para juntar llamadas.",
+     "t_inicio": 29.92,
+     "t_fin": 38.2
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-8",
+     "rol": "cosa",
+     "texto": "Haz la cuenta: con 20 llamadas al mes, cerrando una de cada cinco, son cuatro ventas. A 3.000 dólares, 12.000 al mes.",
+     "t_inicio": 38.56,
+     "t_fin": 46.72
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-9",
+     "rol": "cosa",
+     "texto": "Las preguntas antes de agendar filtran a los curiosos: su negocio, cuánto factura y qué quiere lograr.",
+     "t_inicio": 47.2,
+     "t_fin": 53.54
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-10",
+     "rol": "cosa",
+     "texto": "Y entre la agenda y la llamada, los recordatorios hacen que se presente.",
+     "t_inicio": 53.92,
+     "t_fin": 57.78
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-11",
+     "rol": "cosa",
+     "texto": "Un aviso: si todavía no vendiste esa oferta, véndela primero a gente que ya te conoce, antes de pagar anuncios.",
+     "t_inicio": 58.2,
+     "t_fin": 64.96
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-12",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda a armar cada pieza: el anuncio, la página, las preguntas y tu CRM con sus etapas.",
+     "t_inicio": 65.4,
+     "t_fin": 72.64,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-anuncios-a-vsl-13",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 73,
+     "t_fin": 74.48,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "3 → tres · 000 → mil · 3 → tres · 000 → mil · 20 → veinte · 3 → tres · 000 → mil · 12 → doce · 000 → mil (ortografía del transcriptor)",
+   "hecho": "2026-11-19T00:40:06.762Z"
+  },
+  {
    "key": "reto-dia-1",
    "pestana": "Reto · Día 1: tu oferta y tu sistema de adquisición",
    "ruta": "/second-brain?reto=1",
