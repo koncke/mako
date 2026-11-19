@@ -55,10 +55,12 @@ test('el chip «Sin cobro» sale en la lista y en la segunda línea del renglón
 });
 
 test('lo escribe SÓLO el super admin al tocar el interruptor, y ningún código lo cambia solo', () => {
-  const a = fuente('app/admin/cobros/actions.ts');
+  const a = fuente('app/admin/_polar/datos/sin-cobro-actions.ts');
+  assert.match(a, /^'use server'/, 'una server action');
   const f = a.slice(a.indexOf('export async function ponerSinCobroAction'));
   assert.match(f.slice(0, 260), /const admin = await getSesionAdmin\(\);\n  if \(!admin\) return/, 'getSesionAdmin en la primera línea');
-  assert.match(fuente('lib/api-mako/cobertura.ts'), /ponerSinCobroAction': 'decide si un negocio se cobra/, 'no va en la API: por el chat sería un vector');
+  assert.doesNotMatch(fuente('app/admin/cobros/actions.ts'), /ponerSinCobro/, 'no en las acciones de cobros: ahí el ws no viaja desde la pantalla (tests/admin-cobros.test.ts)');
+  assert.match(fuente('lib/api-mako/cobertura.ts'), /sin-cobro-actions.ts#ponerSinCobroAction': 'decide si un negocio se cobra/, 'no va en la API: por el chat sería un vector');
   // Nadie más importa `ponerSinCobro`: ni un cron ni un flujo de cobro.
   for (const ruta of ['lib/plan-acceso.ts', 'lib/cobros.ts', 'lib/compra-plan.ts', 'lib/agencia-mes.ts']) assert.doesNotMatch(fuente(ruta), /ponerSinCobro/, ruta);
   const s = fuente('lib/cuenta-sin-cobro.ts');

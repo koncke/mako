@@ -10,7 +10,7 @@ import { CustomerPageShell } from '@/app/admin/_polar/web/Customer/CustomerPage/
 // «Desconectar» una computadora: la server action del Centro (pide `puedeOperar` otra vez) viaja como prop a la ficha, que no la
 // importa (así se puede dibujar en node: tests/ia-pc-varias.test.ts).
 import { desconectarComputadoraAction } from '@/app/admin/operaciones/acciones'
-import { ponerSinCobroAction } from '@/app/admin/cobros/actions'
+import { ponerSinCobroAction } from '@/app/admin/_polar/datos/sin-cobro-actions'
 import { leerSinCobro } from '@/lib/cuenta-sin-cobro'
 import { Metadata } from 'next'
 
