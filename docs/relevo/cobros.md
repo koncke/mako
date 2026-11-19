@@ -1,6 +1,6 @@
 # Relevo — chat «Cobros» (cuenta claude5), 19/11/2026
 
-Rama `punta/cobros` (worktree `C:/dev/wt-cobros`). GitHub la chequea y la lleva a main sola; sale con el deploy diario de las 11:05 UTC. Lo detallado de cada
+Rama `punta/cobros-1911` (worktree `C:/dev/wt-cobros`; la `punta/cobros` vieja quedó en rojo con una versión anterior y no se usa: no se pudo reemplazar sin forzar). GitHub la chequea y la lleva a main sola; sale con el deploy diario de las 11:05 UTC. Lo detallado de cada
 tema está en `docs/hallazgos-pagos.md`, `docs/hallazgos-partners.md`, `docs/hallazgos-agencias.md` y `docs/hallazgos-mako-tokens.md` (entradas del 19/11).
 El brief de lo que falta de Partners sigue en `docs/pendientes-partners-pagos-1811.md`.
 
@@ -27,6 +27,9 @@ El brief de lo que falta de Partners sigue en `docs/pendientes-partners-pagos-18
 6. **Sin ver en pantalla (capturas a 1440 y 375):** la esquina «Prueba hasta el…», la ficha del interruptor, /cuenta-pausada con «Tu prueba gratis terminó», la landing
    de /partners sin Pro. La PC estuvo con 0,4–2 GB libres toda la noche: tampoco se corrió el tsc local (lo corre GitHub en la punta).
 7. **Sin probar con un pago real:** el calce de Binance (el primero será el de Leila, el 26/11).
+
+8. **Leila pagó en BTC en octubre:** si vuelve a pagar en BTC, su comprobante va a Martín (no se convierte solo). El aviso del 26/11 dice «Págala por Binance»
+   sin pedir USDT (`textoDelAvisoDelMes`, lib/agencia-mes-reglas.ts).
 
 ## Qué espera de Martín
 - Apagar «Habilitado sin cobro» en P2P Consulting (Admin › Customers) cuando quiera que empiece su prueba.
