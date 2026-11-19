@@ -36,6 +36,8 @@
 
 import type { OperacionDef, Parametro } from '../tipos';
 import { OPERACIONES_API, PARAM_PROYECTO, descripcionApi } from '../../editor-video/chat-api';
+import { IDS_FORMATO } from '../../ai-avatar/cubos-formatos';
+import { PIELES, PELOS, PEINADOS, ROPAS, OJOS } from '../../ai-avatar/cubos-personaje';
 
 const TODOS: ['whatsapp', 'app', 'http'] = ['whatsapp', 'app', 'http'];
 const SIN_HTTP: ['whatsapp', 'app'] = ['whatsapp', 'app'];
@@ -291,5 +293,39 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'id', rotulo: 'Plantilla', tipo: 'string', max: 40, descripcion: 'el id de una plantilla, para traer su ejemplo completo.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: 'ai-avatar', rolMinimo: 'admin' },
+  },
+
+  // ═══════════════════════════ El personaje en cubos (19/11/2026) ════════════════════════════════════════════════════
+  // El video animado por código de AI Avatar (docs/editor-video/ai-avatar-por-codigo.md): una plantilla de la galería con el
+  // guion, el personaje y la voz como datos. Martín: cada función nueva sale con su operación. Lo que NO puede la API es armar
+  // el MP4, que se arma en el navegador de la persona («Descargar MP4»): por eso `crear_video_cubos` deja el video LISTO
+  // (la voz con sus tiempos y el proyecto guardado) y devuelve el link para abrirlo. Las dos respetan el interruptor de la
+  // revisión de Martín (lib/ai-avatar/cubos-interruptor.ts): a quien no lo tiene le contestan «todavía no disponible».
+  {
+    id: 'ver_videos_cubos', area: 'video', tipo: 'lectura',
+    datosDeClientes: false,
+    titulo: 'Videos del personaje en cubos',
+    descripcion: 'Los videos del personaje en cubos que el negocio ya armó en AI Avatar: el formato, el guion por frases, la voz, cuánto dura, cómo es su personaje (piel, pelo, peinado, ropa, ojos, lentes, barba) y el link para abrirlo en la app. El MP4 no se arma acá: se arma en la app con «Descargar MP4», en la computadora. Si la respuesta dice que no está disponible, repítelo y no ofrezcas crear uno.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: 'ai-avatar', rolMinimo: 'admin' },
+  },
+  {
+    id: 'crear_video_cubos', area: 'video', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
+    titulo: 'Crear un video en cubos',
+    descripcion: 'PROPONE crear un video del personaje en cubos de AI Avatar: el guion (una frase por renglón; las palabras entre *asteriscos* van resaltadas), el formato, cómo es el personaje y la voz. Al confirmarlo en la pantalla de revisión, MaKo genera la voz con sus tiempos (gasta MaKo Tokens con la voz de MaKo; su voz clonada la paga su cuenta de ElevenLabs) y deja el video listo para abrir en la app, donde se mira y se baja el MP4. Escribe el guion antes, corto: 4 a 7 frases, hasta 50 palabras. Si la respuesta dice que no está disponible, repítelo.',
+    escribe: 'guarda la voz en el bucket de medios y el video en los ajustes del negocio (ai-avatar.cubos)',
+    parametros: [
+      { nombre: 'guion', rotulo: 'Guion', tipo: 'string', obligatorio: true, max: 1200, descripcion: 'una frase por renglón; las palabras entre *asteriscos* van resaltadas.' },
+      { nombre: 'formato', rotulo: 'Formato', tipo: 'string', enum: [...IDS_FORMATO], descripcion: 'punch-captions = palabras gigantes; karaoke-subs = subtítulos karaoke. Por defecto, punch-captions.' },
+      { nombre: 'voz', rotulo: 'Voz', tipo: 'string', enum: ['david', 'fernando', 'clon'], descripcion: 'una voz de MaKo (david, fernando) o su voz clonada (clon). Por defecto, david.' },
+      { nombre: 'piel', rotulo: 'Piel', tipo: 'string', enum: PIELES.map((x) => x.clave), descripcion: 'el tono de piel del personaje.' },
+      { nombre: 'pelo', rotulo: 'Pelo', tipo: 'string', enum: PELOS.map((x) => x.clave), descripcion: 'el color de pelo.' },
+      { nombre: 'peinado', rotulo: 'Peinado', tipo: 'string', enum: PEINADOS.map((x) => x.clave), descripcion: 'el peinado (rapado = casi sin pelo).' },
+      { nombre: 'ropa', rotulo: 'Ropa', tipo: 'string', enum: ROPAS.map((x) => x.clave), descripcion: 'el color de la ropa de arriba.' },
+      { nombre: 'ojos', rotulo: 'Ojos', tipo: 'string', enum: OJOS.map((x) => x.clave), descripcion: 'el color de ojos.' },
+      { nombre: 'lentes', rotulo: 'Lentes', tipo: 'boolean', descripcion: 'si usa lentes.' },
+      { nombre: 'barba', rotulo: 'Barba', tipo: 'boolean', descripcion: 'si tiene barba.' },
+    ],
+    canales: TODOS, costo: 'ia', gating: { tab: 'ai-avatar', rolMinimo: 'admin' },
   },
 ];

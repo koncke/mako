@@ -40,7 +40,7 @@
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain` · `ver_kits_marca` · `guardar_kit_marca` · `elegir_kit_marca` · `borrar_kit_marca` · `ver_plantillas_oferta` · `corregir_campo_perfil`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter` · `outliers_copywriter` · `replicar_outlier_copywriter` · `replicar_link_o_texto_copywriter` · `cargar_guiones_anuncio` · `generar_anuncios_planteados`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `animar_palabras_video` · `usar_preset_subtitulos` · `proponer_broll_video` · `buscar_clips_video` · `editar_video_automatico` · `poner_emojis_subtitulos` · `agregar_motion_video` · `editar_motion_video` · `duplicar_elemento_video` · `cambiar_fondo_lienzo` · `poner_efecto_texto_video` · `agregar_emoji_video` · `encuadrar_clip_video` · `otra_imagen_broll` · `poner_medios_linea_tiempo` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos` · `ver_plantillas_avatar`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `animar_palabras_video` · `usar_preset_subtitulos` · `proponer_broll_video` · `buscar_clips_video` · `editar_video_automatico` · `poner_emojis_subtitulos` · `agregar_motion_video` · `editar_motion_video` · `duplicar_elemento_video` · `cambiar_fondo_lienzo` · `poner_efecto_texto_video` · `agregar_emoji_video` · `encuadrar_clip_video` · `otra_imagen_broll` · `poner_medios_linea_tiempo` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos` · `ver_plantillas_avatar` · `ver_videos_cubos` · `crear_video_cubos`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `escribir_en_grupo` · `configurar_horario_envio`
@@ -16385,7 +16385,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 18 lecturas · 53 acciones.
+Tab **Video Generator** (`/video-generator`). 19 lecturas · 54 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -18502,6 +18502,67 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/video/plantillas-avatar"
+```
+
+### `GET /api/v1/video/cubos` — Videos del personaje en cubos
+
+Los videos del personaje en cubos que el negocio ya armó en AI Avatar: el formato, el guion por frases, la voz, cuánto dura, cómo es su personaje (piel, pelo, peinado, ropa, ojos, lentes, barba) y el link para abrirlo en la app. El MP4 no se arma acá: se arma en la app con «Descargar MP4», en la computadora. Si la respuesta dice que no está disponible, repítelo y no ofrezcas crear uno.
+
+- **Ruta por operación:** `GET /api/v1/video/ver_videos_cubos`
+- **Token detallado:** permiso `video=read` (Solo lectura en «Video Generator»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ai-avatar
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/cubos"
+```
+
+### `POST /api/v1/video/cubos` — Crear un video en cubos
+
+PROPONE crear un video del personaje en cubos de AI Avatar: el guion (una frase por renglón; las palabras entre *asteriscos* van resaltadas), el formato, cómo es el personaje y la voz. Al confirmarlo en la pantalla de revisión, MaKo genera la voz con sus tiempos (gasta MaKo Tokens con la voz de MaKo; su voz clonada la paga su cuenta de ElevenLabs) y deja el video listo para abrir en la app, donde se mira y se baja el MP4. Escribe el guion antes, corto: 4 a 7 frases, hasta 50 palabras. Si la respuesta dice que no está disponible, repítelo.
+
+- **Ruta por operación:** `POST /api/v1/video/crear_video_cubos`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** guarda la voz en el bucket de medios y el video en los ajustes del negocio (ai-avatar.cubos)
+- **Reversible:** sí
+- **Costo:** ia
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ai-avatar
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `guion` | string | sí | una frase por renglón; las palabras entre *asteriscos* van resaltadas. |
+| `formato` | string (punch-captions \\| karaoke-subs) | no | punch-captions = palabras gigantes; karaoke-subs = subtítulos karaoke. Por defecto, punch-captions. |
+| `voz` | string (david \\| fernando \\| clon) | no | una voz de MaKo (david, fernando) o su voz clonada (clon). Por defecto, david. |
+| `piel` | string (muy-clara \\| clara \\| media \\| morena \\| oscura \\| muy-oscura) | no | el tono de piel del personaje. |
+| `pelo` | string (cobrizo \\| negro \\| castano-oscuro \\| castano \\| rubio \\| canoso) | no | el color de pelo. |
+| `peinado` | string (rulos \\| corto \\| largo \\| rapado) | no | el peinado (rapado = casi sin pelo). |
+| `ropa` | string (negra \\| blanca \\| gris \\| azul \\| verde \\| roja \\| beige) | no | el color de la ropa de arriba. |
+| `ojos` | string (marrones \\| oscuros \\| miel \\| verdes \\| azules) | no | el color de ojos. |
+| `lentes` | boolean | no | si usa lentes. |
+| `barba` | boolean | no | si tiene barba. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/cubos" \
+  -d '{"guion":"GUION"}'
 ```
 
 ## Image Editor (diseños) — `imagen`
