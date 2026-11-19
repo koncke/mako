@@ -121,13 +121,13 @@ test('el paso a Funnel Coach espera a que la persona VEA su oferta: un gesto o ~
   assert.match(paso, /marcarTarea\(\[\{ \.\.\.m, lado: 'abajo' \}\], \(\) => \{ if \(d\?\.estado\) void hacer\(\{ accion: 'hecha', dia: 1, id: TAREA\.id \}\); \}\);/);
   assert.match(paso, /if \(!m \|\| yaMarcada\(CLAVE\) \|\| senalAhora\(\) \|\| !filaVisible\(m\.sel\)\) return;/);
   assert.match(paso, /if \(Date\.now\(\) - ultimoGesto > GESTO_RECIENTE_MS\) return;/, 'bajar al último mensaje lo hace la pantalla, no la persona');
-  // Dónde se entrega: el Offer Coach (relee la oferta al terminar cada turno) y la conversación de oferta del PDF (una versión nueva,
-  // contada con Offer ya quieto). Los dos, sólo con los dos coaches y a la vista.
+  // Dónde se entrega: el Offer Coach (desde el 19/11 con el motor de Offer: una versión nueva de SU conversación) y la conversación de
+  // oferta del PDF que cuelga de él (lo mismo). Contadas con Offer ya quieto; los dos, sólo con los dos coaches y a la vista.
   const chat = leerSin('app/second-brain/ChatDelCoach.tsx');
   assert.match(chat, /usePasoAlFunnel\(\{ activo: dosCoaches && cual === 'offer' && visible, entregadaEn, ocupado,/);
   const motor = leerSin('app/second-brain/useChatDelCoach.ts');
-  assert.match(motor, /if \(ocupado \|\| cual !== 'offer' \|\| !dosCoaches\) return;/);
-  assert.match(motor, /if \(base\.current != null && ofertaRecienEntregada\(base\.current, nueva\)\) setEntregadaEn\(Date\.now\(\)\);/);
+  assert.match(motor, /if \(!motorOffer \|\| idAbierta == null \|\| versionesAbierta == null\) return;/);
+  assert.match(motor, /if \(k\.enCurso\) return;\n\s*if \(versionesAbierta > antes\.n\) setEntregadaEn\(Date\.now\(\)\);/);
   const sb = leerSin('app/second-brain/ChatSecondBrain.tsx');
   assert.match(sb, /if \(k\.enCurso\) return;\n\s*if \(ofertaAbierta\.versiones > antes\.n\) setEntregadaOffer\(Date\.now\(\)\);/);
   assert.match(sb, /usePasoAlFunnel\(\{ activo: dosCoaches && seVeLaConversacion, entregadaEn: entregadaOffer,/);
