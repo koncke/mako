@@ -6,6 +6,7 @@
 import { exigirSuperAdmin } from '@/app/admin/_polar/datos/guarda'
 import { leerClientes, opcionesDeAlta } from '@/app/admin/_polar/datos/clientes-server'
 import { listaDeClientes } from '@/app/admin/_polar/datos/clientes'
+import { negociosSinCobro } from '@/lib/cuenta-sin-cobro'
 import { CustomerListSidebar } from '@/app/admin/_polar/web/Customer/CustomerListSidebar'
 import { MasterDetailLayout } from '@/app/admin/_polar/web/Layout/MasterDetailLayout'
 import { PropsWithChildren } from 'react'
@@ -14,13 +15,13 @@ export const dynamic = 'force-dynamic'
 
 export default async function Layout(props: PropsWithChildren) {
   await exigirSuperAdmin()
-  const lectura = await leerClientes()
+  const [lectura, sinCobro] = await Promise.all([leerClientes(), negociosSinCobro()])
 
   return (
     <MasterDetailLayout
       listView={
         <CustomerListSidebar
-          customers={lectura.ok ? listaDeClientes(lectura.datos.filas, lectura.datos.pruebas ?? []) : null}
+          customers={lectura.ok ? listaDeClientes(lectura.datos.filas, lectura.datos.pruebas ?? [], sinCobro) : null}
           error={lectura.ok ? null : lectura.error}
           opciones={opcionesDeAlta()}
         />

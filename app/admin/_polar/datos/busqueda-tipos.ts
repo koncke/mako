@@ -52,8 +52,8 @@ export const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, 
  * («De Agencia Faro · MaKo Essential · Pausado»). UNA frase para la búsqueda ⌘K y para la segunda línea de la lista de Customers
  * (revisión del Cerebro del 6/11/2026, punto 35): con dos, un negocio pausado diría «Pausado» en un lado y nada en el otro.
  */
-export function detalleDeNegocio(n: { plan: string; pausado: boolean; deAgencia?: boolean; agencia?: string | null; prueba?: boolean }): string {
-  return [n.prueba ? 'Cuenta de prueba' : null, n.deAgencia ? `De ${n.agencia ?? 'una agencia'}` : null, n.plan, n.pausado ? 'Pausado' : null].filter(Boolean).join(' · ')
+export function detalleDeNegocio(n: { plan: string; pausado: boolean; deAgencia?: boolean; agencia?: string | null; prueba?: boolean; sinCobro?: boolean }): string {
+  return [n.prueba ? 'Cuenta de prueba' : null, n.sinCobro ? 'Sin cobro' : null, n.deAgencia ? `De ${n.agencia ?? 'una agencia'}` : null, n.plan, n.pausado ? 'Pausado' : null].filter(Boolean).join(' · ')
 }
 
 /** Arma el índice con lo que leyó el server. `plan` dice el nombre del plan de una capa. */

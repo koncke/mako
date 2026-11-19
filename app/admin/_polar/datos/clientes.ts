@@ -75,6 +75,8 @@ export type ClienteDeLista = {
   deAgencia: boolean
   /** Un negocio de prueba (el Cliente de Prueba, el de Diseño, la cuenta de revisión): se ve en la lista para poder probarlo, pero no cuenta en ningún número. */
   esPrueba: boolean
+  /** «Habilitado sin cobro» prendido (lib/cuenta-sin-cobro-reglas.ts): el chip «Sin cobro» de la lista. */
+  sinCobro?: boolean
   /** El nombre de su agencia, si se sabe. */
   agencia: string | null
 }
@@ -123,9 +125,11 @@ export const esClienteDeMaKo = (f: Pick<FilaCliente, 'segmentos'>): boolean => !
 export function listaDeClientes(
   filas: ReadonlyArray<Pick<FilaCliente, 'ws' | 'nombre' | 'creado' | 'estado' | 'capa' | 'segmentos'> & { agencia?: string | null }>,
   pruebas: ReadonlyArray<Pick<FilaCliente, 'ws' | 'nombre' | 'creado' | 'estado' | 'capa' | 'segmentos'> & { agencia?: string | null }> = [],
+  sinCobro: ReadonlySet<number> = new Set<number>(),
 ): ClienteDeLista[] {
   const una = (f: (typeof filas)[number], esPrueba: boolean): ClienteDeLista => ({
     esPrueba,
+    sinCobro: sinCobro.has(f.ws),
     ws: f.ws,
     nombre: f.nombre,
     creado: f.creado,
