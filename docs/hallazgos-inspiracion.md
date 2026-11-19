@@ -28,7 +28,10 @@ del doer junta varios mensajes en un texto. Para un texto libre está `linksDeIn
   tenían el botón «Learn more» o «Shop now». yt-dlp los baja como video sin pie: el CTA del anuncio sólo se ve con sesión.
 - **La consulta directa a la API de Instagram la frena el clasificador de permisos** como acceso no autorizado: no se usa.
 - **El navegador de la app, OCULTO, no termina de cargar Instagram:** `get_page_text` vuelve vacío o se pasa del tiempo.
-  Hay que pedir que se muestre (Ctrl+Shift+B) antes de depender de él.
+  **Lo que anduvo** (lo encontró el chat de Referentes): abrir una pestaña NUEVA con `preview_start`, `resize_window` a
+  1280×2400 y sacar una captura antes de leer; ahí la página carga aunque el panel siga oculto. Así se confirmaron 7 anuncios
+  más: de los 16 «posts de video sin pie», 13 son anuncios pagados confirmados y 2 (60 y 68) quedaron en blanco. Instagram marca
+  a uno (cosmosai.app, 45) como «AI-generated profile».
 
 ## La PC: yt-dlp roto, pip sin red y transcribir lento (19/11/2026)
 
@@ -84,5 +87,5 @@ del doer junta varios mensajes en un texto. Para un texto libre está `linksDeIn
 - **La pregunta Sí/No por WhatsApp** (diseno.md §10): necesita recordar qué tarjeta se está contestando.
 - **El negocio de Martín no está en el interruptor:** `WS_REVISION = [3, 9]` (`lib/inspiracion/revision.ts`). Sus emails sí
   ven la pantalla en cualquier negocio, pero el WhatsApp entra por negocio.
-- **Anuncios sin comprobar:** 31, 42, 43, 44, 45, 49, 51, 60 y 68 tienen «anuncio: probable» (C:/dev/inspiracion/pies/):
-  se abren con el navegador de la app visible.
+- **Anuncios sin comprobar:** sólo 60 y 68 (C:/dev/inspiracion/pies/): con el truco de la pestaña nueva, la página quedó en
+  blanco. Los demás están confirmados.

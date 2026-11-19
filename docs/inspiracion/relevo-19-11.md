@@ -161,6 +161,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** «10 millones de reproducciones en siete días, con una cuenta nueva y sin grabar un solo video.» En pantalla, un contador que sube de 4.823.516 a 10.138.849 sobre una pared de miniaturas de reels con sus vistas.
 - **Estructura:** 0-6 s gancho: contador de vistas sobre pared de reels · 6-11 s calendario «18 octubre, todo con ATOM» · 11-21 s la carpeta con códigos y documentos, ventana «Tu IA» · 21-26 s prueba: el reel del brazo con 20 M de vistas («captura real») · 26-41 s qué trae ATOM ÉLITE: caja 3D, estilo de animación, portadas, descripciones listas, instructivo · 41-46 s beneficio: llegar a mucha gente y vender más · 46-60 s oferta: pago único, de US$37,90 a US$29,90 · 60-63 s botón «Más información»
 - **CTA:** Toca más información y mira cómo funciona.
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Learn more»)
 - **Carpeta:** Serie 3: Ventas («encontré una app») (50 · otra opción: Formatos de animación (galería)) — Es un video de venta completo de una herramienta de IA (resultado, herramienta, qué trae, precio tachado, CTA); pero también vale por su animación, y es un anuncio pagado, no un post orgánico: conviene preguntarle a Martín.
 - **Para robar:** Abrir con el número propio subiendo en pantalla, la etiqueta «captura real» como prueba, y el ancla de precio tachado; ojo: vende casi lo mismo que la galería «estilo Claude» de Martín.
 
@@ -295,6 +296,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** Texto fijo «O FIM DOS EDITORES – O Claude editou 100% desse vídeo» (El fin de los editores – Claude editó el 100 % de este video) y la voz: «Ponme en un marco y a la izquierda explica una receta de bizcocho de maíz con animación.»
 - **Estructura:** 0-14 s orden 1: lo pone en un marco y aparece la receta animada (ingredientes, batidora, horno, bizcocho) · 14-26 s orden 2: pantalla completa con sus videos virales flotando en 3D · 26-38 s promesa: aplicarlo a contenidos, clases y anuncios, con un medidor del gasto en tokens · 38-45 s qué aprendes (configurar el ordenador, guiar a la IA, revisar) · 45-52 s CTA con el logo «Máquina de Edição IA» y «link en la descripción»
 - **CTA:** «La máquina de edición con IA está aquí en la descripción. Entra en la página, echa un vistazo a la demo.» Botón «Learn more»; pie: «Toca el botón de Más información».
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Learn more»)
 - **Carpeta:** otro → Anuncios pagados (50 · otra opción: Serie 3: Ventas («encontré una app»)) — Es un anuncio pagado de un curso, no contenido orgánico; vale por la idea de demo, pero el look es una persona a cámara común. Si no quieres carpeta de anuncios, iría a la Serie 3.
 - **Para robar:** La demo en vivo: dar la orden en voz alta y que la edición aparezca en el momento («tu próximo video puede empezar con una orden tuya»); sirve para mostrar MaKo haciendo algo mientras lo pides.
 
@@ -317,6 +319,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** «Este archivo convierte a Claude en un editor de video. No en un editor, en trece.» Un archivo .ZIP «EDIT-IA-PRO-ES.zip» con el asterisco de Claude y el texto «ESTE ARCHIVO / CONVIERTE A CLAUDE / EN UN EDITOR DE VIDEO».
 - **Estructura:** 0-5 s gancho con el .zip · 5-10 s al instalarlo: carpeta y LEEME · 10-13 s grilla de los 13 comandos (/corte, /referencia, /3d…) · 10-20 s uno por uno: corte (37 s, pausas y errores marcados), toma, subtítulos, fondo, animación, efectos · 20-30 s el de referencia: mandas un reel y copia ritmo, subtítulos y colores «con tu sello» · 30-34 s nombre EDIT IA PRO · 34-38 s instalación en 3 pasos (abre Claude, pega el mensaje, clic en permitir) · 38-44 s CTA a la próxima página
 - **CTA:** «Si quieres que tu IA edite así, toca el botón Más información y te paso todo en la próxima página.» (botón «Learn more»)
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Learn more»)
 - **Carpeta:** Formatos de animación (galería) (65 · otra opción: Serie 3: Ventas («encontré una app»)) — Vale sobre todo por cómo se ve: una interfaz que se arma sola, en crema, negro y naranja Claude, replicable con HTML + GSAP. Pero el guion es «esta IA hace…» de la Serie 3 y además es un anuncio pagado.
 - **Para robar:** El look de bloques con borde negro y sombra dura, la barra de progreso de casillas arriba, el subtítulo en caja con una palabra en naranja, y el gancho «no en un editor, en trece».
 
@@ -340,6 +343,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** Dos pantallas lado a lado: «Edición (Premiere) 4 horas» y «IA – AI Mastery 15 minutos», con una estatua frente a una laptop y la palabra STORYTELLING repetida; la voz: «Editar es un storytelling.»
 - **Estructura:** 0-10,6 s todo en pantalla dividida: «storytelling» (estatua con laptop) · «cada corte es una decisión» (camarógrafo y esfera verde) · «cada frame cuenta una historia» (hombre con cabeza de televisor) · «editar es más que una habilidad» (computadora retro) · «es un sentimiento» (corazón anatómico)
 - **CTA:** sin CTA en el video; botón «Learn more» y pie «¡Únete hoy y activa tu descuento y bonos!»
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Learn more»)
 - **Carpeta:** Formatos de animación (galería) (65 · otra opción: otro) — Vale por el formato visual: tipografía cinética que sigue la voz palabra por palabra y la comparación lado a lado. Es un anuncio pagado, por eso la otra opción es «Anuncios pagados».
 - **Para robar:** La pantalla dividida «4 horas vs 15 minutos» corriendo la misma pieza, y las palabras que se arman letra por letra alrededor de un objeto 3D.
 
@@ -373,6 +377,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** Voz: «¿Mamá? No, no voy a tu cumpleaños. Tengo que subir otro reel que no va a ver nadie». En pantalla: un muñeco con el celular en la oreja y la etiqueta «♥ Mamá», después una torta con velas y un celular con «Subiendo…»; la palabra clave de cada frase aparece enmarcada con los tiradores de selección.
 - **Estructura:** 0-4 s gancho: escena de la vida (llamada de mamá, cumpleaños, reel con 0 vistas y butacas vacías) · 4-8 s autoridad: tarjeta de perfil con 1.400.000 seguidores · 8-19 s qué trae: 8 libros que caen y un ícono por tema (imán = clientes sin webinar, calendario de 5 $ por día = anuncios, historias, embudo que vende mientras duermes) · 19-21 s objeción: «¿Ya te quemaste con algún gurú? Normal», con dos muñecos · 21-27 s precio: etiqueta de 8 $, «un dólar por curso», comparado con un café · 27-30 s resultado: Instagram con casco de obra y avisos «Cliente nuevo ✓ / Venta nueva ✓» · 30-33 s CTA: maqueta del propio anuncio con el botón «Más información» y un dedo que lo toca
 - **CTA:** Dicho: «Pulsa en Más información ahora, o es probable que no nos volvamos a ver». Pie del anuncio: «Toca el botón de abajo y obtén acceso hoy mismo».
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Shop now»)
 - **Carpeta:** Formatos de animación (galería) (60 · otra opción: Serie 3: Ventas («encontré una app»)) — Vale sobre todo por cómo se ve: cada frase de la voz tiene su ícono animado y su palabra marcada, todo con formas simples, fácil de replicar por código. Es un anuncio pagado comprobado: si abres una carpeta «Anuncios pagados», va ahí; y el guion de precio se parece al formato «ticket» de la Serie 3.
 - **Para robar:** La palabra clave enmarcada con tiradores de selección (como en un editor) y un ícono por frase; y el guion de precio: «no te pido mil dólares, son ocho… si no te sirve, perdiste lo que cuesta un café».
 
@@ -462,6 +467,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** «Todo este video lo editó Claude con motion, subtítulos y todo» (el transcriptor dice «Clod»); en pantalla aparecen «todo», «este», «lo editó», «subtítulos», «con motion» sobre un estudio blanco con un sillón, y él entra con la laptop.
 - **Estructura:** 0-4 s gancho: «todo este video lo editó Claude» con tipografía roja animada · 4-10 s problema: «Claude por sí solo no sabe editar como un editor» (computadora vieja con notas «¿subtítulos?», «cortar las pausas»; él serio a oscuras) · 10-18 s solución: «le pegas un archivo de edición»: corta, subtitula, anima, arma la línea de tiempo y acepta cambios hablando (editor flotando) · 18-25 s cómo se usa: abre Claude, pega el mensaje de instalación y manda tu video en bruto (pantalla de Claude con «Instala el editor de video») · 25-28,7 s CTA a cámara con subtítulos grandes
 - **CTA:** «Si quieres probarlo, toca en más información y te muestro cómo» («Más información» es el botón de los anuncios)
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Learn more»)
 - **Carpeta:** Serie 3: Ventas («encontré una app») (60 · otra opción: Avatar de IA y referentes) — Muestra una herramienta (Claude como editor) primero con el resultado y después cómo se usa; pero es un anuncio con botón, no «comenta PALABRA», y el gancho «todo este video lo hizo la IA» también es de la carpeta de referentes.
 - **Para robar:** El gancho «Todo este video lo editó Claude» (el video es la prueba) y las palabras clave en rojo gigante que aparecen al ritmo de la voz sobre un fondo limpio.
 
@@ -577,6 +583,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** «These are the eight Instagram courses that blew my account up to almost a million Instagram followers. And the best part, they're just $1 each.» (Estos son los 8 cursos de Instagram que hicieron explotar mi cuenta a casi un millón de seguidores. Y lo mejor: cuestan 1 dólar cada uno.) En pantalla: se gira con el pelo al aire hacia la pared de afiches, con billetes en la mano
 - **Estructura:** 0-6 s gancho (8 cursos, casi un millón, 1 dólar cada uno) · 6-30 s recorre los 8 afiches: dice el nombre de cada curso y pega un billete de 1 dólar encima, con «$1» como estribillo; hacia el segundo 8 entra la captura de su perfil (720 mil seguidores) · 30-34 s CTA
 - **CTA:** «Comment BUNDLE below to get a copy of all these amazing Instagram courses» (comenta BUNDLE abajo y te llega una copia de todos estos cursos) + botón del anuncio «Learn more». La palabra sale de la transcripción («comment, bundle»): no se ve escrita
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Learn more»)
 - **Carpeta:** otro → Anuncios pagados (65 · otra opción: Serie 3: Ventas («encontré una app»)) — Es un anuncio pagado de productos baratos propios; vale por cómo apila el precio, no por mostrar una app.
 - **Para robar:** El estribillo del precio («$1» después de cada producto, con el billete pegado en el afiche): el precio se vuelve el ritmo del video. Y el CTA con palabra (BUNDLE).
 
@@ -588,6 +595,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** «When a client wires you over $1.1 million in one payment, you start to see business very differently.» (Cuando un cliente te transfiere más de 1,1 millones de dólares en un solo pago, empiezas a ver el negocio de otra forma.) En pantalla: una silueta de cliente a su lado y después la captura del banco con la transferencia de 1.122.660,51 dólares
 - **Estructura:** 0-7 s gancho con la transferencia de 1,1 millones (captura del banco) · 7-20 s «no fue suerte, fue un motor de adquisición» · 20-43 s autoridad: 8 años, agencia de 7 cifras, nombres de clientes, dashboard de ventas · 43-62 s lo que aprendió: los ganadores construyen motores, no campañas · 62-75 s la forma vieja (presentación de 10 min, llamada, vendedor con mal día) contra la nueva · 75-184 s (sólo por los cuadros) promesa de 130-180 % de retorno al día 30, «nunca más esperar que tus anuncios funcionen», ejemplo de Warren Buffett, «componer ganancias de forma predecible»
 - **CTA:** No se oye el cierre (la transcripción corta a los 75 s de 184). El cartel fijo dice «WATCH FULL VIDEO!» (¡mira el video completo!)
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Learn more»)
 - **Carpeta:** otro → Anuncios pagados (60 · otra opción: Avatar de IA y referentes) — Es un VSL largo de captación con estética de anuncio; no enseña un tema para ganar seguidores ni muestra una app.
 - **Para robar:** Abrir con la PRUEBA en pantalla en el segundo 3 (la captura de la transferencia) y el doble cartel fijo arriba y abajo que vende ver el video completo.
 
@@ -599,6 +607,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** «Instagram tiene un botón que casi nadie usa.» En pantalla: «EL BOTÓN QUE NADIE USA» y un interruptor gigante con ondas amarillas sobre gente mirando el celular
 - **Estructura:** 0-7 s gancho del botón + «¿y si un reel viviera 30 vidas a la vez?» · 7-20 s historia: grabas en tu cocina, Max dice «nadie va a ver esto», 300 vistas · 20-40 s el poder: el reel se divide en 30 copias con su propio gancho y sonido, vuelan sólo a quien no te conoce, la quinta despega · 40-45 s «¿qué tan real es esto?» = los reels de prueba · 45-54 s aparece Buzzfy: crea 30 versiones y escala la ganadora, cada noche · 54-60 s remate con Max + CTA
 - **CTA:** «Prueba Buzzfy»
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Learn more»)
 - **Carpeta:** Formatos de animación (galería) (70 · otra opción: Serie 3: Ventas («encontré una app»)) — Vale por cómo se ve: una función explicada con animación plana y personajes simples, muy replicable por código; el guion en sí es de venta de app.
 - **Para robar:** El arco «función que nadie usa → ¿qué tan real es esto? → aparece la app que la automatiza», y el personaje burlón (Max) que vuelve al final para cerrar el chiste.
 
@@ -610,6 +619,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** «Oye, si el algoritmo no valora tu nicho, deja de publicar en Instagram.» En pantalla: ella levanta un pan trenzado larguísimo y empieza a cortarlo
 - **Estructura:** 0-11 s gancho + dolor (nicho saturado, aburrido, nadie te escucha) · 11-21 s autoridad por el fracaso: 800 posts en 2 años y apenas mil seguidores · 21-35 s la pregunta y el descubrimiento: no es el nicho, es el formato · 35-75 s el «desafío» y casos de alumnos con capturas de su perfil · 75-172 s (sólo por los cuadros) «formato validado», «desafío del formato», «lista de 100 perfiles con 100 mil seguidores», «formatos virales validados», chats de alumnos
 - **CTA:** No se llega a oír (la transcripción corta a los 75 s de 172); por los cuadros vende el «desafío del formato»
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Learn more»)
 - **Carpeta:** otro → Anuncios pagados (55 · otra opción: Avatar de IA y referentes) — Es un VSL de captación para un desafío pago; lo distinto es el gancho visual (cortar un pan gigante mientras dice la frase fuerte) y después habla en serio.
 - **Para robar:** Decir la frase fuerte mientras haces algo raro con las manos: el gesto compra los 3 segundos. Y la idea central «no es el nicho, es el formato», probada con nichos absurdos.
 
@@ -621,6 +631,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** «Hace tres meses estaba pagando cuatro suscripciones de inteligencia artificial al mismo tiempo y no me atrevía a hacer la cuenta.»
 - **Estructura:** 0-11 s gancho: 4 suscripciones de IA, hizo la cuenta: más de 100 dólares al mes, 1.200 al año · 11-27 s el problema de verdad: no le alcanzaba, saltar entre pestañas, copiar y pegar, perder el hilo · 27-31 s «quizás tú estás en ese mismo punto» · 31-57 s encontró Cosmos AI (aparece el logo): 30 IAs premium en una cuenta, un agente las pone a trabajar en orden · 57-73 s objeción «¿dónde está la trampa?» + «hay una sola condición» (curiosidad) · 73-76 s CTA con flecha hacia abajo
 - **CTA:** «Hacé clic en el botón que está acá abajo y descubrí cuál es esta condición antes de que se…» (se corta)
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Learn more»)
 - **Carpeta:** Serie 3: Ventas («encontré una app») (80 · otra opción: otro) — Es el formato «encontré una app» del lado de quien la usa, con la comparación de precio («pagaba más de 100 dólares al mes»): justo la serie 3.
 - **Para robar:** Abrir con la cuenta de lo que ya pagas («hice la cuenta: más de 100 al mes») y cerrar con «hay una sola condición» para que quieran saber más; cambiar el botón por «comenta PALABRA».
 
@@ -665,6 +676,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** Título fijo «Scaling an ecom brand in 2026» y el «tonto» dice: «I test new creatives every week.» (Escalar una marca de ecommerce en 2026 · «Pruebo creativos nuevos cada semana.»)
 - **Estructura:** 0-2 s título fijo + el tonto: «pruebo creativos cada semana» · 2-5 s el listo: «arreglo el tracking antes de tocar nada» (tablero con números) · 5-9 s duplicar ganadores vs subir el presupuesto del original ($2.000 por día) · 9-15 s mirar el Ads Manager (ROAS 0,9) vs usar wetracked.io porque Meta muestra el 40 % de las ventas · 15-20 s el tonto culpa a los creativos; el listo no se preocupa por el ROAS hace meses (ROAS 3,4 tachado) · 19-25 s aparece el logo de la app y la oferta: 14 días gratis y garantía
 - **CTA:** First 14 days are free, and if your ROAS doesn't increase by at least 20%, you don't pay. (Los primeros 14 días son gratis y si tu ROAS no sube al menos 20 %, no pagas.)
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «See details»)
 - **Carpeta:** Serie 3: Ventas («encontré una app») (60 · otra opción: otro) — Muestra una herramienta del lado de quien la usa («la uso porque Meta sólo me muestra el 40 %») y cierra con garantía; pero es probablemente un anuncio de la propia marca y no pide palabra. Si abres carpeta «Anuncios pagados», va allí.
 - **Para robar:** El sketch «persona tonta vs persona lista» con frases alternadas, donde el listo nombra la app al final: con el personaje de cubos serían dos versiones del mismo Martín. Y la garantía «si no sube 20 %, no pagas».
 
@@ -687,6 +699,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** Mano agarrada a una grieta de la roca y él colgado de la cuerda, sonriendo: «Te voy a regalar siete días para que entres a probar la comunidad de Imperio…» (en pantalla «A REGALAR»)
 - **Estructura:** 0-9 s la oferta: 7 días gratis para probar la comunidad, colgado de la pared · 9-16 s la garantía: si no armas tu primer agente, te devuelvo el 100 % (plano lejano: él chiquito en la roca) · 16-26 s qué trae: cursos de Claude Code, agentes de voz, WhatsApp y automatizaciones; «tú eliges qué construir» · 26-30 s sentado en una repisa con el valle al atardecer: el cierre
 - **CTA:** Haz clic en el botón de abajo y espero verte dentro del Imperio.
+- **¿Anuncio?** Sí: anuncio pagado, confirmado con sesión (botón «Sign up»)
 - **Carpeta:** Avatar de IA y referentes (50 · otra opción: otro) — Un referente de IA para negocios que vende hablando serio en una escena exagerada (colgado de un acantilado): el tipo de escena que Martín puede generar con IA para su personaje. Pero es probablemente un anuncio pagado: si abres «Anuncios pagados», iría allí.
 - **Para robar:** Hablar de la oferta mientras haces algo imposible (escalar una pared enorme) y la garantía concreta «si en 7 días no armas tu primer agente, te devuelvo el 100 %»; los subtítulos con la palabra clave en el color de la ropa.
 
@@ -793,6 +806,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** Texto en pantalla: «PASÁBAMOS UN DÍA ENTERO BUSCANDO UN PRODUCTO»; de voz se presentan (el transcriptor no entiende los nombres) y dicen a qué se dedican.
 - **Estructura:** 0-3 s gancho con el texto grande · 3-10 s se presentan: hacen e-commerce de productos digitales · 10-27 s el dolor: encontrar productos para modelar en la biblioteca de anuncios «siempre fue chino», perdían un día por producto y no podían testear rápido · 27-42 s descubren Espiad: sólo productos escalados, con toda la información, los guardas · 42-48 s resultado: gracias a la app validaron un producto · 48-51 s «muchas gracias a los chicos» y despedida
 - **CTA:** sin CTA (en el video sólo agradecen; si es anuncio, el botón no se pudo ver)
+- **¿Anuncio?** Probable, sin comprobar (post de video sin pie; no se pudo abrir)
 - **Carpeta:** Serie 3: Ventas («encontré una app») (50 · otra opción: otro) — Es una app recomendada por quienes la usan (dolor → la descubrimos → resultado), pero es un testimonio que no enseña nada antes; si se confirma que es anuncio, iría a «Anuncios pagados / testimonios».
 - **Para robar:** El testimonio casero de dos clientes grabado con el celular: dolor concreto con número («un día entero buscando un producto») → descubren la app → resultado; sirve para testimonios de clientes de MaKo.
 
@@ -883,6 +897,7 @@ MaKo sospecha una carpeta pero no está segura. Se contestan en el artefacto, de
 - **Gancho:** Voz: «Ranking de lo que tienes que hacer en Meta Ads». En pantalla: logo de Meta, la barra del 1 al 10 y «Lo que hacés en Meta Ads, del 1 al 10».
 - **Estructura:** 0-3 s gancho con la barra del 1 al 10 · 3-6 s apagar el que más gasta para empujar a otro: 1 · 6-11 s probar conceptos distintos de verdad: 10 · 11-17 s copiar los anuncios de la competencia: 2 · 17-25 s saber tu CPA de equilibrio antes de escalar: 9 · 25-31 s pasar el ganador a una campaña de escala: 3 · 31-38 s armar la oferta antes que el anuncio: 8 (cada práctica entra como ícono en su casillero de la barra) · 38-46 s giro: «si tu cuenta vende bien una semana y mal la otra, no te falta suerte, te falta un método» · 46-49 s venta: cartel «Programa de Meta Ads 40% OFF»
 - **CTA:** «Eso lo aprendes en el programa de Meta Ads, y hoy está con 40 % de descuento. Te veo dentro.» (en pantalla: «Programa de Meta Ads 40% OFF»)
+- **¿Anuncio?** Probable, sin comprobar (post de video sin pie; no se pudo abrir)
 - **Carpeta:** Serie 2: Educación (55 · otra opción: otro) — Vale por la forma de enseñar: un ranking del 1 al 10 que se llena en pantalla. Pero termina vendiendo un curso y es probable anuncio pagado (no comprobado); si se confirma, iría a «Anuncios pagados».
 - **Para robar:** La barra del 1 al 10 que se llena con íconos y la tarjeta «Qué hacés / Puntaje», para rankear prácticas de ventas o de contenido; y el giro final «no te falta suerte, te falta un método».
 
