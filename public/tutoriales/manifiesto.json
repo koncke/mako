@@ -1729,39 +1729,96 @@
    "ruta": "/second-brain?reto=1",
    "archivo": "/tutoriales/reto-dia-6.mp4",
    "poster": "/tutoriales/reto-dia-6.jpg",
-   "duracion_s": 22.67,
-   "peso_kb": 1222,
-   "guion": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte. Toca aquí, en Video: en AI Avatar armas tu personaje con una foto tuya. Y con él haces tu clip de 10 segundos, de regalo, con el gancho del guion que escribiste ayer. Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
+   "duracion_s": 66.17,
+   "peso_kb": 3462,
+   "guion": "¿Tienes videos que se quedaron en una idea, porque nunca encontraste el momento de ponerte frente a la cámara? Te doy la bienvenida al día seis: hoy haces tu video con IA, sin grabarte. Lo que frena tus videos casi nunca son las ideas: es el tiempo que se va en tomas, luces y edición. Con tu personaje, escribes lo que quieres decir y MaKo hace el video por ti. ¿Te preocupa que no diga lo tuyo? Lo escribes tú, y lo dice tal cual. Y en un video corto, todo se decide al principio: si el gancho no detiene a la persona, pasa de largo. Piensa en un agente inmobiliario que gana cinco mil dólares por cada venta. Si mil personas ven su clip de diez segundos y el gancho le trae una sola venta, ese clip vale cinco mil dólares. Toca aquí, en Video: en Crear desde cero, abre «Tu personaje con IA» y sube una foto tuya. Con tu personaje haces tu primer clip, con el gancho del guion que escribiste ayer. Hoy te llevas tu personaje y tu primer clip, listos para publicar. Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
    "frases": [
     {
      "id": "reto-dia-6-1",
      "rol": "gancho",
-     "texto": "Te doy la bienvenida al día 6: hoy haces tu video con IA, sin grabarte.",
-     "t_inicio": 0.08,
-     "t_fin": 5.44
+     "texto": "¿Tienes videos que se quedaron en una idea, porque nunca encontraste el momento de ponerte frente a la cámara?",
+     "t_inicio": 0.04,
+     "t_fin": 5.28
     },
     {
      "id": "reto-dia-6-2",
-     "rol": "accion",
-     "texto": "Toca aquí, en Video: en AI Avatar armas tu personaje con una foto tuya.",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida al día seis: hoy haces tu video con IA, sin grabarte.",
      "t_inicio": 5.96,
-     "t_fin": 11.42,
+     "t_fin": 11.36
+    },
+    {
+     "id": "reto-dia-6-3",
+     "rol": "porque",
+     "texto": "Lo que frena tus videos casi nunca son las ideas: es el tiempo que se va en tomas, luces y edición.",
+     "t_inicio": 11.94,
+     "t_fin": 18.02
+    },
+    {
+     "id": "reto-dia-6-4",
+     "rol": "porque",
+     "texto": "Con tu personaje, escribes lo que quieres decir y MaKo hace el video por ti.",
+     "t_inicio": 18.58,
+     "t_fin": 22.7
+    },
+    {
+     "id": "reto-dia-6-5",
+     "rol": "porque",
+     "texto": "¿Te preocupa que no diga lo tuyo? Lo escribes tú, y lo dice tal cual.",
+     "t_inicio": 23.2,
+     "t_fin": 27.12
+    },
+    {
+     "id": "reto-dia-6-6",
+     "rol": "porque",
+     "texto": "Y en un video corto, todo se decide al principio: si el gancho no detiene a la persona, pasa de largo.",
+     "t_inicio": 27.6,
+     "t_fin": 33.2
+    },
+    {
+     "id": "reto-dia-6-7",
+     "rol": "porque",
+     "texto": "Piensa en un agente inmobiliario que gana cinco mil dólares por cada venta.",
+     "t_inicio": 33.86,
+     "t_fin": 37.36
+    },
+    {
+     "id": "reto-dia-6-8",
+     "rol": "porque",
+     "texto": "Si mil personas ven su clip de diez segundos y el gancho le trae una sola venta, ese clip vale cinco mil dólares.",
+     "t_inicio": 37.88,
+     "t_fin": 44.8
+    },
+    {
+     "id": "reto-dia-6-9",
+     "rol": "accion",
+     "texto": "Toca aquí, en Video: en Crear desde cero, abre «Tu personaje con IA» y sube una foto tuya.",
+     "t_inicio": 45.3,
+     "t_fin": 51.86,
      "sel": "aside[data-sidebar] a[href^=\"/video-editor\"]",
      "espera_clic": true
     },
     {
-     "id": "reto-dia-6-3",
+     "id": "reto-dia-6-10",
      "rol": "cosa",
-     "texto": "Y con él haces tu clip de 10 segundos, de regalo, con el gancho del guion que escribiste ayer.",
-     "t_inicio": 11.86,
-     "t_fin": 17.02
+     "texto": "Con tu personaje haces tu primer clip, con el gancho del guion que escribiste ayer.",
+     "t_inicio": 52.44,
+     "t_fin": 56.48
     },
     {
-     "id": "reto-dia-6-4",
+     "id": "reto-dia-6-11",
+     "rol": "cierre",
+     "texto": "Hoy te llevas tu personaje y tu primer clip, listos para publicar.",
+     "t_inicio": 57.08,
+     "t_fin": 60.8,
+     "espera_clic": false
+    },
+    {
+     "id": "reto-dia-6-12",
      "rol": "cierre",
      "texto": "Mañana es el último día: tu CoPilot revisa todo lo que armaste.",
-     "t_inicio": 17.72,
-     "t_fin": 21.96,
+     "t_inicio": 61.38,
+     "t_fin": 65.48,
      "espera_clic": false
     }
    ],
@@ -1769,8 +1826,8 @@
    "formato": 4,
    "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
    "dice_el_guion": true,
-   "chequeo": "6 → seis · 10 → diez (ortografía del transcriptor)",
-   "hecho": "2026-11-18T15:30:29.426Z"
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T03:03:15.042Z"
   },
   {
    "key": "reto-dia-7",
