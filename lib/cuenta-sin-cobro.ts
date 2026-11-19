@@ -66,13 +66,15 @@ export async function tienePlanPropio(ws: number): Promise<boolean | undefined> 
  * (no tienen un cobro con `alta_ws`). `undefined` = algo no se pudo leer (nunca se pausa ni se muestra la prueba).
  */
 export async function pagaSuLugar(ws: number): Promise<boolean | undefined> {
-  const [propio, mensualidad, deAgencia] = await Promise.all([
+  const deAgencia = await import('./agencia').then((m) => m.esClienteDeAgencia(ws), () => null);
+  // El «no sé» de la agencia cae del lado seguro: cuenta como que paga (nunca se pausa ni se le muestra la prueba). tests/agency-dos-duenos.test.ts.
+  if (deAgencia !== false) return true;
+  const [propio, mensualidad] = await Promise.all([
     tienePlanPropio(ws),
     import('./agencia-mes').then((m) => m.planDeLaMensualidad(ws), () => undefined),
-    import('./agencia').then((m) => m.esClienteDeAgencia(ws), () => null),
   ]);
-  if (propio === true || (mensualidad !== undefined && mensualidad !== null) || deAgencia === true) return true;
-  if (propio === undefined || mensualidad === undefined || deAgencia == null) return undefined;
+  if (propio === true || (mensualidad !== undefined && mensualidad !== null)) return true;
+  if (propio === undefined || mensualidad === undefined) return undefined;
   return false;
 }
 

@@ -150,7 +150,8 @@ test('P2P sin tocar y sin pagar por ninguna vía se ve PRENDIDO (apagarlo es lo 
   const s = fuente('lib/cuenta-sin-cobro.ts');
   assert.match(s, /const plan = apagado \? await pagaSuLugar\(ws\) : undefined;/);
   assert.match(s, /return \(await pagaSuLugar\(ws\)\) === false \? \{ hasta: fin \} : null;/);
-  assert.match(s, /if \(propio === true \|\| \(mensualidad !== undefined && mensualidad !== null\) \|\| deAgencia === true\) return true;/);
+  assert.match(s, /if \(deAgencia !== false\) return true;/, 'el cliente de una agencia (o el «no sé») paga: no se pausa');
+  assert.match(s, /if \(propio === true \|\| \(mensualidad !== undefined && mensualidad !== null\)\) return true;/);
   assert.match(fuente('app/admin/(polar)/customers/[id]/page.tsx'), /pagaSuLugar=\{paga \?\? null\}/);
 });
 
