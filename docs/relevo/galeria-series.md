@@ -27,6 +27,8 @@ La fuente de los reels NO está en el repo: `C:/dev/artefactos-animaciones/` (le
      si una tarjeta tapa la cara, y renderizar: `node tools/turno.mjs node series/tools/render-gl.mjs
      reels/serie4-comentarios-1.html mp4/serie4-comentarios-1.mp4 43.62 reels/voz-serie4-comentarios-1.mp3 30 1/2` (y 2/2).
      Sus archivos nuevos NO están publicados (se sacaron del manifiesto de pub a propósito).
+   - Serie 2: `edu-mismo-video` se va a reemplazar (mismo id y ruta; el publicado tiene rayitas y letra chica). Cuando
+     avise: rehacer `mp4/para-ig/edu-mismo-video.mp4`, `python -I tools/armar_galeria.py <pub>` y republicar.
    - Serie 3 manda 5 formatos más (usan imágenes `reels/app/s3-*.png`); Serie 2, el video 2. La versión va por ~460
      archivos de 511: para no pasarse, mover los MP4 y portadas a `assets` (capacidad del artefacto).
 1. Cuando Martín publique la parte 1 de cada serie: leer los comentarios.
