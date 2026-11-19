@@ -13,11 +13,14 @@
 // es un participante más del grupo, así que a él sí le NOTIFICA.
 
 import 'server-only';
-import { esSesionCaida } from './evolution';
+import { esSesionCaida, numeroDeInstancia } from './evolution';
 import sharp from 'sharp';
 import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS, getWorkspace, wsSuperAdmin } from './workspace';
-import { leerResultadoParticipante, jidCanonico } from './participantes-grupo';
+import { leerResultadoParticipante, jidCanonico, esAdminEn, makoEsAdminDe, salidaSinAlta, textoDeSalida, causaDelRechazo, MAKO_NO_ES_ADMIN, type ParticipanteCrudo, type SalidaSinAlta } from './participantes-grupo';
+
+/** El último alta que WhatsApp rechazó entera en un negocio, con lo que contestó (19/11/2026): sin esto, el texto se perdía y la causa no se podía medir. */
+const KEY_RECHAZO_ALTA = 'mako.grupo.alta.rechazo';
 import { detalleEvolution, enviarPartesPorEv, type EnvioPartes, type EvFn, type MediaGrupo, type PartePreparada } from './mako-tarjeta';
 import { linksConWs, partesConLinksDeWs } from './links-con-ws';
 import { APP_BASE_URL } from './app-url';
@@ -29,8 +32,9 @@ import { agenciasAprobadasDe } from './agencia';
 import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
+import { AGENDAR_V2, E_SIN_CODIGO_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, esPedidoDeConfirmacion, mensajeDelCodigoV2 } from './verificacion-entrante';
 import { chatDelMensaje } from './mako-bot-reglas';
-import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, pausaDeEscritura, puedeEscribirleAPersona } from './mako-salida-reglas';
+import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, leEscribioEnLasFilas, pausaDeEscritura, puedeEscribirleAPersona, type FilaQuienEscribio } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
 import { antesDeEscribir, trasEscribir } from './linea-freno';
 import { tituloDelGrupo } from './grupo-reglas';
@@ -434,16 +438,29 @@ export async function cupoAltaDeLinea(num: string, instancia?: string): Promise<
 /**
  * ¿Este número le escribió alguna vez a la línea? Se lee de la base de Evolution, sin hablar con WhatsApp. Sin poder saberlo, no: la pantalla da el link.
  * Se mira cada fila aunque se pida `fromMe: false`: si Evolution ignorara ese filtro, alguien a quien sólo le escribió MaKo contaría como que escribió.
- * ⚠️ Quien escribió bajo un `@lid` que Evolution no resolvió cuenta como que no escribió: recibe el link. Es el error barato.
+ * ⚠️ UN CHAT BAJO UN `@lid` (19/11/2026, `leEscribioEnLasFilas`, lib/mako-salida-reglas.ts). En la línea recién vinculada, el «Hola, quiero
+ * confirmar mi WhatsApp.» de Martín quedó como `remoteJid: …@lid`, con el teléfono en `remoteJidAlt`: el filtro por `remoteJid` no lo
+ * encontraba, la regla dijo «nunca le escribió» y el código del onboarding no salió. Si el filtro no lo encuentra, se mira lo último que
+ * entró a la línea con el teléfono en los tres campos. Quien escribió hace mucho bajo un `@lid` sigue contando como que no: recibe el link,
+ * que es el error barato.
  */
 async function leEscribioALaLinea(num: string): Promise<boolean> {
   const remoteJid = num.includes('@') ? num.trim() : `${soloDigitos(num)}@s.whatsapp.net`;
-  const r = await ev(`/chat/findMessages/${await instanciaVoz()}`, {
-    method: 'POST', body: JSON.stringify({ where: { key: { remoteJid, fromMe: false } }, page: 1, offset: 20 }),
-  });
-  const filas = (r.body as { messages?: { records?: Array<{ key?: { fromMe?: boolean; remoteJid?: string } }> } } | null)?.messages?.records;
-  return r.ok && Array.isArray(filas) && filas.some((f) => f.key?.fromMe === false && f.key?.remoteJid === remoteJid);
+  const voz = await instanciaVoz();
+  const leer = async (where: Record<string, unknown>, offset: number): Promise<FilaQuienEscribio[] | null> => {
+    const r = await ev(`/chat/findMessages/${voz}`, { method: 'POST', body: JSON.stringify({ where, page: 1, offset }) });
+    const filas = (r.body as { messages?: { records?: FilaQuienEscribio[] } } | null)?.messages?.records;
+    return r.ok && Array.isArray(filas) ? filas : null;
+  };
+  const exactas = await leer({ key: { remoteJid, fromMe: false } }, 20);
+  if (exactas && leEscribioEnLasFilas(exactas, remoteJid)) return true;
+  if (!TELEFONO_JID.test(remoteJid)) return false;
+  const recientes = await leer({}, ULTIMAS_PARA_LID);
+  return !!recientes && leEscribioEnLasFilas(recientes, remoteJid);
 }
+/** Cuántos mensajes recientes de la línea se miran para encontrar a quien escribió bajo un `@lid`. */
+const ULTIMAS_PARA_LID = 200;
+const TELEFONO_JID = /^\d{8,15}@s\.whatsapp\.net$/;
 
 type ContactoListo = { ok: true; num: string; destino: string } | { ok: false; error: string };
 
@@ -542,7 +559,58 @@ export type AltaParticipante = {
   link?: string | null;
   /** Qué contestó WhatsApp: '409' = ya estaba adentro (`leerResultadoParticipante`). */
   status?: string;
+  /** Quién del negocio lo puede sumar a mano, y si hace falta hacerlo admin antes (`salidaSinAlta`, lib/participantes-grupo.ts). */
+  salida?: SalidaSinAlta;
 };
+
+/** Los participantes del grupo leídos con la voz, y si la voz es admin (null = no se sabe). null si no se pudo leer. Sólo lee. */
+async function grupoParaAlta(jid: string): Promise<{ makoEsAdmin: boolean | null; participantes: ParticipanteCrudo[] } | null> {
+  const voz = await instanciaVoz();
+  const [r, numeroVoz] = await Promise.all([
+    ev(`/group/findGroupInfos/${voz}?groupJid=${encodeURIComponent(jid)}`),
+    numeroDeInstancia(voz).catch(() => null),
+  ]);
+  const participantes = (r.body as { participants?: unknown } | null)?.participants;
+  if (!r.ok || !Array.isArray(participantes)) return null;
+  return { makoEsAdmin: makoEsAdminDe(participantes as ParticipanteCrudo[], numeroVoz), participantes: participantes as ParticipanteCrudo[] };
+}
+
+/** El número principal del negocio y cómo está en el grupo: es quien puede sumar a mano a alguien que WhatsApp no deja sumar a MaKo. */
+async function quienSumaEn(ws: number, participantes: ParticipanteCrudo[]): Promise<{ numero: string; esta: boolean; esAdmin: boolean } | null> {
+  const principal = soloDigitos((await getNumeroDueno(ws).catch(() => null)) ?? '');
+  if (!principal) return null;
+  const e = esAdminEn(participantes, principal);
+  return { numero: principal, esta: e.esta, esAdmin: e.admin };
+}
+
+/**
+ * Hace admin del grupo al número PRINCIPAL del negocio, para que sume desde su WhatsApp a quien WhatsApp no deja sumar a MaKo (19/11/2026:
+ * Martín lo hizo a mano con Joan, en el grupo de Sellers). Sólo el principal: es el único que ofrece la pantalla, y hacer admin a
+ * cualquier número del grupo de un negocio no se pide por acá. El veredicto sale de releer el grupo, no del pedido (como `sumarComoAdmin`).
+ */
+export async function hacerAdminParaSumar(ws: number, numero: string): Promise<{ ok: boolean; error?: string }> {
+  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
+  const jid = await getGrupoJidMaKo(ws);
+  if (!jid) return { ok: false, error: 'este negocio todavía no tiene grupo de MaKo' };
+  const principal = soloDigitos((await getNumeroDueno(ws).catch(() => null)) ?? '');
+  if (!principal || soloDigitos(numero) !== principal) return { ok: false, error: 'Sólo se puede hacer admin al número principal del negocio.' };
+  const g = await grupoParaAlta(jid);
+  if (!g) return { ok: false, error: 'No pude leer el grupo. Prueba de nuevo en un momento.' };
+  if (g.makoEsAdmin === false) return { ok: false, error: MAKO_NO_ES_ADMIN };
+  const antes = esAdminEn(g.participantes, principal);
+  if (!antes.esta) return { ok: false, error: 'Ese número no está en el grupo.' };
+  if (antes.admin) return { ok: true };
+  const r = await ev(`/group/updateParticipant/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
+    method: 'POST', body: JSON.stringify({ action: 'promote', participants: [jidCanonico(principal)] }),
+  });
+  if (!r.ok) return { ok: false, error: causaDelRechazo(r.status, r.body).motivo.replace('no dejó que MaKo lo sume', 'no dejó hacerlo admin') };
+  for (const espera of [1500, 3500]) {
+    await new Promise((res) => setTimeout(res, espera));
+    const d = await grupoParaAlta(jid);
+    if (d && esAdminEn(d.participantes, principal).admin) return { ok: true };
+  }
+  return { ok: false, error: 'Lo pedí, pero WhatsApp no lo dejó como admin.' };
+}
 
 export async function agregarParticipanteGrupo(ws: number, numero: string): Promise<AltaParticipante> {
   if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS, link: await linkInvitacionGrupo(ws).catch(() => null) };
@@ -562,11 +630,27 @@ export async function agregarParticipanteGrupo(ws: number, numero: string): Prom
 /** El alta en sí, con el número YA validado y contado (`prepararContacto`). */
 async function sumarAlGrupo(ws: number, jid: string, destino: string, opts: { invitacion?: string } = {}): Promise<AltaParticipante> {
   if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
+  // Antes de pedir nada, el grupo: si MaKo está y no es admin, no puede sumar a nadie ni sacar el link, y decir «pásale el link» manda a
+  // buscar algo que no hay. Sin poder leerlo (o sin encontrar a MaKo, que puede venir sólo como `@lid`) se intenta como siempre.
+  const grupo = await grupoParaAlta(jid).catch(() => null);
+  if (grupo?.makoEsAdmin === false) return { ok: false, error: MAKO_NO_ES_ADMIN, link: null };
   const r = await ev(`/group/updateParticipant/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
     // `destino` llega como jid COMPLETO cuando lo dio WhatsApp (ver `prepararContacto`).
     method: 'POST', body: JSON.stringify({ action: 'add', participants: [destino] }),
   });
-  if (!r.ok) return { ok: false, error: `No se pudo hablar con WhatsApp (Evolution ${r.status}).` };
+  if (!r.ok) {
+    // ⚠️ WhatsApp rechazó el pedido ENTERO (19/11/2026, Joan en Sellers: «No se pudo hablar con WhatsApp (Evolution 400)»). El texto que
+    // contestó se tiraba, y sin él no hubo forma de saber la causa. Ahora queda en el log y en el negocio (`mako.grupo.alta.rechazo`), y el
+    // cartel dice la causa en palabras y la salida: el link, revisar el número, o que lo sume alguien del negocio que sea admin del grupo.
+    const detalle = (typeof r.body === 'string' ? r.body : JSON.stringify(r.body ?? '')).slice(0, 400);
+    console.error(`[mako-grupo] ws${ws}: WhatsApp rechazó sumar …${soloDigitos(destino).slice(-4)} a ${jid} (HTTP ${r.status}): ${detalle}`);
+    await runWithWorkspace(ws, () => setSetting(KEY_RECHAZO_ALTA, JSON.stringify({ at: new Date().toISOString(), status: r.status, jid, numero: `…${soloDigitos(destino).slice(-4)}`, detalle }))).catch(() => {});
+    const causa = causaDelRechazo(r.status, r.body);
+    const link = causa.tipo === 'no-admin' ? null : await linkInvitacionGrupo(ws).catch(() => null);
+    const salida = causa.ofreceSalida ? salidaSinAlta('rechazo', destino, grupo ? await quienSumaEn(ws, grupo.participantes) : null) : {};
+    const otra = textoDeSalida(salida, (t) => `…${t.slice(-4)}`);
+    return { ok: false, link, salida, error: [causa.motivo, link ? 'O pásale tú el link del grupo.' : '', otra].filter(Boolean).join(' ') };
+  }
 
   const res = leerResultadoParticipante(r.body);
   if (res.ok) return res;
@@ -576,18 +660,18 @@ async function sumarAlGrupo(ws: number, jid: string, destino: string, opts: { in
   // que no se puede es hacerlo en silencio y contarlo como si hubiera pasado.
   const envio = await enviarInvitacionGrupo(ws, destino, { descripcion: opts.invitacion });
   const link = await linkInvitacionGrupo(ws);
-  return {
-    ok: false,
-    invitado: envio.ok,
-    link,
-    error: envio.ok
-      ? `${res.error} Le mandé el link de invitación por WhatsApp.`
-      : envio.error === SIN_INVITACION
-        ? `${res.error} ${SIN_INVITACION}`
-      : envio.error === YA_INVITADO
-        ? `${res.error} Ya le mandé la invitación hace un rato; si no le llegó, pásale el link tú.`
-        : `${res.error} Tampoco pude mandarle la invitación, así que pásale el link tú.`,
-  };
+  // Y la salida que Martín hizo a mano con Joan (19/11/2026): con el 403 es la privacidad de esa persona, y un contacto suyo sí puede
+  // sumarla. El principal del negocio, si es admin del grupo, desde su WhatsApp; si no lo es, MaKo lo hace admin con un clic.
+  const salida = salidaSinAlta(res.status, destino, grupo ? await quienSumaEn(ws, grupo.participantes) : null);
+  const otra = textoDeSalida(salida, (t) => `…${t.slice(-4)}`);
+  const base = envio.ok
+    ? `${res.error} Le mandé el link de invitación por WhatsApp.`
+    : envio.error === SIN_INVITACION
+      ? `${res.error} ${SIN_INVITACION}`
+    : envio.error === YA_INVITADO
+      ? `${res.error} Ya le mandé la invitación hace un rato; si no le llegó, pásale el link tú.`
+      : `${res.error} Tampoco pude mandarle la invitación, así que pásale el link tú.`;
+  return { ok: false, invitado: envio.ok, link, salida, status: res.status, error: otra ? `${base} ${otra}` : base };
 }
 
 // ── El equipo de la agencia en el grupo de un cliente suyo (3/11/2026) ────────
@@ -873,6 +957,120 @@ export async function confirmarPorMensajeEntrante(instancia: string, m: Record<s
   return null;
 }
 
+// ── EL WHATSAPP DEL ONBOARDING V2 (19/11/2026): MaKo contesta con el código en el CHAT PRIVADO y no arma ningún grupo ──────────
+// Las reglas puras y el porqué, en lib/verificacion-entrante.ts («EL WHATSAPP DEL ONBOARDING V2»). Martín, 19/11: «le envié el
+// mensaje a MaKo y me creó un grupo de WhatsApp, que eso ya no debería hacerlo… directamente por el chat privado». Sólo para
+// quien está en el V2 (lo decide la ruta del onboarding): el flujo de antes y los grupos que ya existen no cambian.
+
+/** Prepara el pedido: un código de 6 números que MaKo le va a CONTESTAR, y el link `wa.me` con «Hola, quiero confirmar mi WhatsApp.». */
+export async function pedirConfirmacionV2(
+  ws: number, telefono: string, nombrePersona: string,
+): Promise<{ ok: true; yaVerificado: true } | { ok: true; yaVerificado: false; link: string; numeroLinea: string } | { ok: false; error: string }> {
+  const num = soloDigitos(telefono);
+  if (num.length < 8) return { ok: false, error: 'El número no es válido.' };
+  const actual = await getVerificacion(ws);
+  if (actual?.verificado && soloDigitos(actual.telefono) === num) return { ok: true, yaVerificado: true };
+  if (!grupoConfigurado()) return { ok: false, error: MAKO_SIN_LINEA };
+  const linea = await lineaQueRecibe();
+  if (!linea) return { ok: false, error: MAKO_SIN_LINEA };
+  const link = linkWaMe(linea.numero, TEXTO_CONFIRMAR_V2);
+  if (!link) return { ok: false, error: MAKO_SIN_LINEA };
+  await guardarVerificacion(ws, {
+    telefono: num, destino: num, nombre: nombrePersona, codigo: codigoNumerico(),
+    expira: Date.now() + MINUTOS_ENTRANTE * 60_000, verificado: false,
+    entrante: true, v2: true, respondido: false, intentos: 0, linea: linea.instancia, numeroLinea: linea.numero,
+  });
+  return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero };
+}
+
+/** Le manda el código por el chat privado (ella escribió primero: la regla 1 lo mira igual), su tarjeta de contacto y el pedido de agendarlo.
+ *  Es un DM a una persona: va por `enviarAPersonaMaKo`, la puerta de los DM (tests/grupos-ops-guarda.test.ts). `destino`: su número. */
+async function mandarCodigoV2(v: EstadoVerificacion, destino: string): Promise<{ ok: boolean; error?: string }> {
+  const r = await enviarAPersonaMaKo(destino, mensajeDelCodigoV2(v.nombre ?? '', v.codigo));
+  if (!r.ok) return { ok: false, error: r.error };
+  // La tarjeta de MaKo, para que la guarde con un toque (la maqueta: «Guardar contacto»). Best-effort: el código ya salió.
+  const numeroMaKo = soloDigitos(v.numeroLinea ?? '');
+  if (numeroMaKo) {
+    await ev(`/message/sendContact/${await instanciaVoz()}`, {
+      method: 'POST', body: JSON.stringify({ number: destino, contact: [{ fullName: 'MaKo', wuid: numeroMaKo, phoneNumber: `+${numeroMaKo}` }] }),
+    }).catch(() => null);
+  }
+  await enviarAPersonaMaKo(destino, AGENDAR_V2).catch(() => null);
+  return { ok: true };
+}
+
+/**
+ * EL WEBHOOK (V2): «Hola, quiero confirmar mi WhatsApp.» desde el número de una verificación V2 pendiente → MaKo le contesta con el
+ * código, en ese chat. No confirma nada solo (lo confirma el código pegado en la app) ni arma un grupo. null si el mensaje no era
+ * de esto: así sigue al bot como cualquier otro. Lo que habla con WhatsApp va en `responder`, para correr después.
+ */
+export async function responderPedidoV2(instancia: string, m: Record<string, unknown>): Promise<{ resultado: string; responder?: () => Promise<void> } | null> {
+  const key = (m?.key ?? {}) as { remoteJid?: string; fromMe?: boolean; remoteJidAlt?: string; senderPn?: string };
+  if (key.fromMe) return null;
+  const msg = (m?.message ?? {}) as Record<string, unknown>;
+  const texto = typeof msg.conversation === 'string' ? msg.conversation : String((msg.extendedTextMessage as { text?: string } | undefined)?.text ?? '');
+  if (!esPedidoDeConfirmacion(texto)) return null;
+  const chat = chatDelMensaje(key);
+  if (!chat) return null;
+  // Las pendientes del V2 son pocas (las de los onboardings de la última media hora): se miran todas.
+  const { data, error } = await getSupabaseServer().from('app_settings').select('workspace_id, value')
+    .eq('key', KEY_VERIFICACION).ilike('value', '%"v2":true%').ilike('value', '%"verificado":false%').limit(50);
+  if (error) { console.error(`[mako-grupo] no pude buscar las verificaciones del V2: ${error.message}`); return null; }
+  for (const fila of (data ?? []) as Array<{ workspace_id: number; value: string }>) {
+    const v = parseVerificacion(fila.value);
+    const d = decidirPedidoV2(v, { instancia, telefono: chat.telefono, ahora: Date.now() });
+    if (d === 'no-es-este') continue;
+    const ws = Number(fila.workspace_id);
+    if (d !== 'responder') return { resultado: `ws${ws}: ${d}` };
+    // `destino`: el chat por donde escribió (así le llega aunque el número se haya tipeado de otra forma).
+    const anotado: EstadoVerificacion = { ...v!, destino: chat.telefono ?? v!.destino, respondido: true };
+    // De dos llegadas del mismo mensaje (dos líneas de la misma cuenta), contesta una.
+    const gane = await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, fila.value, JSON.stringify(anotado))).catch(() => false);
+    if (!gane) return { resultado: `ws${ws}: ya contestado por otra llegada` };
+    return {
+      resultado: `ws${ws}: le contesto con el código`,
+      responder: async () => {
+        const r = await mandarCodigoV2(anotado, soloDigitos(anotado.destino || anotado.telefono));
+        if (r.ok) return;
+        console.error(`[mako-grupo] ws${ws}: no salió el código del V2: ${r.error}`);
+        // ⚠️ «Respondido» sin código es un «listo» falso (19/11/2026): la pantalla esperaba un código que nunca salió, y «Reenviar» lo
+        // daba por mandado. Se vuelve atrás (sólo si nadie lo cambió después): el próximo «Hola, quiero confirmar…» lo vuelve a intentar.
+        await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, JSON.stringify(anotado), JSON.stringify({ ...anotado, respondido: false }))).catch(() => {});
+      },
+    };
+  }
+  return null;
+}
+
+/** «Reenviar el código» (V2): sólo si MaKo ya le contestó (si no, todavía no le escribió: que toque «Abrir WhatsApp»). */
+export async function reenviarCodigoV2(ws: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  const v = await getVerificacion(ws);
+  if (!v?.v2 || !v.respondido || !v.destino) return { ok: false, error: E_SIN_CODIGO_V2 };
+  if (v.verificado) return { ok: true };
+  const r = await mandarCodigoV2(v, soloDigitos(v.destino));
+  return r.ok ? { ok: true } : { ok: false, error: MAKO_SIN_LINEA };
+}
+
+/** El código PEGADO en la app (V2). Bien: el número queda probado y guardado como el del dueño, SIN grupo. */
+export async function verificarCodigoV2(ws: number, codigo: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const v = await getVerificacion(ws);
+  const d = decidirCodigoV2(v, codigo, Date.now());
+  if (!d.ok) {
+    if (d.suma && v) await guardarVerificacion(ws, { ...v, intentos: (v.intentos ?? 0) + 1 }).catch(() => {});
+    return { ok: false, error: d.error };
+  }
+  if (v!.verificado) return { ok: true };
+  await guardarVerificacion(ws, { ...v!, verificado: true, confirmadoAt: new Date().toISOString() });
+  // El número del dueño (los avisos y los reportes), sin armar el grupo: el V2 no lo usa.
+  // En la forma con que escribió por WhatsApp (`destino`), que es la que WhatsApp reconoce.
+  const num = soloDigitos(v!.destino || v!.telefono);
+  if (num) {
+    await guardarNumeroDueno(ws, num).catch(() => {});
+    await import('./compra-plan-llamada').then((m) => m.anotarTelefonoDelComprador(ws, num)).catch(() => {});
+  }
+  return { ok: true };
+}
+
 // ── Grupo del SuperAdmin (global, estrella AZUL) ──────────────────────────────
 export async function getGrupoSuperAdminJid(): Promise<string | null> {
   return runWithWorkspace(OWNER_WS, () => getSetting(KEY_GRUPO_SUPERADMIN));
@@ -1074,7 +1272,7 @@ export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: numb
 /** `enApp`: WhatsApp no lo entregó (o el negocio no tiene grupo), pero quedó en el hilo del grupo de la app: para quien reintenta, salió. Sin esto, cada
  *  reintento suma una burbuja (`avisarUno`, `aviso-arreglo`). `id` es entonces `app:<fila>`. */
 /** `noEntregado`: con `enApp`, por qué WhatsApp no lo tomó (el freno, «Evolution 500»). Quien espera que llegue a WhatsApp lo mira (11/11/2026). */
-export type EnvioGrupo = { ok: true; id: string; enApp?: true; noEntregado?: string } | { ok: false; error: string; sinGrupo?: true; fallaElEnvio?: true };
+export type EnvioGrupo = { ok: true; id: string; enApp?: true; noEntregado?: string; sinGrupo?: true } | { ok: false; error: string; sinGrupo?: true; fallaElEnvio?: true };
 
 /** Saca el mensaje útil del body de error de Evolution (viene anidado y variado). Vive en lib/mako-tarjeta.ts
  *  (puro): lo usa también el envío por partes. */
@@ -1132,15 +1330,26 @@ export async function enviarAlGrupoMaKo(ws: number, texto0: string, memoria: Mem
     }
   }
   const app = memoria === null ? null : await grupoApp();
-  const copia = app ? await app.copiarAlGrupo(ws, { texto, de: memoria === 'mako' ? 'mako' : 'equipo' }) : null;
+  // El aviso de SU ticket se reintenta hasta que salga por WhatsApp (lib/tickets-cierre.ts): el reintento reusa la copia que quedó en el hilo sin
+  // WhatsApp, en vez de sumar otra burbuja y volver a sonar en los teléfonos (19/11/2026, ticket #118).
+  const reusada = app && atadoASuTicket ? await app.copiaSinWhatsApp(ws, texto, REUSAR_COPIA_MS).catch(() => null) : null;
+  const copia = reusada ?? (app ? await app.copiarAlGrupo(ws, { texto, de: memoria === 'mako' ? 'mako' : 'equipo' }) : null);
   const r = await enviarPorWhatsApp(ws, texto, memoria);
   if (!app || !copia) return r;
   if (r.ok) { await app.atarIdDeWhatsApp(ws, copia.id, r.id); return r; }
   const id = idDeLaApp(copia.id);
-  const clave = await app.claveDeConversacion(ws).catch(() => null);
-  if (clave) await anotarEnLaMemoria(ws, clave, texto, id, memoria);
-  return { ok: true, id, enApp: true };
+  // ⚠️ El motivo NO se tira (19/11/2026): quedó en el hilo de la app y WhatsApp no lo tomó. Viaja en `noEntregado` para quien tiene que saber si
+  // llegó a WhatsApp (el aviso de un ticket lo reintenta), y queda en el log. Sin grupo de WhatsApp (`sinGrupo`), el hilo de la app ES su grupo.
+  console.error(`[mako-grupo] ws${ws}: quedó sólo en el hilo de la app, WhatsApp no lo tomó: ${r.error}`);
+  if (!reusada) {
+    const clave = await app.claveDeConversacion(ws).catch(() => null);
+    if (clave) await anotarEnLaMemoria(ws, clave, texto, id, memoria);
+  }
+  return { ok: true, id, enApp: true, noEntregado: r.error || 'no se pudo enviar', ...(r.sinGrupo ? { sinGrupo: true as const } : {}) };
 }
+
+/** Hasta cuánto atrás se reusa la copia de un aviso de ticket que no salió por WhatsApp: lo que dura el reintento (lib/tickets-reglas.ts). */
+const REUSAR_COPIA_MS = 25 * 3_600_000;
 
 /** El envío a WhatsApp, tal cual era: el grupo del negocio por la voz de MaKo. */
 async function enviarPorWhatsApp(ws: number, texto: string, memoria: MemoriaDelEnvio): Promise<EnvioGrupo> {

@@ -20,7 +20,9 @@ import { copiarTexto } from '@/app/m/copywriting/api';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Canal = 'whatsapp' | 'email';
-type Guardado = { ok: boolean; error?: string; destinatarios?: Destinatarios; noAgregados?: { telefono: string; motivo: string }[]; linkGrupo?: string | null };
+type Guardado = { ok: boolean; error?: string; destinatarios?: Destinatarios; noAgregados?: { telefono: string; motivo: string }[]; linkGrupo?: string | null; salidaGrupo?: Salida };
+/** Quién del negocio lo puede sumar a mano (19/11/2026, lib/participantes-grupo.ts `salidaSinAlta`). */
+type Salida = { hacerAdmin?: string; yaPuedeSumar?: string };
 
 export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatarios: Destinatarios; tieneGrupo: boolean; ws: number | null } | null }) {
   const toast = useToastM();
@@ -30,7 +32,8 @@ export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatari
   const [errCarga, setErrCarga] = useState<string | null>(null);
   const [agregar, setAgregar] = useState<Canal | null>(null);
   const [quitar, setQuitar] = useState<{ canal: Canal; valor: string } | null>(null);
-  const [faltaGrupo, setFaltaGrupo] = useState<{ noAgregados: { telefono: string; motivo: string }[]; link: string | null } | null>(null);
+  const [faltaGrupo, setFaltaGrupo] = useState<{ noAgregados: { telefono: string; motivo: string }[]; link: string | null; salida: Salida | null } | null>(null);
+  const [adminListo, setAdminListo] = useState<'no' | 'haciendo' | 'listo'>('no');
   const [ocupado, setOcupado] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -62,7 +65,7 @@ export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatari
       if (!j.ok || !j.destinatarios) { setDest(antes); haptico('error'); toast(j.error ?? 'No se pudo guardar'); return false; }
       setDest(j.destinatarios);
       if (j.destinatarios.telefonos.length > 0) setTieneGrupo(true);
-      if (j.noAgregados?.length) { setFaltaGrupo({ noAgregados: j.noAgregados, link: j.linkGrupo ?? null }); haptico('error'); return true; }
+      if (j.noAgregados?.length) { setFaltaGrupo({ noAgregados: j.noAgregados, link: j.linkGrupo ?? null, salida: j.salidaGrupo ?? null }); setAdminListo('no'); haptico('error'); return true; }
       haptico('success'); toast('Guardado');
       return true;
     } catch {
@@ -85,13 +88,33 @@ export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatari
         <div className="m-configuraciones-falta">
           <p className="m-configuraciones-aviso" data-tono="warn" role="status">
             {`Quedó guardado, pero no pude sumar al grupo de MaKo a ${faltaGrupo.noAgregados.map((x) => `${paraLeer('tel', x.telefono)} (${x.motivo})`).join(', ')}.`}
-            {faltaGrupo.link ? ' Pásale el link del grupo.' : ''}
           </p>
           {faltaGrupo.link && (
             <Button variant="secondary" size="md" onClick={async () => { const ok = await copiarTexto(faltaGrupo.link ?? ''); toast(ok ? 'Link copiado' : 'No se pudo copiar'); }}>
               Copiar el link del grupo
             </Button>
           )}
+          {/* La otra salida (19/11/2026): un contacto suyo sí puede sumarlo. El principal del negocio, desde su WhatsApp; si no es admin del
+              grupo, MaKo lo hace admin con este botón (lo que Martín hizo a mano para que Joan sumara a alguien al grupo de Sellers). */}
+          {faltaGrupo.salida?.yaPuedeSumar && (
+            <p className="m-configuraciones-aviso" role="status">{`O que lo sume ${paraLeer('tel', faltaGrupo.salida.yaPuedeSumar)} desde su WhatsApp: es admin del grupo.`}</p>
+          )}
+          {faltaGrupo.salida?.hacerAdmin && (adminListo === 'listo' ? (
+            <p className="m-configuraciones-aviso" role="status">{`Listo: ${paraLeer('tel', faltaGrupo.salida.hacerAdmin)} ya es admin del grupo. Que lo sume desde su WhatsApp.`}</p>
+          ) : (
+            <Button variant="secondary" size="md" disabled={adminListo === 'haciendo'} onClick={async () => {
+              const tel = faltaGrupo.salida?.hacerAdmin ?? '';
+              setAdminListo('haciendo');
+              try {
+                const j = (await (await fetch('/api/perfil/destinatarios', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accion: 'hacer-admin', telefono: tel, ...(wsLeido != null ? { ws: wsLeido } : {}) }), signal: AbortSignal.timeout(45_000),
+                })).json()) as { ok: boolean; error?: string };
+                if (j.ok) { setAdminListo('listo'); haptico('success'); } else { setAdminListo('no'); haptico('error'); toast(j.error ?? 'No se pudo hacer admin'); }
+              } catch { setAdminListo('no'); haptico('error'); toast('No se pudo hacer admin'); }
+            }}>
+              {adminListo === 'haciendo' ? 'Haciéndolo admin…' : `Hacer admin a ${paraLeer('tel', faltaGrupo.salida.hacerAdmin)} para que lo sume`}
+            </Button>
+          ))}
         </div>
       )}
       <SeccionM titulo="WhatsApp">

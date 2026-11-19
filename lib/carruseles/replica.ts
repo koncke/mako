@@ -93,11 +93,21 @@ export type LaminaReplica = {
   fondo: string; textos: TextoReplica[]; foto: FotoReplica | null; cuadros: CuadroReplica[]; formas?: FormaReplica[];
   /** Las figuras marcadas (F1, F2…) que son una persona: se borran de la plancha y su lugar queda para la del negocio. */
   personas?: string[];
+  /** El número de la lámina del ORIGINAL que replica (1 a N), si la IA lo dijo: así se sabe cuál falta (19/11/2026). */
+  n?: number;
 };
 /** `9:16`: la miniatura VERTICAL, la portada de un Reel o un Short (13/11/2026, lib/thumbnails/verticales.ts). */
 export type Proporcion = '4:5' | '1:1' | '16:9' | '9:16';
 /** `lectura`: lo que la IA LEYÓ de la composición del original antes de escribir (queda en las notas del diseño). */
-export type Replica = { proporcion: Proporcion; titulo: string; laminas: LaminaReplica[]; lectura?: string };
+export type Replica = {
+  proporcion: Proporcion; titulo: string; laminas: LaminaReplica[]; lectura?: string;
+  /**
+   * Las láminas del original (1 a N) que la IA NO devolvió, cuando se sabe cuáles (cada lámina trajo su `n`). 19/11/2026: con
+   * `flash-lite` volvieron 11 de 12 y el carrusel cayó callado al armado de antes; ahora se pide sólo la que falta
+   * (lib/carruseles/replica-servidor.ts) y, si igual falta, el aviso lo dice.
+   */
+  faltan?: number[];
+};
 
 /** La miniatura de un video de YouTube (6/11/2026, «Thumbnails»): una lámina de 1280 × 720. */
 export const ANCHO_MINIATURA = 1280;
@@ -160,6 +170,11 @@ export type PedidoReplica = {
   oferta?: OfertaDelPrompt | null;
   /** Los colores de la marca, si el dueño pidió «Textos y mis colores»: van en lugar de los del original. */
   coloresDeMarca?: readonly string[] | null;
+  /**
+   * Pedir UNA lámina que faltó (19/11/2026): la `n` de un carrusel de `de`, con su imagen sola, y lo que ya dicen las otras
+   * (`escritas`) para que siga el mismo hilo. Con esto, `laminas` y `vistas` son 1.
+   */
+  unaDe?: { n: number; de: number; escritas: string } | null;
 };
 
 /** Lo de una oferta que le sirve a la IA para escribir (las columnas de `ofertas`, lib/oferta-modelo.ts). */
@@ -292,12 +307,16 @@ export function promptDeReplica(p: PedidoReplica): string {
   const vistas = Math.max(0, Math.min(n, p.vistas));
   const que = p.anuncio ? 'un anuncio de imagen' : `un carrusel de Instagram de ${n} ${n === 1 ? 'lámina' : 'láminas'}`;
   const tema = bloqueDelTema(p.pedido);
+  const una = p.unaDe ?? null;
   return [
-    vistas === 0
+    una
+      ? `Te muestro la lámina ${una.n} de un carrusel de Instagram de ${una.de} láminas que funcionó. Tu versión para el negocio de abajo ya tiene escritas las otras ${una.de - 1} (abajo); falta ÉSTA. Vas a REPLICAR su DISEÑO: mismo lugar, tamaño, color y peso de cada texto, mismo color de fondo y mismo lugar de cada foto, con los TEXTOS escritos para este negocio, siguiendo el hilo de las otras.`
+      : vistas === 0
       ? `No tienes sus láminas: sólo el tema y el pie de ${que} que funcionó (abajo). Vas a ARMAR la versión para el negocio de abajo: ${n === 1 ? 'una lámina' : `${n} láminas`}, con la estructura que sugiere el pie (gancho, desarrollo y una acción al final), el diseño pensado por ti (tipografía y color, sin fotos) y los TEXTOS escritos para este negocio.`
       : `Te muestro ${vistas === n ? (n === 1 ? 'la imagen' : `sus ${n} láminas, en orden`) : `sólo ${vistas === 1 ? 'su portada' : `sus primeras ${vistas} láminas`}`} de ${que} que funcionó. Vas a REPLICAR su DISEÑO para el negocio de abajo: misma cantidad de láminas, mismo lugar, tamaño, color y peso de cada texto, mismo color de fondo y mismo lugar de cada foto, con los TEXTOS escritos para este negocio.`,
     vistas > 0 && vistas < n ? `De las láminas que no ves, continúa el mismo estilo de las que ves y la misma estructura (la última pide la acción).` : '',
     tema ? `\n${tema}` : '',
+    una?.escritas.trim() ? `\nLas otras láminas de tu versión, ya escritas (DATOS: no las repitas; ésta sigue su hilo):\n<<<ESCRITAS\n${una.escritas.trim().slice(0, 3_000)}\nESCRITAS>>>` : '',
     '',
     'Reglas:',
     '- Copia el patrón (cómo abre, cuántas ideas por lámina, cómo cierra), NUNCA sus frases: cada texto lo escribes tú para este negocio, con un largo parecido al original para que entre en el mismo lugar.',
@@ -313,7 +332,8 @@ export function promptDeReplica(p: PedidoReplica): string {
     '- El nombre de una marca, una app o una herramienta que va con su logo (como «Claude» debajo de su ícono) va IGUAL: el logo queda.',
     '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su nombre o su firma va el NOMBRE del negocio, tal como está escrito abajo. Donde el original muestra su @ (un encabezado, un tuit, un pie), escribe exactamente @usuario: el sistema pone el del negocio. Nunca otro @, un usuario inventado ni un sitio web.',
     '- Español neutro, de «tú», como se habla en México, aunque «Cómo habla» (abajo) use el voseo: cada verbo y cada pronombre, de «tú».',
-    p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra ${tema ? 'que dice el tema (si no dice ninguna, una que tenga sentido para este negocio)' : 'que tenga sentido para este negocio'} (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
+    una && una.n < una.de ? '- Esta lámina NO es la última: no pide la acción.'
+      : p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra ${tema ? 'que dice el tema (si no dice ninguna, una que tenga sentido para este negocio)' : 'que tenga sentido para este negocio'} (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
     // La COMPOSICIÓN se lee antes de escribir (11/11/2026, @jasonrewired_: el original eran dos cuadros apilados de la misma playa
     // con un subtítulo chico abajo de cada uno, y salió UNA foto de fondo con un título grande al centro). Lo leído queda escrito.
     // ⚠️ SIN EJEMPLOS DE COMPOSICIÓN (12/11/2026). Hasta acá decía «por ejemplo «pantalla dividida: dos cuadros apilados»», y con un
@@ -343,8 +363,8 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     COMPACTO,
-    `{"lectura":"lo que leíste de la composición",${tema ? '"guion":["lámina 1: qué dice sobre el tema","lámina 2: …"],' : ''}"proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"forma":"rect|circulo|redondeado","descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"formas":[{"tipo":"linea|caja","x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"color":"#RRGGBB","borde":"#RRGGBB" o null,"radio":0..0.5,"sombra":true|false}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","original":"…","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","acento":"#RRGGBB" o null,"relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
-    `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. Exactamente ${n} elementos en "laminas".`,
+    `{"lectura":"lo que leíste de la composición",${tema ? '"guion":["lámina 1: qué dice sobre el tema","lámina 2: …"],' : ''}"proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"n":1,"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"forma":"rect|circulo|redondeado","descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"formas":[{"tipo":"linea|caja","x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"color":"#RRGGBB","borde":"#RRGGBB" o null,"radio":0..0.5,"sombra":true|false}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","original":"…","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","acento":"#RRGGBB" o null,"relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. ${una ? `Exactamente 1 elemento en "laminas", con "n": ${una.n}.` : `Exactamente ${n} elementos en "laminas", uno por lámina del original, cada uno con su "n" (el número de la lámina del original que replica, de 1 a ${n}).`}`,
   ].filter((l) => l !== '').join('\n');
 }
 
@@ -521,7 +541,7 @@ export function conAcentos(marcado: string): { texto: string; acentos: Array<[nu
   return { texto: recortado, acentos: acentos.map(([a, b]) => [Math.max(0, a - ini), Math.min(recortado.length, b - ini)] as [number, number]).filter(([a, b]) => b > a) };
 }
 
-export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; vertical?: boolean; usuario?: string | null; nombre?: string; palabra?: string | null }): Replica | { error: string } {
+export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; vertical?: boolean; usuario?: string | null; nombre?: string; palabra?: string | null; /** Con `unaDe`: cuántas tiene el original (el `n` válido llega hasta ahí). */ de?: number }): Replica | { error: string } {
   let j: Record<string, unknown>;
   try { j = conComillasArregladas(crudo); } catch { return { error: 'La IA no devolvió el diseño en un formato que pueda leer.' }; }
   const lista = Array.isArray(j.laminas) ? j.laminas : [];
@@ -571,13 +591,32 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
       ? { x: fx, y: fy, ancho: num(f.ancho, 0.05, 1 - fx, 1 - fx), alto: num(f.alto, 0.05, 1 - fy, 1 - fy), persona: f.persona === true || f.persona === 'true', descripcion: limpio(f.descripcion, 200) }
       : null;
     const personas = (Array.isArray(l.personas) ? l.personas : []).map((x) => String(x).trim().toUpperCase()).filter((x) => /^F\d{1,3}$/.test(x)).slice(0, 8);
-    laminas.push({ fondo, textos, foto, cuadros: cuadrosDe(l.cuadros, foto), formas: formasDe(l.formas), ...(personas.length ? { personas } : {}) });
+    const nl = Number(l.n);
+    const numero = Number.isInteger(nl) && nl >= 1 && nl <= (o.de ?? n) ? nl : undefined;
+    laminas.push({ fondo, textos, foto, cuadros: cuadrosDe(l.cuadros, foto), formas: formasDe(l.formas), ...(personas.length ? { personas } : {}), ...(numero ? { n: numero } : {}) });
   }
+  // El número de cada lámina (19/11/2026): si TODAS lo trajeron y no se repite, van en su orden y se sabe cuáles faltan.
+  const numeros = laminas.map((l) => l.n);
+  const conNumero = numeros.every((x) => x != null) && new Set(numeros).size === numeros.length;
+  if (conNumero) laminas.sort((a, b) => (a.n ?? 0) - (b.n ?? 0));
+  const faltan = !o.miniatura && o.de == null && conNumero && laminas.length < n
+    ? Array.from({ length: n }, (_, i) => i + 1).filter((k) => !numeros.includes(k))
+    : undefined;
   if (!laminas.some((l) => l.textos.some((t) => t.texto))) return { error: 'La IA no encontró textos en las láminas: vuelve a intentar o elige otro ejemplo.' };
   // Una miniatura es UNA lámina 16:9 (o 9:16 la vertical), diga lo que diga el modelo.
   const lectura = limpio(j.lectura, 1200) || undefined;
   if (o.miniatura) return { proporcion: o.vertical ? '9:16' : '16:9', titulo: limpio(j.titulo, 80) || 'Mi miniatura', laminas: laminas.slice(0, 1), lectura };
-  return { proporcion: j.proporcion === '1:1' ? '1:1' : '4:5', titulo: limpio(j.titulo, 80) || 'Mi carrusel', laminas, lectura };
+  return { proporcion: j.proporcion === '1:1' ? '1:1' : '4:5', titulo: limpio(j.titulo, 80) || 'Mi carrusel', laminas, lectura, ...(faltan?.length ? { faltan } : {}) };
+}
+
+/**
+ * El aviso de una versión a la que le faltan láminas (19/11/2026): la IA devolvió menos que el original y el pedido de las que
+ * faltaban no las trajo. Sin esto, el carrusel caía CALLADO al armado de antes (sin las imágenes del original) y con menos láminas.
+ */
+export function avisoDeLaminasQueFaltan(r: { laminas: number; de: number; faltan?: readonly number[] }): string | null {
+  if (r.laminas >= r.de) return null;
+  const cuales = r.faltan?.length ? ` (${r.faltan.length === 1 ? 'faltó la' : 'faltaron las'} ${r.faltan.join(', ').replace(/, (\d+)$/, ' y $1')})` : '';
+  return `Tu IA escribió ${r.laminas} de las ${r.de} láminas${cuales} y no pude completarlas: armé tu versión sin las imágenes del original. Vuelve a intentar para la versión fiel.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1455,6 +1494,12 @@ export function avisoSinIA(error: string, negocio: string | null = null): { avis
       conectar: CONECTAR_IA,
     };
   }
+  // ⏱ Se acabó el plazo de la corrida (ticket 119, `hastaMs` en lib/ai-cheap.ts → «sin tiempo: …»): lo que pasó es la DEMORA
+  // de las IA que se probaron, aunque antes una haya dicho «sin crédito». Va antes que la clave y la cuota, que la taparían.
+  if (/\bsin tiempo\b/i.test(error)) {
+    const ia = ajeno ? `La IA de ${ajeno}` : 'Tu IA';
+    return { aviso: `${ia} no alcanzó a escribir ${su} versión a tiempo: las IA que probé tardaron o fallaron. ${guia} Vuelve a intentar en un rato; si se repite, revisa en ${ajeno ? 'sus Integraciones' : 'Integraciones'} que ${su} IA tenga crédito.`, conectar: null };
+  }
   if (/\b(401|403)\b|invalid[_ ]?api[_ ]?key|api key not valid|incorrect api key|authentication|permission[_ ]?denied|unauthorized/i.test(error)) {
     return { aviso: `${tu} rechazó la clave: revísala en ${ajeno ? 'sus Integraciones' : 'Integraciones'}. ${guia}`, conectar: CONECTAR_IA };
   }
@@ -1473,7 +1518,8 @@ export function avisoSinIA(error: string, negocio: string | null = null): { avis
  * ninguna IA: ahí el aviso dice qué hacer.
  */
 export function vuelveASinVer(error: string): boolean {
-  if (esTimeout(error) || esSaturacion(error)) return false;
+  // Sin tiempo (ticket 119): otro pedido no entra en el plazo de la corrida.
+  if (esTimeout(error) || esSaturacion(error) || /\bsin tiempo\b/i.test(error)) return false;
   if (/\b(401|403|429)\b|quota|rate.?limit|resource[_ ]?exhausted|insufficient|billing|credit balance|prepayment|invalid[_ ]?api[_ ]?key|api key not valid|incorrect api key|unauthorized|permission[_ ]?denied/i.test(error)) return false;
   if (/sin_keys|no hay ninguna IA|Conecta tu (?:Claude|GPT|Gemini)/i.test(error)) return false;
   return true;

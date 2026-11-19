@@ -81,7 +81,8 @@ test('2. un toque o un «sí» de una pestaña vieja no confirma una lectura que
   const chat = leer('app/onboarding/ChatArranque.tsx');
   assert.match(chat, /return responder\(\{ texto: t, \.\.\.preguntaQueContesta\(vista\) \}, t\);/);
   assert.match(chat, /void responder\(\{ opcion: idx, \.\.\.\(texto !== undefined \? \{ opcionTexto: texto \} : \{\}\), \.\.\.preguntaQueContesta\(vista\) \}, texto \?\? null\);/);
-  assert.match(leer('app/api/onboarding/arranque/route.ts'), /const lectura = leerRespuesta\(e, h, \{ texto, opcion, opcionTexto, pregunta \}\);/);
+  // `opciones`: las varias elegidas de una vez del onboarding V2 (19/11/2026); la pregunta viaja igual.
+  assert.match(leer('app/api/onboarding/arranque/route.ts'), /const lectura = leerRespuesta\(e, h, \{ texto, opcion, opcionTexto, pregunta(, opciones)? \}\);/);
 });
 
 test('3. cómo cobra se PROPONE desde el precio y se guarda recién con el toque', () => {

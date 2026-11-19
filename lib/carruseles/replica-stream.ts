@@ -50,6 +50,33 @@ export function errorPorPlazo(fase: FaseDeReplica | null, minutos: number, negoc
   return `Se cortó a los ${tiempo}, mientras se leía el ejemplo. ${TAIL}`;
 }
 
+/**
+ * ⏱ LOS PLAZOS DE UNA CORRIDA (19/11/2026, ticket 119 de Leila: «Tu IA tardó más de 4 minutos en escribir la versión y se cortó»).
+ * Medido en `anthropic_usage` del ws 11: su Claude sin crédito, su `gemini-flash-latest` cortado a los 120 s, su
+ * `gemini-flash-lite` con error, su GPT-4o escribiendo 5.400 tokens en 98 s y después el segundo pedido (uno por lámina) con la
+ * misma cascada: cada paso tenía su plazo ENTERO, y sumados pasaban los 285 s de la ruta. El diseño se guardó igual, 3½ minutos
+ * DESPUÉS del aviso, y ella lo volvió a pedir (quedó dos veces). Ahora la corrida sabe cuándo se le acaba el tiempo:
+ *   · `hasta`: lo que puede durar entera, un poco antes del aviso de la ruta (`MARGEN_DEL_AVISO_MS`);
+ *   · la IA principal tiene hasta `hasta - RESERVA_PARA_ARMAR_MS`: después falta planchar, subir las láminas y guardar;
+ *   · el segundo pedido (lo que faltaba, ./plancha-servidor.ts) tiene hasta `hasta - RESERVA_PARA_GUARDAR_MS`, y si no le quedan
+ *     `MIN_SEGUNDO_PEDIDO_MS` no se hace: la lámina va con lo que leyó la IA principal (o el armado de antes). Lo escrito se guarda.
+ */
+export const MARGEN_DEL_AVISO_MS = 10_000;
+export const RESERVA_PARA_ARMAR_MS = 35_000;
+export const RESERVA_PARA_GUARDAR_MS = 25_000;
+export const MIN_SEGUNDO_PEDIDO_MS = 15_000;
+
+/** Hasta cuándo puede durar la corrida entera (epoch ms), con la ruta avisando a `plazoMs` de `inicio`. */
+export const hastaDeLaReplica = (inicio: number, plazoMs: number): number => inicio + plazoMs - MARGEN_DEL_AVISO_MS;
+
+/** Hasta cuándo escribe la IA principal y hasta cuándo el segundo pedido, dentro de `hasta`. */
+export function plazosDeLaReplica(hasta: number): { escribir: number; completar: number } {
+  return { escribir: hasta - RESERVA_PARA_ARMAR_MS, completar: hasta - RESERVA_PARA_GUARDAR_MS };
+}
+
+/** ¿Alcanza para el segundo pedido? Con menos de `MIN_SEGUNDO_PEDIDO_MS` hasta su plazo, no se arranca. */
+export const alcanzaParaElSegundoPedido = (completar: number, ahora = Date.now()): boolean => completar - ahora >= MIN_SEGUNDO_PEDIDO_MS;
+
 /** Lo que dice la pantalla si el stream terminó sin `fin` (la función murió antes de poder avisar). */
 export function errorSinFin(fase: FaseDeReplica | null): string {
   const donde = fase === 'escribir' ? ', mientras se escribía la versión' : fase === 'armar' ? ', mientras se armaba el diseño' : '';

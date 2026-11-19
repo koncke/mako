@@ -46,13 +46,16 @@ export function DestinatariosCanal({ canal, inicial, ws, onGuardado }: {
   const [noAgregados, setNoAgregados] = useState<Array<{ telefono: string; motivo: string }>>([]);
   const [linkGrupo, setLinkGrupo] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
+  // Quién del negocio lo puede sumar a mano (19/11/2026, lib/participantes-grupo.ts `salidaSinAlta`), y el resultado de hacerlo admin.
+  const [salida, setSalida] = useState<{ hacerAdmin?: string; yaPuedeSumar?: string } | null>(null);
+  const [admin, setAdmin] = useState<{ busy: boolean; ok?: boolean; error?: string }>({ busy: false });
 
   const esWa = canal === 'whatsapp';
   const saca = esWa && tel.length < inicial.telefonos.length;
 
   /** Toda alta o baja guarda en el acto. Las DOS listas, siempre. */
   async function guardar(telefonos: string[], emails: string[]) {
-    setBusy(true); setError(null); setFlash(null); setNoAgregados([]); setLinkGrupo(null); setCopiado(false);
+    setBusy(true); setError(null); setFlash(null); setNoAgregados([]); setLinkGrupo(null); setCopiado(false); setSalida(null); setAdmin({ busy: false });
     const antesTel = tel;
     const antesMail = mail;
     setTel(telefonos); setMail(emails);   // optimista: la fila responde al toque
@@ -77,6 +80,7 @@ export function DestinatariosCanal({ canal, inicial, ws, onGuardado }: {
       if (fallidos.length) {
         setNoAgregados(fallidos);
         setLinkGrupo((j.linkGrupo as string | null) ?? null);
+        setSalida((j.salidaGrupo as { hacerAdmin?: string; yaPuedeSumar?: string } | undefined) ?? null);
         return;
       }
       setFlash('Guardado ✓');
@@ -85,6 +89,20 @@ export function DestinatariosCanal({ canal, inicial, ws, onGuardado }: {
       setTel(antesTel); setMail(antesMail);
       setError(e instanceof Error ? e.message : 'No se pudo guardar');
     } finally { setBusy(false); }
+  }
+
+  /** MaKo hace admin del grupo al número principal, para que sume desde su WhatsApp a quien WhatsApp no deja sumar a MaKo. */
+  async function hacerAdmin(telefono: string) {
+    setAdmin({ busy: true });
+    try {
+      const j = await (await fetch('/api/perfil/destinatarios', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'hacer-admin', telefono, ...(ws != null ? { ws } : {}) }),
+      })).json();
+      setAdmin(j.ok ? { busy: false, ok: true } : { busy: false, error: j.error || 'No se pudo hacer admin' });
+    } catch (e) {
+      setAdmin({ busy: false, error: e instanceof Error ? e.message : 'No se pudo hacer admin' });
+    }
   }
 
   // En la tarjeta del canal (Settings › Notificaciones › WhatsApp o Email, 25/10/2026): las filas de la lista, y debajo, en
@@ -149,6 +167,38 @@ export function DestinatariosCanal({ canal, inicial, ws, onGuardado }: {
               >
                 {copiado ? 'Copiado' : 'Copiar'}
               </button>
+            </div>
+          )}
+
+          {/* La otra salida (19/11/2026): WhatsApp no deja que MaKo lo sume, pero un contacto suyo sí. Si el número principal del
+              negocio es admin del grupo, lo suma desde su WhatsApp; si no lo es, MaKo lo hace admin con este botón. Es lo que Martín
+              tuvo que hacer a mano para que Joan sumara a alguien al grupo de Sellers. */}
+          {salida?.yaPuedeSumar && (
+            <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5, marginTop: 8 }}>
+              O que lo sume <b>{paraLeer('tel', salida.yaPuedeSumar)}</b> desde su WhatsApp: es admin del grupo.
+            </div>
+          )}
+          {salida?.hacerAdmin && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.5 }}>
+                {admin.ok
+                  ? <>Listo: <b>{paraLeer('tel', salida.hacerAdmin)}</b> ya es admin del grupo. Que lo sume desde su WhatsApp.</>
+                  : <>O que lo sume <b>{paraLeer('tel', salida.hacerAdmin)}</b> desde su WhatsApp, si lo tiene agendado. Para eso tiene que ser admin del grupo.</>}
+              </div>
+              {!admin.ok && (
+                <button
+                  type="button" disabled={admin.busy}
+                  onClick={() => { void hacerAdmin(salida.hacerAdmin as string); }}
+                  style={{
+                    alignSelf: 'flex-start', padding: '6px 11px', borderRadius: 8, border: '1px solid var(--border-strong)',
+                    background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12, fontWeight: 600,
+                    cursor: admin.busy ? 'default' : 'pointer', opacity: admin.busy ? 0.6 : 1,
+                  }}
+                >
+                  {admin.busy ? 'Haciéndolo admin…' : `Hacer admin a ${paraLeer('tel', salida.hacerAdmin)}`}
+                </button>
+              )}
+              {admin.error && <div role="alert" style={{ fontSize: 12, fontWeight: 600, color: 'var(--bad)' }}>{admin.error}<ReportarASoporte /></div>}
             </div>
           )}
         </div>

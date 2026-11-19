@@ -70,7 +70,9 @@ export async function avisarDelegadosSinTomar(ahoraMs = Date.now()): Promise<num
       .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
     await db.from('ticket_eventos').insert({
       ticket_id: f.id, actor: 'sistema', tipo: TIPO_DEMORA_AVISADA,
-      texto: r.ok ? 'Sin tomar a los 30 minutos: se le avisó en su grupo.' : `Sin tomar a los 30 minutos: el aviso no salió (${'error' in r ? String(r.error).slice(0, 160) : 'sin detalle'}).`,
+      texto: r.ok && 'noEntregado' in r && r.noEntregado
+        ? `Sin tomar a los 30 minutos: quedó en su grupo de la app y el WhatsApp no salió (${String(r.noEntregado).slice(0, 160)}).`
+        : r.ok ? 'Sin tomar a los 30 minutos: se le avisó en su grupo.' : `Sin tomar a los 30 minutos: el aviso no salió (${'error' in r ? String(r.error).slice(0, 160) : 'sin detalle'}).`,
       datos: null,
     });
     if (r.ok) salieron++;
@@ -268,7 +270,7 @@ async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>, p
   const salio: string[] = [];
   let sinWhatsApp: string | null = null;
   if (avisaEnSuGrupo(f, plataforma)) {
-    let r: { ok: boolean; sinGrupo?: boolean; error?: string };
+    let r: { ok: boolean; sinGrupo?: boolean; error?: string; enApp?: boolean; noEntregado?: string };
     try {
       // Por el MISMO saneo de salida que el doer (lib/doer-salida.ts; lo pidió el chat «MaKo en WhatsApp»): lo libre del
       // aviso es la respuesta de Martín o la nota del arreglo. `corrioHerramientas: true` porque el aviso ES el resultado
@@ -280,16 +282,19 @@ async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>, p
       r = await enviarAlGrupoMaKo(ws, sanearSalida(texto, { corrioHerramientas: true }).texto, { de: 'equipo', ticket: Number(f.id) });
     } catch (e) { r = { ok: false, error: e instanceof Error ? e.message : String(e) }; }
     const destino = destinoDelAvisoAlGrupo(r, Date.parse(f.updated_at), Date.now());
+    // Con `enApp` el motivo viene en `noEntregado` (19/11/2026, #118): quedó en el hilo de la app y el WhatsApp no salió.
+    const motivo = r.error ?? r.noEntregado;
     if (destino === 'reintentar') {
-      console.error(`[tickets] WhatsApp de #${f.id}: ${r.error ?? 'no salió'} — se reintenta en la vuelta siguiente`);
+      console.error(`[tickets] WhatsApp de #${f.id}: ${motivo ?? 'no salió'}${r.enApp ? ' (sólo en la app)' : ''}; se reintenta`);
       return false;
     }
-    if (destino === 'salio') salio.push('whatsapp');
+    // «whatsapp» en el historial sólo si llegó a WhatsApp. Lo que quedó sólo en la app (un negocio sin grupo de WhatsApp) dice «app».
+    if (destino === 'salio') salio.push(r.enApp ? 'app' : 'whatsapp');
     // Perdido: /tickets ya dice el estado y el historial dice que el WhatsApp no salió; no se reintenta para siempre (30 así llenarían
     // la ventana de `avisarPendientes` y frenarían todos los avisos, como el 23/10).
     if (destino === 'perdido') {
-      sinWhatsApp = `el WhatsApp no salió en ${HORAS_REINTENTO_GRUPO} h (${String(r.error ?? 'sin detalle').slice(0, 160)})`;
-      salio.push('tickets');
+      sinWhatsApp = `el WhatsApp no salió en ${HORAS_REINTENTO_GRUPO} h (${String(motivo ?? 'sin detalle').slice(0, 160)})`;
+      salio.push(r.enApp ? 'app' : 'tickets');
     }
   }
   // Un push a SU teléfono (es lo único de MaKo que llega a una persona y no a todo el negocio).

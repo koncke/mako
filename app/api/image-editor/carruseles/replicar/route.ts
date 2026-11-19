@@ -28,7 +28,7 @@ import { puerta } from '@/lib/image-editor/server';
 import { candadoIaDeEditores } from '@/lib/editores-ia-pro';
 import { rateLimit } from '@/lib/rate-limit';
 import { replicarEjemplo, type EjemploAReplicar } from '@/lib/carruseles/replica-servidor';
-import { streamDeReplica } from '@/lib/carruseles/replica-stream';
+import { hastaDeLaReplica, streamDeReplica } from '@/lib/carruseles/replica-stream';
 import { leerPedidoGuiado } from '@/lib/carruseles/guiado';
 import { esIdDeVertical } from '@/lib/thumbnails/verticales';
 import { vistaDeOtro } from '@/lib/vista-de-otro';
@@ -75,8 +75,10 @@ export async function POST(req: NextRequest) {
   const vista = await vistaDeOtro().catch(() => null);
   const negocioAjeno = vista && vista.clienteWs === p.ws ? vista.clienteNombre : null;
 
+  // ⏱ La corrida termina ANTES del aviso de la ruta (ticket 119): con el plazo, lo escrito se guarda y llega su `fin` de verdad.
+  const hastaMs = hastaDeLaReplica(Date.now(), AVISO_ANTES_DEL_TOPE_MS);
   const stream = streamDeReplica(
-    (alEvento) => runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, ejemplo, { pedido, guiado, negocioAjeno, alEvento })),
+    (alEvento) => runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, ejemplo, { pedido, guiado, negocioAjeno, alEvento, hastaMs })),
     {
       plazoMs: AVISO_ANTES_DEL_TOPE_MS, minutos: Math.floor(AVISO_ANTES_DEL_TOPE_MS / 60_000), negocioAjeno,
       alFallar: (e) => console.error('[carruseles] replicar:', e instanceof Error ? e.message : e),

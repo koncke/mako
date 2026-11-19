@@ -26,6 +26,7 @@ import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { getWorkspaceActual, runWithWorkspace, wsObligatorio, WS_NINGUNO } from './workspace';
 import { getNumeroDueno, setNumeroDuenoYSync, agregarParticipanteGrupo, getGrupoJidMaKo, numeroTieneWhatsApp, linkInvitacionGrupo } from './mako-grupo';
+import type { SalidaSinAlta } from './participantes-grupo';
 import { normalizarDestinatarios, soloDigitos, type Destinatarios } from './notif-catalogo';
 
 const KEY_TELEFONOS = 'notif_telefonos';
@@ -111,6 +112,8 @@ export type ResultadoGuardar = {
   noAgregados?: Array<{ telefono: string; motivo: string }>;
   /** El link del grupo, para pasarlo a mano. Solo viene cuando algo falló. */
   linkGrupo?: string | null;
+  /** Quién del negocio lo puede sumar desde su WhatsApp, o a quién hacer admin para eso (19/11/2026, `salidaSinAlta`). */
+  salidaGrupo?: SalidaSinAlta;
 };
 
 /**
@@ -184,13 +187,15 @@ export async function setDestinatarios(d: Partial<Destinatarios>, nombreCliente:
   // mira, nunca a un log.
   const noAgregados: Array<{ telefono: string; motivo: string }> = [...noAgregadosPrincipal];
   let linkGrupo: string | null = null;
+  let salidaGrupo: SalidaSinAlta | undefined;
   for (const t of dest.telefonos.slice(1)) {
     const r = await agregarParticipanteGrupo(ws, t).catch((e) => ({
-      ok: false as const, error: e instanceof Error ? e.message : String(e), link: null as string | null,
+      ok: false as const, error: e instanceof Error ? e.message : String(e), link: null as string | null, salida: undefined,
     }));
     if (!r.ok) {
       noAgregados.push({ telefono: t, motivo: r.error ?? 'no se pudo agregar al grupo' });
       linkGrupo = linkGrupo ?? r.link ?? null;
+      if (!salidaGrupo && (r.salida?.hacerAdmin || r.salida?.yaPuedeSumar)) salidaGrupo = r.salida;
     }
   }
 
@@ -202,6 +207,7 @@ export async function setDestinatarios(d: Partial<Destinatarios>, nombreCliente:
     // El link se ofrece SOLO cuando algo falló: es la salida manual, no un dato
     // de la pantalla. Mostrarlo siempre invita a repartir el grupo por fuera.
     linkGrupo: noAgregados.length ? (linkGrupo ?? await linkInvitacionGrupo(ws)) : undefined,
+    salidaGrupo,
   };
 }
 

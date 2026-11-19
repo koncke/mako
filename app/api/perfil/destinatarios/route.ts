@@ -15,6 +15,7 @@ import type { NextRequest } from 'next/server';
 import { setDestinatarios, type Destinatarios } from '@/lib/notif-destinatarios';
 import { getWorkspaceActual, getWorkspace, getRolWsEfectivo } from '@/lib/workspace';
 import { destinatariosDelNegocio } from '@/lib/destinatarios-negocio';
+import { hacerAdminParaSumar } from '@/lib/mako-grupo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -35,7 +36,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const cerrada = await soloAdmin();
   if (cerrada) return cerrada;
-  let body: Partial<Destinatarios> & { ws?: unknown };
+  let body: Partial<Destinatarios> & { ws?: unknown; accion?: unknown; telefono?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -51,6 +52,18 @@ export async function POST(req: NextRequest) {
   // (una pestaña de antes de este cambio) se guarda como siempre.
   if (typeof body.ws === 'number' && body.ws !== ws) {
     return Response.json({ ok: false, error: 'Esta pantalla era de otra cuenta. Recarga la página.' }, { status: 409 });
+  }
+  // «Hacerlo admin para que lo sume» (19/11/2026): cuando WhatsApp no deja que MaKo sume a alguien por su privacidad, el número
+  // principal del negocio lo suma desde su WhatsApp, y MaKo lo hace admin del grupo con este clic (lib/mako-grupo.ts). Toca el grupo de
+  // ESTE negocio, así que acá el `ws` de la pantalla es obligatorio: sin él, una cookie vieja de la agencia lo haría en el grupo propio.
+  if (body.accion === 'hacer-admin') {
+    if (typeof body.ws !== 'number') return Response.json({ ok: false, error: 'Recarga la página y vuelve a intentarlo.' }, { status: 409 });
+    try {
+      const r = await hacerAdminParaSumar(ws, String(body.telefono ?? ''));
+      return Response.json(r, { status: r.ok ? 200 : 400 });
+    } catch (err) {
+      return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    }
   }
   try {
     const wsRow = await getWorkspace(ws);

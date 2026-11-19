@@ -31,6 +31,31 @@ Los tres corolarios, cada uno pagado por un caso real de abajo:
 
 ---
 
+## El video de bienvenida del onboarding: dos videos juntos, el gancho sin tapar y las pantallas de cerca (19/11/2026)
+
+**Vive en:** `scripts/tutorial-animado/guiones.json` (`onboarding-bienvenida`) · `scripts/tutorial-animado/pantallas-onboarding/`
+(las 5 pantallas de WhatsApp y `montar.mjs`) · `C:/dev/tutoriales-video/motor/hacer.mjs` y `engine3.js`.
+
+- **Juntar dos videos no es pegarlos.** El de WhatsApp enseñaba el flujo VIEJO («manda el mensaje con tu código… queda confirmado
+  solo»). En el onboarding V2, MaKo contesta con un código y se pega en el chat. Antes de unir dos videos, cada parte se coteja con
+  el producto de hoy: el guion se reescribió y la voz es nueva.
+- **«Te doy la bienvenida» quedaba tapada, y `tapado ok` no lo marcó.** Con `rol: 'que-es'` el texto pasa por detrás de la cabeza
+  a propósito: la regla deja tapar hasta el tercio de abajo de una línea, y «bienvenida» quedaba en 95 %, «desde 76 %». El chequeo
+  la dio por buena porque cumplía esa regla. Pero el Cerebro pide que el texto NO se tape nunca. Lo único que el motor dibuja grande
+  y sin tapar nada es el `gancho` (`b.gancho`: 100 % visible en cada cuadro): para una frase que no se puede tapar, `rol: 'gancho'`.
+- **Una frase de 10 palabras al costado sale con la letra chica.** `textoLado` la ajusta a 3 líneas en el 52 % del ancho, de 112 px
+  para abajo, y `trozos` sólo parte lo que pasa de 10 palabras. Como gancho va centrada y con más ancho.
+- **Las pantallas, sin tocar el motor.** `engine3` no dibuja la app desde el 18/11 (Martín: «nada de screenshots»), pero el Cerebro
+  pide que lo que dice la voz se VEA. Las pantallas se arman en HTML (`pantallas-whatsapp.html?s=1…5`) y se montan con ffmpeg sobre
+  el 1080p, en el segundo de su frase: `montar.mjs` lee la voz (`alin.json`) y busca cada frase. Después,
+  `hacer.mjs <id> web` rehace el 720p. El original queda al lado (`.sin-pantallas.mp4`).
+- **En la app el video se ve en ~470 px: un texto de 30 px queda en 7.** Cada pantalla se acerca a lo que nombra la frase (×2 a ×2,3:
+  el botón, el mensaje escrito, el código, el recuadro, la tarjeta), con el título en una franja arriba.
+- **`subir.mjs` copia el manifiesto entero del motor encima del del repo.** Antes de subir se compara contra el de main: esta vez
+  sólo cambiaba `onboarding-bienvenida`.
+- **Para mirar los cuadros:** en el Chromium sin ventana de esta PC, las animaciones CSS quedan en `currentTime 0`. Se capturan con
+  `screenshot({ animations: 'disabled' })` (ver docs/hallazgos-onboarding.md).
+
 ## Pendientes que venían de docs/estado-del-arte.md (18/11/2026)
 
 **Vive en:** `scripts/tutorial-animado/vsl-julio/assemble.sh` · `scripts/tutorial-animado/LEEME.md`

@@ -105,6 +105,10 @@ export type EstadoArranque = {
   /** Cómo cobra lo que vende, CONFIRMADO con un toque (cuarta revisión, 21/10): lo que se lee del precio (`cobroDelPrecio`)
    *  se propone y se guarda recién con «Sí, es eso» o con la otra opción. Sin esto, el producto nace como pago único. */
   cobro?: Cobro;
+  /** V2 (17/11, Martín): «¿Guardaste el contacto de MaKo?». 'no' = dijo que no y falta la segunda («Ya lo guardé» / «Lo hago después»). */
+  agendado?: 'si' | 'no' | 'guardado' | 'despues';
+  /** V2: «¿Qué te gustaría que MaKo resuelva primero?», hasta 3 (las opciones de `INTERESES_V2` o lo que escribió). */
+  intereses?: string[];
   /** El teléfono de los avisos: 'codigo' = se mandó el código y falta cargarlo. */
   telefono?: 'codigo' | 'verificado' | 'postergado';
   telefonoNumero?: string;
@@ -135,6 +139,8 @@ export type EstadoArranque = {
 /** Lo que el server MIDE (nunca se guarda: estado vivo, no recordado). */
 export type HechosArranque = {
   modo: ModoArranque;
+  /** El onboarding V2 (lib/onboarding-v2/revision.ts): el de la maqueta. Sin esto, el de siempre. */
+  v2?: boolean;
   /** usuarios.nombre de quien entra (de Google o de quien lo invitó): el nombre para «uso mi nombre». */
   nombreCuenta: string;
   /** workspaces.nombre (lo puso el alta). NO se ofrece como opción (Martín, 18/10: sin respuestas rápidas en el nombre
@@ -169,10 +175,10 @@ export type HechosArranque = {
 
 export type EtapaArranque =
   | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'pdf' | 'cobro' | 'entrada' | 'crm'
-  | 'telefono' | 'codigo' | 'avisos' | 'cierre' | 'listo';
+  | 'telefono' | 'codigo' | 'avisos' | 'cierre' | 'listo' | 'agendado';
 
-/** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). */
-export type TarjetaArranque = 'crm' | 'telefono' | 'whatsapp' | 'avisos' | 'pdf' | 'listo';
+/** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). `codigo`: el del V2 (abrir WhatsApp y pegar). */
+export type TarjetaArranque = 'crm' | 'telefono' | 'whatsapp' | 'avisos' | 'pdf' | 'listo' | 'codigo';
 
 /** Un mensaje del chat de arranque (los de la conversación de la oferta son los de Offer, aparte). */
 export type MensajeArranque = {
@@ -181,6 +187,8 @@ export type MensajeArranque = {
   texto: string;
   opciones?: string[];
   tarjeta?: TarjetaArranque;
+  /** V2: cómo se dibujan sus opciones en el recuadro de arriba de la caja (el del Ops Center). `varias`: hasta cuántas. */
+  recuadro?: { tema: string; varias?: number; libre?: boolean; ayuda?: string };
 };
 
 // ── Textos ──────────────────────────────────────────────────────────────────
@@ -1016,6 +1024,7 @@ export function conFaseDeOffer(e: EstadoArranque, h: Pick<HechosArranque, 'faseO
  */
 export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArranque {
   if (h.terminado) return 'listo';
+  if (h.v2) return etapaDeArranqueV2(e, h);
   // Lo primero. El código por WhatsApp va con él: recién con el número probado MaKo lo suma a su grupo (auditoría del 14/10).
   if (h.conTelefono && e.telefono !== 'verificado' && e.telefono !== 'postergado') {
     return e.telefono === 'codigo' ? 'codigo' : 'telefono';
@@ -1056,6 +1065,7 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
  * su pregunta es el último mensaje, con sus opciones.
  */
 export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { antes: MensajeArranque[]; despues: MensajeArranque[] } {
+  if (h.v2) return { antes: mensajesDeArranqueV2(e, h), despues: [] };
   const etapa = etapaDeArranque(e, h);
   const antes: MensajeArranque[] = [];
   const despues: MensajeArranque[] = [];
@@ -1245,7 +1255,7 @@ function cierre(etapa: EtapaArranque, nombre: string): MensajeArranque[] {
  * del teléfono). Si el texto no coincide, la pregunta cambió y no se anota nada.
  */
 /** `pregunta`: el texto del mensaje de MaKo que contesta (la pantalla lo manda con el toque y con lo escrito). */
-export type Respuesta = { texto?: string; opcion?: number; opcionTexto?: string; pregunta?: string };
+export type Respuesta = { texto?: string; opcion?: number; opcionTexto?: string; pregunta?: string; opciones?: string[] };
 export type ResultadoRespuesta =
   /** `fase` al completar el diagnóstico, con el canal que vale (`faseCanal`: el de acá o el de la oferta). */
   | { ok: true; patch: Partial<EstadoArranque>; fase?: number[]; faseCanal?: CanalId }
@@ -1257,6 +1267,7 @@ export type ResultadoRespuesta =
  * conversación de la oferta tienen su propia acción en la ruta: acá no entran.
  */
 export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta): ResultadoRespuesta {
+  if (h.v2) return leerRespuestaV2(e, h, r);
   const etapa = etapaDeArranque(e, h);
   const { antes, despues } = mensajesDeArranque(e, h);
   const ultimo = [...antes, ...despues].filter((m) => m.de === 'mako').pop();
@@ -1743,4 +1754,168 @@ export function fundirBrief(previas: Record<string, string>, nuevas: Record<stri
   const out = { ...previas };
   for (const [k, val] of Object.entries(nuevas)) if (!(out[k] ?? '').trim() && val.trim()) out[k] = val.trim();
   return out;
+}
+
+// =============================================================================
+// EL ONBOARDING V2 (19/11/2026): el de la maqueta, detrás del interruptor (lib/onboarding-v2/revision.ts)
+// =============================================================================
+// La especificación es la maqueta del artefacto (C:/dev/artefactos-onboarding/cuerpo.html → `onboarding()` y sus textos `T`), con
+// las decisiones de Martín del 16 al 18/11 (memoria onboarding-16-11-decisiones). Martín, 19/11, probándolo en producción: «primero
+// te pide el WhatsApp en lugar de preguntarte cómo te llamas… está el botón de ahora no… ese onboarding debería ser obligatorio…
+// los mensajes no están exactamente igual». Así que, en el V2:
+//   · primero el NOMBRE, escrito y sin «¿te llamo así?» (16/11: «no vuelve a preguntar lo que la persona acaba de escribir»);
+//   · el WhatsApp OBLIGATORIO, sin «Ahora no»: la persona le escribe a MaKo y MaKo le contesta con un código que ella pega aquí
+//     (lib/verificacion-entrante.ts, «EL WHATSAPP DEL ONBOARDING V2»), y «¿Guardaste el contacto de MaKo?»;
+//   · el negocio, escrito; cómo llegó; qué resolver primero (hasta 3); «¡Listo!» y «Entrar a MaKo».
+// Nada de la oferta, el PDF, la fase ni el CRM: eso es de Offer Coach y Funnel Coach (16/11: «ya tenemos estos espacios dedicados
+// a eso»). Ni el QR de la app: va al día 2 del reto.
+// =============================================================================
+
+export const V2_NOMBRE = '¡Hola! Soy MaKo. Para empezar, ¿cómo te llamas?';
+export const V2_TELEFONO = (n: string): string => `Un gusto, ${n}. ¿A qué WhatsApp te escribo con los avisos y los reportes?`;
+export const V2_CODIGO = 'Para confirmar tu WhatsApp, toca «Abrir WhatsApp» y envía el mensaje de confirmación. Te contesto con un código y lo pegas aquí abajo.';
+export const V2_AGENDADO = '¿Guardaste el contacto de MaKo?';
+export const V2_AGENDADO_OPCIONES = ['Sí', 'No'] as const;
+export const V2_AGENDADO_NO = 'Guárdalo cuando puedas: es la tarjeta que te mandé con el código. Si no estoy en tus contactos, WhatsApp puede frenar lo que te mando, como los avances de tu negocio.';
+export const V2_AGENDADO_NO_OPCIONES = ['Ya lo guardé', 'Lo hago después'] as const;
+export const V2_NEGOCIO = 'Listo, tu WhatsApp quedó confirmado. ¿Cómo se llama tu negocio?';
+export const V2_NEGOCIO_SIN_TELEFONO = (n: string): string => `Un gusto, ${n}. ¿Cómo se llama tu negocio?`;
+export const V2_ORIGEN = (n: string): string => `¿Cómo llegaste a MaKo${n ? `, ${n}` : ''}?`;
+export const V2_ORIGENES = ['Instagram', 'YouTube', 'TikTok', 'Un anuncio', 'Me lo recomendaron', 'Google'] as const;
+export const V2_INTERES = '¿Qué te gustaría que MaKo resuelva primero?';
+export const V2_TOPE_INTERESES = 3;
+/** Lo que venden los planes y la portada (la maqueta, `INTERESES`). `id`: el de antes cuando es el mismo pedido (decide la entrada). */
+export const INTERESES_V2: ReadonlyArray<{ label: string; id?: InteresId }> = [
+  { label: 'Conseguir clientes con anuncios', id: 'anuncios' },
+  { label: 'Armar mi landing' },
+  { label: 'Espiar lo que le funciona a mi competencia' },
+  { label: 'Guiones y carruseles que venden' },
+  { label: 'Videos con IA y con mi avatar' },
+  { label: 'Que WhatsApp e Instagram respondan solos', id: 'whatsapp' },
+  { label: 'Ordenar mis ventas en un CRM', id: 'ventas' },
+  { label: 'Ver mis números en un tablero' },
+  { label: 'Armar o mejorar mi oferta' },
+  { label: 'Mi curso y mi comunidad' },
+  { label: 'Organizar mi plan y mi equipo', id: 'organizar' },
+];
+export const V2_LISTO = (n: string): string => `¡Listo${n ? `, ${n}` : ''}! Tu MaKo ya está armado.`;
+
+/** ¿Ya contestó lo del contacto de MaKo? (con un «No», falta la segunda pregunta). */
+const agendadoListo = (e: EstadoArranque): boolean => !!e.agendado && e.agendado !== 'no';
+
+export function etapaDeArranqueV2(e: EstadoArranque, h: HechosArranque): EtapaArranque {
+  if (h.terminado) return 'listo';
+  if (!e.nombre) return 'nombre';
+  if (h.conTelefono) {
+    // OBLIGATORIO (16/11): un «postergado» de antes no salta el paso; vuelve a pedirlo.
+    if (e.telefono !== 'verificado') return e.telefono === 'codigo' ? 'codigo' : 'telefono';
+    if (!agendadoListo(e)) return 'agendado';
+  }
+  if (!e.negocio) return 'negocio';
+  if (!e.origen) return 'origen';
+  if (!e.intereses?.length) return 'interes';
+  return 'cierre';
+}
+
+/** La conversación del V2, hasta la pregunta de ahora (con sus opciones y su recuadro). */
+export function mensajesDeArranqueV2(e: EstadoArranque, h: HechosArranque): MensajeArranque[] {
+  const etapa = etapaDeArranqueV2(e, h);
+  const out: MensajeArranque[] = [];
+  const n = e.nombre ? primerNombre(e.nombre) : '';
+  const mako = (id: string, texto: string, x: Partial<MensajeArranque> = {}) => { out.push({ id: `arr-${id}`, de: 'mako', texto, ...x }); };
+  const yo = (id: string, texto: string | undefined) => { if (texto) out.push({ id: `arr-${id}-r`, de: 'yo', texto }); };
+
+  mako('nombre', V2_NOMBRE);
+  if (etapa === 'nombre') return out;
+  yo('nombre', e.nombre);
+
+  if (h.conTelefono) {
+    mako('telefono', V2_TELEFONO(n), etapa === 'telefono' ? { tarjeta: 'telefono' } : {});
+    if (etapa === 'telefono') return out;
+    yo('telefono', e.telefonoNumero || 'Mi WhatsApp');
+    mako('codigo', V2_CODIGO, etapa === 'codigo' ? { tarjeta: 'codigo' } : {});
+    if (etapa === 'codigo') return out;
+    yo('codigo', CODIGO_CARGADO);
+    const enAgendado = etapa === 'agendado';
+    mako('agendado', V2_AGENDADO, enAgendado && !e.agendado ? { opciones: [...V2_AGENDADO_OPCIONES], recuadro: { tema: 'El contacto de MaKo' } } : {});
+    if (enAgendado && !e.agendado) return out;
+    yo('agendado', e.agendado === 'si' ? 'Sí' : 'No');
+    if (e.agendado && e.agendado !== 'si') {
+      mako('agendado-no', V2_AGENDADO_NO, enAgendado ? { opciones: [...V2_AGENDADO_NO_OPCIONES], recuadro: { tema: 'El contacto de MaKo' } } : {});
+      if (enAgendado) return out;
+      yo('agendado-no', e.agendado === 'guardado' ? V2_AGENDADO_NO_OPCIONES[0] : V2_AGENDADO_NO_OPCIONES[1]);
+    }
+  }
+
+  mako('negocio', h.conTelefono ? V2_NEGOCIO : V2_NEGOCIO_SIN_TELEFONO(n));
+  if (etapa === 'negocio') return out;
+  yo('negocio', e.negocio);
+
+  mako('origen', V2_ORIGEN(n), etapa === 'origen' ? { opciones: [...V2_ORIGENES], recuadro: { tema: 'Cómo llegaste', libre: true } } : {});
+  if (etapa === 'origen') return out;
+  yo('origen', e.origen);
+
+  mako('interes', V2_INTERES, etapa === 'interes'
+    ? { opciones: INTERESES_V2.map((i) => i.label), recuadro: { tema: 'Qué resolver primero', varias: V2_TOPE_INTERESES, libre: true, ayuda: `Elige hasta ${V2_TOPE_INTERESES}.` } }
+    : {});
+  if (etapa === 'interes') return out;
+  yo('interes', (e.intereses ?? []).join(' · '));
+
+  if (etapa === 'listo') mako('listo', V2_LISTO(n), { tarjeta: 'listo' });
+  return out;
+}
+
+/** Una respuesta del V2. Las tarjetas (el teléfono, el código) tienen su acción en la ruta: acá no entran. */
+export function leerRespuestaV2(e: EstadoArranque, h: HechosArranque, r: Respuesta): ResultadoRespuesta {
+  const etapa = etapaDeArranqueV2(e, h);
+  const ultimo = mensajesDeArranqueV2(e, h).filter((m) => m.de === 'mako').pop();
+  // La pregunta que contesta: una pestaña vieja no contesta otra cosa.
+  if (r.pregunta !== undefined && r.pregunta !== ultimo?.texto) return { ok: false, error: 'La pregunta cambió.', cambio: true };
+  const opcion = Number.isInteger(r.opcion) && ultimo?.opciones ? ultimo.opciones[r.opcion as number] : undefined;
+  if (r.opcion !== undefined && r.opcionTexto !== undefined && opcion !== r.opcionTexto) return { ok: false, error: 'La pregunta cambió.', cambio: true };
+  const texto = limpiarRespuesta(opcion ?? r.texto ?? '');
+
+  if (etapa === 'nombre') {
+    const leido = extraerNombre(texto);
+    const nombre = leido.nombre || nombreSinCortar(texto);
+    if (!nombre) return { ok: false, error: 'No te entendí el nombre. ¿Cómo te llamo?' };
+    return { ok: true, patch: { nombre, ...(leido.negocio ? { negocioSugerido: leido.negocio } : {}) } };
+  }
+  if (etapa === 'agendado') {
+    if (!e.agendado) {
+      const v = opcion ?? (siONo(texto) === 'si' ? 'Sí' : siONo(texto) === 'no' ? 'No' : null);
+      if (v === 'Sí') return { ok: true, patch: { agendado: 'si' } };
+      if (v === 'No') return { ok: true, patch: { agendado: 'no' } };
+      return { ok: false, error: 'Toca «Sí» o «No».' };
+    }
+    const guardado = opcion === V2_AGENDADO_NO_OPCIONES[0] || (opcion === undefined && (siONo(texto) === 'si' || /guard/i.test(texto)));
+    const despues = opcion === V2_AGENDADO_NO_OPCIONES[1] || (opcion === undefined && (siONo(texto) === 'no' || /despu|luego|m[aá]s tarde/i.test(texto)));
+    if (guardado) return { ok: true, patch: { agendado: 'guardado' } };
+    if (despues) return { ok: true, patch: { agendado: 'despues' } };
+    return { ok: false, error: `Toca «${V2_AGENDADO_NO_OPCIONES[0]}» o «${V2_AGENDADO_NO_OPCIONES[1]}».` };
+  }
+  if (etapa === 'negocio') {
+    const persona = [h.nombreCuenta, e.nombre].find((x) => !!x?.trim() && !x.includes('@')) ?? '';
+    const negocio = leerNegocio(texto, persona) ?? cortar(texto.trim(), 80);
+    if (!negocio) return { ok: false, error: '¿Cómo se llama tu negocio?' };
+    return { ok: true, patch: { negocio } };
+  }
+  if (etapa === 'origen') {
+    if (!texto.trim()) return { ok: false, error: 'Elige una opción o escríbelo con tus palabras.' };
+    return { ok: true, patch: { origen: cortar(texto.trim(), 120) } };
+  }
+  if (etapa === 'interes') {
+    const labels = INTERESES_V2.map((i) => i.label);
+    const elegidas = (r.opciones ?? []).filter((o) => labels.includes(o));
+    const libre = !elegidas.length && opcion === undefined ? texto.trim() : '';
+    const lista = elegidas.length ? elegidas : opcion ? [opcion] : libre ? [cortar(libre, 120)] : [];
+    if (!lista.length) return { ok: false, error: 'Elige al menos una opción.' };
+    if (lista.length > V2_TOPE_INTERESES) return { ok: false, error: `Puedes elegir hasta ${V2_TOPE_INTERESES}. Saca uno para sumar otro.` };
+    const id = lista.map((l) => INTERESES_V2.find((i) => i.label === l)?.id).find(Boolean);
+    return { ok: true, patch: { intereses: lista, ...(id ? { interes: id } : {}) } };
+  }
+  // Lo escrito en la caja en las etapas de tarjeta: un número de WhatsApp o el código los toma la ruta antes de llegar acá.
+  if (etapa === 'telefono') return { ok: false, error: 'Ese número no parece un WhatsApp. Escríbelo con el código de país, por ejemplo +54 9 11 5555 0101.' };
+  if (etapa === 'codigo') return { ok: false, error: 'Pega aquí el código de 6 números que te mandé por WhatsApp.' };
+  return { ok: false, error: 'Ahora no estoy esperando eso.' };
 }

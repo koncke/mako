@@ -5077,6 +5077,13 @@ ruta de la API la saca de `open` (medido el 11/09/2026). El código hacía `logo
   decía «Conectar por QR», pero el panel lo dibujaba sólo con la línea caída, y una sorda figura conectada: el botón no
   estaba justo cuando el aviso mandaba a tocarlo. El servidor ya sabía soltarla. La condición del botón es la MISMA con la que
   el servidor actúa (`motivoParaVolverAVincular` en `estadoCanalMaKo` y en `estadoNumeroPersonal`); tests/volver-a-vincular.test.ts.
+- ⛔ **Foto, nombre y privacidad de una línea: sólo desde el teléfono** (19/11/2026). Nunca se llama `updateProfilePicture`,
+  `removeProfilePicture`, `updatePrivacySettings` (ni `updateProfileName`) de Evolution. En 2.3.7 las tres primeras llaman a
+  `reloadConnection()`, que abre un socket nuevo SIN cerrar el viejo. La línea queda recibiendo por uno y contestando (nada) por el otro,
+  la sonda la da por muerta, y reconectar terminó en dos instancias del mismo número. ⚠️ El diagnóstico obvio («sorda otra vez, se perdió
+  el parche») era el equivocado. Lo vigila tests/linea-perfil-solo-telefono.test.ts. Y lo que contesta Evolution cuando dice que no (un
+  400) se LEE y se guarda: tirar el cuerpo y quedarse con el status dejó sin causa el alta de Joan (`causaDelRechazo`,
+  lib/participantes-grupo.ts).
 
 # Una sonda se valida en los DOS estados, con reloj
 

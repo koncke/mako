@@ -39,6 +39,13 @@ export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
     chat: 'Offer, computadora (en el onboarding pide un nombre o un código: sin archivos ni voz, a propósito)',
     falta: { puntos: 'no corresponde: Offer dibuja los suyos («Analizando…», la decisión del 18/10/2026)' },
   },
+  {
+    archivo: 'app/onboarding/ChatArranqueV2.tsx', chat: 'El onboarding V2 (19/11/2026, la maqueta): una pregunta por vez',
+    falta: {
+      adjuntos: 'no corresponde: pide un nombre, un número o un código, nada que adjuntar (como Offer en el onboarding)',
+      voz: 'no corresponde: el micrófono dicta y lo dicho sale como texto, que es lo que lee cada pregunta',
+    },
+  },
   { archivo: 'app/m/offer/ComposerOfferM.tsx', chat: 'Offer, teléfono', falta: { puntos: 'no corresponde: «Analizando…», nunca «escribiendo» (offer.css)' } },
   {
     archivo: 'app/chats/Composer.tsx', chat: 'Chats: lo que se le manda a un lead (los archivos y la nota de voz, según lo que acepte el canal)',

@@ -502,4 +502,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/image-editor',
   },
+  {
+    fecha: '19 nov', hora: '18:20', chat: 'Carruseles en MaKo (ticket 119)', sesion: 'local_604cc3b5-d32a-4888-a617-f527d92a091a', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Editar» un carrusel ya no se corta a los 4 minutos: escribe en menos de 2 y guarda antes del aviso (ticket #119, Leila)',
+    puntos: [
+      'A Leila «Editar» le decía «Tu IA tardó más de 4 minutos en escribir la versión y se cortó». No era el proveedor: MaKo le pedía la versión a un modelo de Gemini que, medido con el mismo carrusel de 12 láminas, tarda más de 3 minutos, y lo esperaba 2 minutos antes de probar otro. Y cada lámina del segundo paso lo volvía a probar.',
+      'Ahora «Editar» escribe con el modelo rápido de Gemini (27 s para 12 láminas): la misma prueba, con su Claude sin crédito como el de ella, terminó en 86 s en vez de pasar los 4 minutos.',
+      'Y la corrida entera tiene un plazo: ninguna IA espera más de lo que queda, el segundo paso se saltea si no alcanza, y tu versión se guarda ANTES de que el servidor corte. Antes se guardaba igual, pero minutos después del aviso, y Leila la pidió de nuevo (le quedó dos veces).',
+      'Si aun así no alcanza, el aviso dice que tu IA no llegó a tiempo y qué hacer, en vez de culpar a la cuenta.',
+    ],
+    archivos: [
+      'lib/ai-cheap.ts — `leerDocumentoIA`: el modelo que se pide (`modelos`) y el plazo del que llama (`hastaMs`)',
+      'lib/carruseles/replica-servidor.ts — `MODELOS_REPLICA` (flash-lite) y los plazos de la IA principal y del segundo pedido',
+      'lib/carruseles/replica-stream.ts — `hastaDeLaReplica`, `plazosDeLaReplica`, `alcanzaParaElSegundoPedido`',
+      'app/api/image-editor/carruseles/replicar/route.ts — la ruta le pasa el plazo a la corrida',
+      'lib/carruseles/replica.ts — el aviso «no alcanzó a tiempo» y no reintentar sin tiempo',
+      'tests/carruseles-editar-a-tiempo.test.ts y tests/_editar-a-tiempo-hijo.ts',
+    ],
+    revisar: '/image-editor',
+    tickets: [119],
+  },
 ];

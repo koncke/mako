@@ -125,3 +125,67 @@ export function esAdminEn(participantes: ParticipanteCrudo[], numero: string): {
   const a = String(p.admin ?? '').toLowerCase();
   return { esta: true, admin: a === 'admin' || a === 'superadmin' };
 }
+
+// ── Cuando WhatsApp no deja que MaKo sume a alguien: qué se ofrece (19/11/2026) ──────────────────────────────────────────────────────
+// Joan (la agencia de Sellers) guardó un número en Notificaciones y no entró al grupo: su WhatsApp sólo deja que lo agreguen sus
+// contactos (el 403), y MaKo no lo es. La pantalla daba UNA salida, «pásale tú el link», y Joan no pudo sumarlo: no era admin del
+// grupo. Martín lo hizo admin a mano y Joan lo sumó desde su teléfono, porque Joan SÍ es contacto de esa persona. Esa es la salida que
+// faltaba: alguien del negocio que esté en el grupo y sea admin lo suma desde su WhatsApp, y si no es admin, MaKo lo hace admin con un
+// clic. Y si MaKo misma no es admin del grupo, no se intenta nada ni se ofrece un link que no puede sacar: se dice eso.
+
+/** Lo que se dice cuando la línea de MaKo está en el grupo y no es admin: no puede sumar a nadie ni sacar el link del grupo. */
+export const MAKO_NO_ES_ADMIN = 'MaKo no es admin de este grupo, así que no puede sumar a nadie ni sacar el link. Que un admin del grupo haga admin a MaKo, o que sume a esa persona desde su WhatsApp.';
+
+/** El número del negocio que podría sumarlo a mano (el principal), y cómo está en el grupo. */
+export type QuienSuma = { numero: string; esta: boolean; esAdmin: boolean };
+
+/** Las salidas que la pantalla ofrece, además del link. */
+export type SalidaSinAlta = {
+  /** Ese número ya es admin del grupo: puede sumarlo desde su WhatsApp. */
+  yaPuedeSumar?: string;
+  /** Ese número está en el grupo sin ser admin: MaKo lo puede hacer admin para que lo sume él. */
+  hacerAdmin?: string;
+};
+
+/**
+ * Qué se ofrece cuando WhatsApp no dejó a MaKo sumar a `numero`. Sólo con el 403: es la privacidad de esa persona, y un contacto suyo
+ * sí puede sumarla. Con un 404 (no existe) o un 401 (bloqueó a MaKo), que lo intente otro no cambia nada. Y no se ofrece que se sume
+ * a sí mismo ni a alguien que no está en el grupo.
+ */
+export function salidaSinAlta(status: string | undefined, numero: string, quien: QuienSuma | null): SalidaSinAlta {
+  // '403': su privacidad. 'rechazo': WhatsApp rechazó el pedido entero por algo que no es «no existe» ni «MaKo no es admin» (`causaDelRechazo`).
+  if ((status !== '403' && status !== 'rechazo') || !quien || !quien.esta) return {};
+  const q = soloDigitos(quien.numero);
+  if (!q || q === soloDigitos(numero)) return {};
+  return quien.esAdmin ? { yaPuedeSumar: q } : { hacerAdmin: q };
+}
+
+/** La salida en una frase, para lo que no tiene botón (la respuesta de MaKo en el chat y la lista de quién no entró). */
+export function textoDeSalida(s: SalidaSinAlta, leer: (tel: string) => string = (t) => t): string {
+  if (s.yaPuedeSumar) return `O que lo sume ${leer(s.yaPuedeSumar)} desde su WhatsApp: es admin del grupo.`;
+  if (s.hacerAdmin) return `O que lo sume ${leer(s.hacerAdmin)} desde su WhatsApp: MaKo puede hacerlo admin del grupo.`;
+  return '';
+}
+
+/** ¿La línea de MaKo es admin del grupo? null = no la encontré entre los participantes (puede venir sólo como `@lid`): no se sabe. */
+export function makoEsAdminDe(participantes: ParticipanteCrudo[], numeroDeMaKo: string | null): boolean | null {
+  if (!numeroDeMaKo) return null;
+  const e = esAdminEn(participantes, numeroDeMaKo);
+  return e.esta ? e.admin : null;
+}
+
+/**
+ * La causa, en palabras de persona, cuando WhatsApp rechaza el pedido ENTERO (HTTP 400 de Evolution, no el 403 de un participante adentro
+ * de un 200). 19/11/2026: el cartel de Joan decía «No se pudo hablar con WhatsApp (Evolution 400)», que no dice qué pasó ni qué hacer, y
+ * el texto que contestó WhatsApp se tiraba. `ofreceSalida`: si tiene sentido que lo sume a mano alguien del negocio. Con «MaKo no es admin»,
+ * no: lo dice el motivo. Nunca nombra a Evolution.
+ */
+export function causaDelRechazo(status: number, body: unknown): { motivo: string; ofreceSalida: boolean; tipo: 'tope' | 'no-admin' | 'tiempo' | 'sin-conexion' | 'no-encontrado' | 'otro' } {
+  const t = (typeof body === 'string' ? body : JSON.stringify(body ?? '')).toLowerCase();
+  if (/rate-overlimit|\b429\b/.test(t)) return { tipo: 'tope', ofreceSalida: true, motivo: 'WhatsApp frenó a MaKo por hacer muchos cambios en grupos seguidos. Prueba de nuevo en un rato.' };
+  if (/not-authorized|forbidden|not.?admin/.test(t)) return { tipo: 'no-admin', ofreceSalida: false, motivo: MAKO_NO_ES_ADMIN };
+  if (/timed? ?out|\b408\b/.test(t)) return { tipo: 'tiempo', ofreceSalida: true, motivo: 'WhatsApp no contestó a tiempo. Prueba de nuevo en un minuto.' };
+  if (/connection closed|not connected|connection.{0,12}clos/.test(t)) return { tipo: 'sin-conexion', ofreceSalida: true, motivo: 'La línea de MaKo no está conectada en este momento. Prueba de nuevo en unos minutos.' };
+  if (/item-not-found|\b404\b/.test(t) || status === 404) return { tipo: 'no-encontrado', ofreceSalida: true, motivo: 'WhatsApp no encontró ese número para este grupo. Revisa que esté bien escrito, con el código de país.' };
+  return { tipo: 'otro', ofreceSalida: true, motivo: 'WhatsApp no dejó que MaKo lo sume.' };
+}

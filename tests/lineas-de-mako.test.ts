@@ -75,7 +75,7 @@ function deps(m: Mundo, sobre: Partial<DepsVigia> = {}): DepsVigia {
       return { enviadoA: 1 };
     },
     reabrir: async (i) => { m.reabiertas.push(i); },
-    linkPrincipal: () => 'https://hola-mako.com/agencia?canal=1',
+    linkPrincipal: () => 'https://hola-mako.com/chats?canal=mako',
     linkSecundaria: (i) => `https://hola-mako.com/whatsapp?canal=no-oficial&linea=${i}&ws=9`,
     ahoraMs: () => m.ahora,
     ...sobre,
@@ -93,7 +93,7 @@ test('el caso del 3/11: la principal cerrada con 403 avisa en la misma corrida, 
   const texto = m.enviados[0].texto;
   assert.match(texto, /Se cayó la línea de MaKo\* \(…2605\)/);
   assert.match(texto, /WhatsApp cerró la sesión hace 2 min/, 'el tiempo sale de cuándo cayó, no de cuándo se midió');
-  assert.match(texto, /hola-mako\.com\/agencia\?canal=1/, 'el aviso tiene que traer el link para escanear');
+  assert.match(texto, /hola-mako\.com\/chats\?canal=mako/, 'el aviso tiene que traer el link para escanear');
   assert.match(texto, /no escanees/, 'con un 403 también puede ser una cuenta suspendida: hay que decirlo');
 
   for (const min of [3, 6, 60, 60 * 24]) {
@@ -160,7 +160,7 @@ test('si caen las dos va UN mail con los dos links, y no se repite', async () =>
   assert.equal(m.enviados.length, 0, 'no hay por dónde mandar un WhatsApp');
   assert.equal(m.mails.length, 1, 'un solo mail, no uno por línea');
   assert.equal(m.mails[0].asunto, '🚨 Las dos líneas de WhatsApp de MaKo están caídas');
-  assert.match(m.mails[0].cuerpo, /agencia\?canal=1/);
+  assert.match(m.mails[0].cuerpo, /chats\?canal=mako/);
   assert.match(m.mails[0].cuerpo, /linea=mako_ws9/);
   assert.ok(!m.mails[0].cuerpo.includes('*'), 'el mail va sin las marcas de WhatsApp');
   assert.deepEqual(r.lineas.map((l) => l.por), ['email', 'email']);
@@ -178,7 +178,7 @@ test('si cae la segunda con la primera ya avisada, el mail igual trae los dos li
   await correrVigilancia(deps(m));
   assert.equal(m.mails.length, 1);
   assert.equal(m.mails[0].asunto, '🚨 Las dos líneas de WhatsApp de MaKo están caídas');
-  assert.match(m.mails[0].cuerpo, /agencia\?canal=1/);
+  assert.match(m.mails[0].cuerpo, /chats\?canal=mako/);
 });
 
 test('un envío que falla prueba la otra línea, después el mail; y si nada llegó, reintenta en la próxima corrida', async () => {
@@ -436,7 +436,7 @@ test('real: la caída sale por la secundaria nombrada, y no por la de MaKo que `
   assert.deepEqual(destinos(R.caida), [[S, NUM_S]], 'un mensaje, a sí misma: nunca el tráfico de la principal, ni la cuenta baneada');
   assert.equal(R.caida.mails.length, 0);
   assert.equal(R.caida.r.lineas[0].llego, true);
-  assert.match(R.caida.enviados[0].texto, /https:\/\/hola-mako\.com\/agencia\?canal=1/);
+  assert.match(R.caida.enviados[0].texto, /https:\/\/hola-mako\.com\/chats\?canal=mako/);
   assert.deepEqual(destinos(R.repite), [], 'y no se repite');
 });
 
@@ -471,7 +471,7 @@ test('real: con la voz en una línea de negocio, el link lleva a esa línea, no 
   assert.deepEqual(destinos(R.vozEnNegocio), []);
   assert.equal(R.vozEnNegocio.mails.length, 1);
   assert.match(R.vozEnNegocio.mails[0].text, /whatsapp\?canal=no-oficial&linea=mako_ws9/);
-  assert.ok(!/agencia\?canal=1/.test(R.vozEnNegocio.mails[0].text), 'mandaría a escanear el número baneado');
+  assert.ok(!/chats\?canal=mako/.test(R.vozEnNegocio.mails[0].text), 'mandaría a escanear el número baneado');
 });
 
 test('real: en toda la corrida no se tocó la sesión de nadie', () => {

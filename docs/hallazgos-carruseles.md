@@ -8,6 +8,56 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## «Editar» se cortaba a los 4 minutos: el modelo por defecto de Gemini NO llega, y nadie medía el tiempo de la corrida (19/11/2026, ticket 119)
+
+**El síntoma** (Leila, ws 11, 17:04 UTC): «Tu IA tardó más de 4 minutos en escribir la versión y se cortó: es la demora del
+proveedor, no de la configuración». El aviso echaba la culpa al proveedor, y **el diagnóstico obvio era el equivocado**.
+
+**Lo que pasó, medido en `anthropic_usage` del ws 11** (las filas `fallo:` se anotan una cada 5 min por motivo: faltan
+intentos): su Claude «sin crédito» (rápido), su `gemini-flash-latest` cortado a los **120 s** («no contestó»), su
+`gemini-flash-lite` con «otro error», su GPT-4o escribiendo 5.448 tokens en **98 s**, y después el segundo pedido (uno por
+lámina, en paralelo) otra vez por la MISMA cascada, con sus cuelgues de 90 s. Escritura a las 17:03:03, diseño guardado a las
+**17:07:44**: 3½ minutos después del aviso. Ella lo pidió de nuevo y quedó dos veces («Principios de Liderazgo», 17:07 y 17:13).
+
+**La causa real, medida con el MISMO pedido** (carrusel -1266 de 12 láminas, el prompt real, la clave de la plataforma):
+`gemini-flash-lite-latest` (3.5) **27 s**; `gemini-flash-latest` (3.8) **184 s con `thinkingLevel: low`** y **sin terminar en
+240 s** con el pensar por defecto (la visión nativa, `leerConGemini`, no manda nivel de pensar). No se cuelga: es LENTO para
+un JSON de 6-7 mil tokens con 12 imágenes. Con el plazo de 120 s de «Editar» no llegaba **nunca**, y era el primero de la
+lista para todo negocio con su Gemini.
+
+**Cómo quedó:**
+- `leerDocumentoIA` acepta `modelos` (el primero que se prueba, como `chatCheapCascade`) y `hastaMs` (el plazo del que llama:
+  cada intento se acota a lo que queda, y no se arranca uno con menos de `MIN_INTENTO_MS`).
+- «Editar» pide `MODELOS_REPLICA = { gemini: GEMINI_FLASH_LITE }` en los tres pedidos de visión y en la escritura sin láminas.
+- La ruta pasa `hastaMs` (`hastaDeLaReplica`, 10 s antes de su aviso): la IA principal tiene hasta 35 s antes, el segundo pedido
+  hasta 25 s antes y se saltea si no le quedan 15 s. Lo escrito se guarda antes del corte.
+- «sin tiempo» en el error se avisa como demora (antes ganaba «tu Claude no tiene crédito», que venía primero en la lista).
+- Probado en seco en el ws 9 COMO Leila (su Claude contestando «sin crédito» en el proceso): **86 s** de punta a punta, 44 de 44
+  textos. tests/carruseles-editar-a-tiempo.test.ts, probado rompiéndolo (sin `modelos` ni el plazo, el hijo espera 120 s).
+
+**Trampas:**
+- ⚠️ **El reloj de `AbortSignal.timeout` no mantiene vivo a Node.** Un `fetch` de mentira que «espera el abort» deja el proceso
+  sin nada pendiente y termina MUDO con código 0 (el hijo del test). Hace falta un `setInterval` mientras espera.
+- ⚠️ **2 de las 4 claves de Gemini del ws 9 contestan 401** («API key not valid»): en Integraciones, Gemini **«Cuenta 1»**
+  (`GEMINI_API_KEY`) y **«Cuenta 4»** (`GEMINI_API_KEY_4`), ninguna con el rótulo de su cuenta de Google cargado (medido el 19/11).
+  La cascada las saltea, pero cada corrida paga sus intentos; con el crédito de Claude acabado, Gemini es el respaldo.
+- La preparación antes de escribir (en la PC): Zernio 4 s, contexto y voz 1,6 s, `marcarLaminas` de 12 láminas 14 s de CPU.
+
+**Sin hacer:**
+- ~~Con `flash-lite`, 11 láminas de 12~~ **Hecho el 19/11**: la plancha exige una lámina de la IA por cada original, y el
+  carrusel caía CALLADO al armado de antes con una lámina menos. Ahora cada lámina trae su `"n"` (la del original que replica):
+  `leerReplica` las ordena y dice cuáles `faltan`, y replica-servidor.ts pide SÓLO ésas (hasta 3), cada una con su imagen y lo que
+  ya dicen las otras (`unaDe` en el prompt), dentro del plazo de la IA principal. Si igual falta, `avisoDeLaminasQueFaltan` lo
+  dice («Tu IA escribió 11 de las 12 láminas (faltó la 7)…»). Sin números (o repetidos) no se adivina cuál: se avisa igual.
+  tests/carruseles-lamina-que-falta.test.ts y los casos 12-13 de tests/carruseles-editar.test.ts. Falta medir cuántas veces
+  `flash-lite` devuelve de menos con carruseles reales.
+- `leerDocumentoIA` no anota los cuelgues en `conMemoriaDelPedido` como `chatCheap` (lib/ai-cheap.ts, `probarCon`): con
+  `MODELOS_REPLICA` ya no importa para «Editar», pero otras funciones de visión siguen empezando por `flash-latest`.
+- La fase del aviso: si el corte llega en el segundo pedido, dice «escribir la versión» (no hay evento de «armar» hasta que se
+  muestran las láminas; lib/carruseles/replica-stream.ts).
+- El «otro error» de `flash-lite` con su primera clave (Leila, y la clave 3 del ws 9 en la prueba, a los 8 s) no quedó
+  identificado: el motivo corto no dice cuál.
+
 ## «Ver ejemplo»: el titular encima del texto, en 14 de 53 láminas (19/11/2026)
 
 **El síntoma** (lo vio el chat de los carruseles de ventas dibujando los ejemplos; quedó «sin confirmar» en

@@ -19,7 +19,7 @@ import {
   sondearSocket, motivoCaida, registrarWebhookInstancia, permitirGruposEnInstancia,
   getInstanciaRow, conectar, estadoEnVivo, vinculadaDesdeDeLinea,
 } from './evolution';
-import { motivoParaVolverAVincular, puedeSoltarseSorda } from './linea-sorda';
+import { motivoParaVolverAVincular, puedeSoltarseSorda, seSoltoLaSesion } from './linea-sorda';
 import { marcaDeLineaEnferma } from './lineas-enfermas';
 import { mensajeEvolution } from './evolution-sonda';
 import { instanciaVoz, setInstanciaVoz } from './mako-grupo';
@@ -279,6 +279,7 @@ export async function conectarCanalMaKo(): Promise<Conexion> {
   }
 
   // Muerta. Primero se intenta soltarla por las buenas, que conserva la instancia.
+  const vinculadaAntes = await vinculadaDesdeDeLinea(inst).catch(() => null);
   const lo = await ev(`/instance/logout/${inst}`, { method: 'DELETE' });
   if (lo.ok) {
     // Evolution la soltó: la instancia sirve, se espera su QR. Rotar acá abriría una línea de
@@ -302,6 +303,18 @@ export async function conectarCanalMaKo(): Promise<Conexion> {
   //
   // La salida que no pasa por el socket muerto es una línea NUEVA. Nunca `delete` de la
   // vieja: tampoco funciona (hace logout adentro) y, si funcionara, se lleva el historial.
+  //
+  // ⚠️ PERO UN LOGOUT QUE CONTESTA ERROR PUEDE HABER SOLTADO LA SESIÓN IGUAL (19/11/2026). Martín tocó «Conectar» con la voz trabada
+  // (dos sockets del mismo dispositivo, tras un cambio de foto por Evolution): el logout volvió con error, WhatsApp la cerró igual
+  // (desconexión 401 a las 21:00:27) y el código rotó a una instancia NUEVA. Quedaron DOS vivas con el mismo número. Antes de rotar se
+  // mira si la vinculación cambió: si cambió, la sesión se soltó y se espera el QR de ESTA misma instancia.
+  await new Promise((r) => setTimeout(r, 1500));
+  const vinculadaDespues = await vinculadaDesdeDeLinea(inst).catch(() => null);
+  if (seSoltoLaSesion(vinculadaAntes, vinculadaDespues)) {
+    console.warn(`[mako-canal] ${inst}: el logout contestó ${lo.status} pero la sesión se soltó → QR de la misma instancia`);
+    return (await qrConEspera(inst, 4))
+      ?? { ok: false, error: 'Solté la sesión trabada y WhatsApp todavía está armando el QR. Toca «Conectar por QR» otra vez en unos segundos.' };
+  }
   console.warn(`[mako-canal] ${inst} trabada en Evolution (logout ${lo.status}) → línea nueva`);
   return rotarCanal(inst, crudo);
 }
