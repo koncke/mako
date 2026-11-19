@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
-import { avisosDelCredito, ordenDeLasCuentas, PREFIJO_AVISO_DEL_CREDITO, type FilaCredito } from '../lib/credito-api';
+import { avisosDelCredito, ordenDeLasCuentas, PREFIJO_AVISO_DEL_CREDITO, resumenCredito, type FilaCredito } from '../lib/credito-api';
 
 const AHORA = Date.parse('2026-11-11T15:00:00Z');
 const fila = (cuenta: string, gastadoUsd: number | null, extra: Partial<FilaCredito> = {}): FilaCredito => ({
@@ -107,16 +107,19 @@ test('4. el aviso se entiende (19/11/2026, «no entiendo lo que me quiere decir�
   // noviembre; la 3, la 4 y la 5 nunca se vincularon. El aviso viejo decía «MaKo sigue con las otras cuentas»: no quedaba ninguna.
   const ahora = Date.parse('2026-11-19T21:11:06Z');
   const filas = [
-    fila('claude1', 5.71, { sinCreditoAt: '2026-11-19T21:10:41.240Z' }),
-    fila('claude2', 5.75, { sinCreditoAt: '2026-11-19T21:10:44.699Z' }),
+    fila('claude1', 5.71, { sinCreditoAt: '2026-11-19T21:10:41.240Z', clientes: [1, 13, 15, 20, 23, 24] }),
+    fila('claude2', 5.75, { sinCreditoAt: '2026-11-19T21:10:44.699Z', clientes: [10, 13, 15, 23, 24] }),
     fila('claude3', null, { vinculada: false }), fila('claude4', null, { vinculada: false }), fila('claude5', null, { vinculada: false }),
   ];
-  const r = avisosDelCredito(filas, new Set(), ahora);
+  const nombres = { 1: 'Mauricio Bustos', 10: 'Leandro Tejado', 13: 'Codigo Inmobiliario', 15: 'Brigitte Eberlin', 20: 'Sergio Arriata', 23: 'Marcela Fernandez' };
+  const r = avisosDelCredito(filas, new Set(), ahora, undefined, nombres);
   assert.deepEqual(niveles(r), ['claude1:100', 'claude2:100']);
   const t = r.avisos[0].texto;
   assert.match(t, /^Se terminó el crédito de Claude de la cuenta claude1: Anthropic dice que no le queda saldo\.\n/);
   assert.match(t, /No lo gastó MaKo: este mes usó US\$6 de los US\$200\. El resto se usó fuera de MaKo o venció antes\./);
-  assert.match(t, /No queda otra cuenta con crédito: lo interno de MaKo sigue con Gemini/, 'dijo que seguía con otra cuenta sin que quedara ninguna');
+  assert.match(t, /· No queda NINGUNA cuenta con crédito de Claude: lo interno de MaKo sigue con Gemini\./, 'dijo que seguía con otra cuenta sin que quedara ninguna');
+  // Quiénes se quedan sin Claude: los clientes de las DOS cuentas (el reparto los rota), con su nombre; el que no se pudo leer, con su número.
+  assert.match(t, /· Se quedan sin Claude: Mauricio Bustos, Leandro Tejado, Codigo Inmobiliario, Brigitte Eberlin, Sergio Arriata, Marcela Fernandez y el negocio 24\. En WhatsApp, a los que no tienen IA propia MaKo no les puede contestar\./);
   assert.doesNotMatch(t, /sigue con claude2|las otras cuentas/, 'contó como «con crédito» una cuenta que Anthropic dio sin saldo');
   assert.match(t, /Vuelve con el próximo cobro del plan de esa cuenta \(MaKo no sabe qué día es\)\./);
   assert.match(t, /Qué hacer: vincula el crédito de claude3, claude4 y claude5 en Ops Center › Uso/);
@@ -129,6 +132,16 @@ test('4. el aviso se entiende (19/11/2026, «no entiendo lo que me quiere decir�
   assert.match(otra.avisos[0].texto, /· MaKo sigue con claude3\./);
   assert.match(otra.avisos[0].texto, /· Vuelve el 05\/12, con el cobro del plan\./);
   assert.match(otra.avisos[0].texto, /· Qué hacer: nada por ahora\./);
+
+  // Los clientes salen de lo registrado: los que usaron ESA cuenta en el ciclo, sin la plataforma ni una llamada sin crédito.
+  const gastos = [
+    { workspace_id: 9, created_at: '2026-11-10T12:00:00Z', motivo: '⚠ crédito de Claude de la plataforma (cuenta 1) · x', cuenta: 1, cost_usd: 0.01, provider: 'anthropic', model: 'claude-haiku-4-5' },
+    { workspace_id: 13, created_at: '2026-11-10T12:00:00Z', motivo: '⚠ crédito de Claude de la plataforma (cuenta 1) · grupo', cuenta: 1, cost_usd: 0.01, provider: 'anthropic', model: 'claude-haiku-4-5' },
+    { workspace_id: 23, created_at: '2026-11-10T12:00:00Z', motivo: '⚠ crédito de Claude de la plataforma (cuenta 2) · grupo', cuenta: 2, cost_usd: 0.01, provider: 'anthropic', model: 'claude-haiku-4-5' },
+    { workspace_id: 24, created_at: '2026-11-19T21:10:00Z', motivo: '⚠ crédito de Claude de la plataforma (cuenta 1) · sin crédito hasta el próximo ciclo', cuenta: 1, cost_usd: 0, provider: 'anthropic', model: 'claude-haiku-4-5' },
+  ];
+  const res = resumenCredito({ vinculadas: { claude1: true, claude2: true }, gastos, wsConClave: new Map(), ahora, wsPlataforma: 9, cuentas: [{ cuenta: 'claude1', clave: 'ANTHROPIC_CREDITO_CUENTA1' }, { cuenta: 'claude2', clave: 'ANTHROPIC_CREDITO_CUENTA2' }] });
+  assert.deepEqual(res.map((f) => f.clientes), [[13], [23]], 'la plataforma o una llamada sin crédito contó como un cliente que usó el crédito');
 
   // Cuando lo gastó MaKo, cuadra: no se manda a mirar en qué se fue.
   const nuestra = avisosDelCredito([fila('claude2', 199, { sinCreditoAt: '2026-11-19T21:10:44.699Z' })], new Set(), ahora);
