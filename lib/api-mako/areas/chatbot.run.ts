@@ -117,6 +117,17 @@ import {
 const legado = (ctx: Ctx) => crearRunnerAcciones(ctx.ws, ctx.canalKey, ctx.turnStart ?? 0, ctx.mensajeUsuario ?? '');
 const texto = async (p: Promise<string | { content: string; isError?: boolean }>) => { const r = await p; return typeof r === 'string' ? r : r.content; };
 const json = (x: unknown): string => JSON.stringify(x);
+/** El período de recuperar_comentarios_perdidos: dos fechas con zona, en orden y de no más de 14 días. */
+const periodoDe = (input: Record<string, unknown>): { desde: number; hasta: number } | { error: string } => {
+  const desde = Date.parse(str(input, 'desde'));
+  const hasta = Date.parse(str(input, 'hasta'));
+  if (!Number.isFinite(desde) || !Number.isFinite(hasta)) return { error: 'Faltan «desde» y «hasta» con fecha, hora y zona (p. ej. 2026-11-14T13:42-03:00).' };
+  if (hasta <= desde) return { error: '«hasta» tiene que ser después de «desde».' };
+  if (hasta - desde > 14 * 24 * 3600_000) return { error: 'El período puede ser de 14 días como mucho: Meta sólo deja contestar por privado los comentarios de los últimos 7.' };
+  return { desde, hasta };
+};
+const zonaDe = async (ws: number): Promise<string> => { try { const { zonaDelNegocio } = await import('@/lib/timezone'); return await zonaDelNegocio(ws); } catch { return 'UTC'; } };
+const cuando = (ms: number, tz: string): string => new Date(ms).toLocaleString('es', { timeZone: tz, day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 const errorLectura = (msg: string): SalidaLectura => ({ content: msg, isError: true });
 const num = (input: Record<string, unknown>, k: string): number => Number(input[k]);
 const str = (input: Record<string, unknown>, k: string): string => (typeof input[k] === 'string' ? (input[k] as string).trim() : '');
@@ -899,6 +910,55 @@ export const RUNNERS: Runners = {
 
   // «Pídeselo a MaKo» por la API (décima tanda; la def explica el porqué de cada decisión). Reemplaza a
   // `crear_secuencia_mensajes`, que se retiró.
+  // RECUPERAR LOS COMENTARIOS PERDIDOS (ticket #114): la lista se arma igual en la lectura y al proponer, y al confirmar se vuelve a
+  // armar (pudo entrar alguien entre medio) y se le sacan los excluidos.
+  ver_comentarios_perdidos: {
+    leer: async (input, ctx) => {
+      const p = periodoDe(input);
+      if ('error' in p) return p.error;
+      const { planDelPeriodo } = await import('@/lib/recuperar-comentarios');
+      const plan = await planDelPeriodo(ctx.ws, p.desde, p.hasta);
+      const tz = await zonaDe(ctx.ws);
+      return json({
+        personas: new Set(plan.items.map((i) => i.autorId)).size, mensajes: plan.items.reduce((n, i) => n + i.secuencias.length, 0),
+        ya_la_tenian: plan.yaLaTenian, vencidos: plan.vencidos.length,
+        primero_vence: plan.items[0] ? cuando(plan.items[0].venceMs, tz) : null,
+        lista: plan.items.map((i) => ({ usuario: i.usuario, comentario: i.texto.slice(0, 120), comento: cuando(i.atMs, tz), vence: cuando(i.venceMs, tz), automatizaciones: i.secuencias.map((x) => x.nombre), dudoso: i.dudoso })),
+      });
+    },
+  },
+  recuperar_comentarios_perdidos: {
+    preparar: async (input, ctx) => {
+      if (desdeUnFlujo(ctx)) return { error: 'Una automatización no puede recuperar comentarios: pídeselo a MaKo por el grupo.' };
+      const p = periodoDe(input);
+      if ('error' in p) return { error: p.error, faltan: ['desde', 'hasta'] };
+      const { planDelPeriodo } = await import('@/lib/recuperar-comentarios');
+      const { sinExcluidos } = await import('@/lib/recuperar-comentarios-reglas');
+      const excluir = str(input, 'excluir');
+      const items = sinExcluidos((await planDelPeriodo(ctx.ws, p.desde, p.hasta)).items, excluir);
+      if (!items.length) return { error: 'No hay comentarios para recuperar en ese período: o no tenían palabra clave, o ya les llegó, o pasaron los 7 días de Meta.' };
+      const tz = await zonaDe(ctx.ws);
+      const renglones = items.slice(0, 60).map((i) => `· @${i.usuario ?? '—'} → ${i.secuencias.map((x) => x.nombre).join(' y ')} (vence ${cuando(i.venceMs, tz)})${i.dudoso ? ` ⚠️ dijo «${i.texto.slice(0, 60)}»` : ''}`);
+      const mensajes = items.reduce((n, i) => n + i.secuencias.length, 0);
+      return {
+        payload: { desde: p.desde, hasta: p.hasta, excluir },
+        resumen: `Recuperar ${mensajes} mensaje(s) para ${new Set(items.map((i) => i.autorId)).size} persona(s) que comentaron y no recibieron su recurso:\n${renglones.join('\n')}${items.length > 60 ? `\n… y ${items.length - 60} más` : ''}`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const { planDelPeriodo, recuperarComentarios } = await import('@/lib/recuperar-comentarios');
+      const { sinExcluidos } = await import('@/lib/recuperar-comentarios-reglas');
+      const items = sinExcluidos((await planDelPeriodo(ctx.ws, Number(payload.desde), Number(payload.hasta))).items, String(payload.excluir ?? ''));
+      const r = await recuperarComentarios(items);
+      const bien = r.filter((x) => x.ok && x.automatizaciones > 0).length;
+      const mal = r.filter((x) => !x.ok);
+      return {
+        ok: bien > 0 || !r.length,
+        resumen: `Recuperé ${bien} de ${r.length} comentario(s).${mal.length ? ` No salieron: ${mal.slice(0, 10).map((x) => `@${x.usuario ?? '—'} (${x.error})`).join(', ')}.` : ''}`,
+        datos: { resultado: r },
+      };
+    },
+  },
   crear_automatizacion_con_ia: {
     preparar: async (input, ctx) => {
       // ⚠️ UN FLUJO NO LA CORRE: `ctxDeFlujo` usa el canal `app`, así que toda acción `app` aparece sola como «⚡ Acción»

@@ -111,6 +111,9 @@ const CANAL: Record<string, string> = {
   'lib/zernio-uso.ts': 'cuántos mensajes mandó el negocio por Zernio en su ciclo (para el aviso antes del tope de los gratis)',
   // 29/10/2026, la llamada de Martín con una agencia («le entran acá los leads»): la red de seguridad de los leads de Meta por Zernio.
   // NO es el canal de Instagram: lee `GET /v1/ads/leads` con las claves del negocio y carga por la MISMA puerta del webhook.
+  // Ticket #114 (19/11/2026): los comentarios que el webhook perdió en un corte se leen de la bandeja de Zernio y vuelven a pasar
+  // por el camino del webhook. Lo usan dos operaciones de Automations (ver_comentarios_perdidos y recuperar_comentarios_perdidos).
+  'lib/recuperar-comentarios.ts': 'recuperar los comentarios que el webhook perdió: la bandeja de Zernio, la persona y su inscripción',
   'lib/zernio-leads-barrido.ts': 'el barrido de los leads de los formularios de Meta por Zernio, por si el webhook no llega',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
