@@ -42,6 +42,25 @@ El chat de Referentes desarmó 134 reels a mano y pidió compararlo con la app. 
 ordenados por costo, están en `docs/diseno-desarmar-video.md` → «Contra el método de Referentes». Lo más barato: «Hacer uno así»
 no le lleva al Copywriter ni la grabación ni el CTA, que el desarme ya tiene. Nada programado: lo decide el Cerebro.
 
+## Ticket 118 (19/11): el «No active project» de Leila
+
+Arreglado en `cdb67e430` y en main con `63efe7966` (deploy READY 20:46 UTC); el ticket se cerró solo a las 21:00 UTC.
+La causa y la regla están en `docs/hallazgos-video-editor.md`. El vigía de errores se cortó a las 23:50 UTC por pedido del
+Cerebro (liberar RAM). A esa hora: **0 errores de cualquier tipo** desde el deploy, pero **Leila no volvió a usar Video**
+(su último proyecto es de las 15:59 UTC), así que el arreglo todavía no se vio con ella. Lo que queda:
+
+1. **Prueba con navegador en el ws 9, nunca en el 11:** abrir un proyecto, cambiar algo, «Volver», y que no salga
+   «No active project» ni el «¿salir sin guardar?». Espera a que el navegador de la app tenga sesión de MaKo (lo avisa el Cerebro).
+2. **Mirar `errores_app` cuando Leila vuelva a Video:** que no entre una fila nueva de «No active project» (huella del
+   ticket 118, fila 14 de `errores_app`, que se vio una sola vez, a las 15:58 UTC).
+3. **El WhatsApp del aviso de cierre no le llegó** (fila 962 de `grupo_mensajes`, sin `wa_message_id`): el reenvío lo tiene
+   el Cerebro, con el script `reenviar-aviso-118.mjs` de su carpeta de notas. No lo corre este chat.
+4. **Sin dueño todavía:** si al salir hay un guardado EN CURSO (`isSaving`), `flush` vuelve enseguida y
+   `saveCurrentProject` vuelve a poner el proyecto activo después de `closeProject` (`project-manager.ts`). Anotado en el
+   hallazgo; no se tocó.
+5. **No es de este chat:** el `ok: true` con `enApp` de `enviarAlGrupoMaKo` (`lib/mako-grupo.ts`) lo arregla el chat de
+   WhatsApp; la trampa está en `docs/hallazgos-comunicacion.md`.
+
 ## Trampas para quien siga
 
 - Las rutas bajo `/api/video-editor/*` llevan sólo el candado del editor; un módulo de servidor no importa del motor
