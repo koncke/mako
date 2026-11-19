@@ -146,10 +146,33 @@ Hormozi en cubos: gorra azul, pelo largo, barba tupida, camisa a cuadros (`HORMO
 **Parte 4-5:** cierre del arco: «El final de «El mastermind»» + «Sígueme para más historias así».
 
 ## 6. Piloto — «El mastermind», parte 1
-Ver el guion y el estado en `C:/dev/artefactos-animaciones/voz/guion-serie1-mastermind-1.json` y la sección de abajo
-(se actualiza al terminar).
+- Guion: `C:/dev/artefactos-animaciones/voz/guion-serie1-mastermind-1.json` (16 escenas, 181 palabras). Voz:
+  `reels/voz-serie1-mastermind-1.mp3`, **61,2 s** (3,0 palabras/s, igual que la referencia), chequeada contra el guion
+  (única diferencia: «dos mil diecinueve» → «2019», falsa).
+- Página: `reels/serie1-mastermind-1.html` (un solo mundo 3D: el pasillo con la puerta y el reloj LED, el salón con 96
+  sillas y la gente, la mesa del café, el escenario con la pantalla, el reloj grande y las dos puertas que suben; 20 planos
+  atados a las palabras). Personajes: `reels/serie/rig.js`. Tapa para la grilla: `series/portadas/serie1-mastermind-1.png`
+  (`node tools/turno.mjs node series/tools/portada.mjs <reel> <segundo> <salida>`).
+- MP4: `mp4/serie1-mastermind-1.mp4`. Ficha de la galería: `reels/fichas/serie1-mastermind-1.json` (sección «Serie 1»).
+- **Texto del post:** «Me colé en un mastermind donde el que no tiene un plan a medianoche no sale nunca más. ¿Viralidad o
+  nicho? Comenta A o B. Sígueme para ver cómo sigue.»
 
-## 7. Decisiones
+## 7. Tiempos medidos (piloto, 19/11) y qué se puede acelerar
+| Paso | Tiempo | Más rápido sin perder calidad |
+|---|---|---|
+| Lista de reels (perfil en el navegador de la app) | 3 min | — |
+| Bajar 9 reels con yt-dlp | 2 min | — |
+| Transcribir (en paralelo) + hojas de contacto | 2 min | — |
+| Análisis escrito | 20 min | ya está hecho: la próxima parte arranca de este playbook |
+| Premisas + guion | 15 min | con la plantilla (§4), ~5 min por parte |
+| Voz (TTS + alineación + chequeo) | 1 min | — |
+| Personajes en cubos (`rig.js`) | 20 min | hecho una vez: se reusa |
+| Página 3D v1 (un mundo, 20 planos) | 45 min | la parte siguiente reusa el salón y los planos: ~20 min |
+| Capturas: 3 vueltas de 9-38 cuadros | 6-15 min de fila + 1-2 min cada una | juntar más cuadros por vuelta |
+| MP4 (1.835 cuadros, dos tramos de ~20 min) | 42 min + la fila | mirar las capturas ANTES; los retoques, por rangos (~5 min) |
+| Mirar el MP4 entero (`series/tools/mirar-mp4.sh`, 4 hojas) + retocar 3 planos | 15 min | — |
+
+## 8. Decisiones
 - 19/11: Víctor Heras dice «Viralidad» y Ramiro Cubría «Nicho», en el orden en que Martín los nombró. Si Martín lo quiere
   al revés, se cambian las dos frases y se rehace la voz (≈ 2 min).
 - 19/11: sin efectos de sonido ni música en el piloto (ante la duda, ninguno; la referencia sólo pone una nota al final).
