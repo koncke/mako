@@ -33,9 +33,33 @@ import {
   CLAVE_ALTA_PARTNERS, CLAVE_VISITAS_PARTNERS, COMISION_PARTNER_DIRECTO, COMISION_PARTNER_PASARELA, TEXTO_CODIGO_INVALIDO, altaLimpia, cadaMes,
   canalDelPago, codigoDesdeNombre, codigoNuevoValido, cobroLimpio, comisionDelPago, contarPrograma, creditosDeUnReferido, estadoDelReferido, esRobot,
   ganadoPorMes, leerAlta, leerVisitas, linkDePartner, precioDeListaPorMes, resumenDelLibro, seFueSegunSusCobros, sumarVisita,
+  esProActivo, RUTA_PASARSE_A_PRO, TEXTO_PARTNER_SOLO_PRO,
   type AltaPartner, type EstadoReferido, type PagoDeReferido, type Renglon, type Resumen,
 } from './partners-reglas';
 import { cobrosDeLugares } from './plan-acceso';
+import { FILTRO_SUSCRIPCION_DE_MAKO } from './prueba-plan-reglas';
+
+/**
+ * ¿Tiene MaKo PRO ACTIVO? (lib/partners-reglas.ts `esProActivo`: su suscripción de Pro por la pasarela, o su mensualidad de Pro por Binance; y el negocio
+ * activo). `undefined` = algo no se pudo leer.
+ */
+export async function planProActivo(ws: number): Promise<boolean | undefined> {
+  try {
+    const db = getSupabaseServer();
+    const plataforma = await wsSuperAdmin();
+    const [w, c, mensualidad] = await Promise.all([
+      db.from('workspaces').select('estado').eq('id', ws).maybeSingle(),
+      db.from('cobros').select('plan_mako, alta_capa, suscripcion_estado').eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion')
+        .or(FILTRO_SUSCRIPCION_DE_MAKO).order('id', { ascending: false }).limit(10),
+      import('./agencia-mes').then((m) => m.planDeLaMensualidad(ws), () => undefined),
+    ]);
+    const estado = w.error ? undefined : ((w.data as { estado?: string } | null)?.estado ?? null);
+    const filas = c.error ? undefined : ((c.data ?? []) as Array<{ plan_mako: string | null; alta_capa: string | null; suscripcion_estado: string | null }>)
+      .map((f) => ({ plan: f.plan_mako, capa: f.alta_capa, cancelada: f.suscripcion_estado === 'cancelada' }));
+    const pasarela = filas === undefined ? undefined : (filas.find((f) => !f.cancelada && (f.plan === 'pro' || (f.plan == null && f.capa === 'agencia'))) ?? filas[0] ?? null);
+    return esProActivo({ estado, pasarela, mensualidad });
+  } catch { return undefined; }
+}
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 const mesDe = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
@@ -218,7 +242,7 @@ export type ResultadoAlta = { ok: true; codigo: string; link: string; alta: Alta
  * link (`codigoDe`: lo crea la primera vez y devuelve el mismo después). Hacerlo dos veces no duplica nada: se queda con la
  * fecha del primer alta y con las respuestas nuevas. La plataforma nunca es partner.
  *
- * CUALQUIER PLAN (29/10/2026; del 27/10 al 29/10 fue sólo MaKo Pro): las landings dicen «gratis» y «cualquier plan». El
+ * SÓLO CON MaKo PRO ACTIVO (18/11/2026, Martín: «no es gratis»; del 29/10 al 18/11 fue cualquier plan): `planProActivo`. El
  * cliente de una agencia, no: su cuenta la maneja su agencia (docs/hallazgos-partners.md).
  */
 export async function hacermePartner(ws: number, respuestas: unknown): Promise<ResultadoAlta> {
@@ -229,7 +253,13 @@ export async function hacermePartner(ws: number, respuestas: unknown): Promise<R
     //    guarda de la revisión de plata, y un `false` por una base caída la abriría justo cuando no se puede comprobar nada.
     if ((await esClienteDeAgencia(ws)) !== false) return { ok: false, error: 'Tu cuenta la maneja tu agencia: MaKo Partners no está para tu cuenta.' };
     const antes = await altaDePartner(ws).catch(() => null);
-    // CUALQUIERA ES PARTNER (29/10/2026, alineado con las landings: «gratis», «cualquier plan»): ya no se frena al Essential.
+    // ⚠️ SER PARTNER EXIGE MaKo PRO ACTIVO (Martín, 18/11/2026: «no es gratis… sí o sí necesitan el plan de 97»). Reemplaza «cualquiera es partner»
+    // (29/10). Sólo para entrar: quien YA es partner (`antes`) no pierde su alta ni lo ganado (puede volver a guardar sus respuestas).
+    if (!antes) {
+      const pro = await planProActivo(ws);
+      if (pro === undefined) return { ok: false, error: 'No pudimos comprobar tu plan. Prueba otra vez en un minuto.' };
+      if (!pro) return { ok: false, error: `${TEXTO_PARTNER_SOLO_PRO} ${APP_BASE_URL}${RUTA_PASARSE_A_PRO}` };
+    }
     const codigo = await codigoDe(ws);
     if (!codigo) return { ok: false, error: 'No pudimos crear tu link. Prueba otra vez en un minuto.' };
     const alta = altaLimpia({ ...(respuestas && typeof respuestas === 'object' ? respuestas : {}), at: antes?.at });

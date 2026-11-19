@@ -26,8 +26,8 @@ import { esAgencia } from '@/lib/agencia';
 import { getSupabaseServer } from '@/lib/supabase';
 import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { ProgramaM, ReferidosM } from './ReferidosM';
-import { altaDePartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
-import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS } from '@/lib/partners-reglas';
+import { altaDePartner, planProActivo, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
+import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS, TEXTO_PARTNER_SOLO_PRO_TELEFONO } from '@/lib/partners-reglas';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import { esTabQueVende } from '@/lib/tienda';
 import { LandingPartners } from '@/app/mako-partners/LandingPartners';
@@ -70,7 +70,12 @@ export default async function PartnersPagina({ searchParams }: { searchParams: P
     getSupabaseServer().from('workspaces').select('nombre').eq('id', ws).maybeSingle().then((r) => (r.data as { nombre?: string } | null)?.nombre ?? null, () => null),
   ]);
   if (!alta) {
-    // Cualquier plan es partner (29/10/2026), como en la computadora (app/partners/page.tsx).
+    // SÓLO CON MaKo PRO ACTIVO (18/11/2026), como en la computadora (app/partners/page.tsx). ⚠️ En el teléfono NO se ofrece pagar (T5,
+    // docs/tiendas-play-appstore.md): se dice que hace falta Pro, sin botón.
+    const pro = await planProActivo(ws);
+    if (pro !== true) {
+      return <PantallaM>{cabecera}<p style={{ margin: '0 16px 12px', fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>{pro === undefined ? 'No pudimos comprobar tu plan. Prueba otra vez en un minuto.' : TEXTO_PARTNER_SOLO_PRO_TELEFONO}</p><LandingPartners modo="app" accion={null} /></PantallaM>;
+    }
     if (sp.alta === '1') return <PantallaM>{cabecera}<AltaPartner nombreNegocio={nombre} /></PantallaM>;
     return <PantallaM>{cabecera}<LandingPartners modo="app" accion={{ href: RUTA_ALTA_PARTNERS, texto: 'Hacerme partner' }} /></PantallaM>;
   }
