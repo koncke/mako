@@ -98,6 +98,16 @@ export interface Guardado {
   como: 'nueva' | 'repetida';
   estado: 'ordenada' | 'por_revisar' | 'sin_leer' | 'leyendo';
   carpeta: string | null;
+  /** Se guardó pero todavía no se pudo leer el post en Instagram (Apify falló o se pasó del tope): se completa después. */
+  sinLeer?: boolean;
+}
+
+/** La frase de lo que falta leer: la pieza ya está guardada, la lectura completa llega cuando Instagram deje. */
+export function notaSinLeer(n: number): string {
+  if (n <= 0) return '';
+  return n === 1
+    ? 'Todavía no pude leer el post en Instagram: lo completo apenas pueda.'
+    : `Todavía no pude leer ${n} en Instagram: los completo apenas pueda.`;
 }
 
 /**
@@ -105,6 +115,12 @@ export interface Guardado {
  */
 export function respuestaWhatsApp(rs: readonly Guardado[], link: string): string {
   if (!rs.length) return '';
+  const sinLeer = notaSinLeer(rs.filter((r) => r.como === 'nueva' && r.sinLeer).length);
+  const conNota = (t: string) => (sinLeer ? `${t} ${sinLeer}` : t);
+  return conNota(respuestaSinNota(rs, link));
+}
+
+function respuestaSinNota(rs: readonly Guardado[], link: string): string {
   const repetidas = rs.filter((r) => r.como === 'repetida');
   const nuevas = rs.filter((r) => r.como === 'nueva');
   if (rs.length === 1) {
