@@ -54,7 +54,42 @@ El ranking de temas, con cómo lo explica cada mentor, está en [serie-2-temas.m
 
 ## Videos
 
-(se completa a medida que salen)
+### 1. «El mismo video, tres veces» (`edu-mismo-video`) — temas 1 y 10 (el gancho y los trial reels)
+
+- **Qué enseña:** el arranque decide; abre con una escena en primera persona con un número, no con la regla; y cómo
+  probarlo sin quemar la cuenta: los reels de prueba, cambiando el gancho y el texto.
+- **Los datos, verificados con yt-dlp el 19/11/2026 a la 01:15 (hora de Uruguay):**
+
+| Video | Cómo arranca | Vistas | Subido |
+|---|---|---|---|
+| Dan Martell, «Never charge for your time»: https://www.youtube.com/watch?v=ZO0jOH-VKH0 | la regla («Never charge for your time») | 30.565 | 14/05/2025 |
+| Dan Martell, «Never Charge For Your Time»: https://www.youtube.com/watch?v=jyR5-787ckc | ejemplo genérico («when you hire a plumber…») | 35.131 | 03/04/2024 |
+| Dan Martell, «Never charge for your time»: https://www.youtube.com/watch?v=g13FnSgICA8 | recuerdo propio («I remember one time I hired a plumber…»: 15 minutos, US$5.000) | 3.974.284 | 01/09/2024 |
+| Alex Hormozi, «Why Hooks Are So Important»: https://www.youtube.com/watch?v=V-loNBSqdWY | cuenta que rehicieron sólo los primeros 5 s de un video: de 4.000 a 850.000 vistas | (el dato lo da él, 0-15 s) | 02/09/2025 |
+
+  - Las vistas cambian con el tiempo: el guion dice «treinta mil», «treinta y cinco mil» y «casi cuatro millones», y la
+    pantalla muestra el número exacto con la fecha («vistas al 19/11/2026»).
+  - Los tres de Martell son del mismo canal, pero de fechas distintas (abril y septiembre de 2024, mayo de 2025). Orientan;
+    no son un experimento controlado. El guion no dice «experimento».
+  - El ×130 de la pantalla es la cuenta 3.974.284 ÷ 30.565; el ×212 es 850.000 ÷ 4.000 (Hormozi lo redondea a «200x»).
+  - El tope de 5 reels de prueba por día lo dice Hormozi en su workshop (curso 100m-money-models,
+    [1JLx-787IC7sl26D-96RBpOHtaPG1KEzN], carácter ~215.093). No es oficial y fue bajando (25 → 20 → 5); el guion dice
+    «hasta cinco por día».
+  - El filtro de duplicados: si se cambia SÓLO el gancho, Instagram puede marcar la copia como duplicada (Modern Millie,
+    ijGh9LtBJ7U, 16:24). Por eso el guion dice «con otro gancho y otro texto».
+- **Guion:** `C:/dev/artefactos-animaciones/voz/guion-edu-mismo-video.json`. Son 145 palabras y 50,7 s. «Hormozi» se
+  escribe «Jormozi» para la voz.
+- **Formato:** pizarrón con cámara propia (los tres videos → la cámara entra a cada uno → los tres juntos con el ×130),
+  la línea de tiempo con la tijera para Hormozi, «así no / así sí» para el coach, el celular con el interruptor
+  «Reel de prueba» y las cinco versiones con una que gana. Martín en cubos abajo, como quien explica; los subtítulos,
+  bajo el mentón.
+
+## Investigación de afuera (los 10 primeros temas)
+
+Por tema, en `docs/series/serie-2-afuera/<tema>.md`: los virales que lo enseñan, con el gancho literal, la estructura
+por segundos, el copy, por qué funcionó, el patrón entre ellos, lo que los cursos dicen y los virales no, tres ganchos
+nuestros y los números con su fuente. Hecho sólo en YouTube (base de 27.700 Shorts de 47 creadores con sus vistas); TikTok
+e Instagram quedan pendientes.
 
 ## Decisiones
 
