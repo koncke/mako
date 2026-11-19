@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VSL MaKo</title>
+<!-- El VSL de MaKo (19/11/2026): una SECCIÓN por página (?sec=<id>), 1920×1080, con el kit de la galería (todo sale de T).
+     Qué se dibuja en cada escena lo dice guion.js (window.GUION, sale de guion.json); los tiempos, trabajo/<sec>/t.js (la voz).
+     Tipos de escena (vis.tipo):
+       cara      el Martín en cubos de cerca, subtítulos bajo el mentón; opcional rotulo, tarjetas, dato, barras
+       pantalla  una grabación de la app real (recs/<rec>/) en un marco, la cámara cerca; el Martín chico a la derecha
+       lista     las apps que se pagan por separado aparecen alrededor de él y se juntan en MaKo
+       golpe     fondo azul, la frase gigante en blanco (corte duro)
+       toma      el lugar de una toma de Martín a cámara (voz provisoria con su clon)
+       precio    los planes, con sus precios verdaderos
+       cierre    la marca, el titular y el botón -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700;800;900&display=block" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+<style>
+  :root{--azul:#2F6FED;--oro:#F2B01E;--tinta:#141414}
+  #stage{width:1920px;height:1080px;font-family:Geist,Inter,system-ui,sans-serif;color:var(--tinta);background:#f3f1ec}
+  #fondo{background:radial-gradient(110% 95% at 30% 18%,#ffffff 0%,#f4f2ee 55%,#e9e6df 100%)}
+  #fondo .rejilla{position:absolute;inset:-40px;background-image:radial-gradient(rgba(20,20,20,.07) 1.6px,transparent 1.7px);background-size:44px 44px}
+  .pj{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;z-index:2}
+  #tarjetas,#rotulo,#subs,#marca{z-index:3}
+  /* subtítulos: píldora oscura, 1 a 4 palabras */
+  #subs{position:absolute;left:0;top:0;pointer-events:none;width:0;height:0}
+  #subs .pil{position:absolute;left:0;top:0;transform:translateX(-50%);white-space:nowrap;background:rgba(17,17,19,.93);color:#fff;border-radius:20px;
+    padding:12px 30px 15px;font:800 60px/1.05 Geist,sans-serif;letter-spacing:-.015em;box-shadow:0 14px 34px rgba(0,0,0,.22)}
+  #subs .pil b{font-weight:800;color:#8fb2ff}
+  #subs .pil i{font-style:normal;color:var(--oro)}
+  /* rótulo: qué función es */
+  #rotulo{position:absolute;left:64px;top:48px;display:flex;align-items:center;gap:14px;padding:12px 24px 12px 14px;border-radius:999px;background:#fff;
+    box-shadow:0 8px 26px rgba(0,0,0,.08),inset 0 0 0 1.5px rgba(0,0,0,.06);font:800 30px/1 Geist,sans-serif;letter-spacing:.01em;text-transform:uppercase}
+  #rotulo .ico{width:44px;height:44px;border-radius:12px;background:var(--azul);display:grid;place-items:center}
+  #rotulo .ico img{width:26px;height:26px;filter:brightness(0) invert(1)}
+  #rotulo .n{color:var(--azul)}
+  /* pantalla de la app */
+  .marco{position:absolute;left:0;top:0;width:1400px;height:875px;border-radius:26px;overflow:hidden;background:#fff;
+    box-shadow:0 40px 90px rgba(20,24,40,.22),0 0 0 1.5px rgba(0,0,0,.08);transform-origin:50% 50%}
+  .marco .barra{position:absolute;left:0;top:0;right:0;height:40px;background:#f1f0ec;display:flex;align-items:center;gap:9px;padding:0 18px;z-index:2}
+  .marco .barra i{width:13px;height:13px;border-radius:50%;background:#d9d6cf}
+  .marco .barra span{margin-left:16px;font:600 17px Geist,sans-serif;color:#8a877f}
+  .marco .vista{position:absolute;left:0;top:40px;right:0;bottom:0;overflow:hidden;background:#fff}
+  .marco .vista img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;transform-origin:0 0}
+  /* tarjetas (apps sueltas, datos) */
+  .tarj{position:absolute;left:0;top:0;display:flex;align-items:center;gap:16px;padding:16px 26px 16px 16px;border-radius:22px;background:#fff;
+    box-shadow:0 18px 40px rgba(0,0,0,.12),inset 0 0 0 1.5px rgba(0,0,0,.05);font:700 34px/1.1 Geist,sans-serif;white-space:nowrap;transform-origin:50% 50%}
+  .tarj img{width:62px;height:62px;border-radius:14px;object-fit:contain}
+  .tarj small{display:block;font:600 24px Geist,sans-serif;color:#77736b;margin-top:4px}
+  .dato{position:absolute;left:0;top:0;padding:30px 40px;border-radius:30px;background:#fff;box-shadow:0 24px 60px rgba(0,0,0,.13);transform-origin:50% 50%}
+  .dato .v{font:900 128px/1 Geist,sans-serif;letter-spacing:-.035em}
+  .dato .s{font:700 34px/1.2 Geist,sans-serif;color:#5f5b53;margin-top:10px;max-width:560px}
+  .tachado{position:relative}.tachado:after{content:'';position:absolute;left:-6px;right:-6px;top:52%;height:9px;border-radius:5px;background:#e5484d;transform-origin:0 50%;transform:scaleX(var(--q,0))}
+  /* barras del caso */
+  .barras{position:absolute;left:0;top:0;width:660px;height:560px;padding:34px 40px;border-radius:30px;background:#fff;box-shadow:0 24px 60px rgba(0,0,0,.13)}
+  .barras h4{margin:0 0 6px;font:800 34px Geist,sans-serif}.barras p{margin:0;font:600 24px Geist,sans-serif;color:#77736b}
+  .barras .cols{position:absolute;left:40px;right:40px;bottom:34px;height:360px;display:flex;align-items:flex-end;gap:34px}
+  .barras .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .barras .col .b{width:100%;border-radius:14px 14px 6px 6px;background:linear-gradient(180deg,#5b8ff5,#2F6FED);transform-origin:50% 100%}
+  .barras .col .m{font:900 44px Geist,sans-serif;margin-bottom:10px}.barras .col .l{font:700 26px Geist,sans-serif;color:#5f5b53;margin-top:12px}
+  /* golpe azul */
+  #golpe{background:linear-gradient(160deg,#3B7BF5 0%,#1E4FBF 100%);display:flex;align-items:center;justify-content:center;padding:0 170px}
+  #golpe .t{font:900 116px/1.04 Geist,sans-serif;letter-spacing:-.035em;color:#fff;text-align:center}
+  #golpe .t span{display:inline-block}
+  /* la toma de Martín */
+  #toma{background:#15130f}
+  #toma .foto{position:absolute;inset:0;background-size:cover;background-position:center 30%;filter:blur(18px) brightness(.38) saturate(.8);transform:scale(1.08)}
+  #toma .cuadro{position:absolute;left:210px;top:110px;width:1500px;height:844px;border:4px dashed rgba(255,255,255,.55);border-radius:28px}
+  #toma .rec{position:absolute;left:250px;top:146px;display:flex;align-items:center;gap:16px;font:800 34px Geist,sans-serif;color:#fff;letter-spacing:.04em}
+  #toma .rec i{width:22px;height:22px;border-radius:50%;background:#ff3b30}
+  #toma .dur{position:absolute;right:250px;top:146px;font:800 34px Geist,sans-serif;color:#fff;font-variant-numeric:tabular-nums}
+  #toma .txt{position:absolute;left:300px;right:300px;top:330px;font:800 64px/1.18 Geist,sans-serif;color:rgba(255,255,255,.28);text-align:center;letter-spacing:-.015em}
+  #toma .txt span.on{color:#fff}
+  #toma .pie{position:absolute;left:0;right:0;bottom:160px;text-align:center;font:600 28px Geist,sans-serif;color:rgba(255,255,255,.62)}
+  /* precio */
+  #precio .planes{position:absolute;left:0;top:0;display:flex;gap:40px}
+  .plan{width:470px;padding:38px 40px;border-radius:32px;background:#fff;box-shadow:0 24px 60px rgba(0,0,0,.12);transform-origin:50% 100%}
+  .plan.pro{background:#111;color:#fff;box-shadow:0 30px 70px rgba(20,30,80,.35),0 0 0 3px var(--azul)}
+  .plan .n{font:800 36px Geist,sans-serif}.plan .p{font:900 112px/1 Geist,sans-serif;letter-spacing:-.04em;margin:18px 0 10px;white-space:nowrap}.plan .p small{font:700 34px Geist,sans-serif;opacity:.6;letter-spacing:0}
+  .plan .r{font:600 27px/1.3 Geist,sans-serif;opacity:.75}
+  /* cierre */
+  #cierre{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding-left:170px}
+  .logo{display:flex;align-items:center;gap:26px}
+  .logo .ins{width:120px;height:120px;border-radius:34px;background:#1A1712;display:grid;place-items:center}
+  .logo .pal{font:800 108px/1 Geist,sans-serif;letter-spacing:-.03em}
+  .titular{font:900 96px/1.02 Geist,sans-serif;letter-spacing:-.035em;margin-top:44px;max-width:900px}
+  .titular b{color:var(--azul);font-weight:900}
+  .boton{margin-top:56px;padding:34px 60px;border-radius:999px;background:var(--azul);color:#fff;font:900 48px Geist,sans-serif;letter-spacing:.02em;
+    box-shadow:0 22px 50px rgba(47,111,237,.38);transform-origin:50% 50%}
+  .cursor{position:absolute;left:0;top:0;width:58px;height:58px}
+  #marca{position:absolute;left:56px;bottom:40px;display:flex;align-items:center;gap:12px;font:800 30px Geist,sans-serif;color:#1A1712;opacity:.92}
+  #marca .ins{width:44px;height:44px;border-radius:13px;background:#1A1712;display:grid;place-items:center}
+  #marca.claro{color:#fff}#marca.claro .ins{background:rgba(255,255,255,.14)}
+  .oculto{display:none!important}
+</style></head>
+<body>
+<div id="stage">
+  <div id="fondo" class="capa"><div class="rejilla"></div></div>
+  <div id="pantallas" class="capa"></div>
+  <div id="pjB" class="pj"></div>
+  <div id="pjC" class="pj"></div>
+  <div id="tarjetas" class="capa"></div>
+  <div id="golpe" class="capa oculto"><div class="t"></div></div>
+  <div id="precio" class="capa oculto"><div class="planes"></div></div>
+  <div id="cierre" class="capa oculto"></div>
+  <div id="toma" class="capa oculto"><div class="foto"></div><div class="cuadro"></div><div class="rec"><i></i><span></span></div><div class="dur"></div><div class="txt"></div><div class="pie"></div></div>
+  <div id="rotulo" class="oculto"><div class="ico"><img alt=""></div><span></span></div>
+  <div id="subs"></div>
+  <div id="marca"><div class="ins"></div>MaKo</div>
+</div>
+<script>
+  window.SEC = new URLSearchParams(location.search).get('sec') || 'gancho';
+  document.write('<script src="trabajo/' + SEC + '/t.js"><\/script>');
+  document.write('<script src="' + (new URLSearchParams(location.search).get('g') || 'guion') + '.js"><\/script>');
+</script>
+<script src="kit-h.js"></script>
+<script src="personaje.js"></script>
+<script>
+(function () {
+  const STAR = (s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><defs><linearGradient id="g${s}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6D365"/><stop offset="1" stop-color="#EF9F27"/></linearGradient></defs><path fill="url(#g${s})" d="M12 1.5c.5 4.9 2.6 8 7.6 9.4.6.2.6 1 0 1.2-5 1.4-7.1 4.5-7.6 9.4-.1.7-1 .7-1.1 0-.5-4.9-2.6-8-7.6-9.4-.6-.2-.6-1 0-1.2 5-1.4 7.1-4.5 7.6-9.4.1-.7 1-.7 1.1 0z"/></svg>`;
+  const $ = (id) => document.getElementById(id);
+  $('marca').querySelector('.ins').innerHTML = STAR(28);
+  const G = window.GUION, sec = G.secciones.find((s) => s.id === SEC);
+  const ESC = sec.escenas;
+  const K0 = window.KIT;
+  // el lienzo del busto, ancho (1800): con los brazos abiertos las manos salen del 1000 de la galería y se cortaban
+  const B = K0.martin($('pjB'), { ancho: 1800, alto: 1667, encuadre: 'busto' });
+  const C = K0.martin($('pjC'), { ancho: 640, encuadre: 'cuerpo' });
+
+  // ── tiempos de cada escena: arranca 0,12 s antes de su primera palabra (la imagen llega un pelo antes que la voz) ──
+  const A = window.TIEMPOS.anchors;
+  const iniEsc = ESC.map((e, i) => (i === 0 ? 0 : Math.max(0, A[e.id] - 0.12)));
+  const finEsc = ESC.map((e, i) => (i < ESC.length - 1 ? iniEsc[i + 1] : A.end));
+  const cualEsc = (T) => { for (let i = ESC.length - 1; i >= 0; i--) if (T >= iniEsc[i]) return i; return 0; };
+  const palabras = (id) => window.TIEMPOS.words.filter((w) => w[3] === id);
+  const limpia = (s) => K0.limpia(s);
+  // el segundo en que se dice una palabra de la escena («en»); acepta «palabra#2» para la segunda vez
+  const cuando = (e, en, def) => { if (!en) return def; const [p, n] = String(en).split('#'); let k = 0;
+    for (const w of palabras(e.id)) if (limpia(w[0]) === limpia(p) && ++k === (+n || 1)) return w[1]; console.warn('no está', e.id, en); return def; };
+
+  // ── la pose del Martín: cambia en la palabra que la nombra (vis.poses = [[palabra, pose], …]) ──
+  function poseEn(e, i, T) {
+    const v = e.vis; let pose = v.pose || 'reposo', antes = pose, desde = T - iniEsc[i];
+    for (const [en, p] of v.poses || []) { const t = cuando(e, en, 1e9); if (T >= t) { antes = pose; pose = p; desde = T - t; } }
+    return { pose, poseAntes: antes, desde };
+  }
+
+  // ── dónde va el Martín grande (busto): la cabeza en (x, y), escala s. El lienzo es 1000×1667, la cabeza en (500, 550) ──
+  const LUGAR = { centro: { x: 960, y: 400, s: 1 }, der: { x: 1410, y: 420, s: 0.96 }, izq: { x: 540, y: 420, s: 0.96 },
+    cerca: { x: 960, y: 450, s: 1.32 }, chico: { x: 960, y: 520, s: 0.62 }, derChico: { x: 1560, y: 560, s: 0.62 } };
+  const CAB = { x: 900, y: 550, alto: 455 };     // medido en la captura: la cabeza (con el pelo) mide ~455 px de alto a escala 1
+  const lugarDe = (e) => (e && (e.vis.tipo === 'cara' || e.vis.tipo === 'lista') ? LUGAR[e.vis.lugar || 'centro'] : null);
+
+  // ── subtítulos: trozos de 1 a 4 palabras ──
+  const TROZOS = K0.trozos({ max: 4, car: 24 });
+  function subs(T, x, y, e) {
+    const el = $('subs'); const k = K0.cual(T, TROZOS);
+    if (k < 0 || !e || e.vis.subs === false) { el.innerHTML = ''; return; }
+    const tr = TROZOS[k]; const clave = (e.vis.clave || []).map(limpia);
+    const html = tr.ws.map((j) => { const w = window.TIEMPOS.words[j][0]; const t = K0.ver(w);
+      if (/MaKo/.test(t)) return '<i>' + t + '</i>'; if (clave.includes(limpia(w))) return '<b>' + t + '</b>'; return t; }).join(' ');
+    if (el.dataset.k !== String(k)) { el.dataset.k = k; el.innerHTML = '<div class="pil">' + html + '</div>'; }
+    const q = K0.p(T, tr.t0, 0.18, 'back');
+    el.style.transform = `translate(${x}px, ${y}px)`;
+    el.firstChild.style.transform = `translateX(-50%) scale(${K0.mix(0.86, 1, q)})`; el.firstChild.style.opacity = K0.clamp(q * 3);
+  }
+
+  // ── grabaciones de la app: recs/<rec>/f0001.jpg… a 30 cuadros por segundo ──
+  const REC = window.GUION.recs || {};
+  const marcos = [0, 1].map(() => { const m = document.createElement('div'); m.className = 'marco';
+    m.innerHTML = '<div class="barra"><i></i><i></i><i></i><span>hola-mako.com</span></div><div class="vista"><img alt=""></div>'; $('pantallas').appendChild(m); return m; });
+  function pintaPantalla(m, e, i, T, entra, sale, dir) {
+    const v = e.vis; const r = REC[v.rec]; if (!r) { m.style.display = 'none'; return; }
+    m.style.display = 'block';
+    const loc = T - iniEsc[i]; let rt = (v.desde || 0) + loc * (v.vel || 1);
+    rt = Math.min(rt, r.dur - 0.05);
+    const f = Math.max(1, Math.min(r.n, Math.floor(rt * 30) + 1));
+    const img = m.querySelector('img'); const src = `recs/${v.rec}/f${String(f).padStart(4, '0')}.jpg`;
+    if (img.getAttribute('src') !== src) img.setAttribute('src', src);
+    m.querySelector('.barra span').textContent = v.url || 'hola-mako.com';
+    // la cámara: zoom [[palabra, escala, cx, cy]] — se acerca a lo que pasa, de a una cosa
+    let z = { s: 1, cx: 0.5, cy: 0.5 }; let zA = z, kz = 1;
+    for (const [en, s, cx, cy] of v.zoom || []) { const t = en ? cuando(e, en, 1e9) : iniEsc[i]; if (T >= t) { zA = z; z = { s, cx, cy }; kz = K0.p(T, t, 0.7, 'inout'); } }
+    const s = K0.mix(zA.s, z.s, kz) * (1 + 0.025 * K0.clamp(loc / 8)), cx = K0.mix(zA.cx, z.cx, kz), cy = K0.mix(zA.cy, z.cy, kz);
+    const vw = 1400, vh = 835; const tx = vw / 2 - cx * vw * s, ty = vh / 2 - cy * vh * s;
+    img.style.transform = `translate(${Math.min(0, Math.max(vw - vw * s, tx)).toFixed(1)}px, ${Math.min(0, Math.max(vh - vh * s, ty)).toFixed(1)}px) scale(${s.toFixed(4)})`;
+    const L = v.marcoEn || { x: 90, y: 128 };
+    const xin = K0.mix(1920 * dir, 0, entra), xout = K0.mix(0, -1920 * dir, sale);
+    m.style.transform = `translate(${(L.x + xin + xout).toFixed(1)}px, ${L.y}px) scale(${K0.mix(0.94, 1, entra).toFixed(4)}) rotate(${K0.mix(1.5 * dir, 0, entra).toFixed(3)}deg)`;
+  }
+
+  // ── tarjetas que aparecen en su palabra (apps, datos) ──
+  const TJ = {};
+  function tarjeta(key, html, cls) { if (!TJ[key]) { const d = document.createElement('div'); d.className = cls || 'tarj'; d.innerHTML = html; $('tarjetas').appendChild(d); TJ[key] = d; } return TJ[key]; }
+  function ocultaTarjetas(salvo) { for (const k in TJ) if (!salvo.has(k)) TJ[k].style.display = 'none'; }
+
+  const rot = $('rotulo');
+  function rotulo(e) { const r = e && e.vis.rotulo; if (!r) { rot.classList.add('oculto'); return; } rot.classList.remove('oculto');
+    rot.querySelector('span').innerHTML = r.n ? `<span class="n">${r.n}</span> · ${r.t}` : r.t; rot.querySelector('img').src = 'icons/' + (r.ico || 'lucide-sparkles') + '.svg'; }
+
+  const P = K0.p, mix = K0.mix, clamp = K0.clamp;
+  // lo que la voz dice escrito como suena y en pantalla va bien escrito
+  const VER = [[/Máko/g, 'MaKo'], [/máko/g, 'MaKo'], [/Ei-Ai/g, 'AI'], [/Ímich/g, 'Image'], [/\bvsl\b/g, 'VSL']];
+  K0.ver = (s) => VER.reduce((a, [r, b]) => a.replace(r, b), s);
+  function cuadro(T, K) {
+    const i = cualEsc(T), e = ESC[i], v = e.vis, prev = ESC[i - 1], loc = T - iniEsc[i];
+    const usadas = new Set();
+    ['golpe', 'precio', 'cierre', 'toma'].forEach((id) => $(id).classList.toggle('oculto', v.tipo !== id));
+    $('marca').classList.toggle('oculto', v.tipo === 'toma' || v.tipo === 'cierre');
+    $('marca').classList.toggle('claro', v.tipo === 'golpe');
+    rotulo(e);
+    const habla = (T2) => K.habla(T2);
+    let pjB = false, pjC = false, sx = 960, sy = 960;
+
+    // ── el Martín grande ──
+    if (v.tipo === 'cara' || v.tipo === 'lista') {
+      pjB = true; const L1 = lugarDe(e), L0 = lugarDe(prev) || L1; const q = prev && lugarDe(prev) ? P(T, iniEsc[i], 0.5, 'expo') : 1;
+      const entra = !lugarDe(prev) ? P(T, iniEsc[i], 0.45, 'back') : 1;
+      const L = { x: mix(L0.x, L1.x, q), y: mix(L0.y, L1.y, q) + (1 - entra) * 260, s: mix(L0.s, L1.s, q) };
+      $('pjB').style.transform = `translate(${(L.x - CAB.x * L.s).toFixed(1)}px, ${(L.y - CAB.y * L.s).toFixed(1)}px) scale(${L.s.toFixed(4)})`;
+      B.pinta(T, K, Object.assign({ mira: v.mira || 0, sonrie: v.sonrie, cejas: v.cejas || 0 }, poseEn(e, i, T)));
+      sx = L.x; sy = L.y + (CAB.alto / 2) * L.s + 26;
+    }
+    // ── las pantallas de la app (dos marcos: el que sale y el que entra, para empujar) ──
+    if (v.tipo === 'pantalla') {
+      const k = i % 2; const entra = prev && prev.vis.tipo === 'pantalla' ? P(T, iniEsc[i], 0.55, 'expo') : P(T, iniEsc[i], 0.5, 'expo');
+      pintaPantalla(marcos[k], e, i, T, entra, 0, 1);
+      if (prev && prev.vis.tipo === 'pantalla' && loc < 0.6) pintaPantalla(marcos[1 - k], prev, i - 1, T, 1, P(T, iniEsc[i], 0.55, 'expo'), 1);
+      else marcos[1 - k].style.display = 'none';
+      if (v.pj !== false) { pjC = true; const x = 1920 - 500, y = 1080 - 830; const ent = P(T, iniEsc[i], 0.5, 'back');
+        $('pjC').style.transform = `translate(${x + (1 - ent) * 420}px, ${y}px) scale(0.86)`;
+        C.pinta(T, K, Object.assign({ mira: -0.6, sonrie: v.sonrie }, poseEn(e, i, T), v.pose ? {} : { pose: 'senala' })); }
+      sx = 790; sy = 930;
+    } else if (prev && prev.vis.tipo === 'pantalla' && loc < 0.5) {
+      pintaPantalla(marcos[(i - 1) % 2], prev, i - 1, T, 1, P(T, iniEsc[i], 0.45, 'expo'), 1); marcos[i % 2].style.display = 'none';
+    } else marcos.forEach((m) => (m.style.display = 'none'));
+
+    // ── lista: las apps sueltas alrededor y después se juntan en MaKo ──
+    if (v.tipo === 'lista') {
+      const tj = cuando(e, v.junta, 1e9); const qj = P(T, tj, 0.6, 'inout'); const J = v.juntaEn || { x: 960, y: 470 };
+      // «heredar»: las mismas tarjetas de otra escena, que vuelven enseguida (después de un golpe azul, p. ej.)
+      const her = v.heredar ? ESC.find((x) => x.id === v.heredar) : null; const items = her ? her.vis.items : v.items || [];
+      items.forEach((it, k) => {
+        const key = 'l' + i + '-' + k; usadas.add(key);
+        const d = tarjeta(key, `${it.logo ? `<img src="logos/${it.logo}.png" alt="">` : `<img src="icons/${it.ico || 'lucide-sparkles'}.svg" alt="" style="padding:12px;background:#111;filter:invert(1)">`}<div>${it.txt}${it.sub ? `<small>${it.sub}</small>` : ''}</div>`);
+        const t0 = her ? iniEsc[i] + k * 0.06 : cuando(e, it.en, iniEsc[i] + 0.2 + k * 0.25); const q = P(T, t0, 0.42, 'back');
+        const [px, py] = her && v.pos ? v.pos[k] : it.pos; const fl = Math.sin(T * 1.4 + k) * 8;
+        const x = mix(px, J.x, qj), y = mix(py + fl, J.y, qj), s = mix(q, 0.2, qj) * (q > 0 ? 1 : 0);
+        d.style.display = q > 0 && qj < 0.98 ? 'flex' : 'none';
+        d.style.transform = `translate(${x}px, ${y}px) translate(-50%,-50%) scale(${s.toFixed(3)}) rotate(${((it.rot || 0) * (1 - qj)).toFixed(2)}deg)`;
+        d.style.opacity = 1 - qj * 0.5;
+      });
+      if (T >= tj) { const key = 'mk' + i; usadas.add(key);
+        const d = tarjeta(key, `<div class="logo"><div class="ins">${STAR(74)}</div><div class="pal">MaKo</div></div>`, 'dato');
+        const q = P(T, tj + 0.45, 0.5, 'back'); d.style.display = 'block'; d.style.transform = `translate(${J.x}px, ${J.y}px) translate(-50%,-50%) scale(${q.toFixed(3)})`; }
+    }
+    // ── un dato grande al costado (US$388 tachado, 97…) ──
+    if (v.dato) for (const [k, dt] of (Array.isArray(v.dato) ? v.dato : [v.dato]).entries()) {
+      const key = 'd' + i + '-' + k; usadas.add(key);
+      const d = tarjeta(key, `<div class="v ${dt.tacha ? 'tachado' : ''}" style="color:${dt.color || '#141414'}">${dt.v}</div><div class="s">${dt.s || ''}</div>`, 'dato');
+      const t0 = cuando(e, dt.en, iniEsc[i] + 0.1); const q = P(T, t0, 0.45, 'back');
+      d.style.display = q > 0 ? 'block' : 'none';
+      d.style.transform = `translate(${dt.x}px, ${dt.y + (1 - q) * 60}px) translate(-50%,-50%) scale(${mix(0.7, 1, q).toFixed(3)})`; d.style.opacity = clamp(q * 2);
+      if (dt.tacha) d.querySelector('.v').style.setProperty('--q', P(T, cuando(e, dt.tacha, 1e9), 0.35, 'cubic').toFixed(3));
+    }
+    // ── barras del caso de Mauricio ──
+    if (v.barras) { const key = 'b' + i; usadas.add(key); const br = v.barras;
+      const d = tarjeta(key, `<h4>${br.titulo}</h4><p>${br.sub}</p><div class="cols">${br.cols.map((c) => `<div class="col"><div class="m">${c[1]}</div><div class="b"></div><div class="l">${c[0]}</div></div>`).join('')}</div>`, 'barras');
+      const q0 = P(T, cuando(e, br.en, iniEsc[i]), 0.45, 'back'); d.style.display = q0 > 0 ? 'block' : 'none';
+      d.style.transform = `translate(${br.x}px, ${br.y}px) translate(-50%,-50%) scale(${mix(0.8, 1, q0).toFixed(3)})`; d.style.opacity = clamp(q0 * 2);
+      const max = Math.max(...br.cols.map((c) => c[2]));
+      d.querySelectorAll('.col').forEach((col, k) => { const c = br.cols[k]; const q = P(T, cuando(e, c[3], iniEsc[i] + 0.3 + k * 0.4), 0.6, 'expo');
+        col.querySelector('.b').style.height = (300 * c[2] / max * q).toFixed(1) + 'px'; col.querySelector('.m').style.opacity = clamp(q * 2); });
+    }
+    ocultaTarjetas(usadas);
+
+    // ── golpe azul: la frase gigante, palabra por palabra ──
+    if (v.tipo === 'golpe') { const el = $('golpe').firstElementChild; const ws = palabras(e.id);
+      if (el.dataset.e !== e.id) { el.dataset.e = e.id; el.innerHTML = ws.map((w) => `<span>${K0.ver(w[0])}</span>`).join(' '); }
+      [...el.children].forEach((s, k) => { const q = P(T, ws[k][1] - 0.05, 0.22, 'back'); s.style.opacity = clamp(q * 2.5); s.style.transform = `translateY(${((1 - q) * 34).toFixed(1)}px)`; });
+    }
+    // ── la toma de Martín (el lugar marcado) ──
+    if (v.tipo === 'toma') { const tm = $('toma'); const ws = palabras(e.id);
+      if (tm.dataset.e !== e.id) { tm.dataset.e = e.id; tm.querySelector('.foto').style.backgroundImage = 'url(toma-referencia.jpg)';
+        tm.querySelector('.rec span').textContent = `TOMA ${v.n} DE ${v.de} · MARTÍN A CÁMARA`;
+        tm.querySelector('.txt').innerHTML = ws.map((w) => `<span>${K0.ver(w[0])}</span>`).join(' ');
+        tm.querySelector('.pie').textContent = 'Aquí va tu toma. La voz es provisoria (tu clon) para mirar el ritmo.'; }
+      [...tm.querySelector('.txt').children].forEach((s, k) => s.classList.toggle('on', T >= ws[k][1] - 0.03));
+      const dur = finEsc[i] - iniEsc[i]; tm.querySelector('.dur').textContent = `${Math.max(0, dur - loc).toFixed(1).replace('.', ',')} s`;
+      tm.querySelector('.rec i').style.opacity = Math.sin(T * 5) > 0 ? 1 : 0.25;
+      // el ida y vuelta (19/11): desde la palabra en que Martín gira hacia el personaje (v.gira), el cartel lo dice y el personaje
+      // asoma a la derecha mirándolo, que es donde va a estar en el corte siguiente
+      const tg = v.gira ? cuando(e, v.gira, 1e9) : 1e9; const qg = P(T, tg - 0.1, 0.45, 'back');
+      tm.querySelector('.rec span').textContent = T >= tg ? `TOMA ${v.n} DE ${v.de} · MIRA AL PERSONAJE →` : `TOMA ${v.n} DE ${v.de} · MARTÍN A CÁMARA`;
+      if (qg > 0) { pjB = true; const L = { x: 1700 + (1 - qg) * 420, y: 600, s: 0.7 };
+        $('pjB').style.transform = `translate(${L.x - CAB.x * L.s}px, ${L.y - CAB.y * L.s}px) scale(${L.s})`;
+        B.pinta(T, K, { mira: -0.85, calla: true, sonrie: 0.6, pose: 'reposo' }); }
+    }
+    // ── precio ──
+    if (v.tipo === 'precio') { const pl = $('precio').firstElementChild;
+      if (pl.dataset.e !== e.id) { pl.dataset.e = e.id; pl.innerHTML = v.planes.map((p) => `<div class="plan ${p.pro ? 'pro' : ''}"><div class="n">${p.nombre}</div><div class="p">US$<span>0</span><small> /mes</small></div><div class="r">${p.resumen}</div></div>`).join(''); }
+      pl.style.transform = `translate(${v.x || 290}px, ${v.y || 300}px)`;
+      [...pl.children].forEach((c, k) => { const p = v.planes[k]; const t0 = cuando(e, p.en, iniEsc[i] + 0.2 + k * 0.4); const q = P(T, t0, 0.5, 'back');
+        c.style.opacity = clamp(q * 2); c.style.transform = `translateY(${((1 - q) * 80).toFixed(1)}px) scale(${mix(0.9, 1, q).toFixed(3)})`;
+        c.querySelector('.p span').textContent = Math.round(p.precio * P(T, t0, 0.8, 'expo')); });
+      pjB = true; const L = LUGAR.derChico; $('pjB').style.transform = `translate(${L.x - CAB.x * L.s}px, ${L.y - CAB.y * L.s}px) scale(${L.s})`;
+      B.pinta(T, K, Object.assign({ mira: -0.5 }, poseEn(e, i, T))); sx = 960; sy = 900;
+    }
+    // ── cierre ──
+    if (v.tipo === 'cierre') { const ci = $('cierre');
+      if (ci.dataset.e !== e.id) { ci.dataset.e = e.id; ci.innerHTML = `<div class="logo"><div class="ins">${STAR(74)}</div><div class="pal">MaKo</div></div><div class="titular">${v.titular}</div><div class="boton">${v.cta}</div><svg class="cursor" viewBox="0 0 24 24"><path d="M4 2l16 9-7 2-3 7z" fill="#111" stroke="#fff" stroke-width="1.5"/></svg>`; }
+      const [lg, ti, bo, cu] = ci.children; const q1 = P(T, iniEsc[i], 0.5, 'back'), q2 = P(T, iniEsc[i] + 0.25, 0.5, 'expo'), q3 = P(T, cuando(e, v.ctaEn, iniEsc[i] + 1), 0.45, 'back');
+      lg.style.transform = `scale(${mix(0.7, 1, q1)})`; lg.style.opacity = clamp(q1 * 2); ti.style.opacity = q2; ti.style.transform = `translateY(${(1 - q2) * 40}px)`;
+      const clic = cuando(e, v.clicEn, 1e9); const qc = P(T, clic - 0.7, 0.7, 'inout'); const apreta = T > clic && T < clic + 0.18 ? 0.94 : 1;
+      bo.style.opacity = clamp(q3 * 2); bo.style.transform = `scale(${(mix(0.8, 1, q3) * apreta).toFixed(3)})`;
+      const r = bo.getBoundingClientRect(), sr = $('stage').getBoundingClientRect(), es = sr.width / 1920;
+      const bx = (r.left - sr.left) / es + (r.width / es) * 0.7, by = (r.top - sr.top) / es + (r.height / es) * 0.6;
+      cu.style.opacity = qc > 0 ? 1 : 0; cu.style.transform = `translate(${mix(bx + 300, bx, qc)}px, ${mix(by + 220, by, qc)}px)`;
+      pjB = true; const L = { x: 1560, y: 470, s: 0.95 }; const ent = P(T, iniEsc[i], 0.5, 'back');
+      $('pjB').style.transform = `translate(${L.x - CAB.x * L.s + (1 - ent) * 500}px, ${L.y - CAB.y * L.s}px) scale(${L.s})`;
+      B.pinta(T, K, Object.assign({ mira: -0.3 }, poseEn(e, i, T))); sx = -9999;
+    }
+    $('pjB').style.display = pjB ? 'block' : 'none'; $('pjC').style.display = pjC ? 'block' : 'none';
+    const sub = v.tipo === 'golpe' || v.tipo === 'toma' || v.tipo === 'cierre' ? null : e;
+    subs(T, sx, sy, sub);
+  }
+
+  // todas las imágenes de este cuadro cargadas antes de la foto (las grabaciones cambian de archivo en cada cuadro)
+  window.__esperar = () => Promise.all([...document.images].filter((im) => im.getAttribute('src')).map((im) => (im.complete && im.naturalWidth ? 1 : im.decode().catch(() => 1))));
+  K0.arrancar({ ancho: 1920, alto: 1080, voz: 'trabajo/' + SEC + '/voz.mp3', fuentes: ['800 60px Geist', '900 100px Geist', '600 30px Geist'], color: '#2F6FED', cuadro });
+})();
+</script>
+</body></html>
