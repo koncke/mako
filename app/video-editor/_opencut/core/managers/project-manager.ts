@@ -532,7 +532,9 @@ export class ProjectManager {
 
 		try {
 			const didUpdateThumbnail = await this.updateThumbnailFromTimeline();
-			if (didUpdateThumbnail) {
+			// MaKo (ticket 118): también si hay un cambio esperando su guardado (los 800 ms del guardado automático). Si no, ese
+			// guardado llegaba con el proyecto ya cerrado y el último cambio antes de «Volver» se perdía.
+			if (didUpdateThumbnail || this.editor.save.getIsDirty()) {
 				await this.editor.save.flush();
 			}
 		} catch (error) {

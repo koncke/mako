@@ -901,4 +901,20 @@ export const BITACORA: Hito[] = [
     revisar: '/video-editor',
     tickets: [99],
   },
+  {
+    fecha: '19 nov', hora: '13:10', chat: 'Ticket 118: el error al salir de un proyecto', sesion: 'local_0168298b-4989-4026-b103-56c2d2765a99', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Salir de un proyecto ya no deja un error escondido ni el aviso de «cambios sin guardar» (ticket #118, Leila)',
+    puntos: [
+      'A Leila le apareció «No active project» al volver de un proyecto a la lista. No se le rompió la pantalla: el guardado automático se disparaba un instante después de cerrar el proyecto y lo buscaba cuando ya no estaba. Pasaba cada vez que alguien salía de un proyecto.',
+      'Ahora, sin proyecto abierto, el guardado no tiene nada que hacer y no falla. La lista de proyectos tampoco pregunta «¿salir sin guardar?» cuando no hay nada sin guardar.',
+      'El último cambio antes de «Volver» se guarda ANTES de cerrar el proyecto. Antes, un cambio hecho menos de un segundo antes de salir podía perderse.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/core/managers/save-manager.ts — sin proyecto, el guardado no falla ni queda pendiente',
+      'app/video-editor/_opencut/core/managers/project-manager.ts — al salir, guarda lo que esperaba su guardado',
+      'tests/video-editor-guardado-al-cerrar.test.ts',
+    ],
+    revisar: '/video-editor',
+    tickets: [118],
+  },
 ];
