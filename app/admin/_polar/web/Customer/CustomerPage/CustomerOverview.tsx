@@ -43,6 +43,8 @@ export interface CustomerOverviewProps {
   desconectar?: DesconectarComputadora
   /** «Habilitado sin cobro»: lo guardado (`null` = nunca se tocó) y la acción que prende o apaga (la pasa la página). Sin la acción no se dibuja. */
   sinCobro?: SinCobro | null
+  /** ¿Paga su lugar por alguna vía (su plan, su mensualidad, su agencia)? null = no se pudo leer (19/11/2026, lib/cuenta-sin-cobro.ts). */
+  pagaSuLugar?: boolean | null
   ponerSinCobro?: PonerSinCobro
 }
 
@@ -59,6 +61,7 @@ export const CustomerOverview = ({
   eventos,
   desconectar,
   sinCobro = null,
+  pagaSuLugar = null,
   ponerSinCobro,
 }: CustomerOverviewProps) => {
   return (
@@ -72,7 +75,7 @@ export const CustomerOverview = ({
         computadoras={computadoras}
         desconectar={desconectar}
       />
-      {ponerSinCobro && <CustomerSinCobro ws={negocio.ws} inicial={sinCobro} poner={ponerSinCobro} />}
+      {ponerSinCobro && <CustomerSinCobro ws={negocio.ws} inicial={sinCobro} paga={pagaSuLugar} poner={ponerSinCobro} />}
       <CustomerSubscriptionsTable suscripciones={suscripciones} hoy={hoy} />
       <CustomerOrdersTable pedidos={pedidos} />
     </Box>

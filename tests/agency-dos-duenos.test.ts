@@ -196,6 +196,8 @@ test('LOS NUEVE USOS de `esClienteDeAgencia` resuelven el «no sé» por el lado
     ['lib/vista-de-otro.ts', 'lo que la barra le esconde, vía /api/auth/me'],
     // (18/11/2026) El nombre del plan en «Tu plan»: con «no sé», «Plan de tu agencia», como el resto de esa pantalla.
     ['lib/plan-visible.ts', 'el nombre del plan que ve el cliente en «Tu plan»'],
+    // (19/11/2026) «Habilitado sin cobro» apagado: con «no sé» si es de una agencia, cuenta como que PAGA (nunca se pausa ni se le muestra la prueba).
+    ['lib/cuenta-sin-cobro.ts', 'la pausa de «prueba terminada» y la prueba del negocio sin cobro (`pagaSuLugar`)'],
   ];
   for (const [rel, que] of usos) {
     const src = leer(rel);

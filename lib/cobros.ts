@@ -960,6 +960,9 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     //     esperar al cron (lib/plan-acceso.ts, 17/10/2026). Best effort: el cron lo vuelve a mirar en media hora.
     if (actual.alta_ws != null) {
       await revisarAccesosPorPago({ soloWs: actual.alta_ws }).catch((e) => console.warn(`[cobros] no pude revisar el acceso del negocio ${actual.alta_ws}:`, e instanceof Error ? e.message : String(e)));
+      // Y el negocio cargado a mano cuya prueba terminó (19/11/2026, lib/cuenta-sin-cobro.ts): con su plan pagado vuelve a entrar en el acto.
+      const { revisarSinCobro } = await import('./cuenta-sin-cobro');
+      await revisarSinCobro({ soloWs: actual.alta_ws }).catch(() => {});
     }
 
     // 6. Automations, DESPUÉS del CRM (con `fecha_primer_pago` ya escrita, el WhatsApp al lead sale solo y no

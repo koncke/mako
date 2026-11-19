@@ -47,7 +47,7 @@ export default async function CuentaPausadaPage() {
         <p style={{ margin: '12px 0 22px', fontSize: 'var(--fs-md)', lineHeight: 1.5, color: 'var(--dim)' }}>{telefono ? 'Tus datos están guardados.' : t.detalle}</p>
         {debe && <p style={{ margin: '-8px 0 18px', fontSize: 'var(--fs-md)', fontWeight: 600, color: 'var(--ink)' }}>Pendiente: {debe}</p>}
         {porPago
-          ? <PagarPlan accion={d?.deuda ? 'deuda' : 'reactivar'} texto={d?.deuda ? 'Pagar y volver a entrar' : 'Reactivar mi plan'} />
+          ? <PagarPlan accion={d?.deuda ? 'deuda' : 'reactivar'} texto={d?.deuda ? 'Pagar y volver a entrar' : corte?.motivo === 'prueba-terminada' ? 'Activar mi plan' : 'Reactivar mi plan'} />
           : <ButtonLink href={`mailto:${EMAIL_MAKO}`} variant="primary">Escribir a MaKo</ButtonLink>}
         <div style={{ marginTop: 14 }}><SalirDeLaCuenta esAgencia={esAgencia} /></div>
       </section>
