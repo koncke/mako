@@ -640,6 +640,103 @@
    "hecho": "2026-11-19T00:50:54.931Z"
   },
   {
+   "key": "funnel-clase-organico",
+   "pestana": "Funnel Coach · Clase: Orgánico",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-organico.mp4",
+   "poster": "/tutoriales/funnel-clase-organico.jpg",
+   "duracion_s": 50.97,
+   "peso_kb": 2704,
+   "guion": "Puedes vender sin pagar un anuncio, si publicas con constancia. Te doy la bienvenida a la clase de Orgánico: publicas en Instagram, y quien te sigue te escribe. Publicas reels, carruseles e historias sobre el problema que resuelves. Quien se identifica comenta una palabra o te escribe, y ahí conversas. Y le vendes por mensaje, o lo pasas a una llamada. ¿Cuándo te conviene? Cuando no tienes presupuesto para anuncios, pero sí tiempo para publicar seguido. No hace falta una cuenta grande: hay quien vende con mil seguidores. La clave es la constancia: unas tres publicaciones por semana, durante meses. Y tener quién conteste: un buen reel puede traerte decenas de mensajes en un día. Funnel Coach te ayuda a pensar qué publicar y cómo responder, y lo que entra queda en tu CRM. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-organico-1",
+     "rol": "gancho",
+     "texto": "Puedes vender sin pagar un anuncio, si publicas con constancia.",
+     "t_inicio": 0.06,
+     "t_fin": 3.7
+    },
+    {
+     "id": "funnel-clase-organico-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de Orgánico: publicas en Instagram, y quien te sigue te escribe.",
+     "t_inicio": 4.1,
+     "t_fin": 9.64
+    },
+    {
+     "id": "funnel-clase-organico-3",
+     "rol": "cosa",
+     "texto": "Publicas reels, carruseles e historias sobre el problema que resuelves.",
+     "t_inicio": 10.1,
+     "t_fin": 14.3
+    },
+    {
+     "id": "funnel-clase-organico-4",
+     "rol": "cosa",
+     "texto": "Quien se identifica comenta una palabra o te escribe, y ahí conversas.",
+     "t_inicio": 14.64,
+     "t_fin": 18.8
+    },
+    {
+     "id": "funnel-clase-organico-5",
+     "rol": "cosa",
+     "texto": "Y le vendes por mensaje, o lo pasas a una llamada.",
+     "t_inicio": 19.16,
+     "t_fin": 21.74
+    },
+    {
+     "id": "funnel-clase-organico-6",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando no tienes presupuesto para anuncios, pero sí tiempo para publicar seguido.",
+     "t_inicio": 22.22,
+     "t_fin": 27.82
+    },
+    {
+     "id": "funnel-clase-organico-7",
+     "rol": "cosa",
+     "texto": "No hace falta una cuenta grande: hay quien vende con mil seguidores.",
+     "t_inicio": 28.26,
+     "t_fin": 31.68
+    },
+    {
+     "id": "funnel-clase-organico-8",
+     "rol": "cosa",
+     "texto": "La clave es la constancia: unas tres publicaciones por semana, durante meses.",
+     "t_inicio": 32.08,
+     "t_fin": 37.04
+    },
+    {
+     "id": "funnel-clase-organico-9",
+     "rol": "cosa",
+     "texto": "Y tener quién conteste: un buen reel puede traerte decenas de mensajes en un día.",
+     "t_inicio": 37.36,
+     "t_fin": 42
+    },
+    {
+     "id": "funnel-clase-organico-10",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda a pensar qué publicar y cómo responder, y lo que entra queda en tu CRM.",
+     "t_inicio": 42.44,
+     "t_fin": 48.44,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-organico-11",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 48.8,
+     "t_fin": 50.28,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T00:54:48.172Z"
+  },
+  {
    "key": "funnel-clase-anuncios-a-whatsapp",
    "pestana": "Funnel Coach · Clase: Anuncios a WhatsApp",
    "ruta": "/second-brain",
