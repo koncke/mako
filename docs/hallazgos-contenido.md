@@ -294,6 +294,13 @@ portal (cursos duplicados, transcripciones que «faltan») está también en [ha
     'refs/remotes/origin/main'» (otro chat hacía fetch en el mismo clon); el push no salió, y la tarea de fondo terminó con
     código 0 porque lo daba el último comando de la cadena (`git log`). **Regla:** confirmar con `git ls-remote origin punta/<rama>`, no con el código de salida.
 
+12e. **Después de un reinicio por falta de RAM, el servidor de 8765 queda caído y la cola no lo dice.** La app se reinició
+    (19/11, 11:20) y el `python -m http.server 8765` que comparten todos los chats murió con ella. El render siguiente
+    esperó su turno y falló al instante con `net::ERR_CONNECTION_REFUSED`. Un render que había muerto a mitad dejó un MP4
+    de 1 MB que parecía un archivo. **Regla:** después de un reinicio, `curl localhost:8765/galeria.html` (tiene que dar
+    200) antes de encolar nada, y un render cuenta como hecho por el «LISTO» del log, no porque exista el .mp4. El script
+    `render-con-ram.sh` de la serie 2 espera el servidor y 3 GB libres antes de pedir turno.
+
 13. **Renumerar escenas dejó segundos vacíos que la sintaxis no ve.** Al agregar una escena al principio del guion
     (s1 nueva), las referencias `A.sN` se corrieron con reemplazos de texto desde el panel de Hormozi para abajo. La
     salida del panel 1 estaba más arriba y quedó atada a la escena vieja: el pizarrón se iba 7 s antes y los segundos
@@ -319,6 +326,10 @@ portal (cursos duplicados, transcripciones que «faltan») está también en [ha
     existe, se entra como sección.
 
 ### Lo que quedó sin hacer (serie 2)
+
+- Renders de `edu-dar-menos` (video 5) y `edu-viral-nicho` (video 4, con el segundo vacío de ~0:31 corregido): los HTML,
+  voces y fichas están listos en `C:/dev/artefactos-animaciones`; se frenaron el 19/11 a las 12:14 porque el onboarding
+  necesitaba la RAM y el navegador. El MP4 del 5 que quedó (1 MB) está roto.
 
 - THE NET LAB (Meta Ads 2026: «Andrómeda», «Diversidad creativa», estructura de cuenta 2026): no se leyó, y es lo más
   fuerte para el tema 7 (el creativo de los anuncios).
