@@ -48,8 +48,12 @@ siempre tiene que salir el muñequito de Martín, y no necesariamente siempre ti
 - **Series de tickets por familia.** Cada ticket con apps de la MISMA familia (las que se usan juntas), con precios
   verificados ese día, y termina en lo que hace MaKo de esa familia:
   - **Vender** (hecho, `s3-ticket-vender`): GoHighLevel 97 + Zapier 29,99 + respond.io 99 = US$225,99, contra MaKo Pro 97.
-  - **Cursos y comunidad:** Skool 99, Kajabi 179 (Circle, sin precio mes a mes). Ojo: Skool y Kajabi se usan uno U otro.
-  - **Contenido:** CapCut 17,99 y lo que se pueda verificar (Canva muestra pesos; Notion no dice si sus 10 son anuales).
+  - **Cursos** (hecho, `s3-ticket-cursos`, comenta ALUMNOS): Skool 99 + Kit 39 + Notion 12 = US$150, contra MaKo Pro 97.
+    Skool y no Kajabi (179): son alternativas, nadie paga las dos.
+  - **Contenido** (hecho, `s3-ticket-contenido`, comenta CONTENIDO): CapCut 17,99 + Submagic 19 + Metricool 25 = US$61,99.
+    Sale menos que MaKo: el cierre es «y todavía no vendí nada… además me ayuda a vender», no el ahorro. OpusClip no
+    entra (MaKo no corta un video largo en clips); Canva tampoco (sólo muestra pesos).
+  - Regla: al menos 3 precios verificados de la familia (pedido del Cerebro); si no, ese ticket no se hace.
 
 ## La plantilla de guion (≈ 60-75 palabras, 20-26 s)
 
@@ -118,8 +122,13 @@ todavía no la confirmó.
 | Skool | Pro | 99 | skool.com/pricing (+2,9 % por venta) |
 | Zapier | Professional | 29,99 | 750 tareas; zapier.com/pricing |
 | CapCut | Pro | 17,99 | capcut.com/pricing. ⚠️ La landing (`app/vsl/_sitio/reemplaza.ts`) dice 19,99 |
-| Notion | Plus | 10 o 12 | La página leída dice «$10 per member/month» sin aclarar si es anual: sin usar |
-| Metricool | Starter | 25 | Sólo de un resumen de la página, no del texto: sin usar |
+| Notion | Plus | 12 | Por persona, con «Pay monthly» elegido (los 10 son pagando el año) |
+| respond.io | Starter | 99 | De los datos de su propia página («Starter (Monthly)»); la tarjeta muestra 79 anual |
+| Kajabi | Basic | 179 | Pestaña mensual |
+| Kit | Creator | 39 | 1.000 suscriptores; los 20 son una promoción de 3 meses |
+| Submagic | Starter | 19 | Con «Monthly» elegido |
+| OpusClip | Starter | 15 | «Starter plan only available in monthly» |
+| Metricool | Starter | 25 | Pestaña «Monthly», hasta 5 marcas (20 es pagando el año) |
 | Mailchimp | Standard | 20 | Es el precio de promoción de 12 meses: sin usar |
 | Canva | Pro | — | Desde Argentina muestra pesos (ARS 8.500): sin usar |
 | ManyChat, Gamma, Higgsfield | — | — | 403, antibots o página por JS: sin usar |
@@ -165,6 +174,12 @@ son las landings de cada función (`app/vsl/<slug>`).
 - **OFERTA**:
   > ¡Hola! La app es MaKo. Su Offer Coach te hace las preguntas de un mentor, arma tu oferta en una página y te dice qué le
   > falta para vender más. Mírala aquí: hola-mako.com/vsl/offer
+- **ALUMNOS** (ticket de cursos):
+  > ¡Hola! La app es MaKo: el curso y la comunidad, los mails a tus alumnos y organizar todo, en una sola app (la comunidad
+  > está en el plan Pro). Acá está la cuenta de lo que reemplaza: hola-mako.com/vsl/comparaciones
+- **CONTENIDO** (ticket de contenido):
+  > ¡Hola! La app es MaKo: editas tus videos con subtítulos, programas tus publicaciones y, además, te ayuda a vender (tu lista
+  > de clientes y los mensajes, en el mismo lugar). Mírala aquí: hola-mako.com/vsl/comparaciones
 - **CURSO**:
   > ¡Hola! La app es MaKo, tipo Skool: el curso por módulos y lecciones con candados, y la comunidad de tus alumnos (la
   > comunidad está en el plan Pro), en la misma app con la que vendes. Mírala aquí: hola-mako.com/vsl/classroom
@@ -175,6 +190,8 @@ son las landings de cada función (`app/vsl/<slug>`).
 |---|---|---|---|
 | `s3-estos-videos` | «Este video no lo grabé. Y tampoco lo edité.» | CUBOS | Ninguna (el método: Claude + voz clonada + código) |
 | `s3-ticket` | «¿Te parece caro pagar 97 dólares al mes por una app?» | TICKET | Lo que reemplaza: GoHighLevel 97, Skool 99, Zapier 29,99, CapCut 17,99 = US$243,98 contra MaKo Pro 97 |
+| `s3-ticket-cursos` | Voz y reel hechos | 26,5 s | — | ALUMNOS |
+| `s3-ticket-contenido` | Voz y reel hechos | 30,7 s | — | CONTENIDO |
 | `s3-landing` | «Si vas a hacer tu página de ventas, no empieces de cero.» | COPIAR | Web Generator › Replicar landing (Diseño · Estructura · Ángulos) |
 | `s3-grupo` | «En tus grupos de WhatsApp hay gente que nunca recibió un mensaje tuyo.» | GRUPO | CRM › Extraer de un grupo de WhatsApp |
 | `s3-carrusel` | «El carrusel que más se guarda no es el más lindo.» | CARRUSEL | Image › Carruseles: las estructuras, con tu marca, y el chat que las escribe |
@@ -189,7 +206,9 @@ son las landings de cada función (`app/vsl/<slug>`).
 |---|---|---|---|---|
 | `s3-estos-videos` | Hecho (19/11) | 22,6 s | `C:/dev/artefactos-animaciones/mp4/s3-estos-videos.mp4` | CUBOS |
 | `s3-ticket` | Reemplazado (mezclaba familias; Martín, protagonista) | 30,5 s | `mp4/s3-ticket.mp4` | TICKET |
-| `s3-ticket-vender` | Hecho (19/11), espera el OK de Martín | 27,8 s | `C:/dev/artefactos-animaciones/mp4/s3-ticket-vender.mp4` | TICKET |
+| `s3-ticket-vender` | Hecho (19/11), OK del Cerebro con un ajuste (ticket más grande) | 27,8 s | `C:/dev/artefactos-animaciones/mp4/s3-ticket-vender.mp4` | TICKET |
+| `s3-ticket-cursos` | Voz y reel hechos | 26,5 s | — | ALUMNOS |
+| `s3-ticket-contenido` | Voz y reel hechos | 30,7 s | — | CONTENIDO |
 | `s3-landing` | En curso (voz y reel hechos) | 26,8 s | — | LANDING |
 | `s3-grupo` | En curso (voz y reel hechos) | 26,8 s | — | GRUPO |
 | `s3-carrusel` | En curso (voz y reel hechos) | 24,6 s | — | CARRUSEL |
