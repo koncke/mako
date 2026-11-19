@@ -19,7 +19,11 @@ La fuente de los reels NO está en el repo: `C:/dev/artefactos-animaciones/` (le
 - Hallazgos: `docs/hallazgos-contenido.md` (índice: `docs/hallazgos.md`).
 
 ## Lo que sigue
-0. **19/11 ~11:30 (hora de la PC) — EN CURSO, después del reinicio de la app por RAM:** las 6 correcciones de «El avión»
+0. **19/11 12:15 (hora de la PC) — FRENADO por el Cerebro:** el onboarding tiene prioridad máxima y necesita la RAM y el
+   turno del navegador. El render de «El avión» se cortó en el tramo 1 (cuadro 150 de 1450): procesos cerrados por PID,
+   turno suelto y cuadros a medias borrados. NO se renderiza nada (ni el avión ni la Serie 4) hasta que el Cerebro
+   escriba que el onboarding está desplegado; entonces, relanzar desde cero lo de abajo.
+   **Lo que estaba en curso, después del reinicio de la app por RAM:** las 6 correcciones de «El avión»
    están hechas en la página (las dejó el agente, que murió en el reinicio; ver docs/series/serie-1-elige-a-o-b.md §5).
    Render entero lanzado desde un script del scratchpad (espera 3 GB libres antes de cada tramo, un render por vez, por
    `turno.mjs`): `render-gl.mjs reels/serie1-avion-1.html mp4/serie1-avion-1.mp4 48.32 reels/voz-serie1-avion-1.mp3 30 1/2`
@@ -37,8 +41,9 @@ La fuente de los reels NO está en el repo: `C:/dev/artefactos-animaciones/` (le
      si una tarjeta tapa la cara, y renderizar: `node tools/turno.mjs node series/tools/render-gl.mjs
      reels/serie4-comentarios-1.html mp4/serie4-comentarios-1.mp4 43.62 reels/voz-serie4-comentarios-1.mp3 30 1/2` (y 2/2).
      Sus archivos nuevos NO están publicados (se sacaron del manifiesto de pub a propósito).
-   - Serie 2: `edu-mismo-video` se va a reemplazar (mismo id y ruta; el publicado tiene rayitas y letra chica). Cuando
-     avise: rehacer `mp4/para-ig/edu-mismo-video.mp4`, `python -I tools/armar_galeria.py <pub>` y republicar.
+   - Serie 2: `edu-mismo-video` está completo (19/11: la página publicada es la misma con la que se renderizó el MP4
+     nuevo). Falta `edu-cinco-frases` (video 2): la Serie 2 lo está renderizando y avisa; entonces rehacer su
+     `mp4/para-ig/`, armar y republicar.
    - Serie 3 manda 5 formatos más (usan imágenes `reels/app/s3-*.png`); Serie 2, el video 2. La versión va por ~460
      archivos de 511: para no pasarse, mover los MP4 y portadas a `assets` (capacidad del artefacto).
 1. Cuando Martín publique la parte 1 de cada serie: leer los comentarios.
