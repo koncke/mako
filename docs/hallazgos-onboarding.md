@@ -120,6 +120,45 @@ Lo que quedó SIN hacer (para el día siguiente):
   manifiesto y su crm.mp4 sobre el CRM dibujado (pausa en «Ver info» a los 9,3 s; «Mover a…» adentro de la ficha imitada; el
   CTA de «Más acciones» al final), no en la app.
 
+## Las tareas del reto dicen lo que el video marca, y nada que la app no dé (19/11/2026, chat «reto-tutoriales», claude5)
+
+Vive en `lib/reto/dias.ts` (las tareas y `tareasQueCierra`) y en el manifiesto de los videos (`public/tutoriales/manifiesto.json`,
+las `frases` con `sel`). Salió al grabar los días 2 a 7 con su porqué.
+
+- **⚠️ El diagnóstico obvio era el equivocado: una tarea la cierra su ÚLTIMA marca, no la que el video nombra.** El video del día 2
+  marca Perfil (`tour-settings-info`) para «Tu perfil y tu foto», y la tarea terminaba en Settings (`#user-menu a[href^="/perfil"]`).
+  Parecía que había que cambiar la marca del video. Lo que pasaba en la app: tocar Settings (el segundo toque del video, camino a
+  Instalar la app) daba la tarea por hecha antes de llegar al perfil, y tocar Perfil no cerraba nada. **Regla:** la última marca de
+  cada tarea es el lugar donde el video dice que se hace; un paso del camino (la foto de la barra, Settings) nunca es la última
+  marca de una tarea. Lo fija tests/reto-dias.test.ts.
+- **En el día 6, tocar Video cierra las DOS tareas** (tu personaje y tu primer clip): las dos terminan en la misma marca de la barra.
+  Con la regla del 18/11 («lo tocado durante el video cuenta como hecho»), el clip queda hecho sin hacerlo. Se dejó así. Para que
+  cuente el clip de verdad, la tarea necesita una marca adentro del estudio del personaje (`MARCA.avatarGenerar`), y el video una
+  frase que la marque.
+- **«El clip de 10 segundos va de regalo» no estaba en ningún lado del código:** sólo en el texto de las tareas. Lo que hay es un tope
+  de la prueba: UN video con el personaje (`prueba.avatares: 1`, lib/topes-plan.ts; lo cuenta app/video-editor/avatar/actions.ts).
+  **Regla:** antes de prometer algo «de regalo» en una tarea o un guion, hay que encontrar el código que lo da (un tope, un contador,
+  un crédito). Ahora el día 6 dice «tu primer clip».
+- **Las tareas prometían cosas que el video ya no dice:** «si ya usas otro CRM, lo integramos» (un equipo que Martín no tiene; lo
+  que hay es el CSV de app/crm/ImportarLeadsModal.tsx) y «Video › AI Avatar» (la tab se cerró el 14/11: es «Tu personaje con IA», en
+  Video › Crear desde cero, app/video-editor/plantillas-crear.ts). Un test las frena ahora: nada de `integramos`, `regalo`, `gratis`,
+  `ilimitad` ni `AI Avatar` en `DIAS_RETO`.
+- **Lo que encontró la corrida de los guiones (`wf_8a54fd74-15a`), verificado en el código:**
+  - **MaKo contesta sola sólo de 9 a 21 por defecto** (`HORARIO_RESPUESTA_SOLA`, lib/setter-conversacion.ts). Además, sólo en los
+    casos en «Sola», hasta 3 respuestas por lead en 24 h (`TOPE_RESPUESTAS_SOLAS_24H`) y sin hablar de precio; lo demás queda en
+    borrador. Con el horario de oficina prendido, manda ése. Por eso el día 3 dice «les contesta o te deja la respuesta lista», y
+    nunca «contesta siempre».
+  - **`migrar_contactos` (pasar contactos de otro CRM) funciona sólo por la API** (`canales: ['http']`, lib/api-mako/areas/crm.def.ts):
+    no se le pide a MaKo por el chat ni por WhatsApp. En pantalla está el CSV.
+  - **El aviso del lead de Meta (`lead-formulario-meta`) es sólo de superadmin y nace pausado** (`AVISOS_SOLO_SUPERADMIN`,
+    lib/avisos-catalogo.ts): el negocio no lo ve ni lo prende. Un guion no puede prometer «te avisa cuando entra un lead de Meta»; el
+    día 2 dice «tienes tu CRM y tus avisos en el bolsillo».
+  - **El lead de Meta entra por el webhook (app/api/webhooks/meta-leads) o por el poll cada diez minutos**
+    (app/api/cron/meta-leads-poll, `*/10` en vercel.json). «Entra solo a tu CRM» es cierto; «al instante», no siempre.
+- **Quedó sin hacer:** el día 4 promete replicar una página y ver la web del rival, que son de Pro (app/web-generator/CajaCrear.tsx,
+  app/competitor-spy/SusPaginas.tsx). En la prueba de Pro anda; si un día el reto se le muestra a Essential, esa frase y esa tarea
+  prometen cosas con candado.
+
 ## ⚠️ La maqueta del onboarding y la app real no tienen los mismos coaches (17/11/2026)
 
 Lo encontró el agente que reescribió los guiones de Offer Coach y Funnel Coach del reto (`docs/reto-7-dias/guiones-coaches-v2.md`).
