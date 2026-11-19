@@ -563,6 +563,8 @@ test('22. ticket 99: sin voz no arranca y dice qué hacer; con pasos y sin voz, 
   assert.match(correr, /if \(!leer\(editor\)\?\.estado\.conVoz\.length\) \{\s*useEnjambre\.setState\(\{ resumen: NO_ARRANCA\["sin-voz"\], error: false \}\);\s*return \{ ok: false, motivo: "sin-voz"/);
   assert.ok(correr.indexOf('motivo: "sin-voz"') < correr.indexOf('empezarCorrida({ desdeElChat })'), 'se mira ANTES de arrancar la corrida');
   assert.match(leer('app/video-editor/_opencut/enjambre/components/enjambre-view.tsx'), /r\.motivo !== "solo-pro" && r\.motivo !== "sin-voz"\) toast\.error/);
+  // La de la barra («Edición automática» en la línea de tiempo) abre el panel, donde queda escrito.
+  assert.match(leer('app/video-editor/_opencut/enjambre/registro.ts'), /if \(!r\.ok && r\.motivo === "sin-voz"\) \{\n\s*useAssetsPanelStore\.getState\(\)\.irA\(\{ categoria: "multimedia", seccion: SECCION_ENJAMBRE \}\);/);
   // Si subs-01 no reconoció una voz, «Limpiar la voz» se saltea: le sacaría los pasos.
   assert.match(correr, /paso\.id === "subtitulos" && [^\n]*l\.texto === MOTIVO_SUBTITULOS\["sin-voz"\]\)\) vozNoReconocida = true;/);
   assert.match(correr, /decidirPaso\(paso\.id, antes\.estado, ctx\.receta, \{ vozNoReconocida: ctx\.vozNoReconocida \}\)/);
