@@ -45,20 +45,27 @@ const guardarJson = (p, v) => {
   writeFileSync(p, texto); try { rmSync(t, { force: true }); } catch {}
 };
 
+// 19/11/2026 (tarde): `esperar` vive horas y pedía la credencial en cada lectura; con la PC paginando, el Credential Manager
+// cortaba por tiempo una y otra vez. La llave se pide UNA vez por proceso y queda sólo en memoria (nunca a disco); un 401 la descarta.
+let tokenEnMemoria = null;
+
 function token() {
+  if (tokenEnMemoria) return tokenEnMemoria;
   const out = execFileSync('git', ['credential', 'fill'], {
     input: 'protocol=https\nhost=github.com\n\n', encoding: 'utf8', timeout: 60_000, // 19/11: con la PC cargada, el Credential Manager tardó más de 20 s y el vigía quedó ciego
     env: { ...process.env, GCM_INTERACTIVE: 'never', GIT_TERMINAL_PROMPT: '0' }, windowsHide: true,
   });
   const m = out.match(/^password=(.+)$/m);
   if (!m) throw new Error('sin credencial de GitHub');
-  return m[1].trim();
+  tokenEnMemoria = m[1].trim();
+  return tokenEnMemoria;
 }
 
 async function api(ruta, t, texto = false) {
   const r = await fetch(`https://api.github.com/repos/${REPO}${ruta}`, {
     headers: { Authorization: `Bearer ${t}`, Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(30_000),
   });
+  if (r.status === 401) tokenEnMemoria = null; // la llave venció o la cambiaron: la próxima lectura la vuelve a pedir
   if (!r.ok) throw new Error(`GitHub ${r.status} en ${ruta.slice(0, 60)}`);
   return texto ? r.text() : r.json();
 }
