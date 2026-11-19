@@ -16,6 +16,10 @@ otros tipos de ejemplos.» Y antes, por el Cerebro: «nada de letra chica en nin
    entiende alguien que no sabe nada de marketing?
 3. **Referentes por el nombre corto:** «Víctor», «Rama». La etiqueta en pantalla también (con «en cubos · ficción»).
 4. **Subtítulos grandes:** 92 px, máximo 3 palabras por vez, nunca terminando en «un/de/con…», bajo el mentón.
+6. **Lo que dice la voz se VE en ese mismo segundo** (Cerebro, revisando «El avión»): si la voz dice «el piloto avisa»,
+   se ve al piloto; «el motor tose», la turbina con humo; «sacan el celular», manos con celulares hacia cámara. Si no se
+   puede mostrar, se cambia la toma, no se adorna. Nada de tomas desde arriba de una cabeza ni ojos rojos (dan miedo:
+   la tensión va con cejas arriba o una gota de sudor).
 5. Partes 2 sólo sobre una parte 1 aprobada (la 2A/2B del mastermind quedó congelada y fuera de la galería).
 
 ### Los ganchos de la referencia, palabra por palabra (el segundo exacto)

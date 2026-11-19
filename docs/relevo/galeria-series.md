@@ -19,6 +19,10 @@ La fuente de los reels NO está en el repo: `C:/dev/artefactos-animaciones/` (le
 - Hallazgos: `docs/hallazgos-contenido.md` (índice: `docs/hallazgos.md`).
 
 ## Lo que sigue
+0. **19/11 ~10:15 UTC — EN CURSO:** un agente rehace 5 tomas de «El avión» + cambia s11 a «Atrás, todos sacan el celular…»
+   y renderiza la Serie 4, con el brief `C:/dev/artefactos-animaciones/series/BRIEF-avion-retoques.md`. Al volver: revisar
+   los MP4, rehacer los `mp4/para-ig/` (crf 27), armar y publicar la galería, y mandarle el link al Cerebro (él revisa
+   antes de pasárselo a Martín). Lo de «retoque por rango en la fila» de abajo ya está hecho.
 0. **Pendientes concretos (19/11 ~10:00 UTC, el chat llegó al tope de contexto):**
    - Serie 1 «El avión»: un retoque por rango quedó en la fila (`render-gl … t:8.3-11.0`: los pasajeros que se asoman
      al darse vuelta). Cuando esté, rehacer `mp4/para-ig/serie1-avion-1.mp4` (crf 27) y republicar. A mejorar: el plano
