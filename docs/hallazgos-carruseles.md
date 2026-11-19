@@ -8,6 +8,83 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## Los carruseles de ventas hechos DENTRO de MaKo: el diseño salía, el texto perdía el tema (19/11/2026)
+
+**La prueba** (Martín: «pasarlo a un chat que intente replicar lo que hicimos pero dentro de MaKo… iterando hasta que le pueda
+salir a cualquier usuario»): los 5 carruseles que Claude hizo a mano para vender MaKo (docs/series/carruseles-ventas.md), con la
+misma referencia y el mismo tema, por «Editar» del ws 9, comparados lámina por lámina. En seco, porque el navegador de la app no
+tenía sesión: `scripts/carruseles-probar-editar.mts --ws 9 --id <id> --oferta «…» --pedido «…» --salida <carpeta>` (ahora dice
+cuántos textos de la IA llegaron a la lámina) y `node scripts/banco-carruseles/doc-a-laminas.mjs <carpeta>` para dibujarlo.
+
+**El diagnóstico obvio era el equivocado.** Parecía «la IA no sabe de MaKo». Primero era el PROMPT: el pedido del dueño iba
+último, cortado en 300 letras, y dos reglas de arriba decían lo contrario («contar LO MISMO»; «lo del original, su gurú, se
+saca»). Hormozi era del original: se sacaba. Salió «MaKo + tu negocio = resultados en escala» con los pasos de Claude traducidos.
+Con el tema arriba aparecieron dos causas más, y sólo se vieron pidiéndole un `guion` y mandando el prompt directo a la IA (50 s,
+sin la plancha):
+- **Sin los pasos del tema, la IA rellena con los del original** («crea un proyecto, sube sus tres libros»: falso en MaKo). El
+  pedido tiene que traer los HECHOS del tema. El Second Brain del ws 9 no los da: la pregunta es `LO_QUE_PIDE_UNA_PIEZA` + el
+  gancho en inglés de la referencia, y el nodo del Ops Center llega cortado antes del Funnel Coach y sus referentes.
+- **«No le atribuyas al negocio algo que no está en lo que se sabe de él» le ganaba al tema**: escribía «un referente» en vez de
+  Hormozi. Lo que escribió el dueño es un DATO de su negocio, y el prompt ahora lo dice.
+
+**Cómo quedó** (lib/carruseles/replica.ts, replica-servidor.ts, plancha-local.ts, plancha-servidor.ts, marca.ts, marca-kit.ts;
+tests/carruseles-tema-del-dueno.test.ts, 12 casos):
+- `bloqueDelTema`: el pedido arriba, entero hasta 600 letras (`TOPE_TEMA` = `TOPE_PEDIDO`), y MANDA; un `guion` por lámina antes de
+  los textos; con tema, la regla de adaptar habla de lo que el tema no nombra (sin «gurú»). El segundo pedido también lo recibe.
+- **La palabra del CTA la pone el código** (`palabraDelTema` + `conLaPalabra`): con «Comenta “HORMOZI”» en el tema, la IA puso
+  «MAKO» una vez de tres. Un dato exacto que pasa por un LLM deja de ser exacto.
+- **El @ del marco sale de la cuenta de Instagram conectada por Zernio** (`usuarioDeInstagram`). `marca.ts` decía que MaKo no lo
+  sabe y lo dejaba vacío; Zernio lo trae (ws 9: «martin.koncke», el que Claude puso a mano). ⚠️ Con 3 s de espera no llegaba (la
+  primera lista tardó 3,7 s; otra, 5,4): se pide al ARRANCAR la réplica, en paralelo con las láminas, con 8 s.
+- **El voseo pasa a «tú» por código** (`alTu`, con lib/voseo.ts): la voz guardada del ws 9 es rioplatense y le ganó a la regla
+  («Vos escribís. Ellos venden.»). ⚠️ La regla del prompt no puede NOMBRAR las formas del voseo: tests/carruseles-replica.test.ts
+  mira que el prompt mismo sea neutro.
+- **Un renglón que el segundo pedido «adapta» a una palabra no pisa el texto bueno** de la IA principal (`queVaEnLosRenglones`):
+  «Toca «Nuevo chat»: hay 32 referentes…» quedaba «MaKo».
+- **`IMAGENES_MAX` = `LAMINAS_MAX` (12)**: con 10 (el tope de antes de la plancha) un carrusel de 11 o 12 láminas nunca salía fiel.
+  Al subirlo apareció un error escondido: con 12 láminas leídas y 11 de la IA, `completarLoQueFalta` tiraba y «Editar» fallaba
+  entero. Con cantidades distintas, ahora se arma como antes.
+- **En un carrusel, lo que no se puede borrar se TAPA** con el color de alrededor (`planchar(…, { tapar })`): una persona delante de
+  un edificio o un titular sobre una textura devolvían la lámina intacta y, por el todo o nada, el carrusel entero salía con el
+  armado viejo (fondo liso y fotos de banco: un perro en el equipo de bots). Sólo en carruseles: en una miniatura o la portada de un
+  reel el texto sobre una foto es lo normal y un parche ahí no se midió.
+- **Una plancha que pierde el titular de la portada o más de un cuarto de lo principal no se usa** (`planchaQuePierde`, decidido
+  ANTES de subir nada): dejaba la letra del original y la pantalla decía «lista».
+- **Unas comillas sin escapar adentro de un texto no tiran el JSON entero** (`escaparComillasDeAdentro`): con «Comenta “HORMOZI”»
+  en el tema, la IA escribió `"original":"Comenta "HORMOZI" y te la paso."` y tres de cinco salieron con guías. Y
+  `TOKENS_DE_SALIDA` pasó de 8.000 a 12.000 (todas las láminas, el original de cada texto y el guion).
+
+**Cómo salió cada uno al final** (con el pedido que escribiría quien conoce su producto: el tema, los pasos, la voz y la palabra):
+
+| # | Referencia | Texto | Diseño |
+|---|---|---|---|
+| 1 | @lifeofarjav, 6 | Varía de corrida a corrida: una salió casi como la de Claude («MaKo + Hormozi = Tu Coach», «Elige a Hormozi», «Pregúntale Todo»); la última, «MaKo + Second Brain = auditoría completa», «Elige tu referente» y un «Pregunta sin límites» que no se puede prometer. El CTA «HORMOZI», siempre | Fiel (la plancha): marco, pastillas, acentos y @martin.koncke. Quedan el logo y las capturas de Claude, y el lugar marcado de la persona |
+| 2 | @vilmanunez, 7 | Bien («ENCONTRÉ UNA APP…», las salas con sus apps), 19 de 19 en la lámina | Armado viejo: la plancha no ubica el titular de la portada (12 de 23 perdidos) |
+| 3 | @albert.olgaard, 7 | Bien, con invenciones («Scout busca en Google Maps»), 23 de 23 | Armado viejo (16 de 27 perdidos) |
+| 4 | @tinnaloaizaofficial, 12 | Bien, 35 de 35 | Armado viejo: la plancha no ubica el titular de la portada (sin él, ponía el original en inglés) |
+| 5 | @awakpenn, 11 | Bien, 32 de 32 | Armado viejo (15 de 35 perdidos, con la portada) |
+
+**Trampas que quedan anotadas:**
+- ⚠️ **La misma corrida no da lo mismo**: con el mismo prompt, Hormozi salió en una y no en la siguiente. Un cambio de prompt se
+  mide con dos corridas o más.
+- ⚠️ **«Textos de la IA que llegaron a la lámina» es la medida**, no «salió con la IA». La plancha tiraba en silencio lo que no
+  ubicaba: «las 11 apps» puso 5 de 21, «7 cosas» 2 de 24, y las dos dejaban el original con dos frases cambiadas.
+- El ws 9 escribe con **Claude** (el crédito de la plataforma: `leerDocumentoIA` devuelve `provider: 'anthropic'`), no con Gemini.
+- La réplica escribió «Pregunta sin límites» (una promesa que MaKo no hace) y «Seguí a…» (un voseo que lib/voseo.ts no conoce):
+  ninguno de los dos tiene todavía una capa de código.
+
+**Sin hacer** (con dónde vive):
+- **La plancha que no ubica los renglones** en fondos con textura, pastillas de color y párrafos densos (las 11 apps, 7 cosas, el
+  equipo): `leerLamina` y `asignarRenglones` en lib/carruseles/plancha-local.ts. Hoy esos caen al armado viejo, que dice lo del
+  negocio pero no se parece. Es el arreglo que más acercaría a lo de Claude.
+- **La imagen del original queda**: logos, capturas de otra app y la persona (marcada). La regla de Martín es que la imagen la
+  replique la IA; la orquestación con Flow (lib/carruseles/plancha.ts, «parte 7») sigue sin hacer. Para el contenido de MaKo,
+  además, hacen falta pantallas de MaKo, que la réplica no tiene de dónde sacar.
+- **En la app, «Editar» arranca solo** con lo de por defecto (`respuestasPorDefecto`, app/image-editor/carruseles/ReplicarGuiado.tsx):
+  el tema se dice cerrando el armado, escribiendo en la caja y tocando «Generar». Nadie lo descubre. Es la pregunta «¿cómo lo
+  adapto?» que Copywriting hace desde el 13/11: decisión del Cerebro o de Martín.
+- La prueba en producción por la pantalla (el navegador de la app sin sesión el 19/11).
+
 ## «Editar» que se queda esperando para siempre, y la «part 2» de otra serie escondida (18/11/2026)
 
 Tres pendientes de la lista verificada del 17/11 (F14, F130 y F27), los tres con la misma forma: algo que la pantalla AFIRMA
