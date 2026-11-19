@@ -39,6 +39,15 @@ Lo lleva el chat `ai-avatar-codigo`. La galería de la que sale cada formato est
 - **El personaje:** `kit/toma.js` de la galería (Three.js 0.160 desde jsDelivr, como la galería), con la paleta y el
   peinado como datos. Sin datos es el Martín en cubos de siempre, igual al de la galería.
 
+## La API de MaKo (el chat, WhatsApp y los tokens)
+
+- `ver_videos_cubos`: los videos del negocio, con su guion, formato, voz, personaje y el link para abrirlos.
+- `crear_video_cubos`: PROPONE un video (guion con `*marcas*`, formato, personaje por partes y voz). Se confirma en
+  `/mako/revisar`; al confirmar genera la voz con sus tiempos (MaKo Tokens) y devuelve `/ai-avatar?cubos=<id>`, que abre
+  ese video en el estudio. El MP4 no lo arma la API: se arma en el navegador, con «Descargar MP4».
+- Las dos respetan el interruptor: a quien no lo tiene le contestan que todavía no está disponible. El guion con IA, la foto,
+  los retoques y el borrado son pasos de la pantalla (EXCEPCIONES de `lib/api-mako/cobertura.ts`, con su porqué).
+
 ## El puerto de un formato de la galería a la app
 
 1. Se copia `reels/<id>.html` a `public/avatar-cubos/<id>.html`, con el kit (`kit.js`, `kit.css`, `toma.js`).

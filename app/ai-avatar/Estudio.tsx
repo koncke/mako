@@ -95,12 +95,12 @@ const EJEMPLOS = [
   'En la playa al atardecer, con ropa de verano',
 ] as const;
 
-export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora, veCubos = false, cubosInicial = false }: {
+export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora, veCubos = false, cubosInicial }: {
   inicio: Inicio;
   /** El personaje en cubos (lib/ai-avatar/cubos-interruptor.ts): lo decide el server, el navegador no. */
   veCubos?: boolean;
-  /** `?cubos=1`: abre el personaje en cubos. */
-  cubosInicial?: boolean;
+  /** `?cubos=1` abre el personaje en cubos; `?cubos=<id>`, ese video (el link de la API, `crear_video_cubos`). */
+  cubosInicial?: string;
   plantillaInicial?: string;
   /** El id del proyecto o el `mediaId` de su imagen (el `?avatar=` de antes era el mediaId). */
   avatarInicial?: string;
@@ -256,7 +256,7 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora, 
             onEliminar={() => void eliminar(proyecto.id)} enviando={enviando} error={error} />
         )}
 
-        {vista.tipo === 'cubos' && <EstudioCubos alVolver={() => setVista({ tipo: 'nueva' })} />}
+        {vista.tipo === 'cubos' && <EstudioCubos alVolver={() => setVista({ tipo: 'nueva' })} abrirId={cubosInicial && cubosInicial !== '1' ? cubosInicial : undefined} />}
 
         {vista.tipo !== 'proyecto' && vista.tipo !== 'cubos' && (
           <BarraImagen preset={preset} fotos={fotos} fotoId={fotoId} detalle={detalle} puente={inicio.puente}

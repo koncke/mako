@@ -203,6 +203,7 @@ crear_oferta_lead
 crear_pagina_reserva
 crear_presentacion_desde_plantilla
 crear_secuencia_email
+crear_video_cubos
 cuenta_media_buyer
 cuentas_cobro_etapa
 dar_acceso_curso
@@ -796,6 +797,7 @@ ver_tramos_ciclo_venta
 ver_transcript_anuncio
 ver_trimestre_actual
 ver_version_landing
+ver_videos_cubos
 ver_voz_cliente
 ver_workspace
 ver_zona_horaria_workspace
