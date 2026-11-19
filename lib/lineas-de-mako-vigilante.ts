@@ -17,7 +17,7 @@ import { instanciaVoz } from './mako-grupo';
 import { cambiarSettingSi, getSettingEstricto, setSetting } from './settings';
 import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
-import { APP_BASE_URL, linkApp } from './app-url';
+import { linkApp } from './app-url';
 import { esLineaDeMaKo } from './linea-plataforma';
 import { esLineaDelWorkspace, lineaPorDefault } from './lineas-whatsapp';
 import { correrVigilancia, type ResultadoLinea } from './lineas-de-mako';
@@ -55,7 +55,7 @@ export async function vigilarLineasDeMako(): Promise<{ lineas: ResultadoLinea[];
     mail: (asunto, cuerpo) => avisarPorEmail(ws, asunto, cuerpo),
     reabrir: (instancia) => reabrirSesion(instancia, TOPE_REABRIR_MS),
     // ⚠️ /agencia sólo reconecta el canal (`conectarCanalMaKo`). Con la voz en una línea de negocio, ese link ofrece escanear el número baneado.
-    linkPrincipal: (instancia) => (esLineaDeMaKo(instancia) ? `${APP_BASE_URL}${RUTA_LINEA_MAKO}` : linkDeLinea(instancia)),
+    linkPrincipal: (instancia) => (esLineaDeMaKo(instancia) ? linkApp(RUTA_LINEA_MAKO, ws) : linkDeLinea(instancia)),
     linkSecundaria: (instancia) => linkDeLinea(instancia),
     ahoraMs: () => Date.now(),
   });

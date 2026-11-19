@@ -91,6 +91,36 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Hola, quiero confirmar mi WhatsApp» y MaKo no mandó el código: la regla 1 no veía a quien escribió bajo un `@lid` (19/11/2026, claude5)
+
+**El síntoma:** con el onboarding nuevo (desplegado a las 21:28 UTC), Martín le escribió a MaKo desde el cliente de prueba (ws 3) y MaKo
+no le contestó con el código.
+
+**Lo medido (sólo lectura):**
+- El mensaje llegó a la línea nueva (`mwo1bdvw`) a las 22:05:31.
+- `responderPedidoV2` lo reconoció: a las 22:05:32 la verificación de ws 3 quedó «respondido», con el destino y la línea correctos.
+- **No salió ningún mensaje.** `mandarCodigoV2` → `enviarAPersonaMaKo` → `enviarTextoVozMaKo` pasa por la regla 1 («MaKo no le escribe
+  primero a quien nunca le escribió», `leEscribioALaLinea`).
+- Esa regla buscaba en el store sólo `remoteJid === 549…@s.whatsapp.net`. En la línea recién vinculada el chat quedó guardado como
+  `remoteJid: …4969@lid`, con el teléfono en `remoteJidAlt`.
+- Así dijo «nunca le escribió» a quien le acababa de escribir. Sobre el store real: regla vieja `false`, nueva `true`.
+- ⚠️ **No eran las sospechas obvias:**
+  - el webhook de la línea nueva está prendido, con `MESSAGES_UPSERT`;
+  - el bot 1 a 1 (`mako.bot.instancia` = la vieja) no está en este camino: el V2 va antes;
+  - la marca de «sorda» no frena ningún envío.
+
+**El arreglo:**
+- `leEscribioEnLasFilas` (lib/mako-salida-reglas.ts) busca el teléfono en `remoteJid`, `remoteJidAlt` y `senderPn`, siempre en una fila
+  entrante.
+- `leEscribioALaLinea`, si el filtro por `remoteJid` no lo encuentra, mira las últimas 200 de la línea.
+- Si el código no sale, la verificación vuelve a «no respondido»: antes la pantalla esperaba un código que nunca se mandó.
+- tests/escribio-bajo-lid.test.ts (W1-W4).
+
+**Para el cliente de prueba:** después del despliegue, mandar otra vez «Hola, quiero confirmar mi WhatsApp.», o tocar «Reenviar el
+código».
+
+---
+
 ## «Salió por WhatsApp» cuando sólo llegó a la app: el `ok: true` con `enApp` (ticket #118, 19/11/2026)
 
 **Vive en:** `lib/mako-grupo.ts` (`enviarAlGrupoMaKo`, al final) · `lib/tickets-cierre.ts` (`avisarUno`) ·

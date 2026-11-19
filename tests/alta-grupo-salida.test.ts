@@ -87,7 +87,7 @@ test('MaKo admin: sí, no y no sé', () => {
 
 test('el alta lee el grupo antes, frena sólo si MaKo NO es admin, y suma la salida al motivo', () => {
   const src = fuenteSinComentarios('lib/mako-grupo.ts');
-  const alta = bloque(src, 'async function sumarAlGrupo(', '// ── El equipo de la agencia');
+  const alta = bloque(src, 'async function sumarAlGrupo(', 'export type AgenciaConEquipo');
   const lectura = alta.indexOf('await grupoParaAlta(jid)');
   assert.ok(lectura >= 0 && lectura < alta.indexOf('/group/updateParticipant/'), 'el grupo se lee ANTES de pedir el alta');
   assert.match(alta, /if \(grupo\?\.makoEsAdmin === false\) return \{ ok: false, error: MAKO_NO_ES_ADMIN, link: null \};/);
@@ -134,17 +134,17 @@ test('el 400 de Joan: la causa en palabras, nunca «Evolution», y la salida a m
   ] as const) {
     const c = causaDelRechazo(400, cuerpo(msg));
     assert.equal(c.tipo, tipo, msg);
-    assert.doesNotMatch(c.motivo, /evolution|400/i, 'el cartel no nombra a Evolution ni el código');
+    assert.doesNotMatch(c.motivo, /evolution|\b400\b/i, 'el cartel no nombra a Evolution ni el código');
   }
   assert.equal(causaDelRechazo(400, cuerpo('Error: not-authorized')).ofreceSalida, false, 'si MaKo no es admin, lo dice el motivo');
   assert.equal(causaDelRechazo(400, 'texto suelto').tipo, 'otro');
   assert.deepEqual(salidaSinAlta('rechazo', NUEVO, { numero: PRINCIPAL, esta: true, esAdmin: false }), { hacerAdmin: PRINCIPAL });
   const src = fuenteSinComentarios('lib/mako-grupo.ts');
-  const alta = bloque(src, 'async function sumarAlGrupo(', '// ── El equipo de la agencia');
+  const alta = bloque(src, 'async function sumarAlGrupo(', 'export type AgenciaConEquipo');
   const rechazo = bloque(alta, 'if (!r.ok) {', 'const res = leerResultadoParticipante(r.body);');
-  assert.doesNotMatch(rechazo, /Evolution ${r.status}/, 'volvió «Evolution 400» a secas');
-  assert.match(rechazo, /setSetting(KEY_RECHAZO_ALTA, /, 'lo que contestó WhatsApp queda guardado');
-  assert.match(rechazo, /causaDelRechazo(r.status, r.body)/);
-  assert.match(rechazo, /salidaSinAlta('rechazo', destino,/);
+  assert.doesNotMatch(rechazo, /Evolution \$\{r\.status\}/, 'volvió «Evolution 400» a secas');
+  assert.match(rechazo, /setSetting\(KEY_RECHAZO_ALTA, /, 'lo que contestó WhatsApp queda guardado');
+  assert.match(rechazo, /causaDelRechazo\(r\.status, r\.body\)/);
+  assert.match(rechazo, /salidaSinAlta\('rechazo', destino,/);
   assert.match(rechazo, /link, salida, error:/);
 });

@@ -198,7 +198,7 @@ export function DestinatariosCanal({ canal, inicial, ws, onGuardado }: {
                   {admin.busy ? 'Haciéndolo admin…' : `Hacer admin a ${paraLeer('tel', salida.hacerAdmin)}`}
                 </button>
               )}
-              {admin.error && <div role="alert" style={{ fontSize: 12, fontWeight: 600, color: 'var(--bad)' }}>{admin.error}</div>}
+              {admin.error && <div role="alert" style={{ fontSize: 12, fontWeight: 600, color: 'var(--bad)' }}>{admin.error}<ReportarASoporte /></div>}
             </div>
           )}
         </div>

@@ -285,7 +285,7 @@ async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>, p
     // Con `enApp` el motivo viene en `noEntregado` (19/11/2026, #118): quedó en el hilo de la app y el WhatsApp no salió.
     const motivo = r.error ?? r.noEntregado;
     if (destino === 'reintentar') {
-      console.error(`[tickets] WhatsApp de #${f.id}: ${motivo ?? 'no salió'}${r.enApp ? ' (quedó en el hilo de la app)' : ''} — se reintenta en la vuelta siguiente`);
+      console.error(`[tickets] WhatsApp de #${f.id}: ${motivo ?? 'no salió'}${r.enApp ? ' (sólo en la app)' : ''}; se reintenta`);
       return false;
     }
     // «whatsapp» en el historial sólo si llegó a WhatsApp. Lo que quedó sólo en la app (un negocio sin grupo de WhatsApp) dice «app».

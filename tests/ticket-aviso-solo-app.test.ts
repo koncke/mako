@@ -52,7 +52,7 @@ test('el envío dice el motivo, lo deja en el log, y el reintento de un aviso de
 
 test('el historial: «app» cuando quedó sólo en la app, «whatsapp» sólo si llegó', () => {
   const src = fuenteSinComentarios('lib/tickets-cierre.ts');
-  const a = bloque(src, 'async function avisarUno(', '// Un push a SU teléfono');
+  const a = bloque(src, 'async function avisarUno(', 'if (f.usuario_id) {');
   assert.match(a, /if \(destino === 'salio'\) salio\.push\(r\.enApp \? 'app' : 'whatsapp'\);/);
   assert.match(a, /const motivo = r\.error \?\? r\.noEntregado;/, 'el motivo del reintento no se pierde');
 });

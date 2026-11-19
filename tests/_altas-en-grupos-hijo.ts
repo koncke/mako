@@ -62,6 +62,8 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.pathname.startsWith('/chat/whatsappNumbers')) return json(200, [{ exists: true, jid: `${String((body?.numbers as string[])[0])}@s.whatsapp.net` }]);
   if (u.pathname.startsWith('/group/participants')) return json(200, { participants: [] });
   if (u.pathname.startsWith('/group/inviteCode')) return json(200, { inviteUrl: 'https://chat.whatsapp.com/LINK' });
+  // La lectura del grupo antes del alta (19/11/2026, `grupoParaAlta`): es una lectura, no un pedido. MaKo, superadmin del grupo.
+  if (u.pathname.startsWith('/group/findGroupInfos')) return json(200, { subject: 'MaKo <> Cliente', participants: [{ id: '5493410000999@s.whatsapp.net', phoneNumber: '5493410000999@s.whatsapp.net', admin: 'superadmin' }] });
   // La línea de MaKo, conectada: de acá sale el número del link `wa.me` de la verificación (lee la base de Evolution, no le habla a WhatsApp).
   if (u.pathname.startsWith('/instance/fetchInstances')) return json(200, [{ name: 'mako_ws9', connectionStatus: 'open', ownerJid: '5493410000999@s.whatsapp.net' }]);
   if (u.pathname.startsWith('/chat/findMessages')) {

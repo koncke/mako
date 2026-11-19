@@ -51,7 +51,7 @@ import { instanciaVoz, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from './mako-grupo'
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin, WS_NINGUNO } from './workspace';
 import { sendEmail } from './resend';
-import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
+import { EMAIL_MAKO, REMITENTE_MAKO, linkApp } from './app-url';
 import { RUTA_LINEA_MAKO } from './chats-links';
 import { getSupabaseServer } from './supabase';
 import {
@@ -248,7 +248,7 @@ export async function vigilarVozMaKo(): Promise<{
         'No sé si la línea está caída, así que NO hace falta re-escanear el QR: re-escanear una línea que está bien la tumba.',
         'Lo que hay que revisar es el servidor de Evolution y su EVOLUTION_API_KEY.',
         '',
-        `${APP_BASE_URL}${RUTA_LINEA_MAKO}`,
+        linkApp(RUTA_LINEA_MAKO, ws),
       ].join('\n'),
     );
     if (envio.enviadoA) await runWithWorkspace(ws, () => setSetting(KEY_SIN_RESPUESTA_AVISO, ahora)).catch(() => {});
@@ -310,7 +310,7 @@ export async function vigilarVozMaKo(): Promise<{
       'no entra ni sale un solo mensaje, y los avisos que MaKo genere se pierden.',
       '',
       'Se arregla volviendo a vincular el número (escanear el QR):',
-      `${APP_BASE_URL}${RUTA_LINEA_MAKO}`,
+      linkApp(RUTA_LINEA_MAKO, ws),
       '',
       'Mientras tanto, ningún cliente puede escribirle a MaKo ni recibir sus avisos.',
     ].join('\n'),

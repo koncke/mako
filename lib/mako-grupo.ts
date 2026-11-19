@@ -34,7 +34,7 @@ import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEq
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
 import { AGENDAR_V2, E_SIN_CODIGO_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, esPedidoDeConfirmacion, mensajeDelCodigoV2 } from './verificacion-entrante';
 import { chatDelMensaje } from './mako-bot-reglas';
-import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, pausaDeEscritura, puedeEscribirleAPersona } from './mako-salida-reglas';
+import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, leEscribioEnLasFilas, pausaDeEscritura, puedeEscribirleAPersona, type FilaQuienEscribio } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
 import { antesDeEscribir, trasEscribir } from './linea-freno';
 import { tituloDelGrupo } from './grupo-reglas';
@@ -438,16 +438,29 @@ export async function cupoAltaDeLinea(num: string, instancia?: string): Promise<
 /**
  * ¿Este número le escribió alguna vez a la línea? Se lee de la base de Evolution, sin hablar con WhatsApp. Sin poder saberlo, no: la pantalla da el link.
  * Se mira cada fila aunque se pida `fromMe: false`: si Evolution ignorara ese filtro, alguien a quien sólo le escribió MaKo contaría como que escribió.
- * ⚠️ Quien escribió bajo un `@lid` que Evolution no resolvió cuenta como que no escribió: recibe el link. Es el error barato.
+ * ⚠️ UN CHAT BAJO UN `@lid` (19/11/2026, `leEscribioEnLasFilas`, lib/mako-salida-reglas.ts). En la línea recién vinculada, el «Hola, quiero
+ * confirmar mi WhatsApp.» de Martín quedó como `remoteJid: …@lid`, con el teléfono en `remoteJidAlt`: el filtro por `remoteJid` no lo
+ * encontraba, la regla dijo «nunca le escribió» y el código del onboarding no salió. Si el filtro no lo encuentra, se mira lo último que
+ * entró a la línea con el teléfono en los tres campos. Quien escribió hace mucho bajo un `@lid` sigue contando como que no: recibe el link,
+ * que es el error barato.
  */
 async function leEscribioALaLinea(num: string): Promise<boolean> {
   const remoteJid = num.includes('@') ? num.trim() : `${soloDigitos(num)}@s.whatsapp.net`;
-  const r = await ev(`/chat/findMessages/${await instanciaVoz()}`, {
-    method: 'POST', body: JSON.stringify({ where: { key: { remoteJid, fromMe: false } }, page: 1, offset: 20 }),
-  });
-  const filas = (r.body as { messages?: { records?: Array<{ key?: { fromMe?: boolean; remoteJid?: string } }> } } | null)?.messages?.records;
-  return r.ok && Array.isArray(filas) && filas.some((f) => f.key?.fromMe === false && f.key?.remoteJid === remoteJid);
+  const voz = await instanciaVoz();
+  const leer = async (where: Record<string, unknown>, offset: number): Promise<FilaQuienEscribio[] | null> => {
+    const r = await ev(`/chat/findMessages/${voz}`, { method: 'POST', body: JSON.stringify({ where, page: 1, offset }) });
+    const filas = (r.body as { messages?: { records?: FilaQuienEscribio[] } } | null)?.messages?.records;
+    return r.ok && Array.isArray(filas) ? filas : null;
+  };
+  const exactas = await leer({ key: { remoteJid, fromMe: false } }, 20);
+  if (exactas && leEscribioEnLasFilas(exactas, remoteJid)) return true;
+  if (!TELEFONO_JID.test(remoteJid)) return false;
+  const recientes = await leer({}, ULTIMAS_PARA_LID);
+  return !!recientes && leEscribioEnLasFilas(recientes, remoteJid);
 }
+/** Cuántos mensajes recientes de la línea se miran para encontrar a quien escribió bajo un `@lid`. */
+const ULTIMAS_PARA_LID = 200;
+const TELEFONO_JID = /^\d{8,15}@s\.whatsapp\.net$/;
 
 type ContactoListo = { ok: true; num: string; destino: string } | { ok: false; error: string };
 
@@ -1018,7 +1031,11 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
       resultado: `ws${ws}: le contesto con el código`,
       responder: async () => {
         const r = await mandarCodigoV2(anotado, soloDigitos(anotado.destino || anotado.telefono));
-        if (!r.ok) console.error(`[mako-grupo] ws${ws}: no salió el código del V2: ${r.error}`);
+        if (r.ok) return;
+        console.error(`[mako-grupo] ws${ws}: no salió el código del V2: ${r.error}`);
+        // ⚠️ «Respondido» sin código es un «listo» falso (19/11/2026): la pantalla esperaba un código que nunca salió, y «Reenviar» lo
+        // daba por mandado. Se vuelve atrás (sólo si nadie lo cambió después): el próximo «Hola, quiero confirmar…» lo vuelve a intentar.
+        await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, JSON.stringify(anotado), JSON.stringify({ ...anotado, respondido: false }))).catch(() => {});
       },
     };
   }

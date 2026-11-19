@@ -182,10 +182,10 @@ export function makoEsAdminDe(participantes: ParticipanteCrudo[], numeroDeMaKo: 
  */
 export function causaDelRechazo(status: number, body: unknown): { motivo: string; ofreceSalida: boolean; tipo: 'tope' | 'no-admin' | 'tiempo' | 'sin-conexion' | 'no-encontrado' | 'otro' } {
   const t = (typeof body === 'string' ? body : JSON.stringify(body ?? '')).toLowerCase();
-  if (/rate-overlimit|429/.test(t)) return { tipo: 'tope', ofreceSalida: true, motivo: 'WhatsApp frenó a MaKo por hacer muchos cambios en grupos seguidos. Prueba de nuevo en un rato.' };
+  if (/rate-overlimit|\b429\b/.test(t)) return { tipo: 'tope', ofreceSalida: true, motivo: 'WhatsApp frenó a MaKo por hacer muchos cambios en grupos seguidos. Prueba de nuevo en un rato.' };
   if (/not-authorized|forbidden|not.?admin/.test(t)) return { tipo: 'no-admin', ofreceSalida: false, motivo: MAKO_NO_ES_ADMIN };
-  if (/timed? ?out|408/.test(t)) return { tipo: 'tiempo', ofreceSalida: true, motivo: 'WhatsApp no contestó a tiempo. Prueba de nuevo en un minuto.' };
+  if (/timed? ?out|\b408\b/.test(t)) return { tipo: 'tiempo', ofreceSalida: true, motivo: 'WhatsApp no contestó a tiempo. Prueba de nuevo en un minuto.' };
   if (/connection closed|not connected|connection.{0,12}clos/.test(t)) return { tipo: 'sin-conexion', ofreceSalida: true, motivo: 'La línea de MaKo no está conectada en este momento. Prueba de nuevo en unos minutos.' };
-  if (/item-not-found|404/.test(t) || status === 404) return { tipo: 'no-encontrado', ofreceSalida: true, motivo: 'WhatsApp no encontró ese número para este grupo. Revisa que esté bien escrito, con el código de país.' };
+  if (/item-not-found|\b404\b/.test(t) || status === 404) return { tipo: 'no-encontrado', ofreceSalida: true, motivo: 'WhatsApp no encontró ese número para este grupo. Revisa que esté bien escrito, con el código de país.' };
   return { tipo: 'otro', ofreceSalida: true, motivo: 'WhatsApp no dejó que MaKo lo sume.' };
 }
