@@ -50,7 +50,7 @@ test('2. la proyección dice su origen y su alcance, corre en el workspace y con
   assert.match(ind, /export const PROYECCIONES = \[\n  \{ origen: 'offer', alcance: 'workspace', tab: 'offer' \},/);
   assert.match(ind, /return rolWs && ws != null && puedeVerKey\(tab, rolWs, capa\) \? ws : null;/, 'la MISMA puerta que la tab');
   assert.equal((ind.match(/await wsSiVe\('offer'\)/g) ?? []).length, 2, 'la lista y el hilo de Offer, con la puerta de Offer');
-  assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[listarSesionesOffer\(\)/, 'la lista, dentro del workspace');
+  assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[\s*listarSesionesOffer\(\)/, 'la lista, dentro del workspace');
   assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[\n    leerConversacionOffer\(id\),/, 'el hilo, dentro del workspace');
   // Lo que la puerta deja ver, medido: Offer es de admin; un closer o un setter no la ven.
   assert.equal(puedeVerKey('offer', 'admin', null), true);
@@ -120,6 +120,7 @@ test('6. la conversación del onboarding no sale dos veces (acordado con el chat
   assert.equal(seEscondeDeOffer({ id: 14, updatedAt: '2026-10-21T04:10:00.000Z' }, { id: 14, at: null }), true, 'una copia sin hora, como antes');
   const ind = leer('lib/chat-mako-indice.ts');
   // Desde el 22/10 la lista filtrada se guarda (`filas`) para ponerle el tema a las que se llaman igual, y se devuelve ésa.
-  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n[\s\S]{0,400}?const filas = lista\.filter\(\(s\) => s\.id > 0 && !seEscondeDeOffer\(s, copiada\)\)[\s\S]{0,900}?return filas\.map\(/);
+  // (19/11/2026: y sin la del Offer Coach del V2, `escondida`, que es la fila de Offer Coach: tests/offer-coach-motor.test.ts.)
+  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n[\s\S]{0,800}?const filas = lista\.filter\(\(s\) => s\.id > 0 && s\.id !== escondida && !seEscondeDeOffer\(s, copiada\)\)[\s\S]{0,900}?return filas\.map\(/);
   assert.match(leer('lib/onboarding-arranque-server.ts'), /hiloChat: hilo\.id, hiloDe: chartKey, hiloAt: new Date\(\)\.toISOString\(\),/);
 });
