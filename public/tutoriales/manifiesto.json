@@ -1042,6 +1042,103 @@
    "hecho": "2026-11-19T00:40:06.762Z"
   },
   {
+   "key": "funnel-clase-prospeccion-en-frio",
+   "pestana": "Funnel Coach · Clase: Scraping y prospección en frío",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-prospeccion-en-frio.mp4",
+   "poster": "/tutoriales/funnel-clase-prospeccion-en-frio.jpg",
+   "duracion_s": 59.07,
+   "peso_kb": 3100,
+   "guion": "Si no quieres esperar a que te encuentren, sales a buscar a tus clientes. Te doy la bienvenida a la clase de Scraping y prospección en frío: armas una lista de negocios que encajan, y les escribes primero. Primero, la lista: negocios o personas que tienen el problema que resuelves. Después, un mensaje corto y personal: qué viste de su negocio y en qué lo puedes ayudar. Quien responde, conversa contigo, y lo pasas a una llamada. ¿Cuándo te conviene? Cuando vendes a empresas o a profesionales, y cada cliente vale mucho. No necesitas anuncios: necesitas constancia y un buen mensaje. Escribe a pocos por día, y nunca el mismo texto a todos: así no te marcan como spam. Y no escribas por WhatsApp a quien nunca te escribió: es la forma más rápida de perder tu línea. Funnel Coach te ayuda a definir a quién buscar y qué decirle, y cada respuesta queda en tu CRM. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-prospeccion-en-frio-1",
+     "rol": "gancho",
+     "texto": "Si no quieres esperar a que te encuentren, sales a buscar a tus clientes.",
+     "t_inicio": 0.1,
+     "t_fin": 3.7
+    },
+    {
+     "id": "funnel-clase-prospeccion-en-frio-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de Scraping y prospección en frío: armas una lista de negocios que encajan, y les escribes primero.",
+     "t_inicio": 4.2,
+     "t_fin": 11.7
+    },
+    {
+     "id": "funnel-clase-prospeccion-en-frio-3",
+     "rol": "cosa",
+     "texto": "Primero, la lista: negocios o personas que tienen el problema que resuelves.",
+     "t_inicio": 12.24,
+     "t_fin": 17.18
+    },
+    {
+     "id": "funnel-clase-prospeccion-en-frio-4",
+     "rol": "cosa",
+     "texto": "Después, un mensaje corto y personal: qué viste de su negocio y en qué lo puedes ayudar.",
+     "t_inicio": 17.7,
+     "t_fin": 23.5
+    },
+    {
+     "id": "funnel-clase-prospeccion-en-frio-5",
+     "rol": "cosa",
+     "texto": "Quien responde, conversa contigo, y lo pasas a una llamada.",
+     "t_inicio": 24.12,
+     "t_fin": 27.52
+    },
+    {
+     "id": "funnel-clase-prospeccion-en-frio-6",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando vendes a empresas o a profesionales, y cada cliente vale mucho.",
+     "t_inicio": 28.08,
+     "t_fin": 33.54
+    },
+    {
+     "id": "funnel-clase-prospeccion-en-frio-7",
+     "rol": "cosa",
+     "texto": "No necesitas anuncios: necesitas constancia y un buen mensaje.",
+     "t_inicio": 34.1,
+     "t_fin": 38.04
+    },
+    {
+     "id": "funnel-clase-prospeccion-en-frio-8",
+     "rol": "cosa",
+     "texto": "Escribe a pocos por día, y nunca el mismo texto a todos: así no te marcan como spam.",
+     "t_inicio": 38.66,
+     "t_fin": 43.6
+    },
+    {
+     "id": "funnel-clase-prospeccion-en-frio-9",
+     "rol": "cosa",
+     "texto": "Y no escribas por WhatsApp a quien nunca te escribió: es la forma más rápida de perder tu línea.",
+     "t_inicio": 44.24,
+     "t_fin": 49.32
+    },
+    {
+     "id": "funnel-clase-prospeccion-en-frio-10",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda a definir a quién buscar y qué decirle, y cada respuesta queda en tu CRM.",
+     "t_inicio": 49.98,
+     "t_fin": 56.34,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-prospeccion-en-frio-11",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 56.88,
+     "t_fin": 58.38,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T01:04:16.451Z"
+  },
+  {
    "key": "reto-dia-1",
    "pestana": "Reto · Día 1: tu oferta y tu sistema de adquisición",
    "ruta": "/second-brain?reto=1",
