@@ -56,6 +56,9 @@ import { getWorkspaceActual } from '@/lib/workspace';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { diaLocal, rangoOrganico } from '@/lib/organico-reglas';
 import { rendimientoInstagram } from '@/lib/zernio-organico';
+import { veInspiracion } from '@/lib/inspiracion/revision';
+import { borrarPieza, crearCarpeta, devolverABandeja, leerInspiracion, ponerEnCarpeta } from '@/lib/inspiracion/servidor';
+import { linkPantalla } from '../link';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -67,6 +70,7 @@ const num = (input: Record<string, unknown>, k: string): number | null => {
 const bool = (input: Record<string, unknown>, k: string, def: boolean): boolean => (typeof input[k] === 'boolean' ? (input[k] as boolean) : def);
 const error = (content: string): SalidaLectura => ({ content, isError: true });
 const json = (v: unknown): string => JSON.stringify(v);
+const INSPIRACION_CERRADA = 'Inspiración todavía no está prendida para este negocio.';
 const corta = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n)}…` : s);
 const palabras = (t: string): number => t.split(/\s+/).filter((p) => /[\p{L}\p{N}]/u.test(p)).length;
 const fallo = (err: unknown): string => (err instanceof Error ? err.message : String(err));
@@ -794,4 +798,70 @@ export const RUNNERS: Runners = {
   // borrador en un programador que ya no existe (contenido_posts sin pantalla).
   // `recomendar_formatos_creativo` salió el 23/10/2026: pagaba IA por una lista de formatos a nivel negocio que
   // ningún generador leía (elegirAngulo elige uno POR ANUNCIO). Medido en prod: 0 negocios la tenían y 0 llamadas.
+
+  // ── Inspiración (19/11/2026, docs/inspiracion/diseno.md) ── La misma puerta que la pantalla (app/copywriter/inspiracion/acciones.ts):
+  // lib/inspiracion/servidor.ts con el negocio del contexto, y el interruptor de la revisión por negocio.
+  listar_inspiracion: {
+    leer: async (input, ctx) => {
+      if (!veInspiracion({ ws: ctx.ws })) return error(INSPIRACION_CERRADA);
+      const d = await leerInspiracion();
+      const nombre = new Map(d.carpetas.map((c) => [c.id, c.nombre]));
+      const piezas = d.piezas
+        .filter((p) => input.soloPendientes !== true || p.carpeta_id == null)
+        .map((p) => ({
+          piezaId: p.id, url: p.url, cuenta: p.cuenta, tipo: p.tipo_link, estado: p.estado,
+          deQueTrata: typeof p.lectura?.de_que_trata === 'string' ? p.lectura.de_que_trata : null,
+          carpetaId: p.carpeta_id, carpeta: p.carpeta_id ? nombre.get(p.carpeta_id) ?? null : null,
+          ...(p.carpeta_id == null ? { sugeridaId: p.sugerida_id, sugerida: p.sugerida_id ? nombre.get(p.sugerida_id) ?? null : null, carpetaNuevaSugerida: p.carpeta_nueva, confianza: p.confianza } : {}),
+        }));
+      return json({
+        carpetas: d.carpetas.map((c) => ({ carpetaId: c.id, nombre: c.nombre, queVaAhi: c.descripcion })),
+        piezas, total: piezas.length, link: linkPantalla('/copywriter?ver=inspiracion', ctx.ws),
+      });
+    },
+  },
+
+  ordenar_inspiracion: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (!veInspiracion({ ws: ctx.ws })) return { error: INSPIRACION_CERRADA };
+      const piezaId = Number(input.piezaId);
+      const d = await leerInspiracion();
+      const pieza = d.piezas.find((p) => p.id === piezaId);
+      if (!pieza) return { error: `No hay ninguna pieza ${String(input.piezaId ?? '')} en la inspiración de este negocio (listar_inspiracion).`, faltan: ['piezaId'] };
+      const quien = pieza.cuenta ? `@${pieza.cuenta}` : pieza.url;
+      if (input.aLaBandeja === true) return { payload: { piezaId, aLaBandeja: true }, resumen: `Devolver a la bandeja la pieza de ${quien}.` };
+      const nueva = str(input, 'carpetaNueva');
+      if (nueva) return { payload: { piezaId, carpetaNueva: nueva, queVaAhi: str(input, 'queVaAhi') }, resumen: `Crear la carpeta «${nueva}» y poner ahí la pieza de ${quien}.` };
+      const carpeta = d.carpetas.find((c) => c.id === Number(input.carpetaId));
+      if (!carpeta) return { error: 'Falta a dónde va: carpetaId (una que existe, de listar_inspiracion), carpetaNueva o aLaBandeja.', faltan: ['carpetaId'] };
+      return { payload: { piezaId, carpetaId: carpeta.id }, resumen: `Poner la pieza de ${quien} en «${carpeta.nombre}».` };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const piezaId = Number(payload.piezaId);
+      try {
+        if (payload.aLaBandeja === true) { await devolverABandeja(piezaId); return { ok: true, resumen: 'Listo: volvió a la bandeja de Inspiración.' }; }
+        const nueva = str(payload, 'carpetaNueva');
+        const carpetaId = nueva ? (await crearCarpeta(nueva, str(payload, 'queVaAhi'), 'persona')).id : Number(payload.carpetaId);
+        await ponerEnCarpeta(piezaId, carpetaId);
+        return { ok: true, resumen: nueva ? `Listo: creé «${nueva}» y la pieza quedó ahí.` : 'Listo: la pieza quedó en su carpeta.', datos: { piezaId, carpetaId } };
+      } catch (e) {
+        return { ok: false, resumen: `No se pudo: ${e instanceof Error ? e.message : String(e)}` };
+      }
+    },
+  },
+
+  borrar_inspiracion: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (!veInspiracion({ ws: ctx.ws })) return { error: INSPIRACION_CERRADA };
+      const piezaId = Number(input.piezaId);
+      const pieza = (await leerInspiracion()).piezas.find((p) => p.id === piezaId);
+      if (!pieza) return { error: `No hay ninguna pieza ${String(input.piezaId ?? '')} en la inspiración de este negocio (listar_inspiracion).`, faltan: ['piezaId'] };
+      return { payload: { piezaId }, resumen: `Borrar de la inspiración la pieza de ${pieza.cuenta ? `@${pieza.cuenta}` : pieza.url} (no se deshace).` };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      try { await borrarPieza(Number(payload.piezaId)); return { ok: true, resumen: 'Listo: la borré de la inspiración.' }; } catch (e) {
+        return { ok: false, resumen: `No se pudo: ${e instanceof Error ? e.message : String(e)}` };
+      }
+    },
+  },
 };

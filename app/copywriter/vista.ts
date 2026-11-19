@@ -17,3 +17,7 @@ export function vistaDeCopy(q: Query): 'outliers' | 'crear' | 'guiones' {
   if (q.nueva !== undefined || primero(q.nuevo) != null) return 'crear';
   return primero(q.ver) === 'guiones' ? 'guiones' : 'outliers';
 }
+
+/** Inspiración (19/11/2026, docs/inspiracion/diseno.md): la bandeja de los links de Instagram guardados por WhatsApp. */
+export const RUTA_INSPIRACION_COPY = '/copywriter?ver=inspiracion';
+export const esVistaInspiracion = (q: Query): boolean => primero(q.ver) === 'inspiracion';

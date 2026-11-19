@@ -711,6 +711,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/contenido/outliers/{outlierId}/replica', 'replicar_outlier_copywriter'],
   // Y lo que trae la persona (14/11/2026, lib/copywriter/pegado.ts): un link o un texto, replicado como un outlier más.
   ['POST', '/contenido/outliers/pegado', 'replicar_link_o_texto_copywriter'],
+  // Inspiración (19/11/2026, docs/inspiracion/diseno.md): lo guardado por WhatsApp, ordenarlo y borrarlo.
+  ['GET', '/contenido/inspiracion', 'listar_inspiracion'],
+  ['POST', '/contenido/inspiracion/{piezaId}/carpeta', 'ordenar_inspiracion'],
+  ['DELETE', '/contenido/inspiracion/{piezaId}', 'borrar_inspiracion'],
   // ── video ─────────────────────────────────────────────────────────────────
   ['GET', '/video/anuncios', 'listar_anuncios_video'],
   ['GET', '/video/anuncios/{planId}', 'ver_anuncio_video'],

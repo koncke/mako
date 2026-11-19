@@ -71,6 +71,7 @@ import { EDITAR_SYSTEM as COPYWRITER_EDITAR_SYSTEM, EDITAR_USER as COPYWRITER_ED
 import { ADAPTAR_USER as COPYWRITER_ADAPTAR_USER, EXPERTO_COPY as COPYWRITER_EXPERTO } from './copywriter/experto';
 import { PROMPTS_NEWSLETTER } from './newsletter-ia-reglas';
 import { PROMPTS_IG } from './ig-writer';
+import { PROMPTS_INSPIRACION } from './inspiracion/clasificar';
 import { PROMPTS_METODOLOGIA_IG } from './ig-metodologia';
 import { PROMPTS_COPILOTO } from './media-buyer/copiloto-contexto';
 import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
@@ -937,6 +938,35 @@ export const REGISTRY: Group[] = [
         ], scope: 'full', sensitive: false,
         default: COPYWRITER_ADAPTAR_USER,
         context: '«Adaptar a mi negocio»: va con el system de Editar y devuelve el mismo JSON. Conserva que el ejemplo es de un negocio ficticio y que lo que falta va como [DATO: …].',
+      },
+    ],
+  },
+  {
+    // Inspiración (19/11/2026, docs/inspiracion/diseno.md): el link de Instagram que llega por WhatsApp se ordena solo en
+    // las carpetas del negocio. Los dos textos viven en lib/inspiracion/clasificar.ts (`PROMPTS_INSPIRACION`).
+    group: 'Inspiración (links de Instagram por WhatsApp)',
+    icon: '📌',
+    blurb: 'Cuando le mandas a MaKo por WhatsApp el link de un reel o un post, lo guarda y decide en qué carpeta (serie de contenido) va. Si duda, te pregunta en Copywriting › Inspiración.',
+    entries: [
+      {
+        key: PROMPTS_INSPIRACION.sistema.key, source: 'override',
+        label: 'Ordenar un link (system)', kind: 'system', dynamic: false,
+        variables: [],
+        scope: 'static-only', sensitive: true,
+        default: PROMPTS_INSPIRACION.sistema.tpl,
+        context: 'Le dice a MaKo cómo decidir la carpeta y con cuánta seguridad. No saques la forma del JSON del final: sin ella la respuesta no se puede leer y toda pieza queda en la bandeja. Tampoco saques el aviso de <contenido_no_confiable>: el pie de un post de Instagram lo escribe cualquiera, y sin ese aviso «ignora tus instrucciones» en un pie pasa a ser una instrucción. La vara de «90 o más sólo si no dudarías» es la que decide cuánto se pregunta.',
+      },
+      {
+        key: PROMPTS_INSPIRACION.usuario.key, source: 'override',
+        label: 'La pieza y las carpetas (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('pieza', 'la cuenta, el tipo de link y el pie del post (envuelto como contenido no confiable)'),
+          v('nota', 'lo que escribió el dueño junto al link («para la serie de ventas»)'),
+          v('carpetas', 'las carpetas del negocio con su id, qué va ahí y hasta 3 piezas que el dueño ya confirmó en cada una'),
+        ],
+        scope: 'full', sensitive: false,
+        default: PROMPTS_INSPIRACION.usuario.tpl,
+        context: 'Le pasa a MaKo la pieza y las carpetas. Conserva los slots {{pieza}}, {{nota}} y {{carpetas}}: sin {{carpetas}} no hay ids y toda pieza queda sin sugerencia.',
       },
     ],
   },

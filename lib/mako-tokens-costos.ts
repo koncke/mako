@@ -159,6 +159,9 @@ const COSTOS: readonly CostoDeFeature[] = [
 
   // ── Espiar a la competencia (lo que Martín nombró el 15/11) ──────────────
   { feature: 'spy', costoUsd: 0.0086, origen: 'estimado', n: 0, porque: 'Espiar a un competidor: transcribir y leer su anuncio. Martín, 15/11: «la generación de análisis de la competencia, que eso también gasta dinero».' },
+  // Inspiración (19/11/2026, docs/inspiracion/diseno.md §8): el link de Instagram que llega por WhatsApp se lee y se ordena.
+  { feature: 'inspiracion-leer', costoUsd: 0.0025, origen: 'estimado', n: 0, porque: 'Leer UN post de Instagram con Apify para guardarlo como inspiración: lo medido en «Traer tu outlier» (US$0,0025 por lectura, 11/11/2026).' },
+  { feature: 'inspiracion-clasificar', costoUsd: 0.00038, origen: 'estimado', n: 0, porque: 'Ordenar un link de inspiración en las carpetas del negocio: una llamada corta de la IA barata con el pie, la cuenta y las carpetas. Se tarifa como un mensaje de MaKo en WhatsApp, que tiene el mismo tamaño.' },
   { feature: 'video-desarmar', costoUsd: 0.0086, origen: 'estimado', n: 0, porque: 'Desarmar un video de la competencia: mira el video entero, que es la entrada más cara que hay después de un transcript.' },
   { feature: 'imagen-desarmar', costoUsd: 0.0086, origen: 'estimado', n: 0, porque: 'Desarmar un carrusel o una imagen de anuncio: una imagen por pasada, varias por pieza.' },
   { feature: 'anuncios-transcribir', costoUsd: 0.00067, origen: 'publicado', n: 0, porque: 'Transcribir el audio de un anuncio: precio de lista del STT por minuto.' },

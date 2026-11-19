@@ -288,6 +288,9 @@ const TENANT_TABLES = new Set<string>([
   // `getTenantDb()` es PASSTHROUGH y la lista de competidores de un negocio muestra la de TODOS —
   // y a quién mira un negocio es exactamente lo que no puede salir de su workspace.
   'spy_competidores', 'spy_piezas',
+  // Inspiración (mig 0422, 19/11/2026): las carpetas del negocio y cada link de Instagram que guardó por WhatsApp. Sin estas
+  // líneas `getTenantDb()` es passthrough y la bandeja de un negocio mostraría lo guardado por todos.
+  'inspiracion_carpetas', 'inspiracion_piezas',
   // Vistas de cohortes: getTenantDb NO scopea vistas por sí solo, pero estas
   // exponen workspace_id (mig 0084) y solo se LEEN (select) → el proxy inyecta
   // .eq('workspace_id', ws) y corta el leak del agregado global. OJO: scripts de

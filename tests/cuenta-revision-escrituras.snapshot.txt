@@ -352,6 +352,7 @@ acción app/configuraciones/negocio-actions.ts → cortada (ninguna página acep
 acción app/configuraciones/plan/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/configuraciones/telefonos-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/conocimientos/ajustes-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
+acción app/copywriter/inspiracion/acciones.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/creaciones/actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/[id]/cobros-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)
 acción app/crm/[id]/deal-actions.ts → cortada (ninguna página acepta un POST de esta cuenta)

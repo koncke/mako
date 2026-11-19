@@ -128,6 +128,11 @@ export type LecturaFuenteCopy = { ok: true; outliers: readonly OutlierCopy[] } |
 export type FuenteOutliersCopy = { id: string; nombre: string; leer: () => Promise<LecturaFuenteCopy> };
 export type PortadaCopy = {
   outliers: OutlierCopy[];
+  /**
+   * Inspiración (19/11/2026, docs/inspiracion/diseno.md): cuántas piezas guardadas por WhatsApp esperan en la bandeja. Ausente =
+   * el negocio no tiene la función (lib/inspiracion/revision.ts) y no hay botón.
+   */
+  inspiracion?: { pendientes: number } | null;
   caidas: { fuente: string; nombre: string; motivo: string }[];
   /**
    * Sólo en la portada que viaja con la página (`primeraTandaCopy`): `outliers` es la primera tanda, y éstos son los de TODA la
