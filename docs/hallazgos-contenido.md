@@ -64,7 +64,23 @@ la pantalla que sí existe (las 8 estructuras de carrusel). Tampoco va la parte 
 
 **La fila del navegador: un turno para varias cosas.** Con 6-7 trabajos de otros chats en la fila (renders de 30-60 s), cada
 captura nueva esperaba 20-30 min. Un turno que ya está en la fila puede correr una tanda entera (`tools/tanda-capturas.sh`:
-las capturas de la app y las de prueba de varios reels). Lo que no se hace: saltear la fila.
+las capturas de la app y las de prueba de varios reels). Lo que no se hace: saltear la fila. ⚠️ Encadenar trabajo DENTRO
+de un script que ya espera en la fila (se lee recién cuando le toca) funciona, pero si la tanda nueva vuelve a llamar a ese
+mismo script, la tanda corre dos veces y la segunda pisa las hojas de contacto con menos cuadros. Mejor: un solo script de
+tanda, sin ganchos escondidos en otro.
+
+**Una hoja de contacto corta puede ser un error de la página, no de la captura.** La hoja de LANDING salió con 7 cuadros
+de 18 y ningún mensaje: el giro de la página reescribía un `innerHTML` y se llevaba un elemento que el cuadro siguiente
+buscaba por id (`null.style` → `__seek` tira error → `capturar.mjs` corta y la tanda sigue con el reel siguiente). Regla:
+contar los cuadros de cada hoja contra los pedidos, y nunca borrar con `innerHTML` algo que otro cuadro busca: mostrar u
+ocultar.
+
+**Las pestañas dibujadas arrancan en modo claro.** `app-*.html` elige el tema con `#tema=oscuro` en la dirección (lo usa
+`mirar.cjs`); sin eso la captura sale clara y no combina con las piezas oscuras del reel.
+
+**Una tarjeta arriba en el plano del gancho tapa la cara.** Con la cámara cerca (el gancho), la cara de Martín queda entre
+y≈500 y 1000: cualquier tarjeta en la franja 150-700 la tapa. Si el video abre con una tarjeta arriba, arranca ya en el plano
+medio; el plano cerca sólo cuando arriba no hay nada (el visor de CUBOS).
 
 ## Lo que quedó sin hacer
 
