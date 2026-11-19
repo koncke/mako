@@ -66,21 +66,18 @@ la pantalla que sí existe (las 8 estructuras de carrusel). Tampoco va la parte 
 captura nueva esperaba 20-30 min. Un turno que ya está en la fila puede correr una tanda entera (`tools/tanda-capturas.sh`:
 las capturas de la app y las de prueba de varios reels). Lo que no se hace: saltear la fila.
 
-## Lo que quedó sin hacer
+## Lo que quedó sin hacer (serie 3)
 
 - La respuesta automática a CUBOS (qué se manda: la guía del método) no existe todavía. Está en
   `docs/series/serie-3-ventas.md` → «Palabras de CTA».
-# Hallazgos — Contenido (las series de videos de Martín: temas, investigación y producción)
 
-Lo que vive acá: las series de videos cortos para las redes de Martín, hechas con el método de los videos por código.
-- **El código:** `C:/dev/artefactos-animaciones/` (reels HTML + kit, la voz y el render; no es repo).
-- **Los temas:** la biblioteca de cursos (`app/conocimientos/curso-*.ts` + `public/cono-tx/*.json`).
-- **Los playbooks:** `docs/series/`.
+## Serie 2 (educación: temas de los cursos e investigación de afuera) — 19/11/2026
 
-Lo de la biblioteca como dato del portal (cursos duplicados, transcripciones vacías) está también en
-[hallazgos-conocimiento.md](hallazgos-conocimiento.md).
+Los temas salen de la biblioteca de cursos (`app/conocimientos/curso-*.ts` + `public/cono-tx/*.json`); el ranking y el
+playbook, en `docs/series/serie-2-temas.md` y `docs/series/serie-2-educacion.md`. Lo de la biblioteca como dato del
+portal (cursos duplicados, transcripciones que «faltan») está también en [hallazgos-conocimiento.md](hallazgos-conocimiento.md).
 
-## Lo que más muerde acá
+### Lo que más muerde acá
 
 1. **El mismo video, distinto arranque, da 100 veces más (19/11/2026, serie 2).** Las resubidas del MISMO guion en un
    mismo canal son un A/B natural, y lo dicen fuerte:
@@ -180,7 +177,7 @@ Lo de la biblioteca como dato del portal (cursos duplicados, transcripciones vac
     `{modelo, texto}`), y eso ya estaba escrito en [hallazgos-conocimiento.md](hallazgos-conocimiento.md) desde el
     11/11. **Regla:** antes de dar por vacío un curso, se mira `C:/cursos/<slug>/`.
 
-## Lo que quedó sin hacer (19/11)
+### Lo que quedó sin hacer (serie 2)
 
 - THE NET LAB (Meta Ads 2026: «Andrómeda», «Diversidad creativa», estructura de cuenta 2026): no se leyó, y es lo más
   fuerte para el tema 7 (el creativo de los anuncios).
