@@ -92,10 +92,11 @@ test('4 · «sin tiempo» se avisa como demora y no se vuelve a pedir', () => {
 test('5 · «Editar» va con el modelo rápido y con el plazo de la corrida', () => {
   const servidor = readFileSync(new URL('../lib/carruseles/replica-servidor.ts', import.meta.url), 'utf8');
   assert.match(servidor, /const MODELOS_REPLICA = \{ gemini: GEMINI_FLASH_LITE \} as const;/);
-  // Los tres pedidos de visión (la IA principal, el segundo pedido, la lectura del guiado) y la escritura sin láminas.
-  assert.equal((servidor.match(/leerDocumentoIA\(\{/g) ?? []).length, 3, 'son tres pedidos de visión');
-  assert.equal((servidor.match(/modelos: MODELOS_REPLICA/g) ?? []).length, 4, 'los cuatro pedidos de «Editar» con flash-lite');
-  assert.equal((servidor.match(/hastaMs: plazos\.escribir/g) ?? []).length, 2, 'la IA principal (con y sin láminas) con su plazo');
+  // Los cuatro pedidos de visión (la IA principal, la lámina que faltó, el segundo pedido, la lectura del guiado) y la escritura
+  // sin láminas.
+  assert.equal((servidor.match(/leerDocumentoIA\(\{/g) ?? []).length, 4, 'son cuatro pedidos de visión');
+  assert.equal((servidor.match(/modelos: MODELOS_REPLICA/g) ?? []).length, 5, 'los cinco pedidos de «Editar» con flash-lite');
+  assert.equal((servidor.match(/hastaMs: plazos\.escribir/g) ?? []).length, 3, 'la IA principal (con y sin láminas) y la lámina que faltó, con su plazo');
   assert.match(servidor, /hastaMs: plazos\.completar/);
   assert.match(servidor, /if \(plazos && !alcanzaParaElSegundoPedido\(plazos\.completar\)\)/);
   const ruta = readFileSync(new URL('../app/api/image-editor/carruseles/replicar/route.ts', import.meta.url), 'utf8');

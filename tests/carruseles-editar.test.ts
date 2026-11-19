@@ -164,6 +164,21 @@ test('el modelo que cortaba el JSON ya no se pide: «Editar» mira con flash-lit
   assert.ok(c.pedidos.every((p) => /JSON compacto, en UNA sola línea/.test(p.texto ?? '')), 'con sangría el mismo diseño ocupa casi el doble de tokens');
 });
 
+test('la lámina que la IA no devolvió se pide SOLA, con su imagen; y si igual falta, el aviso lo dice', () => {
+  const ok = R.faltaUna;
+  assert.equal(ok.ok, true, String(ok.error));
+  assert.deepEqual(ok.pedidos.map((p) => `${p.via}:${p.imagenes}`), ['vision-nativa:9', 'vision-nativa:1'], 'el carrusel entero y después sólo la lámina que faltó');
+  assert.match(ok.pedidos[1].texto ?? '', /Te muestro la lámina 5 de un carrusel de Instagram de 9 láminas/);
+  assert.match(ok.pedidos[1].texto ?? '', /<<<ESCRITAS[\s\S]*Lámina 4: PASO 4 PARA TU NEGOCIO[\s\S]*Lámina 6: PASO 6/, 'con lo que ya dicen las otras');
+  assert.equal(ok.paginas, 9, 'las 9 láminas, con la 5 en su lugar');
+  assert.ok(ok.textos.includes('PASO 5 PARA TU NEGOCIO'), 'la que faltaba llegó a la pantalla');
+  assert.doesNotMatch(ok.aviso ?? '', /láminas y no pude completarlas/);
+  const mal = R.faltaUnaSinArreglo;
+  assert.equal(mal.ok, true, String(mal.error));
+  assert.equal(mal.paginas, 8);
+  assert.match(mal.aviso ?? '', /^Tu IA escribió 8 de las 9 láminas \(faltó la 5\) y no pude completarlas: armé tu versión sin las imágenes del original\. Vuelve a intentar/);
+});
+
 test('si flash-lite corta el JSON, la mitad no es una respuesta: se escribe sin mirar antes de dejar guías', () => {
   const c = R.cortadoLite;
   assert.equal(c.ok, true, String(c.error));

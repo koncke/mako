@@ -38,14 +38,19 @@ lista para todo negocio con su Gemini.
 **Trampas:**
 - ⚠️ **El reloj de `AbortSignal.timeout` no mantiene vivo a Node.** Un `fetch` de mentira que «espera el abort» deja el proceso
   sin nada pendiente y termina MUDO con código 0 (el hijo del test). Hace falta un `setInterval` mientras espera.
-- ⚠️ **2 de las 4 claves de Gemini del ws 9 contestan 401** («API key not valid», `GEMINI_API_KEY` y `GEMINI_API_KEY_4`, medido
-  el 19/11). La cascada las saltea, pero cada corrida paga sus intentos.
+- ⚠️ **2 de las 4 claves de Gemini del ws 9 contestan 401** («API key not valid»): en Integraciones, Gemini **«Cuenta 1»**
+  (`GEMINI_API_KEY`) y **«Cuenta 4»** (`GEMINI_API_KEY_4`), ninguna con el rótulo de su cuenta de Google cargado (medido el 19/11).
+  La cascada las saltea, pero cada corrida paga sus intentos; con el crédito de Claude acabado, Gemini es el respaldo.
 - La preparación antes de escribir (en la PC): Zernio 4 s, contexto y voz 1,6 s, `marcarLaminas` de 12 láminas 14 s de CPU.
 
 **Sin hacer:**
-- ⚠️ **Con `flash-lite`, la fidelidad puede bajar**: en la prueba devolvió 11 láminas de 12 y, como la plancha exige la misma
-  cantidad (plancha-servidor.ts), salió con el armado de antes. Hay que medir cuántas veces pasa y, si hace falta, emparejar
-  las láminas por contenido en vez de exigir el número (lib/carruseles/plancha-servidor.ts).
+- ~~Con `flash-lite`, 11 láminas de 12~~ **Hecho el 19/11**: la plancha exige una lámina de la IA por cada original, y el
+  carrusel caía CALLADO al armado de antes con una lámina menos. Ahora cada lámina trae su `"n"` (la del original que replica):
+  `leerReplica` las ordena y dice cuáles `faltan`, y replica-servidor.ts pide SÓLO ésas (hasta 3), cada una con su imagen y lo que
+  ya dicen las otras (`unaDe` en el prompt), dentro del plazo de la IA principal. Si igual falta, `avisoDeLaminasQueFaltan` lo
+  dice («Tu IA escribió 11 de las 12 láminas (faltó la 7)…»). Sin números (o repetidos) no se adivina cuál: se avisa igual.
+  tests/carruseles-lamina-que-falta.test.ts y los casos 12-13 de tests/carruseles-editar.test.ts. Falta medir cuántas veces
+  `flash-lite` devuelve de menos con carruseles reales.
 - `leerDocumentoIA` no anota los cuelgues en `conMemoriaDelPedido` como `chatCheap` (lib/ai-cheap.ts, `probarCon`): con
   `MODELOS_REPLICA` ya no importa para «Editar», pero otras funciones de visión siguen empezando por `flash-latest`.
 - La fase del aviso: si el corte llega en el segundo pedido, dice «escribir la versión» (no hay evento de «armar» hasta que se

@@ -50,7 +50,7 @@ import {
 import { imagenDeVideo, urlDeVideo, type Thumbnail } from '../thumbnails/explorar';
 import { notasDeVertical, type Vertical } from '../thumbnails/verticales';
 import { LAMINAS_DE_LA_LECTURA, PROMPT_LECTURA, fotoDelGuiado, leerLectura, type Lectura, type PedidoGuiado } from './guiado';
-import { bloqueDeOferta, cifrasDeLaReplica, leerCompletado, medidasDe, palabraDelTema, promptDeCompletar, type OfertaDelPrompt, type Replica } from './replica';
+import { avisoDeLaminasQueFaltan, bloqueDeOferta, cifrasDeLaReplica, leerCompletado, medidasDe, palabraDelTema, promptDeCompletar, type OfertaDelPrompt, type Replica } from './replica';
 import { marcarLaminas, planchasDeLaReplica } from './plancha-servidor';
 import { alcanzaParaElSegundoPedido, plazosDeLaReplica } from './replica-stream';
 import { GEMINI_FLASH_LITE } from '../gemini-modelos';
@@ -75,6 +75,8 @@ const TOKENS_DE_SALIDA = 12_000;
  * de siempre (lib/gemini-modelos.ts): acá va primero y es el único Gemini que se prueba.
  */
 const MODELOS_REPLICA = { gemini: GEMINI_FLASH_LITE } as const;
+/** Cuántas láminas que la IA no devolvió se piden de a una (más que esto es otra réplica: mejor volver a intentar entera). */
+const FALTAN_MAX = 3;
 
 export type ResultadoReplica =
   | { ok: true; id: string; titulo: string; sinIA?: boolean; aviso?: string | null; conectar?: string | null; doc?: Record<string, unknown>; vistas?: number; errores?: string[]; replica?: Replica; imagenes?: string[]; marcadas?: string[] }
@@ -341,6 +343,34 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   // La palabra que el dueño pide comentar la pone el código (./replica.ts, `palabraDelTema`): la IA la cambió una vez de tres.
   const palabra = palabraDelTema(pedidoDelDueno);
   const replica = leerReplica(crudo, { laminas: total, miniatura, vertical, usuario: marca.usuario, nombre: marca.nombre, palabra });
+  // ⚠️ LAS QUE FALTARON SE PIDEN SOLAS (19/11/2026): con `flash-lite`, 11 de 12 láminas, y el carrusel caía callado al armado de
+  // antes (la plancha exige una lámina de la IA por cada original). Si se sabe cuáles faltan (el `n` de cada una) y se vieron todas,
+  // se pide SÓLO ésas, cada una con su imagen y lo que ya dicen las otras, dentro del plazo de la IA principal.
+  if (!('error' in replica) && replica.faltan?.length && replica.faltan.length <= FALTAN_MAX && imagenes.length === total
+    && (!plazos || alcanzaParaElSegundoPedido(plazos.escribir))) {
+    const escritas = replica.laminas.map((l) => `Lámina ${l.n}: ${l.textos.filter((x) => x.texto).map((x) => x.texto.replace(/\n/g, ' ')).join(' · ')}`).join('\n');
+    const { leerDocumentoIA } = await import('../ai-cheap');
+    const { conSuIADelNegocio } = await import('../ia-del-negocio');
+    const nuevas = await Promise.all(replica.faltan.map(async (n) => {
+      try {
+        const r = await conSuIADelNegocio(ws, () => leerDocumentoIA({
+          dataUrl: imagenes[n - 1], dataUrls: [imagenes[n - 1]], isPdf: false, nombreArchivo: 'lamina', json: true,
+          prompt: promptDeReplica({ ...pedidoBase, laminas: 1, vistas: 1, unaDe: { n, de: total, escritas } }),
+          feature: FEATURE_REPLICA, motivo: 'Escribir una lámina que faltaba de un carrusel de ejemplo', timeoutMs: 60_000, maxTokens: 3_000,
+          modelos: MODELOS_REPLICA, ...(plazos ? { hastaMs: plazos.escribir } : {}),
+        }));
+        const una = leerReplica(r.text, { laminas: 1, de: total, usuario: marca.usuario, nombre: marca.nombre, palabra });
+        return 'error' in una ? null : { ...una.laminas[0], n };
+      } catch (e) {
+        console.warn(`[carruseles] la lámina ${n} que faltaba no llegó (ws=${ws}): ${(e instanceof Error ? e.message : String(e)).slice(0, 200)}`);
+        return null;
+      }
+    }));
+    for (const l of nuevas) if (l) replica.laminas.push(l);
+    replica.laminas.sort((a, b) => (a.n ?? 0) - (b.n ?? 0));
+    const siguen = replica.faltan.filter((_, i) => !nuevas[i]);
+    if (siguen.length) replica.faltan = siguen; else delete replica.faltan;
+  }
   // Lo que leyó la IA TAL CUAL (la plancha le suma y le saca textos a `replica`): en seco viaja esto, para repetir la plancha.
   const leidaDeLaIA = o.seco && !('error' in replica) ? structuredClone(replica) : null;
   if ('error' in replica) {
@@ -396,6 +426,8 @@ Lo que leí del original: ${replica.lectura}` : notasBase;
   // Las cifras que no salen del negocio (la regla de Copywriting): se avisan, como allá.
   const cifras = cifrasDeLaReplica(replica, [negocio, voz ?? '', oferta ? bloqueDeOferta(oferta) : '', pedidoDelDueno ?? ''].join('\n'));
   const aviso = [
+    // Las láminas que faltaron y no llegaron: el armado de antes NO va callado (19/11/2026).
+    miniatura ? '' : avisoDeLaminasQueFaltan({ laminas: replica.laminas.length, de: total, faltan: replica.faltan }) ?? '',
     conPersona ? 'Donde el original tiene una persona dejé su lugar marcado: ahí vas tú, generado con IA en el mismo estilo (necesita Google Flow abierto desde el ícono de MaKo).' : '',
     cifras.length ? `Revisa ${cifras.length === 1 ? 'esta cifra' : 'estas cifras'}: no salen de tu negocio (${cifras.join(', ')}). Cámbialas por algo tuyo o sácalas.` : '',
   ].filter(Boolean).join(' ') || null;
