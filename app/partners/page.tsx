@@ -22,8 +22,8 @@ import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando, rutaConWs
 import { getSesionAdmin } from '@/lib/auth';
 import { esAgencia, esClienteDeAgencia } from '@/lib/agencia';
 import { getSupabaseServer } from '@/lib/supabase';
-import { altaDePartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
-import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS } from '@/lib/partners-reglas';
+import { altaDePartner, planProActivo, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
+import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS, RUTA_PASARSE_A_PRO, TEXTO_PARTNER_SOLO_PRO } from '@/lib/partners-reglas';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { Pagina, PageHeader } from '@/app/_ui';
@@ -91,8 +91,20 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
 
   // Todavía no es partner: la landing; y al tocar «Hacerme partner», el onboarding corto.
   if (!alta) {
-    // CUALQUIERA ES PARTNER (29/10/2026): en la llamada con Thiago, «una persona refiere a MaKo», y las landings dicen «gratis» y
-    // «cualquier plan». Antes, sólo MaKo Pro (27/10, Leila): se alinea con lo publicado. Cualquier plan se hace partner.
+    // ⚠️ SÓLO CON MaKo PRO ACTIVO (18/11/2026, Martín: «no es gratis… sí o sí necesitan el plan de 97»; del 29/10 al 18/11 fue cualquier plan).
+    // Sin Pro (o si no se pudo comprobar): la landing con «Pasarme a MaKo Pro» y no el alta. El alta también lo frena (`hacermePartner`).
+    const pro = await planProActivo(ws);
+    if (pro !== true) {
+      return (
+        <Pagina>
+          <PageHeader titulo="MaKo Partners" />
+          <p style={{ margin: '0 0 12px', fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
+            {pro === undefined ? 'No pudimos comprobar tu plan. Prueba otra vez en un minuto.' : TEXTO_PARTNER_SOLO_PRO}
+          </p>
+          <LandingPartners modo="app" accion={{ href: RUTA_PASARSE_A_PRO, texto: 'Pasarme a MaKo Pro' }} />
+        </Pagina>
+      );
+    }
     if (sp.alta === '1') {
       return (
         <Pagina>

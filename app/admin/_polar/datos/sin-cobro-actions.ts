@@ -7,13 +7,17 @@
 
 import { revalidatePath } from 'next/cache';
 import { getSesionAdmin } from '@/lib/auth';
-import { ponerSinCobro } from '@/lib/cuenta-sin-cobro';
+import { ponerSinCobro, revisarSinCobro } from '@/lib/cuenta-sin-cobro';
 import type { SinCobro } from '@/lib/cuenta-sin-cobro-reglas';
 
 export async function ponerSinCobroAction(ws: number, activo: boolean): Promise<{ ok: true; sinCobro: SinCobro } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!admin) return { ok: false, error: 'Sólo el super admin cambia si un negocio se cobra.' };
   const r = await ponerSinCobro(Number(ws), activo === true, String((admin as { email?: string }).email ?? 'super admin'));
-  if (r.ok) revalidatePath('/admin/customers', 'layout');
+  if (r.ok) {
+    // Prenderlo levanta en el acto la pausa de «prueba terminada» (lib/cuenta-sin-cobro.ts); apagarlo no pausa nada hoy: abre los 7 días.
+    await revisarSinCobro({ soloWs: Number(ws) }).catch(() => null);
+    revalidatePath('/admin/customers', 'layout');
+  }
   return r;
 }

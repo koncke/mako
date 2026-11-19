@@ -2316,3 +2316,49 @@ una tanda con su chequeo; `renders.mjs` renderiza y deja una hoja de cuadros por
   del interruptor). Sin su lugar, el video está en el manifiesto y no se ve.
 - Las pestañas de Classroom y Equipo describen la pantalla de Pro (en Essential, según el código, muestran un candado o son de una
   sola persona). No verificado en la app.
+
+### Los días 2 a 7 del reto, con su porqué (19/11/2026, chat «reto-tutoriales», claude5)
+
+Cada día pasó de «toca aquí, toca allá» a gancho → porqué con un ejemplo de los cursos → los toques de siempre (mismos `sel`, mismo
+orden) → cierre. Los guiones los escribió y criticó la corrida `wf_8a54fd74-15a` (`C:/dev/tutoriales-video/guiones-dias-2-7.md`); lo
+que esa corrida encontró en el código de la app está en docs/hallazgos-onboarding.md, «Las tareas del reto dicen lo que el video marca».
+
+- **La fuente de los guiones es `C:/dev/tutoriales-video/guiones.json`, no la del repo.** La leen `hacer.mjs` y `voces.mjs`, y
+  `subir.mjs` copia ESA a `scripts/tutorial-animado/guiones.json` en cada subida. El relevo del 18/11 llamaba «la fuente» a la del
+  repo: si se edita la del repo a mano, la próxima subida la pisa sin avisar.
+- **Los montos van en letras en la voz** («tres mil dólares», «mil quinientos»), como los demás números. El transcriptor los
+  devolvió en letras en los seis videos. Pero el chequeo compara palabra por palabra: el día que escriba «$3,000», una toma buena
+  saldría con «tres → 3», «falta: mil», «falta: dólares», y `voces.mjs` pagaría dos tomas más (~500 créditos cada una). Ahora
+  `motor/numeros.mjs` pasa los dos lados a cifras antes de comparar y saca «dólares», «US» y «USD»; «tres tres» sigue siendo una
+  palabra repetida, no un seis. En pantalla los montos se leen en letras: `ver` cambia una palabra por otra, y «tres mil» → «3.000»
+  son dos palabras que pasan a una, lo que corre el reloj de las palabras que siguen.
+- **Una frase que se entiende escrita puede no entenderse dicha.** «En Competitor Spy ve que un rival…» se oye como una orden («ve»)
+  y no como lo que hace la agencia del ejemplo: pasó a «En Competitor Spy, la agencia ve…». «No es lo mismo que escribirle a Máko
+  por WhatsApp: es la aplicación» había quedado lejos de la frase de la app, después de la objeción: ahora nombra la app.
+- **La galería es de la cuenta que la publica.** La de claude2 (`GJAQbPZw2nC3uvy82X8WcX`) no se abre desde claude5: cada cuenta la
+  publica de nuevo, como artefacto nuevo. `pagina.mjs` escribía en el scratchpad de la sesión del 18/11; ahora toma la carpeta de
+  `PUB` (`PUB=<scratchpad>/pub-tutoriales node motor/pagina.mjs`).
+- **Un día del reto con su porqué dura lo que una clase (60 a 95 s) y no entra en 1,5 MB.** El día 2 (94 s) llegó al último CRF del
+  ciclo (37) y pesó 2,2 MB igual: `hacer.mjs` lo dejaba pasar por encima del tope sin avisar, con la letra más sucia. Ahora cada
+  guion puede traer su tope (`pesoMaxMb`); los días 2 a 7 llevan 5 MB, como las clases, y salen con la letra limpia (CRF 23, 4 a 5 MB).
+- **La hoja de cuadros de `renders.mjs` era de 4×5 cuadros, uno cada 2 s: miraba sólo los primeros 40 s.** En un video de 94 s, más
+  de la mitad (todos los toques del día 2) no estaba en la hoja que hay que MIRAR. Ahora las filas salen del largo del video.
+- **El render no avisa si la línea del log es vieja:** `trabajo/_renders.log` y `_voces.log` acumulan las corridas. Buscar
+  «reto-dia-2: ✅» encuentra la del día anterior (pasó dos veces el 19/11: un «55 s» que en realidad era el video del 18/11). Se lee lo
+  que viene después del encabezado de ESTA corrida (`# renders <fecha de hoy> · <key>`).
+- **Medido:** seis voces, siete tomas (el día 7 pidió una más), ~3.500 créditos de ElevenLabs. Cada render, de 3 a 4,5 min con la
+  pasada de cuadros; la cola del navegador (`turno.mjs`) sumó esperas de varios minutos con otros chats renderizando.
+- **⚠️ El gancho salía tapado, y «tapado ok» no lo veía (19/11, el Cerebro: «la cabeza tapa el final del gancho», día 3).** Eran dos
+  cosas a la vez:
+  - **La medida salteaba la entrada.** El texto grande entraba subiendo 300 px desde atrás del muñeco, y en los primeros cuadros
+    su última línea cruzaba la cabeza: «su··te» en el día 3. `render2.cjs` medía desde los 250 ms de cada pantalla, justo después.
+  - **La regla misma lo permitía.** La del 18/11 (letras por detrás) deja que la cabeza tape el tercio de abajo de la última línea:
+    los seis ganchos daban «ok» con palabras al 82-96 % visibles.
+  - **Ahora el gancho no lo tapa nada, en ningún cuadro.** `hacer.mjs` marca sus pantallas (`b.gancho`, rol `gancho`), y
+    `engine3.js` hace tres cosas: el texto crece en su lugar sin subir, va hasta 70 px más arriba, y el muñeco queda con el pelo
+    0,5 × el tamaño de la letra + 24 px debajo de la última línea (debajo de la p, la g y la y). Ese lugar es el mismo en todas las
+    pantallas del gancho, así que al pasar de una a otra la cabeza no sube a la siguiente.
+  - **La medida corre en cada cuadro del video (30 por segundo) desde el primero, con cero píxeles tapados.** «Te doy la
+    bienvenida…» sigue con la regla del 18/11.
+  - **Regla:** una medida que «da ok» se contrasta con un cuadro mirado de cerca en el momento que no mide (la entrada). Si la
+    hoja muestra algo tapado y la medida dice ok, falla la medida, no la hoja.

@@ -56,6 +56,16 @@ import {
   leerDiagnosticoFlow, leerHistorialEstricto, leerMontaje, leerPuenteEstricto, leerTrabajosFlow, leerTrabajosPorId,
   puenteAnda, urlEsPropia, type FilaTrabajoFlow,
 } from './video.helpers';
+// El personaje en cubos (19/11/2026): ver_videos_cubos y crear_video_cubos.
+import { veAvatarCubos } from '@/lib/ai-avatar/cubos-interruptor';
+import { leerProyectosCubos, guardarProyectoCubos, proyectoNuevo } from '@/lib/ai-avatar/cubos-proyectos';
+import { formatoCubos, frasesDeTexto, normalizarGuion, normalizarDatos, datosDeMarcas, datosAutomaticos, type IdFormato } from '@/lib/ai-avatar/cubos-formatos';
+import { normalizarPersonaje } from '@/lib/ai-avatar/cubos-personaje';
+import { textoParaVoz } from '@/lib/ai-avatar/cubos-tiempos';
+import { vozConTiempos, VOCES_MAKO_CUBOS, type PedidoVoz } from '@/lib/ai-avatar/cubos-voz';
+import { nombreDelNegocio } from '@/lib/carruseles/marca';
+import { mtDeVoz } from '@/lib/mako-tokens-reglas';
+import { linkPantalla } from '../link';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -69,6 +79,14 @@ const str = (input: Record<string, unknown>, k: string): string | null => {
 };
 const json = (o: unknown): string => JSON.stringify(o);
 const error = (content: string) => ({ content, isError: true as const });
+
+// ── El personaje en cubos ────────────────────────────────────────────────────
+/** El interruptor de la revisión de Martín: por el negocio (el ws 3) o por quien chatea en la app (sus cuentas). */
+const veCubos = (ctx: Ctx): boolean => veAvatarCubos({ ws: ctx.ws, email: ctx.quien?.email ?? ctx.actor ?? null });
+const CUBOS_NO_DISPONIBLE = 'El personaje en cubos todavía no está disponible para este negocio.';
+/** El link que abre ese video en el estudio (app/ai-avatar/page.tsx: `?cubos=<id>`). */
+const linkCubos = (id: string, ws: number) => linkPantalla(`/ai-avatar?cubos=${encodeURIComponent(id)}`, ws);
+const VOZ_API: Record<string, PedidoVoz> = { david: { tipo: 'mako', id: 'mako-david' }, fernando: { tipo: 'mako', id: 'mako-fernando' }, clon: { tipo: 'clon' } };
 const TAB = 'video-generator';
 
 const CAUSAS: readonly CausaFlow[] = [
@@ -958,6 +976,75 @@ export const RUNNERS: Runners = {
           nota: 'El ejemplo es de un negocio ficticio: es la forma, nunca un dato de este negocio.' });
       }
       return json({ plantillas: PLANTILLAS_VENTA_AVATAR.map(linea), nota: 'Con id, trae el ejemplo completo de una.' });
+    },
+  },
+
+  // ── El personaje en cubos (19/11/2026, docs/editor-video/ai-avatar-por-codigo.md) ─────────────────────────────────
+  ver_videos_cubos: {
+    leer: async (_input, ctx) => {
+      if (!veCubos(ctx)) return CUBOS_NO_DISPONIBLE;
+      const ps = await leerProyectosCubos();
+      return json({
+        videos: ps.map((p) => ({
+          id: p.id,
+          creado: new Date(p.creado).toISOString(),
+          formato: formatoCubos(p.formato)?.nombre ?? p.formato,
+          guion: p.escenas.map((e) => e.texto),
+          voz: p.voz.nombre,
+          segundos: Math.round(p.tiempos.anchors.end * 10) / 10,
+          personaje: p.personaje,
+          abrir: linkCubos(p.id, ctx.ws),
+        })),
+        nota: 'El MP4 se arma en la app, con «Descargar MP4» (en la computadora). Para uno nuevo: crear_video_cubos.',
+      });
+    },
+  },
+  crear_video_cubos: {
+    preparar: async (input, ctx) => {
+      if (!veCubos(ctx)) return { error: CUBOS_NO_DISPONIBLE };
+      // Genera (la voz): el candado de MaKo Pro de AI Avatar, como `crearVideoAction` (app/ai-avatar/acceso.ts).
+      if (await esEsencialDe(ctx.ws)) return { error: textoSoloPro('ai-avatar') };
+      const texto = str(input, 'guion') ?? '';
+      const g = normalizarGuion(frasesDeTexto(texto));
+      if (!g.ok) return { error: g.error, faltan: ['guion'] };
+      const formato: IdFormato = formatoCubos(str(input, 'formato') ?? 'punch-captions')?.id ?? 'punch-captions';
+      const voz = str(input, 'voz') ?? 'david';
+      if (!VOZ_API[voz]) return { error: 'La voz es david, fernando o clon.' };
+      const marca = ((await nombreDelNegocio(ctx.ws).catch(() => null)) ?? '').trim().slice(0, 24) || 'MaKo';
+      const datos = datosDeMarcas(formato, texto, marca) ?? datosAutomaticos(formato, g.escenas, marca);
+      const personaje = normalizarPersonaje({
+        piel: input.piel, pelo: input.pelo, peinado: input.peinado, ropa: input.ropa, ojos: input.ojos,
+        anteojos: input.lentes === true, barba: input.barba === true,
+      });
+      const pedido = VOZ_API[voz];
+      const costo = pedido.tipo === 'mako'
+        ? `usa ${mtDeVoz(textoParaVoz(g.escenas).length)} MaKo Tokens (la voz de ${VOCES_MAKO_CUBOS.find((v) => v.id === pedido.id)?.nombre})`
+        : 'con su voz clonada (la paga su cuenta de ElevenLabs)';
+      // `desdePantalla` lo pone SOLO este preparar() (corre al proponer y al confirmar en /mako/revisar): sin la marca,
+      // ejecutar() no genera nada (lo que se confirma en pantalla no se confirma por chat).
+      return {
+        payload: { formato, frases: g.escenas.map((e) => e.texto), datos, personaje, voz, desdePantalla: true },
+        resumen: `Crear un video del personaje en cubos, «${formatoCubos(formato)!.nombre}», de ${g.escenas.length} frases: ${costo}. Queda listo para abrir en AI Avatar y bajar el MP4.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      if (payload.desdePantalla !== true) return { ok: false, resumen: 'Un video del personaje en cubos se confirma en la pantalla de revisión, no por chat: no se creó nada.' };
+      if (!veCubos(ctx)) return { ok: false, resumen: CUBOS_NO_DISPONIBLE };
+      const formato = formatoCubos(payload.formato)?.id;
+      const g = normalizarGuion(payload.frases);
+      const pedido = VOZ_API[String(payload.voz)];
+      if (!formato || !g.ok || !pedido) return { ok: false, resumen: 'La propuesta llegó incompleta: pídela de nuevo.' };
+      const marca = ((await nombreDelNegocio(ctx.ws).catch(() => null)) ?? '').trim().slice(0, 24) || 'MaKo';
+      const v = await vozConTiempos(ctx.ws, g.escenas, pedido);
+      if (!v.ok) return { ok: false, resumen: v.error };
+      const nombreVoz = pedido.tipo === 'clon' ? 'Tu voz' : VOCES_MAKO_CUBOS.find((x) => x.id === pedido.id)?.nombre ?? 'MaKo';
+      const p = proyectoNuevo({
+        formato, escenas: g.escenas, datos: payload.datos ? normalizarDatos(formato, payload.datos, g.escenas, marca) : datosAutomaticos(formato, g.escenas, marca),
+        personaje: normalizarPersonaje(payload.personaje), voz: { tipo: pedido.tipo, nombre: nombreVoz }, audio: v.ruta, tiempos: v.tiempos,
+      });
+      await guardarProyectoCubos(p);
+      const abrir = linkCubos(p.id, ctx.ws);
+      return { ok: true, resumen: `Listo: el video en cubos quedó armado (${Math.round(v.tiempos.anchors.end)} s). Se mira y se baja el MP4 en ${abrir}`, datos: { id: p.id, abrir } };
     },
   },
 };

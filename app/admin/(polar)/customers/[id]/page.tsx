@@ -11,7 +11,7 @@ import { CustomerPageShell } from '@/app/admin/_polar/web/Customer/CustomerPage/
 // importa (así se puede dibujar en node: tests/ia-pc-varias.test.ts).
 import { desconectarComputadoraAction } from '@/app/admin/operaciones/acciones'
 import { ponerSinCobroAction } from '@/app/admin/_polar/datos/sin-cobro-actions'
-import { leerSinCobro } from '@/lib/cuenta-sin-cobro'
+import { leerSinCobro, pagaSuLugar } from '@/lib/cuenta-sin-cobro'
 import { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -31,7 +31,7 @@ export default async function Page(props: {
   await exigirSuperAdmin()
   const params = await props.params
   const { ws, cabecera, alta, avisos } = await negocioONotFound(params.id)
-  const [resumen, inicio, sinCobro] = await Promise.all([leerResumen(ws), leerInicio(ws, alta.creado), leerSinCobro(ws).catch(() => null)])
+  const [resumen, inicio, sinCobro, paga] = await Promise.all([leerResumen(ws), leerInicio(ws, alta.creado), leerSinCobro(ws).catch(() => null), pagaSuLugar(ws).catch(() => undefined)])
 
   return (
     <CustomerPageShell key={ws} negocio={cabecera} avisos={[...avisos, ...resumen.avisos]}>
@@ -48,6 +48,7 @@ export default async function Page(props: {
         eventos={resumen.eventos}
         desconectar={desconectarComputadoraAction}
         sinCobro={sinCobro}
+        pagaSuLugar={paga ?? null}
         ponerSinCobro={ponerSinCobroAction}
       />
     </CustomerPageShell>

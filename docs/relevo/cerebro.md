@@ -38,6 +38,9 @@ cada chat).
 | VSL principal de MaKo | local_e2399fe3-0501-4806-93cb-d1c1024efc6c | Relevamiento de las landings y del VSL de hoy, la competencia, el guion nuevo con el personaje y POCAS tomas de Martín |
 | Cobros | local_79d847f5-534c-4238-a332-43d305b54bc6 | Customers (botón «dejar continuar» para P2P, lo que paga una agencia), el cobro de MaKo Tokens para todos (Martín dijo sí el 18/11 22:58), Juanfran y Leila por Binance, Partners |
 | Onboarding V2 | local_e9d46a7f-228c-46ca-855a-2c5d3b77efc8 | Offer Coach = el motor de Offer, la voz de los coaches en el teléfono, verificar en producción |
+| Inspiración | local_025e6137-96f2-466a-a899-e0195c47ac04 | El relevo de los 76 links de Martín (`C:/dev/inspiracion/links-martin-19-11.txt`), con un artefacto por carpeta y la bandeja «¿va acá? Sí / No»; después, en MaKo: el link de Instagram por WhatsApp se guarda y se ordena solo, y lo dudoso va a la bandeja tipo Tinder de Copywriting |
+| Carruseles de ventas | local_536ac82c-7e15-4975-9dde-a212478f25cb | Los temas de la serie 3 en carrusel: replicar la referencia lámina por lámina con la palabra del CTA; con 5 hechos, abrir el chat que los prueba dentro de MaKo (Image › réplica) |
+| Referentes en video | local_a81a3255-9c91-4564-ac5d-1d67c3acbbbe | Cómo hacen sus videos Ramiro Cubría, Víctor Heras y Hormozi (el gancho con avatar de IA, sus 5 o 6 temas, cómo graban); un artefacto para que Martín elija los temas ANTES de gastar en ApiMart; el método «cómo está hecho el video» va al chat del video (ticket 97) |
 | Runner de claude5 | local_59e6e1da-8d24-4273-a95e-63b4a3a36b35 | Despertado el 19/11 ~01:40 UTC; tiene que reencolar el ticket #99 de Leila (quedó SIN_DESTINO el 14/11) |
 
 Las cuatro series y el VSL escriben su playbook en `docs/series/` y `docs/vsl/`, y las trampas en `docs/hallazgos-contenido.md`

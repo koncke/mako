@@ -110,7 +110,9 @@ test('2. el «aprobado» confirma: la pendiente la deja el código, la puerta de
   const comp = leer('lib/agencia-mes-comprobante.ts');
   const revisar = tramo(comp, 'const revisar = async', 'const totalDebe');
   assert.match(revisar, /await proponerComprobanteAMartin\(m, \{/);
-  assert.match(revisar, /ordenLeida && usada === false && l\.monto && l\.monto > 0 && esDolar\(l\.moneda\)/, 'propone sin orden, sin saber si se usó o en otra moneda');
+  // 19/11/2026: con lo que mostró la cuenta de Binance si el pago ya se vio (`real`), si no, lo leído.
+  assert.match(revisar, /const ordenP = real\?\.orden \?\? ordenLeida;\s*const montoP = real\?\.monto \?\? l\.monto;/);
+  assert.match(revisar, /ordenP && usada === false && montoP && montoP > 0 && esDolar\(l\.moneda\)/, 'propone sin orden, sin saber si se usó o en otra moneda');
   assert.match(revisar, /debe: loQueDebe\(m\.pendientes\), propuesta,/);
   const proponer = tramo(comp, 'export async function proponerComprobanteAMartin', '\n}\n');
   assert.match(proponer, /conSalidaDelGrupo\(\{ ws: wsP, clave: grupoJid, soloApp: false, hayInvitado: false \}, \(\) => crearPendiente\(wsP, \{/);

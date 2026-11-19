@@ -213,7 +213,7 @@ async function guardarCorte(ws: number, c: CorteGuardado): Promise<void> {
 }
 
 /** Pausa (compare-and-set sobre `activo`) y guarda el corte; si guardar falla, deshace la pausa. */
-async function cortar(ws: number, c: CorteGuardado): Promise<boolean> {
+export async function cortar(ws: number, c: CorteGuardado): Promise<boolean> {
   const db = getSupabaseServer();
   const ahora = new Date().toISOString();
   const { data, error } = await db.from('workspaces').update({ estado: 'pausado', updated_at: ahora }).eq('id', ws).eq('estado', 'activo').select('id');
@@ -231,7 +231,7 @@ async function cortar(ws: number, c: CorteGuardado): Promise<boolean> {
 }
 
 /** Reabre lo que cortó el cobro (compare-and-set sobre `pausado`) y deja el corte como no vigente. */
-async function reabrir(ws: number, c: CorteGuardado): Promise<boolean> {
+export async function reabrir(ws: number, c: CorteGuardado): Promise<boolean> {
   const { data, error } = await getSupabaseServer().from('workspaces')
     .update({ estado: 'activo', updated_at: new Date().toISOString() }).eq('id', ws).eq('estado', 'pausado').select('id');
   if (error) throw new Error(`No pude reabrir el negocio ${ws}: ${error.message}`);

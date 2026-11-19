@@ -1,5 +1,11 @@
 # Pendientes de Partners y de cobros — pedidos de Martín del 18/11/2026 (NO hechos)
 
+> **Estado al 19/11/2026 (chat de Cobros, claude5; detalle en docs/relevo/cobros.md y en los hallazgos del 19/11):**
+> 1 (cotización al momento): **hecho para el checkout** (dolarapi cripto + CriptoYa); falta pasar el cron diario a la fuente cripto.
+> 2 (verificar que la plata entró): **hecho para Binance** en el comprobante del grupo (Código y Leila); el número es `orderId`, no `transactionId`. Falta Mercado Pago
+> y el checkout de «Transferencia o Binance» (oculto). 3 (panel del 1 al 5 y cómo cobra): **sin hacer.** 4 (sólo con Pro): **hecho** (cuenta también la mensualidad
+> por Binance). La migración 0421: **aplicada** el 19/11.
+
 Lo que está hecho: un crédito por cada pago, SIEMPRE el 30 % del precio de lista (el 25 % por pasarela de la mañana se reemplazó a la tarde: la pasarela cobra lista + 5 %), la opción «Transferencia o Binance» al precio de lista en el checkout y el recargo de pasarela (docs/hallazgos-partners.md y docs/hallazgos-pagos.md).
 Lo de acá abajo lo pidió Martín el mismo día (relayado por el Cerebro) y **no está hecho**. Cada punto es un trabajo propio. Reglas de siempre:
 escribir en producción (migraciones) pide el sí de Martín escrito EN EL CHAT; lo que se ve se mira con capturas a 1440 y a 375; lo aprendido va a

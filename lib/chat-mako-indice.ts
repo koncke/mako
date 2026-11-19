@@ -21,6 +21,8 @@ import { urlAudio } from '@/lib/offer-reglas';
 import { TITULO_HILO } from '@/lib/onboarding-arranque';
 import { mensajesDeOffer, offerDelOnboardingCopiada, seEscondeDeOffer } from '@/lib/chat-mako-reglas';
 import { getSetting } from '@/lib/settings';
+import { veOnboardingV2 } from '@/lib/onboarding-v2/revision';
+import { sesionDelOfferCoach } from '@/lib/onboarding-v2/offer-coach-db';
 import {
   esChatDelTelefono, getSession, getSessionMessages, listAllSessions, listSessions, listSessionsDePersona, temasDeSesiones,
   type ChartMsg, type ChartSession,
@@ -213,12 +215,17 @@ export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
   // La del onboarding, si quien pide ya tiene su chat «Onboarding» (lo copia hiloDelOnboarding), no se lista: saldría dos
   // veces. A los demás (el super admin mirando, otro admin) se les sigue listando, y a ella también si la siguió en Offer
   // después de la copia (`seEscondeDeOffer`).
-  const [lista, arranque, sesion] = await runWithWorkspace(ws, () => Promise.all([listarSesionesOffer(), getSetting('onboarding.arranque').catch(() => null), getUsuarioActual()]));
+  const [lista, arranque, sesion, delCoach] = await runWithWorkspace(ws, () => Promise.all([
+    listarSesionesOffer(), getSetting('onboarding.arranque').catch(() => null), getUsuarioActual(), sesionDelOfferCoach(),
+  ]));
   const copiada = offerDelOnboardingCopiada(arranque, sesion ? chartKeyDePersona(sesion) : null);
+  // La del OFFER COACH (onboarding V2, 19/11/2026, lib/onboarding-v2/offer-coach-db.ts) no se lista a quien tiene los dos coaches: ES
+  // la fila de Offer Coach, y colgando de ella saldría dos veces. A quien no tiene el V2 se le lista como cualquier otra.
+  const escondida = delCoach != null && sesion && veOnboardingV2({ email: sesion.email, ws }) ? delCoach : null;
   // Para quien no tiene su chat «Onboarding» (el super admin mirando, otro admin), la del onboarding se llama así: trae el
   // arranque entero (`hiloDeOffer`). Martín, 21/10, ws21: «No veo el chat de ONBOARDING tampoco en el ws de Florencia».
   const delOnboarding = sesionDelArranque(arranque);
-  const filas = lista.filter((s) => s.id > 0 && !seEscondeDeOffer(s, copiada)).map((s): ChatDeOffer => ({
+  const filas = lista.filter((s) => s.id > 0 && s.id !== escondida && !seEscondeDeOffer(s, copiada)).map((s): ChatDeOffer => ({
     id: s.id, titulo: s.id === delOnboarding && !copiada ? TITULO_HILO : s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace',
   }));
   // Dos que se llaman igual se distinguen por su tema (lib/chat-mako-reglas.ts → listaDelCliente).
