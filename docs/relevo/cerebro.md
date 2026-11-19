@@ -1,7 +1,56 @@
 # Relevo del Cerebro
 
 
-## 18/11/2026 ~21:15 UTC — LEER PRIMERO (claude2 al 96 % semanal; se reinicia el 24/11 a las 21:00 UTC)
+## 19/11/2026 ~02:30 UTC — LEER PRIMERO (cuenta claude5, semanal al 0 %; se reinicia el 24/11 a las 18:00 UTC)
+
+Martín pasó de claude2 a claude5 y escribió «Continua… Haz los artefactos, y continúa con los tutoriales del reto de 7 días
+pendientes». Después pidió cuatro series de contenido, AI Avatar por código y el VSL principal nuevo (sus palabras, en el brief de
+cada chat).
+
+### Los artefactos de claude2 NO se abren desde claude5 (dan 404): se republicaron acá
+- **Sitio + onboarding + pestañas, el artefacto único de claude5:** https://claude.ai/artifact/6NbQLMx5f7NXcDee2UMY36 (versión 3).
+  Se arma juntando en `<scratchpad>/pub-mako/`:
+  - `C:/dev/artefactos-mako/publicar` (el sitio y el visor);
+  - `C:/dev/artefactos-onboarding/onboarding.html` más `tutoriales/`, a los que les faltaban `onboarding-bienvenida.mp4/.jpg` y el
+    manifiesto: se bajan de `origin/punta/tutoriales-videos:public/tutoriales/`;
+  - `C:/dev/artefactos-pestanas/publicar`.
+
+  Son 340 archivos y 104 MB: se publica en dos tandas (el sitio con `pub/` y las `app-*.html`; después `pestanas/` y `tutoriales/`).
+  Se mira con `RAIZ='C:\…\pub-mako' node mirar.cjs`: RAIZ va con barras de Windows, si no todo da 404 y el script se cae en
+  `getBoundingClientRect`.
+- **Arreglado al republicar:** el checkout de Essential de la maqueta decía 12.000 MaKo Tokens y producción dice 7.000.
+  - Se redibujaron las piezas con `REPO=C:/dev/wt-push-q` (en origin/main).
+  - ⚠️ `piezas.ts` NO dibuja `barra:abierta`, `barra:plegada` ni `barra:menu` (salen de `pieza-barra.ts`). Redibujar todo y armar
+    rompe `probar-v11.cjs`.
+  - Lo que anduvo: tomar del piezas.json NUEVO sólo `planes`, `checkout:+54` y `checkout:usd`, ponerlos sobre el VIEJO y
+    `node armar.mjs`. `probar-v11.cjs` dio «sin problemas».
+- **La galería de animaciones** la republica «Galería y series 1 y 4». **La galería de tutoriales** la republica «Videos del reto».
+  Cada uno le pasa el link nuevo al Cerebro.
+
+### Los chats de claude5 (los de claude2 no aparecen en esta cuenta)
+| Chat | Id | Qué lleva |
+|---|---|---|
+| Galería y series 1 y 4 | local_cf3bf7e9-cc9f-4e88-8f0c-f8b3d81aaf22 | Republicar la galería (el ÚNICO que la publica); serie 1 «Elige A o B» (paralisisaldormir); serie 4 el personaje que reacciona a comentarios (manuelzapater) |
+| Serie 2: educación | local_b1ec90cd-ee54-4448-afa7-e6f7db88b612 | Ranking de temas de los cursos, videos virales de afuera, videos con su voz |
+| Serie 3: ventas | local_e16e6f26-b8f1-4707-bea4-6540340ef8f1 | «Encontré una aplicación», CTA «comenta X»; prioridad «si quieres que te enseñe a hacer estos videos»; el ticket «¿te parece caro pagar 200 de IA?» |
+| AI Avatar: videos por código | local_a2f3a36c-9be8-4f25-8ab6-5d3291d5060b | El método de la galería dentro de Video › AI Avatar, casi sin tokens; prueba: replicar un video de la galería dentro de MaKo |
+| Videos del reto | local_d40930b3-32fe-482e-a5b7-86c906138bec | Días 2 a 7 con su porqué (guiones de la corrida wf_8a54fd74-15a en `C:/dev/tutoriales-video/reto-2-7-nuevos.json` y `guiones-dias-2-7.md`), textos de `lib/reto/dias.ts`, galería de tutoriales |
+| VSL principal de MaKo | local_e2399fe3-0501-4806-93cb-d1c1024efc6c | Relevamiento de las landings y del VSL de hoy, la competencia, el guion nuevo con el personaje y POCAS tomas de Martín |
+| Cobros | local_79d847f5-534c-4238-a332-43d305b54bc6 | Customers (botón «dejar continuar» para P2P, lo que paga una agencia), el cobro de MaKo Tokens para todos (Martín dijo sí el 18/11 22:58), Juanfran y Leila por Binance, Partners |
+| Onboarding V2 | local_e9d46a7f-228c-46ca-855a-2c5d3b77efc8 | Offer Coach = el motor de Offer, la voz de los coaches en el teléfono, verificar en producción |
+| Runner de claude5 | local_59e6e1da-8d24-4273-a95e-63b4a3a36b35 | Despertado el 19/11 ~01:40 UTC; tiene que reencolar el ticket #99 de Leila (quedó SIN_DESTINO el 14/11) |
+
+Las cuatro series y el VSL escriben su playbook en `docs/series/` y `docs/vsl/`, y las trampas en `docs/hallazgos-contenido.md`
+(nuevo) o `docs/hallazgos-landing.md`. La PC tiene 16 GB: el navegador y los renders van de a uno por
+`C:/dev/artefactos-animaciones/tools/turno.mjs`.
+
+### Lo que quedó de claude2 sin chat en claude5
+- **Sitio:** su punta está en verde y desplegada; no tiene nada a medias (relevo en `C:/dev/wt-sitio-1611/docs/relevo/sitio.md`).
+- **Pestañas:** relevo en `docs/relevo/pestanas.md` (`punta/tutoriales-app`).
+- **Tickets de Leila y Automations:** los tickets entran por el Runner y se reparten al chat del área.
+
+
+## 18/11/2026 ~21:15 UTC (claude2 al 96 % semanal; se reinicia el 24/11 a las 21:00 UTC)
 
 Cuando Martín escriba «Continua» desde otra cuenta, el Cerebro arranca por acá. Cada chat dejó su propio relevo en su carpeta
 (`docs/relevo/<chat>.md`): leerlos antes de despachar.
