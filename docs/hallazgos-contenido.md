@@ -280,6 +280,26 @@ portal (cursos duplicados, transcripciones que «faltan») está también en [ha
     hoja de contacto no se nota, porque ahí todo es chico.
     - **Regla:** piso de 44 px en pantalla (cuadro de 1080) contando la escala del contenedor. Para mostrar varias
       cosas juntas, una tabla sin escalar o filas a ancho completo, no tarjetas alejadas.
+    - **Trampa del arreglo:** subir la letra a 44 px desarmó el celular del video 1 (520 px de ancho): el interruptor
+      quedó afuera del borde y «siguen» se cortó abajo. Se vio recién en el MP4. Después de agrandar letras, se mira cada
+      contenedor de ancho fijo; el celular pasó a 680 px.
+
+12c. **La misma voz no habla igual de rápido en cada guion.** Con el mismo clon y el mismo ajuste, el video 3 salió a
+    3,18 palabras por segundo y el video 4 a 2,72 (el gancho, a 2,6). `voz_formato.sh` recorta pausas pero no acelera.
+    **Arreglo:** `ffmpeg -filter:a atempo=1.10` sobre `reels/voz-<id>.mp3` (estira sin cambiar el tono) y dividir por
+    1,10 los tiempos de `reels/t-<id>.js` (anchors, incluido «end», y words); después, `chequear-guion.mjs` otra vez.
+    **Regla:** mirar las palabras por segundo que imprime el chequeo; debajo de ~2,9, acelerar.
+
+12d. **Un pull fallido no frena el push… ni avisa.** `git pull --rebase` falló con «cannot lock ref
+    'refs/remotes/origin/main'» (otro chat hacía fetch en el mismo clon); el push no salió, y la tarea de fondo terminó con
+    código 0 porque lo daba el último comando de la cadena (`git log`). **Regla:** confirmar con `git ls-remote origin punta/<rama>`, no con el código de salida.
+
+12e. **Después de un reinicio por falta de RAM, el servidor de 8765 queda caído y la cola no lo dice.** La app se reinició
+    (19/11, 11:20) y el `python -m http.server 8765` que comparten todos los chats murió con ella. El render siguiente
+    esperó su turno y falló al instante con `net::ERR_CONNECTION_REFUSED`. Un render que había muerto a mitad dejó un MP4
+    de 1 MB que parecía un archivo. **Regla:** después de un reinicio, `curl localhost:8765/galeria.html` (tiene que dar
+    200) antes de encolar nada, y un render cuenta como hecho por el «LISTO» del log, no porque exista el .mp4. El script
+    `render-con-ram.sh` de la serie 2 espera el servidor y 3 GB libres antes de pedir turno.
 
 13. **Renumerar escenas dejó segundos vacíos que la sintaxis no ve.** Al agregar una escena al principio del guion
     (s1 nueva), las referencias `A.sN` se corrieron con reemplazos de texto desde el panel de Hormozi para abajo. La
@@ -306,6 +326,10 @@ portal (cursos duplicados, transcripciones que «faltan») está también en [ha
     existe, se entra como sección.
 
 ### Lo que quedó sin hacer (serie 2)
+
+- Renders de `edu-dar-menos` (video 5) y `edu-viral-nicho` (video 4, con el segundo vacío de ~0:31 corregido): los HTML,
+  voces y fichas están listos en `C:/dev/artefactos-animaciones`; se frenaron el 19/11 a las 12:14 porque el onboarding
+  necesitaba la RAM y el navegador. El MP4 del 5 que quedó (1 MB) está roto.
 
 - THE NET LAB (Meta Ads 2026: «Andrómeda», «Diversidad creativa», estructura de cuenta 2026): no se leyó, y es lo más
   fuerte para el tema 7 (el creativo de los anuncios).
