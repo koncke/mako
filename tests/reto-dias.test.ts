@@ -151,7 +151,19 @@ test('lo tocado durante el video del día cuenta como hecho: la tarea cuya últi
   assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-settings-instalar"]'), ['app', 'extension'], 'tocar «Instalar la app» cierra la app y la extensión');
   assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-settings-integraciones"]'), ['integraciones']);
   assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-barra-foto"]'), [], 'la foto es un paso del camino, no cierra nada');
+  // 19/11: el video marca Perfil (`tour-settings-info`) para «Tu perfil y tu foto». Antes la última marca de esa tarea era Settings:
+  // tocar Settings la cerraba antes de llegar al perfil, y tocar Perfil no cerraba nada.
+  assert.deepEqual(tareasQueCierra(d2, '[data-recorrido="tour-settings-info"]'), ['perfil'], 'tocar Perfil cierra tu perfil y tu foto');
+  assert.deepEqual(tareasQueCierra(d2, '#user-menu a[href^="/perfil"]'), [], 'Settings es un paso del camino, no cierra nada');
   const chat = readFileSync(new URL('../app/second-brain/reto/ChatDelReto.tsx', import.meta.url), 'utf8');
   assert.match(chat, /alTocar: onTocado/, 'el video del día avisa lo tocado');
   assert.match(chat, /¡Hiciste todo lo del día \{dia\.n\}!/, 'con todo hecho, la felicita y pasa a WhatsApp');
+});
+
+test('lo que dicen las tareas existe en la app (19/11): sin equipo que integre, sin clip de regalo, sin la tab AI Avatar', () => {
+  const texto = JSON.stringify(DIAS_RETO);
+  assert.doesNotMatch(texto, /integramos|lo hacemos por ti|nuestro equipo/i, 'nada que prometa un equipo: Martín no tiene');
+  assert.doesNotMatch(texto, /regalo|gratis|ilimitad/i, 'sin regalos que la app no da');
+  assert.doesNotMatch(texto, /AI Avatar/, 'la tab AI Avatar se cerró el 14/11: es «Tu personaje con IA», en Video');
+  assert.match(DIAS_RETO[2].tareas[0].detalle, /CSV/, 'los contactos se cargan con un CSV');
 });
