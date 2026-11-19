@@ -46,7 +46,7 @@ test('el cartel antes de apagar dice lo que pasa, en una línea', () => {
 });
 
 test('el chip «Sin cobro» sale en la lista y en la segunda línea del renglón; sin el interruptor no sale', () => {
-  const fila = (ws: number, nombre: string) => ({ ws, nombre, creado: '2026-10-01T10:00:00Z', estado: 'activo', capa: 'completo', segmentos: ['cliente'] as const });
+  const fila = (ws: number, nombre: string): Parameters<typeof listaDeClientes>[0][number] => ({ ws, nombre, creado: '2026-10-01T10:00:00Z', estado: 'activo', capa: 'completo', segmentos: ['cliente'] });
   const lista = listaDeClientes([fila(1, 'P2P Consulting'), fila(2, 'Estudio Norte')], [], new Set([1]));
   assert.deepEqual(lista.map((c) => [c.ws, c.sinCobro]), [[1, true], [2, false]]);
   assert.equal(filtrarClientes(lista, { query: null, sorting: 'name', filter: 'all' }).length, 2, 'no se esconde: el chip sólo marca');
