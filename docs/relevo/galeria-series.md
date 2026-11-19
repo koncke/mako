@@ -30,21 +30,18 @@ La fuente de los reels NO está en el repo: `C:/dev/artefactos-animaciones/` (le
    y `2/2`. Si se cortó: borrar `mp4/_cuadros_reels_serie1_avion_1_html` y relanzar. Después, la Serie 4 (abajo; su
    hoja `cap/s4v2-hoja.jpg` ya se revisó: ninguna tarjeta tapa la cara). Con los dos MP4: mirarlos con `mirar-mp4.sh`,
    rehacer `mp4/para-ig/` (crf 27), armar, publicar (los archivos del avión y de la Serie 4 se sacaron del manifiesto
-   a propósito: van en esa publicación; `edu-cinco-frases.html` también, pero ése espera a que la Serie 2 avise que
-   terminó sus dos retoques) y mandarle el link al Cerebro.
+   a propósito: van en esa publicación) y mandarle el link al Cerebro.
    `edu-lo-pienso` (Serie 2, video 3) ya está publicado (versión 11).
 0. **Pendientes concretos (19/11 ~10:00 UTC, el chat llegó al tope de contexto):**
-   - Serie 1 «El avión»: un retoque por rango quedó en la fila (`render-gl … t:8.3-11.0`: los pasajeros que se asoman
-     al darse vuelta). Cuando esté, rehacer `mp4/para-ig/serie1-avion-1.mp4` (crf 27) y republicar. A mejorar: el plano
-     de los celulares (34-38 s) se ve de costado.
-   - Serie 4: voz nueva (43,62 s) y tarjetas grandes hechas en la página; mirar `cap/s4v2-hoja.jpg` (sin revisar), corregir
-     si una tarjeta tapa la cara, y renderizar: `node tools/turno.mjs node series/tools/render-gl.mjs
+   - Serie 1 «El avión»: ver el punto de arriba (render entero; el retoque por rango de la mañana quedó superado).
+   - Serie 4: voz nueva (43,62 s) y tarjetas grandes hechas en la página; `cap/s4v2-hoja.jpg` revisada (ninguna tarjeta tapa
+     la cara); falta renderizar: `node tools/turno.mjs node series/tools/render-gl.mjs
      reels/serie4-comentarios-1.html mp4/serie4-comentarios-1.mp4 43.62 reels/voz-serie4-comentarios-1.mp3 30 1/2` (y 2/2).
      Sus archivos nuevos NO están publicados (se sacaron del manifiesto de pub a propósito).
    - Serie 2: `edu-mismo-video` está completo (19/11: la página publicada es la misma con la que se renderizó el MP4
-     nuevo). Falta `edu-cinco-frases` (video 2): la Serie 2 lo está renderizando y avisa; entonces rehacer su
-     `mp4/para-ig/`, armar y republicar.
-   - Serie 3 manda 5 formatos más (usan imágenes `reels/app/s3-*.png`); Serie 2, el video 2. La versión va por ~460
+     nuevo). `edu-cinco-frases` (video 2, con los dos retoques) publicado en la versión
+     12. Los tres videos de la Serie 2 están al día.
+   - Serie 3 manda 5 formatos más (usan imágenes `reels/app/s3-*.png`). La versión va por ~465
      archivos de 511: para no pasarse, mover los MP4 y portadas a `assets` (capacidad del artefacto).
 1. Cuando Martín publique la parte 1 de cada serie: leer los comentarios.
    - Serie 1: la opción que gane decide si se publica la 2A o la 2B (las dos están listas); después, la parte 3 (el búnker
