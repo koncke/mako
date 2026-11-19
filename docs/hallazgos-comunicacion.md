@@ -91,19 +91,6 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
-## La foto de una línea, por Evolution, la deja medio rota: un 200 no dice que la línea siga sana (19/11/2026)
-
-**Vive en:** Evolution 2.3.7 (`whatsapp.baileys.service.ts`, `updateProfilePicture` → `reloadConnection()`); la voz de MaKo es la
-instancia del setting `mako.voz.instancia` (lib/mako-grupo.ts → `instanciaVoz`).
-
-- **Síntoma:** a pedido de Martín, la foto de la línea de MaKo pasó a la estrellita con `POST /chat/updateProfilePicture/{instancia}`.
-  Respondió 200 y la foto quedó bien. A los 4 minutos saltó la alarma de línea caída, y un aviso que salió en ese momento se perdió.
-- **La causa:** en 2.3.7 ese endpoint llama a `reloadConnection()`, que abre un socket nuevo SIN cerrar el viejo. Quedan dos conexiones
-  del mismo dispositivo: el viejo sigue recibiendo y las consultas van por el nuevo, que no contesta. Pasa lo mismo con
-  `updatePrivacySettings` y `removeProfilePicture`.
-- **La regla:** la foto, el nombre y la privacidad de cualquier línea (la voz o la de un cliente) se cambian desde el TELÉFONO, nunca por
-  Evolution. Un 200 de Evolution no prueba que la línea siga recibiendo: se mira la alarma de línea caída.
-
 ## «Salió por WhatsApp» cuando sólo llegó a la app: el `ok: true` con `enApp` (ticket #118, 19/11/2026)
 
 **Vive en:** `lib/mako-grupo.ts` (`enviarAlGrupoMaKo`, al final) · `lib/tickets-cierre.ts` (`avisarUno`) ·
@@ -125,7 +112,13 @@ reintenta, y lo que contestó Evolution no queda en ningún lado.
 - `ok` de `enviarAlGrupoMaKo` quiere decir «el aviso existe», NO «salió por WhatsApp». Quien necesite saber si salió por WhatsApp
   mira `enApp` (o el `wa_message_id` de la copia).
 - Un aviso que quedó sólo en la app se reintenta por WhatsApp como cuando no hay copia, y el motivo de Evolution se loguea.
-  El arreglo es del chat de WhatsApp: no está hecho.
+- **Hecho (19/11/2026, claude5):**
+  - el motivo viaja en `noEntregado` y va al log;
+  - `destinoDelAvisoAlGrupo` reintenta con `noEntregado`, salvo `sinGrupo` (un negocio sin grupo de WhatsApp: el hilo de la app ES su grupo);
+  - el reintento reusa la copia del hilo (`copiaSinWhatsApp`, lib/grupo-app.ts), así no suma burbujas ni vuelve a sonar;
+  - el historial dice «app» y no «whatsapp»;
+  - tests/ticket-aviso-solo-app.test.ts (T1-T5).
+  - El #118 no se reenvía solo: ya figuraba avisado.
 
 **Y al reenviarlo a mano:** el espejo (`lib/grupo-espejo.ts`) encuentra el eco por su `wa_message_id` o, si no, por el TEXTO entre
 las copias sin id de los últimos 10 minutos. Una copia más vieja, o con otro texto, no empareja. Por eso el id se ata a la fila
@@ -136,6 +129,8 @@ notas.
 
 **El síntoma:** Martín recibió el aviso de que la línea de MaKo (…2605) estaba caída aunque figuraba conectada, y la volvió a conectar
 desde el aviso: «¿No era que habíamos solucionado para que eso no pase más?».
+A las ~20:44 UTC, a pedido de Martín, la foto de la voz había pasado a la estrellita con `POST /chat/updateProfilePicture/{instancia}`:
+respondió 200 y la foto quedó bien. Cuatro minutos después saltó la alarma.
 
 **Lo medido (sólo lectura):**
 - **No estaba sorda.** `muylqv8r` recibió a Joan a las 20:21:03 (guardado 20:21:04) y a las 20:50:57 (guardado 20:51:19). La hora de
@@ -174,21 +169,11 @@ desde el aviso: «¿No era que habíamos solucionado para que eso no pase más?�
   `CanalMaKoPanel`) sólo a quien ve la línea de MaKo, y /agencia redirige a Chats.
 - Lo fija tests/linea-mako-en-chats.test.ts (L1-L5).
 
-**La regla:** ⛔ **la foto o la privacidad de una línea viva no se cambian por Evolution 2.3.7:** se cambian desde el
-teléfono. Y una alarma de la sonda no prueba que la línea no reciba: la prueba es la última ENTRANTE, con la hora del cuid.
+**La regla:** ⛔ **la foto, el nombre y la privacidad de cualquier línea (la voz o la de un cliente) se cambian desde el TELÉFONO,
+nunca por Evolution 2.3.7.** Un 200 de Evolution no prueba que la línea siga sana. Y una alarma de la sonda no prueba que la línea no reciba: la prueba es la última ENTRANTE, con la hora del cuid.
 
-**Además, el aviso de un ticket se daba por salido si quedaba sólo en la app (#118 de Leila, 21:00:48, en plena reconexión):**
-- Qué pasaba:
-  - `enviarAlGrupoMaKo` contestaba `{ ok: true, enApp: true }` y tiraba el error;
-  - `avisarUno` (lib/tickets-cierre.ts) no lo reintentaba;
-  - el historial decía «whatsapp».
-- Ahora:
-  - el motivo viaja en `noEntregado` y va al log;
-  - el aviso se reintenta como si no hubiera copia;
-  - el reintento reusa la copia del hilo (`copiaSinWhatsApp`, lib/grupo-app.ts);
-  - el historial dice «app».
-- Un negocio sin grupo de WhatsApp sigue contando el hilo de la app como su grupo. tests/ticket-aviso-solo-app.test.ts (T1-T5).
-- El #118 no se reenvía solo: ya figuraba avisado. Lo reenvía el Cerebro.
+**Lo que se perdió en ese rato:** el aviso de cierre del #118 a Leila (21:00:48). Ver «"Salió por WhatsApp" cuando sólo llegó a la
+app», arriba.
 
 **Sin hacer:**
 - **cerrar `mako_superadmin_muylqv8r`**, con la frase de Martín;
