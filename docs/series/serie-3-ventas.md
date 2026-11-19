@@ -74,6 +74,27 @@ El video 1 (CUBOS) es la excepción: no nombra ninguna app, vende el método.
   frase en una etiqueta abajo. Lo que sirve: el número con giro en el gancho, «el más loco» para la función estrella y los
   3 pasos de «es fácil».
 
+## Referencias que Martín guardó para esta serie (19/11, chat «Inspiración»)
+
+El detalle de cada una (gancho, estructura, CTA, transcripción y cuadros): `C:/dev/inspiracion/relevo.json` y
+`C:/dev/inspiracion/piezas/NN/`; el documento, en `C:/dev/wt-inspiracion/docs/inspiracion/relevo-19-11.md`. (?) = Martín
+todavía no la confirmó.
+
+| # | Cuenta | Qué tiene | Cómo la usamos |
+|---|---|---|---|
+| 12 | @ericgorriz_ | El ticket «¿Te parece caro pagar 200 al mes de IA?», personaje en cubos | La serie de tickets (hecho: vender) |
+| 70 / 73 | @samuauren / @artem.novitckii | «Así se ve cuando le das a [herramienta] la cuenta entera de [referente]» | Second Brain: chatear con referentes (`chat-referentes`, Pro). Antes, verificar qué hace hoy |
+| 45 (?) | @cosmosai.app | Abre con la cuenta de lo que ya pagas | Otro gancho para los tickets |
+| 31 (?) | @fabricanteschinos | «Todo este video lo editó Claude»: el video es la prueba | La línea de CUBOS |
+| 46 (?) | @curiosfer | «Mientras duermo, mi Claude…», números reales, CTA «comenta AUTOMÁTICO» | Automations (cuando haya una dibujada) |
+| 49 (?) | @wetracked.io | Sketch «persona tonta contra persona lista»: el listo nombra la app | Formato para cualquier «cómo se hace» |
+| 63 (?) | @santaia.lab | «Los CRM han muerto» con lápida; un CRM que carga ventas desde WhatsApp | Gancho para GRUPO / la lista de clientes |
+| 28 / 52 (?) | @santi.siciliano / @agiwithali | «La IA hizo esto por mí», «POV: hace X por ti» | Gancho corto para Copywriting o Web Generator |
+| 21 (?) | @wallsframeacademy | Pantalla partida desde el segundo 0; CTA de una palabra que regala algo | Formato del regalo (CUBOS) |
+| 64 (?) | @seyva.studio | Personaje en cubos que dialoga con la IA hecha personaje | Martín en cubos con MaKo como personaje |
+| 71 (?) | @sahni.ai | POV corto en bucle con un contador que sube | Sólo con números reales |
+| 2, 54, 60 (?) | @proyecto_atom, @saleads.ai, @espiad.app | Competencia directa: número propio en pantalla, «NO COMPRES…», testimonio casero | Mirar, no copiar |
+
 ## Ganchos que se usaron o se pueden usar
 
 - «Este video no lo grabé. Y tampoco lo edité.» (CUBOS)
@@ -167,7 +188,8 @@ son las landings de cada función (`app/vsl/<slug>`).
 | id | Estado | Duración | MP4 | Palabra |
 |---|---|---|---|---|
 | `s3-estos-videos` | Hecho (19/11) | 22,6 s | `C:/dev/artefactos-animaciones/mp4/s3-estos-videos.mp4` | CUBOS |
-| `s3-ticket` | Hecho (19/11) | 30,5 s | `C:/dev/artefactos-animaciones/mp4/s3-ticket.mp4` | TICKET |
+| `s3-ticket` | Reemplazado (mezclaba familias; Martín, protagonista) | 30,5 s | `mp4/s3-ticket.mp4` | TICKET |
+| `s3-ticket-vender` | Hecho (19/11), espera el OK de Martín | 27,8 s | `C:/dev/artefactos-animaciones/mp4/s3-ticket-vender.mp4` | TICKET |
 | `s3-landing` | En curso (voz y reel hechos) | 26,8 s | — | LANDING |
 | `s3-grupo` | En curso (voz y reel hechos) | 26,8 s | — | GRUPO |
 | `s3-carrusel` | En curso (voz y reel hechos) | 24,6 s | — | CARRUSEL |
