@@ -60,11 +60,11 @@ test('la última guardada se lee entera o no se lee', () => {
   assert.equal(leerUltima(null), null);
 });
 
-test('el checkout usa la cotización del momento en UN solo punto, y sin ella no ofrece Mercado Pago en pesos', () => {
+test('el checkout usa la cotización del momento en UN solo punto; sin ella, el precio en pesos que ya tiene el plan (nunca uno inventado)', () => {
   const c = readFileSync(join(__dirname, '..', 'lib', 'compra-plan.ts'), 'utf8').replace(/\r\n/g, '\n');
   const oferta = c.slice(c.indexOf('export async function ofertaDelPlan'), c.indexOf('export async function ofertasDeLosPlanes'));
   assert.match(oferta, /const vivo = monedas\.some\(\(m\) => m\.moneda === MONEDA_PESOS\) \? await dolarCriptoAhora\(\)/);
-  assert.match(oferta, /moneda === MONEDA_PESOS \? \(vivo \? pesosDelPlan\(plan\.precioUsd, vivo\.venta\) : null\)/);
+  assert.match(oferta, /moneda === MONEDA_PESOS && vivo \? pesosDelPlan\(plan\.precioUsd, vivo\.venta\) : precioEn\(plan, moneda\)/);
   // El cobro lee la misma oferta (lo que se muestra es lo que se cobra).
   assert.match(c, /ofertaDelPlan\(/);
 });

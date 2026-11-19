@@ -258,7 +258,7 @@ export async function hacermePartner(ws: number, respuestas: unknown): Promise<R
     if (!antes) {
       const pro = await planProActivo(ws);
       if (pro === undefined) return { ok: false, error: 'No pudimos comprobar tu plan. Prueba otra vez en un minuto.' };
-      if (!pro) return { ok: false, error: `${TEXTO_PARTNER_SOLO_PRO} ${APP_BASE_URL}${RUTA_PASARSE_A_PRO}` };
+      if (!pro) return { ok: false, error: `${TEXTO_PARTNER_SOLO_PRO} ${linkApp(RUTA_PASARSE_A_PRO, ws)}` };
     }
     const codigo = await codigoDe(ws);
     if (!codigo) return { ok: false, error: 'No pudimos crear tu link. Prueba otra vez en un minuto.' };

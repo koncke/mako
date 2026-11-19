@@ -42,7 +42,7 @@ test('el alta frena SIN Pro y antes de crear el código; quien ya era partner si
   const guarda = cuerpo.indexOf('const pro = await planProActivo(ws);');
   assert.ok(guarda > 0 && guarda < cuerpo.indexOf('const codigo = await codigoDe(ws);'), 'la guarda va antes del código');
   assert.match(cuerpo, /if \(!antes\) \{\n      const pro = await planProActivo\(ws\);/, 'sólo para entrar: quien ya es partner no pierde nada');
-  assert.match(cuerpo, /if \(!pro\) return \{ ok: false, error: `\$\{TEXTO_PARTNER_SOLO_PRO\} \$\{APP_BASE_URL\}\$\{RUTA_PASARSE_A_PRO\}` \};/);
+  assert.match(cuerpo, /if \(!pro\) return \{ ok: false, error: `\$\{TEXTO_PARTNER_SOLO_PRO\} \$\{linkApp\(RUTA_PASARSE_A_PRO, ws\)\}` \};/, 'el link con el negocio (tests/link-con-workspace.test.ts)');
   assert.match(TEXTO_PARTNER_SOLO_PRO, /MaKo Pro activo/);
   assert.equal(RUTA_PASARSE_A_PRO, '/configuraciones/plan');
   const web = fuente('app/partners/page.tsx');

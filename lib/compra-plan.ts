@@ -133,10 +133,11 @@ export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean;
     // EL PRECIO POR PASARELA ES EL DE LISTA + 5 % (18/11/2026, Martín: «si pagan por pasarela de pago, se le debe sumar el 5 %»): acá, en UN solo punto,
     // para que lo que muestra la página sea lo que cobra `iniciarCompraDePlan` (que usa este mismo monto). La lista queda para transferencia y Binance.
     // ⚠️ LOS PESOS, AL DÓLAR CRIPTO DEL MOMENTO (19/11/2026, Martín: «no del día, sino del momento… cuando alguien da clic en comprar»;
-    // lib/dolar-cripto-reglas.ts): los dólares del plan × la cotización de ahora, al millar hacia arriba. Sin una cotización que pase los frenos,
-    // no se ofrece Mercado Pago en pesos (queda pagar en dólares); nunca el precio viejo del setting. `iniciarCompraDePlan` cobra ESTE monto.
+    // lib/dolar-cripto-reglas.ts): los dólares del plan × la cotización de ahora, al millar hacia arriba. Sin una cotización que pase los frenos
+    // (las fuentes no contestan o no coinciden, y no hay una buena de menos de 6 h), el precio en pesos que ya tiene el plan (el del cron diario):
+    // un número de Martín, nunca uno inventado, y Mercado Pago no desaparece del checkout por una fuente caída. `iniciarCompraDePlan` cobra ESTE monto.
     const vivo = monedas.some((m) => m.moneda === MONEDA_PESOS) ? await dolarCriptoAhora().catch(() => null) : null;
-    const listaEn = (moneda: string): number | null => (moneda === MONEDA_PESOS ? (vivo ? pesosDelPlan(plan.precioUsd, vivo.venta) : null) : precioEn(plan, moneda));
+    const listaEn = (moneda: string): number | null => (moneda === MONEDA_PESOS && vivo ? pesosDelPlan(plan.precioUsd, vivo.venta) : precioEn(plan, moneda));
     const conPrecio = (ms: typeof monedas) => ms.map((m) => { const lista = listaEn(m.moneda); return { pasarela: m.pasarela, moneda: m.moneda, monto: lista == null ? null : conRecargoDePasarela(lista, m.moneda) }; }).filter((x): x is { pasarela: Pasarela; moneda: string; monto: number } => x.monto != null);
     const reales = conPrecio(monedas.filter((m) => !m.prueba));
     const deUnaPrueba = opts.conPrueba === true ? conPrecio(monedas.filter((m) => m.prueba)) : [];
