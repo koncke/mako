@@ -482,3 +482,18 @@ pasarela cobra lista + 5 % y MaKo no le «resta» al partner: **«en MaKo Partne
   fuera MENOS que lo directo: pasó a «igual o menos».
 - ⚠️ **El cálculo del 25 % que dejé escrito antes (24,25 / 11,75 y el comentario de `COMISION_PARTNER_PASARELA`) ya no vale**, ni la base de costos de Mercado Pago (6,29 % + IVA…): el 5 % de recargo
   es para cubrir el costo de la pasarela, y no se midió con cobros reales (todavía no hay ninguno por Mercado Pago).
+
+## «Ser partner NO es gratis»: el alta exige MaKo Pro activo, y «Pro activo» no es sólo la pasarela (19/11/2026)
+
+Martín (18/11): «no es gratis, deben estar pagando su suscripción… sí o sí necesitan el plan de 97». Reemplaza «cualquier plan es partner» (29/10).
+- ⚠️ **El diagnóstico obvio era el equivocado: «Pro activo = su suscripción de Pro en la pasarela».** Medido el 19/11: **0 suscripciones de la plataforma
+  atadas a un negocio**. Nadie paga su plan por Mercado Pago ni Stripe todavía: Leila paga su Pro por Binance (mensualidad con ciclo propio) y Código es una
+  agencia con mensualidad. Con sólo la pasarela, Leila —que YA es partner y paga Pro— quedaba afuera. `esProActivo` (lib/partners-reglas.ts) cuenta la
+  pasarela (Pro pagado o la prueba con tarjeta, sin cancelar; sin `plan_mako`, la capa `agencia`) **o** la mensualidad de Pro (`planDeLaMensualidad`,
+  lib/agencia-mes.ts), y el negocio activo. «Habilitado sin cobro» (P2P) no cuenta: no paga. Lo que no se pudo leer no decide (`undefined` → «prueba en un minuto»).
+- **Dónde frena:** `hacermePartner` (la pantalla y la API `hacerme_partner`) ANTES de crear el código, sólo para entrar: quien ya era partner sigue (hoy Leandro,
+  ws 10, sin Pro, y Leila). La landing de /partners, sin Pro, lleva «Pasarme a MaKo Pro» (a «Tu plan»); en el teléfono, sólo el texto (no se ofrece pagar, T5).
+- **Sin hacer:** el pago a un partner que bajó de Pro («en pausa hasta que reactives», decisión por defecto del Cerebro) va con el panel del 1 al 5, que no
+  existe todavía. La landing pública del Sitio (app/mako-partners/*) todavía dice «gratis»: es del chat del Sitio. Sin ver en pantalla.
+**Vive en:** lib/partners-reglas.ts (`esProActivo`, `TEXTO_PARTNER_SOLO_PRO`) · lib/partners-programa.ts (`planProActivo`, `hacermePartner`) · app/partners/page.tsx ·
+app/m/partners/page.tsx · tests/partners-solo-pro.test.ts.

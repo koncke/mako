@@ -1,48 +1,33 @@
-# Relevo — chat «Cobros» (cuenta claude2), 18/11/2026
+# Relevo — chat «Cobros» (cuenta claude5), 19/11/2026
 
-Último despliegue con lo mío: **`b7939d2be`** (merge de `punta/partners-30-1811`). Lo detallado de cada tema está en `docs/hallazgos-partners.md`,
-`docs/hallazgos-pagos.md`, `docs/hallazgos-agencias.md` y, lo que falta, en **`docs/pendientes-partners-pagos-1811.md`** (el brief completo de cada punto).
+Rama `punta/cobros` (worktree `C:/dev/wt-cobros`). GitHub la chequea y la lleva a main sola; sale con el deploy diario de las 11:05 UTC. Lo detallado de cada
+tema está en `docs/hallazgos-pagos.md`, `docs/hallazgos-partners.md`, `docs/hallazgos-agencias.md` y `docs/hallazgos-mako-tokens.md` (entradas del 19/11).
+El brief de lo que falta de Partners sigue en `docs/pendientes-partners-pagos-1811.md`.
 
-## Hecho y desplegado
-- **Leila (ws 11, Pro US$ 97): cobro mensual propio por Binance** (17/11). Su ciclo es el día que pagó (26 de cada mes), sin días de gracia: aviso con PDF a su grupo el 26/11; sin pago, el 27/11
-  se pausa su cuenta y se avisa a su grupo y a Martín. Prendido en producción con `scripts/mensualidad-ciclo-propio.mts` (config `agencia.mensualidad.11.config`). Ver `docs/hallazgos-agencias.md`.
-- **Partners: un crédito por CADA pago, SIEMPRE el 30 % del precio de lista** (`lib/partners-reglas.ts`: `comisionDelPago`, `canalDelPago`, `creditosDeUnReferido`; `lib/partners-programa.ts`:
-  `acreditarReferidos`, `pagosDeLosReferidos`, `tableroDe`). Tope por pago = lista × meses (un cobro de US$ 1.500 no deja el 30 % de 1.500). Panel web y teléfono dicen «lo que te deja cada mes» y el
-  acumulado. Quien ya ganó con la regla vieja (100 % del primer mes) no cobra por sus 2 primeros pagos. Alias `@deprecated` (`porGanarUsd`, `gananciaUsd`, `PAGOS_PARA_ACREDITAR`,
-  `gananciaDelReferido`) siguen exportados para la API/landing vieja: borrarlos cuando nadie los importe.
-- **Checkout: «Transferencia o Binance»** (`lib/pago-directo-reglas.ts`, `lib/pago-directo.ts`, `app/planes/[plan]/CompraPlan.tsx`): al precio de lista; datos de MaKo (alias, CVU, link «Transferime con
-  Mercado Pago», QR de Binance, Pay ID, titular, WhatsApp, email) en el setting; botones de comprobante por WhatsApp y email; «Confirmar mi pedido» entra por `pedirPlanSinPasarela` (lead + «Quieren entrar» +
-  aviso al equipo). Binance: QR personal de «Recibir» (permanente), monto en USDT grande, QR en la PC y botón en el teléfono, Pay ID siempre con «Copiar».
-- **Recargo de pasarela APAGADO:** `RECARGO_PASARELA = 0` (Martín: «volvamos al sistema simple… 47 y 97»). El mecanismo queda (`conRecargoDePasarela`, un solo punto en `ofertaDelPlan`); las pasarelas
-  cobran 97 / 47. Si se prende, ver la sección «El modelo se dio vuelta» de `docs/hallazgos-pagos.md` (flujos de reactivar/retención/subir de plan no llevan el recargo).
+## Hecho
+- **Escrito en producción con el sí de Martín en este chat (19/11 ~03:20 UTC):** la **0416** (el contador de MaKo Tokens: cupo del mes y descuento de la IA
+  que paga MaKo) y la **0421** (el registro de Partners: un crédito por cada pago). Verificadas; la 0416 probada en una transacción que se deshizo sola.
+- **Customers (ya estaba en main):** «Todos» trae agencias y la cuenta de prueba; Código da US$ 426/mes (plan + 7 clientes), no 238.
+- **Binance de Código y Leila:** el comprobante del grupo se aplica SÓLO si el pago está en la cuenta de Binance (clave de lectura); si todavía no entró, «lo
+  reviso solo» y el cron de cobros lo mira cada media hora; a las 48 h, a Martín.
+- **P2P (interruptor «Habilitado sin cobro»):** apagarlo abre 7 días de prueba con «Elegir mi plan» en la esquina; sin plan, la cuenta se pausa y vuelve con el pago
+  o si Martín lo prende. Martín todavía NO lo apagó para P2P.
+- **Partners:** ser partner exige MaKo Pro activo (pasarela o mensualidad por Binance). Quien ya era partner sigue.
+- **Checkout:** los pesos de Mercado Pago al dólar cripto del momento (dolarapi cripto + CriptoYa).
 
-## A medias / sin hacer (todo en `docs/pendientes-partners-pagos-1811.md`)
-1. **Migración `supabase/migrations/0421_partners_credito_por_pago.sql`: PREPARADA, NO APLICADA en producción.** Agrega `pago_id` y `canal` a `partner_creditos` y cambia el índice único (uno por pago).
-   Sin ella, `acreditarReferidos` **no acredita nada** (lo avisa en el log: «¿Falta la migración 0421?»). Hoy no hay ningún referido real (medido 18/11: 2 códigos, 0 compras con código, 0 renglones), así que no se pierde
-   nada todavía, pero hay que aplicarla ANTES del primer referido que pague. Pide el **sí de Martín escrito en el chat**.
-2. **Setting `planes.pago_directo`: VACÍO, y por eso «Transferencia o Binance» NO se ve en el checkout.** Martín decidió no cargarlo (dudas sobre el checkout inicial sin tarjeta: el Sitio dibuja un artefacto con
-   la propuesta). Forma: `{ binancePayId, linkBinance, linkTransferencia, alias, cvu, titular, whatsapp, email }` (todo texto o null; links sólo https). Se edita en Settings › Payments. Datos que Martín ya pasó al
-   Cerebro: alias `holamako`, CVU `0000003100062063077421`, titular Martin Carballo Koncke, link `https://mpago.la/1bfQ8i6`, QR Binance `https://app.binance.com/uni-qr/68G3kuwL`, Binance Pay ID `68725667`. **NO se cargaron.**
-3. **Cotización de Mercado Pago al momento** (dólar cripto de Binance leído al comprar, loader, caché 60 s): sin hacer (sección 1 del pendiente). Hoy el precio en pesos sigue saliendo del cron del blue.
-4. **Verificar que la plata entró (Mercado Pago y Binance) y activar sola**, con el comprobante obligatorio y el calce por número de orden (`transactionId` de Binance Pay): sin hacer (sección 2). La clave de Binance
-   (`BINANCE_API_KEY` / `BINANCE_API_SECRET`, sólo lectura) está en `C:/dev/mako-api/.env.local`; en Vercel la carga Martín. Usar SÓLO endpoints de lectura.
-5. **Panel del partner que suma solo y pago del 1 al 5, el partner elige por dónde cobra** (secciones 3): sin hacer. El pago a partners hoy es manual (`registrarPagoAPartner`, «Marcar pagado»).
-6. **«Ser partner exige MaKo Pro activo»** (sección 4): `hacermePartner` hoy NO lo exige. Definir «Pro activo» con cuidado (planes cobrados a mano, agencias, Leila).
-7. **Abiertos de antes** (sólo si el Cerebro los pide): P7, P26, P1, P24, P29 de los pendientes verificados; 79 filas viejas de `pagos` sin moneda.
-8. **Sin ver en navegador:** ni el checkout ni Settings › Payments se miraron con capturas a 1440 y 375 (sólo HTML dibujado y tests de las fuentes).
+## Sin hacer (con dónde vive)
+1. **Panel del partner que suma solo y pago del 1 al 5 (A) + «¿cómo quieres cobrar?» (D):** brief sección 3. Hoy `app/partners/PanelPartner.tsx` y
+   `registrarPagoAPartner` («Marcar pagado» a mano). Incluye «en pausa si bajó de Pro».
+2. **El cron diario del dólar** (`app/api/cron/dolar-blue`, `lib/dolar-blue-corrida.ts`) sigue con el BLUE para los pesos del setting (reactivar, retención, vitrina):
+   pasarlo a cripto y cambiar los textos «blue» de Settings › Payments y los avisos.
+3. **Verificación contra Mercado Pago** (transferencias al CVU) y **el checkout de «Transferencia o Binance» con el calce** (sigue oculto: `planes.pago_directo` vacío).
+4. **Dato mal copiado en producción:** el pago de Código del 16/11 está anotado como `4660001999873228880` (libro `agencia.mensualidad.13.orden.*`, entradas 17 y 23, y
+   el recibo N.º 0005); el real es `466000199987322880`. El código ya lo protege (no se cuenta dos veces); corregirlo es escribir en producción (pide el sí de Martín).
+5. **Leila paga Pro y recibe el cupo de Essential** de MaKo Tokens (7.000 en vez de 14.400): `cupoDeCapa` sale de la capa. Hoy usa su propia IA.
+6. **Sin ver en pantalla (capturas a 1440 y 375):** la esquina «Prueba hasta el…», la ficha del interruptor, /cuenta-pausada con «Tu prueba gratis terminó», la landing
+   de /partners sin Pro. La PC estuvo con 0,4–2 GB libres toda la noche: tampoco se corrió el tsc local (lo corre GitHub en la punta).
+7. **Sin probar con un pago real:** el calce de Binance (el primero será el de Leila, el 26/11).
 
 ## Qué espera de Martín
-- **El sí escrito para aplicar la migración 0421** (explicación en una línea: «agrega dos columnas a la tabla de lo que ganan los partners y permite una fila por pago en vez de una por negocio; no toca filas;
-  sin ella el programa no acredita nada»).
-- **Decidir lo del checkout inicial** (la propuesta del Sitio: prueba con tarjeta como principal, «¿No tienes tarjeta?» como secundario sin prueba, y pasarse a transferencia/Binance desde el segundo mes) y, con eso,
-  si se carga `planes.pago_directo`.
-- **Cargar `BINANCE_API_KEY` y `BINANCE_API_SECRET` en Vercel** cuando se haga la verificación automática de pagos.
-- **Si «pagos de antes del 18/11» de un referido sin crédito viejo cuentan** (hoy sí, todos; sin referidos reales no mueve plata todavía).
-- **Qué hacer con los flujos que no llevan recargo** (reactivar, retención, subir de plan) si algún día se prende `RECARGO_PASARELA`.
-
-## Trampas que se llevaron tiempo (ya cosechadas en los hallazgos)
-- El índice único `(referidor, referido)` de `partner_creditos` estaba en la BASE, no en el código: sin la 0421 el cron trataba el 23505 como «ya estaba» y callaba.
-- `GET /v1/payments/search` de Mercado Pago trae también lo que MaKo PAGA: filtrar por `collector.id` propio.
-- Los «payment request» de Binance Pay vencen a los 30 días; sirve el QR personal de «Recibir».
-- Editar archivos CRLF con scripts: usar un editor que respete el salto de línea; un `s.index()` que toma una coincidencia anterior duplica bloques (pasó con Settings: se restauró desde HEAD).
-- Rebasar la punta cuando el Sitio tocó `docs/api-mako.md` y `tests/mako-partners-landing.test.ts`: quedarse con su versión y regenerar el doc con `node --import tsx scripts/generar-api-doc.mjs`.
+- Apagar «Habilitado sin cobro» en P2P Consulting (Admin › Customers) cuando quiera que empiece su prueba.
+- Si quiere corregir el número mal copiado del pago de Código del 16/11 (punto 4).

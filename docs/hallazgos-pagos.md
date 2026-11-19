@@ -2021,3 +2021,21 @@ con ciclo propio (Leila) manda al grupo de MaKo se aplica SÓLO si el pago está
   `planes.pago_directo` vacío); el pago de Leila en BTC.
 **Vive en:** lib/binance-pay-reglas.ts · lib/binance-pay.ts · lib/agencia-mes-comprobante.ts (`verificarEnBinance`, `aplicarPagoVerificado`, `esperarElPago`,
 `revisarPagosEnEspera`) · app/api/cron/cobros-reconciliar/route.ts · tests/binance-pay-calce.test.ts.
+
+## Los pesos del checkout, al dólar cripto del MOMENTO (19/11/2026)
+
+Martín (18/11): «no del día, sino del momento. Cuando alguien da clic en comprar… que consulte por API». La fuente es el dólar CRIPTO (Martín pasa los pesos a
+USDT en Binance), no el blue. `ofertaDelPlan` (lib/compra-plan.ts) arma la página y el cobro en pesos con `dolarCriptoAhora()` (lib/dolar-cripto.ts): dolarapi
+`/v1/dolares/cripto` (venta) y CriptoYa `/api/usdt/ars/1` (`binancep2p.totalAsk`), las dos dentro de un 3 %, la MÁS ALTA, la banda del 15 % contra la última buena
+de esta semana, un minuto de memoria. Sin eso, la última buena de menos de 6 h (`planes.dolar_cripto` en la plataforma); si no hay, **el precio en pesos que ya tiene
+el plan** (el del cron diario: un número de Martín, nunca uno inventado). Medido el 19/11 04:00 UTC: 1.718,47 y 1.715,77 → Pro $ 167.000, Essential $ 81.000.
+- ⚠️ **El brief decía «sin cotización, no se ofrece Mercado Pago»; se decidió lo contrario.** Con esa regla, una fuente caída borraba Mercado Pago del checkout (y
+  rompía los tests del checkout, que no simulan el dólar). El precio del setting no es inventado: lo escribe el cron diario. Queda en el log.
+- ⚠️ **dolarapi cripto no es «del momento»:** su `fechaActualizacion` tenía 7 h. CriptoYa sí (su `time` es de hace segundos). Por eso se toma la más alta de las dos y
+  no la de dolarapi sola.
+- **No hay «loader» aparte:** la lectura se hace al abrir la página del checkout (eso es «el clic en comprar»). Si entre que se vio y que se tocó el precio
+  cambió, `precioVisto` ya frena y pide recargar.
+- **Sin hacer:** el cron diario (app/api/cron/dolar-blue, lib/dolar-blue-corrida.ts) sigue con el BLUE para los precios en pesos del setting (los que usan reactivar,
+  retención, subir de plan y la vitrina): pasarlo a la fuente cripto y cambiar «blue» por «dólar cripto (Binance)» en Settings › Payments y en sus avisos. Hoy la
+  vitrina puede mostrar el precio del blue y el checkout el del cripto (el checkout manda). Sin ver en pantalla.
+**Vive en:** lib/dolar-cripto-reglas.ts · lib/dolar-cripto.ts · lib/compra-plan.ts (`ofertaDelPlan`) · tests/dolar-cripto.test.ts.
