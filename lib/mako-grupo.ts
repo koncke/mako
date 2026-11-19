@@ -29,6 +29,7 @@ import { agenciasAprobadasDe } from './agencia';
 import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
+import { AGENDAR_V2, E_SIN_CODIGO_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, esPedidoDeConfirmacion, mensajeDelCodigoV2 } from './verificacion-entrante';
 import { chatDelMensaje } from './mako-bot-reglas';
 import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, pausaDeEscritura, puedeEscribirleAPersona } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
@@ -871,6 +872,115 @@ export async function confirmarPorMensajeEntrante(instancia: string, m: Record<s
     };
   }
   return null;
+}
+
+// ── EL WHATSAPP DEL ONBOARDING V2 (19/11/2026): MaKo contesta con el código en el CHAT PRIVADO y no arma ningún grupo ──────────
+// Las reglas puras y el porqué, en lib/verificacion-entrante.ts («EL WHATSAPP DEL ONBOARDING V2»). Martín, 19/11: «le envié el
+// mensaje a MaKo y me creó un grupo de WhatsApp, que eso ya no debería hacerlo… directamente por el chat privado». Sólo para
+// quien está en el V2 (lo decide la ruta del onboarding): el flujo de antes y los grupos que ya existen no cambian.
+
+/** Prepara el pedido: un código de 6 números que MaKo le va a CONTESTAR, y el link `wa.me` con «Hola, quiero confirmar mi WhatsApp.». */
+export async function pedirConfirmacionV2(
+  ws: number, telefono: string, nombrePersona: string,
+): Promise<{ ok: true; yaVerificado: true } | { ok: true; yaVerificado: false; link: string; numeroLinea: string } | { ok: false; error: string }> {
+  const num = soloDigitos(telefono);
+  if (num.length < 8) return { ok: false, error: 'El número no es válido.' };
+  const actual = await getVerificacion(ws);
+  if (actual?.verificado && soloDigitos(actual.telefono) === num) return { ok: true, yaVerificado: true };
+  if (!grupoConfigurado()) return { ok: false, error: MAKO_SIN_LINEA };
+  const linea = await lineaQueRecibe();
+  if (!linea) return { ok: false, error: MAKO_SIN_LINEA };
+  const link = linkWaMe(linea.numero, TEXTO_CONFIRMAR_V2);
+  if (!link) return { ok: false, error: MAKO_SIN_LINEA };
+  await guardarVerificacion(ws, {
+    telefono: num, destino: num, nombre: nombrePersona, codigo: codigoNumerico(),
+    expira: Date.now() + MINUTOS_ENTRANTE * 60_000, verificado: false,
+    entrante: true, v2: true, respondido: false, intentos: 0, linea: linea.instancia, numeroLinea: linea.numero,
+  });
+  return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero };
+}
+
+/** Le manda el código por el chat privado (ella escribió primero: la regla 1 lo mira igual), su tarjeta de contacto y el pedido de agendarlo. */
+async function mandarCodigoV2(v: EstadoVerificacion, destino: string): Promise<{ ok: boolean; error?: string }> {
+  const r = await enviarTextoVozMaKo(destino, mensajeDelCodigoV2(v.nombre ?? '', v.codigo));
+  if (!r.ok) return { ok: false, error: r.error };
+  // La tarjeta de MaKo, para que la guarde con un toque (la maqueta: «Guardar contacto»). Best-effort: el código ya salió.
+  const numeroMaKo = soloDigitos(v.numeroLinea ?? '');
+  if (numeroMaKo) {
+    await ev(`/message/sendContact/${await instanciaVoz()}`, {
+      method: 'POST', body: JSON.stringify({ number: destino, contact: [{ fullName: 'MaKo', wuid: numeroMaKo, phoneNumber: `+${numeroMaKo}` }] }),
+    }).catch(() => null);
+  }
+  await enviarTextoVozMaKo(destino, AGENDAR_V2).catch(() => null);
+  return { ok: true };
+}
+
+/**
+ * EL WEBHOOK (V2): «Hola, quiero confirmar mi WhatsApp.» desde el número de una verificación V2 pendiente → MaKo le contesta con el
+ * código, en ese chat. No confirma nada solo (lo confirma el código pegado en la app) ni arma un grupo. null si el mensaje no era
+ * de esto: así sigue al bot como cualquier otro. Lo que habla con WhatsApp va en `responder`, para correr después.
+ */
+export async function responderPedidoV2(instancia: string, m: Record<string, unknown>): Promise<{ resultado: string; responder?: () => Promise<void> } | null> {
+  const key = (m?.key ?? {}) as { remoteJid?: string; fromMe?: boolean; remoteJidAlt?: string; senderPn?: string };
+  if (key.fromMe) return null;
+  const msg = (m?.message ?? {}) as Record<string, unknown>;
+  const texto = typeof msg.conversation === 'string' ? msg.conversation : String((msg.extendedTextMessage as { text?: string } | undefined)?.text ?? '');
+  if (!esPedidoDeConfirmacion(texto)) return null;
+  const chat = chatDelMensaje(key);
+  if (!chat) return null;
+  // Las pendientes del V2 son pocas (las de los onboardings de la última media hora): se miran todas.
+  const { data, error } = await getSupabaseServer().from('app_settings').select('workspace_id, value')
+    .eq('key', KEY_VERIFICACION).ilike('value', '%"v2":true%').ilike('value', '%"verificado":false%').limit(50);
+  if (error) { console.error(`[mako-grupo] no pude buscar las verificaciones del V2: ${error.message}`); return null; }
+  for (const fila of (data ?? []) as Array<{ workspace_id: number; value: string }>) {
+    const v = parseVerificacion(fila.value);
+    const d = decidirPedidoV2(v, { instancia, telefono: chat.telefono, ahora: Date.now() });
+    if (d === 'no-es-este') continue;
+    const ws = Number(fila.workspace_id);
+    if (d !== 'responder') return { resultado: `ws${ws}: ${d}` };
+    // `destino`: el chat por donde escribió (así le llega aunque el número se haya tipeado de otra forma).
+    const anotado: EstadoVerificacion = { ...v!, destino: chat.telefono ?? v!.destino, respondido: true };
+    // De dos llegadas del mismo mensaje (dos líneas de la misma cuenta), contesta una.
+    const gane = await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, fila.value, JSON.stringify(anotado))).catch(() => false);
+    if (!gane) return { resultado: `ws${ws}: ya contestado por otra llegada` };
+    return {
+      resultado: `ws${ws}: le contesto con el código`,
+      responder: async () => {
+        const r = await mandarCodigoV2(anotado, chat.jid);
+        if (!r.ok) console.error(`[mako-grupo] ws${ws}: no salió el código del V2: ${r.error}`);
+      },
+    };
+  }
+  return null;
+}
+
+/** «Reenviar el código» (V2): sólo si MaKo ya le contestó (si no, todavía no le escribió: que toque «Abrir WhatsApp»). */
+export async function reenviarCodigoV2(ws: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  const v = await getVerificacion(ws);
+  if (!v?.v2 || !v.respondido || !v.destino) return { ok: false, error: E_SIN_CODIGO_V2 };
+  if (v.verificado) return { ok: true };
+  const r = await mandarCodigoV2(v, v.destino.includes('@') ? v.destino : soloDigitos(v.destino));
+  return r.ok ? { ok: true } : { ok: false, error: MAKO_SIN_LINEA };
+}
+
+/** El código PEGADO en la app (V2). Bien: el número queda probado y guardado como el del dueño, SIN grupo. */
+export async function verificarCodigoV2(ws: number, codigo: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const v = await getVerificacion(ws);
+  const d = decidirCodigoV2(v, codigo, Date.now());
+  if (!d.ok) {
+    if (d.suma && v) await guardarVerificacion(ws, { ...v, intentos: (v.intentos ?? 0) + 1 }).catch(() => {});
+    return { ok: false, error: d.error };
+  }
+  if (v!.verificado) return { ok: true };
+  await guardarVerificacion(ws, { ...v!, verificado: true, confirmadoAt: new Date().toISOString() });
+  // El número del dueño (los avisos y los reportes), sin armar el grupo: el V2 no lo usa.
+  // En la forma con que escribió por WhatsApp (`destino`), que es la que WhatsApp reconoce.
+  const num = soloDigitos(v!.destino || v!.telefono);
+  if (num) {
+    await guardarNumeroDueno(ws, num).catch(() => {});
+    await import('./compra-plan-llamada').then((m) => m.anotarTelefonoDelComprador(ws, num)).catch(() => {});
+  }
+  return { ok: true };
 }
 
 // ── Grupo del SuperAdmin (global, estrella AZUL) ──────────────────────────────

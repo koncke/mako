@@ -24,11 +24,14 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 
 test('otro workspace es otro chat: la página monta ChatArranque con la key del workspace', () => {
   const page = sinComentarios(leer('app/onboarding/page.tsx'));
-  assert.match(page, /const ws = await getWorkspaceActual\(\);\s*return <ChatArranque inicial=\{vista\} key=\{`ws-\$\{ws \?\? 'ninguno'\}`\}/,
+  assert.match(page, /const ws = await getWorkspaceActual\(\);\s*(if \(vista\.v2 && !vista\.bloqueo\) \{\s*return <ChatArranqueV2 inicial=\{vista\} key=\{`ws-\$\{ws \?\? 'ninguno'\}`\}[^\n]*\n\s*\}\s*)?return <ChatArranque inicial=\{vista\} key=\{`ws-\$\{ws \?\? 'ninguno'\}`\}/,
     'sin la key, cambiar de ?ws= sin recargar deja en pantalla las respuestas del negocio anterior');
+  // El onboarding V2 (19/11/2026, ./ChatArranqueV2.tsx) también va con la key del workspace.
+  assert.match(page, /<ChatArranqueV2 inicial=\{vista\} key=\{`ws-\$\{ws \?\? 'ninguno'\}`\}/);
   // Y la razón de la key: el chat arranca su estado de `inicial` una sola vez.
-  const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
-  assert.match(chat, /useState<VistaArranque>\(inicial\)/);
+  for (const archivo of ['app/onboarding/ChatArranque.tsx', 'app/onboarding/ChatArranqueV2.tsx']) {
+    assert.match(sinComentarios(leer(archivo)), /useState<VistaArranque>\(inicial\)/, archivo);
+  }
 });
 
 test('la conversación de Offer del arranque se lee con el workspace del request', () => {

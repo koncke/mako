@@ -4,6 +4,38 @@ El wizard del cliente nuevo (`app/onboarding/`, `lib/capas.ts`, `lib/onboarding-
 todo lo que decide si alguien llega a usar la app o se queda en la puerta.
 
 
+## El onboarding V2 en la app = la maqueta: no estaba construido, y el WhatsApp armaba un grupo (19/11/2026)
+
+**Vive en:** `app/onboarding/ChatArranqueV2.tsx` · `lib/onboarding-arranque.ts` («EL ONBOARDING V2») · `app/api/onboarding/arranque/route.ts`
+· `lib/verificacion-entrante.ts` y `lib/mako-grupo.ts` («EL WHATSAPP DEL ONBOARDING V2») · `app/api/webhooks/evolution/route.ts`.
+
+- **El diagnóstico obvio era el equivocado.** Martín lo probó en producción y vio «no está para nada igual» al artefacto. Parecía cosa
+  de retoques (la criatura, los textos, el alto de la caja), pero **el V2 del onboarding nunca se había construido**: el interruptor sólo
+  le sumaba videos a la pantalla de siempre (`ChatArranque` sobre `OfferApp`). El orden, los textos, el diseño y el WhatsApp eran los
+  de octubre. La maqueta era la especificación, y nadie la había pasado al código. Ahora, con el interruptor, se dibuja
+  `ChatArranqueV2` y las reglas van por `h.v2` (`etapaDeArranqueV2`, `mensajesDeArranqueV2`, `leerRespuestaV2`). Sin el V2, nada cambia.
+- **«Me creó un grupo de WhatsApp»: el grupo nacía al CONFIRMAR el número.** El flujo del 4/11 lleva el código en el link
+  («Hola MaKo, mi código es K7P2QX»), el webhook confirma solo y `sincronizarConfirmado` → `setNumeroDuenoYSync` →
+  `asegurarGrupoMaKo` arma el grupo. En el V2 el link lleva sólo el pedido («Hola, quiero confirmar mi WhatsApp.»). MaKo le contesta
+  el código de 6 números en ese chat (`responderPedidoV2`), ella lo pega en la app (`verificarCodigoV2`) y se guarda el número del
+  dueño sin grupo. Los grupos de los clientes de hoy no se tocan: el webhook prueba primero el flujo viejo y, si no es suyo, el del V2.
+- **El código del V2 nunca va en la pantalla ni en el link.** Lo que prueba el número es que le LLEGÓ a su WhatsApp. Por eso
+  `vistaDeEntrante` arma el link del V2 con el pedido; el test lo fija (`tests/onboarding-v2-maqueta.test.ts`, el 4).
+- **`CajaChat` no trae su `.co-caja`: la pone quien la usa** (`MakoChat.tsx` la envuelve). Sin el envoltorio, la caja sale como una
+  franja gris de lado a lado y con el campo estirable: lo que Martín vio como «la barra de chat… muy alta».
+- **Trampas para MIRAR antes del deploy (el componente real dibujado con `renderToStaticMarkup`):**
+  - un `import 'server-only'` en la cadena corta node: se cambia por un módulo vacío con un `resolve` de `registerHooks`;
+  - `useRouter` de Next necesita su `AppRouterContext.Provider`;
+  - en el Chromium sin ventana de esta PC, las animaciones CSS quedan en `currentTime 0`, así que algo que entra con `opacity: 0 → 1`
+    (el velo oscuro) sale invisible en la captura. Se captura con `screenshot({ animations: 'disabled' })`.
+- **Lo que quedó sin hacer:**
+  - la foto de perfil de la línea con la criatura: la cambia el Cerebro con el script de las notas compartidas, `foto-linea-mako.mjs`
+    (Evolution `POST /chat/updateProfilePicture/{instancia}`);
+  - la tarjeta de contacto que manda MaKo con el código: va por `/message/sendContact`, con la forma de Evolution v2, y no se probó
+    contra la línea;
+  - probarlo de punta a punta en producción, después del deploy, en el ws 3;
+  - el paso de los avisos (la app en el teléfono): el V2 no lo pide. Va al día 2 del reto, como en la maqueta.
+
 ## Offer Coach = el motor de Offer: no hacía falta montar OfferApp (19/11/2026)
 
 **Vive en:** `app/second-brain/useChatDelCoach.ts` (`motorOffer`) · `app/second-brain/useChatCliente.ts` (`offerDirecto`) ·

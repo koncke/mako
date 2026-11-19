@@ -79,6 +79,13 @@ export type EstadoVerificacion = {
   otroNumero?: string;
   /** Cuándo se confirmó. */
   confirmadoAt?: string;
+  /** EL ONBOARDING V2 (19/11/2026): la persona manda «Hola, quiero confirmar mi WhatsApp.» y MaKo le CONTESTA con el código en
+   *  el chat privado; ella lo pega en la app. El código es de 6 números y nunca se ve en la pantalla. */
+  v2?: true;
+  /** MaKo ya le contestó con el código (por eso ya hay a quién reenviárselo). */
+  respondido?: boolean;
+  /** Los códigos equivocados que pegó: al llegar al tope, pide uno nuevo. */
+  intentos?: number;
 };
 
 export type Llegada = {
@@ -134,8 +141,79 @@ export type VistaEntrante = {
 
 export function vistaDeEntrante(v: EstadoVerificacion | null | undefined, ahora: number): VistaEntrante | null {
   if (!v || !v.entrante) return null;
-  const base = { link: linkWaMe(v.numeroLinea, textoParaMandar(v.codigo)), numeroLinea: v.numeroLinea ?? null, telefono: v.telefono, otroNumero: v.otroNumero ?? null };
+  // En el V2 el link lleva el pedido, NUNCA el código: el código lo manda MaKo por WhatsApp y eso es lo que prueba el número.
+  const base = { link: linkWaMe(v.numeroLinea, v.v2 ? TEXTO_CONFIRMAR_V2 : textoParaMandar(v.codigo)), numeroLinea: v.numeroLinea ?? null, telefono: v.telefono, otroNumero: v.otroNumero ?? null };
   if (v.verificado) return { ...base, estado: 'verificado' };
   if (ahora > v.expira) return { ...base, estado: 'vencido' };
   return { ...base, estado: v.otroNumero ? 'otro-numero' : 'esperando' };
+}
+
+// =============================================================================
+// EL WHATSAPP DEL ONBOARDING V2 (19/11/2026): el código por el CHAT PRIVADO, sin grupo
+// =============================================================================
+// Martín (16/11, la maqueta del onboarding): «Para confirmar tu WhatsApp, toca Abrir WhatsApp y envía el mensaje de confirmación.
+// Te contesto con un código y lo pegas aquí abajo»; el mensaje escrito es «Hola, quiero confirmar mi WhatsApp» y MaKo contesta
+// «Hola {nombre}, soy MaKo. Tu código…». Y el 19/11, probándolo en producción: «le envié el mensaje a MaKo y me creó un grupo de
+// WhatsApp, que eso ya no debería hacerlo… directamente por el chat privado».
+// Así que en el V2: la persona escribe primero (nunca MaKo: el baneo del 3/11), MaKo le contesta en ESE chat con un código de 6
+// números, ella lo pega en la app y el número queda probado. Nadie arma un grupo. El flujo de antes (el código en el link y la
+// confirmación sola con el grupo) sigue igual para quien no está en el V2.
+// =============================================================================
+
+/** Lo que va escrito en su WhatsApp: el pedido, sin el código. */
+export const TEXTO_CONFIRMAR_V2 = 'Hola, quiero confirmar mi WhatsApp.';
+/** Lo que MaKo le manda después del código, con su tarjeta de contacto (17/11, Martín: agendado baja el riesgo de baneo). */
+export const AGENDAR_V2 = 'Guárdame en tus contactos para que pueda mandarte avances de tu negocio. Si no estoy guardado, WhatsApp puede frenar mis mensajes.';
+/** Cuántos códigos equivocados se aceptan antes de pedir uno nuevo. */
+export const TOPE_INTENTOS_V2 = 5;
+
+/** ¿Este mensaje es el pedido de confirmación? Tolera que lo hayan tocado (sin tildes, sin el «Hola», con otra puntuación). */
+export function esPedidoDeConfirmacion(texto: string | null | undefined): boolean {
+  const t = String(texto ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  if (!t || t.length > 300) return false;
+  return /confirm\w*\s+(mi\s+)?(whats?app|wsp|numero|telefono)/.test(t);
+}
+
+/** Un código de 6 números (el campo de la app los pide así: «El código de 6 números»). */
+export function codigoNumerico(azar: () => number = Math.random): string {
+  let c = '';
+  for (let i = 0; i < LARGO_CODIGO; i++) c += String(Math.floor(azar() * 10) % 10);
+  return c;
+}
+
+/** La respuesta de MaKo en su WhatsApp, con el código. */
+export const mensajeDelCodigoV2 = (nombre: string, codigo: string): string =>
+  `Hola${nombre.trim() ? ` ${nombre.trim()}` : ''}, soy MaKo.\nTu código para confirmar tu WhatsApp es ${codigo}.`;
+
+/** ¿A este pedido le contesta MaKo con el código de esta verificación? Sólo un V2 vigente, sin confirmar, por la línea del link y
+ *  desde el número que dio (`esSuTelefono`). Si ya le contestó, le contesta otra vez (lo volvió a mandar: perdió el mensaje). */
+export function decidirPedidoV2(v: EstadoVerificacion | null | undefined, l: { instancia: string; telefono: string | null; ahora: number }):
+  'responder' | 'no-es-este' | 'vencido' | 'ya-verificado' {
+  if (!v || !v.v2 || !v.entrante) return 'no-es-este';
+  if (v.verificado) return 'ya-verificado';
+  if (v.linea && v.linea !== l.instancia) return 'no-es-este';
+  if (!l.telefono || !esSuTelefono(v.telefono, l.telefono)) return 'no-es-este';
+  if (l.ahora > v.expira) return 'vencido';
+  return 'responder';
+}
+
+/** Los textos de los errores del código, como en la maqueta (rojos, arriba de la caja, y que se entienda qué hacer). */
+export const E_SIN_CODIGO_V2 = 'Todavía no tienes el código: toca «Abrir WhatsApp» y te lo mando.';
+export const E_CODIGO_V2 = 'Ese no es el código. Copia los 6 números de mi último mensaje en tu WhatsApp y pégalos aquí.';
+export const E_CODIGO_LARGO_V2 = 'El código tiene 6 números. Revisa que esté completo.';
+export const E_CODIGO_VENCIDO_V2 = 'Ese código venció. Toca «Abrir WhatsApp» y vuelve a mandarme el mensaje: te mando uno nuevo.';
+export const E_CODIGO_TOPE_V2 = 'Probaste muchos códigos. Toca «Abrir WhatsApp» y vuelve a mandarme el mensaje: te mando uno nuevo.';
+
+/** El código pegado en la app (V2). `intentos`: cuántos equivocados lleva con éste. */
+export function decidirCodigoV2(v: EstadoVerificacion | null | undefined, escrito: string, ahora: number):
+  { ok: true } | { ok: false; error: string; suma?: true } {
+  const digitos = String(escrito ?? '').replace(/\D/g, '');
+  if (!v || !v.v2) return { ok: false, error: E_SIN_CODIGO_V2 };
+  if (v.verificado) return { ok: true };
+  if (digitos.length !== LARGO_CODIGO) return { ok: false, error: E_CODIGO_LARGO_V2 };
+  if (!v.respondido) return { ok: false, error: E_SIN_CODIGO_V2 };
+  if ((v.intentos ?? 0) >= TOPE_INTENTOS_V2) return { ok: false, error: E_CODIGO_TOPE_V2 };
+  if (ahora > v.expira) return { ok: false, error: E_CODIGO_VENCIDO_V2 };
+  if (digitos !== v.codigo) return { ok: false, error: E_CODIGO_V2, suma: true };
+  return { ok: true };
 }

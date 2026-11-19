@@ -23,6 +23,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { veOnboardingV2, esRevision } from '@/lib/onboarding-v2/revision';
 import { prefiereMovil } from '@/lib/movil-guard';
 import { ChatArranque } from './ChatArranque';
+import { ChatArranqueV2 } from './ChatArranqueV2';
 import { requireRolWs } from '@/lib/tab-access';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
 import { vistaArranque } from '@/lib/onboarding-arranque-server';
@@ -63,6 +64,10 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     const seguirEnPc = v2 && (await prefiereMovil().catch(() => false));
     const persona = sesion ? { nombre: (sesion.nombre ?? '').trim().split(/\s+/)[0] ?? '', email: sesion.email } : undefined;
     const ws = await getWorkspaceActual();
+    // EL ONBOARDING V2 (19/11/2026): el de la maqueta (./ChatArranqueV2.tsx). Con la guardia puesta, la pantalla de siempre (su aviso).
+    if (vista.v2 && !vista.bloqueo) {
+      return <ChatArranqueV2 inicial={vista} key={`ws-${ws ?? 'ninguno'}`} seguirEnPc={seguirEnPc} persona={persona} revision={esRevision(v2)} />;
+    }
     return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} videos={v2 ? { revision: esRevision(v2) } : null} />;
   }
 

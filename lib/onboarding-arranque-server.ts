@@ -19,6 +19,7 @@ import { estaImpersonando, getCapaActual, getTenantDb, getWorkspace, getWorkspac
 import { OWNER_WS } from './auth-session';
 import { contarAdminsClienteActivos } from './usuarios';
 import { getSesionAdmin, getUsuarioActual } from './auth';
+import { veOnboardingV2 } from './onboarding-v2/revision';
 import { CLAVE_GUARDIA, parseGuardia } from './onboarding-guardia';
 import { wsDelOnboarding } from './onboarding-guard';
 import { getPerfil, setPerfil } from './perfil';
@@ -291,7 +292,7 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
   const pasosCapa = [...capa.onboarding];
   const modo: ModoArranque = pasosCapa.includes('productos') ? 'oferta' : 'plan';
   let sesionCaida = false;
-  const [perfil, w, diag, sesion, onb, verif, contacto, meta, avisos] = await Promise.all([
+  const [perfil, w, diag, sesion, onb, verif, contacto, meta, avisos, usuario] = await Promise.all([
     getPerfil().catch(() => null),
     ws != null ? getWorkspace(ws).catch(() => null) : Promise.resolve(null),
     getDiagnosticoFase().catch(() => null),
@@ -301,12 +302,16 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     getContactoReportes().catch(() => null),
     integracionConectada('meta').catch(() => false),
     avisosDeQuienEntra(),
+    getUsuarioActual().catch(() => null),
   ]);
+  // EL ONBOARDING V2 (19/11/2026): el de la maqueta, sólo para la revisión de Martín (lib/onboarding-v2/revision.ts).
+  const v2 = !!usuario && veOnboardingV2({ email: usuario.email, ws });
   const precioDicho = sesion ? sinMarca(sesion.piezas?.precio?.valor) : '';
   // Verificado = el teléfono GUARDADO es el mismo que se verificó (el mismo criterio que el wizard).
   const telefonoVerificado = !!verif?.verificado && !!contacto && verif.telefono === contacto.telefono.replace(/\D/g, '');
   return {
     modo,
+    v2,
     nombreCuenta: perfil?.nombre ?? '',
     // El nombre del ws de prueba no se ofrece como «tu negocio» (lo pone el RESET: lib/reset-workspace.ts).
     nombreWorkspace: w?.nombre && w.nombre !== NOMBRE_WS_PRUEBA ? w.nombre : '',
@@ -347,6 +352,8 @@ export type VistaArranque = {
   etapa: EtapaArranque;
   antes: MensajeArranque[];
   despues: MensajeArranque[];
+  /** El onboarding V2 (el de la maqueta): la pantalla dibuja ChatArranqueV2. */
+  v2: boolean;
   /** La conversación de la oferta (modo 'oferta'), o null si todavía no arrancó (o no se pudo leer). */
   sesion: OfferSesionVista | null;
   /** Ya hay una conversación anotada: NUNCA se abre otra (aunque ésta no se haya podido leer). */
@@ -411,6 +418,7 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
   const etapa = etapaDeArranque(e, h);
   return {
     modo: h.modo,
+    v2: !!h.v2,
     etapa,
     antes,
     despues,
@@ -624,8 +632,9 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
   // Con un «no» al PDF, lo que escribió que faltaba va acá: «lo anoto» tiene que quedar anotado (cuarta revisión, 21/10).
   // Un «no» sin nada escrito también deja marca (sexta revisión, 21/10: el «No» tocado no anotaba nada).
   const pdfNota = notaDelPdf(e);
-  if (e.origen || e.interes || pdfNota) {
-    await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, at: new Date().toISOString(), pdfNota }))
+  if (e.origen || e.interes || e.intereses?.length || pdfNota) {
+    // `intereses`: los hasta 3 del V2 (lo que eligió, tal cual); `interes` sigue siendo el de antes, cuando coincide.
+    await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, ...(e.intereses?.length ? { intereses: e.intereses } : {}), at: new Date().toISOString(), pdfNota }))
       .catch((err) => console.error('[arranque] encuesta:', err instanceof Error ? err.message : err));
   }
 
