@@ -550,6 +550,110 @@
    "hecho": "2026-11-18T13:48:38.475Z"
   },
   {
+   "key": "funnel-clase-anuncios-a-whatsapp",
+   "pestana": "Funnel Coach · Clase: Anuncios a WhatsApp",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-anuncios-a-whatsapp.mp4",
+   "poster": "/tutoriales/funnel-clase-anuncios-a-whatsapp.jpg",
+   "duracion_s": 61.4,
+   "peso_kb": 3153,
+   "guion": "Si alguien te escribe por WhatsApp y tardas en contestar, se lo lleva otro. Te doy la bienvenida a la clase de Anuncios a WhatsApp: el anuncio abre un chat contigo, y vendes conversando. Funciona así. La persona ve tu anuncio, con un botón que avisa que va a abrir WhatsApp. Lo toca, y te llega su primer mensaje. Conversas: descubres qué necesita y resuelves sus dudas. Y le vendes ahí mismo, o lo pasas a una llamada o a una visita. ¿Cuándo te conviene? Cuando vendes a personas, a un precio medio, y la venta se da conversando. Se arranca con poco: unos pocos dólares por día alcanzan para probar. La condición es contestar rápido, y seguir la conversación: a quien te escribió y no le haces seguimiento, lo pierdes. Un buen número: de cada 100 conversaciones, entre 5 y 20 terminan en compra. Funnel Coach te ayuda con el anuncio y con qué contestar, y en Chats, MaKo te sugiere la respuesta. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-1",
+     "rol": "gancho",
+     "texto": "Si alguien te escribe por WhatsApp y tardas en contestar, se lo lleva otro.",
+     "t_inicio": 0.12,
+     "t_fin": 4.12
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de Anuncios a WhatsApp: el anuncio abre un chat contigo, y vendes conversando.",
+     "t_inicio": 4.76,
+     "t_fin": 11.32
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-3",
+     "rol": "cosa",
+     "texto": "Funciona así. La persona ve tu anuncio, con un botón que avisa que va a abrir WhatsApp.",
+     "t_inicio": 11.82,
+     "t_fin": 16.84
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-4",
+     "rol": "cosa",
+     "texto": "Lo toca, y te llega su primer mensaje.",
+     "t_inicio": 17.34,
+     "t_fin": 19.74
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-5",
+     "rol": "cosa",
+     "texto": "Conversas: descubres qué necesita y resuelves sus dudas.",
+     "t_inicio": 20.26,
+     "t_fin": 23.94
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-6",
+     "rol": "cosa",
+     "texto": "Y le vendes ahí mismo, o lo pasas a una llamada o a una visita.",
+     "t_inicio": 24.38,
+     "t_fin": 28.1
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-7",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando vendes a personas, a un precio medio, y la venta se da conversando.",
+     "t_inicio": 28.72,
+     "t_fin": 34.24
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-8",
+     "rol": "cosa",
+     "texto": "Se arranca con poco: unos pocos dólares por día alcanzan para probar.",
+     "t_inicio": 34.7,
+     "t_fin": 38.42
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-9",
+     "rol": "cosa",
+     "texto": "La condición es contestar rápido, y seguir la conversación: a quien te escribió y no le haces seguimiento, lo pierdes.",
+     "t_inicio": 38.98,
+     "t_fin": 46.02
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-10",
+     "rol": "cosa",
+     "texto": "Un buen número: de cada 100 conversaciones, entre 5 y 20 terminan en compra.",
+     "t_inicio": 46.66,
+     "t_fin": 51.98
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-11",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda con el anuncio y con qué contestar, y en Chats, MaKo te sugiere la respuesta.",
+     "t_inicio": 52.76,
+     "t_fin": 58.56,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-anuncios-a-whatsapp-12",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 59.06,
+     "t_fin": 60.72,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "100 → cien · 5 → cinco · 20 → veinte (ortografía del transcriptor)",
+   "hecho": "2026-11-19T00:45:55.729Z"
+  },
+  {
    "key": "funnel-clase-anuncios-a-vsl",
    "pestana": "Funnel Coach · Clase: Anuncios a VSL",
    "ruta": "/second-brain",
