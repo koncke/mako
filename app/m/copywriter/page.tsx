@@ -50,15 +50,14 @@ export default async function CopywriterMovil({ searchParams }: { searchParams: 
   }
   const vista = vistaDeCopy(sp);
   if (vista === 'outliers') {
-    const portada = primeraTandaCopy(await leerOutliersCopy());
-    if (conInspiracion) {
-      const pendientes = await leerInspiracion().then((d) => d.piezas.filter((x) => x.estado === 'por_revisar' || x.estado === 'sin_leer').length, () => 0);
-      portada.inspiracion = { pendientes };
-    }
+    // El botón «Inspiración» de la portada, con lo que espera respuesta (sólo si el negocio la tiene).
+    const inspiracion = conInspiracion
+      ? { pendientes: await leerInspiracion().then((d) => d.piezas.filter((x) => x.estado === 'por_revisar' || x.estado === 'sin_leer').length, () => 0) }
+      : null;
     return (
       <PantallaM>
-        <OutliersCopy portada={portada} telefono rutaGuion="/m/copywriter/{id}?mako=1"
-          rutaGuiones="/m/copywriter?ver=guiones" rutaCrear="/m/copywriter?nueva=1" />
+        <OutliersCopy portada={primeraTandaCopy(await leerOutliersCopy())} telefono rutaGuion="/m/copywriter/{id}?mako=1"
+          rutaGuiones="/m/copywriter?ver=guiones" rutaCrear="/m/copywriter?nueva=1" inspiracion={inspiracion} />
       </PantallaM>
     );
   }

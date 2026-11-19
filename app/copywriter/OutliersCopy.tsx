@@ -214,8 +214,10 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
  * la página replicada, con `{id}` (en el teléfono, su vista del guion con MaKo abierto: un texto y no una función, porque la arma
  * el server); `rutaGuiones` y `rutaCrear`: «Mis guiones» y «Crear desde cero».
  */
-export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywriter/{id}', rutaGuiones = RUTA_GUIONES_COPY, rutaCrear = RUTA_CREAR_COPY, plantillas, onPlantilla, alInstante: deAfuera }: {
+export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywriter/{id}', rutaGuiones = RUTA_GUIONES_COPY, rutaCrear = RUTA_CREAR_COPY, plantillas, onPlantilla, alInstante: deAfuera, inspiracion: inspiracionDeAfuera }: {
   portada: PortadaCopy; telefono?: boolean; rutaGuion?: string; rutaGuiones?: string; rutaCrear?: string;
+  /** Inspiración (19/11/2026): el teléfono lo pasa aparte; la computadora lo trae en `portada.inspiracion`. */
+  inspiracion?: { pendientes: number } | null;
   /**
    * La capa del clic (./AlInstante.tsx) de la pantalla que la contiene: Copywriter la dibuja en el centro de Create y vigila los
    * links. Sin esto (el teléfono), la portada pone la suya, fija, y vigila los links ella.
@@ -360,11 +362,12 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
 
   // Sin chat en la portada (12/11/2026): «Mis guiones» abre la lista a la izquierda (`usePortadaCrear`); en el teléfono, su ruta.
   const pantalla = usePortadaCrear();
+  const insp = inspiracionDeAfuera ?? portada.inspiracion ?? null;
   const botones = (
     <div className={telefono ? `${s.botones} ${oc.botonesTelefono}` : s.botones}>
       <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
       {/* Inspiración (19/11/2026): lo guardado por WhatsApp; con el número de lo que espera respuesta. */}
-      {portada.inspiracion ? <Link href={telefono ? `/m${RUTA_INSPIRACION_COPY}` : RUTA_INSPIRACION_COPY} className={s.pastilla}>Inspiración{portada.inspiracion.pendientes ? ` (${portada.inspiracion.pendientes})` : ''}</Link> : null}
+      {insp ? <Link href={telefono ? `/m${RUTA_INSPIRACION_COPY}` : RUTA_INSPIRACION_COPY} className={s.pastilla}>Inspiración{insp.pendientes ? ` (${insp.pendientes})` : ''}</Link> : null}
       {/* «Pegar link o texto» replica igual (lib/copywriter/pegado-servidor.ts): mismo candado que la tarjeta. */}
       <button type="button" className={s.pastilla} data-recorrido={MARCA.copywritingPegar} onClick={() => (soloPro ? setCandado(true) : setPegando(true))}>Pegar link o texto</button>
       {pantalla
