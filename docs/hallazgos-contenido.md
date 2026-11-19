@@ -321,6 +321,17 @@ galería de formatos (el motor, el kit, la voz) está en `docs/editor-video/anim
 - `drawtext` de ffmpeg en Windows se cae (no hay fontconfig) y la «C:» de `fontfile` rompe el filtro: para mirar un MP4
   entero, `series/tools/mirar-mp4.sh` saca un cuadro cada 0,5 s y arma las hojas con `tools/hoja.py`.
 
+**«Ver ejemplo» de algunas estructuras de carrusel monta el título sobre el texto (19/11, sin confirmar en la app).** Dibujando
+los ejemplos de `lib/carruseles/tipos.ts` con el mismo código que «Ver ejemplo» (`documentoDeCarrusel` → `PaginaCarrusel`, con las
+fuentes del catálogo del editor cargadas), la portada de «Mito vs. realidad» («4 mitos que te hacen cobrar de menos») y una lámina
+de «Antes y después» («5 preguntas antes de la cita») tienen el título de varias líneas encima del texto de abajo. El alto de cada
+caja sale de una estimación (`altoEstimado` / `tamanoQueLlena`, lib/carruseles/documento.ts), no de medir la fuente: con Archivo
+Black y Space Grotesk la estimación se queda corta. Falta mirarlo en Image con la pantalla real antes de tocarlo.
+
+**Las filas tildadas de «Extraer de un grupo de WhatsApp» se ven gris oscuro en el tema claro.** El fondo es `var(--primary-weak)`
+(app/crm/TraerDeGrupoWA.tsx), y en el claro vale `#a3a39e`: una tabla de 11 tildados queda casi toda gris medio. Se mostró así en el
+carrusel GRUPO porque es la pantalla real.
+
 ## Lo que quedó sin hacer
 - Ver `docs/series/serie-1-elige-a-o-b.md` y `docs/series/serie-4-reacciona-comentarios.md`, §5 «Por hacer».
 ## Relevo de referentes: Ramiro Cubría, Víctor Heras y Alex Hormozi — 19/11/2026
