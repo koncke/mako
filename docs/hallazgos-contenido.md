@@ -356,8 +356,9 @@ galería de formatos (el motor, el kit, la voz) está en `docs/editor-video/anim
 
 **«Ver ejemplo» de algunas estructuras de carrusel monta el título sobre el texto (19/11, sin confirmar en la app).** Dibujando
 los ejemplos de `lib/carruseles/tipos.ts` con el mismo código que «Ver ejemplo» (`documentoDeCarrusel` → `PaginaCarrusel`, con las
-fuentes del catálogo del editor cargadas), la portada de «Mito vs. realidad» («4 mitos que te hacen cobrar de menos») y una lámina
-de «Antes y después» («5 preguntas antes de la cita») tienen el título de varias líneas encima del texto de abajo. El alto de cada
+fuentes del catálogo del editor cargadas), 6 de las 54 láminas de los 8 ejemplos tienen el título de varias líneas
+encima del texto de abajo: la portada de «Mito vs. realidad», la 4 de «Antes y después», la 5 de «Paso a paso» y la 1, la 3 y la 5
+de «Opinión» (la que peor está: «Comprar en preventa no es para todos» tapa su bajada). El alto de cada
 caja sale de una estimación (`altoEstimado` / `tamanoQueLlena`, lib/carruseles/documento.ts), no de medir la fuente: con Archivo
 Black y Space Grotesk la estimación se queda corta. Falta mirarlo en Image con la pantalla real antes de tocarlo.
 

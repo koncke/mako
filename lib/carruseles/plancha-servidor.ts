@@ -15,9 +15,12 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getSupabaseServer } from '../supabase';
 import { BUCKET_IMAGE } from '../image-editor/reglas';
-import { asignarRenglones, bloquesSinDueno, cajaDe, esDeUnaLista, esNombreDeLogo, esPrincipal, filasDe, leerLamina, mismoBloque, planchar, sinLetras, type LecturaDeLamina, type Renglon, type Rgba } from './plancha-local';
+import { asignarRenglones, bloquesSinDueno, cajaDe, esDeUnaLista, esNombreDeLogo, esPrincipal, filasDe, leerLamina, mismoBloque, planchaQuePierde, planchar, sinLetras, type LecturaDeLamina, type Renglon, type Rgba } from './plancha-local';
 import { RECORTES_MAX, anchoEsperadoDe, queVaEnLosRenglones, sinCambio, type PlanchaDeLamina, type Replica, type TextoCompletado, type TextoReplica } from './replica';
 
+
+/** Los papeles de un texto que la lámina NECESITA (el marco, el @ y el pie se pueden perder sin que cambie qué dice). */
+const ES_PRINCIPAL = new Set(['titulo', 'cuerpo', 'cta', 'dato']);
 
 /** Una lámina leída: sus píxeles al tamaño del diseño y lo que se detectó en ella. */
 export type LaminaLeida = { img: Rgba; lectura: LecturaDeLamina };
@@ -257,7 +260,13 @@ export async function planchasDeLaReplica(
   ws: number, replica: Replica, leidas: ReadonlyArray<LaminaLeida | null>, o: { seco: boolean; completar?: Completar; lugarDePersona?: boolean },
 ): Promise<Array<PlanchaDeLamina | null>> {
   const nada = replica.laminas.map(() => null);
-  if (leidas.length < replica.laminas.length || leidas.some((x) => !x)) return nada;
+  // La MISMA cantidad (19/11/2026): con 12 láminas leídas y 11 de la IA, `completarLoQueFalta` recorría la 12 sin textos y TIRABA
+  // («Cannot read properties of undefined»), y «Editar» entero fallaba. No se veía porque hasta ese día a la IA iban 10 láminas como
+  // mucho y la plancha ni arrancaba. Si la IA se salteó una, no se sabe cuál: se arma como antes.
+  if (leidas.length !== replica.laminas.length || leidas.some((x) => !x)) {
+    if (leidas.length !== replica.laminas.length) console.warn(`[carruseles] la IA devolvió ${replica.laminas.length} láminas de ${leidas.length}: sin plancha (se arma todo como antes)`);
+    return nada;
+  }
   const { default: sharp } = await import('sharp');
   const W = leidas[0]!.img.ancho;
   const H = leidas[0]!.img.alto;
@@ -273,17 +282,33 @@ export async function planchasDeLaReplica(
   if (o.completar) await completarLoQueFalta(leidas as LaminaLeida[], textos, asignados, personas, o.completar);
   quedanComoEnElOriginal(leidas as LaminaLeida[], textos, asignados, personas);
   const out: Array<PlanchaDeLamina | null> = [];
-  for (const [i, l] of replica.laminas.entries()) {
+  // PRIMERO se planchean todas y se cuenta lo que se perdió; DESPUÉS se suben (una plancha que no se usa no deja archivos).
+  const hechas: Array<{ img: Rgba; r: Extract<ReturnType<typeof planchar>, { ok: true }> }> = [];
+  const cuenta = { principales: 0, perdidos: 0, portada: false };
+  for (const [i] of replica.laminas.entries()) {
     const leida = leidas[i]!;
     // Se planchea una COPIA: la lámina leída queda como estaba por si hay que volver a intentar.
     const img: Rgba = { ancho: leida.img.ancho, alto: leida.img.alto, px: new Uint8ClampedArray(leida.img.px) };
-    const r = planchar(img, leida.lectura, { textos: asignados[i].map((rs) => ({ renglones: rs })), personas: personas[i] });
+    // Tapar lo que no se borra, sólo en un carrusel (./plancha-local.ts, `PedidoPlancha.tapar`).
+    const r = planchar(img, leida.lectura, { textos: asignados[i].map((rs) => ({ renglones: rs })), personas: personas[i], tapar: replica.proporcion === '4:5' || replica.proporcion === '1:1' });
     // planchar devuelve un bloque por texto, en el orden de `textos[i]` (los de la IA y, después, los del marco agregados).
     if (!r.ok) { console.warn(`[carruseles] la lámina ${i + 1} no se plancheó (se arma todo como antes): ${r.motivo}`); return nada; }
     // Un texto de la IA que no se encontró en la lámina no se escribe: no tiene lugar medido. Nunca era uno principal sin más:
     // la IA lista también letra de adentro de una captura («Estrategia.pdf», como titular), y si era uno principal, su bloque
     // quedó sin dueño y el segundo pedido ya lo leyó y lo adaptó (`completarLoQueFalta`). Se deja como está en el original.
+    for (const [k, t] of textos[i].entries()) {
+      if (!t.texto || !ES_PRINCIPAL.has(t.rol)) continue;
+      cuenta.principales++;
+      if (!r.textos[k]) { cuenta.perdidos++; if (i === 0 && t.rol === 'titulo') cuenta.portada = true; }
+    }
     for (const [k, t] of textos[i].entries()) if (t.texto && !r.textos[k]) textos[i][k] = { ...t, texto: '' };
+    hechas.push({ img, r });
+  }
+  if (planchaQuePierde(cuenta)) {
+    console.warn(`[carruseles] la plancha no ubicó ${cuenta.perdidos} de ${cuenta.principales} textos principales${cuenta.portada ? ' (el titular de la portada)' : ''}: se arma todo como antes`);
+    return nada;
+  }
+  for (const [i, { img, r }] of hechas.entries()) {
     const jpeg = await sharp(Buffer.from(img.px.buffer, img.px.byteOffset, img.px.byteLength), { raw: { width: img.ancho, height: img.alto, channels: 4 } })
       .removeAlpha().jpeg({ quality: 90, mozjpeg: true }).toBuffer();
     // La persona del original se borró siempre; su lugar queda marcado para la del negocio salvo con «Sin persona» en el guiado.
