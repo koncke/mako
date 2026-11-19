@@ -432,7 +432,7 @@ es el % de lo que pagó (US$ 970 → US$ 291).
   código habría dejado el programa acreditando UNA vez y callado. La **migración 0421** agrega `pago_id` y `canal`, y cambia el índice: el renglón viejo
   (sin `pago_id`) sigue siendo uno por negocio; el nuevo es uno por pago. **Sin la 0421 el cron no acredita nada** (lee `pago_id` de lo ya acreditado; si
   falla, avisa en el log «¿falta la migración 0421?» y sigue sin escribir): desplegar antes de aplicarla es seguro, nunca acredita de más ni de menos.
-  **0421 preparada, NO aplicada** (escribir en producción pide el sí de Martín).
+  **0421 APLICADA en producción el 19/11/2026 ~03:20 UTC** con el sí de Martín en el chat de Cobros («Sí, prende el registro de Partners»); verificado: `pago_id`, `canal` y los dos índices nuevos, 0 renglones tocados. El comentario de la columna `canal` decía «pasarela (27 %)»: se corrigió antes de aplicar (el canal es sólo un dato, el partner cobra siempre el 30 %).
 - **El canal sale del pago, no del plan.** `canalDelPago` (lib/partners-reglas.ts): con `proveedor` (stripe/mercadopago/creem) o método `tarjeta` → pasarela;
   método `cripto` (así entra Binance), `transferencia` o `efectivo` → directo; lo que no se sabe (sin proveedor y con método `otro` o vacío) va por la tasa
   **menor**: nunca se acredita de más, y si era directo el super admin lo corrige con un `ajuste`. No existe «Whop» en `Pasarela`: si se suma una pasarela,
