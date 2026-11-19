@@ -84,6 +84,9 @@ test('los videos de los momentos del onboarding: sus keys, el recorrido la prime
   const motor = leer('app/_ui/tutorial/MotorTutorial.tsx');
   // 18/11, Martín: la primera vez en el Ops Center, el recorrido APROBADO, y su video sólo si sigue sus pasos.
   assert.match(motor, /mostrarTutorial\(t\.pestana === 'ops-center' \? TUTORIAL_RECORRIDO : t,/, 'la primera vez en el Ops Center, el recorrido aprobado');
+  // Martín, 18/11, noche: sin la tarjeta al entrar a una pestaña (su video, directo) y el «?» que lo vuelve a abrir.
+  assert.match(motor, /\.\.\.\(t\.pestana === 'ops-center' \? \{\} : \{ directo: true \}\)/, 'una pestaña abre directo su video');
+  assert.match(motor, /onClick=\{\(\) => mostrarTutorial\(t, \{ directo: true \}\)\}/, 'el «?» vuelve a abrir el video de la pestaña');
   assert.match(motor, /VIDEO_FIEL\.has\(senal\.tutorial\.pestana\) && !sigueLosPasos\(/, 'un video que no sigue los pasos no se usa');
   // La pausa al FINAL de la frase, no al empezar (la voz terminaba la frase con la marca ya en la siguiente).
   assert.match(motor, /if \(t >= frase\.t_fin - 0\.05\) \{ if \(frase\.espera_clic\)/, 'la pausa en el t_fin');
