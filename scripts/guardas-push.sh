@@ -10,6 +10,20 @@
 # el build». Uso: sh scripts/guardas-push.sh <remoto>   (el remoto, para hooks-en-orden)
 # =============================================================================
 
+# Antes que nada, que haya node_modules. Un worktree nuevo no lo trae, y sin tsx cada
+# `node --import tsx …` falla, y el chequeo que falla primero culpa a su archivo: el 14/11 y el
+# 19/11/2026 tres chats leyeron «docs/branding-mako.md quedó viejo» y buscaron en la gramática
+# lo que era una carpeta que faltaba. docs/hallazgos-operaciones.md.
+if [ ! -f node_modules/tsx/package.json ]; then
+  echo ""
+  echo "  X PUSH BLOQUEADO: este worktree no tiene node_modules (no encuentro tsx)."
+  echo "  No es ningún archivo viejo. Enlaza el node_modules del clon principal y vuelve a pushear:"
+  echo "      cmd //c mklink /J node_modules \"C:\\Users\\marti\\OneDrive\\Escritorio\\dashboard-marketing-main\\dashboard-marketing\\node_modules\""
+  echo "  (antes de borrar el worktree: cmd //c rmdir node_modules, para no borrar el del clon)"
+  echo ""
+  exit 1
+fi
+
 # Primero las bitácoras de /admin/dev: es lo que más se rompe (un hito sin `puntos`,
 # TS2741) y un tsc ACOTADO a ellas tarda ~4 s y ~300 MB. El 15/10/2026 ese error tiró
 # un run entero de Actions. Un árbol viejo sin el script sigue: lo chequea Actions.
