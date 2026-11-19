@@ -26,6 +26,7 @@ import { PARTES_PERSONAJE, PERSONAJE_MARTIN, PIELES, PELOS, ROPAS, OJOS, resolve
 import { apretar, palabrasDelGuion, textoParaVoz, type Tiempos } from '@/lib/ai-avatar/cubos-tiempos';
 import { mtDeVoz } from '@/lib/mako-tokens-reglas';
 import { Icon } from '@/app/_components/icons';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import './cubos.css';
 
 type Voz = { tipo: 'mako'; id: string } | { tipo: 'clon' } | { tipo: 'audio' };
@@ -299,7 +300,7 @@ export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
         )}
 
         <div className="cb-generar">
-          {error ? <p className="cb-error" role="alert">{error}</p> : null}
+          {error ? <p className="cb-error" role="alert">{error}<ReportarASoporte /></p> : null}
           <button type="button" className="cb-crear" disabled={ocupado !== '' || !guion.ok || palabras > MAX_PALABRAS} onClick={() => void crear()}>
             {ocupado === 'crear' ? 'Creando la voz…' : 'Crear video'}
           </button>

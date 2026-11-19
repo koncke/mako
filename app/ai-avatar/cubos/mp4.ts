@@ -10,8 +10,7 @@
 // réplica (scripts/avatar-cubos/), que lo empaqueta con esbuild. mediabunny se carga recién al exportar.
 // =============================================================================
 
-import { wavDeCanales } from '@/app/video-editor/_opencut/audio/wav';
-import { cortar, nivelar } from '@/lib/ai-avatar/cubos-audio';
+import { cortar, nivelar, wavDe } from '@/lib/ai-avatar/cubos-audio';
 import type { Corte } from '@/lib/ai-avatar/cubos-tiempos';
 
 export const ANCHO = 1080, ALTO = 1920, FPS = 30;
@@ -72,7 +71,7 @@ export async function prepararVoz(url: string, cortes: readonly Corte[]): Promis
   const listos = nivelar(cortar(canales, dec.sampleRate, cortes), dec.sampleRate);
   const buffer = new AudioBuffer({ length: listos[0].length, numberOfChannels: listos.length, sampleRate: dec.sampleRate });
   listos.forEach((c, i) => buffer.copyToChannel(c as Float32Array<ArrayBuffer>, i));
-  return { buffer, wav: wavDeCanales(listos, dec.sampleRate) };
+  return { buffer, wav: wavDe(listos, dec.sampleRate) };
 }
 
 export type Avance = (hechos: number, total: number) => void;

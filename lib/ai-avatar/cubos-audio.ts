@@ -93,6 +93,25 @@ export function gananciaPara(canales: readonly Float32Array[], sr: number, objet
   return Math.min(g, techo);
 }
 
+/**
+ * Los canales como un WAV de 16 bits (lo que la plantilla toca con su `<audio>`). Propio y no el del Video Editor
+ * (app/video-editor/_opencut/audio/wav.ts): el motor del editor sólo entra por su puerta 'use client'
+ * (tests/video-editor-integracion.test.ts, prueba 4).
+ */
+export function wavDe(canales: readonly Float32Array[], sr: number): Blob {
+  const n = Math.max(1, Math.min(2, canales.length)), muestras = canales[0]?.length ?? 0, bytes = muestras * n * 2;
+  const v = new DataView(new ArrayBuffer(44 + bytes));
+  const txt = (o: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  txt(0, 'RIFF'); v.setUint32(4, 36 + bytes, true); txt(8, 'WAVE'); txt(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, n, true); v.setUint32(24, sr, true);
+  v.setUint32(28, sr * n * 2, true); v.setUint16(32, n * 2, true); v.setUint16(34, 16, true); txt(36, 'data'); v.setUint32(40, bytes, true);
+  let o = 44;
+  for (let i = 0; i < muestras; i++) for (let c = 0; c < n; c++) {
+    const x = Math.max(-1, Math.min(1, canales[c][i])); v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7fff, true); o += 2;
+  }
+  return new Blob([v.buffer], { type: 'audio/wav' });
+}
+
 /** Los canales llevados a -14 LUFS (con el pico cuidado). */
 export function nivelar(canales: readonly Float32Array[], sr: number): Float32Array[] {
   const g = gananciaPara(canales, sr);

@@ -79,8 +79,12 @@
 /* La plantilla escondida que se fotografía para el MP4: tamaño real, invisible y sin recibir clics. */
 .cb-captura { position: fixed; left: 0; top: 0; width: 1080px; height: 1920px; border: 0; opacity: 0; pointer-events: none; z-index: -1; }
 
+/* En el teléfono va todo en una columna que scrollea entera: el constructor arriba y el video abajo (con `min-height: 0` las
+   filas se achicaban y las secciones se pisaban con el video, medido a 375 el 19/11). */
 @media (max-width: 860px) {
-  .cb { grid-template-columns: 1fr; }
+  .cb { grid-template-columns: 1fr; overflow-y: auto; align-content: start; }
+  .cb-panel, .cb-escena { min-height: auto; overflow: visible; }
   .cb-panel { border-right: 0; border-bottom: 1px solid var(--border); }
   .cb-secciones { overflow: visible; }
+  .cb-escena { padding: 16px; }
 }
