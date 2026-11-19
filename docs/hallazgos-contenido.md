@@ -70,3 +70,124 @@ las capturas de la app y las de prueba de varios reels). Lo que no se hace: salt
 
 - La respuesta automática a CUBOS (qué se manda: la guía del método) no existe todavía. Está en
   `docs/series/serie-3-ventas.md` → «Palabras de CTA».
+# Hallazgos — Contenido (las series de videos de Martín: temas, investigación y producción)
+
+Lo que vive acá: las series de videos cortos para las redes de Martín, hechas con el método de los videos por código.
+- **El código:** `C:/dev/artefactos-animaciones/` (reels HTML + kit, la voz y el render; no es repo).
+- **Los temas:** la biblioteca de cursos (`app/conocimientos/curso-*.ts` + `public/cono-tx/*.json`).
+- **Los playbooks:** `docs/series/`.
+
+Lo de la biblioteca como dato del portal (cursos duplicados, transcripciones vacías) está también en
+[hallazgos-conocimiento.md](hallazgos-conocimiento.md).
+
+## Lo que más muerde acá
+
+1. **El mismo video, distinto arranque, da 100 veces más (19/11/2026, serie 2).** Las resubidas del MISMO guion en un
+   mismo canal son un A/B natural, y lo dicen fuerte:
+   - Dan Martell, «Never charge for your time», tres veces: arrancando con la regla, 30.565 vistas (ZO0jOH-VKH0);
+     con un ejemplo genérico, 35.131 (jyR5-787ckc); como recuerdo propio («una vez contraté a un plomero…»), 3.974.284
+     (g13FnSgICA8).
+   - Hormozi, el clip de «lo hablo con mi esposa», reeditado para abrir con la frase del cliente: de 413.547 a 1.480.002.
+   - Hormozi cuenta que su equipo rehízo sólo los primeros 5 s de un video y pasó de 4.000 a 850.000 vistas (V-loNBSqdWY).
+   - Jordi Segués tradujo palabra por palabra el guion de Martell que tiene 12,8 M de vistas, y sacó 25,7 mil.
+
+   **Regla:** se invierte en el arranque, no en el cuerpo. Abre con una escena en primera persona con un número, nunca con
+   la regla. Y calcar el guion de un viral no calca el resultado. Medido con yt-dlp el 19/11; orienta, no prueba, porque
+   la fecha y el público cambian.
+
+2. **El diagnóstico obvio era el equivocado: «los cursos no hablan de carruseles ni de trial reels».** Los siete lectores
+   buscaron por TÍTULO de clase y no los encontraron. Estaban en las clases de PREGUNTAS:
+   - los trial reels, en `tumadreanna` y `masteryhaus`, donde se dicen «reel de prueba»;
+   - los carruseles, en los cursos de OFERTA (Cubria, Sofía Contreras) y en las sesiones de preguntas de BlueHacker, no en
+     los de marca personal.
+
+   Los encontró un crítico que buscó en TODOS los cursos con `buscar.mjs '<regex>' todos`. **Regla:** un tema que «no
+   está» se busca por texto en toda la biblioteca antes de darlo por ausente.
+
+3. **Los conteos por palabra clave orientan y mienten** (`scratchpad/s2/temas.mjs`, contó 60 temas en 29 millones de
+   palabras en 77 s):
+   - «presión» cuenta «expresión» (305 falsos en instituto-de-comunicacion);
+   - todos los títulos de tumadreanna dicen «Viral con TUMADRE»;
+   - la «oferta» de midas-concept es la de oferta y demanda (es trading);
+   - la marca de agua del revendedor («este curso fue adquirido en…») va metida en las transcripciones de growth-partner;
+   - la regex de precio casi no pega, aunque hay clases ENTERAS de precio («11. PRINCING» de ATV, «Precios» de
+     masteryhaus): el precio se busca por el título de la clase.
+
+   **Regla:** el conteo elige qué leer; el ranking se arma con lo leído.
+
+4. **Mismo mentor, varios cursos: si se cuenta por curso, se cuenta doble.**
+   - Victor Heras: master-marca-personal 4.0 y 5.0, casi las mismas clases; el 4.0 trae cada una duplicada.
+   - Agustín Nievas: los tres Growing comparten clases.
+   - Juan ADS = Juan Osorio: m5-95, metolodogia-jads y academia-estratega, que copia a m5-95 con otros videoId.
+   - Andy Landa: stories-master y manychat-master.
+
+   **Regla:** la «fuerza» de un tema se mide en mentores distintos, no en cursos.
+
+5. **Cifras de mentores que no se usan como dato** (lista completa en `docs/series/serie-2-temas.md` → «Datos que NO se
+   usan»):
+   - Adrià Solà Pastor inventa cifras y fuentes en sus ejemplos y lo dice («me lo acabo de inventar»).
+   - Cuentas mal hechas: Mati Molina dice 7 % y es 0,75 %; el 6 % de la alumna de Contreras es 3,3 % sobre inscriptos.
+   - Urgencia simulada: el «contador evergreen» de Convierte Más, los cupos falsos de ATV (que Carrizo condena en el mismo
+     curso) y las «plazas limitadas» de un webinar grabado.
+   - Brian Tracy, «el 80 % se cierra después del quinto intento»: sin estudio que lo respalde.
+   - Los umbrales del algoritmo (Verdú, Alborna) son reglas de ellos, no datos oficiales.
+
+   **Regla:** toda cuenta de un mentor se rehace con un script antes de ir a un guion.
+
+6. **Un fragmento de búsqueda atribuye mal.** Un tramo de `buscar.mjs` hacía parecer que Sergio Beguería publica un
+   carrusel y al día siguiente el reel del mismo tema; era el plan de un alumno. Un lector le dio trial reels a Puigrredón
+   y Llados, que no hablan de eso. **Regla:** se lee el tramo entero antes de citar, y un crítico relee las citas.
+
+7. **Investigación de afuera en YouTube: lo que funciona y lo que no.**
+   - Sirve listar `https://www.youtube.com/@canal/shorts` con `--flat-playlist`: unos 6 s por cada 300 Shorts, con las
+     vistas. Así se armó una base de 27.700 Shorts de 47 creadores (`scratchpad/s2/afuera/shorts.tsv` + `filtrar.mjs`).
+   - `ytsearch` no sirve: no trae las vistas de los Shorts y ordena por relevancia (salen dibujitos con mil millones de
+     vistas). Sí sirve la URL de búsqueda con el filtro «menos de 4 minutos»: `&sp=EgIYAQ%253D%253D`.
+   - Los títulos de canales en español vuelven TRADUCIDOS al inglés: se busca con regex en los dos idiomas.
+   - Algunos subtítulos «es-orig» son la pista doblada, no la voz original.
+   - Vistas pagadas: 81 mil vistas con 11 «me gusta». Se mira la proporción de «me gusta» antes de llamar viral a algo
+     (en orgánicos de ventas, 2-7 %).
+   - Google (WebSearch) no indexa TikTok: TikTok e Instagram se miran en el navegador.
+
+8. **yt-dlp se rompió en toda la PC por otro chat (19/11, unos 15 minutos).** Otro chat corrió
+   `pip install --force-reinstall yt-dlp`, y pip no puede bajar nada en esta PC (falla con un error de ctypes; curl sí
+   anda). El paquete quedó a medio instalar (`site-packages/~t_dlp`) y todos los chats recibían
+   `No module named yt_dlp`.
+   - **La salida:** bajar el .whl con curl desde la API de PyPI, descomprimirlo en una carpeta propia y correr
+     `python -m yt_dlp` con `PYTHONPATH`.
+   - **Regla:** una herramienta compartida no se reinstala mientras otros chats la usan; si hace falta, se instala con
+     `pip install --target <carpeta propia>`.
+   - **Además:** para sacar cuadros, `-f "worst[height>=360]/worst"` ya no anda, porque YouTube no da audio y video
+     juntos sin el runtime de JS. Usar `--js-runtimes node -f "134/bv*[height<=480]"`.
+
+9. **La voz: los nombres se escriben como se dicen, y el chequeo lo confirma.** Con «Hormozi» en el guion, eleven_v4
+   leyó la H muda y el chequeo oyó «Ormosi». Escrito «Jormozi», el chequeo oye «Hormozi». En pantalla se muestra el
+   nombre real reescribiendo la palabra en `TIEMPOS.words` antes de cargar el kit (`reels/edu-mismo-video.html`).
+   - **Trampa del script:** `tools/voz_formato.sh` reintenta el chequeo 3 veces, con 20 s de espera, cada vez que hay
+     una diferencia, aunque sea esperable (el nombre escrito como suena). Son 60 s y tres transcripciones de más por toma.
+
+10. **La RAM manda el plan.** La guardia (`~/.claude/guardia/memoria.mjs`) pide 3 GB libres para un Workflow. Con seis chats
+    de series abiertos, la PC estuvo entre 0,9 y 2,3 GB, y se perdieron 14 minutos esperando.
+    - **Lo que funcionó:** agentes sueltos (piden 1 GB al arrancar), de a dos o tres.
+    - **El navegador y los renders** van por la cola de `tools/turno.mjs`. El 19/11 a la 1:30 había nueve trabajos en
+      fila: la captura de un video puede esperar más de 10 minutos.
+    - **Regla:** con menos de 3 GB se va directo a agentes sueltos. Y las capturas se piden temprano, mientras se hace
+      otra cosa.
+
+11. **«THE NET LAB está vacío» era falso, por segunda vez.** El crítico del 19/11 concluyó que
+    programa-meta-ads-the-net-lab tiene «sus 89 transcripciones vacías», porque en `public/cono-tx` salen con 0 palabras.
+    Las transcripciones existen en `C:/cursos/programa-meta-ads-the-net-lab/transcripciones/` (97 archivos, formato
+    `{modelo, texto}`), y eso ya estaba escrito en [hallazgos-conocimiento.md](hallazgos-conocimiento.md) desde el
+    11/11. **Regla:** antes de dar por vacío un curso, se mira `C:/cursos/<slug>/`.
+
+## Lo que quedó sin hacer (19/11)
+
+- THE NET LAB (Meta Ads 2026: «Andrómeda», «Diversidad creativa», estructura de cuenta 2026): no se leyó, y es lo más
+  fuerte para el tema 7 (el creativo de los anuncios).
+
+- TikTok e Instagram de los 10 primeros temas: se buscaron sólo en YouTube. En historias y carruseles el método vive
+  en Instagram (lo que hay de @growithalex está en `C:/dev/carrusel-mako/growithalex/`).
+- Clases que prometen y no se leyeron:
+  - «Por qué no necesitas un perfil de cliente ideal» de Felipe Vergara [1NZdrIAfhP0JKjWxA5ZqCM2j2oo9mKC4X];
+  - los «18 triggers mentales» de Turu [1pxsrtji3P0zeIu11F8x-1X3lLR-H0WQB];
+  - las llamadas reales de Growing Closer, con casos de «tengo que pensarlo» y de socio o pareja.

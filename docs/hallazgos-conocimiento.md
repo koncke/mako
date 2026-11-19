@@ -90,6 +90,29 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 28. **⚠️ «97 de 97 videos sin subtítulo» era MI parser, no la plataforma**: el campo llega como
     objeto y `String(objeto)` es `[object Object]`. Y un video cifrado no se baja: la lección se
     publica como documento con su transcripción. [→](#️-the-net-lab-learndash--spotlightr-el-texto-sale-de-la-página-el-video-no-se-baja)
+29. **La biblioteca como DATO: cursos que no son lo que dicen y conteos que cuentan doble (19/11/2026, serie 2).**
+    Lo midió el relevamiento de los 131 cursos para la serie de educación (`docs/series/serie-2-temas.md`; todas las
+    trampas de esa corrida están en [hallazgos-contenido.md](hallazgos-contenido.md)).
+    - **Títulos que mienten:**
+      - belikethealgo y academia-del-sensei son trading;
+      - programa-raio es un curso de inglés;
+      - higher-levels-ae-mastery es venta B2B, no After Effects;
+      - master-escala-100k es dropshipping;
+      - academia-five-stars «C17 Las 11 Principales Red Flags» no trae la lista, y sus clases 39 y 49 (Parte 1) están
+        vacías.
+    - **Clases duplicadas:**
+      - master-marca-personal-4-0 trae cada clase dos veces, y casi todas repiten las de la 5.0;
+      - academia-estratega repite m5-95 con otros videoId;
+      - growing-setters-3-0 y growing-amg comparten clases;
+      - the-perfect-launch tiene muchas «Copia de…».
+    - **Texto que no es la clase:**
+      - growth-partner trae la marca de agua del revendedor dentro de la transcripción;
+      - la clase de Sergio Beguería «Stories, reels, posts diferencias y usos» [1mIrxnFnNqdfznN8baYkMVjR5u2V1Lh_h] abre
+        con texto del transcriptor en inglés y repite la clase entera.
+    - **⚠️ Se repitió el diagnóstico falso de THE NET LAB:** un agente concluyó «89 transcripciones vacías» mirando
+      `cono-tx`, y están en `C:/cursos/programa-meta-ads-the-net-lab/transcripciones/` (lo dice la sección del 11/11
+      más abajo).
+    - **Regla:** antes de contar un curso, se mira qué es de verdad; antes de darlo por vacío, se mira `C:/cursos/<slug>/`.
 
 ---
 
