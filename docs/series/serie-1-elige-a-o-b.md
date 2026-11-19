@@ -4,6 +4,48 @@
 sigue la cuenta para ver cómo sigue. Protagonista SIEMPRE: Martín en cubos (el chico de rulos rojos, `makeBoy`).
 Chat dueño: `galeria-series` (cuenta claude5, 19/11/2026). Fuente de los reels: `C:/dev/artefactos-animaciones/`.
 
+## 0. LEER PRIMERO — 19/11: Martín rechazó «El mastermind» (y por qué)
+Martín, textual: «No me gustó… porque no se entiende, sobre todo el hook. Tienes que preocuparte muchísimo por copiar los
+hooks de las estructuras que yo te pasé… no debes utilizar palabras técnicas como mastermind, y tampoco digas nombres
+completos como Ramiro Cubría o Víctor Heras. Simplemente di Rama y Víctor… Trata de ser más simple… puedes llevarlo a
+otros tipos de ejemplos.» Y antes, por el Cerebro: «nada de letra chica en ningún lugar» (los subtítulos eran 64 px).
+
+**Reglas que quedan (para toda parte nueva, y también para la Serie 4):**
+1. **El gancho se calca de la referencia** (fórmula de abajo). Se entiende en el primer segundo y sin contexto.
+2. **Palabras de todos los días.** Nada de «mastermind», «nicho», «viralidad», «funnel», «high ticket». La prueba: ¿lo
+   entiende alguien que no sabe nada de marketing?
+3. **Referentes por el nombre corto:** «Víctor», «Rama». La etiqueta en pantalla también (con «en cubos · ficción»).
+4. **Subtítulos grandes:** 92 px, máximo 3 palabras por vez, nunca terminando en «un/de/con…», bajo el mentón.
+5. Partes 2 sólo sobre una parte 1 aprobada (la 2A/2B del mastermind quedó congelada y fuera de la galería).
+
+### Los ganchos de la referencia, palabra por palabra (el segundo exacto)
+Las cuatro **partes 1** de @paralisisaldormir (las fija arriba del perfil; transcripciones en `C:/dev/series-ref/trans/`):
+| Historia (me gusta) | 0,1 s — algo normal | ~2,5 s — «y» lo raro | ~6-10 s — «y» la trampa |
+|---|---|---|---|
+| El búho (419 mil) | «Eres el único pasajero del último búho» (7) | «y en cada parada sube alguien que se sienta un asiento más cerca de ti» (15) | «y el conductor no para en la tuya.» (8) — 9,8 s |
+| El pueblo (179 mil) | «Conduces de noche» (3) | «y cruzas un pueblo en plenas fiestas, sin nadie en la calle.» (11) | «Y diez minutos después, el mismo pueblo vuelve a aparecer delante de ti.» (13) — 10,5 s |
+| La casa rural (37 mil) | «Alquilas una casa rural en la montaña con tus amigos» (10) | «y en el sótano hay una puerta tapiada.» (8) | «La primera noche, desde el otro lado, algo empieza a rascar.» (11) — 10,5 s |
+| Urgencias (20 mil) | «En Urgencias, a todos los que llaman los meten por la puerta doble» (13) | «y ninguno vuelve a salir.» (5) | «Y tú tienes el número cuarenta y siete.» (8) — 8,4 s |
+Las partes 2+ (los 8 restantes, 0,5-2,8 M vistas) abren todas igual: «Elegisteis la B.» (1,5 s) + la opción como acción.
+
+**La fórmula:** (1) quien mira haciendo algo NORMAL, en presente, 3-13 palabras, en el segundo 0; (2) «y» + lo RARO,
+concreto y que se ve, 5-15 palabras, antes del segundo 3; (3) «y» + la TRAMPA o el reloj que te deja adentro, antes del
+segundo 10. Cero nombres propios, cero contexto, cero jerga. El texto del post repite el gancho en una frase. El «elige»
+aparece recién al final (100-118 s). Nosotros: primera persona (narra Martín), misma fórmula.
+
+### Cinco ganchos nuevos con la fórmula (19/11) — elegido: el avión
+1. «Me invitan a una cena con Víctor y Rama, y el que no vende algo antes del postre paga la cuenta de todos. Y ya traen
+   el postre.» — claro, pero el peligro es chico.
+2. «Me subo a un ascensor con un cartel: el que llega arriba sin un cliente no sale. Y vamos por el piso veinte.» — claro;
+   «cliente» obliga a pensar un segundo.
+3. «Me duermo en una charla y me despierto solo con Víctor y Rama. Las puertas no abren. En la pantalla dice: consigue un
+   cliente para salir.» — largo, tres ideas.
+4. «Despierto en un barco que se hunde y el único bote es para el que venda algo primero.» — sin Víctor y Rama.
+5. **«Voy en un avión con Víctor y Rama. Y el piloto avisa que no aterriza hasta que alguien venda algo. Y queda gasolina
+   para diez minutos.»** — ELEGIDO: algo normal → lo raro → el reloj, en 8,4 s; cualquiera lo entiende; y el dilema se
+   vuelve visible sin jerga: «grábate y que te vea todo el avión» (Víctor) o «ve a primera clase: ahí está el que puede
+   pagar» (Rama).
+
 ## 1. La referencia: @paralisisaldormir (analizada el 19/11/2026)
 - 250 mil seguidores. Bio: «Historias paranormales que te harán pensar y suplicar que no te pasen». Vende el método
   (link a un curso de «crear video viral»): el formato es replicable a propósito.

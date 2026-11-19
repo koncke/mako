@@ -370,6 +370,10 @@ galería de formatos (el motor, el kit, la voz) está en `docs/editor-video/anim
   código detrás.
   Volvió a pasar el mismo día con otro reemplazo (`// afuera hasta el golpe…` se comió `guar.pose(…)`): el chequeo de
   sintaxis (`node --check`) no lo ve. Un scan que busca `objeto.metodo(…);` después de `//` en la misma línea sí.
+- **Y un comentario de CSS sin cerrar se come todos los estilos que siguen:** al agrandar los subtítulos agregué
+  `/* … era 64 px` sin el `*/` dentro del CSS de `s1-comun.js`; los subtítulos (la regla anterior al comentario) salieron
+  bien y todo lo demás (tarjetas A/B, etiquetas) quedó sin estilo: la miniatura a 360 px y el texto suelto. Después de
+  tocar un bloque de CSS, contar `/*` contra `*/`.
 - **Un personaje que espera detrás de una puerta cerrada la atraviesa con los brazos** (la pose «cruzados» saca las manos
   ~0,6 adelante): en la parte 2B se veían dos manos flotando delante de la puerta un segundo antes del golpe. Que espere a
   más de un metro y entre recién cuando la puerta se abre.

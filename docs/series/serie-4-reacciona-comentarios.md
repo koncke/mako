@@ -95,6 +95,16 @@ sN     «Deja tu pregunta en los comentarios y la respondo en la parte N+1. Síg
 - Revisado cuadro por cuadro: dos instantes de 0,2 s (11,5 y 33 s) en que el subtítulo roza la tarjeta que se va; no
   justificaba otro render.
 
+## 6b. 19/11 — correcciones de Martín (por el Cerebro) aplicadas a la parte 1
+- **«Nada de letra chica»:** las tarjetas de los comentarios pasaron de 680 px con texto de 52 px a 880 px con 68 px
+  (usuario 48 px, avatar 88 px): la pregunta se lee en el teléfono sin acercarse, como un comentario de Instagram visto de
+  cerca. Subtítulos: ya iban a 70 px.
+- **Palabras de todos los días** (la misma regla que la Serie 1): «Mamá, enseño a vender high ticket» → «Mamá, enseño a
+  vender»; «Me renderizaron con el plan gratis» → «Me hicieron con la versión gratis»; «¿El high ticket no es una
+  estafa?» → «¿Vender cursos caros no es una estafa?». Voz nueva (43,6 s; la primera toma dijo «Respondiendo **a** sus
+  preguntas»: se rehízo hasta que dijo exactamente el guion).
+- El gancho («Respondiendo sus preguntas. Parte uno.» + la mamá) ya cumplía: se entiende en el primer segundo.
+
 ## 7. Decisiones
 - 19/11: cuarto azul noche (no violeta) y título dorado: se copia la estructura, no la marca de Zapater.
 - 19/11: una sola voz (la de Martín) lee la pregunta y contesta; sin efectos de sonido ni música (ante la duda, ninguno).
