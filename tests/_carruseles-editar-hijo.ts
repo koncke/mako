@@ -51,7 +51,20 @@ let red: string[] = [];
  * Qué contesta la IA en esta corrida: el JSON, o un status de error (429 sin cuota, 500 un bache). `cortaEn`: ese modelo de
  * visión contesta la MITAD del JSON con `finishReason: MAX_TOKENS`, como `gemini-flash-latest` el 11/11/2026 en el ws9.
  */
-let contesta: { json?: string; status?: number; cortaEn?: string } = {};
+let contesta: { json?: string; status?: number; cortaEn?: string; faltaN?: number; unaFalla?: boolean } = {};
+/**
+ * `faltaN` (19/11/2026): la IA que mira TODAS las láminas devuelve el JSON sin la lámina `faltaN` (con `flash-lite` volvieron 11 de
+ * 12), y el pedido de esa lámina sola (UNA imagen) la devuelve sola; con `unaFalla`, ese pedido contesta 500.
+ */
+function conLaQueFalta(json: string, imagenes: number, texto: string): { json: string } | { status: number } {
+  const n = contesta.faltaN;
+  if (n == null) return { json };
+  const j = JSON.parse(json) as { laminas: Array<{ n: number }> };
+  if (imagenes > 1) return { json: JSON.stringify({ ...j, laminas: j.laminas.filter((l) => l.n !== n) }) };
+  if (!texto.includes(`la lámina ${n} de un carrusel`)) return { json };
+  if (contesta.unaFalla) return { status: 500 };
+  return { json: JSON.stringify({ ...j, laminas: j.laminas.filter((l) => l.n === n) }) };
+}
 
 const cuerpo = (init: RequestInit): Record<string, unknown> => {
   try { return JSON.parse(String(init.body ?? '{}')) as Record<string, unknown>; } catch { return {}; }
@@ -99,7 +112,10 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
       return new Response(JSON.stringify({ error: { code: contesta.status, message: contesta.status === 429 ? 'Resource has been exhausted: quota' : 'internal error' } }), { status: contesta.status, headers: { 'content-type': 'application/json' } });
     }
     const cortada = nativa && contesta.cortaEn != null && pedidos[pedidos.length - 1]?.modelo === contesta.cortaEn;
-    const texto = cortada ? (contesta.json ?? '').slice(0, Math.floor((contesta.json ?? '').length / 2)) : contesta.json ?? '';
+    const ultimo = pedidos[pedidos.length - 1];
+    const falta = nativa && contesta.json ? conLaQueFalta(contesta.json, ultimo.imagenes, ultimo.texto ?? '') : { json: contesta.json ?? '' };
+    if ('status' in falta) return new Response(JSON.stringify({ error: { code: 500, message: 'internal error' } }), { status: 500, headers: { 'content-type': 'application/json' } });
+    const texto = cortada ? (falta.json ?? '').slice(0, Math.floor((falta.json ?? '').length / 2)) : falta.json ?? '';
     const resp = nativa
       ? { candidates: [{ content: { parts: [{ text: texto }] }, finishReason: cortada ? 'MAX_TOKENS' : 'STOP' }] }
       : { choices: [{ message: { content: texto }, finish_reason: 'stop' }] };
@@ -109,7 +125,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
 }) as typeof fetch;
 
 /** Un carrusel de la biblioteca de 9 láminas, de las que NO se guardó ninguna: el caso que falló el 6/11/2026. */
-function sembrar(portada: string | null) {
+function sembrar(portada: string | null, todas = false) {
   pg.db.carruseles_biblioteca_cuentas.length = 0;
   pg.db.carruseles_biblioteca_piezas.length = 0;
   const ahora = new Date().toISOString();
@@ -120,7 +136,10 @@ function sembrar(portada: string | null) {
   pg.db.carruseles_biblioteca_piezas.push({
     id: 55, ref: 'ABC123', cuenta_id: 7, tema_id: null, url: 'https://instagram.com/p/ABC123', miniatura: portada,
     texto: 'A los 22 anos escribio sus 10 metas. Comenta METAS y te mando la lista.', formato: 'lista', cierre: 'comentario',
-    medio: 'carrusel', laminas: 9, megusta: 900, comentarios: 80, vistas: 10_000, laminas_imagenes: null, cta: 'METAS',
+    medio: 'carrusel', laminas: 9, megusta: 900, comentarios: 80, vistas: 10_000, cta: 'METAS',
+    // `todas` (19/11/2026): las 9 láminas guardadas en nuestro bucket, para ver qué pasa cuando la IA devuelve menos. Con https: las
+    // láminas guardadas sólo valen con https (`imagenesValidas`, lib/carruseles/explorar.ts).
+    laminas_imagenes: todas ? Array.from({ length: 9 }, (_, i) => NUESTRA.replace('http://', 'https://').replace('portada.jpg', `lamina-${i + 1}.jpg`)) : null,
     cta_via: 'comentario', parece_contenido: true, publicada_en: ahora, visto_primera_vez: ahora, dejo_de_verse_en: null,
     texto_leido_en: ahora, metricas_leidas_en: ahora,
   });
@@ -131,6 +150,7 @@ const RESPUESTA_IA = JSON.stringify({
   proporcion: '4:5',
   titulo: 'Mis 9 pasos',
   laminas: Array.from({ length: 9 }, (_, i) => ({
+    n: i + 1,
     fondo: '#101010',
     foto: null,
     textos: [
@@ -154,8 +174,8 @@ async function main() {
   const { replicarEjemplo, esImagenPermitida } = await import('../lib/carruseles/replica-servidor');
 
   /** `conIA`: las claves que tiene cargadas el negocio (D6b: la IA que corre es la suya, nunca la de la plataforma). */
-  const correr = async (o: { portada: string | null; conIA: Array<'GEMINI_API_KEY' | 'ANTHROPIC_API_KEY'>; responde: typeof contesta; guiado?: import('../lib/carruseles/guiado').PedidoGuiado }): Promise<Salida> => {
-    sembrar(o.portada);
+  const correr = async (o: { portada: string | null; conIA: Array<'GEMINI_API_KEY' | 'ANTHROPIC_API_KEY'>; responde: typeof contesta; guiado?: import('../lib/carruseles/guiado').PedidoGuiado; todas?: boolean }): Promise<Salida> => {
+    sembrar(o.portada, o.todas);
     pg.db.credenciales.length = 0;
     for (const clave of o.conIA) pg.db.credenciales.push({ workspace_id: WS, clave, valor_enc: cifrarSecreto(`negocio-${'x'.repeat(30)}`, WS, clave), servicio: clave.split('_')[0].toLowerCase() });
     red = []; pedidos = []; contesta = o.responde;
@@ -197,6 +217,10 @@ async function main() {
     cortado: await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { json: RESPUESTA_IA, cortaEn: 'gemini-flash-latest' } }),
     // 11. Y si el que corta el JSON es `flash-lite`: la mitad no es una respuesta; se escribe sin mirar antes de dejar guías.
     cortadoLite: await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { json: RESPUESTA_IA, cortaEn: 'gemini-flash-lite-latest' } }),
+    // 12. Con las 9 láminas a la vista, la IA devuelve 8 (falta la 5): se pide SÓLO la 5, con su imagen (19/11/2026).
+    faltaUna: await correr({ portada: NUESTRA, todas: true, conIA: SU_GEMINI, responde: { json: RESPUESTA_IA, faltaN: 5 } }),
+    // 13. Y si ese pedido también falla: 8 láminas, y el aviso lo DICE (antes caía callado al armado de antes).
+    faltaUnaSinArreglo: await correr({ portada: NUESTRA, todas: true, conIA: SU_GEMINI, responde: { json: RESPUESTA_IA, faltaN: 5, unaFalla: true } }),
   };
   // 8 y 9. El GUIADO (9/11/2026, lib/carruseles/guiado.ts): la oferta que eligió el dueño llega al pedido de la IA, y una de OTRO
   // negocio (un id que manda el navegador) no existe en la base de éste. Martín: «ni siquiera me pregunta qué oferta».
