@@ -280,6 +280,19 @@ portal (cursos duplicados, transcripciones que «faltan») está también en [ha
     hoja de contacto no se nota, porque ahí todo es chico.
     - **Regla:** piso de 44 px en pantalla (cuadro de 1080) contando la escala del contenedor. Para mostrar varias
       cosas juntas, una tabla sin escalar o filas a ancho completo, no tarjetas alejadas.
+    - **Trampa del arreglo:** subir la letra a 44 px desarmó el celular del video 1 (520 px de ancho): el interruptor
+      quedó afuera del borde y «siguen» se cortó abajo. Se vio recién en el MP4. Después de agrandar letras, se mira cada
+      contenedor de ancho fijo; el celular pasó a 680 px.
+
+12c. **La misma voz no habla igual de rápido en cada guion.** Con el mismo clon y el mismo ajuste, el video 3 salió a
+    3,18 palabras por segundo y el video 4 a 2,72 (el gancho, a 2,6). `voz_formato.sh` recorta pausas pero no acelera.
+    **Arreglo:** `ffmpeg -filter:a atempo=1.10` sobre `reels/voz-<id>.mp3` (estira sin cambiar el tono) y dividir por
+    1,10 los tiempos de `reels/t-<id>.js` (anchors, incluido «end», y words); después, `chequear-guion.mjs` otra vez.
+    **Regla:** mirar las palabras por segundo que imprime el chequeo; debajo de ~2,9, acelerar.
+
+12d. **Un pull fallido no frena el push… ni avisa.** `git pull --rebase` falló con «cannot lock ref
+    'refs/remotes/origin/main'» (otro chat hacía fetch en el mismo clon); el push no salió, y la tarea de fondo terminó con
+    código 0 porque lo daba el último comando de la cadena (`git log`). **Regla:** confirmar con `git ls-remote origin punta/<rama>`, no con el código de salida.
 
 13. **Renumerar escenas dejó segundos vacíos que la sintaxis no ve.** Al agregar una escena al principio del guion
     (s1 nueva), las referencias `A.sN` se corrieron con reemplazos de texto desde el panel de Hormozi para abajo. La
