@@ -274,6 +274,13 @@ portal (cursos duplicados, transcripciones que «faltan») está también en [ha
       dice, un golpe de escala o de color. Si una tarjeta espera su contenido, crece cuando el contenido llega
       (`reels/edu-cinco-frases.html`, las `.crece` de cada ficha), no antes. Un texto que no se alcanza a leer entero, se saca.
 
+12b. **La letra chica escondida: lo que se escala, se achica.** En el video 1 cada frase tenía 58 px en la tarjeta, pero la
+    cámara alejaba el «mundo» a ×0,46 para mostrar las tres: en pantalla quedaba en 27 px. Las cinco versiones A-E, en
+    tarjetitas de 196 px de ancho, tenían la frase en 27 px. Martín: «nada de letra chica en ningún lugar». Mirando la
+    hoja de contacto no se nota, porque ahí todo es chico.
+    - **Regla:** piso de 44 px en pantalla (cuadro de 1080) contando la escala del contenedor. Para mostrar varias
+      cosas juntas, una tabla sin escalar o filas a ancho completo, no tarjetas alejadas.
+
 13. **Renumerar escenas dejó segundos vacíos que la sintaxis no ve.** Al agregar una escena al principio del guion
     (s1 nueva), las referencias `A.sN` se corrieron con reemplazos de texto desde el panel de Hormozi para abajo. La
     salida del panel 1 estaba más arriba y quedó atada a la escena vieja: el pizarrón se iba 7 s antes y los segundos
