@@ -20,6 +20,7 @@
 // =============================================================================
 
 import { parseJsonObject } from '../json-del-modelo';
+import { voseoEn } from '../voseo';
 import { cifrasSinFuente } from '../copywriter/ia-reglas';
 import { altoEnElEditor, comoSeDibuja, medidorReal } from './medir-letra';
 import { partirEnRenglones, sinSuperponer, type Caja, type FuenteTexto } from './tipografia-medida';
@@ -111,8 +112,13 @@ export const esMiniatura = (p: Proporcion): boolean => p === '16:9' || p === '9:
 
 /** Cuántas láminas como mucho (Instagram deja 20; más de 12 en un ejemplo no ayuda a nadie y pesa en la IA). */
 export const LAMINAS_MAX = 12;
-/** Cuántas imágenes se le mandan a la IA como mucho (cada una es visión: tokens y tiempo). */
-export const IMAGENES_MAX = 10;
+/**
+ * Cuántas imágenes se le mandan a la IA como mucho (cada una es visión: tokens y tiempo). ⚠️ Son TODAS las láminas: la réplica
+ * fiel (la plancha, 13/11/2026) necesita leer cada una, y con una sin leer se arma todo como antes. Con 10 (el tope de antes de
+ * la plancha), un carrusel de 11 o 12 láminas nunca salía fiel: 19/11/2026, «7 cosas que hago con una sola app» (12) y «9
+ * referentes» (11) salieron con fondo liso y fotos de banco, sin el diseño del original.
+ */
+export const IMAGENES_MAX = LAMINAS_MAX;
 // 12 y no 8 (13/11/2026): la última lámina de @lifeofarjav tiene título, tarjeta, llamada a la acción, pie y marco, y con 8 la IA
 // cortaba justo la llamada a la acción y el pie (que quedaban quemados en la plancha con el @ del original).
 const TEXTOS_POR_LAMINA = 12;
@@ -245,6 +251,20 @@ export function conLaPalabra(texto: string, palabra: string | null): string {
   return texto.replace(/([“"«'‘])(\*?)\s*[\p{Lu}\p{N}]{2,24}\s*(\*?)([”"»'’])/u, (_, a: string, x: string, y: string, b: string) => `${a}${x}${palabra}${y}${b}`);
 }
 
+/**
+ * Un texto de la IA con el voseo pasado a «tú» (lib/voseo.ts: «escribís» → «escribes», «Respondé» → «Responde»). 19/11/2026: con la
+ * voz de un negocio rioplatense, la réplica salió «Vos escribís. Ellos venden.» aunque el prompt pedía «tú»: la voz es un DATO y le
+ * ganó a la regla. Lo que el diccionario no conoce queda como está.
+ */
+export function alTu(texto: string): string {
+  let t = texto;
+  for (const { forma, neutro } of voseoEn(texto)) {
+    const nuevo = /^\p{Lu}/u.test(forma) ? neutro.charAt(0).toLocaleUpperCase('es') + neutro.slice(1) : neutro;
+    t = t.replace(new RegExp(`(?<![\\p{L}])${forma}(?![\\p{L}])`, 'u'), nuevo);
+  }
+  return t;
+}
+
 /** El prompt (un solo mensaje: lo lee la IA junto con las imágenes). Los datos del negocio van marcados como datos. */
 export function promptDeReplica(p: PedidoReplica): string {
   if (p.miniatura) return promptDeMiniatura(p);
@@ -272,7 +292,7 @@ export function promptDeReplica(p: PedidoReplica): string {
       : '- Adaptar es contar LO MISMO con la oferta del negocio, NO cambiar el nombre del creador, de su gurú o de su marca por el del negocio. Lo que es del original (sus libros, sus herramientas, sus cifras, sus resultados, su promesa) se cambia por algo VERDADERO del negocio de abajo, o se saca. Ninguna cifra, monto, resultado ni garantía que no esté en lo que se sabe del negocio: ni las del original ni inventadas. Tampoco le atribuyas al negocio algo que no está en lo que se sabe de él (un método, un framework, un libro, una herramienta propia): si hace falta, di «tu método» o «tu forma de trabajar».',
     '- El nombre de una marca, una app o una herramienta que va con su logo (como «Claude» debajo de su ícono) va IGUAL: el logo queda.',
     '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su nombre o su firma va el NOMBRE del negocio, tal como está escrito abajo. Donde el original muestra su @ (un encabezado, un tuit, un pie), escribe exactamente @usuario: el sistema pone el del negocio. Nunca otro @, un usuario inventado ni un sitio web.',
-    '- Español neutro, de «tú», como se habla en México.',
+    '- Español neutro, de «tú», como se habla en México, aunque «Cómo habla» (abajo) use «vos»: nada de «escribís», «respondé» ni «vos».',
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra ${tema ? 'que dice el tema (si no dice ninguna, una que tenga sentido para este negocio)' : 'que tenga sentido para este negocio'} (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
     // La COMPOSICIÓN se lee antes de escribir (11/11/2026, @jasonrewired_: el original eran dos cuadros apilados de la misma playa
     // con un subtítulo chico abajo de cada uno, y salió UNA foto de fondo con un título grande al centro). Lo leído queda escrito.
@@ -331,7 +351,7 @@ function promptDeMiniatura(p: PedidoReplica): string {
       ? '- El texto dice lo mismo de largo que el del original (de 2 a 8 palabras), en mayúsculas sólo si el original las usa. Es un gancho que da curiosidad, nunca el título entero.'
       : '- El texto grande tiene de 2 a 6 palabras, en mayúsculas si el original las usa. Es un gancho que da curiosidad, nunca el título entero del video. Como mucho un texto chico más.',
     '- Copia el patrón (qué promete, cómo lo dice), NUNCA sus palabras ni los hechos que cuenta de su autor. No pongas el nombre, el @ ni la marca del canal original, y nunca un @ ni un usuario del negocio: no los sabes.',
-    '- Español neutro, de «tú», como se habla en México.',
+    '- Español neutro, de «tú», como se habla en México, aunque «Cómo habla» (abajo) use «vos»: nada de «escribís», «respondé» ni «vos».',
     p.conAvatar ? '- Donde el original tiene la cara de una persona, marca `persona: true` y su lugar: ahí va la foto del dueño del negocio. Deja el texto del lado contrario.' : '- No pongas fotos ni personas: la miniatura es tipografía y color. Deja `foto: null`.',
     p.vertical
       ? '- Cada texto del MISMO tamaño, en el MISMO lugar y con la MISMA letra que en el original: si en el original es una frase chica sobre la imagen, en la tuya también. Nunca encima de la cara de la persona.'
@@ -496,7 +516,7 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
       const t = crudoT && typeof crudoT === 'object' ? (crudoT as Record<string, unknown>) : {};
       // `@usuario` es el comodín del prompt para el @ del original (12/11/2026): el del negocio, si está cargado; si no, se va.
       const handle = o.usuario?.trim() ? `@${o.usuario.trim().replace(/^@+/, '')}` : '';
-      const marcado = conLaPalabra(conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle, o.nombre), o.usuario), o.palabra ?? null);
+      const marcado = alTu(conLaPalabra(conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle, o.nombre), o.usuario), o.palabra ?? null));
       const { texto: contenido, acentos } = conAcentos(marcado);
       const original = limpio(t.original, LARGO_TEXTO).replace(/\*/g, '');
       // Un texto que quedó vacío (el @ del original, con un negocio sin @ cargado) se queda SI se sabe qué decía: hay que borrarlo
@@ -557,7 +577,7 @@ export function promptDeCompletar(p: { textos: number; figuras: number; nombreNe
     `Estás adaptando un carrusel de Instagram para el negocio «${p.nombreNegocio.slice(0, 80)}». Te muestro ${p.textos + p.figuras} recortes de sus láminas originales, en orden: el recorte 1 es la primera imagen, el 2 la segunda, y así.`,
     p.textos ? `Los primeros ${p.textos} son TEXTOS. De cada uno: "original", lo que dice tal cual (con "\\n" donde corta); "texto", su versión para el negocio, de un largo parecido (un número de lámina como «02 / 06» queda igual; una etiqueta como «STEP 1» va «PASO 1»; el @ o el nombre del creador original va como @usuario); "rol"; "color" de la letra; "relleno", el color de la pastilla o caja que tiene detrás si la tiene (si no, null); "mayus" si está en mayúsculas; y si unas palabras van en OTRO color que el resto, en "texto" entre asteriscos (*así*) y ese color en "acento" (si no, null).` : '',
     p.figuras ? `Los ${p.figuras} siguientes son FIGURAS: en "personas", por cada una, true si muestra a una persona (una foto, un dibujo o una caricatura de alguien) y false si no (un logo, un ícono, una captura, un objeto).` : '',
-    '- Español neutro, de «tú», como se habla en México. No copies frases ni hechos del original: escribe lo del negocio.',
+    '- Español neutro, de «tú», como se habla en México (nada de «escribís», «respondé» ni «vos»). No copies frases ni hechos del original: escribe lo del negocio.',
     '- Adaptar no es cambiar el nombre del creador o de su gurú por el del negocio: lo que es del original (sus libros, sus cifras, sus resultados) se cambia por algo verdadero del negocio o se saca. Ninguna cifra que no esté en lo que se sabe del negocio.',
     '- El nombre de una marca, una app o una herramienta que va con su logo (como «Claude» debajo de su ícono) va IGUAL en "texto": el logo queda.',
     tema,
@@ -593,7 +613,7 @@ export function leerCompletado(crudo: string, o: { textos: number; figuras: numb
     // El @ del creador es el @ del negocio, o nada: nunca otra palabra (13/11/2026: «@LIFEOFARJAV» volvió «Koncke»).
     const esArroba = /^@[\w.]+$/.test(original.trim());
     const { texto, acentos } = esArroba ? { texto: handle, acentos: [] as Array<[number, number]> }
-      : conAcentos(conLaPalabra(conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle, o.nombre), o.usuario), o.palabra ?? null));
+      : conAcentos(alTu(conLaPalabra(conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle, o.nombre), o.usuario), o.palabra ?? null)));
     if (!original && !texto) return null;
     const acento = color(t.acento, '');
     const relleno = color(t.relleno, '');

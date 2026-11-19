@@ -853,6 +853,26 @@ export function planchar(img: Rgba, lectura: LecturaDeLamina, p: PedidoPlancha):
     const pad = Math.max(3, Math.round(0.08 * b.altoRenglon));
     if (!b.franjas.every((f) => borrarZona(img, f, pad))) return deshacer(`el fondo del texto ${i + 1} no es parejo`);
   }
-  for (const c of personas) if (!borrarZona(img, c, 6)) return deshacer('el fondo de la persona no es parejo');
+  // La persona sobre un fondo que no se puede continuar (una foto, un edificio, un degradé) se TAPA con el color que domina a su
+  // alrededor (19/11/2026). Ese lugar es justo el marcado donde va la persona del negocio (`PERSONA_A_GENERAR`): un panel liso ahí
+  // no es una mancha, es el hueco que se llena después. Antes devolvía la lámina intacta y, por el todo o nada, el carrusel ENTERO
+  // se armaba como antes: «9 referentes» (@awakpenn, la portada con un hombre delante de un edificio) salía con fondo liso y fotos
+  // de banco en las once láminas.
+  for (const c of personas) if (!borrarZona(img, c, 6)) taparZona(img, c, 6);
   return { ok: true, textos: bloques, personas };
+}
+
+/** Una zona tapada con el color que domina en su borde de afuera (ver `planchar`: la persona que no se puede borrar). */
+export function taparZona(img: Rgba, zona: Caja, pad: number): void {
+  const z = dentro(img, { x: zona.x - pad, y: zona.y - pad, ancho: zona.ancho + 2 * pad, alto: zona.alto + 2 * pad });
+  if (!z.ancho || !z.alto) return;
+  const c = colorDominante(img, { x: z.x - 12, y: z.y - 12, ancho: z.ancho + 24, alto: z.alto + 24 }, (x, y) => x >= z.x && x < z.x + z.ancho && y >= z.y && y < z.y + z.alto);
+  for (let y = z.y; y < z.y + z.alto; y++) {
+    for (let x = z.x; x < z.x + z.ancho; x++) {
+      const i = (y * img.ancho + x) * 4;
+      img.px[i] = c[0];
+      img.px[i + 1] = c[1];
+      img.px[i + 2] = c[2];
+    }
+  }
 }

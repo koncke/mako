@@ -14,15 +14,20 @@
 //   5. lo que manda el navegador llega hasta 600 letras;
 //   6. la palabra que el dueño pide comentar la pone el código (la IA puso «MAKO» con el tema pidiendo «HORMOZI»);
 //   7. el @ del marco es el de la cuenta de Instagram conectada por Zernio (sin ella, sin @, como siempre);
-//   8. un renglón largo que el segundo pedido «adaptó» a una palabra no pisa el texto bueno de la IA principal.
+//   8. un renglón largo que el segundo pedido «adaptó» a una palabra no pisa el texto bueno de la IA principal;
+//   9. el voseo de la voz del negocio pasa a «tú» (la voz es un dato; le ganaba a la regla del prompt);
+//  10. a la IA van todas las láminas (la plancha las necesita), y si devuelve otra cantidad, sin plancha (antes tiraba);
+//  11. la persona que no se puede borrar se tapa con el color de alrededor (antes tumbaba la plancha de todo el carrusel).
 //
 // Correr: node --import tsx --test tests/carruseles-tema-del-dueno.test.ts
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TOPE_TEMA, bloqueDelTema, conLaPalabra, leerReplica, palabraDelTema, promptDeCompletar, promptDeReplica, queVaEnLosRenglones, type Replica } from '../lib/carruseles/replica';
+import { readFileSync } from 'node:fs';
+import { IMAGENES_MAX, LAMINAS_MAX, TOPE_TEMA, alTu, bloqueDelTema, conLaPalabra, leerReplica, palabraDelTema, promptDeCompletar, promptDeReplica, queVaEnLosRenglones, type Replica } from '../lib/carruseles/replica';
 import { TOPE_PEDIDO, leerPedidoGuiado } from '../lib/carruseles/guiado';
 import { usuarioDeLasCuentas } from '../lib/carruseles/marca-kit';
+import { taparZona } from '../lib/carruseles/plancha-local';
 
 const PEDIDO = 'Tema: en MaKo puedes chatear con Alex Hormozi como tu coach de negocio (Nuevo chat, elegir el referente; hay 32). '
   + 'Voz de partner que recomienda: «Encontré una app que…», el nombre MaKo una sola vez, en la portada. Donde va el logo de Claude '
@@ -99,6 +104,40 @@ test('8 · un renglón largo que el segundo pedido «adaptó» a una palabra no 
   assert.equal(queVaEnLosRenglones(suyo, leido), 'suyo');
   assert.equal(queVaEnLosRenglones(null, leido), 'leido', 'sin texto de la IA principal, lo leído (no queda vacío)');
   assert.equal(queVaEnLosRenglones(suyo, { texto: 'La voz de tu negocio, tus preguntas y tus documentos.', original: leido.original }), 'leido', 'una versión de largo parecido sí vale');
+});
+
+test('9 · el voseo de la voz del negocio no llega a la lámina: pasa a «tú»', () => {
+  // La voz guardada del ws 9 es rioplatense y le ganó a la regla del prompt (19/11/2026, el equipo de bots).
+  assert.equal(alTu('Vos escribís.\nEllos venden.'), 'Tú escribes.\nEllos venden.');
+  assert.equal(alTu('Respondé lo que preguntes.'), 'Responde lo que preguntes.');
+  assert.equal(alTu('Tú decides y apruebas.'), 'Tú decides y apruebas.', 'lo que ya está en «tú» no se toca');
+  const crudo = JSON.stringify({ laminas: [{ fondo: '#FFFFFF', textos: [{ rol: 'cuerpo', texto: '> Vos solo aprobás', x: 0.1, y: 0.5, ancho: 0.8, tamano: 0.04, color: '#111111' }] }] });
+  assert.equal((leerReplica(crudo, { laminas: 1 }) as Replica).laminas[0].textos[0].texto, '> Tú solo apruebas');
+  const p = promptDeReplica({ ...base, pedido: null });
+  assert.match(p, /aunque «Cómo habla» \(abajo\) use «vos»/);
+});
+
+test('10 · a la IA van TODAS las láminas, y con una cantidad distinta de la suya no se plancha (antes, «Editar» tiraba)', () => {
+  // «7 cosas» (12 láminas) y «9 referentes» (11) salían con el armado viejo: iban 10 imágenes y la plancha necesita todas.
+  assert.equal(IMAGENES_MAX, LAMINAS_MAX);
+  // Con 12 leídas y 11 de la IA, `completarLoQueFalta` recorría la 12 sin textos y tiraba (19/11/2026).
+  const fuente = readFileSync(new URL('../lib/carruseles/plancha-servidor.ts', import.meta.url), 'utf8');
+  assert.match(fuente, /if \(leidas\.length !== replica\.laminas\.length \|\| leidas\.some\(\(x\) => !x\)\)/);
+});
+
+test('11 · la persona sobre un fondo que no se puede continuar se tapa con el color de alrededor (no tumba el carrusel)', () => {
+  // «9 referentes» (19/11/2026): la portada con un hombre delante de un edificio devolvía la lámina intacta y, por el todo o nada,
+  // las once láminas se armaban como antes (fondo liso y fotos de banco). Ese lugar es el marcado para la persona del negocio.
+  const W = 120;
+  const px = new Uint8ClampedArray(W * W * 4);
+  for (let i = 0; i < W * W; i++) px.set([245, 232, 224, 255], i * 4);
+  for (let y = 30; y < 90; y++) for (let x = 30; x < 90; x++) px.set(y % 4 < 2 ? [30, 90, 160, 255] : [200, 180, 60, 255], (y * W + x) * 4);
+  const img = { ancho: W, alto: W, px };
+  taparZona(img, { x: 30, y: 30, ancho: 60, alto: 60 }, 2);
+  for (const [x, y] of [[30, 30], [60, 60], [89, 89]]) assert.deepEqual([...px.slice((y * W + x) * 4, (y * W + x) * 4 + 3)], [245, 232, 224], `quedó la foto en ${x},${y}`);
+  const fuente = readFileSync(new URL('../lib/carruseles/plancha-local.ts', import.meta.url), 'utf8');
+  assert.match(fuente, /for \(const c of personas\) if \(!borrarZona\(img, c, 6\)\) taparZona\(img, c, 6\);/);
+  assert.doesNotMatch(fuente, /deshacer\('el fondo de la persona no es parejo'\)/);
 });
 
 test('5 · lo que manda el navegador llega hasta el tope del tema', () => {

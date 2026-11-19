@@ -257,7 +257,13 @@ export async function planchasDeLaReplica(
   ws: number, replica: Replica, leidas: ReadonlyArray<LaminaLeida | null>, o: { seco: boolean; completar?: Completar; lugarDePersona?: boolean },
 ): Promise<Array<PlanchaDeLamina | null>> {
   const nada = replica.laminas.map(() => null);
-  if (leidas.length < replica.laminas.length || leidas.some((x) => !x)) return nada;
+  // La MISMA cantidad (19/11/2026): con 12 láminas leídas y 11 de la IA, `completarLoQueFalta` recorría la 12 sin textos y TIRABA
+  // («Cannot read properties of undefined»), y «Editar» entero fallaba. No se veía porque hasta ese día a la IA iban 10 láminas como
+  // mucho y la plancha ni arrancaba. Si la IA se salteó una, no se sabe cuál: se arma como antes.
+  if (leidas.length !== replica.laminas.length || leidas.some((x) => !x)) {
+    if (leidas.length !== replica.laminas.length) console.warn(`[carruseles] la IA devolvió ${replica.laminas.length} láminas de ${leidas.length}: sin plancha (se arma todo como antes)`);
+    return nada;
+  }
   const { default: sharp } = await import('sharp');
   const W = leidas[0]!.img.ancho;
   const H = leidas[0]!.img.alto;
