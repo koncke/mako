@@ -203,7 +203,7 @@ de la campaña y el `?ref=` del partner a los botones de cada plan: la usan la p
 | Funciones con landing | **24** | `LANDINGS_COMPETENCIA`, `app/vsl/_competencia/registro.ts` |
 | Integraciones | **30** que un negocio puede conectar hoy | `integracionesVivas()`, `app/vsl/_sitio/datos.ts` (leído en `/` el 18/11) |
 | Fuentes de datos del Dashboard | **44** | `FUENTES`, `lib/graficos-catalogo.ts` (leído en `/vsl/dashboard` el 18/11) |
-| Lo que ya pagas | 11 apps = **US$388,98/mes** (GoHighLevel 97, Skool 99, ManyChat 39, Zapier 29,99, Metricool 25, Mailchimp 20, CapCut 19,99, Higgsfield 19, Canva 18, Notion 12, Gamma 10). Con MaKo Pro **te ahorras US$291,98 por mes** | `STACK_TIPICO`, `app/vsl/_sitio/reemplaza.ts` (precios de lista leídos el 13/11), `LoQuePagas.tsx` |
+| Lo que ya pagas | 11 apps = **US$386,98/mes** (GoHighLevel 97, Skool 99, ManyChat 39, Zapier 29,99, Metricool 25, Mailchimp 20, CapCut 17,99, Higgsfield 19, Canva 18, Notion 12, Gamma 10). Con MaKo Pro **te ahorras US$289,98 por mes**. CapCut se verificó el 19/11/2026 (era 19,99); Canva (sólo pesos) y ManyChat (antibots) no se pudieron verificar ese día | `STACK_TIPICO`, `app/vsl/_sitio/reemplaza.ts` (precios de lista leídos el 13/11), `LoQuePagas.tsx` |
 | Apps en la comparación | 53 apps distintas; 21 páginas «MaKo vs X» | `STACK_QUE_REEMPLAZA` (`reemplaza.ts`), `competencia-datos.ts` |
 | Caso Mauricio | De meses de menos de US$9k a más de US$100k vendidos; US$14k en abril, US$20k en mayo, más de US$40k en junio; «sin cambiar la oferta ni el funnel» | `CASO`, `app/vsl/_competencia/marca.tsx`. **Es la palabra de Martín**, no sale de un dato del código |
 | Mauricio en el Accelerator | Antes cobraba US$300 por cliente; hoy más de US$7.000. Speaker en Cancún frente a más de 100 personas | `MAURICIO`, `app/accelerator/contenido.ts`. Palabra de Martín |
@@ -233,7 +233,7 @@ de la campaña y el `?ref=` del partner a los botones de cada plan: la usan la p
 - **Tu curso en MaKo**, y tu comunidad (**con MaKo Pro**).
 - **Precios:** US$47 y US$97 al mes, **7 días gratis**, te das de baja cuando quieras. Lo que se hace con IA gasta
   MaKo Tokens: 7.000 y 14.400 al mes, y puedes comprar más.
-- **«Con lo que pagas por GoHighLevel tienes MaKo Pro»** (US$97 contra US$97) y el ahorro de US$291,98 contra 11 apps.
+- **«Con lo que pagas por GoHighLevel tienes MaKo Pro»** (US$97 contra US$97) y el ahorro de US$289,98 contra 11 apps.
 - **El caso de Mauricio**, con sus números, dicho como su historia.
 - **El Accelerator:** US$1.500 por 3 meses, por aplicación, con la promesa y la garantía de la semana 1, tal cual están.
 - **Partners:** el 30% de lo que paga cada negocio que traes, todos los meses.
