@@ -88,6 +88,35 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Salió por WhatsApp» cuando sólo llegó a la app: el `ok: true` con `enApp` (ticket #118, 19/11/2026)
+
+**Vive en:** `lib/mako-grupo.ts` (`enviarAlGrupoMaKo`, al final) · `lib/tickets-cierre.ts` (`avisarUno`) ·
+`lib/tickets-reglas.ts` (`destinoDelAvisoAlGrupo`).
+
+**Síntoma:** el historial del #118 decía «Aviso al cliente: whatsapp, push», y a Leila no le llegó ningún WhatsApp. El aviso salió
+a las 21:00:48 UTC, 21 s después de que la voz vieja se desconectara (401) y 10 s antes de que `mako.voz.instancia` apuntara a la
+nueva.
+
+**Causa:** cuando WhatsApp falla y la copia del hilo de la app existe, `enviarAlGrupoMaKo` devuelve `{ ok: true, id, enApp: true }`
+y tira `r.error` sin loguearlo. Para `destinoDelAvisoAlGrupo`, `ok: true` es `'salio'`: el historial anota «whatsapp», no se
+reintenta, y lo que contestó Evolution no queda en ningún lado.
+
+**Cómo se ve que no salió (sólo lectura):**
+- la fila de `grupo_mensajes` sigue con `wa_message_id` NULL, porque el id se ata sólo si WhatsApp devolvió uno;
+- en el almacén de Evolution de la voz (`/chat/findMessages`), ningún mensaje a ese grupo a esa hora.
+
+**La regla:**
+- `ok` de `enviarAlGrupoMaKo` quiere decir «el aviso existe», NO «salió por WhatsApp». Quien necesite saber si salió por WhatsApp
+  mira `enApp` (o el `wa_message_id` de la copia).
+- Un aviso que quedó sólo en la app se reintenta por WhatsApp como cuando no hay copia, y el motivo de Evolution se loguea.
+  El arreglo es del chat de WhatsApp: no está hecho.
+
+**Y al reenviarlo a mano:** el espejo (`lib/grupo-espejo.ts`) encuentra el eco por su `wa_message_id` o, si no, por el TEXTO entre
+las copias sin id de los últimos 10 minutos. Una copia más vieja, o con otro texto, no empareja. Por eso el id se ata a la fila
+apenas vuelve el envío. Si el eco gana la carrera, el espejo crea otra fila y en la app quedan dos burbujas: la base no deja dos
+filas con el mismo id (`ux_grupo_mensajes_wa`). Así lo hace el script del Cerebro, `reenviar-aviso-118.mjs`, en su carpeta de
+notas.
+
 ## Una «parte» que era un dato, o una lectura, abría un pedido de más (ticket #111, 18/11/2026)
 
 **Vive en:** `lib/despacho-grupo.ts` (`partesQueCuentan`, `esDatoDeUnaEscritura`) · `lib/mako-doer-in.ts` (`datosDeLasEscrituras`, que
