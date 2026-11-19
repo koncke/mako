@@ -137,14 +137,18 @@ const fila = (ws: number, nombre: string, segmentos: Fila['segmentos'], creado =
   ws, nombre, creado, capa: 'completo', estado: 'activo', motivoRiesgo: null, sinEntrar: 1, mrrUsd: 0, planAManoTxt: null, segmentos,
 })
 
-test('4 · un cliente de una agencia no es un cliente de MaKo: no va en «Todos» ni en el crecimiento, sí en «De agencias», y la búsqueda dice de quién es', () => {
+test('4 · un cliente de una agencia no cuenta como cliente de MaKo (ni en el crecimiento) pero SÍ sale en «Todos» (19/11) y en «De agencias», y la búsqueda dice de quién es', () => {
   const filas = [fila(21, 'Estudio Norte', ['cliente']), fila(27, 'Agencia Faro', ['agency']), fila(30, 'Consultorio Arce', ['de-agencia'], '2026-10-20T12:00:00Z')]
   assert.equal(esClienteDeMaKo({ segmentos: ['de-agencia'] }), false)
   assert.equal(esClienteDeMaKo({ segmentos: ['agency', 'partner'] }), true, 'una agencia sí es un cliente de MaKo')
   const lista = listaDeClientes(filas)
   const de = (filter: 'all' | 'active' | 'inactive' | 'agency') => filtrarClientes(lista, { query: null, sorting: '-created_at', filter }).map((c) => c.ws)
-  assert.deepEqual(de('all'), [21, 27], 'la lista sin el cliente de la agencia')
-  assert.deepEqual(de('active'), [21, 27], 'ni con los filtros de siempre')
+  assert.deepEqual([...de('all')].sort(), [21, 27, 30], '«Todos» trae también al cliente de la agencia (Martín, 19/11: «no me sale los usuarios de agencia»)')
+  assert.deepEqual([...de('active')].sort(), [21, 27, 30], 'y «Activos»')
+  const conAgencia = listaDeClientes([{ ...filas[0] }, { ...filas[2], agencia: 'Código Inmobiliario' }])
+  assert.deepEqual(filtrarClientes(conAgencia, { query: 'codigo inmobiliario', sorting: '-created_at', filter: 'all' }).map((c) => c.ws), [30], 'se busca por el nombre de la AGENCIA y trae a sus clientes')
+  const conPrueba = listaDeClientes([filas[0]], [fila(99, 'Cliente de Prueba', ['cliente'])])
+  assert.deepEqual(conPrueba.map((c) => [c.ws, c.esPrueba]), [[21, false], [99, true]], 'el negocio de prueba se VE en la lista, marcado (no cuenta en los números)')
   // «De agencias» (decisión del Cerebro, 6/11/2026): el lugar de la lista para los clientes de una agencia.
   assert.deepEqual(de('agency'), [30], 'con «De agencias», sólo el de la agencia')
   assert.equal(lista.find((c) => c.ws === 30)?.deAgencia, true)
