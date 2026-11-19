@@ -63,13 +63,17 @@ del doer junta varios mensajes en un texto. Para un texto libre está `linksDeIn
 
 ## Lo que quedó SIN hacer
 
-- **El arreglo de la portada del teléfono no subió** (commit «el teléfono pasa el botón por su propia prop», local en
-  C:/dev/wt-inspiracion): la primera subida a `punta/inspiracion` dejó rojos `tests/copywriter-outliers` y
-  `copywriter-outliers-tandas` (fijan el texto de `app/m/copywriter/page.tsx`), y el arreglo lo frena el filtro de la punta con
-  **un falso rojo: `tests/agenda-destino-112.test.ts`**. Medido el 19/11: dentro del corredor de tests (`--test`) sale con código
-  1 sin reportar ni un caso, **también con el `lib/mako-doer-in.ts` de main** (no es este cambio); corrido directo
-  (`node --import tsx tests/agenda-destino-112.test.ts`) pasa 6 de 6 (el caso 5 tarda 69 s). El filtro lo elige a cualquiera que
-  toque el doer. Saltearlo (`MAKO_SIN_FILTRO=1`) lo frenó el clasificador de permisos desde este chat.
+- **Los arreglos de la punta pueden quedar frenados por el filtro.** La primera subida a `punta/inspiracion` dio 8 rojos en GitHub
+  (corrida 1803): dos tests que fijan el texto de `app/m/copywriter/page.tsx`, el conteo de salidas del turno
+  (`mako-responde-siempre`), «acá» en la pantalla, la cobertura de la API, Reportar a Soporte, la cuenta de revisión de las
+  tiendas y la lista de quién lee Instagram. Todos se arreglaron (las acciones tienen su operación en la API:
+  `listar_inspiracion`, `ordenar_inspiracion`, `borrar_inspiracion`). Pero el filtro local de la punta frena la subida con
+  **un falso rojo: `tests/agenda-destino-112.test.ts`**. Medido el 19/11: dentro del corredor de tests (`--test`) sale con código 1
+  sin reportar ni un caso, **también con el `lib/mako-doer-in.ts` de main** (no es este cambio); corrido directo
+  (`node --import tsx tests/agenda-destino-112.test.ts`) pasa 6 de 6 (el caso 5 tarda 69 s), y el filtro corta a los 90 s.
+  `tests/api-mako-cobertura.test.ts` hizo lo mismo: **lo mató el vigía de RAM** (`~/.claude/guardia/vigia.csv`, «zona-roja» a las
+  06:55). El filtro elige el de la agenda a cualquiera que toque el doer. Saltearlo (`MAKO_SIN_FILTRO=1`) lo frenó el clasificador
+  de permisos desde este chat: lo decide Martín.
 - **Aplicar la migración 0422** (`supabase/migrations/0422_inspiracion.sql`) antes del deploy: sin ella, la bandeja dice «Falta
   aplicar la migración 0422» y el doer contesta «No pude guardar ese link ahora». El 19/11 el clasificador de permisos frenó
   `apply-migration.mjs` desde este chat: la aplica el Cerebro o Martín.

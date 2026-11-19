@@ -67,6 +67,13 @@ test('paraInspiracion: guarda con su nota, o deja pasar el pedido al turno de si
 // El 19/11 el link 77 de Martín llegó por WhatsApp y terminó en el ticket #117: un link sin pedido lo agarra la regla 6
 // (`capturar`, al Plan) o el clasificador con IA. Por eso Inspiración corta ANTES de los dos, y sólo para quien administra.
 
+test('el mensaje real del ticket #117 (ws 9, 19/11 03:10) se guarda como inspiración, con su nota', () => {
+  const texto = 'Competencia:\nhttps://www.instagram.com/reel/Df2yJ3iB4Oq/?avpt=NmxqNWR5dTA4ZHF6\n\nPasalo a Claude, ya entendera el';
+  const r = paraInspiracion(texto);
+  assert.deepEqual(r?.links, [{ ref: 'Df2yJ3iB4Oq', url: 'https://www.instagram.com/reel/Df2yJ3iB4Oq/', tipo: 'reel' }]);
+  assert.equal(r?.nota, 'Competencia: Pasalo a Claude, ya entendera el');
+});
+
 test('sin el corte, un link pelado se iría a capturar (al Plan): por eso corta antes', () => {
   assert.equal(clasificarIntencion('https://www.instagram.com/reel/Df2yJ3iB4Oq/').intencion, 'capturar');
 });

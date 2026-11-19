@@ -180,6 +180,7 @@ test('las dos entradas del turno abren el contexto, `ev` pasa el destino, y el d
   const ayuda = cuerpo(doer, 'async function siNoLlego(');
   assert.match(ayuda, /respuestaNoEntregada\(\w+\)/, 'mira lo que no llegó');
   assert.match(ayuda, /registrarError\(\{ origen: 'mako', nombre, etiqueta,/, 'y abre su ticket');
-  assert.equal((doer.match(/await siNoLlego\(/g) ?? []).length, 3, 'las tres salidas del turno: la respuesta, el TICKET y el DEBUG');
+  // 19/11/2026: la cuarta es la de Inspiración (el link de Instagram que se guarda solo, docs/inspiracion/diseno.md).
+  assert.equal((doer.match(/await siNoLlego\(/g) ?? []).length, 4, 'las cuatro salidas del turno: la respuesta, el TICKET, el DEBUG y la INSPIRACIÓN');
   assert.match(doer, /&& (\w+)\.some\(\((\w+)\) => \2\.ok\)\) await guardarTurno\(\w+, \w+, 'assistant'/, 'lo que no salió por ningún lado no se guarda como dicho');
 });

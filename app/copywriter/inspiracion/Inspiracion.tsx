@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { animate, motion, useMotionValue, useTransform, type PanInfo } from 'motion/react';
 import Link from '@/app/_ui/Link';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { veredictoGesto } from '@/app/tickets/decisiones/reglas';
 import { preguntaDe } from '@/lib/inspiracion/reglas';
 import type { Carpeta, Pieza } from '@/lib/inspiracion/servidor';
@@ -85,7 +86,7 @@ export function Inspiracion({ inicial, error: errorInicial, vistaInicial = 'band
       <header className={st.cabeza}>
         <div>
           <h1>Inspiración</h1>
-          <p className={st.bajada}>Lo que le mandas a MaKo por WhatsApp (el link de un reel o un post) se guarda acá y se ordena en tus carpetas. Lo que no sabe dónde va, te lo pregunta.</p>
+          <p className={st.bajada}>Lo que le mandas a MaKo por WhatsApp (el link de un reel o un post) se guarda aquí y se ordena en tus carpetas. Lo que no sabe dónde va, te lo pregunta.</p>
         </div>
         <Link href="/copywriter" className={st.boton}>← Outliers</Link>
       </header>
@@ -93,7 +94,7 @@ export function Inspiracion({ inicial, error: errorInicial, vistaInicial = 'band
         <button type="button" role="tab" aria-selected={vista === 'bandeja'} onClick={() => setVista('bandeja')}>Para decidir ({pendientes.length})</button>
         <button type="button" role="tab" aria-selected={vista === 'carpetas'} onClick={() => setVista('carpetas')}>Carpetas ({ordenadas.length})</button>
       </div>
-      {error ? <p className={st.error} role="alert">{error}</p> : null}
+      {error ? <p className={st.error} role="alert">{error} <ReportarASoporte /></p> : null}
 
       {vista === 'bandeja' ? (
         <section aria-label="Para decidir" className={st.bandeja}>
@@ -107,7 +108,7 @@ export function Inspiracion({ inicial, error: errorInicial, vistaInicial = 'band
           ) : (
             <div className={st.vacio}>
               <p><b>No hay nada por decidir.</b></p>
-              <p>Mándale a MaKo por WhatsApp el link de un reel o un post de Instagram y aparece acá (o directo en su carpeta, si MaKo está segura).</p>
+              <p>Mándale a MaKo por WhatsApp el link de un reel o un post de Instagram y aparece aquí (o directo en su carpeta, si MaKo está segura).</p>
             </div>
           )}
           <p className={st.ayuda}>SÍ: botón, → o arrastrar a la derecha · NO: botón, ← o arrastrar a la izquierda · ⌫ vuelve atrás</p>
