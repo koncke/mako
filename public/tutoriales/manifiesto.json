@@ -550,6 +550,96 @@
    "hecho": "2026-11-18T13:48:38.475Z"
   },
   {
+   "key": "funnel-clase-anuncios",
+   "pestana": "Funnel Coach · Clase: Anuncios",
+   "ruta": "/second-brain",
+   "archivo": "/tutoriales/funnel-clase-anuncios.mp4",
+   "poster": "/tutoriales/funnel-clase-anuncios.jpg",
+   "duracion_s": 49.07,
+   "peso_kb": 2623,
+   "guion": "Un anuncio no vende solo: lleva a la gente a un lugar donde sí se vende. Te doy la bienvenida a la clase de Anuncios: pagas para que te vea quien todavía no te conoce. El anuncio le habla a un tipo de cliente con un problema, y lo lleva a tu página. Ahí deja sus datos, agenda o compra, según lo que vendas. ¿Cuándo te conviene? Cuando ya sabes que tu oferta se vende y quieres más gente, más rápido. Arranca con poco y prueba varios ángulos: el mismo producto, contado de formas distintas. Mira qué anuncio trae contactos más baratos, y pon el presupuesto ahí. Y que el anuncio diga lo mismo que la página: si no coinciden, la gente se va. Funnel Coach te ayuda a armar el anuncio, la página y tu CRM con sus etapas. Pídele el primer paso en el chat.",
+   "frases": [
+    {
+     "id": "funnel-clase-anuncios-1",
+     "rol": "gancho",
+     "texto": "Un anuncio no vende solo: lleva a la gente a un lugar donde sí se vende.",
+     "t_inicio": 0.08,
+     "t_fin": 4.86
+    },
+    {
+     "id": "funnel-clase-anuncios-2",
+     "rol": "que-es",
+     "texto": "Te doy la bienvenida a la clase de Anuncios: pagas para que te vea quien todavía no te conoce.",
+     "t_inicio": 5.38,
+     "t_fin": 10.94
+    },
+    {
+     "id": "funnel-clase-anuncios-3",
+     "rol": "cosa",
+     "texto": "El anuncio le habla a un tipo de cliente con un problema, y lo lleva a tu página.",
+     "t_inicio": 11.54,
+     "t_fin": 15.76
+    },
+    {
+     "id": "funnel-clase-anuncios-4",
+     "rol": "cosa",
+     "texto": "Ahí deja sus datos, agenda o compra, según lo que vendas.",
+     "t_inicio": 16.34,
+     "t_fin": 20.1
+    },
+    {
+     "id": "funnel-clase-anuncios-5",
+     "rol": "cosa",
+     "texto": "¿Cuándo te conviene? Cuando ya sabes que tu oferta se vende y quieres más gente, más rápido.",
+     "t_inicio": 20.64,
+     "t_fin": 26.14
+    },
+    {
+     "id": "funnel-clase-anuncios-6",
+     "rol": "cosa",
+     "texto": "Arranca con poco y prueba varios ángulos: el mismo producto, contado de formas distintas.",
+     "t_inicio": 26.64,
+     "t_fin": 31.82
+    },
+    {
+     "id": "funnel-clase-anuncios-7",
+     "rol": "cosa",
+     "texto": "Mira qué anuncio trae contactos más baratos, y pon el presupuesto ahí.",
+     "t_inicio": 32.26,
+     "t_fin": 36.22
+    },
+    {
+     "id": "funnel-clase-anuncios-8",
+     "rol": "cosa",
+     "texto": "Y que el anuncio diga lo mismo que la página: si no coinciden, la gente se va.",
+     "t_inicio": 36.66,
+     "t_fin": 40.94
+    },
+    {
+     "id": "funnel-clase-anuncios-9",
+     "rol": "cierre",
+     "texto": "Funnel Coach te ayuda a armar el anuncio, la página y tu CRM con sus etapas.",
+     "t_inicio": 41.46,
+     "t_fin": 46.42,
+     "espera_clic": false
+    },
+    {
+     "id": "funnel-clase-anuncios-10",
+     "rol": "cierre",
+     "texto": "Pídele el primer paso en el chat.",
+     "t_inicio": 46.92,
+     "t_fin": 48.36,
+     "espera_clic": false
+    }
+   ],
+   "pantallas": [],
+   "formato": 4,
+   "voz": "eleven_v4 · I2d6BR9P2dAopVw1khNv",
+   "dice_el_guion": true,
+   "chequeo": "idéntico",
+   "hecho": "2026-11-19T00:50:54.931Z"
+  },
+  {
    "key": "funnel-clase-anuncios-a-whatsapp",
    "pestana": "Funnel Coach · Clase: Anuncios a WhatsApp",
    "ruta": "/second-brain",
