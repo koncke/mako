@@ -158,7 +158,7 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, UN video y la 
   assert.equal((v2.match(/<VideoDelMomento /g) ?? []).length, 1, 'un solo video');
   assert.match(v2, /const VIDEO_BIENVENIDA = 'onboarding-bienvenida';/);
   // Sólo si el video existe de verdad: nunca un «no está grabado» en producción (el Cerebro, 19/11).
-  assert.match(v2, /\{videoBienvenida && filaMako\('arr-video', <VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="la bienvenida" revision=\{false\} \/>\)\}/);
+  assert.match(v2, /\{videoBienvenida && filaMako\('arr-video', <VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="Bienvenida a MaKo" revision=\{false\} \/>\)\}/);
   // En el teléfono (o una pantalla angosta), el final es «Continuar el onboarding desde la PC», como la maqueta (18/11).
   assert.match(v2, /window\.matchMedia\('\(max-width: 640px\)'\)\.matches\) setEnTelefono\(true\)/);
   assert.match(v2, /\{enTelefono\s*\? <button type="button" onClick=\{\(\) => setEnPc\(true\)\} className="arr-link arr-link--principal">Continuar el onboarding desde la PC<\/button>/);
@@ -166,4 +166,10 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, UN video y la 
   assert.match(v2, /\{fase === 'escribe' && escribiendo\('arr-escribe', true\)\}/, 'con MaKo escribiendo, a la vista');
   assert.match(v2, /setFase\('escribe'\);/, 'al tocar la entrada');
   assert.match(v2, /<InterruptorModo variante="sitio" \/>/, 'el sol y la luna adentro del bloque');
+  // El reproductor (Martín, 19/11: «se ve mal el recuadro del video»): un ancho FIJO, así el globo mide lo que el video y no el ancho
+  // natural del archivo; sin los controles del navegador; y al terminar, otra vez la portada.
+  const vm = leer('app/_ui/tutorial/VideoDelMomento.tsx');
+  assert.match(vm, /\.mk-vmom \{ width: 400px; max-width: 100%;/);
+  assert.match(vm, /<video ref=\{ref\} className="mk-vmom__video" src=\{v\.archivo\} poster=\{v\.poster\} playsInline preload="metadata"\s/, 'sin los controles del navegador');
+  assert.match(vm, /\{terminado && v\.poster && <img className="mk-vmom__portada" src=\{v\.poster\} alt="" \/>\}/);
 });
