@@ -337,6 +337,18 @@ galería de formatos (el motor, el kit, la voz) está en `docs/editor-video/anim
 - **La fila del navegador** (`tools/turno.mjs`) fue de 4-15 minutos por captura con 1-4 trabajos adelante (seis chats
   comparten la PC): se capturan 30-40 segundos de una vez y se mira la hoja, en vez de muchas vueltas chicas.
 
+- **Un comentario `//` agregado con un reemplazo de texto se comió la línea siguiente** (la trampa ya estaba en
+  `docs/editor-video/animaciones-por-codigo.md` y volvió a pasar): al insertar `// hijo del cuarto…` con Python, el
+  reemplazo no llevaba el salto de línea y `ram.pose(…)` quedó comentado: Ramiro aparecía de pie y nadie lo notó en la
+  primera hoja. Regla: un comentario se inserta con su `\n`; después de reemplazos en masa, `grep` de líneas con `//` y
+  código detrás.
+- **El encuadre vertical es angosto: dos cosas a 8 m no entran.** Con fov 50 a 16 m se ven ~8 m de ancho. Para que
+  Martín y la salida entren en el mismo plano hubo que acercar la salida a la tarima; y un plano que pasa al lado de
+  personajes sentados queda tapado por la cabeza del primero (Ramiro, el que contesta mensajes): subir la cámara por
+  encima de las cabezas.
+- **Cámaras fuera de la habitación:** en el cuarto de la parte 2B, dos planos quedaron detrás de la pared de adelante
+  (z > 6,4) y se veía la pared o la puerta. Antes de capturar, comparar cada `o.pos` con las paredes del set.
+
 ## Renderizar un reel 3D de 60 s (19/11/2026)
 - **Un MP4 de 60 s en 3D no entra en un turno.** Medido: 2,4 s por cuadro capturando (escena con ~13 luces, 96 personas
   instanciadas y sombras), o sea ~45 min para 1.835 cuadros; y `turno.mjs` le saca el lock a quien lleva más de 40 min
