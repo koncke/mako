@@ -342,12 +342,46 @@ galería de formatos (el motor, el kit, la voz) está en `docs/editor-video/anim
   reemplazo no llevaba el salto de línea y `ram.pose(…)` quedó comentado: Ramiro aparecía de pie y nadie lo notó en la
   primera hoja. Regla: un comentario se inserta con su `\n`; después de reemplazos en masa, `grep` de líneas con `//` y
   código detrás.
+  Volvió a pasar el mismo día con otro reemplazo (`// afuera hasta el golpe…` se comió `guar.pose(…)`): el chequeo de
+  sintaxis (`node --check`) no lo ve. Un scan que busca `objeto.metodo(…);` después de `//` en la misma línea sí.
+- **Un personaje que espera detrás de una puerta cerrada la atraviesa con los brazos** (la pose «cruzados» saca las manos
+  ~0,6 adelante): en la parte 2B se veían dos manos flotando delante de la puerta un segundo antes del golpe. Que espere a
+  más de un metro y entre recién cuando la puerta se abre.
 - **El encuadre vertical es angosto: dos cosas a 8 m no entran.** Con fov 50 a 16 m se ven ~8 m de ancho. Para que
   Martín y la salida entren en el mismo plano hubo que acercar la salida a la tarima; y un plano que pasa al lado de
   personajes sentados queda tapado por la cabeza del primero (Ramiro, el que contesta mensajes): subir la cámara por
   encima de las cabezas.
 - **Cámaras fuera de la habitación:** en el cuarto de la parte 2B, dos planos quedaron detrás de la pared de adelante
   (z > 6,4) y se veía la pared o la puerta. Antes de capturar, comparar cada `o.pos` con las paredes del set.
+
+## El piloto de la Serie 4, hecho por un agente constructor (19/11/2026)
+Lo completo está en `C:/dev/artefactos-animaciones/investigacion/trampas-constructores.md` («Serie 4»). Lo que vale para
+cualquier reel 3D con el Martín en cubos:
+- **Medir sin navegador (lo que más tiempo ahorra con la fila llena).** La escena 3D en un módulo sin DOM
+  (`reels/serie4/comentarios-1.js` exporta `armar()`), three@0.160 en node y `kit.js` evaluado con stubs de `window`/
+  `document`: se recorre el reel a 15 cps en 2 s y se mide dónde cae cada cara contra subtítulos y tarjetas, y si manos y
+  objetos quedan adentro del cuadro. Encontró cinco problemas antes de la primera captura (que esperó 68 min en la fila).
+  Plantilla: `series/tools/nodethree/` (`chequeo.mjs` cara vs. subtítulos/tarjetas, `props.mjs` manos y objetos,
+  `pose.mjs` buscador de ángulos; `npm install` adentro trae three). **Proyectar los vértices**, no las 8 esquinas de
+  `Box3.setFromObject`: la caja sale ~30 % inflada.
+- **Poses a ojo: el diagnóstico obvio («el ángulo está mal») era el equivocado.** El rig rota los hombros en orden ZXY:
+  el giro z se aplica al final, alrededor del brazo cuando ya apunta adelante, así que su signo cambia según la mano esté
+  arriba o abajo del hombro (y la perspectiva agranda 15-20 % lo que está cerca). Regla: buscar los ángulos por
+  cuadrícula contra un punto del mundo (`persona()` en node + `getWorldPosition` de la mano). Un barrido horizontal del
+  brazo no sale en ZXY: después de `pose()`, slerp del cuaternión del hombro hacia un Euler `'YZX'` y, al empezar cada
+  cuadro, volver a `rotation.order = 'ZXY'`.
+- **Pupilas grises en un primer plano:** no era el párpado ni la luz; con contrapicado y la cabeza mirando arriba, los ojos
+  (roughness 0,2) reflejan el RoomEnvironment en ángulo rasante. Con este rig, sin contrapicado en los cerrados.
+- Un objeto que se achica hasta 0,1 desaparece **dentro** de la mano (que mide 0,23): el tamaño final ≥ la mano y apoyado
+  encima. Lo que lleva texto va delante de todo (la cinta de la caja tapaba la «R» de CURSO). Piezas finas (una vincha)
+  con segmentos que se solapan, no cubitos sueltos.
+- **Subtítulo que pisa la tarjeta 2 cuadros:** `K.trozos` arranca cada trozo 0,06 s antes de su palabra; cuando las escenas
+  alternan tarjeta y subtítulo, `t0 = Math.max(t0, K.ini(escena))`.
+- Pixelado barato y con los subtítulos nítidos: `drawImage` del canvas WebGL a un canvas de 90×160 con
+  `image-rendering: pixelated`.
+- **Un agente que termina su turno esperando un trabajo de fondo puede no despertarse:** perdió 43 min. Esperar con un
+  Monitor que se re-arma al vencer (la fila llegó a tardar 68 min, más que los 30 de un Monitor) o encadenar todo en un
+  solo comando de fondo. El brief del constructor (`series/BRIEF-serie4.md`) ya sirve para la parte 2.
 
 ## Renderizar un reel 3D de 60 s (19/11/2026)
 - **Un MP4 de 60 s en 3D no entra en un turno.** Medido: 2,4 s por cuadro capturando (escena con ~13 luces, 96 personas
