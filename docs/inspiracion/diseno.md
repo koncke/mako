@@ -77,6 +77,11 @@ tenías en X».
   y, si no tiene, la de la plataforma, con tope por día (como `TRAIDOS_POR_DIA`).
 - **Transcripción, sólo si hace falta (PENDIENTE: la primera versión lee sólo el pie):** si es un video y el pie dice poco (menos de ~150 caracteres), se transcribe el primer
   minuto (`videoDeUnaPublicacion` + `transcribirAudio`). Un reel con el guion en el pie no paga transcripción.
+- **Si Instagram no deja leerlo** (19/11/2026: la única clave de Apify, la de la plataforma, daba 401): la pieza ya quedó guardada
+  (se inserta ANTES de leer), se ordena igual con lo que hay —la nota del dueño y la cuenta— y la respuesta dice «Todavía no pude
+  leer el post en Instagram: lo completo apenas pueda». Queda `leida_en` null; cuando una lectura vuelve a andar (otro link que
+  sí se lee), se releen hasta 3 de las pendientes (`releerPendientes`). Nunca un «no pude guardar» por Apify. Una lectura que
+  falla no se cobra.
 - **Cuándo:** en el mismo turno, después del 👍 que ya pone la entrada. La lectura tarda 20-40 s. Hasta 5 links por mensaje se
   leen en el momento; el resto queda `sin_leer` en la bandeja. Si Apify o la IA fallan, la pieza va a la bandeja sin sugerencia.
   (PENDIENTE: un cron que relea las `sin_leer`, `app/api/cron/inspiracion/route.ts`, con la skill `add-cron-job`.)

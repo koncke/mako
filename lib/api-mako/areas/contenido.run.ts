@@ -809,7 +809,7 @@ export const RUNNERS: Runners = {
       const piezas = d.piezas
         .filter((p) => input.soloPendientes !== true || p.carpeta_id == null)
         .map((p) => ({
-          piezaId: p.id, url: p.url, cuenta: p.cuenta, tipo: p.tipo_link, estado: p.estado,
+          piezaId: p.id, url: p.url, cuenta: p.cuenta, tipo: p.tipo_link, estado: p.estado, leida: p.leida_en != null || p.tipo_link === 'cuenta',
           deQueTrata: typeof p.lectura?.de_que_trata === 'string' ? p.lectura.de_que_trata : null,
           carpetaId: p.carpeta_id, carpeta: p.carpeta_id ? nombre.get(p.carpeta_id) ?? null : null,
           ...(p.carpeta_id == null ? { sugeridaId: p.sugerida_id, sugerida: p.sugerida_id ? nombre.get(p.sugerida_id) ?? null : null, carpetaNuevaSugerida: p.carpeta_nueva, confianza: p.confianza } : {}),

@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROMPTS_INSPIRACION, leerVeredicto, respuestaWhatsApp, textoDeLasCarpetas, textoDeLaPieza } from '../lib/inspiracion/clasificar';
+import { PROMPTS_INSPIRACION, leerVeredicto, notaSinLeer, respuestaWhatsApp, textoDeLasCarpetas, textoDeLaPieza } from '../lib/inspiracion/clasificar';
 
 test('lee el JSON aunque venga con texto alrededor, y acota la confianza', () => {
   const v = leerVeredicto('Claro:\n{"carpeta_id": 2, "confianza": 140, "por_que": "vende una app", "lectura": {"formato": "reel animado", "gancho": "Encontré una app"}}', [1, 2]);
@@ -61,4 +61,17 @@ test('WhatsApp: varios, con el link sólo si hay algo para decidir', () => {
   ], link);
   assert.equal(sinDudas, 'Guardé 1: 1 en Serie 1. Uno ya lo tenías.');
   assert.equal(respuestaWhatsApp([], link), '');
+});
+
+// 19/11/2026: la clave de Apify daba 401. La pieza se guarda y se ordena igual; la respuesta dice que la lectura llega después.
+test('WhatsApp: lo que no se pudo leer en Instagram se dice, nunca «no pude guardar»', () => {
+  assert.equal(notaSinLeer(0), '');
+  assert.equal(notaSinLeer(1), 'Todavía no pude leer el post en Instagram: lo completo apenas pueda.');
+  assert.equal(notaSinLeer(3), 'Todavía no pude leer 3 en Instagram: los completo apenas pueda.');
+  assert.equal(respuestaWhatsApp([{ como: 'nueva', estado: 'por_revisar', carpeta: null, sinLeer: true }], link),
+    `Guardado. No estoy seguro de en qué carpeta va: te lo dejé en Copywriting › Inspiración para que me digas. ${link} Todavía no pude leer el post en Instagram: lo completo apenas pueda.`);
+  assert.equal(respuestaWhatsApp([{ como: 'nueva', estado: 'ordenada', carpeta: 'Serie 3', sinLeer: true }], link),
+    'Guardado en Inspiración › Serie 3. Todavía no pude leer el post en Instagram: lo completo apenas pueda.');
+  // Uno repetido no cuenta como sin leer: ya estaba guardado.
+  assert.doesNotMatch(respuestaWhatsApp([{ como: 'repetida', estado: 'ordenada', carpeta: 'Serie 1', sinLeer: true }], link), /Todavía no pude/);
 });

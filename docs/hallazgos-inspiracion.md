@@ -33,6 +33,17 @@ del doer junta varios mensajes en un texto. Para un texto libre está `linksDeIn
   más: de los 16 «posts de video sin pie», 13 son anuncios pagados confirmados y 2 (60 y 68) quedaron en blanco. Instagram marca
   a uno (cosmosai.app, 45) como «AI-generated profile».
 
+## La clave de Apify da 401: un link no puede depender de leerlo (19/11/2026)
+
+- **Medido:** la única clave de Apify (la de la plataforma, ws 9; el ws 3 no tiene propia y usaría ésa) contesta 401 en
+  `/v2/users/me` (`C:/dev/inspiracion/herramientas/probar-apify.ts`, que nunca imprime la clave). Vencida desde el 13/11.
+- **Lo que pasaba:** la pieza quedaba guardada (se inserta antes de leer) pero `sin_leer` y SIN carpeta sugerida, aunque el
+  dueño hubiera escrito «para la serie de ventas».
+- **Lo que queda:** se ordena igual con la nota y la cuenta, la respuesta dice que la lectura completa llega después, `leida_en`
+  marca lo que falta y `releerPendientes` lo completa cuando una lectura vuelve a andar. Lo fija `tests/inspiracion-servidor.test.ts`.
+- **El diagnóstico obvio era el equivocado:** «una lectura que falla adentro del medidor se cobra». No: `conMedidorDeMt` devuelve
+  en su `finally` la reserva de todo lo que no reportó costo (`reportarCostoReal`), y el costo se reporta sólo si Apify contestó.
+
 ## La PC: yt-dlp roto, pip sin red y transcribir lento (19/11/2026)
 
 - **El yt-dlp del sistema quedó a medias** (la carpeta `site-packages/~t_dlp` de una reinstalación cortada): falla con
@@ -80,8 +91,8 @@ del doer junta varios mensajes en un texto. Para un texto libre está `linksDeIn
 - **Aplicar la migración 0422** (`supabase/migrations/0422_inspiracion.sql`) antes del deploy: sin ella, la bandeja dice «Falta
   aplicar la migración 0422» y el doer contesta «No pude guardar ese link ahora». El 19/11 el clasificador de permisos frenó
   `apply-migration.mjs` desde este chat: la aplica el Cerebro o Martín.
-- **El cron que termina las piezas `leyendo`** (diseno.md §3): hoy, si Apify o la IA fallan, la pieza queda en la bandeja sin
-  sugerencia (`lib/inspiracion/servidor.ts`, `leerYOrdenar`).
+- **Renovar la clave de Apify** (Integraciones → Apify, o la de la plataforma): mientras dé 401, ninguna pieza se lee y la relectura
+  (`releerPendientes`) sólo arranca cuando otra lectura anda. Un cron que relea solo seguiría siendo útil (diseno.md §3).
 - **La transcripción del reel cuando el pie dice poco** (diseno.md §3): la primera versión clasifica sólo con el pie, la cuenta
   y la nota; un reel sin pie va a la bandeja casi siempre.
 - **La pregunta Sí/No por WhatsApp** (diseno.md §10): necesita recordar qué tarjeta se está contestando.

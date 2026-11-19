@@ -164,7 +164,7 @@ function Tarjeta({ p, carpetas, sugerida, eligiendo, ocupado, onSi, onNo, onEleg
         <div className={st.quien}>
           {p.cuenta ? <b>@{p.cuenta}</b> : null}
           {texto(lectura.formato) ? <span className={st.etiqueta}>{texto(lectura.formato)}</span> : null}
-          {p.estado === 'sin_leer' ? <span className={st.etiqueta}>Sin leer</span> : null}
+          {!p.leida_en && p.tipo_link !== 'cuenta' ? <span className={st.etiqueta} title="Se guardó igual: la lectura completa del post llega apenas Instagram deje leerlo">Sin leer todavía</span> : null}
         </div>
         {texto(lectura.de_que_trata) ? <p>{texto(lectura.de_que_trata)}</p> : p.pie ? <p className={st.pie}>{p.pie.slice(0, 280)}</p> : null}
         {texto(lectura.gancho) ? <p className={st.gancho}>{texto(lectura.gancho)}</p> : null}

@@ -45,7 +45,10 @@ create table if not exists inspiracion_piezas (
   mensaje_id    text,
   creada_en     timestamptz not null default now(),
   -- La persona la confirmó (Sí en la bandeja, o la movió a mano). Como `revisada_en` de carruseles_biblioteca_piezas (0411).
-  revisada_en   timestamptz
+  revisada_en   timestamptz,
+  -- Cuándo se leyó el post en Instagram (Apify). null = todavía no: la pieza se guardó igual y se relee cuando la lectura vuelve
+  -- a andar (19/11/2026: la clave de Apify daba 401 y ningún link podía quedar en «no pude guardar»).
+  leida_en      timestamptz
 );
 create index if not exists idx_inspiracion_piezas_ws on inspiracion_piezas (workspace_id);
 create unique index if not exists uq_inspiracion_piezas_ref on inspiracion_piezas (workspace_id, ref);

@@ -34,18 +34,27 @@ export interface Pieza {
   miniatura_url: string | null; metricas: Record<string, unknown>; lectura: Record<string, unknown>;
   carpeta_id: number | null; sugerida_id: number | null; carpeta_nueva: string | null; confianza: number | null; por_que: string | null;
   estado: 'leyendo' | 'ordenada' | 'por_revisar' | 'sin_leer'; nota: string | null; origen: string; creada_en: string; revisada_en: string | null;
+  /** Cuándo se leyó el post en Instagram; null = todavía no (se guardó igual). */
+  leida_en: string | null;
 }
-const COLUMNAS = 'id, ref, url, tipo_link, cuenta, pie, miniatura_url, metricas, lectura, carpeta_id, sugerida_id, carpeta_nueva, confianza, por_que, estado, nota, origen, creada_en, revisada_en';
+const COLUMNAS = 'id, ref, url, tipo_link, cuenta, pie, miniatura_url, metricas, lectura, carpeta_id, sugerida_id, carpeta_nueva, confianza, por_que, estado, nota, origen, creada_en, revisada_en, leida_en';
+/** Cuántas piezas viejas sin leer se releen cuando una lectura vuelve a andar. */
+export const RELEIDAS_POR_MENSAJE = 3;
 
 // ── Leer UN post de Instagram (Apify) ─────────────────────────────────────────────────────────────────────────────
 interface LeidoDeInstagram { cuenta: string | null; pie: string | null; miniatura: string | null; metricas: Record<string, unknown> }
 
+/**
+ * Lee UN post. null si no se pudo (sin clave, tope del día, Apify caído o la clave vencida: el 19/11/2026 la única daba 401).
+ * Una lectura que FALLA no se cobra: el costo se reporta (`reportarCostoReal`) sólo cuando Apify contestó, y el `finally` del
+ * medidor devuelve entera la reserva de lo que no reportó costo. La falla tira adentro y se vuelve null afuera, con su registro.
+ */
 async function leerDeInstagram(ws: number, url: string, ref: string): Promise<LeidoDeInstagram | null> {
   const claves = (await clavesApifyDeSpy(ws).catch(() => [])) ?? [];
   const pagan = claves.length ? claves : ((await clavesApifyDeSpy(await wsSuperAdmin()).catch(() => [])) ?? []);
   if (!pagan.length) return null;
   if (!(await runWithWorkspace(ws, () => reservarDelDia('inspiracion.leidos.dia', LEIDOS_POR_DIA)))) return null;
-  return runWithWorkspace(ws, () => conMedidorDeMt('inspiracion-leer', async () => {
+  return runWithWorkspace(ws, () => conMedidorDeMt('inspiracion-leer', async (): Promise<LeidoDeInstagram | null> => {
     const q = new URLSearchParams({ maxItems: '1', maxTotalChargeUsd: String(TECHO_USD), timeout: '45' });
     const r = await conLaPrimeraConCredito(pagan, async ({ token }) => {
       const res = await fetch(`${API}/acts/${APIFY_ACTOR_PUBLICACIONES}/run-sync-get-dataset-items?${q}`, {
@@ -55,8 +64,7 @@ async function leerDeInstagram(ws: number, url: string, ref: string): Promise<Le
       return { status: res.status, cuerpo: await res.json().catch(() => null) };
     });
     if (!r || r.status < 200 || r.status >= 300 || !Array.isArray(r.cuerpo)) {
-      console.error(`[inspiracion] Apify no leyó ${url}: HTTP ${r?.status ?? '—'} (ws=${ws})`);
-      return null;
+      throw new Error(`Apify no leyó ${url}: HTTP ${r?.status ?? '—'}`);
     }
     reportarCostoReal(0.0025);
     const items = (r.cuerpo as Array<Record<string, unknown>>).filter((it) => it && typeof it === 'object' && !('error' in it && it.error));
@@ -70,7 +78,10 @@ async function leerDeInstagram(ws: number, url: string, ref: string): Promise<Le
       miniatura: p?.miniatura ?? null,
       metricas: { tipo: p?.tipo ?? null, vistas: p?.vistas ?? null, megusta: p?.megusta ?? null, comentarios: p?.comentarios ?? null },
     };
-  }));
+  })).catch((e) => {
+    console.error(`[inspiracion] ${e instanceof Error ? e.message : String(e)} (ws=${ws})`);
+    return null;
+  });
 }
 
 // ── Ordenarla (la IA) ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -92,23 +103,33 @@ async function carpetasParaIA(): Promise<{ carpetas: Carpeta[]; paraIA: CarpetaP
   return { carpetas, confirmadas, paraIA: carpetas.map((x) => ({ id: x.id, nombre: x.nombre, descripcion: x.descripcion, ejemplos: ejemplos.get(x.id) ?? [] })) };
 }
 
-/** Lee y ordena una pieza ya guardada. Nunca tira: lo que falla deja la pieza en la bandeja (`sin_leer` o sin sugerencia). */
+/**
+ * Lee y ordena una pieza ya guardada. Nunca tira: lo que falla deja la pieza en la bandeja.
+ * Si Instagram no deja leerla, se ordena IGUAL con lo que hay (la nota del dueño, la cuenta) y queda `leida_en` null para
+ * releerla después (`releerPendientes`). Lo que la persona ya decidió (`revisada_en`) no se mueve: sólo se completa la lectura.
+ */
 export async function leerYOrdenar(ws: number, piezaId: number): Promise<Guardado> {
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
     const { data } = await db.from(T_PIEZAS).select(COLUMNAS).eq('id', piezaId).maybeSingle();
     const pieza = data as Pieza | null;
-    if (!pieza) return { como: 'nueva', estado: 'sin_leer', carpeta: null };
-    try {
-      const leido = pieza.tipo_link === 'cuenta' ? null : await leerDeInstagram(ws, pieza.url, pieza.ref).catch(() => null);
+    if (!pieza) return { como: 'nueva', estado: 'sin_leer', carpeta: null, sinLeer: true };
+    let leida = pieza.leida_en != null || pieza.tipo_link === 'cuenta';
+    if (!leida) {
+      const leido = await leerDeInstagram(ws, pieza.url, pieza.ref).catch(() => null);
       if (leido) {
-        await db.from(T_PIEZAS).update({ cuenta: leido.cuenta ?? pieza.cuenta, pie: leido.pie, miniatura_url: leido.miniatura, metricas: leido.metricas }).eq('id', piezaId);
+        await db.from(T_PIEZAS).update({ cuenta: leido.cuenta ?? pieza.cuenta, pie: leido.pie, miniatura_url: leido.miniatura, metricas: leido.metricas, leida_en: new Date().toISOString() }).eq('id', piezaId);
         Object.assign(pieza, { cuenta: leido.cuenta ?? pieza.cuenta, pie: leido.pie });
+        leida = true;
       }
-      if (!leido && pieza.tipo_link !== 'cuenta') {
-        await db.from(T_PIEZAS).update({ estado: 'sin_leer' }).eq('id', piezaId);
-        return { como: 'nueva', estado: 'sin_leer', carpeta: null };
-      }
+    }
+    if (pieza.revisada_en) return { como: 'nueva', estado: pieza.estado, carpeta: null, sinLeer: !leida };
+    // Sin lectura, sin nota y sin cuenta no hay nada que leer: a la bandeja, sin pagar la IA.
+    if (!leida && !pieza.nota && !pieza.cuenta) {
+      await db.from(T_PIEZAS).update({ estado: 'por_revisar' }).eq('id', piezaId);
+      return { como: 'nueva', estado: 'por_revisar', carpeta: null, sinLeer: true };
+    }
+    try {
       const { carpetas, paraIA, confirmadas } = await carpetasParaIA();
       const [sistema, usuario] = await Promise.all([
         renderPrompt(PROMPTS_INSPIRACION.sistema.key, PROMPTS_INSPIRACION.sistema.tpl, {}),
@@ -126,14 +147,29 @@ export async function leerYOrdenar(ws: number, piezaId: number): Promise<Guardad
         : { estado: 'por_revisar', carpeta_id: null, sugerida_id: destino.sugeridaId, carpeta_nueva: destino.carpetaNueva };
       await db.from(T_PIEZAS).update({ ...fila, confianza: v?.confianza ?? null, por_que: v?.porQue ?? null, lectura: v?.lectura ?? {} }).eq('id', piezaId);
       const nombre = carpetas.find((c) => c.id === (destino.estado === 'ordenada' ? destino.carpetaId : -1))?.nombre ?? null;
-      return { como: 'nueva', estado: destino.estado, carpeta: nombre };
+      return { como: 'nueva', estado: destino.estado, carpeta: nombre, sinLeer: !leida };
     } catch (e) {
       // Sin saldo (o cualquier otra falla): la pieza queda guardada y espera en la bandeja. Nunca se pierde un link.
       if (!esSinSaldoDeMt(e)) console.error(`[inspiracion] no pude ordenar la pieza ${piezaId} (ws=${ws}): ${e instanceof Error ? e.message : String(e)}`);
       await db.from(T_PIEZAS).update({ estado: 'por_revisar' }).eq('id', piezaId).then(() => undefined, () => undefined);
-      return { como: 'nueva', estado: 'por_revisar', carpeta: null };
+      return { como: 'nueva', estado: 'por_revisar', carpeta: null, sinLeer: !leida };
     }
   });
+}
+
+/**
+ * Cuando una lectura vuelve a andar, se releen hasta `RELEIDAS_POR_MENSAJE` piezas que quedaron sin leer (las más viejas
+ * primero). Es la «lectura completa que llega después» que promete la respuesta: sin esto, una pieza guardada con Apify caído
+ * se quedaba sin leer para siempre.
+ */
+export async function releerPendientes(ws: number, menos: readonly number[] = []): Promise<number> {
+  const ids = await runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from(T_PIEZAS).select('id').is('leida_en', null).neq('tipo_link', 'cuenta').order('creada_en', { ascending: true }).limit(RELEIDAS_POR_MENSAJE + menos.length);
+    return ((data ?? []) as Array<{ id: number }>).map((f) => f.id).filter((id) => !menos.includes(id)).slice(0, RELEIDAS_POR_MENSAJE);
+  });
+  for (const id of ids) await leerYOrdenar(ws, id);
+  return ids.length;
 }
 
 // ── Guardar lo que llegó por WhatsApp ─────────────────────────────────────────────────────────────────────────────
@@ -143,6 +179,7 @@ export async function leerYOrdenar(ws: number, piezaId: number): Promise<Guardad
  */
 export async function guardarDeWhatsApp(ws: number, links: readonly LinkDeInstagram[], o: { nota: string; mensajeId?: string | null }): Promise<Guardado[]> {
   const out: Guardado[] = [];
+  const ids: number[] = [];
   let leidos = 0;
   for (const link of links) {
     const r = await runWithWorkspace(ws, async () => {
@@ -161,10 +198,13 @@ export async function guardarDeWhatsApp(ws: number, links: readonly LinkDeInstag
       return { repetida: false as const, id: (ins.data as { id: number }).id };
     });
     if (r.repetida) { out.push(r.g); continue; }
+    ids.push(r.id);
     if (leidos < LEIDOS_POR_MENSAJE) { leidos++; out.push(await leerYOrdenar(ws, r.id)); continue; }
     await runWithWorkspace(ws, async () => (await getTenantDb()).from(T_PIEZAS).update({ estado: 'sin_leer' }).eq('id', r.id));
-    out.push({ como: 'nueva', estado: 'sin_leer', carpeta: null });
+    out.push({ como: 'nueva', estado: 'sin_leer', carpeta: null, sinLeer: true });
   }
+  // Si Instagram dejó leer alguna de este mensaje, la lectura anda: se completan las que habían quedado sin leer.
+  if (out.some((g, i) => g.como === 'nueva' && !g.sinLeer && links[i]?.tipo !== 'cuenta')) await releerPendientes(ws, ids).catch(() => 0);
   return out;
 }
 
