@@ -720,6 +720,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/customers',
   },
+  {
+    fecha: '19 nov', hora: '06:30', chat: 'Cobros', sesion: 'local_79d847f5-534c-4238-a332-43d305b54bc6', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La ficha de un cliente ya no se vuelve a dibujar sola al abrirla',
+    puntos: [
+      'En la línea de tiempo de la ficha, «hoy», «ayer» y «hace 5 min» se calculaban con la hora de la computadora: el servidor está en otra zona horaria que tu navegador, y a la noche uno decía «hoy» y el otro «ayer». Al no coincidir, la pantalla se redibujaba.',
+      'Ahora primero se muestra la fecha del evento (igual en los dos lados) y, apenas carga, pasa a «hoy», «ayer» o «hace 5 min».',
+      '**Cómo se prueba:** abre Admin › Customers › Código Inmobiliario de noche: la pantalla no parpadea y la línea de tiempo dice «hoy» o «ayer» como corresponde.',
+    ],
+    archivos: [
+      'app/admin/_polar/web/Customer/CustomerTimeline.tsx — `fechaFijaDelEvento` hasta llegar al navegador (`useEnElNavegador`)',
+      'tests/customer-timeline-hidratacion.test.ts — la ficha dibujada en UTC y en Argentina, la noche del ticket; con el código viejo da el #418',
+    ],
+    revisar: '/admin/customers/13',
+    tickets: [116],
+  },
 ];
 
 export const PARTES: Parte[] = [
