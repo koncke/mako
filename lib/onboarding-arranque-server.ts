@@ -632,9 +632,8 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
   // Con un «no» al PDF, lo que escribió que faltaba va acá: «lo anoto» tiene que quedar anotado (cuarta revisión, 21/10).
   // Un «no» sin nada escrito también deja marca (sexta revisión, 21/10: el «No» tocado no anotaba nada).
   const pdfNota = notaDelPdf(e);
-  if (e.origen || e.interes || e.intereses?.length || pdfNota) {
-    // `intereses`: los hasta 3 del V2 (lo que eligió, tal cual); `interes` sigue siendo el de antes, cuando coincide.
-    await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, ...(e.intereses?.length ? { intereses: e.intereses } : {}), at: new Date().toISOString(), pdfNota }))
+  if (e.origen || e.interes || pdfNota) {
+    await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, at: new Date().toISOString(), pdfNota }))
       .catch((err) => console.error('[arranque] encuesta:', err instanceof Error ? err.message : err));
   }
 

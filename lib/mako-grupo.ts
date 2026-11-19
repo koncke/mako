@@ -900,9 +900,10 @@ export async function pedirConfirmacionV2(
   return { ok: true, yaVerificado: false, link, numeroLinea: linea.numero };
 }
 
-/** Le manda el código por el chat privado (ella escribió primero: la regla 1 lo mira igual), su tarjeta de contacto y el pedido de agendarlo. */
+/** Le manda el código por el chat privado (ella escribió primero: la regla 1 lo mira igual), su tarjeta de contacto y el pedido de agendarlo.
+ *  Es un DM a una persona: va por `enviarAPersonaMaKo`, la puerta de los DM (tests/grupos-ops-guarda.test.ts). `destino`: su número. */
 async function mandarCodigoV2(v: EstadoVerificacion, destino: string): Promise<{ ok: boolean; error?: string }> {
-  const r = await enviarTextoVozMaKo(destino, mensajeDelCodigoV2(v.nombre ?? '', v.codigo));
+  const r = await enviarAPersonaMaKo(destino, mensajeDelCodigoV2(v.nombre ?? '', v.codigo));
   if (!r.ok) return { ok: false, error: r.error };
   // La tarjeta de MaKo, para que la guarde con un toque (la maqueta: «Guardar contacto»). Best-effort: el código ya salió.
   const numeroMaKo = soloDigitos(v.numeroLinea ?? '');
@@ -911,7 +912,7 @@ async function mandarCodigoV2(v: EstadoVerificacion, destino: string): Promise<{
       method: 'POST', body: JSON.stringify({ number: destino, contact: [{ fullName: 'MaKo', wuid: numeroMaKo, phoneNumber: `+${numeroMaKo}` }] }),
     }).catch(() => null);
   }
-  await enviarTextoVozMaKo(destino, AGENDAR_V2).catch(() => null);
+  await enviarAPersonaMaKo(destino, AGENDAR_V2).catch(() => null);
   return { ok: true };
 }
 
@@ -946,7 +947,7 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
     return {
       resultado: `ws${ws}: le contesto con el código`,
       responder: async () => {
-        const r = await mandarCodigoV2(anotado, chat.jid);
+        const r = await mandarCodigoV2(anotado, soloDigitos(anotado.destino || anotado.telefono));
         if (!r.ok) console.error(`[mako-grupo] ws${ws}: no salió el código del V2: ${r.error}`);
       },
     };
@@ -959,7 +960,7 @@ export async function reenviarCodigoV2(ws: number): Promise<{ ok: true } | { ok:
   const v = await getVerificacion(ws);
   if (!v?.v2 || !v.respondido || !v.destino) return { ok: false, error: E_SIN_CODIGO_V2 };
   if (v.verificado) return { ok: true };
-  const r = await mandarCodigoV2(v, v.destino.includes('@') ? v.destino : soloDigitos(v.destino));
+  const r = await mandarCodigoV2(v, soloDigitos(v.destino));
   return r.ok ? { ok: true } : { ok: false, error: MAKO_SIN_LINEA };
 }
 

@@ -66,7 +66,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
     const ws = await getWorkspaceActual();
     // EL ONBOARDING V2 (19/11/2026): el de la maqueta (./ChatArranqueV2.tsx). Con la guardia puesta, la pantalla de siempre (su aviso).
     if (vista.v2 && !vista.bloqueo) {
-      return <ChatArranqueV2 inicial={vista} key={`ws-${ws ?? 'ninguno'}`} seguirEnPc={seguirEnPc} persona={persona} revision={esRevision(v2)} />;
+      return <ChatArranqueV2 inicial={vista} key={`ws-${ws ?? 'ninguno'}`} seguirEnPc={seguirEnPc} persona={persona} />;
     }
     return <ChatArranque inicial={vista} key={`ws-${ws ?? 'ninguno'}`} arbolVacio={ARBOL_VACIO} opcionArmar={OPCION_ARMAR} seguirEnPc={seguirEnPc} persona={persona} videos={v2 ? { revision: esRevision(v2) } : null} />;
   }

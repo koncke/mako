@@ -154,9 +154,14 @@ test('6. la pantalla del V2: la estrella, la caja del Ops Center, UN video y la 
   assert.doesNotMatch(v2, /Ahora no/, 'el onboarding es obligatorio');
   assert.match(v2, /<CriaturaMako size=\{36\}/, 'la estrella en la cabecera');
   assert.match(v2, /<CriaturaMako size=\{26\}/, 'la estrella al lado de cada mensaje');
-  assert.match(v2, /<div className="co-caja">\s*<CajaChat /, 'la caja de una línea del Ops Center');
+  assert.match(v2, /<div className=\{`co-caja\$\{etapa === 'listo' && enTelefono \? ' arr-v2__caja--dos' : ''\}`\}>\s*<CajaChat /, 'la caja de una línea del Ops Center');
   assert.equal((v2.match(/<VideoDelMomento /g) ?? []).length, 1, 'un solo video');
   assert.match(v2, /const VIDEO_BIENVENIDA = 'onboarding-bienvenida';/);
+  // Sólo si el video existe de verdad: nunca un «no está grabado» en producción (el Cerebro, 19/11).
+  assert.match(v2, /\{videoBienvenida && filaMako\('arr-video', <VideoDelMomento clave=\{VIDEO_BIENVENIDA\} titulo="la bienvenida" revision=\{false\} \/>\)\}/);
+  // En el teléfono (o una pantalla angosta), el final es «Continuar el onboarding desde la PC», como la maqueta (18/11).
+  assert.match(v2, /window\.matchMedia\('\(max-width: 640px\)'\)\.matches\) setEnTelefono\(true\)/);
+  assert.match(v2, /\{enTelefono\s*\? <button type="button" onClick=\{\(\) => setEnPc\(true\)\} className="arr-link arr-link--principal">Continuar el onboarding desde la PC<\/button>/);
   assert.match(v2, /\{fase === 'escribe' && <div className="arr-v2__velo" aria-hidden="true" \/>\}/, 'la pantalla oscura');
   assert.match(v2, /\{fase === 'escribe' && escribiendo\('arr-escribe', true\)\}/, 'con MaKo escribiendo, a la vista');
   assert.match(v2, /setFase\('escribe'\);/, 'al tocar la entrada');

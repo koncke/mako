@@ -32,6 +32,7 @@ import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { VideoDelMomento } from '@/app/_ui/tutorial/VideoDelMomento';
+import { useVideoTutorial } from '@/app/_ui/tutorial/useVideoTutorial';
 import { CLAVE_ENTRADA_MOVIL } from '@/app/m/_ui/entrada';
 import { rutaDelHilo, type EtapaArranque, type MensajeArranque } from '@/lib/onboarding-arranque';
 import type { VistaArranque } from '@/lib/onboarding-arranque-server';
@@ -39,6 +40,7 @@ import { EntradaMako } from './EntradaMako';
 import { CriaturaMako, type Reaccion } from './CriaturaMako';
 import { SeguirEnPc } from './ChatArranque';
 import { tarjetaConNumero } from './arranque-ui';
+import { iniciales } from '@/lib/unicode-seguro';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string; enCurso?: boolean };
 
@@ -65,15 +67,22 @@ const VIDEO_BIENVENIDA = 'onboarding-bienvenida';
 
 const horaDe = (d: Date) => d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, revision = false }: {
+export function ChatArranqueV2({ inicial, seguirEnPc = false, persona }: {
   inicial: VistaArranque;
-  /** En un teléfono: el primer paso acá y «Continuar el onboarding desde la PC» al final (18/11). */
+  /** En un teléfono: el primer paso acá y «Continuar el onboarding desde la PC» al final (18/11). Lo decide la página. */
   seguirEnPc?: boolean;
   persona?: { nombre: string; email: string };
-  /** La revisión de Martín: sin video grabado, su lugar marcado. */
-  revision?: boolean;
 }) {
   const [vista, setVista] = useState<VistaArranque>(inicial);
+  // EL TELÉFONO (18/11: la PC es obligatoria para lo que sigue): lo dice la página o, si no lo supo, el ancho de la pantalla (la maqueta
+  // decide por el ancho). Se mide después de montar, para no dibujar distinto que el servidor.
+  const [enTelefono, setEnTelefono] = useState(seguirEnPc);
+  useEffect(() => {
+    if (seguirEnPc) return;
+    try { if (window.matchMedia('(max-width: 640px)').matches) setEnTelefono(true); } catch { /* sin matchMedia: la PC */ }
+  }, [seguirEnPc]);
+  // EL VIDEO DE BIENVENIDA, sólo si existe de verdad (public/tutoriales, su manifiesto). Nunca un «no está grabado» en su lugar.
+  const videoBienvenida = useVideoTutorial(VIDEO_BIENVENIDA);
   // La entrada va UNA vez, al principio de todo; después, la pantalla oscura con MaKo escribiendo y su primer mensaje: el video.
   const empieza = !inicial.introVista && inicial.etapa === 'nombre';
   const [fase, setFase] = useState<'intro' | 'escribe' | 'chat'>(empieza ? 'intro' : 'chat');
@@ -184,7 +193,8 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, revision 
     if (h) h.scrollTo({ top: h.scrollHeight, behavior: 'smooth' });
   }, [cuantos, fase]);
 
-  const letra = (persona?.nombre || vista.nombre || "").trim().charAt(0).toUpperCase();
+  // La inicial con `iniciales` (lib/unicode-seguro.ts): la primera letra suelta de «🔥 Alex» es media pieza de un emoji y tira la pantalla al hidratar.
+  const letra = iniciales(persona?.nombre || vista.nombre, 1, '·');
   const estrella = (r: Reaccion = 'escucha') => <span className="arr-v2__foto" aria-hidden="true"><CriaturaMako size={26} reaccion={r} /></span>;
   const filaMako = (key: string, cuerpo: ReactNode, o: { conHora?: boolean; resaltar?: boolean } = {}) => (
     <div key={key} className={`co-el-wa co-wa${o.resaltar ? ' arr-v2__resalte' : ''}`}>
@@ -194,7 +204,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, revision 
   const filaYo = (key: string, t: string) => (
     <div key={key} className="co-yo co-wa co-wa--yo">
       <div className="ch-plegable"><p className="co-burbuja">{t}<span className="co-burbuja__pie" suppressHydrationWarning>{horaDel(key)}</span></p></div>
-      <span className="co-mifoto arr-v2__mifoto" aria-hidden="true"><span>{letra || "·"}</span></span>
+      <span className="co-mifoto arr-v2__mifoto" aria-hidden="true"><span>{letra}</span></span>
     </div>
   );
   const escribiendo = (key: string, resaltar = false) => filaMako(key,
@@ -213,7 +223,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, revision 
     if (m.tarjeta === 'listo') {
       return (
         <div className="arr-links">
-          {seguirEnPc
+          {enTelefono
             ? <button type="button" onClick={() => setEnPc(true)} className="arr-link arr-link--principal">Continuar el onboarding desde la PC</button>
             : <button type="button" onClick={() => void entrar()} disabled={entrando} className="arr-link arr-link--principal">{entrando ? 'Entrando…' : 'Entrar a MaKo'}</button>}
         </div>
@@ -224,7 +234,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, revision 
 
   const progreso = Math.max(0, PASOS.indexOf(etapa)) / (PASOS.length - 1);
   const enRecuadro = fase === 'chat' && !ocupado && ultimoMako?.opciones?.length && ultimoMako.recuadro ? ultimoMako : null;
-  const placeholder = etapa === 'listo' ? (seguirEnPc ? 'Toca «Continuar el onboarding desde la PC»' : 'Toca «Entrar a MaKo»') : PH[etapa] ?? 'Escribe a MaKo';
+  const placeholder = etapa === 'listo' ? (enTelefono ? 'Toca «Continuar el onboarding desde la PC»' : 'Toca «Entrar a MaKo»') : PH[etapa] ?? 'Escribe a MaKo';
 
   return (
     <div className={`arr-capa arr-v2${saliendo ? ' arr-capa--sale' : ''}`}>
@@ -249,7 +259,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, revision 
               {fase === 'chat' && (
                 <>
                   {/* UN solo video, el de la bienvenida, como primer mensaje (Martín, 19/11). Al bajar, sigue chiquito abajo a la derecha. */}
-                  {filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="la bienvenida" revision={revision} />)}
+                  {videoBienvenida && filaMako('arr-video', <VideoDelMomento clave={VIDEO_BIENVENIDA} titulo="la bienvenida" revision={false} />)}
                   {mensajes.map((m) => {
                     if (m.de === 'yo') return filaYo(m.id, m.texto);
                     const t = tarjeta(m);
@@ -276,7 +286,7 @@ export function ChatArranqueV2({ inicial, seguirEnPc = false, persona, revision 
               onVarias={(vs) => void responder({ opciones: vs }, vs.join(' · '))}
               onOtra={(t) => void responder({ texto: t }, t)} />}
             {/* La caja del Ops Center, la de una línea (Martín, 19/11: «la barra de chat abajo… está como muy alta»). */}
-            <div className="co-caja">
+            <div className={`co-caja${etapa === 'listo' && enTelefono ? ' arr-v2__caja--dos' : ''}`}>
               <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={mandarTexto} placeholder={placeholder} enterManda
                 ocupado={ocupado} apagado={fase !== 'chat' || etapa === 'listo'} sinAdjuntos onErrorMic={(m) => setError(m)} />
             </div>
@@ -460,9 +470,11 @@ const CSS_V2 = `
 .arr-v2 .arr-tarjeta { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); min-width: min(320px, 100%); }
 .arr-v2 .arr-tarjeta__nota { font-size: 13px; color: var(--dim); line-height: 1.4; }
 .arr-v2 .arr-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.arr-v2 .arr-link { display: inline-flex; align-items: center; padding: 10px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-size: var(--fs-sm); font-weight: 700; text-decoration: none; font-family: inherit; cursor: pointer; }
+.arr-v2 .arr-link { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-size: var(--fs-sm); font-weight: 700; text-decoration: none; font-family: inherit; cursor: pointer; }
 .arr-v2 .arr-link--principal { background: var(--ink); border-color: var(--ink); color: var(--surface); }
 .arr-v2 .arr-link:disabled { opacity: .6; cursor: default; }
+/* En el teléfono, al final, la caja muestra entero «Toca «Continuar el onboarding desde la PC»», en dos renglones (la maqueta). */
+.arr-v2__caja--dos .co-caja__campo textarea { min-height: calc(2 * var(--fs-md) * 1.5 + 18px); }
 /* Los errores, ROJOS y arriba de la caja (16/11, Martín: «no en amarillo, sino que en rojo»). */
 .arr-v2__error { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 10px; max-width: 760px; margin: 0 auto 10px; padding: 10px 12px; border-radius: 12px;
   background: var(--bad-bg); border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent); color: var(--ink); font-size: var(--fs-sm); line-height: 1.45; }
