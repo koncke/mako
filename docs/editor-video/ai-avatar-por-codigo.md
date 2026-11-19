@@ -68,8 +68,9 @@ Lo lleva el chat `ai-avatar-codigo`. La galería de la que sale cada formato est
   - La réplica (`node scripts/avatar-cubos/replica.mjs <formato> <carpeta>`): Chromium abre la plantilla de la app (servida
     como archivo estático, sin `next dev`) con los tiempos y la voz de la galería, arma el MP4 con el mismo código que usa la
     pantalla (`app/ai-avatar/cubos/mp4.ts`) y lo compara cuadro por cuadro con `C:/dev/artefactos-animaciones/mp4/<id>.mp4`.
-    **19/11, «Palabras gigantes»:** 0,9 de diferencia media sobre 255 (el ruido de los dos codificadores) y ≤ 0,01 % de
-    píxeles distintos en los 10 cuadros comparados.
+    **19/11:** «Palabras gigantes» da 0,9 de diferencia media sobre 255 (el ruido de los dos codificadores) y «Subtítulos
+    karaoke», 1,0; los dos con ≤ 0,01 % de píxeles distintos en los 10 cuadros comparados. La caja de vidrio del karaoke
+    (`backdrop-filter`) sale igual aunque el personaje va en otra capa: detrás tiene la remera oscura.
   - La pantalla (`node scripts/avatar-cubos/vista.mjs <carpeta> [formato]`): esbuild empaqueta el componente de verdad con
     las server actions falsas (`scripts/avatar-cubos/acciones-falsas.ts`) y Chromium lo maneja como una persona hasta bajar el
     MP4, que también se compara con la galería. Deja capturas a 1440 y 375.

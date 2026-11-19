@@ -14,7 +14,11 @@ galería) y `scripts/avatar-cubos/vista.mjs` (la pantalla real manejada en Chrom
 - **El navegador SÍ puede fotografiar su propio DOM igual que Playwright.** El DOM del segundo T pasa a un SVG con
   `<foreignObject>` (con el CSS y las fuentes adentro como `data:`), se dibuja en un canvas y mediabunny lo codifica. Medido contra
   la captura de Playwright: diferencia media 0,03-0,17 sobre 255 y ningún píxel que cambie más de 24. El MP4 entero contra el de
-  la galería: 0,9 de media (el ruido de los dos codificadores) y ≤ 0,01 % de píxeles distintos en los 10 cuadros mirados.
+  la galería: 0,9-1,0 de media (el ruido de los dos codificadores) y ≤ 0,01 % de píxeles distintos en los 10 cuadros mirados
+  de cada formato.
+- **⚠️ `backdrop-filter` y las capas:** el SVG de «encima» no ve al personaje, así que un vidrio esmerilado encima de él no lo
+  desenfoca. En el karaoke no se nota (detrás de la caja está la remera oscura); en un formato con vidrio sobre la cara, sí:
+  ahí conviene el camino del PNG (`conPng`), o sacar el `backdrop-filter`.
 - **⚠️ El SVG va como `data:`, NUNCA como `blob:`.** Con `blob:` Chrome marca el canvas como «tainted» y `toDataURL`, `VideoFrame`
   y el codificador fallan con SecurityError. Con `data:` + `encodeURIComponent`, no.
 - **El diagnóstico obvio de la lentitud era el equivocado.** Parecía el SVG de 1 MB por cuadro con las fuentes adentro; medido:
