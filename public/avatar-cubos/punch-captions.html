@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Palabras gigantes</title>
+<!-- Plantilla de AI Avatar por código (19/11/2026): es C:/dev/artefactos-animaciones/reels/punch-captions.html con el texto,
+     las palabras en color, la marca y el personaje como DATOS (window.CUBOS, kit/datos.js). Sin datos da el video de la
+     galería. Lo que la cámara y las cejas hacían en s2, s3, s4 y s6 sale de la cantidad de escenas: con 6 es lo mismo. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit/kit.css">
+<style>
+  #toma{position:absolute;inset:0}
+  #subs{top:1180px}
+  #tag{position:absolute;left:50%;top:1500px;transform:translateX(-50%);padding:14px 30px;border-radius:999px;background:rgba(12,12,14,.78);
+    font:700 34px Inter,sans-serif;color:#fff;display:flex;gap:12px;align-items:center;box-shadow:0 10px 30px rgba(0,0,0,.35);white-space:nowrap}
+  #tag svg{width:34px;height:34px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="toma"></div>
+  <div id="subs"></div>
+  <div id="tag"></div>
+</div>
+<script src="ejemplos/punch-captions.js"></script>
+<script src="kit/datos.js"></script>
+<script src="kit/kit.js"></script>
+<script src="kit/toma.js"></script>
+<script src="kit/rasterizar.js"></script>
+<script>
+const D = CUBOS.datos || {};
+const MARCA = typeof D.marca === 'string' && D.marca.trim() ? D.marca.trim() : 'MaKo';
+// sin datos (abierta sola) van las de la galería; con datos, sólo las que eligió la persona
+const CLAVES = CUBOS.datos ? (Array.isArray(D.claves) ? D.claves.map(KIT.limpia).filter(Boolean) : []) : ['cosa', 'ticket', 'precio', 'oferta', 'mentor', 'vender', 'gratis', 'mako'];
+const SPK = '<svg viewBox="-12 -12 24 24"><path d="M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z" fill="#f2b01e"/><circle cx="8.5" cy="-8.5" r="1.6" fill="#f2b01e"/></svg>';
+// la chispa es de MaKo: con otra marca va sólo el nombre
+document.getElementById('tag').innerHTML = (MARCA === 'MaKo' ? SPK : '') + '<span>' + KIT.esc(MARCA) + '</span>';
+// los momentos de la galería (cámara en las escenas 3, 4 y 6 de 6; cejas en la 2 y la 4) en proporción a este guion
+const ESC = Object.keys(TIEMPOS.anchors).filter((k) => k !== 'end');
+const N = ESC.length;
+const en = (i) => ESC[Math.max(0, Math.min(N - 1, i))];
+const CAM_IN = N >= 3 ? en(Math.ceil(N / 2) - 1) : null, CAM_OUT = N >= 3 ? en(Math.ceil(N / 2)) : null;
+const CAM_FIN = N >= 2 && en(N - 1) !== CAM_IN && en(N - 1) !== CAM_OUT ? en(N - 1) : null;
+const CEJAS_SUBE = N >= 2 ? en(1) : null, CEJAS_BAJA = N >= 4 ? en(3) : null;
+const toma = KIT.toma(document.getElementById('toma'), { tono: 'azul', cabeza: .40, ancho: 1040 });
+const claveRe = CLAVES.length ? new RegExp('^(' + CLAVES.join('|') + ')$') : /^$/;
+const subs = KIT.subs.punch(document.getElementById('subs'), { max: 3, car: 14, clave: claveRe });
+KIT.arrancar({
+  voz: CUBOS.voz || 'ejemplos/punch-captions.mp3', color: '#ffd400', poster: Math.min(6, TIEMPOS.anchors.end / 2),
+  fuentes: ['400 150px Anton', '700 34px Inter'],
+  cuadro(T, K) {
+    // un leve «punch-in» de cámara en cada frase clave, como un editor que corta a plano cerrado
+    const p = (esc, d) => (esc ? K.p(T, K.ini(esc), d, 'expo') : 0);
+    const zoom = 1 + .06 * p(CAM_IN, .25) - .06 * p(CAM_OUT, .3) + .05 * p(CAM_FIN, .4);
+    K.$('toma').style.transform = 'scale(' + zoom.toFixed(4) + ')';
+    toma.pinta(T, K, { cejas: (CEJAS_SUBE ? K.p(T, K.ini(CEJAS_SUBE), .2) : 0) - (CEJAS_BAJA ? K.p(T, K.ini(CEJAS_BAJA), .3) : 0) });
+    subs(T);
+    K.$('tag').style.opacity = K.p(T, .2, .4);
+  }
+});
+</script>
+</body>
+</html>

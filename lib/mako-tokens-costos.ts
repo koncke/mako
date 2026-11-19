@@ -183,6 +183,8 @@ const COSTOS: readonly CostoDeFeature[] = [
   { feature: 'video-planner', costoUsd: 0.00504, origen: 'estimado', n: 0, porque: 'Planificar un anuncio en video: como escribir su guion.' },
   { feature: 'video-escenas', costoUsd: 0.00504, origen: 'estimado', n: 0, porque: 'Escribir los escenarios del anuncio: como su guion.' },
   { feature: 'video-toma', costoUsd: 0.00135, origen: 'estimado', n: 0, porque: 'Una toma suelta: pasada corta sobre la escena ya escrita.' },
+  { feature: 'avatar-cubos-guion', costoUsd: 0.00135, origen: 'estimado', n: 0, porque: 'El guion del personaje en cubos (AI Avatar, 19/11/2026): 4 a 7 frases y unas palabras clave, una pasada corta con tope de 600 tokens.' },
+  { feature: 'avatar-cubos-personaje', costoUsd: 0.00135, origen: 'estimado', n: 0, porque: 'Mirar UNA foto y elegir las partes del personaje en cubos de listas cerradas: una imagen y una respuesta de 300 tokens.' },
   { feature: 'media-buyer-variaciones', costoUsd: 0.00504, origen: 'estimado', n: 0, porque: 'Variar el anuncio ganador: como escribir un guion nuevo.' },
   { feature: 'media-buyer-agentes', costoUsd: 0.00712, origen: 'estimado', n: 0, porque: 'Un agente propio del Media Buyer corre un juicio sobre la cuenta.' },
   { feature: 'anuncios-estructura', costoUsd: 0.00504, origen: 'estimado', n: 0, porque: 'Estructurar un anuncio: como su guion.' },

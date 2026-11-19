@@ -58,9 +58,11 @@ import { nombreDeArchivo } from '@/lib/ai-avatar/descarga';
 import { useWs } from '@/app/_ui/Link';
 import { soltarGuionPasado, verGuionPasado } from '@/lib/guion-pasado';
 import { MARCA } from '@/lib/tutoriales/marcas';
+// El personaje en cubos (19/11/2026): el video animado por código. Lo ve sólo la revisión de Martín (`veCubos`, del server).
+import { EstudioCubos } from './cubos/EstudioCubos';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
-type Vista = { tipo: 'nueva' } | { tipo: 'proyecto'; id: string } | { tipo: 'todos' };
+type Vista = { tipo: 'nueva' } | { tipo: 'proyecto'; id: string } | { tipo: 'todos' } | { tipo: 'cubos' };
 type Filtro = Categoria | 'Nuevos' | null;
 type Pop = null | 'modelo' | 'formato' | 'cantidad' | 'personaje';
 
@@ -70,7 +72,9 @@ function escribirQuery(v: Vista, presetId: string | null) {
   const url = new URL(window.location.href);
   url.searchParams.delete('avatar');
   url.searchParams.delete('plantilla');
+  url.searchParams.delete('cubos');
   if (v.tipo === 'proyecto') url.searchParams.set('avatar', v.id);
+  else if (v.tipo === 'cubos') url.searchParams.set('cubos', '1');
   else if (v.tipo === 'nueva' && presetId) url.searchParams.set('plantilla', presetId);
   window.history.replaceState(window.history.state, '', url.toString());
 }
@@ -81,6 +85,8 @@ function escribirQuery(v: Vista, presetId: string | null) {
 
 /** El prefijo del id de la tarjeta de una plantilla de venta (las de los presets son su id pelado). */
 const PREFIJO_VENTA = 'venta:';
+/** El id de la tarjeta del personaje en cubos en «Nuevo avatar». */
+const ID_CUBOS = 'cubos:personaje';
 /** Lo que se escribe solo en «¿Qué vas a crear hoy?» de la tarjeta: escenas, porque lo escrito va a la barra del estudio. */
 const EJEMPLOS = [
   'Con camisa blanca, de noche, en la ciudad',
@@ -89,8 +95,12 @@ const EJEMPLOS = [
   'En la playa al atardecer, con ropa de verano',
 ] as const;
 
-export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }: {
+export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora, veCubos = false, cubosInicial = false }: {
   inicio: Inicio;
+  /** El personaje en cubos (lib/ai-avatar/cubos-interruptor.ts): lo decide el server, el navegador no. */
+  veCubos?: boolean;
+  /** `?cubos=1`: abre el personaje en cubos. */
+  cubosInicial?: boolean;
   plantillaInicial?: string;
   /** El id del proyecto o el `mediaId` de su imagen (el `?avatar=` de antes era el mediaId). */
   avatarInicial?: string;
@@ -100,7 +110,7 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
   const [looks, setLooks] = useState<LookCard[]>(inicio.looks);
   const [fotos, setFotos] = useState(inicio.fotos);
   const inicial = avatarInicial ? inicio.looks.find((l) => l.id === avatarInicial || (l.mediaId && l.mediaId === avatarInicial)) : undefined;
-  const [vista, setVista] = useState<Vista>(inicial ? { tipo: 'proyecto', id: inicial.id } : { tipo: 'nueva' });
+  const [vista, setVista] = useState<Vista>(inicial ? { tipo: 'proyecto', id: inicial.id } : veCubos && cubosInicial ? { tipo: 'cubos' } : { tipo: 'nueva' });
   const [presetId, setPresetId] = useState<string | null>(plantillaPorId(plantillaInicial ?? '')?.id ?? null);
   const [fotoId, setFotoId] = useState<string>(inicio.fotos[0]?.id ?? '');
   const [detalle, setDetalle] = useState('');
@@ -179,6 +189,8 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
   // Arriba, las 10 plantillas de VENTA (una forma de guion sobre un preset: cuándo usarla y sus secciones; el ejemplo con
   // «Ver ejemplo»); después, los presets de siempre.
   const plantillas = useMemo<PlantillaCrear[]>(() => [
+    // El personaje en cubos, primero y sólo para la revisión: abre su estudio (no es un preset de Flow).
+    ...(veCubos ? [{ id: ID_CUBOS, nombre: 'Personaje en cubos', formato: '9 / 16', grupo: 'Personaje en cubos', imagen: '/avatar-cubos/ejemplos/punch-captions.jpg', ayuda: 'Tu personaje animado, con tu voz.' } satisfies PlantillaCrear] : []),
     // La tarjeta de venta muestra la ESCENA de su preset (la foto de la persona, si ya hizo una; si no, la del ejemplo, y su
     // video con el mouse encima). Sin imagen, la hoja con el gancho real del ejemplo: antes repetía el nombre de la plantilla
     // arriba y abajo, y las 10 eran cajas de texto (11/11/2026, docs/pruebas/ai-avatar-11-11.md).
@@ -203,7 +215,7 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
       video: p.ejemplo?.video,
       rotulo: p.categoria,
     })),
-  ], [looks]);
+  ], [looks, veCubos]);
   const [ejemploVenta, setEjemploVenta] = useState<PlantillaVentaAvatar | null>(null);
   // «Usar esta plantilla» desde «Ver ejemplo» tiene que cerrar «Nuevo avatar», como la tarjeta. PantallaCrear lo cierra sola
   // cuando la plantilla se usa desde la tarjeta (`alPlantilla`), pero el modal vive afuera: se vuelve a montar con otra `key`
@@ -221,6 +233,7 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
       pieLista={looks.length > 0 ? <button type="button" className="hf-pie-todos" onClick={() => setVista({ tipo: 'todos' })}>Ver todos en grilla</button> : null}
       plantillas={plantillas} tituloPlantillas="Presets"
       onPlantilla={(pl) => {
+        if (pl.id === ID_CUBOS) { setVista({ tipo: 'cubos' }); setError(''); return null; }
         const venta = pl.id.startsWith(PREFIJO_VENTA) ? plantillaVentaAvatar(pl.id.slice(PREFIJO_VENTA.length)) : null;
         if (venta) { usarVenta(venta); return null; }
         setPresetId(pl.id); setVista({ tipo: 'nueva' }); setError(''); return null;
@@ -231,7 +244,7 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
       onPedido={(texto) => { setDetalle(texto.slice(0, MAX_DETALLE)); setVista({ tipo: 'nueva' }); }}>
       <div className="hf">
         {vista.tipo === 'nueva' && (
-          <Nueva looks={looks} presetId={presetId} onPreset={(id) => setPresetId(id)} />
+          <Nueva looks={looks} presetId={presetId} onPreset={(id) => setPresetId(id)} onCubos={veCubos ? () => setVista({ tipo: 'cubos' }) : undefined} />
         )}
         {vista.tipo === 'todos' && (
           <Todos looks={looks} reloj={reloj} onAbrir={(id) => setVista({ tipo: 'proyecto', id })} />
@@ -243,7 +256,9 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
             onEliminar={() => void eliminar(proyecto.id)} enviando={enviando} error={error} />
         )}
 
-        {vista.tipo !== 'proyecto' && (
+        {vista.tipo === 'cubos' && <EstudioCubos alVolver={() => setVista({ tipo: 'nueva' })} />}
+
+        {vista.tipo !== 'proyecto' && vista.tipo !== 'cubos' && (
           <BarraImagen preset={preset} fotos={fotos} fotoId={fotoId} detalle={detalle} puente={inicio.puente}
             enviando={enviando} error={error}
             onFoto={setFotoId} onFotosNuevas={(f) => { setFotos(f); if (f[0]) setFotoId(f[0].id); }}
@@ -279,7 +294,7 @@ function nombreDeProyecto(l: LookCard): string {
 // Nueva: «¿Qué vas a crear hoy?» con los presets
 // ═════════════════════════════════════════════════════════════════════════════
 
-function Nueva({ looks, presetId, onPreset }: { looks: LookCard[]; presetId: string | null; onPreset: (id: string) => void }) {
+function Nueva({ looks, presetId, onPreset, onCubos }: { looks: LookCard[]; presetId: string | null; onPreset: (id: string) => void; onCubos?: () => void }) {
   const [filtro, setFiltro] = useState<Filtro>(null);
   const [busca, setBusca] = useState('');
   const lista = filtrarPresets(filtro, busca);
@@ -322,23 +337,33 @@ function Nueva({ looks, presetId, onPreset }: { looks: LookCard[]; presetId: str
           </div>
         )}
 
-      <MotionYPersonaje />
+      <MotionYPersonaje onCubos={onCubos} />
     </div>
   );
 }
 
-/** Lo de Higgsfield que se ve y todavía no tiene motor en MaKo: el «Motion» y el constructor de personaje. */
-function MotionYPersonaje() {
+/**
+ * Lo de Higgsfield que se ve y todavía no tiene motor en MaKo: el «Motion» y el constructor de personaje. Para la revisión de
+ * Martín (19/11/2026), «Crear influencer» SÍ tiene motor: abre el personaje en cubos (./cubos/EstudioCubos.tsx).
+ */
+function MotionYPersonaje({ onCubos }: { onCubos?: () => void }) {
   return (
     <section className="hf-pronto" aria-label="Próximamente">
       <div className="hf-pronto-tarjeta">
         <span className="hf-pronto-nombre">Motion</span>
         <span className="hf-pronto-linea">{SIN_MOTOR.movimiento}</span>
       </div>
-      <div className="hf-pronto-tarjeta">
-        <span className="hf-pronto-nombre">Crear influencer</span>
-        <span className="hf-pronto-linea">{SIN_MOTOR.personaje}</span>
-      </div>
+      {onCubos ? (
+        <button type="button" className="hf-pronto-tarjeta hf-pronto-tarjeta--activa" onClick={onCubos}>
+          <span className="hf-pronto-nombre">Crear influencer · Personaje en cubos</span>
+          <span className="hf-pronto-linea">Tu personaje animado, con tu voz.</span>
+        </button>
+      ) : (
+        <div className="hf-pronto-tarjeta">
+          <span className="hf-pronto-nombre">Crear influencer</span>
+          <span className="hf-pronto-linea">{SIN_MOTOR.personaje}</span>
+        </div>
+      )}
     </section>
   );
 }

@@ -19,6 +19,9 @@ import { EstudioAvatar } from './Estudio';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { inicioAvatarAction } from './actions';
 import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
+import { getUsuarioActual } from '@/lib/auth';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { veAvatarCubos } from '@/lib/ai-avatar/cubos-interruptor';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,12 +34,15 @@ export default async function AiAvatarPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const uno = (v: string | string[] | undefined) => (typeof v === 'string' ? v.slice(0, 120) : undefined);
   const inicio = await inicioAvatarAction();
+  // El personaje en cubos (19/11/2026, lib/ai-avatar/cubos-interruptor.ts): lo ve sólo la revisión de Martín; lo decide el server.
+  const sesion = await getUsuarioActual().catch(() => null);
+  const veCubos = !!sesion && veAvatarCubos({ email: sesion.email, ws: await getWorkspaceActual().catch(() => null) });
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
       {/* Las tres cosas con tope que se hacen acá: el look (imagen), el video con avatar y sus tomas. */}
       <FranjaPrueba cosas={['prueba.imagenes', 'prueba.avatares', 'prueba.tomas']} />
       {inicio.ok
-        ? <EstudioAvatar inicio={inicio} plantillaInicial={uno(sp.plantilla)} avatarInicial={uno(sp.avatar)} ahora={Date.now()} />
+        ? <EstudioAvatar inicio={inicio} plantillaInicial={uno(sp.plantilla)} avatarInicial={uno(sp.avatar)} ahora={Date.now()} veCubos={veCubos} cubosInicial={uno(sp.cubos) === '1'} />
         : <ErrorState titulo="No se pudo abrir AI Avatar" detalle={inicio.error} />}
     </Pagina>
   );
