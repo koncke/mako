@@ -42,7 +42,7 @@ export default async function AiAvatarPage({ searchParams }: { searchParams: Pro
       {/* Las tres cosas con tope que se hacen acá: el look (imagen), el video con avatar y sus tomas. */}
       <FranjaPrueba cosas={['prueba.imagenes', 'prueba.avatares', 'prueba.tomas']} />
       {inicio.ok
-        ? <EstudioAvatar inicio={inicio} plantillaInicial={uno(sp.plantilla)} avatarInicial={uno(sp.avatar)} ahora={Date.now()} veCubos={veCubos} cubosInicial={uno(sp.cubos) === '1'} />
+        ? <EstudioAvatar inicio={inicio} plantillaInicial={uno(sp.plantilla)} avatarInicial={uno(sp.avatar)} ahora={Date.now()} veCubos={veCubos} cubosInicial={uno(sp.cubos)} />
         : <ErrorState titulo="No se pudo abrir AI Avatar" detalle={inicio.error} />}
     </Pagina>
   );

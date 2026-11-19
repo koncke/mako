@@ -83,6 +83,41 @@ y≈500 y 1000: cualquier tarjeta en la franja 150-700 la tapa. Si el video abre
 medio; el plano cerca sólo cuando arriba no hay nada (el visor de CUBOS).
 
 ## Lo que quedó sin hacer (serie 3)
+## Carruseles de ventas (réplicas de outliers, «encontré una app») — 19/11/2026
+
+El proceso entero, en [series/carruseles-ventas.md](series/carruseles-ventas.md). Acá, lo que no se deduce del código.
+
+**Las referencias ya están bajadas: la biblioteca de outliers de MaKo.** `carruseles_biblioteca_piezas` (1.590 carruseles de 456
+cuentas el 19/11) guarda las láminas en el Storage (`laminas_imagenes`) y la palabra del CTA (`cta`, `cta_via='comentario'`: 247
+con láminas). Se lee en sólo lectura y se ordena por veces la mediana de su cuenta; no hace falta Instagram, Apify ni navegador.
+El `curl` de `instagram.com/p/<código>/embed/captioned/` NO trae las láminas (0 `display_url`: las arma el JavaScript), y un `/p/`
+puede ser un reel: `DffeOMPgNyA`, la «referencia del mismo estilo» de la serie 3, es un video de 42 s.
+
+**La frase de la referencia se verifica contra MaKo, no la función.** «They work 24/7» (el equipo de bots, `DcnHxFDgv2y`) es falso
+para el setter con IA: sin horario de oficina contesta SOLO de 9 a 21 hora del negocio (`HORARIO_RESPUESTA_SOLA`,
+lib/setter-conversacion.ts), hasta 3 veces por día (`TOPE_RESPUESTAS_SOLAS_24H`), y lo que habla de plata queda en borrador
+(`HABLA_DE_PLATA`). Lo mismo con un gurú: la app dice «Inspirado en» y responde «con el método de», no «como lo haría». Y el chat
+adjunta imágenes y PDF (`ACCEPT_ADJUNTOS_CHAT`), no `.docx`, aunque el catálogo hable de «un .docx» para el Second Brain.
+
+**Una respuesta de la app para mostrar: no había ninguna conversación con un gurú en producción** (`chart_chats` con
+`…referente-…`: 0 filas en todos los workspaces el 19/11). Se corrió el contexto real (`contextoDeReferente` +
+`CONTEXTO_SECOND_BRAIN`) con el negocio de mentira; sin el resto del system del turno (`VOZ_APP`, `REGLA_NO_EXISTE`) la respuesta
+nombró el curso del referente, que Martín no quiere que se nombre. Para una pieza pública, el texto de la respuesta se revisa
+contra las reglas del system entero, o se genera desde la app (ws 3).
+
+**Escribir o editar un `.html` con Write/Edit lo abre el navegador de la app** (un hook), que gasta RAM y no deja hacer nada en
+un `file://` («This tab shows a local file»). Con la PC en 0,5-1 GB libres, las páginas se generan con un script de Python
+(`C:/dev/carruseles-ventas/tools/escribir-*.py`) y se miran por el turno con Playwright. Cerrar la pestaña que abrió.
+
+**Dibujar un componente real tarda lo que tarda compilar su grafo, y con la RAM llena es mucho.** El panel de chat
+(`PanelDeChat` + `HiloMako` + `CajaChat`) tardó 17 min la primera vez con < 1 GB libre y 30 s la segunda (caché de tsx). Se
+corre en segundo plano apenas está el guion, no al final.
+
+**La fila del navegador: encolar TODAS las capturas apenas cada HTML existe.** Con 5 carruseles y renders de 60 s de otros
+chats adelante, cada vuelta esperaba 30-40 min. Encolarlas juntas (piezas, personaje en cubos, criaturas, láminas de cada
+carrusel) hace que salgan seguidas; la que necesita lo que hace otra va detrás en la fila.
+
+## Lo que quedó sin hacer
 
 - La respuesta automática a CUBOS (qué se manda: la guía del método) no existe todavía. Está en
   `docs/series/serie-3-ventas.md` → «Palabras de CTA».

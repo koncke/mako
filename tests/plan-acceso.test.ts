@@ -154,8 +154,10 @@ test('el corte de acceso por falta de pago está APAGADO: el cron no toca nada y
   assert.ok(cuerpo.length > 100, 'encontré negocioPausado');
   assert.match(cuerpo, /if \(corte\?\.motivo === 'sin-agencia' && corte\.vigente\) return !\(Date\.parse\(corte\.desde\) > Date\.now\(\)\);/, 'la cuenta que su agencia soltó');
   assert.match(cuerpo, /if \(corte\?\.motivo === 'paga-para-entrar' && corte\.vigente\) return true;/, '«Paga para entrar», sólo vigente');
-  // Lo demás —un pausado sin corte, o con otro motivo— se abre como siempre: después de esas dos, sólo queda el interruptor.
-  assert.deepEqual([...cuerpo.matchAll(/return ([^;]+);/g)].map((m) => m[1]), ['false', '!(Date.parse(corte.desde) > Date.now())', 'true', 'CORTE_DE_ACCESO_PRENDIDO']);
+  // ⚠️ 19/11/2026: y «Prueba terminada» (el negocio cargado a mano al que Martín le apagó «Habilitado sin cobro», lib/cuenta-sin-cobro.ts), sólo vigente.
+  assert.match(cuerpo, /if \(corte\?\.motivo === 'prueba-terminada' && corte\.vigente\) return true;/, '«Prueba terminada», sólo vigente');
+  // Lo demás —un pausado sin corte, o con otro motivo— se abre como siempre: después de esas tres, sólo queda el interruptor.
+  assert.deepEqual([...cuerpo.matchAll(/return ([^;]+);/g)].map((m) => m[1]), ['false', '!(Date.parse(corte.desde) > Date.now())', 'true', 'true', 'CORTE_DE_ACCESO_PRENDIDO']);
 });
 
 // =============================================================================

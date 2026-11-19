@@ -32,7 +32,34 @@ El ranking de temas, con cómo lo explica cada mentor, está en [serie-2-temas.m
   un efecto por momento; subtítulos bajo el mentón; cámara cerca de lo que pasa; nada que suene fuera del guion.
 - **Idioma:** español neutro con «tú», neutro en género, frases cortas que se lean en el teléfono.
 
-## La plantilla de guion (≈ 110-160 palabras, 35-50 s)
+## El gancho: la regla de Martín (19/11/2026, para todas las series)
+
+Martín, al ver el piloto de la serie 1: «no se entiende, sobre todo el hook… copiar los hooks de las estructuras… no
+utilizar palabras técnicas… ser más simple». Antes de grabar, el gancho pasa estas cuatro preguntas:
+
+1. **¿Copia la ESTRUCTURA de un gancho viral de afuera?** No la frase: la forma. Las que funcionaron
+   (`docs/series/serie-2-afuera/`):
+   - dos números que chocan sobre lo mismo: «gana un millón al año y tiene 5.800 seguidores»;
+   - la frase del cliente en su boca: «Lo hablo con mi esposa» rindió 3,6 veces más que la explicación;
+   - una escena en primera persona con un número absurdo: «un plomero me cobró 5.000 por 15 minutos»;
+   - «dame un minuto y te borro el miedo a…».
+2. **¿Se entiende en el primer segundo sin saber nada de marketing?** Si hace falta saber qué es un «funnel», un «CTA»
+   o un «hook», no.
+3. **¿Tiene alguna palabra técnica?** Se cambia por una de todos los días:
+   - «gancho» → «la primera frase»;
+   - «high ticket» → «vender caro» o el precio con número;
+   - «cerrar» → «vender»;
+   - «lead» → «alguien que te escribió».
+
+   Lo que es nombre de una función de la app («reels de prueba») se deja, porque es como lo va a buscar.
+4. **Los referentes, por el nombre corto que usa su público:** «Hormozi», no «Alex Hormozi». Si no es conocido (Dan
+   Martell), no va en el gancho: el gancho es el número, y el nombre llega después.
+
+El video 1 se rehízo por esta regla: el gancho era «Dan Martell subió el mismo video tres veces» y pasó a ser «El mismo
+video tuvo treinta mil vistas… y casi cuatro millones». Además, «gancho» pasó a ser «primera frase», y el cierre «los
+ganchos que más venden high ticket» pasó a ser «cinco primeras frases que funcionan».
+
+## La plantilla de guion (≈ 110-160 palabras, 35-55 s; la voz habla a ~2,9 palabras por segundo)
 
 | Tramo | Qué dice | Qué se ve |
 |---|---|---|
@@ -56,8 +83,10 @@ El ranking de temas, con cómo lo explica cada mentor, está en [serie-2-temas.m
 
 ### 1. «El mismo video, tres veces» (`edu-mismo-video`) — temas 1 y 10 (el gancho y los trial reels)
 
-- **Qué enseña:** el arranque decide; abre con una escena en primera persona con un número, no con la regla; y cómo
-  probarlo sin quemar la cuenta: los reels de prueba, cambiando el gancho y el texto.
+- **Qué enseña:** el arranque decide; abre con algo que te pasó y un número, no con un consejo; y cómo probarlo sin
+  quemar la cuenta: los reels de prueba, cambiando la primera frase y el texto.
+- **Gancho (versión 2, por la regla de arriba):** «El mismo video tuvo treinta mil vistas… y casi cuatro millones.» Son
+  dos números que chocan, se entiende sin saber de marketing, y el nombre (Dan Martell) llega en la tercera frase.
 - **Los datos, verificados con yt-dlp el 19/11/2026 a la 01:15 (hora de Uruguay):**
 
 | Video | Cómo arranca | Vistas | Subido |
@@ -76,8 +105,8 @@ El ranking de temas, con cómo lo explica cada mentor, está en [serie-2-temas.m
     [1JLx-787IC7sl26D-96RBpOHtaPG1KEzN], carácter ~215.093). No es oficial y fue bajando (25 → 20 → 5); el guion dice
     «hasta cinco por día».
   - El filtro de duplicados: si se cambia SÓLO el gancho, Instagram puede marcar la copia como duplicada (Modern Millie,
-    ijGh9LtBJ7U, 16:24). Por eso el guion dice «con otro gancho y otro texto».
-- **Guion:** `C:/dev/artefactos-animaciones/voz/guion-edu-mismo-video.json`. Son 145 palabras y 50,7 s. «Hormozi» se
+    ijGh9LtBJ7U, 16:24). Por eso el guion dice «con otra primera frase y otro texto».
+- **Guion:** `C:/dev/artefactos-animaciones/voz/guion-edu-mismo-video.json`. Versión 2: 155 palabras y 55,0 s (la 1, con el gancho viejo, quedó en `guion-edu-mismo-video.v1.json`). «Hormozi» se
   escribe «Jormozi» para la voz.
 - **Formato:** pizarrón con cámara propia (los tres videos → la cámara entra a cada uno → los tres juntos con el ×130),
   la línea de tiempo con la tijera para Hormozi, «así no / así sí» para el coach, el celular con el interruptor

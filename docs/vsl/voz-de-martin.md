@@ -7,6 +7,20 @@
 > otro creador, en español de España): no sirven de referencia.
 > Para la voz del personaje y del narrador animado: `OneDrive/Escritorio/MaKo-VSL/_voz-martin.md` (otra voz, en «tú»).
 
+## ⛔ Lo que pidió el 19/11 (manda sobre lo de abajo)
+
+«Yo quiero salir más humano, es decir, quiero que las veces que salga mi presentación sea más humana: por ejemplo,
+saludando, agradeciendo por estar aquí, por probar la aplicación, entendiendo que a la aplicación se le puso mucho
+esfuerzo. Quiero ser más humano, no tan vendedor, no quiero ser nada vendedor.»
+
+- **Saluda y agradece** que la persona esté acá y que pruebe la app.
+- **Cuenta con naturalidad el esfuerzo** que lleva MaKo, sin épica.
+- **De tú a tú**, como a alguien que acaba de llegar (de vos).
+- **Lo que vende** (funciones, datos, precio, oferta) **lo lleva el personaje.** Martín pone la parte humana.
+- **Cero vendedor en su boca:** ni «la pregunta más importante», ni «si te cansaste de…», ni «si esto te resonó», ni
+  urgencias o escasez. El VSL de junio era otro momento (vendía su acompañamiento): su forma de hablar sirve, su papel de
+  vendedor no.
+
 ## En una frase
 
 Le habla a otro dueño de negocio como un par: directo, con preguntas de dinero que incomodan, con su caso y sus números,
@@ -86,3 +100,17 @@ hecho.
 
 Cuando hablan entre ellos, Martín le pregunta o le pide algo como a alguien de su equipo («Mostrales…», «Contales…») y el
 personaje sigue con la parte animada. El personaje no lo presenta ni le hace chistes.
+
+## Trampas al copiar junio (las marcó el juez de la voz del guion v3, 19/11)
+
+- **Que una frase sea de junio no la vuelve humana.** En junio Martín vendía su acompañamiento, y algunas frases suyas son
+  recursos de vendedor: «hay un concepto que cuando lo entendí, realmente cambió todo» (un bucle abierto), «Y esto no es
+  solamente teoría» (la bisagra de la prueba), «otra pregunta aún más importante», y «no tenés un sistema, tenés
+  intuición» dicho como diagnóstico al que mira. Contado como algo que veía en los negocios que acompañó, pasa.
+- **Al personaje, pedidos** («Mostrale…») **o pedidos con forma de pregunta** («¿Le contás…?»). Una pregunta que el
+  creador sabe contestar («¿Qué ve MaKo?») suena armada.
+- **El esfuerzo, una vez y con su causa** («lo fui armando pieza por pieza… no alcanzaba con juntar todo en un solo
+  lugar: cada parte tenía que saber lo que pasó en la anterior»), nunca como razón del agradecimiento («le puse mucho
+  esfuerzo, así que…» suena a culpa).
+- **Nada de su vida que no esté en sus transcripciones:** «eso desgasta», «donde más ventas vi perderse», «las once de la
+  noche», «lo leo yo» salieron de los borradores por inventados.

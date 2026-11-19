@@ -66,6 +66,6 @@ test('«Dar de baja» está en la computadora, en el teléfono y en la API, y no
 
 test('el cliente sin plan propio lo elige y lo paga él (reactivar abre su primer plan, atado a su cuenta)', () => {
   const c = fuente('lib/compra-plan.ts');
-  assert.match(c, /if \(!base\) return primerPlanPropio\(ws, p, cobros\);/);
+  assert.match(c, /if \(!base\) return primerPlanPropio\(ws, p, cobros, o\.inicioAt \?\? null\);/, 'el primer plan propio (con el fin de la prueba de un negocio sin cobro, 19/11/2026)');
   assert.match(c, /\.update\(\{ alta_ws: ws, plan_mako: plan\.id \}\)/);
 });

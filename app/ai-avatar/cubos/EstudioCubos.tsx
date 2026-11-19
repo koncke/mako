@@ -51,7 +51,8 @@ function dejarDatos(d: Record<string, unknown>): string {
   return clave;
 }
 
-export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
+/** `abrirId`: el video que se abre al entrar (el link de la API, `crear_video_cubos`: `/ai-avatar?cubos=<id>`). */
+export function EstudioCubos({ alVolver, abrirId }: { alVolver: () => void; abrirId?: string }) {
   const [inicio, setInicio] = useState<InicioCubos | null>(null);
   const [errorInicio, setErrorInicio] = useState('');
   const [pestana, setPestana] = useState<'personaje' | 'video'>('personaje');
@@ -75,9 +76,13 @@ export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
       if (!r.ok) { setErrorInicio(r.error); return; }
       setInicio(r); setProyectos(r.proyectos); setFotoId(r.fotos[0]?.id ?? '');
       if (r.voces[0]) setVoz({ tipo: 'mako', id: r.voces[0].id }); else if (r.clon) setVoz({ tipo: 'clon' });
-      if (r.proyectos[0]) setPersonaje(r.proyectos[0].personaje);
+      const pedido = abrirId ? r.proyectos.find((x) => x.id === abrirId) : undefined;
+      if (pedido) {
+        setActual(pedido); setPersonaje(pedido.personaje); setFormato(pedido.formato); setPestana('video');
+        setTexto(textoConMarcas(pedido.formato, pedido.escenas.map((e) => e.texto), pedido.datos));
+      } else if (r.proyectos[0]) setPersonaje(r.proyectos[0].personaje);
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── la voz del video abierto: sin silencios largos, a -14 LUFS, y sus tiempos corridos igual (como la galería) ──
   useEffect(() => {
