@@ -45,13 +45,10 @@ pestañas. Se regenera con `node motor/pagina.mjs` y se publica desde `<scratchp
 
 ## Lo que falta o espera el OK
 
-- **Esperan el OK del Cerebro antes de las voces:**
-  - `offer-coach-clase` (~2:20, Offer Coach la manda después de la oferta);
-  - el `funnel-coach` corto que nombra los seis funnels;
-  - las clases `funnel-clase-anuncios-a-vsl` y `funnel-clase-anuncios-a-whatsapp`.
-  Guiones en `C:/dev/tutoriales-video/guiones-v6.md`. Con el OK: voz y render de esas cuatro, y escribir las otras cuatro clases
-  (`funnel-clase-anuncios`, `-organico`, `-youtube`, `-prospeccion-en-frio`), desde `docs/marketing-copilot/funnels/`.
-- **Martín todavía no miró uno por uno.** Puede pedir una SERIE para las pestañas grandes, como Automations.
+- **Las clases ya están hechas y en el manifiesto** (19/11, madrugada): `offer-coach-clase` (2:04) y las 6 `funnel-clase-<id>`
+  (anuncios, organico, youtube, anuncios-a-whatsapp, anuncios-a-vsl, prospeccion-en-frio; de 49 s a 1:15). Pesan hasta 5 MB.
+  Las de anuncios, orgánico, YouTube y prospección no pasaron por la revisión del Cerebro antes de la voz: que Martín las mire.
+- Martín todavía no miró los videos uno por uno; puede pedir una SERIE para las pestañas grandes (Automations).
 
 ## La voz
 

@@ -14,6 +14,7 @@ mkdirSync(`${PUB}/videos`, { recursive: true }); mkdirSync(`${PUB}/posters`, { r
 // has six videos of its own; the rest is in the menu of your photo
 const GRUPOS = [
   { id: 'onboarding', nombre: 'Onboarding', bajada: 'Lo primero que ve cada cliente, en este orden', keys: ['onboarding-bienvenida', 'onboarding-whatsapp', 'onboarding-seguir-pc', 'recorrido', 'offer-coach', 'funnel-coach'] },
+  { id: 'clases', nombre: 'Clases', bajada: 'La de la oferta (después de armarla) y una por funnel (al elegirlo)', keys: ['offer-coach-clase', 'funnel-clase-anuncios', 'funnel-clase-organico', 'funnel-clase-youtube', 'funnel-clase-anuncios-a-whatsapp', 'funnel-clase-anuncios-a-vsl', 'funnel-clase-prospeccion-en-frio'] },
   { id: 'reto', nombre: 'Reto de 7 días', bajada: 'Un video arriba de cada día, en el chat del reto', keys: ['reto-dia-1', 'reto-dia-2', 'reto-dia-3', 'reto-dia-4', 'reto-dia-5', 'reto-dia-6', 'reto-dia-7'] },
   { id: 'today', nombre: 'Today', keys: ['ops-center', 'ticketera', 'plan', 'chats', 'dashboard'] },
   { id: 'sales', nombre: 'Sales', keys: ['crm', 'calendar', 'automations'] },
