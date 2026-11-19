@@ -822,7 +822,13 @@ function bordeDe(img: Rgba, c: Caja, fondo: Color): number {
 const colorDeHex = (h: string): Color => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 
 /** Lo que se pide planchar: los renglones de cada texto (los números que dijo la IA) y las figuras que son personas. */
-export type PedidoPlancha = { textos: ReadonlyArray<{ renglones: readonly number[] }>; personas: readonly string[] };
+export type PedidoPlancha = {
+  textos: ReadonlyArray<{ renglones: readonly number[] }>; personas: readonly string[];
+  /** Lo que no se puede borrar (un renglón o la persona sobre una foto) se TAPA con el color de alrededor en vez de devolver la
+   *  lámina intacta (19/11/2026). Sólo en un carrusel: en una miniatura o la portada de un reel, el texto sobre una foto es lo
+   *  normal y un parche liso ahí no se midió. */
+  tapar?: boolean;
+};
 export type Planchada = { ok: true; textos: Array<Bloque | null>; personas: Caja[] } | { ok: false; motivo: string };
 
 /**
@@ -850,15 +856,28 @@ export function planchar(img: Rgba, lectura: LecturaDeLamina, p: PedidoPlancha):
     const pastilla = pastillaDe(img, b);
     if (pastilla && borrarZona(img, pastilla.letra, 2)) { bloques[i] = { ...b, pastilla }; continue; }
     // Renglón por renglón: la caja que los junta a todos toca lo que hay al lado del renglón más ancho (un ícono, otra caja).
+    // Un renglón sobre un fondo que no se puede continuar (una foto, una textura) se TAPA con el color de alrededor y el texto nuevo
+    // va encima, como en una etiqueta (19/11/2026). Antes devolvía la lámina intacta y, por el todo o nada, el carrusel ENTERO se
+    // armaba como antes, con fondo liso y fotos de banco: el equipo de bots de @albert.olgaard por un titular sobre una textura,
+    // «9 referentes» por un título sobre la miniatura de un video. Un parche liso detrás de UN texto se nota; perder el diseño de
+    // las siete láminas, mucho más.
     const pad = Math.max(3, Math.round(0.08 * b.altoRenglon));
-    if (!b.franjas.every((f) => borrarZona(img, f, pad))) return deshacer(`el fondo del texto ${i + 1} no es parejo`);
+    for (const f of b.franjas) {
+      if (borrarZona(img, f, pad)) continue;
+      if (!p.tapar) return deshacer(`el fondo del texto ${i + 1} no es parejo`);
+      taparZona(img, f, pad);
+    }
   }
   // La persona sobre un fondo que no se puede continuar (una foto, un edificio, un degradé) se TAPA con el color que domina a su
   // alrededor (19/11/2026). Ese lugar es justo el marcado donde va la persona del negocio (`PERSONA_A_GENERAR`): un panel liso ahí
   // no es una mancha, es el hueco que se llena después. Antes devolvía la lámina intacta y, por el todo o nada, el carrusel ENTERO
   // se armaba como antes: «9 referentes» (@awakpenn, la portada con un hombre delante de un edificio) salía con fondo liso y fotos
   // de banco en las once láminas.
-  for (const c of personas) if (!borrarZona(img, c, 6)) taparZona(img, c, 6);
+  for (const c of personas) {
+    if (borrarZona(img, c, 6)) continue;
+    if (!p.tapar) return deshacer('el fondo de la persona no es parejo');
+    taparZona(img, c, 6);
+  }
   return { ok: true, textos: bloques, personas };
 }
 

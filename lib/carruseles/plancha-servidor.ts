@@ -283,7 +283,8 @@ export async function planchasDeLaReplica(
     const leida = leidas[i]!;
     // Se planchea una COPIA: la lámina leída queda como estaba por si hay que volver a intentar.
     const img: Rgba = { ancho: leida.img.ancho, alto: leida.img.alto, px: new Uint8ClampedArray(leida.img.px) };
-    const r = planchar(img, leida.lectura, { textos: asignados[i].map((rs) => ({ renglones: rs })), personas: personas[i] });
+    // Tapar lo que no se borra, sólo en un carrusel (./plancha-local.ts, `PedidoPlancha.tapar`).
+    const r = planchar(img, leida.lectura, { textos: asignados[i].map((rs) => ({ renglones: rs })), personas: personas[i], tapar: replica.proporcion === '4:5' || replica.proporcion === '1:1' });
     // planchar devuelve un bloque por texto, en el orden de `textos[i]` (los de la IA y, después, los del marco agregados).
     if (!r.ok) { console.warn(`[carruseles] la lámina ${i + 1} no se plancheó (se arma todo como antes): ${r.motivo}`); return nada; }
     // Un texto de la IA que no se encontró en la lámina no se escribe: no tiene lugar medido. Nunca era uno principal sin más:

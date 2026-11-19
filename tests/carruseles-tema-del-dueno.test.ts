@@ -27,7 +27,7 @@ import { readFileSync } from 'node:fs';
 import { IMAGENES_MAX, LAMINAS_MAX, TOPE_TEMA, alTu, bloqueDelTema, conLaPalabra, leerReplica, palabraDelTema, promptDeCompletar, promptDeReplica, queVaEnLosRenglones, type Replica } from '../lib/carruseles/replica';
 import { TOPE_PEDIDO, leerPedidoGuiado } from '../lib/carruseles/guiado';
 import { usuarioDeLasCuentas } from '../lib/carruseles/marca-kit';
-import { taparZona } from '../lib/carruseles/plancha-local';
+import { planchar, taparZona } from '../lib/carruseles/plancha-local';
 
 const PEDIDO = 'Tema: en MaKo puedes chatear con Alex Hormozi como tu coach de negocio (Nuevo chat, elegir el referente; hay 32). '
   + 'Voz de partner que recomienda: «Encontré una app que…», el nombre MaKo una sola vez, en la portada. Donde va el logo de Claude '
@@ -114,7 +114,7 @@ test('9 · el voseo de la voz del negocio no llega a la lámina: pasa a «tú»'
   const crudo = JSON.stringify({ laminas: [{ fondo: '#FFFFFF', textos: [{ rol: 'cuerpo', texto: '> Vos solo aprobás', x: 0.1, y: 0.5, ancho: 0.8, tamano: 0.04, color: '#111111' }] }] });
   assert.equal((leerReplica(crudo, { laminas: 1 }) as Replica).laminas[0].textos[0].texto, '> Tú solo apruebas');
   const p = promptDeReplica({ ...base, pedido: null });
-  assert.match(p, /aunque «Cómo habla» \(abajo\) use «vos»/);
+  assert.match(p, /aunque «Cómo habla» \(abajo\) use el voseo: cada verbo y cada pronombre, de «tú»/);
 });
 
 test('10 · a la IA van TODAS las láminas, y con una cantidad distinta de la suya no se plancha (antes, «Editar» tiraba)', () => {
@@ -130,14 +130,27 @@ test('11 · la persona sobre un fondo que no se puede continuar se tapa con el c
   // las once láminas se armaban como antes (fondo liso y fotos de banco). Ese lugar es el marcado para la persona del negocio.
   const W = 120;
   const px = new Uint8ClampedArray(W * W * 4);
-  for (let i = 0; i < W * W; i++) px.set([245, 232, 224, 255], i * 4);
-  for (let y = 30; y < 90; y++) for (let x = 30; x < 90; x++) px.set(y % 4 < 2 ? [30, 90, 160, 255] : [200, 180, 60, 255], (y * W + x) * 4);
+  // Una «foto» en toda la lámina (bandas de dos colores) y la persona en el medio: su borde no es parejo, no se puede continuar.
+  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) px.set(y % 4 < 2 ? [30, 90, 160, 255] : [200, 180, 60, 255], (y * W + x) * 4);
+  for (let y = 30; y < 90; y++) for (let x = 30; x < 90; x++) px.set([240, 200, 180, 255], (y * W + x) * 4);
+  const caja = { x: 30, y: 30, ancho: 60, alto: 60 };
+  const lectura = { renglones: [], figuras: [{ n: 'F1', caja }] } as never;
+  // En una miniatura (sin `tapar`), como siempre: la lámina intacta y el motivo.
+  const intacta = { ancho: W, alto: W, px: new Uint8ClampedArray(px) };
+  const sin = planchar(intacta, lectura, { textos: [], personas: ['F1'] });
+  assert.equal(sin.ok, false);
+  assert.deepEqual(intacta.px, px, 'sin tapar, la lámina queda intacta');
+  // En un carrusel, se tapa con el color de alrededor y la lámina sigue.
   const img = { ancho: W, alto: W, px };
-  taparZona(img, { x: 30, y: 30, ancho: 60, alto: 60 }, 2);
-  for (const [x, y] of [[30, 30], [60, 60], [89, 89]]) assert.deepEqual([...px.slice((y * W + x) * 4, (y * W + x) * 4 + 3)], [245, 232, 224], `quedó la foto en ${x},${y}`);
-  const fuente = readFileSync(new URL('../lib/carruseles/plancha-local.ts', import.meta.url), 'utf8');
-  assert.match(fuente, /for \(const c of personas\) if \(!borrarZona\(img, c, 6\)\) taparZona\(img, c, 6\);/);
-  assert.doesNotMatch(fuente, /deshacer\('el fondo de la persona no es parejo'\)/);
+  const con = planchar(img, lectura, { textos: [], personas: ['F1'], tapar: true });
+  assert.equal(con.ok, true, 'una persona sobre una foto ya no tumba la plancha del carrusel');
+  const en = (x: number, y: number) => [...px.slice((y * W + x) * 4, (y * W + x) * 4 + 3)];
+  for (const [x, y] of [[30, 30], [60, 60], [89, 89]]) assert.deepEqual(en(x, y), en(60, 60), `la persona no quedó tapada pareja en ${x},${y}`);
+  assert.notDeepEqual(en(60, 60), [240, 200, 180], 'quedó la persona');
+  assert.ok([[30, 90, 160], [200, 180, 60]].some((c) => JSON.stringify(c) === JSON.stringify(en(60, 60))), 'el color es el de alrededor');
+  const fuente = readFileSync(new URL('../lib/carruseles/plancha-servidor.ts', import.meta.url), 'utf8');
+  assert.match(fuente, /tapar: replica\.proporcion === '4:5' \|\| replica\.proporcion === '1:1'/, 'sólo en un carrusel');
+  void taparZona;
 });
 
 test('5 · lo que manda el navegador llega hasta el tope del tema', () => {
