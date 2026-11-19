@@ -28,6 +28,8 @@ import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
 import { aplicarSubidasPendientes } from '@/lib/agencia-plan';
 import { revisarAccesosPorPago } from '@/lib/plan-acceso';
+import { revisarPagosEnEspera } from '@/lib/agencia-mes-comprobante';
+import { revisarSinCobro } from '@/lib/cuenta-sin-cobro';
 import { conciliarRetenciones } from '@/lib/retencion-plan';
 import { conciliarPrimerMes } from '@/lib/primer-mes';
 import { acreditarReferidos } from '@/lib/partners-programa';
@@ -70,6 +72,16 @@ export async function GET(req: NextRequest) {
   // EL 50% DEL PRIMER MES en Mercado Pago (30/10/2026): si no volvió al precio de lista, el próximo cobro sale a mitad. Nunca tira.
   const primerMes = await conciliarPrimerMes();
   if (primerMes.restaurados || primerMes.errores) console.log(`[cron:cobros-reconciliar] primer mes: ${JSON.stringify(primerMes)}`);
+  // «HABILITADO SIN COBRO» APAGADO (19/11/2026, lib/cuenta-sin-cobro.ts): el negocio cargado a mano que terminó sus 7 días de prueba sin su plan se pausa
+  // hasta que pague; el que ya lo tiene, o al que Martín se lo volvió a prender, se reabre. Liviano: al principio. Nunca tira.
+  const sinCobro = await revisarSinCobro();
+  if (sinCobro.pausados.length || sinCobro.reabiertos.length || sinCobro.errores) console.log(`[cron:cobros-reconciliar] sin cobro: ${JSON.stringify(sinCobro)}`);
+  // LOS COMPROBANTES DE BINANCE QUE ESPERAN SU PAGO (19/11/2026, lib/agencia-mes-comprobante.ts): el comprobante del grupo de una agencia
+  // (o de una cuenta con ciclo propio, como Leila) cuyo pago todavía no se veía en la cuenta. Calza → se aplica; 48 h sin aparecer → a
+  // Martín. Al PRINCIPIO, como la retención: es liviano y al final se lo comería la vuelta de los workspaces. Sólo LEE Binance. Nunca tira.
+  const espera = await revisarPagosEnEspera().catch((e) => ({ error: msg(e) }));
+  if ('error' in espera) console.warn('[cron:cobros-reconciliar] comprobantes en espera:', espera.error);
+  else if (espera.revisadas) console.log(`[cron:cobros-reconciliar] comprobantes en espera: ${JSON.stringify(espera)}`);
   const resultados: Resultado[] = [];
   const sinTurno: number[] = [];
   for (const ws of orden) {
@@ -139,5 +151,5 @@ export async function GET(req: NextRequest) {
   const partners = Date.now() - t0 < maxDuration * 1000 - RESERVA_MS ? await acreditarReferidos().catch((e) => ({ error: msg(e) })) : null;
   if (partners && 'acreditados' in partners && (partners.atados || partners.acreditados)) console.log(`[cron:cobros-reconciliar] MaKo Partners: ${JSON.stringify(partners)}`);
 
-  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, recibos, accesos, retencion, partners, ms: Date.now() - t0 });
+  return Response.json({ ok: true, workspaces: resultados, sinTurno, agencia, recibos, accesos, retencion, espera, sinCobro, partners, ms: Date.now() - t0 });
 }

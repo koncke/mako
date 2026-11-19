@@ -16,6 +16,11 @@
 //     SuperAdmin, CON EL ARCHIVO (16/11/2026), y a la agencia se le dice que lo revisa el equipo. Nunca se marca nada con dudas.
 //   · una orden ya usada se dice, y no cuenta: `reciboDePago('binance', orden)` (los recibos de MaKo), la tabla de lecturas (mig
 //     0400/0403, una por negocio) y el libro (`orden.<N>`, una vez).
+//   · ⚠️ DESDE EL 19/11/2026, UN COMPROBANTE SOLO NUNCA SE APLICA (Martín, 18/11: «te fijas si realmente impactó»): el pago se busca en
+//     la cuenta de Binance de MaKo (`verificarEnBinance`, lib/binance-pay-reglas.ts) y se aplica con el número y el monto REALES de la
+//     cuenta. Si todavía no está, a la agencia «lo reviso solo en un rato» y lo vuelve a mirar el cron de cobros cada media hora
+//     (`revisarPagosEnEspera`) durante 48 h; después, a Martín. Una lectura con dudas pero en dólares también se busca (por monto + hora
+//     + quién paga): si calza, se aplica; si no, a Martín como antes.
 // Lo que contesta MaKo lo arma el CÓDIGO (`textoDeComprobante`), nunca un modelo.
 //
 // ⚠️ EL «APROBADO» DE MARTÍN ES LA CONFIRMACIÓN (16/11/2026, Martín: «no debería pedirme confirmación si ya yo le digo aprobado que le abra
@@ -40,6 +45,7 @@ import { aplicarPagoDeAgencia, avisarAMartin, cerrarElPagoDeAgencia, mensualidad
 import { crearPendiente } from './mako-pendientes';
 import { getGrupoSuperAdminJid, type ArchivoDelAviso } from './mako-grupo';
 import { claveDeLaApp, conSalidaDelGrupo } from './grupo-salida';
+import { calzarConBinance, HORAS_DE_ESPERA, momentoDelComprobante, numerosUsados, seVencioLaEspera, TEXTO_ESPERANDO_EL_PAGO, type Calce } from './binance-pay-reglas';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 const AUTOR = 'MaKo · comprobante del grupo';
@@ -112,13 +118,16 @@ export async function atenderComprobanteDeAgencia(p: { agenciaWs: number; waMens
   }
   const ordenLeida = referenciaNormal('binance', l.operacion ?? '');
   /** `usada`: true/false si se sabe; undefined si no se pudo saber (entonces no se propone nada: lo mira Martín a mano). */
-  const revisar = async (porque: string, esperadoUsd: number | null, usada: boolean | undefined): Promise<Atendido> => {
+  /** `real`: el número y el monto que mostró la cuenta de Binance, si el pago ya se vio (ganan sobre lo leído). */
+  const revisar = async (porque: string, esperadoUsd: number | null, usada: boolean | undefined, real?: { orden: string; monto: number }): Promise<Atendido> => {
     const g = await guardar(ag, p, mime, l, leida.proveedor, esperadoUsd, null);
     await textoAlGrupoDeLaAgencia(ag, textoDeComprobante({ tipo: 'revisar' }));
     // Lo que se marcaría con su «aprobado»: sólo con una orden de Binance sin usar, en dólares, y algo que se debe.
-    const propuesta = ordenLeida && usada === false && l.monto && l.monto > 0 && esDolar(l.moneda)
+    const ordenP = real?.orden ?? ordenLeida;
+    const montoP = real?.monto ?? l.monto;
+    const propuesta = ordenP && usada === false && montoP && montoP > 0 && esDolar(l.moneda)
       ? await proponerComprobanteAMartin(m, {
-        agenciaWs: ag, orden: ordenLeida, monto: l.monto, moneda: l.moneda!.toUpperCase(), fecha: `${l.fecha ?? m.hoy}T${l.hora ?? '12:00'}:00`,
+        agenciaWs: ag, orden: ordenP, monto: montoP, moneda: l.moneda!.toUpperCase(), fecha: `${l.fecha ?? m.hoy}T${l.hora ?? '12:00'}:00`,
         comprobante: mime === 'application/pdf' ? null : await guardarFoto(p.bytes), lecturaId: g?.id ?? null, waMensajeId: p.waMensajeId,
         recibidoAt: new Date().toISOString(), claves: null,
       }).catch((e) => { console.error(`[agencia-mes] agencia ${ag}: no pude dejar la pendiente del comprobante: ${msg(e)}`); return null; })
@@ -145,43 +154,228 @@ export async function atenderComprobanteDeAgencia(p: { agenciaWs: number; waMens
     await textoAlGrupoDeLaAgencia(ag, textoDeComprobante({ tipo: 'repetido', numero: ya?.numero ?? null }));
     return { atendido: true, que: 'orden repetida' };
   }
-  if (v.tipo === 'revisar') return revisar(v.porque, totalDebe, usada);
-  const orden = v.orden;
-  const asig = asignarPago(l.monto!, m.pendientes);
-  if (asig.tipo === 'nada-pendiente') return revisar('no se debía nada', 0, usada);
-  if (asig.tipo === 'de-mas') return revisar(`es más de lo que se debía (${usd(asig.debeUsd)})`, asig.debeUsd, usada);
-  if (asig.tipo === 'ambiguo') return revisar(`calza exacto con más de una cosa: ${asig.opciones.map((o) => o.map((c) => concepto(c, m)).join(' + ')).join(' o ')}`, l.monto!, usada);
 
-  // 5. Se guarda la lectura (el N.º cuenta una vez: lo frena el índice único) y se aplica.
-  const esperado = asig.tipo === 'cubre' ? asig.aplicado.reduce((a, x) => a + x.montoUsd, 0) : totalDebe;
+  // 5. ⚠️ LA PLATA TIENE QUE ESTAR EN LA CUENTA (Martín, 18/11/2026: «un comprobante solo NUNCA activa nada»). Se busca el pago en la
+  //    cuenta de Binance de MaKo (lib/binance-pay-reglas.ts): por el número del comprobante y, si no aparece o no se leyó bien, por el
+  //    monto exacto + la hora + quién paga. Calza → se aplica con el número y el monto REALES de la cuenta. Con una lectura limpia que
+  //    todavía no aparece (o si Binance no contestó), se espera y se vuelve a mirar sola (`revisarPagosEnEspera`); lo demás, a Martín.
+  const sePuedeBuscar = esDolar(l.moneda) && (l.monto ?? 0) > 0 && usada !== undefined;
+  const ver = sePuedeBuscar ? await verificarEnBinance(m, { orden: ordenLeida, monto: l.monto!, at: momentoDelComprobante(l.fecha, l.hora, Date.now()) }) : null;
+  if (!ver || ver.tipo !== 'calza') {
+    if (v.tipo === 'revisar') return revisar(`${v.porque}${ver ? ` · ${queDijoBinance(ver)}` : ''}`, totalDebe, usada);
+    if (ver?.tipo === 'revisar') return revisar(ver.porque, totalDebe, usada);
+    if (ver?.tipo === 'sin-clave') return revisar('no lo pude comprobar en la cuenta de Binance: falta la clave de lectura', totalDebe, usada);
+    return esperarElPago({ m, p, mime, l, proveedor: leida.proveedor, totalDebe, ordenLeida, at: momentoDelComprobante(l.fecha, l.hora, Date.now()), error: ver?.tipo === 'falla' ? ver.error : null });
+  }
+  const mov = ver.mov;
+  const monto = Math.round(mov.monto * 100) / 100;
+  const lReal: LecturaComprobante = { ...l, operacion: mov.orderId, monto, moneda: mov.moneda };
   const comprobante = mime === 'application/pdf' ? null : await guardarFoto(p.bytes);
-  const g = await guardar(ag, p, mime, l, leida.proveedor, esperado, asig.aplicado.map((x) => x.clave).join(','), comprobante);
-  if (!g) return { atendido: true, que: 'otro intento lo atendió' };
-  if (g.repetido) {
-    await textoAlGrupoDeLaAgencia(ag, textoDeComprobante({ tipo: 'repetido', numero: null }));
-    return { atendido: true, que: 'orden repetida (la tabla)' };
+  const r = await aplicarPagoVerificado(m, { orden: mov.orderId, monto, moneda: mov.moneda, fecha: fechaLocal(mov.at, m.zona), comprobante, lecturaId: null },
+    (esperado, claves) => guardar(ag, p, mime, lReal, leida.proveedor, esperado, claves, comprobante));
+  if (r.tipo === 'revisar') return revisar(r.porque, r.esperado, r.sinPropuesta ? undefined : false, { orden: mov.orderId, monto });
+  if (r.tipo === 'repetido') await textoAlGrupoDeLaAgencia(ag, textoDeComprobante({ tipo: 'repetido', numero: null }));
+  return { atendido: true, que: `${r.que}${r.tipo === 'aplicado' ? ` (verificado en Binance por ${ver.por === 'orden' ? 'el número' : 'el monto y la hora'})` : ''}` };
+}
+
+// ── El pago tiene que estar en la cuenta (19/11/2026) ──────────────────────────────────────────────────────────────
+
+/** Lo que se le dice a Martín de lo que mostró la cuenta, en una frase. */
+const queDijoBinance = (v: Verificacion): string =>
+  v.tipo === 'calza' ? `en Binance está la orden ${v.mov.orderId}` : v.tipo === 'no-entro' ? 'en la cuenta de Binance todavía no está'
+    : v.tipo === 'sin-clave' ? 'no hay clave de Binance para mirarlo' : v.tipo === 'falla' ? `Binance no contestó (${v.error})` : v.porque;
+
+/** El momento de un pago en la hora del negocio, como lo guarda el libro: `AAAA-MM-DDTHH:MM:00`. */
+function fechaLocal(ms: number, zona: string): string {
+  try {
+    const s = new Intl.DateTimeFormat('sv-SE', { timeZone: zona, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ms));
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(s)) return `${s.replace(' ', 'T')}:00`;
+  } catch { /* zona rara: la de UTC */ }
+  return `${new Date(ms).toISOString().slice(0, 16)}:00`;
+}
+
+export type Verificacion = Calce | { tipo: 'sin-clave' } | { tipo: 'falla'; error: string };
+
+/**
+ * ¿Entró el pago? Lee la cuenta de Binance de MaKo (90 días: también sirve para saber quién le pagó antes por esta agencia) y lo calza
+ * (`calzarConBinance`). Un movimiento cuenta UNA vez: los números anotados en el libro de CUALQUIER agencia y los de los recibos quedan
+ * afuera. Si no se puede saber si un número ya se usó, se lo trata como usado (nunca se cuenta dos veces). Nunca tira.
+ */
+export async function verificarEnBinance(m: MensualidadOk, pedido: { orden: string | null; monto: number; at: number }): Promise<Verificacion> {
+  try {
+    const { pagosRecibidosEnBinance } = await import('./binance-pay');
+    const ahora = Date.now();
+    const lec = await pagosRecibidosEnBinance(ahora - 89 * 86_400_000, ahora);
+    if (!lec.ok) return lec.sinClave ? { tipo: 'sin-clave' } : { tipo: 'falla', error: lec.error };
+    const anotadas = await ordenesAnotadas();
+    if (anotadas == null) return { tipo: 'falla', error: 'no pude leer las órdenes ya anotadas' };
+    // Con los mal copiados adentro (`numerosUsados`): un número anotado con un dígito de más es el real, ya contado.
+    const usadas = numerosUsados([...anotadas, ...m.libro.ordenes.keys()], lec.movs);
+    const propias = numerosUsados(m.libro.ordenes.keys(), lec.movs);
+    const conocidos = new Set(lec.movs.filter((x) => propias.has(x.orderId) && x.pagadorId).map((x) => x.pagadorId!));
+    return calzarConBinance(pedido, lec.movs, { usadas, conocidos });
+  } catch (e) {
+    return { tipo: 'falla', error: msg(e) };
   }
-  const r = await aplicarPagoDeAgencia(m, { orden, monto: l.monto!, moneda: l.moneda!, montoUsd: l.monto!, fecha: `${l.fecha}T${l.hora ?? '12:00'}:00`, comprobante }, asig.aplicado, AUTOR);
+}
+
+/**
+ * Los números de Binance ya anotados en algún lado: el libro de cualquier agencia (`agencia.mensualidad.<ws>.orden.<N>`) y los recibos de
+ * MaKo (`recibo_pagos`, medio binance, sin anular). null si no se pudo leer alguno (entonces no se aplica nada: nunca dos veces).
+ */
+async function ordenesAnotadas(): Promise<Set<string> | null> {
+  const db = getSupabaseServer();
+  const [libros, recibos] = await Promise.all([
+    db.from('app_settings').select('key').eq('workspace_id', await wsSuperAdmin()).like('key', 'agencia.mensualidad.%.orden.%').limit(5000),
+    db.from('recibo_pagos').select('referencia').eq('medio', 'binance').eq('anulado', false).limit(5000),
+  ]);
+  if (libros.error || recibos.error) return null;
+  return new Set([
+    ...((libros.data ?? []) as Array<{ key: string }>).map((f) => f.key.slice(f.key.lastIndexOf('.orden.') + 7)),
+    ...((recibos.data ?? []) as Array<{ referencia: string | null }>).map((f) => String(f.referencia ?? '')),
+  ].map((s) => s.trim().toUpperCase()).filter(Boolean));
+}
+
+type ResultadoVerificado =
+  | { tipo: 'aplicado'; que: string }
+  | { tipo: 'repetido'; que: string }
+  | { tipo: 'nada'; que: string }
+  | { tipo: 'revisar'; porque: string; esperado: number | null; sinPropuesta?: true };
+
+/**
+ * APLICA UN PAGO QUE YA SE VIO EN LA CUENTA: a qué va (`asignarPago`), la lectura con su N.º (`guardarLectura`, si es la primera vez:
+ * el índice único lo frena), el libro (`aplicarPagoDeAgencia`, la orden una vez), el recibo de lo que quedó completo, las cuentas en
+ * pausa que vuelven a entrar, y lo que se le contesta a la agencia. Lo que no se decide solo vuelve como `revisar`.
+ */
+async function aplicarPagoVerificado(
+  m: MensualidadOk,
+  pago: { orden: string; monto: number; moneda: string; fecha: string; comprobante: string | null; lecturaId: number | null },
+  guardarLectura?: (esperado: number, claves: string) => Promise<{ id: number | null; repetido: boolean } | null>,
+): Promise<ResultadoVerificado> {
+  const ag = m.agenciaWs;
+  const totalDebe = Math.round(m.pendientes.reduce((a, x) => a + x.debeUsd, 0) * 100) / 100;
+  const asig = asignarPago(pago.monto, m.pendientes);
+  if (asig.tipo === 'nada-pendiente') return { tipo: 'revisar', porque: 'no se debía nada', esperado: 0 };
+  if (asig.tipo === 'de-mas') return { tipo: 'revisar', porque: `es más de lo que se debía (${usd(asig.debeUsd)})`, esperado: asig.debeUsd };
+  if (asig.tipo === 'ambiguo') return { tipo: 'revisar', porque: `calza exacto con más de una cosa: ${asig.opciones.map((o) => o.map((c) => concepto(c, m)).join(' + ')).join(' o ')}`, esperado: pago.monto };
+
+  const claves = asig.aplicado.map((x) => x.clave).join(',');
+  const esperado = asig.tipo === 'cubre' ? asig.aplicado.reduce((a, x) => a + x.montoUsd, 0) : totalDebe;
+  let lecturaId = pago.lecturaId;
+  if (guardarLectura) {
+    const g = await guardarLectura(esperado, claves);
+    if (!g) return { tipo: 'nada', que: 'otro intento lo atendió' };
+    if (g.repetido) return { tipo: 'repetido', que: 'orden repetida (la tabla)' };
+    lecturaId = g.id;
+  }
+  const r = await aplicarPagoDeAgencia(m, { orden: pago.orden, monto: pago.monto, moneda: pago.moneda, montoUsd: pago.monto, fecha: pago.fecha, comprobante: pago.comprobante }, asig.aplicado, AUTOR);
   if (!r.ok) {
-    if (r.repetida) {
-      await textoAlGrupoDeLaAgencia(ag, textoDeComprobante({ tipo: 'repetido', numero: null }));
-      return { atendido: true, que: 'orden repetida (el libro)' };
-    }
-    return revisar(`no lo pude anotar: ${r.error}`, esperado, undefined);
+    if (r.repetida) return { tipo: 'repetido', que: 'orden repetida (el libro)' };
+    return { tipo: 'revisar', porque: `no lo pude anotar: ${r.error}`, esperado, sinPropuesta: true };
   }
-  if (g.id) await runWithWorkspace(ag, () => anotarAplicadoDelGrupo(g.id!, asig.aplicado.map((x) => x.clave).join(',')));
+  if (lecturaId) await runWithWorkspace(ag, () => anotarAplicadoDelGrupo(lecturaId!, claves));
 
-  // 6. El recibo de lo que quedó completo, las cuentas en pausa que ya pagaron vuelven a entrar, y quiénes quedaron activos (en el texto).
+  // El recibo de lo que quedó completo, las cuentas en pausa que ya pagaron vuelven a entrar, y quiénes quedaron activos (en el texto).
   const cierre = await cerrarElPagoDeAgencia(m, r.completas, AUTOR, { conTexto: false });
-  if (cierre.recibo && !cierre.recibo.ok) await avisarAMartin(`${m.agencia} pagó ${usd(l.monto!)} (orden ${orden}) y quedó anotado, pero el recibo no salió: ${cierre.recibo.error}. Revísalo en Admin › Sales › Orders.`);
+  if (cierre.recibo && !cierre.recibo.ok) await avisarAMartin(`${m.agencia} pagó ${usd(pago.monto)} (orden ${pago.orden}) y quedó anotado, pero el recibo no salió: ${cierre.recibo.error}. Revísalo en Admin › Sales › Orders.`);
 
-  // 7. Lo que contesta MaKo.
   const conceptos = asig.aplicado.map((x) => concepto(x.clave, m));
   const texto = asig.tipo === 'cubre'
-    ? textoDeComprobante({ tipo: 'cubre', montoUsd: l.monto!, conceptos, activas: cierre.activas })
-    : textoDeComprobante({ tipo: 'parcial', montoUsd: l.monto!, conceptos, cubiertos: asig.cubiertas.map((c) => concepto(c, m)), faltaUsd: asig.faltaUsd, activas: cierre.activas });
+    ? textoDeComprobante({ tipo: 'cubre', montoUsd: pago.monto, conceptos, activas: cierre.activas })
+    : textoDeComprobante({ tipo: 'parcial', montoUsd: pago.monto, conceptos, cubiertos: asig.cubiertas.map((c) => concepto(c, m)), faltaUsd: asig.faltaUsd, activas: cierre.activas });
   await textoAlGrupoDeLaAgencia(ag, texto);
-  return { atendido: true, que: asig.tipo === 'cubre' ? `cubre: ${asig.claves.join(', ')}` : `parcial: falta ${asig.faltaUsd}` };
+  return { tipo: 'aplicado', que: asig.tipo === 'cubre' ? `cubre: ${asig.claves.join(', ')}` : `parcial: falta ${asig.faltaUsd}` };
+}
+
+// ── El comprobante cuyo pago todavía no se ve: se espera y se vuelve a mirar sola (19/11/2026) ─────────────────────────
+
+/** El renglón de la espera, en los ajustes de la plataforma: `binance.espera.<agencia>.<mensaje>`. */
+const PREFIJO_ESPERA = 'binance.espera.';
+type Espera = { agenciaWs: number; waMensajeId: string; lecturaId: number | null; orden: string | null; monto: number; at: number; comprobante: string | null; desde: string };
+
+function leerEspera(v: string | null | undefined): Espera | null {
+  try {
+    const o = JSON.parse(v ?? '') as Record<string, unknown>;
+    if (typeof o.agenciaWs !== 'number' || typeof o.waMensajeId !== 'string' || typeof o.monto !== 'number' || !(o.monto > 0) || typeof o.at !== 'number' || typeof o.desde !== 'string') return null;
+    return {
+      agenciaWs: o.agenciaWs, waMensajeId: o.waMensajeId, lecturaId: typeof o.lecturaId === 'number' ? o.lecturaId : null, orden: typeof o.orden === 'string' ? o.orden : null,
+      monto: o.monto, at: o.at, comprobante: typeof o.comprobante === 'string' ? o.comprobante : null, desde: o.desde,
+    };
+  } catch { return null; }
+}
+
+/**
+ * Una lectura limpia cuyo pago todavía no aparece en la cuenta: se guarda la lectura (sin aplicar), se anota la espera y a la agencia
+ * se le dice que se revisa sola. Si no se pudo anotar la espera, va a Martín (nunca queda olvidado en silencio).
+ */
+async function esperarElPago(x: { m: MensualidadOk; p: { waMensajeId: string; bytes: Uint8Array }; mime: 'image/jpeg' | 'image/png' | 'application/pdf'; l: LecturaComprobante; proveedor: string; totalDebe: number; ordenLeida: string | null; at: number; error: string | null }): Promise<Atendido> {
+  const ag = x.m.agenciaWs;
+  const comprobante = x.mime === 'application/pdf' ? null : await guardarFoto(x.p.bytes);
+  const g = await guardar(ag, x.p, x.mime, x.l, x.proveedor, x.totalDebe, null, comprobante);
+  if (!g) return { atendido: true, que: 'otro intento lo atendió' };
+  const espera: Espera = { agenciaWs: ag, waMensajeId: x.p.waMensajeId, lecturaId: g.id, orden: x.ordenLeida, monto: x.l.monto!, at: x.at, comprobante, desde: new Date().toISOString() };
+  const wsP = await wsSuperAdmin();
+  const { error } = await getSupabaseServer().from('app_settings')
+    .upsert({ workspace_id: wsP, key: `${PREFIJO_ESPERA}${ag}.${x.p.waMensajeId}`.slice(0, 200), value: JSON.stringify(espera), updated_at: espera.desde }, { onConflict: 'workspace_id,key' });
+  if (error) {
+    await textoAlGrupoDeLaAgencia(ag, textoDeComprobante({ tipo: 'revisar' }));
+    await avisarAMartin(`Comprobante de ${x.m.agencia} (${usd(x.l.monto!)}, orden ${x.ordenLeida ?? 'sin leer'}): todavía no está en la cuenta de Binance y no pude anotarlo para volver a mirarlo (${error.message}). Revísalo a mano.`, archivoDe(x.p.bytes, x.mime));
+    return { atendido: true, que: `no pude anotar la espera: a Martín` };
+  }
+  await textoAlGrupoDeLaAgencia(ag, TEXTO_ESPERANDO_EL_PAGO);
+  return { atendido: true, que: `esperando el pago en Binance${x.error ? ` (${x.error})` : ''}` };
+}
+
+/**
+ * VUELVE A MIRAR LOS COMPROBANTES EN ESPERA (lo corre el cron de los cobros, cada media hora). Calza → se aplica y se le contesta a la
+ * agencia; un caso para una persona → a Martín; pasadas `HORAS_DE_ESPERA` sin que aparezca → a Martín y a la agencia «lo revisa el
+ * equipo». Cada espera se borra al resolverse. Nunca tira.
+ */
+export async function revisarPagosEnEspera(ahora: number = Date.now()): Promise<{ revisadas: number; aplicadas: number; aMartin: number; errores: number }> {
+  const out = { revisadas: 0, aplicadas: 0, aMartin: 0, errores: 0 };
+  let filas: Array<{ key: string; value: string }> = [];
+  const wsP = await wsSuperAdmin().catch(() => null);
+  if (wsP == null) return { ...out, errores: 1 };
+  const db = getSupabaseServer();
+  const { data, error } = await db.from('app_settings').select('key, value').eq('workspace_id', wsP).like('key', `${PREFIJO_ESPERA}%`).limit(200);
+  if (error) { console.warn(`[agencia-mes] no pude leer los comprobantes en espera: ${error.message}`); return { ...out, errores: 1 }; }
+  filas = (data ?? []) as Array<{ key: string; value: string }>;
+  const borrar = (key: string) => db.from('app_settings').delete().eq('workspace_id', wsP).eq('key', key).then(({ error: e }) => { if (e) console.warn(`[agencia-mes] no pude borrar ${key}: ${e.message}`); });
+  for (const f of filas) {
+    out.revisadas++;
+    try {
+      const e = leerEspera(f.value);
+      if (!e) { await borrar(f.key); continue; }
+      const m = await mensualidadDeAgencia(e.agenciaWs);
+      if (!m.ok) { out.errores++; continue; }
+      if (!m.config) { await borrar(f.key); continue; }
+      const ver = await verificarEnBinance(m, { orden: e.orden, monto: e.monto, at: e.at });
+      if (ver.tipo === 'calza') {
+        const monto = Math.round(ver.mov.monto * 100) / 100;
+        const r = await aplicarPagoVerificado(m, { orden: ver.mov.orderId, monto, moneda: ver.mov.moneda, fecha: fechaLocal(ver.mov.at, m.zona), comprobante: e.comprobante, lecturaId: e.lecturaId });
+        if (r.tipo === 'aplicado') out.aplicadas++;
+        else if (r.tipo === 'revisar') {
+          out.aMartin++;
+          await textoAlGrupoDeLaAgencia(e.agenciaWs, textoDeComprobante({ tipo: 'revisar' }));
+          await avisarAMartin(`El pago de ${m.agencia} (${usd(monto)}, orden ${ver.mov.orderId}) ya está en la cuenta de Binance, pero no lo apliqué solo: ${r.porque}. Debe: ${loQueDebe(m.pendientes)}.`);
+        }
+        await borrar(f.key);
+        continue;
+      }
+      if (ver.tipo === 'revisar' || ver.tipo === 'sin-clave' || seVencioLaEspera(e.desde, ahora)) {
+        out.aMartin++;
+        const porque = ver.tipo === 'revisar' ? ver.porque : ver.tipo === 'sin-clave' ? 'no hay clave de Binance para mirarlo' : `pasaron ${HORAS_DE_ESPERA} h y el pago no aparece en la cuenta de Binance`;
+        await textoAlGrupoDeLaAgencia(e.agenciaWs, textoDeComprobante({ tipo: 'revisar' }));
+        await avisarAMartin(`Comprobante de ${m.agencia} para revisar (${usd(e.monto)}, orden ${e.orden ?? 'sin leer'}): ${porque}. Debe: ${loQueDebe(m.pendientes)}.`);
+        await borrar(f.key);
+      }
+      // Si no: todavía no entró (o Binance no contestó) y no se venció: en la próxima vuelta.
+    } catch (err) {
+      out.errores++;
+      console.error(`[agencia-mes] comprobante en espera ${f.key}: ${msg(err)}`);
+    }
+  }
+  return out;
 }
 
 // ── El comprobante que aprueba Martín (16/11/2026) ─────────────────────────────────────────────────────────────────
