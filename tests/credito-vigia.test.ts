@@ -9,6 +9,8 @@
 //   2. lo de verdad (tests/_credito-vigia-hijo.ts): el vigía guarda el %, reclama el aviso una vez (la segunda corrida no
 //      repite), lo manda a la campanita del ws SuperAdmin, y sin poder leer no inventa un %;
 //   3. el cableado: corre desde /api/cron/alerta-critica.
+//   4. el texto se entiende (19/11/2026): qué pasó, si cuadra con lo que gastó MaKo, con qué sigue (otra cuenta, o Gemini y los
+//      grupos sin IA), cuándo vuelve y qué hacer; sin «%» ni «según lo que registró MaKo».
 //
 // Probado rompiéndolo (11/11/2026, una rotura por vez, restaurada): ver el pie.
 // =============================================================================
@@ -29,7 +31,7 @@ const niveles = (r: ReturnType<typeof avisosDelCredito>) => r.avisos.map((a) => 
 test('1. al 80% un aviso por ciclo, al 100% otro; nunca los dos juntos', () => {
   const r = avisosDelCredito([fila('claude1', 100), fila('claude2', 162), fila('claude3', 201)], new Set(), AHORA);
   assert.deepEqual(niveles(r), ['claude2:80', 'claude3:100']);
-  assert.match(r.avisos[0].texto, /^claude2: US\$162 de 200 \(81%\), según lo que registró MaKo\./);
+  assert.match(r.avisos[0].texto, /^El crédito de Claude de la cuenta claude2 se está acabando: MaKo ya gastó US\$162 de los US\$200 de este mes\./);
   assert.deepEqual(r.uso, { ANTHROPIC_CREDITO_CUENTA1: 50, ANTHROPIC_CREDITO_CUENTA2: 81, ANTHROPIC_CREDITO_CUENTA3: 100.5 });
   // Ya avisado en este ciclo: no se repite. En el ciclo siguiente, sí.
   const ya = new Set(r.avisos.map((a) => a.clave));
@@ -40,7 +42,7 @@ test('1. al 80% un aviso por ciclo, al 100% otro; nunca los dos juntos', () => {
   // «Sin crédito» (lo contestó Anthropic) cuenta como el 100%, aunque lo registrado no llegue.
   const sin = avisosDelCredito([fila('claude4', 120, { sinCreditoAt: '2026-11-11T14:00:00.000Z' })], new Set(), AHORA);
   assert.deepEqual(niveles(sin), ['claude4:100']);
-  assert.match(sin.avisos[0].texto, /Anthropic contestó «sin crédito»/);
+  assert.match(sin.avisos[0].texto, /Anthropic dice que no le queda saldo/);
   assert.ok(r.avisos.every((a) => a.clave.startsWith(PREFIJO_AVISO_DEL_CREDITO)));
 });
 
@@ -83,7 +85,7 @@ test('2. el vigía de verdad: guarda el %, avisa una vez por la campanita, y sin
   assert.deepEqual(r.al81OtraVez.avisos, [], 'la corrida siguiente volvió a avisar el 80%');
   assert.deepEqual(r.al101.avisos.map((a: { r: string }) => a.r), ['avisado'], 'el 100% no avisó');
   assert.equal(r.campanitas.length, 2);
-  assert.ok(r.campanitas.every((c: string) => c.startsWith('credito-claude:claude2: ')), r.campanitas.join(' | '));
+  assert.ok(r.campanitas.every((c: string) => c.startsWith('credito-claude:') && c.includes('cuenta claude2')), r.campanitas.join(' | '));
   assert.equal(r.sinLeer.ok, true);
   // Sin poder leer el gasto, no se inventa un % ni se pisa el último: queda el 101% de antes, con SU hora (vence solo).
   assert.deepEqual(r.usoSinLeer, { ANTHROPIC_CREDITO_CUENTA2: 101 }, 'sin poder leer el gasto, se pisó el último % conocido');
@@ -100,6 +102,40 @@ test('3. corre desde la guardia de cada 10 minutos, y el «una vez» es un compa
   assert.match(v, /await borrarSettingSi\(a\.clave, v\)/, 'un aviso que no salió deja el reclamo puesto y no se vuelve a intentar');
 });
 
+test('4. el aviso se entiende (19/11/2026, «no entiendo lo que me quiere decir»): qué pasó, si cuadra, con qué sigue, cuándo vuelve y qué hacer', () => {
+  // Lo de esa noche, con los datos de producción: sólo la 1 y la 2 vinculadas, las dos con «sin crédito» y ~US$5,7 anotados en
+  // noviembre; la 3, la 4 y la 5 nunca se vincularon. El aviso viejo decía «MaKo sigue con las otras cuentas»: no quedaba ninguna.
+  const ahora = Date.parse('2026-11-19T21:11:06Z');
+  const filas = [
+    fila('claude1', 5.71, { sinCreditoAt: '2026-11-19T21:10:41.240Z' }),
+    fila('claude2', 5.75, { sinCreditoAt: '2026-11-19T21:10:44.699Z' }),
+    fila('claude3', null, { vinculada: false }), fila('claude4', null, { vinculada: false }), fila('claude5', null, { vinculada: false }),
+  ];
+  const r = avisosDelCredito(filas, new Set(), ahora);
+  assert.deepEqual(niveles(r), ['claude1:100', 'claude2:100']);
+  const t = r.avisos[0].texto;
+  assert.match(t, /^Se terminó el crédito de Claude de la cuenta claude1: Anthropic dice que no le queda saldo\.\n/);
+  assert.match(t, /No lo gastó MaKo: este mes usó US\$6 de los US\$200\. El resto se usó fuera de MaKo o venció antes\./);
+  assert.match(t, /No queda otra cuenta con crédito: lo interno de MaKo sigue con Gemini/, 'dijo que seguía con otra cuenta sin que quedara ninguna');
+  assert.doesNotMatch(t, /sigue con claude2|las otras cuentas/, 'contó como «con crédito» una cuenta que Anthropic dio sin saldo');
+  assert.match(t, /Vuelve con el próximo cobro del plan de esa cuenta \(MaKo no sabe qué día es\)\./);
+  assert.match(t, /Qué hacer: vincula el crédito de claude3, claude4 y claude5 en Ops Center › Uso/);
+  assert.match(t, /platform\.claude\.com → Billing de esa cuenta/, 'no cuadra y no dice dónde mirar en qué se fue');
+  for (const a of r.avisos) assert.doesNotMatch(a.texto, /%|según lo que registró|Se saltea/, a.texto);
+
+  // Con otra cuenta que todavía paga: sigue con ésa, y no hay nada que hacer. Con el día de cobro, la fecha en que vuelve.
+  const otra = avisosDelCredito([fila('claude1', 5.71, { sinCreditoAt: '2026-11-19T21:10:41.240Z', renueva: '2026-12-05T03:00:00.000Z' }), fila('claude3', 40)], new Set(), ahora);
+  assert.deepEqual(niveles(otra), ['claude1:100']);
+  assert.match(otra.avisos[0].texto, /· MaKo sigue con claude3\./);
+  assert.match(otra.avisos[0].texto, /· Vuelve el 05\/12, con el cobro del plan\./);
+  assert.match(otra.avisos[0].texto, /· Qué hacer: nada por ahora\./);
+
+  // Cuando lo gastó MaKo, cuadra: no se manda a mirar en qué se fue.
+  const nuestra = avisosDelCredito([fila('claude2', 199, { sinCreditoAt: '2026-11-19T21:10:44.699Z' })], new Set(), ahora);
+  assert.match(nuestra.avisos[0].texto, /· Cuadra con lo que gastó MaKo: US\$199 de los US\$200 de este mes\./);
+  assert.doesNotMatch(nuestra.avisos[0].texto, /en qué se fue/);
+});
+
 // ── Probado rompiéndolo (11/11/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
 //   V1 sin mirar «ya avisado» (avisa en cada corrida)                              → fallan el 1 y el 2
 //   V2 con lo gastado ilegible, se toma como 0 (un % inventado)                    → fallan el 1 y el 2
@@ -107,3 +143,4 @@ test('3. corre desde la guardia de cada 10 minutos, y el «una vez» es un compa
 //   V4 el vigía sin guardar el %                                                   → falla el 2
 //   V5 el vigía guarda aunque el % esté incompleto (pisa el último con {})         → falla el 2
 //   V6 la plataforma cuenta como 0% una cuenta que falta en el %                   → falla el 1
+//   V7 (19/11/2026) una cuenta con «sin crédito» cuenta como que todavía paga        → falla el 4 («dijo que seguía con otra cuenta»)

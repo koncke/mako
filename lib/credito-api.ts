@@ -276,7 +276,35 @@ export const AVISO_DEL_CREDITO_PCT = 80;
 export const PREFIJO_AVISO_DEL_CREDITO = 'ia.credito.aviso.';
 export type AvisoDelCredito = { clave: string; cuenta: string; nivel: '80' | '100' | 'no-pude-leer'; texto: string };
 
-const usd = (n: number) => `US$${Math.round(n)}`;
+const usd = (n: number) => (n < 1 ? 'menos de US$1' : `US$${Math.round(n)}`);
+const lista = (xs: readonly string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
+const diaMes = (iso: string) => { const { m, d } = fechaAR(Date.parse(iso)); return `${String(d).padStart(2, '0')}/${String(m + 1).padStart(2, '0')}`; };
+/** Desde esta parte de los US$200, lo que contestó Anthropic («sin crédito») cuadra con lo que gastó MaKo. */
+const CUADRA_DESDE = 0.9;
+
+// ── EL TEXTO DEL AVISO (19/11/2026) ──────────────────────────────────────────────────────────────────────────────────────
+// El 19/11 a las 21:11 UTC llegaron dos avisos al grupo de SuperAdmin: «claude1: Anthropic contestó «sin crédito» (US$6 de 200 (3%),
+// según lo que registró MaKo). Se saltea hasta el próximo ciclo y MaKo sigue con las otras cuentas.» (y otro igual con claude2).
+// Martín: «no entiendo lo que me quiere decir». Decía «sigue con las otras cuentas» cuando no quedaba NINGUNA con crédito (sólo la 1
+// y la 2 tienen clave), un % suelto, y no decía que lo de MaKo no cuadraba ni qué hacer. Ahora cada aviso dice, en líneas: qué pasó,
+// si cuadra con lo que gastó MaKo, con qué sigue MaKo (otra cuenta, o Gemini y los grupos sin IA), cuándo vuelve y qué hacer.
+// Lo de «con qué sigue» sale de TODAS las filas, no de la cuenta sola. docs/hallazgos-ia.md, «El crédito de Claude se terminó…».
+
+/** Con qué sigue MaKo sin esta cuenta: las otras vinculadas con crédito, o ninguna. */
+function conQueSigue(otras: readonly string[]): string {
+  return otras.length
+    ? `MaKo sigue con ${lista(otras)}.`
+    : 'No queda otra cuenta con crédito: lo interno de MaKo sigue con Gemini, y los grupos de WhatsApp de los clientes sin IA propia se quedan sin poder contestar.';
+}
+/** Cuándo llega el crédito nuevo: con el cobro del plan. Sin el día de cobro cargado, se dice que no se sabe. */
+const cuandoVuelve = (f: FilaCredito) => (f.renueva ? `Vuelve el ${diaMes(f.renueva)}, con el cobro del plan.` : 'Vuelve con el próximo cobro del plan de esa cuenta (MaKo no sabe qué día es).');
+/** Qué tiene que hacer Martín: nada si queda otra cuenta; si no, vincular las que faltan (o cargar saldo). */
+function queHacer(otras: readonly string[], sinVincular: readonly string[], noCuadra: boolean): string {
+  const billing = noCuadra ? ' Para ver en qué se fue el saldo: platform.claude.com → Billing de esa cuenta.' : '';
+  if (otras.length) return `Qué hacer: nada por ahora.${billing}`;
+  if (sinVincular.length) return `Qué hacer: vincula el crédito de ${lista(sinVincular)} en Ops Center › Uso (cada una trae US$${CREDITO_MENSUAL_USD} por mes).${billing}`;
+  return `Qué hacer: esperar el cobro del plan, o cargar saldo en platform.claude.com → Billing de esa cuenta.${noCuadra ? ' Ahí también se ve en qué se fue.' : ''}`;
+}
 
 /**
  * Qué avisar y qué % guardar, con lo que leyó el servidor (`resumenCredito`) y los avisos ya dados. Puro.
@@ -286,6 +314,7 @@ const usd = (n: number) => `US$${Math.round(n)}`;
  * `uso` va por el NOMBRE de la clave (`ANTHROPIC_CREDITO_CUENTA2`), que es como lo lee el reparto (lib/credito-negocio.ts).
  * `completo`: false si de alguna cuenta no se supo el % (lo gastado ilegible, o su clave ilegible: `vinculada` null). Con
  * `completo` false el vigía NO guarda: un % con huecos y la hora de ahora pisaría el último que sí se conocía.
+ * El texto, en palabras (19/11/2026, arriba): sin «%» ni «según lo que registró MaKo»; las líneas van separadas por `\n`.
  */
 export function avisosDelCredito(
   filas: readonly FilaCredito[], yaAvisados: ReadonlySet<string>, ahora: number, cuentas: readonly CuentaDelCredito[] = CUENTAS_DEL_CREDITO,
@@ -295,6 +324,11 @@ export function avisosDelCredito(
   let completo = true;
   const { y, m, d } = fechaAR(ahora);
   const hoy = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  // Las cuentas que todavía pagan (vinculadas, con lo gastado legible, sin «sin crédito» y bajo los US$200) y las que nunca se
+  // vincularon: de ahí sale «con qué sigue MaKo» y «qué hacer» de cada aviso.
+  const agotada = (f: FilaCredito) => f.sinCreditoAt != null || (f.gastadoUsd != null && f.gastadoUsd >= CREDITO_MENSUAL_USD);
+  const conCredito = filas.filter((f) => f.vinculada === true && f.gastadoUsd != null && !agotada(f)).map((f) => f.cuenta);
+  const sinVincular = filas.filter((f) => f.vinculada === false).map((f) => f.cuenta);
   for (const f of filas) {
     if (f.vinculada == null) completo = false;
     if (f.vinculada !== true) continue;
@@ -303,22 +337,35 @@ export function avisosDelCredito(
     if (f.gastadoUsd == null) {
       completo = false;
       const clave = `${PREFIJO_AVISO_DEL_CREDITO}${f.cuenta}.no-pude-leer.${hoy}`;
-      if (!yaAvisados.has(clave)) avisos.push({ clave, cuenta: f.cuenta, nivel: 'no-pude-leer', texto: `${f.cuenta}: no pude leer cuánto lleva gastado del crédito de Claude en este ciclo, así que no sé si se está acabando. Míralo en Ops Center › Uso.` });
+      if (!yaAvisados.has(clave)) avisos.push({ clave, cuenta: f.cuenta, nivel: 'no-pude-leer', texto: `No pude leer cuánto gastó este mes la cuenta ${f.cuenta} del crédito de Claude, así que no sé si se está acabando. Míralo en Ops Center › Uso.` });
       continue;
     }
     const pct = Math.round((f.gastadoUsd / CREDITO_MENSUAL_USD) * 1000) / 10;
     if (nombre) uso[nombre] = pct;
-    const de = `${usd(f.gastadoUsd)} de ${CREDITO_MENSUAL_USD} (${Math.round(pct)}%), según lo que registró MaKo`;
     const c100 = `${PREFIJO_AVISO_DEL_CREDITO}${f.cuenta}.100.${ciclo}`;
     const c80 = `${PREFIJO_AVISO_DEL_CREDITO}${f.cuenta}.80.${ciclo}`;
+    const otras = conCredito.filter((c) => c !== f.cuenta);
     if (pct >= 100 || f.sinCreditoAt) {
       if (!yaAvisados.has(c100)) {
-        avisos.push({ clave: c100, cuenta: f.cuenta, nivel: '100', texto: f.sinCreditoAt
-          ? `${f.cuenta}: Anthropic contestó «sin crédito» (${de}). Se saltea hasta el próximo ciclo y MaKo sigue con las otras cuentas.`
-          : `${f.cuenta}: se acabó el crédito de Claude de este ciclo (${de}). MaKo sigue con las otras cuentas.` });
+        const noCuadra = f.sinCreditoAt != null && f.gastadoUsd < CREDITO_MENSUAL_USD * CUADRA_DESDE;
+        const lineas = f.sinCreditoAt
+          ? [
+            `Se terminó el crédito de Claude de la cuenta ${f.cuenta}: Anthropic dice que no le queda saldo.`,
+            noCuadra
+              ? `· No lo gastó MaKo: este mes usó ${usd(f.gastadoUsd)} de los US$${CREDITO_MENSUAL_USD}. El resto se usó fuera de MaKo o venció antes.`
+              : `· Cuadra con lo que gastó MaKo: ${usd(f.gastadoUsd)} de los US$${CREDITO_MENSUAL_USD} de este mes.`,
+          ]
+          : [`Se terminó el crédito de Claude de la cuenta ${f.cuenta}: MaKo ya gastó ${usd(f.gastadoUsd)} de los US$${CREDITO_MENSUAL_USD} de este mes.`];
+        lineas.push(`· ${conQueSigue(otras)}`, `· ${cuandoVuelve(f)}`, `· ${queHacer(otras, sinVincular, noCuadra)}`);
+        avisos.push({ clave: c100, cuenta: f.cuenta, nivel: '100', texto: lineas.join('\n') });
       }
     } else if (pct >= AVISO_DEL_CREDITO_PCT && !yaAvisados.has(c80)) {
-      avisos.push({ clave: c80, cuenta: f.cuenta, nivel: '80', texto: `${f.cuenta}: ${de}. Desde el 90%, el espacio de MaKo deja de usar esta cuenta y el resto queda para WhatsApp.` });
+      const tope = usd((CREDITO_MENSUAL_USD * TOPE_DE_LA_PLATAFORMA_PCT) / 100);
+      avisos.push({ clave: c80, cuenta: f.cuenta, nivel: '80', texto: [
+        `El crédito de Claude de la cuenta ${f.cuenta} se está acabando: MaKo ya gastó ${usd(f.gastadoUsd)} de los US$${CREDITO_MENSUAL_USD} de este mes.`,
+        `· Desde ${tope}, lo interno de MaKo deja de usarla y lo que queda es para los grupos de WhatsApp.`,
+        `· ${cuandoVuelve(f)}`,
+      ].join('\n') });
     }
   }
   return { avisos, uso, completo };
