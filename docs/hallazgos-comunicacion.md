@@ -116,8 +116,16 @@ no le contestó con el código.
 - Si el código no sale, la verificación vuelve a «no respondido»: antes la pantalla esperaba un código que nunca se mandó.
 - tests/escribio-bajo-lid.test.ts (W1-W4).
 
-**Para el cliente de prueba:** después del despliegue, mandar otra vez «Hola, quiero confirmar mi WhatsApp.», o tocar «Reenviar el
-código».
+**Y el hueco de al lado: el código vencido (o con el tope de intentos lleno) callaba a MaKo.**
+- Cuando Martín volvió a probar, el código de las 22:05 ya había vencido (22:35).
+- Escribir daba `'vencido'` y MaKo no contestaba nada. «Reenviar el código» mandaba el vencido.
+- Con 5 intentos equivocados, el cartel dice «vuelve a mandarme el mensaje: te mando uno nuevo», y MaKo mandaba el MISMO.
+- Ahora (`hayQueRenovarV2` y `renovarCodigoV2`, lib/verificacion-entrante.ts):
+  - vencido o con el tope lleno, escribir arma un código NUEVO y se lo manda;
+  - «Reenviar» también arma uno nuevo, y lo guarda antes de mandarlo;
+  - si MaKo no le puede escribir, «Reenviar» dice que toque «Abrir WhatsApp» (`E_REESCRIBIR_V2`).
+- tests/codigo-v2-vencido.test.ts (V1-V5).
+- **La regla:** un cartel que promete «te mando uno nuevo» tiene que poder cumplirse por ese mismo camino.
 
 ---
 

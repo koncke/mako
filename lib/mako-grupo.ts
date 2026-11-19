@@ -32,7 +32,7 @@ import { agenciasAprobadasDe } from './agencia';
 import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
-import { AGENDAR_V2, E_SIN_CODIGO_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, esPedidoDeConfirmacion, mensajeDelCodigoV2 } from './verificacion-entrante';
+import { AGENDAR_V2, E_REESCRIBIR_V2, E_SIN_CODIGO_V2, TEXTO_CONFIRMAR_V2, codigoNumerico, decidirCodigoV2, decidirPedidoV2, esPedidoDeConfirmacion, hayQueRenovarV2, mensajeDelCodigoV2, renovarCodigoV2 } from './verificacion-entrante';
 import { chatDelMensaje } from './mako-bot-reglas';
 import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, leEscribioEnLasFilas, pausaDeEscritura, puedeEscribirleAPersona, type FilaQuienEscribio } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
@@ -1021,9 +1021,12 @@ export async function responderPedidoV2(instancia: string, m: Record<string, unk
     const d = decidirPedidoV2(v, { instancia, telefono: chat.telefono, ahora: Date.now() });
     if (d === 'no-es-este') continue;
     const ws = Number(fila.workspace_id);
-    if (d !== 'responder') return { resultado: `ws${ws}: ${d}` };
+    if (d === 'ya-verificado') return { resultado: `ws${ws}: ${d}` };
+    // Con el código vencido o el tope lleno, uno NUEVO (19/11/2026): los carteles de la app le dicen «vuelve a mandarme el mensaje: te mando
+    // uno nuevo», y MaKo se callaba (vencido) o mandaba el mismo (tope). `hayQueRenovarV2`, lib/verificacion-entrante.ts.
+    const base = d === 'renovar' ? renovarCodigoV2(v!, Date.now(), codigoNumerico()) : v!;
     // `destino`: el chat por donde escribió (así le llega aunque el número se haya tipeado de otra forma).
-    const anotado: EstadoVerificacion = { ...v!, destino: chat.telefono ?? v!.destino, respondido: true };
+    const anotado: EstadoVerificacion = { ...base, destino: chat.telefono ?? v!.destino, respondido: true };
     // De dos llegadas del mismo mensaje (dos líneas de la misma cuenta), contesta una.
     const gane = await runWithWorkspace(ws, () => cambiarSettingSi(KEY_VERIFICACION, fila.value, JSON.stringify(anotado))).catch(() => false);
     if (!gane) return { resultado: `ws${ws}: ya contestado por otra llegada` };
@@ -1047,8 +1050,14 @@ export async function reenviarCodigoV2(ws: number): Promise<{ ok: true } | { ok:
   const v = await getVerificacion(ws);
   if (!v?.v2 || !v.respondido || !v.destino) return { ok: false, error: E_SIN_CODIGO_V2 };
   if (v.verificado) return { ok: true };
-  const r = await mandarCodigoV2(v, soloDigitos(v.destino));
-  return r.ok ? { ok: true } : { ok: false, error: MAKO_SIN_LINEA };
+  // Nunca el vencido (19/11/2026): con el código vencido o el tope lleno se arma uno NUEVO, se guarda y recién ahí se manda. Si se guardara
+  // después, el que llega no sería el que la app espera.
+  const aMandar = hayQueRenovarV2(v, Date.now()) ? renovarCodigoV2(v, Date.now(), codigoNumerico()) : v;
+  if (aMandar !== v) await guardarVerificacion(ws, aMandar);
+  const r = await mandarCodigoV2(aMandar, soloDigitos(v.destino));
+  if (r.ok) return { ok: true };
+  // Si MaKo no le puede escribir (no encuentra que le haya escrito), que lo pida desde su WhatsApp; si es la línea, que es de nuestro lado.
+  return { ok: false, error: r.error === NO_LE_ESCRIBE_PRIMERO ? E_REESCRIBIR_V2 : MAKO_SIN_LINEA };
 }
 
 /** El código PEGADO en la app (V2). Bien: el número queda probado y guardado como el del dueño, SIN grupo. */

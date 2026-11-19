@@ -185,15 +185,30 @@ export function codigoNumerico(azar: () => number = Math.random): string {
 export const mensajeDelCodigoV2 = (nombre: string, codigo: string): string =>
   `Hola${nombre.trim() ? ` ${nombre.trim()}` : ''}, soy MaKo.\nTu código para confirmar tu WhatsApp es ${codigo}.`;
 
-/** ¿A este pedido le contesta MaKo con el código de esta verificación? Sólo un V2 vigente, sin confirmar, por la línea del link y
- *  desde el número que dio (`esSuTelefono`). Si ya le contestó, le contesta otra vez (lo volvió a mandar: perdió el mensaje). */
+/**
+ * ¿Hay que armar un código NUEVO? (19/11/2026) Con el código vencido o con el tope de intentos lleno, los dos carteles de la app le dicen
+ * «vuelve a mandarme el mensaje: te mando uno nuevo». Pero MaKo se callaba con el vencido (`'vencido'`) y con el tope le mandaba el MISMO
+ * código, que la app seguía rechazando. Martín volvió a probar 30 minutos después del primer intento y cayó justo ahí.
+ */
+export function hayQueRenovarV2(v: Pick<EstadoVerificacion, 'expira' | 'intentos'>, ahora: number): boolean {
+  return ahora > v.expira || (v.intentos ?? 0) >= TOPE_INTENTOS_V2;
+}
+
+/** El código nuevo: otro número, otra media hora, y los intentos en cero. Lo demás (el teléfono, la línea, el destino) no cambia. */
+export function renovarCodigoV2<V extends EstadoVerificacion>(v: V, ahora: number, codigo: string): V {
+  return { ...v, codigo, expira: ahora + MINUTOS_ENTRANTE * 60_000, intentos: 0 };
+}
+
+/** ¿A este pedido le contesta MaKo con el código de esta verificación? Sólo un V2 sin confirmar, por la línea del link y desde el número
+ *  que dio (`esSuTelefono`). Si ya le contestó, le contesta otra vez (lo volvió a mandar: perdió el mensaje). Con el código vencido o el
+ *  tope lleno, `renovar`: le contesta con uno NUEVO. Nunca se calla con quien sí es (19/11/2026). */
 export function decidirPedidoV2(v: EstadoVerificacion | null | undefined, l: { instancia: string; telefono: string | null; ahora: number }):
-  'responder' | 'no-es-este' | 'vencido' | 'ya-verificado' {
+  'responder' | 'renovar' | 'no-es-este' | 'ya-verificado' {
   if (!v || !v.v2 || !v.entrante) return 'no-es-este';
   if (v.verificado) return 'ya-verificado';
   if (v.linea && v.linea !== l.instancia) return 'no-es-este';
   if (!l.telefono || !esSuTelefono(v.telefono, l.telefono)) return 'no-es-este';
-  if (l.ahora > v.expira) return 'vencido';
+  if (hayQueRenovarV2(v, l.ahora)) return 'renovar';
   return 'responder';
 }
 
@@ -203,6 +218,8 @@ export const E_CODIGO_V2 = 'Ese no es el código. Copia los 6 números de mi úl
 export const E_CODIGO_LARGO_V2 = 'El código tiene 6 números. Revisa que esté completo.';
 export const E_CODIGO_VENCIDO_V2 = 'Ese código venció. Toca «Abrir WhatsApp» y vuelve a mandarme el mensaje: te mando uno nuevo.';
 export const E_CODIGO_TOPE_V2 = 'Probaste muchos códigos. Toca «Abrir WhatsApp» y vuelve a mandarme el mensaje: te mando uno nuevo.';
+/** «Reenviar el código» cuando MaKo no le puede escribir (no encuentra que le haya escrito): que lo pida desde su WhatsApp. */
+export const E_REESCRIBIR_V2 = 'No pude mandártelo desde acá. Toca «Abrir WhatsApp» y mándame el mensaje otra vez: te contesto con un código nuevo.';
 
 /** El código pegado en la app (V2). `intentos`: cuántos equivocados lleva con éste. */
 export function decidirCodigoV2(v: EstadoVerificacion | null | undefined, escrito: string, ahora: number):
