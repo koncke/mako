@@ -19,7 +19,7 @@ import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
 import { taparClaves } from '@/lib/claves-en-el-chat';
 import { manejarEntranteDoer, wsDeGrupoJid } from '@/lib/mako-doer-in';
 import { INSTANCIA_SUPERADMIN, esNombreDeCanal, instanciaCanal, usarCanalComoVoz } from '@/lib/mako-canal';
-import { confirmarPorMensajeEntrante, instanciaVoz } from '@/lib/mako-grupo';
+import { confirmarPorMensajeEntrante, instanciaVoz, responderPedidoV2 } from '@/lib/mako-grupo';
 import { manejarEntranteBot } from '@/lib/mako-bot';
 import { lineaPuedeSerDelBot } from '@/lib/mako-bot-reglas';
 import { configDelBot } from '@/lib/mako-salida';
@@ -215,10 +215,23 @@ export async function POST(req: NextRequest) {
           console.error(`[webhook:evolution] verificación: ${e instanceof Error ? e.message : String(e)}`);
           return null;
         });
-        if (!r) continue;
+        if (r) {
+          deVerificacion.add(m);
+          console.log(`[webhook:evolution] verificación por WhatsApp en ${instance}: ${r.resultado}`);
+          if (r.sumarAlGrupo) after(r.sumarAlGrupo);
+          continue;
+        }
+        // EL ONBOARDING V2 (19/11/2026): «Hola, quiero confirmar mi WhatsApp.» → MaKo le contesta con el código en ESE chat, sin
+        // grupo (Martín: «me creó un grupo de WhatsApp, que eso ya no debería hacerlo»). Sólo con una verificación V2 pendiente
+        // de ese número; si no, el mensaje sigue al bot como cualquier otro.
+        const v2 = await responderPedidoV2(instance, m).catch((e: unknown) => {
+          console.error(`[webhook:evolution] verificación V2: ${e instanceof Error ? e.message : String(e)}`);
+          return null;
+        });
+        if (!v2) continue;
         deVerificacion.add(m);
-        console.log(`[webhook:evolution] verificación por WhatsApp en ${instance}: ${r.resultado}`);
-        if (r.sumarAlGrupo) after(r.sumarAlGrupo);
+        console.log(`[webhook:evolution] verificación V2 en ${instance}: ${v2.resultado}`);
+        if (v2.responder) after(v2.responder);
       }
       const noEsVerificacion = (m: Record<string, unknown>) => !deVerificacion.has(m);
 
