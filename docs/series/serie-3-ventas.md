@@ -84,7 +84,53 @@ El video 1 (CUBOS) es la excepción: no nombra ninguna app, vende el método.
 Un precio que no se leyó en la página oficial no entra en un video.
 
 ⚠️ Antes de publicar cada video, la respuesta al comentario tiene que existir: MaKo contesta comentarios de Instagram
-(`lib/api-mako/areas/chatbot.def.ts`), pero está sin probar en producción con estas palabras.
+(`lib/api-mako/areas/chatbot.def.ts`), pero está sin probar en producción con estas palabras. Se configura en Automations de
+la cuenta de Instagram de Martín (comentario con palabra clave → mensaje directo). Es una escritura en producción: el texto
+pasa por el Cerebro a Martín.
+
+### El mensaje que le llega a quien comenta (19/11, para cargar)
+
+Mismo tono que el video: de partner, sin sonar a publicidad, en «tú». Las funciones con candado de Pro lo dicen
+(`FUNCIONES_SOLO_PRO` en `lib/topes-plan.ts`: el scraper, replicar landing, la IA de los editores y la comunidad). Los links
+son las landings de cada función (`app/vsl/<slug>`).
+
+- **CUBOS** (el método, sin MaKo):
+  > ¡Hola! Te paso cómo hago estos videos 👇
+  > 1. Le paso a Claude (la IA) la idea en una frase y me escribe el guion por escenas.
+  > 2. Pongo la voz con mi voz clonada en ElevenLabs.
+  > 3. Claude programa cada escena en HTML con Three.js: el personaje en cubos, las tarjetas y los subtítulos.
+  > 4. Un navegador saca una foto de cada cuadro y se arma el video vertical con la voz.
+  > ¿Qué parte te interesa más? Te cuento.
+- **TICKET**:
+  > ¡Hola! La app se llama MaKo. Acá está la cuenta completa de las apps que reemplaza: hola-mako.com/vsl/comparaciones
+  > Si me cuentas qué estás pagando hoy, te digo con cuáles te quedarías.
+- **LANDING**:
+  > ¡Hola! La app es MaKo. Pegas el link de la landing que quieres copiar, la lee y eliges qué replicar: el diseño, la
+  > estructura o los ángulos. Replicar está en el plan Pro. Mírala aquí: hola-mako.com/vsl/web-generator
+- **GRUPO**:
+  > ¡Hola! La app es MaKo. En el CRM tocas «Extraer de un grupo de WhatsApp», eliges el grupo y entran todos a tu CRM con la
+  > etiqueta del grupo, sin duplicados. Está en el plan Pro. Mírala aquí: hola-mako.com/vsl/crm
+- **CARRUSEL**:
+  > ¡Hola! La app es MaKo. En Image eliges la estructura (lista, paso a paso, antes y después…), sale con tu marca y le
+  > pides a su chat que la escriba para tu negocio (el chat de los editores está en el plan Pro). Mírala aquí: hola-mako.com/vsl/image
+- **GUION**:
+  > ¡Hola! La app es MaKo. En Copywriting eliges la plantilla «Reel que trae mensajes» y su chat te escribe el guion para tu
+  > negocio, en la misma página. Mírala aquí: hola-mako.com/vsl/copywriting
+- **CURSO**:
+  > ¡Hola! La app es MaKo, tipo Skool: el curso por módulos y lecciones con candados, y la comunidad de tus alumnos (la
+  > comunidad está en el plan Pro), en la misma app con la que vendes. Mírala aquí: hola-mako.com/vsl/classroom
+
+## Los videos, uno por renglón (para el chat de Carruseles y para reusar)
+
+| Video | Gancho | Palabra | La función de MaKo que muestra |
+|---|---|---|---|
+| `s3-estos-videos` | «Este video no lo grabé. Y tampoco lo edité.» | CUBOS | Ninguna (el método: Claude + voz clonada + código) |
+| `s3-ticket` | «¿Te parece caro pagar 97 dólares al mes por una app?» | TICKET | Lo que reemplaza: GoHighLevel 97, Skool 99, Zapier 29,99, CapCut 17,99 = US$243,98 contra MaKo Pro 97 |
+| `s3-landing` | «Si vas a hacer una landing, no empieces de cero.» | LANDING | Web Generator › Replicar landing (Diseño · Estructura · Ángulos) |
+| `s3-grupo` | «En tus grupos de WhatsApp hay gente que nunca recibió un mensaje tuyo.» | GRUPO | CRM › Extraer de un grupo de WhatsApp |
+| `s3-carrusel` | «El carrusel que más se guarda no es el más lindo.» | CARRUSEL | Image › Carruseles: las estructuras, con tu marca, y el chat que las escribe |
+| `s3-guion` | «Un reel que trae mensajes tiene tres partes.» | GUION | Copywriting › plantilla «Reel que trae mensajes» (Gancho · Historia · Moraleja) |
+| `s3-curso` | «Un curso que nadie termina no vende el siguiente.» | CURSO | Classroom: módulos con candados y la comunidad |
 
 ## Videos
 
