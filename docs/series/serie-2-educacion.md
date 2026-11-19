@@ -113,6 +113,25 @@ ganchos que más venden high ticket» pasó a ser «cinco primeras frases que fu
   «Reel de prueba» y las cinco versiones con una que gana. Martín en cubos abajo, como quien explica; los subtítulos,
   bajo el mentón.
 
+## Piezas que guardó Martín para esta serie (19/11/2026)
+
+Las juntó el chat «Inspiración». El detalle de cada una (gancho, estructura, CTA, transcripción y cuadros) está en
+`C:/dev/inspiracion/relevo.json` y en `C:/dev/inspiracion/piezas/NN/`. Las que llevan (?) las tiene que confirmar Martín.
+
+| # | Cuenta | Qué tiene | Dónde se usa |
+|---|---|---|---|
+| 27 | @startrunningads | plantillas de primera frase con huecos entre corchetes, que se completan mientras habla | video 3 («cinco primeras frases que funcionan»: lo que promete el cierre del video 1) |
+| 68 (?) | @thenet.lab | barra del 1 al 10 que se llena con íconos; probablemente es un anuncio | video 2 (el cierre del 1 al 10 de «lo tengo que pensar») |
+| 24 (?) | @hormozi | cada consejo dicho dos veces, mal y bien, con un gráfico simple | el «así no / así sí» del video 1; temas de ventas |
+| 29 (?) | @luca4business | ranking con nota X/10 y un ejemplo chiquito de cada uno | tema 11 (cada cuánto publicar) o un ranking de formatos |
+| 30 (?) | @wallsframeacademy | escalera de porcentajes (80 % → 1 %) con una pirámide que se enciende | tema 3 (viral contra nicho: de cada 100 que te ven, cuántos compran) |
+| 7 (?) | @wallsframeacademy | debate de dos posturas extremas y alguien que da la respuesta | las «comparativas listas» de serie-2-temas.md |
+| 33 (?) | @viewcci | «Para esto: / Usa esto:» por categorías; la persona casi no habla | tema 29 (anuncio contra orgánico) o herramientas |
+| 48 (?) | @ramiro.cubria | pantalla partida: arriba notas que se escriben solas, abajo la persona | formato base para cualquier tema de pasos |
+| 50 (?) | @ramiro.cubria | un caso de cliente como clase: «$25K → $123K», con el ANTES en 3 cajas rojas | tema 4 (la oferta que se vende sola) |
+| 65 (?) | @cherrystudio.app | tablero de detective: «desarmé 12 videos de un mentor» | un video sobre la propia investigación (los 27.700 Shorts) |
+| 67 (?) | @dakota.hermes | un costo que sube en 3 saltos, y ponerle nombre al problema | tema 6 (cobrar más) o 14 (el seguimiento) |
+
 ## Investigación de afuera (los 10 primeros temas)
 
 Por tema, en `docs/series/serie-2-afuera/<tema>.md`: los virales que lo enseñan, con el gancho literal, la estructura
