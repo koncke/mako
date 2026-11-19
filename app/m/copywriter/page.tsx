@@ -17,7 +17,12 @@ import { esTipoGuion } from '@/lib/copywriter/tipos';
 import { requireCopywriterM } from './puerta';
 import { ListaGuionesM } from './ListaGuionesM';
 import { OutliersCopy } from '@/app/copywriter/OutliersCopy';
-import { vistaDeCopy } from '@/app/copywriter/vista';
+import { esVistaInspiracion, vistaDeCopy } from '@/app/copywriter/vista';
+import { Inspiracion } from '@/app/copywriter/inspiracion/Inspiracion';
+import { getUsuarioActual } from '@/lib/auth';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { veInspiracion } from '@/lib/inspiracion/revision';
+import { leerInspiracion } from '@/lib/inspiracion/servidor';
 import { leerOutliersCopy } from '@/lib/copywriter/outliers-servidor';
 import { primeraTandaCopy } from '@/lib/copywriter/outliers';
 
@@ -32,11 +37,27 @@ export default async function CopywriterMovil({ searchParams }: { searchParams: 
   // las reglas de teléfono. «Mis guiones» (`?ver=guiones`) es la lista de siempre; «Crear desde cero» (`?nueva`), la lista con la
   // hoja de templates abierta.
   const sp = await searchParams;
-  const vista = vistaDeCopy(sp);
-  if (vista === 'outliers') {
+  // Inspiración (19/11/2026, docs/inspiracion/diseno.md): la misma bandeja que en la computadora, detrás del mismo interruptor.
+  const sesion = await getUsuarioActual().catch(() => null);
+  const conInspiracion = !!sesion && veInspiracion({ email: sesion.email, ws: await getWorkspaceActual().catch(() => null) });
+  if (conInspiracion && esVistaInspiracion(sp)) {
+    const leido = await leerInspiracion().then((d) => ({ d, error: null as string | null }), (e: unknown) => ({ d: null, error: e instanceof Error ? e.message : String(e) }));
     return (
       <PantallaM>
-        <OutliersCopy portada={primeraTandaCopy(await leerOutliersCopy())} telefono rutaGuion="/m/copywriter/{id}?mako=1"
+        <Inspiracion inicial={leido.d} error={leido.error && /relation|does not exist|schema cache/i.test(leido.error) ? 'Falta aplicar la migración 0422 (las tablas de Inspiración).' : leido.error} />
+      </PantallaM>
+    );
+  }
+  const vista = vistaDeCopy(sp);
+  if (vista === 'outliers') {
+    const portada = primeraTandaCopy(await leerOutliersCopy());
+    if (conInspiracion) {
+      const pendientes = await leerInspiracion().then((d) => d.piezas.filter((x) => x.estado === 'por_revisar' || x.estado === 'sin_leer').length, () => 0);
+      portada.inspiracion = { pendientes };
+    }
+    return (
+      <PantallaM>
+        <OutliersCopy portada={portada} telefono rutaGuion="/m/copywriter/{id}?mako=1"
           rutaGuiones="/m/copywriter?ver=guiones" rutaCrear="/m/copywriter?nueva=1" />
       </PantallaM>
     );

@@ -25,7 +25,11 @@ import { Pagina } from '@/app/_ui';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { leerOutliersCopy } from '@/lib/copywriter/outliers-servidor';
 import { primeraTandaCopy } from '@/lib/copywriter/outliers';
-import { vistaDeCopy } from './vista';
+import { esVistaInspiracion, vistaDeCopy } from './vista';
+import { getUsuarioActual } from '@/lib/auth';
+import { veInspiracion } from '@/lib/inspiracion/revision';
+import { leerInspiracion } from '@/lib/inspiracion/servidor';
+import { Inspiracion } from './inspiracion/Inspiracion';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -40,6 +44,17 @@ export default async function CopywriterPage({ searchParams }: { searchParams: P
   // rutas viejas que se mudaron acá: /youtube-writer, /stories y «Abrir en Copywriter»), con los templates de ese tipo
   // primero. Nada se crea por abrir un link.
   const sp = await searchParams;
+  // Inspiración (19/11/2026, docs/inspiracion/diseno.md): sólo la revisión de Martín hasta que lo apruebe (lib/inspiracion/revision.ts).
+  const sesion = await getUsuarioActual().catch(() => null);
+  const conInspiracion = !!sesion && veInspiracion({ email: sesion.email, ws: await getWorkspaceActual().catch(() => null) });
+  if (conInspiracion && esVistaInspiracion(sp)) {
+    const leido = await leerInspiracion().then((d) => ({ d, error: null as string | null }), (e: unknown) => ({ d: null, error: e instanceof Error ? e.message : String(e) }));
+    return (
+      <Pagina ancho="completo" densidad="compacta">
+        <Inspiracion inicial={leido.d} error={leido.error && /relation|does not exist|schema cache/i.test(leido.error) ? 'Falta aplicar la migración 0422 (las tablas de Inspiración).' : leido.error} />
+      </Pagina>
+    );
+  }
   const vista = vistaDeCopy(sp);
   if (vista === 'outliers') {
     // La portada va en el CENTRO de la pantalla de Create, con el chat de MaKo a la izquierda y sus guiones detrás de la «←»
@@ -50,6 +65,11 @@ export default async function CopywriterPage({ searchParams }: { searchParams: P
       // Sólo la primera tanda viaja con la página; el resto lo pide la portada (13/11/2026: eran 924 outliers, 1,19 MB).
       leerOutliersCopy().then(primeraTandaCopy), listar(), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null), ofertasDelCopywriter(),
     ]);
+    // El botón «Inspiración» de la portada, con lo que espera respuesta (sólo si el negocio la tiene).
+    if (conInspiracion) {
+      const pendientes = await leerInspiracion().then((d) => d.piezas.filter((p) => p.estado === 'por_revisar' || p.estado === 'sin_leer').length, () => 0);
+      portada.inspiracion = { pendientes };
+    }
     return (
       <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
         <Copywriter ws={ws} paginas={r.ok ? r.paginas : []} guion={null}

@@ -75,10 +75,11 @@ tenías en X».
 - **Apify, un solo post:** el molde de «Traer tu outlier» (`traerCarrusel`, `lib/carruseles/traer-servidor.ts`):
   `entradaDeUnaPublicacion` + `piezasDeApify` dan cuenta, tipo, pie, miniatura y métricas. Con la clave de Spy del negocio
   y, si no tiene, la de la plataforma, con tope por día (como `TRAIDOS_POR_DIA`).
-- **Transcripción, sólo si hace falta:** si es un video y el pie dice poco (menos de ~150 caracteres), se transcribe el primer
+- **Transcripción, sólo si hace falta (PENDIENTE: la primera versión lee sólo el pie):** si es un video y el pie dice poco (menos de ~150 caracteres), se transcribe el primer
   minuto (`videoDeUnaPublicacion` + `transcribirAudio`). Un reel con el guion en el pie no paga transcripción.
-- **Cuándo:** en el mismo turno, después del 👍 que ya pone la entrada. La lectura tarda 20-40 s; si se pasa del tiempo, la
-  pieza queda `leyendo` y la termina un cron (`app/api/cron/inspiracion/route.ts`, cada 10 min, con la skill `add-cron-job`).
+- **Cuándo:** en el mismo turno, después del 👍 que ya pone la entrada. La lectura tarda 20-40 s. Hasta 5 links por mensaje se
+  leen en el momento; el resto queda `sin_leer` en la bandeja. Si Apify o la IA fallan, la pieza va a la bandeja sin sugerencia.
+  (PENDIENTE: un cron que relea las `sin_leer`, `app/api/cron/inspiracion/route.ts`, con la skill `add-cron-job`.)
 
 ## 4. La clasificación
 
@@ -146,8 +147,19 @@ Todo gasta MaKo Tokens. Dos features nuevas, cada una con su fila en `COSTOS` (`
 - El turno real, como pide AGENTS.md §8, con el molde de `tests/agenda-whatsapp.test.ts`.
 - En producción: la cuenta de prueba (ws 3 o ws 9). Sale con el deploy diario.
 
-## 10. Lo que NO entra en esta versión
+## 10. Cómo quedó construido (19/11/2026)
+
+- `lib/inspiracion/links.ts` (qué links trae un mensaje y si pide algo), `reglas.ts` (sola o a la bandeja), `clasificar.ts` (el
+  pedido a la IA, su lectura y la respuesta por WhatsApp), `revision.ts` (el interruptor) y `servidor.ts` (guardar, leer con
+  Apify, ordenar y la bandeja). Tests: `tests/inspiracion-*.test.ts`.
+- El corte en `lib/mako-doer-in.ts` (buscar «INSPIRACIÓN»), la migración `supabase/migrations/0422_inspiracion.sql`, las dos
+  tarifas, la entrada del catálogo y los dos textos editables (/configuraciones › «Inspiración»).
+- La pantalla: `app/copywriter/inspiracion/` (`Inspiracion.tsx`, `acciones.ts`), `/copywriter?ver=inspiracion` y
+  `/m/copywriter?ver=inspiracion`, y el botón «Inspiración (N)» en la portada de outliers.
+
+## 11. Lo que NO entra en esta versión
 
 - Contestar Sí/No por WhatsApp.
 - Leer una cuenta entera (eso es Spy) o TikTok y YouTube.
 - Mover de carpeta desde WhatsApp.
+- La transcripción del reel cuando el pie dice poco, y el cron que relee lo que quedó sin leer (ver §3).

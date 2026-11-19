@@ -64,9 +64,12 @@ del doer junta varios mensajes en un texto. Para un texto libre está `linksDeIn
 ## Lo que quedó SIN hacer
 
 - **Aplicar la migración 0422** (`supabase/migrations/0422_inspiracion.sql`) antes del deploy: sin ella, la bandeja dice «Falta
-  aplicar la migración 0422» y el doer contesta «No pude guardar ese link ahora».
+  aplicar la migración 0422» y el doer contesta «No pude guardar ese link ahora». El 19/11 el clasificador de permisos frenó
+  `apply-migration.mjs` desde este chat: la aplica el Cerebro o Martín.
 - **El cron que termina las piezas `leyendo`** (diseno.md §3): hoy, si Apify o la IA fallan, la pieza queda en la bandeja sin
   sugerencia (`lib/inspiracion/servidor.ts`, `leerYOrdenar`).
+- **La transcripción del reel cuando el pie dice poco** (diseno.md §3): la primera versión clasifica sólo con el pie, la cuenta
+  y la nota; un reel sin pie va a la bandeja casi siempre.
 - **La pregunta Sí/No por WhatsApp** (diseno.md §10): necesita recordar qué tarjeta se está contestando.
 - **El negocio de Martín no está en el interruptor:** `WS_REVISION = [3, 9]` (`lib/inspiracion/revision.ts`). Sus emails sí
   ven la pantalla en cualquier negocio, pero el WhatsApp entra por negocio.

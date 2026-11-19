@@ -27,7 +27,7 @@ import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components
 import { OutlierAbierto } from './OutlierAbierto';
 import { ReplicarPegado } from './ReplicarPegado';
 import { CapaAbriendo, useAlInstante, type AlInstante } from './AlInstante';
-import { RUTA_CREAR_COPY, RUTA_GUIONES_COPY } from './vista';
+import { RUTA_CREAR_COPY, RUTA_GUIONES_COPY, RUTA_INSPIRACION_COPY } from './vista';
 import s from '@/app/image-editor/carruseles/explorar.module.css';
 import v from '@/app/video-editor/outliers.module.css';
 import oc from './outliers.module.css';
@@ -363,6 +363,8 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   const botones = (
     <div className={telefono ? `${s.botones} ${oc.botonesTelefono}` : s.botones}>
       <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
+      {/* Inspiración (19/11/2026): lo guardado por WhatsApp; con el número de lo que espera respuesta. */}
+      {portada.inspiracion ? <Link href={telefono ? `/m${RUTA_INSPIRACION_COPY}` : RUTA_INSPIRACION_COPY} className={s.pastilla}>Inspiración{portada.inspiracion.pendientes ? ` (${portada.inspiracion.pendientes})` : ''}</Link> : null}
       {/* «Pegar link o texto» replica igual (lib/copywriter/pegado-servidor.ts): mismo candado que la tarjeta. */}
       <button type="button" className={s.pastilla} data-recorrido={MARCA.copywritingPegar} onClick={() => (soloPro ? setCandado(true) : setPegando(true))}>Pegar link o texto</button>
       {pantalla
