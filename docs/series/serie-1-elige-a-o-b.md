@@ -99,6 +99,18 @@ Parte 2+: s1 = «Eligieron la A.» + la opción dicha como acción; giro al 75-8
 ### Hechos
 - **«El mastermind», parte 1** — ver §6 (estado y archivos).
 
+### En obra: la parte 2 en sus dos ramas (19/11)
+- Voces hechas y chequeadas (dicen exactamente el guion): `reels/voz-serie1-mastermind-2a.mp3` (47,8 s) y `-2b` (47,9 s).
+- Páginas `reels/serie1-mastermind-2a.html` (el estadio: cien mil celulares, el baile, el contador, la bomba, la cuenta
+  regresiva, la salida y el encapuchado) y `-2b.html` (el cuarto: siete personas con «QUIERO COMPRAR», la señora, el reloj
+  de arena, el papel de Ramiro, el de seguridad y el que contesta mensajes desde hace años). Arrancan con «Eligieron la X»
+  y las tarjetas de la parte 1 con ✓. Lo común de los episodios: `reels/serie/s1-comun.js`.
+- MP4 de las dos ramas hechos y revisados cuadro por cuadro (`mp4/serie1-mastermind-2a.mp4`, `-2b.mp4`), con su portada
+  (`series/portadas/…-2a.png`, `-2b.png`) y su ficha. Se publica en Instagram SÓLO la rama que gane en los comentarios de
+  la parte 1; la otra queda guardada (sirve de base si se quiere un «¿y si…?» más adelante).
+- Tiempos: escribir las dos páginas con `s1-comun.js` llevó ~1 h 15 min en total (contra 45 min la parte 1 sola); tres
+  vueltas de capturas por rama; 2 × ~35 min de render (por tramos) + retoques por rangos.
+
 ### Por hacer (el arco) — se anima la rama que gane en los comentarios de la parte 1
 Guiones listos para pasar por `bash tools/voz_formato.sh <id>` (revisar antes con lo que pasó en los comentarios: si
 alguien propuso algo mejor, se usa).
