@@ -10,7 +10,7 @@ type W = Window & { __TIEMPOS_EJEMPLO?: Record<string, Tiempos> };
 const tiemposDe = (id: string): Tiempos => (window as W).__TIEMPOS_EJEMPLO![id];
 
 export async function inicioCubosAction() {
-  return { ok: true as const, proyectos: [], voces: [{ id: 'mako-david', nombre: 'David' }, { id: 'mako-fernando', nombre: 'Fernando' }], clon: null, marca: 'MaKo', fotos: [] as { id: string; url: string }[] };
+  return { ok: true as const, proyectos: [], voces: [{ id: 'mako-david', nombre: 'David' }, { id: 'mako-fernando', nombre: 'Fernando' }], clon: null, marca: 'MaKo', fotos: [] as { id: string; url: string }[], costos: { guion: 2, foto: 2 } };
 }
 export async function guionCubosAction(i: { formato: string }) {
   const f = formatoCubos(i.formato) ?? FORMATOS_CUBOS[0];

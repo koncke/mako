@@ -228,8 +228,9 @@ export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
                   <button type="button" className="cb-boton" disabled={!fotoId || ocupado !== ''} onClick={() => void leerFoto()}>
                     {ocupado === 'foto' ? 'Mirando tu foto…' : 'Armar con mi foto'}
                   </button>
+                  <p className="cb-nota">Usa unos {inicio.costos.foto} MaKo Tokens.</p>
                 </>
-              ) : <p className="cb-nota">Sube tus fotos en tu perfil de Video y MaKo arma tu personaje. O elígelo abajo.</p>}
+              ) : <p className="cb-nota">No hay fotos tuyas todavía: elige las partes abajo.</p>}
             </Seccion>
             {PARTES_PERSONAJE.map((parte) => (
               <Seccion key={parte.clave} titulo={parte.nombre}>
@@ -271,6 +272,7 @@ export function EstudioCubos({ alVolver }: { alVolver: () => void }) {
                 <button type="button" className="cb-boton" disabled={idea.trim().length < 4 || ocupado !== ''} onClick={() => void escribirGuion()}>
                   {ocupado === 'guion' ? 'Escribiendo…' : 'Que lo escriba MaKo'}
                 </button>
+                <span className="cb-nota">Usa unos {inicio.costos.guion} MaKo Tokens.</span>
               </div>
               <textarea className="cb-guion" value={texto} rows={7} onChange={(e) => { setTexto(e.target.value); setDatosIa(null); }}
                 placeholder={'Una frase por renglón.\nEjemplo: Hay una sola cosa que separa a quien vende de quien no.'} />

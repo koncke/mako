@@ -25,6 +25,7 @@ import { normalizarPersonaje, pedidoDelPersonaje, type Personaje } from '@/lib/a
 import { vozConTiempos, vocesDisponibles, urlsDeVoces, VOCES_MAKO_CUBOS, type PedidoVoz } from '@/lib/ai-avatar/cubos-voz';
 import { chatCheapCascade, leerDocumentoIA } from '@/lib/ai-cheap';
 import { estadoContextoVideo } from '@/app/video-generator/video-datos';
+import { mtReservaDeFeature } from '@/lib/mako-tokens-costos';
 
 export type ProyectoConVoz = ProyectoCubos & { url: string | null };
 export type InicioCubos = {
@@ -34,6 +35,8 @@ export type InicioCubos = {
   clon: string | null;
   marca: string;
   fotos: { id: string; url: string }[];
+  /** Lo que reserva cada pedido a la IA, en MaKo Tokens: la pantalla lo dice ANTES de apretar. */
+  costos: { guion: number; foto: number };
 };
 
 /** Lo que abre la pantalla: sus videos, las voces y sus fotos. */
@@ -51,6 +54,7 @@ export async function inicioCubosAction(): Promise<InicioCubos | Falla> {
     clon: voces.clon?.nombre ?? null,
     marca,
     fotos: contexto?.fotos ?? [],
+    costos: { guion: mtReservaDeFeature('avatar-cubos-guion'), foto: mtReservaDeFeature('avatar-cubos-personaje') },
   };
 }
 
