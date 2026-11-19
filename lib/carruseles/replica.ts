@@ -236,6 +236,26 @@ export function bloqueDelTema(pedido: string | null | undefined): string {
 }
 
 /**
+ * Las comillas SIN escapar adentro de un texto, escapadas (19/11/2026). Con «Comenta “HORMOZI”» en el tema, la IA escribió
+ * `"original":"Comenta "HORMOZI" y te la paso."` y el JSON ENTERO no se pudo leer: tres carruseles de cinco salieron con guías («La IA
+ * no devolvió el diseño en un formato que pueda leer»), y en otra corrida del mismo pedido no pasó. Una comilla que abre después de
+ * una letra o un espacio y cierra antes de una letra, un espacio o un signo no es de la estructura del JSON (esas van pegadas a
+ * `:`, `,`, `{` o `[`): es de adentro del texto.
+ */
+export function escaparComillasDeAdentro(crudo: string): string {
+  return crudo.replace(/(?<=[\p{L}\p{N} ¿¡(*])"([^"\n{}[\]:,\\]{1,40})"(?=[\p{L}\p{N} .!?¿¡)*…])/gu, '\\"$1\\"');
+}
+
+/** El JSON de la IA; si no se puede leer, una vez más con las comillas de adentro escapadas. Tira si tampoco. */
+function conComillasArregladas(crudo: string): Record<string, unknown> {
+  try { return parseJsonObject(crudo); } catch (e) {
+    const arreglado = escaparComillasDeAdentro(crudo);
+    if (arreglado === crudo) throw e;
+    return parseJsonObject(arreglado);
+  }
+}
+
+/**
  * La palabra que el dueño pide comentar en su tema («Comenta “HORMOZI”», «comment "GIFT"»), en mayúsculas; null si no dice una.
  * 19/11/2026: con la palabra en el tema, la IA puso «MAKO» en una corrida de tres (la regla del prompt pedía «una palabra que tenga
  * sentido para este negocio»). Un dato exacto que pasa por un LLM deja de ser exacto: la pone el código (`conLaPalabra`).
@@ -503,7 +523,7 @@ export function conAcentos(marcado: string): { texto: string; acentos: Array<[nu
 
 export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; vertical?: boolean; usuario?: string | null; nombre?: string; palabra?: string | null }): Replica | { error: string } {
   let j: Record<string, unknown>;
-  try { j = parseJsonObject(crudo); } catch { return { error: 'La IA no devolvió el diseño en un formato que pueda leer.' }; }
+  try { j = conComillasArregladas(crudo); } catch { return { error: 'La IA no devolvió el diseño en un formato que pueda leer.' }; }
   const lista = Array.isArray(j.laminas) ? j.laminas : [];
   const n = Math.max(1, Math.min(LAMINAS_MAX, Math.round(o.laminas) || lista.length || 1));
   const laminas: LaminaReplica[] = [];
@@ -595,7 +615,7 @@ export type TextoCompletado = Pick<TextoReplica, 'rol' | 'texto' | 'color' | 'ma
 /** Lo que contestó el segundo pedido, acotado. Un texto que no se entiende queda null (se deja como en el original). */
 export function leerCompletado(crudo: string, o: { textos: number; figuras: number; usuario?: string | null; nombre?: string; palabra?: string | null }): { textos: Array<TextoCompletado | null>; personas: boolean[] } {
   let j: Record<string, unknown>;
-  try { j = parseJsonObject(crudo); } catch { return { textos: new Array(o.textos).fill(null), personas: new Array(o.figuras).fill(false) }; }
+  try { j = conComillasArregladas(crudo); } catch { return { textos: new Array(o.textos).fill(null), personas: new Array(o.figuras).fill(false) }; }
   // Por su número de recorte («n»): una respuesta que saltea uno no corre a todos los que siguen (13/11/2026: los textos de una
   // captura de la lámina 2 terminaron en la portada). Sin «n», por el orden.
   const crudos = Array.isArray(j.textos) ? j.textos : [];

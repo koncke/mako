@@ -18,14 +18,15 @@
 //   9. el voseo de la voz del negocio pasa a «tú» (la voz es un dato; le ganaba a la regla del prompt);
 //  10. a la IA van todas las láminas (la plancha las necesita), y si devuelve otra cantidad, sin plancha (antes tiraba);
 //  11. en un carrusel, el renglón o la persona que no se puede borrar se tapa (antes tumbaba la plancha de todo el carrusel);
-//  12. una plancha que pierde el titular de la portada o más de un cuarto de lo principal no se usa (dejaba el texto del otro).
+//  12. una plancha que pierde el titular de la portada o más de un cuarto de lo principal no se usa (dejaba el texto del otro);
+//  13. unas comillas sin escapar adentro de un texto («Comenta "HORMOZI"») no tiran el JSON entero (salían guías).
 //
 // Correr: node --import tsx --test tests/carruseles-tema-del-dueno.test.ts
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { IMAGENES_MAX, LAMINAS_MAX, TOPE_TEMA, alTu, bloqueDelTema, conLaPalabra, leerReplica, palabraDelTema, promptDeCompletar, promptDeReplica, queVaEnLosRenglones, type Replica } from '../lib/carruseles/replica';
+import { IMAGENES_MAX, LAMINAS_MAX, TOPE_TEMA, alTu, bloqueDelTema, conLaPalabra, escaparComillasDeAdentro, leerReplica, palabraDelTema, promptDeCompletar, promptDeReplica, queVaEnLosRenglones, type Replica } from '../lib/carruseles/replica';
 import { TOPE_PEDIDO, leerPedidoGuiado } from '../lib/carruseles/guiado';
 import { usuarioDeLasCuentas } from '../lib/carruseles/marca-kit';
 import { planchaQuePierde, planchar, taparZona } from '../lib/carruseles/plancha-local';
@@ -164,6 +165,19 @@ test('12 · una plancha que pierde el titular de la portada o más de un cuarto 
   const fuente = readFileSync(new URL('../lib/carruseles/plancha-servidor.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   // Se cuenta ANTES de subir: una plancha que no se usa no deja archivos en el bucket.
   assert.ok(fuente.indexOf('if (planchaQuePierde(cuenta))') < fuente.indexOf('bucket.upload(ruta, jpeg'), 'se decide antes de subir');
+});
+
+test('13 · unas comillas sin escapar adentro de un texto no tiran el JSON entero', () => {
+  // 19/11/2026: «"original":"Comenta "HORMOZI" y te la paso."» y tres carruseles de cinco salieron con guías.
+  const crudo = '```json\n{"laminas":[{"fondo":"#FFFFFF","textos":[{"rol":"cta","original":"Comenta "HORMOZI" y te la paso.","texto":"Comenta *\\"HORMOZI\\"* y te la paso.","x":0.1,"y":0.8,"ancho":0.8,"tamano":0.05,"color":"#111111"}]}]}\n```';
+  assert.throws(() => JSON.parse(crudo.slice(crudo.indexOf('{'), crudo.lastIndexOf('}') + 1)), 'el caso es de verdad inválido');
+  const r = leerReplica(crudo, { laminas: 1 }) as Replica;
+  assert.ok(!('error' in r), 'se lee con las comillas escapadas');
+  assert.equal(r.laminas[0].textos[0].texto, 'Comenta "HORMOZI" y te la paso.');
+  assert.equal(r.laminas[0].textos[0].original, 'Comenta "HORMOZI" y te la paso.');
+  // Lo de la estructura no se toca: un JSON bueno queda igual.
+  const bueno = '{"a":"PASO 1","b":["x","y"],"c":{"d":"Hola"}}';
+  assert.equal(escaparComillasDeAdentro(bueno), bueno);
 });
 
 test('5 · lo que manda el navegador llega hasta el tope del tema', () => {

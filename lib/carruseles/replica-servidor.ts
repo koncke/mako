@@ -58,8 +58,13 @@ export const FEATURE_REPLICA = 'carrusel-replica';
 /** Cuánto se espera a cada lámina (es nuestro bucket o un CDN: si tarda más, algo anda mal). */
 const ESPERA_IMAGEN_MS = 8_000;
 const PESO_MAXIMO = 4 * 1024 * 1024;
-/** Lo que puede escribir el modelo: un carrusel de 12 láminas con 8 textos cada una, en JSON. 512 (el de `chatCheap`) no alcanza. */
-const TOKENS_DE_SALIDA = 8_000;
+/**
+ * Lo que puede escribir el modelo: un carrusel de 12 láminas con 8 textos cada una, en JSON. 512 (el de `chatCheap`) no alcanza.
+ * Era 8.000: con todas las láminas a la vista, el «original» de cada texto y el guion del tema (19/11/2026), «7 cosas» (12 láminas)
+ * volvió una vez sin cerrar el JSON («no devolvió el diseño en un formato que pueda leer») y salió con guías. Se paga lo que se
+ * escribe, no el tope.
+ */
+const TOKENS_DE_SALIDA = 12_000;
 
 export type ResultadoReplica =
   | { ok: true; id: string; titulo: string; sinIA?: boolean; aviso?: string | null; conectar?: string | null; doc?: Record<string, unknown>; vistas?: number; errores?: string[]; replica?: Replica; imagenes?: string[]; marcadas?: string[] }
