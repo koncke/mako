@@ -7533,3 +7533,50 @@ Martín: «Me gusta la misma… solamente calculado a esto». Era la misma landi
   panel de abajo «agarrable»). Test: tests/barra-menu-intencion.test.ts.
 - **Trampa de los CSS en template literals:** un comentario con comillas invertidas adentro de `CSS_BARRA` rompe el archivo
   («Transform failed»). En los comentarios de CSS, «comillas» y no backticks.
+
+## El VSL principal con el Martín en cubos: lo que mordió al armarlo (19/11/2026, corrida de 2 agentes)
+
+- **El VSL de la portada es UNO para cinco páginas.** `/`, `/planes`, `/vsl/coaches`, `/vsl/infoproductores` y
+  `/vsl/inmobiliarias` sirven el mismo Panda (`VSL_PORTADA`, `app/vsl/_sitio/vsl-portada.ts`), pero las tres de industria lo
+  traen PEGADO en su documento de Web Generator (en la base, no en el código): cuando el VSL nuevo esté en Panda, esas tres se
+  cambian a mano desde Web Generator. Detalle en `docs/vsl/relevo-landings.md` §6.
+- **Los guiones de `docs/vsl/` de octubre engañan.** `principal.md` cierra con «Agenda tu diagnóstico gratis»; hoy el único CTA
+  del sitio es `PRUÉBALO GRATIS AHORA` y la llamada sólo existe al aplicar al Accelerator. El nuevo es
+  `docs/vsl/guion-vsl-principal.md`; el README de la carpeta ya lo dice arriba.
+- **Lo que la portada muestra no es lo que se vende.** AI Avatar aparece en la portada y en su landing, pero
+  `AI_AVATAR_SE_VENDE = false`; el setter con IA manda el link de la agenda (no reserva); los referentes son «inspirados en»;
+  generar video o imágenes con MaKo Tokens no existe todavía. Un guion se escribe contra `relevo-landings.md` §4 y §5, no
+  contra la portada.
+- **Las grabaciones de la portada SON las pantallas del video.** `public/vsl-assets/sitio/*.webm` (960×600, componentes reales
+  con los outliers verdaderos de Hormozi, ya aprobadas por Martín) entran al VSL como cuadros JPG a 30 fps. No hace falta
+  capturar la app ni pedir sesión.
+- **El motor del video (`scripts/vsl-animado/`, se trabaja en `C:/dev/vsl-video`), tres trampas de 16:9:**
+  - El Martín en cubos de la galería se dibuja en un lienzo de 1000 de ancho pensado para 9:16: con los brazos abiertos o
+    señalando, las manos se CORTAN en el borde del lienzo. En 16:9 el busto va en un lienzo de 1800×1667 (la cámara tiene
+    el campo vertical fijo: ensanchar no cambia el tamaño de la cabeza).
+  - `tools/hoja.py` de la galería mete cada cuadro en una celda vertical: un 16:9 sale aplastado y parece un error del
+    video. El VSL tiene su `hoja.py`.
+  - Una píldora `position:absolute` adentro de un contenedor `display:flex; justify-content:center; width:0` queda con el
+    BORDE DERECHO en la x pedida, no centrada (el flex la centra y el `translateX(-50%)` la corre otra vez). `left:0` y sin flex.
+- **Sin servidor local.** Levantar `python -m http.server` en segundo plano lo frena el modo automático; Playwright sirve la
+  carpeta con `page.route('http://vsl.local/**', r => r.fulfill({ path }))` y no hay proceso que quede colgado.
+- **El turno del navegador es UNA fila para toda la PC.** Pedir un turno por sección dejó pasar a todos los demás entre una y
+  otra (siete en la fila a la medianoche): `render.mjs` hace todas las secciones pedidas en un mismo turno. Y como el turno
+  da por muerto a quien lo tiene más de 40 minutos, el MP4 entero (~4.700 cuadros, ~0,7 s cada uno) se renderiza en tandas.
+- **Los subtítulos de YouTube con `--sub-langs "es.*,en.*"` piden también todas las traducciones automáticas** y YouTube
+  contesta 429: pedir `es-orig,es` / `en-orig,en`.
+- **El worktree sin `node_modules` bloquea el push** con «docs/branding-mako.md quedó viejo» (el chequeo no encuentra `tsx` y
+  lo lee como gramática vieja): junction al `node_modules` del clon, y `cmd /c rmdir` del junction antes de borrar el worktree.
+- **Lo que dice Martín a cámara se escribe con SU voz, no con la del narrador.** La v1 de sus tomas salió en el «tú» armado
+  del narrador animado («te soy honesto, MaKo no hace magia», «lo de Mauricio es real», «sí, el de verdad: el de cubos es
+  mi versión animada») y Martín la rechazó entera: «me daría vergüenza ajena decir eso… ¿por qué tendría que aclarar que es
+  real? Me quita credibilidad». Regla: antes de escribirle una línea, leer `docs/vsl/voz-de-martin.md` (sale del VSL de
+  junio, corte y crudo) y pasar el texto por una crítica aparte contra sus transcripciones. A cámara habla de vos; el
+  personaje, de tú: son dos voces. Y con el personaje no se presenta ni lo explica: le pregunta algo y el otro sigue.
+- **Los precios del ticket «lo que ya pagas» envejecen.** CapCut Pro bajó a US$17,99 (verificado el 19/11/2026): el total
+  pasó a US$386,98 y el ahorro a US$289,98; el VSL dice «casi cuatrocientos» y muestra la cifra exacta, así que un precio
+  que cambia obliga a rehacer la tarjeta del gancho y la del precio. Canva (sólo pesos) y ManyChat (antibots) no se
+  pudieron verificar ese día. El test `tests/vsl-sitio-reemplaza.test.ts` sólo pide precio y fuente, no la fecha.
+- **Lo que quedó sin hacer:** las 4 tomas de Martín (el texto, en `docs/vsl/guion-vsl-principal.md`); subir el VSL a Panda y
+  cambiar `VSL_PORTADA` y las 3 landings de industria; el VSL de cada landing de función con el mismo motor
+  (`scripts/vsl-animado/LEEME.md`, «El VSL de una landing»).
