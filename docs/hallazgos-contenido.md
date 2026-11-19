@@ -453,6 +453,18 @@ El método completo está en `docs/series/desarmar-video-referente.md`; el relev
   `@victorheras` es un director de arte, `@victorherass` otra persona, `@victorherasmedia` una cuenta chica. El de Víctor Heras es
   `@victorherasemprendedor` (494 mil): salió buscando en la web «Víctor Heras instagram reels», no adivinando. Antes de bajar nada,
   se mira la bio y los seguidores.
+- **La pestaña «Reels» y la grilla principal NO tienen lo mismo.** Víctor: 36 reels en la pestaña y 21 publicaciones en la grilla,
+  con 4 reels viejos que no están en la pestaña y 11 carruseles. Hormozi: la grilla mezcla colaboraciones de otras cuentas
+  (`/leilahormozi/p/…`) y no va en orden de fecha estricto. «Todo lo publicado» se junta de las dos.
+- **Carruseles sin Apify:** `yt-dlp --dump-single-json --ignore-no-formats-error` sobre `/p/<código>/` da una entrada por lámina;
+  las de imagen traen sólo la URL de la imagen en `thumbnails`. Una publicación restringida («It can't be seen by certain
+  audiences») devuelve el JSON `null`, no un error: hay que chequear que sea un objeto (`tools/publicaciones.py` cortaba ahí).
+- **`yt-dlp` baja las láminas de IMAGEN recortadas al cuadrado** (1080 × 1080, la miniatura), no la lámina 4:5 entera; las de
+  video vienen enteras. En los tuits en captura de Hormozi falta texto arriba o abajo. Para replicar un carrusel con su texto
+  exacto hace falta la lámina completa (desde el navegador con sesión, abriendo la publicación).
+- **El OCR en CPU no sirve con la PC cargada:** RapidOCR tardó 41 s por lámina (un carrusel de 8, cinco minutos). La GPU no
+  está disponible para onnxruntime porque el paquete `onnxruntime` (CPU) tapa a `onnxruntime-gpu`, y no se tocan paquetes
+  compartidos. El texto de las láminas lo lee el agente en la hoja (láminas a 480 px, de a 3 por fila).
 - Los reels FIJADOS de una cuenta salen primero y son viejos (los de Víctor, de 2024, con 7,2 M y 1,9 M). Se cuentan aparte para el
   múltiplo contra la mediana de la cuenta.
 
@@ -499,6 +511,12 @@ El método completo está en `docs/series/desarmar-video-referente.md`; el relev
   `docs/series/referentes/victor.md`). En Ramiro no pesa tanto porque los 50 son de 12 días, pero los de las últimas 48 h se
   dejan afuera del múltiplo.
 - Si un reel habla de dinero y de seguidores, el tema lo decide lo que regala el CTA (regla escrita en `victor/temas.json`).
+- **Los carruseles juntan más «me gusta» que los reels en las tres cuentas** (medianas: Ramiro 188 contra 145, Víctor 4.030 contra
+  3.250, Hormozi 15.047 contra 8.585), y **no tocan los mismos temas**: Ramiro no tiene ningún carrusel de su tema número uno de
+  reels (clientes que pagan contra curiosos) y en Hormozi manda «Foco». El carrusel más exitoso de Ramiro («Dejá de hacer
+  carruseles PEDORROS»: 16.680 comentarios, 41× su mediana de me gusta) está fuera de sus temas. Mirar sólo los reels de una
+  cuenta da una receta incompleta. El relevo está en la sección «Carruseles y posts» de cada documento y en
+  `docs/series/referentes/carruseles-de-venta.md` (26 piezas de venta).
 - «Cuándo aparece la persona» no dice si la persona es REAL: en los sketches el avatar «habla en serio» y nunca aparece Ramiro.
   Para el costo se mira `persona_real_desde_s` (en `C:/dev/referentes-videos/ramiro/reels.json`).
 - «Siempre hablo de los mismos 6 o 7 temas» lo dice Ramiro en reels de temas distintos: es una muletilla, no un tema. La

@@ -270,6 +270,54 @@ Los 5 de mayor múltiplo sin los fijados (mediana de la cuenta: 85.100).
 | 34 | [DTqYYVBj0NF](https://www.instagram.com/reel/DTqYYVBj0NF/) | 18/01/2026 | 193.000 | 26,5 s | Lujo y humor de millonario | a cámara, 0–2,3 s | — |
 | 35 | [DTQghEPke4O](https://www.instagram.com/reel/DTQghEPke4O/) | 08/01/2026 | 742.000 | 32,4 s | Lujo y humor de millonario | situación actuada, 0–8,0 s | — |
 
+## Carruseles y posts
+
+Todo lo que no es reel en su grilla el 19/11/2026: **10 carruseles** del 23/10/2023 al 29/05/2026 (un undécimo,
+[DIjmBqjRwAk](https://www.instagram.com/p/DIjmBqjRwAk/), no bajó: Instagram lo restringe). Casi no publica carruseles: 2 desde 2025. Las hojas
+se miraron una por una (`C:/dev/referentes-videos/victor/pub/<id>/hoja.jpg`); los números salen de un script sobre
+`victor/publicaciones.json`.
+
+- **Tipo:** álbumes de fotos y videos de su vida, de 7 a 16 láminas (mediana 10), **sin una palabra escrita
+  en ninguna portada**. El gancho es la primera línea del pie.
+- **Temas:** Lujo y humor 3 · Mentalidad 3 · Tu entorno 2 · Ganar dinero con contenido 1 · El dinero sí importa 1. Son los temas de sus reels menos «Crecer en redes», que es su producto y tiene 5 de sus 35 reels:
+  ningún carrusel lo vende.
+- **Moldes de portada:** Foto de su compra o su negocio sin texto + pie de anuncio con humor o provocación 4 · Foto de su vida sin texto + pie con una lección 4 · Foto con su familia sin texto + pie de agradecimiento 2.
+- **Estructura típica:** retrato posado (puro, esmoquin, el auto nuevo) → de 6 a 15 fotos de lujo, familia y trabajo → en
+  4 de 10 la última lámina es el remate: el mensaje de su madre (2), comentarios de fans (1), la foto famosa que imita (1).
+- **CTA:** 1 de 10: [DAbc0povZl6](https://www.instagram.com/p/DAbc0povZl6/) pide RETO en el pie y junta 1.351 comentarios (6 veces la mediana). Otro manda al video de YouTube.
+- **Me gusta medianos: 4.030,5** (de 2.591 a 7.474); comentarios medianos 225. Sus reels: mediana de 3.250 me gusta (35 reels).
+- **De venta:** 1 (el del RETO).
+- **Los 4 reels de la grilla** (están en su grilla y no en la pestaña Reels; del 13/10/2023 al 10/11/2024): Ganar dinero con contenido 2 · Tu entorno 1 · Mentalidad 1.
+  Mediana de 7.451 me gusta. Los 2 de «Ganar dinero» son entrevistas con la cifra en pantalla y RETO: 4.734 y 3.697 comentarios.
+
+**Qué le sirve a Martín para sus carruseles:** poco como plantilla, porque no hay texto en las láminas. Sí dos ideas:
+(1) **el pie que promete la última lámina** («La última foto es la razón por la que hago…») para que se deslice hasta el final,
+y (2) **el CTA de una palabra también en un álbum**: el único que lo tiene saca 6 veces los comentarios. De los reels de la
+grilla, la entrevista «¿cuánto ganas / cuánto gastas?» con la cifra en pantalla y RETO, el mismo carril que sus fijados.
+No: el lujo como portada, por lo mismo que en los reels.
+
+| Publicación | Fecha | Tipo | Tema | Portada | Láminas | Me gusta | CTA |
+|---|---|---|---|---|---|---|---|
+| [DY7vyqCFDOg](https://www.instagram.com/p/DY7vyqCFDOg/) | 29/05/2026 | carrusel | Lujo y humor | «Pie: Llevaba mucho tiempo trabajando en este nuevo proyecto de las oficinas de Viralidad.com» | 10 | 3.408 | — |
+| [DSVcaUYD5w2](https://www.instagram.com/p/DSVcaUYD5w2/) | 16/12/2025 | carrusel | Lujo y humor | «Pie: Hay razones por las que un Ferrari 488 Spider Mansory tiene solo dos asientos» | 13 | 4.360 | — |
+| [DD5C-yjyRQi](https://www.instagram.com/p/DD5C-yjyRQi/) | 22/12/2024 | carrusel | Mentalidad | «Pie: El 99% de las veces que me daba miedo hacer algo…» | 16 | 4.339 | — |
+| [DAbc0povZl6](https://www.instagram.com/p/DAbc0povZl6/) | 27/09/2024 | carrusel | Ganar dinero con contenido | «Pie: Necesitaba leña y me tuve que comprar una Mercedes G63 AMG» | 13 | 4.786 | RETO |
+| [C9-XbUwoLTF](https://www.instagram.com/p/C9-XbUwoLTF/) | 28/07/2024 | carrusel | Tu entorno | «Pie: Hoy quería agradecerle a la mujer de mi vida» | 10 | 4.234 | — |
+| [C8C5AzOPEOY](https://www.instagram.com/p/C8C5AzOPEOY/) | 10/06/2024 | carrusel | Lujo y humor | «Pie: Mi nuevo Aston Martin Vantage F1 Edition» | 10 | 7.474 | ver el video completo en YouTube |
+| [C4geyO7OeKh](https://www.instagram.com/p/C4geyO7OeKh/) | 14/03/2024 | carrusel | El dinero sí importa | «Pie: Este mes en Colombia aprendí que para ganar mucho más dinero debes gastar más dinero» | 10 | 3.472 | — |
+| [C2qBGYiONhH](https://www.instagram.com/p/C2qBGYiONhH/) | 28/01/2024 | carrusel | Mentalidad | «Pie: La última foto es la razón por la que hago toda esta mierda» | 10 | 3.827 | — |
+| [CzeqrLgudj_](https://www.instagram.com/p/CzeqrLgudj_/) | 10/11/2023 | carrusel | Tu entorno | «Pie: Algo me ha cundido estos días en Madrid» | 10 | 2.591 | — |
+| [CywJgcOuY-3](https://www.instagram.com/p/CywJgcOuY-3/) | 23/10/2023 | carrusel | Mentalidad | «Pie: ¿Sabes esa sensación de vértigo por hacer algo nuevo…?» | 7 | 3.434 | — |
+
+Reels de la grilla (fuera de la cuenta de arriba):
+
+| Publicación | Fecha | Tipo | Tema | Portada | Láminas | Me gusta | CTA |
+|---|---|---|---|---|---|---|---|
+| [DCMyOnURalS](https://www.instagram.com/reel/DCMyOnURalS/) | 10/11/2024 | reel de la grilla | Ganar dinero con contenido | «¿A qué te dedicas? Hago vídeos en redes sociales» | — | 7.395 | RETO |
+| [DAyM0cSPnoB](https://www.instagram.com/reel/DAyM0cSPnoB/) | 06/10/2024 | reel de la grilla | Ganar dinero con contenido | «¿Cuánto dinero has gastado este mes?» | — | 7.507 | RETO |
+| [C1sNmbxuOdI](https://www.instagram.com/reel/C1sNmbxuOdI/) | 04/01/2024 | reel de la grilla | Tu entorno | «He comprado mi primer Rolex y, en este caso, no es para mí» | — | 13.231 | — |
+| [CyWZS21IzuC](https://www.instagram.com/reel/CyWZS21IzuC/) | 13/10/2023 | reel de la grilla | Mentalidad | «¿Alguna vez te ha pasado que eso que tanto te motivaba antes…?» | — | 4.827 | — |
+
 ## Verificación
 
 Revisión crítica del 19/11/2026 sobre `reels.json`, `temas.json`, las transcripciones y las hojas de cuadros. Los números

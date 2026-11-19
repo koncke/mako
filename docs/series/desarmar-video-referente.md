@@ -70,6 +70,17 @@ En total, unos 30 s por reel; 134 reels, poco más de una hora.
 - El nivel en los «huecos» entre los segmentos de whisper no sirve para decir si hay música: los segmentos incluyen las colas de
   las palabras. El piso del clip entero sí: sin música baja a -50 dB o menos entre frases; con música queda arriba de -40.
 
+### 2b. Carruseles y posts de imagen (`tools/publicaciones.py`)
+
+Martín pidió sumar «todas las publicaciones, sus carruseles, todo». Lo que no es reel se lista desde la grilla principal del
+perfil (las tarjetas de carrusel traen el ícono «Carousel»), en el mismo período que los reels.
+
+- `yt-dlp --dump-single-json --ignore-no-formats-error` sobre `/p/<código>/` devuelve una entrada por lámina: las de imagen sólo
+  traen la URL de la imagen (`thumbnails`), las de video traen formatos. Se baja la imagen de cada una.
+- El texto de cada lámina se lee con **RapidOCR** (`rapidocr-onnxruntime`, ya instalado), de arriba abajo.
+- Una hoja por carrusel con todas las láminas numeradas, para mirarlo de una vez.
+- Pausa de 4 a 7 s entre publicaciones: ritmo de persona, sin ráfagas, con la sesión de Martín y sin tocar su cuenta.
+
 ### 3. Leer cada reel: transcripción + hoja de cuadros
 
 Con la transcripción con segundos y la hoja a la vista se llena una fila por reel (`reels.json`):
@@ -141,3 +152,24 @@ Lo que este relevo usó y la app no tiene (para que el chat del video lo compare
 6. **La instrucción para el guion NUEVO**: hoy el desarme dice cómo grabar el video original; lo que Copywriting necesita es la
    instrucción para SU guion (duración por palabras, un clip por frase).
 7. **La salida a carrusel** desde el mismo desarme.
+
+### Lo que respondió el chat del video (19/11/2026)
+
+Comparó este método con el código y lo dejó en `docs/diseno-desarmar-video.md` → «Contra el método de Referentes (19/11/2026)»
+(rama `punta/video-desarmar`, commit `dd21e8c5b`). No programó nada. En resumen:
+
+1. **Nivel cuenta, a medias:** el múltiplo a igual edad YA existe (`lib/multiplo-rendimiento.ts`: 20 vecinas en el tiempo,
+   mínimo 7, sin las de menos de una semana). Faltan los temas propios de cada cuenta y las medianas de gancho, persona y CTA.
+   La traba es la clave de Apify, vencida desde el 13/11.
+2. **Fondo sonoro:** sí, pero no en el navegador: los bytes de un reel los baja el servidor y los de YouTube no pasan por MaKo.
+   El piso va al worker de la fase 2, como una pasada más de ffmpeg.
+3. **Cuándo aparece la persona — corregido:** hoy no se deduce en ningún lado, y «grabado» no quiere decir persona (el b-roll
+   también es grabado). Hace falta un tiempo más en el esquema de Gemini.
+4. **Ficha de grabación:** confirmada, con un hueco más: «Hacer uno así» no pone la grabación en el texto de Copywriting; sólo
+   sale en la caja de al lado, que no se ve en el celular.
+5. **Costo:** confirmado; los números ya están (`USD_POR_SEGUNDO` y los segundos de IA del desarme), falta juntarlos.
+6. **Instrucción para el guion nuevo:** confirmada; las palabras por segundo no se calculan en ningún lado.
+7. **Carrusel:** confirmado; se arma por código con lo que ya se guarda, sin otra llamada a Gemini.
+8. **Nuevo:** el CTA escrito en el texto de la publicación («Comentá BALLENA») no le llega a Gemini; sólo sale en el VIDEO.md.
+
+Las trampas de ffmpeg de este relevo (franjas negras, cuadros en una pasada, piso del clip entero) pasaron al plan del worker.
