@@ -186,7 +186,7 @@ export async function crearCarpeta(nombre: string, descripcion: string, creadaPo
   const limpio = nombre.trim().slice(0, 60);
   if (!limpio) throw new Error('La carpeta necesita un nombre.');
   const db = await getTenantDb();
-  const ya = await db.from(T_CARPETAS).select('id, nombre, descripcion, orden, creada_por').ilike('nombre', limpio).maybeSingle();
+  const ya = await db.from(T_CARPETAS).select('id, nombre, descripcion, orden, creada_por').ilike('nombre', limpio.replace(/[\\%_]/g, (c) => `\\${c}`)).maybeSingle();
   if (ya.data) return ya.data as Carpeta;
   const r = await db.from(T_CARPETAS).insert({ nombre: limpio, descripcion: descripcion.trim().slice(0, 200), creada_por: creadaPor }).select('id, nombre, descripcion, orden, creada_por').single();
   if (r.error || !r.data) throw new Error(r.error?.message ?? 'No se creó la carpeta.');
