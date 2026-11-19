@@ -454,3 +454,35 @@ export function textoProgramaSinReferidos(cobraEnLinea: boolean): string {
     ? 'El primer negocio que llegue con el link de un partner aparece aquí.'
     : 'Un referido se registra con la compra en línea, y MaKo todavía no cobra en línea: hasta conectar la pasarela no entra ninguno solo. Un pedido de la página de planes trae su código de partner y se suma a mano.';
 }
+
+// ── «Ser partner NO es gratis»: exige MaKo Pro activo (Martín, 18/11/2026) ─────────────────────────────────────────────
+
+/** Lo que se le dice a quien no tiene MaKo Pro activo (el alta no corre). */
+export const TEXTO_PARTNER_SOLO_PRO = 'Para ser partner de MaKo necesitas MaKo Pro activo. Pásate a Pro desde «Tu plan» y vuelve a hacerte partner.';
+/** Dónde se pasa a Pro (la pantalla «Tu plan»). */
+export const RUTA_PASARSE_A_PRO = '/configuraciones/plan';
+
+/**
+ * ¿Tiene MaKo PRO ACTIVO? Martín (18/11/2026): «no es gratis, deben estar pagando su suscripción… sí o sí necesitan el plan de 97, el de MaKo Pro».
+ * ⚠️ HOY NADIE PAGA SU PLAN POR LA PASARELA (medido el 19/11: 0 suscripciones de la plataforma atadas a un negocio). Leila paga su Pro por Binance
+ * con su mensualidad propia y Código es una agencia con mensualidad: mirar sólo la pasarela los dejaba afuera. Por eso cuenta CUALQUIERA de las dos:
+ *   · `pasarela`: su suscripción de MaKo (pagada, o la prueba con tarjeta autorizada) es de Pro y no está cancelada;
+ *   · `mensualidad`: la mensualidad por Binance está prendida y su plan es Pro (una agencia, o una cuenta con ciclo propio de Pro).
+ * Y el negocio tiene que estar ACTIVO (en pausa no). `undefined` en algo que no se pudo leer → `undefined` (no se decide a ciegas: «prueba en un minuto»).
+ * Un negocio «habilitado sin cobro» (P2P) NO es Pro por eso: no paga.
+ */
+export function esProActivo(p: {
+  estado: string | null | undefined;
+  pasarela: { plan: string | null; capa: string | null; cancelada: boolean } | null | undefined;
+  mensualidad: 'pro' | 'esencial' | null | undefined;
+}): boolean | undefined {
+  if (p.estado === undefined) return undefined;
+  if (p.estado !== 'activo') return false;
+  const porPasarela = p.pasarela ? !p.pasarela.cancelada && (p.pasarela.plan === 'pro' || (p.pasarela.plan == null && p.pasarela.capa === 'agencia')) : false;
+  if (porPasarela) return true;
+  if (p.mensualidad === 'pro') return true;
+  if (p.pasarela === undefined || p.mensualidad === undefined) return undefined;
+  return false;
+}
+/** En el teléfono no se ofrece pagar (T5, docs/tiendas-play-appstore.md): sin «Pásate a Pro». */
+export const TEXTO_PARTNER_SOLO_PRO_TELEFONO = 'Para ser partner de MaKo necesitas MaKo Pro activo.';

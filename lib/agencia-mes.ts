@@ -326,6 +326,19 @@ export async function mensualidadPrendida(agenciaWs: number): Promise<boolean | 
   try { return (await leerLibro(agenciaWs)).config != null; } catch { return null; }
 }
 
+/**
+ * El plan que paga un negocio con su mensualidad por Binance (19/11/2026, para «ser partner exige MaKo Pro», lib/partners-reglas.ts `esProActivo`):
+ * una cuenta con ciclo propio, el de su config (Leila: Pro); una agencia, Pro (su plan). null = no tiene la mensualidad prendida; undefined = no se pudo leer.
+ */
+export async function planDeLaMensualidad(ws: number): Promise<'pro' | 'esencial' | null | undefined> {
+  try {
+    const config = (await leerLibro(ws)).config;
+    if (!config) return null;
+    if (config.cicloPropio) return config.cicloPropio.plan;
+    return (await esAgencia(ws)) ? 'pro' : null;
+  } catch { return undefined; }
+}
+
 // ── Escrituras del super admin (la puerta es de quien llama) ─────────────────────────────────────────────────────
 
 export type Resultado = { ok: true; resumen: string; yaEstaba?: true } | { ok: false; error: string };
